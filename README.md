@@ -1,2 +1,7 @@
-# nyuRuns
-Lightweight framework to create simple webservices
+# NYUARK - RAPID UNIFIED NETWORK SERVICES
+
+## INSTALLATION
+## CONFIGURATION
+## SETUP A SIMPLE RUN
+## FURTHER DOCUMENTATION
+## LICENSING

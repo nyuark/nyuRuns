@@ -1,0 +1,12 @@
+routes:{
+    {
+        path:'/client/edit/$id',
+        setup:'service',
+        auth:{type:'key',value:'iuUZt678uzt7ZHGftzhGT65fgvc'},
+        appcmnd:{
+            app:'client',
+            action:'edit'
+        },
+        output:'simple'
+    },
+}

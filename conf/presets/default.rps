@@ -1,0 +1,28 @@
+{
+	"name": "webapi",
+	"description": "Preset for handling a basic web api response",
+	"setup": {
+		"ftypes": "all",
+		"fnames": "any"
+	},
+	"input": [
+		{
+			"naming": "QUERY",
+			"source": "QUERY",
+			"option": "ALL",
+			"fields": "all",
+			"format": "utf-8"
+		},
+		{
+			"naming": "CACHE",
+			"source": "DFILE",
+			"option": "cache/webapi.tmp",
+			"fields": "all",
+			"format": "utf-8"
+		}
+	],
+	"route": {
+		"detect": "autopath",
+		"mapper": "$app/$action/$param"
+	}
+}
