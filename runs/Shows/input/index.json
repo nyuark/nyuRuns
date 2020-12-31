@@ -1,0 +1,20 @@
+"input": [
+	{
+		"naming": "QUERY",
+		"source": "QUERY",
+		"fields": [
+			"filters": [
+				"search": "String",
+				"search": "String",
+				"search": "String",
+			]
+		]
+	},
+	{
+		"naming": "CACHE",
+		"source": "DFILE",
+		"option": "cache/webapi.tmp",
+		"fields": "all",
+		"format": "utf-8"
+	}
+] 

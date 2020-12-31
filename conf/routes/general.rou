@@ -1,0 +1,20 @@
+{
+	"dev" : {
+		"setup": "service",
+		"output": "simple",
+		"command": {
+			"app": "shows",
+			"act": "edit"
+		}
+	},
+	"index" : {
+		"setup": "service",
+		"output": "simple",
+		"command": {
+			"app": "shows",
+			"act": "index"
+		},
+        "reqest": "GET",
+        "respns": "AJAX"
+	}
+}

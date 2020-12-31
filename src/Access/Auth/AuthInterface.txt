@@ -1,0 +1,4 @@
+
+namespace nyu\Access\Auth;
+
+// Authentication interface to be called by the access checker

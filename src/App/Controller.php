@@ -4,22 +4,28 @@ namespace nyu\App;
 
 use nyu\App\ModelStack;
 //use nyu\App\Renderer;
-use nyu\Tools\Register;
+use nyu\Tools\Registry;
 
 class Controller{
 	
+	protected $appIdent;
 	protected $appFoldr;
 	protected $inputReg;
 	protected $savedAct;
+	protected $savedOpt;
 	protected $appObjct;
 	protected $modStack;
 	protected $respVals;
 	
 	// Initialize application
-	public function __construct( String $runAppName, String $runAppActn, Register $inRegister ){
+	public function __construct( String $runAppName, String $runAppActn, Registry $inRegistry, String $runAppOptn = null ){
+		// Change case of AppName
+		$runAppName = str_replace(' ','',UCFirst($runAppName));
 		// Save action and inputs
+		$this->appIdent = $runAppName;
 		$this->savedAct = $runAppActn;
-		$this->inputReg = $inRegister;
+		$this->savedOpt = $runAppOptn;
+		$this->inputReg = $inRegistry;
 		// Check that application exists
 		$fullDir = RUN_DIR.DS.$runAppName;
 		$actPath = $fullDir.DS.'Actions.php';
@@ -41,23 +47,24 @@ class Controller{
 	
 	// Instantiate model loader class
 	protected function modLoader(){
-		$modPath = $this->appFoldr.DS.'mods';
-		$this->modStack = new ModelStack( $modPath );
+		$appName = $this->appIdent;
+		$this->modStack = new ModelStack( $appName );
 		$this->appRunner();
 	}
 	
 	// Execute application (from actionset)
 	protected function appRunner(){
-		$this->appObjct = $this->appObjct->newInstanceArgs( Array($this->savedAct, $this->inputReg, $this->modStack) );
+		$this->appObjct = $this->appObjct->newInstanceArgs( Array($this->savedAct, $this->savedOpt, $this->inputReg, $this->modStack) );
 	}
 	
 	// Prepare outcome message and/or data
-	protected function getOutput(){
+	public function getOutput(){
 		if($this->appObjct->statCode==200){
-			return $this->appObjct->asOutput;
+			$this->respVals = $this->appObjct->asOutput;
 		}else{
-			return 'Error '.$this->appObjct->statCode.' : '.$this->appObjct->statMssg;
+			$this->respVals = array('err', 'Error '.$this->appObjct->statCode.' : '.$this->appObjct->statMssg);
 		}
+		return $this->respVals;
 	}
 	
 }

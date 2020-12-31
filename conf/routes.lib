@@ -1,18 +1,6 @@
 {
-	"client/edit/$id" : {
-		"setup": "service",
-		"output": "simple",
-		"auth": {
-			"type": "regkey",
-			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
-		},
-		"command": {
-			"app": "client",
-			"act": "edit"
-		}
-	},
 	"dev" : {
-		"setup": "service",
+		"setup": "direct",
 		"output": "simple",
 		"command": {
 			"app": "shows",
@@ -24,7 +12,9 @@
 		"output": "simple",
 		"command": {
 			"app": "shows",
-			"act": "edit"
-		}
+			"act": "index"
+		},
+        "reqest": "GET",
+        "respns": "AJAX"
 	}
 }

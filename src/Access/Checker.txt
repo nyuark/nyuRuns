@@ -1,0 +1,6 @@
+
+namespace nyu\Access;
+
+// Access Checker class
+// Loads the proper auth connector
+// Verifies access

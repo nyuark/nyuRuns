@@ -2,7 +2,7 @@
 
 namespace nyu\App;
 
-use nyu\Tools\Register;
+use nyu\Tools\Registry;
 
 class Actionset {
 	
@@ -13,15 +13,19 @@ class Actionset {
 	protected 	$inputReg;
 	protected 	$modStack;
 	
-	function __construct( String $actionName, Register $inRegister = null, ModelStack $modelStack = null){
-		$this->inputReg = $inRegister;
+	function __construct( String $actionName, String $actnOption=null, Registry $inRegistry = null, ModelStack $modelStack = null){
+		$this->inputReg = $inRegistry;
 		$this->modStack = $modelStack;
-		$this->runAction( $actionName );
+		$this->runAction( $actionName, $actnOption );
 	}
 	
-	function runAction( String $actionName){
+	function runAction( String $actionName, String $actnOption=null ){
 		if( method_exists($this,"$actionName") ){
-			call_user_func( array($this, $actionName) );
+			if($actnOption!=null){
+				call_user_func( array($this, $actionName), $actnOption );
+			}else{
+				call_user_func( array($this, $actionName) );
+			}
 		}else{
 			$this->defAction();
 		}
@@ -30,8 +34,24 @@ class Actionset {
 	function defAction(){
 		// Raise error
 		$this->statCode = '500';
-		$this->statCode = 'Unknown Action';
+		$this->statMssg = 'Unknown Action';
 		$this->resValue = null;
 		return false;
+	}
+
+	function checkList( Array $resultsArr ){
+		if($resultsArr!==false){
+			if(!empty($resultsArr)){
+				$this->statCode = 200;
+				$this->asOutput = $resultsArr;
+			}else{
+				$this->statCode = 204;
+				$this->statMssg = 'List returned no results';
+				$this->asOutput = $resultsArr;
+			}
+		}else{
+			$this->statCode = 500;
+			$this->statMssg = 'An error occured while processing query for this list';
+		}
 	}
 }
