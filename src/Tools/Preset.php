@@ -18,7 +18,7 @@ class Preset{
 	}
 	
 	protected function parseRPS(String $presetName){
-		$fileName = TOP_DIR.'/conf/presets/'.$presetName.'.rps';
+		$fileName = TOP_DIR.DS.'conf'.DS.'presets'.DS.$presetName.'.rps';
 		if(file_exists($fileName)){
 			$jsonData = file_get_contents($fileName);
 			$this->rpsArray = json_decode($jsonData,true);
@@ -32,6 +32,7 @@ class Preset{
 		}
 	}
 	
+ //   public function genSetup(){
     public function generate(){
 		// Instanciate the setup class with the 
 		// array of data and return the object

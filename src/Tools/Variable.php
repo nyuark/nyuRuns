@@ -30,12 +30,13 @@ class Variable{
 	}
 
 	function get( String $respFormat='String', $formatOpts=false ){
-		if( $format!=false && method_exists($this,"to$format") ){
+		if( $respFormat!=false && method_exists($this,"to$respFormat") ){
+			$meth = 'to'.$respFormat;
 			if(!$formatOpts){
-				$formatOpts = false;
+				$out = call_user_func(array($this, $meth));
+			}else{				
+				$out = call_user_func(array($this, $meth), $formatOpts);
 			}
-			$meth = 'to'.$format;
-			$out = call_user_func(array($this, $meth),$param);
 			return $this->mainData;
 		}
 		return $this->mainData;
@@ -180,7 +181,7 @@ class Variable{
 			}
 			$dteData = date('j', $numData).' ';
 			if( $mthNum1 == $mthNum2 ){
-				$dteData = LOC_FROM.' '.date('d', $numData).' '.LOC_UNTIL.' '.date('d', $tilData).' '.$months[$mthNum2].' '.$yerNum1;
+				$dteData = LOC_FROM.' '.date('d', $numData).' '.LOC_UNTIL.' '.date('d', $tilData).' '.$allMnth[$mthNum1].' '.$yerNum1;
 			} else {
 				if($yer==$yer2){
 					$dteData = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.LOC_UNTIL.' '.date('d', $tilData).' '.$allMnth[$mthNum2].' '.$yerNum1;
@@ -188,10 +189,9 @@ class Variable{
 					$dteData = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.$yerNum1.' '.LOC_UNTIL.' '.date('d', $tilData).' '.$months[$mthNum2].' '.$yerNum2;
 				}
 			}
-			
-			return $dteData;
+			$this->mainData = $dteData;
 		} else {
-			return false;
+			$this->mainData = false;
 		}
 	}
 }

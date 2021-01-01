@@ -1,10 +1,11 @@
 <?php
 
-namespace nyu;
+>
 
-use \nyu\Tools\Preset;
-use \nyu\App\Controller;
-use nyu\Tools\Register;
+use nyu\Tools\Preset;
+use nyu\App\Controller;
+use nyu\Tools\Registry;
+use nyu\Setup\Builder;
 
 $GLOBALS['nyuConfVars'] = null;
 
@@ -12,12 +13,14 @@ class Runner{
 
 	protected 	$ezPreset;	// Preset (RPS) Object
 	protected	$setupCon;	// Loader Container
-//	protected	$confVars;	// Config Register
-	protected 	$inputLib;	// Library (Register) of allowed Inputs
-	protected 	$routeReg;	// Route Register
+//	protected	$shareCon;	// Shared Container ??? WHAT FOR? Smokalaka!
+	protected	$httpRqst;	// Initial HTTP Request
+//	protected	$confVars;	// Config Registry
+	protected 	$routeReg;	// Route Registry
+	protected 	$inputLib;	// Library (Registry) of allowed Inputs
 	protected 	$axessCon;	// Access Container *TODO*
 	protected 	$appBlock;	// Application Object
-	protected 	$template;	// Output Container
+	protected 	$response;	// Output Container
 	
 	public 		$errorObj;
 	public 		$procStat;
@@ -32,30 +35,57 @@ class Runner{
 		if(!empty($overLoaded)){
 			$this->setupCon->overLoads($overLoaded, true);
 		}
+		// Load Shared Data (conf, request, response)
 		$GLOBALS['nyuConfVars'] = $this->setupCon->getConfig();
+		$this->loadShare();
+		
+		// Setup route & access, then process
 		$this->loadSetup();
 		// TODO : Logging, Status update
+	}
+
+	function loadShare( ){ 
+		// Instanciate the shared objects to 
+		// be available during all the running
+		// process through DI Container
+		
+		$contObj = new Builder();
+		$contObj->makeObjct('nyu\\Tools\\ServerReg', array());
+	//	$contObj->makeObjct('nyu\\Tools\\ClientReg', array());
+		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());
+		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array());
+		$this->shareCon = $contObj;
 	}
 
 	function loadSetup( ){
 		// Get required configuration files
 		// and build all required objects for 
-		// running the sequence, creating the
-		// containers and registers needed
+		// running the sequence and the Registrys needed
 		
-		$this->inputLib = $this->setupCon->getInputs();
+		// Inputs are defined at an application level
+		//$this->inputLib = $this->setupCon->getInputs();
+		
 		$this->routeReg = $this->setupCon->loadRoute();
 		$this->axessCon = $this->setupCon->setAccess();
-	//	$this->template = $this->setupCon->setOutput();
 	
 		$this->processor();
 	}
+	/*	Place input loading at appCaller level	*/
 	/*
-	function inputData( ){
+	function inputData( String $runAppName, String $runAppActn ){
 		// Parse input from selected sources
 		// to return an array or object of data
 		// That will be exposed to the apps
+		
+		// Gets specific app action setup and overload setup
+		
+		
+		// If unexisting, load all untyped inputs (from request)
+		
+		// Then, call the setup input parser to get a lib of vars
+		$this->inputLib = $this->setupCon->getInputs();
 	}
+	*/
 	
 	function findRoute( ){
 		// Identify route from path / request
@@ -68,32 +98,54 @@ class Runner{
 		// send to authentication if needed
 		// or deny access when no match
 	}
-	*/
-	function appCaller( String $runAppName, String $runAppActn, Register $inRegister ){
+	
+	function appCaller( String $runAppName, String $runAppActn, String $runAppOptn=null ){
 		// Launch an application according to
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
-		$conTrol = new Controller( $runAppName, $runAppActn, $inRegister );
+		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn );
+		$outPuts = $conTrol->getOutput();
+		if(!isset($outPuts[0]) || $outPuts[0]!='err'){
+			$this->getLayout( $outPuts );
+		}else{
+			// TODO: Raise exception/error
+			print('<h1>App error</h1>');
+			print_r($outPuts);
+			die();
+		}
 	}
 	
-	function getLayout( ){
+	function getLayout( $dataVals ){
 		// Retrieve the predefined layout or
 		// format for the response contents
+		$this->response->formatOut( $dataVals );
+		$this->response->buildTmpl();
+		
 	}
 	
 	function doRespond( ){
 		// Build the response headers and
 		// output the contents to the requester
+		$this->response->buildHead();
+		$this->response->sendOutpt();
 	}
 		
 	function processor( ){
 		// call each of the method needed
-	//	$this->inputData();
 	//	$this->findRoute();
 	//	$this->chkAccess();
-		$appCall = $this->routeReg->getRegVal('app');
-		$actCall = $this->routeReg->getRegVal('action');
-		$this->appCaller($appCall, $actCall, $this->inputLib);
+		// print_R($this);
+		// die();
+		$appCall = $this->routeReg->readValue('app');
+		$actCall = $this->routeReg->readValue('action');
+		$actOptn = $this->routeReg->getDefVal('param', null);
+		$resPond = $this->setupCon->getRegKey('rnder');
+		
+		/*	Place input loading at appCaller level	*/
+		//$this->inputData($appCall, $actCall);
+		
+		$this->appCaller($appCall, $actCall, $actOptn);
+		$this->doRespond();
 	}
 }

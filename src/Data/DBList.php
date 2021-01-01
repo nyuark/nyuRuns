@@ -3,6 +3,7 @@
 namespace nyu\Data;
 
 use \nyu\Data\DBCon;
+use \nyu\Tools\StrKit;
 
 class DBList {
 	protected $tableNme;	
@@ -26,7 +27,7 @@ class DBList {
 		$this->whrLimit = $limitValue;
 		if($handleLink == null){
 			$nyuConf = $GLOBALS['nyuConfVars'];
-			$nyuBase = $nyuConf->getRegVal('database');
+			$nyuBase = $nyuConf->readValue('database');
 			$this->dbConnex = DBCon::getInstance($nyuBase['TYPE'],$nyuBase['HOST'],$nyuBase['USER'],$nyuBase['PASS'],$nyuBase['BASE']);
 		}else{
 			$this->dbConnex = $handleLink;
@@ -36,7 +37,7 @@ class DBList {
 		}
 	}
 	
-	public function getRows($queryBuilt=true){
+	public function readItems($queryBuilt=false){
 		if( $queryBuilt==false ) $this->buildSlct();
 		
 		$this->listRows = $this->dbConnex->dbHandle->readQuery();
@@ -44,9 +45,26 @@ class DBList {
 		return $this->listRows;
 	}
 	
+	public function flatItems( $isolateFld, $queryBuilt=false){
+		$results = $this->readItems($queryBuilt);
+		$flatLst = Array();
+		if(isset($results) && !empty($results)){
+			if(isset($results[$isolateFld])){
+				$flatLst[] = $results[$isolateFld];
+			}else{				
+				foreach($results as $result){
+					if(isset($result[$isolateFld])){
+						$flatLst[] = $result[$isolateFld];
+					}
+				}
+			}
+		}
+		return $flatLst;
+	}
+	
 	protected function buildSlct($selctScope=null, $whereClaus=null, $orderClaus=null, $limitValue=null, $joinClause=null, $groupClaus=null){
 		
-		if($selctScope != null)	$this->selScope = $scope;
+		if($selctScope != null)	$this->selScope = $selctScope;
 		
 		$scpeVal = $this->selScope;
 		
@@ -137,7 +155,32 @@ class DBList {
 		$this->whrClaus = $whereStr;
 	}
 	
-	public function grpFields($groupByFld){
+	public function fieldScop( String $fieldScope = null ){
+		if( $fieldScope == null){
+			$this->selScope = '*';
+		}else{
+			$scopStr = '';
+			$selFlds = Array();
+			if( is_string($fieldScope) ){
+				$fieldScope = str_replace('`','',$fieldScope);
+				$selFlds = explode(',',$fieldScope);
+			}
+			foreach($selFlds as $selFld){
+				$selFld = trim($selFld);
+				if($scopStr != ''){
+					$scopStr.=',';
+				}
+				if(strpos($selFld,'(')===false && strpos($selFld,' as ')===false){
+					$scopStr .= '`'.$this->dbConnex->dbHandle->escapeStr($selFld).'`';
+				}else{
+					$scopStr .= $this->dbConnex->dbHandle->escapeStr($selFld);
+				}
+			}
+			$this->selScope = $scopStr;
+		}
+	}
+	
+	public function grpFields( $groupByFld ){
 		$grpVals = '';
 		if( is_string($groupByFld) ) $groupByFld = array($this->whrGroup);
 		if( is_array($groupByFld) ) foreach($groupByFld as $fldNme){
@@ -208,7 +251,33 @@ class DBList {
 		}
 	}
 	
-	/* TOO DANGEROUS TO USE FOR NOW 
+	public function childList( String $childTable, String $singlField='', String $foreingKey='', String $currentKey='' ){
+		if( $foreingKey=='' ) {
+			$extName = StrKit::singlrize($this->tableNme);
+			$foreingKey = $extName.'_id';
+		}
+		if( $currentKey=='' ) {
+			$intName = StrKit::singlrize($this->tableNme);
+			$currentKey = 'id_'.$intName;
+		}
+		$lstRows = $this->listRows;
+		if(!$lstRows){
+			$this->readItems();
+			$lstRows = $this->listRows;
+		}
+		foreach($lstRows as $rowKey=>$rowArr){
+			$subWhre = "`$foreingKey` = '$rowArr[$currentKey]'";
+			$subList = new DBList($childTable, null, $subWhre);
+			if($singlField!=''){
+				$lstRows[$rowKey][$childTable] = $subList->flatItems($singlField);
+			}else{
+				$lstRows[$rowKey][$childTable] = $subList->readItems();
+			}
+		}
+		return $lstRows;
+	}
+	
+	/* TOO POWERFUL TO USE FOR NOW 
 		// TODO: Use Regular function
 	function customSel( $scope='*', $where=false, $order=false, $limit=false, $joint=false, $group=false, $havin=false ){
 		$query = 'SELECT '.$scope.' FROM `'.$this->lstTable.'`';

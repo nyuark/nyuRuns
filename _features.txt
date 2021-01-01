@@ -1,0 +1,23 @@
+
+
+	nyuRuns Ideas and Features : 
+	
+		Wizard :		The native installer tool should be called by default, it's a
+						short wizard allowing to configure the framework according to
+						the server settings.
+		
+		Scaffold : 		A simple tool that provides visual model creation to build
+						basic models and generate both the code and the data into base
+						This would allow nyuKleos to implement kitted structures.
+						This should also create models from DB structure
+						
+		Manager : 		A tool to visually setup more advanced settings like 
+						dependencies, external libs and stuff in "Vendor" and to
+						allow managing more advanced settings 
+			
+	------------
+		
+		
+		
+		
+	------------

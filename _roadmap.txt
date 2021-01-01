@@ -1,0 +1,80 @@
+
+
+	nyuRuns RoadMap : 
+	
+20.12	Auth :			To allow authentication and token generation in order to provide
+						secure and lockable applications with different access methods
+						(RegKey, SSO / JWT, LDAP, DB)
+		
+20.12	ClientReg : 	To detect client side elements (browser, platform, host, device, ...)
+		
+20.12	Exception : 	To raise errors and exceptions along the code
+						To be implemented along runner and maybe injected in response
+		
+21.01	Response : 		To be accessible accross app and auth instances allowing to 
+						end the run at anytime, spitting a full or partial response
+						
+21.01	Logging :		Implement a tracing system for debugging purposes, working
+						together with exception instance and callable all around the
+						code. Potentially a static class (with genreric conf ?)
+	
+	------------
+		
+		Data : 			Image, Document and sockets, to read and write rich elements
+						and establish server side network connections
+						
+		Parsers : 		Read several data types (DOM, XML, Office, ...)
+		Savers : 		Write several data types (DOM, XML, Office, ...)
+		
+		
+	------------
+	
+	Current TODO List : due by 21.01
+		
+		nyuRuns\src\Data\DBList.php (4 hits)
+			Line 218: 		// TODO : Get Table Limit from core config
+			Line 246: 		// TODO : Could admit many tables and different operators
+			Line 247: 		// TODO : Also could set table reference for each field
+			Line 281: 		// TODO: Use Regular function
+		
+		nyuRuns\src\Data\DBRecord.php (1 hit)
+			Line 35: 			// TODO, Raise exception
+		
+		nyuRuns\src\Data\DFile.php (1 hit)
+			Line 33: 			// TODO, implement XML Parser
+		
+		nyuRuns\src\Output\Response.php (1 hit)
+			Line 35: 			// TODO : Raise error
+		
+		nyuRuns\src\Runner.php (3 hits)
+			Line 21: 	protected 	$axessCon;	// Access Container *TODO*
+			Line 42: 		// TODO : Logging, Status update
+			Line 99: 			// TODO: Raise exception/error
+		
+		nyuRuns\src\Setup\Loader.php (5 hits)
+			Line 27: 		// TODO : Raise exception if empty
+			Line 91: 		// TODO : Add XML
+			Line 93: 		// TODO : Raise error if getRegKey returns false
+			Line 126: 		// TODO : Refactorise with Input Registry
+			Line 134: 				// TODO : 		'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX');
+		
+		nyuRuns\src\Tools\Request.php (3 hits)
+			Line 73: 		// TODO: Check if _FILES needs cleaning or parsing
+			Line 76: 		// TODO : Do we really need this???
+			Line 177: 			// TODO : Log error if key not in list
+		
+		nyuRuns\src\Tools\ServerReg (1 hit)
+			Line 10: 		// TODO: Cleanup $_SERVER and/or refrain its use
+		
+		nyuRuns\src\Tools\ServerReg.php (1 hit)
+			Line 14: 		// TODO: Cleanup some values and/or refrain use of global
+		
+		nyuRuns\src\Tools\Variable.php (6 hits)
+			Line 13: 	- TODO: ShortDate
+			Line 15: 	- TODO: Email
+			Line 16: 	- TODO: Phone
+			Line 17: 	- TODO: URL
+			Line 18: 	- TODO: URLText
+			Line 19: 	- TODO: HTMText
+						
+	

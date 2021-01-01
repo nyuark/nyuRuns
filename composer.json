@@ -1,6 +1,6 @@
 {
     "name": "nyuark/nyuruns",
-    "description": "nyuArk Rapid Unified Network Service is a microframework for creating web services, content pages and simple applicaiton processes easily and rapidly.",
+    "description": "nyuArk Rapid Unified Network Service is a microframework for creating web services, content pages and simple application processes easily and rapidly.",
     "type": "project",
     "license": "GPLv2",
     "authors": [
@@ -10,5 +10,12 @@
         }
     ],
     "minimum-stability": "dev",
-    "require": {}
+	"autoload": {
+		"psr-4": {
+			"nyu\\": "src/"
+		}
+	},
+    "require": {
+        "level-2/dice": "dev-master"
+    }
 }

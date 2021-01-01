@@ -1,17 +1,26 @@
 <?php
 
+/*
+	This class should sanitize the input from the Request object
+	to provide clean values that are exposed to the apps. Ideally
+	all data stored in the exposed object should be encapsulated
+	in a Variable object, with a predefined "string" type
+	
+*/
+
 namespace nyu\Tools;
 
 class Input{
 	
 	protected $saveName;
 	protected $fldArray;
-	protected $inputReg;
+	protected $reqstObj;
 	
 	// Shoud get the endode parameter and format each value to that encoding
-    function __construct(String $fromSource, String $optionsStr, String $fldListStr, String $registerName){
-		$this->saveName = $registerName;
-		
+    //function __construct(Request $requestObj, String $fromSource, String $fldListStr, String $RegistryName){
+    function __construct(String $fromSource, Array $fldListStr, String $RegistryName){
+		$this->saveName = $RegistryName;
+		/*
 		$this->fldArray = $this->fLisToArr( $fldListStr );
 		if( $fromSource=='QUERY' ){
 			if($optionsStr=='ALL'){
@@ -24,6 +33,8 @@ class Input{
 			// Throw error
 		}
 		$outVals = $this->parseVals( $allVals );
+		*/
+		$outVals = Array();
 		$this->inputReg[$this->saveName] = $outVals;
 	}
 	
@@ -39,14 +50,6 @@ class Input{
 		}else{
 			return Array();
 		}
-	}
-	
-	protected function getServer( ){
-		return $_SERVER;
-	}
-	
-	protected function readFData( String $filePath ){
-		
 	}
 	
 	protected function parseVals( Array $valueArray ){
@@ -103,8 +106,8 @@ class Input{
 	}
 	
     public function regStack( ){
-		// Stack values of the current register
+		// Stack values of the current Registry
 		// by merging it with an existing array
-		return $this->inputReg;
+		return $this->inputReg[$this->saveName];
 	}
 }

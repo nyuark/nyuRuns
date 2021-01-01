@@ -13,8 +13,7 @@
 			$clsPath = subStr($clsPath, $nyuIndx);
 			$clsPath = str_replace('nyu\\', 'src\\', $clsPath);
 			if(strrpos($clsPath,'src\\Runs')!==false){
-				$clsPath = str_replace('src\\Runs', 'runs', $clsPath);
-			}
+				$clsPath = str_replace('src\\Runs', 'runs', $clsPath);			}
 		}
         //Split the class name up if it contains backslashes.
         $clsPart = explode('\\', $clsPath);
@@ -25,4 +24,4 @@
     }
     
     // Tell PHP what our autoloading function is.
-    spl_autoload_register('autoloader');
+    spl_autoload_Registry('autoloader');

@@ -1,13 +1,15 @@
 <?php
 
-// A container to load configuration files, input registry array, routing object,
-// access object, application and template
+// A container to load configuration files, routes 
+// acces, and retrieve conf
 
 namespace nyu\Setup;
 
 use \nyu\Tools\Input;
-use \nyu\Tools\Register;
+use \nyu\Tools\Registry;
+use \nyu\Tools\Router;
 use \nyu\Data\DFile;
+use \nyu\Output\Response;
 
 class Loader{
 	
@@ -116,11 +118,13 @@ class Loader{
 				}
 			}
 		}
-		$confReg = new Register( $confArr );
+		$confReg = new Registry( $confArr );
 		return $confReg;
 	}
 	
     function getInputs(){
+		// TODO : Refactorise with Input Registry
+		
 		$inptSet = $this->getRegKey('input');
 		if($inptSet){
 			$inptArr = Array();
@@ -132,11 +136,11 @@ class Loader{
 				$inpSrce = $putSet['source'];
 				
 				if(in_array($inpSrce, $inpType)){
-					$inptObj = new Input( $inpSrce, $putSet['option'], $putSet['fields'], $putSet['naming']);
+					$inptObj = new Input( $inpSrce, $putSet['fields'], $putSet['naming']);
 					$inptArr = array_merge($inptArr, $inptObj->regStack());
 				}
 			}
-			$inptReg = new Register( $inptArr );
+			$inptReg = new Registry( $inptArr );
 			return $inptReg;
 		}
 	}
@@ -149,6 +153,11 @@ class Loader{
 		);
 		
 		$urlPath = substr($_SERVER['REQUEST_URI'],1);
+		$urlVars = $_SERVER['QUERY_STRING'];
+		if($urlVars!=''){
+			$urlPath = str_replace ($urlVars, '', $urlPath);
+			$urlPath = substr( $urlPath, 0, -1 );
+		}
 		$urlPart = explode( '/', $urlPath );
 		
 		// Automatic path detection (from url path)
@@ -197,7 +206,7 @@ class Loader{
 			}
 		}
 		
-		$routReg = new Register( $rteVals );
+		$routReg = new Registry( $rteVals );
 		return $routReg;
 	}
 	
@@ -211,7 +220,7 @@ class Loader{
 			'token' => ''
 		);
 		
-		$userReg = new Register( $usrData );
+		$userReg = new Registry( $usrData );
 		return $userReg;
 	}
 	
@@ -219,21 +228,9 @@ class Loader{
     function setOutput(){
 		// Define the output format
 		// and response template
+		$outConf = $this->getRegKey('rnder');
 		
-		return new StdClass();
-	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+		$respObj = new Response($outConf);
+		return $respObj;
+	}	
 }

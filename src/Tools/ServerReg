@@ -1,0 +1,15 @@
+<?php
+
+class ServerReg(){
+	function __construct( Array $valueArray = Array(), Bool $lowCaseKey = true ){
+		if(!empty($valueArray)){
+			$valueArray = array_merge($valueArray, $_SERVER);
+		}else{
+			$valueArray = $_SERVER;
+		}
+		// TODO: Cleanup $_SERVER and/or refrain its use
+		parent::__construct( $valueArray, $lowCaseKey );
+	}
+}
+
+?> 

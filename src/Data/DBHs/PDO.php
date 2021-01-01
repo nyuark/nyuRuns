@@ -28,7 +28,7 @@ Class PDO implements Handler {
 				$this->queryRes = $this->dbDriver->query($this->sqlQuery, \PDO::FETCH_ASSOC);
 			}
 			if($this->queryRes==false){
-				$this->errorMsg[] = "PDO Error: ".$this->dbDriver->errorinfo();
+				$this->errorMsg[] = "PDO Error: ".$this->dbDriver->errorinfo()[2];
 				return false;
 			}else{
 				return true;
@@ -45,8 +45,8 @@ Class PDO implements Handler {
 				foreach($this->queryRes as $resRow){
 					$rowVals[] = $resRow;
 				}
-				if($rowVals[0]==null){
-					return false;
+				if(count($rowVals)==0 || $rowVals[0]==null){
+					return $rowVals;
 				}
 				if( count($rowVals)>1 ){
 					return $rowVals;
@@ -58,16 +58,21 @@ Class PDO implements Handler {
 					}
 				}
 			}else{
-				return false;
+				return $rowVals;
 			}
 		}else{
 			// Throw errors
-			if( isset($this->sqlQuery) ){
+			if( !isset($this->sqlQuery) ){
 				// Empty query
 				$this->errorMsg[] = "Empty query cannot return results";
 			}else{
-				// Empty result
-				$this->errorMsg[] = "The query returned no results";
+				if(count($this->errorMsg)<1){
+					// Empty result
+					$this->errorMsg[] = "The query returned no results";
+					return Array();
+				}else{
+					return false;
+				}
 			}
 			return false;
 		}
