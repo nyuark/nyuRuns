@@ -1,7 +1,7 @@
 <?php
 
-// A container to load configuration files, routes 
-// acces, and retrieve conf
+// A dependency injection container to instanciate 
+// utility classes (config, request, response, etc.)
 
 namespace nyu\Setup;
 
