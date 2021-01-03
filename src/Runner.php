@@ -7,11 +7,11 @@ use nyu\App\Controller;
 use nyu\Tools\Registry;
 use nyu\Setup\Builder;
 
-$GLOBALS['nyuConfVars'] = null;
+$GLOBALS['nyuConfig'] = null;
 
 class Runner{
 
-	protected 	$ezPreset;	// Preset (RPS) Object
+	protected 	$nyPreset;	// RPS (Runner PreSet) Object
 	protected	$setupCon;	// Loader Container
 //	protected	$shareCon;	// Shared Container ??? WHAT FOR? Smokalaka!
 	protected	$httpRqst;	// Initial HTTP Request
@@ -28,15 +28,15 @@ class Runner{
 
 	function __construct( String $initPreset = '', Array $overLoaded = Array() ){
 		// Load the preset object and call setup
-		$this->ezPreset = new Preset($initPreset);
+		$this->nyPreset = new Preset($initPreset);
 		
 		// Prepare setup and overload when required
-		$this->setupCon = $this->ezPreset->generate();
+		$this->setupCon = $this->nyPreset->generate();
 		if(!empty($overLoaded)){
 			$this->setupCon->overLoads($overLoaded, true);
 		}
 		// Load Shared Data (conf, request, response)
-		$GLOBALS['nyuConfVars'] = $this->setupCon->getConfig();
+		$GLOBALS['nyuConfig'] = $this->setupCon->getConfig();
 		$this->loadShare();
 		
 		// Setup route & access, then process

@@ -26,7 +26,7 @@ class DBList {
 		$this->whrOrder = $orderClaus;
 		$this->whrLimit = $limitValue;
 		if($handleLink == null){
-			$nyuConf = $GLOBALS['nyuConfVars'];
+			$nyuConf = $GLOBALS['nyuConfig'];
 			$nyuBase = $nyuConf->readValue('database');
 			$this->dbConnex = DBCon::getInstance($nyuBase['TYPE'],$nyuBase['HOST'],$nyuBase['USER'],$nyuBase['PASS'],$nyuBase['BASE']);
 		}else{
@@ -119,12 +119,12 @@ class DBList {
 					$fldNme = substr($fldNme,0,-1);
 				}
 				$valList = '';
-				foreach($valsArr as $valsVal){
-					if(!empty($valsVal)){
+				foreach($valsArr as $lstVal){
+					if(!empty($lstVal)){
 						if($valList!=''){
 							$valList.=',';
 						}
-						$valList.="'".$this->dbConnex->dbHandle->escapeStr($valsVal)."'";
+						$valList.="'".$this->dbConnex->dbHandle->escapeStr($lstVal)."'";
 					}
 				}
 				$whereStr .= '`'.$fldNme.'` '.$operatr.' ('.$valList.')';

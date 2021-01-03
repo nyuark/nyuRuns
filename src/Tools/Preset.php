@@ -20,7 +20,15 @@ class Preset{
 	protected function parseRPS(String $presetName){
 		$fileName = TOP_DIR.DS.'conf'.DS.'presets'.DS.$presetName.'.rps';
 		if(file_exists($fileName)){
-			$jsonData = file_get_contents($fileName);
+			$jsonLine = file($fileName);
+			// Strip comments from RPS file
+			foreach($jsonLine as $lneNum=>$lneTxt){
+				$lneTxt = trim($lneTxt);
+				if($lneTxt[0]=='#' || $lneTxt[0].$lneTxt[1]=='//'){
+					unset($jsonLine[$lneNum]);
+				}
+			}
+			$jsonData = implode("\n", $jsonLine);
 			$this->rpsArray = json_decode($jsonData,true);
 			if(is_array($this->rpsArray) && !empty($this->rpsArray)){
 				return true;

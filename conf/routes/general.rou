@@ -1,6 +1,6 @@
 {
 	"dev" : {
-		"setup": "service",
+		"config": "service.ini",
 		"output": "simple",
 		"command": {
 			"app": "shows",

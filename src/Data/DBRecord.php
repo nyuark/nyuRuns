@@ -20,7 +20,7 @@ class DBRecord {
 	function __construct( String $dbaseTable, Array $childArray=array(), Array $parntArray=Array(), $handleLink=null ){
 		$this->tableNme = $dbaseTable;
 		if($handleLink == null){
-			$nyuConf = $GLOBALS['nyuConfVars'];
+			$nyuConf = $GLOBALS['nyuConfig'];
 			$nyuBase = $nyuConf->readValue('database');
 			$this->dbConnex = DBCon::getInstance($nyuBase['TYPE'], $nyuBase['HOST'], $nyuBase['USER'], $nyuBase['PASS'], $nyuBase['BASE']);
 		}else{
