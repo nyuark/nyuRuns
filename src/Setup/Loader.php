@@ -23,7 +23,7 @@ class Loader{
 	*/
     public function __construct(Array $setupArray = Array()){
 		$this->setAllReg( $setupArray );
-		$this->fieldSet = Array('setup','input','route','axess','rnder');
+		$this->fieldSet = Array('setup','auths','route','rnder');
 		// TODO : Raise exception if empty
 	}
 	
@@ -141,6 +141,9 @@ class Loader{
 				}
 			}
 			$inptReg = new Registry( $inptArr );
+			return $inptReg;
+		}else{
+			$inptReg = new Registry( Array() );
 			return $inptReg;
 		}
 	}

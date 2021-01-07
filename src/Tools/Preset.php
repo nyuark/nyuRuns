@@ -28,8 +28,9 @@ class Preset{
 					unset($jsonLine[$lneNum]);
 				}
 			}
-			$jsonData = implode("\n", $jsonLine);
+			$jsonData = implode("", $jsonLine);
 			$this->rpsArray = json_decode($jsonData,true);
+			// TODO : Throw Error if no data returned
 			if(is_array($this->rpsArray) && !empty($this->rpsArray)){
 				return true;
 			}else{

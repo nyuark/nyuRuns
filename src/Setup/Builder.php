@@ -7,7 +7,6 @@ namespace nyu\Setup;
 
 use \Dice\Dice; // DICon
 /*
-use \nyu\Tools\ServerReg;
 use \nyu\Tools\ClientReg;
 use \nyu\Tools\Request;
 use \nyu\Output\Response;

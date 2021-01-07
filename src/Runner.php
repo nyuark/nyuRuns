@@ -1,6 +1,6 @@
 <?php
 
->
+namespace nyu;
 
 use nyu\Tools\Preset;
 use nyu\App\Controller;
@@ -51,7 +51,7 @@ class Runner{
 		
 		$contObj = new Builder();
 		$contObj->makeObjct('nyu\\Tools\\ServerReg', array());
-	//	$contObj->makeObjct('nyu\\Tools\\ClientReg', array());
+	//	$contObj->makeObjct('nyu\Tools\ClientReg', array());
 		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());
 		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array());
 		$this->shareCon = $contObj;
@@ -63,7 +63,7 @@ class Runner{
 		// running the sequence and the Registrys needed
 		
 		// Inputs are defined at an application level
-		//$this->inputLib = $this->setupCon->getInputs();
+		$this->inputLib = $this->setupCon->getInputs();
 		
 		$this->routeReg = $this->setupCon->loadRoute();
 		$this->axessCon = $this->setupCon->setAccess();
@@ -147,5 +147,7 @@ class Runner{
 		
 		$this->appCaller($appCall, $actCall, $actOptn);
 		$this->doRespond();
+		print_r($this);
+		exit();
 	}
 }

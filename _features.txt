@@ -1,5 +1,8 @@
 
 
+	nice to have features :
+		MultiDB :		Have mutiple databases available
+	
 	nyuRuns Ideas and Features : 
 	
 		Wizard :		The native installer tool should be called by default, it's a

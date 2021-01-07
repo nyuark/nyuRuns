@@ -10,35 +10,44 @@
 	// Type and names of config files to load
 	"setup": {
         // Separated by semicolons or all
-		"ftypes": "all";
+		"ftypes": "all",
         // Separated by semicolons or any
 		"fnames": "any"
 	},
 	// Types of authentication methods and their setup
 	"auths": [
 		{
-            // Interface can be DBU (Data Base Users); SSO (OAuth server);
-            // PassList (user/password list); RegKey (registration key) or LDAP
-			"intfce": "DBU";
+            // Interface can be DBU (Data Base Users), SSO (OAuth server),
+            // PassList (user/password list), RegKey (registration key) or LDAP
+			"intfce": "DBU",
             // Input for Login can be request:varname (REQUEST : Variable Name); 
             // digest_auth (HTTP_DIGEST); basic_auth (HTTP_Basic)
-			"inputs": "request:user;request:pass";
+			"inputs": "request:user;request:pass",
             // Source for login depends on the Interface:
             // DBU; table:tablename (the table name for the default nyuRuns db)
             // PassList; file:path/filename.ini (path to INI file with user=password lines)
             // RegKey; file:path/filename.lst (path to LST file with registration keys lines)
-            // TODO : SSO; url:host (the auth server url); uid: the user or cleint id
-            "source": "table:users";
-            // Fields to be mapped from the source (u=username; p=password; n=nickname)
-            "fields": "u:username;p:password;n:nickname";
+            // TODO : SSO; url:host (the auth server url), uid: the user or client id
+            "source": "table:users",
+            // Fields to be mapped from the source (u=username; i=id; n=nickname)
+            "fields": "u:username;p:password;n:nickname",
             // Storage for persistent login; if any:
             // JWT (WebToken); PHPSess (Server Session); Digest (only with digest_auth input);
             // Cookie (not-recommended; client-side); no or do not set for none
-            "prsist": "Cookie";
+            "prsist": "Cookie",
             // Expiry date of persistent login; may use one of h (hours); mn (minutes);
             // d (days); w (weeks); m (months) or y (years). You can use no time tag (seconds)
             // but if you use one (and only one); make sure it is for values above 1 as
             // tags are converted into plural
+			"expiry": "1h"
+		},
+		{
+            // Example of DBU auth
+			"intfce": "DBU",
+			"inputs": "request:user;request:pass",
+			"source": "table:users",
+			"fields": "u:username;n:nickname",
+			"prsist": "Cookie",
 			"expiry": "1h"
 		},
 		{

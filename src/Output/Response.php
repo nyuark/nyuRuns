@@ -37,12 +37,14 @@ class Response{
 	}
 	
 	public function buildHead( ){
-		foreach($this->headrArr as $hedKey => $hedVal){
-			header($hedKey.': '.$hedVal);
+		if(is_array($headrArr)){
+			foreach($this->headrArr as $hedKey => $hedVal){
+				header($hedKey.': '.$hedVal);
+			}
 		}
 	}
 
 	public function sendOutpt( ){
-		die($this->finalStr);
+		print($this->finalStr);
 	}
 }

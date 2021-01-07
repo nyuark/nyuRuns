@@ -5,7 +5,7 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": {
+	"auths": [
 		{
 			"naming": "QUERY",
 			"source": "QUERY",
@@ -17,8 +17,8 @@
 			"source": "QUERY",
 			"fields": "all",
 			"format": "utf-8"
-		},
-	},
+		}
+	],
 	"input": [
 		{
 			"naming": "QUERY",

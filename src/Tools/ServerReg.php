@@ -12,7 +12,9 @@ class ServerReg extends Registry{
 			$valueArray = $_SERVER;
 		}
 		// TODO: Cleanup some values and/or refrain use of global
-		unset($_SERVER)
-		parent::__construct( $valueArray, $lowCaseKey );
+		unset($_SERVER);
+		if(is_array($valueArray) && !empty($valueArray)){
+			parent::__construct( $valueArray, $lowCaseKey );
+		}
 	}
 }
