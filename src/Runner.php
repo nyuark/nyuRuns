@@ -2,73 +2,107 @@
 
 namespace nyu;
 
-use nyu\Tools\Preset;
+use nyu\Setup\Preset;
 use nyu\App\Controller;
 use nyu\Tools\Registry;
 use nyu\Setup\Builder;
+use nyu\Access\Checker;
 
 $GLOBALS['nyuConfig'] = null;
 
 class Runner{
 
 	protected 	$nyPreset;	// RPS (Runner PreSet) Object
-	protected	$setupCon;	// Loader Container
-//	protected	$shareCon;	// Shared Container ??? WHAT FOR? Smokalaka!
+	protected	$setupCon;	// Loader Container (Configuration)
+	protected	$shareCon;	// Shared Container (client and server values)
 	protected	$httpRqst;	// Initial HTTP Request
-//	protected	$confVars;	// Config Registry
 	protected 	$routeReg;	// Route Registry
 	protected 	$inputLib;	// Library (Registry) of allowed Inputs
-	protected 	$axessCon;	// Access Container *TODO*
+	protected 	$axessCon;	// Access Container (Access\Checker result)
 	protected 	$appBlock;	// Application Object
 	protected 	$response;	// Output Container
-	
+
 	public 		$errorObj;
 	public 		$procStat;
 	public 		$logStore;
+	// Allows interrupting the runner (Throw Exception?)
+	public		$stopExec;
 
+	/**
+	 * Loads the given preset, builds the shared objects (config, request,
+	 * response), then sets up routing and access before running the request.
+	 *
+	 * @param String $initPreset Name of the .rps preset file to load (defaults to 'default').
+	 * @param Array  $overLoaded Configuration values to merge over the loaded preset.
+	 */
 	function __construct( String $initPreset = '', Array $overLoaded = Array() ){
 		// Load the preset object and call setup
 		$this->nyPreset = new Preset($initPreset);
-		
+
 		// Prepare setup and overload when required
-		$this->setupCon = $this->nyPreset->generate();
+		$this->setupCon = $this->nyPreset->makeSetup();
 		if(!empty($overLoaded)){
 			$this->setupCon->overLoads($overLoaded, true);
 		}
 		// Load Shared Data (conf, request, response)
 		$GLOBALS['nyuConfig'] = $this->setupCon->getConfig();
 		$this->loadShare();
-		
+
+		// Wire the logger into PHP's error/exception/shutdown handling
+		$GLOBALS['nyuLogger'] = $this->logStore;
+		$GLOBALS['ErrorResponse'] = Array($this, 'failReply');
+		require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
+		initError();
+
 		// Setup route & access, then process
 		$this->loadSetup();
-		// TODO : Logging, Status update
 	}
 
-	function loadShare( ){ 
-		// Instanciate the shared objects to 
+	/**
+	 * Instanciates the shared objects (server/client registries, request,
+	 * response) through the DI container so they're available throughout
+	 * the whole running process.
+	 */
+	function loadShare( ): Void {
+		// Instanciate the shared objects to
 		// be available during all the running
 		// process through DI Container
-		
+
 		$contObj = new Builder();
 		$contObj->makeObjct('nyu\\Tools\\ServerReg', array());
-	//	$contObj->makeObjct('nyu\Tools\ClientReg', array());
+		$contObj->makeObjct('nyu\Tools\ClientReg', array());
+		$rndrCnf = $this->setupCon->getRegKey('rnder');
+		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
 		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());
-		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array());
+
+		$logConf = $this->setupCon->logConfig();
+		$this->logStore = new \nyu\Tools\Logger( $logConf['path'], 'runner', $logConf['mode'], $logConf['size'], $logConf['rota'], $logConf['pref'] );
+
 		$this->shareCon = $contObj;
 	}
 
-	function loadSetup( ){
+	/**
+	 * Retrieves the configuration files and builds the registries needed to
+	 * run the request (inputs, route, access), then triggers the processor.
+	 */
+	function loadSetup( ): Void {
 		// Get required configuration files
-		// and build all required objects for 
+		// and build all required objects for
 		// running the sequence and the Registrys needed
-		
+
 		// Inputs are defined at an application level
-		$this->inputLib = $this->setupCon->getInputs();
-		
-		$this->routeReg = $this->setupCon->loadRoute();
-		$this->axessCon = $this->setupCon->setAccess();
-	
-		$this->processor();
+		$this->inputLib = $this->setupCon->getInputs( $this->httpRqst );
+
+		$this->routeReg = $this->setupCon->loadRoute( $this->httpRqst );
+
+		$axsConf = $this->setupCon->setAccess();
+		$this->axessCon = $this->chkAccess( $axsConf );
+
+		if( $this->axessCon->getDefVal('statCode', 200) == 200 ){
+			$this->processor();
+		}else{
+			$this->denyAxess( $this->axessCon );
+		}
 	}
 	/*	Place input loading at appCaller level	*/
 	/*
@@ -76,78 +110,153 @@ class Runner{
 		// Parse input from selected sources
 		// to return an array or object of data
 		// That will be exposed to the apps
-		
+
 		// Gets specific app action setup and overload setup
-		
-		
+
+
 		// If unexisting, load all untyped inputs (from request)
-		
+
 		// Then, call the setup input parser to get a lib of vars
 		$this->inputLib = $this->setupCon->getInputs();
 	}
 	*/
-	
-	function findRoute( ){
+
+	/**
+	 * Identifies the route from the path/request, or forces it manually
+	 * from a filename and parameters, in order to retrieve the application
+	 * to load.
+	 *
+	 * @todo Not yet implemented — routing currently happens in Setup\Loader::loadRoute().
+	 */
+	function findRoute( ): Void {
 		// Identify route from path / request
 		// or manually force from filename & params
 		// to retrieve application to load
 	}
-	
-	function chkAccess( ){
-		// Verify access according to method,
-		// send to authentication if needed
-		// or deny access when no match
+
+	/**
+	 * Verifies access for the current request against the configured
+	 * auth/sess strategy.
+	 *
+	 * @param Array $accessConf Resolved 'auths' config block for the active preset.
+	 * @return Registry Registry with 'logged', 'user', 'ident', 'statCode' and 'statMssg' keys.
+	 */
+	function chkAccess( Array $accessConf ): Registry {
+		$chkObjc = new Checker( $accessConf, $this->httpRqst );
+		return $chkObjc->verifyAxs();
 	}
-	
-	function appCaller( String $runAppName, String $runAppActn, String $runAppOptn=null ){
+
+	/**
+	 * Sends an access-denial response (401/403/500) directly, without
+	 * ever constructing the requested application's Controller/Actionset.
+	 *
+	 * @param Registry $accessRslt The Access\Checker result carrying the denial status/message.
+	 */
+	function denyAxess( Registry $accessRslt ): Void {
+		$wwwAuth = $accessRslt->readValue('wwwAuth');
+		if( $wwwAuth!=null ){
+			$this->response->addHeader('WWW-Authenticate', $wwwAuth);
+		}
+		$this->setStatus( $accessRslt->getDefVal('statCode', 401), strval($accessRslt->readValue('statMssg')) );
+		$this->doRespond( $this->procStat );
+	}
+
+	/**
+	 * Launches an application according to the loaded route, passing it the
+	 * input data, and forwards its status and results to the output layout.
+	 *
+	 * @param String $runAppName Name of the application (run) to load.
+	 * @param String $runAppActn Name of the action/method to call on the application.
+	 * @param String $runAppOptn Optional extra parameter passed to the action.
+	 */
+	function appCaller( String $runAppName, String $runAppActn, ?String $runAppOptn=null ): Void {
 		// Launch an application according to
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
 		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn );
-		$outPuts = $conTrol->getOutput();
-		if(!isset($outPuts[0]) || $outPuts[0]!='err'){
-			$this->getLayout( $outPuts );
-		}else{
-			// TODO: Raise exception/error
-			print('<h1>App error</h1>');
-			print_r($outPuts);
-			die();
-		}
+		$statArr = $conTrol->getStatus();
+		$this->setStatus( $statArr['code'], $statArr['mssg'], $conTrol->getOutput() );
 	}
-	
-	function getLayout( $dataVals ){
+
+	/**
+	 * Retrieves the predefined layout/format and builds the response
+	 * template with the given output data.
+	 *
+	 * @param mixed $dataValues The data returned by the application to format into the response.
+	 */
+	function getLayout( Mixed $dataValues ): Void {
 		// Retrieve the predefined layout or
 		// format for the response contents
-		$this->response->formatOut( $dataVals );
+		$this->response->formatOut( $dataValues );
 		$this->response->buildTmpl();
-		
+
 	}
-	
-	function doRespond( ){
+
+	/**
+	 * Prepares the response body for a status and records the status to
+	 * send: the output data for a 2xx status, an error body otherwise.
+	 *
+	 * @param Int    $statusCode Status reported by the application or the access check.
+	 * @param String $statusMssg Message describing a non-2xx status.
+	 * @param mixed  $dataValues Output data for a 2xx status.
+	 */
+	protected function setStatus( Int $statusCode, String $statusMssg='', Mixed $dataValues=null ): Void {
+		if( $statusCode>=200 && $statusCode<300 ){
+			// "No content" is sent as a plain 200 carrying the (empty) output
+			if( $statusCode==204 ){
+				$statusCode = 200;
+			}
+			$this->getLayout( $dataValues ?? Array() );
+		}else{
+			$this->getLayout( Array('error'=>$statusMssg, 'code'=>$statusCode) );
+		}
+		$this->procStat = $statusCode;
+	}
+
+	/**
+	 * Sends a 500 response carrying the given message, in the configured
+	 * output format. Called by the error handler for uncaught exceptions.
+	 *
+	 * @param String $errMessage Message to expose in the response body.
+	 */
+	public function failReply( String $errMessage ): Void {
+		$this->setStatus( 500, $errMessage );
+		$this->doRespond( $this->procStat );
+	}
+
+	/**
+	 * Builds the response headers and outputs the final response contents
+	 * to the requester.
+	 *
+	 * @param Int $statusCode HTTP status code to send; omitted for the default 200.
+	 */
+	function doRespond( ?Int $statusCode=null ): Void {
 		// Build the response headers and
 		// output the contents to the requester
-		$this->response->buildHead();
+		$this->response->buildHead( $statusCode );
 		$this->response->sendOutpt();
 	}
-		
-	function processor( ){
-		// call each of the method needed
-	//	$this->findRoute();
-	//	$this->chkAccess();
-		// print_R($this);
-		// die();
+
+	/**
+	 * Runs the request-handling sequence: reads the resolved app/action/param
+	 * from the route registry, calls the application, and sends the response.
+	 */
+	function processor( ): Void {
 		$appCall = $this->routeReg->readValue('app');
 		$actCall = $this->routeReg->readValue('action');
 		$actOptn = $this->routeReg->getDefVal('param', null);
-		$resPond = $this->setupCon->getRegKey('rnder');
-		
+
 		/*	Place input loading at appCaller level	*/
 		//$this->inputData($appCall, $actCall);
-		
-		$this->appCaller($appCall, $actCall, $actOptn);
-		$this->doRespond();
-		print_r($this);
+
+		if( $appCall==null ){
+			// No route resolved for this request
+			$this->setStatus( 404, 'Unknown Application' );
+		}else{
+			$this->appCaller($appCall, strval($actCall), $actOptn);
+		}
+		$this->doRespond( $this->procStat );
 		exit();
 	}
 }

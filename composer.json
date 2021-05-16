@@ -16,6 +16,7 @@
 		}
 	},
     "require": {
-        "level-2/dice": "dev-master"
+        "level-2/dice": "dev-master",
+        "firebase/php-jwt": "^7.2"
     }
 }

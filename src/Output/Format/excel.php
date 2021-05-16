@@ -1,6 +1,11 @@
 <?php
 
-$tmplData = 
+/*
+ *	Microsoft Excel template ***
+ *
+*/
+
+$tplData =
 '<html xmlns:x="urn:schemas-microsoft-com:office:excel">
 <head>
     <!--[if gte mso 9]>

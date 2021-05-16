@@ -9,6 +9,12 @@ class ModelStack{
 	protected $modeList;
 	
 	// Initialize application
+	/**
+	 * Scans the application's mods/ folder and instantiates every
+	 * *Model.php file found there, keyed by lowercased model name.
+	 *
+	 * @param String $runAppName Name of the application (run) whose models to load.
+	 */
 	public function __construct(String $runAppName){
 		$this->modFoldr = RUN_DIR.DS.$runAppName.DS.'mods';
 		$this->modeList = array();
@@ -36,7 +42,14 @@ class ModelStack{
 	}
 	
 	// Return a preloaded model (or check if shared)
-	function readModel(String $appModName){
+	/**
+	 * Returns a preloaded model by name, falling back to loading it as a
+	 * shared model (from runs/Shared) if it isn't part of this app's stack.
+	 *
+	 * @param String $appModName Name of the model to retrieve.
+	 * @return mixed The model instance, or the shared-model lookup result.
+	 */
+	function readModel(String $appModName): ?Object {
 		if( array_key_exists( strtolower($appModName), $this->modeList) ){
 			return $this->modeList[strtolower($appModName)];
 		}else{
@@ -45,12 +58,22 @@ class ModelStack{
 				return $sharMod;
 			}else{
 				// Throw Instanciation error for model call
+				return null;
 			}
 		}
 	}
 	
-	// Load and return a shared model 
-	function sharedMod( String $appModName ){
+	// Load and return a shared model
+	/**
+	 * Loads and instantiates a shared model from runs/Shared, for use when
+	 * a model isn't found in the current application's own mods/ folder.
+	 *
+	 * @param String $appModName Name of the shared model to load.
+	 * @return mixed The shared model instance, or false if no matching file exists.
+	 *
+	 * @todo Instantiates the class before require_once()'ing its file, and without the namespace prefix used elsewhere — likely fatals before reaching the (redundant) later instantiation.
+	 */
+	function sharedMod( String $appModName ): Object|Bool {
 		$sharDir = RUN_DIR.DS.'Shared'.DS;
 		$shrFile = $sharDir.$appModName.'Model.php';
 		if(file_exists( $shrFile )){

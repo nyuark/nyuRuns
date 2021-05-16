@@ -1,23 +1,29 @@
 
 
 	nyuRuns RoadMap : 
-	
-20.12	Auth :			To allow authentication and token generation in order to provide
+
+21.01	SysConf :		Core system configuration INI file for hanlding errors, logging,
+						and basic details about runner setup
+
+21.01	Logging :		Implement a tracing system for debugging purposes, working
+						together with exception instance and callable all around the
+						code. Potentially a static class
+
+21.01	ExceptErr : 	To raise errors and exceptions along the code
+						To be implemented along runner and maybe injected in response
+
+21.01	Auth :			To allow authentication and token generation in order to provide
 						secure and lockable applications with different access methods
 						(RegKey, SSO / JWT, LDAP, DB)
 		
-20.12	ClientReg : 	To detect client side elements (browser, platform, host, device, ...)
-		
-20.12	Exception : 	To raise errors and exceptions along the code
-						To be implemented along runner and maybe injected in response
-		
-21.01	Response : 		To be accessible accross app and auth instances allowing to 
+21.02	ClientReg : 	To detect client side elements (browser, platform, host, device, ...)
+				
+21.02	Response : 		To be accessible accross app and auth instances allowing to 
 						end the run at anytime, spitting a full or partial response
-						
-21.01	Logging :		Implement a tracing system for debugging purposes, working
-						together with exception instance and callable all around the
-						code. Potentially a static class (with genreric conf ?)
-	
+							
+*21.02	CLI : 			Nice to have, call the runner through a CLI script, to be able
+						to automate tasks, generate code and make runs callable by system
+							
 	------------
 		
 		Data : 			Image, Document and sockets, to read and write rich elements

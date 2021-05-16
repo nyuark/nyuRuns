@@ -18,7 +18,19 @@ class DBList {
 	
 	protected $listRows;
 	
-	function __construct( String $dbaseTable, $selctScope=null, $whereClaus=null, $orderClaus=null, $limitValue=null, $handleLink=null ){
+	/**
+	 * Builds a query object for listing rows from a table, using either a
+	 * provided DB connection handle or the shared connection from global
+	 * config, and pre-builds the SELECT when a where clause is given.
+	 *
+	 * @param String $dbaseTable Name of the table to query.
+	 * @param String $selctScope Fields to select (defaults to '*').
+	 * @param String $whereClaus Pre-built WHERE clause fragment, if any.
+	 * @param String $orderClaus Pre-built ORDER BY clause fragment, if any.
+	 * @param String $limitValue Pre-built LIMIT clause fragment, if any.
+	 * @param DBCon  $handleLink Existing DB connection to reuse instead of the shared singleton.
+	 */
+	function __construct( String $dbaseTable, ?String $selctScope=null, ?String $whereClaus=null, ?String $orderClaus=null, ?String $limitValue=null, ?DBCon $handleLink=null ){
 		$this->tableNme = $dbaseTable;
 		if($selctScope == null) $selctScope='*';
 		$this->selScope = $selctScope;
@@ -28,7 +40,7 @@ class DBList {
 		if($handleLink == null){
 			$nyuConf = $GLOBALS['nyuConfig'];
 			$nyuBase = $nyuConf->readValue('database');
-			$this->dbConnex = DBCon::getInstance($nyuBase['TYPE'],$nyuBase['HOST'],$nyuBase['USER'],$nyuBase['PASS'],$nyuBase['BASE']);
+			$this->dbConnex = DBCon::getInstnc($nyuBase['TYPE'],$nyuBase['HOST'],$nyuBase['USER'],$nyuBase['PASS'],$nyuBase['BASE']);
 		}else{
 			$this->dbConnex = $handleLink;
 		}
@@ -37,15 +49,30 @@ class DBList {
 		}
 	}
 	
-	public function readItems($queryBuilt=false){
+	/**
+	 * Runs the built SELECT (rebuilding it first unless told it's already
+	 * built) and returns the resulting rows.
+	 *
+	 * @param Bool $queryBuilt Whether the SELECT was already built/sent, skipping a rebuild.
+	 * @return mixed The query results.
+	 */
+	public function readItems( Bool $queryBuilt=false ): Mixed {
 		if( $queryBuilt==false ) $this->buildSlct();
 		
-		$this->listRows = $this->dbConnex->dbHandle->readQuery();
+		$this->listRows = $this->dbConnex->dbHandle->readQuery( true );
 		
 		return $this->listRows;
 	}
 	
-	public function flatItems( $isolateFld, $queryBuilt=false){
+	/**
+	 * Runs the query and returns a flat array of a single field's values
+	 * across all result rows.
+	 *
+	 * @param String $isolateFld Name of the field to isolate from each row.
+	 * @param Bool   $queryBuilt Whether the SELECT was already built/sent, skipping a rebuild.
+	 * @return Array Flat array of the isolated field's values.
+	 */
+	public function flatItems( String $isolateFld, Bool $queryBuilt=false ): Array {
 		$results = $this->readItems($queryBuilt);
 		$flatLst = Array();
 		if(isset($results) && !empty($results)){
@@ -62,7 +89,18 @@ class DBList {
 		return $flatLst;
 	}
 	
-	protected function buildSlct($selctScope=null, $whereClaus=null, $orderClaus=null, $limitValue=null, $joinClause=null, $groupClaus=null){
+	/**
+	 * Assembles and sends the SELECT statement from the current (or
+	 * newly given) scope, join, where, group, order and limit clauses.
+	 *
+	 * @param String       $selctScope Fields to select; overrides the current scope when given.
+	 * @param Array        $whereClaus Array of field/value pairs to build a WHERE clause from.
+	 * @param String|Array $orderClaus Order-by field(s); overrides the current order when given.
+	 * @param mixed        $limitValue Limit/offset value(s); overrides the current limit when given.
+	 * @param Array        $joinClause Join definition array; overrides the current join when given.
+	 * @param String|Array $groupClaus Group-by field(s); overrides the current group when given.
+	 */
+	protected function buildSlct( ?String $selctScope=null, ?Array $whereClaus=null, String|Array|Null $orderClaus=null, Mixed $limitValue=null, ?Array $joinClause=null, String|Array|Null $groupClaus=null ): Void {
 		
 		if($selctScope != null)	$this->selScope = $selctScope;
 		
@@ -103,12 +141,20 @@ class DBList {
 	//	echo $listSel.'<br />';
 	}
 	
-	public function lstSearch( Array $whereArray ){
+	/**
+	 * Builds the WHERE clause from a map of field => value(s), supporting
+	 * IN/NOT IN for array values, LIKE/NOT LIKE when a value contains a
+	 * wildcard ('*' or '%'), and a trailing '!' on the field name to negate
+	 * the comparison.
+	 *
+	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
+	 */
+	public function lstSearch( Array $whereArray ): Void {
 		$this->whrClaus = '';
-		$whereStr = '';
+		$whreStr = '';
 		foreach($whereArray as $fldNme=>$fldVal){
-			if($whereStr != ''){
-				$whereStr.=' AND ';
+			if($whreStr != ''){
+				$whreStr.=' AND ';
 			}
 			
 			if(is_array($fldVal)){
@@ -127,7 +173,7 @@ class DBList {
 						$valList.="'".$this->dbConnex->dbHandle->escapeStr($lstVal)."'";
 					}
 				}
-				$whereStr .= '`'.$fldNme.'` '.$operatr.' ('.$valList.')';
+				$whreStr .= '`'.$fldNme.'` '.$operatr.' ('.$valList.')';
 			}else{
 				$operatr = '=';
 				$reverse = false;
@@ -149,13 +195,20 @@ class DBList {
 						$operatr = 'NOT LIKE';
 					}
 				}
-				$whereStr .= '`'.$fldNme.'` '.$operatr." '".$this->dbConnex->dbHandle->escapeStr($fldVal)."'";
+				$whreStr .= '`'.$fldNme.'` '.$operatr." '".$this->dbConnex->dbHandle->escapeStr($fldVal)."'";
 			}
 		}
-		$this->whrClaus = $whereStr;
+		$this->whrClaus = $whreStr;
 	}
 	
-	public function fieldScop( String $fieldScope = null ){
+	/**
+	 * Sets the field selection scope for the SELECT, from a comma-separated
+	 * field list. Backtick-quotes plain field names but leaves expressions
+	 * (containing '(' or ' as ') unquoted.
+	 *
+	 * @param String $fieldScope Comma-separated list of fields, or null for '*'.
+	 */
+	public function fieldScop( ?String $fieldScope = null ): Void {
 		if( $fieldScope == null){
 			$this->selScope = '*';
 		}else{
@@ -180,25 +233,38 @@ class DBList {
 		}
 	}
 	
-	public function grpFields( $groupByFld ){
+	/**
+	 * Builds the GROUP BY clause from one or more field names.
+	 *
+	 * @param String|Array $groupByFld Field name or array of field names to group by.
+	 */
+	public function grpFields( String|Array $groupByFld ): Void {
 		$grpVals = '';
-		if( is_string($groupByFld) ) $groupByFld = array($this->whrGroup);
-		if( is_array($groupByFld) ) foreach($groupByFld as $fldNme){
-			if($grpVals != ''){
-				$grpVals.=',';
+		if( is_string($groupByFld) ) $groupByFld = array($groupByFld);
+		if( is_array($groupByFld) && !empty($groupByFld) ){
+			foreach($groupByFld as $fldNme){
+				if($grpVals != ''){
+					$grpVals.=',';
+				}
+				$grpVals .= '`'.$this->dbConnex->dbHandle->escapeStr($fldNme).'`';
 			}
-			$grpVals .= '`'.$this->dbConnex->dbHandle->escapeStr($fldNme).'`';
 		}
 		$this->whrGroup = $grpVals;
 	}
 	
-	public function listOrder($orderItems){
+	/**
+	 * Builds the ORDER BY clause from one or more field names, prefixing a
+	 * field with '^' to sort it descending.
+	 *
+	 * @param String|Array $orderItems Field name or array of field names to order by.
+	 */
+	public function listOrder( String|Array $orderItems ): Void {
 		$ordrVal = '';
 		if( is_string($orderItems) ) {
 			$orderItems = array($orderItems);
 		}
-		if( is_array($this->whrOrder) ) {
-			foreach($this->whrOrder as $fldNme){
+		if( is_array($orderItems) && !empty($orderItems) ) {
+			foreach($orderItems as $fldNme){
 				if($ordrVal != ''){
 					$ordrVal.=',';
 				}
@@ -213,7 +279,13 @@ class DBList {
 		$this->whrOrder = $ordrVal;
 	}
 	
-	public function listLimit($limIndexes=null){
+	/**
+	 * Builds the LIMIT clause from a count, an "offset,count" comma pair,
+	 * or a numeric value; defaults to 100 rows when no valid value is given.
+	 *
+	 * @param mixed $limIndexes Limit as a number, or a "count[,offset]" string/array; null clears the limit.
+	 */
+	public function listLimit( Mixed $limIndexes=null ): Void {
 		$this->whrLimit = '';
 		// TODO : Get Table Limit from core config
 		if($limIndexes!=null){
@@ -240,18 +312,36 @@ class DBList {
 		}
 	}
 	
-	public function tableJoin( Array $joinClause=array() ){
+	/**
+	 * Builds a single LEFT JOIN clause from a 3-element array of
+	 * [joinTable, field1, field2].
+	 *
+	 * @param Array $joinClause [joinTable, field1, field2] describing the join.
+	 *
+	 * @todo Only a single LEFT JOIN is currently supported; multiple tables/operators and per-field table references are not.
+	 */
+	public function tableJoin( Array $joinClause=array() ): Void {
 		// Currently supports single left joins
 		// Array ( 'joinTable', 'fld1', 'fld2') )
 		// TODO : Could admit many tables and different operators
 		// TODO : Also could set table reference for each field
-		$this->jointCls = '';
-		if( is_array($joinClause) ) {
-			$this->jointCls .= '`'.$joinClause[0].'` ON '.$joinClause[1].' = '.$joinClause[2];
+		$this->whrJoint = '';
+		if( is_array($joinClause) && !empty($joinClause) ) {
+			$this->whrJoint .= '`'.$joinClause[0].'` ON '.$joinClause[1].' = '.$joinClause[2];
 		}
 	}
 	
-	public function childList( String $childTable, String $singlField='', String $foreingKey='', String $currentKey='' ){
+	/**
+	 * Attaches a related child list (fetched from another table via a
+	 * foreign key) to each row already loaded by this list.
+	 *
+	 * @param String $childTable Name of the related table to fetch children from.
+	 * @param String $singlField When given, isolates just this field from each child row instead of the full row.
+	 * @param String $foreingKey Field on the child table referencing this list's rows (defaults to `<singularized table>_id`).
+	 * @param String $currentKey Field on this list's rows referenced by the child (defaults to `id_<singularized table>`).
+	 * @return Array The current rows, each augmented with its child data under the child table's name.
+	 */
+	public function childList( String $childTable, String $singlField='', String $foreingKey='', String $currentKey='' ): Array {
 		if( $foreingKey=='' ) {
 			$extName = StrKit::singlrize($this->tableNme);
 			$foreingKey = $extName.'_id';
@@ -266,7 +356,7 @@ class DBList {
 			$lstRows = $this->listRows;
 		}
 		foreach($lstRows as $rowKey=>$rowArr){
-			$subWhre = "`$foreingKey` = '$rowArr[$currentKey]'";
+			$subWhre = "`$foreingKey` = '".$this->dbConnex->dbHandle->escapeStr($rowArr[$currentKey])."'";
 			$subList = new DBList($childTable, null, $subWhre);
 			if($singlField!=''){
 				$lstRows[$rowKey][$childTable] = $subList->flatItems($singlField);

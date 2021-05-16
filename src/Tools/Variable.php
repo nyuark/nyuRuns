@@ -3,15 +3,17 @@
 // An utility object for formating different type of data
 // Formats available:
 /*
-	- String
+	- TextStr
 	- Integer
-	- Number
-	- Price
-	- Date
+	- Numeric
+	- PriceNb
+	- TODO : Float
+	- DateStr
 	- WeekDay
-	- FullDate
+	- FullDay
 	- TODO: ShortDate
-	- DateSpan
+	- TODO: TextDate
+	- DateSpn
 	- TODO: Email
 	- TODO: Phone
 	- TODO: URL
@@ -25,45 +27,84 @@ class Variable{
 	
 	var $mainData;
 	
-	function __construct($data){
-		$this->set($data);
+	/**
+	 * Wraps a raw value for later formatting.
+	 *
+	 * @param mixed $givenValue The raw value to wrap.
+	 */
+	function __construct( Mixed $givenValue ){
+		$this->saveValue($givenValue);
 	}
 
-	function get( String $respFormat='String', $formatOpts=false ){
+	/**
+	 * Returns the wrapped value formatted as the given type, by calling
+	 * the matching to{$respFormat}() method (e.g. 'DateStr' -> toDateStr()).
+	 *
+	 * @param String $respFormat Name of the format to apply (must match an existing to*() method).
+	 * @param mixed  $formatOpts Optional format-specific options passed to the to*() method.
+	 * @return mixed The formatted value.
+	 */
+	function readValue( String $respFormat='TextStr', Mixed $formatOpts=false ): Mixed {
 		if( $respFormat!=false && method_exists($this,"to$respFormat") ){
-			$meth = 'to'.$respFormat;
+			$methNme = 'to'.$respFormat;
 			if(!$formatOpts){
-				$out = call_user_func(array($this, $meth));
+				$out = call_user_func(array($this, $methNme));
 			}else{				
-				$out = call_user_func(array($this, $meth), $formatOpts);
+				$out = call_user_func(array($this, $methNme), $formatOpts);
 			}
 			return $this->mainData;
 		}
 		return $this->mainData;
 	}
 	
-	function set( $data ){
-		$this->mainData = $data;
+	/**
+	 * Replaces the wrapped value.
+	 *
+	 * @param mixed $givenValue The new raw value to wrap.
+	 */
+	function saveValue( Mixed $givenValue ): Void {
+		$this->mainData = $givenValue;
 	}
 
-	function toString(){
-		$this->mainData = filter_var($this->mainData.'', FILTER_SANITIZE_STRING);
+	/**
+	 * Formats the wrapped value as a sanitized string.
+	 */
+	function toTextStr(): Void {
+		$this->mainData = StrKit::stripTags(
+			str_replace( Array("'", '"'), Array('&#39;', '&#34;'), $this->mainData.'' )
+		);
 	}
 	
-	function toInteger(){
-		$this->mainData = intval(filter_var($this->mainData, FILTER_SANITIZE_NUMBER_INT )+0);
+	/**
+	 * Formats the wrapped value as a sanitized integer.
+	 */
+	function toInteger(): Void {
+		$this->mainData = intval(filter_var($this->mainData, FILTER_SANITIZE_NUMBER_INT ));
 	}
 	
-	function toNumber( $options ){
-		$this->mainData = number_format(($this->mainData+0), $options['decimals'], $options['decimsep'], $options['thsndsep']);
+	/**
+	 * Formats the wrapped value as a number with the given decimal and
+	 * thousands separators.
+	 *
+	 * @param Array $numberOpts Format options: 'decimals', 'decimsep', 'thsndsep'.
+	 */
+	function toNumeric( Array $numberOpts ): Void {
+		$numData = floatval( filter_var( $this->mainData.'', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
+		$this->mainData = number_format($numData, $numberOpts['decimals'], $numberOpts['decimsep'], $numberOpts['thsndsep']);
 	}
 	
-	function toPrice(){
-		$this->toNumber( Array('decimals'=>2,'decimsep'=>'.','thsndsep'=>"'") );
-		$this->mainData = number_format($this->mainData,'2','.',"'");
+	/**
+	 * Formats the wrapped value as a price (2 decimals, '.' decimal
+	 * separator, "'" thousands separator).
+	 */
+	function toPriceNb(): Void {
+		$this->toNumeric( Array('decimals'=>2,'decimsep'=>'.','thsndsep'=>"'") );
 	}
 	
-	function toEMail(){
+	/**
+	 * Formats the wrapped value as a sanitized email address.
+	 */
+	function toMailAdr(): Void {
 		$this->mainData = filter_var($this->mainData.'', FILTER_SANITIZE_EMAIL);
 	}
 	
@@ -77,22 +118,30 @@ class Variable{
 	*/
 	
 	
-	function toDate( $format='' ){
+	/**
+	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
+	 * as a Unix timestamp and applies the given date() format.
+	 *
+	 * @param String $dateFormat A date() format string.
+	 */
+	function toDateStr( String $dateFormat='' ): Void {
 		$seqlChk = explode('-',$this->mainData);
 		if( count($seqlChk)==3 ){
 			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
 		}
-		if( $format=='' ) $format=='d/m/y';
-		$this->mainData = date( $format, $this->mainData );
+		if( $dateFormat=='' ) $dateFormat='d/m/y';
+		$this->mainData = date( $dateFormat, $this->mainData );
 	}
 	
-	function toWeekDay( ){
+	/**
+	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
+	 * as the English weekday name it falls on.
+	 */
+	function toWeekDay( ): Void {
 		$seqlChk = explode('-',$this->mainData);
 		if( count($seqlChk)==3 ){
 			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
 		}
-		$this->toNumber();
-		
 		if(!defined('LOC_WKDAYS')){
 			define('LOC_WKDAYS','Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday');
 		}
@@ -103,12 +152,16 @@ class Variable{
 		$this->mainData = $weekDay;
 	}
 	
-	function toFullDate(){
+	/**
+	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
+	 * as a full localized date: 'Yesterday'/'Today'/'Tomorrow' for nearby
+	 * dates, otherwise '<Weekday>, <day> <Month>'.
+	 */
+	function toFullDay(): Void {
 		$seqlChk = explode('-',$this->mainData);
 		if( count($seqlChk)==3 ){
 			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
 		}
-		$this->toNumber();
 		$tmeStmp = $this->mainData;
 		if(!defined('LOC_YSTRD'))define('LOC_YSTRD','Yesterday');
 		if(!defined('LOC_TODAY'))define('LOC_TODAY','Today');
@@ -149,12 +202,21 @@ class Variable{
 		$this->mainData = $dteData;
 	}
 	
-	function toDateSpan($until=false){
+	/**
+	 * Formats the wrapped value as a date span 'From <date> until <date>'
+	 * between the wrapped value and the given end date, collapsing the
+	 * month/year when they match on both ends, or as a single date when
+	 * both ends fall on the same day.
+	 *
+	 * @param String|Bool $endingDate End date of the span ('Y-m-d'-style string); required for a result.
+	 */
+	function toDateSpn( String|Bool $endingDate=false ): Void {
 		$seqlChk = explode('-',$this->mainData);
 		if( count($seqlChk)==3 ){
 			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
 		}
-		$seqlChk = explode('-',$until);
+		$seqlChk = explode('-',$endingDate);
+		$tilData = null;
 		if( count($seqlChk)==3 ){
 			$tilData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
 		}
@@ -162,7 +224,7 @@ class Variable{
 		$numData = intval($this->mainData);
 		$tilData = intval( $tilData );
 		
-		if($until!=false){
+		if($endingDate!=false){
 			if(!defined('LOC_MONTHS')){
 				define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 			}
@@ -180,13 +242,15 @@ class Variable{
 				define('LOC_UNTIL','until');
 			}
 			$dteData = date('j', $numData).' ';
-			if( $mthNum1 == $mthNum2 ){
+			if( date('Ymd', $numData) == date('Ymd', $tilData) ){
+				$dteData = date('d', $numData).' '.$allMnth[$mthNum1].' '.$yerNum1;
+			} elseif( $mthNum1 == $mthNum2 && $yerNum1 == $yerNum2 ){
 				$dteData = LOC_FROM.' '.date('d', $numData).' '.LOC_UNTIL.' '.date('d', $tilData).' '.$allMnth[$mthNum1].' '.$yerNum1;
 			} else {
-				if($yer==$yer2){
+				if($yerNum1==$yerNum2){
 					$dteData = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.LOC_UNTIL.' '.date('d', $tilData).' '.$allMnth[$mthNum2].' '.$yerNum1;
 				}else{
-					$dteData = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.$yerNum1.' '.LOC_UNTIL.' '.date('d', $tilData).' '.$months[$mthNum2].' '.$yerNum2;
+					$dteData = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.$yerNum1.' '.LOC_UNTIL.' '.date('d', $tilData).' '.$allMnth[$mthNum2].' '.$yerNum2;
 				}
 			}
 			$this->mainData = $dteData;

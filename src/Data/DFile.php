@@ -11,36 +11,58 @@ class DFile{
 	protected $fileTitl;
 	protected $fileExtn;
 	protected $fileData;
-	protected $finalArr;
+	protected $finalDat;
 	
-	function __construct( $fsFilePath ){
+	/**
+	 * Loads a file from disk, extracts its name/title/extension, and
+	 * parses its contents according to that extension.
+	 *
+	 * @param String $fsFilePath Filesystem path of the file to load.
+	 *
+	 * @todo No error is raised when the file doesn't exist — the object is left uninitialized.
+	 */
+	function __construct( String $fsFilePath ){
 		if(file_exists($fsFilePath)){
 			$this->fileName = basename($fsFilePath);
-			$this->fileExtn = end( explode( ".", $this->get('nme') ) );
-			$this->fileTitl = str_replace( '.'.$this->get('ext'), '', $this->get('nme'));
-			$this->fileExtn = strtolower( $this->get('ext') );
+			$nmParts = explode( ".", $this->readValue('nme') );
+			$this->fileExtn = end( $nmParts );
+			$this->fileTitl = str_replace( '.'.$this->readValue('ext'), '', $this->readValue('nme'));
+			$this->fileExtn = strtolower( $this->readValue('ext') );
 			$this->fileData = file_get_contents( $fsFilePath );
-			$this->finalArr = Array();
+			$this->finalDat = Array();
 			
-			$this->fileParse( $this->get('ext') );
+			$this->fileParse( $this->readValue('ext') );
 		}else{
 			// Throw Error
 		}
 	}
 	
-	function fileParse( String $fileTypExt, Bool $keys2Upper = true ){
+	/**
+	 * Parses the file's raw contents according to the given extension and
+	 * stores the result as the file's final data.
+	 *
+	 * @param String $fileTypExt Extension identifying the parser to use ('ini', 'json'; 'xml' not yet implemented).
+	 * @param Bool   $keys2Upper Whether the parser should uppercase resulting keys.
+	 */
+	function fileParse( String $fileTypExt, Bool $keys2Upper = true ): Void {
 		if($fileTypExt=='xml'){
 			// TODO, implement XML Parser
 		}
 		if($fileTypExt=='ini'){
-			$this->finalArr = Parsers\Ini::Parse( $this->get('raw'), $keys2Upper );
+			$this->finalDat = Parsers\Init::parseData( $this->readValue('raw'), $keys2Upper );
 		}
 		if($fileTypExt=='json'){
-			$this->finalArr = Parsers\Json::Parse( $this->get('raw'), $keys2Upper );
+			$this->finalDat = Parsers\Json::parseData( $this->readValue('raw'), $keys2Upper );
 		}
 	}
 	
-	function get(String $fileDetail = 'out'){
+	/**
+	 * Returns a detail about the loaded file.
+	 *
+	 * @param String $fileDetail One of 'ext' (extension), 'nme' (filename), 'tit' (title without extension), 'raw' (raw contents), or 'out' (parsed data, default).
+	 * @return mixed The requested detail.
+	 */
+	function readValue(String $fileDetail = 'out'): Mixed {
 		if($fileDetail=='ext'){
 			return $this->fileExtn;
 		}
@@ -54,7 +76,8 @@ class DFile{
 			return $this->fileData;
 		}
 		if($fileDetail=='out'){
-			return $this->finalArr;
+			return $this->finalDat;
 		}
+		return false;
 	}
 }

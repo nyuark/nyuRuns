@@ -1,5 +1,11 @@
 <?php
 
-$tmplData = "%data%";
+
+/*
+ *	Simple output template
+ *
+*/
+
+$tplData = "%data%";
 
 ?>

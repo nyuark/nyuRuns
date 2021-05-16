@@ -3,4 +3,6 @@ namespace nyu\Access;
 
 // Access Checker class
 // Loads the proper auth connector
+// Loads the proper sess connector
+// Makes the sess match to the auth
 // Verifies access

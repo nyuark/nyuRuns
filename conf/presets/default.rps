@@ -5,25 +5,12 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": [
-		{
-			"naming": "QUERY",
-			"source": "QUERY",
-			"fields": "all",
-			"format": "utf-8"
-		},
-		{
-			"naming": "QUERY",
-			"source": "QUERY",
-			"fields": "all",
-			"format": "utf-8"
-		}
-	],
+	"auths": { "required": false },
 	"input": [
 		{
 			"naming": "QUERY",
 			"source": "QUERY",
-			"fields": "none",
+			"fields": "all",
 			"format": "utf-8"
 		},
 		{

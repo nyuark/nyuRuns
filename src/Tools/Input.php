@@ -14,64 +14,79 @@ class Input{
 	
 	protected $saveName;
 	protected $fldArray;
+	protected $fldsList;
 	protected $reqstObj;
-	
-	// Shoud get the endode parameter and format each value to that encoding
-    //function __construct(Request $requestObj, String $fromSource, String $fldListStr, String $RegistryName){
-    function __construct(String $fromSource, Array $fldListStr, String $RegistryName){
-		$this->saveName = $RegistryName;
-		/*
+	protected $inputReg;
+
+	/**
+	 * Builds a named input registry entry by pulling values from the
+	 * given source off the shared Request and filtering them down to
+	 * the configured field list.
+	 *
+	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param String  $fromSource One of 'QUERY' (request vars) or 'SERVR' (server vars).
+	 * @param String  $fldListStr Semicolon-separated field-list definition, or 'all'/'none'.
+	 * @param String  $regstrName Name under which the parsed values are stored.
+	 *
+	 * @todo Should read an encoding parameter and format each value to that encoding.
+	 */
+    function __construct( Request $requestObj, String $fromSource, String $fldListStr, String $regstrName ){
+		$this->reqstObj = $requestObj;
+		$this->saveName = $regstrName;
+		$this->fldsList = $fldListStr;
 		$this->fldArray = $this->fLisToArr( $fldListStr );
 		if( $fromSource=='QUERY' ){
-			if($optionsStr=='ALL'){
-				$optionsStr = 'REQUEST';
-			}
-			$allVals = $this->readQuery( $optionsStr );
+			$allVals = $this->reqstObj->getAllVar();
 		}elseif( $fromSource=='SERVR' ){
-			$allVals = $this->getServer( );
+			$allVals = $this->reqstObj->getSrvVar();
 		}else{
-			// Throw error
+			$allVals = Array();
 		}
-		$outVals = $this->parseVals( $allVals );
-		*/
-		$outVals = Array();
-		$this->inputReg[$this->saveName] = $outVals;
+		$this->inputReg[$this->saveName] = $this->parseVals( $allVals );
 	}
 	
-	protected function readQuery( String $queryMethd ){
-		$allowed = Array('REQUEST','POST','GET','COOKIE');
-		if(in_array($queryMethd, $allowed)){		
-			$reqVars = $_REQUEST;
-			if( $queryMethd!='REQUEST' ){
-				$varName = '_'.$queryMethd;
-				$reqVars = ${$varName};
-			}
-			return $reqVars;
-		}else{
-			return Array();
-		}
-	}
-	
-	protected function parseVals( Array $valueArray ){
+	/**
+	 * Filters the given values down to the configured field list, then
+	 * (eventually) applies per-field formatting via the Variable class.
+	 *
+	 * @param Array $valueArray Raw values to filter/format.
+	 * @return Array The filtered values; the full array unchanged when the field list is 'all'; empty when it's 'none'.
+	 *
+	 * @todo Phase 2 (calling the Variable formatting class per field) is not yet implemented.
+	 */
+	protected function parseVals( Array $valueArray ): Array {
 		// Phase 1, filter vars in valueArr by coma separated list of keys
 		// Phase 2, apply filter by calling the Variable formatting class
-		$fldList = $this->fldArray;
-		$valList = Array();
-		// If all values are wanted, fldList is empty
-		if(empty($fldList)){
+		if( $this->fldsList=='all' ){
 			return $valueArray;
 		}
-		foreach( $valueArray as $vKey=>$vVal ){
-			if( in_array($vKey, array_keys( $fldList ) ) ){
-				$fldOpts = $fldList[$vKey];
-				
+		if( $this->fldsList=='none' ){
+			return Array();
+		}
+		$fldList = $this->fldArray;
+		$valList = Array();
+		foreach( $valueArray as $valKey=>$valVal ){
+			if( in_array($valKey, array_keys( $fldList ) ) ){
+				$fldOpts = $fldList[$valKey];
+				$valList[$valKey] = $valVal;
 			}
 		}
+		return $valList;
 	}
 	
-	protected function fLisToArr( String $fldListStr='all' ){
+	/**
+	 * Parses a field-list definition string into a structured array of
+	 * field names mapped to their format and format options.
+	 *
+	 * Expected syntax per field: `valueName:valueFormat(opt1,opt2,opt3)`,
+	 * with fields separated by semicolons.
+	 *
+	 * @param String $fldListStr Semicolon-separated field list, 'all' for no filtering, or 'none' to exclude everything.
+	 * @return Array Map of field name => [format => options].
+	 */
+	protected function fLisToArr( String $fldListStr='all' ): Array {
 		$fltrArr = Array();
-		if( $fldListStr != 'all' ){
+		if( $fldListStr != 'all' && $fldListStr != 'none' ){
 			// Strip spaces in initial variable
 			$fldListStr = str_replace(' ','',$fldListStr);
 			// Split into fields, delimited by semicolon
@@ -105,7 +120,13 @@ class Input{
 		return $fltrArr;
 	}
 	
-    public function regStack( ){
+    /**
+	 * Returns the parsed values currently stored under this input's
+	 * registry name, for merging into the wider input registry.
+	 *
+	 * @return Array The stored values for this input's registry name.
+	 */
+    public function regiStack( ): Array {
 		// Stack values of the current Registry
 		// by merging it with an existing array
 		return $this->inputReg[$this->saveName];

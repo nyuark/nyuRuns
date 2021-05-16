@@ -1,0 +1,31 @@
+<?php
+
+/*
+ *	Open office spreadsheet template ***
+ *
+*/
+
+$tplData =
+'<html xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Sheet 1</x:Name>
+                    <x:WorksheetOptions>
+                        <x:Print>
+                            <x:ValidPrinterInfo/>
+                        </x:Print>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+</head>
+<body>%data%</body>
+</html>';
+
+?>

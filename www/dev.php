@@ -5,13 +5,11 @@
 // use Dice\Dice;
 
 // $diceLoad = new Dice();
-print_R($_SERVER);
-die();
-/*
+
 $httpMeth = $_SERVER['REQUEST_METHOD'];
 
-foreach (apache_request_headers() as $name => $value) { 
-	$reqHeads[$name] =  $value ; 
+foreach (apache_request_headers() as $name => $value) {
+	$reqHeads[$name] =  $value ;
 }
 
 $inputFlx = getStreamIn();
@@ -22,7 +20,7 @@ if(empty($inputArr) && $httpMeth=='GET'){
 	$inComing = $inputFlx;
 }
 
-//print_r($_POST); //empty!!! don't work ... 
+//print_r($_POST); //empty!!! don't work ...
 $inputArr = $inComing;
 
 $response = Array(
@@ -45,7 +43,7 @@ function getRawData(){
 		// No boundaries found
 		return null;
 	}
-	
+
 	// Fetch each part
 	$flxParts = array_slice( explode($boundary, $raw_data), 1 );
 	$prtHeads = array();
@@ -53,7 +51,7 @@ function getRawData(){
 	$saveFile = array();
 
 	foreach ($flxParts as $partLn) {
-		
+
 		$saveFile[] = $partLn;
 		// If this is the last part, break
 		if ($partLn == "--\n") break;
@@ -94,7 +92,7 @@ function getRawData(){
 //		'file'=>$fileData,
 //		'data'=>$raw_data
 	);
-	
+
 	return $saveFlux;
 }
 
@@ -102,10 +100,10 @@ function getRawData(){
 // read, write, seek
 include_once('../autoloader.php');
 
-//$preset = new nyu\Tools\Preset();
+//$preset = new nyu\Setup\Preset();
 // TODO : DIContainer
 
-use \nyu\Data\DBRecord; 
+use \nyu\Data\DBRecord;
 
 $GLOBALS['manualRoute'] = Array(
 	'dev' => Array(
@@ -119,11 +117,10 @@ $GLOBALS['manualRoute'] = Array(
 $nyuRun = new nyu\Runner('manual');
 
 $nyuRec = new DBRecord( 'shows' );
-$nyuArr = $nyuRec->loadItem(100);
-$nyuRec->bindVals( Array('title'=>'LES PIEDS DANS LES NUAGES') );
-// $nyuRec->bindVals( Array('title'=>'LES PIEDS DANS - LES - NUAGES') );
-var_dump($nyuRec->saveItem());
-$nyuArr = $nyuRec->loadItem(100);
+$nyuArr = $nyuRec->loadRecrd(100);
+$nyuRec->bindArray( Array('title'=>'LES PIEDS DANS LES NUAGES') );
+// $nyuRec->bindArray( Array('title'=>'LES PIEDS DANS - LES - NUAGES') );
+var_dump($nyuRec->saveRecrd());
+$nyuArr = $nyuRec->loadRecrd(100);
 print_R($nyuArr);
-
 */
