@@ -14,6 +14,8 @@
 //   X-Test-Tmpl: <template>          render template
 //   X-Test-Return: <format>          output format
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
+// X-Test-Preset names the preset to load instead of the default one,
+// and X-Test-Runs serves the applications of test/fixtures/runs instead of runs/.
 
 $topDir = dirname(__DIR__, 2);
 $sqlFile = getenv('NYU_TEST_DB');
@@ -42,7 +44,11 @@ if( isset($_SERVER['HTTP_X_TEST_CTYPE']) ){
 	$overArr['rnder']['headrs'] = Array( ($_SERVER['HTTP_X_TEST_CTNAME'] ?? 'Content-Type') => $_SERVER['HTTP_X_TEST_CTYPE'] );
 }
 
-if( empty($overArr) ){
+$useFixtr = isset($_SERVER['HTTP_X_TEST_RUNS']);
+
+$presetNm = $_SERVER['HTTP_X_TEST_PRESET'] ?? '';
+
+if( empty($overArr) && !$useFixtr && $presetNm=='' ){
 	require $topDir.'/www/index.php';
 	return;
 }
@@ -51,5 +57,5 @@ if( empty($overArr) ){
 define('DS', DIRECTORY_SEPARATOR);
 define('TOP_DIR', realpath($topDir));
 define('WEB_DIR', TOP_DIR.DS.'www');
-define('RUN_DIR', TOP_DIR.DS.'runs');
-$nyuRun = new \nyu\Runner('', $overArr);
+define('RUN_DIR', $useFixtr ? TOP_DIR.DS.'test'.DS.'fixtures'.DS.'runs' : TOP_DIR.DS.'runs');
+$nyuRun = new \nyu\Runner($presetNm, $overArr);

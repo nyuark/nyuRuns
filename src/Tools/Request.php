@@ -19,6 +19,7 @@ class Request{
 	protected $dataVals; // Registry of values
 	protected $cookVals; // Registry of readable cookie values (written through response)
 	protected $fileData; // Registry of files
+	protected $tmpFiles = Array(); // Temporary files written for uploads received in the raw body
 	//protected $agentStr; // Registry of values (Moved to Client)
 
 	/**
@@ -96,7 +97,7 @@ class Request{
 
 		// Get cookies and files
 		$this->cookVals = $_COOKIE;
-		// TODO: Both file arrays should get the same format / structure
+		// Files of the raw body are described like the $_FILES entries (see saveUpFle)
 		$this->fileData = array_merge($_FILES, $this->rawInput['file']);
 
 		// TODO : Do we really need this??? ClientCon should get this...
@@ -120,7 +121,7 @@ class Request{
 	 * @return Array Associative array with 'head', 'vars', 'file' and 'data' keys.
 	 */
 	protected function getRawDat(): Array {
-		// Fetch content and determine boundary
+		// Fetch content
 		$rawData = file_get_contents('php://input');
 
 		// JSON body (POST/PUT/PATCH) : decode directly, no boundary framing
@@ -156,72 +157,160 @@ class Request{
 			);
 		}
 
-		$rawData = str_replace("\r",'',$rawData);
-		$bndrPos = strpos($rawData, "\n");
-		if($bndrPos!==false){
-			$boundry = substr($rawData, 0, $bndrPos );
-		}else{
-			// No boundaries found
-			$saveFlx = array(
-				'head'=>Array(),
-				'vars'=>Array(),
-				'file'=>Array(),
-				'data'=>$rawData
-			);
-			return $saveFlx;
+		return $this->readMulti( $rawData, $cntType );
+	}
+
+	/**
+	 * Splits a multipart body into variables and files, cutting on the
+	 * boundary announced by the Content-Type header so that binary
+	 * content is left byte for byte as it was sent.
+	 *
+	 * @param String $rawContent Raw request body.
+	 * @param String $contntType Content-Type header of the request.
+	 * @return Array Associative array with 'head', 'vars', 'file' and 'data' keys.
+	 */
+	protected function readMulti( String $rawContent, String $contntType ): Array {
+		$readFlx = array(
+			'head'=>Array(),
+			'vars'=>Array(),
+			'file'=>Array(),
+			'data'=>$rawContent
+		);
+		if( !preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $contntType, $bndVals) ){
+			return $readFlx;
 		}
+		$boundry = '--'.($bndVals[1]!='' ? $bndVals[1] : $bndVals[2]);
 
-		// Fetch each part
-		$flxPrts = array_slice( explode($boundry, $rawData), 1 );
-		$prtHeds = array();
-		$savData = array();
-		$savFile = array();
+		// The first piece is what precedes the first boundary
+		$flxPrts = array_slice( explode($boundry, $rawContent), 1 );
+		foreach( $flxPrts as $partLn ){
+			// The closing boundary is followed by "--"
+			if( substr($partLn, 0, 2)=='--' ){
+				break;
+			}
+			// A part is : line break, headers, empty line, content, line break
+			$partLn = preg_replace('/^\r?\n/', '', $partLn);
+			if( !preg_match('/\r?\n\r?\n/', $partLn, $sepVals, PREG_OFFSET_CAPTURE) ){
+				continue;
+			}
+			$prtHead = substr($partLn, 0, $sepVals[0][1]);
+			$prtBody = substr($partLn, $sepVals[0][1] + strlen($sepVals[0][0]));
+			$prtBody = preg_replace('/\r?\n\z/', '', $prtBody);
 
-		foreach ($flxPrts as $partLn) {
-			// If this is the last part, break
-			if ($partLn == "--\n") break;
-
-			// Separate content from headers
-			$partArr = explode("\n\n",$partLn,2);
-			$prtHead = str_replace("\n",';',$partArr[0]);
-			$headArr = explode(';',$prtHead);
-			$vrNames = array();
-
-			foreach($headArr as $headLn){
-				if(trim($headLn)==''){
+			$fldName = null;
+			$fleName = null;
+			$prtType = '';
+			foreach( preg_split('/\r?\n/', $prtHead) as $hedLin ){
+				$colnPos = strpos($hedLin, ':');
+				if( $colnPos===false ){
 					continue;
 				}
-				$hedVals = explode(':',$headLn);
-				if(count($hedVals)>1){
-					$prtHeds[trim($hedVals[0])] = trim($hedVals[1]);
-				}else{
-					$hedLine = str_replace('"','',$headLn);
-					$namVals = explode('=',$hedLine);
-					if(count($namVals)>1){
-						if(trim($namVals[1])!=''){
-							$vrNames[trim($namVals[0])] = trim($namVals[1]);
-						}
+				$hedName = trim(substr($hedLin, 0, $colnPos));
+				$hedText = trim(substr($hedLin, $colnPos+1));
+				$readFlx['head'][$hedName] = trim(strtok($hedText, ';'));
+				if( strcasecmp($hedName, 'Content-Disposition')==0 ){
+					if( preg_match('/\bname=(?:"([^"]*)"|([^;\s]+))/i', $hedText, $nmeVals) ){
+						$fldName = $nmeVals[2] ?? $nmeVals[1];
 					}
+					if( preg_match('/\bfilename=(?:"([^"]*)"|([^;\s]+))/i', $hedText, $fnmVals) ){
+						$fleName = $fnmVals[2] ?? $fnmVals[1];
+					}
+				}elseif( strcasecmp($hedName, 'Content-Type')==0 ){
+					$prtType = $hedText;
 				}
 			}
-			// Get part content and store in named array
-			if(isset($vrNames['filename'])){
-				$savFile[trim($vrNames['filename'])] = trim($partArr[1]);
-			}else{
-				if(isset($vrNames['name'])){
-					$savData[trim($vrNames['name'])] = trim($partArr[1]);
+			if( $fldName===null || $fldName==='' ){
+				continue;
+			}
+
+			if( $fleName!==null ){
+				$fleVals = $this->saveUpFle( $fleName, $prtType, $prtBody );
+				$brckPos = strpos($fldName, '[');
+				if( $brckPos>0 ){
+					// field[], field[key] or field[a][b] : one array per property, as PHP fills $_FILES
+					$fldBase = substr($fldName, 0, $brckPos);
+					foreach( $fleVals as $prpKey => $prpVal ){
+						$this->nestValue( $readFlx['file'][$fldBase][$prpKey], substr($fldName, $brckPos), $prpVal );
+					}
+				}else{
+					$readFlx['file'][$fldName] = $fleVals;
 				}
+			}elseif( strpos($fldName, '[')!==false ){
+				// A variable named like filters[search] or tags[] is nested, as PHP does for forms
+				parse_str($fldName.'='.urlencode($prtBody), $nstVals);
+				$readFlx['vars'] = array_merge_recursive($readFlx['vars'], $nstVals);
+			}else{
+				$readFlx['vars'][$fldName] = $prtBody;
 			}
 		}
-
-		$readFlx = array(
-			'head'=>$prtHeds,
-			'vars'=>$savData,
-			'file'=>$savFile,
-			'data'=>$rawData
-		);
-
 		return $readFlx;
+	}
+
+	/**
+	 * Stores a value under the keys of a bracket path such as [cover],
+	 * [a][b] or [] (next free index), creating the levels on the way.
+	 *
+	 * @param ?Array $targetNode Array to store into, created when null.
+	 * @param String $bracketStr The bracket part of a field name.
+	 * @param mixed  $leafValues Value to store at the end of the path.
+	 */
+	protected function nestValue( ?Array &$targetNode, String $bracketStr, Mixed $leafValues ): Void {
+		preg_match_all('/\[([^\]]*)\]/', $bracketStr, $keyVals);
+		$nodeRef = &$targetNode;
+		foreach( $keyVals[1] as $keyNme ){
+			if( $keyNme==='' ){
+				$nodeRef[] = null;
+				$nodeRef = &$nodeRef[array_key_last($nodeRef)];
+			}else{
+				$nodeRef = &$nodeRef[$keyNme];
+			}
+		}
+		$nodeRef = $leafValues;
+	}
+
+	/**
+	 * Stores an uploaded file's content in a temporary file and describes
+	 * it the way PHP describes a POST upload in $_FILES: 'name' is the file
+	 * name without any folder, 'full_path' the name as the client gave it.
+	 *
+	 * @param String $uploadName File name given by the client.
+	 * @param String $uploadType Content type given by the client.
+	 * @param String $fileContnt Content of the file.
+	 * @return Array The file entry : 'name', 'full_path', 'type', 'tmp_name', 'error' and 'size'.
+	 */
+	protected function saveUpFle( String $uploadName, String $uploadType, String $fileContnt ): Array {
+		$baseNme = preg_replace('#^.*[/\\\\]#', '', $uploadName);
+		$fleVals = Array('name'=>$baseNme, 'full_path'=>$uploadName, 'type'=>$uploadType, 'tmp_name'=>'', 'error'=>UPLOAD_ERR_NO_FILE, 'size'=>0);
+		if( $uploadName==='' ){
+			return $fleVals;
+		}
+		$tmpPath = tempnam(sys_get_temp_dir(), 'nyu');
+		$fleSize = ($tmpPath!==false) ? file_put_contents($tmpPath, $fileContnt) : false;
+		if( $fleSize===false ){
+			$fleVals['error'] = UPLOAD_ERR_CANT_WRITE;
+			return $fleVals;
+		}
+		if( empty($this->tmpFiles) ){
+			register_shutdown_function( Array($this, 'dropTemps') );
+		}
+		$this->tmpFiles[] = $tmpPath;
+		$fleVals['tmp_name'] = $tmpPath;
+		$fleVals['error'] = UPLOAD_ERR_OK;
+		$fleVals['size'] = $fleSize;
+		return $fleVals;
+	}
+
+	/**
+	 * Deletes the temporary upload files still present at the end of the
+	 * request. A file the application moved elsewhere is left alone.
+	 */
+	public function dropTemps(): Void {
+		foreach( $this->tmpFiles as $tmpFle ){
+			if( file_exists($tmpFle) ){
+				@unlink($tmpFle);
+			}
+		}
+		$this->tmpFiles = Array();
 	}
 
 	//function getHeadrs
@@ -298,11 +387,13 @@ class Request{
 	 * @return mixed The header value, or null if not present.
 	 */
 	public function getHeader( String $headersKey='' ): ?String {
-		if( isset( $this->allHeads[$headersKey] ) ){
-			return $this->allHeads[$headersKey];
-		}else{
-			return NULL;
+		// Header names are case-insensitive
+		foreach( $this->allHeads as $hedKey => $hedVal ){
+			if( strcasecmp($hedKey, $headersKey)==0 ){
+				return $hedVal;
+			}
 		}
+		return NULL;
 	}
 
 	/**

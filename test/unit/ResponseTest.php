@@ -43,6 +43,10 @@ checkSame('format name is case-insensitive', builtBody(Array('return'=>'Json'), 
 checkSame('other format is serialized', unserialize(builtBody(Array('return'=>'php'), Array('a'=>1))), Array('a'=>1));
 checkLike('excel template wraps the data', builtBody(Array('tmplte'=>'excel'), Array('a'=>1)), '/^<html.*\{"a":1\}/s');
 
+// An unknown template : the data is still sent, through the plain template, and a warning is raised
+checkSame('unknown template falls back to plain', builtBody(Array('tmplte'=>'nosuchtemplate'), Array('a'=>1)), '{"a":1}');
+checkSame('unknown template raises one warning', count(preg_grep('/Unknown output template "nosuchtemplate", using "plain"/', takeNotes())), 1);
+
 // The template must be usable twice in one request (error reply after a body was prepared)
 $respons = new Response( Array('tmplte'=>'plain', 'return'=>'json') );
 $respons->formatOut( Array('first'=>1) );

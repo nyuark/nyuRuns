@@ -31,15 +31,15 @@ class Actionset {
 	}
 	
 	/**
-	 * Calls the named action method on this actionset if it exists,
-	 * passing the optional parameter along; falls back to defAction()
-	 * otherwise.
+	 * Calls the named action method on this actionset if it is one of the
+	 * application's actions (see ownAction), passing the optional parameter
+	 * along; falls back to defAction() otherwise.
 	 *
 	 * @param String $actionName Name of the action method to call.
 	 * @param String $actnOption Optional extra parameter to pass to the action.
 	 */
 	function runAction( String $actionName, ?String $actnOption=null ): Void {
-		if( method_exists($this,"$actionName") ){
+		if( $this->ownAction($actionName) ){
 			if($actnOption!=null){
 				call_user_func( array($this, $actionName), $actnOption );
 			}else{
@@ -48,6 +48,23 @@ class Actionset {
 		}else{
 			$this->defAction();
 		}
+	}
+
+	/**
+	 * Tells whether a name is an action of this application: a public,
+	 * non-static method that the framework's own Actionset does not declare.
+	 *
+	 * @param String $actionName Name of the method to check.
+	 * @return Bool True when the method can be run as an action.
+	 */
+	protected function ownAction( String $actionName ): Bool {
+		if( !method_exists($this, $actionName) ){
+			return false;
+		}
+		$mthdObj = new \ReflectionMethod($this, $actionName);
+		return $mthdObj->isPublic() && !$mthdObj->isStatic()
+			&& substr($mthdObj->getName(), 0, 2)!='__'
+			&& $mthdObj->getDeclaringClass()->getName()!=self::class;
 	}
 	
 	/**

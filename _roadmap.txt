@@ -1,33 +1,59 @@
 
 
-	nyuRuns RoadMap : 
+nyuRuns RoadMap : 
+=================
 
-21.01	SysConf :		Core system configuration INI file for hanlding errors, logging,
-						and basic details about runner setup
+Presets:		Review each file in conf/presets and harmonize keys 
+				and available variables that each file can or should
+				contain. These keys must then be defined in each of
+				the preset files, using only variables available. 
+				Perhaps some of these should be removed or added.
 
-21.01	Logging :		Implement a tracing system for debugging purposes, working
-						together with exception instance and callable all around the
-						code. Potentially a static class
+SysConf:		Create a base config file (system.ini) deployed with 
+				each project. It will include core variables of error
+				handling, logging, path configuration, maybe routing
+				and applications restrictions or permissions.
 
-21.01	ExceptErr : 	To raise errors and exceptions along the code
-						To be implemented along runner and maybe injected in response
+Logging:		The logging class should be reviewed to ensure proper
+				understanding. It should be made available to every
+				app in runs. All important events should be traced in
+				a log, especially removal of records, authentication
+				of privileged users and file uploads.
 
-21.01	Auth :			To allow authentication and token generation in order to provide
-						secure and lockable applications with different access methods
-						(RegKey, SSO / JWT, LDAP, DB)
-		
-21.02	ClientReg : 	To detect client side elements (browser, platform, host, device, ...)
+Error Handle:	Errors and warning are now implemented. Yet, they are
+				currently returned asid from the data response. When
+				returning HTML, a helper could be created to display
+				a stack trace, to increase readability. On debug mode
+				that output (HTML + StackTable) couldbe the fallback
+				when certain errors are displayed.
+
+Authenticate:	Authentication should be reviewed and all different 
+				mechanics should be tested and approved. A basic DB
+				authentification could be implemented under "native"
+				option. It would integrate user, password (hashed),
+				token, activation, status and 2FA fields.
 				
-21.02	Response : 		To be accessible accross app and auth instances allowing to 
-						end the run at anytime, spitting a full or partial response
+Authenticate:	More authentication mechanisms or "connectors" could
+				be integrated, like SSO, LDAP, Certificates, Session,
+				and so on. Each mechanism should be carefully revised
+				before integrating it.
+				
+ClientReg : 	Should detect client side elements 
+				(browser, platform, host, device, screen)
+				
+Response :		To be accessible accross apps, thus allowing to break
+				or end the run at anytime, spitting a full or partial 
+				response. Check status of current implementation.
 							
-*21.02	CLI : 			Nice to have, call the runner through a CLI script, to be able
-						to automate tasks, generate code and make runs callable by system
+CLI : 			Nice to have, call the runner through a CLI script, 
+				to be able to automate tasks, generate code and make 
+				runs callable by command line.
 							
 	------------
 		
-		Data : 			Image, Document and sockets, to read and write rich elements
-						and establish server side network connections
+		Data : 			Image, Sound, Document and sockets, to read 
+						and write rich elements, or to establish 
+						some network connections
 						
 		Parsers : 		Read several data types (DOM, XML, Office, ...)
 		Savers : 		Write several data types (DOM, XML, Office, ...)
@@ -35,7 +61,8 @@
 		
 	------------
 	
-	Current TODO List : due by 21.01
+	Current TODO List : due by 30.10
+	Not updated since last year
 		
 		nyuRuns\src\Data\DBList.php (4 hits)
 			Line 218: 		// TODO : Get Table Limit from core config

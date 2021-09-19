@@ -36,26 +36,47 @@ class Runner{
 	 * @param Array  $overLoaded Configuration values to merge over the loaded preset.
 	 */
 	function __construct( String $initPreset = '', Array $overLoaded = Array() ){
-		// Load the preset object and call setup
-		$this->nyPreset = new Preset($initPreset);
+		try{
+			// Load the preset object and call setup
+			$this->nyPreset = new Preset($initPreset);
 
-		// Prepare setup and overload when required
-		$this->setupCon = $this->nyPreset->makeSetup();
-		if(!empty($overLoaded)){
-			$this->setupCon->overLoads($overLoaded, true);
+			// Prepare setup and overload when required
+			$this->setupCon = $this->nyPreset->makeSetup();
+			if(!empty($overLoaded)){
+				$this->setupCon->overLoads($overLoaded, true);
+			}
+			// Load Shared Data (conf, request, response)
+			$GLOBALS['nyuConfig'] = $this->setupCon->getConfig();
+			$this->loadShare();
+
+			// Wire the logger into PHP's error/exception/shutdown handling
+			$GLOBALS['nyuLogger'] = $this->logStore;
+			$GLOBALS['ErrorResponse'] = Array($this, 'failReply');
+			require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
+			initError();
+		}catch( \Throwable $e ){
+			// Nothing can format or log an error yet
+			$this->bootFails($e);
 		}
-		// Load Shared Data (conf, request, response)
-		$GLOBALS['nyuConfig'] = $this->setupCon->getConfig();
-		$this->loadShare();
-
-		// Wire the logger into PHP's error/exception/shutdown handling
-		$GLOBALS['nyuLogger'] = $this->logStore;
-		$GLOBALS['ErrorResponse'] = Array($this, 'failReply');
-		require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
-		initError();
 
 		// Setup route & access, then process
 		$this->loadSetup();
+	}
+
+	/**
+	 * Answers a failure that happens before the error handler is installed:
+	 * the details go to PHP's error log, the client gets a plain JSON 500.
+	 *
+	 * @param \Throwable $bootExcptn What was thrown during start-up.
+	 */
+	protected function bootFails( \Throwable $bootExcptn ): Void {
+		error_log('nyuRuns start-up failure: '.get_class($bootExcptn).': '.$bootExcptn->getMessage().' in '.$bootExcptn->getFile().' on line '.$bootExcptn->getLine());
+		if( !headers_sent() ){
+			http_response_code(500);
+			header('Content-Type: application/json; charset=utf-8');
+		}
+		print(json_encode( Array('error'=>'Internal Server Error', 'code'=>500) ));
+		exit();
 	}
 
 	/**
@@ -202,15 +223,29 @@ class Runner{
 	 * @param mixed  $dataValues Output data for a 2xx status.
 	 */
 	protected function setStatus( Int $statusCode, String $statusMssg='', Mixed $dataValues=null ): Void {
-		if( $statusCode>=200 && $statusCode<300 ){
+		$success = ($statusCode>=200 && $statusCode<300);
+		if( $success ){
 			// "No content" is sent as a plain 200 carrying the (empty) output
 			if( $statusCode==204 ){
 				$statusCode = 200;
 			}
-			$this->getLayout( $dataValues ?? Array() );
+			$bodyArr = $dataValues ?? Array();
 		}else{
-			$this->getLayout( Array('error'=>$statusMssg, 'code'=>$statusCode) );
+			$bodyArr = Array('error'=>$statusMssg, 'code'=>$statusCode);
 		}
+
+		// Warnings and notices collected by the error handler (only when errors may be shown)
+		$hndlObj = $GLOBALS['ErrorHandler'] ?? null;
+		$warnLst = ($hndlObj!==null) ? $hndlObj->takeStack() : Array();
+		if( !empty($warnLst) ){
+			if( $success ){
+				$bodyArr = Array('data'=>$bodyArr, 'warnings'=>$warnLst);
+			}else{
+				$bodyArr['warnings'] = $warnLst;
+			}
+		}
+
+		$this->getLayout( $bodyArr );
 		$this->procStat = $statusCode;
 	}
 

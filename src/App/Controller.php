@@ -21,14 +21,14 @@ class Controller{
 	// Initialize application
 	/**
 	 * Loads the application's Actions.php file and prepares it (via
-	 * reflection) for execution, then loads its model stack.
+	 * reflection) for execution, then loads its model stack. A missing
+	 * application, or one whose Actions.php does not declare its actionset,
+	 * is reported as a 404 through getStatus().
 	 *
 	 * @param String   $runAppName Name of the application (run) to load.
 	 * @param String   $runAppActn Name of the action/method to call on the application.
 	 * @param Registry $inRegistry Registry of input values to pass to the application.
 	 * @param String   $runAppOptn Optional extra parameter passed to the action.
-	 *
-	 * @todo Missing-application/actionset errors are silently swallowed instead of raised.
 	 */
 	public function __construct( String $runAppName, String $runAppActn, Registry $inRegistry, ?String $runAppOptn = null ){
 		// Change case of AppName
@@ -48,8 +48,10 @@ class Controller{
 			try{
 				// Load the actionset in a reflection class
 				$this->appObjct = new \ReflectionClass($actNSpc.'Actions');
-			}catch(Exception $e){
-				// Throw app loading error
+			}catch(\ReflectionException $e){
+				// Actions.php does not declare the application's actionset : reported through getStatus()
+				$this->loadFail = 'Unknown Application';
+				return;
 			}
 		}else{
 			// Unknown application : reported through getStatus()

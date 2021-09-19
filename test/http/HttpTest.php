@@ -149,6 +149,12 @@ if( !$isReady ){
 		checkSame($tplNme.' template: the document starts at its first byte', substr($replyAr['body'], 0, 5), '<html');
 	}
 
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Tmpl'=>'nosuchtemplate'));
+	checkSame('unknown template: the record is still sent', Array($replyAr['code'], $replyAr['type'], json_decode($replyAr['body'], true)['title'] ?? null), Array(200, $jsonTyp, 'Alpha Night'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99', Array('X-Test-Tmpl'=>'nosuchtemplate'));
+	checkSame('unknown template: an error status keeps its body', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Show not found","code":404}'));
+
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctype'=>'application/problem+json'));
 	checkSame('a Content-Type set by the preset is kept', $replyAr['type'], 'application/problem+json');
 
@@ -169,6 +175,74 @@ if( !$isReady ){
 		$replyAr = httpQuery($oneBdy[0], $baseUrl.'/auth/login', Array('Content-Type'=>$oneBdy[1]), $oneBdy[2]);
 		checkSame($oneBdy[0].' '.strtok($oneBdy[1], ';').' body', $replyAr['code'], $oneBdy[3]);
 	}
+
+	// Header names are case-insensitive : the body is read whatever the case of Content-Type
+	$replyAr = httpQuery('PUT', $baseUrl.'/auth/login', Array('content-type'=>'application/json'), '{"user":"nobody","pass":"wrong"}');
+	checkSame('PUT body with a lower-case content-type header', $replyAr['code'], 401);
+
+	// Misbehaving actions, from the fixture applications in test/fixtures/runs.
+	// What a client sees of a warning depends on ERR_SHOW in conf/system.ini.
+	$fixHead = Array('X-Test-Runs'=>'1');
+	$sysConf = @parse_ini_file(TOP_DIR.DS.'conf'.DS.'system.ini');
+	$errShow = !empty($sysConf['ERR_SHOW']);
+	$warnPtn = '/^E_USER_WARNING: probe warning in .*Actions\.php on line \d+$/';
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', $fixHead);
+	checkSame('fixture: clean action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe', $fixHead);
+	checkSame('fixture: first declared action is the default', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/lost', $fixHead);
+	checkSame('fixture: a default action that does not exist is 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Unknown Action","code":500}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/lost/here', $fixHead);
+	checkSame('fixture: its real action still answers', Array($replyAr['code'], $replyAr['body']), Array(200, '{"found":true}'));
+
+	// A failure before the error handler is installed : plain JSON 500, without details
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Preset'=>'nosuchpreset'));
+	checkSame('missing preset: generic JSON 500', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Internal Server Error","code":500}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/blank/here', $fixHead);
+	checkSame('fixture: an Actions.php without its actionset is 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
+
+	// Only the application's own public methods are actions
+	foreach( Array('/probe/hidden', '/probe/fixed', '/probe/__construct', '/probe/checkList', '/probe/runAction/clean', '/probe/ownAction/clean') as $notAct ){
+		$replyAr = httpQuery('GET', $baseUrl.$notAct, $fixHead);
+		checkSame('fixture: '.$notAct.' is not an action', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Unknown Action","code":500}'));
+	}
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/CLEAN', $fixHead);
+	checkSame('fixture: action names are not case-sensitive', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/warn', $fixHead);
+	$bodyArr = json_decode($replyAr['body'], true);
+	checkSame('warning: status and type are untouched', Array($replyAr['code'], $replyAr['type']), Array(200, $jsonTyp));
+	if( $errShow ){
+		checkSame('warning: output is wrapped under data', $bodyArr['data'] ?? null, Array(1, 2, 3));
+		checkSame('warning: both warnings are listed', count($bodyArr['warnings'] ?? Array()), 2);
+		checkLike('warning: text of the first one', $bodyArr['warnings'][0] ?? null, $warnPtn);
+	}else{
+		checkSame('warning: not shown when ERR_SHOW is off', $bodyArr, Array(1, 2, 3));
+	}
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/warnfail', $fixHead);
+	$bodyArr = json_decode($replyAr['body'], true);
+	checkSame('warning + error status: status and message', Array($replyAr['code'], $bodyArr['error'] ?? null, $bodyArr['code'] ?? null), Array(404, 'Nothing here', 404));
+	checkSame('warning + error status: warnings beside the error', count($bodyArr['warnings'] ?? Array()), $errShow ? 1 : 0);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/boom', $fixHead);
+	$bodyArr = json_decode($replyAr['body'], true);
+	checkSame('warning + exception: 500 in the configured format', Array($replyAr['code'], $replyAr['type'], $bodyArr['code'] ?? null), Array(500, $jsonTyp, 500));
+	if( $errShow ){
+		checkLike('warning + exception: exception message', $bodyArr['error'] ?? null, '/^RuntimeException \(code 7\): probe failure in .*Actions\.php on line \d+$/');
+		checkLike('warning + exception: the earlier warning is kept', $bodyArr['warnings'][0] ?? null, $warnPtn);
+	}else{
+		checkSame('warning + exception: generic message when ERR_SHOW is off', $bodyArr, Array('error'=>'Internal Server Error', 'code'=>500));
+	}
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/fatal', $fixHead);
+	$bodyArr = json_decode($replyAr['body'], true);
+	checkSame('fatal error: 500 in the configured format', Array($replyAr['code'], $replyAr['type'], $bodyArr['code'] ?? null), Array(500, $jsonTyp, 500));
+	checkLike('fatal error: message', $bodyArr['error'] ?? null, $errShow ? '/^Allowed memory size of \d+ bytes exhausted/' : '/^Internal Server Error$/');
 }
 
 proc_terminate($server);

@@ -68,17 +68,20 @@ class Response{
 	
 	/**
 	 * Loads the configured output template file and substitutes the
-	 * formatted data into its `%data%` placeholder.
+	 * formatted data into its `%data%` placeholder. An unknown template
+	 * raises a warning and the 'plain' one is used instead.
 	 */
 	public function buildTmpl( ): Void {
 		$tplFile = realpath(dirname(__FILE__)).DS.'Format'.DS.$this->tmpltNme.'.php';
-		if(file_exists($tplFile)){
-			require($tplFile);
-			$parsStr = str_replace('%data%',$this->dataOuts,$tplData);
-			$this->finalStr = $parsStr;
-		}else{
-			// TODO : Raise error
+		if(!file_exists($tplFile)){
+			// Unknown template : the data is sent as is, and the mistake is reported
+			trigger_error('Unknown output template "'.$this->tmpltNme.'", using "plain"', E_USER_WARNING);
+			$this->tmpltNme = 'plain';
+			$tplFile = realpath(dirname(__FILE__)).DS.'Format'.DS.'plain.php';
 		}
+		require($tplFile);
+		$parsStr = str_replace('%data%',$this->dataOuts,$tplData);
+		$this->finalStr = $parsStr;
 	}
 	
 	/**

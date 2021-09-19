@@ -9,11 +9,12 @@ require __DIR__.'/../lib/harness.php';
  * Runs one error-handler scenario in a child process.
  *
  * @param String $runModeNme Scenario name understood by handlerChild.php.
+ * @param String $extraValue Optional extra argument for the scenario.
  * @return Array The child's output under 'text' and its log lines under 'logs'.
  */
-function handlerOf( String $runModeNme ): Array {
-	$logsDir = inTempDir('hndl_'.$runModeNme);
-	$outcome = runScript( Array(TST_DIR.DS.'lib'.DS.'handlerChild.php', $runModeNme, $logsDir) );
+function handlerOf( String $runModeNme, String $extraValue='' ): Array {
+	$logsDir = inTempDir('hndl_'.$runModeNme.$extraValue);
+	$outcome = runScript( Array(TST_DIR.DS.'lib'.DS.'handlerChild.php', $runModeNme, $logsDir, $extraValue) );
 	$logFile = $logsDir.DS.'err.log';
 	return Array(
 		'text'=>$outcome['text'],
@@ -74,5 +75,30 @@ if( !is_array($replies) ){
 	checkLike('broken responder: falls back to the error block', $replies['broken responder, show on']['echo'], '/E_EXCEPTION/');
 	checkTrue('reply: every case is logged', count($outcome['logs'])>=5);
 }
+
+// Warnings inside a framework request are kept for the response body instead of echoed
+$outcome = handlerOf('stack');
+$stacked = json_decode($outcome['text'], true);
+if( !is_array($stacked) ){
+	failCheck('stack: the child returns its results', '        output:   '.showValue($outcome['text'])."\n");
+}else{
+	checkSame('stack: nothing echoed when ERR_SHOW is on', $stacked['show on']['echo'], '');
+	checkSame('stack: both errors are kept when ERR_SHOW is on', $stacked['show on']['first'], Array(
+		'E_USER_WARNING: kept warning in file.php on line 12',
+		'E_NOTICE: kept notice in file.php on line 13'
+	));
+	checkSame('stack: taking the errors empties the stack', $stacked['show on']['again'], Array());
+	checkSame('stack: nothing kept when ERR_SHOW is off', Array($stacked['show off']['echo'], $stacked['show off']['first']), Array('', Array()));
+	checkLike('stack: without a responder the error is echoed', $stacked['no responder']['echo'], '/E_USER_WARNING.*shown warning/');
+	checkSame('stack: without a responder nothing is kept', $stacked['no responder']['first'], Array());
+	checkSame('stack: every error is logged', count($outcome['logs']), 5);
+}
+
+// A real fatal error answers through the responder too
+$outcome = handlerOf('memreply', 'on');
+checkLike('fatal reply: message, file and line when ERR_SHOW is on', $outcome['text'], '/REPLY:Allowed memory size of \d+ bytes exhausted .* in .*handlerChild\.php on line \d+/');
+checkSame('fatal reply: logged once', count($outcome['logs']), 1);
+$outcome = handlerOf('memreply', 'off');
+checkLike('fatal reply: generic message when ERR_SHOW is off', $outcome['text'], '/REPLY:Internal Server Error/');
 
 endChecks();

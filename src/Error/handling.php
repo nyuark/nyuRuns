@@ -116,7 +116,7 @@ function hndlExcpt( Throwable $exceptnObj ): Bool
 }
 
 /**
- * Logs an uncaught exception and answers the request in the configured
+ * Logs an uncaught exception or fatal error and answers the request in the configured
  * output format, through the responder registered by the Runner. Does
  * nothing when no responder is available or when output has already
  * started.
@@ -146,7 +146,8 @@ function sendReply( Int|String $errorLevel, String $errMessage, ?String $errFile
     }
     catch( Throwable $e )
     {
-        // The responder itself failed: fall back to the plain display
+        // The responder itself failed: drop it and fall back to the plain display
+        unset($GLOBALS['ErrorResponse']);
         return false;
     }
 }
@@ -164,9 +165,14 @@ function hndlFatal(): Void
     if( !isset($lastErr['type']) && !isset($lastErr['message']))
         exit();
 
-    if( in_array($lastErr['type'], Array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR)) && !headers_sent() ){
+    $isFatal = in_array($lastErr['type'], Array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR));
+    if( $isFatal && !headers_sent() ){
         http_response_code(500);
     }
+
+    // Answer in the configured output format when a responder is registered
+    if( $isFatal && sendReply($lastErr['type'], $lastErr['message'], $lastErr['file'], $lastErr['line']) )
+        return;
 
     if( isset($GLOBALS['ErrorCallback']))
     {
@@ -231,6 +237,7 @@ function showError( Int|String $errorLevel, String $errMessage, ?String $errFile
 class ErrorHandler
 {
     protected $logrInst;
+    protected $errStack = Array();
 
     /**
      * @param mixed $loggerInst A logger instance (nyu\Tools\Logger) to log through, or null to echo (fallback, e.g. CLI/dev).
@@ -257,9 +264,16 @@ class ErrorHandler
         {
             return;
         }
-        // Errors may be shown: also echo below.
+        // Errors may be shown: kept for the response, or echoed below.
 
         $typeStr = ErrorHandler::errorType($errorLevel);
+
+        if( isset($GLOBALS['ErrorResponse']) )
+        {
+            // Inside a framework request: kept for the response body instead of echoed
+            $this->errStack[] = $typeStr.': '.$errMessage.' in '.$errFilePth.' on line '.$errLineNum;
+            return;
+        }
 
         if( isset($errContext) && !is_array($errContext) && strlen($errContext) > 0 )
             $errContext = str_replace("#", "<br/>\r\n#", $errContext);
@@ -285,6 +299,19 @@ class ErrorHandler
         $retnVal .= "</div>\r\n";
 
         echo($retnVal);
+    }
+
+    /**
+     * Returns the errors collected for display during the request, and
+     * forgets them.
+     *
+     * @return Array The collected errors, as 'LEVEL: message in file on line N' strings.
+     */
+    public function takeStack(): Array
+    {
+        $stckArr = $this->errStack;
+        $this->errStack = Array();
+        return $stckArr;
     }
 
     /**

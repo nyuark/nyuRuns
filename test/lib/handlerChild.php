@@ -47,6 +47,44 @@ if( $runMode=='reply' ){
 	exit(0);
 }
 
+if( $runMode=='stack' ){
+	// Warnings inside a framework request (a responder is registered) are kept
+	// for the response body instead of echoed
+	$results = Array();
+	foreach( Array('show on'=>true, 'show off'=>false) as $casNme=>$showVal ){
+		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$showVal)) );
+		$GLOBALS['ErrorResponse'] = function( String $errMessage ){};
+		ob_start();
+		hndlError(E_USER_WARNING, 'kept warning', 'file.php', 12);
+		hndlError(E_NOTICE, 'kept notice', 'file.php', 13);
+		$results[$casNme] = Array(
+			'echo'=>trim(ob_get_clean()),
+			'first'=>$GLOBALS['ErrorHandler']->takeStack(),
+			'again'=>$GLOBALS['ErrorHandler']->takeStack()
+		);
+	}
+	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true)) );
+	unset($GLOBALS['ErrorResponse']);
+	ob_start();
+	hndlError(E_USER_WARNING, 'shown warning', 'file.php', 14);
+	$results['no responder'] = Array(
+		'echo'=>trim(preg_replace('/\s+/', ' ', strip_tags(ob_get_clean()))),
+		'first'=>$GLOBALS['ErrorHandler']->takeStack()
+	);
+	echo json_encode($results);
+	exit(0);
+}
+
+if( $runMode=='memreply' ){
+	// Real fatal error with a responder registered: argv[3] is 'on' or 'off' for ERR_SHOW
+	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>(($argv[3] ?? 'off')=='on'))) );
+	$GLOBALS['ErrorResponse'] = function( String $errMessage ){ echo 'REPLY:'.$errMessage; };
+	initError();
+	ini_set('memory_limit', '16M');
+	$bigText = str_repeat('x', 64*1024*1024);
+	exit(0);
+}
+
 initError();
 
 if( $runMode=='warning' ){

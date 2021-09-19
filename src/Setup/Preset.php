@@ -14,12 +14,15 @@ class Preset{
 	 * Loads and parses the named RPS preset file.
 	 *
 	 * @param String $presetName Name of the preset file (without extension) to load; defaults to 'default'.
+	 * @throws \RuntimeException When the preset file is missing or is not valid JSON.
 	 */
     function __construct(String $presetName = 'default'){
 		if($presetName==''){
 			$presetName = 'default';
 		}
-		$this->parseFile($presetName);
+		if( !$this->rtsParser($presetName) ){
+			throw new \RuntimeException('Preset "'.$presetName.'" is missing or is not valid JSON');
+		}
 	}
 
 	/**
@@ -29,7 +32,7 @@ class Preset{
 	 * @param String $presetName Name of the preset file (without extension) to parse.
 	 * @return Bool True if the preset was parsed into a non-empty array, false otherwise.
 	 */
-	protected function parseFile(String $presetName): Bool {
+	protected function rtsParser(String $presetName): Bool {
 		$rpsFile = TOP_DIR.DS.'conf'.DS.'presets'.DS.$presetName.'.rps';
 		if(file_exists($rpsFile)){
 			$jsnLine = file($rpsFile);

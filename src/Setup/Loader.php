@@ -97,17 +97,18 @@ class Loader{
 		$conScan = scandir($conPath);
 		// Allowed file types
 		$allowFT = Array('ini','json');
-		$conFltr = $confSet['fnames'];
+		// File names to load : 'any', or a comma-separated list of names without extension
+		$conFltr = $confSet['fnames'] ?? 'any';
 		$nameLst = false;
-		if($conFltr!='any' && strpos($conFltr,',')!==false){
-			 $nameLst = explode('',$conFltr);
+		if($conFltr!='any'){
+			$nameLst = array_map('trim', explode(',', $conFltr));
 		}
 		foreach($conScan as $fleNme){
 			$nowPath = $conPath.$fleNme;
 			if(!is_dir($nowPath) && is_file($nowPath)){
 				$nyuFile = new DFile($nowPath);
 				// Skip file if title is not in filter list
-				if($nameLst!=false && !in_array($nyuFile->readValue('tit'),$nameLst)){
+				if($nameLst!==false && !in_array($nyuFile->readValue('tit'),$nameLst)){
 					continue;
 				}
 				if(in_array($nyuFile->readValue('ext'),$allowFT)){
