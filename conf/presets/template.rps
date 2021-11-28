@@ -85,7 +85,10 @@
     ],
 	"route": {
 		"detect": "autopath",
-		"mapper": "$app/$action/$param"
+		"mapper": "$app/$action/$param",
+        // Folder of the declared route files (*.rte); relative to the project root.
+        // Uses conf/routes when not set. Declared routes are checked before the mapper
+		"folder": "conf/routes"
 	},
 	"rnder": {
 		"tmplte": "plain",

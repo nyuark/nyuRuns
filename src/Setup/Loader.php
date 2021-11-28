@@ -160,76 +160,15 @@ class Loader{
 
     /**
 	 * Resolves the application/action/param to run for the current request,
-	 * either by detecting them positionally from the URL path (autopath
-	 * mode) or by looking the path up in conf/routes.lib.
+	 * through the Router and the 'route' configuration of the active preset.
 	 *
 	 * @param Request $requestObj The shared, already-parsed HTTP request.
 	 * @return Registry Registry holding the resolved 'app' and 'action' values.
 	 */
     function loadRoute( Request $requestObj ): Registry {
 		$rteConf = $this->getRegKey('route');
-		$rteVals = Array(
-			'app'=>null,
-			'action'=>null
-		);
-
-		$rqstURI = $requestObj->getURLVal('reqstURI');
-		$quoMark = strpos($rqstURI, '?');
-		if($quoMark!==false){
-			$urlPath = substr($rqstURI, 1, $quoMark-1);
-		}else{
-			$urlPath = substr($rqstURI, 1);
-		}
-		$urlPart = explode( '/', $urlPath );
-
-		// Automatic path detection (from url path)
-		if( $rteConf['detect'] == 'autopath' ){
-			$mapPath = str_replace( '$', '', $rteConf['mapper'] );
-			$mapPart = explode( '/', $mapPath );
-
-			foreach( $mapPart as $mapIdx => $mapKey ){
-				$currVal = null;
-				if( isset( $urlPart[$mapIdx] ) ){
-					$currVal = $urlPart[$mapIdx];
-				}
-				$rteVals[$mapKey] = $currVal;
-			}
-		}
-
-		if(empty(join($rteVals)) || strPos($urlPath,'.php')!==false){
-			$urlPath = str_replace('.php','',$urlPath);
-			// Get route from entry point file
-			$manRout = $GLOBALS['manualRoute'] ?? null;
-			if( $rteConf['detect'] == 'manual' && !empty($manRout[$urlPath]['command']) ){
-				$manVals = $manRout[$urlPath]['command'];
-				$rteVals = Array(
-					'app'=>		$manVals['app'],
-					'action'=>	$manVals['act']
-				);
-			}else{
-				if($urlPath==''){
-					$urlPath = 'index';
-				}
-				// Get route from files library
-				$rteConf['detect'] = 'routelib';
-				$rtePath = TOP_DIR.DS.'conf'.DS.'routes.lib';
-				$rteFile = new DFile($rtePath);
-				$rteFile->fileParse( 'json', false );
-				$rteData = $rteFile->readValue('out');
-				if(isset($rteData[$urlPath])){
-					$appVals = $rteData[$urlPath]['command'];
-					$rteVals = Array(
-						'app'=>		$appVals['app'],
-						'action'=>	$appVals['act']
-					);
-				}else{
-					// No route set
-				}
-			}
-		}
-
-		$routReg = new Registry( $rteVals );
-		return $routReg;
+		$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), $requestObj );
+		return $routObj->findRoute();
 	}
 
     /**

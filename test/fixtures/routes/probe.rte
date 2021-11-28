@@ -1,0 +1,13 @@
+{
+	"ping" :                  { "target": { "app": "probe", "act": "clean" } },
+	"items/$id" :             { "target": { "app": "probe", "act": "mirror" } },
+	"items/$id/parts/$part" : { "target": { "app": "probe", "act": "mirror" } },
+	"probe/warnfail" :        { "target": { "app": "probe", "act": "clean" } },
+	"broken" :                { "output": "simple" },
+	"gets" :                  { "allows": "head, options", "target": { "app": "probe", "act": "clean" } },
+	"both" :                  { "allows": "GET, POST", "target": { "app": "probe", "act": "clean" } },
+	"things/$id" :            { "target": {
+		"GET":    { "app": "probe", "act": "mirror" },
+		"delete": { "app": "probe", "act": "clean" }
+	} }
+}

@@ -18,6 +18,14 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Answers with the parameter it was called with.
+	 */
+	public function mirror( String $givenValue ): Void {
+		$this->statCode = 200;
+		$this->asOutput = Array('got'=>$givenValue);
+	}
+
+	/**
 	 * A helper, not an action: must not be reachable by URL.
 	 */
 	protected function hidden(): Void {

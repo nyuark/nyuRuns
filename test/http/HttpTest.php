@@ -198,6 +198,77 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/lost/here', $fixHead);
 	checkSame('fixture: its real action still answers', Array($replyAr['code'], $replyAr['body']), Array(200, '{"found":true}'));
 
+	// Declared routes (test/fixtures/routes) : checked before autopath, exact keys then patterns
+	$rteHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1');
+	$noAppli = Array(404, '{"error":"Unknown Application","code":404}');
+
+	$replyAr = httpQuery('GET', $baseUrl.'/ping', $rteHead);
+	checkSame('route: exact key', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/ping', $fixHead);
+	checkSame('route: not declared outside its routes folder', Array($replyAr['code'], $replyAr['body']), $noAppli);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/items/42', $rteHead);
+	checkSame('route: a captured value is the action parameter', Array($replyAr['code'], $replyAr['body']), Array(200, '{"got":"42"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/items/42/', $rteHead);
+	checkSame('route: trailing slash is ignored', Array($replyAr['code'], $replyAr['body']), Array(200, '{"got":"42"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/items/a%20b', $rteHead);
+	checkSame('route: a captured value is URL-decoded', Array($replyAr['code'], $replyAr['body']), Array(200, '{"got":"a b"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/items/42/parts/7', $rteHead);
+	checkSame('route: the first captured value is the parameter', Array($replyAr['code'], $replyAr['body']), Array(200, '{"got":"42"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/items/42/extra', $rteHead);
+	checkSame('route: a longer path does not match the pattern', Array($replyAr['code'], $replyAr['body']), $noAppli);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/warnfail', $rteHead);
+	checkSame('route: a declared route wins over autopath', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', $rteHead);
+	checkSame('route: autopath is the fallback', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/broken', $rteHead);
+	checkSame('route: an entry without application is skipped', Array($replyAr['code'], $replyAr['body']), $noAppli);
+
+	// Methods of declared routes : GET for a general target, unless 'allows' lists others
+	$allowOf = function( Array $replyArray ): ?String {
+		foreach( $replyArray['head'] as $hedLin ){
+			if( stripos($hedLin, 'Allow:')===0 ){
+				return trim(substr($hedLin, 6));
+			}
+		}
+		return null;
+	};
+	$refused = '{"error":"Method Not Allowed","code":405}';
+
+	$replyAr = httpQuery('POST', $baseUrl.'/ping', $rteHead);
+	checkSame('method: a general target only accepts GET', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(405, $refused, 'GET'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/gets', $rteHead);
+	checkSame('method: GET stays accepted when allows adds HEAD and OPTIONS', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('HEAD', $baseUrl.'/gets', $rteHead);
+	checkSame('method: an allowed HEAD is served by the GET target, without body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, $jsonTyp, ''));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/gets', $rteHead);
+	checkSame('method: an allowed OPTIONS answers with the accepted methods', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(200, '[]', 'GET, HEAD, OPTIONS'));
+	$replyAr = httpQuery('POST', $baseUrl.'/gets', $rteHead);
+	checkSame('method: refused with the full accepted list', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(405, $refused, 'GET, HEAD, OPTIONS'));
+	$replyAr = httpQuery('HEAD', $baseUrl.'/ping', $rteHead);
+	checkSame('method: HEAD is refused unless allowed', Array($replyAr['code'], $allowOf($replyAr)), Array(405, 'GET'));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/both', $rteHead);
+	checkSame('method: allows opens a general target to other methods', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('PUT', $baseUrl.'/both', $rteHead);
+	checkSame('method: and to those only', Array($replyAr['code'], $allowOf($replyAr)), Array(405, 'GET, POST'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/things/7', $rteHead);
+	checkSame('method: a target keyed by method, GET', Array($replyAr['code'], $replyAr['body']), Array(200, '{"got":"7"}'));
+	$replyAr = httpQuery('DELETE', $baseUrl.'/things/7', $rteHead);
+	checkSame('method: a target keyed by method, DELETE (key case is ignored)', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/things/7', $rteHead);
+	checkSame('method: a method without target is refused', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(405, $refused, 'GET, DELETE'));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/probe/clean', $rteHead);
+	checkSame('method: autopath accepts any method', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+
+	// The project's own routes (conf/routes) : index is a general target
+	$replyAr = httpQuery('POST', $baseUrl.'/');
+	checkSame('method: POST on the index route is refused', Array($replyAr['code'], $allowOf($replyAr)), Array(405, 'GET'));
+
 	// A failure before the error handler is installed : plain JSON 500, without details
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Preset'=>'nosuchpreset'));
 	checkSame('missing preset: generic JSON 500', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Internal Server Error","code":500}'));

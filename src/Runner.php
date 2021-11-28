@@ -285,7 +285,15 @@ class Runner{
 		/*	Place input loading at appCaller level	*/
 		//$this->inputData($appCall, $actCall);
 
-		if( $appCall==null ){
+		$rteStat = $this->routeReg->getDefVal('statCode', 200);
+		if( $rteStat!=200 ){
+			// The route answers by itself : method refused, or OPTIONS
+			$alwList = $this->routeReg->readValue('allowed');
+			if( $alwList!=null ){
+				$this->response->addHeader('Allow', $alwList);
+			}
+			$this->setStatus( $rteStat, strval($this->routeReg->readValue('statMssg')) );
+		}elseif( $appCall==null ){
 			// No route resolved for this request
 			$this->setStatus( 404, 'Unknown Application' );
 		}else{

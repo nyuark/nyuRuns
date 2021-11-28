@@ -5,7 +5,7 @@
 			"type": "regkey",
 			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
 		},
-		"command": {
+		"target": {
 			"app": "client",
 			"act": "edit"
 		},
@@ -29,7 +29,38 @@
 				"keep": "bans"
 			}
 		},
-        "reqest": "GET",
-        "respns": "AJAX"
+        "output": "AJAX"
+	},
+	"profiles/$id" : {
+		"setup": "service",
+		"auth": {
+			"type": "regkey",
+			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
+		},
+		"target": {
+			"app": "client",
+			"act": "edit"
+		},
+        "limited": {
+			"neck": {
+				"call": "100",
+				"secs": "100",
+				"resp": "err_429;Retry-After: 3600",
+				"keep": "stop"
+			},
+			"user": {
+				"call": "1000",
+				"secs": "3600",
+				"resp": "err_429;Retry-After: 3600",
+				"keep": "stop"
+			},
+			"user": {
+				"call": "100",
+				"secs": "10",
+				"resp": "err_429;Retry-After: 3600",
+				"keep": "bans"
+			}
+		},
+        "output": "AJAX"
 	}
 }
