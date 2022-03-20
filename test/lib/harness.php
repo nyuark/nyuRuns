@@ -203,17 +203,22 @@ function runScript( Array $scriptArgs ): Array {
 
 /**
  * Builds a Request without running its constructor, carrying only the
- * given headers.
+ * given headers and server values.
  *
  * @param Array $headersArr Header name => value pairs the request should report.
+ * @param Array $serverVals Server variable => value pairs the request should report.
  * @return nyu\Tools\Request The request object.
  */
-function fakeReqst( Array $headersArr=Array() ): nyu\Tools\Request {
+function fakeReqst( Array $headersArr=Array(), Array $serverVals=Array() ): nyu\Tools\Request {
 	$reflect = new ReflectionClass('nyu\Tools\Request');
 	$request = $reflect->newInstanceWithoutConstructor();
 	$headPrp = $reflect->getProperty('allHeads');
 	$headPrp->setAccessible(true);
 	$headPrp->setValue($request, $headersArr);
+	// Keys in lower case, as the framework's own server registry holds them
+	$servPrp = $reflect->getProperty('serveReg');
+	$servPrp->setAccessible(true);
+	$servPrp->setValue($request, new nyu\Tools\Registry($serverVals + Array('REQUEST_METHOD'=>'GET'), true));
 	return $request;
 }
 

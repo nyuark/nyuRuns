@@ -1,0 +1,5 @@
+{
+	"login":  { "authby": "htpass", "authcf": "tspass", "sessby": "jtoken", "sesscf": "tstokn" },
+	"tstokn": { "secret": "too-short", "lifetm": 300, "algrtm": "HS256" },
+	"tspass": { "htpasswd": "test/fixtures/users.htpasswd" }
+}

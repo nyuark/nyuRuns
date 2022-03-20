@@ -1,0 +1,6 @@
+{
+	"login":  { "authby": "native", "authcf": "tsnatv", "sessby": "phsess", "sesscf": "tssess" },
+	"tsnatv": { "tblnme": "users" },
+	"tssess": { "cookie": "nyuTests", "lifetm": 300, "samest": "strict", "secure": false },
+	"tsshrt": { "cookie": "nyuTests", "lifetm": 1, "samest": "strict", "secure": false }
+}

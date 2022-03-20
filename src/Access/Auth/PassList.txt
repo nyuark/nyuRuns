@@ -1,3 +1,0 @@
-
-
-    // Simple authentication using a user and password file register

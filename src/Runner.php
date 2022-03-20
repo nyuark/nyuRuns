@@ -160,10 +160,10 @@ class Runner{
 	 * auth/sess strategy.
 	 *
 	 * @param Array $accessConf Resolved 'auths' config block for the active preset.
-	 * @return Registry Registry with 'logged', 'user', 'ident', 'statCode' and 'statMssg' keys.
+	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys.
 	 */
 	function chkAccess( Array $accessConf ): Registry {
-		$chkObjc = new Checker( $accessConf, $this->httpRqst );
+		$chkObjc = new Checker( $accessConf, $this->httpRqst, $this->routeReg );
 		return $chkObjc->verifyAxs();
 	}
 
@@ -195,7 +195,7 @@ class Runner{
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
-		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn );
+		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn, $this->axessCon, $this->httpRqst );
 		$statArr = $conTrol->getStatus();
 		$this->setStatus( $statArr['code'], $statArr['mssg'], $conTrol->getOutput() );
 	}

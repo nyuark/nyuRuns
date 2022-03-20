@@ -5,7 +5,7 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": { "required": false },
+	"auths": { "needed": false },
 	"input": [
 		{
 			"naming": "QUERY",
@@ -30,6 +30,8 @@
 		"return": "json",
 		"headrs": {
 			"Access-Control-Allow-Origin":	"*",
+			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",
+			"Access-Control-Allow-Headers":	"Authorization, Content-Type, X-Api-Key",
 			"Cache-Control":				"no-cache, no-store, max-age=0, must-revalidate",
 			"Expires":						"Mon, 26 Jul 1997 05:00:00 GMT",
 			"Pragma":						"no-cache"

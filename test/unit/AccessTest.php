@@ -2,7 +2,8 @@
 
 // Access layer : the Auth strategies (PassList, RegKey), the Sess carriers
 // (Basic, Header, JWT) and the Checker that pairs them.
-// Credentials come from test/fixtures/users.htpasswd (alice / s3cret, bob / hunter2).
+// Credentials come from test/fixtures/users.htpasswd (alice / s3cret, bob / hunter2,
+// erin / tr0ub4dor, frank / letmein).
 
 require __DIR__.'/../lib/harness.php';
 
@@ -11,6 +12,7 @@ use nyu\Access\Auth\RegKey;
 use nyu\Access\Sess\Basic;
 use nyu\Access\Sess\Header;
 use nyu\Access\Sess\JWT;
+use nyu\Access\Sess\ClCert;
 use nyu\Access\Checker;
 use nyu\Tools\Registry;
 
@@ -28,7 +30,16 @@ function basicHead( String $userString, String $passString ): Array {
 // PassList : .htpasswd file, path relative to the project root
 $passLst = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
 checkSame('PassList bcrypt hash',        $passLst->checkCred(Array('user'=>'alice', 'pass'=>'s3cret')), Array('user'=>'alice'));
-checkSame('PassList legacy crypt hash',  $passLst->checkCred(Array('user'=>'bob', 'pass'=>'hunter2')), Array('user'=>'bob'));
+checkSame('PassList legacy crypt hash refused by default', $passLst->checkCred(Array('user'=>'bob', 'pass'=>'hunter2')), false);
+checkSame('PassList apr1 hash',          $passLst->checkCred(Array('user'=>'erin', 'pass'=>'tr0ub4dor')), Array('user'=>'erin'));
+checkSame('PassList apr1 wrong password', $passLst->checkCred(Array('user'=>'erin', 'pass'=>'nope')), false);
+checkSame('PassList SHA hash refused by default', $passLst->checkCred(Array('user'=>'frank', 'pass'=>'letmein')), false);
+checkSame('PassList SHA hash refused message', $passLst->lastError(), 'Invalid credentials');
+$weakLst = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'unsecure'=>true) );
+checkSame('PassList SHA hash in unsecure mode', $weakLst->checkCred(Array('user'=>'frank', 'pass'=>'letmein')), Array('user'=>'frank'));
+checkSame('PassList SHA wrong password in unsecure mode', $weakLst->checkCred(Array('user'=>'frank', 'pass'=>'nope')), false);
+checkSame('PassList legacy crypt hash in unsecure mode', $weakLst->checkCred(Array('user'=>'bob', 'pass'=>'hunter2')), Array('user'=>'bob'));
+checkSame('PassList legacy crypt wrong password in unsecure mode', $weakLst->checkCred(Array('user'=>'bob', 'pass'=>'nope')), false);
 checkSame('PassList wrong password',     $passLst->checkCred(Array('user'=>'alice', 'pass'=>'nope')), false);
 checkSame('PassList wrong password message', $passLst->lastError(), 'Invalid credentials');
 checkSame('PassList unknown user',       $passLst->checkCred(Array('user'=>'carol', 'pass'=>'x')), false);
@@ -38,7 +49,7 @@ checkSame('PassList missing file',       $noStore->checkCred(Array('user'=>'alic
 checkSame('PassList missing file message', $noStore->lastError(), 'Credential store unavailable');
 
 // RegKey : flat list of API keys
-$keysLst = new RegKey( Array('keys'=>Array('k-111', 'k-222')) );
+$keysLst = new RegKey( Array('keylst'=>Array('k-111', 'k-222')) );
 checkSame('RegKey valid key',            $keysLst->checkCred(Array('key'=>'k-222')), Array('user'=>''));
 checkSame('RegKey invalid key',          $keysLst->checkCred(Array('key'=>'zzz')), false);
 checkSame('RegKey invalid key message',  $keysLst->lastError(), 'Invalid API key');
@@ -71,7 +82,7 @@ $dfltHdr = new Header( Array(), $keysLst );
 checkSame('Header default name is X-Api-Key', $dfltHdr->verifyReq(fakeReqst(Array('X-Api-Key'=>'k-111'))), Array('user'=>''));
 
 // JWT : self-verifying bearer token
-$jwtSess = new JWT( Array('secret'=>str_repeat('s', 40), 'ttl'=>60) );
+$jwtSess = new JWT( Array('secret'=>str_repeat('s', 40), 'lifetm'=>60) );
 $jwToken = $jwtSess->issueTokn(Array('user'=>'carol'));
 checkLike('JWT token shape',             $jwToken, '/^[\w-]+\.[\w-]+\.[\w-]+$/');
 $payload = $jwtSess->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$jwToken)));
@@ -86,13 +97,56 @@ checkSame('JWT signed with another secret', $othrJwt->verifyReq(fakeReqst(Array(
 $noScrt = new JWT( Array() );
 checkSame('JWT without a secret',        $noScrt->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$jwToken))), false);
 checkSame('JWT without a secret message', $noScrt->lastError(), 'JWT secret not configured');
+$shrtJwt = new JWT( Array('secret'=>'REPLACE_ME') );
+checkSame('JWT with a short secret',     $shrtJwt->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$jwToken))), false);
+checkSame('JWT with a short secret message', $shrtJwt->lastError(), 'JWT secret not configured');
+checkSame('JWT with a short secret issues no token', $shrtJwt->issueTokn(Array('user'=>'x')), '');
+
+// ClCert : reads what the web server reported about the TLS client certificate
+$crtVals = Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol', 'SSL_CLIENT_I_DN_CN'=>'Test CA');
+$certSes = new ClCert( Array() );
+checkSame('ClCert verified certificate',  $certSes->verifyReq(fakeReqst(Array(), $crtVals)), Array('user'=>'carol'));
+checkSame('ClCert no certificate',        Array($certSes->verifyReq(fakeReqst()), $certSes->lastError()), Array(false, 'No verified client certificate'));
+checkSame('ClCert not presented',         $certSes->verifyReq(fakeReqst(Array(), Array('SSL_CLIENT_VERIFY'=>'NONE') + $crtVals)), false);
+checkSame('ClCert failed verification',   $certSes->verifyReq(fakeReqst(Array(), Array('SSL_CLIENT_VERIFY'=>'FAILED:certificate has expired') + $crtVals)), false);
+checkSame('ClCert verified, without a name', Array($certSes->verifyReq(fakeReqst(Array(), Array('SSL_CLIENT_S_DN_CN'=>'  ') + $crtVals)), $certSes->lastError()), Array(false, 'Certificate names no user'));
+checkSame('ClCert the same values sent as headers are ignored', $certSes->verifyReq(fakeReqst(Array('SSL-Client-Verify'=>'SUCCESS', 'SSL-Client-S-DN-CN'=>'carol'), Array('HTTP_SSL_CLIENT_VERIFY'=>'SUCCESS', 'HTTP_SSL_CLIENT_S_DN_CN'=>'carol'))), false);
+checkSame('ClCert issues no token',       $certSes->issueTokn(Array('user'=>'x')), '');
+
+$pinSess = new ClCert( Array('issuer'=>'Test CA') );
+checkSame('ClCert accepted issuer',       $pinSess->verifyReq(fakeReqst(Array(), $crtVals)), Array('user'=>'carol'));
+$pinSess = new ClCert( Array('issuer'=>'Other CA') );
+checkSame('ClCert other issuer',          Array($pinSess->verifyReq(fakeReqst(Array(), $crtVals)), $pinSess->lastError()), Array(false, 'Certificate issuer not accepted'));
+
+$nginxSs = new ClCert( Array('chkvar'=>'TLS_VERIFIED', 'usrvar'=>'TLS_SUBJECT') );
+checkSame('ClCert other variable names',  $nginxSs->verifyReq(fakeReqst(Array(), Array('TLS_VERIFIED'=>'SUCCESS', 'TLS_SUBJECT'=>'dora'))), Array('user'=>'dora'));
+$hdrSess = new ClCert( Array('chkvar'=>'HTTP_X_SSL_VERIFY', 'usrvar'=>'HTTP_X_SSL_CN') );
+checkSame('ClCert variables that are request headers are refused', Array($hdrSess->verifyReq(fakeReqst(Array(), Array('HTTP_X_SSL_VERIFY'=>'SUCCESS', 'HTTP_X_SSL_CN'=>'carol'))), $hdrSess->lastError()), Array(false, 'Certificate variables misconfigured'));
+
+// ClCert with a credential store : the certificate's user must be one of its users
+$fakeStr = new class(Array()) implements nyu\Access\Auth\Handler {
+	public function __construct( Array $confValues ){
+	}
+	public function checkCred( Array $credsArray ): Array|Bool {
+		return false;
+	}
+	public function userIdent( String $userString ): Array|Bool {
+		return ($userString=='carol') ? Array('user'=>'carol', 'role'=>'admin', 'id'=>7) : false;
+	}
+	public function lastError(): String {
+		return 'Account not active';
+	}
+};
+$strSess = new ClCert( Array(), $fakeStr );
+checkSame('ClCert with a store: known user, with its role', $strSess->verifyReq(fakeReqst(Array(), $crtVals)), Array('user'=>'carol', 'role'=>'admin', 'id'=>7));
+checkSame('ClCert with a store: unknown user', Array($strSess->verifyReq(fakeReqst(Array(), Array('SSL_CLIENT_S_DN_CN'=>'zed') + $crtVals)), $strSess->lastError()), Array(false, 'Account not active'));
 
 // Checker : reads the strategy pair from the 'auths' block, and its config from the ACCESS registry row
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keys'=>Array('k-1')))) );
-$hdrConf = Array('required'=>true, 'sess'=>'Header', 'auth'=>'RegKey', 'confKey'=>'testkeys');
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
+$hdrConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys');
 
-$checker = new Checker( Array('required'=>false), fakeReqst() );
-checkSame('Checker not required',        $checker->verifyAxs()->readValue('logged'), true);
+$checker = new Checker( Array('needed'=>false), fakeReqst() );
+checkSame('Checker not required: goes through, not logged', Array($checker->verifyAxs()->readValue('statCode'), $checker->verifyAxs()->readValue('logged'), $checker->verifyAxs()->readValue('role')), Array(200, false, null));
 $checker = new Checker( Array(), fakeReqst() );
 checkSame('Checker empty config',        $checker->verifyAxs()->readValue('statCode'), 200);
 
@@ -100,6 +154,15 @@ $checker = new Checker( $hdrConf, fakeReqst(Array('X-Api-Key'=>'k-1')) );
 $axsRslt = $checker->verifyAxs();
 checkSame('Checker granted',             $axsRslt->readValue('logged'), true);
 checkSame('Checker granted status',      $axsRslt->readValue('statCode'), 200);
+checkSame('Checker granted: member role by default', $axsRslt->readValue('role'), 'membr');
+
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
+$jwtConf = Array('needed'=>true, 'sessby'=>'jtoken', 'sesscf'=>'testjwt');
+$checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'admin')))) );
+checkSame('Checker keeps a known role',  $checker->verifyAxs()->readValue('role'), 'admin');
+$checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'root')))) );
+checkSame('Checker turns an unknown role into member', $checker->verifyAxs()->readValue('role'), 'membr');
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
 
 $checker = new Checker( $hdrConf, fakeReqst(Array('X-Api-Key'=>'bad')) );
 $axsRslt = $checker->verifyAxs();
@@ -108,14 +171,41 @@ checkSame('Checker denied status',       $axsRslt->readValue('statCode'), 401);
 checkSame('Checker denied message',      $axsRslt->readValue('statMssg'), 'Invalid API key');
 checkSame('Checker denied, no Basic challenge', $axsRslt->readValue('wwwAuth'), null);
 
-$checker = new Checker( Array('sess'=>'Basic', 'auth'=>'RegKey', 'confKey'=>'testkeys'), fakeReqst() );
+$checker = new Checker( Array('sessby'=>'hbasic', 'authby'=>'regkey', 'sesscf'=>'testkeys'), fakeReqst() );
 $axsRslt = $checker->verifyAxs();
 checkSame('Checker Basic denied status', $axsRslt->readValue('statCode'), 401);
 checkSame('Checker Basic challenge',     $axsRslt->readValue('wwwAuth'), 'Basic');
 
-$checker = new Checker( Array('sess'=>'Nope'), fakeReqst() );
+$checker = new Checker( Array('sessby'=>'jtoken', 'sesscf'=>'testkeys'), fakeReqst() );
+$axsRslt = $checker->verifyAxs();
+checkSame('Checker JWT denied status',   $axsRslt->readValue('statCode'), 401);
+checkSame('Checker JWT challenge',       $axsRslt->readValue('wwwAuth'), 'Bearer');
+
+// Checker : public routes, matched on the resolved application and action
+$pubConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys', 'openrt'=>Array('auth/login', 'Open/*'));
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>'auth', 'action'=>'login')) );
+checkSame('Checker public action',       $checker->verifyAxs()->readValue('statCode'), 200);
+checkSame('Checker public action: not logged', $checker->verifyAxs()->readValue('logged'), false);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>'Auth', 'action'=>'LOGIN')) );
+checkSame('Checker public action, other case', $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>'open', 'action'=>'anything')) );
+checkSame('Checker public application',  $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>'auth', 'action'=>'other')) );
+checkSame('Checker unlisted action stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>'auth', 'action'=>null)) );
+checkSame('Checker default action stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>'shows', 'action'=>'login')) );
+checkSame('Checker other application stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'statCode'=>204)) );
+checkSame('Checker route-answered OPTIONS is open', $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'statCode'=>405)) );
+checkSame('Checker route-answered refusal stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null)) );
+checkSame('Checker unresolved route stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
+
+$checker = new Checker( Array('sessby'=>'Nope'), fakeReqst() );
 checkSame('Checker unknown sess strategy', $checker->verifyAxs()->readValue('statCode'), 500);
-$checker = new Checker( Array('sess'=>'Header', 'auth'=>'Nope'), fakeReqst() );
+$checker = new Checker( Array('sessby'=>'header', 'authby'=>'Nope'), fakeReqst() );
 checkSame('Checker unknown auth strategy', $checker->verifyAxs()->readValue('statCode'), 500);
 
 endChecks();

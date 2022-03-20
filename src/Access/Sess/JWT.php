@@ -9,29 +9,34 @@ use Firebase\JWT\Key;
 use \Exception;
 
 /**
- * Carries an identity via a signed JWT bearer token. Self-verifying
- * via the configured secret — ignores the Auth\Handler, if given.
+ * Carries an identity via a signed JWT bearer token, verified by its
+ * signature. When an Auth\Handler that knows its users is given, the
+ * token's user is also confirmed against it on every request.
  */
 class JWT implements Handler{
 
+	protected $authObjc;
 	protected $jwtSecrt;
 	protected $jwtAlgor;
 	protected $jwtExpir;
 	protected $lastMssg;
 
 	/**
-	 * @param Array     $confValues Config block with 'secret', 'alg' (default 'HS256') and 'ttl' (default 3600) keys.
-	 * @param AuthHndlr $authHandlr Unused — JWT self-verifies via signature.
+	 * @param Array     $confValues Config block with 'secret', 'algrtm' (default 'HS256') and 'lifetm' (seconds, default 3600) keys.
+	 * @param AuthHndlr $authHandlr Optional credential store confirming the token's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
+		$this->authObjc = $authHandlr;
 		$this->jwtSecrt = $confValues['secret'] ?? '';
-		$this->jwtAlgor = $confValues['alg'] ?? 'HS256';
-		$this->jwtExpir = $confValues['ttl'] ?? 3600;
+		$this->jwtAlgor = $confValues['algrtm'] ?? 'HS256';
+		$this->jwtExpir = $confValues['lifetm'] ?? 3600;
 		$this->lastMssg = '';
 	}
 
 	/**
 	 * Extracts and verifies a Bearer token from the Authorization header.
+	 * With a credential store offering userIdent(), the user must still be
+	 * allowed in, and its current identity (role) replaces the token's.
 	 *
 	 * @param Request $requestObj The shared, already-parsed HTTP request.
 	 * @return Array|Bool The decoded identity array, or false on failure.
@@ -42,18 +47,28 @@ class JWT implements Handler{
 			$this->lastMssg = 'Missing Bearer Authorization header';
 			return false;
 		}
-		if( $this->jwtSecrt=='' ){
+		if( !$this->hasSecret() ){
 			$this->lastMssg = 'JWT secret not configured';
 			return false;
 		}
 		$rawTokn = substr( $authHed, 7 );
 		try{
 			$payload = JwtCodec::decode( $rawTokn, new Key($this->jwtSecrt, $this->jwtAlgor) );
-			return (array)$payload;
+			$idntArr = (array)$payload;
 		}catch( Exception $e ){
 			$this->lastMssg = $e->getMessage();
 			return false;
 		}
+		// A credential store that knows its users confirms the token's user is still allowed in
+		if( $this->authObjc!==null && method_exists($this->authObjc, 'userIdent') ){
+			$nowIdnt = $this->authObjc->userIdent( strval($idntArr['user'] ?? '') );
+			if( $nowIdnt===false ){
+				$this->lastMssg = $this->authObjc->lastError();
+				return false;
+			}
+			$idntArr = array_merge($idntArr, $nowIdnt);
+		}
+		return $idntArr;
 	}
 
 	/**
@@ -61,13 +76,27 @@ class JWT implements Handler{
 	 * configured TTL.
 	 *
 	 * @param Array $identArray The identity to encode into the token.
-	 * @return String The issued JWT.
+	 * @return String The issued JWT, or an empty string when the secret is not usable.
 	 */
 	function issueTokn( Array $identArray ): String {
+		if( !$this->hasSecret() ){
+			$this->lastMssg = 'JWT secret not configured';
+			return '';
+		}
 		$payload = $identArray;
 		$payload['iat'] = time();
 		$payload['exp'] = time() + $this->jwtExpir;
 		return JwtCodec::encode( $payload, $this->jwtSecrt, $this->jwtAlgor );
+	}
+
+	/**
+	 * Tells whether the configured secret can sign a token: set, and
+	 * at least 32 bytes long (the minimum for HS256).
+	 *
+	 * @return Bool Whether the secret is usable.
+	 */
+	protected function hasSecret(): Bool {
+		return is_string($this->jwtSecrt) && strlen($this->jwtSecrt)>=32;
 	}
 
 	/**

@@ -12,10 +12,10 @@ class RegKey implements Handler{
 	protected $lastMssg;
 
 	/**
-	 * @param Array $confValues Config block with a 'keys' list of valid API keys.
+	 * @param Array $confValues Config block with a 'keylst' list of valid API keys.
 	 */
 	function __construct( Array $confValues ){
-		$this->valdKeys = $confValues['keys'] ?? Array();
+		$this->valdKeys = $confValues['keylst'] ?? Array();
 		$this->lastMssg = '';
 	}
 

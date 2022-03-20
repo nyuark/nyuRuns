@@ -8,6 +8,13 @@
 //   show 3  Alpha Matinee  two events, two items
 //   show 4  Solo Gig       exactly one event and one item
 //   show 5  Empty Stage    no venue (NULL), no events, no items
+//
+// and a `users` table for the native userbase, password pw-<name> :
+//
+//   user 1  anna   admin  active
+//   user 2  ben    membr  active
+//   user 3  cleo   membr  pendng
+//   user 4  dave   systm  locked
 
 /**
  * Creates the sample SQLite database, replacing any previous file.
@@ -25,6 +32,13 @@ function buildData( String $sqliteFile ): Void {
 	$pdoLink->exec("INSERT INTO shows VALUES (1,'Alpha Night','Hall A'),(2,'Beta Evening','Hall B'),(3,'Alpha Matinee','Hall C'),(4,'Solo Gig','Hall S'),(5,'Empty Stage',NULL)");
 	$pdoLink->exec("INSERT INTO events VALUES (1,1,'2026-12-28','20:00'),(2,1,'2027-01-03','20:00'),(3,2,'2026-11-02','19:00'),(4,2,'2026-11-09','19:00'),(5,3,'2026-10-05','14:00'),(6,3,'2026-10-06','14:00'),(7,4,'2026-12-01','21:00')");
 	$pdoLink->exec("INSERT INTO items VALUES (1,1,'music'),(2,1,'dance'),(3,2,'theatre'),(4,2,'music'),(5,3,'dance'),(6,3,'circus'),(7,4,'solo')");
+	$pdoLink->exec("CREATE TABLE users (id_user INTEGER PRIMARY KEY, userName TEXT UNIQUE, passHash TEXT, userRole TEXT, userStat TEXT, actvCode TEXT, tokenKey TEXT, twoFaKey TEXT, failNmbr INTEGER DEFAULT 0, failDate TEXT, madeDate TEXT, lastSeen TEXT)");
+	$usrStmt = $pdoLink->prepare("INSERT INTO users (id_user, userName, passHash, userRole, userStat, madeDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
+	foreach( Array(Array(1,'anna','admin','active'), Array(2,'ben','membr','active'), Array(3,'cleo','membr','pendng'), Array(4,'dave','systm','locked')) as $usrRow ){
+		// Passwords are pw-<name>, hashed at the lowest cost to keep the tests fast
+		$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
+	}
+	$usrStmt = null;
 	$pdoLink = null;
 }
 

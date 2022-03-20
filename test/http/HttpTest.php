@@ -95,11 +95,22 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99');
 	checkSame('missing show: 404 with an error body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Show not found","code":404}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/auth/login');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login');
 	checkSame('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing user or pass","code":400}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/auth/login?user=nobody&pass=wrong');
-	checkSame('login with wrong credentials: 401', Array($replyAr['code'], json_decode($replyAr['body'], true)['code'] ?? null), Array(401, 401));
+	$formHed = Array('Content-Type'=>'application/x-www-form-urlencoded');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed, 'user[]=nobody&pass=x');
+	checkSame('login with a user that is not a string: 400', $replyAr['code'], 400);
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed, 'user=nobody-here&pass=wrong');
+	checkSame('login with unknown credentials: 401', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', Array('Content-Type'=>'application/json'), '{"user":"nobody-here","pass":"wrong"}');
+	checkSame('login with a JSON body: 401', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/login?user=nobody-here&pass=wrong');
+	checkSame('login by GET: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
+	checkTrue('login by GET: POST is announced', in_array('Allow: POST', $replyAr['head']));
 
 	// Routing failures
 	$replyAr = httpQuery('GET', $baseUrl.'/auth/nope');
@@ -115,8 +126,14 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/shows?filters[search]=Beta*');
 	checkSame('no action, with a query string', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Beta Evening'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/auth');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth');
 	checkSame('no action, no declared default: the first action (login) runs', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing user or pass","code":400}'));
+
+	// The login action refuses anything but a POST by itself, whatever the path that leads to it
+	$replyAr = httpQuery('GET', $baseUrl.'/auth?user=nobody-here&pass=wrong');
+	checkSame('login by GET through the default action: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/Auth/login?user=nobody-here&pass=wrong');
+	checkSame('login by GET through another case of the path: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here');
 	checkSame('unknown application: 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
@@ -128,15 +145,249 @@ if( !$isReady ){
 	checkTrue('uncaught exception: carries an error message', is_string($errVals['error'] ?? null) && $errVals['error']!='');
 
 	// Access control
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'Header'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'header'));
 	checkSame('access denied: 401 with an error body', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Missing X-Api-Key header","code":401}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'Basic'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'hbasic'));
 	checkSame('Basic access denied: 401', $replyAr['code'], 401);
 	checkTrue('Basic access denied: challenge header', in_array('WWW-Authenticate: Basic', $replyAr['head']));
 
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jtoken'));
+	checkSame('JWT access denied: 401', $replyAr['code'], 401);
+	checkTrue('JWT access denied: challenge header', in_array('WWW-Authenticate: Bearer', $replyAr['head']));
+
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'Bogus'));
 	checkSame('misconfigured access: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
+
+	// Public routes
+	$pubHead = Array('X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'auth/login');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $pubHead);
+	checkSame('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing user or pass","code":400}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', $pubHead);
+	checkSame('public route: other routes stay closed', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/auth', $pubHead);
+	checkSame('public route: the default action stays closed', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/gets', Array('X-Test-Auth'=>'jtoken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
+	checkSame('public route: an OPTIONS answered by the route needs no credentials', $replyAr['code'], 200);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/gets', Array('X-Test-Auth'=>'jtoken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
+	checkSame('public route: the same route stays closed for GET', $replyAr['code'], 401);
+
+	// CORS preflight : answered on any path with the preset's headers, without credentials and without running the action
+	$corsHed = Array('Origin'=>'https://app.example', 'Access-Control-Request-Method'=>'GET', 'Access-Control-Request-Headers'=>'authorization');
+	$corsLst = Array('Access-Control-Allow-Origin: *', 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers: Authorization, Content-Type, X-Api-Key');
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed);
+	checkSame('preflight: answered on an automatic route, without the record', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
+	checkSame('preflight: the three CORS headers are sent', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
+
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed + Array('X-Test-Auth'=>'jtoken'));
+	checkSame('preflight: answered without credentials under required access', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
+
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/auth/login', Array('Access-Control-Request-Method'=>'POST') + $corsHed);
+	checkSame('preflight: answered on a route that only accepts POST', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
+
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jtoken'));
+	checkSame('an OPTIONS that is not a preflight stays closed under required access', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', $corsHed);
+	checkSame('a GET carrying the preflight header is served normally', Array($replyAr['code'], json_decode($replyAr['body'], true)['title'] ?? null), Array(200, 'Alpha Night'));
+	checkSame('the CORS headers go out on ordinary responses too', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
+
+	// Identity handed to the application
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1'));
+	checkSame('identity: no access control, not logged', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false,"user":"","role":null}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'probe/whoami'));
+	checkSame('identity: public route, not logged', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false,"user":"","role":null}'));
+
+	// The API key block of test/fixtures/conf/access.json
+	$keyHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'header', 'X-Test-Confkey'=>'tskeys');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'test-only-key-1'));
+	checkSame('identity: valid API key, logged as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"","role":"membr"}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'not-the-key'));
+	checkSame('identity: invalid API key, the action does not run', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
+
+	// Login round trip : htpasswd store and JWT of test/fixtures/conf
+	$whoHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
+	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+	checkSame('round trip: login answers 200', $replyAr['code'], 200);
+	checkLike('round trip: login gives a token', $jwToken, '/^[\w-]+\.[\w-]+\.[\w-]+$/');
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken));
+	checkSame('round trip: the token identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"alice","role":"membr"}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken.'x'));
+	checkSame('round trip: a tampered token is refused', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=nope');
+	checkSame('round trip: wrong password, no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+
+	// Login round trip : native userbase of the sample database (test/fixtures/confnat)
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
+	checkSame('presence: nobody is online before any login', Array($replyAr['code'], $replyAr['body']), Array(200, '{"online":[]}'));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=anna&pass=pw-anna');
+	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+	checkSame('native round trip: login answers 200', $replyAr['code'], 200);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'confnat', 'Authorization'=>'Bearer '.$jwToken));
+	checkSame('native round trip: the role of the users table reaches the action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=cleo&pass=pw-cleo');
+	checkSame('native round trip: a pending user gets no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
+	checkSame('presence: the user who logged in is online', $replyAr['body'], '{"online":["anna"]}');
+
+	// A request verified by Basic credentials against the users table stamps its user too
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
+	checkSame('presence: Basic access on the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"ben","role":"membr"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
+	checkSame('presence: the user of a verified request is online', $replyAr['body'], '{"online":["anna","ben"]}');
+
+	// A token confirmed against the users table : a role change or a lock applies to a token already issued
+	$sqlLink = new PDO('sqlite:'.inTempDir('http.sqlite'));
+	$storHed = $whoHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'Authorization'=>'Bearer '.$jwToken);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
+	checkSame('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+
+	$sqlLink->exec("UPDATE users SET userRole='systm' WHERE userName='anna'");
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
+	checkSame('token with a store: a role change applies at once', $replyAr['body'], '{"logged":true,"user":"anna","role":"systm"}');
+
+	$sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='anna'");
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
+	checkSame('token with a store: a locked user is refused at once', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'confnat', 'Authorization'=>'Bearer '.$jwToken));
+	checkSame('token without a store: still accepted until it expires', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	$sqlLink->exec("UPDATE users SET userStat='active', userRole='admin' WHERE userName='anna'");
+
+	// Personal API token of the users table, sent in the API key header
+	$sqlLink->exec("UPDATE users SET tokenKey='".hash('sha256', 'http-test-token')."' WHERE userName='anna'");
+	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'header', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $tknHead + Array('X-Api-Key'=>'http-test-token'));
+	checkSame('personal token: identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $tknHead + Array('X-Api-Key'=>'another-token'));
+	checkSame('personal token: a wrong token is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
+
+	// 2FA : the login of a user with a secret needs the code of its authenticator
+	$tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+	$sqlLink->exec("UPDATE users SET twoFaKey='".$tfaScrt."' WHERE userName='ben'");
+	$natHead = $formHed + Array('X-Test-Conf'=>'confnat');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
+	checkSame('2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben&code=000000');
+	checkSame('2FA login: wrong code', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid verification code","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben&code='.nyu\Access\Totp::codeAtTme($tfaScrt, time()));
+	checkSame('2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
+	checkSame('2FA: Basic access is closed to a user with a secret', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
+	$sqlLink->exec("UPDATE users SET twoFaKey=NULL WHERE userName='ben'");
+
+	// Attempt throttling : three wrong passwords hold the account, even for the right one
+	$sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
+	for( $idx=0; $idx<3; $idx++ ){
+		$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=nope');
+	}
+	checkSame('throttle: the third wrong password is told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
+	checkSame('throttle: the right password is then refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Too many attempts","code":401}'));
+	$sqlLink->exec("UPDATE users SET failDate='".date('Y-m-d H:i:s', time()-601)."' WHERE userName='ben'");
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
+	checkSame('throttle: accepted again once the hold is over', $replyAr['code'], 200);
+
+	// PHP session carrier (test/fixtures/confses) : the login opens a session, its cookie identifies the next requests
+	$sesConf = $formHed + Array('X-Test-Conf'=>'confses');
+	$sesHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');
+	$cookLin = '';
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$cookLin = $hedLin;
+		}
+	}
+	$sessCok = 'nyuTests='.strtok(substr($cookLin, strlen('Set-Cookie: nyuTests=')), ';');
+	checkSame('session login: answers without showing the session id', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true}'));
+	checkLike('session login: the cookie is HttpOnly and SameSite=Strict', $cookLin, '/^Set-Cookie: nyuTests=[A-Za-z0-9,-]{20,}; path=\/; HttpOnly; SameSite=Strict$/i');
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session: the cookie identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session: it stays open on the next request', $replyAr['code'], 200);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead);
+	checkSame('session: no cookie', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>'nyuTests='.str_repeat('a', 32)));
+	checkSame('session: an id that was never issued is not adopted', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>'nyuTests=../../etc/passwd'));
+	checkSame('session: a malformed id is refused', $replyAr['code'], 401);
+
+	// With the users table named as the store, a lock ends the session at once
+	$sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='anna'");
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session without a store: still open for a locked user', $replyAr['code'], 200);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('X-Test-Store'=>'native', 'Cookie'=>$sessCok));
+	checkSame('session with a store: a locked user is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+	$sqlLink->exec("UPDATE users SET userStat='active' WHERE userName='anna'");
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session with a store: the refused session was destroyed', $replyAr['code'], 401);
+
+	// Logout
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
+		}
+	}
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/logout', Array('X-Test-Conf'=>'confses', 'Cookie'=>$sessCok));
+	checkSame('logout by GET: 405', $replyAr['code'], 405);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('logout by GET: the session is still open', $replyAr['code'], 200);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/logout', Array('X-Test-Conf'=>'confses', 'Cookie'=>$sessCok));
+	checkSame('logout: answers 200', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false}'));
+	checkTrue('logout: the cookie is expired', count(preg_grep('/^Set-Cookie: nyuTests=deleted; expires=Thu, 01[ -]Jan[ -]1970/i', $replyAr['head']))==1);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('logout: the session is gone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
+
+	// A session left unused for longer than its lifetime (1 second in the tsshrt block)
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
+		}
+	}
+	sleep(3);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Confkey'=>'tsshrt') + $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session: expired after its lifetime', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Session expired","code":401}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session: an expired session was destroyed', $replyAr['code'], 401);
+
+	// Client certificate carrier : the test router stands in for the web server's report (X-Test-Cert)
+	$crtHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'clcert');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Cert'=>'SUCCESS;anna;Test CA'));
+	checkSame('certificate: a verified certificate names its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"membr"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead);
+	checkSame('certificate: none presented', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No verified client certificate","code":401}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Cert'=>'FAILED:certificate has expired;anna;Test CA'));
+	checkSame('certificate: failed verification', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('SSL-Client-Verify'=>'SUCCESS', 'SSL-Client-S-DN-CN'=>'anna', 'SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'anna'));
+	checkSame('certificate: the same values sent as request headers are ignored', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'X-Test-Cert'=>'SUCCESS;anna;Test CA'));
+	checkSame('certificate with a store: the role comes from the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'X-Test-Cert'=>'SUCCESS;zed;Test CA'));
+	checkSame('certificate with a store: a name that is not a user', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+	$sqlLink = null;
+
+	// Valid credentials but a JWT secret that cannot sign (test/fixtures/confbad)
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confbad'), 'user=alice&pass=s3cret');
+	checkSame('login with an unusable secret: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Login unavailable","code":500}'));
 
 	// Content types
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Return'=>'php'));
@@ -161,7 +412,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctype'=>'text/csv', 'X-Test-Ctname'=>'content-type'));
 	checkLike('a lower-case preset header is not doubled', $replyAr['type'], '#^text/csv#');
 
-	// Request bodies : "Invalid credentials"-style 401 means user and pass were read from the body, 400 that they were not
+	// Request bodies : the probe's creds action answers 401 when user and pass were read from the body, 400 when they were not
 	$multiBd = "------TestBoundary123\r\nContent-Disposition: form-data; name=\"user\"\r\n\r\nnobody\r\n------TestBoundary123\r\nContent-Disposition: form-data; name=\"pass\"\r\n\r\nwrong\r\n------TestBoundary123--\r\n";
 	$bodyLst = Array(
 		Array('PUT',   'application/x-www-form-urlencoded', 'user=nobody&pass=wrong', 401),
@@ -172,12 +423,12 @@ if( !$isReady ){
 		Array('PUT',   'text/plain', "user=nobody\npass=wrong", 400),
 	);
 	foreach( $bodyLst as $oneBdy ){
-		$replyAr = httpQuery($oneBdy[0], $baseUrl.'/auth/login', Array('Content-Type'=>$oneBdy[1]), $oneBdy[2]);
+		$replyAr = httpQuery($oneBdy[0], $baseUrl.'/probe/creds', Array('X-Test-Runs'=>'1', 'Content-Type'=>$oneBdy[1]), $oneBdy[2]);
 		checkSame($oneBdy[0].' '.strtok($oneBdy[1], ';').' body', $replyAr['code'], $oneBdy[3]);
 	}
 
 	// Header names are case-insensitive : the body is read whatever the case of Content-Type
-	$replyAr = httpQuery('PUT', $baseUrl.'/auth/login', Array('content-type'=>'application/json'), '{"user":"nobody","pass":"wrong"}');
+	$replyAr = httpQuery('PUT', $baseUrl.'/probe/creds', Array('X-Test-Runs'=>'1', 'content-type'=>'application/json'), '{"user":"nobody","pass":"wrong"}');
 	checkSame('PUT body with a lower-case content-type header', $replyAr['code'], 401);
 
 	// Misbehaving actions, from the fixture applications in test/fixtures/runs.

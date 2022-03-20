@@ -1,4 +1,18 @@
 {
+	"auth/login" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "login"
+		}
+	},
+	"auth/logout" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "logout"
+		}
+	},
 	"dev" : {
 		"config": "service.ini",
 		"target": {

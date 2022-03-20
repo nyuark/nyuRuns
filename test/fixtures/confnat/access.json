@@ -1,0 +1,5 @@
+{
+	"login":  { "authby": "native", "authcf": "tsnatv", "sessby": "jtoken", "sesscf": "tstokn" },
+	"tstokn": { "secret": "test-only-secret-0123456789-abcdefghij", "lifetm": 300, "algrtm": "HS256" },
+	"tsnatv": { "tblnme": "users" }
+}

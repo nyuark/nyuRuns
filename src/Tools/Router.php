@@ -29,11 +29,17 @@ class Router{
 	/**
 	 * Resolves the route of the request: from the declared routes first (the
 	 * entry point's manual routes, then the files of conf/routes), otherwise
-	 * positionally from the URL path in autopath mode.
+	 * positionally from the URL path in autopath mode. A CORS preflight
+	 * (an OPTIONS request carrying Access-Control-Request-Method) resolves
+	 * to no application: it is answered with the preset's headers alone.
 	 *
 	 * @return Registry Registry holding the resolved 'app' and 'action' values, plus 'param' and any other mapped or captured key.
 	 */
 	public function findRoute(): Registry {
+		// A CORS preflight is answered by the route itself, on any path : no action runs
+		if( $this->httpRqst->usedMethd('OPTIONS') && $this->httpRqst->getHeader('Access-Control-Request-Method')!==null ){
+			return new Registry( Array('app'=>null, 'action'=>null, 'statCode'=>204, 'statMssg'=>'') );
+		}
 		$rteVals = Array(
 			'app'=>null,
 			'action'=>null

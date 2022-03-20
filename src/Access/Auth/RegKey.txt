@@ -1,3 +1,0 @@
-
-
-    // Very simple authentication using a 16/32 digits string as key

@@ -3,43 +3,122 @@
 namespace nyu\Runs\Auth;
 
 use \nyu\App\Actionset;
-use \nyu\Access\Auth\PassList;
-use \nyu\Access\Sess\JWT;
+use \nyu\Access\Checker;
 
 class Actions extends Actionset {
 
 	/**
-	 * Checks the 'user' and 'pass' inputs against the htpasswd
-	 * credential store and, on success, issues a signed JWT for the
-	 * matched identity. Reports 400 when an input is missing and 401
-	 * on invalid credentials.
+	 * Checks the 'user' and 'pass' inputs (and 'code', for a user with
+	 * 2FA) against a credential store and, on success, issues a token
+	 * for the matched identity, or opens a session whose cookie goes out
+	 * with the reply. The 'login' block of the ACCESS config
+	 * file names the credential check ('authby', htpass by default),
+	 * the session carrier issuing the token ('sessby', jtoken by
+	 * default) and the blocks holding their settings ('authcf',
+	 * 'sesscf'). Reports 405
+	 * unless the request is a POST, 400 when an input is missing, 401
+	 * on invalid credentials and 500 when no token can be issued.
+	 * Credential checks and their outcome are logged.
 	 */
 	public function login(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+
 		$gvnUser = $this->inputReg->readValue('user');
 		$gvnPass = $this->inputReg->readValue('pass');
 
-		if($gvnUser==null || $gvnPass==null){
+		if(!is_string($gvnUser) || !is_string($gvnPass) || $gvnUser=='' || $gvnPass==''){
 			$this->statCode = 400;
 			$this->statMssg = 'Missing user or pass';
 			return;
 		}
 
-		$authObj = new PassList( $this->resolvCnf('basic_default') );
-		$idntArr = $authObj->checkCred( Array('user'=>$gvnUser, 'pass'=>$gvnPass) );
+		$lgnConf = $this->resolvCnf('login');
+		$logInst = $GLOBALS['nyuLogger'] ?? null;
+		$authCls = Checker::authClass( strval($lgnConf['authby'] ?? 'htpass') );
+		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
+		if($authCls===null || $sessCls===null || !class_exists($authCls) || !class_exists($sessCls)){
+			if($logInst!==null){
+				$logInst->error( 'Login unavailable: unknown authby or sessby in the login block' );
+			}
+			$this->statCode = 500;
+			$this->statMssg = 'Login unavailable';
+			return;
+		}
+		$authObj = new $authCls( $this->resolvCnf($lgnConf['authcf'] ?? 'dfpass') );
+		// The 'code' input carries the one-time code of a user with 2FA
+		$gvnCode = $this->inputReg->readValue('code');
+		$idntArr = $authObj->checkCred( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '') );
 
 		if($idntArr===false){
+			if($logInst!==null){
+				$logInst->warning( 'Login refused for user '.json_encode($gvnUser).': '.$authObj->lastError() );
+			}
 			$this->statCode = 401;
 			$this->statMssg = $authObj->lastError();
 			return;
 		}
 
-		$sessObj = new JWT( $this->resolvCnf('jwt_default') );
+		$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
 		$rawTokn = $sessObj->issueTokn( $idntArr );
+		if($rawTokn==''){
+			if($logInst!==null){
+				$logInst->error( 'Login unavailable: '.($sessObj->lastError() ?: 'the session carrier issues no token') );
+			}
+			$this->statCode = 500;
+			$this->statMssg = 'Login unavailable';
+			return;
+		}
 
+		// A credential store that tracks presence is told the user was seen
+		if(method_exists($authObj, 'keepAlive')){
+			$authObj->keepAlive( strval($idntArr['user'] ?? '') );
+		}
+		if($logInst!==null){
+			$logInst->info( 'Login granted for user '.json_encode($gvnUser) );
+		}
 		$this->statCode = 200;
-		$this->asOutput = Array('token'=>$rawTokn);
+		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page
+		$this->asOutput = method_exists($sessObj, 'dropSessn') ? Array('logged'=>true) : Array('token'=>$rawTokn);
 	}
 
+	/**
+	 * Ends the session the login opened: a server-side session is
+	 * destroyed and its cookie expired. A token cannot be taken back, so
+	 * with a token carrier this only tells the client to forget it.
+	 * Reports 405 unless the request is a POST.
+	 */
+	public function logout(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		$lgnConf = $this->resolvCnf('login');
+		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
+		if($sessCls!==null && class_exists($sessCls)){
+			$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
+			if(method_exists($sessObj, 'dropSessn')){
+				$sessObj->dropSessn( $this->httpRqst );
+			}
+		}
+		$logInst = $GLOBALS['nyuLogger'] ?? null;
+		if($logInst!==null && $this->axessReg!==null){
+			$logInst->info( 'Logout of user '.json_encode($this->axessReg->readValue('user')) );
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('logged'=>false);
+	}
+
+	/**
+	 * Reads a named config block from the ACCESS config file.
+	 *
+	 * @param String $confRowKey Name of the config block to read.
+	 * @return Array The block's values, or an empty array if not found.
+	 */
 	protected function resolvCnf( String $confRowKey ): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
 		$axsCnfg = $nyuConf->getRowVal('ACCESS', strtoupper($confRowKey));

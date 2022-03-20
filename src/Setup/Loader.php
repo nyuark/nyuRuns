@@ -93,7 +93,8 @@ class Loader{
 		$confArr = Array();
 		// TODO : Raise error if getRegKey returns false
 		$confSet = $this->getRegKey('setup');
-		$conPath = TOP_DIR.DS.'conf'.DS;
+		// Folder of the config files, relative to the project root : conf unless the preset names another
+		$conPath = TOP_DIR.DS.($confSet['folder'] ?? 'conf').DS;
 		$conScan = scandir($conPath);
 		// Allowed file types
 		$allowFT = Array('ini','json');
@@ -120,8 +121,55 @@ class Loader{
 				}
 			}
 		}
+		$confArr = $this->fillEnvrn( $confArr, $this->loadEnvrn($confSet['envfle'] ?? '.env') );
 		$confReg = new Registry( $confArr );
 		return $confReg;
+	}
+
+	/**
+	 * Reads the environment file of the project: NAME=value lines, with
+	 * # comments, kept out of the repository to hold the secrets.
+	 *
+	 * @param String $envFilePth Path of the file, relative to the project root.
+	 * @return Array The values by name, empty when the file does not exist.
+	 */
+	protected function loadEnvrn( String $envFilePth ): Array {
+		$envVals = Array();
+		$envPath = TOP_DIR.DS.$envFilePth;
+		if( !is_file($envPath) ){
+			return $envVals;
+		}
+		foreach( file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $envLin ){
+			$envLin = trim($envLin);
+			$sepPos = strpos($envLin, '=');
+			if( $envLin=='' || $envLin[0]=='#' || $sepPos===false ){
+				continue;
+			}
+			$envVals[trim(substr($envLin, 0, $sepPos))] = trim(trim(substr($envLin, $sepPos+1)), '"\'');
+		}
+		return $envVals;
+	}
+
+	/**
+	 * Replaces every config value written env:NAME by the value of NAME,
+	 * taken from the environment file first, then from the environment
+	 * of the process. An unknown name gives an empty value.
+	 *
+	 * @param Array $confValues Config values, at any depth.
+	 * @param Array $envrValues Values of the environment file, by name.
+	 * @return Array The config values, with their env: references replaced.
+	 */
+	protected function fillEnvrn( Array $confValues, Array $envrValues ): Array {
+		foreach( $confValues as $cnfKey => $cnfVal ){
+			if( is_array($cnfVal) ){
+				$confValues[$cnfKey] = $this->fillEnvrn($cnfVal, $envrValues);
+			}elseif( is_string($cnfVal) && strpos($cnfVal, 'env:')===0 ){
+				$envName = substr($cnfVal, 4);
+				$envFind = getenv($envName);
+				$confValues[$cnfKey] = $envrValues[$envName] ?? ($envFind!==false ? $envFind : '');
+			}
+		}
+		return $confValues;
 	}
 
     /**
@@ -175,11 +223,11 @@ class Loader{
 	 * Retrieves the resolved 'auths' configuration block for the active
 	 * preset, for the Access\Checker to act on.
 	 *
-	 * @return Array The 'auths' config block, or ['required' => false] if none is set.
+	 * @return Array The 'auths' config block, or ['needed' => false] if none is set.
 	 */
     function setAccess(): Array {
 		$axsConf = $this->getRegKey('auths');
-		return is_array($axsConf) ? $axsConf : Array('required'=>false);
+		return is_array($axsConf) ? $axsConf : Array('needed'=>false);
 	}
 
 	/**

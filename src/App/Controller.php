@@ -5,12 +5,15 @@ namespace nyu\App;
 use nyu\App\ModelStack;
 //use nyu\App\Renderer;
 use nyu\Tools\Registry;
+use nyu\Tools\Request;
 
 class Controller{
 	
 	protected $appIdent;
 	protected $appFoldr;
 	protected $inputReg;
+	protected $axessReg;
+	protected $httpRqst;
 	protected $savedAct;
 	protected $savedOpt;
 	protected $appObjct;
@@ -29,8 +32,10 @@ class Controller{
 	 * @param String   $runAppActn Name of the action/method to call on the application.
 	 * @param Registry $inRegistry Registry of input values to pass to the application.
 	 * @param String   $runAppOptn Optional extra parameter passed to the action.
+	 * @param ?Registry $axRegistry Access check result (logged user, role and identity) to pass to the application.
+	 * @param ?Request $requestObj The shared HTTP request, to pass to the application.
 	 */
-	public function __construct( String $runAppName, String $runAppActn, Registry $inRegistry, ?String $runAppOptn = null ){
+	public function __construct( String $runAppName, String $runAppActn, Registry $inRegistry, ?String $runAppOptn = null, ?Registry $axRegistry = null, ?Request $requestObj = null ){
 		// Change case of AppName
 		$runAppName = str_replace(' ','',UCFirst($runAppName));
 		// Save action and inputs
@@ -38,6 +43,8 @@ class Controller{
 		$this->savedAct = $runAppActn;
 		$this->savedOpt = $runAppOptn;
 		$this->inputReg = $inRegistry;
+		$this->axessReg = $axRegistry;
+		$this->httpRqst = $requestObj;
 		// Check that application exists
 		$fullDir = RUN_DIR.DS.$runAppName;
 		$actPath = $fullDir.DS.'Actions.php';
@@ -98,10 +105,10 @@ class Controller{
 	// Execute application (from actionset)
 	/**
 	 * Instantiates the reflected actionset class with the current action,
-	 * option, inputs and model stack — which runs the action itself.
+	 * option, inputs, model stack, access result and request — which runs the action itself.
 	 */
 	protected function appRunner(): Void {
-		$this->appObjct = $this->appObjct->newInstanceArgs( Array($this->savedAct, $this->savedOpt, $this->inputReg, $this->modStack) );
+		$this->appObjct = $this->appObjct->newInstanceArgs( Array($this->savedAct, $this->savedOpt, $this->inputReg, $this->modStack, $this->axessReg, $this->httpRqst) );
 	}
 	
 	// Prepare outcome message and/or data

@@ -26,6 +26,37 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Tells whether the 'user' and 'pass' inputs were read from the
+	 * request, whatever its method: 401 when both were, 400 otherwise.
+	 */
+	public function creds(): Void {
+		$gotBoth = is_string($this->inputReg->readValue('user')) && is_string($this->inputReg->readValue('pass'));
+		$this->statCode = $gotBoth ? 401 : 400;
+		$this->statMssg = $gotBoth ? 'Credentials read' : 'Missing user or pass';
+	}
+
+	/**
+	 * Answers with what the access check reported about the requester.
+	 */
+	public function whoami(): Void {
+		$this->statCode = 200;
+		$this->asOutput = Array(
+			'logged'=>$this->axessReg->readValue('logged'),
+			'user'=>$this->axessReg->readValue('user'),
+			'role'=>$this->axessReg->readValue('role')
+		);
+	}
+
+	/**
+	 * Answers with the users of the native userbase who are online.
+	 */
+	public function online(): Void {
+		$natAuth = new \nyu\Access\Auth\Native( Array() );
+		$this->statCode = 200;
+		$this->asOutput = Array('online'=>$natAuth->onlineNow());
+	}
+
+	/**
 	 * A helper, not an action: must not be reachable by URL.
 	 */
 	protected function hidden(): Void {

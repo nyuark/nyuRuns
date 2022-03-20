@@ -3,5 +3,6 @@
 *.php_cs.cache
 /.phpunit.result.cache
 # Local credentials: never commit
+/.env
 /conf/access.json
 /conf/.htpasswd

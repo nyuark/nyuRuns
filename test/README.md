@@ -34,8 +34,9 @@ script runs in its own PHP process and can also be run on its own
   `lib/httpRouter.php` and stops it afterwards. Those requests run through the
   project's real configuration, so they append to the log file set in
   `conf/system.ini`.
-- **Credentials.** `fixtures/users.htpasswd` holds two test-only users
-  (`alice` / `s3cret`, `bob` / `hunter2`).
+- **Credentials.** `fixtures/users.htpasswd` holds four test-only users
+  (`alice` / `s3cret`, `erin` / `tr0ub4dor`, and `bob` / `hunter2`, `frank` / `letmein`
+  whose weak hashes only pass in unsecure mode).
 - **PHP notices.** A notice or warning raised by the tested code fails the script
   that triggered it, unless the test collects it with `takeNotes()`.
 - **Conventions.** `audit/ConventionTest.php` lists the accepted exceptions at its

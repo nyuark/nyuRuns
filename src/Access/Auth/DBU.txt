@@ -1,3 +1,0 @@
-
-
-    // DataBase authentication using a user and password table
