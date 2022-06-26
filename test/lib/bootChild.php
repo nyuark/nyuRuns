@@ -20,6 +20,10 @@ require $topDir.'/vendor/autoload.php';
 mkdir(TOP_DIR.DS.'conf'.DS.'presets', 0775, true);
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'broken.rps', '{ "name": "broken", ');
 
+// The error log is the standard error stream, whatever the machine's php.ini says
+ini_set('log_errors', '1');
+ini_set('error_log', '');
+
 $_SERVER['REQUEST_METHOD'] = 'GET';
 $_SERVER['REQUEST_URI'] = '/shows/index';
 

@@ -8,10 +8,14 @@ use \nyu\Tools\StrKit;
 class DBRecord {
 	protected $tableNme;
 	protected $dbConnex;
+	// Name of the configured database the table lives in: '' for the default one. A model sets its own.
+	protected $baseName = '';
 
 	protected $primaKey;
 	protected $keyField;
 	protected $fieldLst;
+	protected $tblQuotd;
+	protected $keyQuotd;
 
 	protected $recArray;
 	protected $belongTo;
@@ -19,50 +23,41 @@ class DBRecord {
 
 	/**
 	 * Builds a record object bound to a table: verifies the table exists,
-	 * detects its primary key and field list via EXPLAIN, and stores the
+	 * reads its primary key and field list from the handler, and stores the
 	 * declared child/parent relations for later loading.
 	 *
 	 * @param String $dbaseTable Name of the table this record maps to.
 	 * @param Array  $childArray Child relations to load via loadRelat(), keyed by table name or as [table, fld1, fld2, fld3].
 	 * @param Array  $parntArray Parent relations to load via loadRelat(), keyed by table name or as [table, fld1, fld2].
-	 * @param DBCon  $handleLink Existing DB connection to reuse instead of the shared singleton.
+	 * @param DBCon  $handleLink Connection to use instead of the one of the database named by $baseName.
 	 *
-	 * @todo Halts execution with a printed error instead of raising an exception when the table doesn't exist.
+	 * @throws \RuntimeException When the table cannot be read.
 	 */
 	function __construct( String $dbaseTable, Array $childArray=array(), Array $parntArray=Array(), ?DBCon $handleLink=null ){
 		$this->tableNme = $dbaseTable;
 		if($handleLink == null){
-			$nyuConf = $GLOBALS['nyuConfig'];
-			$nyuBase = $nyuConf->readValue('database');
-			$this->dbConnex = DBCon::getInstnc($nyuBase['TYPE'], $nyuBase['HOST'], $nyuBase['USER'], $nyuBase['PASS'], $nyuBase['BASE']);
+			$this->dbConnex = DBCon::linkNamed($this->baseName);
 		}else{
 			$this->dbConnex = $handleLink;
 		}
 
+		// Quoting also refuses a table name that is not a plain name
+		$this->tblQuotd = $this->dbConnex->dbHandle->quoteName($this->tableNme);
+
 		// Check if table exists
-		$exstQry = "SELECT 1 FROM `$this->tableNme` LIMIT 1;";
-		$this->dbConnex->dbHandle->sendQuery($exstQry);
-		$tabExst = $this->dbConnex->dbHandle->readQuery();
-		if(!$tabExst){
-			// TODO, Raise exception
-			print('<h1>Database error</h1>');
-			print('Table might  not exist : '.$this->dbConnex->dbHandle->lastError());
-			die();
+		$exstQry = "SELECT 1 FROM $this->tblQuotd LIMIT 1;";
+		if( !$this->dbConnex->dbHandle->sendQuery($exstQry) ){
+			throw new \RuntimeException('Table "'.$this->tableNme.'" is not available: '.$this->dbConnex->dbHandle->lastError());
 		}
 
-		$xplnQry = "EXPLAIN `$this->tableNme`;";
-		$this->dbConnex->dbHandle->sendQuery($xplnQry);
-		$this->keyField = '';
-		$this->fieldLst = array();
-
-		$fldList = $this->dbConnex->dbHandle->readQuery();
-		foreach($fldList as $fldArr){
-			if($fldArr['Key'] == 'PRI' && $this->keyField==''){
-				$this->keyField = $fldArr['Field'];
-			}
-			// Detect foreign keys and indexes
-			$this->fieldLst[] = $fldArr['Field'];
+		// The handler knows how its database describes a table
+		$tblInfo = $this->dbConnex->dbHandle->tableInfo($this->tableNme);
+		if( $tblInfo===false ){
+			throw new \RuntimeException('Table "'.$this->tableNme.'" cannot be described: '.$this->dbConnex->dbHandle->lastError());
 		}
+		$this->keyField = $tblInfo['pkey'];
+		$this->fieldLst = $tblInfo['flds'];
+		$this->keyQuotd = ($this->keyField!='') ? $this->dbConnex->dbHandle->quoteName($this->keyField) : '';
 		if( !empty($childArray) ){
 			$this->children = $childArray;
 		}
@@ -79,11 +74,12 @@ class DBRecord {
 	 * @return mixed The loaded record's field array, or false if not found.
 	 */
 	function loadRecrd( String $primaryKey ): Array|Bool {
-		$idQuery = "SELECT * FROM `$this->tableNme` WHERE `$this->keyField`='".$this->dbConnex->dbHandle->escapeStr($primaryKey)."';";
-		$this->dbConnex->dbHandle->sendQuery($idQuery);
+		$idQuery = "SELECT * FROM $this->tblQuotd WHERE $this->keyQuotd=?;";
+		$this->dbConnex->dbHandle->sendQuery($idQuery, false, Array($primaryKey));
 		$this->recArray = array();
 
-		$this->recArray = $this->dbConnex->dbHandle->readQuery();
+		$fndRows = $this->dbConnex->dbHandle->readQuery(true);
+		$this->recArray = $fndRows[0] ?? Array();
 		if( is_array($this->recArray) && !empty($this->recArray) ){
 			$this->primaKey = $primaryKey;
 			$this->loadRelat();
@@ -151,10 +147,11 @@ class DBRecord {
 		if( $primaryKey===null || $primaryKey==='' ){
 			return false;
 		}
-		$idQuery = "SELECT * FROM `$this->tableNme` WHERE `$this->keyField`='".$this->dbConnex->dbHandle->escapeStr($primaryKey)."';";
-		$this->dbConnex->dbHandle->sendQuery($idQuery);
+		$idQuery = "SELECT * FROM $this->tblQuotd WHERE $this->keyQuotd=?;";
+		$this->dbConnex->dbHandle->sendQuery($idQuery, false, Array($primaryKey));
 
-		$tempRec = $this->dbConnex->dbHandle->readQuery();
+		$fndRows = $this->dbConnex->dbHandle->readQuery(true);
+		$tempRec = $fndRows[0] ?? null;
 		if( is_array($tempRec) && isset($tempRec[$this->keyField]) && $tempRec[$this->keyField]==$primaryKey ){
 			return true;
 		}else{
@@ -181,73 +178,91 @@ class DBRecord {
 	}
 
 	/**
-	 * Finds the first record matching a map of field => value(s), using
-	 * the same filter syntax as DBList::lstSearch (IN/NOT IN for array
-	 * values, LIKE/NOT LIKE for wildcard values, '!' suffix to negate),
-	 * and loads its declared relations.
+	 * Empties the record: the next bindArray() and saveRecrd() create a
+	 * new row instead of changing the one that was loaded.
+	 */
+	function initRecrd(): Void {
+		$this->primaKey = null;
+		$this->recArray = Array();
+	}
+
+	/**
+	 * Deletes the loaded record and, with it, its rows in the child tables
+	 * named in the call. Nothing else is deleted: parents and unnamed
+	 * children are left alone. The whole deletion is one transaction, and
+	 * the record is emptied afterwards: a second call deletes nothing.
+	 *
+	 * @param Array $childArray Child tables whose linked rows go too: 'table', or 'table'=>'foreign key' (default `<singularized table>_id`).
+	 * @return Bool True when the record was deleted, false when no record is loaded or the deletion failed.
+	 *
+	 * @throws \RuntimeException When a table or field name is not valid.
+	 */
+	function remvRecrd( Array $childArray=Array() ): Bool {
+		if( $this->primaKey===null || $this->primaKey==='' || $this->keyQuotd=='' ){
+			return false;
+		}
+		$dbHandl = $this->dbConnex->dbHandle;
+		// Every name is checked before anything is deleted
+		$remList = Array();
+		foreach($childArray as $chlTab=>$chlFld){
+			if( is_int($chlTab) ){
+				$chlTab = $chlFld;
+				$chlFld = StrKit::singlrize($this->tableNme).'_id';
+			}
+			$remList[] = 'DELETE FROM '.$dbHandl->quoteName($chlTab).' WHERE '.$dbHandl->quoteName($chlFld).'=?;';
+		}
+		$remList[] = "DELETE FROM $this->tblQuotd WHERE $this->keyQuotd=?;";
+
+		if( !$dbHandl->opnTrnsct() ){
+			return false;
+		}
+		foreach($remList as $remQry){
+			if( !$dbHandl->sendQuery($remQry, true, Array($this->primaKey)) ){
+				$dbHandl->remTrnsct();
+				return false;
+			}
+		}
+		// The record's own row comes last: no row deleted means it was not there
+		if( $dbHandl->lastCount()<1 ){
+			$dbHandl->remTrnsct();
+			return false;
+		}
+		if( !$dbHandl->setTrnsct() ){
+			return false;
+		}
+		$this->initRecrd();
+		return true;
+	}
+
+	/**
+	 * Finds the first record matching a map of field => value(s) and loads
+	 * its declared relations. The filter syntax is the one of
+	 * DBFilter::makeWhere(): a field name may end with '!' (negation), '<=',
+	 * '>=', '<' or '>'; an array value gives IN/NOT IN, and a wildcard
+	 * ('*' or '%') LIKE/NOT LIKE. 'field?'=>false gives IS NULL and
+	 * 'field?'=>true IS NOT NULL; a null value matches nothing.
 	 *
 	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
 	 * @return mixed The matched record's field array, or false if not found.
+	 *
+	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
 	function findRecrd( Array $whereArray ): Array|Bool {
-		$whreStr = '1=1';
-		foreach($whereArray as $fldNme=>$fldVal){
-			if($whreStr != ''){
-				$whreStr.=' AND ';
-			}
-
-			if(is_array($fldVal)){
-				$valsArr = $fldVal;
-				$operatr = 'IN';
-				if(substr($fldNme,-1)=='!'){
-					$operatr = 'NOT IN';
-					$fldNme = substr($fldNme,0,-1);
-				}
-				$valList = '';
-				foreach($valsArr as $oneVal){
-					if(!empty($oneVal)){
-						if($valList!=''){
-							$valList.=',';
-						}
-						$valList.="'".$this->dbConnex->dbHandle->escapeStr($oneVal)."'";
-					}
-				}
-				$whreStr .= '`'.$fldNme.'` '.$operatr.' ('.$valList.')';
-			}else{
-				$operatr = '=';
-				$reverse = false;
-				if(substr($fldNme,-1)=='!'){
-					$operatr = '!=';
-					$reverse=true;
-					$fldNme = substr($fldNme,0,-1);
-				}
-				if( ( substr($fldNme,-2)=='<=' || substr($fldNme,-2)=='>=' ) ){
-					$operatr = substr($fldNme,-2);
-					$fldNme = substr($fldNme,0,-2);
-				}
-
-				if( ( strpos($fldVal, '*')!==false || strpos($fldVal, '%')!==false ) ){
-					$fldVal = str_replace( '*','%', $fldVal) ;
-					if ($reverse==false){
-						$operatr = 'LIKE';
-					}else{
-						$operatr = 'NOT LIKE';
-					}
-				}
-				$whreStr .= '`'.$fldNme.'` '.$operatr." '".$this->dbConnex->dbHandle->escapeStr($fldVal)."'";
-			}
-		}
-
-		$idQuery = "SELECT * FROM `$this->tableNme` WHERE $whreStr LIMIT 1;";
-		$this->dbConnex->dbHandle->sendQuery($idQuery);
+		$whrPart = DBFilter::makeWhere($whereArray, $this->dbConnex->dbHandle);
+		$idQuery = "SELECT * FROM $this->tblQuotd".($whrPart['text']!='' ? ' WHERE '.$whrPart['text'] : '')." LIMIT 1;";
+		$this->dbConnex->dbHandle->sendQuery($idQuery, false, $whrPart['vals']);
 		$this->recArray = array();
 
-		$this->recArray = $this->dbConnex->dbHandle->readQuery();
+		$fndRows = $this->dbConnex->dbHandle->readQuery(true);
+		$this->recArray = is_array($fndRows) ? ($fndRows[0] ?? Array()) : false;
 		if( is_array($this->recArray) ){
 			if(isset($this->recArray[$this->keyField])){
 				$this->primaKey = $this->recArray[$this->keyField];
 			}
-			$this->loadRelat();
+			// Relations are only loaded for a record that was found
+			if( !empty($this->recArray) ){
+				$this->loadRelat();
+			}
 			return $this->recArray;
 		}else{
 			return false;
@@ -270,39 +285,31 @@ class DBRecord {
 			$recExst = true;
 		}
 
-		$saveArr = $this->recArray;
-		$updtStr = '';
-		foreach( $saveArr as $fldNme => $fldVal ){
-			if($fldNme==$this->keyField){
-				// Can't change Prim Key
-				unset($saveArr[$fldNme]);
+		$saveArr = Array();
+		foreach( $this->recArray as $fldNme => $fldVal ){
+			// The key is never changed, and only the table's own fields are saved
+			if( $fldNme==$this->keyField || in_array($fldNme, $exludeFlds) || !in_array($fldNme, $this->fieldLst) ){
 				continue;
-			}elseif(in_array($fldNme,$exludeFlds)){
-				// Don't save excluded field
-				unset($saveArr[$fldNme]);
-				continue;
-			}else{
-				if($updtStr!=''){
-					$updtStr.= ',';
-				}
-				if($recExst){
-					$updtStr.="`$fldNme`=".( $fldVal===null ? 'NULL' : "'".$this->dbConnex->dbHandle->escapeStr($fldVal)."'" );
-				}
 			}
+			$saveArr[$fldNme] = $fldVal;
 		}
 		if($recExst){
-			$svQuery = "UPDATE `$this->tableNme` SET $updtStr WHERE `$this->keyField`='".$this->dbConnex->dbHandle->escapeStr($this->primaKey)."' LIMIT 1;";
+			if( empty($saveArr) ){
+				return $this->primaKey;
+			}
+			$fldsQtd = array_map(Array($this->dbConnex->dbHandle, 'quoteName'), array_keys($saveArr));
+			$svQuery = "UPDATE $this->tblQuotd SET ".implode('=?,', $fldsQtd)."=? WHERE $this->keyQuotd=?;";
+			$saveVal = array_merge(array_values($saveArr), Array($this->primaKey));
 		}else{
 			// A key bound to the new record is inserted with the other fields
 			if( $this->primaKey!==null && $this->primaKey!=='' ){
 				$saveArr = Array($this->keyField=>$this->primaKey) + $saveArr;
 			}
-			$insVals = array_map(function($fieldValue){
-				return $fieldValue===null ? 'NULL' : "'".$this->dbConnex->dbHandle->escapeStr($fieldValue)."'";
-			}, array_values($saveArr));
-			$svQuery = "INSERT INTO `$this->tableNme` (`".implode('`,`',array_keys($saveArr))."`) VALUES (".implode(",",$insVals).");";
+			$fldsQtd = array_map(Array($this->dbConnex->dbHandle, 'quoteName'), array_keys($saveArr));
+			$svQuery = "INSERT INTO $this->tblQuotd (".implode(',', $fldsQtd).") VALUES (".implode(',', array_fill(0, count($saveArr), '?')).");";
+			$saveVal = array_values($saveArr);
 		}
-		$didSave = $this->dbConnex->dbHandle->sendQuery($svQuery, true);
+		$didSave = $this->dbConnex->dbHandle->sendQuery($svQuery, true, $saveVal);
 
 		if($didSave){
 			if($recExst){
@@ -328,7 +335,7 @@ class DBRecord {
 	 * @todo $foreignKey parameter is never used — the body reads/writes a differently-spelled $foreignKey variable instead.
 	 */
 	function parentRec( String $parntTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='' ): ?Array {
-		$prntRec = new DBRecord( $parntTable );
+		$prntRec = new DBRecord( $parntTable, Array(), Array(), $this->dbConnex );
 		if( $foreignKey=='' ) {
 			$foreignKey = $prntRec->keyField;
 		}
@@ -366,9 +373,14 @@ class DBRecord {
 		}
 		$chldKey = ucfirst($childTable);
 
-		$subWhre = "`$foreignKey` = '".$this->dbConnex->dbHandle->escapeStr($this->recArray[$currentKey])."'";
-		$subList = new DBList($childTable, null, $subWhre, $sortFields);
-		$this->recArray[$chldKey] = $subList->readItems();
+		// A record without a key value has no children
+		if( !isset($this->recArray[$currentKey]) ){
+			$this->recArray[$chldKey] = Array();
+		}else{
+			$subList = new DBList($childTable, null, null, $sortFields, null, $this->dbConnex);
+			$subList->lstSearch(Array($foreignKey=>$this->recArray[$currentKey]));
+			$this->recArray[$chldKey] = $subList->readItems();
+		}
 
 		if($returnVals==true){
 			return $this->recArray;

@@ -1,0 +1,16 @@
+{
+	"mysql": {
+		"host": "env:NYU_TEST_MYSQL_HOST",
+		"port": "env:NYU_TEST_MYSQL_PORT",
+		"base": "env:NYU_TEST_MYSQL_BASE",
+		"user": "env:NYU_TEST_MYSQL_USER",
+		"pass": "env:NYU_TEST_MYSQL_PASS"
+	},
+	"pgsql": {
+		"host": "env:NYU_TEST_PGSQL_HOST",
+		"port": "env:NYU_TEST_PGSQL_PORT",
+		"base": "env:NYU_TEST_PGSQL_BASE",
+		"user": "env:NYU_TEST_PGSQL_USER",
+		"pass": "env:NYU_TEST_PGSQL_PASS"
+	}
+}

@@ -44,13 +44,12 @@ function buildData( String $sqliteFile ): Void {
 
 /**
  * Points the framework's database configuration at a SQLite file, through
- * the test-only Lite handler.
+ * the framework's SQLite handler.
  *
  * @param String $sqliteFile Path of the SQLite file to use.
  */
 function useSqlite( String $sqliteFile ): Void {
-	require_once __DIR__.DIRECTORY_SEPARATOR.'LiteHandler.php';
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('TYPE'=>'Lite', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqliteFile)
+		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqliteFile)
 	) );
 }

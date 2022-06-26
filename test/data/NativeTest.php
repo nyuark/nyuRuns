@@ -30,6 +30,10 @@ checkSame('Native locked user',          $natAuth->checkCred(Array('user'=>'dave
 checkSame('Native locked user message',  $natAuth->lastError(), 'Account not active');
 checkSame('Native locked user, wrong password: the status is not told', Array($natAuth->checkCred(Array('user'=>'dave', 'pass'=>'nope')), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 checkSame('Native name with a quote',    $natAuth->checkCred(Array('user'=>"anna' OR '1'='1", 'pass'=>'pw-anna')), false);
+checkSame('Native name with a quote message', $natAuth->lastError(), 'Invalid credentials');
+checkSame('Native name with a quote: tokens and stamps are refused too', runSafely(function() use ($natAuth){
+	return Array($natAuth->makeToken("anna' OR '1'='1"), $natAuth->makeTwoFa("anna' --"), $natAuth->keepAlive("anna' OR '1'='1"));
+}), Array(false, false, false));
 
 $dfltNat = new Native( Array() );
 checkSame('Native default table is users', $dfltNat->checkCred(Array('user'=>'anna', 'pass'=>'pw-anna'))['user'] ?? null, 'anna');
@@ -40,6 +44,8 @@ checkSame('Native missing table message', $noTable->lastError(), 'Credential sto
 $badName = new Native( Array('tblnme'=>'users; DROP TABLE users') );
 checkSame('Native unusable table name',  $badName->checkCred(Array('user'=>'anna', 'pass'=>'pw-anna')), false);
 checkSame('Native unusable table name message', $badName->lastError(), 'Credential store unavailable');
+$brkName = new Native( Array('tblnme'=>"users\n") );
+checkSame('Native table name ending with a line break', Array($brkName->checkCred(Array('user'=>'anna', 'pass'=>'pw-anna')), $brkName->lastError()), Array(false, 'Credential store unavailable'));
 checkSame('Native: the users table is still there', $natAuth->checkCred(Array('user'=>'anna', 'pass'=>'pw-anna'))['user'] ?? null, 'anna');
 
 // Presence : keepAlive stamps lastSeen, onlineNow lists the active users seen within the idle time
@@ -63,7 +69,7 @@ checkSame('Native presence on a missing table', Array($noTable->keepAlive('anna'
 
 // Checker : a verified request stamps the user when the credential store tracks presence
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'Lite', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('native.sqlite')),
+	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('native.sqlite')),
 	'access'=>Array('TESTNAT'=>Array('tblnme'=>'users'))
 ) );
 $natConf = Array('needed'=>true, 'sessby'=>'hbasic', 'authby'=>'native', 'sesscf'=>'testnat');
@@ -84,7 +90,7 @@ checkSame('Native userIdent on a missing table', Array($noTable->userIdent('anna
 
 // Checker : a token is confirmed against the users table when the preset names it as the credential store
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'Lite', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('native.sqlite')),
+	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('native.sqlite')),
 	'access'=>Array('TESTNAT'=>Array('tblnme'=>'users'), 'TESTJWT'=>Array('secret'=>str_repeat('s', 40)), 'OTHERTB'=>Array('tblnme'=>'nousers'))
 ) );
 $jwtSess = new nyu\Access\Sess\JWT( Array('secret'=>str_repeat('s', 40)) );

@@ -16,24 +16,40 @@ script runs in its own PHP process and can also be run on its own
 
 | Folder | What it checks |
 |---|---|
-| `unit/` | `Variable`, `StrKit`, `Logger`, the request body parser, the Access layer, `Response`, the error handler |
-| `data/` | `DBList`, `DBRecord` and the Shows application, on a temporary SQLite database |
+| `unit/` | `Variable`, `StrKit`, `Logger`, the request body parser, the Access layer, `Response`, the error handler, the model stack, the choice and settings of the database handlers |
+| `data/` | the database handler, the filter builder, `DBList`, `DBRecord`, the native userbase, several databases at once and the Shows application, on temporary SQLite databases; optionally the same dialect checks on real MySQL and PostgreSQL servers |
 | `http/` | status codes, content types and bodies over PHP's built-in web server |
 | `audit/` | the coding conventions of the project across `src/` and `runs/` |
-| `lib/` | shared helpers: assertions (`harness.php`), sample data, the SQLite handler, the fake `php://input`, the audit, the child scripts |
+| `lib/` | shared helpers: assertions (`harness.php`), sample data, the optional test servers (`servers.php`), the dialect checks (`dialect.php`), the fake `php://input`, the audit, the child scripts |
 | `fixtures/` | static files used by the tests |
 
 ## Things to know
 
 - **Database.** The data and HTTP tests need the `pdo_sqlite` extension and skip
-  themselves without it. They never touch MySQL: `lib/LiteHandler.php` extends the
-  framework's own `DBHs\PDO`, points it at a SQLite file in the system temporary
-  folder, and only translates the two MySQL-only statements `DBRecord` sends
-  (`EXPLAIN table` and `UPDATE ... LIMIT 1`).
+  themselves without it. They never touch MySQL: they select the framework's own
+  SQLite handler (`DBHs\SQLite`, type code `sqlte`) and point it at a SQLite file
+  in the system temporary folder.
+- **Real servers (optional).** `data/MySQLTest.php` and `data/PgSQLTest.php` run
+  the checks of `lib/dialect.php` through the MySQL and PostgreSQL handlers. Each
+  skips itself, saying why, when its extension (`pdo_mysql`, `pdo_pgsql`) is not
+  loaded, when no account is configured, or when the server does not answer.
+  The account comes from the `NYU_TEST_MYSQL_*` / `NYU_TEST_PGSQL_*` names of
+  `.env` (see `.env.example`); without them, the account of `conf/database.json`
+  is used when it is of the same type. The tests create a database of their own,
+  `nyuruns_test` unless another name is given, then drop and recreate the
+  `shows`, `events` and `items` tables in it. They refuse a database whose name
+  does not contain "test", and never touch any other.
+- **Extensions.** A command-line PHP that loads no `php.ini` has none of the
+  database extensions. They can be given for one run:
+  `php -d extension_dir=<php>/ext -d extension=pdo_sqlite test/data/HandlerTest.php`.
+  The runner and the HTTP test start other PHP processes, which do not receive
+  those `-d` options: for them, point the `PHPRC` environment variable at a
+  folder holding a `php.ini` that lists the extensions.
 - **HTTP.** `http/HttpTest.php` starts `php -S` on a free local port with
   `lib/httpRouter.php` and stops it afterwards. Those requests run through the
   project's real configuration, so they append to the log file set in
-  `conf/system.ini`.
+  `conf/system.ini`. If the test itself crashes, its server is left running and
+  has to be stopped by hand.
 - **Credentials.** `fixtures/users.htpasswd` holds four test-only users
   (`alice` / `s3cret`, `erin` / `tr0ub4dor`, and `bob` / `hunter2`, `frank` / `letmein`
   whose weak hashes only pass in unsecure mode).

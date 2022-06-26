@@ -1,11 +1,11 @@
 {
-	"type": "PDO",
-	"host": "localhost",
-	"base": "nyuRuns",
-	"user": "root",
-	"pass": "",
-	"more": {
-		"ftypes": "all",
-		"filter": "all"
+	"nyuRuns": {
+		"type": "mysql",
+		"host": "localhost",
+		"port": "",
+		"base": "nyuRuns",
+		"user": "root",
+		"pass": "env:NYU_DB_PASS",
+		"char": "utf8"
 	}
 }

@@ -21,6 +21,7 @@ class Native implements Handler{
 	// Seconds during which a user already seen is not stamped again
 	const STAMPGAP = 60;
 
+	protected $userBase;
 	protected $usrTable;
 	protected $idleSecs;
 	protected $maxTries;
@@ -28,14 +29,16 @@ class Native implements Handler{
 	protected $lastMssg;
 
 	/**
-	 * @param Array $confValues Config block, optionally with the 'tblnme' table holding the users (defaults to 'users'),
+	 * @param Array $confValues Config block, optionally with the 'basnme' configured database holding the users
+	 *                          (defaults to the default database), their 'tblnme' table (defaults to 'users'),
 	 *                          the 'idletm' time in seconds after which a user is no longer online (defaults to 300),
 	 *                          the failed tries allowed ('maxtry', defaults to 3) and the time in seconds they hold the
 	 *                          account for ('holdtm', defaults to 600).
 	 */
 	function __construct( Array $confValues ){
+		$this->userBase = is_scalar($confValues['basnme'] ?? '') ? strval($confValues['basnme'] ?? '') : '';
 		$tblName = strval($confValues['tblnme'] ?? 'users');
-		$this->usrTable = preg_match('/^\w+$/', $tblName) ? $tblName : '';
+		$this->usrTable = preg_match('/^\w+$/D', $tblName) ? $tblName : '';
 		$this->idleSecs = max( 1, intval($confValues['idletm'] ?? 300) );
 		$this->maxTries = max( 1, intval($confValues['maxtry'] ?? 3) );
 		$this->holdSecs = max( 1, intval($confValues['holdtm'] ?? 600) );
@@ -125,11 +128,12 @@ class Native implements Handler{
 	protected function countFail( String $userString ): Void {
 		try{
 			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
 			$nowTime = time();
 			// failNmbr is set first : it must read the previous failDate
-			$updQury = "UPDATE `$this->usrTable` SET `failNmbr`=CASE WHEN `failDate` IS NULL OR `failDate`<='".date('Y-m-d H:i:s', $nowTime - $this->holdSecs)."' THEN 1 ELSE `failNmbr`+1 END,"
-				." `failDate`='".date('Y-m-d H:i:s', $nowTime)."' WHERE `userName`='".$dbHandl->escapeStr($userString)."';";
-			$dbHandl->sendQuery($updQury, true);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['failNmbr']}=CASE WHEN {$qtdName['failDate']} IS NULL OR {$qtdName['failDate']}<='".date('Y-m-d H:i:s', $nowTime - $this->holdSecs)."' THEN 1 ELSE {$qtdName['failNmbr']}+1 END,"
+				." {$qtdName['failDate']}='".date('Y-m-d H:i:s', $nowTime)."' WHERE {$qtdName['userName']}=?;";
+			$dbHandl->sendQuery($updQury, true, Array($userString));
 		}catch( \Throwable $e ){
 			// A count that cannot be written does not change the answer given to the client
 		}
@@ -143,7 +147,8 @@ class Native implements Handler{
 	protected function clearFail( String $userString ): Void {
 		try{
 			$dbHandl = $this->linkDBase();
-			$dbHandl->sendQuery( "UPDATE `$this->usrTable` SET `failNmbr`=0, `failDate`=NULL WHERE `userName`='".$dbHandl->escapeStr($userString)."';", true );
+			$qtdName = $this->quoteFlds($dbHandl);
+			$dbHandl->sendQuery( "UPDATE {$qtdName['usrTable']} SET {$qtdName['failNmbr']}=0, {$qtdName['failDate']}=NULL WHERE {$qtdName['userName']}=?;", true, Array($userString) );
 		}catch( \Throwable $e ){
 			// A count that cannot be written does not change the answer given to the client
 		}
@@ -163,10 +168,11 @@ class Native implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
 			$newScrt = Totp::makeSecrt();
-			$updQury = "UPDATE `$this->usrTable` SET `twoFaKey`='".$newScrt."'"
-				." WHERE `userName`='".$dbHandl->escapeStr($userString)."' AND `userStat`='active';";
-			return $dbHandl->sendQuery($updQury, true) ? $newScrt : false;
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFaKey']}='".$newScrt."'"
+				." WHERE {$qtdName['userName']}=? AND {$qtdName['userStat']}='active';";
+			return ( $dbHandl->sendQuery($updQury, true, Array($userString)) && $dbHandl->lastCount()>0 ) ? $newScrt : false;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -209,10 +215,11 @@ class Native implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
 			$newTokn = bin2hex(random_bytes(32));
-			$updQury = "UPDATE `$this->usrTable` SET `tokenKey`='".hash('sha256', $newTokn)."'"
-				." WHERE `userName`='".$dbHandl->escapeStr($userString)."' AND `userStat`='active';";
-			return $dbHandl->sendQuery($updQury, true) ? $newTokn : false;
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['tokenKey']}='".hash('sha256', $newTokn)."'"
+				." WHERE {$qtdName['userName']}=? AND {$qtdName['userStat']}='active';";
+			return ( $dbHandl->sendQuery($updQury, true, Array($userString)) && $dbHandl->lastCount()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -252,11 +259,12 @@ class Native implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
 			$nowTime = time();
-			$updQury = "UPDATE `$this->usrTable` SET `lastSeen`='".date('Y-m-d H:i:s', $nowTime)."'"
-				." WHERE `userName`='".$dbHandl->escapeStr($userString)."' AND `userStat`='active'"
-				." AND (`lastSeen` IS NULL OR `lastSeen`<'".date('Y-m-d H:i:s', $nowTime - self::STAMPGAP)."');";
-			return $dbHandl->sendQuery($updQury, true);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['lastSeen']}='".date('Y-m-d H:i:s', $nowTime)."'"
+				." WHERE {$qtdName['userName']}=? AND {$qtdName['userStat']}='active'"
+				." AND ({$qtdName['lastSeen']} IS NULL OR {$qtdName['lastSeen']}<'".date('Y-m-d H:i:s', $nowTime - self::STAMPGAP)."');";
+			return $dbHandl->sendQuery($updQury, true, Array($userString)) && $dbHandl->lastCount()>0;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -274,8 +282,9 @@ class Native implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
-			$lstQury = "SELECT `userName` FROM `$this->usrTable` WHERE `userStat`='active'"
-				." AND `lastSeen`>='".date('Y-m-d H:i:s', time() - $this->idleSecs)."' ORDER BY `userName`;";
+			$qtdName = $this->quoteFlds($dbHandl);
+			$lstQury = "SELECT {$qtdName['userName']} FROM {$qtdName['usrTable']} WHERE {$qtdName['userStat']}='active'"
+				." AND {$qtdName['lastSeen']}>='".date('Y-m-d H:i:s', time() - $this->idleSecs)."' ORDER BY {$qtdName['userName']};";
 			if( !$dbHandl->sendQuery($lstQury) ){
 				return false;
 			}
@@ -299,8 +308,9 @@ class Native implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
-			$usrQury = "SELECT * FROM `$this->usrTable` WHERE `$fieldNamed`='".$dbHandl->escapeStr($lookupText)."' LIMIT 1;";
-			if( !$dbHandl->sendQuery($usrQury) ){
+			$qtdName = $this->quoteFlds($dbHandl);
+			$usrQury = "SELECT * FROM {$qtdName['usrTable']} WHERE {$qtdName[$fieldNamed]}=? LIMIT 1;";
+			if( !$dbHandl->sendQuery($usrQury, false, Array($lookupText)) ){
 				return false;
 			}
 			$usrRows = $dbHandl->readQuery(true);
@@ -314,13 +324,30 @@ class Native implements Handler{
 	}
 
 	/**
-	 * Returns the handler of the shared database connection.
+	 * Quotes the users table and the fields named in the queries, the way
+	 * the database in use expects them.
 	 *
-	 * @return DbHandlr The active database handler.
+	 * @param DbHandlr $handlerObj The database handler.
+	 * @return Array The quoted names, keyed by plain name; the table is under 'usrTable'.
+	 */
+	protected function quoteFlds( DbHandlr $handlerObj ): Array {
+		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
+		foreach( Array('userName', 'userStat', 'tokenKey', 'twoFaKey', 'failNmbr', 'failDate', 'lastSeen') as $fldNme ){
+			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
+		}
+		return $qtdName;
+	}
+
+	/**
+	 * Returns the handler of the database holding the users: the one
+	 * named by 'basnme', or the default database.
+	 *
+	 * @return DbHandlr The database handler.
+	 *
+	 * @throws \RuntimeException When that database is not configured.
 	 */
 	protected function linkDBase(): DbHandlr {
-		$nyuBase = $GLOBALS['nyuConfig']->readValue('database');
-		return DBCon::getInstnc($nyuBase['TYPE'], $nyuBase['HOST'], $nyuBase['USER'], $nyuBase['PASS'], $nyuBase['BASE'])->getConnex();
+		return DBCon::linkNamed($this->userBase)->getConnex();
 	}
 
 	/**

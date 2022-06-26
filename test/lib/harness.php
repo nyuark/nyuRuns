@@ -8,7 +8,10 @@ error_reporting(E_ALL);
 define('DS', DIRECTORY_SEPARATOR);
 define('TOP_DIR', realpath(__DIR__.DS.'..'.DS.'..'));
 define('WEB_DIR', TOP_DIR.DS.'www');
-define('RUN_DIR', TOP_DIR.DS.'runs');
+// A test script may point RUN_DIR at the fixture runs before requiring this file
+if( !defined('RUN_DIR') ){
+	define('RUN_DIR', TOP_DIR.DS.'runs');
+}
 define('TST_DIR', TOP_DIR.DS.'test');
 define('TMP_DIR', sys_get_temp_dir().DS.'nyuruns_test_'.getmypid());
 

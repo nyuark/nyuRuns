@@ -27,13 +27,12 @@ $sqlFile = getenv('NYU_TEST_DB');
 
 chdir($topDir.DIRECTORY_SEPARATOR.'www');
 require $topDir.'/vendor/autoload.php';
-require __DIR__.'/LiteHandler.php';
 require __DIR__.'/sample.php';
 if( !file_exists($sqlFile) ){
 	buildData($sqlFile);
 }
 // DBCon is a singleton that ignores later arguments, so this decides the connection for the request
-nyu\Data\DBCon::getInstnc('Lite', '', '', '', $sqlFile);
+nyu\Data\DBCon::getInstnc('sqlte', '', '', '', $sqlFile);
 
 // X-Test-Cert: <result>;<name>;<issuer> stands in for the web server reporting a TLS client certificate
 if( isset($_SERVER['HTTP_X_TEST_CERT']) ){
