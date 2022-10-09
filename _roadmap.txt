@@ -41,9 +41,10 @@ Authenticate:	More authentication mechanisms or "connectors" could
 ClientReg : 	Should detect client side elements 
 				(browser, platform, host, device, screen)
 				
-Response :		To be accessible accross apps, thus allowing to break
-				or end the run at anytime, spitting a full or partial 
-				response. Check status of current implementation.
+Response :		Done. It is passed to each app's actionset, which can
+				set headers, reply with a file (Range requests are
+				supported), and break or end the run at anytime with
+				a full or partial response (endAction).
 							
 CLI : 			Nice to have, call the runner through a CLI script, 
 				to be able to automate tasks, generate code and make 
@@ -75,9 +76,6 @@ CLI : 			Nice to have, call the runner through a CLI script,
 		
 		nyuRuns\src\Data\DFile.php (1 hit)
 			Line 33: 			// TODO, implement XML Parser
-		
-		nyuRuns\src\Output\Response.php (1 hit)
-			Line 35: 			// TODO : Raise error
 		
 		nyuRuns\src\Runner.php (3 hits)
 			Line 21: 	protected 	$axessCon;	// Access Container *TODO*

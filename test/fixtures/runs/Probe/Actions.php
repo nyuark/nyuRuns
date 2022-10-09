@@ -57,6 +57,76 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Raises a warning, then answers "no content" without any output.
+	 */
+	public function vanish(): Void {
+		trigger_error('probe warning', E_USER_WARNING);
+		$this->statCode = 204;
+	}
+
+	/**
+	 * Sets a first output, then stops through a helper in the way named by
+	 * its parameter. The lines after the stop must never run.
+	 */
+	public function halt( String $givenValue ): Void {
+		if( $givenValue!='none' ){
+			$this->asOutput = Array('step'=>1);
+		}
+		$this->stopHere($givenValue);
+		$this->statCode = 200;
+		$this->asOutput = Array('step'=>2);
+	}
+
+	/**
+	 * A helper, not an action: ends the action it is called from.
+	 */
+	protected function stopHere( String $givenValue ): Void {
+		if( $givenValue=='fail' ){
+			$this->endAction(404, 'Stopped early');
+		}
+		if( $givenValue=='full' ){
+			$this->endAction(200, '', Array('done'=>true));
+		}
+		if( $givenValue=='none' ){
+			$this->endAction(204);
+		}
+		$this->endAction(200);
+	}
+
+	/**
+	 * Answers with a bare string, not an array.
+	 */
+	public function text(): Void {
+		$this->statCode = 200;
+		$this->asOutput = 'plain text';
+	}
+
+	/**
+	 * Answers with text that is not valid UTF-8, which JSON cannot carry.
+	 */
+	public function badutf(): Void {
+		$this->statCode = 200;
+		$this->asOutput = Array('name'=>"caf\xE9");
+	}
+
+	/**
+	 * Answers with the letters fixture file, or with a missing one when
+	 * called with a parameter.
+	 */
+	public function media( String $givenValue='' ): Void {
+		$this->replyFile( TOP_DIR.DS.'test'.DS.'fixtures'.DS.($givenValue=='' ? 'letters.txt' : 'nosuchfile.txt'), 'audio/mp4' );
+	}
+
+	/**
+	 * Registers the letters fixture file, then answers with an error status.
+	 */
+	public function mediafail(): Void {
+		$this->replyFile( TOP_DIR.DS.'test'.DS.'fixtures'.DS.'letters.txt', 'audio/mp4' );
+		$this->statCode = 403;
+		$this->statMssg = 'Not yours';
+	}
+
+	/**
 	 * A helper, not an action: must not be reachable by URL.
 	 */
 	protected function hidden(): Void {

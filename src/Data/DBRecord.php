@@ -14,16 +14,16 @@ class DBRecord {
 	protected $primaKey;
 	protected $keyField;
 	protected $fieldLst;
-	protected $tblQuotd;
-	protected $keyQuotd;
 
 	protected $recArray;
 	protected $belongTo;
 	protected $children;
+	// Names under which linked rows were attached to the record: never saved
+	protected $linkKeys = Array();
 
 	/**
 	 * Builds a record object bound to a table: verifies the table exists,
-	 * reads its primary key and field list from the handler, and stores the
+	 * reads its primary key and field list from the store, and stores the
 	 * declared child/parent relations for later loading.
 	 *
 	 * @param String $dbaseTable Name of the table this record maps to.
@@ -41,23 +41,22 @@ class DBRecord {
 			$this->dbConnex = $handleLink;
 		}
 
-		// Quoting also refuses a table name that is not a plain name
-		$this->tblQuotd = $this->dbConnex->dbHandle->quoteName($this->tableNme);
+		// A table name that is not a plain name is refused
+		$dbStore = $this->dbConnex->dataStore();
+		$dbStore->checkName($this->tableNme);
 
 		// Check if table exists
-		$exstQry = "SELECT 1 FROM $this->tblQuotd LIMIT 1;";
-		if( !$this->dbConnex->dbHandle->sendQuery($exstQry) ){
-			throw new \RuntimeException('Table "'.$this->tableNme.'" is not available: '.$this->dbConnex->dbHandle->lastError());
+		if( $dbStore->findItems($this->tableNme, Array(), Array('limit'=>1))===false ){
+			throw new \RuntimeException('Table "'.$this->tableNme.'" is not available: '.$dbStore->lastError());
 		}
 
-		// The handler knows how its database describes a table
-		$tblInfo = $this->dbConnex->dbHandle->tableInfo($this->tableNme);
+		// The store knows how its database describes a table
+		$tblInfo = $dbStore->tableInfo($this->tableNme);
 		if( $tblInfo===false ){
-			throw new \RuntimeException('Table "'.$this->tableNme.'" cannot be described: '.$this->dbConnex->dbHandle->lastError());
+			throw new \RuntimeException('Table "'.$this->tableNme.'" cannot be described: '.$dbStore->lastError());
 		}
 		$this->keyField = $tblInfo['pkey'];
 		$this->fieldLst = $tblInfo['flds'];
-		$this->keyQuotd = ($this->keyField!='') ? $this->dbConnex->dbHandle->quoteName($this->keyField) : '';
 		if( !empty($childArray) ){
 			$this->children = $childArray;
 		}
@@ -74,11 +73,7 @@ class DBRecord {
 	 * @return mixed The loaded record's field array, or false if not found.
 	 */
 	function loadRecrd( String $primaryKey ): Array|Bool {
-		$idQuery = "SELECT * FROM $this->tblQuotd WHERE $this->keyQuotd=?;";
-		$this->dbConnex->dbHandle->sendQuery($idQuery, false, Array($primaryKey));
-		$this->recArray = array();
-
-		$fndRows = $this->dbConnex->dbHandle->readQuery(true);
+		$fndRows = $this->rowsOfKey($primaryKey);
 		$this->recArray = $fndRows[0] ?? Array();
 		if( is_array($this->recArray) && !empty($this->recArray) ){
 			$this->primaKey = $primaryKey;
@@ -147,10 +142,7 @@ class DBRecord {
 		if( $primaryKey===null || $primaryKey==='' ){
 			return false;
 		}
-		$idQuery = "SELECT * FROM $this->tblQuotd WHERE $this->keyQuotd=?;";
-		$this->dbConnex->dbHandle->sendQuery($idQuery, false, Array($primaryKey));
-
-		$fndRows = $this->dbConnex->dbHandle->readQuery(true);
+		$fndRows = $this->rowsOfKey($primaryKey);
 		$tempRec = $fndRows[0] ?? null;
 		if( is_array($tempRec) && isset($tempRec[$this->keyField]) && $tempRec[$this->keyField]==$primaryKey ){
 			return true;
@@ -160,21 +152,51 @@ class DBRecord {
 	}
 
 	/**
+	 * Reads the row holding a key value, compared exactly: a key is never
+	 * read as a wildcard.
+	 *
+	 * @param mixed $primaryKey Value of the primary key.
+	 * @return Array|Bool The rows found, at most one, or false when the table has no key or cannot be read.
+	 */
+	protected function rowsOfKey( Mixed $primaryKey ): Array|Bool {
+		if( $this->keyField=='' ){
+			return false;
+		}
+		return $this->dbConnex->dataStore()->findItems($this->tableNme, Array($this->keyField.'='=>$primaryKey), Array('limit'=>1));
+	}
+
+	/**
 	 * Copies values from an array into the record's field array, ignoring
 	 * any keys that aren't recognized fields of the table, and tracking
-	 * the primary key value when set.
+	 * the primary key value when set. On a database that sets no list of
+	 * fields, any plain field name is taken.
 	 *
 	 * @param Array $valueArray Map of field name => value to bind onto the record.
 	 */
 	function bindArray( Array $valueArray ): Void {
 		foreach($valueArray as $fldNme=>$fldVal){
-			if(in_array($fldNme,$this->fieldLst)){
+			if( $this->ownsField(strval($fldNme)) ){
 				if($fldNme==$this->keyField){
 					$this->primaKey = $fldVal;
 				}
 				$this->recArray[$fldNme] = $fldVal;
 			}
 		}
+	}
+
+	/**
+	 * Tells whether a name is a field of the table: one of its list of
+	 * fields, or any plain name when the database sets no such list.
+	 * What was attached by a relation is never one.
+	 *
+	 * @param String $fieldLabel The name.
+	 * @return Bool True when the name is a field of the table.
+	 */
+	protected function ownsField( String $fieldLabel ): Bool {
+		if( in_array($fieldLabel, $this->linkKeys, true) ){
+			return false;
+		}
+		return empty($this->fieldLst) ? (bool)preg_match('/^\w+$/D', $fieldLabel) : in_array($fieldLabel, $this->fieldLst);
 	}
 
 	/**
@@ -190,18 +212,19 @@ class DBRecord {
 	 * Deletes the loaded record and, with it, its rows in the child tables
 	 * named in the call. Nothing else is deleted: parents and unnamed
 	 * children are left alone. The whole deletion is one transaction, and
-	 * the record is emptied afterwards: a second call deletes nothing.
+	 * the record is emptied afterwards: a second call deletes nothing. On
+	 * a database without transactions, a record is only deleted alone.
 	 *
 	 * @param Array $childArray Child tables whose linked rows go too: 'table', or 'table'=>'foreign key' (default `<singularized table>_id`).
 	 * @return Bool True when the record was deleted, false when no record is loaded or the deletion failed.
 	 *
-	 * @throws \RuntimeException When a table or field name is not valid.
+	 * @throws \RuntimeException When a table or field name is not valid, or children are named on a database without transactions.
 	 */
 	function remvRecrd( Array $childArray=Array() ): Bool {
-		if( $this->primaKey===null || $this->primaKey==='' || $this->keyQuotd=='' ){
+		if( $this->primaKey===null || $this->primaKey==='' || $this->keyField=='' ){
 			return false;
 		}
-		$dbHandl = $this->dbConnex->dbHandle;
+		$dbStore = $this->dbConnex->dataStore();
 		// Every name is checked before anything is deleted
 		$remList = Array();
 		foreach($childArray as $chlTab=>$chlFld){
@@ -209,25 +232,33 @@ class DBRecord {
 				$chlTab = $chlFld;
 				$chlFld = StrKit::singlrize($this->tableNme).'_id';
 			}
-			$remList[] = 'DELETE FROM '.$dbHandl->quoteName($chlTab).' WHERE '.$dbHandl->quoteName($chlFld).'=?;';
+			$remList[] = Array($dbStore->checkName(strval($chlTab)), $dbStore->checkName(strval($chlFld)));
 		}
-		$remList[] = "DELETE FROM $this->tblQuotd WHERE $this->keyQuotd=?;";
+		// The record's own row comes last
+		$remList[] = Array($this->tableNme, $this->keyField);
 
-		if( !$dbHandl->opnTrnsct() ){
+		// One deletion is safe by itself; several must go together, or not at all
+		$useTrns = $dbStore->canTrnsct();
+		if( !$useTrns && count($remList)>1 ){
+			throw new \RuntimeException('Deleting a record with its children needs transactions, which this database does not have');
+		}
+		if( $useTrns && !$dbStore->opnTrnsct() ){
 			return false;
 		}
-		foreach($remList as $remQry){
-			if( !$dbHandl->sendQuery($remQry, true, Array($this->primaKey)) ){
-				$dbHandl->remTrnsct();
+		$rowsRem = 0;
+		foreach($remList as $remTbl){
+			$rowsRem = $dbStore->deleteRow($remTbl[0], Array($remTbl[1].'='=>$this->primaKey));
+			if( $rowsRem===false ){
+				if( $useTrns ) $dbStore->remTrnsct();
 				return false;
 			}
 		}
-		// The record's own row comes last: no row deleted means it was not there
-		if( $dbHandl->lastCount()<1 ){
-			$dbHandl->remTrnsct();
+		// No row deleted for the record itself means it was not there
+		if( $rowsRem<1 ){
+			if( $useTrns ) $dbStore->remTrnsct();
 			return false;
 		}
-		if( !$dbHandl->setTrnsct() ){
+		if( $useTrns && !$dbStore->setTrnsct() ){
 			return false;
 		}
 		$this->initRecrd();
@@ -248,12 +279,7 @@ class DBRecord {
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
 	function findRecrd( Array $whereArray ): Array|Bool {
-		$whrPart = DBFilter::makeWhere($whereArray, $this->dbConnex->dbHandle);
-		$idQuery = "SELECT * FROM $this->tblQuotd".($whrPart['text']!='' ? ' WHERE '.$whrPart['text'] : '')." LIMIT 1;";
-		$this->dbConnex->dbHandle->sendQuery($idQuery, false, $whrPart['vals']);
-		$this->recArray = array();
-
-		$fndRows = $this->dbConnex->dbHandle->readQuery(true);
+		$fndRows = $this->dbConnex->dataStore()->findItems($this->tableNme, $whereArray, Array('limit'=>1));
 		$this->recArray = is_array($fndRows) ? ($fndRows[0] ?? Array()) : false;
 		if( is_array($this->recArray) ){
 			if(isset($this->recArray[$this->keyField])){
@@ -288,7 +314,7 @@ class DBRecord {
 		$saveArr = Array();
 		foreach( $this->recArray as $fldNme => $fldVal ){
 			// The key is never changed, and only the table's own fields are saved
-			if( $fldNme==$this->keyField || in_array($fldNme, $exludeFlds) || !in_array($fldNme, $this->fieldLst) ){
+			if( $fldNme==$this->keyField || in_array($fldNme, $exludeFlds) || !$this->ownsField(strval($fldNme)) ){
 				continue;
 			}
 			$saveArr[$fldNme] = $fldVal;
@@ -297,29 +323,19 @@ class DBRecord {
 			if( empty($saveArr) ){
 				return $this->primaKey;
 			}
-			$fldsQtd = array_map(Array($this->dbConnex->dbHandle, 'quoteName'), array_keys($saveArr));
-			$svQuery = "UPDATE $this->tblQuotd SET ".implode('=?,', $fldsQtd)."=? WHERE $this->keyQuotd=?;";
-			$saveVal = array_merge(array_values($saveArr), Array($this->primaKey));
-		}else{
-			// A key bound to the new record is inserted with the other fields
-			if( $this->primaKey!==null && $this->primaKey!=='' ){
-				$saveArr = Array($this->keyField=>$this->primaKey) + $saveArr;
-			}
-			$fldsQtd = array_map(Array($this->dbConnex->dbHandle, 'quoteName'), array_keys($saveArr));
-			$svQuery = "INSERT INTO $this->tblQuotd (".implode(',', $fldsQtd).") VALUES (".implode(',', array_fill(0, count($saveArr), '?')).");";
-			$saveVal = array_values($saveArr);
+			$rowsDne = $this->dbConnex->dataStore()->updateRow($this->tableNme, Array($this->keyField.'='=>$this->primaKey), $saveArr);
+			return ($rowsDne===false) ? false : $this->primaKey;
 		}
-		$didSave = $this->dbConnex->dbHandle->sendQuery($svQuery, true, $saveVal);
-
-		if($didSave){
-			if($recExst){
-				return $this->primaKey;
-			}else{
-				return ($this->primaKey!==null && $this->primaKey!=='') ? $this->primaKey : $this->dbConnex->dbHandle->lastAdded();
-			}
-		}else{
+		// A key bound to the new record is inserted with the other fields
+		$keyGivn = ($this->primaKey!==null && $this->primaKey!=='');
+		if( $keyGivn ){
+			$saveArr = Array($this->keyField=>$this->primaKey) + $saveArr;
+		}
+		$newKey = $this->dbConnex->dataStore()->insertRow($this->tableNme, $saveArr);
+		if( $newKey===false ){
 			return false;
 		}
+		return $keyGivn ? $this->primaKey : $newKey;
 	}
 
 	/**
@@ -328,11 +344,9 @@ class DBRecord {
 	 *
 	 * @param String $parntTable Name of the parent table.
 	 * @param Bool   $returnVals Whether to return the updated record array.
-	 * @param String $foreignKey Field on the parent table referencing this record (currently ignored due to a variable-name bug — see flagged issue).
+	 * @param String $foreignKey Field on the parent table this record points to (defaults to the key field of the parent).
 	 * @param String $currentKey Field on this record referencing the parent (defaults to `id_<singularized table>`).
 	 * @return mixed The updated record array if $returnVals is true, otherwise nothing.
-	 *
-	 * @todo $foreignKey parameter is never used — the body reads/writes a differently-spelled $foreignKey variable instead.
 	 */
 	function parentRec( String $parntTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='' ): ?Array {
 		$prntRec = new DBRecord( $parntTable, Array(), Array(), $this->dbConnex );
@@ -343,10 +357,11 @@ class DBRecord {
 			$intName = StrKit::singlrize($this->tableNme);
 			$currentKey = $intName.'_id';
 		}
-		$whreArr = Array( $foreignKey => $this->recArray[$currentKey] );
+		$whreArr = Array( $foreignKey.'=' => $this->recArray[$currentKey] ?? null );
 		$prntArr = $prntRec->findRecrd( $whreArr );
 		$prntKey = ucfirst(StrKit::singlrize($parntTable));
 		$this->recArray[$prntKey] = $prntArr;
+		$this->linkKeys[] = $prntKey;
 		if($returnVals==true){
 			return $this->recArray;
 		}
@@ -358,7 +373,7 @@ class DBRecord {
 	 *
 	 * @param String $childTable Name of the child table.
 	 * @param Bool   $returnVals Whether to return the updated record array.
-	 * @param String $foreignKey Field on the child table referencing this record (currently ignored due to a variable-name bug — see flagged issue).
+	 * @param String $foreignKey Field on the child table referencing this record (defaults to `<singularized table>_id`).
 	 * @param String $currentKey Field on this record referenced by the child (defaults to this record's key field).
 	 * @param String $sortFields Sort clause passed through to the child DBList.
 	 * @return mixed The updated record array if $returnVals is true, otherwise nothing.
@@ -372,13 +387,14 @@ class DBRecord {
 			$currentKey = $this->keyField;
 		}
 		$chldKey = ucfirst($childTable);
+		$this->linkKeys[] = $chldKey;
 
 		// A record without a key value has no children
 		if( !isset($this->recArray[$currentKey]) ){
 			$this->recArray[$chldKey] = Array();
 		}else{
 			$subList = new DBList($childTable, null, null, $sortFields, null, $this->dbConnex);
-			$subList->lstSearch(Array($foreignKey=>$this->recArray[$currentKey]));
+			$subList->lstSearch(Array($foreignKey.'='=>$this->recArray[$currentKey]));
 			$this->recArray[$chldKey] = $subList->readItems();
 		}
 

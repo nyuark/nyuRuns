@@ -171,7 +171,7 @@ if( !$isReady ){
 	checkSame('public route: the default action stays closed', $replyAr['code'], 401);
 
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/gets', Array('X-Test-Auth'=>'jtoken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
-	checkSame('public route: an OPTIONS answered by the route needs no credentials', $replyAr['code'], 200);
+	checkSame('public route: an OPTIONS answered by the route needs no credentials', $replyAr['code'], 204);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/gets', Array('X-Test-Auth'=>'jtoken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
 	checkSame('public route: the same route stays closed for GET', $replyAr['code'], 401);
@@ -180,14 +180,14 @@ if( !$isReady ){
 	$corsHed = Array('Origin'=>'https://app.example', 'Access-Control-Request-Method'=>'GET', 'Access-Control-Request-Headers'=>'authorization');
 	$corsLst = Array('Access-Control-Allow-Origin: *', 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers: Authorization, Content-Type, X-Api-Key');
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed);
-	checkSame('preflight: answered on an automatic route, without the record', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
+	checkSame('preflight: answered on an automatic route, without the record', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 	checkSame('preflight: the three CORS headers are sent', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
 
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed + Array('X-Test-Auth'=>'jtoken'));
-	checkSame('preflight: answered without credentials under required access', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
+	checkSame('preflight: answered without credentials under required access', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/auth/login', Array('Access-Control-Request-Method'=>'POST') + $corsHed);
-	checkSame('preflight: answered on a route that only accepts POST', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
+	checkSame('preflight: answered on a route that only accepts POST', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jtoken'));
 	checkSame('an OPTIONS that is not a preflight stays closed under required access', $replyAr['code'], 401);
@@ -495,7 +495,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('HEAD', $baseUrl.'/gets', $rteHead);
 	checkSame('method: an allowed HEAD is served by the GET target, without body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, $jsonTyp, ''));
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/gets', $rteHead);
-	checkSame('method: an allowed OPTIONS answers with the accepted methods', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(200, '[]', 'GET, HEAD, OPTIONS'));
+	checkSame('method: an allowed OPTIONS answers with the accepted methods', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(204, '', 'GET, HEAD, OPTIONS'));
 	$replyAr = httpQuery('POST', $baseUrl.'/gets', $rteHead);
 	checkSame('method: refused with the full accepted list', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(405, $refused, 'GET, HEAD, OPTIONS'));
 	$replyAr = httpQuery('HEAD', $baseUrl.'/ping', $rteHead);
@@ -565,6 +565,57 @@ if( !$isReady ){
 	$bodyArr = json_decode($replyAr['body'], true);
 	checkSame('fatal error: 500 in the configured format', Array($replyAr['code'], $replyAr['type'], $bodyArr['code'] ?? null), Array(500, $jsonTyp, 500));
 	checkLike('fatal error: message', $bodyArr['error'] ?? null, $errShow ? '/^Allowed memory size of \d+ bytes exhausted/' : '/^Internal Server Error$/');
+
+	// Outputs that are not arrays, and data that cannot be encoded
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/text', $fixHead);
+	checkSame('output: a bare string is sent as JSON', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, $jsonTyp, '"plain text"'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/badutf', $fixHead);
+	checkSame('output: unencodable data is a JSON 500', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Response could not be encoded","code":500}'));
+
+	// File replies : the probe's media action serves the 26 letters of test/fixtures/letters.txt
+	$headOf = function( Array $replyArray, String $headerName ): ?String {
+		foreach( $replyArray['head'] as $hedLin ){
+			if( stripos($hedLin, $headerName.':')===0 ){
+				return trim(substr($hedLin, strlen($headerName)+1));
+			}
+		}
+		return null;
+	};
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead);
+	checkSame('file: whole file with its own type', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, 'audio/mp4', 'abcdefghijklmnopqrstuvwxyz'));
+	checkSame('file: length and range support are announced', Array($headOf($replyAr, 'Content-Length'), $headOf($replyAr, 'Accept-Ranges'), $headOf($replyAr, 'Content-Range')), Array('26', 'bytes', null));
+	checkSame('file: preset headers are kept', $headOf($replyAr, 'Access-Control-Allow-Origin'), '*');
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead + Array('Range'=>'bytes=0-4'));
+	checkSame('file: a range is 206 with its bytes', Array($replyAr['code'], $replyAr['body'], $headOf($replyAr, 'Content-Range'), $headOf($replyAr, 'Content-Length')), Array(206, 'abcde', 'bytes 0-4/26', '5'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead + Array('Range'=>'bytes=-3'));
+	checkSame('file: last bytes', Array($replyAr['code'], $replyAr['body'], $headOf($replyAr, 'Content-Range')), Array(206, 'xyz', 'bytes 23-25/26'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead + Array('Range'=>'bytes=99-'));
+	checkSame('file: a range outside the file is 416, without body', Array($replyAr['code'], $replyAr['body'], $headOf($replyAr, 'Content-Range')), Array(416, '', 'bytes */26'));
+	$replyAr = httpQuery('HEAD', $baseUrl.'/probe/media', $fixHead + Array('Range'=>'bytes=0-4'));
+	checkSame('file: HEAD gives the range headers, without body', Array($replyAr['code'], $replyAr['body'], $headOf($replyAr, 'Content-Length')), Array(206, '', '5'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead + Array('X-Test-Ctype'=>'text/csv'));
+	checkSame('file: its type replaces the preset Content-Type', $replyAr['type'], 'audio/mp4');
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media/x', $fixHead);
+	checkSame('file: a missing file is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"File not found","code":404}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mediafail', $fixHead + Array('Range'=>'bytes=0-4'));
+	checkSame('file: an error status wins over the file', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(403, $jsonTyp, '{"error":"Not yours","code":403}'));
+
+	// "No content" : a real 204 when the action sets no output, even after a warning
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/vanish', $fixHead);
+	checkSame('no content: 204 without body or type', Array($replyAr['code'], $replyAr['body'], $replyAr['type']), Array(204, '', ''));
+	checkSame('no content: preset headers are kept', $headOf($replyAr, 'Access-Control-Allow-Origin'), '*');
+
+	// Stopping an action from a helper : the stop decides the status, and the output when it carries one
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/halt/fail', $fixHead);
+	checkSame('stop: an error status with its message', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Stopped early","code":404}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/halt/full', $fixHead);
+	checkSame('stop: its own output replaces the earlier one', Array($replyAr['code'], $replyAr['body']), Array(200, '{"done":true}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/halt/part', $fixHead);
+	checkSame('stop: without output, what was set so far is sent', Array($replyAr['code'], $replyAr['body']), Array(200, '{"step":1}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/halt/none', $fixHead);
+	checkSame('stop: no content when nothing was set', Array($replyAr['code'], $replyAr['body'], $replyAr['type']), Array(204, '', ''));
 }
 
 proc_terminate($server);

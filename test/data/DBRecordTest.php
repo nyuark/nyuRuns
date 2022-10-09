@@ -234,6 +234,11 @@ checkSame('a key holding a quote is looked up as plain text', runSafely(function
 	return Array($tagsRec->loadRecrd("rock'n'roll"), $tagsRec->exstRecrd("rock'n'roll"), $tagsRec->exstRecrd("x' OR '1'='1"));
 }), Array(Array('label'=>"rock'n'roll"), true, false));
 
+checkSame('a key holding a wildcard character is not read as a wildcard', runSafely(function(){
+	$tagsRec = new DBRecord('tags');
+	return Array($tagsRec->loadRecrd('ro*'), $tagsRec->exstRecrd('%'), $tagsRec->exstRecrd('rock'));
+}), Array(false, false, true));
+
 // Empty and missing tables
 $dbHandl->sendQuery("CREATE TABLE `notes` (`id_note` INTEGER PRIMARY KEY, `body` TEXT);", true);
 
@@ -331,6 +336,6 @@ checkSame('remvRecrd failing on a child table cancels the whole deletion', runSa
 // Connection
 checkSame('getConnex returns the handler', runSafely(function(){
 	return get_class( DBCon::getInstnc('sqlte', '', '', '', '')->getConnex() );
-}), 'nyu\Data\DBHs\SQLite');
+}), 'nyu\Data\DBHndlr\SQLite');
 
 endChecks();

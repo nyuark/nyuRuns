@@ -25,7 +25,7 @@ $archLnk = null;
 
 $GLOBALS['nyuConfig'] = new Registry( Array('database'=>Array(
 	'NYURUNS'=>Array('type'=>'sqlte', 'base'=>inTempDir('main.sqlite')),
-	'ARCHIVE'=>Array('type'=>'sqlte', 'base'=>inTempDir('arch.sqlite')),
+	'ARCHIVE'=>Array('type'=>'sqlte', 'base'=>inTempDir('arch.sqlite'), 'wait'=>'2'),
 	'BROKEN7'=>Array('type'=>'oracle', 'base'=>'nowhere')
 )) );
 

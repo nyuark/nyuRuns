@@ -7,29 +7,34 @@ use \nyu\Tools\StrKit;
 
 class DBList {
 	protected $tableNme;
-	protected $tblQuotd;
 	protected $dbConnex;
 	// Name of the configured database the table lives in: '' for the default one. A model sets its own.
 	protected $baseName = '';
 	
-	protected $whrClaus;
-	protected $whrValus = Array();
-	protected $selScope;
-	protected $whrOrder;
-	protected $whrLimit;
-	protected $whrJoint;
-	protected $whrGroup;
+	// What the list reads, as plain values: the store turns them into a query
+	protected $whrArray = Array();
+	protected $slctFlds = Array();
+	protected $slctFncs = Array();
+	protected $ordrList = Array();
+	protected $limitNum = null;
+	protected $offstNum = null;
+	protected $joinList = Array();
+	protected $grpNames = Array();
+	// Fragments written as SQL by the developer, kept as given: SQL types only
+	protected $devlText = Array();
 	
 	protected $listRows;
 	
 	/**
-	 * Builds a query object for listing rows from a table, using either a
-	 * provided DB connection handle or the shared connection from global
-	 * config, and pre-builds the SELECT when a where clause is given.
+	 * Builds a list of the rows of a table, on the connection given or on
+	 * the one of the database the list names.
 	 *
 	 * The selection, where, order and limit fragments are written into the
-	 * query as given: they must never hold request input. Use fieldScop(),
-	 * lstSearch(), listOrder() and listLimit() for anything that does.
+	 * query as given: they must never hold request input, and only the SQL
+	 * types take them. Use fieldScop(), lstSearch(), listOrder() and
+	 * listLimit() for anything else. An order written as plain field names
+	 * ("date ASC, time DESC") and a limit written as a number are read as
+	 * such, and work on every kind of database.
 	 *
 	 * @param String $dbaseTable Name of the table to query.
 	 * @param String $selctScope Fields to select (defaults to '*').
@@ -42,34 +47,58 @@ class DBList {
 	 */
 	function __construct( String $dbaseTable, ?String $selctScope=null, ?String $whereClaus=null, ?String $orderClaus=null, ?String $limitValue=null, ?DBCon $handleLink=null ){
 		$this->tableNme = $dbaseTable;
-		if($selctScope == null) $selctScope='*';
-		$this->selScope = $selctScope;
-		$this->whrClaus = $whereClaus;
-		$this->whrOrder = $orderClaus;
-		$this->whrLimit = $limitValue;
 		if($handleLink == null){
 			$this->dbConnex = DBCon::linkNamed($this->baseName);
 		}else{
 			$this->dbConnex = $handleLink;
 		}
-		// Quoting also refuses a table name that is not a plain name
-		$this->tblQuotd = $this->dbConnex->dbHandle->quoteName($this->tableNme);
-		if( $whereClaus!=null ){
-			$this->buildSlct();
+		// A table name that is not a plain name is refused
+		$this->dbConnex->dataStore()->checkName($this->tableNme);
+		
+		if( $selctScope!==null && trim($selctScope)!='' && trim($selctScope)!='*' ){
+			$this->devlText['field'] = $selctScope;
+		}
+		if( $whereClaus!==null && trim($whereClaus)!='' ){
+			$this->devlText['where'] = $whereClaus;
+		}
+		if( $orderClaus!==null && trim($orderClaus)!='' ){
+			// Plain field names with their direction are kept as a sort every database can do
+			if( preg_match('/^\s*\w+(\.\w+)?(\s+(ASC|DESC))?(\s*,\s*\w+(\.\w+)?(\s+(ASC|DESC))?)*\s*$/iD', $orderClaus) ){
+				foreach(explode(',', $orderClaus) as $ordFld){
+					$ordPart = preg_split('/\s+/', trim($ordFld));
+					$this->ordrList[] = Array($ordPart[0], strtoupper($ordPart[1] ?? '')=='DESC');
+				}
+			}else{
+				$this->devlText['order'] = $orderClaus;
+			}
+		}
+		if( $limitValue!==null && trim($limitValue)!='' ){
+			if( ctype_digit(trim($limitValue)) ){
+				$this->limitNum = intval(trim($limitValue));
+			}else{
+				$this->devlText['limit'] = $limitValue;
+			}
 		}
 	}
 	
 	/**
-	 * Runs the built SELECT (rebuilding it first unless told it's already
-	 * built) and returns the resulting rows.
+	 * Reads the rows of the list from the database.
 	 *
-	 * @param Bool $queryBuilt Whether the SELECT was already built/sent, skipping a rebuild.
-	 * @return mixed The query results.
+	 * @param Bool $queryBuilt Whether to return the rows already read, when there are some, instead of reading again.
+	 * @return mixed The rows, or false when they could not be read.
 	 */
 	public function readItems( Bool $queryBuilt=false ): Mixed {
-		if( $queryBuilt==false ) $this->buildSlct();
-		
-		$this->listRows = $this->dbConnex->dbHandle->readQuery( true );
+		if( $queryBuilt && is_array($this->listRows) ){
+			return $this->listRows;
+		}
+		$findOpt = Array(
+			'field'=>$this->slctFlds, 'funcs'=>$this->slctFncs, 'order'=>$this->ordrList,
+			'limit'=>$this->limitNum, 'offst'=>$this->offstNum,
+			'joins'=>$this->joinList, 'group'=>$this->grpNames, 'devel'=>$this->devlText
+		);
+		// Only what is set is asked for: a store refuses the options it cannot honour
+		$findOpt = array_filter($findOpt, function($optionItem){ return $optionItem!==null && $optionItem!==Array(); });
+		$this->listRows = $this->dbConnex->dataStore()->findItems($this->tableNme, $this->whrArray, $findOpt);
 		
 		return $this->listRows;
 	}
@@ -79,7 +108,7 @@ class DBList {
 	 * across all result rows.
 	 *
 	 * @param String $isolateFld Name of the field to isolate from each row.
-	 * @param Bool   $queryBuilt Whether the SELECT was already built/sent, skipping a rebuild.
+	 * @param Bool   $queryBuilt Whether to use the rows already read, when there are some.
 	 * @return Array Flat array of the isolated field's values.
 	 */
 	public function flatItems( String $isolateFld, Bool $queryBuilt=false ): Array {
@@ -100,59 +129,10 @@ class DBList {
 	}
 	
 	/**
-	 * Assembles and sends the SELECT statement from the current (or
-	 * newly given) scope, join, where, group, order and limit clauses.
-	 *
-	 * @param String       $selctScope Fields to select; overrides the current scope when given.
-	 * @param Array        $whereClaus Array of field/value pairs to build a WHERE clause from.
-	 * @param String|Array $orderClaus Order-by field(s); overrides the current order when given.
-	 * @param mixed        $limitValue Limit/offset value(s); overrides the current limit when given.
-	 * @param Array        $joinClause Join definition array; overrides the current join when given.
-	 * @param String|Array $groupClaus Group-by field(s); overrides the current group when given.
-	 */
-	protected function buildSlct( ?String $selctScope=null, ?Array $whereClaus=null, String|Array|Null $orderClaus=null, Mixed $limitValue=null, ?Array $joinClause=null, String|Array|Null $groupClaus=null ): Void {
-		
-		if($selctScope != null)	$this->selScope = $selctScope;
-		
-		$scpeVal = $this->selScope;
-		
-		$lstJoin = '';
-		if(!is_null($joinClause))$this->tableJoin($joinClause);
-		if($this->whrJoint!='') $lstJoin = $this->whrJoint;
-		
-		$whrVals = '';
-		if(is_array($whereClaus))	$this->lstSearch($whereClaus);
-		if($this->whrClaus!='')		$whrVals = $this->whrClaus;
-		
-		$grpVals = '';
-		if(!is_null($groupClaus)) 	$this->grpFields($groupClaus);
-		if($this->whrGroup!='') 	$grpVals = $this->whrGroup;
-		
-		$ordrVal = '';
-		if(!is_null($orderClaus)) 	$this->listOrder($orderClaus);
-		if($this->whrOrder!='') 	$ordrVal = $this->whrOrder;
-		
-		$limVals = '';
-		if(!is_null($limitValue))	$this->listLimit($limitValue);
-		if($this->whrLimit!='') 	$limVals = $this->whrLimit;
-		
-		$listSel = 'SELECT '.$scpeVal;
-		$listSel .=' FROM '.$this->tblQuotd;
-		
-		if( $lstJoin!='' )	$listSel.= ' LEFT JOIN '.$lstJoin;
-		if( $whrVals!='' )	$listSel.= ' WHERE '.$whrVals;
-		if( $grpVals!='' )	$listSel.= ' GROUP by '.$grpVals;
-		if( $ordrVal!='' )	$listSel.= ' ORDER by '.$ordrVal;
-		if( $limVals!='' )	$listSel.= ' LIMIT '.$limVals;
-		
-		$this->dbConnex->dbHandle->sendQuery($listSel, false, $this->whrValus);
-	//	echo $listSel.'<br />';
-	}
-	
-	/**
-	 * Builds the WHERE clause from a map of field => value(s). The filter
-	 * syntax is the one of DBFilter::makeWhere(): a field name may end with
-	 * '!' (negation), '<=', '>=', '<' or '>'; an array value gives IN/NOT IN,
+	 * Sets the filter of the list from a map of field => value(s), in
+	 * place of any filter set before. The filter syntax is the one of
+	 * DBFilter::makeWhere(): a field name may end with '!' (negation), '<=',
+	 * '>=', '<', '>' or '=' (exact value); an array value gives IN/NOT IN,
 	 * and a wildcard ('*' or '%') LIKE/NOT LIKE. 'field?'=>false gives
 	 * IS NULL and 'field?'=>true IS NOT NULL; a null value matches nothing.
 	 *
@@ -161,112 +141,105 @@ class DBList {
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
 	public function lstSearch( Array $whereArray ): Void {
-		$whrPart = DBFilter::makeWhere($whereArray, $this->dbConnex->dbHandle);
-		$this->whrClaus = $whrPart['text'];
-		$this->whrValus = $whrPart['vals'];
+		// Read once here, so that a faulty filter is refused where it is written
+		DBFilter::readWhere($whereArray);
+		$this->whrArray = $whereArray;
+		unset($this->devlText['where']);
 	}
 	
 	/**
-	 * Sets the field selection scope for the SELECT, from a comma-separated
-	 * field list. Each entry is a field (`title`, `shows.title`) or a
-	 * function on one field or on '*' (`count(*)`, `max(date)`), with an
-	 * optional ` as alias`.
+	 * Sets the fields the list reads, from a comma-separated list. Each
+	 * entry is a field (`title`, `shows.title`) or a function on one field
+	 * or on '*' (`count(*)`, `max(date)`), with an optional ` as alias`.
+	 * The fields come first in each row, then the functions.
 	 *
 	 * @param String $fieldScope Comma-separated list of fields, or null for '*'.
 	 *
 	 * @throws \RuntimeException When an entry has any other form.
 	 */
 	public function fieldScop( ?String $fieldScope = null ): Void {
+		$this->slctFlds = Array();
+		$this->slctFncs = Array();
+		unset($this->devlText['field']);
 		if( $fieldScope===null || trim($fieldScope)=='' || trim($fieldScope)=='*' ){
-			$this->selScope = '*';
 			return;
 		}
-		$dbHandl = $this->dbConnex->dbHandle;
-		$scopLst = Array();
+		$dbStore = $this->dbConnex->dataStore();
+		$fldsLst = Array();
+		$fncsLst = Array();
 		foreach(explode(',', str_replace('`', '', $fieldScope)) as $selFld){
 			// name, table.name, function(name) or function(*), each with an optional alias
 			if( !preg_match('/^(?:(\w+)\((\*|\w+(?:\.\w+)?)\)|(\w+(?:\.\w+)?))(?:\s+as\s+(\w+))?$/iD', trim($selFld), $fldPart) ){
 				throw new \RuntimeException('Invalid field selection: '.trim($selFld));
 			}
+			$fldAlas = $fldPart[4] ?? '';
 			if( $fldPart[1]!='' ){
-				$scopStr = $fldPart[1].'('.($fldPart[2]=='*' ? '*' : $dbHandl->quoteName($fldPart[2])).')';
+				$fncsLst[] = Array('funct'=>$fldPart[1], 'field'=>$fldPart[2], 'alias'=>$fldAlas);
+			}elseif( $fldAlas!='' ){
+				$fldsLst[] = Array('field'=>$dbStore->checkName($fldPart[3]), 'alias'=>$fldAlas);
 			}else{
-				$scopStr = $dbHandl->quoteName($fldPart[3]);
+				$fldsLst[] = $dbStore->checkName($fldPart[3]);
 			}
-			if( ($fldPart[4] ?? '')!='' ){
-				$scopStr .= ' AS '.$dbHandl->quoteName($fldPart[4]);
-			}
-			$scopLst[] = $scopStr;
 		}
-		$this->selScope = implode(',', $scopLst);
+		$this->slctFlds = $fldsLst;
+		$this->slctFncs = $fncsLst;
 	}
 	
 	/**
-	 * Builds the GROUP BY clause from one or more field names.
+	 * Sets the fields the rows are grouped by.
 	 *
 	 * @param String|Array $groupByFld Field name or array of field names to group by.
+	 *
+	 * @throws \RuntimeException When a field name is not valid.
 	 */
 	public function grpFields( String|Array $groupByFld ): Void {
-		$grpVals = '';
-		if( is_string($groupByFld) ) $groupByFld = array($groupByFld);
-		if( is_array($groupByFld) && !empty($groupByFld) ){
-			foreach($groupByFld as $fldNme){
-				if($grpVals != ''){
-					$grpVals.=',';
-				}
-				$grpVals .= $this->dbConnex->dbHandle->quoteName($fldNme);
-			}
+		$grpVals = Array();
+		foreach((array)$groupByFld as $fldNme){
+			$grpVals[] = $this->dbConnex->dataStore()->checkName(strval($fldNme));
 		}
-		$this->whrGroup = $grpVals;
+		$this->grpNames = $grpVals;
 	}
 	
 	/**
-	 * Builds the ORDER BY clause from one or more field names, prefixing a
-	 * field with '^' to sort it descending.
+	 * Sets the fields the rows are sorted by, in place of any order set
+	 * before. A field prefixed with '^' is sorted descending.
 	 *
 	 * @param String|Array $orderItems Field name or array of field names to order by.
+	 *
+	 * @throws \RuntimeException When a field name is not valid.
 	 */
 	public function listOrder( String|Array $orderItems ): Void {
-		$ordrVal = '';
-		if( is_string($orderItems) ) {
-			$orderItems = array($orderItems);
-		}
-		if( is_array($orderItems) && !empty($orderItems) ) {
-			foreach($orderItems as $fldNme){
-				if($ordrVal != ''){
-					$ordrVal.=',';
-				}
-				$ordrDir=' ASC';
-				if(substr($fldNme,0,1)=='^'){
-					$ordrDir=' DESC';
-					$fldNme = subStr($fldNme, 1);
-				}
-				$ordrVal .= $this->dbConnex->dbHandle->quoteName($fldNme).$ordrDir;
+		$ordrVal = Array();
+		foreach((array)$orderItems as $fldNme){
+			$fldNme = strval($fldNme);
+			$dscSort = (substr($fldNme,0,1)=='^');
+			if( $dscSort ){
+				$fldNme = substr($fldNme, 1);
 			}
+			$ordrVal[] = Array($this->dbConnex->dataStore()->checkName($fldNme), $dscSort);
 		}
-		$this->whrOrder = $ordrVal;
+		$this->ordrList = $ordrVal;
+		unset($this->devlText['order']);
 	}
 	
 	/**
-	 * Builds the LIMIT clause from a count, or from a count and an offset
-	 * given as a "count,offset" string or a [count, offset] array. Both are
-	 * read as whole numbers: a count that is not a number gives the default
-	 * of 100 rows, an offset that is not a number is left out.
+	 * Sets how many rows are read, from a count, or from a count and an
+	 * offset given as a "count,offset" string or a [count, offset] array.
+	 * Both are read as whole numbers: a count that is not a number gives
+	 * the default of 100 rows, an offset that is not a number is left out.
 	 *
 	 * @param mixed $limIndexes Limit as a number, or a "count[,offset]" string/array; null clears the limit.
 	 */
 	public function listLimit( Mixed $limIndexes=null ): Void {
-		$this->whrLimit = '';
+		$this->limitNum = null;
+		$this->offstNum = null;
+		unset($this->devlText['limit']);
 		// TODO : Get Table Limit from core config
 		if($limIndexes!=null){
 			$dfltLim = 100;
 			$limIndx = is_array($limIndexes) ? array_values($limIndexes) : explode(',', strval($limIndexes));
-			$rowsMax = $this->wholeNmbr($limIndx[0] ?? null);
-			$rowsOff = $this->wholeNmbr($limIndx[1] ?? null);
-			$this->whrLimit = strval($rowsMax ?? $dfltLim);
-			if( $rowsOff!==null ){
-				$this->whrLimit .= ' OFFSET '.$rowsOff;
-			}
+			$this->limitNum = $this->wholeNmbr($limIndx[0] ?? null) ?? $dfltLim;
+			$this->offstNum = $this->wholeNmbr($limIndx[1] ?? null);
 		}
 	}
 	
@@ -284,9 +257,10 @@ class DBList {
 	}
 	
 	/**
-	 * Builds a single LEFT JOIN clause from a 3-element array of
-	 * [joinTable, field1, field2]. A field may carry its table
-	 * (`events.show_id`). An empty array clears the join.
+	 * Joins another table to the list, as a single LEFT JOIN, from a
+	 * 3-element array of [joinTable, field1, field2]. A field may carry
+	 * its table (`events.show_id`). An empty array clears the join. Only
+	 * the SQL types can join.
 	 *
 	 * @param Array $joinClause [joinTable, field1, field2] describing the join.
 	 *
@@ -298,14 +272,14 @@ class DBList {
 		// Currently supports single left joins
 		// Array ( 'joinTable', 'fld1', 'fld2') )
 		// TODO : Could admit many tables and different operators
-		// TODO : Also could set table reference for each field
-		$this->whrJoint = '';
-		if( is_array($joinClause) && !empty($joinClause) ) {
+		$this->joinList = Array();
+		if( !empty($joinClause) ) {
 			if( count($joinClause)!=3 ){
 				throw new \RuntimeException('A join needs a table and two field names');
 			}
-			$joinLst = array_map(Array($this->dbConnex->dbHandle, 'quoteName'), array_values($joinClause));
-			$this->whrJoint = $joinLst[0].' ON '.$joinLst[1].' = '.$joinLst[2];
+			foreach(array_values($joinClause) as $jonNme){
+				$this->joinList[] = $this->dbConnex->dataStore()->checkName(strval($jonNme));
+			}
 		}
 	}
 	
@@ -340,7 +314,8 @@ class DBList {
 				continue;
 			}
 			$subList = new DBList($childTable, null, null, null, null, $this->dbConnex);
-			$subList->lstSearch(Array($foreingKey=>$rowArr[$currentKey]));
+			// The key is compared exactly, never read as a wildcard
+			$subList->lstSearch(Array($foreingKey.'='=>$rowArr[$currentKey]));
 			if($singlField!=''){
 				$lstRows[$rowKey][$childTable] = $subList->flatItems($singlField);
 			}else{

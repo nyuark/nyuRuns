@@ -1,6 +1,6 @@
 <?php
 
-namespace nyu\Data\DBHs;
+namespace nyu\Data\DBHndlr;
 
 // SQLite handler, type code 'sqlte'. The database is a single file.
 Class SQLite extends PDO {
@@ -12,10 +12,10 @@ Class SQLite extends PDO {
 	 * @param String $serverUser Unused.
 	 * @param String $serverPass Unused.
 	 * @param String $serverBase Path of the SQLite file, absolute or from the project root.
-	 * @param Array  $moreParams Unused.
+	 * @param Array  $moreParams Optional settings: 'wait', the seconds given to a file locked by another connection.
 	 */
 	public function openDBase(String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array()): Void {
-		$this->dbDriver = new \PDO('sqlite:'.$this->locateFle($serverBase));
+		$this->dbDriver = new \PDO('sqlite:'.$this->locateFle($serverBase), null, null, $this->pdoOption($moreParams));
 	}
 
 	/**

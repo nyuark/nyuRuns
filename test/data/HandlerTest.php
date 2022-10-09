@@ -1,6 +1,6 @@
 <?php
 
-// Data\DBHs\PDO : errors, writes and result reading of the database handler,
+// Data\DBHndlr\PDO : errors, writes and result reading of the database handler,
 // against the sample SQLite database (see test/lib/sample.php).
 
 require __DIR__.'/../lib/harness.php';

@@ -25,8 +25,6 @@ class Runner{
 	public 		$errorObj;
 	public 		$procStat;
 	public 		$logStore;
-	// Allows interrupting the runner (Throw Exception?)
-	public		$stopExec;
 
 	/**
 	 * Loads the given preset, builds the shared objects (config, request,
@@ -195,7 +193,7 @@ class Runner{
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
-		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn, $this->axessCon, $this->httpRqst );
+		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn, $this->axessCon, $this->httpRqst, $this->response );
 		$statArr = $conTrol->getStatus();
 		$this->setStatus( $statArr['code'], $statArr['mssg'], $conTrol->getOutput() );
 	}
@@ -204,14 +202,15 @@ class Runner{
 	 * Retrieves the predefined layout/format and builds the response
 	 * template with the given output data.
 	 *
-	 * @param mixed $dataValues The data returned by the application to format into the response.
+	 * @param Array|Object|String|Int|Float|Bool $dataValues The data returned by the application to format into the response.
+	 * @return Bool False when the data could not be formatted; an error body was built instead.
 	 */
-	function getLayout( Mixed $dataValues ): Void {
+	function getLayout( Array|Object|String|Int|Float|Bool $dataValues ): Bool {
 		// Retrieve the predefined layout or
 		// format for the response contents
-		$this->response->formatOut( $dataValues );
+		$isBuilt = $this->response->formatOut( $dataValues );
 		$this->response->buildTmpl();
-
+		return $isBuilt;
 	}
 
 	/**
@@ -223,9 +222,15 @@ class Runner{
 	 * @param mixed  $dataValues Output data for a 2xx status.
 	 */
 	protected function setStatus( Int $statusCode, String $statusMssg='', Mixed $dataValues=null ): Void {
+		// "No content" without any output is sent as such : no body, and no warnings
+		if( $statusCode==204 && $dataValues===null ){
+			$this->response->clearBody();
+			$this->procStat = 204;
+			return;
+		}
 		$success = ($statusCode>=200 && $statusCode<300);
 		if( $success ){
-			// "No content" is sent as a plain 200 carrying the (empty) output
+			// "No content" carrying an output is sent as a plain 200 with it
 			if( $statusCode==204 ){
 				$statusCode = 200;
 			}
@@ -245,7 +250,10 @@ class Runner{
 			}
 		}
 
-		$this->getLayout( $bodyArr );
+		// Data that cannot be formatted is an error of the application
+		if( !$this->getLayout( $bodyArr ) ){
+			$statusCode = 500;
+		}
 		$this->procStat = $statusCode;
 	}
 

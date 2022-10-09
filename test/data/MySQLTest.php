@@ -1,6 +1,6 @@
 <?php
 
-// Data\DBHs\MySQL : the dialect checks of test/lib/dialect.php on a real
+// Data\DBHndlr\MySQL : the dialect checks of test/lib/dialect.php on a real
 // MySQL server. Optional: the test skips itself when the pdo_mysql
 // extension is missing, when no server is configured, or when the server
 // does not answer (see test/lib/servers.php and .env.example).
@@ -22,6 +22,6 @@ if( $skipWhy!='' ){
 }
 
 useServer('mysql', $srvConf);
-runDialct('nyu\Data\DBHs\MySQL');
+runDialct('nyu\Data\DBHndlr\MySQL');
 
 endChecks();

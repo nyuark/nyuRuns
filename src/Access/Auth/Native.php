@@ -4,7 +4,7 @@ namespace nyu\Access\Auth;
 
 use nyu\Access\Totp;
 use nyu\Data\DBCon;
-use nyu\Data\DBHs\Handler as DbHandlr;
+use nyu\Data\DBHndlr\Handler as DbHandlr;
 
 /**
  * Verifies credentials against the native userbase: a database table

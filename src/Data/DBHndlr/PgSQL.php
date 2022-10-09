@@ -1,6 +1,6 @@
 <?php
 
-namespace nyu\Data\DBHs;
+namespace nyu\Data\DBHndlr;
 
 // PostgreSQL handler, type code 'pgsql'
 Class PgSQL extends PDO {
@@ -16,12 +16,12 @@ Class PgSQL extends PDO {
 	 * @param String $serverUser Database user.
 	 * @param String $serverPass Database password.
 	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port' and 'char' (character set).
+	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
 	 *
-	 * @throws \RuntimeException When the port or the character set is not valid.
+	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	public function openDBase(String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array()): Void {
-		$this->dbDriver = new \PDO($this->dsnString($serverHost, $serverBase, $moreParams), $serverUser, $serverPass);
+		$this->dbDriver = new \PDO($this->dsnString($serverHost, $serverBase, $moreParams), $serverUser, $serverPass, $this->pdoOption($moreParams));
 	}
 
 	/**
@@ -30,10 +30,10 @@ Class PgSQL extends PDO {
 	 *
 	 * @param String $serverHost Database host.
 	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port' and 'char' (character set).
+	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
 	 * @return String The PDO connection string.
 	 *
-	 * @throws \RuntimeException When the port or the character set is not valid.
+	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	protected function dsnString(String $serverHost, String $serverBase, Array $moreParams=Array()): String {
 		$dsnText = "pgsql:host=$serverHost;dbname=$serverBase";

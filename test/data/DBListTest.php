@@ -228,6 +228,24 @@ checkSame('constructor with where and order clauses', runSafely(function(){
 	return array_column($dbList->readItems(), 'date');
 }), Array('2027-01-03', '2026-12-28'));
 
+checkSame('constructor fragments are replaced by the matching calls', runSafely(function(){
+	$dbList = new DBList('events', 'date', "`show_id` = '1'", 'date DESC', '1');
+	$frstRow = $dbList->readItems();
+	$dbList->fieldScop('id_event');
+	$dbList->lstSearch(Array('show_id'=>2));
+	$dbList->listOrder('id_event');
+	$dbList->listLimit();
+	return Array($frstRow, $dbList->readItems());
+}), Array(Array(Array('date'=>'2027-01-03')), Array(Array('id_event'=>3), Array('id_event'=>4))));
+
+checkSame('rows already read are given again when asked', runSafely(function(){
+	$dbList = new DBList('shows');
+	$dbList->lstSearch(Array('id_show'=>1));
+	$dbList->readItems();
+	$dbList->lstSearch(Array('id_show'=>2));
+	return Array(array_column($dbList->readItems(true), 'id_show'), array_column($dbList->readItems(), 'id_show'));
+}), Array(Array(1), Array(2)));
+
 checkSame('no match gives an empty list', runSafely(function(){
 	$dbList = new DBList('shows');
 	$dbList->lstSearch(Array('title'=>'Zzz*'));

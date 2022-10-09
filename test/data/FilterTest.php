@@ -47,6 +47,11 @@ checkSame('greater',          pickShow(Array('id_show>'=>4)),      Array('`id_sh
 checkSame('wildcard',         pickShow(Array('title'=>'Alpha*')),  Array('`title` LIKE ?',     Array('Alpha%'), Array(1, 3)));
 checkSame('negated wildcard', pickShow(Array('title!'=>'Alpha*')), Array('`title` NOT LIKE ?', Array('Alpha%'), Array(2, 4, 5)));
 
+// Exact values
+checkSame('a written = keeps wildcard characters as plain text', pickShow(Array('title='=>'Alpha*')), Array('`title` = ?', Array('Alpha*'), Array()));
+checkSame('a written = finds the exact value',                 pickShow(Array('title='=>'Beta Evening')), Array('`title` = ?', Array('Beta Evening'), Array(2)));
+checkSame('<= and >= are not read as a written =',             pickShow(Array('id_show<='=>1, 'id_show>='=>1)), Array('`id_show` <= ? AND `id_show` >= ?', Array(1, 1), Array(1)));
+
 // Lists
 checkSame('list',                  pickShow(Array('id_show'=>Array(1, 2))),  Array('`id_show` IN (?,?)',     Array(1, 2), Array(1, 2)));
 checkSame('negated list',          pickShow(Array('id_show!'=>Array(1, 2))), Array('`id_show` NOT IN (?,?)', Array(1, 2), Array(3, 4, 5)));
@@ -70,5 +75,22 @@ checkSame('an empty filter gives no clause',   pickShow(Array()), Array('', Arra
 checkSame('a table.field name',                pickShow(Array('shows.venue'=>'Hall B')), Array('`shows`.`venue` = ?', Array('Hall B'), Array(2)));
 checkSame('a value holding a quote is plain text', pickShow(Array('venue'=>"O'Hall' OR '1'='1")), Array('`venue` = ?', Array("O'Hall' OR '1'='1"), Array()));
 checkLike('an invalid field name throws', pickShow(Array('venue` = 1 OR `title'=>'x')), '/^THROWN RuntimeException: Invalid table or field name/');
+
+// The reading alone, as every kind of database receives it
+checkSame('readWhere gives one condition per entry', runSafely(function(){
+	return DBFilter::readWhere(Array('venue'=>'Hall B', 'id_show>='=>2, 'title!'=>'Alpha*', 'id_show'=>Array(1, '', 2), 'venue?'=>false, 'title='=>'50%'));
+}), Array(
+	Array('field'=>'venue',   'opert'=>'equal', 'value'=>'Hall B'),
+	Array('field'=>'id_show', 'opert'=>'aboeq', 'value'=>2),
+	Array('field'=>'title',   'opert'=>'nmtch', 'value'=>'Alpha%'),
+	Array('field'=>'id_show', 'opert'=>'among', 'value'=>Array(1, 2)),
+	Array('field'=>'venue',   'opert'=>'unset', 'value'=>null),
+	Array('field'=>'title',   'opert'=>'equal', 'value'=>'50%')
+));
+checkSame('readWhere: what matches nothing or everything names no field', runSafely(function(){
+	return array_column(DBFilter::readWhere(Array('a'=>null, 'b'=>Array(), 'c!'=>Array(), 'd?'=>true)), 'opert');
+}), Array('never', 'never', 'every', 'isset'));
+checkLike('readWhere refuses an invalid field name by itself', runSafely(function(){ return DBFilter::readWhere(Array('venue` OR 1=1 --'=>'x')); }), '/^THROWN RuntimeException: Invalid table or field name/');
+checkSame('readWhere of an empty filter', runSafely(function(){ return DBFilter::readWhere(Array()); }), Array());
 
 endChecks();

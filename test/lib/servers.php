@@ -10,7 +10,7 @@
  * values of the environment file first, then the project's own database
  * block when it is of the same type.
  *
- * @param String $typeLabel Type code of the server: 'mysql' or 'pgsql'.
+ * @param String $typeLabel Type code of the server: 'mysql', 'pgsql' or 'mongo'.
  * @return Array The 'host', 'port', 'base', 'user' and 'pass' settings, plus 'skip': the reason not to use the server, or ''.
  */
 function serverCnf( String $typeLabel ): Array {
@@ -37,7 +37,8 @@ function serverCnf( String $typeLabel ): Array {
 	if( $srvConf['host']=='' ) $srvConf['host'] = '127.0.0.1';
 	if( $srvConf['base']=='' ) $srvConf['base'] = 'nyuruns_test';
 	$srvConf['skip'] = '';
-	if( $srvConf['user']=='' ){
+	if( $srvConf['user']=='' && $typeLabel!='mongo' ){
+		// A local MongoDB server often asks for no account: it is tried as it is
 		$srvConf['skip'] = 'no '.$typeLabel.' test server is configured (see .env.example)';
 	}elseif( !preg_match('/^\w+$/D', $srvConf['base']) || stripos($srvConf['base'], 'test')===false ){
 		$srvConf['skip'] = 'the name of the test database must be a plain name containing "test"';
@@ -113,6 +114,6 @@ function buildSrvr( String $typeLabel, Array $serverConf ): String {
  */
 function useServer( String $typeLabel, Array $serverConf ): Void {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('TYPE'=>$typeLabel, 'HOST'=>$serverConf['host'], 'PORT'=>$serverConf['port'], 'USER'=>$serverConf['user'], 'PASS'=>$serverConf['pass'], 'BASE'=>$serverConf['base'], 'CHAR'=>'')
+		'database'=>Array('TYPE'=>$typeLabel, 'HOST'=>$serverConf['host'], 'PORT'=>$serverConf['port'], 'USER'=>$serverConf['user'], 'PASS'=>$serverConf['pass'], 'BASE'=>$serverConf['base'], 'CHAR'=>'', 'AUTH'=>'', 'WAIT'=>'5')
 	) );
 }

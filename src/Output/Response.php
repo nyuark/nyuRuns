@@ -6,11 +6,17 @@ class Response{
 
 	protected $dataFrmt;
 	protected $tmpltNme;
-	protected $sections;
 	protected $headrArr;
 
 	protected $finalStr;
 	protected $dataOuts;
+
+	protected $filePath;
+	protected $fileType;
+	protected $fileSize;
+	protected $fileCode;
+	protected $byteFrom;
+	protected $byteUpto;
 	
 	/**
 	 * Configures the response from the 'rnder' preset section.
@@ -39,33 +45,27 @@ class Response{
 
 	/**
 	 * Encodes the given data as the configured output format (JSON, or
-	 * PHP-serialized as a fallback).
+	 * PHP-serialized as a fallback). Data that cannot be encoded raises a
+	 * warning and an error body is prepared instead.
 	 *
-	 * @param Array $dataValues The data to encode.
+	 * @param Array|Object|String|Int|Float|Bool $dataValues The data to encode.
+	 * @return Bool False when the data could not be encoded.
 	 */
-	public function formatOut( Array $dataValues = Array() ): Void {
+	public function formatOut( Array|Object|String|Int|Float|Bool $dataValues = Array() ): Bool {
 		if(strtoupper($this->dataFrmt)=='JSON'){
-			$this->dataOuts = json_encode($dataValues);
+			$jsonStr = json_encode($dataValues);
+			if( $jsonStr===false ){
+				trigger_error('Response could not be encoded as JSON: '.json_last_error_msg(), E_USER_WARNING);
+				$this->dataOuts = json_encode( Array('error'=>'Response could not be encoded', 'code'=>500) );
+				return false;
+			}
+			$this->dataOuts = $jsonStr;
 		}else{
 			$this->dataOuts = serialize($dataValues);
 		}
+		return true;
 	}
-	
-	
-	/**
-	 * Formats a set of output sections (currently identical to
-	 * formatOut's encoding logic).
-	 *
-	 * @param Array $sectionArr Sections to format.
-	 */
-	public function sectsList( Array $sectionArr = Array() ): Void {
-		if(strtoupper($this->dataFrmt)=='JSON'){
-			$this->dataOuts = json_encode($sectionArr);
-		}else{
-			$this->dataOuts = serialize($sectionArr);
-		}
-	}
-	
+
 	/**
 	 * Loads the configured output template file and substitutes the
 	 * formatted data into its `%data%` placeholder. An unknown template
@@ -91,20 +91,54 @@ class Response{
 	 * @param Int $statusCode HTTP status code to send; omitted for the default 200.
 	 */
 	public function buildHead( ?Int $statusCode=null ): Void {
-		if($statusCode!=null){
-			http_response_code($statusCode);
-		}
 		if(!is_array($this->headrArr)){
 			$this->headrArr = Array();
 		}
-		// Default Content-Type, unless the preset sets its own
+		// A registered file is only sent on success : an error keeps its data body
+		if( $this->filePath!==null && $statusCode!==null && ($statusCode<200 || $statusCode>=300) ){
+			$this->filePath = null;
+		}
+		if( $this->filePath!==null ){
+			$statusCode = $this->fileCode;
+			$this->fileHeads();
+		}
+		if($statusCode!=null){
+			http_response_code($statusCode);
+		}
 		$hasType = in_array('content-type', array_map('strtolower', array_keys($this->headrArr)));
-		if( !$hasType ){
+		if( $this->finalStr==='' && $this->filePath===null ){
+			// Emptied response : no type is announced, not even PHP's own default
+			ini_set('default_mimetype', '');
+		}elseif( !$hasType ){
+			// Default Content-Type, unless the preset sets its own
 			$this->headrArr['Content-Type'] = $this->contnType();
 		}
 		foreach($this->headrArr as $hedKey => $hedVal){
 			header($hedKey.': '.$hedVal);
 		}
+	}
+
+	/**
+	 * Sets the headers describing the registered file: its type, its
+	 * length and, for a range request, the bytes being sent.
+	 */
+	protected function fileHeads(): Void {
+		// The file's own type replaces any Content-Type set by the preset
+		foreach( array_keys($this->headrArr) as $hedKey ){
+			if( strtolower($hedKey)=='content-type' ){
+				unset($this->headrArr[$hedKey]);
+			}
+		}
+		$sentLen = ($this->fileSize>0) ? $this->byteUpto-$this->byteFrom+1 : 0;
+		if( $this->fileCode==416 ){
+			$sentLen = 0;
+			$this->headrArr['Content-Range'] = 'bytes */'.$this->fileSize;
+		}elseif( $this->fileCode==206 ){
+			$this->headrArr['Content-Range'] = 'bytes '.$this->byteFrom.'-'.$this->byteUpto.'/'.$this->fileSize;
+		}
+		$this->headrArr['Content-Type'] = $this->fileType;
+		$this->headrArr['Accept-Ranges'] = 'bytes';
+		$this->headrArr['Content-Length'] = strval($sentLen);
 	}
 
 	/**
@@ -129,9 +163,115 @@ class Response{
 	}
 
 	/**
-	 * Prints the final formatted response string to the client.
+	 * Empties the response: nothing is sent after the headers, and no
+	 * Content-Type is announced. Used for a "no content" reply.
+	 */
+	public function clearBody(): Void {
+		$this->finalStr = '';
+		$this->filePath = null;
+	}
+
+	/**
+	 * Registers a file to send in place of the data body, entirely or for
+	 * the byte range the client asked for.
+	 *
+	 * @param String $sourcePath Path of the file to send.
+	 * @param String $mimeString Content-Type of the file.
+	 * @param String $rangeValue Value of the Range request header, empty when none was sent.
+	 * @return Bool False when the file cannot be read; nothing is registered then.
+	 */
+	public function fileReply( String $sourcePath, String $mimeString, String $rangeValue='' ): Bool {
+		if( !is_file($sourcePath) || !is_readable($sourcePath) ){
+			return false;
+		}
+		$this->filePath = $sourcePath;
+		$this->fileType = $mimeString;
+		$this->fileSize = filesize($sourcePath);
+		$this->fileCode = $this->readRange($rangeValue, $this->fileSize);
+		return true;
+	}
+
+	/**
+	 * Reads a Range header against the size of the file and stores the
+	 * first and last byte to send. Only a single byte range is served: an
+	 * empty, malformed or multiple range selects the whole file.
+	 *
+	 * @param String $rangeValue Value of the Range request header, empty when none was sent.
+	 * @param Int    $totalBytes Size of the file, in bytes.
+	 * @return Int The status to reply with: 200 (whole file), 206 (partial) or 416 (range outside the file).
+	 */
+	protected function readRange( String $rangeValue, Int $totalBytes ): Int {
+		$this->byteFrom = 0;
+		$this->byteUpto = max(0, $totalBytes-1);
+		$matched = Array();
+		if( !preg_match('/^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i', $rangeValue, $matched) ){
+			return 200;
+		}
+		$fromStr = $matched[1];
+		$uptoStr = $matched[2];
+		if( $fromStr=='' && $uptoStr=='' ){
+			return 200;
+		}
+		if( $fromStr=='' ){
+			// Suffix range : the last N bytes
+			$lastLen = intval($uptoStr);
+			if( $lastLen==0 || $totalBytes==0 ){
+				return 416;
+			}
+			$this->byteFrom = max(0, $totalBytes-$lastLen);
+			return 206;
+		}
+		$fromPos = intval($fromStr);
+		if( $fromPos>=$totalBytes ){
+			return 416;
+		}
+		if( $uptoStr!='' ){
+			$uptoPos = intval($uptoStr);
+			if( $uptoPos<$fromPos ){
+				// Reversed range : ignored, the whole file is sent
+				return 200;
+			}
+			$this->byteUpto = min($uptoPos, $totalBytes-1);
+		}
+		$this->byteFrom = $fromPos;
+		return 206;
+	}
+
+	/**
+	 * Streams the selected bytes of the registered file to the client,
+	 * piece by piece.
+	 */
+	protected function sendChunk(): Void {
+		if( $this->fileCode==416 || $this->fileSize==0 ){
+			return;
+		}
+		$fileHdl = fopen($this->filePath, 'rb');
+		if( $fileHdl===false ){
+			return;
+		}
+		fseek($fileHdl, $this->byteFrom);
+		$leftLen = $this->byteUpto-$this->byteFrom+1;
+		while( $leftLen>0 && !feof($fileHdl) ){
+			$buffer = fread($fileHdl, min(8192, $leftLen));
+			if( $buffer===false || connection_aborted() ){
+				break;
+			}
+			print($buffer);
+			flush();
+			$leftLen -= strlen($buffer);
+		}
+		fclose($fileHdl);
+	}
+
+	/**
+	 * Sends the registered file when there is one, otherwise prints the
+	 * final formatted response string to the client.
 	 */
 	public function sendOutpt( ): Void {
+		if( $this->filePath!==null ){
+			$this->sendChunk();
+			return;
+		}
 		print($this->finalStr);
 	}
 }

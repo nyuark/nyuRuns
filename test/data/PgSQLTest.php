@@ -1,6 +1,6 @@
 <?php
 
-// Data\DBHs\PgSQL : the dialect checks of test/lib/dialect.php on a real
+// Data\DBHndlr\PgSQL : the dialect checks of test/lib/dialect.php on a real
 // PostgreSQL server. Optional: the test skips itself when the pdo_pgsql
 // extension is missing, when no server is configured, or when the server
 // does not answer (see test/lib/servers.php and .env.example).
@@ -22,6 +22,6 @@ if( $skipWhy!='' ){
 }
 
 useServer('pgsql', $srvConf);
-runDialct('nyu\Data\DBHs\PgSQL');
+runDialct('nyu\Data\DBHndlr\PgSQL');
 
 endChecks();
