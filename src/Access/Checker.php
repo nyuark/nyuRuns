@@ -17,7 +17,7 @@ class Checker{
 	const ROLELIST = Array('membr', 'systm', 'admin');
 	// Short names of the strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together
-	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey');
+	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'device'=>'Device');
 	const SESSLIST = Array('hbasic'=>'Basic', 'header'=>'Header', 'jtoken'=>'JWT', 'phsess'=>'PHPSess', 'clcert'=>'ClCert');
 
 	protected $axsSetup;

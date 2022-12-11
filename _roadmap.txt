@@ -14,6 +14,9 @@ SysConf:		Create a base config file (system.ini) deployed with
 				handling, logging, path configuration, maybe routing
 				and applications restrictions or permissions.
 
+Routing:		The router should allow a set of tool for HTML or
+				static pages, to allow navigation or redirection.
+
 Logging:		The logging class should be reviewed to ensure proper
 				understanding. It should be made available to every
 				app in runs. All important events should be traced in

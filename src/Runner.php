@@ -270,7 +270,7 @@ class Runner{
 
 	/**
 	 * Builds the response headers and outputs the final response contents
-	 * to the requester.
+	 * to the requester. A HEAD request is answered by the headers alone.
 	 *
 	 * @param Int $statusCode HTTP status code to send; omitted for the default 200.
 	 */
@@ -278,6 +278,10 @@ class Runner{
 		// Build the response headers and
 		// output the contents to the requester
 		$this->response->buildHead( $statusCode );
+		// A HEAD request is answered by its headers alone, whatever the web server does with a body
+		if( $this->httpRqst!==null && $this->httpRqst->usedMethd('HEAD') ){
+			return;
+		}
 		$this->response->sendOutpt();
 	}
 

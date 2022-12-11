@@ -7,27 +7,32 @@ use nyu\Access\Auth\Handler as AuthHndlr;
 
 /**
  * Carries an API key via a configurable HTTP header (default
- * X-Api-Key), delegating verification to an Auth\Handler.
+ * X-Api-Key), delegating verification to an Auth\Handler. The key can
+ * follow a scheme, as in "Authorization: Bearer <key>".
  */
 class Header implements Handler{
 
 	protected $headName;
+	protected $schmName;
 	protected $authObjc;
 	protected $lastMssg;
 
 	/**
-	 * @param Array     $confValues Config block, optionally with a 'header' name (defaults to 'X-Api-Key').
+	 * @param Array     $confValues Config block, optionally with a 'header' name (defaults to 'X-Api-Key') and the
+	 *                              'scheme' the key must follow in it, such as 'Bearer' (none by default).
 	 * @param AuthHndlr $authHandlr Credential-verification strategy to delegate to.
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->headName = $confValues['header'] ?? 'X-Api-Key';
+		$this->schmName = trim(strval($confValues['scheme'] ?? ''));
 		$this->authObjc = $authHandlr;
 		$this->lastMssg = '';
 	}
 
 	/**
-	 * Reads the configured header off the request and checks it
-	 * against the delegated Auth handler.
+	 * Reads the configured header off the request, takes the key after
+	 * the scheme when one is configured, and checks it against the
+	 * delegated Auth handler.
 	 *
 	 * @param Request $requestObj The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
@@ -37,6 +42,14 @@ class Header implements Handler{
 		if( $headVal===null || $headVal=='' ){
 			$this->lastMssg = 'Missing '.$this->headName.' header';
 			return false;
+		}
+		// With a scheme, the header reads "<scheme> <key>" : only the key is checked
+		if( $this->schmName!='' ){
+			if( stripos($headVal, $this->schmName.' ')!==0 ){
+				$this->lastMssg = 'Missing '.$this->schmName.' '.$this->headName.' header';
+				return false;
+			}
+			$headVal = trim(substr($headVal, strlen($this->schmName)));
 		}
 		if( $this->authObjc===null ){
 			$this->lastMssg = 'No credential handler configured';

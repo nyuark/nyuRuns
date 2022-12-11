@@ -81,6 +81,14 @@ checkSame('Header missing message',      $headrSs->lastError(), 'Missing X-Test-
 $dfltHdr = new Header( Array(), $keysLst );
 checkSame('Header default name is X-Api-Key', $dfltHdr->verifyReq(fakeReqst(Array('X-Api-Key'=>'k-111'))), Array('user'=>''));
 
+// Header with a scheme : "Authorization: Bearer <key>", only the key is checked
+$bearrSs = new Header( Array('header'=>'Authorization', 'scheme'=>'Bearer'), $keysLst );
+checkSame('Header scheme valid',         $bearrSs->verifyReq(fakeReqst(Array('Authorization'=>'Bearer k-111'))), Array('user'=>''));
+checkSame('Header scheme in another case', $bearrSs->verifyReq(fakeReqst(Array('Authorization'=>'bearer k-111'))), Array('user'=>''));
+checkSame('Header scheme missing from the value', Array($bearrSs->verifyReq(fakeReqst(Array('Authorization'=>'k-111'))), $bearrSs->lastError()), Array(false, 'Missing Bearer Authorization header'));
+checkSame('Header another scheme',       $bearrSs->verifyReq(fakeReqst(Array('Authorization'=>'Basic k-111'))), false);
+checkSame('Header scheme without a key', Array($bearrSs->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '))), $bearrSs->lastError()), Array(false, 'No API key provided'));
+
 // JWT : self-verifying bearer token
 $jwtSess = new JWT( Array('secret'=>str_repeat('s', 40), 'lifetm'=>60) );
 $jwToken = $jwtSess->issueTokn(Array('user'=>'carol'));

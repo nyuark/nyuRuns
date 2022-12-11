@@ -6,8 +6,14 @@
 //
 // These requests go through the project's own configuration, so they write
 // to the log file configured in conf/system.ini like any other request.
+//
+// The same checks can be run through another web server, such as Apache,
+// that serves test/lib/httpRouter.php for every address: NYU_TEST_HTTP_URL
+// then gives its address, and NYU_TEST_DB the sample SQLite file that
+// server was told to use. The file is created afresh by the test.
 
 require __DIR__.'/../lib/harness.php';
+require __DIR__.'/../lib/sample.php';
 
 if( !extension_loaded('pdo_sqlite') ){
 	skipCheck('HTTP', 'pdo_sqlite is not available');
@@ -44,33 +50,58 @@ function httpQuery( String $httpMethod, String $urlAddress, Array $headersArr=Ar
 	return $outcome;
 }
 
-// Start the built-in server on a free local port
-$portSck = stream_socket_server('tcp://127.0.0.1:0');
-$portNum = intval(substr(strrchr(stream_socket_get_name($portSck, false), ':'), 1));
-fclose($portSck);
-
-putenv('NYU_TEST_DB='.inTempDir('http.sqlite'));
-$nullDev = (DS=='\\') ? 'NUL' : '/dev/null';
-$pipeArr = Array();
-$server = proc_open(
-	Array(PHP_BINARY, '-S', '127.0.0.1:'.$portNum, TST_DIR.DS.'lib'.DS.'httpRouter.php'),
-	Array(0=>Array('file', $nullDev, 'r'), 1=>Array('file', inTempDir('server.out'), 'w'), 2=>Array('file', inTempDir('server.err'), 'w')),
-	$pipeArr, WEB_DIR
-);
-$baseUrl = 'http://127.0.0.1:'.$portNum;
-$isReady = false;
-for( $idx=0; $idx<50 && !$isReady; $idx++ ){
-	$tryLink = @fsockopen('127.0.0.1', $portNum, $errNmbr, $errText, 0.2);
-	if( $tryLink ){
-		fclose($tryLink);
-		$isReady = true;
+$givnUrl = rtrim(strval(getenv('NYU_TEST_HTTP_URL') ?: ''), '/');
+$server = null;
+$whyNot = '';
+if( $givnUrl!='' ){
+	// A server that is already running: it reads the sample database named by NYU_TEST_DB
+	$baseUrl = $givnUrl;
+	$sqlFile = strval(getenv('NYU_TEST_DB') ?: '');
+	$urlPart = parse_url($baseUrl) ?: Array();
+	$tryLink = ($sqlFile!='' && isset($urlPart['host'])) ? @fsockopen($urlPart['host'], $urlPart['port'] ?? 80, $errNmbr, $errText, 2) : false;
+	if( $sqlFile=='' ){
+		$whyNot = 'NYU_TEST_HTTP_URL is set without NYU_TEST_DB';
+	}elseif( !$tryLink ){
+		$whyNot = 'no server answers on '.$baseUrl;
 	}else{
-		usleep(100000);
+		fclose($tryLink);
+		if( !is_dir(dirname($sqlFile)) ){
+			mkdir(dirname($sqlFile), 0777, true);
+		}
+		buildData($sqlFile);
 	}
+	$isReady = ($whyNot=='');
+}else{
+	// Start the built-in server on a free local port
+	$portSck = stream_socket_server('tcp://127.0.0.1:0');
+	$portNum = intval(substr(strrchr(stream_socket_get_name($portSck, false), ':'), 1));
+	fclose($portSck);
+
+	$sqlFile = inTempDir('http.sqlite');
+	putenv('NYU_TEST_DB='.$sqlFile);
+	$nullDev = (DS=='\\') ? 'NUL' : '/dev/null';
+	$pipeArr = Array();
+	$server = proc_open(
+		Array(PHP_BINARY, '-S', '127.0.0.1:'.$portNum, TST_DIR.DS.'lib'.DS.'httpRouter.php'),
+		Array(0=>Array('file', $nullDev, 'r'), 1=>Array('file', inTempDir('server.out'), 'w'), 2=>Array('file', inTempDir('server.err'), 'w')),
+		$pipeArr, WEB_DIR
+	);
+	$baseUrl = 'http://127.0.0.1:'.$portNum;
+	$isReady = false;
+	for( $idx=0; $idx<50 && !$isReady; $idx++ ){
+		$tryLink = @fsockopen('127.0.0.1', $portNum, $errNmbr, $errText, 0.2);
+		if( $tryLink ){
+			fclose($tryLink);
+			$isReady = true;
+		}else{
+			usleep(100000);
+		}
+	}
+	$whyNot = 'the built-in PHP server did not start';
 }
 
 if( !$isReady ){
-	skipCheck('HTTP', 'the built-in PHP server did not start');
+	skipCheck('HTTP', $whyNot);
 }else{
 	$jsonTyp = 'application/json; charset=utf-8';
 
@@ -251,7 +282,7 @@ if( !$isReady ){
 	checkSame('presence: the user of a verified request is online', $replyAr['body'], '{"online":["anna","ben"]}');
 
 	// A token confirmed against the users table : a role change or a lock applies to a token already issued
-	$sqlLink = new PDO('sqlite:'.inTempDir('http.sqlite'));
+	$sqlLink = new PDO('sqlite:'.$sqlFile);
 	$storHed = $whoHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'Authorization'=>'Bearer '.$jwToken);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
 	checkSame('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
@@ -618,7 +649,9 @@ if( !$isReady ){
 	checkSame('stop: no content when nothing was set', Array($replyAr['code'], $replyAr['body'], $replyAr['type']), Array(204, '', ''));
 }
 
-proc_terminate($server);
-proc_close($server);
+if( $server!==null ){
+	proc_terminate($server);
+	proc_close($server);
+}
 
 endChecks();
