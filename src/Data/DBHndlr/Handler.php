@@ -90,6 +90,16 @@ interface Handler{
 	 */
 	public function quoteName(String $fieldLabel): String;
 	/**
+	 * Builds the WHERE part of a query from a filter array, read by
+	 * DBStore\Filter::readWhere().
+	 *
+	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
+	 * @return Array The clause under 'text', with ? placeholders, and its values under 'vals'.
+	 *
+	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
+	 */
+	public function makeWhere( Array $whereArray ): Array;
+	/**
 	 * Returns the operator of a wildcard search that ignores the case.
 	 *
 	 * @return String The operator: LIKE, or what the database type uses in its place.

@@ -2,10 +2,10 @@
 
 namespace nyu\Runs\Shows\mods;
 
-use \nyu\Data\DBRecord;
+use \nyu\Data\DBRec;
 use \nyu\Tools\Variable;
 
-class Single extends DBRecord {
+class Single extends DBRec {
 	
 	/**
 	 * Binds the record to the 'shows' table and declares its child

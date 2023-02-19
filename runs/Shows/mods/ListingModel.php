@@ -2,9 +2,9 @@
 
 namespace nyu\Runs\Shows\mods;
 
-use \nyu\Data\DBList;
+use \nyu\Data\DBLst;
 
-class Listing extends DBList {
+class Listing extends DBLst {
 	
 	/**
 	 * Binds the listing model to the 'shows' table.

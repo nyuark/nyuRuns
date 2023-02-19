@@ -7,8 +7,6 @@
 
 namespace nyu\Data\DBStore;
 
-use nyu\Data\DBFilter;
-
 class ArrayStore implements Store {
 
 	protected $tblRows = Array();
@@ -49,7 +47,7 @@ class ArrayStore implements Store {
 	 * @return Bool True when it does.
 	 */
 	protected function meetsAll(Array $tableRow, Array $whereArray): Bool {
-		foreach(DBFilter::readWhere($whereArray) as $cndArr){
+		foreach(Filter::readWhere($whereArray) as $cndArr){
 			$rowVal = $tableRow[$cndArr['field']] ?? null;
 			$cndVal = $cndArr['value'];
 			$hasVal = ($rowVal!==null);
@@ -85,7 +83,7 @@ class ArrayStore implements Store {
 	 * @throws \RuntimeException When the filter selects nothing in particular.
 	 */
 	protected function needWhere(Array $whereArray): Void {
-		$cndList = array_filter(DBFilter::readWhere($whereArray), function($cndtnArray){ return $cndtnArray['opert']!='every'; });
+		$cndList = array_filter(Filter::readWhere($whereArray), function($cndtnArray){ return $cndtnArray['opert']!='every'; });
 		if( empty($cndList) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
 		}

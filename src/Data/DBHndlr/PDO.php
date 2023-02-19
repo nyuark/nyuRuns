@@ -154,6 +154,41 @@ abstract Class PDO implements Handler {
 	}
 
 	/**
+	 * Builds the WHERE part of a query from a filter array, read by
+	 * DBStore\Filter::readWhere(). Names are quoted, and matches written,
+	 * the way this database type expects them.
+	 *
+	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
+	 * @return Array The clause under 'text', with ? placeholders, and its values under 'vals'.
+	 *
+	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
+	 */
+	public function makeWhere( Array $whereArray ): Array {
+		$signLst = Array('equal'=>'=', 'diffr'=>'!=', 'under'=>'<', 'undeq'=>'<=', 'above'=>'>', 'aboeq'=>'>=');
+		$whrText = Array();
+		$whrVals = Array();
+		foreach(\nyu\Data\DBStore\Filter::readWhere($whereArray) as $cndArr){
+			$oprCode = $cndArr['opert'];
+			$fldQutd = ($cndArr['field']!='') ? $this->quoteName($cndArr['field']) : '';
+			if( $oprCode=='never' || $oprCode=='every' ){
+				$whrText[] = ($oprCode=='every') ? '1=1' : '1=0';
+			}elseif( $oprCode=='unset' || $oprCode=='isset' ){
+				$whrText[] = $fldQutd.($oprCode=='isset' ? ' IS NOT NULL' : ' IS NULL');
+			}elseif( $oprCode=='among' || $oprCode=='nmong' ){
+				$whrText[] = $fldQutd.($oprCode=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($cndArr['value']), '?')).')';
+				$whrVals = array_merge($whrVals, $cndArr['value']);
+			}elseif( $oprCode=='match' || $oprCode=='nmtch' ){
+				$whrText[] = $fldQutd.' '.($oprCode=='nmtch' ? 'NOT ' : '').$this->likeOprtr().' ?';
+				$whrVals[] = $cndArr['value'];
+			}else{
+				$whrText[] = $fldQutd.' '.$signLst[$oprCode].' ?';
+				$whrVals[] = $cndArr['value'];
+			}
+		}
+		return Array('text'=>implode(' AND ', $whrText), 'vals'=>$whrVals);
+	}
+	
+	/**
 	 * Returns the operator of a wildcard search that ignores the case.
 	 *
 	 * @return String The operator: LIKE, or what the database type uses in its place.

@@ -2,8 +2,6 @@
 
 namespace nyu\Data\DBStore;
 
-use nyu\Data\DBFilter;
-
 // MongoDB as a store, type code 'mongo', through the mongodb extension of
 // PHP. A table is a collection, a row a document, and the key of every
 // table is the _id MongoDB gives to each document.
@@ -134,7 +132,7 @@ class MongoStore implements Store {
 	public static function makeQuery(Array $whereArray): Array {
 		$signLst = Array('under'=>'$lt', 'undeq'=>'$lte', 'above'=>'$gt', 'aboeq'=>'$gte');
 		$andList = Array();
-		foreach(DBFilter::readWhere($whereArray) as $cndArr){
+		foreach(Filter::readWhere($whereArray) as $cndArr){
 			$oprCode = $cndArr['opert'];
 			$fldName = $cndArr['field'];
 			$cndVals = $cndArr['value'];

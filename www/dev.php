@@ -103,7 +103,7 @@ include_once('../autoloader.php');
 //$preset = new nyu\Setup\Preset();
 // TODO : DIContainer
 
-use \nyu\Data\DBRecord;
+use \nyu\Data\DBRec;
 
 $GLOBALS['manualRoute'] = Array(
 	'dev' => Array(
@@ -116,7 +116,7 @@ $GLOBALS['manualRoute'] = Array(
 
 $nyuRun = new nyu\Runner('manual');
 
-$nyuRec = new DBRecord( 'shows' );
+$nyuRec = new DBRec( 'shows' );
 $nyuArr = $nyuRec->loadRecrd(100);
 $nyuRec->bindArray( Array('title'=>'LES PIEDS DANS LES NUAGES') );
 // $nyuRec->bindArray( Array('title'=>'LES PIEDS DANS - LES - NUAGES') );

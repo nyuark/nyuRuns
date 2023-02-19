@@ -5,7 +5,7 @@ namespace nyu\Data;
 use \nyu\Data\DBCon;
 use \nyu\Tools\StrKit;
 
-class DBRecord {
+class DBRec {
 	protected $tableNme;
 	protected $dbConnex;
 	// Name of the configured database the table lives in: '' for the default one. A model sets its own.
@@ -268,7 +268,7 @@ class DBRecord {
 	/**
 	 * Finds the first record matching a map of field => value(s) and loads
 	 * its declared relations. The filter syntax is the one of
-	 * DBFilter::makeWhere(): a field name may end with '!' (negation), '<=',
+	 * DBStore\Filter::readWhere(): a field name may end with '!' (negation), '<=',
 	 * '>=', '<' or '>'; an array value gives IN/NOT IN, and a wildcard
 	 * ('*' or '%') LIKE/NOT LIKE. 'field?'=>false gives IS NULL and
 	 * 'field?'=>true IS NOT NULL; a null value matches nothing.
@@ -349,7 +349,7 @@ class DBRecord {
 	 * @return mixed The updated record array if $returnVals is true, otherwise nothing.
 	 */
 	function parentRec( String $parntTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='' ): ?Array {
-		$prntRec = new DBRecord( $parntTable, Array(), Array(), $this->dbConnex );
+		$prntRec = new DBRec( $parntTable, Array(), Array(), $this->dbConnex );
 		if( $foreignKey=='' ) {
 			$foreignKey = $prntRec->keyField;
 		}
@@ -375,7 +375,7 @@ class DBRecord {
 	 * @param Bool   $returnVals Whether to return the updated record array.
 	 * @param String $foreignKey Field on the child table referencing this record (defaults to `<singularized table>_id`).
 	 * @param String $currentKey Field on this record referenced by the child (defaults to this record's key field).
-	 * @param String $sortFields Sort clause passed through to the child DBList.
+	 * @param String $sortFields Sort clause passed through to the child DBLst.
 	 * @return mixed The updated record array if $returnVals is true, otherwise nothing.
 	 */
 	function childList( String $childTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='', String $sortFields='' ): ?Array {
@@ -393,7 +393,7 @@ class DBRecord {
 		if( !isset($this->recArray[$currentKey]) ){
 			$this->recArray[$chldKey] = Array();
 		}else{
-			$subList = new DBList($childTable, null, null, $sortFields, null, $this->dbConnex);
+			$subList = new DBLst($childTable, null, null, $sortFields, null, $this->dbConnex);
 			$subList->lstSearch(Array($foreignKey.'='=>$this->recArray[$currentKey]));
 			$this->recArray[$chldKey] = $subList->readItems();
 		}

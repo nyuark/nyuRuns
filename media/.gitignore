@@ -1,0 +1,4 @@
+# Media files (sounds, documents, images) are kept out of the repository:
+# only this file is tracked, so that the folder exists after a checkout.
+*
+!.gitignore

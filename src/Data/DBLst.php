@@ -5,7 +5,7 @@ namespace nyu\Data;
 use \nyu\Data\DBCon;
 use \nyu\Tools\StrKit;
 
-class DBList {
+class DBLst {
 	protected $tableNme;
 	protected $dbConnex;
 	// Name of the configured database the table lives in: '' for the default one. A model sets its own.
@@ -131,7 +131,7 @@ class DBList {
 	/**
 	 * Sets the filter of the list from a map of field => value(s), in
 	 * place of any filter set before. The filter syntax is the one of
-	 * DBFilter::makeWhere(): a field name may end with '!' (negation), '<=',
+	 * DBStore\Filter::readWhere(): a field name may end with '!' (negation), '<=',
 	 * '>=', '<', '>' or '=' (exact value); an array value gives IN/NOT IN,
 	 * and a wildcard ('*' or '%') LIKE/NOT LIKE. 'field?'=>false gives
 	 * IS NULL and 'field?'=>true IS NOT NULL; a null value matches nothing.
@@ -142,7 +142,7 @@ class DBList {
 	 */
 	public function lstSearch( Array $whereArray ): Void {
 		// Read once here, so that a faulty filter is refused where it is written
-		DBFilter::readWhere($whereArray);
+		DBStore\Filter::readWhere($whereArray);
 		$this->whrArray = $whereArray;
 		unset($this->devlText['where']);
 	}
@@ -313,7 +313,7 @@ class DBList {
 				$lstRows[$rowKey][$childTable] = Array();
 				continue;
 			}
-			$subList = new DBList($childTable, null, null, null, null, $this->dbConnex);
+			$subList = new DBLst($childTable, null, null, null, null, $this->dbConnex);
 			// The key is compared exactly, never read as a wildcard
 			$subList->lstSearch(Array($foreingKey.'='=>$rowArr[$currentKey]));
 			if($singlField!=''){

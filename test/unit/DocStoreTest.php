@@ -9,8 +9,8 @@ require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/ArrayStore.php';
 
 use nyu\Data\DBCon;
-use nyu\Data\DBList;
-use nyu\Data\DBRecord;
+use nyu\Data\DBLst;
+use nyu\Data\DBRec;
 use nyu\Data\DBStore\ArrayStore;
 use nyu\Data\DBStore\MongoStore;
 
@@ -37,7 +37,7 @@ foreach( Array(Array('show_id'=>'key1', 'date'=>'2026-12-28'), Array('show_id'=>
  */
 function docTitle( Array $whereArray ): Mixed {
 	return runSafely(function() use ($whereArray){
-		$showLst = new DBList('shows', null, null, null, null, $GLOBALS['docLink']);
+		$showLst = new DBLst('shows', null, null, null, null, $GLOBALS['docLink']);
 		$showLst->lstSearch($whereArray);
 		$showLst->listOrder('title');
 		return array_column($showLst->readItems(), 'title');
@@ -54,56 +54,56 @@ checkSame('list: field left unset', docTitle(Array('venue?'=>false)), Array('Emp
 checkSame('list: a null value matches nothing', docTitle(Array('venue'=>null)), Array());
 checkSame('list: values are compared with their type', Array(docTitle(Array('seats'=>120)), docTitle(Array('seats'=>'120'))), Array(Array('Alpha Night'), Array()));
 checkSame('list: fields, alias, order, limit and offset', runSafely(function() use ($docLink){
-	$showLst = new DBList('shows', null, null, null, null, $docLink);
+	$showLst = new DBLst('shows', null, null, null, null, $docLink);
 	$showLst->fieldScop('title as name, seats');
 	$showLst->listOrder(Array('^seats', 'title'));
 	$showLst->listLimit('2,1');
 	return $showLst->readItems();
 }), Array(Array('name'=>'Alpha Matinee', 'seats'=>80), Array('name'=>'Beta Evening', 'seats'=>80)));
 checkSame('list: an order written as plain field names in the constructor works', runSafely(function() use ($docLink){
-	$evntLst = new DBList('events', null, null, 'date DESC', '2', $docLink);
+	$evntLst = new DBLst('events', null, null, 'date DESC', '2', $docLink);
 	return array_column($evntLst->readItems(), 'date');
 }), Array('2026-12-28', '2026-11-03'));
 checkSame('list: child lists', runSafely(function() use ($docLink){
-	$showLst = new DBList('shows', null, null, null, null, $docLink);
+	$showLst = new DBLst('shows', null, null, null, null, $docLink);
 	$showLst->lstSearch(Array('title'=>'*a Night'));
 	$showLst->readItems();
 	return count($showLst->childList('events', 'date', 'show_id', '_id')[0]['events']);
 }), 2);
 
 // What only the SQL types do
-checkLike('list: a function is refused', runSafely(function() use ($docLink){ $showLst = new DBList('shows', null, null, null, null, $docLink); $showLst->fieldScop('count(*) as nb'); return $showLst->readItems(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
-checkLike('list: a join is refused', runSafely(function() use ($docLink){ $showLst = new DBList('events', null, null, null, null, $docLink); $showLst->tableJoin(Array('shows', 'show_id', '_id')); return $showLst->readItems(); }), '/^THROWN RuntimeException: Joins are not available on a document store/');
-checkLike('list: a group is refused', runSafely(function() use ($docLink){ $showLst = new DBList('shows', null, null, null, null, $docLink); $showLst->grpFields('venue'); return $showLst->readItems(); }), '/^THROWN RuntimeException: Groups are not available on a document store/');
-checkLike('list: a where clause written as SQL is refused', runSafely(function() use ($docLink){ $showLst = new DBList('shows', null, "venue = 'Hall A'", null, null, $docLink); return $showLst->readItems(); }), '/^THROWN RuntimeException: Fragments written as SQL are not available on a document store/');
+checkLike('list: a function is refused', runSafely(function() use ($docLink){ $showLst = new DBLst('shows', null, null, null, null, $docLink); $showLst->fieldScop('count(*) as nb'); return $showLst->readItems(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
+checkLike('list: a join is refused', runSafely(function() use ($docLink){ $showLst = new DBLst('events', null, null, null, null, $docLink); $showLst->tableJoin(Array('shows', 'show_id', '_id')); return $showLst->readItems(); }), '/^THROWN RuntimeException: Joins are not available on a document store/');
+checkLike('list: a group is refused', runSafely(function() use ($docLink){ $showLst = new DBLst('shows', null, null, null, null, $docLink); $showLst->grpFields('venue'); return $showLst->readItems(); }), '/^THROWN RuntimeException: Groups are not available on a document store/');
+checkLike('list: a where clause written as SQL is refused', runSafely(function() use ($docLink){ $showLst = new DBLst('shows', null, "venue = 'Hall A'", null, null, $docLink); return $showLst->readItems(); }), '/^THROWN RuntimeException: Fragments written as SQL are not available on a document store/');
 
 // Records
 checkSame('record: the key is _id, and any plain field is taken', runSafely(function() use ($docLink){
-	$showRec = new DBRecord('shows', Array(), Array(), $docLink);
+	$showRec = new DBRec('shows', Array(), Array(), $docLink);
 	$showRec->bindArray(Array('title'=>'Gamma', 'venue'=>'Hall G', 'seats'=>50, 'tags'=>Array('new'), 'not a field'=>'x'));
 	$savedKy = $showRec->saveRecrd();
-	$readRec = new DBRecord('shows', Array(), Array(), $docLink);
+	$readRec = new DBRec('shows', Array(), Array(), $docLink);
 	return Array($savedKy, $readRec->loadRecrd($savedKy));
 }), Array('key8', Array('_id'=>'key8', 'title'=>'Gamma', 'venue'=>'Hall G', 'seats'=>50, 'tags'=>Array('new'))));
 checkSame('record: update by key, linked rows are not saved', runSafely(function() use ($docLink){
-	$showRec = new DBRecord('shows', Array('events'=>Array('show_id', '_id', 'date ASC')), Array(), $docLink);
+	$showRec = new DBRec('shows', Array('events'=>Array('show_id', '_id', 'date ASC')), Array(), $docLink);
 	$recVals = $showRec->loadRecrd('key1');
 	$showRec->bindArray(Array('venue'=>'Hall X'));
 	$savedKy = $showRec->saveRecrd();
-	$readRec = new DBRecord('shows', Array(), Array(), $docLink);
+	$readRec = new DBRec('shows', Array(), Array(), $docLink);
 	return Array(array_column($recVals['Events'], 'date'), $savedKy, $readRec->loadRecrd('key1'));
 }), Array(Array('2026-11-03', '2026-12-28'), 'key1', Array('_id'=>'key1', 'title'=>'Alpha Night', 'venue'=>'Hall X', 'seats'=>120)));
 checkSame('record: find, and a missing key', runSafely(function() use ($docLink){
-	$showRec = new DBRecord('shows', Array(), Array(), $docLink);
+	$showRec = new DBRec('shows', Array(), Array(), $docLink);
 	return Array($showRec->findRecrd(Array('title'=>'beta*'))['_id'] ?? null, $showRec->loadRecrd('key99'), $showRec->exstRecrd('key2'), $showRec->exstRecrd('key*'));
 }), Array('key2', false, true, false));
 checkSame('record: deleted alone, without transactions', runSafely(function() use ($docLink){
-	$showRec = new DBRecord('shows', Array(), Array(), $docLink);
+	$showRec = new DBRec('shows', Array(), Array(), $docLink);
 	$showRec->loadRecrd('key3');
 	return Array($showRec->remvRecrd(), $showRec->remvRecrd(), docTitle(Array('title'=>'Alpha Matinee')));
 }), Array(true, false, Array()));
 checkLike('record: deleting with children is refused without transactions', runSafely(function() use ($docLink){
-	$showRec = new DBRecord('shows', Array(), Array(), $docLink);
+	$showRec = new DBRec('shows', Array(), Array(), $docLink);
 	$showRec->loadRecrd('key1');
 	return $showRec->remvRecrd(Array('events'=>'show_id'));
 }), '/^THROWN RuntimeException: Deleting a record with its children needs transactions/');

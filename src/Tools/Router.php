@@ -5,7 +5,7 @@
 
 namespace nyu\Tools;
 
-use nyu\Data\DFile;
+use nyu\Data\Dcmnt;
 
 class Router{
 
@@ -154,7 +154,7 @@ class Router{
 			return $rteData;
 		}
 		foreach( glob($dirPath.DS.'*.rte') as $rteFle ){
-			$rteFile = new DFile($rteFle);
+			$rteFile = new Dcmnt($rteFle);
 			$rteFile->fileParse( 'json', false );
 			$fleData = $rteFile->readValue('out');
 			if( is_array($fleData) ){

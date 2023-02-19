@@ -6,8 +6,8 @@
 // configuration pointed at them.
 
 use nyu\Data\DBCon;
-use nyu\Data\DBList;
-use nyu\Data\DBRecord;
+use nyu\Data\DBLst;
+use nyu\Data\DBRec;
 
 /**
  * Reads the keys of the shows matching a filter, in key order.
@@ -17,7 +17,7 @@ use nyu\Data\DBRecord;
  */
 function showKeys( Array $whereArray ): Mixed {
 	return runSafely(function() use ($whereArray){
-		$showLst = new DBList('shows');
+		$showLst = new DBLst('shows');
 		$showLst->lstSearch($whereArray);
 		$showLst->listOrder('id_show');
 		return array_map('intval', array_column($showLst->readItems(), 'id_show'));
@@ -52,7 +52,7 @@ function runDialct( String $handlerCls ): Void {
 		$dbHandl->opnTrnsct();
 		$dbHandl->sendQuery('UPDATE '.$dbHandl->quoteName('shows').' SET '.$dbHandl->quoteName('venue').'=? WHERE '.$dbHandl->quoteName('id_show').'=?', true, Array('Undone', 4));
 		$dbHandl->remTrnsct();
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		return $showRec->loadRecrd('4')['venue'];
 	}), 'Hall Z');
 
@@ -67,20 +67,20 @@ function runDialct( String $handlerCls ): Void {
 
 	// Lists
 	checkSame('list: order, limit and offset', runSafely(function(){
-		$showLst = new DBList('shows');
+		$showLst = new DBLst('shows');
 		$showLst->listOrder('^id_show');
 		$showLst->listLimit('2,1');
 		return array_map('intval', array_column($showLst->readItems(), 'id_show'));
 	}), Array(4, 3));
 	checkSame('list: grouped count', runSafely(function(){
-		$itemLst = new DBList('items');
+		$itemLst = new DBLst('items');
 		$itemLst->fieldScop('type, count(*) as nb');
 		$itemLst->grpFields('type');
 		$itemLst->listOrder('type');
 		return array_map(function($listedRow){ return $listedRow['type'].'='.intval($listedRow['nb']); }, $itemLst->readItems());
 	}), Array('circus=1', 'dance=2', 'music=2', 'solo=1', 'theatre=1'));
 	checkSame('list: join', runSafely(function(){
-		$evntLst = new DBList('events');
+		$evntLst = new DBLst('events');
 		$evntLst->fieldScop('shows.title, events.date');
 		$evntLst->tableJoin(Array('shows', 'events.show_id', 'shows.id_show'));
 		$evntLst->lstSearch(Array('events.id_event'=>7));
@@ -89,48 +89,48 @@ function runDialct( String $handlerCls ): Void {
 
 	// Records
 	checkSame('record: load with its children', runSafely(function(){
-		$showRec = new DBRecord('shows', Array('events'));
+		$showRec = new DBRec('shows', Array('events'));
 		$recVals = $showRec->loadRecrd('2');
 		return Array($recVals['title'], array_column($recVals['Events'], 'date'));
 	}), Array('Beta Evening', Array('2026-11-02', '2026-11-09')));
 	checkSame('record: find, whatever the case', runSafely(function(){
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		return $showRec->findRecrd(Array('title'=>'beta*'))['venue'] ?? null;
 	}), 'Hall B');
 	checkSame('record: an update keeps quotes and sets NULL', runSafely(function(){
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		$showRec->loadRecrd('3');
 		$showRec->bindArray(Array('title'=>"O'Matinee", 'venue'=>null));
 		$savedKy = $showRec->saveRecrd();
-		$readRec = new DBRecord('shows');
+		$readRec = new DBRec('shows');
 		$recVals = $readRec->loadRecrd('3');
 		return Array(strval($savedKy), $recVals['title'], $recVals['venue']);
 	}), Array('3', "O'Matinee", null));
 	checkSame('record: saving without any change still succeeds', runSafely(function(){
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		$showRec->loadRecrd('1');
 		return strval($showRec->saveRecrd());
 	}), '1');
 	checkSame('record: an insert returns the new key', runSafely(function(){
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		$showRec->bindArray(Array('title'=>'Gamma', 'venue'=>'Hall G'));
 		$savedKy = $showRec->saveRecrd();
-		$readRec = new DBRecord('shows');
+		$readRec = new DBRec('shows');
 		return Array(strval($savedKy), $readRec->loadRecrd(strval($savedKy))['title'] ?? null);
 	}), Array('6', 'Gamma'));
 	checkSame('record: delete with its named children, and only those', runSafely(function(){
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		$showRec->loadRecrd('1');
 		$remDone = $showRec->remvRecrd(Array('events'));
-		$evntLst = new DBList('events');
-		$itemLst = new DBList('items');
+		$evntLst = new DBLst('events');
+		$itemLst = new DBLst('items');
 		$itemLst->lstSearch(Array('show_id'=>1));
 		return Array($remDone, showKeys(Array('id_show'=>1)), count($evntLst->readItems()), count($itemLst->readItems()));
 	}), Array(true, Array(), 5, 2));
 	checkSame('record: a failing child table cancels the deletion', runSafely(function(){
-		$showRec = new DBRecord('shows');
+		$showRec = new DBRec('shows');
 		$showRec->loadRecrd('2');
-		$evntLst = new DBList('events');
+		$evntLst = new DBLst('events');
 		$evntLst->lstSearch(Array('show_id'=>2));
 		return Array($showRec->remvRecrd(Array('events', 'nowhere')), showKeys(Array('id_show'=>2)), count($evntLst->readItems()));
 	}), Array(false, Array(2), 2));

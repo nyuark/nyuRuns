@@ -1,0 +1,13 @@
+Sample office files used by the parser tests.
+
+Made for this project with Apache OpenOffice 4, from a source of known content:
+  sample.odt   a title, three headings, a bulleted and a numbered list, a 3x3 table, bold, italic, a link, accents
+  sample.ods   two sheets (Shows, Notes): text, numbers, an empty cell, accents, a SUM formula, an empty row
+
+Taken unchanged from the test data of Apache POI (https://github.com/apache/poi, folder test-data),
+distributed under the Apache License 2.0:
+  SampleDoc.docx           seven plain paragraphs over two pages
+  heading123.docx          headings at three levels, two body paragraphs
+  Numbering.docx           numbered lists over several levels
+  TestTableCellAlign.docx  one table of two rows and two columns
+  SampleSS.xlsx            three sheets: text, numbers, formulas, styled cells

@@ -1,17 +1,17 @@
 <?php
 
-// Data\DBRecord : loading, finding, existence, saving and relations,
+// Data\DBRec : loading, finding, existence, saving and relations,
 // against the sample SQLite database (see test/lib/sample.php).
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
 
 if( !extension_loaded('pdo_sqlite') ){
-	skipCheck('DBRecord', 'pdo_sqlite is not available');
+	skipCheck('DBRec', 'pdo_sqlite is not available');
 	endChecks();
 }
 
-use nyu\Data\DBRecord;
+use nyu\Data\DBRec;
 use nyu\Data\DBCon;
 
 buildData( inTempDir('record.sqlite') );
@@ -24,7 +24,7 @@ useSqlite( inTempDir('record.sqlite') );
  * @return mixed The row, or false when it does not exist.
  */
 function loadAShow( String $primaryKey ): Mixed {
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->loadRecrd($primaryKey);
 }
 
@@ -32,40 +32,40 @@ function loadAShow( String $primaryKey ): Mixed {
 checkSame('loadRecrd found',   runSafely(function(){ return loadAShow('2'); }), Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>'Hall B'));
 checkSame('loadRecrd missing', runSafely(function(){ return loadAShow('99'); }), false);
 checkSame('findRecrd with a wildcard', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array('title'=>'Beta*'));
 }), Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>'Hall B'));
 checkTrue('findRecrd missing gives nothing', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return empty($showRec->findRecrd(Array('title'=>'Nope')));
 }));
 checkSame('findRecrd on a field left unset', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array('venue?'=>false))['id_show'] ?? null;
 }), 5);
 checkSame('findRecrd with a null value finds nothing', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array('venue'=>null));
 }), Array());
 checkSame('findRecrd with a strict comparison', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array('id_show>'=>4))['id_show'] ?? null;
 }), 5);
 checkSame('findRecrd with a list', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array('id_show'=>Array(4, 99)))['title'] ?? null;
 }), 'Solo Gig');
 checkSame('findRecrd without a filter gives the first record', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array())['id_show'] ?? null;
 }), 1);
 checkLike('findRecrd with an invalid field name throws', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->findRecrd(Array('venue` = 1 OR `title'=>'x'));
 }), '/^THROWN RuntimeException: Invalid table or field name/');
 
 // Existence
-$showRec = new DBRecord('shows');
+$showRec = new DBRec('shows');
 checkSame('exstRecrd existing, integer key', runSafely(function() use ($showRec){ return $showRec->exstRecrd(1); }), true);
 checkSame('exstRecrd existing, string key',  runSafely(function() use ($showRec){ return $showRec->exstRecrd('1'); }), true);
 checkSame('exstRecrd missing',               runSafely(function() use ($showRec){ return $showRec->exstRecrd(99); }), false);
@@ -76,7 +76,7 @@ checkSame('exstRecrd non-numeric key',       runSafely(function() use ($showRec)
 
 // Updating
 checkSame('update keeps the key and escapes quotes', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('2');
 	$showRec->bindArray(Array('venue'=>"O'Hall", 'bogus'=>'ignored'));
 	$savedKy = $showRec->saveRecrd();
@@ -84,7 +84,7 @@ checkSame('update keeps the key and escapes quotes', runSafely(function(){
 }), Array('2', Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>"O'Hall")));
 
 checkSame('update of a row holding NULL keeps the NULL', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('5');
 	$showRec->bindArray(Array('title'=>'Empty Stage II'));
 	$showRec->saveRecrd();
@@ -92,7 +92,7 @@ checkSame('update of a row holding NULL keeps the NULL', runSafely(function(){
 }), Array('id_show'=>5, 'title'=>'Empty Stage II', 'venue'=>null));
 
 checkSame('update can set a column to NULL', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('3');
 	$showRec->bindArray(Array('venue'=>null));
 	$showRec->saveRecrd();
@@ -100,7 +100,7 @@ checkSame('update can set a column to NULL', runSafely(function(){
 }), Array('id_show'=>3, 'title'=>'Alpha Matinee', 'venue'=>null));
 
 checkSame('saveRecrd can leave fields out', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('4');
 	$showRec->bindArray(Array('title'=>'Solo Gig II', 'venue'=>'Elsewhere'));
 	$showRec->saveRecrd(Array('venue'));
@@ -108,17 +108,17 @@ checkSame('saveRecrd can leave fields out', runSafely(function(){
 }), Array('id_show'=>4, 'title'=>'Solo Gig II', 'venue'=>'Hall S'));
 
 checkSame('a record loaded with its relations can be saved', runSafely(function(){
-	$showRec = new DBRecord('shows', Array('events'));
+	$showRec = new DBRec('shows', Array('events'));
 	$showRec->loadRecrd('1');
 	$showRec->bindArray(Array('venue'=>'Hall X'));
 	$savedKy = $showRec->saveRecrd();
-	$evntLst = new nyu\Data\DBList('events');
+	$evntLst = new nyu\Data\DBLst('events');
 	$evntLst->lstSearch(Array('show_id'=>'1'));
 	return Array($savedKy, loadAShow('1'), count($evntLst->readItems()));
 }), Array('1', Array('id_show'=>1, 'title'=>'Alpha Night', 'venue'=>'Hall X'), 2));
 
 checkSame('an update with nothing to save returns the key', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('4');
 	$showRec->bindArray(Array('title'=>'Never Saved'));
 	$savedKy = $showRec->saveRecrd(Array('title', 'venue'));
@@ -127,50 +127,50 @@ checkSame('an update with nothing to save returns the key', runSafely(function()
 
 // Inserting
 checkSame('insert without a key returns the new key', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->bindArray(Array('title'=>'Gamma', 'venue'=>'Hall G'));
 	$savedKy = $showRec->saveRecrd();
 	return Array($savedKy, loadAShow($savedKy));
 }), Array('6', Array('id_show'=>6, 'title'=>'Gamma', 'venue'=>'Hall G')));
 
 checkSame('insert with a NULL value and a quote', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->bindArray(Array('title'=>"Epsilon's", 'venue'=>null));
 	return loadAShow($showRec->saveRecrd());
 }), Array('id_show'=>7, 'title'=>"Epsilon's", 'venue'=>null));
 
 checkSame('the literal string NULL stays a string', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->bindArray(Array('title'=>'NULL', 'venue'=>'NULL'));
 	return loadAShow($showRec->saveRecrd());
 }), Array('id_show'=>8, 'title'=>'NULL', 'venue'=>'NULL'));
 
 checkSame('insert with a supplied key uses that key', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->bindArray(Array('id_show'=>50, 'title'=>'Delta', 'venue'=>'Hall D'));
 	$savedKy = $showRec->saveRecrd();
 	return Array($savedKy, loadAShow('50'));
 }), Array(50, Array('id_show'=>50, 'title'=>'Delta', 'venue'=>'Hall D')));
 
 checkSame('saving again with the same key updates instead of inserting', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->bindArray(Array('id_show'=>50, 'title'=>'Delta II'));
 	$savedKy = $showRec->saveRecrd();
-	$allRows = new nyu\Data\DBList('shows');
+	$allRows = new nyu\Data\DBLst('shows');
 	$allRows->lstSearch(Array('title'=>'Delta*'));
 	return Array($savedKy, $allRows->readItems());
 }), Array(50, Array(Array('id_show'=>50, 'title'=>'Delta II', 'venue'=>'Hall D'))));
 
 // Blank record
 checkSame('without initRecrd, a second item overwrites the loaded row', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('50');
 	$showRec->bindArray(Array('title'=>'Delta III'));
 	return Array($showRec->saveRecrd(), loadAShow('50')['title']);
 }), Array('50', 'Delta III'));
 
 checkSame('after initRecrd, a second item is a new row', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('50');
 	$showRec->initRecrd();
 	$showRec->bindArray(Array('title'=>'Zeta', 'venue'=>'Hall Z'));
@@ -180,33 +180,33 @@ checkSame('after initRecrd, a second item is a new row', runSafely(function(){
 
 // Relations
 checkSame('childList returns the record when asked', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('1');
 	$recVals = $showRec->childList('events', true, '', '', 'date ASC');
 	return array_column($recVals['Events'], 'date');
 }), Array('2026-12-28', '2027-01-03'));
 
 checkSame('childList returns nothing otherwise', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('1');
 	return $showRec->childList('items');
 }), null);
 
 checkSame('childList with a single child is a list of one', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('4');
 	return $showRec->childList('events', true)['Events'];
 }), Array(Array('id_event'=>7, 'show_id'=>4, 'date'=>'2026-12-01', 'time'=>'21:00')));
 
 checkSame('parentRec', runSafely(function(){
-	$evntRec = new DBRecord('events');
+	$evntRec = new DBRec('events');
 	$evntRec->loadRecrd('3');
 	$recVals = $evntRec->parentRec('shows', true, 'id_show', 'show_id');
 	return $recVals['Show']['id_show'] ?? null;
 }), 2);
 
 checkSame('relations declared in the constructor are loaded', runSafely(function(){
-	$showRec = new DBRecord('shows', Array('items'));
+	$showRec = new DBRec('shows', Array('items'));
 	$recVals = $showRec->loadRecrd('1');
 	return array_column($recVals['Items'], 'type');
 }), Array('music', 'dance'));
@@ -217,25 +217,25 @@ $dbHandl->sendQuery("CREATE TABLE `tags` (`label` TEXT PRIMARY KEY);", true);
 $dbHandl->sendQuery("INSERT INTO `tags` (`label`) VALUES ('rock');", true);
 
 checkSame('one-column table: loadRecrd', runSafely(function(){
-	$tagsRec = new DBRecord('tags');
+	$tagsRec = new DBRec('tags');
 	return $tagsRec->loadRecrd('rock');
 }), Array('label'=>'rock'));
 checkSame('one-column table: exstRecrd', runSafely(function(){
-	$tagsRec = new DBRecord('tags');
+	$tagsRec = new DBRec('tags');
 	return Array($tagsRec->exstRecrd('rock'), $tagsRec->exstRecrd('jazz'));
 }), Array(true, false));
 checkSame('one-column table: findRecrd', runSafely(function(){
-	$tagsRec = new DBRecord('tags');
+	$tagsRec = new DBRec('tags');
 	return Array($tagsRec->findRecrd(Array('label'=>'ro*')), $tagsRec->findRecrd(Array('label'=>'jazz')));
 }), Array(Array('label'=>'rock'), Array()));
 checkSame('a key holding a quote is looked up as plain text', runSafely(function() use ($dbHandl){
 	$dbHandl->sendQuery("INSERT INTO `tags` (`label`) VALUES (?);", true, Array("rock'n'roll"));
-	$tagsRec = new DBRecord('tags');
+	$tagsRec = new DBRec('tags');
 	return Array($tagsRec->loadRecrd("rock'n'roll"), $tagsRec->exstRecrd("rock'n'roll"), $tagsRec->exstRecrd("x' OR '1'='1"));
 }), Array(Array('label'=>"rock'n'roll"), true, false));
 
 checkSame('a key holding a wildcard character is not read as a wildcard', runSafely(function(){
-	$tagsRec = new DBRecord('tags');
+	$tagsRec = new DBRec('tags');
 	return Array($tagsRec->loadRecrd('ro*'), $tagsRec->exstRecrd('%'), $tagsRec->exstRecrd('rock'));
 }), Array(false, false, true));
 
@@ -243,26 +243,26 @@ checkSame('a key holding a wildcard character is not read as a wildcard', runSaf
 $dbHandl->sendQuery("CREATE TABLE `notes` (`id_note` INTEGER PRIMARY KEY, `body` TEXT);", true);
 
 checkSame('empty table: loadRecrd finds nothing', runSafely(function(){
-	$noteRec = new DBRecord('notes');
+	$noteRec = new DBRec('notes');
 	return $noteRec->loadRecrd('1');
 }), false);
 checkSame('empty table: a first row can be inserted', runSafely(function(){
-	$noteRec = new DBRecord('notes');
+	$noteRec = new DBRec('notes');
 	$noteRec->bindArray(Array('body'=>'First'));
 	$savedKy = $noteRec->saveRecrd();
 	return Array($savedKy, $noteRec->loadRecrd($savedKy));
 }), Array('1', Array('id_note'=>1, 'body'=>'First')));
-checkThrw('missing table throws', function(){ new DBRecord('nowhere'); }, 'RuntimeException');
-checkLike('a table name that is not a plain name is refused', runSafely(function(){ return new DBRecord('shows` WHERE 1=1; --'); }), '/^THROWN RuntimeException: Invalid table or field name/');
+checkThrw('missing table throws', function(){ new DBRec('nowhere'); }, 'RuntimeException');
+checkLike('a table name that is not a plain name is refused', runSafely(function(){ return new DBRec('shows` WHERE 1=1; --'); }), '/^THROWN RuntimeException: Invalid table or field name/');
 
 // Relations of a record that is missing, or that has no key value
 checkTrue('findRecrd missing, with declared relations, gives nothing', runSafely(function(){
-	$showRec = new DBRecord('shows', Array('events'));
+	$showRec = new DBRec('shows', Array('events'));
 	return $showRec->findRecrd(Array('title'=>'Nope'))===Array();
 }));
 checkSame('a record without a key value gets no children, not the orphan rows', runSafely(function() use ($dbHandl){
 	$dbHandl->sendQuery("INSERT INTO `events` (`id_event`,`show_id`,`date`,`time`) VALUES (90,NULL,'2027-02-01','18:00');", true);
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('5');
 	return $showRec->childList('events', true, 'show_id', 'venue')['Events'];
 }), Array());
@@ -276,13 +276,13 @@ checkSame('a record without a key value gets no children, not the orphan rows', 
  * @return Int The number of rows.
  */
 function countRow( String $tableLabel, Array $whereArray=Array() ): Int {
-	$rowList = new nyu\Data\DBList($tableLabel);
+	$rowList = new nyu\Data\DBLst($tableLabel);
 	$rowList->lstSearch($whereArray);
 	return count($rowList->readItems());
 }
 
 checkSame('remvRecrd alone deletes the record and leaves its children', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('4');
 	return Array($showRec->remvRecrd(), loadAShow('4'), countRow('events', Array('show_id'=>4)), countRow('items', Array('show_id'=>4)));
 }), Array(true, false, 1, 1));
@@ -290,14 +290,14 @@ checkSame('remvRecrd alone deletes the record and leaves its children', runSafel
 checkSame('remvRecrd with named children deletes those rows, and only those', runSafely(function(){
 	$evntAll = countRow('events');
 	$itemAll = countRow('items');
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('3');
 	$remDone = $showRec->remvRecrd(Array('events', 'items'=>'show_id'));
 	return Array($remDone, loadAShow('3'), countRow('events', Array('show_id'=>3)), countRow('items', Array('show_id'=>3)), $evntAll - countRow('events'), $itemAll - countRow('items'));
 }), Array(true, false, 0, 0, 2, 2));
 
 checkSame('remvRecrd empties the record: a second call deletes nothing', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('51');
 	$showAll = countRow('shows');
 	return Array($showRec->remvRecrd(), $showRec->remvRecrd(), $showAll - countRow('shows'));
@@ -305,21 +305,21 @@ checkSame('remvRecrd empties the record: a second call deletes nothing', runSafe
 
 checkSame('remvRecrd with nothing loaded deletes nothing', runSafely(function(){
 	$evntAll = countRow('events');
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return Array($showRec->remvRecrd(Array('events')), $evntAll - countRow('events'));
 }), Array(false, 0));
 
 checkSame('remvRecrd of a row already gone restores the children it removed', runSafely(function(){
-	$frstRec = new DBRecord('shows');
+	$frstRec = new DBRec('shows');
 	$frstRec->loadRecrd('2');
-	$scndRec = new DBRecord('shows');
+	$scndRec = new DBRec('shows');
 	$scndRec->loadRecrd('2');
 	$frstRec->remvRecrd();
 	return Array($scndRec->remvRecrd(Array('events')), countRow('events', Array('show_id'=>2)));
 }), Array(false, 2));
 
 checkLike('remvRecrd with an invalid child name throws', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('1');
 	return $showRec->remvRecrd(Array('events', 'items; DROP TABLE shows'));
 }), '/^THROWN RuntimeException: Invalid table or field name/');
@@ -328,7 +328,7 @@ checkSame('...before anything was deleted', runSafely(function(){
 }), Array(1, 2));
 
 checkSame('remvRecrd failing on a child table cancels the whole deletion', runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('1');
 	return Array($showRec->remvRecrd(Array('events', 'nowhere')), loadAShow('1')['id_show'] ?? null, countRow('events', Array('show_id'=>1)));
 }), Array(false, 1, 2));

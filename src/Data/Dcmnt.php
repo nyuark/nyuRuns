@@ -6,7 +6,7 @@ namespace nyu\Data;
 
 use \nyu\Data\Parsers;
 
-class DFile{
+class Dcmnt{
 	protected $fileName;
 	protected $fileTitl;
 	protected $fileExtn;

@@ -11,8 +11,8 @@ require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/servers.php';
 
 use nyu\Data\DBCon;
-use nyu\Data\DBList;
-use nyu\Data\DBRecord;
+use nyu\Data\DBLst;
+use nyu\Data\DBRec;
 
 if( !extension_loaded('mongodb') ){
 	skipCheck('MongoDB', 'the mongodb extension is not available');
@@ -68,7 +68,7 @@ foreach( Array(Array($showKey[0], '2026-12-28'), Array($showKey[0], '2026-11-03'
  */
 function docTitle( Array $whereArray ): Mixed {
 	return runSafely(function() use ($whereArray){
-		$showLst = new DBList('shows');
+		$showLst = new DBLst('shows');
 		$showLst->lstSearch($whereArray);
 		$showLst->listOrder('title');
 		$fndRows = $showLst->readItems();
@@ -99,62 +99,62 @@ checkSame('list: an operator sent as a value matches nothing', docTitle(Array('t
 checkSame('list: a row found by its key', docTitle(Array('_id'=>$showKey[1])), Array('Beta Evening'));
 checkSame('list: rows found by a list of keys', docTitle(Array('_id'=>Array($showKey[0], $showKey[3]))), Array('Alpha Night', 'Empty Stage'));
 checkSame('list: fields, alias, order, limit and offset', runSafely(function(){
-	$showLst = new DBList('shows');
+	$showLst = new DBLst('shows');
 	$showLst->fieldScop('title as name, seats');
 	$showLst->listOrder(Array('^seats', 'title'));
 	$showLst->listLimit('2,1');
 	return $showLst->readItems();
 }), Array(Array('seats'=>80, 'name'=>'Alpha Matinee'), Array('seats'=>80, 'name'=>'Beta Evening')));
 checkSame('list: an order written as plain field names in the constructor', runSafely(function(){
-	$evntLst = new DBList('events', null, null, 'date DESC', '2');
+	$evntLst = new DBLst('events', null, null, 'date DESC', '2');
 	return array_column($evntLst->readItems(), 'date');
 }), Array('2026-12-28', '2026-11-03'));
 checkSame('list: child lists', runSafely(function(){
-	$showLst = new DBList('shows');
+	$showLst = new DBLst('shows');
 	$showLst->lstSearch(Array('title'=>'*a Night'));
 	$showLst->readItems();
 	$evntLst = $showLst->childList('events', 'date', 'show_id', '_id')[0]['events'];
 	sort($evntLst);
 	return $evntLst;
 }), Array('2026-11-03', '2026-12-28'));
-checkLike('list: a function is refused', runSafely(function(){ $showLst = new DBList('shows'); $showLst->fieldScop('count(*) as nb'); return $showLst->readItems(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
-checkLike('list: a join is refused', runSafely(function(){ $evntLst = new DBList('events'); $evntLst->tableJoin(Array('shows', 'show_id', '_id')); return $evntLst->readItems(); }), '/^THROWN RuntimeException: Joins are not available on a document store/');
+checkLike('list: a function is refused', runSafely(function(){ $showLst = new DBLst('shows'); $showLst->fieldScop('count(*) as nb'); return $showLst->readItems(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
+checkLike('list: a join is refused', runSafely(function(){ $evntLst = new DBLst('events'); $evntLst->tableJoin(Array('shows', 'show_id', '_id')); return $evntLst->readItems(); }), '/^THROWN RuntimeException: Joins are not available on a document store/');
 
 // Records
 $newShow = runSafely(function(){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->bindArray(Array('title'=>'Gamma', 'venue'=>"O'Hall", 'seats'=>50, 'tags'=>Array('new', 'small'), 'not a field'=>'x'));
 	return $showRec->saveRecrd();
 });
 checkLike('record: an insert returns the key given by the server', $newShow, '/^[0-9a-f]{24}$/');
 checkSame('record: loaded by its key, with every field it was given', runSafely(function() use ($newShow){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return $showRec->loadRecrd(strval($newShow));
 }), Array('_id'=>$newShow, 'title'=>'Gamma', 'venue'=>"O'Hall", 'seats'=>50, 'tags'=>Array('new', 'small')));
 checkSame('record: update by key, linked rows are read and not saved', runSafely(function() use ($showKey){
-	$showRec = new DBRecord('shows', Array('events'=>Array('show_id', '_id', 'date ASC')));
+	$showRec = new DBRec('shows', Array('events'=>Array('show_id', '_id', 'date ASC')));
 	$recVals = $showRec->loadRecrd($showKey[0]);
 	$showRec->bindArray(Array('venue'=>'Hall X'));
 	$savedKy = $showRec->saveRecrd();
-	$readRec = new DBRecord('shows');
+	$readRec = new DBRec('shows');
 	return Array(array_column($recVals['Events'], 'date'), $savedKy, $readRec->loadRecrd($showKey[0]));
 }), Array(Array('2026-11-03', '2026-12-28'), $showKey[0], Array('_id'=>$showKey[0], 'title'=>'Alpha Night', 'venue'=>'Hall X', 'seats'=>120)));
 checkSame('record: saving without any change still succeeds', runSafely(function() use ($showKey){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd($showKey[1]);
 	return $showRec->saveRecrd();
 }), $showKey[1]);
 checkSame('record: find, existing and missing keys', runSafely(function() use ($showKey){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	return Array($showRec->findRecrd(Array('title'=>'beta*'))['_id'] ?? null, $showRec->exstRecrd($showKey[1]), $showRec->loadRecrd('000000000000000000000000'), $showRec->loadRecrd('not-a-key'), $showRec->exstRecrd('*'));
 }), Array($showKey[1], true, false, false, false));
 checkSame('record: deleted alone, without transactions', runSafely(function() use ($showKey){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd($showKey[2]);
 	return Array($showRec->remvRecrd(), $showRec->remvRecrd(), docTitle(Array('title'=>'Alpha Matinee')));
 }), Array(true, false, Array()));
 checkLike('record: deleting with children is refused without transactions', runSafely(function() use ($showKey){
-	$showRec = new DBRecord('shows');
+	$showRec = new DBRec('shows');
 	$showRec->loadRecrd($showKey[0]);
 	return $showRec->remvRecrd(Array('events'=>'show_id'));
 }), '/^THROWN RuntimeException: Deleting a record with its children needs transactions/');

@@ -63,7 +63,7 @@ checkSame('a transaction on one database leaves the other alone', runSafely(func
 }), Array(5, 'Vault'));
 
 // Models naming their database
-class MainShow extends nyu\Data\DBList {
+class MainShow extends nyu\Data\DBLst {
 	/**
 	 * A list of shows that names no database.
 	 */
@@ -71,7 +71,7 @@ class MainShow extends nyu\Data\DBList {
 		parent::__construct('shows');
 	}
 }
-class ArchShow extends nyu\Data\DBList {
+class ArchShow extends nyu\Data\DBLst {
 	protected $baseName = 'archive';
 	/**
 	 * A list of shows in the archive, unless a connection is given.
@@ -82,7 +82,7 @@ class ArchShow extends nyu\Data\DBList {
 		parent::__construct('shows', null, null, null, null, $handleLink);
 	}
 }
-class ArchRecd extends nyu\Data\DBRecord {
+class ArchRecd extends nyu\Data\DBRec {
 	protected $baseName = 'archive';
 	/**
 	 * A show of the archive, with its events.
@@ -91,7 +91,7 @@ class ArchRecd extends nyu\Data\DBRecord {
 		parent::__construct('shows', Array('events'));
 	}
 }
-class LostShow extends nyu\Data\DBList {
+class LostShow extends nyu\Data\DBLst {
 	protected $baseName = 'nowhere';
 	/**
 	 * A list naming a database that is not configured.
@@ -105,13 +105,13 @@ checkSame('a model naming no database reads the default one', runSafely(function
 checkSame('a model reads the database it names', runSafely(function(){ $showLst = new ArchShow(); return count($showLst->readItems()); }), 1);
 checkSame('a connection given to the model wins over its name', runSafely(function(){ $showLst = new ArchShow(DBCon::linkNamed()); return count($showLst->readItems()); }), 5);
 checkSame('a plain list on a given connection', runSafely(function(){
-	$showLst = new nyu\Data\DBList('shows', null, null, null, null, DBCon::linkNamed('archive'));
+	$showLst = new nyu\Data\DBLst('shows', null, null, null, null, DBCon::linkNamed('archive'));
 	return count($showLst->readItems());
 }), 1);
 checkLike('a model naming an unknown database is refused', runSafely(function(){ return new LostShow(); }), '/^THROWN RuntimeException: Unknown database: nowhere/');
 checkSame('the children of a record come from its own database', runSafely(function(){
 	$archRec = new ArchRecd();
-	$mainRec = new nyu\Data\DBRecord('shows', Array('events'));
+	$mainRec = new nyu\Data\DBRec('shows', Array('events'));
 	return Array(count($archRec->loadRecrd('1')['Events']), count($mainRec->loadRecrd('1')['Events']));
 }), Array(1, 2));
 checkSame('a record saved in one database leaves the other unchanged', runSafely(function(){
@@ -119,7 +119,7 @@ checkSame('a record saved in one database leaves the other unchanged', runSafely
 	$archRec->loadRecrd('1');
 	$archRec->bindArray(Array('title'=>'Alpha Night (archived)'));
 	$archRec->saveRecrd();
-	$mainRec = new nyu\Data\DBRecord('shows');
+	$mainRec = new nyu\Data\DBRec('shows');
 	$readRec = new ArchRecd();
 	return Array($mainRec->loadRecrd('1')['title'], $readRec->loadRecrd('1')['title']);
 }), Array('Alpha Night', 'Alpha Night (archived)'));
@@ -127,8 +127,8 @@ checkSame('a record deleted with its children, in its own database only', runSaf
 	$archRec = new ArchRecd();
 	$archRec->loadRecrd('1');
 	$remDone = $archRec->remvRecrd(Array('events'));
-	$archEvt = new nyu\Data\DBList('events', null, null, null, null, DBCon::linkNamed('archive'));
-	$mainEvt = new nyu\Data\DBList('events');
+	$archEvt = new nyu\Data\DBLst('events', null, null, null, null, DBCon::linkNamed('archive'));
+	$mainEvt = new nyu\Data\DBLst('events');
 	return Array($remDone, count($archEvt->readItems()), count($mainEvt->readItems()), showsOn(DBCon::linkNamed()));
 }), Array(true, 0, 7, 5));
 

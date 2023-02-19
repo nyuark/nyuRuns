@@ -2,7 +2,6 @@
 
 namespace nyu\Data\DBStore;
 
-use nyu\Data\DBFilter;
 use nyu\Data\DBHndlr\Handler;
 
 // The SQL types as a store: the calls of the Store contract are written
@@ -94,7 +93,7 @@ class SqlStore implements Store {
 		}
 
 		// Filter
-		$whrPart = DBFilter::makeWhere($whereArray, $dbHandl);
+		$whrPart = $dbHandl->makeWhere($whereArray);
 		$whrText = strval($devText['where'] ?? '');
 		if( $whrText!='' && $whrPart['text']!='' ){
 			$whrText = '('.$whrText.') AND ('.$whrPart['text'].')';
@@ -230,7 +229,7 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When a name is not valid, or the filter matches every row.
 	 */
 	protected function needWhere(Array $whereArray): Array {
-		$whrPart = DBFilter::makeWhere($whereArray, $this->dbHandle);
+		$whrPart = $this->dbHandle->makeWhere($whereArray);
 		if( $whrPart['text']=='' || preg_match('/^1=1( AND 1=1)*$/D', $whrPart['text']) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
 		}

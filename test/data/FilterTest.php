@@ -1,6 +1,6 @@
 <?php
 
-// Data\DBFilter : the WHERE clause built from a filter array, and the rows
+// Data\DBStore\Filter and the makeWhere of the handlers : the WHERE clause built from a filter array, and the rows
 // it selects in the sample SQLite database (see test/lib/sample.php).
 
 require __DIR__.'/../lib/harness.php';
@@ -12,7 +12,7 @@ if( !extension_loaded('pdo_sqlite') ){
 }
 
 use nyu\Data\DBCon;
-use nyu\Data\DBFilter;
+use nyu\Data\DBStore\Filter;
 
 buildData( inTempDir('filter.sqlite') );
 useSqlite( inTempDir('filter.sqlite') );
@@ -26,7 +26,7 @@ useSqlite( inTempDir('filter.sqlite') );
 function pickShow( Array $whereArray ): Mixed {
 	return runSafely(function() use ($whereArray){
 		$dbHandl = DBCon::getInstnc('sqlte', '', '', '', inTempDir('filter.sqlite'))->getConnex();
-		$whrPart = DBFilter::makeWhere($whereArray, $dbHandl);
+		$whrPart = $dbHandl->makeWhere($whereArray);
 		$slctQry = 'SELECT `id_show` FROM `shows`'.($whrPart['text']!='' ? ' WHERE '.$whrPart['text'] : '').' ORDER BY `id_show`';
 		if( !$dbHandl->sendQuery($slctQry, false, $whrPart['vals']) ){
 			return 'FAILED '.$dbHandl->lastError();
@@ -78,7 +78,7 @@ checkLike('an invalid field name throws', pickShow(Array('venue` = 1 OR `title'=
 
 // The reading alone, as every kind of database receives it
 checkSame('readWhere gives one condition per entry', runSafely(function(){
-	return DBFilter::readWhere(Array('venue'=>'Hall B', 'id_show>='=>2, 'title!'=>'Alpha*', 'id_show'=>Array(1, '', 2), 'venue?'=>false, 'title='=>'50%'));
+	return Filter::readWhere(Array('venue'=>'Hall B', 'id_show>='=>2, 'title!'=>'Alpha*', 'id_show'=>Array(1, '', 2), 'venue?'=>false, 'title='=>'50%'));
 }), Array(
 	Array('field'=>'venue',   'opert'=>'equal', 'value'=>'Hall B'),
 	Array('field'=>'id_show', 'opert'=>'aboeq', 'value'=>2),
@@ -88,9 +88,9 @@ checkSame('readWhere gives one condition per entry', runSafely(function(){
 	Array('field'=>'title',   'opert'=>'equal', 'value'=>'50%')
 ));
 checkSame('readWhere: what matches nothing or everything names no field', runSafely(function(){
-	return array_column(DBFilter::readWhere(Array('a'=>null, 'b'=>Array(), 'c!'=>Array(), 'd?'=>true)), 'opert');
+	return array_column(Filter::readWhere(Array('a'=>null, 'b'=>Array(), 'c!'=>Array(), 'd?'=>true)), 'opert');
 }), Array('never', 'never', 'every', 'isset'));
-checkLike('readWhere refuses an invalid field name by itself', runSafely(function(){ return DBFilter::readWhere(Array('venue` OR 1=1 --'=>'x')); }), '/^THROWN RuntimeException: Invalid table or field name/');
-checkSame('readWhere of an empty filter', runSafely(function(){ return DBFilter::readWhere(Array()); }), Array());
+checkLike('readWhere refuses an invalid field name by itself', runSafely(function(){ return Filter::readWhere(Array('venue` OR 1=1 --'=>'x')); }), '/^THROWN RuntimeException: Invalid table or field name/');
+checkSame('readWhere of an empty filter', runSafely(function(){ return Filter::readWhere(Array()); }), Array());
 
 endChecks();

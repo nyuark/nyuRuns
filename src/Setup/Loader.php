@@ -9,7 +9,7 @@ use \nyu\Tools\Input;
 use \nyu\Tools\Registry;
 use \nyu\Tools\Request;
 use \nyu\Tools\Router;
-use \nyu\Data\DFile;
+use \nyu\Data\Dcmnt;
 use \nyu\Output\Response;
 
 class Loader{
@@ -107,7 +107,7 @@ class Loader{
 		foreach($conScan as $fleNme){
 			$nowPath = $conPath.$fleNme;
 			if(!is_dir($nowPath) && is_file($nowPath)){
-				$nyuFile = new DFile($nowPath);
+				$nyuFile = new Dcmnt($nowPath);
 				// Skip file if title is not in filter list
 				if($nameLst!==false && !in_array($nyuFile->readValue('tit'),$nameLst)){
 					continue;

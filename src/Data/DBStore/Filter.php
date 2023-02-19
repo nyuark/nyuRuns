@@ -1,13 +1,12 @@
 <?php
 
-namespace nyu\Data;
+namespace nyu\Data\DBStore;
 
-use nyu\Data\DBHndlr\Handler;
-
-// Reads a filter array, and writes it as the WHERE part of a query. The
-// reading is the same for every kind of database; each store then writes
-// the conditions in its own language.
-class DBFilter {
+// Reads a filter array into plain conditions. The reading is the same for
+// every kind of database; each store then writes the conditions in its own
+// language: the SQL handlers through their makeWhere(), a document store
+// with its own query.
+class Filter {
 
 	/**
 	 * Reads a filter array into a list of conditions. A field name may end
@@ -79,41 +78,5 @@ class DBFilter {
 			}
 		}
 		return $cndList;
-	}
-
-	/**
-	 * Builds the WHERE part of an SQL query from a filter array, read by
-	 * readWhere(). Names are quoted, and matches written, the way the
-	 * database type of the handler expects them.
-	 *
-	 * @param Array   $whereArray Map of field name => value (or array of values) to filter by.
-	 * @param Handler $handlerObj Database handler, used to quote the field names.
-	 * @return Array The clause under 'text', with ? placeholders, and its values under 'vals'.
-	 *
-	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
-	 */
-	public static function makeWhere( Array $whereArray, Handler $handlerObj ): Array {
-		$signLst = Array('equal'=>'=', 'diffr'=>'!=', 'under'=>'<', 'undeq'=>'<=', 'above'=>'>', 'aboeq'=>'>=');
-		$whrText = Array();
-		$whrVals = Array();
-		foreach(self::readWhere($whereArray) as $cndArr){
-			$oprCode = $cndArr['opert'];
-			$fldQutd = ($cndArr['field']!='') ? $handlerObj->quoteName($cndArr['field']) : '';
-			if( $oprCode=='never' || $oprCode=='every' ){
-				$whrText[] = ($oprCode=='every') ? '1=1' : '1=0';
-			}elseif( $oprCode=='unset' || $oprCode=='isset' ){
-				$whrText[] = $fldQutd.($oprCode=='isset' ? ' IS NOT NULL' : ' IS NULL');
-			}elseif( $oprCode=='among' || $oprCode=='nmong' ){
-				$whrText[] = $fldQutd.($oprCode=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($cndArr['value']), '?')).')';
-				$whrVals = array_merge($whrVals, $cndArr['value']);
-			}elseif( $oprCode=='match' || $oprCode=='nmtch' ){
-				$whrText[] = $fldQutd.' '.($oprCode=='nmtch' ? 'NOT ' : '').$handlerObj->likeOprtr().' ?';
-				$whrVals[] = $cndArr['value'];
-			}else{
-				$whrText[] = $fldQutd.' '.$signLst[$oprCode].' ?';
-				$whrVals[] = $cndArr['value'];
-			}
-		}
-		return Array('text'=>implode(' AND ', $whrText), 'vals'=>$whrVals);
 	}
 }

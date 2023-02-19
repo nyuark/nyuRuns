@@ -7,7 +7,7 @@ namespace nyu\Data\DBStore;
 // store answers with its own driver.
 //
 // Rows are found, changed and deleted through the filter array of
-// nyu\Data\DBFilter: 'field'=>value, with the '!', '<=', '>=', '<', '>'
+// the Filter class: 'field'=>value, with the '!', '<=', '>=', '<', '>'
 // and '?' suffixes on the field name.
 interface Store{
 
