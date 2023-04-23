@@ -1,87 +1,75 @@
 <?php
 
-// A basic file object to handle parsing
-
 namespace nyu\Data\Parsers;
 
-class Json{
+// JSON, JSON with comment lines, and JSON Lines.
+class Json extends Base {
+
 	/**
-	 * Parses a JSON string into an associative array, optionally
-	 * uppercasing top-level keys.
+	 * Parses JSON content. An empty content gives an empty tree.
 	 *
-	 * @param String $jsonValues Raw JSON content to parse.
-	 * @param Bool   $keys2Upper Whether to uppercase the resulting top-level keys.
-	 * @return mixed The parsed values, or a JSON error message string if decoding failed.
+	 * Options:
+	 *   'upper' => upper-cases the keys of the first level;
+	 *   'cmnts' => leaves out the lines starting with # or //, as the
+	 *              preset and route files write their comments;
+	 *   'lines' => reads one JSON value per line (JSON Lines), into a list;
+	 *   'depth' => deepest nesting accepted, 512 by default.
+	 *
+	 * @param String $rawContent The JSON content.
+	 * @param Array  $parseOptns Options: 'upper', 'cmnts', 'lines', 'depth'.
+	 * @return Array The envelope, of shape 'nodes'.
+	 *
+	 * @throws ParseError When the content is not valid JSON.
 	 */
-	static function parseData( String $jsonValues, Bool $keys2Upper = true ): Array|String|Null {
-		if(!empty($jsonValues)){
-			$initArr = json_decode( $jsonValues, true );
-			if(is_array($initArr)){
-				$respArr = Array();
-				foreach($initArr as $resKey => $resVal){
-					if($keys2Upper){
-						$resKey = strtoupper($resKey);
-					}
-					$respArr[$resKey] = $resVal;
+	public function parseData(String $rawContent, Array $parseOptns=Array()): Array {
+		$jsnText = self::cleanText($rawContent);
+		$maxDpth = max(1, intval($parseOptns['depth'] ?? 512));
+		if( !empty($parseOptns['cmnts']) ){
+			$keptLns = Array();
+			foreach(preg_split('/\r\n|\r|\n/', $jsnText) as $lneTxt){
+				$trimLn = ltrim($lneTxt);
+				if( $trimLn==='' || $trimLn[0]=='#' || substr($trimLn, 0, 2)=='//' ){
+					continue;
 				}
-			}else{
-				// Invalid Data
-				$errMssg = jsonError();
-				return $errMssg;
+				$keptLns[] = $lneTxt;
 			}
-			return $respArr;
-		}else{
-			// Empty file
-			return null;
+			$jsnText = implode("\n", $keptLns);
 		}
-	}
-}
-
-/**
- * Returns a human-readable message describing the most recent
- * json_decode()/json_encode() error, if any.
- *
- * @return String The error message, or an empty string if the last JSON operation succeeded.
- */
-function jsonError(): String
-{
-	// switch and check possible JSON errors
-	switch (json_last_error()) {
-		case JSON_ERROR_NONE:
-			$errMssg = ''; // JSON is valid // No error has occurred
-			break;
-		case JSON_ERROR_DEPTH:
-			$errMssg = 'The maximum stack depth has been exceeded.';
-			break;
-		case JSON_ERROR_STATE_MISMATCH:
-			$errMssg = 'Invalid or malformed JSON.';
-			break;
-		case JSON_ERROR_CTRL_CHAR:
-			$errMssg = 'Control character error, possibly incorrectly encoded.';
-			break;
-		case JSON_ERROR_SYNTAX:
-			$errMssg = 'Syntax error, malformed JSON.';
-			break;
-		// PHP >= 5.3.3
-		case JSON_ERROR_UTF8:
-			$errMssg = 'Malformed UTF-8 characters, possibly incorrectly encoded.';
-			break;
-		// PHP >= 5.5.0
-		case JSON_ERROR_RECURSION:
-			$errMssg = 'One or more recursive references in the value to be encoded.';
-			break;
-		// PHP >= 5.5.0
-		case JSON_ERROR_INF_OR_NAN:
-			$errMssg = 'One or more NAN or INF values in the value to be encoded.';
-			break;
-		case JSON_ERROR_UNSUPPORTED_TYPE:
-			$errMssg = 'A value of a type that cannot be encoded was given.';
-			break;
-		default:
-			$errMssg = 'Unknown JSON error occured.';
-			break;
+		if( !empty($parseOptns['lines']) ){
+			$jsnVals = Array();
+			foreach(preg_split('/\r\n|\r|\n/', $jsnText) as $lneNum=>$lneTxt){
+				if( trim($lneTxt)==='' ){
+					continue;
+				}
+				$jsnVals[] = $this->readValue($lneTxt, $maxDpth, ' on line '.($lneNum+1));
+			}
+		}elseif( trim($jsnText)==='' ){
+			$jsnVals = Array();
+		}else{
+			$jsnVals = $this->readValue($jsnText, $maxDpth, '');
+		}
+		if( !empty($parseOptns['upper']) && is_array($jsnVals) ){
+			$jsnVals = $this->upperKeys($jsnVals);
+		}
+		return $this->makeShape('nodes', $jsnVals);
 	}
 
-	// throw the Exception or exit // or whatever :)
-	return $errMssg;
+	/**
+	 * Decodes one JSON value.
+	 *
+	 * @param String $jsonString The JSON text.
+	 * @param Int    $depthLimit Deepest nesting accepted.
+	 * @param String $placeLabel Where the text stands, added to the error message.
+	 * @return mixed The decoded value.
+	 *
+	 * @throws ParseError When the text is not valid JSON.
+	 */
+	protected function readValue(String $jsonString, Int $depthLimit, String $placeLabel): Mixed {
+		$jsnVals = json_decode($jsonString, true, $depthLimit);
+		if( json_last_error()!==JSON_ERROR_NONE ){
+			throw new ParseError('Invalid JSON content'.$placeLabel.': '.json_last_error_msg());
+		}
+		return $jsnVals;
+	}
+
 }

@@ -1,24 +1,21 @@
 <?php
 
-// A basic file object to handle parsing
-
 namespace nyu\Data\Parsers;
 
-class Regi{
+// Registry files: INI content whose keys are always read in upper case.
+class Regi extends Init {
+
 	/**
-	 * Parses INI-formatted string data into an associative array with
-	 * uppercased keys, using PHP's typed INI scanner.
+	 * Parses INI content into a tree of upper-cased keys and typed values.
 	 *
-	 * @param String $fsFileData Raw INI content to parse.
-	 * @return Array The parsed values, keyed in uppercase.
+	 * @param String $rawContent The INI content.
+	 * @param Array  $parseOptns Options: none is read, the keys are always upper-cased.
+	 * @return Array The envelope, of shape 'nodes'.
+	 *
+	 * @throws ParseError When the content is not valid INI.
 	 */
-	static function parseData( String $fsFileData ): Array {
-		$initArr = parse_ini_string( $fsFileData, false, INI_SCANNER_TYPED );
-		$respArr = Array();
-		foreach($initArr as $resKey => $resVal){
-			$resKey = strtoupper($resKey);
-			$respArr[$resKey] = $resVal;
-		}
-		return $respArr;
+	public function parseData(String $rawContent, Array $parseOptns=Array()): Array {
+		return parent::parseData($rawContent, Array('upper'=>true) + $parseOptns);
 	}
+
 }
