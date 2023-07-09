@@ -159,8 +159,8 @@ checkSame('a UTF-8 text is left as it is', Base::cleanText('Les Enchaînés €'
 // The index
 checkSame('index: the parser of an extension, whatever its case', Array(get_class(Index::forExtnsn('json')), get_class(Index::forExtnsn('INI')), get_class(Index::forExtnsn('rps')), Index::forExtnsn('xyz')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Init', 'nyu\Data\Parsers\Json', null));
 checkSame('index: the default options of an extension', Array(Index::extnOptns('json'), Index::extnOptns('rte'), Index::extnOptns('jsonl'), Index::extnOptns('xyz')), Array(Array(), Array('cmnts'=>true), Array('lines'=>true), Array()));
-checkSame('index: the parser of a request content type', Array(get_class(Index::forCnType('application/json')), get_class(Index::forCnType('Application/JSON; charset=utf-8')), get_class(Index::forCnType('application/problem+json')), Index::forCnType('text/plain'), Index::forCnType('')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', null, null));
-checkSame('index: the options of a request content type', Array(Index::typeOptns('application/x-ndjson'), Index::typeOptns('application/json'), Index::typeOptns('text/plain')), Array(Array('lines'=>true), Array(), Array()));
+checkSame('index: the parser of a request content type', Array(get_class(Index::forCnType('application/json')), get_class(Index::forCnType('Application/JSON; charset=utf-8')), get_class(Index::forCnType('application/problem+json')), Index::forCnType('image/png'), Index::forCnType('')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', null, null));
+checkSame('index: the options of a request content type', Array(Index::typeOptns('application/x-ndjson'), Index::typeOptns('application/json'), Index::typeOptns('image/png')), Array(Array('lines'=>true), Array(), Array()));
 checkSame('index: a parser added for an extension is used for it', runSafely(function(){
 	Index::addParser('reg', 'Regi');
 	return docFacts(tempFile('settings.reg', "name = x\n"))['out'];

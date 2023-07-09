@@ -3,6 +3,7 @@
 namespace nyu\Data\Parsers;
 
 use nyu\Data\Fluxd;
+use nyu\Data\Shape;
 
 // What the parsers of text formats share: reading a source within a size
 // limit, bringing its text to UTF-8, and building the envelope.
@@ -41,6 +42,22 @@ abstract class Base implements Parser {
 	 */
 	protected function makeShape(String $shapeLabel, Mixed $itemsValue, Array $infosArray=Array()): Array {
 		return Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsValue);
+	}
+
+	/**
+	 * Builds a block that holds others: when the first of them is a
+	 * paragraph, it is the text of the block itself.
+	 *
+	 * @param String $blockLabel Kind of the block: entry or quote.
+	 * @param Array  $blocksList The blocks read from what it holds.
+	 * @param Array  $attrsArray What is particular to it.
+	 * @return Array The block.
+	 */
+	protected function holdBlock(String $blockLabel, Array $blocksList, Array $attrsArray=Array()): Array {
+		if( !empty($blocksList) && $blocksList[0]['block']=='parag' ){
+			return Shape::makeBlock($blockLabel, $blocksList[0]['spans'], array_slice($blocksList, 1), $attrsArray);
+		}
+		return Shape::makeBlock($blockLabel, Array(), $blocksList, $attrsArray);
 	}
 
 	/**

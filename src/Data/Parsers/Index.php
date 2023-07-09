@@ -14,10 +14,21 @@ class Index {
 		'ndjson' => Array('Json', Array('lines'=>true)),
 		'rps'    => Array('Json', Array('cmnts'=>true)),
 		'rte'    => Array('Json', Array('cmnts'=>true)),
-		'xml'    => Array('XHml', Array()),
-		'svg'    => Array('XHml', Array()),
-		'rss'    => Array('XHml', Array()),
-		'atom'   => Array('XHml', Array())
+		'xml'    => Array('XHml', Array('reads'=>'xml')),
+		'html'   => Array('XHml', Array('reads'=>'html')),
+		'htm'    => Array('XHml', Array('reads'=>'html')),
+		'xhtml'  => Array('XHml', Array('reads'=>'html')),
+		'svg'    => Array('XHml', Array('reads'=>'xml')),
+		'rss'    => Array('XHml', Array('reads'=>'xml')),
+		'atom'   => Array('XHml', Array('reads'=>'xml')),
+		'csv'    => Array('Tabl', Array()),
+		'tsv'    => Array('Tabl', Array('separ'=>'tabul')),
+		'tab'    => Array('Tabl', Array('separ'=>'tabul')),
+		'txt'    => Array('Text', Array('reads'=>'plain')),
+		'md'     => Array('Mdwn', Array()),
+		'markdown' => Array('Mdwn', Array()),
+		'yaml'   => Array('Yaml', Array()),
+		'yml'    => Array('Yaml', Array())
 	);
 	// File extension standing for each request content type
 	protected static $typeList = Array(
@@ -26,7 +37,16 @@ class Index {
 		'application/x-ndjson' => 'ndjson',
 		'application/jsonl'    => 'jsonl',
 		'application/xml'      => 'xml',
-		'text/xml'             => 'xml'
+		'text/xml'             => 'xml',
+		'text/html'            => 'html',
+		'application/xhtml+xml'=> 'xhtml',
+		'text/csv'             => 'csv',
+		'text/tab-separated-values' => 'tsv',
+		'text/plain'           => 'txt',
+		'text/markdown'        => 'md',
+		'application/yaml'     => 'yaml',
+		'application/x-yaml'   => 'yaml',
+		'text/yaml'            => 'yaml'
 	);
 
 	/**

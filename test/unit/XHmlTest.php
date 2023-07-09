@@ -30,16 +30,16 @@ function xmlItems( String $rawContent, Array $parseOptns=Array() ): Mixed {
  * @param Array  $attrsArray Its attributes.
  * @param String $valueOfTag Its text.
  * @param Array  $childNodes Its children.
- * @return Array The element, with its four keys.
+ * @return Array The element, with its five keys; its id is taken from its attributes.
  */
 function elmt( String $tagNameStr, Array $attrsArray=Array(), String $valueOfTag='', Array $childNodes=Array() ): Array {
-	return Array('tagnm'=>$tagNameStr, 'attrs'=>$attrsArray, 'value'=>$valueOfTag, 'nodes'=>$childNodes);
+	return Array('tagnm'=>$tagNameStr, 'tagid'=>strval($attrsArray['id'] ?? $attrsArray['xml:id'] ?? ''), 'attrs'=>$attrsArray, 'value'=>$valueOfTag, 'nodes'=>$childNodes);
 }
 
 $showXml = "<show id=\"3\">\n  <title>Alpha Night</title>\n  <event date=\"2026-12-28\"/>\n  <event date=\"2027-01-03\"/>\n</show>";
 
 // The tree
-checkSame('every element has the same four keys, in document order', xmlItems($showXml), elmt('show', Array('id'=>'3'), '', Array(
+checkSame('every element has the same five keys, in document order', xmlItems($showXml), elmt('show', Array('id'=>'3'), '', Array(
 	elmt('title', Array(), 'Alpha Night'),
 	elmt('event', Array('date'=>'2026-12-28')),
 	elmt('event', Array('date'=>'2027-01-03'))
@@ -48,8 +48,12 @@ checkSame('the envelope: shape, and the encoding the document declared', runSafe
 	$prsrObj = new XHml();
 	$envlope = $prsrObj->parseData('<?xml version="1.0" encoding="iso-8859-1"?>'.$showXml);
 	return Array($envlope['shape'], $envlope['infos'], $prsrObj->parseData($showXml)['infos']);
-}), Array('nodes', Array('encod'=>'ISO-8859-1'), Array('encod'=>'UTF-8')));
+}), Array('nodes', Array('reads'=>'xml', 'encod'=>'ISO-8859-1'), Array('reads'=>'xml', 'encod'=>'UTF-8')));
 checkSame('a single element is a tree of one', xmlItems('<a/>'), elmt('a'));
+checkSame('the id of an element stands beside its name, from id or xml:id, and stays in its attributes', Array(xmlItems('<a id="top"><b xml:id="in"/><c/></a>')), Array(Array('tagnm'=>'a', 'tagid'=>'top', 'attrs'=>Array('id'=>'top'), 'value'=>'', 'nodes'=>Array(
+	Array('tagnm'=>'b', 'tagid'=>'in', 'attrs'=>Array('xml:id'=>'in'), 'value'=>'', 'nodes'=>Array()),
+	Array('tagnm'=>'c', 'tagid'=>'', 'attrs'=>Array(), 'value'=>'', 'nodes'=>Array())
+))));
 checkSame('text and elements mixed keep their order, as #text nodes', xmlItems('<p>Hello <b>world</b>!</p>'), elmt('p', Array(), '', Array(
 	elmt('#text', Array(), 'Hello '), elmt('b', Array(), 'world'), elmt('#text', Array(), '!')
 )));
@@ -99,7 +103,7 @@ checkSame('an XML file through Dcmnt', runSafely(function() use ($showXml){
 	file_put_contents($docPath, '<?xml version="1.0" encoding="UTF-8"?>'."\n".$showXml);
 	$docFile = new Dcmnt($docPath);
 	return Array($docFile->readValue('sig'), $docFile->readValue('shp'), $docFile->readValue('inf'), $docFile->readValue()['tagnm'], count($docFile->readValue()['nodes']));
-}), Array('xml', 'nodes', Array('encod'=>'UTF-8'), 'show', 3));
+}), Array('xml', 'nodes', Array('reads'=>'xml', 'encod'=>'UTF-8'), 'show', 3));
 checkLike('an invalid XML file is refused, and named', runSafely(function(){
 	$docPath = inTempDir('broken.xml');
 	file_put_contents($docPath, '<a><b></a>');
