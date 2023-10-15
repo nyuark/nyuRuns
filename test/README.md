@@ -16,8 +16,8 @@ script runs in its own PHP process and can also be run on its own
 
 | Folder | What it checks |
 |---|---|
-| `unit/` | `Variable`, `StrKit`, `Logger`, the request body parser, the Access layer, `Response`, the error handler, the model stack, the choice and settings of the database handlers, a List and a Record on a store that is not SQL, the queries of the MongoDB store |
-| `data/` | the database handler, the SQL store, the filter builder, `DBLst`, `DBRec`, the native userbase, the device tokens, several databases at once and the Shows application, on temporary SQLite databases; optionally the dialect checks on real MySQL and PostgreSQL servers, and the MongoDB store on a real MongoDB server |
+| `unit/` | `Variable`, `StrKit`, `Logger`, the request body parser, the Access layer and its plug-in rule, `Response`, the error handler, the model stack, the choice and settings of the database handlers, a List and a Record on a store that is not SQL, the queries of the MongoDB store |
+| `data/` | the database handler, the SQL store, the filter builder, `DBLst`, `DBRec`, the native userbase, the device tokens plug-in of `runs/Shared`, several databases at once and the Shows application, on temporary SQLite databases; optionally the dialect checks on real MySQL and PostgreSQL servers, and the MongoDB store on a real MongoDB server |
 | `http/` | status codes, content types and bodies over PHP's built-in web server |
 | `audit/` | the coding conventions of the project across `src/` and `runs/` |
 | `lib/` | shared helpers: assertions (`harness.php`), sample data, the optional test servers (`servers.php`), the dialect checks (`dialect.php`), an in-memory store that behaves like a document store (`ArrayStore.php`), the fake `php://input`, the audit, the child scripts |

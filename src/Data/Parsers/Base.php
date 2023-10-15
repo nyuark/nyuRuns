@@ -46,7 +46,8 @@ abstract class Base implements Parser {
 
 	/**
 	 * Builds a block that holds others: when the first of them is a
-	 * paragraph, it is the text of the block itself.
+	 * paragraph, it is the text of the block itself, and what is particular
+	 * to it (its style, its alignment, its id) is particular to the block.
 	 *
 	 * @param String $blockLabel Kind of the block: entry or quote.
 	 * @param Array  $blocksList The blocks read from what it holds.
@@ -55,9 +56,48 @@ abstract class Base implements Parser {
 	 */
 	protected function holdBlock(String $blockLabel, Array $blocksList, Array $attrsArray=Array()): Array {
 		if( !empty($blocksList) && $blocksList[0]['block']=='parag' ){
-			return Shape::makeBlock($blockLabel, $blocksList[0]['spans'], array_slice($blocksList, 1), $attrsArray);
+			return Shape::makeBlock($blockLabel, $blocksList[0]['spans'], array_slice($blocksList, 1), $attrsArray + $blocksList[0]['attrs']);
 		}
 		return Shape::makeBlock($blockLabel, Array(), $blocksList, $attrsArray);
+	}
+
+	/**
+	 * Takes the first row of a table as the names of its columns, and
+	 * keys every other row by them. A column without name is keyed by
+	 * its position, a name met twice gets its position after it, a cell
+	 * a row does not have is null, and the cells a row has beyond the
+	 * named columns keep their position.
+	 *
+	 * @param Array $rowsOfGrid The rows, each a list of cells, the first one holding the names.
+	 * @param Array $headsFound Receives the names of the columns.
+	 * @return Array The other rows, keyed by those names.
+	 */
+	protected function keyedRows(Array $rowsOfGrid, Array &$headsFound): Array {
+		$headsFound = Array();
+		$rowsOfGrid = array_values($rowsOfGrid);
+		if( empty($rowsOfGrid) ){
+			return Array();
+		}
+		foreach(array_values((array)array_shift($rowsOfGrid)) as $colIdx=>$colNme){
+			$nameTxt = is_scalar($colNme) ? trim(strval($colNme)) : '';
+			// A column must have a key of its own, whatever its name
+			if( $nameTxt==='' ){
+				$nameTxt = strval($colIdx+1);
+			}
+			$headsFound[] = in_array($nameTxt, $headsFound, true) ? $nameTxt.'_'.($colIdx+1) : $nameTxt;
+		}
+		foreach($rowsOfGrid as $rowIdx=>$oneRow){
+			$oneRow = array_values((array)$oneRow);
+			$keyedRw = Array();
+			foreach($headsFound as $colIdx=>$colNme){
+				$keyedRw[$colNme] = $oneRow[$colIdx] ?? null;
+			}
+			for($colIdx=count($headsFound); $colIdx<count($oneRow); $colIdx++){
+				$keyedRw[strval($colIdx+1)] = $oneRow[$colIdx];
+			}
+			$rowsOfGrid[$rowIdx] = $keyedRw;
+		}
+		return $rowsOfGrid;
 	}
 
 	/**

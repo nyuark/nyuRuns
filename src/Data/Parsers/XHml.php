@@ -55,10 +55,13 @@ class XHml extends Base {
 	 *              => content, attributes under '@name', an element's own
 	 *              text under '#text', and the elements of one name
 	 *              always as a list;
-	 *   'depth' => deepest nesting accepted, 256 by default.
+	 *   'depth' => deepest nesting accepted, 256 by default;
+	 *   'space' => for a tree, keeps the spacing written between two
+	 *              elements as '#text' nodes, for the documents where a
+	 *              space between two pieces of text counts.
 	 *
 	 * @param String $rawContent The document.
-	 * @param Array  $parseOptns Options: 'reads', 'shape', 'short', 'depth'.
+	 * @param Array  $parseOptns Options: 'reads', 'shape', 'short', 'depth', 'space'.
 	 * @return Array The envelope, of shape 'nodes' or 'block'; 'infos' holds what the content was read as under 'reads', the encoding it declared under 'encod' and, for HTML, the title of the page under 'title'.
 	 *
 	 * @throws ParseError When an XML content is not well-formed or declares entities, or the document is nested too deep.
@@ -85,7 +88,7 @@ class XHml extends Base {
 		if( $domDocu->documentElement===null ){
 			return $this->makeShape($shapeAs, Array(), $infoArr);
 		}
-		$rootArr = $this->nodeArray($domDocu->documentElement, max(1, intval($parseOptns['depth'] ?? 256)), $readsAs=='html');
+		$rootArr = $this->nodeArray($domDocu->documentElement, max(1, intval($parseOptns['depth'] ?? 256)), $readsAs=='html', !empty($parseOptns['space']));
 		if( $readsAs=='html' ){
 			$infoArr['title'] = $this->findTitle($rootArr);
 		}
@@ -182,11 +185,12 @@ class XHml extends Base {
 	 * @param \DOMElement $domElement The element.
 	 * @param Int         $depthsLeft Levels of nesting still accepted.
 	 * @param Bool        $readAsHtml Whether the element is one of an HTML page, where a space between two pieces of text counts.
+	 * @param Bool        $keepsSpace Whether the spacing between two elements is kept, whatever they are.
 	 * @return Array The element: 'tagnm', 'tagid', 'attrs', 'value', 'nodes'.
 	 *
 	 * @throws ParseError When the nesting goes deeper than accepted.
 	 */
-	protected function nodeArray(\DOMElement $domElement, Int $depthsLeft, Bool $readAsHtml=false): Array {
+	protected function nodeArray(\DOMElement $domElement, Int $depthsLeft, Bool $readAsHtml=false, Bool $keepsSpace=false): Array {
 		if( $depthsLeft<1 ){
 			throw new ParseError('Invalid '.($readAsHtml ? 'HTML' : 'XML').' content: nested deeper than allowed');
 		}
@@ -202,7 +206,7 @@ class XHml extends Base {
 			if( $chlNod instanceof \DOMElement ){
 				$hasElmt = true;
 				$hasInln = ($hasInln || ($readAsHtml && !in_array($chlNod->nodeName, self::BLCKLIST) && !in_array($chlNod->nodeName, self::SKIPLIST)));
-				$chldLst[] = $this->nodeArray($chlNod, $depthsLeft-1, $readAsHtml);
+				$chldLst[] = $this->nodeArray($chlNod, $depthsLeft-1, $readAsHtml, $keepsSpace);
 			}elseif( $chlNod instanceof \DOMText ){
 				// Text and CDATA; what is only spacing between elements is left out below
 				$textLst[] = $chlNod->nodeValue;
@@ -216,7 +220,7 @@ class XHml extends Base {
 			$nodeArr['value'] = $ownText;
 			return $nodeArr;
 		}
-		if( trim($ownText)==='' && !$hasInln ){
+		if( trim($ownText)==='' && !$hasInln && !$keepsSpace ){
 			// Elements only: the spacing around them is not content, unless it
 			// stands between two pieces of text of an HTML page
 			$chldLst = array_values(array_filter($chldLst, function($childArray){ return $childArray['tagnm']!=='#text'; }));
@@ -401,7 +405,7 @@ class XHml extends Base {
 			if( $lastIdx>=0 && $tidyLst[$lastIdx]['marks']===$oneSpn['marks'] && $tidyLst[$lastIdx]['links']===$oneSpn['links'] ){
 				$tidyLst[$lastIdx]['texts'] .= $spanTxt;
 			}else{
-				$tidyLst[] = Array('texts'=>$spanTxt, 'marks'=>$oneSpn['marks'], 'links'=>$oneSpn['links']);
+				$tidyLst[] = Array('texts'=>$spanTxt, 'marks'=>$oneSpn['marks'], 'links'=>$oneSpn['links'], 'field'=>$oneSpn['field']);
 			}
 		}
 		// Nothing is left at the end either, and the line breaks take their real form

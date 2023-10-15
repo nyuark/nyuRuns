@@ -1,24 +1,25 @@
 <?php
 
-// Access\Auth\Device : device tokens checked against the `devices` table of
+// Runs\Shared\DeviceAuth, the device tokens plug-in : tokens checked against the `devices` table of
 // the sample SQLite database, each device linked to a user of `users`.
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
+require RUN_DIR.DS.'Shared'.DS.'DeviceAuth.php';
 
 if( !extension_loaded('pdo_sqlite') ){
 	skipCheck('Device', 'pdo_sqlite is not available');
 	endChecks();
 }
 
-use nyu\Access\Auth\Device;
+use nyu\Runs\Shared\DeviceAuth;
 
 buildData( inTempDir('device.sqlite') );
 useSqlite( inTempDir('device.sqlite') );
 $sqlLink = new PDO('sqlite:'.inTempDir('device.sqlite'));
 
 // addDevice : only the SHA-256 hash is stored, a user can have several devices
-$dvcAuth = new Device( Array() );
+$dvcAuth = new DeviceAuth( Array() );
 $phonTkn = $dvcAuth->addDevice('anna', 'Phone', 'app');
 $homeTkn = $dvcAuth->addDevice('anna', 'Home', 'home');
 checkLike('Device addDevice gives a 64 character token', $phonTkn, '/^[0-9a-f]{64}$/');
@@ -37,7 +38,7 @@ checkSame('Device of a locked user',     Array($dvcAuth->checkCred(Array('key'=>
 $sqlLink->exec("UPDATE users SET userStat='active' WHERE userName='anna'");
 
 // keepAlive : stamps the device verified last, not more often than 'stmptm'
-$newAuth = new Device( Array() );
+$newAuth = new DeviceAuth( Array() );
 checkSame('Device keepAlive before any check', $newAuth->keepAlive('anna'), false);
 $dvcAuth->checkCred(Array('key'=>$homeTkn));
 checkSame('Device keepAlive stamps the verified device', $dvcAuth->keepAlive('anna'), true);
@@ -45,7 +46,7 @@ checkSame('Device only that device is stamped', $sqlLink->query("SELECT name FRO
 checkSame('Device keepAlive does not stamp twice within the gap', $dvcAuth->keepAlive('anna'), false);
 $sqlLink->exec("UPDATE devices SET last_seen_at='".date('Y-m-d H:i:s', time()-120)."' WHERE name='Home'");
 checkSame('Device keepAlive stamps again once the gap is over', $dvcAuth->keepAlive('anna'), true);
-$evryReq = new Device( Array('stmptm'=>0) );
+$evryReq = new DeviceAuth( Array('stmptm'=>0) );
 $evryReq->checkCred(Array('key'=>$homeTkn));
 checkSame('Device stmptm 0 stamps on every request', Array($evryReq->keepAlive('anna'), $evryReq->keepAlive('anna')), Array(true, true));
 
@@ -57,15 +58,15 @@ checkSame('Device remDevice twice, and on an unknown device', Array($dvcAuth->re
 checkSame('Device the other device still passes', $dvcAuth->checkCred(Array('key'=>$homeTkn))['user'] ?? null, 'anna');
 
 // Tables that cannot be used
-$noTable = new Device( Array('tblnme'=>'nodevices') );
+$noTable = new DeviceAuth( Array('tblnme'=>'nodevices') );
 checkSame('Device missing table',        runSafely(function() use ($noTable, $homeTkn){ return Array($noTable->checkCred(Array('key'=>$homeTkn)), $noTable->lastError(), $noTable->addDevice('anna', 'Tablet', 'app'), $noTable->remDevice(2)); }), Array(false, 'Credential store unavailable', false, false));
-$badName = new Device( Array('usrtbl'=>'users; DROP TABLE users') );
+$badName = new DeviceAuth( Array('usrtbl'=>'users; DROP TABLE users') );
 checkSame('Device unusable table name',  Array($badName->checkCred(Array('key'=>$homeTkn)), $badName->lastError()), Array(false, 'Credential store unavailable'));
 
-// Checker : the token travels as "Authorization: Bearer <token>"
+// Checker : 'device' is resolved as a plug-in of runs/Shared, and the token travels as "Authorization: Bearer <token>"
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('device.sqlite')),
-	'access'=>Array('TESTDVC'=>Array('stmptm'=>0), 'TESTBEAR'=>Array('header'=>'Authorization', 'scheme'=>'Bearer'))
+	'access'=>Array('PLUGIN'=>Array('authby'=>Array('device'), 'sessby'=>Array()), 'TESTDVC'=>Array('stmptm'=>0), 'TESTBEAR'=>Array('header'=>'Authorization', 'scheme'=>'Bearer'))
 ) );
 $dvcConf = Array('needed'=>true, 'sessby'=>'header', 'sesscf'=>'testbear', 'authby'=>'device', 'authcf'=>'testdvc');
 $sqlLink->exec("UPDATE devices SET last_seen_at=NULL");

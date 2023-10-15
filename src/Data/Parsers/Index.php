@@ -28,7 +28,13 @@ class Index {
 		'md'     => Array('Mdwn', Array()),
 		'markdown' => Array('Mdwn', Array()),
 		'yaml'   => Array('Yaml', Array()),
-		'yml'    => Array('Yaml', Array())
+		'yml'    => Array('Yaml', Array()),
+		'xlsx'   => Array('Xlsx', Array()),
+		'ods'    => Array('Odsx', Array()),
+		'docx'   => Array('Docx', Array()),
+		'odt'    => Array('Odtx', Array()),
+		'epub'   => Array('EPub', Array()),
+		'ics'    => Array('ICal', Array())
 	);
 	// File extension standing for each request content type
 	protected static $typeList = Array(
@@ -46,7 +52,13 @@ class Index {
 		'text/markdown'        => 'md',
 		'application/yaml'     => 'yaml',
 		'application/x-yaml'   => 'yaml',
-		'text/yaml'            => 'yaml'
+		'text/yaml'            => 'yaml',
+		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+		'application/vnd.oasis.opendocument.spreadsheet' => 'ods',
+		'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+		'application/vnd.oasis.opendocument.text' => 'odt',
+		'application/epub+zip' => 'epub',
+		'text/calendar'        => 'ics'
 	);
 
 	/**

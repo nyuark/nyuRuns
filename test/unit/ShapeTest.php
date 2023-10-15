@@ -20,19 +20,19 @@ function textBlk( String $blockLabel, String $textString, Array $attrsArray=Arra
 }
 
 // Spans
-checkSame('a plain span', Shape::makeASpan('Hall A'), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>''));
-checkSame('a span with formatting and a link; unknown marks are left out, the rest put in a fixed order', Shape::makeASpan('120', Array('code', 'huge', 'bold'), '/venues/a'), Array('texts'=>'120', 'marks'=>Array('bold', 'code'), 'links'=>'/venues/a'));
+checkSame('a plain span', Shape::makeASpan('Hall A'), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'', 'field'=>''));
+checkSame('a span with formatting and a link; unknown marks are left out, the rest put in a fixed order', Shape::makeASpan('120', Array('code', 'huge', 'bold'), '/venues/a'), Array('texts'=>'120', 'marks'=>Array('bold', 'code'), 'links'=>'/venues/a', 'field'=>''));
 
 // Blocks with text of their own
 checkSame('a paragraph: five keys, its text in plain', Shape::makeBlock('parag', Array(Shape::makeASpan('Playing at '), Shape::makeASpan('Hall A', Array(), '/venues/a'), Shape::makeASpan(', '), Shape::makeASpan('120', Array('bold')), Shape::makeASpan(' seats.'))), Array(
 	'block'=>'parag', 'attrs'=>Array(),
 	'spans'=>Array(
-		Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a'), Array('texts'=>', ', 'marks'=>Array(), 'links'=>''),
-		Array('texts'=>'120', 'marks'=>Array('bold'), 'links'=>''), Array('texts'=>' seats.', 'marks'=>Array(), 'links'=>'')
+		Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a', 'field'=>''), Array('texts'=>', ', 'marks'=>Array(), 'links'=>'', 'field'=>''),
+		Array('texts'=>'120', 'marks'=>Array('bold'), 'links'=>'', 'field'=>''), Array('texts'=>' seats.', 'marks'=>Array(), 'links'=>'', 'field'=>'')
 	),
 	'items'=>Array(), 'plain'=>'Playing at Hall A, 120 seats.'
 ));
-checkSame('a heading keeps its level in attrs', textBlk('headr', 'Alpha Night', Array('level'=>2)), Array('block'=>'headr', 'attrs'=>Array('level'=>2), 'spans'=>Array(Array('texts'=>'Alpha Night', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'));
+checkSame('a heading keeps its level in attrs', textBlk('headr', 'Alpha Night', Array('level'=>2)), Array('block'=>'headr', 'attrs'=>Array('level'=>2), 'spans'=>Array(Array('texts'=>'Alpha Night', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'));
 checkSame('a block without text', Shape::makeBlock('rules'), Array('block'=>'rules', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''));
 checkThrw('an unknown kind is refused', function(){ Shape::makeBlock('title'); }, 'RuntimeException');
 
@@ -101,6 +101,7 @@ checkSame('a heading deeper than the one before it, with a level skipped', sctnM
 checkSame('no block, no section', Shape::bySection(Array()), Array());
 
 // Sheets
-checkSame('a sheet: a title and rows of values', Shape::makeSheet('Shows', Array(Array('Title', 'Seats'), Array('a'=>'Alpha Night', 'b'=>120), Array('Les Enchaînés', null))), Array('title'=>'Shows', 'cells'=>Array(Array('Title', 'Seats'), Array('Alpha Night', 120), Array('Les Enchaînés', null))));
+checkSame('a sheet: a title and rows of values', Shape::makeSheet('Shows', Array(Array('Title', 'Seats'), Array('a'=>'Alpha Night', 'b'=>120), Array('Les Enchaînés', null))), Array('title'=>'Shows', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('Title', 'Seats'), Array('Alpha Night', 120), Array('Les Enchaînés', null))));
+checkSame('a sheet with what is particular to it: what is not told keeps its usual value', Shape::makeSheet('Old', Array(), Array('shown'=>false))['attrs'], Array('shown'=>false, 'merge'=>Array()));
 
 endChecks();

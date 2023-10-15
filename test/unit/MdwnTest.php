@@ -61,8 +61,8 @@ checkSame('a text gives blocks, and its first main heading as title', mdwRead("#
 	'shape'=>'block',
 	'infos'=>Array('title'=>'Alpha Night', 'front'=>Array()),
 	'items'=>Array(
-		Array('block'=>'headr', 'attrs'=>Array('level'=>1), 'spans'=>Array(Array('texts'=>'Alpha ', 'marks'=>Array(), 'links'=>''), Array('texts'=>'Night', 'marks'=>Array('ital'), 'links'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'),
-		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a'), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'Playing at Hall A.')
+		Array('block'=>'headr', 'attrs'=>Array('level'=>1), 'spans'=>Array(Array('texts'=>'Alpha ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Night', 'marks'=>Array('ital'), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'),
+		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a', 'field'=>''), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Playing at Hall A.')
 	)
 ));
 checkSame('an empty text gives no block', Array(mdwRead(''), mdwRead(" \n\n ")['items']), Array(Array('shape'=>'block', 'infos'=>Array('title'=>'', 'front'=>Array()), 'items'=>Array()), Array()));
@@ -141,8 +141,8 @@ checkSame('a quote starting with a heading has no text of its own', mdwLines(">#
 
 // Code
 checkSame('code between marks keeps its lines, its spacing and what looks like Markdown, and gives its language', mdwRead("```php\nif( \$a < 2 ){\n    echo \"*x*\";\n\n# not a heading\n}\n```\nafter")['items'], Array(
-	Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a < 2 ){\n    echo \"*x*\";\n\n# not a heading\n}", 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>"if( \$a < 2 ){\n    echo \"*x*\";\n\n# not a heading\n}"),
-	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'after', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'after')
+	Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a < 2 ){\n    echo \"*x*\";\n\n# not a heading\n}", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"if( \$a < 2 ){\n    echo \"*x*\";\n\n# not a heading\n}"),
+	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'after', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'after')
 ));
 checkSame('code between tildes, longer marks holding shorter ones, and marks never closed', mdwLines("~~~\na\n~~~\n````\n```\nb\n```\n````\n```js\nopen\nto the end"), Array('codes [a]', "codes [```\nb\n```]", "codes {\"langg\":\"js\"} [open\nto the end]"));
 checkSame('indented code, its blank lines kept, and an indented line that only carries on a paragraph', mdwLines("    first\n\n      second\ntext\n    still text"), Array("codes [first\n\n  second]", 'parag [text still text]'));
@@ -174,7 +174,7 @@ checkSame('a text grouped into sections', runSafely(function() use ($longMdw){
 }), Array(3, '', 'Alpha Night', 'Intro.', 'Dates', 'lists', 'Beta Evening'));
 checkSame('a text read then written as HTML', runSafely(function(){
 	return (new Html())->writeData((new Mdwn())->parseData("# Alpha {#a}\n\nAt [Hall A](/a?x=1&y=2), **120** seats.  \nDoors at 8.\n\n- one\n- [x] two\n\n| T | S |\n|---|---|\n| a | 1 |\n\n> quoted\n\n```php\necho 1 < 2;\n```\n\n---\n\n![The hall](/img/a.png)\n"));
-}), "<h1 id=\"a\">Alpha</h1>\n<p>At <a href=\"/a?x=1&amp;y=2\">Hall A</a>, <strong>120</strong> seats.<br>\nDoors at 8.</p>\n<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n<table>\n<thead>\n<tr><th>T</th><th>S</th></tr>\n</thead>\n<tbody>\n<tr><td>a</td><td>1</td></tr>\n</tbody>\n</table>\n<blockquote>quoted</blockquote>\n<pre><code class=\"language-php\">echo 1 &lt; 2;</code></pre>\n<hr>\n<img src=\"/img/a.png\" alt=\"The hall\">\n");
+}), "<h1 id=\"a\">Alpha</h1>\n<p>At <a href=\"/a?x=1&amp;y=2\">Hall A</a>, <strong>120</strong> seats.<br>\nDoors at 8.</p>\n<ul>\n<li>one</li>\n<li><input type=\"checkbox\" disabled checked> two</li>\n</ul>\n<table>\n<thead>\n<tr><th>T</th><th>S</th></tr>\n</thead>\n<tbody>\n<tr><td>a</td><td>1</td></tr>\n</tbody>\n</table>\n<blockquote>quoted</blockquote>\n<pre><code class=\"language-php\">echo 1 &lt; 2;</code></pre>\n<hr>\n<img src=\"/img/a.png\" alt=\"The hall\">\n");
 checkSame('...and a hostile text comes back harmless', runSafely(function(){
 	return (new Html())->writeData((new Mdwn())->parseData("<script>alert(1)</script> [x](javascript:alert(2)) ![y](javascript:alert(3)) <img src=x onerror=alert(4)>\n\n# T {#a\" onclick=\"x}\n\n```a\" onclick=\"x\ncode\n```"));
 }), "<p>&lt;script&gt;alert(1)&lt;/script&gt; x</p>\n<p>&lt;img src=x onerror=alert(4)&gt;</p>\n<h1>T {#a&quot; onclick=&quot;x}</h1>\n<pre><code>code</code></pre>\n");

@@ -42,7 +42,7 @@ $showCsv = "Title,Venue,Seats\nAlpha Night,Hall A,120\nLes Enchaînés,,80\n";
 checkSame('a table gives one sheet, and says what it found', tblRead($showCsv), Array(
 	'shape'=>'sheet',
 	'infos'=>Array('separ'=>'comma', 'heads'=>Array(), 'colms'=>3, 'lines'=>3),
-	'items'=>Array(Array('title'=>'', 'cells'=>Array(Array('Title', 'Venue', 'Seats'), Array('Alpha Night', 'Hall A', '120'), Array('Les Enchaînés', '', '80'))))
+	'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('Title', 'Venue', 'Seats'), Array('Alpha Night', 'Hall A', '120'), Array('Les Enchaînés', '', '80'))))
 ));
 checkSame('an empty content gives no sheet', Array(tblRead(''), tblRead(" \n \n")['items']), Array(Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array(), 'colms'=>0, 'lines'=>0), 'items'=>Array()), Array()));
 
@@ -71,17 +71,17 @@ checkLike('a separator that is not a known one is refused', tblRead('a,b', Array
 checkSame('heads: the first row names the columns, the others are keyed by them', tblRead($showCsv, Array('heads'=>true)), Array(
 	'shape'=>'sheet',
 	'infos'=>Array('separ'=>'comma', 'heads'=>Array('Title', 'Venue', 'Seats'), 'colms'=>3, 'lines'=>2),
-	'items'=>Array(Array('title'=>'', 'cells'=>Array(Array('Title'=>'Alpha Night', 'Venue'=>'Hall A', 'Seats'=>'120'), Array('Title'=>'Les Enchaînés', 'Venue'=>'', 'Seats'=>'80'))))
+	'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('Title'=>'Alpha Night', 'Venue'=>'Hall A', 'Seats'=>'120'), Array('Title'=>'Les Enchaînés', 'Venue'=>'', 'Seats'=>'80'))))
 ));
 checkSame('heads: a short row has null for what it lacks, a long one keeps its extra cells by position', tblRows("a,b,c\n1\n1,2,3,4,5\n", Array('heads'=>true)), Array(Array('a'=>'1', 'b'=>null, 'c'=>null), Array('a'=>'1', 'b'=>'2', 'c'=>'3', '4'=>'4', '5'=>'5')));
 checkSame('heads: a column without name takes its position, a name met twice gets its position after it', Array(tblRead(" id ,,id,\n1,2,3,4\n", Array('heads'=>true))['infos']['heads'], tblRows(" id ,,id,\n1,2,3,4\n", Array('heads'=>true))), Array(Array('id', '2', 'id_3', '4'), Array(Array('id'=>'1', '2'=>'2', 'id_3'=>'3', '4'=>'4'))));
-checkSame('heads: a table made of its names only', tblRead("a,b\n", Array('heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array('a', 'b'), 'colms'=>2, 'lines'=>0), 'items'=>Array(Array('title'=>'', 'cells'=>Array()))));
+checkSame('heads: a table made of its names only', tblRead("a,b\n", Array('heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array('a', 'b'), 'colms'=>2, 'lines'=>0), 'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array()))));
 
 // Typed values
 checkSame('types: numbers, booleans and empty cells as such', tblRows("12,-7,0,12.5,-0.25,1e3,2.5E-1,true,FALSE,,word\n", Array('types'=>true)), Array(Array(12, -7, 0, 12.5, -0.25, 1000.0, 0.25, true, false, null, 'word')));
 checkSame('types: what only looks like a number stays text', tblRows("0123,+33100,1 200,12.,.5,1-2,0x1F,1234567890123456789012,12a, yes\n", Array('types'=>true)), Array(Array('0123', '+33100', '1 200', '12.', '.5', '1-2', '0x1F', '1234567890123456789012', '12a', ' yes')));
 checkSame('types: a quoted cell stays text, and the spaces around a number do not matter', tblRows("\"12\",\"true\",\"\", 12 ,\ttrue \n", Array('types'=>true, 'separ'=>'comma')), Array(Array('12', 'true', '', 12, true)));
-checkSame('types with heads: the names stay text', tblRead("2026,2027\n1,2.5\n", Array('types'=>true, 'heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array('2026', '2027'), 'colms'=>2, 'lines'=>1), 'items'=>Array(Array('title'=>'', 'cells'=>Array(Array('2026'=>1, '2027'=>2.5))))));
+checkSame('types with heads: the names stay text', tblRead("2026,2027\n1,2.5\n", Array('types'=>true, 'heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array('2026', '2027'), 'colms'=>2, 'lines'=>1), 'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('2026'=>1, '2027'=>2.5))))));
 checkSame('without types, everything is text', tblRows("12,true,\n"), Array(Array('12', 'true', '')));
 
 // Encodings: the result is always UTF-8

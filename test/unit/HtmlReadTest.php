@@ -64,8 +64,8 @@ checkSame('a page gives text blocks, and says what it was read as, its encoding 
 	'shape'=>'block',
 	'infos'=>Array('reads'=>'html', 'encod'=>'UTF-8', 'title'=>'Alpha Night'),
 	'items'=>Array(
-		Array('block'=>'headr', 'attrs'=>Array('level'=>1, 'tagid'=>'show'), 'spans'=>Array(Array('texts'=>'Alpha ', 'marks'=>Array(), 'links'=>''), Array('texts'=>'Night', 'marks'=>Array('ital'), 'links'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'),
-		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a'), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'Playing at Hall A.')
+		Array('block'=>'headr', 'attrs'=>Array('level'=>1, 'tagid'=>'show'), 'spans'=>Array(Array('texts'=>'Alpha ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Night', 'marks'=>Array('ital'), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'),
+		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a', 'field'=>''), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Playing at Hall A.')
 	)
 ));
 checkSame('an empty page gives no block', Array(htmRead(''), htmRead(" \n ")['items']), Array(Array('shape'=>'block', 'infos'=>Array('reads'=>'html', 'encod'=>'UTF-8', 'title'=>''), 'items'=>Array()), Array()));
@@ -138,7 +138,7 @@ checkSame('a cell holding blocks: its first paragraph is its text, the rest is i
 
 // Quotes, code, rules and images
 checkSame('a quote: its text, then the blocks inside it', htmLines('<blockquote id="q">Quoted <i>words</i><p>and more</p></blockquote>'), Array('quote {"tagid":"q"} [Quoted ][words|ital]', '  parag [and more]'));
-checkSame('code keeps its spacing and its lines, and gives its language', htmRead("<pre><code class=\"hl language-php\">if( \$a &lt; 2 ){\n    echo \"x\";\n}\n</code></pre>")['items'], Array(Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a < 2 ){\n    echo \"x\";\n}", 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>"if( \$a < 2 ){\n    echo \"x\";\n}")));
+checkSame('code keeps its spacing and its lines, and gives its language', htmRead("<pre><code class=\"hl language-php\">if( \$a &lt; 2 ){\n    echo \"x\";\n}\n</code></pre>")['items'], Array(Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a < 2 ){\n    echo \"x\";\n}", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"if( \$a < 2 ){\n    echo \"x\";\n}")));
 checkSame('code without language', htmLines("<pre>a  b</pre>"), Array('codes [a  b]'));
 checkSame('a rule, and images: the address in attrs, the description as text', htmLines('<hr><img src="/img/a.png" alt="The hall"><img src="https://nyuark.test/b.png"><img src="javascript:alert(1)" alt="bad"><img alt="no address">'), Array('rules', 'image {"sourc":"/img/a.png"} [The hall]', 'image {"sourc":"https://nyuark.test/b.png"}'));
 checkSame('an image inside a paragraph stands between its two halves', htmLines('<p>before <img src="a.png" alt="A"> after</p>'), Array('parag [before]', 'image {"sourc":"a.png"} [A]', 'parag [after]'));

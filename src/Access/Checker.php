@@ -15,9 +15,9 @@ class Checker{
 	// Roles an identity can carry, from the least to the most privileged.
 	// Reserved for the coming access rules : nothing is enforced on them yet
 	const ROLELIST = Array('membr', 'systm', 'admin');
-	// Short names of the strategies, as the config files write them, and their classes.
-	// This is the only place that ties the two together
-	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'device'=>'Device');
+	// Short names of the framework's strategies, as the config files write them, and their classes.
+	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
+	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey');
 	const SESSLIST = Array('hbasic'=>'Basic', 'header'=>'Header', 'jtoken'=>'JWT', 'phsess'=>'PHPSess', 'clcert'=>'ClCert');
 
 	protected $axsSetup;
@@ -36,23 +36,76 @@ class Checker{
 	}
 
 	/**
-	 * Resolves the class of a credential check from its short name.
+	 * Resolves the class of a credential check from its short name: one
+	 * of the framework's (see AUTHLIST), otherwise a plug-in of runs/Shared.
 	 *
-	 * @param String $shortNamed Short name, as written in the config (see AUTHLIST).
+	 * @param String $shortNamed Short name, as written in the config.
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
 	public static function authClass( String $shortNamed ): ?String {
-		return isset(self::AUTHLIST[$shortNamed]) ? '\\nyu\\Access\\Auth\\'.self::AUTHLIST[$shortNamed] : null;
+		return isset(self::AUTHLIST[$shortNamed]) ? '\\nyu\\Access\\Auth\\'.self::AUTHLIST[$shortNamed] : self::plugClass($shortNamed, 'authby', 'Auth');
 	}
 
 	/**
-	 * Resolves the class of a session carrier from its short name.
+	 * Resolves the class of a session carrier from its short name: one of
+	 * the framework's (see SESSLIST), otherwise a plug-in of runs/Shared.
 	 *
-	 * @param String $shortNamed Short name, as written in the config (see SESSLIST).
+	 * @param String $shortNamed Short name, as written in the config.
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
 	public static function sessClass( String $shortNamed ): ?String {
-		return isset(self::SESSLIST[$shortNamed]) ? '\\nyu\\Access\\Sess\\'.self::SESSLIST[$shortNamed] : null;
+		return isset(self::SESSLIST[$shortNamed]) ? '\\nyu\\Access\\Sess\\'.self::SESSLIST[$shortNamed] : self::plugClass($shortNamed, 'sessby', 'Sess');
+	}
+
+	/**
+	 * Resolves the class of a strategy the applications add. Its short
+	 * name must be six lower-case letters or digits and be listed in the
+	 * 'plugin' block of the ACCESS config; runs/Shared must then hold
+	 * <Name>Auth.php or <Name>Sess.php, declaring the class of that name
+	 * in nyu\Runs\Shared, which must implement the framework's Handler
+	 * interface of its kind. A listed plug-in that cannot be used is logged.
+	 *
+	 * @param String $shortNamed Short name, as written in the config.
+	 * @param String $pluginList Key of the 'plugin' block listing the names allowed: 'authby' or 'sessby'.
+	 * @param String $kindSuffix 'Auth' or 'Sess': suffix of the class, and namespace of its interface.
+	 * @return ?String The class name with its namespace, or null when there is no such plug-in.
+	 */
+	protected static function plugClass( String $shortNamed, String $pluginList, String $kindSuffix ): ?String {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$plgConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'PLUGIN') : null;
+		$alwList = is_array($plgConf) ? ($plgConf[$pluginList] ?? Array()) : Array();
+		if( !preg_match('/^[a-z][a-z0-9]{5}$/D', $shortNamed) || !in_array($shortNamed, (array)$alwList, true) || !defined('RUN_DIR') ){
+			return null;
+		}
+		$clsName = ucfirst($shortNamed).$kindSuffix;
+		$clsFile = RUN_DIR.DS.'Shared'.DS.$clsName.'.php';
+		$fullCls = '\\nyu\\Runs\\Shared\\'.$clsName;
+		$whyText = '';
+		if( !class_exists($fullCls, false) ){
+			if( !is_file($clsFile) ){
+				$whyText = 'runs/Shared/'.$clsName.'.php is missing';
+			}else{
+				try{
+					require_once $clsFile;
+				}catch( \Throwable $e ){
+					$whyText = 'runs/Shared/'.$clsName.'.php cannot be loaded: '.$e->getMessage();
+				}
+			}
+		}
+		if( $whyText=='' && !class_exists($fullCls, false) ){
+			$whyText = 'runs/Shared/'.$clsName.'.php does not declare '.ltrim($fullCls, '\\');
+		}
+		if( $whyText=='' && !is_subclass_of($fullCls, '\\nyu\\Access\\'.$kindSuffix.'\\Handler') ){
+			$whyText = ltrim($fullCls, '\\').' does not implement nyu\\Access\\'.$kindSuffix.'\\Handler';
+		}
+		if( $whyText!='' ){
+			$logInst = $GLOBALS['nyuLogger'] ?? null;
+			if( $logInst!==null ){
+				$logInst->error( 'Access plug-in "'.$shortNamed.'" cannot be used: '.$whyText );
+			}
+			return null;
+		}
+		return $fullCls;
 	}
 
 	/**

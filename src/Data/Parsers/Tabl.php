@@ -2,6 +2,8 @@
 
 namespace nyu\Data\Parsers;
 
+use nyu\Data\Shape;
+
 // Tables written as text: CSV, TSV and their kin. One row per line, the
 // cells separated by one character; a cell between double quotes may hold
 // the separator, line ends, and a quote written twice.
@@ -51,30 +53,14 @@ class Tabl extends Base {
 		$rowsLst = $this->readCells($tblText, self::SEPRLIST[$seprKey], !empty($parseOptns['types']));
 		if( !empty($parseOptns['heads']) && !empty($rowsLst) ){
 			$headLst = Array();
-			foreach(array_shift($rowsLst) as $colIdx=>$colNme){
-				$nameTxt = trim(strval($colNme));
-				// A column must have a key of its own, whatever its name
-				if( $nameTxt==='' ){
-					$nameTxt = strval($colIdx+1);
-				}
-				$headLst[] = in_array($nameTxt, $headLst, true) ? $nameTxt.'_'.($colIdx+1) : $nameTxt;
-			}
-			foreach($rowsLst as $rowIdx=>$oneRow){
-				$keyedRw = Array();
-				foreach($headLst as $colIdx=>$colNme){
-					$keyedRw[$colNme] = $oneRow[$colIdx] ?? null;
-				}
-				// The cells a row has beyond the named columns keep their position
-				for($colIdx=count($headLst); $colIdx<count($oneRow); $colIdx++){
-					$keyedRw[strval($colIdx+1)] = $oneRow[$colIdx];
-				}
-				$rowsLst[$rowIdx] = $keyedRw;
-			}
+			$rowsLst = $this->keyedRows($rowsLst, $headLst);
 			$infoArr['heads'] = $headLst;
 		}
 		$infoArr['colms'] = empty($rowsLst) ? count($infoArr['heads']) : max(count($infoArr['heads']), max(array_map('count', $rowsLst)));
 		$infoArr['lines'] = count($rowsLst);
-		return $this->makeShape('sheet', Array(Array('title'=>'', 'cells'=>$rowsLst)), $infoArr);
+		$shetArr = Shape::makeSheet('', Array());
+		$shetArr['cells'] = $rowsLst;
+		return $this->makeShape('sheet', Array($shetArr), $infoArr);
 	}
 
 	/**

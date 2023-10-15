@@ -15,12 +15,19 @@ namespace nyu\Data;
 //              a table, what an entry or a cell holds besides its text);
 //   'plain' => its own text without formatting.
 //
-// A piece of text, or span, has three keys: 'texts' (the text), 'marks'
-// (its formatting) and 'links' (the address it points to, or '').
+// A piece of text, or span, has four keys: 'texts' (the text), 'marks'
+// (its formatting), 'links' (the address it points to, or '') and
+// 'field' (what the text stands for when its document works it out:
+// 'pgnum' the number of the page, 'pgtot' the number of pages, 'dates'
+// a date, 'props:Name' a property of the document; '' for plain text).
+// The text of a field is the value its document last showed for it.
+//
+// A workbook is a list of sheets, each with three keys: 'title' (its
+// name), 'attrs' (what is particular to it) and 'cells' (its rows).
 class Shape {
 
 	// Kinds of block that carry text of their own
-	const TEXTLIST = Array('headr', 'parag', 'entry', 'tcell', 'quote', 'codes', 'image');
+	const TEXTLIST = Array('headr', 'parag', 'entry', 'tcell', 'quote', 'codes', 'image', 'fnote');
 	// Kinds of block that only hold other blocks, or nothing
 	const HOLDLIST = Array('lists', 'table', 'thead', 'tbrow', 'rules');
 	// Formatting a span can carry
@@ -53,15 +60,17 @@ class Shape {
 	 * @param String $textString The text.
 	 * @param Array  $marksArray Its formatting, among bold, ital, undr, strk and code; anything else is left out.
 	 * @param String $linkTarget The address it points to, '' when it is not a link.
-	 * @return Array The span: 'texts', 'marks', 'links'.
+	 * @param String $fieldCodes What the text stands for when its document works it out, '' for plain text.
+	 * @return Array The span: 'texts', 'marks', 'links', 'field'.
 	 */
-	public static function makeASpan(String $textString, Array $marksArray=Array(), String $linkTarget=''): Array {
-		return Array('texts'=>$textString, 'marks'=>array_values(array_intersect(self::MARKLIST, $marksArray)), 'links'=>$linkTarget);
+	public static function makeASpan(String $textString, Array $marksArray=Array(), String $linkTarget='', String $fieldCodes=''): Array {
+		return Array('texts'=>$textString, 'marks'=>array_values(array_intersect(self::MARKLIST, $marksArray)), 'links'=>$linkTarget, 'field'=>$fieldCodes);
 	}
 
 	/**
 	 * Tidies a run of spans: those without text are left out, and two
 	 * neighbours of the same formatting and the same address become one.
+	 * A field is never joined with what stands beside it.
 	 *
 	 * @param Array $spansArray The spans.
 	 * @return Array The tidied spans.
@@ -73,7 +82,7 @@ class Shape {
 				continue;
 			}
 			$lastIdx = count($joinLst)-1;
-			if( $lastIdx>=0 && $joinLst[$lastIdx]['marks']===$oneSpn['marks'] && $joinLst[$lastIdx]['links']===$oneSpn['links'] ){
+			if( $lastIdx>=0 && $joinLst[$lastIdx]['marks']===$oneSpn['marks'] && $joinLst[$lastIdx]['links']===$oneSpn['links'] && $oneSpn['field']==='' && $joinLst[$lastIdx]['field']==='' ){
 				$joinLst[$lastIdx]['texts'] .= $oneSpn['texts'];
 			}else{
 				$joinLst[] = $oneSpn;
@@ -92,7 +101,7 @@ class Shape {
 	 *   - a list has no 'plain': its 'attrs' give its number of entries
 	 *     ('lines') and the size of its text in bytes ('bytes').
 	 *
-	 * @param String $blockLabel Kind of the block: headr, parag, lists, entry, table, thead, tbrow, tcell, quote, codes, image or rules.
+	 * @param String $blockLabel Kind of the block: headr, parag, lists, entry, table, thead, tbrow, tcell, quote, codes, image, rules or fnote.
 	 * @param Array  $spansArray Its own text, as spans.
 	 * @param Array  $itemsArray The blocks it contains.
 	 * @param Array  $attrsArray What is particular to it.
@@ -238,18 +247,25 @@ class Shape {
 	}
 
 	/**
-	 * Builds a sheet: a named table of values.
+	 * Builds a sheet: a named table of values. What is particular to it
+	 * stands in its 'attrs':
+	 *   'shown' => false for a sheet its workbook hides;
+	 *   'merge' => the areas of merged cells, each with the row and the
+	 *              column of its first cell under 'atrow' and 'atcol',
+	 *              counted from 0, and the rows and columns it covers
+	 *              under 'rowsp' and 'colsp'.
 	 *
 	 * @param String $sheetTitle Name of the sheet.
 	 * @param Array  $cellsArray Its rows, each a list of values.
-	 * @return Array The sheet: 'title', 'cells'.
+	 * @param Array  $attrsArray What is particular to it; a shown sheet without merged cells when left out.
+	 * @return Array The sheet: 'title', 'attrs', 'cells'.
 	 */
-	public static function makeSheet(String $sheetTitle, Array $cellsArray): Array {
+	public static function makeSheet(String $sheetTitle, Array $cellsArray, Array $attrsArray=Array()): Array {
 		$rowsLst = Array();
 		foreach($cellsArray as $oneRow){
 			$rowsLst[] = array_values((array)$oneRow);
 		}
-		return Array('title'=>$sheetTitle, 'cells'=>$rowsLst);
+		return Array('title'=>$sheetTitle, 'attrs'=>$attrsArray + Array('shown'=>true, 'merge'=>Array()), 'cells'=>$rowsLst);
 	}
 
 }

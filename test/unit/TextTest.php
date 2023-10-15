@@ -64,8 +64,8 @@ checkSame('plain: a blank line between two paragraphs, the envelope', txtRead("A
 	'shape'=>'block',
 	'infos'=>Array('reads'=>'plain'),
 	'items'=>Array(
-		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>"Alpha Night\nplays tonight.", 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>"Alpha Night\nplays tonight."),
-		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Doors at 8.', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'Doors at 8.')
+		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>"Alpha Night\nplays tonight.", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"Alpha Night\nplays tonight."),
+		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Doors at 8.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Doors at 8.')
 	)
 ));
 checkSame('plain is what a text is read as when nothing is said', runSafely(function(){ return (new Text())->parseData('x')['infos']; }), Array('reads'=>'plain'));
@@ -88,9 +88,9 @@ checkSame('bbcod: markup of another kind is text', txtRead('<script>alert(1)</sc
 
 // BBCode: blocks
 checkSame('bbcod: code keeps what it holds as written, tags included, and its language', txtRead("Before\n[code=php]\nif( \$a ){\n    echo '[b]x[/b]';\n}\n[/code]\nAfter", 'bbcod')['items'], Array(
-	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Before', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'Before'),
-	Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a ){\n    echo '[b]x[/b]';\n}", 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>"if( \$a ){\n    echo '[b]x[/b]';\n}"),
-	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'After', 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>'After')
+	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Before', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Before'),
+	Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a ){\n    echo '[b]x[/b]';\n}", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"if( \$a ){\n    echo '[b]x[/b]';\n}"),
+	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'After', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'After')
 ));
 checkSame('bbcod: code without language, and a language that is not a plain name', txtLines('[code]a  b[/code][code=a b"c]x[/code]', 'bbcod'), Array('codes [a  b]', 'codes [x]'));
 checkSame('bbcod: a quote, the one it answers, and who is quoted', txtLines("[quote=Alice]First [b]words[/b]\n\nSecond paragraph[quote]older[/quote][/quote]Reply", 'bbcod'), Array('quote {"cites":"Alice"} [First ][words|bold]', '  parag [Second paragraph]', '  quote [older]', 'parag [Reply]'));
@@ -118,7 +118,7 @@ checkSame('chats: punctuation around a mark, and a mark left open', txtLines('(*
 checkSame('chats: a mark runs over the lines of a paragraph, not over a blank line', txtLines("*one\ntwo* _three\nfour __five\nsix__ seven_\n\n*open\n\nclosed*", 'chats'), Array("parag [one\ntwo|bold][ ][three\nfour |ital][five\nsix|ital,undr][ seven|ital]", 'parag [*open]', 'parag [closed*]'));
 checkSame('chats: an address is given as written, its marks left alone, and is not a link', txtLines('See https://nyuark.test/a_b_c?x=_y_&z=*w* and _this_', 'chats'), Array('parag [See https://nyuark.test/a_b_c?x=_y_&z=*w* and ][this|ital]'));
 checkSame('chats: nothing else is interpreted', txtRead("`code` ```block``` <b>x</b> [b]y[/b]\n> not a quote\n```\nnot code\n```", 'chats')['items'], Array(
-	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>"`code` ```block``` <b>x</b> [b]y[/b]\n> not a quote\n```\nnot code\n```", 'marks'=>Array(), 'links'=>'')), 'items'=>Array(), 'plain'=>"`code` ```block``` <b>x</b> [b]y[/b]\n> not a quote\n```\nnot code\n```")
+	Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>"`code` ```block``` <b>x</b> [b]y[/b]\n> not a quote\n```\nnot code\n```", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"`code` ```block``` <b>x</b> [b]y[/b]\n> not a quote\n```\nnot code\n```")
 ));
 
 // Messaging: lists
@@ -143,7 +143,7 @@ checkSame('the whole text, and the sections helper on a text without headings', 
 }), Array("One\n\na\nb", 1, 0));
 checkSame('a text read then written as HTML is harmless', runSafely(function(){
 	return (new Html())->writeData((new Text())->parseData("[b]Hi[/b] <script>alert(1)</script> [url=javascript:alert(2)]x[/url]\nnext [url=/a?b=1&c=2]link[/url][quote=Bob]q[/quote]", Array('reads'=>'bbcod')));
-}), "<p><strong>Hi</strong> &lt;script&gt;alert(1)&lt;/script&gt; x<br>\nnext <a href=\"/a?b=1&amp;c=2\">link</a></p>\n<blockquote>q</blockquote>\n");
+}), "<p><strong>Hi</strong> &lt;script&gt;alert(1)&lt;/script&gt; x<br>\nnext <a href=\"/a?b=1&amp;c=2\">link</a></p>\n<blockquote>q\n<cite>Bob</cite>\n</blockquote>\n");
 checkSame('joining spans: empty ones left out, same neighbours made one', Shape::joinSpans(Array(Shape::makeASpan('a'), Shape::makeASpan(''), Shape::makeASpan('b'), Shape::makeASpan('c', Array('bold')), Shape::makeASpan('d', Array('bold')), Shape::makeASpan('e', Array('bold'), '/x'), Shape::makeASpan('f'))), Array(Shape::makeASpan('ab'), Shape::makeASpan('cd', Array('bold')), Shape::makeASpan('e', Array('bold'), '/x'), Shape::makeASpan('f')));
 checkSame('no PHP warning along the way', takeNotes(), Array());
 

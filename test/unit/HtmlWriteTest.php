@@ -103,4 +103,84 @@ checkSame('...and a hostile page comes back harmless', runSafely(function(){
 }), "<p>Hi there</p>\n<img src=\"x\" alt=\"\">\n");
 checkSame('no PHP warning along the way', takeNotes(), Array());
 
+// Styles
+$stylEnv = Array('shape'=>'block', 'infos'=>Array('title'=>'Alpha Night', 'langg'=>'fr', 'frmat'=>Array(
+	'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri Light', 'sizes'=>16, 'color'=>'#2F5496', 'marks'=>Array('bold'), 'align'=>'centr'),
+	'Quote'=>Array('class'=>'quote', 'fonts'=>'Calibri', 'sizes'=>11.5, 'marks'=>Array('ital', 'undr', 'strk'), 'align'=>'justf'),
+	'Normal'=>Array('class'=>'normal'),
+	'3 - Client'=>Array('class'=>'s-3-client', 'sizes'=>9),
+	'Hostile'=>Array('class'=>'x{} body{display:none} .y', 'fonts'=>'Arial"; } body { display:none } .z { font-family:"x', 'sizes'=>'12pt; color:red', 'color'=>'red; background:url(javascript:alert(1))', 'marks'=>Array('bold; x', 'huge'), 'align'=>'center; x'),
+	'Not a style'=>'text'
+)), 'items'=>Array(
+	textBlk('headr', 'Alpha Night', Array('level'=>1, 'style'=>'heading 1', 'tagid'=>'top')), textBlk('parag', 'Plain.', Array('style'=>'Normal')), textBlk('parag', 'Centred by hand.', Array('style'=>'Normal', 'align'=>'centr')),
+	textBlk('quote', 'A night.', Array('style'=>'Quote', 'align'=>'right')), textBlk('parag', 'Client.', Array('style'=>'3 - Client')), textBlk('parag', 'Hostile.', Array('style'=>'Hostile', 'align'=>'center" onclick="x')),
+	textBlk('parag', 'Unlisted.', Array('style'=>'Some Other Style')), textBlk('parag', 'No word in it.', Array('style'=>'***')), textBlk('codes', 'x', Array('style'=>'Code', 'langg'=>'php')),
+	Shape::makeBlock('lists', Array(), Array(textBlk('entry', 'entry', Array('style'=>'Normal'))), Array('style'=>'Never on a list')),
+	Shape::makeBlock('table', Array(), Array(Shape::makeBlock('tbrow', Array(), Array(textBlk('tcell', 'cell', Array('style'=>'Normal', 'align'=>'justf', 'colsp'=>2))))))
+));
+$stylBdy = "<h1 id=\"top\" class=\"heading-1\">Alpha Night</h1>\n<p class=\"normal\">Plain.</p>\n<p class=\"normal\" style=\"text-align:center\">Centred by hand.</p>\n<blockquote class=\"quote\" style=\"text-align:right\">A night.</blockquote>\n<p class=\"s-3-client\">Client.</p>\n<p class=\"hostile\">Hostile.</p>\n"
+	."<p class=\"some-other-style\">Unlisted.</p>\n<p>No word in it.</p>\n<pre class=\"code\"><code class=\"language-php\">x</code></pre>\n<ul class=\"never-on-a-list\">\n<li class=\"normal\">entry</li>\n</ul>\n<table>\n<tbody>\n<tr><td class=\"normal\" style=\"text-align:justify\" colspan=\"2\">cell</td></tr>\n</tbody>\n</table>\n";
+checkSame('the style of a block is its class, its own alignment a style of its own; a class is the one told for the style when it is fit, or made of its name', runSafely(function() use ($stylEnv){ return (new Html())->writeData($stylEnv); }), $stylBdy);
+checkSame('class: the styles are left out when told so; the alignments are not', runSafely(function() use ($stylEnv){ return substr((new Html())->writeData($stylEnv, Array('class'=>false)), 0, 108); }), "<h1 id=\"top\">Alpha Night</h1>\n<p>Plain.</p>\n<p style=\"text-align:center\">Centred by hand.</p>\n<blockquote st");
+$stylCss = "<style>\n.heading-1{font-family:\"Calibri Light\";font-size:16pt;color:#2F5496;font-weight:bold;text-align:center}\n.quote{font-family:\"Calibri\";font-size:11.5pt;font-style:italic;text-decoration:underline line-through;text-align:justify}\n.s-3-client{font-size:9pt}\n</style>\n";
+checkSame('frmat: the style sheet of the styles, each value checked before it is written, what is not fit left out', runSafely(function() use ($stylEnv){ return (new Html())->writeData($stylEnv, Array('frmat'=>true)); }), $stylCss.$stylBdy);
+checkSame('a hostile style reaches neither the style sheet nor the page', runSafely(function() use ($stylEnv){
+	$htmText = (new Html())->writeData($stylEnv, Array('whole'=>true));
+	return Array(strpos($htmText, 'display'), strpos($htmText, 'javascript'), strpos($htmText, 'onclick'), strpos($htmText, 'background'), substr_count($htmText, '{'), substr_count($htmText, '}'));
+}), Array(false, false, false, false, 3, 3));
+checkSame('whole: the language of the content, its title, its style sheet in the head; frmat can be turned off', runSafely(function() use ($stylEnv, $stylCss, $stylBdy){
+	$wrtrObj = new Html();
+	return Array($wrtrObj->writeData($stylEnv, Array('whole'=>true))==="<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<title>Alpha Night</title>\n".$stylCss."</head>\n<body>\n".$stylBdy."</body>\n</html>\n", strpos($wrtrObj->writeData($stylEnv, Array('whole'=>true, 'frmat'=>false)), '<style>'), strpos($wrtrObj->writeData(Array('shape'=>'block', 'infos'=>Array('langg'=>'fr" onload="x'), 'items'=>Array()), Array('whole'=>true)), 'onload'));
+}), Array(true, false, false));
+checkSame('the headers and the footers of the pages stand once around the content of a whole page, and nowhere otherwise', runSafely(function(){
+	$pageEnv = Array('shape'=>'block', 'infos'=>Array('title'=>'T', 'phead'=>Array(textBlk('parag', 'nyuArk')), 'pfoot'=>Array(Shape::makeBlock('parag', Array(Shape::makeASpan('page '), Shape::makeASpan('1', Array(), '', 'pgnum'))))), 'items'=>Array(textBlk('parag', 'Body')));
+	$wrtrObj = new Html();
+	return Array($wrtrObj->writeData($pageEnv), strstr($wrtrObj->writeData($pageEnv, Array('whole'=>true)), '<body>'));
+}), Array("<p>Body</p>\n", "<body>\n<header>\n<p>nyuArk</p>\n</header>\n<p>Body</p>\n<footer>\n<p>page <span data-field=\"pgnum\">1</span></p>\n</footer>\n</body>\n</html>\n"));
+
+// Fields, notes, page breaks, tasks, who is quoted
+checkSame('a field tells what it stands for, inside its link and around its formatting', htmOfBlk(Array(Shape::makeBlock('parag', Array(
+	Shape::makeASpan('Page '), Shape::makeASpan('3', Array(), '', 'pgnum'), Shape::makeASpan(' of '), Shape::makeASpan('12', Array('bold'), '', 'pgtot'), Shape::makeASpan(', '), Shape::makeASpan('Alpha', Array('ital'), '/a', 'props:Client "Ref" <1>')
+)))), "<p>Page <span data-field=\"pgnum\">3</span> of <span data-field=\"pgtot\"><strong>12</strong></span>, <a href=\"/a\"><span data-field=\"props:Client &quot;Ref&quot; &lt;1&gt;\"><em>Alpha</em></span></a></p>\n");
+checkSame('the reference to a note is raised, the note starts with its number and holds its blocks', htmOfBlk(Array(
+	Shape::makeBlock('parag', Array(Shape::makeASpan('Text'), Shape::makeASpan('1', Array(), '#fnote1'), Shape::makeASpan(' and'), Shape::makeASpan('2', Array(), '#enote2'), Shape::makeASpan(', not a note: '), Shape::makeASpan('3', Array(), '#fnotes'))),
+	Shape::makeBlock('fnote', Array(Shape::makeASpan('Doors at 8.')), Array(textBlk('parag', 'More.')), Array('tagid'=>'fnote1', 'numbr'=>1)), Shape::makeBlock('fnote', Array(), Array(), Array('tagid'=>'enote2', 'numbr'=>2)), textBlk('fnote', 'No number.')
+)), "<p>Text<sup><a href=\"#fnote1\">1</a></sup> and<sup><a href=\"#enote2\">2</a></sup>, not a note: <a href=\"#fnotes\">3</a></p>\n<aside id=\"fnote1\"><sup>1</sup> Doors at 8.\n<p>More.</p>\n</aside>\n<aside id=\"enote2\"><sup>2</sup> </aside>\n<aside>No number.</aside>\n");
+checkSame('a page break is a rule of its own kind, and brings its rule to the style sheet', runSafely(function(){
+	$brkEnvl = Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('parag', 'a'), Shape::makeBlock('rules', Array(), Array(), Array('break'=>true, 'tagid'=>'ignored')), Shape::makeBlock('rules', Array(), Array(), Array('break'=>false, 'tagid'=>'cut'))));
+	$wrtrObj = new Html();
+	return Array($wrtrObj->writeData($brkEnvl), $wrtrObj->writeData($brkEnvl, Array('frmat'=>true)), strpos($wrtrObj->writeData(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('parag', 'a'))), Array('frmat'=>true)), '<style>'));
+}), Array("<p>a</p>\n<hr class=\"break\">\n<hr id=\"cut\">\n", "<style>\nhr.break{border:0;break-after:page;page-break-after:always}\n</style>\n<p>a</p>\n<hr class=\"break\">\n<hr id=\"cut\">\n", false));
+checkSame('a task shows its box, done or not; who is quoted is told under the quotation', htmOfBlk(Array(
+	Shape::makeBlock('lists', Array(), Array(textBlk('entry', 'done', Array('check'=>true)), textBlk('entry', 'todo', Array('check'=>false)), textBlk('entry', 'plain'))),
+	textBlk('quote', 'Short.', Array('cites'=>'Alice & <Bob>')), Shape::makeBlock('quote', Array(Shape::makeASpan('Long.')), Array(textBlk('parag', 'More.')), Array('cites'=>'Carol')), textBlk('quote', 'Nobody.')
+)), "<ul>\n<li><input type=\"checkbox\" disabled checked> done</li>\n<li><input type=\"checkbox\" disabled> todo</li>\n<li>plain</li>\n</ul>\n<blockquote>Short.\n<cite>Alice &amp; &lt;Bob&gt;</cite>\n</blockquote>\n<blockquote>Long.\n<p>More.</p>\n<cite>Carol</cite>\n</blockquote>\n<blockquote>Nobody.</blockquote>\n");
+
+// Sheets: names of columns, merged cells, hidden sheets
+$keydSht = Shape::makeSheet('Shows', Array());
+$keydSht['cells'] = Array(Array('Title'=>'Alpha <Night>', 'Seats'=>120, 'Open'=>true), Array('Title'=>'Les Enchaînés', 'Seats'=>null, 'Open'=>false, '4'=>'extra'));
+checkSame('rows keyed by the names of their columns have those names as header, with or without the heads option', runSafely(function() use ($keydSht){
+	$wrtrObj = new Html();
+	$shtEnvl = Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array($keydSht));
+	return Array($wrtrObj->writeData($shtEnvl), $wrtrObj->writeData($shtEnvl)===$wrtrObj->writeData($shtEnvl, Array('heads'=>true)));
+}), Array("<table>\n<caption>Shows</caption>\n<thead>\n<tr><th>Title</th><th>Seats</th><th>Open</th></tr>\n</thead>\n<tbody>\n<tr><td>Alpha &lt;Night&gt;</td><td>120</td><td>true</td></tr>\n<tr><td>Les Enchaînés</td><td></td><td>false</td><td>extra</td></tr>\n</tbody>\n</table>\n", true));
+$mrgdSht = Shape::makeSheet('Season', Array(Array('Season 2026', null, null, 'Notes'), Array('Title', 'Venue', 'Seats', 'long'), Array('Alpha', 'Hall A', 120, 'covered'), Array('end')), Array('merge'=>Array(
+	Array('atrow'=>0, 'atcol'=>0, 'rowsp'=>1, 'colsp'=>3), Array('atrow'=>1, 'atcol'=>3, 'rowsp'=>2, 'colsp'=>1), Array('atrow'=>3, 'atcol'=>0, 'rowsp'=>5, 'colsp'=>1), Array('atrow'=>9, 'atcol'=>0, 'rowsp'=>2, 'colsp'=>2)
+)));
+checkSame('merged cells are one cell over the others; an area running past the last row stops there, one starting past it is left out', runSafely(function() use ($mrgdSht){ return (new Html())->writeData(Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array($mrgdSht))); }),
+	"<table>\n<caption>Season</caption>\n<tbody>\n<tr><td colspan=\"3\">Season 2026</td><td>Notes</td></tr>\n<tr><td>Title</td><td>Venue</td><td>Seats</td><td rowspan=\"2\">long</td></tr>\n<tr><td>Alpha</td><td>Hall A</td><td>120</td></tr>\n<tr><td>end</td></tr>\n</tbody>\n</table>\n");
+checkSame('merged cells under a first row written as header: an area of the header is left as it is, the others keep their place', runSafely(function() use ($mrgdSht){ return (new Html())->writeData(Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array($mrgdSht)), Array('heads'=>true)); }),
+	"<table>\n<caption>Season</caption>\n<thead>\n<tr><th>Season 2026</th><th></th><th></th><th>Notes</th></tr>\n</thead>\n<tbody>\n<tr><td>Title</td><td>Venue</td><td>Seats</td><td rowspan=\"2\">long</td></tr>\n<tr><td>Alpha</td><td>Hall A</td><td>120</td></tr>\n<tr><td>end</td></tr>\n</tbody>\n</table>\n");
+checkSame('shown: hidden sheets are written unless told to leave them out', runSafely(function(){
+	$wrtrObj = new Html();
+	$shtEnvl = Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(Shape::makeSheet('Seen', Array(Array('a'))), Shape::makeSheet('Hidden', Array(Array('b')), Array('shown'=>false))));
+	return Array(substr_count($wrtrObj->writeData($shtEnvl), '<table>'), $wrtrObj->writeData($shtEnvl, Array('shown'=>true)));
+}), Array(2, "<table>\n<caption>Seen</caption>\n<tbody>\n<tr><td>a</td></tr>\n</tbody>\n</table>\n"));
+checkSame('one writer, several contents: the styles of one do not reach the next', runSafely(function() use ($stylEnv){
+	$wrtrObj = new Html();
+	$wrtrObj->writeData($stylEnv, Array('class'=>false, 'frmat'=>true));
+	return $wrtrObj->writeData(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('parag', 'x', Array('style'=>'heading 1')))), Array('frmat'=>true));
+}), "<p class=\"heading-1\">x</p>\n");
+checkSame('no PHP warning from the new checks', takeNotes(), Array());
+
 endChecks();

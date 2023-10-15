@@ -1,17 +1,20 @@
 <?php
 
-namespace nyu\Access\Auth;
+namespace nyu\Runs\Shared;
 
+use nyu\Access\Auth\Handler as AuthHndlr;
 use nyu\Data\DBCon;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
 
 /**
- * Verifies a device token against a table of devices, each linked to a
- * user of the native userbase: the SHA-256 hash of the token must be the
- * token_hash of a device that is not revoked, and its user must be
- * 'active'. Also stamps the time each device was last seen.
+ * Access plug-in, used as "authby": "device" once 'device' is listed in
+ * the 'plugin' block of the ACCESS config. Verifies a device token
+ * against a table of devices, each linked to a user of the native
+ * userbase: the SHA-256 hash of the token must be the token_hash of a
+ * device that is not revoked, and its user must be 'active'. Also
+ * stamps the time each device was last seen.
  */
-class Device implements Handler{
+class DeviceAuth implements AuthHndlr{
 
 	protected $userBase;
 	protected $dvcTable;

@@ -8,6 +8,8 @@ class Bina {
 
 	// Kinds that are text, although they can be told from their first bytes
 	const TEXTLIST = Array('xml', 'html', 'ics', 'rtf');
+	// Kinds that are zip archives
+	const PACKLIST = Array('zip', 'odt', 'ods', 'epub');
 
 	/**
 	 * Tells what a content is from its first bytes. The kind is named by
