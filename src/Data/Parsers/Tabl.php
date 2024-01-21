@@ -33,7 +33,7 @@ class Tabl extends Base {
 	 *
 	 * @param String $rawContent The table.
 	 * @param Array  $parseOptns Options: 'separ', 'heads', 'types'.
-	 * @return Array The envelope, of shape 'sheet', holding one sheet; 'infos' gives the separator under 'separ', the names of the columns under 'heads', the number of columns under 'colms' and of rows under 'lines'.
+	 * @return Array The envelope, of shape 'sheet', holding one sheet; 'infos' gives the separator under 'separ', the names of the columns under 'heads', the number of columns under 'colms' and of rows under 'lines', and whether the table started with the marker some tools write there under 'bomrk'.
 	 *
 	 * @throws ParseError When the separator asked for is not a known one, or a quote is left open.
 	 */
@@ -46,7 +46,8 @@ class Tabl extends Base {
 		if( $seprKey==='' ){
 			$seprKey = $this->findSepar($tblText);
 		}
-		$infoArr = Array('separ'=>$seprKey, 'heads'=>Array(), 'colms'=>0, 'lines'=>0);
+		// The marker some tools write at the start of a file is taken off the text; whether it was there is told
+		$infoArr = Array('separ'=>$seprKey, 'heads'=>Array(), 'colms'=>0, 'lines'=>0, 'bomrk'=>in_array(substr($rawContent, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true) || substr($rawContent, 0, 3)==="\xEF\xBB\xBF");
 		if( trim($tblText)==='' ){
 			return $this->makeShape('sheet', Array(), $infoArr);
 		}

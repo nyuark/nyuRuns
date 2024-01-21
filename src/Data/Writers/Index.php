@@ -1,0 +1,89 @@
+<?php
+
+namespace nyu\Data\Writers;
+
+// Which writer writes which format, by file extension, and the content
+// type a reply in that format is sent with. An application can add
+// writers of its own.
+class Index {
+
+	// Writer, default options and content type of each file extension
+	protected static $extnList = Array(
+		'html'   => Array('Html', Array(), 'text/html; charset=utf-8'),
+		'htm'    => Array('Html', Array(), 'text/html; charset=utf-8'),
+		'json'   => Array('Json', Array(), 'application/json; charset=utf-8'),
+		'jsonl'  => Array('Json', Array('lines'=>true), 'application/jsonl; charset=utf-8'),
+		'ndjson' => Array('Json', Array('lines'=>true), 'application/x-ndjson; charset=utf-8'),
+		'yaml'   => Array('Yaml', Array(), 'application/yaml; charset=utf-8'),
+		'yml'    => Array('Yaml', Array(), 'application/yaml; charset=utf-8'),
+		'csv'    => Array('Tabl', Array(), 'text/csv; charset=utf-8'),
+		'tsv'    => Array('Tabl', Array('separ'=>'tabul'), 'text/tab-separated-values; charset=utf-8'),
+		'tab'    => Array('Tabl', Array('separ'=>'tabul'), 'text/tab-separated-values; charset=utf-8'),
+		'md'     => Array('Mdwn', Array(), 'text/markdown; charset=utf-8'),
+		'markdown' => Array('Mdwn', Array(), 'text/markdown; charset=utf-8'),
+		'txt'    => Array('Text', Array('gives'=>'plain'), 'text/plain; charset=utf-8'),
+		'ics'    => Array('ICal', Array(), 'text/calendar; charset=utf-8')
+	);
+
+	/**
+	 * Gives the writer of a file extension.
+	 *
+	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @return ?Writer The writer, null when the extension has none.
+	 */
+	public static function forExtnsn(String $fileExtnsn): ?Writer {
+		$extnSet = self::$extnList[strtolower($fileExtnsn)] ?? null;
+		if( $extnSet===null ){
+			return null;
+		}
+		$wrtrCls = (strpos($extnSet[0], '\\')===false) ? __NAMESPACE__.'\\'.$extnSet[0] : $extnSet[0];
+		return new $wrtrCls();
+	}
+
+	/**
+	 * Gives the default options a file extension is written with.
+	 *
+	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @return Array The options, empty when the extension has none.
+	 */
+	public static function extnOptns(String $fileExtnsn): Array {
+		return self::$extnList[strtolower($fileExtnsn)][1] ?? Array();
+	}
+
+	/**
+	 * Gives the content type a reply written for a file extension is
+	 * sent with.
+	 *
+	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @return String The content type, with its character set when it is text; '' when the extension has no writer.
+	 */
+	public static function cnTypeFor(String $fileExtnsn): String {
+		return strval(self::$extnList[strtolower($fileExtnsn)][2] ?? '');
+	}
+
+	/**
+	 * Adds a writer for a file extension, or replaces the one it had.
+	 *
+	 * @param String $fileExtnsn The extension, without its dot.
+	 * @param String $writerName Name of a class of this namespace, or full name of a class of the application; it must follow the Writer contract.
+	 * @param Array  $writeOptns Default options the extension is written with.
+	 * @param String $contntType Content type a reply in that format is sent with.
+	 *
+	 * @throws \RuntimeException When the extension is not a plain name, the class is not a writer, or the content type is not one.
+	 */
+	public static function addWriter(String $fileExtnsn, String $writerName, Array $writeOptns=Array(), String $contntType='application/octet-stream'): Void {
+		$wrtrCls = (strpos($writerName, '\\')===false) ? __NAMESPACE__.'\\'.$writerName : $writerName;
+		if( !preg_match('/^\w+$/D', $fileExtnsn) ){
+			throw new \RuntimeException('Invalid file extension: '.$fileExtnsn);
+		}
+		if( !class_exists($wrtrCls) || !is_subclass_of($wrtrCls, Writer::class) ){
+			throw new \RuntimeException('Not a writer: '.$writerName);
+		}
+		// A content type goes into a header of the reply: it holds nothing that could start another one
+		if( !preg_match('/^[\w.+\-]+\/[\w.+\-]+(?:; ?[\w\-]+=[\w.\-]+)*$/D', $contntType) ){
+			throw new \RuntimeException('Invalid content type: '.$contntType);
+		}
+		self::$extnList[strtolower($fileExtnsn)] = Array($writerName, $writeOptns, $contntType);
+	}
+
+}

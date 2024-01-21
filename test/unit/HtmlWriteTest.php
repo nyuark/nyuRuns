@@ -75,8 +75,8 @@ checkSame('an address that would run a script is not written; its text is', htmO
 	textBlk('image', 'bad', Array('sourc'=>'javascript:alert(1)'))
 )), "<p>onetwothree<a href=\"mailto:a@nyuark.test\">four</a></p>\n");
 checkSame('an id or a language that is not a plain name is not written', htmOfBlk(Array(textBlk('parag', 'x', Array('tagid'=>'a" onclick="x')), textBlk('codes', 'y', Array('langg'=>'php" onclick="x')))), "<p>x</p>\n<pre><code>y</code></pre>\n");
-checkLike('an unknown kind of block is refused', htmOfBlk(Array(Array('block'=>'title', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''))), '/^THROWN RuntimeException: Unknown kind of block: title/');
-checkLike('an unknown shape is refused', runSafely(function(){ return (new Html())->writeData(Array('shape'=>'cloud', 'infos'=>Array(), 'items'=>Array())); }), '/^THROWN RuntimeException: Shape that cannot be written as HTML: cloud/');
+checkLike('an unknown kind of block is refused', htmOfBlk(Array(Array('block'=>'title', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''))), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Unknown kind of block: title/');
+checkLike('an unknown shape is refused', runSafely(function(){ return (new Html())->writeData(Array('shape'=>'cloud', 'infos'=>Array(), 'items'=>Array())); }), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as HTML: cloud/');
 
 // The addresses themselves
 checkSame('addresses that are kept', array_map(Array('nyu\Data\Shape', 'cleanLink'), Array('https://nyuark.test/a?b=1#c', 'HTTP://nyuark.test', 'mailto:a@nyuark.test', 'tel:+33100000000', '/venues/a', 'a/b.html', '../up', '#top', '?page=2', '//nyuark.test/x', '  /spaced  ', 'a:b/c d', '')), Array('https://nyuark.test/a?b=1#c', 'HTTP://nyuark.test', 'mailto:a@nyuark.test', 'tel:+33100000000', '/venues/a', 'a/b.html', '../up', '#top', '?page=2', '//nyuark.test/x', '/spaced', '', ''));

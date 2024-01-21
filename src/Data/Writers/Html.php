@@ -8,7 +8,7 @@ use nyu\Data\Shape;
 // tables, a tree of values as indented text. Every piece of text is
 // escaped, an address is written only when it is safe to follow, and
 // nothing of a document reaches a style sheet without being checked.
-class Html implements Writer {
+class Html extends Base {
 
 	// HTML element of each formatting, from the outermost to the innermost
 	const MARKTAGS = Array('bold'=>'strong', 'ital'=>'em', 'undr'=>'u', 'strk'=>'s', 'code'=>'code');
@@ -38,10 +38,10 @@ class Html implements Writer {
 	 * @param Array $writeOptns Options: 'whole', 'class', 'frmat', 'heads', 'shown'.
 	 * @return String The HTML.
 	 *
-	 * @throws \RuntimeException When the shape is not 'block', 'sheet' or 'nodes'.
+	 * @throws WriteError When the shape is not 'block', 'sheet' or 'nodes', or a block is of an unknown kind.
 	 */
 	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
-		$shapeAs = strval($shapedData['shape'] ?? '');
+		$shapeAs = $this->checkShpe($shapedData, Array('block', 'sheet', 'nodes'), 'HTML');
 		$itemLst = $shapedData['items'] ?? Array();
 		$infoArr = (array)($shapedData['infos'] ?? Array());
 		$this->frmtList = is_array($infoArr['frmat'] ?? null) ? $infoArr['frmat'] : Array();
@@ -50,10 +50,8 @@ class Html implements Writer {
 			$htmBody = $this->blocksOut((array)$itemLst);
 		}elseif( $shapeAs=='sheet' ){
 			$htmBody = $this->sheetsOut((array)$itemLst, !empty($writeOptns['heads']), !empty($writeOptns['shown']));
-		}elseif( $shapeAs=='nodes' ){
-			$htmBody = '<pre>'.$this->escapeTxt(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
 		}else{
-			throw new \RuntimeException('Shape that cannot be written as HTML: '.$shapeAs);
+			$htmBody = '<pre>'.$this->escapeTxt(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
 		}
 		$isWhole = !empty($writeOptns['whole']);
 		$pageTop = '';
@@ -222,7 +220,7 @@ class Html implements Writer {
 	 * @param Array $blocksList The blocks.
 	 * @return String The HTML.
 	 *
-	 * @throws \RuntimeException When a block is of an unknown kind.
+	 * @throws WriteError When a block is of an unknown kind.
 	 */
 	protected function blocksOut(Array $blocksList): String {
 		$htmText = '';
@@ -272,7 +270,7 @@ class Html implements Writer {
 			}elseif( in_array($blckKnd, Array('thead', 'tbrow')) ){
 				$htmText .= "<table>\n".$this->tblRowOut(Array($oneBlk))."</table>\n";
 			}else{
-				throw new \RuntimeException('Unknown kind of block: '.$blckKnd);
+				throw new WriteError('Unknown kind of block: '.$blckKnd);
 			}
 		}
 		return $htmText;
