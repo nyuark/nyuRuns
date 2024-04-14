@@ -13,6 +13,17 @@ abstract class Base implements Parser {
 	const DFLTSIZE = 16777216;
 
 	/**
+	 * Tells the kinds of content the parser reads, as Bina::signature()
+	 * names them: a file whose first bytes show another kind is not what
+	 * its name announces.
+	 *
+	 * @return Array The kinds; those that are text unless the parser says otherwise.
+	 */
+	public function signsRead(): Array {
+		return Bina::TEXTLIST;
+	}
+	
+	/**
 	 * Parses the content of a source, read whole within the 'limit'
 	 * option, in bytes.
 	 *

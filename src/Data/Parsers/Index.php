@@ -34,7 +34,8 @@ class Index {
 		'docx'   => Array('Docx', Array()),
 		'odt'    => Array('Odtx', Array()),
 		'epub'   => Array('EPub', Array()),
-		'ics'    => Array('ICal', Array())
+		'ics'    => Array('ICal', Array()),
+		'pdf'    => Array('Pdfx', Array())
 	);
 	// File extension standing for each request content type
 	protected static $typeList = Array(
@@ -58,7 +59,8 @@ class Index {
 		'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
 		'application/vnd.oasis.opendocument.text' => 'odt',
 		'application/epub+zip' => 'epub',
-		'text/calendar'        => 'ics'
+		'text/calendar'        => 'ics',
+		'application/pdf'      => 'pdf'
 	);
 
 	/**

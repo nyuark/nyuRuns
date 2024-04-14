@@ -20,6 +20,15 @@ abstract class Pack extends Base {
 	protected $sizeLimt = self::DFLTSIZE;
 
 	/**
+	 * Tells the kinds of content the parser reads: zip archives.
+	 *
+	 * @return Array The kinds.
+	 */
+	public function signsRead(): Array {
+		return Bina::PACKLIST;
+	}
+	
+	/**
 	 * Reads the document held by an opened archive.
 	 *
 	 * @param Array $parseOptns Options of the parser.

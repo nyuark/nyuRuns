@@ -22,7 +22,8 @@ class Index {
 		'md'     => Array('Mdwn', Array(), 'text/markdown; charset=utf-8'),
 		'markdown' => Array('Mdwn', Array(), 'text/markdown; charset=utf-8'),
 		'txt'    => Array('Text', Array('gives'=>'plain'), 'text/plain; charset=utf-8'),
-		'ics'    => Array('ICal', Array(), 'text/calendar; charset=utf-8')
+		'ics'    => Array('ICal', Array(), 'text/calendar; charset=utf-8'),
+		'pdf'    => Array('Pdfx', Array(), 'application/pdf')
 	);
 
 	/**

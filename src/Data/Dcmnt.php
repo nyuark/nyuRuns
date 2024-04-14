@@ -59,8 +59,8 @@ class Dcmnt{
 		if( $prsrObj===null ){
 			return;
 		}
-		// A parser reads text, or a zip archive: a content that is plainly something else is refused
-		$kindLst = ($prsrObj instanceof Parsers\Pack) ? Parsers\Bina::PACKLIST : Parsers\Bina::TEXTLIST;
+		// A parser tells the kinds of content it reads: a content that is plainly something else is refused
+		$kindLst = ($prsrObj instanceof Parsers\Base) ? $prsrObj->signsRead() : Parsers\Bina::TEXTLIST;
 		if( $this->fileSign!='' && !in_array($this->fileSign, $kindLst) ){
 			throw new Parsers\ParseError($this->fileName.': the content is not what the name announces');
 		}
