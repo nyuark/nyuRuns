@@ -7,7 +7,7 @@ namespace nyu\Data\Parsers;
 class Bina {
 
 	// Kinds that are text, although they can be told from their first bytes
-	const TEXTLIST = Array('xml', 'html', 'ics', 'rtf');
+	const TEXTLIST = Array('xml', 'svg', 'html', 'ics', 'rtf');
 	// Kinds that are zip archives
 	const PACKLIST = Array('zip', 'odt', 'ods', 'epub');
 
@@ -18,7 +18,7 @@ class Bina {
 	 * and give ''.
 	 *
 	 * @param String $firstBytes The first bytes of the content, 512 being enough.
-	 * @return String The kind: 'zip', 'odt', 'ods', 'epub', 'pdf', 'png', 'jpg', 'gif', 'webp', 'wav', 'mp3', 'ogg', 'flac', 'mp4', 'ole', 'gz', 'rtf', 'xml', 'html', 'ics', or '' when unknown.
+	 * @return String The kind: 'zip', 'odt', 'ods', 'epub', 'pdf', 'png', 'jpg', 'gif', 'webp', 'wav', 'mp3', 'ogg', 'flac', 'mp4', 'ole', 'gz', 'rtf', 'svg', 'xml', 'html', 'ics', or '' when unknown.
 	 */
 	public static function signature(String $firstBytes): String {
 		if( substr($firstBytes, 0, 4)==="PK\x03\x04" ){
@@ -53,6 +53,10 @@ class Bina {
 		}
 		// Text formats with a fixed opening
 		$headTxt = ltrim(Base::cleanText($firstBytes));
+		// A drawing is XML whose first element is svg, after what may stand before it
+		if( preg_match('/^(?:\s*(?:<\?[^>]*\?>|<!--.*?-->|<!DOCTYPE\s+svg[^>]*>))*\s*<(?:[\w\-]+:)?svg[\s>\/]/is', $headTxt) ){
+			return 'svg';
+		}
 		if( strncmp($headTxt, '<?xml', 5)===0 ){
 			return 'xml';
 		}

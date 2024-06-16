@@ -4,6 +4,7 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Archv;
 use nyu\Data\Fluxd;
+use nyu\Data\Image;
 use nyu\Data\Shape;
 
 // What the parsers of zipped documents share: opening the archive,
@@ -14,6 +15,8 @@ abstract class Pack extends Base {
 	const SHAPEOUT = 'block';
 	// Greatest number of cells filled with the value of the merged area they belong to
 	const FILLSMAX = 1000000;
+	// Greatest number of pictures taken out of a document
+	const MEDIAMAX = 1000;
 
 	// The archive being read, and the greatest size accepted for one of its entries
 	protected $openArch;
@@ -61,21 +64,30 @@ abstract class Pack extends Base {
 	}
 
 	/**
-	 * Parses a zipped document from a source. The 'limit' option is the
-	 * greatest size accepted for each entry of the archive once unpacked,
-	 * in bytes.
+	 * Parses a zipped document from a source.
+	 *
+	 * Options, besides those of each parser:
+	 *   'limit' => the greatest size accepted for each entry of the
+	 *              archive once unpacked, in bytes;
+	 *   'media' => a folder of the server: the pictures the document
+	 *              holds are saved there, and each image block then
+	 *              gives the name of its file in the stead of its place
+	 *              in the archive. What was saved is listed in the
+	 *              details, under 'media'.
 	 *
 	 * @param Fluxd $sourceFlux The source.
 	 * @param Array $parseOptns Options of the parser.
 	 * @return Array The envelope: 'shape', 'infos' and 'items'.
 	 *
-	 * @throws ParseError When the source is not a zip archive, or not a valid document of the kind.
+	 * @throws ParseError When the source is not a zip archive, not a valid document of the kind, or the folder for its pictures cannot be written to.
 	 */
 	public function parseFlux(Fluxd $sourceFlux, Array $parseOptns=Array()): Array {
 		$this->sizeLimt = intval($parseOptns['limit'] ?? self::DFLTSIZE);
 		try{
 			$this->openArch = Archv::openFluxd($sourceFlux);
-			return $this->readArchv($parseOptns);
+			$envlope = $this->readArchv($parseOptns);
+			// The pictures are taken out while the archive is still open
+			return (strval($parseOptns['media'] ?? '')!=='' && $envlope['shape']=='block') ? $this->saveMedia($envlope, strval($parseOptns['media'])) : $envlope;
 		}catch( ParseError $e ){
 			throw $e;
 		}catch( \RuntimeException $e ){
@@ -456,6 +468,81 @@ abstract class Pack extends Base {
 			$frmtSet['sizes'] = intval($frmtSet['sizes']);
 		}
 		return $frmtSet;
+	}
+	
+	/**
+	 * Saves the pictures a document holds to a folder, and gives each
+	 * image block the name of its file.
+	 *
+	 * @param Array  $envelopeAr The envelope of the document, of shape 'block'.
+	 * @param String $mediaFoldr The folder.
+	 * @return Array The envelope, its image blocks pointing to the files saved, and those files listed in its details under 'media': the name of each file => its place in the archive.
+	 *
+	 * @throws ParseError When the folder is not one that can be written to.
+	 */
+	protected function saveMedia(Array $envelopeAr, String $mediaFoldr): Array {
+		$realDir = realpath($mediaFoldr);
+		if( $realDir===false || !is_dir($realDir) || !is_writable($realDir) ){
+			throw new ParseError('Invalid option: the folder for the pictures cannot be written to');
+		}
+		$saveLst = Array();
+		$envelopeAr['items'] = $this->mediaWalk((array)$envelopeAr['items'], $realDir, $saveLst);
+		// The headers and the footers of the pages hold pictures too
+		foreach(Array('phead', 'pfoot') as $infKey){
+			if( is_array($envelopeAr['infos'][$infKey] ?? null) ){
+				$envelopeAr['infos'][$infKey] = $this->mediaWalk($envelopeAr['infos'][$infKey], $realDir, $saveLst);
+			}
+		}
+		$envelopeAr['infos']['media'] = array_flip(array_filter($saveLst, 'strlen'));
+		return $envelopeAr;
+	}
+	
+	/**
+	 * Saves the pictures of some blocks, at any depth. A picture is
+	 * saved once, under a name made from its content, whatever number of
+	 * blocks show it; it is written anew when this server can, standing
+	 * the right way up and without what a camera recorded in it, and
+	 * copied as it is otherwise. What is not a picture this server reads
+	 * is left where it is.
+	 *
+	 * @param Array  $blocksList The blocks.
+	 * @param String $mediaFoldr The folder, as the system names it.
+	 * @param Array  $savedNames The pictures met so far: their place in the archive => the name of their file, '' for what could not be saved.
+	 * @return Array The blocks.
+	 */
+	protected function mediaWalk(Array $blocksList, String $mediaFoldr, Array &$savedNames): Array {
+		foreach($blocksList as $blkIdx=>$oneBlk){
+			if( !empty($oneBlk['items']) ){
+				$blocksList[$blkIdx]['items'] = $this->mediaWalk($oneBlk['items'], $mediaFoldr, $savedNames);
+			}
+			$innrPth = strval($oneBlk['attrs']['sourc'] ?? '');
+			if( ($oneBlk['block'] ?? '')!='image' || !$this->openArch->findEntry($innrPth) ){
+				continue;
+			}
+			if( !isset($savedNames[$innrPth]) && count($savedNames)<self::MEDIAMAX ){
+				$savedNames[$innrPth] = '';
+				try{
+					$rawText = $this->openArch->readEntry($innrPth, $this->sizeLimt);
+					$imgeObj = Image::openFluxd(Fluxd::openBytes($rawText));
+					// A drawing is saved cleaned of what runs; any other picture written anew, or copied when this server cannot
+					if( $imgeObj->imageInfo()['kinds']=='svg' ){
+						$outText = $imgeObj->cleanedUp();
+					}else{
+						$outText = function_exists('imagecreatefromstring') ? $imgeObj->setUprght()->giveBytes('', 90) : $rawText;
+					}
+					$fileNme = substr(sha1($outText), 0, 20).'.'.$imgeObj->imageInfo()['kinds'];
+					if( @file_put_contents($mediaFoldr.DIRECTORY_SEPARATOR.$fileNme, $outText)!==false ){
+						$savedNames[$innrPth] = $fileNme;
+					}
+				}catch( \RuntimeException $e ){
+					// Not a picture this server reads, such as a drawing of an office suite: the block keeps its place in the archive
+				}
+			}
+			if( strval($savedNames[$innrPth] ?? '')!=='' ){
+				$blocksList[$blkIdx]['attrs']['sourc'] = $savedNames[$innrPth];
+			}
+		}
+		return $blocksList;
 	}
 	
 }
