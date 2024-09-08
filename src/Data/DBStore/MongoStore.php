@@ -17,6 +17,9 @@ class MongoStore implements Store {
 	protected $baseName;
 	protected $errorMsg = false;
 
+	// Greatest size of a binary value written: a document holds 16 MB at most, the rest of it included
+	const BLOBSMAX = 15728640;
+
 	/**
 	 * Opens the connection to a MongoDB database.
 	 *
@@ -110,13 +113,13 @@ class MongoStore implements Store {
 	 * same way: MongoDB creates it with its first document.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array|Bool An empty list under 'flds' and '_id' under 'pkey'.
+	 * @return Array|Bool An empty list under 'flds', '_id' under 'pkey' and an empty list under 'blob': what is binary is told value by value.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	public function tableInfo(String $tableLabel): Array|Bool {
 		$this->checkName($tableLabel);
-		return Array('flds'=>Array(), 'pkey'=>'_id');
+		return Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array());
 	}
 
 	/**
@@ -197,6 +200,54 @@ class MongoStore implements Store {
 	}
 
 	/**
+	 * Gives the values to be written their MongoDB type where they need
+	 * one: a flux (nyu\Data\Fluxd) is written as binary.
+	 *
+	 * @param Array $valueArray Map of field name => value.
+	 * @return Array The values, each flux turned into a binary value.
+	 *
+	 * @throws \RuntimeException When a flux is larger than a document may hold.
+	 */
+	public static function blobsSent(Array $valueArray): Array {
+		foreach($valueArray as $fldNme=>$fldVal){
+			if( $fldVal instanceof \nyu\Data\Fluxd ){
+				$fldVal->goToStart();
+				$binClss = '\\MongoDB\\BSON\\Binary';
+				$valueArray[$fldNme] = new $binClss($fldVal->readWhole(self::BLOBSMAX), 0);
+			}
+		}
+		return $valueArray;
+	}
+
+	/**
+	 * Gives the binary values of a row read as fluxes, or leaves them out
+	 * when they were not asked for by name.
+	 *
+	 * @param Array $documntRow The row, as MongoDB gives it.
+	 * @param Array $fieldNames The fields asked for by name; none when every field was asked for.
+	 * @param Int   $bytesLimit Greatest size accepted for a binary value.
+	 * @return Array The row.
+	 *
+	 * @throws \RuntimeException When a binary value asked for is larger than accepted.
+	 */
+	public static function blobsRead(Array $documntRow, Array $fieldNames, Int $bytesLimit): Array {
+		foreach($documntRow as $fldNme=>$fldVal){
+			if( !is_object($fldVal) || !is_a($fldVal, 'MongoDB\\BSON\\Binary') ){
+				continue;
+			}
+			if( !in_array($fldNme, $fieldNames) ){
+				unset($documntRow[$fldNme]);
+				continue;
+			}
+			if( strlen($fldVal->getData())>$bytesLimit ){
+				throw new \RuntimeException('Binary field larger than the '.$bytesLimit.' bytes allowed: '.$fldNme);
+			}
+			$documntRow[$fldNme] = \nyu\Data\Fluxd::openBytes($fldVal->getData());
+		}
+		return $documntRow;
+	}
+
+	/**
 	 * Builds the query of a filter, ready to be sent: the keys in it are
 	 * given their MongoDB type.
 	 *
@@ -225,10 +276,10 @@ class MongoStore implements Store {
 	 *
 	 * @param String $tableLabel Name of the table.
 	 * @param Array  $whereArray Filter array, empty for every row.
-	 * @param Array  $findOption Options of the reading: 'field', 'order', 'limit', 'offst'.
-	 * @return Array|Bool The rows, each an array of its fields with its _id as text, or false on failure.
+	 * @param Array  $findOption Options of the reading: 'field', 'order', 'limit', 'offst', 'bytes'.
+	 * @return Array|Bool The rows, each an array of its fields with its _id as text and its binary values asked for by name as fluxes, or false on failure.
 	 *
-	 * @throws \RuntimeException When a name is not valid, or an option of the SQL types is asked for.
+	 * @throws \RuntimeException When a name is not valid, an option of the SQL types is asked for, or a binary value is larger than accepted.
 	 */
 	public function findItems(String $tableLabel, Array $whereArray=Array(), Array $findOption=Array()): Array|Bool {
 		$this->errorMsg = false;
@@ -263,29 +314,37 @@ class MongoStore implements Store {
 			}
 		}
 		$fndQury = $this->sentQuery($whereArray);
+		$namedLs = array_keys(array_filter($qryOpts['projection'] ?? Array()));
+		$byteMax = max(0, intval($findOption['bytes'] ?? self::BLOBSIZE));
+		$fndRows = Array();
+		$rowList = Array();
 		try{
 			$qryClss = '\\MongoDB\\Driver\\Query';
 			$rowCurs = $this->mngrLink->executeQuery($this->baseName.'.'.$tableLabel, new $qryClss($fndQury, $qryOpts));
 			$rowCurs->setTypeMap(Array('root'=>'array', 'document'=>'array', 'array'=>'array'));
-			$fndRows = Array();
 			foreach($rowCurs as $rowDoc){
-				// The key is given as text, like the keys of the SQL types
-				if( isset($rowDoc['_id']) && is_object($rowDoc['_id']) ){
-					$rowDoc['_id'] = strval($rowDoc['_id']);
-				}
-				foreach($aliasOf as $fldNme=>$newNme){
-					if( array_key_exists($fldNme, $rowDoc) ){
-						$rowDoc[$newNme] = $rowDoc[$fldNme];
-						unset($rowDoc[$fldNme]);
-					}
-				}
-				$fndRows[] = $rowDoc;
+				$rowList[] = $rowDoc;
 			}
-			return $fndRows;
 		}catch( \Exception $e ){
 			$this->errorMsg = 'MongoDB Error: '.$e->getMessage();
 			return false;
 		}
+		foreach($rowList as $rowDoc){
+			// What is binary is given as a flux when it was asked for by name, and left out otherwise
+			$rowDoc = self::blobsRead($rowDoc, $namedLs, $byteMax);
+			// The key is given as text, like the keys of the SQL types
+			if( isset($rowDoc['_id']) && is_object($rowDoc['_id']) ){
+				$rowDoc['_id'] = strval($rowDoc['_id']);
+			}
+			foreach($aliasOf as $fldNme=>$newNme){
+				if( array_key_exists($fldNme, $rowDoc) ){
+					$rowDoc[$newNme] = $rowDoc[$fldNme];
+					unset($rowDoc[$fldNme]);
+				}
+			}
+			$fndRows[] = $rowDoc;
+		}
+		return $fndRows;
 	}
 
 	/**
@@ -306,6 +365,7 @@ class MongoStore implements Store {
 		if( isset($valueArray['_id']) ){
 			$valueArray['_id'] = $this->keyValues($valueArray['_id']);
 		}
+		$valueArray = self::blobsSent($valueArray);
 		try{
 			$blkClss = '\\MongoDB\\Driver\\BulkWrite';
 			$blkWrit = new $blkClss();
@@ -339,6 +399,7 @@ class MongoStore implements Store {
 		if( empty($valueArray) ){
 			return 0;
 		}
+		$valueArray = self::blobsSent($valueArray);
 		try{
 			$blkClss = '\\MongoDB\\Driver\\BulkWrite';
 			$blkWrit = new $blkClss();

@@ -248,6 +248,20 @@ class Loader{
 		);
 	}
 
+	/**
+	 * Resolves the sound configuration from the SYSTEM config file: where
+	 * the program that unpacks sounds is, and how long it may run.
+	 *
+	 * @return Array Sound settings: 'tool' ('' when the server has none), 'time' in seconds.
+	 */
+	function sndConfig(): Array {
+		$nyuConf = $GLOBALS['nyuConfig'];
+		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		return Array(
+			'tool' => strval($sysConf['SND_TOOL'] ?? ''),
+			'time' => intval($sysConf['SND_TIME'] ?? 60),
+		);
+	}
 
     /**
 	 * Defines the output format and response template by building a

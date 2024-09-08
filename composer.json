@@ -21,5 +21,13 @@
         "firebase/php-jwt": "^7.2",
         "dompdf/dompdf": "~3.1",
         "smalot/pdfparser": "~2.12"
+    },
+    "suggest": {
+        "ext-zip": "To read zipped documents: Office, OpenDocument and EPub files",
+        "ext-gd": "To change pictures: resize, crop, turn, and strip what they carry",
+        "ext-imagick": "To draw SVG pictures as PNG, JPEG or WebP",
+        "ext-exif": "To read what a photo tells: date, camera, position",
+        "ext-mbstring": "To read and write PDF documents",
+        "ext-mongodb": "To use MongoDB as a store"
     }
 }

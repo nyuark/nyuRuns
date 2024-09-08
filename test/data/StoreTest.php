@@ -42,7 +42,7 @@ checkTrue('the SQL store follows the contract', $dbStore instanceof Store);
 // Names and description
 checkSame('checkName gives the name back', runSafely(function() use ($dbStore){ return $dbStore->checkName('shows.title'); }), 'shows.title');
 checkThrw('checkName refuses anything else', function() use ($dbStore){ $dbStore->checkName('title; DROP'); }, 'RuntimeException');
-checkSame('tableInfo', runSafely(function() use ($dbStore){ return $dbStore->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show'));
+checkSame('tableInfo', runSafely(function() use ($dbStore){ return $dbStore->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
 
 // Reading: the options every store honours
 checkSame('find: every row', foundCol($dbStore, 'shows', Array(), Array(), 'id_show'), Array(1, 2, 3, 4, 5));

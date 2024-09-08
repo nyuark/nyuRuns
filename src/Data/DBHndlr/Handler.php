@@ -30,7 +30,7 @@ interface Handler{
 	 *
 	 * @param String $builtQuery The SQL query to execute.
 	 * @param Bool   $query2Exec Whether the query is a write (INSERT/UPDATE/DELETE) rather than a read.
-	 * @param Array  $boundArray Values bound, in order, to the ? placeholders of the query.
+	 * @param Array  $boundArray Values bound, in order, to the ? placeholders of the query; a flux (nyu\Data\Fluxd) is bound as binary.
 	 * @return Bool True on success, false on failure.
 	 */
 	public function sendQuery(String $builtQuery, Bool $query2Exec=false, Array $boundArray=Array()): Bool;
@@ -106,10 +106,10 @@ interface Handler{
 	 */
 	public function likeOprtr(): String;
 	/**
-	 * Describes a table: its field names and its primary key.
+	 * Describes a table: its field names, its primary key and its binary fields.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array|Bool The field names under 'flds' and the primary key field under 'pkey' ('' when the table has none), or false when the table cannot be described.
+	 * @return Array|Bool The field names under 'flds', the primary key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */

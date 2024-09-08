@@ -67,11 +67,11 @@ checkThrw('quoteName refuses an empty name', function() use ($dbHandl){ $dbHandl
 checkThrw('quoteName refuses a trailing line break', function() use ($dbHandl){ $dbHandl->quoteName("title\n"); }, 'RuntimeException');
 
 // Table description
-checkSame('tableInfo gives the fields and the key', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show'));
+checkSame('tableInfo gives the fields and the key', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
 checkSame('tableInfo of a table without a key', runSafely(function() use ($dbHandl){
 	$dbHandl->sendQuery('CREATE TABLE `notes` (`body` TEXT, `madeDate` TEXT);', true);
 	return $dbHandl->tableInfo('notes');
-}), Array('flds'=>Array('body', 'madeDate'), 'pkey'=>''));
+}), Array('flds'=>Array('body', 'madeDate'), 'pkey'=>'', 'blob'=>Array()));
 checkSame('tableInfo of a missing table', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('nowhere'); }), false);
 checkThrw('tableInfo refuses an invalid table name', function() use ($dbHandl){ $dbHandl->tableInfo("shows'); DROP TABLE shows; --"); }, 'RuntimeException');
 

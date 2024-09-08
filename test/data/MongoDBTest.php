@@ -79,7 +79,7 @@ function docTitle( Array $whereArray ): Mixed {
 // Connection and store
 checkSame('the mongo type gives the MongoDB store, and no SQL handler', Array(get_class($dbStore), DBCon::linkNamed()->getConnex()), Array('nyu\Data\DBStore\MongoStore', null));
 checkSame('the keys given by the server are 24 hexadecimal characters', array_map(function($givenValue){ return is_string($givenValue) && preg_match('/^[0-9a-f]{24}$/', $givenValue)==1; }, $showKey), Array(true, true, true, true));
-checkSame('tableInfo', $dbStore->tableInfo('shows'), Array('flds'=>Array(), 'pkey'=>'_id'));
+checkSame('tableInfo', $dbStore->tableInfo('shows'), Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array()));
 checkSame('there are no transactions', Array($dbStore->canTrnsct(), $dbStore->opnTrnsct()), Array(false, false));
 
 // Lists

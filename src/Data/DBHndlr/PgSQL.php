@@ -60,12 +60,12 @@ Class PgSQL extends PDO {
 	 * and its primary key.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array|Bool The field names under 'flds' and the primary key field under 'pkey' ('' when the table has none), or false when the table cannot be described.
+	 * @return Array|Bool The field names under 'flds', the primary key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	public function tableInfo(String $tableLabel): Array|Bool {
-		$infQury = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk FROM pg_attribute a'
+		$infQury = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
 			.' LEFT JOIN pg_index i ON i.indrelid = a.attrelid AND i.indisprimary AND a.attnum = ANY(i.indkey)'
 			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
 		// The quoted name keeps the case of the table as it is written
@@ -76,12 +76,15 @@ Class PgSQL extends PDO {
 		if( !is_array($fldRows) || empty($fldRows) ){
 			return false;
 		}
-		$tblInfo = Array('flds'=>Array(), 'pkey'=>'');
+		$tblInfo = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
 		foreach($fldRows as $fldRow){
 			if( $fldRow['pk'] && $tblInfo['pkey']=='' ){
 				$tblInfo['pkey'] = $fldRow['name'];
 			}
 			$tblInfo['flds'][] = $fldRow['name'];
+			if( strval($fldRow['type'])=='bytea' ){
+				$tblInfo['blob'][] = $fldRow['name'];
+			}
 		}
 		return $tblInfo;
 	}

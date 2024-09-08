@@ -47,7 +47,7 @@ abstract Class PDO implements Handler {
 			$errSrce = $this->dbDriver;
 			if( !empty($boundArray) ){
 				$prepStm = $this->dbDriver->prepare($this->sqlQuery);
-				if( $prepStm!==false && $prepStm->execute(array_values($boundArray)) ){
+				if( $prepStm!==false && $this->bindsExec($prepStm, array_values($boundArray)) ){
 					$prepStm->setFetchMode(\PDO::FETCH_ASSOC);
 					$this->queryRes = $query2Exec ? $prepStm->rowCount() : $prepStm;
 				}else{
@@ -70,6 +70,35 @@ abstract Class PDO implements Handler {
 			return false;
 		}
 	}
+	/**
+	 * Runs a prepared query with its values. A value given as a flux
+	 * (nyu\Data\Fluxd) is bound as binary, which is what a binary field of
+	 * every database type asks for; without one, the values are bound the
+	 * usual way.
+	 *
+	 * @param \PDOStatement $preparedSt The prepared query.
+	 * @param Array         $boundArray Its values, in order.
+	 * @return Bool True when the query ran.
+	 */
+	protected function bindsExec(\PDOStatement $preparedSt, Array $boundArray): Bool {
+		$hasBlob = false;
+		foreach($boundArray as $bndVal){
+			$hasBlob = $hasBlob || ($bndVal instanceof \nyu\Data\Fluxd);
+		}
+		if( !$hasBlob ){
+			return $preparedSt->execute($boundArray);
+		}
+		foreach($boundArray as $bndIdx=>$bndVal){
+			if( $bndVal instanceof \nyu\Data\Fluxd ){
+				$bndVal->goToStart();
+				$preparedSt->bindValue($bndIdx+1, $bndVal->readWhole(), \PDO::PARAM_LOB);
+			}else{
+				$preparedSt->bindValue($bndIdx+1, $bndVal);
+			}
+		}
+		return $preparedSt->execute();
+	}
+
 	/**
 	 * Reads the results of the last sent query, collapsing a single-row
 	 * single-column result down to a scalar and a single-row multi-column

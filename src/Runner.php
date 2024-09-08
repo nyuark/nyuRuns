@@ -97,6 +97,12 @@ class Runner{
 		$logConf = $this->setupCon->logConfig();
 		$this->logStore = new \nyu\Tools\Logger( $logConf['path'], 'runner', $logConf['mode'], $logConf['size'], $logConf['rota'], $logConf['pref'] );
 
+		// Plug the program that unpacks sounds, where the server has one
+		$sndConf = $this->setupCon->sndConfig();
+		if( $sndConf['tool']!=='' ){
+			\nyu\Data\Sound::plugCodec( $contObj->makeObjct('nyu\\Data\\Codec', array(), Array($sndConf['tool'], $sndConf['time'])) );
+		}
+
 		$this->shareCon = $contObj;
 	}
 

@@ -38,25 +38,28 @@ Class SQLite extends PDO {
 	 * its primary key.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array|Bool The field names under 'flds' and the primary key field under 'pkey' ('' when the table has none), or false when the table cannot be described.
+	 * @return Array|Bool The field names under 'flds', the primary key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	public function tableInfo(String $tableLabel): Array|Bool {
 		$this->quoteName($tableLabel);
-		if( !$this->sendQuery('SELECT name, pk FROM pragma_table_info(?) ORDER BY cid;', false, Array($tableLabel)) ){
+		if( !$this->sendQuery('SELECT name, pk, type FROM pragma_table_info(?) ORDER BY cid;', false, Array($tableLabel)) ){
 			return false;
 		}
 		$fldRows = $this->readQuery(true);
 		if( !is_array($fldRows) || empty($fldRows) ){
 			return false;
 		}
-		$tblInfo = Array('flds'=>Array(), 'pkey'=>'');
+		$tblInfo = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
 		foreach($fldRows as $fldRow){
 			if( $fldRow['pk']==1 ){
 				$tblInfo['pkey'] = $fldRow['name'];
 			}
 			$tblInfo['flds'][] = $fldRow['name'];
+			if( stripos(strval($fldRow['type']), 'blob')!==false ){
+				$tblInfo['blob'][] = $fldRow['name'];
+			}
 		}
 		return $tblInfo;
 	}

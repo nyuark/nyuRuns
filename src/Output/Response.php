@@ -53,7 +53,8 @@ class Response{
 	 */
 	public function formatOut( Array|Object|String|Int|Float|Bool $dataValues = Array() ): Bool {
 		if(strtoupper($this->dataFrmt)=='JSON'){
-			$jsonStr = json_encode($dataValues);
+			// A binary value cannot be written as text: it is given as null
+			$jsonStr = json_encode(\nyu\Data\Fluxd::dropFluxd($dataValues));
 			if( $jsonStr===false ){
 				trigger_error('Response could not be encoded as JSON: '.json_last_error_msg(), E_USER_WARNING);
 				$this->dataOuts = json_encode( Array('error'=>'Response could not be encoded', 'code'=>500) );

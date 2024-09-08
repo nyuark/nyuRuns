@@ -264,6 +264,25 @@ class Fluxd {
 	}
 
 	/**
+	 * Takes the sources out of a value that is to be written as text: a
+	 * source cannot be, and is given as null, wherever it stands.
+	 *
+	 * @param mixed $givenValue The value: a source, an array holding some at any depth, or anything else.
+	 * @return mixed The value, with null in place of every source.
+	 */
+	public static function dropFluxd( Mixed $givenValue ): Mixed {
+		if( $givenValue instanceof Fluxd ){
+			return null;
+		}
+		if( is_array($givenValue) ){
+			foreach($givenValue as $valKey=>$valItm){
+				$givenValue[$valKey] = self::dropFluxd($valItm);
+			}
+		}
+		return $givenValue;
+	}
+
+	/**
 	 * Releases the source and deletes the temporary files it made.
 	 * Closing a source twice does nothing.
 	 */

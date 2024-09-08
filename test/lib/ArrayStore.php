@@ -36,7 +36,7 @@ class ArrayStore implements Store {
 	 */
 	public function tableInfo(String $tableLabel): Array|Bool {
 		$this->checkName($tableLabel);
-		return Array('flds'=>Array(), 'pkey'=>'_id');
+		return Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array());
 	}
 
 	/**

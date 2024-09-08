@@ -9,7 +9,15 @@ namespace nyu\Data\DBStore;
 // Rows are found, changed and deleted through the filter array of
 // the Filter class: 'field'=>value, with the '!', '<=', '>=', '<', '>'
 // and '?' suffixes on the field name.
+//
+// A binary value (a picture, a sound, any file) is written from a flux
+// (nyu\Data\Fluxd) given as the value of its field, and read back as one.
+// A binary field is only read when it is named among the fields asked
+// for: a reading that names none leaves it out.
 interface Store{
+
+	// Greatest size read from a binary field unless told otherwise: 16 MB
+	const BLOBSIZE = 16777216;
 
 	/**
 	 * Checks a table or field name: letters, digits and underscores, with
@@ -23,10 +31,10 @@ interface Store{
 	public function checkName(String $fieldLabel): String;
 
 	/**
-	 * Describes a table: its field names and its key field.
+	 * Describes a table: its field names, its key field and its binary fields.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array|Bool The field names under 'flds' (empty when the store sets no list of fields) and the key field under 'pkey' ('' when the table has none), or false when the table cannot be described.
+	 * @return Array|Bool The field names under 'flds' (empty when the store sets no list of fields) the key field under 'pkey' ('' when the table has none) and the binary fields under 'blob' (empty when the store tells them value by value), or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
@@ -36,10 +44,11 @@ interface Store{
 	 * Reads the rows of a table matching a filter.
 	 *
 	 * The options every store honours:
-	 *   'field' => list of the fields to read, all of them when empty;
+	 *   'field' => list of the fields to read; all of them but the binary ones when empty;
 	 *   'order' => list of Array(field, descending) pairs to sort by;
 	 *   'limit' => greatest number of rows, null for no limit;
-	 *   'offst' => number of rows to pass over first, null for none.
+	 *   'offst' => number of rows to pass over first, null for none;
+	 *   'bytes' => greatest size read from a binary field, 16 MB when left out.
 	 * The options only the SQL types honour, refused by the others:
 	 *   'funcs' => list of Array('funct'=>, 'field'=>, 'alias'=>) function selections, such as count(*);
 	 *   'joins' => Array(table, field, field) of a joined table;
@@ -49,9 +58,9 @@ interface Store{
 	 * @param String $tableLabel Name of the table.
 	 * @param Array  $whereArray Filter array, empty for every row.
 	 * @param Array  $findOption Options of the reading, see above.
-	 * @return Array|Bool The rows, each an array of its fields, or false on failure.
+	 * @return Array|Bool The rows, each an array of its fields, a binary one as a flux (nyu\Data\Fluxd), or false on failure.
 	 *
-	 * @throws \RuntimeException When a name is not valid, or an option is not supported by the store.
+	 * @throws \RuntimeException When a name is not valid, an option is not supported by the store, or a binary field is larger than accepted.
 	 */
 	public function findItems(String $tableLabel, Array $whereArray=Array(), Array $findOption=Array()): Array|Bool;
 
@@ -59,7 +68,7 @@ interface Store{
 	 * Adds a row to a table.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @param Array  $valueArray Map of field name => value of the new row.
+	 * @param Array  $valueArray Map of field name => value of the new row; a flux (nyu\Data\Fluxd) for a binary field.
 	 * @return String|Bool The key the database gave to the row, '' when it gave none, or false on failure.
 	 *
 	 * @throws \RuntimeException When a name is not valid.
@@ -72,7 +81,7 @@ interface Store{
 	 *
 	 * @param String $tableLabel Name of the table.
 	 * @param Array  $whereArray Filter array of the rows to change.
-	 * @param Array  $valueArray Map of field name => new value.
+	 * @param Array  $valueArray Map of field name => new value; a flux (nyu\Data\Fluxd) for a binary field.
 	 * @return Int|Bool The number of rows concerned, which may be 0, or false on failure.
 	 *
 	 * @throws \RuntimeException When a name is not valid, or the filter is empty.

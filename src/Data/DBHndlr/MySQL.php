@@ -55,7 +55,7 @@ Class MySQL extends PDO {
 	 * Describes a table, through EXPLAIN: its field names and its primary key.
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array|Bool The field names under 'flds' and the primary key field under 'pkey' ('' when the table has none), or false when the table cannot be described.
+	 * @return Array|Bool The field names under 'flds', the primary key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
@@ -67,12 +67,15 @@ Class MySQL extends PDO {
 		if( !is_array($fldRows) || empty($fldRows) ){
 			return false;
 		}
-		$tblInfo = Array('flds'=>Array(), 'pkey'=>'');
+		$tblInfo = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
 		foreach($fldRows as $fldRow){
 			if( $fldRow['Key']=='PRI' && $tblInfo['pkey']=='' ){
 				$tblInfo['pkey'] = $fldRow['Field'];
 			}
 			$tblInfo['flds'][] = $fldRow['Field'];
+			if( preg_match('/^((tiny|medium|long)?blob|(var)?binary)/i', strval($fldRow['Type'])) ){
+				$tblInfo['blob'][] = $fldRow['Field'];
+			}
 		}
 		return $tblInfo;
 	}

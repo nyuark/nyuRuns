@@ -52,7 +52,8 @@ class Json extends Base {
 	protected function jsonTexts(Mixed $valueToPut, Bool $onSeveralL): String {
 		// Numbers are written with the digits they need and no more, whatever the server is set to
 		$keptPrc = ini_set('serialize_precision', '-1');
-		$jsnText = json_encode($valueToPut, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($onSeveralL ? JSON_PRETTY_PRINT : 0));
+		// A binary value cannot be written as text: it is given as null
+		$jsnText = json_encode(\nyu\Data\Fluxd::dropFluxd($valueToPut), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($onSeveralL ? JSON_PRETTY_PRINT : 0));
 		if( $keptPrc!==false ){
 			ini_set('serialize_precision', $keptPrc);
 		}

@@ -35,7 +35,7 @@ function runDialct( String $handlerCls ): Void {
 
 	// Handler
 	checkSame('the handler of the type is used', get_class($dbHandl), $handlerCls);
-	checkSame('tableInfo gives the fields and the key', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show'));
+	checkSame('tableInfo gives the fields and the key', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
 	checkSame('tableInfo of a missing table', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('nowhere'); }), false);
 	checkSame('a failed query gives false and an error', runSafely(function() use ($dbHandl){
 		return Array($dbHandl->sendQuery('SELECT * FROM '.$dbHandl->quoteName('nowhere')), is_string($dbHandl->lastError()));
