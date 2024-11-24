@@ -4,7 +4,8 @@ namespace nyu\Data;
 
 // A zip archive, read entry by entry: nothing is ever written to disk
 // from what it holds. This is how the office documents and the books
-// that are zip files are opened.
+// that are zip files are opened. An archive is also made from its
+// entries, to write them.
 class Archv {
 
 	protected $zipHndlr;
@@ -71,6 +72,44 @@ class Archv {
 		return new Archv($zipArch, $sourceFlux, $nameLst);
 	}
 
+	/**
+	 * Makes a zip archive from its entries, without the zip extension of
+	 * PHP: this is how the office documents and the books are written.
+	 * The entries are packed when PHP can pack them, kept as they are
+	 * otherwise.
+	 *
+	 * @param Array $entriesArr The entries, name with its folders => content, in the order they are written.
+	 * @param Array $plainNames Names of the entries never packed, as the first entry of a book must be.
+	 * @return String The bytes of the archive.
+	 *
+	 * @throws \RuntimeException When a name is not safe, or the archive would be larger than a plain zip can be.
+	 */
+	public static function makeBytes(Array $entriesArr, Array $plainNames=Array()): String {
+		$bodyTxt = '';
+		$listTxt = '';
+		// The date of the entries, as archives write it: two seconds at a time, from 1980
+		$timeArr = getdate();
+		$timeVal = ($timeArr['hours']<<11) | ($timeArr['minutes']<<5) | intdiv($timeArr['seconds'], 2);
+		$dateVal = (max(0, $timeArr['year']-1980)<<9) | ($timeArr['mon']<<5) | $timeArr['mday'];
+		foreach($entriesArr as $entNme=>$entTxt){
+			$entNme = strval($entNme);
+			$entTxt = strval($entTxt);
+			if( $entNme==='' || $entNme[0]=='/' || strpos($entNme, '\\')!==false || strpos($entNme, ':')!==false || in_array('..', explode('/', $entNme), true) || strlen($entNme)>65535 ){
+				throw new \RuntimeException('Archive given an entry whose name is not safe');
+			}
+			$packTxt = (function_exists('gzdeflate') && $entTxt!=='' && !in_array($entNme, $plainNames, true)) ? gzdeflate($entTxt, 6) : false;
+			$isPackd = ($packTxt!==false && strlen($packTxt)<strlen($entTxt));
+			$dataTxt = $isPackd ? $packTxt : $entTxt;
+			if( strlen($bodyTxt)+strlen($dataTxt)>0x7FFFFFFF || count($entriesArr)>65535 ){
+				throw new \RuntimeException('Archive too large to be written');
+			}
+			// Names are written in UTF-8, and say so
+			$headTxt = pack('vvvvvVVVvv', 20, 0x0800, $isPackd ? 8 : 0, $timeVal, $dateVal, crc32($entTxt), strlen($dataTxt), strlen($entTxt), strlen($entNme), 0);
+			$listTxt .= "PK\x01\x02".pack('v', 20).$headTxt.pack('vvvVV', 0, 0, 0, 0, strlen($bodyTxt)).$entNme;
+			$bodyTxt .= "PK\x03\x04".$headTxt.$entNme.$dataTxt;
+		}
+		return $bodyTxt.$listTxt."PK\x05\x06".pack('vvvvVVv', 0, 0, count($entriesArr), count($entriesArr), strlen($listTxt), strlen($bodyTxt), 0);
+	}
 	/**
 	 * Gives the open archive, or refuses one that was closed.
 	 *

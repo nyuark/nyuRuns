@@ -23,7 +23,10 @@ class Index {
 		'markdown' => Array('Mdwn', Array(), 'text/markdown; charset=utf-8'),
 		'txt'    => Array('Text', Array('gives'=>'plain'), 'text/plain; charset=utf-8'),
 		'ics'    => Array('ICal', Array(), 'text/calendar; charset=utf-8'),
-		'pdf'    => Array('Pdfx', Array(), 'application/pdf')
+		'pdf'    => Array('Pdfx', Array(), 'application/pdf'),
+		'xlsx'   => Array('Xlsx', Array(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+		'ods'    => Array('Odsx', Array(), 'application/vnd.oasis.opendocument.spreadsheet'),
+		'docx'   => Array('Docx', Array(), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 	);
 
 	/**

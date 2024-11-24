@@ -26,6 +26,37 @@ abstract class Base implements Writer {
 	}
 
 	/**
+	 * Writes a text for a part of a document made of XML: without what
+	 * such a part cannot hold, and with its signs written so that they
+	 * stay text.
+	 *
+	 * @param String $plainTexts The text.
+	 * @return String The text, ready to stand in a part.
+	 */
+	protected function escapeTxt(String $plainTexts): String {
+		if( !preg_match('//u', $plainTexts) ){
+			$plainTexts = strval(@iconv('Windows-1252', 'UTF-8//IGNORE', $plainTexts));
+		}
+		return htmlspecialchars(strval(preg_replace('/[^\x{9}\x{A}\x{D}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u', '', $plainTexts)), ENT_QUOTES | ENT_XML1, 'UTF-8');
+	}
+
+	/**
+	 * Writes a number with the digits it needs and no more, whatever the
+	 * server is set to.
+	 *
+	 * @param Int|Float $numbrToPut The number.
+	 * @return String The number, as text.
+	 */
+	protected function numbrText(Int|Float $numbrToPut): String {
+		$keptPrc = ini_set('serialize_precision', '-1');
+		$nmbrTxt = strval(json_encode($numbrToPut));
+		if( $keptPrc!==false ){
+			ini_set('serialize_precision', $keptPrc);
+		}
+		return $nmbrTxt;
+	}
+
+	/**
 	 * Tells whether an array is a list: its keys are 0, 1, 2, and so on.
 	 *
 	 * @param Array $valueArray The array.
