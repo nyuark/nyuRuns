@@ -20,7 +20,6 @@ class Request{
 	protected $cookVals; // Registry of readable cookie values (written through response)
 	protected $fileData; // Registry of files
 	protected $tmpFiles = Array(); // Temporary files written for uploads received in the raw body
-	//protected $agentStr; // Registry of values (Moved to Client)
 
 	/**
 	 * Builds the request object: derives the method, URI, query string and
@@ -29,12 +28,14 @@ class Request{
 	 *
 	 * @param ServerReg $srvRegistr Registry of $_SERVER values.
 	 * @param Response  $httpRespns The response object (reserved for cookie writes).
+	 * @param ClientReg $cltRegistr Registry of client values (address, agent, system, device, language).
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-	 function __construct( ServerReg $srvRegistr, Response $httpRespns ){
+	 function __construct( ServerReg $srvRegistr, Response $httpRespns, ClientReg $cltRegistr ){
 
 		$this->serveReg = $srvRegistr;
+		$this->clienReg = $cltRegistr;
 
 		// Request method
 		$this->inMethod = $this->serveReg->readValue('request_method');
@@ -99,9 +100,6 @@ class Request{
 		$this->cookVals = $_COOKIE;
 		// Files of the raw body are described like the $_FILES entries (see saveUpFle)
 		$this->fileData = array_merge($_FILES, $this->rawInput['file']);
-
-		// TODO : Do we really need this??? ClientCon should get this...
-		//$this->agentStr = $this->getHeader('User-Agent');
 
 		// Unset super globals
 		unset($_GET);
@@ -454,6 +452,18 @@ class Request{
 	 */
 	public function getSrvVar( String $keysFilter='' ): Array {
 		return $this->serveReg->readLines($keysFilter);
+	}
+	/**
+	 * Returns the client registry: 'userAddr' (the client, seen through
+	 * the trusted reverse proxies), 'peerAddr' (the connection itself),
+	 * 'userHost', 'usrAgent', 'clSystem', 'clDevice' (dsktop, mobile,
+	 * tablet, aiagnt, crawlr, script or shadow), 'language' and 'humanSys'.
+	 * All but the addresses come from what the client sent: hints, never proofs.
+	 *
+	 * @return ?ClientReg The client registry, or null when the request was built without one.
+	 */
+	public function getClient(): ?ClientReg {
+		return $this->clienReg;
 	}
 
 }

@@ -12,16 +12,13 @@ class ServerReg extends Registry{
 	 *
 	 * @param Array $valueArray Extra values to merge over $_SERVER.
 	 * @param Bool  $lowCaseKey Whether to store keys in lowercase instead of uppercase.
-	 *
-	 * @todo Cleanup some values and/or reduce reliance on the global scope.
 	 */
 	function __construct( Array $valueArray = Array(), Bool $lowCaseKey = true ){
 		if(!empty($valueArray)){
-			$valueArray = array_merge($valueArray, $_SERVER);
+			$valueArray = array_merge($_SERVER, $valueArray);
 		}else{
 			$valueArray = $_SERVER;
 		}
-		// TODO: Cleanup some values and/or refrain use of global
 		unset($_SERVER);
 		if(is_array($valueArray) && !empty($valueArray)){
 			parent::__construct( $valueArray, $lowCaseKey );

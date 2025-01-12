@@ -89,7 +89,8 @@ class Runner{
 
 		$contObj = new Builder();
 		$contObj->makeObjct('nyu\\Tools\\ServerReg', array());
-		$contObj->makeObjct('nyu\Tools\ClientReg', array());
+		// The client address is seen through the reverse proxies the config trusts
+		$contObj->makeObjct('nyu\Tools\ClientReg', array(), Array(true, $this->setupCon->prxConfig()));
 		$rndrCnf = $this->setupCon->getRegKey('rnder');
 		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
 		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());

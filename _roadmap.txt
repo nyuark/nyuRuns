@@ -41,8 +41,14 @@ Authenticate:	More authentication mechanisms or "connectors" could
 				and so on. Each mechanism should be carefully revised
 				before integrating it.
 				
-ClientReg : 	Should detect client side elements 
-				(browser, platform, host, device, screen)
+ClientReg : 	Done. It holds the address, host, agent, system and
+				language of the client, whether it looks human, and
+				its kind as a code (dsktop, mobile, tablet, aiagnt,
+				crawlr, script, shadow). Apps read it through the
+				request (getClient). The address is seen through the
+				reverse proxies listed in system.ini (PRX_LIST).
+				Left out: the browser name; the screen, which only
+				the client can tell; forwarded scheme and host.
 				
 Response :		Done. It is passed to each app's actionset, which can
 				set headers, reply with a file (Range requests are

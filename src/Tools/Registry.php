@@ -9,7 +9,7 @@ namespace nyu\Tools;
 class Registry{
 
 	protected $fldUCase;
-	protected $valueReg;
+	protected $valueReg = Array();
 
 	// Builds the values
     /**
@@ -129,15 +129,16 @@ class Registry{
 
 	/**
 	 * Reads a top-level registry value, falling back to a default when
-	 * the value is missing or null.
+	 * the value is missing, null or an empty string. 0, false and an
+	 * empty array are values, and are returned as they are.
 	 *
 	 * @param String $regLineKey Key to look up.
-	 * @param mixed  $defaultVal Value to return when the key is unset or null.
+	 * @param mixed  $defaultVal Value to return when the key is unset, null or blank.
 	 * @return mixed The stored value, or $defaultVal.
 	 */
 	public function getDefVal( String $regLineKey, Mixed $defaultVal=null ): Mixed {
 		$nuValue = $this->readValue( $regLineKey );
-		if($nuValue==null){
+		if($nuValue===null || $nuValue===''){
 			return $defaultVal;
 		}else{
 			return $nuValue;

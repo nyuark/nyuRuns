@@ -24,7 +24,7 @@ class Input{
 	 * the configured field list.
 	 *
 	 * @param Request $requestObj The shared, already-parsed HTTP request.
-	 * @param String  $fromSource One of 'QUERY' (request vars) or 'SERVR' (server vars).
+	 * @param String  $fromSource 'QUERY' (request vars); any other source yields no value.
 	 * @param String  $fldListStr Semicolon-separated field-list definition, or 'all'/'none'.
 	 * @param String  $regstrName Name under which the parsed values are stored.
 	 *
@@ -37,8 +37,6 @@ class Input{
 		$this->fldArray = $this->fLisToArr( $fldListStr );
 		if( $fromSource=='QUERY' ){
 			$allVals = $this->reqstObj->getAllVar();
-		}elseif( $fromSource=='SERVR' ){
-			$allVals = $this->reqstObj->getSrvVar();
 		}else{
 			$allVals = Array();
 		}

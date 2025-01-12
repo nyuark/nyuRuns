@@ -205,8 +205,23 @@ function runScript( Array $scriptArgs ): Array {
 }
 
 /**
+ * Builds a server registry holding only the given values, without
+ * running its constructor: $_SERVER is neither read nor unset.
+ *
+ * @param Array $serverVals Server variable => value pairs the registry should hold.
+ * @return nyu\Tools\ServerReg The server registry.
+ */
+function fakeServr( Array $serverVals=Array() ): nyu\Tools\ServerReg {
+	$reflect = new ReflectionClass('nyu\Tools\ServerReg');
+	$servReg = $reflect->newInstanceWithoutConstructor();
+	// Keys in lower case, as the framework's own server registry holds them
+	$reflect->getParentClass()->getConstructor()->invoke($servReg, $serverVals, true);
+	return $servReg;
+}
+
+/**
  * Builds a Request without running its constructor, carrying only the
- * given headers and server values.
+ * given headers and server values, and the client registry read off them.
  *
  * @param Array $headersArr Header name => value pairs the request should report.
  * @param Array $serverVals Server variable => value pairs the request should report.
@@ -222,6 +237,9 @@ function fakeReqst( Array $headersArr=Array(), Array $serverVals=Array() ): nyu\
 	$servPrp = $reflect->getProperty('serveReg');
 	$servPrp->setAccessible(true);
 	$servPrp->setValue($request, new nyu\Tools\Registry($serverVals + Array('REQUEST_METHOD'=>'GET'), true));
+	$clntPrp = $reflect->getProperty('clienReg');
+	$clntPrp->setAccessible(true);
+	$clntPrp->setValue($request, new nyu\Tools\ClientReg(fakeServr($serverVals)));
 	return $request;
 }
 

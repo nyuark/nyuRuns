@@ -174,8 +174,10 @@ class Loader{
 
     /**
 	 * Builds the registry of allowed input values by instantiating an
-	 * Input object for each configured source (currently QUERY and SERVR
-	 * are supported; DFILE, DBREC, XTAPI, SESSN and RFLUX are still TODO).
+	 * Input object for each configured source (currently QUERY is
+	 * supported; DFILE, DBREC, XTAPI, SESSN and RFLUX are still TODO).
+	 * Server and client values are not inputs: they are read through the
+	 * request (getSrvVar, getClient).
 	 *
 	 * @param Request $requestObj The shared, already-parsed HTTP request.
 	 * @return Registry Registry of parsed input values, empty if no 'input' config is set.
@@ -188,9 +190,9 @@ class Loader{
 			$inptArr = Array();
 			foreach($inptSet as $putSet){
 				// Only allow for a set of input sources
-				// WORKING :	'QUERY', 'SERVR'
+				// WORKING :	'QUERY'
 				// TODO : 		'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX');
-				$inpType = Array('QUERY','SERVR');
+				$inpType = Array('QUERY');
 				$inpSrce = $putSet['source'];
 
 				if(in_array($inpSrce, $inpType)){
@@ -260,6 +262,23 @@ class Loader{
 		return Array(
 			'tool' => strval($sysConf['SND_TOOL'] ?? ''),
 			'time' => intval($sysConf['SND_TIME'] ?? 60),
+		);
+	}
+
+	/**
+	 * Resolves the reverse proxy configuration from the SYSTEM config file:
+	 * the proxies standing in front of the server, and the header in which
+	 * they give the address of the client.
+	 *
+	 * @return Array Proxy settings: 'list' of addresses or CIDR ranges (empty when no proxy is trusted), 'head' name of the header.
+	 */
+	function prxConfig(): Array {
+		$nyuConf = $GLOBALS['nyuConfig'];
+		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		$prxList = array_filter( array_map('trim', explode(',', strval($sysConf['PRX_LIST'] ?? ''))), 'strlen' );
+		return Array(
+			'list' => array_values($prxList),
+			'head' => strval($sysConf['PRX_HEAD'] ?? '') ?: 'X-Forwarded-For',
 		);
 	}
 
