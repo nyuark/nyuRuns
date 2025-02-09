@@ -3,8 +3,6 @@
 namespace nyu\Data\Writers;
 
 use nyu\Data\Archv;
-use nyu\Data\Fluxd;
-use nyu\Data\Image;
 use nyu\Data\Shape;
 
 // Word documents (docx) written from text blocks: headings with the
@@ -14,22 +12,14 @@ use nyu\Data\Shape;
 // text: the document holds no macro, no object, and points to nothing
 // it would fetch. Its pictures are those of a folder it is given, and
 // no other: none is ever taken from an address.
-class Docx extends Base {
+class Docx extends Page {
 
-	// The sizes of paper, by the code that asks for them: width and height in twentieths of a point
-	const SIZELIST = Array('isoa3'=>Array(16838, 23811), 'isoa4'=>Array(11906, 16838), 'isoa5'=>Array(8391, 11906), 'lettr'=>Array(12240, 15840), 'legal'=>Array(12240, 20160));
 	// The size of the headings, by their level, in points
 	const HEADSIZE = Array(1=>20, 2=>16, 3=>14, 4=>12, 5=>11, 6=>11);
 	// How a paragraph is aligned, by the code that asks for it
 	const ALGNLIST = Array('lefts'=>'left', 'right'=>'right', 'centr'=>'center', 'justf'=>'both');
 	// The deepest a list goes into another
 	const LISTDEEP = 8;
-	// Greatest size of all the pictures of a document, in bytes: 64 MB
-	const MEDIAMAX = 67108864;
-	// The kinds of picture written as they are, with the type each is told for; any other is written as PNG
-	const PICTLIST = Array('png'=>'image/png', 'jpg'=>'image/jpeg', 'gif'=>'image/gif');
-	// The styles the document defines itself, by the name Word gives them, in small letters: a style of the content bearing one of these names is not defined again
-	const OWNSTYLS = Array('normal', 'default paragraph font', 'heading 1', 'heading 2', 'heading 3', 'heading 4', 'heading 5', 'heading 6', 'title', 'list paragraph', 'quote', 'html preformatted', 'hyperlink', 'table heading', 'footnote text', 'footnote reference', 'endnote text', 'endnote reference');
 	// The properties Word keeps a place for, by their name in the content: the element they are written in
 	const PROPLIST = Array('Title'=>'dc:title', 'Author'=>'dc:creator', 'Subject'=>'dc:subject', 'Keywords'=>'cp:keywords', 'Comments'=>'dc:description', 'Category'=>'cp:category', 'LastSavedBy'=>'cp:lastModifiedBy');
 	// What a field asks Word for, by the code of the field
@@ -57,8 +47,6 @@ class Docx extends Base {
 	protected $pictList = Array();
 	// The pictures of the document, each written once: what tells its content apart => its name in the document, its bytes, its width and its height in pixels
 	protected $mediaSet = Array();
-	// The folder the pictures are taken from, '' when the document is given none
-	protected $mediaDir = '';
 	// The room a picture has on a page: its greatest width and height, in the unit Word measures pictures in
 	protected $roomSize = Array(0, 0);
 
@@ -88,21 +76,10 @@ class Docx extends Base {
 	 */
 	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
 		$shapeAs = $this->checkShpe($shapedData, Array('block', 'sheet'), 'a document');
-		$sizeKey = strtolower(strval($writeOptns['paper'] ?? 'isoa4'));
-		if( !isset(self::SIZELIST[$sizeKey]) ){
-			throw new WriteError('Invalid document option: unknown paper '.$sizeKey);
-		}
-		$sizeSet = empty($writeOptns['lands']) ? self::SIZELIST[$sizeKey] : array_reverse(self::SIZELIST[$sizeKey]);
+		$sizeSet = $this->paperSize($writeOptns);
 		// A picture is no wider nor higher than the text of a page: a twentieth of a point is 635 of Word's units
 		$this->roomSize = Array(($sizeSet[0]-2880)*635, ($sizeSet[1]-2880-1440)*635);
-		$this->mediaDir = '';
-		if( strval($writeOptns['media'] ?? '')!=='' ){
-			$realDir = realpath(strval($writeOptns['media']));
-			if( $realDir===false || !is_dir($realDir) || !is_readable($realDir) ){
-				throw new WriteError('Invalid document option: the folder of the pictures cannot be read');
-			}
-			$this->mediaDir = $realDir;
-		}
+		$this->mediaFrom($writeOptns);
 		$this->pictList = Array();
 		$this->mediaSet = Array();
 		$infoArr = (array)($shapedData['infos'] ?? Array());
@@ -112,14 +89,7 @@ class Docx extends Base {
 		$this->markList = Array();
 		$this->noteRefs = Array('fnote'=>Array(), 'enote'=>Array());
 		// The notes are taken out of the text: each is written where the text refers to it
-		$this->noteList = Array('fnote'=>Array(), 'enote'=>Array());
-		$notePrt = Array();
-		foreach($blckLst as $blkIdx=>$blkArr){
-			if( is_array($blkArr) && strval($blkArr['block'] ?? '')=='fnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($blkArr['attrs']['tagid'] ?? ''), $notePrt) ){
-				$this->noteList[$notePrt[1]][$notePrt[0]] = $blkArr;
-				unset($blckLst[$blkIdx]);
-			}
-		}
+		$this->noteList = $this->takeNotes($blckLst);
 		$stylTxt = $this->stylePart((array)($infoArr['frmat'] ?? Array()), $blckLst);
 		$this->notesOff = false;
 		$bodyTxt = $this->blocksOut($blckLst, 0);
@@ -229,86 +199,6 @@ class Docx extends Base {
 			$relsTxt .= '<Relationship Id="'.$relIdn.'" Type="'.self::RELSNAME.'/image" Target="'.$picNme.'"/>';
 		}
 		return $relsTxt;
-	}
-
-	/**
-	 * Gives sheets as text blocks: each sheet that is shown is a table,
-	 * under a heading bearing its name. The names of its columns make the
-	 * first row of the table, repeated at the top of each page.
-	 *
-	 * @param Array $sheetsList The sheets.
-	 * @return Array The blocks.
-	 */
-	protected function sheetsOut(Array $sheetsList): Array {
-		$blckLst = Array();
-		foreach($sheetsList as $shtArr){
-			if( !is_array($shtArr) || (isset($shtArr['attrs']['shown']) && empty($shtArr['attrs']['shown'])) ){
-				continue;
-			}
-			$rowsLst = array_values((array)($shtArr['cells'] ?? Array()));
-			$headLst = Array();
-			foreach($rowsLst as $oneRow){
-				foreach($this->isAListOf((array)$oneRow) ? Array() : array_keys((array)$oneRow) as $colKey){
-					if( !in_array(strval($colKey), $headLst, true) ){
-						$headLst[] = strval($colKey);
-					}
-				}
-			}
-			// The cells an area covers are not cells of their own; the one it starts at tells what it covers
-			$spanLst = Array();
-			$covrLst = Array();
-			$headGap = empty($headLst) ? 0 : 1;
-			foreach((array)($shtArr['attrs']['merge'] ?? Array()) as $mrgArr){
-				$mrgArr = array_map('intval', (array)$mrgArr) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
-				if( $mrgArr['atrow']<$headGap || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || $mrgArr['rowsp']*$mrgArr['colsp']>10000 || isset($covrLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]) ){
-					continue;
-				}
-				for($rowIdx=$mrgArr['atrow']; $rowIdx<$mrgArr['atrow']+$mrgArr['rowsp']; $rowIdx++){
-					for($colIdx=$mrgArr['atcol']; $colIdx<$mrgArr['atcol']+$mrgArr['colsp']; $colIdx++){
-						$covrLst[$rowIdx.':'.$colIdx] = true;
-					}
-				}
-				unset($covrLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
-				$spanLst[$mrgArr['atrow'].':'.$mrgArr['atcol']] = array_filter(Array('rowsp'=>$mrgArr['rowsp'], 'colsp'=>$mrgArr['colsp']), function(Int $spanNumber){ return $spanNumber>1; });
-			}
-			$tblRows = empty($headLst) ? Array() : Array(Shape::makeBlock('thead', Array(), array_map(function(String $columnName){ return Shape::makeBlock('tcell', Array(Shape::makeASpan($columnName))); }, $headLst)));
-			$colsNbr = count($headLst);
-			foreach($rowsLst as $oneRow){
-				$colsNbr = max($colsNbr, count((array)$oneRow));
-			}
-			foreach($rowsLst as $rowIdx=>$oneRow){
-				$cellLst = Array();
-				$valsLst = empty($headLst) ? array_values((array)$oneRow) : array_map(function(String $columnName) use ($oneRow){ return ((array)$oneRow)[$columnName] ?? null; }, $headLst);
-				for($colIdx=0; $colIdx<$colsNbr; $colIdx++){
-					$placeKy = ($rowIdx+$headGap).':'.$colIdx;
-					if( isset($covrLst[$placeKy]) ){
-						continue;
-					}
-					$cellVal = $valsLst[$colIdx] ?? null;
-					$cellTxt = '';
-					if( is_bool($cellVal) ){
-						$cellTxt = $cellVal ? 'TRUE' : 'FALSE';
-					}elseif( is_string($cellVal) ){
-						$cellTxt = $cellVal;
-					}elseif( is_int($cellVal) || (is_float($cellVal) && is_finite($cellVal)) ){
-						$cellTxt = $this->numbrText($cellVal);
-					}elseif( is_array($cellVal) ){
-						$cellTxt = strval(json_encode(Fluxd::dropFluxd($cellVal), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
-					}
-					// Numbers stand on the right of their column, as in a spreadsheet
-					$cellLst[] = Shape::makeBlock('tcell', ($cellTxt==='') ? Array() : Array(Shape::makeASpan($cellTxt)), Array(), ($spanLst[$placeKy] ?? Array()) + ((is_int($cellVal) || is_float($cellVal)) ? Array('align'=>'right') : Array()));
-				}
-				$tblRows[] = Shape::makeBlock('tbrow', Array(), $cellLst);
-			}
-			$shtName = is_scalar($shtArr['title'] ?? '') ? trim(strval($shtArr['title'] ?? '')) : '';
-			if( $shtName!=='' ){
-				$blckLst[] = Shape::makeBlock('headr', Array(Shape::makeASpan($shtName)), Array(), Array('level'=>2));
-			}
-			if( !empty($tblRows) ){
-				$blckLst[] = Shape::makeBlock('table', Array(), $tblRows);
-			}
-		}
-		return $blckLst;
 	}
 
 	/**
@@ -537,45 +427,21 @@ class Docx extends Base {
 
 	/**
 	 * Writes a picture into the document, when its file is in the folder
-	 * the document was given. The picture is read for what it is, set
-	 * upright, and written anew: nothing it carried comes with it. A
-	 * picture the server cannot write anew is written as it is when its
-	 * kind is one a document holds.
+	 * the document was given.
 	 *
 	 * @param Array  $blockArray The image: the name of its file under 'sourc', and the text that describes it.
 	 * @param String $indentText How far in it stands, as Word is told.
 	 * @return String The paragraph showing the picture; '' when the picture is not written.
 	 */
 	protected function pictrPart(Array $blockArray, String $indentText): String {
-		$srceTxt = is_scalar($blockArray['attrs']['sourc'] ?? '') ? strval($blockArray['attrs']['sourc'] ?? '') : '';
-		// A picture is one of the files of the folder: never an address, never a file of another folder
-		if( $this->mediaDir==='' || $srceTxt==='' || preg_match('/^[a-z][a-z0-9+.\-]*:/i', $srceTxt) || strpos($srceTxt, "\0")!==false ){
+		$pictSet = $this->pictrRead(is_scalar($blockArray['attrs']['sourc'] ?? '') ? strval($blockArray['attrs']['sourc'] ?? '') : '');
+		if( $pictSet===null ){
 			return '';
 		}
-		$filePth = realpath($this->mediaDir.DIRECTORY_SEPARATOR.$srceTxt);
-		if( $filePth===false || !is_file($filePth) || strpos($filePth, rtrim($this->mediaDir, '/\\').DIRECTORY_SEPARATOR)!==0 ){
-			return '';
-		}
-		try{
-			$pictObj = Image::openFluxd(Fluxd::openLocal($filePth, $this->mediaDir));
-			$kindKey = strval($pictObj->imageInfo()['kinds']);
-			$giveKnd = isset(self::PICTLIST[$kindKey]) ? $kindKey : 'png';
-			try{
-				$pictObj = $pictObj->setUprght();
-				$pictTxt = $pictObj->giveBytes($giveKnd);
-			}catch( \RuntimeException $e ){
-				// Without what writes pictures anew, one of a kind a document holds is written as it is
-				if( !isset(self::PICTLIST[$kindKey]) ){
-					return '';
-				}
-				$pictTxt = strval(file_get_contents($filePth));
-			}
-			$infoSet = $pictObj->imageInfo();
-		}catch( \RuntimeException $e ){
-			return '';
-		}
-		$widePix = max(1, intval($infoSet['width']));
-		$highPix = max(1, intval($infoSet['heght']));
+		$pictTxt = $pictSet['bytes'];
+		$giveKnd = $pictSet['kinds'];
+		$widePix = $pictSet['width'];
+		$highPix = $pictSet['heght'];
 		// The same picture is written once, however often it is shown
 		$pictKey = sha1($pictTxt);
 		if( !isset($this->mediaSet[$pictKey]) ){
@@ -738,21 +604,6 @@ class Docx extends Base {
 			$markTxt = '<w:bookmarkStart w:id="'.count($this->markList).'" w:name="'.$markNme.'"/><w:bookmarkEnd w:id="'.count($this->markList).'"/>';
 		}
 		return '<w:p>'.(($propTxt==='') ? '' : '<w:pPr>'.$propTxt.'</w:pPr>').$markTxt.$this->spansPart($spansArray).'</w:p>';
-	}
-
-	/**
-	 * Gives a place of the document a name Word accepts: letters, digits
-	 * and underscores, starting with a letter, 40 characters at most.
-	 *
-	 * @param String $placeLabel The name asked for.
-	 * @return String The name, '' when nothing of it can be kept.
-	 */
-	protected function placeName(String $placeLabel): String {
-		$nameTxt = trim(strval(preg_replace('/[^A-Za-z0-9_]+/', '_', $placeLabel)), '_');
-		if( $nameTxt==='' ){
-			return '';
-		}
-		return substr(preg_match('/^[A-Za-z]/', $nameTxt) ? $nameTxt : 'p_'.$nameTxt, 0, 40);
 	}
 
 	/**

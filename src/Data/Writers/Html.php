@@ -8,6 +8,9 @@ use nyu\Data\Shape;
 // tables, a tree of values as indented text. Every piece of text is
 // escaped, an address is written only when it is safe to follow, and
 // nothing of a document reaches a style sheet without being checked.
+//
+// The same content is written as XHTML when asked: the HTML an XML
+// reader takes, which a book (EPUB) is made of.
 class Html extends Base {
 
 	// HTML element of each formatting, from the outermost to the innermost
@@ -18,6 +21,8 @@ class Html extends Base {
 	// What each style of the content gives, by its name, and whether the styles are written as classes
 	protected $frmtList = Array();
 	protected $withClss = true;
+	// Whether the content is written as XHTML
+	protected $xhtmlOut = false;
 
 	/**
 	 * Writes a content as HTML.
@@ -32,10 +37,12 @@ class Html extends Base {
 	 *              'infos' tells of each style; on with 'whole' unless
 	 *              told otherwise, off without;
 	 *   'heads' => for sheets, writes the first row of each as its header;
-	 *   'shown' => for sheets, leaves out those their workbook hides.
+	 *   'shown' => for sheets, leaves out those their workbook hides;
+	 *   'xhtml' => writes XHTML: every element closed, every attribute
+	 *              with its value, and nothing an XML reader refuses.
 	 *
 	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array $writeOptns Options: 'whole', 'class', 'frmat', 'heads', 'shown'.
+	 * @param Array $writeOptns Options: 'whole', 'class', 'frmat', 'heads', 'shown', 'xhtml'.
 	 * @return String The HTML.
 	 *
 	 * @throws WriteError When the shape is not 'block', 'sheet' or 'nodes', or a block is of an unknown kind.
@@ -46,6 +53,7 @@ class Html extends Base {
 		$infoArr = (array)($shapedData['infos'] ?? Array());
 		$this->frmtList = is_array($infoArr['frmat'] ?? null) ? $infoArr['frmat'] : Array();
 		$this->withClss = !isset($writeOptns['class']) || !empty($writeOptns['class']);
+		$this->xhtmlOut = !empty($writeOptns['xhtml']);
 		if( $shapeAs=='block' ){
 			$htmBody = $this->blocksOut((array)$itemLst);
 		}elseif( $shapeAs=='sheet' ){
@@ -67,17 +75,36 @@ class Html extends Base {
 			return $stylHtm.$htmBody;
 		}
 		$langAtr = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($infoArr['langg'] ?? '')) ? ' lang="'.$infoArr['langg'].'"' : '';
+		if( $this->xhtmlOut ){
+			// An XML reader is told what the page is written in, and in what language, its own way
+			$langAtr = ' xmlns="http://www.w3.org/1999/xhtml"'.$langAtr.str_replace(' lang=', ' xml:lang=', $langAtr);
+			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$langAtr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeTxt(strval($infoArr['title'] ?? ''))."</title>\n".$stylHtm."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+		}
 		return "<!DOCTYPE html>\n<html".$langAtr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeTxt(strval($infoArr['title'] ?? ''))."</title>\n".$stylHtm."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
 	}
 
 	/**
-	 * Escapes a text for HTML, in content or in an attribute.
+	 * Escapes a text for HTML, or for XHTML, in content or in an attribute.
 	 *
 	 * @param String $textString The text.
 	 * @return String The text, safe to write.
 	 */
 	protected function escapeTxt(String $textString): String {
+		// XHTML is XML: what XML cannot hold is left out, as for any part of a document made of it
+		if( $this->xhtmlOut ){
+			return parent::escapeTxt($textString);
+		}
 		return htmlspecialchars($textString, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+	}
+
+	/**
+	 * Gives the end of an element that holds nothing: closed in XHTML,
+	 * as XML asks, left open in HTML.
+	 *
+	 * @return String The end of the element.
+	 */
+	protected function closeVoid(): String {
+		return $this->xhtmlOut ? '/>' : '>';
 	}
 
 	/**
@@ -178,7 +205,7 @@ class Html extends Base {
 	protected function inlineOut(Array $spansArray): String {
 		$htmText = '';
 		foreach($spansArray as $oneSpn){
-			$spanHtm = str_replace("\n", "<br>\n", $this->escapeTxt(strval($oneSpn['texts'] ?? '')));
+			$spanHtm = str_replace("\n", '<br'.$this->closeVoid()."\n", $this->escapeTxt(strval($oneSpn['texts'] ?? '')));
 			foreach(array_reverse(self::MARKTAGS) as $mrkKey=>$mrkTag){
 				if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
 					$spanHtm = '<'.$mrkTag.'>'.$spanHtm.'</'.$mrkTag.'>';
@@ -191,7 +218,8 @@ class Html extends Base {
 			if( $linkAdr!=='' ){
 				$spanHtm = '<a href="'.$this->escapeTxt($linkAdr).'">'.$spanHtm.'</a>';
 			}
-			if( preg_match('/^#[fe]note\d+$/D', $linkAdr) ){
+			// The reference to a note, in this page or in another
+			if( preg_match('/^[^#]*#[fe]note\d+$/D', $linkAdr) ){
 				$spanHtm = '<sup>'.$spanHtm.'</sup>';
 			}
 			$htmText .= $spanHtm;
@@ -237,7 +265,7 @@ class Html extends Base {
 				$htmText .= '<'.$listTag.$blckAtr.">\n";
 				foreach($oneBlk['items'] as $entBlk){
 					// A task shows the box that tells whether it is done
-					$taskHtm = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.(empty($entBlk['attrs']['check']) ? '' : ' checked').'> ' : '';
+					$taskHtm = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->xhtmlOut ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->xhtmlOut ? '="checked"' : '')).$this->closeVoid().' ' : '';
 					$htmText .= '<li'.$this->blockAttr($entBlk).'>'.$taskHtm.$this->insideOut($entBlk)."</li>\n";
 				}
 				$htmText .= '</'.$listTag.">\n";
@@ -260,10 +288,10 @@ class Html extends Base {
 			}elseif( $blckKnd=='image' ){
 				$imgSrce = Shape::cleanLink(strval($oneBlk['attrs']['sourc'] ?? ''));
 				if( $imgSrce!=='' ){
-					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeTxt($imgSrce).'" alt="'.$this->escapeTxt($oneBlk['plain'])."\">\n";
+					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeTxt($imgSrce).'" alt="'.$this->escapeTxt($oneBlk['plain']).'"'.$this->closeVoid()."\n";
 				}
 			}elseif( $blckKnd=='rules' ){
-				$htmText .= empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr.">\n" : "<hr class=\"break\">\n";
+				$htmText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr : '<hr class="break"').$this->closeVoid()."\n";
 			}elseif( in_array($blckKnd, Array('entry', 'tcell')) ){
 				// An entry or a cell met outside its list or its table: what it holds
 				$htmText .= $this->insideOut($oneBlk)."\n";

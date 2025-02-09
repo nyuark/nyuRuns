@@ -26,7 +26,9 @@ class Index {
 		'pdf'    => Array('Pdfx', Array(), 'application/pdf'),
 		'xlsx'   => Array('Xlsx', Array(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
 		'ods'    => Array('Odsx', Array(), 'application/vnd.oasis.opendocument.spreadsheet'),
-		'docx'   => Array('Docx', Array(), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+		'docx'   => Array('Docx', Array(), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+		'odt'    => Array('Odtx', Array(), 'application/vnd.oasis.opendocument.text'),
+		'epub'   => Array('EPub', Array(), 'application/epub+zip')
 	);
 
 	/**
