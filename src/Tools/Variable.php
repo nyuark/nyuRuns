@@ -7,18 +7,20 @@
 	- Integer
 	- Numeric
 	- PriceNb
-	- TODO : Float
+	- FloatNb
 	- DateStr
 	- WeekDay
 	- FullDay
-	- TODO: ShortDate
-	- TODO: TextDate
+	- ShrDate
+	- TxtDate
 	- DateSpn
-	- TODO: Email
-	- TODO: Phone
-	- TODO: URL
-	- TODO: URLText
-	- TODO: HTMText
+	- EmlAddr
+	- PhoneNb
+	- UrlAddr
+	- UrlText
+	- HtmText
+	FloatNb gives a number; ShrDate, TxtDate, EmlAddr, PhoneNb, UrlAddr,
+	UrlText and HtmText give an empty string for a value that is not valid.
 */
 
 namespace nyu\Tools;
@@ -102,22 +104,204 @@ class Variable{
 	}
 	
 	/**
-	 * Formats the wrapped value as a sanitized email address.
+	 * Formats the wrapped value as a number: what Numeric reads, given as
+	 * a Float instead of a formatted text.
 	 */
-	function toMailAdr(): Void {
-		$this->mainData = filter_var($this->mainData.'', FILTER_SANITIZE_EMAIL);
+	function toFloatNb(): Void {
+		$this->mainData = floatval( filter_var( $this->scalarStr(), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
 	}
-	
-	/*
-	function toPhone(){
-		$firstNum
-		if( count($seqlChk)==3 ){
-			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
+
+	/**
+	 * Formats the wrapped value as an email address: the characters an
+	 * address cannot hold are removed, and what is still not an address
+	 * gives an empty string.
+	 */
+	function toEmlAddr(): Void {
+		$emlText = strval( filter_var($this->scalarStr(), FILTER_SANITIZE_EMAIL) );
+		$this->mainData = (filter_var($emlText, FILTER_VALIDATE_EMAIL)!==false) ? $emlText : '';
+	}
+
+	/**
+	 * Formats the wrapped value as a phone number: its digits, after a
+	 * '+' when the number is international ('+41 22 345 67 89',
+	 * '0041 22 345 67 89' and '+41 (0)22 345 67 89' all give
+	 * '+41223456789'). A value holding letters, or fewer than 6 or more
+	 * than 15 digits, gives an empty string.
+	 */
+	function toPhoneNb(): Void {
+		$rawText = trim($this->scalarStr());
+		$this->mainData = '';
+		if( preg_match('/[a-z]/i', $rawText) ){
+			return;
+		}
+		$plusSgn = (preg_match('/^(\+|00)/', $rawText)===1);
+		if( $plusSgn ){
+			// The (0) written after a country code is the national prefix, not dialled from abroad
+			$rawText = str_replace('(0)', '', preg_replace('/^00/', '', $rawText));
+		}
+		$digtStr = preg_replace('/\D/', '', $rawText);
+		if( strlen($digtStr)>=6 && strlen($digtStr)<=15 ){
+			$this->mainData = ($plusSgn ? '+' : '').$digtStr;
 		}
 	}
-	*/
-	
-	
+
+	/**
+	 * Formats the wrapped value as a web address: kept as it is when it is
+	 * a valid http or https address, an empty string otherwise. Any other
+	 * scheme (javascript:, data:, file:) is refused, and so is an address
+	 * holding a quote, an angle bracket or a space, which could close the
+	 * attribute it is written in.
+	 */
+	function toUrlAddr(): Void {
+		$urlText = trim($this->scalarStr());
+		$urlSchm = strtolower( strval(parse_url($urlText, PHP_URL_SCHEME)) );
+		$isValid = filter_var($urlText, FILTER_VALIDATE_URL)!==false && in_array($urlSchm, Array('http', 'https'), true)
+			&& !preg_match('/["\'<>`\s\x00-\x1F]/', $urlText);
+		$this->mainData = $isValid ? $urlText : '';
+	}
+
+	/**
+	 * Formats the wrapped value as a text that can stand in a web address:
+	 * lower case, accents removed, anything that is not a letter or a
+	 * digit turned into a single dash ('Avenue des Rêves' gives
+	 * 'avenue-des-reves').
+	 */
+	function toUrlText(): Void {
+		$accnMap = Array(
+			'à'=>'a', 'á'=>'a', 'â'=>'a', 'ã'=>'a', 'ä'=>'a', 'å'=>'a', 'æ'=>'ae', 'ç'=>'c', 'è'=>'e', 'é'=>'e', 'ê'=>'e', 'ë'=>'e',
+			'ì'=>'i', 'í'=>'i', 'î'=>'i', 'ï'=>'i', 'ñ'=>'n', 'ò'=>'o', 'ó'=>'o', 'ô'=>'o', 'õ'=>'o', 'ö'=>'o', 'ø'=>'o', 'œ'=>'oe',
+			'ù'=>'u', 'ú'=>'u', 'û'=>'u', 'ü'=>'u', 'ý'=>'y', 'ÿ'=>'y', 'ß'=>'ss',
+			'À'=>'a', 'Á'=>'a', 'Â'=>'a', 'Ã'=>'a', 'Ä'=>'a', 'Å'=>'a', 'Æ'=>'ae', 'Ç'=>'c', 'È'=>'e', 'É'=>'e', 'Ê'=>'e', 'Ë'=>'e',
+			'Ì'=>'i', 'Í'=>'i', 'Î'=>'i', 'Ï'=>'i', 'Ñ'=>'n', 'Ò'=>'o', 'Ó'=>'o', 'Ô'=>'o', 'Õ'=>'o', 'Ö'=>'o', 'Ø'=>'o', 'Œ'=>'oe',
+			'Ù'=>'u', 'Ú'=>'u', 'Û'=>'u', 'Ü'=>'u', 'Ý'=>'y', 'Ÿ'=>'y'
+		);
+		$slgText = strtolower( strtr($this->scalarStr(), $accnMap) );
+		$this->mainData = trim( preg_replace('/[^a-z0-9]+/', '-', $slgText), '-' );
+	}
+
+	/**
+	 * Formats the wrapped value as HTML reduced to what is safe to show:
+	 * text tags, lists, headings and links are kept without any of their
+	 * attributes, a link keeping only an http, https or mailto address.
+	 * Scripts, styles and embedded content are removed with what they
+	 * hold; any other tag is removed and its text kept.
+	 */
+	function toHtmText(): Void {
+		if( !class_exists('DOMDocument') ){
+			// Without the reader, no tag is kept at all
+			$this->toTextStr();
+			return;
+		}
+		$domDocu = new \DOMDocument();
+		$oldMode = libxml_use_internal_errors(true);
+		libxml_clear_errors();
+		$domDocu->loadHTML('<?xml encoding="UTF-8"><body>'.str_replace("\0", '', $this->scalarStr()).'</body>', LIBXML_NONET | LIBXML_COMPACT);
+		libxml_clear_errors();
+		libxml_use_internal_errors($oldMode);
+		// The whole document is written, so that a text set outside its body is not lost
+		$rootNde = $domDocu->documentElement;
+		$this->mainData = ($rootNde!==null) ? $this->htmlNodes($rootNde) : '';
+	}
+
+	/**
+	 * Writes what an element holds as safe HTML (see toHtmText).
+	 *
+	 * @param \DOMNode $parentNode The element whose content is written.
+	 * @return String The content, reduced to the tags kept.
+	 */
+	protected function htmlNodes( \DOMNode $parentNode ): String {
+		$keepTag = Array('p', 'br', 'hr', 'b', 'strong', 'i', 'em', 'u', 's', 'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'a');
+		$dropTag = Array('script', 'style', 'iframe', 'object', 'embed', 'noscript', 'template', 'head', 'title', 'textarea', 'select', 'svg', 'math');
+		$outText = '';
+		foreach( $parentNode->childNodes as $kidNde ){
+			if( $kidNde->nodeType==XML_TEXT_NODE || $kidNde->nodeType==XML_CDATA_SECTION_NODE ){
+				$outText .= htmlspecialchars($kidNde->nodeValue, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+				continue;
+			}
+			if( $kidNde->nodeType!=XML_ELEMENT_NODE ){
+				continue;
+			}
+			$tagName = strtolower($kidNde->nodeName);
+			if( in_array($tagName, $dropTag, true) ){
+				continue;
+			}
+			$inrText = $this->htmlNodes($kidNde);
+			if( !in_array($tagName, $keepTag, true) ){
+				$outText .= $inrText;
+			}elseif( $tagName=='br' || $tagName=='hr' ){
+				$outText .= '<'.$tagName.'>';
+			}elseif( $tagName!='a' ){
+				$outText .= '<'.$tagName.'>'.$inrText.'</'.$tagName.'>';
+			}else{
+				// A link is kept only with an address of a scheme that runs nothing
+				$linkUrl = trim($kidNde->getAttribute('href'));
+				if( preg_match('#^(https?://|mailto:)#i', $linkUrl) ){
+					$outText .= '<a href="'.htmlspecialchars($linkUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'">'.$inrText.'</a>';
+				}else{
+					$outText .= $inrText;
+				}
+			}
+		}
+		return $outText;
+	}
+
+	/**
+	 * Gives the wrapped value as a text, an empty one for a value that is
+	 * not a single value (array, object, null).
+	 *
+	 * @return String The value as a text.
+	 */
+	protected function scalarStr(): String {
+		return is_scalar($this->mainData) ? strval($this->mainData) : '';
+	}
+
+	/**
+	 * Reads the wrapped value as a date: a 'Y-m-d' date, with or without
+	 * a time after it, or a timestamp.
+	 *
+	 * @return ?Int The timestamp of the date at noon, the timestamp given, or null when the value is no date.
+	 */
+	protected function dateStamp(): ?Int {
+		$dteText = trim($this->scalarStr());
+		$dtePrts = Array();
+		if( preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/', $dteText, $dtePrts) ){
+			if( !checkdate(intval($dtePrts[2]), intval($dtePrts[3]), intval($dtePrts[1])) ){
+				return null;
+			}
+			return mktime(12, 0, 0, intval($dtePrts[2]), intval($dtePrts[3]), intval($dtePrts[1]));
+		}
+		return preg_match('/^\d+$/', $dteText) ? intval($dteText) : null;
+	}
+
+	/**
+	 * Formats the wrapped value (a 'Y-m-d' date or a timestamp) as a short
+	 * date, the month abbreviated: '1 Oct 2026'. A value that is no date
+	 * gives an empty string.
+	 */
+	function toShrDate(): Void {
+		if(!defined('LOC_MTHSHT')){
+			define('LOC_MTHSHT',';Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec');
+		}
+		$tmeStmp = $this->dateStamp();
+		$allMnth = explode(';',LOC_MTHSHT);
+		$this->mainData = ($tmeStmp===null) ? '' : date('j', $tmeStmp).' '.$allMnth[intval(date('n', $tmeStmp))].' '.date('Y', $tmeStmp);
+	}
+
+	/**
+	 * Formats the wrapped value (a 'Y-m-d' date or a timestamp) as a date
+	 * in words: '1 October 2026'. A value that is no date gives an empty
+	 * string.
+	 */
+	function toTxtDate(): Void {
+		if(!defined('LOC_MONTHS')){
+			define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
+		}
+		$tmeStmp = $this->dateStamp();
+		$allMnth = explode(';',LOC_MONTHS);
+		$this->mainData = ($tmeStmp===null) ? '' : date('j', $tmeStmp).' '.$allMnth[intval(date('n', $tmeStmp))].' '.date('Y', $tmeStmp);
+	}
+
+
 	/**
 	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
 	 * as a Unix timestamp and applies the given date() format.

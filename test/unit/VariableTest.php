@@ -58,13 +58,104 @@ checkSame('PriceNb negative',         formatVal('-42.1', 'PriceNb'), '-42.10');
 checkSame('PriceNb already formatted', formatVal("1'234.50", 'PriceNb'), "1'234.50");
 checkSame('PriceNb not a number',     formatVal('abc', 'PriceNb'), '0.00');
 
-// MailAdr
-checkSame('MailAdr valid',            formatVal('a@b.c', 'MailAdr'), 'a@b.c');
-checkSame('MailAdr spaces removed',   formatVal('a b@c.d', 'MailAdr'), 'ab@c.d');
+// FloatNb : what Numeric reads, as a number
+checkSame('FloatNb string',           formatVal('1234.5', 'FloatNb'), 1234.5);
+checkSame('FloatNb with separators',  formatVal("CHF 1'234.50", 'FloatNb'), 1234.5);
+checkSame('FloatNb negative',         formatVal('-42.1', 'FloatNb'), -42.1);
+checkSame('FloatNb integer',          formatVal(7, 'FloatNb'), 7.0);
+checkSame('FloatNb not a number',     formatVal('abc', 'FloatNb'), 0.0);
+checkSame('FloatNb array',            formatVal(Array('1.5'), 'FloatNb'), 0.0);
+
+// EmlAddr : cleaned, then refused when still not an address
+checkSame('EmlAddr valid',            formatVal('a@b.c', 'EmlAddr'), 'a@b.c');
+checkSame('EmlAddr spaces removed',   formatVal('a b@c.d', 'EmlAddr'), 'ab@c.d');
+checkSame('EmlAddr usual address',    formatVal(' Site@Example.ch ', 'EmlAddr'), 'Site@Example.ch');
+checkSame('EmlAddr without a domain', formatVal('nobody@', 'EmlAddr'), '');
+checkSame('EmlAddr without an @',     formatVal('nobody.example.org', 'EmlAddr'), '');
+checkSame('EmlAddr two @',            formatVal('a@b@c.d', 'EmlAddr'), '');
+checkSame('EmlAddr empty',            formatVal('', 'EmlAddr'), '');
+checkSame('EmlAddr array',            formatVal(Array('a@b.c'), 'EmlAddr'), '');
+checkSame('the old MailAdr name is gone', formatVal('a b@c.d', 'MailAdr'), 'a b@c.d');
+
+// PhoneNb : digits, after a + for an international number
+checkSame('PhoneNb international',    formatVal('+41 22 345 67 89', 'PhoneNb'), '+41223456789');
+checkSame('PhoneNb 00 prefix',        formatVal('0041 22 345 67 89', 'PhoneNb'), '+41223456789');
+checkSame('PhoneNb national prefix in brackets', formatVal('+41 (0)22 345 67 89', 'PhoneNb'), '+41223456789');
+checkSame('PhoneNb national',         formatVal('022 345 67 89', 'PhoneNb'), '0223456789');
+checkSame('PhoneNb dots and dashes',  formatVal('022.345-67/89', 'PhoneNb'), '0223456789');
+checkSame('PhoneNb brackets kept as digits in a national number', formatVal('(022) 345 67 89', 'PhoneNb'), '0223456789');
+checkSame('PhoneNb number given as a number', formatVal(223456789, 'PhoneNb'), '223456789');
+checkSame('PhoneNb too short',        formatVal('12345', 'PhoneNb'), '');
+checkSame('PhoneNb too long',         formatVal('+1234567890123456', 'PhoneNb'), '');
+checkSame('PhoneNb with letters',     formatVal('call 022 345 67 89', 'PhoneNb'), '');
+checkSame('PhoneNb empty',            formatVal('', 'PhoneNb'), '');
+
+// UrlAddr : http and https only
+checkSame('UrlAddr https',            formatVal('https://example.org/path?x=1#top', 'UrlAddr'), 'https://example.org/path?x=1#top');
+checkSame('UrlAddr http, trimmed',    formatVal('  http://example.org  ', 'UrlAddr'), 'http://example.org');
+checkSame('UrlAddr scheme in capitals', formatVal('HTTPS://example.org', 'UrlAddr'), 'HTTPS://example.org');
+checkSame('UrlAddr javascript refused', formatVal('javascript:alert(1)', 'UrlAddr'), '');
+checkSame('UrlAddr data refused',     formatVal('data:text/html,<b>x</b>', 'UrlAddr'), '');
+checkSame('UrlAddr ftp refused',      formatVal('ftp://example.org/file', 'UrlAddr'), '');
+checkSame('UrlAddr file refused',     formatVal('file:///etc/passwd', 'UrlAddr'), '');
+checkSame('UrlAddr without a scheme', formatVal('example.org', 'UrlAddr'), '');
+checkSame('UrlAddr with a space',     formatVal('https://example.org/a b', 'UrlAddr'), '');
+checkSame('UrlAddr with a quote',     formatVal('https://example.org/"onx="1', 'UrlAddr'), '');
+checkSame('UrlAddr with a tag after a line break', formatVal("https://example.org\n<script>", 'UrlAddr'), '');
+checkSame('UrlAddr empty',           formatVal('', 'UrlAddr'), '');
+
+// UrlText : a text that can stand in an address
+checkSame('UrlText accents and spaces', formatVal('Avenue des Rêves', 'UrlText'), 'avenue-des-reves');
+checkSame('UrlText capitals with accents', formatVal('ÉTÉ À GENÈVE', 'UrlText'), 'ete-a-geneve');
+checkSame('UrlText punctuation',      formatVal("  L'île -- aux_trésors !  ", 'UrlText'), 'l-ile-aux-tresors');
+checkSame('UrlText ligatures',        formatVal('Œuvre & Straße', 'UrlText'), 'oeuvre-strasse');
+checkSame('UrlText digits kept',      formatVal('Saison 2026/27', 'UrlText'), 'saison-2026-27');
+checkSame('UrlText tags are not kept', formatVal('<b>Titre</b>', 'UrlText'), 'b-titre-b');
+checkSame('UrlText nothing left',     formatVal('!!!', 'UrlText'), '');
+
+// HtmText : a safe subset of HTML
+checkSame('HtmText plain text',       formatVal('plain text', 'HtmText'), 'plain text');
+checkSame('HtmText text tags kept',   formatVal('<p>One <b>bold</b> and <em>soft</em><br>line</p>', 'HtmText'), '<p>One <b>bold</b> and <em>soft</em><br>line</p>');
+checkSame('HtmText lists and headings', formatVal('<h2>Title</h2><ul><li>a</li><li>b</li></ul>', 'HtmText'), '<h2>Title</h2><ul><li>a</li><li>b</li></ul>');
+checkSame('HtmText script removed with its content', formatVal('a<script>alert(1)</script>b', 'HtmText'), 'ab');
+checkSame('HtmText style removed with its content', formatVal('a<style>p{color:red}</style>b', 'HtmText'), 'ab');
+checkSame('HtmText frame removed',    formatVal('a<iframe src="https://example.org">x</iframe>b', 'HtmText'), 'ab');
+checkSame('HtmText attributes dropped', formatVal('<p onclick="x()" style="color:red" class="c">text</p>', 'HtmText'), '<p>text</p>');
+checkSame('HtmText other tags removed, their text kept', formatVal('<div><span>in</span> <font color="red">red</font></div>', 'HtmText'), 'in red');
+checkSame('HtmText picture removed',  formatVal('a<img src="x" onerror="alert(1)">b', 'HtmText'), 'ab');
+checkSame('HtmText link kept with its address only', formatVal('<a href="https://example.org/?a=1&amp;b=2" target="_blank" onclick="x()">site</a>', 'HtmText'), '<a href="https://example.org/?a=1&amp;b=2">site</a>');
+checkSame('HtmText mail link kept',   formatVal('<a href="mailto:site@example.org">write</a>', 'HtmText'), '<a href="mailto:site@example.org">write</a>');
+checkSame('HtmText script link loses its address', formatVal('<a href="javascript:alert(1)">click</a>', 'HtmText'), 'click');
+checkSame('HtmText script link hidden by spacing', formatVal("<a href=\" java\tscript:alert(1)\">click</a>", 'HtmText'), 'click');
+checkSame('HtmText data link loses its address', formatVal('<a href="data:text/html,x">click</a>', 'HtmText'), 'click');
+checkSame('HtmText link without address', formatVal('<a name="x">anchor</a>', 'HtmText'), 'anchor');
+checkSame('HtmText signs in the text are written safely', formatVal('1 &lt; 2 &amp; 3 > 2', 'HtmText'), '1 &lt; 2 &amp; 3 &gt; 2');
+checkSame('HtmText comment removed',  formatVal('a<!-- hidden -->b', 'HtmText'), 'ab');
+checkSame('HtmText tags left open are closed', formatVal('<p>one <b>two', 'HtmText'), '<p>one <b>two</b></p>');
+checkSame('HtmText accents kept',     formatVal('<p>Théâtre d\'été</p>', 'HtmText'), '<p>Théâtre d\'été</p>');
+checkSame('HtmText nested script tags leave no tag', formatVal('<scr<script>ipt>alert(1)</scr</script>ipt>', 'HtmText'), 'ipt&gt;alert(1)ipt&gt;');
+checkSame('HtmText drawing removed with its script', formatVal('<svg onload=alert(1)><script>alert(2)</script></svg>after', 'HtmText'), 'after');
+checkSame('HtmText form removed, its text kept', formatVal('<form action="https://evil.example"><input name="p"><button>Go</button></form>', 'HtmText'), 'Go');
+checkSame('HtmText a body closed early loses no text and runs nothing', formatVal('</body><script>alert(1)</script><body onload=alert(1)>tail', 'HtmText'), 'tail');
+checkSame('HtmText a quote in an address cannot close it', formatVal('<a href="https://example.org/&quot;onmouseover=&quot;alert(1)">q</a>', 'HtmText'), '<a href="https://example.org/&quot;onmouseover=&quot;alert(1)">q</a>');
+checkSame('HtmText empty',           formatVal('', 'HtmText'), '');
+checkSame('HtmText array',            formatVal(Array('<b>x</b>'), 'HtmText'), '');
 
 // DateStr
 checkSame('DateStr default format',   formatVal('2026-10-01', 'DateStr'), '01/10/26');
 checkSame('DateStr given format',     formatVal('2026-10-01', 'DateStr', 'Y/m/d'), '2026/10/01');
+
+// ShrDate and TxtDate
+checkSame('ShrDate',                  formatVal('2026-10-01', 'ShrDate'), '1 Oct 2026');
+checkSame('ShrDate with a time',      formatVal('2026-12-25 18:30:00', 'ShrDate'), '25 Dec 2026');
+checkSame('ShrDate from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'ShrDate'), '15 Mar 2020');
+checkSame('ShrDate not a date',       formatVal('soon', 'ShrDate'), '');
+checkSame('ShrDate day that does not exist', formatVal('2026-02-30', 'ShrDate'), '');
+checkSame('ShrDate empty',            formatVal('', 'ShrDate'), '');
+checkSame('TxtDate',                  formatVal('2026-10-01', 'TxtDate'), '1 October 2026');
+checkSame('TxtDate single digits',    formatVal('2026-3-5', 'TxtDate'), '5 March 2026');
+checkSame('TxtDate not a date',       formatVal('2026-13-01', 'TxtDate'), '');
+checkSame('TxtDate array',            formatVal(Array('2026-10-01'), 'TxtDate'), '');
 
 // WeekDay and FullDay
 checkSame('WeekDay',                  formatVal('2026-10-01', 'WeekDay'), 'Thursday');

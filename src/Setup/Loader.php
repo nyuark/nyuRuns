@@ -177,7 +177,10 @@ class Loader{
 	 * Input object for each configured source (currently QUERY is
 	 * supported; DFILE, DBREC, XTAPI, SESSN and RFLUX are still TODO).
 	 * Server and client values are not inputs: they are read through the
-	 * request (getSrvVar, getClient).
+	 * request (getSrvVar, getClient). The 'fields' of a source are 'all',
+	 * or a definition of the fields kept and of their formats (see
+	 * Tools\Input); an application can define them for each of its
+	 * actions, which its Controller applies.
 	 *
 	 * @param Request $requestObj The shared, already-parsed HTTP request.
 	 * @return Registry Registry of parsed input values, empty if no 'input' config is set.

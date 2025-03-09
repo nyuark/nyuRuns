@@ -4,6 +4,7 @@ namespace nyu\App;
 
 use nyu\App\ModelStack;
 //use nyu\App\Renderer;
+use nyu\Tools\Input;
 use nyu\Tools\Registry;
 use nyu\Tools\Request;
 use nyu\Output\Response;
@@ -55,7 +56,7 @@ class Controller{
 		$actNSpc = '\\nyu\\Runs\\'.$runAppName.'\\';
 		if( is_dir($fullDir) && file_exists($actPath) ){
 			$this->appFoldr = $fullDir;
-			require( $actPath );
+			require_once( $actPath );
 			try{
 				// Load the actionset in a reflection class
 				$this->appObjct = new \ReflectionClass($actNSpc.'Actions');
@@ -72,7 +73,34 @@ class Controller{
 		if( $this->savedAct=='' ){
 			$this->savedAct = $this->defltActn();
 		}
+		$this->actInputs();
 		$this->modLoader();
+	}
+
+	/**
+	 * Applies the definition of the action's inputs, when the application
+	 * has one in input/<action>.json: the fields it lists are kept, each
+	 * given its format, and the others are left out (see Tools\Input).
+	 * Without that file, the inputs stay as the preset built them.
+	 *
+	 * @throws \RuntimeException When the file is not a valid definition.
+	 */
+	protected function actInputs(): Void {
+		if( !preg_match('/^\w+$/', $this->savedAct) || !$this->appObjct->hasMethod($this->savedAct) ){
+			return;
+		}
+		// The file is named as the action is declared, whatever the case the request wrote it in
+		$actName = $this->appObjct->getMethod($this->savedAct)->getName();
+		$defPath = $this->appFoldr.DS.'input'.DS.$actName.'.json';
+		if( !is_file($defPath) ){
+			return;
+		}
+		$defVals = json_decode( strval(file_get_contents($defPath)), true );
+		if( !is_array($defVals) || !isset($defVals['fields']) || !(is_array($defVals['fields']) || is_string($defVals['fields'])) ){
+			throw new \RuntimeException('Input misconfigured: '.$this->appIdent.'/input/'.$actName.'.json is not a definition of fields');
+		}
+		$inptObj = new Input( null, 'ACTON', $defVals['fields'], $actName );
+		$this->inputReg = new Registry( $inptObj->parseVals($this->inputReg->readLines()) );
 	}
 
 	/**

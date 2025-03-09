@@ -116,7 +116,8 @@ class Runner{
 		// and build all required objects for
 		// running the sequence and the Registrys needed
 
-		// Inputs are defined at an application level
+		// The preset tells the sources of the inputs; the definition an application
+		// gives for an action (input/<action>.json) is applied by its Controller
 		$this->inputLib = $this->setupCon->getInputs( $this->httpRqst );
 
 		$this->routeReg = $this->setupCon->loadRoute( $this->httpRqst );
@@ -130,22 +131,6 @@ class Runner{
 			$this->denyAxess( $this->axessCon );
 		}
 	}
-	/*	Place input loading at appCaller level	*/
-	/*
-	function inputData( String $runAppName, String $runAppActn ){
-		// Parse input from selected sources
-		// to return an array or object of data
-		// That will be exposed to the apps
-
-		// Gets specific app action setup and overload setup
-
-
-		// If unexisting, load all untyped inputs (from request)
-
-		// Then, call the setup input parser to get a lib of vars
-		$this->inputLib = $this->setupCon->getInputs();
-	}
-	*/
 
 	/**
 	 * Identifies the route from the path/request, or forces it manually
@@ -300,9 +285,6 @@ class Runner{
 		$appCall = $this->routeReg->readValue('app');
 		$actCall = $this->routeReg->readValue('action');
 		$actOptn = $this->routeReg->getDefVal('param', null);
-
-		/*	Place input loading at appCaller level	*/
-		//$this->inputData($appCall, $actCall);
 
 		$rteStat = $this->routeReg->getDefVal('statCode', 200);
 		if( $rteStat!=200 ){

@@ -1,123 +1,172 @@
 <?php
 
 /*
-	This class should sanitize the input from the Request object
-	to provide clean values that are exposed to the apps. Ideally
-	all data stored in the exposed object should be encapsulated
-	in a Variable object, with a predefined "string" type
-	
+	This class cleans the input from the Request object to provide
+	the values that are exposed to the apps: the fields a definition
+	lists are kept, each given the format the definition names for it
+	(see Variable), and the others are left out.
+
+	A definition is 'all' (every value, as sent), 'none', a text of
+	name:Format(option) items separated by semicolons, or an array
+	shaped like the values:
+		{ "filters": { "search": "TextStr" }, "since": "ShrDate", "pass": "" }
+	A field without a format is kept as sent.
 */
 
 namespace nyu\Tools;
 
 class Input{
-	
+
 	protected $saveName;
 	protected $fldArray;
-	protected $fldsList;
 	protected $reqstObj;
 	protected $inputReg;
 
 	/**
 	 * Builds a named input registry entry by pulling values from the
-	 * given source off the shared Request and filtering them down to
-	 * the configured field list.
+	 * given source off the shared Request, keeping the fields the
+	 * definition lists and giving each its format.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
-	 * @param String  $fromSource 'QUERY' (request vars); any other source yields no value.
-	 * @param String  $fldListStr Semicolon-separated field-list definition, or 'all'/'none'.
-	 * @param String  $regstrName Name under which the parsed values are stored.
+	 * @param ?Request     $requestObj The shared, already-parsed HTTP request; null when the values are given to parseVals().
+	 * @param String       $fromSource 'QUERY' (request vars); any other source yields no value.
+	 * @param String|Array $fieldsDefn The definition of the fields: 'all', 'none', a text of name:Format(option) items, or an array shaped like the values.
+	 * @param String       $regstrName Name under which the parsed values are stored.
+	 *
+	 * @throws \RuntimeException When the definition names a format that does not exist.
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-    function __construct( Request $requestObj, String $fromSource, String $fldListStr, String $regstrName ){
+    function __construct( ?Request $requestObj, String $fromSource, String|Array $fieldsDefn, String $regstrName ){
 		$this->reqstObj = $requestObj;
 		$this->saveName = $regstrName;
-		$this->fldsList = $fldListStr;
-		$this->fldArray = $this->fLisToArr( $fldListStr );
-		if( $fromSource=='QUERY' ){
-			$allVals = $this->reqstObj->getAllVar();
-		}else{
-			$allVals = Array();
-		}
+		$this->fldArray = $this->fieldsMap( $fieldsDefn );
+		$allVals = ($fromSource=='QUERY' && $requestObj!==null) ? $requestObj->getAllVar() : Array();
 		$this->inputReg[$this->saveName] = $this->parseVals( $allVals );
 	}
-	
+
 	/**
-	 * Filters the given values down to the configured field list, then
-	 * (eventually) applies per-field formatting via the Variable class.
+	 * Keeps the values the definition lists, each given its format, and
+	 * leaves the others out. The names of the first level are matched
+	 * whatever their case, as the registry the values end in reads them.
 	 *
-	 * @param Array $valueArray Raw values to filter/format.
-	 * @return Array The filtered values; the full array unchanged when the field list is 'all'; empty when it's 'none'.
-	 *
-	 * @todo Phase 2 (calling the Variable formatting class per field) is not yet implemented.
+	 * @param Array $valueArray Raw values to filter and format.
+	 * @return Array The values kept; all of them, unchanged, when the definition is 'all'.
 	 */
-	protected function parseVals( Array $valueArray ): Array {
-		// Phase 1, filter vars in valueArr by coma separated list of keys
-		// Phase 2, apply filter by calling the Variable formatting class
-		if( $this->fldsList=='all' ){
+	public function parseVals( Array $valueArray ): Array {
+		if( $this->fldArray===null ){
 			return $valueArray;
 		}
-		if( $this->fldsList=='none' ){
-			return Array();
+		return $this->mapValues( $valueArray, $this->fldArray, true );
+	}
+
+	/**
+	 * Keeps the values listed at one level of the definition. A field
+	 * defined with fields of its own is read level by level; a value that
+	 * should hold fields and does not is emptied.
+	 *
+	 * @param Array $valueArray Values of the level.
+	 * @param Array $fieldNodes Fields of the level, as fieldsMap() gives them.
+	 * @param Bool  $ignoreCase Whether the names are matched whatever their case.
+	 * @return Array The values kept, under the names they came with.
+	 */
+	protected function mapValues( Array $valueArray, Array $fieldNodes, Bool $ignoreCase=false ): Array {
+		if( $ignoreCase ){
+			$fieldNodes = array_change_key_case($fieldNodes, CASE_LOWER);
 		}
-		$fldList = $this->fldArray;
 		$valList = Array();
-		foreach( $valueArray as $valKey=>$valVal ){
-			if( in_array($valKey, array_keys( $fldList ) ) ){
-				$fldOpts = $fldList[$valKey];
+		foreach( $valueArray as $valKey => $valVal ){
+			$nodeKey = $ignoreCase ? strtolower(strval($valKey)) : strval($valKey);
+			if( !isset($fieldNodes[$nodeKey]) ){
+				continue;
+			}
+			$fldNode = $fieldNodes[$nodeKey];
+			if( $fldNode['kids']!==null ){
+				$valList[$valKey] = is_array($valVal) ? $this->mapValues($valVal, $fldNode['kids']) : Array();
+			}elseif( $fldNode['frmt']=='' ){
 				$valList[$valKey] = $valVal;
+			}else{
+				$valList[$valKey] = $this->formatVal($valVal, $fldNode['frmt'], $fldNode['optn']);
 			}
 		}
 		return $valList;
 	}
-	
+
 	/**
-	 * Parses a field-list definition string into a structured array of
-	 * field names mapped to their format and format options.
+	 * Gives a value the format named, through the Variable class. An
+	 * array is formatted value by value. A value the format cannot read
+	 * is emptied.
 	 *
-	 * Expected syntax per field: `valueName:valueFormat(opt1,opt2,opt3)`,
-	 * with fields separated by semicolons.
-	 *
-	 * @param String $fldListStr Semicolon-separated field list, 'all' for no filtering, or 'none' to exclude everything.
-	 * @return Array Map of field name => [format => options].
+	 * @param mixed   $givenValue The value as sent.
+	 * @param String  $formatName Name of the format (see Variable).
+	 * @param ?String $formatOptn Option of the format, when it takes one.
+	 * @return mixed The formatted value.
 	 */
-	protected function fLisToArr( String $fldListStr='all' ): Array {
-		$fltrArr = Array();
-		if( $fldListStr != 'all' && $fldListStr != 'none' ){
-			// Strip spaces in initial variable
-			$fldListStr = str_replace(' ','',$fldListStr);
-			// Split into fields, delimited by semicolon
-			$lstLine = explode(';',$fldListStr);
-			foreach( $lstLine as $lstItm ){
-				// Field STR : valueName:valueFormat(opt1,opt2,opt3)
-				// Split fields and types, separated by colons
-				if(strPos($lstItm, ':') !== false){
-					$itmArr = explode(':',$lstItm);
-					$varNme = $itmArr[0];
-					$varOpt = $itmArr[1];
-					if(strPos($varOpt, ':') !== false){
-						$frmArr = explode('(',$varOpt);
-						$format = $frmArr[0];
-						$frmArr[1] = str_replace(')', '', $frmArr[1]);
-						if(strPos($frmArr[1], ',') !== false){
-							$frmOpt = explode(',', $frmArr[1]);
-						}else{
-							$frmOpt = Array($frmArr[1]);
-						}
-					}else{
-						$format = $itmArr[1];
-						$frmOpt = Array();
-					}
-					$fltrArr[$varNme] = Array($format => $frmOpt);
-				}else{
-					$fltrArr[$lstItm] = Array();
+	protected function formatVal( Mixed $givenValue, String $formatName, ?String $formatOptn=null ): Mixed {
+		if( is_array($givenValue) ){
+			foreach( $givenValue as $itmKey => $itmVal ){
+				$givenValue[$itmKey] = $this->formatVal($itmVal, $formatName, $formatOptn);
+			}
+			return $givenValue;
+		}
+		try{
+			$varObjc = new Variable($givenValue);
+			return $varObjc->readValue($formatName, $formatOptn ?? false);
+		}catch( \TypeError | \ValueError $e ){
+			return '';
+		}
+	}
+
+	/**
+	 * Reads a definition of fields into the fields of each level: for
+	 * each name, its format ('frmt', empty when the value is kept as
+	 * sent), the option of the format ('optn') and, when the field holds
+	 * fields of its own, those fields ('kids').
+	 *
+	 * @param String|Array $fieldsDefn 'all', 'none', a text of name:Format(option) items separated by semicolons, or an array of name => format, name => fields, or plain names.
+	 * @return ?Array The fields by name; an empty array for 'none'; null for 'all'.
+	 *
+	 * @throws \RuntimeException When a format is not written as Name or Name(option), or does not exist.
+	 */
+	protected function fieldsMap( String|Array $fieldsDefn ): ?Array {
+		if( is_string($fieldsDefn) ){
+			$defText = trim($fieldsDefn);
+			if( $defText=='all' ){
+				return null;
+			}
+			// name:Format(option) items; the option may hold a colon, not a semicolon
+			$fieldsDefn = Array();
+			foreach( ($defText=='none' ? Array() : explode(';', $defText)) as $lstItm ){
+				$itmPrts = explode(':', $lstItm, 2);
+				if( trim($itmPrts[0])!='' ){
+					$fieldsDefn[trim($itmPrts[0])] = trim($itmPrts[1] ?? '');
 				}
 			}
 		}
-		return $fltrArr;
+		$nodeMap = Array();
+		foreach( $fieldsDefn as $fldKey => $fldDef ){
+			if( is_array($fldDef) ){
+				$nodeMap[strval($fldKey)] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsMap($fldDef));
+				continue;
+			}
+			if( is_int($fldKey) ){
+				// A plain list of names : each is kept as sent
+				$nodeMap[strval($fldDef)] = Array('frmt'=>'', 'optn'=>null, 'kids'=>null);
+				continue;
+			}
+			$fldSpec = trim(strval($fldDef));
+			$frmPrts = Array();
+			if( $fldSpec!='' && !preg_match('/^(\w+)(?:\((.*)\))?$/s', $fldSpec, $frmPrts) ){
+				throw new \RuntimeException('Input misconfigured: "'.$fldSpec.'" is not a format, for the field "'.$fldKey.'"');
+			}
+			$frmName = $frmPrts[1] ?? '';
+			if( $frmName!='' && !method_exists(Variable::class, 'to'.$frmName) ){
+				throw new \RuntimeException('Input misconfigured: unknown format "'.$frmName.'" for the field "'.$fldKey.'"');
+			}
+			$nodeMap[strval($fldKey)] = Array('frmt'=>$frmName, 'optn'=>(($frmPrts[2] ?? '')!=='' ? $frmPrts[2] : null), 'kids'=>null);
+		}
+		return $nodeMap;
 	}
-	
+
     /**
 	 * Returns the parsed values currently stored under this input's
 	 * registry name, for merging into the wider input registry.
