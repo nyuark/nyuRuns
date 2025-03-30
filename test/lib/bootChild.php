@@ -5,7 +5,9 @@
 //
 //   php bootChild.php <preset name> <project folder>
 //
-// The folder is given a conf/presets/broken.rps file that is not valid JSON.
+// The folder is given a conf/presets/broken.rps file that is not valid JSON,
+// a conf/presets/empty.rps file that holds nothing but a comment, and
+// stale.rps and nested.rps files holding a key the framework does not know.
 
 $topDir = dirname(__DIR__, 2);
 $presetNm = $argv[1];
@@ -19,6 +21,9 @@ require $topDir.'/vendor/autoload.php';
 
 mkdir(TOP_DIR.DS.'conf'.DS.'presets', 0775, true);
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'broken.rps', '{ "name": "broken", ');
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'empty.rps', "// Nothing set\n{\n}\n");
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'stale.rps', '{ "label": "stale", "setup": { "ftypes": "all", "config": "all" } }');
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'nested.rps', '{ "name": "nested", "setup": { "ftypes": "all" } }');
 
 // The error log is the standard error stream, whatever the machine's php.ini says
 ini_set('log_errors', '1');

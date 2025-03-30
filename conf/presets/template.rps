@@ -1,12 +1,13 @@
 {
     // This file should contain settings for :
-    //  Setup/Config files; authentication methods;
+    //  Setup/Config files; authentication methods; inputs;
     //  Route detection; base rendering config
-    // 
-	// Name of the PreSet
-	"name": "webapi",
+    // A key that is not one of those described here stops the run
+    //
+	// Name of the PreSet; the name of its file
+	"label": "template",
     // Description of the PreSet
-	"description": "Preset for handling a basic web api response",
+	"about": "Every setting of a preset, with what it does",
 	// Type and names of config files to load
 	"setup": {
         // Separated by semicolons or all
@@ -50,8 +51,24 @@
         // An OPTIONS request answered by a declared route is always served
 		"openrt": ["auth/login"]
 	},
+	// Sources of the inputs given to the applications; without this block they get none
+	"input": [
+		{
+	        // Name of the source
+			"naming": "QUERY",
+	        // Where the values come from: QUERY (query string and body of the request)
+	        // Planned; not implemented yet: DFILE; DBREC; XTAPI; SESSN; RFLUX
+			"source": "QUERY",
+	        // Fields kept: all; none; or a definition of the fields and of their formats,
+	        // as an application can give for each action in input/<action>.json
+			"fields": "all"
+		}
+	],
 	"route": {
+        // How the route is found: autopath (from the path; through the mapper);
+        // manually (from the routes the entry point declares). Declared route files are read in both
 		"detect": "autopath",
+        // Names given to the parts of the path; in order
 		"mapper": "$app/$action/$param",
         // Folder of the declared route files (*.rte); relative to the project root.
         // Uses conf/routes when not set. Declared routes are checked before the mapper

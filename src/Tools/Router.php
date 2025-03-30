@@ -29,7 +29,8 @@ class Router{
 	/**
 	 * Resolves the route of the request: from the declared routes first (the
 	 * entry point's manual routes, then the files of conf/routes), otherwise
-	 * positionally from the URL path in autopath mode. A CORS preflight
+	 * positionally from the URL path in autopath mode. The entry point's
+	 * routes are only read in manually mode. A CORS preflight
 	 * (an OPTIONS request carrying Access-Control-Request-Method) resolves
 	 * to no application: it is answered with the preset's headers alone.
 	 *
@@ -48,7 +49,7 @@ class Router{
 
 		// Declared routes come first : entry point file, then routes folder
 		$urlPath = str_replace('.php', '', $this->pathText);
-		$fndVals = ($dtcMode=='manual') ? $this->manuRoute($urlPath) : null;
+		$fndVals = ($dtcMode=='manually') ? $this->manuRoute($urlPath) : null;
 		if( $fndVals===null ){
 			$fndVals = $this->fileRoute($urlPath);
 		}

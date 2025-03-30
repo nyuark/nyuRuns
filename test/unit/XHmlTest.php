@@ -60,7 +60,7 @@ checkSame('text and elements mixed keep their order, as #text nodes', xmlItems('
 checkSame('the text of an element keeps its spacing', xmlItems('<a>  two  words  </a>')['value'], '  two  words  ');
 checkSame('a CDATA section is plain text', xmlItems('<a><![CDATA[<not> & markup]]></a>')['value'], '<not> & markup');
 checkSame('comments and processing instructions are left out', xmlItems('<?xml version="1.0"?><!-- top --><a><?php echo 1; ?><!-- in --><b>1</b></a>'), elmt('a', Array(), '', Array(elmt('b', Array(), '1'))));
-checkSame('a prefixed name is kept whole, for elements and attributes', xmlItems('<w:p xmlns:w="urn:w" w:rsid="7"><w:t xml:space="preserve">x</w:t></w:p>'), elmt('w:p', Array('w:rsid'=>'7'), '', Array(elmt('w:t', Array('xml:space'=>'preserve'), 'x'))));
+checkSame('a prefixed name is kept whole, for elements and attributes; the address given to a prefix is an attribute too', xmlItems('<w:p xmlns:w="urn:w" w:rsid="7"><w:t xml:space="preserve">x</w:t></w:p>'), elmt('w:p', Array('xmlns:w'=>'urn:w', 'w:rsid'=>'7'), '', Array(elmt('w:t', Array('xml:space'=>'preserve'), 'x'))));
 checkSame('the standard entities are read as their characters', xmlItems('<a t="&quot;x&quot;">&lt;b&gt; &amp; &#233;&#x20AC;</a>'), elmt('a', Array('t'=>'"x"'), '<b> & é€'));
 checkSame('an empty content gives an empty tree', Array(xmlItems(''), xmlItems(" \n ")), Array(Array(), Array()));
 

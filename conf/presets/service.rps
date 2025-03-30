@@ -1,26 +1,16 @@
 {
-	"name": "webapi",
-	"description": "Preset for handling a basic web api response",
+	"label": "service",
+	"about": "Preset for a service called by other programs: Basic credentials checked against the htpasswd file",
 	"setup": {
-		"config": "all",
-		"format": "all",
-		"bypass": "any"
+		"ftypes": "all",
+		"fnames": "any"
 	},
 	"auths": { "needed": true, "sessby": "hbasic", "authby": "htpass", "sesscf": "dfpass" },
 	"input": [
 		{
 			"naming": "QUERY",
-			"source": "REQUEST",
-			"option": "ALL",
-			"fields": "all",
-			"format": "utf-8"
-		},
-		{
-			"naming": "CACHE",
-			"source": "FILE",
-			"option": "cache/webapi.tmp",
-			"fields": "all",
-			"format": "utf-8"
+			"source": "QUERY",
+			"fields": "all"
 		}
 	],
 	"route": {

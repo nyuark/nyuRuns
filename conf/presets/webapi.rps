@@ -1,32 +1,22 @@
 {
-	"name": "webapi",
-	"description": "Preset for handling a basic web api response",
+	"label": "webapi",
+	"about": "Preset for a web API: Bearer tokens, with the login action left open",
 	"setup": {
-		"config": "all",
-		"format": "all",
-		"bypass": "any"
+		"ftypes": "all",
+		"fnames": "any"
 	},
 	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/login"] },
 	"input": [
 		{
-			"naming": "PASSED",
+			"naming": "QUERY",
 			"source": "QUERY",
-			"option": "ANY",
-			"fields": "all",
-			"encode": "utf-8"
-		},
-		{
-			"naming": "CACHE",
-			"source": "FILES",
-			"option": "cache/webapi.tmp",
-			"fields": "all",
-			"encode": "utf-8"
+			"fields": "all"
 		}
 	],
 	"route": {
 		"detect": "autopath",
 		"mapper": "$app/$action/$param"
-	}, 
+	},
 	"rnder": {
 		"tmplte": "plain",
 		"return": "json",

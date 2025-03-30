@@ -28,7 +28,8 @@ class Index {
 		'ods'    => Array('Odsx', Array(), 'application/vnd.oasis.opendocument.spreadsheet'),
 		'docx'   => Array('Docx', Array(), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
 		'odt'    => Array('Odtx', Array(), 'application/vnd.oasis.opendocument.text'),
-		'epub'   => Array('EPub', Array(), 'application/epub+zip')
+		'epub'   => Array('EPub', Array(), 'application/epub+zip'),
+		'xml'    => Array('Xmlx', Array(), 'application/xml; charset=utf-8')
 	);
 
 	/**

@@ -103,7 +103,7 @@ checkSame('the preset files of the project are JSON with comment lines too', run
 	foreach( glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps') as $rpsFle ){
 		$docFile = new Dcmnt($rpsFle);
 		$docFile->fileParse('rps', false);
-		$rpsOkay[] = isset($docFile->readValue()['name']);
+		$rpsOkay[] = isset($docFile->readValue()['label']);
 	}
 	return Array(count($rpsOkay)>0, !in_array(false, $rpsOkay, true));
 }), Array(true, true));

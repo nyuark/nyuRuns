@@ -11,7 +11,8 @@ use nyu\Data\Shape;
 //
 //   'tagnm' => the name of the element, with its prefix when it has one;
 //   'tagid' => its id (the 'id' attribute, or 'xml:id'), '' when it has none;
-//   'attrs' => its attributes, name => value;
+//   'attrs' => its attributes, name => value; in XML, the addresses it
+//              gives to the prefixes of names (xmlns, xmlns:x) among them;
 //   'value' => its text, when it holds text only;
 //   'nodes' => its child elements.
 //
@@ -62,7 +63,7 @@ class XHml extends Base {
 	 *
 	 * @param String $rawContent The document.
 	 * @param Array  $parseOptns Options: 'reads', 'shape', 'short', 'depth', 'space'.
-	 * @return Array The envelope, of shape 'nodes' or 'block'; 'infos' holds what the content was read as under 'reads', the encoding it declared under 'encod' and, for HTML, the title of the page under 'title'.
+	 * @return Array The envelope, of shape 'nodes' or 'block'; 'infos' holds what the content was read as under 'reads', the encoding it declared under 'encod', for HTML the title of the page under 'title', and for an XML document that tells its kind, the name of that kind, its public name and where its rules are told under 'dtype' ('names', 'publc', 'systm').
 	 *
 	 * @throws ParseError When an XML content is not well-formed or declares entities, or the document is nested too deep.
 	 */
@@ -85,6 +86,10 @@ class XHml extends Base {
 		$declEnc = 'UTF-8';
 		$domDocu = ($readsAs=='html') ? $this->loadAHtml($rawContent, $declEnc) : $this->loadAsXml($rawContent, $declEnc);
 		$infoArr['encod'] = $declEnc;
+		// The kind of document an XML content says it is, and where the rules of that kind are told
+		if( $readsAs=='xml' && $domDocu->doctype!==null ){
+			$infoArr['dtype'] = Array('names'=>strval($domDocu->doctype->name), 'publc'=>strval($domDocu->doctype->publicId), 'systm'=>strval($domDocu->doctype->systemId));
+		}
 		if( $domDocu->documentElement===null ){
 			return $this->makeShape($shapeAs, Array(), $infoArr);
 		}
@@ -195,6 +200,12 @@ class XHml extends Base {
 			throw new ParseError('Invalid '.($readAsHtml ? 'HTML' : 'XML').' content: nested deeper than allowed');
 		}
 		$attrLst = Array();
+		// The addresses an XML element gives to the prefixes of its names are attributes of it, though not listed as such
+		if( !$readAsHtml && function_exists('simplexml_import_dom') ){
+			foreach((array)simplexml_import_dom($domElement)->getDocNamespaces(false, false) as $nmsKey=>$nmsAdr){
+				$attrLst[($nmsKey==='') ? 'xmlns' : 'xmlns:'.$nmsKey] = strval($nmsAdr);
+			}
+		}
 		foreach($domElement->attributes as $atrNod){
 			$attrLst[$atrNod->nodeName] = $atrNod->nodeValue;
 		}

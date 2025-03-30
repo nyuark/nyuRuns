@@ -1,6 +1,6 @@
 {
-	"name": "webapi",
-	"description": "Preset for handling a basic web api response",
+	"label": "default",
+	"about": "Preset loaded when the entry point names none: open access, JSON replies",
 	"setup": {
 		"ftypes": "all",
 		"fnames": "any"
@@ -10,15 +10,7 @@
 		{
 			"naming": "QUERY",
 			"source": "QUERY",
-			"fields": "all",
-			"format": "utf-8"
-		},
-		{
-			"naming": "CACHE",
-			"source": "DFILE",
-			"option": "cache/webapi.tmp",
-			"fields": "all",
-			"format": "utf-8"
+			"fields": "all"
 		}
 	],
 	"route": {

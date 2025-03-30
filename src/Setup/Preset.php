@@ -4,9 +4,20 @@
 
 namespace nyu\Setup;
 
-use \nyu\Setup;
+use \nyu\Data\Dcmnt;
+use \nyu\Data\Parsers\ParseError;
 
 class Preset{
+
+	// The keys a preset may hold, block by block; 'input' is a list of sources, each holding those keys
+	const KEYSLIST = Array(
+		''      => Array('label', 'about', 'setup', 'auths', 'input', 'route', 'rnder'),
+		'setup' => Array('ftypes', 'fnames', 'folder', 'envfle'),
+		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt'),
+		'input' => Array('naming', 'source', 'fields'),
+		'route' => Array('detect', 'mapper', 'folder'),
+		'rnder' => Array('tmplte', 'return', 'headrs')
+	);
 
 	protected $rpsArray;
 
@@ -14,50 +25,75 @@ class Preset{
 	 * Loads and parses the named RPS preset file.
 	 *
 	 * @param String $presetName Name of the preset file (without extension) to load; defaults to 'default'.
-	 * @throws \RuntimeException When the preset file is missing or is not valid JSON.
+	 * @throws \RuntimeException When the name is not valid, or the preset file is missing, not valid JSON, or empty.
 	 */
     function __construct(String $presetName = 'default'){
 		if($presetName==''){
 			$presetName = 'default';
 		}
-		if( !$this->rtsParser($presetName) ){
-			throw new \RuntimeException('Preset "'.$presetName.'" is missing or is not valid JSON');
-		}
+		$this->rpsParser($presetName);
 	}
 
 	/**
-	 * Reads the .rps file for the given preset name, strips out `#` and
-	 * `//` comment lines, and decodes the remaining JSON into rpsArray.
+	 * Reads the .rps file for the given preset name into rpsArray: JSON,
+	 * in which a line starting with `#` or `//` is a comment.
 	 *
-	 * @param String $presetName Name of the preset file (without extension) to parse.
-	 * @return Bool True if the preset was parsed into a non-empty array, false otherwise.
+	 * @param String $presetName Name of the preset file (without extension) to parse: letters, digits, `_` and `-`.
+	 * @throws \RuntimeException When the name is not valid, or the preset file is missing, not valid JSON, or empty.
 	 */
-	protected function rtsParser(String $presetName): Bool {
+	protected function rpsParser(String $presetName): Void {
+		// The name goes into a path : nothing that could lead out of the presets folder
+		if( !preg_match('/^[\w\-]+$/', $presetName) ){
+			throw new \RuntimeException('Preset "'.$presetName.'" has no valid name');
+		}
 		$rpsFile = TOP_DIR.DS.'conf'.DS.'presets'.DS.$presetName.'.rps';
-		if(file_exists($rpsFile)){
-			$jsnLine = file($rpsFile);
-			// Strip comments from RPS file
-			foreach($jsnLine as $lneNum=>$lneTxt){
-				$lneTxt = trim($lneTxt);
-				if($lneTxt=='' || $lneTxt[0]=='#' || substr($lneTxt,0,2)=='//'){
-					unset($jsnLine[$lneNum]);
+		if( !is_file($rpsFile) ){
+			throw new \RuntimeException('Preset "'.$presetName.'" is missing');
+		}
+		try{
+			$rpsDocu = new Dcmnt($rpsFile);
+			// The names of the blocks are kept as written
+			$rpsDocu->fileParse('rps', false);
+		}catch( ParseError $e ){
+			throw new \RuntimeException('Preset "'.$presetName.'" is not valid JSON: '.$e->getMessage(), 0, $e);
+		}
+		$this->rpsArray = $rpsDocu->readValue();
+		if( !is_array($this->rpsArray) || empty($this->rpsArray) ){
+			throw new \RuntimeException('Preset "'.$presetName.'" is empty');
+		}
+		$this->checkKeys($presetName);
+	}
+
+	/**
+	 * Checks that the preset holds no key the framework does not know: a
+	 * key left from an older version, or misspelt, would otherwise be
+	 * ignored without a word.
+	 *
+	 * @param String $presetName Name of the preset, for the message.
+	 * @throws \RuntimeException When a key is unknown, or a block is not a set of keys.
+	 */
+	protected function checkKeys(String $presetName): Void {
+		foreach( $this->rpsArray as $blkKey => $blkVal ){
+			if( !in_array($blkKey, self::KEYSLIST[''], true) ){
+				throw new \RuntimeException('Preset "'.$presetName.'" holds an unknown key: '.$blkKey);
+			}
+			if( !isset(self::KEYSLIST[$blkKey]) ){
+				continue;
+			}
+			if( !is_array($blkVal) ){
+				throw new \RuntimeException('Preset "'.$presetName.'" holds a block that is not a set of keys: '.$blkKey);
+			}
+			// The sources of the inputs are a list, each checked as a block
+			foreach( ($blkKey=='input' ? $blkVal : Array($blkVal)) as $setVal ){
+				foreach( array_keys((array)$setVal) as $setKey ){
+					if( !in_array($setKey, self::KEYSLIST[$blkKey], true) ){
+						throw new \RuntimeException('Preset "'.$presetName.'" holds an unknown key: '.$blkKey.'.'.$setKey);
+					}
 				}
 			}
-			$jsnData = implode("", $jsnLine);
-			$this->rpsArray = json_decode($jsnData,true);
-			// TODO : Throw Error if no data returned
-			if(is_array($this->rpsArray) && !empty($this->rpsArray)){
-				return true;
-			}else{
-				return false;
-			}
-		}else{
-			// Raise exception if file not found
-			return false;
 		}
 	}
 
- //   public function genSetup(){
     /**
 	 * Instanciates the setup class (Setup\Loader) with the parsed preset
 	 * data and returns it.
