@@ -100,9 +100,6 @@ function getRawData(){
 // read, write, seek
 include_once('../autoloader.php');
 
-//$preset = new nyu\Setup\Preset();
-// TODO : DIContainer
-
 use \nyu\Data\DBRec;
 
 $GLOBALS['manualRoute'] = Array(

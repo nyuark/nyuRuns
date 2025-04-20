@@ -23,13 +23,16 @@ class Controller{
 	protected $modStack;
 	protected $respVals;
 	protected $loadFail;
-	
+	// Status reported with $loadFail
+	protected $failCode = 404;
+
 	// Initialize application
 	/**
 	 * Loads the application's Actions.php file and prepares it (via
 	 * reflection) for execution, then loads its model stack. A missing
 	 * application, or one whose Actions.php does not declare its actionset,
-	 * is reported as a 404 through getStatus().
+	 * is reported as a 404 through getStatus(); a required input that is
+	 * missing or empty as a 400, the action not being run.
 	 *
 	 * @param String   $runAppName Name of the application (run) to load.
 	 * @param String   $runAppActn Name of the action/method to call on the application.
@@ -74,6 +77,9 @@ class Controller{
 			$this->savedAct = $this->defltActn();
 		}
 		$this->actInputs();
+		if( $this->loadFail!==null ){
+			return;
+		}
 		$this->modLoader();
 	}
 
@@ -81,7 +87,9 @@ class Controller{
 	 * Applies the definition of the action's inputs, when the application
 	 * has one in input/<action>.json: the fields it lists are kept, each
 	 * given its format, and the others are left out (see Tools\Input).
-	 * Without that file, the inputs stay as the preset built them.
+	 * Without that file, the inputs stay as the preset built them. A
+	 * field the definition requires ('name!') that is missing or empty
+	 * refuses the request: a 400 naming the fields, through getStatus().
 	 *
 	 * @throws \RuntimeException When the file is not a valid definition.
 	 */
@@ -101,6 +109,12 @@ class Controller{
 		}
 		$inptObj = new Input( null, 'ACTON', $defVals['fields'], $actName );
 		$this->inputReg = new Registry( $inptObj->parseVals($this->inputReg->readLines()) );
+		$missLst = $inptObj->getMissed();
+		if( !empty($missLst) ){
+			// A required field is missing or empty : the action is not run
+			$this->failCode = 400;
+			$this->loadFail = 'Missing or invalid input: '.implode(', ', $missLst);
+		}
 	}
 
 	/**
@@ -145,14 +159,14 @@ class Controller{
 	
 	// Prepare outcome message and/or data
 	/**
-	 * Returns the status of the executed action, or of the application
-	 * load when it failed.
+	 * Returns the status of the executed action, or of what kept it from
+	 * running: the application load (404) or its required inputs (400).
 	 *
 	 * @return Array The status as ['code' => Int, 'mssg' => String].
 	 */
 	public function getStatus(): Array {
 		if( $this->loadFail!==null ){
-			return Array('code'=>404, 'mssg'=>$this->loadFail);
+			return Array('code'=>$this->failCode, 'mssg'=>$this->loadFail);
 		}
 		return Array(
 			'code'=>intval($this->appObjct->statCode ?? 200),
@@ -163,7 +177,7 @@ class Controller{
 	/**
 	 * Returns the executed action's output.
 	 *
-	 * @return mixed The action's output data, or null when the application could not be loaded.
+	 * @return mixed The action's output data, or null when the action was not run.
 	 */
 	public function getOutput(): Mixed {
 		$this->respVals = ($this->loadFail===null) ? $this->appObjct->asOutput : null;

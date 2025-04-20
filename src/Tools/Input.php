@@ -11,6 +11,10 @@
 	shaped like the values:
 		{ "filters": { "search": "TextStr" }, "since": "ShrDate", "pass": "" }
 	A field without a format is kept as sent.
+
+	A name ending with '!' is a required field ("user!", "mail!:EmlAddr",
+	"filters!": { "search!": "TextStr" }): the ones that are missing or
+	empty, once formatted, are listed by getMissed().
 */
 
 namespace nyu\Tools;
@@ -21,6 +25,7 @@ class Input{
 	protected $fldArray;
 	protected $reqstObj;
 	protected $inputReg;
+	protected $missList = Array();
 
 	/**
 	 * Builds a named input registry entry by pulling values from the
@@ -48,15 +53,82 @@ class Input{
 	 * Keeps the values the definition lists, each given its format, and
 	 * leaves the others out. The names of the first level are matched
 	 * whatever their case, as the registry the values end in reads them.
+	 * The required fields found missing or empty are kept for getMissed().
 	 *
 	 * @param Array $valueArray Raw values to filter and format.
 	 * @return Array The values kept; all of them, unchanged, when the definition is 'all'.
 	 */
 	public function parseVals( Array $valueArray ): Array {
+		$this->missList = Array();
 		if( $this->fldArray===null ){
 			return $valueArray;
 		}
-		return $this->mapValues( $valueArray, $this->fldArray, true );
+		$keptVls = $this->mapValues( $valueArray, $this->fldArray, true );
+		$this->missList = $this->findEmpty( $keptVls, $valueArray, $this->fldArray, '', true );
+		return $keptVls;
+	}
+
+	/**
+	 * Returns the required fields the last parseVals() found missing or
+	 * empty: not sent, sent empty, or emptied by their format.
+	 *
+	 * @return Array The names as the definition writes them, in its order, a field held by another written 'filters.search'.
+	 */
+	public function getMissed(): Array {
+		return $this->missList;
+	}
+
+	/**
+	 * Lists the required fields of one level that are missing or empty. A
+	 * required field holding fields is listed alone when nothing is kept
+	 * under it; otherwise its own fields are checked.
+	 *
+	 * @param Array  $keptValues Values of the level, once filtered and formatted.
+	 * @param Array  $sentValues Values of the level, as sent.
+	 * @param Array  $fieldNodes Fields of the level, as fieldsMap() gives them.
+	 * @param String $prefixText Names of the fields holding this level, each followed by a dot.
+	 * @param Bool   $ignoreCase Whether the names are matched whatever their case.
+	 * @return Array The names of the fields, as the definition writes them.
+	 */
+	protected function findEmpty( Array $keptValues, Array $sentValues, Array $fieldNodes, String $prefixText='', Bool $ignoreCase=false ): Array {
+		if( $ignoreCase ){
+			$keptValues = array_change_key_case($keptValues, CASE_LOWER);
+			$sentValues = array_change_key_case($sentValues, CASE_LOWER);
+		}
+		$missLst = Array();
+		foreach( $fieldNodes as $fldKey => $fldNde ){
+			$nameKey = $ignoreCase ? strtolower(strval($fldKey)) : $fldKey;
+			$keptVal = $keptValues[$nameKey] ?? null;
+			$sentVal = $sentValues[$nameKey] ?? null;
+			// A value sent empty is empty, whatever its format makes of it (Integer gives 0)
+			if( $fldNde['reqd'] && ($this->isEmptied($sentVal) || $this->isEmptied($keptVal)) ){
+				$missLst[] = $prefixText.$fldKey;
+				continue;
+			}
+			if( $fldNde['kids']!==null ){
+				$missLst = array_merge( $missLst, $this->findEmpty(is_array($keptVal) ? $keptVal : Array(), is_array($sentVal) ? $sentVal : Array(), $fldNde['kids'], $prefixText.$fldKey.'.') );
+			}
+		}
+		return $missLst;
+	}
+
+	/**
+	 * Tells whether a value is empty: null, an empty text, or an array
+	 * holding nothing else. 0, '0', false and a text of spaces are values.
+	 *
+	 * @param mixed $givenValue The value to check.
+	 * @return Bool True when the value is empty.
+	 */
+	protected function isEmptied( Mixed $givenValue ): Bool {
+		if( is_array($givenValue) ){
+			foreach( $givenValue as $itmVal ){
+				if( !$this->isEmptied($itmVal) ){
+					return false;
+				}
+			}
+			return true;
+		}
+		return $givenValue===null || $givenValue==='';
 	}
 
 	/**
@@ -119,8 +191,9 @@ class Input{
 	/**
 	 * Reads a definition of fields into the fields of each level: for
 	 * each name, its format ('frmt', empty when the value is kept as
-	 * sent), the option of the format ('optn') and, when the field holds
-	 * fields of its own, those fields ('kids').
+	 * sent), the option of the format ('optn'), when the field holds
+	 * fields of its own, those fields ('kids'), and whether the field is
+	 * required ('reqd': its name ends with '!', which is not kept in it).
 	 *
 	 * @param String|Array $fieldsDefn 'all', 'none', a text of name:Format(option) items separated by semicolons, or an array of name => format, name => fields, or plain names.
 	 * @return ?Array The fields by name; an empty array for 'none'; null for 'all'.
@@ -144,25 +217,33 @@ class Input{
 		}
 		$nodeMap = Array();
 		foreach( $fieldsDefn as $fldKey => $fldDef ){
+			// In a plain list of names, the name is the value
+			$isPlain = is_int($fldKey) && !is_array($fldDef);
+			$fldName = strval($isPlain ? $fldDef : $fldKey);
+			// A name ending with '!' is a required field
+			$isReqrd = (substr($fldName, -1)=='!');
+			if( $isReqrd ){
+				$fldName = rtrim(substr($fldName, 0, -1));
+			}
 			if( is_array($fldDef) ){
-				$nodeMap[strval($fldKey)] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsMap($fldDef));
+				$nodeMap[$fldName] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsMap($fldDef), 'reqd'=>$isReqrd);
 				continue;
 			}
-			if( is_int($fldKey) ){
+			if( $isPlain ){
 				// A plain list of names : each is kept as sent
-				$nodeMap[strval($fldDef)] = Array('frmt'=>'', 'optn'=>null, 'kids'=>null);
+				$nodeMap[$fldName] = Array('frmt'=>'', 'optn'=>null, 'kids'=>null, 'reqd'=>$isReqrd);
 				continue;
 			}
 			$fldSpec = trim(strval($fldDef));
 			$frmPrts = Array();
 			if( $fldSpec!='' && !preg_match('/^(\w+)(?:\((.*)\))?$/s', $fldSpec, $frmPrts) ){
-				throw new \RuntimeException('Input misconfigured: "'.$fldSpec.'" is not a format, for the field "'.$fldKey.'"');
+				throw new \RuntimeException('Input misconfigured: "'.$fldSpec.'" is not a format, for the field "'.$fldName.'"');
 			}
 			$frmName = $frmPrts[1] ?? '';
 			if( $frmName!='' && !method_exists(Variable::class, 'to'.$frmName) ){
-				throw new \RuntimeException('Input misconfigured: unknown format "'.$frmName.'" for the field "'.$fldKey.'"');
+				throw new \RuntimeException('Input misconfigured: unknown format "'.$frmName.'" for the field "'.$fldName.'"');
 			}
-			$nodeMap[strval($fldKey)] = Array('frmt'=>$frmName, 'optn'=>(($frmPrts[2] ?? '')!=='' ? $frmPrts[2] : null), 'kids'=>null);
+			$nodeMap[$fldName] = Array('frmt'=>$frmName, 'optn'=>(($frmPrts[2] ?? '')!=='' ? $frmPrts[2] : null), 'kids'=>null, 'reqd'=>$isReqrd);
 		}
 		return $nodeMap;
 	}

@@ -226,7 +226,7 @@ class DBLst {
 	 * Sets how many rows are read, from a count, or from a count and an
 	 * offset given as a "count,offset" string or a [count, offset] array.
 	 * Both are read as whole numbers: a count that is not a number gives
-	 * the default of 100 rows, an offset that is not a number is left out.
+	 * the default number of rows (LST_ROWS, 100 when not set), an offset that is not a number is left out.
 	 *
 	 * @param mixed $limIndexes Limit as a number, or a "count[,offset]" string/array; null clears the limit.
 	 */
@@ -234,9 +234,10 @@ class DBLst {
 		$this->limitNum = null;
 		$this->offstNum = null;
 		unset($this->devlText['limit']);
-		// TODO : Get Table Limit from core config
 		if($limIndexes!=null){
-			$dfltLim = 100;
+			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+			$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+			$dfltLim = intval($sysConf['LST_ROWS'] ?? 100) ?: 100;
 			$limIndx = is_array($limIndexes) ? array_values($limIndexes) : explode(',', strval($limIndexes));
 			$this->limitNum = $this->wholeNmbr($limIndx[0] ?? null) ?? $dfltLim;
 			$this->offstNum = $this->wholeNmbr($limIndx[1] ?? null);
@@ -266,12 +267,11 @@ class DBLst {
 	 *
 	 * @throws \RuntimeException When the join does not have three parts, or a name is not valid.
 	 *
-	 * @todo Only a single LEFT JOIN is currently supported; multiple tables/operators are not.
+	 * @todo Version 1.1 : several tables and other operators; a single LEFT JOIN is supported in 1.0.
 	 */
 	public function tableJoin( Array $joinClause=array() ): Void {
 		// Currently supports single left joins
 		// Array ( 'joinTable', 'fld1', 'fld2') )
-		// TODO : Could admit many tables and different operators
 		$this->joinList = Array();
 		if( !empty($joinClause) ) {
 			if( count($joinClause)!=3 ){
@@ -324,35 +324,4 @@ class DBLst {
 		}
 		return $lstRows;
 	}
-	
-	/* TOO POWERFUL TO USE FOR NOW 
-		// TODO: Use Regular function
-	function customSel( $scope='*', $where=false, $order=false, $limit=false, $joint=false, $group=false, $havin=false ){
-		$query = 'SELECT '.$scope.' FROM `'.$this->lstTable.'`';
-		if( $joint!='' )$query.= $joint;
-		if( $where!='' )$query.= ' WHERE '.$where;
-		if( $group!='' )$query.= ' GROUP by '.$group;
-		if( $havin!='' )$query.= ' HAVING '.$havin;
-		if( $order!='' )$query.= ' ORDER by '.$order;
-		if( $limit!='' )$query.= ' LIMIT '.$limit;
-		
-		$result = $this->dbConnex->query($query);
-		
-		if($result){
-			$this->rows = Array();
-			while ($row = mysqli_fetch_assoc($result)) {
-				$this->rows[] = $row;
-			}
-		} else {
-			//$this->errLog( SB_ERR_DB_LISTFAIL.$this->dbConnex->errGet() );
-		}
-	}
-	*/
-}
-/*
-function mysqli_result($res, $row, $field=0) { 
-    $res->data_seek($row); 
-    $datarow = $res->fetch_array(); 
-    return $datarow[$field]; 
-}
-*/
+}

@@ -3,7 +3,7 @@
 // Access layer : the Auth strategies (PassList, RegKey), the Sess carriers
 // (Basic, Header, JWT) and the Checker that pairs them.
 // Credentials come from test/fixtures/users.htpasswd (alice / s3cret, bob / hunter2,
-// erin / tr0ub4dor, frank / letmein).
+// erin / tr0ub4dor, frank / letmein, gina / pw-gina, hank / pw-hank).
 
 require __DIR__.'/../lib/harness.php';
 
@@ -38,6 +38,11 @@ checkSame('PassList SHA hash refused message', $passLst->lastError(), 'Invalid c
 $weakLst = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'unsecure'=>true) );
 checkSame('PassList SHA hash in unsecure mode', $weakLst->checkCred(Array('user'=>'frank', 'pass'=>'letmein')), Array('user'=>'frank'));
 checkSame('PassList SHA wrong password in unsecure mode', $weakLst->checkCred(Array('user'=>'frank', 'pass'=>'nope')), false);
+checkSame('PassList MD5 crypt hash refused by default', Array($passLst->checkCred(Array('user'=>'gina', 'pass'=>'pw-gina')), $passLst->lastError()), Array(false, 'Invalid credentials'));
+checkSame('PassList MD5 crypt hash in unsecure mode', $weakLst->checkCred(Array('user'=>'gina', 'pass'=>'pw-gina')), Array('user'=>'gina'));
+checkSame('PassList MD5 crypt wrong password in unsecure mode', $weakLst->checkCred(Array('user'=>'gina', 'pass'=>'nope')), false);
+checkSame('PassList SHA-512 crypt hash is accepted as it is', $passLst->checkCred(Array('user'=>'hank', 'pass'=>'pw-hank')), Array('user'=>'hank'));
+checkSame('PassList SHA-512 crypt wrong password', $passLst->checkCred(Array('user'=>'hank', 'pass'=>'nope')), false);
 checkSame('PassList legacy crypt hash in unsecure mode', $weakLst->checkCred(Array('user'=>'bob', 'pass'=>'hunter2')), Array('user'=>'bob'));
 checkSame('PassList legacy crypt wrong password in unsecure mode', $weakLst->checkCred(Array('user'=>'bob', 'pass'=>'nope')), false);
 checkSame('PassList wrong password',     $passLst->checkCred(Array('user'=>'alice', 'pass'=>'nope')), false);

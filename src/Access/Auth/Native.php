@@ -14,8 +14,6 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  */
 class Native implements Handler{
 
-	// Bcrypt hash of a discarded random string, checked when the user is unknown
-	const FAKEHASH = '$2y$10$vRez8inUYw3A1ZAIcgzLduI5/8q6rGAJtWDgKI6oWkhBpt58FBnw.';
 	// Statuses a user can have; only an active user may log in
 	const STATLIST = Array('pendng', 'active', 'locked');
 	// Seconds during which a user already seen is not stamped again
@@ -27,12 +25,13 @@ class Native implements Handler{
 	protected $maxTries;
 	protected $holdSecs;
 	protected $lastMssg;
+	protected $wrongCrd = false;
 
 	/**
 	 * @param Array $confValues Config block, optionally with the 'basnme' configured database holding the users
 	 *                          (defaults to the default database), their 'tblnme' table (defaults to 'users'),
 	 *                          the 'idletm' time in seconds after which a user is no longer online (defaults to 300),
-	 *                          the failed tries allowed ('maxtry', defaults to 3) and the time in seconds they hold the
+	 *                          the failed tries allowed ('maxtry', defaults to 5) and the time in seconds they hold the
 	 *                          account for ('holdtm', defaults to 600).
 	 */
 	function __construct( Array $confValues ){
@@ -40,7 +39,7 @@ class Native implements Handler{
 		$tblName = strval($confValues['tblnme'] ?? 'users');
 		$this->usrTable = preg_match('/^\w+$/D', $tblName) ? $tblName : '';
 		$this->idleSecs = max( 1, intval($confValues['idletm'] ?? 300) );
-		$this->maxTries = max( 1, intval($confValues['maxtry'] ?? 3) );
+		$this->maxTries = max( 1, intval($confValues['maxtry'] ?? 5) );
 		$this->holdSecs = max( 1, intval($confValues['holdtm'] ?? 600) );
 		$this->lastMssg = '';
 	}
@@ -50,13 +49,15 @@ class Native implements Handler{
 	 * password must match the stored bcrypt hash and the user must be
 	 * 'active'; a user with a 2FA secret must also give the current code
 	 * of its authenticator. After too many wrong passwords or codes, the
-	 * user is refused for the hold time, whatever it gives. A 'key' entry
+	 * user is refused for the hold time, whatever it gives: the reply is
+	 * the one of a wrong password, and the hold is told in the log only. A 'key' entry
 	 * is checked as a personal API token instead.
 	 *
 	 * @param Array $credsArray Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
 	 * @return Array|Bool An identity array ('user', 'role', 'id') on success, or false on failure.
 	 */
 	function checkCred( Array $credsArray ): Array|Bool {
+		$this->wrongCrd = false;
 		if( isset($credsArray['key']) ){
 			return $this->checkTokn( strval($credsArray['key']) );
 		}
@@ -67,18 +68,29 @@ class Native implements Handler{
 			$this->lastMssg = 'Credential store unavailable';
 			return false;
 		}
-		// Too many failed attempts : nothing is checked or counted until the hold is over
+		if( $usrVals===null ){
+			// Unknown user : a hash is still computed, at the cost PHP gives new hashes, so the reply time does not tell which names exist
+			password_hash( $gvnPass, PASSWORD_BCRYPT );
+			$matched = false;
+		}else{
+			$matched = password_verify( $gvnPass, strval($usrVals['passHash'] ?? '') );
+		}
+		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($usrVals) && $this->isHeldNow($usrVals) ){
-			$this->lastMssg = 'Too many attempts';
+			$logInst = $GLOBALS['nyuLogger'] ?? null;
+			if( $logInst!==null ){
+				$logInst->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is held after too many attempts' );
+			}
+			$this->lastMssg = 'Invalid credentials';
+			$this->wrongCrd = true;
 			return false;
 		}
-		// Unknown user : a hash is still checked, so the reply time does not tell which names exist
-		$matched = password_verify( $gvnPass, strval($usrVals['passHash'] ?? self::FAKEHASH) );
 		if( $usrVals===null || !$matched ){
 			if( $usrVals!==null ){
 				$this->countFail( strval($usrVals['userName']) );
 			}
 			$this->lastMssg = 'Invalid credentials';
+			$this->wrongCrd = true;
 			return false;
 		}
 		if( ($usrVals['userStat'] ?? '')!=='active' ){
@@ -97,6 +109,7 @@ class Native implements Handler{
 			if( !Totp::checkCode($twoFaKy, $gvnCode) ){
 				$this->countFail( strval($usrVals['userName']) );
 				$this->lastMssg = 'Invalid verification code';
+				$this->wrongCrd = true;
 				return false;
 			}
 		}
@@ -197,6 +210,7 @@ class Native implements Handler{
 		}
 		if( $usrVals===null || ($usrVals['userStat'] ?? '')!=='active' ){
 			$this->lastMssg = 'Invalid API key';
+			$this->wrongCrd = true;
 			return false;
 		}
 		return Array('user'=>$usrVals['userName'], 'role'=>strval($usrVals['userRole'] ?? ''), 'id'=>$usrVals['id_user'] ?? null);
@@ -233,6 +247,7 @@ class Native implements Handler{
 	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false when the user is unknown, not active, or the table cannot be read.
 	 */
 	public function userIdent( String $userString ): Array|Bool {
+		$this->wrongCrd = false;
 		$usrVals = ($userString!='') ? $this->fetchUser($userString) : null;
 		if( $usrVals===false ){
 			$this->lastMssg = 'Credential store unavailable';
@@ -348,6 +363,18 @@ class Native implements Handler{
 	 */
 	protected function linkDBase(): DbHandlr {
 		return DBCon::linkNamed($this->userBase)->getConnex();
+	}
+
+	/**
+	 * Tells whether the last refusal was a wrong credential, as opposed to
+	 * a store that cannot be read, an account not active or a step still
+	 * to take: only a wrong credential counts against the address that
+	 * presented it (see Access\Limiter).
+	 *
+	 * @return Bool True when a credential was presented and refused.
+	 */
+	public function wrongCred(): Bool {
+		return $this->wrongCrd;
 	}
 
 	/**

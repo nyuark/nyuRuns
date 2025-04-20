@@ -50,6 +50,27 @@ function httpQuery( String $httpMethod, String $urlAddress, Array $headersArr=Ar
 	return $outcome;
 }
 
+/**
+ * Removes the counters of the local addresses kept under the project's own
+ * configuration (see Access\Limiter): the requests that go through it
+ * present wrong credentials, which would add up from one run to the next.
+ */
+function dropLocal(): Void {
+	$axsConf = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
+	$limiter = new nyu\Access\Limiter( is_array($axsConf['limits'] ?? null) ? $axsConf['limits'] : Array() );
+	$keyMthd = new ReflectionMethod($limiter, 'keyOfAddr');
+	$keyMthd->setAccessible(true);
+	$pthMthd = new ReflectionMethod($limiter, 'pathOfKey');
+	$pthMthd->setAccessible(true);
+	foreach( Array('127.0.0.1', '::1') as $adr ){
+		$cntPath = $pthMthd->invoke($limiter, $keyMthd->invoke($limiter, $adr));
+		if( is_file($cntPath) ){
+			@unlink($cntPath);
+		}
+	}
+}
+dropLocal();
+
 $givnUrl = rtrim(strval(getenv('NYU_TEST_HTTP_URL') ?: ''), '/');
 $server = null;
 $whyNot = '';
@@ -127,7 +148,7 @@ if( !$isReady ){
 	checkSame('missing show: 404 with an error body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Show not found","code":404}'));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login');
-	checkSame('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing user or pass","code":400}'));
+	checkSame('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
 
 	$formHed = Array('Content-Type'=>'application/x-www-form-urlencoded');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed, 'user[]=nobody&pass=x');
@@ -158,7 +179,7 @@ if( !$isReady ){
 	checkSame('no action, with a query string', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Beta Evening'));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth');
-	checkSame('no action, no declared default: the first action (login) runs', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing user or pass","code":400}'));
+	checkSame('no action, no declared default: the first action (login) runs', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
 
 	// The login action refuses anything but a POST by itself, whatever the path that leads to it
 	$replyAr = httpQuery('GET', $baseUrl.'/auth?user=nobody-here&pass=wrong');
@@ -193,7 +214,7 @@ if( !$isReady ){
 	// Public routes
 	$pubHead = Array('X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'auth/login');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $pubHead);
-	checkSame('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing user or pass","code":400}'));
+	checkSame('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', $pubHead);
 	checkSame('public route: other routes stay closed', $replyAr['code'], 401);
@@ -321,14 +342,14 @@ if( !$isReady ){
 	checkSame('2FA: Basic access is closed to a user with a secret', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
 	$sqlLink->exec("UPDATE users SET twoFaKey=NULL WHERE userName='ben'");
 
-	// Attempt throttling : three wrong passwords hold the account, even for the right one
+	// Attempt throttling : five wrong passwords hold the account, even for the right one
 	$sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
-	for( $idx=0; $idx<3; $idx++ ){
+	for( $idx=0; $idx<5; $idx++ ){
 		$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=nope');
 	}
-	checkSame('throttle: the third wrong password is told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+	checkSame('throttle: the fifth wrong password is told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
-	checkSame('throttle: the right password is then refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Too many attempts","code":401}'));
+	checkSame('throttle: the right password is then refused, as a wrong one would be', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$sqlLink->exec("UPDATE users SET failDate='".date('Y-m-d H:i:s', time()-601)."' WHERE userName='ben'");
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
 	checkSame('throttle: accepted again once the hold is over', $replyAr['code'], 200);
@@ -647,7 +668,24 @@ if( !$isReady ){
 	checkSame('stop: without output, what was set so far is sent', Array($replyAr['code'], $replyAr['body']), Array(200, '{"step":1}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/halt/none', $fixHead);
 	checkSame('stop: no content when nothing was set', Array($replyAr['code'], $replyAr['body'], $replyAr['type']), Array(204, '', ''));
+
+	// Limit by address (test/fixtures/conflim : two wrong credentials allowed) : the address is then answered 429
+	dropFoldr(TOP_DIR.DS.'temp'.DS.'limits_http');
+	$limHead = $formHed + Array('X-Test-Conf'=>'conflim');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $limHead, 'user=alice&pass=nope');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $limHead, 'user=alice&pass=nope');
+	checkSame('address limit: the second wrong password is still told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $limHead, 'user=alice&pass=s3cret');
+	checkSame('address limit: the login is then refused, even with the right password', Array($replyAr['code'], $replyAr['body']), Array(429, '{"error":"Too many attempts","code":429}'));
+	checkTrue('address limit: the login tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'header', 'X-Test-Confkey'=>'tskeys', 'X-Api-Key'=>'test-only-key-1'));
+	checkSame('address limit: a checked route is refused too, even with the right key', Array($replyAr['code'], $replyAr['body']), Array(429, '{"error":"Too many attempts","code":429}'));
+	checkTrue('address limit: the checked route tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
+	checkSame('address limit: a configuration without a limit is not held', $replyAr['code'], 200);
+	dropFoldr(TOP_DIR.DS.'temp'.DS.'limits_http');
 }
+dropLocal();
 
 if( $server!==null ){
 	proc_terminate($server);

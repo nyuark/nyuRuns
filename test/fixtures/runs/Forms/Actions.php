@@ -27,6 +27,14 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Answers with its inputs; input/need.json requires some of its fields.
+	 */
+	public function need(): Void {
+		$this->statCode = 200;
+		$this->asOutput = $this->inputReg->readLines();
+	}
+
+	/**
 	 * Answers with its inputs; input/wrong.json names a format that does not exist.
 	 */
 	public function wrong(): Void {

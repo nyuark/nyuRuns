@@ -164,16 +164,21 @@ function failsOf( PDO $sqliteLink, String $userString ): Int {
 $annaPwd = Array('user'=>'anna', 'pass'=>'pw-anna');
 $annaBad = Array('user'=>'anna', 'pass'=>'nope');
 $sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
-$natAuth->checkCred($annaBad);
-$natAuth->checkCred($annaBad);
+$thrAuth = new Native( Array('tblnme'=>'users', 'maxtry'=>3) );
+$thrAuth->checkCred($annaBad);
+$thrAuth->checkCred($annaBad);
 checkSame('Throttle two failures are counted', failsOf($sqlLink, 'anna'), 2);
-checkSame('Throttle two failures: the right password still passes', $natAuth->checkCred($annaPwd)['user'] ?? null, 'anna');
+checkSame('Throttle two failures: the right password still passes', $thrAuth->checkCred($annaPwd)['user'] ?? null, 'anna');
 checkSame('Throttle a success forgets the failures', failsOf($sqlLink, 'anna'), 0);
-$natAuth->checkCred($annaBad);
-$natAuth->checkCred($annaBad);
-checkSame('Throttle the third failure is still told as a wrong password', Array($natAuth->checkCred($annaBad), $natAuth->lastError()), Array(false, 'Invalid credentials'));
-checkSame('Throttle held: the right password is refused', Array($natAuth->checkCred($annaPwd), $natAuth->lastError()), Array(false, 'Too many attempts'));
-checkSame('Throttle held: a wrong password is refused the same way', Array($natAuth->checkCred($annaBad), $natAuth->lastError()), Array(false, 'Too many attempts'));
+$thrAuth->checkCred($annaBad);
+$thrAuth->checkCred($annaBad);
+checkSame('Throttle the third failure is still told as a wrong password', Array($thrAuth->checkCred($annaBad), $thrAuth->lastError()), Array(false, 'Invalid credentials'));
+// The hold is told in the log only : the reply is the one of a wrong password
+$GLOBALS['nyuLogger'] = new nyu\Tools\Logger( inTempDir('logs'), 'native' );
+checkSame('Throttle held: the right password is refused, as a wrong one would be', Array($thrAuth->checkCred($annaPwd), $thrAuth->lastError(), $thrAuth->wrongCred()), Array(false, 'Invalid credentials', true));
+checkSame('Throttle held: a wrong password is refused the same way', Array($thrAuth->checkCred($annaBad), $thrAuth->lastError()), Array(false, 'Invalid credentials'));
+$GLOBALS['nyuLogger'] = null;
+checkLike('Throttle held: the hold is told in the log, with the name', strval(@file_get_contents(inTempDir('logs').DS.'native.log')), '/\[WARNING\] Credential refused: user "anna" is held after too many attempts/');
 checkSame('Throttle held: nothing more is counted', failsOf($sqlLink, 'anna'), 3);
 checkSame('Throttle held: other users are not affected', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time())))['user'] ?? null, 'ben');
 checkSame('Throttle held: a personal token still passes', $natAuth->checkCred(Array('key'=>$nextTkn))['user'] ?? null, 'anna');
@@ -189,10 +194,11 @@ checkSame('Throttle old failures expire: the count restarts at 1', failsOf($sqlL
 $oneTry = new Native( Array('maxtry'=>1, 'holdtm'=>60) );
 $sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
 $oneTry->checkCred($annaBad);
-checkSame('Throttle maxtry is read from the config', Array($oneTry->checkCred($annaPwd), $oneTry->lastError()), Array(false, 'Too many attempts'));
+checkSame('Throttle maxtry is read from the config', Array($oneTry->checkCred($annaPwd), $oneTry->lastError()), Array(false, 'Invalid credentials'));
 $sqlLink->exec("UPDATE users SET failDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userName='anna'");
 checkSame('Throttle holdtm is read from the config', $oneTry->checkCred($annaPwd)['user'] ?? null, 'anna');
-checkSame('Throttle the same failure still holds with the default time', Array($sqlLink->exec("UPDATE users SET failNmbr=3, failDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userName='anna'"), $natAuth->checkCred($annaPwd)), Array(1, false));
+checkSame('Throttle by default, four failures do not hold', Array($sqlLink->exec("UPDATE users SET failNmbr=4, failDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userName='anna'"), $natAuth->checkCred($annaPwd)['user'] ?? null), Array(1, 'anna'));
+checkSame('Throttle by default, five failures hold, and the same failure still holds with the default time', Array($sqlLink->exec("UPDATE users SET failNmbr=5, failDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userName='anna'"), $natAuth->checkCred($annaPwd)), Array(1, false));
 
 // 2FA and throttling : a missing code is not a failure, a wrong code is
 $sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");

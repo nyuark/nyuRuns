@@ -2,5 +2,6 @@
 	"login":  { "authby": "htpass", "authcf": "tspass", "sessby": "jtoken", "sesscf": "tstokn" },
 	"tstokn": { "secret": "test-only-secret-0123456789-abcdefghij", "lifetm": 300, "algrtm": "HS256" },
 	"tspass": { "htpasswd": "test/fixtures/users.htpasswd" },
-	"tskeys": { "header": "X-Api-Key", "keylst": ["test-only-key-1"] }
+	"tskeys": { "header": "X-Api-Key", "keylst": ["test-only-key-1"] },
+	"limits": { "maxtry": 0 }
 }

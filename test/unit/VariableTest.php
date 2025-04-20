@@ -144,6 +144,14 @@ checkSame('HtmText array',            formatVal(Array('<b>x</b>'), 'HtmText'), '
 // DateStr
 checkSame('DateStr default format',   formatVal('2026-10-01', 'DateStr'), '01/10/26');
 checkSame('DateStr given format',     formatVal('2026-10-01', 'DateStr', 'Y/m/d'), '2026/10/01');
+checkSame('DateStr with a time',      formatVal('2026-12-25 18:30:00', 'DateStr'), '25/12/26');
+checkSame('DateStr from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'DateStr', 'Y-m-d'), '2020-03-15');
+checkSame('DateStr not a date',       formatVal('soon', 'DateStr'), '');
+checkSame('DateStr three parts that are no date', formatVal('a-b-c', 'DateStr'), '');
+checkSame('DateStr day that does not exist', formatVal('2026-02-30', 'DateStr'), '');
+checkSame('DateStr a text of digits is no timestamp', Array(formatVal('12', 'DateStr'), formatVal('2026', 'DateStr'), formatVal('20261001', 'DateStr'), formatVal((string)mktime(12, 0, 0, 3, 15, 2020), 'DateStr')), Array('', '', '', ''));
+checkSame('DateStr true, a float and a negative number are no timestamp', Array(formatVal(true, 'DateStr'), formatVal(12.7, 'DateStr'), formatVal(-5, 'DateStr')), Array('', '', ''));
+checkSame('DateStr empty, null and array',Array(formatVal('', 'DateStr'), formatVal(null, 'DateStr'), formatVal(Array('2026-10-01'), 'DateStr')), Array('', '', ''));
 
 // ShrDate and TxtDate
 checkSame('ShrDate',                  formatVal('2026-10-01', 'ShrDate'), '1 Oct 2026');
@@ -152,6 +160,7 @@ checkSame('ShrDate from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), '
 checkSame('ShrDate not a date',       formatVal('soon', 'ShrDate'), '');
 checkSame('ShrDate day that does not exist', formatVal('2026-02-30', 'ShrDate'), '');
 checkSame('ShrDate empty',            formatVal('', 'ShrDate'), '');
+checkSame('ShrDate, TxtDate, WeekDay and FullDay: a text of digits is no timestamp', Array(formatVal('2026', 'ShrDate'), formatVal('2026', 'TxtDate'), formatVal('2026', 'WeekDay'), formatVal('2026', 'FullDay')), Array('', '', '', ''));
 checkSame('TxtDate',                  formatVal('2026-10-01', 'TxtDate'), '1 October 2026');
 checkSame('TxtDate single digits',    formatVal('2026-3-5', 'TxtDate'), '5 March 2026');
 checkSame('TxtDate not a date',       formatVal('2026-13-01', 'TxtDate'), '');
@@ -163,6 +172,9 @@ checkSame('FullDay today',            formatVal(date('Y-m-d'), 'FullDay'), 'Toda
 checkSame('FullDay yesterday',        formatVal(date('Y-m-d', time()-86400), 'FullDay'), 'Yesterday');
 checkSame('FullDay tomorrow',         formatVal(date('Y-m-d', time()+86400), 'FullDay'), 'Tomorrow');
 checkSame('FullDay other day',        formatVal('2020-03-15', 'FullDay'), 'Sunday, 15 March');
+checkSame('WeekDay from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'WeekDay'), 'Sunday');
+checkSame('WeekDay not a date',       Array(formatVal('soon', 'WeekDay'), formatVal('a-b-c', 'WeekDay'), formatVal('', 'WeekDay')), Array('', '', ''));
+checkSame('FullDay not a date',       Array(formatVal('soon', 'FullDay'), formatVal('2026-13-01', 'FullDay'), formatVal(Array(), 'FullDay')), Array('', '', ''));
 
 // DateSpn
 checkSame('DateSpn same day',         formatVal('2026-12-01', 'DateSpn', '2026-12-01'), '01 December 2026');
@@ -171,7 +183,13 @@ checkSame('DateSpn same year',        formatVal('2026-11-28', 'DateSpn', '2026-1
 checkSame('DateSpn across years',     formatVal('2026-12-28', 'DateSpn', '2027-01-03'), 'From 28 December 2026 until 03 January 2027');
 checkSame('DateSpn same month, next year', formatVal('2026-12-28', 'DateSpn', '2027-12-03'), 'From 28 December 2026 until 03 December 2027');
 checkSame('DateSpn same day, next year',   formatVal('2026-12-01', 'DateSpn', '2027-12-01'), 'From 01 December 2026 until 01 December 2027');
-checkSame('DateSpn without an end',   formatVal('2026-12-01', 'DateSpn'), false);
+checkSame('DateSpn without an end',   formatVal('2026-12-01', 'DateSpn'), '');
+checkSame('DateSpn with an empty end, or no end and no start', Array(formatVal('2026-12-01', 'DateSpn', ''), formatVal('2026-12-01', 'DateSpn', '0'), formatVal('soon', 'DateSpn')), Array('', '', ''));
+checkSame('DateSpn between two timestamps', formatVal(mktime(12, 0, 0, 12, 1, 2026), 'DateSpn', mktime(12, 0, 0, 12, 5, 2026)), 'From 01 until 05 December 2026');
+checkSame('DateSpn end that is a text of digits', formatVal('2026-12-01', 'DateSpn', '2026'), '');
+checkSame('DateSpn ends with a time', formatVal('2026-12-01 20:00:00', 'DateSpn', '2026-12-05 22:00:00'), 'From 01 until 05 December 2026');
+checkSame('DateSpn start that is no date', formatVal('soon', 'DateSpn', '2026-12-05'), '');
+checkSame('DateSpn end that is no date', Array(formatVal('2026-12-01', 'DateSpn', 'later'), formatVal('2026-12-01', 'DateSpn', '2026-02-30')), Array('', ''));
 
 // Unknown format : the value is returned untouched
 checkSame('unknown format',           formatVal('x', 'Nope'), 'x');

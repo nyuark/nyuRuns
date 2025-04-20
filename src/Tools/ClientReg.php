@@ -6,13 +6,15 @@ class ClientReg extends Registry{
 
 	/**
 	 * Builds the client registry: what the server registry tells about
-	 * the client (address, host, agent, system, device, language). The
-	 * address is seen through the reverse proxies the config trusts.
+	 * the client (address, host, scheme, agent, system, device, language).
+	 * The address and the scheme are seen through the reverse proxies the
+	 * config trusts.
 	 *
 	 * @param ServerReg $serverVals Registry of server values to derive client info from.
 	 * @param Bool      $lowCaseKey Whether to store keys in lowercase instead of uppercase.
-	 * @param Array     $proxyConfg Reverse proxy settings: the 'list' of trusted proxy addresses or CIDR ranges, and the
-	 *                              'head' name of the header in which they give the client address (see Loader::prxConfig).
+	 * @param Array     $proxyConfg Reverse proxy settings: the 'list' of trusted proxy addresses or CIDR ranges, the 'head'
+	 *                              name of the header in which they give the client address, and the 'schm' name of the
+	 *                              one in which they give the scheme the client used (see Loader::proxyConf).
 	 */
 	function __construct( ServerReg $serverVals, Bool $lowCaseKey = true, Array $proxyConfg = Array() ){
 		parent::__construct( $this->clientSet($serverVals, $proxyConfg), $lowCaseKey );
@@ -21,10 +23,11 @@ class ClientReg extends Registry{
 	/**
 	 * Reads the client values off the server registry. The address is the
 	 * one of the connection, unless that connection comes from a trusted
-	 * proxy: the client is then the one the proxy tells.
+	 * proxy: the client is then the one the proxy tells. The same goes for
+	 * the scheme.
 	 *
 	 * @param ServerReg $serverVals Registry of server values.
-	 * @param Array     $proxyConfg Reverse proxy settings ('list', 'head').
+	 * @param Array     $proxyConfg Reverse proxy settings ('list', 'head', 'schm').
 	 * @return Array The client values, by name.
 	 */
 	protected function clientSet( ServerReg $serverVals, Array $proxyConfg = Array() ): Array {
@@ -36,7 +39,8 @@ class ClientReg extends Registry{
 			'userAddr'=>$addrStr,
 			'peerAddr'=>$peerStr,
 			// Through a proxy, the host name the server tells is the proxy's
-			'userHost'=>($hostStr!='' && $addrStr==$peerStr) ? $hostStr : $addrStr,
+			'userHost'=>($hostStr!='' && $addrStr==$this->plainAddr($peerStr)) ? $hostStr : $addrStr,
+			'userSchm'=>$this->proxySchm($serverVals, $proxyConfg),
 			'usrAgent'=>$agntStr,
 			'clSystem'=>$this->findSystm($agntStr),
 			'clDevice'=>$this->findDevce($agntStr),
@@ -56,7 +60,7 @@ class ClientReg extends Registry{
 	 * @return String The address of the client; the one of the connection when no trusted proxy stands in front.
 	 */
 	protected function proxyAddr( ServerReg $serverVals, Array $proxyConfg ): String {
-		$peerStr = strval($serverVals->readValue('remote_addr'));
+		$peerStr = $this->plainAddr( strval($serverVals->readValue('remote_addr')) );
 		$trstLst = $proxyConfg['list'] ?? Array();
 		if( empty($trstLst) || !$this->isTrusted($peerStr, $trstLst) ){
 			return $peerStr;
@@ -70,12 +74,33 @@ class ClientReg extends Registry{
 			if( filter_var($fwdAdr, FILTER_VALIDATE_IP)===false ){
 				break;
 			}
-			$addrStr = $fwdAdr;
-			if( !$this->isTrusted($fwdAdr, $trstLst) ){
+			$addrStr = $this->plainAddr($fwdAdr);
+			if( !$this->isTrusted($addrStr, $trstLst) ){
 				break;
 			}
 		}
 		return $addrStr;
+	}
+
+	/**
+	 * Finds the scheme the client used. Behind a trusted proxy, it is the one
+	 * the proxy tells, when it tells http or https: the proxy may speak plain
+	 * HTTP to this server while the client spoke HTTPS to it.
+	 *
+	 * @param ServerReg $serverVals Registry of server values.
+	 * @param Array     $proxyConfg Reverse proxy settings ('list', 'schm').
+	 * @return String The scheme; the one of the connection when no trusted proxy tells another.
+	 */
+	protected function proxySchm( ServerReg $serverVals, Array $proxyConfg ): String {
+		$schmStr = strval($serverVals->readValue('request_scheme'));
+		$trstLst = $proxyConfg['list'] ?? Array();
+		if( empty($trstLst) || !$this->isTrusted(strval($serverVals->readValue('remote_addr')), $trstLst) ){
+			return $schmStr;
+		}
+		// The header as the server registry names it : X-Forwarded-Proto is http_x_forwarded_proto
+		$headKey = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfg['schm'] ?? 'X-Forwarded-Proto')));
+		$fwdSchm = strtolower(trim(strval($serverVals->readValue($headKey))));
+		return in_array($fwdSchm, Array('http', 'https'), true) ? $fwdSchm : $schmStr;
 	}
 
 	/**
@@ -104,6 +129,11 @@ class ClientReg extends Registry{
 	 */
 	protected function addrInNet( String $addrString, String $subnetText ): Bool {
 		$netPart = explode('/', trim($subnetText), 2);
+		// An IPv4 address carried in an IPv6 one is matched as the IPv4 address it is
+		$addrString = $this->plainAddr($addrString);
+		if( !isset($netPart[1]) ){
+			$netPart[0] = $this->plainAddr($netPart[0]);
+		}
 		if( filter_var($addrString, FILTER_VALIDATE_IP)===false || filter_var($netPart[0], FILTER_VALIDATE_IP)===false ){
 			return false;
 		}
@@ -131,6 +161,24 @@ class ClientReg extends Registry{
 		}
 		$maskNum = (0xFF << (8-$restNum)) & 0xFF;
 		return (ord($addrBin[$byteNum]) & $maskNum)==(ord($subnBin[$byteNum]) & $maskNum);
+	}
+
+	/**
+	 * Writes an IPv4 address carried in an IPv6 one ('::ffff:10.0.0.5'), as
+	 * a server listening on both families gives it, as the IPv4 address it is.
+	 *
+	 * @param String $addrString The address.
+	 * @return String The IPv4 address when it carries one; the address as given otherwise, valid or not.
+	 */
+	protected function plainAddr( String $addrString ): String {
+		if( filter_var($addrString, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)===false ){
+			return $addrString;
+		}
+		$addrBin = inet_pton($addrString);
+		if( substr($addrBin, 0, 12)!==str_repeat("\x00", 10)."\xFF\xFF" ){
+			return $addrString;
+		}
+		return strval(inet_ntop(substr($addrBin, 12)));
 	}
 
 	/**

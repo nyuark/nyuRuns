@@ -26,6 +26,22 @@ function inputVals( String|Array $fieldsDefn, Array $givenVals ): Mixed {
 	});
 }
 
+/**
+ * Passes values through a definition of fields, and gives the required
+ * fields found missing or empty.
+ *
+ * @param String|Array $fieldsDefn The definition.
+ * @param Array        $givenVals  Values as a request would send them.
+ * @return mixed The names of the fields, or a 'THROWN ...' string.
+ */
+function inputMiss( String|Array $fieldsDefn, Array $givenVals ): Mixed {
+	return runSafely(function() use ($fieldsDefn, $givenVals){
+		$inptObj = new Input( null, 'TESTS', $fieldsDefn, 'TESTS' );
+		$inptObj->parseVals($givenVals);
+		return $inptObj->getMissed();
+	});
+}
+
 $sentArr = Array('name'=>'<b>Ann</b>', 'mail'=>'ann @example.org', 'seats'=>'12 seats', 'extra'=>'left out');
 
 // What a definition keeps
@@ -61,6 +77,30 @@ checkLike('a format that does not exist is refused, the field named', inputVals(
 checkLike('a format badly written is refused', inputVals(Array('name'=>'Text Str('), $sentArr), '/THROWN.*Input misconfigured: "Text Str\(" is not a format/');
 checkLike('a format that does not exist is refused in a text too', inputVals('name:Nope', $sentArr), '/THROWN.*unknown format "Nope"/');
 
+// Required fields : a name ending with '!'
+checkSame('without a required field, nothing is missing', Array(inputMiss(Array('name'=>'TextStr', 'phone'=>'PhoneNb'), Array()), inputMiss('all', Array()), inputMiss('none', Array())), Array(Array(), Array(), Array()));
+checkSame('required fields that are not sent are named, in the order of the definition', inputMiss(Array('user!'=>'', 'code'=>'', 'pass!'=>''), Array('code'=>'123')), Array('user', 'pass'));
+checkSame('a required field that is sent is not missing', inputMiss(Array('user!'=>'', 'pass!'=>''), Array('user'=>'ann', 'pass'=>'x')), Array());
+checkSame('the mark is not part of the name of the field', inputVals(Array('name!'=>'TextStr', 'pass!'=>''), $sentArr), Array('name'=>'Ann'));
+checkSame('a required field sent empty is missing', inputMiss(Array('user!'=>'', 'pass!'=>'TextStr', 'tags!'=>''), Array('user'=>'', 'pass'=>null, 'tags'=>Array())), Array('user', 'pass', 'tags'));
+checkSame('a required field emptied by its format is missing', inputMiss(Array('mail!'=>'EmlAddr', 'since!'=>'DateStr(Y/m/d)', 'name!'=>'TextStr'), Array('mail'=>'nobody', 'since'=>'soon', 'name'=>'<b></b>')), Array('mail', 'since', 'name'));
+checkSame('a required number sent empty is missing, though its format gives 0', inputMiss(Array('seats!'=>'Integer', 'price!'=>'FloatNb'), Array('seats'=>'', 'price'=>'')), Array('seats', 'price'));
+checkSame('0, false and a text of spaces are values', inputMiss(Array('seats!'=>'Integer', 'count!'=>'', 'agree!'=>'', 'pass!'=>''), Array('seats'=>'0', 'count'=>0, 'agree'=>false, 'pass'=>'   ')), Array());
+checkSame('a number format never empties: a required number that is none passes as 0', Array(inputMiss(Array('seats!'=>'Integer'), Array('seats'=>'abc')), inputVals(Array('seats!'=>'Integer'), Array('seats'=>'abc'))), Array(Array(), Array('seats'=>0)));
+checkSame('a required array holding nothing but empty values is missing', Array(inputMiss(Array('tags!'=>'UrlText'), Array('tags'=>Array('!!!', Array('')))), inputMiss(Array('tags!'=>'UrlText'), Array('tags'=>Array('!!!', 'Été')))), Array(Array('tags'), Array()));
+checkSame('a required field is matched whatever its case, and named as the definition writes it', Array(inputMiss(Array('User!'=>''), Array('USER'=>'ann')), inputMiss(Array('User!'=>''), Array('NAME'=>'ann'))), Array(Array(), Array('User')));
+checkSame('required names in a plain list', Array(inputMiss(Array('user!', 'pass!', 'code'), Array('user'=>'ann')), inputVals(Array('user!', 'pass!', 'code'), Array('user'=>'ann', 'more'=>1))), Array(Array('pass'), Array('user'=>'ann')));
+checkSame('required names in a text', Array(inputMiss('user! ; mail!:EmlAddr;since:DateStr(Y/m/d)', Array('mail'=>'nobody')), inputVals('user! ; mail!:EmlAddr', Array('user'=>'ann', 'mail'=>'ann @example.org'))), Array(Array('user', 'mail'), Array('user'=>'ann', 'mail'=>'ann@example.org')));
+
+// Required fields held by another
+$needDef = Array('filters'=>Array('search!'=>'TextStr', 'categ'=>''), 'range!'=>Array('from'=>'Integer', 'to!'=>'Integer'));
+checkSame('a required field is required even when the field holding it is not sent', inputMiss($needDef, Array('range'=>Array('to'=>'9'))), Array('filters.search'));
+checkSame('a required field holding fields is named alone when nothing is kept under it', Array(inputMiss($needDef, Array('filters'=>Array('search'=>'x'))), inputMiss($needDef, Array('filters'=>Array('search'=>'x'), 'range'=>Array('other'=>'1'))), inputMiss($needDef, Array('filters'=>Array('search'=>'x'), 'range'=>'1-9'))), Array(Array('range'), Array('range'), Array('range')));
+checkSame('with a value kept under it, its own required fields are checked', inputMiss($needDef, Array('filters'=>Array('search'=>'x'), 'range'=>Array('from'=>'3'))), Array('range.to'));
+checkSame('below the first level, a required name is matched with its case', inputMiss($needDef, Array('filters'=>Array('Search'=>'x'), 'range'=>Array('to'=>'9'))), Array('filters.search'));
+checkSame('nothing missing at any level', inputMiss($needDef, Array('filters'=>Array('search'=>'x'), 'range'=>Array('to'=>'9'))), Array());
+checkLike('a format that does not exist is refused on a required field too, named without its mark', inputMiss(Array('name!'=>'NoSuchFormat'), $sentArr), '/THROWN.*unknown format "NoSuchFormat" for the field "name"/');
+
 /**
  * Runs an action of the Forms fixture application with inputs, and
  * gives its status and what it answered.
@@ -87,6 +127,36 @@ checkSame('an action without a definition keeps the inputs as the preset built t
 checkLike('a definition naming a format that does not exist stops the run', formsCall('wrong', $formArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat"/');
 checkLike('a file that is not a definition stops the run', formsCall('broke', $formArr), '/THROWN.*Input misconfigured: Forms\/input\/broke\.json is not a definition of fields/');
 checkSame('an action that does not exist reads no file', formsCall('../send', $formArr)[0], 500);
+
+/**
+ * Runs an action of the Forms fixture application with inputs, and
+ * gives its whole status and what it answered.
+ *
+ * @param String $actionName Action asked for, as a request would write it.
+ * @param Array  $givenVals  Values as a request would send them.
+ * @return mixed The status code, its message and the output, or a 'THROWN ...' string.
+ */
+function formsStat( String $actionName, Array $givenVals ): Mixed {
+	return runSafely(function() use ($actionName, $givenVals){
+		$conTrol = new Controller( 'forms', $actionName, new Registry($givenVals) );
+		$statArr = $conTrol->getStatus();
+		return Array($statArr['code'], $statArr['mssg'], $conTrol->getOutput());
+	});
+}
+
+// Required fields, checked by the Controller before the action runs
+$needArr = Array('name'=>'<b>Ann</b>', 'mail'=>'ann @example.org', 'filters'=>Array('search'=>'night'), 'extra'=>'left out');
+checkSame('an action whose required fields are all there runs', formsStat('need', $needArr), Array(200, '', Array('NAME'=>'Ann', 'MAIL'=>'ann@example.org', 'FILTERS'=>Array('search'=>'night'))));
+checkSame('a required field that is missing refuses the request with a 400, the action not run', formsStat('need', Array('name'=>'Ann', 'filters'=>Array('search'=>'night'))), Array(400, 'Missing or invalid input: mail', null));
+checkSame('the 400 names every field, missing, empty or not valid', formsStat('need', Array('name'=>'', 'mail'=>'nobody', 'seats'=>'3')), Array(400, 'Missing or invalid input: name, mail, filters.search', null));
+checkSame('the 400 shows no value', formsStat('need', Array('name'=>'Ann', 'mail'=>'se<cr>et', 'filters'=>Array('search'=>'x'))), Array(400, 'Missing or invalid input: mail', null));
+checkSame('the action asked for in another case has the same required fields', formsStat('NEED', Array())[0], 400);
+checkSame('a field that is not required may be left out', formsStat('need', $needArr)[0], 200);
+
+// The definition the Auth application gives for its login
+$authDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'input'.DS.'login.json'), true );
+checkSame('Auth: the login requires its user and its pass, not its code', Array(inputMiss($authDef['fields'] ?? 'none', Array()), inputMiss($authDef['fields'] ?? 'none', Array('user'=>'ann', 'pass'=>'')), inputMiss($authDef['fields'] ?? 'none', Array('user'=>'ann', 'pass'=>'x'))), Array(Array('user', 'pass'), Array('pass'), Array()));
+checkSame('Auth: the login keeps its three fields as sent', inputVals($authDef['fields'] ?? 'none', Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345', 'debug'=>'1')), Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345'));
 
 // The definition the Shows application gives for its list
 $showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'index.json'), true );

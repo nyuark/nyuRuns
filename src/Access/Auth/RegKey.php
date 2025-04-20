@@ -10,6 +10,7 @@ class RegKey implements Handler{
 
 	protected $valdKeys;
 	protected $lastMssg;
+	protected $wrongCrd = false;
 
 	/**
 	 * @param Array $confValues Config block with a 'keylst' list of valid API keys.
@@ -27,6 +28,7 @@ class RegKey implements Handler{
 	 */
 	function checkCred( Array $credsArray ): Array|Bool {
 		$givnKey = $credsArray['key'] ?? '';
+		$this->wrongCrd = false;
 		if( $givnKey=='' ){
 			$this->lastMssg = 'No API key provided';
 			return false;
@@ -37,7 +39,19 @@ class RegKey implements Handler{
 			}
 		}
 		$this->lastMssg = 'Invalid API key';
+		$this->wrongCrd = true;
 		return false;
+	}
+
+	/**
+	 * Tells whether the last refusal was a wrong key, as opposed to a
+	 * missing one: only a wrong credential counts against the address that
+	 * presented it (see Access\Limiter).
+	 *
+	 * @return Bool True when a key was presented and refused.
+	 */
+	public function wrongCred(): Bool {
+		return $this->wrongCrd;
 	}
 
 	/**

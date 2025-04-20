@@ -4,6 +4,7 @@ namespace nyu\Runs\Auth;
 
 use \nyu\App\Actionset;
 use \nyu\Access\Checker;
+use \nyu\Access\Limiter;
 
 class Actions extends Actionset {
 
@@ -16,8 +17,11 @@ class Actions extends Actionset {
 	 * the session carrier issuing the token ('sessby', jtoken by
 	 * default) and the blocks holding their settings ('authcf',
 	 * 'sesscf'). Reports 405
-	 * unless the request is a POST, 400 when an input is missing, 401
-	 * on invalid credentials and 500 when no token can be issued.
+	 * unless the request is a POST, 400 when 'user' or 'pass' is missing
+	 * (both are required by input/login.json, so that reply comes before
+	 * the action runs) or is not a text, 401
+	 * on invalid credentials, 429 when the address presented too many
+	 * wrong ones (see Access\Limiter) and 500 when no token can be issued.
 	 * Credential checks and their outcome are logged.
 	 */
 	public function login(): Void {
@@ -30,9 +34,10 @@ class Actions extends Actionset {
 		$gvnUser = $this->inputReg->readValue('user');
 		$gvnPass = $this->inputReg->readValue('pass');
 
-		if(!is_string($gvnUser) || !is_string($gvnPass) || $gvnUser=='' || $gvnPass==''){
+		// Both are required by input/login.json; what is left to refuse is a value that is not a text
+		if(!is_string($gvnUser) || !is_string($gvnPass)){
 			$this->statCode = 400;
-			$this->statMssg = 'Missing user or pass';
+			$this->statMssg = 'Invalid user or pass';
 			return;
 		}
 
@@ -48,14 +53,35 @@ class Actions extends Actionset {
 			$this->statMssg = 'Login unavailable';
 			return;
 		}
+		// An address that presented too many wrong credentials is refused before anything is checked
+		$lmtrObj = new Limiter( $this->resolvCnf('limits') );
+		$clntReg = $this->httpRqst->getClient();
+		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
+		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+		if($heldEnd>0){
+			if($logInst!==null){
+				$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': too many attempts' );
+			}
+			if($this->httpResp!==null){
+				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
+			}
+			$this->statCode = 429;
+			$this->statMssg = 'Too many attempts';
+			return;
+		}
 		$authObj = new $authCls( $this->resolvCnf($lgnConf['authcf'] ?? 'dfpass') );
 		// The 'code' input carries the one-time code of a user with 2FA
 		$gvnCode = $this->inputReg->readValue('code');
 		$idntArr = $authObj->checkCred( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '') );
 
 		if($idntArr===false){
+			// Only a credential presented and refused counts against the address
+			if(!method_exists($authObj, 'wrongCred') || $authObj->wrongCred()){
+				$lmtrObj->countFail($usrAddr);
+			}
 			if($logInst!==null){
-				$logInst->warning( 'Login refused for user '.json_encode($gvnUser).': '.$authObj->lastError() );
+				$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': '.$authObj->lastError() );
 			}
 			$this->statCode = 401;
 			$this->statMssg = $authObj->lastError();
@@ -78,7 +104,7 @@ class Actions extends Actionset {
 			$authObj->keepAlive( strval($idntArr['user'] ?? '') );
 		}
 		if($logInst!==null){
-			$logInst->info( 'Login granted for user '.json_encode($gvnUser) );
+			$logInst->info( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
 		}
 		$this->statCode = 200;
 		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page

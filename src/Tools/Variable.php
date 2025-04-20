@@ -19,8 +19,10 @@
 	- UrlAddr
 	- UrlText
 	- HtmText
-	FloatNb gives a number; ShrDate, TxtDate, EmlAddr, PhoneNb, UrlAddr,
+	FloatNb gives a number; the date formats, EmlAddr, PhoneNb, UrlAddr,
 	UrlText and HtmText give an empty string for a value that is not valid.
+	DateSpn gives one too when it is given no end date. A timestamp is
+	read as a date when it is an Int; a text of digits is no date.
 */
 
 namespace nyu\Tools;
@@ -257,11 +259,15 @@ class Variable{
 
 	/**
 	 * Reads the wrapped value as a date: a 'Y-m-d' date, with or without
-	 * a time after it, or a timestamp.
+	 * a time after it, or a timestamp given as an Int. A text of digits
+	 * is no date: '2026' would be read as a second of 1970.
 	 *
 	 * @return ?Int The timestamp of the date at noon, the timestamp given, or null when the value is no date.
 	 */
 	protected function dateStamp(): ?Int {
+		if( is_int($this->mainData) ){
+			return ($this->mainData>=0) ? $this->mainData : null;
+		}
 		$dteText = trim($this->scalarStr());
 		$dtePrts = Array();
 		if( preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/', $dteText, $dtePrts) ){
@@ -270,7 +276,7 @@ class Variable{
 			}
 			return mktime(12, 0, 0, intval($dtePrts[2]), intval($dtePrts[3]), intval($dtePrts[1]));
 		}
-		return preg_match('/^\d+$/', $dteText) ? intval($dteText) : null;
+		return null;
 	}
 
 	/**
@@ -303,50 +309,50 @@ class Variable{
 
 
 	/**
-	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
-	 * as a Unix timestamp and applies the given date() format.
+	 * Formats the wrapped value (a 'Y-m-d' date or a timestamp) with the
+	 * given date() format. A value that is no date gives an empty string.
 	 *
-	 * @param String $dateFormat A date() format string.
+	 * @param String $dateFormat A date() format string ('d/m/y' when empty).
 	 */
 	function toDateStr( String $dateFormat='' ): Void {
-		$seqlChk = explode('-',$this->mainData);
-		if( count($seqlChk)==3 ){
-			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
-		}
+		$tmeStmp = $this->dateStamp();
 		if( $dateFormat=='' ) $dateFormat='d/m/y';
-		$this->mainData = date( $dateFormat, $this->mainData );
+		$this->mainData = ($tmeStmp===null) ? '' : date( $dateFormat, $tmeStmp );
 	}
 	
 	/**
-	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
-	 * as the English weekday name it falls on.
+	 * Formats the wrapped value (a 'Y-m-d' date or a timestamp) as the
+	 * English weekday name it falls on. A value that is no date gives an
+	 * empty string.
 	 */
 	function toWeekDay( ): Void {
-		$seqlChk = explode('-',$this->mainData);
-		if( count($seqlChk)==3 ){
-			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
+		$tmeStmp = $this->dateStamp();
+		if( $tmeStmp===null ){
+			$this->mainData = '';
+			return;
 		}
 		if(!defined('LOC_WKDAYS')){
 			define('LOC_WKDAYS','Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday');
 		}
 		$allDays = explode(';',LOC_WKDAYS);
-		$currDay = date('w', $this->mainData);
+		$currDay = date('w', $tmeStmp);
 		$weekDay = $allDays[$currDay];
-		
+
 		$this->mainData = $weekDay;
 	}
 	
 	/**
-	 * Formats the wrapped value (expected as a 'Y-m-d'-style date string)
-	 * as a full localized date: 'Yesterday'/'Today'/'Tomorrow' for nearby
-	 * dates, otherwise '<Weekday>, <day> <Month>'.
+	 * Formats the wrapped value (a 'Y-m-d' date or a timestamp) as a full
+	 * localized date: 'Yesterday'/'Today'/'Tomorrow' for nearby dates,
+	 * otherwise '<Weekday>, <day> <Month>'. A value that is no date gives
+	 * an empty string.
 	 */
 	function toFullDay(): Void {
-		$seqlChk = explode('-',$this->mainData);
-		if( count($seqlChk)==3 ){
-			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
+		$tmeStmp = $this->dateStamp();
+		if( $tmeStmp===null ){
+			$this->mainData = '';
+			return;
 		}
-		$tmeStmp = $this->mainData;
 		if(!defined('LOC_YSTRD'))define('LOC_YSTRD','Yesterday');
 		if(!defined('LOC_TODAY'))define('LOC_TODAY','Today');
 		if(!defined('LOC_TOMRW'))define('LOC_TOMRW','Tomorrow');
@@ -370,10 +376,10 @@ class Variable{
 			define('LOC_WKDAYS','Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday');
 		}
 		$allDays = explode(';',LOC_WKDAYS);
-		$currDay = date('w', $this->mainData);
+		$currDay = date('w', $tmeStmp);
 		$weekDay = $allDays[$currDay];
-		
-		$dteData = $weekDay.', '.date('j', $tmeStmp).' ';
+
+		$dteData =$weekDay.', '.date('j', $tmeStmp).' ';
 		
 		if(!defined('LOC_MONTHS')){
 			define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
@@ -390,25 +396,21 @@ class Variable{
 	 * Formats the wrapped value as a date span 'From <date> until <date>'
 	 * between the wrapped value and the given end date, collapsing the
 	 * month/year when they match on both ends, or as a single date when
-	 * both ends fall on the same day.
+	 * both ends fall on the same day. Without an end date, or with a
+	 * start or an end that is no date, the result is an empty string.
 	 *
-	 * @param String|Bool $endingDate End date of the span ('Y-m-d'-style string); required for a result.
+	 * @param String|Int|Bool $endingDate End date of the span (a 'Y-m-d' date or a timestamp); required for a result.
 	 */
-	function toDateSpn( String|Bool $endingDate=false ): Void {
-		$seqlChk = explode('-',$this->mainData);
-		if( count($seqlChk)==3 ){
-			$this->mainData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
-		}
-		$seqlChk = explode('-',$endingDate);
-		$tilData = null;
-		if( count($seqlChk)==3 ){
-			$tilData = mktime(12,0,0,$seqlChk[1],$seqlChk[2],$seqlChk[0]);
-		}
-		
-		$numData = intval($this->mainData);
-		$tilData = intval( $tilData );
-		
+	function toDateSpn( String|Int|Bool $endingDate=false ): Void {
+		$numData = $this->dateStamp();
+		$tilVarb = new Variable($endingDate);
+		$tilData = $tilVarb->dateStamp();
+
 		if($endingDate!=false){
+			if( $numData===null || $tilData===null ){
+				$this->mainData = '';
+				return;
+			}
 			if(!defined('LOC_MONTHS')){
 				define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 			}
@@ -439,7 +441,7 @@ class Variable{
 			}
 			$this->mainData = $dteData;
 		} else {
-			$this->mainData = false;
+			$this->mainData = '';
 		}
 	}
 }

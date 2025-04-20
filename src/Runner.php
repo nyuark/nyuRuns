@@ -90,7 +90,7 @@ class Runner{
 		$contObj = new Builder();
 		$contObj->makeObjct('nyu\\Tools\\ServerReg', array());
 		// The client address is seen through the reverse proxies the config trusts
-		$contObj->makeObjct('nyu\Tools\ClientReg', array(), Array(true, $this->setupCon->prxConfig()));
+		$contObj->makeObjct('nyu\Tools\ClientReg', array(), Array(true, $this->setupCon->proxyConf()));
 		$rndrCnf = $this->setupCon->getRegKey('rnder');
 		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
 		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());
@@ -133,19 +133,6 @@ class Runner{
 	}
 
 	/**
-	 * Identifies the route from the path/request, or forces it manually
-	 * from a filename and parameters, in order to retrieve the application
-	 * to load.
-	 *
-	 * @todo Not yet implemented — routing currently happens in Setup\Loader::loadRoute().
-	 */
-	function findRoute( ): Void {
-		// Identify route from path / request
-		// or manually force from filename & params
-		// to retrieve application to load
-	}
-
-	/**
 	 * Verifies access for the current request against the configured
 	 * auth/sess strategy.
 	 *
@@ -158,7 +145,7 @@ class Runner{
 	}
 
 	/**
-	 * Sends an access-denial response (401/403/500) directly, without
+	 * Sends an access-denial response (401/403/429/500) directly, without
 	 * ever constructing the requested application's Controller/Actionset.
 	 *
 	 * @param Registry $accessRslt The Access\Checker result carrying the denial status/message.
@@ -167,6 +154,11 @@ class Runner{
 		$wwwAuth = $accessRslt->readValue('wwwAuth');
 		if( $wwwAuth!=null ){
 			$this->response->addHeader('WWW-Authenticate', $wwwAuth);
+		}
+		// A held address is told how long to wait
+		$retrAft = $accessRslt->readValue('retryAft');
+		if( $retrAft!=null ){
+			$this->response->addHeader('Retry-After', strval($retrAft));
 		}
 		$this->setStatus( $accessRslt->getDefVal('statCode', 401), strval($accessRslt->readValue('statMssg')) );
 		$this->doRespond( $this->procStat );

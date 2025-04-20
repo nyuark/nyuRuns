@@ -25,7 +25,6 @@ class Loader{
     public function __construct(Array $setupArray = Array()){
 		$this->setAllReg( $setupArray );
 		$this->fieldSet = Array('setup','auths','route','rnder','input');
-		// TODO : Raise exception if empty
 	}
 
 	/**
@@ -85,14 +84,16 @@ class Loader{
 	*
 	* @Param String	$keyOfArray
 	* @Param Array	$newArrVals
+	* @throws \RuntimeException When the preset has no setup block.
 	*/
 	function getConfig(): Registry {
 		// Read all INI and JSON files in conf
 		// folder and store it into an array
-		// TODO : Add XML
 		$confArr = Array();
-		// TODO : Raise error if getRegKey returns false
 		$confSet = $this->getRegKey('setup');
+		if( $confSet===false ){
+			throw new \RuntimeException('The preset has no setup block');
+		}
 		// Folder of the config files, relative to the project root : conf unless the preset names another
 		$conPath = TOP_DIR.DS.($confSet['folder'] ?? 'conf').DS;
 		$conScan = scandir($conPath);
@@ -174,8 +175,8 @@ class Loader{
 
     /**
 	 * Builds the registry of allowed input values by instantiating an
-	 * Input object for each configured source (currently QUERY is
-	 * supported; DFILE, DBREC, XTAPI, SESSN and RFLUX are still TODO).
+	 * Input object for each configured source (QUERY is the only one in
+	 * version 1.0; DFILE, DBREC, XTAPI, SESSN and RFLUX come with 1.1).
 	 * Server and client values are not inputs: they are read through the
 	 * request (getSrvVar, getClient). The 'fields' of a source are 'all',
 	 * or a definition of the fields kept and of their formats (see
@@ -186,15 +187,13 @@ class Loader{
 	 * @return Registry Registry of parsed input values, empty if no 'input' config is set.
 	 */
     function getInputs( Request $requestObj ): Registry {
-		// TODO : Refactorise with Input Registry
-
 		$inptSet = $this->getRegKey('input');
 		if($inptSet){
 			$inptArr = Array();
 			foreach($inptSet as $putSet){
 				// Only allow for a set of input sources
-				// WORKING :	'QUERY'
-				// TODO : 		'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX');
+				// Version 1.0 :	'QUERY'
+				// Version 1.1 :	'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX'
 				$inpType = Array('QUERY');
 				$inpSrce = $putSet['source'];
 
@@ -270,18 +269,19 @@ class Loader{
 
 	/**
 	 * Resolves the reverse proxy configuration from the SYSTEM config file:
-	 * the proxies standing in front of the server, and the header in which
-	 * they give the address of the client.
+	 * the proxies standing in front of the server, and the headers in which
+	 * they give the address of the client and the scheme it used.
 	 *
-	 * @return Array Proxy settings: 'list' of addresses or CIDR ranges (empty when no proxy is trusted), 'head' name of the header.
+	 * @return Array Proxy settings: 'list' of addresses or CIDR ranges (empty when no proxy is trusted), 'head' name of the header giving the address, 'schm' name of the one giving the scheme.
 	 */
-	function prxConfig(): Array {
+	function proxyConf(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
 		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
 		$prxList = array_filter( array_map('trim', explode(',', strval($sysConf['PRX_LIST'] ?? ''))), 'strlen' );
 		return Array(
 			'list' => array_values($prxList),
 			'head' => strval($sysConf['PRX_HEAD'] ?? '') ?: 'X-Forwarded-For',
+			'schm' => strval($sysConf['PRX_SCHM'] ?? '') ?: 'X-Forwarded-Proto',
 		);
 	}
 

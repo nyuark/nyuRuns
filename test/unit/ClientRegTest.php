@@ -63,7 +63,7 @@ checkSame('every device code has six characters', array_unique(array_map(functio
 // Nothing told at all
 $clntReg = new ClientReg( fakeServr() );
 checkSame('an empty server registry gives empty values', Array($clntReg->readValue('userAddr'), $clntReg->readValue('userHost'), $clntReg->readValue('usrAgent'), $clntReg->readValue('language')), Array('', '', '', ''));
-checkSame('only the client values are held, not the server ones', array_keys($clntReg->readLines()), Array('useraddr', 'peeraddr', 'userhost', 'usragent', 'clsystem', 'cldevice', 'language', 'humansys'));
+checkSame('only the client values are held, not the server ones', array_keys($clntReg->readLines()), Array('useraddr', 'peeraddr', 'userhost', 'userschm', 'usragent', 'clsystem', 'cldevice', 'language', 'humansys'));
 
 // Reverse proxies : the forwarding header is only read from a trusted proxy
 /**
@@ -89,20 +89,52 @@ checkSame('a proxy within a trusted range', proxyVals(Array('REMOTE_ADDR'=>'192.
 checkSame('a proxy just outside a trusted range', proxyVals(Array('REMOTE_ADDR'=>'192.168.4.1', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1'), Array('list'=>Array('192.168.0.0/22'), 'head'=>'X-Forwarded-For')), Array('192.168.4.1', '192.168.4.1', '192.168.4.1'));
 checkSame('IPv6 proxies and clients', proxyVals(Array('REMOTE_ADDR'=>'fd00::5', 'HTTP_X_FORWARDED_FOR'=>'2001:db8::7'), Array('list'=>Array('fd00::/8'), 'head'=>'X-Forwarded-For')), Array('2001:db8::7', 'fd00::5', '2001:db8::7'));
 checkSame('an IPv4 range does not trust an IPv6 proxy', proxyVals(Array('REMOTE_ADDR'=>'fd00::5', 'HTTP_X_FORWARDED_FOR'=>'2001:db8::7'), Array('list'=>Array('10.0.0.0/8'), 'head'=>'X-Forwarded-For')), Array('fd00::5', 'fd00::5', 'fd00::5'));
+checkSame('a proxy the server gives as an IPv4 address carried in IPv6 is matched by its IPv4 range', proxyVals(Array('REMOTE_ADDR'=>'::ffff:10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1'), Array('list'=>Array('10.0.0.0/8'), 'head'=>'X-Forwarded-For')), Array('198.51.100.1', '::ffff:10.0.0.5', '198.51.100.1'));
+checkSame('a proxy listed as an IPv4 address carried in IPv6 is the IPv4 one', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1'), Array('list'=>Array('::ffff:10.0.0.5'), 'head'=>'X-Forwarded-For')), Array('198.51.100.1', '10.0.0.5', '198.51.100.1'));
+checkSame('a client address carried in IPv6 is given as the IPv4 address it is', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'::ffff:198.51.100.1'), $onePrxy), Array('198.51.100.1', '10.0.0.5', '198.51.100.1'));
+checkSame('a direct connection carried in IPv6 keeps its host name', proxyVals(Array('REMOTE_ADDR'=>'::ffff:203.0.113.7', 'REMOTE_HOST'=>'client.example.org'), $onePrxy), Array('203.0.113.7', '::ffff:203.0.113.7', 'client.example.org'));
+checkSame('a real IPv6 address is left as it is', proxyVals(Array('REMOTE_ADDR'=>'2001:db8::7'), $onePrxy), Array('2001:db8::7', '2001:db8::7', '2001:db8::7'));
 checkSame('what is not an address in the header leaves the connection address', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1, unknown'), $onePrxy), Array('10.0.0.5', '10.0.0.5', '10.0.0.5'));
 checkSame('a trusted proxy that sends no header leaves the connection address', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5'), $onePrxy), Array('10.0.0.5', '10.0.0.5', '10.0.0.5'));
 checkSame('a range that is not valid trusts nothing', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1'), Array('list'=>Array('10.0.0.0/40', 'proxy', '10.0.0.5/x'), 'head'=>'X-Forwarded-For')), Array('10.0.0.5', '10.0.0.5', '10.0.0.5'));
 checkSame('the header the config names is the one read', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'192.0.2.99', 'HTTP_X_REAL_IP'=>'198.51.100.1'), Array('list'=>Array('10.0.0.5'), 'head'=>'X-Real-IP')), Array('198.51.100.1', '10.0.0.5', '198.51.100.1'));
 
+// The scheme the client used : its header is only read from a trusted proxy too
+/**
+ * Reads the scheme a client registry gives behind proxies.
+ *
+ * @param Array $serverVals Server variable => value pairs.
+ * @param Array $proxyConfg Reverse proxy settings ('list', 'schm').
+ * @return String The scheme the client used.
+ */
+function readsSchm( Array $serverVals, Array $proxyConfg ): String {
+	$clntReg = new ClientReg( fakeServr($serverVals), true, $proxyConfg );
+	return strval($clntReg->readValue('userSchm'));
+}
+checkSame('no proxy trusted : the scheme is the one of the connection', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https'), Array('list'=>Array())), 'http');
+checkSame('a client connecting directly cannot give itself a scheme', readsSchm(Array('REMOTE_ADDR'=>'203.0.113.7', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https'), $onePrxy), 'http');
+checkSame('through a trusted proxy, the scheme is the one it tells', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https'), $onePrxy), 'https');
+checkSame('the scheme a proxy tells is read whatever its case', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>' HTTPS '), $onePrxy), 'https');
+checkSame('a proxy given as an IPv4 address carried in IPv6 is trusted for the scheme too', readsSchm(Array('REMOTE_ADDR'=>'::ffff:10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https'), $onePrxy), 'https');
+checkSame('what is neither http nor https leaves the scheme of the connection', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'ftp'), $onePrxy), 'http');
+checkSame('a list of schemes leaves the scheme of the connection', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https, http'), $onePrxy), 'http');
+checkSame('a trusted proxy that sends no header leaves the scheme of the connection', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'https'), $onePrxy), 'https');
+checkSame('the scheme header the config names is the one read', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'http', 'HTTP_X_SCHEME'=>'https'), Array('list'=>Array('10.0.0.5'), 'schm'=>'X-Scheme')), 'https');
+
 // The settings, as the loader reads them from the SYSTEM config
 $loadObj = (new ReflectionClass('nyu\Setup\Loader'))->newInstanceWithoutConstructor();
-$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('PRX_LIST'=>' 10.0.0.5, 192.168.0.0/24 ,, fd00::/8', 'PRX_HEAD'=>'X-Real-IP')) );
-checkSame('the proxies are listed from the config, the header named', $loadObj->prxConfig(), Array('list'=>Array('10.0.0.5', '192.168.0.0/24', 'fd00::/8'), 'head'=>'X-Real-IP'));
+$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('PRX_LIST'=>' 10.0.0.5, 192.168.0.0/24 ,, fd00::/8', 'PRX_HEAD'=>'X-Real-IP', 'PRX_SCHM'=>'X-Scheme')) );
+checkSame('the proxies are listed from the config, the headers named', $loadObj->proxyConf(), Array('list'=>Array('10.0.0.5', '192.168.0.0/24', 'fd00::/8'), 'head'=>'X-Real-IP', 'schm'=>'X-Scheme'));
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('PRX_LIST'=>'')) );
-checkSame('without settings, no proxy is trusted and the usual header is named', $loadObj->prxConfig(), Array('list'=>Array(), 'head'=>'X-Forwarded-For'));
+checkSame('without settings, no proxy is trusted and the usual headers are named', $loadObj->proxyConf(), Array('list'=>Array(), 'head'=>'X-Forwarded-For', 'schm'=>'X-Forwarded-Proto'));
 
 // Through the request
 $request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.7', 'HTTP_USER_AGENT'=>$andAgnt) );
 checkSame('a request gives its client registry', Array($request->getClient()->readValue('userAddr'), $request->getClient()->readValue('clDevice')), Array('203.0.113.7', 'mobile'));
+
+// A request built in full writes its address with the scheme the client used
+$servReg = fakeServr( Array('REQUEST_METHOD'=>'GET', 'REQUEST_URI'=>'/shows/index?page=2', 'SERVER_NAME'=>'api.example.org', 'REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https') );
+$request = new nyu\Tools\Request( $servReg, new nyu\Output\Response(), new ClientReg($servReg, true, $onePrxy) );
+checkSame('behind a trusted proxy, the address of the request carries the scheme the client used', Array($request->getURLVal('htScheme'), $request->getURLVal('full_url')), Array('https', 'https://api.example.org/shows/index'));
 
 endChecks();

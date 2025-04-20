@@ -14,10 +14,11 @@ class PassList implements Handler{
 	protected $htpwFile;
 	protected $weakHash;
 	protected $lastMssg;
+	protected $wrongCrd = false;
 
 	/**
 	 * @param Array $confValues Config block with an 'htpasswd' file path (relative to the project root),
-	 *                          and optionally 'unsecure' => true to accept weak {SHA} and DES hashes (refused by default).
+	 *                          and optionally 'unsecure' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default).
 	 */
 	function __construct( Array $confValues ){
 		$htpPath = $confValues['htpasswd'] ?? '';
@@ -28,8 +29,9 @@ class PassList implements Handler{
 
 	/**
 	 * Verifies a username/password pair against the .htpasswd file,
-	 * supporting bcrypt and Apache apr1 (MD5) htpasswd hashes, plus
-	 * {SHA} and legacy crypt (DES) hashes in unsecure mode only.
+	 * supporting bcrypt, Apache apr1 (MD5) and SHA-256 or SHA-512 crypt
+	 * htpasswd hashes, plus {SHA}, legacy crypt (DES) and MD5 crypt
+	 * hashes in unsecure mode only.
 	 *
 	 * @param Array $credsArray Must contain 'user' and 'pass' entries.
 	 * @return Array|Bool An identity array on success, or false on failure.
@@ -37,6 +39,7 @@ class PassList implements Handler{
 	function checkCred( Array $credsArray ): Array|Bool {
 		$gvnUser = $credsArray['user'] ?? '';
 		$gvnPass = $credsArray['pass'] ?? '';
+		$this->wrongCrd = false;
 		if( $gvnUser=='' || $this->htpwFile=='' || !file_exists($this->htpwFile) ){
 			$this->lastMssg = 'Credential store unavailable';
 			return false;
@@ -57,14 +60,17 @@ class PassList implements Handler{
 			return Array('user'=>$gvnUser);
 		}
 		$this->lastMssg = 'Invalid credentials';
+		$this->wrongCrd = true;
 		return false;
 	}
 
 	/**
 	 * Compares a password with a stored htpasswd hash, whatever its format.
-	 * {SHA} (unsalted SHA-1) and DES crypt (any hash not starting with '$')
-	 * are too weak to protect a password: they are refused, and the refusal
-	 * logged, unless the unsecure mode is on.
+	 * Bcrypt, apr1 and SHA-256 or SHA-512 crypt ('$5$', '$6$') are accepted
+	 * as they are. {SHA} (unsalted SHA-1), DES crypt (any hash not starting
+	 * with '$') and MD5 crypt ('$1$'), like any other format, are too weak
+	 * to protect a password: they are refused, and the refusal logged,
+	 * unless the unsecure mode is on.
 	 *
 	 * @param String $passwdText The password to check.
 	 * @param String $storedHash The hash read from the .htpasswd file.
@@ -79,10 +85,12 @@ class PassList implements Handler{
 			return hash_equals( $storedHash, $this->apr1Crypt($passwdText, $saltVal) );
 		}
 		$shaHash = (substr($storedHash,0,5)=='{SHA}');
-		if( ($shaHash || substr($storedHash,0,1)!='$') && !$this->weakHash ){
+		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
+		$strngFm = in_array(substr($storedHash,0,3), Array('$5$', '$6$'), true);
+		if( !$strngFm && !$this->weakHash ){
 			$logInst = $GLOBALS['nyuLogger'] ?? null;
 			if( $logInst!==null ){
-				$logInst->warning( 'Credential refused: {SHA} and DES htpasswd hashes need the "unsecure" option' );
+				$logInst->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "unsecure" option' );
 			}
 			return false;
 		}
@@ -134,6 +142,17 @@ class PassList implements Handler{
 			'./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 		);
 		return '$apr1$'.$saltString.'$'.$encoded;
+	}
+
+	/**
+	 * Tells whether the last refusal was a wrong credential, as opposed to
+	 * a file that cannot be read: only a wrong credential counts against
+	 * the address that presented it (see Access\Limiter).
+	 *
+	 * @return Bool True when a credential was presented and refused.
+	 */
+	public function wrongCred(): Bool {
+		return $this->wrongCrd;
 	}
 
 	/**

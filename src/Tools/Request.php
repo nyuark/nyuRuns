@@ -53,7 +53,7 @@ class Request{
 			$urlPage = $rqstURI;
 		}
 		$uriVals = Array(
-						'htScheme'=>$this->serveReg->readValue('request_scheme'),
+						'htScheme'=>$this->clienReg->readValue('userSchm'),
 						'servName'=>$this->serveReg->readValue('server_name'),
 						'reqstURI'=>$rqstURI,
 						'document'=>$this->serveReg->readValue('script_name'),
@@ -374,7 +374,6 @@ class Request{
 		if( isset( $this->queryURI[$uriValsKey] ) ){
 			return $this->queryURI[$uriValsKey];
 		}else{
-			// TODO : Log error if key not in list
 			return NULL;
 		}
 	}
@@ -456,9 +455,10 @@ class Request{
 	/**
 	 * Returns the client registry: 'userAddr' (the client, seen through
 	 * the trusted reverse proxies), 'peerAddr' (the connection itself),
-	 * 'userHost', 'usrAgent', 'clSystem', 'clDevice' (dsktop, mobile,
-	 * tablet, aiagnt, crawlr, script or shadow), 'language' and 'humanSys'.
-	 * All but the addresses come from what the client sent: hints, never proofs.
+	 * 'userHost', 'userSchm' (the scheme the client used, seen the same way),
+	 * 'usrAgent', 'clSystem', 'clDevice' (dsktop, mobile, tablet, aiagnt,
+	 * crawlr, script or shadow), 'language' and 'humanSys'. All but the
+	 * addresses and the scheme come from what the client sent: hints, never proofs.
 	 *
 	 * @return ?ClientReg The client registry, or null when the request was built without one.
 	 */

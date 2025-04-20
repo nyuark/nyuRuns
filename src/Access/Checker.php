@@ -112,9 +112,11 @@ class Checker{
 	 * Verifies access for the current request against the configured
 	 * strategy. Fails closed on misconfiguration (never falls back to
 	 * a different strategy). When no check applies (access not required,
-	 * or a public route), the request goes through as not logged.
+	 * or a public route), the request goes through as not logged. An
+	 * address that presented too many wrong credentials is answered 429
+	 * until its hold ends (see Limiter).
 	 *
-	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys.
+	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, and 'retryAft' (seconds to wait) with a 429 status.
 	 */
 	function verifyAxs(): Registry {
 		if( empty($this->axsSetup) || ($this->axsSetup['needed'] ?? true) === false || $this->openRoute() ){
@@ -141,10 +143,23 @@ class Checker{
 			$authObj = new $authCls( $this->resolvCnf($this->axsSetup['authcf'] ?? $this->axsSetup['sesscf'] ?? '') );
 		}
 
+		// An address that presented too many wrong credentials is refused before anything is checked
+		$lmtrObj = new Limiter( $this->resolvCnf('limits') );
+		$usrAddr = $this->clientAdr();
+		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+		if( $heldEnd>0 ){
+			$this->logAttmpt( false, '', 'Too many attempts' );
+			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>429, 'statMssg'=>'Too many attempts', 'retryAft'=>max(1, $heldEnd - time())) );
+		}
+
 		$sessObj = new $sessCls( $this->resolvCnf($this->axsSetup['sesscf'] ?? ''), $authObj );
 		$idntArr = $sessObj->verifyReq( $this->httpRqst );
 
 		if( $idntArr===false ){
+			// Only a credential presented and refused counts against the address: not a missing one, nor a store that cannot be read
+			if( $authObj!==null && $authObj->lastError()!='' && (!method_exists($authObj, 'wrongCred') || $authObj->wrongCred()) ){
+				$lmtrObj->countFail($usrAddr);
+			}
 			$chlgMap = Array('hbasic'=>'Basic', 'jtoken'=>'Bearer');
 			$wwwAuth = $chlgMap[$sessNme] ?? null;
 			$this->logAttmpt( false, '', $sessObj->lastError() );
@@ -192,7 +207,20 @@ class Checker{
 	}
 
 	/**
+	 * Gives the address of the client, as seen through the trusted reverse
+	 * proxies.
+	 *
+	 * @return String The address, empty when the request tells none.
+	 */
+	protected function clientAdr(): String {
+		$clntReg = $this->httpRqst->getClient();
+		return ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+	}
+
+	/**
 	 * Logs an access grant/denial through the shared logger, if one is set up.
+	 *
+	 * The address of the client is told with it, when the request has one.
 	 *
 	 * @param Bool   $wasGranted Whether access was granted.
 	 * @param String $loggedUser The identified username, if any.
@@ -203,10 +231,12 @@ class Checker{
 		if( $logInst===null ){
 			return;
 		}
+		$usrAddr = $this->clientAdr();
+		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
 		if( $wasGranted ){
-			$logInst->info( 'Access granted for user "'.$loggedUser.'"' );
+			$logInst->info( 'Access granted for user "'.$loggedUser.'"'.$fromTxt );
 		}else{
-			$logInst->warning( 'Access denied: '.$denyReason );
+			$logInst->warning( 'Access denied'.$fromTxt.': '.$denyReason );
 		}
 	}
 
@@ -220,8 +250,8 @@ class Checker{
 		if( $confRowKey=='' ){
 			return Array();
 		}
-		$nyuConf = $GLOBALS['nyuConfig'];
-		$axsCnfg = $nyuConf->getRowVal('ACCESS', strtoupper($confRowKey));
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$axsCnfg = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', strtoupper($confRowKey)) : null;
 		return is_array($axsCnfg) ? $axsCnfg : Array();
 	}
 }

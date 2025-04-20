@@ -22,6 +22,7 @@ class DeviceAuth implements AuthHndlr{
 	protected $stmpSecs;
 	protected $seenDevc;
 	protected $lastMssg;
+	protected $wrongCrd = false;
 
 	/**
 	 * @param Array $confValues Config block, optionally with the 'basnme' configured database holding both tables
@@ -48,6 +49,7 @@ class DeviceAuth implements AuthHndlr{
 	 */
 	function checkCred( Array $credsArray ): Array|Bool {
 		$gvnTokn = strval($credsArray['key'] ?? '');
+		$this->wrongCrd = false;
 		if( $gvnTokn=='' ){
 			$this->lastMssg = 'No API key provided';
 			return false;
@@ -60,6 +62,7 @@ class DeviceAuth implements AuthHndlr{
 		// A revoked device, or one whose user is not active, is answered like an unknown token
 		if( $dvcVals===null || ($dvcVals['revoked_at'] ?? null)!==null || ($dvcVals['userStat'] ?? '')!=='active' ){
 			$this->lastMssg = 'Invalid API key';
+			$this->wrongCrd = true;
 			return false;
 		}
 		$this->seenDevc = $dvcVals['id'];
@@ -188,6 +191,17 @@ class DeviceAuth implements AuthHndlr{
 	 */
 	protected function linkDBase(): DbHandlr {
 		return DBCon::linkNamed($this->userBase)->getConnex();
+	}
+
+	/**
+	 * Tells whether the last refusal was a wrong token, as opposed to a
+	 * missing one or tables that cannot be read: only a wrong credential
+	 * counts against the address that presented it (see Access\Limiter).
+	 *
+	 * @return Bool True when a token was presented and refused.
+	 */
+	public function wrongCred(): Bool {
+		return $this->wrongCrd;
 	}
 
 	/**

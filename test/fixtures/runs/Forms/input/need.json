@@ -1,0 +1,10 @@
+{
+	"fields": {
+		"name!": "TextStr",
+		"mail!": "EmlAddr",
+		"seats": "Integer",
+		"filters": {
+			"search!": "TextStr"
+		}
+	}
+}
