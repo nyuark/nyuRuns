@@ -35,7 +35,7 @@ function httpQuery( String $httpMethod, String $urlAddress, Array $headersArr=Ar
 		$headTxt .= $hedKey.': '.$hedVal."\r\n";
 	}
 	$context = stream_context_create( Array('http'=>Array(
-		'method'=>$httpMethod, 'header'=>$headTxt, 'content'=>$bodyString, 'ignore_errors'=>true, 'timeout'=>20
+		'method'=>$httpMethod, 'header'=>$headTxt, 'content'=>$bodyString, 'ignore_errors'=>true, 'timeout'=>20, 'follow_location'=>0
 	)) );
 	$bodyTxt = @file_get_contents($urlAddress, false, $context);
 	$headLst = $http_response_header ?? Array();
@@ -653,6 +653,155 @@ if( !$isReady ){
 	checkSame('file: a missing file is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"File not found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/mediafail', $fixHead + Array('Range'=>'bytes=0-4'));
 	checkSame('file: an error status wins over the file', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(403, $jsonTyp, '{"error":"Not yours","code":403}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead);
+	checkSame('file: the client is told not to guess another type', $headOf($replyAr, 'X-Content-Type-Options'), 'nosniff');
+
+	// Declared routes that run no action : redirection, static file and folder, HTML page
+	$htmlTyp = 'text/html; charset=utf-8';
+	$noFile = Array(404, $jsonTyp, '{"error":"File not found","code":404}');
+
+	$replyAr = httpQuery('GET', $baseUrl.'/old/42', $rteHead);
+	checkSame('redirection: status, address, no body and no type', Array($replyAr['code'], $headOf($replyAr, 'Location'), $replyAr['body'], $replyAr['type']), Array(301, '/items/42', '', ''));
+	checkSame('redirection: preset headers are kept', $headOf($replyAr, 'Access-Control-Allow-Origin'), '*');
+	$replyAr = httpQuery('GET', $baseUrl.'/old/a%20b', $rteHead);
+	checkSame('redirection: a captured value is encoded again', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(301, '/items/a%20b'));
+	$replyAr = httpQuery('GET', $baseUrl.'/away', $rteHead);
+	checkSame('redirection: 302 by default, to a full address', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(302, 'https://example.org/docs'));
+	$replyAr = httpQuery('HEAD', $baseUrl.'/away', $rteHead);
+	checkSame('redirection: HEAD is served as GET', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(302, 'https://example.org/docs'));
+	$replyAr = httpQuery('POST', $baseUrl.'/away', $rteHead);
+	checkSame('redirection: another method is refused', Array($replyAr['code'], $allowOf($replyAr), $headOf($replyAr, 'Location')), Array(405, 'GET, HEAD', null));
+	$replyAr = httpQuery('POST', $baseUrl.'/resend', $rteHead);
+	checkSame('redirection: of another method, when allowed', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(307, '/both'));
+	$replyAr = httpQuery('GET', $baseUrl.'/badcode', $rteHead);
+	checkSame('redirection: a wrong status is a 500, without address', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(500, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/old/42', $rteHead + Array('X-Test-Auth'=>'jtoken'));
+	checkSame('redirection: closed when access is required', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/style', $rteHead);
+	checkSame('static: a declared file with its type', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, 'text/css; charset=utf-8', 'body { margin: 0; }'));
+	checkSame('static: the client is told not to guess another type', $headOf($replyAr, 'X-Content-Type-Options'), 'nosniff');
+	$replyAr = httpQuery('HEAD', $baseUrl.'/style', $rteHead);
+	checkSame('static: HEAD gives the headers, without body', Array($replyAr['code'], $replyAr['type'], $replyAr['body'], $headOf($replyAr, 'Content-Length')), Array(200, 'text/css; charset=utf-8', '', '19'));
+	$replyAr = httpQuery('POST', $baseUrl.'/style', $rteHead);
+	checkSame('static: POST is refused', Array($replyAr['code'], $allowOf($replyAr)), Array(405, 'GET, HEAD'));
+	$replyAr = httpQuery('GET', $baseUrl.'/nofile', $rteHead);
+	checkSame('static: a missing file is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), $noFile);
+	$replyAr = httpQuery('GET', $baseUrl.'/secret', $rteHead);
+	checkSame('static: a file declared outside the root is a 500', Array($replyAr['code'], strpos($replyAr['body'], 'abcdefghijklmnopqrstuvwxyz')), Array(500, false));
+	$replyAr = httpQuery('GET', $baseUrl.'/style', $rteHead + Array('X-Test-Auth'=>'jtoken'));
+	checkSame('static: closed when access is required', $replyAr['code'], 401);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead);
+	checkSame('folder: a file with its type', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, 'text/plain; charset=utf-8', 'abcdefghijklmnopqrstuvwxyz'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('Range'=>'bytes=0-4'));
+	checkSame('folder: a range of a file', Array($replyAr['code'], $replyAr['body'], $headOf($replyAr, 'Content-Range')), Array(206, 'abcde', 'bytes 0-4/26'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/deep/note.txt', $rteHead);
+	checkSame('folder: a file of a sub-folder', Array($replyAr['code'], $replyAr['body']), Array(200, 'deep note'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/', $rteHead);
+	checkSame('folder: the folder itself gives its index', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], 'Docs index')!==false), Array(200, $htmlTyp, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/deep', $rteHead);
+	checkSame('folder: a sub-folder without index is never listed', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), $noFile);
+	foreach( Array(
+		'parent folder'=>'/docs/../site.css',
+		'encoded parent folder'=>'/docs/%2e%2e/site.css',
+		'encoded slash'=>'/docs/..%2Fsite.css',
+		'encoded backslash'=>'/docs/..%5Csite.css',
+		'double encoding'=>'/docs/%252e%252e/site.css',
+		'up to the fixtures'=>'/docs/../../letters.txt',
+		'backslash as a separator'=>'/docs/deep%5Cnote.txt',
+		'null byte'=>'/docs/guide.txt%00.html',
+		'hidden file'=>'/docs/.hidden.txt',
+		'script'=>'/docs/script.php',
+		'extension without type'=>'/docs/data.ini'
+	) as $tryNme=>$tryUrl ){
+		$replyAr = httpQuery('GET', $baseUrl.$tryUrl, $rteHead);
+		checkSame('folder: no way out, '.$tryNme, Array($replyAr['code'], $replyAr['type'], $replyAr['body']), $noFile);
+	}
+
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $rteHead);
+	checkSame('page: sent as HTML, its placeholder filled', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<p>Hello 7, %unknown% at 100%</p>')!==false), Array(200, $htmlTyp, true));
+	checkSame('page: the client is told not to guess another type', $headOf($replyAr, 'X-Content-Type-Options'), 'nosniff');
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/%3Cb%3E%22x%22', $rteHead);
+	checkSame('page: a captured value is encoded', strpos($replyAr['body'], '<p>Hello &lt;b&gt;&quot;x&quot;, ')!==false, true);
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $rteHead + Array('X-Test-Ctype'=>'text/csv'));
+	checkSame('page: its type replaces the preset Content-Type', $replyAr['type'], $htmlTyp);
+	$replyAr = httpQuery('HEAD', $baseUrl.'/hello/7', $rteHead);
+	checkSame('page: HEAD gives the headers, without body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, $htmlTyp, ''));
+	$replyAr = httpQuery('GET', $baseUrl.'/notpage', $rteHead);
+	checkSame('page: a file that is not HTML is a 500', $replyAr['code'], 500);
+	$replyAr = httpQuery('GET', $baseUrl.'/enter', $rteHead);
+	checkSame('page: one kind per method, GET gets the page', Array($replyAr['code'], $replyAr['type']), Array(200, $htmlTyp));
+	$replyAr = httpQuery('POST', $baseUrl.'/enter', $rteHead);
+	checkSame('page: one kind per method, POST runs the action', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, $jsonTyp, '{"ok":true}'));
+
+	// A declared route opened by its path, when access is required
+	$pthHead = $rteHead + Array('X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'/enter, /docs/*');
+	$replyAr = httpQuery('GET', $baseUrl.'/enter', $pthHead);
+	checkSame('public path: the page is served without credentials', Array($replyAr['code'], $replyAr['type']), Array(200, $htmlTyp));
+	$replyAr = httpQuery('POST', $baseUrl.'/enter', $pthHead);
+	checkSame('public path: and so is its action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', $pthHead);
+	checkSame('public path: the same action stays closed on another path', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $pthHead);
+	checkSame('public path: another page stays closed', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $pthHead);
+	checkSame('public path: a folder route is opened with its files', Array($replyAr['code'], $replyAr['body']), Array(200, 'abcdefghijklmnopqrstuvwxyz'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/../site.css', $pthHead);
+	checkSame('public path: an open folder still has no way out', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"File not found","code":404}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/style', $pthHead);
+	checkSame('public path: a file outside the open folder stays closed', $replyAr['code'], 401);
+
+	// Static files : kept by the client, which asks whether they changed
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead);
+	$fileTag = strval($headOf($replyAr, 'ETag'));
+	$fileDat = strval($headOf($replyAr, 'Last-Modified'));
+	checkLike('cache: the file has a version', $fileTag, '/^"[0-9a-f]+-1a"$/');
+	checkLike('cache: and a date', $fileDat, '/^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/');
+	checkSame('cache: its own cache headers replace those of the preset', Array($headOf($replyAr, 'Cache-Control'), $headOf($replyAr, 'Pragma'), $headOf($replyAr, 'Expires')), Array('public, no-cache', null, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('If-None-Match'=>$fileTag));
+	checkSame('cache: the same version is a 304, without body or type', Array($replyAr['code'], $replyAr['body'], $replyAr['type'], $headOf($replyAr, 'Content-Length')), Array(304, '', '', null));
+	checkSame('cache: a 304 repeats the version and the cache headers', Array($headOf($replyAr, 'ETag'), $headOf($replyAr, 'Cache-Control')), Array($fileTag, 'public, no-cache'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('If-None-Match'=>'"other"'));
+	checkSame('cache: another version gets the file', Array($replyAr['code'], $replyAr['body']), Array(200, 'abcdefghijklmnopqrstuvwxyz'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('If-Modified-Since'=>$fileDat));
+	checkSame('cache: not modified since its date is a 304', Array($replyAr['code'], $replyAr['body']), Array(304, ''));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('If-Modified-Since'=>'Thu, 01 Jan 1970 00:00:10 GMT'));
+	checkSame('cache: modified since an older date gets the file', $replyAr['code'], 200);
+	$replyAr = httpQuery('HEAD', $baseUrl.'/docs/guide.txt', $rteHead + Array('If-None-Match'=>$fileTag));
+	checkSame('cache: HEAD is answered 304 too', $replyAr['code'], 304);
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('Range'=>'bytes=0-4', 'If-Range'=>$fileTag));
+	checkSame('cache: a range of the same version', Array($replyAr['code'], $replyAr['body']), Array(206, 'abcde'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead + Array('Range'=>'bytes=0-4', 'If-Range'=>'"other"'));
+	checkSame('cache: a range of another version gets the whole file', Array($replyAr['code'], $replyAr['body']), Array(200, 'abcdefghijklmnopqrstuvwxyz'));
+	$replyAr = httpQuery('GET', $baseUrl.'/nofile', $rteHead + Array('If-None-Match'=>'*'));
+	checkSame('cache: a missing file stays a 404', Array($replyAr['code'], $headOf($replyAr, 'ETag')), Array(404, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $rteHead);
+	checkSame('cache: a page has no version', $headOf($replyAr, 'ETag'), null);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead);
+	checkSame('cache: a file sent by an action keeps the cache headers of the preset', Array($headOf($replyAr, 'ETag'), $headOf($replyAr, 'Pragma')), Array(null, 'no-cache'));
+
+	// Actionset helpers : redirection, page reply, link to a route
+	$actHead = $fixHead + Array('X-Test-Routes'=>'1');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/moved', $actHead);
+	checkSame('helper: a redirection ends the action, without body', Array($replyAr['code'], $headOf($replyAr, 'Location'), $replyAr['body'], $replyAr['type']), Array(302, '/probe/clean', '', ''));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/moved/out', $actHead);
+	checkSame('helper: a redirection elsewhere, with its status', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(303, 'https://example.org/'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/moved/bad', $actHead);
+	checkSame('helper: an address without scheme is a 500, without address', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(500, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/page', $actHead);
+	checkSame('helper: a page sent as HTML', Array($replyAr['code'], $replyAr['type']), Array(200, $htmlTyp));
+	checkSame('helper: its values encoded and its link built', strpos($replyAr['body'], '<h1>&lt;b&gt;Tom &amp; &quot;Jerry&quot;&lt;/b&gt;</h1><a href="/items/a%20b?tab=x%20y">next</a>')!==false, true);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/page/gone', $actHead);
+	checkSame('helper: a page with its own status', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<h1>Gone</h1>')!==false), Array(404, $htmlTyp, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/page/none', $actHead);
+	checkSame('helper: a missing page is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Page not found","code":404}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/page/fail', $actHead);
+	checkSame('helper: an error status wins over the page', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(403, $jsonTyp, '{"error":"Not yours","code":403}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/link', $actHead);
+	checkSame('helper: the link to a declared route', Array($replyAr['code'], $replyAr['body']), Array(200, '{"link":"\/things\/7"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/link/x', $actHead);
+	checkSame('helper: a link to an undeclared route is a 500', $replyAr['code'], 500);
 
 	// "No content" : a real 204 when the action sets no output, even after a warning
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/vanish', $fixHead);

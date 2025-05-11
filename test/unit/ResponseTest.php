@@ -138,4 +138,108 @@ ob_start();
 $respons->sendOutpt();
 checkSame('file: a refused file leaves the data body', ob_get_clean(), '{"a":1}');
 
+/**
+ * Registers a temporary HTML page with its values and returns what is sent.
+ *
+ * @param String $pageString Contents of the page.
+ * @param Array  $pageValues Values of the placeholders.
+ * @return String The body.
+ */
+function pageSent( String $pageString, Array $pageValues=Array() ): String {
+	$tmpFile = inTempDir('page.html');
+	file_put_contents($tmpFile, $pageString);
+	$respons = new Response();
+	$respons->formatOut( Array('a'=>1) );
+	$respons->buildTmpl();
+	$respons->pageReply($tmpFile, $pageValues);
+	ob_start();
+	$respons->sendOutpt();
+	return ob_get_clean();
+}
+
+// Page replies : sent in place of the data body, as written, their placeholders filled
+checkSame('page: sent as written',                 pageSent('<p>{"not":"json"}</p>'), '<p>{"not":"json"}</p>');
+checkSame('page: a placeholder is filled',         pageSent('<p>%name%, %name%</p>', Array('name'=>'Ann')), '<p>Ann, Ann</p>');
+checkSame('page: a value is encoded',              pageSent('<a title="%t%">%t%</a>', Array('t'=>'<i>"a" & \'b\'</i>')), '<a title="&lt;i&gt;&quot;a&quot; &amp; &#039;b&#039;&lt;/i&gt;">&lt;i&gt;&quot;a&quot; &amp; &#039;b&#039;&lt;/i&gt;</a>');
+checkSame('page: a number is written',             pageSent('%n% of %m%', Array('n'=>3, 'm'=>4.5)), '3 of 4.5');
+checkSame('page: a placeholder without value is left', pageSent('%name% %other%', Array('name'=>'Ann')), 'Ann %other%');
+checkSame('page: a value that is not a text is left', pageSent('%list% %none%', Array('list'=>Array(1), 'none'=>null)), '%list% %none%');
+checkSame('page: a filled value is not filled again', pageSent('%a%', Array('a'=>'%b%', 'b'=>'no')), '%b%');
+checkSame('page: percent signs are not placeholders', pageSent('width:50%;height:50% %a%', Array('a'=>'x')), 'width:50%;height:50% x');
+checkSame('page: text that is not UTF-8 is still sent', pageSent('%a%', Array('a'=>"caf\xE9"))!=='', true);
+
+$respons = new Response();
+checkSame('page: a missing file is refused', $respons->pageReply(inTempDir('nosuchpage.html')), false);
+checkSame('page: a folder is refused',       $respons->pageReply(TMP_DIR), false);
+$tmpFile = inTempDir('page.html');
+file_put_contents($tmpFile, '<p>page</p>');
+$respons->pageReply($tmpFile);
+$respons->clearBody();
+ob_start();
+$respons->sendOutpt();
+checkSame('page: an emptied response sends nothing', ob_get_clean(), '');
+
+/**
+ * Registers a temporary file of a fixed date, lets the client keep it and
+ * returns what is sent for the request headers given.
+ *
+ * @param Array $headersArr Request headers.
+ * @param Bool  $sharedFile Whether anyone gets the file.
+ * @param Array $renderVals Render configuration for the Response.
+ * @return Array The status, the body and the response headers.
+ */
+function keptFile( Array $headersArr=Array(), Bool $sharedFile=false, Array $renderVals=Array() ): Array {
+	$tmpFile = inTempDir('kept.txt');
+	file_put_contents($tmpFile, 'abcdefghijklmnopqrstuvwxyz');
+	touch($tmpFile, 1700000000);
+	clearstatcache();
+	$respons = new Response($renderVals);
+	$respons->fileReply($tmpFile, 'text/plain', strval($headersArr['Range'] ?? ''));
+	$respons->cacheFile($headersArr, $sharedFile);
+	$codePrp = new ReflectionProperty($respons, 'fileCode');
+	$codePrp->setAccessible(true);
+	$headPrp = new ReflectionProperty($respons, 'headrArr');
+	$headPrp->setAccessible(true);
+	ob_start();
+	$respons->sendOutpt();
+	return Array($codePrp->getValue($respons), ob_get_clean(), $headPrp->getValue($respons));
+}
+
+// Kept files : their version and date, and the 304 given to a client that holds them
+$allText = 'abcdefghijklmnopqrstuvwxyz';
+$fileTag = '"'.dechex(1700000000).'-1a"';
+$fileDat = 'Tue, 14 Nov 2023 22:13:20 GMT';
+checkSame('cache: version, date and cache headers', keptFile(), Array(200, $allText, Array('Cache-Control'=>'private, no-cache', 'ETag'=>$fileTag, 'Last-Modified'=>$fileDat)));
+checkSame('cache: a file served to anyone', keptFile(Array(), true)[2]['Cache-Control'], 'public, no-cache');
+checkSame('cache: the cache headers of the preset are replaced', keptFile(Array(), false, Array('headrs'=>Array('cache-control'=>'no-store', 'Pragma'=>'no-cache', 'EXPIRES'=>'0', 'X-Kept'=>'yes')))[2], Array('X-Kept'=>'yes', 'Cache-Control'=>'private, no-cache', 'ETag'=>$fileTag, 'Last-Modified'=>$fileDat));
+checkSame('cache: the same version is a 304, without body', array_slice(keptFile(Array('If-None-Match'=>$fileTag)), 0, 2), Array(304, ''));
+checkSame('cache: header names in another case', keptFile(Array('if-none-match'=>$fileTag))[0], 304);
+checkSame('cache: a version marked as weak', keptFile(Array('If-None-Match'=>'W/'.$fileTag))[0], 304);
+checkSame('cache: one of several versions', keptFile(Array('If-None-Match'=>'"aaa", '.$fileTag.' , "bbb"'))[0], 304);
+checkSame('cache: any version', keptFile(Array('If-None-Match'=>'*'))[0], 304);
+checkSame('cache: another version gets the file', array_slice(keptFile(Array('If-None-Match'=>'"aaa"')), 0, 2), Array(200, $allText));
+checkSame('cache: a version without its quotes is another one', keptFile(Array('If-None-Match'=>trim($fileTag, '"')))[0], 200);
+checkSame('cache: not modified since its date', keptFile(Array('If-Modified-Since'=>$fileDat))[0], 304);
+checkSame('cache: not modified since a later date', keptFile(Array('If-Modified-Since'=>'Wed, 15 Nov 2023 00:00:00 GMT'))[0], 304);
+checkSame('cache: modified since an earlier date', keptFile(Array('If-Modified-Since'=>'Tue, 14 Nov 2023 22:13:19 GMT'))[0], 200);
+checkSame('cache: a date that cannot be read is ignored', keptFile(Array('If-Modified-Since'=>'not a date'))[0], 200);
+checkSame('cache: the version is asked before the date', keptFile(Array('If-None-Match'=>'"aaa"', 'If-Modified-Since'=>$fileDat))[0], 200);
+checkSame('cache: a range of the same version', array_slice(keptFile(Array('Range'=>'bytes=0-4', 'If-Range'=>$fileTag)), 0, 2), Array(206, 'abcde'));
+checkSame('cache: a range since the same date', array_slice(keptFile(Array('Range'=>'bytes=0-4', 'If-Range'=>$fileDat)), 0, 2), Array(206, 'abcde'));
+checkSame('cache: a range of another version gets the whole file', array_slice(keptFile(Array('Range'=>'bytes=0-4', 'If-Range'=>'"aaa"')), 0, 2), Array(200, $allText));
+checkSame('cache: a range of a weak version gets the whole file', array_slice(keptFile(Array('Range'=>'bytes=0-4', 'If-Range'=>'W/'.$fileTag)), 0, 2), Array(200, $allText));
+checkSame('cache: a range without condition is served', array_slice(keptFile(Array('Range'=>'bytes=0-4')), 0, 2), Array(206, 'abcde'));
+checkSame('cache: a range of a version the client holds is a 304', array_slice(keptFile(Array('Range'=>'bytes=0-4', 'If-None-Match'=>$fileTag)), 0, 2), Array(304, ''));
+$respons = new Response();
+$respons->cacheFile( Array('If-None-Match'=>'*') );
+$headPrp = new ReflectionProperty($respons, 'headrArr');
+$headPrp->setAccessible(true);
+checkSame('cache: nothing is set without a file', $headPrp->getValue($respons), Array());
+
+// Content types of the files a declared route serves
+checkSame('type of a stylesheet',            Response::typeOfExt('css'), 'text/css; charset=utf-8');
+checkSame('type: the case is ignored',       Response::typeOfExt('PNG'), 'image/png');
+checkSame('type: a script has none',         Response::typeOfExt('php'), null);
+checkSame('type: no extension has none',     Response::typeOfExt(''), null);
+
 endChecks();

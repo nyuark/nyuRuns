@@ -47,6 +47,9 @@
         // confirmed against it: a locked user or a changed role applies at once
 		"authcf": "dfpass",
         // Actions served without any check; as "app/action" or "app/*".
+        // A declared route is named by its path with a leading slash ("/login");
+        // or ("/assets/*") for a folder route; exactly as the route is declared;
+        // it is then open whatever it answers with; and so is every file of the folder.
         // An OPTIONS request answered by a declared route is always served
 		"openrt": ["auth/login"]
 	},
@@ -71,7 +74,12 @@
 		"mapper": "$app/$action/$param",
         // Folder of the declared route files (*.rte); relative to the project root.
         // Uses conf/routes when not set. Declared routes are checked before the mapper
-		"folder": "conf/routes"
+		"folder": "conf/routes",
+        // Folder of the static files and HTML pages the declared routes serve
+        // (targets "fle"; "dir"; "pge"); relative to the project root.
+        // Nothing is served when not set. A static file is sent with its own
+        // cache headers (kept by the client; checked again at each use)
+		"htroot": "pages"
 	},
 	"rnder": {
 		"tmplte": "plain",

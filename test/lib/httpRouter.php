@@ -18,7 +18,7 @@
 //   X-Test-Tmpl: <template>          render template
 //   X-Test-Return: <format>          output format
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
-//   X-Test-Routes: 1                 declared routes read from test/fixtures/routes
+//   X-Test-Routes: 1                 declared routes read from test/fixtures/routes, their files from test/fixtures/pages
 // X-Test-Preset names the preset to load instead of the default one,
 // and X-Test-Runs serves the applications of test/fixtures/runs instead of runs/.
 
@@ -63,6 +63,7 @@ if( isset($_SERVER['HTTP_X_TEST_CTYPE']) ){
 }
 if( isset($_SERVER['HTTP_X_TEST_ROUTES']) ){
 	$overArr['route']['folder'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'routes';
+	$overArr['route']['htroot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'pages';
 }
 
 $useFixtr = isset($_SERVER['HTTP_X_TEST_RUNS']);

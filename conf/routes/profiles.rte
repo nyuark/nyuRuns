@@ -1,6 +1,5 @@
 {
 	"client/edit/$id" : {
-		"setup": "service",
 		"auth": {
 			"type": "regkey",
 			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
@@ -28,11 +27,9 @@
 				"resp": "err_429;Retry-After: 3600",
 				"keep": "bans"
 			}
-		},
-        "output": "AJAX"
+		}
 	},
 	"profiles/$id" : {
-		"setup": "service",
 		"auth": {
 			"type": "regkey",
 			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
@@ -60,7 +57,6 @@
 				"resp": "err_429;Retry-After: 3600",
 				"keep": "bans"
 			}
-		},
-        "output": "AJAX"
+		}
 	}
 }

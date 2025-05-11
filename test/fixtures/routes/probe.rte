@@ -3,11 +3,26 @@
 	"items/$id" :             { "target": { "app": "probe", "act": "mirror" } },
 	"items/$id/parts/$part" : { "target": { "app": "probe", "act": "mirror" } },
 	"probe/warnfail" :        { "target": { "app": "probe", "act": "clean" } },
-	"broken" :                { "output": "simple" },
+	"broken" :                { "allows": "GET" },
 	"gets" :                  { "allows": "head, options", "target": { "app": "probe", "act": "clean" } },
 	"both" :                  { "allows": "GET, POST", "target": { "app": "probe", "act": "clean" } },
 	"things/$id" :            { "target": {
 		"GET":    { "app": "probe", "act": "mirror" },
 		"delete": { "app": "probe", "act": "clean" }
+	} },
+	"old/$id" :               { "target": { "url": "/items/$id", "cod": 301 } },
+	"away" :                  { "target": { "url": "https://example.org/docs" } },
+	"resend" :                { "allows": "POST", "target": { "url": "/both", "cod": 307 } },
+	"badcode" :               { "target": { "url": "/ping", "cod": 200 } },
+	"badaddr" :               { "target": { "url": "//example.org/" } },
+	"style" :                 { "target": { "fle": "site.css" } },
+	"nofile" :                { "target": { "fle": "missing.css" } },
+	"secret" :                { "target": { "fle": "../letters.txt" } },
+	"docs/*" :                { "target": { "dir": "docs" } },
+	"hello/$id" :             { "target": { "pge": "hello.html" } },
+	"notpage" :               { "target": { "pge": "site.css" } },
+	"enter" :                 { "target": {
+		"GET":  { "pge": "hello.html" },
+		"POST": { "app": "probe", "act": "clean" }
 	} }
 }

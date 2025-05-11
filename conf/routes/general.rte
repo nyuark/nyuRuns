@@ -14,15 +14,12 @@
 		}
 	},
 	"dev" : {
-		"config": "service.ini",
 		"target": {
 			"app": "shows",
 			"act": "edit"
 		}
 	},
 	"index" : {
-		"setup": "service",
-		"output": "AJAX",
 		"target": {
 			"app": "shows",
 			"act": "index"

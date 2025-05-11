@@ -15,7 +15,7 @@ class Preset{
 		'setup' => Array('ftypes', 'fnames', 'folder', 'envfle'),
 		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt'),
 		'input' => Array('naming', 'source', 'fields'),
-		'route' => Array('detect', 'mapper', 'folder'),
+		'route' => Array('detect', 'mapper', 'folder', 'htroot'),
 		'rnder' => Array('tmplte', 'return', 'headrs')
 	);
 

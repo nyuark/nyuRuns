@@ -180,9 +180,12 @@ class Checker{
 
 	/**
 	 * Tells whether the resolved route is served without any access check:
-	 * an OPTIONS request the route answers by itself, or an action listed
-	 * in the 'openrt' key of the 'auths' block, as "app/action" or "app/*"
-	 * (case-insensitive).
+	 * an OPTIONS request the route answers by itself, or what the 'openrt'
+	 * key of the 'auths' block lists: an action, as "app/action" or "app/*"
+	 * (case-insensitive), or a declared route, as its path with a leading
+	 * slash ("/login", "/assets/*"). The path is the one the route is
+	 * declared with, to the letter: an entry opens that route only, and
+	 * its * is not a pattern of its own.
 	 *
 	 * @return Bool Whether the route is open to everyone.
 	 */
@@ -192,12 +195,23 @@ class Checker{
 		}
 		$appName = strtolower( strval($this->routeReg->readValue('app')) );
 		$actName = strtolower( strval($this->routeReg->readValue('action')) );
+		$rtePath = strval($this->routeReg->readValue('rtePath'));
+		$pubList = $this->axsSetup['openrt'] ?? Array();
+		// Declared routes, by their path : whatever they answer with
+		foreach( (array)$pubList as $pubRte ){
+			$pubRte = strval($pubRte);
+			if( $rtePath!='' && substr($pubRte, 0, 1)=='/' && trim($pubRte, '/')===$rtePath ){
+				return true;
+			}
+		}
 		if( $appName=='' ){
 			// Without an application, only the route's own OPTIONS answer is open
 			return $this->routeReg->readValue('statCode')==204;
 		}
-		$pubList = $this->axsSetup['openrt'] ?? Array();
 		foreach( (array)$pubList as $pubRte ){
+			if( substr(strval($pubRte), 0, 1)=='/' ){
+				continue;
+			}
 			$pubRte = strtolower( trim(strval($pubRte), '/') );
 			if( $pubRte==$appName.'/'.$actName || $pubRte==$appName.'/*' ){
 				return true;

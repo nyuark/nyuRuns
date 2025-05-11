@@ -216,6 +216,36 @@ checkSame('Checker route-answered refusal stays closed', $checker->verifyAxs()->
 $checker = new Checker( $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null)) );
 checkSame('Checker unresolved route stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
 
+// Checker : public routes, named by the path they are declared with
+$pthConf = Array('openrt'=>Array('/login', '/tokchk/', '/items/$id', '/docs/*', '/Auth/Other')) + $pubConf;
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
+checkSame('Checker public path: a page',  $checker->verifyAxs()->readValue('statCode'), 200);
+checkSame('Checker public path: not logged', $checker->verifyAxs()->readValue('logged'), false);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>'auth', 'action'=>'check', 'rteKind'=>'action', 'rtePath'=>'tokchk')) );
+checkSame('Checker public path: an action', $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'statCode'=>405, 'rtePath'=>'login')) );
+checkSame('Checker public path: its refusals are open too', $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>'probe', 'action'=>'mirror', 'rtePath'=>'items/$id')) );
+checkSame('Checker public path: a pattern, as it is declared', $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*')) );
+checkSame('Checker public path: a folder route, as it is declared', $checker->verifyAxs()->readValue('statCode'), 200);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/private/*')) );
+checkSame('Checker public path: its * does not open another folder route', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/guide.txt')) );
+checkSame('Checker public path: nor a route declared under it', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( Array('openrt'=>Array('/docs')) + $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*')) );
+checkSame('Checker public path: a folder route needs its *', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'Login')) );
+checkSame('Checker public path: the case counts', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'other')) );
+checkSame('Checker public path: another page stays closed', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>'login', 'action'=>null)) );
+checkSame('Checker public path: is not an application name', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( $pthConf, fakeReqst(), new Registry(Array('app'=>'auth', 'action'=>'other')) );
+checkSame('Checker public path: is not an action either', $checker->verifyAxs()->readValue('statCode'), 401);
+$checker = new Checker( Array('openrt'=>Array('login')) + $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
+checkSame('Checker public path: needs its leading slash', $checker->verifyAxs()->readValue('statCode'), 401);
+
 $checker = new Checker( Array('sessby'=>'Nope'), fakeReqst() );
 checkSame('Checker unknown sess strategy', $checker->verifyAxs()->readValue('statCode'), 500);
 $checker = new Checker( Array('sessby'=>'header', 'authby'=>'Nope'), fakeReqst() );

@@ -1,0 +1,1 @@
+<?php // Fixture : a file whose extension is not served

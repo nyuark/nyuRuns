@@ -127,6 +127,55 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Sends the client elsewhere, in the way named by its parameter. The
+	 * lines after the redirection must never run.
+	 */
+	public function moved( String $givenValue='' ): Void {
+		if( $givenValue=='out' ){
+			$this->replyMove('https://example.org/', 303);
+		}
+		if( $givenValue=='bad' ){
+			$this->replyMove('//example.org/');
+		}
+		if( $givenValue=='code' ){
+			$this->replyMove('/probe/clean', 200);
+		}
+		$this->asOutput = Array('step'=>1);
+		$this->replyMove('/probe/clean');
+		$this->statCode = 200;
+		$this->asOutput = Array('step'=>2);
+	}
+
+	/**
+	 * Answers with the card page of the application, or with a page that
+	 * cannot be served, in the way named by its parameter.
+	 */
+	public function page( String $givenValue='' ): Void {
+		if( $givenValue=='none' ){
+			$this->replyPage('nosuchpage');
+		}elseif( $givenValue=='out' ){
+			$this->replyPage('../Actions');
+		}elseif( $givenValue=='gone' ){
+			$this->replyPage('card', Array('title'=>'Gone'), 404);
+		}elseif( $givenValue=='fail' ){
+			$this->replyPage('card', Array('title'=>'Never sent'));
+			$this->statCode = 403;
+			$this->statMssg = 'Not yours';
+		}else{
+			$this->replyPage('card', Array('title'=>'<b>Tom & "Jerry"</b>', 'link'=>$this->routeLink('items/$id', Array('id'=>'a b'), Array('tab'=>'x y'))));
+		}
+	}
+
+	/**
+	 * Answers with the link to a declared route, or fails on one that is
+	 * not declared when called with a parameter.
+	 */
+	public function link( String $givenValue='' ): Void {
+		$this->statCode = 200;
+		$this->asOutput = Array('link'=>($givenValue=='') ? $this->routeLink('things/$id', Array('id'=>7)) : $this->routeLink('nosuch/$id', Array('id'=>7)));
+	}
+
+	/**
 	 * A helper, not an action: must not be reachable by URL.
 	 */
 	protected function hidden(): Void {

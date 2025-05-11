@@ -177,7 +177,7 @@ class Runner{
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
-		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn, $this->axessCon, $this->httpRqst, $this->response );
+		$conTrol = new Controller( $runAppName, $runAppActn, $this->inputLib, $runAppOptn, $this->axessCon, $this->httpRqst, $this->response, $this->setupCon->getRouter() );
 		$statArr = $conTrol->getStatus();
 		$this->setStatus( $statArr['code'], $statArr['mssg'], $conTrol->getOutput() );
 	}
@@ -210,6 +210,12 @@ class Runner{
 		if( $statusCode==204 && $dataValues===null ){
 			$this->response->clearBody();
 			$this->procStat = 204;
+			return;
+		}
+		// A redirection is its Location header : no body either
+		if( $statusCode>=300 && $statusCode<400 ){
+			$this->response->clearBody();
+			$this->procStat = $statusCode;
 			return;
 		}
 		$success = ($statusCode>=200 && $statusCode<300);
@@ -270,8 +276,42 @@ class Runner{
 	}
 
 	/**
+	 * Prepares the reply of a declared route that runs no action: a
+	 * redirection, a static file (the Range header of the request is
+	 * honoured, and a client that already holds the file is told so) or
+	 * an HTML page, in which the values captured from the path
+	 * fill the placeholders of their name.
+	 */
+	protected function rteAnswer(): Void {
+		$rteKind = $this->routeReg->readValue('rteKind');
+		$rteGoal = strval($this->routeReg->readValue('rteGoal'));
+		if( $rteKind=='redrct' ){
+			$this->response->addHeader('Location', $rteGoal);
+			$this->setStatus( intval($this->routeReg->getDefVal('rteCode', 302)) );
+			return;
+		}
+		if( $rteKind=='static' ){
+			$isFound = $this->response->fileReply( $rteGoal, strval($this->routeReg->readValue('rteType')), strval($this->httpRqst->getHeader('Range')) );
+			// The client may keep the file, and a proxy too when it is served to anyone
+			$askHead = Array();
+			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $hedKey ){
+				$askHead[$hedKey] = strval($this->httpRqst->getHeader($hedKey));
+			}
+			$this->response->cacheFile( $askHead, !$this->axessCon->readValue('logged') );
+		}else{
+			$isFound = $this->response->pageReply( $rteGoal, (array)$this->routeReg->getDefVal('pathVars', Array()) );
+		}
+		if( $isFound ){
+			$this->setStatus( 200 );
+		}else{
+			$this->setStatus( 404, 'File not found' );
+		}
+	}
+
+	/**
 	 * Runs the request-handling sequence: reads the resolved app/action/param
-	 * from the route registry, calls the application, and sends the response.
+	 * from the route registry, calls the application or prepares the reply
+	 * the route gives by itself, and sends the response.
 	 */
 	function processor( ): Void {
 		$appCall = $this->routeReg->readValue('app');
@@ -286,6 +326,8 @@ class Runner{
 				$this->response->addHeader('Allow', $alwList);
 			}
 			$this->setStatus( $rteStat, strval($this->routeReg->readValue('statMssg')) );
+		}elseif( in_array($this->routeReg->readValue('rteKind'), Array('redrct', 'static', 'htpage'), true) ){
+			$this->rteAnswer();
 		}elseif( $appCall==null ){
 			// No route resolved for this request
 			$this->setStatus( 404, 'Unknown Application' );

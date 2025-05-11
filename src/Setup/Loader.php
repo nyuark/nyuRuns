@@ -16,6 +16,7 @@ class Loader{
 
 	protected $fieldSet;
 	protected $conArray;
+	protected $routrObj;
 
 	/**
 	* Constructs a setup loader, optionally loading a full setup array.
@@ -219,8 +220,18 @@ class Loader{
 	 */
     function loadRoute( Request $requestObj ): Registry {
 		$rteConf = $this->getRegKey('route');
-		$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), $requestObj );
-		return $routObj->findRoute();
+		$this->routrObj = new Router( is_array($rteConf) ? $rteConf : Array(), $requestObj );
+		return $this->routrObj->findRoute();
+	}
+
+	/**
+	 * Gives the router that resolved the route of the request, for the
+	 * applications to build links with.
+	 *
+	 * @return ?Router The router, null as long as no route was resolved.
+	 */
+	public function getRouter(): ?Router {
+		return $this->routrObj;
 	}
 
     /**
