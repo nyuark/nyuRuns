@@ -88,10 +88,7 @@ class PassList implements Handler{
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
 		$strngFm = in_array(substr($storedHash,0,3), Array('$5$', '$6$'), true);
 		if( !$strngFm && !$this->weakHash ){
-			$logInst = $GLOBALS['nyuLogger'] ?? null;
-			if( $logInst!==null ){
-				$logInst->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "unsecure" option' );
-			}
+			\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "unsecure" option' );
 			return false;
 		}
 		if( $shaHash ){

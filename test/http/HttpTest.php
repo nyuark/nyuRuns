@@ -5,7 +5,7 @@
 // on the sample SQLite database.
 //
 // These requests go through the project's own configuration, so they write
-// to the log file configured in conf/system.ini like any other request.
+// to the log files of the folder configured in conf/system.ini like any other request.
 //
 // The same checks can be run through another web server, such as Apache,
 // that serves test/lib/httpRouter.php for every address: NYU_TEST_HTTP_URL
@@ -48,6 +48,21 @@ function httpQuery( String $httpMethod, String $urlAddress, Array $headersArr=Ar
 		}
 	}
 	return $outcome;
+}
+
+/**
+ * Reads the log file of a channel, in the folder conf/system.ini names
+ * from the project root (see Setup\Loader::logConfig). The fixture
+ * configurations name the same one.
+ *
+ * @param String $loggerChan Channel name: 'error', 'access', 'runner' or an application.
+ * @return String The contents of the file, empty when there is none.
+ */
+function readsLogs( String $loggerChan ): String {
+	$sysConf = @parse_ini_file(TOP_DIR.DS.'conf'.DS.'system.ini') ?: Array();
+	$fldName = trim( strval($sysConf['LOG_PATH'] ?? ''), '/\\ ' );
+	clearstatcache();
+	return strval( @file_get_contents(TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'logs').DS.$loggerChan.'.log') );
 }
 
 /**
@@ -283,12 +298,18 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
 	checkSame('presence: nobody is online before any login', Array($replyAr['code'], $replyAr['body']), Array(200, '{"online":[]}'));
 
+	$logMark = strlen(readsLogs('access'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=anna&pass=pw-anna');
 	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkSame('native round trip: login answers 200', $replyAr['code'], 200);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'confnat', 'Authorization'=>'Bearer '.$jwToken));
 	checkSame('native round trip: the role of the users table reaches the action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+
+	// The login and the access of a privileged user are notices of the access log
+	$newLogs = substr(readsLogs('access'), $logMark);
+	checkLike('access log: privileged login', $newLogs, '/\[NOTICE\] Privileged login granted for user "anna" \(admin\) from \S+/');
+	checkLike('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(admin\) from \S+ to probe\/whoami/i');
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=cleo&pass=pw-cleo');
 	checkSame('native round trip: a pending user gets no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
@@ -477,6 +498,15 @@ if( !$isReady ){
 	foreach( $bodyLst as $oneBdy ){
 		$replyAr = httpQuery($oneBdy[0], $baseUrl.'/probe/creds', Array('X-Test-Runs'=>'1', 'Content-Type'=>$oneBdy[1]), $oneBdy[2]);
 		checkSame($oneBdy[0].' '.strtok($oneBdy[1], ';').' body', $replyAr['code'], $oneBdy[3]);
+	}
+
+	// Uploads are traced on the runner log, whoever read the body : PHP for a POST, the framework for a PUT
+	$fleName = 'trace-'.getmypid().'.txt';
+	$fileBdy = "------TestBoundary123\r\nContent-Disposition: form-data; name=\"attach\"; filename=\"".$fleName."\"\r\nContent-Type: text/plain\r\n\r\nhello\r\n------TestBoundary123--\r\n";
+	foreach( Array('POST', 'PUT') as $mthNme ){
+		$logMark = strlen(readsLogs('runner'));
+		httpQuery($mthNme, $baseUrl.'/probe/clean', Array('X-Test-Runs'=>'1', 'Content-Type'=>'multipart/form-data; boundary=----TestBoundary123'), $fileBdy);
+		checkLike($mthNme.' upload: traced with its name, field, type and size', substr(readsLogs('runner'), $logMark), '/\[INFO\] File received: "'.preg_quote($fleName, '/').'" as "attach" \(text\/plain, 5 bytes\) from \S+/');
 	}
 
 	// Header names are case-insensitive : the body is read whatever the case of Content-Type

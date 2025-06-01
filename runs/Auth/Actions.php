@@ -5,6 +5,7 @@ namespace nyu\Runs\Auth;
 use \nyu\App\Actionset;
 use \nyu\Access\Checker;
 use \nyu\Access\Limiter;
+use \nyu\Tools\Logger;
 
 class Actions extends Actionset {
 
@@ -42,13 +43,11 @@ class Actions extends Actionset {
 		}
 
 		$lgnConf = $this->resolvCnf('login');
-		$logInst = $GLOBALS['nyuLogger'] ?? null;
+		$logInst = Logger::getLogger('access');
 		$authCls = Checker::authClass( strval($lgnConf['authby'] ?? 'htpass') );
 		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
 		if($authCls===null || $sessCls===null || !class_exists($authCls) || !class_exists($sessCls)){
-			if($logInst!==null){
-				$logInst->error( 'Login unavailable: unknown authby or sessby in the login block' );
-			}
+			$logInst->error( 'Login unavailable: unknown authby or sessby in the login block' );
 			$this->statCode = 500;
 			$this->statMssg = 'Login unavailable';
 			return;
@@ -60,9 +59,7 @@ class Actions extends Actionset {
 		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
 		$heldEnd = $lmtrObj->heldUntil($usrAddr);
 		if($heldEnd>0){
-			if($logInst!==null){
-				$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': too many attempts' );
-			}
+			$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': too many attempts' );
 			if($this->httpResp!==null){
 				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
 			}
@@ -80,9 +77,7 @@ class Actions extends Actionset {
 			if(!method_exists($authObj, 'wrongCred') || $authObj->wrongCred()){
 				$lmtrObj->countFail($usrAddr);
 			}
-			if($logInst!==null){
-				$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': '.$authObj->lastError() );
-			}
+			$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': '.$authObj->lastError() );
 			$this->statCode = 401;
 			$this->statMssg = $authObj->lastError();
 			return;
@@ -91,9 +86,7 @@ class Actions extends Actionset {
 		$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
 		$rawTokn = $sessObj->issueTokn( $idntArr );
 		if($rawTokn==''){
-			if($logInst!==null){
-				$logInst->error( 'Login unavailable: '.($sessObj->lastError() ?: 'the session carrier issues no token') );
-			}
+			$logInst->error( 'Login unavailable: '.($sessObj->lastError() ?: 'the session carrier issues no token') );
 			$this->statCode = 500;
 			$this->statMssg = 'Login unavailable';
 			return;
@@ -103,7 +96,11 @@ class Actions extends Actionset {
 		if(method_exists($authObj, 'keepAlive')){
 			$authObj->keepAlive( strval($idntArr['user'] ?? '') );
 		}
-		if($logInst!==null){
+		// The login of a privileged user (any role above the first of ROLELIST) is a notice of its own
+		$usrRole = strval($idntArr['role'] ?? '');
+		if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
+			$logInst->notice( 'Privileged login granted for user '.json_encode($gvnUser).' ('.$usrRole.')'.$fromTxt );
+		}else{
 			$logInst->info( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
 		}
 		$this->statCode = 200;
@@ -131,9 +128,14 @@ class Actions extends Actionset {
 				$sessObj->dropSessn( $this->httpRqst );
 			}
 		}
-		$logInst = $GLOBALS['nyuLogger'] ?? null;
-		if($logInst!==null && $this->axessReg!==null){
-			$logInst->info( 'Logout of user '.json_encode($this->axessReg->readValue('user')) );
+		if($this->axessReg!==null){
+			$logInst = Logger::getLogger('access');
+			$usrRole = strval($this->axessReg->readValue('role'));
+			if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
+				$logInst->notice( 'Logout of privileged user '.json_encode($this->axessReg->readValue('user')).' ('.$usrRole.')' );
+			}else{
+				$logInst->info( 'Logout of user '.json_encode($this->axessReg->readValue('user')) );
+			}
 		}
 		$this->statCode = 200;
 		$this->asOutput = Array('logged'=>false);

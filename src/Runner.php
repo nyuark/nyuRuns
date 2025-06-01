@@ -5,6 +5,7 @@ namespace nyu;
 use nyu\Setup\Preset;
 use nyu\App\Controller;
 use nyu\Tools\Registry;
+use nyu\Tools\Logger;
 use nyu\Setup\Builder;
 use nyu\Access\Checker;
 
@@ -47,8 +48,8 @@ class Runner{
 			$GLOBALS['nyuConfig'] = $this->setupCon->getConfig();
 			$this->loadShare();
 
-			// Wire the logger into PHP's error/exception/shutdown handling
-			$GLOBALS['nyuLogger'] = $this->logStore;
+			// Wire the logger into PHP's error/exception/shutdown handling, on its own channel
+			$GLOBALS['nyuLogger'] = Logger::getLogger('error');
 			$GLOBALS['ErrorResponse'] = Array($this, 'failReply');
 			require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
 			initError();
@@ -95,8 +96,9 @@ class Runner{
 		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
 		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());
 
-		$logConf = $this->setupCon->logConfig();
-		$this->logStore = new \nyu\Tools\Logger( $logConf['path'], 'runner', $logConf['mode'], $logConf['size'], $logConf['rota'], $logConf['pref'] );
+		// Every log channel is built with this configuration; the Runner writes on its own
+		Logger::plugSetup( $this->setupCon->logConfig() );
+		$this->logStore = Logger::getLogger('runner');
 
 		// Plug the program that unpacks sounds, where the server has one
 		$sndConf = $this->setupCon->sndConfig();
@@ -125,10 +127,57 @@ class Runner{
 		$axsConf = $this->setupCon->setAccess();
 		$this->axessCon = $this->chkAccess( $axsConf );
 
+		// The events traced from here on are signed with the user and the address of the request
+		$clntReg = $this->httpRqst->getClient();
+		Logger::plugActor( strval($this->axessCon->readValue('user')), ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '' );
+		$this->logUpload( $this->httpRqst->listFiles() );
+
 		if( $this->axessCon->getDefVal('statCode', 200) == 200 ){
 			$this->processor();
 		}else{
 			$this->denyAxess( $this->axessCon );
+		}
+	}
+
+	/**
+	 * Traces the files received with the request, whether access is
+	 * granted or not: one entry per file, and a warning for an upload
+	 * that failed. A file field left empty is not traced.
+	 *
+	 * @param Array  $filesArray File entries, as Request::listFiles() gives them.
+	 * @param String $fieldLabel Name the entries were sent under, for the nested ones.
+	 */
+	protected function logUpload( Array $filesArray, String $fieldLabel='' ): Void {
+		foreach( $filesArray as $fleKey=>$fleVal ){
+			if( !is_array($fleVal) ){
+				continue;
+			}
+			$lblText = ($fieldLabel=='') ? strval($fleKey) : $fieldLabel.'['.$fleKey.']';
+			if( !array_key_exists('error', $fleVal) || !array_key_exists('name', $fleVal) ){
+				// Files sent under a bracketed name are nested
+				$this->logUpload( $fleVal, $lblText );
+				continue;
+			}
+			if( is_array($fleVal['error']) ){
+				// Several files under one name, as PHP describes them : one entry is rebuilt for each
+				$subList = Array();
+				foreach( array_keys($fleVal['error']) as $subKey ){
+					$subList[$subKey] = Array('name'=>$fleVal['name'][$subKey] ?? '', 'type'=>$fleVal['type'][$subKey] ?? '', 'size'=>$fleVal['size'][$subKey] ?? 0, 'error'=>$fleVal['error'][$subKey]);
+				}
+				$this->logUpload( $subList, $lblText );
+				continue;
+			}
+			$errCode = intval($fleVal['error']);
+			if( $errCode==UPLOAD_ERR_NO_FILE ){
+				continue;
+			}
+			// The names are the client's own : written as JSON texts
+			$nameTxt = json_encode(strval($fleVal['name']), JSON_INVALID_UTF8_SUBSTITUTE).' as '.json_encode($lblText, JSON_INVALID_UTF8_SUBSTITUTE);
+			if( $errCode==UPLOAD_ERR_OK ){
+				$this->logStore->info( 'File received: '.$nameTxt.' ('.strval($fleVal['type'] ?? '').', '.intval($fleVal['size'] ?? 0).' bytes)'.Logger::actorText() );
+			}else{
+				$this->logStore->warning( 'File upload failed: '.$nameTxt.', error '.$errCode.Logger::actorText() );
+			}
 		}
 	}
 

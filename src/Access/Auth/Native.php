@@ -77,10 +77,7 @@ class Native implements Handler{
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($usrVals) && $this->isHeldNow($usrVals) ){
-			$logInst = $GLOBALS['nyuLogger'] ?? null;
-			if( $logInst!==null ){
-				$logInst->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is held after too many attempts' );
-			}
+			\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is held after too many attempts' );
 			$this->lastMssg = 'Invalid credentials';
 			$this->wrongCrd = true;
 			return false;

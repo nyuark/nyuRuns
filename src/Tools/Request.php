@@ -434,6 +434,15 @@ class Request{
 		}
 	}
 	/**
+	 * Returns every uploaded file entry received with the request, by
+	 * the name it was sent under.
+	 *
+	 * @return Array The file entries, described like the $_FILES ones.
+	 */
+	public function listFiles(): Array {
+		return $this->fileData ?? Array();
+	}
+	/**
 	 * Returns every user-submitted value (query, form, or JSON body)
 	 * merged into a single array, for use by the input-filtering layer.
 	 *

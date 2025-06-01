@@ -94,6 +94,32 @@ if( !is_array($stacked) ){
 	checkSame('stack: every error is logged', count($outcome['logs']), 5);
 }
 
+// The HTML display : a stack table, in the one block showError() and pushError() both echo
+$outcome = handlerOf('block');
+$blckArr = json_decode($outcome['text'], true);
+if( !is_array($blckArr) ){
+	failCheck('block: the child returns its results', '        output:   '.showValue($outcome['text'])."\n");
+}else{
+	checkLike('table: a header row', $blckArr['table'], '#^<table class="ErrorStack"[^>]*>\s*<tr><th>\#</th><th>Call</th><th>File</th><th>Line</th></tr>#');
+	checkSame('table: one row per frame', substr_count($blckArr['table'], '<tr><td>'), 3);
+	checkLike('table: class, type and function make the call, HTML-encoded', $blckArr['table'], '#<tr><td>\#0</td><td>Auth&lt;i&gt;-&gt;login\(\)</td><td>C:\\\\app\\\\&lt;b&gt;run&lt;/b&gt;\.php</td><td>12</td></tr>#');
+	checkLike('table: a plain function', $blckArr['table'], '#<tr><td>\#1</td><td>main\(\)</td><td>/srv/index\.php</td><td>3</td></tr>#');
+	checkLike('table: a frame without a file or a line', $blckArr['table'], '#<tr><td>\#2</td><td>\{closure\}\(\)</td><td></td><td></td></tr>#');
+	checkTrue('table: the values of the arguments are never shown', strpos($blckArr['table'], 'hunter2')===false && strpos($blckArr['table'], 'root')===false);
+	checkSame('table: nothing for an empty trace', $blckArr['empty'], '');
+
+	checkTrue('block: a trace is shown as the table', strpos($blckArr['trace'], $blckArr['table'])!==false);
+	checkLike('block: the message is HTML-encoded, its line breaks kept', $blckArr['trace'], '#<span class="ErrorValue">&lt;script&gt;x&lt;/script&gt;<br/>\r\nsecond</span>#');
+	checkLike('block: the file is HTML-encoded', $blckArr['trace'], '#<span class="ErrorValue">\'a&amp;b\.php\'</span>#');
+	checkLike('block: level and line', $blckArr['trace'], '#^<div class="E_EXCEPTION".*<span class="ErrorValue">E_EXCEPTION</span>.*Line:</span> <span class="ErrorValue">7</span>#s');
+	checkLike('block: a text context is shown encoded, one line per frame', $blckArr['text'], '#Context:</span><span class="ErrorValue"><br/>\r\n\#0 first &lt;x&gt;<br/>\r\n\#1 second</span>#');
+	checkTrue('block: no file and no line when there is none', strpos($blckArr['text'], 'File:')===false && strpos($blckArr['text'], 'Line:')===false);
+	checkTrue('block: an array that is not a trace is not shown', strpos($blckArr['scope'], 'hunter2')===false && strpos($blckArr['scope'], 'Context:')===false && strpos($blckArr['scope'], 'Stack:')===false);
+	checkSame('block: showError() echoes it', $blckArr['show'], $blckArr['same']);
+	checkSame('block: pushError() echoes the same one', $blckArr['push'], $blckArr['same']);
+	checkSame('block: nothing logged without a logger', $outcome['logs'], Array());
+}
+
 // A real fatal error answers through the responder too
 $outcome = handlerOf('memreply', 'on');
 checkLike('fatal reply: message, file and line when ERR_SHOW is on', $outcome['text'], '/REPLY:Allowed memory size of \d+ bytes exhausted .* in .*handlerChild\.php on line \d+/');

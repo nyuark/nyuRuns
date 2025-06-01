@@ -4,6 +4,7 @@ namespace nyu\Data;
 
 use \nyu\Data\DBCon;
 use \nyu\Tools\StrKit;
+use \nyu\Tools\Logger;
 
 class DBRec {
 	protected $tableNme;
@@ -214,6 +215,8 @@ class DBRec {
 	 * children are left alone. The whole deletion is one transaction, and
 	 * the record is emptied afterwards: a second call deletes nothing. On
 	 * a database without transactions, a record is only deleted alone.
+	 * The removal is traced on the 'runner' log channel, signed with the
+	 * user and the address of the request; one the database refused too.
 	 *
 	 * @param Array $childArray Child tables whose linked rows go too: 'table', or 'table'=>'foreign key' (default `<singularized table>_id`).
 	 * @return Bool True when the record was deleted, false when no record is loaded or the deletion failed.
@@ -242,7 +245,11 @@ class DBRec {
 		if( !$useTrns && count($remList)>1 ){
 			throw new \RuntimeException('Deleting a record with its children needs transactions, which this database does not have');
 		}
+		// A removal is traced with who asked for it, and so is one the database refused
+		$logInst = Logger::getLogger('runner');
+		$recText = $this->tableNme.' #'.$this->primaKey;
 		if( $useTrns && !$dbStore->opnTrnsct() ){
+			$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
 			return false;
 		}
 		$rowsRem = 0;
@@ -250,6 +257,7 @@ class DBRec {
 			$rowsRem = $dbStore->deleteRow($remTbl[0], Array($remTbl[1].'='=>$this->primaKey));
 			if( $rowsRem===false ){
 				if( $useTrns ) $dbStore->remTrnsct();
+				$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
 				return false;
 			}
 		}
@@ -259,8 +267,13 @@ class DBRec {
 			return false;
 		}
 		if( $useTrns && !$dbStore->setTrnsct() ){
+			$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
 			return false;
 		}
+		if( count($remList)>1 ){
+			$recText .= ', with its rows in '.implode(', ', array_column(array_slice($remList, 0, -1), 0));
+		}
+		$logInst->notice( 'Record removed: '.$recText.Logger::actorText() );
 		$this->initRecrd();
 		return true;
 	}

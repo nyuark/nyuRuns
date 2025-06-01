@@ -5,6 +5,7 @@ namespace nyu\App;
 use nyu\Tools\Registry;
 use nyu\Tools\Request;
 use nyu\Tools\Router;
+use nyu\Tools\Logger;
 use nyu\Output\Response;
 
 class Actionset {
@@ -214,6 +215,19 @@ class Actionset {
 			throw new \RuntimeException('No router to build a link with');
 		}
 		return $this->routrObj->buildLink($routeShape, $pathValues, $queryParam);
+	}
+
+	/**
+	 * Gives the logger of the application: its own channel, a log file
+	 * named after the application, in lower case (shows.log for Shows).
+	 * It writes with the level methods of Tools\Logger: error(),
+	 * warning(), notice(), info() and debug().
+	 *
+	 * @return Logger The logger of the application.
+	 */
+	protected function appLogger(): Logger {
+		$nameLst = explode('\\', static::class);
+		return Logger::getLogger( strtolower(strval($nameLst[count($nameLst)-2] ?? 'runner')) );
 	}
 
 	/**

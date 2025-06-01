@@ -4,6 +4,7 @@ namespace nyu\Access;
 
 use nyu\Tools\Request;
 use nyu\Tools\Registry;
+use nyu\Tools\Logger;
 
 /**
  * Loads the session carrier ('sessby') and credential check ('authby')
@@ -99,10 +100,7 @@ class Checker{
 			$whyText = ltrim($fullCls, '\\').' does not implement nyu\\Access\\'.$kindSuffix.'\\Handler';
 		}
 		if( $whyText!='' ){
-			$logInst = $GLOBALS['nyuLogger'] ?? null;
-			if( $logInst!==null ){
-				$logInst->error( 'Access plug-in "'.$shortNamed.'" cannot be used: '.$whyText );
-			}
+			Logger::getLogger('access')->error( 'Access plug-in "'.$shortNamed.'" cannot be used: '.$whyText );
 			return null;
 		}
 		return $fullCls;
@@ -169,12 +167,12 @@ class Checker{
 		if( $authObj!==null && method_exists($authObj, 'keepAlive') && ($idntArr['user'] ?? '')!='' ){
 			$authObj->keepAlive( strval($idntArr['user']) );
 		}
-		$this->logAttmpt( true, $idntArr['user'] ?? '', '' );
 		// An identity without a known role is a plain member
 		$usrRole = $idntArr['role'] ?? '';
 		if( !in_array($usrRole, self::ROLELIST, true) ){
 			$usrRole = self::ROLELIST[0];
 		}
+		$this->logAttmpt( true, strval($idntArr['user'] ?? ''), '', $usrRole );
 		return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>200, 'statMssg'=>'') );
 	}
 
@@ -232,22 +230,26 @@ class Checker{
 	}
 
 	/**
-	 * Logs an access grant/denial through the shared logger, if one is set up.
+	 * Logs an access grant/denial on the 'access' channel.
 	 *
 	 * The address of the client is told with it, when the request has one.
+	 * The access of a privileged user (any role above the first of
+	 * ROLELIST) is a notice of its own, telling the role and what was asked for.
 	 *
 	 * @param Bool   $wasGranted Whether access was granted.
 	 * @param String $loggedUser The identified username, if any.
 	 * @param String $denyReason The denial reason, if access was not granted.
+	 * @param String $loggedRole The role of the identified user, if any.
 	 */
-	protected function logAttmpt( Bool $wasGranted, String $loggedUser, String $denyReason ): Void {
-		$logInst = $GLOBALS['nyuLogger'] ?? null;
-		if( $logInst===null ){
-			return;
-		}
+	protected function logAttmpt( Bool $wasGranted, String $loggedUser, String $denyReason, String $loggedRole='' ): Void {
+		$logInst = Logger::getLogger('access');
 		$usrAddr = $this->clientAdr();
 		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
-		if( $wasGranted ){
+		if( $wasGranted && in_array($loggedRole, array_slice(self::ROLELIST, 1), true) ){
+			$appName = ($this->routeReg!==null) ? strval($this->routeReg->readValue('app')) : '';
+			$goalTxt = ($appName!='') ? $appName.'/'.strval($this->routeReg->readValue('action')) : '/'.(($this->routeReg!==null) ? strval($this->routeReg->readValue('rtePath')) : '');
+			$logInst->notice( 'Privileged access granted for user '.json_encode($loggedUser).' ('.$loggedRole.')'.$fromTxt.' to '.$goalTxt );
+		}elseif( $wasGranted ){
 			$logInst->info( 'Access granted for user "'.$loggedUser.'"'.$fromTxt );
 		}else{
 			$logInst->warning( 'Access denied'.$fromTxt.': '.$denyReason );

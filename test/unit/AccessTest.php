@@ -175,6 +175,22 @@ $checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jw
 checkSame('Checker keeps a known role',  $checker->verifyAxs()->readValue('role'), 'admin');
 $checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'root')))) );
 checkSame('Checker turns an unknown role into member', $checker->verifyAxs()->readValue('role'), 'membr');
+
+// The access log : a privileged user is a notice of its own, with its role and what was asked for
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+$admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'admin')));
+$adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
+(new Checker( $jwtConf, fakeReqst($admHead, $adrVals), new Registry(Array('app'=>'Users', 'action'=>'remove')) ))->verifyAxs();
+(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'dave', 'role'=>'systm'))), $adrVals), new Registry(Array('app'=>null, 'action'=>null, 'rtePath'=>'docs/*')) ))->verifyAxs();
+(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'erin', 'role'=>'membr'))), $adrVals) ))->verifyAxs();
+(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer nope'), $adrVals) ))->verifyAxs();
+nyu\Tools\Logger::plugSetup( Array() );
+$axsLogs = file_exists(inTempDir('logs').DS.'access.log') ? file(inTempDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
+checkSame('access log: one line per check', count($axsLogs), 4);
+checkSame('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (admin) from 10.0.0.1 to Users/remove');
+checkSame('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (systm) from 10.0.0.1 to /docs/*');
+checkSame('access log: a member stays an info', $axsLogs[2] ?? null, '['.date('Y').'] [INFO] Access granted for user "erin" from 10.0.0.1');
+checkLike('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\['.date('Y').'\] \[WARNING\] Access denied from 10\.0\.0\.1: /');
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
 
 $checker = new Checker( $hdrConf, fakeReqst(Array('X-Api-Key'=>'bad')) );

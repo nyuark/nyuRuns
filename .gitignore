@@ -1,5 +1,6 @@
 /vendor/
 /logs/*
+/temp/
 *.php_cs.cache
 /.phpunit.result.cache
 # Local credentials: never commit

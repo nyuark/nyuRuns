@@ -1,6 +1,7 @@
 <?php
 
-// Tools\Logger : verbosity modes, context, file naming and rotation
+// Tools\Logger : verbosity modes, levels, context, file naming, rotation,
+// the shared channels and the actor of the request
 
 require __DIR__.'/../lib/harness.php';
 
@@ -85,5 +86,71 @@ checkTrue('WEEKLY file name', file_exists($logsDir.DS.'week-W'.date('oW').'.log'
 $uniqLog = new Logger($logsDir, 'uniq', 'BASE', 0, 'UNIQUE', 'Y');
 $uniqLog->info('u');
 checkSame('UNIQUE file name', count(glob($logsDir.DS.'uniq-*-'.getmypid().'.log')), 1);
+// The name is the one of the process : an entry written a second later goes to the same file
+sleep(1);
+$uniqLog->info('v');
+$uniqLst = glob($logsDir.DS.'uniq-*-'.getmypid().'.log');
+checkSame('UNIQUE keeps one file for the process', Array(count($uniqLst), count(readLines($uniqLst[0] ?? ''))), Array(1, 2));
+
+// Levels : MINI writes down to notices, BASE down to infos, FULL everything
+$lvlList = Array('MINI'=>Array('e', 'w', 'n'), 'BASE'=>Array('e', 'w', 'n', 'i'), 'FULL'=>Array('e', 'w', 'n', 'i', 'd'));
+foreach( $lvlList as $modNme=>$modLst ){
+	$lvlLogr = new Logger($logsDir, 'lvl'.strtolower($modNme), $modNme, 0, 'NUMBER', 'Y');
+	$lvlLogr->error('e');
+	$lvlLogr->warning('w');
+	$lvlLogr->notice('n');
+	$lvlLogr->info('i');
+	$lvlLogr->debug('d');
+	$gotList = Array();
+	foreach( readLines($logsDir.DS.'lvl'.strtolower($modNme).'.log') as $oneLin ){
+		$gotList[] = substr($oneLin, -1);
+	}
+	checkSame($modNme.' levels written', $gotList, $modLst);
+}
+
+// An entry is one line : a line break in a message cannot start another one
+$lineLog = new Logger($logsDir, 'line', 'BASE', 0, 'NUMBER', 'Y');
+$lineLog->warning("refused for \"x\"\r\n[".date('Y')."] [INFO] Access granted for user \"root\"");
+checkSame('a line break is written as text', readLines($logsDir.DS.'line.log'), Array('['.date('Y').'] [WARNING] refused for "x"\r\n['.date('Y').'] [INFO] Access granted for user "root"'));
+
+// A context that cannot be encoded as it is keeps what can be
+$ctxtLog = new Logger($logsDir, 'ctxt', 'FULL', 0, 'NUMBER', 'Y');
+$ctxtLog->error('bad bytes', Array('ok'=>1, 'bad'=>"a\xB1b"));
+checkLike('context with invalid bytes is still written', readLines($logsDir.DS.'ctxt.log')[0] ?? null, '/^\[\d{4}\] \[ERROR\] bad bytes \{"ok":1,"bad":"a.*b"\}$/');
+
+// The channel names a file : only a plain name is accepted
+checkThrw('channel with a path is refused', function() use ($logsDir){ new Logger($logsDir, '..'.DS.'out'); }, 'RuntimeException');
+checkThrw('empty channel is refused', function() use ($logsDir){ new Logger($logsDir, ''); }, 'RuntimeException');
+checkThrw('getLogger refuses it too', function(){ Logger::getLogger('a/b'); }, 'RuntimeException');
+
+// Shared channels : nothing is written until a setup is plugged
+$muteLog = Logger::getLogger('runner');
+$muteLog->error('lost');
+checkTrue('without a setup the logger writes nothing', !file_exists($logsDir.DS.'chan'.DS.'runner.log') && !file_exists(DS.'runner.log') && !file_exists('runner.log'));
+Logger::plugSetup( Array('path'=>$logsDir.DS.'chan', 'mode'=>'BASE', 'size'=>0, 'rota'=>'NUMBER', 'pref'=>'Y') );
+checkTrue('a plugged setup replaces the mute loggers', Logger::getLogger('runner')!==$muteLog);
+checkTrue('a channel has one shared logger', Logger::getLogger('access')===Logger::getLogger('access'));
+checkTrue('each channel has its own', Logger::getLogger('access')!==Logger::getLogger('runner'));
+checkTrue('the default channel is runner', Logger::getLogger()===Logger::getLogger('runner'));
+Logger::getLogger('access')->warning('denied');
+Logger::getLogger('shows')->info('listed');
+checkSame('each channel writes its own file', Array(readLines($logsDir.DS.'chan'.DS.'access.log'), readLines($logsDir.DS.'chan'.DS.'shows.log'), readLines($logsDir.DS.'chan'.DS.'runner.log')), Array(
+	Array('['.date('Y').'] [WARNING] denied'),
+	Array('['.date('Y').'] [INFO] listed'),
+	Array()
+));
+Logger::plugSetup( Array() );
+Logger::getLogger('access')->warning('lost');
+checkSame('a setup without a path mutes the channels again', count(readLines($logsDir.DS.'chan'.DS.'access.log')), 1);
+
+// The actor of the request, for the events traced far from the access check
+checkSame('no actor: nothing is told', Logger::actorText(), '');
+Logger::plugActor('bob', '10.0.0.1');
+checkSame('actor with a name and an address', Logger::actorText(), ' by user "bob" from 10.0.0.1');
+Logger::plugActor('', '10.0.0.1');
+checkSame('actor with an address only', Logger::actorText(), ' from 10.0.0.1');
+Logger::plugActor('a "b"', '');
+checkSame('actor name is written as a JSON text', Logger::actorText(), ' by user "a \"b\""');
+Logger::plugActor('', '');
 
 endChecks();

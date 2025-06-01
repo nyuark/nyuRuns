@@ -13,10 +13,35 @@ $logsDir = $argv[2];
 define('DS', DIRECTORY_SEPARATOR);
 require $topDir.'/vendor/autoload.php';
 
-if( $runMode!='nologger' ){
+if( $runMode!='nologger' && $runMode!='block' ){
 	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', 'BASE', 0, 'NUMBER', 'Y');
 }
 require $topDir.'/src/Error/handling.php';
+
+if( $runMode=='block' ){
+	// The HTML display of an error : the stack table, and the one block both displays echo
+	$traceAr = Array(
+		Array('file'=>'C:\\app\\<b>run</b>.php', 'line'=>12, 'function'=>'login', 'class'=>'Auth<i>', 'type'=>'->', 'args'=>Array('root', 'hunter2')),
+		Array('file'=>'/srv/index.php', 'line'=>3, 'function'=>'main', 'args'=>Array(Array('secret'=>'hunter2'))),
+		Array('function'=>'{closure}'),
+	);
+	$results = Array(
+		'table'=>stackTble($traceAr),
+		'empty'=>stackTble(Array()),
+		'trace'=>errorBlck('E_EXCEPTION', "<script>x</script>\r\nsecond", 'a&b.php', 7, $traceAr),
+		'text'=>errorBlck(E_USER_WARNING, 'm', null, null, '#0 first <x>#1 second'),
+		'scope'=>errorBlck(E_WARNING, 'm', 'f.php', 1, Array('secret'=>'hunter2')),
+	);
+	ob_start();
+	showError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	$results['show'] = ob_get_clean();
+	ob_start();
+	$GLOBALS['ErrorHandler']->pushError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	$results['push'] = ob_get_clean();
+	$results['same'] = errorBlck('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	echo json_encode($results);
+	exit(0);
+}
 
 if( $runMode=='reply' ){
 	// Exception -> formatted reply path. Nothing may be printed before the

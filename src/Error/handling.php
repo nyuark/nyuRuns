@@ -188,10 +188,91 @@ function hndlFatal(): Void
     }
 }
 
+/**
+ * Renders a stack trace as an HTML table: one row per call, telling
+ * the call, its file and its line. The values of the arguments are
+ * never shown, and every text is HTML-encoded.
+ *
+ * @param Array $traceArray Frames of the trace, as Throwable::getTrace() gives them.
+ * @return String The table, or an empty string when the trace holds no frame.
+ */
+function stackTble( Array $traceArray ): String
+{
+    $rowsTxt = "";
+    $rowNmbr = 0;
+    foreach( $traceArray as $oneFrm )
+    {
+        if( !is_array($oneFrm) )
+            continue;
+
+        $callTxt = strval($oneFrm['class'] ?? '') . strval($oneFrm['type'] ?? '') . strval($oneFrm['function'] ?? '');
+        if( isset($oneFrm['function']) )
+            $callTxt .= '()';
+
+        $rowsTxt .= "<tr><td>#$rowNmbr</td>";
+        $rowsTxt .= "<td>" . htmlspecialchars($callTxt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "</td>";
+        $rowsTxt .= "<td>" . htmlspecialchars(strval($oneFrm['file'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "</td>";
+        $rowsTxt .= "<td>" . (isset($oneFrm['line']) ? intval($oneFrm['line']) : '') . "</td></tr>\r\n";
+        $rowNmbr++;
+    }
+
+    if( $rowsTxt === "" )
+        return "";
+
+    return "<table class=\"ErrorStack\" style=\"border-collapse: collapse;\">\r\n"
+        . "<tr><th>#</th><th>Call</th><th>File</th><th>Line</th></tr>\r\n"
+        . $rowsTxt . "</table>\r\n";
+}
+
+/**
+ * Renders an error as an HTML block: its level, file, line, context and
+ * message, every text HTML-encoded. A context that is a stack trace is
+ * shown as a table (see stackTble); one that is a text is shown as it
+ * is; any other is left out. This is the one display of an error when
+ * errors may be shown and the reply is HTML: showError() and
+ * ErrorHandler::pushError() both echo it.
+ *
+ * @param int|String $errorLevel PHP error level constant, or 'E_EXCEPTION'.
+ * @param String     $errMessage The error message.
+ * @param String     $errFilePth File where the error occurred.
+ * @param int        $errLineNum Line where the error occurred.
+ * @param mixed      $errContext Stack trace, or text, at the point of the error.
+ * @return String The HTML block.
+ */
+function errorBlck( Int|String $errorLevel, String $errMessage, ?String $errFilePth=null, ?Int $errLineNum=null, Mixed $errContext=null ): String
+{
+    $encodFn = function( String $plainValue ): String { return htmlspecialchars($plainValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
+    $typeStr = ErrorHandler::errorType($errorLevel);
+
+    $retnVal = "";
+    $retnVal .= "<div class=\"$typeStr\" style=\"margin: 10px;\">\r\n";
+
+    $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Error Level:</span> <span class=\"ErrorValue\">$typeStr</span></p>\r\n";
+
+    if( isset($errFilePth) && strlen($errFilePth) > 0 )
+        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'" . $encodFn($errFilePth) . "'</span></p>\r\n";
+
+    if( isset($errLineNum) )
+        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Line:</span> <span class=\"ErrorValue\">$errLineNum</span></p>\r\n";
+
+    // A trace is a list of frames : anything else an array may hold is not shown
+    $stckTxt = (is_array($errContext) && is_array(reset($errContext))) ? stackTble($errContext) : "";
+    if( $stckTxt !== "" )
+        $retnVal .= "<div class=\"ErrorData\"><span class=\"ErrorKey\">Stack:</span>\r\n" . $stckTxt . "</div>\r\n";
+    else if( is_string($errContext) && strlen($errContext) > 0 )
+        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">" . implode("<br/>\r\n#", array_map($encodFn, explode("#", $errContext))) . "</span></p>\r\n";
+
+    $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Message:</span> <span class=\"ErrorValue\">" . str_replace("\r\n","<br/>\r\n",$encodFn($errMessage)) . "</span></p>\r\n";
+
+    $retnVal .= "</div>\r\n";
+
+    return $retnVal;
+}
+
 // In the event that our 'ErrorHandler' class is in fact the generator of the error,
 // we need a plain-Jane method that will still deliver the message.
 /**
- * Renders an error as an HTML block and echoes it directly, bypassing
+ * Renders an error as an HTML block (see errorBlck) and echoes it directly, bypassing
  * the ErrorHandler collection mechanism — used as a fallback when no
  * ErrorHandler is available.
  *
@@ -203,35 +284,7 @@ function hndlFatal(): Void
  */
 function showError( Int|String $errorLevel, String $errMessage, ?String $errFilePth=null, ?Int $errLineNum=null, Mixed $errContext=null ): Void
 {
-    if( class_exists("ErrorHandler"))
-        $typeStr = ErrorHandler::errorType($errorLevel);
-    else
-        $typeStr = "$errorLevel";
-
-    if( isset($errContext) && !is_array($errContext) && strlen($errContext) > 0 )
-        $errContext = str_replace("#", "<br/>\r\n#", $errContext);
-
-    $retnVal = "";
-    $retnVal .= "<div class=\"$typeStr\" style=\"margin: 10px;\">\r\n";
-
-    $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Error Level:</span> <span class=\"ErrorValue\">$typeStr</span></p>\r\n";
-
-    if( isset($errFilePth) && strlen($errFilePth) > 0 )
-        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'$errFilePth'</span></p>\r\n";
-
-    if( isset($errLineNum) && strlen($errLineNum) > 0 )
-        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Line:</span> <span class=\"ErrorValue\">$errLineNum</span></p>\r\n";
-
-    if( isset($errContext) && is_array($errContext))
-        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">" . var_export($errContext,true) . "</span></p>\r\n";
-    else if( isset($errContext) && strlen($errContext) > 0 )
-        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">$errContext</span></p>\r\n";
-
-    $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Message:</span> <span class=\"ErrorValue\">" . str_replace("\r\n","<br/>\r\n",$errMessage) . "</span></p>\r\n";
-
-    $retnVal .= "</div>\r\n";
-
-    echo($retnVal);
+    echo(errorBlck($errorLevel,$errMessage,$errFilePth,$errLineNum,$errContext));
 }
 
 class ErrorHandler
@@ -248,8 +301,9 @@ class ErrorHandler
     }
 
     /**
-     * Logs the error via the configured logger, or echoes an HTML block
-     * directly when no logger is available.
+     * Logs the error via the configured logger. When errors may be shown,
+     * it is kept for the response body inside a framework request, and
+     * echoed as an HTML block otherwise (see errorBlck).
      *
      * @param int    $errorLevel   PHP error level constant, or an exception code.
      * @param String $errMessage The error message.
@@ -275,30 +329,7 @@ class ErrorHandler
             return;
         }
 
-        if( isset($errContext) && !is_array($errContext) && strlen($errContext) > 0 )
-            $errContext = str_replace("#", "<br/>\r\n#", $errContext);
-
-        $retnVal = "";
-        $retnVal .= "<div class=\"$typeStr\" style=\"margin: 10px;\">\r\n";
-
-        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Error Level:</span> <span class=\"ErrorValue\">$typeStr</span></p>\r\n";
-
-        if( isset($errFilePth) && strlen($errFilePth) > 0 )
-            $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'$errFilePth'</span></p>\r\n";
-
-        if( isset($errLineNum) && strlen($errLineNum) > 0 )
-            $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Line:</span> <span class=\"ErrorValue\">$errLineNum</span></p>\r\n";
-
-        if( isset($errContext) && is_array($errContext))
-            $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">" . var_export($errContext,true) . "</span></p>\r\n";
-        else if( isset($errContext) && strlen($errContext) > 0 )
-            $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">$errContext</span></p>\r\n";
-
-        $retnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Message:</span> <span class=\"ErrorValue\">" . str_replace("\r\n","<br/>\r\n",$errMessage) . "</span></p>\r\n";
-
-        $retnVal .= "</div>\r\n";
-
-        echo($retnVal);
+        echo(errorBlck($errorLevel,$errMessage,$errFilePth,$errLineNum,$errContext));
     }
 
     /**

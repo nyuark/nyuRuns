@@ -174,11 +174,11 @@ $thrAuth->checkCred($annaBad);
 $thrAuth->checkCred($annaBad);
 checkSame('Throttle the third failure is still told as a wrong password', Array($thrAuth->checkCred($annaBad), $thrAuth->lastError()), Array(false, 'Invalid credentials'));
 // The hold is told in the log only : the reply is the one of a wrong password
-$GLOBALS['nyuLogger'] = new nyu\Tools\Logger( inTempDir('logs'), 'native' );
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs')) );
 checkSame('Throttle held: the right password is refused, as a wrong one would be', Array($thrAuth->checkCred($annaPwd), $thrAuth->lastError(), $thrAuth->wrongCred()), Array(false, 'Invalid credentials', true));
 checkSame('Throttle held: a wrong password is refused the same way', Array($thrAuth->checkCred($annaBad), $thrAuth->lastError()), Array(false, 'Invalid credentials'));
-$GLOBALS['nyuLogger'] = null;
-checkLike('Throttle held: the hold is told in the log, with the name', strval(@file_get_contents(inTempDir('logs').DS.'native.log')), '/\[WARNING\] Credential refused: user "anna" is held after too many attempts/');
+nyu\Tools\Logger::plugSetup( Array() );
+checkLike('Throttle held: the hold is told in the access log, with the name', strval(@file_get_contents(inTempDir('logs').DS.'access.log')), '/\[WARNING\] Credential refused: user "anna" is held after too many attempts/');
 checkSame('Throttle held: nothing more is counted', failsOf($sqlLink, 'anna'), 3);
 checkSame('Throttle held: other users are not affected', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time())))['user'] ?? null, 'ben');
 checkSame('Throttle held: a personal token still passes', $natAuth->checkCred(Array('key'=>$nextTkn))['user'] ?? null, 'anna');

@@ -247,15 +247,18 @@ class Loader{
 
 	/**
 	 * Resolves the logging configuration from the SYSTEM config file,
-	 * applying sensible defaults for anything not set.
+	 * applying sensible defaults for anything not set. The log folder is
+	 * always one of the project: LOG_PATH is read from the project root,
+	 * with or without a leading slash, and is temp/logs when not set.
 	 *
 	 * @return Array Log settings: 'path', 'mode', 'size', 'rota', 'pref'.
 	 */
 	function logConfig(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
 		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		$fldName = trim( strval($sysConf['LOG_PATH'] ?? ''), '/\\ ' );
 		return Array(
-			'path' => $sysConf['LOG_PATH'] ?? TOP_DIR.DS.'logs',
+			'path' => TOP_DIR.DS.($fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'logs'),
 			'mode' => $sysConf['LOG_MODE'] ?? 'FULL',
 			'size' => $sysConf['LOG_SIZE'] ?? 0,
 			'rota' => $sysConf['LOG_ROTA'] ?? 'NUMBER',

@@ -75,10 +75,7 @@ class Limiter{
 		$nowTime = $unixMoment ?? time();
 		$cntFile = $this->openFoldr() ? @fopen($cntPath, 'c+b') : false;
 		if( $cntFile===false || !flock($cntFile, LOCK_EX) ){
-			$logInst = $GLOBALS['nyuLogger'] ?? null;
-			if( $logInst!==null ){
-				$logInst->error( 'Address limit not applied: the counters cannot be written in '.$this->cntFoldr );
-			}
+			\nyu\Tools\Logger::getLogger('access')->error( 'Address limit not applied: the counters cannot be written in '.$this->cntFoldr );
 			if( $cntFile!==false ){
 				fclose($cntFile);
 			}

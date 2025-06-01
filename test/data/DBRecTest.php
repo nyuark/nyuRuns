@@ -281,6 +281,10 @@ function countRow( String $tableLabel, Array $whereArray=Array() ): Int {
 	return count($rowList->readItems());
 }
 
+// Every removal below is traced on the 'runner' channel, signed with the actor of the request
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::plugActor('bob', '10.0.0.1');
+
 checkSame('remvRecrd alone deletes the record and leaves its children', runSafely(function(){
 	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('4');
@@ -332,6 +336,18 @@ checkSame('remvRecrd failing on a child table cancels the whole deletion', runSa
 	$showRec->loadRecrd('1');
 	return Array($showRec->remvRecrd(Array('events', 'nowhere')), loadAShow('1')['id_show'] ?? null, countRow('events', Array('show_id'=>1)));
 }), Array(false, 1, 2));
+
+// The trace of the removals above : what was removed and by whom, and what the database refused
+nyu\Tools\Logger::plugSetup( Array() );
+nyu\Tools\Logger::plugActor('', '');
+$remLogs = file_exists(inTempDir('logs').DS.'runner.log') ? file(inTempDir('logs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array();
+checkSame('removal log: one entry per removal done or refused by the database, none for a record that is not there', $remLogs, Array(
+	'['.date('Y').'] [NOTICE] Record removed: shows #4 by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #3, with its rows in events, items by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #51 by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #2 by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [WARNING] Record removal failed: shows #1 by user "bob" from 10.0.0.1',
+));
 
 // Connection
 checkSame('getConnex returns the handler', runSafely(function(){
