@@ -1,0 +1,31 @@
+{
+	"index" : {
+		"target": {
+			"pge": "home.html"
+		}
+	},
+	"login" : {
+		"target": {
+			"pge": "login.html"
+		}
+	},
+	"assets/*" : {
+		"target": {
+			"dir": "assets"
+		}
+	},
+	"auth/login" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "login"
+		}
+	},
+	"auth/logout" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "logout"
+		}
+	}
+}

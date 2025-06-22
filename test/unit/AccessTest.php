@@ -262,6 +262,36 @@ checkSame('Checker public path: is not an action either', $checker->verifyAxs()-
 $checker = new Checker( Array('openrt'=>Array('login')) + $pubConf, fakeReqst(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
 checkSame('Checker public path: needs its leading slash', $checker->verifyAxs()->readValue('statCode'), 401);
 
+// Checker : a request denied an HTML page is given the sign-in route to go to
+$sgnConf = Array('signin'=>'/login') + $pthConf;
+$askReqs = fakeReqst();
+$askPrpt = new ReflectionProperty('nyu\Tools\Request', 'queryURI');
+$askPrpt->setAccessible(true);
+$askPrpt->setValue($askReqs, Array('reqstURI'=>'/hello/7?tab=a b'));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'hello/$id')) );
+$axsRslt = $checker->verifyAxs();
+checkSame('Checker sign-in: a denied page is still a 401', $axsRslt->readValue('statCode'), 401);
+checkSame('Checker sign-in: with the route to go to, and the page asked for', $axsRslt->readValue('denyGoal'), '/login?back=%2Fhello%2F7%3Ftab%3Da%20b');
+$askPrpt->setValue($askReqs, Array('reqstURI'=>'/'));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'index')) );
+checkSame('Checker sign-in: the home page is not carried back', $checker->verifyAxs()->readValue('denyGoal'), '/login');
+$askPrpt->setValue($askReqs, Array('reqstURI'=>'/shows/view/1'));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>'shows', 'action'=>'view', 'rteKind'=>'action', 'rtePath'=>'')) );
+checkSame('Checker sign-in: a denied action keeps its 401', Array($checker->verifyAxs()->readValue('statCode'), $checker->verifyAxs()->readValue('denyGoal')), Array(401, null));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'style')) );
+checkSame('Checker sign-in: so does a denied file', Array($checker->verifyAxs()->readValue('statCode'), $checker->verifyAxs()->readValue('denyGoal')), Array(401, null));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null)) );
+checkSame('Checker sign-in: and an unresolved route', $checker->verifyAxs()->readValue('denyGoal'), null);
+$checker = new Checker( Array('signin'=>'/enter') + $pubConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'enter')) );
+checkSame('Checker sign-in: a sign-in route left closed is not sent to itself', Array($checker->verifyAxs()->readValue('statCode'), $checker->verifyAxs()->readValue('denyGoal')), Array(401, null));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
+checkSame('Checker sign-in: the open sign-in route is served', $checker->verifyAxs()->readValue('statCode'), 200);
+foreach( Array('https://example.org/login', '//example.org/login', 'login', '/log in', Array('/login')) as $badRte ){
+	$checker = new Checker( Array('signin'=>$badRte) + $pthConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'other')) );
+	$axsRslt = $checker->verifyAxs();
+	checkSame('Checker sign-in: '.json_encode($badRte).' is not a path of this site', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('denyGoal')), Array(500, null));
+}
+
 $checker = new Checker( Array('sessby'=>'Nope'), fakeReqst() );
 checkSame('Checker unknown sess strategy', $checker->verifyAxs()->readValue('statCode'), 500);
 $checker = new Checker( Array('sessby'=>'header', 'authby'=>'Nope'), fakeReqst() );

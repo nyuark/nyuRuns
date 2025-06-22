@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Sign in</title>
+	<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+	<main>
+		<h1>Sign in</h1>
+		<form id="loginForm" method="post" action="/auth/login">
+			<label>User <input type="text" name="user" autocomplete="username" required></label>
+			<label>Password <input type="password" name="pass" autocomplete="current-password" required></label>
+			<label>Code, with two-step sign-in <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"></label>
+			<button type="submit">Sign in</button>
+		</form>
+		<p id="loginMssg" role="status"></p>
+	</main>
+	<script src="/assets/login.js"></script>
+</body>
+</html>

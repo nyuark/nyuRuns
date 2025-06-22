@@ -1,0 +1,18 @@
+{
+	"index" : {
+		"target": {
+			"pge": "index.html"
+		}
+	},
+	"home" : {
+		"target": {
+			"url": "/",
+			"cod": 301
+		}
+	},
+	"assets/*" : {
+		"target": {
+			"dir": "assets"
+		}
+	}
+}

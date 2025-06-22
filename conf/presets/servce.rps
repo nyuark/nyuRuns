@@ -1,0 +1,29 @@
+{
+	"label": "servce",
+	"about": "Preset for a service called by other programs: an API key in a header, checked against the list of keys",
+	"setup": {
+		"ftypes": "all",
+		"fnames": "any"
+	},
+	"auths": { "needed": true, "sessby": "header", "sesscf": "dfkeys", "authby": "regkey" },
+	"input": [
+		{
+			"naming": "QUERY",
+			"source": "QUERY",
+			"fields": "all"
+		}
+	],
+	"route": {
+		"detect": "autopath",
+		"mapper": "$app/$action/$param"
+	},
+	"rnder": {
+		"tmplte": "plain",
+		"return": "json",
+		"headrs": {
+			"Cache-Control":	"no-cache, no-store, max-age=0, must-revalidate",
+			"Expires":			"Mon, 26 Jul 1997 05:00:00 GMT",
+			"Pragma":			"no-cache"
+		}
+	}
+}

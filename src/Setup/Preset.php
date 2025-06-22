@@ -13,7 +13,7 @@ class Preset{
 	const KEYSLIST = Array(
 		''      => Array('label', 'about', 'setup', 'auths', 'input', 'route', 'rnder'),
 		'setup' => Array('ftypes', 'fnames', 'folder', 'envfle'),
-		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt'),
+		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt', 'signin'),
 		'input' => Array('naming', 'source', 'fields'),
 		'route' => Array('detect', 'mapper', 'folder', 'htroot'),
 		'rnder' => Array('tmplte', 'return', 'headrs')
@@ -24,12 +24,12 @@ class Preset{
     /**
 	 * Loads and parses the named RPS preset file.
 	 *
-	 * @param String $presetName Name of the preset file (without extension) to load; defaults to 'default'.
+	 * @param String $presetName Name of the preset file (without extension) to load; defaults to 'dfault'.
 	 * @throws \RuntimeException When the name is not valid, or the preset file is missing, not valid JSON, or empty.
 	 */
-    function __construct(String $presetName = 'default'){
+    function __construct(String $presetName = 'dfault'){
 		if($presetName==''){
-			$presetName = 'default';
+			$presetName = 'dfault';
 		}
 		$this->rpsParser($presetName);
 	}

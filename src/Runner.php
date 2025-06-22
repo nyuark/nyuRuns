@@ -31,7 +31,7 @@ class Runner{
 	 * Loads the given preset, builds the shared objects (config, request,
 	 * response), then sets up routing and access before running the request.
 	 *
-	 * @param String $initPreset Name of the .rps preset file to load (defaults to 'default').
+	 * @param String $initPreset Name of the .rps preset file to load (defaults to 'dfault').
 	 * @param Array  $overLoaded Configuration values to merge over the loaded preset.
 	 */
 	function __construct( String $initPreset = '', Array $overLoaded = Array() ){
@@ -194,12 +194,21 @@ class Runner{
 	}
 
 	/**
-	 * Sends an access-denial response (401/403/429/500) directly, without
-	 * ever constructing the requested application's Controller/Actionset.
+	 * Sends an access-denial response (401/403/429/500), or the redirection
+	 * to the sign-in route, directly, without ever constructing the
+	 * requested application's Controller/Actionset.
 	 *
 	 * @param Registry $accessRslt The Access\Checker result carrying the denial status/message.
 	 */
 	function denyAxess( Registry $accessRslt ): Void {
+		// A visitor denied a page is sent to the sign-in route, in place of the error
+		$goalUrl = $accessRslt->readValue('denyGoal');
+		if( $goalUrl!=null ){
+			$this->response->addHeader('Location', strval($goalUrl));
+			$this->setStatus( 302 );
+			$this->doRespond( $this->procStat );
+			return;
+		}
 		$wwwAuth = $accessRslt->readValue('wwwAuth');
 		if( $wwwAuth!=null ){
 			$this->response->addHeader('WWW-Authenticate', $wwwAuth);

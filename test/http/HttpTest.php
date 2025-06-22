@@ -782,6 +782,21 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/style', $pthHead);
 	checkSame('public path: a file outside the open folder stays closed', $replyAr['code'], 401);
 
+	// A request denied a page is sent to the sign-in route, with the page it asked for
+	$sgnHead = $pthHead + Array('X-Test-Signin'=>'/enter');
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7?tab=a', $sgnHead);
+	checkSame('sign-in: a denied page is a redirection, without a body', Array($replyAr['code'], $headOf($replyAr, 'Location'), $replyAr['body']), Array(302, '/enter?back=%2Fhello%2F7%3Ftab%3Da', ''));
+	$replyAr = httpQuery('GET', $baseUrl.'/enter?back=%2Fhello%2F7%3Ftab%3Da', $sgnHead);
+	checkSame('sign-in: its route is served', Array($replyAr['code'], $replyAr['type']), Array(200, $htmlTyp));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', $sgnHead);
+	checkSame('sign-in: a denied action keeps its error', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/style', $sgnHead);
+	checkSame('sign-in: so does a denied file', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/enter', $rteHead + Array('X-Test-Auth'=>'jtoken', 'X-Test-Signin'=>'/enter'));
+	checkSame('sign-in: a route left closed is not sent to itself', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $pthHead + Array('X-Test-Signin'=>'https://example.org/enter'));
+	checkSame('sign-in: an address elsewhere is a misconfiguration', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(500, null));
+
 	// Static files : kept by the client, which asks whether they changed
 	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead);
 	$fileTag = strval($headOf($replyAr, 'ETag'));

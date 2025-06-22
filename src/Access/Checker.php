@@ -4,6 +4,7 @@ namespace nyu\Access;
 
 use nyu\Tools\Request;
 use nyu\Tools\Registry;
+use nyu\Tools\Router;
 use nyu\Tools\Logger;
 
 /**
@@ -112,9 +113,11 @@ class Checker{
 	 * a different strategy). When no check applies (access not required,
 	 * or a public route), the request goes through as not logged. An
 	 * address that presented too many wrong credentials is answered 429
-	 * until its hold ends (see Limiter).
+	 * until its hold ends (see Limiter). A request denied an HTML page is
+	 * given the sign-in route to go to, when the 'auths' block names one
+	 * (see signinUrl).
 	 *
-	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, and 'retryAft' (seconds to wait) with a 429 status.
+	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, 'retryAft' (seconds to wait) with a 429 status, and 'denyGoal' (address to send the visitor to) with the 401 of a page.
 	 */
 	function verifyAxs(): Registry {
 		if( empty($this->axsSetup) || ($this->axsSetup['needed'] ?? true) === false || $this->openRoute() ){
@@ -127,6 +130,13 @@ class Checker{
 		$sessCls = self::sessClass($sessNme);
 		if( $sessCls===null || !class_exists($sessCls) ){
 			$this->logAttmpt( false, '', 'Access misconfigured: unknown session carrier "'.$sessNme.'"' );
+			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+		}
+
+		// The sign-in route is a path of this site : never an address elsewhere
+		$signRte = $this->axsSetup['signin'] ?? null;
+		if( $signRte!==null && ( !is_string($signRte) || !preg_match('#^/(?!/)#', $signRte) || !Router::validAddr($signRte) ) ){
+			$this->logAttmpt( false, '', 'Access misconfigured: the sign-in route is not a path of this site' );
 			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
 
@@ -161,7 +171,13 @@ class Checker{
 			$chlgMap = Array('hbasic'=>'Basic', 'jtoken'=>'Bearer');
 			$wwwAuth = $chlgMap[$sessNme] ?? null;
 			$this->logAttmpt( false, '', $sessObj->lastError() );
-			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>401, 'statMssg'=>$sessObj->lastError(), 'wwwAuth'=>$wwwAuth) );
+			$denyArr = Array('logged'=>false, 'user'=>'', 'statCode'=>401, 'statMssg'=>$sessObj->lastError(), 'wwwAuth'=>$wwwAuth);
+			// A visitor denied a page is sent to the sign-in route
+			$goalUrl = $this->signinUrl();
+			if( $goalUrl!==null ){
+				$denyArr['denyGoal'] = $goalUrl;
+			}
+			return new Registry( $denyArr );
 		}
 		// A credential store that tracks presence is told the user was seen
 		if( $authObj!==null && method_exists($authObj, 'keepAlive') && ($idntArr['user'] ?? '')!='' ){
@@ -216,6 +232,27 @@ class Checker{
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Gives the address a denied request is sent to: the sign-in route the
+	 * 'signin' key of the 'auths' block names, when the request asked for
+	 * a declared HTML page. The page asked for goes with it, as 'back',
+	 * for the sign-in to return to. Nothing is given for an action, a
+	 * file, or the sign-in route itself.
+	 *
+	 * @return ?String The address, from the root of the site, or null when the denial is answered as it is.
+	 */
+	protected function signinUrl(): ?String {
+		$signRte = strval($this->axsSetup['signin'] ?? '');
+		if( $signRte=='' || $this->routeReg===null || $this->routeReg->readValue('rteKind')!='htpage' ){
+			return null;
+		}
+		if( trim($signRte, '/')===strval($this->routeReg->readValue('rtePath')) ){
+			return null;
+		}
+		$askedUr = strval($this->httpRqst->getURLVal('reqstURI'));
+		return $signRte.( ($askedUr!='' && $askedUr!='/') ? '?back='.rawurlencode($askedUr) : '' );
 	}
 
 	/**

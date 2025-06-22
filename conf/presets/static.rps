@@ -1,0 +1,21 @@
+{
+	"label": "static",
+	"about": "Preset for a site of pages, files and redirections: open access, no inputs, its own route folder",
+	"setup": {
+		"ftypes": "all",
+		"fnames": "any"
+	},
+	"auths": { "needed": false },
+	"route": {
+		"detect": "manually",
+		"folder": "conf/routes/static",
+		"htroot": "pages"
+	},
+	"rnder": {
+		"tmplte": "plain",
+		"return": "json",
+		"headrs": {
+			"Cache-Control":	"no-cache"
+		}
+	}
+}

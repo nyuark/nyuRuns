@@ -1,0 +1,32 @@
+body {
+	margin: 0;
+	font-family: system-ui, sans-serif;
+	line-height: 1.5;
+	color: #222;
+	background: #f6f6f4;
+}
+main {
+	max-width: 40rem;
+	margin: 4rem auto;
+	padding: 0 1rem;
+}
+label {
+	display: block;
+	margin-bottom: 1rem;
+}
+input {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 0.4rem;
+	font: inherit;
+}
+button {
+	padding: 0.4rem 1rem;
+	font: inherit;
+}
+code {
+	padding: 0.1em 0.3em;
+	background: #e8e8e4;
+	border-radius: 3px;
+}

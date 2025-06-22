@@ -15,6 +15,7 @@
 //   X-Test-Confkey: <block name>     access.json block of that access control (none by default)
 //   X-Test-Conf: <folder>            config files read from test/fixtures/<folder> instead of conf
 //   X-Test-Public: <app/action,...>  public routes of that access control (with X-Test-Auth)
+//   X-Test-Signin: <path>            sign-in route of that access control (with X-Test-Auth)
 //   X-Test-Tmpl: <template>          render template
 //   X-Test-Return: <format>          output format
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
@@ -47,6 +48,9 @@ if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
 	$overArr['auths'] = Array('needed'=>true, 'sessby'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authby'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regkey', 'sesscf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
 	if( isset($_SERVER['HTTP_X_TEST_PUBLIC']) ){
 		$overArr['auths']['openrt'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_PUBLIC']));
+	}
+	if( isset($_SERVER['HTTP_X_TEST_SIGNIN']) ){
+		$overArr['auths']['signin'] = $_SERVER['HTTP_X_TEST_SIGNIN'];
 	}
 }
 if( isset($_SERVER['HTTP_X_TEST_CONF']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_CONF']) ){

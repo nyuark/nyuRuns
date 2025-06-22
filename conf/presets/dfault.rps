@@ -1,5 +1,5 @@
 {
-	"label": "default",
+	"label": "dfault",
 	"about": "Preset loaded when the entry point names none: open access, JSON replies",
 	"setup": {
 		"ftypes": "all",
