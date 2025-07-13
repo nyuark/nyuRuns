@@ -11,10 +11,10 @@
 //
 // and a `users` table for the native userbase, password pw-<name> :
 //
-//   user 1  anna   admin  active
-//   user 2  ben    membr  active
-//   user 3  cleo   membr  pendng
-//   user 4  dave   systm  locked
+//   user 1  anna   manage  active
+//   user 2  ben    member  active
+//   user 3  cleo   member  pendng
+//   user 4  dave   system  locked
 //
 // and an empty `devices` table, each device being linked to a user.
 
@@ -36,7 +36,7 @@ function buildData( String $sqliteFile ): Void {
 	$pdoLink->exec("INSERT INTO items VALUES (1,1,'music'),(2,1,'dance'),(3,2,'theatre'),(4,2,'music'),(5,3,'dance'),(6,3,'circus'),(7,4,'solo')");
 	$pdoLink->exec("CREATE TABLE users (id_user INTEGER PRIMARY KEY, userName TEXT UNIQUE, passHash TEXT, userRole TEXT, userStat TEXT, actvCode TEXT, tokenKey TEXT, twoFaKey TEXT, failNmbr INTEGER DEFAULT 0, failDate TEXT, madeDate TEXT, lastSeen TEXT)");
 	$usrStmt = $pdoLink->prepare("INSERT INTO users (id_user, userName, passHash, userRole, userStat, madeDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
-	foreach( Array(Array(1,'anna','admin','active'), Array(2,'ben','membr','active'), Array(3,'cleo','membr','pendng'), Array(4,'dave','systm','locked')) as $usrRow ){
+	foreach( Array(Array(1,'anna','manage','active'), Array(2,'ben','member','active'), Array(3,'cleo','member','pendng'), Array(4,'dave','system','locked')) as $usrRow ){
 		// Passwords are pw-<name>, hashed at the lowest cost to keep the tests fast
 		$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 	}

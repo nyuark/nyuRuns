@@ -7,3 +7,4 @@
 /.env
 /conf/access.json
 /conf/.htpasswd
+/conf/users.lst

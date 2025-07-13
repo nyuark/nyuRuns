@@ -1,0 +1,6 @@
+{
+	"login":  { "authby": "usrlst", "authcf": "tsusrs", "sessby": "jtoken", "sesscf": "tstokn" },
+	"tstokn": { "secret": "test-only-secret-0123456789-abcdefghij", "lifetm": 300, "algrtm": "HS256" },
+	"tsusrs": { "usrfle": "test/fixtures/users.lst" },
+	"limits": { "maxtry": 0 }
+}

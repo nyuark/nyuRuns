@@ -28,7 +28,7 @@ checkSame('Device addDevice refused for a pending user', $dvcAuth->addDevice('cl
 checkSame('Device addDevice refused for an unknown user', $dvcAuth->addDevice('zed', 'Tablet', 'app'), false);
 
 // checkCred : the identity of the user, with the device under 'device'
-checkSame('Device token accepted, with the user and the device', $dvcAuth->checkCred(Array('key'=>$phonTkn)), Array('user'=>'anna', 'role'=>'admin', 'id'=>1, 'device'=>Array('id'=>1, 'name'=>'Phone', 'role'=>'app')));
+checkSame('Device token accepted, with the user and the device', $dvcAuth->checkCred(Array('key'=>$phonTkn)), Array('user'=>'anna', 'role'=>'manage', 'id'=>1, 'device'=>Array('id'=>1, 'name'=>'Phone', 'role'=>'app')));
 checkSame('Device second device of the same user', $dvcAuth->checkCred(Array('key'=>$homeTkn))['device'] ?? null, Array('id'=>2, 'name'=>'Home', 'role'=>'home'));
 checkSame('Device wrong token',          Array($dvcAuth->checkCred(Array('key'=>str_repeat('0', 64))), $dvcAuth->lastError()), Array(false, 'Invalid API key'));
 checkSame('Device empty token',          Array($dvcAuth->checkCred(Array('key'=>'')), $dvcAuth->lastError()), Array(false, 'No API key provided'));
@@ -71,7 +71,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 $dvcConf = Array('needed'=>true, 'sessby'=>'header', 'sesscf'=>'testbear', 'authby'=>'device', 'authcf'=>'testdvc');
 $sqlLink->exec("UPDATE devices SET last_seen_at=NULL");
 $axsRslt = (new nyu\Access\Checker( $dvcConf, fakeReqst(Array('Authorization'=>'Bearer '.$homeTkn)) ))->verifyAxs();
-checkSame('Checker device token: user, role and device role', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('user'), $axsRslt->readValue('role'), $axsRslt->readValue('ident')['device']['role'] ?? null), Array(200, 'anna', 'admin', 'home'));
+checkSame('Checker device token: user, role and device role', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('user'), $axsRslt->readValue('role'), $axsRslt->readValue('ident')['device']['role'] ?? null), Array(200, 'anna', 'manage', 'home'));
 checkSame('Checker device token: the device is stamped', $sqlLink->query("SELECT name FROM devices WHERE last_seen_at IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN), Array('Home'));
 $axsRslt = (new nyu\Access\Checker( $dvcConf, fakeReqst(Array('Authorization'=>'Bearer '.$phonTkn)) ))->verifyAxs();
 checkSame('Checker device token: a revoked device is refused', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('statMssg')), Array(401, 'Invalid API key'));

@@ -60,7 +60,9 @@ script runs in its own PHP process and can also be run on its own
   has to be stopped by hand.
 - **Credentials.** `fixtures/users.htpasswd` holds four test-only users
   (`alice` / `s3cret`, `erin` / `tr0ub4dor`, and `bob` / `hunter2`, `frank` / `letmein`
-  whose weak hashes only pass in unsecure mode).
+  whose weak hashes only pass in unsecure mode). `fixtures/users.lst` is the
+  flat file of users (`usrlst`): `anna`, `ben`, `cleo`, `dave` as in the sample
+  database, and `emma` with a 2FA secret, password `pw-<name>`.
 - **PHP notices.** A notice or warning raised by the tested code fails the script
   that triggered it, unless the test collects it with `takeNotes()`.
 - **Conventions.** `audit/ConventionTest.php` lists the accepted exceptions at its

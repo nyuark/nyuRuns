@@ -144,14 +144,14 @@ $fakeStr = new class(Array()) implements nyu\Access\Auth\Handler {
 		return false;
 	}
 	public function userIdent( String $userString ): Array|Bool {
-		return ($userString=='carol') ? Array('user'=>'carol', 'role'=>'admin', 'id'=>7) : false;
+		return ($userString=='carol') ? Array('user'=>'carol', 'role'=>'manage', 'id'=>7) : false;
 	}
 	public function lastError(): String {
 		return 'Account not active';
 	}
 };
 $strSess = new ClCert( Array(), $fakeStr );
-checkSame('ClCert with a store: known user, with its role', $strSess->verifyReq(fakeReqst(Array(), $crtVals)), Array('user'=>'carol', 'role'=>'admin', 'id'=>7));
+checkSame('ClCert with a store: known user, with its role', $strSess->verifyReq(fakeReqst(Array(), $crtVals)), Array('user'=>'carol', 'role'=>'manage', 'id'=>7));
 checkSame('ClCert with a store: unknown user', Array($strSess->verifyReq(fakeReqst(Array(), Array('SSL_CLIENT_S_DN_CN'=>'zed') + $crtVals)), $strSess->lastError()), Array(false, 'Account not active'));
 
 // Checker : reads the strategy pair from the 'auths' block, and its config from the ACCESS registry row
@@ -167,28 +167,28 @@ $checker = new Checker( $hdrConf, fakeReqst(Array('X-Api-Key'=>'k-1')) );
 $axsRslt = $checker->verifyAxs();
 checkSame('Checker granted',             $axsRslt->readValue('logged'), true);
 checkSame('Checker granted status',      $axsRslt->readValue('statCode'), 200);
-checkSame('Checker granted: member role by default', $axsRslt->readValue('role'), 'membr');
+checkSame('Checker granted: member role by default', $axsRslt->readValue('role'), 'member');
 
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
 $jwtConf = Array('needed'=>true, 'sessby'=>'jtoken', 'sesscf'=>'testjwt');
-$checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'admin')))) );
-checkSame('Checker keeps a known role',  $checker->verifyAxs()->readValue('role'), 'admin');
+$checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'manage')))) );
+checkSame('Checker keeps a known role',  $checker->verifyAxs()->readValue('role'), 'manage');
 $checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'root')))) );
-checkSame('Checker turns an unknown role into member', $checker->verifyAxs()->readValue('role'), 'membr');
+checkSame('Checker turns an unknown role into member', $checker->verifyAxs()->readValue('role'), 'member');
 
 // The access log : a privileged user is a notice of its own, with its role and what was asked for
 nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
-$admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'admin')));
+$admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'manage')));
 $adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
 (new Checker( $jwtConf, fakeReqst($admHead, $adrVals), new Registry(Array('app'=>'Users', 'action'=>'remove')) ))->verifyAxs();
-(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'dave', 'role'=>'systm'))), $adrVals), new Registry(Array('app'=>null, 'action'=>null, 'rtePath'=>'docs/*')) ))->verifyAxs();
-(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'erin', 'role'=>'membr'))), $adrVals) ))->verifyAxs();
+(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'dave', 'role'=>'system'))), $adrVals), new Registry(Array('app'=>null, 'action'=>null, 'rtePath'=>'docs/*')) ))->verifyAxs();
+(new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'erin', 'role'=>'member'))), $adrVals) ))->verifyAxs();
 (new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer nope'), $adrVals) ))->verifyAxs();
 nyu\Tools\Logger::plugSetup( Array() );
 $axsLogs = file_exists(inTempDir('logs').DS.'access.log') ? file(inTempDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkSame('access log: one line per check', count($axsLogs), 4);
-checkSame('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (admin) from 10.0.0.1 to Users/remove');
-checkSame('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (systm) from 10.0.0.1 to /docs/*');
+checkSame('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (manage) from 10.0.0.1 to Users/remove');
+checkSame('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (system) from 10.0.0.1 to /docs/*');
 checkSame('access log: a member stays an info', $axsLogs[2] ?? null, '['.date('Y').'] [INFO] Access granted for user "erin" from 10.0.0.1');
 checkLike('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\['.date('Y').'\] \[WARNING\] Access denied from 10\.0\.0\.1: /');
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')))) );

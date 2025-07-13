@@ -273,7 +273,7 @@ if( !$isReady ){
 	// The API key block of test/fixtures/conf/access.json
 	$keyHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'header', 'X-Test-Confkey'=>'tskeys');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'test-only-key-1'));
-	checkSame('identity: valid API key, logged as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"","role":"membr"}'));
+	checkSame('identity: valid API key, logged as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"","role":"member"}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'not-the-key'));
 	checkSame('identity: invalid API key, the action does not run', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
@@ -286,7 +286,7 @@ if( !$isReady ){
 	checkLike('round trip: login gives a token', $jwToken, '/^[\w-]+\.[\w-]+\.[\w-]+$/');
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken));
-	checkSame('round trip: the token identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"alice","role":"membr"}'));
+	checkSame('round trip: the token identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"alice","role":"member"}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken.'x'));
 	checkSame('round trip: a tampered token is refused', $replyAr['code'], 401);
@@ -304,12 +304,12 @@ if( !$isReady ){
 	checkSame('native round trip: login answers 200', $replyAr['code'], 200);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'confnat', 'Authorization'=>'Bearer '.$jwToken));
-	checkSame('native round trip: the role of the users table reaches the action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	checkSame('native round trip: the role of the users table reaches the action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 
 	// The login and the access of a privileged user are notices of the access log
 	$newLogs = substr(readsLogs('access'), $logMark);
-	checkLike('access log: privileged login', $newLogs, '/\[NOTICE\] Privileged login granted for user "anna" \(admin\) from \S+/');
-	checkLike('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(admin\) from \S+ to probe\/whoami/i');
+	checkLike('access log: privileged login', $newLogs, '/\[NOTICE\] Privileged login granted for user "anna" \(manage\) from \S+/');
+	checkLike('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(manage\) from \S+ to probe\/whoami/i');
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=cleo&pass=pw-cleo');
 	checkSame('native round trip: a pending user gets no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
@@ -319,7 +319,7 @@ if( !$isReady ){
 
 	// A request verified by Basic credentials against the users table stamps its user too
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
-	checkSame('presence: Basic access on the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"ben","role":"membr"}'));
+	checkSame('presence: Basic access on the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"ben","role":"member"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
 	checkSame('presence: the user of a verified request is online', $replyAr['body'], '{"online":["anna","ben"]}');
 
@@ -327,25 +327,25 @@ if( !$isReady ){
 	$sqlLink = new PDO('sqlite:'.$sqlFile);
 	$storHed = $whoHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'Authorization'=>'Bearer '.$jwToken);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
-	checkSame('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	checkSame('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 
-	$sqlLink->exec("UPDATE users SET userRole='systm' WHERE userName='anna'");
+	$sqlLink->exec("UPDATE users SET userRole='system' WHERE userName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
-	checkSame('token with a store: a role change applies at once', $replyAr['body'], '{"logged":true,"user":"anna","role":"systm"}');
+	checkSame('token with a store: a role change applies at once', $replyAr['body'], '{"logged":true,"user":"anna","role":"system"}');
 
 	$sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $storHed);
 	checkSame('token with a store: a locked user is refused at once', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'confnat', 'Authorization'=>'Bearer '.$jwToken));
-	checkSame('token without a store: still accepted until it expires', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
-	$sqlLink->exec("UPDATE users SET userStat='active', userRole='admin' WHERE userName='anna'");
+	checkSame('token without a store: still accepted until it expires', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
+	$sqlLink->exec("UPDATE users SET userStat='active', userRole='manage' WHERE userName='anna'");
 
 	// Personal API token of the users table, sent in the API key header
 	$sqlLink->exec("UPDATE users SET tokenKey='".hash('sha256', 'http-test-token')."' WHERE userName='anna'");
 	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'header', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $tknHead + Array('X-Api-Key'=>'http-test-token'));
-	checkSame('personal token: identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	checkSame('personal token: identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $tknHead + Array('X-Api-Key'=>'another-token'));
 	checkSame('personal token: a wrong token is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
 
@@ -375,6 +375,29 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
 	checkSame('throttle: accepted again once the hold is over', $replyAr['code'], 200);
 
+	// Login round trip : flat file of users (test/fixtures/confusr, test/fixtures/users.lst), without the database
+	$lstHead = $formHed + Array('X-Test-Conf'=>'confusr');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=anna&pass=pw-anna');
+	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+	checkSame('users file round trip: login answers 200', $replyAr['code'], 200);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'confusr', 'Authorization'=>'Bearer '.$jwToken));
+	checkSame('users file round trip: the role of the file reaches the action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=anna&pass=nope');
+	checkSame('users file round trip: wrong password, no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=cleo&pass=pw-cleo');
+	checkSame('users file round trip: a pending user gets no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=emma&pass=pw-emma');
+	checkSame('users file 2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=emma&pass=pw-emma&code='.nyu\Access\Totp::codeAtTme($tfaScrt, time()));
+	checkSame('users file 2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
+	$lstAxss = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confusr', 'X-Test-Store'=>'usrlst', 'X-Test-Confkey'=>'tsusrs');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $lstAxss + Array('X-Test-Auth'=>'hbasic', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
+	checkSame('users file: Basic access', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"ben","role":"member"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $lstAxss + Array('X-Test-Auth'=>'header', 'X-Api-Key'=>'list-test-token'));
+	checkSame('users file: personal token identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $lstAxss + Array('X-Test-Auth'=>'header', 'X-Api-Key'=>'another-token'));
+	checkSame('users file: a wrong personal token is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
+
 	// PHP session carrier (test/fixtures/confses) : the login opens a session, its cookie identifies the next requests
 	$sesConf = $formHed + Array('X-Test-Conf'=>'confses');
 	$sesHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess');
@@ -390,7 +413,7 @@ if( !$isReady ){
 	checkLike('session login: the cookie is HttpOnly and SameSite=Strict', $cookLin, '/^Set-Cookie: nyuTests=[A-Za-z0-9,-]{20,}; path=\/; HttpOnly; SameSite=Strict$/i');
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
-	checkSame('session: the cookie identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	checkSame('session: the cookie identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
 	checkSame('session: it stays open on the next request', $replyAr['code'], 200);
 
@@ -444,7 +467,7 @@ if( !$isReady ){
 	// Client certificate carrier : the test router stands in for the web server's report (X-Test-Cert)
 	$crtHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'clcert');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Cert'=>'SUCCESS;anna;Test CA'));
-	checkSame('certificate: a verified certificate names its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"membr"}'));
+	checkSame('certificate: a verified certificate names its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"member"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead);
 	checkSame('certificate: none presented', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No verified client certificate","code":401}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Cert'=>'FAILED:certificate has expired;anna;Test CA'));
@@ -453,7 +476,7 @@ if( !$isReady ){
 	checkSame('certificate: the same values sent as request headers are ignored', $replyAr['code'], 401);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'X-Test-Cert'=>'SUCCESS;anna;Test CA'));
-	checkSame('certificate with a store: the role comes from the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"admin"}'));
+	checkSame('certificate with a store: the role comes from the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'X-Test-Cert'=>'SUCCESS;zed;Test CA'));
 	checkSame('certificate with a store: a name that is not a user', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
 	$sqlLink = null;

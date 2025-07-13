@@ -237,6 +237,29 @@ class Native implements Handler{
 	}
 
 	/**
+	 * Gives a user a new password, replacing any previous one, and forgets
+	 * its failed attempts. Only the bcrypt hash is stored. The status of
+	 * the user is left as it is.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param String $passwdText The new password, not empty.
+	 * @return Bool Whether the password was written; false when it is empty, the user is unknown, or the table cannot be written.
+	 */
+	public function setPasswd( String $userString, String $passwdText ): Bool {
+		if( $this->usrTable=='' || $passwdText=='' ){
+			return false;
+		}
+		try{
+			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['passHash']}=?, {$qtdName['failNmbr']}=0, {$qtdName['failDate']}=NULL WHERE {$qtdName['userName']}=?;";
+			return $dbHandl->sendQuery($updQury, true, Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString)) && $dbHandl->lastCount()>0;
+		}catch( \Throwable $e ){
+			return false;
+		}
+	}
+
+	/**
 	 * Reads the current identity of a user authenticated by other means
 	 * (a token), so that a lock or a role change applies at once.
 	 *
@@ -344,7 +367,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('userName', 'userStat', 'tokenKey', 'twoFaKey', 'failNmbr', 'failDate', 'lastSeen') as $fldNme ){
+		foreach( Array('userName', 'passHash', 'userStat', 'tokenKey', 'twoFaKey', 'failNmbr', 'failDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

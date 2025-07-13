@@ -16,10 +16,10 @@ class Checker{
 
 	// Roles an identity can carry, from the least to the most privileged.
 	// Reserved for the coming access rules : nothing is enforced on them yet
-	const ROLELIST = Array('membr', 'systm', 'admin');
+	const ROLELIST = Array('member', 'system', 'manage');
 	// Short names of the framework's strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
-	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey');
+	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'usrlst'=>'UserList');
 	const SESSLIST = Array('hbasic'=>'Basic', 'header'=>'Header', 'jtoken'=>'JWT', 'phsess'=>'PHPSess', 'clcert'=>'ClCert');
 
 	protected $axsSetup;
