@@ -16,6 +16,7 @@
 //   X-Test-Conf: <folder>            config files read from test/fixtures/<folder> instead of conf
 //   X-Test-Public: <app/action,...>  public routes of that access control (with X-Test-Auth)
 //   X-Test-Signin: <path>            sign-in route of that access control (with X-Test-Auth)
+//   X-Test-Roles: <route=role,...>   roles the routes of that access control ask for (with X-Test-Auth)
 //   X-Test-Tmpl: <template>          render template
 //   X-Test-Return: <format>          output format
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
@@ -51,6 +52,12 @@ if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
 	}
 	if( isset($_SERVER['HTTP_X_TEST_SIGNIN']) ){
 		$overArr['auths']['signin'] = $_SERVER['HTTP_X_TEST_SIGNIN'];
+	}
+	if( isset($_SERVER['HTTP_X_TEST_ROLES']) ){
+		foreach( explode(',', $_SERVER['HTTP_X_TEST_ROLES']) as $rolPar ){
+			$pairArr = explode('=', $rolPar, 2) + Array('', '');
+			$overArr['auths']['rolert'][trim($pairArr[0])] = trim($pairArr[1]);
+		}
 	}
 }
 if( isset($_SERVER['HTTP_X_TEST_CONF']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_CONF']) ){

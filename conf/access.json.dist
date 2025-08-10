@@ -2,7 +2,7 @@
 	"plugin": { "authby": [], "sessby": [] },
 	"login":  { "authby": "native", "authcf": "native", "sessby": "jtoken", "sesscf": "dftokn" },
 	"dfpass": { "htpasswd": "conf/.htpasswd" },
-	"native": { "basnme": "nyuRuns", "tblnme": "users", "idletm": 300, "maxtry": 5, "holdtm": 600 },
+	"native": { "basnme": "nyuRuns", "tblnme": "users", "idletm": 300, "maxtry": 5, "holdtm": 600, "minlen": 10 },
 	"usrlst": { "usrfle": "conf/users.lst" },
 	"limits": { "maxtry": 10, "holdtm": 600, "folder": "temp/limits" },
 	"dfkeys": { "header": "X-Api-Key", "keylst": ["env:NYU_API_KEY"] },

@@ -5,7 +5,7 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/login"] },
+	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/login", "auth/activate"], "rolert": { "users/*": "manage" } },
 	"input": [
 		{
 			"naming": "QUERY",

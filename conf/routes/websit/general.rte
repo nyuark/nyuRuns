@@ -27,5 +27,19 @@
 			"app": "auth",
 			"act": "logout"
 		}
+	},
+	"auth/activate" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "activate"
+		}
+	},
+	"auth/password" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "password"
+		}
 	}
 }

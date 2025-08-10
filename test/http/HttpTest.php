@@ -375,6 +375,110 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=ben&pass=pw-ben');
 	checkSame('throttle: accepted again once the hold is over', $replyAr['code'], 200);
 
+	// User management (runs/Users, auth/activate, auth/password) : a manager creates a user, who activates itself
+	$benToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+	$usrHead = $formHed + Array('X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn', 'X-Test-Store'=>'native', 'X-Test-Public'=>'auth/login,auth/activate');
+	$mgrHead = $usrHead + Array('Authorization'=>'Bearer '.$jwToken);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $usrHead, 'user=henry');
+	checkSame('users: nothing without a session', $replyAr['code'], 401);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $usrHead + Array('Authorization'=>'Bearer '.$benToken), 'user=henry');
+	checkSame('users: refused to a member', Array($replyAr['code'], $replyAr['body']), Array(403, '{"error":"Forbidden","code":403}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $usrHead + Array('Authorization'=>'Bearer '.$benToken));
+	checkSame('users: the list is refused to a member too', $replyAr['code'], 403);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'user=henry');
+	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
+	checkSame('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 32));
+	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'role=member');
+	checkSame('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user","code":400}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/users/index?stat=pendng', $mgrHead);
+	checkSame('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userName', 'userRole', 'userStat', 'madeDate', 'lastSeen')));
+	$replyAr = httpQuery('GET', $baseUrl.'/users/view?user=henry', $mgrHead);
+	checkSame('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStat'] ?? null), Array(200, 'pendng'));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.str_repeat('0', 32).'&pass=pass-henry-1');
+	checkSame('activate: open without a session, a wrong code is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid activation","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.$newCode.'&pass=short');
+	checkSame('activate: a password breaking a rule', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Password too short: 10 characters at least","code":400}'));
+	// The route is declared for POST : another method is not the open route, and meets the access check first
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?user=henry&code='.$newCode.'&pass=pass-henry-1', $usrHead);
+	checkSame('activate: a GET is not open', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?user=henry&code='.$newCode.'&pass=pass-henry-1', $mgrHead);
+	checkSame('activate: a GET is refused, even with a session', $replyAr['code'], 405);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.$newCode.'&pass='.rawurlencode('pass "henry" <1>'));
+	checkSame('activate: the code gives the password', Array($replyAr['code'], $replyAr['body']), Array(200, '{"active":true}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=henry&pass='.rawurlencode('pass "henry" <1>'));
+	$newToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+	checkSame('activate: the user logs in with its password, kept as sent', Array($replyAr['code'], $newToken!=''), Array(200, true));
+
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead, 'former='.rawurlencode('pass "henry" <1>').'&pass=pass-henry-2');
+	checkSame('password: nothing without a session', $replyAr['code'], 401);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former=nope&pass=pass-henry-2');
+	checkSame('password: wrong current one', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former='.rawurlencode('pass "henry" <1>').'&pass=pass-henry-2');
+	checkSame('password: changed by its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"changed":true}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=henry&pass=pass-henry-2');
+	checkSame('password: the new one logs in', $replyAr['code'], 200);
+
+	$replyAr = httpQuery('POST', $baseUrl.'/users/role', $mgrHead, 'user=henry&role=system');
+	checkSame('users: a role is given', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","role":"system"}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/users/lock', $mgrHead, 'user=anna');
+	checkSame('users: a manager cannot lock itself', $replyAr['code'], 409);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/lock', $mgrHead, 'user=henry');
+	checkSame('users: a user is locked', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","stat":"locked"}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former=pass-henry-2&pass=pass-henry-3');
+	checkSame('users: the lock ends the session the user held', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/users/remove', $mgrHead, 'user=henry');
+	checkSame('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE userName='henry'")->fetchColumn()), Array(200, 0));
+
+	// Roles : what a route asks for ('rolert'), and the helpers of an action
+	$benHead = Array('Authorization'=>'Bearer '.$benToken);
+	$annHead = Array('Authorization'=>'Bearer '.$jwToken);
+	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=manage, probe/whoami=system, /docs/*=system, /hello/$id=manage');
+	$logMark = strlen(readsLogs('access'));
+	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead + $benHead);
+	checkSame('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(403, '{"error":"Forbidden","code":403}'));
+	checkSame('roles: with no challenge', count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head'])), 0);
+	checkLike('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(member\) from \S+ to users\/index: role manage needed/');
+	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $benHead);
+	checkSame('roles: so is its application, named without an action', $replyAr['code'], 403);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead + $annHead);
+	checkSame('roles: served to a manager', $replyAr['code'], 200);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead);
+	checkSame('roles: nobody logged is a 401', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/create?user=henry', $usrHead + $benHead);
+	checkSame('roles: an action asks for the role before the method', $replyAr['code'], 403);
+
+	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter') + $rolHead;
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $prbHead + $benHead);
+	checkSame('roles: an action of another application', $replyAr['code'], 403);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $prbHead + $annHead);
+	checkSame('roles: a manager holds the system role', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $prbHead + $benHead);
+	checkSame('roles: a file of a folder route', $replyAr['code'], 403);
+	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $prbHead + $annHead);
+	checkSame('roles: the file is served with the role', $replyAr['code'], 200);
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $prbHead + $benHead);
+	checkSame('roles: a page is a 403, not the sign-in route', Array($replyAr['code'], count(preg_grep('/^Location:/i', $replyAr['head']))), Array(403, 0));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles', $prbHead + $benHead);
+	checkSame('roles: what a member holds', $replyAr['body'], '{"member":true,"system":false,"manage":false}');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles', $prbHead + $annHead);
+	checkSame('roles: what a manager holds', $replyAr['body'], '{"member":true,"system":true,"manage":true}');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles/system', $prbHead + $benHead);
+	checkSame('roles: an action asking for a role itself', Array($replyAr['code'], $replyAr['body']), Array(403, '{"error":"Forbidden","code":403}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles/system', $prbHead + $annHead);
+	checkSame('roles: and going on with it', $replyAr['code'], 200);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles/root', $prbHead + $annHead);
+	checkSame('roles: an action asking for an unknown role is a 500', $replyAr['code'], 500);
+
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', Array('X-Test-Roles'=>'users/*=admin') + $prbHead + $annHead);
+	checkSame('roles: an unknown role refuses every request', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/whoami=member'));
+	checkSame('roles: an API key meets the member role', $replyAr['code'], 200);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/whoami=system'));
+	checkSame('roles: and no higher one', $replyAr['code'], 403);
+	$sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
+
 	// Login round trip : flat file of users (test/fixtures/confusr, test/fixtures/users.lst), without the database
 	$lstHead = $formHed + Array('X-Test-Conf'=>'confusr');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=anna&pass=pw-anna');
@@ -450,6 +554,49 @@ if( !$isReady ){
 	checkTrue('logout: the cookie is expired', count(preg_grep('/^Set-Cookie: nyuTests=deleted; expires=Thu, 01[ -]Jan[ -]1970/i', $replyAr['head']))==1);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
 	checkSame('logout: the session is gone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
+
+	// A privileged logout on a checked route is a notice of the access log
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
+		}
+	}
+	$logMark = strlen(readsLogs('access'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/logout', Array('X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess', 'Cookie'=>$sessCok));
+	checkSame('logout on a checked route: answers 200', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false}'));
+	checkLike('access log: privileged logout', substr(readsLogs('access'), $logMark), '/\[NOTICE\] Logout of privileged user "anna" \(manage\)/');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/logout', Array('X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess', 'Cookie'=>$sessCok));
+	checkSame('logout on a checked route: a second one finds no session', $replyAr['code'], 401);
+
+	// A login never keeps an id the client came with
+	$gvnIdnt = str_repeat('a', 32);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf + Array('Cookie'=>'nyuTests='.$gvnIdnt), 'user=anna&pass=pw-anna');
+	$sessCok = '';
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
+		}
+	}
+	checkSame('session login: an id chosen by the client is replaced', Array($replyAr['code'], $sessCok!='', $sessCok!='nyuTests='.$gvnIdnt), Array(200, true, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>'nyuTests='.$gvnIdnt));
+	checkSame('session login: the id chosen by the client opens nothing', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session login: the id it was given does', $replyAr['code'], 200);
+
+	// Logout with a token carrier : nothing to destroy, the token stays valid until it expires
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
+	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/logout', Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken));
+	checkSame('logout with a token carrier: answers 200, without a cookie', Array($replyAr['code'], $replyAr['body'], count(preg_grep('/^Set-Cookie:/i', $replyAr['head']))), Array(200, '{"logged":false}', 0));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $whoHead + Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken));
+	checkSame('logout with a token carrier: the token is still accepted', $replyAr['code'], 200);
+
+	// Carriers that take a check of passwords or keys, on the htpasswd file : Basic access, and a key refused
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass', 'X-Test-Confkey'=>'tspass', 'Authorization'=>'Basic '.base64_encode('alice:s3cret')));
+	checkSame('htpasswd file: Basic access, as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"alice","role":"member"}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass', 'X-Test-Confkey'=>'tspass', 'Authorization'=>'Basic '.base64_encode('alice:nope')));
+	checkSame('htpasswd file: wrong password, with the challenge', Array($replyAr['code'], $replyAr['body'], in_array('WWW-Authenticate: Basic', $replyAr['head'])), Array(401, '{"error":"Invalid credentials","code":401}', true));
 
 	// A session left unused for longer than its lifetime (1 second in the tsshrt block)
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');

@@ -209,17 +209,30 @@ checkSame('Throttle a wrong code is counted', failsOf($sqlLink, 'ben'), 1);
 checkSame('Throttle an unknown user is not counted and raises nothing', Array($natAuth->checkCred(Array('user'=>'zed', 'pass'=>'nope')), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 
 // Passwords : setPasswd replaces the hash and forgets the failures, whatever the status
+// The sample passwords are short : the shortest length is brought down to theirs
+$lowAuth = new Native( Array('tblnme'=>'users', 'minlen'=>6) );
 $sqlLink->exec("UPDATE users SET failNmbr=2, failDate='".date('Y-m-d H:i:s')."' WHERE userName='anna'");
-checkSame('Native setPasswd on a known user', $natAuth->setPasswd('anna', 'new-anna'), true);
+checkSame('Native setPasswd on a known user', $lowAuth->setPasswd('anna', 'new-anna'), true);
 checkSame('Native setPasswd: the new password is accepted', $natAuth->checkCred(Array('user'=>'anna', 'pass'=>'new-anna'))['user'] ?? null, 'anna');
 checkSame('Native setPasswd: the previous password is refused', Array($natAuth->checkCred($annaPwd), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 $sqlLink->exec("UPDATE users SET failNmbr=2, failDate='".date('Y-m-d H:i:s')."' WHERE userName='anna'");
-checkSame('Native setPasswd forgets the failures', Array($natAuth->setPasswd('anna', 'pw-anna'), failsOf($sqlLink, 'anna')), Array(true, 0));
-checkSame('Native setPasswd leaves the status as it is', Array($natAuth->setPasswd('cleo', 'new-cleo'), $natAuth->checkCred(Array('user'=>'cleo', 'pass'=>'new-cleo')), $natAuth->lastError()), Array(true, false, 'Account not active'));
-checkSame('Native setPasswd on an unknown user', $natAuth->setPasswd('zed', 'pw-zed'), false);
-checkSame('Native setPasswd refuses an empty password', Array($natAuth->setPasswd('anna', ''), $natAuth->checkCred($annaPwd)['user'] ?? null), Array(false, 'anna'));
-checkSame('Native setPasswd with a name holding a quote', $natAuth->setPasswd("anna' OR '1'='1", 'nope'), false);
-checkSame('Native setPasswd on a missing table', $noTable->setPasswd('anna', 'pw-anna'), false);
+checkSame('Native setPasswd forgets the failures', Array($lowAuth->setPasswd('anna', 'pw-anna'), failsOf($sqlLink, 'anna')), Array(true, 0));
+checkSame('Native setPasswd leaves the status as it is', Array($lowAuth->setPasswd('cleo', 'new-cleo'), $natAuth->checkCred(Array('user'=>'cleo', 'pass'=>'new-cleo')), $natAuth->lastError()), Array(true, false, 'Account not active'));
+checkSame('Native setPasswd on an unknown user', $lowAuth->setPasswd('zed', 'pw-zed'), false);
+checkSame('Native setPasswd refuses an empty password', Array($lowAuth->setPasswd('anna', ''), $natAuth->checkCred($annaPwd)['user'] ?? null), Array(false, 'anna'));
+checkSame('Native setPasswd with a name holding a quote', $lowAuth->setPasswd("anna' OR '1'='1", 'nopass'), false);
+checkSame('Native setPasswd on a missing table', $noTable->setPasswd('anna', 'pw-anna-long'), false);
+
+// Password rules : 10 characters by default, 72 bytes at most, no control character, not the user name
+checkSame('Rules nine characters are too short by default', Array($natAuth->setPasswd('anna', 'ninechars'), $natAuth->lastError()), Array(false, 'Password too short: 10 characters at least'));
+checkSame('Rules ten characters pass, whatever they are', $natAuth->setPasswd('anna', 'aaaaaaaaaa'), true);
+checkSame('Rules characters are counted, not bytes', Array($natAuth->setPasswd('anna', 'ééééé'), $natAuth->setPasswd('anna', 'éééééééééé')), Array(false, true));
+checkSame('Rules 72 bytes pass', $natAuth->setPasswd('anna', str_repeat('a', 72)), true);
+checkSame('Rules 73 bytes are refused', Array($natAuth->setPasswd('anna', str_repeat('a', 73)), $natAuth->lastError()), Array(false, 'Password too long: 72 bytes at most'));
+checkSame('Rules a control character is refused', Array($natAuth->setPasswd('anna', "with\0a nul byte"), $natAuth->setPasswd('anna', "with a\nline break"), $natAuth->lastError()), Array(false, false, 'Password holding a control character'));
+checkSame('Rules the user name is refused, whatever the case', Array((new Native(Array('minlen'=>4)))->setPasswd('anna', 'ANNA'), $lowAuth->setPasswd('anna', 'pw-anna')), Array(false, true));
+checkSame('Rules a password is kept as given, spaces and quotes included', Array($natAuth->setPasswd('anna', '  it\'s "<b>" &  '), $natAuth->checkCred(Array('user'=>'anna', 'pass'=>'  it\'s "<b>" &  '))['user'] ?? null, $natAuth->checkCred(Array('user'=>'anna', 'pass'=>'it\'s "<b>" &'))), Array(true, 'anna', false));
+checkSame('Rules a refused password changes nothing', Array($natAuth->setPasswd('anna', 'short'), $natAuth->checkCred(Array('user'=>'anna', 'pass'=>'  it\'s "<b>" &  '))['user'] ?? null), Array(false, 'anna'));
 $sqlLink = null;
 
 endChecks();

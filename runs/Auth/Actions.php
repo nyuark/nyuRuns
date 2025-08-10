@@ -5,6 +5,7 @@ namespace nyu\Runs\Auth;
 use \nyu\App\Actionset;
 use \nyu\Access\Checker;
 use \nyu\Access\Limiter;
+use \nyu\Access\Auth\UserBase;
 use \nyu\Tools\Logger;
 
 class Actions extends Actionset {
@@ -139,6 +140,113 @@ class Actions extends Actionset {
 		}
 		$this->statCode = 200;
 		$this->asOutput = Array('logged'=>false);
+	}
+
+	/**
+	 * Activates a pending user of the native userbase: the 'user' and
+	 * 'code' inputs name it and carry its activation code, the 'pass'
+	 * input the password it chooses, kept as sent. The action is meant to
+	 * be open ('openrt'): a pending user cannot log in. Reports 405
+	 * unless the request is a POST, 400 when an input is missing, is not
+	 * a text, or the password breaks a rule, 401 on a wrong name or code,
+	 * whichever it is, 429 when the address presented too many wrong
+	 * ones (see Access\Limiter) and 500 when the login does not use the
+	 * native userbase.
+	 */
+	public function activate(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		$gvnUser = $this->inputReg->readValue('user');
+		$gvnCode = $this->inputReg->readValue('code');
+		$gvnPass = $this->inputReg->readValue('pass');
+		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
+			$this->statCode = 400;
+			$this->statMssg = 'Invalid user, code or pass';
+			return;
+		}
+		$usrBase = UserBase::fromLogin();
+		if($usrBase===null){
+			$this->statCode = 500;
+			$this->statMssg = 'User management unavailable';
+			return;
+		}
+		// An address that presented too many wrong credentials is refused before anything is checked
+		$lmtrObj = new Limiter( $this->resolvCnf('limits') );
+		$clntReg = $this->httpRqst->getClient();
+		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+		if($heldEnd>0){
+			Logger::getLogger('access')->warning( 'Activation refused for user '.json_encode($gvnUser).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
+			if($this->httpResp!==null){
+				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
+			}
+			$this->statCode = 429;
+			$this->statMssg = 'Too many attempts';
+			return;
+		}
+		if(!$usrBase->actvtUser($gvnUser, $gvnCode, $gvnPass)){
+			// Only a wrong name or code counts against the address, not a password breaking a rule
+			if($usrBase->wrongCred()){
+				$lmtrObj->countFail($usrAddr);
+			}
+			$this->statCode = $usrBase->lastState();
+			$this->statMssg = $usrBase->lastError();
+			return;
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('active'=>true);
+	}
+
+	/**
+	 * Changes the password of the logged user, in the native userbase:
+	 * the 'former' input carries its current password, the 'pass' input
+	 * the new one, both kept as sent. No name is read: the user is the
+	 * one the access check identified. Reports 405 unless the request is
+	 * a POST, 400 when an input is missing, is not a text, or the new
+	 * password breaks a rule, 401 when nobody is logged or the current
+	 * password is wrong (a wrong one counts as a failed attempt, for the
+	 * user and for its address) and 500 when the login does not use the
+	 * native userbase.
+	 */
+	public function password(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		$usrName = ($this->axessReg!==null && $this->axessReg->readValue('logged')===true) ? strval($this->axessReg->readValue('user')) : '';
+		if($usrName==''){
+			$this->statCode = 401;
+			$this->statMssg = 'Not logged in';
+			return;
+		}
+		$gvnFrmr = $this->inputReg->readValue('former');
+		$gvnPass = $this->inputReg->readValue('pass');
+		if(!is_string($gvnFrmr) || !is_string($gvnPass)){
+			$this->statCode = 400;
+			$this->statMssg = 'Invalid former or pass';
+			return;
+		}
+		$usrBase = UserBase::fromLogin();
+		if($usrBase===null){
+			$this->statCode = 500;
+			$this->statMssg = 'User management unavailable';
+			return;
+		}
+		if(!$usrBase->chgPasswd($usrName, $gvnFrmr, $gvnPass)){
+			if($usrBase->wrongCred()){
+				$clntReg = $this->httpRqst->getClient();
+				(new Limiter( $this->resolvCnf('limits') ))->countFail( ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '' );
+			}
+			$this->statCode = $usrBase->lastState();
+			$this->statMssg = $usrBase->lastError();
+			return;
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('changed'=>true);
 	}
 
 	/**

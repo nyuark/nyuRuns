@@ -1,0 +1,8 @@
+{
+	"fields": {
+		"stat": "",
+		"role": "",
+		"limit": "Integer",
+		"offset": "Integer"
+	}
+}

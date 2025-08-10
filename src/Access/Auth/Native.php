@@ -18,12 +18,15 @@ class Native implements Handler{
 	const STATLIST = Array('pendng', 'active', 'locked');
 	// Seconds during which a user already seen is not stamped again
 	const STAMPGAP = 60;
+	// Longest password, in bytes : bcrypt reads nothing beyond
+	const PASSSIZE = 72;
 
 	protected $userBase;
 	protected $usrTable;
 	protected $idleSecs;
 	protected $maxTries;
 	protected $holdSecs;
+	protected $minPassw;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -31,8 +34,9 @@ class Native implements Handler{
 	 * @param Array $confValues Config block, optionally with the 'basnme' configured database holding the users
 	 *                          (defaults to the default database), their 'tblnme' table (defaults to 'users'),
 	 *                          the 'idletm' time in seconds after which a user is no longer online (defaults to 300),
-	 *                          the failed tries allowed ('maxtry', defaults to 5) and the time in seconds they hold the
-	 *                          account for ('holdtm', defaults to 600).
+	 *                          the failed tries allowed ('maxtry', defaults to 5), the time in seconds they hold the
+	 *                          account for ('holdtm', defaults to 600) and the shortest password accepted, in
+	 *                          characters ('minlen', defaults to 10).
 	 */
 	function __construct( Array $confValues ){
 		$this->userBase = is_scalar($confValues['basnme'] ?? '') ? strval($confValues['basnme'] ?? '') : '';
@@ -41,6 +45,7 @@ class Native implements Handler{
 		$this->idleSecs = max( 1, intval($confValues['idletm'] ?? 300) );
 		$this->maxTries = max( 1, intval($confValues['maxtry'] ?? 5) );
 		$this->holdSecs = max( 1, intval($confValues['holdtm'] ?? 600) );
+		$this->minPassw = min( self::PASSSIZE, max(1, intval($confValues['minlen'] ?? 10)) );
 		$this->lastMssg = '';
 	}
 
@@ -239,14 +244,20 @@ class Native implements Handler{
 	/**
 	 * Gives a user a new password, replacing any previous one, and forgets
 	 * its failed attempts. Only the bcrypt hash is stored. The status of
-	 * the user is left as it is.
+	 * the user is left as it is. The password must follow the rules (see
+	 * checkPass); lastError() tells the one it breaks.
 	 *
 	 * @param String $userString Login name of the user.
-	 * @param String $passwdText The new password, not empty.
-	 * @return Bool Whether the password was written; false when it is empty, the user is unknown, or the table cannot be written.
+	 * @param String $passwdText The new password, kept as given.
+	 * @return Bool Whether the password was written; false when it breaks a rule, the user is unknown, or the table cannot be written.
 	 */
 	public function setPasswd( String $userString, String $passwdText ): Bool {
-		if( $this->usrTable=='' || $passwdText=='' ){
+		if( $this->usrTable=='' ){
+			return false;
+		}
+		$ruleMsg = $this->checkPass($userString, $passwdText);
+		if( $ruleMsg!='' ){
+			$this->lastMssg = $ruleMsg;
 			return false;
 		}
 		try{
@@ -257,6 +268,34 @@ class Native implements Handler{
 		}catch( \Throwable $e ){
 			return false;
 		}
+	}
+
+	/**
+	 * Tells which rule a password breaks: it holds at least the 'minlen'
+	 * characters of the config block and at most PASSSIZE bytes, no control
+	 * character, and is not the name of its user, whatever the case.
+	 * Nothing is asked about the kind of characters it is made of.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param String $passwdText The password, as given.
+	 * @return String The rule that is broken, empty when the password is accepted.
+	 */
+	protected function checkPass( String $userString, String $passwdText ): String {
+		// Characters are counted when the password is UTF-8, bytes otherwise
+		$chrNmbr = preg_match_all('/./su', $passwdText);
+		if( ($chrNmbr ?: strlen($passwdText))<$this->minPassw ){
+			return 'Password too short: '.$this->minPassw.' characters at least';
+		}
+		if( strlen($passwdText)>self::PASSSIZE ){
+			return 'Password too long: '.self::PASSSIZE.' bytes at most';
+		}
+		if( preg_match('/[\x00-\x1F\x7F]/', $passwdText) ){
+			return 'Password holding a control character';
+		}
+		if( strcasecmp($passwdText, $userString)==0 ){
+			return 'Password identical to the user name';
+		}
+		return '';
 	}
 
 	/**
@@ -367,7 +406,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('userName', 'passHash', 'userStat', 'tokenKey', 'twoFaKey', 'failNmbr', 'failDate', 'lastSeen') as $fldNme ){
+		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'actvCode', 'tokenKey', 'twoFaKey', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

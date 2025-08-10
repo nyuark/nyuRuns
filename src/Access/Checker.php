@@ -15,7 +15,7 @@ use nyu\Tools\Logger;
 class Checker{
 
 	// Roles an identity can carry, from the least to the most privileged.
-	// Reserved for the coming access rules : nothing is enforced on them yet
+	// A route or an action asks for one as a minimum (see roleMeets)
 	const ROLELIST = Array('member', 'system', 'manage');
 	// Short names of the framework's strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
@@ -57,6 +57,20 @@ class Checker{
 	 */
 	public static function sessClass( String $shortNamed ): ?String {
 		return isset(self::SESSLIST[$shortNamed]) ? '\\nyu\\Access\\Sess\\'.self::SESSLIST[$shortNamed] : self::plugClass($shortNamed, 'sessby', 'Sess');
+	}
+
+	/**
+	 * Tells whether a role is enough where another one is asked for: the
+	 * roles are ordered (see ROLELIST), and each one includes those before it.
+	 *
+	 * @param ?String $loggedRole Role held, null for none.
+	 * @param String  $neededRole Role asked for.
+	 * @return Bool True when the role held is the one asked for or a higher one; false for an unknown role.
+	 */
+	public static function roleMeets( ?String $loggedRole, String $neededRole ): Bool {
+		$heldLvl = array_search($loggedRole, self::ROLELIST, true);
+		$needLvl = array_search($neededRole, self::ROLELIST, true);
+		return $heldLvl!==false && $needLvl!==false && $heldLvl>=$needLvl;
 	}
 
 	/**
@@ -115,12 +129,25 @@ class Checker{
 	 * address that presented too many wrong credentials is answered 429
 	 * until its hold ends (see Limiter). A request denied an HTML page is
 	 * given the sign-in route to go to, when the 'auths' block names one
-	 * (see signinUrl).
+	 * (see signinUrl). A logged user who does not hold the role its route
+	 * asks for (the 'rolert' key, see routeRole) is answered 403.
 	 *
 	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, 'retryAft' (seconds to wait) with a 429 status, and 'denyGoal' (address to send the visitor to) with the 401 of a page.
 	 */
 	function verifyAxs(): Registry {
+		// The roles asked for are read first : a block that cannot be applied refuses every request
+		$roleFlw = $this->rolesFlaw();
+		if( $roleFlw!='' ){
+			$this->logAttmpt( false, '', 'Access misconfigured: '.$roleFlw );
+			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+		}
+		$needRle = $this->routeRole();
 		if( empty($this->axsSetup) || ($this->axsSetup['needed'] ?? true) === false || $this->openRoute() ){
+			// A route cannot be open and ask for a role : only its own OPTIONS answer goes through
+			if( $needRle!==null && $this->routeReg->readValue('statCode')!=204 ){
+				$this->logAttmpt( false, '', 'Access misconfigured: the route is both open and asking for a role' );
+				return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+			}
 			return new Registry( Array('logged'=>false, 'user'=>'', 'role'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		}
 
@@ -188,6 +215,11 @@ class Checker{
 		if( !in_array($usrRole, self::ROLELIST, true) ){
 			$usrRole = self::ROLELIST[0];
 		}
+		// A route asking for a role refuses a user who does not hold it : nothing is counted against the address
+		if( $needRle!==null && !self::roleMeets($usrRole, $needRle) ){
+			self::logDenial( strval($idntArr['user'] ?? ''), $usrRole, $needRle, $usrAddr, $this->routeGoal() );
+			return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>403, 'statMssg'=>'Forbidden') );
+		}
 		$this->logAttmpt( true, strval($idntArr['user'] ?? ''), '', $usrRole );
 		return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>200, 'statMssg'=>'') );
 	}
@@ -235,6 +267,65 @@ class Checker{
 	}
 
 	/**
+	 * Checks the 'rolert' key of the 'auths' block: a list of routes, each
+	 * with a role of ROLELIST, in a block that requires access.
+	 *
+	 * @return String What is wrong with it, empty when it can be applied.
+	 */
+	protected function rolesFlaw(): String {
+		$roleMap = $this->axsSetup['rolert'] ?? null;
+		if( $roleMap===null ){
+			return '';
+		}
+		if( !is_array($roleMap) ){
+			return 'the roles of the routes are not a list of routes';
+		}
+		if( !empty($roleMap) && ($this->axsSetup['needed'] ?? true)===false ){
+			return 'roles are asked for while access is not required';
+		}
+		foreach( $roleMap as $rteKey=>$rteRle ){
+			if( !is_string($rteRle) || !in_array($rteRle, self::ROLELIST, true) ){
+				return 'unknown role for the route '.json_encode(strval($rteKey));
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Gives the role the resolved route asks for, from the 'rolert' key of
+	 * the 'auths' block: its routes are written as those of 'openrt' (see
+	 * openRoute), each with the least role it is served to. When several
+	 * entries name the route, the highest role is asked for. A request
+	 * naming no action is taken as any action of its application.
+	 *
+	 * @return ?String The role, or null when the route asks for none.
+	 */
+	protected function routeRole(): ?String {
+		$roleMap = $this->axsSetup['rolert'] ?? Array();
+		if( $this->routeReg===null || !is_array($roleMap) ){
+			return null;
+		}
+		// The application is named as the Controller reads it : without its spaces
+		$appName = strtolower( str_replace(' ', '', strval($this->routeReg->readValue('app'))) );
+		$actName = strtolower( strval($this->routeReg->readValue('action')) );
+		$rtePath = strval($this->routeReg->readValue('rtePath'));
+		$needRle = null;
+		foreach( $roleMap as $rteKey=>$rteRle ){
+			$rteKey = strval($rteKey);
+			if( substr($rteKey, 0, 1)=='/' ){
+				$isNamed = ($rtePath!='' && trim($rteKey, '/')===$rtePath);
+			}else{
+				$rteKey = strtolower( trim($rteKey, '/') );
+				$isNamed = ($appName!='' && ( $rteKey==$appName.'/'.$actName || $rteKey==$appName.'/*' || ($actName=='' && strpos($rteKey, $appName.'/')===0) ));
+			}
+			if( $isNamed && ($needRle===null || !self::roleMeets($needRle, strval($rteRle))) ){
+				$needRle = strval($rteRle);
+			}
+		}
+		return $needRle;
+	}
+
+	/**
 	 * Gives the address a denied request is sent to: the sign-in route the
 	 * 'signin' key of the 'auths' block names, when the request asked for
 	 * a declared HTML page. The page asked for goes with it, as 'back',
@@ -267,6 +358,36 @@ class Checker{
 	}
 
 	/**
+	 * Tells what the request asked for, for the log: the action, as
+	 * "app/action", or the path of the declared route.
+	 *
+	 * @return String The action or the path.
+	 */
+	protected function routeGoal(): String {
+		if( $this->routeReg===null ){
+			return '/';
+		}
+		$appName = strval($this->routeReg->readValue('app'));
+		return ($appName!='') ? $appName.'/'.strval($this->routeReg->readValue('action')) : '/'.strval($this->routeReg->readValue('rtePath'));
+	}
+
+	/**
+	 * Logs, as a warning on the 'access' channel, a user refused for its
+	 * role: who, with which role, from where, what was asked for and the
+	 * role it needed.
+	 *
+	 * @param String  $loggedUser The identified username, empty for nobody.
+	 * @param ?String $loggedRole Its role, null for none.
+	 * @param String  $neededRole The role asked for.
+	 * @param String  $clientAddr Address of the client, empty when unknown.
+	 * @param String  $askedRoute What was asked for: an action or a path.
+	 */
+	public static function logDenial( String $loggedUser, ?String $loggedRole, String $neededRole, String $clientAddr, String $askedRoute ): Void {
+		$fromTxt = ($clientAddr!='') ? ' from '.$clientAddr : '';
+		Logger::getLogger('access')->warning( 'Access refused for user '.json_encode($loggedUser).' ('.($loggedRole ?? 'no role').')'.$fromTxt.' to '.$askedRoute.': role '.$neededRole.' needed' );
+	}
+
+	/**
 	 * Logs an access grant/denial on the 'access' channel.
 	 *
 	 * The address of the client is told with it, when the request has one.
@@ -283,9 +404,7 @@ class Checker{
 		$usrAddr = $this->clientAdr();
 		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
 		if( $wasGranted && in_array($loggedRole, array_slice(self::ROLELIST, 1), true) ){
-			$appName = ($this->routeReg!==null) ? strval($this->routeReg->readValue('app')) : '';
-			$goalTxt = ($appName!='') ? $appName.'/'.strval($this->routeReg->readValue('action')) : '/'.(($this->routeReg!==null) ? strval($this->routeReg->readValue('rtePath')) : '');
-			$logInst->notice( 'Privileged access granted for user '.json_encode($loggedUser).' ('.$loggedRole.')'.$fromTxt.' to '.$goalTxt );
+			$logInst->notice( 'Privileged access granted for user '.json_encode($loggedUser).' ('.$loggedRole.')'.$fromTxt.' to '.$this->routeGoal() );
 		}elseif( $wasGranted ){
 			$logInst->info( 'Access granted for user "'.$loggedUser.'"'.$fromTxt );
 		}else{

@@ -171,7 +171,7 @@ $natConf = is_file(TOP_DIR.DS.'conf'.DS.'access.json') ? $axsConf->getRowVal('AC
 if( !is_array($natConf) ){
 	skipCheck('conf/access.json', 'the file, or its native block, is not there');
 }else{
-	checkSame('conf/access.json: the native block names its database first', array_keys($natConf), Array('basnme', 'tblnme', 'idletm', 'maxtry', 'holdtm'));
+	checkSame('conf/access.json: the native block names its database first', array_keys($natConf), Array('basnme', 'tblnme', 'idletm', 'maxtry', 'holdtm', 'minlen'));
 	checkTrue('conf/access.json: that database is configured', runSafely(function() use ($axsConf, $natConf){
 		$GLOBALS['nyuConfig'] = $axsConf;
 		return DBCon::baseSetup(strval($natConf['basnme'] ?? ''))['type']!='';

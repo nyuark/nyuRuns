@@ -7,6 +7,7 @@ use nyu\Tools\Request;
 use nyu\Tools\Router;
 use nyu\Tools\Logger;
 use nyu\Output\Response;
+use nyu\Access\Checker;
 
 class Actionset {
 	
@@ -22,6 +23,8 @@ class Actionset {
 	protected 	$routrObj;
 	// Action run when the request names none; when empty, the first action declared is used
 	protected 	$dfltActn = '';
+	// Action being run, as the request named it
+	protected 	$actnName = '';
 	
 	/**
 	 * Stores the input registry and model stack, then runs the requested
@@ -56,6 +59,7 @@ class Actionset {
 	 * @param String $actnOption Optional extra parameter to pass to the action.
 	 */
 	function runAction( String $actionName, ?String $actnOption=null ): Void {
+		$this->actnName = $actionName;
 		if( $this->ownAction($actionName) ){
 			try{
 				if($actnOption!=null){
@@ -228,6 +232,54 @@ class Actionset {
 	protected function appLogger(): Logger {
 		$nameLst = explode('\\', static::class);
 		return Logger::getLogger( strtolower(strval($nameLst[count($nameLst)-2] ?? 'runner')) );
+	}
+
+	/**
+	 * Tells whether the request comes from a logged user holding a role,
+	 * or a higher one (see Checker::roleMeets). Nobody logged holds none.
+	 *
+	 * @param String $neededRole The role, one of Checker::ROLELIST.
+	 * @return Bool True when the user holds the role or a higher one.
+	 *
+	 * @throws \RuntimeException When the role is not one of Checker::ROLELIST.
+	 */
+	protected function holdsRole( String $neededRole ): Bool {
+		if( !in_array($neededRole, Checker::ROLELIST, true) ){
+			throw new \RuntimeException('Unknown role "'.$neededRole.'"');
+		}
+		if( $this->axessReg===null || $this->axessReg->readValue('logged')!==true ){
+			return false;
+		}
+		$usrRole = $this->axessReg->readValue('role');
+		return Checker::roleMeets( is_string($usrRole) ? $usrRole : null, $neededRole );
+	}
+
+	/**
+	 * Ends the running action at once with a 403 unless the request comes
+	 * from a logged user holding a role, or a higher one (see holdsRole).
+	 * The refusal is logged on the 'access' channel, as the one of a route
+	 * asking for a role (see Checker::logDenial).
+	 *
+	 * @param String $neededRole The role, one of Checker::ROLELIST.
+	 *
+	 * @throws \RuntimeException When the role is not one of Checker::ROLELIST.
+	 */
+	protected function needsRole( String $neededRole ): Void {
+		if( $this->holdsRole($neededRole) ){
+			return;
+		}
+		$isLoggd = ($this->axessReg!==null && $this->axessReg->readValue('logged')===true);
+		$usrRole = $isLoggd ? $this->axessReg->readValue('role') : null;
+		$clntReg = ($this->httpRqst!==null) ? $this->httpRqst->getClient() : null;
+		$nameLst = explode('\\', static::class);
+		Checker::logDenial(
+			$isLoggd ? strval($this->axessReg->readValue('user')) : '',
+			is_string($usrRole) ? $usrRole : null,
+			$neededRole,
+			($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '',
+			strtolower(strval($nameLst[count($nameLst)-2] ?? '')).'/'.$this->actnName
+		);
+		$this->endAction(403, 'Forbidden');
 	}
 
 	/**

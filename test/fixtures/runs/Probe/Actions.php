@@ -48,6 +48,18 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Answers with the roles the requester holds, after asking for the
+	 * role named by its parameter when it is given one.
+	 */
+	public function roles( String $givenValue='' ): Void {
+		if( $givenValue!='' ){
+			$this->needsRole($givenValue);
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('member'=>$this->holdsRole('member'), 'system'=>$this->holdsRole('system'), 'manage'=>$this->holdsRole('manage'));
+	}
+
+	/**
 	 * Answers with the users of the native userbase who are online.
 	 */
 	public function online(): Void {

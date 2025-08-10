@@ -1,9 +1,5 @@
 {
 	"client/edit/$id" : {
-		"auth": {
-			"type": "regkey",
-			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
-		},
 		"target": {
 			"app": "client",
 			"act": "edit"
@@ -30,10 +26,6 @@
 		}
 	},
 	"profiles/$id" : {
-		"auth": {
-			"type": "regkey",
-			"value": "iuUZt678uzt7ZHGftzhGT65fgvc"
-		},
 		"target": {
 			"app": "client",
 			"act": "edit"
