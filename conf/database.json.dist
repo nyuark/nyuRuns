@@ -1,0 +1,11 @@
+{
+	"nyuRuns": {
+		"type": "mysql",
+		"host": "localhost",
+		"port": "",
+		"base": "nyuRuns",
+		"user": "nyuruns",
+		"pass": "env:NYU_DB_PASS",
+		"char": "utf8"
+	}
+}

@@ -1,0 +1,300 @@
+<?php
+
+namespace nyu\Shell;
+
+use nyu\Access\Checker;
+use nyu\Access\Auth\UserList;
+use nyu\Data\DBCon;
+use nyu\Setup\Loader;
+use nyu\Setup\Preset;
+use nyu\Tools\Registry;
+
+/**
+ * Checks that a project can serve requests, and that nothing unsafe is
+ * left on: the server, the folders written to, the presets, the access
+ * config and its secrets, the databases, the store of the users. Each
+ * check gives a row: what was checked, its state ('fine', 'warn' for
+ * what deserves a look, 'fail' for what keeps requests from being
+ * served or exposes them) and what was found.
+ */
+class HealthChk{
+
+	// Extension each type of database needs
+	const BASEEXTS = Array('mysql'=>'pdo_mysql', 'pgsql'=>'pdo_pgsql', 'sqlte'=>'pdo_sqlite', 'mongo'=>'mongodb');
+	// Extensions the framework works without, each giving it something more
+	const MOREEXTS = Array('openssl', 'mbstring', 'zip', 'gd', 'exif', 'imagick');
+	// Shortest secret signing the tokens, in characters
+	const SECRSIZE = 32;
+
+	protected $rowsList = Array();
+
+	/**
+	 * Runs every check.
+	 *
+	 * @return Array The rows: what was checked, its state and what was found.
+	 */
+	public function runChecks(): Array {
+		$this->chkServer();
+		$this->chkFoldrs();
+		$this->chkPreset();
+		$this->chkAccess();
+		$this->chkDbases();
+		$this->chkStores();
+		$this->chkUnsafe();
+		return $this->rowsList;
+	}
+
+	/**
+	 * Gives the rows of the checks run so far.
+	 *
+	 * @return Array The rows: what was checked, its state and what was found.
+	 */
+	public function rowsFound(): Array {
+		return $this->rowsList;
+	}
+
+	/**
+	 * Tells whether a check failed.
+	 *
+	 * @return Bool True when at least one row is a 'fail'.
+	 */
+	public function hasFailed(): Bool {
+		return in_array('fail', array_column($this->rowsList, 1), true);
+	}
+
+	/**
+	 * Checks the server: the version of PHP, and its extensions.
+	 */
+	public function chkServer(): Void {
+		$this->addResult( 'php', version_compare(PHP_VERSION, '8.0.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.0 at least is needed' );
+		$this->addResult( 'extension json', extension_loaded('json') ? 'fine' : 'fail', extension_loaded('json') ? 'loaded' : 'not loaded: nothing can be read or answered' );
+		$lackLst = array_values( array_filter(self::MOREEXTS, function( String $extnsnName ): Bool { return !extension_loaded($extnsnName); }) );
+		$this->addResult( 'extensions', empty($lackLst) ? 'fine' : 'warn', empty($lackLst) ? 'the optional ones are loaded' : 'optional, not loaded: '.implode(', ', $lackLst) );
+	}
+
+	/**
+	 * Checks the folders the framework writes to: they are created when
+	 * missing, and must be writable.
+	 */
+	public function chkFoldrs(): Void {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
+		$lmtName = trim( strval(is_array($lmtConf) ? ($lmtConf['folder'] ?? '') : ''), '/\\ ' );
+		$fldList = Array(
+			strval( (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->logConfig()['path'] ),
+			TOP_DIR.DS.( $lmtName!='' ? str_replace(Array('/', '\\'), DS, $lmtName) : 'temp'.DS.'limits' ),
+			TOP_DIR.DS.'temp'.DS.'cache',
+			TOP_DIR.DS.'temp'.DS.'backup'
+		);
+		foreach( array_unique($fldList) as $fldPth ){
+			if( !is_dir($fldPth) ){
+				@mkdir($fldPth, 0770, true);
+			}
+			$isReady = is_dir($fldPth) && is_writable($fldPth);
+			$this->addResult( 'folder '.str_replace(DS, '/', ltrim(substr($fldPth, strlen(TOP_DIR)), '/\\')), $isReady ? 'fine' : 'fail', $isReady ? 'writable' : 'missing or not writable' );
+		}
+	}
+
+	/**
+	 * Checks every preset: it loads, the carrier and the check it names
+	 * exist with their blocks, and the roles it asks for can be applied.
+	 */
+	public function chkPreset(): Void {
+		$rpsList = (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps');
+		if( empty($rpsList) ){
+			$this->addResult('presets', 'fail', 'conf/presets holds no preset');
+		}
+		foreach( $rpsList as $rpsFle ){
+			$prstNme = basename(strval($rpsFle), '.rps');
+			try{
+				$axsConf = (new Preset($prstNme))->makeSetup()->setAccess();
+			}catch( \Throwable $e ){
+				$this->addResult('preset '.$prstNme, 'fail', $e->getMessage());
+				continue;
+			}
+			$flawTxt = '';
+			if( !empty($axsConf) && ($axsConf['needed'] ?? true)!==false ){
+				$flawTxt = $this->pairFlaws($axsConf);
+			}
+			if( $flawTxt=='' ){
+				$flawTxt = (new Checker($axsConf, ActCaller::makeReqst('GET', '/')[0], new Registry(Array())))->rolesFlaw();
+			}
+			$this->addResult( 'preset '.$prstNme, ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? 'loads' : $flawTxt );
+		}
+	}
+
+	/**
+	 * Checks the access config: the login, the secrets signing the
+	 * tokens, the API keys, and what is set as unsecure.
+	 */
+	public function chkAccess(): Void {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$axsVals = ($nyuConf!==null) ? $nyuConf->readValue('access') : null;
+		if( !is_array($axsVals) || empty($axsVals) ){
+			$this->addResult('access', 'fail', 'conf/access.json is missing or empty: "deploy files" creates it from its example');
+			return;
+		}
+		$lgnConf = $this->accessCnf('login');
+		if( empty($lgnConf) ){
+			$this->addResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
+		}else{
+			$flawTxt = $this->pairFlaws($lgnConf + Array('authby'=>'htpass', 'sessby'=>'jtoken', 'authcf'=>'dfpass', 'sesscf'=>'dftokn'));
+			$this->addResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authby'] ?? 'htpass').' through '.strval($lgnConf['sessby'] ?? 'jtoken') : $flawTxt );
+		}
+		foreach( $axsVals as $blkKey => $blkVal ){
+			if( !is_array($blkVal) ){
+				continue;
+			}
+			$blkName = strtolower(strval($blkKey));
+			if( array_key_exists('secret', $blkVal) ){
+				$scrtLen = strlen(strval($blkVal['secret']));
+				$this->addResult( 'secret '.$blkName, ($scrtLen>=self::SECRSIZE) ? 'fine' : 'fail', ($scrtLen>=self::SECRSIZE) ? 'set' : ( $scrtLen==0 ? 'empty' : 'too short' ).': '.self::SECRSIZE.' characters at least; "config secrt jtoken" makes one' );
+			}
+			if( isset($blkVal['keylst']) && is_array($blkVal['keylst']) && in_array('', array_map('strval', $blkVal['keylst']), true) ){
+				$this->addResult('keys '.$blkName, 'warn', 'an API key of the block is empty; "config secrt apikey" makes one');
+			}
+			if( ($blkVal['unsecure'] ?? false)===true ){
+				$this->addResult('unsecure '.$blkName, 'warn', 'weak password hashes are accepted by this block');
+			}
+		}
+	}
+
+	/**
+	 * Checks every configured database: its extension is loaded, and it
+	 * answers.
+	 */
+	public function chkDbases(): Void {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$allBase = ($nyuConf!==null) ? $nyuConf->readValue('database') : null;
+		if( !is_array($allBase) || empty($allBase) ){
+			$needsDb = strval($this->accessCnf('login')['authby'] ?? '')=='native';
+			$this->addResult( 'databases', $needsDb ? 'fail' : 'fine', $needsDb ? 'none is configured, and the login uses the native userbase' : 'none is configured' );
+			return;
+		}
+		$allBase = array_change_key_case($allBase, CASE_LOWER);
+		foreach( (array_key_exists('type', $allBase) ? Array('') : array_keys($allBase)) as $basNme ){
+			$basName = strval($basNme);
+			$rowName = 'database'.( $basName!='' ? ' '.$basName : '' );
+			try{
+				$baseTyp = strtolower( strval(DBCon::baseSetup($basName)['type']) );
+				$extName = self::BASEEXTS[$baseTyp] ?? '';
+				if( $extName!='' && !extension_loaded($extName) ){
+					$this->addResult($rowName, 'fail', 'the extension '.$extName.' is not loaded');
+					continue;
+				}
+				$dbHandl = DBCon::linkNamed($basName)->getConnex();
+				if( $dbHandl===null ){
+					$this->addResult($rowName, 'fine', 'configured ('.$baseTyp.'); not an SQL database, not asked');
+					continue;
+				}
+				$isReady = $dbHandl->sendQuery('SELECT 1;');
+				$this->addResult( $rowName, $isReady ? 'fine' : 'fail', $isReady ? 'answers ('.$baseTyp.')' : 'does not answer: '.strval($dbHandl->lastError()) );
+			}catch( \Throwable $e ){
+				$this->addResult($rowName, 'fail', 'does not answer: '.$e->getMessage());
+			}
+		}
+	}
+
+	/**
+	 * Checks the store of the users the login names: the users table of
+	 * the native userbase, the users file, or the htpasswd file.
+	 */
+	public function chkStores(): Void {
+		$lgnConf = $this->accessCnf('login');
+		$authNme = strval($lgnConf['authby'] ?? '');
+		$blkConf = $this->accessCnf( strval($lgnConf['authcf'] ?? '') );
+		if( $authNme=='native' ){
+			try{
+				$dbHandl = DBCon::linkNamed( strval($blkConf['basnme'] ?? '') )->getConnex();
+				$tblName = strval($blkConf['tblnme'] ?? 'users');
+				$hasTble = ($dbHandl!==null) && $dbHandl->tableInfo($tblName)!==false;
+				$this->addResult( 'users', $hasTble ? 'fine' : 'fail', $hasTble ? 'the table '.$tblName.' is there' : 'the table '.$tblName.' is missing: "deploy users" creates it' );
+			}catch( \Throwable $e ){
+				$this->addResult('users', 'fail', 'the userbase cannot be read: '.$e->getMessage());
+			}
+		}elseif( $authNme=='usrlst' ){
+			$chkObjc = new UserList($blkConf);
+			$chkObjc->userIdent('-');
+			$isReady = ($chkObjc->lastError()!='Credential store unavailable');
+			$this->addResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the users file is read' : 'the users file is missing or cannot be used: "deploy users" creates it' );
+		}elseif( $authNme=='htpass' ){
+			$htpName = trim( strval($blkConf['htpasswd'] ?? ''), '/\\ ' );
+			$isReady = ($htpName!='') && is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $htpName));
+			$this->addResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "config secrt htpass <user>" writes it' );
+		}
+	}
+
+	/**
+	 * Checks what must not be left on where real users come: errors
+	 * shown, proxies trusted from anywhere, secrets readable by others.
+	 */
+	public function chkUnsafe(): Void {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$sysConf = ($nyuConf!==null) ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		$envName = strtoupper( strval($sysConf['ENV_NAME'] ?? '') );
+		$showErr = in_array( strtoupper(strval($sysConf['ERR_SHOW'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true );
+		$errStat = !$showErr ? 'fine' : ( $envName=='PROD' ? 'fail' : ( $envName=='PREV' ? 'warn' : 'fine' ) );
+		$this->addResult( 'errors', $errStat, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).( $errStat!='fine' ? ': the details of an error are shown to the clients' : '' ) );
+		if( preg_match('#(^|[\s,])(0\.0\.0\.0|::)/0#', strval($sysConf['PRX_LIST'] ?? '')) ){
+			$this->addResult('proxies', 'fail', 'PRX_LIST trusts every address: any client can then give itself the address it wants');
+		}
+		$envPath = TOP_DIR.DS.'.env';
+		if( DIRECTORY_SEPARATOR=='/' && is_file($envPath) && (fileperms($envPath) & 0077)!=0 ){
+			$this->addResult('.env', 'warn', 'the file of the secrets can be read by other users of the system: chmod 600 .env');
+		}
+		// The limiter is checked for what it would do, not for what it holds
+		$lmtConf = $this->accessCnf('limits');
+		if( !empty($lmtConf) && intval($lmtConf['maxtry'] ?? 10)<1 ){
+			$this->addResult('limits', 'warn', 'the limit by address is off (maxtry 0): wrong credentials can be tried without end');
+		}
+	}
+
+	/**
+	 * Tells what is wrong with the carrier and the check an 'auths' or a
+	 * 'login' block names: one that does not exist, or a block of
+	 * settings the access config does not hold.
+	 *
+	 * @param Array $accessConf The block, with its 'sessby', 'sesscf', 'authby' and 'authcf' keys.
+	 * @return String What is wrong, empty when nothing is.
+	 */
+	protected function pairFlaws( Array $accessConf ): String {
+		$sessNme = strval($accessConf['sessby'] ?? '');
+		if( Checker::sessClass($sessNme)===null ){
+			return 'unknown session carrier "'.$sessNme.'"';
+		}
+		$authNme = $accessConf['authby'] ?? null;
+		if( $authNme!==null && Checker::authClass(strval($authNme))===null ){
+			return 'unknown credential check "'.strval($authNme).'"';
+		}
+		foreach( Array('sesscf', 'authcf') as $cnfKey ){
+			$blkName = strval($accessConf[$cnfKey] ?? '');
+			if( $blkName!='' && empty($this->accessCnf($blkName)) ){
+				return 'conf/access.json has no "'.$blkName.'" block, named by '.$cnfKey;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Reads a block of the ACCESS config.
+	 *
+	 * @param String $blockNamed Name of the block.
+	 * @return Array Its values, empty when there is no such block.
+	 */
+	protected function accessCnf( String $blockNamed ): Array {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$blkConf = ($nyuConf!==null && $blockNamed!='') ? $nyuConf->getRowVal('ACCESS', strtoupper($blockNamed)) : null;
+		return is_array($blkConf) ? $blkConf : Array();
+	}
+
+	/**
+	 * Records the result of a check.
+	 *
+	 * @param String $checkLabel What was checked.
+	 * @param String $checkState 'fine', 'warn' or 'fail'.
+	 * @param String $detailText What was found.
+	 */
+	protected function addResult( String $checkLabel, String $checkState, String $detailText ): Void {
+		$this->rowsList[] = Array($checkLabel, $checkState, $detailText);
+	}
+}

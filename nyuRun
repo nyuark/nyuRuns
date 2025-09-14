@@ -1,0 +1,30 @@
+#!/usr/bin/env php
+<?php
+
+// Command line of nyuRuns:
+//
+//   php nyuRun                       lists the commands
+//   php nyuRun <command>             lists what a command does
+//   php nyuRun <command> <sub> ...   runs it
+//
+// It only runs from the command line, and lies outside the folder the web
+// server exposes.
+
+if( PHP_SAPI!=='cli' ){
+	exit(1);
+}
+
+define('DS', DIRECTORY_SEPARATOR);
+define('TOP_DIR', __DIR__);
+define('WEB_DIR', TOP_DIR.DS.'www');
+define('RUN_DIR', TOP_DIR.DS.'runs');
+
+if( !is_file(TOP_DIR.DS.'vendor'.DS.'autoload.php') ){
+	fwrite(STDERR, 'The packages of vendor are missing: run "composer install" first.'.PHP_EOL);
+	exit(1);
+}
+require TOP_DIR.DS.'vendor'.DS.'autoload.php';
+
+$nyuShell = new \nyu\Shell\Console( array_slice($argv, 1) );
+$nyuShell->plugError();
+exit( $nyuShell->runCommnd() );

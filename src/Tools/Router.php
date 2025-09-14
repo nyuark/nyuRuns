@@ -180,6 +180,50 @@ class Router{
 	}
 
 	/**
+	 * Lists the declared routes, for what they answer with: one entry for
+	 * each target of a route, with the methods it serves.
+	 *
+	 * @return Array The entries, each with the path under 'rtePath', its 'methods', its 'rteKind' (action, redrct, static or htpage), what it answers with under 'rteGoal' and, for an action, its 'app' and 'action'.
+	 */
+	public function allRoutes(): Array {
+		$rowList = Array();
+		foreach( $this->loadFiles() as $rteKey => $rteSet ){
+			$tgtVals = is_array($rteSet) ? ($rteSet['target'] ?? null) : null;
+			if( !is_array($tgtVals) ){
+				continue;
+			}
+			$alwList = array_filter( array_map('trim', explode(',', strtoupper(strval($rteSet['allows'] ?? '')))) );
+			if( $this->targtKind($tgtVals)!==null ){
+				$mthList = array_diff($alwList, Array('HEAD', 'OPTIONS'));
+				$tgtVals = array_fill_keys( empty($mthList) ? Array('GET') : $mthList, $tgtVals );
+			}else{
+				$tgtVals = array_filter( array_change_key_case($tgtVals, CASE_UPPER), 'is_array' );
+			}
+			// The methods answered by the same target are told together
+			$goalLst = Array();
+			foreach( $tgtVals as $mthNme => $mthTgt ){
+				$rteKind = $this->targtKind($mthTgt);
+				if( $rteKind===null ){
+					continue;
+				}
+				$goalTxt = strval($mthTgt['url'] ?? $mthTgt['pge'] ?? $mthTgt['fle'] ?? ( isset($mthTgt['dir']) ? rtrim(strval($mthTgt['dir']), '/').'/*' : '' ));
+				if( $rteKind=='action' ){
+					$goalTxt = strval($mthTgt['app']).'/'.strval($mthTgt['act'] ?? '');
+				}
+				$goalKey = $rteKind.' '.$goalTxt;
+				if( !isset($goalLst[$goalKey]) ){
+					$goalLst[$goalKey] = Array('rtePath'=>trim(strval($rteKey), '/'), 'methods'=>Array(), 'rteKind'=>$rteKind, 'rteGoal'=>$goalTxt, 'app'=>($rteKind=='action') ? strval($mthTgt['app']) : null, 'action'=>($rteKind=='action') ? strval($mthTgt['act'] ?? '') : null);
+				}
+				$goalLst[$goalKey]['methods'][] = strval($mthNme);
+			}
+			foreach( $goalLst as $goalRw ){
+				$rowList[] = $goalRw;
+			}
+		}
+		return $rowList;
+	}
+
+	/**
 	 * Compares a path with a route pattern, segment by segment: a segment
 	 * written $name accepts any non-empty value and captures it, any other
 	 * segment must be identical. A final * takes the rest of the path,

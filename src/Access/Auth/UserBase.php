@@ -283,6 +283,45 @@ class UserBase extends Native{
 	}
 
 	/**
+	 * Takes the personal API token of a user away: the token it holds
+	 * is no longer accepted, until it is given a new one (see makeToken).
+	 *
+	 * @param String $userString Login name of the user.
+	 * @return Bool Whether the user has no token any more.
+	 */
+	public function dropToken( String $userString ): Bool {
+		$this->resetLast();
+		if( $this->knownUser($userString)===null ){
+			return false;
+		}
+		if( $this->sendWrite('UPDATE {usrTable} SET {tokenKey}=NULL WHERE {userName}=?;', Array($userString))<0 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		Logger::getLogger('access')->notice( 'Personal token of user '.json_encode($userString).' removed'.Logger::actorText() );
+		return true;
+	}
+
+	/**
+	 * Takes the 2FA secret of a user away, for one whose authenticator is
+	 * lost: its password alone logs it in again, until it is given a new
+	 * secret (see makeTwoFa).
+	 *
+	 * @param String $userString Login name of the user.
+	 * @return Bool Whether the user has no 2FA secret any more.
+	 */
+	public function dropTwoFa( String $userString ): Bool {
+		$this->resetLast();
+		if( $this->knownUser($userString)===null ){
+			return false;
+		}
+		if( $this->sendWrite('UPDATE {usrTable} SET {twoFaKey}=NULL WHERE {userName}=?;', Array($userString))<0 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		Logger::getLogger('access')->notice( '2FA secret of user '.json_encode($userString).' removed'.Logger::actorText() );
+		return true;
+	}
+
+	/**
 	 * Lists the users, by name, with what SHOWLIST tells of each.
 	 *
 	 * @param Array $filterList Optional 'userStat' and 'userRole' values the users must have; an empty one is left out.

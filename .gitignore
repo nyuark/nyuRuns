@@ -6,5 +6,6 @@
 # Local credentials: never commit
 /.env
 /conf/access.json
+/conf/database.json
 /conf/.htpasswd
 /conf/users.lst

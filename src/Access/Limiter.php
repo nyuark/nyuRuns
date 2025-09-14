@@ -6,7 +6,9 @@ namespace nyu\Access;
  * Limits the wrong credentials one client address may present: after as
  * many as allowed, the address is refused for the hold time, whatever it
  * presents. The counters are small files, one per address, so the limit
- * works with every credential check, with or without a database.
+ * works with every credential check, with or without a database. Each
+ * counter holds its address, for the held ones to be listed and released
+ * (see listHolds and freeHolds).
  */
 class Limiter{
 
@@ -85,7 +87,7 @@ class Limiter{
 		$failNum = ($cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime) ? 1 : $cntVals['fails']+1;
 		ftruncate($cntFile, 0);
 		rewind($cntFile);
-		fwrite($cntFile, $failNum.' '.$nowTime);
+		fwrite($cntFile, $failNum.' '.$nowTime.' '.$this->maskdAddr($clientAddr));
 		fflush($cntFile);
 		flock($cntFile, LOCK_UN);
 		fclose($cntFile);
@@ -117,13 +119,24 @@ class Limiter{
 	/**
 	 * Gives the key an address is counted under: the address itself for
 	 * IPv4, its /64 network for IPv6, where one client commonly holds the
-	 * whole network. The key is a hash: it names a file, and keeps the
-	 * addresses out of the folder.
+	 * whole network (see maskdAddr). The key is a hash: it names a file.
 	 *
 	 * @param String $clientAddr Address of the client.
 	 * @return String The key, 64 hexadecimal characters; empty when the address is not one.
 	 */
 	protected function keyOfAddr( String $clientAddr ): String {
+		$addrTxt = $this->maskdAddr($clientAddr);
+		return ($addrTxt=='') ? '' : hash('sha256', $addrTxt);
+	}
+
+	/**
+	 * Gives the address a client is counted as: its own for IPv4, the
+	 * first address of its /64 network for IPv6.
+	 *
+	 * @param String $clientAddr Address of the client.
+	 * @return String The address counted; empty when the address is not one.
+	 */
+	protected function maskdAddr( String $clientAddr ): String {
 		if( filter_var($clientAddr, FILTER_VALIDATE_IP)===false ){
 			return '';
 		}
@@ -131,7 +144,49 @@ class Limiter{
 		if( strlen($addrBin)==16 ){
 			$addrBin = substr($addrBin, 0, 8).str_repeat("\x00", 8);
 		}
-		return hash('sha256', strval(inet_ntop($addrBin)));
+		return strval(inet_ntop($addrBin));
+	}
+
+	/**
+	 * Lists the addresses that have a counter: those held, and those
+	 * still within the time their failures add up.
+	 *
+	 * @param ?Int $unixMoment Unix time to check at; now when not given.
+	 * @return Array One entry per counter in use, with the address under 'addrs' (empty when the counter does not tell it), the failures under 'fails', the time of the last one under 'stamp' and the end of the hold under 'until' (0 when the address is not held).
+	 */
+	public function listHolds( ?Int $unixMoment = null ): Array {
+		$nowTime = $unixMoment ?? time();
+		$heldLst = Array();
+		foreach( (array)glob($this->cntFoldr.DS.'*.cnt') as $cntFle ){
+			$cntVals = $this->readCount( strval(@file_get_contents(strval($cntFle))) );
+			if( $cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime ){
+				continue;
+			}
+			$cntVals['until'] = ($this->maxTries>0 && $cntVals['fails']>=$this->maxTries) ? $cntVals['stamp']+$this->holdSecs : 0;
+			$heldLst[] = $cntVals;
+		}
+		return $heldLst;
+	}
+
+	/**
+	 * Releases an address, or all of them: their counters are removed, so
+	 * they are no longer held and their failures are forgotten.
+	 *
+	 * @param ?String $clientAddr Address to release; null for every address.
+	 * @return Int The number of counters removed.
+	 */
+	public function freeHolds( ?String $clientAddr = null ): Int {
+		if( $clientAddr!==null ){
+			$cntPath = $this->pathOfKey( $this->keyOfAddr($clientAddr) );
+			return ( $cntPath!='' && is_file($cntPath) && @unlink($cntPath) ) ? 1 : 0;
+		}
+		$dropNum = 0;
+		foreach( (array)glob($this->cntFoldr.DS.'*.cnt') as $cntFle ){
+			if( @unlink(strval($cntFle)) ){
+				$dropNum++;
+			}
+		}
+		return $dropNum;
 	}
 
 	/**
@@ -149,14 +204,14 @@ class Limiter{
 	 * the last one.
 	 *
 	 * @param String $counterTxt Content of the counter.
-	 * @return ?Array The count under 'fails' and the Unix time under 'stamp'; null when the content is not a counter.
+	 * @return ?Array The count under 'fails', the Unix time under 'stamp' and the address under 'addrs' (empty in a counter written before addresses were kept); null when the content is not a counter.
 	 */
 	protected function readCount( String $counterTxt ): ?Array {
 		$cntPart = Array();
-		if( !preg_match('/^(\d{1,9}) (\d{1,12})$/D', trim($counterTxt), $cntPart) ){
+		if( !preg_match('/^(\d{1,9}) (\d{1,12})(?: ([0-9A-Fa-f:.]{2,45}))?$/D', trim($counterTxt), $cntPart) ){
 			return null;
 		}
-		return Array('fails'=>intval($cntPart[1]), 'stamp'=>intval($cntPart[2]));
+		return Array('fails'=>intval($cntPart[1]), 'stamp'=>intval($cntPart[2]), 'addrs'=>strval($cntPart[3] ?? ''));
 	}
 
 	/**

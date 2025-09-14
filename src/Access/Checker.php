@@ -225,6 +225,36 @@ class Checker{
 	}
 
 	/**
+	 * Gives the access of an action called from the command line (see
+	 * Shell\ActCaller): no credential is checked, since whoever runs the
+	 * command line already holds the files of the project, but the role
+	 * the route asks for (the 'rolert' key) applies to the role the call
+	 * is given. The call is traced on the 'access' channel.
+	 *
+	 * @param String $loggedUser Name the call runs under.
+	 * @param String $loggedRole Role the call runs with, one of ROLELIST.
+	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys: 200 when the action may run, 403 when the role is not enough, 500 when the roles of the routes cannot be applied.
+	 */
+	public function shellPass( String $loggedUser, String $loggedRole ): Registry {
+		$roleFlw = $this->rolesFlaw();
+		if( $roleFlw=='' && !in_array($loggedRole, self::ROLELIST, true) ){
+			$roleFlw = 'unknown role '.json_encode($loggedRole).' for a call from the command line';
+		}
+		if( $roleFlw!='' ){
+			Logger::getLogger('access')->warning( 'Access denied: Access misconfigured: '.$roleFlw );
+			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+		}
+		$idntArr = Array('user'=>$loggedUser, 'role'=>$loggedRole, 'id'=>null);
+		$needRle = $this->routeRole();
+		if( $needRle!==null && !self::roleMeets($loggedRole, $needRle) ){
+			self::logDenial( $loggedUser, $loggedRole, $needRle, '', $this->routeGoal() );
+			return new Registry( Array('logged'=>true, 'user'=>$loggedUser, 'role'=>$loggedRole, 'ident'=>$idntArr, 'statCode'=>403, 'statMssg'=>'Forbidden') );
+		}
+		Logger::getLogger('access')->notice( 'Action '.$this->routeGoal().' called from the command line by user '.json_encode($loggedUser).' ('.$loggedRole.')' );
+		return new Registry( Array('logged'=>true, 'user'=>$loggedUser, 'role'=>$loggedRole, 'ident'=>$idntArr, 'statCode'=>200, 'statMssg'=>'') );
+	}
+
+	/**
 	 * Tells whether the resolved route is served without any access check:
 	 * an OPTIONS request the route answers by itself, or what the 'openrt'
 	 * key of the 'auths' block lists: an action, as "app/action" or "app/*"
@@ -235,7 +265,7 @@ class Checker{
 	 *
 	 * @return Bool Whether the route is open to everyone.
 	 */
-	protected function openRoute(): Bool {
+	public function openRoute(): Bool {
 		if( $this->routeReg===null ){
 			return false;
 		}
@@ -272,7 +302,7 @@ class Checker{
 	 *
 	 * @return String What is wrong with it, empty when it can be applied.
 	 */
-	protected function rolesFlaw(): String {
+	public function rolesFlaw(): String {
 		$roleMap = $this->axsSetup['rolert'] ?? null;
 		if( $roleMap===null ){
 			return '';
@@ -300,7 +330,7 @@ class Checker{
 	 *
 	 * @return ?String The role, or null when the route asks for none.
 	 */
-	protected function routeRole(): ?String {
+	public function routeRole(): ?String {
 		$roleMap = $this->axsSetup['rolert'] ?? Array();
 		if( $this->routeReg===null || !is_array($roleMap) ){
 			return null;

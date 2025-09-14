@@ -68,6 +68,17 @@ class Response{
 	}
 
 	/**
+	 * Gives the headers of the response, as they stand: those of the
+	 * preset and those added since. For a reply that is not sent over
+	 * HTTP (see Shell\ActCaller).
+	 *
+	 * @return Array The header values, by name.
+	 */
+	public function readHeads(): Array {
+		return is_array($this->headrArr) ? $this->headrArr : Array();
+	}
+
+	/**
 	 * Encodes the given data as the configured output format (JSON, or
 	 * PHP-serialized as a fallback). Data that cannot be encoded raises a
 	 * warning and an error body is prepared instead.
