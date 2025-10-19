@@ -142,16 +142,16 @@ if( !$isReady ){
 	$jsonTyp = 'application/json; charset=utf-8';
 
 	// Successful responses
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/index');
+	$replyAr = httpQuery('GET', $baseUrl.'/');
 	checkSame('index: status', $replyAr['code'], 200);
 	checkSame('index: content type', $replyAr['type'], $jsonTyp);
 	checkSame('index: titles', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Alpha Night', 'Beta Evening', 'Alpha Matinee', 'Solo Gig', 'Empty Stage'));
 	checkSame('index: the body starts with the JSON itself', substr($replyAr['body'], 0, 1), '[');
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/index?filters[search]=Beta*');
+	$replyAr = httpQuery('GET', $baseUrl.'/?filters[search]=Beta*');
 	checkSame('index with one match', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Beta Evening'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/index?filters[search]=Zzz*');
+	$replyAr = httpQuery('GET', $baseUrl.'/?filters[search]=Zzz*');
 	checkSame('index with no match: 204 is sent as 200 with the empty list', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1');
@@ -175,6 +175,13 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', Array('Content-Type'=>'application/json'), '{"user":"nobody-here","pass":"wrong"}');
 	checkSame('login with a JSON body: 401', $replyAr['code'], 401);
 
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login?pass=wrong', $formHed, 'user=nobody-here');
+	checkSame('login with the password in the query string: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Password sent in the query string","code":400}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login?PASS=wrong', $formHed, 'user=nobody-here&pass=wrong');
+	checkSame('login with the password in both: 400 too', $replyAr['code'], 400);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login?user=nobody-here', $formHed, 'pass=wrong');
+	checkSame('login with the name alone in the query string: checked as usual', $replyAr['code'], 401);
+
 	$replyAr = httpQuery('GET', $baseUrl.'/auth/login?user=nobody-here&pass=wrong');
 	checkSame('login by GET: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
 	checkTrue('login by GET: POST is announced', in_array('Allow: POST', $replyAr['head']));
@@ -184,23 +191,23 @@ if( !$isReady ){
 	checkSame('unknown action: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Unknown Action","code":500}'));
 
 	// Default action : the one the application names in $dfltActn, otherwise its first declared action
-	$replyAr = httpQuery('GET', $baseUrl.'/shows');
-	checkSame('no action: the declared default (index) runs', Array($replyAr['code'], count(json_decode($replyAr['body'], true) ?? Array())), Array(200, 5));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe', Array('X-Test-Runs'=>'1'));
+	checkSame('no action: the first declared action runs', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/');
-	checkSame('no action, trailing slash', Array($replyAr['code'], count(json_decode($replyAr['body'], true) ?? Array())), Array(200, 5));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/', Array('X-Test-Runs'=>'1'));
+	checkSame('no action, trailing slash', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows?filters[search]=Beta*');
-	checkSame('no action, with a query string', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Beta Evening'));
+	checkSame('no action: a default action that a declared route answers with is only reached through it', Array($replyAr['code'], httpQuery('GET', $baseUrl.'/shows/index')['code'], count(json_decode(httpQuery('GET', $baseUrl.'/')['body'], true) ?? Array())), Array(404, 404, 5));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth');
-	checkSame('no action, no declared default: the first action (login) runs', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
+	checkSame('no action: the first action of auth is the login, which its declared route alone reaches', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
 
 	// The login action refuses anything but a POST by itself, whatever the path that leads to it
 	$replyAr = httpQuery('GET', $baseUrl.'/auth?user=nobody-here&pass=wrong');
-	checkSame('login by GET through the default action: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
+	checkSame('login by GET through the default action: not found', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/Auth/login?user=nobody-here&pass=wrong');
-	checkSame('login by GET through another case of the path: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
+	checkSame('login by GET through another case of the path: not found', $replyAr['code'], 404);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here');
 	checkSame('unknown application: 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
@@ -215,9 +222,11 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'header'));
 	checkSame('access denied: 401 with an error body', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Missing X-Api-Key header","code":401}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'hbasic'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass'));
 	checkSame('Basic access denied: 401', $replyAr['code'], 401);
-	checkTrue('Basic access denied: challenge header', in_array('WWW-Authenticate: Basic', $replyAr['head']));
+	checkTrue('Basic access denied: challenge header, with its realm', in_array('WWW-Authenticate: Basic realm="nyuRuns", charset="UTF-8"', $replyAr['head']));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'regkey'));
+	checkSame('Basic access with a check of keys: a mistake of the config, told as a 500', Array($replyAr['code'], $replyAr['body'], count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head']))), Array(500, '{"error":"Access misconfigured","code":500}', 0));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jtoken'));
 	checkSame('JWT access denied: 401', $replyAr['code'], 401);
@@ -262,6 +271,99 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', $corsHed);
 	checkSame('a GET carrying the preflight header is served normally', Array($replyAr['code'], json_decode($replyAr['body'], true)['title'] ?? null), Array(200, 'Alpha Night'));
 	checkSame('the CORS headers go out on ordinary responses too', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
+
+	// A preset listing its origins : only a listed one is named, on a preflight as on a reply
+	$headOf = function( Array $replyArray, String $headerName ): ?String {
+		foreach( $replyArray['head'] as $hedLin ){
+			if( stripos($hedLin, $headerName.':')===0 ){
+				return trim(substr($hedLin, strlen($headerName)+1));
+			}
+		}
+		return null;
+	};
+	$lstHead = Array('X-Test-Origns'=>'https://app.example, https://other.example');
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed + $lstHead);
+	checkSame('origins: a preflight from a listed origin', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin'), $headOf($replyAr, 'Vary'), $headOf($replyAr, 'Access-Control-Allow-Methods')), Array(204, 'https://app.example', 'Origin', 'GET, POST, PUT, PATCH, DELETE, OPTIONS'));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', Array('Origin'=>'https://evil.example') + $corsHed + $lstHead);
+	checkSame('origins: a preflight from another origin names none', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin'), $headOf($replyAr, 'Vary')), Array(204, null, 'Origin'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('Origin'=>'https://other.example') + $lstHead);
+	checkSame('origins: a reply to a listed origin', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(200, 'https://other.example'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('Origin'=>'https://evil.example') + $lstHead);
+	checkSame('origins: a reply to another origin is served, without the header', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(200, null));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('Origin'=>'https://evil.example', 'X-Test-Auth'=>'jtoken') + $lstHead);
+	checkSame('origins: a denial follows the same rule', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(401, null));
+
+	// Every reply tells the client not to guess another type than the one announced
+	$sniffLs = Array();
+	foreach( Array(
+		'data'=>httpQuery('GET', $baseUrl.'/shows/view/1'),
+		'denial'=>httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jtoken')),
+		'unknown'=>httpQuery('GET', $baseUrl.'/nothing/here'),
+		'refused method'=>httpQuery('GET', $baseUrl.'/auth/login'),
+		'preflight'=>httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed)
+	) as $rplNme => $rplVal ){
+		$sniffLs[$rplNme] = Array($rplVal['code'], $headOf($rplVal, 'X-Content-Type-Options'));
+	}
+	checkSame('nosniff: on a reply of data, a denial, an unknown route, a refused method and an empty reply', $sniffLs, Array('data'=>Array(200, 'nosniff'), 'denial'=>Array(401, 'nosniff'), 'unknown'=>Array(404, 'nosniff'), 'refused method'=>Array(405, 'nosniff'), 'preflight'=>Array(204, 'nosniff')));
+	// An application is named with letters and digits only : anything else is no application
+	$codeLst = Array();
+	foreach( Array('/sho.ws/view/1', '/shows-x/view/1', '/shows%20/view/1', '/..%5Csrc/view', '/shows%2Fview/1') as $badPth ){
+		$replyAr = httpQuery('GET', $baseUrl.$badPth);
+		$codeLst[] = Array($replyAr['code'], $replyAr['body']);
+	}
+	checkSame('application name: what is not letters and digits is a 404', $codeLst, array_fill(0, 5, Array(404, '{"error":"Unknown Application","code":404}')));
+
+	// An action a declared route answers with is only reached through that route (conf/routes : auth/login takes POST)
+	$codeLst = Array();
+	foreach( Array('/auth/login/x', '/Auth/login', '/AUTH/LOGIN', '/auth') as $sidePth ){
+		$codeLst[$sidePth] = httpQuery('GET', $baseUrl.$sidePth)['code'];
+	}
+	checkSame('declared route: its action is not reached beside it, whatever the case or what follows', $codeLst, Array('/auth/login/x'=>404, '/Auth/login'=>404, '/AUTH/LOGIN'=>404, '/auth'=>404));
+	$replyAr = httpQuery('POST', $baseUrl.'/Auth/login', $formHed, 'user=nobody-here&pass=wrong');
+	checkSame('declared route: nor with the method it takes, on another path', $replyAr['code'], 404);
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed, 'user=nobody-here&pass=wrong');
+	checkSame('declared route: through the route, the action runs', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/text', Array('X-Test-Runs'=>'1'));
+	checkSame('an action no route answers with is still found from the path', $replyAr['code'], 200);
+
+	// Body limits (test/fixtures/confreq : 1 KB, 2 parts)
+	$reqHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confreq');
+	$replyAr = httpQuery('POST', $baseUrl.'/probe/creds', $formHed + $reqHead, 'user=a&pass=b');
+	checkSame('body limit: a small body is read', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Credentials read","code":401}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/probe/creds', $formHed + $reqHead, 'user=a&pass='.str_repeat('b', 2000));
+	checkSame('body limit: a larger one is a 413', Array($replyAr['code'], $replyAr['body']), Array(413, '{"error":"Payload Too Large","code":413}'));
+	$replyAr = httpQuery('PUT', $baseUrl.'/probe/creds', Array('Content-Type'=>'application/json') + $reqHead, json_encode(Array('user'=>'a', 'pass'=>str_repeat('b', 2000))));
+	checkSame('body limit: whatever the method and the type', $replyAr['code'], 413);
+	$bndText = 'TestBoundary77';
+	$partFnc = function( Array $namesList ) use ( $bndText ): String {
+		$bodyTxt = '';
+		foreach( $namesList as $fldNme ){
+			$bodyTxt .= '--'.$bndText."\r\n".'Content-Disposition: form-data; name="'.$fldNme.'"'."\r\n\r\n".'v'."\r\n";
+		}
+		return $bodyTxt.'--'.$bndText.'--'."\r\n";
+	};
+	$mltHead = Array('Content-Type'=>'multipart/form-data; boundary='.$bndText) + $reqHead;
+	checkSame('body limit: a multipart body of two parts is read, one of three is a 413', Array(httpQuery('PUT', $baseUrl.'/probe/creds', $mltHead, $partFnc(Array('user', 'pass')))['code'], httpQuery('PUT', $baseUrl.'/probe/creds', $mltHead, $partFnc(Array('user', 'pass', 'more')))['code']), Array(401, 413));
+	$replyAr = httpQuery('POST', $baseUrl.'/probe/creds', $formHed + Array('X-Test-Runs'=>'1'), 'user=a&pass='.str_repeat('b', 2000));
+	checkSame('body limit: the usual configuration reads that body', $replyAr['code'], 401);
+
+	// Error pages : a site answers an error with its own page, an action keeps the format of the preset
+	$errHead = Array('X-Test-Preset'=>'manual', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Htroot'=>'errpages');
+	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead);
+	checkSame('error page: a path no route answers', Array($replyAr['code'], $replyAr['type'], trim(strval(strstr($replyAr['body'], '<h1>'))), $headOf($replyAr, 'X-Content-Type-Options')), Array(404, 'text/html; charset=utf-8', '<h1>404</h1><p>Nothing here: Unknown Application</p></body></html>', 'nosniff'));
+	$replyAr = httpQuery('GET', $baseUrl.'/hello/x', $errHead);
+	checkSame('error page: a page whose file is not there', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], 'Nothing here: File not found')!==false), Array(404, 'text/html; charset=utf-8', true));
+	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead + Array('X-Test-Auth'=>'jtoken'));
+	checkSame('error page: a denial has the page of its status', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<h1>401</h1><p>Sign in first: Missing Bearer Authorization header</p>')!==false), Array(401, 'text/html; charset=utf-8', true));
+	$replyAr = httpQuery('POST', $baseUrl.'/ping', $errHead);
+	checkSame('error page: a status the site has no page for keeps the format of the preset', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/things/1', $errHead + Array('X-Test-Auth'=>'jtoken'));
+	checkSame('error page: a route to an action keeps the format of the preset', Array($replyAr['code'], $replyAr['type']), Array(401, $jsonTyp));
+	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', Array('X-Test-Preset'=>'manual', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1'));
+	checkSame('error page: a site without one answers as before', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
+
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctname'=>'x-content-type-options', 'X-Test-Ctype'=>'off'));
+	checkSame('nosniff: a preset cannot give the header another value', preg_grep('/^X-Content-Type-Options:/i', $replyAr['head']) ? array_values(preg_grep('/^X-Content-Type-Options:/i', $replyAr['head'])) : Array(), Array('X-Content-Type-Options: nosniff'));
 
 	// Identity handed to the application
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1'));
@@ -312,7 +414,7 @@ if( !$isReady ){
 	checkLike('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(manage\) from \S+ to probe\/whoami/i');
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=cleo&pass=pw-cleo');
-	checkSame('native round trip: a pending user gets no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+	checkSame('native round trip: a pending user gets no token, and is not told why', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
 	checkSame('presence: the user who logged in is online', $replyAr['body'], '{"online":["anna"]}');
@@ -489,7 +591,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=anna&pass=nope');
 	checkSame('users file round trip: wrong password, no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=cleo&pass=pw-cleo');
-	checkSame('users file round trip: a pending user gets no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
+	checkSame('users file round trip: a pending user gets no token, and is not told why', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=emma&pass=pw-emma');
 	checkSame('users file 2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'user=emma&pass=pw-emma&code='.nyu\Access\Totp::codeAtTme($tfaScrt, time()));
@@ -527,6 +629,30 @@ if( !$isReady ){
 	checkSame('session: an id that was never issued is not adopted', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>'nyuTests=../../etc/passwd'));
 	checkSame('session: a malformed id is refused', $replyAr['code'], 401);
+
+	// A login from a browser that already holds a session closes it, and opens another
+	$frstCok = $sessCok;
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf + Array('Cookie'=>$frstCok), 'user=anna&pass=pw-anna');
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
+		}
+	}
+	checkSame('session: a second login gives another session', Array($replyAr['code'], $sessCok!=$frstCok && $sessCok!='nyuTests=deleted'), Array(200, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$frstCok));
+	checkSame('session: the former one is closed', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $sesHead + Array('Cookie'=>$sessCok));
+	checkSame('session: the new one is open', $replyAr['code'], 200);
+	// Ending a session takes its own cookie away, not the other cookies of the reply
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');
+	$leftCok = '';
+	foreach( $replyAr['head'] as $hedLin ){
+		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
+			$leftCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
+		}
+	}
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/leave', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confses', 'Cookie'=>$leftCok));
+	checkSame('session: ending it keeps the cookie the application set', Array($replyAr['code'], count(preg_grep('/^Set-Cookie: probeKept=1/i', $replyAr['head'])), count(preg_grep('/^Set-Cookie: nyuTests=deleted/i', $replyAr['head'])), count(preg_grep('/^Set-Cookie:/i', $replyAr['head']))), Array(200, 1, 1, 2));
 
 	// With the users table named as the store, a lock ends the session at once
 	$sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='anna'");
@@ -596,7 +722,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass', 'X-Test-Confkey'=>'tspass', 'Authorization'=>'Basic '.base64_encode('alice:s3cret')));
 	checkSame('htpasswd file: Basic access, as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"alice","role":"member"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass', 'X-Test-Confkey'=>'tspass', 'Authorization'=>'Basic '.base64_encode('alice:nope')));
-	checkSame('htpasswd file: wrong password, with the challenge', Array($replyAr['code'], $replyAr['body'], in_array('WWW-Authenticate: Basic', $replyAr['head'])), Array(401, '{"error":"Invalid credentials","code":401}', true));
+	checkSame('htpasswd file: wrong password, with the challenge', Array($replyAr['code'], $replyAr['body'], in_array('WWW-Authenticate: Basic realm="nyuRuns", charset="UTF-8"', $replyAr['head'])), Array(401, '{"error":"Invalid credentials","code":401}', true));
 
 	// A session left unused for longer than its lifetime (1 second in the tsshrt block)
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $sesConf, 'user=anna&pass=pw-anna');
@@ -723,8 +849,10 @@ if( !$isReady ){
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/warnfail', $rteHead);
 	checkSame('route: a declared route wins over autopath', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/text', $rteHead);
+	checkSame('route: autopath is the fallback', Array($replyAr['code'], $replyAr['body']), Array(200, '"plain text"'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', $rteHead);
-	checkSame('route: autopath is the fallback', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	checkSame('route: but not for an action a declared route answers with', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/broken', $rteHead);
 	checkSame('route: an entry without application is skipped', Array($replyAr['code'], $replyAr['body']), $noAppli);
 
@@ -765,8 +893,8 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/things/7', $rteHead);
 	checkSame('method: a method without target is refused', Array($replyAr['code'], $replyAr['body'], $allowOf($replyAr)), Array(405, $refused, 'GET, DELETE'));
 
-	$replyAr = httpQuery('POST', $baseUrl.'/probe/clean', $rteHead);
-	checkSame('method: autopath accepts any method', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/probe/text', $rteHead);
+	checkSame('method: autopath accepts any method', Array($replyAr['code'], $replyAr['body']), Array(200, '"plain text"'));
 
 	// The project's own routes (conf/routes) : index is a general target
 	$replyAr = httpQuery('POST', $baseUrl.'/');
@@ -825,14 +953,6 @@ if( !$isReady ){
 	checkSame('output: unencodable data is a JSON 500', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Response could not be encoded","code":500}'));
 
 	// File replies : the probe's media action serves the 26 letters of test/fixtures/letters.txt
-	$headOf = function( Array $replyArray, String $headerName ): ?String {
-		foreach( $replyArray['head'] as $hedLin ){
-			if( stripos($hedLin, $headerName.':')===0 ){
-				return trim(substr($hedLin, strlen($headerName)+1));
-			}
-		}
-		return null;
-	};
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead);
 	checkSame('file: whole file with its own type', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, 'audio/mp4', 'abcdefghijklmnopqrstuvwxyz'));
 	checkSame('file: length and range support are announced', Array($headOf($replyAr, 'Content-Length'), $headOf($replyAr, 'Accept-Ranges'), $headOf($replyAr, 'Content-Range')), Array('26', 'bytes', null));
@@ -1047,6 +1167,23 @@ if( !$isReady ){
 	checkTrue('address limit: the checked route tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
 	checkSame('address limit: a configuration without a limit is not held', $replyAr['code'], 200);
+	dropFoldr(TOP_DIR.DS.'temp'.DS.'limits_http');
+
+	// Forged tokens are counted like wrong passwords; a token that ended is not
+	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn');
+	$endHead = $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'alice', 'exp'=>time()-10), 'test-only-secret-0123456789-abcdefghij', 'HS256'));
+	$codeLst = Array();
+	for( $idx=0; $idx<3; $idx++ ){
+		$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $endHead);
+		$codeLst[] = $replyAr['code'];
+	}
+	checkSame('address limit: a token that ended is not counted', Array($codeLst, $replyAr['body']), Array(Array(401, 401, 401), '{"error":"Expired token","code":401}'));
+	$codeLst = Array();
+	for( $idx=0; $idx<3; $idx++ ){
+		$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'alice', 'exp'=>time()+60), str_repeat('x', 40), 'HS256')));
+		$codeLst[] = $replyAr['code'];
+	}
+	checkSame('address limit: forged tokens hold the address', $codeLst, Array(401, 401, 429));
 	dropFoldr(TOP_DIR.DS.'temp'.DS.'limits_http');
 }
 dropLocal();

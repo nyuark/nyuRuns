@@ -28,6 +28,7 @@ class Response{
 	protected $dataFrmt;
 	protected $tmpltNme;
 	protected $headrArr;
+	protected $orgnList = Array();
 
 	protected $finalStr;
 	protected $dataOuts;
@@ -45,12 +46,40 @@ class Response{
 	/**
 	 * Configures the response from the 'rnder' preset section.
 	 *
-	 * @param Array $renderVals Render configuration with 'headrs' (response headers), 'tmplte' (template name), and 'return' (output format, e.g. 'json') keys.
+	 * @param Array $renderVals Render configuration with 'headrs' (response headers), 'tmplte' (template name), 'return' (output format, e.g. 'json') and, optionally, 'origns' (the origins other sites may call from, see setOrigin) keys.
 	 */
 	public function __construct( Array $renderVals=Array() ){
 		$this->headrArr = $renderVals['headrs'] ?? Array();
 		$this->tmpltNme = $renderVals['tmplte'] ?? 'plain';
 		$this->dataFrmt = $renderVals['return'] ?? 'json';
+		// An origin is a scheme, a host and a port : compared without case, nor a slash at its end
+		foreach( (array)($renderVals['origns'] ?? Array()) as $orgVal ){
+			$orgText = is_scalar($orgVal) ? strtolower( rtrim(trim(strval($orgVal)), '/') ) : '';
+			if( $orgText!='' && $orgText!='*' ){
+				$this->orgnList[] = $orgText;
+			}
+		}
+	}
+
+	/**
+	 * Applies the origins the preset allows (the 'origns' key of its
+	 * 'rnder' block) to the request: an origin of the list is named in
+	 * Access-Control-Allow-Origin, any other gets no such header, and
+	 * caches are told the reply differs by origin. Without a list, the
+	 * headers of the preset are sent as they are written.
+	 *
+	 * @param ?String $originHead Origin header of the request, null when it sent none.
+	 */
+	public function setOrigin( ?String $originHead ): Void {
+		if( empty($this->orgnList) ){
+			return;
+		}
+		$this->dropHeads( Array('access-control-allow-origin', 'vary') );
+		$this->headrArr['Vary'] = 'Origin';
+		$askOrgn = strtolower( rtrim(trim(strval($originHead)), '/') );
+		if( $askOrgn!='' && in_array($askOrgn, $this->orgnList, true) ){
+			$this->headrArr['Access-Control-Allow-Origin'] = $askOrgn;
+		}
 	}
 
 	/**
@@ -123,6 +152,8 @@ class Response{
 	/**
 	 * Sends each configured response header, a default Content-Type when
 	 * the preset sets none, and the HTTP status code when one is given.
+	 * Every reply tells the client not to guess another type than the one
+	 * announced (X-Content-Type-Options), whatever the preset writes.
 	 *
 	 * @param Int $statusCode HTTP status code to send; omitted for the default 200.
 	 */
@@ -156,6 +187,9 @@ class Response{
 			// Default Content-Type, unless the preset sets its own
 			$this->headrArr['Content-Type'] = $this->contnType();
 		}
+		// The client is never left to guess another type than the one announced
+		$this->dropHeads( Array('x-content-type-options') );
+		$this->headrArr['X-Content-Type-Options'] = 'nosniff';
 		foreach($this->headrArr as $hedKey => $hedVal){
 			header($hedKey.': '.$hedVal);
 		}
@@ -185,15 +219,13 @@ class Response{
 
 	/**
 	 * Sets the type of a reply that carries its own (a file, a page): it
-	 * replaces any Content-Type set by the preset, and the client is told
-	 * not to guess another one.
+	 * replaces any Content-Type set by the preset.
 	 *
 	 * @param String $mimeString Content-Type of the reply.
 	 */
 	protected function ownedType( String $mimeString ): Void {
 		$this->dropHeads( Array('content-type') );
 		$this->headrArr['Content-Type'] = $mimeString;
-		$this->headrArr['X-Content-Type-Options'] = 'nosniff';
 	}
 
 	/**

@@ -45,11 +45,15 @@ function plugConf( Array $loginBlock, Int $triesLimit=0 ): Void {
  * @param String $httpMethod Method of the request.
  * @param String $clientAddr Address the request comes from.
  * @param Array  $loggedVals What the access check reported; nobody logged when empty.
+ * @param Array  $queryNames Names of the inputs that came in the query string of the address, in lower case.
  * @return mixed The status, the message and the output, or a 'THROWN ...' string.
  */
-function authActn( String $actionName, Array $inputArray=Array(), String $httpMethod='POST', String $clientAddr='203.0.113.7', Array $loggedVals=Array() ): Mixed {
-	return runSafely(function() use ($actionName, $inputArray, $httpMethod, $clientAddr, $loggedVals){
+function authActn( String $actionName, Array $inputArray=Array(), String $httpMethod='POST', String $clientAddr='203.0.113.7', Array $loggedVals=Array(), Array $queryNames=Array() ): Mixed {
+	return runSafely(function() use ($actionName, $inputArray, $httpMethod, $clientAddr, $loggedVals, $queryNames){
 		$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>$clientAddr) );
+		$qryProp = new ReflectionProperty('nyu\Tools\Request', 'addrVals');
+		$qryProp->setAccessible(true);
+		$qryProp->setValue($request, $queryNames);
 		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
 		$mthProp->setAccessible(true);
 		$mthProp->setValue($request, $httpMethod);
@@ -88,10 +92,18 @@ checkSame('login x htpass: unknown user', authActn('login', Array('user'=>'nobod
 checkSame('login by GET', authActn('login', $alicePw, 'GET'), Array(405, 'Method Not Allowed', null));
 checkSame('login: a name or a password that is not a text', Array(authActn('login', Array('user'=>Array('alice'), 'pass'=>'s3cret')), authActn('login', Array('user'=>'alice'))), Array(Array(400, 'Invalid user or pass', null), Array(400, 'Invalid user or pass', null)));
 
+// A password in the query string of the address is refused, wherever else it is sent
+checkSame('login: the password in the query string', authActn('login', $alicePw, 'POST', '203.0.113.7', Array(), Array('user', 'pass')), Array(400, 'Password sent in the query string', null));
+checkSame('login: a wrong one is refused the same way, before any check', authActn('login', Array('user'=>'alice', 'pass'=>'nope'), 'POST', '203.0.113.7', Array(), Array('pass')), Array(400, 'Password sent in the query string', null));
+checkSame('login: the name alone in the query string', authActn('login', $alicePw, 'POST', '203.0.113.7', Array(), Array('user'))[0] ?? null, 200);
+checkSame('activate: the password in the query string', authActn('activate', Array('user'=>'cleo', 'code'=>'c', 'pass'=>'pass-cleo-1'), 'POST', '203.0.113.7', Array(), Array('pass')), Array(400, 'Password sent in the query string', null));
+checkSame('password: the current or the new one in the query string', Array(authActn('password', Array('former'=>'a', 'pass'=>'b'), 'POST', '203.0.113.7', Array(), Array('former'))[0] ?? null, authActn('password', Array('former'=>'a', 'pass'=>'b'), 'POST', '203.0.113.7', Array(), Array('pass'))[1] ?? null), Array(400, 'Password sent in the query string'));
+checkLike('login: the refusal is told in the access log, without the value', strval(@file_get_contents(inTempDir('logs').DS.'access.log')), '/\[WARNING\] Login refused from 203\.0\.113\.7: password sent in the query string\r?\n.*\[WARNING\] Activation refused from 203\.0\.113\.7: password sent in the query string\r?\n.*\[WARNING\] Password change refused from/s');
+
 // Login on the users file : the role goes into the token, the status and the 2FA code are checked
 plugConf( $lstLogn );
 checkSame('login x usrlst: the token carries the role of the file', tokenOf(authActn('login', $annaPwd)), Array('anna', 'manage'));
-checkSame('login x usrlst: a pending user', authActn('login', Array('user'=>'cleo', 'pass'=>'pw-cleo')), Array(401, 'Account not active', null));
+checkSame('login x usrlst: a pending user is refused as a wrong password is', authActn('login', Array('user'=>'cleo', 'pass'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
 checkSame('login x usrlst: a user with a secret, password alone', authActn('login', Array('user'=>'emma', 'pass'=>'pw-emma')), Array(401, 'Verification code required', null));
 checkSame('login x usrlst: with the code of its authenticator', tokenOf(authActn('login', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Totp::codeAtTme($tfaScrt, time())))), Array('emma', 'member'));
 checkSame('login x usrlst: a code sent as a number', tokenOf(authActn('login', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>intval(Totp::codeAtTme($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTme($tfaScrt, time())[0]=='0') ? 401 : 'emma');
@@ -116,12 +128,17 @@ checkSame('login: wrong credentials are still told as such with it', authActn('l
 
 // Limit by address : two wrong credentials allowed
 plugConf( $lstLogn, 2 );
-checkSame('limit: an account not active and a code still to give are not counted', Array(
-	authActn('login', Array('user'=>'cleo', 'pass'=>'pw-cleo'), 'POST', '198.51.100.1')[1] ?? null,
-	authActn('login', Array('user'=>'cleo', 'pass'=>'pw-cleo'), 'POST', '198.51.100.1')[1] ?? null,
+checkSame('limit: a code still to give is not counted', Array(
+	authActn('login', Array('user'=>'emma', 'pass'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
+	authActn('login', Array('user'=>'emma', 'pass'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
 	authActn('login', Array('user'=>'emma', 'pass'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
 	authActn('login', $annaPwd, 'POST', '198.51.100.1')[0] ?? null
-), Array('Account not active', 'Account not active', 'Verification code required', 200));
+), Array('Verification code required', 'Verification code required', 'Verification code required', 200));
+checkSame('limit: an account not active is counted, as a wrong password is', Array(
+	authActn('login', Array('user'=>'cleo', 'pass'=>'pw-cleo'), 'POST', '198.51.100.9')[1] ?? null,
+	authActn('login', Array('user'=>'dave', 'pass'=>'pw-dave'), 'POST', '198.51.100.9')[1] ?? null,
+	authActn('login', $annaPwd, 'POST', '198.51.100.9')[0] ?? null
+), Array('Invalid credentials', 'Invalid credentials', 429));
 checkSame('limit: two wrong passwords are told as such', Array(authActn('login', Array('user'=>'anna', 'pass'=>'nope'), 'POST', '198.51.100.2'), authActn('login', Array('user'=>'nobody', 'pass'=>'nope'), 'POST', '198.51.100.2')), Array(Array(401, 'Invalid credentials', null), Array(401, 'Invalid credentials', null)));
 checkSame('limit: the address is then refused, even with the right password', authActn('login', $annaPwd, 'POST', '198.51.100.2'), Array(429, 'Too many attempts', null));
 checkSame('limit: another address logs in', authActn('login', $annaPwd, 'POST', '198.51.100.3')[0] ?? null, 200);
@@ -170,9 +187,9 @@ checkSame('access log: the logins and logouts, one line each', $axsLogs, Array(
 	$yearTxt.'[NOTICE] Privileged login granted for user "anna" (manage) from 198.51.100.7',
 	$yearTxt.'[WARNING] Login refused for user "ben\n['.date('Y').'] [INFO] Login granted for user \"anna\"" from 198.51.100.7: Invalid credentials',
 	$yearTxt.'[WARNING] Login refused for user "anna" from 198.51.100.7: too many attempts',
-	$yearTxt.'[INFO] Logout of user "ben"',
-	$yearTxt.'[NOTICE] Logout of privileged user "anna" (manage)',
-	$yearTxt.'[INFO] Logout of user ""',
+	$yearTxt.'[INFO] Logout of user "ben" from 198.51.100.7',
+	$yearTxt.'[NOTICE] Logout of privileged user "anna" (manage) from 198.51.100.7',
+	$yearTxt.'[INFO] Logout of user "" from 198.51.100.7',
 	$yearTxt.'[ERROR] Login unavailable: the session carrier issues no token',
 	$yearTxt.'[ERROR] Login unavailable: unknown authby or sessby in the login block'
 ));

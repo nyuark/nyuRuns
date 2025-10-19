@@ -25,9 +25,10 @@ checkSame('Native unknown user',         $natAuth->checkCred(Array('user'=>'zed'
 checkSame('Native unknown user message', $natAuth->lastError(), 'Invalid credentials');
 checkSame('Native no user',              $natAuth->checkCred(Array('pass'=>'pw-anna')), false);
 checkSame('Native pending user',         $natAuth->checkCred(Array('user'=>'cleo', 'pass'=>'pw-cleo')), false);
-checkSame('Native pending user message', $natAuth->lastError(), 'Account not active');
+checkSame('Native pending user: refused as a wrong password is', Array($natAuth->lastError(), $natAuth->wrongCred()), Array('Invalid credentials', true));
 checkSame('Native locked user',          $natAuth->checkCred(Array('user'=>'dave', 'pass'=>'pw-dave')), false);
-checkSame('Native locked user message',  $natAuth->lastError(), 'Account not active');
+checkSame('Native locked user: refused the same way', Array($natAuth->lastError(), $natAuth->wrongCred()), Array('Invalid credentials', true));
+checkSame('Native a user that is not active has no failure counted for it', intval((new PDO('sqlite:'.inTempDir('native.sqlite')))->query("SELECT SUM(failNmbr) FROM users WHERE userName IN ('cleo', 'dave')")->fetchColumn()), 0);
 checkSame('Native locked user, wrong password: the status is not told', Array($natAuth->checkCred(Array('user'=>'dave', 'pass'=>'nope')), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 checkSame('Native name with a quote',    $natAuth->checkCred(Array('user'=>"anna' OR '1'='1", 'pass'=>'pw-anna')), false);
 checkSame('Native name with a quote message', $natAuth->lastError(), 'Invalid credentials');
@@ -145,6 +146,41 @@ checkLike('Native makeTwoFa gives a base32 secret', $benScrt, '/^[A-Z2-7]{32}$/'
 checkSame('Native 2FA: password alone', Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben')), $natAuth->lastError()), Array(false, 'Verification code required'));
 checkSame('Native 2FA: wrong code',     Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>'000000')), $natAuth->lastError()), Array(false, 'Invalid verification code'));
 checkSame('Native 2FA: valid code',     $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time()))), Array('user'=>'ben', 'role'=>'member', 'id'=>2));
+// A code is accepted once : its step is remembered, and nothing of that step or before passes again
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs')) );
+checkSame('Native 2FA: the same code a second time', Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time()))), $natAuth->lastError(), $natAuth->wrongCred()), Array(false, 'Invalid verification code', true));
+nyu\Tools\Logger::plugSetup( Array() );
+checkLike('Native 2FA: the replay is told in the access log', strval(@file_get_contents(inTempDir('logs').DS.'access.log')), '/\[WARNING\] Verification code refused: already used by user "ben"/');
+checkSame('Native 2FA: the replay counts as a failed attempt', failsOf($sqlLink, 'ben'), 1);
+$sqlLink->exec("UPDATE users SET twoFaStp=".(intdiv(time(), 30)+5)." WHERE userName='ben'");
+checkSame('Native 2FA: a code older than the last one accepted', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time()))), false);
+$benScrt = $natAuth->makeTwoFa('ben');
+checkSame('Native makeTwoFa forgets the last step', $sqlLink->query("SELECT twoFaStp FROM users WHERE userName='ben'")->fetchColumn(), null);
+checkSame('Native 2FA: the code of the new secret', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time())))['user'] ?? null, 'ben');
+checkSame('Native 2FA: its step is remembered', intval($sqlLink->query("SELECT twoFaStp FROM users WHERE userName='ben'")->fetchColumn())>=intdiv(time(), 30)-1, true);
+// A users table made before the step was remembered : a user with 2FA is refused until the table is upgraded
+$sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, userName, passHash, userRole, userStat, actvCode, tokenKey, twoFaKey, failNmbr, failDate, madeDate, lastSeen FROM users");
+$oldAuth = new Native( Array('tblnme'=>'oldusers') );
+checkSame('Native 2FA: a table without the step column', Array(runSafely(function() use ($oldAuth, $benScrt){ return $oldAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time()))); }), $oldAuth->lastError(), $oldAuth->wrongCred()), Array(false, 'Credential store unavailable', false));
+checkSame('Native 2FA: a table without the step column, user without a secret', $oldAuth->checkCred(Array('user'=>'anna', 'pass'=>'pw-anna'))['user'] ?? null, 'anna');
+$sqlLink->exec("DROP TABLE oldusers");
+// The secret is stored encrypted when the block gives a key, and readable otherwise, which is logged
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs')) );
+$benScrt = $natAuth->makeTwoFa('ben');
+$keyAuth = new Native( Array('tblnme'=>'users', 'tfakey'=>str_repeat('k', 40)) );
+$annaSct = strval($keyAuth->makeTwoFa('anna'));
+$annaCod = Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>nyu\Access\Totp::codeAtTme($annaSct, time()));
+checkLike('Native 2FA: with a key, the secret is stored encrypted', strval($sqlLink->query("SELECT twoFaKey FROM users WHERE userName='anna'")->fetchColumn()), '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
+checkLike('Native 2FA: the secret given back is the one the authenticator takes', $annaSct, '/^[A-Z2-7]{32}$/');
+checkSame('Native 2FA: without the key, the user is refused as a store that cannot be read', Array($natAuth->checkCred($annaCod), $natAuth->lastError(), $natAuth->wrongCred()), Array(false, 'Credential store unavailable', false));
+checkSame('Native 2FA: with another key too', Array((new Native(Array('tfakey'=>str_repeat('x', 40))))->checkCred($annaCod), failsOf($sqlLink, 'anna')), Array(false, 0));
+checkSame('Native 2FA: with the key, the code passes', $keyAuth->checkCred($annaCod)['user'] ?? null, 'anna');
+checkSame('Native 2FA: a secret stored readable is still read with a key set', $keyAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben'))!==false || $keyAuth->lastError()=='Verification code required', true);
+$sqlLink->exec("UPDATE users SET twoFaKey=NULL, twoFaStp=NULL WHERE userName='anna'");
+nyu\Tools\Logger::plugSetup( Array() );
+$logText = strval(@file_get_contents(inTempDir('logs').DS.'access.log'));
+checkLike('Native 2FA: a secret that cannot be read is told in the access log', $logText, '/\[ERROR\] 2FA secret of user "anna" cannot be read: tfakey is missing or was changed/');
+checkSame('Native 2FA: a secret stored readable is told in the access log, an encrypted one is not', Array(preg_match('/\[WARNING\] 2FA secret of user "ben" stored readable: no tfakey of 32 characters is set/', $logText), preg_match('/secret of user "anna" stored readable/', $logText)), Array(1, 0));
 checkSame('Native 2FA: wrong password, the code is not asked for', Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'nope')), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 checkSame('Native 2FA: valid code, wrong password', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'nope', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time()))), false);
 checkSame('Native makeTwoFa refused for a pending user', $natAuth->makeTwoFa('cleo'), false);
@@ -180,6 +216,7 @@ checkSame('Throttle held: a wrong password is refused the same way', Array($thrA
 nyu\Tools\Logger::plugSetup( Array() );
 checkLike('Throttle held: the hold is told in the access log, with the name', strval(@file_get_contents(inTempDir('logs').DS.'access.log')), '/\[WARNING\] Credential refused: user "anna" is held after too many attempts/');
 checkSame('Throttle held: nothing more is counted', failsOf($sqlLink, 'anna'), 3);
+$sqlLink->exec("UPDATE users SET twoFaStp=NULL WHERE userName='ben'");
 checkSame('Throttle held: other users are not affected', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time())))['user'] ?? null, 'ben');
 checkSame('Throttle held: a personal token still passes', $natAuth->checkCred(Array('key'=>$nextTkn))['user'] ?? null, 'anna');
 
@@ -217,7 +254,7 @@ checkSame('Native setPasswd: the new password is accepted', $natAuth->checkCred(
 checkSame('Native setPasswd: the previous password is refused', Array($natAuth->checkCred($annaPwd), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 $sqlLink->exec("UPDATE users SET failNmbr=2, failDate='".date('Y-m-d H:i:s')."' WHERE userName='anna'");
 checkSame('Native setPasswd forgets the failures', Array($lowAuth->setPasswd('anna', 'pw-anna'), failsOf($sqlLink, 'anna')), Array(true, 0));
-checkSame('Native setPasswd leaves the status as it is', Array($lowAuth->setPasswd('cleo', 'new-cleo'), $natAuth->checkCred(Array('user'=>'cleo', 'pass'=>'new-cleo')), $natAuth->lastError()), Array(true, false, 'Account not active'));
+checkSame('Native setPasswd leaves the status as it is', Array($lowAuth->setPasswd('cleo', 'new-cleo'), $natAuth->checkCred(Array('user'=>'cleo', 'pass'=>'new-cleo')), $natAuth->lastError()), Array(true, false, 'Invalid credentials'));
 checkSame('Native setPasswd on an unknown user', $lowAuth->setPasswd('zed', 'pw-zed'), false);
 checkSame('Native setPasswd refuses an empty password', Array($lowAuth->setPasswd('anna', ''), $natAuth->checkCred($annaPwd)['user'] ?? null), Array(false, 'anna'));
 checkSame('Native setPasswd with a name holding a quote', $lowAuth->setPasswd("anna' OR '1'='1", 'nopass'), false);

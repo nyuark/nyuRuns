@@ -12,7 +12,11 @@ class Router{
 
 	// Statuses a redirection can be sent with
 	const MOVELIST = Array(301, 302, 303, 307, 308);
+	// The keys a declared route may hold, and those of a target block
+	const KEYSLIST = Array('allows', 'target');
+	const TRGTKEYS = Array('app', 'act', 'url', 'cod', 'fle', 'dir', 'pge');
 
+	protected $fromAuto = false;	// Whether the route was found from the path, by position
 	protected $routeCnf;	// 'route' block of the active preset
 	protected $httpRqst;	// The shared HTTP request
 	protected $pathText;	// Request path, without its leading slash and query string
@@ -69,8 +73,67 @@ class Router{
 		// Automatic path detection (from url path)
 		if( $dtcMode=='autopath' ){
 			$rteVals = array_merge($rteVals, $this->autoRoute());
+			$this->fromAuto = true;
 		}
 		return new Registry( $rteVals );
+	}
+
+	/**
+	 * Tells whether an action found from the path is closed: a declared
+	 * route answers with it, so it is only reached through that route,
+	 * with the methods the route allows. The names are compared whatever
+	 * their case. An action reached through its declared route, or called
+	 * without a route being looked for, is never closed.
+	 *
+	 * @param String $runAppName Name of the application.
+	 * @param String $runAppActn Name of the action that would run.
+	 * @param Bool   $ranDefault Whether that action is the one the application runs when none is named.
+	 * @return Bool True when the action must not run.
+	 */
+	public function shutsActn( String $runAppName, String $runAppActn, Bool $ranDefault=false ): Bool {
+		if( !$this->fromAuto ){
+			return false;
+		}
+		foreach( $this->allRoutes() as $rteRow ){
+			if( $rteRow['rteKind']!='action' || strcasecmp(strval($rteRow['app']), $runAppName)!=0 ){
+				continue;
+			}
+			// A route naming no action answers with the default one
+			if( strcasecmp(strval($rteRow['action']), $runAppActn)==0 || (strval($rteRow['action'])==='' && $ranDefault) ){
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Logs, as warnings on the 'runner' channel, the keys of declared
+	 * routes that nothing reads: a key left from another version, or
+	 * misspelt, would otherwise be ignored without a word.
+	 *
+	 * @param Array  $routesList The routes of a file, by path.
+	 * @param String $routesFile Name of the file, for the message.
+	 */
+	protected function warnsKeys( Array $routesList, String $routesFile ): Void {
+		foreach( $routesList as $rteKey => $rteSet ){
+			if( !is_array($rteSet) ){
+				continue;
+			}
+			$badKeys = array_values( array_diff(array_map('strval', array_keys($rteSet)), self::KEYSLIST) );
+			$tgtVals = $rteSet['target'] ?? null;
+			if( is_array($tgtVals) ){
+				// One block, or one per method
+				$blkList = ($this->targtKind($tgtVals)!==null) ? Array($tgtVals) : array_filter($tgtVals, 'is_array');
+				foreach( $blkList as $blkVal ){
+					foreach( array_diff(array_map('strval', array_keys($blkVal)), self::TRGTKEYS) as $tgtKey ){
+						$badKeys[] = 'target.'.$tgtKey;
+					}
+				}
+			}
+			foreach( array_unique($badKeys) as $badKey ){
+				Logger::getLogger('runner')->warning( 'Route '.json_encode(strval($rteKey)).' of '.$routesFile.' holds an unknown key: '.$badKey );
+			}
+		}
 	}
 
 	/**
@@ -172,6 +235,7 @@ class Router{
 			$rteFile->fileParse( 'json', false );
 			$fleData = $rteFile->readValue('out');
 			if( is_array($fleData) ){
+				$this->warnsKeys( $fleData, basename(strval($rteFle)) );
 				$rteData = $rteData + $fleData;
 			}
 		}
@@ -425,7 +489,7 @@ class Router{
 	 * @throws \RuntimeException When the target is outside the 'htroot' folder, or a page is not an HTML file.
 	 */
 	protected function statxVals( Array $targetVals, Array $captureSet ): Array {
-		$notFnd = Array('statCode'=>404, 'statMssg'=>'File not found');
+		$notFnd = Array('statCode'=>404, 'statMssg'=>'File not found', 'rteKind'=>'static');
 		$rootCnf = strval($this->routeCnf['htroot'] ?? '');
 		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
 		if( $rootDir===false || !is_dir($rootDir) ){
@@ -469,6 +533,24 @@ class Router{
 			return Array('rteKind'=>'htpage', 'rteGoal'=>$fndPath, 'pathVars'=>$captureSet);
 		}
 		return Array('rteKind'=>'static', 'rteGoal'=>$fndPath, 'rteType'=>$mimeStr);
+	}
+
+	/**
+	 * Gives the HTML page a site answers an error status with: the file
+	 * errors/<status>.html of the folder the route configuration names as
+	 * 'htroot', when it holds one.
+	 *
+	 * @param Int $statusCode The status of the reply.
+	 * @return ?String The full path of the page, or null when the site has none for that status.
+	 */
+	public function errorPage( Int $statusCode ): ?String {
+		$rootCnf = strval($this->routeCnf['htroot'] ?? '');
+		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
+		if( $rootDir===false || !is_dir($rootDir) ){
+			return null;
+		}
+		$pagePth = realpath($rootDir.DS.'errors'.DS.$statusCode.'.html');
+		return ( $pagePth!==false && is_file($pagePth) && $this->liesInDir($pagePth, $rootDir) ) ? $pagePth : null;
 	}
 
 	/**

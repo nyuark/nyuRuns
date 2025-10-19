@@ -18,7 +18,9 @@ CREATE TABLE "users" (
 	-- SHA-256 hash of the user's personal API token
 	"tokenKey" CHAR(64)     NULL,
 	-- 2FA secret; a user holding one must give its code
-	"twoFaKey" VARCHAR(64)  NULL,
+	"twoFaKey" VARCHAR(128) NULL,
+	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
+	"twoFaStp" INTEGER      NULL,
 	-- Failed attempts of the current window, and time of the last one
 	"failNmbr" INTEGER      NOT NULL DEFAULT 0,
 	"failDate" TIMESTAMP(0) NULL,

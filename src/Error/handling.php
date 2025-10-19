@@ -189,6 +189,26 @@ function hndlFatal(): Void
 }
 
 /**
+ * Reduces a stack trace to what tells where the error happened: for
+ * each call, its file, its line and its name. The arguments of the
+ * calls, which may hold a password or a key, and the objects they were
+ * made on are left out.
+ *
+ * @param Array $traceArray Frames of the trace, as Throwable::getTrace() gives them.
+ * @return Array The frames, each with its 'file', 'line', 'class', 'type' and 'function' when it has them.
+ */
+function plainTrce( Array $traceArray ): Array
+{
+    $keptLst = Array();
+    foreach( $traceArray as $oneFrm )
+    {
+        if( is_array($oneFrm) )
+            $keptLst[] = array_intersect_key($oneFrm, Array('file'=>1, 'line'=>1, 'class'=>1, 'type'=>1, 'function'=>1));
+    }
+    return $keptLst;
+}
+
+/**
  * Renders a stack trace as an HTML table: one row per call, telling
  * the call, its file and its line. The values of the arguments are
  * never shown, and every text is HTML-encoded.
@@ -365,7 +385,8 @@ class ErrorHandler
         $logMssg = ErrorHandler::errorType($errorLevel).': '.$errMessage;
         if( isset($errFilePth) ) $logMssg .= ' in '.$errFilePth;
         if( isset($errLineNum) ) $logMssg .= ' on line '.$errLineNum;
-        $logCntx = is_array($errContext) ? $errContext : Array();
+        // A trace is logged without the arguments of its calls
+        $logCntx = is_array($errContext) ? plainTrce($errContext) : Array();
 
         switch( $errorLevel )
         {
@@ -385,7 +406,8 @@ class ErrorHandler
 
     /**
      * Tells whether error details may be shown to the client: always when
-     * no logger is available, otherwise only when ERR_SHOW is on.
+     * no logger is available, otherwise only when ERR_SHOW is on, and
+     * never in the PROD environment (ENV_NAME).
      *
      * @return Bool True when error details may be shown.
      */
@@ -399,6 +421,10 @@ class ErrorHandler
         $errShow = false;
         if( isset($GLOBALS['nyuConfig']) && $GLOBALS['nyuConfig']!==null )
         {
+            // In production nothing of an error is shown, whatever ERR_SHOW says
+            if( strtoupper(trim(strval($GLOBALS['nyuConfig']->getRowVal('SYSTEM','ENV_NAME')))) == 'PROD' )
+                return false;
+
             $errShow = $GLOBALS['nyuConfig']->getRowVal('SYSTEM','ERR_SHOW') ?? false;
         }
         return (bool)$errShow;

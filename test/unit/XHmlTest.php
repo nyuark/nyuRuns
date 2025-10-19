@@ -90,6 +90,13 @@ checkLike('two root elements', xmlItems('<a/><b/>'), '/^THROWN nyu\\\\Data\\\\Pa
 $scrtPth = inTempDir('secret.txt');
 file_put_contents($scrtPth, 'TOP-SECRET');
 checkLike('an entity reading a local file is refused', xmlItems('<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x SYSTEM "file:///'.str_replace('\\', '/', $scrtPth).'">]><a>&x;</a>'), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content: entity declarations are not accepted/');
+// Another encoding does not hide a declaration : it is looked for once the text is decoded, and in the document once read
+$entyXml = '<!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>';
+checkLike('entities declared in a UTF-16 document, with its marker', xmlItems("\xFF\xFE".mb_convert_encoding('<?xml version="1.0" encoding="UTF-16"?>'.$entyXml, 'UTF-16LE', 'UTF-8')), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content: entity declarations are not accepted/');
+checkLike('entities declared in a UTF-16 document, without a marker', xmlItems(mb_convert_encoding('<?xml version="1.0" encoding="UTF-16LE"?>'.$entyXml, 'UTF-16LE', 'UTF-8')), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content/');
+checkLike('entities declared in a UTF-7 document', xmlItems('<?xml version="1.0" encoding="UTF-7"?>'.mb_convert_encoding($entyXml, 'UTF-7', 'UTF-8')), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content/');
+checkLike('entities declared in lower case', xmlItems('<?xml version="1.0"?><!DOCTYPE a [<!entity x "y">]><a>x</a>'), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content/');
+checkSame('a document telling its kind without declaring anything is read', is_array(xmlItems('<?xml version="1.0"?><!DOCTYPE a SYSTEM "a.dtd"><a>x</a>')), true);
 checkLike('entities that multiply each other are refused', xmlItems('<?xml version="1.0"?><!DOCTYPE a [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;">]><a>&c;</a>'), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content: entity declarations are not accepted/');
 checkSame('a document type without entities is accepted, and not fetched', xmlItems('<?xml version="1.0"?><!DOCTYPE a SYSTEM "http://127.0.0.1:9/never.dtd"><a>ok</a>')['value'], 'ok');
 checkLike('nesting deeper than allowed is refused', xmlItems('<a><b><c><d/></c></b></a>', Array('depth'=>3)), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content: nested deeper than allowed/');

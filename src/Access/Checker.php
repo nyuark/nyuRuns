@@ -21,6 +21,9 @@ class Checker{
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
 	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'usrlst'=>'UserList');
 	const SESSLIST = Array('hbasic'=>'Basic', 'header'=>'Header', 'jtoken'=>'JWT', 'phsess'=>'PHPSess', 'clcert'=>'ClCert');
+	// Carriers that hand what they carry to a credential check, and the framework's checks that can take it.
+	// A plug-in check is taken as able to
+	const PAIRLIST = Array('hbasic'=>Array('htpass', 'native', 'usrlst'), 'header'=>Array('regkey', 'native', 'usrlst'));
 
 	protected $axsSetup;
 	protected $httpRqst;
@@ -124,7 +127,8 @@ class Checker{
 	/**
 	 * Verifies access for the current request against the configured
 	 * strategy. Fails closed on misconfiguration (never falls back to
-	 * a different strategy). When no check applies (access not required,
+	 * a different strategy): an unknown carrier or check, or a pair that
+	 * cannot work together (see pairsFlaw), is answered 500. When no check applies (access not required,
 	 * or a public route), the request goes through as not logged. An
 	 * address that presented too many wrong credentials is answered 429
 	 * until its hold ends (see Limiter). A request denied an HTML page is
@@ -178,6 +182,13 @@ class Checker{
 			$authObj = new $authCls( $this->resolvCnf($this->axsSetup['authcf'] ?? $this->axsSetup['sesscf'] ?? '') );
 		}
 
+		// A carrier and a check that cannot work together refuse every request, as a mistake of the config
+		$pairFlw = $this->pairsFlaw();
+		if( $pairFlw!='' ){
+			$this->logAttmpt( false, '', 'Access misconfigured: '.$pairFlw );
+			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+		}
+
 		// An address that presented too many wrong credentials is refused before anything is checked
 		$lmtrObj = new Limiter( $this->resolvCnf('limits') );
 		$usrAddr = $this->clientAdr();
@@ -192,10 +203,13 @@ class Checker{
 
 		if( $idntArr===false ){
 			// Only a credential presented and refused counts against the address: not a missing one, nor a store that cannot be read
-			if( $authObj!==null && $authObj->lastError()!='' && (!method_exists($authObj, 'wrongCred') || $authObj->wrongCred()) ){
+			$credBad = ($authObj!==null && $authObj->lastError()!='' && (!method_exists($authObj, 'wrongCred') || $authObj->wrongCred()));
+			// A carrier that verifies what it carries tells a forged one itself
+			$carrBad = (method_exists($sessObj, 'wrongCred') && $sessObj->wrongCred());
+			if( $credBad || $carrBad ){
 				$lmtrObj->countFail($usrAddr);
 			}
-			$chlgMap = Array('hbasic'=>'Basic', 'jtoken'=>'Bearer');
+			$chlgMap = Array('hbasic'=>'Basic realm="nyuRuns", charset="UTF-8"', 'jtoken'=>'Bearer');
 			$wwwAuth = $chlgMap[$sessNme] ?? null;
 			$this->logAttmpt( false, '', $sessObj->lastError() );
 			$denyArr = Array('logged'=>false, 'user'=>'', 'statCode'=>401, 'statMssg'=>$sessObj->lastError(), 'wwwAuth'=>$wwwAuth);
@@ -294,6 +308,30 @@ class Checker{
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Tells what is wrong with the carrier and the check of the 'auths'
+	 * block as a pair: a carrier that hands a name and a password, or a
+	 * key, to a check that takes the other, or to no check at all (see
+	 * PAIRLIST).
+	 *
+	 * @return String What is wrong, empty when the pair can work.
+	 */
+	public function pairsFlaw(): String {
+		$sessNme = strval($this->axsSetup['sessby'] ?? '');
+		$authNme = $this->axsSetup['authby'] ?? null;
+		if( !isset(self::PAIRLIST[$sessNme]) ){
+			return '';
+		}
+		if( $authNme===null || $authNme==='' ){
+			return 'the carrier "'.$sessNme.'" needs a credential check (authby)';
+		}
+		$authNme = strval($authNme);
+		if( isset(self::AUTHLIST[$authNme]) && !in_array($authNme, self::PAIRLIST[$sessNme], true) ){
+			return 'the credential check "'.$authNme.'" cannot check what the carrier "'.$sessNme.'" hands it';
+		}
+		return '';
 	}
 
 	/**
@@ -436,7 +474,7 @@ class Checker{
 		if( $wasGranted && in_array($loggedRole, array_slice(self::ROLELIST, 1), true) ){
 			$logInst->notice( 'Privileged access granted for user '.json_encode($loggedUser).' ('.$loggedRole.')'.$fromTxt.' to '.$this->routeGoal() );
 		}elseif( $wasGranted ){
-			$logInst->info( 'Access granted for user "'.$loggedUser.'"'.$fromTxt );
+			$logInst->info( 'Access granted for user '.json_encode($loggedUser).$fromTxt );
 		}else{
 			$logInst->warning( 'Access denied'.$fromTxt.': '.$denyReason );
 		}

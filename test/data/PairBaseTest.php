@@ -164,7 +164,7 @@ $sqlLink->exec("UPDATE users SET userRole='manage' WHERE userName='anna'");
 plugConf(2);
 checkSame('limit: hbasic x native, a wrong password is counted', Array(sendTrice('198.51.100.1', 'hbasic', 'native', basicHead('ben', 'nope')), heldAddr('198.51.100.1')), Array(Array(401, 401, 429), true));
 checkSame('limit: the account itself is not held yet, from another address', pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array('REMOTE_ADDR'=>'198.51.100.2'))[0], 200);
-checkSame('limit: hbasic x native, an account not active is not counted', Array(sendTrice('198.51.100.3', 'hbasic', 'native', basicHead('cleo', 'pw-cleo')), heldAddr('198.51.100.3')), Array(Array(401, 401, 401), false));
+checkSame('limit: hbasic x native, an account not active is counted, as a wrong password is', Array(sendTrice('198.51.100.3', 'hbasic', 'native', basicHead('cleo', 'pw-cleo')), heldAddr('198.51.100.3')), Array(Array(401, 401, 429), true));
 checkSame('limit: header x native, a wrong personal token is counted', Array(sendTrice('198.51.100.4', 'header', 'native', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.4')), Array(Array(401, 401, 429), true));
 checkSame('limit: header x device, a wrong device token is counted', Array(sendTrice('198.51.100.5', 'header', 'device', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.5')), Array(Array(401, 401, 429), true));
 checkSame('limit: the held address is refused with the right device token', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array('REMOTE_ADDR'=>'198.51.100.5'))[0], 429);

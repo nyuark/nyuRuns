@@ -102,7 +102,37 @@ $payload = $jwtSess->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$jwTok
 checkSame('JWT round trip keeps the identity', $payload['user'] ?? null, 'carol');
 checkSame('JWT expiry follows the ttl',  ($payload['exp'] ?? 0) - ($payload['iat'] ?? 0), 60);
 checkSame('JWT tampered token',          $jwtSess->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$jwToken.'x'))), false);
-checkTrue('JWT tampered token message',  $jwtSess->lastError()!='');
+checkSame('JWT tampered token message',  $jwtSess->lastError(), 'Invalid token');
+// What the library found wrong is never told to the client : two messages, and the reason in the log
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('jwtlogs'), 'mode'=>'FULL') );
+$jwtKeys = Array(str_repeat('s', 40), 'HS256');
+/**
+ * Tells what a JWT carrier answers to a token.
+ *
+ * @param JWT    $carrierObj The carrier.
+ * @param String $tokenValue The token, as the client would send it.
+ * @return Array What verifyReq() gives, and the message.
+ */
+function tokenReply( JWT $carrierObj, String $tokenValue ): Array {
+	$idntArr = $carrierObj->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$tokenValue)));
+	return Array(is_array($idntArr) ? ($idntArr['user'] ?? null) : $idntArr, $carrierObj->lastError());
+}
+checkSame('JWT not a token at all',      tokenReply($jwtSess, 'nope'), Array(false, 'Invalid token'));
+checkSame('JWT what is not a token is a wrong credential', $jwtSess->wrongCred(), true);
+checkSame('JWT a token that ended is not one', Array(tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol', 'exp'=>time()-10), ...$jwtKeys))[1], $jwtSess->wrongCred()), Array('Expired token', false));
+checkSame('JWT nor is a token signed here without its expiry', Array(tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol'), ...$jwtKeys))[1], $jwtSess->wrongCred()), Array('Invalid token', false));
+checkSame('JWT nor is a missing token', Array($jwtSess->verifyReq(fakeReqst()), $jwtSess->wrongCred()), Array(false, false));
+checkSame('JWT signed with another algorithm', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol', 'exp'=>time()+60), str_repeat('s', 64), 'HS512')), Array(false, 'Invalid token'));
+checkSame('JWT not valid yet',           tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol', 'exp'=>time()+600, 'nbf'=>time()+300), ...$jwtKeys)), Array(false, 'Invalid token'));
+checkSame('JWT expired',                 tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol', 'exp'=>time()-10), ...$jwtKeys)), Array(false, 'Expired token'));
+checkSame('JWT signed, without an expiry', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol'), ...$jwtKeys)), Array(false, 'Invalid token'));
+checkSame('JWT signed, without a user',  tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('role'=>'manage', 'exp'=>time()+60), ...$jwtKeys)), Array(false, 'Invalid token'));
+checkSame('JWT signed, with an empty user', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'', 'exp'=>time()+60), ...$jwtKeys)), Array(false, 'Invalid token'));
+checkSame('JWT signed, with a user that is not a text', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>Array('carol'), 'exp'=>time()+60), ...$jwtKeys)), Array(false, 'Invalid token'));
+checkSame('JWT signed here, with its expiry and its user', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('user'=>'carol', 'exp'=>time()+60), ...$jwtKeys))[0], 'carol');
+nyu\Tools\Logger::plugSetup( Array() );
+$jwtLogs = strval(@file_get_contents(inTempDir('jwtlogs').DS.'access.log'));
+checkSame('JWT the reason is told in the log, at the debug level', Array(preg_match('/\[DEBUG\] Token refused: UnexpectedValueException: Wrong number of segments/', $jwtLogs), preg_match('/\[DEBUG\] Token refused: signed, but without an expiry or a user/', $jwtLogs), substr_count($jwtLogs, 'Token refused')), Array(1, 1, 8));
 checkSame('JWT no header',               $jwtSess->verifyReq(fakeReqst()), false);
 checkSame('JWT no header message',       $jwtSess->lastError(), 'Missing Bearer Authorization header');
 $othrJwt = new JWT( Array('secret'=>str_repeat('o', 40)) );
@@ -155,7 +185,7 @@ checkSame('ClCert with a store: known user, with its role', $strSess->verifyReq(
 checkSame('ClCert with a store: unknown user', Array($strSess->verifyReq(fakeReqst(Array(), Array('SSL_CLIENT_S_DN_CN'=>'zed') + $crtVals)), $strSess->lastError()), Array(false, 'Account not active'));
 
 // Checker : reads the strategy pair from the 'auths' block, and its config from the ACCESS registry row
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
 $hdrConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys');
 
 $checker = new Checker( Array('needed'=>false), fakeReqst() );
@@ -169,7 +199,7 @@ checkSame('Checker granted',             $axsRslt->readValue('logged'), true);
 checkSame('Checker granted status',      $axsRslt->readValue('statCode'), 200);
 checkSame('Checker granted: member role by default', $axsRslt->readValue('role'), 'member');
 
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
 $jwtConf = Array('needed'=>true, 'sessby'=>'jtoken', 'sesscf'=>'testjwt');
 $checker = new Checker( $jwtConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'manage')))) );
 checkSame('Checker keeps a known role',  $checker->verifyAxs()->readValue('role'), 'manage');
@@ -191,7 +221,7 @@ checkSame('access log: privileged access to an action', $axsLogs[0] ?? null, '['
 checkSame('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (system) from 10.0.0.1 to /docs/*');
 checkSame('access log: a member stays an info', $axsLogs[2] ?? null, '['.date('Y').'] [INFO] Access granted for user "erin" from 10.0.0.1');
 checkLike('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\['.date('Y').'\] \[WARNING\] Access denied from 10\.0\.0\.1: /');
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
 
 $checker = new Checker( $hdrConf, fakeReqst(Array('X-Api-Key'=>'bad')) );
 $axsRslt = $checker->verifyAxs();
@@ -200,10 +230,23 @@ checkSame('Checker denied status',       $axsRslt->readValue('statCode'), 401);
 checkSame('Checker denied message',      $axsRslt->readValue('statMssg'), 'Invalid API key');
 checkSame('Checker denied, no Basic challenge', $axsRslt->readValue('wwwAuth'), null);
 
-$checker = new Checker( Array('sessby'=>'hbasic', 'authby'=>'regkey', 'sesscf'=>'testkeys'), fakeReqst() );
+$checker = new Checker( Array('sessby'=>'hbasic', 'authby'=>'htpass', 'sesscf'=>'testkeys'), fakeReqst() );
 $axsRslt = $checker->verifyAxs();
 checkSame('Checker Basic denied status', $axsRslt->readValue('statCode'), 401);
-checkSame('Checker Basic challenge',     $axsRslt->readValue('wwwAuth'), 'Basic');
+checkSame('Checker Basic challenge, with its realm', $axsRslt->readValue('wwwAuth'), 'Basic realm="nyuRuns", charset="UTF-8"');
+
+// A carrier and a check that cannot work together : a mistake of the config, told as such
+checkSame('pairsFlaw: the pairs that work', Array(
+	(new Checker(Array('sessby'=>'hbasic', 'authby'=>'htpass'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'hbasic', 'authby'=>'native'), fakeReqst()))->pairsFlaw(),
+	(new Checker(Array('sessby'=>'header', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'header', 'authby'=>'usrlst'), fakeReqst()))->pairsFlaw(),
+	(new Checker(Array('sessby'=>'jtoken'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'phsess', 'authby'=>'htpass'), fakeReqst()))->pairsFlaw(),
+	(new Checker(Array('sessby'=>'clcert', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'hbasic', 'authby'=>'device'), fakeReqst()))->pairsFlaw()
+), array_fill(0, 8, ''));
+checkSame('pairsFlaw: a name and a password handed to a check of keys', (new Checker(Array('sessby'=>'hbasic', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), 'the credential check "regkey" cannot check what the carrier "hbasic" hands it');
+checkSame('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('sessby'=>'header', 'authby'=>'htpass'), fakeReqst()))->pairsFlaw(), 'the credential check "htpass" cannot check what the carrier "header" hands it');
+checkSame('pairsFlaw: a carrier left without a check', Array((new Checker(Array('sessby'=>'hbasic'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'header', 'authby'=>''), fakeReqst()))->pairsFlaw()), Array('the carrier "hbasic" needs a credential check (authby)', 'the carrier "header" needs a credential check (authby)'));
+$axsRslt = (new Checker( Array('sessby'=>'hbasic', 'authby'=>'regkey', 'sesscf'=>'testkeys'), fakeReqst(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->verifyAxs();
+checkSame('Checker: such a pair refuses every request with a 500, without a challenge', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('statMssg'), $axsRslt->readValue('wwwAuth')), Array(500, 'Access misconfigured', null));
 
 $checker = new Checker( Array('sessby'=>'jtoken', 'sesscf'=>'testkeys'), fakeReqst() );
 $axsRslt = $checker->verifyAxs();
@@ -320,7 +363,7 @@ function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): 
 }
 
 // Checker : the role a route asks for ('rolert'), written as the routes of 'openrt'
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')), 'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')), 'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
 $rolConf = Array('rolert'=>Array('users/*'=>'manage', 'users/view'=>'member', 'Shows/Edit'=>'system', 'shows/*'=>'member', 'probe/clean'=>'system', 'probe/mirror'=>'manage', '/docs/*'=>'system', '/tokchk'=>'manage', 'auth/check'=>'system', '/admin'=>'manage')) + $jwtConf;
 checkSame('Checker role: refused to a lower role', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lock')), Array(403, 'Forbidden'));
 checkSame('Checker role: refused to the role between', roleReply($rolConf, 'system', Array('app'=>'users', 'action'=>'lock')), Array(403, 'Forbidden'));
@@ -401,6 +444,33 @@ $axsLogs = file_exists(inTempDir('actnlogs').DS.'access.log') ? file(inTempDir('
 checkSame('needsRole: its refusals are logged as those of a route', $axsLogs, Array(
 	'['.date('Y').'] [WARNING] Access refused for user "carol" (member) from 10.0.0.1 to probe/roles: role system needed',
 	'['.date('Y').'] [WARNING] Access refused for user "" (no role) from 10.0.0.1 to probe/roles: role member needed'
+));
+
+// The issuer of a certificate is read from the variable the config names
+$crtVals = Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol', 'SSL_CLIENT_I_DN_CN'=>'Test CA');
+$varSess = new ClCert( Array('issvar'=>'TLS_ISSUER', 'issuer'=>'Test CA') );
+checkSame('ClCert issuer read from another variable', $varSess->verifyReq(fakeReqst(Array(), Array('TLS_ISSUER'=>'Test CA') + $crtVals)), Array('user'=>'carol'));
+checkSame('ClCert the default variable is then not read', Array($varSess->verifyReq(fakeReqst(Array(), Array('TLS_ISSUER'=>'Other CA') + $crtVals)), $varSess->lastError(), $varSess->verifyReq(fakeReqst(Array(), $crtVals))), Array(false, 'Certificate issuer not accepted', false));
+$hdrSess = new ClCert( Array('issvar'=>'HTTP_X_SSL_ISSUER', 'issuer'=>'Test CA') );
+checkSame('ClCert an issuer variable that is a request header is refused', Array($hdrSess->verifyReq(fakeReqst(Array(), Array('HTTP_X_SSL_ISSUER'=>'Test CA') + $crtVals)), $hdrSess->lastError()), Array(false, 'Certificate variables misconfigured'));
+
+// API keys written under a name identify their holder
+$namdKey = new RegKey( Array('keylst'=>Array('orders'=>'k-ordr', 'reports'=>'k-rept', 'nobody'=>'', 'wrongs'=>Array('k-list'))) );
+checkSame('RegKey a key written under a name gives the name', Array($namdKey->checkCred(Array('key'=>'k-rept')), $namdKey->checkCred(Array('key'=>'k-ordr'))), Array(Array('user'=>'reports'), Array('user'=>'orders')));
+checkSame('RegKey a wrong key, with named keys', Array($namdKey->checkCred(Array('key'=>'k-none')), $namdKey->lastError(), $namdKey->wrongCred()), Array(false, 'Invalid API key', true));
+checkSame('RegKey a name is not a key, nor is a key that is not a text', Array($namdKey->checkCred(Array('key'=>'reports')), $namdKey->checkCred(Array('key'=>'k-list'))), Array(false, false));
+checkSame('RegKey a plain list still names nobody', (new RegKey(Array('keylst'=>Array('k-1', 'k-2'))))->checkCred(Array('key'=>'k-2')), Array('user'=>''));
+checkSame('RegKey a keylst that is not a list accepts nothing', (new RegKey(Array('keylst'=>'k-1')))->checkCred(Array('key'=>'k-1')), false);
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('keylogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'NAMEKEYS'=>Array('keylst'=>Array('reports'=>'k-rept', "eve\" from 9.9.9.9\n[".date('Y')."] [INFO] forged"=>'k-evil')))) );
+$keyConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'namekeys');
+$axsRslt = (new Checker( $keyConf, fakeReqst(Array('X-Api-Key'=>'k-rept'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->verifyAxs();
+checkSame('Checker named key: the holder is the user, a member', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('user'), $axsRslt->readValue('role')), Array(200, 'reports', 'member'));
+(new Checker( $keyConf, fakeReqst(Array('X-Api-Key'=>'k-evil'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->verifyAxs();
+nyu\Tools\Logger::plugSetup( Array() );
+checkSame('access log: a member name is written as a JSON text, and cannot forge an entry', file_exists(inTempDir('keylogs').DS.'access.log') ? file(inTempDir('keylogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array(), Array(
+	'['.date('Y').'] [INFO] Access granted for user "reports" from 10.0.0.1',
+	'['.date('Y').'] [INFO] Access granted for user "eve\" from 9.9.9.9\n['.date('Y').'] [INFO] forged" from 10.0.0.1'
 ));
 
 endChecks();

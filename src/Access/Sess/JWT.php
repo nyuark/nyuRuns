@@ -6,7 +6,6 @@ use nyu\Tools\Request;
 use nyu\Access\Auth\Handler as AuthHndlr;
 use Firebase\JWT\JWT as JwtCodec;
 use Firebase\JWT\Key;
-use \Exception;
 
 /**
  * Carries an identity via a signed JWT bearer token, verified by its
@@ -20,6 +19,7 @@ class JWT implements Handler{
 	protected $jwtAlgor;
 	protected $jwtExpir;
 	protected $lastMssg;
+	protected $wrongCrd = false;
 
 	/**
 	 * @param Array     $confValues Config block with 'secret', 'algrtm' (default 'HS256') and 'lifetm' (seconds, default 3600) keys.
@@ -35,6 +35,9 @@ class JWT implements Handler{
 
 	/**
 	 * Extracts and verifies a Bearer token from the Authorization header.
+	 * A token that is not valid is told as 'Invalid token', one that ended
+	 * as 'Expired token': why the library refused it goes to the log only.
+	 * A signed token without an expiry or a user is not valid either.
 	 * With a credential store offering userIdent(), the user must still be
 	 * allowed in, and its current identity (role) replaces the token's.
 	 *
@@ -42,6 +45,7 @@ class JWT implements Handler{
 	 * @return Array|Bool The decoded identity array, or false on failure.
 	 */
 	function verifyReq( Request $requestObj ): Array|Bool {
+		$this->wrongCrd = false;
 		$authHed = $requestObj->getHeader('Authorization');
 		if( $authHed===null || stripos($authHed, 'Bearer ')!==0 ){
 			$this->lastMssg = 'Missing Bearer Authorization header';
@@ -55,8 +59,20 @@ class JWT implements Handler{
 		try{
 			$payload = JwtCodec::decode( $rawTokn, new Key($this->jwtSecrt, $this->jwtAlgor) );
 			$idntArr = (array)$payload;
-		}catch( Exception $e ){
-			$this->lastMssg = $e->getMessage();
+		}catch( \Firebase\JWT\ExpiredException $e ){
+			$this->lastMssg = 'Expired token';
+			return false;
+		}catch( \Throwable $e ){
+			// What the library found is for the log : the client is only told the token is not valid
+			\nyu\Tools\Logger::getLogger('access')->debug( 'Token refused: '.get_class($e).': '.$e->getMessage() );
+			$this->lastMssg = 'Invalid token';
+			$this->wrongCrd = true;
+			return false;
+		}
+		// A token names its user and ends : one that does neither was not issued here
+		if( !is_numeric($idntArr['exp'] ?? null) || !is_scalar($idntArr['user'] ?? null) || strval($idntArr['user'])==='' ){
+			\nyu\Tools\Logger::getLogger('access')->debug( 'Token refused: signed, but without an expiry or a user' );
+			$this->lastMssg = 'Invalid token';
 			return false;
 		}
 		// A credential store that knows its users confirms the token's user is still allowed in
@@ -97,6 +113,18 @@ class JWT implements Handler{
 	 */
 	protected function hasSecret(): Bool {
 		return is_string($this->jwtSecrt) && strlen($this->jwtSecrt)>=32;
+	}
+
+	/**
+	 * Tells whether the last refusal was a token that was not issued here
+	 * (wrong signature, not a token), as opposed to a missing one, one that
+	 * ended, or a user no longer allowed in: only a forged token counts
+	 * against the address that presented it (see Access\Limiter).
+	 *
+	 * @return Bool True when a token was presented and found forged.
+	 */
+	public function wrongCred(): Bool {
+		return $this->wrongCrd;
 	}
 
 	/**

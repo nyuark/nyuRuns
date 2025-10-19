@@ -34,6 +34,7 @@ class UserFile{
 	protected $usrsName;
 	protected $usrsFile;
 	protected $minPassw;
+	protected $sealPass;
 	protected $fileWrtr;
 	protected $lastMssg = '';
 	protected $lastCode = 200;
@@ -41,7 +42,8 @@ class UserFile{
 	/**
 	 * @param Array    $confValues Config block with the 'usrfle' path of the users file, relative to the project root
 	 *                             (conf/users.lst when left out), and optionally the shortest password accepted,
-	 *                             in characters ('minlen', defaults to 10).
+	 *                             in characters ('minlen', defaults to 10) and the key the 2FA secrets are written
+	 *                             encrypted with ('tfakey', 32 characters at least; without one they are written readable).
 	 * @param ConfFile $writerObjc The writer of config files.
 	 */
 	function __construct( Array $confValues, ConfFile $writerObjc ){
@@ -49,6 +51,7 @@ class UserFile{
 		$this->usrsName = ($fleName!='') ? $fleName : 'conf/users.lst';
 		$this->usrsFile = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $this->usrsName);
 		$this->minPassw = min( self::PASSSIZE, max(1, intval($confValues['minlen'] ?? 10)) );
+		$this->sealPass = is_scalar($confValues['tfakey'] ?? '') ? strval($confValues['tfakey'] ?? '') : '';
 		$this->fileWrtr = $writerObjc;
 	}
 
@@ -294,16 +297,20 @@ class UserFile{
 	public function makeTwoFa( String $userString ): String|Bool {
 		$this->resetLast();
 		$newScrt = Totp::makeSecrt();
-		$isSaved = $this->editUsers( $userString, function( Array $usersArray, Int $usersIndex ) use ( $newScrt ): ?Array {
+		$storTxt = Totp::sealSecrt($newScrt, $this->sealPass);
+		$isSaved = $this->editUsers( $userString, function( Array $usersArray, Int $usersIndex ) use ( $storTxt ): ?Array {
 			if( strval($usersArray[$usersIndex]['userStat'] ?? 'active')!='active' ){
 				$this->refuseFor(409, 'User not active');
 				return null;
 			}
-			$usersArray[$usersIndex]['twoFaKey'] = $newScrt;
+			$usersArray[$usersIndex]['twoFaKey'] = $storTxt;
 			return $usersArray;
 		} );
 		if( $isSaved ){
 			$this->logChange( '2FA secret of user '.json_encode($userString).' made' );
+			if( $storTxt===$newScrt ){
+				Logger::getLogger('access')->warning( '2FA secret of user '.json_encode($userString).' stored readable: no tfakey of '.Totp::SEALSIZE.' characters is set' );
+			}
 		}
 		return $isSaved ? $newScrt : false;
 	}

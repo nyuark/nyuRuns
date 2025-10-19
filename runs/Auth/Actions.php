@@ -21,7 +21,8 @@ class Actions extends Actionset {
 	 * 'sesscf'). Reports 405
 	 * unless the request is a POST, 400 when 'user' or 'pass' is missing
 	 * (both are required by input/login.json, so that reply comes before
-	 * the action runs) or is not a text, 401
+	 * the action runs), is not a text, or when the password came in the
+	 * query string of the address (see passInUrl), 401
 	 * on invalid credentials, 429 when the address presented too many
 	 * wrong ones (see Access\Limiter) and 500 when no token can be issued.
 	 * Credential checks and their outcome are logged.
@@ -30,6 +31,9 @@ class Actions extends Actionset {
 		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
 			$this->statCode = 405;
 			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		if($this->passInUrl( Array('pass'), 'Login' )){
 			return;
 		}
 
@@ -85,6 +89,10 @@ class Actions extends Actionset {
 		}
 
 		$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
+		// A session the request came with is closed : a new login does not leave the former one open
+		if(method_exists($sessObj, 'dropSessn')){
+			$sessObj->dropSessn( $this->httpRqst );
+		}
 		$rawTokn = $sessObj->issueTokn( $idntArr );
 		if($rawTokn==''){
 			$logInst->error( 'Login unavailable: '.($sessObj->lastError() ?: 'the session carrier issues no token') );
@@ -132,10 +140,13 @@ class Actions extends Actionset {
 		if($this->axessReg!==null){
 			$logInst = Logger::getLogger('access');
 			$usrRole = strval($this->axessReg->readValue('role'));
+			$clntReg = $this->httpRqst->getClient();
+			$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+			$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
 			if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
-				$logInst->notice( 'Logout of privileged user '.json_encode($this->axessReg->readValue('user')).' ('.$usrRole.')' );
+				$logInst->notice( 'Logout of privileged user '.json_encode($this->axessReg->readValue('user')).' ('.$usrRole.')'.$fromTxt );
 			}else{
-				$logInst->info( 'Logout of user '.json_encode($this->axessReg->readValue('user')) );
+				$logInst->info( 'Logout of user '.json_encode($this->axessReg->readValue('user')).$fromTxt );
 			}
 		}
 		$this->statCode = 200;
@@ -148,7 +159,8 @@ class Actions extends Actionset {
 	 * input the password it chooses, kept as sent. The action is meant to
 	 * be open ('openrt'): a pending user cannot log in. Reports 405
 	 * unless the request is a POST, 400 when an input is missing, is not
-	 * a text, or the password breaks a rule, 401 on a wrong name or code,
+	 * a text, the password breaks a rule or came in the query string of
+	 * the address (see passInUrl), 401 on a wrong name or code,
 	 * whichever it is, 429 when the address presented too many wrong
 	 * ones (see Access\Limiter) and 500 when the login does not use the
 	 * native userbase.
@@ -157,6 +169,9 @@ class Actions extends Actionset {
 		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
 			$this->statCode = 405;
 			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		if($this->passInUrl( Array('pass'), 'Activation' )){
 			return;
 		}
 		$gvnUser = $this->inputReg->readValue('user');
@@ -205,8 +220,9 @@ class Actions extends Actionset {
 	 * the 'former' input carries its current password, the 'pass' input
 	 * the new one, both kept as sent. No name is read: the user is the
 	 * one the access check identified. Reports 405 unless the request is
-	 * a POST, 400 when an input is missing, is not a text, or the new
-	 * password breaks a rule, 401 when nobody is logged or the current
+	 * a POST, 400 when an input is missing, is not a text, the new
+	 * password breaks a rule, or a password came in the query string of
+	 * the address (see passInUrl), 401 when nobody is logged or the current
 	 * password is wrong (a wrong one counts as a failed attempt, for the
 	 * user and for its address) and 500 when the login does not use the
 	 * native userbase.
@@ -215,6 +231,9 @@ class Actions extends Actionset {
 		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
 			$this->statCode = 405;
 			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		if($this->passInUrl( Array('former', 'pass'), 'Password change' )){
 			return;
 		}
 		$usrName = ($this->axessReg!==null && $this->axessReg->readValue('logged')===true) ? strval($this->axessReg->readValue('user')) : '';
@@ -247,6 +266,31 @@ class Actions extends Actionset {
 		}
 		$this->statCode = 200;
 		$this->asOutput = Array('changed'=>true);
+	}
+
+	/**
+	 * Refuses a request that carries a password in the query string of its
+	 * address, wherever else it is sent: what travels in an address stays
+	 * in the logs of every server on its way. The refusal is a 400, told
+	 * on the 'access' channel without the value; nothing is checked, so
+	 * nothing is counted against a user or an address.
+	 *
+	 * @param Array  $fieldNames Names of the inputs that carry a password.
+	 * @param String $eventLabel What was asked for, for the log.
+	 * @return Bool True when the request is refused.
+	 */
+	protected function passInUrl( Array $fieldNames, String $eventLabel ): Bool {
+		foreach($fieldNames as $fldNme){
+			if($this->httpRqst->fromQuery( strval($fldNme) )){
+				$clntReg = $this->httpRqst->getClient();
+				$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+				Logger::getLogger('access')->warning( $eventLabel.' refused'.(($usrAddr!='') ? ' from '.$usrAddr : '').': password sent in the query string' );
+				$this->statCode = 400;
+				$this->statMssg = 'Password sent in the query string';
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

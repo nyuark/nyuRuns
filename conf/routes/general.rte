@@ -27,12 +27,6 @@
 			"act": "password"
 		}
 	},
-	"dev" : {
-		"target": {
-			"app": "shows",
-			"act": "edit"
-		}
-	},
 	"index" : {
 		"target": {
 			"app": "shows",

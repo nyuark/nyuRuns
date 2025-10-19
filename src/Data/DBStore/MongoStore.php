@@ -168,14 +168,14 @@ class MongoStore implements Store {
 	}
 
 	/**
-	 * Writes a wildcard pattern as a regular expression: % stands for any
-	 * text, _ for any single character, everything else for itself.
+	 * Writes the text of a match as a regular expression: * stands for any
+	 * text, everything else for itself.
 	 *
-	 * @param String $likePattrn The pattern, as readWhere() gives it.
+	 * @param String $likePattrn The text, as readWhere() gives it.
 	 * @return String The regular expression, covering the whole value.
 	 */
 	protected static function likeRegex(String $likePattrn): String {
-		return '^'.str_replace(Array('%', '_'), Array('.*', '.'), preg_quote($likePattrn)).'$';
+		return '^'.str_replace('\\*', '.*', preg_quote($likePattrn)).'$';
 	}
 
 	/**

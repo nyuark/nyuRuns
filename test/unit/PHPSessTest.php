@@ -129,6 +129,26 @@ $shrtIdn = openSessn($shrtCar, $annaIdn);
 checkSame('the shortest lifetime is one second', $shrtCar->verifyReq(cookReqst($shrtIdn)), $annaIdn);
 $shrtCar->dropSessn(cookReqst($shrtIdn));
 
+// Whole life : a session ends once it was opened for longer than it may live, however much it is used
+$fullCar = new PHPSess( Array('lifetm'=>300, 'fulltm'=>1000, 'secure'=>false) );
+$fullIdn = openSessn($fullCar, $annaIdn);
+checkTrue('a session records when it was opened', editSessn($fullIdn)['nyuBirth']>=time()-5);
+editSessn($fullIdn, Array('nyuBirth'=>time()-990));
+checkSame('a session opened within its whole life is open', $fullCar->verifyReq(cookReqst($fullIdn)), $annaIdn);
+checkTrue('using it does not move the time it was opened', editSessn($fullIdn)['nyuBirth']<=time()-985);
+editSessn($fullIdn, Array('nyuBirth'=>time()-1001, 'nyuStamp'=>time()));
+checkSame('a session opened for longer is expired, though just used', Array($fullCar->verifyReq(cookReqst($fullIdn)), $fullCar->lastError()), Array(false, 'Session expired'));
+checkSame('and is destroyed', Array($fullCar->verifyReq(cookReqst($fullIdn)), $fullCar->lastError()), Array(false, 'No active session'));
+$fullIdn = openSessn($fullCar, $annaIdn);
+editSessn($fullIdn, Array('nyuBirth'=>null));
+checkSame('a session that does not tell when it was opened is expired', Array($fullCar->verifyReq(cookReqst($fullIdn)), $fullCar->lastError()), Array(false, 'Session expired'));
+$evrCarr = new PHPSess( Array('lifetm'=>300, 'fulltm'=>0, 'secure'=>false) );
+$evrIdnt = openSessn($evrCarr, $annaIdn);
+editSessn($evrIdnt, Array('nyuBirth'=>time()-9000000));
+checkSame('a whole life of 0 never ends a session that is used', $evrCarr->verifyReq(cookReqst($evrIdnt)), $annaIdn);
+editSessn($evrIdnt, Array('nyuBirth'=>time()-43100));
+checkSame('by default, a session lives twelve hours', Array($sessCar->verifyReq(cookReqst($evrIdnt)), editSessn($evrIdnt, Array('nyuBirth'=>time()-43300))!==Array(), $sessCar->verifyReq(cookReqst($evrIdnt))), Array($annaIdn, true, false));
+
 // A session that holds no identity
 $brknIdn = openSessn($sessCar, $annaIdn);
 editSessn($brknIdn, Array('nyuIdent'=>'anna'));
@@ -202,5 +222,17 @@ checkSame('cookie: named nyuSessn by default, and when the name given cannot be 
 // The cookie of one carrier is not read by another
 $othrCar = new PHPSess( Array('cookie'=>'nyuOther', 'lifetm'=>300) );
 checkSame('a carrier does not read the cookie of another name', $othrCar->verifyReq(cookReqst($sessIdn)), false);
+
+// A folder of its own : the sessions are kept under the project root, away from PHP's own folder
+$ownName = 'temp/sess_test_'.getmypid();
+$ownFldr = TOP_DIR.DS.'temp'.DS.'sess_test_'.getmypid();
+$ownCarr = new PHPSess( Array('lifetm'=>300, 'secure'=>false, 'folder'=>'/'.$ownName.'/') );
+$keptNmb = sessCount();
+$ownIdnt = openSessn($ownCarr, $annaIdn);
+checkSame('folder: the session is kept in it, and not in PHP\'s own', Array(is_file($ownFldr.DS.'sess_'.$ownIdnt), sessCount(), $ownCarr->verifyReq(cookReqst($ownIdnt))), Array(true, $keptNmb, $annaIdn));
+$ownCarr->dropSessn(cookReqst($ownIdnt));
+checkSame('folder: and is removed from it at the logout', count((array)glob($ownFldr.DS.'sess_*')), 0);
+dropFoldr($ownFldr);
+ini_set('session.save_path', $sesFldr);
 
 endChecks();

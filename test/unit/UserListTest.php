@@ -29,7 +29,7 @@ class PathUserList extends UserList{
 	 * @param Array $confValues Config block, its 'usrfle' being the full path of the users file.
 	 */
 	function __construct( Array $confValues ){
-		parent::__construct( Array() );
+		parent::__construct( Array('tfakey'=>$confValues['tfakey'] ?? '') );
 		$this->usrsFile = strval($confValues['usrfle'] ?? '');
 	}
 }
@@ -61,8 +61,8 @@ checkSame('UserList wrong password', Array($usrList->checkCred(Array('user'=>'an
 checkSame('UserList unknown user', Array($usrList->checkCred(Array('user'=>'zed', 'pass'=>'pw-zed')), $usrList->lastError(), $usrList->wrongCred()), Array(false, 'Invalid credentials', true));
 checkSame('UserList names are matched with case', $usrList->checkCred(Array('user'=>'Anna', 'pass'=>'pw-anna')), false);
 checkSame('UserList no name', Array($usrList->checkCred(Array('user'=>'', 'pass'=>'pw-anna')), $usrList->lastError()), Array(false, 'Invalid credentials'));
-checkSame('UserList pending user', Array($usrList->checkCred(Array('user'=>'cleo', 'pass'=>'pw-cleo')), $usrList->lastError(), $usrList->wrongCred()), Array(false, 'Account not active', false));
-checkSame('UserList locked user', Array($usrList->checkCred(Array('user'=>'dave', 'pass'=>'pw-dave')), $usrList->lastError()), Array(false, 'Account not active'));
+checkSame('UserList pending user: refused as a wrong password is', Array($usrList->checkCred(Array('user'=>'cleo', 'pass'=>'pw-cleo')), $usrList->lastError(), $usrList->wrongCred()), Array(false, 'Invalid credentials', true));
+checkSame('UserList locked user: refused the same way', Array($usrList->checkCred(Array('user'=>'dave', 'pass'=>'pw-dave')), $usrList->lastError()), Array(false, 'Invalid credentials'));
 checkSame('UserList the status is only told to who has the password', Array($usrList->checkCred(Array('user'=>'dave', 'pass'=>'nope')), $usrList->lastError()), Array(false, 'Invalid credentials'));
 checkSame('UserList the path can start with a slash', (new UserList(Array('usrfle'=>'/'.$fxtPath)))->checkCred($annaPwd), $annaIdn);
 
@@ -75,6 +75,15 @@ checkSame('UserList role, status and id left out', $usrList->checkCred($emmaPwd 
 checkSame('UserList 2FA: password alone', Array($usrList->checkCred($emmaPwd), $usrList->lastError(), $usrList->wrongCred()), Array(false, 'Verification code required', false));
 checkSame('UserList 2FA: wrong code', Array($usrList->checkCred($emmaPwd + Array('code'=>'000000')), $usrList->lastError(), $usrList->wrongCred()), Array(false, 'Invalid verification code', true));
 checkSame('UserList 2FA: wrong password, whatever the code', Array($usrList->checkCred(Array('user'=>'emma', 'pass'=>'nope', 'code'=>Totp::codeAtTme($tfaScrt, time()))), $usrList->lastError()), Array(false, 'Invalid credentials'));
+
+// A secret written encrypted is read with the key of the block
+$sealKey = str_repeat('k', 32);
+file_put_contents(inTempDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userName'=>'emma', 'passHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFaKey'=>Totp::sealSecrt($tfaScrt, $sealKey))))));
+$emmaCod = $emmaPwd + Array('code'=>Totp::codeAtTme($tfaScrt, time()));
+checkSame('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('usrfle'=>inTempDir('sealed.lst'), 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
+$noKeyLs = new PathUserList( Array('usrfle'=>inTempDir('sealed.lst')) );
+checkSame('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkCred($emmaCod), $noKeyLs->lastError(), $noKeyLs->wrongCred()), Array(false, 'Credential store unavailable', false));
+checkSame('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('usrfle'=>$fxtPath, 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
 
 // Personal API token : its SHA-256 hash is the tokenKey of an active user
 checkSame('UserList personal token', $usrList->checkCred(Array('key'=>'list-test-token')), $annaIdn);
@@ -125,11 +134,12 @@ checkSame('UserList a role that is not a text', listReply(json_encode(Array('use
 checkSame('UserList an id that is not a number or a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('id_user'=>Array(1)))))), $unavail);
 checkSame('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userName'=>'anna', 'passHash'=>$annaHsh, 'userRole'=>'manage'))))), $unavail);
 checkSame('UserList a tokenKey shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('tokenKey'=>'ab12'), Array('userName'=>'ben', 'passHash'=>$annaHsh, 'tokenKey'=>'AB12'))))), $unavail);
-checkSame('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStat'=>'online'))))), Array(false, 'Account not active', false));
+checkSame('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStat'=>'online'))))), Array(false, 'Invalid credentials', true));
 checkSame('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('userRole'=>'root')))))[0], Array('user'=>'anna', 'role'=>'root', 'id'=>null));
 Logger::plugSetup( Array() );
 $axsLogs = file_exists(inTempDir('logs').DS.'access.log') ? file(inTempDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
-checkSame('access log: one error per file refused, none for a missing one', count($axsLogs), 10);
+checkSame('access log: one error per file refused, none for a missing one', count(preg_grep('/\[ERROR\] Users file /', $axsLogs)), 10);
+checkSame('access log: the status of a user that is not active is told there only', array_values(preg_grep('/is not active/', $axsLogs)), Array('['.date('Y').'] [WARNING] Credential refused: user "anna" is not active (online)'));
 checkSame('access log: why the file is refused', $axsLogs[8] ?? null, '['.date('Y').'] [ERROR] Users file "users.lst" cannot be used: user "anna" is listed twice');
 checkSame('access log: neither a hash nor a token is told', count(preg_grep('/\$2y\$|ab12/i', $axsLogs)), 0);
 
@@ -150,7 +160,7 @@ function listAccess( String $carrierStr, Array $headersArr, String $carrierCnf='
 	return Array($axsRslt->readValue('statCode'), $axsRslt->readValue('statMssg'), $axsRslt->readValue('user'), $axsRslt->readValue('role'));
 }
 checkSame('Checker with UserList: Basic access', listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('anna:pw-anna'))), Array(200, '', 'anna', 'manage'));
-checkSame('Checker with UserList: Basic access of a locked user', listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('dave:pw-dave'))), Array(401, 'Account not active', '', null));
+checkSame('Checker with UserList: Basic access of a locked user', listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('dave:pw-dave'))), Array(401, 'Invalid credentials', '', null));
 checkSame('Checker with UserList: Basic access is closed to a user with a secret', listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('emma:pw-emma'))), Array(401, 'Verification code required', '', null));
 checkSame('Checker with UserList: personal token in the API key header', listAccess('header', Array('X-Api-Key'=>'list-test-token')), Array(200, '', 'anna', 'manage'));
 checkSame('Checker with UserList: wrong personal token', listAccess('header', Array('X-Api-Key'=>'another-token')), Array(401, 'Invalid API key', '', null));
@@ -164,7 +174,8 @@ $prjFldr = 'temp'.DS.'limits_test_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TSUSRS'=>Array('usrfle'=>$fxtPath), 'LIMITS'=>Array('maxtry'=>2, 'holdtm'=>600, 'folder'=>$prjFldr))) );
 $wrngHed = Array('Authorization'=>'Basic '.base64_encode('anna:nope'));
 $rghtHed = Array('Authorization'=>'Basic '.base64_encode('anna:pw-anna'));
-checkSame('Limit by address: an account not active is not counted', Array(listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo')))[0], listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo')))[0], listAccess('hbasic', $rghtHed)[0]), Array(401, 401, 200));
+checkSame('Limit by address: an account not active is counted, as a wrong password is', Array(listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo')))[1], listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo')))[1], listAccess('hbasic', $rghtHed)[0]), Array('Invalid credentials', 'Invalid credentials', 429));
+dropFoldr(TOP_DIR.DS.$prjFldr);
 checkSame('Limit by address: two wrong passwords are told as such', Array(listAccess('hbasic', $wrngHed)[1], listAccess('hbasic', $wrngHed)[1]), Array('Invalid credentials', 'Invalid credentials'));
 checkSame('Limit by address: the address is then held, even with the right password', Array(listAccess('hbasic', $rghtHed)[0], listAccess('hbasic', $rghtHed)[1]), Array(429, 'Too many attempts'));
 dropFoldr(TOP_DIR.DS.$prjFldr);

@@ -17,19 +17,22 @@ class ClCert implements Handler{
 	protected $authObjc;
 	protected $chkVarNm;
 	protected $usrVarNm;
+	protected $issVarNm;
 	protected $issuerCn;
 	protected $lastMssg;
 
 	/**
 	 * @param Array     $confValues Config block naming the server variables of the verification result
-	 * 		('chkvar', SSL_CLIENT_VERIFY by default) and of the user name ('usrvar', SSL_CLIENT_S_DN_CN
-	 * 		by default), and optionally the common name of the only 'issuer' accepted.
+	 * 		('chkvar', SSL_CLIENT_VERIFY by default), of the user name ('usrvar', SSL_CLIENT_S_DN_CN
+	 * 		by default) and of the name of the issuer ('issvar', SSL_CLIENT_I_DN_CN by default), and
+	 * 		optionally the common name of the only 'issuer' accepted.
 	 * @param AuthHndlr $authHandlr Optional credential store confirming the certificate's user.
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->authObjc = $authHandlr;
 		$this->chkVarNm = strtolower( strval($confValues['chkvar'] ?? 'SSL_CLIENT_VERIFY') );
 		$this->usrVarNm = strtolower( strval($confValues['usrvar'] ?? 'SSL_CLIENT_S_DN_CN') );
+		$this->issVarNm = strtolower( strval($confValues['issvar'] ?? 'SSL_CLIENT_I_DN_CN') );
 		$this->issuerCn = strval($confValues['issuer'] ?? '');
 		$this->lastMssg = '';
 	}
@@ -44,7 +47,7 @@ class ClCert implements Handler{
 	 */
 	function verifyReq( Request $requestObj ): Array|Bool {
 		// A variable named HTTP_... is a request header : anyone could send it
-		if( strpos($this->chkVarNm, 'http_')===0 || strpos($this->usrVarNm, 'http_')===0 ){
+		if( strpos($this->chkVarNm, 'http_')===0 || strpos($this->usrVarNm, 'http_')===0 || strpos($this->issVarNm, 'http_')===0 ){
 			$this->lastMssg = 'Certificate variables misconfigured';
 			return false;
 		}
@@ -53,7 +56,7 @@ class ClCert implements Handler{
 			$this->lastMssg = 'No verified client certificate';
 			return false;
 		}
-		if( $this->issuerCn!='' && ($srvVals['ssl_client_i_dn_cn'] ?? '')!==$this->issuerCn ){
+		if( $this->issuerCn!='' && ($srvVals[$this->issVarNm] ?? '')!==$this->issuerCn ){
 			$this->lastMssg = 'Certificate issuer not accepted';
 			return false;
 		}

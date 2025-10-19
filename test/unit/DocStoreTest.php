@@ -48,7 +48,7 @@ function docTitle( Array $whereArray ): Mixed {
 checkSame('list: every row', docTitle(Array()), Array('Alpha Matinee', 'Alpha Night', 'Beta Evening', 'Empty Stage'));
 checkSame('list: equal', docTitle(Array('venue'=>'Hall B')), Array('Beta Evening'));
 checkSame('list: not equal leaves out the rows left unset, as SQL does', docTitle(Array('venue!'=>'Hall B')), Array('Alpha Matinee', 'Alpha Night'));
-checkSame('list: wildcard, whatever the case', docTitle(Array('title'=>'alpha*')), Array('Alpha Matinee', 'Alpha Night'));
+checkSame('list: wildcard, whatever the case', docTitle(Array('title~'=>'alpha*')), Array('Alpha Matinee', 'Alpha Night'));
 checkSame('list: comparison and list of values', docTitle(Array('seats>='=>80, 'venue'=>Array('Hall B', 'Hall C'))), Array('Alpha Matinee', 'Beta Evening'));
 checkSame('list: field left unset', docTitle(Array('venue?'=>false)), Array('Empty Stage'));
 checkSame('list: a null value matches nothing', docTitle(Array('venue'=>null)), Array());
@@ -66,7 +66,7 @@ checkSame('list: an order written as plain field names in the constructor works'
 }), Array('2026-12-28', '2026-11-03'));
 checkSame('list: child lists', runSafely(function() use ($docLink){
 	$showLst = new DBLst('shows', null, null, null, null, $docLink);
-	$showLst->lstSearch(Array('title'=>'*a Night'));
+	$showLst->lstSearch(Array('title~'=>'*a Night'));
 	$showLst->readItems();
 	return count($showLst->childList('events', 'date', 'show_id', '_id')[0]['events']);
 }), 2);
@@ -95,7 +95,7 @@ checkSame('record: update by key, linked rows are not saved', runSafely(function
 }), Array(Array('2026-11-03', '2026-12-28'), 'key1', Array('_id'=>'key1', 'title'=>'Alpha Night', 'venue'=>'Hall X', 'seats'=>120)));
 checkSame('record: find, and a missing key', runSafely(function() use ($docLink){
 	$showRec = new DBRec('shows', Array(), Array(), $docLink);
-	return Array($showRec->findRecrd(Array('title'=>'beta*'))['_id'] ?? null, $showRec->loadRecrd('key99'), $showRec->exstRecrd('key2'), $showRec->exstRecrd('key*'));
+	return Array($showRec->findRecrd(Array('title~'=>'beta*'))['_id'] ?? null, $showRec->loadRecrd('key99'), $showRec->exstRecrd('key2'), $showRec->exstRecrd('key*'));
 }), Array('key2', false, true, false));
 checkSame('record: deleted alone, without transactions', runSafely(function() use ($docLink){
 	$showRec = new DBRec('shows', Array(), Array(), $docLink);
@@ -128,7 +128,7 @@ checkSame('mongo: not equal and lists leave out the rows left unset', runSafely(
 	Array('seats'=>Array('$nin'=>Array(0, null)))
 )));
 checkSame('mongo: wildcards become anchored expressions that ignore the case', runSafely(function(){
-	return MongoStore::makeQuery(Array('title'=>'Alpha*', 'venue!'=>'Hall (A)%'));
+	return MongoStore::makeQuery(Array('title~'=>'Alpha*', 'venue!~'=>'Hall (A)*'));
 }), Array('$and'=>Array(
 	Array('title'=>Array('$regex'=>'^Alpha.*$', '$options'=>'is')),
 	Array('venue'=>Array('$not'=>Array('$regex'=>'^Hall \(A\).*$', '$options'=>'is'), '$ne'=>null))

@@ -299,6 +299,21 @@ class Loader{
 		);
 	}
 
+	/**
+	 * Resolves the limits of a request body from the SYSTEM config file:
+	 * its largest size, and the most parts of a multipart body.
+	 *
+	 * @return Array Body limits: 'size' in KB (REQ_SIZE, 8192 when not set) and 'part' as a number of parts (REQ_PART, 200 when not set); 0 for no limit.
+	 */
+	function reqConfig(): Array {
+		$nyuConf = $GLOBALS['nyuConfig'];
+		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		return Array(
+			'size' => max( 0, intval($sysConf['REQ_SIZE'] ?? 8192) ),
+			'part' => max( 0, intval($sysConf['REQ_PART'] ?? 200) ),
+		);
+	}
+
     /**
 	 * Defines the output format and response template by building a
 	 * Response object from the 'rnder' configuration.

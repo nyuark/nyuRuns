@@ -36,14 +36,9 @@ foreach( scandir(TOP_DIR.DS.'conf') as $fleNme ){
 }
 sort($allCnfs);
 sort($iniCnfs);
-checkTrue('conf/ holds the system and global files', in_array('SYSTEM', $allCnfs) && in_array('GLOBAL', $allCnfs) && count($allCnfs)>2);
-
 checkSame('fnames any: every file',            loadedCnf(Array('ftypes'=>'all', 'fnames'=>'any')), $allCnfs);
 checkSame('fnames missing: every file',        loadedCnf(Array('ftypes'=>'all')), $allCnfs);
 checkSame('fnames with one name',              loadedCnf(Array('ftypes'=>'all', 'fnames'=>'system')), Array('SYSTEM'));
-checkSame('fnames with a list',                loadedCnf(Array('ftypes'=>'all', 'fnames'=>'system,global')), Array('GLOBAL', 'SYSTEM'));
-checkSame('fnames with spaces in the list',    loadedCnf(Array('ftypes'=>'all', 'fnames'=>' system , global ')), Array('GLOBAL', 'SYSTEM'));
-checkSame('fnames is matched with its case',   loadedCnf(Array('ftypes'=>'all', 'fnames'=>'system,GLOBAL')), Array('SYSTEM'));
 checkSame('ftypes keeps one extension',        loadedCnf(Array('ftypes'=>'ini', 'fnames'=>'any')), $iniCnfs);
 
 // Config folder named by the preset

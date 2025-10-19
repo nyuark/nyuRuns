@@ -73,6 +73,7 @@ class Runner{
 		if( !headers_sent() ){
 			http_response_code(500);
 			header('Content-Type: application/json; charset=utf-8');
+			header('X-Content-Type-Options: nosniff');
 		}
 		print(json_encode( Array('error'=>'Internal Server Error', 'code'=>500) ));
 		exit();
@@ -94,7 +95,10 @@ class Runner{
 		$contObj->makeObjct('nyu\Tools\ClientReg', array(), Array(true, $this->setupCon->proxyConf()));
 		$rndrCnf = $this->setupCon->getRegKey('rnder');
 		$this->response = $contObj->makeObjct('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
-		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array());
+		// A body larger than the config allows is not read
+		$this->httpRqst = $contObj->makeObjct('nyu\\Tools\\Request', array(), Array($this->setupCon->reqConfig()));
+		// Another site is named in the reply only when the preset lists it
+		$this->response->setOrigin( $this->httpRqst->getHeader('Origin') );
 
 		// Every log channel is built with this configuration; the Runner writes on its own
 		Logger::plugSetup( $this->setupCon->logConfig() );
@@ -117,6 +121,16 @@ class Runner{
 		// Get required configuration files
 		// and build all required objects for
 		// running the sequence and the Registrys needed
+
+		// A request larger than allowed is refused before anything is done with it
+		if( $this->httpRqst->overLimit() ){
+			$clntReg = $this->httpRqst->getClient();
+			$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+			$this->logStore->warning( 'Request refused'.(($usrAddr!='') ? ' from '.$usrAddr : '').': body larger than allowed (REQ_SIZE, REQ_PART)' );
+			$this->setStatus( 413, 'Payload Too Large' );
+			$this->doRespond( $this->procStat );
+			return;
+		}
 
 		// The preset tells the sources of the inputs; the definition an application
 		// gives for an action (input/<action>.json) is applied by its Controller
@@ -302,7 +316,37 @@ class Runner{
 		if( !$this->getLayout( $bodyArr ) ){
 			$statusCode = 500;
 		}
+		if( !$success ){
+			$this->htmlError( $statusCode, $statusMssg );
+		}
 		$this->procStat = $statusCode;
+	}
+
+	/**
+	 * Answers an error with the HTML page the site has for its status
+	 * (see Router::errorPage), in place of the error body: when the
+	 * request asked for a page or a file, or for nothing a route answers
+	 * in a preset that serves pages. A request for an action keeps the
+	 * error body of the preset. The page gets the status as %code% and
+	 * the message as %error%.
+	 *
+	 * @param Int    $statusCode Status of the reply.
+	 * @param String $statusMssg Message describing it.
+	 */
+	protected function htmlError( Int $statusCode, String $statusMssg ): Void {
+		$rtrObjc = ($this->setupCon!==null) ? $this->setupCon->getRouter() : null;
+		if( $rtrObjc===null || $this->routeReg===null ){
+			return;
+		}
+		$rteKind = $this->routeReg->readValue('rteKind');
+		$noRoute = ( $rteKind==null && $this->routeReg->readValue('app')==null && strval($this->routeReg->readValue('rtePath'))=='' );
+		if( !$noRoute && !in_array($rteKind, Array('htpage', 'static'), true) ){
+			return;
+		}
+		$pagePth = $rtrObjc->errorPage($statusCode);
+		if( $pagePth!==null ){
+			$this->response->pageReply( $pagePth, Array('code'=>$statusCode, 'error'=>$statusMssg), $statusCode );
+		}
 	}
 
 	/**

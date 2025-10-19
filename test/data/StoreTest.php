@@ -46,7 +46,7 @@ checkSame('tableInfo', runSafely(function() use ($dbStore){ return $dbStore->tab
 
 // Reading: the options every store honours
 checkSame('find: every row', foundCol($dbStore, 'shows', Array(), Array(), 'id_show'), Array(1, 2, 3, 4, 5));
-checkSame('find: a filter', foundCol($dbStore, 'shows', Array('title'=>'Alpha*', 'id_show>'=>1), Array(), 'id_show'), Array(3));
+checkSame('find: a filter', foundCol($dbStore, 'shows', Array('title~'=>'Alpha*', 'id_show>'=>1), Array(), 'id_show'), Array(3));
 checkSame('find: chosen fields', runSafely(function() use ($dbStore){ return $dbStore->findItems('shows', Array('id_show'=>2), Array('field'=>Array('title', 'venue'))); }), Array(Array('title'=>'Beta Evening', 'venue'=>'Hall B')));
 checkSame('find: a field under another name', runSafely(function() use ($dbStore){ return $dbStore->findItems('shows', Array('id_show'=>2), Array('field'=>Array(Array('field'=>'title', 'alias'=>'name')))); }), Array(Array('name'=>'Beta Evening')));
 checkSame('find: order', foundCol($dbStore, 'shows', Array(), Array('order'=>Array(Array('title', false), Array('id_show', true))), 'id_show'), Array(3, 1, 2, 5, 4));
@@ -86,7 +86,7 @@ checkLike('insert with an invalid field name is refused', runSafely(function() u
 
 // Changing
 checkSame('update changes the rows of the filter, and counts them', runSafely(function() use ($dbStore){
-	$rowsDne = $dbStore->updateRow('shows', Array('title'=>'Alpha*'), Array('venue'=>'Hall X'));
+	$rowsDne = $dbStore->updateRow('shows', Array('title~'=>'Alpha*'), Array('venue'=>'Hall X'));
 	return Array($rowsDne, array_column($dbStore->findItems('shows', Array('venue'=>'Hall X')), 'id_show'));
 }), Array(2, Array(1, 3)));
 checkSame('update matching nothing gives 0', runSafely(function() use ($dbStore){ return $dbStore->updateRow('shows', Array('id_show'=>999), Array('venue'=>'Hall Y')); }), 0);

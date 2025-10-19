@@ -282,8 +282,9 @@ class DBRec {
 	 * Finds the first record matching a map of field => value(s) and loads
 	 * its declared relations. The filter syntax is the one of
 	 * DBStore\Filter::readWhere(): a field name may end with '!' (negation), '<=',
-	 * '>=', '<' or '>'; an array value gives IN/NOT IN, and a wildcard
-	 * ('*' or '%') LIKE/NOT LIKE. 'field?'=>false gives IS NULL and
+	 * '>=', '<' or '>'; an array value gives IN/NOT IN, and a name ending
+	 * with '~' or '!~' LIKE/NOT LIKE, '*' being any text in its value. Any
+	 * other value is compared exactly. 'field?'=>false gives IS NULL and
 	 * 'field?'=>true IS NOT NULL; a null value matches nothing.
 	 *
 	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.

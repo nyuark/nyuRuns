@@ -87,6 +87,16 @@ checkSame('an API key is shown once, and written where the block reads it', Arra
 $jsnVals = jsonShell($projDir, Array('config', 'secrt', 'jtoken', '--block=inline', '--agree', '--shown'));
 checkSame('a secret the block holds itself is written in the block', Array($jsnVals['written'] ?? null, json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['inline'], json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['dftokn']['secret']), Array('conf/access.json inline', Array('secret'=>$jsnVals['secret']['Secret of the tokens'] ?? '', 'keylst'=>Array('k-1', 'k-2')), 'env:NYU_JWT_SECRET'));
 checkSame('a block that holds no such secret', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=native', '--agree'))['code'], runShell($projDir, Array('config', 'secrt', 'other'))['code']), Array(3, 2));
+// The key of the 2FA secrets, in the block of the store the login uses
+checkSame('a store whose block holds no key of the 2FA secrets', runShell($projDir, Array('config', 'secrt', 'tfakey'))['code'], 3);
+runShell($projDir, Array('config', 'write', 'access', 'native.tfakey', 'env:NYU_TFA_KEY', '--force'));
+$runVals = runShell($projDir, Array('config', 'secrt', 'tfakey'));
+$tfaKey = strval(parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '');
+checkSame('the key of the 2FA secrets is written in the environment file, and not shown', Array($runVals['code'], $runVals['text'], strlen($tfaKey)>=48), Array(0, "written: .env NYU_TFA_KEY\n", true));
+checkSame('a key in use is only replaced when confirmed', Array(runShell($projDir, Array('config', 'secrt', 'tfakey', '--noask'))['code'], parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? null), Array(3, $tfaKey));
+checkLike('replacing it tells what is lost', runShell($projDir, Array('config', 'secrt', 'tfakey'), "n\n")['errs'], '/Replace the key of the 2FA secrets in use: every secret stored with it stops being readable/');
+runShell($projDir, Array('config', 'write', 'access', 'native.tfakey', 'written-in-the-block'));
+checkSame('a key written in the file is masked', jsonShell($projDir, Array('config', 'shows', 'access', 'native.tfakey'))['rows'] ?? null, Array(Array('key'=>'native.tfakey', 'value'=>'********')));
 $jsnVals = jsonShell($projDir, Array('config', 'secrt', 'htpass', 'bob'));
 $htpLine = trim(strval(readInPrj($projDir, 'conf/.htpasswd')));
 checkSame('a htpasswd line is written with a password made and shown once', Array(strpos($htpLine, 'bob:$2y$'), password_verify($jsnVals['secret']['Password of bob'] ?? '', substr($htpLine, 4))), Array(0, true));

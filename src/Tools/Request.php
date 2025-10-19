@@ -17,9 +17,13 @@ class Request{
 	protected $rawInput;
 
 	protected $dataVals; // Registry of values
+	protected $addrVals = Array(); // Names of the values sent in the query string, in lower case
 	protected $cookVals; // Registry of readable cookie values (written through response)
 	protected $fileData; // Registry of files
 	protected $tmpFiles = Array(); // Temporary files written for uploads received in the raw body
+	protected $sizeLimt = 0; // Largest body read, in KB; 0 for no limit
+	protected $partLimt = 0; // Most parts read from a multipart body; 0 for no limit
+	protected $overSize = false; // Whether the body went over one of those limits
 
 	/**
 	 * Builds the request object: derives the method, URI, query string and
@@ -29,13 +33,16 @@ class Request{
 	 * @param ServerReg $srvRegistr Registry of $_SERVER values.
 	 * @param Response  $httpRespns The response object (reserved for cookie writes).
 	 * @param ClientReg $cltRegistr Registry of client values (address, agent, system, device, language).
+	 * @param Array     $limitsConf The limits of a body: its largest 'size' in KB and the most 'part's of a multipart one, 0 or left out for no limit (see Setup\Loader::reqConfig).
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-	 function __construct( ServerReg $srvRegistr, Response $httpRespns, ClientReg $cltRegistr ){
+	 function __construct( ServerReg $srvRegistr, Response $httpRespns, ClientReg $cltRegistr, Array $limitsConf=Array() ){
 
 		$this->serveReg = $srvRegistr;
 		$this->clienReg = $cltRegistr;
+		$this->sizeLimt = max( 0, intval($limitsConf['size'] ?? 0) );
+		$this->partLimt = max( 0, intval($limitsConf['part'] ?? 0) );
 
 		// Request method
 		$this->inMethod = $this->serveReg->readValue('request_method');
@@ -83,6 +90,8 @@ class Request{
 		// Read Variables
 		$this->rawInput = $this->getRawDat();
 		$this->dataVals = Array();
+		// What came in the address is remembered by name (see fromQuery)
+		$this->addrVals = array_map( 'strtolower', array_map('strval', array_merge(array_keys($addrValues), array_keys($_GET ?? Array()))) );
 		if(!empty($addrValues)){
 			$this->dataVals = array_merge($this->dataVals, $addrValues);
 		}
@@ -120,7 +129,7 @@ class Request{
 	 */
 	protected function getRawDat(): Array {
 		// Fetch content
-		$rawData = file_get_contents('php://input');
+		$rawData = $this->readsBody();
 
 		// JSON body (POST/PUT/PATCH) : decode directly, no boundary framing
 		$cntType = $this->getHeader('Content-Type');
@@ -159,6 +168,42 @@ class Request{
 	}
 
 	/**
+	 * Reads the raw body, up to the largest size allowed and no further:
+	 * a body announced or found larger is not kept, and the request is
+	 * marked as over its limit (see overLimit).
+	 *
+	 * @return String The body, empty when it is larger than allowed.
+	 */
+	protected function readsBody(): String {
+		if( $this->sizeLimt<1 ){
+			return strval(file_get_contents('php://input'));
+		}
+		$maxByts = $this->sizeLimt * 1024;
+		// What the request announces is checked first : nothing is then read
+		$toldLen = max( intval($this->getHeader('Content-Length')), intval($this->serveReg->readValue('content_length')) );
+		if( $toldLen>$maxByts ){
+			$this->overSize = true;
+			return '';
+		}
+		$rawData = strval(file_get_contents('php://input', false, null, 0, $maxByts+1));
+		if( strlen($rawData)>$maxByts ){
+			$this->overSize = true;
+			return '';
+		}
+		return $rawData;
+	}
+
+	/**
+	 * Tells whether the body of the request went over a limit: its size,
+	 * or the parts of a multipart body. Nothing was read from such a body.
+	 *
+	 * @return Bool True when the request is to be refused as too large.
+	 */
+	public function overLimit(): Bool {
+		return $this->overSize;
+	}
+
+	/**
 	 * Splits a multipart body into variables and files, cutting on the
 	 * boundary announced by the Content-Type header so that binary
 	 * content is left byte for byte as it was sent.
@@ -181,6 +226,11 @@ class Request{
 
 		// The first piece is what precedes the first boundary
 		$flxPrts = array_slice( explode($boundry, $rawContent), 1 );
+		// The last piece closes the body : a body of more parts than allowed is not read
+		if( $this->partLimt>0 && count($flxPrts)-1>$this->partLimt ){
+			$this->overSize = true;
+			return $readFlx;
+		}
 		foreach( $flxPrts as $partLn ){
 			// The closing boundary is followed by "--"
 			if( substr($partLn, 0, 2)=='--' ){
@@ -406,6 +456,17 @@ class Request{
 		}else{
 			return NULL;
 		}
+	}
+	/**
+	 * Tells whether a value was sent in the query string of the address,
+	 * whatever else the body holds under the same name. What travels in
+	 * an address is kept by the logs of every server on its way.
+	 *
+	 * @param String $usrVarName Name of the value, whatever its case.
+	 * @return Bool True when the query string holds that name.
+	 */
+	public function fromQuery( String $usrVarName ): Bool {
+		return in_array( strtolower($usrVarName), $this->addrVals, true );
 	}
 	/**
 	 * Reads a single cookie value received with the request.

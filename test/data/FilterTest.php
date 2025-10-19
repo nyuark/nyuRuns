@@ -43,11 +43,18 @@ checkSame('greater or equal', pickShow(Array('id_show>='=>4)),     Array('`id_sh
 checkSame('lower',            pickShow(Array('id_show<'=>2)),      Array('`id_show` < ?',  Array(2), Array(1)));
 checkSame('greater',          pickShow(Array('id_show>'=>4)),      Array('`id_show` > ?',  Array(4), Array(5)));
 
-// Wildcards
-checkSame('wildcard',         pickShow(Array('title'=>'Alpha*')),  Array('`title` LIKE ?',     Array('Alpha%'), Array(1, 3)));
-checkSame('negated wildcard', pickShow(Array('title!'=>'Alpha*')), Array('`title` NOT LIKE ?', Array('Alpha%'), Array(2, 4, 5)));
+// Wildcards : asked for by the name of the field, * being the only one
+checkSame('wildcard',         pickShow(Array('title~'=>'Alpha*')),  Array("`title` LIKE ? ESCAPE '!'",     Array('Alpha%'), Array(1, 3)));
+checkSame('negated wildcard', pickShow(Array('title!~'=>'Alpha*')), Array("`title` NOT LIKE ? ESCAPE '!'", Array('Alpha%'), Array(2, 4, 5)));
+checkSame('wildcard: in the middle and at the start', Array(pickShow(Array('title~'=>'*a N*'))[2] ?? null, pickShow(Array('title~'=>'*Gig'))[2] ?? null), Array(Array(1), Array(4)));
+checkSame('wildcard: without a *, the whole text is matched', pickShow(Array('title~'=>'Solo Gig')), Array("`title` LIKE ? ESCAPE '!'", Array('Solo Gig'), Array(4)));
+checkSame('wildcard: % and _ are plain text, escaped for the database', pickShow(Array('title~'=>'%_!*')), Array("`title` LIKE ? ESCAPE '!'", Array('!%!_!!%'), Array()));
+checkSame('wildcard: a _ does not stand for any character', Array(pickShow(Array('title~'=>'Solo_Gig'))[2] ?? null, pickShow(Array('title~'=>'Alpha%'))[2] ?? null), Array(Array(), Array()));
+checkSame('wildcard: a list is still a list', pickShow(Array('id_show~'=>Array(1, 2), 'title!~'=>Array('Solo Gig'))), Array('`id_show` IN (?,?) AND `title` NOT IN (?)', Array(1, 2, 'Solo Gig'), Array(1, 2)));
 
-// Exact values
+// Exact values : what a value holds is never a wildcard
+checkSame('a value holding * or % is compared as it is', Array(pickShow(Array('title'=>'Alpha*')), pickShow(Array('title'=>'%'))), Array(Array('`title` = ?', Array('Alpha*'), Array()), Array('`title` = ?', Array('%'), Array())));
+checkSame('a negated value holding * is compared as it is', pickShow(Array('title!'=>'Alpha*')), Array('`title` != ?', Array('Alpha*'), Array(1, 2, 3, 4, 5)));
 checkSame('a written = keeps wildcard characters as plain text', pickShow(Array('title='=>'Alpha*')), Array('`title` = ?', Array('Alpha*'), Array()));
 checkSame('a written = finds the exact value',                 pickShow(Array('title='=>'Beta Evening')), Array('`title` = ?', Array('Beta Evening'), Array(2)));
 checkSame('<= and >= are not read as a written =',             pickShow(Array('id_show<='=>1, 'id_show>='=>1)), Array('`id_show` <= ? AND `id_show` >= ?', Array(1, 1), Array(1)));
@@ -65,12 +72,12 @@ checkSame('not set, asked by name', pickShow(Array('venue?'=>false)), Array('`ve
 checkSame('set, asked by name',     pickShow(Array('venue?'=>true)),  Array('`venue` IS NOT NULL', Array(), Array(1, 2, 3, 4)));
 checkSame('a null value matches nothing',         pickShow(Array('venue'=>null)),  Array('1=0', Array(), Array()));
 checkSame('a negated null value matches nothing', pickShow(Array('venue!'=>null)), Array('1=0', Array(), Array()));
-checkSame('a null value among other entries',     pickShow(Array('title'=>'Empty*', 'venue'=>null)), Array('`title` LIKE ? AND 1=0', Array('Empty%'), Array()));
+checkSame('a null value among other entries',     pickShow(Array('title~'=>'Empty*', 'venue'=>null)), Array("`title` LIKE ? ESCAPE '!' AND 1=0", Array('Empty%'), Array()));
 checkLike('the ? suffix refuses a null value',    pickShow(Array('venue?'=>null)), '/^THROWN RuntimeException: The \? suffix takes true or false/');
 checkLike('the ? suffix refuses a text value',    pickShow(Array('venue?'=>'false')), '/^THROWN RuntimeException: The \? suffix takes true or false/');
 
 // Combinations and names
-checkSame('several entries are joined by AND', pickShow(Array('title'=>'Alpha*', 'venue!'=>'Hall A')), Array('`title` LIKE ? AND `venue` != ?', Array('Alpha%', 'Hall A'), Array(3)));
+checkSame('several entries are joined by AND', pickShow(Array('title~'=>'Alpha*', 'venue!'=>'Hall A')), Array("`title` LIKE ? ESCAPE '!' AND `venue` != ?", Array('Alpha%', 'Hall A'), Array(3)));
 checkSame('an empty filter gives no clause',   pickShow(Array()), Array('', Array(), Array(1, 2, 3, 4, 5)));
 checkSame('a table.field name',                pickShow(Array('shows.venue'=>'Hall B')), Array('`shows`.`venue` = ?', Array('Hall B'), Array(2)));
 checkSame('a value holding a quote is plain text', pickShow(Array('venue'=>"O'Hall' OR '1'='1")), Array('`venue` = ?', Array("O'Hall' OR '1'='1"), Array()));
@@ -78,14 +85,17 @@ checkLike('an invalid field name throws', pickShow(Array('venue` = 1 OR `title'=
 
 // The reading alone, as every kind of database receives it
 checkSame('readWhere gives one condition per entry', runSafely(function(){
-	return Filter::readWhere(Array('venue'=>'Hall B', 'id_show>='=>2, 'title!'=>'Alpha*', 'id_show'=>Array(1, '', 2), 'venue?'=>false, 'title='=>'50%'));
+	return Filter::readWhere(Array('venue'=>'Hall B', 'id_show>='=>2, 'title!~'=>'Alpha*', 'id_show'=>Array(1, '', 2), 'venue?'=>false, 'title='=>'50%', 'venue~'=>'Hall %*', 'title!'=>'a*', 'venue!~'=>12));
 }), Array(
 	Array('field'=>'venue',   'opert'=>'equal', 'value'=>'Hall B'),
 	Array('field'=>'id_show', 'opert'=>'aboeq', 'value'=>2),
-	Array('field'=>'title',   'opert'=>'nmtch', 'value'=>'Alpha%'),
+	Array('field'=>'title',   'opert'=>'nmtch', 'value'=>'Alpha*'),
 	Array('field'=>'id_show', 'opert'=>'among', 'value'=>Array(1, 2)),
 	Array('field'=>'venue',   'opert'=>'unset', 'value'=>null),
-	Array('field'=>'title',   'opert'=>'equal', 'value'=>'50%')
+	Array('field'=>'title',   'opert'=>'equal', 'value'=>'50%'),
+	Array('field'=>'venue',   'opert'=>'match', 'value'=>'Hall %*'),
+	Array('field'=>'title',   'opert'=>'diffr', 'value'=>'a*'),
+	Array('field'=>'venue',   'opert'=>'nmtch', 'value'=>'12')
 ));
 checkSame('readWhere: what matches nothing or everything names no field', runSafely(function(){
 	return array_column(Filter::readWhere(Array('a'=>null, 'b'=>Array(), 'c!'=>Array(), 'd?'=>true)), 'opert');

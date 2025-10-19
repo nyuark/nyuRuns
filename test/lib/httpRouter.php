@@ -20,7 +20,9 @@
 //   X-Test-Tmpl: <template>          render template
 //   X-Test-Return: <format>          output format
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
-//   X-Test-Routes: 1                 declared routes read from test/fixtures/routes, their files from test/fixtures/pages
+//   X-Test-Origns: <origin,...>      origins the preset allows other sites to call from
+//   X-Test-Routes: 1               declared routes read from test/fixtures/routes, their files from test/fixtures/pages
+//   X-Test-Htroot: <folder>          files and pages of the declared routes read from test/fixtures/<folder>
 // X-Test-Preset names the preset to load instead of the default one,
 // and X-Test-Runs serves the applications of test/fixtures/runs instead of runs/.
 
@@ -72,9 +74,15 @@ if( isset($_SERVER['HTTP_X_TEST_RETURN']) ){
 if( isset($_SERVER['HTTP_X_TEST_CTYPE']) ){
 	$overArr['rnder']['headrs'] = Array( ($_SERVER['HTTP_X_TEST_CTNAME'] ?? 'Content-Type') => $_SERVER['HTTP_X_TEST_CTYPE'] );
 }
+if( isset($_SERVER['HTTP_X_TEST_ORIGNS']) ){
+	$overArr['rnder']['origns'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_ORIGNS']));
+}
 if( isset($_SERVER['HTTP_X_TEST_ROUTES']) ){
 	$overArr['route']['folder'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'routes';
 	$overArr['route']['htroot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'pages';
+}
+if( isset($_SERVER['HTTP_X_TEST_HTROOT']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_HTROOT']) ){
+	$overArr['route']['htroot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_HTROOT'];
 }
 
 $useFixtr = isset($_SERVER['HTTP_X_TEST_RUNS']);

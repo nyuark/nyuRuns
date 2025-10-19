@@ -23,14 +23,14 @@ checkSame('readItems returns every row', runSafely(function(){
 
 checkSame('lstSearch with a wildcard, descending order', runSafely(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title'=>'Alpha*'));
+	$dbList->lstSearch(Array('title~'=>'Alpha*'));
 	$dbList->listOrder('^id_show');
 	return array_column($dbList->readItems(), 'id_show');
 }), Array(3, 1));
 
 checkSame('lstSearch negated wildcard', runSafely(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title!'=>'Alpha*'));
+	$dbList->lstSearch(Array('title!~'=>'Alpha*'));
 	return array_column($dbList->readItems(), 'id_show');
 }), Array(2, 4, 5));
 
@@ -248,33 +248,33 @@ checkSame('rows already read are given again when asked', runSafely(function(){
 
 checkSame('no match gives an empty list', runSafely(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title'=>'Zzz*'));
+	$dbList->lstSearch(Array('title~'=>'Zzz*'));
 	return $dbList->readItems();
 }), Array());
 
 // A single matching row must still come back as a list of rows
 checkSame('one row is a list of one row', runSafely(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title'=>'Beta*'));
+	$dbList->lstSearch(Array('title~'=>'Beta*'));
 	return $dbList->readItems();
 }), Array(Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>'Hall B')));
 
 checkSame('one row with one column is a list of one row', runSafely(function(){
 	$dbList = new DBLst('shows');
 	$dbList->fieldScop('title');
-	$dbList->lstSearch(Array('title'=>'Beta*'));
+	$dbList->lstSearch(Array('title~'=>'Beta*'));
 	return $dbList->readItems();
 }), Array(Array('title'=>'Beta Evening')));
 
 checkSame('flatItems on one row', runSafely(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title'=>'Beta*'));
+	$dbList->lstSearch(Array('title~'=>'Beta*'));
 	return $dbList->flatItems('venue');
 }), Array('Hall B'));
 
 checkSame('childList with a single child', runSafely(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title'=>'Solo*'));
+	$dbList->lstSearch(Array('title~'=>'Solo*'));
 	$dbList->readItems();
 	return $dbList->childList('items');
 }), Array(Array('id_show'=>4, 'title'=>'Solo Gig', 'venue'=>'Hall S', 'items'=>Array(Array('id_item'=>7, 'show_id'=>4, 'type'=>'solo')))));

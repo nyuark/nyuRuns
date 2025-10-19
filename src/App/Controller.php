@@ -32,8 +32,11 @@ class Controller{
 	/**
 	 * Loads the application's Actions.php file and prepares it (via
 	 * reflection) for execution, then loads its model stack. A missing
-	 * application, or one whose Actions.php does not declare its actionset,
-	 * is reported as a 404 through getStatus(); a required input that is
+	 * application, one whose name is not made of letters and digits only,
+	 * or one whose Actions.php does not declare its actionset,
+	 * is reported as a 404 through getStatus(), and so is an action found
+	 * from the path while a declared route answers with it (see
+	 * Router::shutsActn); a required input that is
 	 * missing or empty as a 400, the action not being run.
 	 *
 	 * @param String   $runAppName Name of the application (run) to load.
@@ -47,7 +50,7 @@ class Controller{
 	 */
 	public function __construct( String $runAppName, String $runAppActn, Registry $inRegistry, ?String $runAppOptn = null, ?Registry $axRegistry = null, ?Request $requestObj = null, ?Response $httpRespns = null, ?Router $routingObj = null ){
 		// Change case of AppName
-		$runAppName = str_replace(' ','',UCFirst($runAppName));
+		$runAppName = UCFirst($runAppName);
 		// Save action and inputs
 		$this->appIdent = $runAppName;
 		$this->savedAct = $runAppActn;
@@ -57,6 +60,11 @@ class Controller{
 		$this->httpRqst = $requestObj;
 		$this->httpResp = $httpRespns;
 		$this->routrObj = $routingObj;
+		// The name goes into a path and a class name : letters and digits only, anything else is no application
+		if( !preg_match('/^[A-Za-z0-9]+$/D', $runAppName) ){
+			$this->loadFail = 'Unknown Application';
+			return;
+		}
 		// Check that application exists
 		$fullDir = RUN_DIR.DS.$runAppName;
 		$actPath = $fullDir.DS.'Actions.php';
@@ -79,6 +87,14 @@ class Controller{
 		}
 		if( $this->savedAct=='' ){
 			$this->savedAct = $this->defltActn();
+		}
+		// An action a declared route answers with is only reached through that route
+		if( $this->routrObj!==null ){
+			$actName = ( preg_match('/^\w+$/', $this->savedAct) && $this->appObjct->hasMethod($this->savedAct) ) ? $this->appObjct->getMethod($this->savedAct)->getName() : $this->savedAct;
+			if( $this->routrObj->shutsActn($this->appIdent, $actName, strcasecmp($actName, $this->defltActn())==0) ){
+				$this->loadFail = 'Unknown Application';
+				return;
+			}
 		}
 		$this->actInputs();
 		if( $this->loadFail!==null ){

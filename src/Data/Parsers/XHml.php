@@ -116,10 +116,6 @@ class XHml extends Base {
 	 * @throws ParseError When the content is not well-formed XML, or declares entities or an unknown encoding.
 	 */
 	protected function loadAsXml(String $rawContent, String &$declaredEn): \DOMDocument {
-		// Declared entities are how an XML document reads local files or grows without end
-		if( strpos($rawContent, '<!ENTITY')!==false ){
-			throw new ParseError('Invalid XML content: entity declarations are not accepted');
-		}
 		// The text is brought to UTF-8 here, from the encoding the document declares when it
 		// declares one, so that the result does not depend on what the XML reader supports
 		$declPtn = '/^(\s*<\?xml[^>]*?\sencoding\s*=\s*["\'])([\w.:\-]+)(["\'])/i';
@@ -139,6 +135,11 @@ class XHml extends Base {
 			$declaredEn = strtoupper($declPrt[2]);
 			$xmlText = preg_replace($declPtn, '${1}UTF-8${3}', $xmlText, 1);
 		}
+		// Declared entities are how an XML document reads local files or grows without end.
+		// They are looked for in the text once decoded : another encoding would hide them
+		if( stripos($xmlText, '<!ENTITY')!==false ){
+			throw new ParseError('Invalid XML content: entity declarations are not accepted');
+		}
 		$domDocu = new \DOMDocument();
 		$oldMode = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -149,6 +150,10 @@ class XHml extends Base {
 		if( !$loadOky || $domDocu->documentElement===null ){
 			$frstErr = $xmlErrs[0] ?? null;
 			throw new ParseError('Invalid XML content: '.($frstErr ? trim($frstErr->message).' on line '.$frstErr->line : 'not well-formed'));
+		}
+		// Whatever the text looked like, a document that declares entities once read is refused
+		if( $domDocu->doctype!==null && $domDocu->doctype->entities!==null && $domDocu->doctype->entities->length>0 ){
+			throw new ParseError('Invalid XML content: entity declarations are not accepted');
 		}
 		return $domDocu;
 	}

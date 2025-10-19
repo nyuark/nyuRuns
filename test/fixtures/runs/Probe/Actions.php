@@ -36,6 +36,17 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Sets a cookie of its own, then ends the session of the request as a
+	 * logout does: the cookie of the application must still go out.
+	 */
+	public function leave(): Void {
+		header('Set-Cookie: probeKept=1; path=/', false);
+		(new \nyu\Access\Sess\PHPSess( Array('cookie'=>'nyuTests', 'secure'=>false) ))->dropSessn( $this->httpRqst );
+		$this->statCode = 200;
+		$this->asOutput = Array('left'=>true);
+	}
+
+	/**
 	 * Answers with what the access check reported about the requester.
 	 */
 	public function whoami(): Void {

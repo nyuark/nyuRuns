@@ -63,6 +63,14 @@ checkSame('a token is only taken away when confirmed', Array(runShell($projDir, 
 $jsnVals = jsonShell($projDir, Array('manage', 'twofa', 'bob'));
 checkSame('twofa gives a 2FA secret, with the address an authenticator reads', Array(preg_match('/^[A-Z2-7]{32}$/D', $jsnVals['secret']['2FA secret of bob'] ?? ''), fileUsers($projDir)['bob']['twoFaKey'] ?? null, $jsnVals['secret']['Address for the authenticator'] ?? null), Array(1, $jsnVals['secret']['2FA secret of bob'] ?? '', 'otpauth://totp/nyuRuns:bob?secret='.($jsnVals['secret']['2FA secret of bob'] ?? '').'&issuer=nyuRuns'));
 checkSame('a lost authenticator: the secret is taken away', Array(runShell($projDir, Array('manage', 'twofa', 'bob', '--clear', '--agree'))['text'], isset(fileUsers($projDir)['bob']['twoFaKey'])), Array("2FA removed: bob\n", false));
+// With a key in the block, the secret is written encrypted, and the one shown is still the authenticator's
+$axsText = strval(readInPrj($projDir, 'conf/access.json'));
+putInProj($projDir, 'conf/access.json', str_replace('"minlen": 8 }', '"minlen": 8, "tfakey": "'.str_repeat('k', 40).'" }', $axsText));
+$jsnVals = jsonShell($projDir, Array('manage', 'twofa', 'bob'));
+$sealTxt = strval(fileUsers($projDir)['bob']['twoFaKey'] ?? '');
+checkSame('twofa writes the secret encrypted when the block gives a key', Array(preg_match('/^enc1:[A-Za-z0-9+\/=]{80}$/D', $sealTxt), nyu\Access\Totp::openSecrt($sealTxt, str_repeat('k', 40)), jsonShell($projDir, Array('manage', 'views', 'bob'))['hasTwoFa'] ?? null), Array(1, $jsnVals['secret']['2FA secret of bob'] ?? '', true));
+runShell($projDir, Array('manage', 'twofa', 'bob', '--clear', '--agree'));
+putInProj($projDir, 'conf/access.json', $axsText);
 runShell($projDir, Array('manage', 'locks', 'bob'));
 checkSame('a locked user is given neither a token nor a secret', Array(runShell($projDir, Array('manage', 'token', 'bob'))['errs'], runShell($projDir, Array('manage', 'twofa', 'bob'))['code']), Array("User not active\n", 3));
 
@@ -74,6 +82,7 @@ checkSame('removal needs a confirmation', Array(runShell($projDir, Array('manage
 checkSame('the former files are in temp/backup', count(glob($projDir.DS.'temp'.DS.'backup'.DS.'users.lst.*'))>5, true);
 $logText = strval(readInPrj($projDir, 'temp/logs/access.log'));
 checkSame('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "bob" created \(member\) in the users file by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "bob" removed in the users file by user/', $logText), preg_match('/\[NOTICE\] User "bob" removed in the users file by user/', $logText), strpos($logText, 'another-pass')), Array(1, 1, 1, false));
+checkSame('a secret written readable is told, once: the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no tfakey of 32 characters is set/', $logText), 1);
 $fleText = strval(readInPrj($projDir, 'conf/users.lst'));
 putInProj($projDir, 'conf/users.lst', '{ "users": "none" }');
 checkSame('a file that is not a list of users is a failure, and is left alone', Array(runShell($projDir, Array('manage', 'lists'))['code'], runShell($projDir, Array('manage', 'enrol', 'carl'))['code'], readInPrj($projDir, 'conf/users.lst')), Array(1, 1, '{ "users": "none" }'));

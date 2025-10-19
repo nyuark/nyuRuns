@@ -26,7 +26,8 @@ class Actions extends Actionset {
 			unset($filters['categ']);
 		}
 		if(isset($filters['search'])){
-			$itemFil = Array('title'=>$filters['search']);
+			// A search is a match : the * of what is searched for is any text
+			$itemFil = Array('title~'=>$filters['search']);
 			unset($filters['search']);
 		}else{
 			$itemFil = Array();

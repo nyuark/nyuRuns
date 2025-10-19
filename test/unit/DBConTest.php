@@ -95,12 +95,17 @@ checkLike('named blocks: an unknown name is refused', setupOf($twoBase, 'archive
 checkLike('no database block', setupOf(null), '/^THROWN RuntimeException: No database is configured/');
 checkLike('an empty database block', setupOf(Array()), '/^THROWN RuntimeException: No database is configured/');
 
-// The project's own configuration, as the loader reads it
+// The project's own configuration, as the loader reads it: conf/database.json is kept out of
+// the repository, so it is only checked where it exists
 $prjLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'fnames'=>'database')) );
 $prjBase = $prjLoad->getConfig()->readValue('database');
-checkSame('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
-checkSame('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('type', 'host', 'port', 'base', 'user', 'pass', 'char'));
-$GLOBALS['nyuConfig'] = $prjLoad->getConfig();
-checkTrue('conf/database.json: the type is a known code', in_array(runSafely(function(){ return DBCon::baseSetup()['type']; }), Array('mysql', 'sqlte', 'pgsql'), true));
+if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
+	skipCheck('conf/database.json', 'the file is not there: "php nyuRun deploy files" creates it');
+}else{
+	checkSame('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
+	checkSame('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('type', 'host', 'port', 'base', 'user', 'pass', 'char'));
+	$GLOBALS['nyuConfig'] = $prjLoad->getConfig();
+	checkTrue('conf/database.json: the type is a known code', in_array(runSafely(function(){ return DBCon::baseSetup()['type']; }), Array('mysql', 'sqlte', 'pgsql'), true));
+}
 
 endChecks();

@@ -33,7 +33,7 @@ checkSame('loadRecrd found',   runSafely(function(){ return loadAShow('2'); }), 
 checkSame('loadRecrd missing', runSafely(function(){ return loadAShow('99'); }), false);
 checkSame('findRecrd with a wildcard', runSafely(function(){
 	$showRec = new DBRec('shows');
-	return $showRec->findRecrd(Array('title'=>'Beta*'));
+	return $showRec->findRecrd(Array('title~'=>'Beta*'));
 }), Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>'Hall B'));
 checkTrue('findRecrd missing gives nothing', runSafely(function(){
 	$showRec = new DBRec('shows');
@@ -157,7 +157,7 @@ checkSame('saving again with the same key updates instead of inserting', runSafe
 	$showRec->bindArray(Array('id_show'=>50, 'title'=>'Delta II'));
 	$savedKy = $showRec->saveRecrd();
 	$allRows = new nyu\Data\DBLst('shows');
-	$allRows->lstSearch(Array('title'=>'Delta*'));
+	$allRows->lstSearch(Array('title~'=>'Delta*'));
 	return Array($savedKy, $allRows->readItems());
 }), Array(50, Array(Array('id_show'=>50, 'title'=>'Delta II', 'venue'=>'Hall D'))));
 
@@ -226,7 +226,7 @@ checkSame('one-column table: exstRecrd', runSafely(function(){
 }), Array(true, false));
 checkSame('one-column table: findRecrd', runSafely(function(){
 	$tagsRec = new DBRec('tags');
-	return Array($tagsRec->findRecrd(Array('label'=>'ro*')), $tagsRec->findRecrd(Array('label'=>'jazz')));
+	return Array($tagsRec->findRecrd(Array('label~'=>'ro*')), $tagsRec->findRecrd(Array('label'=>'jazz')));
 }), Array(Array('label'=>'rock'), Array()));
 checkSame('a key holding a quote is looked up as plain text', runSafely(function() use ($dbHandl){
 	$dbHandl->sendQuery("INSERT INTO `tags` (`label`) VALUES (?);", true, Array("rock'n'roll"));

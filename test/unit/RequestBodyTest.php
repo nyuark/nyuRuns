@@ -222,4 +222,58 @@ checkSame('getHeader present', $request->getHeader('X-One'), '1');
 checkSame('getHeader in another case', $request->getHeader('x-one'), '1');
 checkSame('getHeader missing', $request->getHeader('X-Two'), null);
 
+// fromQuery : what came in the query string of the address is known by name, whatever the body holds
+FakeInput::$bodyText = 'pass=in-the-body&code=123456';
+$request = fakeReqst( Array('Content-Type'=>$formTyp) );
+checkSame('fromQuery before anything is read', $request->fromQuery('pass'), false);
+$_GET = Array('Former'=>'x');
+$_POST = Array();
+$_COOKIE = Array();
+$_FILES = Array();
+$loadFnc = new ReflectionMethod($request, 'getContnt');
+$loadFnc->setAccessible(true);
+$loadFnc->invoke($request, Array('User'=>'alice', 'pass'=>'in-the-address'));
+checkSame('fromQuery: a name of the address, one of both, one of the body', Array($request->fromQuery('user'), $request->fromQuery('pass'), $request->fromQuery('code')), Array(true, true, false));
+checkSame('fromQuery: whatever the case, and what PHP read from the address', Array($request->fromQuery('PASS'), $request->fromQuery('former'), $request->fromQuery('nothing')), Array(true, true, false));
+
+// Limits : a body larger than allowed, or of more parts, is not read
+/**
+ * Loads a body under limits, and tells what was kept of it.
+ *
+ * @param String  $bodyString Raw request body.
+ * @param String  $contntType Content-Type header of the request.
+ * @param Int     $sizeKBytes Largest body, in KB; 0 for no limit.
+ * @param Int     $partsCount Most parts of a multipart body; 0 for no limit.
+ * @param ?String $toldLength Content-Length header of the request, null for none.
+ * @return Array Whether the request is over its limit, and the names of the values read.
+ */
+function limitBody( String $bodyString, String $contntType, Int $sizeKBytes, Int $partsCount=0, ?String $toldLength=null ): Array {
+	FakeInput::$bodyText = $bodyString;
+	$request = fakeReqst( Array('Content-Type'=>$contntType) + ($toldLength===null ? Array() : Array('Content-Length'=>$toldLength)) );
+	foreach( Array('sizeLimt'=>$sizeKBytes, 'partLimt'=>$partsCount) as $prpNme=>$prpVal ){
+		$propObj = new ReflectionProperty($request, $prpNme);
+		$propObj->setAccessible(true);
+		$propObj->setValue($request, $prpVal);
+	}
+	$_GET = Array();
+	$_POST = Array();
+	$_COOKIE = Array();
+	$_FILES = Array();
+	$loadFnc = new ReflectionMethod($request, 'getContnt');
+	$loadFnc->setAccessible(true);
+	$loadFnc->invoke($request, Array());
+	return Array($request->overLimit(), array_keys($request->getAllVar()));
+}
+$bigJson = json_encode(Array('note'=>str_repeat('x', 2000)));
+checkSame('limit: no limit reads any body', limitBody($bigJson, 'application/json', 0), Array(false, Array('note')));
+checkSame('limit: a body within the size is read', limitBody('{"a":1}', 'application/json', 1), Array(false, Array('a')));
+checkSame('limit: a body of exactly the size is read', limitBody(str_repeat('a', 1022).'=1', $formTyp, 1)[0], false);
+checkSame('limit: a larger body is not read', limitBody($bigJson, 'application/json', 1), Array(true, Array()));
+checkSame('limit: a larger body announced as such is refused on its header', limitBody('{"a":1}', 'application/json', 1, 0, '5000'), Array(true, Array()));
+checkSame('limit: a header that lies is not believed', limitBody($bigJson, 'application/json', 1, 0, '10'), Array(true, Array()));
+$twoPart = multiPart(Array(Array('a', '1'), Array('b', '2')));
+checkSame('limit: a multipart body within its parts is read', limitBody($twoPart, $multiTp, 0, 2), Array(false, Array('a', 'b')));
+checkSame('limit: one of more parts is not', limitBody(multiPart(Array(Array('a', '1'), Array('b', '2'), Array('c', '3'))), $multiTp, 0, 2), Array(true, Array()));
+checkSame('limit: no limit on the parts reads them all', count(limitBody(multiPart(array_map(function( Int $partIndex ): Array { return Array('f'.$partIndex, 'v'); }, range(1, 40))), $multiTp, 0, 0)[1]), 40);
+
 endChecks();

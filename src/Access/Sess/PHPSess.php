@@ -20,14 +20,19 @@ class PHPSess implements Handler{
 	protected $authObjc;
 	protected $cookName;
 	protected $sessLife;
+	protected $fullLife;
+	protected $saveFldr;
 	protected $sameSite;
 	protected $onlyHttp;
 	protected $lastMssg;
 
 	/**
 	 * @param Array     $confValues Config block with the 'cookie' name (default 'nyuSessn'), the 'lifetm' in
-	 * 		seconds a session may stay unused (default 3600), the 'samest' policy ('strict'
-	 * 		by default, or 'relaxd') and 'secure' (true by default: the cookie only travels over HTTPS).
+	 * 		seconds a session may stay unused (default 3600), the 'fulltm' in seconds it may
+	 * 		live in all, however much it is used (default 43200; 0 for no limit), the 'samest'
+	 * 		policy ('strict' by default, or 'relaxd'), 'secure' (true by default: the cookie only
+	 * 		travels over HTTPS) and the 'folder' its sessions are kept in, from the project root
+	 * 		(PHP's own when left empty).
 	 * @param AuthHndlr $authHandlr Optional credential store confirming the session's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
@@ -35,6 +40,9 @@ class PHPSess implements Handler{
 		$this->authObjc = $authHandlr;
 		$this->cookName = preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $cookNme) ? $cookNme : 'nyuSessn';
 		$this->sessLife = max( 1, intval($confValues['lifetm'] ?? 3600) );
+		$this->fullLife = max( 0, intval($confValues['fulltm'] ?? 43200) );
+		$fldName = is_scalar($confValues['folder'] ?? '') ? trim( strval($confValues['folder'] ?? ''), '/\\ ' ) : '';
+		$this->saveFldr = ($fldName!='') ? TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $fldName) : '';
 		$this->sameSite = self::SITELIST[$confValues['samest'] ?? 'strict'] ?? 'Strict';
 		$this->onlyHttp = (($confValues['secure'] ?? true) !== false);
 		$this->lastMssg = '';
@@ -43,7 +51,8 @@ class PHPSess implements Handler{
 	/**
 	 * Opens the session named by the request's cookie and returns the
 	 * identity it holds. A session left unused for longer than its
-	 * lifetime is destroyed. With a credential store offering userIdent(),
+	 * lifetime is destroyed, and so is one opened longer ago than a
+	 * session may live in all ('fulltm'). With a credential store offering userIdent(),
 	 * the user must still be allowed in, and its current identity (role)
 	 * replaces the session's.
 	 *
@@ -61,7 +70,10 @@ class PHPSess implements Handler{
 			return false;
 		}
 		$idntArr = $_SESSION['nyuIdent'] ?? null;
-		if( !is_array($idntArr) || intval($_SESSION['nyuStamp'] ?? 0)<time() - $this->sessLife ){
+		// Left unused for too long, or open for longer than a session may live, however much it was used
+		$isEnded = intval($_SESSION['nyuStamp'] ?? 0)<time() - $this->sessLife
+			|| ($this->fullLife>0 && intval($_SESSION['nyuBirth'] ?? 0)<time() - $this->fullLife);
+		if( !is_array($idntArr) || $isEnded ){
 			$this->lastMssg = is_array($idntArr) ? 'Session expired' : 'No active session';
 			$this->closeSess();
 			return false;
@@ -95,7 +107,7 @@ class PHPSess implements Handler{
 		}
 		// Never keep an id the client came with
 		session_regenerate_id(true);
-		$_SESSION = Array('nyuIdent'=>$identArray, 'nyuStamp'=>time());
+		$_SESSION = Array('nyuIdent'=>$identArray, 'nyuStamp'=>time(), 'nyuBirth'=>time());
 		$sessIdn = strval(session_id());
 		session_write_close();
 		return $sessIdn;
@@ -141,6 +153,19 @@ class PHPSess implements Handler{
 		ini_set('session.use_trans_sid', '0');
 		ini_set('session.gc_maxlifetime', strval(max($this->sessLife, intval(ini_get('session.gc_maxlifetime')))));
 		session_cache_limiter('');
+		// A folder of its own keeps the sessions away from the other PHP applications of the server
+		if( $this->saveFldr!='' ){
+			if( !is_dir($this->saveFldr) ){
+				@mkdir($this->saveFldr, 0700, true);
+			}
+			if( !is_dir($this->saveFldr) || !is_writable($this->saveFldr) ){
+				return false;
+			}
+			session_save_path($this->saveFldr);
+			// Where the system cleans PHP's own folder by itself, nothing would clean this one
+			ini_set('session.gc_probability', '1');
+			ini_set('session.gc_divisor', '100');
+		}
 		session_name($this->cookName);
 		session_set_cookie_params( $this->cookieSet(0) );
 		if( $sessnIdent!='' ){
@@ -155,8 +180,17 @@ class PHPSess implements Handler{
 	protected function closeSess(): Void {
 		$_SESSION = Array();
 		session_destroy();
-		// Drops the cookie PHP may have queued for a new id, then expires the client's
+		// Drops the cookie PHP may have queued for a new id, and no other cookie of the reply, then expires the client's
+		$keptLst = Array();
+		foreach( headers_list() as $hedLin ){
+			if( stripos($hedLin, 'Set-Cookie:')===0 && stripos(ltrim(substr($hedLin, 11)), $this->cookName.'=')!==0 ){
+				$keptLst[] = $hedLin;
+			}
+		}
 		header_remove('Set-Cookie');
+		foreach( $keptLst as $hedLin ){
+			header($hedLin, false);
+		}
 		setcookie( $this->cookName, '', $this->cookieSet(1) );
 	}
 

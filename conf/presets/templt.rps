@@ -105,6 +105,11 @@
 		"tmplte": "plain",
         // Format of the data: json; any other value gives it PHP-serialised
 		"return": "json",
+        // Origins other sites may call from, each a scheme; a host and a port when it has one:
+        // ["https://app.example.org"]. With a list, Access-Control-Allow-Origin names the
+        // origin of the request when it is listed, and is not sent otherwise, whatever
+        // "headrs" writes. An empty list leaves the headers as written
+		"origns": [],
         // Headers sent with every reply; a CORS preflight is answered with them alone.
         // A Content-Type written here replaces the one the format gives;
         // a file or a page always sends its own

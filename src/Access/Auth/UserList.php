@@ -20,22 +20,26 @@ use nyu\Tools\Logger;
 class UserList implements Handler{
 
 	protected $usrsFile;
+	protected $sealPass;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
 	/**
-	 * @param Array $confValues Config block with the 'usrfle' path of the users file, relative to the project root.
+	 * @param Array $confValues Config block with the 'usrfle' path of the users file, relative to the project root, and
+	 *                          optionally the key its encrypted 2FA secrets are read with ('tfakey').
 	 */
 	function __construct( Array $confValues ){
 		$fleName = is_scalar($confValues['usrfle'] ?? '') ? trim( strval($confValues['usrfle'] ?? ''), '/\\ ' ) : '';
 		$this->usrsFile = ($fleName!='') ? TOP_DIR.DS.$fleName : '';
+		$this->sealPass = is_scalar($confValues['tfakey'] ?? '') ? strval($confValues['tfakey'] ?? '') : '';
 		$this->lastMssg = '';
 	}
 
 	/**
 	 * Verifies a username/password pair against the users file. The
-	 * password must match the stored hash and the user must be 'active';
-	 * a user with a 2FA secret must also give the current code of its
+	 * password must match the stored hash and the user must be 'active'
+	 * (one that is not is refused as a wrong password is, and the reason
+	 * logged); a user with a 2FA secret must also give the current code of its
 	 * authenticator. A 'key' entry is checked as a personal API token
 	 * instead.
 	 *
@@ -67,18 +71,28 @@ class UserList implements Handler{
 			return false;
 		}
 		if( $usrVals['userStat']!=='active' ){
-			$this->lastMssg = 'Account not active';
+			// The reply is the one of a wrong password : the status of a user is told in the log only
+			Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is not active ('.$usrVals['userStat'].')' );
+			$this->lastMssg = 'Invalid credentials';
+			$this->wrongCrd = true;
 			return false;
 		}
 		// A user with a 2FA secret must also give the current code of its authenticator
 		if( $usrVals['twoFaKey']!='' ){
+			// A secret stored encrypted is read with the key of the config
+			$twoFaKy = Totp::openSecrt($usrVals['twoFaKey'], $this->sealPass);
+			if( $twoFaKy===null ){
+				Logger::getLogger('access')->error( '2FA secret of user '.json_encode($usrVals['userName']).' cannot be read: tfakey is missing or was changed' );
+				$this->lastMssg = 'Credential store unavailable';
+				return false;
+			}
 			$gvnCode = strval($credsArray['code'] ?? '');
 			if( $gvnCode=='' ){
 				// Not a failed attempt : the password was right, the client now asks for the code
 				$this->lastMssg = 'Verification code required';
 				return false;
 			}
-			if( !Totp::checkCode($usrVals['twoFaKey'], $gvnCode) ){
+			if( !Totp::checkCode($twoFaKy, $gvnCode) ){
 				$this->lastMssg = 'Invalid verification code';
 				$this->wrongCrd = true;
 				return false;

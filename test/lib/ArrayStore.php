@@ -65,7 +65,7 @@ class ArrayStore implements Store {
 				case 'unset': $cndMet = !$hasVal; break;
 				case 'isset': $cndMet = $hasVal; break;
 				default:
-					$likeRgx = '/^'.str_replace(Array('%', '_'), Array('.*', '.'), preg_quote(strval($cndVal), '/')).'$/is';
+					$likeRgx = '/^'.str_replace('\\*', '.*', preg_quote(strval($cndVal), '/')).'$/is';
 					$cndMet = is_string($rowVal) && (preg_match($likeRgx, $rowVal)==($cndArr['opert']=='match' ? 1 : 0));
 			}
 			if( !$cndMet ){

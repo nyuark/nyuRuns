@@ -19,6 +19,8 @@ CREATE TABLE `users` (
 	`tokenKey` TEXT    NULL,
 	-- 2FA secret; a user holding one must give its code
 	`twoFaKey` TEXT    NULL,
+	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
+	`twoFaStp` INTEGER NULL,
 	-- Failed attempts of the current window, and time of the last one
 	`failNmbr` INTEGER NOT NULL DEFAULT 0,
 	`failDate` TEXT    NULL,

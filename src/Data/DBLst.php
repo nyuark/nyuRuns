@@ -133,7 +133,8 @@ class DBLst {
 	 * place of any filter set before. The filter syntax is the one of
 	 * DBStore\Filter::readWhere(): a field name may end with '!' (negation), '<=',
 	 * '>=', '<', '>' or '=' (exact value); an array value gives IN/NOT IN,
-	 * and a wildcard ('*' or '%') LIKE/NOT LIKE. 'field?'=>false gives
+	 * and a name ending with '~' or '!~' LIKE/NOT LIKE, '*' being any text
+	 * in its value. Any other value is compared exactly. 'field?'=>false gives
 	 * IS NULL and 'field?'=>true IS NOT NULL; a null value matches nothing.
 	 *
 	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.

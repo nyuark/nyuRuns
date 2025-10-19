@@ -13,10 +13,11 @@ class RegKey implements Handler{
 	protected $wrongCrd = false;
 
 	/**
-	 * @param Array $confValues Config block with a 'keylst' list of valid API keys.
+	 * @param Array $confValues Config block with a 'keylst' of valid API keys: a plain list, or the keys by the name
+	 *                          of their holder, which then identifies it.
 	 */
 	function __construct( Array $confValues ){
-		$this->valdKeys = $confValues['keylst'] ?? Array();
+		$this->valdKeys = is_array($confValues['keylst'] ?? null) ? $confValues['keylst'] : Array();
 		$this->lastMssg = '';
 	}
 
@@ -24,7 +25,7 @@ class RegKey implements Handler{
 	 * Checks the given key against the configured valid-keys list.
 	 *
 	 * @param Array $credsArray Must contain a 'key' entry.
-	 * @return Array|Bool An identity array on success, or false on failure.
+	 * @return Array|Bool An identity array on success, its 'user' being the name the key is written under ('' in a plain list), or false on failure.
 	 */
 	function checkCred( Array $credsArray ): Array|Bool {
 		$givnKey = $credsArray['key'] ?? '';
@@ -33,9 +34,11 @@ class RegKey implements Handler{
 			$this->lastMssg = 'No API key provided';
 			return false;
 		}
-		foreach( $this->valdKeys as $oneKey ){
-			if( hash_equals( (string)$oneKey, $givnKey ) ){
-				return Array('user'=>'');
+		foreach( $this->valdKeys as $keyNme => $oneKey ){
+			// An empty key, as a secret left unset gives, is the key of nobody
+			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $givnKey ) ){
+				// A key written under a name identifies its holder
+				return Array('user'=>is_string($keyNme) ? $keyNme : '');
 			}
 		}
 		$this->lastMssg = 'Invalid API key';

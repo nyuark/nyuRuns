@@ -153,7 +153,7 @@ Logger::plugActor( 'anna', '192.0.2.7' );
 readLogs();
 checkSame('lock: an active user', operates($usrBase, 'setStatus', Array('ben', 'locked')), Array(true, 200, ''));
 checkLike('lock: logged as a notice', readLogs(), '/\[NOTICE\] User "ben" locked by user "anna" from 192\.0\.2\.7/');
-checkSame('lock: the user no longer logs in', Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pass-ben-1')), $natAuth->lastError(), $natAuth->userIdent('ben')), Array(false, 'Account not active', false));
+checkSame('lock: the user no longer logs in', Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'pass-ben-1')), $natAuth->lastError(), $natAuth->userIdent('ben')), Array(false, 'Invalid credentials', false));
 checkSame('lock: already locked', operates($usrBase, 'setStatus', Array('ben', 'locked')), Array(false, 409, 'User already locked'));
 $sqlLink->exec("UPDATE users SET failNmbr=3, failDate='".date('Y-m-d H:i:s')."' WHERE userName='ben'");
 checkSame('unlock: a locked user', operates($usrBase, 'setStatus', Array('ben', 'active')), Array(true, 200, ''));
@@ -210,7 +210,9 @@ checkSame('list: on a missing table', operates(new UserBase(Array('tblnme'=>'nou
 // 8. userInfos
 $sqlLink->exec("UPDATE users SET tokenKey='tk', twoFaKey='2f' WHERE userName='ben'");
 checkSame('read: one user, without hash, code, token or secret', $usrBase->userInfos('ben'), Array('id_user'=>2, 'userName'=>'ben', 'userRole'=>'member', 'userStat'=>'active', 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null));
-$sqlLink->exec("UPDATE users SET twoFaKey=NULL WHERE userName='ben'");
+$sqlLink->exec("UPDATE users SET twoFaStp=58000000 WHERE userName='ben'");
+checkSame('2FA: the secret is taken away with the step of its last code', Array($usrBase->dropTwoFa('ben'), $sqlLink->query("SELECT twoFaKey, twoFaStp FROM users WHERE userName='ben'")->fetch(PDO::FETCH_NUM)), Array(true, Array(null, null)));
+checkSame('2FA: nothing to take away from an unknown user', operates($usrBase, 'dropTwoFa', Array('zed')), Array(false, 404, 'User not found'));
 checkSame('read: a pending user', $usrBase->userInfos('gina')['userStat'] ?? null, 'pendng');
 checkSame('read: unknown user', operates($usrBase, 'userInfos', Array('zed')), Array(false, 404, 'User not found'));
 checkSame('read: no name', operates($usrBase, 'userInfos', Array('')), Array(false, 404, 'User not found'));

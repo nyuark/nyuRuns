@@ -59,6 +59,7 @@ checkSame('its size: in pixels, told or not as such, from its box when it tells 
 checkLike('a drawing telling more pixels than accepted is refused', imgOpen('<svg '.SVGSPACE.' width="60000" height="60000"/>'), '/^THROWN RuntimeException: Picture larger than the 32000000 pixels allowed/');
 checkSame('the limit can be raised', imgOpen('<svg '.SVGSPACE.' width="60000" height="60000"/>', 4000000000)->imageInfo()['width'], 60000);
 checkLike('a drawing that is not well-formed', imgOpen('<svg '.SVGSPACE.'><rect></svg>'), '/^THROWN RuntimeException: Not a picture of a known kind/');
+checkLike('a drawing declaring entities in another encoding', imgOpen("\xFF\xFE".mb_convert_encoding('<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE svg [<!ENTITY x "y">]><svg '.SVGSPACE.'><text>&x;</text></svg>', 'UTF-16LE', 'UTF-8')), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkLike('a drawing declaring entities, the way a local file is read or memory filled', imgOpen('<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg '.SVGSPACE.'><text>&x;</text></svg>'), '/^THROWN RuntimeException: Not a picture of a known kind/');
 
 // Cleaning: what runs

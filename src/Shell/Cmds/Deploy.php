@@ -70,11 +70,16 @@ class Deploy extends Command{
 		$storNme = $this->askSetups();
 		// The secrets that are still empty are made; those in use are left alone
 		$cnfgCmd = new Config($this->optnObjc, $this->prntObjc, $this->inptStrm);
-		foreach( Array('jtoken', 'apikey') as $kndNme ){
+		$scrtLst = Array('jtoken'=>'secret of the tokens', 'apikey'=>'API key');
+		// The 2FA secrets of the users are stored encrypted : their key is made with the store
+		if( $storNme!='none' ){
+			$scrtLst['tfakey'] = 'key of the 2FA secrets';
+		}
+		foreach( $scrtLst as $kndNme => $kndLbl ){
 			try{
 				$cnfgCmd->makeSecrt($kndNme, true);
 			}catch( \RuntimeException $e ){
-				$this->prntObjc->printLine( 'No '.($kndNme=='jtoken' ? 'secret of the tokens' : 'API key').' made: '.$e->getMessage() );
+				$this->prntObjc->printLine( 'No '.$kndLbl.' made: '.$e->getMessage() );
 			}
 		}
 		Console::loadConfg();
@@ -219,7 +224,7 @@ class Deploy extends Command{
 			$treeObj->login->authby = $storNme;
 			$treeObj->login->authcf = $storNme;
 			if( !isset($treeObj->$storNme) ){
-				$treeObj->$storNme = ($storNme=='native') ? (object)Array('basnme'=>'', 'tblnme'=>'users') : (object)Array('usrfle'=>'conf/users.lst');
+				$treeObj->$storNme = ($storNme=='native') ? (object)Array('basnme'=>'', 'tblnme'=>'users', 'tfakey'=>'env:NYU_TFA_KEY') : (object)Array('usrfle'=>'conf/users.lst', 'tfakey'=>'env:NYU_TFA_KEY');
 			}
 			$wrtrObj->saveJsons($axsPath, $treeObj);
 		}

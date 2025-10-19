@@ -27,6 +27,7 @@ class Native implements Handler{
 	protected $maxTries;
 	protected $holdSecs;
 	protected $minPassw;
+	protected $sealPass;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -35,8 +36,9 @@ class Native implements Handler{
 	 *                          (defaults to the default database), their 'tblnme' table (defaults to 'users'),
 	 *                          the 'idletm' time in seconds after which a user is no longer online (defaults to 300),
 	 *                          the failed tries allowed ('maxtry', defaults to 5), the time in seconds they hold the
-	 *                          account for ('holdtm', defaults to 600) and the shortest password accepted, in
-	 *                          characters ('minlen', defaults to 10).
+	 *                          account for ('holdtm', defaults to 600), the shortest password accepted, in
+	 *                          characters ('minlen', defaults to 10) and the key the 2FA secrets are stored encrypted
+	 *                          with ('tfakey', 32 characters at least; without one they are stored readable).
 	 */
 	function __construct( Array $confValues ){
 		$this->userBase = is_scalar($confValues['basnme'] ?? '') ? strval($confValues['basnme'] ?? '') : '';
@@ -46,13 +48,15 @@ class Native implements Handler{
 		$this->maxTries = max( 1, intval($confValues['maxtry'] ?? 5) );
 		$this->holdSecs = max( 1, intval($confValues['holdtm'] ?? 600) );
 		$this->minPassw = min( self::PASSSIZE, max(1, intval($confValues['minlen'] ?? 10)) );
+		$this->sealPass = is_scalar($confValues['tfakey'] ?? '') ? strval($confValues['tfakey'] ?? '') : '';
 		$this->lastMssg = '';
 	}
 
 	/**
 	 * Verifies a username/password pair against the users table. The
 	 * password must match the stored bcrypt hash and the user must be
-	 * 'active'; a user with a 2FA secret must also give the current code
+	 * 'active' (one that is not is refused as a wrong password is, and
+	 * the reason logged); a user with a 2FA secret must also give the current code
 	 * of its authenticator. After too many wrong passwords or codes, the
 	 * user is refused for the hold time, whatever it gives: the reply is
 	 * the one of a wrong password, and the hold is told in the log only. A 'key' entry
@@ -96,19 +100,39 @@ class Native implements Handler{
 			return false;
 		}
 		if( ($usrVals['userStat'] ?? '')!=='active' ){
-			$this->lastMssg = 'Account not active';
+			// The reply is the one of a wrong password : the status of a user is told in the log only
+			\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is not active ('.strval($usrVals['userStat'] ?? '').')' );
+			$this->lastMssg = 'Invalid credentials';
+			$this->wrongCrd = true;
 			return false;
 		}
 		// A user with a 2FA secret must also give the current code of its authenticator
 		$twoFaKy = strval($usrVals['twoFaKey'] ?? '');
 		if( $twoFaKy!='' ){
+			// A secret stored encrypted is read with the key of the config
+			$twoFaKy = Totp::openSecrt($twoFaKy, $this->sealPass);
+			if( $twoFaKy===null ){
+				\nyu\Tools\Logger::getLogger('access')->error( '2FA secret of user '.json_encode($usrVals['userName']).' cannot be read: tfakey is missing or was changed' );
+				$this->lastMssg = 'Credential store unavailable';
+				return false;
+			}
 			$gvnCode = strval($credsArray['code'] ?? '');
 			if( $gvnCode=='' ){
 				// Not a failed attempt : the password was right, the client now asks for the code
 				$this->lastMssg = 'Verification code required';
 				return false;
 			}
-			if( !Totp::checkCode($twoFaKy, $gvnCode) ){
+			$stepNum = Totp::matchStep($twoFaKy, $gvnCode);
+			// A code is accepted once : its step, and those before it, are closed
+			$claimed = ($stepNum!==null) ? $this->claimStep( strval($usrVals['userName']), $stepNum ) : false;
+			if( $claimed===null ){
+				$this->lastMssg = 'Credential store unavailable';
+				return false;
+			}
+			if( !$claimed ){
+				if( $stepNum!==null ){
+					\nyu\Tools\Logger::getLogger('access')->warning( 'Verification code refused: already used by user '.json_encode($usrVals['userName']) );
+				}
 				$this->countFail( strval($usrVals['userName']) );
 				$this->lastMssg = 'Invalid verification code';
 				$this->wrongCrd = true;
@@ -170,6 +194,31 @@ class Native implements Handler{
 	}
 
 	/**
+	 * Records the step of an accepted 2FA code, so that neither this code
+	 * nor an earlier one is accepted again. One write decides: of two
+	 * requests giving the same code at once, one is refused.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param Int    $stepNumber The step of the code (see Totp::matchStep).
+	 * @return ?Bool True when the step is now the last one accepted, false when it or a later one already was, null when the table cannot be written.
+	 */
+	protected function claimStep( String $userString, Int $stepNumber ): ?Bool {
+		try{
+			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFaStp']}=".$stepNumber
+				." WHERE {$qtdName['userName']}=? AND ({$qtdName['twoFaStp']} IS NULL OR {$qtdName['twoFaStp']}<".$stepNumber.");";
+			if( !$dbHandl->sendQuery($updQury, true, Array($userString)) ){
+				\nyu\Tools\Logger::getLogger('access')->error( 'The step of a 2FA code cannot be recorded: the users table cannot be written, or has no twoFaStp column (see conf/schema)' );
+				return null;
+			}
+			return $dbHandl->lastCount()>0;
+		}catch( \Throwable $e ){
+			return null;
+		}
+	}
+
+	/**
 	 * Gives an active user a new 2FA secret, replacing any previous one.
 	 * From then on its password must come with the code of an
 	 * authenticator set up with that secret.
@@ -185,9 +234,16 @@ class Native implements Handler{
 			$dbHandl = $this->linkDBase();
 			$qtdName = $this->quoteFlds($dbHandl);
 			$newScrt = Totp::makeSecrt();
-			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFaKey']}='".$newScrt."'"
+			$storTxt = Totp::sealSecrt($newScrt, $this->sealPass);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFaKey']}=?, {$qtdName['twoFaStp']}=NULL"
 				." WHERE {$qtdName['userName']}=? AND {$qtdName['userStat']}='active';";
-			return ( $dbHandl->sendQuery($updQury, true, Array($userString)) && $dbHandl->lastCount()>0 ) ? $newScrt : false;
+			if( !$dbHandl->sendQuery($updQury, true, Array($storTxt, $userString)) || $dbHandl->lastCount()<1 ){
+				return false;
+			}
+			if( $storTxt===$newScrt ){
+				\nyu\Tools\Logger::getLogger('access')->warning( '2FA secret of user '.json_encode($userString).' stored readable: no tfakey of '.Totp::SEALSIZE.' characters is set' );
+			}
+			return $newScrt;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -406,7 +462,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'actvCode', 'tokenKey', 'twoFaKey', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
+		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'actvCode', 'tokenKey', 'twoFaKey', 'twoFaStp', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

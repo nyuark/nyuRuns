@@ -14,7 +14,8 @@ define('DS', DIRECTORY_SEPARATOR);
 require $topDir.'/vendor/autoload.php';
 
 if( $runMode!='nologger' && $runMode!='block' ){
-	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', 'BASE', 0, 'NUMBER', 'Y');
+	// The 'trace' scenario reads the context of an entry, which only the FULL mode writes
+	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', ($runMode=='trace') ? 'FULL' : 'BASE', 0, 'NUMBER', 'Y');
 }
 require $topDir.'/src/Error/handling.php';
 
@@ -56,10 +57,13 @@ if( $runMode=='reply' ){
 		'no responder, show on'  => Array(true, null),
 		'no responder, show off' => Array(false, null),
 		'broken responder, show on' => Array(true, $brokeFn),
+		'responder, show on, in production' => Array(true, $replyFn, 'prod'),
+		'no responder, show on, in production' => Array(true, null, 'PROD'),
+		'responder, show on, in preview' => Array(true, $replyFn, 'PREV'),
 	);
 	foreach( $caseLst as $casNme=>$casSet ){
 		$sentLst = Array();
-		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$casSet[0])) );
+		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$casSet[0], 'ENV_NAME'=>$casSet[2] ?? 'DEV')) );
 		unset($GLOBALS['ErrorResponse']);
 		if( $casSet[1]!==null ){
 			$GLOBALS['ErrorResponse'] = $casSet[1];
@@ -88,6 +92,12 @@ if( $runMode=='stack' ){
 			'again'=>$GLOBALS['ErrorHandler']->takeStack()
 		);
 	}
+	// In production, nothing is kept for the response body, whatever ERR_SHOW says
+	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true, 'ENV_NAME'=>'PROD')) );
+	$GLOBALS['ErrorResponse'] = function( String $errMessage ){};
+	ob_start();
+	hndlError(E_USER_WARNING, 'production warning', 'file.php', 15);
+	$results['production'] = Array('echo'=>trim(ob_get_clean()), 'first'=>$GLOBALS['ErrorHandler']->takeStack());
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true)) );
 	unset($GLOBALS['ErrorResponse']);
 	ob_start();
@@ -119,6 +129,19 @@ if( $runMode=='warning' ){
 	echo 'execution continued';
 }elseif( $runMode=='exception' ){
 	throw new RuntimeException('boom', 42);
+}elseif( $runMode=='trace' ){
+	// An exception thrown under a call given a secret, where PHP keeps the arguments of the calls
+	ini_set('zend.exception_ignore_args', '0');
+	/**
+	 * Fails while checking credentials.
+	 *
+	 * @param String $userString Login name.
+	 * @param String $passwdText Password.
+	 */
+	function checksIn( String $userString, String $passwdText ): Void {
+		throw new RuntimeException('store down', 7);
+	}
+	checksIn('root', 'hunter2-top-secret');
 }elseif( $runMode=='pdoexception' ){
 	$pdoLink = new PDO('sqlite::memory:');
 	$pdoLink->query('SELECT * FROM no_such_table');

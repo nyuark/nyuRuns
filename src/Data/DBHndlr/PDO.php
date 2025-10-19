@@ -207,8 +207,8 @@ abstract Class PDO implements Handler {
 				$whrText[] = $fldQutd.($oprCode=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($cndArr['value']), '?')).')';
 				$whrVals = array_merge($whrVals, $cndArr['value']);
 			}elseif( $oprCode=='match' || $oprCode=='nmtch' ){
-				$whrText[] = $fldQutd.' '.($oprCode=='nmtch' ? 'NOT ' : '').$this->likeOprtr().' ?';
-				$whrVals[] = $cndArr['value'];
+				$whrText[] = $fldQutd.' '.($oprCode=='nmtch' ? 'NOT ' : '').$this->likeOprtr()." ? ESCAPE '!'";
+				$whrVals[] = $this->likeValue( strval($cndArr['value']) );
 			}else{
 				$whrText[] = $fldQutd.' '.$signLst[$oprCode].' ?';
 				$whrVals[] = $cndArr['value'];
@@ -217,6 +217,19 @@ abstract Class PDO implements Handler {
 		return Array('text'=>implode(' AND ', $whrText), 'vals'=>$whrVals);
 	}
 	
+	/**
+	 * Writes the text of a match as the pattern of a wildcard search: its
+	 * * becomes the wildcard of the database, and the characters the
+	 * database would read as wildcards (%, _) are escaped with '!', the
+	 * escape character the search is written with.
+	 *
+	 * @param String $searchText The text, in which * is any text.
+	 * @return String The pattern.
+	 */
+	protected function likeValue( String $searchText ): String {
+		return str_replace( '*', '%', strtr($searchText, Array('!'=>'!!', '%'=>'!%', '_'=>'!_')) );
+	}
+
 	/**
 	 * Returns the operator of a wildcard search that ignores the case.
 	 *

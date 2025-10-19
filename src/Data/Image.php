@@ -103,15 +103,21 @@ class Image {
 	 * @throws \RuntimeException When the drawing is not well-formed, declares entities, or is not a drawing.
 	 */
 	protected static function loadADraw(String $rawContent): \DOMDocument {
-		// Declared entities are how an XML document reads local files or grows without end
-		if( !class_exists('DOMDocument') || stripos($rawContent, '<!ENTITY')!==false ){
+		// Declared entities are how an XML document reads local files or grows without end.
+		// They are looked for in the text once decoded : another encoding would hide them
+		$xmlText = Parsers\Base::cleanText($rawContent);
+		if( !class_exists('DOMDocument') || stripos($xmlText, '<!ENTITY')!==false ){
 			throw new \RuntimeException('Not a picture of a known kind');
 		}
 		$domDocu = new \DOMDocument();
 		$oldMode = libxml_use_internal_errors(true);
-		$loadOky = $domDocu->loadXML(Parsers\Base::cleanText($rawContent), LIBXML_NONET | LIBXML_COMPACT);
+		$loadOky = $domDocu->loadXML($xmlText, LIBXML_NONET | LIBXML_COMPACT);
 		libxml_clear_errors();
 		libxml_use_internal_errors($oldMode);
+		// Whatever the text looked like, a drawing that declares entities once read is refused
+		if( $loadOky && $domDocu->doctype!==null && $domDocu->doctype->entities!==null && $domDocu->doctype->entities->length>0 ){
+			throw new \RuntimeException('Not a picture of a known kind');
+		}
 		if( !$loadOky || $domDocu->documentElement===null || strtolower(strval($domDocu->documentElement->localName))!='svg' ){
 			throw new \RuntimeException('Not a picture of a known kind');
 		}

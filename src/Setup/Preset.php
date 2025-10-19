@@ -16,7 +16,7 @@ class Preset{
 		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt', 'signin', 'rolert'),
 		'input' => Array('naming', 'source', 'fields'),
 		'route' => Array('detect', 'mapper', 'folder', 'htroot'),
-		'rnder' => Array('tmplte', 'return', 'headrs')
+		'rnder' => Array('tmplte', 'return', 'origns', 'headrs')
 	);
 
 	protected $rpsArray;

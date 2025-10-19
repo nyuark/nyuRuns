@@ -314,7 +314,7 @@ class UserBase extends Native{
 		if( $this->knownUser($userString)===null ){
 			return false;
 		}
-		if( $this->sendWrite('UPDATE {usrTable} SET {twoFaKey}=NULL WHERE {userName}=?;', Array($userString))<0 ){
+		if( $this->sendWrite('UPDATE {usrTable} SET {twoFaKey}=NULL, {twoFaStp}=NULL WHERE {userName}=?;', Array($userString))<0 ){
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		Logger::getLogger('access')->notice( '2FA secret of user '.json_encode($userString).' removed'.Logger::actorText() );

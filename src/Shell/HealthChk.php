@@ -3,6 +3,7 @@
 namespace nyu\Shell;
 
 use nyu\Access\Checker;
+use nyu\Access\Totp;
 use nyu\Access\Auth\UserList;
 use nyu\Data\DBCon;
 use nyu\Setup\Loader;
@@ -107,17 +108,28 @@ class HealthChk{
 		foreach( $rpsList as $rpsFle ){
 			$prstNme = basename(strval($rpsFle), '.rps');
 			try{
-				$axsConf = (new Preset($prstNme))->makeSetup()->setAccess();
+				$stupObj = (new Preset($prstNme))->makeSetup();
+				$axsConf = $stupObj->setAccess();
 			}catch( \Throwable $e ){
 				$this->addResult('preset '.$prstNme, 'fail', $e->getMessage());
 				continue;
+			}
+			// A session cookie goes with every request of the browser : any site allowed to call is a risk
+			$rndrCnf = $stupObj->getRegKey('rnder');
+			$headLst = array_change_key_case( (array)(is_array($rndrCnf) ? ($rndrCnf['headrs'] ?? Array()) : Array()), CASE_LOWER );
+			if( ($axsConf['sessby'] ?? '')=='phsess' && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
+				$this->addResult('origins '.$prstNme, 'warn', 'every origin is allowed while the session travels in a cookie: list the origins under "origns"');
 			}
 			$flawTxt = '';
 			if( !empty($axsConf) && ($axsConf['needed'] ?? true)!==false ){
 				$flawTxt = $this->pairFlaws($axsConf);
 			}
+			$chkrObj = new Checker($axsConf, ActCaller::makeReqst('GET', '/')[0], new Registry(Array()));
+			if( $flawTxt=='' && !empty($axsConf) && ($axsConf['needed'] ?? true)!==false ){
+				$flawTxt = $chkrObj->pairsFlaw();
+			}
 			if( $flawTxt=='' ){
-				$flawTxt = (new Checker($axsConf, ActCaller::makeReqst('GET', '/')[0], new Registry(Array())))->rolesFlaw();
+				$flawTxt = $chkrObj->rolesFlaw();
 			}
 			$this->addResult( 'preset '.$prstNme, ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? 'loads' : $flawTxt );
 		}
@@ -139,6 +151,11 @@ class HealthChk{
 			$this->addResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
 		}else{
 			$flawTxt = $this->pairFlaws($lgnConf + Array('authby'=>'htpass', 'sessby'=>'jtoken', 'authcf'=>'dfpass', 'sesscf'=>'dftokn'));
+			// The login hands a name and a password to its check, as the Basic carrier does
+			$lgnAuth = strval($lgnConf['authby'] ?? 'htpass');
+			if( $flawTxt=='' && isset(Checker::AUTHLIST[$lgnAuth]) && !in_array($lgnAuth, Checker::PAIRLIST['hbasic'], true) ){
+				$flawTxt = 'the credential check "'.$lgnAuth.'" takes no name and password: nobody can sign in through auth/login';
+			}
 			$this->addResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authby'] ?? 'htpass').' through '.strval($lgnConf['sessby'] ?? 'jtoken') : $flawTxt );
 		}
 		foreach( $axsVals as $blkKey => $blkVal ){
@@ -152,6 +169,17 @@ class HealthChk{
 			}
 			if( isset($blkVal['keylst']) && is_array($blkVal['keylst']) && in_array('', array_map('strval', $blkVal['keylst']), true) ){
 				$this->addResult('keys '.$blkName, 'warn', 'an API key of the block is empty; "config secrt apikey" makes one');
+			}
+			if( ($blkVal['secure'] ?? true)===false && array_key_exists('cookie', $blkVal) && strtoupper(strval($nyuConf->getRowVal('SYSTEM', 'ENV_NAME')))=='PROD' ){
+				$this->addResult('cookie '.$blkName, 'warn', 'the session cookie also travels over plain HTTP (secure is false) in the environment PROD');
+			}
+			if( array_key_exists('tfakey', $blkVal) ){
+				$keyLeng = strlen(strval($blkVal['tfakey']));
+				if( $keyLeng==0 ){
+					$this->addResult('2FA key '.$blkName, 'warn', 'empty: the 2FA secrets are stored readable; "config secrt tfakey" makes one');
+				}else{
+					$this->addResult( '2FA key '.$blkName, ($keyLeng>=Totp::SEALSIZE) ? 'fine' : 'fail', ($keyLeng>=Totp::SEALSIZE) ? 'set' : 'too short: '.Totp::SEALSIZE.' characters at least; "config secrt tfakey" makes one' );
+				}
 			}
 			if( ($blkVal['unsecure'] ?? false)===true ){
 				$this->addResult('unsecure '.$blkName, 'warn', 'weak password hashes are accepted by this block');
@@ -233,10 +261,15 @@ class HealthChk{
 		$sysConf = ($nyuConf!==null) ? ($nyuConf->readValue('system') ?: Array()) : Array();
 		$envName = strtoupper( strval($sysConf['ENV_NAME'] ?? '') );
 		$showErr = in_array( strtoupper(strval($sysConf['ERR_SHOW'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true );
-		$errStat = !$showErr ? 'fine' : ( $envName=='PROD' ? 'fail' : ( $envName=='PREV' ? 'warn' : 'fine' ) );
-		$this->addResult( 'errors', $errStat, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).( $errStat!='fine' ? ': the details of an error are shown to the clients' : '' ) );
+		$errStat = ( $showErr && in_array($envName, Array('PROD', 'PREV'), true) ) ? 'warn' : 'fine';
+		// In production the setting is not followed : nothing of an error is shown there
+		$errNote = ($errStat=='fine') ? '' : ( $envName=='PROD' ? ', where it is ignored: set it to FALSE' : ': the details of an error are shown to the clients' );
+		$this->addResult( 'errors', $errStat, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).$errNote );
 		if( preg_match('#(^|[\s,])(0\.0\.0\.0|::)/0#', strval($sysConf['PRX_LIST'] ?? '')) ){
 			$this->addResult('proxies', 'fail', 'PRX_LIST trusts every address: any client can then give itself the address it wants');
+		}
+		if( array_key_exists('REQ_SIZE', $sysConf) && intval($sysConf['REQ_SIZE'])<1 ){
+			$this->addResult('requests', 'warn', 'REQ_SIZE is 0: a request body of any size is read in memory');
 		}
 		$envPath = TOP_DIR.DS.'.env';
 		if( DIRECTORY_SEPARATOR=='/' && is_file($envPath) && (fileperms($envPath) & 0077)!=0 ){

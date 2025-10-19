@@ -11,6 +11,10 @@ class Totp{
 	const STEPSECS = 30;
 	const CODESIZE = 6;
 	const B32CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+	// Mark of a secret stored encrypted
+	const SEALMARK = 'enc1:';
+	// Shortest key a secret is encrypted with, in characters
+	const SEALSIZE = 32;
 
 	/**
 	 * Makes a new random secret, in the base32 form authenticator
@@ -54,15 +58,69 @@ class Totp{
 	 * @return Bool Whether the code is valid.
 	 */
 	public static function checkCode( String $secretText, String $givenDigit, ?Int $unixMoment = null ): Bool {
+		return self::matchStep($secretText, $givenDigit, $unixMoment)!==null;
+	}
+
+	/**
+	 * Finds the step a code is the one of, among the current step, the
+	 * previous and the next one, to allow for clock differences.
+	 *
+	 * @param String $secretText The base32 secret.
+	 * @param String $givenDigit The code given by the user.
+	 * @param ?Int   $unixMoment Unix time to check at; now when not given.
+	 * @return ?Int The number of the step (the Unix time divided by STEPSECS), the latest when several match; null when the code is not valid.
+	 */
+	public static function matchStep( String $secretText, String $givenDigit, ?Int $unixMoment = null ): ?Int {
 		if( !preg_match('/^\d{'.self::CODESIZE.'}$/', $givenDigit) || self::fromBas32($secretText)=='' ){
-			return false;
+			return null;
 		}
-		$nowTime = $unixMoment ?? time();
-		$matched = false;
+		$nowStep = intdiv($unixMoment ?? time(), self::STEPSECS);
+		$fndStep = null;
 		foreach( Array(-1, 0, 1) as $stp ){
-			$matched = hash_equals( self::codeAtTme($secretText, $nowTime + $stp*self::STEPSECS), $givenDigit ) || $matched;
+			if( hash_equals( self::codeAtTme($secretText, ($nowStep + $stp)*self::STEPSECS), $givenDigit ) ){
+				$fndStep = $nowStep + $stp;
+			}
 		}
-		return $matched;
+		return $fndStep;
+	}
+
+	/**
+	 * Encrypts a secret for its storage (AES-256-GCM), with a key drawn
+	 * from the given text. Without a key of SEALSIZE characters, or
+	 * without the openssl extension, the secret is given back as it is.
+	 *
+	 * @param String $secretText The base32 secret.
+	 * @param String $cipherPass The text the key is drawn from.
+	 * @return String The secret to store: encrypted behind SEALMARK, or unchanged.
+	 */
+	public static function sealSecrt( String $secretText, String $cipherPass ): String {
+		if( strlen($cipherPass)<self::SEALSIZE || !function_exists('openssl_encrypt') ){
+			return $secretText;
+		}
+		$nonceBn = random_bytes(12);
+		$tagByts = '';
+		$ciphrBn = openssl_encrypt($secretText, 'aes-256-gcm', hash('sha256', $cipherPass, true), OPENSSL_RAW_DATA, $nonceBn, $tagByts);
+		return ($ciphrBn===false) ? $secretText : self::SEALMARK.base64_encode($nonceBn.$tagByts.$ciphrBn);
+	}
+
+	/**
+	 * Reads a stored secret: one stored readable is given as it is, an
+	 * encrypted one is decrypted with the key drawn from the given text.
+	 *
+	 * @param String $storedText The secret, as stored.
+	 * @param String $cipherPass The text the key is drawn from.
+	 * @return ?String The base32 secret; null when it is encrypted and cannot be read (no key, another key, or a changed value).
+	 */
+	public static function openSecrt( String $storedText, String $cipherPass ): ?String {
+		if( strpos($storedText, self::SEALMARK)!==0 ){
+			return $storedText;
+		}
+		$sealBin = base64_decode(substr($storedText, strlen(self::SEALMARK)), true);
+		if( $sealBin===false || strlen($sealBin)<29 || strlen($cipherPass)<self::SEALSIZE || !function_exists('openssl_decrypt') ){
+			return null;
+		}
+		$plainTx = openssl_decrypt(substr($sealBin, 28), 'aes-256-gcm', hash('sha256', $cipherPass, true), OPENSSL_RAW_DATA, substr($sealBin, 0, 12), substr($sealBin, 12, 16));
+		return ($plainTx===false) ? null : $plainTx;
 	}
 
 	/**

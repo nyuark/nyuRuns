@@ -182,4 +182,42 @@ checkSame('helper: a missing page is a 404', ranAction('page', 'none'), Array(40
 checkSame('helper: a name cannot lead out of the pages', ranAction('page', 'out'), Array(404, 'Page not found', '', Array()));
 checkLike('helper: a link to an undeclared route fails', ranAction('link', 'x'), '/^THROWN RuntimeException: No route is declared/');
 
+// An action a declared route answers with is closed to the path : it is only reached through its route
+$autoRtr = madeRoutr('/probe/mirror/x');
+$autoRtr->findRoute();
+checkSame('shut: an action found from the path, the target of a declared route', Array($autoRtr->shutsActn('Probe', 'mirror'), $autoRtr->shutsActn('probe', 'MIRROR'), $autoRtr->shutsActn('PROBE', 'clean')), Array(true, true, true));
+checkSame('shut: an action no route answers with, another application', Array($autoRtr->shutsActn('Probe', 'whoami'), $autoRtr->shutsActn('Shows', 'mirror'), $autoRtr->shutsActn('Probe', '')), Array(false, false, false));
+$declRtr = madeRoutr('/items/42');
+$declRtr->findRoute();
+checkSame('shut: never when the request came through the declared route', $declRtr->shutsActn('Probe', 'mirror'), false);
+checkSame('shut: never when no route was looked for', madeRoutr('/probe/mirror/x')->shutsActn('Probe', 'mirror'), false);
+$manuRtr = madeRoutr('/probe/mirror/x', 'GET', Array('detect'=>'manually'));
+$manuRtr->findRoute();
+checkSame('shut: never where the path finds no action', $manuRtr->shutsActn('Probe', 'mirror'), false);
+
+// Keys of a declared route that nothing reads are told in the log
+$rteFldr = 'temp'.DS.'routes_test_'.getmypid();
+mkdir(TOP_DIR.DS.$rteFldr, 0775, true);
+file_put_contents(TOP_DIR.DS.$rteFldr.DS.'odd.rte', '{ "fine": { "allows": "GET", "target": { "app": "probe", "act": "clean" } },'
+	.' "aged": { "limited": { "call": 1 }, "auth": "x", "target": { "app": "probe", "act": "clean", "role": "manage" } },'
+	.' "both": { "target": { "GET": { "pge": "hello.html", "code": 200 }, "POST": { "app": "probe" } } } }');
+nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('rtelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+$oddRoutr = madeRoutr('/fine', 'GET', Array('folder'=>$rteFldr));
+checkSame('unknown keys: the routes are still read', $oddRoutr->findRoute()->readValue('app'), 'probe');
+$oddRoutr->allRoutes();
+nyu\Tools\Logger::plugSetup( Array() );
+dropFoldr(TOP_DIR.DS.$rteFldr);
+checkSame('unknown keys: each is told once, with its route and its file', file_exists(inTempDir('rtelogs').DS.'runner.log') ? file(inTempDir('rtelogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array(), Array(
+	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: limited',
+	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: auth',
+	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: target.role',
+	'['.date('Y').'] [WARNING] Route "both" of odd.rte holds an unknown key: target.code'
+));
+
+// The page a site answers an error with
+$errRoutr = madeRoutr('/nothing', 'GET', Array('htroot'=>'test'.DS.'fixtures'.DS.'errpages'));
+checkSame('error page: the one of the status, in the errors folder of the pages', $errRoutr->errorPage(404), realpath(TST_DIR.DS.'fixtures'.DS.'errpages'.DS.'errors'.DS.'404.html'));
+checkSame('error page: none for a status without a page, nor without a folder of pages', Array($errRoutr->errorPage(500), madeRoutr('/nothing')->errorPage(404), madeRoutr('/nothing', 'GET', Array('htroot'=>''))->errorPage(404)), Array(null, null, null));
+checkSame('static: a file that is not found is told as a static reply', foundVals('/nofile', Array('statCode', 'rteKind')), Array(404, 'static'));
+
 endChecks();

@@ -242,4 +242,31 @@ checkSame('type: the case is ignored',       Response::typeOfExt('PNG'), 'image/
 checkSame('type: a script has none',         Response::typeOfExt('php'), null);
 checkSame('type: no extension has none',     Response::typeOfExt(''), null);
 
+// Origins : with a list, only a listed origin is named, whatever the headers of the preset write
+/**
+ * Gives the CORS headers of a reply to a request of an origin.
+ *
+ * @param Array   $renderVals The 'rnder' block of the preset.
+ * @param ?String $originHead Origin header of the request, null for none.
+ * @return Array The Access-Control-Allow-Origin and Vary headers, null for one that is not sent.
+ */
+function originOf( Array $renderVals, ?String $originHead ): Array {
+	$respons = new Response($renderVals);
+	$respons->setOrigin($originHead);
+	$headLst = array_change_key_case($respons->readHeads(), CASE_LOWER);
+	return Array($headLst['access-control-allow-origin'] ?? null, $headLst['vary'] ?? null);
+}
+$orgConf = Array('origns'=>Array('https://app.example.org', 'HTTPS://Admin.Example.org:8443/', '*', '', Array('x')), 'headrs'=>Array('access-control-allow-origin'=>'*', 'Vary'=>'Accept', 'Cache-Control'=>'no-cache'));
+checkSame('origins: a listed origin is named', originOf($orgConf, 'https://app.example.org'), Array('https://app.example.org', 'Origin'));
+checkSame('origins: whatever its case, or a slash at its end', originOf($orgConf, 'https://ADMIN.example.org:8443'), Array('https://admin.example.org:8443', 'Origin'));
+checkSame('origins: another one is not, and the * of the preset is not sent', originOf($orgConf, 'https://evil.example'), Array(null, 'Origin'));
+checkSame('origins: another port, another scheme', Array(originOf($orgConf, 'https://app.example.org:444')[0], originOf($orgConf, 'http://app.example.org')[0]), Array(null, null));
+checkSame('origins: a request that tells none', Array(originOf($orgConf, null), originOf($orgConf, '')), Array(Array(null, 'Origin'), Array(null, 'Origin')));
+checkSame('origins: a * in the list allows nothing', Array(originOf($orgConf, '*')[0], originOf(Array('origns'=>Array('*')) + $orgConf, 'https://app.example.org')), Array(null, Array('*', 'Accept')));
+checkSame('origins: without a list, the headers are sent as written', Array(originOf(Array('headrs'=>$orgConf['headrs']), 'https://evil.example'), originOf(Array('origns'=>Array()) + $orgConf, null)), Array(Array('*', 'Accept'), Array('*', 'Accept')));
+$respons = new Response($orgConf);
+$respons->setOrigin('https://app.example.org');
+checkSame('origins: the other headers of the preset are kept', $respons->readHeads()['Cache-Control'] ?? null, 'no-cache');
+checkSame('origins: the example preset loads with its empty list', (new nyu\Setup\Preset('templt'))->makeSetup()->getRegKey('rnder')['origns'] ?? null, Array());
+
 endChecks();

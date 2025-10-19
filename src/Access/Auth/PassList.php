@@ -40,7 +40,7 @@ class PassList implements Handler{
 		$gvnUser = $credsArray['user'] ?? '';
 		$gvnPass = $credsArray['pass'] ?? '';
 		$this->wrongCrd = false;
-		if( $gvnUser=='' || $this->htpwFile=='' || !file_exists($this->htpwFile) ){
+		if( $this->htpwFile=='' || !file_exists($this->htpwFile) ){
 			$this->lastMssg = 'Credential store unavailable';
 			return false;
 		}
@@ -48,7 +48,8 @@ class PassList implements Handler{
 		$usrHash = null;
 		foreach( $htpList as $htpLin ){
 			$sepPosn = strpos( $htpLin, ':' );
-			if( $sepPosn!==false && substr($htpLin, 0, $sepPosn)===$gvnUser ){
+			// An empty name is the one of no user, whatever a line may start with
+			if( $gvnUser!=='' && $sepPosn!==false && substr($htpLin, 0, $sepPosn)===$gvnUser ){
 				$usrHash = substr( $htpLin, $sepPosn+1 );
 				break;
 			}

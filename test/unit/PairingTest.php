@@ -110,17 +110,18 @@ plugConf();
 checkSame('hbasic x htpass: granted, as a member', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret')), Array(200, '', 'alice', 'member'));
 checkSame('hbasic x htpass: wrong password', pairReply('hbasic', 'htpass', basicHead('alice', 'nope')), Array(401, 'Invalid credentials', '', null));
 checkSame('hbasic x htpass: no header', pairReply('hbasic', 'htpass'), Array(401, 'Missing Basic Authorization header', '', null));
-checkSame('hbasic x regkey: a check of keys takes no password, even a valid key', pairReply('hbasic', 'regkey', basicHead('k-1', 'k-1')), Array(401, 'No API key provided', '', null));
+checkSame('hbasic x regkey: a check of keys takes no password, the pair is a mistake of the config', pairReply('hbasic', 'regkey', basicHead('k-1', 'k-1')), Array(500, 'Access misconfigured', '', null));
 checkSame('hbasic x plug-in check of keys: refused the same way', pairReply('hbasic', 'sample', basicHead('sample-key', 'sample-key'))[0], 401);
-checkSame('hbasic without a check: nobody goes through', pairReply('hbasic', null, basicHead('alice', 's3cret')), Array(401, 'No credential handler configured', '', null));
-$axsRslt = (new Checker( Array('needed'=>true, 'sessby'=>'hbasic'), fakeReqst(basicHead('alice', 's3cret')) ))->verifyAxs();
-checkSame('hbasic without a check: the challenge is still sent', $axsRslt->readValue('wwwAuth'), 'Basic');
+checkSame('hbasic without a check: nobody goes through, the config is told wrong', pairReply('hbasic', null, basicHead('alice', 's3cret')), Array(500, 'Access misconfigured', '', null));
+$axsRslt = (new Checker( Array('needed'=>true, 'sessby'=>'hbasic', 'authby'=>'htpass', 'authcf'=>'tspass'), fakeReqst(basicHead('alice', 'nope')) ))->verifyAxs();
+checkSame('hbasic: a refusal sends the challenge, with its realm', $axsRslt->readValue('wwwAuth'), 'Basic realm="nyuRuns", charset="UTF-8"');
+checkSame('hbasic x htpass: an empty name is a wrong credential, not a store that cannot be read', pairReply('hbasic', 'htpass', basicHead('', 's3cret')), Array(401, 'Invalid credentials', '', null));
 
 // header : a key, which only a check of keys can take
-checkSame('header x htpass: a check of passwords takes no key, even a user name', pairReply('header', 'htpass', Array('X-Api-Key'=>'alice')), Array(401, 'Credential store unavailable', '', null));
+checkSame('header x htpass: a check of passwords takes no key, the pair is a mistake of the config', pairReply('header', 'htpass', Array('X-Api-Key'=>'alice')), Array(500, 'Access misconfigured', '', null));
 checkSame('header x plug-in check: granted, as a member', pairReply('header', 'sample', Array('X-Api-Key'=>'sample-key')), Array(200, '', 'sampleUser', 'member'));
 checkSame('header x plug-in check: wrong key', pairReply('header', 'sample', Array('X-Api-Key'=>'k-1')), Array(401, 'Invalid sample key', '', null));
-checkSame('header without a check: nobody goes through', pairReply('header', null, Array('X-Api-Key'=>'k-1')), Array(401, 'No credential handler configured', '', null));
+checkSame('header without a check: nobody goes through, the config is told wrong', pairReply('header', null, Array('X-Api-Key'=>'k-1')), Array(500, 'Access misconfigured', '', null));
 $noCheck = new Header( Array() );
 checkSame('Header without an auth handler', Array($noCheck->verifyReq(fakeReqst(Array('X-Api-Key'=>'k-1'))), $noCheck->lastError()), Array(false, 'No credential handler configured'));
 
@@ -198,10 +199,14 @@ checkSame('limit: hbasic x htpass, a wrong password is counted', Array(sendTrice
 checkSame('limit: the held address is refused with the right password', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1')), Array(429, 'Too many attempts', '', null));
 checkSame('limit: hbasic x htpass, an unknown name is counted', Array(sendTrice('198.51.100.2', 'hbasic', 'htpass', basicHead('nobody', 'nope')), heldAddr('198.51.100.2')), Array(Array(401, 401, 429), true));
 checkSame('limit: malformed Basic credentials are not counted', Array(sendTrice('198.51.100.3', 'hbasic', 'htpass', Array('Authorization'=>'Basic !!!')), heldAddr('198.51.100.3')), Array(Array(401, 401, 401), false));
-checkSame('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.4', 'header', 'htpass', Array('X-Api-Key'=>'alice')), sendTrice('198.51.100.4', 'hbasic', 'regkey', basicHead('k-1', 'k-1')), heldAddr('198.51.100.4')), Array(Array(401, 401, 401), Array(401, 401, 401), false));
+checkSame('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.4', 'header', 'htpass', Array('X-Api-Key'=>'alice')), sendTrice('198.51.100.4', 'hbasic', 'regkey', basicHead('k-1', 'k-1')), heldAddr('198.51.100.4')), Array(Array(500, 500, 500), Array(500, 500, 500), false));
 checkSame('limit: a plug-in check that does not tell a wrong credential has each refusal counted', Array(sendTrice('198.51.100.5', 'header', 'sample', Array('X-Api-Key'=>'k-1')), heldAddr('198.51.100.5')), Array(Array(401, 401, 429), true));
-checkSame('limit: a forged token is not counted, without a store', Array(sendTrice('198.51.100.6', 'jtoken', null, Array('Authorization'=>'Bearer a.b.c')), heldAddr('198.51.100.6')), Array(Array(401, 401, 401), false));
-checkSame('limit: nor with one', Array(sendTrice('198.51.100.7', 'jtoken', 'usrlst', Array('Authorization'=>'Bearer a.b.c')), heldAddr('198.51.100.7')), Array(Array(401, 401, 401), false));
+checkSame('limit: a forged token is counted, without a store', Array(sendTrice('198.51.100.6', 'jtoken', null, Array('Authorization'=>'Bearer a.b.c')), heldAddr('198.51.100.6')), Array(Array(401, 401, 429), true));
+checkSame('limit: and with one', Array(sendTrice('198.51.100.7', 'jtoken', 'usrlst', Array('Authorization'=>'Bearer a.b.c')), heldAddr('198.51.100.7')), Array(Array(401, 401, 429), true));
+checkSame('limit: a token signed with another secret is counted', Array(sendTrice('198.51.100.12', 'jtoken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'anna', 'exp'=>time()+60), str_repeat('x', 40), 'HS256'))), heldAddr('198.51.100.12')), Array(Array(401, 401, 429), true));
+checkSame('limit: a token that ended is not counted', Array(sendTrice('198.51.100.13', 'jtoken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'anna', 'exp'=>time()-10), str_repeat('s', 40), 'HS256'))), heldAddr('198.51.100.13')), Array(Array(401, 401, 401), false));
+checkSame('limit: a token signed here without an expiry is not counted', Array(sendTrice('198.51.100.14', 'jtoken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'anna'), str_repeat('s', 40), 'HS256'))), heldAddr('198.51.100.14')), Array(Array(401, 401, 401), false));
+checkSame('limit: a request without a token is not counted', Array(sendTrice('198.51.100.15', 'jtoken', null), heldAddr('198.51.100.15')), Array(Array(401, 401, 401), false));
 checkSame('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.8', 'jtoken', 'usrlst', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.8')), Array(Array(401, 401, 401), false));
 checkSame('limit: the certificate of an unknown user is not counted', Array(sendTrice('198.51.100.9', 'clcert', 'usrlst', Array(), certVals('zed')), heldAddr('198.51.100.9')), Array(Array(401, 401, 401), false));
 checkSame('limit: a plug-in carrier counts nothing', Array(sendTrice('198.51.100.10', 'carier', null), heldAddr('198.51.100.10')), Array(Array(401, 401, 401), false));

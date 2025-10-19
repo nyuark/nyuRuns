@@ -35,6 +35,14 @@ checkSame('exception: one log line', count($outcome['logs']), 1);
 checkLike('exception: log line', $outcome['logs'][0] ?? null, '/^\[\d{4}\] \[ERROR\] E_EXCEPTION: RuntimeException \(code 42\): boom in .*handlerChild\.php on line \d+$/');
 checkSame('exception: nothing shown when ERR_SHOW is not on', trim($outcome['text']), '');
 
+// The trace of an exception is logged without the arguments of its calls
+$outcome = handlerOf('trace');
+$traceLn = strval($outcome['logs'][0] ?? '');
+$traceAr = json_decode(substr($traceLn, intval(strpos($traceLn, ' [{'))), true);
+checkLike('trace: the entry tells the exception', $traceLn, '/^\[\d{4}\] \[ERROR\] E_EXCEPTION: RuntimeException \(code 7\): store down in .*handlerChild\.php on line \d+ \[\{/');
+checkSame('trace: the call is told by its name, file and line', Array($traceAr[0]['function'] ?? null, basename(strval($traceAr[0]['file'] ?? '')), is_int($traceAr[0]['line'] ?? null), array_keys($traceAr[0] ?? Array())), Array('checksIn', 'handlerChild.php', true, Array('file', 'line', 'function')));
+checkSame('trace: no argument of a call is written', Array(strpos($traceLn, 'hunter2'), strpos($traceLn, 'root'), strpos($traceLn, '"args"')), Array(false, false, false));
+
 // Exception with a string code
 if( extension_loaded('pdo_sqlite') ){
 	$outcome = handlerOf('pdoexception');
@@ -73,7 +81,11 @@ if( !is_array($replies) ){
 	checkLike('no responder: error block echoed when ERR_SHOW is on', $replies['no responder, show on']['echo'], '/E_EXCEPTION/');
 	checkSame('no responder: nothing echoed when ERR_SHOW is off', $replies['no responder, show off']['echo'], '');
 	checkLike('broken responder: falls back to the error block', $replies['broken responder, show on']['echo'], '/E_EXCEPTION/');
-	checkTrue('reply: every case is logged', count($outcome['logs'])>=5);
+	// In production nothing of an error is shown, whatever ERR_SHOW says
+	checkSame('production: the reply is the generic message, though ERR_SHOW is on', Array($replies['responder, show on, in production']['sent'], $replies['responder, show on, in production']['echo']), Array(Array('Internal Server Error'), ''));
+	checkSame('production: without a responder, nothing is echoed', $replies['no responder, show on, in production'], Array('sent'=>Array(), 'echo'=>''));
+	checkLike('preview: ERR_SHOW is still followed', $replies['responder, show on, in preview']['sent'][0] ?? null, '/^RuntimeException \(code 42\): boom in /');
+	checkTrue('reply: every case is logged, production included', count($outcome['logs'])>=8);
 }
 
 // Warnings inside a framework request are kept for the response body instead of echoed
@@ -91,7 +103,8 @@ if( !is_array($stacked) ){
 	checkSame('stack: nothing kept when ERR_SHOW is off', Array($stacked['show off']['echo'], $stacked['show off']['first']), Array('', Array()));
 	checkLike('stack: without a responder the error is echoed', $stacked['no responder']['echo'], '/E_USER_WARNING.*shown warning/');
 	checkSame('stack: without a responder nothing is kept', $stacked['no responder']['first'], Array());
-	checkSame('stack: every error is logged', count($outcome['logs']), 5);
+	checkSame('stack: in production nothing is kept nor echoed, though ERR_SHOW is on', $stacked['production'], Array('echo'=>'', 'first'=>Array()));
+	checkSame('stack: every error is logged', count($outcome['logs']), 6);
 }
 
 // The HTML display : a stack table, in the one block showError() and pushError() both echo

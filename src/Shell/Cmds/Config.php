@@ -37,11 +37,12 @@ class Config extends Command{
 	// The config files that are read and written, by the name they are asked under
 	const TRGTLIST = Array('system'=>'conf/system.ini', 'access'=>'conf/access.json', 'dbases'=>'conf/database.json');
 	// Keys whose value is not shown, unless it only names where the secret is (env:NAME)
-	const SECRLIST = Array('secret', 'pass', 'passwd', 'keylst');
+	const SECRLIST = Array('secret', 'pass', 'passwd', 'keylst', 'tfakey');
 	// What the keys of system.ini that are checked may hold
 	const RULELIST = Array(
 		'ENV_NAME'=>'/^(DEV|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMBER|WEEKLY|MONTHS|UNIQUE)$/D',
-		'ERR_SHOW'=>'/^(TRUE|FALSE)$/D', 'LOG_SIZE'=>'/^\d{1,9}$/D', 'LST_ROWS'=>'/^[1-9]\d{0,8}$/D', 'SND_TIME'=>'/^[1-9]\d{0,8}$/D'
+		'ERR_SHOW'=>'/^(TRUE|FALSE)$/D', 'LOG_SIZE'=>'/^\d{1,9}$/D', 'LST_ROWS'=>'/^[1-9]\d{0,8}$/D', 'SND_TIME'=>'/^[1-9]\d{0,8}$/D',
+		'REQ_SIZE'=>'/^\d{1,9}$/D', 'REQ_PART'=>'/^\d{1,9}$/D'
 	);
 	// The call that starts the Runner in an entry point, and the preset it names
 	const RUNRCALL = '/(new\s+\\\\?nyu\\\\Runner\s*\(\s*)(([\'"])[\w\-]*\3)?/';
@@ -61,7 +62,7 @@ class Config extends Command{
 			'shows'=>Array('args'=>'<system|access|dbases|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
 			'write'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--force]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
 			'entry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
-			'secrt'=>Array('args'=>'<jtoken|apikey|htpass> [user] [--block=<name>] [--shown] [--typed]', 'about'=>'makes a secret and writes it where the config reads it'),
+			'secrt'=>Array('args'=>'<jtoken|apikey|tfakey|htpass> [user] [--block=<name>] [--shown] [--typed]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'route'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access')
 		);
 	}
@@ -287,8 +288,8 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callSecrt(): Int {
-		$kindNme = $this->needsWord('the secret to make (jtoken, apikey, htpass)');
-		if( !in_array($kindNme, Array('jtoken', 'apikey', 'htpass'), true) ){
+		$kindNme = $this->needsWord('the secret to make (jtoken, apikey, tfakey, htpass)');
+		if( !in_array($kindNme, Array('jtoken', 'apikey', 'tfakey', 'htpass'), true) ){
 			$this->stopShell('No secret is made under that name: '.$kindNme, self::EXITUSGE);
 		}
 		try{
@@ -306,13 +307,16 @@ class Config extends Command{
 	}
 
 	/**
-	 * Makes the secret signing the tokens ('jtoken') or an API key
-	 * ('apikey'), and writes it where the block of conf/access.json reads
+	 * Makes the secret signing the tokens ('jtoken'), an API key
+	 * ('apikey') or the key the 2FA secrets are stored encrypted with
+	 * ('tfakey', in the block of the store the login uses), and writes it
+	 * where the block of conf/access.json reads
 	 * it: in the environment file when the block names it as env:NAME, in
-	 * the block otherwise. The secret of the tokens is only shown with
+	 * the block otherwise. The secret of the tokens and the key of the 2FA
+	 * secrets are only shown with
 	 * --shown; an API key is shown once, since its client needs it.
 	 *
-	 * @param String $secretKind 'jtoken' or 'apikey'.
+	 * @param String $secretKind 'jtoken', 'apikey' or 'tfakey'.
 	 * @param Bool   $onlyIfVoid Whether a secret already set is left as it is, without a question.
 	 * @return Bool Whether a secret was written.
 	 *
@@ -329,6 +333,11 @@ class Config extends Command{
 			$blkName = $blkName ?: strval($treeObj->login->sesscf ?? 'dftokn');
 			$rawValu = $treeObj->$blkName->secret ?? null;
 			$newScrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
+		}elseif( $secretKind=='tfakey' ){
+			$labelTx = 'Key of the 2FA secrets';
+			$blkName = $blkName ?: strval($treeObj->login->authcf ?? 'native');
+			$rawValu = $treeObj->$blkName->tfakey ?? null;
+			$newScrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}else{
 			$labelTx = 'API key';
 			foreach( get_object_vars($treeObj) as $blkKey => $blkVal ){
@@ -340,7 +349,8 @@ class Config extends Command{
 			$newScrt = bin2hex(random_bytes(32));
 		}
 		if( !is_string($rawValu) ){
-			$this->stopShell('Nothing was written: no block of conf/access.json holds '.( $secretKind=='jtoken' ? 'the secret of the tokens' : 'a list of API keys' ).( $blkName!='' ? ' under '.$blkName : '' ), self::EXITDENY);
+			$whatLst = Array('jtoken'=>'the secret of the tokens', 'apikey'=>'a list of API keys', 'tfakey'=>'the key of the 2FA secrets (tfakey)');
+			$this->stopShell('Nothing was written: no block of conf/access.json holds '.$whatLst[$secretKind].( $blkName!='' ? ' under '.$blkName : '' ), self::EXITDENY);
 		}
 		$envPath = TOP_DIR.DS.'.env';
 		$envName = (strpos($rawValu, 'env:')===0) ? substr($rawValu, 4) : '';
@@ -348,7 +358,8 @@ class Config extends Command{
 		if( $nowScrt!='' && $onlyIfVoid ){
 			return false;
 		}
-		if( $nowScrt!='' && !$this->askAgreed('Replace the '.strtolower($labelTx).' in use: what was issued with it stops being accepted') ){
+		$lossTxt = ($secretKind=='tfakey') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTx).' in use: what was issued with it stops being accepted';
+		if( $nowScrt!='' && !$this->askAgreed('Replace the '.$lossTxt) ){
 			$this->stopShell('Nothing was written: not confirmed', self::EXITDENY);
 		}
 		if( $envName!='' ){
@@ -357,6 +368,8 @@ class Config extends Command{
 		}else{
 			if( $secretKind=='jtoken' ){
 				$treeObj->$blkName->secret = $newScrt;
+			}elseif( $secretKind=='tfakey' ){
+				$treeObj->$blkName->tfakey = $newScrt;
 			}else{
 				$treeObj->$blkName->keylst[0] = $newScrt;
 			}
