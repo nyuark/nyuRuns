@@ -4,22 +4,24 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Fluxd;
 
-// XML written from a tree of values, in the three ways such a tree is
-// given:
-//
-//   - the tree of elements the XML parser reads, each with its five
-//     keys ('tagnm', 'tagid', 'attrs', 'value', 'nodes'): it is written
-//     back as the document it was read from;
-//   - its compact form: the name of the root => its content, the
-//     attributes under '@name', the text of an element under '#text',
-//     and the elements of one name as a list;
-//   - any other values, as the JSON and YAML writers take them: a key
-//     is an element, a list the same element as many times.
-//
-// Every text is escaped, and every name is checked: one that XML would
-// refuse is never written. A document may tell its kind (DOCTYPE) and
-// where the rules of that kind are told; it never declares anything of
-// its own there, entities least of all.
+/**
+ * XML written from a tree of values, in the three ways such a tree is
+ * given:
+ *
+ *   - the tree of elements the XML parser reads, each with its five
+ *     keys ('tagnm', 'tagid', 'attrs', 'value', 'nodes'): it is written
+ *     back as the document it was read from;
+ *   - its compact form: the name of the root => its content, the
+ *     attributes under '@name', the text of an element under '#text',
+ *     and the elements of one name as a list;
+ *   - any other values, as the JSON and YAML writers take them: a key
+ *     is an element, a list the same element as many times.
+ *
+ * Every text is escaped, and every name is checked: one that XML would
+ * refuse is never written. A document may tell its kind (DOCTYPE) and
+ * where the rules of that kind are told; it never declares anything of
+ * its own there, entities least of all.
+ */
 class Xmlx extends Base {
 
 	// The deepest an element stands in others

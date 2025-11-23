@@ -2,7 +2,9 @@
 
 namespace nyu\Data\DBHndlr;
 
-// SQLite handler, type code 'sqlte'. The database is a single file.
+/**
+ * SQLite handler, type code 'sqlte'. The database is a single file.
+ */
 Class SQLite extends PDO {
 
 	/**

@@ -2,7 +2,9 @@
 
 namespace nyu\Data\DBHndlr;
 
-// MySQL (and MariaDB) handler, type code 'mysql'
+/**
+ * MySQL (and MariaDB) handler, type code 'mysql'
+ */
 Class MySQL extends PDO {
 
 	/**

@@ -40,6 +40,8 @@ class UserFile{
 	protected $lastCode = 200;
 
 	/**
+	 * Builds the writer of the users file from its config block.
+	 *
 	 * @param Array    $confValues Config block with the 'usrfle' path of the users file, relative to the project root
 	 *                             (conf/users.lst when left out), and optionally the shortest password accepted,
 	 *                             in characters ('minlen', defaults to 10) and the key the 2FA secrets are written

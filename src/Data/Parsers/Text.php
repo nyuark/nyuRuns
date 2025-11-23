@@ -4,17 +4,19 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// Text, as it is or carrying light formatting:
-//
-//   'plain' => the text as written, a blank line between two paragraphs;
-//   'bbcod' => the tags of forums and web editors: [b] [i] [u] [s],
-//              [url] and [url=...], [img], [code], [quote], [list] and [*];
-//   'chats' => the marks of messaging: *bold* _italic_ __underlined__
-//              ~strike~, and lists after '- ', '* ', '1. ' or '1) '.
-//
-// In BBCode, a tag that does nothing is left out and what it surrounds is
-// kept: one opened and never closed, one closed and never opened, one
-// that is not known. In messaging, a mark that is not closed is text.
+/**
+ * Text, as it is or carrying light formatting:
+ *
+ *   'plain' => the text as written, a blank line between two paragraphs;
+ *   'bbcod' => the tags of forums and web editors: [b] [i] [u] [s],
+ *              [url] and [url=...], [img], [code], [quote], [list] and [*];
+ *   'chats' => the marks of messaging: *bold* _italic_ __underlined__
+ *              ~strike~, and lists after '- ', '* ', '1. ' or '1) '.
+ *
+ * In BBCode, a tag that does nothing is left out and what it surrounds is
+ * kept: one opened and never closed, one closed and never opened, one
+ * that is not known. In messaging, a mark that is not closed is text.
+ */
 class Text extends Base {
 
 	// Formatting given by the BBCode tags

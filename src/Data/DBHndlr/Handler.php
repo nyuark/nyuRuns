@@ -2,6 +2,11 @@
 
 namespace nyu\Data\DBHndlr;
 
+/**
+ * Contract of a database handler: opens the connection, sends and reads
+ * queries, runs transactions, and gives the quoting and the operators of
+ * its SQL type.
+ */
 interface Handler{
 	
 	/**

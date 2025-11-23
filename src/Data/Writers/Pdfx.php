@@ -2,13 +2,15 @@
 
 namespace nyu\Data\Writers;
 
-// PDF documents, written through the dompdf/dompdf library: the content
-// is written as a whole HTML page, with the style sheet of its styles,
-// and that page is laid out on paper.
-//
-// Nothing is fetched while the document is made: neither from the
-// network nor from the disk. An image is therefore not drawn; its
-// description is.
+/**
+ * PDF documents, written through the dompdf/dompdf library: the content
+ * is written as a whole HTML page, with the style sheet of its styles,
+ * and that page is laid out on paper.
+ *
+ * Nothing is fetched while the document is made: neither from the
+ * network nor from the disk. An image is therefore not drawn; its
+ * description is.
+ */
 class Pdfx extends Base {
 
 	// The sizes of paper, by the code that asks for them

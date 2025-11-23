@@ -2,10 +2,12 @@
 
 namespace nyu\Data\DBStore;
 
-// Reads a filter array into plain conditions. The reading is the same for
-// every kind of database; each store then writes the conditions in its own
-// language: the SQL handlers through their makeWhere(), a document store
-// with its own query.
+/**
+ * Reads a filter array into plain conditions. The reading is the same for
+ * every kind of database; each store then writes the conditions in its own
+ * language: the SQL handlers through their makeWhere(), a document store
+ * with its own query.
+ */
 class Filter {
 
 	/**

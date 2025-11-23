@@ -5,13 +5,15 @@ namespace nyu\Data\Writers;
 use nyu\Data\Archv;
 use nyu\Data\Shape;
 
-// Books (EPUB 3) written from text blocks: the text cut into chapters at
-// its headings, each chapter a page of XHTML written by the HTML writer;
-// a table of contents made of those headings, in the two ways readers
-// look for it; and what tells of the book. A book has no pages of its
-// own: its reader lays it out. It holds no script, and points to nothing
-// it would fetch. Its pictures and its cover are those of a folder it is
-// given, and no other.
+/**
+ * Books (EPUB 3) written from text blocks: the text cut into chapters at
+ * its headings, each chapter a page of XHTML written by the HTML writer;
+ * a table of contents made of those headings, in the two ways readers
+ * look for it; and what tells of the book. A book has no pages of its
+ * own: its reader lays it out. It holds no script, and points to nothing
+ * it would fetch. Its pictures and its cover are those of a folder it is
+ * given, and no other.
+ */
 class EPub extends Page {
 
 	// The kind of file, as its first entry tells it

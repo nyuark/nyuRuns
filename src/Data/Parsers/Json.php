@@ -2,7 +2,9 @@
 
 namespace nyu\Data\Parsers;
 
-// JSON, JSON with comment lines, and JSON Lines.
+/**
+ * JSON, JSON with comment lines, and JSON Lines.
+ */
 class Json extends Base {
 
 	/**

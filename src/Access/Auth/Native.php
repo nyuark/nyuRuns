@@ -32,6 +32,8 @@ class Native implements Handler{
 	protected $wrongCrd = false;
 
 	/**
+	 * Builds the check against the native userbase from its config block.
+	 *
 	 * @param Array $confValues Config block, optionally with the 'basnme' configured database holding the users
 	 *                          (defaults to the default database), their 'tblnme' table (defaults to 'users'),
 	 *                          the 'idletm' time in seconds after which a user is no longer online (defaults to 300),
@@ -493,6 +495,8 @@ class Native implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

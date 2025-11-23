@@ -23,6 +23,8 @@ class Cleans extends Command{
 	const KINDLIST = Array('cache', 'logs', 'limits', 'backup');
 
 	/**
+	 * Tells in one line what the command does.
+	 *
 	 * @return String The line shown in the list of commands.
 	 */
 	public function aboutText(): String {
@@ -30,6 +32,8 @@ class Cleans extends Command{
 	}
 
 	/**
+	 * Lists the sub-commands of the command.
+	 *
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTable(): Array {

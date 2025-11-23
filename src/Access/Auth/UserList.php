@@ -25,6 +25,8 @@ class UserList implements Handler{
 	protected $wrongCrd = false;
 
 	/**
+	 * Builds the check against the users file from its config block.
+	 *
 	 * @param Array $confValues Config block with the 'usrfle' path of the users file, relative to the project root, and
 	 *                          optionally the key its encrypted 2FA secrets are read with ('tfakey').
 	 */
@@ -303,6 +305,8 @@ class UserList implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

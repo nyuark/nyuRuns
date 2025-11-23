@@ -34,6 +34,8 @@ class Manage extends Command{
 	protected $storKind = '';
 
 	/**
+	 * Tells in one line what the command does.
+	 *
 	 * @return String The line shown in the list of commands.
 	 */
 	public function aboutText(): String {
@@ -41,6 +43,8 @@ class Manage extends Command{
 	}
 
 	/**
+	 * Lists the sub-commands of the command.
+	 *
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTable(): Array {
@@ -62,7 +66,7 @@ class Manage extends Command{
 	}
 
 	/**
-	 * Lists the users.
+	 * Lists the users, by status and role when asked, a part of the list at a time.
 	 *
 	 * @return Int The exit code.
 	 */
@@ -84,7 +88,7 @@ class Manage extends Command{
 	}
 
 	/**
-	 * Shows a user.
+	 * Shows what the store holds of the user named on the command line.
 	 *
 	 * @return Int The exit code.
 	 */
@@ -157,7 +161,7 @@ class Manage extends Command{
 	}
 
 	/**
-	 * Locks a user.
+	 * Locks the user named on the command line.
 	 *
 	 * @return Int The exit code.
 	 */
@@ -166,7 +170,7 @@ class Manage extends Command{
 	}
 
 	/**
-	 * Unlocks a user.
+	 * Unlocks the user named on the command line: it is active again.
 	 *
 	 * @return Int The exit code.
 	 */

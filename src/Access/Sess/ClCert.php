@@ -22,11 +22,13 @@ class ClCert implements Handler{
 	protected $lastMssg;
 
 	/**
+	 * Builds the client certificate carrier from its config block.
+	 *
 	 * @param Array     $confValues Config block naming the server variables of the verification result
 	 * 		('chkvar', SSL_CLIENT_VERIFY by default), of the user name ('usrvar', SSL_CLIENT_S_DN_CN
 	 * 		by default) and of the name of the issuer ('issvar', SSL_CLIENT_I_DN_CN by default), and
 	 * 		optionally the common name of the only 'issuer' accepted.
-	 * @param AuthHndlr $authHandlr Optional credential store confirming the certificate's user.
+	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the certificate's user.
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->authObjc = $authHandlr;
@@ -89,6 +91,8 @@ class ClCert implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

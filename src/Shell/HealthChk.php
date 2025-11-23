@@ -30,7 +30,7 @@ class HealthChk{
 	protected $rowsList = Array();
 
 	/**
-	 * Runs every check.
+	 * Runs every check: server, folders, preset, access, databases, stores and unsafe settings.
 	 *
 	 * @return Array The rows: what was checked, its state and what was found.
 	 */

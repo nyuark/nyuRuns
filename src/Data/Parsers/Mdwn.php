@@ -4,12 +4,14 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// Markdown, read into text blocks: headings, paragraphs, lists, quotes,
-// code, tables and rules, with the formatting, the links and the images
-// of their text.
-//
-// HTML written inside the Markdown is not interpreted: it stays text.
-// Links by reference and footnotes stay as written.
+/**
+ * Markdown, read into text blocks: headings, paragraphs, lists, quotes,
+ * code, tables and rules, with the formatting, the links and the images
+ * of their text.
+ *
+ * HTML written inside the Markdown is not interpreted: it stays text.
+ * Links by reference and footnotes stay as written.
+ */
 class Mdwn extends Base {
 
 	// Formatting given by each mark

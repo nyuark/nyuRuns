@@ -7,8 +7,10 @@ use nyu\Data\Fluxd;
 use nyu\Data\Image;
 use nyu\Data\Shape;
 
-// What the parsers of zipped documents share: opening the archive,
-// reading its XML parts into trees, and finding their way in those trees.
+/**
+ * What the parsers of zipped documents share: opening the archive,
+ * reading its XML parts into trees, and finding their way in those trees.
+ */
 abstract class Pack extends Base {
 
 	// Shape of what the parser gives: 'sheet' or 'block'

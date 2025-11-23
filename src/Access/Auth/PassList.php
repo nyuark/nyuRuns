@@ -17,6 +17,8 @@ class PassList implements Handler{
 	protected $wrongCrd = false;
 
 	/**
+	 * Builds the check against the password file from its config block.
+	 *
 	 * @param Array $confValues Config block with an 'htpasswd' file path (relative to the project root),
 	 *                          and optionally 'unsecure' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default).
 	 */
@@ -154,6 +156,8 @@ class PassList implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

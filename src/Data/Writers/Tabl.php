@@ -2,9 +2,11 @@
 
 namespace nyu\Data\Writers;
 
-// Tables written as text: CSV, TSV and their kin. One sheet is written,
-// one row per line; a cell holding the separator, a quote, a line end or
-// a space at one of its ends is written between double quotes.
+/**
+ * Tables written as text: CSV, TSV and their kin. One sheet is written,
+ * one row per line; a cell holding the separator, a quote, a line end or
+ * a space at one of its ends is written between double quotes.
+ */
 class Tabl extends Base {
 
 	// Separators, by the code that asks for them

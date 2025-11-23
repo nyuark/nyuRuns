@@ -2,10 +2,12 @@
 
 namespace nyu\Data\Parsers;
 
-// OpenDocument spreadsheets (ods): one sheet per table, its cells at the
-// place they have in the document. Numbers are given as numbers, booleans
-// as booleans, dates and times as ISO text, empty cells as null, and a
-// formula as the result the document stored for it.
+/**
+ * OpenDocument spreadsheets (ods): one sheet per table, its cells at the
+ * place they have in the document. Numbers are given as numbers, booleans
+ * as booleans, dates and times as ISO text, empty cells as null, and a
+ * formula as the result the document stored for it.
+ */
 class Odsx extends Pack {
 
 	const SHAPEOUT = 'sheet';

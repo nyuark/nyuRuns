@@ -26,6 +26,8 @@ abstract class Command{
 	protected $inptStrm;
 
 	/**
+	 * Builds the command with its command line and where it writes.
+	 *
 	 * @param Options $optionsObj The words and options of the command line, after the name of the command.
 	 * @param Printer $printerObj Where the command writes.
 	 * @param mixed   $inptStream Stream the answers are read from; the standard input when null.

@@ -13,6 +13,8 @@ class Options{
 	protected $optnList = Array();
 
 	/**
+	 * Reads the words and options of a command line.
+	 *
 	 * @param Array $givenWords The arguments of the command line, without the name of the script.
 	 */
 	function __construct( Array $givenWords ){

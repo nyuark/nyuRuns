@@ -1,0 +1,93 @@
+{# The style of the nyuRuns drafts: black banner, orange #ff6600, Gill Sans (Cabin where it is not installed) #}
+
+@font-face {
+    font-family: 'Cabin';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('../fonts/Cabin.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Cabin';
+    font-style: italic;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('../fonts/Cabin-Italic.ttf') format('truetype');
+}
+
+:root {
+    --font-primary: 'Gill Sans', 'Gill Sans MT', 'Cabin', Helvetica, Arial, sans-serif;
+    --font-secondary: 'Gill Sans', 'Gill Sans MT', 'Cabin', Helvetica, Arial, sans-serif;
+    --letter-spacing--primary: .01rem;
+
+    --primary-color-hue: 24;
+    --primary-color-saturation: 100%;
+    --primary-color: #ff6600;
+    --text-color: #111;
+    --title-text-color: #ff6600;
+    --header-bg-color: #000;
+}
+
+/* Header: the banner of the drafts, its title written in it */
+.phpdocumentor-header {
+    background-color: var(--header-bg-color);
+    align-items: center;
+}
+
+.phpdocumentor-title {
+    width: auto;
+    border-right: none;
+}
+
+.phpdocumentor-title__link.nyu-banner,
+.phpdocumentor-title__link.nyu-banner:hover {
+    position: relative;
+    display: block;
+    transform: none;
+    font-weight: normal;
+    line-height: 0;
+}
+
+.nyu-banner__logo {
+    display: block;
+    height: 4.5rem;
+    width: auto;
+    max-width: 100%;
+}
+
+.nyu-banner__text {
+    position: absolute;
+    left: 40%;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--title-text-color);
+    font-family: var(--font-primary);
+    font-size: 1.05rem;
+    line-height: 1;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.nyu-banner__text em {
+    font-style: italic;
+    font-weight: 700;
+}
+
+.phpdocumentor-topnav__menu-item a,
+.phpdocumentor-header .phpdocumentor-search__label,
+.phpdocumentor-header .phpdocumentor-search__icon {
+    color: #fff;
+}
+
+.phpdocumentor-topnav__menu-item a:hover {
+    border-bottom-color: #fff;
+}
+
+/* Titles in the orange of the drafts */
+.phpdocumentor h1,
+.phpdocumentor h2,
+.phpdocumentor-content__title {
+    color: var(--primary-color);
+    font-weight: normal;
+}

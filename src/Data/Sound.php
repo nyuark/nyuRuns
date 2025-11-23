@@ -2,14 +2,16 @@
 
 namespace nyu\Data;
 
-// A sound: what it is, told from its content, the tags and the picture
-// it carries, and the sounds that can be made of it without unpacking
-// what is heard: the same without its tags, or a part of it.
-//
-// Nothing here unpacks the sound itself. A part is cut where the kind
-// lets it be cut as it is written: between two samples of a WAV sound,
-// between two frames of an MP3 one. Giving a sound as another kind, or
-// cutting the other kinds, takes a program that unpacks it.
+/**
+ * A sound: what it is, told from its content, the tags and the picture
+ * it carries, and the sounds that can be made of it without unpacking
+ * what is heard: the same without its tags, or a part of it.
+ *
+ * Nothing here unpacks the sound itself. A part is cut where the kind
+ * lets it be cut as it is written: between two samples of a WAV sound,
+ * between two frames of an MP3 one. Giving a sound as another kind, or
+ * cutting the other kinds, takes a program that unpacks it.
+ */
 class Sound {
 
 	// Greatest size read from a source unless told otherwise: 64 MB

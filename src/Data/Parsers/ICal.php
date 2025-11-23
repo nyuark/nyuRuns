@@ -4,14 +4,16 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// Calendars (ics): the events, the tasks and the notes of a calendar,
-// each as plain keys and values.
-//
-// Dates are ISO text, in the time zone they are written in unless the
-// 'tzone' option asks for another. An event lasting whole days ends on
-// its last day, where the format writes the day after. A repeating
-// event gives its rule, not its occurrences. What the parser does not
-// read into a key of its own is kept, as written, under 'extra'.
+/**
+ * Calendars (ics): the events, the tasks and the notes of a calendar,
+ * each as plain keys and values.
+ *
+ * Dates are ISO text, in the time zone they are written in unless the
+ * 'tzone' option asks for another. An event lasting whole days ends on
+ * its last day, where the format writes the day after. A repeating
+ * event gives its rule, not its occurrences. What the parser does not
+ * read into a key of its own is kept, as written, under 'extra'.
+ */
 class ICal extends Base {
 
 	// The kinds of entry, by the name the format gives them

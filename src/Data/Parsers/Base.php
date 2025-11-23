@@ -5,8 +5,10 @@ namespace nyu\Data\Parsers;
 use nyu\Data\Fluxd;
 use nyu\Data\Shape;
 
-// What the parsers of text formats share: reading a source within a size
-// limit, bringing its text to UTF-8, and building the envelope.
+/**
+ * What the parsers of text formats share: reading a source within a size
+ * limit, bringing its text to UTF-8, and building the envelope.
+ */
 abstract class Base implements Parser {
 
 	// Greatest size read from a source when no 'limit' option is given: 16 MB

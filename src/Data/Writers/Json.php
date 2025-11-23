@@ -2,7 +2,9 @@
 
 namespace nyu\Data\Writers;
 
-// JSON, and JSON Lines: a content of any shape, written as its values.
+/**
+ * JSON, and JSON Lines: a content of any shape, written as its values.
+ */
 class Json extends Base {
 
 	/**

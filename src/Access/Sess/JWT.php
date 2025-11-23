@@ -22,8 +22,10 @@ class JWT implements Handler{
 	protected $wrongCrd = false;
 
 	/**
+	 * Builds the token carrier from its config block.
+	 *
 	 * @param Array     $confValues Config block with 'secret', 'algrtm' (default 'HS256') and 'lifetm' (seconds, default 3600) keys.
-	 * @param AuthHndlr $authHandlr Optional credential store confirming the token's user (see verifyReq).
+	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the token's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->authObjc = $authHandlr;
@@ -128,6 +130,8 @@ class JWT implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

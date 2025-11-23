@@ -2,6 +2,10 @@
 
 namespace nyu\Tools;
 
+/**
+ * Registry of the server values: $_SERVER read once, then unset so that
+ * nothing reads it directly.
+ */
 class ServerReg extends Registry{
 	// Convert $_SERVER super global into a Registry
 

@@ -13,6 +13,8 @@ class RegKey implements Handler{
 	protected $wrongCrd = false;
 
 	/**
+	 * Builds the check against the list of API keys from its config block.
+	 *
 	 * @param Array $confValues Config block with a 'keylst' of valid API keys: a plain list, or the keys by the name
 	 *                          of their holder, which then identifies it.
 	 */
@@ -58,6 +60,8 @@ class RegKey implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

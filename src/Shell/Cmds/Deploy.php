@@ -34,6 +34,8 @@ class Deploy extends Command{
 	const STORLIST = Array('native', 'usrlst', 'none');
 
 	/**
+	 * Tells in one line what the command does.
+	 *
 	 * @return String The line shown in the list of commands.
 	 */
 	public function aboutText(): String {
@@ -41,6 +43,8 @@ class Deploy extends Command{
 	}
 
 	/**
+	 * Lists the sub-commands of the command.
+	 *
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTable(): Array {

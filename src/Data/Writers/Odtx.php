@@ -5,12 +5,14 @@ namespace nyu\Data\Writers;
 use nyu\Data\Archv;
 use nyu\Data\Shape;
 
-// OpenDocument texts (odt) written from text blocks: headings a reader
-// finds its way by, paragraphs, lists, tables, quotes, code, notes, and
-// what stands at the top and the bottom of the pages. Sheets are written
-// as tables. What is text stays text: the document holds no macro, no
-// object, and points to nothing it would fetch. Its pictures are those
-// of a folder it is given, and no other.
+/**
+ * OpenDocument texts (odt) written from text blocks: headings a reader
+ * finds its way by, paragraphs, lists, tables, quotes, code, notes, and
+ * what stands at the top and the bottom of the pages. Sheets are written
+ * as tables. What is text stays text: the document holds no macro, no
+ * object, and points to nothing it would fetch. Its pictures are those
+ * of a folder it is given, and no other.
+ */
 class Odtx extends Page {
 
 	// The kind of file, as its first entry tells it
@@ -351,7 +353,7 @@ class Odtx extends Page {
 	}
 
 	/**
-	 * Writes a block.
+	 * Writes a block as the OpenDocument content of its kind: heading, list, table, quote, code, rule, picture or paragraph.
 	 *
 	 * @param Array $blockArray The block.
 	 * @return String What it makes.

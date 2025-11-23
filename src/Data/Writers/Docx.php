@@ -5,13 +5,15 @@ namespace nyu\Data\Writers;
 use nyu\Data\Archv;
 use nyu\Data\Shape;
 
-// Word documents (docx) written from text blocks: headings with the
-// styles Word finds its way by, paragraphs, lists that are lists for
-// Word, tables, quotes, code, notes, and what stands at the top and the
-// bottom of the pages. Sheets are written as tables. What is text stays
-// text: the document holds no macro, no object, and points to nothing
-// it would fetch. Its pictures are those of a folder it is given, and
-// no other: none is ever taken from an address.
+/**
+ * Word documents (docx) written from text blocks: headings with the
+ * styles Word finds its way by, paragraphs, lists that are lists for
+ * Word, tables, quotes, code, notes, and what stands at the top and the
+ * bottom of the pages. Sheets are written as tables. What is text stays
+ * text: the document holds no macro, no object, and points to nothing
+ * it would fetch. Its pictures are those of a folder it is given, and
+ * no other: none is ever taken from an address.
+ */
 class Docx extends Page {
 
 	// The size of the headings, by their level, in points
@@ -368,7 +370,7 @@ class Docx extends Page {
 	}
 
 	/**
-	 * Writes a block.
+	 * Writes a block as the Word paragraphs of its kind: heading, list, table, quote, code, rule, picture or paragraph.
 	 *
 	 * @param Array $blockArray The block.
 	 * @param Int   $indentStep How far in it stands.
@@ -582,7 +584,7 @@ class Docx extends Page {
 	}
 
 	/**
-	 * Writes a paragraph.
+	 * Writes a Word paragraph: its properties, its bookmark when its place is named, then its text.
 	 *
 	 * @param Array $propsArray What Word is told of it, as written: its style under 'style', its list under 'numbr', its borders under 'bordr', how far in it stands under 'indnt'.
 	 * @param Array $spansArray Its text, as spans.

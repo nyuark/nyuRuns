@@ -1,8 +1,5 @@
 <?php
 
-// A container to load configuration files, routes
-// acces, and retrieve conf
-
 namespace nyu\Setup;
 
 use \nyu\Tools\Input;
@@ -12,6 +9,10 @@ use \nyu\Tools\Router;
 use \nyu\Data\Dcmnt;
 use \nyu\Output\Response;
 
+/**
+ * A container to load the configuration files, routes and access, and
+ * retrieve the config.
+ */
 class Loader{
 
 	protected $fieldSet;
@@ -21,7 +22,7 @@ class Loader{
 	/**
 	* Constructs a setup loader, optionally loading a full setup array.
 	*
-	* @Param Array	$setupArray
+	* @param Array $setupArray Full setup array to load, if any.
 	*/
     public function __construct(Array $setupArray = Array()){
 		$this->setAllReg( $setupArray );
@@ -31,7 +32,7 @@ class Loader{
 	/**
 	* Replaces (without key check) the current config registry with the one provided.
 	*
-	* @Param Array	$setupArray
+	* @param Array $setupArray Setup array that replaces the current one.
 	*/
     protected function setAllReg(Array $setupArray = Array()): Void {
 		$this->conArray = $setupArray;
@@ -40,8 +41,8 @@ class Loader{
 	/**
 	* Overload some or all of the setup array, usually from the runner.
 	*
-	* @Param String	$keyOfArray
-	* @Param Array	$newArrVals
+	* @param Array $addedArray Setup blocks to load, by key.
+	* @param Bool  $arrayMerge Whether a block is merged with the one already loaded instead of replacing it.
 	*/
 	public function overLoads(Array $addedArray, Bool $arrayMerge = false): Void {
 		foreach($addedArray as $arrKey=>$arrVal){
@@ -58,7 +59,8 @@ class Loader{
 	/**
 	* Gets one of the config registry values using one of the conf key array.
 	*
-	* @Param String	$keyOfArray
+	* @param String $keyOfArray Key of the setup block.
+	* @return Mixed The block, or false when the key is unknown or not loaded.
 	*/
     public function getRegKey(String $keyOfArray): Mixed {
 		if(array_key_exists($keyOfArray, $this->conArray) && in_array($keyOfArray, $this->fieldSet) ){
@@ -71,8 +73,8 @@ class Loader{
 	/**
 	* Sets one of the config registry values using the conf key array
 	*
-	* @Param String	$keyOfArray
-	* @Param Array	$newArrVals
+	* @param String $keyOfArray Key of the setup block.
+	* @param Array  $newArrVals Values of the block.
 	*/
     protected function setRegKey(String $keyOfArray, Array $newArrVals = Array()): Void {
 		if(in_array($keyOfArray,$this->fieldSet)){
@@ -83,8 +85,7 @@ class Loader{
 	/**
 	* Get the configuration files based on the setup key of configuration registry
 	*
-	* @Param String	$keyOfArray
-	* @Param Array	$newArrVals
+	* @return Registry The values of the config files.
 	* @throws \RuntimeException When the preset has no setup block.
 	*/
 	function getConfig(): Registry {

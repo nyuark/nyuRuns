@@ -2,6 +2,10 @@
 
 namespace nyu\App;
 
+/**
+ * Thrown to end the running action on purpose: it carries the status, the
+ * message and the output of the reply. It is not an error.
+ */
 class StopRun extends \RuntimeException {
 
 	protected $stopData;

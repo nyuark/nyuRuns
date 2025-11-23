@@ -4,8 +4,10 @@ namespace nyu\Data\DBHndlr;
 
 use nyu\Data\DBHndlr\Handler;
 
-// What every PDO-based handler shares. Each database type extends it with
-// its own connection (openDBase) and table description (tableInfo).
+/**
+ * What every PDO-based handler shares. Each database type extends it with
+ * its own connection (openDBase) and table description (tableInfo).
+ */
 abstract Class PDO implements Handler {
 
 	public 		$dbDriver;
@@ -252,7 +254,7 @@ abstract Class PDO implements Handler {
 	/**
 	 * Returns the auto-increment ID of the last inserted row.
 	 *
-	 * @return String The last insert ID.
+	 * @return String|Bool The last insert ID.
 	 */
 	public function lastAdded(): String|Bool {
 		return $this->dbDriver->lastInsertId();

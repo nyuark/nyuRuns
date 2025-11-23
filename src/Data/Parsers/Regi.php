@@ -2,7 +2,9 @@
 
 namespace nyu\Data\Parsers;
 
-// Registry files: INI content whose keys are always read in upper case.
+/**
+ * Registry files: INI content whose keys are always read in upper case.
+ */
 class Regi extends Init {
 
 	/**

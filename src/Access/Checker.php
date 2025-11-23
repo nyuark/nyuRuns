@@ -30,6 +30,8 @@ class Checker{
 	protected $routeReg;
 
 	/**
+	 * Builds the access check of a request from the 'auths' block, the request and its route.
+	 *
 	 * @param Array     $accessConf Resolved 'auths' config block for the active preset.
 	 * @param Request   $requestObj The shared, already-parsed HTTP request.
 	 * @param ?Registry $routingReg The resolved route, used to recognise public routes.

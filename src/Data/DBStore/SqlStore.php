@@ -5,9 +5,11 @@ namespace nyu\Data\DBStore;
 use nyu\Data\DBHndlr\Handler;
 use nyu\Data\Fluxd;
 
-// The SQL types as a store: the calls of the Store contract are written
-// as SQL and sent through the handler of the database (MySQL, SQLite,
-// PostgreSQL), which gives its own quoting and wildcard operator.
+/**
+ * The SQL types as a store: the calls of the Store contract are written
+ * as SQL and sent through the handler of the database (MySQL, SQLite,
+ * PostgreSQL), which gives its own quoting and wildcard operator.
+ */
 class SqlStore implements Store {
 
 	protected $dbHandle;
@@ -15,6 +17,8 @@ class SqlStore implements Store {
 	protected $infoList = Array();
 
 	/**
+	 * Builds the store on the handler of a database.
+	 *
 	 * @param Handler $handlerObj Handler of the database the store works on.
 	 */
 	public function __construct(Handler $handlerObj){

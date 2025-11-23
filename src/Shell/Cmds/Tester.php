@@ -23,6 +23,8 @@ class Tester extends Command{
 	const ADDNLIST = Array('pdo_sqlite', 'pdo_mysql', 'pdo_pgsql', 'mongodb', 'mbstring', 'gd', 'exif', 'zip', 'openssl', 'curl', 'fileinfo');
 
 	/**
+	 * Tells in one line what the command does.
+	 *
 	 * @return String The line shown in the list of commands.
 	 */
 	public function aboutText(): String {
@@ -30,6 +32,8 @@ class Tester extends Command{
 	}
 
 	/**
+	 * Lists the sub-commands of the command.
+	 *
 	 * @return Array The command has no sub-command.
 	 */
 	public function subsTable(): Array {

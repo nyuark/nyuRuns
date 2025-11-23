@@ -9,6 +9,12 @@ use nyu\Tools\Logger;
 use nyu\Output\Response;
 use nyu\Access\Checker;
 
+/**
+ * The actions of an application, which extends it: each of its own public
+ * methods is an action. Gives them their helpers: reply with a file, a
+ * page or a redirection, link to a route, log, test a role, end the
+ * action.
+ */
 class Actionset {
 	
 	public 		$asOutput;
@@ -31,9 +37,9 @@ class Actionset {
 	 * action.
 	 *
 	 * @param String     $actionName Name of the action method to run.
-	 * @param String     $actnOption Optional extra parameter for the action.
-	 * @param Registry   $inRegistry Registry of input values available to the action.
-	 * @param ModelStack $modelStack Preloaded models available to the action.
+	 * @param ?String    $actnOption Optional extra parameter for the action.
+	 * @param ?Registry  $inRegistry Registry of input values available to the action.
+	 * @param ?ModelStack $modelStack Preloaded models available to the action.
 	 * @param ?Registry  $axRegistry Access check result: 'logged', 'user', 'role' and 'ident' of the requester.
 	 * @param ?Request   $requestObj The shared HTTP request (method, headers, files).
 	 * @param ?Response  $httpRespns The shared response (headers, file replies).
@@ -56,7 +62,7 @@ class Actionset {
 	 * the action runs ends it and sets its status.
 	 *
 	 * @param String $actionName Name of the action method to call.
-	 * @param String $actnOption Optional extra parameter to pass to the action.
+	 * @param ?String $actnOption Optional extra parameter to pass to the action.
 	 */
 	function runAction( String $actionName, ?String $actnOption=null ): Void {
 		$this->actnName = $actionName;

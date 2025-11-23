@@ -1,12 +1,13 @@
 <?php
 
-// A document: one file of the server, with its name, what its content is,
-// and that content parsed by the parser its extension calls for.
-
 namespace nyu\Data;
 
 use \nyu\Data\Parsers;
 
+/**
+ * A document: one file of the server, with its name, what its content is,
+ * and that content parsed by the parser its extension calls for.
+ */
 class Dcmnt{
 	protected $fileName;
 	protected $fileTitl;

@@ -6,11 +6,13 @@ use nyu\Data\Fluxd;
 use nyu\Data\Image;
 use nyu\Data\Shape;
 
-// What the writers of text documents share: the paper their pages are
-// laid out on, the notes taken out of the text to be written where it
-// refers to them, sheets given as tables, the names of the places of a
-// document, and the pictures, which are those of a folder the writer is
-// given and no other: none is ever taken from an address.
+/**
+ * What the writers of text documents share: the paper their pages are
+ * laid out on, the notes taken out of the text to be written where it
+ * refers to them, sheets given as tables, the names of the places of a
+ * document, and the pictures, which are those of a folder the writer is
+ * given and no other: none is ever taken from an address.
+ */
 abstract class Page extends Base {
 
 	// The sizes of paper, by the code that asks for them: width and height in twentieths of a point

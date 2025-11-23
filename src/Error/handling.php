@@ -58,10 +58,10 @@ function initError(): Void
  * PHP error handler callback: forwards the error to the global
  * ErrorHandler if one is set, otherwise prints it immediately.
  *
- * @param int    $errorLevel   PHP error level constant (e.g. E_WARNING).
+ * @param Int|String $errorLevel   PHP error level constant (e.g. E_WARNING).
  * @param String $errMessage The error message.
- * @param String $errFilePth    File where the error occurred.
- * @param int    $errLineNum    Line where the error occurred.
+ * @param ?String $errFilePth    File where the error occurred.
+ * @param ?int   $errLineNum    Line where the error occurred.
  * @param mixed  $errContext Variable scope at the point of the error.
  * @return Bool Always true, to tell PHP the error was handled.
  */
@@ -123,8 +123,8 @@ function hndlExcpt( Throwable $exceptnObj ): Bool
  *
  * @param int|String $errorLevel PHP error level constant, or 'E_EXCEPTION'.
  * @param String     $errMessage The error message.
- * @param String     $errFilePth File where the error occurred.
- * @param int        $errLineNum Line where the error occurred.
+ * @param ?String    $errFilePth File where the error occurred.
+ * @param ?int       $errLineNum Line where the error occurred.
  * @param mixed      $errContext Stack trace at the point of the error.
  * @return Bool True when the response was sent.
  */
@@ -254,8 +254,8 @@ function stackTble( Array $traceArray ): String
  *
  * @param int|String $errorLevel PHP error level constant, or 'E_EXCEPTION'.
  * @param String     $errMessage The error message.
- * @param String     $errFilePth File where the error occurred.
- * @param int        $errLineNum Line where the error occurred.
+ * @param ?String    $errFilePth File where the error occurred.
+ * @param ?int       $errLineNum Line where the error occurred.
  * @param mixed      $errContext Stack trace, or text, at the point of the error.
  * @return String The HTML block.
  */
@@ -296,10 +296,10 @@ function errorBlck( Int|String $errorLevel, String $errMessage, ?String $errFile
  * the ErrorHandler collection mechanism — used as a fallback when no
  * ErrorHandler is available.
  *
- * @param int    $errorLevel   PHP error level constant, or an exception code.
+ * @param Int|String $errorLevel   PHP error level constant, or an exception code.
  * @param String $errMessage The error message.
- * @param String $errFilePth    File where the error occurred.
- * @param int    $errLineNum    Line where the error occurred.
+ * @param ?String $errFilePth    File where the error occurred.
+ * @param ?int   $errLineNum    Line where the error occurred.
  * @param mixed  $errContext Variable scope or stack trace at the point of the error.
  */
 function showError( Int|String $errorLevel, String $errMessage, ?String $errFilePth=null, ?Int $errLineNum=null, Mixed $errContext=null ): Void
@@ -307,13 +307,19 @@ function showError( Int|String $errorLevel, String $errMessage, ?String $errFile
     echo(errorBlck($errorLevel,$errMessage,$errFilePth,$errLineNum,$errContext));
 }
 
+/**
+ * Collects the errors of a request: each one is logged, kept in a stack,
+ * and shown when errors may be shown.
+ */
 class ErrorHandler
 {
     protected $logrInst;
     protected $errStack = Array();
 
     /**
-     * @param mixed $loggerInst A logger instance (nyu\Tools\Logger) to log through, or null to echo (fallback, e.g. CLI/dev).
+     * Builds the error handler, with the logger it writes through.
+     *
+     * @param ?\nyu\Tools\Logger $loggerInst A logger instance (nyu\Tools\Logger) to log through, or null to echo (fallback, e.g. CLI/dev).
      */
     public function __construct( ?\nyu\Tools\Logger $loggerInst = null )
     {
@@ -325,10 +331,10 @@ class ErrorHandler
      * it is kept for the response body inside a framework request, and
      * echoed as an HTML block otherwise (see errorBlck).
      *
-     * @param int    $errorLevel   PHP error level constant, or an exception code.
+     * @param Int|String $errorLevel   PHP error level constant, or an exception code.
      * @param String $errMessage The error message.
-     * @param String $errFilePth    File where the error occurred.
-     * @param int    $errLineNum    Line where the error occurred.
+     * @param ?String $errFilePth    File where the error occurred.
+     * @param ?int   $errLineNum    Line where the error occurred.
      * @param mixed  $errContext Variable scope or stack trace at the point of the error.
      */
     public function pushError( Int|String $errorLevel, String $errMessage, ?String $errFilePth=null, ?Int $errLineNum=null, Mixed $errContext=null ): Void
@@ -369,10 +375,10 @@ class ErrorHandler
      * Writes the error to the configured logger, at the log level matching
      * its error level. Does nothing when no logger is available.
      *
-     * @param int    $errorLevel PHP error level constant, or 'E_EXCEPTION'.
+     * @param Int|String $errorLevel PHP error level constant, or 'E_EXCEPTION'.
      * @param String $errMessage The error message.
-     * @param String $errFilePth File where the error occurred.
-     * @param int    $errLineNum Line where the error occurred.
+     * @param ?String $errFilePth File where the error occurred.
+     * @param ?int   $errLineNum Line where the error occurred.
      * @param mixed  $errContext Variable scope or stack trace at the point of the error.
      */
     public function logsError( Int|String $errorLevel, String $errMessage, ?String $errFilePth=null, ?Int $errLineNum=null, Mixed $errContext=null ): Void
@@ -433,7 +439,7 @@ class ErrorHandler
     /**
      * Maps a PHP error-level constant to its human-readable name.
      *
-     * @param int $errorLevel PHP error level constant (e.g. E_WARNING, E_NOTICE).
+     * @param Int|String $errorLevel PHP error level constant (e.g. E_WARNING, E_NOTICE).
      * @return String The matching name (e.g. 'E_WARNING'), or 'E_UNSPECIFIED_ERROR' if unrecognized.
      */
     public static function errorType( Int|String $errorLevel ): String

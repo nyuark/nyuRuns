@@ -17,7 +17,7 @@ interface Handler{
 	 * strategies that delegate credential checking, an Auth handler.
 	 *
 	 * @param Array      $confValues Strategy-specific configuration values.
-	 * @param AuthHndlr  $authHandlr Credential-verification strategy to delegate to, if any.
+	 * @param ?AuthHndlr $authHandlr Credential-verification strategy to delegate to, if any.
 	 */
 	public function __construct( Array $confValues, ?AuthHndlr $authHandlr = null );
 

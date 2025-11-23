@@ -4,12 +4,14 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// Books (epub), read into text blocks: the chapters of the book in the
-// order it gives them, each read as the HTML page it is, a page break
-// standing between two of them.
-//
-// The addresses of the images are their place in the archive. The links
-// from a chapter to another stay as the book writes them.
+/**
+ * Books (epub), read into text blocks: the chapters of the book in the
+ * order it gives them, each read as the HTML page it is, a page break
+ * standing between two of them.
+ *
+ * The addresses of the images are their place in the archive. The links
+ * from a chapter to another stay as the book writes them.
+ */
 class EPub extends Pack {
 
 	// Details of a book, by the element holding them: the name Word gives the same property of a document, or their own

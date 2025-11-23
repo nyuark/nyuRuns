@@ -2,7 +2,9 @@
 
 namespace nyu\Data\Parsers;
 
-// INI files: keys and typed values, the sections flattened.
+/**
+ * INI files: keys and typed values, the sections flattened.
+ */
 class Init extends Base {
 
 	/**

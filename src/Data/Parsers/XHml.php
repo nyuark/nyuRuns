@@ -4,28 +4,30 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// XML and HTML documents.
-//
-// Read as a tree (shape 'nodes'), every element has the same five keys,
-// in the order of the document:
-//
-//   'tagnm' => the name of the element, with its prefix when it has one;
-//   'tagid' => its id (the 'id' attribute, or 'xml:id'), '' when it has none;
-//   'attrs' => its attributes, name => value; in XML, the addresses it
-//              gives to the prefixes of names (xmlns, xmlns:x) among them;
-//   'value' => its text, when it holds text only;
-//   'nodes' => its child elements.
-//
-// An element mixing text and elements keeps their order: its pieces of
-// text stand among its 'nodes' under the name '#text', and its 'value'
-// is empty. Comments and processing instructions are left out.
-//
-// Read as text blocks (shape 'block'), the document gives what it says,
-// as the blocks of nyu\Data\Shape: the elements that only group others
-// (div, section, ...) disappear, scripts, styles and forms are left out.
-//
-// An XML document is read as a tree and an HTML one as text blocks,
-// unless the 'shape' option asks otherwise.
+/**
+ * XML and HTML documents.
+ *
+ * Read as a tree (shape 'nodes'), every element has the same five keys,
+ * in the order of the document:
+ *
+ * - 'tagnm' => the name of the element, with its prefix when it has one;
+ * - 'tagid' => its id (the 'id' attribute, or 'xml:id'), '' when it has none;
+ * - 'attrs' => its attributes, name => value; in XML, the addresses it
+ *              gives to the prefixes of names (xmlns, xmlns:x) among them;
+ * - 'value' => its text, when it holds text only;
+ * - 'nodes' => its child elements.
+ *
+ * An element mixing text and elements keeps their order: its pieces of
+ * text stand among its 'nodes' under the name '#text', and its 'value'
+ * is empty. Comments and processing instructions are left out.
+ *
+ * Read as text blocks (shape 'block'), the document gives what it says,
+ * as the blocks of nyu\Data\Shape: the elements that only group others
+ * (div, section, ...) disappear, scripts, styles and forms are left out.
+ *
+ * An XML document is read as a tree and an HTML one as text blocks,
+ * unless the 'shape' option asks otherwise.
+ */
 class XHml extends Base {
 
 	// HTML elements whose content is not part of the text

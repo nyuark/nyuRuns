@@ -2,7 +2,9 @@
 
 namespace nyu\Data\DBHndlr;
 
-// PostgreSQL handler, type code 'pgsql'
+/**
+ * PostgreSQL handler, type code 'pgsql'
+ */
 Class PgSQL extends PDO {
 
 	// Names are quoted with double quotes, and wildcard searches ignore the case as they do on the other types

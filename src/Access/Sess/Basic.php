@@ -15,8 +15,10 @@ class Basic implements Handler{
 	protected $lastMssg;
 
 	/**
+	 * Builds the HTTP Basic carrier, with the credential check it hands over to.
+	 *
 	 * @param Array     $confValues Unused for this strategy.
-	 * @param AuthHndlr $authHandlr Credential-verification strategy to delegate to.
+	 * @param ?AuthHndlr $authHandlr Credential-verification strategy to delegate to.
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->authObjc = $authHandlr;
@@ -66,6 +68,8 @@ class Basic implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

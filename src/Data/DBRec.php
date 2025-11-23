@@ -6,6 +6,11 @@ use \nyu\Data\DBCon;
 use \nyu\Tools\StrKit;
 use \nyu\Tools\Logger;
 
+/**
+ * One record of a table: loaded by its key or found by its fields,
+ * created, saved and removed, with its parent and child rows attached when
+ * asked.
+ */
 class DBRec {
 	protected $tableNme;
 	protected $dbConnex;
@@ -30,7 +35,7 @@ class DBRec {
 	 * @param String $dbaseTable Name of the table this record maps to.
 	 * @param Array  $childArray Child relations to load via loadRelat(), keyed by table name or as [table, fld1, fld2, fld3].
 	 * @param Array  $parntArray Parent relations to load via loadRelat(), keyed by table name or as [table, fld1, fld2].
-	 * @param DBCon  $handleLink Connection to use instead of the one of the database named by $baseName.
+	 * @param ?DBCon $handleLink Connection to use instead of the one of the database named by $baseName.
 	 *
 	 * @throws \RuntimeException When the table cannot be read.
 	 */
@@ -71,7 +76,7 @@ class DBRec {
 	 * relations.
 	 *
 	 * @param String $primaryKey Value of the primary key to look up.
-	 * @return mixed The loaded record's field array, or false if not found.
+	 * @return Array|Bool The loaded record's field array, or false if not found.
 	 */
 	function loadRecrd( String $primaryKey ): Array|Bool {
 		$fndRows = $this->rowsOfKey($primaryKey);
@@ -288,7 +293,7 @@ class DBRec {
 	 * 'field?'=>true IS NOT NULL; a null value matches nothing.
 	 *
 	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
-	 * @return mixed The matched record's field array, or false if not found.
+	 * @return Array|Bool The matched record's field array, or false if not found.
 	 *
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
@@ -360,7 +365,7 @@ class DBRec {
 	 * @param Bool   $returnVals Whether to return the updated record array.
 	 * @param String $foreignKey Field on the parent table this record points to (defaults to the key field of the parent).
 	 * @param String $currentKey Field on this record referencing the parent (defaults to `id_<singularized table>`).
-	 * @return mixed The updated record array if $returnVals is true, otherwise nothing.
+	 * @return ?Array The updated record array if $returnVals is true, otherwise null.
 	 */
 	function parentRec( String $parntTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='' ): ?Array {
 		$prntRec = new DBRec( $parntTable, Array(), Array(), $this->dbConnex );
@@ -390,7 +395,7 @@ class DBRec {
 	 * @param String $foreignKey Field on the child table referencing this record (defaults to `<singularized table>_id`).
 	 * @param String $currentKey Field on this record referenced by the child (defaults to this record's key field).
 	 * @param String $sortFields Sort clause passed through to the child DBLst.
-	 * @return mixed The updated record array if $returnVals is true, otherwise nothing.
+	 * @return ?Array The updated record array if $returnVals is true, otherwise null.
 	 */
 	function childList( String $childTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='', String $sortFields='' ): ?Array {
 		if( $foreignKey=='' ) {

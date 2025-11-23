@@ -1,8 +1,5 @@
 <?php
 
-// A dependency injection container to instanciate
-// utility classes (config, request, response, etc.)
-
 namespace nyu\Setup;
 
 use \Dice\Dice; // DICon
@@ -12,6 +9,10 @@ use \nyu\Tools\Request;
 use \nyu\Output\Response;
 */
 
+/**
+ * A dependency injection container to instantiate utility classes
+ * (config, request, response, etc.).
+ */
 class Builder{
 
 	protected $containr;
@@ -28,8 +29,8 @@ class Builder{
 	/**
 	* Defines rules for a shared rule object
 	*
-	* @Param String	$setupArray
-	* @Param Array	$initParams
+	* @param String $rulesIndex Name of the class the rule is for.
+	* @param Array  $initParams Constructor parameters of the shared object, if any.
 	*/
     protected function shareRule(String $rulesIndex, Array $initParams = Array()): Void {
 		$shrVals['shared'] = true;
@@ -42,7 +43,10 @@ class Builder{
 	/**
 	* Creates and return an object
 	*
-	* @Param String	$objectName
+	* @param String $objectName Name of the class to create.
+	* @param ?Array $shareParms Constructor parameters that make the object a shared one, null for a plain object.
+	* @param Array  $constrArgs Arguments passed to the constructor.
+	* @return Object The created object.
 	*/
     public function makeObjct(String $objectName, ?Array $shareParms=null, Array $constrArgs=Array() ): Object {
 		if($shareParms!==null){

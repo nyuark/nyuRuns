@@ -2,14 +2,16 @@
 
 namespace nyu\Data\Writers;
 
-// YAML, the part of it that the parser reads: keys and values, lists,
-// nesting by indentation. A content read then written reads back the
-// same.
-//
-// A text is written bare when nothing else can be read in it, and
-// between double quotes otherwise: one that looks like a number, a date
-// or a word YAML gives a meaning to, one starting with a mark, one
-// holding a colon, a hash or a line end.
+/**
+ * YAML, the part of it that the parser reads: keys and values, lists,
+ * nesting by indentation. A content read then written reads back the
+ * same.
+ *
+ * A text is written bare when nothing else can be read in it, and
+ * between double quotes otherwise: one that looks like a number, a date
+ * or a word YAML gives a meaning to, one starting with a mark, one
+ * holding a colon, a hash or a line end.
+ */
 class Yaml extends Base {
 
 	// Words a reader of YAML, of this version or of an older one, takes for something else than text

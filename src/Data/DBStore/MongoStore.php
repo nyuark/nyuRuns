@@ -2,15 +2,17 @@
 
 namespace nyu\Data\DBStore;
 
-// MongoDB as a store, type code 'mongo', through the mongodb extension of
-// PHP. A table is a collection, a row a document, and the key of every
-// table is the _id MongoDB gives to each document.
-//
-// What differs from the SQL types:
-//  - a collection has no fixed list of fields;
-//  - values are compared with their type: the text '2' is not the number 2;
-//  - functions, joins, groups and SQL fragments are refused;
-//  - there are no transactions: the server would need a replica set.
+/**
+ * MongoDB as a store, type code 'mongo', through the mongodb extension of
+ * PHP. A table is a collection, a row a document, and the key of every
+ * table is the _id MongoDB gives to each document.
+ *
+ * What differs from the SQL types:
+ *  - a collection has no fixed list of fields;
+ *  - values are compared with their type: the text '2' is not the number 2;
+ *  - functions, joins, groups and SQL fragments are refused;
+ *  - there are no transactions: the server would need a replica set.
+ */
 class MongoStore implements Store {
 
 	protected $mngrLink;

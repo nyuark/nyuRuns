@@ -1,13 +1,14 @@
 <?php
 
-// Resolves the application, action and parameter to run for a request,
-// according to the 'route' block of the active preset
-
 namespace nyu\Tools;
 
 use nyu\Data\Dcmnt;
 use nyu\Output\Response;
 
+/**
+ * Resolves the application, action and parameter to run for a request,
+ * according to the 'route' block of the active preset.
+ */
 class Router{
 
 	// Statuses a redirection can be sent with

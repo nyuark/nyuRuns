@@ -4,13 +4,15 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Shape;
 
-// HTML: text blocks as headings, paragraphs, lists and tables, sheets as
-// tables, a tree of values as indented text. Every piece of text is
-// escaped, an address is written only when it is safe to follow, and
-// nothing of a document reaches a style sheet without being checked.
-//
-// The same content is written as XHTML when asked: the HTML an XML
-// reader takes, which a book (EPUB) is made of.
+/**
+ * HTML: text blocks as headings, paragraphs, lists and tables, sheets as
+ * tables, a tree of values as indented text. Every piece of text is
+ * escaped, an address is written only when it is safe to follow, and
+ * nothing of a document reaches a style sheet without being checked.
+ *
+ * The same content is written as XHTML when asked: the HTML an XML
+ * reader takes, which a book (EPUB) is made of.
+ */
 class Html extends Base {
 
 	// HTML element of each formatting, from the outermost to the innermost

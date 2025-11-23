@@ -1,9 +1,10 @@
 <?php
 
-// An utility object for manipulating strings
-
 namespace nyu\Tools;
 
+/**
+ * A utility object for manipulating strings.
+ */
 class StrKit{
 	
 	/**

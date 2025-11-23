@@ -1,12 +1,13 @@
 <?php
 
-// An utility object for loading schemes of preset during the runs
-
 namespace nyu\Setup;
 
 use \nyu\Data\Dcmnt;
 use \nyu\Data\Parsers\ParseError;
 
+/**
+ * A utility object for loading the schemes of a preset during the runs.
+ */
 class Preset{
 
 	// The keys a preset may hold, block by block; 'input' is a list of sources, each holding those keys

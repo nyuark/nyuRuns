@@ -4,10 +4,12 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Archv;
 
-// OpenDocument spreadsheets (ods) written from sheets: every sheet of
-// the content becomes a table, its cells at the place they have. Numbers
-// are written as numbers, true and false as such, everything else as
-// text: a text is never written as a formula, whatever it starts with.
+/**
+ * OpenDocument spreadsheets (ods) written from sheets: every sheet of
+ * the content becomes a table, its cells at the place they have. Numbers
+ * are written as numbers, true and false as such, everything else as
+ * text: a text is never written as a formula, whatever it starts with.
+ */
 class Odsx extends Grid {
 
 	// Greatest number of cells a merged area may cover to be written
@@ -170,7 +172,7 @@ class Odsx extends Grid {
 	}
 
 	/**
-	 * Writes a cell.
+	 * Writes a cell with the type of its value: boolean, number, date or text.
 	 *
 	 * @param mixed $valueToPut What the cell holds.
 	 * @param Bool  $datesAsOne Whether a text that is a date is written as a date.

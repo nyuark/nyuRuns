@@ -2,28 +2,30 @@
 
 namespace nyu\Data;
 
-// The shapes the parsers give and the writers take, and what can be done
-// with them whatever format they came from.
-//
-// A text document is a flat list of blocks, in reading order. Every block
-// has the same five keys:
-//
-//   'block' => its kind;
-//   'attrs' => what is particular to it (the level of a heading, ...);
-//   'spans' => its own text, as pieces carrying their formatting;
-//   'items' => the blocks it contains (the entries of a list, the rows of
-//              a table, what an entry or a cell holds besides its text);
-//   'plain' => its own text without formatting.
-//
-// A piece of text, or span, has four keys: 'texts' (the text), 'marks'
-// (its formatting), 'links' (the address it points to, or '') and
-// 'field' (what the text stands for when its document works it out:
-// 'pgnum' the number of the page, 'pgtot' the number of pages, 'dates'
-// a date, 'props:Name' a property of the document; '' for plain text).
-// The text of a field is the value its document last showed for it.
-//
-// A workbook is a list of sheets, each with three keys: 'title' (its
-// name), 'attrs' (what is particular to it) and 'cells' (its rows).
+/**
+ * The shapes the parsers give and the writers take, and what can be done
+ * with them whatever format they came from.
+ *
+ * A text document is a flat list of blocks, in reading order. Every block
+ * has the same five keys:
+ *
+ * - 'block' => its kind;
+ * - 'attrs' => what is particular to it (the level of a heading, ...);
+ * - 'spans' => its own text, as pieces carrying their formatting;
+ * - 'items' => the blocks it contains (the entries of a list, the rows of
+ *              a table, what an entry or a cell holds besides its text);
+ * - 'plain' => its own text without formatting.
+ *
+ * A piece of text, or span, has four keys: 'texts' (the text), 'marks'
+ * (its formatting), 'links' (the address it points to, or '') and
+ * 'field' (what the text stands for when its document works it out:
+ * 'pgnum' the number of the page, 'pgtot' the number of pages, 'dates'
+ * a date, 'props:Name' a property of the document; '' for plain text).
+ * The text of a field is the value its document last showed for it.
+ *
+ * A workbook is a list of sheets, each with three keys: 'title' (its
+ * name), 'attrs' (what is particular to it) and 'cells' (its rows).
+ */
 class Shape {
 
 	// Kinds of block that carry text of their own

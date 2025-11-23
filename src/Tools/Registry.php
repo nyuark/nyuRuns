@@ -1,11 +1,12 @@
 <?php
 
-// Dictionary of values accessible through setters and getters
-// Values in array can be unidimensional or multidimensional
-// Keys and Subkeys must be Strings, uppercased by default
-
 namespace nyu\Tools;
 
+/**
+ * Dictionary of values accessible through setters and getters. Values can
+ * be unidimensional or multidimensional; keys and subkeys must be strings,
+ * uppercased by default.
+ */
 class Registry{
 
 	protected $fldUCase;

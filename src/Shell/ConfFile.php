@@ -17,6 +17,8 @@ class ConfFile{
 	protected $copyList = Array();
 
 	/**
+	 * Builds the writer of config files, with the folder that keeps what it replaces.
+	 *
 	 * @param String $backupFldr Full path of the folder the replaced files are copied to.
 	 */
 	function __construct( String $backupFldr ){

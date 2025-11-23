@@ -4,7 +4,9 @@ namespace nyu\Data;
 
 use \nyu\Data\DBHndlr;
 
-// One connection per configured database, opened on first use
+/**
+ * One connection per configured database, opened on first use
+ */
 class DBCon {
 	// Open connections, by database name; the default one is under ''
 	private static 	$linkList = Array();

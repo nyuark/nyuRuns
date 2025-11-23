@@ -27,13 +27,15 @@ class PHPSess implements Handler{
 	protected $lastMssg;
 
 	/**
+	 * Builds the PHP session carrier from its config block.
+	 *
 	 * @param Array     $confValues Config block with the 'cookie' name (default 'nyuSessn'), the 'lifetm' in
 	 * 		seconds a session may stay unused (default 3600), the 'fulltm' in seconds it may
 	 * 		live in all, however much it is used (default 43200; 0 for no limit), the 'samest'
 	 * 		policy ('strict' by default, or 'relaxd'), 'secure' (true by default: the cookie only
 	 * 		travels over HTTPS) and the 'folder' its sessions are kept in, from the project root
 	 * 		(PHP's own when left empty).
-	 * @param AuthHndlr $authHandlr Optional credential store confirming the session's user (see verifyReq).
+	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the session's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$cookNme = strval($confValues['cookie'] ?? 'nyuSessn');
@@ -207,6 +209,8 @@ class PHPSess implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

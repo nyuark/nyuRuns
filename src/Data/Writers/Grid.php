@@ -4,9 +4,11 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Fluxd;
 
-// What the writers of spreadsheets share: the rows of a sheet laid out
-// as a grid, with the names of its columns; the names a sheet may bear;
-// what a cell holds, told apart; and the text written into their parts.
+/**
+ * What the writers of spreadsheets share: the rows of a sheet laid out
+ * as a grid, with the names of its columns; the names a sheet may bear;
+ * what a cell holds, told apart; and the text written into their parts.
+ */
 abstract class Grid extends Base {
 
 	// The limits of a sheet, in every spreadsheet

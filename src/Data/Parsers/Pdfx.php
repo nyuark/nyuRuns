@@ -4,13 +4,15 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// PDF documents, read into text blocks through the smalot/pdfparser
-// library: the text of each page as paragraphs, a page break standing
-// between two pages.
-//
-// A PDF places its text on the page without saying what it is: headings,
-// lists and tables are read as the lines they are made of. A page that
-// is a picture of a text, as a scanned one is, gives nothing.
+/**
+ * PDF documents, read into text blocks through the smalot/pdfparser
+ * library: the text of each page as paragraphs, a page break standing
+ * between two pages.
+ *
+ * A PDF places its text on the page without saying what it is: headings,
+ * lists and tables are read as the lines they are made of. A page that
+ * is a picture of a text, as a scanned one is, gives nothing.
+ */
 class Pdfx extends Base {
 
 	/**

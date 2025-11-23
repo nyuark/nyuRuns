@@ -4,10 +4,12 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Archv;
 
-// Excel workbooks (xlsx) written from sheets: every sheet of the content
-// becomes a worksheet, its cells at the place they have. Numbers are
-// written as numbers, true and false as such, everything else as text: a
-// text is never written as a formula, whatever it starts with.
+/**
+ * Excel workbooks (xlsx) written from sheets: every sheet of the content
+ * becomes a worksheet, its cells at the place they have. Numbers are
+ * written as numbers, true and false as such, everything else as text: a
+ * text is never written as a formula, whatever it starts with.
+ */
 class Xlsx extends Grid {
 
 	// The styles of the cells, by their place in the styles of the workbook
@@ -108,7 +110,7 @@ class Xlsx extends Grid {
 	}
 
 	/**
-	 * Writes a worksheet.
+	 * Writes a worksheet: the names of the columns when asked, a row for each row of cells, the widths of the columns and the merged areas.
 	 *
 	 * @param Array $sheetArray The sheet: 'title', 'attrs', 'cells'.
 	 * @param Bool  $writeHeads Whether the names of the columns are written as the first row.
@@ -175,7 +177,7 @@ class Xlsx extends Grid {
 	}
 
 	/**
-	 * Writes a cell.
+	 * Writes a cell with the type of its value: boolean, number, date or text.
 	 *
 	 * @param mixed  $valueToPut What the cell holds.
 	 * @param String $cellsPlace Its place, as 'B4'.

@@ -2,13 +2,15 @@
 
 namespace nyu\Data;
 
-// The program that unpacks sounds and packs them again: ffmpeg, run on
-// the server where it is installed. It is what gives a sound as another
-// kind, and cuts the kinds that cannot be cut as they are written.
-//
-// The program is run by its full path, without a shell, on a file whose
-// kind has been told from its content: it is never left to guess what it
-// reads, nor to read anything but that file.
+/**
+ * The program that unpacks sounds and packs them again: ffmpeg, run on
+ * the server where it is installed. It is what gives a sound as another
+ * kind, and cuts the kinds that cannot be cut as they are written.
+ *
+ * The program is run by its full path, without a shell, on a file whose
+ * kind has been told from its content: it is never left to guess what it
+ * reads, nor to read anything but that file.
+ */
 class Codec {
 
 	// Greatest size of a sound made, in bytes: 256 MB

@@ -20,6 +20,8 @@ class Limiter{
 	protected $cntFoldr;
 
 	/**
+	 * Builds the limiter of wrong credentials from its config block.
+	 *
 	 * @param Array $confValues Config block, optionally with the wrong credentials allowed from one address ('maxtry',
 	 *                          defaults to 10; 0 for no limit), the time in seconds they add up within and then hold the
 	 *                          address for ('holdtm', defaults to 600) and the 'folder' keeping the counters, relative to

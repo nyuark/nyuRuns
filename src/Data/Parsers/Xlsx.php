@@ -2,10 +2,12 @@
 
 namespace nyu\Data\Parsers;
 
-// Excel workbooks (xlsx): one sheet per worksheet, its cells at the place
-// they have in the workbook. Numbers are given as numbers, booleans as
-// booleans, dates as ISO text, empty cells as null, and a formula as the
-// result the workbook stored for it.
+/**
+ * Excel workbooks (xlsx): one sheet per worksheet, its cells at the place
+ * they have in the workbook. Numbers are given as numbers, booleans as
+ * booleans, dates as ISO text, empty cells as null, and a formula as the
+ * result the workbook stored for it.
+ */
 class Xlsx extends Pack {
 
 	const SHAPEOUT = 'sheet';

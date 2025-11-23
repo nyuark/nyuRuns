@@ -16,6 +16,8 @@ class Printer{
 	protected $jsonData = Array();
 
 	/**
+	 * Builds the printer with its shape, its mode and its streams.
+	 *
 	 * @param Bool  $jsonsShape Whether the output is one JSON object, for a script to read.
 	 * @param Bool  $quietsMode Whether the plain remarks are left out; values, tables and errors are still written.
 	 * @param mixed $outsStream Stream the output is written to; the standard output when null.

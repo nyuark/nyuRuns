@@ -2,9 +2,11 @@
 
 namespace nyu\Data\Writers;
 
-// Which writer writes which format, by file extension, and the content
-// type a reply in that format is sent with. An application can add
-// writers of its own.
+/**
+ * Which writer writes which format, by file extension, and the content
+ * type a reply in that format is sent with. An application can add
+ * writers of its own.
+ */
 class Index {
 
 	// Writer, default options and content type of each file extension

@@ -1,32 +1,33 @@
 <?php
 
-// An utility object for formating different type of data
-// Formats available:
-/*
-	- TextStr
-	- Integer
-	- Numeric
-	- PriceNb
-	- FloatNb
-	- DateStr
-	- WeekDay
-	- FullDay
-	- ShrDate
-	- TxtDate
-	- DateSpn
-	- EmlAddr
-	- PhoneNb
-	- UrlAddr
-	- UrlText
-	- HtmText
-	FloatNb gives a number; the date formats, EmlAddr, PhoneNb, UrlAddr,
-	UrlText and HtmText give an empty string for a value that is not valid.
-	DateSpn gives one too when it is given no end date. A timestamp is
-	read as a date when it is an Int; a text of digits is no date.
-*/
-
 namespace nyu\Tools;
 
+/**
+ * A utility object for formatting different types of data.
+ *
+ * Formats available:
+ * - TextStr
+ * - Integer
+ * - Numeric
+ * - PriceNb
+ * - FloatNb
+ * - DateStr
+ * - WeekDay
+ * - FullDay
+ * - ShrDate
+ * - TxtDate
+ * - DateSpn
+ * - EmlAddr
+ * - PhoneNb
+ * - UrlAddr
+ * - UrlText
+ * - HtmText
+ *
+ * FloatNb gives a number; the date formats, EmlAddr, PhoneNb, UrlAddr,
+ * UrlText and HtmText give an empty string for a value that is not valid.
+ * DateSpn gives one too when it is given no end date. A timestamp is
+ * read as a date when it is an Int; a text of digits is no date.
+ */
 class Variable{
 	
 	var $mainData;

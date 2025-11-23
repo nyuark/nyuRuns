@@ -18,9 +18,11 @@ class Header implements Handler{
 	protected $lastMssg;
 
 	/**
+	 * Builds the header carrier from its config block, with the credential check it hands over to.
+	 *
 	 * @param Array     $confValues Config block, optionally with a 'header' name (defaults to 'X-Api-Key') and the
 	 *                              'scheme' the key must follow in it, such as 'Bearer' (none by default).
-	 * @param AuthHndlr $authHandlr Credential-verification strategy to delegate to.
+	 * @param ?AuthHndlr $authHandlr Credential-verification strategy to delegate to.
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->headName = $confValues['header'] ?? 'X-Api-Key';
@@ -74,6 +76,8 @@ class Header implements Handler{
 	}
 
 	/**
+	 * Gives the message of the last error.
+	 *
 	 * @return String The last error message.
 	 */
 	function lastError(): String {

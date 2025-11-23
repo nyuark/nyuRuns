@@ -5,6 +5,11 @@ namespace nyu\Tools;
 use nyu\Output\Response;
 
 
+/**
+ * The HTTP request as the client sent it: method, path, headers, values,
+ * cookies and uploaded files. It also gives the server values and what is
+ * known of the client.
+ */
 class Request{
 
 	protected $serveReg;
@@ -431,7 +436,7 @@ class Request{
 	 * Reads a single header value received with the request.
 	 *
 	 * @param String $headersKey Name of the header to read.
-	 * @return mixed The header value, or null if not present.
+	 * @return ?String The header value, or null if not present.
 	 */
 	public function getHeader( String $headersKey='' ): ?String {
 		// Header names are case-insensitive

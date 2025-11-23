@@ -2,8 +2,10 @@
 
 namespace nyu\Data\Parsers;
 
-// Which parser reads which content: by file extension, or by the content
-// type of a request. An application can add parsers of its own.
+/**
+ * Which parser reads which content: by file extension, or by the content
+ * type of a request. An application can add parsers of its own.
+ */
 class Index {
 
 	// Parser and default options of each file extension

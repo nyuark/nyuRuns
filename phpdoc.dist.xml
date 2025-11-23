@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Code reference of nyuRuns, generated from the docblocks of src.
+    Run from the project root (a PHP CLI without a php.ini needs mbstring loaded):
+        php -d extension=mbstring temp/tools/phpDocumentor.phar run
+    The output (temp/docs/reference) and the cache are not tracked.
+-->
+<phpdocumentor
+    configVersion="3"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://www.phpdoc.org"
+    xsi:noNamespaceSchemaLocation="https://docs.phpdoc.org/latest/phpdoc.xsd"
+>
+    <title>nyuRuns – Code Reference</title>
+    <paths>
+        <output>temp/docs/reference</output>
+        <cache>temp/docs/cache</cache>
+    </paths>
+    <version number="1.0">
+        <api>
+            <source dsn=".">
+                <path>src</path>
+            </source>
+            <visibility>public</visibility>
+            <visibility>protected</visibility>
+            <default-package-name>nyuRuns</default-package-name>
+        </api>
+    </version>
+    <setting name="graphs.enabled" value="false"/>
+</phpdocumentor>

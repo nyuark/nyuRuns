@@ -29,6 +29,8 @@ class Console{
 	protected $inptStrm;
 
 	/**
+	 * Builds the console from the arguments of the command line and its streams.
+	 *
 	 * @param Array $givenWords The arguments of the command line, without the name of the script.
 	 * @param mixed $outsStream Stream the output is written to; the standard output when null.
 	 * @param mixed $errsStream Stream the questions and errors are written to; the standard error when null.

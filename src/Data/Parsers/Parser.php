@@ -4,15 +4,17 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Fluxd;
 
-// What every parser does: read a content and give it back as one of three
-// shapes, in the same envelope:
-//
-//   'shape' => 'nodes' (a tree of keys and values), 'sheet' (named tables
-//              of rows and cells) or 'block' (text blocks, in order);
-//   'infos' => details about the source, such as sheet names or a title;
-//   'items' => the content itself.
-//
-// A content that is not valid for its format raises a ParseError.
+/**
+ * What every parser does: read a content and give it back as one of three
+ * shapes, in the same envelope:
+ *
+ * - 'shape' => 'nodes' (a tree of keys and values), 'sheet' (named tables
+ *              of rows and cells) or 'block' (text blocks, in order);
+ * - 'infos' => details about the source, such as sheet names or a title;
+ * - 'items' => the content itself.
+ *
+ * A content that is not valid for its format raises a ParseError.
+ */
 interface Parser {
 
 	/**

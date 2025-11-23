@@ -19,6 +19,11 @@
 
 namespace nyu\Tools;
 
+/**
+ * The inputs of an action: the fields its definition lists are kept, each
+ * given its format, and the others are left out. Tells which required
+ * fields are missing.
+ */
 class Input{
 
 	protected $saveName;

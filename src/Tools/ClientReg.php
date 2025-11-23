@@ -2,6 +2,11 @@
 
 namespace nyu\Tools;
 
+/**
+ * Registry of what the request tells about its client: address, host,
+ * scheme, agent, system, device and language. Everything but the addresses
+ * is sent by the client: a hint, never to be used for an access decision.
+ */
 class ClientReg extends Registry{
 
 	/**

@@ -4,9 +4,11 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// Tables written as text: CSV, TSV and their kin. One row per line, the
-// cells separated by one character; a cell between double quotes may hold
-// the separator, line ends, and a quote written twice.
+/**
+ * Tables written as text: CSV, TSV and their kin. One row per line, the
+ * cells separated by one character; a cell between double quotes may hold
+ * the separator, line ends, and a quote written twice.
+ */
 class Tabl extends Base {
 
 	// Separators, by the code that asks for them. When two of them fit a table

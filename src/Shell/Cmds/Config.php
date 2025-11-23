@@ -48,6 +48,8 @@ class Config extends Command{
 	const RUNRCALL = '/(new\s+\\\\?nyu\\\\Runner\s*\(\s*)(([\'"])[\w\-]*\3)?/';
 
 	/**
+	 * Tells in one line what the command does.
+	 *
 	 * @return String The line shown in the list of commands.
 	 */
 	public function aboutText(): String {
@@ -55,6 +57,8 @@ class Config extends Command{
 	}
 
 	/**
+	 * Lists the sub-commands of the command.
+	 *
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTable(): Array {

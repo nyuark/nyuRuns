@@ -4,20 +4,22 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// OpenDocument texts (odt), read into text blocks the way Word documents
-// are: headings, paragraphs, lists, tables, images, page breaks and
-// notes, with what is bold, italic, underlined or struck, and the links.
-//
-// Every block tells the style of its paragraph under 'style', and what
-// each style used gives is listed once, under 'frmat', in the details of
-// the document. A field, such as a page number or a property of the
-// document, is read as the text last shown for it, its span telling what
-// it stands for under 'field'.
-//
-// The headers and the footers of the pages, the properties of the
-// document and, when asked for, the comments of its reviewers are given
-// in the details of the document, not among its blocks. The text a
-// tracked change deleted is left out.
+/**
+ * OpenDocument texts (odt), read into text blocks the way Word documents
+ * are: headings, paragraphs, lists, tables, images, page breaks and
+ * notes, with what is bold, italic, underlined or struck, and the links.
+ *
+ * Every block tells the style of its paragraph under 'style', and what
+ * each style used gives is listed once, under 'frmat', in the details of
+ * the document. A field, such as a page number or a property of the
+ * document, is read as the text last shown for it, its span telling what
+ * it stands for under 'field'.
+ *
+ * The headers and the footers of the pages, the properties of the
+ * document and, when asked for, the comments of its reviewers are given
+ * in the details of the document, not among its blocks. The text a
+ * tracked change deleted is left out.
+ */
 class Odtx extends Pack {
 
 	// The alignments, as the document writes them

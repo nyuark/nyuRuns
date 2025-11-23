@@ -2,9 +2,11 @@
 
 namespace nyu\Data;
 
-// A source read piece by piece: a file of the server, the body of the
-// request, or bytes already in memory such as a blob read from a table.
-// The source is never held whole, unless readWhole() is asked for it.
+/**
+ * A source read piece by piece: a file of the server, the body of the
+ * request, or bytes already in memory such as a blob read from a table.
+ * The source is never held whole, unless readWhole() is asked for it.
+ */
 class Fluxd {
 
 	protected $strmHndl;

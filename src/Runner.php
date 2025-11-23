@@ -11,6 +11,11 @@ use nyu\Access\Checker;
 
 $GLOBALS['nyuConfig'] = null;
 
+/**
+ * The entry of every request: loads the preset and the config, reads the
+ * request and its route, checks the access, calls the application and
+ * sends the reply.
+ */
 class Runner{
 
 	protected 	$nyPreset;	// RPS (Runner PreSet) Object
@@ -242,7 +247,7 @@ class Runner{
 	 *
 	 * @param String $runAppName Name of the application (run) to load.
 	 * @param String $runAppActn Name of the action/method to call on the application.
-	 * @param String $runAppOptn Optional extra parameter passed to the action.
+	 * @param ?String $runAppOptn Optional extra parameter passed to the action.
 	 */
 	function appCaller( String $runAppName, String $runAppActn, ?String $runAppOptn=null ): Void {
 		// Launch an application according to
@@ -364,7 +369,7 @@ class Runner{
 	 * Builds the response headers and outputs the final response contents
 	 * to the requester. A HEAD request is answered by the headers alone.
 	 *
-	 * @param Int $statusCode HTTP status code to send; omitted for the default 200.
+	 * @param ?Int $statusCode HTTP status code to send; omitted for the default 200.
 	 */
 	function doRespond( ?Int $statusCode=null ): Void {
 		// Build the response headers and

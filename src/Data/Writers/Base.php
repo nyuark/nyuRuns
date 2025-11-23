@@ -2,8 +2,10 @@
 
 namespace nyu\Data\Writers;
 
-// What the writers share: telling the shape of the content they are
-// given, and refusing the ones they do not take.
+/**
+ * What the writers share: telling the shape of the content they are
+ * given, and refusing the ones they do not take.
+ */
 abstract class Base implements Writer {
 
 	/**

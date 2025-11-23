@@ -2,8 +2,10 @@
 
 namespace nyu\Data\Writers;
 
-// What every writer does: take a content in the envelope the parsers give
-// ('shape', 'infos', 'items') and write it in its own format.
+/**
+ * What every writer does: take a content in the envelope the parsers give
+ * ('shape', 'infos', 'items') and write it in its own format.
+ */
 interface Writer {
 
 	/**

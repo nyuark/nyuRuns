@@ -2,6 +2,11 @@
 
 namespace nyu\Output;
 
+/**
+ * The reply to a request: its status, its headers and its body in the
+ * format the preset asks for, and the static files and HTML pages a
+ * declared route answers with.
+ */
 class Response{
 
 	// Content type of the file extensions a declared route may serve; any other extension is not served
@@ -155,7 +160,7 @@ class Response{
 	 * Every reply tells the client not to guess another type than the one
 	 * announced (X-Content-Type-Options), whatever the preset writes.
 	 *
-	 * @param Int $statusCode HTTP status code to send; omitted for the default 200.
+	 * @param ?Int $statusCode HTTP status code to send; omitted for the default 200.
 	 */
 	public function buildHead( ?Int $statusCode=null ): Void {
 		if(!is_array($this->headrArr)){

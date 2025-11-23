@@ -2,10 +2,12 @@
 
 namespace nyu\Data;
 
-// A zip archive, read entry by entry: nothing is ever written to disk
-// from what it holds. This is how the office documents and the books
-// that are zip files are opened. An archive is also made from its
-// entries, to write them.
+/**
+ * A zip archive, read entry by entry: nothing is ever written to disk
+ * from what it holds. This is how the office documents and the books
+ * that are zip files are opened. An archive is also made from its
+ * entries, to write them.
+ */
 class Archv {
 
 	protected $zipHndlr;

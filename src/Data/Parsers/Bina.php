@@ -2,8 +2,10 @@
 
 namespace nyu\Data\Parsers;
 
-// Binary reading. For now: telling what a content is from its first
-// bytes, whatever its file name says.
+/**
+ * Binary reading. For now: telling what a content is from its first
+ * bytes, whatever its file name says.
+ */
 class Bina {
 
 	// Kinds that are text, although they can be told from their first bytes

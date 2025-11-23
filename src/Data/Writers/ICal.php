@@ -4,15 +4,17 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Shape;
 
-// Calendars (ics): the events, the tasks and the notes the calendar
-// parser gives, written back so that a calendar read then written reads
-// back the same.
-//
-// An entry lasting whole days is written with the day after its last
-// one as its end, as the format asks. What the parser kept as written
-// under 'extra' is written back as it is. An entry without id gets one,
-// and one without date of writing gets the present time: the format
-// asks for both.
+/**
+ * Calendars (ics): the events, the tasks and the notes the calendar
+ * parser gives, written back so that a calendar read then written reads
+ * back the same.
+ *
+ * An entry lasting whole days is written with the day after its last
+ * one as its end, as the format asks. What the parser kept as written
+ * under 'extra' is written back as it is. An entry without id gets one,
+ * and one without date of writing gets the present time: the format
+ * asks for both.
+ */
 class ICal extends Base {
 
 	// The kinds of entry, by the key holding them, and the keys an entry may hold other values under
@@ -25,7 +27,7 @@ class ICal extends Base {
 	const OWNSLIST = Array('BEGIN', 'END', 'UID', 'SUMMARY', 'DESCRIPTION', 'LOCATION', 'URL', 'STATUS', 'CATEGORIES', 'ORGANIZER', 'ATTENDEE', 'EXDATE', 'DTSTART', 'DTEND', 'DURATION', 'DTSTAMP', 'DUE', 'PERCENT-COMPLETE');
 
 	/**
-	 * Writes a calendar.
+	 * Writes events, tasks and notes as an iCalendar text.
 	 *
 	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items', the items holding the events under 'event', the tasks under 'tasks' and the notes under 'notes'.
 	 * @param Array $writeOptns Options: none.

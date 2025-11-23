@@ -5,6 +5,11 @@ namespace nyu\Data;
 use \nyu\Data\DBCon;
 use \nyu\Tools\StrKit;
 
+/**
+ * A list of rows of a table, read through the store of its database: the
+ * filter, fields, order, limit, grouping and joins are given as plain
+ * values.
+ */
 class DBLst {
 	protected $tableNme;
 	protected $dbConnex;
@@ -37,11 +42,11 @@ class DBLst {
 	 * such, and work on every kind of database.
 	 *
 	 * @param String $dbaseTable Name of the table to query.
-	 * @param String $selctScope Fields to select (defaults to '*').
-	 * @param String $whereClaus Pre-built WHERE clause fragment, if any.
-	 * @param String $orderClaus Pre-built ORDER BY clause fragment, if any.
-	 * @param String $limitValue Pre-built LIMIT clause fragment, if any.
-	 * @param DBCon  $handleLink Connection to use instead of the one of the database named by $baseName.
+	 * @param ?String $selctScope Fields to select (defaults to '*').
+	 * @param ?String $whereClaus Pre-built WHERE clause fragment, if any.
+	 * @param ?String $orderClaus Pre-built ORDER BY clause fragment, if any.
+	 * @param ?String $limitValue Pre-built LIMIT clause fragment, if any.
+	 * @param ?DBCon $handleLink Connection to use instead of the one of the database named by $baseName.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
@@ -154,7 +159,7 @@ class DBLst {
 	 * or on '*' (`count(*)`, `max(date)`), with an optional ` as alias`.
 	 * The fields come first in each row, then the functions.
 	 *
-	 * @param String $fieldScope Comma-separated list of fields, or null for '*'.
+	 * @param ?String $fieldScope Comma-separated list of fields, or null for '*'.
 	 *
 	 * @throws \RuntimeException When an entry has any other form.
 	 */

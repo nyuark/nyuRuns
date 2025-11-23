@@ -4,19 +4,21 @@ namespace nyu\Data;
 
 use nyu\Data\Parsers\Bina;
 
-// A picture: what it is, told from its content, and the pictures that
-// can be made of it, smaller, cut, turned or of another kind.
-//
-// A picture is never changed: resizing, cutting or turning it gives
-// another one. A picture given back is written anew, without what the
-// camera recorded in it: neither the date nor the place it was taken.
-// The gd extension of PHP makes the pictures; telling what a picture is
-// does not need it.
-//
-// A drawing (SVG) is a picture too. It is text that may carry scripts
-// and point outside itself: it is given back cleaned of both, and it is
-// cleaned before it is drawn. Drawing it into pixels, to resize it or to
-// give it as another kind, needs the imagick extension.
+/**
+ * A picture: what it is, told from its content, and the pictures that
+ * can be made of it, smaller, cut, turned or of another kind.
+ *
+ * A picture is never changed: resizing, cutting or turning it gives
+ * another one. A picture given back is written anew, without what the
+ * camera recorded in it: neither the date nor the place it was taken.
+ * The gd extension of PHP makes the pictures; telling what a picture is
+ * does not need it.
+ *
+ * A drawing (SVG) is a picture too. It is text that may carry scripts
+ * and point outside itself: it is given back cleaned of both, and it is
+ * cleaned before it is drawn. Drawing it into pixels, to resize it or to
+ * give it as another kind, needs the imagick extension.
+ */
 class Image {
 
 	// Greatest number of pixels a picture may have unless told otherwise: 32 millions

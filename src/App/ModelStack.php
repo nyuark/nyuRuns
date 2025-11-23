@@ -2,6 +2,11 @@
 
 namespace nyu\App;
 
+/**
+ * The models of an application: every *Model.php file of its mods folder,
+ * loaded once and given by name. A model not found there is looked for in
+ * the shared ones (runs/Shared).
+ */
 class ModelStack{
 	
 	protected $appIdent;
@@ -47,7 +52,7 @@ class ModelStack{
 	 * shared model (from runs/Shared) if it isn't part of this app's stack.
 	 *
 	 * @param String $appModName Name of the model to retrieve.
-	 * @return mixed The model instance, or the shared-model lookup result.
+	 * @return ?Object The model instance, or the shared-model lookup result.
 	 */
 	function readModel(String $appModName): ?Object {
 		if( array_key_exists( strtolower($appModName), $this->modeList) ){

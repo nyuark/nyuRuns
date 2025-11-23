@@ -41,6 +41,8 @@ class Logger{
 	protected static $failTold = false;
 
 	/**
+	 * Builds the logger of one channel.
+	 *
 	 * @param String $loggerPath Directory where log files are stored; empty for a logger that writes nothing.
 	 * @param String $loggerChan Log channel/file name (without extension), e.g. 'error', 'runner', 'access': letters, digits and underscores.
 	 * @param String $loggerMode Verbosity: FULL, BASE or MINI.

@@ -10,6 +10,11 @@ use nyu\Tools\Request;
 use nyu\Tools\Router;
 use nyu\Output\Response;
 
+/**
+ * The controller of an application: loads its models, applies the
+ * definition of the inputs of the action asked for, runs the action and
+ * gives its status and its output.
+ */
 class Controller{
 	
 	protected $appIdent;
@@ -42,7 +47,7 @@ class Controller{
 	 * @param String   $runAppName Name of the application (run) to load.
 	 * @param String   $runAppActn Name of the action/method to call on the application.
 	 * @param Registry $inRegistry Registry of input values to pass to the application.
-	 * @param String   $runAppOptn Optional extra parameter passed to the action.
+	 * @param ?String  $runAppOptn Optional extra parameter passed to the action.
 	 * @param ?Registry $axRegistry Access check result (logged user, role and identity) to pass to the application.
 	 * @param ?Request $requestObj The shared HTTP request, to pass to the application.
 	 * @param ?Response $httpRespns The shared response, to pass to the application.

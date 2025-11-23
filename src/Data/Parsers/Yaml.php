@@ -2,16 +2,18 @@
 
 namespace nyu\Data\Parsers;
 
-// YAML, the part of it that settings files use: keys and values, lists,
-// nesting by indentation, comments, quoted and bare values, text over
-// several lines after | or >, and lists and maps written on one line
-// between brackets.
-//
-// What is outside that part is refused, with the line it stands on,
-// rather than read loosely: anchors and aliases (& and *), tags other
-// than the four plain casts (!!str, !!int, !!float, !!bool), tabulations
-// used to indent, brackets or quotes left open at the end of their line,
-// and keys that are not plain text.
+/**
+ * YAML, the part of it that settings files use: keys and values, lists,
+ * nesting by indentation, comments, quoted and bare values, text over
+ * several lines after | or >, and lists and maps written on one line
+ * between brackets.
+ *
+ * What is outside that part is refused, with the line it stands on,
+ * rather than read loosely: anchors and aliases (& and *), tags other
+ * than the four plain casts (!!str, !!int, !!float, !!bool), tabulations
+ * used to indent, brackets or quotes left open at the end of their line,
+ * and keys that are not plain text.
+ */
 class Yaml extends Base {
 
 	// A line holding a key: quoted with ", quoted with ', or bare; then what follows its colon
@@ -61,7 +63,7 @@ class Yaml extends Base {
 	}
 
 	/**
-	 * Refuses the content.
+	 * Refuses the content, telling what is wrong and on which line.
 	 *
 	 * @param String $failReason What is wrong.
 	 * @param Int    $lineNumber The line it stands on.

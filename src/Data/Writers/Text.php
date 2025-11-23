@@ -4,15 +4,17 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Shape;
 
-// Text: text blocks written as plain text, with the tags of forums, or
-// with the marks of messaging.
-//
-//   'plain' => the text alone: lists after '- ' and '1. ', the rows of a
-//              table one per line with tabulations between their cells;
-//   'bbcod' => [b] [i] [u] [s], [url=...], [img], [code], [quote], [list];
-//   'chats' => *bold* _italic_ __underlined__ ~strike~, and lists.
-//
-// What a way of writing has no mark for is written as its text.
+/**
+ * Text: text blocks written as plain text, with the tags of forums, or
+ * with the marks of messaging.
+ *
+ *   'plain' => the text alone: lists after '- ' and '1. ', the rows of a
+ *              table one per line with tabulations between their cells;
+ *   'bbcod' => [b] [i] [u] [s], [url=...], [img], [code], [quote], [list];
+ *   'chats' => *bold* _italic_ __underlined__ ~strike~, and lists.
+ *
+ * What a way of writing has no mark for is written as its text.
+ */
 class Text extends Base {
 
 	// The marks around a formatting, for each way of writing: what opens it, what closes it

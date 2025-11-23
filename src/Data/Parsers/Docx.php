@@ -4,20 +4,22 @@ namespace nyu\Data\Parsers;
 
 use nyu\Data\Shape;
 
-// Word documents (docx), read into text blocks: headings by their style,
-// paragraphs, lists, tables, images, page breaks and notes, with what is
-// bold, italic, underlined or struck, and the links.
-//
-// Every block tells the style of its paragraph under 'style', and what
-// each style used gives is listed once, under 'frmat', in the details of
-// the document. A field, such as a page number or a reference to a
-// property of the document, is read as the text Word last showed for
-// it, its span telling what it stands for under 'field'.
-//
-// The headers and the footers of the pages, the properties of the
-// document and, when asked for, the comments of its reviewers are given
-// in the details of the document, not among its blocks. The text a
-// tracked change deleted is left out.
+/**
+ * Word documents (docx), read into text blocks: headings by their style,
+ * paragraphs, lists, tables, images, page breaks and notes, with what is
+ * bold, italic, underlined or struck, and the links.
+ *
+ * Every block tells the style of its paragraph under 'style', and what
+ * each style used gives is listed once, under 'frmat', in the details of
+ * the document. A field, such as a page number or a reference to a
+ * property of the document, is read as the text Word last showed for
+ * it, its span telling what it stands for under 'field'.
+ *
+ * The headers and the footers of the pages, the properties of the
+ * document and, when asked for, the comments of its reviewers are given
+ * in the details of the document, not among its blocks. The text a
+ * tracked change deleted is left out.
+ */
 class Docx extends Pack {
 
 	// Properties of a document, by the element holding them: the name Word gives them in its fields

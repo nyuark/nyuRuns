@@ -4,13 +4,15 @@ namespace nyu\Data\Writers;
 
 use nyu\Data\Shape;
 
-// Markdown: text blocks written the way the Markdown parser reads them,
-// so that a text read then written reads back the same.
-//
-// The characters Markdown gives a meaning to are written after a
-// backslash where they are only text. What Markdown has no way to say is
-// left out: underlined text is written plain, a cell over several
-// columns as one cell, a page break as a rule.
+/**
+ * Markdown: text blocks written the way the Markdown parser reads them,
+ * so that a text read then written reads back the same.
+ *
+ * The characters Markdown gives a meaning to are written after a
+ * backslash where they are only text. What Markdown has no way to say is
+ * left out: underlined text is written plain, a cell over several
+ * columns as one cell, a page break as a rule.
+ */
 class Mdwn extends Base {
 
 	/**

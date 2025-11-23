@@ -2,18 +2,20 @@
 
 namespace nyu\Data\DBStore;
 
-// What a Record and a List need from a database, whatever its kind. The
-// SQL types answer through their handler (nyu\Data\DBHndlr); a document
-// store answers with its own driver.
-//
-// Rows are found, changed and deleted through the filter array of
-// the Filter class: 'field'=>value, with the '!', '<=', '>=', '<', '>'
-// and '?' suffixes on the field name.
-//
-// A binary value (a picture, a sound, any file) is written from a flux
-// (nyu\Data\Fluxd) given as the value of its field, and read back as one.
-// A binary field is only read when it is named among the fields asked
-// for: a reading that names none leaves it out.
+/**
+ * What a Record and a List need from a database, whatever its kind. The
+ * SQL types answer through their handler (nyu\Data\DBHndlr); a document
+ * store answers with its own driver.
+ *
+ * Rows are found, changed and deleted through the filter array of
+ * the Filter class: 'field'=>value, with the '!', '<=', '>=', '<', '>'
+ * and '?' suffixes on the field name.
+ *
+ * A binary value (a picture, a sound, any file) is written from a flux
+ * (nyu\Data\Fluxd) given as the value of its field, and read back as one.
+ * A binary field is only read when it is named among the fields asked
+ * for: a reading that names none leaves it out.
+ */
 interface Store{
 
 	// Greatest size read from a binary field unless told otherwise: 16 MB
