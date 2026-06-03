@@ -38,10 +38,11 @@
         // Credential check the carrier delegates to:
         // htpass (htpasswd file); native (users table of the database;
         // see conf/schema/users.<type>.sql); regkey (list of API keys);
-        // usrlst (file of users; read only; the native users without a database)
+        // usrlst (file of users; read only; the native users without a database);
+        // device (tokens of the devices working in the name of a user; see php nyuRun device)
         // Planned for version 1.1: SSO; LDAP
         // Applications can add their own: a name listed in the "plugin" block of
-        // conf/access.json is a class of runs/Shared (device -> DeviceAuth.php);
+        // conf/access.json is a class of runs/Shared (mychck -> MychckAuth.php);
         // the same goes for carriers (<Name>Sess.php)
 		"authby": "htpass",
         // Block of the credential check; the carrier's block when not set.

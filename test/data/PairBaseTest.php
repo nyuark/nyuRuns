@@ -2,7 +2,7 @@
 
 // Carriers and checks, pair by pair, through the Checker : the pairs of the
 // checks that read a database, the users table (native) and the device
-// tokens plug-in (device, runs/Shared/DeviceAuth.php), on the sample SQLite
+// tokens (device, Access\Auth\Device), on the sample SQLite
 // database. The pairs that need none are in test/unit/PairingTest.php.
 //
 //   user 1  anna   manage  active   one device, "Phone"
@@ -12,7 +12,6 @@
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
-require_once RUN_DIR.DS.'Shared'.DS.'DeviceAuth.php';
 require_once RUN_DIR.DS.'Auth'.DS.'Actions.php';
 
 if( !extension_loaded('pdo_sqlite') ){
@@ -40,7 +39,6 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array(
 		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('pairs.sqlite')),
 		'access'=>Array(
-			'PLUGIN'=>Array('authby'=>Array('device'), 'sessby'=>Array()),
 			'LOGIN'=>$loginBlock,
 			'TSNATV'=>Array('tblnme'=>'users', 'maxtry'=>5),
 			'TSDEVC'=>Array('stmptm'=>0),
@@ -129,7 +127,7 @@ function certVals( String $userString ): Array {
 buildData( inTempDir('pairs.sqlite') );
 plugConf();
 $sqlLink = new PDO('sqlite:'.inTempDir('pairs.sqlite'));
-$dvcAuth = new nyu\Runs\Shared\DeviceAuth( Array() );
+$dvcAuth = new nyu\Access\Auth\Device( Array() );
 $phonTkn = strval($dvcAuth->addDevice('anna', 'Phone', 'app'));
 $annaTkn = strval((new Native(Array()))->makeToken('anna'));
 
@@ -145,7 +143,7 @@ $sqlLink->exec("UPDATE users SET lastSeen=NULL");
 checkSame('header x device: the token of a device, with the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'manage'));
 checkSame('header x device: the personal token of the user is not a device', pairReply('header', 'device', Array('X-Api-Key'=>$annaTkn)), Array(401, 'Invalid API key', '', null));
 checkSame('header x native: the token of a device is not a personal token', pairReply('header', 'native', Array('X-Api-Key'=>$phonTkn)), Array(401, 'Invalid API key', '', null));
-checkSame('hbasic x device: a check of tokens takes no password, even a valid token', pairReply('hbasic', 'device', basicHead('anna', $phonTkn)), Array(401, 'No API key provided', '', null));
+checkSame('hbasic x device: a check of tokens takes no password: the pair refuses every request', pairReply('hbasic', 'device', basicHead('anna', $phonTkn)), Array(500, 'Access misconfigured', '', null));
 checkSame('jtoken x device: the token alone decides, with the role it was issued with', pairReply('jtoken', 'device', tokenHead(Array('user'=>'dave', 'role'=>'system'))), Array(200, '', 'dave', 'system'));
 checkSame('clcert x device: the certificate alone decides', pairReply('clcert', 'device', Array(), certVals('dave')), Array(200, '', 'dave', 'member'));
 
@@ -170,7 +168,7 @@ checkSame('limit: header x device, a wrong device token is counted', Array(sendT
 checkSame('limit: the held address is refused with the right device token', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array('REMOTE_ADDR'=>'198.51.100.5'))[0], 429);
 checkSame('limit: the certificate of a locked user is not counted', Array(sendTrice('198.51.100.6', 'clcert', 'native', Array(), certVals('dave')), heldAddr('198.51.100.6')), Array(Array(401, 401, 401), false));
 checkSame('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.7', 'jtoken', 'native', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.7')), Array(Array(401, 401, 401), false));
-checkSame('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.8', 'hbasic', 'device', basicHead('anna', $phonTkn)), heldAddr('198.51.100.8')), Array(Array(401, 401, 401), false));
+checkSame('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.8', 'hbasic', 'device', basicHead('anna', $phonTkn)), heldAddr('198.51.100.8')), Array(Array(500, 500, 500), false));
 dropFoldr(TOP_DIR.DS.$lmtFldr);
 
 // Login : a check of device tokens takes no password

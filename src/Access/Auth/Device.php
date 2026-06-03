@@ -1,20 +1,20 @@
 <?php
 
-namespace nyu\Runs\Shared;
+namespace nyu\Access\Auth;
 
-use nyu\Access\Auth\Handler as AuthHndlr;
 use nyu\Data\DBCon;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
 
 /**
- * Access plug-in, used as "authby": "device" once 'device' is listed in
- * the 'plugin' block of the ACCESS config. Verifies a device token
- * against a table of devices, each linked to a user of the native
- * userbase: the SHA-256 hash of the token must be the token_hash of a
- * device that is not revoked, and its user must be 'active'. Also
- * stamps the time each device was last seen.
+ * Credential check of the device tokens, used as "authby": "device".
+ * Verifies a device token against a table of devices, each linked to a
+ * user of the native userbase: the SHA-256 hash of the token must be the
+ * token_hash of a device that is not revoked, and its user must be
+ * 'active'. Also stamps the time each device was last seen. A device is
+ * given a token, listed and revoked from the command line (php nyuRun
+ * device), or by an application of its own.
  */
-class DeviceAuth implements AuthHndlr{
+class Device implements Handler{
 
 	protected $userBase;
 	protected $dvcTable;
@@ -143,6 +143,40 @@ class DeviceAuth implements AuthHndlr{
 		}catch( \Throwable $e ){
 			return false;
 		}
+	}
+
+	/**
+	 * Lists the devices, with the name of their user: those of one user,
+	 * or all of them. The hash of a token is never given.
+	 *
+	 * @param String $userString Login name of the user, '' for the devices of every user.
+	 * @return Array|Bool The devices, by user then by name: 'id', 'name', 'role', 'userName', 'last_seen_at', 'revoked_at' and 'created_at'; false when the tables cannot be read.
+	 */
+	public function listDevcs( String $userString='' ): Array|Bool {
+		if( $this->dvcTable=='' || $this->usrTable=='' ){
+			return false;
+		}
+		try{
+			$dbHandl = $this->linkDBase();
+			$fldList = Array();
+			foreach( Array('id', 'name', 'role', 'last_seen_at', 'revoked_at', 'created_at') as $fldNme ){
+				$fldList[] = $dbHandl->quoteName($this->dvcTable.'.'.$fldNme);
+			}
+			$fldList[] = $dbHandl->quoteName($this->usrTable.'.userName');
+			$usrName = $dbHandl->quoteName($this->usrTable.'.userName');
+			$lstQury = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHandl->quoteName($this->dvcTable)
+				.' INNER JOIN '.$dbHandl->quoteName($this->usrTable)
+				.' ON '.$dbHandl->quoteName($this->usrTable.'.id_user').'='.$dbHandl->quoteName($this->dvcTable.'.user_id')
+				.(($userString!=='') ? ' WHERE '.$usrName.'=?' : '')
+				.' ORDER BY '.$usrName.', '.$dbHandl->quoteName($this->dvcTable.'.name').', '.$dbHandl->quoteName($this->dvcTable.'.id').';';
+			if( !$dbHandl->sendQuery($lstQury, false, ($userString!=='') ? Array($userString) : Array()) ){
+				return false;
+			}
+			$dvcRows = $dbHandl->readQuery(true);
+		}catch( \Throwable $e ){
+			return false;
+		}
+		return is_array($dvcRows) ? $dvcRows : false;
 	}
 
 	/**

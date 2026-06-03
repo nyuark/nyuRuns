@@ -19,11 +19,11 @@ class Checker{
 	const ROLELIST = Array('member', 'system', 'manage');
 	// Short names of the framework's strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
-	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'usrlst'=>'UserList');
+	const AUTHLIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'usrlst'=>'UserList', 'device'=>'Device');
 	const SESSLIST = Array('hbasic'=>'Basic', 'header'=>'Header', 'jtoken'=>'JWT', 'phsess'=>'PHPSess', 'clcert'=>'ClCert');
 	// Carriers that hand what they carry to a credential check, and the framework's checks that can take it.
 	// A plug-in check is taken as able to
-	const PAIRLIST = Array('hbasic'=>Array('htpass', 'native', 'usrlst'), 'header'=>Array('regkey', 'native', 'usrlst'));
+	const PAIRLIST = Array('hbasic'=>Array('htpass', 'native', 'usrlst'), 'header'=>Array('regkey', 'native', 'usrlst', 'device'));
 
 	protected $axsSetup;
 	protected $httpRqst;

@@ -240,9 +240,10 @@ checkSame('pairsFlaw: the pairs that work', Array(
 	(new Checker(Array('sessby'=>'hbasic', 'authby'=>'htpass'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'hbasic', 'authby'=>'native'), fakeReqst()))->pairsFlaw(),
 	(new Checker(Array('sessby'=>'header', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'header', 'authby'=>'usrlst'), fakeReqst()))->pairsFlaw(),
 	(new Checker(Array('sessby'=>'jtoken'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'phsess', 'authby'=>'htpass'), fakeReqst()))->pairsFlaw(),
-	(new Checker(Array('sessby'=>'clcert', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'hbasic', 'authby'=>'device'), fakeReqst()))->pairsFlaw()
+	(new Checker(Array('sessby'=>'clcert', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'header', 'authby'=>'device'), fakeReqst()))->pairsFlaw()
 ), array_fill(0, 8, ''));
 checkSame('pairsFlaw: a name and a password handed to a check of keys', (new Checker(Array('sessby'=>'hbasic', 'authby'=>'regkey'), fakeReqst()))->pairsFlaw(), 'the credential check "regkey" cannot check what the carrier "hbasic" hands it');
+checkSame('pairsFlaw: a name and a password handed to the check of the device tokens', (new Checker(Array('sessby'=>'hbasic', 'authby'=>'device'), fakeReqst()))->pairsFlaw(), 'the credential check "device" cannot check what the carrier "hbasic" hands it');
 checkSame('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('sessby'=>'header', 'authby'=>'htpass'), fakeReqst()))->pairsFlaw(), 'the credential check "htpass" cannot check what the carrier "header" hands it');
 checkSame('pairsFlaw: a carrier left without a check', Array((new Checker(Array('sessby'=>'hbasic'), fakeReqst()))->pairsFlaw(), (new Checker(Array('sessby'=>'header', 'authby'=>''), fakeReqst()))->pairsFlaw()), Array('the carrier "hbasic" needs a credential check (authby)', 'the carrier "header" needs a credential check (authby)'));
 $axsRslt = (new Checker( Array('sessby'=>'hbasic', 'authby'=>'regkey', 'sesscf'=>'testkeys'), fakeReqst(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->verifyAxs();

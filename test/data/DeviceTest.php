@@ -1,18 +1,17 @@
 <?php
 
-// Runs\Shared\DeviceAuth, the device tokens plug-in : tokens checked against the `devices` table of
+// Access\Auth\Device, the check of the device tokens : tokens checked against the `devices` table of
 // the sample SQLite database, each device linked to a user of `users`.
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
-require RUN_DIR.DS.'Shared'.DS.'DeviceAuth.php';
 
 if( !extension_loaded('pdo_sqlite') ){
 	skipCheck('Device', 'pdo_sqlite is not available');
 	endChecks();
 }
 
-use nyu\Runs\Shared\DeviceAuth;
+use nyu\Access\Auth\Device as DeviceAuth;
 
 buildData( inTempDir('device.sqlite') );
 useSqlite( inTempDir('device.sqlite') );
@@ -57,16 +56,23 @@ checkSame('Device the revoked row is kept', intval($sqlLink->query("SELECT COUNT
 checkSame('Device remDevice twice, and on an unknown device', Array($dvcAuth->remDevice(1), $dvcAuth->remDevice(99)), Array(false, false));
 checkSame('Device the other device still passes', $dvcAuth->checkCred(Array('key'=>$homeTkn))['user'] ?? null, 'anna');
 
+// listDevcs : the devices with their user, by user then by name, never a hash
+$dvcAuth->addDevice('ben', 'Laptop', 'app');
+$allDvcs = $dvcAuth->listDevcs();
+checkSame('Device listDevcs lists every device, with its user', array_map(function(Array $deviceRow){ return $deviceRow['userName'].'/'.$deviceRow['name'].'/'.$deviceRow['role']; }, (array)$allDvcs), Array('anna/Home/home', 'anna/Phone/app', 'ben/Laptop/app'));
+checkSame('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array()), Array('id', 'name', 'role', 'last_seen_at', 'revoked_at', 'created_at', 'userName'));
+checkSame('Device listDevcs of one user, of a user without any, of an unknown one', Array(array_column((array)$dvcAuth->listDevcs('ben'), 'name'), $dvcAuth->listDevcs('dave'), $dvcAuth->listDevcs('zed')), Array(Array('Laptop'), Array(), Array()));
+checkSame('Device listDevcs tells the revoked one', array_map(function(Array $deviceRow){ return $deviceRow['revoked_at']!==null; }, (array)$dvcAuth->listDevcs('anna')), Array(false, true));
 // Tables that cannot be used
 $noTable = new DeviceAuth( Array('tblnme'=>'nodevices') );
-checkSame('Device missing table',        runSafely(function() use ($noTable, $homeTkn){ return Array($noTable->checkCred(Array('key'=>$homeTkn)), $noTable->lastError(), $noTable->addDevice('anna', 'Tablet', 'app'), $noTable->remDevice(2)); }), Array(false, 'Credential store unavailable', false, false));
+checkSame('Device missing table',        runSafely(function() use ($noTable, $homeTkn){ return Array($noTable->checkCred(Array('key'=>$homeTkn)), $noTable->lastError(), $noTable->addDevice('anna', 'Tablet', 'app'), $noTable->remDevice(2), $noTable->listDevcs()); }), Array(false, 'Credential store unavailable', false, false, false));
 $badName = new DeviceAuth( Array('usrtbl'=>'users; DROP TABLE users') );
 checkSame('Device unusable table name',  Array($badName->checkCred(Array('key'=>$homeTkn)), $badName->lastError()), Array(false, 'Credential store unavailable'));
 
-// Checker : 'device' is resolved as a plug-in of runs/Shared, and the token travels as "Authorization: Bearer <token>"
+// Checker : 'device' is a check of the framework, needing no plug-in, and the token travels as "Authorization: Bearer <token>"
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('device.sqlite')),
-	'access'=>Array('PLUGIN'=>Array('authby'=>Array('device'), 'sessby'=>Array()), 'TESTDVC'=>Array('stmptm'=>0), 'TESTBEAR'=>Array('header'=>'Authorization', 'scheme'=>'Bearer'))
+	'access'=>Array('TESTDVC'=>Array('stmptm'=>0), 'TESTBEAR'=>Array('header'=>'Authorization', 'scheme'=>'Bearer'))
 ) );
 $dvcConf = Array('needed'=>true, 'sessby'=>'header', 'sesscf'=>'testbear', 'authby'=>'device', 'authcf'=>'testdvc');
 $sqlLink->exec("UPDATE devices SET last_seen_at=NULL");
