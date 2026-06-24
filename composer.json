@@ -28,6 +28,7 @@
         "ext-imagick": "To draw SVG pictures as PNG, JPEG or WebP",
         "ext-exif": "To read what a photo tells: date, camera, position",
         "ext-mbstring": "To read and write PDF documents",
-        "ext-mongodb": "To use MongoDB as a store"
+        "ext-mongodb": "To use MongoDB as a store",
+        "phpmailer/phpmailer": "To send mails with attachments through a phmail mail account"
     }
 }

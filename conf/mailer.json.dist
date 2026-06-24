@@ -1,0 +1,38 @@
+{
+	"nyuRuns": {
+		"type": "native",
+		"host": "smtp.example.com",
+		"port": "587",
+		"user": "mailer@example.com",
+		"pass": "env:NYU_MAIL_PASS",
+		"from": "no-reply@example.com",
+		"name": "nyuRuns",
+		"wait": "10",
+		"fold": "",
+		"copy": ""
+	},
+	"complex": {
+		"type": "phmail",
+		"host": "smtp.example.com",
+		"port": "465",
+		"user": "office@example.com",
+		"pass": "env:NYU_MAIL_CPLX",
+		"from": "office@example.com",
+		"name": "Example office",
+		"wait": "20",
+		"fold": "",
+		"copy": "backup@example.com"
+	},
+	"devbox": {
+		"type": "tofile",
+		"host": "",
+		"port": "",
+		"user": "",
+		"pass": "",
+		"from": "dev@example.com",
+		"name": "nyuRuns (dev)",
+		"wait": "",
+		"fold": "temp/mails",
+		"copy": ""
+	}
+}

@@ -7,5 +7,6 @@
 /.env
 /conf/access.json
 /conf/database.json
+/conf/mailer.json
 /conf/.htpasswd
 /conf/users.lst
