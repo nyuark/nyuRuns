@@ -1,6 +1,6 @@
 {
 	"plugin": { "authby": [], "sessby": [] },
-	"login":  { "authby": "native", "authcf": "native", "sessby": "jtoken", "sesscf": "dftokn" },
+	"login":  { "authby": "usrlst", "authcf": "usrlst", "sessby": "jtoken", "sesscf": "dftokn" },
 	"dfpass": { "htpasswd": "conf/.htpasswd" },
 	"native": { "basnme": "nyuRuns", "tblnme": "users", "idletm": 300, "maxtry": 5, "holdtm": 600, "minlen": 10, "tfakey": "env:NYU_TFA_KEY" },
 	"usrlst": { "usrfle": "conf/users.lst", "tfakey": "env:NYU_TFA_KEY" },

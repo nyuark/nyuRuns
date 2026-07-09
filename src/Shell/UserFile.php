@@ -328,6 +328,41 @@ class UserFile{
 	}
 
 	/**
+	 * Gives every user of the file as it is written, hashes and secrets
+	 * included: for moving the users to another store, never to be shown.
+	 *
+	 * @return Array|Bool The users, or false when the file cannot be used.
+	 */
+	public function readUsers(): Array|Bool {
+		$this->resetLast();
+		$usrList = $this->loadUsers();
+		return ($usrList===null) ? false : $usrList;
+	}
+
+	/**
+	 * Writes users into a file that holds none, as they are given: their
+	 * password hashes, tokens and 2FA secrets are kept. A file that
+	 * already holds users is left as it is.
+	 *
+	 * @param Array $usersArray The users, each with the fields of FLDSLIST it has.
+	 * @return Bool Whether the file was written.
+	 */
+	public function fillUsers( Array $usersArray ): Bool {
+		$this->resetLast();
+		$isSaved = $this->editUsers( null, function( Array $storedList ) use ( $usersArray ): ?Array {
+			if( !empty($storedList) ){
+				$this->refuseFor(409, 'The users file already holds users');
+				return null;
+			}
+			return array_values($usersArray);
+		} );
+		if( $isSaved ){
+			$this->logChange( count($usersArray).' users written from another store' );
+		}
+		return $isSaved;
+	}
+
+	/**
 	 * Tells why the last operation was refused.
 	 *
 	 * @return String The last error message, empty when it was not refused.

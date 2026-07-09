@@ -2,8 +2,12 @@
 
 namespace nyu\Shell\Cmds;
 
+use nyu\Access\Checker;
+use nyu\Access\Totp;
+use nyu\Access\Auth\Device as DeviceAuth;
 use nyu\Access\Auth\Native;
 use nyu\Data\DBCon;
+use nyu\Data\DBHndlr\Handler as DbHandlr;
 use nyu\Shell\Command;
 use nyu\Shell\ConfFile;
 use nyu\Shell\Console;
@@ -18,8 +22,10 @@ use nyu\Shell\UserFile;
  *   php nyuRun deploy start --noask    the same without a question, for a deployment script
  *   php nyuRun deploy servr            checks the server: PHP, extensions, folders
  *   php nyuRun deploy files            creates the local files from their examples
- *   php nyuRun deploy users            creates the users table and the basic users, or the users file
+ *   php nyuRun deploy users            creates the users table and the basic users, or the users file;
+ *                                      the devices table too when conf/access.json has a device block
  *   php nyuRun deploy check            the health check
+ *   php nyuRun deploy store native     moves the users to the other store (native or usrlst), the login with them
  *
  * Nothing that exists is replaced: a local file, a secret, a table or a
  * file that already holds users are left as they are.
@@ -32,6 +38,11 @@ class Deploy extends Command{
 	const USERLIST = Array('member'=>'member', 'system'=>'system', 'managr'=>'manage');
 	// The stores the users can be created in, and 'none' for a project without users of its own
 	const STORLIST = Array('native', 'usrlst', 'none');
+	// The block a store of users is given in conf/access.json when it has none
+	const STORCONF = Array(
+		'native'=>Array('basnme'=>'', 'tblnme'=>'users', 'tfakey'=>'env:NYU_TFA_KEY'),
+		'usrlst'=>Array('usrfle'=>'conf/users.lst', 'tfakey'=>'env:NYU_TFA_KEY')
+	);
 
 	/**
 	 * Tells in one line what the command does.
@@ -52,8 +63,9 @@ class Deploy extends Command{
 			'start'=>Array('args'=>'[--store=<native|usrlst|none>] [--noask]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
 			'servr'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
 			'files'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json and conf/database.json from their examples; none is replaced'),
-			'users'=>Array('args'=>'[block] [--store=<native|usrlst>]', 'about'=>'creates the users table and the basic users (native), or the users file (usrlst)'),
-			'check'=>Array('args'=>'', 'about'=>'health check: presets, access, secrets, databases, users, unsafe settings')
+			'users'=>Array('args'=>'[block] [--store=<native|usrlst>]', 'about'=>'creates the users table and the basic users (native), or the users file (usrlst); the devices table with a device block'),
+			'check'=>Array('args'=>'', 'about'=>'health check: presets, access, secrets, databases, users, unsafe settings'),
+			'store'=>Array('args'=>'<native|usrlst> [--drops] [--agree]', 'about'=>'moves the users to the other store and points the login at it; the store left is kept as it is')
 		);
 	}
 
@@ -148,6 +160,310 @@ class Deploy extends Command{
 	}
 
 	/**
+	 * Moves the users to the other store, the native userbase or the users
+	 * file, and points the login at it. Passwords, roles, statuses,
+	 * personal tokens and 2FA secrets go along, and each user keeps its
+	 * identifier; the store left is not changed, so going back is moving
+	 * the users again, or pointing the login back at it. The store moved to
+	 * must hold no users. What does not go along is told first, and the
+	 * move asked to be confirmed (--agree is the yes given beforehand).
+	 * Active devices need the native userbase: they stop a move to the
+	 * users file, unless --drops lets them go, revoked.
+	 *
+	 * @return Int The exit code.
+	 */
+	public function callStore(): Int {
+		$tgtName = $this->needsWord('the store the users go to: native or usrlst');
+		if( !in_array($tgtName, Array('native', 'usrlst'), true) ){
+			$this->stopShell('Not a store the users can be moved to: '.$tgtName, self::EXITUSGE);
+		}
+		$lgnConf = $this->accessCnf('login');
+		$srcName = strval($lgnConf['authby'] ?? '');
+		if( $srcName==$tgtName ){
+			$this->stopShell('The login already uses '.$tgtName.': nothing to move', self::EXITDENY);
+		}
+		if( !in_array($srcName, Array('native', 'usrlst'), true) ){
+			$this->stopShell('The login uses neither the native userbase nor the users file: there are no users to move', self::EXITDENY);
+		}
+		$srcConf = $this->accessCnf( strval($lgnConf['authcf'] ?? $srcName) );
+		$usrList = ($srcName=='native') ? $this->fromTable($srcConf) : $this->fromFiles($srcConf);
+		if( empty($usrList) ){
+			$this->stopShell('The '.$srcName.' store holds no users: nothing to move', self::EXITDENY);
+		}
+		// The store moved to gets its block, and the native userbase its database, before anything is checked
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
+		$axsPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$treeObj = $wrtrObj->loadJsons($axsPath);
+		if( !isset($treeObj->$tgtName) ){
+			$treeObj->$tgtName = (object)self::STORCONF[$tgtName];
+			$wrtrObj->saveJsons($axsPath, $treeObj);
+		}
+		if( $tgtName=='native' && !$this->optnObjc->hasOption('noask') ){
+			$this->askDbases($wrtrObj);
+		}
+		Console::loadConfg();
+		$tgtConf = $this->accessCnf($tgtName);
+		$this->emptyStor($tgtName, $tgtConf);
+		list($lostLst, $dvcIdns) = $this->lostItems($srcName, $usrList);
+		$usrList = $this->prepUsers($usrList, $srcConf, $tgtConf);
+		$this->prntObjc->printPair('from', $srcName);
+		$this->prntObjc->printPair('to', $tgtName);
+		$this->prntObjc->printPair('users', count($usrList));
+		if( !empty($lostLst) ){
+			$this->prntObjc->printRows( Array('not kept', 'details'), $lostLst );
+		}
+		if( !$this->askAgreed('Move '.count($usrList).' users to '.$tgtName.' and point the login at it?') ){
+			$this->stopShell('Nothing was moved', self::EXITDENY);
+		}
+		if( $tgtName=='native' ){
+			$this->intoTable($tgtConf, $usrList);
+		}else{
+			$this->intoFiles($tgtConf, $usrList);
+		}
+		// Devices left behind would still pass on users the project no longer manages
+		$dvcAuth = new DeviceAuth( $this->accessCnf('device') );
+		foreach( $dvcIdns as $dvcIdn ){
+			$dvcAuth->remDevice($dvcIdn);
+		}
+		// The login is pointed at the store only once every user is in it
+		$treeObj = $wrtrObj->loadJsons($axsPath);
+		if( !isset($treeObj->login) || !is_object($treeObj->login) ){
+			$treeObj->login = new \stdClass();
+		}
+		$treeObj->login->authby = $tgtName;
+		$treeObj->login->authcf = $tgtName;
+		$wrtrObj->saveJsons($axsPath, $treeObj);
+		Console::loadConfg();
+		$this->traceDone('Deploy: '.count($usrList).' users moved from '.$srcName.' to '.$tgtName.( empty($dvcIdns) ? '' : ', '.count($dvcIdns).' devices revoked' ).', the login points at '.$tgtName);
+		$this->prntObjc->printPair('moved', count($usrList));
+		$this->prntObjc->printLine('The login now uses '.$tgtName.'; the '.$srcName.' store is left as it was.');
+		return self::EXITDONE;
+	}
+
+	/**
+	 * Reads every user of the native userbase, hashes and secrets
+	 * included, with its activation code.
+	 *
+	 * @param Array $confValues Config block of the native userbase.
+	 * @return Array The users, by identifier.
+	 *
+	 * @throws ShellStop When the users cannot be read.
+	 */
+	protected function fromTable( Array $confValues ): Array {
+		$tblName = strval($confValues['tblnme'] ?? 'users');
+		try{
+			$dbHandl = DBCon::linkNamed( strval($confValues['basnme'] ?? '') )->getConnex();
+		}catch( \Throwable $e ){
+			$this->stopShell('The users cannot be read: '.$e->getMessage());
+		}
+		if( $dbHandl===null || !preg_match('/^\w+$/D', $tblName) ){
+			$this->stopShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXITDENY);
+		}
+		$fldList = array_map( Array($dbHandl, 'quoteName'), array_merge(UserFile::FLDSLIST, Array('actvCode')) );
+		if( !$dbHandl->sendQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHandl->quoteName($tblName).' ORDER BY '.$dbHandl->quoteName('id_user').';') ){
+			$this->stopShell('The users cannot be read: '.strval($dbHandl->lastError()));
+		}
+		$rowList = $dbHandl->readQuery(true);
+		return is_array($rowList) ? $rowList : Array();
+	}
+
+	/**
+	 * Reads every user of the users file, hashes and secrets included.
+	 *
+	 * @param Array $confValues Config block of the users file.
+	 * @return Array The users, as the file lists them.
+	 *
+	 * @throws ShellStop When the file cannot be used.
+	 */
+	protected function fromFiles( Array $confValues ): Array {
+		$fileObj = new UserFile( $confValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		$usrList = $fileObj->readUsers();
+		if( $usrList===false ){
+			$this->stopShell('The users cannot be read: '.$fileObj->lastError());
+		}
+		return $usrList;
+	}
+
+	/**
+	 * Checks that the store the users go to holds none: a table that
+	 * holds users, or a file that does, is never merged into.
+	 *
+	 * @param String $storeNamed 'native' or 'usrlst'.
+	 * @param Array  $confValues Config block of that store.
+	 *
+	 * @throws ShellStop When the store holds users or cannot be read.
+	 */
+	protected function emptyStor( String $storeNamed, Array $confValues ): Void {
+		if( $storeNamed=='usrlst' ){
+			$usrNmbr = count( $this->fromFiles($confValues) );
+		}else{
+			$tblName = strval($confValues['tblnme'] ?? 'users');
+			try{
+				$dbHandl = DBCon::linkNamed( strval($confValues['basnme'] ?? '') )->getConnex();
+			}catch( \Throwable $e ){
+				$this->stopShell('Nothing was moved: '.$e->getMessage(), self::EXITDENY);
+			}
+			if( $dbHandl===null || !preg_match('/^\w+$/D', $tblName) ){
+				$this->stopShell('Nothing was moved: the native userbase needs an SQL database and a table named with letters and digits', self::EXITDENY);
+			}
+			$usrNmbr = 0;
+			if( $dbHandl->tableInfo($tblName)!==false ){
+				$rowList = $dbHandl->sendQuery('SELECT COUNT(*) AS '.$dbHandl->quoteName('usrCount').' FROM '.$dbHandl->quoteName($tblName).';') ? $dbHandl->readQuery(true) : false;
+				if( !is_array($rowList) ){
+					$this->stopShell('Nothing was moved: the users table cannot be read: '.strval($dbHandl->lastError()));
+				}
+				$usrNmbr = intval($rowList[0]['usrCount'] ?? 0);
+			}
+		}
+		if( $usrNmbr>0 ){
+			$this->stopShell('Nothing was moved: the '.$storeNamed.' store already holds users', self::EXITDENY);
+		}
+	}
+
+	/**
+	 * Lists what does not go along when the users leave the native
+	 * userbase for the users file, which is only read: activation codes,
+	 * presence and the step of the last 2FA code. Active devices stop the
+	 * move, unless --drops lets them go.
+	 *
+	 * @param String $sourceName The store the users leave.
+	 * @param Array  $usersArray The users, as that store holds them.
+	 * @return Array The rows of what is not kept, and the identifiers of the devices to revoke.
+	 *
+	 * @throws ShellStop When active devices are found without --drops.
+	 */
+	protected function lostItems( String $sourceName, Array $usersArray ): Array {
+		if( $sourceName!='native' ){
+			return Array( Array(), Array() );
+		}
+		$lostLst = Array();
+		$pendLst = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
+			return ($userValues['userStat'] ?? '')=='pendng' && strval($userValues['actvCode'] ?? '')!=='';
+		}), 'userName' );
+		if( !empty($pendLst) ){
+			$lostLst[] = Array('activation codes', implode(', ', $pendLst).': pending until made active, or given a password, with manage');
+		}
+		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
+		$dvcConf = $this->accessCnf('device');
+		$dvcRows = empty($dvcConf) ? Array() : (new DeviceAuth($dvcConf))->listDevcs();
+		$dvcIdns = Array();
+		$dvcNmes = Array();
+		foreach( is_array($dvcRows) ? $dvcRows : Array() as $dvcRow ){
+			if( $dvcRow['revkDate']===null ){
+				$dvcIdns[] = intval($dvcRow['id_device']);
+				$dvcNmes[] = $dvcRow['userName'].'/'.$dvcRow['devcName'];
+			}
+		}
+		if( !empty($dvcIdns) ){
+			if( !$this->optnObjc->hasOption('drops') ){
+				$this->stopShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $dvcNmes).'); --drops revokes them', self::EXITDENY);
+			}
+			$lostLst[] = Array('devices', implode(', ', $dvcNmes).': revoked');
+		}
+		return Array( $lostLst, $dvcIdns );
+	}
+
+	/**
+	 * Gives the users as the store they go to takes them: the fields both
+	 * stores have, the role and status a users file leaves out, an
+	 * identifier for a user without one, and the 2FA secrets encrypted
+	 * with the key of that store when it is not the same.
+	 *
+	 * @param Array $usersArray The users, as the store they leave holds them.
+	 * @param Array $sourceConf Config block of the store they leave.
+	 * @param Array $targetConf Config block of the store they go to.
+	 * @return Array The users to write.
+	 *
+	 * @throws ShellStop When a user has no password hash, or a 2FA secret that cannot be read.
+	 */
+	protected function prepUsers( Array $usersArray, Array $sourceConf, Array $targetConf ): Array {
+		$srcSeal = strval($sourceConf['tfakey'] ?? '');
+		$tgtSeal = strval($targetConf['tfakey'] ?? '');
+		$lastIdn = max( array_merge(Array(0), array_map('intval', array_column($usersArray, 'id_user'))) );
+		$nopsLst = Array();
+		$readyLs = Array();
+		foreach( $usersArray as $usrRow ){
+			$newRow = Array();
+			foreach( UserFile::FLDSLIST as $fldNme ){
+				if( isset($usrRow[$fldNme]) && $usrRow[$fldNme]!=='' ){
+					$newRow[$fldNme] = $usrRow[$fldNme];
+				}
+			}
+			if( strval($newRow['passHash'] ?? '')==='' ){
+				$nopsLst[] = strval($usrRow['userName'] ?? '');
+				continue;
+			}
+			$newRow['id_user'] = (intval($newRow['id_user'] ?? 0)>0) ? intval($newRow['id_user']) : ++$lastIdn;
+			$newRow['userRole'] = $newRow['userRole'] ?? Checker::ROLELIST[0];
+			$newRow['userStat'] = $newRow['userStat'] ?? 'active';
+			if( isset($newRow['twoFaKey']) && $srcSeal!==$tgtSeal ){
+				$plainTx = Totp::openSecrt( strval($newRow['twoFaKey']), $srcSeal );
+				if( $plainTx===null ){
+					$this->stopShell('Nothing was moved: the 2FA secret of user '.json_encode($newRow['userName']).' cannot be read with the key of its store', self::EXITDENY);
+				}
+				$newRow['twoFaKey'] = Totp::sealSecrt($plainTx, $tgtSeal);
+			}
+			$readyLs[] = $newRow;
+		}
+		if( !empty($nopsLst) ){
+			$this->stopShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsLst).'); give them a password with manage first', self::EXITDENY);
+		}
+		return $readyLs;
+	}
+
+	/**
+	 * Writes the users into the native userbase, its table created first
+	 * when it is missing, all of them or none.
+	 *
+	 * @param Array $confValues Config block of the native userbase.
+	 * @param Array $usersArray The users to write.
+	 *
+	 * @throws ShellStop When the table cannot be created or written.
+	 */
+	protected function intoTable( Array $confValues, Array $usersArray ): Void {
+		try{
+			$dbHandl = $this->needTable($confValues);
+			$baseTyp = strval(DBCon::baseSetup( strval($confValues['basnme'] ?? '') )['type']);
+		}catch( ShellStop $e ){
+			throw $e;
+		}catch( \Throwable $e ){
+			$this->stopShell('Nothing was moved: '.$e->getMessage());
+		}
+		$qtdTble = $dbHandl->quoteName( strval($confValues['tblnme'] ?? 'users') );
+		$dbHandl->opnTrnsct();
+		foreach( $usersArray as $usrRow ){
+			$addQury = 'INSERT INTO '.$qtdTble.' ('.implode(', ', array_map(Array($dbHandl, 'quoteName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
+			if( !$dbHandl->sendQuery($addQury, true, array_values($usrRow)) ){
+				$errText = strval($dbHandl->lastError());
+				$dbHandl->remTrnsct();
+				$this->stopShell('Nothing was moved: user '.json_encode($usrRow['userName']).' cannot be written: '.$errText);
+			}
+		}
+		// The identifiers were given : PostgreSQL is told to count on from the highest
+		if( $baseTyp=='pgsql' && !$dbHandl->sendQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHandl->quoteName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
+			$errText = strval($dbHandl->lastError());
+			$dbHandl->remTrnsct();
+			$this->stopShell('Nothing was moved: the identifiers cannot be set: '.$errText);
+		}
+		$dbHandl->setTrnsct();
+	}
+
+	/**
+	 * Writes the users into the users file, which must hold none.
+	 *
+	 * @param Array $confValues Config block of the users file.
+	 * @param Array $usersArray The users to write.
+	 *
+	 * @throws ShellStop When the file cannot be written.
+	 */
+	protected function intoFiles( Array $confValues, Array $usersArray ): Void {
+		$fileObj = new UserFile( $confValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		if( !$fileObj->fillUsers($usersArray) ){
+			$this->stopShell('Nothing was moved: '.$fileObj->lastError());
+		}
+	}
+
+	/**
 	 * Runs the health check and writes its rows.
 	 *
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
@@ -228,7 +544,7 @@ class Deploy extends Command{
 			$treeObj->login->authby = $storNme;
 			$treeObj->login->authcf = $storNme;
 			if( !isset($treeObj->$storNme) ){
-				$treeObj->$storNme = ($storNme=='native') ? (object)Array('basnme'=>'', 'tblnme'=>'users', 'tfakey'=>'env:NYU_TFA_KEY') : (object)Array('usrfle'=>'conf/users.lst', 'tfakey'=>'env:NYU_TFA_KEY');
+				$treeObj->$storNme = (object)self::STORCONF[$storNme];
 			}
 			$wrtrObj->saveJsons($axsPath, $treeObj);
 		}
@@ -332,6 +648,7 @@ class Deploy extends Command{
 				$this->stopShell('No user created: '.$e->getMessage(), self::EXITFAIL);
 			}
 			if( empty($passLst) ){
+				$this->tableDevc();
 				return;
 			}
 		}
@@ -340,6 +657,52 @@ class Deploy extends Command{
 		foreach( self::USERLIST as $usrNme => $usrRle ){
 			$this->prntObjc->printOnce('Password of '.$usrNme.' ('.$usrRle.')', $passLst[$usrNme]);
 		}
+		// The devices come after the passwords : a table that cannot be made does not hide them
+		if( $storeNamed=='native' ){
+			$this->tableDevc();
+		}
+	}
+
+	/**
+	 * Creates the devices table when conf/access.json holds a device block
+	 * and the table is missing, from the devices.<type>.sql file of
+	 * conf/schema, linked to the users table the block names. A project
+	 * without a device block gets no devices table.
+	 *
+	 * @throws ShellStop When the table cannot be created.
+	 */
+	protected function tableDevc(): Void {
+		$dvcConf = $this->accessCnf('device');
+		if( empty($dvcConf) ){
+			return;
+		}
+		$tblName = strval($dvcConf['tblnme'] ?? 'devices');
+		$usrTble = strval($dvcConf['usrtbl'] ?? 'users');
+		try{
+			$baseNme = strval($dvcConf['basnme'] ?? '');
+			$baseTyp = strval(DBCon::baseSetup($baseNme)['type']);
+			$dbHandl = DBCon::linkNamed($baseNme)->getConnex();
+		}catch( \Throwable $e ){
+			$this->stopShell('No devices table created: '.$e->getMessage(), self::EXITFAIL);
+		}
+		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.'.$baseTyp.'.sql';
+		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !preg_match('/^\w+$/D', $usrTble) || !is_file($sqlFile) ){
+			$this->stopShell('No devices table created: there is no devices schema for a database of type "'.$baseTyp.'"', self::EXITDENY);
+		}
+		if( $dbHandl===null ){
+			$this->stopShell('No devices table created: the devices need an SQL database', self::EXITDENY);
+		}
+		if( $dbHandl->tableInfo($tblName)!==false ){
+			return;
+		}
+		// The schema names its tables 'devices' and 'users' : they are given the configured names
+		$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHandl->quoteName($tblName), strval(file_get_contents($sqlFile)), 1);
+		$makeSql = preg_replace('/REFERENCES \S+/', 'REFERENCES '.$dbHandl->quoteName($usrTble), strval($makeSql), 1);
+		if( !$dbHandl->sendQuery(strval($makeSql), true) ){
+			$this->stopShell('No devices table created: '.strval($dbHandl->lastError()));
+		}
+		$this->prntObjc->printLine('Table '.$tblName.' created.');
+		$this->traceDone('Deploy: devices table '.$tblName.' created');
 	}
 
 	/**
@@ -354,27 +717,9 @@ class Deploy extends Command{
 	 * @throws \RuntimeException When the database is not configured or does not answer.
 	 */
 	protected function tableUser( Array $confValues ): Array {
-		$baseNme = strval($confValues['basnme'] ?? '');
 		$tblName = strval($confValues['tblnme'] ?? 'users');
-		$baseTyp = strval(DBCon::baseSetup($baseNme)['type']);
-		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseTyp.'.sql';
-		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !is_file($sqlFile) ){
-			$this->stopShell('No user created: there is no users schema for a database of type "'.$baseTyp.'"', self::EXITDENY);
-		}
-		$dbHandl = DBCon::linkNamed($baseNme)->getConnex();
-		if( $dbHandl===null ){
-			$this->stopShell('No user created: the native userbase needs an SQL database', self::EXITDENY);
-		}
+		$dbHandl = $this->needTable($confValues);
 		$qtdTble = $dbHandl->quoteName($tblName);
-		if( $dbHandl->tableInfo($tblName)===false ){
-			// The schema names its table 'users' : it is given the configured name
-			$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$qtdTble, strval(file_get_contents($sqlFile)), 1);
-			if( !$dbHandl->sendQuery(strval($makeSql), true) ){
-				$this->stopShell('No user created: the table cannot be created: '.strval($dbHandl->lastError()));
-			}
-			$this->prntObjc->printLine('Table '.$tblName.' created.');
-			$this->traceDone('Deploy: users table '.$tblName.' created');
-		}
 		$rowList = $dbHandl->sendQuery('SELECT COUNT(*) AS '.$dbHandl->quoteName('usrCount').' FROM '.$qtdTble.';') ? $dbHandl->readQuery(true) : false;
 		if( !is_array($rowList) ){
 			$this->stopShell('No user created: the table cannot be read: '.strval($dbHandl->lastError()));
@@ -398,5 +743,39 @@ class Deploy extends Command{
 		}
 		$dbHandl->setTrnsct();
 		return $passLst;
+	}
+
+	/**
+	 * Gives the database of the native userbase, its users table created
+	 * from the users.<type>.sql file of conf/schema when it is missing.
+	 *
+	 * @param Array $confValues Config block of the native userbase.
+	 * @return DbHandlr The handler of that database.
+	 *
+	 * @throws ShellStop When there is no schema for the database, or the table cannot be created.
+	 * @throws \RuntimeException When the database is not configured or does not answer.
+	 */
+	protected function needTable( Array $confValues ): DbHandlr {
+		$baseNme = strval($confValues['basnme'] ?? '');
+		$tblName = strval($confValues['tblnme'] ?? 'users');
+		$baseTyp = strval(DBCon::baseSetup($baseNme)['type']);
+		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseTyp.'.sql';
+		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !is_file($sqlFile) ){
+			$this->stopShell('No users table: there is no users schema for a database of type "'.$baseTyp.'"', self::EXITDENY);
+		}
+		$dbHandl = DBCon::linkNamed($baseNme)->getConnex();
+		if( $dbHandl===null ){
+			$this->stopShell('No users table: the native userbase needs an SQL database', self::EXITDENY);
+		}
+		if( $dbHandl->tableInfo($tblName)===false ){
+			// The schema names its table 'users' : it is given the configured name
+			$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHandl->quoteName($tblName), strval(file_get_contents($sqlFile)), 1);
+			if( !$dbHandl->sendQuery(strval($makeSql), true) ){
+				$this->stopShell('No users table: it cannot be created: '.strval($dbHandl->lastError()));
+			}
+			$this->prntObjc->printLine('Table '.$tblName.' created.');
+			$this->traceDone('Deploy: users table '.$tblName.' created');
+		}
+		return $dbHandl;
 	}
 }

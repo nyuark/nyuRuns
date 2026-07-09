@@ -16,7 +16,7 @@
 //   user 3  cleo   member  pendng
 //   user 4  dave   system  locked
 //
-// and an empty `devices` table, each device being linked to a user.
+// and an empty `devices` table (conf/schema/devices.sqlte.sql), each device linked to a user.
 
 /**
  * Creates the sample SQLite database, replacing any previous file.
@@ -40,7 +40,8 @@ function buildData( String $sqliteFile ): Void {
 		// Passwords are pw-<name>, hashed at the lowest cost to keep the tests fast
 		$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 	}
-	$pdoLink->exec("CREATE TABLE devices (id INTEGER PRIMARY KEY, name TEXT, role TEXT, token_hash TEXT UNIQUE, user_id INTEGER, last_seen_at TEXT, revoked_at TEXT, created_at TEXT)");
+	// The devices table is the one the framework delivers
+	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/devices.sqlte.sql')) );
 	$usrStmt = null;
 	$pdoLink = null;
 }

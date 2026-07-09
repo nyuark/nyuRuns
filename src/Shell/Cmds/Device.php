@@ -87,7 +87,7 @@ class Device extends Command{
 		}
 		$rowList = Array();
 		foreach( $dvcRows as $dvcRow ){
-			$rowList[] = Array(strval($dvcRow['name']), strval($dvcRow['userName']), strval($dvcRow['role']), strval($dvcRow['created_at']), strval($dvcRow['last_seen_at'] ?? ''), strval($dvcRow['revoked_at'] ?? ''));
+			$rowList[] = Array(strval($dvcRow['devcName']), strval($dvcRow['userName']), strval($dvcRow['devcRole']), strval($dvcRow['madeDate']), strval($dvcRow['lastSeen'] ?? ''), strval($dvcRow['revkDate'] ?? ''));
 		}
 		$this->prntObjc->printRows( Array('device', 'user', 'role', 'made', 'last seen', 'revoked'), $rowList );
 		return self::EXITDONE;
@@ -139,8 +139,8 @@ class Device extends Command{
 			$this->stopShell('The devices cannot be read');
 		}
 		foreach( $dvcRows as $dvcRow ){
-			if( $dvcRow['name']===$deviceName && $dvcRow['revoked_at']===null ){
-				return intval($dvcRow['id']);
+			if( $dvcRow['devcName']===$deviceName && $dvcRow['revkDate']===null ){
+				return intval($dvcRow['id_device']);
 			}
 		}
 		return null;

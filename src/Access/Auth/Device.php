@@ -9,7 +9,7 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  * Credential check of the device tokens, used as "authby": "device".
  * Verifies a device token against a table of devices, each linked to a
  * user of the native userbase: the SHA-256 hash of the token must be the
- * token_hash of a device that is not revoked, and its user must be
+ * tokenKey of a device that is not revoked, and its user must be
  * 'active'. Also stamps the time each device was last seen. A device is
  * given a token, listed and revoked from the command line (php nyuRun
  * device), or by an application of its own.
@@ -60,15 +60,15 @@ class Device implements Handler{
 			return false;
 		}
 		// A revoked device, or one whose user is not active, is answered like an unknown token
-		if( $dvcVals===null || ($dvcVals['revoked_at'] ?? null)!==null || ($dvcVals['userStat'] ?? '')!=='active' ){
+		if( $dvcVals===null || ($dvcVals['revkDate'] ?? null)!==null || ($dvcVals['userStat'] ?? '')!=='active' ){
 			$this->lastMssg = 'Invalid API key';
 			$this->wrongCrd = true;
 			return false;
 		}
-		$this->seenDevc = $dvcVals['id'];
+		$this->seenDevc = $dvcVals['id_device'];
 		return Array(
 			'user'=>$dvcVals['userName'], 'role'=>strval($dvcVals['userRole'] ?? ''), 'id'=>$dvcVals['id_user'] ?? null,
-			'device'=>Array('id'=>$dvcVals['id'], 'name'=>$dvcVals['name'], 'role'=>$dvcVals['role'])
+			'device'=>Array('id'=>$dvcVals['id_device'], 'name'=>$dvcVals['devcName'], 'role'=>$dvcVals['devcRole'])
 		);
 	}
 
@@ -86,10 +86,10 @@ class Device implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
-			$seenFld = $dbHandl->quoteName('last_seen_at');
+			$seenFld = $dbHandl->quoteName('lastSeen');
 			$nowTime = time();
 			$updQury = 'UPDATE '.$dbHandl->quoteName($this->dvcTable)." SET $seenFld='".date('Y-m-d H:i:s', $nowTime)."'"
-				.' WHERE '.$dbHandl->quoteName('id')."=? AND ($seenFld IS NULL OR $seenFld<='".date('Y-m-d H:i:s', $nowTime - $this->stmpSecs)."');";
+				.' WHERE '.$dbHandl->quoteName('id_device')."=? AND ($seenFld IS NULL OR $seenFld<='".date('Y-m-d H:i:s', $nowTime - $this->stmpSecs)."');";
 			return $dbHandl->sendQuery($updQury, true, Array($this->seenDevc)) && $dbHandl->lastCount()>0;
 		}catch( \Throwable $e ){
 			return false;
@@ -111,7 +111,7 @@ class Device implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
-			$fldList = array_map( Array($dbHandl, 'quoteName'), Array('name', 'role', 'token_hash', 'user_id') );
+			$fldList = array_map( Array($dbHandl, 'quoteName'), Array('devcName', 'devcRole', 'tokenKey', 'user_id') );
 			$newTokn = bin2hex(random_bytes(32));
 			$addQury = 'INSERT INTO '.$dbHandl->quoteName($this->dvcTable).' ('.implode(', ', $fldList).')'
 				.' SELECT ?, ?, ?, '.$dbHandl->quoteName('id_user').' FROM '.$dbHandl->quoteName($this->usrTable)
@@ -136,9 +136,9 @@ class Device implements Handler{
 		}
 		try{
 			$dbHandl = $this->linkDBase();
-			$revkFld = $dbHandl->quoteName('revoked_at');
+			$revkFld = $dbHandl->quoteName('revkDate');
 			$updQury = 'UPDATE '.$dbHandl->quoteName($this->dvcTable)." SET $revkFld='".date('Y-m-d H:i:s')."'"
-				.' WHERE '.$dbHandl->quoteName('id')."=? AND $revkFld IS NULL;";
+				.' WHERE '.$dbHandl->quoteName('id_device')."=? AND $revkFld IS NULL;";
 			return $dbHandl->sendQuery($updQury, true, Array($deviceIdnt)) && $dbHandl->lastCount()>0;
 		}catch( \Throwable $e ){
 			return false;
@@ -150,7 +150,7 @@ class Device implements Handler{
 	 * or all of them. The hash of a token is never given.
 	 *
 	 * @param String $userString Login name of the user, '' for the devices of every user.
-	 * @return Array|Bool The devices, by user then by name: 'id', 'name', 'role', 'userName', 'last_seen_at', 'revoked_at' and 'created_at'; false when the tables cannot be read.
+	 * @return Array|Bool The devices, by user then by name: 'id_device', 'devcName', 'devcRole', 'lastSeen', 'revkDate', 'madeDate' and 'userName'; false when the tables cannot be read.
 	 */
 	public function listDevcs( String $userString='' ): Array|Bool {
 		if( $this->dvcTable=='' || $this->usrTable=='' ){
@@ -159,7 +159,7 @@ class Device implements Handler{
 		try{
 			$dbHandl = $this->linkDBase();
 			$fldList = Array();
-			foreach( Array('id', 'name', 'role', 'last_seen_at', 'revoked_at', 'created_at') as $fldNme ){
+			foreach( Array('id_device', 'devcName', 'devcRole', 'lastSeen', 'revkDate', 'madeDate') as $fldNme ){
 				$fldList[] = $dbHandl->quoteName($this->dvcTable.'.'.$fldNme);
 			}
 			$fldList[] = $dbHandl->quoteName($this->usrTable.'.userName');
@@ -168,7 +168,7 @@ class Device implements Handler{
 				.' INNER JOIN '.$dbHandl->quoteName($this->usrTable)
 				.' ON '.$dbHandl->quoteName($this->usrTable.'.id_user').'='.$dbHandl->quoteName($this->dvcTable.'.user_id')
 				.(($userString!=='') ? ' WHERE '.$usrName.'=?' : '')
-				.' ORDER BY '.$usrName.', '.$dbHandl->quoteName($this->dvcTable.'.name').', '.$dbHandl->quoteName($this->dvcTable.'.id').';';
+				.' ORDER BY '.$usrName.', '.$dbHandl->quoteName($this->dvcTable.'.devcName').', '.$dbHandl->quoteName($this->dvcTable.'.id_device').';';
 			if( !$dbHandl->sendQuery($lstQury, false, ($userString!=='') ? Array($userString) : Array()) ){
 				return false;
 			}
@@ -192,7 +192,7 @@ class Device implements Handler{
 		try{
 			$dbHandl = $this->linkDBase();
 			$fldList = Array();
-			foreach( Array('id', 'name', 'role', 'revoked_at') as $fldNme ){
+			foreach( Array('id_device', 'devcName', 'devcRole', 'revkDate') as $fldNme ){
 				$fldList[] = $dbHandl->quoteName($this->dvcTable.'.'.$fldNme);
 			}
 			foreach( Array('id_user', 'userName', 'userRole', 'userStat') as $fldNme ){
@@ -201,7 +201,7 @@ class Device implements Handler{
 			$dvcQury = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHandl->quoteName($this->dvcTable)
 				.' INNER JOIN '.$dbHandl->quoteName($this->usrTable)
 				.' ON '.$dbHandl->quoteName($this->usrTable.'.id_user').'='.$dbHandl->quoteName($this->dvcTable.'.user_id')
-				.' WHERE '.$dbHandl->quoteName($this->dvcTable.'.token_hash').'=? LIMIT 1;';
+				.' WHERE '.$dbHandl->quoteName($this->dvcTable.'.tokenKey').'=? LIMIT 1;';
 			if( !$dbHandl->sendQuery($dvcQury, false, Array($hashedTokn)) ){
 				return false;
 			}

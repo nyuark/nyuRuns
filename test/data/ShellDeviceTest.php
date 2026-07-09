@@ -23,7 +23,7 @@ $projDir = makeProjt('device', Array(
 // Tokens
 $jsnVals = jsonShell($projDir, Array('device', 'token', 'Home', 'anna', 'home'));
 $homeTkn = strval($jsnVals['secret']['Token of Home'] ?? '');
-checkSame('token gives a device a token, shown once, only its hash stored', Array($jsnVals['token made'] ?? null, strlen($homeTkn), $sqlLink->query("SELECT name, role, token_hash, user_id FROM devices")->fetchAll(PDO::FETCH_NUM)), Array('Home', 64, Array(Array('Home', 'home', hash('sha256', $homeTkn), 1))));
+checkSame('token gives a device a token, shown once, only its hash stored', Array($jsnVals['token made'] ?? null, strlen($homeTkn), $sqlLink->query("SELECT devcName, devcRole, tokenKey, user_id FROM devices")->fetchAll(PDO::FETCH_NUM)), Array('Home', 64, Array(Array('Home', 'home', hash('sha256', $homeTkn), 1))));
 checkSame('token: a name the user already gives a device, another user giving the same name', Array(runShell($projDir, Array('device', 'token', 'Home', 'anna', 'home'))['code'], strlen(strval(jsonShell($projDir, Array('device', 'token', 'Home', 'ben', 'app'))['secret']['Token of Home'] ?? ''))), Array(3, 64));
 checkSame('token: a pending, a locked, an unknown user', Array(runShell($projDir, Array('device', 'token', 'Tab', 'cleo', 'app'))['code'], runShell($projDir, Array('device', 'token', 'Tab', 'dave', 'app'))['code'], runShell($projDir, Array('device', 'token', 'Tab', 'zed', 'app'))['code']), Array(1, 1, 1));
 checkSame('token: a role that is not a word of 8 characters at most, a missing word', Array(runShell($projDir, Array('device', 'token', 'Tab', 'anna', 'Home Box'))['code'], runShell($projDir, Array('device', 'token', 'Tab', 'anna', 'aboxtoolong'))['code'], runShell($projDir, Array('device', 'token', 'Tab', 'anna'))['code']), Array(2, 2, 2));
@@ -34,7 +34,7 @@ checkSame('lists those of one user', array_column(jsonShell($projDir, Array('dev
 checkSame('lists never shows a token', strpos(runShell($projDir, Array('device', 'lists'))['text'], hash('sha256', $homeTkn)), false);
 
 // Revoking
-checkSame('revok revokes the device of that name of that user only', Array(runShell($projDir, Array('device', 'revok', 'Home', 'anna'))['code'], $sqlLink->query("SELECT user_id FROM devices WHERE revoked_at IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN)), Array(0, Array(1)));
+checkSame('revok revokes the device of that name of that user only', Array(runShell($projDir, Array('device', 'revok', 'Home', 'anna'))['code'], $sqlLink->query("SELECT user_id FROM devices WHERE revkDate IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN)), Array(0, Array(1)));
 checkLike('revok: kept in the list, with the time of its revocation', strval(jsonShell($projDir, Array('device', 'lists', 'anna'))['rows'][0]['revoked'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
 checkSame('revok: twice, an unknown device, a missing word', Array(runShell($projDir, Array('device', 'revok', 'Home', 'anna'))['code'], runShell($projDir, Array('device', 'revok', 'Robot', 'anna'))['code'], runShell($projDir, Array('device', 'revok', 'Home'))['code']), Array(3, 3, 2));
 checkSame('token: once revoked, the name can be given again', strlen(strval(jsonShell($projDir, Array('device', 'token', 'Home', 'anna', 'home'))['secret']['Token of Home'] ?? '')), 64);

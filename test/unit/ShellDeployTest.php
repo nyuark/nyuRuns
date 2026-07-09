@@ -50,8 +50,8 @@ checkSame('a local file that exists is kept', Array(array_column(jsonShell($proj
 // check, before anything is set
 $jsnVals = jsonShell($projDir, Array('deploy', 'check'));
 $statLst = stateOf($jsnVals);
-checkSame('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset dfault'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst['secret dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys dfkeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=3),
-	Array(4, 'fine', 'fine', 'fine', 'fail', 'fail', 'fail', 'warn', 'fine', true));
+checkSame('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset dfault'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst['secret dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys dfkeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
+	Array(4, 'fine', 'fine', 'fine', 'fail', 'fine', 'fail', 'warn', 'fine', true));
 
 // start, without a question
 $jsnVals = jsonShell($projDir, Array('deploy', 'start', '--noask', '--store=usrlst'));
@@ -72,7 +72,7 @@ checkSame('users alone: a store that holds users is left as it is; a store that 
 // start, with its questions
 $projDir = freshPrjt('asked');
 $runVals = runShell($projDir, Array('deploy', 'start', '--quiet'), "\n\n");
-checkSame('each question proposes a default, taken on Enter', Array($runVals['errs'], strpos(strval(readInPrj($projDir, 'conf/system.ini')), 'ENV_NAME = DEV')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (native, usrlst, none) [native]: No user created: No database is configured'."\n", true, false));
+checkSame('each question proposes a default, taken on Enter: the users file, which needs no database', Array($runVals['errs'], strpos(strval(readInPrj($projDir, 'conf/system.ini')), 'ENV_NAME = DEV')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (native, usrlst, none) [usrlst]: ', true, true));
 $projDir = freshPrjt('answer');
 $jsnVals = jsonShell($projDir, Array('deploy', 'start'), "prod\nusrlst\n");
 $statLst = stateOf($jsnVals);

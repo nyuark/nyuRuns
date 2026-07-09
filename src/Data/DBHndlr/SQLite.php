@@ -8,7 +8,9 @@ namespace nyu\Data\DBHndlr;
 Class SQLite extends PDO {
 
 	/**
-	 * Opens the SQLite file given as the database name.
+	 * Opens the SQLite file given as the database name. The foreign keys
+	 * are turned on, as the other databases have them: SQLite leaves them
+	 * off for each new connection.
 	 *
 	 * @param String $serverHost Unused: SQLite has no server.
 	 * @param String $serverUser Unused.
@@ -18,6 +20,7 @@ Class SQLite extends PDO {
 	 */
 	public function openDBase(String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array()): Void {
 		$this->dbDriver = new \PDO('sqlite:'.$this->locateFle($serverBase), null, null, $this->pdoOption($moreParams));
+		$this->dbDriver->exec('PRAGMA foreign_keys = ON;');
 	}
 
 	/**

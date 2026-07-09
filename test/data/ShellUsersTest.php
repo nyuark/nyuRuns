@@ -83,13 +83,23 @@ $projDir = makeProjt('install', Array(
 	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
 	'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }'
 ));
-$runVals = runShell($projDir, Array('deploy', 'start', '--shape=json'), "\n\n\n\n");
+$runVals = runShell($projDir, Array('deploy', 'start', '--shape=json'), "\nnative\n\n\n");
 $jsnVals = json_decode($runVals['text'], true);
 $hashLst = (new PDO('sqlite:'.$newBase))->query('SELECT userName, passHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
-checkSame('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (native, usrlst, none) [native]: Database type (mysql, pgsql, sqlte) [sqlte]: Database file ['.$newBase.']: ');
+checkSame('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (native, usrlst, none) [usrlst]: Database type (mysql, pgsql, sqlte) [sqlte]: Database file ['.$newBase.']: ');
 checkSame('the users table is created with the basic users, their passwords shown once', Array($jsnVals['exit'] ?? null, $jsnVals['fail'] ?? null, array_column(jsonShell($projDir, Array('manage', 'lists'))['rows'] ?? Array(), 'userRole', 'userName'), password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $hashLst['managr'] ?? ''), password_verify($jsnVals['secret']['Password of system (system)'] ?? '', $hashLst['system'] ?? '')), Array(0, 0, Array('managr'=>'manage', 'member'=>'member', 'system'=>'system'), true, true));
 checkSame('the check finds the database and the users', array_intersect_key(array_column($jsnVals['rows'] ?? Array(), 'state', 'check'), Array('database nyuruns'=>1, 'users'=>1, 'secret dftokn'=>1)), Array('secret dftokn'=>'fine', 'database nyuruns'=>'fine', 'users'=>'fine'));
 checkSame('users alone: a table that holds users is left as it is', Array(runShell($projDir, Array('deploy', 'users'))['text'], count((new PDO('sqlite:'.$newBase))->query('SELECT userName FROM users')->fetchAll())), Array("The table users already holds users: nothing was changed.\n", 3));
+// The devices table, only when the access config holds a device block
+$dvcQury = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='devices'";
+checkSame('without a device block, no devices table', intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), 0);
+putInProj($projDir, 'conf/schema/devices.sqlte.sql', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.sqlte.sql')));
+$axsVals = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true);
+$axsVals['device'] = Array('basnme'=>'nyuRuns', 'tblnme'=>'devices', 'usrtbl'=>'users', 'stmptm'=>60);
+putInProj($projDir, 'conf/access.json', json_encode($axsVals, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+checkSame('with a device block, users creates the devices table, linked to the users', Array(runShell($projDir, Array('deploy', 'users'))['text'], intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), (new PDO('sqlite:'.$newBase))->query("SELECT \"table\", \"from\", \"to\", on_delete FROM pragma_foreign_key_list('devices')")->fetchAll(PDO::FETCH_NUM)), Array("The table users already holds users: nothing was changed.\nTable devices created.\n", 1, Array(Array('users', 'user_id', 'id_user', 'CASCADE'))));
+checkSame('a devices table that exists is left as it is', runShell($projDir, Array('deploy', 'users'))['text'], "The table users already holds users: nothing was changed.\n");
+(new PDO('sqlite:'.$newBase))->exec('DROP TABLE devices');
 unlink($projDir.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql');
 (new PDO('sqlite:'.$newBase))->exec('DROP TABLE users');
 $jsnVals = jsonShell($projDir, Array('deploy', 'check'));
