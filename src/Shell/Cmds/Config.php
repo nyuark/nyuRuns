@@ -36,6 +36,8 @@ class Config extends Command{
 
 	// The config files that are read and written, by the name they are asked under
 	const TRGTLIST = Array('system'=>'conf/system.ini', 'access'=>'conf/access.json', 'dbases'=>'conf/database.json');
+	// Size of the RSA keys made for the tokens, in bits
+	const KEYSBITS = 4096;
 	// Keys whose value is not shown, unless it only names where the secret is (env:NAME)
 	const SECRLIST = Array('secret', 'pass', 'passwd', 'keylst', 'tfakey');
 	// What the keys of system.ini that are checked may hold
@@ -335,6 +337,10 @@ class Config extends Command{
 		if( $secretKind=='jtoken' ){
 			$labelTx = 'Secret of the tokens';
 			$blkName = $blkName ?: strval($treeObj->login->sesscf ?? 'dftokn');
+			// With RS256 the tokens are signed by a key pair, not a secret
+			if( isset($treeObj->$blkName) && is_object($treeObj->$blkName) && strval($treeObj->$blkName->algrtm ?? '')=='RS256' ){
+				return $this->makePairs($blkName, $onlyIfVoid);
+			}
 			$rawValu = $treeObj->$blkName->secret ?? null;
 			$newScrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}elseif( $secretKind=='tfakey' ){
@@ -386,6 +392,74 @@ class Config extends Command{
 		if( $secretKind=='apikey' || $this->optnObjc->hasOption('shown') ){
 			$this->prntObjc->printOnce($labelTx, $newScrt);
 		}
+		return true;
+	}
+
+	/**
+	 * Makes the RSA key pair of a block whose algorithm is RS256: the
+	 * private key signs the tokens, the public key checks them. Both are
+	 * PEM files, in conf/keys under the name of the block unless it names
+	 * others; the private one is readable by its owner only, and no copy of
+	 * a key replaced is kept. The block is given the paths it lacks. A new
+	 * pair ends every token signed with the former one.
+	 *
+	 * @param String $blockNamed Block of conf/access.json.
+	 * @param Bool   $onlyIfVoid Whether keys already there are left as they are, without a question: a public key copied from the server issuing the tokens is one.
+	 * @return Bool Whether a pair was written.
+	 *
+	 * @throws ShellStop When replacing the keys is not confirmed, or they cannot be made or written.
+	 */
+	protected function makePairs( String $blockNamed, Bool $onlyIfVoid ): Bool {
+		$wrtrObj = $this->makeWritr();
+		$filePth = $this->pathOfCnf(self::TRGTLIST['access']);
+		$treeObj = $wrtrObj->loadJsons($filePth);
+		$blkNode = $treeObj->$blockNamed;
+		$prvName = trim(strval($blkNode->prvkey ?? ''), '/\\ ');
+		$pubName = trim(strval($blkNode->pubkey ?? ''), '/\\ ');
+		$prvName = ($prvName!='') ? $prvName : 'conf/keys/'.$blockNamed.'.key';
+		$pubName = ($pubName!='') ? $pubName : 'conf/keys/'.$blockNamed.'.pub';
+		$prvPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $prvName);
+		$pubPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $pubName);
+		$hasKeys = is_file($prvPath) || is_file($pubPath);
+		if( $hasKeys && $onlyIfVoid ){
+			return false;
+		}
+		if( $hasKeys && !$this->askAgreed('Replace the keys of the tokens in use: what was issued with them stops being accepted') ){
+			$this->stopShell('Nothing was written: not confirmed', self::EXITDENY);
+		}
+		if( !function_exists('openssl_pkey_new') ){
+			$this->stopShell('No keys made: the openssl extension is not loaded', self::EXITFAIL);
+		}
+		$cnfOpts = Array('config'=>dirname(__DIR__).DS.'keygen.cnf');
+		$keyObjc = @openssl_pkey_new( Array('private_key_bits'=>self::KEYSBITS, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $cnfOpts );
+		$prvText = '';
+		if( $keyObjc===false || !@openssl_pkey_export($keyObjc, $prvText, null, $cnfOpts) ){
+			$this->stopShell('No keys made: OpenSSL refused: '.strval(openssl_error_string()), self::EXITFAIL);
+		}
+		$pubText = strval(openssl_pkey_get_details($keyObjc)['key'] ?? '');
+		foreach( Array($prvPath=>Array($prvText, 0600), $pubPath=>Array($pubText, 0644)) as $keyFle => $keyDat ){
+			if( !is_dir(dirname($keyFle)) ){
+				@mkdir(dirname($keyFle), 0700, true);
+			}
+			// Written aside, given its rights, then put in place : no copy of the former key is kept
+			$tempPth = $keyFle.'.tmp'.getmypid();
+			if( @file_put_contents($tempPth, $keyDat[0], LOCK_EX)===false ){
+				$this->stopShell('No keys written: '.dirname($keyFle).' cannot be written', self::EXITFAIL);
+			}
+			@chmod($tempPth, $keyDat[1]);
+			if( !@rename($tempPth, $keyFle) ){
+				@unlink($tempPth);
+				$this->stopShell('No keys written: '.basename($keyFle).' cannot be replaced', self::EXITFAIL);
+			}
+		}
+		if( !isset($blkNode->prvkey) || !isset($blkNode->pubkey) ){
+			$blkNode->prvkey = $prvName;
+			$blkNode->pubkey = $pubName;
+			$wrtrObj->saveJsons($filePth, $treeObj);
+		}
+		Console::loadConfg();
+		$this->traceDone( 'Keys of the tokens made ('.self::KEYSBITS.' bits): '.$prvName.' and '.$pubName );
+		$this->prntObjc->printPair('written', $prvName.', '.$pubName);
 		return true;
 	}
 

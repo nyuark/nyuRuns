@@ -86,7 +86,7 @@ class Deploy extends Command{
 		$storNme = $this->askSetups();
 		// The secrets that are still empty are made; those in use are left alone
 		$cnfgCmd = new Config($this->optnObjc, $this->prntObjc, $this->inptStrm);
-		$scrtLst = Array('jtoken'=>'secret of the tokens', 'apikey'=>'API key');
+		$scrtLst = Array('jtoken'=>'secret or keys of the tokens', 'apikey'=>'API key');
 		// The 2FA secrets of the users are stored encrypted : their key is made with the store
 		if( $storNme!='none' ){
 			$scrtLst['tfakey'] = 'key of the 2FA secrets';

@@ -11,27 +11,42 @@ use Firebase\JWT\Key;
  * Carries an identity via a signed JWT bearer token, verified by its
  * signature. When an Auth\Handler that knows its users is given, the
  * token's user is also confirmed against it on every request.
+ *
+ * HS256 signs and checks with one shared secret. RS256 signs with a
+ * private key and checks with its public key: a project holding only the
+ * public key checks the tokens another server issues, and issues none.
  */
 class JWT implements Handler{
+
+	// The algorithms a block can name
+	const ALGOLIST = Array('HS256', 'RS256');
+	// Shortest RSA key accepted, in bits
+	const RSAMINIM = 2048;
 
 	protected $authObjc;
 	protected $jwtSecrt;
 	protected $jwtAlgor;
 	protected $jwtExpir;
+	protected $privtPem;
+	protected $publcPem;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
 	/**
 	 * Builds the token carrier from its config block.
 	 *
-	 * @param Array     $confValues Config block with 'secret', 'algrtm' (default 'HS256') and 'lifetm' (seconds, default 3600) keys.
+	 * @param Array     $confValues Config block with 'algrtm' (HS256 or RS256, default 'HS256'), 'lifetm' (seconds,
+	 *                              default 3600), the 'secret' of HS256, or the 'prvkey' and 'pubkey' of RS256: the paths
+	 *                              of the PEM files of the private and public keys, from the project root.
 	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the token's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
 		$this->authObjc = $authHandlr;
 		$this->jwtSecrt = $confValues['secret'] ?? '';
-		$this->jwtAlgor = $confValues['algrtm'] ?? 'HS256';
+		$this->jwtAlgor = strval($confValues['algrtm'] ?? 'HS256');
 		$this->jwtExpir = $confValues['lifetm'] ?? 3600;
+		$this->privtPem = $this->readsKeys( $confValues['prvkey'] ?? '' );
+		$this->publcPem = $this->readsKeys( $confValues['pubkey'] ?? '' );
 		$this->lastMssg = '';
 	}
 
@@ -53,13 +68,13 @@ class JWT implements Handler{
 			$this->lastMssg = 'Missing Bearer Authorization header';
 			return false;
 		}
-		if( !$this->hasSecret() ){
-			$this->lastMssg = 'JWT secret not configured';
+		$chckKey = $this->canVerify();
+		if( $chckKey===null ){
 			return false;
 		}
 		$rawTokn = substr( $authHed, 7 );
 		try{
-			$payload = JwtCodec::decode( $rawTokn, new Key($this->jwtSecrt, $this->jwtAlgor) );
+			$payload = JwtCodec::decode( $rawTokn, new Key($chckKey, $this->jwtAlgor) );
 			$idntArr = (array)$payload;
 		}catch( \Firebase\JWT\ExpiredException $e ){
 			$this->lastMssg = 'Expired token';
@@ -91,30 +106,151 @@ class JWT implements Handler{
 
 	/**
 	 * Issues a signed JWT for the given identity, expiring after the
-	 * configured TTL.
+	 * configured TTL. With RS256, the token names its key in its 'kid'
+	 * header: the thumbprint of the public key (RFC 7638).
 	 *
 	 * @param Array $identArray The identity to encode into the token.
-	 * @return String The issued JWT, or an empty string when the secret is not usable.
+	 * @return String The issued JWT, or an empty string when the secret or the private key is not usable.
 	 */
 	function issueTokn( Array $identArray ): String {
-		if( !$this->hasSecret() ){
-			$this->lastMssg = 'JWT secret not configured';
+		$signKey = $this->canSignIt();
+		if( $signKey===null ){
 			return '';
 		}
 		$payload = $identArray;
 		$payload['iat'] = time();
 		$payload['exp'] = time() + $this->jwtExpir;
-		return JwtCodec::encode( $payload, $this->jwtSecrt, $this->jwtAlgor );
+		return JwtCodec::encode( $payload, $signKey, $this->jwtAlgor, ($this->jwtAlgor=='RS256') ? $this->keysThumb() : null );
 	}
 
 	/**
-	 * Tells whether the configured secret can sign a token: set, and
-	 * at least 32 bytes long (the minimum for HS256).
+	 * Tells whether the block only checks tokens: RS256 with a public key
+	 * and no private key, the tokens being issued by another server.
 	 *
-	 * @return Bool Whether the secret is usable.
+	 * @return Bool True when the block checks tokens and issues none.
 	 */
-	protected function hasSecret(): Bool {
-		return is_string($this->jwtSecrt) && strlen($this->jwtSecrt)>=32;
+	public function checkOnly(): Bool {
+		return $this->jwtAlgor=='RS256' && $this->privtPem=='' && $this->rsaPublic()!==null;
+	}
+
+	/**
+	 * Gives the key a token is checked with: the secret (HS256, 32 bytes at
+	 * least), or the public key (RS256, of RSAMINIM bits at least), drawn
+	 * from the private key when the block names none.
+	 *
+	 * @return ?String The key, or null when it is not usable; lastError() then tells why.
+	 */
+	protected function canVerify(): ?String {
+		if( $this->jwtAlgor=='RS256' ){
+			$chckKey = $this->rsaPublic();
+			if( $chckKey===null ){
+				$this->lastMssg = 'Token keys not configured';
+			}
+			return $chckKey;
+		}
+		if( $this->jwtAlgor!='HS256' || !is_string($this->jwtSecrt) || strlen($this->jwtSecrt)<32 ){
+			$this->lastMssg = 'JWT secret not configured';
+			return null;
+		}
+		return $this->jwtSecrt;
+	}
+
+	/**
+	 * Gives the key a token is signed with: the secret (HS256), or the
+	 * private key (RS256, of RSAMINIM bits at least).
+	 *
+	 * @return ?String The key, or null when it is not usable; lastError() then tells why.
+	 */
+	protected function canSignIt(): ?String {
+		if( $this->jwtAlgor!='RS256' ){
+			return $this->canVerify();
+		}
+		if( $this->checkOnly() ){
+			$this->lastMssg = 'Tokens are issued by another server';
+			return null;
+		}
+		$keyObjc = ($this->privtPem!='' && function_exists('openssl_pkey_get_private')) ? @openssl_pkey_get_private($this->privtPem) : false;
+		if( $keyObjc===false || !$this->strongKey($keyObjc) ){
+			$this->lastMssg = 'Token keys not configured';
+			return null;
+		}
+		return $this->privtPem;
+	}
+
+	/**
+	 * Gives the public key of RS256: the one the block names, or the one
+	 * drawn from its private key.
+	 *
+	 * @return ?String The public key as PEM, or null when there is none of RSAMINIM bits at least.
+	 */
+	protected function rsaPublic(): ?String {
+		if( !function_exists('openssl_pkey_get_public') ){
+			return null;
+		}
+		if( $this->publcPem!='' ){
+			$keyObjc = @openssl_pkey_get_public($this->publcPem);
+		}else{
+			$keyObjc = ($this->privtPem!='') ? @openssl_pkey_get_private($this->privtPem) : false;
+		}
+		if( $keyObjc===false || !$this->strongKey($keyObjc) ){
+			return null;
+		}
+		$pubText = strval( openssl_pkey_get_details($keyObjc)['key'] ?? '' );
+		return ($pubText!='') ? $pubText : null;
+	}
+
+	/**
+	 * Tells whether a key is an RSA key of RSAMINIM bits at least.
+	 *
+	 * @param \OpenSSLAsymmetricKey $opensslKey The key.
+	 * @return Bool Whether it can be used.
+	 */
+	protected function strongKey( \OpenSSLAsymmetricKey $opensslKey ): Bool {
+		$keyInfo = openssl_pkey_get_details($opensslKey);
+		return is_array($keyInfo) && ($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA && intval($keyInfo['bits'] ?? 0)>=self::RSAMINIM;
+	}
+
+	/**
+	 * Gives the thumbprint of the public key (RFC 7638), which a token
+	 * names as its 'kid': the name a server publishes the key under.
+	 *
+	 * @return ?String The thumbprint, base64url; null without a public key.
+	 */
+	protected function keysThumb(): ?String {
+		$pubText = $this->rsaPublic();
+		$keyInfo = ($pubText!==null) ? openssl_pkey_get_details(openssl_pkey_get_public($pubText)) : false;
+		if( !is_array($keyInfo) || !isset($keyInfo['rsa']['n'], $keyInfo['rsa']['e']) ){
+			return null;
+		}
+		$jwkText = '{"e":"'.$this->base64Url($keyInfo['rsa']['e']).'","kty":"RSA","n":"'.$this->base64Url($keyInfo['rsa']['n']).'"}';
+		return $this->base64Url( hash('sha256', $jwkText, true) );
+	}
+
+	/**
+	 * Encodes bytes as base64url, without padding.
+	 *
+	 * @param String $binaryText The bytes.
+	 * @return String The encoded text.
+	 */
+	protected function base64Url( String $binaryText ): String {
+		return rtrim( strtr(base64_encode($binaryText), '+/', '-_'), '=' );
+	}
+
+	/**
+	 * Reads a key file the block names, from the project root.
+	 *
+	 * @param Mixed $configPath The path the block gives.
+	 * @return String The content of the file, empty when there is none.
+	 */
+	protected function readsKeys( Mixed $configPath ): String {
+		$keyPath = is_scalar($configPath) ? trim(strval($configPath)) : '';
+		if( $keyPath=='' ){
+			return '';
+		}
+		if( !preg_match('#^([A-Za-z]:|[/\\\\])#', $keyPath) && defined('TOP_DIR') ){
+			$keyPath = TOP_DIR.DIRECTORY_SEPARATOR.str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $keyPath);
+		}
+		return is_file($keyPath) ? strval(@file_get_contents($keyPath)) : '';
 	}
 
 	/**

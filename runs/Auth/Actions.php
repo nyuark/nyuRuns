@@ -72,6 +72,14 @@ class Actions extends Actionset {
 			$this->statMssg = 'Too many attempts';
 			return;
 		}
+		$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
+		// A project holding only the public key checks the tokens another server issues : nothing is checked here
+		if(method_exists($sessObj, 'checkOnly') && $sessObj->checkOnly()){
+			$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': this project only checks tokens, issued by another server' );
+			$this->statCode = 501;
+			$this->statMssg = 'Tokens are issued by another server';
+			return;
+		}
 		$authObj = new $authCls( $this->resolvCnf($lgnConf['authcf'] ?? 'dfpass') );
 		// The 'code' input carries the one-time code of a user with 2FA
 		$gvnCode = $this->inputReg->readValue('code');
@@ -88,7 +96,6 @@ class Actions extends Actionset {
 			return;
 		}
 
-		$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
 		// A session the request came with is closed : a new login does not leave the former one open
 		if(method_exists($sessObj, 'dropSessn')){
 			$sessObj->dropSessn( $this->httpRqst );

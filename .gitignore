@@ -10,3 +10,5 @@
 /conf/mailer.json
 /conf/.htpasswd
 /conf/users.lst
+# Keys signing the tokens: the private one never leaves the server
+/conf/keys/

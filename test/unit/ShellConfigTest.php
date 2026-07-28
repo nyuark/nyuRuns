@@ -87,6 +87,22 @@ checkSame('an API key is shown once, and written where the block reads it', Arra
 $jsnVals = jsonShell($projDir, Array('config', 'secrt', 'jtoken', '--block=inline', '--agree', '--shown'));
 checkSame('a secret the block holds itself is written in the block', Array($jsnVals['written'] ?? null, json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['inline'], json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['dftokn']['secret']), Array('conf/access.json inline', Array('secret'=>$jsnVals['secret']['Secret of the tokens'] ?? '', 'keylst'=>Array('k-1', 'k-2')), 'env:NYU_JWT_SECRET'));
 checkSame('a block that holds no such secret', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=native', '--agree'))['code'], runShell($projDir, Array('config', 'secrt', 'other'))['code']), Array(3, 2));
+// With RS256, a key pair in conf/keys
+if( function_exists('openssl_pkey_new') ){
+	runShell($projDir, Array('config', 'write', 'access', 'rstokn.algrtm', 'RS256', '--force'));
+	$runVals = runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn'));
+	$prvText = strval(readInPrj($projDir, 'conf/keys/rstokn.key'));
+	$keyInfo = ($prvText!='') ? openssl_pkey_get_details(openssl_pkey_get_private($prvText)) : Array();
+	$rsaBlok = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
+	checkSame('with RS256, a key pair of 4096 bits is made in conf/keys, its paths given to the block', Array($runVals['code'], $runVals['text'], $keyInfo['bits'] ?? null, ($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA, $rsaBlok), Array(0, "written: conf/keys/rstokn.key, conf/keys/rstokn.pub\n", 4096, true, Array('algrtm'=>'RS256', 'prvkey'=>'conf/keys/rstokn.key', 'pubkey'=>'conf/keys/rstokn.pub')));
+	$rsaJwt = new nyu\Access\Sess\JWT( Array('algrtm'=>'RS256', 'prvkey'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'pubkey'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.pub') );
+	checkSame('the pair signs and checks a token', ($rsaJwt->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$rsaJwt->issueTokn(Array('user'=>'anna'))))) ?: Array())['user'] ?? null, 'anna');
+	if( DS=='/' ){
+		checkSame('the private key is readable by its owner only', fileperms($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') & 0777, 0600);
+	}
+	checkSame('keys in use are only replaced when confirmed', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--noask'))['code'], readInPrj($projDir, 'conf/keys/rstokn.key')), Array(3, $prvText));
+	checkSame('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--agree'))['code'], readInPrj($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'backup'.DS.'rstokn*')), Array(0, true, Array()));
+}
 // The key of the 2FA secrets, in the block of the store the login uses
 checkSame('a store whose block holds no key of the 2FA secrets', runShell($projDir, Array('config', 'secrt', 'tfakey'))['code'], 3);
 runShell($projDir, Array('config', 'write', 'access', 'native.tfakey', 'env:NYU_TFA_KEY', '--force'));

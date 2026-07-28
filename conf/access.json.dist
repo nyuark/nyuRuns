@@ -7,7 +7,7 @@
 	"limits": { "maxtry": 10, "holdtm": 600, "folder": "temp/limits" },
 	"dfkeys": { "header": "X-Api-Key", "keylst": ["env:NYU_API_KEY"] },
 	"dfbear": { "header": "Authorization", "scheme": "Bearer" },
-	"dftokn": { "secret": "env:NYU_JWT_SECRET", "lifetm": 3600, "algrtm": "HS256" },
+	"dftokn": { "secret": "env:NYU_JWT_SECRET", "lifetm": 3600, "algrtm": "RS256", "prvkey": "conf/keys/dftokn.key", "pubkey": "conf/keys/dftokn.pub" },
 	"dfsess": { "cookie": "nyuSessn", "lifetm": 3600, "fulltm": 43200, "samest": "strict", "secure": true, "folder": "" },
 	"dfcert": { "chkvar": "SSL_CLIENT_VERIFY", "usrvar": "SSL_CLIENT_S_DN_CN", "issvar": "SSL_CLIENT_I_DN_CN", "issuer": "" }
 }

@@ -50,7 +50,7 @@ checkSame('a local file that exists is kept', Array(array_column(jsonShell($proj
 // check, before anything is set
 $jsnVals = jsonShell($projDir, Array('deploy', 'check'));
 $statLst = stateOf($jsnVals);
-checkSame('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset dfault'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst['secret dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys dfkeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
+checkSame('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset dfault'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst['token keys dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys dfkeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
 	Array(4, 'fine', 'fine', 'fine', 'fail', 'fine', 'fail', 'warn', 'fine', true));
 
 // start, without a question
@@ -59,13 +59,14 @@ $statLst = stateOf($jsnVals);
 $envVals = parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCANNER_RAW);
 $axsVals = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(readInPrj($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'userName');
-checkSame('start points the login at the store, makes the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null, strlen($envVals['NYU_JWT_SECRET'] ?? '')>=48, $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'userRole', 'userName'), $statLst['secret dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
+$keyText = readInPrj($projDir, 'conf/keys/dftokn.key');
+checkSame('start points the login at the store, makes the keys of the tokens, the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null, is_file($projDir.DS.'conf'.DS.'keys'.DS.'dftokn.key'), $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'userRole', 'userName'), $statLst['token keys dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
 	Array(0, 'usrlst', 'usrlst', true, $jsnVals['secret']['API key'] ?? 'none', Array('member'=>'member', 'system'=>'system', 'managr'=>'manage'), 'fine', 'fine', 'fine', 0));
 checkSame('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key usrlst'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
 checkSame('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $usrList['managr']['passHash'] ?? ''), password_verify($jsnVals['secret']['Password of member (member)'] ?? '', $usrList['member']['passHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
 checkLike('the layout of the access config is kept', strval(readInPrj($projDir, 'conf/access.json')), '/^\{\n\t"plugin": \{ "authby": \[\], "sessby": \[\] \},\n\t"login":  \{ "authby": "usrlst", "authcf": "usrlst", /');
 $jsnVals = jsonShell($projDir, Array('deploy', 'start', '--noask'));
-checkSame('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(readInPrj($projDir, 'conf/users.lst')), true)['users'][2]['passHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, $envVals, $usrList['managr']['passHash'], false, true));
+checkSame('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, readInPrj($projDir, 'conf/keys/dftokn.key')===$keyText, parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(readInPrj($projDir, 'conf/users.lst')), true)['users'][2]['passHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, true, $envVals, $usrList['managr']['passHash'], false, true));
 checkLike('the installation is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in usrlst \(member, system, managr\) by user "cli:/');
 checkSame('users alone: a store that holds users is left as it is; a store that is not one', Array(runShell($projDir, Array('deploy', 'users'))['text'], runShell($projDir, Array('deploy', 'users', '--store=other'))['code']), Array("The users file already holds users: nothing was changed.\n", 2));
 

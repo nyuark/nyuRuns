@@ -5,6 +5,7 @@ namespace nyu\Shell;
 use nyu\Access\Checker;
 use nyu\Access\Totp;
 use nyu\Access\Auth\UserList;
+use nyu\Access\Sess\JWT;
 use nyu\Data\DBCon;
 use nyu\Setup\Loader;
 use nyu\Setup\Preset;
@@ -163,7 +164,11 @@ class HealthChk{
 				continue;
 			}
 			$blkName = strtolower(strval($blkKey));
-			if( array_key_exists('secret', $blkVal) ){
+			if( array_key_exists('algrtm', $blkVal) && !in_array($blkVal['algrtm'], JWT::ALGOLIST, true) ){
+				$this->addResult('algorithm '.$blkName, 'fail', 'not one the tokens can be signed with: '.implode(', ', JWT::ALGOLIST));
+			}elseif( ($blkVal['algrtm'] ?? '')=='RS256' ){
+				$this->chkRsakey($blkName, $blkVal);
+			}elseif( array_key_exists('secret', $blkVal) ){
 				$scrtLen = strlen(strval($blkVal['secret']));
 				$this->addResult( 'secret '.$blkName, ($scrtLen>=self::SECRSIZE) ? 'fine' : 'fail', ($scrtLen>=self::SECRSIZE) ? 'set' : ( $scrtLen==0 ? 'empty' : 'too short' ).': '.self::SECRSIZE.' characters at least; "config secrt jtoken" makes one' );
 			}
@@ -184,6 +189,50 @@ class HealthChk{
 			if( ($blkVal['unsecure'] ?? false)===true ){
 				$this->addResult('unsecure '.$blkName, 'warn', 'weak password hashes are accepted by this block');
 			}
+		}
+	}
+
+	/**
+	 * Checks the keys of a block signing its tokens with RS256: a private
+	 * key that signs and the public key checking them, or the public key
+	 * alone when the tokens are issued by another server. A key must be an
+	 * RSA key of JWT::RSAMINIM bits at least; a private key readable by the
+	 * other users of the server is told.
+	 *
+	 * @param String $blockNamed Name of the block.
+	 * @param Array  $blockValue Its values.
+	 */
+	protected function chkRsakey( String $blockNamed, Array $blockValue ): Void {
+		$keyText = Array();
+		foreach( Array('prvkey', 'pubkey') as $keyNme ){
+			$keyPath = trim(strval($blockValue[$keyNme] ?? ''), '/\\ ');
+			$keyPath = ($keyPath=='') ? '' : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $keyPath);
+			$keyText[$keyNme] = ($keyPath!='' && is_file($keyPath)) ? strval(@file_get_contents($keyPath)) : '';
+			if( $keyNme=='prvkey' && $keyText[$keyNme]!='' && DS=='/' && (fileperms($keyPath) & 0044)!=0 ){
+				$this->addResult('key rights '.$blockNamed, 'warn', 'the private key can be read by other users of the server: chmod 600 '.strval($blockValue['prvkey']));
+			}
+		}
+		if( !function_exists('openssl_pkey_get_public') ){
+			$this->addResult('token keys '.$blockNamed, 'fail', 'RS256 needs the openssl extension');
+			return;
+		}
+		$prvObjc = ($keyText['prvkey']!='') ? @openssl_pkey_get_private($keyText['prvkey']) : false;
+		$pubObjc = ($keyText['pubkey']!='') ? @openssl_pkey_get_public($keyText['pubkey']) : false;
+		$keyBits = Array();
+		foreach( Array($prvObjc, $pubObjc) as $keyObj ){
+			$keyInfo = ($keyObj!==false) ? openssl_pkey_get_details($keyObj) : false;
+			if( is_array($keyInfo) ){
+				$keyBits[] = (($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA) ? intval($keyInfo['bits'] ?? 0) : 0;
+			}
+		}
+		if( ($keyText['prvkey']!='' && $prvObjc===false) || ($keyText['pubkey']!='' && $pubObjc===false) ){
+			$this->addResult('token keys '.$blockNamed, 'fail', 'a key file is not a PEM key: "config secrt jtoken" makes a new pair');
+		}elseif( empty($keyBits) ){
+			$this->addResult('token keys '.$blockNamed, 'fail', 'missing: "config secrt jtoken" makes them');
+		}elseif( min($keyBits)<JWT::RSAMINIM ){
+			$this->addResult('token keys '.$blockNamed, 'fail', 'not an RSA key of '.JWT::RSAMINIM.' bits at least: "config secrt jtoken" makes a new pair');
+		}else{
+			$this->addResult('token keys '.$blockNamed, 'fine', ($prvObjc===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($keyBits).' bits');
 		}
 	}
 
