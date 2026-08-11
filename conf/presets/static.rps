@@ -12,8 +12,7 @@
 		"htroot": "pages"
 	},
 	"rnder": {
-		"tmplte": "plain",
-		"return": "json",
+		"format": "json",
 		"headrs": {
 			"Cache-Control":	"no-cache"
 		}

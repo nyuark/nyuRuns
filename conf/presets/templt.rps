@@ -100,12 +100,12 @@
 	},
 	// Format of the replies
 	"rnder": {
-        // Template the data is put in; one of src/Output/Format: plain (the data alone);
-        // excel; mswrd; optab (an office document; sent with its content type).
-        // An unknown name raises a warning and uses plain
-		"tmplte": "plain",
-        // Format of the data: json; any other value gives it PHP-serialised
-		"return": "json",
+        // Format the data is written in: json; yaml; xmlx (XML); tabl (CSV; for a list of
+        // records); html (a page: records in a table; other values in definition lists);
+        // flux (raw output: a text or a Fluxd; sent as it is with the type its action sets).
+        // An error is written as json with tabl and flux. An unknown format stops the preset
+        // from loading. An action can write its own reply in another one: useFormat()
+		"format": "json",
         // Origins other sites may call from, each a scheme; a host and a port when it has one:
         // ["https://app.example.org"]. With a list, Access-Control-Allow-Origin names the
         // origin of the request when it is listed, and is not sent otherwise, whatever

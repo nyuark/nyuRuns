@@ -18,7 +18,7 @@ function fileUsers( String $projctRoot ): Array {
 	return array_column($fleVals['users'] ?? Array(), null, 'userName');
 }
 
-$rndrTxt = '"input": [ { "naming": "QUERY", "source": "QUERY", "fields": "all" } ], "route": { "detect": "autopath", "mapper": "$app/$action/$param" }, "rnder": { "tmplte": "plain", "return": "json", "headrs": {} }';
+$rndrTxt = '"input": [ { "naming": "QUERY", "source": "QUERY", "fields": "all" } ], "route": { "detect": "autopath", "mapper": "$app/$action/$param" }, "rnder": { "format": "json", "headrs": {} }';
 $projDir = makeProjt('manage', Array(
 	'conf/system.ini'=>sampleIni(),
 	'conf/access.json'=>"{\n\t\"login\":  { \"authby\": \"usrlst\", \"authcf\": \"usrlst\", \"sessby\": \"jtoken\", \"sesscf\": \"dftokn\" },\n\t\"usrlst\": { \"usrfle\": \"conf/users.lst\", \"minlen\": 8 },\n\t\"dftokn\": { \"secret\": \"test-only-secret-0123456789-abcdefghij\", \"lifetm\": 300, \"algrtm\": \"HS256\" }\n}\n",

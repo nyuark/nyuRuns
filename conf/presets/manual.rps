@@ -17,8 +17,7 @@
 		"detect": "manually"
 	},
 	"rnder": {
-		"tmplte": "plain",
-		"return": "json",
+		"format": "json",
 		"headrs": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",

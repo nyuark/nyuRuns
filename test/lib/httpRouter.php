@@ -17,8 +17,7 @@
 //   X-Test-Public: <app/action,...>  public routes of that access control (with X-Test-Auth)
 //   X-Test-Signin: <path>            sign-in route of that access control (with X-Test-Auth)
 //   X-Test-Roles: <route=role,...>   roles the routes of that access control ask for (with X-Test-Auth)
-//   X-Test-Tmpl: <template>          render template
-//   X-Test-Return: <format>          output format
+//   X-Test-Format: <format>          output format (rnder.format)
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
 //   X-Test-Origns: <origin,...>      origins the preset allows other sites to call from
 //   X-Test-Routes: 1               declared routes read from test/fixtures/routes, their files from test/fixtures/pages
@@ -65,11 +64,8 @@ if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
 if( isset($_SERVER['HTTP_X_TEST_CONF']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_CONF']) ){
 	$overArr['setup']['folder'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_CONF'];
 }
-if( isset($_SERVER['HTTP_X_TEST_TMPL']) ){
-	$overArr['rnder']['tmplte'] = $_SERVER['HTTP_X_TEST_TMPL'];
-}
-if( isset($_SERVER['HTTP_X_TEST_RETURN']) ){
-	$overArr['rnder']['return'] = $_SERVER['HTTP_X_TEST_RETURN'];
+if( isset($_SERVER['HTTP_X_TEST_FORMAT']) ){
+	$overArr['rnder']['format'] = $_SERVER['HTTP_X_TEST_FORMAT'];
 }
 if( isset($_SERVER['HTTP_X_TEST_CTYPE']) ){
 	$overArr['rnder']['headrs'] = Array( ($_SERVER['HTTP_X_TEST_CTNAME'] ?? 'Content-Type') => $_SERVER['HTTP_X_TEST_CTYPE'] );

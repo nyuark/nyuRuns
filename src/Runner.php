@@ -260,18 +260,15 @@ class Runner{
 	}
 
 	/**
-	 * Retrieves the predefined layout/format and builds the response
-	 * template with the given output data.
+	 * Writes the body of the response in its format (the 'format' of the
+	 * preset, or the one the action chose).
 	 *
 	 * @param Array|Object|String|Int|Float|Bool $dataValues The data returned by the application to format into the response.
+	 * @param Bool $errorReply Whether the data is the body of an error.
 	 * @return Bool False when the data could not be formatted; an error body was built instead.
 	 */
-	function getLayout( Array|Object|String|Int|Float|Bool $dataValues ): Bool {
-		// Retrieve the predefined layout or
-		// format for the response contents
-		$isBuilt = $this->response->formatOut( $dataValues );
-		$this->response->buildTmpl();
-		return $isBuilt;
+	function getLayout( Array|Object|String|Int|Float|Bool $dataValues, Bool $errorReply=false ): Bool {
+		return $this->response->formatOut( $dataValues, $errorReply );
 	}
 
 	/**
@@ -309,7 +306,8 @@ class Runner{
 		// Warnings and notices collected by the error handler (only when errors may be shown)
 		$hndlObj = $GLOBALS['ErrorHandler'] ?? null;
 		$warnLst = ($hndlObj!==null) ? $hndlObj->takeStack() : Array();
-		if( !empty($warnLst) ){
+		// A table or raw output has no place for them : they stay in the log
+		if( !empty($warnLst) && ($this->response->takesWarn() || !$success) ){
 			if( $success ){
 				$bodyArr = Array('data'=>$bodyArr, 'warnings'=>$warnLst);
 			}else{
@@ -318,7 +316,7 @@ class Runner{
 		}
 
 		// Data that cannot be formatted is an error of the application
-		if( !$this->getLayout( $bodyArr ) ){
+		if( !$this->getLayout( $bodyArr, !$success ) ){
 			$statusCode = 500;
 		}
 		if( !$success ){

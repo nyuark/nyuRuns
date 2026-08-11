@@ -17,7 +17,7 @@ class Preset{
 		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt', 'signin', 'rolert'),
 		'input' => Array('naming', 'source', 'fields'),
 		'route' => Array('detect', 'mapper', 'folder', 'htroot'),
-		'rnder' => Array('tmplte', 'return', 'origns', 'headrs')
+		'rnder' => Array('format', 'origns', 'headrs')
 	);
 
 	protected $rpsArray;
@@ -92,6 +92,11 @@ class Preset{
 					}
 				}
 			}
+		}
+		// A format the reply cannot be written in would only fail at the first request
+		$frmtVal = $this->rpsArray['rnder']['format'] ?? 'json';
+		if( !is_string($frmtVal) || !array_key_exists(strtolower($frmtVal), \nyu\Output\Response::FORMTLST) ){
+			throw new \RuntimeException('Preset "'.$presetName.'" holds an unknown output format: '.(is_scalar($frmtVal) ? strval($frmtVal) : gettype($frmtVal)).'; one of '.implode(', ', array_keys(\nyu\Output\Response::FORMTLST)));
 		}
 	}
 

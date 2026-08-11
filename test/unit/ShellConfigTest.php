@@ -22,7 +22,7 @@ $rpsText = "{\n\t// Name of the preset\n\t\"label\": \"sample\",\n\t\"about\": \
 	."\t\t\"openrt\": [\"auth/login\", \"/hello\"],\n\t\t\"rolert\": { \"users/*\": \"manage\", \"/admin/\$id\": \"system\" }\n\t},\n"
 	."\t\"input\": [ { \"naming\": \"QUERY\", \"source\": \"QUERY\", \"fields\": \"all\" } ],\n"
 	."\t\"route\": { \"detect\": \"autopath\", \"mapper\": \"\$app/\$action/\$param\", \"folder\": \"conf/routes\" },\n"
-	."\t\"rnder\": { \"tmplte\": \"plain\", \"return\": \"json\", \"headrs\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
+	."\t\"rnder\": { \"format\": \"json\", \"headrs\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
 $rteText = '{ "hello": { "target": { "pge": "hello" } }, "admin/$id": { "allows": "GET, POST", "target": { "app": "users", "act": "view" } },'
 	.' "old": { "target": { "url": "/hello", "cod": 301 } }, "things": { "target": { "GET": { "app": "shows", "act": "index" }, "POST": { "app": "shows", "act": "create" } } } }';
 

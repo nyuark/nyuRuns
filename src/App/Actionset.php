@@ -140,6 +140,22 @@ class Actionset {
 	}
 
 	/**
+	 * Writes the reply of this action in another format than the one of
+	 * the preset (see Response::FORMTLST): a table ('tabl') for an
+	 * export, raw output ('flux') for a text or a Fluxd sent as it is,
+	 * with the Content-Type the action sets.
+	 *
+	 * @param String $formatCode The format.
+	 *
+	 * @throws \RuntimeException When the format is not one of Response::FORMTLST.
+	 */
+	protected function useFormat( String $formatCode ): Void {
+		if( $this->httpResp!==null ){
+			$this->httpResp->useFormat($formatCode);
+		}
+	}
+
+	/**
 	 * Helper for file-serving actions: registers a file as the response,
 	 * honouring the Range header of the request, and sets the action's
 	 * status. A file that cannot be read is reported as a 404.

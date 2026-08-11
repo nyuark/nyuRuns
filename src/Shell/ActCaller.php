@@ -112,8 +112,7 @@ class ActCaller{
 				$httpRespns->clearBody();
 				$dataValues = Array('error'=>$statusMssg, 'code'=>$statusCode);
 			}
-			$httpRespns->formatOut( $dataValues ?? Array() );
-			$httpRespns->buildTmpl();
+			$httpRespns->formatOut( $dataValues ?? Array(), $statusCode<200 || $statusCode>=300 );
 			ob_start();
 			$httpRespns->sendOutpt();
 			$bodyTxt = strval(ob_get_clean());

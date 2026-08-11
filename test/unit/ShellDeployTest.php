@@ -97,7 +97,7 @@ putInProj($projDir, 'conf/presets/broken.rps', '{ "label": "broken", ');
 putInProj($projDir, 'conf/presets/noblok.rps', '{ "label": "noblok", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "nowhere" } }');
 putInProj($projDir, 'conf/presets/norole.rps', '{ "label": "norole", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "dftokn", "rolert": { "users/*": "boss" } } }');
 putInProj($projDir, 'conf/system.ini', sampleIni("PRX_LIST = \"10.0.0.5, 0.0.0.0/0\"\n"));
-$cookRps = '{ "label": "%s", "setup": { "ftypes": "all" }, "auths": { "sessby": "phsess", "sesscf": "dfsess" }, "rnder": { "tmplte": "plain", "return": "json", %s"headrs": { "access-control-allow-origin": "*" } } }';
+$cookRps = '{ "label": "%s", "setup": { "ftypes": "all" }, "auths": { "sessby": "phsess", "sesscf": "dfsess" }, "rnder": { "format": "json", %s"headrs": { "access-control-allow-origin": "*" } } }';
 putInProj($projDir, 'conf/presets/cookie.rps', sprintf($cookRps, 'cookie', ''));
 putInProj($projDir, 'conf/presets/listed.rps', sprintf($cookRps, 'listed', '"origns": ["https://app.example.org"], '));
 $statLst = stateOf(jsonShell($projDir, Array('deploy', 'check')));

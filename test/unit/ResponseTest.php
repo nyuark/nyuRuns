@@ -1,94 +1,134 @@
 <?php
 
-// Output\Response : body formatting, templates and the derived Content-Type.
+// Output\Response : the body in each format, and the derived Content-Type.
 // Headers themselves are checked over HTTP (see test/http), since PHP does not
 // keep them when run from the command line.
 
 require __DIR__.'/../lib/harness.php';
 
 use nyu\Output\Response;
+use nyu\Data\Fluxd;
 
 /**
  * Builds a response body and returns what would be sent.
  *
  * @param Array $renderVals Render configuration for the Response.
  * @param Array|Object|String|Int|Float|Bool $dataValues Data to format.
+ * @param Bool  $errorReply Whether the data is the body of an error.
  * @return String The body.
  */
-function builtBody( Array $renderVals, Array|Object|String|Int|Float|Bool $dataValues ): String {
+function builtBody( Array $renderVals, Array|Object|String|Int|Float|Bool $dataValues, Bool $errorReply=false ): String {
 	$respons = new Response($renderVals);
-	$respons->formatOut($dataValues);
-	$respons->buildTmpl();
+	$respons->formatOut($dataValues, $errorReply);
 	ob_start();
 	$respons->sendOutpt();
 	return ob_get_clean();
 }
 
 /**
- * Reads the Content-Type a Response would derive.
+ * Reads the Content-Type a Response would derive once its body is written.
  *
  * @param Array $renderVals Render configuration for the Response.
+ * @param Bool  $errorReply Whether the body is the one of an error.
  * @return String The Content-Type value.
  */
-function foundType( Array $renderVals ): String {
+function foundType( Array $renderVals, Bool $errorReply=false ): String {
 	$respons = new Response($renderVals);
+	$respons->formatOut( Array(Array('a'=>1)), $errorReply );
 	$typeFnc = new ReflectionMethod($respons, 'contnType');
 	$typeFnc->setAccessible(true);
 	return $typeFnc->invoke($respons);
 }
 
-checkSame('JSON body',               builtBody(Array(), Array('a'=>1, 'b'=>Array('c'))), '{"a":1,"b":["c"]}');
-checkSame('JSON is the default',     builtBody(Array('return'=>'json'), Array()), '[]');
-checkSame('format name is case-insensitive', builtBody(Array('return'=>'Json'), Array('a'=>1)), '{"a":1}');
-checkSame('other format is serialized', unserialize(builtBody(Array('return'=>'php'), Array('a'=>1))), Array('a'=>1));
-checkLike('excel template wraps the data', builtBody(Array('tmplte'=>'excel'), Array('a'=>1)), '/^<html.*\{"a":1\}/s');
+$rowList = Array( Array('id'=>1, 'name'=>'Ann', 'admin'=>true), Array('id'=>2, 'name'=>'Bo, "B"', 'mail'=>null) );
 
-// Any encodable value is a body, not only arrays
+// JSON, the default
+checkSame('JSON body',               builtBody(Array(), Array('a'=>1, 'b'=>Array('c'))), '{"a":1,"b":["c"]}');
+checkSame('JSON is the default',     builtBody(Array('format'=>'json'), Array()), '[]');
+checkSame('format name is case-insensitive', builtBody(Array('format'=>'Json'), Array('a'=>1)), '{"a":1}');
 checkSame('JSON body: a string',     builtBody(Array(), 'plain text'), '"plain text"');
 checkSame('JSON body: a number',     builtBody(Array(), 42), '42');
 checkSame('JSON body: a boolean',    builtBody(Array(), false), 'false');
 checkSame('JSON body: an object',    builtBody(Array(), (object)Array('a'=>1)), '{"a":1}');
-checkSame('serialized body: a string', unserialize(builtBody(Array('return'=>'php'), 'plain text')), 'plain text');
+
+// YAML, XML
+checkSame('YAML body', builtBody(Array('format'=>'yaml'), Array('a'=>1, 'b'=>Array('c', 'd'))), "a: 1\nb:\n  - c\n  - d\n");
+checkLike('XML body', builtBody(Array('format'=>'xmlx'), Array('a'=>1, 'b'=>'x & y')), '/^<\?xml version="1\.0" encoding="UTF-8"\?>.*<a>1<\/a>.*<b>x &amp; y<\/b>/s');
+
+// A table : a list of records, its columns in the order they first come
+checkSame('CSV body of records', builtBody(Array('format'=>'tabl'), $rowList), "id,name,admin,mail\r\n1,Ann,true,\r\n2,\"Bo, \"\"B\"\"\",,\r\n");
+checkSame('CSV body of no record', builtBody(Array('format'=>'tabl'), Array()), '');
+checkSame('what is not a list of records cannot be a table', Array(builtBody(Array('format'=>'tabl'), Array('a'=>1)), count(preg_grep('/Response could not be encoded as tabl: a table is written from a list of records/', takeNotes()))), Array('{"error":"Response could not be encoded","code":500}', 1));
+checkSame('nor a list holding a nested value', builtBody(Array('format'=>'tabl'), Array(Array('a'=>Array(1)))), '{"error":"Response could not be encoded","code":500}');
+takeNotes();
+checkSame('an error is written as JSON with tabl', builtBody(Array('format'=>'tabl'), Array('error'=>'Not found', 'code'=>404), true), '{"error":"Not found","code":404}');
+
+// An HTML page : records in a table, any other values in definition lists
+$htmPage = builtBody(Array('format'=>'html'), $rowList);
+checkSame('HTML page of records: a whole page, its table with a header row', Array(strpos($htmPage, '<!DOCTYPE html>')===0, preg_match('/<table.*<th[^>]*>id<\/th>.*<td[^>]*>Bo, &quot;B&quot;<\/td>/s', $htmPage)), Array(true, 1));
+checkSame('HTML page of other values', builtBody(Array('format'=>'html'), Array('user'=>'<b>Ann</b>', 'roles'=>Array('a', 'b'), 'on'=>true)),
+	"<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n<dl>\n<dt>user</dt>\n<dd><p>&lt;b&gt;Ann&lt;/b&gt;</p>\n</dd>\n<dt>roles</dt>\n<dd><dl>\n<dt>0</dt>\n<dd><p>a</p>\n</dd>\n<dt>1</dt>\n<dd><p>b</p>\n</dd>\n</dl>\n</dd>\n<dt>on</dt>\n<dd><p>true</p>\n</dd>\n</dl>\n</body>\n</html>\n");
+checkLike('an error is a page with html', builtBody(Array('format'=>'html'), Array('error'=>'Not found', 'code'=>404), true), '/<dt>error<\/dt>\n<dd><p>Not found<\/p>/');
+
+// Raw output : a text as it is, a Fluxd piece by piece
+checkSame('raw output of a text', builtBody(Array('format'=>'flux'), "line 1\nline 2"), "line 1\nline 2");
+$bigText = str_repeat('0123456789', 3000);
+checkSame('raw output of a Fluxd, across several pieces', builtBody(Array('format'=>'flux'), Fluxd::openBytes($bigText)), $bigText);
+checkSame('raw output of what is neither', builtBody(Array('format'=>'flux'), Array('a'=>1)), '{"error":"Response could not be encoded","code":500}');
+takeNotes();
+checkSame('an error is written as JSON with flux', builtBody(Array('format'=>'flux'), Array('error'=>'Gone', 'code'=>410), true), '{"error":"Gone","code":410}');
+
+// The format of one reply, chosen by its action
+$respons = new Response( Array('format'=>'json') );
+$respons->useFormat('TABL');
+$respons->formatOut( Array(Array('a'=>1)) );
+ob_start();
+$respons->sendOutpt();
+checkSame('useFormat writes the reply in another format', ob_get_clean(), "a\r\n1\r\n");
+checkThrw('useFormat refuses a format that is not one', function(){ (new Response())->useFormat('php'); }, 'RuntimeException');
+checkSame('warnings have no place in a table or raw output', Array((new Response(Array('format'=>'tabl')))->takesWarn(), (new Response(Array('format'=>'flux')))->takesWarn(), (new Response(Array('format'=>'yaml')))->takesWarn()), Array(false, false, true));
 
 // Data that cannot be encoded : an error body, a false result and one warning
 $respons = new Response();
 checkSame('unencodable data is reported', $respons->formatOut( Array('name'=>"caf\xE9") ), false);
-$respons->buildTmpl();
 ob_start();
 $respons->sendOutpt();
 checkSame('unencodable data gives an error body', ob_get_clean(), '{"error":"Response could not be encoded","code":500}');
-checkSame('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as JSON: /', takeNotes())), 1);
+checkSame('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as json: /', takeNotes())), 1);
 
 // An emptied response sends nothing, whatever was prepared before
 $respons = new Response();
 $respons->formatOut( Array('a'=>1) );
-$respons->buildTmpl();
 $respons->clearBody();
 ob_start();
 $respons->sendOutpt();
 checkSame('emptied response sends nothing', ob_get_clean(), '');
 
-// An unknown template : the data is still sent, through the plain template, and a warning is raised
-checkSame('unknown template falls back to plain', builtBody(Array('tmplte'=>'nosuchtemplate'), Array('a'=>1)), '{"a":1}');
-checkSame('unknown template raises one warning', count(preg_grep('/Unknown output template "nosuchtemplate", using "plain"/', takeNotes())), 1);
-
-// The template must be usable twice in one request (error reply after a body was prepared)
-$respons = new Response( Array('tmplte'=>'plain', 'return'=>'json') );
+// The body can be written twice in one request (error reply after a body was prepared)
+$respons = new Response( Array('format'=>'json') );
 $respons->formatOut( Array('first'=>1) );
-$respons->buildTmpl();
-$respons->formatOut( Array('error'=>'second', 'code'=>500) );
-$respons->buildTmpl();
+$respons->formatOut( Array('error'=>'second', 'code'=>500), true );
 ob_start();
 $respons->sendOutpt();
 checkSame('body built twice keeps the last one', ob_get_clean(), '{"error":"second","code":500}');
 
-checkSame('type for plain + json',   foundType(Array('tmplte'=>'plain', 'return'=>'json')), 'application/json; charset=utf-8');
+// Content types
+checkSame('type for json',           foundType(Array('format'=>'json')), 'application/json; charset=utf-8');
 checkSame('type for the defaults',   foundType(Array()), 'application/json; charset=utf-8');
-checkSame('type for plain + other',  foundType(Array('return'=>'php')), 'text/plain; charset=utf-8');
-checkSame('type for excel',          foundType(Array('tmplte'=>'excel')), 'application/vnd.ms-excel');
-checkSame('type for mswrd',          foundType(Array('tmplte'=>'mswrd')), 'application/msword');
-checkSame('type for optab',          foundType(Array('tmplte'=>'optab')), 'application/vnd.oasis.opendocument.spreadsheet');
+checkSame('type for yaml',           foundType(Array('format'=>'yaml')), 'application/yaml; charset=utf-8');
+checkSame('type for xmlx',           foundType(Array('format'=>'xmlx')), 'application/xml; charset=utf-8');
+checkSame('type for tabl',           foundType(Array('format'=>'tabl')), 'text/csv; charset=utf-8');
+checkSame('type for html',           foundType(Array('format'=>'html')), 'text/html; charset=utf-8');
+$respons = new Response( Array('format'=>'flux') );
+$respons->formatOut('raw bytes');
+$typeFnc = new ReflectionMethod($respons, 'contnType');
+$typeFnc->setAccessible(true);
+checkSame('type for flux, which its action sets', $typeFnc->invoke($respons), 'application/octet-stream');
+takeNotes();
+checkSame('type of an error with tabl', foundType(Array('format'=>'tabl'), true), 'application/json; charset=utf-8');
 
+// A preset names a format that exists, or does not load
+checkSame('the example preset writes json', (new nyu\Setup\Preset('templt'))->makeSetup()->getRegKey('rnder')['format'] ?? null, 'json');
 /**
  * Registers a temporary file with a Range value and returns what is sent.
  *
@@ -133,7 +173,6 @@ $respons = new Response();
 checkSame('file: a missing file is refused', $respons->fileReply(inTempDir('nosuchfile.bin'), 'audio/mp4'), false);
 checkSame('file: a folder is refused',       $respons->fileReply(TMP_DIR, 'audio/mp4'), false);
 $respons->formatOut( Array('a'=>1) );
-$respons->buildTmpl();
 ob_start();
 $respons->sendOutpt();
 checkSame('file: a refused file leaves the data body', ob_get_clean(), '{"a":1}');
@@ -150,7 +189,6 @@ function pageSent( String $pageString, Array $pageValues=Array() ): String {
 	file_put_contents($tmpFile, $pageString);
 	$respons = new Response();
 	$respons->formatOut( Array('a'=>1) );
-	$respons->buildTmpl();
 	$respons->pageReply($tmpFile, $pageValues);
 	ob_start();
 	$respons->sendOutpt();

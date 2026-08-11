@@ -759,22 +759,16 @@ if( !$isReady ){
 	checkSame('login with an unusable secret: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Login unavailable","code":500}'));
 
 	// Content types
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Return'=>'php'));
-	checkSame('other output format: text/plain', $replyAr['type'], 'text/plain; charset=utf-8');
-	checkSame('other output format: serialized body', unserialize($replyAr['body'])['title'] ?? null, 'Alpha Night');
-
-	foreach( Array('excel'=>'application/vnd.ms-excel', 'mswrd'=>'application/msword', 'optab'=>'application/vnd.oasis.opendocument.spreadsheet') as $tplNme=>$tplTyp ){
-		$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Tmpl'=>$tplNme));
-		checkSame($tplNme.' template: content type', $replyAr['type'], $tplTyp);
-		checkSame($tplNme.' template: the document starts at its first byte', substr($replyAr['body'], 0, 5), '<html');
-	}
-
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Tmpl'=>'nosuchtemplate'));
-	checkSame('unknown template: the record is still sent', Array($replyAr['code'], $replyAr['type'], json_decode($replyAr['body'], true)['title'] ?? null), Array(200, $jsonTyp, 'Alpha Night'));
-
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99', Array('X-Test-Tmpl'=>'nosuchtemplate'));
-	checkSame('unknown template: an error status keeps its body', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Show not found","code":404}'));
-
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Format'=>'yaml'));
+	checkSame('yaml format: its type and body', Array($replyAr['code'], $replyAr['type'], preg_match('/^title: Alpha Night$/m', $replyAr['body'])), Array(200, 'application/yaml; charset=utf-8', 1));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Format'=>'html'));
+	checkSame('html format: a page', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<!DOCTYPE html>')===0, strpos($replyAr['body'], '<dd><p>Alpha Night</p>')!==false), Array(200, 'text/html; charset=utf-8', true, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Format'=>'tabl'));
+	checkSame('tabl format: one record is not a list of them', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Response could not be encoded","code":500}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99', Array('X-Test-Format'=>'tabl'));
+	checkSame('tabl format: an error is sent as JSON', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Show not found","code":404}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99', Array('X-Test-Format'=>'xmlx'));
+	checkSame('xmlx format: an error is sent as XML', Array($replyAr['code'], $replyAr['type'], preg_match('/<error>Show not found<\/error>/', $replyAr['body'])), Array(404, 'application/xml; charset=utf-8', 1));
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctype'=>'application/problem+json'));
 	checkSame('a Content-Type set by the preset is kept', $replyAr['type'], 'application/problem+json');
 
