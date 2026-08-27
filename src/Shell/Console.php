@@ -21,7 +21,7 @@ class Console{
 
 	const NYUVERSN = '1.0.0';
 	// The framework's commands and their classes, under nyu\Shell\Cmds. Any other name is the one of an application (see findClass)
-	const CMDSLIST = Array('deploy'=>'Deploy', 'config'=>'Config', 'tester'=>'Tester', 'cleans'=>'Cleans', 'manage'=>'Manage', 'device'=>'Device');
+	const CMDSLIST = Array('deploy'=>'Deploy', 'config'=>'Config', 'tester'=>'Tester', 'cleans'=>'Cleans', 'manage'=>'Manage', 'device'=>'Device', 'bundle'=>'Bundle');
 
 	protected $givnArgs;
 	protected $outsStrm;

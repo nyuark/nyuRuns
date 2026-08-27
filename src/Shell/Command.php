@@ -48,7 +48,9 @@ abstract class Command{
 	/**
 	 * Lists the sub-commands: for each name, its arguments under 'args'
 	 * and what it does under 'about'. A command without sub-commands has
-	 * one entry, under an empty name, with the method to run under 'call'.
+	 * one entry, under an empty name, with the method to run under 'call';
+	 * a sub-command may name its method under 'call' too, which is then
+	 * given the word of the sub-command.
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
@@ -79,12 +81,14 @@ abstract class Command{
 			if( !isset($subList[$subName]) ){
 				$this->stopShell( 'Unknown sub-command: '.$subName, self::EXITUSGE );
 			}
-			$callNme = 'call'.ucfirst($subName);
+			// A sub-command the command lists as it runs (one a project declared) names the method it shares with others
+			$callNme = strval( $subList[$subName]['call'] ?? 'call'.ucfirst($subName) );
 		}
 		if( !method_exists($this, $callNme) ){
 			$this->stopShell( 'The sub-command is declared but not written: '.$callNme, self::EXITFAIL );
 		}
-		return intval( $this->$callNme() );
+		// The method is given the word of its sub-command, which a shared method needs to know which one it runs
+		return intval( $this->$callNme( $subName ?? '' ) );
 	}
 
 	/**

@@ -12,3 +12,5 @@
 /conf/users.lst
 # Keys signing the tokens: the private one never leaves the server
 /conf/keys/
+# Bundles made for the environments (php nyuRun bundle)
+/dist/
