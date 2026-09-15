@@ -339,10 +339,12 @@ REQ_PART = 200
 
 ## 13. Routing notes
 
-- An action that a declared route answers with is only reached through that
-  route, with the methods it allows. The same action asked for by its path
-  (`/app/action`) is a 404. Declare a route when you want to restrict the
-  methods of an action.
+- An action that a declared route answers with, when that route limits its
+  methods (`allows`, or one target per method), is only reached through that
+  route, with those methods. The same action asked for by its path
+  (`/app/action`) is a 404. Declare such a route when you want to restrict the
+  methods of an action; a route that limits nothing leaves its action reachable
+  by its path too.
 - An application is named with letters and digits only.
 - A key that nothing reads in a route file is told on the `runner` log at each
   request.

@@ -93,10 +93,11 @@ checkSame('a file parsed as JSON on request, keys kept as written', runSafely(fu
 	return $docFile->readValue();
 }), Array('shows/list'=>Array('GET'=>'shows/index')));
 checkSame('the route files of the project are read that way', runSafely(function(){
-	$rteList = glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte');
-	$docFile = new Dcmnt($rteList[0]);
+	// A route file the project ships, named : a file left in the folder by hand does not change the check
+	$rteFile = TOP_DIR.DS.'conf'.DS.'routes'.DS.'general.rte';
+	$docFile = new Dcmnt($rteFile);
 	$docFile->fileParse('json', false);
-	return Array(count($rteList)>0, is_array($docFile->readValue()) && !empty($docFile->readValue()));
+	return Array(is_file($rteFile), is_array($docFile->readValue()) && !empty($docFile->readValue()));
 }), Array(true, true));
 checkSame('the preset files of the project are JSON with comment lines too', runSafely(function(){
 	$rpsOkay = Array();

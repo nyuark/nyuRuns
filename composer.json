@@ -1,23 +1,22 @@
 {
     "name": "nyuark/nyuruns",
-    "description": "nyuArk Rapid Unified Network Service is a microframework for creating web services, content pages and simple application processes easily and rapidly.",
+    "description": "nyuArk's Rapid Unified Network Services: a lightweight PHP 8 framework for RESTful APIs and web pages, with built-in authentication, input validation, several data sources and document formats.",
+    "keywords": ["php", "rest", "api", "framework", "jwt", "2fa", "microservice", "documents"],
     "type": "project",
-    "license": "GPLv2",
+    "license": "MIT",
     "authors": [
         {
             "name": "Jason JOHNSTON",
             "email": "dev@nyuark.com"
         }
     ],
-    "minimum-stability": "dev",
-    "prefer-stable": true,
 	"autoload": {
 		"psr-4": {
 			"nyu\\": "src/"
 		}
 	},
     "require": {
-        "level-2/dice": "dev-master",
+        "level-2/dice": "^4.0",
         "firebase/php-jwt": "^7.2",
         "dompdf/dompdf": "~3.1",
         "smalot/pdfparser": "~2.12"
@@ -29,6 +28,7 @@
         "ext-exif": "To read what a photo tells: date, camera, position",
         "ext-mbstring": "To read and write PDF documents",
         "ext-mongodb": "To use MongoDB as a store",
+        "ext-openssl": "To sign the tokens with RS256 and keep the 2FA secrets encrypted",
         "phpmailer/phpmailer": "To send mails with attachments through a phmail mail account"
     }
 }

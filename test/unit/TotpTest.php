@@ -38,14 +38,18 @@ checkSame('matchStep: a step of today',   Totp::matchStep($rfcScrt, '005924', 12
 
 // Storage : a secret is encrypted with a key of 32 characters at least, and read back with it
 $sealKey = str_repeat('k', 32);
-$sealTxt = Totp::sealSecrt($rfcScrt, $sealKey);
-checkLike('sealSecrt gives a marked text that fits the field', $sealTxt, '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
-checkSame('openSecrt reads it back with the key', Totp::openSecrt($sealTxt, $sealKey), $rfcScrt);
-checkTrue('sealSecrt gives another text each time', $sealTxt!==Totp::sealSecrt($rfcScrt, $sealKey));
-checkSame('openSecrt with another key', Totp::openSecrt($sealTxt, str_repeat('x', 32)), null);
-checkSame('openSecrt without a key', Totp::openSecrt($sealTxt, ''), null);
-checkSame('openSecrt of a changed text', Totp::openSecrt(substr($sealTxt, 0, -6).(substr($sealTxt, -6, 1)=='A' ? 'B' : 'A').substr($sealTxt, -5), $sealKey), null);
-checkSame('openSecrt of a marked text that is not one', Array(Totp::openSecrt('enc1:', $sealKey), Totp::openSecrt('enc1:not base64 !', $sealKey), Totp::openSecrt('enc1:'.base64_encode('short'), $sealKey)), Array(null, null, null));
+if( function_exists('openssl_encrypt') ){
+	$sealTxt = Totp::sealSecrt($rfcScrt, $sealKey);
+	checkLike('sealSecrt gives a marked text that fits the field', $sealTxt, '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
+	checkSame('openSecrt reads it back with the key', Totp::openSecrt($sealTxt, $sealKey), $rfcScrt);
+	checkTrue('sealSecrt gives another text each time', $sealTxt!==Totp::sealSecrt($rfcScrt, $sealKey));
+	checkSame('openSecrt with another key', Totp::openSecrt($sealTxt, str_repeat('x', 32)), null);
+	checkSame('openSecrt without a key', Totp::openSecrt($sealTxt, ''), null);
+	checkSame('openSecrt of a changed text', Totp::openSecrt(substr($sealTxt, 0, -6).(substr($sealTxt, -6, 1)=='A' ? 'B' : 'A').substr($sealTxt, -5), $sealKey), null);
+	checkSame('openSecrt of a marked text that is not one', Array(Totp::openSecrt('enc1:', $sealKey), Totp::openSecrt('enc1:not base64 !', $sealKey), Totp::openSecrt('enc1:'.base64_encode('short'), $sealKey)), Array(null, null, null));
+}else{
+	skipCheck('Totp: secrets stored encrypted', 'the openssl extension is not loaded');
+}
 checkSame('openSecrt gives a readable secret as it is, with or without a key', Array(Totp::openSecrt($rfcScrt, $sealKey), Totp::openSecrt($rfcScrt, '')), Array($rfcScrt, $rfcScrt));
 checkSame('sealSecrt leaves the secret readable without a key, or with a short one', Array(Totp::sealSecrt($rfcScrt, ''), Totp::sealSecrt($rfcScrt, str_repeat('k', 31))), Array($rfcScrt, $rfcScrt));
 

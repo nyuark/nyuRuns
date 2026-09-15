@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d4b8f994b588eaf66a6a38e96eb0ced3",
+    "content-hash": "7bf6e691b32e2c1e1b674e376b156175",
     "packages": [
         {
             "name": "dompdf/dompdf",
@@ -237,16 +237,16 @@
         },
         {
             "name": "level-2/dice",
-            "version": "dev-master",
+            "version": "4.0.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Level-2/Dice.git",
-                "reference": "b9336d9200d0165c31e982374dc5d8d2552807bc"
+                "reference": "e04c98d96bcc932a917b2b7e7944887e4839056a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Level-2/Dice/zipball/b9336d9200d0165c31e982374dc5d8d2552807bc",
-                "reference": "b9336d9200d0165c31e982374dc5d8d2552807bc",
+                "url": "https://api.github.com/repos/Level-2/Dice/zipball/e04c98d96bcc932a917b2b7e7944887e4839056a",
+                "reference": "e04c98d96bcc932a917b2b7e7944887e4839056a",
                 "shasum": ""
             },
             "require": {
@@ -279,7 +279,11 @@
                 "di",
                 "ioc"
             ],
-            "time": "2020-01-28T13:47:49+00:00"
+            "support": {
+                "issues": "https://github.com/Level-2/Dice/issues",
+                "source": "https://github.com/Level-2/Dice/tree/4.0.4"
+            },
+            "time": "2022-03-28T21:20:23+00:00"
         },
         {
             "name": "masterminds/html5",
@@ -565,11 +569,9 @@
     ],
     "packages-dev": [],
     "aliases": [],
-    "minimum-stability": "dev",
-    "stability-flags": {
-        "level-2/dice": 20
-    },
-    "prefer-stable": true,
+    "minimum-stability": "stable",
+    "stability-flags": {},
+    "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {},
     "platform-dev": {},

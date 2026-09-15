@@ -198,7 +198,7 @@ if( !$isReady ){
 	checkSame('no action, trailing slash', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows?filters[search]=Beta*');
-	checkSame('no action: a default action that a declared route answers with is only reached through it', Array($replyAr['code'], httpQuery('GET', $baseUrl.'/shows/index')['code'], count(json_decode(httpQuery('GET', $baseUrl.'/')['body'], true) ?? Array())), Array(404, 404, 5));
+	checkSame('no action: a default action whose route limits no method is still reached from the path', Array($replyAr['code'], httpQuery('GET', $baseUrl.'/shows/index')['code'], count(json_decode(httpQuery('GET', $baseUrl.'/')['body'], true) ?? Array())), Array(200, 200, 5));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth');
 	checkSame('no action: the first action of auth is the login, which its declared route alone reaches', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));

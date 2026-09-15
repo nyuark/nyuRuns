@@ -1,7 +1,6 @@
 {
     "name": "nyuruns",
-    "description": "Core base for nyuArk's Rapid Unified Network Services micro-framework",
-    "repository": "https://github.com/nyuark/nyuruns",
-    "logo": "https://raw.githubusercontent.com/nyuark/nyurun.png",
-    "keywords": ["php", "micro-framework", "webservice", "rest-api", "mysql", "rest", "api", "rad"]
+    "description": "nyuArk's Rapid Unified Network Services: a lightweight PHP 8 framework for RESTful APIs and web pages, with built-in authentication, input validation, several data sources and document formats.",
+    "repository": "https://github.com/nyuark/nyuRuns",
+    "keywords": ["php", "rest", "api", "framework", "jwt", "2fa", "microservice", "documents"]
 }

@@ -78,11 +78,15 @@ checkSame('UserList 2FA: wrong password, whatever the code', Array($usrList->che
 
 // A secret written encrypted is read with the key of the block
 $sealKey = str_repeat('k', 32);
-file_put_contents(inTempDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userName'=>'emma', 'passHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFaKey'=>Totp::sealSecrt($tfaScrt, $sealKey))))));
 $emmaCod = $emmaPwd + Array('code'=>Totp::codeAtTme($tfaScrt, time()));
-checkSame('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('usrfle'=>inTempDir('sealed.lst'), 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
-$noKeyLs = new PathUserList( Array('usrfle'=>inTempDir('sealed.lst')) );
-checkSame('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkCred($emmaCod), $noKeyLs->lastError(), $noKeyLs->wrongCred()), Array(false, 'Credential store unavailable', false));
+if( function_exists('openssl_encrypt') ){
+	file_put_contents(inTempDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userName'=>'emma', 'passHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFaKey'=>Totp::sealSecrt($tfaScrt, $sealKey))))));
+	checkSame('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('usrfle'=>inTempDir('sealed.lst'), 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
+	$noKeyLs = new PathUserList( Array('usrfle'=>inTempDir('sealed.lst')) );
+	checkSame('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkCred($emmaCod), $noKeyLs->lastError(), $noKeyLs->wrongCred()), Array(false, 'Credential store unavailable', false));
+}else{
+	skipCheck('UserList 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
+}
 checkSame('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('usrfle'=>$fxtPath, 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
 
 // Personal API token : its SHA-256 hash is the tokenKey of an active user

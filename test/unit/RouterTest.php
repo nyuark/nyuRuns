@@ -187,6 +187,7 @@ $autoRtr = madeRoutr('/probe/mirror/x');
 $autoRtr->findRoute();
 checkSame('shut: an action found from the path, the target of a declared route', Array($autoRtr->shutsActn('Probe', 'mirror'), $autoRtr->shutsActn('probe', 'MIRROR'), $autoRtr->shutsActn('PROBE', 'clean')), Array(true, true, true));
 checkSame('shut: an action no route answers with, another application', Array($autoRtr->shutsActn('Probe', 'whoami'), $autoRtr->shutsActn('Shows', 'mirror'), $autoRtr->shutsActn('Probe', '')), Array(false, false, false));
+checkSame('shut: not for an action whose routes limit no method', $autoRtr->shutsActn('Probe', 'text'), false);
 $declRtr = madeRoutr('/items/42');
 $declRtr->findRoute();
 checkSame('shut: never when the request came through the declared route', $declRtr->shutsActn('Probe', 'mirror'), false);

@@ -81,8 +81,9 @@ class Router{
 
 	/**
 	 * Tells whether an action found from the path is closed: a declared
-	 * route answers with it, so it is only reached through that route,
-	 * with the methods the route allows. The names are compared whatever
+	 * route limiting its methods ('allows', or one target per method)
+	 * answers with it, so it is only reached through that route, with
+	 * the methods the route allows. The names are compared whatever
 	 * their case. An action reached through its declared route, or called
 	 * without a route being looked for, is never closed.
 	 *
@@ -96,7 +97,7 @@ class Router{
 			return false;
 		}
 		foreach( $this->allRoutes() as $rteRow ){
-			if( $rteRow['rteKind']!='action' || strcasecmp(strval($rteRow['app']), $runAppName)!=0 ){
+			if( $rteRow['rteKind']!='action' || !$rteRow['rteLock'] || strcasecmp(strval($rteRow['app']), $runAppName)!=0 ){
 				continue;
 			}
 			// A route naming no action answers with the default one
@@ -248,7 +249,7 @@ class Router{
 	 * Lists the declared routes, for what they answer with: one entry for
 	 * each target of a route, with the methods it serves.
 	 *
-	 * @return Array The entries, each with the path under 'rtePath', its 'methods', its 'rteKind' (action, redrct, static or htpage), what it answers with under 'rteGoal' and, for an action, its 'app' and 'action'.
+	 * @return Array The entries, each with the path under 'rtePath', its 'methods', its 'rteKind' (action, redrct, static or htpage), what it answers with under 'rteGoal', whether the route limits its methods under 'rteLock' and, for an action, its 'app' and 'action'.
 	 */
 	public function allRoutes(): Array {
 		$rowList = Array();
@@ -258,6 +259,8 @@ class Router{
 				continue;
 			}
 			$alwList = array_filter( array_map('trim', explode(',', strtoupper(strval($rteSet['allows'] ?? '')))) );
+			// A route limiting its methods closes its action to the path (shutsActn)
+			$rteLock = isset($rteSet['allows']) || $this->targtKind($tgtVals)===null;
 			if( $this->targtKind($tgtVals)!==null ){
 				$mthList = array_diff($alwList, Array('HEAD', 'OPTIONS'));
 				$tgtVals = array_fill_keys( empty($mthList) ? Array('GET') : $mthList, $tgtVals );
@@ -277,7 +280,7 @@ class Router{
 				}
 				$goalKey = $rteKind.' '.$goalTxt;
 				if( !isset($goalLst[$goalKey]) ){
-					$goalLst[$goalKey] = Array('rtePath'=>trim(strval($rteKey), '/'), 'methods'=>Array(), 'rteKind'=>$rteKind, 'rteGoal'=>$goalTxt, 'app'=>($rteKind=='action') ? strval($mthTgt['app']) : null, 'action'=>($rteKind=='action') ? strval($mthTgt['act'] ?? '') : null);
+					$goalLst[$goalKey] = Array('rtePath'=>trim(strval($rteKey), '/'), 'methods'=>Array(), 'rteKind'=>$rteKind, 'rteGoal'=>$goalTxt, 'app'=>($rteKind=='action') ? strval($mthTgt['app']) : null, 'action'=>($rteKind=='action') ? strval($mthTgt['act'] ?? '') : null, 'rteLock'=>$rteLock);
 				}
 				$goalLst[$goalKey]['methods'][] = strval($mthNme);
 			}

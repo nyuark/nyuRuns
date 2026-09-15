@@ -58,8 +58,8 @@ function runDialct( String $handlerCls ): Void {
 
 	// Filters
 	checkSame('filter: equal',                 showKeys(Array('venue'=>'Hall B')), Array(2));
-	checkSame('filter: wildcard, whatever the case', showKeys(Array('title'=>'alpha*')), Array(1, 3));
-	checkSame('filter: negated wildcard',      showKeys(Array('title!'=>'Alpha*')), Array(2, 4, 5));
+	checkSame('filter: wildcard, whatever the case', showKeys(Array('title~'=>'alpha*')), Array(1, 3));
+	checkSame('filter: negated wildcard',      showKeys(Array('title!~'=>'Alpha*')), Array(2, 4, 5));
 	checkSame('filter: list and comparison',   showKeys(Array('id_show'=>Array(1, 2, 3), 'id_show>'=>1)), Array(2, 3));
 	checkSame('filter: field left unset',      showKeys(Array('venue?'=>false)), Array(5));
 	checkSame('filter: a null value matches nothing', showKeys(Array('venue'=>null)), Array());
@@ -95,7 +95,7 @@ function runDialct( String $handlerCls ): Void {
 	}), Array('Beta Evening', Array('2026-11-02', '2026-11-09')));
 	checkSame('record: find, whatever the case', runSafely(function(){
 		$showRec = new DBRec('shows');
-		return $showRec->findRecrd(Array('title'=>'beta*'))['venue'] ?? null;
+		return $showRec->findRecrd(Array('title~'=>'beta*'))['venue'] ?? null;
 	}), 'Hall B');
 	checkSame('record: an update keeps quotes and sets NULL', runSafely(function(){
 		$showRec = new DBRec('shows');

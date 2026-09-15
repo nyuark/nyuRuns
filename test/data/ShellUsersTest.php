@@ -74,11 +74,13 @@ putInProj($projDir, 'conf/database.json', json_encode(Array('type'=>'sqlte', 'ho
 checkSame('a userbase that cannot be read is a failure', runShell($projDir, Array('manage', 'lists'))['code'], 1);
 
 // deploy : the users table and the basic users of a new database
+$tknRow = function_exists('openssl_pkey_new') ? 'token keys dftokn' : 'secret dftokn';
 $newBase = inTempDir('deploy.sqlite');
 $projDir = makeProjt('install', Array(
 	'.env.example'=>"NYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n",
 	'conf/system.ini'=>sampleIni(),
-	'conf/access.json.dist'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')),
+	// Without openssl, which RS256 needs to make its keys, the tokens are signed with a secret
+	'conf/access.json.dist'=>str_replace( function_exists('openssl_pkey_new') ? '' : '"algrtm": "RS256"', '"algrtm": "HS256"', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')) ),
 	'conf/database.json'=>"{\n\t\"nyuRuns\": {\n\t\t\"type\": \"sqlte\",\n\t\t\"host\": \"\",\n\t\t\"base\": ".json_encode($newBase, JSON_UNESCAPED_SLASHES).",\n\t\t\"user\": \"\",\n\t\t\"pass\": \"\"\n\t}\n}\n",
 	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
 	'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }'
@@ -88,7 +90,7 @@ $jsnVals = json_decode($runVals['text'], true);
 $hashLst = (new PDO('sqlite:'.$newBase))->query('SELECT userName, passHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
 checkSame('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (native, usrlst, none) [usrlst]: Database type (mysql, pgsql, sqlte) [sqlte]: Database file ['.$newBase.']: ');
 checkSame('the users table is created with the basic users, their passwords shown once', Array($jsnVals['exit'] ?? null, $jsnVals['fail'] ?? null, array_column(jsonShell($projDir, Array('manage', 'lists'))['rows'] ?? Array(), 'userRole', 'userName'), password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $hashLst['managr'] ?? ''), password_verify($jsnVals['secret']['Password of system (system)'] ?? '', $hashLst['system'] ?? '')), Array(0, 0, Array('managr'=>'manage', 'member'=>'member', 'system'=>'system'), true, true));
-checkSame('the check finds the database and the users', array_intersect_key(array_column($jsnVals['rows'] ?? Array(), 'state', 'check'), Array('database nyuruns'=>1, 'users'=>1, 'token keys dftokn'=>1)), Array('token keys dftokn'=>'fine', 'database nyuruns'=>'fine', 'users'=>'fine'));
+checkSame('the check finds the database and the users', array_intersect_key(array_column($jsnVals['rows'] ?? Array(), 'state', 'check'), Array('database nyuruns'=>1, 'users'=>1, $tknRow=>1)), Array($tknRow=>'fine', 'database nyuruns'=>'fine', 'users'=>'fine'));
 checkSame('users alone: a table that holds users is left as it is', Array(runShell($projDir, Array('deploy', 'users'))['text'], count((new PDO('sqlite:'.$newBase))->query('SELECT userName FROM users')->fetchAll())), Array("The table users already holds users: nothing was changed.\n", 3));
 // The devices table, only when the access config holds a device block
 $dvcQury = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='devices'";

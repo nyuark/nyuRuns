@@ -3,6 +3,7 @@
 	"items/$id" :             { "target": { "app": "probe", "act": "mirror" } },
 	"items/$id/parts/$part" : { "target": { "app": "probe", "act": "mirror" } },
 	"probe/warnfail" :        { "target": { "app": "probe", "act": "clean" } },
+	"plain" :                 { "target": { "app": "probe", "act": "text" } },
 	"broken" :                { "allows": "GET" },
 	"gets" :                  { "allows": "head, options", "target": { "app": "probe", "act": "clean" } },
 	"both" :                  { "allows": "GET, POST", "target": { "app": "probe", "act": "clean" } },

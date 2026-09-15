@@ -17,7 +17,7 @@ require __DIR__.'/../lib/shellKit.php';
 function freshPrjt( String $folderName ): String {
 	return makeProjt($folderName, Array(
 		'.env.example'=>"# Copy to .env and fill in\nNYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n",
-		'conf/access.json.dist'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')),
+		'conf/access.json.dist'=>distAccss(),
 		'conf/system.ini'=>sampleIni(),
 		'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }',
 		'conf/presets/secure.rps'=>'{ "label": "secure", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "dftokn", "rolert": { "users/*": "manage" } } }'
@@ -34,6 +34,18 @@ function stateOf( Mixed $jsonValues ): Array {
 	return array_column( is_array($jsonValues) ? ($jsonValues['rows'] ?? Array()) : Array(), 'state', 'check' );
 }
 
+/**
+ * The example access config the project ships; signing its tokens with
+ * HS256 when PHP has no openssl, which RS256 needs to make its keys.
+ *
+ * @return String The content of conf/access.json.dist.
+ */
+function distAccss(): String {
+	$distTxt = strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist'));
+	return function_exists('openssl_pkey_new') ? $distTxt : str_replace('"algrtm": "RS256"', '"algrtm": "HS256"', $distTxt);
+}
+// Without openssl the tokens are signed with a secret, checked by its own row
+$tknRow = function_exists('openssl_pkey_new') ? 'token keys dftokn' : 'secret dftokn';
 $projDir = freshPrjt('deploy');
 
 // servr, files
@@ -42,7 +54,7 @@ $statLst = stateOf($jsnVals);
 checkSame('servr checks PHP and the folders, which it creates', Array($jsnVals['exit'] ?? null, $statLst['php'] ?? null, $statLst['folder temp/logs'] ?? null, $statLst['folder temp/limits'] ?? null, is_dir($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'backup')), Array(0, 'fine', 'fine', 'fine', true, true));
 checkSame('files creates the local files from their examples', Array(jsonShell($projDir, Array('deploy', 'files'))['rows'] ?? null, readInPrj($projDir, '.env'), readInPrj($projDir, 'conf/access.json')), Array(
 	Array(Array('file'=>'.env', 'state'=>'created from .env.example'), Array('file'=>'conf/access.json', 'state'=>'created from conf/access.json.dist'), Array('file'=>'conf/database.json', 'state'=>'not created: its example conf/database.json.dist is missing')),
-	"# Copy to .env and fill in\nNYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n", str_replace("\r\n", "\n", strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')))
+	"# Copy to .env and fill in\nNYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n", str_replace("\r\n", "\n", distAccss())
 ));
 putInProj($projDir, '.env', "# Mine\nNYU_JWT_SECRET=\nNYU_API_KEY=\n");
 checkSame('a local file that exists is kept', Array(array_column(jsonShell($projDir, Array('deploy', 'files'))['rows'] ?? Array(), 'state', 'file')['.env'] ?? null, readInPrj($projDir, '.env')), Array('kept', "# Mine\nNYU_JWT_SECRET=\nNYU_API_KEY=\n"));
@@ -50,7 +62,7 @@ checkSame('a local file that exists is kept', Array(array_column(jsonShell($proj
 // check, before anything is set
 $jsnVals = jsonShell($projDir, Array('deploy', 'check'));
 $statLst = stateOf($jsnVals);
-checkSame('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset dfault'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst['token keys dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys dfkeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
+checkSame('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset dfault'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys dfkeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
 	Array(4, 'fine', 'fine', 'fine', 'fail', 'fine', 'fail', 'warn', 'fine', true));
 
 // start, without a question
@@ -60,7 +72,7 @@ $envVals = parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCAN
 $axsVals = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(readInPrj($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'userName');
 $keyText = readInPrj($projDir, 'conf/keys/dftokn.key');
-checkSame('start points the login at the store, makes the keys of the tokens, the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null, is_file($projDir.DS.'conf'.DS.'keys'.DS.'dftokn.key'), $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'userRole', 'userName'), $statLst['token keys dftokn'] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
+checkSame('start points the login at the store, makes the keys of the tokens, the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null, function_exists('openssl_pkey_new') ? is_file($projDir.DS.'conf'.DS.'keys'.DS.'dftokn.key') : strlen($envVals['NYU_JWT_SECRET'] ?? '')>=48, $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'userRole', 'userName'), $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
 	Array(0, 'usrlst', 'usrlst', true, $jsnVals['secret']['API key'] ?? 'none', Array('member'=>'member', 'system'=>'system', 'managr'=>'manage'), 'fine', 'fine', 'fine', 0));
 checkSame('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key usrlst'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
 checkSame('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $usrList['managr']['passHash'] ?? ''), password_verify($jsnVals['secret']['Password of member (member)'] ?? '', $usrList['member']['passHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));

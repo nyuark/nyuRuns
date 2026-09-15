@@ -167,20 +167,27 @@ $sqlLink->exec("DROP TABLE oldusers");
 // The secret is stored encrypted when the block gives a key, and readable otherwise, which is logged
 nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('logs')) );
 $benScrt = $natAuth->makeTwoFa('ben');
-$keyAuth = new Native( Array('tblnme'=>'users', 'tfakey'=>str_repeat('k', 40)) );
-$annaSct = strval($keyAuth->makeTwoFa('anna'));
-$annaCod = Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>nyu\Access\Totp::codeAtTme($annaSct, time()));
-checkLike('Native 2FA: with a key, the secret is stored encrypted', strval($sqlLink->query("SELECT twoFaKey FROM users WHERE userName='anna'")->fetchColumn()), '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
-checkLike('Native 2FA: the secret given back is the one the authenticator takes', $annaSct, '/^[A-Z2-7]{32}$/');
-checkSame('Native 2FA: without the key, the user is refused as a store that cannot be read', Array($natAuth->checkCred($annaCod), $natAuth->lastError(), $natAuth->wrongCred()), Array(false, 'Credential store unavailable', false));
-checkSame('Native 2FA: with another key too', Array((new Native(Array('tfakey'=>str_repeat('x', 40))))->checkCred($annaCod), failsOf($sqlLink, 'anna')), Array(false, 0));
-checkSame('Native 2FA: with the key, the code passes', $keyAuth->checkCred($annaCod)['user'] ?? null, 'anna');
-checkSame('Native 2FA: a secret stored readable is still read with a key set', $keyAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben'))!==false || $keyAuth->lastError()=='Verification code required', true);
-$sqlLink->exec("UPDATE users SET twoFaKey=NULL, twoFaStp=NULL WHERE userName='anna'");
+$canSeal = function_exists('openssl_encrypt');
+if( $canSeal ){
+	$keyAuth = new Native( Array('tblnme'=>'users', 'tfakey'=>str_repeat('k', 40)) );
+	$annaSct = strval($keyAuth->makeTwoFa('anna'));
+	$annaCod = Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>nyu\Access\Totp::codeAtTme($annaSct, time()));
+	checkLike('Native 2FA: with a key, the secret is stored encrypted', strval($sqlLink->query("SELECT twoFaKey FROM users WHERE userName='anna'")->fetchColumn()), '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
+	checkLike('Native 2FA: the secret given back is the one the authenticator takes', $annaSct, '/^[A-Z2-7]{32}$/');
+	checkSame('Native 2FA: without the key, the user is refused as a store that cannot be read', Array($natAuth->checkCred($annaCod), $natAuth->lastError(), $natAuth->wrongCred()), Array(false, 'Credential store unavailable', false));
+	checkSame('Native 2FA: with another key too', Array((new Native(Array('tfakey'=>str_repeat('x', 40))))->checkCred($annaCod), failsOf($sqlLink, 'anna')), Array(false, 0));
+	checkSame('Native 2FA: with the key, the code passes', $keyAuth->checkCred($annaCod)['user'] ?? null, 'anna');
+	checkSame('Native 2FA: a secret stored readable is still read with a key set', $keyAuth->checkCred(Array('user'=>'ben', 'pass'=>'pw-ben'))!==false || $keyAuth->lastError()=='Verification code required', true);
+	$sqlLink->exec("UPDATE users SET twoFaKey=NULL, twoFaStp=NULL WHERE userName='anna'");
+}else{
+	skipCheck('Native 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
+}
 nyu\Tools\Logger::plugSetup( Array() );
 $logText = strval(@file_get_contents(inTempDir('logs').DS.'access.log'));
-checkLike('Native 2FA: a secret that cannot be read is told in the access log', $logText, '/\[ERROR\] 2FA secret of user "anna" cannot be read: tfakey is missing or was changed/');
-checkSame('Native 2FA: a secret stored readable is told in the access log, an encrypted one is not', Array(preg_match('/\[WARNING\] 2FA secret of user "ben" stored readable: no tfakey of 32 characters is set/', $logText), preg_match('/secret of user "anna" stored readable/', $logText)), Array(1, 0));
+if( $canSeal ){
+	checkLike('Native 2FA: a secret that cannot be read is told in the access log', $logText, '/\[ERROR\] 2FA secret of user "anna" cannot be read: tfakey is missing or was changed/');
+	checkSame('Native 2FA: a secret stored readable is told in the access log, an encrypted one is not', Array(preg_match('/\[WARNING\] 2FA secret of user "ben" stored readable: no tfakey of 32 characters is set/', $logText), preg_match('/secret of user "anna" stored readable/', $logText)), Array(1, 0));
+}
 checkSame('Native 2FA: wrong password, the code is not asked for', Array($natAuth->checkCred(Array('user'=>'ben', 'pass'=>'nope')), $natAuth->lastError()), Array(false, 'Invalid credentials'));
 checkSame('Native 2FA: valid code, wrong password', $natAuth->checkCred(Array('user'=>'ben', 'pass'=>'nope', 'code'=>nyu\Access\Totp::codeAtTme(strval($benScrt), time()))), false);
 checkSame('Native makeTwoFa refused for a pending user', $natAuth->makeTwoFa('cleo'), false);
