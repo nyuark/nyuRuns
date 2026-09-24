@@ -44,7 +44,7 @@ class Config extends Command{
 	const RULELIST = Array(
 		'ENV_NAME'=>'/^(DEV|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMBER|WEEKLY|MONTHS|UNIQUE)$/D',
 		'ERR_SHOW'=>'/^(TRUE|FALSE)$/D', 'LOG_SIZE'=>'/^\d{1,9}$/D', 'LST_ROWS'=>'/^[1-9]\d{0,8}$/D', 'SND_TIME'=>'/^[1-9]\d{0,8}$/D',
-		'REQ_SIZE'=>'/^\d{1,9}$/D', 'REQ_PART'=>'/^\d{1,9}$/D'
+		'REQ_SIZE'=>'/^\d{1,9}$/D', 'REQ_PART'=>'/^\d{1,9}$/D', 'ERR_LEVL'=>'/^(\d{1,9}|~?\s*E_[A-Z_]+(\s*[|&]\s*~?\s*E_[A-Z_]+)*)$/D'
 	);
 	// The call that starts the Runner in an entry point, and the preset it names
 	const RUNRCALL = '/(new\s+\\\\?nyu\\\\Runner\s*\(\s*)(([\'"])[\w\-]*\3)?/';

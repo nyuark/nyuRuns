@@ -315,6 +315,45 @@ class Loader{
 		);
 	}
 
+	/**
+	 * Resolves the level of the errors PHP reports from the SYSTEM config
+	 * file (ERR_LEVL): E_* names joined by |, & and ~, & binding before |
+	 * as PHP writes them, read name by name and never run as code. A value
+	 * left unquoted in system.ini arrives as the number PHP made of it.
+	 * E_ALL when not set. What the level leaves out is neither shown nor
+	 * logged.
+	 *
+	 * @return Int The error level.
+	 *
+	 * @throws \RuntimeException When the value holds what is not an error level.
+	 */
+	function errConfig(): Int {
+		$nyuConf = $GLOBALS['nyuConfig'];
+		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		$lvlText = trim( strval($sysConf['ERR_LEVL'] ?? '') );
+		if( $lvlText=='' ){
+			return E_ALL;
+		}
+		if( preg_match('/^\d+$/D', $lvlText) ){
+			return intval($lvlText) & E_ALL;
+		}
+		$errLevl = 0;
+		foreach( explode('|', $lvlText) as $orsPrt ){
+			$andLevl = -1;
+			foreach( explode('&', $orsPrt) as $andPrt ){
+				$nameTxt = trim($andPrt);
+				$isNegtd = (strpos($nameTxt, '~')===0);
+				$nameTxt = trim( ltrim($nameTxt, '~') );
+				if( !preg_match('/^E_[A-Z_]+$/D', $nameTxt) || !defined($nameTxt) || !is_int(constant($nameTxt)) ){
+					throw new \RuntimeException('ERR_LEVL holds what is not an error level: '.($nameTxt!='' ? $nameTxt : $lvlText));
+				}
+				$andLevl = $andLevl & ( $isNegtd ? ~constant($nameTxt) : constant($nameTxt) );
+			}
+			$errLevl = $errLevl | $andLevl;
+		}
+		return $errLevl & E_ALL;
+	}
+
     /**
 	 * Defines the output format and response template by building a
 	 * Response object from the 'rnder' configuration.

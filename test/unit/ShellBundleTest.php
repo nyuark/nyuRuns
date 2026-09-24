@@ -87,12 +87,12 @@ putInProj($projDir, 'composer.json', '{ "require": {} }');
 // The modes of the project : declared, listed, built, changed and removed
 checkSame('packs lists the modes of the framework', array_column(jsonShell($projDir, Array('bundle', 'packs'))['rows'] ?? Array(), 'kind', 'mode'), Array('local'=>'framework', 'stage'=>'framework', 'final'=>'framework'));
 $jsnVals = jsonShell($projDir, Array('bundle', 'mkpak', 'qatst', '--noask'));
-checkSame('mkpak declares a mode, TEST, errors shown and full logs unless told otherwise', Array($jsnVals['mode declared'] ?? null, json_decode(strval(readInPrj($projDir, 'conf/bundle.lst')), true)), Array('qatst', Array('qatst'=>Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array()))));
-$runVals = runShell($projDir, Array('bundle', 'mkpak', 'qatst'), "\nfalse\nbase\ntest\n");
+checkSame('mkpak declares a mode, TEST, errors shown and full logs unless told otherwise', Array($jsnVals['mode declared'] ?? null, json_decode(strval(readInPrj($projDir, 'conf/bundle.lst')), true)), Array('qatst', Array('qatst'=>Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array()))));
+$runVals = runShell($projDir, Array('bundle', 'mkpak', 'qatst'), "\nE_ALL & ~E_DEPRECATED\nfalse\nbase\ntest\n");
 checkSame('mkpak changes it, the present values proposed', Array($runVals['code'], $runVals['errs'], json_decode(strval(readInPrj($projDir, 'conf/bundle.lst')), true)['qatst'] ?? null), Array(0,
-	'Environment (DEV, TEST, PREV, PROD) [TEST]: Show errors (TRUE, FALSE) [TRUE]: Logging mode (FULL, BASE, MINI) [FULL]: Paths the bundle adds, separated by commas (none for none) [none]: ',
-	Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'), 'adding'=>Array('test'))));
-checkSame('packs lists it with the others', jsonShell($projDir, Array('bundle', 'packs'))['rows'][3] ?? null, Array('mode'=>'qatst', 'kind'=>'project', 'settings'=>'ENV_NAME=TEST, ERR_SHOW=FALSE, LOG_MODE=BASE', 'adding'=>'test'));
+	'Environment (DEV, TEST, PREV, PROD) [TEST]: Errors reported (E_* names joined by |, & and ~) [E_ALL]: Show errors (TRUE, FALSE) [TRUE]: Logging mode (FULL, BASE, MINI) [FULL]: Paths the bundle adds, separated by commas (none for none) [none]: ',
+	Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL & ~E_DEPRECATED', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'), 'adding'=>Array('test'))));
+checkSame('packs lists it with the others', jsonShell($projDir, Array('bundle', 'packs'))['rows'][3] ?? null, Array('mode'=>'qatst', 'kind'=>'project', 'settings'=>'ENV_NAME=TEST, ERR_LEVL=E_ALL & ~E_DEPRECATED, ERR_SHOW=FALSE, LOG_MODE=BASE', 'adding'=>'test'));
 $runVals = runShell($projDir, Array('bundle', 'qatst'));
 $qatList = array_merge($keptLst, Array('test/unit/SomeTest.php'));
 sort($qatList);
@@ -101,8 +101,8 @@ checkSame('a mode of the project is a sub-command of bundle', isset(array_column
 
 // What a mode cannot be
 checkSame('a name that is not one, a mode of the framework, a sub-command', Array(runShell($projDir, Array('bundle', 'mkpak', 'Bad!x', '--noask'))['code'], runShell($projDir, Array('bundle', 'mkpak', 'final', '--noask'))['code'], runShell($projDir, Array('bundle', 'mkpak', 'packs', '--noask'))['code']), Array(2, 3, 3));
-checkSame('an environment, a setting, a path that cannot be', Array(runShell($projDir, Array('bundle', 'mkpak', 'other'), "live\n\n\n\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\nmaybe\n\n\n")['code'],
-	runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\n../outside\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\nsrc\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\n.git\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\nnowhere\n")['code']), Array(3, 3, 3, 3, 3, 3));
+checkSame('an environment, a setting, a path, an error level that cannot be', Array(runShell($projDir, Array('bundle', 'mkpak', 'other'), "live\n\n\n\n\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\nmaybe\n\n\n")['code'],
+	runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\n\n../outside\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\n\nsrc\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\n\n.git\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\n\n\n\nnowhere\n")['code'], runShell($projDir, Array('bundle', 'mkpak', 'other'), "\nE_ALL or E_ERROR\n\n\n\n")['code']), Array(3, 3, 3, 3, 3, 3, 3));
 checkSame('nothing refused was written', array_keys(json_decode(strval(readInPrj($projDir, 'conf/bundle.lst')), true)), Array('qatst'));
 $lstText = strval(readInPrj($projDir, 'conf/bundle.lst'));
 putInProj($projDir, 'conf/bundle.lst', '{ "badmd": { "system": { "ENV_NAME": "LIVE" }, "adding": [] } }');

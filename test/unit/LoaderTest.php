@@ -74,4 +74,28 @@ checkSame('env: an unknown name gives an empty value', loadedVal($envSetp, 'miss
 checkSame('env: values are replaced at any depth',  loadedVal($envSetp, 'nested'), Array('keys'=>Array('abc123', 'literal'), 'ttl'=>60));
 checkSame('env: without the file, the process is used', loadedVal(Array('ftypes'=>'all', 'folder'=>$fxtFldr, 'envfle'=>'test'.DS.'fixtures'.DS.'none.env'), 'token'), 'from-the-process');
 
+/**
+ * Reads the error level a value of ERR_LEVL gives, as system.ini hands it.
+ *
+ * @param mixed $levelValue The value of ERR_LEVL; null for none.
+ * @return mixed The level, or a 'THROWN ...' string.
+ */
+function levelOf( Mixed $levelValue ): Mixed {
+	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>($levelValue===null ? Array() : Array('ERR_LEVL'=>$levelValue))) );
+	return runSafely(function(){
+		return (new Loader( Array('setup'=>Array('ftypes'=>'none')) ))->errConfig();
+	});
+}
+
+// ERR_LEVL : E_* names read one by one, never run; a value left unquoted arrives as the number PHP made of it
+checkSame('error level: E_ALL when not set, or empty', Array(levelOf(null), levelOf('')), Array(E_ALL, E_ALL));
+checkSame('error level: as the parser of system.ini gives it unquoted', Array(levelOf('32767'), levelOf(E_ALL & ~E_DEPRECATED)), Array(E_ALL, E_ALL & ~E_DEPRECATED));
+checkSame('error level: names joined by & and ~, quoted', levelOf('E_ALL & ~E_DEPRECATED & ~E_NOTICE'), E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+checkSame('error level: & binds before |, as in PHP', levelOf('E_ERROR | E_WARNING & ~E_WARNING'), E_ERROR | (E_WARNING & ~E_WARNING));
+checkSame('error level: spaces do not matter', levelOf('E_ERROR|E_WARNING'), E_ERROR | E_WARNING);
+checkLike('error level: an unknown name stops the start-up', strval(levelOf('E_ALL & ~E_FOO')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: E_FOO @Loader\.php:\d+$/');
+checkLike('error level: what is not a name is never run', strval(levelOf('E_ALL | phpinfo()')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: phpinfo\(\) @Loader\.php:\d+$/');
+checkLike('error level: a constant that is not one of the errors', strval(levelOf('PHP_VERSION')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: PHP_VERSION @Loader\.php:\d+$/');
+$GLOBALS['nyuConfig'] = null;
+
 endChecks();

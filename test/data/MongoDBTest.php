@@ -86,8 +86,8 @@ checkSame('there are no transactions', Array($dbStore->canTrnsct(), $dbStore->op
 checkSame('list: every row', docTitle(Array()), Array('Alpha Matinee', 'Alpha Night', 'Beta Evening', 'Empty Stage'));
 checkSame('list: equal', docTitle(Array('venue'=>'Hall B')), Array('Beta Evening'));
 checkSame('list: not equal leaves out the rows left unset, as SQL does', docTitle(Array('venue!'=>'Hall B')), Array('Alpha Matinee', 'Alpha Night'));
-checkSame('list: wildcard, whatever the case', docTitle(Array('title'=>'alpha*')), Array('Alpha Matinee', 'Alpha Night'));
-checkSame('list: negated wildcard', docTitle(Array('title!'=>'Alpha*')), Array('Beta Evening', 'Empty Stage'));
+checkSame('list: wildcard, whatever the case', docTitle(Array('title~'=>'alpha*')), Array('Alpha Matinee', 'Alpha Night'));
+checkSame('list: negated wildcard', docTitle(Array('title!~'=>'Alpha*')), Array('Beta Evening', 'Empty Stage'));
 checkSame('list: an exact value keeps its wildcard characters', docTitle(Array('title='=>'Alpha*')), Array());
 checkSame('list: comparison and list of values', docTitle(Array('seats>='=>80, 'venue'=>Array('Hall B', 'Hall C'))), Array('Alpha Matinee', 'Beta Evening'));
 checkSame('list: excluded list of values', docTitle(Array('venue!'=>Array('Hall A', 'Hall B'))), Array('Alpha Matinee'));
@@ -111,7 +111,7 @@ checkSame('list: an order written as plain field names in the constructor', runS
 }), Array('2026-12-28', '2026-11-03'));
 checkSame('list: child lists', runSafely(function(){
 	$showLst = new DBLst('shows');
-	$showLst->lstSearch(Array('title'=>'*a Night'));
+	$showLst->lstSearch(Array('title~'=>'*a Night'));
 	$showLst->readItems();
 	$evntLst = $showLst->childList('events', 'date', 'show_id', '_id')[0]['events'];
 	sort($evntLst);
@@ -146,7 +146,7 @@ checkSame('record: saving without any change still succeeds', runSafely(function
 }), $showKey[1]);
 checkSame('record: find, existing and missing keys', runSafely(function() use ($showKey){
 	$showRec = new DBRec('shows');
-	return Array($showRec->findRecrd(Array('title'=>'beta*'))['_id'] ?? null, $showRec->exstRecrd($showKey[1]), $showRec->loadRecrd('000000000000000000000000'), $showRec->loadRecrd('not-a-key'), $showRec->exstRecrd('*'));
+	return Array($showRec->findRecrd(Array('title~'=>'beta*'))['_id'] ?? null, $showRec->exstRecrd($showKey[1]), $showRec->loadRecrd('000000000000000000000000'), $showRec->loadRecrd('not-a-key'), $showRec->exstRecrd('*'));
 }), Array($showKey[1], true, false, false, false));
 checkSame('record: deleted alone, without transactions', runSafely(function() use ($showKey){
 	$showRec = new DBRec('shows');

@@ -116,4 +116,11 @@ $statLst = stateOf(jsonShell($projDir, Array('deploy', 'check')));
 checkSame('a session cookie with every origin allowed is told, unless the origins are listed', Array($statLst['origins cookie'] ?? null, $statLst['preset cookie'] ?? null, array_key_exists('origins listed', $statLst), array_key_exists('origins dfault', $statLst)), Array('warn', 'fine', false, false));
 checkSame('a preset that does not load, names a block that is not there, or asks for a role that is not one; proxies trusted from anywhere', Array($statLst['preset broken'] ?? null, $statLst['preset noblok'] ?? null, $statLst['preset norole'] ?? null, $statLst['preset dfault'] ?? null, $statLst['proxies'] ?? null), Array('fail', 'fail', 'fail', 'fine', 'fail'));
 
+// An error level that cannot be read stops every request : the check fails
+putInProj($projDir, 'conf/system.ini', str_replace('ERR_LEVL = E_ALL', 'ERR_LEVL = "E_ALL & ~E_FOO"', sampleIni()));
+$jsnVals = jsonShell($projDir, Array('deploy', 'check'));
+checkSame('an error level that cannot be read fails the check', Array(stateOf($jsnVals)['error level'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['error level'] ?? null), Array('fail', 'ERR_LEVL holds what is not an error level: E_FOO: no request can be served'));
+putInProj($projDir, 'conf/system.ini', sampleIni());
+checkSame('E_ALL, every error is reported', array_column(jsonShell($projDir, Array('deploy', 'check'))['rows'] ?? Array(), 'found', 'check')['error level'] ?? null, 'every error is reported (E_ALL)');
+
 endChecks();

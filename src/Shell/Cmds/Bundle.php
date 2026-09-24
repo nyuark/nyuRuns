@@ -30,9 +30,9 @@ class Bundle extends Command{
 
 	// The modes of the framework, with the settings written in the system.ini of their bundle
 	const MODELIST = Array(
-		'local'=>Array('ENV_NAME'=>'DEV', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
-		'stage'=>Array('ENV_NAME'=>'PREV', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
-		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE')
+		'local'=>Array('ENV_NAME'=>'DEV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
+		'stage'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
+		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE')
 	);
 	// What a bundle holds, from the project root : nothing else is copied, but what a mode adds
 	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE');
@@ -120,10 +120,10 @@ class Bundle extends Command{
 
 	/**
 	 * Declares a mode of the project, or changes one: its environment,
-	 * whether errors are shown, its logging mode, and the paths its
+	 * the errors reported, whether they are shown, its logging mode, and the paths its
 	 * bundle adds to KEEPLIST (a folder of tests for an integration
 	 * server, for one). Each is asked, the present value proposed, TEST,
-	 * TRUE, FULL and none for a new mode; --noask takes them. Other keys
+	 * E_ALL, TRUE, FULL and none for a new mode; --noask takes them. Other keys
 	 * of system.ini written by hand in the mode are kept.
 	 *
 	 * @return Int The exit code.
@@ -138,11 +138,15 @@ class Bundle extends Command{
 		}
 		$modeLst = $this->readModes();
 		$isKnown = isset($modeLst[$modeNme]);
-		$nowMode = $modeLst[$modeNme] ?? Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array());
+		$nowMode = $modeLst[$modeNme] ?? Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array());
 		$sysVals = $nowMode['system'];
 		$sysVals['ENV_NAME'] = strtoupper( $this->askAnswer('Environment (DEV, TEST, PREV, PROD)', strval($sysVals['ENV_NAME'] ?? 'TEST')) );
+		$sysVals['ERR_LEVL'] = trim( $this->askAnswer('Errors reported (E_* names joined by |, & and ~)', strval($sysVals['ERR_LEVL'] ?? 'E_ALL')) );
 		$sysVals['ERR_SHOW'] = strtoupper( $this->askAnswer('Show errors (TRUE, FALSE)', strval($sysVals['ERR_SHOW'] ?? 'TRUE')) );
 		$sysVals['LOG_MODE'] = strtoupper( $this->askAnswer('Logging mode (FULL, BASE, MINI)', strval($sysVals['LOG_MODE'] ?? 'FULL')) );
+		if( !preg_match(Config::RULELIST['ERR_LEVL'], $sysVals['ERR_LEVL']) ){
+			$this->stopShell('Nothing was declared: ERR_LEVL is E_* names joined by |, & and ~', self::EXITDENY);
+		}
 		foreach( Array('ERR_SHOW'=>Array('TRUE', 'FALSE'), 'LOG_MODE'=>Array('FULL', 'BASE', 'MINI')) as $iniKey => $alwLst ){
 			if( !in_array($sysVals[$iniKey], $alwLst, true) ){
 				$this->stopShell('Nothing was declared: '.$iniKey.' is one of '.implode(', ', $alwLst), self::EXITDENY);

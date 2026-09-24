@@ -314,6 +314,13 @@ class HealthChk{
 		// In production the setting is not followed : nothing of an error is shown there
 		$errNote = ($errStat=='fine') ? '' : ( $envName=='PROD' ? ', where it is ignored: set it to FALSE' : ': the details of an error are shown to the clients' );
 		$this->addResult( 'errors', $errStat, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).$errNote );
+		// A level that cannot be read stops every request at its start
+		try{
+			$errLevl = (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->errConfig();
+			$this->addResult( 'error level', 'fine', ($errLevl==E_ALL) ? 'every error is reported (E_ALL)' : 'ERR_LEVL reports level '.$errLevl.' of '.E_ALL );
+		}catch( \RuntimeException $e ){
+			$this->addResult( 'error level', 'fail', $e->getMessage().': no request can be served' );
+		}
 		if( preg_match('#(^|[\s,])(0\.0\.0\.0|::)/0#', strval($sysConf['PRX_LIST'] ?? '')) ){
 			$this->addResult('proxies', 'fail', 'PRX_LIST trusts every address: any client can then give itself the address it wants');
 		}

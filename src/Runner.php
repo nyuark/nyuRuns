@@ -57,6 +57,8 @@ class Runner{
 			$GLOBALS['nyuLogger'] = Logger::getLogger('error');
 			$GLOBALS['ErrorResponse'] = Array($this, 'failReply');
 			require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
+			// The errors PHP reports are those of ERR_LEVL; one that cannot be read stops the start-up
+			$GLOBALS['ErrorLevel'] = $this->setupCon->errConfig();
 			initError();
 		}catch( \Throwable $e ){
 			// Nothing can format or log an error yet
