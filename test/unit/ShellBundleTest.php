@@ -33,11 +33,11 @@ $projDir = makeProjt('bundle', Array(
 	'conf/mailer.json'=>'{ "pass": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
 	'conf/keys/dftokn.key'=>'PRIVATE', 'conf/keys/dftokn.pub'=>'PUBLIC',
 	'vendor/autoload.php'=>"<?php\n", 'vendor/some/pkg/src/Lib.php'=>"<?php\n", 'vendor/some/pkg/.git/HEAD'=>'ref',
-	'composer.json'=>'{ "require": {} }', 'composer.lock'=>'{}', 'nyuRun'=>"<?php\n", 'LICENSE'=>'MIT',
+	'composer.json'=>'{ "require": {} }', 'composer.lock'=>'{}', 'nyuRun'=>"<?php\n", 'LICENSE'=>'MIT', 'NOTICE'=>'Libraries',
 	'.env'=>"NYU_JWT_SECRET=real\n", 'test/unit/SomeTest.php'=>"<?php\n", 'README.md'=>'# doc', 'notes.md'=>'# notes',
 	'temp/logs/runner.log'=>'log line', 'media/big.bin'=>'bytes'
 ));
-$keptLst = Array('LICENSE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/keys/dftokn.pub', 'conf/presets/dfault.rps', 'conf/system.ini',
+$keptLst = Array('LICENSE', 'NOTICE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/keys/dftokn.pub', 'conf/presets/dfault.rps', 'conf/system.ini',
 	'nyuRun', 'pages/index.html', 'runs/Shows/Actions.php', 'runs/Shows/input/index.json', 'src/Kernel.php', 'vendor/autoload.php', 'vendor/some/pkg/src/Lib.php', 'www/.htaccess', 'www/index.php');
 $distDir = $projDir.DS.'dist';
 
@@ -49,7 +49,7 @@ checkSame('its system.ini is set for production', Array(strpos($bndlIni, 'ENV_NA
 checkSame('the project keeps its own settings', readInPrj($projDir, 'conf/system.ini'), sampleIni());
 checkSame('the folders the framework writes in are there, empty', Array(is_dir($distDir.DS.'final'.DS.'media'), is_dir($distDir.DS.'final'.DS.'temp'), filesOfDr($distDir.DS.'final'.DS.'temp')), Array(true, true, Array()));
 checkSame('the next steps are told', strpos($runVals['text'], 'On its server: php nyuRun deploy start, then php nyuRun deploy check.')!==false, true);
-checkLike('the bundle is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Bundle: final, 16 files in .*dist.final by user "cli:/');
+checkLike('the bundle is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Bundle: final, 17 files in .*dist.final by user "cli:/');
 
 // A bundle that is there is only replaced when confirmed
 putInProj($projDir, 'dist/final/stale.txt', 'old');

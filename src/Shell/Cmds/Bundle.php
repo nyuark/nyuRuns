@@ -35,7 +35,7 @@ class Bundle extends Command{
 		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE')
 	);
 	// What a bundle holds, from the project root : nothing else is copied, but what a mode adds
-	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE');
+	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE', 'NOTICE');
 	// What is left out of those, from the project root : the local settings, their secrets, the private keys, the modes of the project
 	const DROPLIST = Array('conf/access.json', 'conf/database.json', 'conf/mailer.json', 'conf/users.lst', 'conf/.htpasswd', 'conf/keys/*.key', 'conf/bundle.lst');
 	// The modes the project declares: { "<mode>": { "system": { "ENV_NAME": ..., ... }, "adding": [ <paths> ] } }

@@ -353,3 +353,36 @@ REQ_PART = 200
   used for a page or a static file, and for a path no route answers in a preset
   that finds its routes `manually`. A request for an action keeps the format of
   the preset; so does an unknown path in an `autopath` preset.
+
+## 14. Applications calling for their users
+
+Another application (a mobile app, a partner's portal) can call this project for
+one of its own users. It sends two things: its key, in the header of the
+`apkeys` block, and the user's token, signed with its own private key. A preset
+reads the keys when its `auths` block names that block: `"appkey": "apkeys"`.
+
+```json
+"apkeys": { "header": "X-App-Key", "applst": { "portal": { "keyhsh": "…", "routes": ["contacts/*"], "pubkey": "conf/keys/portal.pub", "maxrol": "member", "madedt": "…" } } }
+```
+
+- Keys are made, given routes and revoked from the command line only
+  (`php nyuRun appkey makes|lists|route|revok`). A key is shown once; the file
+  holds its SHA-256 hash. A revoked key is refused from the next request.
+- Copy the application's public key into `conf/keys` and give its path. Never
+  copy its private key: holding it would let this project forge that
+  application's tokens.
+- A token of the application is only valid with its key. Sent without it, it
+  goes to the preset's own carrier, where it is not valid.
+- The user is taken from the token, as the application issued it: this project
+  does not look it up in its own store, so a lock in the application applies
+  only when its token ends. Keep the application's `lifetm` short.
+- The role of that user is never above `maxrol` (`member` by default), and the
+  role a route asks for (`rolert`, `needsRole()`) still applies.
+- An application only reaches its `routes`, written as `openrt`; any other
+  route is a 403. A route open to everyone ignores the key.
+- A wrong key and a forged token count against the address. Every write is a
+  notice on the `access` log, naming the application, the user and the route;
+  a read is an info. The record itself is the action's to log.
+- Until a sign-in server issues every token (version 1.1, with `iss` and
+  `aud`), each application signs its own and each project it calls holds its
+  public key.

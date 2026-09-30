@@ -1,6 +1,6 @@
 <?php
 
-// Static audit of the project's coding conventions, built on
+// Static audit of the project's coding conventions (see CONTRIBUTING.md), built on
 // PHP's tokenizer. It lists every name that does not follow them:
 //
 //   classes      PascalCase

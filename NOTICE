@@ -1,0 +1,51 @@
+nyuRuns
+Copyright (c) 2021-2026 Jason JOHNSTON
+Released under the MIT License: see LICENSE.
+
+nyuRuns uses the work of others, each under its own licence, listed below.
+Their licences are not changed by the one of nyuRuns.
+
+
+Libraries installed by Composer
+-------------------------------
+They are not part of this repository: "composer install" puts them in
+vendor/, each with its licence in its own folder, and a bundle made by
+"php nyuRun bundle" carries them as they are.
+
+  level-2/dice              BSD-2-Clause         the dependency injection container
+  firebase/php-jwt          BSD-3-Clause         the signed tokens (JWT)
+  dompdf/dompdf             LGPL-2.1             PDF documents, written
+  dompdf/php-font-lib       LGPL-2.1-or-later    used by dompdf
+  dompdf/php-svg-lib        LGPL-3.0-or-later    used by dompdf
+  smalot/pdfparser          LGPL-3.0             PDF documents, read
+  masterminds/html5         MIT                  used by dompdf
+  sabberworm/php-css-parser MIT                  used by dompdf
+  symfony/polyfill-mbstring MIT                  used by dompdf
+
+Suggested, installed only when a project asks for it:
+
+  phpmailer/phpmailer       LGPL-2.1-only        mail accounts of type phmail
+
+The libraries under the LGPL are used as they are published, as separate
+packages: their source and their licence travel with them, and anyone may
+replace them with another version of the same library.
+
+
+Programs nyuRuns runs, not distributed with it
+----------------------------------------------
+  ffmpeg                    LGPL or GPL, depending on how it was built:
+                            run as a separate program to change sounds
+                            (SND_TOOL in conf/system.ini)
+  database servers          MySQL, MariaDB, PostgreSQL, MongoDB, SQLite:
+                            reached through their PHP extensions
+
+
+Files of others in this repository
+----------------------------------
+  test/fixtures/office/     five sample documents taken from the test data
+                            of Apache POI, Apache License 2.0 (listed in
+                            test/fixtures/office/SOURCES.txt); test files,
+                            left out of bundles
+  .phpdoc/template/fonts/   the Cabin font, SIL Open Font License 1.1
+                            (OFL.txt beside it); used to build the code
+                            reference, left out of bundles

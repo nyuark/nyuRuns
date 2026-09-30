@@ -136,9 +136,11 @@ class Checker{
 	 * until its hold ends (see Limiter). A request denied an HTML page is
 	 * given the sign-in route to go to, when the 'auths' block names one
 	 * (see signinUrl). A logged user who does not hold the role its route
-	 * asks for (the 'rolert' key, see routeRole) is answered 403.
+	 * asks for (the 'rolert' key, see routeRole) is answered 403. The call
+	 * of an application for one of its users is checked by its own key and
+	 * token (the 'appkey' key, see appsCalls).
 	 *
-	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, 'retryAft' (seconds to wait) with a 429 status, and 'denyGoal' (address to send the visitor to) with the 401 of a page.
+	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, 'retryAft' (seconds to wait) with a 429 status, 'denyGoal' (address to send the visitor to) with the 401 of a page, and 'fromApp' (the name of the application) for the call of an application.
 	 */
 	function verifyAxs(): Registry {
 		// The roles asked for are read first : a block that cannot be applied refuses every request
@@ -200,6 +202,12 @@ class Checker{
 			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>429, 'statMssg'=>'Too many attempts', 'retryAft'=>max(1, $heldEnd - time())) );
 		}
 
+		// An application calling for one of its users is checked by its own key and token, not by the carrier
+		$appRslt = $this->appsCalls( $lmtrObj, $usrAddr, $needRle );
+		if( $appRslt!==null ){
+			return $appRslt;
+		}
+
 		$sessObj = new $sessCls( $this->resolvCnf($this->axsSetup['sesscf'] ?? ''), $authObj );
 		$idntArr = $sessObj->verifyReq( $this->httpRqst );
 
@@ -238,6 +246,69 @@ class Checker{
 		}
 		$this->logAttmpt( true, strval($idntArr['user'] ?? ''), '', $usrRole );
 		return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>200, 'statMssg'=>'') );
+	}
+
+	/**
+	 * Checks the call of an application on behalf of one of its users,
+	 * when the 'appkey' key of the 'auths' block names the block of the
+	 * application keys and the request carries one (see AppKey): the key
+	 * and the token of the user, then the routes of the application, then
+	 * the role the route asks for. A wrong key or a forged token counts
+	 * against the address. A granted write (any method but those of
+	 * AppKey::READLIST) is a notice on the 'access' channel, a read an info.
+	 *
+	 * @param Limiter $limiterObj The limit by address, counting the wrong credentials.
+	 * @param String  $clientAddr Address of the client, empty when unknown.
+	 * @param ?String $neededRole The role the route asks for, null for none.
+	 * @return ?Registry The result, as verifyAxs() gives it with the application under 'fromApp'; null when the request is not the call of an application.
+	 */
+	protected function appsCalls( Limiter $limiterObj, String $clientAddr, ?String $neededRole ): ?Registry {
+		$blkName = strval($this->axsSetup['appkey'] ?? '');
+		if( $blkName=='' ){
+			return null;
+		}
+		$keyObjc = new AppKey( $this->resolvCnf($blkName) );
+		$idntArr = $keyObjc->verifyApp( $this->httpRqst );
+		if( $idntArr===null ){
+			return null;
+		}
+		if( $idntArr===false ){
+			// A block or a key file that cannot be used is a mistake of the config, as an unknown carrier is
+			if( in_array($keyObjc->lastError(), Array('Access misconfigured', 'Token keys not configured'), true) ){
+				$this->logAttmpt( false, '', 'Access misconfigured: the application keys cannot be used ('.$keyObjc->lastError().')' );
+				return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+			}
+			if( $keyObjc->wrongCred() ){
+				$limiterObj->countFail($clientAddr);
+			}
+			$this->logAttmpt( false, '', $keyObjc->lastError() );
+			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>401, 'statMssg'=>$keyObjc->lastError()) );
+		}
+		$usrName = strval($idntArr['user'] ?? '');
+		$appName = strval($idntArr['fromApp']);
+		$fromTxt = ($clientAddr!='') ? ' from '.$clientAddr : '';
+		$denyArr = Array('logged'=>true, 'user'=>$usrName, 'role'=>$idntArr['role'], 'ident'=>$idntArr, 'fromApp'=>$appName, 'statCode'=>403, 'statMssg'=>'Forbidden');
+		if( $this->routeReg===null || !$keyObjc->allowsRte($this->routeReg) ){
+			Logger::getLogger('access')->warning( 'App call refused for app '.json_encode($appName).', user '.json_encode($usrName).$fromTxt.' to '.$this->routeGoal().': not a route of the application' );
+			return new Registry( $denyArr );
+		}
+		if( $neededRole!==null && !self::roleMeets($idntArr['role'], $neededRole) ){
+			self::logDenial( $usrName, $idntArr['role'], $neededRole, $clientAddr, $this->routeGoal() );
+			return new Registry( $denyArr );
+		}
+		$mthName = '';
+		foreach( array_merge(AppKey::READLIST, Array('POST', 'PUT', 'PATCH', 'DELETE')) as $mthVal ){
+			if( $this->httpRqst->usedMethd($mthVal) ){
+				$mthName = $mthVal;
+			}
+		}
+		$logText = 'App call granted for app '.json_encode($appName).', user '.json_encode($usrName).' ('.$idntArr['role'].')'.$fromTxt.' to '.$this->routeGoal().' ('.($mthName!='' ? $mthName : 'other method').')';
+		if( in_array($mthName, AppKey::READLIST, true) ){
+			Logger::getLogger('access')->info( $logText );
+		}else{
+			Logger::getLogger('access')->notice( $logText );
+		}
+		return new Registry( array_merge($denyArr, Array('statCode'=>200, 'statMssg'=>'')) );
 	}
 
 	/**

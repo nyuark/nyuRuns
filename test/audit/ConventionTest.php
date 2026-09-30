@@ -1,6 +1,6 @@
 <?php
 
-// Coding conventions: naming lengths, docblocks and type
+// Coding conventions (see CONTRIBUTING.md) : naming lengths, docblocks and type
 // declarations across src/ and runs/, checked with the tokenizer audit in
 // test/lib/auditor.php.
 //
