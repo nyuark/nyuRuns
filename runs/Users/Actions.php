@@ -3,6 +3,7 @@
 namespace nyu\Runs\Users;
 
 use \nyu\App\Actionset;
+use \nyu\Access\AccessMail;
 use \nyu\Access\Checker;
 use \nyu\Access\Auth\UserBase;
 
@@ -19,8 +20,9 @@ class Actions extends Actionset {
 	protected $dfltActn = 'index';
 
 	/**
-	 * Lists the users, by name: identifier, name, role, status, creation
-	 * date and last time seen of each. Reads the 'stat' and 'role' inputs
+	 * Lists the users, by name: identifier, name, role, status, address,
+	 * time of the sign-up awaiting review, creation date and last time
+	 * seen of each. Reads the 'stat' and 'role' inputs
 	 * as filters, 'limit' and 'offset' as the part of the list to give
 	 * (LST_ROWS users when 'limit' is left out). Reports 204 when the
 	 * list is empty.
@@ -40,7 +42,8 @@ class Actions extends Actionset {
 
 	/**
 	 * Reads the user the 'user' input names: identifier, name, role,
-	 * status, creation date and last time seen.
+	 * status, address, time of the sign-up awaiting review, creation date
+	 * and last time seen.
 	 */
 	public function view(): Void {
 		$usrBase = $this->startCall('GET');
@@ -54,21 +57,62 @@ class Actions extends Actionset {
 
 	/**
 	 * Creates the user the 'user' input names, with the role of the
-	 * 'role' input (the lowest one when left out). The user is pending:
-	 * the reply carries its activation code, told this once, for it to
-	 * choose its password with (auth/activate). Reports 201, or 409 when
-	 * the name is taken.
+	 * 'role' input (the lowest one when left out) and the address of the
+	 * 'mail' input (none when left out). The user is pending, with an
+	 * activation code to choose its password with (auth/activate). When
+	 * the userbase sends mails and the user has an address, the code is
+	 * mailed to it, and not told here; otherwise the reply carries it,
+	 * told this once. Reports 201, or 409 when the name or the address is
+	 * taken.
 	 */
 	public function create(): Void {
 		$usrBase = $this->startCall('POST');
 		$gvnUser = $this->givenUser(false);
 		$gvnRole = $this->inputReg->readValue('role');
-		$newCode = $usrBase->enrolUser( $gvnUser, is_string($gvnRole) ? $gvnRole : '' );
+		$gvnMail = $this->inputReg->readValue('mail');
+		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
+		$mailObj = ($gvnMail!='') ? AccessMail::fromLogin( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCode = $usrBase->enrolUser( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS );
 		if($newCode===false){
 			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
 		}
 		$this->statCode = 201;
+		if($mailObj!==null){
+			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, strtolower($gvnMail), strval($newCode)));
+			return;
+		}
 		$this->asOutput = Array('user'=>$gvnUser, 'code'=>$newCode);
+	}
+
+	/**
+	 * Approves the user the 'user' input names, who signed up itself and
+	 * confirmed its address: it becomes active. Refusing it is removing
+	 * it (users/remove). Reports 409 for a user not awaiting review.
+	 */
+	public function approve(): Void {
+		$usrBase = $this->startCall('POST');
+		$gvnUser = $this->givenUser(false);
+		if(!$usrBase->proveUser($gvnUser)){
+			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('user'=>$gvnUser, 'stat'=>'active');
+	}
+
+	/**
+	 * Gives the user the 'user' input names the address of the 'mail'
+	 * input, or takes its address away when 'mail' is empty or left out.
+	 * Reports 409 for an address another user holds.
+	 */
+	public function email(): Void {
+		$usrBase = $this->startCall('POST');
+		$gvnUser = $this->givenUser(false);
+		$gvnMail = $this->inputReg->readValue('mail');
+		if(!$usrBase->chngeMail($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
+			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfos($gvnUser) ?: Array())['userMail'] ?? null);
 	}
 
 	/**
@@ -130,18 +174,26 @@ class Actions extends Actionset {
 
 	/**
 	 * Puts the user the 'user' input names back to pending, for one
-	 * whose password is lost: the reply carries a new activation code,
-	 * told this once, for it to choose a password with (auth/activate).
-	 * A manager cannot reset itself.
+	 * whose password is lost, with a new activation code to choose a
+	 * password with (auth/activate). When the userbase sends mails and the
+	 * user has an address, the code is mailed to it, and not told here;
+	 * otherwise the reply carries it, told this once. A manager cannot
+	 * reset itself.
 	 */
 	public function reset(): Void {
 		$usrBase = $this->startCall('POST');
 		$gvnUser = $this->givenUser(true);
-		$newCode = $usrBase->resetUser($gvnUser);
+		$usrMail = strval( ($usrBase->userInfos($gvnUser) ?: Array())['userMail'] ?? '' );
+		$mailObj = ($usrMail!='') ? AccessMail::fromLogin( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCode = $usrBase->resetUser( $gvnUser, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS );
 		if($newCode===false){
 			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
 		}
 		$this->statCode = 200;
+		if($mailObj!==null){
+			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, $usrMail, strval($newCode)));
+			return;
+		}
 		$this->asOutput = Array('user'=>$gvnUser, 'code'=>$newCode);
 	}
 

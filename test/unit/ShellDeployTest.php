@@ -103,6 +103,29 @@ checkSame('without a store, no key of the 2FA secrets is made: the check tells t
 runShell($projDir, Array('config', 'write', 'access', 'native.tfakey', 'too-short'));
 checkSame('a key of the 2FA secrets that is too short fails the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['2FA key native'] ?? null, 'fail');
 runShell($projDir, Array('config', 'write', 'access', 'native.tfakey', 'env:NYU_TFA_KEY'));
+// The access mails : an account of conf/mailer.json, a front-end link holding the code, sign-ups a mail confirms
+runShell($projDir, Array('config', 'write', 'access', 'native.mailer', 'nobody', '--force'));
+runShell($projDir, Array('config', 'write', 'access', 'native.lnkurl', 'app.example.ch/access', '--force'));
+runShell($projDir, Array('config', 'write', 'access', 'native.codexp', '0', '--force'));
+$statLst = stateOf(jsonShell($projDir, Array('deploy', 'check')));
+checkSame('an account that is not one, a link that is not one, a code lasting no minute', Array($statLst['access mails native'] ?? null, $statLst['access link native'] ?? null, $statLst['access codes native'] ?? null), Array('fail', 'fail', 'fail'));
+putInProj($projDir, 'conf/mailer.json', '{ "devbox": { "type": "tofile", "from": "dev@example.com", "fold": "temp/mails" } }');
+runShell($projDir, Array('config', 'write', 'access', 'native.mailer', 'devbox'));
+runShell($projDir, Array('config', 'write', 'access', 'native.lnkurl', 'https://app.example.ch/access?do=%kind%&code=%code%'));
+runShell($projDir, Array('config', 'write', 'access', 'native.codexp', '15'));
+$statLst = stateOf(jsonShell($projDir, Array('deploy', 'check')));
+checkSame('a mail account that is one, a link holding the code', Array($statLst['access mails native'] ?? null, isset($statLst['access link native']), isset($statLst['access codes native'])), Array('fine', false, false));
+runShell($projDir, Array('config', 'write', 'access', 'native.mailer', ''));
+runShell($projDir, Array('config', 'write', 'access', 'native.signup', 'true', '--force'));
+checkSame('sign-ups without a mail account are told', stateOf(jsonShell($projDir, Array('deploy', 'check')))['sign-ups native'] ?? null, 'warn');
+runShell($projDir, Array('config', 'write', 'access', 'native.signup', 'false'));
+runShell($projDir, Array('config', 'write', 'access', 'limits.regtop', '0', '--force'));
+runShell($projDir, Array('config', 'write', 'access', 'limits.regwrn', 'many', '--force'));
+checkSame('sign-up limits that are not numbers fail the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['sign-up limits limits'] ?? null, 'fail');
+runShell($projDir, Array('config', 'write', 'access', 'limits.regtop', '256'));
+runShell($projDir, Array('config', 'write', 'access', 'limits.regwrn', '[128, 200, 256]'));
+checkSame('sign-up limits that are numbers', isset(stateOf(jsonShell($projDir, Array('deploy', 'check')))['sign-up limits limits']), false);
+unlink($projDir.DS.'conf'.DS.'mailer.json');
 
 // What the check refuses
 putInProj($projDir, 'conf/presets/broken.rps', '{ "label": "broken", ');

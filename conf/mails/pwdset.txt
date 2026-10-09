@@ -1,0 +1,15 @@
+Your password: choose a new one
+Hello %user%,
+
+A new password was asked for your account. To choose it, give this code
+where you are asked for it:
+
+    %code%
+
+[link]Or open this link, on any device:
+%link%
+
+[/link]The code works once, within %mins% minutes. Your password stays as it is
+until then.
+
+If you did not ask for it, leave this mail: your password does not change.

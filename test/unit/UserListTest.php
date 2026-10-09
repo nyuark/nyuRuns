@@ -137,14 +137,16 @@ checkSame('UserList a user that is not a block', listReply(json_encode(Array('us
 checkSame('UserList a role that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userRole'=>Array('manage')))))), $unavail);
 checkSame('UserList an id that is not a number or a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('id_user'=>Array(1)))))), $unavail);
 checkSame('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userName'=>'anna', 'passHash'=>$annaHsh, 'userRole'=>'manage'))))), $unavail);
+checkSame('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('userMail'=>'anna@example.ch'), Array('userName'=>'ben', 'passHash'=>$annaHsh, 'userMail'=>'Anna@Example.CH'))))), $unavail);
 checkSame('UserList a tokenKey shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('tokenKey'=>'ab12'), Array('userName'=>'ben', 'passHash'=>$annaHsh, 'tokenKey'=>'AB12'))))), $unavail);
 checkSame('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStat'=>'online'))))), Array(false, 'Invalid credentials', true));
 checkSame('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('userRole'=>'root')))))[0], Array('user'=>'anna', 'role'=>'root', 'id'=>null));
 Logger::plugSetup( Array() );
 $axsLogs = file_exists(inTempDir('logs').DS.'access.log') ? file(inTempDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
-checkSame('access log: one error per file refused, none for a missing one', count(preg_grep('/\[ERROR\] Users file /', $axsLogs)), 10);
+checkSame('access log: one error per file refused, none for a missing one', count(preg_grep('/\[ERROR\] Users file /', $axsLogs)), 11);
 checkSame('access log: the status of a user that is not active is told there only', array_values(preg_grep('/is not active/', $axsLogs)), Array('['.date('Y').'] [WARNING] Credential refused: user "anna" is not active (online)'));
 checkSame('access log: why the file is refused', $axsLogs[8] ?? null, '['.date('Y').'] [ERROR] Users file "users.lst" cannot be used: user "anna" is listed twice');
+checkSame('access log: an address shared', count(preg_grep('/cannot be used: the userMail of user \"ben\" is the one of another user$/', $axsLogs)), 1);
 checkSame('access log: neither a hash nor a token is told', count(preg_grep('/\$2y\$|ab12/i', $axsLogs)), 0);
 
 // Through the Checker : Basic credentials, a personal token, and a JWT confirmed against the file

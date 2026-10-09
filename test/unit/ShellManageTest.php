@@ -41,11 +41,14 @@ checkSame('a typed password is not shown; the user is a member when no role is t
 
 // Reading
 checkSame('lists the users by name, never a hash', jsonShell($projDir, Array('manage', 'lists'))['rows'] ?? null, Array(
-	Array('id_user'=>1, 'userName'=>'ann', 'userRole'=>'manage', 'userStat'=>'active', 'hasToken'=>false, 'hasTwoFa'=>false),
-	Array('id_user'=>2, 'userName'=>'bob', 'userRole'=>'member', 'userStat'=>'active', 'hasToken'=>false, 'hasTwoFa'=>false)
+	Array('id_user'=>1, 'userName'=>'ann', 'userRole'=>'manage', 'userStat'=>'active', 'userMail'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
+	Array('id_user'=>2, 'userName'=>'bob', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
 ));
 checkSame('lists by role, by count; a role that is not one', Array(array_column(jsonShell($projDir, Array('manage', 'lists', '--urole=manage'))['rows'] ?? Array(), 'userName'), array_column(jsonShell($projDir, Array('manage', 'lists', '--count=1', '--start=1'))['rows'] ?? Array(), 'userName'), runShell($projDir, Array('manage', 'lists', '--urole=boss'))['code']), Array(Array('ann'), Array('bob'), 3));
-checkSame('views a user', runShell($projDir, Array('manage', 'views', 'bob'))['text'], "id_user: 2\nuserName: bob\nuserRole: member\nuserStat: active\nhasToken: false\nhasTwoFa: false\n");
+checkSame('views a user', runShell($projDir, Array('manage', 'views', 'bob'))['text'], "id_user: 2\nuserName: bob\nuserRole: member\nuserStat: active\nuserMail: \nhasToken: false\nhasTwoFa: false\n");
+checkSame('email gives an address in the file, in lower case', Array(runShell($projDir, Array('manage', 'email', 'bob', 'Bob@Example.ch'))['text'], fileUsers($projDir)['bob']['userMail'] ?? null), Array("address set: bob\n", 'bob@example.ch'));
+checkSame('an address taken, one that is not', Array(runShell($projDir, Array('manage', 'email', 'ann', 'BOB@example.ch'))['errs'], runShell($projDir, Array('manage', 'email', 'ann', 'ann'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
+checkSame('email without an address takes it away from the file', Array(runShell($projDir, Array('manage', 'email', 'bob'))['text'], isset(fileUsers($projDir)['bob']['userMail'])), Array("address removed: bob\n", false));
 checkSame('an unknown user', runShell($projDir, Array('manage', 'views', 'nobody')), Array('code'=>3, 'text'=>'', 'errs'=>"User not found\n"));
 
 // Status, role, removal
@@ -62,6 +65,11 @@ checkSame('token gives a personal token, its hash alone written', Array(strlen($
 checkSame('a token is only taken away when confirmed', Array(runShell($projDir, Array('manage', 'token', 'bob', '--clear', '--noask'))['code'], isset(fileUsers($projDir)['bob']['tokenKey']), runShell($projDir, Array('manage', 'token', 'bob', '--clear'), "y\n")['text'], isset(fileUsers($projDir)['bob']['tokenKey'])), Array(3, true, "token removed: bob\n", false));
 $jsnVals = jsonShell($projDir, Array('manage', 'twofa', 'bob'));
 checkSame('twofa gives a 2FA secret, with the address an authenticator reads', Array(preg_match('/^[A-Z2-7]{32}$/D', $jsnVals['secret']['2FA secret of bob'] ?? ''), fileUsers($projDir)['bob']['twoFaKey'] ?? null, $jsnVals['secret']['Address for the authenticator'] ?? null), Array(1, $jsnVals['secret']['2FA secret of bob'] ?? '', 'otpauth://totp/nyuRuns:bob?secret='.($jsnVals['secret']['2FA secret of bob'] ?? '').'&issuer=nyuRuns'));
+$txtOut = runShell($projDir, Array('manage', 'twofa', 'bob'))['text'];
+preg_match('/^Address for the authenticator \(shown this once\): (\S+)\n/m', $txtOut, $adrMtc);
+$qrcArt = (new nyu\Data\QrCode($adrMtc[1] ?? 'none', 'M'))->asTextArt(2);
+checkSame('twofa shows the address as a QR code, after it', Array(str_ends_with($txtOut, "\n".$qrcArt), substr_count($txtOut, '█')>100), Array(true, true));
+checkSame('twofa --plain leaves the QR code out', str_contains(runShell($projDir, Array('manage', 'twofa', 'bob', '--plain'))['text'], '█'), false);
 checkSame('a lost authenticator: the secret is taken away', Array(runShell($projDir, Array('manage', 'twofa', 'bob', '--clear', '--agree'))['text'], isset(fileUsers($projDir)['bob']['twoFaKey'])), Array("2FA removed: bob\n", false));
 // With a key in the block, the secret is written encrypted, and the one shown is still the authenticator's
 if( function_exists('openssl_encrypt') ){
@@ -86,7 +94,7 @@ checkSame('removal needs a confirmation', Array(runShell($projDir, Array('manage
 checkSame('the former files are in temp/backup', count(glob($projDir.DS.'temp'.DS.'backup'.DS.'users.lst.*'))>5, true);
 $logText = strval(readInPrj($projDir, 'temp/logs/access.log'));
 checkSame('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "bob" created \(member\) in the users file by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "bob" removed in the users file by user/', $logText), preg_match('/\[NOTICE\] User "bob" removed in the users file by user/', $logText), strpos($logText, 'another-pass')), Array(1, 1, 1, false));
-checkSame('a secret written readable is told, once: the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no tfakey of 32 characters is set/', $logText), 1);
+checkSame('a secret written readable is told, once a write (three): the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no tfakey of 32 characters is set/', $logText), 3);
 $fleText = strval(readInPrj($projDir, 'conf/users.lst'));
 putInProj($projDir, 'conf/users.lst', '{ "users": "none" }');
 checkSame('a file that is not a list of users is a failure, and is left alone', Array(runShell($projDir, Array('manage', 'lists'))['code'], runShell($projDir, Array('manage', 'enrol', 'carl'))['code'], readInPrj($projDir, 'conf/users.lst')), Array(1, 1, '{ "users": "none" }'));

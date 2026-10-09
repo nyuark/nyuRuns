@@ -4,6 +4,7 @@ namespace nyu\Shell\Cmds;
 
 use nyu\Access\Checker;
 use nyu\Access\Auth\UserBase;
+use nyu\Data\QrCode;
 use nyu\Shell\ActCaller;
 use nyu\Shell\Command;
 use nyu\Shell\ConfFile;
@@ -18,6 +19,7 @@ use nyu\Shell\UserFile;
  *   php nyuRun manage locks ann                locks it (unlck unlocks)
  *   php nyuRun manage passw ann                gives it a new password, made and shown once (--typed to type it)
  *   php nyuRun manage twofa ann --clear        takes its 2FA secret away, when its authenticator is lost
+ *   php nyuRun manage prove                    the sign-ups awaiting review (prove ann approves one)
  *   php nyuRun manage calls shows/index filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
@@ -51,16 +53,18 @@ class Manage extends Command{
 		return Array(
 			'lists'=>Array('args'=>'[--ustat=<status>] [--urole=<role>] [--count=<n>] [--start=<n>]', 'about'=>'lists the users'),
 			'views'=>Array('args'=>'<user>', 'about'=>'shows a user'),
-			'enrol'=>Array('args'=>'<user> [role] [--typed]', 'about'=>'creates a user: pending with an activation code (native), active with its password (usrlst)'),
+			'enrol'=>Array('args'=>'<user> [role] [--typed] [--noexp]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noexp: no end) (native), active with its password (usrlst)'),
 			'actvt'=>Array('args'=>'<user> <code> [--typed]', 'about'=>'activates a pending user with its code, and gives it a password (native)'),
 			'locks'=>Array('args'=>'<user>', 'about'=>'locks a user'),
 			'unlck'=>Array('args'=>'<user>', 'about'=>'unlocks a user'),
 			'roles'=>Array('args'=>'<user> <role>', 'about'=>'gives a user another role'),
 			'remov'=>Array('args'=>'<user>', 'about'=>'removes a user'),
-			'reset'=>Array('args'=>'<user>', 'about'=>'for a lost password: a new activation code (native), a new password (usrlst)'),
+			'reset'=>Array('args'=>'<user> [--noexp]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noexp: no end) (native), a new password (usrlst)'),
+			'prove'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (native)'),
+			'email'=>Array('args'=>'<user> [address]', 'about'=>'gives a user a mail address, or takes it away when none is given'),
 			'passw'=>Array('args'=>'<user> [--typed]', 'about'=>'gives a user a new password'),
 			'token'=>Array('args'=>'<user> [--clear]', 'about'=>'gives a user a new personal API token, or takes it away'),
-			'twofa'=>Array('args'=>'<user> [--clear]', 'about'=>'gives a user a new 2FA secret, or takes it away'),
+			'twofa'=>Array('args'=>'<user> [--clear] [--plain]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--plain: without), or takes it away'),
 			'calls'=>Array('args'=>'<app/action[/param]> [name=value ...] [--input=<file|->] [--mthod=<method>] [--prset=<preset>] [--urole=<role>] [--saved=<file>]', 'about'=>'calls an action of a run, as the user cli:<system user>')
 		);
 	}
@@ -117,7 +121,7 @@ class Manage extends Command{
 		$usrName = $this->needsWord('the user');
 		$roleNme = strval($this->optnObjc->shiftWord() ?? '');
 		if( $this->storKind=='native' ){
-			$newCode = $storObj->enrolUser($usrName, $roleNme);
+			$newCode = $storObj->enrolUser($usrName, $roleNme, null, $this->codesLast());
 			if( $newCode===false ){
 				$this->failStore($storObj);
 			}
@@ -241,13 +245,69 @@ class Manage extends Command{
 			return $this->passwdSet( $storObj, $this->needsWord('the user') );
 		}
 		$usrName = $this->needsWord('the user');
-		$newCode = $storObj->resetUser($usrName);
+		$newCode = $storObj->resetUser($usrName, $this->codesLast());
 		if( $newCode===false ){
 			$this->failStore($storObj);
 		}
 		$this->prntObjc->printPair('reset', $usrName);
 		$this->prntObjc->printOnce('Activation code of '.$usrName, strval($newCode));
 		return self::EXITDONE;
+	}
+
+	/**
+	 * Approves a user of the native userbase who signed up itself and
+	 * confirmed its address. Without a user, lists those awaiting review.
+	 *
+	 * @return Int The exit code.
+	 */
+	public function callProve(): Int {
+		$storObj = $this->openStore();
+		if( $this->storKind!='native' ){
+			$this->stopShell('The users file knows no sign-up: a user is created active', self::EXITDENY);
+		}
+		$usrName = strval($this->optnObjc->shiftWord() ?? '');
+		if( $usrName=='' ){
+			$usrList = $storObj->listUsers( Array('userStat'=>'review') );
+			if( $usrList===false ){
+				$this->failStore($storObj);
+			}
+			$this->prntObjc->printRows( empty($usrList) ? Array('userName') : array_keys($usrList[0]), array_map('array_values', $usrList) );
+			if( empty($usrList) ){
+				$this->prntObjc->printLine('No user awaits review.');
+			}
+			return self::EXITDONE;
+		}
+		if( !$storObj->proveUser($usrName) ){
+			$this->failStore($storObj);
+		}
+		$this->prntObjc->printPair('approved', $usrName);
+		return self::EXITDONE;
+	}
+
+	/**
+	 * Gives a user a mail address, or takes it away when none is given.
+	 *
+	 * @return Int The exit code.
+	 */
+	public function callEmail(): Int {
+		$storObj = $this->openStore();
+		$usrName = $this->needsWord('the user');
+		$mailTxt = strval($this->optnObjc->shiftWord() ?? '');
+		if( !$storObj->chngeMail($usrName, $mailTxt) ){
+			$this->failStore($storObj);
+		}
+		$this->prntObjc->printPair( ($mailTxt=='') ? 'address removed' : 'address set', $usrName );
+		return self::EXITDONE;
+	}
+
+	/**
+	 * Gives the minutes an activation code shown here lasts: those of a
+	 * code handed over, or none with --noexp.
+	 *
+	 * @return Int The minutes, 0 for no end.
+	 */
+	protected function codesLast(): Int {
+		return $this->optnObjc->hasOption('noexp') ? 0 : UserBase::ADMNMINS;
 	}
 
 	/**
@@ -314,7 +374,8 @@ class Manage extends Command{
 
 	/**
 	 * Gives a user a new 2FA secret, shown once with the address an
-	 * authenticator reads, or takes the one it holds away with --clear.
+	 * authenticator reads and its QR code (left out with --plain, and in
+	 * JSON), or takes the one it holds away with --clear.
 	 *
 	 * @return Int The exit code.
 	 */
@@ -340,7 +401,12 @@ class Manage extends Command{
 		}
 		$this->prntObjc->printPair('2FA set', $usrName);
 		$this->prntObjc->printOnce('2FA secret of '.$usrName, strval($newScrt));
-		$this->prntObjc->printOnce('Address for the authenticator', 'otpauth://totp/nyuRuns:'.rawurlencode($usrName).'?secret='.$newScrt.'&issuer=nyuRuns');
+		$otpAddr = 'otpauth://totp/nyuRuns:'.rawurlencode($usrName).'?secret='.$newScrt.'&issuer=nyuRuns';
+		$this->prntObjc->printOnce('Address for the authenticator', $otpAddr);
+		// The address as a QR code, for the authenticator to scan : it holds the secret, and is shown once too
+		if( !$this->optnObjc->hasOption('plain') && !$this->prntObjc->jsonShape() ){
+			$this->prntObjc->printBody( (new QrCode($otpAddr, 'M'))->asTextArt(2) );
+		}
 		return self::EXITDONE;
 	}
 

@@ -1,6 +1,7 @@
 {
 	"fields": {
 		"user!": "",
-		"role": ""
+		"role": "",
+		"mail": ""
 	}
 }

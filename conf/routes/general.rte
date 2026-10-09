@@ -20,6 +20,27 @@
 			"act": "activate"
 		}
 	},
+	"auth/signup" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "signup"
+		}
+	},
+	"auth/forgot" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "forgot"
+		}
+	},
+	"auth/recovr" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "recovr"
+		}
+	},
 	"auth/password" : {
 		"allows": "POST",
 		"target": {

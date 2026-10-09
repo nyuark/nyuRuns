@@ -11,10 +11,18 @@ CREATE TABLE `users` (
 	`passHash` VARCHAR(255) NOT NULL,
 	-- member, system or manage
 	`userRole` VARCHAR(6)   NOT NULL DEFAULT 'member',
-	-- pendng (awaiting activation), active or locked
+	-- pendng (awaiting activation), review (signed up, awaiting a manager), active or locked
 	`userStat` VARCHAR(6)   NOT NULL DEFAULT 'pendng',
-	-- Activation code, cleared once used
+	-- Mail address, in lower case; one account each
+	`userMail` VARCHAR(254) NULL,
+	-- SHA-256 hash of the activation code, cleared once used
 	`actvCode` VARCHAR(64)  NULL,
+	-- SHA-256 hash of a reset code asked by the user; its password works until the reset is done
+	`resetCod` VARCHAR(64)  NULL,
+	-- End of the activation or reset code (no end when empty)
+	`codeDate` DATETIME     NULL,
+	-- Time of a self-registration, cleared once a manager approves it
+	`signDate` DATETIME     NULL,
 	-- SHA-256 hash of the user's personal API token
 	`tokenKey` CHAR(64)     NULL,
 	-- 2FA secret; a user holding one must give its code
@@ -30,6 +38,7 @@ CREATE TABLE `users` (
 	PRIMARY KEY (`id_user`),
 	UNIQUE KEY `userName` (`userName`),
 	UNIQUE KEY `tokenKey` (`tokenKey`),
+	UNIQUE KEY `userMail` (`userMail`),
 	CHECK (`userRole` IN ('member', 'system', 'manage')),
-	CHECK (`userStat` IN ('pendng', 'active', 'locked'))
+	CHECK (`userStat` IN ('pendng', 'review', 'active', 'locked'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

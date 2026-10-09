@@ -489,11 +489,11 @@ if( !$isReady ){
 	checkSame('users: the list is refused to a member too', $replyAr['code'], 403);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'user=henry');
 	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
-	checkSame('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 32));
+	checkSame('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 12));
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'role=member');
 	checkSame('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user","code":400}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index?stat=pendng', $mgrHead);
-	checkSame('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userName', 'userRole', 'userStat', 'madeDate', 'lastSeen')));
+	checkSame('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen')));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/view?user=henry', $mgrHead);
 	checkSame('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStat'] ?? null), Array(200, 'pendng'));
 
@@ -507,7 +507,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?user=henry&code='.$newCode.'&pass=pass-henry-1', $mgrHead);
 	checkSame('activate: a GET is refused, even with a session', $replyAr['code'], 405);
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.$newCode.'&pass='.rawurlencode('pass "henry" <1>'));
-	checkSame('activate: the code gives the password', Array($replyAr['code'], $replyAr['body']), Array(200, '{"active":true}'));
+	checkSame('activate: the code gives the password', Array($replyAr['code'], $replyAr['body']), Array(200, '{"active":true,"stat":"active"}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'user=henry&pass='.rawurlencode('pass "henry" <1>'));
 	$newToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkSame('activate: the user logs in with its password, kept as sent', Array($replyAr['code'], $newToken!=''), Array(200, true));

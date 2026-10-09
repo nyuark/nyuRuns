@@ -386,3 +386,45 @@ reads the keys when its `auths` block names that block: `"appkey": "apkeys"`.
 - Until a sign-in server issues every token (version 1.1, with `iss` and
   `aud`), each application signs its own and each project it calls holds its
   public key.
+
+## 15. Access mails
+
+The native userbase sends its codes by mail when its block names an account of
+`conf/mailer.json`. Without `mailer`, nothing is sent: the codes are given in
+the replies, to be handed over, as before.
+
+```json
+"native": { ..., "mailer": "nyuRuns", "signup": false, "codexp": 15, "lnkurl": "https://app.example.ch/access?do=%kind%&user=%user%&code=%code%" }
+```
+
+- `codexp` is the minutes a mailed code lasts (15 by default). A code handed
+  over by a manager lasts 300 minutes; `manage enrol` and `manage reset` take
+  `--noexp` for one with no end, on the command line only.
+- `lnkurl` is the page of the front end the mail links to. `%kind%` tells it
+  which form to show: `actvte` and `signup` post to `auth/activate`, `pwdset`
+  to `auth/recovr`. Without it, the mail carries the code alone. The code is
+  bound to the user, not to the device: it can be typed on another one.
+- `signup: true` opens `auth/signup`. A sign-up confirms its address with the
+  code, then waits in `review` for a manager (`users/approve`,
+  `php nyuRun manage prove`); refusing it is removing it. Sign-ups never
+  confirmed are removed once their code ends.
+- The `limits` block bounds the sign-ups: `regtop` waiting at once (256),
+  beyond which `auth/signup` answers 503 until some are approved or removed;
+  `regmax` sign-ups from one client within `holdtm` (16), counted apart from
+  its wrong credentials (an address held for those is refused too); and
+  `regwrn`, the counts at which every active manager with an address is told
+  by mail (`onhold`) and the `access` log notes it (128, 200, 256).
+- `auth/signup` and `auth/forgot` answer 202 whoever the name or address is.
+  Each reset asked counts against the address of the client, as a wrong
+  password does (`maxtry`). Under PHP-FPM the reply ends before the mail is
+  sent, so its time tells nothing either; under another server API the client
+  waits for the mail, and the time can tell whether it went.
+- A reset asked by mail keeps the password until the code is used, so nobody
+  can lock a user out by asking. A reset by a manager voids it at once.
+- An address belongs to one account, compared in lower case. The users file
+  (`usrlst`) holds addresses too, but cannot send codes: it is only read.
+- The mails are `conf/mails/<kind>.txt` (its first line is the subject) and
+  `.html`, in English. An application replaces them with its own in
+  `runs/Auth/mails/`, in its language.
+- A table made by 0.9 needs `conf/schema/migrate-users-1.0.<type>.sql` first.
+  On MySQL 8 and MariaDB, its part 2 (the status `review`) is run by hand.

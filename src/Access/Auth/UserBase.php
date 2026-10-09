@@ -8,12 +8,19 @@ use nyu\Tools\Logger;
 
 /**
  * Manages the users of the native userbase: creation, activation with
- * a code, passwords, locks, roles, removal and reading. It works on the
- * table Native checks credentials against, and is not a credential
- * check of its own. It decides nothing about who may call it: that is
- * the caller's to check. Each change is logged on the 'access' channel.
+ * a code, self-registration and its review, passwords and their reset,
+ * addresses, locks, roles, removal and reading. It works on the table
+ * Native checks credentials against, and is not a credential check of
+ * its own. It decides nothing about who may call it, and sends no mail:
+ * that is the caller's. Each change is logged on the 'access' channel.
  * After a refusal, lastError() tells why and lastState() gives the
  * status it stands for.
+ *
+ * A code (activation, reset) is 10 characters of CODECHRS, given as
+ * XXXX-XXXX-XX: it is read whatever its case, dashes and spaces, and
+ * only its SHA-256 hash is stored. It ends after a time: the minutes
+ * the caller gives for a code an administrator hands over (ADMNMINS by
+ * default, 0 for no end), those of 'codexp' for a code sent by mail.
  */
 class UserBase extends Native{
 
@@ -22,11 +29,41 @@ class UserBase extends Native{
 	// Names no user is given, whatever the case
 	const NAMEDENY = Array('root', 'admin');
 	// What is told about a user : never a hash, a code or a secret
-	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'madeDate', 'lastSeen');
+	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen');
 	// Stored in place of a hash until the user sets its password : no password matches it
 	const VOIDHASH = '!';
+	// The characters of a code : no 0, 1, I, L or O, which are taken for one another
+	const CODECHRS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+	// Minutes a code handed over by an administrator lasts
+	const ADMNMINS = 300;
+	// Minutes a code sent by mail lasts, unless 'codexp' says otherwise
+	const MAILMINS = 15;
+	// Longest mail address
+	const MAILSIZE = 254;
+	// Most self-registrations waiting at once, confirmed or not, unless the 'regtop' of the limits says otherwise : beyond, sign-ups are closed for a while
+	const SIGNSCAP = 256;
 
 	protected $lastCode = 200;
+	protected $mailMins;
+
+	/**
+	 * Builds the manager from the config block of the native userbase.
+	 *
+	 * @param Array $confValues The block (see Native), and the minutes a code sent by mail lasts ('codexp').
+	 */
+	function __construct( Array $confValues ){
+		parent::__construct($confValues);
+		$this->mailMins = max( 1, intval($confValues['codexp'] ?? self::MAILMINS) );
+	}
+
+	/**
+	 * Gives the minutes a code sent by mail lasts: those of 'codexp'.
+	 *
+	 * @return Int The minutes.
+	 */
+	public function mailedFor(): Int {
+		return $this->mailMins;
+	}
 
 	/**
 	 * Builds the manager of the userbase the login uses: the 'login'
@@ -50,13 +87,16 @@ class UserBase extends Native{
 	 * Creates a user, pending until it is activated: it has no password
 	 * yet, and an activation code to set one with (see actvtUser). Only
 	 * the SHA-256 hash of the code is stored: the code is returned once.
-	 * A name that only differs from an existing one by its case is refused.
+	 * A name that only differs from an existing one by its case is refused,
+	 * and so is an address another user holds.
 	 *
-	 * @param String $userString Login name of the new user (see NAMERULE and NAMEDENY).
-	 * @param String $roleString Its role, one of Checker::ROLELIST; the first one when left empty.
-	 * @return String|Bool The activation code, or false when the name or the role is not valid, the name is taken, or the table cannot be written.
+	 * @param String  $userString Login name of the new user (see NAMERULE and NAMEDENY).
+	 * @param String  $roleString Its role, one of Checker::ROLELIST; the first one when left empty.
+	 * @param ?String $mailString Its mail address, none when null or empty.
+	 * @param Int     $codeMinute Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedFor() for one sent by mail.
+	 * @return String|Bool The activation code, or false when the name, the role or the address is not valid or taken, or the table cannot be written.
 	 */
-	public function enrolUser( String $userString, String $roleString='' ): String|Bool {
+	public function enrolUser( String $userString, String $roleString='', ?String $mailString=null, Int $codeMinute=self::ADMNMINS ): String|Bool {
 		$this->resetLast();
 		$roleStr = ($roleString!='') ? $roleString : Checker::ROLELIST[0];
 		if( !preg_match(self::NAMERULE, $userString) || in_array(strtolower($userString), self::NAMEDENY, true) ){
@@ -65,6 +105,13 @@ class UserBase extends Native{
 		if( !in_array($roleStr, Checker::ROLELIST, true) ){
 			return $this->refuseFor(400, 'Invalid role');
 		}
+		$mailVal = null;
+		if( $mailString!==null && $mailString!=='' ){
+			$mailVal = $this->checkMail($mailString);
+			if( $mailVal===null ){
+				return $this->refuseFor(400, 'Invalid mail address');
+			}
+		}
 		$dupRows = $this->sendFetch( 'SELECT {userName} FROM {usrTable} WHERE LOWER({userName})=LOWER(?) LIMIT 1;', Array($userString) );
 		if( $dupRows===false ){
 			return $this->refuseFor(500, 'Credential store unavailable');
@@ -72,9 +119,18 @@ class UserBase extends Native{
 		if( !empty($dupRows) ){
 			return $this->refuseFor(409, 'User name already taken');
 		}
-		$newCode = bin2hex(random_bytes(16));
-		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {actvCode}) VALUES (?, ?, ?, 'pendng', ?);";
-		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, $roleStr, hash('sha256', $newCode)))<1 ){
+		if( $mailVal!==null ){
+			$mailUse = $this->mailInUse($mailVal, '');
+			if( $mailUse===null ){
+				return $this->refuseFor(500, 'Credential store unavailable');
+			}
+			if( $mailUse ){
+				return $this->refuseFor(409, 'Mail address already used');
+			}
+		}
+		$newCode = $this->freshCode();
+		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {userMail}, {actvCode}, {codeDate}) VALUES (?, ?, ?, 'pendng', ?, ?, ?);";
+		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, $roleStr, $mailVal, $this->codeHashs($newCode)[0], $this->endOfCode($codeMinute)))<1 ){
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		Logger::getLogger('access')->notice( 'User '.json_encode($userString).' created ('.$roleStr.')'.Logger::actorText() );
@@ -82,14 +138,95 @@ class UserBase extends Native{
 	}
 
 	/**
+	 * Registers a user who signs up itself: pending, of the lowest role,
+	 * with its address, and an activation code that confirms the address
+	 * and sets its password (see actvtUser). Once activated, it awaits a
+	 * manager in review (see proveUser). The sign-ups never confirmed are
+	 * removed once their code has ended.
+	 *
+	 * A name or an address already taken is not a refusal: '' is returned,
+	 * for the caller to answer as it answers any sign-up, and to tell the
+	 * address by mail.
+	 *
+	 * @param String $userString Login name it asks for (see NAMERULE and NAMEDENY).
+	 * @param String $mailString Its mail address.
+	 * @param Int    $maxWaiting Most sign-ups waiting at once, confirmed or not ('regtop' of the limits).
+	 * @return String|Bool The activation code, '' when the name or the address is taken, or false when one is not valid, too many sign-ups are waiting, or the table cannot be used.
+	 */
+	public function signsUser( String $userString, String $mailString, Int $maxWaiting=self::SIGNSCAP ): String|Bool {
+		$this->resetLast();
+		if( !preg_match(self::NAMERULE, $userString) || in_array(strtolower($userString), self::NAMEDENY, true) ){
+			return $this->refuseFor(400, 'Invalid user name');
+		}
+		$mailVal = $this->checkMail($mailString);
+		if( $mailVal===null ){
+			return $this->refuseFor(400, 'Invalid mail address');
+		}
+		$this->purgeSign();
+		$logInst = Logger::getLogger('access');
+		$waitNum = $this->waitCount();
+		if( $waitNum===false ){
+			return false;
+		}
+		if( $waitNum>=$maxWaiting ){
+			$logInst->warning( 'Sign-up refused: '.$waitNum.' sign-ups are already waiting'.Logger::actorText() );
+			return $this->refuseFor(503, 'Sign-ups closed for now');
+		}
+		$dupRows = $this->sendFetch( 'SELECT {userName} FROM {usrTable} WHERE LOWER({userName})=LOWER(?) OR {userMail}=? LIMIT 1;', Array($userString, $mailVal) );
+		if( $dupRows===false ){
+			return $this->refuseFor(500, 'Credential store unavailable');
+		}
+		if( !empty($dupRows) ){
+			$logInst->info( 'Sign-up as '.json_encode($userString).': the name or the address is taken'.Logger::actorText() );
+			return '';
+		}
+		$newCode = $this->freshCode();
+		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {userMail}, {actvCode}, {codeDate}, {signDate}) VALUES (?, ?, ?, 'pendng', ?, ?, ?, ?);";
+		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, Checker::ROLELIST[0], $mailVal, $this->codeHashs($newCode)[0], $this->endOfCode($this->mailMins), date('Y-m-d H:i:s')))<1 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		$logInst->notice( 'User '.json_encode($userString).' signed up'.Logger::actorText() );
+		return $newCode;
+	}
+
+	/**
+	 * Counts the sign-ups waiting: not yet confirmed, or in review.
+	 *
+	 * @return Int|Bool The number, or false when the table cannot be read.
+	 */
+	public function waitCount(): Int|Bool {
+		$cntRows = $this->sendFetch( "SELECT COUNT(*) AS waiting FROM {usrTable} WHERE {signDate} IS NOT NULL AND {userStat} IN ('pendng', 'review');" );
+		if( $cntRows===false ){
+			return $this->refuseFor(500, 'Credential store unavailable');
+		}
+		return intval( array_values($cntRows[0] ?? Array(0))[0] );
+	}
+
+	/**
+	 * Lists the addresses of the active users of the highest role: those
+	 * told when sign-ups pile up.
+	 *
+	 * @return Array|Bool The addresses, or false when the table cannot be read.
+	 */
+	public function managMail(): Array|Bool {
+		$mngRows = $this->sendFetch( "SELECT {userMail} FROM {usrTable} WHERE {userRole}=? AND {userStat}='active' AND {userMail} IS NOT NULL AND {userMail}<>'' ORDER BY {userName};", Array(array_slice(Checker::ROLELIST, -1)[0]) );
+		if( $mngRows===false ){
+			return $this->refuseFor(500, 'Credential store unavailable');
+		}
+		return array_map(function( Array $userValues ): String { return strval(array_values($userValues)[0]); }, $mngRows);
+	}
+
+	/**
 	 * Activates a pending user with its activation code, and gives it
-	 * its password. The code is used once. Whatever is wrong with the
-	 * name, the status or the code, the refusal is the same.
+	 * its password. The code is used once, before its end. A user who
+	 * signed up itself then awaits a manager ('review'), any other is
+	 * active. Whatever is wrong with the name, the status or the code, the
+	 * refusal is the same.
 	 *
 	 * @param String $userString Login name of the user.
 	 * @param String $codeString The activation code, as given at its creation or its reset.
 	 * @param String $passwdText The password it chooses, following the rules (see checkPass).
-	 * @return Bool Whether the user is now active.
+	 * @return Bool Whether the user is now active, or in review.
 	 */
 	public function actvtUser( String $userString, String $codeString, String $passwdText ): Bool {
 		$this->resetLast();
@@ -98,9 +235,10 @@ class UserBase extends Native{
 			return $this->refuseFor(400, $ruleMsg);
 		}
 		// One write decides : a code cannot be used twice, even by two requests at once
-		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}='active', {actvCode}=NULL, {failNmbr}=0, {failDate}=NULL"
-			." WHERE {userName}=? AND {userStat}='pendng' AND {actvCode}=?;";
-		$rowNmbr = $this->sendWrite( $updQury, Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString, hash('sha256', $codeString)) );
+		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}=CASE WHEN {signDate} IS NULL THEN 'active' ELSE 'review' END,"
+			." {actvCode}=NULL, {codeDate}=NULL, {failNmbr}=0, {failDate}=NULL"
+			." WHERE {userName}=? AND {userStat}='pendng' AND {actvCode} IN (?, ?) AND ({codeDate} IS NULL OR {codeDate}>=?);";
+		$rowNmbr = $this->sendWrite( $updQury, array_merge(Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString), $this->codeHashs($codeString), Array(date('Y-m-d H:i:s'))) );
 		if( $rowNmbr<0 ){
 			return $this->refuseFor(500, 'Credential store unavailable');
 		}
@@ -109,7 +247,144 @@ class UserBase extends Native{
 			$this->wrongCrd = true;
 			return $this->refuseFor(401, 'Invalid activation');
 		}
-		Logger::getLogger('access')->info( 'User '.json_encode($userString).' activated'.Logger::actorText() );
+		$usrVals = $this->fetchUser($userString);
+		if( is_array($usrVals) && ($usrVals['userStat'] ?? '')=='review' ){
+			Logger::getLogger('access')->notice( 'User '.json_encode($userString).' confirmed its address, awaits review'.Logger::actorText() );
+		}else{
+			Logger::getLogger('access')->info( 'User '.json_encode($userString).' activated'.Logger::actorText() );
+		}
+		return true;
+	}
+
+	/**
+	 * Approves a user who signed up itself and confirmed its address: it
+	 * becomes active. Refusing it is removing it (see removUser).
+	 *
+	 * @param String $userString Login name of the user.
+	 * @return Bool Whether the user is now active.
+	 */
+	public function proveUser( String $userString ): Bool {
+		$this->resetLast();
+		$usrVals = $this->knownUser($userString);
+		if( $usrVals===null ){
+			return false;
+		}
+		if( ($usrVals['userStat'] ?? '')!=='review' ){
+			return $this->refuseFor(409, 'User not awaiting review');
+		}
+		if( $this->sendWrite("UPDATE {usrTable} SET {userStat}='active', {signDate}=NULL WHERE {userName}=? AND {userStat}='review';", Array($userString))<1 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		Logger::getLogger('access')->notice( 'User '.json_encode($userString).' approved'.Logger::actorText() );
+		return true;
+	}
+
+	/**
+	 * Gives an active user who lost its password a reset code, to be sent
+	 * to its address: its password still works until the reset is done
+	 * (see recovUser), and a later request replaces the code. A user that
+	 * is unknown, not active or without an address gets none.
+	 *
+	 * @param String $nameOrMail Its login name, or its mail address.
+	 * @return Array|Bool The user ('user'), its address ('mail') and the code ('code'), or false when there is none to give.
+	 */
+	public function resetPass( String $nameOrMail ): Array|Bool {
+		$this->resetLast();
+		$lookups = trim($nameOrMail);
+		if( $lookups=='' ){
+			return $this->refuseFor(404, 'User not found');
+		}
+		$isAMail = str_contains($lookups, '@');
+		$usrRows = $this->sendFetch( 'SELECT {userName}, {userMail}, {userStat} FROM {usrTable} WHERE '.($isAMail ? '{userMail}' : '{userName}').'=? LIMIT 1;', Array($isAMail ? strtolower($lookups) : $lookups) );
+		if( $usrRows===false ){
+			return $this->refuseFor(500, 'Credential store unavailable');
+		}
+		$logInst = Logger::getLogger('access');
+		if( empty($usrRows) ){
+			$logInst->info( 'Reset asked for an unknown user'.Logger::actorText() );
+			return $this->refuseFor(404, 'User not found');
+		}
+		$usrName = strval($usrRows[0]['userName']);
+		if( ($usrRows[0]['userStat'] ?? '')!=='active' || strval($usrRows[0]['userMail'] ?? '')==='' ){
+			$logInst->warning( 'Reset refused for user '.json_encode($usrName).': not active, or without an address'.Logger::actorText() );
+			return $this->refuseFor(409, 'No reset for this user');
+		}
+		$newCode = $this->freshCode();
+		if( $this->sendWrite("UPDATE {usrTable} SET {resetCod}=?, {codeDate}=? WHERE {userName}=? AND {userStat}='active';", Array($this->codeHashs($newCode)[0], $this->endOfCode($this->mailMins), $usrName))<1 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		$logInst->notice( 'Reset asked for user '.json_encode($usrName).Logger::actorText() );
+		return Array('user'=>$usrName, 'mail'=>strval($usrRows[0]['userMail']), 'code'=>$newCode);
+	}
+
+	/**
+	 * Gives an active user a new password with the reset code it asked
+	 * for (see resetPass). The code is used once, before its end. Its
+	 * failed attempts are forgotten; its role, token and 2FA secret are
+	 * kept. Whatever is wrong with the name or the code, the refusal is
+	 * the same.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param String $codeString The reset code.
+	 * @param String $passwdText The new password, following the rules (see checkPass).
+	 * @return Bool Whether the password was changed.
+	 */
+	public function recovUser( String $userString, String $codeString, String $passwdText ): Bool {
+		$this->resetLast();
+		$ruleMsg = $this->checkPass($userString, $passwdText);
+		if( $ruleMsg!='' ){
+			return $this->refuseFor(400, $ruleMsg);
+		}
+		$updQury = "UPDATE {usrTable} SET {passHash}=?, {resetCod}=NULL, {codeDate}=NULL, {failNmbr}=0, {failDate}=NULL"
+			." WHERE {userName}=? AND {userStat}='active' AND {resetCod} IN (?, ?) AND {codeDate}>=?;";
+		$rowNmbr = $this->sendWrite( $updQury, array_merge(Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString), $this->codeHashs($codeString), Array(date('Y-m-d H:i:s'))) );
+		if( $rowNmbr<0 ){
+			return $this->refuseFor(500, 'Credential store unavailable');
+		}
+		if( $rowNmbr<1 ){
+			Logger::getLogger('access')->warning( 'Password reset refused for user '.json_encode($userString).Logger::actorText() );
+			$this->wrongCrd = true;
+			return $this->refuseFor(401, 'Invalid code');
+		}
+		Logger::getLogger('access')->info( 'Password of user '.json_encode($userString).' reset with its code'.Logger::actorText() );
+		return true;
+	}
+
+	/**
+	 * Gives a user a mail address, or takes it away. An address another
+	 * user holds is refused. A reset code asked for is forgotten: it was
+	 * sent to the former address.
+	 *
+	 * @param String  $userString Login name of the user.
+	 * @param ?String $mailString The address, none when null or empty.
+	 * @return Bool Whether the address was written.
+	 */
+	public function chngeMail( String $userString, ?String $mailString ): Bool {
+		$this->resetLast();
+		$mailVal = null;
+		if( $mailString!==null && $mailString!=='' ){
+			$mailVal = $this->checkMail($mailString);
+			if( $mailVal===null ){
+				return $this->refuseFor(400, 'Invalid mail address');
+			}
+		}
+		if( $this->knownUser($userString)===null ){
+			return false;
+		}
+		if( $mailVal!==null ){
+			$mailUse = $this->mailInUse($mailVal, $userString);
+			if( $mailUse===null ){
+				return $this->refuseFor(500, 'Credential store unavailable');
+			}
+			if( $mailUse ){
+				return $this->refuseFor(409, 'Mail address already used');
+			}
+		}
+		$updQury = 'UPDATE {usrTable} SET {userMail}=?, {resetCod}=NULL, {codeDate}=CASE WHEN {actvCode} IS NULL THEN NULL ELSE {codeDate} END WHERE {userName}=?;';
+		if( $this->sendWrite($updQury, Array($mailVal, $userString))<0 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		Logger::getLogger('access')->notice( 'Address of user '.json_encode($userString).' '.($mailVal===null ? 'removed' : 'set').Logger::actorText() );
 		return true;
 	}
 
@@ -161,8 +436,9 @@ class UserBase extends Native{
 	 * Locks an active user, or unlocks a locked one. A lock applies to a
 	 * running session as soon as its preset names the userbase as its
 	 * credential store. Unlocking forgets the failed attempts. A pending
-	 * user is neither: it is activated, or removed. The last active user
-	 * of the highest role cannot be locked.
+	 * user is neither: it is activated, or removed; nor is a user in
+	 * review: it is approved, or removed. The last active user of the
+	 * highest role cannot be locked.
 	 *
 	 * @param String $userString Login name of the user.
 	 * @param String $statString The status to give: 'locked' or 'active'.
@@ -180,6 +456,9 @@ class UserBase extends Native{
 		$nowStat = strval($usrVals['userStat'] ?? '');
 		if( $nowStat=='pendng' ){
 			return $this->refuseFor(409, 'A pending user is neither locked nor unlocked');
+		}
+		if( $nowStat=='review' ){
+			return $this->refuseFor(409, 'A user in review is approved or removed');
 		}
 		if( $nowStat==$statString ){
 			return $this->refuseFor(409, 'User already '.$statString);
@@ -253,14 +532,16 @@ class UserBase extends Native{
 	 * Puts a user back to pending, for one whose password is lost: its
 	 * password and its personal API token are taken away, and it is given
 	 * a new activation code to choose a password with (see actvtUser).
-	 * Its role and its 2FA secret are kept. A pending user only gets a new
-	 * code. A locked user is unlocked first; the last active user of the
-	 * highest role cannot be reset.
+	 * Its role, its address and its 2FA secret are kept; a reset code it
+	 * asked for itself is forgotten. A pending user only gets a new code.
+	 * A locked user is unlocked first; the last active user of the highest
+	 * role cannot be reset.
 	 *
 	 * @param String $userString Login name of the user.
+	 * @param Int    $codeMinute Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedFor() for one sent by mail.
 	 * @return String|Bool The activation code, returned once, or false when the user is unknown, cannot be reset, or the table cannot be written.
 	 */
-	public function resetUser( String $userString ): String|Bool {
+	public function resetUser( String $userString, Int $codeMinute=self::ADMNMINS ): String|Bool {
 		$this->resetLast();
 		$usrVals = $this->knownUser($userString);
 		if( $usrVals===null ){
@@ -272,10 +553,10 @@ class UserBase extends Native{
 		if( $this->lastMangr($usrVals) ){
 			return $this->refuseFor(409, 'The last active manager cannot be reset');
 		}
-		$newCode = bin2hex(random_bytes(16));
-		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}='pendng', {actvCode}=?, {tokenKey}=NULL, {failNmbr}=0, {failDate}=NULL"
+		$newCode = $this->freshCode();
+		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}='pendng', {actvCode}=?, {resetCod}=NULL, {codeDate}=?, {tokenKey}=NULL, {failNmbr}=0, {failDate}=NULL"
 			." WHERE {userName}=? AND {userStat}<>'locked';";
-		if( $this->sendWrite($updQury, Array(self::VOIDHASH, hash('sha256', $newCode), $userString))<1 ){
+		if( $this->sendWrite($updQury, Array(self::VOIDHASH, $this->codeHashs($newCode)[0], $this->endOfCode($codeMinute), $userString))<1 ){
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		Logger::getLogger('access')->notice( 'User '.json_encode($userString).' reset'.Logger::actorText() );
@@ -427,6 +708,80 @@ class UserBase extends Native{
 			$this->refuseFor(404, 'User not found');
 		}
 		return $usrVals;
+	}
+
+	/**
+	 * Checks a mail address and gives it as it is stored: in lower case.
+	 *
+	 * @param String $mailString The address given.
+	 * @return ?String The address to store, or null when it is not one.
+	 */
+	protected function checkMail( String $mailString ): ?String {
+		$mailVal = strtolower( trim($mailString) );
+		if( strlen($mailVal)>self::MAILSIZE || filter_var($mailVal, FILTER_VALIDATE_EMAIL)===false ){
+			return null;
+		}
+		return $mailVal;
+	}
+
+	/**
+	 * Tells whether another user holds an address.
+	 *
+	 * @param String $mailString The address, as stored.
+	 * @param String $userString The user left out of the search, '' for none.
+	 * @return ?Bool Whether another user holds it, or null when the table cannot be read.
+	 */
+	protected function mailInUse( String $mailString, String $userString ): ?Bool {
+		$usrRows = $this->sendFetch( 'SELECT {userName} FROM {usrTable} WHERE {userMail}=? AND {userName}<>? LIMIT 1;', Array($mailString, $userString) );
+		return ($usrRows===false) ? null : !empty($usrRows);
+	}
+
+	/**
+	 * Makes a new code: 10 characters of CODECHRS, as XXXX-XXXX-XX.
+	 *
+	 * @return String The code.
+	 */
+	protected function freshCode(): String {
+		$chrText = '';
+		$lastChr = strlen(self::CODECHRS) - 1;
+		for( $pos=0; $pos<10; $pos++ ){
+			$chrText .= self::CODECHRS[ random_int(0, $lastChr) ];
+		}
+		return substr($chrText, 0, 4).'-'.substr($chrText, 4, 4).'-'.substr($chrText, 8);
+	}
+
+	/**
+	 * Gives the hashes a code given is looked up by: the one of the code
+	 * as it is stored (in upper case, without dashes or spaces), and the
+	 * one of the code as it is given, for the codes of the earlier versions.
+	 *
+	 * @param String $codeString The code given.
+	 * @return Array The two SHA-256 hashes, the stored form first.
+	 */
+	protected function codeHashs( String $codeString ): Array {
+		$cmpCode = strtoupper( preg_replace('/[^A-Za-z0-9]/', '', $codeString) );
+		return Array( hash('sha256', $cmpCode), hash('sha256', $codeString) );
+	}
+
+	/**
+	 * Gives the end of a code made now.
+	 *
+	 * @param Int $codeMinute Minutes the code lasts, 0 for no end.
+	 * @return ?String The time it ends, as stored, or null for no end.
+	 */
+	protected function endOfCode( Int $codeMinute ): ?String {
+		return ($codeMinute>0) ? date('Y-m-d H:i:s', time() + 60*$codeMinute) : null;
+	}
+
+	/**
+	 * Removes the sign-ups whose address was not confirmed before the end
+	 * of their code: their name and address are free again.
+	 */
+	protected function purgeSign(): Void {
+		$delNmbr = $this->sendWrite( "DELETE FROM {usrTable} WHERE {signDate} IS NOT NULL AND {userStat}='pendng' AND {codeDate} IS NOT NULL AND {codeDate}<?;", Array(date('Y-m-d H:i:s')) );
+		if( $delNmbr>0 ){
+			Logger::getLogger('access')->info( $delNmbr.' sign-ups not confirmed in time removed' );
+		}
 	}
 
 	/**

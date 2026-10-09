@@ -14,8 +14,8 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  */
 class Native implements Handler{
 
-	// Statuses a user can have; only an active user may log in
-	const STATLIST = Array('pendng', 'active', 'locked');
+	// Statuses a user can have; only an active user may log in. 'review' is a self-registration awaiting a manager
+	const STATLIST = Array('pendng', 'review', 'active', 'locked');
 	// Seconds during which a user already seen is not stamped again
 	const STAMPGAP = 60;
 	// Longest password, in bytes : bcrypt reads nothing beyond
@@ -464,7 +464,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'actvCode', 'tokenKey', 'twoFaKey', 'twoFaStp', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
+		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

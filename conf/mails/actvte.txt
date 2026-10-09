@@ -1,0 +1,13 @@
+Your account: choose your password
+Hello %user%,
+
+An account was opened for you, or its password was reset by a manager.
+To choose your password, give this code where you are asked for it:
+
+    %code%
+
+[link]Or open this link, on any device:
+%link%
+
+[/link]The code works once, within %mins% minutes. If you did not expect this
+mail, leave it: nothing happens without the code.

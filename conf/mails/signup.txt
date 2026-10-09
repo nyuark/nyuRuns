@@ -1,0 +1,16 @@
+Your sign-up: confirm your address
+Hello %user%,
+
+Someone, you we hope, signed up with this address. To confirm it and
+choose your password, give this code where you are asked for it:
+
+    %code%
+
+[link]Or open this link, on any device:
+%link%
+
+[/link]The code works once, within %mins% minutes. A manager then looks at
+your sign-up before your account opens.
+
+If you did not sign up, leave this mail: without the code, the sign-up
+is forgotten.

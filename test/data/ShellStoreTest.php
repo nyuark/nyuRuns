@@ -25,6 +25,8 @@ $basePth = inTempDir('store.sqlite');
 buildData($basePth);
 $sqlLink = new PDO('sqlite:'.$basePth);
 $sqlLink->exec("UPDATE users SET actvCode='code-of-cleo' WHERE userName='cleo'");
+$sqlLink->exec("UPDATE users SET userMail='ben@example.ch', resetCod='reset-of-ben', codeDate='2026-11-04 10:00:00' WHERE userName='ben'");
+$sqlLink->exec("INSERT INTO users (id_user, userName, passHash, userRole, userStat, userMail, signDate) VALUES (5, 'erin', '".password_hash('pw-erin', PASSWORD_BCRYPT, Array('cost'=>4))."', 'member', 'review', 'erin@example.ch', '2026-11-04 09:00:00')");
 $sqlLink->prepare("UPDATE users SET twoFaKey=?, tokenKey=? WHERE userName='anna'")->execute( Array(Totp::sealSecrt($twoFaKy, $natSeal), hash('sha256', 'token-of-anna')) );
 $sqlLink->exec("INSERT INTO devices (devcName, devcRole, tokenKey, user_id) VALUES ('Phone', 'app', '".hash('sha256', 'phone')."', 2)");
 $hashLst = $sqlLink->query('SELECT userName, passHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -47,18 +49,21 @@ $jsnVals = jsonShell($projDir, Array('deploy', 'store', 'usrlst', '--drops', '--
 $axsVals = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(readInPrj($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'userName');
 checkSame('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['userRole'].'/'.$userValues['userStat']; }, $usrList), $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null),
-	Array(0, 4, Array('anna'=>'1/manage/active', 'ben'=>'2/member/active', 'cleo'=>'3/member/pendng', 'dave'=>'4/system/locked'), 'usrlst', 'usrlst'));
+	Array(0, 5, Array('anna'=>'1/manage/active', 'ben'=>'2/member/active', 'cleo'=>'3/member/pendng', 'dave'=>'4/system/locked', 'erin'=>'5/member/review'), 'usrlst', 'usrlst'));
+checkSame('the addresses go along', array_column($usrList, 'userMail', 'userName'), Array('ben'=>'ben@example.ch', 'erin'=>'erin@example.ch'));
 checkSame('the passwords and the personal token go along unchanged', Array(array_column($usrList, 'passHash', 'userName'), $usrList['anna']['tokenKey'] ?? null), Array($hashLst, hash('sha256', 'token-of-anna')));
 checkSame('what is not kept is told', array_column($jsnVals['rows'] ?? Array(), 'details', 'not kept'), Array(
 	'activation codes'=>'cleo: pending until made active, or given a password, with manage',
+	'reset codes'=>'ben: the resets asked are forgotten, the passwords kept',
+	'sign-ups to review'=>'erin: kept in review, which the users file cannot approve; manage unlck makes them active',
 	'presence and 2FA steps'=>'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept',
 	'devices'=>'ben/Phone: revoked'
 ));
 if( $canSeal ){
 	checkSame('the 2FA secret is encrypted again with the key of the file', Array(Totp::openSecrt(strval($usrList['anna']['twoFaKey'] ?? ''), $lstSeal), Totp::openSecrt(strval($usrList['anna']['twoFaKey'] ?? ''), $natSeal)), Array($twoFaKy, null));
 }
-checkSame('the userbase left is kept, the device revoked', Array(intval($sqlLink->query('SELECT COUNT(*) FROM users')->fetchColumn()), $sqlLink->query('SELECT revkDate FROM devices')->fetchColumn()!==null), Array(4, true));
-checkLike('the move is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: 4 users moved from native to usrlst, 1 devices revoked, the login points at usrlst by user "cli:/');
+checkSame('the userbase left is kept, the device revoked', Array(intval($sqlLink->query('SELECT COUNT(*) FROM users')->fetchColumn()), $sqlLink->query('SELECT revkDate FROM devices')->fetchColumn()!==null), Array(5, true));
+checkLike('the move is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: 5 users moved from native to usrlst, 1 devices revoked, the login points at usrlst by user "cli:/');
 checkSame('back to a userbase that holds users: refused', Array(runShell($projDir, Array('deploy', 'store', 'native', '--agree', '--noask'))['code'], json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['login']['authby'] ?? null), Array(3, 'usrlst'));
 $sqlLink = null;
 

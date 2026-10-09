@@ -11,8 +11,9 @@ use nyu\Tools\Logger;
  * from a JSON file written as { "users": [ { field: value }, ... ] }.
  * A user has a 'userName' and a 'passHash' (as given by password_hash()),
  * and optionally a 'userRole' (member when left out), a 'userStat'
- * (active when left out), the 'tokenKey' SHA-256 hash of a personal API
- * token, a 'twoFaKey' 2FA secret and an 'id_user'.
+ * (active when left out), a 'userMail' address (one account each), the
+ * 'tokenKey' SHA-256 hash of a personal API token, a 'twoFaKey' 2FA
+ * secret and an 'id_user'.
  * The file is only read: what needs a write (throttling by account,
  * presence, new tokens, secrets or passwords) is answered false. The
  * limit by address still applies (see Access\Limiter).
@@ -237,11 +238,12 @@ class UserList implements Handler{
 
 	/**
 	 * Reads the users file. Each user is given every field: 'userRole' is
-	 * member and 'userStat' active when left out, 'tokenKey' and 'twoFaKey'
-	 * empty, 'id_user' null. The file is refused as a whole, and the
-	 * refusal logged, when it is not a JSON text holding a 'users' list,
-	 * when a user lacks its 'userName' or 'passHash', when a field is not
-	 * a text, or when two users share a 'userName' or a 'tokenKey'.
+	 * member and 'userStat' active when left out, 'userMail', 'tokenKey'
+	 * and 'twoFaKey' empty, 'id_user' null; the address is read in lower
+	 * case. The file is refused as a whole, and the refusal logged, when it
+	 * is not a JSON text holding a 'users' list, when a user lacks its
+	 * 'userName' or 'passHash', when a field is not a text, or when two
+	 * users share a 'userName', a 'userMail' or a 'tokenKey'.
 	 *
 	 * @return Array|Bool The users, or false when the file cannot be used.
 	 */
@@ -255,13 +257,14 @@ class UserList implements Handler{
 		$usrList = Array();
 		$nameLst = Array();
 		$tknList = Array();
+		$mailLst = Array();
 		foreach( (array)$rowList as $usrRow ){
 			if( !is_array($usrRow) || !is_string($usrRow['userName'] ?? null) || $usrRow['userName']=='' || !is_string($usrRow['passHash'] ?? null) || $usrRow['passHash']=='' ){
 				$whyText = 'a user has no userName or no passHash';
 				break;
 			}
 			$usrVals = Array('userName'=>$usrRow['userName'], 'passHash'=>$usrRow['passHash'], 'id_user'=>$usrRow['id_user'] ?? null);
-			foreach( Array('userRole'=>'member', 'userStat'=>'active', 'tokenKey'=>'', 'twoFaKey'=>'') as $fldNme=>$fldDef ){
+			foreach( Array('userRole'=>'member', 'userStat'=>'active', 'userMail'=>'', 'tokenKey'=>'', 'twoFaKey'=>'') as $fldNme=>$fldDef ){
 				$usrVals[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
 				if( !is_string($usrVals[$fldNme]) ){
 					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['userName']).' is not a text';
@@ -273,6 +276,7 @@ class UserList implements Handler{
 				break;
 			}
 			$usrVals['tokenKey'] = strtolower($usrVals['tokenKey']);
+			$usrVals['userMail'] = strtolower($usrVals['userMail']);
 			if( in_array($usrVals['userName'], $nameLst, true) ){
 				$whyText = 'user '.json_encode($usrVals['userName']).' is listed twice';
 				break;
@@ -281,8 +285,13 @@ class UserList implements Handler{
 				$whyText = 'the tokenKey of user '.json_encode($usrVals['userName']).' is the one of another user';
 				break;
 			}
+			if( $usrVals['userMail']!='' && in_array($usrVals['userMail'], $mailLst, true) ){
+				$whyText = 'the userMail of user '.json_encode($usrVals['userName']).' is the one of another user';
+				break;
+			}
 			$nameLst[] = $usrVals['userName'];
 			$tknList[] = $usrVals['tokenKey'];
+			$mailLst[] = $usrVals['userMail'];
 			$usrList[] = $usrVals;
 		}
 		if( $whyText!='' ){

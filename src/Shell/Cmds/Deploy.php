@@ -40,7 +40,7 @@ class Deploy extends Command{
 	const STORLIST = Array('native', 'usrlst', 'none');
 	// The block a store of users is given in conf/access.json when it has none
 	const STORCONF = Array(
-		'native'=>Array('basnme'=>'', 'tblnme'=>'users', 'tfakey'=>'env:NYU_TFA_KEY'),
+		'native'=>Array('basnme'=>'', 'tblnme'=>'users', 'tfakey'=>'env:NYU_TFA_KEY', 'mailer'=>'', 'signup'=>false, 'codexp'=>15, 'lnkurl'=>''),
 		'usrlst'=>Array('usrfle'=>'conf/users.lst', 'tfakey'=>'env:NYU_TFA_KEY')
 	);
 
@@ -259,7 +259,7 @@ class Deploy extends Command{
 		if( $dbHandl===null || !preg_match('/^\w+$/D', $tblName) ){
 			$this->stopShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXITDENY);
 		}
-		$fldList = array_map( Array($dbHandl, 'quoteName'), array_merge(UserFile::FLDSLIST, Array('actvCode')) );
+		$fldList = array_map( Array($dbHandl, 'quoteName'), array_merge(UserFile::FLDSLIST, Array('actvCode', 'resetCod')) );
 		if( !$dbHandl->sendQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHandl->quoteName($tblName).' ORDER BY '.$dbHandl->quoteName('id_user').';') ){
 			$this->stopShell('The users cannot be read: '.strval($dbHandl->lastError()));
 		}
@@ -322,8 +322,9 @@ class Deploy extends Command{
 
 	/**
 	 * Lists what does not go along when the users leave the native
-	 * userbase for the users file, which is only read: activation codes,
-	 * presence and the step of the last 2FA code. Active devices stop the
+	 * userbase for the users file, which is only read: activation and reset
+	 * codes, the review of sign-ups, presence and the step of the last 2FA
+	 * code. Active devices stop the
 	 * move, unless --drops lets them go.
 	 *
 	 * @param String $sourceName The store the users leave.
@@ -342,6 +343,18 @@ class Deploy extends Command{
 		}), 'userName' );
 		if( !empty($pendLst) ){
 			$lostLst[] = Array('activation codes', implode(', ', $pendLst).': pending until made active, or given a password, with manage');
+		}
+		$rsetLst = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
+			return strval($userValues['resetCod'] ?? '')!=='';
+		}), 'userName' );
+		if( !empty($rsetLst) ){
+			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
+		}
+		$rvwList = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
+			return ($userValues['userStat'] ?? '')=='review';
+		}), 'userName' );
+		if( !empty($rvwList) ){
+			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; manage unlck makes them active');
 		}
 		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
 		$dvcConf = $this->accessCnf('device');

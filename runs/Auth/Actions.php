@@ -3,6 +3,7 @@
 namespace nyu\Runs\Auth;
 
 use \nyu\App\Actionset;
+use \nyu\Access\AccessMail;
 use \nyu\Access\Checker;
 use \nyu\Access\Limiter;
 use \nyu\Access\Auth\UserBase;
@@ -168,9 +169,10 @@ class Actions extends Actionset {
 	 * unless the request is a POST, 400 when an input is missing, is not
 	 * a text, the password breaks a rule or came in the query string of
 	 * the address (see passInUrl), 401 on a wrong name or code,
-	 * whichever it is, 429 when the address presented too many wrong
-	 * ones (see Access\Limiter) and 500 when the login does not use the
-	 * native userbase.
+	 * whichever it is, or one that ended, 429 when the address presented
+	 * too many wrong ones (see Access\Limiter) and 500 when the login does
+	 * not use the native userbase. The reply tells the status the user is
+	 * in: 'active', or 'review' for a sign-up a manager has to approve.
 	 */
 	public function activate(): Void {
 		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
@@ -218,8 +220,234 @@ class Actions extends Actionset {
 			$this->statMssg = $usrBase->lastError();
 			return;
 		}
+		$usrStat = strval( ($usrBase->userInfos($gvnUser) ?: Array())['userStat'] ?? 'active' );
 		$this->statCode = 200;
-		$this->asOutput = Array('active'=>true);
+		$this->asOutput = Array('active'=>$usrStat=='active', 'stat'=>$usrStat);
+	}
+
+	/**
+	 * Signs a user up, when the block of the native userbase allows it
+	 * ('signup') and names a mail account ('mailer'): the 'user' input is
+	 * the name asked for, the 'mail' input its address. The address is
+	 * sent a code that confirms it and sets the password (auth/activate);
+	 * a manager then approves the account (users/approve). A name or an
+	 * address already taken gets the same reply, and the address is told
+	 * by mail. A client may sign up 'regmax' times (16) within 'holdtm' of
+	 * the 'limits' block, counted apart from its wrong credentials; at most
+	 * 'regtop' sign-ups (256) wait at once, and the managers are told by
+	 * mail at each count of 'regwrn' (128, 200, 256). The action is meant
+	 * to be open ('openrt'). Reports 202, 404 when sign-ups are not open,
+	 * 405 unless the request is a POST, 400 for a name or an address that
+	 * is not one, 429 when the address of the client asked too often or
+	 * is held, 503 when too many sign-ups
+	 * are waiting.
+	 */
+	public function signup(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		$usrBase = UserBase::fromLogin();
+		$mailObj = AccessMail::fromLogin( $this->mailsDir(), PHP_SAPI!=='cli' );
+		if($usrBase===null || $mailObj===null || !AccessMail::signupsOn()){
+			$this->statCode = 404;
+			$this->statMssg = 'Not Found';
+			return;
+		}
+		$gvnUser = $this->inputReg->readValue('user');
+		$gvnMail = $this->inputReg->readValue('mail');
+		if(!is_string($gvnUser) || !is_string($gvnMail)){
+			$this->statCode = 400;
+			$this->statMssg = 'Invalid user or mail';
+			return;
+		}
+		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'regmax' of them within 'holdtm'
+		$lmtConf = $this->resolvCnf('limits');
+		if($this->limitAddr('Sign-up', $gvnUser)===null){
+			return;
+		}
+		$fldName = trim(strval($lmtConf['folder'] ?? ''), '/\\ ');
+		$regLmtr = new Limiter( Array('maxtry'=>intval($lmtConf['regmax'] ?? 16), 'folder'=>(($fldName!='') ? $fldName : 'temp/limits').'/signup') + $lmtConf );
+		$lmtrArr = $this->limitAddr('Sign-up', $gvnUser, $regLmtr);
+		if($lmtrArr===null){
+			return;
+		}
+		// Every sign-up counts : an address cannot fill the mailboxes of others
+		$lmtrArr[0]->countFail($lmtrArr[1]);
+		$regTops = max( 1, intval($lmtConf['regtop'] ?? UserBase::SIGNSCAP) );
+		$newCode = $usrBase->signsUser($gvnUser, $gvnMail, $regTops);
+		if($newCode===false){
+			$this->statCode = $usrBase->lastState();
+			$this->statMssg = $usrBase->lastError();
+			return;
+		}
+		if($newCode===''){
+			$mailObj->sendTaken($gvnMail, $gvnUser);
+		}else{
+			$mailObj->sendCodes('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode);
+			$this->warnsMngr($usrBase, $mailObj, $regTops, is_array($lmtConf['regwrn'] ?? null) ? $lmtConf['regwrn'] : Array(128, 200, 256));
+		}
+		$this->statCode = 202;
+		$this->asOutput = Array('asked'=>true);
+	}
+
+	/**
+	 * Tells the managers, by mail and on the 'access' log, when a sign-up
+	 * brings the number of those waiting to one of the counts of 'regwrn';
+	 * at 'regtop', the sign-ups are closed.
+	 *
+	 * @param UserBase   $usersStore The userbase.
+	 * @param AccessMail $mailSender The sender of the access mails.
+	 * @param Int        $topsNumber The most sign-ups waiting at once.
+	 * @param Array      $warnCounts The counts the managers are told at.
+	 */
+	protected function warnsMngr( UserBase $usersStore, AccessMail $mailSender, Int $topsNumber, Array $warnCounts ): Void {
+		$waitNum = $usersStore->waitCount();
+		if($waitNum===false || !in_array($waitNum, array_map('intval', $warnCounts), true)){
+			return;
+		}
+		$logInst = Logger::getLogger('access');
+		if($waitNum>=$topsNumber){
+			$logInst->warning( $waitNum.' sign-ups are waiting: the sign-ups are closed until some are approved or removed' );
+		}else{
+			$logInst->notice( $waitNum.' sign-ups are waiting, '.$topsNumber.' at most' );
+		}
+		$mngList = $usersStore->managMail();
+		if(is_array($mngList) && !empty($mngList)){
+			$mailSender->sendWatch($mngList, $waitNum, $topsNumber);
+		}else{
+			$logInst->warning( 'No manager with an address is told of the sign-ups waiting' );
+		}
+	}
+
+	/**
+	 * Asks for a new password, when the block of the native userbase names
+	 * a mail account: the 'user' input is the login name or the address
+	 * of the user. An active user with an address is sent a code, its
+	 * password kept until the code is used (auth/recovr). Whoever the
+	 * user is, or is not, the reply is the same. Each request counts
+	 * against the address of the client (see Access\Limiter). The action
+	 * is meant to be open ('openrt'). Reports 202, 404 when no mail is
+	 * sent, 405 unless the request is a POST, 400 for an input that is
+	 * not a text, 429 when the address of the client asked too often.
+	 */
+	public function forgot(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		$usrBase = UserBase::fromLogin();
+		$mailObj = AccessMail::fromLogin( $this->mailsDir(), PHP_SAPI!=='cli' );
+		if($usrBase===null || $mailObj===null){
+			$this->statCode = 404;
+			$this->statMssg = 'Not Found';
+			return;
+		}
+		$gvnUser = $this->inputReg->readValue('user');
+		if(!is_string($gvnUser)){
+			$this->statCode = 400;
+			$this->statMssg = 'Invalid user';
+			return;
+		}
+		$lmtrArr = $this->limitAddr('Reset', $gvnUser);
+		if($lmtrArr===null){
+			return;
+		}
+		$lmtrArr[0]->countFail($lmtrArr[1]);
+		$rstVals = $usrBase->resetPass($gvnUser);
+		if(is_array($rstVals)){
+			$mailObj->sendCodes('pwdset', $rstVals['user'], $rstVals['mail'], $rstVals['code']);
+		}
+		$this->statCode = 202;
+		$this->asOutput = Array('asked'=>true);
+	}
+
+	/**
+	 * Sets a new password with the code auth/forgot sent: the 'user' and
+	 * 'code' inputs name the user and carry the code, the 'pass' input the
+	 * new password, kept as sent. The action is meant to be open
+	 * ('openrt'). Reports 405 unless the request is a POST, 400 when an
+	 * input is missing, is not a text, the password breaks a rule or came
+	 * in the query string of the address (see passInUrl), 401 on a wrong
+	 * name or code, or one that ended, 429 when the address presented too
+	 * many wrong ones (see Access\Limiter) and 500 when the login does not
+	 * use the native userbase.
+	 */
+	public function recovr(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		if($this->passInUrl( Array('pass'), 'Password reset' )){
+			return;
+		}
+		$gvnUser = $this->inputReg->readValue('user');
+		$gvnCode = $this->inputReg->readValue('code');
+		$gvnPass = $this->inputReg->readValue('pass');
+		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
+			$this->statCode = 400;
+			$this->statMssg = 'Invalid user, code or pass';
+			return;
+		}
+		$usrBase = UserBase::fromLogin();
+		if($usrBase===null){
+			$this->statCode = 500;
+			$this->statMssg = 'User management unavailable';
+			return;
+		}
+		$lmtrArr = $this->limitAddr('Password reset', $gvnUser);
+		if($lmtrArr===null){
+			return;
+		}
+		if(!$usrBase->recovUser($gvnUser, $gvnCode, $gvnPass)){
+			if($usrBase->wrongCred()){
+				$lmtrArr[0]->countFail($lmtrArr[1]);
+			}
+			$this->statCode = $usrBase->lastState();
+			$this->statMssg = $usrBase->lastError();
+			return;
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('changed'=>true);
+	}
+
+	/**
+	 * Refuses a request from an address that presented too many wrong
+	 * credentials, or asked too often: a 429, with the time to wait.
+	 *
+	 * @param String   $eventLabel What was asked for, for the log.
+	 * @param String   $userString The user named, for the log.
+	 * @param ?Limiter $limitCount The limiter to ask; the one of the 'limits' block when null.
+	 * @return ?Array The limiter and the address of the client, or null when the request is refused.
+	 */
+	protected function limitAddr( String $eventLabel, String $userString, ?Limiter $limitCount=null ): ?Array {
+		$lmtrObj = $limitCount ?? new Limiter( $this->resolvCnf('limits') );
+		$clntReg = $this->httpRqst->getClient();
+		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+		if($heldEnd>0){
+			Logger::getLogger('access')->warning( $eventLabel.' refused for user '.json_encode($userString).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
+			if($this->httpResp!==null){
+				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
+			}
+			$this->statCode = 429;
+			$this->statMssg = 'Too many attempts';
+			return null;
+		}
+		return Array($lmtrObj, $usrAddr);
+	}
+
+	/**
+	 * Gives the folder of this application, whose mails folder holds the
+	 * templates that replace those of conf/mails.
+	 *
+	 * @return String The folder.
+	 */
+	protected function mailsDir(): String {
+		return __DIR__;
 	}
 
 	/**

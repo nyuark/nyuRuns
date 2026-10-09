@@ -25,9 +25,9 @@ use nyu\Tools\Logger;
 class UserFile{
 
 	// The fields of a user, in the order they are written; any other field a person added is kept after them
-	const FLDSLIST = Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'tokenKey', 'twoFaKey');
+	const FLDSLIST = Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'tokenKey', 'twoFaKey');
 	// What is told about a user : never a hash or a secret
-	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat');
+	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail');
 	// Longest password, in bytes : bcrypt reads nothing beyond
 	const PASSSIZE = 72;
 
@@ -205,6 +205,40 @@ class UserFile{
 		} );
 		if( $isSaved ){
 			$this->logChange( 'Role of user '.json_encode($userString).' changed to '.$roleString );
+		}
+		return $isSaved;
+	}
+
+	/**
+	 * Gives a user a mail address, in lower case, or takes it away. An
+	 * address another user holds is refused.
+	 *
+	 * @param String  $userString Login name of the user.
+	 * @param ?String $mailString The address, none when null or empty.
+	 * @return Bool Whether the address was written.
+	 */
+	public function chngeMail( String $userString, ?String $mailString ): Bool {
+		$this->resetLast();
+		$mailVal = strtolower( trim(strval($mailString)) );
+		if( $mailVal!=='' && (strlen($mailVal)>254 || filter_var($mailVal, FILTER_VALIDATE_EMAIL)===false) ){
+			return $this->refuseFor(400, 'Invalid mail address');
+		}
+		$isSaved = $this->editUsers( $userString, function( Array $usersArray, Int $usersIndex ) use ( $mailVal ): ?Array {
+			foreach( $usersArray as $usrPos => $usrRow ){
+				if( $mailVal!=='' && $usrPos!==$usersIndex && strtolower(strval($usrRow['userMail'] ?? ''))===$mailVal ){
+					$this->refuseFor(409, 'Mail address already used');
+					return null;
+				}
+			}
+			if( $mailVal==='' ){
+				unset($usersArray[$usersIndex]['userMail']);
+			}else{
+				$usersArray[$usersIndex]['userMail'] = $mailVal;
+			}
+			return $usersArray;
+		} );
+		if( $isSaved ){
+			$this->logChange( 'Address of user '.json_encode($userString).' '.($mailVal==='' ? 'removed' : 'set') );
 		}
 		return $isSaved;
 	}
@@ -542,6 +576,7 @@ class UserFile{
 			'userName'=>strval($userValues['userName'] ?? ''),
 			'userRole'=>strval($userValues['userRole'] ?? Checker::ROLELIST[0]),
 			'userStat'=>strval($userValues['userStat'] ?? 'active'),
+			'userMail'=>strval($userValues['userMail'] ?? ''),
 			'hasToken'=>strval($userValues['tokenKey'] ?? '')!='',
 			'hasTwoFa'=>strval($userValues['twoFaKey'] ?? '')!=''
 		);

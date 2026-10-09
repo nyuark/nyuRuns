@@ -27,14 +27,14 @@ $natAuth = new Native( Array('tblnme'=>'users') );
 
 // Reading
 $jsnVals = jsonShell($projDir, Array('manage', 'lists'));
-checkSame('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'userName'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'userName', 'userRole', 'userStat', 'madeDate', 'lastSeen')));
+checkSame('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'userName'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen')));
 checkSame('lists by status', array_column(jsonShell($projDir, Array('manage', 'lists', '--ustat=locked'))['rows'] ?? Array(), 'userName'), Array('dave'));
 checkSame('views a user; an unknown one', Array(jsonShell($projDir, Array('manage', 'views', 'ben'))['userRole'] ?? null, runShell($projDir, Array('manage', 'views', 'nobody'))['errs']), Array('member', "User not found\n"));
 
 // Creation and activation
 $jsnVals = jsonShell($projDir, Array('manage', 'enrol', 'erin', 'system'));
 $actCode = strval($jsnVals['secret']['Activation code of erin'] ?? '');
-checkSame('enrol creates a pending user and shows its activation code once', Array($jsnVals['created'] ?? null, strlen($actCode), jsonShell($projDir, Array('manage', 'views', 'erin'))['userStat'] ?? null), Array('erin', 32, 'pendng'));
+checkSame('enrol creates a pending user and shows its activation code once', Array($jsnVals['created'] ?? null, strlen($actCode), jsonShell($projDir, Array('manage', 'views', 'erin'))['userStat'] ?? null), Array('erin', 12, 'pendng'));
 checkSame('a name already taken', runShell($projDir, Array('manage', 'enrol', 'Erin'))['errs'], "User name already taken\n");
 checkSame('a wrong code does not activate', runShell($projDir, Array('manage', 'actvt', 'erin', 'wrong', '--typed'), "pw-erin-long\n")['code'], 3);
 checkSame('actvt activates with the code and a typed password', Array(runShell($projDir, Array('manage', 'actvt', 'erin', $actCode, '--typed'), "pw-erin-long\n")['text'], $natAuth->checkCred(Array('user'=>'erin', 'pass'=>'pw-erin-long'))), Array("activated: erin\n", Array('user'=>'erin', 'role'=>'system', 'id'=>5)));
@@ -60,7 +60,23 @@ checkSame('a locked or unknown user is given neither', Array(runShell($projDir, 
 
 // Reset, removal
 $jsnVals = jsonShell($projDir, Array('manage', 'reset', 'ben'));
-checkSame('reset puts the user back to pending, with a new code', Array(strlen($jsnVals['secret']['Activation code of ben'] ?? ''), jsonShell($projDir, Array('manage', 'views', 'ben'))['userStat'] ?? null), Array(32, 'pendng'));
+checkSame('reset puts the user back to pending, with a new code', Array(strlen($jsnVals['secret']['Activation code of ben'] ?? ''), jsonShell($projDir, Array('manage', 'views', 'ben'))['userStat'] ?? null), Array(12, 'pendng'));
+$sqlLink = new PDO('sqlite:'.$basePth);
+checkSame('a code shown here lasts 300 minutes', abs(strtotime(strval($sqlLink->query("SELECT codeDate FROM users WHERE userName='ben'")->fetchColumn())) - (time()+300*60))<=5, true);
+runShell($projDir, Array('manage', 'reset', 'ben', '--noexp'));
+runShell($projDir, Array('manage', 'enrol', 'gail', '--noexp'));
+checkSame('--noexp: no end, at a reset or a creation', $sqlLink->query("SELECT codeDate FROM users WHERE userName IN ('ben', 'gail')")->fetchAll(PDO::FETCH_COLUMN), Array(null, null));
+
+// Addresses, sign-ups awaiting review
+checkSame('email gives an address, in lower case', Array(runShell($projDir, Array('manage', 'email', 'erin', 'Erin@Example.ch'))['text'], jsonShell($projDir, Array('manage', 'views', 'erin'))['userMail'] ?? null), Array("address set: erin\n", 'erin@example.ch'));
+checkSame('an address taken, one that is not', Array(runShell($projDir, Array('manage', 'email', 'anna', 'erin@example.ch'))['errs'], runShell($projDir, Array('manage', 'email', 'anna', 'anna'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
+checkSame('email without an address takes it away', Array(runShell($projDir, Array('manage', 'email', 'erin'))['text'], array_key_exists('userMail', $viewArr = jsonShell($projDir, Array('manage', 'views', 'erin'))) ? $viewArr['userMail'] : 'missing'), Array("address removed: erin\n", null));
+checkSame('prove without a user: nobody awaits review', runShell($projDir, Array('manage', 'prove'))['text'], "userName\nNo user awaits review.\n");
+$sqlLink->exec("INSERT INTO users (userName, passHash, userStat, userMail, signDate) VALUES ('ivan', '!', 'review', 'ivan@example.ch', '2026-11-04 08:00:00')");
+checkSame('prove without a user lists those awaiting review', array_column(jsonShell($projDir, Array('manage', 'prove'))['rows'] ?? Array(), 'userName'), Array('ivan'));
+checkSame('prove approves one; then it is no longer awaiting', Array(runShell($projDir, Array('manage', 'prove', 'ivan'))['text'], jsonShell($projDir, Array('manage', 'views', 'ivan'))['userStat'] ?? null, runShell($projDir, Array('manage', 'prove', 'ivan'))['errs']), Array("approved: ivan\n", 'active', "User not awaiting review\n"));
+checkSame('prove on the users file', runShell($projDir, Array('manage', 'prove', '--store=usrlst'))['code'], 3);
+$sqlLink = null;
 checkSame('removal needs a confirmation', Array(runShell($projDir, Array('manage', 'remov', 'ben', '--noask'))['code'], runShell($projDir, Array('manage', 'remov', 'ben', '--agree'))['text'], runShell($projDir, Array('manage', 'views', 'ben'))['code']), Array(3, "removed: ben\n", 3));
 
 // The other store, and the traces

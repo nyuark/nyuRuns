@@ -7,6 +7,7 @@ use nyu\Access\Totp;
 use nyu\Access\Auth\UserList;
 use nyu\Access\Sess\JWT;
 use nyu\Data\DBCon;
+use nyu\Data\Mail\Mailer;
 use nyu\Setup\Loader;
 use nyu\Setup\Preset;
 use nyu\Tools\Registry;
@@ -189,6 +190,53 @@ class HealthChk{
 			if( ($blkVal['unsecure'] ?? false)===true ){
 				$this->addResult('unsecure '.$blkName, 'warn', 'weak password hashes are accepted by this block');
 			}
+			$this->chkMailer($blkName, $blkVal);
+		}
+	}
+
+	/**
+	 * Checks the access mails of a block of the native userbase: the mail
+	 * account 'mailer' names, the front-end address of 'lnkurl', and a
+	 * 'signup' that no mail can confirm.
+	 *
+	 * @param String $blockNamed Name of the block.
+	 * @param Array  $blockValue Its values.
+	 */
+	protected function chkMailer( String $blockNamed, Array $blockValue ): Void {
+		$acntNme = $blockValue['mailer'] ?? null;
+		$hasMail = is_string($acntNme) && $acntNme!=='';
+		if( $hasMail ){
+			try{
+				$acntSet = Mailer::acntSetup($acntNme);
+				$this->addResult( 'access mails '.$blockNamed, 'fine', 'through the account '.$acntNme.' ('.$acntSet['type'].')' );
+			}catch( \Throwable $e ){
+				$this->addResult('access mails '.$blockNamed, 'fail', 'mailer names no account of conf/mailer.json: '.$e->getMessage());
+			}
+		}elseif( $acntNme!==null && $acntNme!=='' ){
+			$this->addResult('access mails '.$blockNamed, 'fail', 'mailer is the name of a mail account, as a text');
+		}
+		$linkTpl = $blockValue['lnkurl'] ?? null;
+		if( $linkTpl!==null && $linkTpl!=='' && ( !is_string($linkTpl) || !preg_match('#^https?://[^\s]+$#Di', $linkTpl) || strpos($linkTpl, '%code%')===false ) ){
+			$this->addResult('access link '.$blockNamed, 'fail', 'lnkurl is an http(s) address holding %code% (and %kind%, %user% as needed)');
+		}
+		if( array_key_exists('codexp', $blockValue) && (!is_int($blockValue['codexp']) || $blockValue['codexp']<1) ){
+			$this->addResult('access codes '.$blockNamed, 'fail', 'codexp is the minutes a mailed code lasts: a whole number, 1 at least');
+		}
+		if( ($blockValue['signup'] ?? false)===true && !$hasMail ){
+			$this->addResult('sign-ups '.$blockNamed, 'warn', 'signup is on, but no mailer confirms the addresses: nobody can sign up');
+		}
+		// The limits of the sign-ups : how many wait at once, how many one client makes, the counts the managers are told at
+		$regFlaw = Array();
+		foreach( Array('regtop', 'regmax') as $regKey ){
+			if( array_key_exists($regKey, $blockValue) && (!is_int($blockValue[$regKey]) || $blockValue[$regKey]<1) ){
+				$regFlaw[] = $regKey.' is a whole number, 1 at least';
+			}
+		}
+		if( array_key_exists('regwrn', $blockValue) && ( !is_array($blockValue['regwrn']) || array_values($blockValue['regwrn'])!==$blockValue['regwrn'] || count(array_filter($blockValue['regwrn'], function( Mixed $warnNumber ): Bool { return is_int($warnNumber) && $warnNumber>0; }))!==count($blockValue['regwrn']) ) ){
+			$regFlaw[] = 'regwrn is a list of whole numbers';
+		}
+		if( !empty($regFlaw) ){
+			$this->addResult('sign-up limits '.$blockNamed, 'fail', implode('; ', $regFlaw));
 		}
 	}
 
