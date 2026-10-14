@@ -1,0 +1,16 @@
+Votre mot de passe : choisissez-en un nouveau
+Bonjour %user%,
+
+Un nouveau mot de passe a été demandé pour votre compte. Pour le choisir,
+saisissez ce code là où il vous est demandé :
+
+    %code%
+
+[link]Ou ouvrez ce lien, sur n'importe quel appareil :
+%link%
+
+[/link]Le code ne sert qu'une fois, dans les %mins% minutes. Votre mot de passe
+reste le même d'ici là.
+
+Si vous ne l'avez pas demandé, ignorez ce message : votre mot de passe ne
+change pas.

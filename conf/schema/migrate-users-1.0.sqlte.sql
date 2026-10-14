@@ -1,6 +1,6 @@
 -- Users table, from 0.9 to 1.0, SQLite.
 -- For a users table made by conf/schema/users.sqlte.sql of 0.9: it adds the
--- columns of the access mails (userMail, resetCod, codeDate, signDate) and the
+-- columns of the access mails (userMail, userLang, resetCod, codeDate, signDate) and the
 -- status 'review' of a self-registration awaiting a manager.
 --
 -- SQLite cannot change a CHECK constraint: the table is made again, as
@@ -24,6 +24,7 @@ CREATE TABLE `users_1_0` (
 	`userRole` TEXT    NOT NULL DEFAULT 'member',
 	`userStat` TEXT    NOT NULL DEFAULT 'pendng',
 	`userMail` TEXT    NULL,
+	`userLang` TEXT    NULL,
 	`actvCode` TEXT    NULL,
 	`resetCod` TEXT    NULL,
 	`codeDate` TEXT    NULL,

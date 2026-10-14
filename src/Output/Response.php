@@ -2,6 +2,8 @@
 
 namespace nyu\Output;
 
+use nyu\Data\Mail\Template;
+
 /**
  * The reply to a request: its status, its headers and its body in the
  * format the preset asks for, and the static files and HTML pages a
@@ -448,13 +450,7 @@ class Response{
 	 * @return String The filled page.
 	 */
 	protected function fillPlace( String $pageString, Array $pageValues ): String {
-		return strval( preg_replace_callback('/%(\w+)%/', function( Array $matchedArr ) use ( $pageValues ): String {
-			$fillVal = $pageValues[$matchedArr[1]] ?? null;
-			if( !is_scalar($fillVal) ){
-				return $matchedArr[0];
-			}
-			return htmlspecialchars( strval($fillVal), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
-		}, $pageString) );
+		return Template::fillPlace( $pageString, $pageValues, true );
 	}
 
 	/**

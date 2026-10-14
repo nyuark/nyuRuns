@@ -1,0 +1,11 @@
+Votre inscription
+Bonjour,
+
+Quelqu'un (vous, on l'espère) a demandé à s'inscrire sous le nom
+%user% avec cette adresse. Le nom, ou l'adresse, est déjà celui d'un compte.
+
+Si ce compte est le vôtre et que vous avez perdu son mot de passe,
+demandez-en un nouveau là où vous vous connectez. Sinon, inscrivez-vous de
+nouveau avec un autre nom.
+
+Si vous ne vous êtes pas inscrit, ignorez ce message : rien n'a été changé.

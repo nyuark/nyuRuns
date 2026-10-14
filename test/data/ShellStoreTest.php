@@ -25,7 +25,7 @@ $basePth = inTempDir('store.sqlite');
 buildData($basePth);
 $sqlLink = new PDO('sqlite:'.$basePth);
 $sqlLink->exec("UPDATE users SET actvCode='code-of-cleo' WHERE userName='cleo'");
-$sqlLink->exec("UPDATE users SET userMail='ben@example.ch', resetCod='reset-of-ben', codeDate='2026-11-04 10:00:00' WHERE userName='ben'");
+$sqlLink->exec("UPDATE users SET userMail='ben@example.ch', userLang='fr-ch', resetCod='reset-of-ben', codeDate='2026-11-04 10:00:00' WHERE userName='ben'");
 $sqlLink->exec("INSERT INTO users (id_user, userName, passHash, userRole, userStat, userMail, signDate) VALUES (5, 'erin', '".password_hash('pw-erin', PASSWORD_BCRYPT, Array('cost'=>4))."', 'member', 'review', 'erin@example.ch', '2026-11-04 09:00:00')");
 $sqlLink->prepare("UPDATE users SET twoFaKey=?, tokenKey=? WHERE userName='anna'")->execute( Array(Totp::sealSecrt($twoFaKy, $natSeal), hash('sha256', 'token-of-anna')) );
 $sqlLink->exec("INSERT INTO devices (devcName, devcRole, tokenKey, user_id) VALUES ('Phone', 'app', '".hash('sha256', 'phone')."', 2)");
@@ -51,6 +51,7 @@ $usrList = array_column(json_decode(strval(readInPrj($projDir, 'conf/users.lst')
 checkSame('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['userRole'].'/'.$userValues['userStat']; }, $usrList), $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null),
 	Array(0, 5, Array('anna'=>'1/manage/active', 'ben'=>'2/member/active', 'cleo'=>'3/member/pendng', 'dave'=>'4/system/locked', 'erin'=>'5/member/review'), 'usrlst', 'usrlst'));
 checkSame('the addresses go along', array_column($usrList, 'userMail', 'userName'), Array('ben'=>'ben@example.ch', 'erin'=>'erin@example.ch'));
+checkSame('the languages go along', array_column($usrList, 'userLang', 'userName'), Array('ben'=>'fr-ch'));
 checkSame('the passwords and the personal token go along unchanged', Array(array_column($usrList, 'passHash', 'userName'), $usrList['anna']['tokenKey'] ?? null), Array($hashLst, hash('sha256', 'token-of-anna')));
 checkSame('what is not kept is told', array_column($jsnVals['rows'] ?? Array(), 'details', 'not kept'), Array(
 	'activation codes'=>'cleo: pending until made active, or given a password, with manage',

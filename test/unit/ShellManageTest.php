@@ -41,14 +41,18 @@ checkSame('a typed password is not shown; the user is a member when no role is t
 
 // Reading
 checkSame('lists the users by name, never a hash', jsonShell($projDir, Array('manage', 'lists'))['rows'] ?? null, Array(
-	Array('id_user'=>1, 'userName'=>'ann', 'userRole'=>'manage', 'userStat'=>'active', 'userMail'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
-	Array('id_user'=>2, 'userName'=>'bob', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
+	Array('id_user'=>1, 'userName'=>'ann', 'userRole'=>'manage', 'userStat'=>'active', 'userMail'=>'', 'userLang'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
+	Array('id_user'=>2, 'userName'=>'bob', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>'', 'userLang'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
 ));
 checkSame('lists by role, by count; a role that is not one', Array(array_column(jsonShell($projDir, Array('manage', 'lists', '--urole=manage'))['rows'] ?? Array(), 'userName'), array_column(jsonShell($projDir, Array('manage', 'lists', '--count=1', '--start=1'))['rows'] ?? Array(), 'userName'), runShell($projDir, Array('manage', 'lists', '--urole=boss'))['code']), Array(Array('ann'), Array('bob'), 3));
-checkSame('views a user', runShell($projDir, Array('manage', 'views', 'bob'))['text'], "id_user: 2\nuserName: bob\nuserRole: member\nuserStat: active\nuserMail: \nhasToken: false\nhasTwoFa: false\n");
+checkSame('views a user', runShell($projDir, Array('manage', 'views', 'bob'))['text'], "id_user: 2\nuserName: bob\nuserRole: member\nuserStat: active\nuserMail: \nuserLang: \nhasToken: false\nhasTwoFa: false\n");
 checkSame('email gives an address in the file, in lower case', Array(runShell($projDir, Array('manage', 'email', 'bob', 'Bob@Example.ch'))['text'], fileUsers($projDir)['bob']['userMail'] ?? null), Array("address set: bob\n", 'bob@example.ch'));
 checkSame('an address taken, one that is not', Array(runShell($projDir, Array('manage', 'email', 'ann', 'BOB@example.ch'))['errs'], runShell($projDir, Array('manage', 'email', 'ann', 'ann'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
 checkSame('email without an address takes it away from the file', Array(runShell($projDir, Array('manage', 'email', 'bob'))['text'], isset(fileUsers($projDir)['bob']['userMail'])), Array("address removed: bob\n", false));
+checkSame('langs gives a language in the file, takes it away', Array(runShell($projDir, Array('manage', 'langs', 'bob', 'FR'))['text'], fileUsers($projDir)['bob']['userLang'] ?? null, runShell($projDir, Array('manage', 'langs', 'bob', ''))['text'], isset(fileUsers($projDir)['bob']['userLang']), runShell($projDir, Array('manage', 'langs', 'bob', 'f'))['errs']), Array("language set: bob\n", 'fr', "language removed: bob\n", false, "Invalid language\n"));
+runShell($projDir, Array('manage', 'enrol', 'cid', '--ulang=it'));
+checkSame('--ulang: in the file', fileUsers($projDir)['cid']['userLang'] ?? null, 'it');
+runShell($projDir, Array('manage', 'remov', 'cid', '--agree'));
 checkSame('an unknown user', runShell($projDir, Array('manage', 'views', 'nobody')), Array('code'=>3, 'text'=>'', 'errs'=>"User not found\n"));
 
 // Status, role, removal

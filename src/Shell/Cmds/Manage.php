@@ -53,7 +53,7 @@ class Manage extends Command{
 		return Array(
 			'lists'=>Array('args'=>'[--ustat=<status>] [--urole=<role>] [--count=<n>] [--start=<n>]', 'about'=>'lists the users'),
 			'views'=>Array('args'=>'<user>', 'about'=>'shows a user'),
-			'enrol'=>Array('args'=>'<user> [role] [--typed] [--noexp]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noexp: no end) (native), active with its password (usrlst)'),
+			'enrol'=>Array('args'=>'<user> [role] [--typed] [--noexp] [--ulang=<language>]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noexp: no end) (native), active with its password (usrlst); --ulang gives the language of its mails'),
 			'actvt'=>Array('args'=>'<user> <code> [--typed]', 'about'=>'activates a pending user with its code, and gives it a password (native)'),
 			'locks'=>Array('args'=>'<user>', 'about'=>'locks a user'),
 			'unlck'=>Array('args'=>'<user>', 'about'=>'unlocks a user'),
@@ -62,6 +62,7 @@ class Manage extends Command{
 			'reset'=>Array('args'=>'<user> [--noexp]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noexp: no end) (native), a new password (usrlst)'),
 			'prove'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (native)'),
 			'email'=>Array('args'=>'<user> [address]', 'about'=>'gives a user a mail address, or takes it away when none is given'),
+			'langs'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (LNG_DFLT) then'),
 			'passw'=>Array('args'=>'<user> [--typed]', 'about'=>'gives a user a new password'),
 			'token'=>Array('args'=>'<user> [--clear]', 'about'=>'gives a user a new personal API token, or takes it away'),
 			'twofa'=>Array('args'=>'<user> [--clear] [--plain]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--plain: without), or takes it away'),
@@ -120,8 +121,10 @@ class Manage extends Command{
 		$storObj = $this->openStore();
 		$usrName = $this->needsWord('the user');
 		$roleNme = strval($this->optnObjc->shiftWord() ?? '');
+		$langTag = $this->optnObjc->getOption('ulang');
+		$langTag = ($langTag!==null) ? strval($langTag) : null;
 		if( $this->storKind=='native' ){
-			$newCode = $storObj->enrolUser($usrName, $roleNme, null, $this->codesLast());
+			$newCode = $storObj->enrolUser($usrName, $roleNme, null, $this->codesLast(), $langTag);
 			if( $newCode===false ){
 				$this->failStore($storObj);
 			}
@@ -130,7 +133,7 @@ class Manage extends Command{
 			return self::EXITDONE;
 		}
 		$passArr = $this->givenPass($usrName);
-		if( !$storObj->enrolUser($usrName, $roleNme, $passArr['pass']) ){
+		if( !$storObj->enrolUser($usrName, $roleNme, $passArr['pass'], $langTag) ){
 			$this->failStore($storObj);
 		}
 		$this->prntObjc->printPair('created', $usrName);
@@ -297,6 +300,31 @@ class Manage extends Command{
 			$this->failStore($storObj);
 		}
 		$this->prntObjc->printPair( ($mailTxt=='') ? 'address removed' : 'address set', $usrName );
+		return self::EXITDONE;
+	}
+
+	/**
+	 * Shows the language of the mails of a user, or gives it one, or
+	 * takes it away with an empty word ('').
+	 *
+	 * @return Int The exit code.
+	 */
+	public function callLangs(): Int {
+		$storObj = $this->openStore();
+		$usrName = $this->needsWord('the user');
+		$langTag = $this->optnObjc->shiftWord();
+		if( $langTag===null ){
+			$usrVals = $storObj->userInfos($usrName);
+			if( $usrVals===false ){
+				$this->failStore($storObj);
+			}
+			$this->prntObjc->printPair( $usrName, (strval($usrVals['userLang'] ?? '')!=='') ? strval($usrVals['userLang']) : '(default)' );
+			return self::EXITDONE;
+		}
+		if( !$storObj->chngeLang($usrName, strval($langTag)) ){
+			$this->failStore($storObj);
+		}
+		$this->prntObjc->printPair( (strval($langTag)=='') ? 'language removed' : 'language set', $usrName );
 		return self::EXITDONE;
 	}
 

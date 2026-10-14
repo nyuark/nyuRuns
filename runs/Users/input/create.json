@@ -2,6 +2,7 @@
 	"fields": {
 		"user!": "",
 		"role": "",
-		"mail": ""
+		"mail": "",
+		"lang": ""
 	}
 }

@@ -423,8 +423,11 @@ the replies, to be handed over, as before.
   can lock a user out by asking. A reset by a manager voids it at once.
 - An address belongs to one account, compared in lower case. The users file
   (`usrlst`) holds addresses too, but cannot send codes: it is only read.
-- The mails are `conf/mails/<kind>.txt` (its first line is the subject) and
-  `.html`, in English. An application replaces them with its own in
-  `runs/Auth/mails/`, in its language.
+- The mails are `conf/mails/<language>/<kind>.txt` (its first line is the
+  subject) and `.html`, in English (`en`) and French (`fr`). A mail is written
+  in the language of the user it goes to (`userLang`), else in `LNG_DFLT` of
+  `system.ini` (`en` when not set); `fr-ch` falls back to `fr`, then to the
+  default. Another language is a folder beside them. An application replaces
+  them with its own in `runs/Auth/mails/<language>/`.
 - A table made by 0.9 needs `conf/schema/migrate-users-1.0.<type>.sql` first.
   On MySQL 8 and MariaDB, its part 2 (the status `review`) is run by hand.

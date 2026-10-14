@@ -238,9 +238,9 @@ class UserList implements Handler{
 
 	/**
 	 * Reads the users file. Each user is given every field: 'userRole' is
-	 * member and 'userStat' active when left out, 'userMail', 'tokenKey'
-	 * and 'twoFaKey' empty, 'id_user' null; the address is read in lower
-	 * case. The file is refused as a whole, and the refusal logged, when it
+	 * member and 'userStat' active when left out, 'userMail', 'userLang',
+	 * 'tokenKey' and 'twoFaKey' empty, 'id_user' null; the address and the
+	 * language are read in lower case. The file is refused as a whole, and the refusal logged, when it
 	 * is not a JSON text holding a 'users' list, when a user lacks its
 	 * 'userName' or 'passHash', when a field is not a text, or when two
 	 * users share a 'userName', a 'userMail' or a 'tokenKey'.
@@ -264,7 +264,7 @@ class UserList implements Handler{
 				break;
 			}
 			$usrVals = Array('userName'=>$usrRow['userName'], 'passHash'=>$usrRow['passHash'], 'id_user'=>$usrRow['id_user'] ?? null);
-			foreach( Array('userRole'=>'member', 'userStat'=>'active', 'userMail'=>'', 'tokenKey'=>'', 'twoFaKey'=>'') as $fldNme=>$fldDef ){
+			foreach( Array('userRole'=>'member', 'userStat'=>'active', 'userMail'=>'', 'userLang'=>'', 'tokenKey'=>'', 'twoFaKey'=>'') as $fldNme=>$fldDef ){
 				$usrVals[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
 				if( !is_string($usrVals[$fldNme]) ){
 					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['userName']).' is not a text';
@@ -277,6 +277,7 @@ class UserList implements Handler{
 			}
 			$usrVals['tokenKey'] = strtolower($usrVals['tokenKey']);
 			$usrVals['userMail'] = strtolower($usrVals['userMail']);
+			$usrVals['userLang'] = strtolower($usrVals['userLang']);
 			if( in_array($usrVals['userName'], $nameLst, true) ){
 				$whyText = 'user '.json_encode($usrVals['userName']).' is listed twice';
 				break;

@@ -62,5 +62,12 @@
 			"app": "auth",
 			"act": "password"
 		}
+	},
+	"auth/langs" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "langs"
+		}
 	}
 }

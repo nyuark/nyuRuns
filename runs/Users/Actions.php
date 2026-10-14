@@ -57,8 +57,9 @@ class Actions extends Actionset {
 
 	/**
 	 * Creates the user the 'user' input names, with the role of the
-	 * 'role' input (the lowest one when left out) and the address of the
-	 * 'mail' input (none when left out). The user is pending, with an
+	 * 'role' input (the lowest one when left out), the address of the
+	 * 'mail' input (none when left out) and the language of its mails of
+	 * the 'lang' input (the default one when left out). The user is pending, with an
 	 * activation code to choose its password with (auth/activate). When
 	 * the userbase sends mails and the user has an address, the code is
 	 * mailed to it, and not told here; otherwise the reply carries it,
@@ -71,14 +72,17 @@ class Actions extends Actionset {
 		$gvnRole = $this->inputReg->readValue('role');
 		$gvnMail = $this->inputReg->readValue('mail');
 		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
+		$gvnLang = $this->inputReg->readValue('lang');
+		$gvnLang = is_string($gvnLang) ? $gvnLang : null;
 		$mailObj = ($gvnMail!='') ? AccessMail::fromLogin( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCode = $usrBase->enrolUser( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS );
+		$newCode = $usrBase->enrolUser( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS, $gvnLang );
 		if($newCode===false){
 			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
 		}
 		$this->statCode = 201;
 		if($mailObj!==null){
-			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, strtolower($gvnMail), strval($newCode)));
+			// The mail is written in the language given for the user, never in the one of the manager asking
+			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, strtolower($gvnMail), strval($newCode), $gvnLang));
 			return;
 		}
 		$this->asOutput = Array('user'=>$gvnUser, 'code'=>$newCode);
@@ -113,6 +117,23 @@ class Actions extends Actionset {
 		}
 		$this->statCode = 200;
 		$this->asOutput = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfos($gvnUser) ?: Array())['userMail'] ?? null);
+	}
+
+	/**
+	 * Gives the user the 'user' input names the language of the 'lang'
+	 * input, for its mails, or takes it away when 'lang' is empty or left
+	 * out: its mails are then written in the default one (LNG_DFLT).
+	 * Reports 400 for a language that is not a tag (fr, fr-ch).
+	 */
+	public function langs(): Void {
+		$usrBase = $this->startCall('POST');
+		$gvnUser = $this->givenUser(false);
+		$gvnLang = $this->inputReg->readValue('lang');
+		if(!$usrBase->chngeLang($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
+			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('user'=>$gvnUser, 'lang'=>($usrBase->userInfos($gvnUser) ?: Array())['userLang'] ?? null);
 	}
 
 	/**
@@ -183,7 +204,8 @@ class Actions extends Actionset {
 	public function reset(): Void {
 		$usrBase = $this->startCall('POST');
 		$gvnUser = $this->givenUser(true);
-		$usrMail = strval( ($usrBase->userInfos($gvnUser) ?: Array())['userMail'] ?? '' );
+		$usrInfo = $usrBase->userInfos($gvnUser) ?: Array();
+		$usrMail = strval( $usrInfo['userMail'] ?? '' );
 		$mailObj = ($usrMail!='') ? AccessMail::fromLogin( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
 		$newCode = $usrBase->resetUser( $gvnUser, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS );
 		if($newCode===false){
@@ -191,7 +213,8 @@ class Actions extends Actionset {
 		}
 		$this->statCode = 200;
 		if($mailObj!==null){
-			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, $usrMail, strval($newCode)));
+			// The mail is written in the language of the user, never in the one of the manager asking
+			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLang'] ?? null));
 			return;
 		}
 		$this->asOutput = Array('user'=>$gvnUser, 'code'=>$newCode);

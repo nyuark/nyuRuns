@@ -4,6 +4,7 @@ namespace nyu\Access\Auth;
 
 use nyu\Access\Checker;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
+use nyu\Tools\Language;
 use nyu\Tools\Logger;
 
 /**
@@ -29,7 +30,7 @@ class UserBase extends Native{
 	// Names no user is given, whatever the case
 	const NAMEDENY = Array('root', 'admin');
 	// What is told about a user : never a hash, a code or a secret
-	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen');
+	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang', 'signDate', 'madeDate', 'lastSeen');
 	// Stored in place of a hash until the user sets its password : no password matches it
 	const VOIDHASH = '!';
 	// The characters of a code : no 0, 1, I, L or O, which are taken for one another
@@ -94,9 +95,10 @@ class UserBase extends Native{
 	 * @param String  $roleString Its role, one of Checker::ROLELIST; the first one when left empty.
 	 * @param ?String $mailString Its mail address, none when null or empty.
 	 * @param Int     $codeMinute Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedFor() for one sent by mail.
-	 * @return String|Bool The activation code, or false when the name, the role or the address is not valid or taken, or the table cannot be written.
+	 * @param ?String $langTagStr The language of its mails (see Tools\Language), none when null or empty.
+	 * @return String|Bool The activation code, or false when the name, the role, the address or the language is not valid, the name or the address taken, or the table cannot be written.
 	 */
-	public function enrolUser( String $userString, String $roleString='', ?String $mailString=null, Int $codeMinute=self::ADMNMINS ): String|Bool {
+	public function enrolUser( String $userString, String $roleString='', ?String $mailString=null, Int $codeMinute=self::ADMNMINS, ?String $langTagStr=null ): String|Bool {
 		$this->resetLast();
 		$roleStr = ($roleString!='') ? $roleString : Checker::ROLELIST[0];
 		if( !preg_match(self::NAMERULE, $userString) || in_array(strtolower($userString), self::NAMEDENY, true) ){
@@ -104,6 +106,10 @@ class UserBase extends Native{
 		}
 		if( !in_array($roleStr, Checker::ROLELIST, true) ){
 			return $this->refuseFor(400, 'Invalid role');
+		}
+		$langVal = $this->checkLang($langTagStr);
+		if( $langVal===false ){
+			return $this->refuseFor(400, 'Invalid language');
 		}
 		$mailVal = null;
 		if( $mailString!==null && $mailString!=='' ){
@@ -129,8 +135,8 @@ class UserBase extends Native{
 			}
 		}
 		$newCode = $this->freshCode();
-		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {userMail}, {actvCode}, {codeDate}) VALUES (?, ?, ?, 'pendng', ?, ?, ?);";
-		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, $roleStr, $mailVal, $this->codeHashs($newCode)[0], $this->endOfCode($codeMinute)))<1 ){
+		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {userMail}, {userLang}, {actvCode}, {codeDate}) VALUES (?, ?, ?, 'pendng', ?, ?, ?, ?);";
+		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, $roleStr, $mailVal, $langVal, $this->codeHashs($newCode)[0], $this->endOfCode($codeMinute)))<1 ){
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		Logger::getLogger('access')->notice( 'User '.json_encode($userString).' created ('.$roleStr.')'.Logger::actorText() );
@@ -148,12 +154,13 @@ class UserBase extends Native{
 	 * for the caller to answer as it answers any sign-up, and to tell the
 	 * address by mail.
 	 *
-	 * @param String $userString Login name it asks for (see NAMERULE and NAMEDENY).
-	 * @param String $mailString Its mail address.
-	 * @param Int    $maxWaiting Most sign-ups waiting at once, confirmed or not ('regtop' of the limits).
+	 * @param String  $userString Login name it asks for (see NAMERULE and NAMEDENY).
+	 * @param String  $mailString Its mail address.
+	 * @param Int     $maxWaiting Most sign-ups waiting at once, confirmed or not ('regtop' of the limits).
+	 * @param ?String $langTagStr The language of its mails: the one its request asks for; left out when it is not a tag.
 	 * @return String|Bool The activation code, '' when the name or the address is taken, or false when one is not valid, too many sign-ups are waiting, or the table cannot be used.
 	 */
-	public function signsUser( String $userString, String $mailString, Int $maxWaiting=self::SIGNSCAP ): String|Bool {
+	public function signsUser( String $userString, String $mailString, Int $maxWaiting=self::SIGNSCAP, ?String $langTagStr=null ): String|Bool {
 		$this->resetLast();
 		if( !preg_match(self::NAMERULE, $userString) || in_array(strtolower($userString), self::NAMEDENY, true) ){
 			return $this->refuseFor(400, 'Invalid user name');
@@ -181,8 +188,10 @@ class UserBase extends Native{
 			return '';
 		}
 		$newCode = $this->freshCode();
-		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {userMail}, {actvCode}, {codeDate}, {signDate}) VALUES (?, ?, ?, 'pendng', ?, ?, ?, ?);";
-		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, Checker::ROLELIST[0], $mailVal, $this->codeHashs($newCode)[0], $this->endOfCode($this->mailMins), date('Y-m-d H:i:s')))<1 ){
+		// The language of the request is a hint : one that is not a tag is left out, never refused
+		$langVal = $this->checkLang($langTagStr);
+		$addQury = "INSERT INTO {usrTable} ({userName}, {passHash}, {userRole}, {userStat}, {userMail}, {userLang}, {actvCode}, {codeDate}, {signDate}) VALUES (?, ?, ?, 'pendng', ?, ?, ?, ?, ?);";
+		if( $this->sendWrite($addQury, Array($userString, self::VOIDHASH, Checker::ROLELIST[0], $mailVal, ($langVal===false) ? null : $langVal, $this->codeHashs($newCode)[0], $this->endOfCode($this->mailMins), date('Y-m-d H:i:s')))<1 ){
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		$logInst->notice( 'User '.json_encode($userString).' signed up'.Logger::actorText() );
@@ -204,16 +213,20 @@ class UserBase extends Native{
 
 	/**
 	 * Lists the addresses of the active users of the highest role: those
-	 * told when sign-ups pile up.
+	 * told when sign-ups pile up, each with the language of its mails.
 	 *
-	 * @return Array|Bool The addresses, or false when the table cannot be read.
+	 * @return Array|Bool The languages (null for none) by address, or false when the table cannot be read.
 	 */
 	public function managMail(): Array|Bool {
-		$mngRows = $this->sendFetch( "SELECT {userMail} FROM {usrTable} WHERE {userRole}=? AND {userStat}='active' AND {userMail} IS NOT NULL AND {userMail}<>'' ORDER BY {userName};", Array(array_slice(Checker::ROLELIST, -1)[0]) );
+		$mngRows = $this->sendFetch( "SELECT {userMail}, {userLang} FROM {usrTable} WHERE {userRole}=? AND {userStat}='active' AND {userMail} IS NOT NULL AND {userMail}<>'' ORDER BY {userName};", Array(array_slice(Checker::ROLELIST, -1)[0]) );
 		if( $mngRows===false ){
 			return $this->refuseFor(500, 'Credential store unavailable');
 		}
-		return array_map(function( Array $userValues ): String { return strval(array_values($userValues)[0]); }, $mngRows);
+		$mngLang = Array();
+		foreach( $mngRows as $mngRow ){
+			$mngLang[strval($mngRow['userMail'])] = (strval($mngRow['userLang'] ?? '')!=='') ? strval($mngRow['userLang']) : null;
+		}
+		return $mngLang;
 	}
 
 	/**
@@ -223,22 +236,25 @@ class UserBase extends Native{
 	 * active. Whatever is wrong with the name, the status or the code, the
 	 * refusal is the same.
 	 *
-	 * @param String $userString Login name of the user.
-	 * @param String $codeString The activation code, as given at its creation or its reset.
-	 * @param String $passwdText The password it chooses, following the rules (see checkPass).
+	 * @param String  $userString Login name of the user.
+	 * @param String  $codeString The activation code, as given at its creation or its reset.
+	 * @param String  $passwdText The password it chooses, following the rules (see checkPass).
+	 * @param ?String $langTagStr The language its request asks for: given to a user who has none yet; left out when it is not a tag.
 	 * @return Bool Whether the user is now active, or in review.
 	 */
-	public function actvtUser( String $userString, String $codeString, String $passwdText ): Bool {
+	public function actvtUser( String $userString, String $codeString, String $passwdText, ?String $langTagStr=null ): Bool {
 		$this->resetLast();
 		$ruleMsg = $this->checkPass($userString, $passwdText);
 		if( $ruleMsg!='' ){
 			return $this->refuseFor(400, $ruleMsg);
 		}
+		$langVal = $this->checkLang($langTagStr);
 		// One write decides : a code cannot be used twice, even by two requests at once
 		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}=CASE WHEN {signDate} IS NULL THEN 'active' ELSE 'review' END,"
+			." {userLang}=CASE WHEN {userLang} IS NULL OR {userLang}='' THEN ? ELSE {userLang} END,"
 			." {actvCode}=NULL, {codeDate}=NULL, {failNmbr}=0, {failDate}=NULL"
 			." WHERE {userName}=? AND {userStat}='pendng' AND {actvCode} IN (?, ?) AND ({codeDate} IS NULL OR {codeDate}>=?);";
-		$rowNmbr = $this->sendWrite( $updQury, array_merge(Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString), $this->codeHashs($codeString), Array(date('Y-m-d H:i:s'))) );
+		$rowNmbr = $this->sendWrite( $updQury, array_merge(Array(password_hash($passwdText, PASSWORD_BCRYPT), is_string($langVal) ? $langVal : null, $userString), $this->codeHashs($codeString), Array(date('Y-m-d H:i:s'))) );
 		if( $rowNmbr<0 ){
 			return $this->refuseFor(500, 'Credential store unavailable');
 		}
@@ -286,7 +302,7 @@ class UserBase extends Native{
 	 * is unknown, not active or without an address gets none.
 	 *
 	 * @param String $nameOrMail Its login name, or its mail address.
-	 * @return Array|Bool The user ('user'), its address ('mail') and the code ('code'), or false when there is none to give.
+	 * @return Array|Bool The user ('user'), its address ('mail'), the language of its mails ('lang', null for none) and the code ('code'), or false when there is none to give.
 	 */
 	public function resetPass( String $nameOrMail ): Array|Bool {
 		$this->resetLast();
@@ -295,7 +311,7 @@ class UserBase extends Native{
 			return $this->refuseFor(404, 'User not found');
 		}
 		$isAMail = str_contains($lookups, '@');
-		$usrRows = $this->sendFetch( 'SELECT {userName}, {userMail}, {userStat} FROM {usrTable} WHERE '.($isAMail ? '{userMail}' : '{userName}').'=? LIMIT 1;', Array($isAMail ? strtolower($lookups) : $lookups) );
+		$usrRows = $this->sendFetch( 'SELECT {userName}, {userMail}, {userLang}, {userStat} FROM {usrTable} WHERE '.($isAMail ? '{userMail}' : '{userName}').'=? LIMIT 1;', Array($isAMail ? strtolower($lookups) : $lookups) );
 		if( $usrRows===false ){
 			return $this->refuseFor(500, 'Credential store unavailable');
 		}
@@ -314,7 +330,7 @@ class UserBase extends Native{
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		$logInst->notice( 'Reset asked for user '.json_encode($usrName).Logger::actorText() );
-		return Array('user'=>$usrName, 'mail'=>strval($usrRows[0]['userMail']), 'code'=>$newCode);
+		return Array('user'=>$usrName, 'mail'=>strval($usrRows[0]['userMail']), 'lang'=>(strval($usrRows[0]['userLang'] ?? '')!=='') ? strval($usrRows[0]['userLang']) : null, 'code'=>$newCode);
 	}
 
 	/**
@@ -385,6 +401,30 @@ class UserBase extends Native{
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		Logger::getLogger('access')->notice( 'Address of user '.json_encode($userString).' '.($mailVal===null ? 'removed' : 'set').Logger::actorText() );
+		return true;
+	}
+
+	/**
+	 * Gives a user the language of its mails, or takes it away: its mails
+	 * are then written in the default one (LNG_DFLT).
+	 *
+	 * @param String  $userString Login name of the user.
+	 * @param ?String $langTagStr The language (see Tools\Language), none when null or empty.
+	 * @return Bool Whether the language was written.
+	 */
+	public function chngeLang( String $userString, ?String $langTagStr ): Bool {
+		$this->resetLast();
+		$langVal = $this->checkLang($langTagStr);
+		if( $langVal===false ){
+			return $this->refuseFor(400, 'Invalid language');
+		}
+		if( $this->knownUser($userString)===null ){
+			return false;
+		}
+		if( $this->sendWrite('UPDATE {usrTable} SET {userLang}=? WHERE {userName}=?;', Array($langVal, $userString))<0 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		Logger::getLogger('access')->info( 'Language of user '.json_encode($userString).' '.($langVal===null ? 'removed' : 'set to '.$langVal).Logger::actorText() );
 		return true;
 	}
 
@@ -605,7 +645,7 @@ class UserBase extends Native{
 	/**
 	 * Lists the users, by name, with what SHOWLIST tells of each.
 	 *
-	 * @param Array $filterList Optional 'userStat' and 'userRole' values the users must have; an empty one is left out.
+	 * @param Array $filterList Optional 'userStat' and 'userRole' values the users must have, and a 'userMail' address, compared in lower case; an empty one is left out.
 	 * @param Int   $limitCount Most users to give; the default number of rows (LST_ROWS, 100 when not set) when below 1.
 	 * @param Int   $offsetRows Users to pass over first.
 	 * @return Array|Bool The users, or false when a filter is not valid or the table cannot be read.
@@ -614,6 +654,14 @@ class UserBase extends Native{
 		$this->resetLast();
 		$whrList = Array();
 		$whrVals = Array();
+		$gvnMail = $filterList['userMail'] ?? '';
+		if( $gvnMail!=='' && $gvnMail!==null ){
+			if( !is_string($gvnMail) ){
+				return $this->refuseFor(400, 'Invalid filter');
+			}
+			$whrList[] = '{userMail}=?';
+			$whrVals[] = strtolower(trim($gvnMail));
+		}
 		foreach( Array('userStat'=>self::STATLIST, 'userRole'=>Checker::ROLELIST) as $fldNme=>$alwLst ){
 			$gvnText = $filterList[$fldNme] ?? '';
 			if( $gvnText==='' || $gvnText===null ){
@@ -722,6 +770,21 @@ class UserBase extends Native{
 			return null;
 		}
 		return $mailVal;
+	}
+
+	/**
+	 * Checks a language and gives it as it is stored: a tag in lower case,
+	 * '_' read as '-' (see Tools\Language).
+	 *
+	 * @param ?String $langTagStr The language given.
+	 * @return String|Bool|null The language to store, null when none is given, or false when it is not a tag.
+	 */
+	protected function checkLang( ?String $langTagStr ): String|Bool|null {
+		$langVal = strtolower( trim(str_replace('_', '-', strval($langTagStr))) );
+		if( $langVal==='' ){
+			return null;
+		}
+		return Language::checksTag($langVal) ? $langVal : false;
 	}
 
 	/**

@@ -464,7 +464,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
+		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'userLang', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

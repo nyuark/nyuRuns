@@ -15,6 +15,8 @@ CREATE TABLE "users" (
 	"userStat" VARCHAR(6)   NOT NULL DEFAULT 'pendng',
 	-- Mail address, in lower case; one account each
 	"userMail" VARCHAR(254) NULL,
+	-- Language of the mails sent to the user, a tag in lower case ('fr', 'fr-ch'); the default one when empty
+	"userLang" VARCHAR(16)  NULL,
 	-- SHA-256 hash of the activation code, cleared once used
 	"actvCode" VARCHAR(64)  NULL,
 	-- SHA-256 hash of a reset code asked by the user; its password works until the reset is done

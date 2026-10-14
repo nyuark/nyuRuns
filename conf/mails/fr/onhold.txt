@@ -1,0 +1,13 @@
+Inscriptions en attente d'examen : %count%
+Bonjour,
+
+%count% inscriptions sont en attente, confirmées ou non. Lorsque %limit%
+sont en attente, les inscriptions se ferment jusqu'à ce que certaines
+soient approuvées ou supprimées.
+
+Pour voir celles qui attendent un examen : users?stat=review, ou sur le
+serveur
+    php nyuRun manage prove
+
+Approuvez-en une avec users/approve (manage prove <user>), refusez-en une
+en la supprimant (users/remove).

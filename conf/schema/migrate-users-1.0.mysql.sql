@@ -1,6 +1,6 @@
 -- Users table, from 0.9 to 1.0, MySQL 5.7 or later, MariaDB 10.5 or later.
 -- For a users table made by conf/schema/users.mysql.sql of 0.9: it adds the
--- columns of the access mails (userMail, resetCod, codeDate, signDate) and the
+-- columns of the access mails (userMail, userLang, resetCod, codeDate, signDate) and the
 -- status 'review' of a self-registration awaiting a manager.
 --
 -- First a backup of the table:
@@ -16,6 +16,7 @@
 
 ALTER TABLE `users`
 	ADD COLUMN `userMail` VARCHAR(254) NULL AFTER `userStat`,
+	ADD COLUMN `userLang` VARCHAR(16)  NULL AFTER `userMail`,
 	ADD COLUMN `resetCod` VARCHAR(64)  NULL AFTER `actvCode`,
 	ADD COLUMN `codeDate` DATETIME     NULL AFTER `resetCod`,
 	ADD COLUMN `signDate` DATETIME     NULL AFTER `codeDate`,
@@ -43,6 +44,7 @@ ALTER TABLE `users`
 -- ALTER TABLE `users`
 -- 	DROP INDEX  `userMail`,
 -- 	DROP COLUMN `userMail`,
+-- 	DROP COLUMN `userLang`,
 -- 	DROP COLUMN `resetCod`,
 -- 	DROP COLUMN `codeDate`,
 -- 	DROP COLUMN `signDate`;

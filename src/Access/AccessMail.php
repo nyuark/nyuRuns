@@ -4,6 +4,8 @@ namespace nyu\Access;
 
 use nyu\Data\Mail\MailFailure;
 use nyu\Data\Mail\Mailer;
+use nyu\Data\Mail\Template;
+use nyu\Tools\Language;
 use nyu\Tools\Logger;
 
 /**
@@ -20,12 +22,17 @@ use nyu\Tools\Logger;
  * the front end the mail links to, where %kind%, %user% and %code% are
  * filled in (no link without it: the code alone is typed).
  *
- * A mail is made of two templates, <name>.txt and <name>.html, read from
- * the mails folder of the application when it has the .txt, from
- * conf/mails otherwise; without the .html beside it, the mail is plain text. The first line of
- * the .txt is the subject. %user%, %code%, %link% and %mins% are filled in,
- * HTML-encoded in the .html; what lies between [link] and [/link] is only
- * kept when there is a link.
+ * A mail is made of two templates, <name>.txt and <name>.html (see
+ * Data\Mail\Template), in one folder per language: <folder>/<language>/.
+ * It is written in the language given (the one of the user it goes to),
+ * else in the next of its chain (fr-ch, fr, then LNG_DFLT; see
+ * Tools\Language). For each language of the chain, the mails folder of the
+ * application is looked into first, then conf/mails: a language the
+ * application lacks is taken from the framework before falling back to
+ * another one. Without the .html beside the .txt, the mail is plain text.
+ * The first line of the .txt is the subject. %user%, %code%, %link% and
+ * %mins% are filled in, HTML-encoded in the .html; what lies between [link]
+ * and [/link] is only kept when there is a link.
  *
  * A mail that cannot be sent is logged (runner channel), never told to
  * the client. Sent after the reply, it does not make the reply wait,
@@ -110,10 +117,11 @@ class AccessMail {
 	 * @param String $mailedKind The mail: 'actvte', 'signup' or 'pwdset'.
 	 * @param String $userString Login name of the user.
 	 * @param String $mailString Its address.
-	 * @param String $codeString The code.
+	 * @param String  $codeString The code.
+	 * @param ?String $langTagStr The language of the user; the default one when not given.
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
-	public function sendCodes( String $mailedKind, String $userString, String $mailString, String $codeString ): Bool {
+	public function sendCodes( String $mailedKind, String $userString, String $mailString, String $codeString, ?String $langTagStr=null ): Bool {
 		if( !in_array($mailedKind, self::KINDLIST, true) ){
 			return false;
 		}
@@ -121,7 +129,7 @@ class AccessMail {
 		if( $this->linkTmpl!='' ){
 			$linkTxt = strtr( $this->linkTmpl, Array('%kind%'=>rawurlencode($mailedKind), '%user%'=>rawurlencode($userString), '%code%'=>rawurlencode($codeString)) );
 		}
-		return $this->sendsMail( $mailedKind, $mailString, Array('user'=>$userString, 'code'=>$codeString, 'link'=>$linkTxt, 'mins'=>strval($this->codeMins)) );
+		return $this->sendsMail( $mailedKind, $mailString, Array('user'=>$userString, 'code'=>$codeString, 'link'=>$linkTxt, 'mins'=>strval($this->codeMins)), $langTagStr );
 	}
 
 	/**
@@ -129,11 +137,12 @@ class AccessMail {
 	 * already taken.
 	 *
 	 * @param String $mailString The address given with the sign-up.
-	 * @param String $userString The name asked for.
+	 * @param String  $userString The name asked for.
+	 * @param ?String $langTagStr The language of the owner of the address; the default one when not given.
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
-	public function sendTaken( String $mailString, String $userString ): Bool {
-		return $this->sendsMail( self::TAKENNME, $mailString, Array('user'=>$userString, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeMins)) );
+	public function sendTaken( String $mailString, String $userString, ?String $langTagStr=null ): Bool {
+		return $this->sendsMail( self::TAKENNME, $mailString, Array('user'=>$userString, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeMins)), $langTagStr );
 	}
 
 	/**
@@ -141,15 +150,17 @@ class AccessMail {
 	 * its own: as many are waiting, and as many are allowed before the
 	 * sign-ups close.
 	 *
-	 * @param Array $mailsArray The addresses of the managers.
+	 * @param Array $mailsArray The addresses of the managers, as a list, or their languages by address.
 	 * @param Int   $countValue The sign-ups waiting.
 	 * @param Int   $limitValue The most allowed at once ('regtop').
 	 * @return Bool Whether every mail was sent, or is to be sent after the reply.
 	 */
 	public function sendWatch( Array $mailsArray, Int $countValue, Int $limitValue ): Bool {
 		$allSent = true;
-		foreach( $mailsArray as $mngAdr ){
-			$allSent = $this->sendsMail( self::WATCHNME, strval($mngAdr), Array('count'=>strval($countValue), 'limit'=>strval($limitValue), 'link'=>'') ) && $allSent;
+		foreach( $mailsArray as $adrKey=>$mngVal ){
+			$mngAddr = is_string($adrKey) ? $adrKey : strval($mngVal);
+			$mngLang = is_string($adrKey) && is_string($mngVal) ? $mngVal : null;
+			$allSent = $this->sendsMail( self::WATCHNME, $mngAddr, Array('count'=>strval($countValue), 'limit'=>strval($limitValue), 'link'=>''), $mngLang ) && $allSent;
 		}
 		return $allSent;
 	}
@@ -159,11 +170,12 @@ class AccessMail {
 	 *
 	 * @param String $templtName Name of the templates.
 	 * @param String $mailString The address.
-	 * @param Array  $fillValues Values of the placeholders, by name.
+	 * @param Array   $fillValues Values of the placeholders, by name.
+	 * @param ?String $langTagStr The language of the mail; the default one when not given.
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
-	protected function sendsMail( String $templtName, String $mailString, Array $fillValues ): Bool {
-		$mailArr = $this->buildMail($templtName, $fillValues);
+	protected function sendsMail( String $templtName, String $mailString, Array $fillValues, ?String $langTagStr=null ): Bool {
+		$mailArr = $this->buildMail($templtName, $fillValues, $langTagStr);
 		if( $mailArr===null ){
 			Logger::getLogger('runner')->error( 'Access mail '.json_encode($templtName).' not sent: its template cannot be read' );
 			return false;
@@ -215,59 +227,28 @@ class AccessMail {
 	 * Makes a mail of its templates.
 	 *
 	 * @param String $templtName Name of the templates.
-	 * @param Array  $fillValues Values of the placeholders, by name.
+	 * @param Array   $fillValues Values of the placeholders, by name.
+	 * @param ?String $langTagStr The language of the mail; the default one when not given.
 	 * @return ?Array The subject, the text and the HTML (null for none), or null when the text template cannot be read.
 	 */
-	protected function buildMail( String $templtName, Array $fillValues ): ?Array {
-		$txtPath = $this->findTmplt($templtName.'.txt');
+	protected function buildMail( String $templtName, Array $fillValues, ?String $langTagStr=null ): ?Array {
+		$lngTool = new Language();
+		$txtPath = null;
+		foreach( $lngTool->langChain($lngTool->chooseLng($langTagStr, null)) as $oneTag ){
+			foreach( $this->mailDirs as $dirPth ){
+				$txtPath = $txtPath ?? $lngTool->findTmplt($dirPth, $templtName.'.txt', Array($oneTag));
+			}
+		}
 		if( $txtPath===null ){
 			return null;
 		}
-		$hasLink = ($fillValues['link'] ?? '')!=='';
-		$txtBody = $this->fillTmplt( strval(file_get_contents($txtPath)), $fillValues, $hasLink, false );
-		$txtLins = explode("\n", ltrim($txtBody), 2);
-		$subject = trim( str_replace(Array("\r", "\n"), ' ', $txtLins[0]) );
 		// The HTML is the one beside the text : an application giving its own text without HTML sends text alone
 		$htmPath = dirname($txtPath).DS.$templtName.'.html';
-		$htmPath = (is_file($htmPath) && is_readable($htmPath)) ? $htmPath : null;
-		$htmBody = ($htmPath===null) ? null : $this->fillTmplt( strval(file_get_contents($htmPath)), $fillValues, $hasLink, true );
-		return Array( $subject, ltrim(strval($txtLins[1] ?? ''), "\r\n"), $htmBody );
-	}
-
-	/**
-	 * Finds a template: in the mails folder of the application first.
-	 *
-	 * @param String $fileString Name of the template file.
-	 * @return ?String Its path, or null when there is none.
-	 */
-	protected function findTmplt( String $fileString ): ?String {
-		foreach( $this->mailDirs as $dirPth ){
-			if( is_file($dirPth.DS.$fileString) && is_readable($dirPth.DS.$fileString) ){
-				return $dirPth.DS.$fileString;
-			}
+		try{
+			$mailTpl = new Template( $txtPath, (is_file($htmPath) && is_readable($htmPath)) ? $htmPath : null );
+		}catch( \RuntimeException $e ){
+			return null;
 		}
-		return null;
-	}
-
-	/**
-	 * Fills the placeholders of a template, and keeps or drops its parts
-	 * between [link] and [/link].
-	 *
-	 * @param String $tmpltsText The template, as read.
-	 * @param Array  $fillValues Values of the placeholders, by name.
-	 * @param Bool   $linkInside Whether there is a link.
-	 * @param Bool   $htmlEncode Whether the values are HTML-encoded.
-	 * @return String The filled template.
-	 */
-	protected function fillTmplt( String $tmpltsText, Array $fillValues, Bool $linkInside, Bool $htmlEncode ): String {
-		$tmpText = str_replace("\r\n", "\n", $tmpltsText);
-		$tmpText = strval( preg_replace('#\[link\](.*?)\[/link\]\n?#s', $linkInside ? '$1' : '', $tmpText) );
-		return strval( preg_replace_callback('/%(\w+)%/', function( Array $matchedArr ) use ( $fillValues, $htmlEncode ): String {
-			if( !array_key_exists($matchedArr[1], $fillValues) ){
-				return $matchedArr[0];
-			}
-			$fillVal = strval($fillValues[$matchedArr[1]]);
-			return $htmlEncode ? htmlspecialchars($fillVal, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : $fillVal;
-		}, $tmpText) );
+		return Array( $mailTpl->getSubjct($fillValues), $mailTpl->plainBody($fillValues), $mailTpl->markupTxt($fillValues) );
 	}
 }

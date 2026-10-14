@@ -1,0 +1,17 @@
+Votre inscription : confirmez votre adresse
+Bonjour %user%,
+
+Quelqu'un (vous, on l'espère) s'est inscrit avec cette adresse. Pour la
+confirmer et choisir votre mot de passe, saisissez ce code là où il vous
+est demandé :
+
+    %code%
+
+[link]Ou ouvrez ce lien, sur n'importe quel appareil :
+%link%
+
+[/link]Le code ne sert qu'une fois, dans les %mins% minutes. Un responsable
+examine ensuite votre inscription avant que votre compte ne s'ouvre.
+
+Si vous ne vous êtes pas inscrit, ignorez ce message : sans le code,
+l'inscription est oubliée.

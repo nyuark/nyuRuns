@@ -146,4 +146,10 @@ checkSame('an error level that cannot be read fails the check', Array(stateOf($j
 putInProj($projDir, 'conf/system.ini', sampleIni());
 checkSame('E_ALL, every error is reported', array_column(jsonShell($projDir, Array('deploy', 'check'))['rows'] ?? Array(), 'found', 'check')['error level'] ?? null, 'every error is reported (E_ALL)');
 
+// The default language of the mails : a tag, or the check fails
+checkSame('no default language, or a tag: nothing told', Array(array_key_exists('mail language', stateOf(jsonShell($projDir, Array('deploy', 'check')))), array_key_exists('mail language', stateOf((function() use ( $projDir ): Array { putInProj($projDir, 'conf/system.ini', sampleIni("LNG_DFLT = fr_CH\n")); return jsonShell($projDir, Array('deploy', 'check')); })()))), Array(false, false));
+putInProj($projDir, 'conf/system.ini', sampleIni("LNG_DFLT = french\n"));
+checkSame('a default language that is not a tag fails the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['mail language'] ?? null, 'fail');
+putInProj($projDir, 'conf/system.ini', sampleIni());
+
 endChecks();

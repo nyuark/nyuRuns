@@ -211,7 +211,9 @@ class Actions extends Actionset {
 			$this->statMssg = 'Too many attempts';
 			return;
 		}
-		if(!$usrBase->actvtUser($gvnUser, $gvnCode, $gvnPass)){
+		// The language the request asks for is given to a user who has none yet : the one who activates is the one the mails go to
+		$cltLang = ($clntReg!==null) ? strval($clntReg->readValue('language')) : '';
+		if(!$usrBase->actvtUser($gvnUser, $gvnCode, $gvnPass, $cltLang)){
 			// Only a wrong name or code counts against the address, not a password breaking a rule
 			if($usrBase->wrongCred()){
 				$lmtrObj->countFail($usrAddr);
@@ -276,16 +278,21 @@ class Actions extends Actionset {
 		// Every sign-up counts : an address cannot fill the mailboxes of others
 		$lmtrArr[0]->countFail($lmtrArr[1]);
 		$regTops = max( 1, intval($lmtConf['regtop'] ?? UserBase::SIGNSCAP) );
-		$newCode = $usrBase->signsUser($gvnUser, $gvnMail, $regTops);
+		$clntReg = $this->httpRqst->getClient();
+		$cltLang = ($clntReg!==null) ? strval($clntReg->readValue('language')) : '';
+		$newCode = $usrBase->signsUser($gvnUser, $gvnMail, $regTops, $cltLang);
 		if($newCode===false){
 			$this->statCode = $usrBase->lastState();
 			$this->statMssg = $usrBase->lastError();
 			return;
 		}
 		if($newCode===''){
-			$mailObj->sendTaken($gvnMail, $gvnUser);
+			// An address taken is told in the language of its owner, a name taken in the one of the request
+			$ownRows = $usrBase->listUsers( Array('userMail'=>$gvnMail), 1 );
+			$ownLang = strval( (is_array($ownRows) && !empty($ownRows)) ? ($ownRows[0]['userLang'] ?? '') : $cltLang );
+			$mailObj->sendTaken($gvnMail, $gvnUser, $ownLang);
 		}else{
-			$mailObj->sendCodes('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode);
+			$mailObj->sendCodes('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode, $cltLang);
 			$this->warnsMngr($usrBase, $mailObj, $regTops, is_array($lmtConf['regwrn'] ?? null) ? $lmtConf['regwrn'] : Array(128, 200, 256));
 		}
 		$this->statCode = 202;
@@ -358,7 +365,9 @@ class Actions extends Actionset {
 		$lmtrArr[0]->countFail($lmtrArr[1]);
 		$rstVals = $usrBase->resetPass($gvnUser);
 		if(is_array($rstVals)){
-			$mailObj->sendCodes('pwdset', $rstVals['user'], $rstVals['mail'], $rstVals['code']);
+			$clntReg = $this->httpRqst->getClient();
+			$cltLang = ($clntReg!==null) ? strval($clntReg->readValue('language')) : '';
+			$mailObj->sendCodes('pwdset', $rstVals['user'], $rstVals['mail'], $rstVals['code'], $rstVals['lang'] ?? $cltLang);
 		}
 		$this->statCode = 202;
 		$this->asOutput = Array('asked'=>true);
@@ -501,6 +510,42 @@ class Actions extends Actionset {
 		}
 		$this->statCode = 200;
 		$this->asOutput = Array('changed'=>true);
+	}
+
+	/**
+	 * Sets the language of the mails of the logged user, in the native
+	 * userbase: the 'lang' input is a language tag (fr, fr-ch), or empty
+	 * to have the default one (LNG_DFLT). No name is read: the user is the
+	 * one the access check identified. Reports 405 unless the request is a
+	 * POST, 400 for a language that is not a tag, 401 when nobody is logged
+	 * and 500 when the login does not use the native userbase.
+	 */
+	public function langs(): Void {
+		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
+			$this->statCode = 405;
+			$this->statMssg = 'Method Not Allowed';
+			return;
+		}
+		$usrName = ($this->axessReg!==null && $this->axessReg->readValue('logged')===true) ? strval($this->axessReg->readValue('user')) : '';
+		if($usrName==''){
+			$this->statCode = 401;
+			$this->statMssg = 'Not logged in';
+			return;
+		}
+		$usrBase = UserBase::fromLogin();
+		if($usrBase===null){
+			$this->statCode = 500;
+			$this->statMssg = 'User management unavailable';
+			return;
+		}
+		$gvnLang = $this->inputReg->readValue('lang');
+		if(!$usrBase->chngeLang($usrName, is_string($gvnLang) ? $gvnLang : null)){
+			$this->statCode = $usrBase->lastState();
+			$this->statMssg = $usrBase->lastError();
+			return;
+		}
+		$this->statCode = 200;
+		$this->asOutput = Array('lang'=>($usrBase->userInfos($usrName) ?: Array())['userLang'] ?? null);
 	}
 
 	/**

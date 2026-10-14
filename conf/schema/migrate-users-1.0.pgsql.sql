@@ -1,6 +1,6 @@
 -- Users table, from 0.9 to 1.0, PostgreSQL.
 -- For a users table made by conf/schema/users.pgsql.sql of 0.9: it adds the
--- columns of the access mails ("userMail", "resetCod", "codeDate", "signDate")
+-- columns of the access mails ("userMail", "userLang", "resetCod", "codeDate", "signDate")
 -- and the status 'review' of a self-registration awaiting a manager.
 --
 -- First a backup of the table:
@@ -16,6 +16,7 @@ BEGIN;
 -- The new columns, and one account for each address. No row is changed.
 ALTER TABLE "users"
 	ADD COLUMN "userMail" VARCHAR(254) NULL,
+	ADD COLUMN "userLang" VARCHAR(16)  NULL,
 	ADD COLUMN "resetCod" VARCHAR(64)  NULL,
 	ADD COLUMN "codeDate" TIMESTAMP(0) NULL,
 	ADD COLUMN "signDate" TIMESTAMP(0) NULL,
@@ -33,5 +34,5 @@ COMMIT;
 -- BEGIN;
 -- ALTER TABLE "users" DROP CONSTRAINT "users_userStat_check";
 -- ALTER TABLE "users" ADD CONSTRAINT "users_userStat_check" CHECK ("userStat" IN ('pendng', 'active', 'locked'));
--- ALTER TABLE "users" DROP COLUMN "userMail", DROP COLUMN "resetCod", DROP COLUMN "codeDate", DROP COLUMN "signDate";
+-- ALTER TABLE "users" DROP COLUMN "userMail", DROP COLUMN "userLang", DROP COLUMN "resetCod", DROP COLUMN "codeDate", DROP COLUMN "signDate";
 -- COMMIT;

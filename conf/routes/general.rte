@@ -48,6 +48,13 @@
 			"act": "password"
 		}
 	},
+	"auth/langs" : {
+		"allows": "POST",
+		"target": {
+			"app": "auth",
+			"act": "langs"
+		}
+	},
 	"index" : {
 		"target": {
 			"app": "shows",

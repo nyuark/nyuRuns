@@ -7,6 +7,7 @@ use nyu\Access\Totp;
 use nyu\Access\Auth\Native;
 use nyu\Access\Auth\UserBase;
 use nyu\Access\Auth\UserList;
+use nyu\Tools\Language;
 use nyu\Tools\Logger;
 
 /**
@@ -25,9 +26,9 @@ use nyu\Tools\Logger;
 class UserFile{
 
 	// The fields of a user, in the order they are written; any other field a person added is kept after them
-	const FLDSLIST = Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'tokenKey', 'twoFaKey');
+	const FLDSLIST = Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'userLang', 'tokenKey', 'twoFaKey');
 	// What is told about a user : never a hash or a secret
-	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail');
+	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang');
 	// Longest password, in bytes : bcrypt reads nothing beyond
 	const PASSSIZE = 72;
 
@@ -113,10 +114,11 @@ class UserFile{
 	 *
 	 * @param String $userString Login name of the new user (see UserBase::NAMERULE and NAMEDENY).
 	 * @param String $roleString Its role, one of Checker::ROLELIST; the first one when left empty.
-	 * @param String $passwdText Its password, following the rules (see checkPass).
+	 * @param String  $passwdText Its password, following the rules (see checkPass).
+	 * @param ?String $langTagStr The language of its mails (see Tools\Language), none when null or empty.
 	 * @return Bool Whether the user was added.
 	 */
-	public function enrolUser( String $userString, String $roleString, String $passwdText ): Bool {
+	public function enrolUser( String $userString, String $roleString, String $passwdText, ?String $langTagStr=null ): Bool {
 		$this->resetLast();
 		$roleStr = ($roleString!='') ? $roleString : Checker::ROLELIST[0];
 		if( !preg_match(UserBase::NAMERULE, $userString) || in_array(strtolower($userString), UserBase::NAMEDENY, true) ){
@@ -125,11 +127,15 @@ class UserFile{
 		if( !in_array($roleStr, Checker::ROLELIST, true) ){
 			return $this->refuseFor(400, 'Invalid role');
 		}
+		$langVal = strtolower( trim(str_replace('_', '-', strval($langTagStr))) );
+		if( $langVal!=='' && !Language::checksTag($langVal) ){
+			return $this->refuseFor(400, 'Invalid language');
+		}
 		$ruleMsg = $this->checkPass($userString, $passwdText);
 		if( $ruleMsg!='' ){
 			return $this->refuseFor(400, $ruleMsg);
 		}
-		$isAdded = $this->editUsers( null, function( Array $usersArray ) use ( $userString, $roleStr, $passwdText ): ?Array {
+		$isAdded = $this->editUsers( null, function( Array $usersArray ) use ( $userString, $roleStr, $passwdText, $langVal ): ?Array {
 			$lastIdn = 0;
 			foreach( $usersArray as $usrRow ){
 				if( strcasecmp(strval($usrRow['userName'] ?? ''), $userString)==0 ){
@@ -138,7 +144,7 @@ class UserFile{
 				}
 				$lastIdn = max( $lastIdn, intval($usrRow['id_user'] ?? 0) );
 			}
-			$usersArray[] = Array('id_user'=>$lastIdn+1, 'userName'=>$userString, 'passHash'=>password_hash($passwdText, PASSWORD_BCRYPT), 'userRole'=>$roleStr, 'userStat'=>'active');
+			$usersArray[] = Array('id_user'=>$lastIdn+1, 'userName'=>$userString, 'passHash'=>password_hash($passwdText, PASSWORD_BCRYPT), 'userRole'=>$roleStr, 'userStat'=>'active') + ( ($langVal!=='') ? Array('userLang'=>$langVal) : Array() );
 			return $usersArray;
 		} );
 		if( $isAdded ){
@@ -239,6 +245,34 @@ class UserFile{
 		} );
 		if( $isSaved ){
 			$this->logChange( 'Address of user '.json_encode($userString).' '.($mailVal==='' ? 'removed' : 'set') );
+		}
+		return $isSaved;
+	}
+
+	/**
+	 * Gives a user the language of its mails, in lower case, or takes it
+	 * away.
+	 *
+	 * @param String  $userString Login name of the user.
+	 * @param ?String $langTagStr The language (see Tools\Language), none when null or empty.
+	 * @return Bool Whether the language was written.
+	 */
+	public function chngeLang( String $userString, ?String $langTagStr ): Bool {
+		$this->resetLast();
+		$langVal = strtolower( trim(str_replace('_', '-', strval($langTagStr))) );
+		if( $langVal!=='' && !Language::checksTag($langVal) ){
+			return $this->refuseFor(400, 'Invalid language');
+		}
+		$isSaved = $this->editUsers( $userString, function( Array $usersArray, Int $usersIndex ) use ( $langVal ): ?Array {
+			if( $langVal==='' ){
+				unset($usersArray[$usersIndex]['userLang']);
+			}else{
+				$usersArray[$usersIndex]['userLang'] = $langVal;
+			}
+			return $usersArray;
+		} );
+		if( $isSaved ){
+			$this->logChange( 'Language of user '.json_encode($userString).' '.($langVal==='' ? 'removed' : 'set to '.$langVal) );
 		}
 		return $isSaved;
 	}
@@ -577,6 +611,7 @@ class UserFile{
 			'userRole'=>strval($userValues['userRole'] ?? Checker::ROLELIST[0]),
 			'userStat'=>strval($userValues['userStat'] ?? 'active'),
 			'userMail'=>strval($userValues['userMail'] ?? ''),
+			'userLang'=>strval($userValues['userLang'] ?? ''),
 			'hasToken'=>strval($userValues['tokenKey'] ?? '')!='',
 			'hasTwoFa'=>strval($userValues['twoFaKey'] ?? '')!=''
 		);

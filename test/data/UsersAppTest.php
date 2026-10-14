@@ -93,7 +93,7 @@ function sentMail(): Array {
  */
 function callActn( String $routeNamed, Array $inputArray=Array(), String $loggedUser='anna', String $loggedRole='manage', String $httpMethod='POST' ): Mixed {
 	return runSafely(function() use ($routeNamed, $inputArray, $loggedUser, $loggedRole, $httpMethod){
-		$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'192.0.2.50') );
+		$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'192.0.2.50', 'HTTP_ACCEPT_LANGUAGE'=>strval($GLOBALS['acptLang'] ?? '')) );
 		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
 		$mthProp->setAccessible(true);
 		$mthProp->setValue($request, $httpMethod);
@@ -151,14 +151,14 @@ checkSame('create: a name that is not a text', statusOf(callActn('users/create',
 // index and view
 $outcome = callActn('users/index', Array(), 'anna', 'manage', 'GET');
 checkSame('index: every user, by name', Array($outcome['code'] ?? $outcome, array_column($outcome['out'] ?? Array(), 'userName')), Array(200, Array('anna', 'ben', 'dave', 'emma', 'fred')));
-checkSame('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen'));
+checkSame('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang', 'signDate', 'madeDate', 'lastSeen'));
 checkSame('index: by default action', callActn('users/', Array(), 'anna', 'manage', 'GET')['code'] ?? null, 200);
 checkSame('index: filters', array_column(callActn('users/index', Array('stat'=>'pendng', 'role'=>'system'), 'anna', 'manage', 'GET')['out'] ?? Array(), 'userName'), Array('fred'));
 checkSame('index: limit and offset, as sent in a query', array_column(callActn('users/index', Array('limit'=>'2', 'offset'=>'1'), 'anna', 'manage', 'GET')['out'] ?? Array(), 'userName'), Array('ben', 'dave'));
 checkSame('index: nobody is 204', callActn('users/index', Array('stat'=>'locked', 'role'=>'manage'), 'anna', 'manage', 'GET')['code'] ?? null, 204);
 checkSame('index: invalid filter', statusOf(callActn('users/index', Array('stat'=>'online'), 'anna', 'manage', 'GET')), Array(400, 'Invalid filter'));
 $outcome = callActn('users/view', Array('user'=>'ben'), 'anna', 'manage', 'GET');
-checkSame('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'userName'=>'ben', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>null, 'signDate'=>null, 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null)));
+checkSame('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'userName'=>'ben', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>null, 'userLang'=>null, 'signDate'=>null, 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null)));
 checkSame('view: unknown user', statusOf(callActn('users/view', Array('user'=>'zed'), 'anna', 'manage', 'GET')), Array(404, 'User not found'));
 checkSame('view: no name', statusOf(callActn('users/view', Array(), 'anna', 'manage', 'GET')), Array(400, 'Missing or invalid input: user'));
 
@@ -248,6 +248,18 @@ $outcome = callActn('users/email', Array('user'=>'ben', 'mail'=>' Ben@Example.ch
 checkSame('email: an address given, in lower case', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ben', 'mail'=>'ben@example.ch')));
 checkSame('email: an address taken, one that is not', Array(statusOf(callActn('users/email', Array('user'=>'hugo', 'mail'=>'ben@example.ch'))), statusOf(callActn('users/email', Array('user'=>'hugo', 'mail'=>'hugo')))), Array(Array(409, 'Mail address already used'), Array(400, 'Invalid mail address')));
 checkSame('email: taken away', Array(callActn('users/email', Array('user'=>'hugo', 'mail'=>'hugo@example.ch'))['code'] ?? null, callActn('users/email', Array('user'=>'hugo'))['out'] ?? null), Array(200, Array('user'=>'hugo', 'mail'=>null)));
+
+// users/langs and auth/langs : the language of the mails, given by a manager or by the user itself
+$outcome = callActn('users/langs', Array('user'=>'hugo', 'lang'=>'FR_ch'));
+checkSame('langs: a manager gives one, in lower case', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'hugo', 'lang'=>'fr-ch')));
+checkSame('langs: one that is not, then taken away', Array(statusOf(callActn('users/langs', Array('user'=>'hugo', 'lang'=>'french'))), callActn('users/langs', Array('user'=>'hugo'))['out'] ?? null), Array(Array(400, 'Invalid language'), Array('user'=>'hugo', 'lang'=>null)));
+checkSame('langs: a member is not a manager', statusOf(callActn('users/langs', Array('user'=>'hugo', 'lang'=>'fr'), 'ben', 'member')), Array(403, 'Forbidden'));
+$outcome = callActn('auth/langs', Array('user'=>'hugo', 'lang'=>'de'), 'ben', 'member');
+checkSame('auth/langs: the logged user, for itself; a name sent is not read', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT userName, userLang FROM users WHERE userName IN ('ben', 'hugo') ORDER BY userName")->fetchAll(PDO::FETCH_KEY_PAIR)), Array(200, Array('lang'=>'de'), Array('ben'=>'de', 'hugo'=>null)));
+checkSame('auth/langs: nobody logged, a GET, one that is not', Array(statusOf(callActn('auth/langs', Array('lang'=>'de'), '', '')), statusOf(callActn('auth/langs', Array('lang'=>'de'), 'ben', 'member', 'GET')), statusOf(callActn('auth/langs', Array('lang'=>'*'), 'ben', 'member'))), Array(Array(401, 'Not logged in'), Array(405, 'Method Not Allowed'), Array(400, 'Invalid language')));
+callActn('auth/langs', Array(), 'ben', 'member');
+$outcome = callActn('users/create', Array('user'=>'xena', 'lang'=>'it'));
+checkSame('create: with the language of its mails', Array($outcome['code'] ?? $outcome, $sqlLink->query("SELECT userLang FROM users WHERE userName='xena'")->fetchColumn(), statusOf(callActn('users/create', Array('user'=>'xavi', 'lang'=>'italian')))), Array(201, 'it', Array(400, 'Invalid language')));
 $outcome = callActn('users/reset', Array('user'=>'ben'));
 $mailLst = sentMail();
 checkSame('reset, mailed: the code goes to the address of the user', Array($outcome['out'] ?? null, $mailLst[0]['to'] ?? null), Array(Array('user'=>'ben', 'mailed'=>true), 'ben@example.ch'));
@@ -275,6 +287,17 @@ checkSame('signup: listed by its status', array_column(callActn('users/index', A
 $outcome = callActn('users/approve', Array('user'=>'ivan'));
 checkSame('approve: active', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ivan', 'stat'=>'active')));
 checkSame('approve: only a user in review', statusOf(callActn('users/approve', Array('user'=>'ivan'))), Array(409, 'User not awaiting review'));
+// The language of the mails : the one of the request for the one who asks, the one of the owner for an address taken
+$GLOBALS['acptLang'] = 'fr-CH, fr;q=0.9';
+sentMail();
+callActn('auth/signup', Array('user'=>'yann', 'mail'=>'yann@example.ch'), '', '');
+checkSame('language: a sign-up is written in the language of its request, which it keeps', Array(sentMail()[0]['subject'] ?? null, $sqlLink->query("SELECT userLang FROM users WHERE userName='yann'")->fetchColumn()), Array('Votre inscription : confirmez votre adresse', 'fr-ch'));
+$sqlLink->exec("UPDATE users SET userLang='en' WHERE userName='ben'");
+callActn('auth/signup', Array('user'=>'zoe', 'mail'=>'ben@example.ch'), '', '');
+checkSame('language: an address taken is told in the language of its owner', sentMail()[0]['subject'] ?? null, 'Your sign-up');
+callActn('auth/signup', Array('user'=>'ivan', 'mail'=>'nobody@example.ch'), '', '');
+checkSame('language: a name taken, in the language of the request', sentMail()[0]['subject'] ?? null, 'Votre inscription');
+$GLOBALS['acptLang'] = '';
 dropFoldr( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 plugConf('native', 0, $mailCnf + Array('signup'=>true), Array('regmax'=>2));
 checkSame('signup: regmax sign-ups from one address', Array(callActn('auth/signup', Array('user'=>'kate', 'mail'=>'kate@example.ch'), '', '')['code'] ?? null, callActn('auth/signup', Array('user'=>'lena', 'mail'=>'lena@example.ch'), '', '')['code'] ?? null, statusOf(callActn('auth/signup', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', ''))), Array(202, 202, Array(429, 'Too many attempts')));

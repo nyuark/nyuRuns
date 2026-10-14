@@ -27,7 +27,7 @@ $natAuth = new Native( Array('tblnme'=>'users') );
 
 // Reading
 $jsnVals = jsonShell($projDir, Array('manage', 'lists'));
-checkSame('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'userName'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen')));
+checkSame('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'userName'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang', 'signDate', 'madeDate', 'lastSeen')));
 checkSame('lists by status', array_column(jsonShell($projDir, Array('manage', 'lists', '--ustat=locked'))['rows'] ?? Array(), 'userName'), Array('dave'));
 checkSame('views a user; an unknown one', Array(jsonShell($projDir, Array('manage', 'views', 'ben'))['userRole'] ?? null, runShell($projDir, Array('manage', 'views', 'nobody'))['errs']), Array('member', "User not found\n"));
 
@@ -71,6 +71,10 @@ checkSame('--noexp: no end, at a reset or a creation', $sqlLink->query("SELECT c
 checkSame('email gives an address, in lower case', Array(runShell($projDir, Array('manage', 'email', 'erin', 'Erin@Example.ch'))['text'], jsonShell($projDir, Array('manage', 'views', 'erin'))['userMail'] ?? null), Array("address set: erin\n", 'erin@example.ch'));
 checkSame('an address taken, one that is not', Array(runShell($projDir, Array('manage', 'email', 'anna', 'erin@example.ch'))['errs'], runShell($projDir, Array('manage', 'email', 'anna', 'anna'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
 checkSame('email without an address takes it away', Array(runShell($projDir, Array('manage', 'email', 'erin'))['text'], array_key_exists('userMail', $viewArr = jsonShell($projDir, Array('manage', 'views', 'erin'))) ? $viewArr['userMail'] : 'missing'), Array("address removed: erin\n", null));
+checkSame('langs gives a language, shows it, takes it away', Array(runShell($projDir, Array('manage', 'langs', 'erin', 'FR_ch'))['text'], runShell($projDir, Array('manage', 'langs', 'erin'))['text'], runShell($projDir, Array('manage', 'langs', 'erin', ''))['text'], runShell($projDir, Array('manage', 'langs', 'erin'))['text']), Array("language set: erin\n", "erin: fr-ch\n", "language removed: erin\n", "erin: (default)\n"));
+checkSame('langs: one that is not', runShell($projDir, Array('manage', 'langs', 'erin', 'french'))['errs'], "Invalid language\n");
+runShell($projDir, Array('manage', 'enrol', 'hank', '--ulang=de-CH'));
+checkSame('--ulang: the language of a user created', Array($sqlLink->query("SELECT userLang FROM users WHERE userName='hank'")->fetchColumn(), runShell($projDir, Array('manage', 'enrol', 'hugh', '--ulang=german'))['errs']), Array('de-ch', "Invalid language\n"));
 checkSame('prove without a user: nobody awaits review', runShell($projDir, Array('manage', 'prove'))['text'], "userName\nNo user awaits review.\n");
 $sqlLink->exec("INSERT INTO users (userName, passHash, userStat, userMail, signDate) VALUES ('ivan', '!', 'review', 'ivan@example.ch', '2026-11-04 08:00:00')");
 checkSame('prove without a user lists those awaiting review', array_column(jsonShell($projDir, Array('manage', 'prove'))['rows'] ?? Array(), 'userName'), Array('ivan'));

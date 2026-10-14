@@ -10,6 +10,7 @@ use nyu\Data\DBCon;
 use nyu\Data\Mail\Mailer;
 use nyu\Setup\Loader;
 use nyu\Setup\Preset;
+use nyu\Tools\Language;
 use nyu\Tools\Registry;
 
 /**
@@ -191,6 +192,11 @@ class HealthChk{
 				$this->addResult('unsecure '.$blkName, 'warn', 'weak password hashes are accepted by this block');
 			}
 			$this->chkMailer($blkName, $blkVal);
+		}
+		// The language of the mails of a user who has none
+		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->getRowVal('SYSTEM', 'LNG_DFLT') ?? ''))) );
+		if( $dfltTag!=='' && !Language::checksTag($dfltTag) ){
+			$this->addResult('mail language', 'fail', 'LNG_DFLT is not a language tag (en, fr, fr-ch): the mails are written in en');
 		}
 	}
 

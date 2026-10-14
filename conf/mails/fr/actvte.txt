@@ -1,0 +1,14 @@
+Votre compte : choisissez votre mot de passe
+Bonjour %user%,
+
+Un compte a été ouvert pour vous, ou son mot de passe a été réinitialisé
+par un responsable. Pour choisir votre mot de passe, saisissez ce code là
+où il vous est demandé :
+
+    %code%
+
+[link]Ou ouvrez ce lien, sur n'importe quel appareil :
+%link%
+
+[/link]Le code ne sert qu'une fois, dans les %mins% minutes. Si vous n'attendiez
+pas ce message, ignorez-le : rien ne se passe sans le code.

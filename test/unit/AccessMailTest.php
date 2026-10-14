@@ -116,16 +116,34 @@ checkSame('sendWatch: one mail for each manager', $sentTo, Array('anna@example.c
 checkLike('sendWatch: the count and the limit', $mailLst[0] ?? '', '/Subject: Sign-ups waiting for review: 128\r\n.*When 256 are waiting/s');
 checkSame('sendWatch: nobody to tell', $accMail->sendWatch(Array(), 128, 256), true);
 
-// The templates of the application come first
+// The language of the user, along its chain
+$accMail = new AccessMail($natConf);
+$accMail->sendCodes('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr-ch');
+$mailTxt = readMail(takeMails()[0] ?? '');
+checkLike('language: fr-ch is written in fr, text and HTML', $mailTxt, '/Subject: Votre inscription : confirmez votre adresse\r\n.*Quelqu\'un \(vous, on l\'esp.*<a href="https:\/\/app\.example\.ch\/access\?do=signup&amp;user=ann&amp;code=AAAA-BBBB-CC">ce lien<\/a>/s');
+checkLike('language: one that is not delivered falls back to the default', readMail($accMail->sendTaken('ann@example.ch', 'ann', 'de-at') ? (takeMails()[0] ?? '') : ''), '/Subject: Your sign-up\r\n/');
+checkLike('language: one that is not a tag is the default', readMail($accMail->sendTaken('ann@example.ch', 'ann', '../fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Your sign-up\r\n/');
+$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>$fileSet), 'system'=>Array('LNG_DFLT'=>'fr')) );
+checkLike('language: LNG_DFLT when the user has none', readMail((new AccessMail($natConf))->sendTaken('ann@example.ch', 'ann') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre inscription\r\n/');
+setsConfg($natConf);
+$accMail = new AccessMail($natConf);
+$sentOk = $accMail->sendWatch(Array('anna@example.ch'=>'fr', 'ben@example.ch'=>null), 3, 9);
+$sentTo = array_map(function( String $mailString ): String { return preg_match('/\r\nTo: (\S+)\r\n.*?(attente|waiting)/s', readMail($mailString), $toMatch) ? $toMatch[1].' '.$toMatch[2] : ''; }, takeMails());
+sort($sentTo);
+checkSame('sendWatch: the language of each manager', Array($sentOk, $sentTo), Array(true, Array('anna@example.ch attente', 'ben@example.ch waiting')));
+
+// The templates of the application come first, language by language
 $appFldr = inTempDir('Probe');
-mkdir($appFldr.DS.'mails', 0777, true);
-file_put_contents($appFldr.DS.'mails'.DS.'pwdset.txt', "Mot de passe\nBonjour %user%, votre code : %code%\n");
+mkdir($appFldr.DS.'mails'.DS.'fr', 0777, true);
+file_put_contents($appFldr.DS.'mails'.DS.'fr'.DS.'pwdset.txt', "Mot de passe\nBonjour %user%, votre code : %code%\n");
 $accMail = new AccessMail($natConf, $appFldr);
-$accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+$accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr');
 $mailTxt = takeMails()[0] ?? '';
 checkSame('application template: its subject and text, no HTML part without its .html', Array(preg_match('/Subject: Mot de passe\r\n/', $mailTxt), strpos(readMail($mailTxt), 'Bonjour ann, votre code : AAAA-BBBB-CC')!==false, strpos($mailTxt, 'text/html')), Array(1, true, false));
-$accMail->sendCodes('actvte', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
-checkLike('application template: conf/mails for the others', readMail(takeMails()[0] ?? ''), '/Subject: Your account: choose your password/');
+$accMail->sendCodes('actvte', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr');
+checkLike('application template: conf/mails in the same language for the others', readMail(takeMails()[0] ?? ''), '/Subject: Votre compte : choisissez votre mot de passe\r\n/');
+$accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+checkLike('application template: another language is not given its text', readMail(takeMails()[0] ?? ''), '/Subject: Your password: choose a new one/');
 
 // After the reply : kept, then sent at the end of the request
 $accMail = new AccessMail($natConf, '', true);

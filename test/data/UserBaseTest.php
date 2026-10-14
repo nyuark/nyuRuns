@@ -188,8 +188,8 @@ $usrBase->changRole('dave', 'system');
 // 7. listUsers
 $allList = $usrBase->listUsers();
 checkSame('list: every user, by name', array_column((array)$allList, 'userName'), Array('Fred.Opr-2', 'anna', 'ben', 'cleo', 'dave', 'emma', 'gina'));
-checkSame('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen'));
-checkSame('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'userName'=>'anna', 'userRole'=>'manage', 'userStat'=>'active', 'userMail'=>null, 'signDate'=>null, 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null));
+checkSame('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang', 'signDate', 'madeDate', 'lastSeen'));
+checkSame('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'userName'=>'anna', 'userRole'=>'manage', 'userStat'=>'active', 'userMail'=>null, 'userLang'=>null, 'signDate'=>null, 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null));
 checkSame('list: by status', array_column((array)$usrBase->listUsers(Array('userStat'=>'pendng')), 'userName'), Array('Fred.Opr-2', 'cleo', 'gina'));
 checkSame('list: by role', array_column((array)$usrBase->listUsers(Array('userRole'=>'system')), 'userName'), Array('Fred.Opr-2', 'dave'));
 checkSame('list: by status and role', array_column((array)$usrBase->listUsers(Array('userStat'=>'active', 'userRole'=>'member')), 'userName'), Array('ben', 'emma'));
@@ -210,7 +210,7 @@ checkSame('list: on a missing table', operates(new UserBase(Array('tblnme'=>'nou
 
 // 8. userInfos
 $sqlLink->exec("UPDATE users SET tokenKey='tk', twoFaKey='2f' WHERE userName='ben'");
-checkSame('read: one user, without hash, code, token or secret', $usrBase->userInfos('ben'), Array('id_user'=>2, 'userName'=>'ben', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>null, 'signDate'=>null, 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null));
+checkSame('read: one user, without hash, code, token or secret', $usrBase->userInfos('ben'), Array('id_user'=>2, 'userName'=>'ben', 'userRole'=>'member', 'userStat'=>'active', 'userMail'=>null, 'userLang'=>null, 'signDate'=>null, 'madeDate'=>'2026-10-01 09:00:00', 'lastSeen'=>null));
 $sqlLink->exec("UPDATE users SET twoFaStp=58000000 WHERE userName='ben'");
 checkSame('2FA: the secret is taken away with the step of its last code', Array($usrBase->dropTwoFa('ben'), $sqlLink->query("SELECT twoFaKey, twoFaStp FROM users WHERE userName='ben'")->fetch(PDO::FETCH_NUM)), Array(true, Array(null, null)));
 checkSame('2FA: nothing to take away from an unknown user', operates($usrBase, 'dropTwoFa', Array('zed')), Array(false, 404, 'User not found'));
@@ -318,7 +318,27 @@ $waitNum = $usrBase->waitCount();
 checkSame('waitCount: the sign-ups not confirmed, and those in review', Array($waitNum, $usrBase->waitCount()), Array(intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signDate IS NOT NULL AND userStat IN ('pendng', 'review')")->fetchColumn()), $waitNum));
 checkSame('sign-up: refused at a lower cap', operates($sgnBase, 'signsUser', Array('olga', 'olga@example.ch', $waitNum)), Array(false, 503, 'Sign-ups closed for now'));
 $sqlLink->exec("UPDATE users SET userMail='anna@example.ch' WHERE userName='anna'");
-checkSame('managMail: the addresses of the active managers', $usrBase->managMail(), Array('anna@example.ch'));
+checkSame('managMail: the addresses of the active managers, with their language', $usrBase->managMail(), Array('anna@example.ch'=>null));
+$sqlLink->exec("UPDATE users SET userLang='fr' WHERE userName='anna'");
+checkSame('managMail: a manager with a language', $usrBase->managMail(), Array('anna@example.ch'=>'fr'));
+$sqlLink->exec("UPDATE users SET userLang=NULL WHERE userName='anna'");
+
+// 13. Languages : given at the creation, by a sign-up, at the activation, or later
+readLogs();
+checkSame('language: given at the creation, in lower case', Array(is_string($usrBase->enrolUser('paul', '', null, 0, 'FR_ch')), fieldOf($sqlLink, 'paul', 'userLang')), Array(true, 'fr-ch'));
+checkSame('language: one that is not, refused at the creation', operates($usrBase, 'enrolUser', Array('pete', '', null, 0, 'french')), Array(false, 400, 'Invalid language'));
+checkSame('language: none at the creation', Array(is_string($peteCod = $usrBase->enrolUser('pete', '', null, 0)), fieldOf($sqlLink, 'pete', 'userLang')), Array(true, null));
+checkSame('language: the one of the activation, for a user who has none', Array($usrBase->actvtUser('pete', strval($peteCod), 'pass-pete-1', 'de-AT'), fieldOf($sqlLink, 'pete', 'userLang')), Array(true, 'de-at'));
+$paulCod = strval($usrBase->resetUser('paul', 0));
+checkSame('language: the activation keeps the one a user has', Array($usrBase->actvtUser('paul', $paulCod, 'pass-paul-1', 'it'), fieldOf($sqlLink, 'paul', 'userLang')), Array(true, 'fr-ch'));
+checkSame('language: the one of a sign-up; one that is not a tag is left out', Array(is_string($sgnBase->signsUser('quinn', 'quinn@example.ch', UserBase::SIGNSCAP, 'pt-BR')), fieldOf($sqlLink, 'quinn', 'userLang'), is_string($sgnBase->signsUser('rita', 'rita@example.ch', UserBase::SIGNSCAP, '*')), fieldOf($sqlLink, 'rita', 'userLang')), Array(true, 'pt-br', true, null));
+checkSame('language: given later, taken away', Array(operates($usrBase, 'chngeLang', Array('ben', 'es')), fieldOf($sqlLink, 'ben', 'userLang'), $usrBase->chngeLang('ben', ''), fieldOf($sqlLink, 'ben', 'userLang')), Array(Array(true, 200, ''), 'es', true, null));
+checkSame('language: not one, unknown user', Array(operates($usrBase, 'chngeLang', Array('ben', 'es_ES_x')), operates($usrBase, 'chngeLang', Array('zed', 'es'))), Array(Array(false, 400, 'Invalid language'), Array(false, 404, 'User not found')));
+checkLike('language: logged as an info', readLogs(), '/\[INFO\] Language of user "ben" set to es by user "anna"/');
+$usrBase->chngeLang('ben', 'fr');
+checkSame('language: the one of a reset asked by mail', ($usrBase->resetPass('ben@example.ch') ?: Array())['lang'] ?? 'none', 'fr');
+checkSame('listUsers: by address, in lower case', array_column((array)$usrBase->listUsers(Array('userMail'=>' BEN@example.ch ')), 'userLang', 'userName'), Array('ben'=>'fr'));
+checkSame('listUsers: an address that is not a text', operates($usrBase, 'listUsers', Array(Array('userMail'=>Array('x')))), Array(false, 400, 'Invalid filter'));
 checkSame('waitCount and managMail on a missing table', Array(operates(new UserBase(Array('tblnme'=>'nousers')), 'waitCount', Array()), operates(new UserBase(Array('tblnme'=>'nousers')), 'managMail', Array())), Array(Array(false, 500, 'Credential store unavailable'), Array(false, 500, 'Credential store unavailable')));
 $sgnStmt = null;
 

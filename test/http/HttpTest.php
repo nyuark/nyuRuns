@@ -493,7 +493,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'role=member');
 	checkSame('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user","code":400}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index?stat=pendng', $mgrHead);
-	checkSame('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'signDate', 'madeDate', 'lastSeen')));
+	checkSame('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang', 'signDate', 'madeDate', 'lastSeen')));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/view?user=henry', $mgrHead);
 	checkSame('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStat'] ?? null), Array(200, 'pendng'));
 
