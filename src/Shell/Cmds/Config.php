@@ -584,8 +584,7 @@ class Config extends Command{
 	 */
 	protected function readPrset( String $presetName ): Array {
 		new Preset($presetName);
-		$rpsDocu = new Dcmnt( $this->pathOfCnf('conf/presets/'.$presetName.'.rps') );
-		$rpsDocu->fileParse('rps', false);
+		$rpsDocu = new Dcmnt( $this->pathOfCnf('conf/presets/'.$presetName.'.rps'), false );
 		return (array)$rpsDocu->readValue();
 	}
 

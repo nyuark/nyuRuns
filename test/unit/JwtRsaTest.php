@@ -107,7 +107,6 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
 $lgnRslt = runSafely(function(){
 	$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.9') );
 	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
-	$mthProp->setAccessible(true);
 	$mthProp->setValue($request, 'POST');
 	$actnSet = new nyu\Runs\Auth\Actions( 'login', null, new Registry(Array('user'=>'alice', 'pass'=>'wrong')), null, new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request );
 	return Array($actnSet->statCode, strval($actnSet->statMssg));

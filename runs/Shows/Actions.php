@@ -43,7 +43,7 @@ class Actions extends Actionset {
 		$showLst = $showLst->readItems();
 		if($showLst===false){
 			$this->statCode = 500;
-			$this->statMssg = 'An error occured while processing Listing query';
+			$this->statMssg = 'An error occurred while processing Listing query';
 			return;
 		}
 		$showOut = Array();

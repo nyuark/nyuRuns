@@ -26,13 +26,10 @@ function parseBody( String $bodyString, ?String $contntType ): Mixed {
 		$_FILES = Array();
 		$reflect = new ReflectionClass($request);
 		$loadFnc = $reflect->getMethod('getContnt');
-		$loadFnc->setAccessible(true);
 		$loadFnc->invoke($request, Array());
 		$rawProp = $reflect->getProperty('rawInput');
-		$rawProp->setAccessible(true);
 		$rawVals = $rawProp->getValue($request);
 		$flsProp = $reflect->getProperty('fileData');
-		$flsProp->setAccessible(true);
 		return Array('vars'=>$request->getAllVar(), 'files'=>$flsProp->getValue($request), 'head'=>$rawVals['head'], 'size'=>strlen($rawVals['data']));
 	});
 }
@@ -152,7 +149,6 @@ $outVals = parseBody(multiPart(Array(Array('docs[cover]','first','a.txt'), Array
 checkSame('multipart, same file key twice : the last one wins', $outVals['files']['docs']['name'] ?? null, Array('cover'=>'b.txt'));
 checkSame('multipart, same file key twice : content', @file_get_contents($outVals['files']['docs']['tmp_name']['cover'] ?? ''), 'second');
 $tmpsPrp = new ReflectionProperty($GLOBALS['lastRqst'], 'tmpFiles');
-$tmpsPrp->setAccessible(true);
 $tmpsLst = $tmpsPrp->getValue($GLOBALS['lastRqst']);
 $GLOBALS['lastRqst']->dropTemps();
 checkSame('multipart, same file key twice : both temporary files are removed', Array(count($tmpsLst), count(array_filter($tmpsLst, 'file_exists'))), Array(2, 0));
@@ -231,7 +227,6 @@ $_POST = Array();
 $_COOKIE = Array();
 $_FILES = Array();
 $loadFnc = new ReflectionMethod($request, 'getContnt');
-$loadFnc->setAccessible(true);
 $loadFnc->invoke($request, Array('User'=>'alice', 'pass'=>'in-the-address'));
 checkSame('fromQuery: a name of the address, one of both, one of the body', Array($request->fromQuery('user'), $request->fromQuery('pass'), $request->fromQuery('code')), Array(true, true, false));
 checkSame('fromQuery: whatever the case, and what PHP read from the address', Array($request->fromQuery('PASS'), $request->fromQuery('former'), $request->fromQuery('nothing')), Array(true, true, false));
@@ -252,7 +247,6 @@ function limitBody( String $bodyString, String $contntType, Int $sizeKBytes, Int
 	$request = fakeReqst( Array('Content-Type'=>$contntType) + ($toldLength===null ? Array() : Array('Content-Length'=>$toldLength)) );
 	foreach( Array('sizeLimt'=>$sizeKBytes, 'partLimt'=>$partsCount) as $prpNme=>$prpVal ){
 		$propObj = new ReflectionProperty($request, $prpNme);
-		$propObj->setAccessible(true);
 		$propObj->setValue($request, $prpVal);
 	}
 	$_GET = Array();
@@ -260,7 +254,6 @@ function limitBody( String $bodyString, String $contntType, Int $sizeKBytes, Int
 	$_COOKIE = Array();
 	$_FILES = Array();
 	$loadFnc = new ReflectionMethod($request, 'getContnt');
-	$loadFnc->setAccessible(true);
 	$loadFnc->invoke($request, Array());
 	return Array($request->overLimit(), array_keys($request->getAllVar()));
 }

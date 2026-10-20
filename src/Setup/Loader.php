@@ -108,20 +108,19 @@ class Loader{
 			$nameLst = array_map('trim', explode(',', $conFltr));
 		}
 		foreach($conScan as $fleNme){
+			// The kind and the name are told by the file name: only the files kept are opened
+			$fleExtn = strtolower(pathinfo($fleNme, PATHINFO_EXTENSION));
+			$fleTitl = pathinfo($fleNme, PATHINFO_FILENAME);
+			if( !in_array($fleExtn, $allowFT) || ($nameLst!==false && !in_array($fleTitl, $nameLst)) ){
+				continue;
+			}
+			if( $confSet['ftypes']!='all' && $confSet['ftypes']!=$fleExtn ){
+				continue;
+			}
 			$nowPath = $conPath.$fleNme;
-			if(!is_dir($nowPath) && is_file($nowPath)){
+			if( is_file($nowPath) ){
 				$nyuFile = new Dcmnt($nowPath);
-				// Skip file if title is not in filter list
-				if($nameLst!==false && !in_array($nyuFile->readValue('tit'),$nameLst)){
-					continue;
-				}
-				if(in_array($nyuFile->readValue('ext'),$allowFT)){
-					$conName = strtoupper($nyuFile->readValue('tit'));
-					if( $confSet['ftypes']=='all' || $confSet['ftypes']==$nyuFile->readValue('ext') ){
-						$conVars = $nyuFile->readValue('out');
-						$confArr[$conName] = $conVars;
-					}
-				}
+				$confArr[strtoupper($fleTitl)] = $nyuFile->readValue('out');
 			}
 		}
 		$confArr = $this->fillEnvrn( $confArr, $this->loadEnvrn($confSet['envfle'] ?? '.env') );

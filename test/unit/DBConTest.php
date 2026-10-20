@@ -29,7 +29,6 @@ function askHandlr( String $handlerCls, String $methodName, Array $callValues ):
 	return runSafely(function() use ($handlerCls, $methodName, $callValues){
 		$clsRflx = new ReflectionClass($handlerCls);
 		$mthRflx = $clsRflx->getMethod($methodName);
-		$mthRflx->setAccessible(true);
 		return $mthRflx->invokeArgs($clsRflx->newInstanceWithoutConstructor(), $callValues);
 	});
 }

@@ -166,13 +166,13 @@ checkSame('a plug-in that is not listed is a misconfiguration', pairReply('sampl
 // Roles : what each pair gives is measured against the role a route asks for
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
 $anyRoute = Array('app'=>'shows', 'action'=>'index');
-checkSame('role: hbasic x htpass gives a member', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(403, 'Forbidden', 'alice', 'member'));
-checkSame('role: header x plug-in check gives a member', pairReply('header', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 403);
-checkSame('role: a certificate without a store gives a member', pairReply('clcert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(403, 'Forbidden', 'carol', 'member'));
+checkSame('role: hbasic x htpass gives a member', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'member'));
+checkSame('role: header x plug-in check gives a member', pairReply('header', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 404);
+checkSame('role: a certificate without a store gives a member', pairReply('clcert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(404, 'Not Found', 'carol', 'member'));
 checkSame('role: a certificate with a store gives the role of the store', pairReply('clcert', 'usrlst', Array(), certVals('anna'), $rolConf, $anyRoute), Array(200, '', 'anna', 'manage'));
-checkSame('role: a plug-in carrier gives a member', pairReply('carier', null, Array('X-Carier'=>'dora'), Array(), $rolConf, $anyRoute)[0], 403);
-checkSame('role: a token without a store keeps the role it was issued with', Array(pairReply('jtoken', 'htpass', tokenHead(Array('user'=>'zed', 'role'=>'system')), Array(), $rolConf, $anyRoute)[0], pairReply('jtoken', 'htpass', tokenHead(Array('user'=>'zed', 'role'=>'member')), Array(), $rolConf, $anyRoute)[0]), Array(200, 403));
-checkSame('role: Basic access on the users file, by its role', Array(pairReply('hbasic', 'usrlst', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute)[0], pairReply('hbasic', 'usrlst', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)[0]), Array(403, 200));
+checkSame('role: a plug-in carrier gives a member', pairReply('carier', null, Array('X-Carier'=>'dora'), Array(), $rolConf, $anyRoute)[0], 404);
+checkSame('role: a token without a store keeps the role it was issued with', Array(pairReply('jtoken', 'htpass', tokenHead(Array('user'=>'zed', 'role'=>'system')), Array(), $rolConf, $anyRoute)[0], pairReply('jtoken', 'htpass', tokenHead(Array('user'=>'zed', 'role'=>'member')), Array(), $rolConf, $anyRoute)[0]), Array(200, 404));
+checkSame('role: Basic access on the users file, by its role', Array(pairReply('hbasic', 'usrlst', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute)[0], pairReply('hbasic', 'usrlst', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)[0]), Array(404, 200));
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
 plugConf(2);
@@ -210,7 +210,7 @@ checkSame('limit: a request without a token is not counted', Array(sendTrice('19
 checkSame('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.8', 'jtoken', 'usrlst', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.8')), Array(Array(401, 401, 401), false));
 checkSame('limit: the certificate of an unknown user is not counted', Array(sendTrice('198.51.100.9', 'clcert', 'usrlst', Array(), certVals('zed')), heldAddr('198.51.100.9')), Array(Array(401, 401, 401), false));
 checkSame('limit: a plug-in carrier counts nothing', Array(sendTrice('198.51.100.10', 'carier', null), heldAddr('198.51.100.10')), Array(Array(401, 401, 401), false));
-checkSame('limit: a refusal for the role is not counted', Array(sendTrice('198.51.100.11', 'hbasic', 'htpass', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), heldAddr('198.51.100.11')), Array(Array(403, 403, 403), false));
+checkSame('limit: a refusal for the role is not counted', Array(sendTrice('198.51.100.11', 'hbasic', 'htpass', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), heldAddr('198.51.100.11')), Array(Array(404, 404, 404), false));
 
 // A held address : what needs no check is still served
 checkSame('limit: a held address keeps the open routes', pairReply('hbasic', 'htpass', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openrt'=>Array('auth/login')), Array('app'=>'auth', 'action'=>'login')), Array(200, '', '', null));

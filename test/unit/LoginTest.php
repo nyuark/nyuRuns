@@ -52,10 +52,8 @@ function authActn( String $actionName, Array $inputArray=Array(), String $httpMe
 	return runSafely(function() use ($actionName, $inputArray, $httpMethod, $clientAddr, $loggedVals, $queryNames){
 		$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>$clientAddr) );
 		$qryProp = new ReflectionProperty('nyu\Tools\Request', 'addrVals');
-		$qryProp->setAccessible(true);
 		$qryProp->setValue($request, $queryNames);
 		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
-		$mthProp->setAccessible(true);
 		$mthProp->setValue($request, $httpMethod);
 		$axssReg = new Registry( $loggedVals + Array('logged'=>false, 'user'=>'', 'role'=>null) );
 		$actnSet = new nyu\Runs\Auth\Actions( $actionName, null, new Registry($inputArray), null, $axssReg, $request );

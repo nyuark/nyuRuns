@@ -15,7 +15,8 @@ class Index {
 		'jsonl'  => Array('Json', Array('lines'=>true)),
 		'ndjson' => Array('Json', Array('lines'=>true)),
 		'rps'    => Array('Json', Array('cmnts'=>true)),
-		'rte'    => Array('Json', Array('cmnts'=>true)),
+		// A route file is plain JSON: no comment
+		'rte'    => Array('Json', Array()),
 		'xml'    => Array('XHml', Array('reads'=>'xml')),
 		'html'   => Array('XHml', Array('reads'=>'html')),
 		'htm'    => Array('XHml', Array('reads'=>'html')),

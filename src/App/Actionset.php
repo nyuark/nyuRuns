@@ -66,7 +66,7 @@ class Actionset {
 	 */
 	function runAction( String $actionName, ?String $actnOption=null ): Void {
 		$this->actnName = $actionName;
-		if( $this->ownAction($actionName) ){
+		if( static::ownAction($actionName) ){
 			try{
 				if($actnOption!=null){
 					call_user_func( array($this, $actionName), $actnOption );
@@ -89,30 +89,32 @@ class Actionset {
 	/**
 	 * Tells whether a name is an action of this application: a public,
 	 * non-static method that the framework's own Actionset does not declare.
+	 * Called on the class of the application, before it is created, by the
+	 * Controller.
 	 *
 	 * @param String $actionName Name of the method to check.
 	 * @return Bool True when the method can be run as an action.
 	 */
-	protected function ownAction( String $actionName ): Bool {
-		if( !method_exists($this, $actionName) ){
+	public static function ownAction( String $actionName ): Bool {
+		if( !method_exists(static::class, $actionName) ){
 			return false;
 		}
-		$mthdObj = new \ReflectionMethod($this, $actionName);
+		$mthdObj = new \ReflectionMethod(static::class, $actionName);
 		return $mthdObj->isPublic() && !$mthdObj->isStatic()
 			&& substr($mthdObj->getName(), 0, 2)!='__'
 			&& $mthdObj->getDeclaringClass()->getName()!=self::class;
 	}
 	
 	/**
-	 * Fallback action run when the requested action method doesn't exist
-	 * on the actionset; reports a 500 "Unknown Action" status.
+	 * Fallback action run when the requested name is not an action of the
+	 * actionset; reports a 404 "Not Found" status, as for anything else
+	 * the client cannot reach.
 	 *
 	 * @return Bool Always false.
 	 */
 	function defAction(): Bool {
-		// Raise error
-		$this->statCode = 500;
-		$this->statMssg = 'Unknown Action';
+		$this->statCode = 404;
+		$this->statMssg = 'Not Found';
 		$this->asOutput = null;
 		return false;
 	}
@@ -135,7 +137,7 @@ class Actionset {
 			}
 		}else{
 			$this->statCode = 500;
-			$this->statMssg = 'An error occured while processing query for this list';
+			$this->statMssg = 'An error occurred while processing query for this list';
 		}
 	}
 
@@ -168,7 +170,7 @@ class Actionset {
 		$rangStr = ($this->httpRqst!==null) ? strval($this->httpRqst->getHeader('Range')) : '';
 		if( $this->httpResp===null || !$this->httpResp->fileReply($sourcePath, $mimeString, $rangStr) ){
 			$this->statCode = 404;
-			$this->statMssg = 'File not found';
+			$this->statMssg = 'Not Found';
 			$this->asOutput = null;
 			return false;
 		}
@@ -196,7 +198,7 @@ class Actionset {
 		$isNamed = (preg_match('#^[\w\-]+(/[\w\-]+)*$#D', $sourceName)===1);
 		if( !$isNamed || $this->httpResp===null || !$this->httpResp->pageReply($pagePth, $pageValues, $statusCode) ){
 			$this->statCode = 404;
-			$this->statMssg = 'Page not found';
+			$this->statMssg = 'Not Found';
 			$this->asOutput = null;
 			return false;
 		}
@@ -277,10 +279,11 @@ class Actionset {
 	}
 
 	/**
-	 * Ends the running action at once with a 403 unless the request comes
-	 * from a logged user holding a role, or a higher one (see holdsRole).
-	 * The refusal is logged on the 'access' channel, as the one of a route
-	 * asking for a role (see Checker::logDenial).
+	 * Ends the running action at once with a 404 unless the request comes
+	 * from a logged user holding a role, or a higher one (see holdsRole):
+	 * the client is not told the action exists. The refusal is logged on
+	 * the 'access' channel, as the one of a route asking for a role (see
+	 * Checker::logDenial).
 	 *
 	 * @param String $neededRole The role, one of Checker::ROLELIST.
 	 *
@@ -301,7 +304,7 @@ class Actionset {
 			($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '',
 			strtolower(strval($nameLst[count($nameLst)-2] ?? '')).'/'.$this->actnName
 		);
-		$this->endAction(403, 'Forbidden');
+		$this->endAction(404, 'Not Found');
 	}
 
 	/**

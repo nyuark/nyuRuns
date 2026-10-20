@@ -233,8 +233,8 @@ class Router{
 			return $rteData;
 		}
 		foreach( glob($dirPath.DS.'*.rte') as $rteFle ){
-			$rteFile = new Dcmnt($rteFle);
-			$rteFile->fileParse( 'json', false );
+			// Plain JSON (Parsers\Index), the keys kept as written
+			$rteFile = new Dcmnt($rteFle, false);
 			$fleData = $rteFile->readValue('out');
 			if( is_array($fleData) ){
 				$this->warnsKeys( $fleData, basename(strval($rteFle)) );
@@ -386,7 +386,7 @@ class Router{
 				$usedMth = $mthNme;
 			}
 		}
-		$appVals = $tgtVals[$usedMth] ?? null;
+		$appVals = ($usedMth!==null) ? ($tgtVals[$usedMth] ?? null) : null;
 		if( $appVals===null && $usedMth=='HEAD' ){
 			$appVals = $tgtVals['GET'] ?? null;
 		}
@@ -493,7 +493,7 @@ class Router{
 	 * @throws \RuntimeException When the target is outside the 'htroot' folder, or a page is not an HTML file.
 	 */
 	protected function statxVals( Array $targetVals, Array $captureSet ): Array {
-		$notFnd = Array('statCode'=>404, 'statMssg'=>'File not found', 'rteKind'=>'static');
+		$notFnd = Array('statCode'=>404, 'statMssg'=>'Not Found', 'rteKind'=>'static');
 		$rootCnf = strval($this->routeCnf['htroot'] ?? '');
 		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
 		if( $rootDir===false || !is_dir($rootDir) ){

@@ -221,7 +221,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Opens every action: ends it with a 403 unless the request comes
+	 * Opens every action: ends it with a 404 unless the request comes
 	 * from a logged user of the highest role of Checker::ROLELIST (see
 	 * needsRole), a 405 unless it uses the given method, and a 500 when
 	 * the login does not use the native userbase. The role is asked for

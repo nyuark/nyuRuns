@@ -52,9 +52,8 @@ class Preset{
 			throw new \RuntimeException('Preset "'.$presetName.'" is missing');
 		}
 		try{
-			$rpsDocu = new Dcmnt($rpsFile);
 			// The names of the blocks are kept as written
-			$rpsDocu->fileParse('rps', false);
+			$rpsDocu = new Dcmnt($rpsFile, false);
 		}catch( ParseError $e ){
 			throw new \RuntimeException('Preset "'.$presetName.'" is not valid JSON: '.$e->getMessage(), 0, $e);
 		}

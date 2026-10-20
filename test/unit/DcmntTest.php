@@ -80,13 +80,13 @@ checkLike('a content that is not what the name announces is refused', docFacts(t
 checkLike('an invalid file is refused, and named', docFacts(tempFile('bad.json', '{"a":')), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: bad\.json: Invalid JSON content: Syntax error/');
 checkSame('an empty JSON file gives an empty tree', docFacts(tempFile('empty.json', ''))['out'], Array());
 
-// Parsing again with a chosen parser, as the router does for its .rte files
-checkSame('a route file is JSON with comment lines, read as such by its extension', runSafely(function(){
-	$docFile = new Dcmnt(tempFile('declared.rte', "# routes\n{\n\t// the list\n\t\"shows/list\":{\"GET\":\"shows/index\"}\n}"));
-	$uprKeys = array_keys($docFile->readValue());
-	$docFile->fileParse('rte', false);
-	return Array($uprKeys, $docFile->readValue());
-}), Array(Array('SHOWS/LIST'), Array('shows/list'=>Array('GET'=>'shows/index'))));
+// A route file is plain JSON, read once with its keys as written, as the router does
+checkLike('a route file with a comment line is refused', runSafely(function(){
+	return new Dcmnt(tempFile('declared.rte', "# routes\n{\n\t\"shows/list\":{\"GET\":\"shows/index\"}\n}"), false);
+}), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: declared\.rte: Invalid JSON content/');
+checkSame('a route file is read with its keys as written', runSafely(function(){
+	return (new Dcmnt(tempFile('routes.rte', '{"shows/list":{"GET":"shows/index"}}'), false))->readValue();
+}), Array('shows/list'=>Array('GET'=>'shows/index')));
 checkSame('a file parsed as JSON on request, keys kept as written', runSafely(function(){
 	$docFile = new Dcmnt(tempFile('plain.rte', '{"shows/list":{"GET":"shows/index"}}'));
 	$docFile->fileParse('json', false);
@@ -159,7 +159,7 @@ checkSame('a UTF-8 text is left as it is', Base::cleanText('Les Enchaînés €'
 
 // The index
 checkSame('index: the parser of an extension, whatever its case', Array(get_class(Index::forExtnsn('json')), get_class(Index::forExtnsn('INI')), get_class(Index::forExtnsn('rps')), Index::forExtnsn('xyz')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Init', 'nyu\Data\Parsers\Json', null));
-checkSame('index: the default options of an extension', Array(Index::extnOptns('json'), Index::extnOptns('rte'), Index::extnOptns('jsonl'), Index::extnOptns('xyz')), Array(Array(), Array('cmnts'=>true), Array('lines'=>true), Array()));
+checkSame('index: the default options of an extension', Array(Index::extnOptns('json'), Index::extnOptns('rte'), Index::extnOptns('jsonl'), Index::extnOptns('xyz')), Array(Array(), Array(), Array('lines'=>true), Array()));
 checkSame('index: the parser of a request content type', Array(get_class(Index::forCnType('application/json')), get_class(Index::forCnType('Application/JSON; charset=utf-8')), get_class(Index::forCnType('application/problem+json')), Index::forCnType('image/png'), Index::forCnType('')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', null, null));
 checkSame('index: the options of a request content type', Array(Index::typeOptns('application/x-ndjson'), Index::typeOptns('application/json'), Index::typeOptns('image/png')), Array(Array('lines'=>true), Array(), Array()));
 checkSame('index: a parser added for an extension is used for it', runSafely(function(){

@@ -74,9 +74,7 @@ function dropLocal(): Void {
 	$axsConf = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
 	$limiter = new nyu\Access\Limiter( is_array($axsConf['limits'] ?? null) ? $axsConf['limits'] : Array() );
 	$keyMthd = new ReflectionMethod($limiter, 'keyOfAddr');
-	$keyMthd->setAccessible(true);
 	$pthMthd = new ReflectionMethod($limiter, 'pathOfKey');
-	$pthMthd->setAccessible(true);
 	foreach( Array('127.0.0.1', '::1') as $adr ){
 		$cntPath = $pthMthd->invoke($limiter, $keyMthd->invoke($limiter, $adr));
 		if( is_file($cntPath) ){
@@ -188,7 +186,7 @@ if( !$isReady ){
 
 	// Routing failures
 	$replyAr = httpQuery('GET', $baseUrl.'/auth/nope');
-	checkSame('unknown action: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Unknown Action","code":500}'));
+	checkSame('unknown action: 404, as an unknown application', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	// Default action : the one the application names in $dfltActn, otherwise its first declared action
 	$replyAr = httpQuery('GET', $baseUrl.'/probe', Array('X-Test-Runs'=>'1'));
@@ -201,7 +199,7 @@ if( !$isReady ){
 	checkSame('no action: a default action whose route limits no method is still reached from the path', Array($replyAr['code'], httpQuery('GET', $baseUrl.'/shows/index')['code'], count(json_decode(httpQuery('GET', $baseUrl.'/')['body'], true) ?? Array())), Array(200, 200, 5));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth');
-	checkSame('no action: the first action of auth is the login, which its declared route alone reaches', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
+	checkSame('no action: the first action of auth is the login, which its declared route alone reaches', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	// The login action refuses anything but a POST by itself, whatever the path that leads to it
 	$replyAr = httpQuery('GET', $baseUrl.'/auth?user=nobody-here&pass=wrong');
@@ -210,7 +208,7 @@ if( !$isReady ){
 	checkSame('login by GET through another case of the path: not found', $replyAr['code'], 404);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here');
-	checkSame('unknown application: 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
+	checkSame('unknown application: 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	// Uncaught exception (view called without its parameter)
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view');
@@ -311,7 +309,7 @@ if( !$isReady ){
 		$replyAr = httpQuery('GET', $baseUrl.$badPth);
 		$codeLst[] = Array($replyAr['code'], $replyAr['body']);
 	}
-	checkSame('application name: what is not letters and digits is a 404', $codeLst, array_fill(0, 5, Array(404, '{"error":"Unknown Application","code":404}')));
+	checkSame('application name: what is not letters and digits is a 404', $codeLst, array_fill(0, 5, Array(404, '{"error":"Not Found","code":404}')));
 
 	// An action a declared route answers with is only reached through that route (conf/routes : auth/login takes POST)
 	$codeLst = Array();
@@ -350,9 +348,9 @@ if( !$isReady ){
 	// Error pages : a site answers an error with its own page, an action keeps the format of the preset
 	$errHead = Array('X-Test-Preset'=>'manual', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Htroot'=>'errpages');
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead);
-	checkSame('error page: a path no route answers', Array($replyAr['code'], $replyAr['type'], trim(strval(strstr($replyAr['body'], '<h1>'))), $headOf($replyAr, 'X-Content-Type-Options')), Array(404, 'text/html; charset=utf-8', '<h1>404</h1><p>Nothing here: Unknown Application</p></body></html>', 'nosniff'));
+	checkSame('error page: a path no route answers', Array($replyAr['code'], $replyAr['type'], trim(strval(strstr($replyAr['body'], '<h1>'))), $headOf($replyAr, 'X-Content-Type-Options')), Array(404, 'text/html; charset=utf-8', '<h1>404</h1><p>Nothing here: Not Found</p></body></html>', 'nosniff'));
 	$replyAr = httpQuery('GET', $baseUrl.'/hello/x', $errHead);
-	checkSame('error page: a page whose file is not there', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], 'Nothing here: File not found')!==false), Array(404, 'text/html; charset=utf-8', true));
+	checkSame('error page: a page whose file is not there', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], 'Nothing here: Not Found')!==false), Array(404, 'text/html; charset=utf-8', true));
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead + Array('X-Test-Auth'=>'jtoken'));
 	checkSame('error page: a denial has the page of its status', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<h1>401</h1><p>Sign in first: Missing Bearer Authorization header</p>')!==false), Array(401, 'text/html; charset=utf-8', true));
 	$replyAr = httpQuery('POST', $baseUrl.'/ping', $errHead);
@@ -360,7 +358,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/things/1', $errHead + Array('X-Test-Auth'=>'jtoken'));
 	checkSame('error page: a route to an action keeps the format of the preset', Array($replyAr['code'], $replyAr['type']), Array(401, $jsonTyp));
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', Array('X-Test-Preset'=>'manual', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1'));
-	checkSame('error page: a site without one answers as before', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
+	checkSame('error page: a site without one answers as before', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctname'=>'x-content-type-options', 'X-Test-Ctype'=>'off'));
 	checkSame('nosniff: a preset cannot give the header another value', preg_grep('/^X-Content-Type-Options:/i', $replyAr['head']) ? array_values(preg_grep('/^X-Content-Type-Options:/i', $replyAr['head'])) : Array(), Array('X-Content-Type-Options: nosniff'));
@@ -484,9 +482,9 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $usrHead, 'user=henry');
 	checkSame('users: nothing without a session', $replyAr['code'], 401);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $usrHead + Array('Authorization'=>'Bearer '.$benToken), 'user=henry');
-	checkSame('users: refused to a member', Array($replyAr['code'], $replyAr['body']), Array(403, '{"error":"Forbidden","code":403}'));
+	checkSame('users: refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $usrHead + Array('Authorization'=>'Bearer '.$benToken));
-	checkSame('users: the list is refused to a member too', $replyAr['code'], 403);
+	checkSame('users: the list is refused to a member too', $replyAr['code'], 404);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'user=henry');
 	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
 	checkSame('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 12));
@@ -538,36 +536,36 @@ if( !$isReady ){
 	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=manage, probe/whoami=system, /docs/*=system, /hello/$id=manage');
 	$logMark = strlen(readsLogs('access'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead + $benHead);
-	checkSame('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(403, '{"error":"Forbidden","code":403}'));
+	checkSame('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	checkSame('roles: with no challenge', count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head'])), 0);
 	checkLike('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(member\) from \S+ to users\/index: role manage needed/');
 	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $benHead);
-	checkSame('roles: so is its application, named without an action', $replyAr['code'], 403);
+	checkSame('roles: so is its application, named without an action', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead + $annHead);
 	checkSame('roles: served to a manager', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead);
 	checkSame('roles: nobody logged is a 401', $replyAr['code'], 401);
 	$replyAr = httpQuery('GET', $baseUrl.'/users/create?user=henry', $usrHead + $benHead);
-	checkSame('roles: an action asks for the role before the method', $replyAr['code'], 403);
+	checkSame('roles: an action asks for the role before the method', $replyAr['code'], 404);
 
 	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter') + $rolHead;
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $prbHead + $benHead);
-	checkSame('roles: an action of another application', $replyAr['code'], 403);
+	checkSame('roles: an action of another application', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $prbHead + $annHead);
 	checkSame('roles: a manager holds the system role', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $prbHead + $benHead);
-	checkSame('roles: a file of a folder route', $replyAr['code'], 403);
+	checkSame('roles: a file of a folder route', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $prbHead + $annHead);
 	checkSame('roles: the file is served with the role', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $prbHead + $benHead);
-	checkSame('roles: a page is a 403, not the sign-in route', Array($replyAr['code'], count(preg_grep('/^Location:/i', $replyAr['head']))), Array(403, 0));
+	checkSame('roles: a page is a 404, not the sign-in route', Array($replyAr['code'], count(preg_grep('/^Location:/i', $replyAr['head']))), Array(404, 0));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles', $prbHead + $benHead);
 	checkSame('roles: what a member holds', $replyAr['body'], '{"member":true,"system":false,"manage":false}');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles', $prbHead + $annHead);
 	checkSame('roles: what a manager holds', $replyAr['body'], '{"member":true,"system":true,"manage":true}');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles/system', $prbHead + $benHead);
-	checkSame('roles: an action asking for a role itself', Array($replyAr['code'], $replyAr['body']), Array(403, '{"error":"Forbidden","code":403}'));
+	checkSame('roles: an action asking for a role itself', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles/system', $prbHead + $annHead);
 	checkSame('roles: and going on with it', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roles/root', $prbHead + $annHead);
@@ -578,7 +576,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/whoami=member'));
 	checkSame('roles: an API key meets the member role', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/whoami', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/whoami=system'));
-	checkSame('roles: and no higher one', $replyAr['code'], 403);
+	checkSame('roles: and no higher one', $replyAr['code'], 404);
 	$sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
 
 	// Login round trip : flat file of users (test/fixtures/confusr, test/fixtures/users.lst), without the database
@@ -817,13 +815,13 @@ if( !$isReady ){
 	checkSame('fixture: first declared action is the default', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/lost', $fixHead);
-	checkSame('fixture: a default action that does not exist is 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Unknown Action","code":500}'));
+	checkSame('fixture: a default action that does not exist is 500, told no more', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Internal Server Error","code":500}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/lost/here', $fixHead);
 	checkSame('fixture: its real action still answers', Array($replyAr['code'], $replyAr['body']), Array(200, '{"found":true}'));
 
 	// Declared routes (test/fixtures/routes) : checked before autopath, exact keys then patterns
 	$rteHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1');
-	$noAppli = Array(404, '{"error":"Unknown Application","code":404}');
+	$noAppli = Array(404, '{"error":"Not Found","code":404}');
 
 	$replyAr = httpQuery('GET', $baseUrl.'/ping', $rteHead);
 	checkSame('route: exact key', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
@@ -899,12 +897,12 @@ if( !$isReady ){
 	checkSame('missing preset: generic JSON 500', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Internal Server Error","code":500}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/blank/here', $fixHead);
-	checkSame('fixture: an Actions.php without its actionset is 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Unknown Application","code":404}'));
+	checkSame('fixture: an Actions.php without its actionset is 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	// Only the application's own public methods are actions
 	foreach( Array('/probe/hidden', '/probe/fixed', '/probe/__construct', '/probe/checkList', '/probe/runAction/clean', '/probe/ownAction/clean') as $notAct ){
 		$replyAr = httpQuery('GET', $baseUrl.$notAct, $fixHead);
-		checkSame('fixture: '.$notAct.' is not an action', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Unknown Action","code":500}'));
+		checkSame('fixture: '.$notAct.' is not an action: 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	}
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/CLEAN', $fixHead);
 	checkSame('fixture: action names are not case-sensitive', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
@@ -964,7 +962,7 @@ if( !$isReady ){
 	checkSame('file: its type replaces the preset Content-Type', $replyAr['type'], 'audio/mp4');
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/media/x', $fixHead);
-	checkSame('file: a missing file is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"File not found","code":404}'));
+	checkSame('file: a missing file is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Not Found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/mediafail', $fixHead + Array('Range'=>'bytes=0-4'));
 	checkSame('file: an error status wins over the file', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(403, $jsonTyp, '{"error":"Not yours","code":403}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/media', $fixHead);
@@ -972,7 +970,7 @@ if( !$isReady ){
 
 	// Declared routes that run no action : redirection, static file and folder, HTML page
 	$htmlTyp = 'text/html; charset=utf-8';
-	$noFile = Array(404, $jsonTyp, '{"error":"File not found","code":404}');
+	$noFile = Array(404, $jsonTyp, '{"error":"Not Found","code":404}');
 
 	$replyAr = httpQuery('GET', $baseUrl.'/old/42', $rteHead);
 	checkSame('redirection: status, address, no body and no type', Array($replyAr['code'], $headOf($replyAr, 'Location'), $replyAr['body'], $replyAr['type']), Array(301, '/items/42', '', ''));
@@ -1062,7 +1060,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $pthHead);
 	checkSame('public path: a folder route is opened with its files', Array($replyAr['code'], $replyAr['body']), Array(200, 'abcdefghijklmnopqrstuvwxyz'));
 	$replyAr = httpQuery('GET', $baseUrl.'/docs/../site.css', $pthHead);
-	checkSame('public path: an open folder still has no way out', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"File not found","code":404}'));
+	checkSame('public path: an open folder still has no way out', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/style', $pthHead);
 	checkSame('public path: a file outside the open folder stays closed', $replyAr['code'], 401);
 
@@ -1124,7 +1122,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/page/gone', $actHead);
 	checkSame('helper: a page with its own status', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<h1>Gone</h1>')!==false), Array(404, $htmlTyp, true));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/page/none', $actHead);
-	checkSame('helper: a missing page is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Page not found","code":404}'));
+	checkSame('helper: a missing page is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Not Found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/page/fail', $actHead);
 	checkSame('helper: an error status wins over the page', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(403, $jsonTyp, '{"error":"Not yours","code":403}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/link', $actHead);

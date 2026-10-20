@@ -126,7 +126,7 @@ checkSame('the default action gets its definition too', formsCall('', $formArr),
 checkSame('an action without a definition keeps the inputs as the preset built them', formsCall('free', Array('name'=>'<b>Ann</b>', 'extra'=>'kept')), Array(200, Array('NAME'=>'<b>Ann</b>', 'EXTRA'=>'kept')));
 checkLike('a definition naming a format that does not exist stops the run', formsCall('wrong', $formArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat"/');
 checkLike('a file that is not a definition stops the run', formsCall('broke', $formArr), '/THROWN.*Input misconfigured: Forms\/input\/broke\.json is not a definition of fields/');
-checkSame('an action that does not exist reads no file', formsCall('../send', $formArr)[0], 500);
+checkSame('an action that does not exist reads no file', formsCall('../send', $formArr)[0], 404);
 
 /**
  * Runs an action of the Forms fixture application with inputs, and

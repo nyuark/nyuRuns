@@ -18,7 +18,9 @@ checkSame('an app without a mods folder has no model', runSafely(function(){
 	$noMods = new ModelStack('Blank');
 	return $noMods->readModel('book');
 }), null);
-checkLike('a model that cannot be created throws, naming it', runSafely(function(){ return new ModelStack('Broke'); }), '/^THROWN RuntimeException: Model "Wrong" of "Broke" could not be loaded: /');
+checkTrue('an app model is built once', runSafely(function() use ($modStck){ return $modStck->readModel('book')===$modStck->readModel('BOOK'); }));
+checkSame('a model is only made when asked for', runSafely(function(){ return get_class(new ModelStack('Broke')); }), 'nyu\App\ModelStack');
+checkLike('a model that cannot be created throws, naming it', runSafely(function(){ return (new ModelStack('Broke'))->readModel('wrong'); }), '/^THROWN RuntimeException: Model "Wrong" of "Broke" could not be loaded: /');
 
 // Shared models
 checkSame('a shared model is loaded', runSafely(function() use ($modStck){ return get_class($modStck->readModel('tally')); }), 'nyu\Runs\Shared\Tally');

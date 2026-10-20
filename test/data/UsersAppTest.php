@@ -95,7 +95,6 @@ function callActn( String $routeNamed, Array $inputArray=Array(), String $logged
 	return runSafely(function() use ($routeNamed, $inputArray, $loggedUser, $loggedRole, $httpMethod){
 		$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'192.0.2.50', 'HTTP_ACCEPT_LANGUAGE'=>strval($GLOBALS['acptLang'] ?? '')) );
 		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
-		$mthProp->setAccessible(true);
 		$mthProp->setValue($request, $httpMethod);
 		$axssReg = new Registry( ($loggedUser!='')
 			? Array('logged'=>true, 'user'=>$loggedUser, 'role'=>$loggedRole, 'statCode'=>200, 'statMssg'=>'')
@@ -124,14 +123,14 @@ plugConf();
 // Who may call : a logged user of the highest role, and nobody else
 foreach( Array('index'=>'GET', 'view'=>'GET', 'create'=>'POST', 'lock'=>'POST', 'unlock'=>'POST', 'role'=>'POST', 'remove'=>'POST', 'reset'=>'POST', 'approve'=>'POST', 'email'=>'POST') as $actNme=>$mthNme ){
 	$inptArr = Array('user'=>'ben', 'role'=>'system');
-	checkSame('guard: users/'.$actNme.' refused to a member', statusOf(callActn('users/'.$actNme, $inptArr, 'ben', 'member', $mthNme)), Array(403, 'Forbidden'));
-	checkSame('guard: users/'.$actNme.' refused to the system role', statusOf(callActn('users/'.$actNme, $inptArr, 'dave', 'system', $mthNme)), Array(403, 'Forbidden'));
-	checkSame('guard: users/'.$actNme.' refused when nobody is logged', statusOf(callActn('users/'.$actNme, $inptArr, '', '', $mthNme)), Array(403, 'Forbidden'));
+	checkSame('guard: users/'.$actNme.' refused to a member', statusOf(callActn('users/'.$actNme, $inptArr, 'ben', 'member', $mthNme)), Array(404, 'Not Found'));
+	checkSame('guard: users/'.$actNme.' refused to the system role', statusOf(callActn('users/'.$actNme, $inptArr, 'dave', 'system', $mthNme)), Array(404, 'Not Found'));
+	checkSame('guard: users/'.$actNme.' refused when nobody is logged', statusOf(callActn('users/'.$actNme, $inptArr, '', '', $mthNme)), Array(404, 'Not Found'));
 	checkSame('guard: users/'.$actNme.' answers to '.$mthNme.' only', statusOf(callActn('users/'.$actNme, $inptArr, 'anna', 'manage', ($mthNme=='GET') ? 'POST' : 'GET')), Array(405, 'Method Not Allowed'));
 }
 checkSame('guard: a refusal changed nothing', $sqlLink->query("SELECT userName, userRole, userStat FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'manage', 'active'), Array('ben', 'member', 'active'), Array('dave', 'system', 'locked')));
 checkLike('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTempDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(member\) from 192\.0\.2\.50 to users\/index: role manage needed/');
-checkSame('guard: the helpers are not actions', Array(statusOf(callActn('users/startCall', Array(), 'anna', 'manage')), statusOf(callActn('users/givenUser', Array(), 'anna', 'manage'))), Array(Array(500, 'Unknown Action'), Array(500, 'Unknown Action')));
+checkSame('guard: the helpers are not actions', Array(statusOf(callActn('users/startCall', Array(), 'anna', 'manage')), statusOf(callActn('users/givenUser', Array(), 'anna', 'manage'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 plugConf('htpass');
 checkSame('guard: a login on another credential check', statusOf(callActn('users/index', Array(), 'anna', 'manage', 'GET')), Array(500, 'User management unavailable'));
 plugConf();
@@ -253,7 +252,7 @@ checkSame('email: taken away', Array(callActn('users/email', Array('user'=>'hugo
 $outcome = callActn('users/langs', Array('user'=>'hugo', 'lang'=>'FR_ch'));
 checkSame('langs: a manager gives one, in lower case', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'hugo', 'lang'=>'fr-ch')));
 checkSame('langs: one that is not, then taken away', Array(statusOf(callActn('users/langs', Array('user'=>'hugo', 'lang'=>'french'))), callActn('users/langs', Array('user'=>'hugo'))['out'] ?? null), Array(Array(400, 'Invalid language'), Array('user'=>'hugo', 'lang'=>null)));
-checkSame('langs: a member is not a manager', statusOf(callActn('users/langs', Array('user'=>'hugo', 'lang'=>'fr'), 'ben', 'member')), Array(403, 'Forbidden'));
+checkSame('langs: a member is not a manager', statusOf(callActn('users/langs', Array('user'=>'hugo', 'lang'=>'fr'), 'ben', 'member')), Array(404, 'Not Found'));
 $outcome = callActn('auth/langs', Array('user'=>'hugo', 'lang'=>'de'), 'ben', 'member');
 checkSame('auth/langs: the logged user, for itself; a name sent is not read', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT userName, userLang FROM users WHERE userName IN ('ben', 'hugo') ORDER BY userName")->fetchAll(PDO::FETCH_KEY_PAIR)), Array(200, Array('lang'=>'de'), Array('ben'=>'de', 'hugo'=>null)));
 checkSame('auth/langs: nobody logged, a GET, one that is not', Array(statusOf(callActn('auth/langs', Array('lang'=>'de'), '', '')), statusOf(callActn('auth/langs', Array('lang'=>'de'), 'ben', 'member', 'GET')), statusOf(callActn('auth/langs', Array('lang'=>'*'), 'ben', 'member'))), Array(Array(401, 'Not logged in'), Array(405, 'Method Not Allowed'), Array(400, 'Invalid language')));

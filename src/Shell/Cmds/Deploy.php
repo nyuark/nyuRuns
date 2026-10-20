@@ -82,7 +82,8 @@ class Deploy extends Command{
 		if( $chkObjc->hasFailed() ){
 			$this->stopShell('The server cannot run the project: nothing was installed', self::EXITFLAW);
 		}
-		$this->makeFiles();
+		// The settings of the database are made with the native userbase only : a project in the users file needs none
+		$this->makeFiles( Array('.env', 'conf/access.json') );
 		$storNme = $this->askSetups();
 		// The secrets that are still empty are made; those in use are left alone
 		$cnfgCmd = new Config($this->optnObjc, $this->prntObjc, $this->inptStrm);
@@ -494,10 +495,15 @@ class Deploy extends Command{
 	/**
 	 * Creates each local file that is missing from its example. The file
 	 * of the secrets is made readable by its owner only.
+	 *
+	 * @param Array $localFiles The local files to make, as DISTLIST names them; all of them when empty.
 	 */
-	protected function makeFiles(): Void {
+	protected function makeFiles( Array $localFiles=Array() ): Void {
 		$rowList = Array();
 		foreach( self::DISTLIST as $fleNme => $dstNme ){
+			if( !empty($localFiles) && !in_array($fleNme, $localFiles, true) ){
+				continue;
+			}
 			$filePth = TOP_DIR.DS.str_replace('/', DS, $fleNme);
 			$distPth = TOP_DIR.DS.str_replace('/', DS, $dstNme);
 			if( is_file($filePth) ){
@@ -521,7 +527,8 @@ class Deploy extends Command{
 	/**
 	 * Asks what the installation needs, each question with its default:
 	 * the environment, the store of the users and, for the native
-	 * userbase, where its database is. What is answered is written to the
+	 * userbase, where its database is: conf/database.json is then made
+	 * from its example, and only then. What is answered is written to the
 	 * config files.
 	 *
 	 * @return String The store of the users: 'native', 'usrlst' or 'none'.
@@ -561,8 +568,11 @@ class Deploy extends Command{
 			}
 			$wrtrObj->saveJsons($axsPath, $treeObj);
 		}
-		if( $storNme=='native' && !$this->optnObjc->hasOption('noask') ){
-			$this->askDbases($wrtrObj);
+		if( $storNme=='native' ){
+			$this->makeFiles( Array('conf/database.json') );
+			if( !$this->optnObjc->hasOption('noask') ){
+				$this->askDbases($wrtrObj);
+			}
 		}
 		Console::loadConfg();
 		return $storNme;

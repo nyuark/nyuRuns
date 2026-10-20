@@ -28,7 +28,7 @@ class DBRec {
 	protected $linkKeys = Array();
 
 	/**
-	 * Builds a record object bound to a table: verifies the table exists,
+	 * Builds a record object bound to a table: verifies the table exists by describing it,
 	 * reads its primary key and field list from the store, and stores the
 	 * declared child/parent relations for later loading.
 	 *
@@ -51,15 +51,10 @@ class DBRec {
 		$dbStore = $this->dbConnex->dataStore();
 		$dbStore->checkName($this->tableNme);
 
-		// Check if table exists
-		if( $dbStore->findItems($this->tableNme, Array(), Array('limit'=>1))===false ){
-			throw new \RuntimeException('Table "'.$this->tableNme.'" is not available: '.$dbStore->lastError());
-		}
-
-		// The store knows how its database describes a table
+		// The description of the table tells it exists: a missing table cannot be described
 		$tblInfo = $dbStore->tableInfo($this->tableNme);
 		if( $tblInfo===false ){
-			throw new \RuntimeException('Table "'.$this->tableNme.'" cannot be described: '.$dbStore->lastError());
+			throw new \RuntimeException('Table "'.$this->tableNme.'" is not available: '.$dbStore->lastError());
 		}
 		$this->keyField = $tblInfo['pkey'];
 		$this->fieldLst = $tblInfo['flds'];

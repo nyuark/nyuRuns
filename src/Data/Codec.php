@@ -112,7 +112,13 @@ class Codec {
 			}
 			array_push($argsLst, '-fs', strval(self::MAXBYTES), '-f', $kindSet[1], $targPth);
 			$this->launchCmd($argsLst, $logsPth);
-			$madeTxt = is_file($targPth) ? file_get_contents($targPth, false, null, 0, self::MAXBYTES+1) : false;
+			// The size is read first : PHP 8.2 reserves the whole length asked of file_get_contents() before reading
+			clearstatcache(true, $targPth);
+			$madeSze = is_file($targPth) ? filesize($targPth) : false;
+			if( $madeSze!==false && $madeSze>=self::MAXBYTES ){
+				throw new \RuntimeException('Sound made larger than the '.self::MAXBYTES.' bytes allowed');
+			}
+			$madeTxt = ($madeSze!==false && $madeSze>0) ? file_get_contents($targPth) : false;
 			if( $madeTxt===false || $madeTxt==='' ){
 				throw new \RuntimeException('The program that unpacks sounds gave nothing back');
 			}

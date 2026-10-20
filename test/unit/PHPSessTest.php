@@ -33,7 +33,6 @@ function cookReqst( Mixed $sessnIdent, String $cookieName='nyuSessn' ): nyu\Tool
 	session_id('');
 	$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 	$cookPrp = new ReflectionProperty('nyu\Tools\Request', 'cookVals');
-	$cookPrp->setAccessible(true);
 	$cookPrp->setValue($request, ($sessnIdent===null) ? Array() : Array($cookieName=>$sessnIdent));
 	return $request;
 }
@@ -86,7 +85,6 @@ function openSessn( PHPSess $carrierObj, Array $identArray ): String {
  */
 function cookSets( Array $confValues, Int $expiryTime=0 ): Array {
 	$setMthd = new ReflectionMethod('nyu\Access\Sess\PHPSess', 'cookieSet');
-	$setMthd->setAccessible(true);
 	return $setMthd->invoke( new PHPSess($confValues), $expiryTime );
 }
 
@@ -203,7 +201,7 @@ checkSame('Checker phsess x regkey: the session alone decides', sessReply($sessI
 checkSame('Checker phsess: no cookie is a 401, without a challenge', sessReply(null), Array(401, 'No active session', '', null, null));
 checkSame('Checker phsess: an unknown role makes a member', sessReply(openSessn($sessCar, Array('user'=>'erin', 'role'=>'root')))[3], 'member');
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
-checkSame('Checker phsess: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('app'=>'shows', 'action'=>'index'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('app'=>'shows', 'action'=>'index'))[0]), Array(403, 200));
+checkSame('Checker phsess: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('app'=>'shows', 'action'=>'index'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('app'=>'shows', 'action'=>'index'))[0]), Array(404, 200));
 checkSame('Checker phsess: a refusal for the role leaves the session open', sessReply($sessIdn)[0], 200);
 $lockIdn = openSessn($sessCar, Array('user'=>'dave', 'role'=>'system'));
 checkSame('Checker phsess x usrlst: a locked user is refused, its session destroyed', Array(sessReply($lockIdn, $usrStor), sessReply($lockIdn)[1]), Array(Array(401, 'Account not active', '', null, null), 'No active session'));
@@ -216,7 +214,6 @@ checkSame('cookie: an unknown policy is the strict one', Array(cookSets(Array('s
 checkSame('cookie: only false sends it over plain HTTP', Array(cookSets(Array('secure'=>false))['secure'], cookSets(Array('secure'=>0))['secure'], cookSets(Array('secure'=>'no'))['secure']), Array(false, true, true));
 checkSame('cookie: expired with a date, not a lifetime', cookSets(Array(), 1), Array('path'=>'/', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'expires'=>1));
 $namePrp = new ReflectionProperty('nyu\Access\Sess\PHPSess', 'cookName');
-$namePrp->setAccessible(true);
 checkSame('cookie: named nyuSessn by default, and when the name given cannot be one', Array($namePrp->getValue(new PHPSess(Array())), $namePrp->getValue(new PHPSess(Array('cookie'=>'my cookie; Path=/'))), $namePrp->getValue(new PHPSess(Array('cookie'=>'9lives'))), $namePrp->getValue(new PHPSess(Array('cookie'=>'nyu_Tests1')))), Array('nyuSessn', 'nyuSessn', 'nyuSessn', 'nyu_Tests1'));
 
 // The cookie of one carrier is not read by another

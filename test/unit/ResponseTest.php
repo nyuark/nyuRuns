@@ -36,7 +36,6 @@ function foundType( Array $renderVals, Bool $errorReply=false ): String {
 	$respons = new Response($renderVals);
 	$respons->formatOut( Array(Array('a'=>1)), $errorReply );
 	$typeFnc = new ReflectionMethod($respons, 'contnType');
-	$typeFnc->setAccessible(true);
 	return $typeFnc->invoke($respons);
 }
 
@@ -122,7 +121,6 @@ checkSame('type for html',           foundType(Array('format'=>'html')), 'text/h
 $respons = new Response( Array('format'=>'flux') );
 $respons->formatOut('raw bytes');
 $typeFnc = new ReflectionMethod($respons, 'contnType');
-$typeFnc->setAccessible(true);
 checkSame('type for flux, which its action sets', $typeFnc->invoke($respons), 'application/octet-stream');
 takeNotes();
 checkSame('type of an error with tabl', foundType(Array('format'=>'tabl'), true), 'application/json; charset=utf-8');
@@ -142,7 +140,6 @@ function fileSent( String $rangeValue, String $fileContnt='abcdefghijklmnopqrstu
 	$respons = new Response();
 	$respons->fileReply($tmpFile, 'audio/mp4', $rangeValue);
 	$codePrp = new ReflectionProperty($respons, 'fileCode');
-	$codePrp->setAccessible(true);
 	ob_start();
 	$respons->sendOutpt();
 	return Array($codePrp->getValue($respons), ob_get_clean());
@@ -235,9 +232,7 @@ function keptFile( Array $headersArr=Array(), Bool $sharedFile=false, Array $ren
 	$respons->fileReply($tmpFile, 'text/plain', strval($headersArr['Range'] ?? ''));
 	$respons->cacheFile($headersArr, $sharedFile);
 	$codePrp = new ReflectionProperty($respons, 'fileCode');
-	$codePrp->setAccessible(true);
 	$headPrp = new ReflectionProperty($respons, 'headrArr');
-	$headPrp->setAccessible(true);
 	ob_start();
 	$respons->sendOutpt();
 	return Array($codePrp->getValue($respons), ob_get_clean(), $headPrp->getValue($respons));
@@ -271,7 +266,6 @@ checkSame('cache: a range of a version the client holds is a 304', array_slice(k
 $respons = new Response();
 $respons->cacheFile( Array('If-None-Match'=>'*') );
 $headPrp = new ReflectionProperty($respons, 'headrArr');
-$headPrp->setAccessible(true);
 checkSame('cache: nothing is set without a file', $headPrp->getValue($respons), Array());
 
 // Content types of the files a declared route serves

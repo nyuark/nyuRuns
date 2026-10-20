@@ -215,7 +215,7 @@ class Runner{
 	}
 
 	/**
-	 * Sends an access-denial response (401/403/429/500), or the redirection
+	 * Sends an access-denial response (401/403/404/429/500), or the redirection
 	 * to the sign-in route, directly, without ever constructing the
 	 * requested application's Controller/Actionset.
 	 *
@@ -411,7 +411,7 @@ class Runner{
 		if( $isFound ){
 			$this->setStatus( 200 );
 		}else{
-			$this->setStatus( 404, 'File not found' );
+			$this->setStatus( 404, 'Not Found' );
 		}
 	}
 
@@ -437,7 +437,7 @@ class Runner{
 			$this->rteAnswer();
 		}elseif( $appCall==null ){
 			// No route resolved for this request
-			$this->setStatus( 404, 'Unknown Application' );
+			$this->setStatus( 404, 'Not Found' );
 		}else{
 			$this->appCaller($appCall, strval($actCall), $actOptn);
 		}

@@ -25,11 +25,12 @@ class Dcmnt{
 	 * shows, when it shows one.
 	 *
 	 * @param String $fsFilePath Filesystem path of the file to load.
+	 * @param Bool   $keys2Upper Whether the parser should uppercase the keys of the first level (see fileParse()).
 	 *
 	 * @throws \RuntimeException When the file cannot be read.
 	 * @throws Parsers\ParseError When its content is not valid, or is not what its name announces.
 	 */
-	function __construct( String $fsFilePath ){
+	function __construct( String $fsFilePath, Bool $keys2Upper = true ){
 		$this->fileFlux = Fluxd::openLocal($fsFilePath);
 		$this->fileName = basename($fsFilePath);
 		$namePrt = pathinfo($this->fileName);
@@ -39,7 +40,7 @@ class Dcmnt{
 		if( $this->fileExtn=='' && $this->fileSign!='' ){
 			$this->fileExtn = $this->fileSign;
 		}
-		$this->fileParse( $this->fileExtn );
+		$this->fileParse( $this->fileExtn, $keys2Upper );
 	}
 
 	/**

@@ -64,7 +64,7 @@
         // Roles are ordered: member; system; manage; each one includes those before it.
         // When several entries name a route the highest role is asked for;
         // a request naming no action is taken as any action of its application.
-        // A logged user without the role gets a 403; a route cannot also be in "openrt".
+        // A logged user without the role gets a 404, as for no route; a route cannot also be in "openrt".
         // A check that gives no role (htpass; regkey; a certificate without a store)
         // makes a member: a higher role needs a store ("authby": "native" or "usrlst")
 		"rolert": { "users/*": "manage" }

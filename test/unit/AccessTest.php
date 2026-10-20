@@ -310,7 +310,6 @@ checkSame('Checker public path: needs its leading slash', $checker->verifyAxs()-
 $sgnConf = Array('signin'=>'/login') + $pthConf;
 $askReqs = fakeReqst();
 $askPrpt = new ReflectionProperty('nyu\Tools\Request', 'queryURI');
-$askPrpt->setAccessible(true);
 $askPrpt->setValue($askReqs, Array('reqstURI'=>'/hello/7?tab=a b'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'hello/$id')) );
 $axsRslt = $checker->verifyAxs();
@@ -366,35 +365,35 @@ function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): 
 // Checker : the role a route asks for ('rolert'), written as the routes of 'openrt'
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')), 'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
 $rolConf = Array('rolert'=>Array('users/*'=>'manage', 'users/view'=>'member', 'Shows/Edit'=>'system', 'shows/*'=>'member', 'probe/clean'=>'system', 'probe/mirror'=>'manage', '/docs/*'=>'system', '/tokchk'=>'manage', 'auth/check'=>'system', '/admin'=>'manage')) + $jwtConf;
-checkSame('Checker role: refused to a lower role', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lock')), Array(403, 'Forbidden'));
-checkSame('Checker role: refused to the role between', roleReply($rolConf, 'system', Array('app'=>'users', 'action'=>'lock')), Array(403, 'Forbidden'));
+checkSame('Checker role: refused to a lower role', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lock')), Array(404, 'Not Found'));
+checkSame('Checker role: refused to the role between', roleReply($rolConf, 'system', Array('app'=>'users', 'action'=>'lock')), Array(404, 'Not Found'));
 checkSame('Checker role: served to the role asked for', roleReply($rolConf, 'manage', Array('app'=>'users', 'action'=>'lock')), Array(200, ''));
 checkSame('Checker role: served to a higher role', Array(roleReply($rolConf, 'system', Array('app'=>'shows', 'action'=>'edit')), roleReply($rolConf, 'manage', Array('app'=>'shows', 'action'=>'edit'))), Array(Array(200, ''), Array(200, '')));
-checkSame('Checker role: the case of the request does not count', roleReply($rolConf, 'member', Array('app'=>'Users', 'action'=>'LOCK')), Array(403, 'Forbidden'));
-checkSame('Checker role: nor a space in the name of the application', roleReply($rolConf, 'member', Array('app'=>'us ers', 'action'=>'lock')), Array(403, 'Forbidden'));
-checkSame('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'edit')), roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'index'))), Array(Array(403, 'Forbidden'), Array(200, '')));
-checkSame('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'view')), Array(403, 'Forbidden'));
-checkSame('Checker role: no action named, the highest of the application', Array(roleReply($rolConf, 'system', Array('app'=>'probe', 'action'=>null)), roleReply($rolConf, 'manage', Array('app'=>'probe', 'action'=>null))), Array(Array(403, 'Forbidden'), Array(200, '')));
+checkSame('Checker role: the case of the request does not count', roleReply($rolConf, 'member', Array('app'=>'Users', 'action'=>'LOCK')), Array(404, 'Not Found'));
+checkSame('Checker role: nor a space in the name of the application', roleReply($rolConf, 'member', Array('app'=>'us ers', 'action'=>'lock')), Array(404, 'Not Found'));
+checkSame('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'edit')), roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'index'))), Array(Array(404, 'Not Found'), Array(200, '')));
+checkSame('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'view')), Array(404, 'Not Found'));
+checkSame('Checker role: no action named, the highest of the application', Array(roleReply($rolConf, 'system', Array('app'=>'probe', 'action'=>null)), roleReply($rolConf, 'manage', Array('app'=>'probe', 'action'=>null))), Array(Array(404, 'Not Found'), Array(200, '')));
 checkSame('Checker role: a route that asks for none', roleReply($rolConf, 'member', Array('app'=>'auth', 'action'=>'other')), Array(200, ''));
 checkSame('Checker role: nobody logged is a 401 first', roleReply($rolConf, '', Array('app'=>'users', 'action'=>'lock'))[0], 401);
 $dirRoute = Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*');
-checkSame('Checker role: a declared route, by its path', Array(roleReply($rolConf, 'member', $dirRoute), roleReply($rolConf, 'system', $dirRoute)), Array(Array(403, 'Forbidden'), Array(200, '')));
+checkSame('Checker role: a declared route, by its path', Array(roleReply($rolConf, 'member', $dirRoute), roleReply($rolConf, 'system', $dirRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkSame('Checker role: its * does not name another folder route', roleReply($rolConf, 'member', Array('rtePath'=>'docs/private/*') + $dirRoute), Array(200, ''));
 $actRoute = Array('app'=>'auth', 'action'=>'check', 'rteKind'=>'action', 'rtePath'=>'tokchk');
-checkSame('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'system', $actRoute), roleReply($rolConf, 'manage', $actRoute)), Array(Array(403, 'Forbidden'), Array(200, '')));
-checkSame('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(403, 'Forbidden'));
+checkSame('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'system', $actRoute), roleReply($rolConf, 'manage', $actRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
+checkSame('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkSame('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
 
 // The refused user stays identified, and is not sent to the sign-in route
 $axsRslt = (new Checker( Array('signin'=>'/login', 'openrt'=>Array('/login')) + $rolConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'admin')) ))->verifyAxs();
-checkSame('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('logged'), $axsRslt->readValue('user'), $axsRslt->readValue('role'), $axsRslt->readValue('wwwAuth'), $axsRslt->readValue('denyGoal')), Array(403, true, 'carol', 'system', null, null));
+checkSame('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readValue('statCode'), $axsRslt->readValue('logged'), $axsRslt->readValue('user'), $axsRslt->readValue('role'), $axsRslt->readValue('wwwAuth'), $axsRslt->readValue('denyGoal')), Array(404, true, 'carol', 'system', null, null));
 
 // A check that gives no role makes a member
 $keyConf = Array('rolert'=>Array('shows/*'=>'member', 'users/*'=>'system')) + $hdrConf;
 $checker = new Checker( $keyConf, fakeReqst(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'shows', 'action'=>'index')) );
 checkSame('Checker role: an API key meets the member role', $checker->verifyAxs()->readValue('statCode'), 200);
 $checker = new Checker( $keyConf, fakeReqst(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'users', 'action'=>'index')) );
-checkSame('Checker role: and no higher one', Array($checker->verifyAxs()->readValue('statCode'), $checker->verifyAxs()->readValue('role')), Array(403, 'member'));
+checkSame('Checker role: and no higher one', Array($checker->verifyAxs()->readValue('statCode'), $checker->verifyAxs()->readValue('role')), Array(404, 'member'));
 
 // A block that cannot be applied refuses every request
 $anyRoute = Array('app'=>'shows', 'action'=>'index');
@@ -437,8 +436,8 @@ checkSame('holdsRole: the highest role holds them all', roleActn('manage')[2], A
 checkSame('holdsRole: a role and those before it', roleActn('system')[2], Array('member'=>true, 'system'=>true, 'manage'=>false));
 checkSame('holdsRole: nobody logged holds none', roleActn('')[2], Array('member'=>false, 'system'=>false, 'manage'=>false));
 checkSame('needsRole: the action goes on with the role', roleActn('system', 'system')[0], 200);
-checkSame('needsRole: ends it with a 403 without', roleActn('member', 'system'), Array(403, 'Forbidden', null));
-checkSame('needsRole: and when nobody is logged', roleActn('', 'member'), Array(403, 'Forbidden', null));
+checkSame('needsRole: ends it with a 404 without', roleActn('member', 'system'), Array(404, 'Not Found', null));
+checkSame('needsRole: and when nobody is logged', roleActn('', 'member'), Array(404, 'Not Found', null));
 checkThrw('needsRole: an unknown role throws', function(){ roleActn('manage', 'root'); }, 'RuntimeException');
 nyu\Tools\Logger::plugSetup( Array() );
 $axsLogs = file_exists(inTempDir('actnlogs').DS.'access.log') ? file(inTempDir('actnlogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();

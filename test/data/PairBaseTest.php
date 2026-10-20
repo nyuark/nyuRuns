@@ -150,12 +150,12 @@ checkSame('clcert x device: the certificate alone decides', pairReply('clcert', 
 // Roles : measured against the role of the users table
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
 $anyRoute = Array('app'=>'shows', 'action'=>'index');
-checkSame('role: hbasic x native, by the role of the table', Array(pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('hbasic', 'native', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(403, 'Forbidden', 'ben', 'member'), Array(200, '', 'anna', 'manage')));
+checkSame('role: hbasic x native, by the role of the table', Array(pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('hbasic', 'native', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'member'), Array(200, '', 'anna', 'manage')));
 checkSame('role: header x native, the personal token has the role of its user', pairReply('header', 'native', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkSame('role: header x device, the device has the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
-checkSame('role: clcert x native, by the role of the table', Array(pairReply('clcert', 'native', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(403, 200));
+checkSame('role: clcert x native, by the role of the table', Array(pairReply('clcert', 'native', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
 $sqlLink->exec("UPDATE users SET userRole='member' WHERE userName='anna'");
-checkSame('role: a role taken back applies to the device and the certificate at once', Array(pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(403, 403));
+checkSame('role: a role taken back applies to the device and the certificate at once', Array(pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
 $sqlLink->exec("UPDATE users SET userRole='manage' WHERE userName='anna'");
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
@@ -175,7 +175,6 @@ dropFoldr(TOP_DIR.DS.$lmtFldr);
 plugConf( 0, Array('authby'=>'device', 'authcf'=>'tsdevc', 'sesscf'=>'tstokn') );
 $request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
-$mthProp->setAccessible(true);
 $mthProp->setValue($request, 'POST');
 $actnSet = new nyu\Runs\Auth\Actions( 'login', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), null, new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request );
 checkSame('login x device: no token is issued for a device token sent as a password', Array($actnSet->statCode, $actnSet->statMssg, $actnSet->asOutput), Array(401, 'No API key provided', null));

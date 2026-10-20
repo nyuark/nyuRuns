@@ -136,7 +136,8 @@ class Checker{
 	 * until its hold ends (see Limiter). A request denied an HTML page is
 	 * given the sign-in route to go to, when the 'auths' block names one
 	 * (see signinUrl). A logged user who does not hold the role its route
-	 * asks for (the 'rolert' key, see routeRole) is answered 403. The call
+	 * asks for (the 'rolert' key, see routeRole) is answered 404, as for a
+	 * route that does not exist; the refusal is logged (see logDenial). The call
 	 * of an application for one of its users is checked by its own key and
 	 * token (the 'appkey' key, see appsCalls).
 	 *
@@ -239,10 +240,10 @@ class Checker{
 		if( !in_array($usrRole, self::ROLELIST, true) ){
 			$usrRole = self::ROLELIST[0];
 		}
-		// A route asking for a role refuses a user who does not hold it : nothing is counted against the address
+		// A route asking for a role refuses a user who does not hold it, as if it did not exist : nothing is counted against the address
 		if( $needRle!==null && !self::roleMeets($usrRole, $needRle) ){
 			self::logDenial( strval($idntArr['user'] ?? ''), $usrRole, $needRle, $usrAddr, $this->routeGoal() );
-			return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>403, 'statMssg'=>'Forbidden') );
+			return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>404, 'statMssg'=>'Not Found') );
 		}
 		$this->logAttmpt( true, strval($idntArr['user'] ?? ''), '', $usrRole );
 		return new Registry( Array('logged'=>true, 'user'=>$idntArr['user'] ?? '', 'role'=>$usrRole, 'ident'=>$idntArr, 'statCode'=>200, 'statMssg'=>'') );

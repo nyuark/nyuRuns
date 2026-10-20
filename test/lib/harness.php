@@ -231,14 +231,11 @@ function fakeReqst( Array $headersArr=Array(), Array $serverVals=Array() ): nyu\
 	$reflect = new ReflectionClass('nyu\Tools\Request');
 	$request = $reflect->newInstanceWithoutConstructor();
 	$headPrp = $reflect->getProperty('allHeads');
-	$headPrp->setAccessible(true);
 	$headPrp->setValue($request, $headersArr);
 	// Keys in lower case, as the framework's own server registry holds them
 	$servPrp = $reflect->getProperty('serveReg');
-	$servPrp->setAccessible(true);
 	$servPrp->setValue($request, new nyu\Tools\Registry($serverVals + Array('REQUEST_METHOD'=>'GET'), true));
 	$clntPrp = $reflect->getProperty('clienReg');
-	$clntPrp->setAccessible(true);
 	$clntPrp->setValue($request, new nyu\Tools\ClientReg(fakeServr($serverVals)));
 	return $request;
 }

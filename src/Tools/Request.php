@@ -190,7 +190,19 @@ class Request{
 			$this->overSize = true;
 			return '';
 		}
-		$rawData = strval(file_get_contents('php://input', false, null, 0, $maxByts+1));
+		// Read piece by piece : PHP 8.2 reserves the whole length asked of file_get_contents() before reading
+		$rawData = '';
+		$strmHdl = fopen('php://input', 'rb');
+		if( $strmHdl!==false ){
+			while( !feof($strmHdl) && strlen($rawData)<=$maxByts ){
+				$pieceTx = fread($strmHdl, min(8192, $maxByts+1-strlen($rawData)));
+				if( $pieceTx===false || $pieceTx==='' ){
+					break;
+				}
+				$rawData .= $pieceTx;
+			}
+			fclose($strmHdl);
+		}
 		if( strlen($rawData)>$maxByts ){
 			$this->overSize = true;
 			return '';

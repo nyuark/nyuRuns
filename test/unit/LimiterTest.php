@@ -87,7 +87,6 @@ checkSame('by default, nine failures do not hold', $dfltLmt->heldUntil('203.0.11
 $dfltLmt->countFail('203.0.113.7', 1009);
 checkSame('by default, ten failures hold for ten minutes', $dfltLmt->heldUntil('203.0.113.7', 1010), 1609);
 $foldrPrp = new ReflectionProperty('nyu\Access\Limiter', 'cntFoldr');
-$foldrPrp->setAccessible(true);
 checkSame('the folder is read from the project root, temp/limits by default', Array($foldrPrp->getValue(new Limiter(Array())), $foldrPrp->getValue(new Limiter(Array('folder'=>'/var/tries/')))), Array(TOP_DIR.DS.'temp'.DS.'limits', TOP_DIR.DS.'var/tries'));
 
 // A folder that cannot be written limits nothing, and breaks nothing

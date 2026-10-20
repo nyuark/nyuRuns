@@ -82,6 +82,18 @@ checkSame('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?
 checkLike('the installation is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in usrlst \(member, system, managr\) by user "cli:/');
 checkSame('users alone: a store that holds users is left as it is; a store that is not one', Array(runShell($projDir, Array('deploy', 'users'))['text'], runShell($projDir, Array('deploy', 'users', '--store=other'))['code']), Array("The users file already holds users: nothing was changed.\n", 2));
 
+// start : the settings of a database are made with the native userbase only
+$baseDst = '{ "nyuRuns": { "type": "mysql", "host": "localhost", "port": "", "base": "nyuRuns", "user": "nyuruns", "pass": "env:NYU_DB_PASS", "char": "utf8" } }';
+$projDir = freshPrjt('nodbase');
+putInProj($projDir, 'conf/database.json.dist', $baseDst);
+$jsnVals = jsonShell($projDir, Array('deploy', 'start', '--noask', '--store=usrlst'));
+checkSame('in the users file, no settings of a database are made, and the check is clean', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'database.json'), stateOf($jsnVals)['databases'] ?? null), Array(0, false, 'fine'));
+$projDir = freshPrjt('wthbase');
+putInProj($projDir, 'conf/database.json.dist', $baseDst);
+jsonShell($projDir, Array('deploy', 'start', '--noask', '--store=native'));
+checkSame('with the native userbase, they are made from their example', readInPrj($projDir, 'conf/database.json'), $baseDst);
+checkSame('files alone still makes them all', Array(jsonShell(freshPrjt('allfles'), Array('deploy', 'files'))['rows'][2]['file'] ?? null), Array('conf/database.json'));
+
 // start, with its questions
 $projDir = freshPrjt('asked');
 $runVals = runShell($projDir, Array('deploy', 'start', '--quiet'), "\n\n");

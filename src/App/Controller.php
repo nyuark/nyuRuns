@@ -8,6 +8,7 @@ use nyu\Tools\Input;
 use nyu\Tools\Registry;
 use nyu\Tools\Request;
 use nyu\Tools\Router;
+use nyu\Tools\Logger;
 use nyu\Output\Response;
 
 /**
@@ -38,11 +39,13 @@ class Controller{
 	 * Loads the application's Actions.php file and prepares it (via
 	 * reflection) for execution, then loads its model stack. A missing
 	 * application, one whose name is not made of letters and digits only,
-	 * or one whose Actions.php does not declare its actionset,
-	 * is reported as a 404 through getStatus(), and so is an action found
-	 * from the path while a declared route answers with it (see
-	 * Router::shutsActn); a required input that is
-	 * missing or empty as a 400, the action not being run.
+	 * one whose Actions.php does not declare its actionset, a name that is
+	 * not one of its actions, and an action found from the path while a
+	 * declared route answers with it (see Router::shutsActn) are all the
+	 * same 404 "Not Found" through getStatus(): the client is not told
+	 * which. The reason is logged on the 'runner' channel. A default action
+	 * that names no action is a 500, logged as an error. A required input
+	 * that is missing or empty is a 400, the action not being run.
 	 *
 	 * @param String   $runAppName Name of the application (run) to load.
 	 * @param String   $runAppActn Name of the action/method to call on the application.
@@ -66,8 +69,10 @@ class Controller{
 		$this->httpResp = $httpRespns;
 		$this->routrObj = $routingObj;
 		// The name goes into a path and a class name : letters and digits only, anything else is no application
+		$logText = 'Not found: '.json_encode($runAppName.'/'.$runAppActn, JSON_INVALID_UTF8_SUBSTITUTE).': ';
 		if( !preg_match('/^[A-Za-z0-9]+$/D', $runAppName) ){
-			$this->loadFail = 'Unknown Application';
+			$this->loadFail = 'Not Found';
+			Logger::getLogger('runner')->info( $logText.'not a name of an application'.Logger::actorText() );
 			return;
 		}
 		// Check that application exists
@@ -81,25 +86,43 @@ class Controller{
 				// Load the actionset in a reflection class
 				$this->appObjct = new \ReflectionClass($actNSpc.'Actions');
 			}catch(\ReflectionException $e){
-				// Actions.php does not declare the application's actionset : reported through getStatus()
-				$this->loadFail = 'Unknown Application';
+				// Actions.php does not declare the application's actionset : a mistake of the application, told to the client as nothing found
+				$this->loadFail = 'Not Found';
+				Logger::getLogger('runner')->warning( $logText.'Actions.php of the application declares no actionset'.Logger::actorText() );
 				return;
 			}
 		}else{
 			// Unknown application : reported through getStatus()
-			$this->loadFail = 'Unknown Application';
+			$this->loadFail = 'Not Found';
+			Logger::getLogger('runner')->info( $logText.'unknown application'.Logger::actorText() );
 			return;
 		}
+		$isDeflt = false;
 		if( $this->savedAct=='' ){
 			$this->savedAct = $this->defltActn();
+			$isDeflt = true;
 		}
 		// An action a declared route answers with is only reached through that route
 		if( $this->routrObj!==null ){
 			$actName = ( preg_match('/^\w+$/', $this->savedAct) && $this->appObjct->hasMethod($this->savedAct) ) ? $this->appObjct->getMethod($this->savedAct)->getName() : $this->savedAct;
 			if( $this->routrObj->shutsActn($this->appIdent, $actName, strcasecmp($actName, $this->defltActn())==0) ){
-				$this->loadFail = 'Unknown Application';
+				$this->loadFail = 'Not Found';
+				Logger::getLogger('runner')->info( $logText.'the action is only reached through its declared route'.Logger::actorText() );
 				return;
 			}
+		}
+		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
+		$clsName = $this->appObjct->getName();
+		if( !$clsName::ownAction($this->savedAct) ){
+			if( $isDeflt ){
+				$this->failCode = 500;
+				$this->loadFail = 'Internal Server Error';
+				Logger::getLogger('runner')->error( 'The default action of '.$runAppName.' is not an action: '.json_encode($this->savedAct, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltActn, or no action declared)' );
+				return;
+			}
+			$this->loadFail = 'Not Found';
+			Logger::getLogger('runner')->info( $logText.'not an action of the application'.Logger::actorText() );
+			return;
 		}
 		$this->actInputs();
 		if( $this->loadFail!==null ){
@@ -185,7 +208,8 @@ class Controller{
 	// Prepare outcome message and/or data
 	/**
 	 * Returns the status of the executed action, or of what kept it from
-	 * running: the application load (404) or its required inputs (400).
+	 * running: the application or the action not found (404), a default
+	 * action that names none (500), or its required inputs (400).
 	 *
 	 * @return Array The status as ['code' => Int, 'mssg' => String].
 	 */

@@ -26,7 +26,6 @@ function madeRoutr( String $urlAddress, String $httpMethod='GET', Array $routeCo
 	$request = fakeReqst();
 	foreach( Array('inMethod'=>$httpMethod, 'queryURI'=>Array('reqstURI'=>$urlAddress)) as $prpNme=>$prpVal ){
 		$propObj = new ReflectionProperty($request, $prpNme);
-		$propObj->setAccessible(true);
 		$propObj->setValue($request, $prpVal);
 	}
 	return new Router( $routeConfg + Array('detect'=>'autopath', 'mapper'=>'$app/$action/$param', 'folder'=>'test'.DS.'fixtures'.DS.'routes', 'htroot'=>'test'.DS.'fixtures'.DS.'pages'), $request );
@@ -52,7 +51,7 @@ $pageDir = realpath(TST_DIR.DS.'fixtures'.DS.'pages');
 $moveKey = Array('rteKind', 'rteGoal', 'rteCode');
 $fileKey = Array('rteKind', 'rteGoal', 'rteType');
 $statKey = Array('statCode', 'statMssg');
-$notFile = Array(404, 'File not found');
+$notFile = Array(404, 'Not Found');
 $txtType = 'text/plain; charset=utf-8';
 
 // Action routes still resolve, and tell their kind and their declared path
@@ -162,7 +161,6 @@ function ranAction( String $actionName, ?String $actnOption=null ): Array|String
 		$respons = new Response();
 		$actnObj = new nyu\Runs\Probe\Actions( $actionName, $actnOption, new Registry(Array()), null, null, fakeReqst(), $respons, madeRoutr('/') );
 		$headPrp = new ReflectionProperty($respons, 'headrArr');
-		$headPrp->setAccessible(true);
 		ob_start();
 		$respons->sendOutpt();
 		return Array($actnObj->statCode, strval($actnObj->statMssg), ob_get_clean(), $headPrp->getValue($respons));
@@ -178,8 +176,8 @@ $pageRun = (array)ranAction('page');
 checkSame('helper: a page, with its status', array_slice($pageRun, 0, 2), Array(200, ''));
 checkSame('helper: its values encoded and its link built', strpos(strval($pageRun[2] ?? ''), '<h1>&lt;b&gt;Tom &amp; &quot;Jerry&quot;&lt;/b&gt;</h1><a href="/items/a%20b?tab=x%20y">next</a>')!==false, true);
 checkSame('helper: a page with its own status', array_slice((array)ranAction('page', 'gone'), 0, 2), Array(404, ''));
-checkSame('helper: a missing page is a 404', ranAction('page', 'none'), Array(404, 'Page not found', '', Array()));
-checkSame('helper: a name cannot lead out of the pages', ranAction('page', 'out'), Array(404, 'Page not found', '', Array()));
+checkSame('helper: a missing page is a 404', ranAction('page', 'none'), Array(404, 'Not Found', '', Array()));
+checkSame('helper: a name cannot lead out of the pages', ranAction('page', 'out'), Array(404, 'Not Found', '', Array()));
 checkLike('helper: a link to an undeclared route fails', ranAction('link', 'x'), '/^THROWN RuntimeException: No route is declared/');
 
 // An action a declared route answers with is closed to the path : it is only reached through its route

@@ -46,6 +46,50 @@ Before real users come:
 - Serve the `www` folder and nothing else. `conf`, `runs`, `src`, `temp`,
   `test` and `vendor` must not be reachable over HTTP.
 - Remove from `www` what your site does not use.
+- Run PHP 8.2 at least, in a release that fixes php2shell (CVE-2026-109618,
+  CVE-2026-109619): 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later. PHP 8.0 and 8.1
+  have no release fixing it. A distribution that backports the fix keeps the
+  number of its release, so the check gives a `warn` (`php patch`), not a
+  `fail`: ask the host whether the fix is in.
+- Set `session.upload_progress.enabled = 0` in `php.ini` (or `.user.ini`,
+  `.htaccess`; it cannot be set at run time). It closes CVE-2026-115560 until
+  PHP fixes it, and the framework does not use it. The check warns while it is
+  on (`upload progress`).
+
+### Web server
+
+The route is read from the whole path of the address (`REQUEST_URI`): the
+web server sends every path to `www/index.php`, and the project is served
+at the root of its host, not in a sub-folder of another site.
+
+Apache, with `www` as the `DocumentRoot`:
+
+```apache
+<Directory /var/www/project/www>
+    AllowOverride None
+    Require all granted
+    FallbackResource /index.php
+</Directory>
+```
+
+nginx, with PHP-FPM:
+
+```nginx
+root /var/www/project/www;
+
+location / {
+    try_files $uri /index.php$is_args$args;
+}
+
+location = /index.php {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    fastcgi_pass unix:/run/php/php-fpm.sock;
+}
+```
+
+Keep no other `.php` file in `www`: Apache would run it, and the nginx
+setup above would send its source as a file.
 
 ## 3. Reverse proxy
 

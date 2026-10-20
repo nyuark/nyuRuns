@@ -40,7 +40,8 @@ class SqlStore implements Store {
 	}
 
 	/**
-	 * Describes a table: its field names and its key field.
+	 * Describes a table: its field names and its key field, asking the
+	 * database once for each table.
 	 *
 	 * @param String $tableLabel Name of the table.
 	 * @return Array|Bool The field names under 'flds', the key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
@@ -48,7 +49,15 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	public function tableInfo(String $tableLabel): Array|Bool {
-		return $this->dbHandle->tableInfo($tableLabel);
+		if( !isset($this->infoList[$tableLabel]) ){
+			$tblInfo = $this->dbHandle->tableInfo($tableLabel);
+			// A table that cannot be described is asked again next time
+			if( !is_array($tblInfo) ){
+				return false;
+			}
+			$this->infoList[$tableLabel] = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
+		}
+		return $this->infoList[$tableLabel];
 	}
 
 	/**
@@ -199,23 +208,17 @@ class SqlStore implements Store {
 	}
 
 	/**
-	 * Tells the fields of a table and which of them are binary, asking the
-	 * database once for each table.
+	 * Tells the fields of a table and which of them are binary, from its
+	 * description (tableInfo()).
 	 *
 	 * @param String $tableLabel Name of the table.
-	 * @return Array The field names under 'flds' and the binary ones under 'blob'; both empty when the table cannot be described.
+	 * @return Array The field names under 'flds', the key field under 'pkey' and the binary ones under 'blob'; all empty when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	protected function tableFlds(String $tableLabel): Array {
-		if( !isset($this->infoList[$tableLabel]) ){
-			$tblInfo = $this->dbHandle->tableInfo($tableLabel);
-			if( !is_array($tblInfo) ){
-				return Array('flds'=>Array(), 'blob'=>Array());
-			}
-			$this->infoList[$tableLabel] = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
-		}
-		return $this->infoList[$tableLabel];
+		$tblInfo = $this->tableInfo($tableLabel);
+		return is_array($tblInfo) ? $tblInfo : Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
 	}
 
 	/**

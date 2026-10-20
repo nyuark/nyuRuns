@@ -44,7 +44,6 @@ function makePairs( String $namePrefix ): Array {
 function appsReqst( Array $headersArr, String $httpMethod='GET' ): nyu\Tools\Request {
 	$request = fakeReqst( $headersArr, Array('REQUEST_METHOD'=>$httpMethod, 'REMOTE_ADDR'=>'10.0.0.7') );
 	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
-	$mthProp->setAccessible(true);
 	$mthProp->setValue($request, $httpMethod);
 	return $request;
 }

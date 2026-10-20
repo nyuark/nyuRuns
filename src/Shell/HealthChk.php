@@ -29,6 +29,8 @@ class HealthChk{
 	const MOREEXTS = Array('openssl', 'mbstring', 'zip', 'gd', 'exif', 'imagick');
 	// Shortest secret signing the tokens, in characters
 	const SECRSIZE = 32;
+	// First release of each branch of PHP fixing php2shell (CVE-2026-109618, CVE-2026-109619)
+	const PTCHLIST = Array('8.2'=>'8.2.35', '8.3'=>'8.3.36', '8.4'=>'8.4.27', '8.5'=>'8.5.12');
 
 	protected $rowsList = Array();
 
@@ -67,10 +69,20 @@ class HealthChk{
 	}
 
 	/**
-	 * Checks the server: the version of PHP, and its extensions.
+	 * Checks the server: the version of PHP, the fixes it holds, the
+	 * upload progress of the sessions, and its extensions. A release older
+	 * than the fix of its branch is a warning only: the distributions that
+	 * backport a fix keep the number of the release.
 	 */
 	public function chkServer(): Void {
-		$this->addResult( 'php', version_compare(PHP_VERSION, '8.0.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.0 at least is needed' );
+		$this->addResult( 'php', version_compare(PHP_VERSION, '8.2.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.2 at least is needed' );
+		$phpBrch = PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
+		if( isset(self::PTCHLIST[$phpBrch]) ){
+			$patched = version_compare(PHP_VERSION, self::PTCHLIST[$phpBrch], '>=');
+			$this->addResult( 'php patch', $patched ? 'fine' : 'warn', $patched ? 'php2shell fixed' : 'php2shell (CVE-2026-109618, CVE-2026-109619) is fixed from '.self::PTCHLIST[$phpBrch].': update, unless the fix was backported' );
+		}
+		$upldPrg = filter_var(ini_get('session.upload_progress.enabled'), FILTER_VALIDATE_BOOLEAN);
+		$this->addResult( 'upload progress', $upldPrg ? 'warn' : 'fine', $upldPrg ? 'on: set session.upload_progress.enabled = 0 in php.ini (CVE-2026-115560), the framework does not use it' : 'off' );
 		$this->addResult( 'extension json', extension_loaded('json') ? 'fine' : 'fail', extension_loaded('json') ? 'loaded' : 'not loaded: nothing can be read or answered' );
 		$lackLst = array_values( array_filter(self::MOREEXTS, function( String $extnsnName ): Bool { return !extension_loaded($extnsnName); }) );
 		$this->addResult( 'extensions', empty($lackLst) ? 'fine' : 'warn', empty($lackLst) ? 'the optional ones are loaded' : 'optional, not loaded: '.implode(', ', $lackLst) );

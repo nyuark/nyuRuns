@@ -90,6 +90,6 @@ checkSame('view: missing show is 404', Array($outcome['code'] ?? null, $outcome[
 
 // unknown action
 $outcome = runAction('nope');
-checkSame('unknown action is 500', Array($outcome['code'] ?? null, $outcome['mssg'] ?? null, $outcome['out'] ?? null), Array(500, 'Unknown Action', null));
+checkSame('unknown action is 404', Array($outcome['code'] ?? null, $outcome['mssg'] ?? null, $outcome['out'] ?? null), Array(404, 'Not Found', null));
 
 endChecks();

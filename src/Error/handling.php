@@ -161,9 +161,9 @@ function hndlFatal(): Void
 {
     $lastErr = error_get_last();
 
-    // Unset Error Type and Message implies a proper shutdown.
+    // Unset Error Type and Message implies a proper shutdown : the shutdown functions registered after this one still run
     if( !isset($lastErr['type']) && !isset($lastErr['message']))
-        exit();
+        return;
 
     $isFatal = in_array($lastErr['type'], Array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR));
     if( $isFatal && !headers_sent() ){
@@ -402,7 +402,7 @@ class ErrorHandler
             case E_WARNING: case E_USER_WARNING: case E_CORE_WARNING: case E_COMPILE_WARNING:
                 $this->logrInst->warning($logMssg, $logCntx);
                 break;
-            case E_NOTICE: case E_USER_NOTICE: case E_STRICT: case E_DEPRECATED: case E_USER_DEPRECATED:
+            case E_NOTICE: case E_USER_NOTICE: case E_DEPRECATED: case E_USER_DEPRECATED:
                 $this->logrInst->notice($logMssg, $logCntx);
                 break;
             default:
@@ -483,9 +483,6 @@ class ErrorHandler
                 break;
             case E_USER_NOTICE: // 1024 //
                 $retnVal = 'E_USER_NOTICE';
-                break;
-            case E_STRICT: // 2048 //
-                $retnVal = 'E_STRICT';
                 break;
             case E_RECOVERABLE_ERROR: // 4096 //
                 $retnVal = 'E_RECOVERABLE_ERROR';
