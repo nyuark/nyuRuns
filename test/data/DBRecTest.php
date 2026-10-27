@@ -81,7 +81,7 @@ checkSame('update keeps the key and escapes quotes', runSafely(function(){
 	$showRec->bindArray(Array('venue'=>"O'Hall", 'bogus'=>'ignored'));
 	$savedKy = $showRec->saveRecrd();
 	return Array($savedKy, loadAShow('2'));
-}), Array('2', Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>"O'Hall")));
+}), Array(2, Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>"O'Hall")));
 
 checkSame('update of a row holding NULL keeps the NULL', runSafely(function(){
 	$showRec = new DBRec('shows');
@@ -115,7 +115,7 @@ checkSame('a record loaded with its relations can be saved', runSafely(function(
 	$evntLst = new nyu\Data\DBLst('events');
 	$evntLst->lstSearch(Array('show_id'=>'1'));
 	return Array($savedKy, loadAShow('1'), count($evntLst->readItems()));
-}), Array('1', Array('id_show'=>1, 'title'=>'Alpha Night', 'venue'=>'Hall X'), 2));
+}), Array(1, Array('id_show'=>1, 'title'=>'Alpha Night', 'venue'=>'Hall X'), 2));
 
 checkSame('an update with nothing to save returns the key', runSafely(function(){
 	$showRec = new DBRec('shows');
@@ -123,7 +123,7 @@ checkSame('an update with nothing to save returns the key', runSafely(function()
 	$showRec->bindArray(Array('title'=>'Never Saved'));
 	$savedKy = $showRec->saveRecrd(Array('title', 'venue'));
 	return Array($savedKy, loadAShow('4'));
-}), Array('4', Array('id_show'=>4, 'title'=>'Solo Gig II', 'venue'=>'Hall S')));
+}), Array(4, Array('id_show'=>4, 'title'=>'Solo Gig II', 'venue'=>'Hall S')));
 
 // Inserting
 checkSame('insert without a key returns the new key', runSafely(function(){
@@ -131,7 +131,7 @@ checkSame('insert without a key returns the new key', runSafely(function(){
 	$showRec->bindArray(Array('title'=>'Gamma', 'venue'=>'Hall G'));
 	$savedKy = $showRec->saveRecrd();
 	return Array($savedKy, loadAShow($savedKy));
-}), Array('6', Array('id_show'=>6, 'title'=>'Gamma', 'venue'=>'Hall G')));
+}), Array(6, Array('id_show'=>6, 'title'=>'Gamma', 'venue'=>'Hall G')));
 
 checkSame('insert with a NULL value and a quote', runSafely(function(){
 	$showRec = new DBRec('shows');
@@ -167,7 +167,7 @@ checkSame('without initRecrd, a second item overwrites the loaded row', runSafel
 	$showRec->loadRecrd('50');
 	$showRec->bindArray(Array('title'=>'Delta III'));
 	return Array($showRec->saveRecrd(), loadAShow('50')['title']);
-}), Array('50', 'Delta III'));
+}), Array(50, 'Delta III'));
 
 checkSame('after initRecrd, a second item is a new row', runSafely(function(){
 	$showRec = new DBRec('shows');
@@ -176,7 +176,7 @@ checkSame('after initRecrd, a second item is a new row', runSafely(function(){
 	$showRec->bindArray(Array('title'=>'Zeta', 'venue'=>'Hall Z'));
 	$savedKy = $showRec->saveRecrd();
 	return Array($savedKy, loadAShow('50')['title'], loadAShow($savedKy));
-}), Array('51', 'Delta III', Array('id_show'=>51, 'title'=>'Zeta', 'venue'=>'Hall Z')));
+}), Array(51, 'Delta III', Array('id_show'=>51, 'title'=>'Zeta', 'venue'=>'Hall Z')));
 
 // Relations
 checkSame('childList returns the record when asked', runSafely(function(){
@@ -251,7 +251,7 @@ checkSame('empty table: a first row can be inserted', runSafely(function(){
 	$noteRec->bindArray(Array('body'=>'First'));
 	$savedKy = $noteRec->saveRecrd();
 	return Array($savedKy, $noteRec->loadRecrd($savedKy));
-}), Array('1', Array('id_note'=>1, 'body'=>'First')));
+}), Array(1, Array('id_note'=>1, 'body'=>'First')));
 checkThrw('missing table throws', function(){ new DBRec('nowhere'); }, 'RuntimeException');
 checkLike('a table name that is not a plain name is refused', runSafely(function(){ return new DBRec('shows` WHERE 1=1; --'); }), '/^THROWN RuntimeException: Invalid table or field name/');
 

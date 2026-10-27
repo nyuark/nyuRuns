@@ -184,7 +184,8 @@ class UserBase extends Native{
 			return $this->refuseFor(500, 'Credential store unavailable');
 		}
 		if( !empty($dupRows) ){
-			$logInst->info( 'Sign-up as '.json_encode($userString).': the name or the address is taken'.Logger::actorText() );
+			// A refusal the client is not told about: always traced
+			$logInst->notice( 'Sign-up as '.json_encode($userString).': the name or the address is taken'.Logger::actorText() );
 			return '';
 		}
 		$newCode = $this->freshCode();
@@ -267,7 +268,7 @@ class UserBase extends Native{
 		if( is_array($usrVals) && ($usrVals['userStat'] ?? '')=='review' ){
 			Logger::getLogger('access')->notice( 'User '.json_encode($userString).' confirmed its address, awaits review'.Logger::actorText() );
 		}else{
-			Logger::getLogger('access')->info( 'User '.json_encode($userString).' activated'.Logger::actorText() );
+			Logger::getLogger('access')->notice( 'User '.json_encode($userString).' activated'.Logger::actorText() );
 		}
 		return true;
 	}
@@ -317,7 +318,8 @@ class UserBase extends Native{
 		}
 		$logInst = Logger::getLogger('access');
 		if( empty($usrRows) ){
-			$logInst->info( 'Reset asked for an unknown user'.Logger::actorText() );
+			// A failure, and the trace of names tried: always traced
+			$logInst->notice( 'Reset asked for an unknown user'.Logger::actorText() );
 			return $this->refuseFor(404, 'User not found');
 		}
 		$usrName = strval($usrRows[0]['userName']);
@@ -362,7 +364,7 @@ class UserBase extends Native{
 			$this->wrongCrd = true;
 			return $this->refuseFor(401, 'Invalid code');
 		}
-		Logger::getLogger('access')->info( 'Password of user '.json_encode($userString).' reset with its code'.Logger::actorText() );
+		Logger::getLogger('access')->notice( 'Password of user '.json_encode($userString).' reset with its code'.Logger::actorText() );
 		return true;
 	}
 
@@ -468,7 +470,7 @@ class UserBase extends Native{
 			// setPasswd tells the rule that is broken; without one, the table could not be written
 			return ($this->lastMssg!='') ? $this->refuseFor(400, $this->lastMssg) : $this->refuseFor(500, 'Credential store unavailable');
 		}
-		$logInst->info( 'Password changed for user '.json_encode($userString).Logger::actorText() );
+		$logInst->notice( 'Password changed for user '.json_encode($userString).Logger::actorText() );
 		return true;
 	}
 

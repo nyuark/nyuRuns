@@ -37,6 +37,9 @@ class Limiter{
 	/**
 	 * Tells whether an address is held back after too many wrong
 	 * credentials: as many as allowed, the last one within the hold time.
+	 * A counter whose hold time has passed, or that is not one, is removed
+	 * once read, as dropStale() does: an address that stopped failing is
+	 * no longer read on each of its requests.
 	 *
 	 * @param String $clientAddr Address of the client.
 	 * @param ?Int   $unixMoment Unix time to check at; now when not given.
@@ -56,7 +59,12 @@ class Limiter{
 		$cntVals = $this->readCount( strval(stream_get_contents($cntFile)) );
 		flock($cntFile, LOCK_UN);
 		fclose($cntFile);
-		if( $cntVals===null || $cntVals['fails']<$this->maxTries || $cntVals['stamp']+$this->holdSecs<=$nowTime ){
+		if( $cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime ){
+			// A failure counted meanwhile would have started again at 1
+			@unlink($cntPath);
+			return 0;
+		}
+		if( $cntVals['fails']<$this->maxTries ){
 			return 0;
 		}
 		return $cntVals['stamp']+$this->holdSecs;

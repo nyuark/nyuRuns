@@ -4,6 +4,7 @@ namespace nyu\Shell\Cmds;
 
 use nyu\Access\Checker;
 use nyu\Data\Dcmnt;
+use nyu\Setup\ConfCache;
 use nyu\Setup\Preset;
 use nyu\Shell\ActCaller;
 use nyu\Shell\Command;
@@ -27,10 +28,11 @@ use nyu\Tools\Router;
  *   php nyuRun config entry index webapi        the preset www/index.php starts the Runner with
  *   php nyuRun config secrt jtoken              a new secret, written where the config reads it
  *   php nyuRun config route webapi              the routes of a preset, and who they are served to
+ *   php nyuRun config cache                     removes the config cache, after conf was edited by hand
  *
  * A file is written as ConfFile does: comments and layout kept, the
  * former file copied to temp/backup. A change that leaves the file
- * unusable is undone.
+ * unusable is undone, and every change removes the config cache.
  */
 class Config extends Command{
 
@@ -43,7 +45,7 @@ class Config extends Command{
 	// What the keys of system.ini that are checked may hold
 	const RULELIST = Array(
 		'ENV_NAME'=>'/^(DEV|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMBER|WEEKLY|MONTHS|UNIQUE)$/D',
-		'ERR_SHOW'=>'/^(TRUE|FALSE)$/D', 'LOG_SIZE'=>'/^\d{1,9}$/D', 'LST_ROWS'=>'/^[1-9]\d{0,8}$/D', 'SND_TIME'=>'/^[1-9]\d{0,8}$/D',
+		'ERR_SHOW'=>'/^(TRUE|FALSE)$/D', 'CNF_CACH'=>'/^(TRUE|FALSE)$/D', 'TBL_CACH'=>'/^(TRUE|FALSE)$/D','LOG_SIZE'=>'/^\d{1,9}$/D', 'LST_ROWS'=>'/^[1-9]\d{0,8}$/D', 'SND_TIME'=>'/^[1-9]\d{0,8}$/D',
 		'REQ_SIZE'=>'/^\d{1,9}$/D', 'REQ_PART'=>'/^\d{1,9}$/D', 'LNG_DFLT'=>'/^[a-z]{2,3}([-_][a-z0-9]{2,8})*$/Di', 'ERR_LEVL'=>'/^(\d{1,9}|~?\s*E_[A-Z_]+(\s*[|&]\s*~?\s*E_[A-Z_]+)*)$/D'
 	);
 	// The call that starts the Runner in an entry point, and the preset it names
@@ -69,8 +71,23 @@ class Config extends Command{
 			'write'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--force]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
 			'entry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
 			'secrt'=>Array('args'=>'<jtoken|apikey|tfakey|htpass> [user] [--block=<name>] [--shown] [--typed]', 'about'=>'makes a secret and writes it where the config reads it'),
-			'route'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access')
+			'route'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
+			'cache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
 		);
+	}
+
+	/**
+	 * Removes the config cache (ConfCache), as anything written in conf by
+	 * this command does: to be run after conf, a preset or a route file
+	 * was edited by hand, CNF_CACH included.
+	 *
+	 * @return Int The exit code.
+	 */
+	public function callCache(): Int {
+		$dropNum = ConfCache::dropCache();
+		$this->traceDone( 'Config: cache removed, '.$dropNum.' files' );
+		$this->prntObjc->printPair('cache files removed', $dropNum);
+		return self::EXITDONE;
 	}
 
 	/**

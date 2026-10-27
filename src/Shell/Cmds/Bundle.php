@@ -15,6 +15,7 @@ use nyu\Shell\ConfFile;
  *   php nyuRun bundle final --archv         the same, and its .tar.gz beside it
  *   php nyuRun bundle final --plans         lists what would be copied, and writes nothing
  *   php nyuRun bundle final --place=<path>  in another folder than dist/<mode>, which must be empty
+ *   php nyuRun bundle final --cmpsr=<path>  with the Composer that makes its class map
  *   php nyuRun bundle packs                 lists the modes, those of the framework and those of the project
  *   php nyuRun bundle mkpak qatst           declares a mode of the project (an integration server), or changes it
  *   php nyuRun bundle rmpak qatst           removes a mode of the project
@@ -24,7 +25,8 @@ use nyu\Shell\ConfFile;
  * the paths the mode adds, and nothing DROPLIST names within them: no
  * secret, no local setting and no private key reach a bundle. The
  * settings of the mode are written in the system.ini of the copy, never
- * in the project's own.
+ * in the project's own. The copy of an environment of MAPSENVS finds its
+ * classes from a complete class map, which Composer makes in it.
  */
 class Bundle extends Command{
 
@@ -32,8 +34,11 @@ class Bundle extends Command{
 	const MODELIST = Array(
 		'local'=>Array('ENV_NAME'=>'DEV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
 		'stage'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
-		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE')
+		// Production writes errors, warnings and notices: no line for each access of a member
+		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
 	);
+	// The environments whose bundle finds every class from a complete class map, without looking for files, and caches its config (CNF_CACH)
+	const MAPSENVS = Array('PREV', 'PROD');
 	// What a bundle holds, from the project root : nothing else is copied, but what a mode adds
 	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE', 'NOTICE');
 	// What is left out of those, from the project root : the local settings, their secrets, the private keys, the modes of the project
@@ -57,7 +62,7 @@ class Bundle extends Command{
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTable(): Array {
-		$optText = '[--place=<path>] [--archv] [--plans] [--agree]';
+		$optText = '[--place=<path>] [--archv] [--plans] [--agree] [--cmpsr=<path>]';
 		$subList = Array(
 			'local'=>Array('args'=>$optText, 'about'=>'a bundle for a developer\'s machine: DEV, errors shown, full logs'),
 			'stage'=>Array('args'=>$optText, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
@@ -228,6 +233,7 @@ class Bundle extends Command{
 			$this->stopShell('No bundle made: its folder cannot be the project, nor a folder the bundle copies', self::EXITUSGE);
 		}
 		if( $this->optnObjc->hasOption('plans') ){
+			$this->classMaps($trgtDir, $bundleMode, false);
 			return $this->listPlans($trgtDir, $modVals['adding']);
 		}
 		if( is_dir($trgtDir) && count((array)scandir($trgtDir))>2 ){
@@ -251,6 +257,8 @@ class Bundle extends Command{
 			@mkdir($trgtDir.DS.$fldNme, 0775, true);
 		}
 		$this->setsModes($trgtDir, $bundleMode);
+		// Before the archive, which holds it
+		$this->classMaps($trgtDir, $bundleMode, true);
 		$this->prntObjc->printPair('mode', $bundleMode);
 		$this->prntObjc->printPair('folder', $trgtDir);
 		$this->prntObjc->printPair('files', count($keptLst));
@@ -441,6 +449,81 @@ class Bundle extends Command{
 				$this->stopShell('The bundle is not set for its mode: its system.ini has no '.$iniKey);
 			}
 		}
+		// The config cache, as the class map, for the environments of MAPSENVS; a system.ini made before it is told, not refused
+		if( !$wrtrObj->setIniKey($iniPath, 'CNF_CACH', in_array($this->readModes()[$bundleMode]['system']['ENV_NAME'] ?? '', self::MAPSENVS, true) ? 'TRUE' : 'FALSE') ){
+			$this->prntObjc->printFail('The config is read on each request: the system.ini of the project has no CNF_CACH (see conf/system.ini of the framework)');
+		}
+	}
+
+	/**
+	 * Makes the autoloader of a bundle for an environment of MAPSENVS find
+	 * every class from its class map, without looking for files: Composer
+	 * is run on the copy (dump-autoload, optimised, authoritative, without
+	 * the packages for development). Another environment keeps the
+	 * autoloader of the project, as does a bundle Composer could not
+	 * work on: it is told, and the bundle works without the map.
+	 *
+	 * @param String $targetPath Full path of the folder of the bundle.
+	 * @param String $bundleMode A mode of the framework or of the project.
+	 * @param Bool   $writeFiles Whether Composer is run, or only told about (--plans).
+	 * @return Bool Whether the class map was made, or would be.
+	 */
+	protected function classMaps( String $targetPath, String $bundleMode, Bool $writeFiles ): Bool {
+		if( !in_array($this->readModes()[$bundleMode]['system']['ENV_NAME'] ?? '', self::MAPSENVS, true) ){
+			$this->prntObjc->printPair('class map', 'the one of the project, for its '.implode(' and ', self::MAPSENVS).' bundles only');
+			return false;
+		}
+		$cmdList = $this->findCmpsr();
+		if( $cmdList===null ){
+			$this->prntObjc->printFail('The autoloader is not optimised: Composer was not found (--cmpsr=<path>); run composer dump-autoload -o -a --no-dev in the bundle');
+			return false;
+		}
+		if( !$writeFiles ){
+			$this->prntObjc->printPair('class map', 'complete, made by '.end($cmdList));
+			return true;
+		}
+		$cmdList = array_merge( $cmdList, Array('dump-autoload', '--optimize', '--classmap-authoritative', '--no-dev', '--no-interaction', '--working-dir='.$targetPath) );
+		$outText = Array();
+		$exitCod = 0;
+		exec( implode(' ', array_map('escapeshellarg', $cmdList)).' 2>&1', $outText, $exitCod );
+		if( $exitCod!==0 ){
+			$this->prntObjc->printFail('The autoloader is not optimised: Composer ended with '.$exitCod.( empty($outText) ? '' : ': '.trim(strval(end($outText))) ).'; run composer dump-autoload -o -a --no-dev in the bundle');
+			return false;
+		}
+		$this->prntObjc->printPair('class map', 'complete');
+		$this->traceDone( 'Bundle: '.$bundleMode.', class map made by Composer in '.$targetPath );
+		return true;
+	}
+
+	/**
+	 * Finds Composer: the file --cmpsr names, else composer.phar at the
+	 * root of the project, else Composer on the PATH (composer.phar, or
+	 * composer, composer.bat on Windows). A phar is run with the PHP
+	 * running this command.
+	 *
+	 * @return ?Array The command that runs Composer, as a list of words; null when there is none.
+	 */
+	protected function findCmpsr(): ?Array {
+		$cmpPath = strval($this->optnObjc->getOption('cmpsr', ''));
+		if( $cmpPath!='' ){
+			if( !is_file($cmpPath) ){
+				return null;
+			}
+		}elseif( is_file(TOP_DIR.DS.'composer.phar') ){
+			$cmpPath = TOP_DIR.DS.'composer.phar';
+		}else{
+			foreach( explode(PATH_SEPARATOR, strval(getenv('PATH'))) as $dir ){
+				foreach( (DS=='\\') ? Array('composer.phar', 'composer.bat') : Array('composer.phar', 'composer') as $bin ){
+					if( $cmpPath=='' && trim($dir)!='' && is_file(rtrim($dir, '/\\').DS.$bin) ){
+						$cmpPath = rtrim($dir, '/\\').DS.$bin;
+					}
+				}
+			}
+		}
+		if( $cmpPath=='' ){
+			return null;
+		}
+		return (strtolower(pathinfo($cmpPath, PATHINFO_EXTENSION))=='phar') ? Array(PHP_BINARY, $cmpPath) : Array($cmpPath);
 	}
 
 	/**

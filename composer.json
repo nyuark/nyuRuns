@@ -15,6 +15,9 @@
 			"nyu\\": "src/"
 		}
 	},
+	"config": {
+		"optimize-autoloader": true
+	},
     "require": {
         "php": ">=8.2",
         "ext-json": "*",

@@ -3,6 +3,8 @@
 namespace nyu;
 
 use nyu\Setup\Preset;
+use nyu\Setup\Loader;
+use nyu\Setup\ConfCache;
 use nyu\App\Controller;
 use nyu\Tools\Registry;
 use nyu\Tools\Logger;
@@ -41,11 +43,17 @@ class Runner{
 	 */
 	function __construct( String $initPreset = '', Array $overLoaded = Array() ){
 		try{
-			// Load the preset object and call setup
-			$this->nyPreset = new Preset($initPreset);
+			// The config cache of the preset stands for its files, when there is one (CNF_CACH)
+			$cchVals = ConfCache::readCache($initPreset);
+			if( $cchVals!==null ){
+				$this->setupCon = new Loader( $cchVals['preset'], $cchVals, ($initPreset=='') ? 'dfault' : $initPreset );
+			}else{
+				// Load the preset object and call setup
+				$this->nyPreset = new Preset($initPreset);
+				$this->setupCon = $this->nyPreset->makeSetup();
+			}
 
-			// Prepare setup and overload when required
-			$this->setupCon = $this->nyPreset->makeSetup();
+			// Overload when required
 			if(!empty($overLoaded)){
 				$this->setupCon->overLoads($overLoaded, true);
 			}
@@ -144,6 +152,8 @@ class Runner{
 		$this->inputLib = $this->setupCon->getInputs( $this->httpRqst );
 
 		$this->routeReg = $this->setupCon->loadRoute( $this->httpRqst );
+		// Read from its files, the config is cached for the next requests when CNF_CACH is TRUE
+		$this->setupCon->keepCache();
 
 		$axsConf = $this->setupCon->setAccess();
 		$this->axessCon = $this->chkAccess( $axsConf );
@@ -441,6 +451,8 @@ class Runner{
 		}else{
 			$this->appCaller($appCall, strval($actCall), $actOptn);
 		}
+		// The tables described by the action are added to the config cache (TBL_CACH)
+		$this->setupCon->keepCache();
 		$this->doRespond( $this->procStat );
 		exit();
 	}

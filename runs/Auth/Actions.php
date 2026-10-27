@@ -113,12 +113,12 @@ class Actions extends Actionset {
 		if(method_exists($authObj, 'keepAlive')){
 			$authObj->keepAlive( strval($idntArr['user'] ?? '') );
 		}
-		// The login of a privileged user (any role above the first of ROLELIST) is a notice of its own
+		// A login is always traced, production included; the one of a privileged user (any role above the first of ROLELIST) tells it
 		$usrRole = strval($idntArr['role'] ?? '');
 		if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
 			$logInst->notice( 'Privileged login granted for user '.json_encode($gvnUser).' ('.$usrRole.')'.$fromTxt );
 		}else{
-			$logInst->info( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
+			$logInst->notice( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
 		}
 		$this->statCode = 200;
 		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page
@@ -151,10 +151,11 @@ class Actions extends Actionset {
 			$clntReg = $this->httpRqst->getClient();
 			$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
 			$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
+			// A logout is always traced, as the login
 			if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
 				$logInst->notice( 'Logout of privileged user '.json_encode($this->axessReg->readValue('user')).' ('.$usrRole.')'.$fromTxt );
 			}else{
-				$logInst->info( 'Logout of user '.json_encode($this->axessReg->readValue('user')).$fromTxt );
+				$logInst->notice( 'Logout of user '.json_encode($this->axessReg->readValue('user')).$fromTxt );
 			}
 		}
 		$this->statCode = 200;

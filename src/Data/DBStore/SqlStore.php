@@ -4,6 +4,7 @@ namespace nyu\Data\DBStore;
 
 use nyu\Data\DBHndlr\Handler;
 use nyu\Data\Fluxd;
+use nyu\Setup\ConfCache;
 
 /**
  * The SQL types as a store: the calls of the Store contract are written
@@ -15,14 +16,20 @@ class SqlStore implements Store {
 	protected $dbHandle;
 	// What the tables already described tell of their fields, by table name
 	protected $infoList = Array();
+	// Name of the database in the config, which the config cache keeps its tables under ('' for the default one)
+	protected $baseName = '';
+	// The tables whose description came from the config cache
+	protected $fromCach = Array();
 
 	/**
 	 * Builds the store on the handler of a database.
 	 *
 	 * @param Handler $handlerObj Handler of the database the store works on.
+	 * @param String  $dbaseLabel  Name of the database in the config ('' for the default one), for the descriptions of its tables the config cache keeps (TBL_CACH).
 	 */
-	public function __construct(Handler $handlerObj){
+	public function __construct(Handler $handlerObj, String $dbaseLabel = ''){
 		$this->dbHandle = $handlerObj;
+		$this->baseName = $dbaseLabel;
 	}
 
 	/**
@@ -41,7 +48,8 @@ class SqlStore implements Store {
 
 	/**
 	 * Describes a table: its field names and its key field, asking the
-	 * database once for each table.
+	 * database once for each table. With TBL_CACH, a description the
+	 * config cache keeps stands for the question, and one asked is kept.
 	 *
 	 * @param String $tableLabel Name of the table.
 	 * @return Array|Bool The field names under 'flds', the key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
@@ -50,10 +58,17 @@ class SqlStore implements Store {
 	 */
 	public function tableInfo(String $tableLabel): Array|Bool {
 		if( !isset($this->infoList[$tableLabel]) ){
-			$tblInfo = $this->dbHandle->tableInfo($tableLabel);
-			// A table that cannot be described is asked again next time
-			if( !is_array($tblInfo) ){
-				return false;
+			$tblInfo = ConfCache::tableInfo($this->baseName, $tableLabel);
+			if( $tblInfo!==null ){
+				$this->fromCach[] = $tableLabel;
+			}else{
+				$tblInfo = $this->dbHandle->tableInfo($tableLabel);
+				// A table that cannot be described is asked again next time
+				if( !is_array($tblInfo) ){
+					return false;
+				}
+				$tblInfo = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
+				ConfCache::keepTable($this->baseName, $tableLabel, $tblInfo);
 			}
 			$this->infoList[$tableLabel] = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
 		}
@@ -183,6 +198,10 @@ class SqlStore implements Store {
 		}
 
 		if( !$dbHandl->sendQuery($findQry, false, $whrPart['vals']) ){
+			// A table changed since the config cache described it: the next request describes it again
+			if( !empty(array_intersect($tblList, $this->fromCach)) ){
+				ConfCache::dropCache();
+			}
 			return false;
 		}
 		$fndRows = $dbHandl->readQuery(true);
@@ -238,6 +257,9 @@ class SqlStore implements Store {
 		}
 		$addQury = 'INSERT INTO '.$dbHandl->quoteName($tableLabel).' ('.implode(',', $fldsQtd).') VALUES ('.implode(',', array_fill(0, count($valueArray), '?')).');';
 		if( !$dbHandl->sendQuery($addQury, true, array_values($valueArray)) ){
+			if( in_array($tableLabel, $this->fromCach, true) ){
+				ConfCache::dropCache();
+			}
 			return false;
 		}
 		$newKey = $dbHandl->lastAdded();
@@ -268,6 +290,9 @@ class SqlStore implements Store {
 		}
 		$updQury = 'UPDATE '.$tblQutd.' SET '.implode(',', $setList).' WHERE '.$whrPart['text'].';';
 		if( !$dbHandl->sendQuery($updQury, true, array_merge(array_values($valueArray), $whrPart['vals'])) ){
+			if( in_array($tableLabel, $this->fromCach, true) ){
+				ConfCache::dropCache();
+			}
 			return false;
 		}
 		return $dbHandl->lastCount();
@@ -288,6 +313,9 @@ class SqlStore implements Store {
 		$whrPart = $this->needWhere($whereArray);
 		$remQury = 'DELETE FROM '.$dbHandl->quoteName($tableLabel).' WHERE '.$whrPart['text'].';';
 		if( !$dbHandl->sendQuery($remQury, true, $whrPart['vals']) ){
+			if( in_array($tableLabel, $this->fromCach, true) ){
+				ConfCache::dropCache();
+			}
 			return false;
 		}
 		return $dbHandl->lastCount();

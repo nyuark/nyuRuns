@@ -246,6 +246,26 @@ class Router{
 	}
 
 	/**
+	 * Takes the declared routes already read (the config cache), in place
+	 * of the files of the routes folder.
+	 *
+	 * @param Array $routesList The declared routes, by path or path pattern, as getRoutes() gives them.
+	 */
+	public function setRoutes( Array $routesList ): Void {
+		$this->rteFiles = $routesList;
+	}
+
+	/**
+	 * Gives the declared routes, reading the files of the routes folder
+	 * when they are not read yet.
+	 *
+	 * @return Array The declared routes, by path or path pattern.
+	 */
+	public function getRoutes(): Array {
+		return $this->loadFiles();
+	}
+
+	/**
 	 * Lists the declared routes, for what they answer with: one entry for
 	 * each target of a route, with the methods it serves.
 	 *

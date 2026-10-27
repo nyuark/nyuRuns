@@ -35,12 +35,13 @@ class DBCon {
 	 * @param String $serverPass Database password.
 	 * @param String $serverBase Database name.
 	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param String $dbaseLabel Name of the database in the config, '' for the default one: the config cache keeps the descriptions of its tables under it.
 	 *
 	 * @return DBCon The new connection.
 	 *
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
 	 */
-	private static function buildLink( String $serverType, String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array() ): DBCon {
+	private static function buildLink( String $serverType, String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array(), String $dbaseLabel='' ): DBCon {
 		$newLink = new DBCon();
 		$typeKey = strtolower($serverType);
 		if( $typeKey=='pdo' ){
@@ -56,7 +57,7 @@ class DBCon {
 			throw new \RuntimeException('Unknown database type: '.$serverType);
 		}
 		$newLink->dbHandle = new $dbClass($serverHost, $serverUser, $serverPass, $serverBase, $moreParams);
-		$newLink->storeObj = new DBStore\SqlStore($newLink->dbHandle);
+		$newLink->storeObj = new DBStore\SqlStore($newLink->dbHandle, $dbaseLabel);
 		return $newLink;
 	}
 	
@@ -123,7 +124,7 @@ class DBCon {
 		$baseSet = self::readSetup($dbaseLabel);
 		$nameKey = $baseSet['name'];
 		if( !isset(self::$linkList[$nameKey]) ){
-			self::$linkList[$nameKey] = self::buildLink($baseSet['type'], $baseSet['host'], $baseSet['user'], $baseSet['pass'], $baseSet['base'], Array('port'=>$baseSet['port'], 'char'=>$baseSet['char'], 'auth'=>$baseSet['auth'], 'wait'=>$baseSet['wait']));
+			self::$linkList[$nameKey] = self::buildLink($baseSet['type'], $baseSet['host'], $baseSet['user'], $baseSet['pass'], $baseSet['base'], Array('port'=>$baseSet['port'], 'char'=>$baseSet['char'], 'auth'=>$baseSet['auth'], 'wait'=>$baseSet['wait']), $nameKey);
 		}
 		return self::$linkList[$nameKey];
 	}

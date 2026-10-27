@@ -8,6 +8,7 @@ use nyu\Access\Auth\Device as DeviceAuth;
 use nyu\Access\Auth\Native;
 use nyu\Data\DBCon;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
+use nyu\Setup\ConfCache;
 use nyu\Shell\Command;
 use nyu\Shell\ConfFile;
 use nyu\Shell\Console;
@@ -108,6 +109,8 @@ class Deploy extends Command{
 				$this->prntObjc->printFail( $e->getMessage() );
 			}
 		}
+		// A config cache brought along, or left by a former installation, is not the config of this one
+		ConfCache::dropCache();
 		$this->traceDone('Deploy: installation run, users in '.$storNme);
 		return $this->showCheck();
 	}
@@ -639,6 +642,8 @@ class Deploy extends Command{
 	 * @throws ShellStop When the users cannot be created.
 	 */
 	protected function makeUsers( String $storeNamed, String $blockNamed ): Void {
+		// Tables are made: the descriptions the config cache keeps (TBL_CACH) are no longer the whole story
+		ConfCache::dropCache();
 		$lgnConf = $this->accessCnf('login');
 		$blkName = ($blockNamed!='') ? $blockNamed : ( strval($lgnConf['authby'] ?? '')==$storeNamed ? strval($lgnConf['authcf'] ?? $storeNamed) : $storeNamed );
 		$blkConf = $this->accessCnf($blkName);

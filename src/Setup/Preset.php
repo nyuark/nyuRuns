@@ -21,6 +21,8 @@ class Preset{
 	);
 
 	protected $rpsArray;
+	// Name of the preset, which the config cache is kept under
+	protected $rpsLabel;
 
     /**
 	 * Loads and parses the named RPS preset file.
@@ -33,6 +35,7 @@ class Preset{
 			$presetName = 'dfault';
 		}
 		$this->rpsParser($presetName);
+		$this->rpsLabel = $presetName;
 	}
 
 	/**
@@ -108,7 +111,7 @@ class Preset{
     public function makeSetup(): Loader {
 		// Instanciate the setup class with the
 		// array of data and return the object
-		$nyuStup = new \nyu\Setup\Loader( $this->rpsArray );
+		$nyuStup = new \nyu\Setup\Loader( $this->rpsArray, null, $this->rpsLabel );
 		return $nyuStup;
 	}
 }

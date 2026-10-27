@@ -180,14 +180,14 @@ Logger::plugSetup( Array() );
 dropFoldr(TOP_DIR.DS.$lmtFldr);
 $yearTxt = '['.date('Y').'] ';
 $axsLogs = file_exists(inTempDir('logs2').DS.'access.log') ? file(inTempDir('logs2').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
-checkSame('access log: the logins and logouts, one line each', $axsLogs, Array(
-	$yearTxt.'[INFO] Login granted for user "ben" from 198.51.100.7',
+checkSame('access log: the logins and logouts, one line each, notices that production writes too', $axsLogs, Array(
+	$yearTxt.'[NOTICE] Login granted for user "ben" from 198.51.100.7',
 	$yearTxt.'[NOTICE] Privileged login granted for user "anna" (manage) from 198.51.100.7',
 	$yearTxt.'[WARNING] Login refused for user "ben\n['.date('Y').'] [INFO] Login granted for user \"anna\"" from 198.51.100.7: Invalid credentials',
 	$yearTxt.'[WARNING] Login refused for user "anna" from 198.51.100.7: too many attempts',
-	$yearTxt.'[INFO] Logout of user "ben" from 198.51.100.7',
+	$yearTxt.'[NOTICE] Logout of user "ben" from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of privileged user "anna" (manage) from 198.51.100.7',
-	$yearTxt.'[INFO] Logout of user "" from 198.51.100.7',
+	$yearTxt.'[NOTICE] Logout of user "" from 198.51.100.7',
 	$yearTxt.'[ERROR] Login unavailable: the session carrier issues no token',
 	$yearTxt.'[ERROR] Login unavailable: unknown authby or sessby in the login block'
 ));

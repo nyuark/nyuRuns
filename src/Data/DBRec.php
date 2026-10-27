@@ -77,7 +77,8 @@ class DBRec {
 		$fndRows = $this->rowsOfKey($primaryKey);
 		$this->recArray = $fndRows[0] ?? Array();
 		if( is_array($this->recArray) && !empty($this->recArray) ){
-			$this->primaKey = $primaryKey;
+			// The key is kept as the database gives it, not as it was asked for
+			$this->primaKey = $this->recArray[$this->keyField] ?? $primaryKey;
 			$this->loadRelat();
 			return $this->recArray;
 		}else{
@@ -316,7 +317,7 @@ class DBRec {
 	 * database assigns it.
 	 *
 	 * @param Array $exludeFlds Field names to exclude from the save (in addition to the primary key, which is never updated).
-	 * @return mixed The primary key on success (existing key for updates, bound key or new insert ID for inserts), or false on failure.
+	 * @return mixed The primary key on success, or false on failure: for an update, the key as the database gave it; for an insert, the key the application bound, as bound, or the one the database numbered, as a number.
 	 */
 	function saveRecrd( Array $exludeFlds=Array() ): Mixed {
 		$recExst = false;
@@ -349,7 +350,11 @@ class DBRec {
 		if( $newKey===false ){
 			return false;
 		}
-		return $keyGivn ? $this->primaKey : $newKey;
+		if( $keyGivn ){
+			return $this->primaKey;
+		}
+		// A key the database numbered is an integer column, which a reading gives as a number: the insert tells it as a text
+		return ( is_string($newKey) && ctype_digit($newKey) ) ? intval($newKey) : $newKey;
 	}
 
 	/**

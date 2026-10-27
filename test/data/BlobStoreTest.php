@@ -91,13 +91,13 @@ $dbStore->updateRow('tracks', Array('id_track'=>1), Array('fileData'=>Fluxd::ope
 $trckRec = new DBRec('tracks');
 checkSame('a record is loaded without its binary fields', $trckRec->loadRecrd('1'), Array('id_track'=>1, 'trckName'=>'One', 'albumKey'=>1, 'fileNote'=>'changed'));
 $trckRec->bindArray(Array('trckName'=>'One, renamed'));
-checkSame('saving it leaves its binary value as it was', Array($trckRec->saveRecrd(), $dbStore->findItems('tracks', Array('id_track'=>1), Array('field'=>Array('trckName')))[0]['trckName'], blobSeen($dbStore->findItems('tracks', Array('id_track'=>1), Array('field'=>Array('fileData')))[0]['fileData'])), Array('1', 'One, renamed', 'FLUXD '.bin2hex($rawBlob)));
+checkSame('saving it leaves its binary value as it was', Array($trckRec->saveRecrd(), $dbStore->findItems('tracks', Array('id_track'=>1), Array('field'=>Array('trckName')))[0]['trckName'], blobSeen($dbStore->findItems('tracks', Array('id_track'=>1), Array('field'=>Array('fileData')))[0]['fileData'])), Array(1, 'One, renamed', 'FLUXD '.bin2hex($rawBlob)));
 $trckRec->bindArray(Array('fileData'=>Fluxd::openBytes($dotPng)));
-checkSame('a binary value bound to a record is saved with it', Array($trckRec->saveRecrd(), blobSeen($dbStore->findItems('tracks', Array('id_track'=>1), Array('field'=>Array('fileData')))[0]['fileData'])), Array('1', 'FLUXD '.bin2hex($dotPng)));
+checkSame('a binary value bound to a record is saved with it', Array($trckRec->saveRecrd(), blobSeen($dbStore->findItems('tracks', Array('id_track'=>1), Array('field'=>Array('fileData')))[0]['fileData'])), Array(1, 'FLUXD '.bin2hex($dotPng)));
 $trckRec = new DBRec('tracks');
 $trckRec->bindArray(Array('trckName'=>'Three', 'albumKey'=>1, 'fileData'=>Fluxd::openBytes($rawBlob)));
 $newKey = $trckRec->saveRecrd();
-checkSame('a new record with a binary value', Array($newKey, blobSeen($dbStore->findItems('tracks', Array('id_track'=>$newKey), Array('field'=>Array('fileData')))[0]['fileData'])), Array('3', 'FLUXD '.bin2hex($rawBlob)));
+checkSame('a new record with a binary value', Array($newKey, blobSeen($dbStore->findItems('tracks', Array('id_track'=>$newKey), Array('field'=>Array('fileData')))[0]['fileData'])), Array(3, 'FLUXD '.bin2hex($rawBlob)));
 
 $trckRec = null;
 $covrFlx = null;

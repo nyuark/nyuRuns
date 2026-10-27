@@ -28,7 +28,9 @@ class ConfFile{
 	/**
 	 * Writes a file as a whole: a reader sees the former content or the
 	 * new one, never a part of it. The file replaced is copied to the
-	 * backup folder first, and its permissions are kept.
+	 * backup folder first, and its permissions are kept. A file of the
+	 * project's conf folder written removes the config cache (ConfCache):
+	 * the next request reads the files.
 	 *
 	 * @param String $filePathNm Full path of the file.
 	 * @param String $newContent Its new content.
@@ -49,6 +51,9 @@ class ConfFile{
 		for( $idx=0; $idx<10; $idx++ ){
 			if( @rename($tempPth, $filePathNm) ){
 				clearstatcache(true, $filePathNm);
+				if( strpos(str_replace('/', DS, $filePathNm), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
+					\nyu\Setup\ConfCache::dropCache();
+				}
 				return;
 			}
 			usleep(50000);
@@ -57,6 +62,9 @@ class ConfFile{
 		@unlink($tempPth);
 		if( !$isCopyd ){
 			throw new \RuntimeException('File not written: '.basename($filePathNm).' cannot be replaced');
+		}
+		if( strpos(str_replace('/', DS, $filePathNm), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
+			\nyu\Setup\ConfCache::dropCache();
 		}
 	}
 

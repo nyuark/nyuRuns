@@ -8,6 +8,7 @@ use nyu\Access\Auth\UserList;
 use nyu\Access\Sess\JWT;
 use nyu\Data\DBCon;
 use nyu\Data\Mail\Mailer;
+use nyu\Setup\ConfCache;
 use nyu\Setup\Loader;
 use nyu\Setup\Preset;
 use nyu\Tools\Language;
@@ -90,7 +91,8 @@ class HealthChk{
 
 	/**
 	 * Checks the folders the framework writes to: they are created when
-	 * missing, and must be writable.
+	 * missing, and must be writable. A config cache older than a file it
+	 * comes from (conf, a preset, a route file) was left by a hand edit.
 	 */
 	public function chkFoldrs(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
@@ -109,6 +111,26 @@ class HealthChk{
 			$isReady = is_dir($fldPth) && is_writable($fldPth);
 			$this->addResult( 'folder '.str_replace(DS, '/', ltrim(substr($fldPth, strlen(TOP_DIR)), '/\\')), $isReady ? 'fine' : 'fail', $isReady ? 'writable' : 'missing or not writable' );
 		}
+		// The descriptions of the tables are kept in the config cache only
+		$sysConf = ($nyuConf!==null) ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		if( in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && !in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ){
+			$this->addResult('table cache', 'warn', 'TBL_CACH is TRUE, but CNF_CACH is not: the descriptions of the tables are not kept');
+		}
+		// The oldest cache file, against the newest file the config is read from
+		$cchTime = 0;
+		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, ConfCache::CACHPATH).DS.'config-*.cache') as $cchFle ){
+			$cchTime = ($cchTime==0) ? intval(@filemtime(strval($cchFle))) : min($cchTime, intval(@filemtime(strval($cchFle))));
+		}
+		if( $cchTime==0 ){
+			$this->addResult('config cache', 'fine', 'none: the config files are read on each request, or a request will cache them (CNF_CACH)');
+			return;
+		}
+		$srcTime = 0;
+		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte') ) as $srcFle ){
+			$srcTime = max($srcTime, intval(@filemtime(strval($srcFle))));
+		}
+		$this->addResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file changed since: run "config cache", the next request reads the files' : 'up to date' );
 	}
 
 	/**

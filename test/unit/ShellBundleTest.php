@@ -28,15 +28,19 @@ function filesOfDr( String $folderPath ): Array {
 $projDir = makeProjt('bundle', Array(
 	'src/Kernel.php'=>"<?php\n", 'runs/Shows/Actions.php'=>"<?php\n", 'runs/Shows/input/index.json'=>'{ "fields": {} }',
 	'www/index.php'=>"<?php\n", 'www/.htaccess'=>"RewriteEngine On\n", 'pages/index.html'=>'<p>home</p>',
-	'conf/system.ini'=>sampleIni(), 'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }',
+	'conf/system.ini'=>sampleIni("CNF_CACH = FALSE\n"), 'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }',
 	'conf/access.json'=>'{ "secret": "real" }', 'conf/access.json.dist'=>'{ "secret": "env:NYU_JWT_SECRET" }', 'conf/database.json'=>'{ "pass": "real" }',
 	'conf/mailer.json'=>'{ "pass": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
 	'conf/keys/dftokn.key'=>'PRIVATE', 'conf/keys/dftokn.pub'=>'PUBLIC',
 	'vendor/autoload.php'=>"<?php\n", 'vendor/some/pkg/src/Lib.php'=>"<?php\n", 'vendor/some/pkg/.git/HEAD'=>'ref',
 	'composer.json'=>'{ "require": {} }', 'composer.lock'=>'{}', 'nyuRun'=>"<?php\n", 'LICENSE'=>'MIT', 'NOTICE'=>'Libraries',
 	'.env'=>"NYU_JWT_SECRET=real\n", 'test/unit/SomeTest.php'=>"<?php\n", 'README.md'=>'# doc', 'notes.md'=>'# notes',
-	'temp/logs/runner.log'=>'log line', 'media/big.bin'=>'bytes'
+	'temp/logs/runner.log'=>'log line', 'media/big.bin'=>'bytes',
+	// A Composer of the project's own, which only tells how it was called: no bundle is ever given to a real one here
+	'composer.phar'=>"<?php\nfile_put_contents(__DIR__.'/temp/cmpsr.log', json_encode(array_slice(\$argv, 1)).\"\\n\", FILE_APPEND);\n",
+	'tools/failing.phar'=>"<?php\necho \"Could not scan the classes\\n\";\nexit(3);\n"
 ));
+$cmpsLog = 'temp/cmpsr.log';
 $keptLst = Array('LICENSE', 'NOTICE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/keys/dftokn.pub', 'conf/presets/dfault.rps', 'conf/system.ini',
 	'nyuRun', 'pages/index.html', 'runs/Shows/Actions.php', 'runs/Shows/input/index.json', 'src/Kernel.php', 'vendor/autoload.php', 'vendor/some/pkg/src/Lib.php', 'www/.htaccess', 'www/index.php');
 $distDir = $projDir.DS.'dist';
@@ -45,11 +49,22 @@ $distDir = $projDir.DS.'dist';
 $runVals = runShell($projDir, Array('bundle', 'final'));
 $bndlIni = strval(readInPrj($projDir, 'dist/final/conf/system.ini'));
 checkSame('a final bundle holds what KEEPLIST names, nothing else', Array($runVals['code'], filesOfDr($distDir.DS.'final')), Array(0, $keptLst));
-checkSame('its system.ini is set for production', Array(strpos($bndlIni, 'ENV_NAME = PROD')!==false, strpos($bndlIni, 'ERR_SHOW = FALSE')!==false, strpos($bndlIni, 'LOG_MODE = BASE')!==false), Array(true, true, true));
-checkSame('the project keeps its own settings', readInPrj($projDir, 'conf/system.ini'), sampleIni());
+checkSame('its system.ini is set for production: errors hidden, errors, warnings and notices logged', Array(strpos($bndlIni, 'ENV_NAME = PROD')!==false, strpos($bndlIni, 'ERR_SHOW = FALSE')!==false, strpos($bndlIni, 'LOG_MODE = MINI')!==false), Array(true, true, true));
+checkSame('its config is cached', strpos($bndlIni, 'CNF_CACH = TRUE')!==false, true);
+checkSame('the project keeps its own settings', readInPrj($projDir, 'conf/system.ini'), sampleIni("CNF_CACH = FALSE\n"));
 checkSame('the folders the framework writes in are there, empty', Array(is_dir($distDir.DS.'final'.DS.'media'), is_dir($distDir.DS.'final'.DS.'temp'), filesOfDr($distDir.DS.'final'.DS.'temp')), Array(true, true, Array()));
 checkSame('the next steps are told', strpos($runVals['text'], 'On its server: php nyuRun deploy start, then php nyuRun deploy check.')!==false, true);
 checkLike('the bundle is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Bundle: final, 17 files in .*dist.final by user "cli:/');
+
+// The class map of a PREV or PROD bundle, made by Composer in the copy
+checkSame('Composer makes a complete class map in a final bundle', json_decode(strval(readInPrj($projDir, $cmpsLog)), true),
+	Array('dump-autoload', '--optimize', '--classmap-authoritative', '--no-dev', '--no-interaction', '--working-dir='.$distDir.DS.'final'));
+checkSame('it is told and traced', Array(strpos($runVals['text'], 'class map')!==false, strpos(strval(readInPrj($projDir, 'temp/logs/shell.log')), 'Bundle: final, class map made by Composer')!==false), Array(true, true));
+putInProj($projDir, $cmpsLog, '');
+$runVals = runShell($projDir, Array('bundle', 'final', '--agree', '--cmpsr='.$projDir.DS.'tools'.DS.'failing.phar'));
+checkSame('Composer failing: the bundle is made, the autoloader of the project kept, and it is told', Array($runVals['code'], filesOfDr($distDir.DS.'final'), strpos($runVals['errs'], 'Composer ended with 3: Could not scan the classes')!==false), Array(0, $keptLst, true));
+$runVals = runShell($projDir, Array('bundle', 'final', '--agree', '--cmpsr='.$projDir.DS.'nowhere.phar'));
+checkSame('Composer not found: the bundle is made, and it is told', Array($runVals['code'], strpos($runVals['errs'], 'Composer was not found')!==false, readInPrj($projDir, $cmpsLog)), Array(0, true, ''));
 
 // A bundle that is there is only replaced when confirmed
 putInProj($projDir, 'dist/final/stale.txt', 'old');
@@ -57,12 +72,21 @@ checkSame('replacing a bundle is confirmed', Array(runShell($projDir, Array('bun
 checkSame('confirmed, the former bundle is replaced as a whole', Array(runShell($projDir, Array('bundle', 'final', '--agree'))['code'], filesOfDr($distDir.DS.'final')), Array(0, $keptLst));
 
 // local, stage
+putInProj($projDir, $cmpsLog, '');
 runShell($projDir, Array('bundle', 'local'));
-checkSame('a local bundle shows its errors and logs in full', Array(strpos(strval(readInPrj($projDir, 'dist/local/conf/system.ini')), 'ENV_NAME = DEV')!==false, strpos(strval(readInPrj($projDir, 'dist/local/conf/system.ini')), 'LOG_MODE = FULL')!==false), Array(true, true));
+checkSame('a local bundle shows its errors and logs in full, and reads its config on each request', Array(strpos(strval(readInPrj($projDir, 'dist/local/conf/system.ini')), 'ENV_NAME = DEV')!==false, strpos(strval(readInPrj($projDir, 'dist/local/conf/system.ini')), 'LOG_MODE = FULL')!==false, strpos(strval(readInPrj($projDir, 'dist/local/conf/system.ini')), 'CNF_CACH = FALSE')!==false), Array(true, true, true));
+// A system.ini made before the config cache: told, not refused
+putInProj($projDir, 'conf/system.ini', sampleIni());
+$runVals = runShell($projDir, Array('bundle', 'final', '--agree'));
+checkSame('a system.ini without CNF_CACH: the bundle is made, and it is told', Array($runVals['code'], strpos($runVals['errs'], 'the system.ini of the project has no CNF_CACH')!==false), Array(0, true));
+putInProj($projDir, 'conf/system.ini', sampleIni("CNF_CACH = FALSE\n"));
+putInProj($projDir, $cmpsLog, '');
 $jsnVals = jsonShell($projDir, Array('bundle', 'stage', '--plans'));
 $plnRows = array_column($jsnVals['rows'] ?? Array(), 'state', 'path');
 checkSame('--plans lists, and writes nothing', Array(is_dir($distDir.DS.'stage'), $plnRows['conf/system.ini'] ?? null, $plnRows['conf/access.json'] ?? null, $plnRows['conf/keys/dftokn.key'] ?? null, $plnRows['test/'] ?? null, $plnRows['.env'] ?? null, $plnRows['vendor/some/pkg/.git/HEAD'] ?? null),
 	Array(false, 'copied', 'left out', 'left out', 'left out', 'left out', 'left out'));
+checkSame('--plans tells the class map, and runs no Composer', Array($jsnVals['class map'] ?? null, $plnRows['composer.phar'] ?? null, readInPrj($projDir, $cmpsLog)), Array('complete, made by '.$projDir.DS.'composer.phar', 'left out', ''));
+checkSame('a local bundle keeps the autoloader of the project', readInPrj($projDir, $cmpsLog), '');
 
 // --place
 $plceDir = inTempDir('bundleplace');

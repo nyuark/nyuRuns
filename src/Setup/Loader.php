@@ -18,15 +18,27 @@ class Loader{
 	protected $fieldSet;
 	protected $conArray;
 	protected $routrObj;
+	// The values read from the config cache, or those gathered to write it (see ConfCache)
+	protected $cachVals;
+	// Whether they were read from the cache
+	protected $cachRead;
+	// Name of the preset, which the cache is kept under
+	protected $rpsLabel;
 
 	/**
 	* Constructs a setup loader, optionally loading a full setup array.
 	*
-	* @param Array $setupArray Full setup array to load, if any.
+	* @param Array  $setupArray Full setup array to load, if any.
+	* @param ?Array $cachedVals The values the config cache holds for the preset, read in place of the files; null when the files are read.
+	* @param String $presetName Name of the preset, which the cache is kept under; '' for no cache.
 	*/
-    public function __construct(Array $setupArray = Array()){
+    public function __construct(Array $setupArray = Array(), ?Array $cachedVals = null, String $presetName = ''){
 		$this->setAllReg( $setupArray );
 		$this->fieldSet = Array('setup','auths','route','rnder','input');
+		$this->rpsLabel = $presetName;
+		$this->cachRead = ($cachedVals!==null);
+		// The preset is kept as it is before any overload of the Runner
+		$this->cachVals = $cachedVals ?? Array('preset'=>$setupArray);
 	}
 
 	/**
@@ -83,19 +95,29 @@ class Loader{
 	}
 
 	/**
-	* Get the configuration files based on the setup key of configuration registry
+	* Get the configuration files based on the setup key of configuration registry.
+	* With the config cache, its values are taken in place of the files; the
+	* env: values are filled on each request, from the environment file.
 	*
 	* @return Registry The values of the config files.
 	* @throws \RuntimeException When the preset has no setup block.
 	*/
 	function getConfig(): Registry {
-		// Read all INI and JSON files in conf
-		// folder and store it into an array
-		$confArr = Array();
 		$confSet = $this->getRegKey('setup');
 		if( $confSet===false ){
 			throw new \RuntimeException('The preset has no setup block');
 		}
+		if( $this->cachRead ){
+			$confReg = new Registry( $this->fillEnvrn( $this->cachVals['config'], $this->loadEnvrn($confSet['envfle'] ?? '.env') ) );
+			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
+			$sysConf = $confReg->readValue('system') ?: Array();
+			ConfCache::$tblInfos = ( in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachVals['tables'] ?? Array()) : null;
+			ConfCache::$tblAdded = false;
+			return $confReg;
+		}
+		// Read all INI and JSON files in conf
+		// folder and store it into an array
+		$confArr = Array();
 		// Folder of the config files, relative to the project root : conf unless the preset names another
 		$conPath = TOP_DIR.DS.($confSet['folder'] ?? 'conf').DS;
 		$conScan = scandir($conPath);
@@ -123,8 +145,14 @@ class Loader{
 				$confArr[strtoupper($fleTitl)] = $nyuFile->readValue('out');
 			}
 		}
+		// The cache holds the values as written: no secret of the environment file goes into it
+		$this->cachVals['config'] = $confArr;
 		$confArr = $this->fillEnvrn( $confArr, $this->loadEnvrn($confSet['envfle'] ?? '.env') );
 		$confReg = new Registry( $confArr );
+		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
+		$sysConf = $confReg->readValue('system') ?: Array();
+		ConfCache::$tblInfos = ( in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? Array() : null;
+		ConfCache::$tblAdded = false;
 		return $confReg;
 	}
 
@@ -221,7 +249,48 @@ class Loader{
     function loadRoute( Request $requestObj ): Registry {
 		$rteConf = $this->getRegKey('route');
 		$this->routrObj = new Router( is_array($rteConf) ? $rteConf : Array(), $requestObj );
+		if( $this->cachRead ){
+			$this->routrObj->setRoutes( $this->cachVals['routes'] );
+		}
 		return $this->routrObj->findRoute();
+	}
+
+	/**
+	 * Writes the config cache of the preset, when CNF_CACH is TRUE: once
+	 * the route of the request is found, when the values were read from the
+	 * files (the preset, the config files and the declared routes), and at
+	 * the end of the request, when tables were described (TBL_CACH). The
+	 * next requests of the preset read them in place of the files. Nothing
+	 * is written when a file of the config changed while the request ran:
+	 * the next request reads them.
+	 *
+	 * @return Bool Whether the cache was written.
+	 */
+	public function keepCache(): Bool {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		if( !in_array( strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->cachRead && !ConfCache::$tblAdded) || $this->rpsLabel=='' || $this->routrObj===null || !isset($this->cachVals['config']) ){
+			return false;
+		}
+		// A config, preset or route file written since the request began: what it read is not cached
+		$srcTime = 0;
+		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte') ) as $srcFle ){
+			$srcTime = max($srcTime, intval(@filemtime(strval($srcFle))));
+		}
+		// File times are in seconds: a change within the second the request began is not told apart
+		if( $srcTime>intval($_SERVER['REQUEST_TIME'] ?? time()) ){
+			return false;
+		}
+		$this->cachVals['routes'] = $this->routrObj->getRoutes();
+		$this->cachVals['tables'] = ConfCache::$tblInfos ?? Array();
+		ConfCache::$tblAdded = false;
+		if( !ConfCache::makeCache($this->rpsLabel, $this->cachVals) ){
+			return false;
+		}
+		// Written once: the end of the request writes it again only for tables described meanwhile
+		$this->cachRead = true;
+		return true;
 	}
 
 	/**

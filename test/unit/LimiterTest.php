@@ -51,12 +51,14 @@ $limiter->countFail('203.0.113.7', 1002);
 checkSame('as many failures as allowed hold the address, from the last one', $limiter->heldUntil('203.0.113.7', 1003), 1602);
 checkSame('the hold lasts until its last second', $limiter->heldUntil('203.0.113.7', 1601), 1602);
 checkSame('the hold is over once its time has passed', $limiter->heldUntil('203.0.113.7', 1602), 0);
+checkSame('the counter whose hold time has passed is removed when read', count(glob($cntFldr.DS.'*.cnt')), 0);
 checkSame('another address is not held', $limiter->heldUntil('203.0.113.8', 1003), 0);
 $limiter->countFail('203.0.113.7', 1700);
 checkSame('after the hold, the count starts again', $limiter->heldUntil('203.0.113.7', 1701), 0);
 failTimes($limiter, '198.51.100.1', 2, 1000);
 $limiter->countFail('198.51.100.1', 1700);
 checkSame('failures older than the hold time no longer add up', $limiter->heldUntil('198.51.100.1', 1701), 0);
+checkSame('a counter still in use is kept when read', count(glob($cntFldr.DS.'*.cnt')), 2);
 
 // IPv6 : counted by /64 network
 failTimes($limiter, '2001:db8:1:2::1', 2, 1000);
