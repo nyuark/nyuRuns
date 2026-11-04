@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!--
     Code reference of nyuRuns, generated from the docblocks of src.
-    Run from the project root (a PHP CLI without a php.ini needs mbstring loaded):
-        php -d extension=mbstring temp/tools/phpDocumentor.phar run
-    The output (temp/docs/reference) and the cache are not tracked.
+    Run from the project root, with a PHP that loads mbstring:
+        php -d memory_limit=1G temp/tools/phpDocumentor.phar run
+    On Windows, pwsh .phpdoc/build.ps1 does it, and adds the banner and the fonts.
+    The output (docs/site/reference) and the cache (temp/docs/cache) are not tracked.
 -->
 <phpdocumentor
     configVersion="3"
@@ -13,7 +14,7 @@
 >
     <title>nyuRuns – Code Reference</title>
     <paths>
-        <output>temp/docs/reference</output>
+        <output>docs/site/reference</output>
         <cache>temp/docs/cache</cache>
     </paths>
     <version number="1.0">

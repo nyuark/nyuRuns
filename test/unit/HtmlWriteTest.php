@@ -183,4 +183,12 @@ checkSame('one writer, several contents: the styles of one do not reach the next
 }), "<p class=\"heading-1\">x</p>\n");
 checkSame('no PHP warning from the new checks', takeNotes(), Array());
 
+// The anchors of the headings, made as GitHub makes them for a Markdown page
+$hdrList = Array(textBlk('headr', '1.4 What version 1.0 holds', Array('level'=>3)), textBlk('headr', '7.6 bundle: a copy, for each environment', Array('level'=>3)), textBlk('headr', 'Summary', Array('level'=>2)), textBlk('headr', 'Summary', Array('level'=>2)), textBlk('headr', 'Mine', Array('level'=>2, 'tagid'=>'kept')));
+checkSame('anchors: none unless asked', htmOfBlk(Array(textBlk('headr', 'Summary', Array('level'=>2)))), "<h2>Summary</h2>\n");
+checkSame('anchors: the text in lower case, its dots and commas and colons dropped, its spaces dashes; a title repeated numbered; an id of its own kept', htmOfBlk($hdrList, Array('anchr'=>true)),
+	"<h3 id=\"14-what-version-10-holds\">1.4 What version 1.0 holds</h3>\n<h3 id=\"76-bundle-a-copy-for-each-environment\">7.6 bundle: a copy, for each environment</h3>\n<h2 id=\"summary\">Summary</h2>\n<h2 id=\"summary-1\">Summary</h2>\n<h2 id=\"kept\">Mine</h2>\n");
+checkSame('anchors: each page starts its own list', Array(htmOfBlk(Array(textBlk('headr', 'Summary', Array('level'=>2))), Array('anchr'=>true)), htmOfBlk(Array(textBlk('headr', 'Summary', Array('level'=>2))), Array('anchr'=>true))), Array("<h2 id=\"summary\">Summary</h2>\n", "<h2 id=\"summary\">Summary</h2>\n"));
+checkSame('anchors: the accents kept, as GitHub keeps them', htmOfBlk(Array(textBlk('headr', 'Les modèles', Array('level'=>2))), Array('anchr'=>true)), "<h2 id=\"les-modèles\">Les modèles</h2>\n");
+
 endChecks();

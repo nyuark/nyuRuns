@@ -29,9 +29,17 @@
     --header-bg-color: #000;
 }
 
-/* Header: the banner of the drafts, its title written in it */
-.phpdocumentor-header {
+/* Header: the frame of the drafts across the page, as on the pages of the documents (.phpdoc/site):
+   4px of black, a 1px white line, 4px inside it; the logo on the left, the title after it */
+.phpdocumentor-header.phpdocumentor-section {
+    box-sizing: border-box;
+    width: auto;
+    max-width: none;
+    margin: 4px;
+    padding: 4px;
     background-color: var(--header-bg-color);
+    border: 1px solid #fff;
+    box-shadow: 0 0 0 4px var(--header-bg-color);
     align-items: center;
 }
 
@@ -40,38 +48,49 @@
     border-right: none;
 }
 
-.phpdocumentor-title__link.nyu-banner,
-.phpdocumentor-title__link.nyu-banner:hover {
-    position: relative;
-    display: block;
+.phpdocumentor-title__link.nyu-frame,
+.phpdocumentor-title__link.nyu-frame:hover {
+    --logo-high: 4.5rem;
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
     transform: none;
     font-weight: normal;
-    line-height: 0;
+    line-height: 1.2;
+    text-decoration: none;
 }
 
-.nyu-banner__logo {
+.nyu-frame__logo {
     display: block;
-    height: 4.5rem;
+    flex: 0 0 auto;
+    height: var(--logo-high);
     width: auto;
-    max-width: 100%;
 }
 
-.nyu-banner__text {
-    position: absolute;
-    left: 40%;
-    top: 50%;
-    transform: translateY(-50%);
+/* The title lines up with the wordmark, whose middle is at 26% of the logo's height */
+.nyu-frame__text {
+    align-self: flex-start;
+    margin-top: calc(var(--logo-high) * .26 - .6em);
     color: var(--title-text-color);
     font-family: var(--font-primary);
-    font-size: 1.05rem;
-    line-height: 1;
+    font-size: 1.5rem;
     letter-spacing: 0;
     white-space: nowrap;
 }
 
-.nyu-banner__text em {
+.nyu-frame__text em {
     font-style: italic;
     font-weight: 700;
+}
+
+/* A long default value (a list of names) wraps instead of widening the page */
+.phpdocumentor-signature__default-value {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+    .phpdocumentor-title__link.nyu-frame { --logo-high: 2.6rem; gap: 1rem; }
+    .nyu-frame__text { font-size: .95rem; white-space: normal; }
 }
 
 .phpdocumentor-topnav__menu-item a,

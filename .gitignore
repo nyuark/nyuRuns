@@ -14,3 +14,5 @@
 /conf/keys/
 # Bundles made for the environments (php nyuRun bundle)
 /dist/
+# The documentation site and the code reference, made by pwsh .phpdoc/build.ps1
+/docs/site/

@@ -25,6 +25,8 @@ class Html extends Base {
 	protected $withClss = true;
 	// Whether the content is written as XHTML
 	protected $xhtmlOut = false;
+	// The anchors given to the headings of the page, null when they are not written
+	protected $anchList = null;
 
 	/**
 	 * Writes a content as HTML.
@@ -41,10 +43,14 @@ class Html extends Base {
 	 *   'heads' => for sheets, writes the first row of each as its header;
 	 *   'shown' => for sheets, leaves out those their workbook hides;
 	 *   'xhtml' => writes XHTML: every element closed, every attribute
-	 *              with its value, and nothing an XML reader refuses.
+	 *              with its value, and nothing an XML reader refuses;
+	 *   'anchr' => gives every heading an id made of its text, as GitHub
+	 *              makes the anchors of a Markdown page, so that the links
+	 *              written for it lead to the same places; a heading that
+	 *              has its own id keeps it.
 	 *
 	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array $writeOptns Options: 'whole', 'class', 'frmat', 'heads', 'shown', 'xhtml'.
+	 * @param Array $writeOptns Options: 'whole', 'class', 'frmat', 'heads', 'shown', 'xhtml', 'anchr'.
 	 * @return String The HTML.
 	 *
 	 * @throws WriteError When the shape is not 'block', 'sheet' or 'nodes', or a block is of an unknown kind.
@@ -56,6 +62,7 @@ class Html extends Base {
 		$this->frmtList = is_array($infoArr['frmat'] ?? null) ? $infoArr['frmat'] : Array();
 		$this->withClss = !isset($writeOptns['class']) || !empty($writeOptns['class']);
 		$this->xhtmlOut = !empty($writeOptns['xhtml']);
+		$this->anchList = empty($writeOptns['anchr']) ? null : Array();
 		if( $shapeAs=='block' ){
 			$htmBody = $this->blocksOut((array)$itemLst);
 		}elseif( $shapeAs=='sheet' ){
@@ -73,6 +80,7 @@ class Html extends Base {
 		}
 		$stylHtm = (isset($writeOptns['frmat']) ? !empty($writeOptns['frmat']) : $isWhole) ? $this->stylesOut(strpos($pageTop.$htmBody.$pageEnd, '<hr class="break"')!==false) : '';
 		$this->frmtList = Array();
+		$this->anchList = null;
 		if( !$isWhole ){
 			return $stylHtm.$htmBody;
 		}
@@ -196,6 +204,27 @@ class Html extends Base {
 	}
 
 	/**
+	 * Gives the anchor of a heading as GitHub makes it for a Markdown page:
+	 * its text in lower case, without what is not a letter, a digit, a
+	 * space, a dash or an underscore, its spaces as dashes. A text already
+	 * given in the page is followed by -1, -2, and so on.
+	 *
+	 * @param String $headngText The text of the heading, without its formatting.
+	 * @return String The anchor, unique in the page.
+	 */
+	protected function slugTitle(String $headngText): String {
+		$slugTxt = str_replace(' ', '-', strval(preg_replace('/[^\p{L}\p{N}\- _]/u', '', mb_strtolower(trim($headngText)))));
+		$fullSlg = $slugTxt;
+		$sameNbr = 0;
+		while( in_array($fullSlg, (array)$this->anchList, true) ){
+			$sameNbr++;
+			$fullSlg = $slugTxt.'-'.$sameNbr;
+		}
+		$this->anchList[] = $fullSlg;
+		return $fullSlg;
+	}
+
+	/**
 	 * Writes spans: each text escaped, inside the elements of its
 	 * formatting and of its link, its line breaks as br elements. A
 	 * field tells what it stands for, so that it can be found and
@@ -259,6 +288,9 @@ class Html extends Base {
 			$blckAtr = $this->blockAttr($oneBlk);
 			if( $blckKnd=='headr' ){
 				$hdrLevl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
+				if( $this->anchList!==null && strpos($blckAtr, ' id="')===false ){
+					$blckAtr = ' id="'.$this->escapeTxt($this->slugTitle(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
+				}
 				$htmText .= '<h'.$hdrLevl.$blckAtr.'>'.$this->inlineOut($oneBlk['spans']).'</h'.$hdrLevl.">\n";
 			}elseif( $blckKnd=='parag' ){
 				$htmText .= '<p'.$blckAtr.'>'.$this->inlineOut($oneBlk['spans'])."</p>\n";

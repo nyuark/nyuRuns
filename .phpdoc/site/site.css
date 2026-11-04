@@ -1,0 +1,132 @@
+/* The style of the nyuRuns drafts, as the code reference has it: black banner, orange #ff6600, Gill Sans (Cabin where it is not installed) */
+
+@font-face {
+	font-family: 'Cabin';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url('../fonts/Cabin.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Cabin';
+	font-style: italic;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url('../fonts/Cabin-Italic.ttf') format('truetype');
+}
+
+:root {
+	--font-text: 'Gill Sans', 'Gill Sans MT', 'Cabin', Helvetica, Arial, sans-serif;
+	--font-code: Consolas, 'Source Code Pro', Menlo, monospace;
+	--orange: #ff6600;
+	--text: #111;
+	--soft: #666;
+	--line: #ddd;
+	--shade: #f6f6f6;
+	--menu-width: 15rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	font-family: var(--font-text);
+	font-size: 1.05rem;
+	line-height: 1.55;
+	color: var(--text);
+	background: #fff;
+}
+
+/* The banner of the drafts: a white frame as wide as the header, the logo in it on the left,
+   the title of the page after it */
+.banner { --logo-high: 4.5rem; background: #000; padding: 4px; }
+.banner__frame {
+	display: flex;
+	align-items: center;
+	gap: 2.5rem;
+	border: 1px solid #fff;
+	padding: 4px;
+	text-decoration: none;
+}
+.banner__logo { display: block; flex: 0 0 auto; height: var(--logo-high); width: auto; }
+/* The title lines up with the wordmark, whose middle is at 26% of the logo's height */
+.banner__text {
+	align-self: flex-start;
+	margin-top: calc(var(--logo-high) * .26 - .6em);
+	min-width: 0;
+	color: var(--orange);
+	font-size: calc(var(--logo-high) * .33);
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.banner__text em { font-style: italic; font-weight: 700; }
+
+/* The menu beside the page, kept in view while the page scrolls */
+.layout { display: flex; align-items: flex-start; max-width: 80rem; margin: 0 auto; }
+.menu {
+	position: sticky;
+	top: 0;
+	flex: 0 0 var(--menu-width);
+	max-height: 100vh;
+	overflow-y: auto;
+	padding: 1.5rem 1rem;
+	border-right: 1px solid var(--line);
+}
+.menu ul { list-style: none; margin: 0; padding: 0; }
+.menu li { margin: .2rem 0; }
+.menu a { color: var(--text); text-decoration: none; }
+.menu a:hover { color: var(--orange); }
+.menu a[aria-current="page"] { color: var(--orange); font-weight: 700; }
+.menu .menu__apart { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+
+.page { flex: 1 1 auto; min-width: 0; padding: 1.5rem 2.5rem 3rem; }
+
+/* Titles in the orange of the drafts */
+.page h1, .page h2 { color: var(--orange); font-weight: normal; }
+.page h1 { font-size: 2.1rem; margin-top: .5rem; }
+.page h2 { font-size: 1.6rem; margin-top: 2.5rem; }
+.page h3 { font-size: 1.2rem; margin-top: 1.8rem; }
+.page h2[id], .page h3[id], .page h4[id] { scroll-margin-top: 1rem; }
+
+.page a { color: #c24e00; }
+.page a:hover { color: var(--orange); }
+.page hr { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+
+/* Code */
+.page code { font-family: var(--font-code); font-size: .9em; background: var(--shade); padding: .05em .3em; border-radius: 3px; }
+.page pre { background: var(--shade); border-left: 3px solid var(--orange); padding: .9rem 1rem; overflow-x: auto; line-height: 1.4; }
+.page pre code { background: none; padding: 0; font-size: .85rem; }
+
+/* Tables */
+.page table { border-collapse: collapse; margin: 1rem 0; width: 100%; display: block; overflow-x: auto; }
+.page th, .page td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: left; vertical-align: top; }
+.page th { background: #000; color: #fff; font-weight: normal; }
+.page tbody tr:nth-child(even) { background: var(--shade); }
+
+.page blockquote { margin: 1rem 0; padding: .2rem 1rem; border-left: 3px solid var(--orange); color: var(--soft); }
+.page li > input[type="checkbox"] { margin-right: .4rem; }
+
+.foot { padding: 1rem 2.5rem; border-top: 1px solid var(--line); color: var(--soft); font-size: .85rem; text-align: center; }
+
+/* On a phone the menu goes above the page */
+@media (max-width: 50rem) {
+	.layout { display: block; }
+	.menu { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
+	.menu ul { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
+	.page { padding: 1rem; }
+	.banner { --logo-high: 2.6rem; }
+	.banner__frame { gap: 1rem; }
+	.banner__text { white-space: normal; font-size: .95rem; }
+	.menu .menu__apart { margin-top: 0; padding-top: 0; border-top: 0; }
+}
+
+/* Printed, the page alone */
+@media print {
+	.menu, .foot { display: none; }
+	.layout { display: block; }
+	.page { padding: 0; }
+	.page pre, .page table { break-inside: avoid; }
+}
