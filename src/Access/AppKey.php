@@ -22,6 +22,7 @@ class AppKey{
 
 	protected $headName;
 	protected $appsList;
+	protected $audnList;
 	protected $callAppl;
 	protected $lastMssg;
 	protected $wrongCrd = false;
@@ -32,11 +33,15 @@ class AppKey{
 	 * @param Array $confValues Config block with the 'header' the key is sent in (default 'X-App-Key') and the 'applst'
 	 *                          of the applications, by name, each with its 'keyhsh' (SHA-256 of its key, hexadecimal),
 	 *                          its 'routes' (written as those of 'openrt'), its 'pubkey' (path of the PEM file of the
-	 *                          public key of its tokens, from the project root) and its 'maxrol' (default 'member').
+	 *                          public key of its tokens, from the project root), its 'maxrol' (default 'member') and
+	 *                          the 'issuer' its tokens name (default: the name of the application); and the 'audnce'
+	 *                          of the block, the audiences naming this project (a text or a list): while it is
+	 *                          empty, neither the issuer nor the audience of the tokens is checked.
 	 */
 	function __construct( Array $confValues ){
 		$this->headName = strval($confValues['header'] ?? 'X-App-Key');
 		$this->appsList = is_array($confValues['applst'] ?? null) ? $confValues['applst'] : Array();
+		$this->audnList = $confValues['audnce'] ?? Array();
 		$this->callAppl = null;
 		$this->lastMssg = '';
 	}
@@ -80,7 +85,13 @@ class AppKey{
 			return false;
 		}
 		// The token is checked with the key of the application alone : it issues none here
-		$jwtObjc = new JWT( Array('algrtm'=>'RS256', 'pubkey'=>$appVals['pubkey'] ?? '') );
+		$jwtConf = Array('algrtm'=>'RS256', 'pubkey'=>$appVals['pubkey'] ?? '');
+		// Once the block names this project's audiences, the token names them and its application as issuer
+		if( !empty($this->audnList) ){
+			$jwtConf['audnce'] = $this->audnList;
+			$jwtConf['issuer'] = (is_string($appVals['issuer'] ?? null) && trim($appVals['issuer'])!='') ? $appVals['issuer'] : $appName;
+		}
+		$jwtObjc = new JWT( $jwtConf );
 		$idntArr = $jwtObjc->verifyReq( $requestObj );
 		if( $idntArr===false ){
 			$this->lastMssg = $jwtObjc->lastError();

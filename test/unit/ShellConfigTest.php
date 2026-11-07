@@ -101,7 +101,28 @@ if( function_exists('openssl_pkey_new') ){
 		checkSame('the private key is readable by its owner only', fileperms($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') & 0777, 0600);
 	}
 	checkSame('keys in use are only replaced when confirmed', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--noask'))['code'], readInPrj($projDir, 'conf/keys/rstokn.key')), Array(3, $prvText));
+	$pubText = strval(readInPrj($projDir, 'conf/keys/rstokn.pub'));
 	checkSame('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--agree'))['code'], readInPrj($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'backup'.DS.'rstokn*')), Array(0, true, Array()));
+	checkSame('the former public key is kept as oldpub, and checks the tokens it signed', Array(readInPrj($projDir, 'conf/keys/rstokn.old.pub'), json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['rstokn']['oldpub'] ?? null), Array($pubText, 'conf/keys/rstokn.old.pub'));
+	$oldTokn = $rsaJwt->issueTokn( Array('user'=>'anna') );
+	$nowJwt = new nyu\Access\Sess\JWT( Array('algrtm'=>'RS256', 'prvkey'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'oldpub'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub') );
+	checkSame('a token of the former pair passes with oldpub', ($nowJwt->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$oldTokn))) ?: Array())['user'] ?? null, 'anna');
+	checkLike('replacing them tells the former tokens are still accepted', runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn'), "n\n")['errs'], '/still accepted until they end, checked with conf\/keys\/rstokn\.old\.pub/');
+	// write : the keys binding the tokens to this project
+	checkSame('write access: an issuer, audiences, a previous key that is one', Array(
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.issuer', 'https://auth.example.org', '--force'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.audnce', '["api.example.org", "app.example.org"]', '--force'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.oldpub', 'conf/keys/rstokn.pub'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.oldpub', ''))['code']
+	), Array(0, 0, 0, 0));
+	checkSame('write access: refused, an issuer or audiences that are not texts, a previous key that is not one', Array(
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.issuer', '42'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.audnce', '[1, 2]'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.audnce', '{"a": "b"}'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.oldpub', 'conf/access.json'))['code'],
+		runShell($projDir, Array('config', 'write', 'access', 'rstokn.oldpub', 'conf/keys/rstokn.key.missing'))['code']
+	), Array(3, 3, 3, 3, 3));
+	checkSame('write access: what was refused was not written', array_intersect_key(json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['rstokn'] ?? Array(), Array('issuer'=>1, 'audnce'=>1, 'oldpub'=>1)), Array('oldpub'=>'', 'issuer'=>'https://auth.example.org', 'audnce'=>Array('api.example.org', 'app.example.org')));
 }
 // The key of the 2FA secrets, in the block of the store the login uses
 checkSame('a store whose block holds no key of the 2FA secrets', runShell($projDir, Array('config', 'secrt', 'tfakey'))['code'], 3);

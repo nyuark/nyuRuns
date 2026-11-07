@@ -55,6 +55,13 @@
 			"act": "langs"
 		}
 	},
+	".well-known/jwks.json" : {
+		"allows": "GET",
+		"target": {
+			"app": "auth",
+			"act": "keyset"
+		}
+	},
 	"index" : {
 		"target": {
 			"app": "shows",

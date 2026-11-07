@@ -208,6 +208,9 @@ class HealthChk{
 				$scrtLen = strlen(strval($blkVal['secret']));
 				$this->addResult( 'secret '.$blkName, ($scrtLen>=self::SECRSIZE) ? 'fine' : 'fail', ($scrtLen>=self::SECRSIZE) ? 'set' : ( $scrtLen==0 ? 'empty' : 'too short' ).': '.self::SECRSIZE.' characters at least; "config secrt jtoken" makes one' );
 			}
+			if( array_key_exists('algrtm', $blkVal) || array_key_exists('issuer', $blkVal) && array_key_exists('audnce', $blkVal) || array_key_exists('applst', $blkVal) ){
+				$this->chkClaims($blkName, $blkVal);
+			}
 			if( isset($blkVal['keylst']) && is_array($blkVal['keylst']) && in_array('', array_map('strval', $blkVal['keylst']), true) ){
 				$this->addResult('keys '.$blkName, 'warn', 'an API key of the block is empty; "config secrt apikey" makes one');
 			}
@@ -278,6 +281,58 @@ class HealthChk{
 		if( !empty($regFlaw) ){
 			$this->addResult('sign-up limits '.$blockNamed, 'fail', implode('; ', $regFlaw));
 		}
+	}
+
+	/**
+	 * Checks what binds the tokens of a block to this project: the
+	 * 'issuer' (a text) and the 'audnce' (a text or a list of texts) of a
+	 * block of tokens, the 'audnce' of the application keys and the
+	 * 'issuer' of each application, and the previous public key ('oldpub')
+	 * still checking the tokens signed before the keys were replaced.
+	 * Tokens bound to no project are told; values of the wrong kind fail.
+	 *
+	 * @param String $blockNamed Name of the block.
+	 * @param Array  $blockValue Its values.
+	 */
+	protected function chkClaims( String $blockNamed, Array $blockValue ): Void {
+		$appsBlk = array_key_exists('applst', $blockValue);
+		$clmFlaw = Array();
+		$audnVal = $blockValue['audnce'] ?? Array();
+		if( !is_string($audnVal) && !( is_array($audnVal) && array_values($audnVal)===$audnVal && count(array_filter($audnVal, 'is_string'))===count($audnVal) ) ){
+			$clmFlaw[] = 'audnce is a text or a list of texts';
+		}
+		if( !$appsBlk && !is_string($blockValue['issuer'] ?? '') ){
+			$clmFlaw[] = 'issuer is a text';
+		}
+		foreach( ($appsBlk && is_array($blockValue['applst'])) ? $blockValue['applst'] : Array() as $appKey => $appSet ){
+			if( is_array($appSet) && array_key_exists('issuer', $appSet) && !is_string($appSet['issuer']) ){
+				$clmFlaw[] = 'the issuer of the application '.json_encode(strval($appKey)).' is a text';
+			}
+		}
+		$oldPath = trim(strval($blockValue['oldpub'] ?? ''), '/\\ ');
+		if( $oldPath!='' ){
+			$oldText = is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $oldPath)) ? strval(@file_get_contents(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $oldPath))) : '';
+			$oldObjc = ($oldText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($oldText) : false;
+			$oldInfo = ($oldObjc!==false) ? openssl_pkey_get_details($oldObjc) : false;
+			if( !is_array($oldInfo) || ($oldInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($oldInfo['bits'] ?? 0)<JWT::RSAMINIM ){
+				$clmFlaw[] = 'oldpub is not the public RSA key of '.JWT::RSAMINIM.' bits at least: empty it, or "config secrt jtoken" writes it';
+			}elseif( ($blockValue['algrtm'] ?? '')!='RS256' ){
+				$this->addResult('previous key '.$blockNamed, 'warn', 'oldpub is only read with RS256');
+			}
+		}
+		if( !empty($clmFlaw) ){
+			$this->addResult('token claims '.$blockNamed, 'fail', implode('; ', $clmFlaw));
+			return;
+		}
+		$hasAudn = ( is_string($audnVal) ? trim($audnVal)!='' : count(array_filter(array_map('trim', $audnVal)))>0 );
+		$hasIssr = $appsBlk || trim(strval($blockValue['issuer'] ?? ''))!='';
+		if( !$hasAudn || !$hasIssr ){
+			$this->addResult('token claims '.$blockNamed, 'warn', $appsBlk
+				? 'no audnce: the tokens of the applications are not bound to this project; "config write access '.$blockNamed.'.audnce" sets it'
+				: 'no issuer or no audnce: the tokens are not bound to this project; "config write access '.$blockNamed.'.issuer" and ".audnce" set them');
+			return;
+		}
+		$this->addResult('token claims '.$blockNamed, 'fine', $appsBlk ? 'audience '.json_encode($audnVal) : 'issuer '.json_encode($blockValue['issuer']).', audience '.json_encode($audnVal));
 	}
 
 	/**

@@ -84,7 +84,8 @@ class AppKey extends Command{
 		$treeObj = $this->loadsKeys();
 		$blkName = self::KEYSBLCK;
 		if( !isset($treeObj->$blkName) || !is_object($treeObj->$blkName) ){
-			$treeObj->$blkName = (object)Array('header'=>self::KEYSHEAD, 'applst'=>new \stdClass());
+			// The audiences naming this project are left empty : "config write access apkeys.audnce" sets them
+			$treeObj->$blkName = (object)Array('header'=>self::KEYSHEAD, 'applst'=>new \stdClass(), 'audnce'=>Array());
 		}
 		if( !isset($treeObj->$blkName->applst) || !is_object($treeObj->$blkName->applst) ){
 			$treeObj->$blkName->applst = new \stdClass();

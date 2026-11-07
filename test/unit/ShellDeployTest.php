@@ -107,6 +107,30 @@ checkSame('once it is off, the row is fine', Array(runShell($projDir, Array('con
 runShell($projDir, Array('config', 'write', 'access', 'dfsess.secure', 'false'));
 $jsnVals = jsonShell($projDir, Array('deploy', 'check'));
 checkSame('a session cookie sent over plain HTTP in production is told, without failing the check', Array(json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['dfsess']['secure'] ?? null, stateOf($jsnVals)['cookie dfsess'] ?? null, $jsnVals['exit'] ?? null), Array(false, 'warn', 0));
+// The issuer and the audiences of the tokens, the previous key, the audiences of the application keys
+checkSame('tokens bound to no project are told, without failing the check', Array(stateOf($jsnVals)['token claims dftokn'] ?? null, $jsnVals['exit'] ?? null), Array('warn', 0));
+runShell($projDir, Array('config', 'write', 'access', 'dftokn.issuer', 'https://auth.example.org'));
+runShell($projDir, Array('config', 'write', 'access', 'dftokn.audnce', '["api.example.org"]'));
+checkSame('once the issuer and the audiences are set, the row is fine', array_column(jsonShell($projDir, Array('deploy', 'check'))['rows'] ?? Array(), 'found', 'check')['token claims dftokn'] ?? null, 'issuer "https:\/\/auth.example.org", audience ["api.example.org"]');
+$axsVals = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true);
+$axsVals['dftokn']['issuer'] = 42;
+$axsVals['dftokn']['oldpub'] = 'conf/access.json';
+$axsVals['apkeys'] = Array('header'=>'X-App-Key', 'applst'=>Array('portal'=>Array('keyhsh'=>'', 'issuer'=>Array('x'))), 'audnce'=>Array());
+$axsVals['apkeyz'] = Array('header'=>'X-App-Key', 'applst'=>Array(), 'audnce'=>Array());
+putInProj($projDir, 'conf/access.json', strval(json_encode($axsVals, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)));
+$jsnVals = jsonShell($projDir, Array('deploy', 'check'));
+$fndList = array_column($jsnVals['rows'] ?? Array(), 'found', 'check');
+checkSame('values of the wrong kind fail the check', Array(stateOf($jsnVals)['token claims dftokn'] ?? null, $fndList['token claims dftokn'] ?? null, stateOf($jsnVals)['token claims apkeys'] ?? null, $fndList['token claims apkeys'] ?? null),
+	Array('fail', 'issuer is a text; oldpub is not the public RSA key of 2048 bits at least: empty it, or "config secrt jtoken" writes it', 'fail', 'the issuer of the application "portal" is a text'));
+checkSame('application keys without the audiences of this project are told', stateOf($jsnVals)['token claims apkeyz'] ?? null, 'warn');
+$axsVals['dftokn']['issuer'] = 'https://auth.example.org';
+$axsVals['dftokn']['oldpub'] = 'conf/keys/dftokn.pub';
+$axsVals['dftokn']['algrtm'] = 'HS256';
+unset($axsVals['apkeys'], $axsVals['apkeyz']);
+putInProj($projDir, 'conf/access.json', strval(json_encode($axsVals, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)));
+if( function_exists('openssl_pkey_new') ){
+	checkSame('a previous key with HS256 is told, as it is not read', stateOf(jsonShell($projDir, Array('deploy', 'check')))['previous key dftokn'] ?? null, 'warn');
+}
 $projDir = freshPrjt('wrongs');
 checkSame('an answer that is not one of those proposed', Array(runShell($projDir, Array('deploy', 'start'), "LIVE\n")['code'], runShell($projDir, Array('deploy', 'start'), "\nldap\n")['code']), Array(3, 3));
 $jsnVals = jsonShell($projDir, Array('deploy', 'start', '--noask', '--store=none'));

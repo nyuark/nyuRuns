@@ -394,6 +394,38 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=nope');
 	checkSame('round trip: wrong password, no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 
+	// The published keys : RS256 tokens bound to an issuer and an audience (test/fixtures/confjwk), the keys made here
+	if( function_exists('openssl_pkey_new') ){
+		$jwkDir = TOP_DIR.DS.'temp'.DS.'httpjwk';
+		@mkdir($jwkDir, 0700, true);
+		$cnfOpts = Array('config'=>TOP_DIR.DS.'src'.DS.'Shell'.DS.'keygen.cnf');
+		foreach( Array('tstokn', 'tstokn.old') as $keyBase ){
+			$keyObjc = openssl_pkey_new( Array('private_key_bits'=>2048, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $cnfOpts );
+			$prvText = '';
+			openssl_pkey_export($keyObjc, $prvText, null, $cnfOpts);
+			file_put_contents($jwkDir.DS.$keyBase.'.key', $prvText);
+			file_put_contents($jwkDir.DS.$keyBase.'.pub', strval(openssl_pkey_get_details($keyObjc)['key']));
+		}
+		$replyAr = httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk'));
+		$keysSet = json_decode($replyAr['body'], true);
+		checkSame('key set: served as JSON, the current key and the previous one', Array($replyAr['code'], $replyAr['type'], count($keysSet['keys'] ?? Array())), Array(200, $jsonTyp, 2));
+		checkTrue('key set: may be kept five minutes', in_array('Cache-Control: public, max-age=300', $replyAr['head']));
+		checkSame('key set: open to anyone, also in a preset asking for a token', httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk', 'X-Test-Preset'=>'webapi'))['code'], 200);
+		checkSame('key set: GET only', httpQuery('POST', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk'))['code'], 405);
+		checkSame('key set: nothing published with HS256', Array(httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'conf'))['code']), Array(404));
+		$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $formHed + Array('X-Test-Conf'=>'confjwk'), 'user=alice&pass=s3cret');
+		$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
+		$tknClms = runSafely(function() use ( $jwToken, $keysSet ){ return (array)Firebase\JWT\JWT::decode($jwToken, Firebase\JWT\JWK::parseKeySet($keysSet)); });
+		checkSame('key set: another project checks the token of the login with it alone', Array($replyAr['code'], $tknClms['user'] ?? null, $tknClms['iss'] ?? null, $tknClms['aud'] ?? null), Array(200, 'alice', 'https://auth.example.org', 'api.example.org'));
+		$jwkHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn', 'X-Test-Conf'=>'confjwk');
+		checkSame('bound token: accepted by its audience', httpQuery('GET', $baseUrl.'/probe/whoami', $jwkHead + Array('Authorization'=>'Bearer '.$jwToken))['body'], '{"logged":true,"user":"alice","role":"member"}');
+		$othTokn = Firebase\JWT\JWT::encode( Array('user'=>'alice', 'exp'=>time()+60, 'iss'=>'https://auth.example.org', 'aud'=>'other.example.org'), strval(file_get_contents($jwkDir.DS.'tstokn.key')), 'RS256' );
+		checkSame('bound token: one meant for another audience is refused', Array(httpQuery('GET', $baseUrl.'/probe/whoami', $jwkHead + Array('Authorization'=>'Bearer '.$othTokn))['body']), Array('{"error":"Invalid token","code":401}'));
+		dropFoldr($jwkDir);
+	}else{
+		skipCheck('key set', 'the openssl extension is not loaded');
+	}
+
 	// Login round trip : native userbase of the sample database (test/fixtures/confnat)
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
 	checkSame('presence: nobody is online before any login', Array($replyAr['code'], $replyAr['body']), Array(200, '{"online":[]}'));

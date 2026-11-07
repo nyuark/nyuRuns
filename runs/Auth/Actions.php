@@ -126,6 +126,35 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Publishes the public keys the tokens of the login are checked with,
+	 * as a JWK Set (RFC 7517), for other projects to check them without a
+	 * copy of a key file: the current key and the previous one, each named
+	 * by its 'kid'. Declared at /.well-known/jwks.json, read by anyone.
+	 * Always written as JSON, and may be kept five minutes. Reports 404
+	 * when there is nothing to publish: tokens signed with a secret
+	 * (HS256), or issued by another server.
+	 */
+	public function keyset(): Void {
+		$lgnConf = $this->resolvCnf('login');
+		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
+		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') ) : null;
+		$keysSet = ($sessObj!==null && method_exists($sessObj, 'publicSet')) ? $sessObj->publicSet() : Array('keys'=>Array());
+		if( empty($keysSet['keys']) ){
+			Logger::getLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
+			$this->statCode = 404;
+			$this->statMssg = 'Not Found';
+			return;
+		}
+		$this->useFormat('json');
+		if( $this->httpResp!==null ){
+			$this->httpResp->addHeader('Cache-Control', 'public, max-age=300');
+			$this->httpResp->addHeader('Expires', gmdate('D, d M Y H:i:s', time() + 300).' GMT');
+		}
+		$this->statCode = 200;
+		$this->asOutput = $keysSet;
+	}
+
+	/**
 	 * Ends the session the login opened: a server-side session is
 	 * destroyed and its cookie expired. A token cannot be taken back, so
 	 * with a token carrier this only tells the client to forget it.

@@ -15,6 +15,12 @@ use Firebase\JWT\Key;
  * HS256 signs and checks with one shared secret. RS256 signs with a
  * private key and checks with its public key: a project holding only the
  * public key checks the tokens another server issues, and issues none.
+ *
+ * A block naming its 'issuer' and its audiences ('audnce') puts them in
+ * every token it issues ('iss', 'aud') and refuses a token that does not
+ * name them. The previous public key ('oldpub') still checks the tokens
+ * signed before the keys were replaced, found by their 'kid'; both are
+ * published as a JWK Set (see publicSet).
  */
 class JWT implements Handler{
 
@@ -29,6 +35,9 @@ class JWT implements Handler{
 	protected $jwtExpir;
 	protected $privtPem;
 	protected $publcPem;
+	protected $oldPbPem;
+	protected $jwtIssur;
+	protected $jwtAudnc;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -37,7 +46,9 @@ class JWT implements Handler{
 	 *
 	 * @param Array     $confValues Config block with 'algrtm' (HS256 or RS256, default 'HS256'), 'lifetm' (seconds,
 	 *                              default 3600), the 'secret' of HS256, or the 'prvkey' and 'pubkey' of RS256: the paths
-	 *                              of the PEM files of the private and public keys, from the project root.
+	 *                              of the PEM files of the private and public keys, from the project root; 'oldpub', the
+	 *                              path of the previous public key; 'issuer' (a text) and 'audnce' (a text or a list),
+	 *                              not checked when empty.
 	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the token's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
@@ -47,6 +58,9 @@ class JWT implements Handler{
 		$this->jwtExpir = $confValues['lifetm'] ?? 3600;
 		$this->privtPem = $this->readsKeys( $confValues['prvkey'] ?? '' );
 		$this->publcPem = $this->readsKeys( $confValues['pubkey'] ?? '' );
+		$this->oldPbPem = $this->readsKeys( $confValues['oldpub'] ?? '' );
+		$this->jwtIssur = is_scalar($confValues['issuer'] ?? null) ? trim(strval($confValues['issuer'])) : '';
+		$this->jwtAudnc = $this->readsAuds( $confValues['audnce'] ?? null );
 		$this->lastMssg = '';
 	}
 
@@ -73,6 +87,12 @@ class JWT implements Handler{
 			return false;
 		}
 		$rawTokn = substr( $authHed, 7 );
+		// A token signed before the keys were replaced names the previous key in its 'kid'
+		if( $this->jwtAlgor=='RS256' && $this->oldPbPem!='' ){
+			$hedJson = json_decode( strval(base64_decode(strtr(explode('.', $rawTokn)[0], '-_', '+/'))), true );
+			$askdKid = is_array($hedJson) && is_string($hedJson['kid'] ?? null) ? $hedJson['kid'] : '';
+			$chckKey = $this->checkKeys()[$askdKid] ?? $chckKey;
+		}
 		try{
 			$payload = JwtCodec::decode( $rawTokn, new Key($chckKey, $this->jwtAlgor) );
 			$idntArr = (array)$payload;
@@ -92,6 +112,13 @@ class JWT implements Handler{
 			$this->lastMssg = 'Invalid token';
 			return false;
 		}
+		// A token issued for another project, or by another issuer, is not counted : its signature is right
+		$clmFlaw = $this->claimFlaw( $idntArr );
+		if( $clmFlaw!='' ){
+			\nyu\Tools\Logger::getLogger('access')->debug( 'Token refused: '.$clmFlaw );
+			$this->lastMssg = 'Invalid token';
+			return false;
+		}
 		// A credential store that knows its users confirms the token's user is still allowed in
 		if( $this->authObjc!==null && method_exists($this->authObjc, 'userIdent') ){
 			$nowIdnt = $this->authObjc->userIdent( strval($idntArr['user'] ?? '') );
@@ -107,7 +134,9 @@ class JWT implements Handler{
 	/**
 	 * Issues a signed JWT for the given identity, expiring after the
 	 * configured TTL. With RS256, the token names its key in its 'kid'
-	 * header: the thumbprint of the public key (RFC 7638).
+	 * header: the thumbprint of the public key (RFC 7638). The issuer and
+	 * the audiences of the block are written as 'iss' and 'aud': one
+	 * audience as a text, several as a list.
 	 *
 	 * @param Array $identArray The identity to encode into the token.
 	 * @return String The issued JWT, or an empty string when the secret or the private key is not usable.
@@ -118,6 +147,14 @@ class JWT implements Handler{
 			return '';
 		}
 		$payload = $identArray;
+		// Only the block names the issuer and the audiences, never the identity
+		unset( $payload['iss'], $payload['aud'] );
+		if( $this->jwtIssur!='' ){
+			$payload['iss'] = $this->jwtIssur;
+		}
+		if( !empty($this->jwtAudnc) ){
+			$payload['aud'] = (count($this->jwtAudnc)==1) ? $this->jwtAudnc[0] : $this->jwtAudnc;
+		}
 		$payload['iat'] = time();
 		$payload['exp'] = time() + $this->jwtExpir;
 		return JwtCodec::encode( $payload, $signKey, $this->jwtAlgor, ($this->jwtAlgor=='RS256') ? $this->keysThumb() : null );
@@ -211,19 +248,126 @@ class JWT implements Handler{
 	}
 
 	/**
-	 * Gives the thumbprint of the public key (RFC 7638), which a token
+	 * Gives the thumbprint of a public key (RFC 7638), which a token
 	 * names as its 'kid': the name a server publishes the key under.
 	 *
+	 * @param ?String $pubKeyText The public key as PEM; the current one when not given.
 	 * @return ?String The thumbprint, base64url; null without a public key.
 	 */
-	protected function keysThumb(): ?String {
-		$pubText = $this->rsaPublic();
-		$keyInfo = ($pubText!==null) ? openssl_pkey_get_details(openssl_pkey_get_public($pubText)) : false;
+	protected function keysThumb( ?String $pubKeyText=null ): ?String {
+		$pubText = $pubKeyText ?? $this->rsaPublic();
+		$jwkVals = ($pubText!==null) ? $this->rsaToJwks($pubText) : null;
+		return ($jwkVals!==null) ? $jwkVals['kid'] : null;
+	}
+
+	/**
+	 * Gives a public RSA key as a JWK (RFC 7517), named by its thumbprint
+	 * (RFC 7638) and meant for checking RS256 signatures.
+	 *
+	 * @param String $pubKeyText The public key as PEM.
+	 * @return ?Array The JWK ('kty', 'use', 'alg', 'kid', 'n', 'e'); null when it is not an RSA key of RSAMINIM bits at least.
+	 */
+	protected function rsaToJwks( String $pubKeyText ): ?Array {
+		$keyObjc = function_exists('openssl_pkey_get_public') ? @openssl_pkey_get_public($pubKeyText) : false;
+		if( $keyObjc===false || !$this->strongKey($keyObjc) ){
+			return null;
+		}
+		$keyInfo = openssl_pkey_get_details($keyObjc);
 		if( !is_array($keyInfo) || !isset($keyInfo['rsa']['n'], $keyInfo['rsa']['e']) ){
 			return null;
 		}
-		$jwkText = '{"e":"'.$this->base64Url($keyInfo['rsa']['e']).'","kty":"RSA","n":"'.$this->base64Url($keyInfo['rsa']['n']).'"}';
-		return $this->base64Url( hash('sha256', $jwkText, true) );
+		$modText = $this->base64Url($keyInfo['rsa']['n']);
+		$expText = $this->base64Url($keyInfo['rsa']['e']);
+		// The members the thumbprint is made of, in the order of their names, without spaces
+		$jwkText = '{"e":"'.$expText.'","kty":"RSA","n":"'.$modText.'"}';
+		return Array( 'kty'=>'RSA', 'use'=>'sig', 'alg'=>'RS256', 'kid'=>$this->base64Url(hash('sha256', $jwkText, true)), 'n'=>$modText, 'e'=>$expText );
+	}
+
+	/**
+	 * Gives the public keys a token of RS256 is checked with, by their
+	 * 'kid': the current one first, then the previous one ('oldpub').
+	 *
+	 * @return Array The keys as PEM, by thumbprint; empty with HS256 or without a usable key.
+	 */
+	protected function checkKeys(): Array {
+		if( $this->jwtAlgor!='RS256' ){
+			return Array();
+		}
+		$keysArr = Array();
+		$currPem = $this->rsaPublic();
+		foreach( Array($currPem, ($this->oldPbPem!='') ? $this->oldPbPem : null) as $pemTxt ){
+			$keysKid = ($pemTxt!==null) ? $this->keysThumb($pemTxt) : null;
+			if( $keysKid!==null && !isset($keysArr[$keysKid]) ){
+				$keysArr[$keysKid] = $pemTxt;
+			}
+		}
+		return $keysArr;
+	}
+
+	/**
+	 * Gives the public keys of the block as a JWK Set (RFC 7517), for other
+	 * projects to check its tokens without a copy of a key file: the keys
+	 * of RS256 only, when the block issues tokens. A secret of HS256 is
+	 * never published, nor the key of another server.
+	 *
+	 * @return Array The set, under 'keys'; the list is empty when there is nothing to publish.
+	 */
+	public function publicSet(): Array {
+		$keysLst = Array();
+		if( !$this->checkOnly() ){
+			foreach( $this->checkKeys() as $pemTxt ){
+				$keysLst[] = $this->rsaToJwks($pemTxt);
+			}
+		}
+		return Array( 'keys'=>array_values(array_filter($keysLst)) );
+	}
+
+	/**
+	 * Tells why the issuer or the audience of a token is not the one of
+	 * the block: 'iss' must be its 'issuer', and 'aud' (a text or a list)
+	 * name one of its audiences. Neither is checked while the block names
+	 * none.
+	 *
+	 * @param Array $identArray The decoded claims of the token.
+	 * @return String The reason, for the log; empty when the token is the block's.
+	 */
+	protected function claimFlaw( Array $identArray ): String {
+		if( $this->jwtIssur!='' ){
+			$tokIssr = $identArray['iss'] ?? null;
+			if( !is_string($tokIssr) || $tokIssr=='' ){
+				return 'no issuer';
+			}
+			if( $tokIssr!==$this->jwtIssur ){
+				return 'issuer '.json_encode($tokIssr).' is not '.json_encode($this->jwtIssur);
+			}
+		}
+		if( !empty($this->jwtAudnc) ){
+			$tokAuds = $this->readsAuds( $identArray['aud'] ?? null );
+			if( empty($tokAuds) ){
+				return 'no audience';
+			}
+			if( empty(array_intersect($tokAuds, $this->jwtAudnc)) ){
+				return 'audience '.json_encode((count($tokAuds)==1) ? $tokAuds[0] : $tokAuds).' is not one of '.json_encode($this->jwtAudnc);
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Reads audiences, as the config or a token gives them: a text, or a
+	 * list of texts.
+	 *
+	 * @param Mixed $configVals The value given.
+	 * @return Array The audiences, non-empty texts, each once.
+	 */
+	protected function readsAuds( Mixed $configVals ): Array {
+		$audList = Array();
+		foreach( (is_array($configVals) ? $configVals : Array($configVals)) as $audVal ){
+			if( is_string($audVal) && trim($audVal)!='' && !in_array(trim($audVal), $audList, true) ){
+				$audList[] = trim($audVal);
+			}
+		}
+		return $audList;
 	}
 
 	/**

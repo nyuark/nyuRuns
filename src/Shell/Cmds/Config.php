@@ -195,6 +195,11 @@ class Config extends Command{
 				if( $tgtName=='access' && ( ($keyName=='authby' && Checker::authClass(strval($gvnText))===null) || ($keyName=='sessby' && Checker::sessClass(strval($gvnText))===null) ) ){
 					$this->stopShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authby' ? 'credential check' : 'session carrier' ), self::EXITDENY);
 				}
+				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
+				$tknFlaw = ($tgtName=='access') ? $this->tokenFlaw($keyName, $newValu) : '';
+				if( $tknFlaw!='' ){
+					$this->stopShell('Nothing was changed: '.$tknFlaw, self::EXITDENY);
+				}
 				$nodeObj->$keyName = $newValu;
 				$wrtrObj->saveJsons($filePth, $treeObj);
 			}elseif( $tgtName=='preset' ){
@@ -224,6 +229,41 @@ class Config extends Command{
 		$this->traceDone( 'Config: '.$tgtName.' '.$pathTxt.' written' );
 		$this->prntObjc->printPair('written', $tgtName.' '.$pathTxt);
 		return self::EXITDONE;
+	}
+
+	/**
+	 * Tells why a value cannot be written under a key binding the tokens
+	 * to this project: 'issuer' is a text, 'audnce' a text or a list of
+	 * texts, 'oldpub' empty or the path, from the project root, of a public
+	 * RSA key of JWT::RSAMINIM bits at least.
+	 *
+	 * @param String $keyWritten The key written.
+	 * @param Mixed  $givenValue The value, as readTyped() gives it.
+	 * @return String The reason; empty when the value can be written, or the key is none of those.
+	 */
+	protected function tokenFlaw( String $keyWritten, Mixed $givenValue ): String {
+		if( $keyWritten=='issuer' && !is_string($givenValue) ){
+			return 'issuer is a text';
+		}
+		if( $keyWritten=='audnce' && !is_string($givenValue) && !( is_array($givenValue) && count(array_filter($givenValue, 'is_string'))===count($givenValue) ) ){
+			return 'audnce is a text or a list of texts: \'["api.example.org"]\'';
+		}
+		if( $keyWritten=='oldpub' ){
+			if( !is_string($givenValue) ){
+				return 'oldpub is the path of a public key, from the project root';
+			}
+			$keyPath = trim($givenValue, '/\\ ');
+			if( $keyPath=='' ){
+				return '';
+			}
+			$keyText = is_file($this->pathOfCnf($keyPath)) ? strval(@file_get_contents($this->pathOfCnf($keyPath))) : '';
+			$keyObjc = ($keyText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($keyText) : false;
+			$keyInfo = ($keyObjc!==false) ? openssl_pkey_get_details($keyObjc) : false;
+			if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<\nyu\Access\Sess\JWT::RSAMINIM ){
+				return json_encode($givenValue).' is not a public RSA key of '.\nyu\Access\Sess\JWT::RSAMINIM.' bits at least';
+			}
+		}
+		return '';
 	}
 
 	/**
@@ -417,8 +457,12 @@ class Config extends Command{
 	 * private key signs the tokens, the public key checks them. Both are
 	 * PEM files, in conf/keys under the name of the block unless it names
 	 * others; the private one is readable by its owner only, and no copy of
-	 * a key replaced is kept. The block is given the paths it lacks. A new
-	 * pair ends every token signed with the former one.
+	 * a private key replaced is kept. The block is given the paths it lacks.
+	 * The public key of a pair replaced is kept as conf/keys/<block>.old.pub
+	 * and named by 'oldpub': the tokens it signed are accepted until they
+	 * end, and the next pair replaces it. Without a former private key (a
+	 * public key copied from another server), a new pair ends every token
+	 * checked with the former one.
 	 *
 	 * @param String $blockNamed Block of conf/access.json.
 	 * @param Bool   $onlyIfVoid Whether keys already there are left as they are, without a question: a public key copied from the server issuing the tokens is one.
@@ -441,11 +485,16 @@ class Config extends Command{
 		if( $hasKeys && $onlyIfVoid ){
 			return false;
 		}
-		if( $hasKeys && !$this->askAgreed('Replace the keys of the tokens in use: what was issued with them stops being accepted') ){
-			$this->stopShell('Nothing was written: not confirmed', self::EXITDENY);
-		}
 		if( !function_exists('openssl_pkey_new') ){
 			$this->stopShell('No keys made: the openssl extension is not loaded', self::EXITFAIL);
+		}
+		// The public key of the pair replaced keeps checking the tokens it signed, until the next pair
+		$oldName = 'conf/keys/'.$blockNamed.'.old.pub';
+		$oldPrvt = is_file($prvPath) ? @openssl_pkey_get_private(strval(@file_get_contents($prvPath))) : false;
+		$oldText = ($oldPrvt!==false) ? strval(openssl_pkey_get_details($oldPrvt)['key'] ?? '') : '';
+		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : 'what was issued with them stops being accepted';
+		if( $hasKeys && !$this->askAgreed('Replace the keys of the tokens in use: '.$lossTxt) ){
+			$this->stopShell('Nothing was written: not confirmed', self::EXITDENY);
 		}
 		$cnfOpts = Array('config'=>dirname(__DIR__).DS.'keygen.cnf');
 		$keyObjc = @openssl_pkey_new( Array('private_key_bits'=>self::KEYSBITS, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $cnfOpts );
@@ -454,7 +503,11 @@ class Config extends Command{
 			$this->stopShell('No keys made: OpenSSL refused: '.strval(openssl_error_string()), self::EXITFAIL);
 		}
 		$pubText = strval(openssl_pkey_get_details($keyObjc)['key'] ?? '');
-		foreach( Array($prvPath=>Array($prvText, 0600), $pubPath=>Array($pubText, 0644)) as $keyFle => $keyDat ){
+		$keyFles = Array($prvPath=>Array($prvText, 0600), $pubPath=>Array($pubText, 0644));
+		if( $oldText!='' ){
+			$keyFles[TOP_DIR.DS.str_replace('/', DS, $oldName)] = Array($oldText, 0644);
+		}
+		foreach( $keyFles as $keyFle => $keyDat ){
 			if( !is_dir(dirname($keyFle)) ){
 				@mkdir(dirname($keyFle), 0700, true);
 			}
@@ -469,14 +522,18 @@ class Config extends Command{
 				$this->stopShell('No keys written: '.basename($keyFle).' cannot be replaced', self::EXITFAIL);
 			}
 		}
-		if( !isset($blkNode->prvkey) || !isset($blkNode->pubkey) ){
+		if( !isset($blkNode->prvkey) || !isset($blkNode->pubkey) || ($oldText!='' && strval($blkNode->oldpub ?? '')!==$oldName) ){
 			$blkNode->prvkey = $prvName;
 			$blkNode->pubkey = $pubName;
+			if( $oldText!='' ){
+				$blkNode->oldpub = $oldName;
+			}
 			$wrtrObj->saveJsons($filePth, $treeObj);
 		}
 		Console::loadConfg();
-		$this->traceDone( 'Keys of the tokens made ('.self::KEYSBITS.' bits): '.$prvName.' and '.$pubName );
-		$this->prntObjc->printPair('written', $prvName.', '.$pubName);
+		$oldNote = ($oldText!='') ? ', the former public key kept as '.$oldName : '';
+		$this->traceDone( 'Keys of the tokens made ('.self::KEYSBITS.' bits): '.$prvName.' and '.$pubName.$oldNote );
+		$this->prntObjc->printPair('written', $prvName.', '.$pubName.( $oldText!='' ? ', '.$oldName : '' ));
 		return true;
 	}
 
