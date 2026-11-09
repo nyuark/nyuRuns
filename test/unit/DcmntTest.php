@@ -82,16 +82,16 @@ checkIdentical('an empty JSON file gives an empty tree', docFacts(tempFile('empt
 
 // A route file is plain JSON, read once with its keys as written, as the router does
 checkPregMatch('a route file with a comment line is refused', runCatchThrown(function(){
-	return new Dcmnt(tempFile('declared.rte', "# routes\n{\n\t\"shows/list\":{\"GET\":\"shows/index\"}\n}"), false);
+	return new Dcmnt(tempFile('declared.rte', "# routes\n{\n\t\"shows/list\":{\"GET\":\"shows/overview\"}\n}"), false);
 }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: declared\.rte: Invalid JSON content/');
 checkIdentical('a route file is read with its keys as written', runCatchThrown(function(){
-	return (new Dcmnt(tempFile('routes.rte', '{"shows/list":{"GET":"shows/index"}}'), false))->readFileDetail();
-}), Array('shows/list'=>Array('GET'=>'shows/index')));
+	return (new Dcmnt(tempFile('routes.rte', '{"shows/list":{"GET":"shows/overview"}}'), false))->readFileDetail();
+}), Array('shows/list'=>Array('GET'=>'shows/overview')));
 checkIdentical('a file parsed as JSON on request, keys kept as written', runCatchThrown(function(){
-	$docFile = new Dcmnt(tempFile('plain.rte', '{"shows/list":{"GET":"shows/index"}}'));
+	$docFile = new Dcmnt(tempFile('plain.rte', '{"shows/list":{"GET":"shows/overview"}}'));
 	$docFile->parseFileBytes('json', false);
 	return $docFile->readFileDetail();
-}), Array('shows/list'=>Array('GET'=>'shows/index')));
+}), Array('shows/list'=>Array('GET'=>'shows/overview')));
 checkIdentical('the route files of the project are read that way', runCatchThrown(function(){
 	// A route file the project ships, named : a file left in the folder by hand does not change the check
 	$rteFile = TOP_DIR.DS.'conf'.DS.'routes'.DS.'general.rte';

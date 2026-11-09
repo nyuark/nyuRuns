@@ -120,12 +120,12 @@ $formArr = Array('name'=>'<b>Ann</b>', 'mail'=>'ann @example.org', 'seats'=>'12'
 $formOut = Array('NAME'=>'Ann', 'MAIL'=>'ann@example.org', 'SEATS'=>12, 'SINCE'=>'2026/10/01', 'PASS'=>'p<a"ss', 'TAGS'=>Array('ete'), 'FILTERS'=>Array('search'=>'night', 'price'=>9.5));
 
 // The definition of an action, applied by the Controller
-checkIdentical('an action with a definition gets its fields, formatted', formsCall('send', $formArr), Array(200, $formOut));
-checkIdentical('the action asked for in another case gets the same definition', formsCall('SEND', $formArr), Array(200, $formOut));
+checkIdentical('an action with a definition gets its fields, formatted', formsCall('transmit', $formArr), Array(200, $formOut));
+checkIdentical('the action asked for in another case gets the same definition', formsCall('TRANSMIT', $formArr), Array(200, $formOut));
 checkIdentical('the default action gets its definition too', formsCall('', $formArr), Array(200, $formOut));
-checkIdentical('an action without a definition keeps the inputs as the preset built them', formsCall('free', Array('name'=>'<b>Ann</b>', 'extra'=>'kept')), Array(200, Array('NAME'=>'<b>Ann</b>', 'EXTRA'=>'kept')));
-checkPregMatch('a definition naming a format that does not exist stops the run', formsCall('wrong', $formArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat"/');
-checkPregMatch('a file that is not a definition stops the run', formsCall('broke', $formArr), '/THROWN.*Input misconfigured: Forms\/input\/broke\.json is not a definition of fields/');
+checkIdentical('an action without a definition keeps the inputs as the preset built them', formsCall('freeForm', Array('name'=>'<b>Ann</b>', 'extra'=>'kept')), Array(200, Array('NAME'=>'<b>Ann</b>', 'EXTRA'=>'kept')));
+checkPregMatch('a definition naming a format that does not exist stops the run', formsCall('noFormat', $formArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat"/');
+checkPregMatch('a file that is not a definition stops the run', formsCall('badInput', $formArr), '/THROWN.*Input misconfigured: Forms\/input\/badInput\.json is not a definition of fields/');
 checkIdentical('an action that does not exist reads no file', formsCall('../send', $formArr)[0], 404);
 
 /**
@@ -146,20 +146,20 @@ function formsStat( String $actionName, Array $givenVals ): Mixed {
 
 // Required fields, checked by the Controller before the action runs
 $needArr = Array('name'=>'<b>Ann</b>', 'mail'=>'ann @example.org', 'filters'=>Array('search'=>'night'), 'extra'=>'left out');
-checkIdentical('an action whose required fields are all there runs', formsStat('need', $needArr), Array(200, '', Array('NAME'=>'Ann', 'MAIL'=>'ann@example.org', 'FILTERS'=>Array('search'=>'night'))));
-checkIdentical('a required field that is missing refuses the request with a 400, the action not run', formsStat('need', Array('name'=>'Ann', 'filters'=>Array('search'=>'night'))), Array(400, 'Missing or invalid input: mail', null));
-checkIdentical('the 400 names every field, missing, empty or not valid', formsStat('need', Array('name'=>'', 'mail'=>'nobody', 'seats'=>'3')), Array(400, 'Missing or invalid input: name, mail, filters.search', null));
-checkIdentical('the 400 shows no value', formsStat('need', Array('name'=>'Ann', 'mail'=>'se<cr>et', 'filters'=>Array('search'=>'x'))), Array(400, 'Missing or invalid input: mail', null));
-checkIdentical('the action asked for in another case has the same required fields', formsStat('NEED', Array())[0], 400);
-checkIdentical('a field that is not required may be left out', formsStat('need', $needArr)[0], 200);
+checkIdentical('an action whose required fields are all there runs', formsStat('needForm', $needArr), Array(200, '', Array('NAME'=>'Ann', 'MAIL'=>'ann@example.org', 'FILTERS'=>Array('search'=>'night'))));
+checkIdentical('a required field that is missing refuses the request with a 400, the action not run', formsStat('needForm', Array('name'=>'Ann', 'filters'=>Array('search'=>'night'))), Array(400, 'Missing or invalid input: mail', null));
+checkIdentical('the 400 names every field, missing, empty or not valid', formsStat('needForm', Array('name'=>'', 'mail'=>'nobody', 'seats'=>'3')), Array(400, 'Missing or invalid input: name, mail, filters.search', null));
+checkIdentical('the 400 shows no value', formsStat('needForm', Array('name'=>'Ann', 'mail'=>'se<cr>et', 'filters'=>Array('search'=>'x'))), Array(400, 'Missing or invalid input: mail', null));
+checkIdentical('the action asked for in another case has the same required fields', formsStat('NEEDFORM', Array())[0], 400);
+checkIdentical('a field that is not required may be left out', formsStat('needForm', $needArr)[0], 200);
 
 // The definition the Auth application gives for its login
-$authDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'input'.DS.'login.json'), true );
+$authDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'input'.DS.'openSess.json'), true );
 checkIdentical('Auth: the login requires its user and its pass, not its code', Array(inputMiss($authDef['fields'] ?? 'none', Array()), inputMiss($authDef['fields'] ?? 'none', Array('user'=>'ann', 'pass'=>'')), inputMiss($authDef['fields'] ?? 'none', Array('user'=>'ann', 'pass'=>'x'))), Array(Array('user', 'pass'), Array('pass'), Array()));
 checkIdentical('Auth: the login keeps its three fields as sent', inputVals($authDef['fields'] ?? 'none', Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345', 'debug'=>'1')), Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345'));
 
 // The definition the Shows application gives for its list
-$showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'index.json'), true );
+$showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'overview.json'), true );
 checkIdentical('Shows: the list keeps its filters, its order and its limits, as sent', inputVals($showDef['fields'] ?? 'none', Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids', 'other'=>'x'), 'sorting'=>'^title', 'indexes'=>'10,20', 'debug'=>'1')), Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids'), 'sorting'=>'^title', 'indexes'=>'10,20'));
 
 finishChecking();

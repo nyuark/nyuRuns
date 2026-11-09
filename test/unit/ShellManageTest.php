@@ -23,7 +23,7 @@ $projDir = makeProjectTxt('manage', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/access.json'=>"{\n\t\"login\":  { \"authby\": \"usrlst\", \"authcf\": \"usrlst\", \"sessby\": \"jtoken\", \"sesscf\": \"dftokn\" },\n\t\"usrlst\": { \"usrfle\": \"conf/users.lst\", \"minlen\": 8 },\n\t\"dftokn\": { \"secret\": \"test-only-secret-0123456789-abcdefghij\", \"lifetm\": 300, \"algrtm\": \"HS256\" }\n}\n",
 	'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false }, '.$rndrTxt.' }',
-	'conf/presets/secure.rps'=>'{ "label": "secure", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "dftokn", "authby": "usrlst", "authcf": "usrlst", "rolert": { "probe/whoami": "manage" } }, '.$rndrTxt.' }',
+	'conf/presets/secure.rps'=>'{ "label": "secure", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "dftokn", "authby": "usrlst", "authcf": "usrlst", "rolert": { "probe/identify": "manage" } }, '.$rndrTxt.' }',
 	'test/fixtures/letters.txt'=>strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt'))
 ));
 
@@ -106,23 +106,23 @@ writeInProject($projDir, 'conf/users.lst', $fleText);
 checkIdentical('a store the config does not have', Array(callShellArray($projDir, Array('manage', 'lists', '--store=native'))['code'], callShellArray($projDir, Array('manage', 'lists', '--store=other'))['code'], callShellArray($projDir, Array('manage', 'lists', '--block=nothing'))['code']), Array(3, 2, 3));
 
 // Calling an action
-checkIdentical('calls runs an action and writes its reply', callShellArray($projDir, Array('manage', 'calls', 'probe/mirror/hello')), Array('code'=>0, 'text'=>"{\"got\":\"hello\"}\n", 'errs'=>''));
-checkIdentical('the call runs as the user of the system, with the role system', Array(preg_match('/^cli:[\w.\-]+$/D', strval(runShellAsJson($projDir, Array('manage', 'calls', 'probe/whoami'))['reply']['user'] ?? '')), runShellAsJson($projDir, Array('manage', 'calls', 'probe/whoami'))['reply']['role'] ?? null, runShellAsJson($projDir, Array('manage', 'calls', 'probe/roles'))['reply'] ?? null), Array(1, 'system', Array('member'=>true, 'system'=>true, 'manage'=>false)));
-checkIdentical('--urole gives it another role; a role the action asks for applies', Array(runShellAsJson($projDir, Array('manage', 'calls', 'probe/roles/manage', '--urole=manage'))['reply']['manage'] ?? null, callShellArray($projDir, Array('manage', 'calls', 'probe/roles/manage'))['code'], callShellArray($projDir, Array('manage', 'calls', 'probe/roles', '--urole=boss'))['code']), Array(true, 3, 2));
-$runVals = callShellArray($projDir, Array('manage', 'calls', 'probe/whoami', '--prset=secure'));
-checkIdentical('the role a preset asks for applies', Array($runVals['code'], $runVals['errs'], runShellAsJson($projDir, Array('manage', 'calls', 'probe/whoami', '--prset=secure', '--urole=manage'))['reply']['logged'] ?? null), Array(3, "403 Forbidden\n", true));
-$inpVals = runShellAsJson($projDir, Array('manage', 'calls', 'forms/send', 'name=Ann', 'filters[search]=jazz', 'other=dropped'))['reply'] ?? Array();
+checkIdentical('calls runs an action and writes its reply', callShellArray($projDir, Array('manage', 'calls', 'probe/mirrored/hello')), Array('code'=>0, 'text'=>"{\"got\":\"hello\"}\n", 'errs'=>''));
+checkIdentical('the call runs as the user of the system, with the role system', Array(preg_match('/^cli:[\w.\-]+$/D', strval(runShellAsJson($projDir, Array('manage', 'calls', 'probe/identify'))['reply']['user'] ?? '')), runShellAsJson($projDir, Array('manage', 'calls', 'probe/identify'))['reply']['role'] ?? null, runShellAsJson($projDir, Array('manage', 'calls', 'probe/roleList'))['reply'] ?? null), Array(1, 'system', Array('member'=>true, 'system'=>true, 'manage'=>false)));
+checkIdentical('--urole gives it another role; a role the action asks for applies', Array(runShellAsJson($projDir, Array('manage', 'calls', 'probe/roleList/manage', '--urole=manage'))['reply']['manage'] ?? null, callShellArray($projDir, Array('manage', 'calls', 'probe/roleList/manage'))['code'], callShellArray($projDir, Array('manage', 'calls', 'probe/roleList', '--urole=boss'))['code']), Array(true, 3, 2));
+$runVals = callShellArray($projDir, Array('manage', 'calls', 'probe/identify', '--prset=secure'));
+checkIdentical('the role a preset asks for applies', Array($runVals['code'], $runVals['errs'], runShellAsJson($projDir, Array('manage', 'calls', 'probe/identify', '--prset=secure', '--urole=manage'))['reply']['logged'] ?? null), Array(3, "403 Forbidden\n", true));
+$inpVals = runShellAsJson($projDir, Array('manage', 'calls', 'forms/transmit', 'name=Ann', 'filters[search]=jazz', 'other=dropped'))['reply'] ?? Array();
 checkIdentical('the inputs go through the definition of the action', Array($inpVals['NAME'] ?? null, $inpVals['FILTERS'] ?? null, array_key_exists('OTHER', $inpVals)), Array('Ann', Array('search'=>'jazz'), false));
-$inpVals = runShellAsJson($projDir, Array('manage', 'calls', 'forms/free', 'b=2', '--input=-'), '{"a": 1, "b": 1}')['reply'] ?? Array();
+$inpVals = runShellAsJson($projDir, Array('manage', 'calls', 'forms/freeForm', 'b=2', '--input=-'), '{"a": 1, "b": 1}')['reply'] ?? Array();
 checkIdentical('inputs read as JSON, the words written over them', Array($inpVals['A'] ?? null, $inpVals['B'] ?? null), Array(1, '2'));
-checkIdentical('what is not an input, or not an action', Array(callShellArray($projDir, Array('manage', 'calls', 'forms/free', 'novalue'))['code'], callShellArray($projDir, Array('manage', 'calls', 'forms'))['code'], callShellArray($projDir, Array('manage', 'calls', 'forms/free', '--mthod=FETCH'))['code'], callShellArray($projDir, Array('manage', 'calls', 'forms/free', '--input='.$projDir.DS.'nofile.json'))['code']), Array(2, 2, 2, 2));
-$runVals = callShellArray($projDir, Array('manage', 'calls', 'probe/halt/fail'));
+checkIdentical('what is not an input, or not an action', Array(callShellArray($projDir, Array('manage', 'calls', 'forms/freeForm', 'novalue'))['code'], callShellArray($projDir, Array('manage', 'calls', 'forms'))['code'], callShellArray($projDir, Array('manage', 'calls', 'forms/freeForm', '--mthod=FETCH'))['code'], callShellArray($projDir, Array('manage', 'calls', 'forms/freeForm', '--input='.$projDir.DS.'nofile.json'))['code']), Array(2, 2, 2, 2));
+$runVals = callShellArray($projDir, Array('manage', 'calls', 'probe/stopping/fail'));
 checkIdentical('a refusal of the action is told, with its exit code', $runVals, Array('code'=>3, 'text'=>"{\"error\":\"Stopped early\",\"code\":404}\n", 'errs'=>"404 Stopped early\n"));
 checkIdentical('an unknown application or action: the same refusal', Array(callShellArray($projDir, Array('manage', 'calls', 'nothing/here'))['code'], callShellArray($projDir, Array('manage', 'calls', 'probe/nothing'))['code']), Array(3, 3));
-checkIdentical('a reply without content, a redirection', Array(callShellArray($projDir, Array('manage', 'calls', 'probe/halt/none')), callShellArray($projDir, Array('manage', 'calls', 'probe/moved/out'))), Array(Array('code'=>0, 'text'=>'', 'errs'=>''), Array('code'=>0, 'text'=>"moved: https://example.org/\n", 'errs'=>'')));
+checkIdentical('a reply without content, a redirection', Array(callShellArray($projDir, Array('manage', 'calls', 'probe/stopping/none')), callShellArray($projDir, Array('manage', 'calls', 'probe/redirect/out'))), Array(Array('code'=>0, 'text'=>'', 'errs'=>''), Array('code'=>0, 'text'=>"moved: https://example.org/\n", 'errs'=>'')));
 $savePth = inTemporaryDir('reply.bin');
-checkIdentical('a file reply is written where --saved tells', Array(callShellArray($projDir, Array('manage', 'calls', 'probe/media', '--saved='.$savePth))['code'], is_file($savePth) ? file_get_contents($savePth) : null), Array(0, file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt')));
-checkIdentical('a method the request is said to use', runShellAsJson($projDir, Array('manage', 'calls', 'probe/creds', 'user=a', 'pass=b', '--mthod=POST'))['code'] ?? null, 401);
-checkPregMatch('a call is traced on the access channel', strval(fetchInProject($projDir, 'temp/logs/access.log')), '/\[NOTICE\] Action probe\/mirror called from the command line by user "cli:[\w.\-]+" \(system\)\n/');
+checkIdentical('a file reply is written where --saved tells', Array(callShellArray($projDir, Array('manage', 'calls', 'probe/sendFile', '--saved='.$savePth))['code'], is_file($savePth) ? file_get_contents($savePth) : null), Array(0, file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt')));
+checkIdentical('a method the request is said to use', runShellAsJson($projDir, Array('manage', 'calls', 'probe/userPass', 'user=a', 'pass=b', '--mthod=POST'))['code'] ?? null, 401);
+checkPregMatch('a call is traced on the access channel', strval(fetchInProject($projDir, 'temp/logs/access.log')), '/\[NOTICE\] Action probe\/mirrored called from the command line by user "cli:[\w.\-]+" \(system\)\n/');
 
 finishChecking();

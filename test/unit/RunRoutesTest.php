@@ -55,12 +55,12 @@ $siteDir = 'temp'.DS.'runroutes_'.getmypid();
 @mkdir(TOP_DIR.DS.$siteDir, 0775, true);
 file_put_contents(TOP_DIR.DS.$siteDir.DS.'covers.rte', '{ "auth/*": { "target": { "url": "/elsewhere" } } }');
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('patlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-$patReg = madeRoutr('/auth/login', 'GET', Array('folder'=>$siteDir))->locateRouteReg();
+$patReg = madeRoutr('/auth/openSess', 'GET', Array('folder'=>$siteDir))->locateRouteReg();
 Logger::plugLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$siteDir);
 checkIdentical('site pattern: the site answers', Array($patReg->readFileDetail('rteKind'), $patReg->readFileDetail('rteOwnr'), $patReg->readFileDetail('rtePath')), Array('redrct', 'site', 'auth/*'));
 $patLog = implode("\n", file_exists(inTemporaryDir('patlogs').DS.'runner.log') ? file(inTemporaryDir('patlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array());
-checkPregMatch('site pattern: the Auth routes under it are warned', $patLog, '#\[WARNING\] Route "/auth/login" of the application Auth falls under the site route "/auth/\*": the site\'s answers#');
+checkPregMatch('site pattern: the Auth routes under it are warned', $patLog, '#\[WARNING\] Route "/auth/openSess" of the application Auth falls under the site route "/auth/\*": the site\'s answers#');
 checkIdentical('site pattern: a route from the root is not under it', strpos($patLog, '"/.well-known/jwks.json"'), false);
 
 // deploy check: the route shadow row, and the mounts a preset may give
@@ -81,7 +81,7 @@ $projDir = makeProjectTxt('runroutes', Array(
 ));
 $chkRows = array_column(runShellAsJson($projDir, Array('deploy', 'check'))['rows'] ?? Array(), null, 'check');
 checkIdentical('route shadow: a site pattern over the Auth routes is a warning', $chkRows['route shadow']['state'] ?? null, 'warn');
-checkPregMatch('route shadow: naming the preset, the route and the pattern', strval($chkRows['route shadow']['found'] ?? ''), '#covers: /auth/login of Auth under /auth/\*#');
+checkPregMatch('route shadow: naming the preset, the route and the pattern', strval($chkRows['route shadow']['found'] ?? ''), '#covers: /auth/openSess of Auth under /auth/\*#');
 foreach( Array('mntyes'=>'true', 'mntnum'=>'12', 'mntarr'=>'\["account"\]') as $rpsName=>$badText ){
 	checkIdentical('mounts: '.$rpsName.' does not load', $chkRows['preset '.$rpsName]['state'] ?? null, 'fail');
 	checkPregMatch('mounts: '.$rpsName.' says why, naming the Run', strval($chkRows['preset '.$rpsName]['found'] ?? ''), '#holds a mount that is not false or a path prefix for the application "auth": '.$badText.'#');
@@ -91,7 +91,7 @@ foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText
 	checkPregMatch('mounts: '.$rpsName.' says why', strval($chkRows['preset '.$rpsName]['found'] ?? ''), '#holds mounts that are not an object of applications: '.$badText.'#');
 }
 checkIdentical('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
-$rootRtr = madeRoutr('/login', 'POST', Array('mounts'=>Array('auth'=>'')));
-checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readFileDetail('app'), $rootRtr->locateRouteReg()->readFileDetail('rtePath')), Array('Auth', 'login'));
+$rootRtr = madeRoutr('/openSess', 'POST', Array('mounts'=>Array('auth'=>'')));
+checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readFileDetail('app'), $rootRtr->locateRouteReg()->readFileDetail('rtePath')), Array('Auth', 'openSess'));
 
 finishChecking();

@@ -29,7 +29,7 @@ class Actions extends Actionset {
 	 * wrong ones (see Access\Limiter) and 500 when no token can be issued.
 	 * Credential checks and their outcome are logged.
 	 */
-	public function login(): Void {
+	public function openSess(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -149,7 +149,7 @@ class Actions extends Actionset {
 	 * when there is nothing to publish: tokens signed with a secret
 	 * (HS256), or issued by another server.
 	 */
-	public function keyset(): Void {
+	public function jwksList(): Void {
 		$lgnConf = $this->resolveConfArr('login');
 		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
 		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') ) : null;
@@ -175,7 +175,7 @@ class Actions extends Actionset {
 	 * with a token carrier this only tells the client to forget it.
 	 * Reports 405 unless the request is a POST.
 	 */
-	public function logout(): Void {
+	public function quitSess(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -277,7 +277,7 @@ class Actions extends Actionset {
 	 * ('signup') and names a mail account ('mailer'): the 'user' input is
 	 * the name asked for, the 'mail' input its address. The address is
 	 * sent a code that confirms it and sets the password (auth/activate);
-	 * a manager then approves the account (users/approve). A name or an
+	 * a manager then approves the account (users/approves). A name or an
 	 * address already taken gets the same reply, and the address is told
 	 * by mail. A client may sign up 'regmax' times (16) within 'holdtm' of
 	 * the 'limits' block, counted apart from its wrong credentials; at most
@@ -289,7 +289,7 @@ class Actions extends Actionset {
 	 * is held, 503 when too many sign-ups
 	 * are waiting.
 	 */
-	public function signup(): Void {
+	public function register(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -380,14 +380,14 @@ class Actions extends Actionset {
 	 * Asks for a new password, when the block of the native userbase names
 	 * a mail account: the 'user' input is the login name or the address
 	 * of the user. An active user with an address is sent a code, its
-	 * password kept until the code is used (auth/recovr). Whoever the
+	 * password kept until the code is used (auth/useReset). Whoever the
 	 * user is, or is not, the reply is the same. Each request counts
 	 * against the address of the client (see Access\Limiter). The action
 	 * is meant to be open ('openrt'). Reports 202, 404 when no mail is
 	 * sent, 405 unless the request is a POST, 400 for an input that is
 	 * not a text, 429 when the address of the client asked too often.
 	 */
-	public function forgot(): Void {
+	public function askReset(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -422,7 +422,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Sets a new password with the code auth/forgot sent: the 'user' and
+	 * Sets a new password with the code auth/askReset sent: the 'user' and
 	 * 'code' inputs name the user and carry the code, the 'pass' input the
 	 * new password, kept as sent. The action is meant to be open
 	 * ('openrt'). Reports 405 unless the request is a POST, 400 when an
@@ -432,7 +432,7 @@ class Actions extends Actionset {
 	 * many wrong ones (see Access\Limiter) and 500 when the login does not
 	 * use the native userbase.
 	 */
-	public function recovr(): Void {
+	public function useReset(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -568,7 +568,7 @@ class Actions extends Actionset {
 	 * POST, 400 for a language that is not a tag, 401 when nobody is logged
 	 * and 500 when the login does not use the native userbase.
 	 */
-	public function langs(): Void {
+	public function language(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';

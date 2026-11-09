@@ -1,38 +1,38 @@
 {
-	"login" : {
+	"openSess" : {
 		"allows": "POST",
-		"target": { "act": "login" }
+		"target": { "act": "openSess" }
 	},
-	"logout" : {
+	"quitSess" : {
 		"allows": "POST",
-		"target": { "act": "logout" }
+		"target": { "act": "quitSess" }
 	},
 	"activate" : {
 		"allows": "POST",
 		"target": { "act": "activate" }
 	},
-	"signup" : {
+	"register" : {
 		"allows": "POST",
-		"target": { "act": "signup" }
+		"target": { "act": "register" }
 	},
-	"forgot" : {
+	"askReset" : {
 		"allows": "POST",
-		"target": { "act": "forgot" }
+		"target": { "act": "askReset" }
 	},
-	"recovr" : {
+	"useReset" : {
 		"allows": "POST",
-		"target": { "act": "recovr" }
+		"target": { "act": "useReset" }
 	},
 	"password" : {
 		"allows": "POST",
 		"target": { "act": "password" }
 	},
-	"langs" : {
+	"language" : {
 		"allows": "POST",
-		"target": { "act": "langs" }
+		"target": { "act": "language" }
 	},
 	"/.well-known/jwks.json" : {
 		"allows": "GET",
-		"target": { "act": "keyset" }
+		"target": { "act": "jwksList" }
 	}
 }

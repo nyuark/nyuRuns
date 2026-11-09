@@ -201,7 +201,7 @@ checkIdentical('Checker phsess x regkey: the session alone decides', sessReply($
 checkIdentical('Checker phsess: no cookie is a 401, without a challenge', sessReply(null), Array(401, 'No active session', '', null, null));
 checkIdentical('Checker phsess: an unknown role makes a member', sessReply(openSessn($sessCar, Array('user'=>'erin', 'role'=>'root')))[3], 'member');
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
-checkIdentical('Checker phsess: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('app'=>'shows', 'action'=>'index'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('app'=>'shows', 'action'=>'index'))[0]), Array(404, 200));
+checkIdentical('Checker phsess: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('app'=>'shows', 'action'=>'overview'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('app'=>'shows', 'action'=>'overview'))[0]), Array(404, 200));
 checkIdentical('Checker phsess: a refusal for the role leaves the session open', sessReply($sessIdn)[0], 200);
 $lockIdn = openSessn($sessCar, Array('user'=>'dave', 'role'=>'system'));
 checkIdentical('Checker phsess x usrlst: a locked user is refused, its session destroyed', Array(sessReply($lockIdn, $usrStor), sessReply($lockIdn)[1]), Array(Array(401, 'Account not active', '', null, null), 'No active session'));

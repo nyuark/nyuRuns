@@ -12,7 +12,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers normally. Declared first, so it is also the default action.
 	 */
-	public function clean(): Void {
+	public function sanitize(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array('ok'=>true);
 	}
@@ -20,7 +20,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with the parameter it was called with.
 	 */
-	public function mirror( String $valueAsGiven ): Void {
+	public function mirrored( String $valueAsGiven ): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array('got'=>$valueAsGiven);
 	}
@@ -29,7 +29,7 @@ class Actions extends Actionset {
 	 * Tells whether the 'user' and 'pass' inputs were read from the
 	 * request, whatever its method: 401 when both were, 400 otherwise.
 	 */
-	public function creds(): Void {
+	public function userPass(): Void {
 		$gotBoth = is_string($this->inptRgstry->readFileDetail('user')) && is_string($this->inptRgstry->readFileDetail('pass'));
 		$this->statusCode = $gotBoth ? 401 : 400;
 		$this->statusMssg = $gotBoth ? 'Credentials read' : 'Missing user or pass';
@@ -39,7 +39,7 @@ class Actions extends Actionset {
 	 * Sets a cookie of its own, then ends the session of the request as a
 	 * logout does: the cookie of the application must still go out.
 	 */
-	public function leave(): Void {
+	public function signsOut(): Void {
 		header('Set-Cookie: probeKept=1; path=/', false);
 		(new \nyu\Access\Sess\PHPSess( Array('cookie'=>'nyuTests', 'secure'=>false) ))->dropUsrSession( $this->httpRequst );
 		$this->statusCode = 200;
@@ -49,7 +49,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with what the access check reported about the requester.
 	 */
-	public function whoami(): Void {
+	public function identify(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array(
 			'logged'=>$this->accessRgst->readFileDetail('logged'),
@@ -62,7 +62,7 @@ class Actions extends Actionset {
 	 * Answers with the roles the requester holds, after asking for the
 	 * role named by its parameter when it is given one.
 	 */
-	public function roles( String $valueAsGiven='' ): Void {
+	public function roleList( String $valueAsGiven='' ): Void {
 		if( $valueAsGiven!='' ){
 			$this->needsActionRle($valueAsGiven);
 		}
@@ -82,7 +82,7 @@ class Actions extends Actionset {
 	/**
 	 * Raises a warning, then answers "no content" without any output.
 	 */
-	public function vanish(): Void {
+	public function noOutput(): Void {
 		trigger_error('probe warning', E_USER_WARNING);
 		$this->statusCode = 204;
 	}
@@ -91,7 +91,7 @@ class Actions extends Actionset {
 	 * Sets a first output, then stops through a helper in the way named by
 	 * its parameter. The lines after the stop must never run.
 	 */
-	public function halt( String $valueAsGiven ): Void {
+	public function stopping( String $valueAsGiven ): Void {
 		if( $valueAsGiven!='none' ){
 			$this->replyValue = Array('step'=>1);
 		}
@@ -119,7 +119,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with a bare string, not an array.
 	 */
-	public function text(): Void {
+	public function txtProbe(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = 'plain text';
 	}
@@ -127,7 +127,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with text that is not valid UTF-8, which JSON cannot carry.
 	 */
-	public function badutf(): Void {
+	public function badBytes(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array('name'=>"caf\xE9");
 	}
@@ -136,14 +136,14 @@ class Actions extends Actionset {
 	 * Answers with the letters fixture file, or with a missing one when
 	 * called with a parameter.
 	 */
-	public function media( String $valueAsGiven='' ): Void {
+	public function sendFile( String $valueAsGiven='' ): Void {
 		$this->serveFileReply( TOP_DIR.DS.'test'.DS.'fixtures'.DS.($valueAsGiven=='' ? 'letters.txt' : 'nosuchfile.txt'), 'audio/mp4' );
 	}
 
 	/**
 	 * Registers the letters fixture file, then answers with an error status.
 	 */
-	public function mediafail(): Void {
+	public function mediaErr(): Void {
 		$this->serveFileReply( TOP_DIR.DS.'test'.DS.'fixtures'.DS.'letters.txt', 'audio/mp4' );
 		$this->statusCode = 403;
 		$this->statusMssg = 'Not yours';
@@ -153,7 +153,7 @@ class Actions extends Actionset {
 	 * Sends the client elsewhere, in the way named by its parameter. The
 	 * lines after the redirection must never run.
 	 */
-	public function moved( String $valueAsGiven='' ): Void {
+	public function redirect( String $valueAsGiven='' ): Void {
 		if( $valueAsGiven=='out' ){
 			$this->redirectClient('https://example.org/', 303);
 		}
@@ -161,10 +161,10 @@ class Actions extends Actionset {
 			$this->redirectClient('//example.org/');
 		}
 		if( $valueAsGiven=='code' ){
-			$this->redirectClient('/probe/clean', 200);
+			$this->redirectClient('/probe/sanitize', 200);
 		}
 		$this->replyValue = Array('step'=>1);
-		$this->redirectClient('/probe/clean');
+		$this->redirectClient('/probe/sanitize');
 		$this->statusCode = 200;
 		$this->replyValue = Array('step'=>2);
 	}
@@ -173,7 +173,7 @@ class Actions extends Actionset {
 	 * Answers with the card page of the application, or with a page that
 	 * cannot be served, in the way named by its parameter.
 	 */
-	public function page( String $valueAsGiven='' ): Void {
+	public function pgeProbe( String $valueAsGiven='' ): Void {
 		if( $valueAsGiven=='none' ){
 			$this->answerPageFlag('nosuchpage');
 		}elseif( $valueAsGiven=='out' ){
@@ -193,7 +193,7 @@ class Actions extends Actionset {
 	 * Answers with the link to a declared route, or fails on one that is
 	 * not declared when called with a parameter.
 	 */
-	public function link( String $valueAsGiven='' ): Void {
+	public function routeUrl( String $valueAsGiven='' ): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array('link'=>($valueAsGiven=='') ? $this->routLinkString('things/$id', Array('id'=>7)) : $this->routLinkString('nosuch/$id', Array('id'=>7)));
 	}
@@ -215,7 +215,7 @@ class Actions extends Actionset {
 	/**
 	 * Raises a user warning and a PHP warning, then answers normally with a list.
 	 */
-	public function warn(): Void {
+	public function warnings(): Void {
 		trigger_error('probe warning', E_USER_WARNING);
 		$emptyAr = Array();
 		$missing = $emptyAr['missing'];
@@ -235,7 +235,7 @@ class Actions extends Actionset {
 	/**
 	 * Raises a warning, then throws.
 	 */
-	public function boom(): Void {
+	public function throwing(): Void {
 		trigger_error('probe warning', E_USER_WARNING);
 		throw new \RuntimeException('probe failure', 7);
 	}
@@ -243,7 +243,7 @@ class Actions extends Actionset {
 	/**
 	 * Exhausts the memory limit, which PHP reports as a fatal error at shutdown.
 	 */
-	public function fatal(): Void {
+	public function fatalErr(): Void {
 		ini_set('memory_limit', '24M');
 		$bigText = str_repeat('x', 64*1024*1024);
 		$this->statusCode = 200;

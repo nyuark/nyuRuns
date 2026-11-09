@@ -5,7 +5,7 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/login", "auth/activate", "auth/signup", "auth/forgot", "auth/recovr", "/.well-known/jwks.json"], "rolert": { "users/*": "manage" } },
+	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json"], "rolert": { "users/*": "manage" } },
 	"input": [
 		{
 			"naming": "QUERY",

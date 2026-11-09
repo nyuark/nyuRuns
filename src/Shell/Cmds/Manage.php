@@ -21,7 +21,7 @@ use nyu\Shell\UserFile;
  *   php nyuRun manage twofa ann --clear        takes its 2FA secret away, when its authenticator is lost
  *   php nyuRun manage twofa ann --email        has it give a code sent to its address at each login
  *   php nyuRun manage prove                    the sign-ups awaiting review (prove ann approves one)
- *   php nyuRun manage calls shows/index filters[search]=jazz
+ *   php nyuRun manage calls shows/overview filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
  * (native) or the users file (usrlst); --store names the other, --block

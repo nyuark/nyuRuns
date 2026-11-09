@@ -1,6 +1,6 @@
 {
 	"listed" :    { "allows": "GET", "target": { "act": "listed" } },
-	"/rooted" :   { "target": { "act": "rooted" } },
+	"/fromRoot" :   { "target": { "act": "fromRoot" } },
 	"ping" :      { "target": { "act": "listed" } },
 	"items/$id" : { "target": { "act": "listed" } }
 }

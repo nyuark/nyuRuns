@@ -46,7 +46,7 @@ function titleList( Mixed $actnResult ): Mixed {
 }
 
 // index
-$outcome = runAction('index');
+$outcome = runAction('overview');
 checkIdentical('index: status', $outcome['code'] ?? $outcome, 200);
 checkIdentical('index: every show', titleList($outcome), Array('Alpha Night', 'Beta Evening', 'Alpha Matinee', 'Solo Gig', 'Empty Stage'));
 checkIdentical('index: items are flattened to their types', array_column($outcome['out'] ?? Array(), 'Items'),
@@ -59,34 +59,34 @@ checkIdentical('index: event spans', array_column($outcome['out'] ?? Array(), 'e
 	false
 ));
 
-checkIdentical('index: search on the title', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Alpha*')))), Array('Alpha Night', 'Alpha Matinee'));
-checkIdentical('index: category filter', titleList(runAction('index', null, Array('filters'=>Array('categ'=>'music')))), Array('Alpha Night', 'Beta Evening'));
-checkIdentical('index: search and category together', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Alpha*', 'categ'=>'circus')))), Array('Alpha Matinee'));
-checkIdentical('index: exactly one match', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Beta*')))), Array('Beta Evening'));
-checkIdentical('index: a category given as an array is ignored', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Beta*', 'categ'=>Array('x'))))), Array('Beta Evening'));
-checkIdentical('index: sorting', titleList(runAction('index', null, Array('sorting'=>'^id_show', 'indexes'=>'2'))), Array('Empty Stage', 'Solo Gig'));
+checkIdentical('index: search on the title', titleList(runAction('overview', null, Array('filters'=>Array('search'=>'Alpha*')))), Array('Alpha Night', 'Alpha Matinee'));
+checkIdentical('index: category filter', titleList(runAction('overview', null, Array('filters'=>Array('categ'=>'music')))), Array('Alpha Night', 'Beta Evening'));
+checkIdentical('index: search and category together', titleList(runAction('overview', null, Array('filters'=>Array('search'=>'Alpha*', 'categ'=>'circus')))), Array('Alpha Matinee'));
+checkIdentical('index: exactly one match', titleList(runAction('overview', null, Array('filters'=>Array('search'=>'Beta*')))), Array('Beta Evening'));
+checkIdentical('index: a category given as an array is ignored', titleList(runAction('overview', null, Array('filters'=>Array('search'=>'Beta*', 'categ'=>Array('x'))))), Array('Beta Evening'));
+checkIdentical('index: sorting', titleList(runAction('overview', null, Array('sorting'=>'^id_show', 'indexes'=>'2'))), Array('Empty Stage', 'Solo Gig'));
 
-$outcome = runAction('index', null, Array('filters'=>Array('search'=>'Zzz*')));
+$outcome = runAction('overview', null, Array('filters'=>Array('search'=>'Zzz*')));
 checkIdentical('index: no match is 204', $outcome['code'] ?? $outcome, 204);
 checkIdentical('index: no match output', $outcome['out'] ?? $outcome, Array());
-checkIdentical('index: no category match is 204', runAction('index', null, Array('filters'=>Array('categ'=>'opera')))['code'] ?? null, 204);
+checkIdentical('index: no category match is 204', runAction('overview', null, Array('filters'=>Array('categ'=>'opera')))['code'] ?? null, 204);
 
 // view
-$outcome = runAction('view', '1');
+$outcome = runAction('viewShow', '1');
 checkIdentical('view: status', $outcome['code'] ?? $outcome, 200);
 checkIdentical('view: record', $outcome['out']['title'] ?? null, 'Alpha Night');
 checkIdentical('view: events are loaded in date order', array_column($outcome['out']['Events'] ?? Array(), 'date'), Array('2026-12-28', '2027-01-03'));
 checkIdentical('view: items', $outcome['out']['Items'] ?? null, Array('music', 'dance'));
 checkIdentical('view: event span', $outcome['out']['evntSpan'] ?? null, 'From 28 December 2026 until 03 January 2027');
 
-$outcome = runAction('view', '4');
+$outcome = runAction('viewShow', '4');
 checkIdentical('view: single event and item', Array($outcome['out']['Items'] ?? null, $outcome['out']['evntSpan'] ?? null), Array(Array('solo'), '01 December 2026'));
 
-$outcome = runAction('view', '5');
+$outcome = runAction('viewShow', '5');
 checkIdentical('view: show without events or items', $outcome['out'] ?? $outcome,
 	Array('id_show'=>5, 'title'=>'Empty Stage', 'venue'=>null, 'Events'=>Array(), 'Items'=>Array(), 'evntSpan'=>false));
 
-$outcome = runAction('view', '99');
+$outcome = runAction('viewShow', '99');
 checkIdentical('view: missing show is 404', Array($outcome['code'] ?? null, $outcome['mssg'] ?? null), Array(404, 'Show not found'));
 
 // unknown action

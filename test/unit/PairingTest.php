@@ -165,7 +165,7 @@ checkIdentical('a plug-in that is not listed is a misconfiguration', pairReply('
 
 // Roles : what each pair gives is measured against the role a route asks for
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
-$anyRoute = Array('app'=>'shows', 'action'=>'index');
+$anyRoute = Array('app'=>'shows', 'action'=>'overview');
 checkIdentical('role: hbasic x htpass gives a member', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'member'));
 checkIdentical('role: header x plug-in check gives a member', pairReply('header', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 404);
 checkIdentical('role: a certificate without a store gives a member', pairReply('clcert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(404, 'Not Found', 'carol', 'member'));
@@ -213,17 +213,17 @@ checkIdentical('limit: a plug-in carrier counts nothing', Array(sendTrice('198.5
 checkIdentical('limit: a refusal for the role is not counted', Array(sendTrice('198.51.100.11', 'hbasic', 'htpass', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), heldAddr('198.51.100.11')), Array(Array(404, 404, 404), false));
 
 // A held address : what needs no check is still served
-checkIdentical('limit: a held address keeps the open routes', pairReply('hbasic', 'htpass', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openrt'=>Array('auth/login')), Array('app'=>'auth', 'action'=>'login')), Array(200, '', '', null));
-checkIdentical('limit: and its other routes stay refused', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openrt'=>Array('auth/login')), Array('app'=>'shows', 'action'=>'index'))[0], 429);
+checkIdentical('limit: a held address keeps the open routes', pairReply('hbasic', 'htpass', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openrt'=>Array('auth/openSess')), Array('app'=>'auth', 'action'=>'openSess')), Array(200, '', '', null));
+checkIdentical('limit: and its other routes stay refused', pairReply('hbasic', 'htpass', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openrt'=>Array('auth/openSess')), Array('app'=>'shows', 'action'=>'overview'))[0], 429);
 checkIdentical('limit: a certificate does not lift the hold of its address', pairReply('clcert', null, Array(), Array('REMOTE_ADDR'=>'198.51.100.1') + certVals('carol'))[0], 429);
 $axsRslt = (new Checker( Array('needed'=>false), mockRequestObj(Array(), Array('REMOTE_ADDR'=>'198.51.100.1')) ))->validateAccess();
 checkIdentical('limit: nothing is held where access is not required', $axsRslt->readFileDetail('statCode'), 200);
 plugConf();
 
 // An open route : credentials sent with the request are not read
-$axsRslt = (new Checker( Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'tskeys', 'openrt'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'auth', 'action'=>'login')) ))->validateAccess();
+$axsRslt = (new Checker( Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'tskeys', 'openrt'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'auth', 'action'=>'openSess')) ))->validateAccess();
 checkIdentical('open route: a valid key does not log its holder', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('logged'), $axsRslt->readFileDetail('role')), Array(200, false, null));
-$axsRslt = (new Checker( Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'tskeys', 'openrt'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('app'=>'auth', 'action'=>'login')) ))->validateAccess();
+$axsRslt = (new Checker( Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'tskeys', 'openrt'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('app'=>'auth', 'action'=>'openSess')) ))->validateAccess();
 checkIdentical('open route: nor is a wrong key refused', $axsRslt->readFileDetail('statCode'), 200);
 
 dropTestFolder(TOP_DIR.DS.$lmtFldr);

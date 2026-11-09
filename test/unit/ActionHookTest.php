@@ -11,12 +11,12 @@ use nyu\App\Controller;
 use nyu\Tools\Registry;
 
 // The hook runs first, then the action
-$conTrol = new Controller( 'hooked', 'ordered', new Registry(Array()) );
+$conTrol = new Controller( 'hooked', 'sequence', new Registry(Array()) );
 checkIdentical('the action runs', $conTrol->retrieveStatus()['code'], 200);
 checkIdentical('beforeAct runs before the action', $conTrol->retrieveOutput(), Array('setupForAction', 'ordered'));
 
 // stopThisAction() in the hook: its status is the reply's, the action is not run
-$conTrol = new Controller( 'hooked', 'ordered', new Registry(Array('refuse'=>'yes')) );
+$conTrol = new Controller( 'hooked', 'sequence', new Registry(Array('refuse'=>'yes')) );
 checkIdentical('a stop in beforeAct keeps its status', $conTrol->retrieveStatus(), Array('code'=>403, 'mssg'=>'Refused before the action'));
 checkIdentical('a stop in beforeAct keeps the action from running', $conTrol->retrieveOutput(), Array('setupForAction'));
 

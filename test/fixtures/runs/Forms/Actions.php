@@ -13,7 +13,7 @@ class Actions extends Actionset {
 	 * Answers with its inputs. Declared first, so it is also the default
 	 * action; input/send.json defines its fields.
 	 */
-	public function send(): Void {
+	public function transmit(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
@@ -21,7 +21,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with its inputs; no file defines them.
 	 */
-	public function free(): Void {
+	public function freeForm(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
@@ -29,7 +29,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with its inputs; input/need.json requires some of its fields.
 	 */
-	public function need(): Void {
+	public function needForm(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
@@ -37,7 +37,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with its inputs; input/wrong.json names a format that does not exist.
 	 */
-	public function wrong(): Void {
+	public function noFormat(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
@@ -45,7 +45,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers with its inputs; input/broke.json is not a definition.
 	 */
-	public function broke(): Void {
+	public function badInput(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}

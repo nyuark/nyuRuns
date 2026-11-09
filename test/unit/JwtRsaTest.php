@@ -108,7 +108,7 @@ $lgnRslt = runCatchThrown(function(){
 	$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.9') );
 	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 	$mthProp->setValue($request, 'POST');
-	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('user'=>'alice', 'pass'=>'wrong')), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('openSess', null, new Registry(Array('user'=>'alice', 'pass'=>'wrong')), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 	$actnSet->runAskedAction();
 	return Array($actnSet->statusCode, strval($actnSet->statusMssg));
 });

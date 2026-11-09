@@ -13,7 +13,7 @@ class Actions extends Actionset {
 	/**
 	 * Answers normally.
 	 */
-	public function here(): Void {
+	public function hereLost(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array('found'=>true);
 	}

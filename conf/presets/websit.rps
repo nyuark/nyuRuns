@@ -5,7 +5,7 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": { "needed": true, "sessby": "phsess", "sesscf": "dfsess", "authby": "native", "authcf": "native", "openrt": ["auth/login", "auth/activate", "auth/signup", "auth/forgot", "auth/recovr", "/login", "/assets/*"], "signin": "/login", "rolert": { "users/*": "manage" } },
+	"auths": { "needed": true, "sessby": "phsess", "sesscf": "dfsess", "authby": "native", "authcf": "native", "openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/assets/*"], "signin": "/login", "rolert": { "users/*": "manage" } },
 	"input": [
 		{
 			"naming": "QUERY",

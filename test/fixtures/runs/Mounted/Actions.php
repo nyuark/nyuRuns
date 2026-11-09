@@ -6,7 +6,7 @@ use nyu\App\Actionset;
 
 /**
  * Test application declaring its own routes (routes.rte): listed and the
- * root path /rooted are reached through them; unlisted is in no route, so
+ * root path /fromRoot are reached through them; unlisted is in no route, so
  * this closed Run never runs it (test/unit/RouterTest.php).
  */
 class Actions extends Actionset {
@@ -32,7 +32,7 @@ class Actions extends Actionset {
 	 *
 	 * @param String $routShapeTxt The path of the route: as this Run declares it, or its final path.
 	 */
-	public function linking( String $routShapeTxt ): Void {
+	public function makeLink( String $routShapeTxt ): Void {
 		$this->statusCode = 200;
 		$this->replyValue = $this->routLinkString($routShapeTxt, Array('id'=>'7'));
 	}
@@ -40,8 +40,8 @@ class Actions extends Actionset {
 	/**
 	 * Replies with its name; its route is from the root of the site.
 	 */
-	public function rooted(): Void {
+	public function fromRoot(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = 'mounted/rooted';
+		$this->replyValue = 'mounted/fromRoot';
 	}
 }

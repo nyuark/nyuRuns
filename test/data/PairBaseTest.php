@@ -149,7 +149,7 @@ checkIdentical('clcert x device: the certificate alone decides', pairReply('clce
 
 // Roles : measured against the role of the users table
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
-$anyRoute = Array('app'=>'shows', 'action'=>'index');
+$anyRoute = Array('app'=>'shows', 'action'=>'overview');
 checkIdentical('role: hbasic x native, by the role of the table', Array(pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('hbasic', 'native', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'member'), Array(200, '', 'anna', 'manage')));
 checkIdentical('role: header x native, the personal token has the role of its user', pairReply('header', 'native', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: header x device, the device has the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
@@ -176,7 +176,7 @@ plugConf( 0, Array('authby'=>'device', 'authcf'=>'tsdevc', 'sesscf'=>'tstokn') )
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 $mthProp->setValue($request, 'POST');
-$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('openSess', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 $actnSet->runAskedAction();
 checkIdentical('login x device: no token is issued for a device token sent as a password', Array($actnSet->statusCode, $actnSet->statusMssg, $actnSet->replyValue), Array(401, 'No API key provided', null));
 $sqlLink = null;

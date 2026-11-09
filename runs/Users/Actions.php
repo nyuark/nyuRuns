@@ -17,7 +17,7 @@ use \nyu\Access\Auth\UserBase;
  */
 class Actions extends Actionset {
 
-	protected $dfltAction = 'index';
+	protected $dfltAction = 'fullList';
 
 	/**
 	 * Lists the users, by name: identifier, name, role, status, address,
@@ -27,7 +27,7 @@ class Actions extends Actionset {
 	 * (LST_ROWS users when 'limit' is left out). Reports 204 when the
 	 * list is empty.
 	 */
-	public function index(): Void {
+	public function fullList(): Void {
 		$usrBase = $this->requireManager('GET');
 		$usrList = $usrBase->listUsersNamed(
 			Array('userStat'=>$this->inptRgstry->readFileDetail('stat'), 'userRole'=>$this->inptRgstry->readFileDetail('role')),
@@ -45,7 +45,7 @@ class Actions extends Actionset {
 	 * status, address, time of the sign-up awaiting review, creation date
 	 * and last time seen.
 	 */
-	public function view(): Void {
+	public function viewUser(): Void {
 		$usrBase = $this->requireManager('GET');
 		$userVls = $usrBase->userInfosArray( $this->givenUsrString(false) );
 		if($userVls===false){
@@ -66,7 +66,7 @@ class Actions extends Actionset {
 	 * told this once. Reports 201, or 409 when the name or the address is
 	 * taken.
 	 */
-	public function create(): Void {
+	public function makeUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		$gvnRole = $this->inptRgstry->readFileDetail('role');
@@ -91,9 +91,9 @@ class Actions extends Actionset {
 	/**
 	 * Approves the user the 'user' input names, who signed up itself and
 	 * confirmed its address: it becomes active. Refusing it is removing
-	 * it (users/remove). Reports 409 for a user not awaiting review.
+	 * it (users/dropUser). Reports 409 for a user not awaiting review.
 	 */
-	public function approve(): Void {
+	public function approves(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		if(!$usrBase->approveNewUser($gvnUser)){
@@ -108,7 +108,7 @@ class Actions extends Actionset {
 	 * input, or takes its address away when 'mail' is empty or left out.
 	 * Reports 409 for an address another user holds.
 	 */
-	public function email(): Void {
+	public function setEmail(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		$gvnMail = $this->inptRgstry->readFileDetail('mail');
@@ -125,7 +125,7 @@ class Actions extends Actionset {
 	 * out: its mails are then written in the default one (LNG_DFLT).
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
-	public function langs(): Void {
+	public function language(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		$gvnLang = $this->inptRgstry->readFileDetail('lang');
@@ -141,7 +141,7 @@ class Actions extends Actionset {
 	 * and a session it holds ends as soon as its preset names the
 	 * userbase as its credential store. A manager cannot lock itself.
 	 */
-	public function lock(): Void {
+	public function lockUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		if(!$usrBase->saveStatusFlag($gvnUser, 'locked')){
@@ -154,7 +154,7 @@ class Actions extends Actionset {
 	/**
 	 * Unlocks the user the 'user' input names.
 	 */
-	public function unlock(): Void {
+	public function freeUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		if(!$usrBase->saveStatusFlag($gvnUser, 'active')){
@@ -168,7 +168,7 @@ class Actions extends Actionset {
 	 * Gives the user the 'user' input names the role of the 'role'
 	 * input. A manager cannot change its own role.
 	 */
-	public function role(): Void {
+	public function giveRole(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		$gvnRole = $this->inptRgstry->readFileDetail('role');
@@ -183,7 +183,7 @@ class Actions extends Actionset {
 	 * Removes the user the 'user' input names. A manager cannot remove
 	 * itself.
 	 */
-	public function remove(): Void {
+	public function dropUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		if(!$usrBase->removeUserFlag($gvnUser)){
@@ -201,7 +201,7 @@ class Actions extends Actionset {
 	 * otherwise the reply carries it, told this once. A manager cannot
 	 * reset itself.
 	 */
-	public function reset(): Void {
+	public function resetPwd(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();

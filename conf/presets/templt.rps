@@ -55,7 +55,7 @@
         // or ("/assets/*") for a folder route; exactly as the route is declared;
         // it is then open whatever it answers with; and so is every file of the folder.
         // An OPTIONS request answered by a declared route is always served
-		"openrt": ["auth/login", "auth/activate", "auth/signup", "auth/forgot", "auth/recovr", "/login", "/.well-known/jwks.json"],
+		"openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/.well-known/jwks.json"],
         // Route a request without a session is sent to (302) when it asked for an HTML page;
         // as its path with a leading slash. The page asked for is given to it as "back".
         // An action or a file keeps its 401. The route must be listed in "openrt"

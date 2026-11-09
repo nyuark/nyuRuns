@@ -19,12 +19,12 @@ $axsText = "{\n"
 $dbsText = "{\n\t\"main\": {\n\t\t\"type\": \"sqlte\",\n\t\t\"host\": \"\",\n\t\t\"base\": \"data.sqlite\",\n\t\t\"user\": \"\",\n\t\t\"pass\": \"env:NYU_DB_PASS\"\n\t}\n}\n";
 $rpsText = "{\n\t// Name of the preset\n\t\"label\": \"sample\",\n\t\"about\": \"A preset of the tests\",\n\t\"setup\": { \"ftypes\": \"all\", \"fnames\": \"any\" },\n"
 	."\t# Access\n\t\"auths\": {\n\t\t// Carrier : \"sessby\": \"hbasic\" would be another\n\t\t\"sessby\": \"jtoken\",\n\t\t\"sesscf\": \"dftokn\",\n\t\t\"authby\":\t\"native\",\n\t\t\"needed\": true,\n"
-	."\t\t\"openrt\": [\"auth/login\", \"/hello\"],\n\t\t\"rolert\": { \"users/*\": \"manage\", \"/admin/\$id\": \"system\" }\n\t},\n"
+	."\t\t\"openrt\": [\"auth/openSess\", \"/hello\"],\n\t\t\"rolert\": { \"users/*\": \"manage\", \"/admin/\$id\": \"system\" }\n\t},\n"
 	."\t\"input\": [ { \"naming\": \"QUERY\", \"source\": \"QUERY\", \"fields\": \"all\" } ],\n"
 	."\t\"route\": { \"detect\": \"autopath\", \"mapper\": \"\$app/\$action/\$param\", \"folder\": \"conf/routes\" },\n"
 	."\t\"rnder\": { \"format\": \"json\", \"headrs\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
-$rteText = '{ "hello": { "target": { "pge": "hello" } }, "admin/$id": { "allows": "GET, POST", "target": { "app": "users", "act": "view" } },'
-	.' "old": { "target": { "url": "/hello", "cod": 301 } }, "things": { "target": { "GET": { "app": "shows", "act": "index" }, "POST": { "app": "shows", "act": "create" } } } }';
+$rteText = '{ "hello": { "target": { "pge": "hello" } }, "admin/$id": { "allows": "GET, POST", "target": { "app": "users", "act": "viewUser" } },'
+	.' "old": { "target": { "url": "/hello", "cod": 301 } }, "things": { "target": { "GET": { "app": "shows", "act": "overview" }, "POST": { "app": "shows", "act": "create" } } } }';
 
 $projDir = makeProjectTxt('config', Array(
 	'conf/system.ini'=>$iniText, 'conf/access.json'=>$axsText, 'conf/database.json'=>$dbsText,
@@ -45,7 +45,7 @@ checkIdentical('nothing under a path', Array(callShellArray($projDir, Array('con
 checkIdentical('shows the databases, the password as the name it is kept under', runShellAsJson($projDir, Array('config', 'shows', 'dbases', 'main.pass'))['rows'] ?? null, Array(Array('key'=>'main.pass', 'value'=>'env:NYU_DB_PASS')));
 $rowList = runShellAsJson($projDir, Array('config', 'shows', 'preset'))['rows'] ?? Array();
 checkIdentical('shows the presets', Array(array_column($rowList, 'preset'), $rowList[1]['about'] ?? null), Array(Array('dfault', 'sample', 'wrongs'), 'A preset of the tests'));
-checkIdentical('shows a key of a preset', runShellAsJson($projDir, Array('config', 'shows', 'preset', 'sample.auths.openrt'))['rows'] ?? null, Array(Array('key'=>'auths.openrt', 'value'=>Array('auth/login', '/hello'))));
+checkIdentical('shows a key of a preset', runShellAsJson($projDir, Array('config', 'shows', 'preset', 'sample.auths.openrt'))['rows'] ?? null, Array(Array('key'=>'auths.openrt', 'value'=>Array('auth/openSess', '/hello'))));
 checkIdentical('a preset that does not exist', callShellArray($projDir, Array('config', 'shows', 'preset', 'nosuch'))['code'], 1);
 
 // write : system.ini
@@ -161,12 +161,12 @@ callShellArray($projDir, Array('config', 'write', 'preset', 'sample.auths.needed
 $jsnVals = runShellAsJson($projDir, Array('config', 'route', 'sample'));
 checkIdentical('route lists the declared routes, of the site then of the Runs with their owner, then the actions the access names', $jsnVals['rows'] ?? null, Array(
 	Array('path'=>'/hello', 'methods'=>'GET', 'kind'=>'htpage', 'target'=>'hello', 'owner'=>'site', 'access'=>'open'),
-	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'action', 'target'=>'users/view', 'owner'=>'site', 'access'=>'manage'),
+	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'action', 'target'=>'users/viewUser', 'owner'=>'site', 'access'=>'manage'),
 	Array('path'=>'/old', 'methods'=>'GET', 'kind'=>'redrct', 'target'=>'/hello', 'owner'=>'site', 'access'=>'logged'),
-	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'action', 'target'=>'shows/index', 'owner'=>'site', 'access'=>'logged'),
+	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'action', 'target'=>'shows/overview', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/things', 'methods'=>'POST', 'kind'=>'action', 'target'=>'shows/create', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/shelf/board', 'methods'=>'GET', 'kind'=>'action', 'target'=>'Shelf/index', 'owner'=>'Shelf', 'access'=>'logged'),
-	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'auth/login', 'owner'=>'', 'access'=>'open'),
+	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'auth/opensess', 'owner'=>'', 'access'=>'open'),
 	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'users/*', 'owner'=>'', 'access'=>'manage')
 ));
 checkIdentical('route tells the preset, how it finds a route, and who the other routes are served to', Array($jsnVals['exit'] ?? null, $jsnVals['preset'] ?? null, $jsnVals['detect'] ?? null, $jsnVals['others'] ?? null), Array(0, 'sample', 'autopath', 'logged'));

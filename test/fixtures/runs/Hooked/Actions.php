@@ -28,7 +28,7 @@ class Actions extends Actionset {
 	/**
 	 * Writes its step and replies with the steps run.
 	 */
-	public function ordered(): Void {
+	public function sequence(): Void {
 		$this->stepsTaken[] = 'ordered';
 		$this->statusCode = 200;
 		$this->replyValue = $this->stepsTaken;

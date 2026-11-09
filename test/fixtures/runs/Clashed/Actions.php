@@ -13,8 +13,8 @@ class Actions extends Actionset {
 	/**
 	 * Replies with its name.
 	 */
-	public function clashed(): Void {
+	public function clashing(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = 'clashed/clashed';
+		$this->replyValue = 'clashed/clashing';
 	}
 }

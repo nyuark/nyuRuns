@@ -1,15 +1,15 @@
 {
-	"ping" :                  { "target": { "app": "probe", "act": "clean" } },
-	"items/$id" :             { "target": { "app": "probe", "act": "mirror" } },
-	"items/$id/parts/$part" : { "target": { "app": "probe", "act": "mirror" } },
-	"probe/warnfail" :        { "target": { "app": "probe", "act": "clean" } },
-	"plain" :                 { "target": { "app": "probe", "act": "text" } },
+	"ping" :                  { "target": { "app": "probe", "act": "sanitize" } },
+	"items/$id" :             { "target": { "app": "probe", "act": "mirrored" } },
+	"items/$id/parts/$part" : { "target": { "app": "probe", "act": "mirrored" } },
+	"probe/warnfail" :        { "target": { "app": "probe", "act": "sanitize" } },
+	"plain" :                 { "target": { "app": "probe", "act": "txtProbe" } },
 	"broken" :                { "allows": "GET" },
-	"gets" :                  { "allows": "head, options", "target": { "app": "probe", "act": "clean" } },
-	"both" :                  { "allows": "GET, POST", "target": { "app": "probe", "act": "clean" } },
+	"gets" :                  { "allows": "head, options", "target": { "app": "probe", "act": "sanitize" } },
+	"both" :                  { "allows": "GET, POST", "target": { "app": "probe", "act": "sanitize" } },
 	"things/$id" :            { "target": {
-		"GET":    { "app": "probe", "act": "mirror" },
-		"delete": { "app": "probe", "act": "clean" }
+		"GET":    { "app": "probe", "act": "mirrored" },
+		"delete": { "app": "probe", "act": "sanitize" }
 	} },
 	"old/$id" :               { "target": { "url": "/items/$id", "cod": 301 } },
 	"away" :                  { "target": { "url": "https://example.org/docs" } },
@@ -24,6 +24,6 @@
 	"notpage" :               { "target": { "pge": "site.css" } },
 	"enter" :                 { "target": {
 		"GET":  { "pge": "hello.html" },
-		"POST": { "app": "probe", "act": "clean" }
+		"POST": { "app": "probe", "act": "sanitize" }
 	} }
 }

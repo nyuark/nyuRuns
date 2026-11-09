@@ -6,14 +6,14 @@ use \nyu\App\Actionset;
 
 class Actions extends Actionset {
 
-	protected $dfltAction = 'index';
+	protected $dfltAction = 'overview';
 	
 	/**
 	 * Lists the shows, each loaded with its relations, and sets the
 	 * list as output. Reads the 'filters' ('search' on the title,
 	 * 'categ' on the item type), 'sorting' and 'indexes' inputs.
 	 */
-	public function index(): Void {
+	public function overview(): Void {
 		$showLst = $this->modelStack->getModelObject('listing');
 		// Filter results
 		// Data in here should be strTyped Variables object from inputReg
@@ -75,7 +75,7 @@ class Actions extends Actionset {
 	 *
 	 * @param String $currentShwId Primary key of the show to load.
 	 */
-	public function view( String $currentShwId ): Void {
+	public function viewShow( String $currentShwId ): Void {
 		$showRec = $this->modelStack->getModelObject('single');
 		// Filter results
 		$shwIdnt = $currentShwId;

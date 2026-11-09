@@ -2,7 +2,7 @@
 	"index" : {
 		"target": {
 			"app": "shows",
-			"act": "index"
+			"act": "overview"
 		}
 	}
 }

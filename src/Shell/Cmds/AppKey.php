@@ -190,7 +190,7 @@ class AppKey extends Command{
 	/**
 	 * Reads the routes --routs gives, separated by commas: each one an
 	 * action, as "app/action" or "app/*", or a declared route, as its final
-	 * path with a leading slash (a Run's route with its mount: /auth/login).
+	 * path with a leading slash (a Run's route with its mount: /auth/openSess).
 	 *
 	 * @return Array The routes.
 	 */

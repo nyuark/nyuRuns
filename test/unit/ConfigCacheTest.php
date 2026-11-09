@@ -15,7 +15,7 @@ use nyu\Setup\Loader;
 $projDir = makeProjectTxt('confcache', Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = TRUE\nTBL_CACH = FALSE\n"),
 	'conf/presets/probe.rps'=>'{ "label": "probe", "setup": { "ftypes": "all" }, "auths": { "needed": false }, "route": { "detect": "manually" } }',
-	'conf/routes/probe.rte'=>'{ "one": { "target": { "app": "probe", "act": "clean" } } }',
+	'conf/routes/probe.rte'=>'{ "one": { "target": { "app": "probe", "act": "sanitize" } } }',
 	'conf/probe.json'=>'{ "value": "env:NYU_PROBE" }',
 	'.env'=>"NYU_PROBE=from-the-env-file\n",
 	// The Runner installs the error handler from the project it runs
@@ -33,7 +33,7 @@ $cchText = is_file($cchPath) ? strval(file_get_contents($cchPath)) : '';
 checkIdentical('the cache holds the env: values as written, never what the environment file gives', Array(strpos($cchText, 'env:NYU_PROBE')!==false, strpos($cchText, 'from-the-env-file')!==false), Array(true, false));
 
 // The next ones read the cache: a route file changed by hand is not seen, until the cache is removed
-writeInProject($projDir, 'conf/routes/probe.rte', '{ "one": { "target": { "app": "probe", "act": "leave" } } }');
+writeInProject($projDir, 'conf/routes/probe.rte', '{ "one": { "target": { "app": "probe", "act": "signsOut" } } }');
 touch($projDir.DS.'conf'.DS.'routes'.DS.'probe.rte', time()+60);
 checkIdentical('the next request reads the cache, not the files', trim(runScriptArray($runArgs)['text']), '{"ok":true}');
 $rowList = array_column(runShellAsJson($projDir, Array('deploy', 'check'))['rows'] ?? Array(), 'state', 'check');

@@ -210,14 +210,14 @@ checkIdentical('Checker turns an unknown role into member', $checker->validateAc
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'manage')));
 $adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
-(new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('app'=>'Users', 'action'=>'remove')) ))->validateAccess();
+(new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('app'=>'Users', 'action'=>'dropUser')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'dave', 'role'=>'system'))), $adrVals), new Registry(Array('app'=>null, 'action'=>null, 'rtePath'=>'docs/*')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'erin', 'role'=>'member'))), $adrVals) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer nope'), $adrVals) ))->validateAccess();
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: one line per check', count($axsLogs), 4);
-checkIdentical('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (manage) from 10.0.0.1 to Users/remove');
+checkIdentical('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (manage) from 10.0.0.1 to Users/dropUser');
 checkIdentical('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (system) from 10.0.0.1 to /docs/*');
 checkIdentical('access log: a member stays an info', $axsLogs[2] ?? null, '['.date('Y').'] [INFO] Access granted for user "erin" from 10.0.0.1');
 checkPregMatch('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\['.date('Y').'\] \[WARNING\] Access denied from 10\.0\.0\.1: /');
@@ -255,11 +255,11 @@ checkIdentical('Checker JWT denied status',   $axsRslt->readFileDetail('statCode
 checkIdentical('Checker JWT challenge',       $axsRslt->readFileDetail('wwwAuth'), 'Bearer');
 
 // Checker : public routes, matched on the resolved application and action
-$pubConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys', 'openrt'=>Array('auth/login', 'Open/*'));
-$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'login')) );
+$pubConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys', 'openrt'=>Array('auth/openSess', 'Open/*'));
+$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'openSess')) );
 checkIdentical('Checker public action',       $checker->validateAccess()->readFileDetail('statCode'), 200);
 checkIdentical('Checker public action: not logged', $checker->validateAccess()->readFileDetail('logged'), false);
-$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>'Auth', 'action'=>'LOGIN')) );
+$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>'Auth', 'action'=>'OPENSESS')) );
 checkIdentical('Checker public action, other case', $checker->validateAccess()->readFileDetail('statCode'), 200);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>'open', 'action'=>'anything')) );
 checkIdentical('Checker public application',  $checker->validateAccess()->readFileDetail('statCode'), 200);
@@ -285,7 +285,7 @@ $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'a
 checkIdentical('Checker public path: an action', $checker->validateAccess()->readFileDetail('statCode'), 200);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'statCode'=>405, 'rtePath'=>'login')) );
 checkIdentical('Checker public path: its refusals are open too', $checker->validateAccess()->readFileDetail('statCode'), 200);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'probe', 'action'=>'mirror', 'rtePath'=>'items/$id')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'probe', 'action'=>'mirrored', 'rtePath'=>'items/$id')) );
 checkIdentical('Checker public path: a pattern, as it is declared', $checker->validateAccess()->readFileDetail('statCode'), 200);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*')) );
 checkIdentical('Checker public path: a folder route, as it is declared', $checker->validateAccess()->readFileDetail('statCode'), 200);
@@ -318,8 +318,8 @@ checkIdentical('Checker sign-in: with the route to go to, and the page asked for
 $askPrpt->setValue($askReqs, Array('reqstURI'=>'/'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'index')) );
 checkIdentical('Checker sign-in: the home page is not carried back', $checker->validateAccess()->readFileDetail('denyGoal'), '/login');
-$askPrpt->setValue($askReqs, Array('reqstURI'=>'/shows/view/1'));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>'shows', 'action'=>'view', 'rteKind'=>'action', 'rtePath'=>'')) );
+$askPrpt->setValue($askReqs, Array('reqstURI'=>'/shows/viewShow/1'));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>'shows', 'action'=>'viewShow', 'rteKind'=>'action', 'rtePath'=>'')) );
 checkIdentical('Checker sign-in: a denied action keeps its 401', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'style')) );
 checkIdentical('Checker sign-in: so does a denied file', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
@@ -364,18 +364,18 @@ function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): 
 
 // Checker : the role a route asks for ('rolert'), written as the routes of 'openrt'
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')), 'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
-$rolConf = Array('rolert'=>Array('users/*'=>'manage', 'users/view'=>'member', 'Shows/Edit'=>'system', 'shows/*'=>'member', 'probe/clean'=>'system', 'probe/mirror'=>'manage', '/docs/*'=>'system', '/tokchk'=>'manage', 'auth/check'=>'system', '/admin'=>'manage')) + $jwtConf;
-checkIdentical('Checker role: refused to a lower role', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lock')), Array(404, 'Not Found'));
-checkIdentical('Checker role: refused to the role between', roleReply($rolConf, 'system', Array('app'=>'users', 'action'=>'lock')), Array(404, 'Not Found'));
-checkIdentical('Checker role: served to the role asked for', roleReply($rolConf, 'manage', Array('app'=>'users', 'action'=>'lock')), Array(200, ''));
+$rolConf = Array('rolert'=>Array('users/*'=>'manage', 'users/viewUser'=>'member', 'Shows/Edit'=>'system', 'shows/*'=>'member', 'probe/sanitize'=>'system', 'probe/mirrored'=>'manage', '/docs/*'=>'system', '/tokchk'=>'manage', 'auth/check'=>'system', '/admin'=>'manage')) + $jwtConf;
+checkIdentical('Checker role: refused to a lower role', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lockUser')), Array(404, 'Not Found'));
+checkIdentical('Checker role: refused to the role between', roleReply($rolConf, 'system', Array('app'=>'users', 'action'=>'lockUser')), Array(404, 'Not Found'));
+checkIdentical('Checker role: served to the role asked for', roleReply($rolConf, 'manage', Array('app'=>'users', 'action'=>'lockUser')), Array(200, ''));
 checkIdentical('Checker role: served to a higher role', Array(roleReply($rolConf, 'system', Array('app'=>'shows', 'action'=>'edit')), roleReply($rolConf, 'manage', Array('app'=>'shows', 'action'=>'edit'))), Array(Array(200, ''), Array(200, '')));
-checkIdentical('Checker role: the case of the request does not count', roleReply($rolConf, 'member', Array('app'=>'Users', 'action'=>'LOCK')), Array(404, 'Not Found'));
+checkIdentical('Checker role: the case of the request does not count', roleReply($rolConf, 'member', Array('app'=>'Users', 'action'=>'LOCKUSER')), Array(404, 'Not Found'));
 checkIdentical('Checker role: nor a space in the name of the application', roleReply($rolConf, 'member', Array('app'=>'us ers', 'action'=>'lock')), Array(404, 'Not Found'));
-checkIdentical('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'edit')), roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'index'))), Array(Array(404, 'Not Found'), Array(200, '')));
-checkIdentical('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'view')), Array(404, 'Not Found'));
+checkIdentical('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'edit')), roleReply($rolConf, 'member', Array('app'=>'shows', 'action'=>'overview'))), Array(Array(404, 'Not Found'), Array(200, '')));
+checkIdentical('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'viewUser')), Array(404, 'Not Found'));
 checkIdentical('Checker role: no action named, the highest of the application', Array(roleReply($rolConf, 'system', Array('app'=>'probe', 'action'=>null)), roleReply($rolConf, 'manage', Array('app'=>'probe', 'action'=>null))), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: a route that asks for none', roleReply($rolConf, 'member', Array('app'=>'auth', 'action'=>'other')), Array(200, ''));
-checkIdentical('Checker role: nobody logged is a 401 first', roleReply($rolConf, '', Array('app'=>'users', 'action'=>'lock'))[0], 401);
+checkIdentical('Checker role: nobody logged is a 401 first', roleReply($rolConf, '', Array('app'=>'users', 'action'=>'lockUser'))[0], 401);
 $dirRoute = Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*');
 checkIdentical('Checker role: a declared route, by its path', Array(roleReply($rolConf, 'member', $dirRoute), roleReply($rolConf, 'system', $dirRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: its * does not name another folder route', roleReply($rolConf, 'member', Array('rtePath'=>'docs/private/*') + $dirRoute), Array(200, ''));
@@ -384,13 +384,13 @@ checkIdentical('Checker role: named by its path and by its action, the highest',
 checkIdentical('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkIdentical('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
 // A Run route is named by its final, mounted path, in rolert as in openrt
-$mntConf = Array('rolert'=>Array('/space/listed'=>'manage'), 'openrt'=>Array('/rooted')) + $jwtConf;
+$mntConf = Array('rolert'=>Array('/space/listed'=>'manage'), 'openrt'=>Array('/fromRoot')) + $jwtConf;
 $mntRout = Array('app'=>'Mounted', 'action'=>'listed', 'rteKind'=>'action', 'rtePath'=>'space/listed', 'rteOwnr'=>'Mounted');
 checkIdentical('Checker role: a Run route, by its mounted path', Array(roleReply($mntConf, 'member', $mntRout), roleReply($mntConf, 'manage', $mntRout)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: not by the path its file declares it with', roleReply(Array('rolert'=>Array('/listed'=>'manage')) + $jwtConf, 'member', $mntRout), Array(200, ''));
-$rotRout = Array('app'=>'Mounted', 'action'=>'rooted', 'rteKind'=>'action', 'rtePath'=>'rooted', 'rteOwnr'=>'Mounted');
+$rotRout = Array('app'=>'Mounted', 'action'=>'fromRoot', 'rteKind'=>'action', 'rtePath'=>'fromRoot', 'rteOwnr'=>'Mounted');
 checkIdentical('Checker open: a Run route from the root, by its path', roleReply($mntConf, '', $rotRout), Array(200, ''));
-checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('rtePath'=>'mounted/rooted') + $rotRout)[0], 401);
+checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('rtePath'=>'mounted/fromRoot') + $rotRout)[0], 401);
 // A site route answering with an action is an alias: its role stays on its path, the action reached otherwise is named by app/action
 $pnlConf = Array('rolert'=>Array('/panel'=>'manage')) + $jwtConf;
 checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin', 'rteKind'=>'action', 'rtePath'=>'panel')), Array(404, 'Not Found'));
@@ -402,31 +402,31 @@ checkIdentical('Checker role: a refused user is known, with no challenge and no 
 
 // A check that gives no role makes a member
 $keyConf = Array('rolert'=>Array('shows/*'=>'member', 'users/*'=>'system')) + $hdrConf;
-$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'shows', 'action'=>'index')) );
+$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'shows', 'action'=>'overview')) );
 checkIdentical('Checker role: an API key meets the member role', $checker->validateAccess()->readFileDetail('statCode'), 200);
-$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'users', 'action'=>'index')) );
+$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'users', 'action'=>'fullList')) );
 checkIdentical('Checker role: and no higher one', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('role')), Array(404, 'member'));
 
 // A block that cannot be applied refuses every request
-$anyRoute = Array('app'=>'shows', 'action'=>'index');
+$anyRoute = Array('app'=>'shows', 'action'=>'overview');
 checkIdentical('Checker role: an unknown role', roleReply(Array('rolert'=>Array('users/*'=>'admin')) + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: a role that is not a text', roleReply(Array('rolert'=>Array('users/*'=>Array('manage'))) + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: not a list of routes', roleReply(Array('rolert'=>'manage') + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: asked for while access is not required', roleReply(Array('needed'=>false, 'rolert'=>Array('users/*'=>'manage')), 'manage', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: an empty list asks for nothing', roleReply(Array('needed'=>false, 'rolert'=>Array()), '', $anyRoute), Array(200, ''));
 $opnConf = Array('openrt'=>Array('users/*', '/docs/*')) + $rolConf;
-checkIdentical('Checker role: a route both open and asking for a role', Array(roleReply($opnConf, 'manage', Array('app'=>'users', 'action'=>'lock')), roleReply($opnConf, '', $dirRoute)), Array(Array(500, 'Access misconfigured'), Array(500, 'Access misconfigured')));
-checkIdentical('Checker role: the other open routes are served', roleReply(Array('openrt'=>Array('auth/login')) + $rolConf, '', Array('app'=>'auth', 'action'=>'login')), Array(200, ''));
+checkIdentical('Checker role: a route both open and asking for a role', Array(roleReply($opnConf, 'manage', Array('app'=>'users', 'action'=>'lockUser')), roleReply($opnConf, '', $dirRoute)), Array(Array(500, 'Access misconfigured'), Array(500, 'Access misconfigured')));
+checkIdentical('Checker role: the other open routes are served', roleReply(Array('openrt'=>Array('auth/openSess')) + $rolConf, '', Array('app'=>'auth', 'action'=>'openSess')), Array(200, ''));
 
 // The access log : one warning for a refusal, with the role needed
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rolelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lock'));
+roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lockUser'));
 roleReply($rolConf, 'member', $dirRoute);
 roleReply(Array('rolert'=>Array('users/*'=>'admin')) + $jwtConf, 'manage', $anyRoute);
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('rolelogs').DS.'access.log') ? file(inTemporaryDir('rolelogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: a refusal for the role is one line', count($axsLogs), 3);
-checkIdentical('access log: the role needed by an action', $axsLogs[0] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (member) from 10.0.0.1 to users/lock: role manage needed');
+checkIdentical('access log: the role needed by an action', $axsLogs[0] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (member) from 10.0.0.1 to users/lockUser: role manage needed');
 checkIdentical('access log: the role needed by a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (member) from 10.0.0.1 to /docs/*: role system needed');
 checkIdentical('access log: a role that cannot be applied', $axsLogs[2] ?? null, '['.date('Y').'] [WARNING] Access denied from 10.0.0.1: Access misconfigured: unknown role for the route "users\/*"');
 
@@ -440,7 +440,7 @@ checkIdentical('access log: a role that cannot be applied', $axsLogs[2] ?? null,
  */
 function roleActn( String $loggedRole, String $neededRole='' ): Array {
 	$axssReg = new Registry( ($loggedRole!='') ? Array('logged'=>true, 'user'=>'carol', 'role'=>$loggedRole) : Array('logged'=>false, 'user'=>'', 'role'=>null) );
-	$actnSet = new nyu\Runs\Probe\Actions( new nyu\App\RunContext('roles', ($neededRole!='') ? $neededRole : null, new Registry(Array()), $axssReg, mockRequestObj(Array(), Array('REMOTE_ADDR'=>'10.0.0.1')), null, null, null, 'Probe', RUN_DIR.DS.'Probe') );
+	$actnSet = new nyu\Runs\Probe\Actions( new nyu\App\RunContext('roleList', ($neededRole!='') ? $neededRole : null, new Registry(Array()), $axssReg, mockRequestObj(Array(), Array('REMOTE_ADDR'=>'10.0.0.1')), null, null, null, 'Probe', RUN_DIR.DS.'Probe') );
 	$actnSet->runAskedAction();
 	return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue);
 }
@@ -455,8 +455,8 @@ checkForThrows('needsRole: an unknown role throws', function(){ roleActn('manage
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('actnlogs').DS.'access.log') ? file(inTemporaryDir('actnlogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('needsRole: its refusals are logged as those of a route', $axsLogs, Array(
-	'['.date('Y').'] [WARNING] Access refused for user "carol" (member) from 10.0.0.1 to probe/roles: role system needed',
-	'['.date('Y').'] [WARNING] Access refused for user "" (no role) from 10.0.0.1 to probe/roles: role member needed'
+	'['.date('Y').'] [WARNING] Access refused for user "carol" (member) from 10.0.0.1 to probe/roleList: role system needed',
+	'['.date('Y').'] [WARNING] Access refused for user "" (no role) from 10.0.0.1 to probe/roleList: role member needed'
 ));
 
 // The issuer of a certificate is read from the variable the config names
