@@ -159,7 +159,8 @@ checkSame('link: the index route is the root', $idxRout->buildLink('index'), '/'
 function ranAction( String $actionName, ?String $actnOption=null ): Array|String {
 	return runSafely(function() use ( $actionName, $actnOption ){
 		$respons = new Response();
-		$actnObj = new nyu\Runs\Probe\Actions( $actionName, $actnOption, new Registry(Array()), null, null, fakeReqst(), $respons, madeRoutr('/') );
+		$actnObj = new nyu\Runs\Probe\Actions( new nyu\App\RunContext($actionName, $actnOption, new Registry(Array()), null, fakeReqst(), $respons, madeRoutr('/'), null, 'Probe', RUN_DIR.DS.'Probe') );
+		$actnObj->runAction();
 		$headPrp = new ReflectionProperty($respons, 'headrArr');
 		ob_start();
 		$respons->sendOutpt();

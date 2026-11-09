@@ -433,7 +433,8 @@ checkSame('access log: a role that cannot be applied', $axsLogs[2] ?? null, '['.
  */
 function roleActn( String $loggedRole, String $neededRole='' ): Array {
 	$axssReg = new Registry( ($loggedRole!='') ? Array('logged'=>true, 'user'=>'carol', 'role'=>$loggedRole) : Array('logged'=>false, 'user'=>'', 'role'=>null) );
-	$actnSet = new nyu\Runs\Probe\Actions( 'roles', ($neededRole!='') ? $neededRole : null, new Registry(Array()), null, $axssReg, fakeReqst(Array(), Array('REMOTE_ADDR'=>'10.0.0.1')) );
+	$actnSet = new nyu\Runs\Probe\Actions( new nyu\App\RunContext('roles', ($neededRole!='') ? $neededRole : null, new Registry(Array()), $axssReg, fakeReqst(Array(), Array('REMOTE_ADDR'=>'10.0.0.1')), null, null, null, 'Probe', RUN_DIR.DS.'Probe') );
+	$actnSet->runAction();
 	return Array($actnSet->statCode, strval($actnSet->statMssg), $actnSet->asOutput);
 }
 nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('actnlogs'), 'mode'=>'BASE', 'pref'=>'Y') );

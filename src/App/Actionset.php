@@ -31,47 +31,52 @@ class Actionset {
 	protected 	$dfltActn = '';
 	// Action being run, as the request named it
 	protected 	$actnName = '';
-	
+	// What the run is given for the request (see RunContext)
+	protected	RunContext $runCntxt;
+
 	/**
-	 * Stores the input registry and model stack, then runs the requested
-	 * action.
+	 * Keeps the context of the request and gives its values to the
+	 * properties the actions use. The Controller runs the action after
+	 * (see runAction).
 	 *
-	 * @param String     $actionName Name of the action method to run.
-	 * @param ?String    $actnOption Optional extra parameter for the action.
-	 * @param ?Registry  $inRegistry Registry of input values available to the action.
-	 * @param ?ModelStack $modelStack Preloaded models available to the action.
-	 * @param ?Registry  $axRegistry Access check result: 'logged', 'user', 'role' and 'ident' of the requester.
-	 * @param ?Request   $requestObj The shared HTTP request (method, headers, files).
-	 * @param ?Response  $httpRespns The shared response (headers, file replies).
-	 * @param ?Router    $routingObj The router of the request (links to the declared routes).
+	 * @param RunContext $runContext The action, its inputs, the access result, request, response, router, models and application.
 	 */
-	function __construct( String $actionName, ?String $actnOption=null, ?Registry $inRegistry = null, ?ModelStack $modelStack = null, ?Registry $axRegistry = null, ?Request $requestObj = null, ?Response $httpRespns = null, ?Router $routingObj = null ){
-		$this->inputReg = $inRegistry;
-		$this->modStack = $modelStack;
-		$this->axessReg = $axRegistry;
-		$this->httpRqst = $requestObj;
-		$this->httpResp = $httpRespns;
-		$this->routrObj = $routingObj;
-		$this->runAction( $actionName, $actnOption );
+	function __construct( RunContext $runContext ){
+		$this->runCntxt = $runContext;
+		$this->inputReg = $runContext->inputReg;
+		$this->modStack = $runContext->modStack;
+		$this->axessReg = $runContext->axessReg;
+		$this->httpRqst = $runContext->httpRqst;
+		$this->httpResp = $runContext->httpResp;
+		$this->routrObj = $runContext->routrObj;
+		$this->actnName = $runContext->actnName;
 	}
-	
+
 	/**
-	 * Calls the named action method on this actionset if it is one of the
-	 * application's actions (see ownAction), passing the optional parameter
-	 * along; falls back to defAction() otherwise. A StopRun thrown while
-	 * the action runs ends it and sets its status.
-	 *
-	 * @param String $actionName Name of the action method to call.
-	 * @param ?String $actnOption Optional extra parameter to pass to the action.
+	 * Runs before the action, once the actionset holds the context: the
+	 * place to prepare the models the actions share, or to refuse the
+	 * request with endAction(), in which case the action is not run and
+	 * the status given is the reply's. Does nothing by default.
 	 */
-	function runAction( String $actionName, ?String $actnOption=null ): Void {
-		$this->actnName = $actionName;
-		if( static::ownAction($actionName) ){
+	protected function beforeAct(): Void {
+	}
+
+	/**
+	 * Runs the action of the context if it is one of the application's
+	 * actions (see ownAction): beforeAct() first, then the action, given
+	 * the option of the context when there is one; falls back to
+	 * defAction() otherwise. A StopRun thrown by beforeAct() or the action
+	 * ends the run and sets its status; one from beforeAct() keeps the
+	 * action from running.
+	 */
+	function runAction(): Void {
+		if( static::ownAction($this->runCntxt->actnName) ){
 			try{
-				if($actnOption!=null){
-					call_user_func( array($this, $actionName), $actnOption );
+				$this->beforeAct();
+				if($this->runCntxt->actnOptn!=null){
+					call_user_func( array($this, $this->runCntxt->actnName), $this->runCntxt->actnOptn );
 				}else{
-					call_user_func( array($this, $actionName) );
+					call_user_func( array($this, $this->runCntxt->actnName) );
 				}
 			}catch( StopRun $e ){
 				// Deliberate stop : its status is the action's, and its output when it carries one
@@ -192,8 +197,7 @@ class Actionset {
 	 * @return Bool True when the page was registered.
 	 */
 	protected function replyPage( String $sourceName, Array $pageValues=Array(), Int $statusCode=200 ): Bool {
-		$appFldr = dirname( strval((new \ReflectionClass($this))->getFileName()) );
-		$pagePth = $appFldr.DS.'pages'.DS.str_replace('/', DS, $sourceName).'.html';
+		$pagePth = $this->runCntxt->appFoldr.DS.'pages'.DS.str_replace('/', DS, $sourceName).'.html';
 		// Letters, digits, dashes and underscores only : the name cannot lead out of the folder
 		$isNamed = (preg_match('#^[\w\-]+(/[\w\-]+)*$#D', $sourceName)===1);
 		if( !$isNamed || $this->httpResp===null || !$this->httpResp->pageReply($pagePth, $pageValues, $statusCode) ){
@@ -254,8 +258,7 @@ class Actionset {
 	 * @return Logger The logger of the application.
 	 */
 	protected function appLogger(): Logger {
-		$nameLst = explode('\\', static::class);
-		return Logger::getLogger( strtolower(strval($nameLst[count($nameLst)-2] ?? 'runner')) );
+		return Logger::getLogger( strtolower($this->runCntxt->appIdent) );
 	}
 
 	/**

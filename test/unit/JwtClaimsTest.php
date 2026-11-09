@@ -110,7 +110,8 @@ checkSame('nothing of it in the log of production', strval(@file_get_contents(in
 
 // The previous key : the tokens it signed are accepted until they end, found by their kid
 $oldTokn = $rawTokn;
-$rotConf = Array('prvkey'=>$newPriv, 'pubkey'=>$newPubl, 'oldpub'=>$pubPath) + $bndConf;
+// Retired a moment from now : the tokens of the previous key were issued before
+$rotConf = Array('prvkey'=>$newPriv, 'pubkey'=>$newPubl, 'oldpub'=>$pubPath, 'retire'=>time() + 5) + $bndConf;
 $rotJwt = new JWT( $rotConf );
 $newTokn = $rotJwt->issueTokn( Array('user'=>'carl') );
 checkSame('replaced keys: the tokens of the previous key pass, those of the new one too', Array(readsTokn($rotJwt, $oldTokn), readsTokn($rotJwt, $newTokn)), Array('anna', 'carl'));
@@ -151,7 +152,8 @@ function askKeyset( Array $tokenBlock ): Array {
 	)) );
 	return runSafely(function(): Array {
 		$respObj = new Response( Array('format'=>'yaml', 'headrs'=>Array('Cache-Control'=>'no-cache, no-store', 'Expires'=>'Mon, 26 Jul 1997 05:00:00 GMT')) );
-		$actnSet = new nyu\Runs\Auth\Actions( 'keyset', null, new Registry(Array()), null, new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), fakeReqst(), $respObj );
+		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('keyset', null, new Registry(Array()), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), fakeReqst(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+		$actnSet->runAction();
 		$respObj->formatOut( $actnSet->asOutput ?? Array() );
 		return Array($actnSet->statCode, strval($actnSet->statMssg), $actnSet->asOutput, $respObj->readHeads());
 	});

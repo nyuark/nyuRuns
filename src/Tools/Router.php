@@ -61,12 +61,9 @@ class Router{
 		);
 		$dtcMode = $this->routeCnf['detect'] ?? '';
 
-		// Declared routes come first : entry point file, then routes folder
+		// Declared routes come first : the routes folder
 		$urlPath = str_replace('.php', '', $this->pathText);
-		$fndVals = ($dtcMode=='manually') ? $this->manuRoute($urlPath) : null;
-		if( $fndVals===null ){
-			$fndVals = $this->fileRoute($urlPath);
-		}
+		$fndVals = $this->fileRoute($urlPath);
 		if( $fndVals!==null ){
 			return new Registry( $fndVals );
 		}
@@ -194,25 +191,6 @@ class Router{
 			$mapVals[$mapKey] = $urlPart[$mapIdx] ?? null;
 		}
 		return $mapVals;
-	}
-
-	/**
-	 * Looks the path up in the routes declared by the entry point file
-	 * through $GLOBALS['manualRoute'].
-	 *
-	 * @param String $lookupPath Path to look up, without its .php extension.
-	 * @return ?Array The 'app' and 'action' values, or null when no manual route matches.
-	 */
-	protected function manuRoute( String $lookupPath ): ?Array {
-		$manRout = $GLOBALS['manualRoute'] ?? null;
-		if( empty($manRout[$lookupPath]['command']) ){
-			return null;
-		}
-		$manVals = $manRout[$lookupPath]['command'];
-		return Array(
-			'app'=>		$manVals['app'],
-			'action'=>	$manVals['act']
-		);
 	}
 
 	/**

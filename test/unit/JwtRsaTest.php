@@ -108,7 +108,8 @@ $lgnRslt = runSafely(function(){
 	$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.9') );
 	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
 	$mthProp->setValue($request, 'POST');
-	$actnSet = new nyu\Runs\Auth\Actions( 'login', null, new Registry(Array('user'=>'alice', 'pass'=>'wrong')), null, new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request );
+	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('user'=>'alice', 'pass'=>'wrong')), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+	$actnSet->runAction();
 	return Array($actnSet->statCode, strval($actnSet->statMssg));
 });
 checkSame('the login of a project that only checks tokens answers 501, without checking the password', $lgnRslt, Array(501, 'Tokens are issued by another server'));

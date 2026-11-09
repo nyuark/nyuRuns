@@ -176,7 +176,8 @@ plugConf( 0, Array('authby'=>'device', 'authcf'=>'tsdevc', 'sesscf'=>'tstokn') )
 $request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
 $mthProp->setValue($request, 'POST');
-$actnSet = new nyu\Runs\Auth\Actions( 'login', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), null, new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request );
+$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+$actnSet->runAction();
 checkSame('login x device: no token is issued for a device token sent as a password', Array($actnSet->statCode, $actnSet->statMssg, $actnSet->asOutput), Array(401, 'No API key provided', null));
 $sqlLink = null;
 

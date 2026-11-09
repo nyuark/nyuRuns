@@ -29,7 +29,8 @@ require RUN_DIR.DS.'Shows'.DS.'Actions.php';
  */
 function runAction( String $actionName, ?String $actnOption=null, Array $inputArray=Array() ): Mixed {
 	return runSafely(function() use ($actionName, $actnOption, $inputArray){
-		$actnSet = new nyu\Runs\Shows\Actions( $actionName, $actnOption, new Registry($inputArray), new ModelStack('Shows') );
+		$actnSet = new nyu\Runs\Shows\Actions( new nyu\App\RunContext($actionName, $actnOption, new Registry($inputArray), null, null, null, null, new ModelStack('Shows'), 'Shows', RUN_DIR.DS.'Shows') );
+		$actnSet->runAction();
 		return Array('code'=>$actnSet->statCode, 'mssg'=>$actnSet->statMssg, 'out'=>$actnSet->asOutput);
 	});
 }

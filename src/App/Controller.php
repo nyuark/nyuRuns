@@ -196,13 +196,25 @@ class Controller{
 		$this->appRunner();
 	}
 	
+	/**
+	 * Builds what the run is given for this request, once its inputs are
+	 * applied (see actInputs) and its models loaded.
+	 *
+	 * @return RunContext The action, its option and inputs, the access result, request, response, router, models and application.
+	 */
+	protected function makeCntxt(): RunContext {
+		return new RunContext( $this->savedAct, $this->savedOpt, $this->inputReg, $this->axessReg, $this->httpRqst, $this->httpResp, $this->routrObj, $this->modStack, $this->appIdent, strval($this->appFoldr) );
+	}
+
 	// Execute application (from actionset)
 	/**
-	 * Instantiates the reflected actionset class with the current action,
-	 * option, inputs, model stack, access result, request, response and router — which runs the action itself.
+	 * Creates the reflected actionset with the context of the request, then
+	 * runs it: its beforeAct() hook, then the action (see Actionset::runAction).
+	 * A StopRun thrown by either ends the run with its status.
 	 */
 	protected function appRunner(): Void {
-		$this->appObjct = $this->appObjct->newInstanceArgs( Array($this->savedAct, $this->savedOpt, $this->inputReg, $this->modStack, $this->axessReg, $this->httpRqst, $this->httpResp, $this->routrObj) );
+		$this->appObjct = $this->appObjct->newInstance( $this->makeCntxt() );
+		$this->appObjct->runAction();
 	}
 	
 	// Prepare outcome message and/or data
