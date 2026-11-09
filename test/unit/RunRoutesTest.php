@@ -75,6 +75,8 @@ $projDir = makeProjt('runroutes', Array(
 	'conf/presets/mntnum.rps'=>$mntText('mntnum', '{ "auth": 12 }'),
 	'conf/presets/mntarr.rps'=>$mntText('mntarr', '{ "auth": ["account"] }'),
 	'conf/presets/mntemp.rps'=>$mntText('mntemp', '{ "auth": "" }'),
+	'conf/presets/mnttxt.rps'=>$mntText('mnttxt', '"auth"'),
+	'conf/presets/mntlst.rps'=>$mntText('mntlst', '["auth"]'),
 	'runs/Auth/routes.rte'=>strval(file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'routes.rte'))
 ));
 $chkRows = array_column(jsonShell($projDir, Array('deploy', 'check'))['rows'] ?? Array(), null, 'check');
@@ -83,6 +85,10 @@ checkLike('route shadow: naming the preset, the route and the pattern', strval($
 foreach( Array('mntyes'=>'true', 'mntnum'=>'12', 'mntarr'=>'\["account"\]') as $rpsName=>$badText ){
 	checkSame('mounts: '.$rpsName.' does not load', $chkRows['preset '.$rpsName]['state'] ?? null, 'fail');
 	checkLike('mounts: '.$rpsName.' says why, naming the Run', strval($chkRows['preset '.$rpsName]['found'] ?? ''), '#holds a mount that is not false or a path prefix for the application "auth": '.$badText.'#');
+}
+foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText ){
+	checkSame('mounts: '.$rpsName.', not an object, does not load', $chkRows['preset '.$rpsName]['state'] ?? null, 'fail');
+	checkLike('mounts: '.$rpsName.' says why', strval($chkRows['preset '.$rpsName]['found'] ?? ''), '#holds mounts that are not an object of applications: '.$badText.'#');
 }
 checkSame('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
 $rootRtr = madeRoutr('/login', 'POST', Array('mounts'=>Array('auth'=>'')));

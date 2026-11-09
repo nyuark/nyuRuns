@@ -188,6 +188,15 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/auth/nope');
 	checkSame('unknown action: 404, as an unknown application', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
+	// The Auth routes are its own (runs/Auth/routes.rte), under its mount: each reaches its action, the Run is closed to its path
+	foreach( Array('signup', 'forgot', 'recovr', 'langs', 'logout', 'activate', 'password') as $actNme ){
+		$replyAr = httpQuery('POST', $baseUrl.'/auth/'.$actNme);
+		checkTrue('auth route: POST /auth/'.$actNme.' reaches its action ('.$replyAr['code'].')', !in_array($replyAr['code'], Array(404, 405), true));
+	}
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/keyset');
+	checkSame('auth route: an action of the closed Run reached by its path is a 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
+	checkSame('auth route: GET on one of its POST routes is refused', httpQuery('GET', $baseUrl.'/auth/login')['code'], 405);
+
 	// Default action : the one the application names in $dfltActn, otherwise its first declared action
 	$replyAr = httpQuery('GET', $baseUrl.'/probe', Array('X-Test-Runs'=>'1'));
 	checkSame('no action: the first declared action runs', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
@@ -876,7 +885,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/text', $rteHead);
 	checkSame('route: autopath is the fallback', Array($replyAr['code'], $replyAr['body']), Array(200, '"plain text"'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/clean', $rteHead);
-	checkSame('route: but not for an action a declared route answers with', $replyAr['code'], 404);
+	checkSame('route: a site route answering with an action is an alias, closing nothing: the action stays reached by its path', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/broken', $rteHead);
 	checkSame('route: an entry without application is skipped', Array($replyAr['code'], $replyAr['body']), $noAppli);
 
