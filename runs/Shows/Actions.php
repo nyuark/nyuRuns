@@ -6,7 +6,7 @@ use \nyu\App\Actionset;
 
 class Actions extends Actionset {
 
-	protected $dfltActn = 'index';
+	protected $dfltAction = 'index';
 	
 	/**
 	 * Lists the shows, each loaded with its relations, and sets the
@@ -14,45 +14,45 @@ class Actions extends Actionset {
 	 * 'categ' on the item type), 'sorting' and 'indexes' inputs.
 	 */
 	public function index(): Void {
-		$showLst = $this->modStack->readModel('listing');
+		$showLst = $this->modelStack->getModelObject('listing');
 		// Filter results
 		// Data in here should be strTyped Variables object from inputReg
 		// $reqVals = $this->inputReg->getRegVal('QUERY');
 		// $this->inputReg['varname']['index']->get();
-		$filters = $this->inputReg->getDefVal('filters', array());
-		$catgFil = '';
+		$filters = $this->inptRgstry->obtainDefValue('filters', array());
+		$byCateg = '';
 		if(isset($filters['categ']) && is_string($filters['categ'])){
-			$catgFil = $filters['categ'];
+			$byCateg = $filters['categ'];
 			unset($filters['categ']);
 		}
 		if(isset($filters['search'])){
 			// A search is a match : the * of what is searched for is any text
-			$itemFil = Array('title~'=>$filters['search']);
+			$itmFile = Array('title~'=>$filters['search']);
 			unset($filters['search']);
 		}else{
-			$itemFil = Array();
+			$itmFile = Array();
 		}
-		$showLst->lstSearch($itemFil);
+		$showLst->replaceFilters($itmFile);
 		// Sort results
-		$sorting = $this->inputReg->getDefVal('sorting', array('id_show'));
-		$showLst->listOrder($sorting);
+		$sorting = $this->inptRgstry->obtainDefValue('sorting', array('id_show'));
+		$showLst->setOrderFields($sorting);
 		// Limit results
-		$indexes = $this->inputReg->getDefVal('indexes', array());
-		$showLst->listLimit($indexes);
+		$indexes = $this->inptRgstry->obtainDefValue('indexes', array());
+		$showLst->setLimitOffset($indexes);
 		
-		$showLst = $showLst->readItems();
+		$showLst = $showLst->readRowsOfList();
 		if($showLst===false){
-			$this->statCode = 500;
-			$this->statMssg = 'An error occurred while processing Listing query';
+			$this->statusCode = 500;
+			$this->statusMssg = 'An error occurred while processing Listing query';
 			return;
 		}
 		$showOut = Array();
-		$initRec = $this->modStack->readModel('single');
+		$initRec = $this->modelStack->getModelObject('single');
 		foreach($showLst as $shwRec){
 			$showRec = clone($initRec);
-			$showArr = $showRec->loadRecrd($shwRec['id_show']); 
-			if($catgFil!=''){
-				if($showRec->hasCategy($catgFil)==false){
+			$showArr = $showRec->loadRecordList($shwRec['id_show']); 
+			if($byCateg!=''){
+				if($showRec->verifyCategory($byCateg)==false){
 					continue;
 				}
 			}
@@ -60,12 +60,12 @@ class Actions extends Actionset {
 			$showRec = null;
 		}
 		if(!empty($showOut)){
-			$this->statCode = 200;
-			$this->asOutput = $showOut;
+			$this->statusCode = 200;
+			$this->replyValue = $showOut;
 		}else{
-			$this->statCode = 204;
-			$this->statMssg = 'Show Listing returned no results';
-			$this->asOutput = $showOut;
+			$this->statusCode = 204;
+			$this->statusMssg = 'Show Listing returned no results';
+			$this->replyValue = $showOut;
 		}
 	}
 	
@@ -73,22 +73,22 @@ class Actions extends Actionset {
 	/**
 	 * Loads a single show with its relations and sets it as output.
 	 *
-	 * @param String $currShowId Primary key of the show to load.
+	 * @param String $currentShwId Primary key of the show to load.
 	 */
-	public function view( String $currShowId ): Void {
-		$showRec = $this->modStack->readModel('single');
+	public function view( String $currentShwId ): Void {
+		$showRec = $this->modelStack->getModelObject('single');
 		// Filter results
-		$showIdn = $currShowId;
-		$showArr = $showRec->loadRecrd($showIdn);
+		$shwIdnt = $currentShwId;
+		$showArr = $showRec->loadRecordList($shwIdnt);
 		//print_r($showArr);
 		//die();
 		
 		if($showArr!==false && !empty($showArr)){
-			$this->statCode = 200;
-			$this->asOutput = $showArr;
+			$this->statusCode = 200;
+			$this->replyValue = $showArr;
 		}else{
-			$this->statCode = 404;
-			$this->statMssg = 'Show not found';
+			$this->statusCode = 404;
+			$this->statusMssg = 'Show not found';
 		}
 	}
 }

@@ -17,7 +17,7 @@ use \nyu\Access\Auth\UserBase;
  */
 class Actions extends Actionset {
 
-	protected $dfltActn = 'index';
+	protected $dfltAction = 'index';
 
 	/**
 	 * Lists the users, by name: identifier, name, role, status, address,
@@ -28,16 +28,16 @@ class Actions extends Actionset {
 	 * list is empty.
 	 */
 	public function index(): Void {
-		$usrBase = $this->startCall('GET');
-		$usrList = $usrBase->listUsers(
-			Array('userStat'=>$this->inputReg->readValue('stat'), 'userRole'=>$this->inputReg->readValue('role')),
-			intval($this->inputReg->readValue('limit')),
-			intval($this->inputReg->readValue('offset'))
+		$usrBase = $this->requireManager('GET');
+		$usrList = $usrBase->listUsersNamed(
+			Array('userStat'=>$this->inptRgstry->readFileDetail('stat'), 'userRole'=>$this->inptRgstry->readFileDetail('role')),
+			intval($this->inptRgstry->readFileDetail('limit')),
+			intval($this->inptRgstry->readFileDetail('offset'))
 		);
 		if($usrList===false){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->checkList($usrList);
+		$this->checkActionLst($usrList);
 	}
 
 	/**
@@ -46,13 +46,13 @@ class Actions extends Actionset {
 	 * and last time seen.
 	 */
 	public function view(): Void {
-		$usrBase = $this->startCall('GET');
-		$usrVals = $usrBase->userInfos( $this->givenUser(false) );
-		if($usrVals===false){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('GET');
+		$userVls = $usrBase->userInfosArray( $this->givenUsrString(false) );
+		if($userVls===false){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = $usrVals;
+		$this->statusCode = 200;
+		$this->replyValue = $userVls;
 	}
 
 	/**
@@ -67,25 +67,25 @@ class Actions extends Actionset {
 	 * taken.
 	 */
 	public function create(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(false);
-		$gvnRole = $this->inputReg->readValue('role');
-		$gvnMail = $this->inputReg->readValue('mail');
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(false);
+		$gvnRole = $this->inptRgstry->readFileDetail('role');
+		$gvnMail = $this->inptRgstry->readFileDetail('mail');
 		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
-		$gvnLang = $this->inputReg->readValue('lang');
+		$gvnLang = $this->inptRgstry->readFileDetail('lang');
 		$gvnLang = is_string($gvnLang) ? $gvnLang : null;
-		$mailObj = ($gvnMail!='') ? AccessMail::fromLogin( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCode = $usrBase->enrolUser( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS, $gvnLang );
+		$mailObj = ($gvnMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCode = $usrBase->enrolUsrString( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS, $gvnLang );
 		if($newCode===false){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 201;
+		$this->statusCode = 201;
 		if($mailObj!==null){
 			// The mail is written in the language given for the user, never in the one of the manager asking
-			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, strtolower($gvnMail), strval($newCode), $gvnLang));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('actvte', $gvnUser, strtolower($gvnMail), strval($newCode), $gvnLang));
 			return;
 		}
-		$this->asOutput = Array('user'=>$gvnUser, 'code'=>$newCode);
+		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);
 	}
 
 	/**
@@ -94,13 +94,13 @@ class Actions extends Actionset {
 	 * it (users/remove). Reports 409 for a user not awaiting review.
 	 */
 	public function approve(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(false);
-		if(!$usrBase->proveUser($gvnUser)){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(false);
+		if(!$usrBase->approveNewUser($gvnUser)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'stat'=>'active');
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'active');
 	}
 
 	/**
@@ -109,14 +109,14 @@ class Actions extends Actionset {
 	 * Reports 409 for an address another user holds.
 	 */
 	public function email(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(false);
-		$gvnMail = $this->inputReg->readValue('mail');
-		if(!$usrBase->chngeMail($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(false);
+		$gvnMail = $this->inptRgstry->readFileDetail('mail');
+		if(!$usrBase->chngeEmailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfos($gvnUser) ?: Array())['userMail'] ?? null);
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfosArray($gvnUser) ?: Array())['userMail'] ?? null);
 	}
 
 	/**
@@ -126,14 +126,14 @@ class Actions extends Actionset {
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
 	public function langs(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(false);
-		$gvnLang = $this->inputReg->readValue('lang');
-		if(!$usrBase->chngeLang($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(false);
+		$gvnLang = $this->inptRgstry->readFileDetail('lang');
+		if(!$usrBase->changeLanguage($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'lang'=>($usrBase->userInfos($gvnUser) ?: Array())['userLang'] ?? null);
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'lang'=>($usrBase->userInfosArray($gvnUser) ?: Array())['userLang'] ?? null);
 	}
 
 	/**
@@ -142,26 +142,26 @@ class Actions extends Actionset {
 	 * userbase as its credential store. A manager cannot lock itself.
 	 */
 	public function lock(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(true);
-		if(!$usrBase->setStatus($gvnUser, 'locked')){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(true);
+		if(!$usrBase->saveStatusFlag($gvnUser, 'locked')){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'stat'=>'locked');
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'locked');
 	}
 
 	/**
 	 * Unlocks the user the 'user' input names.
 	 */
 	public function unlock(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(false);
-		if(!$usrBase->setStatus($gvnUser, 'active')){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(false);
+		if(!$usrBase->saveStatusFlag($gvnUser, 'active')){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'stat'=>'active');
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'active');
 	}
 
 	/**
@@ -169,14 +169,14 @@ class Actions extends Actionset {
 	 * input. A manager cannot change its own role.
 	 */
 	public function role(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(true);
-		$gvnRole = $this->inputReg->readValue('role');
-		if(!$usrBase->changRole($gvnUser, is_string($gvnRole) ? $gvnRole : '')){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(true);
+		$gvnRole = $this->inptRgstry->readFileDetail('role');
+		if(!$usrBase->changeRoleFlag($gvnUser, is_string($gvnRole) ? $gvnRole : '')){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'role'=>$gvnRole);
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'role'=>$gvnRole);
 	}
 
 	/**
@@ -184,13 +184,13 @@ class Actions extends Actionset {
 	 * itself.
 	 */
 	public function remove(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(true);
-		if(!$usrBase->removUser($gvnUser)){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(true);
+		if(!$usrBase->removeUserFlag($gvnUser)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('user'=>$gvnUser, 'removed'=>true);
+		$this->statusCode = 200;
+		$this->replyValue = Array('user'=>$gvnUser, 'removed'=>true);
 	}
 
 	/**
@@ -202,43 +202,43 @@ class Actions extends Actionset {
 	 * reset itself.
 	 */
 	public function reset(): Void {
-		$usrBase = $this->startCall('POST');
-		$gvnUser = $this->givenUser(true);
-		$usrInfo = $usrBase->userInfos($gvnUser) ?: Array();
+		$usrBase = $this->requireManager('POST');
+		$gvnUser = $this->givenUsrString(true);
+		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();
 		$usrMail = strval( $usrInfo['userMail'] ?? '' );
-		$mailObj = ($usrMail!='') ? AccessMail::fromLogin( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCode = $usrBase->resetUser( $gvnUser, ($mailObj!==null) ? $usrBase->mailedFor() : UserBase::ADMNMINS );
+		$mailObj = ($usrMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCode = $usrBase->resetUsrString( $gvnUser, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS );
 		if($newCode===false){
-			$this->endAction( $usrBase->lastState(), $usrBase->lastError() );
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->statCode = 200;
+		$this->statusCode = 200;
 		if($mailObj!==null){
 			// The mail is written in the language of the user, never in the one of the manager asking
-			$this->asOutput = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodes('actvte', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLang'] ?? null));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('actvte', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLang'] ?? null));
 			return;
 		}
-		$this->asOutput = Array('user'=>$gvnUser, 'code'=>$newCode);
+		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);
 	}
 
 	/**
 	 * Opens every action: ends it with a 404 unless the request comes
-	 * from a logged user of the highest role of Checker::ROLELIST (see
+	 * from a logged user of the highest role of Checker::ROLE_LIST (see
 	 * needsRole), a 405 unless it uses the given method, and a 500 when
 	 * the login does not use the native userbase. The role is asked for
 	 * here whatever the preset does: a 'rolert' entry of its 'auths'
 	 * block only refuses the request earlier.
 	 *
-	 * @param String $httpMethod Method the action answers to.
+	 * @param String $httpMthdText Method the action answers to.
 	 * @return UserBase The manager of the userbase.
 	 */
-	protected function startCall( String $httpMethod ): UserBase {
-		$this->needsRole( array_slice(Checker::ROLELIST, -1)[0] );
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd($httpMethod)){
-			$this->endAction(405, 'Method Not Allowed');
+	protected function requireManager( String $httpMthdText ): UserBase {
+		$this->needsActionRle( array_slice(Checker::ROLE_LIST, -1)[0] );
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag($httpMthdText)){
+			$this->stopThisAction(405, 'Method Not Allowed');
 		}
-		$usrBase = UserBase::fromLogin();
+		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
-			$this->endAction(500, 'User management unavailable');
+			$this->stopThisAction(500, 'User management unavailable');
 		}
 		return $usrBase;
 	}
@@ -248,16 +248,16 @@ class Actions extends Actionset {
 	 * Ends the action with a 400 when it is not a text, and with a 409
 	 * when it must be another user than the one asking and is not.
 	 *
-	 * @param Bool $othersOnly Whether the action is refused on the account of the one asking.
+	 * @param Bool $notOnOwnAcnt Whether the action is refused on the account of the one asking.
 	 * @return String The name of the user.
 	 */
-	protected function givenUser( Bool $othersOnly ): String {
-		$gvnUser = $this->inputReg->readValue('user');
+	protected function givenUsrString( Bool $notOnOwnAcnt ): String {
+		$gvnUser = $this->inptRgstry->readFileDetail('user');
 		if(!is_string($gvnUser) || $gvnUser==''){
-			$this->endAction(400, 'Invalid user');
+			$this->stopThisAction(400, 'Invalid user');
 		}
-		if($othersOnly && $gvnUser===strval($this->axessReg->readValue('user'))){
-			$this->endAction(409, 'A manager cannot do this to its own account');
+		if($notOnOwnAcnt && $gvnUser===strval($this->accessRgst->readFileDetail('user'))){
+			$this->stopThisAction(409, 'A manager cannot do this to its own account');
 		}
 		return $gvnUser;
 	}

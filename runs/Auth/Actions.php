@@ -30,112 +30,112 @@ class Actions extends Actionset {
 	 * Credential checks and their outcome are logged.
 	 */
 	public function login(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->passInUrl( Array('pass'), 'Login' )){
+		if($this->refuseUrlPassw( Array('pass'), 'Login' )){
 			return;
 		}
 
-		$gvnUser = $this->inputReg->readValue('user');
-		$gvnPass = $this->inputReg->readValue('pass');
+		$gvnUser = $this->inptRgstry->readFileDetail('user');
+		$gvnPass = $this->inptRgstry->readFileDetail('pass');
 
 		// Both are required by input/login.json; what is left to refuse is a value that is not a text
 		if(!is_string($gvnUser) || !is_string($gvnPass)){
-			$this->statCode = 400;
-			$this->statMssg = 'Invalid user or pass';
+			$this->statusCode = 400;
+			$this->statusMssg = 'Invalid user or pass';
 			return;
 		}
 
-		$lgnConf = $this->resolvCnf('login');
-		$logInst = Logger::getLogger('access');
-		$authCls = Checker::authClass( strval($lgnConf['authby'] ?? 'htpass') );
-		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
+		$lgnConf = $this->resolveConfArr('login');
+		$accsLog = Logger::retrieveLogger('access');
+		$authCls = Checker::authClssString( strval($lgnConf['authby'] ?? 'htpass') );
+		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
 		if($authCls===null || $sessCls===null || !class_exists($authCls) || !class_exists($sessCls)){
-			$logInst->error( 'Login unavailable: unknown authby or sessby in the login block' );
-			$this->statCode = 500;
-			$this->statMssg = 'Login unavailable';
+			$accsLog->error( 'Login unavailable: unknown authby or sessby in the login block' );
+			$this->statusCode = 500;
+			$this->statusMssg = 'Login unavailable';
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolvCnf('limits') );
-		$clntReg = $this->httpRqst->getClient();
-		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+		$lmtrObj = new Limiter( $this->resolveConfArr('limits') );
+		$clntReg = $this->httpRequst->retrieveClient();
+		$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
 		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
-		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
 		if($heldEnd>0){
-			$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': too many attempts' );
-			if($this->httpResp!==null){
-				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
+			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': too many attempts' );
+			if($this->httpRespns!==null){
+				$this->httpRespns->addReplyHeader('Retry-After', strval(max(1, $heldEnd - time())));
 			}
-			$this->statCode = 429;
-			$this->statMssg = 'Too many attempts';
+			$this->statusCode = 429;
+			$this->statusMssg = 'Too many attempts';
 			return;
 		}
-		$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
+		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
-		if(method_exists($sessObj, 'checkOnly') && $sessObj->checkOnly()){
-			$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': this project only checks tokens, issued by another server' );
-			$this->statCode = 501;
-			$this->statMssg = 'Tokens are issued by another server';
+		if(method_exists($sessObj, 'verifyOnlyFlag') && $sessObj->verifyOnlyFlag()){
+			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': this project only checks tokens, issued by another server' );
+			$this->statusCode = 501;
+			$this->statusMssg = 'Tokens are issued by another server';
 			return;
 		}
-		$authObj = new $authCls( $this->resolvCnf($lgnConf['authcf'] ?? 'dfpass') );
+		$authObj = new $authCls( $this->resolveConfArr($lgnConf['authcf'] ?? 'dfpass') );
 		// The 'code' input carries the one-time code of a user with 2FA
-		$gvnCode = $this->inputReg->readValue('code');
+		$gvnCode = $this->inptRgstry->readFileDetail('code');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
-		$gvnMark = strval( $this->httpRqst->getHeader('X-Lgmark') ?? (is_string($this->httpRqst->getCookie('lgmark')) ? $this->httpRqst->getCookie('lgmark') : '') );
-		$idntArr = $authObj->checkCred( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '', 'mark'=>$gvnMark) );
+		$gvnMark = strval( $this->httpRequst->retrieveHeader('X-Lgmark') ?? (is_string($this->httpRequst->retrieveCookie('lgmark')) ? $this->httpRequst->retrieveCookie('lgmark') : '') );
+		$idntArr = $authObj->chckCredential( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '', 'mark'=>$gvnMark) );
 
 		if($idntArr===false){
 			// Only a credential presented and refused counts against the address
-			if(!method_exists($authObj, 'wrongCred') || $authObj->wrongCred()){
-				$lmtrObj->countFail($usrAddr);
+			if(!method_exists($authObj, 'wrngCredential') || $authObj->wrngCredential()){
+				$lmtrObj->countFailedTry($usrAddr);
 			}
-			$logInst->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': '.$authObj->lastError() );
-			$this->statCode = 401;
-			$this->statMssg = $authObj->lastError();
+			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': '.$authObj->finalErrorText() );
+			$this->statusCode = 401;
+			$this->statusMssg = $authObj->finalErrorText();
 			return;
 		}
 
 		// A session the request came with is closed : a new login does not leave the former one open
-		if(method_exists($sessObj, 'dropSessn')){
-			$sessObj->dropSessn( $this->httpRqst );
+		if(method_exists($sessObj, 'dropUsrSession')){
+			$sessObj->dropUsrSession( $this->httpRequst );
 		}
-		$rawTokn = $sessObj->issueTokn( $idntArr );
+		$rawTokn = $sessObj->issueTokenText( $idntArr );
 		if($rawTokn==''){
-			$logInst->error( 'Login unavailable: '.($sessObj->lastError() ?: 'the session carrier issues no token') );
-			$this->statCode = 500;
-			$this->statMssg = 'Login unavailable';
+			$accsLog->error( 'Login unavailable: '.($sessObj->finalErrorText() ?: 'the session carrier issues no token') );
+			$this->statusCode = 500;
+			$this->statusMssg = 'Login unavailable';
 			return;
 		}
 
 		// A credential store that tracks presence is told the user was seen
-		if(method_exists($authObj, 'keepAlive')){
-			$authObj->keepAlive( strval($idntArr['user'] ?? '') );
+		if(method_exists($authObj, 'retainAliveFlg')){
+			$authObj->retainAliveFlg( strval($idntArr['user'] ?? '') );
 		}
 		// A login is always traced, production included; the one of a privileged user (any role above the first of ROLELIST) tells it
 		$usrRole = strval($idntArr['role'] ?? '');
-		if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
-			$logInst->notice( 'Privileged login granted for user '.json_encode($gvnUser).' ('.$usrRole.')'.$fromTxt );
+		if(in_array($usrRole, array_slice(Checker::ROLE_LIST, 1), true)){
+			$accsLog->notice( 'Privileged login granted for user '.json_encode($gvnUser).' ('.$usrRole.')'.$fromTxt );
 		}else{
-			$logInst->notice( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
+			$accsLog->notice( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
 		}
-		$this->statCode = 200;
+		$this->statusCode = 200;
 		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page
-		$this->asOutput = method_exists($sessObj, 'dropSessn') ? Array('logged'=>true) : Array('token'=>$rawTokn);
+		$this->replyValue = method_exists($sessObj, 'dropUsrSession') ? Array('logged'=>true) : Array('token'=>$rawTokn);
 		// A new login mark for this client : in a cookie the scripts of the page cannot read, or in the reply of a token
-		$markObj = LoginMark::fromLimit();
-		$newMark = $markObj->makesMark( strval($idntArr['user'] ?? $gvnUser) );
+		$markObj = LoginMark::fromLimitBlock();
+		$newMark = $markObj->createUserMark( strval($idntArr['user'] ?? $gvnUser) );
 		if($newMark!==''){
-			if(method_exists($sessObj, 'dropSessn')){
+			if(method_exists($sessObj, 'dropUsrSession')){
 				if(!headers_sent()){
-					setcookie('lgmark', $newMark, Array('expires'=>time() + 86400*$markObj->markLasts(), 'path'=>'/auth', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
+					setcookie('lgmark', $newMark, Array('expires'=>time() + 86400*$markObj->markLastsCount(), 'path'=>'/auth', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
 				}
 			}else{
-				$this->asOutput['lgmark'] = $newMark;
+				$this->replyValue['lgmark'] = $newMark;
 			}
 		}
 	}
@@ -150,23 +150,23 @@ class Actions extends Actionset {
 	 * (HS256), or issued by another server.
 	 */
 	public function keyset(): Void {
-		$lgnConf = $this->resolvCnf('login');
-		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
-		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') ) : null;
-		$keysSet = ($sessObj!==null && method_exists($sessObj, 'publicSet')) ? $sessObj->publicSet() : Array('keys'=>Array());
+		$lgnConf = $this->resolveConfArr('login');
+		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
+		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') ) : null;
+		$keysSet = ($sessObj!==null && method_exists($sessObj, 'publicSetArray')) ? $sessObj->publicSetArray() : Array('keys'=>Array());
 		if( empty($keysSet['keys']) ){
-			Logger::getLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
-			$this->statCode = 404;
-			$this->statMssg = 'Not Found';
+			Logger::retrieveLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
+			$this->statusCode = 404;
+			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$this->useFormat('json');
-		if( $this->httpResp!==null ){
-			$this->httpResp->addHeader('Cache-Control', 'public, max-age=300');
-			$this->httpResp->addHeader('Expires', gmdate('D, d M Y H:i:s', time() + 300).' GMT');
+		$this->useReplyFormat('json');
+		if( $this->httpRespns!==null ){
+			$this->httpRespns->addReplyHeader('Cache-Control', 'public, max-age=300');
+			$this->httpRespns->addReplyHeader('Expires', gmdate('D, d M Y H:i:s', time() + 300).' GMT');
 		}
-		$this->statCode = 200;
-		$this->asOutput = $keysSet;
+		$this->statusCode = 200;
+		$this->replyValue = $keysSet;
 	}
 
 	/**
@@ -176,34 +176,34 @@ class Actions extends Actionset {
 	 * Reports 405 unless the request is a POST.
 	 */
 	public function logout(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		$lgnConf = $this->resolvCnf('login');
-		$sessCls = Checker::sessClass( strval($lgnConf['sessby'] ?? 'jtoken') );
+		$lgnConf = $this->resolveConfArr('login');
+		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
 		if($sessCls!==null && class_exists($sessCls)){
-			$sessObj = new $sessCls( $this->resolvCnf($lgnConf['sesscf'] ?? 'dftokn') );
-			if(method_exists($sessObj, 'dropSessn')){
-				$sessObj->dropSessn( $this->httpRqst );
+			$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') );
+			if(method_exists($sessObj, 'dropUsrSession')){
+				$sessObj->dropUsrSession( $this->httpRequst );
 			}
 		}
-		if($this->axessReg!==null){
-			$logInst = Logger::getLogger('access');
-			$usrRole = strval($this->axessReg->readValue('role'));
-			$clntReg = $this->httpRqst->getClient();
-			$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
+		if($this->accessRgst!==null){
+			$accsLog = Logger::retrieveLogger('access');
+			$usrRole = strval($this->accessRgst->readFileDetail('role'));
+			$clntReg = $this->httpRequst->retrieveClient();
+			$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
 			$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
 			// A logout is always traced, as the login
-			if(in_array($usrRole, array_slice(Checker::ROLELIST, 1), true)){
-				$logInst->notice( 'Logout of privileged user '.json_encode($this->axessReg->readValue('user')).' ('.$usrRole.')'.$fromTxt );
+			if(in_array($usrRole, array_slice(Checker::ROLE_LIST, 1), true)){
+				$accsLog->notice( 'Logout of privileged user '.json_encode($this->accessRgst->readFileDetail('user')).' ('.$usrRole.')'.$fromTxt );
 			}else{
-				$logInst->notice( 'Logout of user '.json_encode($this->axessReg->readValue('user')).$fromTxt );
+				$accsLog->notice( 'Logout of user '.json_encode($this->accessRgst->readFileDetail('user')).$fromTxt );
 			}
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('logged'=>false);
+		$this->statusCode = 200;
+		$this->replyValue = Array('logged'=>false);
 	}
 
 	/**
@@ -220,56 +220,56 @@ class Actions extends Actionset {
 	 * in: 'active', or 'review' for a sign-up a manager has to approve.
 	 */
 	public function activate(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->passInUrl( Array('pass'), 'Activation' )){
+		if($this->refuseUrlPassw( Array('pass'), 'Activation' )){
 			return;
 		}
-		$gvnUser = $this->inputReg->readValue('user');
-		$gvnCode = $this->inputReg->readValue('code');
-		$gvnPass = $this->inputReg->readValue('pass');
+		$gvnUser = $this->inptRgstry->readFileDetail('user');
+		$gvnCode = $this->inptRgstry->readFileDetail('code');
+		$gvnPass = $this->inptRgstry->readFileDetail('pass');
 		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
-			$this->statCode = 400;
-			$this->statMssg = 'Invalid user, code or pass';
+			$this->statusCode = 400;
+			$this->statusMssg = 'Invalid user, code or pass';
 			return;
 		}
-		$usrBase = UserBase::fromLogin();
+		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
-			$this->statCode = 500;
-			$this->statMssg = 'User management unavailable';
+			$this->statusCode = 500;
+			$this->statusMssg = 'User management unavailable';
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolvCnf('limits') );
-		$clntReg = $this->httpRqst->getClient();
-		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
-		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+		$lmtrObj = new Limiter( $this->resolveConfArr('limits') );
+		$clntReg = $this->httpRequst->retrieveClient();
+		$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
+		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
 		if($heldEnd>0){
-			Logger::getLogger('access')->warning( 'Activation refused for user '.json_encode($gvnUser).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
-			if($this->httpResp!==null){
-				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
+			Logger::retrieveLogger('access')->warning( 'Activation refused for user '.json_encode($gvnUser).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
+			if($this->httpRespns!==null){
+				$this->httpRespns->addReplyHeader('Retry-After', strval(max(1, $heldEnd - time())));
 			}
-			$this->statCode = 429;
-			$this->statMssg = 'Too many attempts';
+			$this->statusCode = 429;
+			$this->statusMssg = 'Too many attempts';
 			return;
 		}
 		// The language the request asks for is given to a user who has none yet : the one who activates is the one the mails go to
-		$cltLang = ($clntReg!==null) ? strval($clntReg->readValue('language')) : '';
-		if(!$usrBase->actvtUser($gvnUser, $gvnCode, $gvnPass, $cltLang)){
+		$clntLng = ($clntReg!==null) ? strval($clntReg->readFileDetail('language')) : '';
+		if(!$usrBase->activateUsrFlg($gvnUser, $gvnCode, $gvnPass, $clntLng)){
 			// Only a wrong name or code counts against the address, not a password breaking a rule
-			if($usrBase->wrongCred()){
-				$lmtrObj->countFail($usrAddr);
+			if($usrBase->wrngCredential()){
+				$lmtrObj->countFailedTry($usrAddr);
 			}
-			$this->statCode = $usrBase->lastState();
-			$this->statMssg = $usrBase->lastError();
+			$this->statusCode = $usrBase->lastStateCount();
+			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
-		$usrStat = strval( ($usrBase->userInfos($gvnUser) ?: Array())['userStat'] ?? 'active' );
-		$this->statCode = 200;
-		$this->asOutput = Array('active'=>$usrStat=='active', 'stat'=>$usrStat);
+		$usrStts = strval( ($usrBase->userInfosArray($gvnUser) ?: Array())['userStat'] ?? 'active' );
+		$this->statusCode = 200;
+		$this->replyValue = Array('active'=>$usrStts=='active', 'stat'=>$usrStts);
 	}
 
 	/**
@@ -290,61 +290,61 @@ class Actions extends Actionset {
 	 * are waiting.
 	 */
 	public function signup(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		$usrBase = UserBase::fromLogin();
-		$mailObj = AccessMail::fromLogin( $this->mailsDir(), PHP_SAPI!=='cli' );
-		if($usrBase===null || $mailObj===null || !AccessMail::signupsOn()){
-			$this->statCode = 404;
-			$this->statMssg = 'Not Found';
+		$usrBase = UserBase::fromLoginBlock();
+		$mailObj = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
+		if($usrBase===null || $mailObj===null || !AccessMail::signupsAllowed()){
+			$this->statusCode = 404;
+			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$gvnUser = $this->inputReg->readValue('user');
-		$gvnMail = $this->inputReg->readValue('mail');
+		$gvnUser = $this->inptRgstry->readFileDetail('user');
+		$gvnMail = $this->inptRgstry->readFileDetail('mail');
 		if(!is_string($gvnUser) || !is_string($gvnMail)){
-			$this->statCode = 400;
-			$this->statMssg = 'Invalid user or mail';
+			$this->statusCode = 400;
+			$this->statusMssg = 'Invalid user or mail';
 			return;
 		}
 		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'regmax' of them within 'holdtm'
-		$lmtConf = $this->resolvCnf('limits');
-		if($this->limitAddr('Sign-up', $gvnUser)===null){
+		$lmtConf = $this->resolveConfArr('limits');
+		if($this->refuseHeldAddr('Sign-up', $gvnUser)===null){
 			return;
 		}
 		$fldName = trim(strval($lmtConf['folder'] ?? ''), '/\\ ');
 		$regLmtr = new Limiter( Array('maxtry'=>intval($lmtConf['regmax'] ?? 16), 'folder'=>(($fldName!='') ? $fldName : 'temp/limits').'/signup') + $lmtConf );
-		$lmtrArr = $this->limitAddr('Sign-up', $gvnUser, $regLmtr);
+		$lmtrArr = $this->refuseHeldAddr('Sign-up', $gvnUser, $regLmtr);
 		if($lmtrArr===null){
 			return;
 		}
 		// Every sign-up counts : an address cannot fill the mailboxes of others
-		$lmtrArr[0]->countFail($lmtrArr[1]);
-		$regTops = max( 1, intval($lmtConf['regtop'] ?? UserBase::SIGNSCAP) );
-		$clntReg = $this->httpRqst->getClient();
-		$cltLang = ($clntReg!==null) ? strval($clntReg->readValue('language')) : '';
-		$newCode = $usrBase->signsUser($gvnUser, $gvnMail, $regTops, $cltLang);
+		$lmtrArr[0]->countFailedTry($lmtrArr[1]);
+		$regTops = max( 1, intval($lmtConf['regtop'] ?? UserBase::SIGN_MAXI) );
+		$clntReg = $this->httpRequst->retrieveClient();
+		$clntLng = ($clntReg!==null) ? strval($clntReg->readFileDetail('language')) : '';
+		$newCode = $usrBase->signsUsrString($gvnUser, $gvnMail, $regTops, $clntLng);
 		if($newCode===false){
-			$this->statCode = $usrBase->lastState();
-			$this->statMssg = $usrBase->lastError();
+			$this->statusCode = $usrBase->lastStateCount();
+			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
 		if($newCode===''){
 			// An address taken is told to its owner alone, in its language; a name taken, to an address of no account, says nothing of any account
-			$ownRows = $usrBase->listUsers( Array('userMail'=>$gvnMail), 1 );
+			$ownRows = $usrBase->listUsersNamed( Array('userMail'=>$gvnMail), 1 );
 			if(is_array($ownRows) && !empty($ownRows)){
-				$mailObj->sendTaken($gvnMail, $gvnUser, strval($ownRows[0]['userLang'] ?? ''));
+				$mailObj->sendAddrExists($gvnMail, $gvnUser, strval($ownRows[0]['userLang'] ?? ''));
 			}else{
-				$mailObj->sendNamed(strtolower(trim($gvnMail)), $gvnUser, $cltLang);
+				$mailObj->sendNameExists(strtolower(trim($gvnMail)), $gvnUser, $clntLng);
 			}
 		}else{
-			$mailObj->sendCodes('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode, $cltLang);
-			$this->warnsMngr($usrBase, $mailObj, $regTops, is_array($lmtConf['regwrn'] ?? null) ? $lmtConf['regwrn'] : Array(128, 200, 256));
+			$mailObj->sendCodeToUser('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode, $clntLng);
+			$this->notifyManagers($usrBase, $mailObj, $regTops, is_array($lmtConf['regwrn'] ?? null) ? $lmtConf['regwrn'] : Array(128, 200, 256));
 		}
-		$this->statCode = 202;
-		$this->asOutput = Array('asked'=>true);
+		$this->statusCode = 202;
+		$this->replyValue = Array('asked'=>true);
 	}
 
 	/**
@@ -352,27 +352,27 @@ class Actions extends Actionset {
 	 * brings the number of those waiting to one of the counts of 'regwrn';
 	 * at 'regtop', the sign-ups are closed.
 	 *
-	 * @param UserBase   $usersStore The userbase.
-	 * @param AccessMail $mailSender The sender of the access mails.
-	 * @param Int        $topsNumber The most sign-ups waiting at once.
-	 * @param Array      $warnCounts The counts the managers are told at.
+	 * @param UserBase   $userDatabase The userbase.
+	 * @param AccessMail $accessMailer The sender of the access mails.
+	 * @param Int        $authTopsNumb The most sign-ups waiting at once.
+	 * @param Array      $warnAtCounts The counts the managers are told at.
 	 */
-	protected function warnsMngr( UserBase $usersStore, AccessMail $mailSender, Int $topsNumber, Array $warnCounts ): Void {
-		$waitNum = $usersStore->waitCount();
-		if($waitNum===false || !in_array($waitNum, array_map('intval', $warnCounts), true)){
+	protected function notifyManagers( UserBase $userDatabase, AccessMail $accessMailer, Int $authTopsNumb, Array $warnAtCounts ): Void {
+		$waitNum = $userDatabase->waitingSignups();
+		if($waitNum===false || !in_array($waitNum, array_map('intval', $warnAtCounts), true)){
 			return;
 		}
-		$logInst = Logger::getLogger('access');
-		if($waitNum>=$topsNumber){
-			$logInst->warning( $waitNum.' sign-ups are waiting: the sign-ups are closed until some are approved or removed' );
+		$accsLog = Logger::retrieveLogger('access');
+		if($waitNum>=$authTopsNumb){
+			$accsLog->warning( $waitNum.' sign-ups are waiting: the sign-ups are closed until some are approved or removed' );
 		}else{
-			$logInst->notice( $waitNum.' sign-ups are waiting, '.$topsNumber.' at most' );
+			$accsLog->notice( $waitNum.' sign-ups are waiting, '.$authTopsNumb.' at most' );
 		}
-		$mngList = $usersStore->managMail();
-		if(is_array($mngList) && !empty($mngList)){
-			$mailSender->sendWatch($mngList, $waitNum, $topsNumber);
+		$mngrLst = $userDatabase->manageMailList();
+		if(is_array($mngrLst) && !empty($mngrLst)){
+			$accessMailer->sendQueueAlert($mngrLst, $waitNum, $authTopsNumb);
 		}else{
-			$logInst->warning( 'No manager with an address is told of the sign-ups waiting' );
+			$accsLog->warning( 'No manager with an address is told of the sign-ups waiting' );
 		}
 	}
 
@@ -388,37 +388,37 @@ class Actions extends Actionset {
 	 * not a text, 429 when the address of the client asked too often.
 	 */
 	public function forgot(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		$usrBase = UserBase::fromLogin();
-		$mailObj = AccessMail::fromLogin( $this->mailsDir(), PHP_SAPI!=='cli' );
+		$usrBase = UserBase::fromLoginBlock();
+		$mailObj = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
 		if($usrBase===null || $mailObj===null){
-			$this->statCode = 404;
-			$this->statMssg = 'Not Found';
+			$this->statusCode = 404;
+			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$gvnUser = $this->inputReg->readValue('user');
+		$gvnUser = $this->inptRgstry->readFileDetail('user');
 		if(!is_string($gvnUser)){
-			$this->statCode = 400;
-			$this->statMssg = 'Invalid user';
+			$this->statusCode = 400;
+			$this->statusMssg = 'Invalid user';
 			return;
 		}
-		$lmtrArr = $this->limitAddr('Reset', $gvnUser);
+		$lmtrArr = $this->refuseHeldAddr('Reset', $gvnUser);
 		if($lmtrArr===null){
 			return;
 		}
-		$lmtrArr[0]->countFail($lmtrArr[1]);
-		$rstVals = $usrBase->resetPass($gvnUser);
+		$lmtrArr[0]->countFailedTry($lmtrArr[1]);
+		$rstVals = $usrBase->resetPassArray($gvnUser);
 		if(is_array($rstVals)){
-			$clntReg = $this->httpRqst->getClient();
-			$cltLang = ($clntReg!==null) ? strval($clntReg->readValue('language')) : '';
-			$mailObj->sendCodes('pwdset', $rstVals['user'], $rstVals['mail'], $rstVals['code'], $rstVals['lang'] ?? $cltLang);
+			$clntReg = $this->httpRequst->retrieveClient();
+			$clntLng = ($clntReg!==null) ? strval($clntReg->readFileDetail('language')) : '';
+			$mailObj->sendCodeToUser('pwdset', $rstVals['user'], $rstVals['mail'], $rstVals['code'], $rstVals['lang'] ?? $clntLng);
 		}
-		$this->statCode = 202;
-		$this->asOutput = Array('asked'=>true);
+		$this->statusCode = 202;
+		$this->replyValue = Array('asked'=>true);
 	}
 
 	/**
@@ -433,65 +433,65 @@ class Actions extends Actionset {
 	 * use the native userbase.
 	 */
 	public function recovr(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->passInUrl( Array('pass'), 'Password reset' )){
+		if($this->refuseUrlPassw( Array('pass'), 'Password reset' )){
 			return;
 		}
-		$gvnUser = $this->inputReg->readValue('user');
-		$gvnCode = $this->inputReg->readValue('code');
-		$gvnPass = $this->inputReg->readValue('pass');
+		$gvnUser = $this->inptRgstry->readFileDetail('user');
+		$gvnCode = $this->inptRgstry->readFileDetail('code');
+		$gvnPass = $this->inptRgstry->readFileDetail('pass');
 		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
-			$this->statCode = 400;
-			$this->statMssg = 'Invalid user, code or pass';
+			$this->statusCode = 400;
+			$this->statusMssg = 'Invalid user, code or pass';
 			return;
 		}
-		$usrBase = UserBase::fromLogin();
+		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
-			$this->statCode = 500;
-			$this->statMssg = 'User management unavailable';
+			$this->statusCode = 500;
+			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		$lmtrArr = $this->limitAddr('Password reset', $gvnUser);
+		$lmtrArr = $this->refuseHeldAddr('Password reset', $gvnUser);
 		if($lmtrArr===null){
 			return;
 		}
-		if(!$usrBase->recovUser($gvnUser, $gvnCode, $gvnPass)){
-			if($usrBase->wrongCred()){
-				$lmtrArr[0]->countFail($lmtrArr[1]);
+		if(!$usrBase->recoverUserFlg($gvnUser, $gvnCode, $gvnPass)){
+			if($usrBase->wrngCredential()){
+				$lmtrArr[0]->countFailedTry($lmtrArr[1]);
 			}
-			$this->statCode = $usrBase->lastState();
-			$this->statMssg = $usrBase->lastError();
+			$this->statusCode = $usrBase->lastStateCount();
+			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('changed'=>true);
+		$this->statusCode = 200;
+		$this->replyValue = Array('changed'=>true);
 	}
 
 	/**
 	 * Refuses a request from an address that presented too many wrong
 	 * credentials, or asked too often: a 429, with the time to wait.
 	 *
-	 * @param String   $eventLabel What was asked for, for the log.
-	 * @param String   $userString The user named, for the log.
-	 * @param ?Limiter $limitCount The limiter to ask; the one of the 'limits' block when null.
+	 * @param String   $requestLabel What was asked for, for the log.
+	 * @param String   $namedUserTxt The user named, for the log.
+	 * @param ?Limiter $ceilingCount The limiter to ask; the one of the 'limits' block when null.
 	 * @return ?Array The limiter and the address of the client, or null when the request is refused.
 	 */
-	protected function limitAddr( String $eventLabel, String $userString, ?Limiter $limitCount=null ): ?Array {
-		$lmtrObj = $limitCount ?? new Limiter( $this->resolvCnf('limits') );
-		$clntReg = $this->httpRqst->getClient();
-		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
-		$heldEnd = $lmtrObj->heldUntil($usrAddr);
+	protected function refuseHeldAddr( String $requestLabel, String $namedUserTxt, ?Limiter $ceilingCount=null ): ?Array {
+		$lmtrObj = $ceilingCount ?? new Limiter( $this->resolveConfArr('limits') );
+		$clntReg = $this->httpRequst->retrieveClient();
+		$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
+		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
 		if($heldEnd>0){
-			Logger::getLogger('access')->warning( $eventLabel.' refused for user '.json_encode($userString).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
-			if($this->httpResp!==null){
-				$this->httpResp->addHeader('Retry-After', strval(max(1, $heldEnd - time())));
+			Logger::retrieveLogger('access')->warning( $requestLabel.' refused for user '.json_encode($namedUserTxt).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
+			if($this->httpRespns!==null){
+				$this->httpRespns->addReplyHeader('Retry-After', strval(max(1, $heldEnd - time())));
 			}
-			$this->statCode = 429;
-			$this->statMssg = 'Too many attempts';
+			$this->statusCode = 429;
+			$this->statusMssg = 'Too many attempts';
 			return null;
 		}
 		return Array($lmtrObj, $usrAddr);
@@ -503,7 +503,7 @@ class Actions extends Actionset {
 	 *
 	 * @return String The folder.
 	 */
-	protected function mailsDir(): String {
+	protected function mailsDirString(): String {
 		return __DIR__;
 	}
 
@@ -520,44 +520,44 @@ class Actions extends Actionset {
 	 * native userbase.
 	 */
 	public function password(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->passInUrl( Array('former', 'pass'), 'Password change' )){
+		if($this->refuseUrlPassw( Array('former', 'pass'), 'Password change' )){
 			return;
 		}
-		$usrName = ($this->axessReg!==null && $this->axessReg->readValue('logged')===true) ? strval($this->axessReg->readValue('user')) : '';
+		$usrName = ($this->accessRgst!==null && $this->accessRgst->readFileDetail('logged')===true) ? strval($this->accessRgst->readFileDetail('user')) : '';
 		if($usrName==''){
-			$this->statCode = 401;
-			$this->statMssg = 'Not logged in';
+			$this->statusCode = 401;
+			$this->statusMssg = 'Not logged in';
 			return;
 		}
-		$gvnFrmr = $this->inputReg->readValue('former');
-		$gvnPass = $this->inputReg->readValue('pass');
+		$gvnFrmr = $this->inptRgstry->readFileDetail('former');
+		$gvnPass = $this->inptRgstry->readFileDetail('pass');
 		if(!is_string($gvnFrmr) || !is_string($gvnPass)){
-			$this->statCode = 400;
-			$this->statMssg = 'Invalid former or pass';
+			$this->statusCode = 400;
+			$this->statusMssg = 'Invalid former or pass';
 			return;
 		}
-		$usrBase = UserBase::fromLogin();
+		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
-			$this->statCode = 500;
-			$this->statMssg = 'User management unavailable';
+			$this->statusCode = 500;
+			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		if(!$usrBase->chgPasswd($usrName, $gvnFrmr, $gvnPass)){
-			if($usrBase->wrongCred()){
-				$clntReg = $this->httpRqst->getClient();
-				(new Limiter( $this->resolvCnf('limits') ))->countFail( ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '' );
+		if(!$usrBase->editPasswdFlag($usrName, $gvnFrmr, $gvnPass)){
+			if($usrBase->wrngCredential()){
+				$clntReg = $this->httpRequst->retrieveClient();
+				(new Limiter( $this->resolveConfArr('limits') ))->countFailedTry( ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '' );
 			}
-			$this->statCode = $usrBase->lastState();
-			$this->statMssg = $usrBase->lastError();
+			$this->statusCode = $usrBase->lastStateCount();
+			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('changed'=>true);
+		$this->statusCode = 200;
+		$this->replyValue = Array('changed'=>true);
 	}
 
 	/**
@@ -569,31 +569,31 @@ class Actions extends Actionset {
 	 * and 500 when the login does not use the native userbase.
 	 */
 	public function langs(): Void {
-		if($this->httpRqst===null || !$this->httpRqst->usedMethd('POST')){
-			$this->statCode = 405;
-			$this->statMssg = 'Method Not Allowed';
+		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
+			$this->statusCode = 405;
+			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		$usrName = ($this->axessReg!==null && $this->axessReg->readValue('logged')===true) ? strval($this->axessReg->readValue('user')) : '';
+		$usrName = ($this->accessRgst!==null && $this->accessRgst->readFileDetail('logged')===true) ? strval($this->accessRgst->readFileDetail('user')) : '';
 		if($usrName==''){
-			$this->statCode = 401;
-			$this->statMssg = 'Not logged in';
+			$this->statusCode = 401;
+			$this->statusMssg = 'Not logged in';
 			return;
 		}
-		$usrBase = UserBase::fromLogin();
+		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
-			$this->statCode = 500;
-			$this->statMssg = 'User management unavailable';
+			$this->statusCode = 500;
+			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		$gvnLang = $this->inputReg->readValue('lang');
-		if(!$usrBase->chngeLang($usrName, is_string($gvnLang) ? $gvnLang : null)){
-			$this->statCode = $usrBase->lastState();
-			$this->statMssg = $usrBase->lastError();
+		$gvnLang = $this->inptRgstry->readFileDetail('lang');
+		if(!$usrBase->changeLanguage($usrName, is_string($gvnLang) ? $gvnLang : null)){
+			$this->statusCode = $usrBase->lastStateCount();
+			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('lang'=>($usrBase->userInfos($usrName) ?: Array())['userLang'] ?? null);
+		$this->statusCode = 200;
+		$this->replyValue = Array('lang'=>($usrBase->userInfosArray($usrName) ?: Array())['userLang'] ?? null);
 	}
 
 	/**
@@ -603,18 +603,18 @@ class Actions extends Actionset {
 	 * on the 'access' channel without the value; nothing is checked, so
 	 * nothing is counted against a user or an address.
 	 *
-	 * @param Array  $fieldNames Names of the inputs that carry a password.
-	 * @param String $eventLabel What was asked for, for the log.
+	 * @param Array  $fldNamesList Names of the inputs that carry a password.
+	 * @param String $requestLabel What was asked for, for the log.
 	 * @return Bool True when the request is refused.
 	 */
-	protected function passInUrl( Array $fieldNames, String $eventLabel ): Bool {
-		foreach($fieldNames as $fldNme){
-			if($this->httpRqst->fromQuery( strval($fldNme) )){
-				$clntReg = $this->httpRqst->getClient();
-				$usrAddr = ($clntReg!==null) ? strval($clntReg->readValue('userAddr')) : '';
-				Logger::getLogger('access')->warning( $eventLabel.' refused'.(($usrAddr!='') ? ' from '.$usrAddr : '').': password sent in the query string' );
-				$this->statCode = 400;
-				$this->statMssg = 'Password sent in the query string';
+	protected function refuseUrlPassw( Array $fldNamesList, String $requestLabel ): Bool {
+		foreach($fldNamesList as $fldNme){
+			if($this->httpRequst->isSentViaQuery( strval($fldNme) )){
+				$clntReg = $this->httpRequst->retrieveClient();
+				$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
+				Logger::retrieveLogger('access')->warning( $requestLabel.' refused'.(($usrAddr!='') ? ' from '.$usrAddr : '').': password sent in the query string' );
+				$this->statusCode = 400;
+				$this->statusMssg = 'Password sent in the query string';
 				return true;
 			}
 		}
@@ -624,12 +624,12 @@ class Actions extends Actionset {
 	/**
 	 * Reads a named config block from the ACCESS config file.
 	 *
-	 * @param String $confRowKey Name of the config block to read.
+	 * @param String $confBlckName Name of the config block to read.
 	 * @return Array The block's values, or an empty array if not found.
 	 */
-	protected function resolvCnf( String $confRowKey ): Array {
+	protected function resolveConfArr( String $confBlckName ): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$axsCnfg = $nyuConf->getRowVal('ACCESS', strtoupper($confRowKey));
-		return is_array($axsCnfg) ? $axsCnfg : Array();
+		$accsCnf = $nyuConf->obtainRowValue('ACCESS', strtoupper($confBlckName));
+		return is_array($accsCnf) ? $accsCnf : Array();
 	}
 }

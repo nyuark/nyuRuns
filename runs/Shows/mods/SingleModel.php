@@ -24,29 +24,29 @@ class Single extends DBRec {
 	 * of item types and adds the 'evntSpan' date-span entry to the
 	 * record.
 	 */
-	public function loadRelat( ): Void {
-		parent::loadRelat( );
+	public function importRelation( ): Void {
+		parent::importRelation( );
 		$itemLst = Array();
-		if(!empty( $this->recArray['Items'] )){			
-			foreach( $this->recArray['Items'] as $itmRec){
+		if(!empty( $this->recrdArray['Items'] )){			
+			foreach( $this->recrdArray['Items'] as $itmRec){
 				if(isset($itmRec['type'])){				
 					$itemLst[] = $itmRec['type'];
 				}
 			}
 		}
-		$this->recArray['Items'] = $itemLst;
+		$this->recrdArray['Items'] = $itemLst;
 		
-		$this->recArray['evntSpan'] = $this->eventSpan();
+		$this->recrdArray['evntSpan'] = $this->eventSpnString();
 	}
 	
 	/**
 	 * Checks whether the show has an item of the given type.
 	 *
-	 * @param String $hasItemTyp Item type to look for.
+	 * @param String $hasEntryType Item type to look for.
 	 * @return Bool True if one of the show's items has that type.
 	 */
-	public function hasCategy( String $hasItemTyp ): Bool {
-		if( in_array($hasItemTyp, $this->recArray['Items'] ) ){
+	public function verifyCategory( String $hasEntryType ): Bool {
+		if( in_array($hasEntryType, $this->recrdArray['Items'] ) ){
 			return true;
 		}else{
 			return false;
@@ -59,14 +59,14 @@ class Single extends DBRec {
 	 *
 	 * @return mixed The formatted date span, or false when the show has no events list.
 	 */
-	public function eventSpan( ): String|Bool {
-		$evntLst = $this->recArray['Events'] ?? null;
+	public function eventSpnString( ): String|Bool {
+		$evntLst = $this->recrdArray['Events'] ?? null;
 		if(is_array($evntLst) && !empty($evntLst)){
 			$frstDay = $evntLst[0]['date'];
 			$lastDay = $evntLst[count($evntLst)-1]['date'];
-			$spanVar = new Variable($frstDay);
-			$spanStr = $spanVar->readValue('DateSpn',$lastDay);			
-			return $spanStr;
+			$spnVrbl = new Variable($frstDay);
+			$spanTxt = $spnVrbl->readFileDetail('DateSpn',$lastDay);			
+			return $spanTxt;
 		}else{
 			return false;
 		}
