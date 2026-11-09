@@ -17,20 +17,20 @@ use nyu\Access\Sess\JWT;
  */
 class AppKey{
 
-	// The methods that read: any other one is a write, logged as a notice (see Checker::appsCalls)
-	const READLIST = Array('GET', 'HEAD', 'OPTIONS');
+	// The methods that read: any other one is a write, logged as a notice (see Checker::verifyAppCalls)
+	const READ_LIST = Array('GET', 'HEAD', 'OPTIONS');
 
-	protected $headName;
-	protected $appsList;
-	protected $audnList;
-	protected $callAppl;
-	protected $lastMssg;
-	protected $wrongCrd = false;
+	protected $headerName;
+	protected $appsByName;
+	protected $audnceList;
+	protected $callingApp;
+	protected $lastMessag;
+	protected $invalidCrd = false;
 
 	/**
 	 * Builds the check from its config block.
 	 *
-	 * @param Array $confValues Config block with the 'header' the key is sent in (default 'X-App-Key') and the 'applst'
+	 * @param Array $configValues Config block with the 'header' the key is sent in (default 'X-App-Key') and the 'applst'
 	 *                          of the applications, by name, each with its 'keyhsh' (SHA-256 of its key, hexadecimal),
 	 *                          its 'routes' (written as those of 'openrt'), its 'pubkey' (path of the PEM file of the
 	 *                          public key of its tokens, from the project root), its 'maxrol' (default 'member') and
@@ -38,12 +38,12 @@ class AppKey{
 	 *                          of the block, the audiences naming this project (a text or a list): while it is
 	 *                          empty, neither the issuer nor the audience of the tokens is checked.
 	 */
-	function __construct( Array $confValues ){
-		$this->headName = strval($confValues['header'] ?? 'X-App-Key');
-		$this->appsList = is_array($confValues['applst'] ?? null) ? $confValues['applst'] : Array();
-		$this->audnList = $confValues['audnce'] ?? Array();
-		$this->callAppl = null;
-		$this->lastMssg = '';
+	function __construct( Array $configValues ){
+		$this->headerName = strval($configValues['header'] ?? 'X-App-Key');
+		$this->appsByName = is_array($configValues['applst'] ?? null) ? $configValues['applst'] : Array();
+		$this->audnceList = $configValues['audnce'] ?? Array();
+		$this->callingApp = null;
+		$this->lastMessag = '';
 	}
 
 	/**
@@ -52,20 +52,20 @@ class AppKey{
 	 * not looked up in a store of this project; its role is never above
 	 * the 'maxrol' of the application.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Array|Bool|null The identity of the user, with the application under 'fromApp'; false when the key or
 	 *                         the token is refused; null when the request carries no application key.
 	 */
-	public function verifyApp( Request $requestObj ): Array|Bool|null {
-		$this->wrongCrd = false;
-		$this->callAppl = null;
-		$givnKey = strval($requestObj->getHeader($this->headName) ?? '');
-		if( $givnKey=='' ){
+	public function verifyAppArray( Request $requstObject ): Array|Bool|null {
+		$this->invalidCrd = false;
+		$this->callingApp = null;
+		$sentKey = strval($requstObject->retrieveHeader($this->headerName) ?? '');
+		if( $sentKey=='' ){
 			return null;
 		}
-		$gvnHash = hash('sha256', $givnKey);
+		$gvnHash = hash('sha256', $sentKey);
 		$appName = null;
-		foreach( $this->appsList as $appKey => $appSet ){
+		foreach( $this->appsByName as $appKey => $appSet ){
 			$keyHash = is_array($appSet) ? strtolower(strval($appSet['keyhsh'] ?? '')) : '';
 			// An entry without a hash is the key of nobody
 			if( preg_match('/^[0-9a-f]{64}$/D', $keyHash) && hash_equals($keyHash, $gvnHash) ){
@@ -74,37 +74,37 @@ class AppKey{
 			}
 		}
 		if( $appName===null ){
-			$this->lastMssg = 'Invalid app key';
-			$this->wrongCrd = true;
+			$this->lastMessag = 'Invalid app key';
+			$this->invalidCrd = true;
 			return false;
 		}
-		$appVals = $this->appsList[$appName];
-		$maxRole = strval($appVals['maxrol'] ?? Checker::ROLELIST[0]);
-		if( !in_array($maxRole, Checker::ROLELIST, true) ){
-			$this->lastMssg = 'Access misconfigured';
+		$appInfo = $this->appsByName[$appName];
+		$maxRole = strval($appInfo['maxrol'] ?? Checker::ROLE_LIST[0]);
+		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
+			$this->lastMessag = 'Access misconfigured';
 			return false;
 		}
 		// The token is checked with the key of the application alone : it issues none here
-		$jwtConf = Array('algrtm'=>'RS256', 'pubkey'=>$appVals['pubkey'] ?? '');
+		$jwtConf = Array('algrtm'=>'RS256', 'pubkey'=>$appInfo['pubkey'] ?? '');
 		// Once the block names this project's audiences, the token names them and its application as issuer
-		if( !empty($this->audnList) ){
-			$jwtConf['audnce'] = $this->audnList;
-			$jwtConf['issuer'] = (is_string($appVals['issuer'] ?? null) && trim($appVals['issuer'])!='') ? $appVals['issuer'] : $appName;
+		if( !empty($this->audnceList) ){
+			$jwtConf['audnce'] = $this->audnceList;
+			$jwtConf['issuer'] = (is_string($appInfo['issuer'] ?? null) && trim($appInfo['issuer'])!='') ? $appInfo['issuer'] : $appName;
 		}
-		$jwtObjc = new JWT( $jwtConf );
-		$idntArr = $jwtObjc->verifyReq( $requestObj );
+		$decoded = new JWT( $jwtConf );
+		$idntArr = $decoded->verifyRqstList( $requstObject );
 		if( $idntArr===false ){
-			$this->lastMssg = $jwtObjc->lastError();
-			$this->wrongCrd = $jwtObjc->wrongCred();
+			$this->lastMessag = $decoded->finalErrorText();
+			$this->invalidCrd = $decoded->wrngCredential();
 			return false;
 		}
 		$usrRole = strval($idntArr['role'] ?? '');
-		if( !in_array($usrRole, Checker::ROLELIST, true) ){
-			$usrRole = Checker::ROLELIST[0];
+		if( !in_array($usrRole, Checker::ROLE_LIST, true) ){
+			$usrRole = Checker::ROLE_LIST[0];
 		}
-		$idntArr['role'] = Checker::roleMeets($maxRole, $usrRole) ? $usrRole : $maxRole;
+		$idntArr['role'] = Checker::rleAccessMeets($maxRole, $usrRole) ? $usrRole : $maxRole;
 		$idntArr['fromApp'] = $appName;
-		$this->callAppl = $appName;
+		$this->callingApp = $appName;
 		return $idntArr;
 	}
 
@@ -115,17 +115,17 @@ class AppKey{
 	 * leading slash, to the letter. A request naming no action is reached
 	 * through "app/*" only.
 	 *
-	 * @param Registry $routingReg The resolved route.
+	 * @param Registry $rtngRegistry The resolved route.
 	 * @return Bool True when the route is one of the application's.
 	 */
-	public function allowsRte( Registry $routingReg ): Bool {
-		if( $this->callAppl===null ){
+	public function allowsRouteFlg( Registry $rtngRegistry ): Bool {
+		if( $this->callingApp===null ){
 			return false;
 		}
-		$appName = strtolower( str_replace(' ', '', strval($routingReg->readValue('app'))) );
-		$actName = strtolower( strval($routingReg->readValue('action')) );
-		$rtePath = strval($routingReg->readValue('rtePath'));
-		foreach( (array)($this->appsList[$this->callAppl]['routes'] ?? Array()) as $rteVal ){
+		$appName = strtolower( str_replace(' ', '', strval($rtngRegistry->readFileDetail('app'))) );
+		$actnNme = strtolower( strval($rtngRegistry->readFileDetail('action')) );
+		$rtePath = strval($rtngRegistry->readFileDetail('rtePath'));
+		foreach( (array)($this->appsByName[$this->callingApp]['routes'] ?? Array()) as $rteVal ){
 			$rteVal = strval($rteVal);
 			if( substr($rteVal, 0, 1)=='/' ){
 				if( $rtePath!='' && trim($rteVal, '/')===$rtePath ){
@@ -134,7 +134,7 @@ class AppKey{
 				continue;
 			}
 			$rteVal = strtolower( trim($rteVal, '/') );
-			if( $appName!='' && ( $rteVal==$appName.'/*' || ($actName!='' && $rteVal==$appName.'/'.$actName) ) ){
+			if( $appName!='' && ( $rteVal==$appName.'/*' || ($actnNme!='' && $rteVal==$appName.'/'.$actnNme) ) ){
 				return true;
 			}
 		}
@@ -148,8 +148,8 @@ class AppKey{
 	 *
 	 * @return Bool True when a credential was presented and refused.
 	 */
-	public function wrongCred(): Bool {
-		return $this->wrongCrd;
+	public function wrngCredential(): Bool {
+		return $this->invalidCrd;
 	}
 
 	/**
@@ -157,7 +157,7 @@ class AppKey{
 	 *
 	 * @return String The last error message.
 	 */
-	public function lastError(): String {
-		return $this->lastMssg;
+	public function finalErrorText(): String {
+		return $this->lastMessag;
 	}
 }

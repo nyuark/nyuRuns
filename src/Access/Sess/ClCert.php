@@ -14,29 +14,29 @@ use nyu\Access\Auth\Handler as AuthHndlr;
  */
 class ClCert implements Handler{
 
-	protected $authObjc;
-	protected $chkVarNm;
-	protected $usrVarNm;
-	protected $issVarNm;
-	protected $issuerCn;
-	protected $lastMssg;
+	protected $authObject;
+	protected $checkedVar;
+	protected $usrVrblNme;
+	protected $issVrblNme;
+	protected $issuerName;
+	protected $lastMessag;
 
 	/**
 	 * Builds the client certificate carrier from its config block.
 	 *
-	 * @param Array     $confValues Config block naming the server variables of the verification result
+	 * @param Array     $configValues Config block naming the server variables of the verification result
 	 * 		('chkvar', SSL_CLIENT_VERIFY by default), of the user name ('usrvar', SSL_CLIENT_S_DN_CN
 	 * 		by default) and of the name of the issuer ('issvar', SSL_CLIENT_I_DN_CN by default), and
 	 * 		optionally the common name of the only 'issuer' accepted.
-	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the certificate's user.
+	 * @param ?AuthHndlr $authStrategy Optional credential store confirming the certificate's user.
 	 */
-	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
-		$this->authObjc = $authHandlr;
-		$this->chkVarNm = strtolower( strval($confValues['chkvar'] ?? 'SSL_CLIENT_VERIFY') );
-		$this->usrVarNm = strtolower( strval($confValues['usrvar'] ?? 'SSL_CLIENT_S_DN_CN') );
-		$this->issVarNm = strtolower( strval($confValues['issvar'] ?? 'SSL_CLIENT_I_DN_CN') );
-		$this->issuerCn = strval($confValues['issuer'] ?? '');
-		$this->lastMssg = '';
+	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
+		$this->authObject = $authStrategy;
+		$this->checkedVar = strtolower( strval($configValues['chkvar'] ?? 'SSL_CLIENT_VERIFY') );
+		$this->usrVrblNme = strtolower( strval($configValues['usrvar'] ?? 'SSL_CLIENT_S_DN_CN') );
+		$this->issVrblNme = strtolower( strval($configValues['issvar'] ?? 'SSL_CLIENT_I_DN_CN') );
+		$this->issuerName = strval($configValues['issuer'] ?? '');
+		$this->lastMessag = '';
 	}
 
 	/**
@@ -44,35 +44,35 @@ class ClCert implements Handler{
 	 * it must be verified, come from the accepted issuer when one is
 	 * set, and name a user.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	function verifyReq( Request $requestObj ): Array|Bool {
+	function verifyRqstList( Request $requstObject ): Array|Bool {
 		// A variable named HTTP_... is a request header : anyone could send it
-		if( strpos($this->chkVarNm, 'http_')===0 || strpos($this->usrVarNm, 'http_')===0 || strpos($this->issVarNm, 'http_')===0 ){
-			$this->lastMssg = 'Certificate variables misconfigured';
+		if( strpos($this->checkedVar, 'http_')===0 || strpos($this->usrVrblNme, 'http_')===0 || strpos($this->issVrblNme, 'http_')===0 ){
+			$this->lastMessag = 'Certificate variables misconfigured';
 			return false;
 		}
-		$srvVals = $requestObj->getSrvVar();
-		if( ($srvVals[$this->chkVarNm] ?? '')!=='SUCCESS' ){
-			$this->lastMssg = 'No verified client certificate';
+		$srvrVls = $requstObject->getServerValue();
+		if( ($srvrVls[$this->checkedVar] ?? '')!=='SUCCESS' ){
+			$this->lastMessag = 'No verified client certificate';
 			return false;
 		}
-		if( $this->issuerCn!='' && ($srvVals[$this->issVarNm] ?? '')!==$this->issuerCn ){
-			$this->lastMssg = 'Certificate issuer not accepted';
+		if( $this->issuerName!='' && ($srvrVls[$this->issVrblNme] ?? '')!==$this->issuerName ){
+			$this->lastMessag = 'Certificate issuer not accepted';
 			return false;
 		}
-		$crtUser = trim( strval($srvVals[$this->usrVarNm] ?? '') );
-		if( $crtUser=='' ){
-			$this->lastMssg = 'Certificate names no user';
+		$certUsr = trim( strval($srvrVls[$this->usrVrblNme] ?? '') );
+		if( $certUsr=='' ){
+			$this->lastMessag = 'Certificate names no user';
 			return false;
 		}
-		$idntArr = Array('user'=>$crtUser);
+		$idntArr = Array('user'=>$certUsr);
 		// A credential store that knows its users confirms the certificate's user is allowed in
-		if( $this->authObjc!==null && method_exists($this->authObjc, 'userIdent') ){
-			$nowIdnt = $this->authObjc->userIdent($crtUser);
+		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
+			$nowIdnt = $this->authObject->usrIdentityArr($certUsr);
 			if( $nowIdnt===false ){
-				$this->lastMssg = $this->authObjc->lastError();
+				$this->lastMessag = $this->authObject->finalErrorText();
 				return false;
 			}
 			$idntArr = array_merge($idntArr, $nowIdnt);
@@ -83,10 +83,10 @@ class ClCert implements Handler{
 	/**
 	 * Not applicable — a certificate is issued by its authority.
 	 *
-	 * @param Array $identArray Unused.
+	 * @param Array $identtyArray Unused.
 	 * @return String Always an empty string.
 	 */
-	function issueTokn( Array $identArray ): String {
+	function issueTokenText( Array $identtyArray ): String {
 		return '';
 	}
 
@@ -95,7 +95,7 @@ class ClCert implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function lastError(): String {
-		return $this->lastMssg;
+	function finalErrorText(): String {
+		return $this->lastMessag;
 	}
 }

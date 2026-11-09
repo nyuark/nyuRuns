@@ -14,73 +14,73 @@ namespace nyu\Access;
 class Limiter{
 
 	// One counted failure out of this many also removes the counters no longer in use
-	const SWEEPONE = 50;
+	const SWEP_ONCE = 50;
 
-	protected $maxTries;
-	protected $holdSecs;
-	protected $cntFoldr;
+	protected $triesLimit;
+	protected $holdPeriod;
+	protected $countsFold;
 
 	/**
 	 * Builds the limiter of wrong credentials from its config block.
 	 *
-	 * @param Array $confValues Config block, optionally with the wrong credentials allowed from one address ('maxtry',
+	 * @param Array $configValues Config block, optionally with the wrong credentials allowed from one address ('maxtry',
 	 *                          defaults to 10; 0 for no limit), the time in seconds they add up within and then hold the
 	 *                          address for ('holdtm', defaults to 600) and the 'folder' keeping the counters, relative to
 	 *                          the project root (defaults to temp/limits).
 	 */
-	function __construct( Array $confValues ){
-		$this->maxTries = max( 0, intval($confValues['maxtry'] ?? 10) );
-		$this->holdSecs = max( 1, intval($confValues['holdtm'] ?? 600) );
-		$fldName = trim( strval($confValues['folder'] ?? ''), '/\\ ' );
-		$this->cntFoldr = TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'limits');
+	function __construct( Array $configValues ){
+		$this->triesLimit = max( 0, intval($configValues['maxtry'] ?? 10) );
+		$this->holdPeriod = max( 1, intval($configValues['holdtm'] ?? 600) );
+		$fldName = trim( strval($configValues['folder'] ?? ''), '/\\ ' );
+		$this->countsFold = TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'limits');
 	}
 
 	/**
 	 * Tells whether an address is held back after too many wrong
 	 * credentials: as many as allowed, the last one within the hold time.
 	 * A counter whose hold time has passed, or that is not one, is removed
-	 * once read, as dropStale() does: an address that stopped failing is
+	 * once read, as dropStaleCount() does: an address that stopped failing is
 	 * no longer read on each of its requests.
 	 *
-	 * @param String $clientAddr Address of the client.
-	 * @param ?Int   $unixMoment Unix time to check at; now when not given.
+	 * @param String $clientIpAddr Address of the client.
+	 * @param ?Int   $unixMomentNb Unix time to check at; now when not given.
 	 * @return Int The Unix time the hold ends at, or 0 when the address is not held.
 	 */
-	public function heldUntil( String $clientAddr, ?Int $unixMoment = null ): Int {
-		return $this->readsHeld( $this->pathOfKey($this->keyOfAddr($clientAddr)), $unixMoment ?? time() );
+	public function heldUntilCount( String $clientIpAddr, ?Int $unixMomentNb = null ): Int {
+		return $this->readsHeldCount( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $unixMomentNb ?? time() );
 	}
 
 	/**
 	 * Tells whether an account is held back after too many wrong
-	 * credentials, as heldUntil() does for an address. Its counter is named
+	 * credentials, as heldUntilCount() does for an address. Its counter is named
 	 * by a hash of the user name, which it does not hold.
 	 *
-	 * @param String $userString Login name of the user.
-	 * @param ?Int   $unixMoment Unix time to check at; now when not given.
+	 * @param String $namedUserTxt Login name of the user.
+	 * @param ?Int   $unixMomentNb Unix time to check at; now when not given.
 	 * @return Int The Unix time the hold ends at, or 0 when the account is not held.
 	 */
-	public function heldByUsr( String $userString, ?Int $unixMoment = null ): Int {
-		return $this->readsHeld( $this->pathOfUsr($userString), $unixMoment ?? time() );
+	public function heldByUserNumb( String $namedUserTxt, ?Int $unixMomentNb = null ): Int {
+		return $this->readsHeldCount( $this->pathOfUserText($namedUserTxt), $unixMomentNb ?? time() );
 	}
 
 	/**
-	 * Counts one more wrong credential for an account, as countFail() does
+	 * Counts one more wrong credential for an account, as countFailedTry() does
 	 * for an address.
 	 *
-	 * @param String $userString Login name of the user.
-	 * @param ?Int   $unixMoment Unix time of the failure; now when not given.
+	 * @param String $namedUserTxt Login name of the user.
+	 * @param ?Int   $unixMomentNb Unix time of the failure; now when not given.
 	 */
-	public function countUser( String $userString, ?Int $unixMoment = null ): Void {
-		$this->writeFail( $this->pathOfUsr($userString), '', $unixMoment ?? time() );
+	public function countLimitUser( String $namedUserTxt, ?Int $unixMomentNb = null ): Void {
+		$this->writeLimitFail( $this->pathOfUserText($namedUserTxt), '', $unixMomentNb ?? time() );
 	}
 
 	/**
 	 * Forgets the wrong credentials of an account, after a right one.
 	 *
-	 * @param String $userString Login name of the user.
+	 * @param String $namedUserTxt Login name of the user.
 	 */
-	public function clearUser( String $userString ): Void {
-		$cntPath = $this->pathOfUsr($userString);
+	public function clearLimitUser( String $namedUserTxt ): Void {
+		$cntPath = $this->pathOfUserText($namedUserTxt);
 		if( $cntPath!='' && is_file($cntPath) ){
 			@unlink($cntPath);
 		}
@@ -91,33 +91,33 @@ class Limiter{
 	 * as allowed within the hold time. A counter whose hold time has passed,
 	 * or that is not one, is removed once read.
 	 *
-	 * @param String $counterPth Path of the counter; empty for none.
-	 * @param Int    $unixMoment Unix time to check at.
+	 * @param String $countersPath Path of the counter; empty for none.
+	 * @param Int    $unixMomentNb Unix time to check at.
 	 * @return Int The Unix time the hold ends at, or 0 when nothing is held.
 	 */
-	protected function readsHeld( String $counterPth, Int $unixMoment ): Int {
-		$cntPath = $counterPth;
-		if( $this->maxTries<1 || $cntPath=='' || !is_file($cntPath) ){
+	protected function readsHeldCount( String $countersPath, Int $unixMomentNb ): Int {
+		$cntPath = $countersPath;
+		if( $this->triesLimit<1 || $cntPath=='' || !is_file($cntPath) ){
 			return 0;
 		}
-		$nowTime = $unixMoment;
+		$nowTime = $unixMomentNb;
 		$cntFile = @fopen($cntPath, 'rb');
 		if( $cntFile===false ){
 			return 0;
 		}
 		flock($cntFile, LOCK_SH);
-		$cntVals = $this->readCount( strval(stream_get_contents($cntFile)) );
+		$tallies = $this->readLimitCount( strval(stream_get_contents($cntFile)) );
 		flock($cntFile, LOCK_UN);
 		fclose($cntFile);
-		if( $cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime ){
+		if( $tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime ){
 			// A failure counted meanwhile would have started again at 1
 			@unlink($cntPath);
 			return 0;
 		}
-		if( $cntVals['fails']<$this->maxTries ){
+		if( $tallies['fails']<$this->triesLimit ){
 			return 0;
 		}
-		return $cntVals['stamp']+$this->holdSecs;
+		return $tallies['stamp']+$this->holdPeriod;
 	}
 
 	/**
@@ -126,11 +126,11 @@ class Limiter{
 	 * that cannot be written limits nothing: the mistake is logged, and
 	 * the request is answered as it would be without a limit.
 	 *
-	 * @param String $clientAddr Address of the client.
-	 * @param ?Int   $unixMoment Unix time of the failure; now when not given.
+	 * @param String $clientIpAddr Address of the client.
+	 * @param ?Int   $unixMomentNb Unix time of the failure; now when not given.
 	 */
-	public function countFail( String $clientAddr, ?Int $unixMoment = null ): Void {
-		$this->writeFail( $this->pathOfKey($this->keyOfAddr($clientAddr)), $this->maskdAddr($clientAddr), $unixMoment ?? time() );
+	public function countFailedTry( String $clientIpAddr, ?Int $unixMomentNb = null ): Void {
+		$this->writeLimitFail( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $this->maskClientAddr($clientIpAddr), $unixMomentNb ?? time() );
 	}
 
 	/**
@@ -138,35 +138,35 @@ class Limiter{
 	 * previous one is older than the hold time. A counter that cannot be
 	 * written limits nothing: the mistake is logged.
 	 *
-	 * @param String $counterPth Path of the counter; empty for none.
-	 * @param String $addressTxt What the counter tells beside its count: the address counted, or nothing.
-	 * @param Int    $unixMoment Unix time of the failure.
+	 * @param String $countersPath Path of the counter; empty for none.
+	 * @param String $limitAdrText What the counter tells beside its count: the address counted, or nothing.
+	 * @param Int    $unixMomentNb Unix time of the failure.
 	 */
-	protected function writeFail( String $counterPth, String $addressTxt, Int $unixMoment ): Void {
-		$cntPath = $counterPth;
-		if( $this->maxTries<1 || $cntPath=='' ){
+	protected function writeLimitFail( String $countersPath, String $limitAdrText, Int $unixMomentNb ): Void {
+		$cntPath = $countersPath;
+		if( $this->triesLimit<1 || $cntPath=='' ){
 			return;
 		}
-		$nowTime = $unixMoment;
-		$cntFile = $this->openFoldr() ? @fopen($cntPath, 'c+b') : false;
+		$nowTime = $unixMomentNb;
+		$cntFile = $this->openLimitFoldr() ? @fopen($cntPath, 'c+b') : false;
 		if( $cntFile===false || !flock($cntFile, LOCK_EX) ){
-			\nyu\Tools\Logger::getLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->cntFoldr );
+			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFold );
 			if( $cntFile!==false ){
 				fclose($cntFile);
 			}
 			return;
 		}
-		$cntVals = $this->readCount( strval(stream_get_contents($cntFile)) );
-		$failNum = ($cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime) ? 1 : $cntVals['fails']+1;
+		$tallies = $this->readLimitCount( strval(stream_get_contents($cntFile)) );
+		$failNum = ($tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime) ? 1 : $tallies['fails']+1;
 		ftruncate($cntFile, 0);
 		rewind($cntFile);
-		fwrite($cntFile, $failNum.' '.$nowTime.( $addressTxt!='' ? ' '.$addressTxt : '' ));
+		fwrite($cntFile, $failNum.' '.$nowTime.( $limitAdrText!='' ? ' '.$limitAdrText : '' ));
 		fflush($cntFile);
 		flock($cntFile, LOCK_UN);
 		fclose($cntFile);
 		// Now and then, the counters of the addresses that stopped trying are removed
-		if( random_int(1, self::SWEEPONE)==1 ){
-			$this->dropStale($nowTime);
+		if( random_int(1, self::SWEP_ONCE)==1 ){
+			$this->dropStaleCount($nowTime);
 		}
 	}
 
@@ -174,15 +174,15 @@ class Limiter{
 	 * Removes the counters no longer in use, of the addresses and of the
 	 * accounts: those whose last failure is older than the hold time.
 	 *
-	 * @param ?Int $unixMoment Unix time to check at; now when not given.
+	 * @param ?Int $unixMomentNb Unix time to check at; now when not given.
 	 * @return Int The number of counters removed.
 	 */
-	public function dropStale( ?Int $unixMoment = null ): Int {
-		$nowTime = $unixMoment ?? time();
+	public function dropStaleCount( ?Int $unixMomentNb = null ): Int {
+		$nowTime = $unixMomentNb ?? time();
 		$dropNum = 0;
-		foreach( array_merge((array)glob($this->cntFoldr.DS.'*.cnt'), (array)glob($this->cntFoldr.DS.'*.usr')) as $cntFle ){
-			$cntVals = $this->readCount( strval(@file_get_contents($cntFle)) );
-			if( ($cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime) && @unlink($cntFle) ){
+		foreach( array_merge((array)glob($this->countsFold.DS.'*.cnt'), (array)glob($this->countsFold.DS.'*.usr')) as $cntFil ){
+			$tallies = $this->readLimitCount( strval(@file_get_contents($cntFil)) );
+			if( ($tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime) && @unlink($cntFil) ){
 				$dropNum++;
 			}
 		}
@@ -194,11 +194,11 @@ class Limiter{
 	 * IPv4, its /64 network for IPv6, where one client commonly holds the
 	 * whole network (see maskdAddr). The key is a hash: it names a file.
 	 *
-	 * @param String $clientAddr Address of the client.
+	 * @param String $clientIpAddr Address of the client.
 	 * @return String The key, 64 hexadecimal characters; empty when the address is not one.
 	 */
-	protected function keyOfAddr( String $clientAddr ): String {
-		$addrTxt = $this->maskdAddr($clientAddr);
+	protected function keyLimitOfAddr( String $clientIpAddr ): String {
+		$addrTxt = $this->maskClientAddr($clientIpAddr);
 		return ($addrTxt=='') ? '' : hash('sha256', $addrTxt);
 	}
 
@@ -206,37 +206,37 @@ class Limiter{
 	 * Gives the address a client is counted as: its own for IPv4, the
 	 * first address of its /64 network for IPv6.
 	 *
-	 * @param String $clientAddr Address of the client.
+	 * @param String $clientIpAddr Address of the client.
 	 * @return String The address counted; empty when the address is not one.
 	 */
-	protected function maskdAddr( String $clientAddr ): String {
-		if( filter_var($clientAddr, FILTER_VALIDATE_IP)===false ){
+	protected function maskClientAddr( String $clientIpAddr ): String {
+		if( filter_var($clientIpAddr, FILTER_VALIDATE_IP)===false ){
 			return '';
 		}
-		$addrBin = inet_pton($clientAddr);
-		if( strlen($addrBin)==16 ){
-			$addrBin = substr($addrBin, 0, 8).str_repeat("\x00", 8);
+		$addrRaw = inet_pton($clientIpAddr);
+		if( strlen($addrRaw)==16 ){
+			$addrRaw = substr($addrRaw, 0, 8).str_repeat("\x00", 8);
 		}
-		return strval(inet_ntop($addrBin));
+		return strval(inet_ntop($addrRaw));
 	}
 
 	/**
 	 * Lists the addresses that have a counter: those held, and those
 	 * still within the time their failures add up.
 	 *
-	 * @param ?Int $unixMoment Unix time to check at; now when not given.
+	 * @param ?Int $unixMomentNb Unix time to check at; now when not given.
 	 * @return Array One entry per counter in use, with the address under 'addrs' (empty when the counter does not tell it), the failures under 'fails', the time of the last one under 'stamp' and the end of the hold under 'until' (0 when the address is not held).
 	 */
-	public function listHolds( ?Int $unixMoment = null ): Array {
-		$nowTime = $unixMoment ?? time();
+	public function listLimitHolds( ?Int $unixMomentNb = null ): Array {
+		$nowTime = $unixMomentNb ?? time();
 		$heldLst = Array();
-		foreach( (array)glob($this->cntFoldr.DS.'*.cnt') as $cntFle ){
-			$cntVals = $this->readCount( strval(@file_get_contents(strval($cntFle))) );
-			if( $cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime ){
+		foreach( (array)glob($this->countsFold.DS.'*.cnt') as $cntFil ){
+			$tallies = $this->readLimitCount( strval(@file_get_contents(strval($cntFil))) );
+			if( $tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime ){
 				continue;
 			}
-			$cntVals['until'] = ($this->maxTries>0 && $cntVals['fails']>=$this->maxTries) ? $cntVals['stamp']+$this->holdSecs : 0;
-			$heldLst[] = $cntVals;
+			$tallies['until'] = ($this->triesLimit>0 && $tallies['fails']>=$this->triesLimit) ? $tallies['stamp']+$this->holdPeriod : 0;
+			$heldLst[] = $tallies;
 		}
 		return $heldLst;
 	}
@@ -246,17 +246,17 @@ class Limiter{
 	 * counters are removed, so they are no longer held and their failures
 	 * are forgotten.
 	 *
-	 * @param ?String $clientAddr Address to release; null for every address.
+	 * @param ?String $clientIpAddr Address to release; null for every address.
 	 * @return Int The number of counters removed.
 	 */
-	public function freeHolds( ?String $clientAddr = null ): Int {
-		if( $clientAddr!==null ){
-			$cntPath = $this->pathOfKey( $this->keyOfAddr($clientAddr) );
+	public function freeHoldsCount( ?String $clientIpAddr = null ): Int {
+		if( $clientIpAddr!==null ){
+			$cntPath = $this->pathLimitOfKey( $this->keyLimitOfAddr($clientIpAddr) );
 			return ( $cntPath!='' && is_file($cntPath) && @unlink($cntPath) ) ? 1 : 0;
 		}
 		$dropNum = 0;
-		foreach( array_merge((array)glob($this->cntFoldr.DS.'*.cnt'), (array)glob($this->cntFoldr.DS.'*.usr')) as $cntFle ){
-			if( @unlink(strval($cntFle)) ){
+		foreach( array_merge((array)glob($this->countsFold.DS.'*.cnt'), (array)glob($this->countsFold.DS.'*.usr')) as $cntFil ){
+			if( @unlink(strval($cntFil)) ){
 				$dropNum++;
 			}
 		}
@@ -266,11 +266,11 @@ class Limiter{
 	/**
 	 * Gives the file a key is counted in.
 	 *
-	 * @param String $addressKey The key, as keyOfAddr() gives it.
+	 * @param String $limitAddrKey The key, as keyLimitOfAddr() gives it.
 	 * @return String The path of the file; empty for an empty key.
 	 */
-	protected function pathOfKey( String $addressKey ): String {
-		return ($addressKey=='') ? '' : $this->cntFoldr.DS.$addressKey.'.cnt';
+	protected function pathLimitOfKey( String $limitAddrKey ): String {
+		return ($limitAddrKey=='') ? '' : $this->countsFold.DS.$limitAddrKey.'.cnt';
 	}
 
 	/**
@@ -278,23 +278,23 @@ class Limiter{
 	 * the file does not hold, with its own extension (.usr), apart from the
 	 * counters of the addresses.
 	 *
-	 * @param String $userString Login name of the user.
+	 * @param String $namedUserTxt Login name of the user.
 	 * @return String The path of the file; empty for an empty name.
 	 */
-	protected function pathOfUsr( String $userString ): String {
-		return ($userString=='') ? '' : $this->cntFoldr.DS.hash('sha256', 'user:'.$userString).'.usr';
+	protected function pathOfUserText( String $namedUserTxt ): String {
+		return ($namedUserTxt=='') ? '' : $this->countsFold.DS.hash('sha256', 'user:'.$namedUserTxt).'.usr';
 	}
 
 	/**
 	 * Reads what a counter holds: the failures counted, and the time of
 	 * the last one.
 	 *
-	 * @param String $counterTxt Content of the counter.
+	 * @param String $rawCountText Content of the counter.
 	 * @return ?Array The count under 'fails', the Unix time under 'stamp' and the address under 'addrs' (empty in a counter written before addresses were kept); null when the content is not a counter.
 	 */
-	protected function readCount( String $counterTxt ): ?Array {
+	protected function readLimitCount( String $rawCountText ): ?Array {
 		$cntPart = Array();
-		if( !preg_match('/^(\d{1,9}) (\d{1,12})(?: ([0-9A-Fa-f:.]{2,45}))?$/D', trim($counterTxt), $cntPart) ){
+		if( !preg_match('/^(\d{1,9}) (\d{1,12})(?: ([0-9A-Fa-f:.]{2,45}))?$/D', trim($rawCountText), $cntPart) ){
 			return null;
 		}
 		return Array('fails'=>intval($cntPart[1]), 'stamp'=>intval($cntPart[2]), 'addrs'=>strval($cntPart[3] ?? ''));
@@ -305,10 +305,10 @@ class Limiter{
 	 *
 	 * @return Bool True when counters can be written.
 	 */
-	protected function openFoldr(): Bool {
-		if( !is_dir($this->cntFoldr) ){
-			@mkdir($this->cntFoldr, 0770, true);
+	protected function openLimitFoldr(): Bool {
+		if( !is_dir($this->countsFold) ){
+			@mkdir($this->countsFold, 0770, true);
 		}
-		return is_dir($this->cntFoldr) && is_writable($this->cntFoldr);
+		return is_dir($this->countsFold) && is_writable($this->countsFold);
 	}
 }

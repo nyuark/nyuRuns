@@ -8,43 +8,43 @@ namespace nyu\Access\Auth;
  */
 class RegKey implements Handler{
 
-	protected $valdKeys;
-	protected $lastMssg;
-	protected $wrongCrd = false;
+	protected $acceptKeys;
+	protected $lastMessag;
+	protected $invalidCrd = false;
 
 	/**
 	 * Builds the check against the list of API keys from its config block.
 	 *
-	 * @param Array $confValues Config block with a 'keylst' of valid API keys: a plain list, or the keys by the name
+	 * @param Array $configValues Config block with a 'keylst' of valid API keys: a plain list, or the keys by the name
 	 *                          of their holder, which then identifies it.
 	 */
-	function __construct( Array $confValues ){
-		$this->valdKeys = is_array($confValues['keylst'] ?? null) ? $confValues['keylst'] : Array();
-		$this->lastMssg = '';
+	function __construct( Array $configValues ){
+		$this->acceptKeys = is_array($configValues['keylst'] ?? null) ? $configValues['keylst'] : Array();
+		$this->lastMessag = '';
 	}
 
 	/**
 	 * Checks the given key against the configured valid-keys list.
 	 *
-	 * @param Array $credsArray Must contain a 'key' entry.
+	 * @param Array $crdntlsArray Must contain a 'key' entry.
 	 * @return Array|Bool An identity array on success, its 'user' being the name the key is written under ('' in a plain list), or false on failure.
 	 */
-	function checkCred( Array $credsArray ): Array|Bool {
-		$givnKey = $credsArray['key'] ?? '';
-		$this->wrongCrd = false;
-		if( $givnKey=='' ){
-			$this->lastMssg = 'No API key provided';
+	function chckCredential( Array $crdntlsArray ): Array|Bool {
+		$sentKey = $crdntlsArray['key'] ?? '';
+		$this->invalidCrd = false;
+		if( $sentKey=='' ){
+			$this->lastMessag = 'No API key provided';
 			return false;
 		}
-		foreach( $this->valdKeys as $keyNme => $oneKey ){
+		foreach( $this->acceptKeys as $keyNme => $oneKey ){
 			// An empty key, as a secret left unset gives, is the key of nobody
-			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $givnKey ) ){
+			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $sentKey ) ){
 				// A key written under a name identifies its holder
 				return Array('user'=>is_string($keyNme) ? $keyNme : '');
 			}
 		}
-		$this->lastMssg = 'Invalid API key';
-		$this->wrongCrd = true;
+		$this->lastMessag = 'Invalid API key';
+		$this->invalidCrd = true;
 		return false;
 	}
 
@@ -55,8 +55,8 @@ class RegKey implements Handler{
 	 *
 	 * @return Bool True when a key was presented and refused.
 	 */
-	public function wrongCred(): Bool {
-		return $this->wrongCrd;
+	public function wrngCredential(): Bool {
+		return $this->invalidCrd;
 	}
 
 	/**
@@ -64,7 +64,7 @@ class RegKey implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function lastError(): String {
-		return $this->lastMssg;
+	function finalErrorText(): String {
+		return $this->lastMessag;
 	}
 }

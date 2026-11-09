@@ -12,23 +12,23 @@ use nyu\Access\Auth\Handler as AuthHndlr;
  */
 class Header implements Handler{
 
-	protected $headName;
-	protected $schmName;
-	protected $authObjc;
-	protected $lastMssg;
+	protected $headerName;
+	protected $schemaName;
+	protected $authObject;
+	protected $lastMessag;
 
 	/**
 	 * Builds the header carrier from its config block, with the credential check it hands over to.
 	 *
-	 * @param Array     $confValues Config block, optionally with a 'header' name (defaults to 'X-Api-Key') and the
+	 * @param Array     $configValues Config block, optionally with a 'header' name (defaults to 'X-Api-Key') and the
 	 *                              'scheme' the key must follow in it, such as 'Bearer' (none by default).
-	 * @param ?AuthHndlr $authHandlr Credential-verification strategy to delegate to.
+	 * @param ?AuthHndlr $authStrategy Credential-verification strategy to delegate to.
 	 */
-	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
-		$this->headName = $confValues['header'] ?? 'X-Api-Key';
-		$this->schmName = trim(strval($confValues['scheme'] ?? ''));
-		$this->authObjc = $authHandlr;
-		$this->lastMssg = '';
+	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
+		$this->headerName = $configValues['header'] ?? 'X-Api-Key';
+		$this->schemaName = trim(strval($configValues['scheme'] ?? ''));
+		$this->authObject = $authStrategy;
+		$this->lastMessag = '';
 	}
 
 	/**
@@ -36,30 +36,30 @@ class Header implements Handler{
 	 * the scheme when one is configured, and checks it against the
 	 * delegated Auth handler.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
-	function verifyReq( Request $requestObj ): Array|Bool {
-		$headVal = $requestObj->getHeader( $this->headName );
+	function verifyRqstList( Request $requstObject ): Array|Bool {
+		$headVal = $requstObject->retrieveHeader( $this->headerName );
 		if( $headVal===null || $headVal=='' ){
-			$this->lastMssg = 'Missing '.$this->headName.' header';
+			$this->lastMessag = 'Missing '.$this->headerName.' header';
 			return false;
 		}
 		// With a scheme, the header reads "<scheme> <key>" : only the key is checked
-		if( $this->schmName!='' ){
-			if( stripos($headVal, $this->schmName.' ')!==0 ){
-				$this->lastMssg = 'Missing '.$this->schmName.' '.$this->headName.' header';
+		if( $this->schemaName!='' ){
+			if( stripos($headVal, $this->schemaName.' ')!==0 ){
+				$this->lastMessag = 'Missing '.$this->schemaName.' '.$this->headerName.' header';
 				return false;
 			}
-			$headVal = trim(substr($headVal, strlen($this->schmName)));
+			$headVal = trim(substr($headVal, strlen($this->schemaName)));
 		}
-		if( $this->authObjc===null ){
-			$this->lastMssg = 'No credential handler configured';
+		if( $this->authObject===null ){
+			$this->lastMessag = 'No credential handler configured';
 			return false;
 		}
-		$idntArr = $this->authObjc->checkCred( Array('key'=>$headVal) );
+		$idntArr = $this->authObject->chckCredential( Array('key'=>$headVal) );
 		if( $idntArr===false ){
-			$this->lastMssg = $this->authObjc->lastError();
+			$this->lastMessag = $this->authObject->finalErrorText();
 			return false;
 		}
 		return $idntArr;
@@ -68,10 +68,10 @@ class Header implements Handler{
 	/**
 	 * Not applicable — this is not a token-issuing strategy.
 	 *
-	 * @param Array $identArray Unused.
+	 * @param Array $identtyArray Unused.
 	 * @return String Always an empty string.
 	 */
-	function issueTokn( Array $identArray ): String {
+	function issueTokenText( Array $identtyArray ): String {
 		return '';
 	}
 
@@ -80,7 +80,7 @@ class Header implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function lastError(): String {
-		return $this->lastMssg;
+	function finalErrorText(): String {
+		return $this->lastMessag;
 	}
 }

@@ -9,7 +9,7 @@ namespace nyu\Access;
  * its own, signed with the key of the limits block ('mrkkey'); it holds no
  * secret of the user. A client presenting a valid mark for the user it
  * logs in as is not stopped by the hold of the account: the stores count
- * its failures on the mark instead (see Limiter::countUser), so that
+ * its failures on the mark instead (see Limiter::countLimitUser), so that
  * guesses from elsewhere cannot keep the owner out. A mark ends after
  * 'mrkday' days, with the password set after it was made (native
  * userbase), or with its key.
@@ -17,21 +17,21 @@ namespace nyu\Access;
 class LoginMark{
 
 	// Days a mark lasts, unless 'mrkday' says otherwise
-	const MARKDAYS = 90;
+	const MARK_DAYS = 90;
 	// Shortest key the marks are signed with, in characters : without one, no mark is made or read
-	const KEYSSIZE = 32;
+	const KEYS_SIZE = 32;
 
-	protected $mrkSecrt;
-	protected $markDays;
+	protected $markSecret;
+	protected $lifeInDays;
 
 	/**
 	 * Builds the marks from the limits block of the access config.
 	 *
-	 * @param Array $limitsConf The block, with the key the marks are signed with ('mrkkey') and their lifetime in days ('mrkday').
+	 * @param Array $limitsConfig The block, with the key the marks are signed with ('mrkkey') and their lifetime in days ('mrkday').
 	 */
-	function __construct( Array $limitsConf ){
-		$this->mrkSecrt = is_string($limitsConf['mrkkey'] ?? null) ? $limitsConf['mrkkey'] : '';
-		$this->markDays = max( 1, intval($limitsConf['mrkday'] ?? self::MARKDAYS) );
+	function __construct( Array $limitsConfig ){
+		$this->markSecret = is_string($limitsConfig['mrkkey'] ?? null) ? $limitsConfig['mrkkey'] : '';
+		$this->lifeInDays = max( 1, intval($limitsConfig['mrkday'] ?? self::MARK_DAYS) );
 	}
 
 	/**
@@ -39,49 +39,49 @@ class LoginMark{
 	 *
 	 * @return LoginMark The marks.
 	 */
-	public static function fromLimit(): LoginMark {
+	public static function fromLimitBlock(): LoginMark {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
 		return new self( is_array($lmtConf) ? $lmtConf : Array() );
 	}
 
 	/**
 	 * Makes the mark of a user that has just logged in.
 	 *
-	 * @param String $userString Login name of the user.
+	 * @param String $namedUserTxt Login name of the user.
 	 * @return String The mark, or '' when no key of KEYSSIZE characters at least is set.
 	 */
-	public function makesMark( String $userString ): String {
-		if( strlen($this->mrkSecrt)<self::KEYSSIZE || $userString==='' ){
+	public function createUserMark( String $namedUserTxt ): String {
+		if( strlen($this->markSecret)<self::KEYS_SIZE || $namedUserTxt==='' ){
 			return '';
 		}
-		$markTxt = $this->base64Url($userString).'.'.time().'.'.bin2hex(random_bytes(8));
-		return $markTxt.'.'.$this->base64Url( hash_hmac('sha256', $markTxt, $this->mrkSecrt, true) );
+		$markTxt = $this->base64UrlNoPad($namedUserTxt).'.'.time().'.'.bin2hex(random_bytes(8));
+		return $markTxt.'.'.$this->base64UrlNoPad( hash_hmac('sha256', $markTxt, $this->markSecret, true) );
 	}
 
 	/**
 	 * Reads a mark a client sent: signed with the key, made for the user it
 	 * logs in as, within its lifetime, and after the password was last set.
 	 *
-	 * @param String $markString The mark, as sent.
-	 * @param String $userString Login name of the user logging in.
-	 * @param ?Int   $passedUnix Unix time the password was last set; null when the store keeps none.
+	 * @param String $sentMarkText The mark, as sent.
+	 * @param String $namedUserTxt Login name of the user logging in.
+	 * @param ?Int   $suppliedUnix Unix time the password was last set; null when the store keeps none.
 	 * @return String The key its failures are counted under ('mark:' and its identifier), or '' when it is not a valid mark for that user.
 	 */
-	public function readsMark( String $markString, String $userString, ?Int $passedUnix=null ): String {
-		$markPrt = explode('.', $markString);
-		if( strlen($this->mrkSecrt)<self::KEYSSIZE || count($markPrt)!==4 || !preg_match('/^\d{1,12}$/D', $markPrt[1]) || !preg_match('/^[0-9a-f]{16}$/D', $markPrt[2]) ){
+	public function readClientMark( String $sentMarkText, String $namedUserTxt, ?Int $suppliedUnix=null ): String {
+		$mrkPart = explode('.', $sentMarkText);
+		if( strlen($this->markSecret)<self::KEYS_SIZE || count($mrkPart)!==4 || !preg_match('/^\d{1,12}$/D', $mrkPart[1]) || !preg_match('/^[0-9a-f]{16}$/D', $mrkPart[2]) ){
 			return '';
 		}
-		$signTxt = $this->base64Url( hash_hmac('sha256', $markPrt[0].'.'.$markPrt[1].'.'.$markPrt[2], $this->mrkSecrt, true) );
-		if( !hash_equals($signTxt, $markPrt[3]) || $markPrt[0]!==$this->base64Url($userString) ){
+		$signTxt = $this->base64UrlNoPad( hash_hmac('sha256', $mrkPart[0].'.'.$mrkPart[1].'.'.$mrkPart[2], $this->markSecret, true) );
+		if( !hash_equals($signTxt, $mrkPart[3]) || $mrkPart[0]!==$this->base64UrlNoPad($namedUserTxt) ){
 			return '';
 		}
-		$madeUnx = intval($markPrt[1]);
-		if( $madeUnx>time() + 60 || $madeUnx + 86400*$this->markDays<time() || ($passedUnix!==null && $madeUnx<$passedUnix) ){
+		$madeUnx = intval($mrkPart[1]);
+		if( $madeUnx>time() + 60 || $madeUnx + 86400*$this->lifeInDays<time() || ($suppliedUnix!==null && $madeUnx<$suppliedUnix) ){
 			return '';
 		}
-		return 'mark:'.$markPrt[2];
+		return 'mark:'.$mrkPart[2];
 	}
 
 	/**
@@ -89,17 +89,17 @@ class LoginMark{
 	 *
 	 * @return Int The days.
 	 */
-	public function markLasts(): Int {
-		return $this->markDays;
+	public function markLastsCount(): Int {
+		return $this->lifeInDays;
 	}
 
 	/**
 	 * Encodes bytes as base64url, without padding.
 	 *
-	 * @param String $binaryText The bytes.
+	 * @param String $usrBinaryTxt The bytes.
 	 * @return String The encoded text.
 	 */
-	protected function base64Url( String $binaryText ): String {
-		return rtrim( strtr(base64_encode($binaryText), '+/', '-_'), '=' );
+	protected function base64UrlNoPad( String $usrBinaryTxt ): String {
+		return rtrim( strtr(base64_encode($usrBinaryTxt), '+/', '-_'), '=' );
 	}
 }

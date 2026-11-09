@@ -11,30 +11,30 @@ namespace nyu\Access\Auth;
  */
 class PassList implements Handler{
 
-	protected $htpwFile;
-	protected $weakHash;
-	protected $userLmtr;
-	protected $lastMssg;
-	protected $wrongCrd = false;
+	protected $htpsswdFil;
+	protected $weakHashes;
+	protected $usrLimiter;
+	protected $lastMessag;
+	protected $invalidCrd = false;
 
 	/**
 	 * Builds the check against the password file from its config block.
 	 *
-	 * @param Array $confValues Config block with an 'htpasswd' file path (relative to the project root),
+	 * @param Array $configValues Config block with an 'htpasswd' file path (relative to the project root),
 	 *                          and optionally 'unsecure' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default),
 	 *                          the wrong passwords allowed for one account ('maxtry', defaults to 5; 0 for no limit) and the
 	 *                          time in seconds they add up within and then hold it for ('holdtm', defaults to 600).
 	 */
-	function __construct( Array $confValues ){
-		$htpPath = $confValues['htpasswd'] ?? '';
-		$this->htpwFile = ($htpPath!='') ? TOP_DIR.DS.$htpPath : '';
-		$this->weakHash = (($confValues['unsecure'] ?? false) === true);
+	function __construct( Array $configValues ){
+		$pwdFile = $configValues['htpasswd'] ?? '';
+		$this->htpsswdFil = ($pwdFile!='') ? TOP_DIR.DS.$pwdFile : '';
+		$this->weakHashes = (($configValues['unsecure'] ?? false) === true);
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
-		$this->userLmtr = new \nyu\Access\Limiter( Array(
-			'maxtry'=>$confValues['maxtry'] ?? 5, 'holdtm'=>$confValues['holdtm'] ?? 600, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : ''
-		) );		$this->lastMssg = '';
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
+		$this->usrLimiter = new \nyu\Access\Limiter( Array(
+			'maxtry'=>$configValues['maxtry'] ?? 5, 'holdtm'=>$configValues['holdtm'] ?? 600, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : ''
+		) );		$this->lastMessag = '';
 	}
 
 	/**
@@ -43,54 +43,54 @@ class PassList implements Handler{
 	 * htpasswd hashes, plus {SHA}, legacy crypt (DES) and MD5 crypt
 	 * hashes in unsecure mode only.
 	 *
-	 * @param Array $credsArray Must contain 'user' and 'pass' entries.
+	 * @param Array $crdntlsArray Must contain 'user' and 'pass' entries.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	function checkCred( Array $credsArray ): Array|Bool {
-		$gvnUser = $credsArray['user'] ?? '';
-		$gvnPass = $credsArray['pass'] ?? '';
-		$this->wrongCrd = false;
-		if( $this->htpwFile=='' || !file_exists($this->htpwFile) ){
-			$this->lastMssg = 'Credential store unavailable';
+	function chckCredential( Array $crdntlsArray ): Array|Bool {
+		$gvnUser = $crdntlsArray['user'] ?? '';
+		$gvnPass = $crdntlsArray['pass'] ?? '';
+		$this->invalidCrd = false;
+		if( $this->htpsswdFil=='' || !file_exists($this->htpsswdFil) ){
+			$this->lastMessag = 'Credential store unavailable';
 			return false;
 		}
-		$htpList = file( $this->htpwFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		$pwdRows = file( $this->htpsswdFil, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 		$usrHash = null;
-		foreach( $htpList as $htpLin ){
-			$sepPosn = strpos( $htpLin, ':' );
+		foreach( $pwdRows as $pwdRow ){
+			$colonAt = strpos( $pwdRow, ':' );
 			// An empty name is the one of no user, whatever a line may start with
-			if( $gvnUser!=='' && $sepPosn!==false && substr($htpLin, 0, $sepPosn)===$gvnUser ){
-				$usrHash = substr( $htpLin, $sepPosn+1 );
+			if( $gvnUser!=='' && $colonAt!==false && substr($pwdRow, 0, $colonAt)===$gvnUser ){
+				$usrHash = substr( $pwdRow, $colonAt+1 );
 				break;
 			}
 		}
 		if( $usrHash===null ){
 			// Unknown user : the same check is run, at the cost of new hashes, so the reply time does not tell which names exist
-			password_verify( $gvnPass, Native::dummyHash() );
+			password_verify( $gvnPass, Native::getDummyBcrypt() );
 		}else{
-			$matched = $this->hashMatch($gvnPass, $usrHash);
+			$matched = $this->verifyHtpasswd($gvnPass, $usrHash);
 			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 			$cntName = strval($gvnUser);
-			if( is_string($credsArray['mark'] ?? null) && $credsArray['mark']!=='' ){
-				$markKey = \nyu\Access\LoginMark::fromLimit()->readsMark( $credsArray['mark'], $cntName );
-				if( $markKey!='' && $this->userLmtr->heldByUsr($markKey)>0 ){
-					\nyu\Tools\Logger::getLogger('access')->warning( 'Login mark refused for user '.json_encode($gvnUser).': too many attempts with it' );
+			if( is_string($crdntlsArray['mark'] ?? null) && $crdntlsArray['mark']!=='' ){
+				$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $crdntlsArray['mark'], $cntName );
+				if( $markKey!='' && $this->usrLimiter->heldByUserNumb($markKey)>0 ){
+					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($gvnUser).': too many attempts with it' );
 				}elseif( $markKey!='' ){
 					$cntName = $markKey;
 				}
 			}
 			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-			if( $this->userLmtr->heldByUsr($cntName)>0 ){
-				\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
+			if( $this->usrLimiter->heldByUserNumb($cntName)>0 ){
+				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
 			}elseif( $matched ){
-				$this->userLmtr->clearUser( $cntName );
+				$this->usrLimiter->clearLimitUser( $cntName );
 				return Array('user'=>$gvnUser);
 			}else{
-				$this->userLmtr->countUser( $cntName );
+				$this->usrLimiter->countLimitUser( $cntName );
 			}
 		}
-		$this->lastMssg = 'Invalid credentials';
-		$this->wrongCrd = true;
+		$this->lastMessag = 'Invalid credentials';
+		$this->invalidCrd = true;
 		return false;
 	}
 
@@ -102,73 +102,73 @@ class PassList implements Handler{
 	 * to protect a password: they are refused, and the refusal logged,
 	 * unless the unsecure mode is on.
 	 *
-	 * @param String $passwdText The password to check.
-	 * @param String $storedHash The hash read from the .htpasswd file.
+	 * @param String $usrPasswdTxt The password to check.
+	 * @param String $htpasswdHash The hash read from the .htpasswd file.
 	 * @return Bool Whether the password matches the hash.
 	 */
-	protected function hashMatch( String $passwdText, String $storedHash ): Bool {
-		if( in_array(substr($storedHash,0,4), Array('$2y$','$2a$','$2b$')) ){
-			return password_verify( $passwdText, $storedHash );
+	protected function verifyHtpasswd( String $usrPasswdTxt, String $htpasswdHash ): Bool {
+		if( in_array(substr($htpasswdHash,0,4), Array('$2y$','$2a$','$2b$')) ){
+			return password_verify( $usrPasswdTxt, $htpasswdHash );
 		}
-		if( substr($storedHash,0,6)=='$apr1$' ){
-			$saltVal = explode('$', $storedHash)[2] ?? '';
-			return hash_equals( $storedHash, $this->apr1Crypt($passwdText, $saltVal) );
+		if( substr($htpasswdHash,0,6)=='$apr1$' ){
+			$saltVal = explode('$', $htpasswdHash)[2] ?? '';
+			return hash_equals( $htpasswdHash, $this->computeApr1Md5($usrPasswdTxt, $saltVal) );
 		}
-		$shaHash = (substr($storedHash,0,5)=='{SHA}');
+		$shaHash = (substr($htpasswdHash,0,5)=='{SHA}');
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
-		$strngFm = in_array(substr($storedHash,0,3), Array('$5$', '$6$'), true);
-		if( !$strngFm && !$this->weakHash ){
-			\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "unsecure" option' );
+		$strngFm = in_array(substr($htpasswdHash,0,3), Array('$5$', '$6$'), true);
+		if( !$strngFm && !$this->weakHashes ){
+			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "unsecure" option' );
 			return false;
 		}
 		if( $shaHash ){
-			return hash_equals( $storedHash, '{SHA}'.base64_encode(sha1($passwdText, true)) );
+			return hash_equals( $htpasswdHash, '{SHA}'.base64_encode(sha1($usrPasswdTxt, true)) );
 		}
-		return hash_equals( $storedHash, crypt($passwdText, $storedHash) );
+		return hash_equals( $htpasswdHash, crypt($usrPasswdTxt, $htpasswdHash) );
 	}
 
 	/**
 	 * Computes Apache's apr1 (iterated MD5) hash, which PHP's crypt()
 	 * does not provide.
 	 *
-	 * @param String $passwdText The password to hash.
-	 * @param String $saltString The salt, as found between the second and third '$' of the stored hash.
+	 * @param String $usrPasswdTxt The password to hash.
+	 * @param String $hashSaltText The salt, as found between the second and third '$' of the stored hash.
 	 * @return String The full '$apr1$salt$hash' string.
 	 */
-	protected function apr1Crypt( String $passwdText, String $saltString ): String {
-		$passLen = strlen($passwdText);
-		$mixText = $passwdText.'$apr1$'.$saltString;
-		$binHash = md5($passwdText.$saltString.$passwdText, true);
-		for( $idx=$passLen; $idx>0; $idx-=16 ){
-			$mixText .= substr($binHash, 0, min(16, $idx));
+	protected function computeApr1Md5( String $usrPasswdTxt, String $hashSaltText ): String {
+		$pwdSize = strlen($usrPasswdTxt);
+		$mixText = $usrPasswdTxt.'$apr1$'.$hashSaltText;
+		$bnryHsh = md5($usrPasswdTxt.$hashSaltText.$usrPasswdTxt, true);
+		for( $idxInc=$pwdSize; $idxInc>0; $idxInc-=16 ){
+			$mixText .= substr($bnryHsh, 0, min(16, $idxInc));
 		}
-		for( $idx=$passLen; $idx>0; $idx>>=1 ){
-			$mixText .= ($idx & 1) ? chr(0) : $passwdText[0];
+		for( $idxInc=$pwdSize; $idxInc>0; $idxInc>>=1 ){
+			$mixText .= ($idxInc & 1) ? chr(0) : $usrPasswdTxt[0];
 		}
-		$binHash = md5($mixText, true);
-		for( $idx=0; $idx<1000; $idx++ ){
-			$rndText = ($idx & 1) ? $passwdText : $binHash;
-			if( $idx % 3 ){
-				$rndText .= $saltString;
+		$bnryHsh = md5($mixText, true);
+		for( $idxInc=0; $idxInc<1000; $idxInc++ ){
+			$rndText = ($idxInc & 1) ? $usrPasswdTxt : $bnryHsh;
+			if( $idxInc % 3 ){
+				$rndText .= $hashSaltText;
 			}
-			if( $idx % 7 ){
-				$rndText .= $passwdText;
+			if( $idxInc % 7 ){
+				$rndText .= $usrPasswdTxt;
 			}
-			$rndText .= ($idx & 1) ? $binHash : $passwdText;
-			$binHash = md5($rndText, true);
+			$rndText .= ($idxInc & 1) ? $bnryHsh : $usrPasswdTxt;
+			$bnryHsh = md5($rndText, true);
 		}
 		$ordered = '';
-		for( $idx=0; $idx<5; $idx++ ){
-			$thrdIx = ($idx==4) ? 5 : $idx+12;
-			$ordered = $binHash[$idx].$binHash[$idx+6].$binHash[$thrdIx].$ordered;
+		for( $idxInc=0; $idxInc<5; $idxInc++ ){
+			$thirdIx = ($idxInc==4) ? 5 : $idxInc+12;
+			$ordered = $bnryHsh[$idxInc].$bnryHsh[$idxInc+6].$bnryHsh[$thirdIx].$ordered;
 		}
-		$ordered = chr(0).chr(0).$binHash[11].$ordered;
+		$ordered = chr(0).chr(0).$bnryHsh[11].$ordered;
 		$encoded = strtr(
 			strrev(substr(base64_encode($ordered), 2)),
 			'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
 			'./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 		);
-		return '$apr1$'.$saltString.'$'.$encoded;
+		return '$apr1$'.$hashSaltText.'$'.$encoded;
 	}
 
 	/**
@@ -178,8 +178,8 @@ class PassList implements Handler{
 	 *
 	 * @return Bool True when a credential was presented and refused.
 	 */
-	public function wrongCred(): Bool {
-		return $this->wrongCrd;
+	public function wrngCredential(): Bool {
+		return $this->invalidCrd;
 	}
 
 	/**
@@ -187,7 +187,7 @@ class PassList implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function lastError(): String {
-		return $this->lastMssg;
+	function finalErrorText(): String {
+		return $this->lastMessag;
 	}
 }
