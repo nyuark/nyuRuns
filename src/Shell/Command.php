@@ -8,34 +8,34 @@ use nyu\Tools\Logger;
  * A command of the command line (php nyuRun <command> <sub> ...). A
  * command tells what it does and lists its sub-commands; each of them is
  * the method named 'call' followed by its name (callPurge for purge).
- * The framework's commands are listed in Console::CMDSLIST; an
+ * The framework's commands are listed in Console::CMDS_LIST; an
  * application brings its own with runs/<App>/Shell.php, declaring the
  * class Shell of its namespace, which extends this one.
  */
 abstract class Command{
 
 	// Exit codes: done, failed, wrong usage, refused or declined, problems found
-	const EXITDONE = 0;
-	const EXITFAIL = 1;
-	const EXITUSGE = 2;
-	const EXITDENY = 3;
-	const EXITFLAW = 4;
+	const EXIT_DONE = 0;
+	const EXIT_FAIL = 1;
+	const EXIT_HELP = 2;
+	const EXIT_DENY = 3;
+	const EXIT_FLAW = 4;
 
-	protected $optnObjc;
-	protected $prntObjc;
-	protected $inptStrm;
+	protected $optnObject;
+	protected $printerObj;
+	protected $inptStream;
 
 	/**
 	 * Builds the command with its command line and where it writes.
 	 *
-	 * @param Options $optionsObj The words and options of the command line, after the name of the command.
-	 * @param Printer $printerObj Where the command writes.
-	 * @param mixed   $inptStream Stream the answers are read from; the standard input when null.
+	 * @param Options $optinsObject The words and options of the command line, after the name of the command.
+	 * @param Printer $printrObject Where the command writes.
+	 * @param mixed   $answerStream Stream the answers are read from; the standard input when null.
 	 */
-	function __construct( Options $optionsObj, Printer $printerObj, Mixed $inptStream=null ){
-		$this->optnObjc = $optionsObj;
-		$this->prntObjc = $printerObj;
-		$this->inptStrm = $inptStream ?? STDIN;
+	function __construct( Options $optinsObject, Printer $printrObject, Mixed $answerStream=null ){
+		$this->optnObject = $optinsObject;
+		$this->printerObj = $printrObject;
+		$this->inptStream = $answerStream ?? STDIN;
 	}
 
 	/**
@@ -43,7 +43,7 @@ abstract class Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	abstract public function aboutText(): String;
+	abstract public function describeInLine(): String;
 
 	/**
 	 * Lists the sub-commands: for each name, its arguments under 'args'
@@ -54,7 +54,7 @@ abstract class Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	abstract public function subsTable(): Array;
+	abstract public function subsTableArray(): Array;
 
 	/**
 	 * Runs the sub-command the command line names. Without one, or with
@@ -64,28 +64,28 @@ abstract class Command{
 	 *
 	 * @throws ShellStop When the sub-command is unknown, or stops itself.
 	 */
-	public function runCalled(): Int {
-		$subList = $this->subsTable();
-		if( $this->optnObjc->hasOption('usage') ){
-			$this->prntObjc->printRows( Array('sub-command', 'arguments', 'does'), $this->usageRows() );
-			return self::EXITDONE;
+	public function runCalledCount(): Int {
+		$subList = $this->subsTableArray();
+		if( $this->optnObject->validateOption('usage') ){
+			$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
+			return self::EXIT_DONE;
 		}
 		if( isset($subList['']) ){
 			$callNme = strval($subList['']['call'] ?? '');
 		}else{
-			$subName = $this->optnObjc->shiftWord();
+			$subName = $this->optnObject->shiftFirstWord();
 			if( $subName===null ){
-				$this->prntObjc->printRows( Array('sub-command', 'arguments', 'does'), $this->usageRows() );
-				return self::EXITDONE;
+				$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
+				return self::EXIT_DONE;
 			}
 			if( !isset($subList[$subName]) ){
-				$this->stopShell( 'Unknown sub-command: '.$subName, self::EXITUSGE );
+				$this->terminateShell( 'Unknown sub-command: '.$subName, self::EXIT_HELP );
 			}
 			// A sub-command the command lists as it runs (one a project declared) names the method it shares with others
 			$callNme = strval( $subList[$subName]['call'] ?? 'call'.ucfirst($subName) );
 		}
 		if( !method_exists($this, $callNme) ){
-			$this->stopShell( 'The sub-command is declared but not written: '.$callNme, self::EXITFAIL );
+			$this->terminateShell( 'The sub-command is declared but not written: '.$callNme, self::EXIT_FAIL );
 		}
 		// The method is given the word of its sub-command, which a shared method needs to know which one it runs
 		return intval( $this->$callNme( $subName ?? '' ) );
@@ -96,9 +96,9 @@ abstract class Command{
 	 *
 	 * @return Array Rows of name, arguments and description.
 	 */
-	public function usageRows(): Array {
+	public function usageRowsArray(): Array {
 		$rowList = Array();
-		foreach( $this->subsTable() as $subKey => $subVal ){
+		foreach( $this->subsTableArray() as $subKey => $subVal ){
 			$rowList[] = Array( strval($subKey), strval($subVal['args'] ?? ''), strval($subVal['about'] ?? '') );
 		}
 		return $rowList;
@@ -107,27 +107,27 @@ abstract class Command{
 	/**
 	 * Ends the command at once, telling why.
 	 *
-	 * @param String $stopReason What went wrong.
-	 * @param Int    $exitNumber Exit code: one of the EXIT* constants.
+	 * @param String $reasonToStop What went wrong.
+	 * @param Int    $shellExitNum Exit code: one of the EXIT* constants.
 	 *
 	 * @throws ShellStop Always.
 	 */
-	protected function stopShell( String $stopReason, Int $exitNumber=self::EXITFAIL ): Never {
-		throw new ShellStop($stopReason, $exitNumber);
+	protected function terminateShell( String $reasonToStop, Int $shellExitNum=self::EXIT_FAIL ): Never {
+		throw new ShellStop($reasonToStop, $shellExitNum);
 	}
 
 	/**
 	 * Takes the next word of the command line, which the sub-command needs.
 	 *
-	 * @param String $wordsLabel What the word is, for the message.
+	 * @param String $wordKindText What the word is, for the message.
 	 * @return String The word.
 	 *
 	 * @throws ShellStop When no word is left.
 	 */
-	protected function needsWord( String $wordsLabel ): String {
-		$gvnWord = $this->optnObjc->shiftWord();
+	protected function needsShellWord( String $wordKindText ): String {
+		$gvnWord = $this->optnObject->shiftFirstWord();
 		if( $gvnWord===null || $gvnWord==='' ){
-			$this->stopShell( 'Missing argument: '.$wordsLabel, self::EXITUSGE );
+			$this->terminateShell( 'Missing argument: '.$wordKindText, self::EXIT_HELP );
 		}
 		return $gvnWord;
 	}
@@ -136,36 +136,36 @@ abstract class Command{
 	 * Asks for a value, proposing a default one: Enter alone takes it.
 	 * With --noask nothing is asked, and the default is the answer.
 	 *
-	 * @param String $askedLabel The question.
-	 * @param String $defaultVal Value proposed, taken on Enter.
+	 * @param String $questionText The question.
+	 * @param String $defaultValue Value proposed, taken on Enter.
 	 * @return String The answer, without the spaces around it.
 	 */
-	protected function askAnswer( String $askedLabel, String $defaultVal='' ): String {
-		if( $this->optnObjc->hasOption('noask') ){
-			return $defaultVal;
+	protected function queryAnswerTxt( String $questionText, String $defaultValue='' ): String {
+		if( $this->optnObject->validateOption('noask') ){
+			return $defaultValue;
 		}
-		$this->prntObjc->printAsks( $askedLabel.( $defaultVal!=='' ? ' ['.$defaultVal.']' : '' ).': ' );
-		$gvnLine = fgets($this->inptStrm);
+		$this->printerObj->printShellAsks( $questionText.( $defaultValue!=='' ? ' ['.$defaultValue.']' : '' ).': ' );
+		$gvnLine = fgets($this->inptStream);
 		$gvnText = ($gvnLine===false) ? '' : trim($gvnLine);
-		return ($gvnText==='') ? $defaultVal : $gvnText;
+		return ($gvnText==='') ? $defaultValue : $gvnText;
 	}
 
 	/**
 	 * Asks to confirm something that removes or replaces. --agree is the
 	 * yes given beforehand; with --noask and no --agree, the answer is no.
 	 *
-	 * @param String $askedLabel What is about to be done.
+	 * @param String $questionText What is about to be done.
 	 * @return Bool Whether it is confirmed.
 	 */
-	protected function askAgreed( String $askedLabel ): Bool {
-		if( $this->optnObjc->hasOption('agree') ){
+	protected function queryAgreedFlg( String $questionText ): Bool {
+		if( $this->optnObject->validateOption('agree') ){
 			return true;
 		}
-		if( $this->optnObjc->hasOption('noask') ){
+		if( $this->optnObject->validateOption('noask') ){
 			return false;
 		}
-		$this->prntObjc->printAsks( $askedLabel.' [y/N]: ' );
-		$gvnLine = fgets($this->inptStrm);
+		$this->printerObj->printShellAsks( $questionText.' [y/N]: ' );
+		$gvnLine = fgets($this->inptStream);
 		return in_array( strtolower(trim(strval($gvnLine))), Array('y', 'yes'), true );
 	}
 
@@ -174,17 +174,17 @@ abstract class Command{
 	 * character where the terminal allows it. When the answers do not come
 	 * from a terminal (a pipe, a file), the line is read as it is.
 	 *
-	 * @param String $askedLabel The question.
+	 * @param String $questionText The question.
 	 * @return String The secret, as typed.
 	 */
-	protected function askSecret( String $askedLabel ): String {
-		$this->prntObjc->printAsks( $askedLabel.': ' );
+	protected function querySecretTxt( String $questionText ): String {
+		$this->printerObj->printShellAsks( $questionText.': ' );
 		$gvnText = null;
-		if( $this->inptStrm===STDIN && @stream_isatty(STDIN) ){
-			$gvnText = (DIRECTORY_SEPARATOR=='\\') ? $this->readSecur() : $this->readStars();
+		if( $this->inptStream===STDIN && @stream_isatty(STDIN) ){
+			$gvnText = (DIRECTORY_SEPARATOR=='\\') ? $this->obtainSecurity() : $this->getStarsString();
 		}
 		if( $gvnText===null ){
-			$gvnLine = fgets($this->inptStrm);
+			$gvnLine = fgets($this->inptStream);
 			$gvnText = ($gvnLine===false) ? '' : rtrim($gvnLine, "\r\n");
 		}
 		return $gvnText;
@@ -196,7 +196,7 @@ abstract class Command{
 	 *
 	 * @return ?String The secret, or null when the terminal cannot be set for it.
 	 */
-	protected function readStars(): ?String {
+	protected function getStarsString(): ?String {
 		$sttySav = trim( strval(@shell_exec('stty -g 2>/dev/null')) );
 		if( $sttySav=='' ){
 			return null;
@@ -211,15 +211,15 @@ abstract class Command{
 			if( $oneChar==="\x7F" || $oneChar==="\x08" ){
 				if( $gvnText!=='' ){
 					$gvnText = substr($gvnText, 0, -1);
-					$this->prntObjc->printAsks("\x08 \x08");
+					$this->printerObj->printShellAsks("\x08 \x08");
 				}
 				continue;
 			}
 			$gvnText .= $oneChar;
-			$this->prntObjc->printAsks('*');
+			$this->printerObj->printShellAsks('*');
 		}
 		@shell_exec('stty '.escapeshellarg($sttySav).' 2>/dev/null');
-		$this->prntObjc->printAsks(PHP_EOL);
+		$this->printerObj->printShellAsks(PHP_EOL);
 		return $gvnText;
 	}
 
@@ -229,7 +229,7 @@ abstract class Command{
 	 *
 	 * @return ?String The secret, or null when PowerShell cannot be used: the line is then read as it is typed.
 	 */
-	protected function readSecur(): ?String {
+	protected function obtainSecurity(): ?String {
 		$psScrpt = '[Console]::OutputEncoding=[Text.Encoding]::UTF8;$p=Read-Host -AsSecureString;'
 			.'$b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($p);'
 			.'[Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($b))';
@@ -248,21 +248,21 @@ abstract class Command{
 	 * Traces what the command changed, on the 'shell' log channel, signed
 	 * with the user of the system who ran it. Secrets never go there.
 	 *
-	 * @param String $eventMssge What was done.
+	 * @param String $eventMessage What was done.
 	 */
-	protected function traceDone( String $eventMssge ): Void {
-		Logger::getLogger('shell')->notice( $eventMssge.Logger::actorText() );
+	protected function traceShellDone( String $eventMessage ): Void {
+		Logger::retrieveLogger('shell')->notice( $eventMessage.Logger::getActorSuffix() );
 	}
 
 	/**
 	 * Reads a block of the ACCESS config.
 	 *
-	 * @param String $blockNamed Name of the block.
+	 * @param String $blckNamedTxt Name of the block.
 	 * @return Array Its values, empty when there is no such block.
 	 */
-	protected function accessCnf( String $blockNamed ): Array {
+	protected function accessSettings( String $blckNamedTxt ): Array {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$blkConf = ($nyuConf!==null && $blockNamed!='') ? $nyuConf->getRowVal('ACCESS', strtoupper($blockNamed)) : null;
-		return is_array($blkConf) ? $blkConf : Array();
+		$blckCfg = ($nyuConf!==null && $blckNamedTxt!='') ? $nyuConf->obtainRowValue('ACCESS', strtoupper($blckNamedTxt)) : null;
+		return is_array($blckCfg) ? $blckCfg : Array();
 	}
 }

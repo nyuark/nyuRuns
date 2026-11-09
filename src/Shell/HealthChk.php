@@ -26,32 +26,32 @@ use nyu\Tools\Router;
 class HealthChk{
 
 	// Extension each type of database needs
-	const BASEEXTS = Array('mysql'=>'pdo_mysql', 'pgsql'=>'pdo_pgsql', 'sqlte'=>'pdo_sqlite', 'mongo'=>'mongodb');
+	const BASE_EXTS = Array('mysql'=>'pdo_mysql', 'pgsql'=>'pdo_pgsql', 'sqlte'=>'pdo_sqlite', 'mongo'=>'mongodb');
 	// Extensions the framework works without, each giving it something more
-	const MOREEXTS = Array('openssl', 'mbstring', 'zip', 'gd', 'exif', 'imagick');
+	const MORE_EXTS = Array('openssl', 'mbstring', 'zip', 'gd', 'exif', 'imagick');
 	// Shortest secret signing the tokens, in characters
-	const SECRSIZE = 32;
+	const SECR_SIZE = 32;
 	// First release of each branch of PHP fixing php2shell (CVE-2026-109618, CVE-2026-109619)
-	const PTCHLIST = Array('8.2'=>'8.2.35', '8.3'=>'8.3.36', '8.4'=>'8.4.27', '8.5'=>'8.5.12');
+	const PTCH_LIST = Array('8.2'=>'8.2.35', '8.3'=>'8.3.36', '8.4'=>'8.4.27', '8.5'=>'8.5.12');
 
-	protected $rowsList = Array();
+	protected $resultRows = Array();
 
 	/**
 	 * Runs every check: server, folders, preset, access, databases, stores and unsafe settings.
 	 *
 	 * @return Array The rows: what was checked, its state and what was found.
 	 */
-	public function runChecks(): Array {
-		$this->chkServer();
-		$this->chkFoldrs();
-		$this->chkPreset();
-		$this->chkRoutes();
-		$this->chkEntrys();
-		$this->chkAccess();
-		$this->chkDbases();
-		$this->chkStores();
-		$this->chkUnsafe();
-		return $this->rowsList;
+	public function runChecksArray(): Array {
+		$this->validateServer();
+		$this->checkFoldWrite();
+		$this->validatePreset();
+		$this->validateRoutes();
+		$this->validateEntrys();
+		$this->validateAccess();
+		$this->checkDatabases();
+		$this->validateStores();
+		$this->validateUnsafe();
+		return $this->resultRows;
 	}
 
 	/**
@@ -59,8 +59,8 @@ class HealthChk{
 	 *
 	 * @return Array The rows: what was checked, its state and what was found.
 	 */
-	public function rowsFound(): Array {
-		return $this->rowsList;
+	public function rowsFoundArray(): Array {
+		return $this->resultRows;
 	}
 
 	/**
@@ -68,8 +68,8 @@ class HealthChk{
 	 *
 	 * @return Bool True when at least one row is a 'fail'.
 	 */
-	public function hasFailed(): Bool {
-		return in_array('fail', array_column($this->rowsList, 1), true);
+	public function validateFailed(): Bool {
+		return in_array('fail', array_column($this->resultRows, 1), true);
 	}
 
 	/**
@@ -78,18 +78,18 @@ class HealthChk{
 	 * than the fix of its branch is a warning only: the distributions that
 	 * backport a fix keep the number of the release.
 	 */
-	public function chkServer(): Void {
-		$this->addResult( 'php', version_compare(PHP_VERSION, '8.2.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.2 at least is needed' );
-		$phpBrch = PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
-		if( isset(self::PTCHLIST[$phpBrch]) ){
-			$patched = version_compare(PHP_VERSION, self::PTCHLIST[$phpBrch], '>=');
-			$this->addResult( 'php patch', $patched ? 'fine' : 'warn', $patched ? 'php2shell fixed' : 'php2shell (CVE-2026-109618, CVE-2026-109619) is fixed from '.self::PTCHLIST[$phpBrch].': update, unless the fix was backported' );
+	public function validateServer(): Void {
+		$this->addCheckResult( 'php', version_compare(PHP_VERSION, '8.2.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.2 at least is needed' );
+		$phpVers = PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
+		if( isset(self::PTCH_LIST[$phpVers]) ){
+			$patched = version_compare(PHP_VERSION, self::PTCH_LIST[$phpVers], '>=');
+			$this->addCheckResult( 'php patch', $patched ? 'fine' : 'warn', $patched ? 'php2shell fixed' : 'php2shell (CVE-2026-109618, CVE-2026-109619) is fixed from '.self::PTCH_LIST[$phpVers].': update, unless the fix was backported' );
 		}
 		$upldPrg = filter_var(ini_get('session.upload_progress.enabled'), FILTER_VALIDATE_BOOLEAN);
-		$this->addResult( 'upload progress', $upldPrg ? 'warn' : 'fine', $upldPrg ? 'on: set session.upload_progress.enabled = 0 in php.ini (CVE-2026-115560), the framework does not use it' : 'off' );
-		$this->addResult( 'extension json', extension_loaded('json') ? 'fine' : 'fail', extension_loaded('json') ? 'loaded' : 'not loaded: nothing can be read or answered' );
-		$lackLst = array_values( array_filter(self::MOREEXTS, function( String $extnsnName ): Bool { return !extension_loaded($extnsnName); }) );
-		$this->addResult( 'extensions', empty($lackLst) ? 'fine' : 'warn', empty($lackLst) ? 'the optional ones are loaded' : 'optional, not loaded: '.implode(', ', $lackLst) );
+		$this->addCheckResult( 'upload progress', $upldPrg ? 'warn' : 'fine', $upldPrg ? 'on: set session.upload_progress.enabled = 0 in php.ini (CVE-2026-115560), the framework does not use it' : 'off' );
+		$this->addCheckResult( 'extension json', extension_loaded('json') ? 'fine' : 'fail', extension_loaded('json') ? 'loaded' : 'not loaded: nothing can be read or answered' );
+		$lackLst = array_values( array_filter(self::MORE_EXTS, function( String $extensionNme ): Bool { return !extension_loaded($extensionNme); }) );
+		$this->addCheckResult( 'extensions', empty($lackLst) ? 'fine' : 'warn', empty($lackLst) ? 'the optional ones are loaded' : 'optional, not loaded: '.implode(', ', $lackLst) );
 	}
 
 	/**
@@ -97,12 +97,12 @@ class HealthChk{
 	 * missing, and must be writable. A config cache older than a file it
 	 * comes from (conf, a preset, a route file) was left by a hand edit.
 	 */
-	public function chkFoldrs(): Void {
+	public function checkFoldWrite(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
 		$lmtName = trim( strval(is_array($lmtConf) ? ($lmtConf['folder'] ?? '') : ''), '/\\ ' );
 		$fldList = Array(
-			strval( (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->logConfig()['path'] ),
+			strval( (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->logConfigArray()['path'] ),
 			TOP_DIR.DS.( $lmtName!='' ? str_replace(Array('/', '\\'), DS, $lmtName) : 'temp'.DS.'limits' ),
 			TOP_DIR.DS.'temp'.DS.'cache',
 			TOP_DIR.DS.'temp'.DS.'backup'
@@ -112,77 +112,77 @@ class HealthChk{
 				@mkdir($fldPth, 0770, true);
 			}
 			$isReady = is_dir($fldPth) && is_writable($fldPth);
-			$this->addResult( 'folder '.str_replace(DS, '/', ltrim(substr($fldPth, strlen(TOP_DIR)), '/\\')), $isReady ? 'fine' : 'fail', $isReady ? 'writable' : 'missing or not writable' );
+			$this->addCheckResult( 'folder '.str_replace(DS, '/', ltrim(substr($fldPth, strlen(TOP_DIR)), '/\\')), $isReady ? 'fine' : 'fail', $isReady ? 'writable' : 'missing or not writable' );
 		}
 		// The rights of the secret files are read on Linux only (see chkRsakey) : on Windows they are told to be the host's to set
 		if( DS=='\\' ){
-			$this->addResult('file rights', 'warn', 'the rights of the secret files are not checked on Windows: limit conf and temp to the web server\'s account (icacls)');
+			$this->addCheckResult('file rights', 'warn', 'the rights of the secret files are not checked on Windows: limit conf and temp to the web server\'s account (icacls)');
 		}
 		// The descriptions of the tables are kept in the config cache only
-		$sysConf = ($nyuConf!==null) ? ($nyuConf->readValue('system') ?: Array()) : Array();
-		if( in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && !in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ){
-			$this->addResult('table cache', 'warn', 'TBL_CACH is TRUE, but CNF_CACH is not: the descriptions of the tables are not kept');
+		$iniConf = ($nyuConf!==null) ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		if( in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && !in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ){
+			$this->addCheckResult('table cache', 'warn', 'TBL_CACH is TRUE, but CNF_CACH is not: the descriptions of the tables are not kept');
 		}
 		// The oldest cache file, against the newest file the config is read from
 		$cchTime = 0;
-		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, ConfCache::CACHPATH).DS.'config-*.cache') as $cchFle ){
-			$cchTime = ($cchTime==0) ? intval(@filemtime(strval($cchFle))) : min($cchTime, intval(@filemtime(strval($cchFle))));
+		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, ConfCache::CACH_PATH).DS.'config-*.cache') as $cchFil ){
+			$cchTime = ($cchTime==0) ? intval(@filemtime(strval($cchFil))) : min($cchTime, intval(@filemtime(strval($cchFil))));
 		}
 		if( $cchTime==0 ){
-			$this->addResult('config cache', 'fine', 'none: the config files are read on each request, or a request will cache them (CNF_CACH)');
+			$this->addCheckResult('config cache', 'fine', 'none: the config files are read on each request, or a request will cache them (CNF_CACH)');
 			return;
 		}
 		$srcTime = 0;
 		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
-			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFle ){
-			$srcTime = max($srcTime, intval(@filemtime(strval($srcFle))));
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFil ){
+			$srcTime = max($srcTime, intval(@filemtime(strval($srcFil))));
 		}
-		$this->addResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file (a Run\'s routes.rte too) changed since: run "config cache", the next request reads the files' : 'up to date' );
+		$this->addCheckResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file (a Run\'s routes.rte too) changed since: run "config cache", the next request reads the files' : 'up to date' );
 	}
 
 	/**
 	 * Checks every preset: it loads, the carrier and the check it names
 	 * exist with their blocks, and the roles it asks for can be applied.
 	 */
-	public function chkPreset(): Void {
+	public function validatePreset(): Void {
 		$rpsList = (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps');
 		if( empty($rpsList) ){
-			$this->addResult('presets', 'fail', 'conf/presets holds no preset');
+			$this->addCheckResult('presets', 'fail', 'conf/presets holds no preset');
 		}
-		foreach( $rpsList as $rpsFle ){
-			$prstNme = basename(strval($rpsFle), '.rps');
+		foreach( $rpsList as $rpsFil ){
+			$prstNme = basename(strval($rpsFil), '.rps');
 			try{
-				$stupObj = (new Preset($prstNme))->makeSetup();
-				$axsConf = $stupObj->setAccess();
+				$setpObj = (new Preset($prstNme))->newSetupLoader();
+				$accConf = $setpObj->setAccessArray();
 			}catch( \Throwable $e ){
-				$this->addResult('preset '.$prstNme, 'fail', $e->getMessage());
+				$this->addCheckResult('preset '.$prstNme, 'fail', $e->getMessage());
 				continue;
 			}
 			// A session cookie goes with every request of the browser : any site allowed to call is a risk
-			$rndrCnf = $stupObj->getRegKey('rnder');
+			$rndrCnf = $setpObj->getRegistryKey('rnder');
 			$headLst = array_change_key_case( (array)(is_array($rndrCnf) ? ($rndrCnf['headrs'] ?? Array()) : Array()), CASE_LOWER );
-			if( ($axsConf['sessby'] ?? '')=='phsess' && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
-				$this->addResult('origins '.$prstNme, 'warn', 'every origin is allowed while the session travels in a cookie: list the origins under "origns"');
-			}elseif( ( ($axsConf['sessby'] ?? '')=='jtoken' || strval($axsConf['appkey'] ?? '')!='' ) && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
+			if( ($accConf['sessby'] ?? '')=='phsess' && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
+				$this->addCheckResult('origins '.$prstNme, 'warn', 'every origin is allowed while the session travels in a cookie: list the origins under "origns"');
+			}elseif( ( ($accConf['sessby'] ?? '')=='jtoken' || strval($accConf['appkey'] ?? '')!='' ) && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
 				// A token is not sent by the browser on its own, but any site may then read what it opens
-				$this->addResult('origins '.$prstNme, 'warn', 'every origin is allowed while the preset reads tokens: list the origins under "origns"');
+				$this->addCheckResult('origins '.$prstNme, 'warn', 'every origin is allowed while the preset reads tokens: list the origins under "origns"');
 			}
 			// "public" tells an open preset is meant to be: on one that checks access, it says nothing
-			if( ($axsConf['public'] ?? false)===true && ($axsConf['needed'] ?? true)!==false ){
-				$this->addResult('public '.$prstNme, 'warn', '"public" is only read on an open preset ("needed": false): this one checks access');
+			if( ($accConf['public'] ?? false)===true && ($accConf['needed'] ?? true)!==false ){
+				$this->addCheckResult('public '.$prstNme, 'warn', '"public" is only read on an open preset ("needed": false): this one checks access');
 			}
 			$flawTxt = '';
-			if( !empty($axsConf) && ($axsConf['needed'] ?? true)!==false ){
-				$flawTxt = $this->pairFlaws($axsConf);
+			if( !empty($accConf) && ($accConf['needed'] ?? true)!==false ){
+				$flawTxt = $this->coupleFlawsTxt($accConf);
 			}
-			$chkrObj = new Checker($axsConf, ActCaller::makeReqst('GET', '/')[0], new Registry(Array()));
-			if( $flawTxt=='' && !empty($axsConf) && ($axsConf['needed'] ?? true)!==false ){
-				$flawTxt = $chkrObj->pairsFlaw();
+			$checker = new Checker($accConf, ActCaller::makeRequestArr('GET', '/')[0], new Registry(Array()));
+			if( $flawTxt=='' && !empty($accConf) && ($accConf['needed'] ?? true)!==false ){
+				$flawTxt = $checker->checkPairFlaws();
 			}
 			if( $flawTxt=='' ){
-				$flawTxt = $chkrObj->rolesFlaw();
+				$flawTxt = $checker->checkRoleFlaws();
 			}
-			$this->addResult( 'preset '.$prstNme, ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? 'loads' : $flawTxt );
+			$this->addCheckResult( 'preset '.$prstNme, ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? 'loads' : $flawTxt );
 		}
 	}
 
@@ -196,25 +196,25 @@ class HealthChk{
 	 * declaring its routes does not list. One row for each, naming the
 	 * presets concerned.
 	 */
-	public function chkRoutes(): Void {
+	public function validateRoutes(): Void {
 		$rpsList = (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps');
 		$runList = defined('RUN_DIR') ? array_map('basename', array_filter((array)glob(RUN_DIR.DS.'*'), 'is_dir')) : Array();
 		$clshLst = Array();
 		$shdwLst = Array();
 		$lostLst = Array();
-		foreach( $rpsList as $rpsFle ){
-			$prstNme = basename(strval($rpsFle), '.rps');
+		foreach( $rpsList as $rpsFil ){
+			$prstNme = basename(strval($rpsFil), '.rps');
 			try{
-				$stupObj = (new Preset($prstNme))->makeSetup();
-				$axsConf = $stupObj->setAccess();
+				$setpObj = (new Preset($prstNme))->newSetupLoader();
+				$accConf = $setpObj->setAccessArray();
 			}catch( \Throwable $e ){
 				// A preset that does not load is told by its own row
 				continue;
 			}
-			$rteConf = $stupObj->getRegKey('route');
-			$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), ActCaller::makeReqst('GET', '/')[0] );
-			$rteData = $routObj->getRoutes();
-			foreach( $routObj->runRoutes() as $rteSet ){
+			$rteConf = $setpObj->getRegistryKey('route');
+			$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), ActCaller::makeRequestArr('GET', '/')[0] );
+			$rteData = $routObj->retrieveRoutes();
+			foreach( $routObj->runRoutesArray() as $rteSet ){
 				$ownName = strval($rteData[$rteSet['rtePath']]['rteOwnr'] ?? '');
 				if( $ownName=='site' ){
 					$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'];
@@ -223,7 +223,7 @@ class HealthChk{
 				}else{
 					// A pattern of the site over it answers first
 					foreach( array_keys(array_combine(array_keys($rteData), array_column($rteData, 'rteOwnr')), 'site', true) as $rteKey ){
-						if( $routObj->matchPath(strval($rteKey), strval($rteSet['rtePath']))!==null ){
+						if( $routObj->matchRoutePath(strval($rteKey), strval($rteSet['rtePath']))!==null ){
 							$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'].' under /'.$rteKey;
 							break;
 						}
@@ -231,7 +231,7 @@ class HealthChk{
 				}
 			}
 			// What openrt and rolert name must be served by this preset
-			foreach( array_merge(array_values((array)($axsConf['openrt'] ?? Array())), array_keys(is_array($axsConf['rolert'] ?? null) ? $axsConf['rolert'] : Array())) as $rteKey ){
+			foreach( array_merge(array_values((array)($accConf['openrt'] ?? Array())), array_keys(is_array($accConf['rolert'] ?? null) ? $accConf['rolert'] : Array())) as $rteKey ){
 				$rteKey = trim(strval($rteKey));
 				if( substr($rteKey, 0, 1)=='/' ){
 					if( !isset($rteData[trim($rteKey, '/')]) ){
@@ -250,24 +250,24 @@ class HealthChk{
 				}
 				if( is_file(RUN_DIR.DS.$ownName.DS.'routes.rte') ){
 					// A Run declaring its routes is reached through them only (or a site alias): one of them names the action
-					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutes(), 'rteGoal'))) ){
+					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutesArray(), 'rteGoal'))) ){
 						$lostLst[] = $prstNme.': '.$rteKey.' (not listed in the routes of '.$ownName.')';
 					}
 					continue;
 				}
-				$actPath = RUN_DIR.DS.$ownName.DS.'Actions.php';
+				$actnPth = RUN_DIR.DS.$ownName.DS.'Actions.php';
 				$clsName = '\\nyu\\Runs\\'.$ownName.'\\Actions';
-				if( is_file($actPath) ){
-					require_once $actPath;
+				if( is_file($actnPth) ){
+					require_once $actnPth;
 				}
-				if( !class_exists($clsName, false) || !$clsName::ownAction($actPart[1]) ){
+				if( !class_exists($clsName, false) || !$clsName::hasActionNamed($actPart[1]) ){
 					$lostLst[] = $prstNme.': '.$rteKey.' (not an action of '.$ownName.')';
 				}
 			}
 		}
-		$this->addResult( 'route clash', empty($clshLst) ? 'fine' : 'fail', empty($clshLst) ? 'no two applications declare one path' : 'declared by two applications, the first in name order answers: '.implode('; ', array_unique($clshLst)) );
-		$this->addResult( 'route shadow', empty($shdwLst) ? 'fine' : 'warn', empty($shdwLst) ? 'no site route over a route of an application' : 'a site route answers in place of the application\'s: '.implode('; ', array_unique($shdwLst)) );
-		$this->addResult( 'access route', empty($lostLst) ? 'fine' : 'warn', empty($lostLst) ? 'every entry of openrt and rolert names a route' : 'naming no route: '.implode('; ', array_unique($lostLst)) );
+		$this->addCheckResult( 'route clash', empty($clshLst) ? 'fine' : 'fail', empty($clshLst) ? 'no two applications declare one path' : 'declared by two applications, the first in name order answers: '.implode('; ', array_unique($clshLst)) );
+		$this->addCheckResult( 'route shadow', empty($shdwLst) ? 'fine' : 'warn', empty($shdwLst) ? 'no site route over a route of an application' : 'a site route answers in place of the application\'s: '.implode('; ', array_unique($shdwLst)) );
+		$this->addCheckResult( 'access route', empty($lostLst) ? 'fine' : 'warn', empty($lostLst) ? 'every entry of openrt and rolert names a route' : 'naming no route: '.implode('; ', array_unique($lostLst)) );
 	}
 
 	/**
@@ -277,34 +277,34 @@ class HealthChk{
 	 * TEST, unless its auths block says it is meant to be ("public": true).
 	 * An entry naming its preset at run time cannot be followed: it is told.
 	 */
-	public function chkEntrys(): Void {
+	public function validateEntrys(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$envName = strtoupper( strval(($nyuConf!==null) ? $nyuConf->getRowVal('SYSTEM', 'ENV_NAME') : '') );
+		$envName = strtoupper( strval(($nyuConf!==null) ? $nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME') : '') );
 		$isFinal = in_array($envName, Array('PREV', 'PROD'), true);
 		foreach( (array)glob(TOP_DIR.DS.'www'.DS.'*.php') as $entFle ){
-			$entText = strval(@file_get_contents(strval($entFle)));
-			$entName = basename(strval($entFle), '.php');
-			if( !preg_match(\nyu\Shell\Cmds\Config::RUNRCALL, $entText, $callPrt, PREG_OFFSET_CAPTURE) ){
+			$itemTxt = strval(@file_get_contents(strval($entFle)));
+			$itemNme = basename(strval($entFle), '.php');
+			if( !preg_match(\nyu\Shell\Cmds\Config::RUNR_CALL, $itemTxt, $callPrt, PREG_OFFSET_CAPTURE) ){
 				continue;
 			}
 			$prstTxt = strval($callPrt[2][0] ?? '');
-			if( $prstTxt=='' && substr(ltrim(substr($entText, $callPrt[0][1] + strlen($callPrt[0][0]))), 0, 1)!==')' ){
-				$this->addResult('entry '.$entName, 'warn', 'the preset is named at run time: check it gives one that checks access');
+			if( $prstTxt=='' && substr(ltrim(substr($itemTxt, $callPrt[0][1] + strlen($callPrt[0][0]))), 0, 1)!==')' ){
+				$this->addCheckResult('entry '.$itemNme, 'warn', 'the preset is named at run time: check it gives one that checks access');
 				continue;
 			}
 			$prstNme = ($prstTxt=='') ? 'dfault' : substr($prstTxt, 1, -1);
 			try{
-				$axsConf = (new Preset($prstNme))->makeSetup()->setAccess();
+				$accConf = (new Preset($prstNme))->newSetupLoader()->setAccessArray();
 			}catch( \Throwable $e ){
 				// A preset that does not load is told by its own row
 				continue;
 			}
-			if( ($axsConf['needed'] ?? true)!==false ){
-				$this->addResult('entry '.$entName, 'fine', 'starts '.$prstNme.', which checks access');
-			}elseif( ($axsConf['public'] ?? false)===true ){
-				$this->addResult('entry '.$entName, 'fine', 'starts '.$prstNme.', open by intent (public)');
+			if( ($accConf['needed'] ?? true)!==false ){
+				$this->addCheckResult('entry '.$itemNme, 'fine', 'starts '.$prstNme.', which checks access');
+			}elseif( ($accConf['public'] ?? false)===true ){
+				$this->addCheckResult('entry '.$itemNme, 'fine', 'starts '.$prstNme.', open by intent (public)');
 			}else{
-				$this->addResult('entry '.$entName, $isFinal ? 'fail' : 'warn', 'starts '.$prstNme.': every request is served without a check; name a preset that checks access, or set "public": true in its auths block when the site is meant to be open');
+				$this->addCheckResult('entry '.$itemNme, $isFinal ? 'fail' : 'warn', 'starts '.$prstNme.': every request is served without a check; name a preset that checks access, or set "public": true in its auths block when the site is meant to be open');
 			}
 		}
 	}
@@ -313,68 +313,68 @@ class HealthChk{
 	 * Checks the access config: the login, the secrets signing the
 	 * tokens, the API keys, and what is set as unsecure.
 	 */
-	public function chkAccess(): Void {
+	public function validateAccess(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$axsVals = ($nyuConf!==null) ? $nyuConf->readValue('access') : null;
-		if( !is_array($axsVals) || empty($axsVals) ){
-			$this->addResult('access', 'fail', 'conf/access.json is missing or empty: "deploy files" creates it from its example');
+		$accsVls = ($nyuConf!==null) ? $nyuConf->readFileDetail('access') : null;
+		if( !is_array($accsVls) || empty($accsVls) ){
+			$this->addCheckResult('access', 'fail', 'conf/access.json is missing or empty: "deploy files" creates it from its example');
 			return;
 		}
-		$lgnConf = $this->accessCnf('login');
+		$lgnConf = $this->accessSettings('login');
 		if( empty($lgnConf) ){
-			$this->addResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
+			$this->addCheckResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
 		}else{
-			$flawTxt = $this->pairFlaws($lgnConf + Array('authby'=>'htpass', 'sessby'=>'jtoken', 'authcf'=>'dfpass', 'sesscf'=>'dftokn'));
+			$flawTxt = $this->coupleFlawsTxt($lgnConf + Array('authby'=>'htpass', 'sessby'=>'jtoken', 'authcf'=>'dfpass', 'sesscf'=>'dftokn'));
 			// The login hands a name and a password to its check, as the Basic carrier does
 			$lgnAuth = strval($lgnConf['authby'] ?? 'htpass');
-			if( $flawTxt=='' && isset(Checker::AUTHLIST[$lgnAuth]) && !in_array($lgnAuth, Checker::PAIRLIST['hbasic'], true) ){
+			if( $flawTxt=='' && isset(Checker::AUTH_LIST[$lgnAuth]) && !in_array($lgnAuth, Checker::PAIR_LIST['hbasic'], true) ){
 				$flawTxt = 'the credential check "'.$lgnAuth.'" takes no name and password: nobody can sign in through auth/login';
 			}
-			$this->addResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authby'] ?? 'htpass').' through '.strval($lgnConf['sessby'] ?? 'jtoken') : $flawTxt );
+			$this->addCheckResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authby'] ?? 'htpass').' through '.strval($lgnConf['sessby'] ?? 'jtoken') : $flawTxt );
 		}
-		foreach( $axsVals as $blkKey => $blkVal ){
+		foreach( $accsVls as $blkKey => $blkVal ){
 			if( !is_array($blkVal) ){
 				continue;
 			}
-			$blkName = strtolower(strval($blkKey));
-			if( array_key_exists('algrtm', $blkVal) && !in_array($blkVal['algrtm'], JWT::ALGOLIST, true) ){
-				$this->addResult('algorithm '.$blkName, 'fail', 'not one the tokens can be signed with: '.implode(', ', JWT::ALGOLIST));
+			$blckNme = strtolower(strval($blkKey));
+			if( array_key_exists('algrtm', $blkVal) && !in_array($blkVal['algrtm'], JWT::ALGO_LIST, true) ){
+				$this->addCheckResult('algorithm '.$blckNme, 'fail', 'not one the tokens can be signed with: '.implode(', ', JWT::ALGO_LIST));
 			}elseif( ($blkVal['algrtm'] ?? '')=='RS256' ){
-				$this->chkRsakey($blkName, $blkVal);
+				$this->validateRsakey($blckNme, $blkVal);
 			}elseif( array_key_exists('secret', $blkVal) ){
-				$scrtLen = strlen(strval($blkVal['secret']));
-				$this->addResult( 'secret '.$blkName, ($scrtLen>=self::SECRSIZE) ? 'fine' : 'fail', ($scrtLen>=self::SECRSIZE) ? 'set' : ( $scrtLen==0 ? 'empty' : 'too short' ).': '.self::SECRSIZE.' characters at least; "config secrt jtoken" makes one' );
+				$secrLen = strlen(strval($blkVal['secret']));
+				$this->addCheckResult( 'secret '.$blckNme, ($secrLen>=self::SECR_SIZE) ? 'fine' : 'fail', ($secrLen>=self::SECR_SIZE) ? 'set' : ( $secrLen==0 ? 'empty' : 'too short' ).': '.self::SECR_SIZE.' characters at least; "config secrt jtoken" makes one' );
 			}
 			if( array_key_exists('algrtm', $blkVal) || array_key_exists('issuer', $blkVal) && array_key_exists('audnce', $blkVal) || array_key_exists('applst', $blkVal) ){
-				$this->chkClaims($blkName, $blkVal);
+				$this->validateClaims($blckNme, $blkVal);
 			}
 			if( isset($blkVal['keylst']) && is_array($blkVal['keylst']) && in_array('', array_map('strval', $blkVal['keylst']), true) ){
-				$this->addResult('keys '.$blkName, 'warn', 'an API key of the block is empty; "config secrt apikey" makes one');
+				$this->addCheckResult('keys '.$blckNme, 'warn', 'an API key of the block is empty; "config secrt apikey" makes one');
 			}
-			if( ($blkVal['secure'] ?? true)===false && array_key_exists('cookie', $blkVal) && strtoupper(strval($nyuConf->getRowVal('SYSTEM', 'ENV_NAME')))=='PROD' ){
-				$this->addResult('cookie '.$blkName, 'warn', 'the session cookie also travels over plain HTTP (secure is false) in the environment PROD');
+			if( ($blkVal['secure'] ?? true)===false && array_key_exists('cookie', $blkVal) && strtoupper(strval($nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME')))=='PROD' ){
+				$this->addCheckResult('cookie '.$blckNme, 'warn', 'the session cookie also travels over plain HTTP (secure is false) in the environment PROD');
 			}
 			if( array_key_exists('tfakey', $blkVal) ){
-				$keyLeng = strlen(strval($blkVal['tfakey']));
-				if( $keyLeng==0 ){
-					$this->addResult('2FA key '.$blkName, 'warn', 'empty: the 2FA secrets are stored readable; "config secrt tfakey" makes one');
+				$keySize = strlen(strval($blkVal['tfakey']));
+				if( $keySize==0 ){
+					$this->addCheckResult('2FA key '.$blckNme, 'warn', 'empty: the 2FA secrets are stored readable; "config secrt tfakey" makes one');
 				}else{
-					$this->addResult( '2FA key '.$blkName, ($keyLeng>=Totp::SEALSIZE) ? 'fine' : 'fail', ($keyLeng>=Totp::SEALSIZE) ? 'set' : 'too short: '.Totp::SEALSIZE.' characters at least; "config secrt tfakey" makes one' );
+					$this->addCheckResult( '2FA key '.$blckNme, ($keySize>=Totp::SEAL_SIZE) ? 'fine' : 'fail', ($keySize>=Totp::SEAL_SIZE) ? 'set' : 'too short: '.Totp::SEAL_SIZE.' characters at least; "config secrt tfakey" makes one' );
 				}
 			}
 			if( ($blkVal['unsecure'] ?? false)===true ){
-				$this->addResult('unsecure '.$blkName, 'warn', 'weak password hashes are accepted by this block');
+				$this->addCheckResult('unsecure '.$blckNme, 'warn', 'weak password hashes are accepted by this block');
 			}
-			$this->chkMailer($blkName, $blkVal);
+			$this->validateMailer($blckNme, $blkVal);
 		}
 		// The key of the login marks : without one, the hold of an account also stops its owner
-		$lmtConf = $this->accessCnf('limits');
+		$lmtConf = $this->accessSettings('limits');
 		$mrkSize = strlen(strval($lmtConf['mrkkey'] ?? ''));
-		$this->addResult( 'login marks', ($mrkSize>=\nyu\Access\LoginMark::KEYSSIZE) ? 'fine' : 'warn', ($mrkSize>=\nyu\Access\LoginMark::KEYSSIZE) ? 'set: a client already used logs in while its account is held' : 'no mrkkey of '.\nyu\Access\LoginMark::KEYSSIZE.' characters: the hold of an account also stops its owner; "config secrt mrkkey" makes one' );
+		$this->addCheckResult( 'login marks', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'fine' : 'warn', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'set: a client already used logs in while its account is held' : 'no mrkkey of '.\nyu\Access\LoginMark::KEYS_SIZE.' characters: the hold of an account also stops its owner; "config secrt mrkkey" makes one' );
 		// The language of the mails of a user who has none
-		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->getRowVal('SYSTEM', 'LNG_DFLT') ?? ''))) );
-		if( $dfltTag!=='' && !Language::checksTag($dfltTag) ){
-			$this->addResult('mail language', 'fail', 'LNG_DFLT is not a language tag (en, fr, fr-ch): the mails are written in en');
+		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->obtainRowValue('SYSTEM', 'LNG_DFLT') ?? ''))) );
+		if( $dfltTag!=='' && !Language::isValidLangTag($dfltTag) ){
+			$this->addCheckResult('mail language', 'fail', 'LNG_DFLT is not a language tag (en, fr, fr-ch): the mails are written in en');
 		}
 	}
 
@@ -383,44 +383,44 @@ class HealthChk{
 	 * account 'mailer' names, the front-end address of 'lnkurl', and a
 	 * 'signup' that no mail can confirm.
 	 *
-	 * @param String $blockNamed Name of the block.
-	 * @param Array  $blockValue Its values.
+	 * @param String $blckNamedTxt Name of the block.
+	 * @param Array  $blckValueArr Its values.
 	 */
-	protected function chkMailer( String $blockNamed, Array $blockValue ): Void {
-		$acntNme = $blockValue['mailer'] ?? null;
+	protected function validateMailer( String $blckNamedTxt, Array $blckValueArr ): Void {
+		$acntNme = $blckValueArr['mailer'] ?? null;
 		$hasMail = is_string($acntNme) && $acntNme!=='';
 		if( $hasMail ){
 			try{
-				$acntSet = Mailer::acntSetup($acntNme);
-				$this->addResult( 'access mails '.$blockNamed, 'fine', 'through the account '.$acntNme.' ('.$acntSet['type'].')' );
+				$acntSet = Mailer::acntSetupArray($acntNme);
+				$this->addCheckResult( 'access mails '.$blckNamedTxt, 'fine', 'through the account '.$acntNme.' ('.$acntSet['type'].')' );
 			}catch( \Throwable $e ){
-				$this->addResult('access mails '.$blockNamed, 'fail', 'mailer names no account of conf/mailer.json: '.$e->getMessage());
+				$this->addCheckResult('access mails '.$blckNamedTxt, 'fail', 'mailer names no account of conf/mailer.json: '.$e->getMessage());
 			}
 		}elseif( $acntNme!==null && $acntNme!=='' ){
-			$this->addResult('access mails '.$blockNamed, 'fail', 'mailer is the name of a mail account, as a text');
+			$this->addCheckResult('access mails '.$blckNamedTxt, 'fail', 'mailer is the name of a mail account, as a text');
 		}
-		$linkTpl = $blockValue['lnkurl'] ?? null;
-		if( $linkTpl!==null && $linkTpl!=='' && ( !is_string($linkTpl) || !preg_match('#^https?://[^\s]+$#Di', $linkTpl) || strpos($linkTpl, '%code%')===false ) ){
-			$this->addResult('access link '.$blockNamed, 'fail', 'lnkurl is an http(s) address holding %code% (and %kind%, %user% as needed)');
+		$lnkTmpl = $blckValueArr['lnkurl'] ?? null;
+		if( $lnkTmpl!==null && $lnkTmpl!=='' && ( !is_string($lnkTmpl) || !preg_match('#^https?://[^\s]+$#Di', $lnkTmpl) || strpos($lnkTmpl, '%code%')===false ) ){
+			$this->addCheckResult('access link '.$blckNamedTxt, 'fail', 'lnkurl is an http(s) address holding %code% (and %kind%, %user% as needed)');
 		}
-		if( array_key_exists('codexp', $blockValue) && (!is_int($blockValue['codexp']) || $blockValue['codexp']<1) ){
-			$this->addResult('access codes '.$blockNamed, 'fail', 'codexp is the minutes a mailed code lasts: a whole number, 1 at least');
+		if( array_key_exists('codexp', $blckValueArr) && (!is_int($blckValueArr['codexp']) || $blckValueArr['codexp']<1) ){
+			$this->addCheckResult('access codes '.$blckNamedTxt, 'fail', 'codexp is the minutes a mailed code lasts: a whole number, 1 at least');
 		}
-		if( ($blockValue['signup'] ?? false)===true && !$hasMail ){
-			$this->addResult('sign-ups '.$blockNamed, 'warn', 'signup is on, but no mailer confirms the addresses: nobody can sign up');
+		if( ($blckValueArr['signup'] ?? false)===true && !$hasMail ){
+			$this->addCheckResult('sign-ups '.$blckNamedTxt, 'warn', 'signup is on, but no mailer confirms the addresses: nobody can sign up');
 		}
 		// The limits of the sign-ups : how many wait at once, how many one client makes, the counts the managers are told at
 		$regFlaw = Array();
 		foreach( Array('regtop', 'regmax') as $regKey ){
-			if( array_key_exists($regKey, $blockValue) && (!is_int($blockValue[$regKey]) || $blockValue[$regKey]<1) ){
+			if( array_key_exists($regKey, $blckValueArr) && (!is_int($blckValueArr[$regKey]) || $blckValueArr[$regKey]<1) ){
 				$regFlaw[] = $regKey.' is a whole number, 1 at least';
 			}
 		}
-		if( array_key_exists('regwrn', $blockValue) && ( !is_array($blockValue['regwrn']) || array_values($blockValue['regwrn'])!==$blockValue['regwrn'] || count(array_filter($blockValue['regwrn'], function( Mixed $warnNumber ): Bool { return is_int($warnNumber) && $warnNumber>0; }))!==count($blockValue['regwrn']) ) ){
+		if( array_key_exists('regwrn', $blckValueArr) && ( !is_array($blckValueArr['regwrn']) || array_values($blckValueArr['regwrn'])!==$blckValueArr['regwrn'] || count(array_filter($blckValueArr['regwrn'], function( Mixed $warningCount ): Bool { return is_int($warningCount) && $warningCount>0; }))!==count($blckValueArr['regwrn']) ) ){
 			$regFlaw[] = 'regwrn is a list of whole numbers';
 		}
 		if( !empty($regFlaw) ){
-			$this->addResult('sign-up limits '.$blockNamed, 'fail', implode('; ', $regFlaw));
+			$this->addCheckResult('sign-up limits '.$blckNamedTxt, 'fail', implode('; ', $regFlaw));
 		}
 	}
 
@@ -432,104 +432,104 @@ class HealthChk{
 	 * still checking the tokens signed before the keys were replaced.
 	 * Tokens bound to no project are told; values of the wrong kind fail.
 	 *
-	 * @param String $blockNamed Name of the block.
-	 * @param Array  $blockValue Its values.
+	 * @param String $blckNamedTxt Name of the block.
+	 * @param Array  $blckValueArr Its values.
 	 */
-	protected function chkClaims( String $blockNamed, Array $blockValue ): Void {
-		$appsBlk = array_key_exists('applst', $blockValue);
+	protected function validateClaims( String $blckNamedTxt, Array $blckValueArr ): Void {
+		$appKeys = array_key_exists('applst', $blckValueArr);
 		$clmFlaw = Array();
-		$audnVal = $blockValue['audnce'] ?? Array();
-		if( !is_string($audnVal) && !( is_array($audnVal) && array_values($audnVal)===$audnVal && count(array_filter($audnVal, 'is_string'))===count($audnVal) ) ){
+		$adncVal = $blckValueArr['audnce'] ?? Array();
+		if( !is_string($adncVal) && !( is_array($adncVal) && array_values($adncVal)===$adncVal && count(array_filter($adncVal, 'is_string'))===count($adncVal) ) ){
 			$clmFlaw[] = 'audnce is a text or a list of texts';
 		}
-		if( !$appsBlk && !is_string($blockValue['issuer'] ?? '') ){
+		if( !$appKeys && !is_string($blckValueArr['issuer'] ?? '') ){
 			$clmFlaw[] = 'issuer is a text';
 		}
-		foreach( ($appsBlk && is_array($blockValue['applst'])) ? $blockValue['applst'] : Array() as $appKey => $appSet ){
+		foreach( ($appKeys && is_array($blckValueArr['applst'])) ? $blckValueArr['applst'] : Array() as $appKey => $appSet ){
 			if( is_array($appSet) && array_key_exists('issuer', $appSet) && !is_string($appSet['issuer']) ){
 				$clmFlaw[] = 'the issuer of the application '.json_encode(strval($appKey)).' is a text';
 			}
 		}
-		$oldPath = trim(strval($blockValue['oldpub'] ?? ''), '/\\ ');
+		$oldPath = trim(strval($blckValueArr['oldpub'] ?? ''), '/\\ ');
 		if( $oldPath!='' ){
 			$oldText = is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $oldPath)) ? strval(@file_get_contents(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $oldPath))) : '';
-			$oldObjc = ($oldText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($oldText) : false;
-			$oldInfo = ($oldObjc!==false) ? openssl_pkey_get_details($oldObjc) : false;
-			if( !is_array($oldInfo) || ($oldInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($oldInfo['bits'] ?? 0)<JWT::RSAMINIM ){
-				$clmFlaw[] = 'oldpub is not the public RSA key of '.JWT::RSAMINIM.' bits at least: empty it, or "config secrt jtoken" writes it';
-			}elseif( ($blockValue['algrtm'] ?? '')!='RS256' ){
-				$this->addResult('previous key '.$blockNamed, 'warn', 'oldpub is only read with RS256');
-			}elseif( !is_int($blockValue['retire'] ?? null) || $blockValue['retire'] + max(1, intval($blockValue['lifetm'] ?? 3600))<time() ){
+			$prevObj = ($oldText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($oldText) : false;
+			$oldInfo = ($prevObj!==false) ? openssl_pkey_get_details($prevObj) : false;
+			if( !is_array($oldInfo) || ($oldInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($oldInfo['bits'] ?? 0)<JWT::RSAS_BITS ){
+				$clmFlaw[] = 'oldpub is not the public RSA key of '.JWT::RSAS_BITS.' bits at least: empty it, or "config secrt jtoken" writes it';
+			}elseif( ($blckValueArr['algrtm'] ?? '')!='RS256' ){
+				$this->addCheckResult('previous key '.$blckNamedTxt, 'warn', 'oldpub is only read with RS256');
+			}elseif( !is_int($blckValueArr['retire'] ?? null) || $blckValueArr['retire'] + max(1, intval($blckValueArr['lifetm'] ?? 3600))<time() ){
 				// Past the time the tokens it signed could last, or never retired : it checks nothing any more
-				$this->addResult('previous key '.$blockNamed, 'warn', 'oldpub checks no token any more (no retire time, or past it by lifetm): it can be removed');
+				$this->addCheckResult('previous key '.$blckNamedTxt, 'warn', 'oldpub checks no token any more (no retire time, or past it by lifetm): it can be removed');
 			}
 		}
 		if( !empty($clmFlaw) ){
-			$this->addResult('token claims '.$blockNamed, 'fail', implode('; ', $clmFlaw));
+			$this->addCheckResult('token claims '.$blckNamedTxt, 'fail', implode('; ', $clmFlaw));
 			return;
 		}
-		$hasAudn = ( is_string($audnVal) ? trim($audnVal)!='' : count(array_filter(array_map('trim', $audnVal)))>0 );
-		$hasIssr = $appsBlk || trim(strval($blockValue['issuer'] ?? ''))!='';
-		if( !$hasAudn || !$hasIssr ){
-			$this->addResult('token claims '.$blockNamed, 'warn', $appsBlk
-				? 'no audnce: the tokens of the applications are not bound to this project; "config write access '.$blockNamed.'.audnce" sets it'
-				: 'no issuer or no audnce: the tokens are not bound to this project; "config write access '.$blockNamed.'.issuer" and ".audnce" set them');
+		$hasAdnc = ( is_string($adncVal) ? trim($adncVal)!='' : count(array_filter(array_map('trim', $adncVal)))>0 );
+		$hasIssr = $appKeys || trim(strval($blckValueArr['issuer'] ?? ''))!='';
+		if( !$hasAdnc || !$hasIssr ){
+			$this->addCheckResult('token claims '.$blckNamedTxt, 'warn', $appKeys
+				? 'no audnce: the tokens of the applications are not bound to this project; "config write access '.$blckNamedTxt.'.audnce" sets it'
+				: 'no issuer or no audnce: the tokens are not bound to this project; "config write access '.$blckNamedTxt.'.issuer" and ".audnce" set them');
 			return;
 		}
-		$this->addResult('token claims '.$blockNamed, 'fine', $appsBlk ? 'audience '.json_encode($audnVal) : 'issuer '.json_encode($blockValue['issuer']).', audience '.json_encode($audnVal));
+		$this->addCheckResult('token claims '.$blckNamedTxt, 'fine', $appKeys ? 'audience '.json_encode($adncVal) : 'issuer '.json_encode($blckValueArr['issuer']).', audience '.json_encode($adncVal));
 	}
 
 	/**
 	 * Checks the keys of a block signing its tokens with RS256: a private
 	 * key that signs and the public key checking them, or the public key
 	 * alone when the tokens are issued by another server. A key must be an
-	 * RSA key of JWT::RSAMINIM bits at least, and the public key the one of
+	 * RSA key of JWT::RSAS_BITS bits at least, and the public key the one of
 	 * the private key; a private key readable by the other users of the
 	 * server is told.
 	 *
-	 * @param String $blockNamed Name of the block.
-	 * @param Array  $blockValue Its values.
+	 * @param String $blckNamedTxt Name of the block.
+	 * @param Array  $blckValueArr Its values.
 	 */
-	protected function chkRsakey( String $blockNamed, Array $blockValue ): Void {
+	protected function validateRsakey( String $blckNamedTxt, Array $blckValueArr ): Void {
 		$keyText = Array();
 		foreach( Array('prvkey', 'pubkey') as $keyNme ){
-			$keyPath = trim(strval($blockValue[$keyNme] ?? ''), '/\\ ');
+			$keyPath = trim(strval($blckValueArr[$keyNme] ?? ''), '/\\ ');
 			$keyPath = ($keyPath=='') ? '' : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $keyPath);
 			$keyText[$keyNme] = ($keyPath!='' && is_file($keyPath)) ? strval(@file_get_contents($keyPath)) : '';
 			if( $keyNme=='prvkey' && $keyText[$keyNme]!='' && DS=='/' && (fileperms($keyPath) & 0044)!=0 ){
-				$this->addResult('key rights '.$blockNamed, 'warn', 'the private key can be read by other users of the server: chmod 600 '.strval($blockValue['prvkey']));
+				$this->addCheckResult('key rights '.$blckNamedTxt, 'warn', 'the private key can be read by other users of the server: chmod 600 '.strval($blckValueArr['prvkey']));
 			}
 		}
 		if( !function_exists('openssl_pkey_get_public') ){
-			$this->addResult('token keys '.$blockNamed, 'fail', 'RS256 needs the openssl extension');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'RS256 needs the openssl extension');
 			return;
 		}
-		$prvObjc = ($keyText['prvkey']!='') ? @openssl_pkey_get_private($keyText['prvkey']) : false;
-		$pubObjc = ($keyText['pubkey']!='') ? @openssl_pkey_get_public($keyText['pubkey']) : false;
+		$privKey = ($keyText['prvkey']!='') ? @openssl_pkey_get_private($keyText['prvkey']) : false;
+		$publObj = ($keyText['pubkey']!='') ? @openssl_pkey_get_public($keyText['pubkey']) : false;
 		$keyBits = Array();
-		foreach( Array($prvObjc, $pubObjc) as $keyObj ){
+		foreach( Array($privKey, $publObj) as $keyObj ){
 			$keyInfo = ($keyObj!==false) ? openssl_pkey_get_details($keyObj) : false;
 			if( is_array($keyInfo) ){
 				$keyBits[] = (($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA) ? intval($keyInfo['bits'] ?? 0) : 0;
 			}
 		}
 		// A public key laid over the server's own (a bundle of another pair) no longer checks what its private key signs
-		$pairsOk = ($prvObjc===false || $pubObjc===false) || strval(openssl_pkey_get_details($prvObjc)['key'] ?? '')===strval(openssl_pkey_get_details($pubObjc)['key'] ?? '');
-		if( ($keyText['prvkey']!='' && $prvObjc===false) || ($keyText['pubkey']!='' && $pubObjc===false) ){
-			$this->addResult('token keys '.$blockNamed, 'fail', 'a key file is not a PEM key: "config secrt jtoken" makes a new pair');
+		$pairsOk = ($privKey===false || $publObj===false) || strval(openssl_pkey_get_details($privKey)['key'] ?? '')===strval(openssl_pkey_get_details($publObj)['key'] ?? '');
+		if( ($keyText['prvkey']!='' && $privKey===false) || ($keyText['pubkey']!='' && $publObj===false) ){
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'a key file is not a PEM key: "config secrt jtoken" makes a new pair');
 		}elseif( !$pairsOk ){
-			$this->addResult('token keys '.$blockNamed, 'fail', 'the public key is not the one of the private key: "config secrt jtoken" makes a new pair');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'the public key is not the one of the private key: "config secrt jtoken" makes a new pair');
 		}elseif( empty($keyBits) ){
-			$this->addResult('token keys '.$blockNamed, 'fail', 'missing: "config secrt jtoken" makes them');
-		}elseif( min($keyBits)<JWT::RSAMINIM ){
-			$this->addResult('token keys '.$blockNamed, 'fail', 'not an RSA key of '.JWT::RSAMINIM.' bits at least: "config secrt jtoken" makes a new pair');
-		}elseif( $prvObjc===false && ($blockValue['extern'] ?? false)!==true && !empty($lgnConf = $this->accessCnf('login')) && strval($lgnConf['sessby'] ?? 'jtoken')=='jtoken' && strtolower(strval($lgnConf['sesscf'] ?? 'dftokn'))==$blockNamed ){
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'missing: "config secrt jtoken" makes them');
+		}elseif( min($keyBits)<JWT::RSAS_BITS ){
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "config secrt jtoken" makes a new pair');
+		}elseif( $privKey===false && ($blckValueArr['extern'] ?? false)!==true && !empty($lgnConf = $this->accessSettings('login')) && strval($lgnConf['sessby'] ?? 'jtoken')=='jtoken' && strtolower(strval($lgnConf['sesscf'] ?? 'dftokn'))==$blckNamedTxt ){
 			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-			$isFinal = in_array(strtoupper(strval(($nyuConf!==null) ? $nyuConf->getRowVal('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
-			$this->addResult('token keys '.$blockNamed, $isFinal ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "config secrt jtoken" makes a pair; "extern": true when the tokens come from another server');
+			$isFinal = in_array(strtoupper(strval(($nyuConf!==null) ? $nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
+			$this->addCheckResult('token keys '.$blckNamedTxt, $isFinal ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "config secrt jtoken" makes a pair; "extern": true when the tokens come from another server');
 		}else{
-			$this->addResult('token keys '.$blockNamed, 'fine', ($prvObjc===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($keyBits).' bits');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fine', ($privKey===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($keyBits).' bits');
 		}
 	}
 
@@ -537,34 +537,34 @@ class HealthChk{
 	 * Checks every configured database: its extension is loaded, and it
 	 * answers.
 	 */
-	public function chkDbases(): Void {
+	public function checkDatabases(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$allBase = ($nyuConf!==null) ? $nyuConf->readValue('database') : null;
+		$allBase = ($nyuConf!==null) ? $nyuConf->readFileDetail('database') : null;
 		if( !is_array($allBase) || empty($allBase) ){
-			$needsDb = strval($this->accessCnf('login')['authby'] ?? '')=='native';
-			$this->addResult( 'databases', $needsDb ? 'fail' : 'fine', $needsDb ? 'none is configured, and the login uses the native userbase' : 'none is configured' );
+			$needsDb = strval($this->accessSettings('login')['authby'] ?? '')=='native';
+			$this->addCheckResult( 'databases', $needsDb ? 'fail' : 'fine', $needsDb ? 'none is configured, and the login uses the native userbase' : 'none is configured' );
 			return;
 		}
 		$allBase = array_change_key_case($allBase, CASE_LOWER);
-		foreach( (array_key_exists('type', $allBase) ? Array('') : array_keys($allBase)) as $basNme ){
-			$basName = strval($basNme);
-			$rowName = 'database'.( $basName!='' ? ' '.$basName : '' );
+		foreach( (array_key_exists('type', $allBase) ? Array('') : array_keys($allBase)) as $dbName ){
+			$baseNme = strval($dbName);
+			$rowName = 'database'.( $baseNme!='' ? ' '.$baseNme : '' );
 			try{
-				$baseTyp = strtolower( strval(DBCon::baseSetup($basName)['type']) );
-				$extName = self::BASEEXTS[$baseTyp] ?? '';
+				$baseTyp = strtolower( strval(DBCon::baseSetupArray($baseNme)['type']) );
+				$extName = self::BASE_EXTS[$baseTyp] ?? '';
 				if( $extName!='' && !extension_loaded($extName) ){
-					$this->addResult($rowName, 'fail', 'the extension '.$extName.' is not loaded');
+					$this->addCheckResult($rowName, 'fail', 'the extension '.$extName.' is not loaded');
 					continue;
 				}
-				$dbHandl = DBCon::linkNamed($basName)->getConnex();
-				if( $dbHandl===null ){
-					$this->addResult($rowName, 'fine', 'configured ('.$baseTyp.'); not an SQL database, not asked');
+				$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
+				if( $dbHndlr===null ){
+					$this->addCheckResult($rowName, 'fine', 'configured ('.$baseTyp.'); not an SQL database, not asked');
 					continue;
 				}
-				$isReady = $dbHandl->sendQuery('SELECT 1;');
-				$this->addResult( $rowName, $isReady ? 'fine' : 'fail', $isReady ? 'answers ('.$baseTyp.')' : 'does not answer: '.strval($dbHandl->lastError()) );
+				$isReady = $dbHndlr->sendBuiltQuery('SELECT 1;');
+				$this->addCheckResult( $rowName, $isReady ? 'fine' : 'fail', $isReady ? 'answers ('.$baseTyp.')' : 'does not answer: '.strval($dbHndlr->finalErrorText()) );
 			}catch( \Throwable $e ){
-				$this->addResult($rowName, 'fail', 'does not answer: '.$e->getMessage());
+				$this->addCheckResult($rowName, 'fail', 'does not answer: '.$e->getMessage());
 			}
 		}
 	}
@@ -573,28 +573,28 @@ class HealthChk{
 	 * Checks the store of the users the login names: the users table of
 	 * the native userbase, the users file, or the htpasswd file.
 	 */
-	public function chkStores(): Void {
-		$lgnConf = $this->accessCnf('login');
+	public function validateStores(): Void {
+		$lgnConf = $this->accessSettings('login');
 		$authNme = strval($lgnConf['authby'] ?? '');
-		$blkConf = $this->accessCnf( strval($lgnConf['authcf'] ?? '') );
+		$blckCfg = $this->accessSettings( strval($lgnConf['authcf'] ?? '') );
 		if( $authNme=='native' ){
 			try{
-				$dbHandl = DBCon::linkNamed( strval($blkConf['basnme'] ?? '') )->getConnex();
-				$tblName = strval($blkConf['tblnme'] ?? 'users');
-				$hasTble = ($dbHandl!==null) && $dbHandl->tableInfo($tblName)!==false;
-				$this->addResult( 'users', $hasTble ? 'fine' : 'fail', $hasTble ? 'the table '.$tblName.' is there' : 'the table '.$tblName.' is missing: "deploy users" creates it' );
+				$dbHndlr = DBCon::linkNamedDbCon( strval($blckCfg['basnme'] ?? '') )->readConnection();
+				$tblName = strval($blckCfg['tblnme'] ?? 'users');
+				$hasTble = ($dbHndlr!==null) && $dbHndlr->tableInfoArray($tblName)!==false;
+				$this->addCheckResult( 'users', $hasTble ? 'fine' : 'fail', $hasTble ? 'the table '.$tblName.' is there' : 'the table '.$tblName.' is missing: "deploy users" creates it' );
 			}catch( \Throwable $e ){
-				$this->addResult('users', 'fail', 'the userbase cannot be read: '.$e->getMessage());
+				$this->addCheckResult('users', 'fail', 'the userbase cannot be read: '.$e->getMessage());
 			}
 		}elseif( $authNme=='usrlst' ){
-			$chkObjc = new UserList($blkConf);
-			$chkObjc->userIdent('-');
-			$isReady = ($chkObjc->lastError()!='Credential store unavailable');
-			$this->addResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the users file is read' : 'the users file is missing or cannot be used: "deploy users" creates it' );
+			$chckObj = new UserList($blckCfg);
+			$chckObj->usrIdentityArr('-');
+			$isReady = ($chckObj->finalErrorText()!='Credential store unavailable');
+			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the users file is read' : 'the users file is missing or cannot be used: "deploy users" creates it' );
 		}elseif( $authNme=='htpass' ){
-			$htpName = trim( strval($blkConf['htpasswd'] ?? ''), '/\\ ' );
-			$isReady = ($htpName!='') && is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $htpName));
-			$this->addResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "config secrt htpass <user>" writes it' );
+			$pwdFile = trim( strval($blckCfg['htpasswd'] ?? ''), '/\\ ' );
+			$isReady = ($pwdFile!='') && is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $pwdFile));
+			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "config secrt htpass <user>" writes it' );
 		}
 	}
 
@@ -602,36 +602,36 @@ class HealthChk{
 	 * Checks what must not be left on where real users come: errors
 	 * shown, proxies trusted from anywhere, secrets readable by others.
 	 */
-	public function chkUnsafe(): Void {
+	public function validateUnsafe(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$sysConf = ($nyuConf!==null) ? ($nyuConf->readValue('system') ?: Array()) : Array();
-		$envName = strtoupper( strval($sysConf['ENV_NAME'] ?? '') );
-		$showErr = in_array( strtoupper(strval($sysConf['ERR_SHOW'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true );
-		$errStat = ( $showErr && in_array($envName, Array('PROD', 'PREV'), true) ) ? 'warn' : 'fine';
+		$iniConf = ($nyuConf!==null) ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$envName = strtoupper( strval($iniConf['ENV_NAME'] ?? '') );
+		$showErr = in_array( strtoupper(strval($iniConf['ERR_SHOW'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true );
+		$errStts = ( $showErr && in_array($envName, Array('PROD', 'PREV'), true) ) ? 'warn' : 'fine';
 		// In production the setting is not followed : nothing of an error is shown there
-		$errNote = ($errStat=='fine') ? '' : ( $envName=='PROD' ? ', where it is ignored: set it to FALSE' : ': the details of an error are shown to the clients' );
-		$this->addResult( 'errors', $errStat, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).$errNote );
+		$errNote = ($errStts=='fine') ? '' : ( $envName=='PROD' ? ', where it is ignored: set it to FALSE' : ': the details of an error are shown to the clients' );
+		$this->addCheckResult( 'errors', $errStts, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).$errNote );
 		// A level that cannot be read stops every request at its start
 		try{
-			$errLevl = (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->errConfig();
-			$this->addResult( 'error level', 'fine', ($errLevl==E_ALL) ? 'every error is reported (E_ALL)' : 'ERR_LEVL reports level '.$errLevl.' of '.E_ALL );
+			$errrLvl = (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->errorConfigNum();
+			$this->addCheckResult( 'error level', 'fine', ($errrLvl==E_ALL) ? 'every error is reported (E_ALL)' : 'ERR_LEVL reports level '.$errrLvl.' of '.E_ALL );
 		}catch( \RuntimeException $e ){
-			$this->addResult( 'error level', 'fail', $e->getMessage().': no request can be served' );
+			$this->addCheckResult( 'error level', 'fail', $e->getMessage().': no request can be served' );
 		}
-		if( preg_match('#(^|[\s,])(0\.0\.0\.0|::)/0#', strval($sysConf['PRX_LIST'] ?? '')) ){
-			$this->addResult('proxies', 'fail', 'PRX_LIST trusts every address: any client can then give itself the address it wants');
+		if( preg_match('#(^|[\s,])(0\.0\.0\.0|::)/0#', strval($iniConf['PRX_LIST'] ?? '')) ){
+			$this->addCheckResult('proxies', 'fail', 'PRX_LIST trusts every address: any client can then give itself the address it wants');
 		}
-		if( array_key_exists('REQ_SIZE', $sysConf) && intval($sysConf['REQ_SIZE'])<1 ){
-			$this->addResult('requests', 'warn', 'REQ_SIZE is 0: a request body of any size is read in memory');
+		if( array_key_exists('REQ_SIZE', $iniConf) && intval($iniConf['REQ_SIZE'])<1 ){
+			$this->addCheckResult('requests', 'warn', 'REQ_SIZE is 0: a request body of any size is read in memory');
 		}
 		$envPath = TOP_DIR.DS.'.env';
 		if( DIRECTORY_SEPARATOR=='/' && is_file($envPath) && (fileperms($envPath) & 0077)!=0 ){
-			$this->addResult('.env', 'warn', 'the file of the secrets can be read by other users of the system: chmod 600 .env');
+			$this->addCheckResult('.env', 'warn', 'the file of the secrets can be read by other users of the system: chmod 600 .env');
 		}
 		// The limiter is checked for what it would do, not for what it holds
-		$lmtConf = $this->accessCnf('limits');
+		$lmtConf = $this->accessSettings('limits');
 		if( !empty($lmtConf) && intval($lmtConf['maxtry'] ?? 10)<1 ){
-			$this->addResult('limits', 'warn', 'the limit by address is off (maxtry 0): wrong credentials can be tried without end');
+			$this->addCheckResult('limits', 'warn', 'the limit by address is off (maxtry 0): wrong credentials can be tried without end');
 		}
 	}
 
@@ -640,22 +640,22 @@ class HealthChk{
 	 * 'login' block names: one that does not exist, or a block of
 	 * settings the access config does not hold.
 	 *
-	 * @param Array $accessConf The block, with its 'sessby', 'sesscf', 'authby' and 'authcf' keys.
+	 * @param Array $accessConfig The block, with its 'sessby', 'sesscf', 'authby' and 'authcf' keys.
 	 * @return String What is wrong, empty when nothing is.
 	 */
-	protected function pairFlaws( Array $accessConf ): String {
-		$sessNme = strval($accessConf['sessby'] ?? '');
-		if( Checker::sessClass($sessNme)===null ){
+	protected function coupleFlawsTxt( Array $accessConfig ): String {
+		$sessNme = strval($accessConfig['sessby'] ?? '');
+		if( Checker::sessnClassText($sessNme)===null ){
 			return 'unknown session carrier "'.$sessNme.'"';
 		}
-		$authNme = $accessConf['authby'] ?? null;
-		if( $authNme!==null && Checker::authClass(strval($authNme))===null ){
+		$authNme = $accessConfig['authby'] ?? null;
+		if( $authNme!==null && Checker::authClssString(strval($authNme))===null ){
 			return 'unknown credential check "'.strval($authNme).'"';
 		}
 		foreach( Array('sesscf', 'authcf') as $cnfKey ){
-			$blkName = strval($accessConf[$cnfKey] ?? '');
-			if( $blkName!='' && empty($this->accessCnf($blkName)) ){
-				return 'conf/access.json has no "'.$blkName.'" block, named by '.$cnfKey;
+			$blckNme = strval($accessConfig[$cnfKey] ?? '');
+			if( $blckNme!='' && empty($this->accessSettings($blckNme)) ){
+				return 'conf/access.json has no "'.$blckNme.'" block, named by '.$cnfKey;
 			}
 		}
 		return '';
@@ -664,23 +664,23 @@ class HealthChk{
 	/**
 	 * Reads a block of the ACCESS config.
 	 *
-	 * @param String $blockNamed Name of the block.
+	 * @param String $blckNamedTxt Name of the block.
 	 * @return Array Its values, empty when there is no such block.
 	 */
-	protected function accessCnf( String $blockNamed ): Array {
+	protected function accessSettings( String $blckNamedTxt ): Array {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$blkConf = ($nyuConf!==null && $blockNamed!='') ? $nyuConf->getRowVal('ACCESS', strtoupper($blockNamed)) : null;
-		return is_array($blkConf) ? $blkConf : Array();
+		$blckCfg = ($nyuConf!==null && $blckNamedTxt!='') ? $nyuConf->obtainRowValue('ACCESS', strtoupper($blckNamedTxt)) : null;
+		return is_array($blckCfg) ? $blckCfg : Array();
 	}
 
 	/**
 	 * Records the result of a check.
 	 *
-	 * @param String $checkLabel What was checked.
-	 * @param String $checkState 'fine', 'warn' or 'fail'.
-	 * @param String $detailText What was found.
+	 * @param String $checkSubject What was checked.
+	 * @param String $checkOutcome 'fine', 'warn' or 'fail'.
+	 * @param String $foundDetails What was found.
 	 */
-	protected function addResult( String $checkLabel, String $checkState, String $detailText ): Void {
-		$this->rowsList[] = Array($checkLabel, $checkState, $detailText);
+	protected function addCheckResult( String $checkSubject, String $checkOutcome, String $foundDetails ): Void {
+		$this->resultRows[] = Array($checkSubject, $checkOutcome, $foundDetails);
 	}
 }

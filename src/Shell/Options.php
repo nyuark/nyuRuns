@@ -9,28 +9,28 @@ namespace nyu\Shell;
  */
 class Options{
 
-	protected $wordList = Array();
-	protected $optnList = Array();
+	protected $shellWords = Array();
+	protected $optionList = Array();
 
 	/**
 	 * Reads the words and options of a command line.
 	 *
-	 * @param Array $givenWords The arguments of the command line, without the name of the script.
+	 * @param Array $commandWords The arguments of the command line, without the name of the script.
 	 */
-	function __construct( Array $givenWords ){
-		$optsEnd = false;
-		foreach( $givenWords as $gvnWrd ){
+	function __construct( Array $commandWords ){
+		$optDone = false;
+		foreach( $commandWords as $gvnWrd ){
 			$gvnWrd = strval($gvnWrd);
-			if( !$optsEnd && $gvnWrd==='--' ){
-				$optsEnd = true;
+			if( !$optDone && $gvnWrd==='--' ){
+				$optDone = true;
 				continue;
 			}
-			if( !$optsEnd && strlen($gvnWrd)>2 && substr($gvnWrd, 0, 2)==='--' ){
-				$optPart = explode('=', substr($gvnWrd, 2), 2);
-				$this->optnList[$optPart[0]] = $optPart[1] ?? true;
+			if( !$optDone && strlen($gvnWrd)>2 && substr($gvnWrd, 0, 2)==='--' ){
+				$optWord = explode('=', substr($gvnWrd, 2), 2);
+				$this->optionList[$optWord[0]] = $optWord[1] ?? true;
 				continue;
 			}
-			$this->wordList[] = $gvnWrd;
+			$this->shellWords[] = $gvnWrd;
 		}
 	}
 
@@ -39,8 +39,8 @@ class Options{
 	 *
 	 * @return ?String The word, or null when none is left.
 	 */
-	public function shiftWord(): ?String {
-		return array_shift($this->wordList);
+	public function shiftFirstWord(): ?String {
+		return array_shift($this->shellWords);
 	}
 
 	/**
@@ -48,29 +48,29 @@ class Options{
 	 *
 	 * @return Array The words, in order.
 	 */
-	public function restWords(): Array {
-		return $this->wordList;
+	public function restWordsArray(): Array {
+		return $this->shellWords;
 	}
 
 	/**
 	 * Tells whether an option was written, with or without a value.
 	 *
-	 * @param String $optionName Name of the option, without its dashes.
+	 * @param String $nameOfOption Name of the option, without its dashes.
 	 * @return Bool True when it was written.
 	 */
-	public function hasOption( String $optionName ): Bool {
-		return isset($this->optnList[$optionName]);
+	public function validateOption( String $nameOfOption ): Bool {
+		return isset($this->optionList[$nameOfOption]);
 	}
 
 	/**
 	 * Gives the value of an option.
 	 *
-	 * @param String  $optionName Name of the option, without its dashes.
-	 * @param ?String $defaultVal Value given when the option was not written, or written without a value.
+	 * @param String  $nameOfOption Name of the option, without its dashes.
+	 * @param ?String $defaultValue Value given when the option was not written, or written without a value.
 	 * @return ?String The value.
 	 */
-	public function getOption( String $optionName, ?String $defaultVal=null ): ?String {
-		$optnVal = $this->optnList[$optionName] ?? null;
-		return is_string($optnVal) ? $optnVal : $defaultVal;
+	public function retrieveOption( String $nameOfOption, ?String $defaultValue=null ): ?String {
+		$optnVal = $this->optionList[$nameOfOption] ?? null;
+		return is_string($optnVal) ? $optnVal : $defaultValue;
 	}
 }

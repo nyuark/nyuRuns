@@ -34,13 +34,13 @@ use nyu\Shell\UserFile;
 class Deploy extends Command{
 
 	// The local files, and the example each is created from
-	const DISTLIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist');
+	const DIST_LIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist');
 	// The basic users, and the role of each
-	const USERLIST = Array('member'=>'member', 'system'=>'system', 'managr'=>'manage');
+	const USER_LIST = Array('member'=>'member', 'system'=>'system', 'managr'=>'manage');
 	// The stores the users can be created in, and 'none' for a project without users of its own
-	const STORLIST = Array('native', 'usrlst', 'none');
+	const STOR_LIST = Array('native', 'usrlst', 'none');
 	// The block a store of users is given in conf/access.json when it has none
-	const STORCONF = Array(
+	const STOR_CONF = Array(
 		'native'=>Array('basnme'=>'', 'tblnme'=>'users', 'tfakey'=>'env:NYU_TFA_KEY', 'mailer'=>'', 'signup'=>false, 'codexp'=>15, 'lnkurl'=>''),
 		'usrlst'=>Array('usrfle'=>'conf/users.lst', 'tfakey'=>'env:NYU_TFA_KEY')
 	);
@@ -50,7 +50,7 @@ class Deploy extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function aboutText(): String {
+	public function describeInLine(): String {
 		return 'Installs the project: server check, local files, secrets, users, health check';
 	}
 
@@ -59,7 +59,7 @@ class Deploy extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTable(): Array {
+	public function subsTableArray(): Array {
 		return Array(
 			'start'=>Array('args'=>'[--store=<native|usrlst|none>] [--noask]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
 			'servr'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
@@ -77,42 +77,42 @@ class Deploy extends Command{
 	 * @return Int EXITDONE when the health check finds no failure, EXITFLAW otherwise.
 	 */
 	public function callStart(): Int {
-		$chkObjc = new HealthChk();
-		$chkObjc->chkServer();
-		$this->prntObjc->printRows( Array('check', 'state', 'found'), $chkObjc->rowsFound() );
-		if( $chkObjc->hasFailed() ){
-			$this->stopShell('The server cannot run the project: nothing was installed', self::EXITFLAW);
+		$chckObj = new HealthChk();
+		$chckObj->validateServer();
+		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $chckObj->rowsFoundArray() );
+		if( $chckObj->validateFailed() ){
+			$this->terminateShell('The server cannot run the project: nothing was installed', self::EXIT_FLAW);
 		}
 		// The settings of the database are made with the native userbase only : a project in the users file needs none
-		$this->makeFiles( Array('.env', 'conf/access.json') );
-		$storNme = $this->askSetups();
+		$this->makeLocalFiles( Array('.env', 'conf/access.json') );
+		$storNme = $this->querySetupsTxt();
 		// The secrets that are still empty are made; those in use are left alone
-		$cnfgCmd = new Config($this->optnObjc, $this->prntObjc, $this->inptStrm);
-		$scrtLst = Array('jtoken'=>'secret or keys of the tokens', 'apikey'=>'API key', 'mrkkey'=>'key of the login marks');
+		$confCmd = new Config($this->optnObject, $this->printerObj, $this->inptStream);
+		$secrLst = Array('jtoken'=>'secret or keys of the tokens', 'apikey'=>'API key', 'mrkkey'=>'key of the login marks');
 		// The 2FA secrets of the users are stored encrypted : their key is made with the store
 		if( $storNme!='none' ){
-			$scrtLst['tfakey'] = 'key of the 2FA secrets';
+			$secrLst['tfakey'] = 'key of the 2FA secrets';
 		}
-		foreach( $scrtLst as $kndNme => $kndLbl ){
+		foreach( $secrLst as $kndNme => $kndLbl ){
 			try{
-				$cnfgCmd->makeSecrt($kndNme, true);
+				$confCmd->generateSecret($kndNme, true);
 			}catch( \RuntimeException $e ){
-				$this->prntObjc->printLine( 'No '.$kndLbl.' made: '.$e->getMessage() );
+				$this->printerObj->printShellLine( 'No '.$kndLbl.' made: '.$e->getMessage() );
 			}
 		}
-		Console::loadConfg();
+		Console::loadConfigLogs();
 		if( $storNme!='none' ){
 			try{
-				$this->makeUsers($storNme, '');
+				$this->makeBasicUsers($storNme, '');
 			}catch( ShellStop $e ){
 				// The health check tells what is missing : the installation goes on to it
-				$this->prntObjc->printFail( $e->getMessage() );
+				$this->printerObj->printShellFail( $e->getMessage() );
 			}
 		}
 		// A config cache brought along, or left by a former installation, is not the config of this one
-		ConfCache::dropCache();
-		$this->traceDone('Deploy: installation run, users in '.$storNme);
-		return $this->showCheck();
+		ConfCache::clearMailCache();
+		$this->traceShellDone('Deploy: installation run, users in '.$storNme);
+		return $this->showCheckCount();
 	}
 
 	/**
@@ -121,11 +121,11 @@ class Deploy extends Command{
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
 	public function callServr(): Int {
-		$chkObjc = new HealthChk();
-		$chkObjc->chkServer();
-		$chkObjc->chkFoldrs();
-		$this->prntObjc->printRows( Array('check', 'state', 'found'), $chkObjc->rowsFound() );
-		return $chkObjc->hasFailed() ? self::EXITFLAW : self::EXITDONE;
+		$chckObj = new HealthChk();
+		$chckObj->validateServer();
+		$chckObj->checkFoldWrite();
+		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $chckObj->rowsFoundArray() );
+		return $chckObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
 	}
 
 	/**
@@ -134,8 +134,8 @@ class Deploy extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callFiles(): Int {
-		$this->makeFiles();
-		return self::EXITDONE;
+		$this->makeLocalFiles();
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -145,13 +145,13 @@ class Deploy extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callUsers(): Int {
-		$blkName = strval($this->optnObjc->shiftWord() ?? '');
-		$storNme = strval( $this->optnObjc->getOption('store', strval($this->accessCnf('login')['authby'] ?? '')) );
+		$blckNme = strval($this->optnObject->shiftFirstWord() ?? '');
+		$storNme = strval( $this->optnObject->retrieveOption('store', strval($this->accessSettings('login')['authby'] ?? '')) );
 		if( !in_array($storNme, Array('native', 'usrlst'), true) ){
-			$this->stopShell('The login uses neither the native userbase nor the users file: name the store with --store=native or --store=usrlst', self::EXITUSGE);
+			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --store=native or --store=usrlst', self::EXIT_HELP);
 		}
-		$this->makeUsers($storNme, $blkName);
-		return self::EXITDONE;
+		$this->makeBasicUsers($storNme, $blckNme);
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -160,7 +160,7 @@ class Deploy extends Command{
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
 	public function callCheck(): Int {
-		return $this->showCheck();
+		return $this->showCheckCount();
 	}
 
 	/**
@@ -177,113 +177,113 @@ class Deploy extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callStore(): Int {
-		$tgtName = $this->needsWord('the store the users go to: native or usrlst');
-		if( !in_array($tgtName, Array('native', 'usrlst'), true) ){
-			$this->stopShell('Not a store the users can be moved to: '.$tgtName, self::EXITUSGE);
+		$trgtNme = $this->needsShellWord('the store the users go to: native or usrlst');
+		if( !in_array($trgtNme, Array('native', 'usrlst'), true) ){
+			$this->terminateShell('Not a store the users can be moved to: '.$trgtNme, self::EXIT_HELP);
 		}
-		$lgnConf = $this->accessCnf('login');
+		$lgnConf = $this->accessSettings('login');
 		$srcName = strval($lgnConf['authby'] ?? '');
-		if( $srcName==$tgtName ){
-			$this->stopShell('The login already uses '.$tgtName.': nothing to move', self::EXITDENY);
+		if( $srcName==$trgtNme ){
+			$this->terminateShell('The login already uses '.$trgtNme.': nothing to move', self::EXIT_DENY);
 		}
 		if( !in_array($srcName, Array('native', 'usrlst'), true) ){
-			$this->stopShell('The login uses neither the native userbase nor the users file: there are no users to move', self::EXITDENY);
+			$this->terminateShell('The login uses neither the native userbase nor the users file: there are no users to move', self::EXIT_DENY);
 		}
-		$srcConf = $this->accessCnf( strval($lgnConf['authcf'] ?? $srcName) );
-		$usrList = ($srcName=='native') ? $this->fromTable($srcConf) : $this->fromFiles($srcConf);
+		$srcConf = $this->accessSettings( strval($lgnConf['authcf'] ?? $srcName) );
+		$usrList = ($srcName=='native') ? $this->fromTableArray($srcConf) : $this->fromFilesArray($srcConf);
 		if( empty($usrList) ){
-			$this->stopShell('The '.$srcName.' store holds no users: nothing to move', self::EXITDENY);
+			$this->terminateShell('The '.$srcName.' store holds no users: nothing to move', self::EXIT_DENY);
 		}
 		// The store moved to gets its block, and the native userbase its database, before anything is checked
 		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
-		$axsPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		$treeObj = $wrtrObj->loadJsons($axsPath);
-		if( !isset($treeObj->$tgtName) ){
-			$treeObj->$tgtName = (object)self::STORCONF[$tgtName];
-			$wrtrObj->saveJsons($axsPath, $treeObj);
+		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$treeObj = $wrtrObj->importJsonsObj($accPath);
+		if( !isset($treeObj->$trgtNme) ){
+			$treeObj->$trgtNme = (object)self::STOR_CONF[$trgtNme];
+			$wrtrObj->saveJsonConfig($accPath, $treeObj);
 		}
-		if( $tgtName=='native' && !$this->optnObjc->hasOption('noask') ){
-			$this->askDbases($wrtrObj);
+		if( $trgtNme=='native' && !$this->optnObject->validateOption('noask') ){
+			$this->queryDatabases($wrtrObj);
 		}
-		Console::loadConfg();
-		$tgtConf = $this->accessCnf($tgtName);
-		$this->emptyStor($tgtName, $tgtConf);
-		list($lostLst, $dvcIdns) = $this->lostItems($srcName, $usrList);
-		$usrList = $this->prepUsers($usrList, $srcConf, $tgtConf);
-		$this->prntObjc->printPair('from', $srcName);
-		$this->prntObjc->printPair('to', $tgtName);
-		$this->prntObjc->printPair('users', count($usrList));
+		Console::loadConfigLogs();
+		$dstConf = $this->accessSettings($trgtNme);
+		$this->checkStoreVoid($trgtNme, $dstConf);
+		list($lostLst, $devcIds) = $this->lostItemsArray($srcName, $usrList);
+		$usrList = $this->shapeUsersList($usrList, $srcConf, $dstConf);
+		$this->printerObj->printShellPair('from', $srcName);
+		$this->printerObj->printShellPair('to', $trgtNme);
+		$this->printerObj->printShellPair('users', count($usrList));
 		if( !empty($lostLst) ){
-			$this->prntObjc->printRows( Array('not kept', 'details'), $lostLst );
+			$this->printerObj->printShellRows( Array('not kept', 'details'), $lostLst );
 		}
-		if( !$this->askAgreed('Move '.count($usrList).' users to '.$tgtName.' and point the login at it?') ){
-			$this->stopShell('Nothing was moved', self::EXITDENY);
+		if( !$this->queryAgreedFlg('Move '.count($usrList).' users to '.$trgtNme.' and point the login at it?') ){
+			$this->terminateShell('Nothing was moved', self::EXIT_DENY);
 		}
-		if( $tgtName=='native' ){
-			$this->intoTable($tgtConf, $usrList);
+		if( $trgtNme=='native' ){
+			$this->saveUsersTable($dstConf, $usrList);
 		}else{
-			$this->intoFiles($tgtConf, $usrList);
+			$this->writeUsersFile($dstConf, $usrList);
 		}
 		// Devices left behind would still pass on users the project no longer manages
-		$dvcAuth = new DeviceAuth( $this->accessCnf('device') );
-		foreach( $dvcIdns as $dvcIdn ){
-			$dvcAuth->remDevice($dvcIdn);
+		$dvcAuth = new DeviceAuth( $this->accessSettings('device') );
+		foreach( $devcIds as $devcId ){
+			$dvcAuth->remUserDevcFlg($devcId);
 		}
 		// The login is pointed at the store only once every user is in it
-		$treeObj = $wrtrObj->loadJsons($axsPath);
+		$treeObj = $wrtrObj->importJsonsObj($accPath);
 		if( !isset($treeObj->login) || !is_object($treeObj->login) ){
 			$treeObj->login = new \stdClass();
 		}
-		$treeObj->login->authby = $tgtName;
-		$treeObj->login->authcf = $tgtName;
-		$wrtrObj->saveJsons($axsPath, $treeObj);
-		Console::loadConfg();
-		$this->traceDone('Deploy: '.count($usrList).' users moved from '.$srcName.' to '.$tgtName.( empty($dvcIdns) ? '' : ', '.count($dvcIdns).' devices revoked' ).', the login points at '.$tgtName);
-		$this->prntObjc->printPair('moved', count($usrList));
-		$this->prntObjc->printLine('The login now uses '.$tgtName.'; the '.$srcName.' store is left as it was.');
-		return self::EXITDONE;
+		$treeObj->login->authby = $trgtNme;
+		$treeObj->login->authcf = $trgtNme;
+		$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		Console::loadConfigLogs();
+		$this->traceShellDone('Deploy: '.count($usrList).' users moved from '.$srcName.' to '.$trgtNme.( empty($devcIds) ? '' : ', '.count($devcIds).' devices revoked' ).', the login points at '.$trgtNme);
+		$this->printerObj->printShellPair('moved', count($usrList));
+		$this->printerObj->printShellLine('The login now uses '.$trgtNme.'; the '.$srcName.' store is left as it was.');
+		return self::EXIT_DONE;
 	}
 
 	/**
 	 * Reads every user of the native userbase, hashes and secrets
 	 * included, with its activation code.
 	 *
-	 * @param Array $confValues Config block of the native userbase.
+	 * @param Array $configValues Config block of the native userbase.
 	 * @return Array The users, by identifier.
 	 *
 	 * @throws ShellStop When the users cannot be read.
 	 */
-	protected function fromTable( Array $confValues ): Array {
-		$tblName = strval($confValues['tblnme'] ?? 'users');
+	protected function fromTableArray( Array $configValues ): Array {
+		$tblName = strval($configValues['tblnme'] ?? 'users');
 		try{
-			$dbHandl = DBCon::linkNamed( strval($confValues['basnme'] ?? '') )->getConnex();
+			$dbHndlr = DBCon::linkNamedDbCon( strval($configValues['basnme'] ?? '') )->readConnection();
 		}catch( \Throwable $e ){
-			$this->stopShell('The users cannot be read: '.$e->getMessage());
+			$this->terminateShell('The users cannot be read: '.$e->getMessage());
 		}
-		if( $dbHandl===null || !preg_match('/^\w+$/D', $tblName) ){
-			$this->stopShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXITDENY);
+		if( $dbHndlr===null || !preg_match('/^\w+$/D', $tblName) ){
+			$this->terminateShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXIT_DENY);
 		}
-		$fldList = array_map( Array($dbHandl, 'quoteName'), array_merge(UserFile::FLDSLIST, Array('actvCode', 'resetCod', 'twoFaWay')) );
-		if( !$dbHandl->sendQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHandl->quoteName($tblName).' ORDER BY '.$dbHandl->quoteName('id_user').';') ){
-			$this->stopShell('The users cannot be read: '.strval($dbHandl->lastError()));
+		$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), array_merge(UserFile::FLDS_LIST, Array('actvCode', 'resetCod', 'twoFaWay')) );
+		if( !$dbHndlr->sendBuiltQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($tblName).' ORDER BY '.$dbHndlr->quoteFieldName('id_user').';') ){
+			$this->terminateShell('The users cannot be read: '.strval($dbHndlr->finalErrorText()));
 		}
-		$rowList = $dbHandl->readQuery(true);
+		$rowList = $dbHndlr->readLastResult(true);
 		return is_array($rowList) ? $rowList : Array();
 	}
 
 	/**
 	 * Reads every user of the users file, hashes and secrets included.
 	 *
-	 * @param Array $confValues Config block of the users file.
+	 * @param Array $configValues Config block of the users file.
 	 * @return Array The users, as the file lists them.
 	 *
 	 * @throws ShellStop When the file cannot be used.
 	 */
-	protected function fromFiles( Array $confValues ): Array {
-		$fileObj = new UserFile( $confValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
-		$usrList = $fileObj->readUsers();
+	protected function fromFilesArray( Array $configValues ): Array {
+		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		$usrList = $fileObj->readUsersArray();
 		if( $usrList===false ){
-			$this->stopShell('The users cannot be read: '.$fileObj->lastError());
+			$this->terminateShell('The users cannot be read: '.$fileObj->finalErrorText());
 		}
 		return $usrList;
 	}
@@ -292,35 +292,35 @@ class Deploy extends Command{
 	 * Checks that the store the users go to holds none: a table that
 	 * holds users, or a file that does, is never merged into.
 	 *
-	 * @param String $storeNamed 'native' or 'usrlst'.
-	 * @param Array  $confValues Config block of that store.
+	 * @param String $storeOfUsers 'native' or 'usrlst'.
+	 * @param Array  $configValues Config block of that store.
 	 *
 	 * @throws ShellStop When the store holds users or cannot be read.
 	 */
-	protected function emptyStor( String $storeNamed, Array $confValues ): Void {
-		if( $storeNamed=='usrlst' ){
-			$usrNmbr = count( $this->fromFiles($confValues) );
+	protected function checkStoreVoid( String $storeOfUsers, Array $configValues ): Void {
+		if( $storeOfUsers=='usrlst' ){
+			$userNum = count( $this->fromFilesArray($configValues) );
 		}else{
-			$tblName = strval($confValues['tblnme'] ?? 'users');
+			$tblName = strval($configValues['tblnme'] ?? 'users');
 			try{
-				$dbHandl = DBCon::linkNamed( strval($confValues['basnme'] ?? '') )->getConnex();
+				$dbHndlr = DBCon::linkNamedDbCon( strval($configValues['basnme'] ?? '') )->readConnection();
 			}catch( \Throwable $e ){
-				$this->stopShell('Nothing was moved: '.$e->getMessage(), self::EXITDENY);
+				$this->terminateShell('Nothing was moved: '.$e->getMessage(), self::EXIT_DENY);
 			}
-			if( $dbHandl===null || !preg_match('/^\w+$/D', $tblName) ){
-				$this->stopShell('Nothing was moved: the native userbase needs an SQL database and a table named with letters and digits', self::EXITDENY);
+			if( $dbHndlr===null || !preg_match('/^\w+$/D', $tblName) ){
+				$this->terminateShell('Nothing was moved: the native userbase needs an SQL database and a table named with letters and digits', self::EXIT_DENY);
 			}
-			$usrNmbr = 0;
-			if( $dbHandl->tableInfo($tblName)!==false ){
-				$rowList = $dbHandl->sendQuery('SELECT COUNT(*) AS '.$dbHandl->quoteName('usrCount').' FROM '.$dbHandl->quoteName($tblName).';') ? $dbHandl->readQuery(true) : false;
+			$userNum = 0;
+			if( $dbHndlr->tableInfoArray($tblName)!==false ){
+				$rowList = $dbHndlr->sendBuiltQuery('SELECT COUNT(*) AS '.$dbHndlr->quoteFieldName('usrCount').' FROM '.$dbHndlr->quoteFieldName($tblName).';') ? $dbHndlr->readLastResult(true) : false;
 				if( !is_array($rowList) ){
-					$this->stopShell('Nothing was moved: the users table cannot be read: '.strval($dbHandl->lastError()));
+					$this->terminateShell('Nothing was moved: the users table cannot be read: '.strval($dbHndlr->finalErrorText()));
 				}
-				$usrNmbr = intval($rowList[0]['usrCount'] ?? 0);
+				$userNum = intval($rowList[0]['usrCount'] ?? 0);
 			}
 		}
-		if( $usrNmbr>0 ){
-			$this->stopShell('Nothing was moved: the '.$storeNamed.' store already holds users', self::EXITDENY);
+		if( $userNum>0 ){
+			$this->terminateShell('Nothing was moved: the '.$storeOfUsers.' store already holds users', self::EXIT_DENY);
 		}
 	}
 
@@ -331,60 +331,60 @@ class Deploy extends Command{
 	 * code. Users with codes by mail stop the move; active devices stop it
 	 * too, unless --drops lets them go.
 	 *
-	 * @param String $sourceName The store the users leave.
-	 * @param Array  $usersArray The users, as that store holds them.
+	 * @param String $pageFileName The store the users leave.
+	 * @param Array  $usersRecords The users, as that store holds them.
 	 * @return Array The rows of what is not kept, and the identifiers of the devices to revoke.
 	 *
 	 * @throws ShellStop When users with codes by mail are found, or active devices without --drops.
 	 */
-	protected function lostItems( String $sourceName, Array $usersArray ): Array {
-		if( $sourceName!='native' ){
+	protected function lostItemsArray( String $pageFileName, Array $usersRecords ): Array {
+		if( $pageFileName!='native' ){
 			return Array( Array(), Array() );
 		}
 		$lostLst = Array();
-		$pendLst = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
-			return ($userValues['userStat'] ?? '')=='pendng' && strval($userValues['actvCode'] ?? '')!=='';
+		$pending = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+			return ($usrValuesArr['userStat'] ?? '')=='pendng' && strval($usrValuesArr['actvCode'] ?? '')!=='';
 		}), 'userName' );
-		if( !empty($pendLst) ){
-			$lostLst[] = Array('activation codes', implode(', ', $pendLst).': pending until made active, or given a password, with manage');
+		if( !empty($pending) ){
+			$lostLst[] = Array('activation codes', implode(', ', $pending).': pending until made active, or given a password, with manage');
 		}
-		$rsetLst = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
-			return strval($userValues['resetCod'] ?? '')!=='';
+		$rsetLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+			return strval($usrValuesArr['resetCod'] ?? '')!=='';
 		}), 'userName' );
 		if( !empty($rsetLst) ){
 			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
 		}
-		$rvwList = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
-			return ($userValues['userStat'] ?? '')=='review';
+		$rvwList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+			return ($usrValuesArr['userStat'] ?? '')=='review';
 		}), 'userName' );
 		if( !empty($rvwList) ){
 			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; manage unlck makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
-		$mailLst = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
-			return ($userValues['twoFaWay'] ?? null)==='mailed';
+		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+			return ($usrValuesArr['twoFaWay'] ?? null)==='mailed';
 		}), 'userName' );
 		if( !empty($mailLst) ){
-			$this->stopShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "manage twofa <user> --clear" takes them away', self::EXITDENY);
+			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "manage twofa <user> --clear" takes them away', self::EXIT_DENY);
 		}
 		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
-		$dvcConf = $this->accessCnf('device');
-		$dvcRows = empty($dvcConf) ? Array() : (new DeviceAuth($dvcConf))->listDevcs();
-		$dvcIdns = Array();
-		$dvcNmes = Array();
+		$dvcConf = $this->accessSettings('device');
+		$dvcRows = empty($dvcConf) ? Array() : (new DeviceAuth($dvcConf))->lstUserDevices();
+		$devcIds = Array();
+		$devcNms = Array();
 		foreach( is_array($dvcRows) ? $dvcRows : Array() as $dvcRow ){
 			if( $dvcRow['revkDate']===null ){
-				$dvcIdns[] = intval($dvcRow['id_device']);
-				$dvcNmes[] = $dvcRow['userName'].'/'.$dvcRow['devcName'];
+				$devcIds[] = intval($dvcRow['id_device']);
+				$devcNms[] = $dvcRow['userName'].'/'.$dvcRow['devcName'];
 			}
 		}
-		if( !empty($dvcIdns) ){
-			if( !$this->optnObjc->hasOption('drops') ){
-				$this->stopShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $dvcNmes).'); --drops revokes them', self::EXITDENY);
+		if( !empty($devcIds) ){
+			if( !$this->optnObject->validateOption('drops') ){
+				$this->terminateShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $devcNms).'); --drops revokes them', self::EXIT_DENY);
 			}
-			$lostLst[] = Array('devices', implode(', ', $dvcNmes).': revoked');
+			$lostLst[] = Array('devices', implode(', ', $devcNms).': revoked');
 		}
-		return Array( $lostLst, $dvcIdns );
+		return Array( $lostLst, $devcIds );
 	}
 
 	/**
@@ -393,44 +393,44 @@ class Deploy extends Command{
 	 * identifier for a user without one, and the 2FA secrets encrypted
 	 * with the key of that store when it is not the same.
 	 *
-	 * @param Array $usersArray The users, as the store they leave holds them.
-	 * @param Array $sourceConf Config block of the store they leave.
-	 * @param Array $targetConf Config block of the store they go to.
+	 * @param Array $usersRecords The users, as the store they leave holds them.
+	 * @param Array $sourceConfig Config block of the store they leave.
+	 * @param Array $targetConfig Config block of the store they go to.
 	 * @return Array The users to write.
 	 *
 	 * @throws ShellStop When a user has no password hash, or a 2FA secret that cannot be read.
 	 */
-	protected function prepUsers( Array $usersArray, Array $sourceConf, Array $targetConf ): Array {
-		$srcSeal = strval($sourceConf['tfakey'] ?? '');
-		$tgtSeal = strval($targetConf['tfakey'] ?? '');
-		$lastIdn = max( array_merge(Array(0), array_map('intval', array_column($usersArray, 'id_user'))) );
+	protected function shapeUsersList( Array $usersRecords, Array $sourceConfig, Array $targetConfig ): Array {
+		$srcSeal = strval($sourceConfig['tfakey'] ?? '');
+		$trgtSel = strval($targetConfig['tfakey'] ?? '');
+		$lastNum = max( array_merge(Array(0), array_map('intval', array_column($usersRecords, 'id_user'))) );
 		$nopsLst = Array();
 		$readyLs = Array();
-		foreach( $usersArray as $usrRow ){
-			$newRow = Array();
-			foreach( UserFile::FLDSLIST as $fldNme ){
+		foreach( $usersRecords as $usrRow ){
+			$userRow = Array();
+			foreach( UserFile::FLDS_LIST as $fldNme ){
 				if( isset($usrRow[$fldNme]) && $usrRow[$fldNme]!=='' ){
-					$newRow[$fldNme] = $usrRow[$fldNme];
+					$userRow[$fldNme] = $usrRow[$fldNme];
 				}
 			}
-			if( strval($newRow['passHash'] ?? '')==='' ){
+			if( strval($userRow['passHash'] ?? '')==='' ){
 				$nopsLst[] = strval($usrRow['userName'] ?? '');
 				continue;
 			}
-			$newRow['id_user'] = (intval($newRow['id_user'] ?? 0)>0) ? intval($newRow['id_user']) : ++$lastIdn;
-			$newRow['userRole'] = $newRow['userRole'] ?? Checker::ROLELIST[0];
-			$newRow['userStat'] = $newRow['userStat'] ?? 'active';
-			if( isset($newRow['twoFaKey']) && $srcSeal!==$tgtSeal ){
-				$plainTx = Totp::openSecrt( strval($newRow['twoFaKey']), $srcSeal );
+			$userRow['id_user'] = (intval($userRow['id_user'] ?? 0)>0) ? intval($userRow['id_user']) : ++$lastNum;
+			$userRow['userRole'] = $userRow['userRole'] ?? Checker::ROLE_LIST[0];
+			$userRow['userStat'] = $userRow['userStat'] ?? 'active';
+			if( isset($userRow['twoFaKey']) && $srcSeal!==$trgtSel ){
+				$plainTx = Totp::openSecretText( strval($userRow['twoFaKey']), $srcSeal );
 				if( $plainTx===null ){
-					$this->stopShell('Nothing was moved: the 2FA secret of user '.json_encode($newRow['userName']).' cannot be read with the key of its store', self::EXITDENY);
+					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userRow['userName']).' cannot be read with the key of its store', self::EXIT_DENY);
 				}
-				$newRow['twoFaKey'] = Totp::sealSecrt($plainTx, $tgtSeal);
+				$userRow['twoFaKey'] = Totp::sealSecretText($plainTx, $trgtSel);
 			}
-			$readyLs[] = $newRow;
+			$readyLs[] = $userRow;
 		}
 		if( !empty($nopsLst) ){
-			$this->stopShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsLst).'); give them a password with manage first', self::EXITDENY);
+			$this->terminateShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsLst).'); give them a password with manage first', self::EXIT_DENY);
 		}
 		return $readyLs;
 	}
@@ -439,51 +439,51 @@ class Deploy extends Command{
 	 * Writes the users into the native userbase, its table created first
 	 * when it is missing, all of them or none.
 	 *
-	 * @param Array $confValues Config block of the native userbase.
-	 * @param Array $usersArray The users to write.
+	 * @param Array $configValues Config block of the native userbase.
+	 * @param Array $usersRecords The users to write.
 	 *
 	 * @throws ShellStop When the table cannot be created or written.
 	 */
-	protected function intoTable( Array $confValues, Array $usersArray ): Void {
+	protected function saveUsersTable( Array $configValues, Array $usersRecords ): Void {
 		try{
-			$dbHandl = $this->needTable($confValues);
-			$baseTyp = strval(DBCon::baseSetup( strval($confValues['basnme'] ?? '') )['type']);
+			$dbHndlr = $this->openUsersTable($configValues);
+			$baseTyp = strval(DBCon::baseSetupArray( strval($configValues['basnme'] ?? '') )['type']);
 		}catch( ShellStop $e ){
 			throw $e;
 		}catch( \Throwable $e ){
-			$this->stopShell('Nothing was moved: '.$e->getMessage());
+			$this->terminateShell('Nothing was moved: '.$e->getMessage());
 		}
-		$qtdTble = $dbHandl->quoteName( strval($confValues['tblnme'] ?? 'users') );
-		$dbHandl->opnTrnsct();
-		foreach( $usersArray as $usrRow ){
-			$addQury = 'INSERT INTO '.$qtdTble.' ('.implode(', ', array_map(Array($dbHandl, 'quoteName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
-			if( !$dbHandl->sendQuery($addQury, true, array_values($usrRow)) ){
-				$errText = strval($dbHandl->lastError());
-				$dbHandl->remTrnsct();
-				$this->stopShell('Nothing was moved: user '.json_encode($usrRow['userName']).' cannot be written: '.$errText);
+		$qtdTble = $dbHndlr->quoteFieldName( strval($configValues['tblnme'] ?? 'users') );
+		$dbHndlr->opnTransaction();
+		foreach( $usersRecords as $usrRow ){
+			$addStmt = 'INSERT INTO '.$qtdTble.' ('.implode(', ', array_map(Array($dbHndlr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
+			if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($usrRow)) ){
+				$errText = strval($dbHndlr->finalErrorText());
+				$dbHndlr->remTransaction();
+				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['userName']).' cannot be written: '.$errText);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
-		if( $baseTyp=='pgsql' && !$dbHandl->sendQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHandl->quoteName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
-			$errText = strval($dbHandl->lastError());
-			$dbHandl->remTrnsct();
-			$this->stopShell('Nothing was moved: the identifiers cannot be set: '.$errText);
+		if( $baseTyp=='pgsql' && !$dbHndlr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHndlr->quoteFieldName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
+			$errText = strval($dbHndlr->finalErrorText());
+			$dbHndlr->remTransaction();
+			$this->terminateShell('Nothing was moved: the identifiers cannot be set: '.$errText);
 		}
-		$dbHandl->setTrnsct();
+		$dbHndlr->setTransaction();
 	}
 
 	/**
 	 * Writes the users into the users file, which must hold none.
 	 *
-	 * @param Array $confValues Config block of the users file.
-	 * @param Array $usersArray The users to write.
+	 * @param Array $configValues Config block of the users file.
+	 * @param Array $usersRecords The users to write.
 	 *
 	 * @throws ShellStop When the file cannot be written.
 	 */
-	protected function intoFiles( Array $confValues, Array $usersArray ): Void {
-		$fileObj = new UserFile( $confValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
-		if( !$fileObj->fillUsers($usersArray) ){
-			$this->stopShell('Nothing was moved: '.$fileObj->lastError());
+	protected function writeUsersFile( Array $configValues, Array $usersRecords ): Void {
+		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		if( !$fileObj->fillEmptyStore($usersRecords) ){
+			$this->terminateShell('Nothing was moved: '.$fileObj->finalErrorText());
 		}
 	}
 
@@ -492,54 +492,54 @@ class Deploy extends Command{
 	 *
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
-	protected function showCheck(): Int {
-		$chkObjc = new HealthChk();
-		$rowList = $chkObjc->runChecks();
-		$this->prntObjc->printRows( Array('check', 'state', 'found'), $rowList );
-		$statLst = array_count_values( array_column($rowList, 1) );
-		$this->prntObjc->printPair('fail', intval($statLst['fail'] ?? 0));
-		$this->prntObjc->printPair('warn', intval($statLst['warn'] ?? 0));
-		return $chkObjc->hasFailed() ? self::EXITFLAW : self::EXITDONE;
+	protected function showCheckCount(): Int {
+		$chckObj = new HealthChk();
+		$rowList = $chckObj->runChecksArray();
+		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $rowList );
+		$sttsLst = array_count_values( array_column($rowList, 1) );
+		$this->printerObj->printShellPair('fail', intval($sttsLst['fail'] ?? 0));
+		$this->printerObj->printShellPair('warn', intval($sttsLst['warn'] ?? 0));
+		return $chckObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
 	}
 
 	/**
 	 * Creates each local file that is missing from its example. The file
 	 * of the secrets is made readable by its owner only.
 	 *
-	 * @param Array $localFiles The local files to make, as DISTLIST names them; all of them when empty.
+	 * @param Array $filesToBuild The local files to make, as DISTLIST names them; all of them when empty.
 	 */
-	protected function makeFiles( Array $localFiles=Array() ): Void {
+	protected function makeLocalFiles( Array $filesToBuild=Array() ): Void {
 		$rowList = Array();
-		foreach( self::DISTLIST as $fleNme => $dstNme ){
-			if( !empty($localFiles) && !in_array($fleNme, $localFiles, true) ){
+		foreach( self::DIST_LIST as $filNme => $target ){
+			if( !empty($filesToBuild) && !in_array($filNme, $filesToBuild, true) ){
 				continue;
 			}
-			$filePth = TOP_DIR.DS.str_replace('/', DS, $fleNme);
-			$distPth = TOP_DIR.DS.str_replace('/', DS, $dstNme);
-			if( is_file($filePth) ){
-				$rowList[] = Array($fleNme, 'kept');
-			}elseif( !is_file($distPth) ){
-				$rowList[] = Array($fleNme, 'not created: its example '.$dstNme.' is missing');
-			}elseif( (function() use ( $distPth, $filePth ): Bool {
+			$filPath = TOP_DIR.DS.str_replace('/', DS, $filNme);
+			$dstPath = TOP_DIR.DS.str_replace('/', DS, $target);
+			if( is_file($filPath) ){
+				$rowList[] = Array($filNme, 'kept');
+			}elseif( !is_file($dstPath) ){
+				$rowList[] = Array($filNme, 'not created: its example '.$target.' is missing');
+			}elseif( (function() use ( $dstPath, $filPath ): Bool {
 				// Made readable by its owner only, from its first byte: the file will hold secrets
 				$prevMsk = umask(0077);
 				try{
-					return @copy($distPth, $filePth);
+					return @copy($dstPath, $filPath);
 				}finally{
 					umask($prevMsk);
 				}
 			})() ){
 				// The secrets are for the owner alone; the access config is read by the group of the web server too
 				$secRgts = Array('.env'=>0600, 'conf/access.json'=>0640);
-				@chmod($filePth, $secRgts[$fleNme] ?? (0666 & ~umask()));
-				$rowList[] = Array($fleNme, 'created from '.$dstNme);
-				$this->traceDone('Deploy: '.$fleNme.' created from '.$dstNme);
+				@chmod($filPath, $secRgts[$filNme] ?? (0666 & ~umask()));
+				$rowList[] = Array($filNme, 'created from '.$target);
+				$this->traceShellDone('Deploy: '.$filNme.' created from '.$target);
 			}else{
-				$rowList[] = Array($fleNme, 'not created: its folder cannot be written');
+				$rowList[] = Array($filNme, 'not created: its folder cannot be written');
 			}
 		}
-		$this->prntObjc->printRows( Array('file', 'state'), $rowList );
-		Console::loadConfg();
+		$this->printerObj->printShellRows( Array('file', 'state'), $rowList );
+		Console::loadConfigLogs();
 	}
 
 	/**
@@ -553,46 +553,46 @@ class Deploy extends Command{
 	 *
 	 * @throws ShellStop When an answer is not one of those proposed.
 	 */
-	protected function askSetups(): String {
+	protected function querySetupsTxt(): String {
 		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
 		$iniPath = TOP_DIR.DS.'conf'.DS.'system.ini';
-		$axsPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		$nowEnvr = strval($wrtrObj->getIniKey($iniPath, 'ENV_NAME') ?? '');
-		if( $nowEnvr!='' ){
-			$gvnEnvr = strtoupper( $this->askAnswer('Environment (DEV, TEST, PREV, PROD)', $nowEnvr) );
-			if( !in_array($gvnEnvr, Array('DEV', 'TEST', 'PREV', 'PROD'), true) ){
-				$this->stopShell('Not an environment: '.$gvnEnvr, self::EXITDENY);
+		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$currEnv = strval($wrtrObj->retrieveIniKey($iniPath, 'ENV_NAME') ?? '');
+		if( $currEnv!='' ){
+			$wantEnv = strtoupper( $this->queryAnswerTxt('Environment (DEV, TEST, PREV, PROD)', $currEnv) );
+			if( !in_array($wantEnv, Array('DEV', 'TEST', 'PREV', 'PROD'), true) ){
+				$this->terminateShell('Not an environment: '.$wantEnv, self::EXIT_DENY);
 			}
-			if( $gvnEnvr!=$nowEnvr ){
-				$wrtrObj->setIniKey($iniPath, 'ENV_NAME', $gvnEnvr);
+			if( $wantEnv!=$currEnv ){
+				$wrtrObj->changeIniValue($iniPath, 'ENV_NAME', $wantEnv);
 			}
 		}
-		$lgnAuth = strval($this->accessCnf('login')['authby'] ?? '');
-		$storNme = strval( $this->optnObjc->getOption('store', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : 'none') );
-		$storNme = strtolower( $this->askAnswer('Store of the users ('.implode(', ', self::STORLIST).')', $storNme) );
-		if( !in_array($storNme, self::STORLIST, true) ){
-			$this->stopShell('Not a store of users: '.$storNme, self::EXITDENY);
+		$lgnAuth = strval($this->accessSettings('login')['authby'] ?? '');
+		$storNme = strval( $this->optnObject->retrieveOption('store', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : 'none') );
+		$storNme = strtolower( $this->queryAnswerTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storNme) );
+		if( !in_array($storNme, self::STOR_LIST, true) ){
+			$this->terminateShell('Not a store of users: '.$storNme, self::EXIT_DENY);
 		}
 		// The login is pointed at the store chosen
-		if( $storNme!='none' && $storNme!=$lgnAuth && is_file($axsPath) ){
-			$treeObj = $wrtrObj->loadJsons($axsPath);
+		if( $storNme!='none' && $storNme!=$lgnAuth && is_file($accPath) ){
+			$treeObj = $wrtrObj->importJsonsObj($accPath);
 			if( !isset($treeObj->login) || !is_object($treeObj->login) ){
 				$treeObj->login = new \stdClass();
 			}
 			$treeObj->login->authby = $storNme;
 			$treeObj->login->authcf = $storNme;
 			if( !isset($treeObj->$storNme) ){
-				$treeObj->$storNme = (object)self::STORCONF[$storNme];
+				$treeObj->$storNme = (object)self::STOR_CONF[$storNme];
 			}
-			$wrtrObj->saveJsons($axsPath, $treeObj);
+			$wrtrObj->saveJsonConfig($accPath, $treeObj);
 		}
 		if( $storNme=='native' ){
-			$this->makeFiles( Array('conf/database.json') );
-			if( !$this->optnObjc->hasOption('noask') ){
-				$this->askDbases($wrtrObj);
+			$this->makeLocalFiles( Array('conf/database.json') );
+			if( !$this->optnObject->validateOption('noask') ){
+				$this->queryDatabases($wrtrObj);
 			}
 		}
-		Console::loadConfg();
+		Console::loadConfigLogs();
 		return $storNme;
 	}
 
@@ -602,16 +602,16 @@ class Deploy extends Command{
 	 * hidden, kept in the file of the secrets, and only named in the
 	 * config; Enter alone keeps the present one.
 	 *
-	 * @param ConfFile $writerObjc The writer of config files.
+	 * @param ConfFile $writerObject The writer of config files.
 	 *
 	 * @throws ShellStop When the type is not one of a database.
 	 */
-	protected function askDbases( ConfFile $writerObjc ): Void {
-		$basPath = TOP_DIR.DS.'conf'.DS.'database.json';
-		if( !is_file($basPath) ){
+	protected function queryDatabases( ConfFile $writerObject ): Void {
+		$basePth = TOP_DIR.DS.'conf'.DS.'database.json';
+		if( !is_file($basePth) ){
 			return;
 		}
-		$treeObj = $writerObjc->loadJsons($basPath);
+		$treeObj = $writerObject->importJsonsObj($basePth);
 		$nodeObj = $treeObj;
 		if( !property_exists($treeObj, 'type') ){
 			foreach( get_object_vars($treeObj) as $blkVal ){
@@ -621,28 +621,28 @@ class Deploy extends Command{
 				}
 			}
 		}
-		$baseTyp = strtolower( $this->askAnswer('Database type (mysql, pgsql, sqlte)', strval($nodeObj->type ?? 'mysql')) );
+		$baseTyp = strtolower( $this->queryAnswerTxt('Database type (mysql, pgsql, sqlte)', strval($nodeObj->type ?? 'mysql')) );
 		if( !in_array($baseTyp, Array('mysql', 'pgsql', 'sqlte'), true) ){
-			$this->stopShell('The native userbase works on mysql, pgsql or sqlte, not on: '.$baseTyp, self::EXITDENY);
+			$this->terminateShell('The native userbase works on mysql, pgsql or sqlte, not on: '.$baseTyp, self::EXIT_DENY);
 		}
 		$nodeObj->type = $baseTyp;
 		if( $baseTyp=='sqlte' ){
-			$nodeObj->base = $this->askAnswer('Database file', strval($nodeObj->base ?? ''));
+			$nodeObj->base = $this->queryAnswerTxt('Database file', strval($nodeObj->base ?? ''));
 		}else{
-			$nodeObj->host = $this->askAnswer('Database host', strval($nodeObj->host ?? 'localhost'));
-			$nodeObj->port = $this->askAnswer('Database port (empty for the usual one)', strval($nodeObj->port ?? ''));
-			$nodeObj->base = $this->askAnswer('Database name', strval($nodeObj->base ?? ''));
-			$nodeObj->user = $this->askAnswer('Database user', strval($nodeObj->user ?? ''));
-			$gvnPass = $this->askSecret('Password of that user (Enter keeps the present one)');
+			$nodeObj->host = $this->queryAnswerTxt('Database host', strval($nodeObj->host ?? 'localhost'));
+			$nodeObj->port = $this->queryAnswerTxt('Database port (empty for the usual one)', strval($nodeObj->port ?? ''));
+			$nodeObj->base = $this->queryAnswerTxt('Database name', strval($nodeObj->base ?? ''));
+			$nodeObj->user = $this->queryAnswerTxt('Database user', strval($nodeObj->user ?? ''));
+			$gvnPass = $this->querySecretTxt('Password of that user (Enter keeps the present one)');
 			if( $gvnPass!=='' ){
 				$nowPass = strval($nodeObj->pass ?? '');
 				$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_DB_PASS';
-				$writerObjc->setEnvKey(TOP_DIR.DS.'.env', $envName, $gvnPass);
+				$writerObject->setEnvrnmntKey(TOP_DIR.DS.'.env', $envName, $gvnPass);
 				$nodeObj->pass = 'env:'.$envName;
 			}
 		}
-		$writerObjc->saveJsons($basPath, $treeObj);
-		$this->traceDone('Deploy: settings of the default database written');
+		$writerObject->saveJsonConfig($basePth, $treeObj);
+		$this->traceShellDone('Deploy: settings of the default database written');
 	}
 
 	/**
@@ -651,58 +651,58 @@ class Deploy extends Command{
 	 * first when it is missing. A store that already holds users is left
 	 * as it is.
 	 *
-	 * @param String $storeNamed 'native' or 'usrlst'.
-	 * @param String $blockNamed Block of conf/access.json holding the settings of the store; the one the login names, or the one named as the store, when empty.
+	 * @param String $storeOfUsers 'native' or 'usrlst'.
+	 * @param String $blckNamedTxt Block of conf/access.json holding the settings of the store; the one the login names, or the one named as the store, when empty.
 	 *
 	 * @throws ShellStop When the users cannot be created.
 	 */
-	protected function makeUsers( String $storeNamed, String $blockNamed ): Void {
+	protected function makeBasicUsers( String $storeOfUsers, String $blckNamedTxt ): Void {
 		// Tables are made: the descriptions the config cache keeps (TBL_CACH) are no longer the whole story
-		ConfCache::dropCache();
-		$lgnConf = $this->accessCnf('login');
-		$blkName = ($blockNamed!='') ? $blockNamed : ( strval($lgnConf['authby'] ?? '')==$storeNamed ? strval($lgnConf['authcf'] ?? $storeNamed) : $storeNamed );
-		$blkConf = $this->accessCnf($blkName);
-		if( empty($blkConf) && ($storeNamed=='native' || $blockNamed!='') ){
-			$this->stopShell('No user created: conf/access.json has no "'.$blkName.'" block', self::EXITDENY);
+		ConfCache::clearMailCache();
+		$lgnConf = $this->accessSettings('login');
+		$blckNme = ($blckNamedTxt!='') ? $blckNamedTxt : ( strval($lgnConf['authby'] ?? '')==$storeOfUsers ? strval($lgnConf['authcf'] ?? $storeOfUsers) : $storeOfUsers );
+		$blckCfg = $this->accessSettings($blckNme);
+		if( empty($blckCfg) && ($storeOfUsers=='native' || $blckNamedTxt!='') ){
+			$this->terminateShell('No user created: conf/access.json has no "'.$blckNme.'" block', self::EXIT_DENY);
 		}
 		$passLst = Array();
-		if( $storeNamed=='usrlst' ){
-			$fileObj = new UserFile( $blkConf, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
-			$usrList = $fileObj->listUsers();
+		if( $storeOfUsers=='usrlst' ){
+			$fileObj = new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+			$usrList = $fileObj->listUsersNamed();
 			if( $usrList===false ){
-				$this->stopShell('No user created: '.$fileObj->lastError(), self::EXITFAIL);
+				$this->terminateShell('No user created: '.$fileObj->finalErrorText(), self::EXIT_FAIL);
 			}
 			if( !empty($usrList) ){
-				$this->prntObjc->printLine('The users file already holds users: nothing was changed.');
+				$this->printerObj->printShellLine('The users file already holds users: nothing was changed.');
 				return;
 			}
-			foreach( self::USERLIST as $usrNme => $usrRle ){
+			foreach( self::USER_LIST as $usrNme => $usrRle ){
 				$passLst[$usrNme] = bin2hex(random_bytes(10));
-				if( !$fileObj->enrolUser($usrNme, $usrRle, $passLst[$usrNme]) ){
-					$this->stopShell('User '.$usrNme.' cannot be written: '.$fileObj->lastError(), self::EXITFAIL);
+				if( !$fileObj->enrolUsrString($usrNme, $usrRle, $passLst[$usrNme]) ){
+					$this->terminateShell('User '.$usrNme.' cannot be written: '.$fileObj->finalErrorText(), self::EXIT_FAIL);
 				}
 			}
 		}else{
 			try{
-				$passLst = $this->tableUser($blkConf);
+				$passLst = $this->tableUserArray($blckCfg);
 			}catch( ShellStop $e ){
 				throw $e;
 			}catch( \Throwable $e ){
-				$this->stopShell('No user created: '.$e->getMessage(), self::EXITFAIL);
+				$this->terminateShell('No user created: '.$e->getMessage(), self::EXIT_FAIL);
 			}
 			if( empty($passLst) ){
-				$this->tableDevc();
+				$this->makeDevicesTbl();
 				return;
 			}
 		}
-		$this->traceDone('Deploy: basic users created in '.$storeNamed.' ('.implode(', ', array_keys(self::USERLIST)).')');
-		$this->prntObjc->printLine('Users created. Their passwords are shown this once:');
-		foreach( self::USERLIST as $usrNme => $usrRle ){
-			$this->prntObjc->printOnce('Password of '.$usrNme.' ('.$usrRle.')', $passLst[$usrNme]);
+		$this->traceShellDone('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys(self::USER_LIST)).')');
+		$this->printerObj->printShellLine('Users created. Their passwords are shown this once:');
+		foreach( self::USER_LIST as $usrNme => $usrRle ){
+			$this->printerObj->printShellOnce('Password of '.$usrNme.' ('.$usrRle.')', $passLst[$usrNme]);
 		}
 		// The devices come after the passwords : a table that cannot be made does not hide them
-		if( $storeNamed=='native' ){
-			$this->tableDevc();
+		if( $storeOfUsers=='native' ){
+			$this->makeDevicesTbl();
 		}
 	}
 
@@ -714,8 +714,8 @@ class Deploy extends Command{
 	 *
 	 * @throws ShellStop When the table cannot be created.
 	 */
-	protected function tableDevc(): Void {
-		$dvcConf = $this->accessCnf('device');
+	protected function makeDevicesTbl(): Void {
+		$dvcConf = $this->accessSettings('device');
 		if( empty($dvcConf) ){
 			return;
 		}
@@ -723,29 +723,29 @@ class Deploy extends Command{
 		$usrTble = strval($dvcConf['usrtbl'] ?? 'users');
 		try{
 			$baseNme = strval($dvcConf['basnme'] ?? '');
-			$baseTyp = strval(DBCon::baseSetup($baseNme)['type']);
-			$dbHandl = DBCon::linkNamed($baseNme)->getConnex();
+			$baseTyp = strval(DBCon::baseSetupArray($baseNme)['type']);
+			$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
 		}catch( \Throwable $e ){
-			$this->stopShell('No devices table created: '.$e->getMessage(), self::EXITFAIL);
+			$this->terminateShell('No devices table created: '.$e->getMessage(), self::EXIT_FAIL);
 		}
 		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.'.$baseTyp.'.sql';
 		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !preg_match('/^\w+$/D', $usrTble) || !is_file($sqlFile) ){
-			$this->stopShell('No devices table created: there is no devices schema for a database of type "'.$baseTyp.'"', self::EXITDENY);
+			$this->terminateShell('No devices table created: there is no devices schema for a database of type "'.$baseTyp.'"', self::EXIT_DENY);
 		}
-		if( $dbHandl===null ){
-			$this->stopShell('No devices table created: the devices need an SQL database', self::EXITDENY);
+		if( $dbHndlr===null ){
+			$this->terminateShell('No devices table created: the devices need an SQL database', self::EXIT_DENY);
 		}
-		if( $dbHandl->tableInfo($tblName)!==false ){
+		if( $dbHndlr->tableInfoArray($tblName)!==false ){
 			return;
 		}
 		// The schema names its tables 'devices' and 'users' : they are given the configured names
-		$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHandl->quoteName($tblName), strval(file_get_contents($sqlFile)), 1);
-		$makeSql = preg_replace('/REFERENCES \S+/', 'REFERENCES '.$dbHandl->quoteName($usrTble), strval($makeSql), 1);
-		if( !$dbHandl->sendQuery(strval($makeSql), true) ){
-			$this->stopShell('No devices table created: '.strval($dbHandl->lastError()));
+		$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHndlr->quoteFieldName($tblName), strval(file_get_contents($sqlFile)), 1);
+		$makeSql = preg_replace('/REFERENCES \S+/', 'REFERENCES '.$dbHndlr->quoteFieldName($usrTble), strval($makeSql), 1);
+		if( !$dbHndlr->sendBuiltQuery(strval($makeSql), true) ){
+			$this->terminateShell('No devices table created: '.strval($dbHndlr->finalErrorText()));
 		}
-		$this->prntObjc->printLine('Table '.$tblName.' created.');
-		$this->traceDone('Deploy: devices table '.$tblName.' created');
+		$this->printerObj->printShellLine('Table '.$tblName.' created.');
+		$this->traceShellDone('Deploy: devices table '.$tblName.' created');
 	}
 
 	/**
@@ -753,38 +753,38 @@ class Deploy extends Command{
 	 * from the users.<type>.sql file of conf/schema, and gives it the
 	 * basic users.
 	 *
-	 * @param Array $confValues Config block of the native userbase.
+	 * @param Array $configValues Config block of the native userbase.
 	 * @return Array The passwords made, by user; empty when the table already holds users and was left as it is.
 	 *
 	 * @throws ShellStop When the table cannot be created, read or written.
 	 * @throws \RuntimeException When the database is not configured or does not answer.
 	 */
-	protected function tableUser( Array $confValues ): Array {
-		$tblName = strval($confValues['tblnme'] ?? 'users');
-		$dbHandl = $this->needTable($confValues);
-		$qtdTble = $dbHandl->quoteName($tblName);
-		$rowList = $dbHandl->sendQuery('SELECT COUNT(*) AS '.$dbHandl->quoteName('usrCount').' FROM '.$qtdTble.';') ? $dbHandl->readQuery(true) : false;
+	protected function tableUserArray( Array $configValues ): Array {
+		$tblName = strval($configValues['tblnme'] ?? 'users');
+		$dbHndlr = $this->openUsersTable($configValues);
+		$qtdTble = $dbHndlr->quoteFieldName($tblName);
+		$rowList = $dbHndlr->sendBuiltQuery('SELECT COUNT(*) AS '.$dbHndlr->quoteFieldName('usrCount').' FROM '.$qtdTble.';') ? $dbHndlr->readLastResult(true) : false;
 		if( !is_array($rowList) ){
-			$this->stopShell('No user created: the table cannot be read: '.strval($dbHandl->lastError()));
+			$this->terminateShell('No user created: the table cannot be read: '.strval($dbHndlr->finalErrorText()));
 		}
 		if( intval($rowList[0]['usrCount'] ?? 0)>0 ){
-			$this->prntObjc->printLine('The table '.$tblName.' already holds users: nothing was changed.');
+			$this->printerObj->printShellLine('The table '.$tblName.' already holds users: nothing was changed.');
 			return Array();
 		}
 		// The rules of the userbase are those of its block, except the length : the passwords made here are long enough for any
-		$natAuth = new Native( Array('minlen'=>1) + $confValues );
+		$ntvAuth = new Native( Array('minlen'=>1) + $configValues );
 		$passLst = Array();
-		$addQury = 'INSERT INTO '.$qtdTble.' ('.$dbHandl->quoteName('userName').', '.$dbHandl->quoteName('passHash').', '.$dbHandl->quoteName('userRole').', '.$dbHandl->quoteName('userStat').") VALUES (?, '!', ?, 'active');";
-		$dbHandl->opnTrnsct();
-		foreach( self::USERLIST as $usrNme => $usrRle ){
+		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userName').', '.$dbHndlr->quoteFieldName('passHash').', '.$dbHndlr->quoteFieldName('userRole').', '.$dbHndlr->quoteFieldName('userStat').") VALUES (?, '!', ?, 'active');";
+		$dbHndlr->opnTransaction();
+		foreach( self::USER_LIST as $usrNme => $usrRle ){
 			$passLst[$usrNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
-			if( !$dbHandl->sendQuery($addQury, true, Array($usrNme, $usrRle)) || !$natAuth->setPasswd($usrNme, $passLst[$usrNme]) ){
-				$dbHandl->remTrnsct();
-				$this->stopShell('User '.$usrNme.' cannot be written; nothing was changed');
+			if( !$dbHndlr->sendBuiltQuery($addStmt, true, Array($usrNme, $usrRle)) || !$ntvAuth->savePasswdFlag($usrNme, $passLst[$usrNme]) ){
+				$dbHndlr->remTransaction();
+				$this->terminateShell('User '.$usrNme.' cannot be written; nothing was changed');
 			}
 		}
-		$dbHandl->setTrnsct();
+		$dbHndlr->setTransaction();
 		return $passLst;
 	}
 
@@ -792,33 +792,33 @@ class Deploy extends Command{
 	 * Gives the database of the native userbase, its users table created
 	 * from the users.<type>.sql file of conf/schema when it is missing.
 	 *
-	 * @param Array $confValues Config block of the native userbase.
+	 * @param Array $configValues Config block of the native userbase.
 	 * @return DbHandlr The handler of that database.
 	 *
 	 * @throws ShellStop When there is no schema for the database, or the table cannot be created.
 	 * @throws \RuntimeException When the database is not configured or does not answer.
 	 */
-	protected function needTable( Array $confValues ): DbHandlr {
-		$baseNme = strval($confValues['basnme'] ?? '');
-		$tblName = strval($confValues['tblnme'] ?? 'users');
-		$baseTyp = strval(DBCon::baseSetup($baseNme)['type']);
+	protected function openUsersTable( Array $configValues ): DbHandlr {
+		$baseNme = strval($configValues['basnme'] ?? '');
+		$tblName = strval($configValues['tblnme'] ?? 'users');
+		$baseTyp = strval(DBCon::baseSetupArray($baseNme)['type']);
 		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseTyp.'.sql';
 		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !is_file($sqlFile) ){
-			$this->stopShell('No users table: there is no users schema for a database of type "'.$baseTyp.'"', self::EXITDENY);
+			$this->terminateShell('No users table: there is no users schema for a database of type "'.$baseTyp.'"', self::EXIT_DENY);
 		}
-		$dbHandl = DBCon::linkNamed($baseNme)->getConnex();
-		if( $dbHandl===null ){
-			$this->stopShell('No users table: the native userbase needs an SQL database', self::EXITDENY);
+		$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
+		if( $dbHndlr===null ){
+			$this->terminateShell('No users table: the native userbase needs an SQL database', self::EXIT_DENY);
 		}
-		if( $dbHandl->tableInfo($tblName)===false ){
+		if( $dbHndlr->tableInfoArray($tblName)===false ){
 			// The schema names its table 'users' : it is given the configured name
-			$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHandl->quoteName($tblName), strval(file_get_contents($sqlFile)), 1);
-			if( !$dbHandl->sendQuery(strval($makeSql), true) ){
-				$this->stopShell('No users table: it cannot be created: '.strval($dbHandl->lastError()));
+			$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHndlr->quoteFieldName($tblName), strval(file_get_contents($sqlFile)), 1);
+			if( !$dbHndlr->sendBuiltQuery(strval($makeSql), true) ){
+				$this->terminateShell('No users table: it cannot be created: '.strval($dbHndlr->finalErrorText()));
 			}
-			$this->prntObjc->printLine('Table '.$tblName.' created.');
-			$this->traceDone('Deploy: users table '.$tblName.' created');
+			$this->printerObj->printShellLine('Table '.$tblName.' created.');
+			$this->traceShellDone('Deploy: users table '.$tblName.' created');
 		}
-		return $dbHandl;
+		return $dbHndlr;
 	}
 }

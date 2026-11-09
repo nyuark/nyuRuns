@@ -9,25 +9,25 @@ namespace nyu\Shell;
  */
 class Printer{
 
-	protected $jsonMode;
-	protected $quietOut;
-	protected $outsStrm;
-	protected $errsStrm;
-	protected $jsonData = Array();
+	protected $jsonFormat;
+	protected $quietPrint;
+	protected $outsStream;
+	protected $errorsStrm;
+	protected $jsonOutput = Array();
 
 	/**
 	 * Builds the printer with its shape, its mode and its streams.
 	 *
-	 * @param Bool  $jsonsShape Whether the output is one JSON object, for a script to read.
-	 * @param Bool  $quietsMode Whether the plain remarks are left out; values, tables and errors are still written.
-	 * @param mixed $outsStream Stream the output is written to; the standard output when null.
-	 * @param mixed $errsStream Stream the questions and the errors are written to; the standard error when null.
+	 * @param Bool  $printsAsJson Whether the output is one JSON object, for a script to read.
+	 * @param Bool  $skipsRemarks Whether the plain remarks are left out; values, tables and errors are still written.
+	 * @param mixed $outputStream Stream the output is written to; the standard output when null.
+	 * @param mixed $errorsStream Stream the questions and the errors are written to; the standard error when null.
 	 */
-	function __construct( Bool $jsonsShape=false, Bool $quietsMode=false, Mixed $outsStream=null, Mixed $errsStream=null ){
-		$this->jsonMode = $jsonsShape;
-		$this->quietOut = $quietsMode;
-		$this->outsStrm = $outsStream ?? STDOUT;
-		$this->errsStrm = $errsStream ?? STDERR;
+	function __construct( Bool $printsAsJson=false, Bool $skipsRemarks=false, Mixed $outputStream=null, Mixed $errorsStream=null ){
+		$this->jsonFormat = $printsAsJson;
+		$this->quietPrint = $skipsRemarks;
+		$this->outsStream = $outputStream ?? STDOUT;
+		$this->errorsStrm = $errorsStream ?? STDERR;
 	}
 
 	/**
@@ -35,140 +35,140 @@ class Printer{
 	 *
 	 * @return Bool True for JSON, false for text.
 	 */
-	public function jsonShape(): Bool {
-		return $this->jsonMode;
+	public function jsonShellShape(): Bool {
+		return $this->jsonFormat;
 	}
 
 	/**
 	 * Writes a remark: a line of text, kept under 'notes' in JSON.
 	 *
-	 * @param String $lineString The remark.
+	 * @param String $markdownLine The remark.
 	 */
-	public function printLine( String $lineString ): Void {
-		if( $this->quietOut ){
+	public function printShellLine( String $markdownLine ): Void {
+		if( $this->quietPrint ){
 			return;
 		}
-		if( $this->jsonMode ){
-			$this->jsonData['notes'][] = $lineString;
+		if( $this->jsonFormat ){
+			$this->jsonOutput['notes'][] = $markdownLine;
 			return;
 		}
-		fwrite($this->outsStrm, $lineString.PHP_EOL);
+		fwrite($this->outsStream, $markdownLine.PHP_EOL);
 	}
 
 	/**
 	 * Writes text as it is, without a line end: the body of a reply, or
 	 * the lines of a log. Kept under 'body' in JSON.
 	 *
-	 * @param String $lineString The text.
+	 * @param String $markdownLine The text.
 	 */
-	public function printBody( String $lineString ): Void {
-		if( $this->jsonMode ){
-			$this->jsonData['body'] = ($this->jsonData['body'] ?? '').$lineString;
+	public function printShellBody( String $markdownLine ): Void {
+		if( $this->jsonFormat ){
+			$this->jsonOutput['body'] = ($this->jsonOutput['body'] ?? '').$markdownLine;
 			return;
 		}
-		fwrite($this->outsStrm, $lineString);
+		fwrite($this->outsStream, $markdownLine);
 	}
 
 	/**
 	 * Writes an error, on the error stream; kept under 'error' in JSON.
 	 *
-	 * @param String $lineString What went wrong.
+	 * @param String $markdownLine What went wrong.
 	 */
-	public function printFail( String $lineString ): Void {
-		if( $this->jsonMode ){
-			$this->jsonData['error'] = $lineString;
+	public function printShellFail( String $markdownLine ): Void {
+		if( $this->jsonFormat ){
+			$this->jsonOutput['error'] = $markdownLine;
 			return;
 		}
-		fwrite($this->errsStrm, $lineString.PHP_EOL);
+		fwrite($this->errorsStrm, $markdownLine.PHP_EOL);
 	}
 
 	/**
 	 * Writes a question, on the error stream and without a line end: the
 	 * answer is typed after it.
 	 *
-	 * @param String $lineString The question.
+	 * @param String $markdownLine The question.
 	 */
-	public function printAsks( String $lineString ): Void {
-		fwrite($this->errsStrm, $lineString);
+	public function printShellAsks( String $markdownLine ): Void {
+		fwrite($this->errorsStrm, $markdownLine);
 	}
 
 	/**
 	 * Writes a table: its columns aligned in text, a list of rows under
 	 * 'rows' in JSON, each value under the name of its column.
 	 *
-	 * @param Array $headerRows Names of the columns.
-	 * @param Array $tableLines Rows, each a list of values in the order of the columns.
+	 * @param Array $headrRowsArr Names of the columns.
+	 * @param Array $tbleLinesArr Rows, each a list of values in the order of the columns.
 	 */
-	public function printRows( Array $headerRows, Array $tableLines ): Void {
-		if( $this->jsonMode ){
-			foreach( $tableLines as $rowVal ){
-				$this->jsonData['rows'][] = array_combine($headerRows, array_values($rowVal));
+	public function printShellRows( Array $headrRowsArr, Array $tbleLinesArr ): Void {
+		if( $this->jsonFormat ){
+			foreach( $tbleLinesArr as $rowVal ){
+				$this->jsonOutput['rows'][] = array_combine($headrRowsArr, array_values($rowVal));
 			}
-			if( empty($tableLines) && !isset($this->jsonData['rows']) ){
-				$this->jsonData['rows'] = Array();
+			if( empty($tbleLinesArr) && !isset($this->jsonOutput['rows']) ){
+				$this->jsonOutput['rows'] = Array();
 			}
 			return;
 		}
-		$colSize = array_map('strlen', $headerRows);
+		$clmnSiz = array_map('strlen', $headrRowsArr);
 		$txtRows = Array();
-		foreach( $tableLines as $rowVal ){
+		foreach( $tbleLinesArr as $rowVal ){
 			$txtLine = Array();
-			foreach( array_values($rowVal) as $colIdx => $colVal ){
-				$txtLine[$colIdx] = is_scalar($colVal) ? strval($colVal) : ( $colVal===null ? '' : strval(json_encode($colVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
-				$colSize[$colIdx] = max($colSize[$colIdx] ?? 0, strlen($txtLine[$colIdx]));
+			foreach( array_values($rowVal) as $colInc => $colVal ){
+				$txtLine[$colInc] = is_scalar($colVal) ? strval($colVal) : ( $colVal===null ? '' : strval(json_encode($colVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
+				$clmnSiz[$colInc] = max($clmnSiz[$colInc] ?? 0, strlen($txtLine[$colInc]));
 			}
 			$txtRows[] = $txtLine;
 		}
-		foreach( array_merge(Array($headerRows), $txtRows) as $rowTxt ){
+		foreach( array_merge(Array($headrRowsArr), $txtRows) as $rowTxt ){
 			$outLine = '';
-			foreach( $rowTxt as $colIdx => $colVal ){
-				$outLine .= str_pad($colVal, $colSize[$colIdx]).'  ';
+			foreach( $rowTxt as $colInc => $colVal ){
+				$outLine .= str_pad($colVal, $clmnSiz[$colInc]).'  ';
 			}
-			fwrite($this->outsStrm, rtrim($outLine).PHP_EOL);
+			fwrite($this->outsStream, rtrim($outLine).PHP_EOL);
 		}
 	}
 
 	/**
 	 * Writes a named value: 'name: value' in text, a key in JSON.
 	 *
-	 * @param String $valueLabel Name of the value.
-	 * @param mixed  $valueDatas The value.
+	 * @param String $valLabelText Name of the value.
+	 * @param mixed  $filePartData The value.
 	 */
-	public function printPair( String $valueLabel, Mixed $valueDatas ): Void {
-		if( $this->jsonMode ){
-			$this->jsonData[$valueLabel] = $valueDatas;
+	public function printShellPair( String $valLabelText, Mixed $filePartData ): Void {
+		if( $this->jsonFormat ){
+			$this->jsonOutput[$valLabelText] = $filePartData;
 			return;
 		}
-		fwrite($this->outsStrm, $valueLabel.': '.( (is_string($valueDatas) || is_int($valueDatas) || is_float($valueDatas)) ? strval($valueDatas) : strval(json_encode($valueDatas, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ).PHP_EOL);
+		fwrite($this->outsStream, $valLabelText.': '.( (is_string($filePartData) || is_int($filePartData) || is_float($filePartData)) ? strval($filePartData) : strval(json_encode($filePartData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ).PHP_EOL);
 	}
 
 	/**
 	 * Writes a secret that is told this once: it is kept nowhere readable,
 	 * and never goes to a log.
 	 *
-	 * @param String $secretName What the secret is.
-	 * @param String $secretText The secret.
+	 * @param String $shellSecrNme What the secret is.
+	 * @param String $codeSecrText The secret.
 	 */
-	public function printOnce( String $secretName, String $secretText ): Void {
-		if( $this->jsonMode ){
-			$this->jsonData['secret'][$secretName] = $secretText;
+	public function printShellOnce( String $shellSecrNme, String $codeSecrText ): Void {
+		if( $this->jsonFormat ){
+			$this->jsonOutput['secret'][$shellSecrNme] = $codeSecrText;
 			return;
 		}
-		fwrite($this->outsStrm, $secretName.' (shown this once): '.$secretText.PHP_EOL);
+		fwrite($this->outsStream, $shellSecrNme.' (shown this once): '.$codeSecrText.PHP_EOL);
 	}
 
 	/**
 	 * Ends the output: in JSON, the object is written now, with whether
 	 * the command was done ('done') and its exit code ('exit').
 	 *
-	 * @param Int $exitNumber Exit code of the command.
+	 * @param Int $shellExitNum Exit code of the command.
 	 */
-	public function closeOuts( Int $exitNumber ): Void {
-		if( !$this->jsonMode ){
+	public function closeShellOuts( Int $shellExitNum ): Void {
+		if( !$this->jsonFormat ){
 			return;
 		}
-		$outVals = Array('done'=>($exitNumber==0), 'exit'=>$exitNumber) + $this->jsonData;
-		fwrite($this->outsStrm, json_encode($outVals, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE).PHP_EOL);
-		$this->jsonData = Array();
+		$outData = Array('done'=>($shellExitNum==0), 'exit'=>$shellExitNum) + $this->jsonOutput;
+		fwrite($this->outsStream, json_encode($outData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE).PHP_EOL);
+		$this->jsonOutput = Array();
 	}
 }

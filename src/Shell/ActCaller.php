@@ -17,7 +17,7 @@ use nyu\Tools\ServerReg;
  * Calls an action of a run from the command line, for automated tasks:
  * the action gets a request, inputs, an access result and a response as
  * it does over HTTP, and its reply is given back in place of being sent.
- * No credential is checked (see Checker::shellPass); the declared routes
+ * No credential is checked (see Checker::grantShellCall); the declared routes
  * are not read: the action is named as app/action.
  */
 class ActCaller{
@@ -26,67 +26,67 @@ class ActCaller{
 	 * Builds the request and the response of a call that does not come
 	 * over HTTP.
 	 *
-	 * @param String $methodName Method the request is said to use.
-	 * @param String $requestURI Path it is said to ask for.
-	 * @param Array  $inputsVals Values it carries.
-	 * @param Array  $renderVals The 'rnder' block of the preset, for the response.
-	 * @param Array  $proxyConfg The reverse proxy settings (see Setup\Loader::proxyConf).
+	 * @param String $actionMthNme Method the request is said to use.
+	 * @param String $reqUriString Path it is said to ask for.
+	 * @param Array  $inputsValues Values it carries.
+	 * @param Array  $renderValues The 'rnder' block of the preset, for the response.
+	 * @param Array  $proxyConfArr The reverse proxy settings (see Setup\Loader::proxySetupConf).
 	 * @return Array The Request, then the Response.
 	 */
-	public static function makeReqst( String $methodName, String $requestURI, Array $inputsVals=Array(), Array $renderVals=Array(), Array $proxyConfg=Array() ): Array {
+	public static function makeRequestArr( String $actionMthNme, String $reqUriString, Array $inputsValues=Array(), Array $renderValues=Array(), Array $proxyConfArr=Array() ): Array {
 		// The request reads these, then unsets them : they are given what a call from the command line stands for
-		$_SERVER = Array('REQUEST_METHOD'=>strtoupper($methodName), 'REQUEST_URI'=>$requestURI, 'SERVER_NAME'=>'localhost', 'SERVER_PROTOCOL'=>'CLI', 'SCRIPT_NAME'=>'nyuRun', 'QUERY_STRING'=>'');
+		$_SERVER = Array('REQUEST_METHOD'=>strtoupper($actionMthNme), 'REQUEST_URI'=>$reqUriString, 'SERVER_NAME'=>'localhost', 'SERVER_PROTOCOL'=>'CLI', 'SCRIPT_NAME'=>'nyuRun', 'QUERY_STRING'=>'');
 		$_GET = Array();
-		$_POST = $inputsVals;
+		$_POST = $inputsValues;
 		$_COOKIE = Array();
 		$_FILES = Array();
-		$servReg = new ServerReg();
-		$clntReg = new ClientReg($servReg, true, $proxyConfg);
-		$respObj = new Response($renderVals);
-		return Array( new Request($servReg, $respObj, $clntReg), $respObj );
+		$srvrReg = new ServerReg();
+		$clntReg = new ClientReg($srvrReg, true, $proxyConfArr);
+		$respObj = new Response($renderValues);
+		return Array( new Request($srvrReg, $respObj, $clntReg), $respObj );
 	}
 
 	/**
 	 * Runs an action under a preset, and gives its reply.
 	 *
-	 * @param String $presetName Name of the preset the call runs under.
-	 * @param String $actionPath The action, as app/action or app/action/param.
-	 * @param Array  $inputsVals Values given to the action, through its input definition.
-	 * @param String $methodName Method the request is said to use.
-	 * @param String $loggedUser Name the call runs under.
-	 * @param String $loggedRole Role the call runs with.
+	 * @param String $nameOfPreset Name of the preset the call runs under.
+	 * @param String $actionTarget The action, as app/action or app/action/param.
+	 * @param Array  $inputsValues Values given to the action, through its input definition.
+	 * @param String $actionMthNme Method the request is said to use.
+	 * @param String $signedInUser Name the call runs under.
+	 * @param String $signedInRole Role the call runs with.
 	 * @return Array The status under 'code', its message under 'mssg', the body of the reply under 'body' and, for a redirection, its address under 'goal'.
 	 *
 	 * @throws ShellStop When the action is not written as app/action.
 	 * @throws \RuntimeException When the preset cannot be loaded.
 	 */
-	public function runAction( String $presetName, String $actionPath, Array $inputsVals, String $methodName, String $loggedUser, String $loggedRole ): Array {
-		$pathPrt = Array();
-		if( !preg_match('#^([A-Za-z][A-Za-z0-9]*)/(\w+)(?:/(.+))?$#D', trim($actionPath, '/'), $pathPrt) ){
-			throw new ShellStop('An action is named as app/action, or app/action/param', Command::EXITUSGE);
+	public function runAskedAction( String $nameOfPreset, String $actionTarget, Array $inputsValues, String $actionMthNme, String $signedInUser, String $signedInRole ): Array {
+		$pthPart = Array();
+		if( !preg_match('#^([A-Za-z][A-Za-z0-9]*)/(\w+)(?:/(.+))?$#D', trim($actionTarget, '/'), $pthPart) ){
+			throw new ShellStop('An action is named as app/action, or app/action/param', Command::EXIT_HELP);
 		}
-		$loadObj = (new Preset($presetName))->makeSetup();
-		$GLOBALS['nyuConfig'] = $loadObj->getConfig();
-		Logger::plugSetup( $loadObj->logConfig() );
-		$rndrCnf = $loadObj->getRegKey('rnder');
-		$rteConf = $loadObj->getRegKey('route');
-		$callLst = self::makeReqst( $methodName, '/'.trim($actionPath, '/'), $inputsVals, is_array($rndrCnf) ? $rndrCnf : Array(), $loadObj->proxyConf() );
+		$loadObj = (new Preset($nameOfPreset))->newSetupLoader();
+		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
+		Logger::plugLogsConfig( $loadObj->logConfigArray() );
+		$rndrCnf = $loadObj->getRegistryKey('rnder');
+		$rteConf = $loadObj->getRegistryKey('route');
+		$callLst = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrCnf) ? $rndrCnf : Array(), $loadObj->proxySetupConf() );
 		$rqstObj = $callLst[0];
 		$respObj = $callLst[1];
-		$inptReg = $loadObj->getInputs($rqstObj);
-		$routReg = new Registry( Array('app'=>$pathPrt[1], 'action'=>$pathPrt[2], 'param'=>$pathPrt[3] ?? null, 'rteKind'=>'action', 'rtePath'=>'') );
-		$axssReg = (new Checker($loadObj->setAccess(), $rqstObj, $routReg))->shellPass($loggedUser, $loggedRole);
-		$statNum = intval($axssReg->getDefVal('statCode', 200));
-		$statMsg = strval($axssReg->readValue('statMssg'));
+		$inptReg = $loadObj->retrieveInputs($rqstObj);
+		$routReg = new Registry( Array('app'=>$pthPart[1], 'action'=>$pthPart[2], 'param'=>$pthPart[3] ?? null, 'rteKind'=>'action', 'rtePath'=>'') );
+		$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg))->grantShellCall($signedInUser, $signedInRole);
+		$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
+		$sttsMsg = strval($accsReg->readFileDetail('statMssg'));
 		$outData = null;
-		if( $statNum==200 ){
-			$ctrlObj = new Controller( $pathPrt[1], $pathPrt[2], $inptReg, $pathPrt[3] ?? null, $axssReg, $rqstObj, $respObj, new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj) );
-			$statArr = $ctrlObj->getStatus();
-			$statNum = intval($statArr['code']);
-			$statMsg = strval($statArr['mssg']);
-			$outData = $ctrlObj->getOutput();
+		if( $sttsNum==200 ){
+			$control = new Controller( $pthPart[1], $pthPart[2], $inptReg, $pthPart[3] ?? null, $accsReg, $rqstObj, $respObj, new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj) );
+			$sttsArr = $control->retrieveStatus();
+			$sttsNum = intval($sttsArr['code']);
+			$sttsMsg = strval($sttsArr['mssg']);
+			$outData = $control->retrieveOutput();
 		}
-		return $this->replyVals($respObj, $statNum, $statMsg, $outData);
+		return $this->replyValuesArr($respObj, $sttsNum, $sttsMsg, $outData);
 	}
 
 	/**
@@ -94,29 +94,29 @@ class ActCaller{
 	 * request: the output of a success, an error body otherwise, nothing
 	 * for a redirection or a reply without content.
 	 *
-	 * @param Response $httpRespns The response the action worked with.
-	 * @param Int      $statusCode Status of the action.
-	 * @param String   $statusMssg Message of a status that is not a success.
-	 * @param mixed    $dataValues Output of the action.
+	 * @param Response $httpResponse The response the action worked with.
+	 * @param Int      $responseCode Status of the action.
+	 * @param String   $statusMessag Message of a status that is not a success.
+	 * @param mixed    $outputToSend Output of the action.
 	 * @return Array The 'code', 'mssg', 'body' and 'goal' values (see runAction).
 	 */
-	protected function replyVals( Response $httpRespns, Int $statusCode, String $statusMssg, Mixed $dataValues ): Array {
-		$headLst = $httpRespns->readHeads();
+	protected function replyValuesArr( Response $httpResponse, Int $responseCode, String $statusMessag, Mixed $outputToSend ): Array {
+		$headLst = $httpResponse->readHeadsArray();
 		$bodyTxt = '';
-		$isMoved = ($statusCode>=300 && $statusCode<400);
-		if( $isMoved || ($statusCode==204 && $dataValues===null) ){
-			$httpRespns->clearBody();
+		$isMoved = ($responseCode>=300 && $responseCode<400);
+		if( $isMoved || ($responseCode==204 && $outputToSend===null) ){
+			$httpResponse->clearReplyBody();
 		}else{
-			if( $statusCode<200 || $statusCode>=300 ){
+			if( $responseCode<200 || $responseCode>=300 ){
 				// A file or a page is only the reply of a success
-				$httpRespns->clearBody();
-				$dataValues = Array('error'=>$statusMssg, 'code'=>$statusCode);
+				$httpResponse->clearReplyBody();
+				$outputToSend = Array('error'=>$statusMessag, 'code'=>$responseCode);
 			}
-			$httpRespns->formatOut( $dataValues ?? Array(), $statusCode<200 || $statusCode>=300 );
+			$httpResponse->convertOutFlag( $outputToSend ?? Array(), $responseCode<200 || $responseCode>=300 );
 			ob_start();
-			$httpRespns->sendOutpt();
+			$httpResponse->transmitOutput();
 			$bodyTxt = strval(ob_get_clean());
 		}
-		return Array('code'=>$statusCode, 'mssg'=>$statusMssg, 'body'=>$bodyTxt, 'goal'=>$isMoved ? strval($headLst['Location'] ?? '') : '');
+		return Array('code'=>$responseCode, 'mssg'=>$statusMessag, 'body'=>$bodyTxt, 'goal'=>$isMoved ? strval($headLst['Location'] ?? '') : '');
 	}
 }

@@ -27,7 +27,7 @@ class Device extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function aboutText(): String {
+	public function describeInLine(): String {
 		return 'Manages the devices working in the name of a user: their tokens, the list, the revocation';
 	}
 
@@ -36,7 +36,7 @@ class Device extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTable(): Array {
+	public function subsTableArray(): Array {
 		return Array(
 			'token'=>Array('args'=>'<name> <user> <role>', 'about'=>'gives a device a token, in the name of an active user: shown once'),
 			'lists'=>Array('args'=>'[user]', 'about'=>'lists the devices, of a user or of every user'),
@@ -53,24 +53,24 @@ class Device extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callToken(): Int {
-		$dvcName = $this->needsWord('the name of the device');
-		$usrName = $this->needsWord('the user');
-		$dvcRole = $this->needsWord('the role of the device');
-		if( !preg_match('/^[a-z][a-z0-9]{0,7}$/D', $dvcRole) ){
-			$this->stopShell('Invalid role: a lower-case word of 8 characters at most', self::EXITUSGE);
+		$devcNme = $this->needsShellWord('the name of the device');
+		$usrName = $this->needsShellWord('the user');
+		$devcRle = $this->needsShellWord('the role of the device');
+		if( !preg_match('/^[a-z][a-z0-9]{0,7}$/D', $devcRle) ){
+			$this->terminateShell('Invalid role: a lower-case word of 8 characters at most', self::EXIT_HELP);
 		}
-		$dvcAuth = $this->deviceChk();
-		if( $this->findDevce($dvcAuth, $dvcName, $usrName)!==null ){
-			$this->stopShell('No token made: the user already has a device named '.json_encode($dvcName).' (device revok it first)', self::EXITDENY);
+		$dvcAuth = $this->getDeviceCheck();
+		if( $this->findDeviceNumb($dvcAuth, $devcNme, $usrName)!==null ){
+			$this->terminateShell('No token made: the user already has a device named '.json_encode($devcNme).' (device revok it first)', self::EXIT_DENY);
 		}
-		$newTokn = $dvcAuth->addDevice($usrName, $dvcName, $dvcRole);
+		$newTokn = $dvcAuth->pushDeviceText($usrName, $devcNme, $devcRle);
 		if( $newTokn===false ){
-			$this->stopShell('No token made: the user is unknown or not active, or the devices cannot be written');
+			$this->terminateShell('No token made: the user is unknown or not active, or the devices cannot be written');
 		}
-		$this->traceDone( 'Device: token '.json_encode($dvcName).' ('.$dvcRole.') made for user '.json_encode($usrName) );
-		$this->prntObjc->printPair('token made', $dvcName);
-		$this->prntObjc->printOnce('Token of '.$dvcName, strval($newTokn));
-		return self::EXITDONE;
+		$this->traceShellDone( 'Device: token '.json_encode($devcNme).' ('.$devcRle.') made for user '.json_encode($usrName) );
+		$this->printerObj->printShellPair('token made', $devcNme);
+		$this->printerObj->printShellOnce('Token of '.$devcNme, strval($newTokn));
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -80,17 +80,17 @@ class Device extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callLists(): Int {
-		$usrName = strval($this->optnObjc->shiftWord() ?? '');
-		$dvcRows = $this->deviceChk()->listDevcs($usrName);
+		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
+		$dvcRows = $this->getDeviceCheck()->lstUserDevices($usrName);
 		if( $dvcRows===false ){
-			$this->stopShell('The devices cannot be read');
+			$this->terminateShell('The devices cannot be read');
 		}
 		$rowList = Array();
 		foreach( $dvcRows as $dvcRow ){
 			$rowList[] = Array(strval($dvcRow['devcName']), strval($dvcRow['userName']), strval($dvcRow['devcRole']), strval($dvcRow['madeDate']), strval($dvcRow['lastSeen'] ?? ''), strval($dvcRow['revkDate'] ?? ''));
 		}
-		$this->prntObjc->printRows( Array('device', 'user', 'role', 'made', 'last seen', 'revoked'), $rowList );
-		return self::EXITDONE;
+		$this->printerObj->printShellRows( Array('device', 'user', 'role', 'made', 'last seen', 'revoked'), $rowList );
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -100,19 +100,19 @@ class Device extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callRevok(): Int {
-		$dvcName = $this->needsWord('the name of the device');
-		$usrName = $this->needsWord('the user');
-		$dvcAuth = $this->deviceChk();
-		$dvcIdnt = $this->findDevce($dvcAuth, $dvcName, $usrName);
+		$devcNme = $this->needsShellWord('the name of the device');
+		$usrName = $this->needsShellWord('the user');
+		$dvcAuth = $this->getDeviceCheck();
+		$dvcIdnt = $this->findDeviceNumb($dvcAuth, $devcNme, $usrName);
 		if( $dvcIdnt===null ){
-			$this->stopShell('Nothing revoked: the user has no device named '.json_encode($dvcName).' still standing', self::EXITDENY);
+			$this->terminateShell('Nothing revoked: the user has no device named '.json_encode($devcNme).' still standing', self::EXIT_DENY);
 		}
-		if( !$dvcAuth->remDevice($dvcIdnt) ){
-			$this->stopShell('The device cannot be revoked: the devices cannot be written');
+		if( !$dvcAuth->remUserDevcFlg($dvcIdnt) ){
+			$this->terminateShell('The device cannot be revoked: the devices cannot be written');
 		}
-		$this->traceDone( 'Device: '.json_encode($dvcName).' of user '.json_encode($usrName).' revoked' );
-		$this->prntObjc->printPair('device revoked', $dvcName);
-		return self::EXITDONE;
+		$this->traceShellDone( 'Device: '.json_encode($devcNme).' of user '.json_encode($usrName).' revoked' );
+		$this->printerObj->printShellPair('device revoked', $devcNme);
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -121,25 +121,25 @@ class Device extends Command{
 	 *
 	 * @return DeviceAuth The check.
 	 */
-	protected function deviceChk(): DeviceAuth {
-		return new DeviceAuth( $this->accessCnf('device') );
+	protected function getDeviceCheck(): DeviceAuth {
+		return new DeviceAuth( $this->accessSettings('device') );
 	}
 
 	/**
 	 * Finds the device of a user that bears a name and is not revoked.
 	 *
-	 * @param DeviceAuth $deviceAuth The check of the devices.
-	 * @param String     $deviceName Name of the device.
-	 * @param String     $userString Name of the user.
+	 * @param DeviceAuth $devicesCheck The check of the devices.
+	 * @param String     $userDevcName Name of the device.
+	 * @param String     $namedUserTxt Name of the user.
 	 * @return ?Int The identifier of the device, null when there is none.
 	 */
-	protected function findDevce( DeviceAuth $deviceAuth, String $deviceName, String $userString ): ?Int {
-		$dvcRows = $deviceAuth->listDevcs($userString);
+	protected function findDeviceNumb( DeviceAuth $devicesCheck, String $userDevcName, String $namedUserTxt ): ?Int {
+		$dvcRows = $devicesCheck->lstUserDevices($namedUserTxt);
 		if( $dvcRows===false ){
-			$this->stopShell('The devices cannot be read');
+			$this->terminateShell('The devices cannot be read');
 		}
 		foreach( $dvcRows as $dvcRow ){
-			if( $dvcRow['devcName']===$deviceName && $dvcRow['revkDate']===null ){
+			if( $dvcRow['devcName']===$userDevcName && $dvcRow['revkDate']===null ){
 				return intval($dvcRow['id_device']);
 			}
 		}

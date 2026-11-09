@@ -26,5 +26,5 @@ if( !is_file(TOP_DIR.DS.'vendor'.DS.'autoload.php') ){
 require TOP_DIR.DS.'vendor'.DS.'autoload.php';
 
 $nyuShell = new \nyu\Shell\Console( array_slice($argv, 1) );
-$nyuShell->plugError();
-exit( $nyuShell->runCommnd() );
+$nyuShell->plugShellError();
+exit( $nyuShell->executeCommand() );

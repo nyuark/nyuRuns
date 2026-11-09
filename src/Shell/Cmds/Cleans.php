@@ -20,14 +20,14 @@ use nyu\Shell\Command;
 class Cleans extends Command{
 
 	// What can be purged: the folders of temp, by their name
-	const KINDLIST = Array('cache', 'logs', 'limits', 'backup');
+	const KIND_LIST = Array('cache', 'logs', 'limits', 'backup');
 
 	/**
 	 * Tells in one line what the command does.
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function aboutText(): String {
+	public function describeInLine(): String {
 		return 'Removes temporary files and logs, shows a log, lists and releases the held addresses';
 	}
 
@@ -36,7 +36,7 @@ class Cleans extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTable(): Array {
+	public function subsTableArray(): Array {
 		return Array(
 			'purge'=>Array('args'=>'<cache|logs|limits|backup|all> ... [--older=<days>]', 'about'=>'removes the files of those folders of temp'),
 			'trace'=>Array('args'=>'<channel> [--lasts=<lines>] [--watch]', 'about'=>'shows the last lines of a log channel'),
@@ -52,39 +52,39 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callPurge(): Int {
-		$kindLst = $this->optnObjc->restWords();
+		$kindLst = $this->optnObject->restWordsArray();
 		if( empty($kindLst) ){
-			$this->stopShell('Missing argument: what to purge ('.implode(', ', self::KINDLIST).', or all)', self::EXITUSGE);
+			$this->terminateShell('Missing argument: what to purge ('.implode(', ', self::KIND_LIST).', or all)', self::EXIT_HELP);
 		}
 		if( in_array('all', $kindLst, true) ){
-			$kindLst = self::KINDLIST;
+			$kindLst = self::KIND_LIST;
 		}
-		$badList = array_diff($kindLst, self::KINDLIST);
+		$badList = array_diff($kindLst, self::KIND_LIST);
 		if( !empty($badList) ){
-			$this->stopShell('Nothing is purged under that name: '.implode(', ', $badList), self::EXITUSGE);
+			$this->terminateShell('Nothing is purged under that name: '.implode(', ', $badList), self::EXIT_HELP);
 		}
-		$oldDays = $this->optnObjc->getOption('older');
+		$oldDays = $this->optnObject->retrieveOption('older');
 		if( $oldDays!==null && !preg_match('/^\d{1,5}$/D', $oldDays) ){
-			$this->stopShell('--older takes a number of days', self::EXITUSGE);
+			$this->terminateShell('--older takes a number of days', self::EXIT_HELP);
 		}
-		$upToTme = ($oldDays===null) ? null : time() - intval($oldDays)*86400;
+		$upToTim = ($oldDays===null) ? null : time() - intval($oldDays)*86400;
 		$kindLst = array_values(array_unique($kindLst));
-		if( !$this->askAgreed('Remove the files of '.implode(', ', $kindLst).( $oldDays!==null ? ' older than '.$oldDays.' days' : '' )) ){
-			$this->stopShell('Nothing was removed: not confirmed', self::EXITDENY);
+		if( !$this->queryAgreedFlg('Remove the files of '.implode(', ', $kindLst).( $oldDays!==null ? ' older than '.$oldDays.' days' : '' )) ){
+			$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 		}
 		$rowList = Array();
 		foreach( $kindLst as $kndNme ){
-			$fldPath = $this->tempFoldr( $this->kindFoldr($kndNme) );
+			$fldPath = $this->temporaryFoldr( $this->findTempFolder($kndNme) );
 			if( $fldPath===null ){
 				$rowList[] = Array($kndNme, 0, 'left alone: its folder is missing, or not under temp');
 				continue;
 			}
-			$dropNum = $this->dropFiles($fldPath, $upToTme);
+			$dropNum = $this->dropFilesCount($fldPath, $upToTim);
 			$rowList[] = Array($kndNme, $dropNum, 'purged');
-			$this->traceDone( 'Purge of '.$kndNme.': '.$dropNum.' files removed'.( $oldDays!==null ? ', older than '.$oldDays.' days' : '' ) );
+			$this->traceShellDone( 'Purge of '.$kndNme.': '.$dropNum.' files removed'.( $oldDays!==null ? ', older than '.$oldDays.' days' : '' ) );
 		}
-		$this->prntObjc->printRows( Array('folder', 'removed', 'state'), $rowList );
-		return self::EXITDONE;
+		$this->printerObj->printShellRows( Array('folder', 'removed', 'state'), $rowList );
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -93,49 +93,49 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callTrace(): Int {
-		$chanNme = $this->needsWord('the log channel (error, access, runner, shell, or the name of an application)');
-		if( !preg_match('/^\w+$/D', $chanNme) ){
-			$this->stopShell('A log channel is a plain name', self::EXITUSGE);
+		$channel = $this->needsShellWord('the log channel (error, access, runner, shell, or the name of an application)');
+		if( !preg_match('/^\w+$/D', $channel) ){
+			$this->terminateShell('A log channel is a plain name', self::EXIT_HELP);
 		}
-		$lineNum = $this->optnObjc->getOption('lasts', '20');
+		$lineNum = $this->optnObject->retrieveOption('lasts', '20');
 		if( !preg_match('/^\d{1,6}$/D', strval($lineNum)) ){
-			$this->stopShell('--lasts takes a number of lines', self::EXITUSGE);
+			$this->terminateShell('--lasts takes a number of lines', self::EXIT_HELP);
 		}
 		// With dated file names, the channel is read in its newest file
 		$logPath = '';
-		foreach( (array)glob($this->kindFoldr('logs').DS.$chanNme.'*.log') as $logFle ){
-			$logFle = strval($logFle);
-			if( preg_match('/^'.$chanNme.'(-[\dW_\-]+)?\.log$/D', basename($logFle)) && ($logPath=='' || filemtime($logFle)>filemtime($logPath)) ){
-				$logPath = $logFle;
+		foreach( (array)glob($this->findTempFolder('logs').DS.$channel.'*.log') as $logFil ){
+			$logFil = strval($logFil);
+			if( preg_match('/^'.$channel.'(-[\dW_\-]+)?\.log$/D', basename($logFil)) && ($logPath=='' || filemtime($logFil)>filemtime($logPath)) ){
+				$logPath = $logFil;
 			}
 		}
 		if( $logPath=='' ){
-			$this->stopShell('No log for the channel '.$chanNme, self::EXITDENY);
+			$this->terminateShell('No log for the channel '.$channel, self::EXIT_DENY);
 		}
-		$fileLen = filesize($logPath);
-		$readLen = min($fileLen, 2097152);
-		$logText = strval( file_get_contents($logPath, false, null, $fileLen-$readLen, $readLen) );
+		$logSize = filesize($logPath);
+		$readLen = min($logSize, 2097152);
+		$logText = strval( file_get_contents($logPath, false, null, $logSize-$readLen, $readLen) );
 		$lineLst = explode("\n", rtrim(str_replace("\r\n", "\n", $logText), "\n"));
 		$lineLst = ($logText=='' || intval($lineNum)==0) ? Array() : array_slice($lineLst, -intval($lineNum));
 		foreach( $lineLst as $logLin ){
-			$this->prntObjc->printBody($logLin.PHP_EOL);
+			$this->printerObj->printShellBody($logLin.PHP_EOL);
 		}
-		if( !$this->optnObjc->hasOption('watch') || $this->prntObjc->jsonShape() ){
-			return self::EXITDONE;
+		if( !$this->optnObject->validateOption('watch') || $this->printerObj->jsonShellShape() ){
+			return self::EXIT_DONE;
 		}
 		// Followed until the command is interrupted
-		$readPos = $fileLen;
+		$redPstn = $logSize;
 		while( true ){
 			usleep(500000);
 			clearstatcache(true, $logPath);
-			$fileLen = is_file($logPath) ? filesize($logPath) : 0;
-			if( $fileLen<$readPos ){
+			$logSize = is_file($logPath) ? filesize($logPath) : 0;
+			if( $logSize<$redPstn ){
 				// The file was rotated : it is read again from its start
-				$readPos = 0;
+				$redPstn = 0;
 			}
-			if( $fileLen>$readPos ){
-				$this->prntObjc->printBody( strval(file_get_contents($logPath, false, null, $readPos, $fileLen-$readPos)) );
-				$readPos = $fileLen;
+			if( $logSize>$redPstn ){
+				$this->printerObj->printShellBody( strval(file_get_contents($logPath, false, null, $redPstn, $logSize-$redPstn)) );
+				$redPstn = $logSize;
 			}
 		}
 	}
@@ -146,9 +146,9 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callHolds(): Int {
-		$lmtrObj = new Limiter( $this->accessCnf('limits') );
+		$lmtrObj = new Limiter( $this->accessSettings('limits') );
 		$rowList = Array();
-		foreach( $lmtrObj->listHolds() as $cntVal ){
+		foreach( $lmtrObj->listLimitHolds() as $cntVal ){
 			$rowList[] = Array(
 				($cntVal['addrs']!='') ? $cntVal['addrs'] : '(not told)',
 				$cntVal['fails'],
@@ -156,11 +156,11 @@ class Cleans extends Command{
 				($cntVal['until']>0) ? date('Y-m-d H:i:s', $cntVal['until']) : ''
 			);
 		}
-		$this->prntObjc->printRows( Array('address', 'failures', 'last', 'held until'), $rowList );
+		$this->printerObj->printShellRows( Array('address', 'failures', 'last', 'held until'), $rowList );
 		if( empty($rowList) ){
-			$this->prntObjc->printLine('No address is counted.');
+			$this->printerObj->printShellLine('No address is counted.');
 		}
-		return self::EXITDONE;
+		return self::EXIT_DONE;
 	}
 
 	/**
@@ -169,50 +169,50 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callFrees(): Int {
-		$gvnAddr = $this->needsWord('the address to release, or all');
+		$gvnAddr = $this->needsShellWord('the address to release, or all');
 		if( $gvnAddr!='all' && filter_var($gvnAddr, FILTER_VALIDATE_IP)===false ){
-			$this->stopShell('Not an address: '.$gvnAddr, self::EXITUSGE);
+			$this->terminateShell('Not an address: '.$gvnAddr, self::EXIT_HELP);
 		}
-		if( !$this->askAgreed('Release '.( $gvnAddr=='all' ? 'every address' : $gvnAddr )) ){
-			$this->stopShell('Nothing was released: not confirmed', self::EXITDENY);
+		if( !$this->queryAgreedFlg('Release '.( $gvnAddr=='all' ? 'every address' : $gvnAddr )) ){
+			$this->terminateShell('Nothing was released: not confirmed', self::EXIT_DENY);
 		}
-		$lmtrObj = new Limiter( $this->accessCnf('limits') );
-		$dropNum = $lmtrObj->freeHolds( $gvnAddr=='all' ? null : $gvnAddr );
-		$this->prntObjc->printPair('released', $dropNum);
+		$lmtrObj = new Limiter( $this->accessSettings('limits') );
+		$dropNum = $lmtrObj->freeHoldsCount( $gvnAddr=='all' ? null : $gvnAddr );
+		$this->printerObj->printShellPair('released', $dropNum);
 		if( $dropNum>0 ){
-			$this->traceDone( 'Limiter: '.( $gvnAddr=='all' ? $dropNum.' addresses released' : 'address '.$gvnAddr.' released' ) );
+			$this->traceShellDone( 'Limiter: '.( $gvnAddr=='all' ? $dropNum.' addresses released' : 'address '.$gvnAddr.' released' ) );
 		}
-		return self::EXITDONE;
+		return self::EXIT_DONE;
 	}
 
 	/**
 	 * Gives the folder of a kind of temporary files, as the config sets it.
 	 *
-	 * @param String $kindsLabel One of KINDLIST.
+	 * @param String $tempFileKind One of KINDLIST.
 	 * @return String The full path of the folder.
 	 */
-	protected function kindFoldr( String $kindsLabel ): String {
-		if( $kindsLabel=='logs' ){
-			return strval( (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->logConfig()['path'] );
+	protected function findTempFolder( String $tempFileKind ): String {
+		if( $tempFileKind=='logs' ){
+			return strval( (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->logConfigArray()['path'] );
 		}
-		if( $kindsLabel=='limits' ){
-			$fldName = trim( strval($this->accessCnf('limits')['folder'] ?? ''), '/\\ ' );
+		if( $tempFileKind=='limits' ){
+			$fldName = trim( strval($this->accessSettings('limits')['folder'] ?? ''), '/\\ ' );
 			return TOP_DIR.DS.( $fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'limits' );
 		}
-		return TOP_DIR.DS.'temp'.DS.$kindsLabel;
+		return TOP_DIR.DS.'temp'.DS.$tempFileKind;
 	}
 
 	/**
 	 * Checks that a folder exists and lies under the temp folder of the
 	 * project: nothing is removed anywhere else.
 	 *
-	 * @param String $folderPath Full path of the folder.
+	 * @param String $fullFoldPath Full path of the folder.
 	 * @return ?String Its real path, or null when it is missing or lies elsewhere.
 	 */
-	protected function tempFoldr( String $folderPath ): ?String {
-		$realFld = realpath($folderPath);
-		$realTmp = realpath(TOP_DIR.DS.'temp');
-		if( $realFld===false || $realTmp===false || !is_dir($realFld) || strpos($realFld.DS, $realTmp.DS)!==0 || $realFld===$realTmp ){
+	protected function temporaryFoldr( String $fullFoldPath ): ?String {
+		$realFld = realpath($fullFoldPath);
+		$realDir = realpath(TOP_DIR.DS.'temp');
+		if( $realFld===false || $realDir===false || !is_dir($realFld) || strpos($realFld.DS, $realDir.DS)!==0 || $realFld===$realDir ){
 			return null;
 		}
 		return $realFld;
@@ -221,23 +221,23 @@ class Cleans extends Command{
 	/**
 	 * Removes the files of a folder and of its sub-folders, which are kept.
 	 *
-	 * @param String $folderPath Full path of the folder.
-	 * @param ?Int   $unixMoment Only the files last written before that Unix time are removed; all of them when null.
+	 * @param String $fullFoldPath Full path of the folder.
+	 * @param ?Int   $unixMomentNb Only the files last written before that Unix time are removed; all of them when null.
 	 * @return Int The number of files removed.
 	 */
-	protected function dropFiles( String $folderPath, ?Int $unixMoment=null ): Int {
+	protected function dropFilesCount( String $fullFoldPath, ?Int $unixMomentNb=null ): Int {
 		$dropNum = 0;
-		foreach( (array)scandir($folderPath) as $entNme ){
+		foreach( (array)scandir($fullFoldPath) as $entNme ){
 			if( $entNme=='.' || $entNme=='..' || $entNme=='.gitkeep' ){
 				continue;
 			}
-			$entPath = $folderPath.DS.$entNme;
-			if( is_link($entPath) ){
+			$subPath = $fullFoldPath.DS.$entNme;
+			if( is_link($subPath) ){
 				continue;
 			}
-			if( is_dir($entPath) ){
-				$dropNum += $this->dropFiles($entPath, $unixMoment);
-			}elseif( ($unixMoment===null || filemtime($entPath)<$unixMoment) && @unlink($entPath) ){
+			if( is_dir($subPath) ){
+				$dropNum += $this->dropFilesCount($subPath, $unixMomentNb);
+			}elseif( ($unixMomentNb===null || filemtime($subPath)<$unixMomentNb) && @unlink($subPath) ){
 				$dropNum++;
 			}
 		}
