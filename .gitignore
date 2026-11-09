@@ -1,6 +1,8 @@
-/vendor/
+/vendor/*
+!/vendor/.htaccess
 /logs/*
-/temp/
+/temp/*
+!/temp/.htaccess
 *.php_cs.cache
 /.phpunit.result.cache
 # Local credentials: never commit

@@ -1,0 +1,2 @@
+# Nothing here is served over HTTP: only www is
+Require all denied

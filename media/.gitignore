@@ -1,4 +1,6 @@
 # Media files (sounds, documents, images) are kept out of the repository:
-# only this file is tracked, so that the folder exists after a checkout.
+# only this file and the .htaccess denying the folder are tracked, so that the
+# folder exists after a checkout.
 *
 !.gitignore
+!.htaccess

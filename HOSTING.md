@@ -43,18 +43,22 @@ Before real users come:
   shown to a client, whatever `ERR_SHOW` says.
 - Keep `.env` readable by its owner only (`chmod 600 .env`). It holds every
   secret; the config files only name them (`env:NAME`).
-- Serve the `www` folder and nothing else. `conf`, `runs`, `src`, `temp`,
-  `test` and `vendor` must not be reachable over HTTP.
+- Serve the `www` folder and nothing else. The project carries an `.htaccess`
+  at its root and in every folder outside `www` that denies everything, and
+  one in `www` that sends every path to `index.php`. Apache reads them only
+  when `AllowOverride` lets it (`All`, or `FileInfo Options AuthConfig Limit`).
+  nginx never reads them: its config below is what protects the project there.
 - Remove from `www` what your site does not use.
 - Run PHP 8.2 at least, in a release that fixes php2shell (CVE-2026-109618,
   CVE-2026-109619): 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later. PHP 8.0 and 8.1
   have no release fixing it. A distribution that backports the fix keeps the
   number of its release, so the check gives a `warn` (`php patch`), not a
   `fail`: ask the host whether the fix is in.
-- Set `session.upload_progress.enabled = 0` in `php.ini` (or `.user.ini`,
-  `.htaccess`; it cannot be set at run time). It closes CVE-2026-115560 until
-  PHP fixes it, and the framework does not use it. The check warns while it is
-  on (`upload progress`).
+- Upload progress must be off (`session.upload_progress.enabled = 0`): it
+  closes CVE-2026-115560 until PHP fixes it, and the framework does not use it.
+  With `mod_php`, `www/.htaccess` turns it off. With PHP-FPM, set it in
+  `php.ini` or in a `.user.ini` in `www`. It cannot be set at run time. The
+  check warns while it is on (`upload progress`).
 
 ### Web server
 
@@ -71,6 +75,9 @@ Apache, with `www` as the `DocumentRoot`:
     FallbackResource /index.php
 </Directory>
 ```
+
+With `AllowOverride None`, as above, the `.htaccess` files are not read: the
+`<Directory>` block and `FallbackResource` do their work.
 
 nginx, with PHP-FPM:
 

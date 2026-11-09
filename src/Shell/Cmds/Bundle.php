@@ -40,7 +40,7 @@ class Bundle extends Command{
 	// The environments whose bundle finds every class from a complete class map, without looking for files, and caches its config (CNF_CACH)
 	const MAPSENVS = Array('PREV', 'PROD');
 	// What a bundle holds, from the project root : nothing else is copied, but what a mode adds
-	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE', 'NOTICE');
+	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE', 'NOTICE', '.htaccess');
 	// What is left out of those, from the project root : the local settings, their secrets, the private keys, the modes of the project
 	const DROPLIST = Array('conf/access.json', 'conf/database.json', 'conf/mailer.json', 'conf/users.lst', 'conf/.htpasswd', 'conf/keys/*', 'conf/bundle.lst');
 	// The modes the project declares: { "<mode>": { "system": { "ENV_NAME": ..., ... }, "adding": [ <paths> ] } }
