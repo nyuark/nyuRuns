@@ -29,7 +29,7 @@ class PathUserList extends UserList{
 	 * @param Array $confValues Config block, its 'usrfle' being the full path of the users file.
 	 */
 	function __construct( Array $confValues ){
-		parent::__construct( Array('tfakey'=>$confValues['tfakey'] ?? '') );
+		parent::__construct( Array('tfakey'=>$confValues['tfakey'] ?? '', 'maxtry'=>0) );
 		$this->usrsFile = strval($confValues['usrfle'] ?? '');
 	}
 }
@@ -47,7 +47,7 @@ function listReply( String $fileString ): Array {
 }
 
 $fxtPath = 'test'.DS.'fixtures'.DS.'users.lst';
-$usrList = new UserList( Array('usrfle'=>$fxtPath) );
+$usrList = new UserList( Array('maxtry'=>0, 'usrfle'=>$fxtPath) );
 $annaPwd = Array('user'=>'anna', 'pass'=>'pw-anna');
 $annaIdn = Array('user'=>'anna', 'role'=>'manage', 'id'=>1);
 
@@ -64,7 +64,7 @@ checkSame('UserList no name', Array($usrList->checkCred(Array('user'=>'', 'pass'
 checkSame('UserList pending user: refused as a wrong password is', Array($usrList->checkCred(Array('user'=>'cleo', 'pass'=>'pw-cleo')), $usrList->lastError(), $usrList->wrongCred()), Array(false, 'Invalid credentials', true));
 checkSame('UserList locked user: refused the same way', Array($usrList->checkCred(Array('user'=>'dave', 'pass'=>'pw-dave')), $usrList->lastError()), Array(false, 'Invalid credentials'));
 checkSame('UserList the status is only told to who has the password', Array($usrList->checkCred(Array('user'=>'dave', 'pass'=>'nope')), $usrList->lastError()), Array(false, 'Invalid credentials'));
-checkSame('UserList the path can start with a slash', (new UserList(Array('usrfle'=>'/'.$fxtPath)))->checkCred($annaPwd), $annaIdn);
+checkSame('UserList the path can start with a slash', (new UserList(Array('maxtry'=>0, 'usrfle'=>'/'.$fxtPath)))->checkCred($annaPwd), $annaIdn);
 
 // Fields left out : a member, active, without an id
 $tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -87,7 +87,7 @@ if( function_exists('openssl_encrypt') ){
 }else{
 	skipCheck('UserList 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
 }
-checkSame('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('usrfle'=>$fxtPath, 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
+checkSame('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('maxtry'=>0, 'usrfle'=>$fxtPath, 'tfakey'=>$sealKey)))->checkCred($emmaCod)['user'] ?? null, 'emma');
 
 // Personal API token : its SHA-256 hash is the tokenKey of an active user
 checkSame('UserList personal token', $usrList->checkCred(Array('key'=>'list-test-token')), $annaIdn);
@@ -153,7 +153,7 @@ checkSame('access log: neither a hash nor a token is told', count(preg_grep('/\$
 
 // Through the Checker : Basic credentials, a personal token, and a JWT confirmed against the file
 $jwtConf = Array('secret'=>str_repeat('s', 40), 'lifetm'=>60);
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TSUSRS'=>Array('usrfle'=>$fxtPath), 'TSTOKN'=>$jwtConf, 'LIMITS'=>Array('maxtry'=>0))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TSUSRS'=>Array('maxtry'=>0, 'usrfle'=>$fxtPath), 'TSTOKN'=>$jwtConf, 'LIMITS'=>Array('maxtry'=>0))) );
 /**
  * Runs the access check of a request against the users file.
  *
@@ -179,7 +179,7 @@ checkSame('Checker with UserList: the token of a user no longer in the file is r
 
 // The limit by address still applies : counters in a folder of the project, removed at the end
 $prjFldr = 'temp'.DS.'limits_test_'.getmypid();
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TSUSRS'=>Array('usrfle'=>$fxtPath), 'LIMITS'=>Array('maxtry'=>2, 'holdtm'=>600, 'folder'=>$prjFldr))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TSUSRS'=>Array('maxtry'=>0, 'usrfle'=>$fxtPath), 'LIMITS'=>Array('maxtry'=>2, 'holdtm'=>600, 'folder'=>$prjFldr))) );
 $wrngHed = Array('Authorization'=>'Basic '.base64_encode('anna:nope'));
 $rghtHed = Array('Authorization'=>'Basic '.base64_encode('anna:pw-anna'));
 checkSame('Limit by address: an account not active is counted, as a wrong password is', Array(listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo')))[1], listAccess('hbasic', Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo')))[1], listAccess('hbasic', $rghtHed)[0]), Array('Invalid credentials', 'Invalid credentials', 429));

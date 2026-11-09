@@ -14,7 +14,7 @@ class Preset{
 	const KEYSLIST = Array(
 		''      => Array('label', 'about', 'setup', 'auths', 'input', 'route', 'rnder'),
 		'setup' => Array('ftypes', 'fnames', 'folder', 'envfle'),
-		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt', 'signin', 'rolert', 'appkey'),
+		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt', 'signin', 'rolert', 'appkey', 'public'),
 		'input' => Array('naming', 'source', 'fields'),
 		'route' => Array('detect', 'mapper', 'folder', 'htroot'),
 		'rnder' => Array('format', 'origns', 'headrs')

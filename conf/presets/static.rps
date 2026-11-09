@@ -5,7 +5,7 @@
 		"ftypes": "all",
 		"fnames": "any"
 	},
-	"auths": { "needed": false },
+	"auths": { "needed": false, "public": true },
 	"route": {
 		"detect": "manually",
 		"folder": "conf/routes/static",

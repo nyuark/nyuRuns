@@ -394,8 +394,11 @@ class DBRec {
 	 * @param Bool   $returnVals Whether to return the updated record array.
 	 * @param String $foreignKey Field on the child table referencing this record (defaults to `<singularized table>_id`).
 	 * @param String $currentKey Field on this record referenced by the child (defaults to this record's key field).
-	 * @param String $sortFields Sort clause passed through to the child DBLst.
+	 * @param String $sortFields Sort of the children, as field names with their direction ("date ASC, time DESC") or
+	 *                           prefixed with '^' for a descending one ("^date, time"), through DBLst::listOrder().
 	 * @return ?Array The updated record array if $returnVals is true, otherwise null.
+	 *
+	 * @throws \RuntimeException When the sort names a field that is not valid, or has another form.
 	 */
 	function childList( String $childTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='', String $sortFields='' ): ?Array {
 		if( $foreignKey=='' ) {
@@ -412,7 +415,20 @@ class DBRec {
 		if( !isset($this->recArray[$currentKey]) ){
 			$this->recArray[$chldKey] = Array();
 		}else{
-			$subList = new DBLst($childTable, null, null, $sortFields, null, $this->dbConnex);
+			$subList = new DBLst($childTable, null, null, null, null, $this->dbConnex);
+			// The sort goes through listOrder(), never into the query as written : "date ASC, time DESC" or "^date, time"
+			if( trim($sortFields)!='' ){
+				$srtList = Array();
+				foreach( explode(',', $sortFields) as $srtFld ){
+					$ordPart = preg_split('/\s+/', trim($srtFld));
+					$dscSort = (count($ordPart)==2 && strtoupper($ordPart[1])=='DESC');
+					if( count($ordPart)>2 || (count($ordPart)==2 && !in_array(strtoupper($ordPart[1]), Array('ASC', 'DESC'), true)) ){
+						throw new \RuntimeException('Invalid sort of the children: '.trim($srtFld));
+					}
+					$srtList[] = ($dscSort ? '^' : '').$ordPart[0];
+				}
+				$subList->listOrder($srtList);
+			}
 			$subList->lstSearch(Array($foreignKey.'='=>$this->recArray[$currentKey]));
 			$this->recArray[$chldKey] = $subList->readItems();
 		}

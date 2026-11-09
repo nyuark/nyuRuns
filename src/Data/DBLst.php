@@ -74,6 +74,8 @@ class DBLst {
 					$this->ordrList[] = Array($ordPart[0], strtoupper($ordPart[1] ?? '')=='DESC');
 				}
 			}else{
+				// Kept as given, as the other fragments are, and told : listOrder() is the way that takes no SQL
+				\nyu\Tools\Logger::getLogger('runner')->notice( 'List of '.json_encode($dbaseTable).': order written as SQL, kept as given' );
 				$this->devlText['order'] = $orderClaus;
 			}
 		}
@@ -155,13 +157,14 @@ class DBLst {
 	
 	/**
 	 * Sets the fields the list reads, from a comma-separated list. Each
-	 * entry is a field (`title`, `shows.title`) or a function on one field
-	 * or on '*' (`count(*)`, `max(date)`), with an optional ` as alias`.
-	 * The fields come first in each row, then the functions.
+	 * entry is a field (`title`, `shows.title`) or an aggregate of
+	 * DBStore\Store::FUNCLIST on one field (`max(date)`), or on '*' for a
+	 * count (`count(*)`), with an optional ` as alias`. The fields come
+	 * first in each row, then the functions.
 	 *
 	 * @param ?String $fieldScope Comma-separated list of fields, or null for '*'.
 	 *
-	 * @throws \RuntimeException When an entry has any other form.
+	 * @throws \RuntimeException When an entry has any other form, or names another function.
 	 */
 	public function fieldScop( ?String $fieldScope = null ): Void {
 		$this->slctFlds = Array();
@@ -180,7 +183,12 @@ class DBLst {
 			}
 			$fldAlas = $fldPart[4] ?? '';
 			if( $fldPart[1]!='' ){
-				$fncsLst[] = Array('funct'=>$fldPart[1], 'field'=>$fldPart[2], 'alias'=>$fldAlas);
+				// An aggregate of DBStore\Store::FUNCLIST only, and '*' for a count alone
+				$fncName = strtolower($fldPart[1]);
+				if( !in_array($fncName, DBStore\Store::FUNCLIST, true) || ($fldPart[2]=='*' && $fncName!='count') ){
+					throw new \RuntimeException('Invalid field selection: '.trim($selFld));
+				}
+				$fncsLst[] = Array('funct'=>$fncName, 'field'=>($fldPart[2]=='*') ? '*' : $dbStore->checkName($fldPart[2]), 'alias'=>$fldAlas);
 			}elseif( $fldAlas!='' ){
 				$fldsLst[] = Array('field'=>$dbStore->checkName($fldPart[3]), 'alias'=>$fldAlas);
 			}else{

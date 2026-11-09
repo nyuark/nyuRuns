@@ -20,6 +20,8 @@ interface Store{
 
 	// Greatest size read from a binary field unless told otherwise: 16 MB
 	const BLOBSIZE = 16777216;
+	// The functions a list may select (see DBLst::fieldScop): aggregates every SQL database reads the same way
+	const FUNCLIST = Array('count', 'min', 'max', 'sum', 'avg');
 
 	/**
 	 * Checks a table or field name: letters, digits and underscores, with

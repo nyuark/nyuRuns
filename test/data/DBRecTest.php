@@ -186,6 +186,17 @@ checkSame('childList returns the record when asked', runSafely(function(){
 	return array_column($recVals['Events'], 'date');
 }), Array('2026-12-28', '2027-01-03'));
 
+checkSame('childList sorts through listOrder: a direction, or ^ for a descending one', runSafely(function(){
+	$showRec = new DBRec('shows');
+	$showRec->loadRecrd('1');
+	return Array(array_column($showRec->childList('events', true, '', '', 'date DESC')['Events'], 'date'), array_column($showRec->childList('events', true, '', '', '^date')['Events'], 'date'));
+}), Array(Array('2027-01-03', '2026-12-28'), Array('2027-01-03', '2026-12-28')));
+
+checkSame('childList refuses a sort that is not field names', preg_replace('/ @\S+$/', '', Array(
+	runSafely(function(){ $showRec = new DBRec('shows'); $showRec->loadRecrd('1'); return $showRec->childList('events', true, '', '', '(SELECT 1)'); }),
+	runSafely(function(){ $showRec = new DBRec('shows'); $showRec->loadRecrd('1'); return $showRec->childList('events', true, '', '', 'date ASC NULLS'); })
+)), Array('THROWN RuntimeException: Invalid sort of the children: (SELECT 1)', 'THROWN RuntimeException: Invalid sort of the children: date ASC NULLS'));
+
 checkSame('childList returns nothing otherwise', runSafely(function(){
 	$showRec = new DBRec('shows');
 	$showRec->loadRecrd('1');

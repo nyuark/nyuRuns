@@ -28,14 +28,14 @@ function basicHead( String $userString, String $passString ): Array {
 }
 
 // PassList : .htpasswd file, path relative to the project root
-$passLst = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
+$passLst = new PassList( Array('maxtry'=>0, 'htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
 checkSame('PassList bcrypt hash',        $passLst->checkCred(Array('user'=>'alice', 'pass'=>'s3cret')), Array('user'=>'alice'));
 checkSame('PassList legacy crypt hash refused by default', $passLst->checkCred(Array('user'=>'bob', 'pass'=>'hunter2')), false);
 checkSame('PassList apr1 hash',          $passLst->checkCred(Array('user'=>'erin', 'pass'=>'tr0ub4dor')), Array('user'=>'erin'));
 checkSame('PassList apr1 wrong password', $passLst->checkCred(Array('user'=>'erin', 'pass'=>'nope')), false);
 checkSame('PassList SHA hash refused by default', $passLst->checkCred(Array('user'=>'frank', 'pass'=>'letmein')), false);
 checkSame('PassList SHA hash refused message', $passLst->lastError(), 'Invalid credentials');
-$weakLst = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'unsecure'=>true) );
+$weakLst = new PassList( Array('maxtry'=>0, 'htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'unsecure'=>true) );
 checkSame('PassList SHA hash in unsecure mode', $weakLst->checkCred(Array('user'=>'frank', 'pass'=>'letmein')), Array('user'=>'frank'));
 checkSame('PassList SHA wrong password in unsecure mode', $weakLst->checkCred(Array('user'=>'frank', 'pass'=>'nope')), false);
 checkSame('PassList MD5 crypt hash refused by default', Array($passLst->checkCred(Array('user'=>'gina', 'pass'=>'pw-gina')), $passLst->lastError()), Array(false, 'Invalid credentials'));

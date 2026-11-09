@@ -23,7 +23,8 @@
 		"envfle": ".env"
 	},
 	// Access control of the preset; its strategies live in src/Access.
-	// An open preset only needs "needed" set to false
+	// An open preset only needs "needed" set to false; "public": true beside it tells it is meant to be
+	// open: "deploy check" then accepts an entry point starting it in PREV and PROD
 	"auths": {
         // Whether a request must be authenticated (true when not set)
 		"needed": true,

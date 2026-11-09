@@ -188,4 +188,24 @@ putInProj($projDir, 'conf/system.ini', sampleIni("LNG_DFLT = french\n"));
 checkSame('a default language that is not a tag fails the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['mail language'] ?? null, 'fail');
 putInProj($projDir, 'conf/system.ini', sampleIni());
 
+// The entry points : the preset each one starts, open or not, open by intent or not
+$projDir = freshPrjt('entries');
+jsonShell($projDir, Array('deploy', 'files'));
+putInProj($projDir, 'conf/presets/static.rps', '{ "label": "static", "setup": { "ftypes": "all" }, "auths": { "needed": false, "public": true } }');
+putInProj($projDir, 'conf/presets/tokens.rps', '{ "label": "tokens", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "dftokn", "public": true }, "rnder": { "headrs": { "Access-Control-Allow-Origin": "*" } } }');
+putInProj($projDir, 'www/index.php', "<?php\n\$nyuRun = new \\nyu\\Runner();\n");
+putInProj($projDir, 'www/api.php', "<?php\n\$nyuRun = new \\nyu\\Runner( 'secure' );\n");
+putInProj($projDir, 'www/site.php', "<?php\n\$nyuRun = new \\nyu\\Runner('static');\n");
+putInProj($projDir, 'www/own.php', "<?php\n\$nyuRun = new \\nyu\\Runner(\$presetNm);\n");
+putInProj($projDir, 'www/plain.php', "<?php echo 1;\n");
+$jsnVals = jsonShell($projDir, Array('deploy', 'check'));
+$statLst = stateOf($jsnVals);
+$fndList = array_column($jsnVals['rows'] ?? Array(), 'found', 'check');
+checkSame('in DEV, an entry on an open preset is told; one that checks access, or open by intent, is fine', Array($statLst['entry index'] ?? null, $statLst['entry api'] ?? null, $statLst['entry site'] ?? null, $statLst['entry own'] ?? null, array_key_exists('entry plain', $statLst)), Array('warn', 'fine', 'fine', 'warn', false));
+checkSame('what the rows say', Array($fndList['entry index'] ?? null, $fndList['entry site'] ?? null), Array('starts dfault: every request is served without a check; name a preset that checks access, or set "public": true in its auths block when the site is meant to be open', 'starts static, open by intent (public)'));
+checkSame('public on a preset that checks access, every origin with tokens: both told', Array($statLst['public tokens'] ?? null, $fndList['origins tokens'] ?? null), Array('warn', 'every origin is allowed while the preset reads tokens: list the origins under "origns"'));
+putInProj($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEV', 'ENV_NAME = PROD', sampleIni()));
+$jsnVals = jsonShell($projDir, Array('deploy', 'check'));
+checkSame('in PROD, an entry on an open preset fails the check; one open by intent does not', Array(stateOf($jsnVals)['entry index'] ?? null, stateOf($jsnVals)['entry site'] ?? null, $jsnVals['exit'] ?? null), Array('fail', 'fine', 4));
+
 endChecks();

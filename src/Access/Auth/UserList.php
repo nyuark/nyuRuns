@@ -14,14 +14,17 @@ use nyu\Tools\Logger;
  * (active when left out), a 'userMail' address (one account each), the
  * 'tokenKey' SHA-256 hash of a personal API token, a 'twoFaKey' 2FA
  * secret and an 'id_user'.
- * The file is only read: what needs a write (throttling by account,
- * presence, new tokens, secrets or passwords) is answered false. The
- * limit by address still applies (see Access\Limiter).
+ * The file is only read: what needs a write (presence, new tokens,
+ * secrets or passwords) is answered false. The wrong passwords and codes
+ * of each account are counted in the folder of the limits, as those of
+ * each address are (see Access\Limiter): after 'maxtry' of them within
+ * 'holdtm', the account is held as the native userbase holds it.
  */
 class UserList implements Handler{
 
 	protected $usrsFile;
 	protected $sealPass;
+	protected $userLmtr;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -29,13 +32,20 @@ class UserList implements Handler{
 	 * Builds the check against the users file from its config block.
 	 *
 	 * @param Array $confValues Config block with the 'usrfle' path of the users file, relative to the project root, and
-	 *                          optionally the key its encrypted 2FA secrets are read with ('tfakey').
+	 *                          optionally the key its encrypted 2FA secrets are read with ('tfakey'), the wrong
+	 *                          credentials allowed for one account ('maxtry', defaults to 5; 0 for no limit) and the
+	 *                          time in seconds they add up within and then hold it for ('holdtm', defaults to 600).
 	 */
 	function __construct( Array $confValues ){
 		$fleName = is_scalar($confValues['usrfle'] ?? '') ? trim( strval($confValues['usrfle'] ?? ''), '/\\ ' ) : '';
 		$this->usrsFile = ($fleName!='') ? TOP_DIR.DS.$fleName : '';
 		$this->sealPass = is_scalar($confValues['tfakey'] ?? '') ? strval($confValues['tfakey'] ?? '') : '';
-		$this->lastMssg = '';
+		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
+		$this->userLmtr = new \nyu\Access\Limiter( Array(
+			'maxtry'=>$confValues['maxtry'] ?? 5, 'holdtm'=>$confValues['holdtm'] ?? 600, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : ''
+		) );		$this->lastMssg = '';
 	}
 
 	/**
@@ -68,7 +78,17 @@ class UserList implements Handler{
 		}else{
 			$matched = password_verify( $gvnPass, $usrVals['passHash'] );
 		}
+		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
+		if( is_array($usrVals) && $this->userLmtr->heldByUsr($usrVals['userName'])>0 ){
+			Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is held after too many attempts' );
+			$this->lastMssg = 'Invalid credentials';
+			$this->wrongCrd = true;
+			return false;
+		}
 		if( $usrVals===null || !$matched ){
+			if( $usrVals!==null ){
+				$this->userLmtr->countUser( $usrVals['userName'] );
+			}
 			$this->lastMssg = 'Invalid credentials';
 			$this->wrongCrd = true;
 			return false;
@@ -96,11 +116,13 @@ class UserList implements Handler{
 				return false;
 			}
 			if( !Totp::checkCode($twoFaKy, $gvnCode) ){
+				$this->userLmtr->countUser( $usrVals['userName'] );
 				$this->lastMssg = 'Invalid verification code';
 				$this->wrongCrd = true;
 				return false;
 			}
 		}
+		$this->userLmtr->clearUser( $usrVals['userName'] );
 		return $this->makeIdent($usrVals);
 	}
 

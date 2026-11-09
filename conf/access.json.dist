@@ -1,9 +1,9 @@
 {
 	"plugin": { "authby": [], "sessby": [] },
 	"login":  { "authby": "usrlst", "authcf": "usrlst", "sessby": "jtoken", "sesscf": "dftokn" },
-	"dfpass": { "htpasswd": "conf/.htpasswd" },
+	"dfpass": { "htpasswd": "conf/.htpasswd", "maxtry": 5, "holdtm": 600 },
 	"native": { "basnme": "nyuRuns", "tblnme": "users", "idletm": 300, "maxtry": 5, "holdtm": 600, "minlen": 10, "tfakey": "env:NYU_TFA_KEY", "mailer": "", "signup": false, "codexp": 15, "lnkurl": "" },
-	"usrlst": { "usrfle": "conf/users.lst", "tfakey": "env:NYU_TFA_KEY" },
+	"usrlst": { "usrfle": "conf/users.lst", "tfakey": "env:NYU_TFA_KEY", "maxtry": 5, "holdtm": 600 },
 	"limits": { "maxtry": 10, "holdtm": 600, "folder": "temp/limits", "regtop": 256, "regmax": 16, "regwrn": [128, 200, 256] },
 	"dfkeys": { "header": "X-Api-Key", "keylst": ["env:NYU_API_KEY"] },
 	"dftokn": { "secret": "env:NYU_JWT_SECRET", "lifetm": 3600, "algrtm": "RS256", "prvkey": "conf/keys/dftokn.key", "pubkey": "conf/keys/dftokn.pub", "oldpub": "", "issuer": "", "audnce": [] },

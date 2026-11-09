@@ -44,6 +44,7 @@ class HealthChk{
 		$this->chkServer();
 		$this->chkFoldrs();
 		$this->chkPreset();
+		$this->chkEntrys();
 		$this->chkAccess();
 		$this->chkDbases();
 		$this->chkStores();
@@ -156,6 +157,13 @@ class HealthChk{
 			$headLst = array_change_key_case( (array)(is_array($rndrCnf) ? ($rndrCnf['headrs'] ?? Array()) : Array()), CASE_LOWER );
 			if( ($axsConf['sessby'] ?? '')=='phsess' && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
 				$this->addResult('origins '.$prstNme, 'warn', 'every origin is allowed while the session travels in a cookie: list the origins under "origns"');
+			}elseif( ( ($axsConf['sessby'] ?? '')=='jtoken' || strval($axsConf['appkey'] ?? '')!='' ) && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['origns']) ){
+				// A token is not sent by the browser on its own, but any site may then read what it opens
+				$this->addResult('origins '.$prstNme, 'warn', 'every origin is allowed while the preset reads tokens: list the origins under "origns"');
+			}
+			// "public" tells an open preset is meant to be: on one that checks access, it says nothing
+			if( ($axsConf['public'] ?? false)===true && ($axsConf['needed'] ?? true)!==false ){
+				$this->addResult('public '.$prstNme, 'warn', '"public" is only read on an open preset ("needed": false): this one checks access');
 			}
 			$flawTxt = '';
 			if( !empty($axsConf) && ($axsConf['needed'] ?? true)!==false ){
@@ -169,6 +177,45 @@ class HealthChk{
 				$flawTxt = $chkrObj->rolesFlaw();
 			}
 			$this->addResult( 'preset '.$prstNme, ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? 'loads' : $flawTxt );
+		}
+	}
+
+	/**
+	 * Checks the entry points of www: the preset each one starts the
+	 * Runner with (dfault when it names none) must check access. An open
+	 * one ("needed": false) fails in PREV and PROD and is told in DEV and
+	 * TEST, unless its auths block says it is meant to be ("public": true).
+	 * An entry naming its preset at run time cannot be followed: it is told.
+	 */
+	public function chkEntrys(): Void {
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$envName = strtoupper( strval(($nyuConf!==null) ? $nyuConf->getRowVal('SYSTEM', 'ENV_NAME') : '') );
+		$isFinal = in_array($envName, Array('PREV', 'PROD'), true);
+		foreach( (array)glob(TOP_DIR.DS.'www'.DS.'*.php') as $entFle ){
+			$entText = strval(@file_get_contents(strval($entFle)));
+			$entName = basename(strval($entFle), '.php');
+			if( !preg_match(\nyu\Shell\Cmds\Config::RUNRCALL, $entText, $callPrt, PREG_OFFSET_CAPTURE) ){
+				continue;
+			}
+			$prstTxt = strval($callPrt[2][0] ?? '');
+			if( $prstTxt=='' && substr(ltrim(substr($entText, $callPrt[0][1] + strlen($callPrt[0][0]))), 0, 1)!==')' ){
+				$this->addResult('entry '.$entName, 'warn', 'the preset is named at run time: check it gives one that checks access');
+				continue;
+			}
+			$prstNme = ($prstTxt=='') ? 'dfault' : substr($prstTxt, 1, -1);
+			try{
+				$axsConf = (new Preset($prstNme))->makeSetup()->setAccess();
+			}catch( \Throwable $e ){
+				// A preset that does not load is told by its own row
+				continue;
+			}
+			if( ($axsConf['needed'] ?? true)!==false ){
+				$this->addResult('entry '.$entName, 'fine', 'starts '.$prstNme.', which checks access');
+			}elseif( ($axsConf['public'] ?? false)===true ){
+				$this->addResult('entry '.$entName, 'fine', 'starts '.$prstNme.', open by intent (public)');
+			}else{
+				$this->addResult('entry '.$entName, $isFinal ? 'fail' : 'warn', 'starts '.$prstNme.': every request is served without a check; name a preset that checks access, or set "public": true in its auths block when the site is meant to be open');
+			}
 		}
 	}
 

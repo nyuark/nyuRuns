@@ -5,7 +5,8 @@ namespace nyu\Access;
 /**
  * Limits the wrong credentials one client address may present: after as
  * many as allowed, the address is refused for the hold time, whatever it
- * presents. The counters are small files, one per address, so the limit
+ * presents. The stores read from a file (usrlst, htpass) count each account
+ * the same way (see heldByUsr and countUser), in counters of their own. The counters are small files, one per address, so the limit
  * works with every credential check, with or without a database. Each
  * counter holds its address, for the held ones to be listed and released
  * (see listHolds and freeHolds).
@@ -46,11 +47,60 @@ class Limiter{
 	 * @return Int The Unix time the hold ends at, or 0 when the address is not held.
 	 */
 	public function heldUntil( String $clientAddr, ?Int $unixMoment = null ): Int {
-		$cntPath = $this->pathOfKey( $this->keyOfAddr($clientAddr) );
+		return $this->readsHeld( $this->pathOfKey($this->keyOfAddr($clientAddr)), $unixMoment ?? time() );
+	}
+
+	/**
+	 * Tells whether an account is held back after too many wrong
+	 * credentials, as heldUntil() does for an address. Its counter is named
+	 * by a hash of the user name, which it does not hold.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param ?Int   $unixMoment Unix time to check at; now when not given.
+	 * @return Int The Unix time the hold ends at, or 0 when the account is not held.
+	 */
+	public function heldByUsr( String $userString, ?Int $unixMoment = null ): Int {
+		return $this->readsHeld( $this->pathOfUsr($userString), $unixMoment ?? time() );
+	}
+
+	/**
+	 * Counts one more wrong credential for an account, as countFail() does
+	 * for an address.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param ?Int   $unixMoment Unix time of the failure; now when not given.
+	 */
+	public function countUser( String $userString, ?Int $unixMoment = null ): Void {
+		$this->writeFail( $this->pathOfUsr($userString), '', $unixMoment ?? time() );
+	}
+
+	/**
+	 * Forgets the wrong credentials of an account, after a right one.
+	 *
+	 * @param String $userString Login name of the user.
+	 */
+	public function clearUser( String $userString ): Void {
+		$cntPath = $this->pathOfUsr($userString);
+		if( $cntPath!='' && is_file($cntPath) ){
+			@unlink($cntPath);
+		}
+	}
+
+	/**
+	 * Reads a counter: the end of its hold, when it holds as many failures
+	 * as allowed within the hold time. A counter whose hold time has passed,
+	 * or that is not one, is removed once read.
+	 *
+	 * @param String $counterPth Path of the counter; empty for none.
+	 * @param Int    $unixMoment Unix time to check at.
+	 * @return Int The Unix time the hold ends at, or 0 when nothing is held.
+	 */
+	protected function readsHeld( String $counterPth, Int $unixMoment ): Int {
+		$cntPath = $counterPth;
 		if( $this->maxTries<1 || $cntPath=='' || !is_file($cntPath) ){
 			return 0;
 		}
-		$nowTime = $unixMoment ?? time();
+		$nowTime = $unixMoment;
 		$cntFile = @fopen($cntPath, 'rb');
 		if( $cntFile===false ){
 			return 0;
@@ -80,14 +130,27 @@ class Limiter{
 	 * @param ?Int   $unixMoment Unix time of the failure; now when not given.
 	 */
 	public function countFail( String $clientAddr, ?Int $unixMoment = null ): Void {
-		$cntPath = $this->pathOfKey( $this->keyOfAddr($clientAddr) );
+		$this->writeFail( $this->pathOfKey($this->keyOfAddr($clientAddr)), $this->maskdAddr($clientAddr), $unixMoment ?? time() );
+	}
+
+	/**
+	 * Counts one more failure in a counter, which restarts at 1 when the
+	 * previous one is older than the hold time. A counter that cannot be
+	 * written limits nothing: the mistake is logged.
+	 *
+	 * @param String $counterPth Path of the counter; empty for none.
+	 * @param String $addressTxt What the counter tells beside its count: the address counted, or nothing.
+	 * @param Int    $unixMoment Unix time of the failure.
+	 */
+	protected function writeFail( String $counterPth, String $addressTxt, Int $unixMoment ): Void {
+		$cntPath = $counterPth;
 		if( $this->maxTries<1 || $cntPath=='' ){
 			return;
 		}
-		$nowTime = $unixMoment ?? time();
+		$nowTime = $unixMoment;
 		$cntFile = $this->openFoldr() ? @fopen($cntPath, 'c+b') : false;
 		if( $cntFile===false || !flock($cntFile, LOCK_EX) ){
-			\nyu\Tools\Logger::getLogger('access')->error( 'Address limit not applied: the counters cannot be written in '.$this->cntFoldr );
+			\nyu\Tools\Logger::getLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->cntFoldr );
 			if( $cntFile!==false ){
 				fclose($cntFile);
 			}
@@ -97,7 +160,7 @@ class Limiter{
 		$failNum = ($cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime) ? 1 : $cntVals['fails']+1;
 		ftruncate($cntFile, 0);
 		rewind($cntFile);
-		fwrite($cntFile, $failNum.' '.$nowTime.' '.$this->maskdAddr($clientAddr));
+		fwrite($cntFile, $failNum.' '.$nowTime.( $addressTxt!='' ? ' '.$addressTxt : '' ));
 		fflush($cntFile);
 		flock($cntFile, LOCK_UN);
 		fclose($cntFile);
@@ -108,8 +171,8 @@ class Limiter{
 	}
 
 	/**
-	 * Removes the counters no longer in use: those whose last failure is
-	 * older than the hold time.
+	 * Removes the counters no longer in use, of the addresses and of the
+	 * accounts: those whose last failure is older than the hold time.
 	 *
 	 * @param ?Int $unixMoment Unix time to check at; now when not given.
 	 * @return Int The number of counters removed.
@@ -117,7 +180,7 @@ class Limiter{
 	public function dropStale( ?Int $unixMoment = null ): Int {
 		$nowTime = $unixMoment ?? time();
 		$dropNum = 0;
-		foreach( (array)glob($this->cntFoldr.DS.'*.cnt') as $cntFle ){
+		foreach( array_merge((array)glob($this->cntFoldr.DS.'*.cnt'), (array)glob($this->cntFoldr.DS.'*.usr')) as $cntFle ){
 			$cntVals = $this->readCount( strval(@file_get_contents($cntFle)) );
 			if( ($cntVals===null || $cntVals['stamp']+$this->holdSecs<=$nowTime) && @unlink($cntFle) ){
 				$dropNum++;
@@ -179,8 +242,9 @@ class Limiter{
 	}
 
 	/**
-	 * Releases an address, or all of them: their counters are removed, so
-	 * they are no longer held and their failures are forgotten.
+	 * Releases an address, or all of them, the accounts included: their
+	 * counters are removed, so they are no longer held and their failures
+	 * are forgotten.
 	 *
 	 * @param ?String $clientAddr Address to release; null for every address.
 	 * @return Int The number of counters removed.
@@ -191,7 +255,7 @@ class Limiter{
 			return ( $cntPath!='' && is_file($cntPath) && @unlink($cntPath) ) ? 1 : 0;
 		}
 		$dropNum = 0;
-		foreach( (array)glob($this->cntFoldr.DS.'*.cnt') as $cntFle ){
+		foreach( array_merge((array)glob($this->cntFoldr.DS.'*.cnt'), (array)glob($this->cntFoldr.DS.'*.usr')) as $cntFle ){
 			if( @unlink(strval($cntFle)) ){
 				$dropNum++;
 			}
@@ -207,6 +271,18 @@ class Limiter{
 	 */
 	protected function pathOfKey( String $addressKey ): String {
 		return ($addressKey=='') ? '' : $this->cntFoldr.DS.$addressKey.'.cnt';
+	}
+
+	/**
+	 * Gives the file an account is counted in: a hash of its name, which
+	 * the file does not hold, with its own extension (.usr), apart from the
+	 * counters of the addresses.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @return String The path of the file; empty for an empty name.
+	 */
+	protected function pathOfUsr( String $userString ): String {
+		return ($userString=='') ? '' : $this->cntFoldr.DS.hash('sha256', 'user:'.$userString).'.usr';
 	}
 
 	/**

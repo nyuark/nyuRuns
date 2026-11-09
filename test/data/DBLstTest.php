@@ -168,6 +168,25 @@ checkLike('fieldScop refuses any other expression', runSafely(function(){
 	return $dbList->readItems();
 }), '/^THROWN RuntimeException: Invalid field selection/');
 
+checkSame('fieldScop takes the aggregates of the list only, whatever their case, and * for a count alone', array_map(function( Mixed $rsltVal ): Mixed { return is_string($rsltVal) ? preg_replace('/ @\S+$/', '', $rsltVal) : $rsltVal; }, Array(
+	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('COUNT(*) as nb, Min(id_show) as first, sum(id_show) as total, avg(id_show) as mean'); return array_keys($dbList->readItems()[0] ?? Array()); }),
+	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('sleep(1) as x'); return $dbList->readItems(); }),
+	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('lower(title)'); return $dbList->readItems(); }),
+	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('max(*)'); return $dbList->readItems(); })
+)), Array(Array('nb', 'first', 'total', 'mean'), 'THROWN RuntimeException: Invalid field selection: sleep(1) as x', 'THROWN RuntimeException: Invalid field selection: lower(title)', 'THROWN RuntimeException: Invalid field selection: max(*)'));
+
+checkLike('the store refuses another function, called without the list', runSafely(function(){
+	return nyu\Data\DBCon::linkNamed('')->dataStore()->findItems('shows', Array(), Array('funcs'=>Array(Array('funct'=>'load_file', 'field'=>'title', 'alias'=>'x'))));
+}), '/^THROWN RuntimeException: Invalid function name: load_file /');
+
+checkLike('an order written as SQL is kept, and told on runner', runSafely(function(){
+	nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('lstlogs')) );
+	$dbList = new DBLst('shows', null, null, 'length(title) DESC');
+	$rowList = $dbList->flatItems('title');
+	nyu\Tools\Logger::plugSetup( Array() );
+	return ($rowList[0] ?? '').' | '.strval(@file_get_contents(inTempDir('lstlogs').DS.'runner.log'));
+}), '/^Alpha Matinee \| .*\[NOTICE\] List of "shows": order written as SQL, kept as given/s');
+
 checkLike('grpFields refuses an invalid name', runSafely(function(){
 	$dbList = new DBLst('items');
 	$dbList->grpFields('type` HAVING 1=1 --');

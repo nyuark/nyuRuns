@@ -4,7 +4,10 @@ namespace nyu\Access\Auth;
 
 /**
  * Verifies credentials against an Apache-style .htpasswd file, so the
- * same file can be shared with an Apache/Nginx Basic-auth config.
+ * same file can be shared with an Apache/Nginx Basic-auth config. The
+ * wrong passwords of each account are counted in the folder of the limits
+ * (see Access\Limiter): after 'maxtry' of them within 'holdtm', the account
+ * is refused, whatever it gives, until the hold is over.
  */
 class PassList implements Handler{
 
@@ -13,6 +16,7 @@ class PassList implements Handler{
 
 	protected $htpwFile;
 	protected $weakHash;
+	protected $userLmtr;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -20,13 +24,20 @@ class PassList implements Handler{
 	 * Builds the check against the password file from its config block.
 	 *
 	 * @param Array $confValues Config block with an 'htpasswd' file path (relative to the project root),
-	 *                          and optionally 'unsecure' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default).
+	 *                          and optionally 'unsecure' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default),
+	 *                          the wrong passwords allowed for one account ('maxtry', defaults to 5; 0 for no limit) and the
+	 *                          time in seconds they add up within and then hold it for ('holdtm', defaults to 600).
 	 */
 	function __construct( Array $confValues ){
 		$htpPath = $confValues['htpasswd'] ?? '';
 		$this->htpwFile = ($htpPath!='') ? TOP_DIR.DS.$htpPath : '';
 		$this->weakHash = (($confValues['unsecure'] ?? false) === true);
-		$this->lastMssg = '';
+		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
+		$this->userLmtr = new \nyu\Access\Limiter( Array(
+			'maxtry'=>$confValues['maxtry'] ?? 5, 'holdtm'=>$confValues['holdtm'] ?? 600, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : ''
+		) );		$this->lastMssg = '';
 	}
 
 	/**
@@ -59,8 +70,17 @@ class PassList implements Handler{
 		if( $usrHash===null ){
 			// Unknown user : a hash is still computed, so the reply time does not tell which names exist
 			password_verify( $gvnPass, self::FAKEHASH );
-		}elseif( $this->hashMatch($gvnPass, $usrHash) ){
-			return Array('user'=>$gvnUser);
+		}else{
+			$matched = $this->hashMatch($gvnPass, $usrHash);
+			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
+			if( $this->userLmtr->heldByUsr(strval($gvnUser))>0 ){
+				\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
+			}elseif( $matched ){
+				$this->userLmtr->clearUser( strval($gvnUser) );
+				return Array('user'=>$gvnUser);
+			}else{
+				$this->userLmtr->countUser( strval($gvnUser) );
+			}
 		}
 		$this->lastMssg = 'Invalid credentials';
 		$this->wrongCrd = true;

@@ -131,10 +131,11 @@ class SqlStore implements Store {
 			}
 		}
 		foreach( (array)($findOption['funcs'] ?? Array()) as $fncSel ){
-			$fncName = strval($fncSel['funct'] ?? '');
+			$fncName = strtolower( strval($fncSel['funct'] ?? '') );
 			$fncFild = strval($fncSel['field'] ?? '*');
 			$fncAlas = strval($fncSel['alias'] ?? '');
-			if( !preg_match('/^\w+$/D', $fncName) ){
+			// Checked here too : a store may be called without DBLst
+			if( !in_array($fncName, Store::FUNCLIST, true) || ($fncFild=='*' && $fncName!='count') ){
 				throw new \RuntimeException('Invalid function name: '.$fncName);
 			}
 			$slctLst[] = $fncName.'('.($fncFild=='*' ? '*' : $dbHandl->quoteName($fncFild)).')'.($fncAlas!='' ? ' AS '.$dbHandl->quoteName($fncAlas) : '');
