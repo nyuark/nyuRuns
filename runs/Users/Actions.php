@@ -82,7 +82,7 @@ class Actions extends Actionset {
 		$this->statusCode = 201;
 		if($mailObj!==null){
 			// The mail is written in the language given for the user, never in the one of the manager asking
-			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('actvte', $gvnUser, strtolower($gvnMail), strval($newCode), $gvnLang));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('activate', $gvnUser, strtolower($gvnMail), strval($newCode), $gvnLang));
 			return;
 		}
 		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);
@@ -214,7 +214,7 @@ class Actions extends Actionset {
 		$this->statusCode = 200;
 		if($mailObj!==null){
 			// The mail is written in the language of the user, never in the one of the manager asking
-			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('actvte', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLocale'] ?? null));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('activate', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLocale'] ?? null));
 			return;
 		}
 		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);

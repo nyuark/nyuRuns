@@ -356,7 +356,7 @@ class Native implements Handler{
 		}catch( \Throwable $e ){
 			return false;
 		}
-		$mailObj->sendCodeToUser( 'lgcode', $usrName, $usrMail, $newCode, strval($usrValuesArr['userLocale'] ?? '') ?: null );
+		$mailObj->sendCodeToUser( 'passcode', $usrName, $usrMail, $newCode, strval($usrValuesArr['userLocale'] ?? '') ?: null );
 		\nyu\Tools\Logger::retrieveLogger('access')->info( 'Verification code mailed to user '.json_encode($usrName) );
 		return true;
 	}

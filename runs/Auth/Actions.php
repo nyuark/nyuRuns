@@ -340,7 +340,7 @@ class Actions extends Actionset {
 				$mailObj->sendNameExists(strtolower(trim($gvnMail)), $gvnUser, $clntLng);
 			}
 		}else{
-			$mailObj->sendCodeToUser('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode, $clntLng);
+			$mailObj->sendCodeToUser('register', $gvnUser, strtolower(trim($gvnMail)), $newCode, $clntLng);
 			$this->notifyManagers($usrBase, $mailObj, $regTops, is_array($lmtConf['alertsAt'] ?? null) ? $lmtConf['alertsAt'] : Array(128, 200, 256));
 		}
 		$this->statusCode = 202;
@@ -415,7 +415,7 @@ class Actions extends Actionset {
 		if(is_array($rstVals)){
 			$clntReg = $this->httpRequst->retrieveClient();
 			$clntLng = ($clntReg!==null) ? strval($clntReg->readFileDetail('language')) : '';
-			$mailObj->sendCodeToUser('pwdset', $rstVals['user'], $rstVals['mail'], $rstVals['code'], $rstVals['lang'] ?? $clntLng);
+			$mailObj->sendCodeToUser('password', $rstVals['user'], $rstVals['mail'], $rstVals['code'], $rstVals['lang'] ?? $clntLng);
 		}
 		$this->statusCode = 202;
 		$this->replyValue = Array('asked'=>true);

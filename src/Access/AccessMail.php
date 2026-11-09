@@ -10,11 +10,11 @@ use nyu\Tools\Logger;
 
 /**
  * Sends the mails of the access flows: the code that activates an account
- * ('actvte'), confirms a sign-up ('signup') or sets a new password
- * ('pwdset'), the code of a login as a second factor ('lgcode'), the
- * notice that a sign-up asked for a name ('nmused') or an address
- * already taken ('taken'), and the warning to the managers that sign-ups
- * are piling up ('onhold', with %count% and %limit%).
+ * ('activate'), confirms a sign-up ('register') or sets a new password
+ * ('password'), the code of a login as a second factor ('passcode'), the
+ * notice that a sign-up asked for a name ('nameused') or an address
+ * already taken ('occupied'), and the warning to the managers that sign-ups
+ * are piling up ('backlogs', with %count% and %limit%).
  *
  * It works from the block of the native userbase: 'mailAcnt' names the
  * account of conf/mailer.json the mails go through (no mail is sent
@@ -41,14 +41,14 @@ use nyu\Tools\Logger;
  */
 class AccessMail {
 
-	// The mails a code is sent with; the code of a login ('lgcode') is typed where it was asked, without a link
-	const KIND_LIST = Array('actvte', 'signup', 'pwdset', 'lgcode');
+	// The mails a code is sent with; the code of a login ('passcode') is typed where it was asked, without a link
+	const KIND_LIST = Array('activate', 'register', 'password', 'passcode');
 	// The mail of a sign-up that asked for an address taken, sent to its owner
-	const TAKE_NAME = 'taken';
+	const TAKE_NAME = 'occupied';
 	// The mail of a sign-up that asked for a name taken, with an address of no account
-	const USED_NAME = 'nmused';
+	const USED_NAME = 'nameused';
 	// The mail telling the managers that sign-ups are piling up
-	const WTCH_NAME = 'onhold';
+	const WTCH_NAME = 'backlogs';
 
 	protected $accountNme;
 	protected $linkTemplt;
@@ -117,7 +117,7 @@ class AccessMail {
 	/**
 	 * Sends a code to a user.
 	 *
-	 * @param String $mailKindCode The mail: 'actvte', 'signup', 'pwdset' or 'lgcode' (never with a link).
+	 * @param String $mailKindCode The mail: 'activate', 'register', 'password' or 'passcode' (never with a link).
 	 * @param String $namedUserTxt Login name of the user.
 	 * @param String $emailAddress Its address.
 	 * @param String  $codeAsString The code.
@@ -129,7 +129,7 @@ class AccessMail {
 			return false;
 		}
 		$linkTxt = '';
-		if( $this->linkTemplt!='' && $mailKindCode!=='lgcode' ){
+		if( $this->linkTemplt!='' && $mailKindCode!=='passcode' ){
 			$linkTxt = strtr( $this->linkTemplt, Array('%kind%'=>rawurlencode($mailKindCode), '%user%'=>rawurlencode($namedUserTxt), '%code%'=>rawurlencode($codeAsString)) );
 		}
 		return $this->sendsEmailFlag( $mailKindCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkTxt, 'mins'=>strval($this->codeExpiry)), $langTagStrng );

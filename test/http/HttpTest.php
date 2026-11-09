@@ -189,7 +189,7 @@ if( !$isReady ){
 	checkIdentical('unknown action: 404, as an unknown application', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	// The Auth routes are its own (runs/Auth/routes.rte), under its mount: each reaches its action, the Run is closed to its path
-	foreach( Array('signup', 'forgot', 'recovr', 'langs', 'logout', 'activate', 'password') as $actNme ){
+	foreach( Array('register', 'askReset', 'useReset', 'language', 'quitSess', 'activate', 'password') as $actNme ){
 		$replyAr = httpQuery('POST', $baseUrl.'/auth/'.$actNme);
 		checkTrueValue('auth route: POST /auth/'.$actNme.' reaches its action ('.$replyAr['code'].')', !in_array($replyAr['code'], Array(404, 405), true));
 	}
