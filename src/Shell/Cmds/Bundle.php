@@ -7,21 +7,21 @@ use nyu\Shell\ConfFile;
 
 /**
  * Builds a copy of the project for one environment, to be carried to its
- * server, where "php nyuRun deploy start" installs it:
+ * server, where "php nyuRun installs allSteps" installs it:
  *
- *   php nyuRun bundle local                 for a developer's machine
- *   php nyuRun bundle stage                 for a server before production
- *   php nyuRun bundle final                 for production
- *   php nyuRun bundle final --archv         the same, and its .tar.gz beside it
- *   php nyuRun bundle final --plans         lists what would be copied, and writes nothing
- *   php nyuRun bundle final --place=<path>  in another folder than dist/<mode>, which must be empty
- *   php nyuRun bundle final --cmpsr=<path>  with the Composer that makes its class map
- *   php nyuRun bundle packs                 lists the modes, those of the framework and those of the project
- *   php nyuRun bundle mkpak qatst           declares a mode of the project (an integration server), or changes it
- *   php nyuRun bundle rmpak qatst           removes a mode of the project
+ *   php nyuRun bundling localdev                    for a developer's machine
+ *   php nyuRun bundling preprods                    for a server before production
+ *   php nyuRun bundling releases                    for production
+ *   php nyuRun bundling releases --archived         the same, and its .tar.gz beside it
+ *   php nyuRun bundling releases --planOnly         lists what would be copied, and writes nothing
+ *   php nyuRun bundling releases --destPath=<path>  in another folder than dist/<mode>, which must be empty
+ *   php nyuRun bundling releases --composer=<path>  with the Composer that makes its class map
+ *   php nyuRun bundling fullList                    lists the modes, those of the framework and those of the project
+ *   php nyuRun bundling makeMode qaserver           declares a mode of the project (an integration server), or changes it
+ *   php nyuRun bundling dropMode qaserver           removes a mode of the project
  *
  * A mode the project declares, in conf/bundle.lst, is built as the others
- * are: php nyuRun bundle qatst. Only what KEEPLIST names is copied, with
+ * are: php nyuRun bundling qaserver. Only what KEEPLIST names is copied, with
  * the paths the mode adds, and nothing DROPLIST names within them: no
  * secret, no local setting and no private key reach a bundle. The
  * settings of the mode are written in the system.ini of the copy, never
@@ -32,10 +32,10 @@ class Bundle extends Command{
 
 	// The modes of the framework, with the settings written in the system.ini of their bundle
 	const MODE_LIST = Array(
-		'local'=>Array('ENV_NAME'=>'DEV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
-		'stage'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
+		'localdev'=>Array('ENV_NAME'=>'DEV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
+		'preprods'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
 		// Production writes errors, warnings and notices: no line for each access of a member
-		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
+		'releases'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
 	);
 	// The environments whose bundle finds every class from a complete class map, without looking for files, and caches its config (CNF_CACH)
 	const MAPS_ENVS = Array('PREV', 'PROD');
@@ -62,11 +62,11 @@ class Bundle extends Command{
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTableArray(): Array {
-		$optnTxt = '[--place=<path>] [--archv] [--plans] [--agree] [--cmpsr=<path>]';
+		$optnTxt = '[--destPath=<path>] [--archived] [--planOnly] [--yesToAll] [--composer=<path>]';
 		$subList = Array(
-			'local'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEV, errors shown, full logs'),
-			'stage'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
-			'final'=>Array('args'=>$optnTxt, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
+			'localdev'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEV, errors shown, full logs'),
+			'preprods'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
+			'releases'=>Array('args'=>$optnTxt, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
 		);
 		foreach( $this->readModesArray() as $modNme => $mdlVal ){
 			if( !isset(self::MODE_LIST[$modNme]) ){
@@ -74,9 +74,9 @@ class Bundle extends Command{
 			}
 		}
 		return $subList + Array(
-			'packs'=>Array('args'=>'', 'about'=>'lists the modes: those of the framework and those of the project'),
-			'mkpak'=>Array('args'=>'<mode> [--noask]', 'about'=>'declares a mode of the project in '.self::BNDL_FILE.', or changes it'),
-			'rmpak'=>Array('args'=>'<mode> [--agree]', 'about'=>'removes a mode of the project')
+			'fullList'=>Array('args'=>'', 'about'=>'lists the modes: those of the framework and those of the project'),
+			'makeMode'=>Array('args'=>'<mode> [--noPrompt]', 'about'=>'declares a mode of the project in '.self::BNDL_FILE.', or changes it'),
+			'dropMode'=>Array('args'=>'<mode> [--yesToAll]', 'about'=>'removes a mode of the project')
 		);
 	}
 
@@ -85,8 +85,8 @@ class Bundle extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callLocal(): Int {
-		return $this->generateBundle('local');
+	public function invokeLocaldev(): Int {
+		return $this->generateBundle('localdev');
 	}
 
 	/**
@@ -94,8 +94,8 @@ class Bundle extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callStage(): Int {
-		return $this->generateBundle('stage');
+	public function invokePreprods(): Int {
+		return $this->generateBundle('preprods');
 	}
 
 	/**
@@ -103,8 +103,8 @@ class Bundle extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callFinal(): Int {
-		return $this->generateBundle('final');
+	public function invokeReleases(): Int {
+		return $this->generateBundle('releases');
 	}
 
 	/**
@@ -113,7 +113,7 @@ class Bundle extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callPacks(): Int {
+	public function invokeFullList(): Int {
 		$rowList = Array();
 		foreach( $this->readModesArray() as $modNme => $mdlVal ){
 			$setText = implode(', ', array_map(function( String $iniEntryName, String $iniKeyValTxt ): String { return $iniEntryName.'='.$iniKeyValTxt; }, array_keys($mdlVal['system']), array_values($mdlVal['system'])));
@@ -128,17 +128,17 @@ class Bundle extends Command{
 	 * the errors reported, whether they are shown, its logging mode, and the paths its
 	 * bundle adds to KEEPLIST (a folder of tests for an integration
 	 * server, for one). Each is asked, the present value proposed, TEST,
-	 * E_ALL, TRUE, FULL and none for a new mode; --noask takes them. Other keys
+	 * E_ALL, TRUE, FULL and none for a new mode; --noPrompt takes them. Other keys
 	 * of system.ini written by hand in the mode are kept.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callMkpak(): Int {
-		$modeNme = $this->needsShellWord('the mode: five lower-case letters or digits');
-		if( !preg_match('/^[a-z0-9]{5}$/D', $modeNme) ){
-			$this->terminateShell('A mode is named with five lower-case letters or digits', self::EXIT_HELP);
+	public function invokeMakeMode(): Int {
+		$modeNme = $this->needsShellWord('the mode: eight lower-case letters or digits');
+		if( !preg_match('/^[a-z0-9]{8}$/D', $modeNme) ){
+			$this->terminateShell('A mode is named with eight lower-case letters or digits', self::EXIT_HELP);
 		}
-		if( method_exists($this, 'call'.ucfirst($modeNme)) ){
+		if( method_exists($this, 'invoke'.ucfirst($modeNme)) ){
 			$this->terminateShell('Nothing was declared: '.$modeNme.' is a mode of the framework or a sub-command', self::EXIT_DENY);
 		}
 		$modeLst = $this->readModesArray();
@@ -179,7 +179,7 @@ class Bundle extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callRmpak(): Int {
+	public function invokeDropMode(): Int {
 		$modeNme = $this->needsShellWord('the mode');
 		if( isset(self::MODE_LIST[$modeNme]) ){
 			$this->terminateShell('Nothing was removed: '.$modeNme.' is a mode of the framework', self::EXIT_DENY);
@@ -205,9 +205,9 @@ class Bundle extends Command{
 
 	/**
 	 * Builds the bundle of a mode: in dist/<mode>, replaced when it is
-	 * there (asked to be confirmed), or in the empty folder --place names.
-	 * The settings of the mode are written in its system.ini; --archv
-	 * makes its .tar.gz beside it, --plans only lists what would be copied.
+	 * there (asked to be confirmed), or in the empty folder --destPath names.
+	 * The settings of the mode are written in its system.ini; --archived
+	 * makes its .tar.gz beside it, --planOnly only lists what would be copied.
 	 *
 	 * @param String $packModeName A mode of the framework (MODELIST) or of the project.
 	 * @return Int The exit code.
@@ -219,7 +219,7 @@ class Bundle extends Command{
 		if( $modeCfg===null ){
 			$this->terminateShell('No bundle made: there is no mode '.$packModeName, self::EXIT_HELP);
 		}
-		$outFold = strval($this->optnObject->retrieveOption('place', ''));
+		$outFold = strval($this->optnObject->retrieveOption('destPath', ''));
 		$distDir = TOP_DIR.DS.'dist'.DS.$packModeName;
 		$trgtDir = ($outFold=='') ? $distDir : rtrim($outFold, '/\\');
 		if( !preg_match('#^([A-Za-z]:|[/\\\\])#', $trgtDir) ){
@@ -232,13 +232,13 @@ class Bundle extends Command{
 		if( ($fromTop==='' && strpos($trgtDir.DS, TOP_DIR.DS)===0) || in_array(explode('/', $fromTop)[0], $topList, true) ){
 			$this->terminateShell('No bundle made: its folder cannot be the project, nor a folder the bundle copies', self::EXIT_HELP);
 		}
-		if( $this->optnObject->validateOption('plans') ){
+		if( $this->optnObject->validateOption('planOnly') ){
 			$this->buildClassMaps($trgtDir, $packModeName, false);
 			return $this->listPlansCount($trgtDir, $modeCfg['adding']);
 		}
 		if( is_dir($trgtDir) && count((array)scandir($trgtDir))>2 ){
 			if( $trgtDir!==$distDir ){
-				$this->terminateShell('No bundle made: '.$trgtDir.' is not empty; a folder given with --place must be', self::EXIT_DENY);
+				$this->terminateShell('No bundle made: '.$trgtDir.' is not empty; a folder given with --destPath must be', self::EXIT_DENY);
 			}
 			if( !$this->queryAgreedFlg('Replace the bundle in dist/'.$packModeName) ){
 				$this->terminateShell('No bundle made: not confirmed', self::EXIT_DENY);
@@ -267,11 +267,11 @@ class Bundle extends Command{
 		if( is_array($cmpVals) && !empty($cmpVals['require-dev']) ){
 			$this->printerObj->printShellFail('composer.json has packages for development: they are in vendor, the bundle cannot leave them out');
 		}
-		if( $this->optnObject->validateOption('archv') ){
+		if( $this->optnObject->validateOption('archived') ){
 			$this->printerObj->printShellPair('archive', $this->makeTarArchive($trgtDir));
 		}
-		$this->traceShellDone( 'Bundle: '.$packModeName.', '.count($keptLst).' files in '.$trgtDir.( $this->optnObject->validateOption('archv') ? ', and its archive' : '' ) );
-		$this->printerObj->printShellLine('On its server: php nyuRun deploy start, then php nyuRun deploy check.');
+		$this->traceShellDone( 'Bundle: '.$packModeName.', '.count($keptLst).' files in '.$trgtDir.( $this->optnObject->validateOption('archived') ? ', and its archive' : '' ) );
+		$this->printerObj->printShellLine('On its server: php nyuRun installs allSteps, then php nyuRun installs checkAll.');
 		return self::EXIT_DONE;
 	}
 
@@ -308,8 +308,8 @@ class Bundle extends Command{
 			$iniVals = is_array($mdlVal) ? ($mdlVal['system'] ?? null) : null;
 			$newData = is_array($mdlVal) ? ($mdlVal['adding'] ?? Array()) : null;
 			$whyText = '';
-			if( !preg_match('/^[a-z0-9]{5}$/D', $modNme) || method_exists($this, 'call'.ucfirst($modNme)) ){
-				$whyText = 'not five lower-case letters or digits, or the name of a sub-command';
+			if( !preg_match('/^[a-z0-9]{8}$/D', $modNme) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
+				$whyText = 'not eight lower-case letters or digits, or the name of a sub-command';
 			}elseif( !is_array($iniVals) || !in_array($iniVals['ENV_NAME'] ?? null, Array('DEV', 'TEST', 'PREV', 'PROD'), true) ){
 				$whyText = 'its "system" has no ENV_NAME of DEV, TEST, PREV or PROD';
 			}elseif( !is_array($newData) ){
@@ -356,7 +356,7 @@ class Bundle extends Command{
 	 * of its path hidden (starting with a dot), except a .htaccess file.
 	 * Nothing of conf/keys travels, nor any key, users file or password
 	 * file conf/access.json names, wherever it lies (see secrPaths): the
-	 * server makes its own keys (deploy start). A mode brings one of them
+	 * server makes its own keys (installs allSteps). A mode brings one of them
 	 * back only by naming that very file in its 'adding' paths, the public
 	 * key of a server issuing the tokens for one.
 	 *
@@ -511,7 +511,7 @@ class Bundle extends Command{
 	 *
 	 * @param String $saveFilePath Full path of the folder of the bundle.
 	 * @param String $packModeName A mode of the framework or of the project.
-	 * @param Bool   $writeEnabled Whether Composer is run, or only told about (--plans).
+	 * @param Bool   $writeEnabled Whether Composer is run, or only told about (--planOnly).
 	 * @return Bool Whether the class map was made, or would be.
 	 */
 	protected function buildClassMaps( String $saveFilePath, String $packModeName, Bool $writeEnabled ): Bool {
@@ -521,7 +521,7 @@ class Bundle extends Command{
 		}
 		$cmdList = $this->locateComposer();
 		if( $cmdList===null ){
-			$this->printerObj->printShellFail('The autoloader is not optimised: Composer was not found (--cmpsr=<path>); run composer dump-autoload -o -a --no-dev in the bundle');
+			$this->printerObj->printShellFail('The autoloader is not optimised: Composer was not found (--composer=<path>); run composer dump-autoload -o -a --no-dev in the bundle');
 			return false;
 		}
 		if( !$writeEnabled ){
@@ -542,7 +542,7 @@ class Bundle extends Command{
 	}
 
 	/**
-	 * Finds Composer: the file --cmpsr names, else composer.phar at the
+	 * Finds Composer: the file --composer names, else composer.phar at the
 	 * root of the project, else Composer on the PATH (composer.phar, or
 	 * composer, composer.bat on Windows). A phar is run with the PHP
 	 * running this command.
@@ -550,7 +550,7 @@ class Bundle extends Command{
 	 * @return ?Array The command that runs Composer, as a list of words; null when there is none.
 	 */
 	protected function locateComposer(): ?Array {
-		$cmpPath = strval($this->optnObject->retrieveOption('cmpsr', ''));
+		$cmpPath = strval($this->optnObject->retrieveOption('composer', ''));
 		if( $cmpPath!='' ){
 			if( !is_file($cmpPath) ){
 				return null;

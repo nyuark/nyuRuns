@@ -19,14 +19,14 @@ use nyu\Shell\UserFile;
 /**
  * Installs the project on a server, and checks it:
  *
- *   php nyuRun deploy start            the whole sequence, asking what it needs with a default to take on Enter
- *   php nyuRun deploy start --noask    the same without a question, for a deployment script
- *   php nyuRun deploy servr            checks the server: PHP, extensions, folders
- *   php nyuRun deploy files            creates the local files from their examples
- *   php nyuRun deploy users            creates the users table and the basic users, or the users file;
+ *   php nyuRun installs allSteps             the whole sequence, asking what it needs with a default to take on Enter
+ *   php nyuRun installs allSteps --noPrompt  the same without a question, for a deployment script
+ *   php nyuRun installs testHost             checks the server: PHP, extensions, folders
+ *   php nyuRun installs makeConf             creates the local files from their examples
+ *   php nyuRun installs userBase             creates the users table and the basic users, or the users file;
  *                                      the devices table too when conf/access.json has a device block
- *   php nyuRun deploy check            the health check
- *   php nyuRun deploy store native     moves the users to the other store (native or usrlst), the login with them
+ *   php nyuRun installs checkAll         the health check
+ *   php nyuRun installs moveUser native  moves the users to the other store (native or usrlst), the login with them
  *
  * Nothing that exists is replaced: a local file, a secret, a table or a
  * file that already holds users are left as they are.
@@ -61,22 +61,22 @@ class Deploy extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'start'=>Array('args'=>'[--store=<native|usrlst|none>] [--noask]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
-			'servr'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
-			'files'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json and conf/database.json from their examples; none is replaced'),
-			'users'=>Array('args'=>'[block] [--store=<native|usrlst>]', 'about'=>'creates the users table and the basic users (native), or the users file (usrlst); the devices table with a device block'),
-			'check'=>Array('args'=>'', 'about'=>'health check: presets, access, secrets, databases, users, unsafe settings'),
-			'store'=>Array('args'=>'<native|usrlst> [--drops] [--agree]', 'about'=>'moves the users to the other store and points the login at it; the store left is kept as it is')
+			'allSteps'=>Array('args'=>'[--useStore=<native|usrlst|none>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
+			'testHost'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
+			'makeConf'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json and conf/database.json from their examples; none is replaced'),
+			'userBase'=>Array('args'=>'[block] [--useStore=<native|usrlst>]', 'about'=>'creates the users table and the basic users (native), or the users file (usrlst); the devices table with a device block'),
+			'checkAll'=>Array('args'=>'', 'about'=>'health check: presets, access, secrets, databases, users, unsafe settings'),
+			'moveUser'=>Array('args'=>'<native|usrlst> [--dropsAll] [--yesToAll]', 'about'=>'moves the users to the other store and points the login at it; the store left is kept as it is')
 		);
 	}
 
 	/**
 	 * Runs the whole installation. Each question proposes a default,
-	 * taken on Enter; with --noask the defaults are taken without a word.
+	 * taken on Enter; with --noPrompt the defaults are taken without a word.
 	 *
 	 * @return Int EXITDONE when the health check finds no failure, EXITFLAW otherwise.
 	 */
-	public function callStart(): Int {
+	public function invokeAllSteps(): Int {
 		$chckObj = new HealthChk();
 		$chckObj->validateServer();
 		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $chckObj->rowsFoundArray() );
@@ -120,7 +120,7 @@ class Deploy extends Command{
 	 *
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
-	public function callServr(): Int {
+	public function invokeTestHost(): Int {
 		$chckObj = new HealthChk();
 		$chckObj->validateServer();
 		$chckObj->checkFoldWrite();
@@ -133,22 +133,22 @@ class Deploy extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callFiles(): Int {
+	public function invokeMakeConf(): Int {
 		$this->makeLocalFiles();
 		return self::EXIT_DONE;
 	}
 
 	/**
-	 * Creates the users: in the store --store names, or the one the login
+	 * Creates the users: in the store --useStore names, or the one the login
 	 * uses.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callUsers(): Int {
+	public function invokeUserBase(): Int {
 		$blckNme = strval($this->optnObject->shiftFirstWord() ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('store', strval($this->accessSettings('login')['authby'] ?? '')) );
+		$storNme = strval( $this->optnObject->retrieveOption('useStore', strval($this->accessSettings('login')['authby'] ?? '')) );
 		if( !in_array($storNme, Array('native', 'usrlst'), true) ){
-			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --store=native or --store=usrlst', self::EXIT_HELP);
+			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=native or --useStore=usrlst', self::EXIT_HELP);
 		}
 		$this->makeBasicUsers($storNme, $blckNme);
 		return self::EXIT_DONE;
@@ -159,7 +159,7 @@ class Deploy extends Command{
 	 *
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
-	public function callCheck(): Int {
+	public function invokeCheckAll(): Int {
 		return $this->showCheckCount();
 	}
 
@@ -170,13 +170,13 @@ class Deploy extends Command{
 	 * identifier; the store left is not changed, so going back is moving
 	 * the users again, or pointing the login back at it. The store moved to
 	 * must hold no users. What does not go along is told first, and the
-	 * move asked to be confirmed (--agree is the yes given beforehand).
+	 * move asked to be confirmed (--yesToAll is the yes given beforehand).
 	 * Active devices need the native userbase: they stop a move to the
-	 * users file, unless --drops lets them go, revoked.
+	 * users file, unless --dropsAll lets them go, revoked.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callStore(): Int {
+	public function invokeMoveUser(): Int {
 		$trgtNme = $this->needsShellWord('the store the users go to: native or usrlst');
 		if( !in_array($trgtNme, Array('native', 'usrlst'), true) ){
 			$this->terminateShell('Not a store the users can be moved to: '.$trgtNme, self::EXIT_HELP);
@@ -202,7 +202,7 @@ class Deploy extends Command{
 			$treeObj->$trgtNme = (object)self::STOR_CONF[$trgtNme];
 			$wrtrObj->saveJsonConfig($accPath, $treeObj);
 		}
-		if( $trgtNme=='native' && !$this->optnObject->validateOption('noask') ){
+		if( $trgtNme=='native' && !$this->optnObject->validateOption('noPrompt') ){
 			$this->queryDatabases($wrtrObj);
 		}
 		Console::loadConfigLogs();
@@ -329,13 +329,13 @@ class Deploy extends Command{
 	 * userbase for the users file, which is only read: activation and reset
 	 * codes, the review of sign-ups, presence and the step of the last 2FA
 	 * code. Users with codes by mail stop the move; active devices stop it
-	 * too, unless --drops lets them go.
+	 * too, unless --dropsAll lets them go.
 	 *
 	 * @param String $pageFileName The store the users leave.
 	 * @param Array  $usersRecords The users, as that store holds them.
 	 * @return Array The rows of what is not kept, and the identifiers of the devices to revoke.
 	 *
-	 * @throws ShellStop When users with codes by mail are found, or active devices without --drops.
+	 * @throws ShellStop When users with codes by mail are found, or active devices without --dropsAll.
 	 */
 	protected function lostItemsArray( String $pageFileName, Array $usersRecords ): Array {
 		if( $pageFileName!='native' ){
@@ -358,14 +358,14 @@ class Deploy extends Command{
 			return ($usrValuesArr['userStat'] ?? '')=='review';
 		}), 'userName' );
 		if( !empty($rvwList) ){
-			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; manage unlck makes them active');
+			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; accounts freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
 		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['twoFaWay'] ?? null)==='mailed';
 		}), 'userName' );
 		if( !empty($mailLst) ){
-			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "manage twofa <user> --clear" takes them away', self::EXIT_DENY);
+			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "accounts setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
 		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
 		$dvcConf = $this->accessSettings('device');
@@ -379,8 +379,8 @@ class Deploy extends Command{
 			}
 		}
 		if( !empty($devcIds) ){
-			if( !$this->optnObject->validateOption('drops') ){
-				$this->terminateShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $devcNms).'); --drops revokes them', self::EXIT_DENY);
+			if( !$this->optnObject->validateOption('dropsAll') ){
+				$this->terminateShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $devcNms).'); --dropsAll revokes them', self::EXIT_DENY);
 			}
 			$lostLst[] = Array('devices', implode(', ', $devcNms).': revoked');
 		}
@@ -568,7 +568,7 @@ class Deploy extends Command{
 			}
 		}
 		$lgnAuth = strval($this->accessSettings('login')['authby'] ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('store', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : 'none') );
+		$storNme = strval( $this->optnObject->retrieveOption('useStore', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : 'none') );
 		$storNme = strtolower( $this->queryAnswerTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storNme) );
 		if( !in_array($storNme, self::STOR_LIST, true) ){
 			$this->terminateShell('Not a store of users: '.$storNme, self::EXIT_DENY);
@@ -588,7 +588,7 @@ class Deploy extends Command{
 		}
 		if( $storNme=='native' ){
 			$this->makeLocalFiles( Array('conf/database.json') );
-			if( !$this->optnObject->validateOption('noask') ){
+			if( !$this->optnObject->validateOption('noPrompt') ){
 				$this->queryDatabases($wrtrObj);
 			}
 		}

@@ -9,11 +9,11 @@ use nyu\Shell\Command;
 /**
  * Cleans what the framework leaves in the temp folder, and shows it:
  *
- *   php nyuRun cleans purge logs --older=30    removes the log files older than 30 days
- *   php nyuRun cleans purge all                removes every temporary file
- *   php nyuRun cleans trace access --lasts=50  shows the last lines of a log channel (--watch follows it)
- *   php nyuRun cleans holds                    lists the addresses the limiter counts or holds
- *   php nyuRun cleans frees 203.0.113.7        releases an address (or all)
+ *   php nyuRun maintain cleanDir logs --keepDays=30    removes the log files older than 30 days
+ *   php nyuRun maintain cleanDir all                   removes every temporary file
+ *   php nyuRun maintain tailLogs access --numLines=50  shows the last lines of a log channel (--watching follows it)
+ *   php nyuRun maintain fullList                       lists the addresses the limiter counts or holds
+ *   php nyuRun maintain freeAddr 203.0.113.7           releases an address (or all)
  *
  * Nothing is ever removed outside the temp folder of the project.
  */
@@ -38,20 +38,20 @@ class Cleans extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'purge'=>Array('args'=>'<cache|logs|limits|backup|all> ... [--older=<days>]', 'about'=>'removes the files of those folders of temp'),
-			'trace'=>Array('args'=>'<channel> [--lasts=<lines>] [--watch]', 'about'=>'shows the last lines of a log channel'),
-			'holds'=>Array('args'=>'', 'about'=>'lists the addresses the limiter counts or holds'),
-			'frees'=>Array('args'=>'<address|all>', 'about'=>'releases an address, or all of them')
+			'cleanDir'=>Array('args'=>'<cache|logs|limits|backup|all> ... [--keepDays=<days>]', 'about'=>'removes the files of those folders of temp'),
+			'tailLogs'=>Array('args'=>'<channel> [--numLines=<lines>] [--watching]', 'about'=>'shows the last lines of a log channel'),
+			'fullList'=>Array('args'=>'', 'about'=>'lists the addresses the limiter counts or holds'),
+			'freeAddr'=>Array('args'=>'<address|all>', 'about'=>'releases an address, or all of them')
 		);
 	}
 
 	/**
 	 * Removes the files of the folders named, all of them or those older
-	 * than --older days. The folders themselves are kept.
+	 * than --keepDays days. The folders themselves are kept.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callPurge(): Int {
+	public function invokeCleanDir(): Int {
 		$kindLst = $this->optnObject->restWordsArray();
 		if( empty($kindLst) ){
 			$this->terminateShell('Missing argument: what to purge ('.implode(', ', self::KIND_LIST).', or all)', self::EXIT_HELP);
@@ -63,9 +63,9 @@ class Cleans extends Command{
 		if( !empty($badList) ){
 			$this->terminateShell('Nothing is purged under that name: '.implode(', ', $badList), self::EXIT_HELP);
 		}
-		$oldDays = $this->optnObject->retrieveOption('older');
+		$oldDays = $this->optnObject->retrieveOption('keepDays');
 		if( $oldDays!==null && !preg_match('/^\d{1,5}$/D', $oldDays) ){
-			$this->terminateShell('--older takes a number of days', self::EXIT_HELP);
+			$this->terminateShell('--keepDays takes a number of days', self::EXIT_HELP);
 		}
 		$upToTim = ($oldDays===null) ? null : time() - intval($oldDays)*86400;
 		$kindLst = array_values(array_unique($kindLst));
@@ -88,18 +88,18 @@ class Cleans extends Command{
 	}
 
 	/**
-	 * Shows the last lines of a log channel, and follows it with --watch.
+	 * Shows the last lines of a log channel, and follows it with --watching.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callTrace(): Int {
+	public function invokeTailLogs(): Int {
 		$channel = $this->needsShellWord('the log channel (error, access, runner, shell, or the name of an application)');
 		if( !preg_match('/^\w+$/D', $channel) ){
 			$this->terminateShell('A log channel is a plain name', self::EXIT_HELP);
 		}
-		$lineNum = $this->optnObject->retrieveOption('lasts', '20');
+		$lineNum = $this->optnObject->retrieveOption('numLines', '20');
 		if( !preg_match('/^\d{1,6}$/D', strval($lineNum)) ){
-			$this->terminateShell('--lasts takes a number of lines', self::EXIT_HELP);
+			$this->terminateShell('--numLines takes a number of lines', self::EXIT_HELP);
 		}
 		// With dated file names, the channel is read in its newest file
 		$logPath = '';
@@ -120,7 +120,7 @@ class Cleans extends Command{
 		foreach( $lineLst as $logLin ){
 			$this->printerObj->printShellBody($logLin.PHP_EOL);
 		}
-		if( !$this->optnObject->validateOption('watch') || $this->printerObj->jsonShellShape() ){
+		if( !$this->optnObject->validateOption('watching') || $this->printerObj->jsonShellShape() ){
 			return self::EXIT_DONE;
 		}
 		// Followed until the command is interrupted
@@ -145,7 +145,7 @@ class Cleans extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callHolds(): Int {
+	public function invokeFullList(): Int {
 		$lmtrObj = new Limiter( $this->accessSettings('limits') );
 		$rowList = Array();
 		foreach( $lmtrObj->listLimitHolds() as $cntVal ){
@@ -168,7 +168,7 @@ class Cleans extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callFrees(): Int {
+	public function invokeFreeAddr(): Int {
 		$gvnAddr = $this->needsShellWord('the address to release, or all');
 		if( $gvnAddr!='all' && filter_var($gvnAddr, FILTER_VALIDATE_IP)===false ){
 			$this->terminateShell('Not an address: '.$gvnAddr, self::EXIT_HELP);

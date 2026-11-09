@@ -1,6 +1,6 @@
 -- Devices (Access\Auth\Device), MySQL: the machines allowed in with a token, each in the name of a user.
 -- The table name is the 'tblnme' value of the device block in conf/access.json, the users table its 'usrtbl' value.
--- Created by php nyuRun deploy users, after the users table, when conf/access.json holds a device block.
+-- Created by php nyuRun installs userBase, after the users table, when conf/access.json holds a device block.
 -- madeDate is given by the clock of the database, the other dates by the one of PHP.
 
 CREATE TABLE `devices` (

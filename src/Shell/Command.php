@@ -7,7 +7,7 @@ use nyu\Tools\Logger;
 /**
  * A command of the command line (php nyuRun <command> <sub> ...). A
  * command tells what it does and lists its sub-commands; each of them is
- * the method named 'call' followed by its name (callPurge for purge).
+ * the method named 'invoke' followed by its name (invokeCleanDir for cleanDir).
  * The framework's commands are listed in Console::CMDS_LIST; an
  * application brings its own with runs/<App>/Shell.php, declaring the
  * class Shell of its namespace, which extends this one.
@@ -58,7 +58,7 @@ abstract class Command{
 
 	/**
 	 * Runs the sub-command the command line names. Without one, or with
-	 * --usage, the sub-commands are listed.
+	 * --helpText, the sub-commands are listed.
 	 *
 	 * @return Int The exit code.
 	 *
@@ -66,7 +66,7 @@ abstract class Command{
 	 */
 	public function runCalledCount(): Int {
 		$subList = $this->subsTableArray();
-		if( $this->optnObject->validateOption('usage') ){
+		if( $this->optnObject->validateOption('helpText') ){
 			$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
 			return self::EXIT_DONE;
 		}
@@ -82,7 +82,7 @@ abstract class Command{
 				$this->terminateShell( 'Unknown sub-command: '.$subName, self::EXIT_HELP );
 			}
 			// A sub-command the command lists as it runs (one a project declared) names the method it shares with others
-			$callNme = strval( $subList[$subName]['call'] ?? 'call'.ucfirst($subName) );
+			$callNme = strval( $subList[$subName]['call'] ?? 'invoke'.ucfirst($subName) );
 		}
 		if( !method_exists($this, $callNme) ){
 			$this->terminateShell( 'The sub-command is declared but not written: '.$callNme, self::EXIT_FAIL );
@@ -134,14 +134,14 @@ abstract class Command{
 
 	/**
 	 * Asks for a value, proposing a default one: Enter alone takes it.
-	 * With --noask nothing is asked, and the default is the answer.
+	 * With --noPrompt nothing is asked, and the default is the answer.
 	 *
 	 * @param String $questionText The question.
 	 * @param String $defaultValue Value proposed, taken on Enter.
 	 * @return String The answer, without the spaces around it.
 	 */
 	protected function queryAnswerTxt( String $questionText, String $defaultValue='' ): String {
-		if( $this->optnObject->validateOption('noask') ){
+		if( $this->optnObject->validateOption('noPrompt') ){
 			return $defaultValue;
 		}
 		$this->printerObj->printShellAsks( $questionText.( $defaultValue!=='' ? ' ['.$defaultValue.']' : '' ).': ' );
@@ -151,17 +151,17 @@ abstract class Command{
 	}
 
 	/**
-	 * Asks to confirm something that removes or replaces. --agree is the
-	 * yes given beforehand; with --noask and no --agree, the answer is no.
+	 * Asks to confirm something that removes or replaces. --yesToAll is the
+	 * yes given beforehand; with --noPrompt and no --yesToAll, the answer is no.
 	 *
 	 * @param String $questionText What is about to be done.
 	 * @return Bool Whether it is confirmed.
 	 */
 	protected function queryAgreedFlg( String $questionText ): Bool {
-		if( $this->optnObject->validateOption('agree') ){
+		if( $this->optnObject->validateOption('yesToAll') ){
 			return true;
 		}
-		if( $this->optnObject->validateOption('noask') ){
+		if( $this->optnObject->validateOption('noPrompt') ){
 			return false;
 		}
 		$this->printerObj->printShellAsks( $questionText.' [y/N]: ' );

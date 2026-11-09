@@ -11,10 +11,10 @@ use nyu\Access\Sess\JWT;
  * Manages the keys of the applications calling this project for their
  * users (see Access\AppKey):
  *
- *   php nyuRun appkey makes portal --routs=contacts/*,/members/save --pubky=conf/keys/portal.pub
- *   php nyuRun appkey lists                    lists the applications and their routes
- *   php nyuRun appkey route portal --routs=…   replaces the routes of an application
- *   php nyuRun appkey revok portal             removes the key of an application
+ *   php nyuRun appsKeys makeKeys portal --routeSet=contacts/*,/members/save --publFile=conf/keys/portal.pub
+ *   php nyuRun appsKeys fullList                        lists the applications and their routes
+ *   php nyuRun appsKeys setRoute portal --routeSet=…  replaces the routes of an application
+ *   php nyuRun appsKeys revokeIt portal                 removes the key of an application
  *
  * The keys are those of the 'apkeys' block of conf/access.json: only the
  * hash of a key is stored, the key is shown once. A preset reads them
@@ -43,37 +43,37 @@ class AppKey extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'makes'=>Array('args'=>'<name> --routs=<routes> --pubky=<file> [--urole=member]', 'about'=>'makes the key of an application, with its routes, the public key of its tokens and the highest role of its users: shown once'),
-			'lists'=>Array('args'=>'', 'about'=>'lists the applications, their routes, public key, highest role and date'),
-			'route'=>Array('args'=>'<name> --routs=<routes>', 'about'=>'replaces the routes of an application'),
-			'revok'=>Array('args'=>'<name>', 'about'=>'removes the key of an application: it is refused from the next request')
+			'makeKeys'=>Array('args'=>'<name> --routeSet=<routes> --publFile=<file> [--roleTops=member]', 'about'=>'makes the key of an application, with its routes, the public key of its tokens and the highest role of its users: shown once'),
+			'fullList'=>Array('args'=>'', 'about'=>'lists the applications, their routes, public key, highest role and date'),
+			'setRoute'=>Array('args'=>'<name> --routeSet=<routes>', 'about'=>'replaces the routes of an application'),
+			'revokeIt'=>Array('args'=>'<name>', 'about'=>'removes the key of an application: it is refused from the next request')
 		);
 	}
 
 	/**
-	 * Makes the key of an application: its routes (--routs, written as
+	 * Makes the key of an application: its routes (--routeSet, written as
 	 * those of 'openrt', separated by commas), the public key its tokens
-	 * are checked with (--pubky, an RSA key of JWT::RSAS_BITS bits at least,
-	 * from the project root) and the highest role of its users (--urole,
+	 * are checked with (--publFile, an RSA key of JWT::RSAS_BITS bits at least,
+	 * from the project root) and the highest role of its users (--roleTops,
 	 * member when not told). A name already listed is refused. The key is
 	 * shown once; its hash is written in the 'apkeys' block, created when
 	 * conf/access.json has none.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callMakes(): Int {
+	public function invokeMakeKeys(): Int {
 		$appName = $this->needsShellWord('the name of the application');
 		if( !preg_match('/^[a-z][a-z0-9]{1,15}$/D', $appName) ){
 			$this->terminateShell('Invalid name: a lower-case word of 2 to 16 letters and digits', self::EXIT_HELP);
 		}
 		$rteList = $this->parseRouteList();
-		$maxRole = strval($this->optnObject->retrieveOption('urole', Checker::ROLE_LIST[0]));
+		$maxRole = strval($this->optnObject->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
 		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
 			$this->terminateShell('Invalid role: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
 		}
-		$publPth = trim( strval($this->optnObject->retrieveOption('pubky', '')) );
+		$publPth = trim( strval($this->optnObject->retrieveOption('publFile', '')) );
 		if( $publPth=='' ){
-			$this->terminateShell('Missing option: --pubky, the public key of the tokens of the application', self::EXIT_HELP);
+			$this->terminateShell('Missing option: --publFile, the public key of the tokens of the application', self::EXIT_HELP);
 		}
 		$fullPth = preg_match('#^([A-Za-z]:|[/\\\\])#', $publPth) ? $publPth : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publPth);
 		$keyInst = (is_file($fullPth) && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public(strval(file_get_contents($fullPth))) : false;
@@ -84,14 +84,14 @@ class AppKey extends Command{
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
 		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
-			// The audiences naming this project are left empty : "config write access apkeys.audnce" sets them
+			// The audiences naming this project are left empty : "settings setValue access apkeys.audnce" sets them
 			$treeObj->$blckNme = (object)Array('header'=>self::KEYS_HEAD, 'applst'=>new \stdClass(), 'audnce'=>Array());
 		}
 		if( !isset($treeObj->$blckNme->applst) || !is_object($treeObj->$blckNme->applst) ){
 			$treeObj->$blckNme->applst = new \stdClass();
 		}
 		if( isset($treeObj->$blckNme->applst->$appName) ){
-			$this->terminateShell('No key made: the application '.json_encode($appName).' already has one (appkey revok it first)', self::EXIT_DENY);
+			$this->terminateShell('No key made: the application '.json_encode($appName).' already has one (appsKeys revokeIt it first)', self::EXIT_DENY);
 		}
 		$keyText = rtrim( strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=' );
 		$treeObj->$blckNme->applst->$appName = (object)Array(
@@ -110,7 +110,7 @@ class AppKey extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callLists(): Int {
+	public function invokeFullList(): Int {
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
 		$rowList = Array();
@@ -123,11 +123,11 @@ class AppKey extends Command{
 	}
 
 	/**
-	 * Replaces the routes of an application with those --routs gives.
+	 * Replaces the routes of an application with those --routeSet gives.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callRoute(): Int {
+	public function invokeSetRoute(): Int {
 		$appName = $this->needsShellWord('the name of the application');
 		$rteList = $this->parseRouteList();
 		$treeObj = $this->readAccessConf();
@@ -147,7 +147,7 @@ class AppKey extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callRevok(): Int {
+	public function invokeRevokeIt(): Int {
 		$appName = $this->needsShellWord('the name of the application');
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
@@ -170,7 +170,7 @@ class AppKey extends Command{
 		try{
 			return (new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' ))->importJsonsObj( TOP_DIR.DS.'conf'.DS.'access.json' );
 		}catch( \RuntimeException $e ){
-			$this->terminateShell('conf/access.json cannot be read: it is missing or is not a JSON object (deploy files makes it)');
+			$this->terminateShell('conf/access.json cannot be read: it is missing or is not a JSON object (installs makeConf makes it)');
 		}
 	}
 
@@ -188,16 +188,16 @@ class AppKey extends Command{
 	}
 
 	/**
-	 * Reads the routes --routs gives, separated by commas: each one an
+	 * Reads the routes --routeSet gives, separated by commas: each one an
 	 * action, as "app/action" or "app/*", or a declared route, as its final
 	 * path with a leading slash (a Run's route with its mount: /auth/openSess).
 	 *
 	 * @return Array The routes.
 	 */
 	protected function parseRouteList(): Array {
-		$rteList = array_values( array_filter(array_map('trim', explode(',', strval($this->optnObject->retrieveOption('routs', '')))), 'strlen') );
+		$rteList = array_values( array_filter(array_map('trim', explode(',', strval($this->optnObject->retrieveOption('routeSet', '')))), 'strlen') );
 		if( empty($rteList) ){
-			$this->terminateShell('Missing option: --routs, the routes the application may reach, separated by commas', self::EXIT_HELP);
+			$this->terminateShell('Missing option: --routeSet, the routes the application may reach, separated by commas', self::EXIT_HELP);
 		}
 		foreach( $rteList as $rteVal ){
 			if( !preg_match('#^(/[^\s]+|[A-Za-z0-9]+/(\*|[A-Za-z0-9_]+))$#D', $rteVal) ){

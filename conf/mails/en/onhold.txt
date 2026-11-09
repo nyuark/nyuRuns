@@ -5,7 +5,7 @@ Hello,
 the sign-ups close until some are approved or removed.
 
 To see those awaiting review: users?stat=review, or on the server
-    php nyuRun manage prove
+    php nyuRun accounts approves
 
-Approve one with users/approve (manage prove <user>), refuse one by
+Approve one with users/approve (accounts approves <user>), refuse one by
 removing it (users/remove).

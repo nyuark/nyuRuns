@@ -19,10 +19,10 @@ class Shell extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'hello'=>Array('args'=>'<name>', 'about'=>'greets'),
-			'asked'=>Array('args'=>'', 'about'=>'asks a value, a confirmation and a secret'),
-			'stops'=>Array('args'=>'', 'about'=>'is refused'),
-			'ghost'=>Array('args'=>'', 'about'=>'is declared and not written')
+			'sayHello'=>Array('args'=>'<name>', 'about'=>'greets'),
+			'askInput'=>Array('args'=>'', 'about'=>'asks a value, a confirmation and a secret'),
+			'refusing'=>Array('args'=>'', 'about'=>'is refused'),
+			'ghostSub'=>Array('args'=>'', 'about'=>'is declared and not written')
 		);
 	}
 
@@ -31,10 +31,10 @@ class Shell extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callHello(): Int {
+	public function invokeSayHello(): Int {
 		$this->printerObj->printShellLine('Hello '.$this->needsShellWord('name'));
 		$this->printerObj->printShellPair('rest', $this->optnObject->restWordsArray());
-		$this->printerObj->printShellPair('tone', $this->optnObject->retrieveOption('tone', 'plain'));
+		$this->printerObj->printShellPair('tone', $this->optnObject->retrieveOption('greeting', 'plain'));
 		$this->printerObj->printShellRows( Array('name', 'size'), Array(Array('a', 1), Array('long one', 22)) );
 		return self::EXIT_DONE;
 	}
@@ -44,7 +44,7 @@ class Shell extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callAsked(): Int {
+	public function invokeAskInput(): Int {
 		$this->printerObj->printShellPair('value', $this->queryAnswerTxt('Value', 'dflt'));
 		$this->printerObj->printShellPair('agree', $this->queryAgreedFlg('Remove it'));
 		$this->printerObj->printShellOnce('typed', $this->querySecretTxt('Secret'));
@@ -56,7 +56,7 @@ class Shell extends Command{
 	 *
 	 * @return Int Never given.
 	 */
-	public function callStops(): Int {
+	public function invokeRefusing(): Int {
 		$this->terminateShell('Not allowed here', self::EXIT_DENY);
 	}
 }

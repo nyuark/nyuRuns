@@ -10,7 +10,7 @@ Libraries installed by Composer
 -------------------------------
 They are not part of this repository: "composer install" puts them in
 vendor/, each with its licence in its own folder, and a bundle made by
-"php nyuRun bundle" carries them as they are.
+"php nyuRun bundling" carries them as they are.
 
   level-2/dice              BSD-2-Clause         the dependency injection container
   firebase/php-jwt          BSD-3-Clause         the signed tokens (JWT)

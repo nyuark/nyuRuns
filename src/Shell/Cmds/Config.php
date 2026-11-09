@@ -18,17 +18,17 @@ use nyu\Tools\Router;
 /**
  * Reads and changes the configuration of the project:
  *
- *   php nyuRun config shows system              the keys of conf/system.ini
- *   php nyuRun config shows access login        a block of conf/access.json, secrets masked
- *   php nyuRun config shows preset webapi.auths a block of a preset
- *   php nyuRun config write system LOG_MODE BASE
- *   php nyuRun config write access native.minlen 12
- *   php nyuRun config write dbases nyuRuns.host db.local
- *   php nyuRun config write preset webapi.auths.authby native
- *   php nyuRun config entry index webapi        the preset www/index.php starts the Runner with
- *   php nyuRun config secrt jtoken              a new secret, written where the config reads it
- *   php nyuRun config route webapi              the routes of a preset, and who they are served to
- *   php nyuRun config cache                     removes the config cache, after conf was edited by hand
+ *   php nyuRun settings showConf system        the keys of conf/system.ini
+ *   php nyuRun settings showConf access login  a block of conf/access.json, secrets masked
+ *   php nyuRun settings showConf preset webapi.auths a block of a preset
+ *   php nyuRun settings setValue system LOG_MODE BASE
+ *   php nyuRun settings setValue access native.minlen 12
+ *   php nyuRun settings setValue dbases nyuRuns.host db.local
+ *   php nyuRun settings setValue preset webapi.auths.authby native
+ *   php nyuRun settings wwwEntry index webapi  the preset www/index.php starts the Runner with
+ *   php nyuRun settings makeSecr jtoken        a new secret, written where the config reads it
+ *   php nyuRun settings fullList webapi        the routes of a preset, and who they are served to
+ *   php nyuRun settings clrCache               removes the config cache, after conf was edited by hand
  *
  * A file is written as ConfFile does: comments and layout kept, the
  * former file copied to temp/backup. A change that leaves the file
@@ -67,12 +67,12 @@ class Config extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'shows'=>Array('args'=>'<system|access|dbases|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
-			'write'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--force]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
-			'entry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
-			'secrt'=>Array('args'=>'<jtoken|apikey|tfakey|mrkkey|htpass> [user] [--block=<name>] [--shown] [--typed] [--drops]', 'about'=>'makes a secret and writes it where the config reads it'),
-			'route'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
-			'cache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
+			'showConf'=>Array('args'=>'<system|access|dbases|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
+			'setValue'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
+			'wwwEntry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
+			'makeSecr'=>Array('args'=>'<jtoken|apikey|tfakey|mrkkey|htpass> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
+			'fullList'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
+			'clrCache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
 		);
 	}
 
@@ -83,7 +83,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callCache(): Int {
+	public function invokeClrCache(): Int {
 		$dropNum = ConfCache::clearMailCache();
 		$this->traceShellDone( 'Config: cache removed, '.$dropNum.' files' );
 		$this->printerObj->printShellPair('cache files removed', $dropNum);
@@ -95,7 +95,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callShows(): Int {
+	public function invokeShowConf(): Int {
 		$trgtNme = $this->needsShellWord('what to show (system, access, dbases, preset)');
 		$pathTxt = strval($this->optnObject->shiftFirstWord() ?? '');
 		if( $trgtNme=='preset' ){
@@ -156,7 +156,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callWrite(): Int {
+	public function invokeSetValue(): Int {
 		$trgtNme = $this->needsShellWord('what to write in (system, access, dbases, preset)');
 		$pathTxt = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
 		$gvnText = $this->optnObject->shiftFirstWord();
@@ -165,7 +165,7 @@ class Config extends Command{
 		}
 		$pthPart = explode('.', $pathTxt);
 		$wrtrObj = $this->generateWriter();
-		$isForcd = $this->optnObject->validateOption('force');
+		$isForcd = $this->optnObject->validateOption('overrule');
 		try{
 			if( $trgtNme=='system' ){
 				$this->writeSystemIni($wrtrObj, $pathTxt, $gvnText);
@@ -180,7 +180,7 @@ class Config extends Command{
 					$blckNme = $pthPart[0];
 					if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
 						if( !$isForcd ){
-							$this->terminateShell('Nothing was changed: no block '.$blckNme.' in '.self::TRGT_LIST[$trgtNme].'; --force adds it', self::EXIT_DENY);
+							$this->terminateShell('Nothing was changed: no block '.$blckNme.' in '.self::TRGT_LIST[$trgtNme].'; --overrule adds it', self::EXIT_DENY);
 						}
 						$treeObj->$blckNme = new \stdClass();
 					}
@@ -188,7 +188,7 @@ class Config extends Command{
 				}
 				$keyName = strval(end($pthPart));
 				if( !property_exists($nodeObj, $keyName) && !$isForcd ){
-					$this->terminateShell('Nothing was changed: no key '.$pathTxt.' in '.self::TRGT_LIST[$trgtNme].'; --force adds it', self::EXIT_DENY);
+					$this->terminateShell('Nothing was changed: no key '.$pathTxt.' in '.self::TRGT_LIST[$trgtNme].'; --overrule adds it', self::EXIT_DENY);
 				}
 				$newValu = $this->parseTypedText($gvnText);
 				// A check or a carrier that does not exist would refuse every request
@@ -299,7 +299,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callEntry(): Int {
+	public function invokeWwwEntry(): Int {
 		$fileNme = $this->optnObject->shiftFirstWord();
 		$prstNme = $this->optnObject->shiftFirstWord();
 		if( $fileNme===null ){
@@ -350,7 +350,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callSecrt(): Int {
+	public function invokeMakeSecr(): Int {
 		$kindNme = $this->needsShellWord('the secret to make (jtoken, apikey, tfakey, mrkkey, htpass)');
 		if( !in_array($kindNme, Array('jtoken', 'apikey', 'tfakey', 'mrkkey', 'htpass'), true) ){
 			$this->terminateShell('No secret is made under that name: '.$kindNme, self::EXIT_HELP);
@@ -377,7 +377,7 @@ class Config extends Command{
 	 * it: in the environment file when the block names it as env:NAME, in
 	 * the block otherwise. The secret of the tokens and the key of the 2FA
 	 * secrets are only shown with
-	 * --shown; an API key is shown once, since its client needs it.
+	 * --showSecr; an API key is shown once, since its client needs it.
 	 *
 	 * @param String $secrKindText 'jtoken', 'apikey' or 'tfakey'.
 	 * @param Bool   $keepExisting Whether a secret already set is left as it is, without a question.
@@ -390,7 +390,7 @@ class Config extends Command{
 		$wrtrObj = $this->generateWriter();
 		$filPath = $this->pathOfSettings(self::TRGT_LIST['access']);
 		$treeObj = $wrtrObj->importJsonsObj($filPath);
-		$blckNme = strval($this->optnObject->retrieveOption('block', ''));
+		$blckNme = strval($this->optnObject->retrieveOption('useBlock', ''));
 		if( $secrKindText=='jtoken' ){
 			$labelTx = 'Secret of the tokens';
 			$blckNme = $blckNme ?: strval($treeObj->login->sesscf ?? 'dftokn');
@@ -454,7 +454,7 @@ class Config extends Command{
 		Console::loadConfigLogs();
 		$this->traceShellDone( $labelTx.' made, written in '.$whereTx );
 		$this->printerObj->printShellPair('written', $whereTx);
-		if( $secrKindText=='apikey' || $this->optnObject->validateOption('shown') ){
+		if( $secrKindText=='apikey' || $this->optnObject->validateOption('showSecr') ){
 			$this->printerObj->printShellOnce($labelTx, $newSecr);
 		}
 		return true;
@@ -469,7 +469,7 @@ class Config extends Command{
 	 * The public key of a pair replaced is kept as conf/keys/<block>.old.pub
 	 * and named by 'oldpub', with the time it was retired ('retire'): the
 	 * tokens it signed before are accepted until they end, 'lifetm' at most,
-	 * and the next pair replaces it. With --drops (a key that leaked), none
+	 * and the next pair replaces it. With --dropsAll (a key that leaked), none
 	 * is kept: every token in use ends at once. Without a former private
 	 * key, a new pair ends every token checked with the former one.
 	 *
@@ -502,10 +502,10 @@ class Config extends Command{
 		$oldName = 'conf/keys/'.$blckNamedTxt.'.old.pub';
 		$oldPriv = is_file($prvPath) ? @openssl_pkey_get_private(strval(@file_get_contents($prvPath))) : false;
 		// A key that leaked keeps nothing : the tokens it signed end with it
-		$isDrops = $this->optnObject->validateOption('drops');
+		$isDrops = $this->optnObject->validateOption('dropsAll');
 		$oldText = ($oldPriv!==false && !$isDrops) ? strval(openssl_pkey_get_details($oldPriv)['key'] ?? '') : '';
 		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : ( $isDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
-		// deploy start replaces a public key found alone without a question : it is not one of this server's
+		// installs allSteps replaces a public key found alone without a question : it is not one of this server's
 		if( $hasKeys && !$keepExisting && !$this->queryAgreedFlg('Replace the keys of the tokens in use: '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
@@ -565,8 +565,8 @@ class Config extends Command{
 
 	/**
 	 * Writes the line of a user in the htpasswd file the block names
-	 * ('dfpass' unless --block names another): its password is made and
-	 * shown once, or typed with --typed, and kept as a bcrypt hash.
+	 * ('dfpass' unless --useBlock names another): its password is made and
+	 * shown once, or typed with --typeItIn, and kept as a bcrypt hash.
 	 *
 	 * @param String $namedUserTxt Name of the user.
 	 *
@@ -576,7 +576,7 @@ class Config extends Command{
 		if( !preg_match('/^[^:\s]+$/D', $namedUserTxt) ){
 			$this->terminateShell('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
 		}
-		$blckCfg = $this->accessSettings( strval($this->optnObject->retrieveOption('block', 'dfpass')) );
+		$blckCfg = $this->accessSettings( strval($this->optnObject->retrieveOption('useBlock', 'dfpass')) );
 		$pwdFile = trim( strval($blckCfg['htpasswd'] ?? 'conf/.htpasswd'), '/\\ ' );
 		$filPath = $this->pathOfSettings($pwdFile);
 		$lineLst = is_file($filPath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filPath))), 'strlen')) : Array();
@@ -589,7 +589,7 @@ class Config extends Command{
 		if( $lineIdx!==null && !$this->queryAgreedFlg('Replace the password of user '.$namedUserTxt.' in '.$pwdFile) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
-		$isTyped = $this->optnObject->validateOption('typed');
+		$isTyped = $this->optnObject->validateOption('typeItIn');
 		$passTxt = $isTyped ? $this->querySecretTxt('Password of '.$namedUserTxt) : bin2hex(random_bytes(10));
 		if( $passTxt=='' ){
 			$this->terminateShell('Nothing was written: no password given', self::EXIT_DENY);
@@ -616,7 +616,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code: EXITFLAW when the roles of the routes cannot be applied.
 	 */
-	public function callRoute(): Int {
+	public function invokeFullList(): Int {
 		$prstNme = strval($this->optnObject->shiftFirstWord() ?? 'dfault');
 		try{
 			$loadObj = (new Preset($prstNme))->newSetupLoader();

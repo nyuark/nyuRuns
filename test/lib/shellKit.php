@@ -84,12 +84,12 @@ function callShellArray( String $rootPathName, Array $commandWords, String $type
  * Runs the command line on a project and reads its output as JSON.
  *
  * @param String $rootPathName Full path of the project.
- * @param Array  $commandWords The arguments of the command line; --shape=json is added.
+ * @param Array  $commandWords The arguments of the command line; --outputAs=json is added.
  * @param String $typedAnswers What is typed as answers.
  * @return mixed The decoded object, or the raw output and errors when it is not JSON.
  */
 function runShellAsJson( String $rootPathName, Array $commandWords, String $typedAnswers='' ): Mixed {
-	$outcome = callShellArray( $rootPathName, array_merge($commandWords, Array('--shape=json')), $typedAnswers );
+	$outcome = callShellArray( $rootPathName, array_merge($commandWords, Array('--outputAs=json')), $typedAnswers );
 	return json_decode($outcome['text'], true) ?? $outcome;
 }
 

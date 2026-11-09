@@ -339,7 +339,7 @@ class Router{
 	}
 
 	/**
-	 * Takes the declared routes already read (the config cache), in place
+	 * Takes the declared routes already read (the settings clrCache), in place
 	 * of the files of the routes folder.
 	 *
 	 * @param Array $rteRoutesLst The declared routes, by path or path pattern, as retrieveRoutes() gives them.

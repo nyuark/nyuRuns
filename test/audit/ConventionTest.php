@@ -49,10 +49,6 @@ $okMethd = function( Array $oneFinding ): Bool {
 	if( in_array($oneFinding['name'], Array('jsonSerialize', 'getIterator', 'offsetGet', 'offsetSet', 'offsetExists', 'offsetUnset', 'count', 'current', 'key', 'next', 'rewind', 'valid'), true) || str_starts_with($oneFinding['name'], 'stream_') ){
 		return true;
 	}
-	// Until the command line is renamed: the methods a sub-command runs, call + its name
-	if( preg_match('#^src/Shell/#', $oneFinding['file']) && preg_match('/^call[A-Z][a-z]{4}$/', $oneFinding['name']) ){
-		return true;
-	}
 	return $oneFinding['file']=='src/Tools/Logger.php' && in_array($oneFinding['name'], Array('error', 'warning', 'notice', 'info', 'debug'), true);
 };
 // Class constants: XXXX_YYYY, the PSR-3 level constants of Tools\Logger kept as they are

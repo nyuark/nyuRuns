@@ -99,7 +99,7 @@ checkPregMatch('an empty database block', setupOf(Array()), '/^THROWN RuntimeExc
 $prjLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'fnames'=>'database')) );
 $prjBase = $prjLoad->retrieveConfig()->readFileDetail('database');
 if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
-	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun deploy files" creates it');
+	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun installs makeConf" creates it');
 }else{
 	checkIdentical('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
 	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('type', 'host', 'port', 'base', 'user', 'pass', 'char'));

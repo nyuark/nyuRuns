@@ -7,12 +7,12 @@ use nyu\Shell\Command;
 /**
  * Runs the test suite (test/run.php):
  *
- *   php nyuRun tester                 the unit, audit and data groups
- *   php nyuRun tester http            the named groups, or the scripts whose name holds the word
- *   php nyuRun tester all             every group, http included
+ *   php nyuRun runTests       the unit, audit and data groups
+ *   php nyuRun runTests http  the named groups, or the scripts whose name holds the word
+ *   php nyuRun runTests all   every group, http included
  *
  * The extensions the tests use and this PHP does not load are given for
- * the run, when their files are in the extension folder: --addon=a,b
+ * the run, when their files are in the extension folder: --addExtns=a,b
  * names them, in place of the usual ones (see ADDNLIST).
  */
 class Tester extends Command{
@@ -37,7 +37,7 @@ class Tester extends Command{
 	 * @return Array The command has no sub-command.
 	 */
 	public function subsTableArray(): Array {
-		return Array( ''=>Array('call'=>'callTests', 'args'=>'[groups or words | all] [--addon=<extensions>]', 'about'=>'runs test/run.php; the http group only when named') );
+		return Array( ''=>Array('call'=>'invokeRunTests', 'args'=>'[groups or words | all] [--addExtns=<extensions>]', 'about'=>'runs test/run.php; the http group only when named') );
 	}
 
 	/**
@@ -45,7 +45,7 @@ class Tester extends Command{
 	 *
 	 * @return Int EXITDONE when every check passed, EXITFLAW when one failed.
 	 */
-	public function callTests(): Int {
+	public function invokeRunTests(): Int {
 		$runFile = TOP_DIR.DS.'test'.DS.'run.php';
 		if( !is_file($runFile) ){
 			$this->terminateShell('The test runner is missing: test/run.php');
@@ -111,7 +111,7 @@ class Tester extends Command{
 	 * @return ?String The folder holding that php.ini, to name in PHPRC; null when nothing is to add.
 	 */
 	protected function newAddonString(): ?String {
-		$askList = $this->optnObject->validateOption('addon') ? array_filter(array_map('trim', explode(',', strval($this->optnObject->retrieveOption('addon', ''))))) : self::ADDS_LIST;
+		$askList = $this->optnObject->validateOption('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optnObject->retrieveOption('addExtns', ''))))) : self::ADDS_LIST;
 		$extFold = strval(ini_get('extension_dir'));
 		if( $extFold=='' || !is_dir($extFold) ){
 			$extFold = dirname(PHP_BINARY).DS.'ext';

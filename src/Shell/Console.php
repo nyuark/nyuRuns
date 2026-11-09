@@ -12,16 +12,16 @@ use nyu\Tools\Registry;
  *
  *   php nyuRun <command> <sub-command> [arguments] [--options]
  *
- * Options every command takes: --noask (no question is asked, the default
- * answers are taken), --agree (what removes or replaces is confirmed
- * beforehand), --shape=json (one JSON object, for a script to read),
- * --quiet (no remark), --usage (what the command does), --versn.
+ * Options every command takes: --noPrompt (no question is asked, the default
+ * answers are taken), --yesToAll (what removes or replaces is confirmed
+ * beforehand), --outputAs=json (one JSON object, for a script to read),
+ * --silently (no remark), --helpText (what the command does), --versions.
  */
 class Console{
 
 	const NYUR_VERS = '1.0.0';
 	// The framework's commands and their classes, under nyu\Shell\Cmds. Any other name is the one of an application (see findClass)
-	const CMDS_LIST = Array('deploy'=>'Deploy', 'config'=>'Config', 'tester'=>'Tester', 'cleans'=>'Cleans', 'manage'=>'Manage', 'device'=>'Device', 'bundle'=>'Bundle', 'appkey'=>'AppKey');
+	const CMDS_LIST = Array('installs'=>'Deploy', 'settings'=>'Config', 'runTests'=>'Tester', 'maintain'=>'Cleans', 'accounts'=>'Manage', 'machines'=>'Device', 'bundling'=>'Bundle', 'appsKeys'=>'AppKey');
 
 	protected $gvnArgmnts;
 	protected $outsStream;
@@ -70,12 +70,12 @@ class Console{
 	 */
 	public function executeCommand(): Int {
 		$optnObj = new Options($this->gvnArgmnts);
-		$printer = new Printer( $optnObj->retrieveOption('shape', 'text')=='json', $optnObj->validateOption('quiet'), $this->outsStream, $this->errorsStrm );
+		$printer = new Printer( $optnObj->retrieveOption('outputAs', 'text')=='json', $optnObj->validateOption('silently'), $this->outsStream, $this->errorsStrm );
 		$exitNum = Command::EXIT_DONE;
 		try{
 			self::loadConfigLogs();
-			$command = $optnObj->validateOption('versn') ? null : $optnObj->shiftFirstWord();
-			if( $optnObj->validateOption('versn') ){
+			$command = $optnObj->validateOption('versions') ? null : $optnObj->shiftFirstWord();
+			if( $optnObj->validateOption('versions') ){
 				$printer->printShellPair('nyuRuns', self::NYUR_VERS);
 			}elseif( $command===null ){
 				$printer->printShellRows( Array('command', 'does'), $this->usageShellList($optnObj, $printer) );

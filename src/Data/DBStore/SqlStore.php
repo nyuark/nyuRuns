@@ -49,7 +49,7 @@ class SqlStore implements Store {
 	/**
 	 * Describes a table: its field names and its key field, asking the
 	 * database once for each table. With TBL_CACH, a description the
-	 * config cache keeps stands for the question, and one asked is kept.
+	 * settings clrCache keeps stands for the question, and one asked is kept.
 	 *
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @return Array|Bool The field names under 'flds', the key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.

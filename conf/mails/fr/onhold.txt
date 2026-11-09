@@ -7,7 +7,7 @@ soient approuvées ou supprimées.
 
 Pour voir celles qui attendent un examen : users?stat=review, ou sur le
 serveur
-    php nyuRun manage prove
+    php nyuRun accounts approves
 
-Approuvez-en une avec users/approve (manage prove <user>), refusez-en une
+Approuvez-en une avec users/approve (accounts approves <user>), refusez-en une
 en la supprimant (users/remove).

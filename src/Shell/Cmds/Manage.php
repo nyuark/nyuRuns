@@ -14,17 +14,17 @@ use nyu\Shell\UserFile;
 /**
  * Manages the users, and calls the actions of the runs:
  *
- *   php nyuRun manage lists --urole=manage     the users, filtered or not
- *   php nyuRun manage enrol ann system         creates a user
- *   php nyuRun manage locks ann                locks it (unlck unlocks)
- *   php nyuRun manage passw ann                gives it a new password, made and shown once (--typed to type it)
- *   php nyuRun manage twofa ann --clear        takes its 2FA secret away, when its authenticator is lost
- *   php nyuRun manage twofa ann --email        has it give a code sent to its address at each login
- *   php nyuRun manage prove                    the sign-ups awaiting review (prove ann approves one)
- *   php nyuRun manage calls shows/overview filters[search]=jazz
+ *   php nyuRun accounts fullList --roleName=manage  the users, filtered or not
+ *   php nyuRun accounts makeUser ann system         creates a user
+ *   php nyuRun accounts lockUser ann                locks it (unlck unlocks)
+ *   php nyuRun accounts password ann                gives it a new password, made and shown once (--typeItIn to type it)
+ *   php nyuRun accounts setTwoFa ann --removeIt     takes its 2FA secret away, when its authenticator is lost
+ *   php nyuRun accounts setTwoFa ann --emailOtp     has it give a code sent to its address at each login
+ *   php nyuRun accounts approves                    the sign-ups awaiting review (prove ann approves one)
+ *   php nyuRun accounts doAction shows/overview filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
- * (native) or the users file (usrlst); --store names the other, --block
+ * (native) or the users file (usrlst); --useStore names the other, --useBlock
  * the block of conf/access.json holding its settings. Every change is
  * traced on the 'access' log channel, as those made over HTTP.
  */
@@ -52,22 +52,22 @@ class Manage extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'lists'=>Array('args'=>'[--ustat=<status>] [--urole=<role>] [--count=<n>] [--start=<n>]', 'about'=>'lists the users'),
-			'views'=>Array('args'=>'<user>', 'about'=>'shows a user'),
-			'enrol'=>Array('args'=>'<user> [role] [--typed] [--noexp] [--ulang=<language>]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noexp: no end) (native), active with its password (usrlst); --ulang gives the language of its mails'),
-			'actvt'=>Array('args'=>'<user> <code> [--typed]', 'about'=>'activates a pending user with its code, and gives it a password (native)'),
-			'locks'=>Array('args'=>'<user>', 'about'=>'locks a user'),
-			'unlck'=>Array('args'=>'<user>', 'about'=>'unlocks a user'),
-			'roles'=>Array('args'=>'<user> <role>', 'about'=>'gives a user another role'),
-			'remov'=>Array('args'=>'<user>', 'about'=>'removes a user'),
-			'reset'=>Array('args'=>'<user> [--noexp]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noexp: no end) (native), a new password (usrlst)'),
-			'prove'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (native)'),
-			'email'=>Array('args'=>'<user> [address]', 'about'=>'gives a user a mail address, or takes it away when none is given'),
-			'langs'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (LNG_DFLT) then'),
-			'passw'=>Array('args'=>'<user> [--typed]', 'about'=>'gives a user a new password'),
-			'token'=>Array('args'=>'<user> [--clear]', 'about'=>'gives a user a new personal API token, or takes it away'),
-			'twofa'=>Array('args'=>'<user> [--clear] [--plain] [--email]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--plain: without), codes by mail (--email), or takes it away'),
-			'calls'=>Array('args'=>'<app/action[/param]> [name=value ...] [--input=<file|->] [--mthod=<method>] [--prset=<preset>] [--urole=<role>] [--saved=<file>]', 'about'=>'calls an action of a run, as the user cli:<system user>')
+			'fullList'=>Array('args'=>'[--statusIs=<status>] [--roleName=<role>] [--rowCount=<n>] [--startRow=<n>]', 'about'=>'lists the users'),
+			'viewUser'=>Array('args'=>'<user>', 'about'=>'shows a user'),
+			'makeUser'=>Array('args'=>'<user> [role] [--typeItIn] [--noExpiry] [--language=<language>]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noExpiry: no end) (native), active with its password (usrlst); --language gives the language of its mails'),
+			'activate'=>Array('args'=>'<user> <code> [--typeItIn]', 'about'=>'activates a pending user with its code, and gives it a password (native)'),
+			'lockUser'=>Array('args'=>'<user>', 'about'=>'locks a user'),
+			'freeUser'=>Array('args'=>'<user>', 'about'=>'unlocks a user'),
+			'giveRole'=>Array('args'=>'<user> <role>', 'about'=>'gives a user another role'),
+			'dropUser'=>Array('args'=>'<user>', 'about'=>'removes a user'),
+			'resetPwd'=>Array('args'=>'<user> [--noExpiry]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noExpiry: no end) (native), a new password (usrlst)'),
+			'approves'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (native)'),
+			'setEmail'=>Array('args'=>'<user> [address]', 'about'=>'gives a user a mail address, or takes it away when none is given'),
+			'language'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (LNG_DFLT) then'),
+			'password'=>Array('args'=>'<user> [--typeItIn]', 'about'=>'gives a user a new password'),
+			'apiToken'=>Array('args'=>'<user> [--removeIt]', 'about'=>'gives a user a new personal API token, or takes it away'),
+			'setTwoFa'=>Array('args'=>'<user> [--removeIt] [--noQrCode] [--emailOtp]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--noQrCode: without), codes by mail (--emailOtp), or takes it away'),
+			'doAction'=>Array('args'=>'<app/action[/param]> [name=value ...] [--bodyFrom=<file|->] [--httpVerb=<method>] [--presetId=<preset>] [--roleName=<role>] [--saveInto=<file>]', 'about'=>'calls an action of a run, as the user cli:<system user>')
 		);
 	}
 
@@ -76,12 +76,12 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callLists(): Int {
+	public function invokeFullList(): Int {
 		$storObj = $this->openUsersStore();
 		$usrList = $storObj->listUsersNamed(
-			Array('userStat'=>$this->optnObject->retrieveOption('ustat', ''), 'userRole'=>$this->optnObject->retrieveOption('urole', '')),
-			intval($this->optnObject->retrieveOption('count', '0')),
-			intval($this->optnObject->retrieveOption('start', '0'))
+			Array('userStat'=>$this->optnObject->retrieveOption('statusIs', ''), 'userRole'=>$this->optnObject->retrieveOption('roleName', '')),
+			intval($this->optnObject->retrieveOption('rowCount', '0')),
+			intval($this->optnObject->retrieveOption('startRow', '0'))
 		);
 		if( $usrList===false ){
 			$this->stopStoreError($storObj);
@@ -98,7 +98,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callViews(): Int {
+	public function invokeViewUser(): Int {
 		$storObj = $this->openUsersStore();
 		$userVls = $storObj->userInfosArray( $this->needsShellWord('the user') );
 		if( $userVls===false ){
@@ -118,11 +118,11 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callEnrol(): Int {
+	public function invokeMakeUser(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
 		$roleNme = strval($this->optnObject->shiftFirstWord() ?? '');
-		$langTag = $this->optnObject->retrieveOption('ulang');
+		$langTag = $this->optnObject->retrieveOption('language');
 		$langTag = ($langTag!==null) ? strval($langTag) : null;
 		if( $this->usersStore=='native' ){
 			$newCode = $storObj->enrolUsrString($usrName, $roleNme, null, $this->codesLastCount(), $langTag);
@@ -150,7 +150,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callActvt(): Int {
+	public function invokeActivate(): Int {
 		$storObj = $this->openUsersStore();
 		if( $this->usersStore!='native' ){
 			$this->terminateShell('The users file knows no activation: a user is created active', self::EXIT_DENY);
@@ -173,7 +173,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callLocks(): Int {
+	public function invokeLockUser(): Int {
 		return $this->statusSetCount('locked');
 	}
 
@@ -182,7 +182,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callUnlck(): Int {
+	public function invokeFreeUser(): Int {
 		return $this->statusSetCount('active');
 	}
 
@@ -207,7 +207,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callRoles(): Int {
+	public function invokeGiveRole(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
 		$roleNme = $this->needsShellWord('the role ('.implode(', ', Checker::ROLE_LIST).')');
@@ -223,7 +223,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callRemov(): Int {
+	public function invokeDropUser(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
 		if( !$this->queryAgreedFlg('Remove the user '.$usrName) ){
@@ -243,7 +243,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callReset(): Int {
+	public function invokeResetPwd(): Int {
 		$storObj = $this->openUsersStore();
 		if( $this->usersStore!='native' ){
 			return $this->passwdSetCount( $storObj, $this->needsShellWord('the user') );
@@ -264,7 +264,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callProve(): Int {
+	public function invokeApproves(): Int {
 		$storObj = $this->openUsersStore();
 		if( $this->usersStore!='native' ){
 			$this->terminateShell('The users file knows no sign-up: a user is created active', self::EXIT_DENY);
@@ -293,7 +293,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callEmail(): Int {
+	public function invokeSetEmail(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
 		$mailTxt = strval($this->optnObject->shiftFirstWord() ?? '');
@@ -310,7 +310,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callLangs(): Int {
+	public function invokeLanguage(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
 		$langTag = $this->optnObject->shiftFirstWord();
@@ -331,12 +331,12 @@ class Manage extends Command{
 
 	/**
 	 * Gives the minutes an activation code shown here lasts: those of a
-	 * code handed over, or none with --noexp.
+	 * code handed over, or none with --noExpiry.
 	 *
 	 * @return Int The minutes, 0 for no end.
 	 */
 	protected function codesLastCount(): Int {
-		return $this->optnObject->validateOption('noexp') ? 0 : UserBase::HAND_MINS;
+		return $this->optnObject->validateOption('noExpiry') ? 0 : UserBase::HAND_MINS;
 	}
 
 	/**
@@ -344,7 +344,7 @@ class Manage extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callPassw(): Int {
+	public function invokePassword(): Int {
 		return $this->passwdSetCount( $this->openUsersStore(), $this->needsShellWord('the user') );
 	}
 
@@ -372,14 +372,14 @@ class Manage extends Command{
 
 	/**
 	 * Gives a user a new personal API token, shown once, or takes the one
-	 * it holds away with --clear.
+	 * it holds away with --removeIt.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callToken(): Int {
+	public function invokeApiToken(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		if( $this->optnObject->validateOption('clear') ){
+		if( $this->optnObject->validateOption('removeIt') ){
 			if( !$this->queryAgreedFlg('Take the personal token of '.$usrName.' away') ){
 				$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 			}
@@ -403,16 +403,16 @@ class Manage extends Command{
 
 	/**
 	 * Gives a user a new 2FA secret, shown once with the address an
-	 * authenticator reads and its QR code (left out with --plain, and in
-	 * JSON), has it give a code mailed at each login instead (--email,
-	 * native userbase only), or takes either away with --clear.
+	 * authenticator reads and its QR code (left out with --noQrCode, and in
+	 * JSON), has it give a code mailed at each login instead (--emailOtp,
+	 * native userbase only), or takes either away with --removeIt.
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callTwofa(): Int {
+	public function invokeSetTwoFa(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		if( $this->optnObject->validateOption('clear') ){
+		if( $this->optnObject->validateOption('removeIt') ){
 			if( !$this->queryAgreedFlg('Take the 2FA secret of '.$usrName.' away: its password alone will log it in') ){
 				$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 			}
@@ -423,7 +423,7 @@ class Manage extends Command{
 			return self::EXIT_DONE;
 		}
 		// Codes by mail : the users file is only read, and cannot keep a code
-		if( $this->optnObject->validateOption('email') ){
+		if( $this->optnObject->validateOption('emailOtp') ){
 			if( !method_exists($storObj, 'emailTwoFactor') ){
 				$this->terminateShell('Nothing was changed: codes by mail need the native userbase; the users file is only read', self::EXIT_DENY);
 			}
@@ -446,7 +446,7 @@ class Manage extends Command{
 		$otpAddr = 'otpauth://totp/nyuRuns:'.rawurlencode($usrName).'?secret='.$newSecr.'&issuer=nyuRuns';
 		$this->printerObj->printShellOnce('Address for the authenticator', $otpAddr);
 		// The address as a QR code, for the authenticator to scan : it holds the secret, and is shown once too
-		if( !$this->optnObject->validateOption('plain') && !$this->printerObj->jsonShellShape() ){
+		if( !$this->optnObject->validateOption('noQrCode') && !$this->printerObj->jsonShellShape() ){
 			$this->printerObj->printShellBody( (new QrCode($otpAddr, 'M'))->drawAsTerminal(2) );
 		}
 		return self::EXIT_DONE;
@@ -455,21 +455,21 @@ class Manage extends Command{
 	/**
 	 * Calls an action of a run. Its inputs are the name=value words
 	 * (filters[search]=jazz for a nested one), over those of a JSON file
-	 * (--input, - for the standard input). It runs as the user
-	 * cli:<system user>, with the role 'system' unless --urole gives
-	 * another. Its reply is written to the output, or to --saved.
+	 * (--bodyFrom, - for the standard input). It runs as the user
+	 * cli:<system user>, with the role 'system' unless --roleName gives
+	 * another. Its reply is written to the output, or to --saveInto.
 	 *
 	 * @return Int EXITDONE for a success or a redirection, EXITDENY for a 4xx status, EXITFAIL for a 5xx.
 	 */
-	public function callCalls(): Int {
+	public function invokeDoAction(): Int {
 		$actnPth = $this->needsShellWord('the action, as app/action');
 		$inptVls = Array();
-		$inptFil = $this->optnObject->retrieveOption('input');
+		$inptFil = $this->optnObject->retrieveOption('bodyFrom');
 		if( $inptFil!==null ){
 			$inptTxt = ($inptFil=='-') ? stream_get_contents($this->inptStream) : @file_get_contents($inptFil);
 			$inptVls = json_decode(strval($inptTxt), true);
 			if( !is_array($inptVls) ){
-				$this->terminateShell('The inputs of --input are not a JSON object', self::EXIT_HELP);
+				$this->terminateShell('The inputs of --bodyFrom are not a JSON object', self::EXIT_HELP);
 			}
 		}
 		$pairLst = Array();
@@ -483,13 +483,13 @@ class Manage extends Command{
 		$wordVal = Array();
 		parse_str(implode('&', $pairLst), $wordVal);
 		$inptVls = array_replace_recursive($inptVls, $wordVal);
-		$roleNme = strval($this->optnObject->retrieveOption('urole', 'system'));
-		$mthName = strtoupper(strval($this->optnObject->retrieveOption('mthod', 'GET')));
+		$roleNme = strval($this->optnObject->retrieveOption('roleName', 'system'));
+		$mthName = strtoupper(strval($this->optnObject->retrieveOption('httpVerb', 'GET')));
 		if( !in_array($roleNme, Checker::ROLE_LIST, true) || !in_array($mthName, self::MTHD_LIST, true) ){
-			$this->terminateShell('--urole takes one of '.implode(', ', Checker::ROLE_LIST).'; --mthod one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
+			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
 		}
-		$replyAr = (new ActCaller())->runAskedAction( strval($this->optnObject->retrieveOption('prset', '')), $actnPth, $inptVls, $mthName, 'cli:'.Console::osShellUsrName(), $roleNme );
-		$savPath = $this->optnObject->retrieveOption('saved');
+		$replyAr = (new ActCaller())->runAskedAction( strval($this->optnObject->retrieveOption('presetId', '')), $actnPth, $inptVls, $mthName, 'cli:'.Console::osShellUsrName(), $roleNme );
+		$savPath = $this->optnObject->retrieveOption('saveInto');
 		if( $this->printerObj->jsonShellShape() ){
 			$this->printerObj->printShellPair('code', $replyAr['code']);
 		}
@@ -515,7 +515,7 @@ class Manage extends Command{
 
 	/**
 	 * Opens the store of the users: the one the login uses, or the one
-	 * --store names.
+	 * --useStore names.
 	 *
 	 * @return Object The manager of the native userbase (UserBase), or the writer of the users file (UserFile).
 	 *
@@ -524,13 +524,13 @@ class Manage extends Command{
 	protected function openUsersStore(): Object {
 		$lgnConf = $this->accessSettings('login');
 		$lgnAuth = strval($lgnConf['authby'] ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('store', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : '') );
+		$storNme = strval( $this->optnObject->retrieveOption('useStore', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : '') );
 		if( !in_array($storNme, Array('native', 'usrlst'), true) ){
-			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --store=native or --store=usrlst', self::EXIT_HELP);
+			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=native or --useStore=usrlst', self::EXIT_HELP);
 		}
-		$blckNme = strval( $this->optnObject->retrieveOption('block', ($lgnAuth==$storNme) ? strval($lgnConf['authcf'] ?? $storNme) : $storNme) );
+		$blckNme = strval( $this->optnObject->retrieveOption('useBlock', ($lgnAuth==$storNme) ? strval($lgnConf['authcf'] ?? $storNme) : $storNme) );
 		$blckCfg = $this->accessSettings($blckNme);
-		if( empty($blckCfg) && ($this->optnObject->validateOption('block') || $storNme=='native') ){
+		if( empty($blckCfg) && ($this->optnObject->validateOption('useBlock') || $storNme=='native') ){
 			$this->terminateShell('conf/access.json has no "'.$blckNme.'" block', self::EXIT_DENY);
 		}
 		$this->usersStore = $storNme;
@@ -552,13 +552,13 @@ class Manage extends Command{
 	}
 
 	/**
-	 * Gives the password of a user: typed, with --typed, or made.
+	 * Gives the password of a user: typed, with --typeItIn, or made.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return Array The password under 'pass', and whether it was made, and so is to be shown, under 'made'.
 	 */
 	protected function givenPassArray( String $namedUserTxt ): Array {
-		if( !$this->optnObject->validateOption('typed') ){
+		if( !$this->optnObject->validateOption('typeItIn') ){
 			return Array('pass'=>bin2hex(random_bytes(10)), 'made'=>true);
 		}
 		return Array('pass'=>$this->querySecretTxt('Password of '.$namedUserTxt), 'made'=>false);

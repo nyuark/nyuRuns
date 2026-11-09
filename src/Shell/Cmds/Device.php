@@ -10,9 +10,9 @@ use nyu\Access\Auth\Device as DeviceAuth;
  * own, each in the name of a user of the native userbase (see
  * Access\Auth\Device):
  *
- *   php nyuRun device token home anna home    gives a device a token, with its role: shown once
- *   php nyuRun device lists anna              lists the devices, of a user or of every user
- *   php nyuRun device revok home anna         revokes the device of that name of a user
+ *   php nyuRun machines newToken home anna home  gives a device a token, with its role: shown once
+ *   php nyuRun machines fullList anna            lists the devices, of a user or of every user
+ *   php nyuRun machines revokeIt home anna       revokes the device of that name of a user
  *
  * The role is the one the application gives its devices: the framework
  * knows none. Only the hash of a token is stored; a revoked device is
@@ -38,9 +38,9 @@ class Device extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'token'=>Array('args'=>'<name> <user> <role>', 'about'=>'gives a device a token, in the name of an active user: shown once'),
-			'lists'=>Array('args'=>'[user]', 'about'=>'lists the devices, of a user or of every user'),
-			'revok'=>Array('args'=>'<name> <user>', 'about'=>'revokes the device of that name of a user: its token is refused from then on')
+			'newToken'=>Array('args'=>'<name> <user> <role>', 'about'=>'gives a device a token, in the name of an active user: shown once'),
+			'fullList'=>Array('args'=>'[user]', 'about'=>'lists the devices, of a user or of every user'),
+			'revokeIt'=>Array('args'=>'<name> <user>', 'about'=>'revokes the device of that name of a user: its token is refused from then on')
 		);
 	}
 
@@ -52,7 +52,7 @@ class Device extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callToken(): Int {
+	public function invokeNewToken(): Int {
 		$devcNme = $this->needsShellWord('the name of the device');
 		$usrName = $this->needsShellWord('the user');
 		$devcRle = $this->needsShellWord('the role of the device');
@@ -61,7 +61,7 @@ class Device extends Command{
 		}
 		$dvcAuth = $this->getDeviceCheck();
 		if( $this->findDeviceNumb($dvcAuth, $devcNme, $usrName)!==null ){
-			$this->terminateShell('No token made: the user already has a device named '.json_encode($devcNme).' (device revok it first)', self::EXIT_DENY);
+			$this->terminateShell('No token made: the user already has a device named '.json_encode($devcNme).' (machines revokeIt it first)', self::EXIT_DENY);
 		}
 		$newTokn = $dvcAuth->pushDeviceText($usrName, $devcNme, $devcRle);
 		if( $newTokn===false ){
@@ -79,7 +79,7 @@ class Device extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callLists(): Int {
+	public function invokeFullList(): Int {
 		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
 		$dvcRows = $this->getDeviceCheck()->lstUserDevices($usrName);
 		if( $dvcRows===false ){
@@ -99,7 +99,7 @@ class Device extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function callRevok(): Int {
+	public function invokeRevokeIt(): Int {
 		$devcNme = $this->needsShellWord('the name of the device');
 		$usrName = $this->needsShellWord('the user');
 		$dvcAuth = $this->getDeviceCheck();

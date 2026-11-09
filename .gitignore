@@ -14,7 +14,7 @@
 /conf/users.lst
 # Keys signing the tokens: the private one never leaves the server
 /conf/keys/
-# Bundles made for the environments (php nyuRun bundle)
+# Bundles made for the environments (php nyuRun bundling)
 /dist/
 # The documentation site and the code reference, made by pwsh .phpdoc/build.ps1
 /docs/site/
