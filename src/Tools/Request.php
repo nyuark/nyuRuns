@@ -12,75 +12,75 @@ use nyu\Output\Response;
  */
 class Request{
 
-	protected $serveReg;
-	protected $clienReg;
+	protected $servRgstry;
+	protected $clientRgst;
 
-	protected $inMethod;
-	protected $queryURI;
-	protected $queryStr;
-	protected $allHeads;
-	protected $rawInput;
+	protected $rqstInMthd;
+	protected $requestUri;
+	protected $queryStrng;
+	protected $everyHeads;
+	protected $nakedInput;
 
-	protected $dataVals; // Registry of values
-	protected $addrVals = Array(); // Names of the values sent in the query string, in lower case
-	protected $cookVals; // Registry of readable cookie values (written through response)
-	protected $fileData; // Registry of files
-	protected $tmpFiles = Array(); // Temporary files written for uploads received in the raw body
-	protected $sizeLimt = 0; // Largest body read, in KB; 0 for no limit
-	protected $partLimt = 0; // Most parts read from a multipart body; 0 for no limit
-	protected $overSize = false; // Whether the body went over one of those limits
+	protected $dataValues; // Registry of values
+	protected $addrValues = Array(); // Names of the values sent in the query string, in lower case
+	protected $cookValues; // Registry of readable cookie values (written through response)
+	protected $uploadData; // Registry of files
+	protected $temprryFls = Array(); // Temporary files written for uploads received in the raw body
+	protected $maxSizeVal = 0; // Largest body read, in KB; 0 for no limit
+	protected $pieceLimit = 0; // Most parts read from a multipart body; 0 for no limit
+	protected $overLength = false; // Whether the body went over one of those limits
 
 	/**
 	 * Builds the request object: derives the method, URI, query string and
 	 * headers from the server registry, then loads the request's content
 	 * (body vars, cookies, files).
 	 *
-	 * @param ServerReg $srvRegistr Registry of $_SERVER values.
-	 * @param Response  $httpRespns The response object (reserved for cookie writes).
-	 * @param ClientReg $cltRegistr Registry of client values (address, agent, system, device, language).
-	 * @param Array     $limitsConf The limits of a body: its largest 'size' in KB and the most 'part's of a multipart one, 0 or left out for no limit (see Setup\Loader::reqConfig).
+	 * @param ServerReg $srvrRegistry Registry of $_SERVER values.
+	 * @param Response  $httpResponse The response object (reserved for cookie writes).
+	 * @param ClientReg $clntRegistry Registry of client values (address, agent, system, device, language).
+	 * @param Array     $limitsConfig The limits of a body: its largest 'size' in KB and the most 'part's of a multipart one, 0 or left out for no limit (see Setup\Loader::rqstConfigList).
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-	 function __construct( ServerReg $srvRegistr, Response $httpRespns, ClientReg $cltRegistr, Array $limitsConf=Array() ){
+	 function __construct( ServerReg $srvrRegistry, Response $httpResponse, ClientReg $clntRegistry, Array $limitsConfig=Array() ){
 
-		$this->serveReg = $srvRegistr;
-		$this->clienReg = $cltRegistr;
-		$this->sizeLimt = max( 0, intval($limitsConf['size'] ?? 0) );
-		$this->partLimt = max( 0, intval($limitsConf['part'] ?? 0) );
+		$this->servRgstry = $srvrRegistry;
+		$this->clientRgst = $clntRegistry;
+		$this->maxSizeVal = max( 0, intval($limitsConfig['size'] ?? 0) );
+		$this->pieceLimit = max( 0, intval($limitsConfig['part'] ?? 0) );
 
 		// Request method
-		$this->inMethod = $this->serveReg->readValue('request_method');
+		$this->rqstInMthd = $this->servRgstry->readFileDetail('request_method');
 
 		// Query Values
-		$rqstURI = $this->serveReg->readValue('request_uri');
+		$rqstURI = $this->servRgstry->readFileDetail('request_uri');
 		$quoMark = strPos($rqstURI, '?');
-		$qParams = Array();
+		$urlArgs = Array();
 
 		if( $quoMark!==false ){
 			$urlPage = subStr($rqstURI, 0, $quoMark);
 			$qParStr = subStr($rqstURI, $quoMark+1);
-			parse_str($qParStr, $qParams);
+			parse_str($qParStr, $urlArgs);
 		}else{
 			$urlPage = $rqstURI;
 		}
-		$uriVals = Array(
-						'htScheme'=>$this->clienReg->readValue('userSchm'),
-						'servName'=>$this->serveReg->readValue('server_name'),
+		$urlInfo = Array(
+						'htScheme'=>$this->clientRgst->readFileDetail('userSchm'),
+						'servName'=>$this->servRgstry->readFileDetail('server_name'),
 						'reqstURI'=>$rqstURI,
-						'document'=>$this->serveReg->readValue('script_name'),
-						'protocol'=>$this->serveReg->readValue('server_protocol')
+						'document'=>$this->servRgstry->readFileDetail('script_name'),
+						'protocol'=>$this->servRgstry->readFileDetail('server_protocol')
 					);
-		$uriVals['full_url'] = 	$uriVals['htScheme'].'://'.$uriVals['servName'].$urlPage;
-		$uriVals['full_uri'] = 	$this->inMethod.' '.$uriVals['htScheme'].'://'.$uriVals['servName']
-								.$uriVals['reqstURI'].' '.$uriVals['document'].' '.$uriVals['protocol'];
-		$this->queryURI = $uriVals;
-		$this->queryStr = $this->serveReg->readValue('query_string');
+		$urlInfo['full_url'] = 	$urlInfo['htScheme'].'://'.$urlInfo['servName'].$urlPage;
+		$urlInfo['full_uri'] = 	$this->rqstInMthd.' '.$urlInfo['htScheme'].'://'.$urlInfo['servName']
+								.$urlInfo['reqstURI'].' '.$urlInfo['document'].' '.$urlInfo['protocol'];
+		$this->requestUri = $urlInfo;
+		$this->queryStrng = $this->servRgstry->readFileDetail('query_string');
 
 		// Get received headers
-		$this->allHeads = $this->getHeadrs();
+		$this->everyHeads = $this->retrieveHeadrs();
 
-		$this->getContnt( $qParams );
+		$this->getRqstContent( $urlArgs );
 	}
 
 	// Get query variables, cookies and files
@@ -89,31 +89,31 @@ class Request{
 	 * registries, merging raw parsed body vars with $_GET/$_POST, then
 	 * unsets the superglobals so nothing downstream reads them directly.
 	 *
-	 * @param Array $addrValues Query-string values parsed from the request URI.
+	 * @param Array $queryStrVals Query-string values parsed from the request URI.
 	 */
-	protected function getContnt( Array $addrValues = Array() ): Void {
+	protected function getRqstContent( Array $queryStrVals = Array() ): Void {
 		// Read Variables
-		$this->rawInput = $this->getRawDat();
-		$this->dataVals = Array();
+		$this->nakedInput = $this->getRawDataList();
+		$this->dataValues = Array();
 		// What came in the address is remembered by name (see fromQuery)
-		$this->addrVals = array_map( 'strtolower', array_map('strval', array_merge(array_keys($addrValues), array_keys($_GET ?? Array()))) );
-		if(!empty($addrValues)){
-			$this->dataVals = array_merge($this->dataVals, $addrValues);
+		$this->addrValues = array_map( 'strtolower', array_map('strval', array_merge(array_keys($queryStrVals), array_keys($_GET ?? Array()))) );
+		if(!empty($queryStrVals)){
+			$this->dataValues = array_merge($this->dataValues, $queryStrVals);
 		}
-		if(!empty($this->rawInput['vars'])){
-			$this->dataVals = array_merge($this->dataVals, $this->rawInput['vars']);
+		if(!empty($this->nakedInput['vars'])){
+			$this->dataValues = array_merge($this->dataValues, $this->nakedInput['vars']);
 		}
 		if(!empty($_GET)){
-			$this->dataVals = array_merge($this->dataVals, $_GET);
+			$this->dataValues = array_merge($this->dataValues, $_GET);
 		}
 		if(!empty($_POST)){
-			$this->dataVals = array_merge($this->dataVals, $_POST);
+			$this->dataValues = array_merge($this->dataValues, $_POST);
 		}
 
 		// Get cookies and files
-		$this->cookVals = $_COOKIE;
+		$this->cookValues = $_COOKIE;
 		// Files of the raw body are described like the $_FILES entries (see saveUpFle)
-		$this->fileData = array_merge($_FILES, $this->rawInput['file']);
+		$this->uploadData = array_merge($_FILES, $this->nakedInput['file']);
 
 		// Unset super globals
 		unset($_GET);
@@ -132,17 +132,17 @@ class Request{
 	 *
 	 * @return Array Associative array with 'head', 'vars', 'file' and 'data' keys.
 	 */
-	protected function getRawDat(): Array {
+	protected function getRawDataList(): Array {
 		// Fetch content
-		$rawData = $this->readsBody();
+		$rawData = $this->readBodyCapped();
 
 		// JSON body (POST/PUT/PATCH) : decode directly, no boundary framing
-		$cntType = $this->getHeader('Content-Type');
+		$cntType = $this->retrieveHeader('Content-Type');
 		if($cntType!==null && stripos($cntType, 'application/json')!==false){
-			$jsnVals = json_decode($rawData, true);
+			$jsonVls = json_decode($rawData, true);
 			return array(
 				'head'=>Array('Content-Type'=>$cntType),
-				'vars'=>is_array($jsnVals) ? $jsnVals : Array(),
+				'vars'=>is_array($jsonVls) ? $jsonVls : Array(),
 				'file'=>Array(),
 				'data'=>$rawData
 			);
@@ -150,10 +150,10 @@ class Request{
 
 		// URL-encoded form body (PUT/PATCH) : PHP only parses these for POST
 		if($cntType!==null && stripos($cntType, 'application/x-www-form-urlencoded')!==false){
-			parse_str($rawData, $frmVals);
+			parse_str($rawData, $formVal);
 			return array(
 				'head'=>Array('Content-Type'=>$cntType),
-				'vars'=>$frmVals,
+				'vars'=>$formVal,
 				'file'=>Array(),
 				'data'=>$rawData
 			);
@@ -169,7 +169,7 @@ class Request{
 			);
 		}
 
-		return $this->readMulti( $rawData, $cntType );
+		return $this->readMultiArray( $rawData, $cntType );
 	}
 
 	/**
@@ -179,32 +179,32 @@ class Request{
 	 *
 	 * @return String The body, empty when it is larger than allowed.
 	 */
-	protected function readsBody(): String {
-		if( $this->sizeLimt<1 ){
+	protected function readBodyCapped(): String {
+		if( $this->maxSizeVal<1 ){
 			return strval(file_get_contents('php://input'));
 		}
-		$maxByts = $this->sizeLimt * 1024;
+		$maxByts = $this->maxSizeVal * 1024;
 		// What the request announces is checked first : nothing is then read
-		$toldLen = max( intval($this->getHeader('Content-Length')), intval($this->serveReg->readValue('content_length')) );
-		if( $toldLen>$maxByts ){
-			$this->overSize = true;
+		$claimed = max( intval($this->retrieveHeader('Content-Length')), intval($this->servRgstry->readFileDetail('content_length')) );
+		if( $claimed>$maxByts ){
+			$this->overLength = true;
 			return '';
 		}
 		// Read piece by piece : PHP 8.2 reserves the whole length asked of file_get_contents() before reading
 		$rawData = '';
-		$strmHdl = fopen('php://input', 'rb');
-		if( $strmHdl!==false ){
-			while( !feof($strmHdl) && strlen($rawData)<=$maxByts ){
-				$pieceTx = fread($strmHdl, min(8192, $maxByts+1-strlen($rawData)));
+		$pointer = fopen('php://input', 'rb');
+		if( $pointer!==false ){
+			while( !feof($pointer) && strlen($rawData)<=$maxByts ){
+				$pieceTx = fread($pointer, min(8192, $maxByts+1-strlen($rawData)));
 				if( $pieceTx===false || $pieceTx==='' ){
 					break;
 				}
 				$rawData .= $pieceTx;
 			}
-			fclose($strmHdl);
+			fclose($pointer);
 		}
 		if( strlen($rawData)>$maxByts ){
-			$this->overSize = true;
+			$this->overLength = true;
 			return '';
 		}
 		return $rawData;
@@ -216,8 +216,8 @@ class Request{
 	 *
 	 * @return Bool True when the request is to be refused as too large.
 	 */
-	public function overLimit(): Bool {
-		return $this->overSize;
+	public function overCeilingFlg(): Bool {
+		return $this->overLength;
 	}
 
 	/**
@@ -225,28 +225,28 @@ class Request{
 	 * boundary announced by the Content-Type header so that binary
 	 * content is left byte for byte as it was sent.
 	 *
-	 * @param String $rawContent Raw request body.
-	 * @param String $contntType Content-Type header of the request.
+	 * @param String $nakedContent Raw request body.
+	 * @param String $sentMimeType Content-Type header of the request.
 	 * @return Array Associative array with 'head', 'vars', 'file' and 'data' keys.
 	 */
-	protected function readMulti( String $rawContent, String $contntType ): Array {
-		$readFlx = array(
+	protected function readMultiArray( String $nakedContent, String $sentMimeType ): Array {
+		$redFlux = array(
 			'head'=>Array(),
 			'vars'=>Array(),
 			'file'=>Array(),
-			'data'=>$rawContent
+			'data'=>$nakedContent
 		);
-		if( !preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $contntType, $bndVals) ){
-			return $readFlx;
+		if( !preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $sentMimeType, $bndVals) ){
+			return $redFlux;
 		}
 		$boundry = '--'.($bndVals[1]!='' ? $bndVals[1] : $bndVals[2]);
 
 		// The first piece is what precedes the first boundary
-		$flxPrts = array_slice( explode($boundry, $rawContent), 1 );
+		$flxPrts = array_slice( explode($boundry, $nakedContent), 1 );
 		// The last piece closes the body : a body of more parts than allowed is not read
-		if( $this->partLimt>0 && count($flxPrts)-1>$this->partLimt ){
-			$this->overSize = true;
-			return $readFlx;
+		if( $this->pieceLimit>0 && count($flxPrts)-1>$this->pieceLimit ){
+			$this->overLength = true;
+			return $redFlux;
 		}
 		foreach( $flxPrts as $partLn ){
 			// The closing boundary is followed by "--"
@@ -258,71 +258,71 @@ class Request{
 			if( !preg_match('/\r?\n\r?\n/', $partLn, $sepVals, PREG_OFFSET_CAPTURE) ){
 				continue;
 			}
-			$prtHead = substr($partLn, 0, $sepVals[0][1]);
-			$prtBody = substr($partLn, $sepVals[0][1] + strlen($sepVals[0][0]));
-			$prtBody = preg_replace('/\r?\n\z/', '', $prtBody);
+			$partHed = substr($partLn, 0, $sepVals[0][1]);
+			$partBdy = substr($partLn, $sepVals[0][1] + strlen($sepVals[0][0]));
+			$partBdy = preg_replace('/\r?\n\z/', '', $partBdy);
 
 			$fldName = null;
-			$fleName = null;
-			$prtType = '';
-			foreach( preg_split('/\r?\n/', $prtHead) as $hedLin ){
-				$colnPos = strpos($hedLin, ':');
-				if( $colnPos===false ){
+			$fileNme = null;
+			$partTyp = '';
+			foreach( preg_split('/\r?\n/', $partHed) as $hdrLin ){
+				$colonAt = strpos($hdrLin, ':');
+				if( $colonAt===false ){
 					continue;
 				}
-				$hedName = trim(substr($hedLin, 0, $colnPos));
-				$hedText = trim(substr($hedLin, $colnPos+1));
-				$readFlx['head'][$hedName] = trim(strtok($hedText, ';'));
-				if( strcasecmp($hedName, 'Content-Disposition')==0 ){
-					if( preg_match('/\bname=(?:"([^"]*)"|([^;\s]+))/i', $hedText, $nmeVals) ){
-						$fldName = $nmeVals[2] ?? $nmeVals[1];
+				$hdrName = trim(substr($hdrLin, 0, $colonAt));
+				$hdrText = trim(substr($hdrLin, $colonAt+1));
+				$redFlux['head'][$hdrName] = trim(strtok($hdrText, ';'));
+				if( strcasecmp($hdrName, 'Content-Disposition')==0 ){
+					if( preg_match('/\bname=(?:"([^"]*)"|([^;\s]+))/i', $hdrText, $nameVls) ){
+						$fldName = $nameVls[2] ?? $nameVls[1];
 					}
-					if( preg_match('/\bfilename=(?:"([^"]*)"|([^;\s]+))/i', $hedText, $fnmVals) ){
-						$fleName = $fnmVals[2] ?? $fnmVals[1];
+					if( preg_match('/\bfilename=(?:"([^"]*)"|([^;\s]+))/i', $hdrText, $fnmVals) ){
+						$fileNme = $fnmVals[2] ?? $fnmVals[1];
 					}
-				}elseif( strcasecmp($hedName, 'Content-Type')==0 ){
-					$prtType = $hedText;
+				}elseif( strcasecmp($hdrName, 'Content-Type')==0 ){
+					$partTyp = $hdrText;
 				}
 			}
 			if( $fldName===null || $fldName==='' ){
 				continue;
 			}
 
-			if( $fleName!==null ){
-				$fleVals = $this->saveUpFle( $fleName, $prtType, $prtBody );
+			if( $fileNme!==null ){
+				$fileVls = $this->saveRqstUpFile( $fileNme, $partTyp, $partBdy );
 				$brckPos = strpos($fldName, '[');
 				if( $brckPos>0 ){
 					// field[], field[key] or field[a][b] : one array per property, as PHP fills $_FILES
 					$fldBase = substr($fldName, 0, $brckPos);
-					foreach( $fleVals as $prpKey => $prpVal ){
-						$this->nestValue( $readFlx['file'][$fldBase][$prpKey], substr($fldName, $brckPos), $prpVal );
+					foreach( $fileVls as $prpKey => $prpVal ){
+						$this->nestRequestVal( $redFlux['file'][$fldBase][$prpKey], substr($fldName, $brckPos), $prpVal );
 					}
 				}else{
-					$readFlx['file'][$fldName] = $fleVals;
+					$redFlux['file'][$fldName] = $fileVls;
 				}
 			}elseif( strpos($fldName, '[')!==false ){
 				// A variable named like filters[search] or tags[] is nested, as PHP does for forms
-				parse_str($fldName.'='.urlencode($prtBody), $nstVals);
-				$readFlx['vars'] = array_merge_recursive($readFlx['vars'], $nstVals);
+				parse_str($fldName.'='.urlencode($partBdy), $nestVls);
+				$redFlux['vars'] = array_merge_recursive($redFlux['vars'], $nestVls);
 			}else{
-				$readFlx['vars'][$fldName] = $prtBody;
+				$redFlux['vars'][$fldName] = $partBdy;
 			}
 		}
-		return $readFlx;
+		return $redFlux;
 	}
 
 	/**
 	 * Stores a value under the keys of a bracket path such as [cover],
 	 * [a][b] or [] (next free index), creating the levels on the way.
 	 *
-	 * @param ?Array $targetNode Array to store into, created when null.
-	 * @param String $bracketStr The bracket part of a field name.
-	 * @param mixed  $leafValues Value to store at the end of the path.
+	 * @param ?Array $goalNodeList Array to store into, created when null.
+	 * @param String $bracktString The bracket part of a field name.
+	 * @param mixed  $storedAtLeaf Value to store at the end of the path.
 	 */
-	protected function nestValue( ?Array &$targetNode, String $bracketStr, Mixed $leafValues ): Void {
-		preg_match_all('/\[([^\]]*)\]/', $bracketStr, $keyVals);
-		$nodeRef = &$targetNode;
-		foreach( $keyVals[1] as $keyNme ){
+	protected function nestRequestVal( ?Array &$goalNodeList, String $bracktString, Mixed $storedAtLeaf ): Void {
+		preg_match_all('/\[([^\]]*)\]/', $bracktString, $keyList);
+		$nodeRef = &$goalNodeList;
+		foreach( $keyList[1] as $keyNme ){
 			if( $keyNme==='' ){
 				$nodeRef[] = null;
 				$nodeRef = &$nodeRef[array_key_last($nodeRef)];
@@ -330,7 +330,7 @@ class Request{
 				$nodeRef = &$nodeRef[$keyNme];
 			}
 		}
-		$nodeRef = $leafValues;
+		$nodeRef = $storedAtLeaf;
 	}
 
 	/**
@@ -338,44 +338,44 @@ class Request{
 	 * it the way PHP describes a POST upload in $_FILES: 'name' is the file
 	 * name without any folder, 'full_path' the name as the client gave it.
 	 *
-	 * @param String $uploadName File name given by the client.
-	 * @param String $uploadType Content type given by the client.
-	 * @param String $fileContnt Content of the file.
+	 * @param String $reqUploadNme File name given by the client.
+	 * @param String $declaredMime Content type given by the client.
+	 * @param String $fileContents Content of the file.
 	 * @return Array The file entry : 'name', 'full_path', 'type', 'tmp_name', 'error' and 'size'.
 	 */
-	protected function saveUpFle( String $uploadName, String $uploadType, String $fileContnt ): Array {
-		$baseNme = preg_replace('#^.*[/\\\\]#', '', $uploadName);
-		$fleVals = Array('name'=>$baseNme, 'full_path'=>$uploadName, 'type'=>$uploadType, 'tmp_name'=>'', 'error'=>UPLOAD_ERR_NO_FILE, 'size'=>0);
-		if( $uploadName==='' ){
-			return $fleVals;
+	protected function saveRqstUpFile( String $reqUploadNme, String $declaredMime, String $fileContents ): Array {
+		$baseNme = preg_replace('#^.*[/\\\\]#', '', $reqUploadNme);
+		$fileVls = Array('name'=>$baseNme, 'full_path'=>$reqUploadNme, 'type'=>$declaredMime, 'tmp_name'=>'', 'error'=>UPLOAD_ERR_NO_FILE, 'size'=>0);
+		if( $reqUploadNme==='' ){
+			return $fileVls;
 		}
-		$tmpPath = tempnam(sys_get_temp_dir(), 'nyu');
-		$fleSize = ($tmpPath!==false) ? file_put_contents($tmpPath, $fileContnt) : false;
-		if( $fleSize===false ){
-			$fleVals['error'] = UPLOAD_ERR_CANT_WRITE;
-			return $fleVals;
+		$tmpFile = tempnam(sys_get_temp_dir(), 'nyu');
+		$filSize = ($tmpFile!==false) ? file_put_contents($tmpFile, $fileContents) : false;
+		if( $filSize===false ){
+			$fileVls['error'] = UPLOAD_ERR_CANT_WRITE;
+			return $fileVls;
 		}
-		if( empty($this->tmpFiles) ){
-			register_shutdown_function( Array($this, 'dropTemps') );
+		if( empty($this->temprryFls) ){
+			register_shutdown_function( Array($this, 'dropTmpUploads') );
 		}
-		$this->tmpFiles[] = $tmpPath;
-		$fleVals['tmp_name'] = $tmpPath;
-		$fleVals['error'] = UPLOAD_ERR_OK;
-		$fleVals['size'] = $fleSize;
-		return $fleVals;
+		$this->temprryFls[] = $tmpFile;
+		$fileVls['tmp_name'] = $tmpFile;
+		$fileVls['error'] = UPLOAD_ERR_OK;
+		$fileVls['size'] = $filSize;
+		return $fileVls;
 	}
 
 	/**
 	 * Deletes the temporary upload files still present at the end of the
 	 * request. A file the application moved elsewhere is left alone.
 	 */
-	public function dropTemps(): Void {
-		foreach( $this->tmpFiles as $tmpFle ){
-			if( file_exists($tmpFle) ){
-				@unlink($tmpFle);
+	public function dropTmpUploads(): Void {
+		foreach( $this->temprryFls as $oneTmp ){
+			if( file_exists($oneTmp) ){
+				@unlink($oneTmp);
 			}
 		}
-		$this->tmpFiles = Array();
+		$this->temprryFls = Array();
 	}
 
 	//function getHeadrs
@@ -386,7 +386,7 @@ class Request{
 	 *
 	 * @return Array Associative array of header name => value.
 	 */
-	protected function getHeadrs(): Array {
+	protected function retrieveHeadrs(): Array {
 		// NGinX compatibility
 		if (!function_exists('apache_request_headers')){
 			$headers = Array();
@@ -402,13 +402,13 @@ class Request{
                 'Content-Id'       => 'Content-ID',
                 'Content-Features' => 'Content-features',
 			);
-			$serVars = $this->serveReg->readLines('http_');
-			foreach ($serVars as $varKey => $varVal){
-				$headKey = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($varKey, 5)))));
+			$srvVars = $this->servRgstry->readLinesArray('http_');
+			foreach ($srvVars as $srvKey => $srvVal){
+				$headKey = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($srvKey, 5)))));
 				if ( array_key_exists( $headKey, $xcepted ) ) {
                     $headKey = $xcepted[ $headKey ];
                 }
-				$headers[$headKey] = $varVal;
+				$headers[$headKey] = $srvVal;
 			}
 			return $headers;
 		}else{
@@ -421,11 +421,11 @@ class Request{
 	/**
 	 * Checks whether the request's HTTP method matches the given value.
 	 *
-	 * @param String $checkValue HTTP method to compare against (e.g. 'GET', 'POST').
+	 * @param String $checkValText HTTP method to compare against (e.g. 'GET', 'POST').
 	 * @return Bool True if the request used that method.
 	 */
-	public function usedMethd( String $checkValue='' ): Bool {
-		if( $this->inMethod==$checkValue ){
+	public function usedMethodFlag( String $checkValText='' ): Bool {
+		if( $this->rqstInMthd==$checkValText ){
 			return true;
 		}else{
 			return false;
@@ -434,12 +434,12 @@ class Request{
 	/**
 	 * Reads a value from the parsed request URI.
 	 *
-	 * @param String $uriValsKey Key of the URI value to read.
+	 * @param String $uriValuesKey Key of the URI value to read.
 	 * @return mixed The value, or null if not set.
 	 */
-	public function getURLVal( String $uriValsKey='' ): Mixed {
-		if( isset( $this->queryURI[$uriValsKey] ) ){
-			return $this->queryURI[$uriValsKey];
+	public function obtainUrlValue( String $uriValuesKey='' ): Mixed {
+		if( isset( $this->requestUri[$uriValuesKey] ) ){
+			return $this->requestUri[$uriValuesKey];
 		}else{
 			return NULL;
 		}
@@ -447,14 +447,14 @@ class Request{
 	/**
 	 * Reads a single header value received with the request.
 	 *
-	 * @param String $headersKey Name of the header to read.
+	 * @param String $nameOfHeader Name of the header to read.
 	 * @return ?String The header value, or null if not present.
 	 */
-	public function getHeader( String $headersKey='' ): ?String {
+	public function retrieveHeader( String $nameOfHeader='' ): ?String {
 		// Header names are case-insensitive
-		foreach( $this->allHeads as $hedKey => $hedVal ){
-			if( strcasecmp($hedKey, $headersKey)==0 ){
-				return $hedVal;
+		foreach( $this->everyHeads as $hdrKey => $hdrVal ){
+			if( strcasecmp($hdrKey, $nameOfHeader)==0 ){
+				return $hdrVal;
 			}
 		}
 		return NULL;
@@ -464,12 +464,12 @@ class Request{
 	 * Reads a single user-submitted value (query/body) received with the
 	 * request.
 	 *
-	 * @param String $usrVarName Name of the value to read.
+	 * @param String $userVrblName Name of the value to read.
 	 * @return mixed The value, or null if not present.
 	 */
-	public function getUsrVar( String $usrVarName ): Mixed {
-		if( isset( $this->dataVals[$usrVarName] ) ){
-			return $this->dataVals[$usrVarName];
+	public function getUsrVariable( String $userVrblName ): Mixed {
+		if( isset( $this->dataValues[$userVrblName] ) ){
+			return $this->dataValues[$userVrblName];
 		}else{
 			return NULL;
 		}
@@ -479,21 +479,21 @@ class Request{
 	 * whatever else the body holds under the same name. What travels in
 	 * an address is kept by the logs of every server on its way.
 	 *
-	 * @param String $usrVarName Name of the value, whatever its case.
+	 * @param String $userVrblName Name of the value, whatever its case.
 	 * @return Bool True when the query string holds that name.
 	 */
-	public function fromQuery( String $usrVarName ): Bool {
-		return in_array( strtolower($usrVarName), $this->addrVals, true );
+	public function isSentViaQuery( String $userVrblName ): Bool {
+		return in_array( strtolower($userVrblName), $this->addrValues, true );
 	}
 	/**
 	 * Reads a single cookie value received with the request.
 	 *
-	 * @param String $cookieName Name of the cookie to read.
+	 * @param String $rqstCookName Name of the cookie to read.
 	 * @return mixed The cookie value, or null if not present.
 	 */
-	public function getCookie( String $cookieName ): Mixed {
-		if( isset( $this->cookVals[$cookieName] ) ){
-			return $this->cookVals[$cookieName];
+	public function retrieveCookie( String $rqstCookName ): Mixed {
+		if( isset( $this->cookValues[$rqstCookName] ) ){
+			return $this->cookValues[$rqstCookName];
 		}else{
 			return NULL;
 		}
@@ -501,12 +501,12 @@ class Request{
 	/**
 	 * Reads a single uploaded file entry received with the request.
 	 *
-	 * @param String $fileArrKey Key of the file entry to read.
+	 * @param String $fileArrayKey Key of the file entry to read.
 	 * @return mixed The file data, or null if not present.
 	 */
-	public function getInFile( String $fileArrKey ): Mixed {
-		if( isset( $this->fileData[$fileArrKey] ) ){
-			return $this->fileData[$fileArrKey];
+	public function retrieveInFile( String $fileArrayKey ): Mixed {
+		if( isset( $this->uploadData[$fileArrayKey] ) ){
+			return $this->uploadData[$fileArrayKey];
 		}else{
 			return NULL;
 		}
@@ -517,8 +517,8 @@ class Request{
 	 *
 	 * @return Array The file entries, described like the $_FILES ones.
 	 */
-	public function listFiles(): Array {
-		return $this->fileData ?? Array();
+	public function getUploadFiles(): Array {
+		return $this->uploadData ?? Array();
 	}
 	/**
 	 * Returns every user-submitted value (query, form, or JSON body)
@@ -526,18 +526,18 @@ class Request{
 	 *
 	 * @return Array All parsed request values.
 	 */
-	public function getAllVar(): Array {
-		return $this->dataVals ?? Array();
+	public function getAllVariable(): Array {
+		return $this->dataValues ?? Array();
 	}
 	/**
 	 * Returns server registry values, optionally filtered by key prefix,
 	 * for use by the input-filtering layer.
 	 *
-	 * @param String $keysFilter Prefix to filter keys by; returns all entries when empty.
+	 * @param String $keysCriteria Prefix to filter keys by; returns all entries when empty.
 	 * @return Array Matching server values.
 	 */
-	public function getSrvVar( String $keysFilter='' ): Array {
-		return $this->serveReg->readLines($keysFilter);
+	public function getServerValue( String $keysCriteria='' ): Array {
+		return $this->servRgstry->readLinesArray($keysCriteria);
 	}
 	/**
 	 * Returns the client registry: 'userAddr' (the client, seen through
@@ -549,8 +549,8 @@ class Request{
 	 *
 	 * @return ?ClientReg The client registry, or null when the request was built without one.
 	 */
-	public function getClient(): ?ClientReg {
-		return $this->clienReg;
+	public function retrieveClient(): ?ClientReg {
+		return $this->clientRgst;
 	}
 
 }

@@ -9,12 +9,12 @@
 	A definition is 'all' (every value, as sent), 'none', a text of
 	name:Format(option) items separated by semicolons, or an array
 	shaped like the values:
-		{ "filters": { "search": "TextStr" }, "since": "ShrDate", "pass": "" }
+		{ "filters": { "search": "OutText" }, "since": "ShrDate", "pass": "" }
 	A field without a format is kept as sent.
 
 	A name ending with '!' is a required field ("user!", "mail!:EmlAddr",
-	"filters!": { "search!": "TextStr" }): the ones that are missing or
-	empty, once formatted, are listed by getMissed().
+	"filters!": { "search!": "OutText" }): the ones that are missing or
+	empty, once formatted, are listed by retrieveMissed().
 */
 
 namespace nyu\Tools;
@@ -26,61 +26,61 @@ namespace nyu\Tools;
  */
 class Input{
 
-	protected $saveName;
-	protected $fldArray;
-	protected $reqstObj;
-	protected $inputReg;
-	protected $missList = Array();
+	protected $storedName;
+	protected $fieldArray;
+	protected $rqstObject;
+	protected $inptRgstry;
+	protected $missingSet = Array();
 
 	/**
 	 * Builds a named input registry entry by pulling values from the
 	 * given source off the shared Request, keeping the fields the
 	 * definition lists and giving each its format.
 	 *
-	 * @param ?Request     $requestObj The shared, already-parsed HTTP request; null when the values are given to parseVals().
-	 * @param String       $fromSource 'QUERY' (request vars); any other source yields no value.
-	 * @param String|Array $fieldsDefn The definition of the fields: 'all', 'none', a text of name:Format(option) items, or an array shaped like the values.
-	 * @param String       $regstrName Name under which the parsed values are stored.
+	 * @param ?Request     $requstObject The shared, already-parsed HTTP request; null when the values are given to parseValuesArr().
+	 * @param String       $sourceOfData 'QUERY' (request vars); any other source yields no value.
+	 * @param String|Array $fieldsDefntn The definition of the fields: 'all', 'none', a text of name:Format(option) items, or an array shaped like the values.
+	 * @param String       $registryName Name under which the parsed values are stored.
 	 *
 	 * @throws \RuntimeException When the definition names a format that does not exist.
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-    function __construct( ?Request $requestObj, String $fromSource, String|Array $fieldsDefn, String $regstrName ){
-		$this->reqstObj = $requestObj;
-		$this->saveName = $regstrName;
-		$this->fldArray = $this->fieldsMap( $fieldsDefn );
-		$allVals = ($fromSource=='QUERY' && $requestObj!==null) ? $requestObj->getAllVar() : Array();
-		$this->inputReg[$this->saveName] = $this->parseVals( $allVals );
+    function __construct( ?Request $requstObject, String $sourceOfData, String|Array $fieldsDefntn, String $registryName ){
+		$this->rqstObject = $requstObject;
+		$this->storedName = $registryName;
+		$this->fieldArray = $this->fieldsInputMap( $fieldsDefntn );
+		$allData = ($sourceOfData=='QUERY' && $requstObject!==null) ? $requstObject->getAllVariable() : Array();
+		$this->inptRgstry[$this->storedName] = $this->parseValuesArr( $allData );
 	}
 
 	/**
 	 * Keeps the values the definition lists, each given its format, and
 	 * leaves the others out. The names of the first level are matched
 	 * whatever their case, as the registry the values end in reads them.
-	 * The required fields found missing or empty are kept for getMissed().
+	 * The required fields found missing or empty are kept for retrieveMissed().
 	 *
-	 * @param Array $valueArray Raw values to filter and format.
+	 * @param Array $fieldValList Raw values to filter and format.
 	 * @return Array The values kept; all of them, unchanged, when the definition is 'all'.
 	 */
-	public function parseVals( Array $valueArray ): Array {
-		$this->missList = Array();
-		if( $this->fldArray===null ){
-			return $valueArray;
+	public function parseValuesArr( Array $fieldValList ): Array {
+		$this->missingSet = Array();
+		if( $this->fieldArray===null ){
+			return $fieldValList;
 		}
-		$keptVls = $this->mapValues( $valueArray, $this->fldArray, true );
-		$this->missList = $this->findEmpty( $keptVls, $valueArray, $this->fldArray, '', true );
+		$keptVls = $this->mapValuesArray( $fieldValList, $this->fieldArray, true );
+		$this->missingSet = $this->findEmptyArray( $keptVls, $fieldValList, $this->fieldArray, '', true );
 		return $keptVls;
 	}
 
 	/**
-	 * Returns the required fields the last parseVals() found missing or
+	 * Returns the required fields the last parseValuesArr() found missing or
 	 * empty: not sent, sent empty, or emptied by their format.
 	 *
 	 * @return Array The names as the definition writes them, in its order, a field held by another written 'filters.search'.
 	 */
-	public function getMissed(): Array {
-		return $this->missList;
+	public function retrieveMissed(): Array {
+		return $this->missingSet;
 	}
 
 	/**
@@ -88,30 +88,30 @@ class Input{
 	 * required field holding fields is listed alone when nothing is kept
 	 * under it; otherwise its own fields are checked.
 	 *
-	 * @param Array  $keptValues Values of the level, once filtered and formatted.
-	 * @param Array  $sentValues Values of the level, as sent.
-	 * @param Array  $fieldNodes Fields of the level, as fieldsMap() gives them.
-	 * @param String $prefixText Names of the fields holding this level, each followed by a dot.
-	 * @param Bool   $ignoreCase Whether the names are matched whatever their case.
+	 * @param Array  $filteredVals Values of the level, once filtered and formatted.
+	 * @param Array  $valuesAsSent Values of the level, as sent.
+	 * @param Array  $fldNodesList Fields of the level, as fieldsInputMap() gives them.
+	 * @param String $prefixString Names of the fields holding this level, each followed by a dot.
+	 * @param Bool   $matchAnyCase Whether the names are matched whatever their case.
 	 * @return Array The names of the fields, as the definition writes them.
 	 */
-	protected function findEmpty( Array $keptValues, Array $sentValues, Array $fieldNodes, String $prefixText='', Bool $ignoreCase=false ): Array {
-		if( $ignoreCase ){
-			$keptValues = array_change_key_case($keptValues, CASE_LOWER);
-			$sentValues = array_change_key_case($sentValues, CASE_LOWER);
+	protected function findEmptyArray( Array $filteredVals, Array $valuesAsSent, Array $fldNodesList, String $prefixString='', Bool $matchAnyCase=false ): Array {
+		if( $matchAnyCase ){
+			$filteredVals = array_change_key_case($filteredVals, CASE_LOWER);
+			$valuesAsSent = array_change_key_case($valuesAsSent, CASE_LOWER);
 		}
 		$missLst = Array();
-		foreach( $fieldNodes as $fldKey => $fldNde ){
-			$nameKey = $ignoreCase ? strtolower(strval($fldKey)) : $fldKey;
-			$keptVal = $keptValues[$nameKey] ?? null;
-			$sentVal = $sentValues[$nameKey] ?? null;
+		foreach( $fldNodesList as $fldKey => $fldNod ){
+			$nameKey = $matchAnyCase ? strtolower(strval($fldKey)) : $fldKey;
+			$keptVal = $filteredVals[$nameKey] ?? null;
+			$sentVal = $valuesAsSent[$nameKey] ?? null;
 			// A value sent empty is empty, whatever its format makes of it (Integer gives 0)
-			if( $fldNde['reqd'] && ($this->isEmptied($sentVal) || $this->isEmptied($keptVal)) ){
-				$missLst[] = $prefixText.$fldKey;
+			if( $fldNod['reqd'] && ($this->hasEmptiedFlag($sentVal) || $this->hasEmptiedFlag($keptVal)) ){
+				$missLst[] = $prefixString.$fldKey;
 				continue;
 			}
-			if( $fldNde['kids']!==null ){
-				$missLst = array_merge( $missLst, $this->findEmpty(is_array($keptVal) ? $keptVal : Array(), is_array($sentVal) ? $sentVal : Array(), $fldNde['kids'], $prefixText.$fldKey.'.') );
+			if( $fldNod['kids']!==null ){
+				$missLst = array_merge( $missLst, $this->findEmptyArray(is_array($keptVal) ? $keptVal : Array(), is_array($sentVal) ? $sentVal : Array(), $fldNod['kids'], $prefixString.$fldKey.'.') );
 			}
 		}
 		return $missLst;
@@ -121,19 +121,19 @@ class Input{
 	 * Tells whether a value is empty: null, an empty text, or an array
 	 * holding nothing else. 0, '0', false and a text of spaces are values.
 	 *
-	 * @param mixed $givenValue The value to check.
+	 * @param mixed $valueAsGiven The value to check.
 	 * @return Bool True when the value is empty.
 	 */
-	protected function isEmptied( Mixed $givenValue ): Bool {
-		if( is_array($givenValue) ){
-			foreach( $givenValue as $itmVal ){
-				if( !$this->isEmptied($itmVal) ){
+	protected function hasEmptiedFlag( Mixed $valueAsGiven ): Bool {
+		if( is_array($valueAsGiven) ){
+			foreach( $valueAsGiven as $itmVal ){
+				if( !$this->hasEmptiedFlag($itmVal) ){
 					return false;
 				}
 			}
 			return true;
 		}
-		return $givenValue===null || $givenValue==='';
+		return $valueAsGiven===null || $valueAsGiven==='';
 	}
 
 	/**
@@ -141,28 +141,28 @@ class Input{
 	 * defined with fields of its own is read level by level; a value that
 	 * should hold fields and does not is emptied.
 	 *
-	 * @param Array $valueArray Values of the level.
-	 * @param Array $fieldNodes Fields of the level, as fieldsMap() gives them.
-	 * @param Bool  $ignoreCase Whether the names are matched whatever their case.
+	 * @param Array $fieldValList Values of the level.
+	 * @param Array $fldNodesList Fields of the level, as fieldsInputMap() gives them.
+	 * @param Bool  $matchAnyCase Whether the names are matched whatever their case.
 	 * @return Array The values kept, under the names they came with.
 	 */
-	protected function mapValues( Array $valueArray, Array $fieldNodes, Bool $ignoreCase=false ): Array {
-		if( $ignoreCase ){
-			$fieldNodes = array_change_key_case($fieldNodes, CASE_LOWER);
+	protected function mapValuesArray( Array $fieldValList, Array $fldNodesList, Bool $matchAnyCase=false ): Array {
+		if( $matchAnyCase ){
+			$fldNodesList = array_change_key_case($fldNodesList, CASE_LOWER);
 		}
 		$valList = Array();
-		foreach( $valueArray as $valKey => $valVal ){
-			$nodeKey = $ignoreCase ? strtolower(strval($valKey)) : strval($valKey);
-			if( !isset($fieldNodes[$nodeKey]) ){
+		foreach( $fieldValList as $valKey => $valVal ){
+			$nodeKey = $matchAnyCase ? strtolower(strval($valKey)) : strval($valKey);
+			if( !isset($fldNodesList[$nodeKey]) ){
 				continue;
 			}
-			$fldNode = $fieldNodes[$nodeKey];
+			$fldNode = $fldNodesList[$nodeKey];
 			if( $fldNode['kids']!==null ){
-				$valList[$valKey] = is_array($valVal) ? $this->mapValues($valVal, $fldNode['kids']) : Array();
+				$valList[$valKey] = is_array($valVal) ? $this->mapValuesArray($valVal, $fldNode['kids']) : Array();
 			}elseif( $fldNode['frmt']=='' ){
 				$valList[$valKey] = $valVal;
 			}else{
-				$valList[$valKey] = $this->formatVal($valVal, $fldNode['frmt'], $fldNode['optn']);
+				$valList[$valKey] = $this->formatInputVal($valVal, $fldNode['frmt'], $fldNode['optn']);
 			}
 		}
 		return $valList;
@@ -173,21 +173,21 @@ class Input{
 	 * array is formatted value by value. A value the format cannot read
 	 * is emptied.
 	 *
-	 * @param mixed   $givenValue The value as sent.
-	 * @param String  $formatName Name of the format (see Variable).
-	 * @param ?String $formatOptn Option of the format, when it takes one.
+	 * @param mixed   $valueAsGiven The value as sent.
+	 * @param String  $nameOfFormat Name of the format (see Variable).
+	 * @param ?String $formatOption Option of the format, when it takes one.
 	 * @return mixed The formatted value.
 	 */
-	protected function formatVal( Mixed $givenValue, String $formatName, ?String $formatOptn=null ): Mixed {
-		if( is_array($givenValue) ){
-			foreach( $givenValue as $itmKey => $itmVal ){
-				$givenValue[$itmKey] = $this->formatVal($itmVal, $formatName, $formatOptn);
+	protected function formatInputVal( Mixed $valueAsGiven, String $nameOfFormat, ?String $formatOption=null ): Mixed {
+		if( is_array($valueAsGiven) ){
+			foreach( $valueAsGiven as $itmKey => $itmVal ){
+				$valueAsGiven[$itmKey] = $this->formatInputVal($itmVal, $nameOfFormat, $formatOption);
 			}
-			return $givenValue;
+			return $valueAsGiven;
 		}
 		try{
-			$varObjc = new Variable($givenValue);
-			return $varObjc->readValue($formatName, $formatOptn ?? false);
+			$vrblObj = new Variable($valueAsGiven);
+			return $vrblObj->readFileDetail($nameOfFormat, $formatOption ?? false);
 		}catch( \TypeError | \ValueError $e ){
 			return '';
 		}
@@ -200,28 +200,28 @@ class Input{
 	 * fields of its own, those fields ('kids'), and whether the field is
 	 * required ('reqd': its name ends with '!', which is not kept in it).
 	 *
-	 * @param String|Array $fieldsDefn 'all', 'none', a text of name:Format(option) items separated by semicolons, or an array of name => format, name => fields, or plain names.
+	 * @param String|Array $fieldsDefntn 'all', 'none', a text of name:Format(option) items separated by semicolons, or an array of name => format, name => fields, or plain names.
 	 * @return ?Array The fields by name; an empty array for 'none'; null for 'all'.
 	 *
 	 * @throws \RuntimeException When a format is not written as Name or Name(option), or does not exist.
 	 */
-	protected function fieldsMap( String|Array $fieldsDefn ): ?Array {
-		if( is_string($fieldsDefn) ){
-			$defText = trim($fieldsDefn);
+	protected function fieldsInputMap( String|Array $fieldsDefntn ): ?Array {
+		if( is_string($fieldsDefntn) ){
+			$defText = trim($fieldsDefntn);
 			if( $defText=='all' ){
 				return null;
 			}
 			// name:Format(option) items; the option may hold a colon, not a semicolon
-			$fieldsDefn = Array();
+			$fieldsDefntn = Array();
 			foreach( ($defText=='none' ? Array() : explode(';', $defText)) as $lstItm ){
 				$itmPrts = explode(':', $lstItm, 2);
 				if( trim($itmPrts[0])!='' ){
-					$fieldsDefn[trim($itmPrts[0])] = trim($itmPrts[1] ?? '');
+					$fieldsDefntn[trim($itmPrts[0])] = trim($itmPrts[1] ?? '');
 				}
 			}
 		}
 		$nodeMap = Array();
-		foreach( $fieldsDefn as $fldKey => $fldDef ){
+		foreach( $fieldsDefntn as $fldKey => $fldDef ){
 			// In a plain list of names, the name is the value
 			$isPlain = is_int($fldKey) && !is_array($fldDef);
 			$fldName = strval($isPlain ? $fldDef : $fldKey);
@@ -231,7 +231,7 @@ class Input{
 				$fldName = rtrim(substr($fldName, 0, -1));
 			}
 			if( is_array($fldDef) ){
-				$nodeMap[$fldName] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsMap($fldDef), 'reqd'=>$isReqrd);
+				$nodeMap[$fldName] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsInputMap($fldDef), 'reqd'=>$isReqrd);
 				continue;
 			}
 			if( $isPlain ){
@@ -245,7 +245,7 @@ class Input{
 				throw new \RuntimeException('Input misconfigured: "'.$fldSpec.'" is not a format, for the field "'.$fldName.'"');
 			}
 			$frmName = $frmPrts[1] ?? '';
-			if( $frmName!='' && !method_exists(Variable::class, 'to'.$frmName) ){
+			if( $frmName!='' && !method_exists(Variable::class, 'formats'.$frmName) ){
 				throw new \RuntimeException('Input misconfigured: unknown format "'.$frmName.'" for the field "'.$fldName.'"');
 			}
 			$nodeMap[$fldName] = Array('frmt'=>$frmName, 'optn'=>(($frmPrts[2] ?? '')!=='' ? $frmPrts[2] : null), 'kids'=>null, 'reqd'=>$isReqrd);
@@ -259,9 +259,9 @@ class Input{
 	 *
 	 * @return Array The stored values for this input's registry name.
 	 */
-    public function regiStack( ): Array {
+    public function regiStackArray( ): Array {
 		// Stack values of the current Registry
 		// by merging it with an existing array
-		return $this->inputReg[$this->saveName];
+		return $this->inptRgstry[$this->storedName];
 	}
 }

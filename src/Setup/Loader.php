@@ -15,68 +15,68 @@ use \nyu\Output\Response;
  */
 class Loader{
 
-	protected $fieldSet;
-	protected $conArray;
-	protected $routrObj;
+	protected $blockNames;
+	protected $confBlocks;
+	protected $rotrObject;
 	// The values read from the config cache, or those gathered to write it (see ConfCache)
-	protected $cachVals;
+	protected $cachValues;
 	// Whether they were read from the cache
-	protected $cachRead;
+	protected $usesCached;
 	// Name of the preset, which the cache is kept under
-	protected $rpsLabel;
+	protected $presetName;
 
 	/**
 	* Constructs a setup loader, optionally loading a full setup array.
 	*
-	* @param Array  $setupArray Full setup array to load, if any.
-	* @param ?Array $cachedVals The values the config cache holds for the preset, read in place of the files; null when the files are read.
-	* @param String $presetName Name of the preset, which the cache is kept under; '' for no cache.
+	* @param Array  $fullSetupArr Full setup array to load, if any.
+	* @param ?Array $cachedValues The values the config cache holds for the preset, read in place of the files; null when the files are read.
+	* @param String $nameOfPreset Name of the preset, which the cache is kept under; '' for no cache.
 	*/
-    public function __construct(Array $setupArray = Array(), ?Array $cachedVals = null, String $presetName = ''){
-		$this->setAllReg( $setupArray );
-		$this->fieldSet = Array('setup','auths','route','rnder','input');
-		$this->rpsLabel = $presetName;
-		$this->cachRead = ($cachedVals!==null);
+    public function __construct(Array $fullSetupArr = Array(), ?Array $cachedValues = null, String $nameOfPreset = ''){
+		$this->setAllRegistry( $fullSetupArr );
+		$this->blockNames = Array('setup','auths','route','rnder','input');
+		$this->presetName = $nameOfPreset;
+		$this->usesCached = ($cachedValues!==null);
 		// The preset is kept as it is before any overload of the Runner
-		$this->cachVals = $cachedVals ?? Array('preset'=>$setupArray);
+		$this->cachValues = $cachedValues ?? Array('preset'=>$fullSetupArr);
 	}
 
 	/**
 	* Replaces (without key check) the current config registry with the one provided.
 	*
-	* @param Array $setupArray Setup array that replaces the current one.
+	* @param Array $fullSetupArr Setup array that replaces the current one.
 	*/
-    protected function setAllReg(Array $setupArray = Array()): Void {
-		$this->conArray = $setupArray;
+    protected function setAllRegistry(Array $fullSetupArr = Array()): Void {
+		$this->confBlocks = $fullSetupArr;
 	}
 
 	/**
 	* Overload some or all of the setup array, usually from the runner.
 	*
-	* @param Array $addedArray Setup blocks to load, by key.
-	* @param Bool  $arrayMerge Whether a block is merged with the one already loaded instead of replacing it.
+	* @param Array $addedEntries Setup blocks to load, by key.
+	* @param Bool  $mergeEntries Whether a block is merged with the one already loaded instead of replacing it.
 	*/
-	public function overLoads(Array $addedArray, Bool $arrayMerge = false): Void {
-		foreach($addedArray as $arrKey=>$arrVal){
-			if( $arrayMerge ){
-				$prevArr = $this->getRegKey( $arrKey );
+	public function overSetupLoads(Array $addedEntries, Bool $mergeEntries = false): Void {
+		foreach($addedEntries as $arrKey=>$arrVal){
+			if( $mergeEntries ){
+				$prevArr = $this->getRegistryKey( $arrKey );
 				if( $prevArr!==false ){
 					$arrVal = array_merge($prevArr, $arrVal);
 				}
 			}
-			$this->setRegKey($arrKey, $arrVal);
+			$this->setRegistryKey($arrKey, $arrVal);
 		}
 	}
 
 	/**
 	* Gets one of the config registry values using one of the conf key array.
 	*
-	* @param String $keyOfArray Key of the setup block.
+	* @param String $setupBlckKey Key of the setup block.
 	* @return Mixed The block, or false when the key is unknown or not loaded.
 	*/
-    public function getRegKey(String $keyOfArray): Mixed {
-		if(array_key_exists($keyOfArray, $this->conArray) && in_array($keyOfArray, $this->fieldSet) ){
-			return $this->conArray[$keyOfArray];
+    public function getRegistryKey(String $setupBlckKey): Mixed {
+		if(array_key_exists($setupBlckKey, $this->confBlocks) && in_array($setupBlckKey, $this->blockNames) ){
+			return $this->confBlocks[$setupBlckKey];
 		}else{
 			return false;
 		}
@@ -85,12 +85,12 @@ class Loader{
 	/**
 	* Sets one of the config registry values using the conf key array
 	*
-	* @param String $keyOfArray Key of the setup block.
-	* @param Array  $newArrVals Values of the block.
+	* @param String $setupBlckKey Key of the setup block.
+	* @param Array  $newArrValues Values of the block.
 	*/
-    protected function setRegKey(String $keyOfArray, Array $newArrVals = Array()): Void {
-		if(in_array($keyOfArray,$this->fieldSet)){
-			$this->conArray[$keyOfArray] = $newArrVals;
+    protected function setRegistryKey(String $setupBlckKey, Array $newArrValues = Array()): Void {
+		if(in_array($setupBlckKey,$this->blockNames)){
+			$this->confBlocks[$setupBlckKey] = $newArrValues;
 		}
 	}
 
@@ -102,17 +102,17 @@ class Loader{
 	* @return Registry The values of the config files.
 	* @throws \RuntimeException When the preset has no setup block.
 	*/
-	function getConfig(): Registry {
-		$confSet = $this->getRegKey('setup');
+	function retrieveConfig(): Registry {
+		$confSet = $this->getRegistryKey('setup');
 		if( $confSet===false ){
 			throw new \RuntimeException('The preset has no setup block');
 		}
-		if( $this->cachRead ){
-			$confReg = new Registry( $this->fillEnvrn( $this->cachVals['config'], $this->loadEnvrn($confSet['envfle'] ?? '.env') ) );
+		if( $this->usesCached ){
+			$confReg = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confSet['envfle'] ?? '.env') ) );
 			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
-			$sysConf = $confReg->readValue('system') ?: Array();
-			ConfCache::$tblInfos = ( in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachVals['tables'] ?? Array()) : null;
-			ConfCache::$tblAdded = false;
+			$iniConf = $confReg->readFileDetail('system') ?: Array();
+			ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachValues['tables'] ?? Array()) : null;
+			ConfCache::$tableAdded = false;
 			return $confReg;
 		}
 		// Read all INI and JSON files in conf
@@ -122,37 +122,37 @@ class Loader{
 		$conPath = TOP_DIR.DS.($confSet['folder'] ?? 'conf').DS;
 		$conScan = scandir($conPath);
 		// Allowed file types
-		$allowFT = Array('ini','json');
+		$allowFt = Array('ini','json');
 		// File names to load : 'any', or a comma-separated list of names without extension
 		$conFltr = $confSet['fnames'] ?? 'any';
 		$nameLst = false;
 		if($conFltr!='any'){
 			$nameLst = array_map('trim', explode(',', $conFltr));
 		}
-		foreach($conScan as $fleNme){
+		foreach($conScan as $filNme){
 			// The kind and the name are told by the file name: only the files kept are opened
-			$fleExtn = strtolower(pathinfo($fleNme, PATHINFO_EXTENSION));
-			$fleTitl = pathinfo($fleNme, PATHINFO_FILENAME);
-			if( !in_array($fleExtn, $allowFT) || ($nameLst!==false && !in_array($fleTitl, $nameLst)) ){
+			$fileExt = strtolower(pathinfo($filNme, PATHINFO_EXTENSION));
+			$fileTtl = pathinfo($filNme, PATHINFO_FILENAME);
+			if( !in_array($fileExt, $allowFt) || ($nameLst!==false && !in_array($fileTtl, $nameLst)) ){
 				continue;
 			}
-			if( $confSet['ftypes']!='all' && $confSet['ftypes']!=$fleExtn ){
+			if( $confSet['ftypes']!='all' && $confSet['ftypes']!=$fileExt ){
 				continue;
 			}
-			$nowPath = $conPath.$fleNme;
+			$nowPath = $conPath.$filNme;
 			if( is_file($nowPath) ){
 				$nyuFile = new Dcmnt($nowPath);
-				$confArr[strtoupper($fleTitl)] = $nyuFile->readValue('out');
+				$confArr[strtoupper($fileTtl)] = $nyuFile->readFileDetail('out');
 			}
 		}
 		// The cache holds the values as written: no secret of the environment file goes into it
-		$this->cachVals['config'] = $confArr;
-		$confArr = $this->fillEnvrn( $confArr, $this->loadEnvrn($confSet['envfle'] ?? '.env') );
+		$this->cachValues['config'] = $confArr;
+		$confArr = $this->replaceEnvVals( $confArr, $this->lodEnvironment($confSet['envfle'] ?? '.env') );
 		$confReg = new Registry( $confArr );
 		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
-		$sysConf = $confReg->readValue('system') ?: Array();
-		ConfCache::$tblInfos = ( in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? Array() : null;
-		ConfCache::$tblAdded = false;
+		$iniConf = $confReg->readFileDetail('system') ?: Array();
+		ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? Array() : null;
+		ConfCache::$tableAdded = false;
 		return $confReg;
 	}
 
@@ -160,22 +160,22 @@ class Loader{
 	 * Reads the environment file of the project: NAME=value lines, with
 	 * # comments, kept out of the repository to hold the secrets.
 	 *
-	 * @param String $envFilePth Path of the file, relative to the project root.
+	 * @param String $relativePath Path of the file, relative to the project root.
 	 * @return Array The values by name, empty when the file does not exist.
 	 */
-	protected function loadEnvrn( String $envFilePth ): Array {
+	protected function lodEnvironment( String $relativePath ): Array {
 		$envVals = Array();
-		$envPath = TOP_DIR.DS.$envFilePth;
+		$envPath = TOP_DIR.DS.$relativePath;
 		if( !is_file($envPath) ){
 			return $envVals;
 		}
-		foreach( file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $envLin ){
-			$envLin = trim($envLin);
-			$sepPos = strpos($envLin, '=');
-			if( $envLin=='' || $envLin[0]=='#' || $sepPos===false ){
+		foreach( file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $envRow ){
+			$envRow = trim($envRow);
+			$splitAt = strpos($envRow, '=');
+			if( $envRow=='' || $envRow[0]=='#' || $splitAt===false ){
 				continue;
 			}
-			$envVals[trim(substr($envLin, 0, $sepPos))] = trim(trim(substr($envLin, $sepPos+1)), '"\'');
+			$envVals[trim(substr($envRow, 0, $splitAt))] = trim(trim(substr($envRow, $splitAt+1)), '"\'');
 		}
 		return $envVals;
 	}
@@ -185,21 +185,21 @@ class Loader{
 	 * taken from the environment file first, then from the environment
 	 * of the process. An unknown name gives an empty value.
 	 *
-	 * @param Array $confValues Config values, at any depth.
-	 * @param Array $envrValues Values of the environment file, by name.
+	 * @param Array $configValues Config values, at any depth.
+	 * @param Array $envValuesMap Values of the environment file, by name.
 	 * @return Array The config values, with their env: references replaced.
 	 */
-	protected function fillEnvrn( Array $confValues, Array $envrValues ): Array {
-		foreach( $confValues as $cnfKey => $cnfVal ){
+	protected function replaceEnvVals( Array $configValues, Array $envValuesMap ): Array {
+		foreach( $configValues as $cnfKey => $cnfVal ){
 			if( is_array($cnfVal) ){
-				$confValues[$cnfKey] = $this->fillEnvrn($cnfVal, $envrValues);
+				$configValues[$cnfKey] = $this->replaceEnvVals($cnfVal, $envValuesMap);
 			}elseif( is_string($cnfVal) && strpos($cnfVal, 'env:')===0 ){
 				$envName = substr($cnfVal, 4);
-				$envFind = getenv($envName);
-				$confValues[$cnfKey] = $envrValues[$envName] ?? ($envFind!==false ? $envFind : '');
+				$matches = getenv($envName);
+				$configValues[$cnfKey] = $envValuesMap[$envName] ?? ($matches!==false ? $matches : '');
 			}
 		}
-		return $confValues;
+		return $configValues;
 	}
 
     /**
@@ -212,23 +212,23 @@ class Loader{
 	 * Tools\Input); an application can define them for each of its
 	 * actions, which its Controller applies.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Registry Registry of parsed input values, empty if no 'input' config is set.
 	 */
-    function getInputs( Request $requestObj ): Registry {
-		$inptSet = $this->getRegKey('input');
+    function retrieveInputs( Request $requstObject ): Registry {
+		$inptSet = $this->getRegistryKey('input');
 		if($inptSet){
 			$inptArr = Array();
 			foreach($inptSet as $putSet){
 				// Only allow for a set of input sources
 				// Version 1.0 :	'QUERY'
 				// Version 1.1 :	'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX'
-				$inpType = Array('QUERY');
-				$inpSrce = $putSet['source'];
+				$inptTyp = Array('QUERY');
+				$inptSrc = $putSet['source'];
 
-				if(in_array($inpSrce, $inpType)){
-					$inptObj = new Input( $requestObj, $inpSrce, $putSet['fields'], $putSet['naming']);
-					$inptArr = array_merge($inptArr, $inptObj->regiStack());
+				if(in_array($inptSrc, $inptTyp)){
+					$inptObj = new Input( $requstObject, $inptSrc, $putSet['fields'], $putSet['naming']);
+					$inptArr = array_merge($inptArr, $inptObj->regiStackArray());
 				}
 			}
 			$inptReg = new Registry( $inptArr );
@@ -243,16 +243,16 @@ class Loader{
 	 * Resolves the application/action/param to run for the current request,
 	 * through the Router and the 'route' configuration of the active preset.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Registry Registry holding the resolved 'app' and 'action' values.
 	 */
-    function loadRoute( Request $requestObj ): Registry {
-		$rteConf = $this->getRegKey('route');
-		$this->routrObj = new Router( is_array($rteConf) ? $rteConf : Array(), $requestObj );
-		if( $this->cachRead ){
-			$this->routrObj->setRoutes( $this->cachVals['routes'] );
+    function importRouteReg( Request $requstObject ): Registry {
+		$rteConf = $this->getRegistryKey('route');
+		$this->rotrObject = new Router( is_array($rteConf) ? $rteConf : Array(), $requstObject );
+		if( $this->usesCached ){
+			$this->rotrObject->setRouteRoutes( $this->cachValues['routes'] );
 		}
-		return $this->routrObj->findRoute();
+		return $this->rotrObject->locateRouteReg();
 	}
 
 	/**
@@ -266,30 +266,30 @@ class Loader{
 	 *
 	 * @return Bool Whether the cache was written.
 	 */
-	public function keepCache(): Bool {
+	public function retainCacheFlg(): Bool {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
-		if( !in_array( strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->cachRead && !ConfCache::$tblAdded) || $this->rpsLabel=='' || $this->routrObj===null || !isset($this->cachVals['config']) ){
+		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		if( !in_array( strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->usesCached && !ConfCache::$tableAdded) || $this->presetName=='' || $this->rotrObject===null || !isset($this->cachValues['config']) ){
 			return false;
 		}
 		// A config, preset or route file written since the request began (the Runs' routes too): what it read is not cached
 		$srcTime = 0;
 		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
-			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFle ){
-			$srcTime = max($srcTime, intval(@filemtime(strval($srcFle))));
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFil ){
+			$srcTime = max($srcTime, intval(@filemtime(strval($srcFil))));
 		}
 		// File times are in seconds: a change within the second the request began is not told apart
 		if( $srcTime>intval($_SERVER['REQUEST_TIME'] ?? time()) ){
 			return false;
 		}
-		$this->cachVals['routes'] = $this->routrObj->getRoutes();
-		$this->cachVals['tables'] = ConfCache::$tblInfos ?? Array();
-		ConfCache::$tblAdded = false;
-		if( !ConfCache::makeCache($this->rpsLabel, $this->cachVals) ){
+		$this->cachValues['routes'] = $this->rotrObject->retrieveRoutes();
+		$this->cachValues['tables'] = ConfCache::$tableInfos ?? Array();
+		ConfCache::$tableAdded = false;
+		if( !ConfCache::buildCacheFlag($this->presetName, $this->cachValues) ){
 			return false;
 		}
 		// Written once: the end of the request writes it again only for tables described meanwhile
-		$this->cachRead = true;
+		$this->usesCached = true;
 		return true;
 	}
 
@@ -299,8 +299,8 @@ class Loader{
 	 *
 	 * @return ?Router The router, null as long as no route was resolved.
 	 */
-	public function getRouter(): ?Router {
-		return $this->routrObj;
+	public function retrieveRouter(): ?Router {
+		return $this->rotrObject;
 	}
 
     /**
@@ -309,9 +309,9 @@ class Loader{
 	 *
 	 * @return Array The 'auths' config block, or ['needed' => false] if none is set.
 	 */
-    function setAccess(): Array {
-		$axsConf = $this->getRegKey('auths');
-		return is_array($axsConf) ? $axsConf : Array('needed'=>false);
+    function setAccessArray(): Array {
+		$accConf = $this->getRegistryKey('auths');
+		return is_array($accConf) ? $accConf : Array('needed'=>false);
 	}
 
 	/**
@@ -322,16 +322,16 @@ class Loader{
 	 *
 	 * @return Array Log settings: 'path', 'mode', 'size', 'rota', 'pref'.
 	 */
-	function logConfig(): Array {
+	function logConfigArray(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
-		$fldName = trim( strval($sysConf['LOG_PATH'] ?? ''), '/\\ ' );
+		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$fldName = trim( strval($iniConf['LOG_PATH'] ?? ''), '/\\ ' );
 		return Array(
 			'path' => TOP_DIR.DS.($fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'logs'),
-			'mode' => $sysConf['LOG_MODE'] ?? 'FULL',
-			'size' => $sysConf['LOG_SIZE'] ?? 0,
-			'rota' => $sysConf['LOG_ROTA'] ?? 'NUMBER',
-			'pref' => $sysConf['LOG_PREF'] ?? 'Y-m-d H:i',
+			'mode' => $iniConf['LOG_MODE'] ?? 'FULL',
+			'size' => $iniConf['LOG_SIZE'] ?? 0,
+			'rota' => $iniConf['LOG_ROTA'] ?? 'NUMBER',
+			'pref' => $iniConf['LOG_PREF'] ?? 'Y-m-d H:i',
 		);
 	}
 
@@ -341,12 +341,12 @@ class Loader{
 	 *
 	 * @return Array Sound settings: 'tool' ('' when the server has none), 'time' in seconds.
 	 */
-	function sndConfig(): Array {
+	function sndConfigArray(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
 		return Array(
-			'tool' => strval($sysConf['SND_TOOL'] ?? ''),
-			'time' => intval($sysConf['SND_TIME'] ?? 60),
+			'tool' => strval($iniConf['SND_TOOL'] ?? ''),
+			'time' => intval($iniConf['SND_TIME'] ?? 60),
 		);
 	}
 
@@ -357,14 +357,14 @@ class Loader{
 	 *
 	 * @return Array Proxy settings: 'list' of addresses or CIDR ranges (empty when no proxy is trusted), 'head' name of the header giving the address, 'schm' name of the one giving the scheme.
 	 */
-	function proxyConf(): Array {
+	function proxySetupConf(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
-		$prxList = array_filter( array_map('trim', explode(',', strval($sysConf['PRX_LIST'] ?? ''))), 'strlen' );
+		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$prxList = array_filter( array_map('trim', explode(',', strval($iniConf['PRX_LIST'] ?? ''))), 'strlen' );
 		return Array(
 			'list' => array_values($prxList),
-			'head' => strval($sysConf['PRX_HEAD'] ?? '') ?: 'X-Forwarded-For',
-			'schm' => strval($sysConf['PRX_SCHM'] ?? '') ?: 'X-Forwarded-Proto',
+			'head' => strval($iniConf['PRX_HEAD'] ?? '') ?: 'X-Forwarded-For',
+			'schm' => strval($iniConf['PRX_SCHM'] ?? '') ?: 'X-Forwarded-Proto',
 		);
 	}
 
@@ -374,12 +374,12 @@ class Loader{
 	 *
 	 * @return Array Body limits: 'size' in KB (REQ_SIZE, 8192 when not set) and 'part' as a number of parts (REQ_PART, 200 when not set); 0 for no limit.
 	 */
-	function reqConfig(): Array {
+	function rqstConfigList(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
 		return Array(
-			'size' => max( 0, intval($sysConf['REQ_SIZE'] ?? 8192) ),
-			'part' => max( 0, intval($sysConf['REQ_PART'] ?? 200) ),
+			'size' => max( 0, intval($iniConf['REQ_SIZE'] ?? 8192) ),
+			'part' => max( 0, intval($iniConf['REQ_PART'] ?? 200) ),
 		);
 	}
 
@@ -395,31 +395,31 @@ class Loader{
 	 *
 	 * @throws \RuntimeException When the value holds what is not an error level.
 	 */
-	function errConfig(): Int {
+	function errorConfigNum(): Int {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$sysConf = $nyuConf ? ($nyuConf->readValue('system') ?: Array()) : Array();
-		$lvlText = trim( strval($sysConf['ERR_LEVL'] ?? '') );
+		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$lvlText = trim( strval($iniConf['ERR_LEVL'] ?? '') );
 		if( $lvlText=='' ){
 			return E_ALL;
 		}
 		if( preg_match('/^\d+$/D', $lvlText) ){
 			return intval($lvlText) & E_ALL;
 		}
-		$errLevl = 0;
-		foreach( explode('|', $lvlText) as $orsPrt ){
-			$andLevl = -1;
-			foreach( explode('&', $orsPrt) as $andPrt ){
-				$nameTxt = trim($andPrt);
+		$errrLvl = 0;
+		foreach( explode('|', $lvlText) as $orTerm ){
+			$andMask = -1;
+			foreach( explode('&', $orTerm) as $factor ){
+				$nameTxt = trim($factor);
 				$isNegtd = (strpos($nameTxt, '~')===0);
 				$nameTxt = trim( ltrim($nameTxt, '~') );
 				if( !preg_match('/^E_[A-Z_]+$/D', $nameTxt) || !defined($nameTxt) || !is_int(constant($nameTxt)) ){
 					throw new \RuntimeException('ERR_LEVL holds what is not an error level: '.($nameTxt!='' ? $nameTxt : $lvlText));
 				}
-				$andLevl = $andLevl & ( $isNegtd ? ~constant($nameTxt) : constant($nameTxt) );
+				$andMask = $andMask & ( $isNegtd ? ~constant($nameTxt) : constant($nameTxt) );
 			}
-			$errLevl = $errLevl | $andLevl;
+			$errrLvl = $errrLvl | $andMask;
 		}
-		return $errLevl & E_ALL;
+		return $errrLvl & E_ALL;
 	}
 
     /**
@@ -428,10 +428,10 @@ class Loader{
 	 *
 	 * @return Response The configured response object.
 	 */
-    function setOutput(): Response {
+    function saveOutputResp(): Response {
 		// Define the output format
 		// and response template
-		$outConf = $this->getRegKey('rnder');
+		$outConf = $this->getRegistryKey('rnder');
 
 		$respObj = new Response($outConf);
 		return $respObj;

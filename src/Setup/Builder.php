@@ -15,7 +15,7 @@ use \nyu\Output\Response;
  */
 class Builder{
 
-	protected $containr;
+	protected $diceObject;
 
 	/**
 	* Instanciates the dependency injection container
@@ -23,36 +23,36 @@ class Builder{
 	*/
     public function __construct( ){
 		$diceCon = new Dice();
-		$this->containr = $diceCon;
+		$this->diceObject = $diceCon;
 	}
 
 	/**
 	* Defines rules for a shared rule object
 	*
-	* @param String $rulesIndex Name of the class the rule is for.
-	* @param Array  $initParams Constructor parameters of the shared object, if any.
+	* @param String $rulesIndxTxt Name of the class the rule is for.
+	* @param Array  $initParamtrs Constructor parameters of the shared object, if any.
 	*/
-    protected function shareRule(String $rulesIndex, Array $initParams = Array()): Void {
-		$shrVals['shared'] = true;
-		if(!empty($initParams)){
-			$shrVals['constructParams'] = $initParams;
+    protected function shareSetupRule(String $rulesIndxTxt, Array $initParamtrs = Array()): Void {
+		$shrtVls['shared'] = true;
+		if(!empty($initParamtrs)){
+			$shrtVls['constructParams'] = $initParamtrs;
 		}
-		$this->containr = $this->containr->addRule( $rulesIndex, $shrVals );
+		$this->diceObject = $this->diceObject->addRule( $rulesIndxTxt, $shrtVls );
 	}
 
 	/**
 	* Creates and return an object
 	*
-	* @param String $objectName Name of the class to create.
-	* @param ?Array $shareParms Constructor parameters that make the object a shared one, null for a plain object.
-	* @param Array  $constrArgs Arguments passed to the constructor.
+	* @param String $setupObjName Name of the class to create.
+	* @param ?Array $sharedParams Constructor parameters that make the object a shared one, null for a plain object.
+	* @param Array  $cnstrArgmnts Arguments passed to the constructor.
 	* @return Object The created object.
 	*/
-    public function makeObjct(String $objectName, ?Array $shareParms=null, Array $constrArgs=Array() ): Object {
-		if($shareParms!==null){
-			$this->shareRule($objectName, $shareParms);
+    public function generateObject(String $setupObjName, ?Array $sharedParams=null, Array $cnstrArgmnts=Array() ): Object {
+		if($sharedParams!==null){
+			$this->shareSetupRule($setupObjName, $sharedParams);
 		}
-		$rsltObj = $this->containr->create($objectName, $constrArgs);
+		$rsltObj = $this->diceObject->create($setupObjName, $cnstrArgmnts);
 		return $rsltObj;
 	}
 }

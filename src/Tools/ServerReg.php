@@ -14,18 +14,18 @@ class ServerReg extends Registry{
 	 * extra values, then unsets the $_SERVER superglobal so it's no
 	 * longer accessed directly elsewhere.
 	 *
-	 * @param Array $valueArray Extra values to merge over $_SERVER.
-	 * @param Bool  $lowCaseKey Whether to store keys in lowercase instead of uppercase.
+	 * @param Array $fieldValList Extra values to merge over $_SERVER.
+	 * @param Bool  $lowerCaseKey Whether to store keys in lowercase instead of uppercase.
 	 */
-	function __construct( Array $valueArray = Array(), Bool $lowCaseKey = true ){
-		if(!empty($valueArray)){
-			$valueArray = array_merge($_SERVER, $valueArray);
+	function __construct( Array $fieldValList = Array(), Bool $lowerCaseKey = true ){
+		if(!empty($fieldValList)){
+			$fieldValList = array_merge($_SERVER, $fieldValList);
 		}else{
-			$valueArray = $_SERVER;
+			$fieldValList = $_SERVER;
 		}
 		unset($_SERVER);
-		if(is_array($valueArray) && !empty($valueArray)){
-			parent::__construct( $valueArray, $lowCaseKey );
+		if(is_array($fieldValList) && !empty($fieldValList)){
+			parent::__construct( $fieldValList, $lowerCaseKey );
 		}
 	}
 }
