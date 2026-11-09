@@ -12,6 +12,9 @@ namespace nyu\Shell;
  */
 class ConfFile{
 
+	// Copies kept of each file in the backup folder : the older ones are removed, with the secrets they hold
+	const KEEPCOPY = 5;
+
 	protected $backFldr;
 	// The copy kept of each file written, by its path; empty for a file that did not exist
 	protected $copyList = Array();
@@ -28,25 +31,32 @@ class ConfFile{
 	/**
 	 * Writes a file as a whole: a reader sees the former content or the
 	 * new one, never a part of it. The file replaced is copied to the
-	 * backup folder first, and its permissions are kept. A file of the
-	 * project's conf folder written removes the config cache (ConfCache):
-	 * the next request reads the files.
+	 * backup folder first, and its permissions are kept. The content is
+	 * written readable by its owner only, and given its rights before it
+	 * takes the place of the file: a secret is never readable by others,
+	 * even for a moment. A file of the project's conf folder written
+	 * removes the config cache (ConfCache): the next request reads the files.
 	 *
 	 * @param String $filePathNm Full path of the file.
 	 * @param String $newContent Its new content.
+	 * @param ?Int   $rightsMode Rights of a file that does not exist yet (0600 for a secret); those the umask gives when null.
 	 *
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
-	public function writeFile( String $filePathNm, String $newContent ): Void {
+	public function writeFile( String $filePathNm, String $newContent, ?Int $rightsMode=null ): Void {
 		$wasFile = is_file($filePathNm);
 		$this->copyList[$filePathNm] = $wasFile ? $this->keepsCopy($filePathNm) : '';
 		$tempPth = $filePathNm.'.tmp'.getmypid();
-		if( @file_put_contents($tempPth, $newContent, LOCK_EX)===false ){
+		$prevMsk = umask(0077);
+		try{
+			$isWrtn = @file_put_contents($tempPth, $newContent, LOCK_EX);
+		}finally{
+			umask($prevMsk);
+		}
+		if( $isWrtn===false ){
 			throw new \RuntimeException('File not written: '.basename($filePathNm).' cannot be written in its folder');
 		}
-		if( $wasFile ){
-			@chmod($tempPth, fileperms($filePathNm) & 0777);
-		}
+		@chmod( $tempPth, $wasFile ? (fileperms($filePathNm) & 0777) : ($rightsMode ?? (0666 & ~$prevMsk)) );
 		// On Windows a file being read cannot be replaced : tried again for a moment
 		for( $idx=0; $idx<10; $idx++ ){
 			if( @rename($tempPth, $filePathNm) ){
@@ -82,16 +92,54 @@ class ConfFile{
 			@mkdir($this->backFldr, 0700, true);
 		}
 		$copyPth = $this->backFldr.DIRECTORY_SEPARATOR.ltrim(basename($filePathNm), '.').'.'.date('Ymd-His');
-		$copyNum = 1;
-		$fullPth = $copyPth;
+		// Numbered after the last copy of the same second: a name freed by pruneBack is never taken again, so the newest copy sorts last
+		$copyNum = 0;
+		foreach( (array)scandir($this->backFldr) as $oneNme ){
+			if( preg_match('/^'.preg_quote(basename($copyPth), '/').'(?:-(\d+))?$/D', strval($oneNme), $namePrt) ){
+				$copyNum = max($copyNum, intval($namePrt[1] ?? 1));
+			}
+		}
+		$fullPth = ($copyNum==0) ? $copyPth : $copyPth.'-'.($copyNum + 1);
 		while( file_exists($fullPth) ){
 			$copyNum++;
-			$fullPth = $copyPth.'-'.$copyNum;
+			$fullPth = $copyPth.'-'.($copyNum + 1);
 		}
-		if( !@copy($filePathNm, $fullPth) ){
+		// The copy holds what the file holds : readable by its owner only, from its first byte
+		$prevMsk = umask(0077);
+		try{
+			$isCopyd = @copy($filePathNm, $fullPth);
+		}finally{
+			umask($prevMsk);
+		}
+		if( !$isCopyd ){
 			throw new \RuntimeException('File not written: '.basename($filePathNm).' cannot be copied to the backup folder first');
 		}
+		@chmod($fullPth, 0600);
+		$this->pruneBack($filePathNm);
 		return $fullPth;
+	}
+
+	/**
+	 * Removes the oldest copies of a file from the backup folder, keeping
+	 * the KEEPCOPY newest: a secret rotated away does not stay there. The
+	 * copies are found by their exact name, the file's followed by the time
+	 * of the copy, so that those of another file sharing its first letters
+	 * are left alone.
+	 *
+	 * @param String $filePathNm Full path of the file.
+	 */
+	protected function pruneBack( String $filePathNm ): Void {
+		$baseNme = ltrim(basename($filePathNm), '.');
+		$copyLst = Array();
+		foreach( (array)scandir($this->backFldr) as $oneNme ){
+			if( preg_match('/^'.preg_quote($baseNme, '/').'\.(\d{8}-\d{6})(?:-(\d+))?$/D', strval($oneNme), $namePrt) ){
+				$copyLst[strval($oneNme)] = $namePrt[1].'-'.str_pad(strval($namePrt[2] ?? '1'), 6, '0', STR_PAD_LEFT);
+			}
+		}
+		asort($copyLst);
+		foreach( array_slice(array_keys($copyLst), 0, max(0, count($copyLst) - self::KEEPCOPY)) as $oldNme ){
+			@unlink($this->backFldr.DIRECTORY_SEPARATOR.$oldNme);
+		}
 	}
 
 	/**
@@ -192,10 +240,7 @@ class ConfFile{
 			$lineEnd = (strpos($fileTxt, "\r\n")!==false) ? "\r\n" : "\n";
 			$newText = $fileTxt.( ($fileTxt!='' && substr($fileTxt, -1)!="\n") ? $lineEnd : '' ).$envKeyName.'='.$newEnvValu.$lineEnd;
 		}
-		$this->writeFile($filePathNm, strval($newText));
-		if( !$wasFile ){
-			@chmod($filePathNm, 0600);
-		}
+		$this->writeFile($filePathNm, strval($newText), 0600);
 	}
 
 	/**

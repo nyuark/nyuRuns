@@ -245,7 +245,7 @@ class UserBase extends Native{
 		}
 		$langVal = $this->checkLang($langTagStr);
 		// One write decides : a code cannot be used twice, even by two requests at once
-		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}=CASE WHEN {signDate} IS NULL THEN 'active' ELSE 'review' END,"
+		$updQury = "UPDATE {usrTable} SET {passHash}=?, {passDate}='".date('Y-m-d H:i:s')."', {userStat}=CASE WHEN {signDate} IS NULL THEN 'active' ELSE 'review' END,"
 			." {userLang}=CASE WHEN {userLang} IS NULL OR {userLang}='' THEN ? ELSE {userLang} END,"
 			." {actvCode}=NULL, {codeDate}=NULL, {failNmbr}=0, {failDate}=NULL"
 			." WHERE {userName}=? AND {userStat}='pendng' AND {actvCode} IN (?, ?) AND ({codeDate} IS NULL OR {codeDate}>=?);";
@@ -347,7 +347,7 @@ class UserBase extends Native{
 		if( $ruleMsg!='' ){
 			return $this->refuseFor(400, $ruleMsg);
 		}
-		$updQury = "UPDATE {usrTable} SET {passHash}=?, {resetCod}=NULL, {codeDate}=NULL, {failNmbr}=0, {failDate}=NULL"
+		$updQury = "UPDATE {usrTable} SET {passHash}=?, {passDate}='".date('Y-m-d H:i:s')."', {tokenKey}=NULL, {resetCod}=NULL, {codeDate}=NULL, {failNmbr}=0, {failDate}=NULL"
 			." WHERE {userName}=? AND {userStat}='active' AND {resetCod} IN (?, ?) AND {codeDate}>=?;";
 		$rowNmbr = $this->sendWrite( $updQury, array_merge(Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString), $this->codeHashs($codeString), Array(date('Y-m-d H:i:s'))) );
 		if( $rowNmbr<0 ){
@@ -590,7 +590,7 @@ class UserBase extends Native{
 			return $this->refuseFor(409, 'The last active manager cannot be reset');
 		}
 		$newCode = $this->freshCode();
-		$updQury = "UPDATE {usrTable} SET {passHash}=?, {userStat}='pendng', {actvCode}=?, {resetCod}=NULL, {codeDate}=?, {tokenKey}=NULL, {failNmbr}=0, {failDate}=NULL"
+		$updQury = "UPDATE {usrTable} SET {passHash}=?, {passDate}='".date('Y-m-d H:i:s')."', {userStat}='pendng', {actvCode}=?, {resetCod}=NULL, {codeDate}=?, {tokenKey}=NULL, {failNmbr}=0, {failDate}=NULL"
 			." WHERE {userName}=? AND {userStat}<>'locked';";
 		if( $this->sendWrite($updQury, Array(self::VOIDHASH, $this->codeHashs($newCode)[0], $this->endOfCode($codeMinute), $userString))<1 ){
 			return $this->refuseFor(500, 'User cannot be written');

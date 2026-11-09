@@ -30,9 +30,9 @@ class Image {
 	// The longer side given to a drawing that tells no size, in pixels
 	const DFLTSIDE = 512;
 	// The elements taken out of a drawing: what runs, and what holds a document of another kind
-	const DROPLIST = Array('script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'handler', 'listener', 'set');
+	const DROPLIST = Array('script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'handler', 'listener', 'set', 'form', 'input', 'button', 'meta');
 	// What makes a style, or a value, reach outside the drawing or run
-	const RISKPATT = '/@import|expression\s*\(|behavior\s*:|-moz-binding|j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:|url\s*\(\s*(?!["\']?\s*#)/i';
+	const RISKPATT = '/@import|expression\s*\(|behavior\s*:|-moz-binding|j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:|url\s*\(\s*(?!["\']?\s*#)|image-set\s*\(/i';
 
 	protected $rawBytes;
 	protected $infoList;
@@ -193,7 +193,7 @@ class Image {
 			$elemNme = strtolower(strval($oneElm->localName));
 			$animAtr = strtolower($oneElm->getAttribute('attributeName'));
 			// What runs, what holds another document, a style reaching outside, and what would write an address or a script later on
-			if( in_array($elemNme, self::DROPLIST) || ($elemNme=='style' && preg_match(self::RISKPATT, $oneElm->textContent)) || ($animAtr!=='' && preg_match('/^on|href$/', $animAtr)) ){
+			if( in_array($elemNme, self::DROPLIST) || ($elemNme=='style' && preg_match(self::RISKPATT, self::onlyStyle($oneElm->textContent))) || ($animAtr!=='' && preg_match('/^on|href$/', $animAtr)) ){
 				$dropLst[] = $oneElm;
 				continue;
 			}
@@ -204,7 +204,11 @@ class Image {
 			foreach($attrLst as $oneAtr){
 				$attrNme = strtolower(strval($oneAtr->localName));
 				$attrVal = trim($oneAtr->value);
-				$dropAtr = (strncmp($attrNme, 'on', 2)===0 || preg_match(self::RISKPATT, $attrVal)===1);
+				$dropAtr = (strncmp($attrNme, 'on', 2)===0 || preg_match(self::RISKPATT, self::onlyStyle($attrVal))===1);
+				// What a form or a ping would send elsewhere : kept only when it points inside the drawing
+				if( !$dropAtr && in_array($attrNme, Array('action', 'formaction', 'ping'), true) ){
+					$dropAtr = (strncmp($attrVal, '#', 1)!==0);
+				}
 				if( !$dropAtr && ($attrNme=='href' || $attrNme=='src') ){
 					// An address stays inside the drawing; a link may lead to a page, a picture may be written in place
 					$dropAtr = !(strncmp($attrVal, '#', 1)===0 || ($elemNme=='a' && Shape::cleanLink($attrVal)!=='') || ($elemNme=='image' && preg_match('/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=\s]+$/D', $attrVal)));
@@ -224,6 +228,27 @@ class Image {
 		return strval($domDocu->saveXML());
 	}
 	
+	/**
+	 * Gives a style as a browser reads it, for RISKPATT to be matched on:
+	 * its comments removed, and its escapes decoded (a backslash followed
+	 * by 1 to 6 hexadecimal digits and one optional space, or by any other
+	 * character), so that 'u\72l(' is read as 'url('.
+	 *
+	 * @param String $styleTexts The style, or the value of an attribute.
+	 * @return String The style, plain.
+	 */
+	protected static function onlyStyle( String $styleTexts ): String {
+		$cssText = strval( preg_replace('#/\*.*?(\*/|$)#s', '', $styleTexts) );
+		return strval( preg_replace_callback('/\\\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))/su', function( Array $escapePart ): String {
+			if( ($escapePart[1] ?? '')!=='' ){
+				// Written as an entity and decoded : no need of mbstring
+				$codePnt = intval(hexdec($escapePart[1]));
+				return ($codePnt>0 && $codePnt<=0x10FFFF) ? html_entity_decode('&#'.$codePnt.';', ENT_QUOTES | ENT_HTML5, 'UTF-8') : "\u{FFFD}";
+			}
+			return strval($escapePart[2] ?? '');
+		}, $cssText) );
+	}
+
 	/**
 	 * Keeps, of what a camera recorded, what is worth telling.
 	 *

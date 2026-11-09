@@ -1,0 +1,8 @@
+Votre inscription : choisissez un autre nom
+Bonjour,
+
+Quelqu'un (vous, on l'espère) a demandé à s'inscrire sous le nom %user%
+avec cette adresse. Ce nom n'est pas disponible : inscrivez-vous à nouveau
+avec un autre.
+
+Si vous ne vous êtes pas inscrit, ignorez ce message : rien n'a changé.

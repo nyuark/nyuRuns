@@ -67,6 +67,11 @@ function initError(): Void
  */
 function hndlError( Int|String $errorLevel, String $errMessage, ?String $errFilePth=null, ?Int $errLineNum=null, Mixed $errContext=null ): Bool
 {
+    // What the error level leaves out (ERR_LEVL), or the @ operator silences, is neither shown nor logged; an exception (E_EXCEPTION) always is
+    if( is_int($errorLevel) && !(error_reporting() & $errorLevel) )
+    {
+        return true;
+    }
     if( isset($GLOBALS['ErrorHandler']))
     {
         //  Pass errors up to the global ErrorHandler to be later inserted into

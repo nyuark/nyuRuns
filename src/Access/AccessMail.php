@@ -12,7 +12,7 @@ use nyu\Tools\Logger;
  * Sends the mails of the access flows: the code that activates an account
  * ('actvte'), confirms a sign-up ('signup') or sets a new password
  * ('pwdset'), the code of a login as a second factor ('lgcode'), the
- * notice that a sign-up asked for a name or an address
+ * notice that a sign-up asked for a name ('nmused') or an address
  * already taken ('taken'), and the warning to the managers that sign-ups
  * are piling up ('onhold', with %count% and %limit%).
  *
@@ -43,8 +43,10 @@ class AccessMail {
 
 	// The mails a code is sent with; the code of a login ('lgcode') is typed where it was asked, without a link
 	const KINDLIST = Array('actvte', 'signup', 'pwdset', 'lgcode');
-	// The mail of a sign-up that asked for a name or an address taken
+	// The mail of a sign-up that asked for an address taken, sent to its owner
 	const TAKENNME = 'taken';
+	// The mail of a sign-up that asked for a name taken, with an address of no account
+	const NAMEDNME = 'nmused';
 	// The mail telling the managers that sign-ups are piling up
 	const WATCHNME = 'onhold';
 
@@ -134,8 +136,22 @@ class AccessMail {
 	}
 
 	/**
-	 * Tells an address that a sign-up asked for a name, or the address,
-	 * already taken.
+	 * Tells the address a sign-up gave that the name it asked for is not
+	 * available: the address is the one of no account, so nothing is told
+	 * about any account but the name.
+	 *
+	 * @param String  $mailString The address given with the sign-up.
+	 * @param String  $userString The name asked for.
+	 * @param ?String $langTagStr The language of the request; the default one when not given.
+	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
+	 */
+	public function sendNamed( String $mailString, String $userString, ?String $langTagStr=null ): Bool {
+		return $this->sendsMail( self::NAMEDNME, $mailString, Array('user'=>$userString, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeMins)), $langTagStr );
+	}
+
+	/**
+	 * Tells the owner of an address that a sign-up asked for it, the
+	 * address being the one of its account already.
 	 *
 	 * @param String $mailString The address given with the sign-up.
 	 * @param String  $userString The name asked for.

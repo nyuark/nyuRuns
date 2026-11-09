@@ -188,6 +188,9 @@ putInProj($projDir, 'conf/system.ini', sampleIni("LNG_DFLT = french\n"));
 checkSame('a default language that is not a tag fails the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['mail language'] ?? null, 'fail');
 putInProj($projDir, 'conf/system.ini', sampleIni());
 
+// The rights of the secret files : not read on Windows, which is told
+checkSame('the rights not checked on Windows are told once; elsewhere, no such row', array_count_values(array_column(jsonShell($projDir, Array('deploy', 'check'))['rows'] ?? Array(), 'check'))['file rights'] ?? 0, (DS=='\\') ? 1 : 0);
+
 // The entry points : the preset each one starts, open or not, open by intent or not
 $projDir = freshPrjt('entries');
 jsonShell($projDir, Array('deploy', 'files'));

@@ -1,9 +1,10 @@
 -- Users table, from 0.9 to 1.0, MySQL 5.7 or later, MariaDB 10.5 or later.
 -- For a users table made by conf/schema/users.mysql.sql of 0.9: it adds the
 -- columns of the access mails (userMail, userLang, resetCod, codeDate, signDate), those of
--- the codes mailed as a second factor (twoFaWay, mailCode, mailDate) and the status 'review'
--- of a self-registration awaiting a manager. A table already moved to 1.0 before the mailed
--- codes (an early copy of 1.0) only needs the three lines of twoFaWay, mailCode and mailDate.
+-- the codes mailed as a second factor (twoFaWay, mailCode, mailDate), the time of the last
+-- password (passDate) and the status 'review' of a self-registration awaiting a manager. A
+-- table already moved to 1.0 before them (an early copy of 1.0) only needs the lines of
+-- passDate, twoFaWay, mailCode and mailDate, and the check of twoFaWay.
 --
 -- First a backup of the table:
 --   mysqldump -u <user> -p <database> users > users-0.9.sql
@@ -17,6 +18,7 @@
 -- 1. The new columns, and one account for each address. No row is changed.
 
 ALTER TABLE `users`
+	ADD COLUMN `passDate` DATETIME     NULL AFTER `passHash`,
 	ADD COLUMN `userMail` VARCHAR(254) NULL AFTER `userStat`,
 	ADD COLUMN `userLang` VARCHAR(16)  NULL AFTER `userMail`,
 	ADD COLUMN `resetCod` VARCHAR(64)  NULL AFTER `actvCode`,
@@ -57,4 +59,5 @@ ALTER TABLE `users`
 -- 	DROP CHECK `twoFaWay`,
 -- 	DROP COLUMN `twoFaWay`,
 -- 	DROP COLUMN `mailCode`,
--- 	DROP COLUMN `mailDate`;
+-- 	DROP COLUMN `mailDate`,
+-- 	DROP COLUMN `passDate`;

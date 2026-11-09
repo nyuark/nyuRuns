@@ -139,7 +139,7 @@ checkSame('password: the new one logs in, the former does not', Array($natAuth->
 $sqlLink->exec("UPDATE users SET failNmbr=0, failDate=NULL");
 $sqlLink->exec("UPDATE users SET tokenKey='tk', twoFaKey='2f' WHERE userName='ben'");
 $usrBase->chgPasswd('ben', 'pass-ben-22', 'pass-ben-1');
-checkSame('password: token and 2FA secret are left as they are', Array(fieldOf($sqlLink, 'ben', 'tokenKey'), fieldOf($sqlLink, 'ben', 'twoFaKey')), Array('tk', '2f'));
+checkSame('password: the personal token is taken away, the 2FA secret kept', Array(fieldOf($sqlLink, 'ben', 'tokenKey'), fieldOf($sqlLink, 'ben', 'twoFaKey')), Array(null, '2f'));
 $sqlLink->exec("UPDATE users SET tokenKey=NULL, twoFaKey=NULL WHERE userName='ben'");
 checkSame('password: a locked user', operates($usrBase, 'chgPasswd', Array('dave', 'pass-dave-1', 'pass-dave-2')), Array(false, 401, 'Account not active'));
 checkSame('password: a pending user', operates($usrBase, 'chgPasswd', Array('cleo', 'pass-cleo-1', 'pass-cleo-2')), Array(false, 401, 'Account not active'));
@@ -357,7 +357,7 @@ checkSame('reset: a new password breaking a rule', operates($usrBase, 'recovUser
 checkSame('reset: the code of another user', operates($usrBase, 'recovUser', Array('ivan', strval($scndRst['code'] ?? ''), 'pass-ivan-44')), Array(false, 401, 'Invalid code'));
 $sqlLink->exec("UPDATE users SET failNmbr=5, failDate='".date('Y-m-d H:i:s')."', tokenKey='tk', twoFaKey='2f' WHERE userName='ben'");
 checkSame('reset: done with the code', operates($usrBase, 'recovUser', Array('ben', strval($scndRst['code'] ?? ''), 'pass-ben-44')), Array(true, 200, ''));
-checkSame('reset: the new password, the code cleared, the failures forgotten, token and secret kept', Array(password_verify('pass-ben-44', strval(fieldOf($sqlLink, 'ben', 'passHash'))), fieldOf($sqlLink, 'ben', 'resetCod'), fieldOf($sqlLink, 'ben', 'codeDate'), intval(fieldOf($sqlLink, 'ben', 'failNmbr')), fieldOf($sqlLink, 'ben', 'tokenKey'), fieldOf($sqlLink, 'ben', 'twoFaKey')), Array(true, null, null, 0, 'tk', '2f'));
+checkSame('reset: the new password, the code cleared, the failures forgotten, the token taken away, the secret kept', Array(password_verify('pass-ben-44', strval(fieldOf($sqlLink, 'ben', 'passHash'))), fieldOf($sqlLink, 'ben', 'resetCod'), fieldOf($sqlLink, 'ben', 'codeDate'), intval(fieldOf($sqlLink, 'ben', 'failNmbr')), fieldOf($sqlLink, 'ben', 'tokenKey'), fieldOf($sqlLink, 'ben', 'twoFaKey')), Array(true, null, null, 0, null, '2f'));
 $sqlLink->exec("UPDATE users SET tokenKey=NULL, twoFaKey=NULL WHERE userName='ben'");
 checkSame('reset: the code is used once', operates($usrBase, 'recovUser', Array('ben', strval($scndRst['code'] ?? ''), 'pass-ben-55')), Array(false, 401, 'Invalid code'));
 $thrdRst = $usrBase->resetPass('ben');

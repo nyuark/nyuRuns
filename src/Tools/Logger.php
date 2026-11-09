@@ -189,8 +189,11 @@ class Logger{
 		if( $lvlRank!==false && $lvlRank>=(self::MODELIST[$this->logsMode] ?? count(self::LEVLLIST)) ){
 			return;
 		}
-		// A line break in a message would start an entry nobody wrote
-		$logMessage = strtr( $logMessage, Array("\r"=>'\\r', "\n"=>'\\n') );
+		// A line break in a message would start an entry nobody wrote : every control character and the Unicode line breaks are written escaped, read as bytes
+		$logMessage = strval( preg_replace_callback('/[\x00-\x1F\x7F]|\xC2\x85|\xE2\x80[\xA8\xA9]/', function( Array $matchedArr ): String {
+			$escList = Array("\r"=>'\\r', "\n"=>'\\n', "\t"=>'\\t', "\xC2\x85"=>'\\u0085', "\xE2\x80\xA8"=>'\\u2028', "\xE2\x80\xA9"=>'\\u2029');
+			return $escList[$matchedArr[0]] ?? sprintf('\\x%02X', ord($matchedArr[0]));
+		}, $logMessage) );
 		if( $this->logsMode=='MINI' ){
 			$logLine = date($this->logsPref).' '.$logMessage;
 		}else{

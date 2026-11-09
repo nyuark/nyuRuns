@@ -1,7 +1,8 @@
 -- Users table, from 0.9 to 1.0, SQLite.
 -- For a users table made by conf/schema/users.sqlte.sql of 0.9: it adds the
 -- columns of the access mails (userMail, userLang, resetCod, codeDate, signDate), those of
--- the codes mailed as a second factor (twoFaWay, mailCode, mailDate) and the status 'review'
+-- the codes mailed as a second factor (twoFaWay, mailCode, mailDate), the time of the last
+-- password (passDate) and the status 'review'
 -- of a self-registration awaiting a manager.
 --
 -- SQLite cannot change a CHECK constraint: the table is made again, as
@@ -22,6 +23,7 @@ CREATE TABLE `users_1_0` (
 	`id_user`  INTEGER PRIMARY KEY,
 	`userName` TEXT    NOT NULL,
 	`passHash` TEXT    NOT NULL,
+	`passDate` TEXT    NULL,
 	`userRole` TEXT    NOT NULL DEFAULT 'member',
 	`userStat` TEXT    NOT NULL DEFAULT 'pendng',
 	`userMail` TEXT    NULL,
@@ -60,9 +62,10 @@ COMMIT;
 PRAGMA foreign_keys = ON;
 
 
--- A table already moved to 1.0 before the mailed codes (an early copy of 1.0)
--- only needs their columns, without the check of twoFaWay, which SQLite cannot add:
+-- A table already moved to 1.0 before the mailed codes and the time of the last password
+-- (an early copy of 1.0) only needs their columns, without the check of twoFaWay, which SQLite cannot add:
 --
 -- ALTER TABLE `users` ADD COLUMN `twoFaWay` TEXT NULL;
 -- ALTER TABLE `users` ADD COLUMN `mailCode` TEXT NULL;
 -- ALTER TABLE `users` ADD COLUMN `mailDate` TEXT NULL;
+-- ALTER TABLE `users` ADD COLUMN `passDate` TEXT NULL;

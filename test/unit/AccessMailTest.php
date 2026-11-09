@@ -106,6 +106,13 @@ $mailTxt = readMail(takeMails()[0] ?? '');
 checkSame('no lnkurl: the code, neither a link nor its sentence', Array(strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'open this link'), strpos($mailTxt, 'https://')), Array(true, false, false));
 checkLike('no lnkurl: the default minutes of a mailed code', readMail(strval((new AccessMail(Array('mailer'=>'devbox')))->sendCodes('pwdset', 'a', 'a@example.ch', 'C') ? (takeMails()[0] ?? '') : '')), '/within 15 minutes/');
 
+// A name taken, told to an address of no account
+$accMail = new AccessMail($natConf);
+checkSame('sendNamed: sent', $accMail->sendNamed('new@example.ch', 'ann'), true);
+$mailTxt = readMail(takeMails()[0] ?? '');
+checkSame('sendNamed: to the address, the name asked for, nothing of an account', Array(preg_match('/\r\nTo: new@example\.ch\r\nSubject: Your sign-up: choose another name\r\n/', $mailTxt), strpos($mailTxt, 'as ann with')!==false, stripos($mailTxt, 'account')), Array(1, true, false));
+checkLike('sendNamed: in French', readMail($accMail->sendNamed('new@example.ch', 'ann', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre inscription : choisissez un autre nom\r\n/');
+
 // A name or an address taken
 $accMail = new AccessMail($natConf);
 checkSame('sendTaken: sent', $accMail->sendTaken('ann@example.ch', '<b>ann</b>'), true);

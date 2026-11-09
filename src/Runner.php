@@ -205,7 +205,7 @@ class Runner{
 			// The names are the client's own : written as JSON texts
 			$nameTxt = json_encode(strval($fleVal['name']), JSON_INVALID_UTF8_SUBSTITUTE).' as '.json_encode($lblText, JSON_INVALID_UTF8_SUBSTITUTE);
 			if( $errCode==UPLOAD_ERR_OK ){
-				$this->logStore->info( 'File received: '.$nameTxt.' ('.strval($fleVal['type'] ?? '').', '.intval($fleVal['size'] ?? 0).' bytes)'.Logger::actorText() );
+				$this->logStore->info( 'File received: '.$nameTxt.' ('.json_encode(strval($fleVal['type'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES).', '.intval($fleVal['size'] ?? 0).' bytes)'.Logger::actorText() );
 			}else{
 				$this->logStore->warning( 'File upload failed: '.$nameTxt.', error '.$errCode.Logger::actorText() );
 			}

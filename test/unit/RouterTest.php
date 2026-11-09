@@ -219,4 +219,52 @@ checkSame('error page: the one of the status, in the errors folder of the pages'
 checkSame('error page: none for a status without a page, nor without a folder of pages', Array($errRoutr->errorPage(500), madeRoutr('/nothing')->errorPage(404), madeRoutr('/nothing', 'GET', Array('htroot'=>''))->errorPage(404)), Array(null, null, null));
 checkSame('static: a file that is not found is told as a static reply', foundVals('/nofile', Array('statCode', 'rteKind')), Array(404, 'static'));
 
+// The declared routes leaving an action open to its path are named with it, for their roles to follow it
+$opnFldr = 'temp'.DS.'rtefrom_'.getmypid();
+@mkdir(TOP_DIR.DS.$opnFldr, 0775, true);
+file_put_contents(TOP_DIR.DS.$opnFldr.DS.'panel.rte', '{ "panel": { "target": { "app": "Reports", "act": "admin" } }, "board": { "target": { "app": "reports", "act": "Admin" } }, "stats": { "allows": "GET", "target": { "app": "reports", "act": "stats" } } }');
+checkSame('open paths: the routes leaving the action open, whatever the case; one closing its own is not one', Array(
+	foundVals('/reports/admin', Array('app', 'action', 'rteFrom'), 'GET', Array('folder'=>$opnFldr)),
+	foundVals('/reports/stats', Array('rteFrom'), 'GET', Array('folder'=>$opnFldr)),
+	foundVals('/panel', Array('rtePath', 'rteFrom'), 'GET', Array('folder'=>$opnFldr))
+), Array(Array('reports', 'admin', Array('panel', 'board')), Array(Array()), Array('panel', null)));
+dropFoldr(TOP_DIR.DS.$opnFldr);
+
+// A hidden file reached by its short name (Windows, 8.3 names on): the real name is checked too.
+// The site lies in the temporary folder of the system, linked into the project: the volume of the project may make no short names
+$shtFldr = 'temp'.DS.'shortnm_'.getmypid();
+@mkdir(TOP_DIR.DS.$shtFldr, 0775, true);
+$sysFldr = rtrim(sys_get_temp_dir(), '/\\').DS.'nyu_shortnm_'.getmypid();
+@mkdir($sysFldr.DS.'files', 0775, true);
+file_put_contents($sysFldr.DS.'files'.DS.'.secret.txt', 'hidden');
+file_put_contents($sysFldr.DS.'files'.DS.'shown.txt', 'shown');
+if( DS=='\\' ){
+	shell_exec('cmd /c mklink /J "'.TOP_DIR.DS.$shtFldr.DS.'site" "'.$sysFldr.'"');
+}else{
+	@symlink($sysFldr, TOP_DIR.DS.$shtFldr.DS.'site');
+}
+file_put_contents(TOP_DIR.DS.$shtFldr.DS.'short.rte', '{ "box/*": { "target": { "dir": "files" } } }');
+$shrtNme = '';
+if( DS=='\\' ){
+	foreach( (array)explode("\n", strval(shell_exec('cmd /c dir /x /a "'.$sysFldr.DS.'files"'))) as $dirLin ){
+		if( preg_match('/\s(\S+~\d\S*)\s+\.secret\.txt\s*$/i', $dirLin, $shrtPrt) ){
+			$shrtNme = $shrtPrt[1];
+		}
+	}
+}
+$shrtCnf = Array('folder'=>$shtFldr, 'htroot'=>$shtFldr.DS.'site');
+checkSame('folder route: a plain file is served', foundVals('/box/shown.txt', Array('rteKind'), 'GET', $shrtCnf), Array('static'));
+if( $shrtNme!=='' ){
+	checkSame('folder route: a hidden file asked for by its short name is the same 404', foundVals('/box/'.$shrtNme, $statKey, 'GET', $shrtCnf), $notFile);
+}else{
+	skipCheck('folder route: a hidden file asked for by its short name', 'no 8.3 short names in the temporary folder of the system');
+}
+// The link goes first, leaving what it points to; then the files themselves
+if( DS=='\\' ){
+	@rmdir(TOP_DIR.DS.$shtFldr.DS.'site');
+}else{
+	@unlink(TOP_DIR.DS.$shtFldr.DS.'site');
+}
+dropFoldr(TOP_DIR.DS.$shtFldr);
+dropFoldr($sysFldr);
 endChecks();

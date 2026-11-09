@@ -112,6 +112,10 @@ class HealthChk{
 			$isReady = is_dir($fldPth) && is_writable($fldPth);
 			$this->addResult( 'folder '.str_replace(DS, '/', ltrim(substr($fldPth, strlen(TOP_DIR)), '/\\')), $isReady ? 'fine' : 'fail', $isReady ? 'writable' : 'missing or not writable' );
 		}
+		// The rights of the secret files are read on Linux only (see chkRsakey) : on Windows they are told to be the host's to set
+		if( DS=='\\' ){
+			$this->addResult('file rights', 'warn', 'the rights of the secret files are not checked on Windows: limit conf and temp to the web server\'s account (icacls)');
+		}
 		// The descriptions of the tables are kept in the config cache only
 		$sysConf = ($nyuConf!==null) ? ($nyuConf->readValue('system') ?: Array()) : Array();
 		if( in_array(strtoupper(strval($sysConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && !in_array(strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ){

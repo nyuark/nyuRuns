@@ -353,11 +353,11 @@ nyu\Tools\Logger::plugSetup( Array() );
 nyu\Tools\Logger::plugActor('', '');
 $remLogs = file_exists(inTempDir('logs').DS.'runner.log') ? file(inTempDir('logs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array();
 checkSame('removal log: one entry per removal done or refused by the database, none for a record that is not there', $remLogs, Array(
-	'['.date('Y').'] [NOTICE] Record removed: shows #4 by user "bob" from 10.0.0.1',
-	'['.date('Y').'] [NOTICE] Record removed: shows #3, with its rows in events, items by user "bob" from 10.0.0.1',
-	'['.date('Y').'] [NOTICE] Record removed: shows #51 by user "bob" from 10.0.0.1',
-	'['.date('Y').'] [NOTICE] Record removed: shows #2 by user "bob" from 10.0.0.1',
-	'['.date('Y').'] [WARNING] Record removal failed: shows #1 by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #"4" by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #"3", with its rows in events, items by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #"51" by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [NOTICE] Record removed: shows #"2" by user "bob" from 10.0.0.1',
+	'['.date('Y').'] [WARNING] Record removal failed: shows #"1" by user "bob" from 10.0.0.1',
 ));
 
 // Connection

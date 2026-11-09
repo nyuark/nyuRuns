@@ -27,6 +27,9 @@ class Native implements Handler{
 	// Seconds before a login asking again for a mailed code is sent a new one
 	const MAILWAIT = 60;
 
+	// A bcrypt hash of nothing, made once at the cost of new hashes : what an unknown name or an account without a password is checked against
+	protected static $fakeHash = null;
+
 	protected $userBase;
 	protected $usrTable;
 	protected $idleSecs;
@@ -91,12 +94,13 @@ class Native implements Handler{
 			$this->lastMssg = 'Credential store unavailable';
 			return false;
 		}
-		if( $usrVals===null ){
-			// Unknown user : a hash is still computed, at the cost PHP gives new hashes, so the reply time does not tell which names exist
-			password_hash( $gvnPass, PASSWORD_BCRYPT );
+		$strHash = is_array($usrVals) ? strval($usrVals['passHash'] ?? '') : '';
+		if( $usrVals===null || password_get_info($strHash)['algo']===null ){
+			// Unknown user, or an account without a password yet : the same check is run, so the reply time tells neither apart from a wrong password
+			password_verify( $gvnPass, self::dummyHash() );
 			$matched = false;
 		}else{
-			$matched = password_verify( $gvnPass, strval($usrVals['passHash'] ?? '') );
+			$matched = password_verify( $gvnPass, $strHash );
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($usrVals) && $this->isHeldNow($usrVals) ){
@@ -181,7 +185,44 @@ class Native implements Handler{
 		if( intval($usrVals['failNmbr'] ?? 0)>0 ){
 			$this->clearFail( strval($usrVals['userName']) );
 		}
+		// A hash made at a lower cost than new ones is made again, now that the password is known
+		if( password_needs_rehash($strHash, PASSWORD_BCRYPT) ){
+			$this->renewHash( strval($usrVals['userName']), $gvnPass );
+		}
 		return Array('user'=>$usrVals['userName'], 'role'=>strval($usrVals['userRole'] ?? ''), 'id'=>$usrVals['id_user'] ?? null);
+	}
+
+	/**
+	 * Gives a bcrypt hash of nothing, made once per process at the cost PHP
+	 * gives new hashes: the stores check an unknown name, or an account
+	 * without a password, against it, so the reply time tells neither apart
+	 * from a wrong password.
+	 *
+	 * @return String The hash.
+	 */
+	public static function dummyHash(): String {
+		if( self::$fakeHash===null ){
+			self::$fakeHash = password_hash( bin2hex(random_bytes(16)), PASSWORD_BCRYPT );
+		}
+		return self::$fakeHash;
+	}
+
+	/**
+	 * Writes the hash of a password again, at the cost PHP gives new hashes,
+	 * after a login gave it right. Nothing else changes: it is the same
+	 * password, so the sessions and tokens issued before stay valid.
+	 *
+	 * @param String $userString Login name of the user.
+	 * @param String $passwdText The password, as given at the login.
+	 */
+	protected function renewHash( String $userString, String $passwdText ): Void {
+		try{
+			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
+			$dbHandl->sendQuery( "UPDATE {$qtdName['usrTable']} SET {$qtdName['passHash']}=? WHERE {$qtdName['userName']}=?;", true, Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString) );
+		}catch( \Throwable $e ){
+			// A hash that cannot be written again leaves the former one, which still works
+		}
 	}
 
 	/**
@@ -438,9 +479,11 @@ class Native implements Handler{
 
 	/**
 	 * Gives a user a new password, replacing any previous one, and forgets
-	 * its failed attempts. Only the bcrypt hash is stored. The status of
-	 * the user is left as it is. The password must follow the rules (see
-	 * checkPass); lastError() tells the one it breaks.
+	 * its failed attempts. Only the bcrypt hash is stored, with the time it
+	 * was set ('passDate'): the sessions and tokens issued before it are
+	 * refused (see userIdent), and the personal token is taken away. The
+	 * status of the user is left as it is. The password must follow the
+	 * rules (see checkPass); lastError() tells the one it breaks.
 	 *
 	 * @param String $userString Login name of the user.
 	 * @param String $passwdText The new password, kept as given.
@@ -458,8 +501,12 @@ class Native implements Handler{
 		try{
 			$dbHandl = $this->linkDBase();
 			$qtdName = $this->quoteFlds($dbHandl);
-			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['passHash']}=?, {$qtdName['failNmbr']}=0, {$qtdName['failDate']}=NULL WHERE {$qtdName['userName']}=?;";
-			return $dbHandl->sendQuery($updQury, true, Array(password_hash($passwdText, PASSWORD_BCRYPT), $userString)) && $dbHandl->lastCount()>0;
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['passHash']}=?, {$qtdName['passDate']}=?, {$qtdName['tokenKey']}=NULL, {$qtdName['failNmbr']}=0, {$qtdName['failDate']}=NULL WHERE {$qtdName['userName']}=?;";
+			if( !$dbHandl->sendQuery($updQury, true, Array(password_hash($passwdText, PASSWORD_BCRYPT), date('Y-m-d H:i:s'), $userString)) ){
+				\nyu\Tools\Logger::getLogger('access')->error( 'A password cannot be written: the users table cannot be written, or has no passDate column (see conf/schema)' );
+				return false;
+			}
+			return $dbHandl->lastCount()>0;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -495,12 +542,16 @@ class Native implements Handler{
 
 	/**
 	 * Reads the current identity of a user authenticated by other means
-	 * (a token), so that a lock or a role change applies at once.
+	 * (a token, a session), so that a lock or a role change applies at
+	 * once. A session or a token issued before the password was last set
+	 * ('passDate') is refused: a reset or a change ends them all, the one
+	 * that made it included.
 	 *
 	 * @param String $userString Login name of the user.
-	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false when the user is unknown, not active, or the table cannot be read.
+	 * @param ?Int   $issuedUnix Unix time the session or the token was issued at; null when there is none to compare.
+	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false when the user is unknown, not active, its password was set since, or the table cannot be read.
 	 */
-	public function userIdent( String $userString ): Array|Bool {
+	public function userIdent( String $userString, ?Int $issuedUnix=null ): Array|Bool {
 		$this->wrongCrd = false;
 		$usrVals = ($userString!='') ? $this->fetchUser($userString) : null;
 		if( $usrVals===false ){
@@ -509,6 +560,13 @@ class Native implements Handler{
 		}
 		if( $usrVals===null || ($usrVals['userStat'] ?? '')!=='active' ){
 			$this->lastMssg = 'Account not active';
+			return false;
+		}
+		// A password set since the session or the token was issued ends it
+		$pssDate = strval($usrVals['passDate'] ?? '');
+		if( $issuedUnix!==null && $pssDate!='' && strtotime($pssDate)>$issuedUnix ){
+			\nyu\Tools\Logger::getLogger('access')->info( 'Session refused for user '.json_encode($userString).': issued before its password was set' );
+			$this->lastMssg = 'Password changed: sign in again';
 			return false;
 		}
 		return Array('user'=>$usrVals['userName'], 'role'=>strval($usrVals['userRole'] ?? ''), 'id'=>$usrVals['id_user'] ?? null);
@@ -601,7 +659,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'userLang', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'twoFaWay', 'mailCode', 'mailDate', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
+		foreach( Array('id_user', 'userName', 'passHash', 'passDate', 'userRole', 'userStat', 'userMail', 'userLang', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'twoFaWay', 'mailCode', 'mailDate', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

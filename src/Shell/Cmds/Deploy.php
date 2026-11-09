@@ -520,10 +520,18 @@ class Deploy extends Command{
 				$rowList[] = Array($fleNme, 'kept');
 			}elseif( !is_file($distPth) ){
 				$rowList[] = Array($fleNme, 'not created: its example '.$dstNme.' is missing');
-			}elseif( @copy($distPth, $filePth) ){
-				if( $fleNme=='.env' ){
-					@chmod($filePth, 0600);
+			}elseif( (function() use ( $distPth, $filePth ): Bool {
+				// Made readable by its owner only, from its first byte: the file will hold secrets
+				$prevMsk = umask(0077);
+				try{
+					return @copy($distPth, $filePth);
+				}finally{
+					umask($prevMsk);
 				}
+			})() ){
+				// The secrets are for the owner alone; the access config is read by the group of the web server too
+				$secRgts = Array('.env'=>0600, 'conf/access.json'=>0640);
+				@chmod($filePth, $secRgts[$fleNme] ?? (0666 & ~umask()));
 				$rowList[] = Array($fleNme, 'created from '.$dstNme);
 				$this->traceDone('Deploy: '.$fleNme.' created from '.$dstNme);
 			}else{

@@ -82,7 +82,8 @@ class PHPSess implements Handler{
 		}
 		// A credential store that knows its users confirms the session's user is still allowed in
 		if( $this->authObjc!==null && method_exists($this->authObjc, 'userIdent') ){
-			$nowIdnt = $this->authObjc->userIdent( strval($idntArr['user'] ?? '') );
+			// The start of the session : a password set since ends it
+			$nowIdnt = $this->authObjc->userIdent( strval($idntArr['user'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
 			if( $nowIdnt===false ){
 				$this->lastMssg = $this->authObjc->lastError();
 				$this->closeSess();

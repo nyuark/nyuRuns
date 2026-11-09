@@ -383,6 +383,11 @@ $actRoute = Array('app'=>'auth', 'action'=>'check', 'rteKind'=>'action', 'rtePat
 checkSame('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'system', $actRoute), roleReply($rolConf, 'manage', $actRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkSame('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkSame('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
+// A declared path whose route leaves its action open : the role follows the action reached by its own path
+$pnlConf = Array('rolert'=>Array('/panel'=>'manage')) + $jwtConf;
+$autoRte = Array('app'=>'reports', 'action'=>'admin', 'rteFrom'=>Array('panel'));
+checkSame('Checker role: the role of a declared path applies to its action reached by its own path', Array(roleReply($pnlConf, 'member', $autoRte), roleReply($pnlConf, 'manage', $autoRte)), Array(Array(404, 'Not Found'), Array(200, '')));
+checkSame('Checker role: another action of the application is not named by it', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'index', 'rteFrom'=>Array())), Array(200, ''));
 
 // The refused user stays identified, and is not sent to the sign-in route
 $axsRslt = (new Checker( Array('signin'=>'/login', 'openrt'=>Array('/login')) + $rolConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'admin')) ))->verifyAxs();

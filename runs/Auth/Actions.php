@@ -317,10 +317,13 @@ class Actions extends Actionset {
 			return;
 		}
 		if($newCode===''){
-			// An address taken is told in the language of its owner, a name taken in the one of the request
+			// An address taken is told to its owner alone, in its language; a name taken, to an address of no account, says nothing of any account
 			$ownRows = $usrBase->listUsers( Array('userMail'=>$gvnMail), 1 );
-			$ownLang = strval( (is_array($ownRows) && !empty($ownRows)) ? ($ownRows[0]['userLang'] ?? '') : $cltLang );
-			$mailObj->sendTaken($gvnMail, $gvnUser, $ownLang);
+			if(is_array($ownRows) && !empty($ownRows)){
+				$mailObj->sendTaken($gvnMail, $gvnUser, strval($ownRows[0]['userLang'] ?? ''));
+			}else{
+				$mailObj->sendNamed(strtolower(trim($gvnMail)), $gvnUser, $cltLang);
+			}
 		}else{
 			$mailObj->sendCodes('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode, $cltLang);
 			$this->warnsMngr($usrBase, $mailObj, $regTops, is_array($lmtConf['regwrn'] ?? null) ? $lmtConf['regwrn'] : Array(128, 200, 256));

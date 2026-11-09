@@ -9,6 +9,8 @@ CREATE TABLE "users" (
 	"userName" VARCHAR(64)  NOT NULL,
 	-- bcrypt hash, as given by password_hash()
 	"passHash" VARCHAR(255) NOT NULL,
+	-- Time the password was last set: the sessions and tokens issued before it are refused
+	"passDate" TIMESTAMP(0) NULL,
 	-- member, system or manage
 	"userRole" VARCHAR(6)   NOT NULL DEFAULT 'member',
 	-- pendng (awaiting activation), review (signed up, awaiting a manager), active or locked

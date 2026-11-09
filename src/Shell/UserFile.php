@@ -562,14 +562,11 @@ class UserFile{
 			}
 			$lineLst[] = "\t\t".'{ '.implode(', ', $partLst).' }';
 		}
-		$wasFile = is_file($this->usrsFile);
 		try{
-			$this->fileWrtr->writeFile( $this->usrsFile, '{'."\n\t".'"users": ['.( empty($lineLst) ? '' : "\n".implode(','."\n", $lineLst)."\n\t" ).']'."\n".'}'."\n" );
+			// A new file is readable by its owner and its group only, from its first byte
+			$this->fileWrtr->writeFile( $this->usrsFile, '{'."\n\t".'"users": ['.( empty($lineLst) ? '' : "\n".implode(','."\n", $lineLst)."\n\t" ).']'."\n".'}'."\n", 0640 );
 		}catch( \RuntimeException $e ){
 			return $this->refuseFor(500, 'Users file cannot be written: '.$e->getMessage());
-		}
-		if( !$wasFile ){
-			@chmod($this->usrsFile, 0640);
 		}
 		// Read as the application reads it : a file it refuses would lock everyone out
 		$chkObjc = new UserList( Array('usrfle'=>$this->usrsName) );

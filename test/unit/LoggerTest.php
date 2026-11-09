@@ -112,6 +112,13 @@ foreach( $lvlList as $modNme=>$modLst ){
 $lineLog = new Logger($logsDir, 'line', 'BASE', 0, 'NUMBER', 'Y');
 $lineLog->warning("refused for \"x\"\r\n[".date('Y')."] [INFO] Access granted for user \"root\"");
 checkSame('a line break is written as text', readLines($logsDir.DS.'line.log'), Array('['.date('Y').'] [WARNING] refused for "x"\r\n['.date('Y').'] [INFO] Access granted for user "root"'));
+$uniLog = new Logger($logsDir, 'unicode', 'BASE', 0, 'NUMBER', 'Y');
+$uniLog->warning("a\u{2028}b\u{2029}c\u{0085}d\x0Be\x0Cf\tg\x00h\x7Fi");
+checkSame('the Unicode line breaks and every control character are written as text', readLines($logsDir.DS.'unicode.log'), Array('['.date('Y').'] [WARNING] a\u2028b\u2029c\u0085d\x0Be\x0Cf\tg\x00h\x7Fi'));
+$badLog = new Logger($logsDir, 'badutf', 'BASE', 0, 'NUMBER', 'Y');
+$badLog->warning("x\xFF\ny");
+checkSame('in a message that is not UTF-8 too', count(file($logsDir.DS.'badutf.log', FILE_IGNORE_NEW_LINES)), 1);
+checkSame('an accent is kept as it is', (function() use ( $logsDir ){ $accLog = new Logger($logsDir, 'accent', 'BASE', 0, 'NUMBER', 'Y'); $accLog->info('Été à Genève'); return readLines($logsDir.DS.'accent.log'); })(), Array('['.date('Y').'] [INFO] Été à Genève'));
 
 // A context that cannot be encoded as it is keeps what can be
 $ctxtLog = new Logger($logsDir, 'ctxt', 'FULL', 0, 'NUMBER', 'Y');

@@ -826,7 +826,7 @@ if( !$isReady ){
 	foreach( Array('POST', 'PUT') as $mthNme ){
 		$logMark = strlen(readsLogs('runner'));
 		httpQuery($mthNme, $baseUrl.'/probe/clean', Array('X-Test-Runs'=>'1', 'Content-Type'=>'multipart/form-data; boundary=----TestBoundary123'), $fileBdy);
-		checkLike($mthNme.' upload: traced with its name, field, type and size', substr(readsLogs('runner'), $logMark), '/\[INFO\] File received: "'.preg_quote($fleName, '/').'" as "attach" \(text\/plain, 5 bytes\) from \S+/');
+		checkLike($mthNme.' upload: traced with its name, field, type and size', substr(readsLogs('runner'), $logMark), '/\[INFO\] File received: "'.preg_quote($fleName, '/').'" as "attach" \("text\/plain", 5 bytes\) from \S+/');
 	}
 
 	// Header names are case-insensitive : the body is read whatever the case of Content-Type

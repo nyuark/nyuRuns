@@ -75,8 +75,34 @@ class Router{
 		if( $dtcMode=='autopath' ){
 			$rteVals = array_merge($rteVals, $this->autoRoute());
 			$this->fromAuto = true;
+			// The declared routes answering with this action leave it open to its path : their roles follow it here (see Checker::routeRole)
+			$rteVals['rteFrom'] = $this->openPaths( strval($rteVals['app'] ?? ''), strval($rteVals['action'] ?? '') );
 		}
 		return new Registry( $rteVals );
+	}
+
+	/**
+	 * Lists the declared routes that answer with an action without closing
+	 * it to its path (they limit no method): the action is also reached by
+	 * its own path, where a role asked for on those routes must still
+	 * apply. The names are compared whatever their case; a route naming no
+	 * action stands for the requests naming none.
+	 *
+	 * @param String $runAppName Name of the application, as the path gives it.
+	 * @param String $runAppActn Name of the action, as the path gives it; empty for none.
+	 * @return Array The paths of those routes, as declared, without their slashes.
+	 */
+	protected function openPaths( String $runAppName, String $runAppActn ): Array {
+		$pathLst = Array();
+		if( $runAppName=='' ){
+			return $pathLst;
+		}
+		foreach( $this->allRoutes() as $rteRow ){
+			if( $rteRow['rteKind']=='action' && !$rteRow['rteLock'] && strcasecmp(strval($rteRow['app']), $runAppName)==0 && strcasecmp(strval($rteRow['action']), $runAppActn)==0 ){
+				$pathLst[] = strval($rteRow['rtePath']);
+			}
+		}
+		return array_values( array_unique($pathLst) );
 	}
 
 	/**
@@ -543,6 +569,11 @@ class Router{
 			}
 			// Checked on the real path : a link cannot lead out of the folder either
 			if( $fndPath===false || !$this->liesInDir($fndPath, $dclPath) ){
+				return $notFnd;
+			}
+			// The real names below the folder too : a short name (ENV~1 on Windows) can stand for a hidden file
+			$realRst = str_replace(DS, '/', substr($fndPath, strlen(rtrim($dclPath, '/\\')) + 1));
+			if( $realRst!=='' && $realRst!==false && !$this->safeParts($realRst) ){
 				return $notFnd;
 			}
 		}

@@ -1,0 +1,7 @@
+Your sign-up: choose another name
+Hello,
+
+Someone, you we hope, asked to sign up as %user% with this address. That
+name is not available: sign up again with another one.
+
+If you did not sign up, leave this mail: nothing was changed.

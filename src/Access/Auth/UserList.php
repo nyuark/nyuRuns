@@ -71,9 +71,9 @@ class UserList implements Handler{
 			$this->lastMssg = 'Credential store unavailable';
 			return false;
 		}
-		if( $usrVals===null ){
-			// Unknown user : a hash is still computed, at the cost PHP gives new hashes, so the reply time does not tell which names exist
-			password_hash( $gvnPass, PASSWORD_BCRYPT );
+		if( $usrVals===null || password_get_info(strval($usrVals['passHash']))['algo']===null ){
+			// Unknown user, or an account without a password : the same check is run, so the reply time tells neither apart from a wrong password
+			password_verify( $gvnPass, Native::dummyHash() );
 			$matched = false;
 		}else{
 			$matched = password_verify( $gvnPass, $usrVals['passHash'] );
@@ -154,12 +154,15 @@ class UserList implements Handler{
 	/**
 	 * Reads the current identity of a user authenticated by other means
 	 * (a token), so that a lock or a role change written in the file
-	 * applies at once.
+	 * applies at once. The file is only read: no password is set through
+	 * it, so a session or a token is never ended by a password change here
+	 * (the time it was issued at is taken, and not compared).
 	 *
 	 * @param String $userString Login name of the user.
+	 * @param ?Int   $issuedUnix Unix time the session or the token was issued at; not compared.
 	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false when the user is unknown, not active, or the file cannot be read.
 	 */
-	public function userIdent( String $userString ): Array|Bool {
+	public function userIdent( String $userString, ?Int $issuedUnix=null ): Array|Bool {
 		$this->wrongCrd = false;
 		$usrVals = ($userString!='') ? $this->fetchUser($userString) : null;
 		if( $usrVals===false ){

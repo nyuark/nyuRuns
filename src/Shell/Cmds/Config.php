@@ -513,7 +513,14 @@ class Config extends Command{
 			}
 			// Written aside, given its rights, then put in place : no copy of the former key is kept
 			$tempPth = $keyFle.'.tmp'.getmypid();
-			if( @file_put_contents($tempPth, $keyDat[0], LOCK_EX)===false ){
+			// Readable by its owner only from its first byte, then given its rights
+			$prevMsk = umask(0077);
+			try{
+				$isWrtn = @file_put_contents($tempPth, $keyDat[0], LOCK_EX);
+			}finally{
+				umask($prevMsk);
+			}
+			if( $isWrtn===false ){
 				$this->stopShell('No keys written: '.dirname($keyFle).' cannot be written', self::EXITFAIL);
 			}
 			@chmod($tempPth, $keyDat[1]);

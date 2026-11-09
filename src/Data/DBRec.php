@@ -248,7 +248,8 @@ class DBRec {
 		}
 		// A removal is traced with who asked for it, and so is one the database refused
 		$logInst = Logger::getLogger('runner');
-		$recText = $this->tableNme.' #'.$this->primaKey;
+		// The key may come from the client : written as a JSON text
+		$recText = $this->tableNme.' #'.json_encode(strval($this->primaKey), JSON_INVALID_UTF8_SUBSTITUTE);
 		if( $useTrns && !$dbStore->opnTrnsct() ){
 			$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
 			return false;

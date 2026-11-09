@@ -11,9 +11,6 @@ namespace nyu\Access\Auth;
  */
 class PassList implements Handler{
 
-	// Bcrypt hash of a discarded random string, checked when the user is unknown
-	const FAKEHASH = '$2y$10$vRez8inUYw3A1ZAIcgzLduI5/8q6rGAJtWDgKI6oWkhBpt58FBnw.';
-
 	protected $htpwFile;
 	protected $weakHash;
 	protected $userLmtr;
@@ -68,8 +65,8 @@ class PassList implements Handler{
 			}
 		}
 		if( $usrHash===null ){
-			// Unknown user : a hash is still computed, so the reply time does not tell which names exist
-			password_verify( $gvnPass, self::FAKEHASH );
+			// Unknown user : the same check is run, at the cost of new hashes, so the reply time does not tell which names exist
+			password_verify( $gvnPass, Native::dummyHash() );
 		}else{
 			$matched = $this->hashMatch($gvnPass, $usrHash);
 			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
