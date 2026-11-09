@@ -16,21 +16,22 @@ framework never edits it:
 - the reverse proxy or CDN, when there is one.
 
 The framework's own settings are in `conf/` and `.env`, and are read and
-written with `php nyuRun config`.
+written with `php nyuRun settings`.
 
 ## 2. Going live
 
 ```bash
-php nyuRun deploy start
+php nyuRun installs allSteps
 ```
 
 It checks the server, creates the local files from their examples (`.env`,
 `conf/access.json`, `conf/database.json`), makes the secrets that are still
-empty, creates the users, and ends on the health check. Run again, it replaces
-nothing that exists.
+empty, creates the users, and ends on the health check. It asks the name of
+each basic account, one per role (`teammate`, `engineer` and `sysAgent` are
+proposed; `--noPrompt` takes them). Run again, it replaces nothing that exists.
 
 ```bash
-php nyuRun deploy check
+php nyuRun installs checkAll
 ```
 
 Each row is `fine`, `warn` (deserves a look) or `fail` (requests cannot be
@@ -163,17 +164,17 @@ Not understood by the framework:
 
 ## 4. Client certificates
 
-The `clcert` carrier does no TLS itself. The web server checks the certificate
+The `clntCert` carrier does no TLS itself. The web server checks the certificate
 during the handshake and reports the outcome in server variables; the carrier
 reads them. Its block in `conf/access.json` names those variables:
 
 ```json
-"dfcert": { "chkvar": "SSL_CLIENT_VERIFY", "usrvar": "SSL_CLIENT_S_DN_CN", "issvar": "SSL_CLIENT_I_DN_CN", "issuer": "" }
+"clntCert": { "checkVar": "SSL_CLIENT_VERIFY", "ownerVar": "SSL_CLIENT_S_DN_CN", "issueVar": "SSL_CLIENT_I_DN_CN", "issuerId": "" }
 ```
 
-- `chkvar` must hold `SUCCESS`;
-- `usrvar` gives the name of the user;
-- `issvar` gives the name of the issuer, compared with `issuer` when one is set.
+- `checkVar` must hold `SUCCESS`;
+- `ownerVar` gives the name of the user;
+- `issueVar` gives the name of the issuer, compared with `issuerId` when one is set.
 
 A variable whose name starts with `HTTP_` is a request header, which anyone can
 send: the carrier refuses it.
@@ -232,23 +233,23 @@ Limits:
 
 ## 5. Limit by address and account holds
 
-Wrong credentials are counted per client address. The `limits` block sets it:
+Wrong credentials are counted per client address. The `tryLimit` block sets it:
 
 ```json
-"limits": { "maxtry": 10, "holdtm": 600, "folder": "temp/limits" }
+"tryLimit": { "maxTries": 10, "holdSecs": 600, "dataPath": "temp/limits" }
 ```
 
-After `maxtry` wrong credentials within `holdtm` seconds, the address is
-answered 429 with `Retry-After` for `holdtm` seconds, whatever it sends. An
-IPv6 address is counted with its whole /64 network. `maxtry` 0 turns the limit
+After `maxTries` wrong credentials within `holdSecs` seconds, the address is
+answered 429 with `Retry-After` for `holdSecs` seconds, whatever it sends. An
+IPv6 address is counted with its whole /64 network. `maxTries` 0 turns the limit
 off, which the health check reports.
 
 ```bash
-php nyuRun cleans holds
+php nyuRun maintain fullList
 ```
 
 ```bash
-php nyuRun cleans frees 203.0.113.7
+php nyuRun maintain freeAddr 203.0.113.7
 ```
 
 The first lists the addresses counted and held, the second releases one.
@@ -259,11 +260,11 @@ To know:
   on `access`, and requests are answered as without a limit. Keep the folder
   writable.
 - Counted: a wrong password, API key, 2FA code or activation code, a forged
-  token, and a right password on an account that is not active.
+  token, and a right password on an account that is not approved.
 - Not counted: a token that ended, an unknown or expired session id, a request
   without credentials.
-- The native userbase also holds an account after `maxtry` failures (5 by
-  default, in the `native` block). Someone who knows a user name can therefore
+- The native userbase also holds an account after `maxTries` failures (5 by
+  default, in the `nativeDb` block). Someone who knows a user name can therefore
   keep that account held by failing on purpose. The limit by address slows it
   from one address; it does not prevent it from many.
 - Several attempts sent at the very same moment can pass the count of an
@@ -271,14 +272,14 @@ To know:
 
 ## 6. Password files
 
-The `htpass` check reads an htpasswd file.
+The `htpasswd` check reads an htpasswd file.
 
 - bcrypt, and SHA-256 or SHA-512 crypt, are accepted.
 - apr1 (Apache's MD5) is accepted too, because it is what Apache's tool writes
   by default. It is weak by today's measure: write new lines with bcrypt
-  (`php nyuRun config secrt htpass <user>` does).
+  (`php nyuRun settings makeSecr htpasswd <user>` does).
 - `{SHA}`, DES crypt and MD5 crypt are refused unless the block sets
-  `"unsecure": true`, which the health check reports.
+  `"weakHash": true`, which the health check reports.
 - The time of a refusal does not tell whether a name exists only when the
   file's hashes are bcrypt. With other formats, a careful measure could tell.
 
@@ -290,22 +291,22 @@ that user.
 The secrets are stored encrypted when the block of the store gives a key:
 
 ```json
-"native": { ..., "tfakey": "env:NYU_TFA_KEY" }
+"nativeDb": { ..., "cryptKey": "env:NYU_TFA_KEY" }
 ```
 
 ```bash
-php nyuRun config secrt tfakey --block=native
+php nyuRun settings makeSecr cryptKey --useBlock=nativeDb
 ```
 
 - Without a key of 32 characters, secrets are stored readable, with a warning
   on `access` each time one is made.
 - Keep a copy of the key. If it is lost or changed, every encrypted secret is
   unreadable and those users are refused. Each then needs
-  `php nyuRun manage twofa <user> --clear` and a new secret.
+  `php nyuRun accounts setTwoFa <user> --removeIt` and a new secret.
 - A secret stored readable before a key was set keeps working, and is not
   encrypted until a new one is made.
 - The key is not rotated in place.
-- With the users file (`usrlst`), the last step is not remembered, because
+- With the users file (`userFile`), the last step is not remembered, because
   requests only read that file: a code can be used again within about 90
   seconds.
 - A personal API token is a factor of its own, as a certificate is: it is not
@@ -314,27 +315,27 @@ php nyuRun config secrt tfakey --block=native
 ## 8. Tokens
 
 - A token (JWT) cannot be taken back. It is accepted until it ends, unless the
-  preset names a store of users (`"authby": "native"` or `"usrlst"`): the user
-  is then confirmed on every request, and a lock or a role change applies at
-  once.
-- Keep `lifetm` short where there is no store.
-- Replacing the secret (`php nyuRun config secrt jtoken`) ends every token at
-  once.
+  preset names a store of users (`"authWith": "nativeDb"` or `"userFile"`): the
+  user is then confirmed on every request, and a lock or a role change applies
+  at once.
+- Keep `lifeSecs` short where there is no store.
+- Replacing the secret (`php nyuRun settings makeSecr jwtToken`) ends every token
+  at once.
 - A client is only told "Invalid token" or "Expired token". Why a token was
   refused is in the `access` log, in `FULL` mode.
 
 ## 9. PHP sessions
 
 ```json
-"dfsess": { "cookie": "nyuSessn", "lifetm": 3600, "fulltm": 43200, "samest": "strict", "secure": true, "folder": "" }
+"phpSessn": { "cookName": "nyuSessn", "lifeSecs": 3600, "fullSecs": 43200, "sameSite": "strict", "secureOn": true, "dataPath": "" }
 ```
 
-- `secure` true sends the cookie over HTTPS only. Keep it true outside a local
+- `secureOn` true sends the cookie over HTTPS only. Keep it true outside a local
   machine; behind a proxy that ends TLS, set `PRX_SCHM` (section 3).
-- `samest` is the only defence against a request forged from another site.
-  `strict` is the safe value. With `relaxd`, never change anything on a GET.
-- `lifetm` ends a session left unused; `fulltm` ends it whatever its use.
-- `folder` empty keeps the sessions in PHP's own folder, which other PHP
+- `sameSite` is the only defence against a request forged from another site.
+  `strict` is the safe value. With `lax`, never change anything on a GET.
+- `lifeSecs` ends a session left unused; `fullSecs` ends it whatever its use.
+- `dataPath` empty keeps the sessions in PHP's own folder, which other PHP
   applications of the same server may share. On a shared server, give it a
   folder of the project, such as `temp/sessns`.
 - An unknown or expired session id is not counted against an address.
@@ -345,10 +346,11 @@ the client's own history and scripts. The framework cannot see or prevent that.
 
 ## 10. Other sites calling in
 
-A preset decides which sites' pages may read its replies, in its `rnder` block:
+A preset decides which sites' pages may read its replies, in its `response`
+block:
 
 ```json
-"origns": ["https://app.example.org"]
+"corsList": ["https://app.example.org"]
 ```
 
 With a list, only a listed origin is named in `Access-Control-Allow-Origin`.
@@ -391,7 +393,7 @@ REQ_PART = 200
 ## 13. Routing notes
 
 - An action that a declared route answers with, when that route limits its
-  methods (`allows`, or one target per method), is only reached through that
+  methods (`mthdList`, or one target per method), is only reached through that
   route, with those methods. The same action asked for by its path
   (`/app/action`) is a 404. Declare such a route when you want to restrict the
   methods of an action; a route that limits nothing leaves its action reachable
@@ -400,7 +402,7 @@ REQ_PART = 200
 - A key that nothing reads in a route file is told on the `runner` log at each
   request.
 - A site can answer an error with its own page: `errors/<status>.html` in the
-  folder of its pages (`htroot`), with `%code%` and `%error%` filled in. It is
+  folder of its pages (`htmlRoot`), with `%code%` and `%error%` filled in. It is
   used for a page or a static file, and for a path no route answers in a preset
   that finds its routes `manually`. A request for an action keeps the format of
   the preset; so does an unknown path in an `autopath` preset.
@@ -409,16 +411,18 @@ REQ_PART = 200
 
 Another application (a mobile app, a partner's portal) can call this project for
 one of its own users. It sends two things: its key, in the header of the
-`apkeys` block, and the user's token, signed with its own private key. A preset
-reads the keys when its `auths` block names that block: `"appkey": "apkeys"`.
+`appsKeys` block, and the user's token, signed with its own private key. A
+preset reads the keys when its `security` block names that block:
+`"appsConf": "appsKeys"`.
 
 ```json
-"apkeys": { "header": "X-App-Key", "applst": { "portal": { "keyhsh": "…", "routes": ["contacts/*"], "pubkey": "conf/keys/portal.pub", "maxrol": "member", "madedt": "…" } } }
+"appsKeys": { "headName": "X-App-Key", "appsList": { "portal": { "keyDigst": "…", "routeSet": ["contacts/*"], "publFile": "conf/keys/portal.pub", "roleTops": "internal", "madeDate": "…" } } }
 ```
 
 - Keys are made, given routes and revoked from the command line only
-  (`php nyuRun appkey makes|lists|route|revok`). A key is shown once; the file
-  holds its SHA-256 hash. A revoked key is refused from the next request.
+  (`php nyuRun appsKeys makeKeys|fullList|setRoute|revokeIt`). A key is shown
+  once; the file holds its SHA-256 hash. A revoked key is refused from the next
+  request.
 - Copy the application's public key into `conf/keys` and give its path. Never
   copy its private key: holding it would let this project forge that
   application's tokens.
@@ -426,10 +430,10 @@ reads the keys when its `auths` block names that block: `"appkey": "apkeys"`.
   goes to the preset's own carrier, where it is not valid.
 - The user is taken from the token, as the application issued it: this project
   does not look it up in its own store, so a lock in the application applies
-  only when its token ends. Keep the application's `lifetm` short.
-- The role of that user is never above `maxrol` (`member` by default), and the
-  role a route asks for (`rolert`, `needsRole()`) still applies.
-- An application only reaches its `routes`, written as `openrt`; any other
+  only when its token ends. Keep the application's `lifeSecs` short.
+- The role of that user is never above `roleTops` (`internal` by default), and
+  the role a route asks for (`rteRoles`, `needsRole()`) still applies.
+- An application only reaches its `routeSet`, written as `openList`; any other
   route is a 403. A route open to everyone ignores the key.
 - A wrong key and a forged token count against the address. Every write is a
   notice on the `access` log, naming the application, the user and the route;
@@ -441,44 +445,50 @@ reads the keys when its `auths` block names that block: `"appkey": "apkeys"`.
 ## 15. Access mails
 
 The native userbase sends its codes by mail when its block names an account of
-`conf/mailer.json`. Without `mailer`, nothing is sent: the codes are given in
+`conf/mailer.json`. Without `mailAcnt`, nothing is sent: the codes are given in
 the replies, to be handed over, as before.
 
 ```json
-"native": { ..., "mailer": "nyuRuns", "signup": false, "codexp": 15, "lnkurl": "https://app.example.ch/access?do=%kind%&user=%user%&code=%code%" }
+"nativeDb": { ..., "mailAcnt": "nyuRuns", "signupOn": false, "codeMins": 15, "linkTmpl": "https://app.example.ch/access?do=%kind%&user=%user%&code=%code%" }
 ```
 
-- `codexp` is the minutes a mailed code lasts (15 by default). A code handed
-  over by a manager lasts 300 minutes; `manage enrol` and `manage reset` take
-  `--noexp` for one with no end, on the command line only.
-- `lnkurl` is the page of the front end the mail links to. `%kind%` tells it
-  which form to show: `actvte` and `signup` post to `auth/activate`, `pwdset`
-  to `auth/recovr`. Without it, the mail carries the code alone. The code is
-  bound to the user, not to the device: it can be typed on another one.
-- `signup: true` opens `auth/signup`. A sign-up confirms its address with the
-  code, then waits in `review` for a manager (`users/approve`,
-  `php nyuRun manage prove`); refusing it is removing it. Sign-ups never
+- `codeMins` is the minutes a mailed code lasts (15 by default). A code handed
+  over by a manager lasts 300 minutes; `accounts makeUser` and
+  `accounts resetPwd` take `--noExpiry` for one with no end, on the command
+  line only.
+- `linkTmpl` is the page of the front end the mail links to. `%kind%` tells it
+  which form to show: `activate` and `register` post to `auth/activate`,
+  `password` to `auth/useReset`. Without it, the mail carries the code alone.
+  The code is bound to the user, not to the device: it can be typed on another
+  one.
+- `signupOn: true` opens `auth/register`. A sign-up confirms its address with
+  the code, then waits in `checking` for a manager (`users/approves`,
+  `php nyuRun accounts approves`); refusing it is removing it. Sign-ups never
   confirmed are removed once their code ends.
-- The `limits` block bounds the sign-ups: `regtop` waiting at once (256),
-  beyond which `auth/signup` answers 503 until some are approved or removed;
-  `regmax` sign-ups from one client within `holdtm` (16), counted apart from
-  its wrong credentials (an address held for those is refused too); and
-  `regwrn`, the counts at which every active manager with an address is told
-  by mail (`onhold`) and the `access` log notes it (128, 200, 256).
-- `auth/signup` and `auth/forgot` answer 202 whoever the name or address is.
-  Each reset asked counts against the address of the client, as a wrong
-  password does (`maxtry`). Under PHP-FPM the reply ends before the mail is
+- The `tryLimit` block bounds the sign-ups: `maxQueue` waiting at once (256),
+  beyond which `auth/register` answers 503 until some are approved or removed;
+  `maxPerIp` sign-ups from one client within `holdSecs` (16), counted apart
+  from its wrong credentials (an address held for those is refused too); and
+  `alertsAt`, the counts at which every approved manager with an address is
+  told by mail (`backlogs`) and the `access` log notes it (128, 200, 256).
+- `auth/register` and `auth/askReset` answer 202 whoever the name or address
+  is. Each reset asked counts against the address of the client, as a wrong
+  password does (`maxTries`). Under PHP-FPM the reply ends before the mail is
   sent, so its time tells nothing either; under another server API the client
   waits for the mail, and the time can tell whether it went.
 - A reset asked by mail keeps the password until the code is used, so nobody
   can lock a user out by asking. A reset by a manager voids it at once.
 - An address belongs to one account, compared in lower case. The users file
-  (`usrlst`) holds addresses too, but cannot send codes: it is only read.
+  (`userFile`) holds addresses too, but cannot send codes: it is only read.
 - The mails are `conf/mails/<language>/<kind>.txt` (its first line is the
   subject) and `.html`, in English (`en`) and French (`fr`). A mail is written
-  in the language of the user it goes to (`userLang`), else in `LNG_DFLT` of
+  in the language of the user it goes to (`userLocale`), else in `LNG_DFLT` of
   `system.ini` (`en` when not set); `fr-ch` falls back to `fr`, then to the
   default. Another language is a folder beside them. An application replaces
   them with its own in `runs/Auth/mails/<language>/`.
-- A table made by 0.9 needs `conf/schema/migrate-users-1.0.<type>.sql` first.
-  On MySQL 8 and MariaDB, its part 2 (the status `review`) is run by hand.
+- A table made by 0.9 needs `conf/schema/migrate-users-1.0.<type>.sql` first,
+  then `migrate-devices-1.0.<type>.sql` when it has devices (`<type>` is
+  `mysqldbs`, `postgres` or `sqlitedb`). They rename the columns and give the
+  roles and statuses their codes of 1.0. On MySQL 8 and MariaDB, the parts 2
+  and 4 of the users file (the checks of the roles and statuses) are run by
+  hand.
