@@ -52,7 +52,7 @@ function calRead( String $rawContent, Array $parseOptns=Array() ): Mixed {
  */
 function oneEvnt( Array $linesArray, Array $parseOptns=Array() ): Mixed {
 	$envlope = calRead(makeCal(evnt($linesArray)), $parseOptns);
-	return is_array($envlope) ? $envlope['items']['event'][0] : $envlope;
+	return is_array($envlope) ? $envlope['items']['calEvent'][0] : $envlope;
 }
 
 $voidEvt = Array('ident'=>'', 'title'=>'', 'start'=>'', 'ended'=>'', 'whole'=>false, 'tzone'=>'', 'place'=>'', 'descr'=>'', 'links'=>'', 'state'=>'', 'label'=>Array(), 'owner'=>Array('names'=>'', 'email'=>''), 'guest'=>Array(), 'rpeat'=>Array(), 'skips'=>Array(), 'alarm'=>Array(), 'stamp'=>'', 'extra'=>Array());
@@ -68,23 +68,23 @@ $fullEvt = evnt(Array(
 checkIdentical('an event with all it can tell, and the envelope', calRead(makeCal($fullEvt, Array('VERSION:2.0', 'PRODID:-//nyuArk//Test//EN', 'X-WR-CALNAME:Les Enchaînés', 'X-WR-TIMEZONE:Europe/Paris'))), Array(
 	'shape'=>'nodes',
 	'infos'=>Array('title'=>'Les Enchaînés', 'tzone'=>'Europe/Paris', 'maker'=>'-//nyuArk//Test//EN', 'count'=>1),
-	'items'=>Array('event'=>Array(Array(
+	'items'=>Array('calEvent'=>Array(Array(
 		'ident'=>'20261228-alpha@nyuark.test', 'title'=>'Alpha Night, rehearsal',
 		'start'=>'2026-12-28 20:30:00', 'ended'=>'2026-12-28 22:00:00', 'whole'=>false, 'tzone'=>'Europe/Paris',
 		'place'=>'Hall A', 'descr'=>"Bring the scripts.\nDoors at 8; no later.", 'links'=>'https://nyuark.test/shows/alpha',
-		'state'=>'cnfrm', 'label'=>Array('Shows', 'Rehearsal'),
+		'state'=>'definite', 'label'=>Array('Shows', 'Rehearsal'),
 		'owner'=>Array('names'=>'J. J.', 'email'=>'jj@nyuark.test'),
-		'guest'=>Array(Array('names'=>'Martin, A.', 'email'=>'am@nyuark.test', 'reply'=>'accpt'), Array('names'=>'', 'email'=>'bo@nyuark.test', 'reply'=>'waits')),
-		'rpeat'=>Array('every'=>'wekly', 'steps'=>1, 'wdays'=>Array('mo', 'th'), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'2027-03-01', 'times'=>0),
+		'guest'=>Array(Array('names'=>'Martin, A.', 'email'=>'am@nyuark.test', 'reply'=>'accepted'), Array('names'=>'', 'email'=>'bo@nyuark.test', 'reply'=>'awaiting')),
+		'rpeat'=>Array('every'=>'eachWeek', 'steps'=>1, 'wdays'=>Array('mo', 'th'), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'2027-03-01', 'times'=>0),
 		'skips'=>Array('2027-01-04 20:30:00'), 'alarm'=>Array(30), 'stamp'=>'2026-10-02 14:05:00',
 		'extra'=>Array('X-MICROSOFT-CDO-BUSYSTATUS'=>'BUSY', 'SEQUENCE'=>'2')
-	)), 'tasks'=>Array(), 'notes'=>Array())
+	)), 'calTodos'=>Array(), 'calNotes'=>Array())
 ));
 checkIdentical('an event telling nothing has every key, empty', oneEvnt(Array()), $voidEvt);
 checkIdentical('an empty content, and a calendar without entry', Array(calRead(''), calRead(" \r\n\r\n")['items'], calRead(makeCal(Array()))), Array(
-	Array('shape'=>'nodes', 'infos'=>Array('title'=>'', 'tzone'=>'', 'maker'=>'', 'count'=>0), 'items'=>Array('event'=>Array(), 'tasks'=>Array(), 'notes'=>Array())),
-	Array('event'=>Array(), 'tasks'=>Array(), 'notes'=>Array()),
-	Array('shape'=>'nodes', 'infos'=>Array('title'=>'', 'tzone'=>'', 'maker'=>'-//nyuArk//Test//EN', 'count'=>0), 'items'=>Array('event'=>Array(), 'tasks'=>Array(), 'notes'=>Array()))
+	Array('shape'=>'nodes', 'infos'=>Array('title'=>'', 'tzone'=>'', 'maker'=>'', 'count'=>0), 'items'=>Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array())),
+	Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array()),
+	Array('shape'=>'nodes', 'infos'=>Array('title'=>'', 'tzone'=>'', 'maker'=>'-//nyuArk//Test//EN', 'count'=>0), 'items'=>Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array()))
 ));
 
 // Dates
@@ -134,11 +134,11 @@ checkIdentical('texts: what is written after a backslash, accents, a line writte
 	'SUMMARY:Les Enchaînés\, \\\\ soirée d\'été', 'DESCRIPTION:A long text that the format writes over',"  several lines\\, each of the following",'  ones starting with a space.\NNew line: with a colon; and a semicolon', 'LOCATION;LANGUAGE=fr;ALTREP="cid:part1:x":Théâtre', 'CATEGORIES:One\, still one,Two', 'CATEGORIES:Three, ,Four'
 )), array_flip(Array('title', 'descr', 'place', 'label'))), Array('title'=>'Les Enchaînés, \\ soirée d\'été', 'place'=>'Théâtre', 'descr'=>"A long text that the format writes over several lines, each of the following ones starting with a space.\nNew line: with a colon; and a semicolon", 'label'=>Array('One, still one', 'Two', 'Three', 'Four')));
 checkIdentical('a link that would run a script is left out', Array(oneEvnt(Array('URL:javascript:alert(1)'))['links'], oneEvnt(Array('URL;VALUE=URI:https://nyuark.test/a?b=1'))['links']), Array('', 'https://nyuark.test/a?b=1'));
-checkIdentical('names are read whatever their case', array_intersect_key(oneEvnt(Array('summary:lower', 'dtstart;tzid=Europe/Paris:20261228T203000', 'status:tentative')), array_flip(Array('title', 'start', 'tzone', 'state'))), Array('title'=>'lower', 'start'=>'2026-12-28 20:30:00', 'tzone'=>'Europe/Paris', 'state'=>'tentv'));
+checkIdentical('names are read whatever their case', array_intersect_key(oneEvnt(Array('summary:lower', 'dtstart;tzid=Europe/Paris:20261228T203000', 'status:tentative')), array_flip(Array('title', 'start', 'tzone', 'state'))), Array('title'=>'lower', 'start'=>'2026-12-28 20:30:00', 'tzone'=>'Europe/Paris', 'state'=>'possible'));
 
 // States, people, reminders
-checkIdentical('states, and one that is not a known one', array_map(function($statusText){ return oneEvnt(Array('STATUS:'.$statusText))['state']; }, Array('CONFIRMED', 'TENTATIVE', 'cancelled', 'NEEDS-ACTION', 'IN-PROCESS', 'COMPLETED', 'DRAFT', 'FINAL', 'UNKNOWN')), Array('cnfrm', 'tentv', 'cancl', 'waits', 'activ', 'compl', 'draft', 'final', ''));
-checkIdentical('guests and their replies', oneEvnt(Array('ORGANIZER:MAILTO:Boss@nyuark.test', 'ATTENDEE;PARTSTAT=DECLINED;CN=No:mailto:a@nyuark.test', 'ATTENDEE;PARTSTAT=TENTATIVE:mailto:b@nyuark.test', 'ATTENDEE;PARTSTAT=DELEGATED:mailto:c@nyuark.test', 'ATTENDEE;PARTSTAT=needs-action:d@nyuark.test', 'ATTENDEE;PARTSTAT=ODD:mailto:e@nyuark.test'))['owner']+Array('guest'=>array_column(oneEvnt(Array('ATTENDEE;PARTSTAT=DECLINED;CN=No:mailto:a@nyuark.test', 'ATTENDEE;PARTSTAT=TENTATIVE:mailto:b@nyuark.test', 'ATTENDEE;PARTSTAT=DELEGATED:mailto:c@nyuark.test', 'ATTENDEE;PARTSTAT=needs-action:d@nyuark.test', 'ATTENDEE;PARTSTAT=ODD:mailto:e@nyuark.test'))['guest'], 'reply', 'email')), Array('names'=>'', 'email'=>'Boss@nyuark.test', 'guest'=>Array('a@nyuark.test'=>'decln', 'b@nyuark.test'=>'tentv', 'c@nyuark.test'=>'deleg', 'd@nyuark.test'=>'waits', 'e@nyuark.test'=>'waits')));
+checkIdentical('states, and one that is not a known one', array_map(function($statusText){ return oneEvnt(Array('STATUS:'.$statusText))['state']; }, Array('CONFIRMED', 'TENTATIVE', 'cancelled', 'NEEDS-ACTION', 'IN-PROCESS', 'COMPLETED', 'DRAFT', 'FINAL', 'UNKNOWN')), Array('definite', 'possible', 'canceled', 'awaiting', 'underway', 'finished', 'drafting', 'finalVer', ''));
+checkIdentical('guests and their replies', oneEvnt(Array('ORGANIZER:MAILTO:Boss@nyuark.test', 'ATTENDEE;PARTSTAT=DECLINED;CN=No:mailto:a@nyuark.test', 'ATTENDEE;PARTSTAT=TENTATIVE:mailto:b@nyuark.test', 'ATTENDEE;PARTSTAT=DELEGATED:mailto:c@nyuark.test', 'ATTENDEE;PARTSTAT=needs-action:d@nyuark.test', 'ATTENDEE;PARTSTAT=ODD:mailto:e@nyuark.test'))['owner']+Array('guest'=>array_column(oneEvnt(Array('ATTENDEE;PARTSTAT=DECLINED;CN=No:mailto:a@nyuark.test', 'ATTENDEE;PARTSTAT=TENTATIVE:mailto:b@nyuark.test', 'ATTENDEE;PARTSTAT=DELEGATED:mailto:c@nyuark.test', 'ATTENDEE;PARTSTAT=needs-action:d@nyuark.test', 'ATTENDEE;PARTSTAT=ODD:mailto:e@nyuark.test'))['guest'], 'reply', 'email')), Array('names'=>'', 'email'=>'Boss@nyuark.test', 'guest'=>Array('a@nyuark.test'=>'declined', 'b@nyuark.test'=>'possible', 'c@nyuark.test'=>'delegate', 'd@nyuark.test'=>'awaiting', 'e@nyuark.test'=>'awaiting')));
 checkIdentical('reminders: minutes before the start, several, one after it, one at the start, one set at a date of its own left out', oneEvnt(Array(
 	'BEGIN:VALARM', 'TRIGGER:-PT15M', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER;RELATED=START:-P1D', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:PT10M', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:PT0S', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER;VALUE=DATE-TIME:20261228T190000Z', 'END:VALARM'
 ))['alarm'], Array(15, 1440, -10, 0));
@@ -146,14 +146,14 @@ checkIdentical('reminders: minutes before the start, several, one after it, one 
 // Repetition
 $ruleOf = function( String $ruleText ){ $evntSet = oneEvnt(Array('RRULE:'.$ruleText)); return Array($evntSet['rpeat'], $evntSet['extra']); };
 checkIdentical('rules: every day, every other week on some days, every month on some days, every year in some months', Array($ruleOf('FREQ=DAILY')[0], $ruleOf('FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,we,FR;COUNT=10')[0], $ruleOf('FREQ=MONTHLY;BYMONTHDAY=1,15,-1;UNTIL=20270301T000000Z')[0], $ruleOf('FREQ=YEARLY;BYMONTH=1,6;BYDAY=1MO,-1FR')[0]), Array(
-	Array('every'=>'daily', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0),
-	Array('every'=>'wekly', 'steps'=>2, 'wdays'=>Array('mo', 'we', 'fr'), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>10),
-	Array('every'=>'mthly', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(1, 15, -1), 'month'=>Array(), 'until'=>'2027-03-01 00:00:00', 'times'=>0),
-	Array('every'=>'yerly', 'steps'=>1, 'wdays'=>Array('1mo', '-1fr'), 'mdays'=>Array(), 'month'=>Array(1, 6), 'until'=>'', 'times'=>0)
+	Array('every'=>'eachDays', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0),
+	Array('every'=>'eachWeek', 'steps'=>2, 'wdays'=>Array('mo', 'we', 'fr'), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>10),
+	Array('every'=>'eachMnth', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(1, 15, -1), 'month'=>Array(), 'until'=>'2027-03-01 00:00:00', 'times'=>0),
+	Array('every'=>'eachYear', 'steps'=>1, 'wdays'=>Array('1mo', '-1fr'), 'mdays'=>Array(), 'month'=>Array(1, 6), 'until'=>'', 'times'=>0)
 ));
 checkIdentical('a rule fully read is not kept twice; one saying more than is read is kept as written beside what was read; one that is not read is only kept as written', Array($ruleOf('FREQ=DAILY;COUNT=3')[1], $ruleOf('FREQ=MONTHLY;BYDAY=MO;BYSETPOS=-1;WKST=SU'), $ruleOf('FREQ=HOURLY;INTERVAL=4')), Array(
 	Array(),
-	Array(Array('every'=>'mthly', 'steps'=>1, 'wdays'=>Array('mo'), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0), Array('RRULE'=>'FREQ=MONTHLY;BYDAY=MO;BYSETPOS=-1;WKST=SU')),
+	Array(Array('every'=>'eachMnth', 'steps'=>1, 'wdays'=>Array('mo'), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0), Array('RRULE'=>'FREQ=MONTHLY;BYDAY=MO;BYSETPOS=-1;WKST=SU')),
 	Array(Array(), Array('RRULE'=>'FREQ=HOURLY;INTERVAL=4'))
 ));
 checkIdentical('the dates left out of a repetition: several on a line, several lines, whole days', Array(oneEvnt(Array('EXDATE:20270104T203000Z,20270111T203000Z', 'EXDATE;VALUE=DATE:20270118', 'EXDATE:nonsense'))['skips']), Array(Array('2027-01-04 20:30:00', '2027-01-11 20:30:00', '2027-01-18')));
@@ -173,26 +173,26 @@ $mixdCal = makeCal(array_merge(
 ));
 checkIdentical('events, tasks and notes are told apart; busy times and the zones a calendar defines are not read', runCatchThrown(function() use ($mixdCal){
 	$envlope = calRead($mixdCal);
-	return Array($envlope['infos']['count'], array_column($envlope['items']['event'], 'ident'), array_column($envlope['items']['tasks'], 'ident'), array_column($envlope['items']['notes'], 'ident'));
+	return Array($envlope['infos']['count'], array_column($envlope['items']['calEvent'], 'ident'), array_column($envlope['items']['calTodos'], 'ident'), array_column($envlope['items']['calNotes'], 'ident'));
 }), Array(5, Array('e1', 'e2'), Array('t1', 't2'), Array('j1')));
-checkIdentical('a task: the keys of an event, with when it is due and how far it is', calRead($mixdCal)['items']['tasks'][0], Array(
-	'ident'=>'t1', 'title'=>'Print the programmes', 'start'=>'2026-12-20', 'ended'=>'', 'whole'=>true, 'tzone'=>'', 'place'=>'', 'descr'=>'', 'links'=>'', 'state'=>'activ', 'label'=>Array(),
+checkIdentical('a task: the keys of an event, with when it is due and how far it is', calRead($mixdCal)['items']['calTodos'][0], Array(
+	'ident'=>'t1', 'title'=>'Print the programmes', 'start'=>'2026-12-20', 'ended'=>'', 'whole'=>true, 'tzone'=>'', 'place'=>'', 'descr'=>'', 'links'=>'', 'state'=>'underway', 'label'=>Array(),
 	'owner'=>Array('names'=>'', 'email'=>''), 'guest'=>Array(), 'rpeat'=>Array(), 'skips'=>Array(), 'alarm'=>Array(60), 'stamp'=>'', 'dueby'=>'2026-12-27 18:00:00', 'ratio'=>40, 'extra'=>Array('PRIORITY'=>'1')
 ));
-checkIdentical('a task due on a day, and done more than it can be', array_intersect_key(calRead($mixdCal)['items']['tasks'][1], array_flip(Array('dueby', 'ratio', 'start'))), Array('start'=>'', 'dueby'=>'2026-12-28', 'ratio'=>100));
-checkIdentical('a note: what applies to it', calRead($mixdCal)['items']['notes'][0], Array('ident'=>'j1', 'title'=>'Opening night', 'start'=>'2026-12-28', 'whole'=>true, 'tzone'=>'', 'descr'=>'Full house.', 'state'=>'final', 'label'=>Array('Diary'), 'stamp'=>'', 'extra'=>Array('X-MOOD'=>'good')));
-checkIdentical('upper: the keys of the first level', array_keys(calRead($mixdCal, Array('upper'=>true))['items']), Array('EVENT', 'TASKS', 'NOTES'));
+checkIdentical('a task due on a day, and done more than it can be', array_intersect_key(calRead($mixdCal)['items']['calTodos'][1], array_flip(Array('dueby', 'ratio', 'start'))), Array('start'=>'', 'dueby'=>'2026-12-28', 'ratio'=>100));
+checkIdentical('a note: what applies to it', calRead($mixdCal)['items']['calNotes'][0], Array('ident'=>'j1', 'title'=>'Opening night', 'start'=>'2026-12-28', 'whole'=>true, 'tzone'=>'', 'descr'=>'Full house.', 'state'=>'finalVer', 'label'=>Array('Diary'), 'stamp'=>'', 'extra'=>Array('X-MOOD'=>'good')));
+checkIdentical('upper: the keys of the first level', array_keys(calRead($mixdCal, Array('upper'=>true))['items']), Array('CALEVENT', 'CALTODOS', 'CALNOTES'));
 checkIdentical('several calendars in one content are read as one', runCatchThrown(function(){
 	$envlope = calRead(makeCal(evnt(Array('UID:a')), Array('PRODID:first', 'X-WR-CALNAME:One')).makeCal(evnt(Array('UID:b')), Array('PRODID:second')));
-	return Array($envlope['infos'], array_column($envlope['items']['event'], 'ident'));
+	return Array($envlope['infos'], array_column($envlope['items']['calEvent'], 'ident'));
 }), Array(Array('title'=>'One', 'tzone'=>'', 'maker'=>'first', 'count'=>2), Array('a', 'b')));
 
 // Line ends and encodings
 checkIdentical('any line end, a marker at the start, a calendar saved by an older tool, empty lines', Array(
-	calRead(str_replace("\r\n", "\n", makeCal(evnt(Array('SUMMARY:Unix', 'DESCRIPTION:folded', ' here')))))['items']['event'][0]['descr'],
-	calRead("\xEF\xBB\xBF".makeCal(evnt(Array('SUMMARY:Été'))))['items']['event'][0]['title'],
-	calRead(makeCal(evnt(Array("SUMMARY:\xC9t\xE9 \x80"))))['items']['event'][0]['title'],
-	calRead("\r\n\r\n".str_replace("\r\n", "\r\n\r\n", makeCal(evnt(Array('SUMMARY:Spaced')))))['items']['event'][0]['title']
+	calRead(str_replace("\r\n", "\n", makeCal(evnt(Array('SUMMARY:Unix', 'DESCRIPTION:folded', ' here')))))['items']['calEvent'][0]['descr'],
+	calRead("\xEF\xBB\xBF".makeCal(evnt(Array('SUMMARY:Été'))))['items']['calEvent'][0]['title'],
+	calRead(makeCal(evnt(Array("SUMMARY:\xC9t\xE9 \x80"))))['items']['calEvent'][0]['title'],
+	calRead("\r\n\r\n".str_replace("\r\n", "\r\n\r\n", makeCal(evnt(Array('SUMMARY:Spaced')))))['items']['calEvent'][0]['title']
 ), Array('foldedhere', 'Été', 'Été €', 'Spaced'));
 
 // What is refused
@@ -215,8 +215,8 @@ checkIdentical('a calendar through Dcmnt, with and without its extension: the ke
 	file_put_contents($barePth, $mixdCal);
 	$docFile = new Dcmnt($docPath);
 	$bareDoc = new Dcmnt($barePth);
-	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf')['count'], array_keys($docFile->readFileDetail()), $docFile->readFileDetail()['EVENT'][1]['title'], $bareDoc->readFileDetail('ext'), count($bareDoc->readFileDetail()['TASKS']));
-}), Array('ics', 'nodes', 5, Array('EVENT', 'TASKS', 'NOTES'), 'Second', 'ics', 2));
+	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf')['count'], array_keys($docFile->readFileDetail()), $docFile->readFileDetail()['CALEVENT'][1]['title'], $bareDoc->readFileDetail('ext'), count($bareDoc->readFileDetail()['CALTODOS']));
+}), Array('ics', 'nodes', 5, Array('CALEVENT', 'CALTODOS', 'CALNOTES'), 'Second', 'ics', 2));
 checkPregMatch('an invalid calendar file is refused, and named', runCatchThrown(function(){
 	$docPath = inTemporaryDir('broken.ics');
 	file_put_contents($docPath, "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\n");

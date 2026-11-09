@@ -20,9 +20,9 @@ use nyu\Data\Shape;
 class Text extends Base {
 
 	// Formatting given by the BBCode tags
-	const BBCD_MARK = Array('b'=>'bold', 'i'=>'ital', 'u'=>'undr', 's'=>'strk');
+	const BBCD_MARK = Array('b'=>'boldFace', 'i'=>'emphasis', 'u'=>'undrLine', 's'=>'crossOut');
 	// Formatting given by the marks of messaging
-	const CHAT_MARK = Array('*'=>'bold', '_'=>'ital', '__'=>'undr', '~'=>'strk');
+	const CHAT_MARK = Array('*'=>'boldFace', '_'=>'emphasis', '__'=>'undrLine', '~'=>'crossOut');
 
 	/**
 	 * Parses a text into blocks. An empty content gives no block.
@@ -50,7 +50,7 @@ class Text extends Base {
 		}else{
 			$blckLst = Array();
 			foreach($this->splitParagraph($fullTxt) as $parTxt){
-				$blckLst[] = Shape::makeBlockArray('parag', Array(Shape::makeASpanArray($parTxt)));
+				$blckLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray($parTxt)));
 			}
 		}
 		return $this->makeShapeArray('block', $blckLst, Array('reads'=>$readsAs));
@@ -131,25 +131,25 @@ class Text extends Base {
 			if( $tagName=='code' ){
 				$codeTxt = trim($bodyTxt, "\n");
 				if( trim($codeTxt)!=='' ){
-					$blckLst[] = Shape::makeBlockArray('codes', Array(Shape::makeASpanArray($codeTxt)), Array(), preg_match('/^[\w+#.\-]+$/D', $tagArgs) ? Array('langg'=>$tagArgs) : Array());
+					$blckLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), preg_match('/^[\w+#.\-]+$/D', $tagArgs) ? Array('langg'=>$tagArgs) : Array());
 				}
 			}elseif( $tagName=='img' ){
 				$imgLink = Shape::tidyLinkString($bodyTxt);
 				if( $imgLink!=='' ){
-					$blckLst[] = Shape::makeBlockArray('image', Array(), Array(), Array('sourc'=>$imgLink));
+					$blckLst[] = Shape::makeBlockArray('imageBox', Array(), Array(), Array('sourc'=>$imgLink));
 				}
 			}elseif( $tagName=='quote' ){
 				$heldLst = $this->bbcodeToBlocks($bodyTxt);
 				if( !empty($heldLst) ){
-					$blckLst[] = $this->holdBlockArray('quote', $heldLst, ($tagArgs!=='') ? Array('cites'=>$tagArgs) : Array());
+					$blckLst[] = $this->holdBlockArray('citation', $heldLst, ($tagArgs!=='') ? Array('cites'=>$tagArgs) : Array());
 				}
 			}else{
 				$itemLst = Array();
 				foreach($this->bbcodeEntryArr($bodyTxt) as $entTxt){
-					$itemLst[] = $this->holdBlockArray('entry', $this->bbcodeToBlocks($entTxt));
+					$itemLst[] = $this->holdBlockArray('listItem', $this->bbcodeToBlocks($entTxt));
 				}
 				if( !empty($itemLst) ){
-					$blckLst[] = Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>($tagArgs!=='')));
+					$blckLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>($tagArgs!=='')));
 				}
 			}
 		}
@@ -193,7 +193,7 @@ class Text extends Base {
 		foreach($this->splitParagraph($templateText) as $parTxt){
 			$spnsLst = Shape::joinSpansArray($this->bbcodeSpansArr($parTxt, Array(), ''));
 			if( !empty($spnsLst) ){
-				$blckLst[] = Shape::makeBlockArray('parag', $spnsLst);
+				$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
 			}
 		}
 		return $blckLst;
@@ -260,7 +260,7 @@ class Text extends Base {
 	 */
 	protected function chatsBlocksArr(String $templateText): Array {
 		$blckLst = Array();
-		// What is being gathered: its kind ('parag' or 'lists'), its lines, and for a list whether it is numbered
+		// What is being gathered: its kind ('paragrph' or 'itemList'), its lines, and for a list whether it is numbered
 		$opnKind = '';
 		$openLns = Array();
 		$opnOrdr = false;
@@ -270,30 +270,30 @@ class Text extends Base {
 		for($linIdx=0; $linIdx<$lineNum; $linIdx++){
 			$lineTxt = rtrim($lineLst[$linIdx]);
 			$linPart = Array();
-			$linKind = 'parag';
+			$linKind = 'paragrph';
 			$linOrdr = false;
 			if( $lineTxt==='' ){
 				$linKind = '';
 			}elseif( preg_match('/^[\-*] +(\S.*)$/', $lineTxt, $linPart) ){
-				$linKind = 'lists';
+				$linKind = 'itemList';
 				$lineTxt = $linPart[1];
 			}elseif( preg_match('/^\d{1,9}[.)] +(\S.*)$/', $lineTxt, $linPart) ){
-				$linKind = 'lists';
+				$linKind = 'itemList';
 				$linOrdr = true;
 				$lineTxt = $linPart[1];
 			}
 			// What was being gathered ends when the kind of line changes
-			if( $opnKind!=='' && ($linKind!==$opnKind || ($linKind=='lists' && $linOrdr!==$opnOrdr)) ){
-				if( $opnKind=='lists' ){
+			if( $opnKind!=='' && ($linKind!==$opnKind || ($linKind=='itemList' && $linOrdr!==$opnOrdr)) ){
+				if( $opnKind=='itemList' ){
 					$itemLst = Array();
 					foreach($openLns as $entTxt){
-						$itemLst[] = Shape::makeBlockArray('entry', Shape::joinSpansArray($this->chatSpansArray($entTxt, Array())));
+						$itemLst[] = Shape::makeBlockArray('listItem', Shape::joinSpansArray($this->chatSpansArray($entTxt, Array())));
 					}
-					$blckLst[] = Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>$opnOrdr));
+					$blckLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>$opnOrdr));
 				}else{
 					$spnsLst = Shape::joinSpansArray($this->chatSpansArray(trim(implode("\n", $openLns), "\n"), Array()));
 					if( !empty($spnsLst) ){
-						$blckLst[] = Shape::makeBlockArray('parag', $spnsLst);
+						$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
 					}
 				}
 				$opnKind = '';

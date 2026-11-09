@@ -64,8 +64,8 @@ checkIdentical('a page gives text blocks, and says what it was read as, its enco
 	'shape'=>'block',
 	'infos'=>Array('reads'=>'html', 'encod'=>'UTF-8', 'title'=>'Alpha Night'),
 	'items'=>Array(
-		Array('block'=>'headr', 'attrs'=>Array('level'=>1, 'tagid'=>'show'), 'spans'=>Array(Array('texts'=>'Alpha ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Night', 'marks'=>Array('ital'), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'),
-		Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a', 'field'=>''), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Playing at Hall A.')
+		Array('block'=>'headline', 'attrs'=>Array('level'=>1, 'tagid'=>'show'), 'spans'=>Array(Array('texts'=>'Alpha ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Night', 'marks'=>Array('emphasis'), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'),
+		Array('block'=>'paragrph', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a', 'field'=>''), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Playing at Hall A.')
 	)
 ));
 checkIdentical('an empty page gives no block', Array(htmRead(''), htmRead(" \n ")['items']), Array(Array('shape'=>'block', 'infos'=>Array('reads'=>'html', 'encod'=>'UTF-8', 'title'=>''), 'items'=>Array()), Array()));
@@ -73,11 +73,11 @@ checkIdentical('a page without title', htmRead('<p>x</p>')['infos']['title'], ''
 checkIdentical('the title is the one of the head, not one met in the body', htmRead('<html><head><title>Real</title></head><body><svg><title>Drawing</title></svg><p>x</p></body></html>')['infos']['title'], 'Real');
 
 // Headings and paragraphs
-checkIdentical('the six levels of heading', htmLines('<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>'), Array('headr {"level":1} [a]', 'headr {"level":2} [b]', 'headr {"level":3} [c]', 'headr {"level":4} [d]', 'headr {"level":5} [e]', 'headr {"level":6} [f]'));
-checkIdentical('formatting, alone and nested, in a fixed order', htmLines('<p><b>a</b><strong>b</strong> <i>c</i><em>d</em> <u>e</u> <s>f</s><del>g</del> <code>h</code> <strong>i<em>j<u>k</u></em></strong></p>'), Array('parag [ab|bold][ ][cd|ital][ ][e|undr][ ][fg|strk][ ][h|code][ ][i|bold][j|bold,ital][k|bold,ital,undr]'));
-checkIdentical('a link carries its address over the formatting inside it', htmLines('<p><a href="https://nyuark.test/a?x=1&amp;y=2">See <b>this</b></a></p>'), Array('parag [See |>https://nyuark.test/a?x=1&y=2][this|bold|>https://nyuark.test/a?x=1&y=2]'));
-checkIdentical('an empty paragraph, or one of spaces, gives nothing', htmLines('<p></p><p>   </p><h2> </h2><p>x</p>'), Array('parag [x]'));
-checkIdentical('the id of a block is kept in its attrs', htmLines('<p id="intro">x</p><h2 id="more">y</h2><hr id="cut">'), Array('parag {"tagid":"intro"} [x]', 'headr {"level":2,"tagid":"more"} [y]', 'rules {"tagid":"cut"}'));
+checkIdentical('the six levels of heading', htmLines('<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>'), Array('headline {"level":1} [a]', 'headline {"level":2} [b]', 'headline {"level":3} [c]', 'headline {"level":4} [d]', 'headline {"level":5} [e]', 'headline {"level":6} [f]'));
+checkIdentical('formatting, alone and nested, in a fixed order', htmLines('<p><b>a</b><strong>b</strong> <i>c</i><em>d</em> <u>e</u> <s>f</s><del>g</del> <code>h</code> <strong>i<em>j<u>k</u></em></strong></p>'), Array('paragrph [ab|boldFace][ ][cd|emphasis][ ][e|undrLine][ ][fg|crossOut][ ][h|codeSpan][ ][i|boldFace][j|boldFace,emphasis][k|boldFace,emphasis,undrLine]'));
+checkIdentical('a link carries its address over the formatting inside it', htmLines('<p><a href="https://nyuark.test/a?x=1&amp;y=2">See <b>this</b></a></p>'), Array('paragrph [See |>https://nyuark.test/a?x=1&y=2][this|boldFace|>https://nyuark.test/a?x=1&y=2]'));
+checkIdentical('an empty paragraph, or one of spaces, gives nothing', htmLines('<p></p><p>   </p><h2> </h2><p>x</p>'), Array('paragrph [x]'));
+checkIdentical('the id of a block is kept in its attrs', htmLines('<p id="intro">x</p><h2 id="more">y</h2><hr id="cut">'), Array('paragrph {"tagid":"intro"} [x]', 'headline {"level":2,"tagid":"more"} [y]', 'ruleLine {"tagid":"cut"}'));
 
 // Spacing: as a browser shows it
 checkIdentical('runs of spaces and line ends are one space, none at the ends', htmRead("<p>\n   Two\n   words   <b> and </b>  more \n</p>")['items'][0]['plain'], 'Two words and more');
@@ -87,61 +87,61 @@ checkIdentical('a non-breaking space is not a space to be merged', htmRead('<p>8
 checkIdentical('named and numbered entities are read as their characters', htmRead('<p>&eacute;t&eacute; &amp; &lt;b&gt; &euro; &#233; &#x20AC; &copy;</p>')['items'][0]['plain'], 'été & <b> € é € ©');
 
 // Elements that only group others
-checkIdentical('a div disappears: its text is a paragraph, its blocks follow in order', htmLines('<div id="top">Text in a div, <b>bold</b> then<p>a paragraph inside</p>tail text<div><div>deeper</div></div></div>'), Array('parag [Text in a div, ][bold|bold][ then]', 'parag [a paragraph inside]', 'parag [tail text]', 'parag [deeper]'));
-checkIdentical('inline elements side by side are one paragraph', htmLines('<body><span>inline</span> <span>siblings</span><section><article>inside</article></section></body>'), Array('parag [inline siblings]', 'parag [inside]'));
-checkIdentical('text alone is a paragraph', htmLines('just words'), Array('parag [just words]'));
+checkIdentical('a div disappears: its text is a paragraph, its blocks follow in order', htmLines('<div id="top">Text in a div, <b>bold</b> then<p>a paragraph inside</p>tail text<div><div>deeper</div></div></div>'), Array('paragrph [Text in a div, ][bold|boldFace][ then]', 'paragrph [a paragraph inside]', 'paragrph [tail text]', 'paragrph [deeper]'));
+checkIdentical('inline elements side by side are one paragraph', htmLines('<body><span>inline</span> <span>siblings</span><section><article>inside</article></section></body>'), Array('paragrph [inline siblings]', 'paragrph [inside]'));
+checkIdentical('text alone is a paragraph', htmLines('just words'), Array('paragrph [just words]'));
 
 // What is left out
-checkIdentical('scripts, styles, forms and the head are left out', htmLines('<html><head><title>T</title><style>p{color:red}</style><script>alert(1)</script></head><body><p>kept<script>alert(2)</script></p><style>b{}</style><form><input name="q" value="typed"><button>Go</button></form><noscript>no</noscript><iframe src="/x">frame</iframe><p>too</p></body></html>'), Array('parag [kept]', 'parag [too]'));
-checkIdentical('comments are left out', htmLines('<p>a<!-- hidden -->b</p><!-- <p>gone</p> -->'), Array('parag [ab]'));
-checkIdentical('a link that would run a script loses its address, and keeps its text', htmLines("<p><a href=\"javascript:alert(1)\">one</a> <a href=\" JaVa\nScRiPt:alert(1)\">two</a> <a href=\"data:text/html,x\">three</a> <a href=\"vbscript:x\">four</a> <a href=\"mailto:a@nyuark.test\">mail</a> <a href=\"tel:+33100000000\">call</a> <a href=\"#top\">up</a></p>"), Array('parag [one two three four ][mail|>mailto:a@nyuark.test][ ][call|>tel:+33100000000][ ][up|>#top]'));
+checkIdentical('scripts, styles, forms and the head are left out', htmLines('<html><head><title>T</title><style>p{color:red}</style><script>alert(1)</script></head><body><p>kept<script>alert(2)</script></p><style>b{}</style><form><input name="q" value="typed"><button>Go</button></form><noscript>no</noscript><iframe src="/x">frame</iframe><p>too</p></body></html>'), Array('paragrph [kept]', 'paragrph [too]'));
+checkIdentical('comments are left out', htmLines('<p>a<!-- hidden -->b</p><!-- <p>gone</p> -->'), Array('paragrph [ab]'));
+checkIdentical('a link that would run a script loses its address, and keeps its text', htmLines("<p><a href=\"javascript:alert(1)\">one</a> <a href=\" JaVa\nScRiPt:alert(1)\">two</a> <a href=\"data:text/html,x\">three</a> <a href=\"vbscript:x\">four</a> <a href=\"mailto:a@nyuark.test\">mail</a> <a href=\"tel:+33100000000\">call</a> <a href=\"#top\">up</a></p>"), Array('paragrph [one two three four ][mail|>mailto:a@nyuark.test][ ][call|>tel:+33100000000][ ][up|>#top]'));
 
 // Lists
 checkIdentical('a list, its kind in attrs, with a list inside an entry', htmLines('<ul><li>Music<ol id="kinds"><li>Jazz</li><li id="ete">Été</li></ol></li><li>Dance</li></ul>'), Array(
-	'lists {"lines":2,"bytes":19,"order":false}',
-	'  entry [Music]',
-	'    lists {"lines":2,"bytes":9,"order":true,"tagid":"kinds"}',
-	'      entry [Jazz]',
-	'      entry {"tagid":"ete"} [Été]',
-	'  entry [Dance]'
+	'itemList {"lines":2,"bytes":19,"order":false}',
+	'  listItem [Music]',
+	'    itemList {"lines":2,"bytes":9,"order":true,"tagid":"kinds"}',
+	'      listItem [Jazz]',
+	'      listItem {"tagid":"ete"} [Été]',
+	'  listItem [Dance]'
 ));
 checkIdentical('an entry made of paragraphs: the first is its text, the others are inside it', htmLines('<ul><li><p>Dance</p><p>Second <b>paragraph</b></p></li><li><ul><li>only a list</li></ul></li></ul>'), Array(
-	'lists {"lines":2,"bytes":32,"order":false}',
-	'  entry [Dance]',
-	'    parag [Second ][paragraph|bold]',
-	'  entry',
-	'    lists {"lines":1,"bytes":11,"order":false}',
-	'      entry [only a list]'
+	'itemList {"lines":2,"bytes":32,"order":false}',
+	'  listItem [Dance]',
+	'    paragrph [Second ][paragraph|boldFace]',
+	'  listItem',
+	'    itemList {"lines":1,"bytes":11,"order":false}',
+	'      listItem [only a list]'
 ));
 checkIdentical('a list without entry gives nothing', htmLines('<ul> </ul><ol></ol>'), Array());
 
 // Tables
 $tblHtml = '<table id="tbl"><thead><tr><th>Title</th><th>Seats</th></tr></thead><tbody><tr><th>Alpha Night</th><td colspan="2"><b>120</b></td></tr><tr><td rowspan="3">Les Enchaînés</td><td></td></tr></tbody></table>';
 checkIdentical('a table: header rows, rows, cells, and what describes it', htmLines($tblHtml), Array(
-	'table {"heads":["Title","Seats"],"colms":2,"lines":2,"bytes":39,"tagid":"tbl"}',
-	'  thead',
-	'    tcell [Title]',
-	'    tcell [Seats]',
-	'  tbrow',
-	'    tcell {"headr":true} [Alpha Night]',
-	'    tcell {"colsp":2} [120|bold]',
-	'  tbrow',
-	'    tcell {"rowsp":3} [Les Enchaînés]',
-	'    tcell'
+	'tableSet {"heads":["Title","Seats"],"colms":2,"lines":2,"bytes":39,"tagid":"tbl"}',
+	'  tableTop',
+	'    cellText [Title]',
+	'    cellText [Seats]',
+	'  tableRow',
+	'    cellText {"headr":true} [Alpha Night]',
+	'    cellText {"colsp":2} [120|boldFace]',
+	'  tableRow',
+	'    cellText {"rowsp":3} [Les Enchaînés]',
+	'    cellText'
 ));
 checkIdentical('rows have their cells in plain, a table has none', runCatchThrown(function() use ($tblHtml){
 	$tblBlck = htmRead($tblHtml)['items'][0];
 	return Array($tblBlck['plain'], $tblBlck['items'][0]['plain'], $tblBlck['items'][1]['plain'], $tblBlck['items'][2]['plain'], Shape::tableGridArray($tblBlck));
 }), Array('', "Title\tSeats", "Alpha Night\t120", "Les Enchaînés\t", Array(Array('Title', 'Seats'), Array('Alpha Night', '120'), Array('Les Enchaînés', ''))));
-checkIdentical('without a head, a row made of header cells only is the header row', htmLines('<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>'), Array('table {"heads":["A","B"],"colms":2,"lines":1,"bytes":4}', '  thead', '    tcell [A]', '    tcell [B]', '  tbrow', '    tcell [1]', '    tcell [2]'));
-checkIdentical('a cell holding blocks: its first paragraph is its text, the rest is inside it', htmLines('<table><tr><td><p>Shows</p><ul><li>Alpha</li></ul></td></tr></table>'), Array('table {"heads":[],"colms":1,"lines":1,"bytes":10}', '  tbrow', '    tcell [Shows]', '      lists {"lines":1,"bytes":5,"order":false}', '        entry [Alpha]'));
+checkIdentical('without a head, a row made of header cells only is the header row', htmLines('<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>'), Array('tableSet {"heads":["A","B"],"colms":2,"lines":1,"bytes":4}', '  tableTop', '    cellText [A]', '    cellText [B]', '  tableRow', '    cellText [1]', '    cellText [2]'));
+checkIdentical('a cell holding blocks: its first paragraph is its text, the rest is inside it', htmLines('<table><tr><td><p>Shows</p><ul><li>Alpha</li></ul></td></tr></table>'), Array('tableSet {"heads":[],"colms":1,"lines":1,"bytes":10}', '  tableRow', '    cellText [Shows]', '      itemList {"lines":1,"bytes":5,"order":false}', '        listItem [Alpha]'));
 
 // Quotes, code, rules and images
-checkIdentical('a quote: its text, then the blocks inside it', htmLines('<blockquote id="q">Quoted <i>words</i><p>and more</p></blockquote>'), Array('quote {"tagid":"q"} [Quoted ][words|ital]', '  parag [and more]'));
-checkIdentical('code keeps its spacing and its lines, and gives its language', htmRead("<pre><code class=\"hl language-php\">if( \$a &lt; 2 ){\n    echo \"x\";\n}\n</code></pre>")['items'], Array(Array('block'=>'codes', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a < 2 ){\n    echo \"x\";\n}", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"if( \$a < 2 ){\n    echo \"x\";\n}")));
-checkIdentical('code without language', htmLines("<pre>a  b</pre>"), Array('codes [a  b]'));
-checkIdentical('a rule, and images: the address in attrs, the description as text', htmLines('<hr><img src="/img/a.png" alt="The hall"><img src="https://nyuark.test/b.png"><img src="javascript:alert(1)" alt="bad"><img alt="no address">'), Array('rules', 'image {"sourc":"/img/a.png"} [The hall]', 'image {"sourc":"https://nyuark.test/b.png"}'));
-checkIdentical('an image inside a paragraph stands between its two halves', htmLines('<p>before <img src="a.png" alt="A"> after</p>'), Array('parag [before]', 'image {"sourc":"a.png"} [A]', 'parag [after]'));
+checkIdentical('a quote: its text, then the blocks inside it', htmLines('<blockquote id="q">Quoted <i>words</i><p>and more</p></blockquote>'), Array('citation {"tagid":"q"} [Quoted ][words|emphasis]', '  paragrph [and more]'));
+checkIdentical('code keeps its spacing and its lines, and gives its language', htmRead("<pre><code class=\"hl language-php\">if( \$a &lt; 2 ){\n    echo \"x\";\n}\n</code></pre>")['items'], Array(Array('block'=>'codeBlck', 'attrs'=>Array('langg'=>'php'), 'spans'=>Array(Array('texts'=>"if( \$a < 2 ){\n    echo \"x\";\n}", 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>"if( \$a < 2 ){\n    echo \"x\";\n}")));
+checkIdentical('code without language', htmLines("<pre>a  b</pre>"), Array('codeBlck [a  b]'));
+checkIdentical('a rule, and images: the address in attrs, the description as text', htmLines('<hr><img src="/img/a.png" alt="The hall"><img src="https://nyuark.test/b.png"><img src="javascript:alert(1)" alt="bad"><img alt="no address">'), Array('ruleLine', 'imageBox {"sourc":"/img/a.png"} [The hall]', 'imageBox {"sourc":"https://nyuark.test/b.png"}'));
+checkIdentical('an image inside a paragraph stands between its two halves', htmLines('<p>before <img src="a.png" alt="A"> after</p>'), Array('paragrph [before]', 'imageBox {"sourc":"a.png"} [A]', 'paragrph [after]'));
 
 // The whole text, and sections
 $longHtm = '<p>Before.</p><h1>Alpha Night</h1><p>Intro.</p><h2>Dates</h2><ul><li>Monday</li><li>Friday</li></ul><h1>Beta Evening</h1><p>Other show.</p>';
@@ -149,7 +149,7 @@ checkIdentical('the whole text of a page', Shape::documentAsText(htmRead($longHt
 checkIdentical('a page grouped into sections', runCatchThrown(function() use ($longHtm){
 	$sctnLst = Shape::bySectionArray(htmRead($longHtm)['items']);
 	return Array(count($sctnLst), $sctnLst[0]['title'], $sctnLst[1]['title'], $sctnLst[1]['items'][0]['plain'], $sctnLst[1]['nodes'][0]['title'], $sctnLst[1]['nodes'][0]['items'][0]['block'], $sctnLst[2]['title']);
-}), Array(3, '', 'Alpha Night', 'Intro.', 'Dates', 'lists', 'Beta Evening'));
+}), Array(3, '', 'Alpha Night', 'Intro.', 'Dates', 'itemList', 'Beta Evening'));
 
 // The tree, on request
 checkIdentical('shape nodes: the page as a tree, completed as a browser does', htmRead('<p id="a">Hi <b>you</b> <i>two</i></p>', Array('shape'=>'nodes')), Array(
@@ -175,7 +175,7 @@ checkIdentical('an XML document read as blocks, on request', runCatchThrown(func
 	$prsrObj = new XHml();
 	$envlope = $prsrObj->parseDataArray('<doc><h1>T</h1><p>Hello <b>w</b></p><item>loose</item></doc>', Array('shape'=>'block'));
 	return Array($envlope['infos'], blkLines($envlope['items']));
-}), Array(Array('reads'=>'xml', 'encod'=>'UTF-8'), Array('headr {"level":1} [T]', 'parag [Hello ][w|bold]', 'parag [loose]')));
+}), Array(Array('reads'=>'xml', 'encod'=>'UTF-8'), Array('headline {"level":1} [T]', 'paragrph [Hello ][w|boldFace]', 'paragrph [loose]')));
 
 // What the content is, when nothing says it
 checkIdentical('a page is told from its first bytes; a piece of markup is XML unless said otherwise', runCatchThrown(function(){
@@ -201,8 +201,8 @@ checkIdentical('a page that declares nothing and is not UTF-8 is read as Windows
 checkIdentical('a UTF-8 page with its marker, and a UTF-16 one', Array(htmRead("\xEF\xBB\xBF<p>été</p>")['items'][0]['plain'], htmRead("\xFF\xFE".iconv('UTF-8', 'UTF-16LE', '<p>été</p>'))['items'][0]['plain']), Array('été', 'été'));
 
 // Pages that are not well-formed are repaired, never refused
-checkIdentical('tags left open or closed twice', htmLines('<p>one<p>two <b>open</p></i><div>div'), Array('parag [one]', 'parag [two ][open|bold]', 'parag [div]'));
-checkIdentical('unknown elements are read through', htmLines('<my-card><p>inside <x-tag>custom</x-tag></p></my-card>'), Array('parag [inside custom]'));
+checkIdentical('tags left open or closed twice', htmLines('<p>one<p>two <b>open</p></i><div>div'), Array('paragrph [one]', 'paragrph [two ][open|boldFace]', 'paragrph [div]'));
+checkIdentical('unknown elements are read through', htmLines('<my-card><p>inside <x-tag>custom</x-tag></p></my-card>'), Array('paragrph [inside custom]'));
 checkPregMatch('nesting deeper than allowed is refused', htmRead('<div><div><div><div><p>x</p></div></div></div></div>', Array('depth'=>4)), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid HTML content: nested deeper than allowed/');
 checkIdentical('no PHP warning is left behind by a page that is not well-formed', takeNotesArray(), Array());
 
@@ -213,12 +213,12 @@ checkIdentical('an HTML file through Dcmnt', runCatchThrown(function() use ($sho
 	file_put_contents($docPath, $showHtm);
 	$docFile = new Dcmnt($docPath);
 	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf'), array_column($docFile->readFileDetail(), 'block'));
-}), Array('html', 'block', Array('reads'=>'html', 'encod'=>'UTF-8', 'title'=>'Alpha Night'), Array('headr', 'parag')));
+}), Array('html', 'block', Array('reads'=>'html', 'encod'=>'UTF-8', 'title'=>'Alpha Night'), Array('headline', 'paragrph')));
 checkIdentical('a piece of HTML in a .htm file, without anything of a page around it', runCatchThrown(function(){
 	$docPath = inTemporaryDir('piece.htm');
 	file_put_contents($docPath, '<p>Just <b>this</b></p>');
 	$docFile = new Dcmnt($docPath);
 	return Array($docFile->readFileDetail('shp'), blkLines($docFile->readFileDetail()));
-}), Array('block', Array('parag [Just ][this|bold]')));
+}), Array('block', Array('paragrph [Just ][this|boldFace]')));
 
 finishChecking();

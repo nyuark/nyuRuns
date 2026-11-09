@@ -68,7 +68,7 @@ abstract class Base implements Parser {
 	 * @return Array The block.
 	 */
 	protected function holdBlockArray(String $blckLabelTxt, Array $bookBlockSet, Array $attributeSet=Array()): Array {
-		if( !empty($bookBlockSet) && $bookBlockSet[0]['block']=='parag' ){
+		if( !empty($bookBlockSet) && $bookBlockSet[0]['block']=='paragrph' ){
 			return Shape::makeBlockArray($blckLabelTxt, $bookBlockSet[0]['spans'], array_slice($bookBlockSet, 1), $attributeSet + $bookBlockSet[0]['attrs']);
 		}
 		return Shape::makeBlockArray($blckLabelTxt, Array(), $bookBlockSet, $attributeSet);

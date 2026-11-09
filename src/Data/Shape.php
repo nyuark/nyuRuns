@@ -19,7 +19,7 @@ namespace nyu\Data;
  * A piece of text, or span, has four keys: 'texts' (the text), 'marks'
  * (its formatting), 'links' (the address it points to, or '') and
  * 'field' (what the text stands for when its document works it out:
- * 'pgnum' the number of the page, 'pgtot' the number of pages, 'dates'
+ * 'pageNumb' the number of the page, 'pageTotl' the number of pages, 'dateTime'
  * a date, 'props:Name' a property of the document; '' for plain text).
  * The text of a field is the value its document last showed for it.
  *
@@ -29,11 +29,11 @@ namespace nyu\Data;
 class Shape {
 
 	// Kinds of block that carry text of their own
-	const TEXT_LIST = Array('headr', 'parag', 'entry', 'tcell', 'quote', 'codes', 'image', 'fnote');
+	const TEXT_LIST = Array('headline', 'paragrph', 'listItem', 'cellText', 'citation', 'codeBlck', 'imageBox', 'footnote');
 	// Kinds of block that only hold other blocks, or nothing
-	const HOLD_LIST = Array('lists', 'table', 'thead', 'tbrow', 'rules');
+	const HOLD_LIST = Array('itemList', 'tableSet', 'tableTop', 'tableRow', 'ruleLine');
 	// Formatting a span can carry
-	const MARK_LIST = Array('bold', 'ital', 'undr', 'strk', 'code');
+	const MARK_LIST = Array('boldFace', 'emphasis', 'undrLine', 'crossOut', 'codeSpan');
 	// Kinds of address a link or an image may point to, besides a relative one
 	const LINK_LIST = Array('http', 'https', 'mailto', 'tel');
 
@@ -60,7 +60,7 @@ class Shape {
 	 * Builds a piece of text.
 	 *
 	 * @param String $templateText The text.
-	 * @param Array  $runFormatSet Its formatting, among bold, ital, undr, strk and code; anything else is left out.
+	 * @param Array  $runFormatSet Its formatting, among boldFace, emphasis, undrLine, crossOut and codeSpan; anything else is left out.
 	 * @param String $linkGoalText The address it points to, '' when it is not a link.
 	 * @param String $fldCodesText What the text stands for when its document works it out, '' for plain text.
 	 * @return Array The span: 'texts', 'marks', 'links', 'field'.
@@ -103,7 +103,7 @@ class Shape {
 	 *   - a list has no 'plain': its 'attrs' give its number of entries
 	 *     ('lines') and the size of its text in bytes ('bytes').
 	 *
-	 * @param String $blckLabelTxt Kind of the block: headr, parag, lists, entry, table, thead, tbrow, tcell, quote, codes, image, rules or fnote.
+	 * @param String $blckLabelTxt Kind of the block: headline, paragrph, itemList, listItem, tableSet, tableTop, tableRow, cellText, citation, codeBlck, imageBox, ruleLine or footnote.
 	 * @param Array  $textSpanList Its own text, as spans.
 	 * @param Array  $paragraphSet The blocks it contains.
 	 * @param Array  $attributeSet What is particular to it.
@@ -117,15 +117,15 @@ class Shape {
 		}
 		$paragraphSet = array_values($paragraphSet);
 		$plainTx = implode('', array_column($textSpanList, 'texts'));
-		if( $blckLabelTxt=='thead' || $blckLabelTxt=='tbrow' ){
+		if( $blckLabelTxt=='tableTop' || $blckLabelTxt=='tableRow' ){
 			$plainTx = implode("\t", array_column($paragraphSet, 'plain'));
-		}elseif( $blckLabelTxt=='table' ){
+		}elseif( $blckLabelTxt=='tableSet' ){
 			$headLst = Array();
 			$colsMax = 0;
 			$lineNum = 0;
 			foreach($paragraphSet as $oneRow){
 				$colsMax = max($colsMax, count($oneRow['items']));
-				if( $oneRow['block']=='thead' ){
+				if( $oneRow['block']=='tableTop' ){
 					$headLst = empty($headLst) ? array_column($oneRow['items'], 'plain') : $headLst;
 				}else{
 					$lineNum++;
@@ -133,7 +133,7 @@ class Shape {
 			}
 			$plainTx = '';
 			$attributeSet = Array('heads'=>$headLst, 'colms'=>$colsMax, 'lines'=>$lineNum, 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
-		}elseif( $blckLabelTxt=='lists' ){
+		}elseif( $blckLabelTxt=='itemList' ){
 			$plainTx = '';
 			$attributeSet = Array('lines'=>count($paragraphSet), 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
 		}
@@ -175,7 +175,7 @@ class Shape {
 		foreach($contentBlock['items'] as $oneBlk){
 			$chldTxt[] = self::blockPlainText($oneBlk);
 		}
-		$joinTxt = implode(in_array($contentBlock['block'], Array('thead', 'tbrow')) ? "\t" : "\n", $chldTxt);
+		$joinTxt = implode(in_array($contentBlock['block'], Array('tableTop', 'tableRow')) ? "\t" : "\n", $chldTxt);
 		return ($ownText==='') ? $joinTxt : $ownText."\n".$joinTxt;
 	}
 
@@ -197,7 +197,7 @@ class Shape {
 	 * Gives a table as a plain grid: its rows, each a list of the texts of
 	 * its cells. The header rows come first, like the others.
 	 *
-	 * @param Array $tableBlckArr A block of kind 'table'.
+	 * @param Array $tableBlckArr A block of kind 'tableSet'.
 	 * @return Array The rows, each a list of texts.
 	 */
 	public static function tableGridArray(Array $tableBlckArr): Array {
@@ -226,7 +226,7 @@ class Shape {
 		// The sections being filled, from the outermost to the innermost
 		$opnSctn = Array(&$rotSctn);
 		foreach($bookBlockSet as $oneBlk){
-			if( $oneBlk['block']!=='headr' ){
+			if( $oneBlk['block']!=='headline' ){
 				$opnSctn[count($opnSctn)-1]['items'][] = $oneBlk;
 				continue;
 			}

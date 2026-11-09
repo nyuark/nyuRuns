@@ -21,55 +21,55 @@ function textBlk( String $blockLabel, String $textString, Array $attrsArray=Arra
 
 // Spans
 checkIdentical('a plain span', Shape::makeASpanArray('Hall A'), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'', 'field'=>''));
-checkIdentical('a span with formatting and a link; unknown marks are left out, the rest put in a fixed order', Shape::makeASpanArray('120', Array('code', 'huge', 'bold'), '/venues/a'), Array('texts'=>'120', 'marks'=>Array('bold', 'code'), 'links'=>'/venues/a', 'field'=>''));
+checkIdentical('a span with formatting and a link; unknown marks are left out, the rest put in a fixed order', Shape::makeASpanArray('120', Array('codeSpan', 'huge', 'boldFace'), '/venues/a'), Array('texts'=>'120', 'marks'=>Array('boldFace', 'codeSpan'), 'links'=>'/venues/a', 'field'=>''));
 
 // Blocks with text of their own
-checkIdentical('a paragraph: five keys, its text in plain', Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('Playing at '), Shape::makeASpanArray('Hall A', Array(), '/venues/a'), Shape::makeASpanArray(', '), Shape::makeASpanArray('120', Array('bold')), Shape::makeASpanArray(' seats.'))), Array(
-	'block'=>'parag', 'attrs'=>Array(),
+checkIdentical('a paragraph: five keys, its text in plain', Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('Playing at '), Shape::makeASpanArray('Hall A', Array(), '/venues/a'), Shape::makeASpanArray(', '), Shape::makeASpanArray('120', Array('boldFace')), Shape::makeASpanArray(' seats.'))), Array(
+	'block'=>'paragrph', 'attrs'=>Array(),
 	'spans'=>Array(
 		Array('texts'=>'Playing at ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'Hall A', 'marks'=>Array(), 'links'=>'/venues/a', 'field'=>''), Array('texts'=>', ', 'marks'=>Array(), 'links'=>'', 'field'=>''),
-		Array('texts'=>'120', 'marks'=>Array('bold'), 'links'=>'', 'field'=>''), Array('texts'=>' seats.', 'marks'=>Array(), 'links'=>'', 'field'=>'')
+		Array('texts'=>'120', 'marks'=>Array('boldFace'), 'links'=>'', 'field'=>''), Array('texts'=>' seats.', 'marks'=>Array(), 'links'=>'', 'field'=>'')
 	),
 	'items'=>Array(), 'plain'=>'Playing at Hall A, 120 seats.'
 ));
-checkIdentical('a heading keeps its level in attrs', textBlk('headr', 'Alpha Night', Array('level'=>2)), Array('block'=>'headr', 'attrs'=>Array('level'=>2), 'spans'=>Array(Array('texts'=>'Alpha Night', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'));
-checkIdentical('a block without text', Shape::makeBlockArray('rules'), Array('block'=>'rules', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''));
+checkIdentical('a heading keeps its level in attrs', textBlk('headline', 'Alpha Night', Array('level'=>2)), Array('block'=>'headline', 'attrs'=>Array('level'=>2), 'spans'=>Array(Array('texts'=>'Alpha Night', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Alpha Night'));
+checkIdentical('a block without text', Shape::makeBlockArray('ruleLine'), Array('block'=>'ruleLine', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''));
 checkForThrows('an unknown kind is refused', function(){ Shape::makeBlockArray('title'); }, 'RuntimeException');
 
 // Lists
-$subList = Shape::makeBlockArray('lists', Array(), Array(textBlk('entry', 'Jazz'), textBlk('entry', 'Été')));
-$musicEn = Shape::makeBlockArray('entry', Array(Shape::makeASpanArray('Music')), Array($subList));
-$showLst = Shape::makeBlockArray('lists', Array(), Array($musicEn, textBlk('entry', 'Dance')), Array('order'=>true));
+$subList = Shape::makeBlockArray('itemList', Array(), Array(textBlk('listItem', 'Jazz'), textBlk('listItem', 'Été')));
+$musicEn = Shape::makeBlockArray('listItem', Array(Shape::makeASpanArray('Music')), Array($subList));
+$showLst = Shape::makeBlockArray('itemList', Array(), Array($musicEn, textBlk('listItem', 'Dance')), Array('order'=>true));
 checkIdentical('a list describes itself in attrs, and has no plain', Array($showLst['attrs'], $showLst['plain'], $showLst['spans'], count($showLst['items'])), Array(Array('lines'=>2, 'bytes'=>19, 'order'=>true), '', Array(), 2));
 checkIdentical('an entry holding a list keeps its own text in plain', Array($musicEn['plain'], $musicEn['items'][0]['attrs']), Array('Music', Array('lines'=>2, 'bytes'=>9)));
 checkIdentical('the whole text of a list, on request', Shape::blockPlainText($showLst), "Music\nJazz\nÉté\nDance");
 
 // Tables
-$headRow = Shape::makeBlockArray('thead', Array(), Array(textBlk('tcell', 'Title'), textBlk('tcell', 'Venue'), textBlk('tcell', 'Seats')));
-$frstRow = Shape::makeBlockArray('tbrow', Array(), Array(textBlk('tcell', 'Alpha Night'), textBlk('tcell', 'Hall A'), Shape::makeBlockArray('tcell', Array(Shape::makeASpanArray('120', Array('bold'))))));
-$scndRow = Shape::makeBlockArray('tbrow', Array(), Array(textBlk('tcell', 'Les Enchaînés'), Shape::makeBlockArray('tcell'), textBlk('tcell', '80')));
-$showTbl = Shape::makeBlockArray('table', Array(), Array($headRow, $frstRow, $scndRow));
+$headRow = Shape::makeBlockArray('tableTop', Array(), Array(textBlk('cellText', 'Title'), textBlk('cellText', 'Venue'), textBlk('cellText', 'Seats')));
+$frstRow = Shape::makeBlockArray('tableRow', Array(), Array(textBlk('cellText', 'Alpha Night'), textBlk('cellText', 'Hall A'), Shape::makeBlockArray('cellText', Array(Shape::makeASpanArray('120', Array('boldFace'))))));
+$scndRow = Shape::makeBlockArray('tableRow', Array(), Array(textBlk('cellText', 'Les Enchaînés'), Shape::makeBlockArray('cellText'), textBlk('cellText', '80')));
+$showTbl = Shape::makeBlockArray('tableSet', Array(), Array($headRow, $frstRow, $scndRow));
 checkIdentical('a row has its cells in plain, separated by tabs', Array($headRow['plain'], $frstRow['plain'], $scndRow['plain']), Array("Title\tVenue\tSeats", "Alpha Night\tHall A\t120", "Les Enchaînés\t\t80"));
 checkIdentical('a table describes itself in attrs, and has no plain', Array($showTbl['attrs'], $showTbl['plain']), Array(Array('heads'=>Array('Title', 'Venue', 'Seats'), 'colms'=>3, 'lines'=>2, 'bytes'=>52), ''));
 checkIdentical('the bytes of a table count its text only', Shape::textBytesCount($showTbl['items']), strlen('TitleVenueSeats'.'Alpha NightHall A120'.'Les Enchaînés80'));
 checkIdentical('an empty cell is still a cell', Array(count($scndRow['items']), $scndRow['items'][1]['plain'], $scndRow['items'][1]['spans']), Array(3, '', Array()));
-checkIdentical('a table without header row', Shape::makeBlockArray('table', Array(), Array($frstRow))['attrs'], Array('heads'=>Array(), 'colms'=>3, 'lines'=>1, 'bytes'=>20));
+checkIdentical('a table without header row', Shape::makeBlockArray('tableSet', Array(), Array($frstRow))['attrs'], Array('heads'=>Array(), 'colms'=>3, 'lines'=>1, 'bytes'=>20));
 checkIdentical('the whole text of a table, on request', Shape::blockPlainText($showTbl), "Title\tVenue\tSeats\nAlpha Night\tHall A\t120\nLes Enchaînés\t\t80");
 checkIdentical('a table as a plain grid', Shape::tableGridArray($showTbl), Array(Array('Title', 'Venue', 'Seats'), Array('Alpha Night', 'Hall A', '120'), Array('Les Enchaînés', '', '80')));
 
 // A whole document
 $docBlks = Array(
-	textBlk('parag', 'Before any heading.'),
-	textBlk('headr', 'Alpha Night', Array('level'=>1)),
-	textBlk('parag', 'Intro.'),
-	textBlk('headr', 'A list', Array('level'=>2)),
+	textBlk('paragrph', 'Before any heading.'),
+	textBlk('headline', 'Alpha Night', Array('level'=>1)),
+	textBlk('paragrph', 'Intro.'),
+	textBlk('headline', 'A list', Array('level'=>2)),
 	$showLst,
-	textBlk('headr', 'Details', Array('level'=>3)),
-	textBlk('parag', 'Deep.'),
-	textBlk('headr', 'A table', Array('level'=>2, 'tagid'=>'tbl')),
+	textBlk('headline', 'Details', Array('level'=>3)),
+	textBlk('paragrph', 'Deep.'),
+	textBlk('headline', 'A table', Array('level'=>2, 'tagid'=>'tbl')),
 	$showTbl,
-	textBlk('headr', 'Beta Evening', Array('level'=>1)),
-	textBlk('parag', 'Other show.')
+	textBlk('headline', 'Beta Evening', Array('level'=>1)),
+	textBlk('paragrph', 'Other show.')
 );
 checkIdentical('the whole text of a document', Shape::documentAsText(Array($docBlks[1], $docBlks[2], $showLst)), "Alpha Night\n\nIntro.\n\nMusic\nJazz\nÉté\nDance");
 
@@ -97,7 +97,7 @@ checkIdentical('a section keeps the attrs of its heading, and its blocks as they
 }), Array(Array('level'=>2, 'tagid'=>'tbl'), true));
 checkIdentical('a document starting with a heading has no untitled section', sctnMap(Shape::bySectionArray(array_slice($docBlks, 1, 2))), Array('Alpha Night/1/1'));
 checkIdentical('a document without heading is one untitled section', sctnMap(Shape::bySectionArray(Array($docBlks[0], $docBlks[2]))), Array('/0/2'));
-checkIdentical('a heading deeper than the one before it, with a level skipped', sctnMap(Shape::bySectionArray(Array(textBlk('headr', 'One', Array('level'=>1)), textBlk('headr', 'Three', Array('level'=>3)), textBlk('headr', 'Two', Array('level'=>2))))), Array(Array('One/1/0'=>Array('Three/3/0', 'Two/2/0'))));
+checkIdentical('a heading deeper than the one before it, with a level skipped', sctnMap(Shape::bySectionArray(Array(textBlk('headline', 'One', Array('level'=>1)), textBlk('headline', 'Three', Array('level'=>3)), textBlk('headline', 'Two', Array('level'=>2))))), Array(Array('One/1/0'=>Array('Three/3/0', 'Two/2/0'))));
 checkIdentical('no block, no section', Shape::bySectionArray(Array()), Array());
 
 // Sheets

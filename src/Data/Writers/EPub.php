@@ -132,7 +132,7 @@ class EPub extends Page {
 			$spinTxt .= '<itemref idref="chap'.($chpIdx+1).'"/>';
 			// The headings of the chapter, for the table of contents
 			foreach($chapter as $oneBlk){
-				if( $oneBlk['block']=='headr' && intval($oneBlk['attrs']['level'] ?? 1)<=$tocDeep && trim($oneBlk['plain'])!=='' ){
+				if( $oneBlk['block']=='headline' && intval($oneBlk['attrs']['level'] ?? 1)<=$tocDeep && trim($oneBlk['plain'])!=='' ){
 					$headLst[] = Array('level'=>max(1, intval($oneBlk['attrs']['level'] ?? 1)), 'title'=>trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))), 'links'=>$pageNme.'#'.$oneBlk['attrs']['tagid']);
 				}
 			}
@@ -227,19 +227,19 @@ class EPub extends Page {
 					$spanLst[] = Shape::makeASpanArray(strval($oneSpn['texts'] ?? ''), (array)($oneSpn['marks'] ?? Array()), is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
 				}
 			}
-			if( $blckKnd=='headr' && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrSet['tagid'] ?? '')) ){
+			if( $blckKnd=='headline' && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrSet['tagid'] ?? '')) ){
 				$headingCount++;
 				$attrSet['tagid'] = 'sec-'.$headingCount;
 			}
-			if( $blckKnd=='entry' && isset($attrSet['check']) ){
+			if( $blckKnd=='listItem' && isset($attrSet['check']) ){
 				array_unshift($spanLst, Shape::makeASpanArray(empty($attrSet['check']) ? "\u{2610} " : "\u{2611} "));
 				unset($attrSet['check']);
 			}
-			if( $blckKnd=='image' ){
+			if( $blckKnd=='imageBox' ){
 				$pctrSet = $this->pictureReadArr(is_scalar($attrSet['sourc'] ?? '') ? strval($attrSet['sourc'] ?? '') : '');
 				$pctrNme = ($pctrSet===null) ? '' : $this->givePictureNme($pctrSet);
 				if( $pctrNme==='' ){
-					$blckKnd = 'parag';
+					$blckKnd = 'paragrph';
 					unset($attrSet['sourc']);
 				}else{
 					$attrSet['sourc'] = $pctrNme;
@@ -284,7 +284,7 @@ class EPub extends Page {
 	protected function chaptersOfList(Array $bookBlockSet, Int $splitLevelNb, String $bookTitleTxt): Array {
 		$chapLst = Array();
 		foreach($bookBlockSet as $oneBlk){
-			$isStart = ($oneBlk['block']=='headr' && $splitLevelNb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLevelNb && trim($oneBlk['plain'])!=='');
+			$isStart = ($oneBlk['block']=='headline' && $splitLevelNb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLevelNb && trim($oneBlk['plain'])!=='');
 			if( $isStart || empty($chapLst) ){
 				$chapLst[] = Array('title'=>$isStart ? trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))) : $bookTitleTxt, 'blcks'=>Array());
 			}

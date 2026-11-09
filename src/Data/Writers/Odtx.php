@@ -20,11 +20,11 @@ class Odtx extends Page {
 	// The size of the headings, by their level, in points
 	const HEAD_SIZE = Array(1=>20, 2=>16, 3=>14, 4=>12, 5=>11, 6=>11);
 	// How a paragraph is aligned, by the code that asks for it
-	const ALGN_LIST = Array('lefts'=>'start', 'right'=>'end', 'centr'=>'center', 'justf'=>'justify');
+	const ALGN_LIST = Array('alignLft'=>'start', 'alignRgt'=>'end', 'alignCtr'=>'center', 'alignJst'=>'justify');
 	// The deepest a list goes into another
 	const LIST_DEEP = 10;
 	// What a field stands for, by its code: the element that asks the document for it
-	const FLDS_LIST = Array('pgnum'=>'text:page-number', 'pgtot'=>'text:page-count', 'dates'=>'text:date', 'props:Title'=>'text:title', 'props:Subject'=>'text:subject', 'props:Keywords'=>'text:keywords', 'props:Comments'=>'text:description', 'props:Author'=>'text:initial-creator', 'props:LastSavedBy'=>'text:creator');
+	const FLDS_LIST = Array('pageNumb'=>'text:page-number', 'pageTotl'=>'text:page-count', 'dateTime'=>'text:date', 'props:Title'=>'text:title', 'props:Subject'=>'text:subject', 'props:Keywords'=>'text:keywords', 'props:Comments'=>'text:description', 'props:Author'=>'text:initial-creator', 'props:LastSavedBy'=>'text:creator');
 	// The addresses of the format, as every part declares them
 	const NAME_LIST = ' xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" office:version="1.2"';
 
@@ -57,8 +57,8 @@ class Odtx extends Page {
 	 * Writes text blocks, or sheets, as a document.
 	 *
 	 * Options:
-	 *   'paper' => the size of the pages: 'isoa3', 'isoa4', 'isoa5',
-	 *              'lettr' or 'legal'; 'isoa4' when left out;
+	 *   'paper' => the size of the pages: 'isoPgeA3', 'isoPgeA4', 'isoPgeA5',
+	 *              'usLetter' or 'legalUsa'; 'isoPgeA4' when left out;
 	 *   'lands' => lays the pages out on their long side;
 	 *   'media' => the folder the pictures of the document are taken
 	 *              from: an image whose file is in it is written into
@@ -102,7 +102,7 @@ class Odtx extends Page {
 		$this->notesMuted = true;
 		foreach(Array('fnote', 'enote') as $nteKnd){
 			foreach(array_diff_key($this->remarkList[$nteKnd], $this->noteRfrncs[$nteKnd]) as $blkArr){
-				$bodyTxt .= $this->blckPartString(Array('block'=>'parag') + $blkArr);
+				$bodyTxt .= $this->blckPartString(Array('block'=>'paragrph') + $blkArr);
 			}
 		}
 		// A page that was to start and has nothing to start with still starts
@@ -232,7 +232,7 @@ class Odtx extends Page {
 		$visitor = function(Array $blocksToWalk) use (&$visitor, &$nameLst){
 			foreach($blocksToWalk as $blkArr){
 				if( is_array($blkArr) ){
-					$nameLst[] = (strval($blkArr['block'] ?? '')=='parag' && is_scalar($blkArr['attrs']['style'] ?? null)) ? strval($blkArr['attrs']['style']) : '';
+					$nameLst[] = (strval($blkArr['block'] ?? '')=='paragrph' && is_scalar($blkArr['attrs']['style'] ?? null)) ? strval($blkArr['attrs']['style']) : '';
 					$visitor((array)($blkArr['items'] ?? Array()));
 				}
 			}
@@ -253,10 +253,10 @@ class Odtx extends Page {
 			$textTxt = (($fontTxt==='') ? '' : ' fo:font-family="\''.$fontTxt.'\'"')
 				.(($sizeNum==='') ? '' : ' fo:font-size="'.$sizeNum.'pt" style:font-size-asian="'.$sizeNum.'pt" style:font-size-complex="'.$sizeNum.'pt"')
 				.(preg_match('/^#?([0-9A-Fa-f]{6})$/D', is_scalar($stylSet['color'] ?? '') ? strval($stylSet['color'] ?? '') : '', $hexCode) ? ' fo:color="#'.strtolower($hexCode[1]).'"' : '')
-				.(in_array('bold', $markLst) ? ' fo:font-weight="bold" style:font-weight-asian="bold" style:font-weight-complex="bold"' : '')
-				.(in_array('ital', $markLst) ? ' fo:font-style="italic" style:font-style-asian="italic" style:font-style-complex="italic"' : '')
-				.(in_array('undr', $markLst) ? ' style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '')
-				.(in_array('strk', $markLst) ? ' style:text-line-through-style="solid" style:text-line-through-type="single"' : '');
+				.(in_array('boldFace', $markLst) ? ' fo:font-weight="bold" style:font-weight-asian="bold" style:font-weight-complex="bold"' : '')
+				.(in_array('emphasis', $markLst) ? ' fo:font-style="italic" style:font-style-asian="italic" style:font-style-complex="italic"' : '')
+				.(in_array('undrLine', $markLst) ? ' style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '')
+				.(in_array('crossOut', $markLst) ? ' style:text-line-through-style="solid" style:text-line-through-type="single"' : '');
 			$algnKey = is_scalar($stylSet['align'] ?? '') ? strval($stylSet['align'] ?? '') : '';
 			$stylTxt .= '<style:style style:name="'.$styleId.'" style:display-name="'.$this->escapeXmlValue(substr(trim($oneNme), 0, 100)).'" style:family="paragraph" style:parent-style-name="Standard" style:class="text">'
 				.(isset(self::ALGN_LIST[$algnKey]) ? '<style:paragraph-properties fo:text-align="'.self::ALGN_LIST[$algnKey].'"/>' : '').(($textTxt==='') ? '' : '<style:text-properties'.$textTxt.'/>').'</style:style>';
@@ -280,11 +280,11 @@ class Odtx extends Page {
 		foreach($this->autoStyles as $mrkKey=>$oneNme){
 			$markLst = explode(',', $mrkKey);
 			$autoTxt .= '<style:style style:name="'.$oneNme.'" style:family="text"><style:text-properties'
-				.(in_array('bold', $markLst) ? ' fo:font-weight="bold" style:font-weight-asian="bold" style:font-weight-complex="bold"' : '')
-				.(in_array('ital', $markLst) ? ' fo:font-style="italic" style:font-style-asian="italic" style:font-style-complex="italic"' : '')
-				.(in_array('undr', $markLst) ? ' style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '')
-				.(in_array('strk', $markLst) ? ' style:text-line-through-style="solid" style:text-line-through-type="single"' : '')
-				.(in_array('code', $markLst) ? ' fo:font-family="\'Courier New\'" style:font-family-generic="modern" style:font-pitch="fixed"' : '').'/></style:style>';
+				.(in_array('boldFace', $markLst) ? ' fo:font-weight="bold" style:font-weight-asian="bold" style:font-weight-complex="bold"' : '')
+				.(in_array('emphasis', $markLst) ? ' fo:font-style="italic" style:font-style-asian="italic" style:font-style-complex="italic"' : '')
+				.(in_array('undrLine', $markLst) ? ' style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '')
+				.(in_array('crossOut', $markLst) ? ' style:text-line-through-style="solid" style:text-line-through-type="single"' : '')
+				.(in_array('codeSpan', $markLst) ? ' fo:font-family="\'Courier New\'" style:font-family-generic="modern" style:font-pitch="fixed"' : '').'/></style:style>';
 		}
 		// The lists: a marked one and a numbered one, each telling what it looks like at every level
 		foreach(Array('LB'=>Array("\u{2022}", "\u{25E6}", "\u{25AA}"), 'LN'=>Array('1', 'a', 'i')) as $lstNme=>$lvlSet){
@@ -363,27 +363,27 @@ class Odtx extends Page {
 		$attrSet = (array)($contentBlock['attrs'] ?? Array());
 		$spanLst = (array)($contentBlock['spans'] ?? Array());
 		$itemLst = (array)($contentBlock['items'] ?? Array());
-		if( $blckKnd=='headr' ){
+		if( $blckKnd=='headline' ){
 			$headLvl = max(1, min(6, intval($attrSet['level'] ?? 1)));
 			return $this->paragraphPiece('Heading_20_'.$headLvl, $spanLst, $attrSet, $headLvl);
 		}
-		if( $blckKnd=='lists' ){
+		if( $blckKnd=='itemList' ){
 			return $this->listsPieceText($contentBlock);
 		}
-		if( $blckKnd=='table' ){
+		if( $blckKnd=='tableSet' ){
 			return $this->tblePartString($contentBlock);
 		}
-		if( $blckKnd=='thead' || $blckKnd=='tbrow' ){
+		if( $blckKnd=='tableTop' || $blckKnd=='tableRow' ){
 			// A row met outside a table is a table of that row
 			return $this->tblePartString(Array('items'=>Array($contentBlock)));
 		}
-		if( $blckKnd=='quote' ){
+		if( $blckKnd=='citation' ){
 			$qutText = $this->paragraphPiece('Quotations', $spanLst, $attrSet).$this->writeAllBlocks($itemLst);
 			// Who is quoted follows the quote
 			$citeTxt = is_scalar($attrSet['cites'] ?? '') ? trim(strval($attrSet['cites'] ?? '')) : '';
-			return $qutText.(($citeTxt==='') ? '' : $this->paragraphPiece('Quotations', Array(Shape::makeASpanArray("\u{2014} ".$citeTxt)), Array('align'=>'right')));
+			return $qutText.(($citeTxt==='') ? '' : $this->paragraphPiece('Quotations', Array(Shape::makeASpanArray("\u{2014} ".$citeTxt)), Array('align'=>'alignRgt')));
 		}
-		if( $blckKnd=='codes' ){
+		if( $blckKnd=='codeBlck' ){
 			// A paragraph for each line of code, their spaces kept
 			$codeTxt = '';
 			foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", implode('', array_column($spanLst, 'texts')))) as $oneLin){
@@ -391,7 +391,7 @@ class Odtx extends Page {
 			}
 			return $codeTxt;
 		}
-		if( $blckKnd=='rules' ){
+		if( $blckKnd=='ruleLine' ){
 			// A page ends here: the paragraph that follows starts the next one. Or a line is drawn across the page
 			if( !empty($attrSet['break']) ){
 				$this->breakAhead = true;
@@ -399,14 +399,14 @@ class Odtx extends Page {
 			}
 			return $this->paragraphPiece('Standard', Array(), Array('lined'=>true));
 		}
-		if( $blckKnd=='image' ){
+		if( $blckKnd=='imageBox' ){
 			$pctrTxt = $this->picturePortion($contentBlock);
 			if( $pctrTxt!=='' ){
 				return $pctrTxt;
 			}
 		}
 		// A paragraph, with the style it names; and what stands for a picture that is not written: the text that describes it
-		$styleId = ($blckKnd=='parag' && is_scalar($attrSet['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrSet['style'])))] ?? '') : '';
+		$styleId = ($blckKnd=='paragrph' && is_scalar($attrSet['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrSet['style'])))] ?? '') : '';
 		return $this->paragraphPiece(($styleId==='') ? 'Standard' : $styleId, $spanLst, $attrSet).$this->writeAllBlocks($itemLst);
 	}
 
@@ -460,10 +460,10 @@ class Odtx extends Page {
 		}
 		$roomWas = $this->roomLength;
 		foreach((array)($contentBlock['items'] ?? Array()) as $oneRow){
-			if( !is_array($oneRow) || !in_array(strval($oneRow['block'] ?? ''), Array('thead', 'tbrow')) ){
+			if( !is_array($oneRow) || !in_array(strval($oneRow['block'] ?? ''), Array('tableTop', 'tableRow')) ){
 				continue;
 			}
-			$isHeadr = ($oneRow['block']=='thead');
+			$isHeadr = ($oneRow['block']=='tableTop');
 			$cellTxt = '';
 			$clmnIdx = 0;
 			$cellLst = array_values((array)($oneRow['items'] ?? Array()));
@@ -587,7 +587,7 @@ class Odtx extends Page {
 			}
 			$partTxt = $this->textsPieceText(($spanTxt==='') ? '1' : $spanTxt);
 			if( $fldName!=='' ){
-				$partTxt = '<'.$fldName.(($fldCode=='pgnum') ? ' text:select-page="current"' : '').'>'.$partTxt.'</'.$fldName.'>';
+				$partTxt = '<'.$fldName.(($fldCode=='pageNumb') ? ' text:select-page="current"' : '').'>'.$partTxt.'</'.$fldName.'>';
 			}elseif( $propNme!=='' ){
 				$partTxt = '<text:user-defined text:name="'.$this->escapeXmlValue($propNme).'">'.$partTxt.'</text:user-defined>';
 			}

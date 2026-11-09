@@ -73,11 +73,11 @@ checkPregMatch('json lines: what is not a list is refused', putVals($jsonObj, Ar
 checkIdentical('json whole: the envelope, with its shape and its details', putVals($jsonObj, Array('a'=>1), Array('whole'=>true)), '{"shape":"nodes","infos":{"docus":1},"items":{"a":1}}');
 checkIdentical('json: any shape is written as its values', Array(
 	putVals($jsonObj, Array(Shape::makeSheetArray('S', Array(Array('a', 1)))), Array(), 'sheet'),
-	putVals($jsonObj, Array(Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('x', Array('bold'))))), Array(), 'block'),
+	putVals($jsonObj, Array(Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('x', Array('boldFace'))))), Array(), 'block'),
 	putVals($jsonObj, 'just text'), putVals($jsonObj, 42), putVals($jsonObj, null)
 ), Array(
 	'[{"title":"S","attrs":{"shown":true,"merge":[]},"cells":[["a",1]]}]',
-	'[{"block":"parag","attrs":[],"spans":[{"texts":"x","marks":["bold"],"links":"","field":""}],"items":[],"plain":"x"}]',
+	'[{"block":"paragrph","attrs":[],"spans":[{"texts":"x","marks":["boldFace"],"links":"","field":""}],"items":[],"plain":"x"}]',
 	'"just text"', '42', 'null'
 ));
 checkPregMatch('json: a shape that is not a known one is refused', putVals($jsonObj, Array(), Array(), 'cloud'), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as JSON: cloud/');

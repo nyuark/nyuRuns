@@ -19,13 +19,13 @@ class Docx extends Page {
 	// The size of the headings, by their level, in points
 	const HEAD_SIZE = Array(1=>20, 2=>16, 3=>14, 4=>12, 5=>11, 6=>11);
 	// How a paragraph is aligned, by the code that asks for it
-	const ALGN_LIST = Array('lefts'=>'left', 'right'=>'right', 'centr'=>'center', 'justf'=>'both');
+	const ALGN_LIST = Array('alignLft'=>'left', 'alignRgt'=>'right', 'alignCtr'=>'center', 'alignJst'=>'both');
 	// The deepest a list goes into another
 	const LIST_DEEP = 8;
 	// The properties Word keeps a place for, by their name in the content: the element they are written in
 	const PROP_LIST = Array('Title'=>'dc:title', 'Author'=>'dc:creator', 'Subject'=>'dc:subject', 'Keywords'=>'cp:keywords', 'Comments'=>'dc:description', 'Category'=>'cp:category', 'LastSavedBy'=>'cp:lastModifiedBy');
 	// What a field asks Word for, by the code of the field
-	const FLDS_LIST = Array('pgnum'=>'PAGE', 'pgtot'=>'NUMPAGES', 'dates'=>'DATE', 'props:Title'=>'TITLE', 'props:Author'=>'AUTHOR', 'props:Subject'=>'SUBJECT', 'props:Keywords'=>'KEYWORDS', 'props:Comments'=>'COMMENTS', 'props:LastSavedBy'=>'LASTSAVEDBY');
+	const FLDS_LIST = Array('pageNumb'=>'PAGE', 'pageTotl'=>'NUMPAGES', 'dateTime'=>'DATE', 'props:Title'=>'TITLE', 'props:Author'=>'AUTHOR', 'props:Subject'=>'SUBJECT', 'props:Keywords'=>'KEYWORDS', 'props:Comments'=>'COMMENTS', 'props:LastSavedBy'=>'LASTSAVEDBY');
 	// The addresses of the format, and of what ties its parts together
 	const MAIN_NAME = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 	const RELS_NAME = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -56,8 +56,8 @@ class Docx extends Page {
 	 * Writes text blocks, or sheets, as a document.
 	 *
 	 * Options:
-	 *   'paper' => the size of the pages: 'isoa3', 'isoa4', 'isoa5',
-	 *              'lettr' or 'legal'; 'isoa4' when left out;
+	 *   'paper' => the size of the pages: 'isoPgeA3', 'isoPgeA4', 'isoPgeA5',
+	 *              'usLetter' or 'legalUsa'; 'isoPgeA4' when left out;
 	 *   'lands' => lays the pages out on their long side;
 	 *   'media' => the folder the pictures of the document are taken
 	 *              from: an image whose file is in it is written into
@@ -136,7 +136,7 @@ class Docx extends Page {
 		$this->knownLinks = $linkLst[0];
 		$this->pictureLst = $linkLst[1];
 		foreach($lostLst as $blkArr){
-			$bodyTxt .= $this->blckPartString(Array('block'=>'parag') + $blkArr, 0);
+			$bodyTxt .= $this->blckPartString(Array('block'=>'paragrph') + $blkArr, 0);
 		}
 		$relsTxt .= $this->writeRelations();
 		// The properties: those Word keeps a place for, then the others
@@ -267,7 +267,7 @@ class Docx extends Page {
 		$visitor = function(Array $blocksToWalk) use (&$visitor, &$nameLst){
 			foreach($blocksToWalk as $blkArr){
 				if( is_array($blkArr) ){
-					$nameLst[] = (strval($blkArr['block'] ?? '')=='parag' && is_scalar($blkArr['attrs']['style'] ?? null)) ? strval($blkArr['attrs']['style']) : '';
+					$nameLst[] = (strval($blkArr['block'] ?? '')=='paragrph' && is_scalar($blkArr['attrs']['style'] ?? null)) ? strval($blkArr['attrs']['style']) : '';
 					$visitor((array)($blkArr['items'] ?? Array()));
 				}
 			}
@@ -286,9 +286,9 @@ class Docx extends Page {
 			$sizHalf = is_numeric($stylSet['sizes'] ?? null) ? intval(round(max(1, min(400, floatval($stylSet['sizes'])))*2)) : 0;
 			$hexCode = Array();
 			$runsTxt = (($fontTxt==='') ? '' : '<w:rFonts w:ascii="'.$fontTxt.'" w:hAnsi="'.$fontTxt.'" w:cs="'.$fontTxt.'"/>')
-				.(in_array('bold', $markLst) ? '<w:b/><w:bCs/>' : '').(in_array('ital', $markLst) ? '<w:i/><w:iCs/>' : '').(in_array('strk', $markLst) ? '<w:strike/>' : '')
+				.(in_array('boldFace', $markLst) ? '<w:b/><w:bCs/>' : '').(in_array('emphasis', $markLst) ? '<w:i/><w:iCs/>' : '').(in_array('crossOut', $markLst) ? '<w:strike/>' : '')
 				.(preg_match('/^#?([0-9A-Fa-f]{6})$/D', is_scalar($stylSet['color'] ?? '') ? strval($stylSet['color'] ?? '') : '', $hexCode) ? '<w:color w:val="'.strtoupper($hexCode[1]).'"/>' : '')
-				.(($sizHalf>0) ? '<w:sz w:val="'.$sizHalf.'"/><w:szCs w:val="'.$sizHalf.'"/>' : '').(in_array('undr', $markLst) ? '<w:u w:val="single"/>' : '');
+				.(($sizHalf>0) ? '<w:sz w:val="'.$sizHalf.'"/><w:szCs w:val="'.$sizHalf.'"/>' : '').(in_array('undrLine', $markLst) ? '<w:u w:val="single"/>' : '');
 			$algnKey = is_scalar($stylSet['align'] ?? '') ? strval($stylSet['align'] ?? '') : '';
 			$stylTxt .= '<w:style w:type="paragraph" w:customStyle="1" w:styleId="'.$styleId.'"><w:name w:val="'.$this->escapeXmlValue(substr(trim($oneNme), 0, 100)).'"/><w:basedOn w:val="Normal"/><w:qFormat/>'
 				.(isset(self::ALGN_LIST[$algnKey]) ? '<w:pPr><w:jc w:val="'.self::ALGN_LIST[$algnKey].'"/></w:pPr>' : '').(($runsTxt==='') ? '' : '<w:rPr>'.$runsTxt.'</w:rPr>').'</w:style>';
@@ -382,22 +382,22 @@ class Docx extends Page {
 		$spanLst = (array)($contentBlock['spans'] ?? Array());
 		$itemLst = (array)($contentBlock['items'] ?? Array());
 		$indents = ($indentStepNb>0) ? '<w:ind w:left="'.(720*$indentStepNb).'"/>' : '';
-		if( $blckKnd=='headr' ){
+		if( $blckKnd=='headline' ){
 			return $this->paragraphPiece(Array('style'=>'Heading'.max(1, min(6, intval($attrSet['level'] ?? 1))), 'indnt'=>$indents), $spanLst, $attrSet);
 		}
-		if( $blckKnd=='lists' ){
+		if( $blckKnd=='itemList' ){
 			return $this->listsPieceText($contentBlock, $indentStepNb);
 		}
-		if( $blckKnd=='table' ){
+		if( $blckKnd=='tableSet' ){
 			return $this->tblePartString($contentBlock, $indentStepNb);
 		}
-		if( $blckKnd=='quote' ){
+		if( $blckKnd=='citation' ){
 			$qutText = $this->paragraphPiece(Array('style'=>'Quote'), $spanLst, $attrSet).$this->writeAllBlocks($itemLst, $indentStepNb+1);
 			// Who is quoted follows the quote
 			$citeTxt = is_scalar($attrSet['cites'] ?? '') ? trim(strval($attrSet['cites'] ?? '')) : '';
-			return $qutText.(($citeTxt==='') ? '' : $this->paragraphPiece(Array('style'=>'Quote'), Array(Shape::makeASpanArray("\u{2014} ".$citeTxt)), Array('align'=>'right')));
+			return $qutText.(($citeTxt==='') ? '' : $this->paragraphPiece(Array('style'=>'Quote'), Array(Shape::makeASpanArray("\u{2014} ".$citeTxt)), Array('align'=>'alignRgt')));
 		}
-		if( $blckKnd=='codes' ){
+		if( $blckKnd=='codeBlck' ){
 			// A paragraph for each line of code, their spaces kept
 			$codeTxt = '';
 			foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", implode('', array_column($spanLst, 'texts')))) as $oneLin){
@@ -405,25 +405,25 @@ class Docx extends Page {
 			}
 			return $codeTxt;
 		}
-		if( $blckKnd=='rules' ){
+		if( $blckKnd=='ruleLine' ){
 			// A page ends here, or a line is drawn across it
 			if( !empty($attrSet['break']) ){
 				return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
 			}
 			return $this->paragraphPiece(Array('bordr'=>'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>'), Array(), Array());
 		}
-		if( $blckKnd=='image' ){
+		if( $blckKnd=='imageBox' ){
 			$pctrTxt = $this->picturePortion($contentBlock, $indents);
 			if( $pctrTxt!=='' ){
 				return $pctrTxt;
 			}
 		}
-		if( $blckKnd=='thead' || $blckKnd=='tbrow' ){
+		if( $blckKnd=='tableTop' || $blckKnd=='tableRow' ){
 			// A row met outside a table is a table of that row
 			return $this->tblePartString(Array('items'=>Array($contentBlock)), $indentStepNb);
 		}
 		// A paragraph, with the style it names; and what stands for a picture that is not written: the text that describes it
-		$styleId = ($blckKnd=='parag' && is_scalar($attrSet['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrSet['style'])))] ?? '') : '';
+		$styleId = ($blckKnd=='paragrph' && is_scalar($attrSet['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrSet['style'])))] ?? '') : '';
 		return $this->paragraphPiece(Array('indnt'=>$indents) + (($styleId==='') ? Array() : Array('style'=>$styleId)), $spanLst, $attrSet).$this->writeAllBlocks($itemLst, $indentStepNb);
 	}
 
@@ -493,7 +493,7 @@ class Docx extends Page {
 			}
 			$listTxt .= $this->paragraphPiece(Array('style'=>'ListParagraph', 'numbr'=>'<w:numPr><w:ilvl w:val="'.$levelNb.'"/><w:numId w:val="'.$numIdnt.'"/></w:numPr>'), $spanLst, array_intersect_key((array)($entArr['attrs'] ?? Array()), Array('tagid'=>1)));
 			foreach((array)($entArr['items'] ?? Array()) as $subBlk){
-				$listTxt .= (strval($subBlk['block'] ?? '')=='lists') ? $this->listsPieceText((array)$subBlk, $levelValNumb+1) : $this->blckPartString((array)$subBlk, $levelValNumb+1);
+				$listTxt .= (strval($subBlk['block'] ?? '')=='itemList') ? $this->listsPieceText((array)$subBlk, $levelValNumb+1) : $this->blckPartString((array)$subBlk, $levelValNumb+1);
 			}
 		}
 		return $listTxt;
@@ -525,10 +525,10 @@ class Docx extends Page {
 		}
 		$roomWas = $this->roomLength;
 		foreach((array)($contentBlock['items'] ?? Array()) as $oneRow){
-			if( !is_array($oneRow) || !in_array(strval($oneRow['block'] ?? ''), Array('thead', 'tbrow')) ){
+			if( !is_array($oneRow) || !in_array(strval($oneRow['block'] ?? ''), Array('tableTop', 'tableRow')) ){
 				continue;
 			}
-			$isHeadr = ($oneRow['block']=='thead');
+			$isHeadr = ($oneRow['block']=='tableTop');
 			$cellTxt = '';
 			$clmnIdx = 0;
 			$cellLst = array_values((array)($oneRow['items'] ?? Array()));
@@ -674,16 +674,16 @@ class Docx extends Page {
 	 * tabs are written as what they are, its spaces are all kept.
 	 *
 	 * @param String $sourceString The text.
-	 * @param Array  $runFormatSet Its formatting, among bold, ital, undr, strk and code.
+	 * @param Array  $runFormatSet Its formatting, among boldFace, emphasis, undrLine, crossOut and codeSpan.
 	 * @param Bool   $isInsideLink Whether the run stands in a link, and is shown as one.
 	 * @return String The run.
 	 */
 	protected function writeRunOfText(String $sourceString, Array $runFormatSet, Bool $isInsideLink): String {
 		// Word reads what it is told of a run in one order only
 		$propTxt = ($isInsideLink? '<w:rStyle w:val="Hyperlink"/>' : '')
-			.(in_array('code', $runFormatSet) ? '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/>' : '')
-			.(in_array('bold', $runFormatSet) ? '<w:b/><w:bCs/>' : '').(in_array('ital', $runFormatSet) ? '<w:i/><w:iCs/>' : '')
-			.(in_array('strk', $runFormatSet) ? '<w:strike/>' : '').(in_array('undr', $runFormatSet) ? '<w:u w:val="single"/>' : '');
+			.(in_array('codeSpan', $runFormatSet) ? '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/>' : '')
+			.(in_array('boldFace', $runFormatSet) ? '<w:b/><w:bCs/>' : '').(in_array('emphasis', $runFormatSet) ? '<w:i/><w:iCs/>' : '')
+			.(in_array('crossOut', $runFormatSet) ? '<w:strike/>' : '').(in_array('undrLine', $runFormatSet) ? '<w:u w:val="single"/>' : '');
 		$textTxt = '';
 		foreach(preg_split('/(\n|\t)/', str_replace(Array("\r\n", "\r"), "\n", $sourceString), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $onePrt){
 			$textTxt .= ($onePrt==="\n") ? '<w:br/>' : (($onePrt==="\t") ? '<w:tab/>' : '<w:t xml:space="preserve">'.$this->escapeXmlValue($onePrt).'</w:t>');

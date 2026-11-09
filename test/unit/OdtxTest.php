@@ -145,25 +145,25 @@ $offcDir = TST_DIR.DS.'fixtures'.DS.'office'.DS;
 
 // A document saved by OpenOffice
 checkIdentical('a document saved by OpenOffice: headings, formatting and a link, lists marked and numbered, a table, accents', blkLines(odtRead($offcDir.'sample.odt')['items']), Array(
-	'headr {"level":1,"style":"Heading 1"} [Sample document]',
-	'parag [First paragraph, with ][bold|bold][ and ][italic|ital][ words and a ][link|>https://example.org/shows][.]',
-	'headr {"level":2,"style":"Heading 2"} [A list]',
-	'lists {"lines":3,"bytes":31,"order":false}', '  entry [First item]', '  entry [Second item]', '  entry [Third item]',
-	'lists {"lines":2,"bytes":16,"order":true}', '  entry [Step one]', '  entry [Step two]',
-	'headr {"level":2,"style":"Heading 2"} [A table]',
-	'table {"heads":[],"colms":3,"lines":3,"bytes":58}',
-	'  tbrow', '    tcell {"style":"Table Heading"} [Title]', '    tcell {"style":"Table Heading"} [Venue]', '    tcell {"style":"Table Heading"} [Seats]',
-	'  tbrow', '    tcell {"style":"Table Contents"} [Alpha Night]', '    tcell {"style":"Table Contents"} [Hall A]', '    tcell {"style":"Table Contents"} [120]',
-	'  tbrow', '    tcell {"style":"Table Contents"} [Les Enchaînés]', '    tcell {"style":"Table Contents"} [Hall B]', '    tcell {"style":"Table Contents"} [80]',
-	'headr {"level":2,"style":"Heading 2"} [Last section]',
-	"parag [Accents: à l'été, où ça ?]"
+	'headline {"level":1,"style":"Heading 1"} [Sample document]',
+	'paragrph [First paragraph, with ][bold|boldFace][ and ][italic|emphasis][ words and a ][link|>https://example.org/shows][.]',
+	'headline {"level":2,"style":"Heading 2"} [A list]',
+	'itemList {"lines":3,"bytes":31,"order":false}', '  listItem [First item]', '  listItem [Second item]', '  listItem [Third item]',
+	'itemList {"lines":2,"bytes":16,"order":true}', '  listItem [Step one]', '  listItem [Step two]',
+	'headline {"level":2,"style":"Heading 2"} [A table]',
+	'tableSet {"heads":[],"colms":3,"lines":3,"bytes":58}',
+	'  tableRow', '    cellText {"style":"Table Heading"} [Title]', '    cellText {"style":"Table Heading"} [Venue]', '    cellText {"style":"Table Heading"} [Seats]',
+	'  tableRow', '    cellText {"style":"Table Contents"} [Alpha Night]', '    cellText {"style":"Table Contents"} [Hall A]', '    cellText {"style":"Table Contents"} [120]',
+	'  tableRow', '    cellText {"style":"Table Contents"} [Les Enchaînés]', '    cellText {"style":"Table Contents"} [Hall B]', '    cellText {"style":"Table Contents"} [80]',
+	'headline {"level":2,"style":"Heading 2"} [Last section]',
+	"paragrph [Accents: à l'été, où ça ?]"
 ));
 checkIdentical('its details: its title, and what each style used gives', odtRead($offcDir.'sample.odt')['infos'], Array(
 	'title'=>'Sample document', 'authr'=>'', 'props'=>Array('Title'=>'Sample document'),
 	'frmat'=>Array(
-		'Heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Thorndale', 'sizes'=>24, 'marks'=>Array('bold')), 'Text body'=>Array('class'=>'text-body', 'fonts'=>'Times New Roman', 'sizes'=>12),
-		'Heading 2'=>Array('class'=>'heading-2', 'fonts'=>'Times New Roman', 'sizes'=>18, 'marks'=>Array('bold')),
-		'Table Heading'=>Array('class'=>'table-heading', 'fonts'=>'Times New Roman', 'sizes'=>12, 'marks'=>Array('bold'), 'align'=>'centr'), 'Table Contents'=>Array('class'=>'table-contents', 'fonts'=>'Times New Roman', 'sizes'=>12)
+		'Heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Thorndale', 'sizes'=>24, 'marks'=>Array('boldFace')), 'Text body'=>Array('class'=>'text-body', 'fonts'=>'Times New Roman', 'sizes'=>12),
+		'Heading 2'=>Array('class'=>'heading-2', 'fonts'=>'Times New Roman', 'sizes'=>18, 'marks'=>Array('boldFace')),
+		'Table Heading'=>Array('class'=>'table-heading', 'fonts'=>'Times New Roman', 'sizes'=>12, 'marks'=>Array('boldFace'), 'align'=>'alignCtr'), 'Table Contents'=>Array('class'=>'table-contents', 'fonts'=>'Times New Roman', 'sizes'=>12)
 	),
 	'phead'=>Array(), 'pfoot'=>Array()
 ));
@@ -176,31 +176,31 @@ checkIdentical('the same document given as bytes, and an empty content', Array(
 checkIdentical('headings: written as such with their level, or paragraphs in a heading style, by its level, its name, or the title', odtLines(
 	'<text:h text:style-name="Heading_20_1" text:outline-level="1">One</text:h><text:h text:style-name="Heading_20_2" text:outline-level="2">Two</text:h><text:h text:outline-level="9">Nine</text:h><text:h>No level</text:h>'
 	.oPar('By level', 'Heading_20_1').oPar('By name', 'Heading_20_2').oPar('Title', 'Title').oPar('Made by hand', 'P6').'<text:h text:style-name="Heading_20_1" text:outline-level="1"></text:h>'.oPar('Body')
-), Array('headr {"level":1,"style":"Heading 1"} [One]', 'headr {"level":2,"style":"Heading 2"} [Two]', 'headr {"level":6} [Nine]', 'headr {"level":1} [No level]', 'headr {"level":1,"style":"Heading 1"} [By level]', 'headr {"level":2,"style":"Heading 2"} [By name]', 'headr {"level":1,"style":"Title"} [Title]', 'headr {"level":1,"style":"Heading 1","align":"lefts"} [Made by hand]', 'parag {"style":"Heading 1"}', 'parag [Body]'));
+), Array('headline {"level":1,"style":"Heading 1"} [One]', 'headline {"level":2,"style":"Heading 2"} [Two]', 'headline {"level":6} [Nine]', 'headline {"level":1} [No level]', 'headline {"level":1,"style":"Heading 1"} [By level]', 'headline {"level":2,"style":"Heading 2"} [By name]', 'headline {"level":1,"style":"Title"} [Title]', 'headline {"level":1,"style":"Heading 1","align":"alignLft"} [Made by hand]', 'paragrph {"style":"Heading 1"}', 'paragrph [Body]'));
 checkIdentical('a bookmark starting a block names it; those the document adds for itself do not', odtLines(
 	'<text:h text:outline-level="2"><text:bookmark-start text:name="__RefHeading__12"/><text:bookmark text:name="dates"/><text:bookmark text:name="other"/>Dates<text:bookmark-end text:name="__RefHeading__12"/></text:h>'.oPar('<text:bookmark-start text:name="intro"/>Text<text:bookmark-end text:name="intro"/>').oPar('<text:bookmark text:name="_hidden"/>Plain')
-), Array('headr {"level":2,"tagid":"dates"} [Dates]', 'parag {"tagid":"intro"} [Text]', 'parag [Plain]'));
+), Array('headline {"level":2,"tagid":"dates"} [Dates]', 'paragrph {"tagid":"intro"} [Text]', 'paragrph [Plain]'));
 
 // Text and formatting set by hand
 checkIdentical('bold, italic, underlined, struck, by a style made for the text or by a named one, and what switches them off', odtLines(oPar(
 	'plain <text:span text:style-name="T1">b</text:span> <text:span text:style-name="T2">i</text:span> <text:span text:style-name="T3">all three</text:span> <text:span text:style-name="T4">off</text:span> <text:span text:style-name="Strong_20_Emphasis">named</text:span> <text:span text:style-name="T1">out <text:span text:style-name="T2">in</text:span></text:span> <text:span text:style-name="Nowhere">lost</text:span>'
-)), Array('parag [plain ][b|bold][ ][i|ital][ ][all three|bold,undr,strk][ off ][named|bold][ ][out |bold][in|bold,ital][ lost]'));
-checkIdentical('a paragraph made bold by hand has its text bold; one in a bold style has not', odtLines(oPar('All <text:span text:style-name="T2">of</text:span> it', 'P2').oPar('Styled <text:span text:style-name="T1">text</text:span>', 'Quotations')), Array('parag [All |bold][of|bold,ital][ it|bold]', 'quote {"style":"Quotations"} [Styled ][text|bold]'));
+)), Array('paragrph [plain ][b|boldFace][ ][i|emphasis][ ][all three|boldFace,undrLine,crossOut][ off ][named|boldFace][ ][out |boldFace][in|boldFace,emphasis][ lost]'));
+checkIdentical('a paragraph made bold by hand has its text bold; one in a bold style has not', odtLines(oPar('All <text:span text:style-name="T2">of</text:span> it', 'P2').oPar('Styled <text:span text:style-name="T1">text</text:span>', 'Quotations')), Array('paragrph [All |boldFace][of|boldFace,emphasis][ it|boldFace]', 'citation {"style":"Quotations"} [Styled ][text|boldFace]'));
 checkIdentical('spaces, tabulations, line breaks and accents are kept; the space between two pieces too', odtRead(makeOdt('text.odt', oPar('Les <text:span text:style-name="T1">Enchaînés</text:span> <text:span text:style-name="T1">deux</text:span><text:s/><text:s text:c="3"/>far<text:tab/>tab<text:line-break/>next<text:soft-page-break/>.')))['items'][0]['plain'], "Les Enchaînés deux    far\ttab\nnext.");
 checkIdentical('links: to an address, to a place of the document, and one that would run a script', odtLines(oPar(
 	'See <text:a xlink:type="simple" xlink:href="https://nyuark.test/a?x=1&amp;y=2">the <text:span text:style-name="T1">site</text:span></text:a>, <text:a xlink:href="#dates">dates</text:a>, <text:a xlink:href="mailto:a@nyuark.test">mail</text:a>, <text:a xlink:href="javascript:alert(1)">bad</text:a>, <text:a>none</text:a>'
-)), Array('parag [See ][the |>https://nyuark.test/a?x=1&y=2][site|bold|>https://nyuark.test/a?x=1&y=2][, ][dates|>#dates][, ][mail|>mailto:a@nyuark.test][, bad, none]'));
-checkIdentical('what a tracked change deleted is not read, what it added is', odtLines('<text:tracked-changes><text:changed-region text:id="c1"><text:deletion><office:change-info><dc:creator>a</dc:creator></office:change-info>'.oPar('deleted text').'</text:deletion></text:changed-region></text:tracked-changes>'.oPar('Kept <text:change text:change-id="c1"/><text:change-start text:change-id="c2"/>added<text:change-end text:change-id="c2"/> text')), Array('parag [Kept added text]'));
+)), Array('paragrph [See ][the |>https://nyuark.test/a?x=1&y=2][site|boldFace|>https://nyuark.test/a?x=1&y=2][, ][dates|>#dates][, ][mail|>mailto:a@nyuark.test][, bad, none]'));
+checkIdentical('what a tracked change deleted is not read, what it added is', odtLines('<text:tracked-changes><text:changed-region text:id="c1"><text:deletion><office:change-info><dc:creator>a</dc:creator></office:change-info>'.oPar('deleted text').'</text:deletion></text:changed-region></text:tracked-changes>'.oPar('Kept <text:change text:change-id="c1"/><text:change-start text:change-id="c2"/>added<text:change-end text:change-id="c2"/> text')), Array('paragrph [Kept added text]'));
 
 // Empty paragraphs
 $voidXml = oPar('').oPar('<text:s text:c="3"/>').oPar('kept').'<text:h text:outline-level="1"/>'.'<text:list text:style-name="L1"><text:list-item>'.oPar('').'</text:list-item><text:list-item>'.oPar('entry').'</text:list-item></text:list><text:p/>';
-checkIdentical('paragraphs holding nothing, or spaces only, are blocks without text: a heading and an entry too', odtLines($voidXml), Array('parag', 'parag', 'parag [kept]', 'parag', 'lists {"lines":2,"bytes":5,"order":false}', '  entry', '  entry [entry]', 'parag'));
-checkIdentical('empty: they are left out when told so', odtLines($voidXml, Array('empty'=>false)), Array('parag [kept]', 'lists {"lines":1,"bytes":5,"order":false}', '  entry [entry]'));
+checkIdentical('paragraphs holding nothing, or spaces only, are blocks without text: a heading and an entry too', odtLines($voidXml), Array('paragrph', 'paragrph', 'paragrph [kept]', 'paragrph', 'itemList {"lines":2,"bytes":5,"order":false}', '  listItem', '  listItem [entry]', 'paragrph'));
+checkIdentical('empty: they are left out when told so', odtLines($voidXml, Array('empty'=>false)), Array('paragrph [kept]', 'itemList {"lines":1,"bytes":5,"order":false}', '  listItem [entry]'));
 
 // Page breaks
 checkIdentical('page breaks: asked before or after a paragraph by hand or by its style, and where the kind of page changes after the text has started', odtLines(
 	oPar('first, on a kind of page of its own', 'P5').oPar('before', 'P3').oPar('after', 'P4').oPar('by style', 'Chapter_20_break').oPar('other kind of page', 'P5').oPar('last')
-), Array('parag [first, on a kind of page of its own]', 'rules {"break":true}', 'parag [before]', 'parag [after]', 'rules {"break":true}', 'rules {"break":true}', 'parag {"style":"Chapter break"} [by style]', 'rules {"break":true}', 'parag [other kind of page]', 'parag [last]'));
+), Array('paragrph [first, on a kind of page of its own]', 'ruleLine {"break":true}', 'paragrph [before]', 'paragrph [after]', 'ruleLine {"break":true}', 'ruleLine {"break":true}', 'paragrph {"style":"Chapter break"} [by style]', 'ruleLine {"break":true}', 'paragrph [other kind of page]', 'paragrph [last]'));
 
 // Fields
 checkIdentical('a field is the text last shown for it, and tells what it stands for: the page, the pages, a date, a property', odtLines(
@@ -208,9 +208,9 @@ checkIdentical('a field is the text last shown for it, and tells what it stands 
 	.oPar('<text:title>Alpha Night</text:title> by <text:initial-creator>J. J.</text:initial-creator>, about <text:subject>Shows</text:subject>, ref <text:user-defined text:name="Client Reference"><text:span text:style-name="T1">NYU</text:span>-2026-014</text:user-defined>.')
 	.oPar('Other fields are their text: <text:bookmark-ref text:ref-name="dates">Dates</text:bookmark-ref>, <text:chapter>One</text:chapter>, <text:sequence text:name="Table">1</text:sequence>.')
 ), Array(
-	'parag [Page ][3|@pgnum][ of ][12|@pgtot][, ][28/12/26|@dates][ ][20:30|@dates][.]',
-	'parag [Alpha Night|@props:Title][ by ][J. J.|@props:Author][, about ][Shows|@props:Subject][, ref ][NYU-2026-014|@props:Client Reference][.]',
-	'parag [Other fields are their text: Dates, One, 1.]'
+	'paragrph [Page ][3|@pageNumb][ of ][12|@pageTotl][, ][28/12/26|@dateTime][ ][20:30|@dateTime][.]',
+	'paragrph [Alpha Night|@props:Title][ by ][J. J.|@props:Author][, about ][Shows|@props:Subject][, ref ][NYU-2026-014|@props:Client Reference][.]',
+	'paragrph [Other fields are their text: Dates, One, 1.]'
 ));
 
 // Lists
@@ -219,24 +219,24 @@ checkIdentical('lists: marked or numbered by level, an entry holding paragraphs 
 	.'<text:list-item><text:list text:style-name="L1"><text:list-item>'.oPar('only a list').'</text:list-item></text:list></text:list-item><text:list-item/></text:list>'
 	.'<text:list text:style-name="L2"><text:list-item>'.oPar('numbered').'<text:list><text:list-item>'.oPar('without number').'</text:list-item></text:list></text:list-item></text:list><text:list text:style-name="Nowhere"><text:list-item>'.oPar('unknown style').'</text:list-item></text:list><text:list text:style-name="L1"/>'
 ), Array(
-	'lists {"lines":3,"bytes":53,"order":true}',
-	'  entry [header]',
-	'  entry [one]',
-	'    parag [second paragraph]',
-	'    lists {"lines":2,"bytes":17,"order":false}',
-	'      entry [one-a]',
-	'        lists {"lines":1,"bytes":7,"order":true}',
-	'          entry [one-a-i|bold]',
-	'      entry [one-b]',
-	'  entry',
-	'    lists {"lines":1,"bytes":11,"order":false}',
-	'      entry [only a list]',
-	'lists {"lines":1,"bytes":22,"order":true}',
-	'  entry [numbered]',
-	'    lists {"lines":1,"bytes":14,"order":false}',
-	'      entry [without number]',
-	'lists {"lines":1,"bytes":13,"order":false}',
-	'  entry [unknown style]'
+	'itemList {"lines":3,"bytes":53,"order":true}',
+	'  listItem [header]',
+	'  listItem [one]',
+	'    paragrph [second paragraph]',
+	'    itemList {"lines":2,"bytes":17,"order":false}',
+	'      listItem [one-a]',
+	'        itemList {"lines":1,"bytes":7,"order":true}',
+	'          listItem [one-a-i|boldFace]',
+	'      listItem [one-b]',
+	'  listItem',
+	'    itemList {"lines":1,"bytes":11,"order":false}',
+	'      listItem [only a list]',
+	'itemList {"lines":1,"bytes":22,"order":true}',
+	'  listItem [numbered]',
+	'    itemList {"lines":1,"bytes":14,"order":false}',
+	'      listItem [without number]',
+	'itemList {"lines":1,"bytes":13,"order":false}',
+	'  listItem [unknown style]'
 ));
 
 // Tables
@@ -248,12 +248,12 @@ checkIdentical('a table: its header rows, cells over several columns and rows, a
 	.'<table:table-row>'.$oCell('<table:table><table:table-row>'.$oCell(oPar('inner')).'</table:table-row></table:table>').$oCell('').$oCell(oPar('By level', 'Heading_20_1')).'</table:table-row>'
 	.'</table:table><table:table><table:table-row/></table:table>'.oPar('after')
 ), Array(
-	'table {"heads":["Title","Seats","Notes"],"colms":3,"lines":3,"bytes":64}',
-	'  thead', '    tcell [Title]', '    tcell [Seats]', '    tcell [Notes]',
-	'  tbrow', '    tcell {"colsp":2} [Season|bold]', '    tcell {"rowsp":2,"align":"centr"} [long]',
-	'  tbrow', '    tcell [Alpha]', '      parag [second paragraph]', '      lists {"lines":1,"bytes":5,"order":false}', '        entry [entry]', '    tcell',
-	'  tbrow', '    tcell', '      table {"heads":[],"colms":1,"lines":1,"bytes":5}', '        tbrow', '          tcell [inner]', '    tcell', '    tcell', '      headr {"level":1,"style":"Heading 1"} [By level]',
-	'parag [after]'
+	'tableSet {"heads":["Title","Seats","Notes"],"colms":3,"lines":3,"bytes":64}',
+	'  tableTop', '    cellText [Title]', '    cellText [Seats]', '    cellText [Notes]',
+	'  tableRow', '    cellText {"colsp":2} [Season|boldFace]', '    cellText {"rowsp":2,"align":"alignCtr"} [long]',
+	'  tableRow', '    cellText [Alpha]', '      paragrph [second paragraph]', '      itemList {"lines":1,"bytes":5,"order":false}', '        listItem [entry]', '    cellText',
+	'  tableRow', '    cellText', '      tableSet {"heads":[],"colms":1,"lines":1,"bytes":5}', '        tableRow', '          cellText [inner]', '    cellText', '    cellText', '      headline {"level":1,"style":"Heading 1"} [By level]',
+	'paragrph [after]'
 ));
 
 // Images and frames
@@ -261,7 +261,7 @@ checkIdentical('an image stands between the two halves of its paragraph: kept in
 	oPar('Before <draw:frame draw:name="Image1"><draw:image xlink:href="Pictures/hall.png" xlink:type="simple"/><svg:title>Title</svg:title><svg:desc>The hall</svg:desc></draw:frame> after')
 	.oPar('<draw:frame><draw:image xlink:href="https://nyuark.test/far.png"/><svg:title>Only a title</svg:title></draw:frame>').oPar('<draw:frame><draw:image xlink:href="./Pictures/dot.png"/></draw:frame><draw:frame><draw:image xlink:href="javascript:alert(1)"/></draw:frame>')
 	.oPar('Framed: <draw:frame><draw:text-box>'.oPar('<draw:frame><draw:image xlink:href="Pictures/boxed.png"/></draw:frame>').oPar('Caption <text:span text:style-name="T2">one</text:span>').oPar('').'</draw:text-box></draw:frame>')
-), Array('parag [Before ]', 'image {"sourc":"Pictures/hall.png"} [The hall]', 'parag [ after]', 'image {"sourc":"https://nyuark.test/far.png"} [Only a title]', 'image {"sourc":"Pictures/dot.png"}', 'parag [Framed: ]', 'image {"sourc":"Pictures/boxed.png"}', 'parag [Caption ][one|ital]'));
+), Array('paragrph [Before ]', 'imageBox {"sourc":"Pictures/hall.png"} [The hall]', 'paragrph [ after]', 'imageBox {"sourc":"https://nyuark.test/far.png"} [Only a title]', 'imageBox {"sourc":"Pictures/dot.png"}', 'paragrph [Framed: ]', 'imageBox {"sourc":"Pictures/boxed.png"}', 'paragrph [Caption ][one|emphasis]'));
 
 // Styles
 $stylPth = makeOdt('styles.odt', '<text:h text:style-name="Heading_20_1" text:outline-level="1">Alpha Night</text:h>'.oPar('Plain text.').oPar('Centred by hand.', 'P1').oPar('Left by hand, as its style.', 'P8').oPar('Centred, as its style.', 'P7').oPar('No style at all.', '').oPar('A style the document does not have.', 'Nowhere')
@@ -269,17 +269,17 @@ $stylPth = makeOdt('styles.odt', '<text:h text:style-name="Heading_20_1" text:ou
 checkIdentical('every block tells its style; the alignment is told when it is not that of the style; a quote and code by their style', runCatchThrown(function() use ($stylPth){
 	return array_map(function($blockArray){ return rtrim($blockArray['block'].' '.printValueText($blockArray['attrs']).' '.$blockArray['plain']); }, odtRead($stylPth)['items']);
 }), Array(
-	'headr {"level":1,"style":"Heading 1"} Alpha Night', 'parag {"style":"Text body"} Plain text.', 'parag {"style":"Text body","align":"centr"} Centred by hand.', 'parag {"style":"Text body"} Left by hand, as its style.', 'headr {"level":1,"style":"Heading 1"} Centred, as its style.',
-	'parag [] No style at all.', 'parag [] A style the document does not have.', 'quote {"style":"Quotations"} A night to remember.', 'parag {"style":"3 - Client"} Client says.', "codes {\"style\":\"Preformatted Text\"} if( \$a ){\n    echo 1;\n\n}", 'parag {"style":"Text body"} end'
+	'headline {"level":1,"style":"Heading 1"} Alpha Night', 'paragrph {"style":"Text body"} Plain text.', 'paragrph {"style":"Text body","align":"alignCtr"} Centred by hand.', 'paragrph {"style":"Text body"} Left by hand, as its style.', 'headline {"level":1,"style":"Heading 1"} Centred, as its style.',
+	'paragrph [] No style at all.', 'paragrph [] A style the document does not have.', 'citation {"style":"Quotations"} A night to remember.', 'paragrph {"style":"3 - Client"} Client says.', "codeBlck {\"style\":\"Preformatted Text\"} if( \$a ){\n    echo 1;\n\n}", 'paragrph {"style":"Text body"} end'
 ));
 checkIdentical('frmat: what each style used gives, once, with what it takes from the style it is based on and from the document', odtRead($stylPth)['infos']['frmat'], Array(
-	'Heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Albany', 'sizes'=>18, 'color'=>'#2F5496', 'marks'=>Array('bold'), 'align'=>'centr'),
+	'Heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Albany', 'sizes'=>18, 'color'=>'#2F5496', 'marks'=>Array('boldFace'), 'align'=>'alignCtr'),
 	'Text body'=>Array('class'=>'text-body', 'fonts'=>'Times New Roman', 'sizes'=>12),
-	'Quotations'=>Array('class'=>'quotations', 'fonts'=>'Times New Roman', 'sizes'=>12, 'marks'=>Array('ital', 'undr'), 'align'=>'justf'),
+	'Quotations'=>Array('class'=>'quotations', 'fonts'=>'Times New Roman', 'sizes'=>12, 'marks'=>Array('emphasis', 'undrLine'), 'align'=>'alignJst'),
 	'3 - Client'=>Array('class'=>'s-3-client', 'fonts'=>'Times New Roman', 'sizes'=>12),
 	'Preformatted Text'=>Array('class'=>'preformatted-text', 'fonts'=>'Courier New', 'sizes'=>10)
 ));
-checkIdentical('a size that is not a whole number of points', odtRead(makeOdt('size.odt', oPar('x', 'Heading_20_2')))['infos']['frmat'], Array('Heading 2'=>Array('class'=>'heading-2', 'fonts'=>'Albany', 'sizes'=>16.5, 'marks'=>Array('bold', 'ital'))));
+checkIdentical('a size that is not a whole number of points', odtRead(makeOdt('size.odt', oPar('x', 'Heading_20_2')))['infos']['frmat'], Array('Heading 2'=>Array('class'=>'heading-2', 'fonts'=>'Albany', 'sizes'=>16.5, 'marks'=>Array('boldFace', 'emphasis'))));
 
 // Headers and footers
 $pagePth = makeOdt('pages.odt', oPar('Body', 'P1'), Array(),
@@ -291,9 +291,9 @@ checkIdentical('the headers and the footers of the pages stand in the details: e
 	$envlope = odtRead($pagePth);
 	return Array(blkLines($envlope['items']), blkLines($envlope['infos']['phead']), blkLines($envlope['infos']['pfoot']), array_keys($envlope['infos']['frmat']));
 }), Array(
-	Array('parag {"align":"centr"} [Body]'),
-	Array('headr {"level":1,"style":"Title","align":"right"} [nyuArk, season 2026]', 'parag [First page only]'),
-	Array('parag [Ref. ][NYU-2026-014|@props:Reference][, page ][1|@pgnum][ of ][2|@pgtot][, ][site|>https://nyuark.test/footer]', 'table {"heads":[],"colms":1,"lines":1,"bytes":4}', '  tbrow', '    tcell [cell]'),
+	Array('paragrph {"align":"alignCtr"} [Body]'),
+	Array('headline {"level":1,"style":"Title","align":"alignRgt"} [nyuArk, season 2026]', 'paragrph [First page only]'),
+	Array('paragrph [Ref. ][NYU-2026-014|@props:Reference][, page ][1|@pageNumb][ of ][2|@pageTotl][, ][site|>https://nyuark.test/footer]', 'tableSet {"heads":[],"colms":1,"lines":1,"bytes":4}', '  tableRow', '    cellText [cell]'),
 	Array('Text body', 'Title')
 ));
 
@@ -304,14 +304,14 @@ $notePth = makeOdt('notes.odt',
 	.oPar('Again'.$oNote('footnote', oPar('Second note'.$oNote('footnote', oPar('A note in a note.')).'.')).' and a note without text'.$oNote('footnote', ''))
 );
 checkIdentical('notes: numbered in the order of the text, the reference a link to them, the notes after the text, those of the end last', blkLines(odtRead($notePth)['items']), Array(
-	'parag [Playing on 28 December][1|>#fnote1][ at Hall A][1|>#enote1][.]',
-	'parag [Again][2|>#fnote2][ and a note without text][4|>#fnote4]',
-	'fnote {"tagid":"fnote1","numbr":1} [Doors open at ][8 pm|bold][.]',
-	'  parag [See ][the site|>https://nyuark.test/note]',
-	'fnote {"tagid":"fnote2","numbr":2} [Second note][3|>#fnote3][.]',
-	'fnote {"tagid":"fnote3","numbr":3} [A note in a note.]',
-	'fnote {"tagid":"fnote4","numbr":4}',
-	'fnote {"tagid":"enote1","numbr":1} [At the very end.]'
+	'paragrph [Playing on 28 December][1|>#fnote1][ at Hall A][1|>#enote1][.]',
+	'paragrph [Again][2|>#fnote2][ and a note without text][4|>#fnote4]',
+	'footnote {"tagid":"fnote1","numbr":1} [Doors open at ][8 pm|boldFace][.]',
+	'  paragrph [See ][the site|>https://nyuark.test/note]',
+	'footnote {"tagid":"fnote2","numbr":2} [Second note][3|>#fnote3][.]',
+	'footnote {"tagid":"fnote3","numbr":3} [A note in a note.]',
+	'footnote {"tagid":"fnote4","numbr":4}',
+	'footnote {"tagid":"enote1","numbr":1} [At the very end.]'
 ));
 
 // Comments
@@ -324,7 +324,7 @@ checkIdentical('cmnts: the comments of the reviewers, with the passage each is a
 	$envlope = odtRead($cmntPth, Array('cmnts'=>true));
 	return Array(blkLines($envlope['items']), $envlope['infos']['cmnts']);
 }), Array(
-	Array('parag [Playing on 28 ][December|bold][ at Hall A]', 'parag [and Hall B.]'),
+	Array('paragrph [Playing on 28 ][December|boldFace][ at Hall A]', 'paragrph [and Hall B.]'),
 	Array(
 		Array('authr'=>'A. Martin', 'dated'=>'2026-10-02T14:05:00', 'plain'=>"Check this date\n\nSecond line", 'about'=>'28 December'),
 		Array('authr'=>'Les Enchaînés', 'dated'=>'', 'plain'=>'Both?', 'about'=>'Hall A and Hall B'),
@@ -334,7 +334,7 @@ checkIdentical('cmnts: the comments of the reviewers, with the passage each is a
 checkIdentical('without the option, the comments are not read at all', runCatchThrown(function() use ($cmntPth){
 	$envlope = odtRead($cmntPth);
 	return Array(array_keys($envlope['infos']), blkLines($envlope['items']), strpos(printValueText($envlope), 'Check this'));
-}), Array(Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot'), Array('parag [Playing on 28 ][December|bold][ at Hall A]', 'parag [and Hall B.]'), false));
+}), Array(Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot'), Array('paragrph [Playing on 28 ][December|boldFace][ at Hall A]', 'paragrph [and Hall B.]'), false));
 
 // Properties
 checkIdentical('properties: the ones every document has, by the name Word gives them, then the ones added to it, with their type', odtRead(makeOdt('props.odt', oPar('x'), Array(
@@ -347,7 +347,7 @@ checkIdentical('a document saved without its first author has the one who saved 
 ), Array('J. J.', Array('title'=>'', 'authr'=>'', 'props'=>Array(), 'frmat'=>Array(), 'phead'=>Array(), 'pfoot'=>Array())));
 
 // Sections and indexes
-checkIdentical('sections and tables of contents are read through', odtLines('<text:section text:name="S">'.oPar('In a section').'<text:section>'.oPar('Deeper').'</text:section></text:section><text:table-of-content><text:table-of-content-source/><text:index-body><text:index-title>'.oPar('Contents').'</text:index-title>'.oPar('One<text:tab/>1').'</text:index-body></text:table-of-content><text:sequence-decls/>'), Array('parag [In a section]', 'parag [Deeper]', 'parag [Contents]', "parag [One\t1]"));
+checkIdentical('sections and tables of contents are read through', odtLines('<text:section text:name="S">'.oPar('In a section').'<text:section>'.oPar('Deeper').'</text:section></text:section><text:table-of-content><text:table-of-content-source/><text:index-body><text:index-title>'.oPar('Contents').'</text:index-title>'.oPar('One<text:tab/>1').'</text:index-body></text:table-of-content><text:sequence-decls/>'), Array('paragrph [In a section]', 'paragrph [Deeper]', 'paragrph [Contents]', "paragrph [One\t1]"));
 
 // What is refused
 checkPregMatch('a spreadsheet under the name of a text', odtRead($offcDir.'sample.ods'), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid archive: the document is not a text document/');
@@ -360,7 +360,7 @@ checkIdentical('one parser, several documents: a note, a comment or an option of
 	$prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeOdt('open.odt', oPar('a<office:annotation office:name="left open">'.oPar('never closed').'</office:annotation>b'))), Array('cmnts'=>true));
 	$envlope = $prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeOdt('next.odt', oPar('c<text:note text:note-class="footnote"><text:note-body>'.oPar('n').'</text:note-body></text:note>').oPar(''))));
 	return Array(blkLines($envlope['items']), array_keys($envlope['infos']));
-}), Array(Array('parag [c][1|>#fnote1]', 'parag', 'fnote {"tagid":"fnote1","numbr":1} [n]'), Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot')));
+}), Array(Array('paragrph [c][1|>#fnote1]', 'paragrph', 'footnote {"tagid":"fnote1","numbr":1} [n]'), Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot')));
 checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
 
 // Through the index, Dcmnt and the HTML writer

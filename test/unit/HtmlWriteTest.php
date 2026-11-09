@@ -39,42 +39,42 @@ function textBlk( String $blockLabel, String $textString, Array $attrsArray=Arra
 checkTrueValue('the HTML writer is a writer', (new Html()) instanceof Writer);
 
 // Text blocks
-checkIdentical('headings, by level, with their id', htmOfBlk(Array(textBlk('headr', 'Alpha Night', Array('level'=>1, 'tagid'=>'show')), textBlk('headr', 'Dates', Array('level'=>3)))), "<h1 id=\"show\">Alpha Night</h1>\n<h3>Dates</h3>\n");
-checkIdentical('a level out of range is brought back into it', htmOfBlk(Array(textBlk('headr', 'a', Array('level'=>9)), textBlk('headr', 'b', Array('level'=>0)), textBlk('headr', 'c'))), "<h6>a</h6>\n<h1>b</h1>\n<h1>c</h1>\n");
-checkIdentical('a paragraph: formatting, a link, a line break', htmOfBlk(Array(Shape::makeBlockArray('parag', Array(
-	Shape::makeASpanArray('Playing at '), Shape::makeASpanArray('Hall A', Array(), '/venues/a'), Shape::makeASpanArray(', '), Shape::makeASpanArray('120', Array('bold')), Shape::makeASpanArray(" seats.\nDoors at 8.")
+checkIdentical('headings, by level, with their id', htmOfBlk(Array(textBlk('headline', 'Alpha Night', Array('level'=>1, 'tagid'=>'show')), textBlk('headline', 'Dates', Array('level'=>3)))), "<h1 id=\"show\">Alpha Night</h1>\n<h3>Dates</h3>\n");
+checkIdentical('a level out of range is brought back into it', htmOfBlk(Array(textBlk('headline', 'a', Array('level'=>9)), textBlk('headline', 'b', Array('level'=>0)), textBlk('headline', 'c'))), "<h6>a</h6>\n<h1>b</h1>\n<h1>c</h1>\n");
+checkIdentical('a paragraph: formatting, a link, a line break', htmOfBlk(Array(Shape::makeBlockArray('paragrph', Array(
+	Shape::makeASpanArray('Playing at '), Shape::makeASpanArray('Hall A', Array(), '/venues/a'), Shape::makeASpanArray(', '), Shape::makeASpanArray('120', Array('boldFace')), Shape::makeASpanArray(" seats.\nDoors at 8.")
 )))), "<p>Playing at <a href=\"/venues/a\">Hall A</a>, <strong>120</strong> seats.<br>\nDoors at 8.</p>\n");
-checkIdentical('every formatting, nested in a fixed order, inside its link', htmOfBlk(Array(Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('x', Array('code', 'strk', 'undr', 'ital', 'bold'), 'https://nyuark.test/'))))), "<p><a href=\"https://nyuark.test/\"><strong><em><u><s><code>x</code></s></u></em></strong></a></p>\n");
+checkIdentical('every formatting, nested in a fixed order, inside its link', htmOfBlk(Array(Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('x', Array('codeSpan', 'crossOut', 'undrLine', 'emphasis', 'boldFace'), 'https://nyuark.test/'))))), "<p><a href=\"https://nyuark.test/\"><strong><em><u><s><code>x</code></s></u></em></strong></a></p>\n");
 
 // Lists
-$subList = Shape::makeBlockArray('lists', Array(), Array(textBlk('entry', 'Jazz'), textBlk('entry', 'Été', Array('tagid'=>'ete'))), Array('order'=>true));
-$showLst = Shape::makeBlockArray('lists', Array(), Array(Shape::makeBlockArray('entry', Array(Shape::makeASpanArray('Music')), Array($subList)), textBlk('entry', 'Dance')), Array('tagid'=>'kinds'));
+$subList = Shape::makeBlockArray('itemList', Array(), Array(textBlk('listItem', 'Jazz'), textBlk('listItem', 'Été', Array('tagid'=>'ete'))), Array('order'=>true));
+$showLst = Shape::makeBlockArray('itemList', Array(), Array(Shape::makeBlockArray('listItem', Array(Shape::makeASpanArray('Music')), Array($subList)), textBlk('listItem', 'Dance')), Array('tagid'=>'kinds'));
 checkIdentical('a list holding a list', htmOfBlk(Array($showLst)), "<ul id=\"kinds\">\n<li>Music\n<ol>\n<li>Jazz</li>\n<li id=\"ete\">Été</li>\n</ol>\n</li>\n<li>Dance</li>\n</ul>\n");
 
 // Tables
-$headRow = Shape::makeBlockArray('thead', Array(), Array(textBlk('tcell', 'Title'), textBlk('tcell', 'Seats')));
-$frstRow = Shape::makeBlockArray('tbrow', Array(), Array(textBlk('tcell', 'Alpha Night', Array('headr'=>true)), Shape::makeBlockArray('tcell', Array(Shape::makeASpanArray('120', Array('bold'))), Array(), Array('colsp'=>2, 'rowsp'=>1))));
-$scndRow = Shape::makeBlockArray('tbrow', Array(), Array(textBlk('tcell', 'Les Enchaînés', Array('rowsp'=>3)), Shape::makeBlockArray('tcell')));
-checkIdentical('a table: its header rows in a head, its rows in a body', htmOfBlk(Array(Shape::makeBlockArray('table', Array(), Array($headRow, $frstRow, $scndRow), Array('tagid'=>'tbl')))), "<table id=\"tbl\">\n<thead>\n<tr><th>Title</th><th>Seats</th></tr>\n</thead>\n<tbody>\n<tr><th>Alpha Night</th><td colspan=\"2\"><strong>120</strong></td></tr>\n<tr><td rowspan=\"3\">Les Enchaînés</td><td></td></tr>\n</tbody>\n</table>\n");
-checkIdentical('a table without header row, and one without any row', htmOfBlk(Array(Shape::makeBlockArray('table', Array(), Array($scndRow)), Shape::makeBlockArray('table'))), "<table>\n<tbody>\n<tr><td rowspan=\"3\">Les Enchaînés</td><td></td></tr>\n</tbody>\n</table>\n<table>\n</table>\n");
+$headRow = Shape::makeBlockArray('tableTop', Array(), Array(textBlk('cellText', 'Title'), textBlk('cellText', 'Seats')));
+$frstRow = Shape::makeBlockArray('tableRow', Array(), Array(textBlk('cellText', 'Alpha Night', Array('headr'=>true)), Shape::makeBlockArray('cellText', Array(Shape::makeASpanArray('120', Array('boldFace'))), Array(), Array('colsp'=>2, 'rowsp'=>1))));
+$scndRow = Shape::makeBlockArray('tableRow', Array(), Array(textBlk('cellText', 'Les Enchaînés', Array('rowsp'=>3)), Shape::makeBlockArray('cellText')));
+checkIdentical('a table: its header rows in a head, its rows in a body', htmOfBlk(Array(Shape::makeBlockArray('tableSet', Array(), Array($headRow, $frstRow, $scndRow), Array('tagid'=>'tbl')))), "<table id=\"tbl\">\n<thead>\n<tr><th>Title</th><th>Seats</th></tr>\n</thead>\n<tbody>\n<tr><th>Alpha Night</th><td colspan=\"2\"><strong>120</strong></td></tr>\n<tr><td rowspan=\"3\">Les Enchaînés</td><td></td></tr>\n</tbody>\n</table>\n");
+checkIdentical('a table without header row, and one without any row', htmOfBlk(Array(Shape::makeBlockArray('tableSet', Array(), Array($scndRow)), Shape::makeBlockArray('tableSet'))), "<table>\n<tbody>\n<tr><td rowspan=\"3\">Les Enchaînés</td><td></td></tr>\n</tbody>\n</table>\n<table>\n</table>\n");
 
 // Quotes, code, rules and images
-checkIdentical('a quote holding a paragraph', htmOfBlk(Array(Shape::makeBlockArray('quote', Array(Shape::makeASpanArray('Quoted')), Array(textBlk('parag', 'and more'))))), "<blockquote>Quoted\n<p>and more</p>\n</blockquote>\n");
-checkIdentical('code: its lines as they are, its language as a class', htmOfBlk(Array(textBlk('codes', "if( \$a < 2 ){\n    echo \"x\";\n}", Array('langg'=>'php')), textBlk('codes', 'a  b'))), "<pre><code class=\"language-php\">if( \$a &lt; 2 ){\n    echo &quot;x&quot;;\n}</code></pre>\n<pre><code>a  b</code></pre>\n");
-checkIdentical('a rule and an image', htmOfBlk(Array(Shape::makeBlockArray('rules'), textBlk('image', 'The hall', Array('sourc'=>'/img/a.png', 'tagid'=>'pic')))), "<hr>\n<img id=\"pic\" src=\"/img/a.png\" alt=\"The hall\">\n");
+checkIdentical('a quote holding a paragraph', htmOfBlk(Array(Shape::makeBlockArray('citation', Array(Shape::makeASpanArray('Quoted')), Array(textBlk('paragrph', 'and more'))))), "<blockquote>Quoted\n<p>and more</p>\n</blockquote>\n");
+checkIdentical('code: its lines as they are, its language as a class', htmOfBlk(Array(textBlk('codeBlck', "if( \$a < 2 ){\n    echo \"x\";\n}", Array('langg'=>'php')), textBlk('codeBlck', 'a  b'))), "<pre><code class=\"language-php\">if( \$a &lt; 2 ){\n    echo &quot;x&quot;;\n}</code></pre>\n<pre><code>a  b</code></pre>\n");
+checkIdentical('a rule and an image', htmOfBlk(Array(Shape::makeBlockArray('ruleLine'), textBlk('imageBox', 'The hall', Array('sourc'=>'/img/a.png', 'tagid'=>'pic')))), "<hr>\n<img id=\"pic\" src=\"/img/a.png\" alt=\"The hall\">\n");
 
 // What is escaped, and what is refused
 checkIdentical('text is escaped, wherever it stands', htmOfBlk(Array(
-	textBlk('headr', '<script>alert(1)</script>', Array('level'=>2)),
-	Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('a < b & "c" \'d\'', Array('bold'), '/find?a=1&b="2"'))),
-	textBlk('image', '"><script>x</script>', Array('sourc'=>'/a.png?x="1"')),
-	Shape::makeBlockArray('table', Array(), Array(Shape::makeBlockArray('tbrow', Array(), Array(textBlk('tcell', '<td>')))))
+	textBlk('headline', '<script>alert(1)</script>', Array('level'=>2)),
+	Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('a < b & "c" \'d\'', Array('boldFace'), '/find?a=1&b="2"'))),
+	textBlk('imageBox', '"><script>x</script>', Array('sourc'=>'/a.png?x="1"')),
+	Shape::makeBlockArray('tableSet', Array(), Array(Shape::makeBlockArray('tableRow', Array(), Array(textBlk('cellText', '<td>')))))
 )), "<h2>&lt;script&gt;alert(1)&lt;/script&gt;</h2>\n<p><a href=\"/find?a=1&amp;b=&quot;2&quot;\"><strong>a &lt; b &amp; &quot;c&quot; &apos;d&apos;</strong></a></p>\n<img src=\"/a.png?x=&quot;1&quot;\" alt=\"&quot;&gt;&lt;script&gt;x&lt;/script&gt;\">\n<table>\n<tbody>\n<tr><td>&lt;td&gt;</td></tr>\n</tbody>\n</table>\n");
 checkIdentical('an address that would run a script is not written; its text is', htmOfBlk(Array(
-	Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('one', Array(), 'javascript:alert(1)'), Shape::makeASpanArray('two', Array(), " JaVa\tScRiPt:alert(1)"), Shape::makeASpanArray('three', Array(), 'data:text/html,<b>'), Shape::makeASpanArray('four', Array(), 'mailto:a@nyuark.test'))),
-	textBlk('image', 'bad', Array('sourc'=>'javascript:alert(1)'))
+	Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('one', Array(), 'javascript:alert(1)'), Shape::makeASpanArray('two', Array(), " JaVa\tScRiPt:alert(1)"), Shape::makeASpanArray('three', Array(), 'data:text/html,<b>'), Shape::makeASpanArray('four', Array(), 'mailto:a@nyuark.test'))),
+	textBlk('imageBox', 'bad', Array('sourc'=>'javascript:alert(1)'))
 )), "<p>onetwothree<a href=\"mailto:a@nyuark.test\">four</a></p>\n");
-checkIdentical('an id or a language that is not a plain name is not written', htmOfBlk(Array(textBlk('parag', 'x', Array('tagid'=>'a" onclick="x')), textBlk('codes', 'y', Array('langg'=>'php" onclick="x')))), "<p>x</p>\n<pre><code>y</code></pre>\n");
+checkIdentical('an id or a language that is not a plain name is not written', htmOfBlk(Array(textBlk('paragrph', 'x', Array('tagid'=>'a" onclick="x')), textBlk('codeBlck', 'y', Array('langg'=>'php" onclick="x')))), "<p>x</p>\n<pre><code>y</code></pre>\n");
 checkPregMatch('an unknown kind of block is refused', htmOfBlk(Array(Array('block'=>'title', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''))), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Unknown kind of block: title/');
 checkPregMatch('an unknown shape is refused', runCatchThrown(function(){ return (new Html())->renderDocument(Array('shape'=>'cloud', 'infos'=>Array(), 'items'=>Array())); }), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as HTML: cloud/');
 
@@ -84,7 +84,7 @@ checkIdentical('addresses that are dropped', array_map(Array('nyu\Data\Shape', '
 
 // A whole page
 checkIdentical('whole: a page around the content, with the title of infos', runCatchThrown(function(){
-	return (new Html())->renderDocument(Array('shape'=>'block', 'infos'=>Array('title'=>'Alpha <Night>'), 'items'=>Array(textBlk('parag', 'x'))), Array('whole'=>true));
+	return (new Html())->renderDocument(Array('shape'=>'block', 'infos'=>Array('title'=>'Alpha <Night>'), 'items'=>Array(textBlk('paragrph', 'x'))), Array('whole'=>true));
 }), "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Alpha &lt;Night&gt;</title>\n</head>\n<body>\n<p>x</p>\n</body>\n</html>\n");
 
 // Sheets and trees
@@ -105,18 +105,18 @@ checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
 
 // Styles
 $stylEnv = Array('shape'=>'block', 'infos'=>Array('title'=>'Alpha Night', 'langg'=>'fr', 'frmat'=>Array(
-	'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri Light', 'sizes'=>16, 'color'=>'#2F5496', 'marks'=>Array('bold'), 'align'=>'centr'),
-	'Quote'=>Array('class'=>'quote', 'fonts'=>'Calibri', 'sizes'=>11.5, 'marks'=>Array('ital', 'undr', 'strk'), 'align'=>'justf'),
+	'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri Light', 'sizes'=>16, 'color'=>'#2F5496', 'marks'=>Array('boldFace'), 'align'=>'alignCtr'),
+	'Quote'=>Array('class'=>'quote', 'fonts'=>'Calibri', 'sizes'=>11.5, 'marks'=>Array('emphasis', 'undrLine', 'crossOut'), 'align'=>'alignJst'),
 	'Normal'=>Array('class'=>'normal'),
 	'3 - Client'=>Array('class'=>'s-3-client', 'sizes'=>9),
 	'Hostile'=>Array('class'=>'x{} body{display:none} .y', 'fonts'=>'Arial"; } body { display:none } .z { font-family:"x', 'sizes'=>'12pt; color:red', 'color'=>'red; background:url(javascript:alert(1))', 'marks'=>Array('bold; x', 'huge'), 'align'=>'center; x'),
 	'Not a style'=>'text'
 )), 'items'=>Array(
-	textBlk('headr', 'Alpha Night', Array('level'=>1, 'style'=>'heading 1', 'tagid'=>'top')), textBlk('parag', 'Plain.', Array('style'=>'Normal')), textBlk('parag', 'Centred by hand.', Array('style'=>'Normal', 'align'=>'centr')),
-	textBlk('quote', 'A night.', Array('style'=>'Quote', 'align'=>'right')), textBlk('parag', 'Client.', Array('style'=>'3 - Client')), textBlk('parag', 'Hostile.', Array('style'=>'Hostile', 'align'=>'center" onclick="x')),
-	textBlk('parag', 'Unlisted.', Array('style'=>'Some Other Style')), textBlk('parag', 'No word in it.', Array('style'=>'***')), textBlk('codes', 'x', Array('style'=>'Code', 'langg'=>'php')),
-	Shape::makeBlockArray('lists', Array(), Array(textBlk('entry', 'entry', Array('style'=>'Normal'))), Array('style'=>'Never on a list')),
-	Shape::makeBlockArray('table', Array(), Array(Shape::makeBlockArray('tbrow', Array(), Array(textBlk('tcell', 'cell', Array('style'=>'Normal', 'align'=>'justf', 'colsp'=>2))))))
+	textBlk('headline', 'Alpha Night', Array('level'=>1, 'style'=>'heading 1', 'tagid'=>'top')), textBlk('paragrph', 'Plain.', Array('style'=>'Normal')), textBlk('paragrph', 'Centred by hand.', Array('style'=>'Normal', 'align'=>'alignCtr')),
+	textBlk('citation', 'A night.', Array('style'=>'Quote', 'align'=>'alignRgt')), textBlk('paragrph', 'Client.', Array('style'=>'3 - Client')), textBlk('paragrph', 'Hostile.', Array('style'=>'Hostile', 'align'=>'center" onclick="x')),
+	textBlk('paragrph', 'Unlisted.', Array('style'=>'Some Other Style')), textBlk('paragrph', 'No word in it.', Array('style'=>'***')), textBlk('codeBlck', 'x', Array('style'=>'Code', 'langg'=>'php')),
+	Shape::makeBlockArray('itemList', Array(), Array(textBlk('listItem', 'entry', Array('style'=>'Normal'))), Array('style'=>'Never on a list')),
+	Shape::makeBlockArray('tableSet', Array(), Array(Shape::makeBlockArray('tableRow', Array(), Array(textBlk('cellText', 'cell', Array('style'=>'Normal', 'align'=>'alignJst', 'colsp'=>2))))))
 ));
 $stylBdy = "<h1 id=\"top\" class=\"heading-1\">Alpha Night</h1>\n<p class=\"normal\">Plain.</p>\n<p class=\"normal\" style=\"text-align:center\">Centred by hand.</p>\n<blockquote class=\"quote\" style=\"text-align:right\">A night.</blockquote>\n<p class=\"s-3-client\">Client.</p>\n<p class=\"hostile\">Hostile.</p>\n"
 	."<p class=\"some-other-style\">Unlisted.</p>\n<p>No word in it.</p>\n<pre class=\"code\"><code class=\"language-php\">x</code></pre>\n<ul class=\"never-on-a-list\">\n<li class=\"normal\">entry</li>\n</ul>\n<table>\n<tbody>\n<tr><td class=\"normal\" style=\"text-align:justify\" colspan=\"2\">cell</td></tr>\n</tbody>\n</table>\n";
@@ -133,27 +133,27 @@ checkIdentical('whole: the language of the content, its title, its style sheet i
 	return Array($wrtrObj->renderDocument($stylEnv, Array('whole'=>true))==="<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<title>Alpha Night</title>\n".$stylCss."</head>\n<body>\n".$stylBdy."</body>\n</html>\n", strpos($wrtrObj->renderDocument($stylEnv, Array('whole'=>true, 'frmat'=>false)), '<style>'), strpos($wrtrObj->renderDocument(Array('shape'=>'block', 'infos'=>Array('langg'=>'fr" onload="x'), 'items'=>Array()), Array('whole'=>true)), 'onload'));
 }), Array(true, false, false));
 checkIdentical('the headers and the footers of the pages stand once around the content of a whole page, and nowhere otherwise', runCatchThrown(function(){
-	$pageEnv = Array('shape'=>'block', 'infos'=>Array('title'=>'T', 'phead'=>Array(textBlk('parag', 'nyuArk')), 'pfoot'=>Array(Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('page '), Shape::makeASpanArray('1', Array(), '', 'pgnum'))))), 'items'=>Array(textBlk('parag', 'Body')));
+	$pageEnv = Array('shape'=>'block', 'infos'=>Array('title'=>'T', 'phead'=>Array(textBlk('paragrph', 'nyuArk')), 'pfoot'=>Array(Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('page '), Shape::makeASpanArray('1', Array(), '', 'pageNumb'))))), 'items'=>Array(textBlk('paragrph', 'Body')));
 	$wrtrObj = new Html();
 	return Array($wrtrObj->renderDocument($pageEnv), strstr($wrtrObj->renderDocument($pageEnv, Array('whole'=>true)), '<body>'));
-}), Array("<p>Body</p>\n", "<body>\n<header>\n<p>nyuArk</p>\n</header>\n<p>Body</p>\n<footer>\n<p>page <span data-field=\"pgnum\">1</span></p>\n</footer>\n</body>\n</html>\n"));
+}), Array("<p>Body</p>\n", "<body>\n<header>\n<p>nyuArk</p>\n</header>\n<p>Body</p>\n<footer>\n<p>page <span data-field=\"pageNumb\">1</span></p>\n</footer>\n</body>\n</html>\n"));
 
 // Fields, notes, page breaks, tasks, who is quoted
-checkIdentical('a field tells what it stands for, inside its link and around its formatting', htmOfBlk(Array(Shape::makeBlockArray('parag', Array(
-	Shape::makeASpanArray('Page '), Shape::makeASpanArray('3', Array(), '', 'pgnum'), Shape::makeASpanArray(' of '), Shape::makeASpanArray('12', Array('bold'), '', 'pgtot'), Shape::makeASpanArray(', '), Shape::makeASpanArray('Alpha', Array('ital'), '/a', 'props:Client "Ref" <1>')
-)))), "<p>Page <span data-field=\"pgnum\">3</span> of <span data-field=\"pgtot\"><strong>12</strong></span>, <a href=\"/a\"><span data-field=\"props:Client &quot;Ref&quot; &lt;1&gt;\"><em>Alpha</em></span></a></p>\n");
+checkIdentical('a field tells what it stands for, inside its link and around its formatting', htmOfBlk(Array(Shape::makeBlockArray('paragrph', Array(
+	Shape::makeASpanArray('Page '), Shape::makeASpanArray('3', Array(), '', 'pageNumb'), Shape::makeASpanArray(' of '), Shape::makeASpanArray('12', Array('boldFace'), '', 'pageTotl'), Shape::makeASpanArray(', '), Shape::makeASpanArray('Alpha', Array('emphasis'), '/a', 'props:Client "Ref" <1>')
+)))), "<p>Page <span data-field=\"pageNumb\">3</span> of <span data-field=\"pageTotl\"><strong>12</strong></span>, <a href=\"/a\"><span data-field=\"props:Client &quot;Ref&quot; &lt;1&gt;\"><em>Alpha</em></span></a></p>\n");
 checkIdentical('the reference to a note is raised, the note starts with its number and holds its blocks', htmOfBlk(Array(
-	Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('Text'), Shape::makeASpanArray('1', Array(), '#fnote1'), Shape::makeASpanArray(' and'), Shape::makeASpanArray('2', Array(), '#enote2'), Shape::makeASpanArray(', not a note: '), Shape::makeASpanArray('3', Array(), '#fnotes'))),
-	Shape::makeBlockArray('fnote', Array(Shape::makeASpanArray('Doors at 8.')), Array(textBlk('parag', 'More.')), Array('tagid'=>'fnote1', 'numbr'=>1)), Shape::makeBlockArray('fnote', Array(), Array(), Array('tagid'=>'enote2', 'numbr'=>2)), textBlk('fnote', 'No number.')
+	Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('Text'), Shape::makeASpanArray('1', Array(), '#fnote1'), Shape::makeASpanArray(' and'), Shape::makeASpanArray('2', Array(), '#enote2'), Shape::makeASpanArray(', not a note: '), Shape::makeASpanArray('3', Array(), '#fnotes'))),
+	Shape::makeBlockArray('footnote', Array(Shape::makeASpanArray('Doors at 8.')), Array(textBlk('paragrph', 'More.')), Array('tagid'=>'fnote1', 'numbr'=>1)), Shape::makeBlockArray('footnote', Array(), Array(), Array('tagid'=>'enote2', 'numbr'=>2)), textBlk('footnote', 'No number.')
 )), "<p>Text<sup><a href=\"#fnote1\">1</a></sup> and<sup><a href=\"#enote2\">2</a></sup>, not a note: <a href=\"#fnotes\">3</a></p>\n<aside id=\"fnote1\"><sup>1</sup> Doors at 8.\n<p>More.</p>\n</aside>\n<aside id=\"enote2\"><sup>2</sup> </aside>\n<aside>No number.</aside>\n");
 checkIdentical('a page break is a rule of its own kind, and brings its rule to the style sheet', runCatchThrown(function(){
-	$brkEnvl = Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('parag', 'a'), Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true, 'tagid'=>'ignored')), Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>false, 'tagid'=>'cut'))));
+	$brkEnvl = Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('paragrph', 'a'), Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true, 'tagid'=>'ignored')), Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>false, 'tagid'=>'cut'))));
 	$wrtrObj = new Html();
-	return Array($wrtrObj->renderDocument($brkEnvl), $wrtrObj->renderDocument($brkEnvl, Array('frmat'=>true)), strpos($wrtrObj->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('parag', 'a'))), Array('frmat'=>true)), '<style>'));
+	return Array($wrtrObj->renderDocument($brkEnvl), $wrtrObj->renderDocument($brkEnvl, Array('frmat'=>true)), strpos($wrtrObj->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('paragrph', 'a'))), Array('frmat'=>true)), '<style>'));
 }), Array("<p>a</p>\n<hr class=\"break\">\n<hr id=\"cut\">\n", "<style>\nhr.break{border:0;break-after:page;page-break-after:always}\n</style>\n<p>a</p>\n<hr class=\"break\">\n<hr id=\"cut\">\n", false));
 checkIdentical('a task shows its box, done or not; who is quoted is told under the quotation', htmOfBlk(Array(
-	Shape::makeBlockArray('lists', Array(), Array(textBlk('entry', 'done', Array('check'=>true)), textBlk('entry', 'todo', Array('check'=>false)), textBlk('entry', 'plain'))),
-	textBlk('quote', 'Short.', Array('cites'=>'Alice & <Bob>')), Shape::makeBlockArray('quote', Array(Shape::makeASpanArray('Long.')), Array(textBlk('parag', 'More.')), Array('cites'=>'Carol')), textBlk('quote', 'Nobody.')
+	Shape::makeBlockArray('itemList', Array(), Array(textBlk('listItem', 'done', Array('check'=>true)), textBlk('listItem', 'todo', Array('check'=>false)), textBlk('listItem', 'plain'))),
+	textBlk('citation', 'Short.', Array('cites'=>'Alice & <Bob>')), Shape::makeBlockArray('citation', Array(Shape::makeASpanArray('Long.')), Array(textBlk('paragrph', 'More.')), Array('cites'=>'Carol')), textBlk('citation', 'Nobody.')
 )), "<ul>\n<li><input type=\"checkbox\" disabled checked> done</li>\n<li><input type=\"checkbox\" disabled> todo</li>\n<li>plain</li>\n</ul>\n<blockquote>Short.\n<cite>Alice &amp; &lt;Bob&gt;</cite>\n</blockquote>\n<blockquote>Long.\n<p>More.</p>\n<cite>Carol</cite>\n</blockquote>\n<blockquote>Nobody.</blockquote>\n");
 
 // Sheets: names of columns, merged cells, hidden sheets
@@ -179,16 +179,16 @@ checkIdentical('shown: hidden sheets are written unless told to leave them out',
 checkIdentical('one writer, several contents: the styles of one do not reach the next', runCatchThrown(function() use ($stylEnv){
 	$wrtrObj = new Html();
 	$wrtrObj->renderDocument($stylEnv, Array('class'=>false, 'frmat'=>true));
-	return $wrtrObj->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('parag', 'x', Array('style'=>'heading 1')))), Array('frmat'=>true));
+	return $wrtrObj->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('paragrph', 'x', Array('style'=>'heading 1')))), Array('frmat'=>true));
 }), "<p class=\"heading-1\">x</p>\n");
 checkIdentical('no PHP warning from the new checks', takeNotesArray(), Array());
 
 // The anchors of the headings, made as GitHub makes them for a Markdown page
-$hdrList = Array(textBlk('headr', '1.4 What version 1.0 holds', Array('level'=>3)), textBlk('headr', '7.6 bundle: a copy, for each environment', Array('level'=>3)), textBlk('headr', 'Summary', Array('level'=>2)), textBlk('headr', 'Summary', Array('level'=>2)), textBlk('headr', 'Mine', Array('level'=>2, 'tagid'=>'kept')));
-checkIdentical('anchors: none unless asked', htmOfBlk(Array(textBlk('headr', 'Summary', Array('level'=>2)))), "<h2>Summary</h2>\n");
+$hdrList = Array(textBlk('headline', '1.4 What version 1.0 holds', Array('level'=>3)), textBlk('headline', '7.6 bundle: a copy, for each environment', Array('level'=>3)), textBlk('headline', 'Summary', Array('level'=>2)), textBlk('headline', 'Summary', Array('level'=>2)), textBlk('headline', 'Mine', Array('level'=>2, 'tagid'=>'kept')));
+checkIdentical('anchors: none unless asked', htmOfBlk(Array(textBlk('headline', 'Summary', Array('level'=>2)))), "<h2>Summary</h2>\n");
 checkIdentical('anchors: the text in lower case, its dots and commas and colons dropped, its spaces dashes; a title repeated numbered; an id of its own kept', htmOfBlk($hdrList, Array('anchr'=>true)),
 	"<h3 id=\"14-what-version-10-holds\">1.4 What version 1.0 holds</h3>\n<h3 id=\"76-bundle-a-copy-for-each-environment\">7.6 bundle: a copy, for each environment</h3>\n<h2 id=\"summary\">Summary</h2>\n<h2 id=\"summary-1\">Summary</h2>\n<h2 id=\"kept\">Mine</h2>\n");
-checkIdentical('anchors: each page starts its own list', Array(htmOfBlk(Array(textBlk('headr', 'Summary', Array('level'=>2))), Array('anchr'=>true)), htmOfBlk(Array(textBlk('headr', 'Summary', Array('level'=>2))), Array('anchr'=>true))), Array("<h2 id=\"summary\">Summary</h2>\n", "<h2 id=\"summary\">Summary</h2>\n"));
-checkIdentical('anchors: the accents kept, as GitHub keeps them', htmOfBlk(Array(textBlk('headr', 'Les modèles', Array('level'=>2))), Array('anchr'=>true)), "<h2 id=\"les-modèles\">Les modèles</h2>\n");
+checkIdentical('anchors: each page starts its own list', Array(htmOfBlk(Array(textBlk('headline', 'Summary', Array('level'=>2))), Array('anchr'=>true)), htmOfBlk(Array(textBlk('headline', 'Summary', Array('level'=>2))), Array('anchr'=>true))), Array("<h2 id=\"summary\">Summary</h2>\n", "<h2 id=\"summary\">Summary</h2>\n"));
+checkIdentical('anchors: the accents kept, as GitHub keeps them', htmOfBlk(Array(textBlk('headline', 'Les modèles', Array('level'=>2))), Array('anchr'=>true)), "<h2 id=\"les-modèles\">Les modèles</h2>\n");
 
 finishChecking();

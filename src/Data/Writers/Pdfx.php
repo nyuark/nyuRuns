@@ -14,14 +14,14 @@ namespace nyu\Data\Writers;
 class Pdfx extends Base {
 
 	// The sizes of paper, by the code that asks for them
-	const SIZE_LIST = Array('isoa3'=>'A3', 'isoa4'=>'A4', 'isoa5'=>'A5', 'lettr'=>'letter', 'legal'=>'legal');
+	const SIZE_LIST = Array('isoPgeA3'=>'A3', 'isoPgeA4'=>'A4', 'isoPgeA5'=>'A5', 'usLetter'=>'letter', 'legalUsa'=>'legal');
 
 	/**
 	 * Writes a content as a PDF document.
 	 *
 	 * Options:
-	 *   'paper' => the size of the pages: 'isoa3', 'isoa4', 'isoa5',
-	 *              'lettr' or 'legal'; 'isoa4' when left out;
+	 *   'paper' => the size of the pages: 'isoPgeA3', 'isoPgeA4', 'isoPgeA5',
+	 *              'usLetter' or 'legalUsa'; 'isoPgeA4' when left out;
 	 *   'lands' => lays the pages out on their long side;
 	 *   and those of the HTML writer: 'class', 'heads', 'shown'.
 	 *
@@ -33,7 +33,9 @@ class Pdfx extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('block', 'sheet', 'nodes'), 'PDF');
-		$sizeKey = strtolower(strval($writeOptions['paper'] ?? 'isoa4'));
+		$sizeKey = strval($writeOptions['paper'] ?? 'isoPgeA4');
+		// The size whatever its case, as SIZE_LIST writes it
+		$sizeKey = strval( array_values(preg_grep('/^'.preg_quote($sizeKey, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeKey );
 		if( !isset(self::SIZE_LIST[$sizeKey]) ){
 			throw new WriteError('Invalid PDF option: unknown paper '.$sizeKey);
 		}

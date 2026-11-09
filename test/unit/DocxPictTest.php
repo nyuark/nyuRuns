@@ -44,7 +44,7 @@ function pctParts( String $archvBytes ): Array {
 
 $mkSpan = Array(Shape::class, 'makeASpanArray');
 $mkBlck = Array(Shape::class, 'makeBlockArray');
-$mkPict = function(String $sourceName, String $describedAs='', Array $attrsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('image', ($describedAs==='') ? Array() : Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName) + $attrsArray); };
+$mkPict = function(String $sourceName, String $describedAs='', Array $attrsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('imageBox', ($describedAs==='') ? Array() : Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName) + $attrsArray); };
 
 // A folder of pictures, a folder beside it, and a file that is not a picture
 $dotPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
@@ -69,7 +69,7 @@ $partLst = pctParts(pctWrite(Array(
 checkIdentical('an address, a file of another folder, a missing file, a file that is not a picture: none is written', Array(strpos($partLst['word/document.xml'], '<w:drawing>'), count(preg_grep('#^word/media/#', array_keys($partLst))), substr_count($partLst['word/document.xml'], '<w:p><w:r><w:t xml:space="preserve">'), strpos($partLst['word/_rels/document.xml.rels'], 'nyuark.test')), Array(false, 0, 9, false));
 
 // A picture of the folder
-$partLst = pctParts(pctWrite(Array($mkPict('dot.png', 'A "dot" & <more>'), $mkPict('sub/deep.png', 'The same, further in', Array('align'=>'centr')), $mkPict('dot.png')), Array('media'=>$mediaDr)));
+$partLst = pctParts(pctWrite(Array($mkPict('dot.png', 'A "dot" & <more>'), $mkPict('sub/deep.png', 'The same, further in', Array('align'=>'alignCtr')), $mkPict('dot.png')), Array('media'=>$mediaDr)));
 checkIdentical('a picture is written into the document, once however often it is shown', Array(array_values(preg_grep('#^word/media/#', array_keys($partLst))), substr_count($partLst['word/document.xml'], '<w:drawing>'), substr_count($partLst['word/_rels/document.xml.rels'], '/image"')), Array(Array('word/media/image1.png'), 3, 1));
 checkIdentical('what is written is a picture', substr($partLst['word/media/image1.png'], 0, 8), "\x89PNG\r\n\x1A\n");
 checkPregMatch('the document is told what the picture is', $partLst['[Content_Types].xml'], '/<Default Extension="xml" ContentType="application\/xml"\/><Default Extension="png" ContentType="image\/png"\/><Override PartName="\/word\/document\.xml"/');
@@ -79,8 +79,8 @@ checkPregMatch('the parts that show pictures declare what a picture is written w
 checkTrueValue('the parts are well-formed', @simplexml_load_string($partLst['word/document.xml'])!==false && @simplexml_load_string($partLst['[Content_Types].xml'])!==false && @simplexml_load_string($partLst['word/_rels/document.xml.rels'])!==false);
 // A picture at the top of the pages, in a cell, in an entry of a list
 $partLst = pctParts(pctWrite(Array(
-	$mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkBlck('tcell', Array($mkSpan('with a picture')), Array($mkPict('dot.png', 'In a cell'))))))),
-	$mkBlck('lists', Array(), Array($mkBlck('entry', Array($mkSpan('An entry')), Array($mkPict('dot.png', 'In an entry')))), Array('order'=>false))
+	$mkBlck('tableSet', Array(), Array($mkBlck('tableRow', Array(), Array($mkBlck('cellText', Array($mkSpan('with a picture')), Array($mkPict('dot.png', 'In a cell'))))))),
+	$mkBlck('itemList', Array(), Array($mkBlck('listItem', Array($mkSpan('An entry')), Array($mkPict('dot.png', 'In an entry')))), Array('order'=>false))
 ), Array('media'=>$mediaDr), Array('phead'=>Array($mkPict('dot.png', 'At the top')))));
 checkPregMatch('each part has the relation of the pictures it shows; the picture is still written once', $partLst['word/_rels/header1.xml.rels'].'|'.$partLst['word/_rels/document.xml.rels'].'|'.implode(',', preg_grep('#^word/media/#', array_keys($partLst))), '/<Relationship Id="rIm1" Type="[^"]*\/image" Target="media\/image1\.png"\/><\/Relationships>\|.*<Relationship Id="rIm1" Type="[^"]*\/image" Target="media\/image1\.png"\/><\/Relationships>\|word\/media\/image1\.png$/s');
 checkPregMatch('a picture in a cell, and in an entry of a list, further in', $partLst['word/document.xml'], '/with a picture<\/w:t><\/w:r><\/w:p><w:p><w:r><w:drawing>.*?descr="In a cell".*?<\/w:p><\/w:tc>.*An entry<\/w:t><\/w:r><\/w:p><w:p><w:pPr><w:ind w:left="720"\/><\/w:pPr><w:r><w:drawing>.*?descr="In an entry"/s');
@@ -92,8 +92,8 @@ if( !class_exists('ZipArchive') ){
 }
 
 // Read back
-$backSet = (new DocxRead())->parseFluxArray(Fluxd::openBytesFluxd(pctWrite(Array($mkBlck('parag', Array($mkSpan('Before'))), $mkPict('dot.png', 'A dot'), $mkBlck('parag', Array($mkSpan('After')))), Array('media'=>$mediaDr))));
-checkIdentical('a picture is read back as an image, with what describes it', array_map(function(Array $blockArray){ return Array($blockArray['block'], $blockArray['plain'], strval($blockArray['attrs']['sourc'] ?? '')); }, $backSet['items']), Array(Array('parag', 'Before', ''), Array('image', 'A dot', 'word/media/image1.png'), Array('parag', 'After', '')));
+$backSet = (new DocxRead())->parseFluxArray(Fluxd::openBytesFluxd(pctWrite(Array($mkBlck('paragrph', Array($mkSpan('Before'))), $mkPict('dot.png', 'A dot'), $mkBlck('paragrph', Array($mkSpan('After')))), Array('media'=>$mediaDr))));
+checkIdentical('a picture is read back as an image, with what describes it', array_map(function(Array $blockArray){ return Array($blockArray['block'], $blockArray['plain'], strval($blockArray['attrs']['sourc'] ?? '')); }, $backSet['items']), Array(Array('paragrph', 'Before', ''), Array('imageBox', 'A dot', 'word/media/image1.png'), Array('paragrph', 'After', '')));
 // Read into a folder, then written from that folder: the pictures go round
 mkdir($baseDir.'/round', 0777, true);
 $frstTxt = pctWrite(Array($mkPict('dot.png', 'A dot'), $mkPict('sub/deep.png', 'Deep')), Array('media'=>$mediaDr));
@@ -122,7 +122,7 @@ checkPregMatch('the document is told of each kind', $partLst['[Content_Types].xm
 checkPregMatch('a picture wider than the text is brought down to it, its proportions kept; one too high likewise', $partLst['word/document.xml'], '/<wp:extent cx="5731510" cy="573151"\/><wp:docPr id="1" name="Picture 1" descr="Wide"\/>.*<wp:extent cx="397447" cy="7948930"\/><wp:docPr id="2" name="Picture 2" descr="High"\/>/s');
 checkPregMatch('a page lying on its long side leaves more room', pctParts(pctWrite(Array($mkPict('wide.jpg', 'Wide')), Array('media'=>$mediaDr, 'lands'=>true)))['word/document.xml'], '/<wp:extent cx="8863330" cy="886333"\/>/');
 // In a table of two columns, a cell leaves a picture half the width of the text, less its margins
-$cellDoc = pctParts(pctWrite(Array($mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkBlck('tcell', Array($mkSpan('beside')), Array()), $mkBlck('tcell', Array(), Array($mkPict('wide.jpg', 'Wide, in a cell')))))))), Array('media'=>$mediaDr)))['word/document.xml'];
+$cellDoc = pctParts(pctWrite(Array($mkBlck('tableSet', Array(), Array($mkBlck('tableRow', Array(), Array($mkBlck('cellText', Array($mkSpan('beside')), Array()), $mkBlck('cellText', Array(), Array($mkPict('wide.jpg', 'Wide, in a cell')))))))), Array('media'=>$mediaDr)))['word/document.xml'];
 checkPregMatch('a picture in a cell is no wider than the cell, and its row is not cut by the end of a page', $cellDoc, '/<w:tr><w:trPr><w:cantSplit\/><\/w:trPr>.*<wp:extent cx="2721755" cy="272176"\/><wp:docPr id="1" name="Picture 1" descr="Wide, in a cell"\/>/s');
 // A picture carrying what tells of who took it: written anew, it carries nothing
 $jpegTxt = strval(file_get_contents($baseDir.'/media/wide.jpg'));

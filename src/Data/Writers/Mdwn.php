@@ -114,7 +114,7 @@ class Mdwn extends Base {
 				$outText .= $flattenLines ? preg_replace('/\s+/', ' ', $spanTxt) : $spanTxt;
 				continue;
 			}
-			if( in_array('code', $markLst) ){
+			if( in_array('codeSpan', $markLst) ){
 				// Code is written as it is, between more backticks than it holds in a row
 				preg_match_all('/`+/', $coreTxt, $tckPart);
 				$tickTxt = str_repeat('`', empty($tckPart[0]) ? 1 : max(array_map('strlen', $tckPart[0]))+1);
@@ -123,10 +123,10 @@ class Mdwn extends Base {
 			}else{
 				$coreTxt = str_replace("\n", $flattenLines ? ' ' : "\\\n", $this->escapeXmlValue($coreTxt));
 			}
-			if( in_array('strk', $markLst) ){
+			if( in_array('crossOut', $markLst) ){
 				$coreTxt = '~~'.$coreTxt.'~~';
 			}
-			$starNum = (in_array('bold', $markLst) ? 2 : 0)+(in_array('ital', $markLst) ? 1 : 0);
+			$starNum = (in_array('boldFace', $markLst) ? 2 : 0)+(in_array('emphasis', $markLst) ? 1 : 0);
 			if( $starNum>0 ){
 				// Stars standing against the stars of the span before would be read as one mark: underscores are written then
 				$markChr = (substr($outText, -1)=='*' && $edgPart[1]==='') ? '_' : '*';
@@ -165,7 +165,7 @@ class Mdwn extends Base {
 		$outText = $this->protectLineTxt($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
 			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
-				$outText .= (($outText==='') ? '' : ((($oneBlk['block'] ?? '')=='lists') ? "\n" : "\n\n")).$blkTxt;
+				$outText .= (($outText==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$blkTxt;
 			}
 		}
 		return $outText;
@@ -194,7 +194,7 @@ class Mdwn extends Base {
 				$cellTxt[] = str_replace('|', '\\|', $rawCell);
 			}
 			$colsNum = max($colsNum, count($cellTxt));
-			if( ($oneRow['block'] ?? '')=='thead' && $headRow===null && empty($bodyRws) ){
+			if( ($oneRow['block'] ?? '')=='tableTop' && $headRow===null && empty($bodyRws) ){
 				$headRow = $cellTxt;
 			}else{
 				$bodyRws[] = $cellTxt;
@@ -223,13 +223,13 @@ class Mdwn extends Base {
 		foreach($bookBlockSet as $oneBlk){
 			$blckKnd = strval($oneBlk['block'] ?? '');
 			$blckTxt = '';
-			if( $blckKnd=='headr' ){
+			if( $blckKnd=='headline' ){
 				$headTxt = preg_replace('/(?<=\s)#+$/D', '\\\\$0', $this->writeInlineTxt((array)$oneBlk['spans'], true));
 				$tagIdnt = strval($oneBlk['attrs']['tagid'] ?? '');
 				$blckTxt = ($headTxt==='') ? '' : str_repeat('#', min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)))).' '.$headTxt.(preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' {#'.$tagIdnt.'}' : '');
-			}elseif( $blckKnd=='parag' ){
+			}elseif( $blckKnd=='paragrph' ){
 				$blckTxt = $this->protectLineTxt(trim($this->writeInlineTxt((array)$oneBlk['spans'])));
-			}elseif( $blckKnd=='lists' ){
+			}elseif( $blckKnd=='itemList' ){
 				$itemTxt = Array();
 				foreach((array)$oneBlk['items'] as $entBlk){
 					$markTxt = empty($oneBlk['attrs']['order']) ? '- ' : (count($itemTxt)+1).'. ';
@@ -238,32 +238,32 @@ class Mdwn extends Base {
 					$itemTxt[] = rtrim($markTxt.ltrim($this->indentAllLines($taskTxt.$this->innerOutString($entBlk), str_repeat(' ', strlen($markTxt)))));
 				}
 				$blckTxt = implode("\n", $itemTxt);
-			}elseif( $blckKnd=='table' ){
+			}elseif( $blckKnd=='tableSet' ){
 				$blckTxt = $this->writeTableText($oneBlk);
-			}elseif( $blckKnd=='quote' ){
+			}elseif( $blckKnd=='citation' ){
 				$qutText = $this->innerOutString($oneBlk);
 				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
 				$qutText .= ($citeTxt==='') ? '' : (($qutText==='') ? '' : "\n\n").'— '.$this->escapeXmlValue($citeTxt);
 				$blckTxt = ($qutText==='') ? '' : preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $qutText);
-			}elseif( $blckKnd=='codes' ){
+			}elseif( $blckKnd=='codeBlck' ){
 				// The lines of marks around code are longer than any the code holds
 				$codeTxt = strval($oneBlk['plain'] ?? '');
 				preg_match_all('/^ {0,3}(`{3,})/m', $codeTxt, $tckPart);
 				$tickTxt = str_repeat('`', empty($tckPart[1]) ? 3 : max(array_map('strlen', $tckPart[1]))+1);
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
 				$blckTxt = $tickTxt.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? $codeLng : '')."\n".$codeTxt."\n".$tickTxt;
-			}elseif( $blckKnd=='image' ){
+			}elseif( $blckKnd=='imageBox' ){
 				$imgLink = $this->destintnOfLink(strval($oneBlk['attrs']['sourc'] ?? ''));
 				$blckTxt = ($imgLink==='') ? '' : '!['.$this->escapeXmlValue(str_replace("\n", ' ', strval($oneBlk['plain'] ?? ''))).']('.$imgLink.')';
-			}elseif( $blckKnd=='rules' ){
+			}elseif( $blckKnd=='ruleLine' ){
 				$blckTxt = '---';
-			}elseif( $blckKnd=='fnote' ){
+			}elseif( $blckKnd=='footnote' ){
 				$noteMrk = preg_match('/^([fe])note(\d+)$/D', strval($oneBlk['attrs']['tagid'] ?? ''), $matches) ? (($matches[1]=='e') ? 'e' : '').$matches[2] : strval(intval($oneBlk['attrs']['numbr'] ?? 0));
 				$blckTxt = '[^'.$noteMrk.']: '.ltrim($this->indentAllLines($this->innerOutString($oneBlk), '    '));
-			}elseif( $blckKnd=='entry' || $blckKnd=='tcell' ){
+			}elseif( $blckKnd=='listItem' || $blckKnd=='cellText' ){
 				// An entry or a cell met outside its list or its table: what it holds
 				$blckTxt = $this->innerOutString($oneBlk);
-			}elseif( $blckKnd=='thead' || $blckKnd=='tbrow' ){
+			}elseif( $blckKnd=='tableTop' || $blckKnd=='tableRow' ){
 				$blckTxt = $this->writeTableText(Array('items'=>Array($oneBlk)));
 			}else{
 				throw new WriteError('Unknown kind of block: '.$blckKnd);

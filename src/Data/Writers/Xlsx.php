@@ -13,7 +13,7 @@ use nyu\Data\Archv;
 class Xlsx extends Grid {
 
 	// The styles of the cells, by their place in the styles of the workbook
-	const STYL_LIST = Array('heads'=>1, 'dates'=>2, 'times'=>3);
+	const STYL_LIST = Array('headCell'=>1, 'dateCell'=>2, 'timeCell'=>3);
 	// The address of the format, and of what ties its parts together
 	const MAIN_NAME = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 	const RELS_NAME = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -131,7 +131,7 @@ class Xlsx extends Grid {
 			$rowNumb = 1;
 			$dataTxt .= '<row r="1">';
 			foreach($headLst as $colInc=>$column){
-				$dataTxt .= $this->cellsPieceText($column, $this->columnCharText($colInc).'1', false, self::STYL_LIST['heads']);
+				$dataTxt .= $this->cellsPieceText($column, $this->columnCharText($colInc).'1', false, self::STYL_LIST['headCell']);
 				$wideLst[$colInc] = strlen($column);
 			}
 			$dataTxt .= '</row>';
@@ -203,9 +203,9 @@ class Xlsx extends Grid {
 		if( $dateLst!==null && $dateLst[0]>1900 ){
 			$daysNum = intdiv(gmmktime(0, 0, 0, $dateLst[1], $dateLst[2], $dateLst[0]), 86400)+25569;
 			if( !isset($dateLst[3]) ){
-				return '<c r="'.$cellLocation.'" s="'.self::STYL_LIST['dates'].'"><v>'.$daysNum.'</v></c>';
+				return '<c r="'.$cellLocation.'" s="'.self::STYL_LIST['dateCell'].'"><v>'.$daysNum.'</v></c>';
 			}
-			return '<c r="'.$cellLocation.'" s="'.self::STYL_LIST['times'].'"><v>'.$daysNum.'.'.substr(sprintf('%.10F', ($dateLst[3]*3600+$dateLst[4]*60+$dateLst[5])/86400), 2).'</v></c>';
+			return '<c r="'.$cellLocation.'" s="'.self::STYL_LIST['timeCell'].'"><v>'.$daysNum.'.'.substr(sprintf('%.10F', ($dateLst[3]*3600+$dateLst[4]*60+$dateLst[5])/86400), 2).'</v></c>';
 		}
 		// A text is written as text, in the cell itself: nothing in it is ever run
 		return $openTxt.' t="inlineStr"><is><t xml:space="preserve">'.$this->escapeXmlValue($textVal).'</t></is></c>';

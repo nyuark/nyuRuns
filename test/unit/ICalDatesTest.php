@@ -25,7 +25,7 @@ function calDates( Array $linesArray, String $startsFrom, String $untilDate, Int
 	return runCatchThrown(function() use ($linesArray, $startsFrom, $untilDate, $countLimit, $entryKinds){
 		$calText = implode("\r\n", array_merge(Array('BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:'.$entryKinds, 'UID:one'), $linesArray, Array('END:'.$entryKinds, 'END:VCALENDAR')))."\r\n";
 		$readSet = (new ICal())->parseDataArray($calText)['items'];
-		return ICal::listEntryDates($readSet[($entryKinds=='VEVENT') ? 'event' : 'tasks'][0], $startsFrom, $untilDate, $countLimit);
+		return ICal::listEntryDates($readSet[($entryKinds=='VEVENT') ? 'calEvent' : 'calTodos'][0], $startsFrom, $untilDate, $countLimit);
 	});
 }
 
@@ -97,6 +97,6 @@ checkPregMatch('a window that is not a date', calDates(Array('DTSTART:20261001T0
 checkPregMatch('an entry without a start', runCatchThrown(function(){ return ICal::listEntryDates(Array('title'=>'No start', 'start'=>'', 'ended'=>'', 'whole'=>false, 'tzone'=>'', 'rpeat'=>Array(), 'skips'=>Array()), '2026-10-01', '2026-10-31'); }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid calendar entry: it has no start/');
 checkPregMatch('a rule that is none of those known', runCatchThrown(function(){ return ICal::listEntryDates(Array('start'=>'2026-10-01', 'whole'=>true, 'rpeat'=>Array('every'=>'hourly')), '2026-10-01', '2026-10-31'); }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Calendar rule not covered: hourly/');
 checkIdentical('a rule that never falls on a date gives the start alone, and ends', calStart(calDates(Array('DTSTART;VALUE=DATE:20261001', 'RRULE:FREQ=MONTHLY;BYMONTH=2;BYMONTHDAY=30'), '2026-10-01', '2099-12-31')), Array('2026-10-01'));
-checkIdentical('an entry written by hand, with the keys it needs', ICal::listEntryDates(Array('start'=>'2026-10-30 18:00:00', 'ended'=>'2026-10-30 19:00:00', 'whole'=>false, 'tzone'=>'Europe/Paris', 'rpeat'=>Array('every'=>'mthly', 'wdays'=>Array('-1fr'))), '2026-11-01', '2026-11-30'), Array(Array('start'=>'2026-11-27 18:00:00', 'ended'=>'2026-11-27 19:00:00')));
+checkIdentical('an entry written by hand, with the keys it needs', ICal::listEntryDates(Array('start'=>'2026-10-30 18:00:00', 'ended'=>'2026-10-30 19:00:00', 'whole'=>false, 'tzone'=>'Europe/Paris', 'rpeat'=>Array('every'=>'eachMnth', 'wdays'=>Array('-1fr'))), '2026-11-01', '2026-11-30'), Array(Array('start'=>'2026-11-27 18:00:00', 'ended'=>'2026-11-27 19:00:00')));
 
 finishChecking();

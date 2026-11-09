@@ -61,7 +61,7 @@ function makeDir( String $folderName ): String {
 function srcList( Array $blocksList ): Array {
 	$srceLst = Array();
 	foreach( $blocksList as $oneBlk ){
-		if( $oneBlk['block']=='image' ){
+		if( $oneBlk['block']=='imageBox' ){
 			$srceLst[] = $oneBlk['attrs']['sourc'];
 		}
 		$srceLst = array_merge($srceLst, srcList($oneBlk['items']));
@@ -78,7 +78,7 @@ $relOf = function( String $relIdent, String $relTarget, String $relKinds='image'
 $twoPng = "GIF89a\x01\x00\x01\x00\x80\x00\x00\xFF\x00\x00\x00\x00\xFF,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;";
 $docxPth = makeZip('pics.docx', Array(
 	'word/document.xml'=>'<w:document '.WORDMAIN.'><w:body><w:p><w:r><w:t>Before</w:t></w:r></w:p>'.$wDraw('rIdA').$wDraw('rIdB').$wDraw('rIdA').$wDraw('rIdFar').$wDraw('rIdEmf').$wDraw('rIdLost').'<w:tbl><w:tr><w:tc>'.$wDraw('rIdB').'</w:tc></w:tr></w:tbl><w:sectPr/></w:body></w:document>',
-	'word/_rels/document.xml.rels'=>'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.$relOf('rIdA', 'media/image1.png').$relOf('rIdB', 'media/image2.png').$relOf('rIdFar', 'https://nyuark.test/far.png', 'image', 'External').$relOf('rIdEmf', 'media/drawing.emf').$relOf('rIdLost', 'media/nowhere.png').$relOf('rIdH', 'header1.xml', 'header').'</Relationships>',
+	'word/_rels/document.xml.rels'=>'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.$relOf('rIdA', 'media/image1.png').$relOf('rIdB', 'media/image2.png').$relOf('rIdFar', 'https://nyuark.test/far.png', 'imageBox', 'External').$relOf('rIdEmf', 'media/drawing.emf').$relOf('rIdLost', 'media/nowhere.png').$relOf('rIdH', 'header1.xml', 'header').'</Relationships>',
 	'word/header1.xml'=>'<w:hdr '.WORDMAIN.'>'.$wDraw('rIdLogo').'</w:hdr>',
 	'word/_rels/header1.xml.rels'=>'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.$relOf('rIdLogo', 'media/image1.png').'</Relationships>',
 	'word/media/image1.png'=>$dotPng, 'word/media/image2.png'=>$twoPng, 'word/media/drawing.emf'=>"\x01\x00\x00\x00not a picture this server reads"

@@ -167,7 +167,7 @@ checkIdentical('a document saved by Word: its paragraphs with their style, its p
 		'frmat'=>Array('Normal'=>Array('class'=>'normal', 'fonts'=>'Calibri', 'sizes'=>11)), 'phead'=>Array(), 'pfoot'=>Array()
 	),
 	'items'=>array_map(function($textString){
-		return ($textString==='') ? Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true)) : Shape::makeBlockArray('parag', Array(Shape::makeASpanArray($textString)), Array(), Array('style'=>'Normal'));
+		return ($textString==='') ? Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true)) : Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray($textString)), Array(), Array('style'=>'Normal'));
 	}, Array('I am a test document', 'This is page 1', 'I am Calibri (Body) in font size 11', '', 'This is page two', 'It’s Arial Black in 16 point', 'It’s also in blue'))
 ));
 checkIdentical('headings by their style, the runs of a paragraph joined into one text, and the styles used, with the font of the theme', runCatchThrown(function() use ($offcDir){
@@ -175,24 +175,24 @@ checkIdentical('headings by their style, the runs of a paragraph joined into one
 	$blckLst = $envlope['items'];
 	return Array(array_column($blckLst, 'block'), array_column(array_column($blckLst, 'attrs'), 'style'), $blckLst[0]['attrs'], count($blckLst[1]['spans']), substr($blckLst[1]['plain'], 0, 30), Shape::bySectionArray($blckLst)[0]['nodes'][0]['nodes'][0]['title'], $envlope['infos']['frmat']);
 }), Array(
-	Array('headr', 'parag', 'headr', 'parag', 'headr', 'parag'), Array('heading 1', 'Normal', 'heading 2', 'Normal (Web)', 'heading 3', 'Normal (Web)'), Array('level'=>1, 'style'=>'heading 1'), 1, 'FffLorem ipsum dolor sit amet,', 'Third paragraph',
+	Array('headline', 'paragrph', 'headline', 'paragrph', 'headline', 'paragrph'), Array('heading 1', 'Normal', 'heading 2', 'Normal (Web)', 'heading 3', 'Normal (Web)'), Array('level'=>1, 'style'=>'heading 1'), 1, 'FffLorem ipsum dolor sit amet,', 'Third paragraph',
 	Array(
-		'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri', 'sizes'=>16, 'color'=>'#345A8A', 'marks'=>Array('bold')), 'Normal'=>Array('class'=>'normal', 'fonts'=>'Cambria', 'sizes'=>12),
-		'heading 2'=>Array('class'=>'heading-2', 'fonts'=>'Calibri', 'sizes'=>13, 'color'=>'#4F81BD', 'marks'=>Array('bold')), 'Normal (Web)'=>Array('class'=>'normal-web', 'fonts'=>'Times', 'sizes'=>10),
-		'heading 3'=>Array('class'=>'heading-3', 'fonts'=>'Calibri', 'sizes'=>12, 'color'=>'#4F81BD', 'marks'=>Array('bold'))
+		'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri', 'sizes'=>16, 'color'=>'#345A8A', 'marks'=>Array('boldFace')), 'Normal'=>Array('class'=>'normal', 'fonts'=>'Cambria', 'sizes'=>12),
+		'heading 2'=>Array('class'=>'heading-2', 'fonts'=>'Calibri', 'sizes'=>13, 'color'=>'#4F81BD', 'marks'=>Array('boldFace')), 'Normal (Web)'=>Array('class'=>'normal-web', 'fonts'=>'Times', 'sizes'=>10),
+		'heading 3'=>Array('class'=>'heading-3', 'fonts'=>'Calibri', 'sizes'=>12, 'color'=>'#4F81BD', 'marks'=>Array('boldFace'))
 	)
 ));
 checkIdentical('lists saved by Word: marked or numbered, each level inside the entry before it, the empty paragraphs between them kept', runCatchThrown(function() use ($offcDir){
 	$lineLst = blkLines(docRead($offcDir.'Numbering.docx')['items']);
 	return Array(count($lineLst), array_slice($lineLst, 0, 4), array_slice($lineLst, 8, 2), array_slice($lineLst, 14, 4), array_slice($lineLst, -5));
 }), Array(36,
-	Array('lists {"lines":1,"bytes":28,"order":false}', '  entry {"style":"List Paragraph"} [Level 1]', '    lists {"lines":1,"bytes":21,"order":false}', '      entry {"style":"List Paragraph"} [Level 2]'),
-	Array('lists {"lines":1,"bytes":18,"order":true}', '  entry {"style":"List Paragraph"} [Level1]'),
-	Array('parag {"style":"Normal"}', 'parag {"style":"Normal"}', 'parag {"style":"Normal"}', 'lists {"lines":1,"bytes":20,"order":true}'),
-	Array('lists {"lines":3,"bytes":11,"order":true}', '  entry {"style":"List Paragraph"} [One]', '  entry {"style":"List Paragraph"} [Two]', '  entry {"style":"List Paragraph"} [Three]', 'parag {"style":"List Paragraph"}')
+	Array('itemList {"lines":1,"bytes":28,"order":false}', '  listItem {"style":"List Paragraph"} [Level 1]', '    itemList {"lines":1,"bytes":21,"order":false}', '      listItem {"style":"List Paragraph"} [Level 2]'),
+	Array('itemList {"lines":1,"bytes":18,"order":true}', '  listItem {"style":"List Paragraph"} [Level1]'),
+	Array('paragrph {"style":"Normal"}', 'paragrph {"style":"Normal"}', 'paragrph {"style":"Normal"}', 'itemList {"lines":1,"bytes":20,"order":true}'),
+	Array('itemList {"lines":3,"bytes":11,"order":true}', '  listItem {"style":"List Paragraph"} [One]', '  listItem {"style":"List Paragraph"} [Two]', '  listItem {"style":"List Paragraph"} [Three]', 'paragrph {"style":"List Paragraph"}')
 ));
 checkIdentical('the same lists without the empty paragraphs', count(blkLines(docRead($offcDir.'Numbering.docx', Array('empty'=>false))['items'])), 30);
-checkIdentical('a table saved by Word, its empty cell kept, and the empty paragraph after it', blkLines(docRead($offcDir.'TestTableCellAlign.docx')['items']), Array('table {"heads":[],"colms":2,"lines":2,"bytes":15}', '  tbrow', '    tcell {"style":"Normal"} [Top]', '    tcell {"style":"Normal"} [Bottom]', '  tbrow', '    tcell {"style":"Normal"} [Center]', '    tcell {"style":"Normal"}', 'parag {"style":"Normal"}'));
+checkIdentical('a table saved by Word, its empty cell kept, and the empty paragraph after it', blkLines(docRead($offcDir.'TestTableCellAlign.docx')['items']), Array('tableSet {"heads":[],"colms":2,"lines":2,"bytes":15}', '  tableRow', '    cellText {"style":"Normal"} [Top]', '    cellText {"style":"Normal"} [Bottom]', '  tableRow', '    cellText {"style":"Normal"} [Center]', '    cellText {"style":"Normal"}', 'paragrph {"style":"Normal"}'));
 checkIdentical('the same document given as bytes, and an empty content', Array(
 	runCatchThrown(function() use ($offcDir){ return (new Docx())->parseDataArray(file_get_contents($offcDir.'SampleDoc.docx'))['items'][0]['plain']; }),
 	runCatchThrown(function(){ return (new Docx())->parseDataArray(''); })
@@ -202,18 +202,18 @@ checkIdentical('the same document given as bytes, and an empty content', Array(
 checkIdentical('headings: by the name Word gives the style, whatever its id, by the style it is based on, by its outline level', docLines(
 	wPar(wRun('One'), '<w:pStyle w:val="Titre1"/>').wPar(wRun('Two'), '<w:pStyle w:val="Titre2"/>').wPar(wRun('Nine'), '<w:pStyle w:val="Titre9"/>').wPar(wRun('Title'), '<w:pStyle w:val="Titre"/>')
 	.wPar(wRun('Chapter'), '<w:pStyle w:val="Chapitre"/>').wPar(wRun('Outline'), '<w:pStyle w:val="Plan"/>').wPar(wRun('Direct'), '<w:outlineLvl w:val="3"/>').wPar(wRun('Body'), '<w:outlineLvl w:val="9"/>').wPar(wRun('Unknown'), '<w:pStyle w:val="Nowhere"/>')
-), Array('headr {"level":1,"style":"heading 1"} [One]', 'headr {"level":2,"style":"Heading 2"} [Two]', 'headr {"level":6,"style":"heading 9"} [Nine]', 'headr {"level":1,"style":"Title"} [Title]', 'headr {"level":2,"style":"Chapter"} [Chapter]', 'headr {"level":3,"style":"Outline"} [Outline]', 'headr {"level":4} [Direct]', 'parag [Body]', 'parag [Unknown]'));
+), Array('headline {"level":1,"style":"heading 1"} [One]', 'headline {"level":2,"style":"Heading 2"} [Two]', 'headline {"level":6,"style":"heading 9"} [Nine]', 'headline {"level":1,"style":"Title"} [Title]', 'headline {"level":2,"style":"Chapter"} [Chapter]', 'headline {"level":3,"style":"Outline"} [Outline]', 'headline {"level":4} [Direct]', 'paragrph [Body]', 'paragrph [Unknown]'));
 checkIdentical('a bookmark starting a block names it; those Word adds for itself do not', docLines(
 	wPar('<w:bookmarkStart w:id="0" w:name="_Toc123"/><w:bookmarkStart w:id="1" w:name="dates"/><w:bookmarkStart w:id="2" w:name="other"/>'.wRun('Dates').'<w:bookmarkEnd w:id="1"/>', '<w:pStyle w:val="Titre2"/>')
 	.wPar('<w:bookmarkStart w:id="3" w:name="intro"/>'.wRun('Text')).wPar('<w:bookmarkStart w:id="4" w:name="_GoBack"/>'.wRun('Plain')).wPar('<w:bookmarkStart w:id="5" w:name="item"/>'.wRun('Entry'), wNum(1))
-), Array('headr {"level":2,"style":"Heading 2","tagid":"dates"} [Dates]', 'parag {"tagid":"intro"} [Text]', 'parag [Plain]', 'lists {"lines":1,"bytes":5,"order":false}', '  entry {"tagid":"item"} [Entry]'));
+), Array('headline {"level":2,"style":"Heading 2","tagid":"dates"} [Dates]', 'paragrph {"tagid":"intro"} [Text]', 'paragrph [Plain]', 'itemList {"lines":1,"bytes":5,"order":false}', '  listItem {"tagid":"item"} [Entry]'));
 
 // Formatting set by hand
 checkIdentical('bold, italic, underlined, struck, and what switches them off', docLines(wPar(
 	wRun('b', '<w:b/>').wRun(' ').wRun('i', '<w:i/>').wRun(' ').wRun('u', '<w:u w:val="single"/>').wRun(' ').wRun('s', '<w:strike/>').wRun('d', '<w:dstrike w:val="true"/>').wRun(' ').wRun('all', '<w:b/><w:i w:val="1"/><w:u w:val="double"/><w:strike w:val="on"/>')
 	.wRun(' off', '<w:b w:val="0"/><w:i w:val="false"/><w:u w:val="none"/><w:strike w:val="off"/><w:color w:val="FF0000"/><w:sz w:val="32"/>')
-)), Array('parag [b|bold][ ][i|ital][ ][u|undr][ ][sd|strk][ ][all|bold,ital,undr,strk][ off]'));
-checkIdentical('a style of characters gives its formatting, with that of the style it is based on', docLines(wPar(wRun('strong', '<w:rStyle w:val="Fort"/>').wRun(' ').wRun('more', '<w:rStyle w:val="TresFort"/>').wRun(' ').wRun('both', '<w:rStyle w:val="Fort"/><w:u w:val="single"/>'))), Array('parag [strong|bold][ ][more|bold,ital][ ][both|bold,undr]'));
+)), Array('paragrph [b|boldFace][ ][i|emphasis][ ][u|undrLine][ ][sd|crossOut][ ][all|boldFace,emphasis,undrLine,crossOut][ off]'));
+checkIdentical('a style of characters gives its formatting, with that of the style it is based on', docLines(wPar(wRun('strong', '<w:rStyle w:val="Fort"/>').wRun(' ').wRun('more', '<w:rStyle w:val="TresFort"/>').wRun(' ').wRun('both', '<w:rStyle w:val="Fort"/><w:u w:val="single"/>'))), Array('paragrph [strong|boldFace][ ][more|boldFace,emphasis][ ][both|boldFace,undrLine]'));
 checkIdentical('runs of the same formatting are one span; spaces, tabulations, line breaks and accents are kept', runCatchThrown(function(){
 	$blckLst = docRead(makeDocx('body.docx', wPar(wRun('Les ').wRun('Enchaînés ').wRun(' deux').'<w:r><w:tab/><w:t>tab</w:t><w:br/><w:t>line</w:t><w:cr/><w:t>cr</w:t><w:noBreakHyphen/><w:t>x</w:t><w:br w:type="column"/><w:softHyphen/><w:lastRenderedPageBreak/><w:t>y</w:t></w:r>')))['items'];
 	return Array(count($blckLst), count($blckLst[0]['spans']), $blckLst[0]['plain']);
@@ -221,66 +221,66 @@ checkIdentical('runs of the same formatting are one span; spaces, tabulations, l
 
 // Empty paragraphs
 $voidXml = wPar('').wPar(wRun('   ')).wPar(wRun('kept')).wPar('', '<w:pStyle w:val="Titre1"/>').wPar('', wNum(1)).wPar(wRun('entry'), wNum(1)).'<w:p/>';
-checkIdentical('paragraphs holding nothing, or spaces only, are blocks without text: a heading and an entry too', docLines($voidXml), Array('parag', 'parag', 'parag [kept]', 'parag {"style":"heading 1"}', 'lists {"lines":2,"bytes":5,"order":false}', '  entry', '  entry [entry]', 'parag'));
-checkIdentical('empty: they are left out when told so', docLines($voidXml, Array('empty'=>false)), Array('parag [kept]', 'lists {"lines":1,"bytes":5,"order":false}', '  entry [entry]'));
-checkIdentical('an empty paragraph is a whole block', docRead(makeDocx('void.docx', wPar('')))['items'], Array(Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>'')));
+checkIdentical('paragraphs holding nothing, or spaces only, are blocks without text: a heading and an entry too', docLines($voidXml), Array('paragrph', 'paragrph', 'paragrph [kept]', 'paragrph {"style":"heading 1"}', 'itemList {"lines":2,"bytes":5,"order":false}', '  listItem', '  listItem [entry]', 'paragrph'));
+checkIdentical('empty: they are left out when told so', docLines($voidXml, Array('empty'=>false)), Array('paragrph [kept]', 'itemList {"lines":1,"bytes":5,"order":false}', '  listItem [entry]'));
+checkIdentical('an empty paragraph is a whole block', docRead(makeDocx('void.docx', wPar('')))['items'], Array(Array('block'=>'paragrph', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>'')));
 
 // Page breaks
 checkIdentical('page breaks: inside a paragraph, alone in one, asked before a paragraph, and at the end of a section', docLines(
 	wPar(wRun('before').'<w:r><w:br w:type="page"/></w:r>'.wRun('after')).wPar('<w:r><w:br w:type="page"/></w:r>').wPar(wRun('new page'), '<w:pageBreakBefore/>').wPar(wRun('not asked'), '<w:pageBreakBefore w:val="0"/>')
 	.wPar(wRun('ends a section'), '<w:sectPr><w:type w:val="nextPage"/></w:sectPr>').wPar(wRun('ends another'), '<w:sectPr/>').wPar(wRun('same page'), '<w:sectPr><w:type w:val="continuous"/></w:sectPr>').wPar(wRun('last'))
-), Array('parag [before]', 'rules {"break":true}', 'parag [after]', 'rules {"break":true}', 'rules {"break":true}', 'parag [new page]', 'parag [not asked]', 'parag [ends a section]', 'rules {"break":true}', 'parag [ends another]', 'rules {"break":true}', 'parag [same page]', 'parag [last]'));
-checkIdentical('a page break in a heading or in an entry', docLines(wPar(wRun('Head').'<w:r><w:br w:type="page"/></w:r>', '<w:pStyle w:val="Titre1"/>').wPar(wRun('Entry').'<w:r><w:br w:type="page"/></w:r>', wNum(1))), Array('headr {"level":1,"style":"heading 1"} [Head]', 'rules {"break":true}', 'lists {"lines":1,"bytes":5,"order":false}', '  entry [Entry]', '    rules {"break":true}'));
+), Array('paragrph [before]', 'ruleLine {"break":true}', 'paragrph [after]', 'ruleLine {"break":true}', 'ruleLine {"break":true}', 'paragrph [new page]', 'paragrph [not asked]', 'paragrph [ends a section]', 'ruleLine {"break":true}', 'paragrph [ends another]', 'ruleLine {"break":true}', 'paragrph [same page]', 'paragrph [last]'));
+checkIdentical('a page break in a heading or in an entry', docLines(wPar(wRun('Head').'<w:r><w:br w:type="page"/></w:r>', '<w:pStyle w:val="Titre1"/>').wPar(wRun('Entry').'<w:r><w:br w:type="page"/></w:r>', wNum(1))), Array('headline {"level":1,"style":"heading 1"} [Head]', 'ruleLine {"break":true}', 'itemList {"lines":1,"bytes":5,"order":false}', '  listItem [Entry]', '    ruleLine {"break":true}'));
 
 // Links
 checkIdentical('links: to an address, to a bookmark, to both, and one that would run a script', docLines(wPar(
 	wRun('See ').'<w:hyperlink r:id="rIdL">'.wRun('the ').wRun('site', '<w:b/>').'</w:hyperlink>'.wRun(', ').'<w:hyperlink w:anchor="dates">'.wRun('dates').'</w:hyperlink>'.wRun(', ').'<w:hyperlink r:id="rIdL" w:anchor="top">'.wRun('both').'</w:hyperlink>'
 	.wRun(', ').'<w:hyperlink r:id="rIdM">'.wRun('mail').'</w:hyperlink>'.wRun(', ').'<w:hyperlink r:id="rIdJ">'.wRun('bad').'</w:hyperlink>'.wRun(', ').'<w:hyperlink r:id="rIdNowhere">'.wRun('lost').'</w:hyperlink>'
-)), Array('parag [See ][the |>https://nyuark.test/a?x=1&y=2][site|bold|>https://nyuark.test/a?x=1&y=2][, ][dates|>#dates][, ][both|>https://nyuark.test/a?x=1&y=2#top][, ][mail|>mailto:a@nyuark.test][, bad, lost]'));
+)), Array('paragrph [See ][the |>https://nyuark.test/a?x=1&y=2][site|boldFace|>https://nyuark.test/a?x=1&y=2][, ][dates|>#dates][, ][both|>https://nyuark.test/a?x=1&y=2#top][, ][mail|>mailto:a@nyuark.test][, bad, lost]'));
 
 // Fields
 checkIdentical('a field is the text Word last showed for it, and tells what it stands for: a property, the page, the pages, a date', docLines(
 	wPar(wRun('Title: ').wFld(' DOCPROPERTY  Title  \* MERGEFORMAT ', wRun('Alpha Night', '<w:b/>')).wRun(', page ').wFld(' PAGE ', wRun('3')).wRun(' of ').wFld('NUMPAGES \* Arabic', wRun('12')).wRun('.'))
 	.wPar(wRun('Ref: ').'<w:fldSimple w:instr=" DOCPROPERTY &quot;Client Reference&quot; ">'.wRun('NYU-2026-014').'</w:fldSimple>'.wRun(' on ').'<w:fldSimple w:instr=" DATE \@ &quot;yyyy-MM-dd&quot; ">'.wRun('2026-12-28').'</w:fldSimple>'.wRun(' by ').wFld(' AUTHOR ', wRun('J. J.')))
-), Array('parag [Title: ][Alpha Night|bold|@props:Title][, page ][3|@pgnum][ of ][12|@pgtot][.]', 'parag [Ref: ][NYU-2026-014|@props:Client Reference][ on ][2026-12-28|@dates][ by ][J. J.|@props:Author]'));
+), Array('paragrph [Title: ][Alpha Night|boldFace|@props:Title][, page ][3|@pageNumb][ of ][12|@pageTotl][.]', 'paragrph [Ref: ][NYU-2026-014|@props:Client Reference][ on ][2026-12-28|@dateTime][ by ][J. J.|@props:Author]'));
 checkIdentical('a field stays apart from the text beside it, and two fields from one another', docRead(makeDocx('field.docx', wPar(wRun('p').wFld(' PAGE ', wRun('3')).wFld(' PAGE ', wRun('3')).wRun('.'))))['items'][0]['spans'], Array(
-	Array('texts'=>'p', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'3', 'marks'=>Array(), 'links'=>'', 'field'=>'pgnum'), Array('texts'=>'3', 'marks'=>Array(), 'links'=>'', 'field'=>'pgnum'), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'', 'field'=>'')
+	Array('texts'=>'p', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'3', 'marks'=>Array(), 'links'=>'', 'field'=>'pageNumb'), Array('texts'=>'3', 'marks'=>Array(), 'links'=>'', 'field'=>'pageNumb'), Array('texts'=>'.', 'marks'=>Array(), 'links'=>'', 'field'=>'')
 ));
 checkIdentical('a field that is a link gives its address to what it shows; one over two paragraphs, one showing nothing, one of another kind', docLines(
 	wPar(wFld(' HYPERLINK "https://nyuark.test/f" ', wRun('site')).wRun(' ').wFld(' HYPERLINK \l "dates" ', wRun('dates')).wRun(' ').wFld(' HYPERLINK "javascript:alert(1)" ', wRun('bad')))
 	.wPar(wRun('Contents: ').'<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> TOC \o "1-3" </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>'.wRun('One ..... 1')).wPar(wRun('Two ..... 2').'<w:r><w:fldChar w:fldCharType="end"/></w:r>'.wRun(' after'))
 	.wPar(wRun('Empty').'<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> XE "index entry" </w:instrText></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>'.wRun(' field').wFld(' REF dates \h ', wRun(' ref')))
-), Array('parag [site|>https://nyuark.test/f][ ][dates|>#dates][ bad]', 'parag [Contents: One ..... 1]', 'parag [Two ..... 2 after]', 'parag [Empty field ref]'));
+), Array('paragrph [site|>https://nyuark.test/f][ ][dates|>#dates][ bad]', 'paragrph [Contents: One ..... 1]', 'paragrph [Two ..... 2 after]', 'paragrph [Empty field ref]'));
 
 // Tracked changes and wrappers
 checkIdentical('what a tracked change added is read, what it deleted is not; content controls and smart tags are read through', docLines(
 	wPar(wRun('Kept ').'<w:ins w:id="1" w:author="a">'.wRun('added ').'</w:ins><w:del w:id="2" w:author="a"><w:r><w:delText>deleted </w:delText></w:r></w:del><w:moveFrom w:id="3">'.wRun('moved away ').'</w:moveFrom><w:moveTo w:id="4">'.wRun('moved here ').'</w:moveTo><w:smartTag w:element="date">'.wRun('tagged ').'</w:smartTag><w:sdt><w:sdtPr/><w:sdtContent>'.wRun('control').'</w:sdtContent></w:sdt>')
 	.'<w:sdt><w:sdtContent>'.wPar(wRun('Block control')).'</w:sdtContent></w:sdt>'
-), Array('parag [Kept added moved here tagged control]', 'parag [Block control]'));
+), Array('paragrph [Kept added moved here tagged control]', 'paragrph [Block control]'));
 
 // Lists
 checkIdentical('lists: by the paragraph or by its style, numbered or marked by level, a change of list starts a new one', docLines(
 	wPar(wRun('one'), wNum(2)).wPar(wRun('one-a'), wNum(2, 1)).wPar(wRun('one-a-i', '<w:b/>'), wNum(2, 2)).wPar(wRun('one-b'), wNum(2, 1)).wPar(wRun('two'), wNum(2))
 	.wPar(wRun('mark'), wNum(1)).wPar(wRun('by style'), '<w:pStyle w:val="Puce"/>').wPar(wRun('not a list'), '<w:pStyle w:val="Puce"/><w:numPr><w:numId w:val="0"/></w:numPr>').wPar(wRun('deep first'), wNum(2, 1))
 ), Array(
-	'lists {"lines":2,"bytes":23,"order":true}',
-	'  entry [one]',
-	'    lists {"lines":2,"bytes":17,"order":false}',
-	'      entry [one-a]',
-	'        lists {"lines":1,"bytes":7,"order":true}',
-	'          entry [one-a-i|bold]',
-	'      entry [one-b]',
-	'  entry [two]',
-	'lists {"lines":2,"bytes":12,"order":false}',
-	'  entry [mark]',
-	'  entry {"style":"List Bullet"} [by style]',
-	'parag {"style":"List Bullet"} [not a list]',
-	'lists {"lines":1,"bytes":10,"order":false}',
-	'  entry',
-	'    lists {"lines":1,"bytes":10,"order":false}',
-	'      entry [deep first]'
+	'itemList {"lines":2,"bytes":23,"order":true}',
+	'  listItem [one]',
+	'    itemList {"lines":2,"bytes":17,"order":false}',
+	'      listItem [one-a]',
+	'        itemList {"lines":1,"bytes":7,"order":true}',
+	'          listItem [one-a-i|boldFace]',
+	'      listItem [one-b]',
+	'  listItem [two]',
+	'itemList {"lines":2,"bytes":12,"order":false}',
+	'  listItem [mark]',
+	'  listItem {"style":"List Bullet"} [by style]',
+	'paragrph {"style":"List Bullet"} [not a list]',
+	'itemList {"lines":1,"bytes":10,"order":false}',
+	'  listItem',
+	'    itemList {"lines":1,"bytes":10,"order":false}',
+	'      listItem [deep first]'
 ));
-checkIdentical('a heading that is numbered stays a heading', docLines(wPar(wRun('Chapter'), '<w:pStyle w:val="Titre1"/>'.wNum(2)).wPar(wRun('item'), wNum(2))), Array('headr {"level":1,"style":"heading 1"} [Chapter]', 'lists {"lines":1,"bytes":4,"order":true}', '  entry [item]'));
+checkIdentical('a heading that is numbered stays a heading', docLines(wPar(wRun('Chapter'), '<w:pStyle w:val="Titre1"/>'.wNum(2)).wPar(wRun('item'), wNum(2))), Array('headline {"level":1,"style":"heading 1"} [Chapter]', 'itemList {"lines":1,"bytes":4,"order":true}', '  listItem [item]'));
 
 // Tables
 $wCell = function( String $cellXml, String $propsXml='' ){ return '<w:tc>'.(($propsXml!=='') ? '<w:tcPr>'.$propsXml.'</w:tcPr>' : '').$cellXml.'</w:tc>'; };
@@ -292,22 +292,22 @@ checkIdentical('a table: its header row, cells over several columns and rows, a 
 	.'<w:tr>'.$wCell(wPar(wRun('last'), '<w:pStyle w:val="Chapitre"/><w:jc w:val="center"/>')).$wCell(wPar(wRun('row'), '<w:jc w:val="right"/>')).$wCell(wPar(wRun('free'))).'</w:tr>'
 	.'</w:tbl>'.wPar(wRun('after'))
 ), Array(
-	'table {"heads":["Title","Seats","Notes"],"colms":3,"lines":4,"bytes":69}',
-	'  thead', '    tcell [Title]', '    tcell [Seats]', '    tcell [Notes]',
-	'  tbrow', '    tcell {"colsp":2} [Season|bold]', '    tcell {"rowsp":3} [long]',
-	'  tbrow', '    tcell [Alpha]', '      parag [second paragraph]', '      lists {"lines":1,"bytes":5,"order":false}', '        entry [entry]', '    tcell',
-	'  tbrow', '    tcell', '      table {"heads":[],"colms":1,"lines":1,"bytes":5}', '        tbrow', '          tcell [inner]', '    tcell [80]', '      parag',
-	'  tbrow', '    tcell', '      headr {"level":2,"style":"Chapter","align":"centr"} [last]', '    tcell {"align":"right"} [row]', '    tcell [free]',
-	'parag [after]'
+	'tableSet {"heads":["Title","Seats","Notes"],"colms":3,"lines":4,"bytes":69}',
+	'  tableTop', '    cellText [Title]', '    cellText [Seats]', '    cellText [Notes]',
+	'  tableRow', '    cellText {"colsp":2} [Season|boldFace]', '    cellText {"rowsp":3} [long]',
+	'  tableRow', '    cellText [Alpha]', '      paragrph [second paragraph]', '      itemList {"lines":1,"bytes":5,"order":false}', '        listItem [entry]', '    cellText',
+	'  tableRow', '    cellText', '      tableSet {"heads":[],"colms":1,"lines":1,"bytes":5}', '        tableRow', '          cellText [inner]', '    cellText [80]', '      paragrph',
+	'  tableRow', '    cellText', '      headline {"level":2,"style":"Chapter","align":"alignCtr"} [last]', '    cellText {"align":"alignRgt"} [row]', '    cellText [free]',
+	'paragrph [after]'
 ));
-checkIdentical('a table without any cell gives nothing', docLines('<w:tbl><w:tr/></w:tbl>'.wPar(wRun('x'))), Array('parag [x]'));
+checkIdentical('a table without any cell gives nothing', docLines('<w:tbl><w:tr/></w:tbl>'.wPar(wRun('x'))), Array('paragrph [x]'));
 
 // Images
 $wDraw = function( String $relIdent, String $descText ){ return '<w:r><w:drawing><wp:inline><wp:docPr id="1" name="Picture 1" descr="'.$descText.'"/><a:graphic><a:graphicData><a:blip r:embed="'.$relIdent.'"/></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'; };
 checkIdentical('an image stands between the two halves of its paragraph: kept in the archive, kept elsewhere, drawn the old way, and one that is lost', docLines(
 	wPar(wRun('Before ').$wDraw('rIdP', 'The hall').wRun(' after'), '<w:pStyle w:val="Puce"/><w:numPr><w:numId w:val="0"/></w:numPr>').wPar($wDraw('rIdO', ''), '<w:pStyle w:val="Titre"/>').wPar('<w:r><w:pict><v:shape><v:imagedata r:id="rIdP" o:title="Old way"/></v:shape></w:pict></w:r>').wPar($wDraw('rIdNowhere', 'lost').wRun('text'))
-), Array('parag {"style":"List Bullet"} [Before ]', 'image {"sourc":"word/media/image1.png"} [The hall]', 'parag [ after]', 'image {"sourc":"https://nyuark.test/far.png"}', 'image {"sourc":"word/media/image1.png"} [Old way]', 'parag [text]'));
-checkIdentical('images in a list entry go inside it; in a heading only the text is kept; a drawing that is not an image is nothing', docLines(wPar(wRun('Entry ').$wDraw('rIdP', 'pic'), wNum(1)).wPar(wRun('Head ').$wDraw('rIdP', 'pic'), '<w:pStyle w:val="Titre1"/>').wPar('<w:r><w:drawing><wp:inline><wp:docPr id="2" name="Chart"/></wp:inline></w:drawing></w:r>'), Array('empty'=>false)), Array('lists {"lines":1,"bytes":9,"order":false}', '  entry [Entry ]', '    image {"sourc":"word/media/image1.png"} [pic]', 'headr {"level":1,"style":"heading 1"} [Head ]'));
+), Array('paragrph {"style":"List Bullet"} [Before ]', 'imageBox {"sourc":"word/media/image1.png"} [The hall]', 'paragrph [ after]', 'imageBox {"sourc":"https://nyuark.test/far.png"}', 'imageBox {"sourc":"word/media/image1.png"} [Old way]', 'paragrph [text]'));
+checkIdentical('images in a list entry go inside it; in a heading only the text is kept; a drawing that is not an image is nothing', docLines(wPar(wRun('Entry ').$wDraw('rIdP', 'pic'), wNum(1)).wPar(wRun('Head ').$wDraw('rIdP', 'pic'), '<w:pStyle w:val="Titre1"/>').wPar('<w:r><w:drawing><wp:inline><wp:docPr id="2" name="Chart"/></wp:inline></w:drawing></w:r>'), Array('empty'=>false)), Array('itemList {"lines":1,"bytes":9,"order":false}', '  listItem [Entry ]', '    imageBox {"sourc":"word/media/image1.png"} [pic]', 'headline {"level":1,"style":"heading 1"} [Head ]'));
 
 // Styles
 $stylXml = '<w:styles '.WORDMAIN.'><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:asciiTheme="minorHAnsi" w:hAnsiTheme="minorHAnsi"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>'
@@ -327,24 +327,24 @@ $stylPth = makeDocx('styles.docx',
 	'<Relationship Id="rIdT" Type="'.WORDRELS.'/theme" Target="theme/theme1.xml"/>'
 );
 checkIdentical('every block tells its style; the alignment is told when it is not that of the style; the formatting of a style is not copied to the text', blkLines(docRead($stylPth)['items']), Array(
-	'headr {"level":1,"style":"heading 1"} [Alpha Night]',
-	'parag {"style":"Normal"} [Plain text.]',
-	'parag {"style":"Normal","align":"centr"} [Centred by hand.]',
-	'parag {"style":"Normal"} [Left, as its style.]',
-	'headr {"level":1,"style":"heading 1","align":"lefts"} [Left, against its style.]',
-	'quote {"style":"Quote"} [A night to ][remember|bold][.]',
-	'quote {"style":"Intense Quote"} [Louder.]',
-	'parag {"style":"3 - Citation client"} [Client says.]',
-	'parag {"style":"Loop"} [loop]',
-	"codes {\"style\":\"HTML Preformatted\"} [if( \$a ){\n    echo 1;\n\n}]",
-	'parag {"style":"Normal"} [end]'
+	'headline {"level":1,"style":"heading 1"} [Alpha Night]',
+	'paragrph {"style":"Normal"} [Plain text.]',
+	'paragrph {"style":"Normal","align":"alignCtr"} [Centred by hand.]',
+	'paragrph {"style":"Normal"} [Left, as its style.]',
+	'headline {"level":1,"style":"heading 1","align":"alignLft"} [Left, against its style.]',
+	'citation {"style":"Quote"} [A night to ][remember|boldFace][.]',
+	'citation {"style":"Intense Quote"} [Louder.]',
+	'paragrph {"style":"3 - Citation client"} [Client says.]',
+	'paragrph {"style":"Loop"} [loop]',
+	"codeBlck {\"style\":\"HTML Preformatted\"} [if( \$a ){\n    echo 1;\n\n}]",
+	'paragrph {"style":"Normal"} [end]'
 ));
 checkIdentical('frmat: what each style used gives, once, with what it takes from the style it is based on and from the document', docRead($stylPth)['infos']['frmat'], Array(
-	'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri Light', 'sizes'=>16, 'color'=>'#2F5496', 'marks'=>Array('bold'), 'align'=>'centr'),
+	'heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri Light', 'sizes'=>16, 'color'=>'#2F5496', 'marks'=>Array('boldFace'), 'align'=>'alignCtr'),
 	'Normal'=>Array('class'=>'normal', 'fonts'=>'Calibri', 'sizes'=>11),
-	'Quote'=>Array('class'=>'quote', 'fonts'=>'Calibri', 'sizes'=>11, 'marks'=>Array('ital', 'undr'), 'align'=>'centr'),
-	'Intense Quote'=>Array('class'=>'intense-quote', 'fonts'=>'Calibri', 'sizes'=>11.5, 'marks'=>Array('bold', 'ital', 'undr'), 'align'=>'centr'),
-	'3 - Citation client'=>Array('class'=>'s-3-citation-client', 'fonts'=>'Calibri', 'sizes'=>11, 'align'=>'justf'),
+	'Quote'=>Array('class'=>'quote', 'fonts'=>'Calibri', 'sizes'=>11, 'marks'=>Array('emphasis', 'undrLine'), 'align'=>'alignCtr'),
+	'Intense Quote'=>Array('class'=>'intense-quote', 'fonts'=>'Calibri', 'sizes'=>11.5, 'marks'=>Array('boldFace', 'emphasis', 'undrLine'), 'align'=>'alignCtr'),
+	'3 - Citation client'=>Array('class'=>'s-3-citation-client', 'fonts'=>'Calibri', 'sizes'=>11, 'align'=>'alignJst'),
 	'Loop'=>Array('class'=>'loop', 'fonts'=>'Calibri', 'sizes'=>11),
 	'HTML Preformatted'=>Array('class'=>'html-preformatted', 'fonts'=>'Consolas', 'sizes'=>10)
 ));
@@ -362,9 +362,9 @@ checkIdentical('the headers and the footers of the pages stand in the details: e
 	$envlope = docRead($pagePth);
 	return Array(blkLines($envlope['items']), blkLines($envlope['infos']['phead']), blkLines($envlope['infos']['pfoot']), array_keys($envlope['infos']['frmat']));
 }), Array(
-	Array('parag [Body]'),
-	Array('headr {"level":1,"style":"Title"} [nyuArk, season 2026]', 'parag [First page only]'),
-	Array('parag {"align":"right"} [Ref. ][NYU-2026-014|@props:Reference][, page ][1|@pgnum][ of ][2|@pgtot][, ][site|>https://nyuark.test/footer]', 'table {"heads":[],"colms":1,"lines":1,"bytes":4}', '  tbrow', '    tcell [cell]'),
+	Array('paragrph [Body]'),
+	Array('headline {"level":1,"style":"Title"} [nyuArk, season 2026]', 'paragrph [First page only]'),
+	Array('paragrph {"align":"alignRgt"} [Ref. ][NYU-2026-014|@props:Reference][, page ][1|@pageNumb][ of ][2|@pageTotl][, ][site|>https://nyuark.test/footer]', 'tableSet {"heads":[],"colms":1,"lines":1,"bytes":4}', '  tableRow', '    cellText [cell]'),
 	Array('Title')
 ));
 
@@ -379,17 +379,17 @@ $notePth = makeDocx('notes.docx',
 	'<Relationship Id="rIdFN" Type="'.WORDRELS.'/footnotes" Target="footnotes.xml"/><Relationship Id="rIdEN" Type="'.WORDRELS.'/endnotes" Target="endnotes.xml"/>'
 );
 checkIdentical('notes: numbered by their first reference, the reference a link to them, the notes after the text, those of the end last', blkLines(docRead($notePth)['items']), Array(
-	'parag [Playing on 28 December][1|>#fnote1][ at Hall A][2|>#fnote2][.][1|>#enote1]',
-	'parag [Again][1|>#fnote1][ and lost][3|>#fnote3]',
-	'fnote {"tagid":"fnote1","numbr":1} [Second note.]',
-	'fnote {"tagid":"fnote2","numbr":2} [ Doors open at ][8 pm|bold][.]',
-	'  parag [See ][the site|>https://nyuark.test/note]',
-	'fnote {"tagid":"enote1","numbr":1} [At the very end.]'
+	'paragrph [Playing on 28 December][1|>#fnote1][ at Hall A][2|>#fnote2][.][1|>#enote1]',
+	'paragrph [Again][1|>#fnote1][ and lost][3|>#fnote3]',
+	'footnote {"tagid":"fnote1","numbr":1} [Second note.]',
+	'footnote {"tagid":"fnote2","numbr":2} [ Doors open at ][8 pm|boldFace][.]',
+	'  paragrph [See ][the site|>https://nyuark.test/note]',
+	'footnote {"tagid":"enote1","numbr":1} [At the very end.]'
 ));
 checkIdentical('a note is a whole block, written as an aside', runCatchThrown(function() use ($notePth){
 	$blckLst = docRead($notePth)['items'];
 	return Array($blckLst[2], (new Html())->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array($blckLst[2]))));
-}), Array(Array('block'=>'fnote', 'attrs'=>Array('tagid'=>'fnote1', 'numbr'=>1), 'spans'=>Array(Array('texts'=>'Second note.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Second note.'), "<aside id=\"fnote1\"><sup>1</sup> Second note.</aside>\n"));
+}), Array(Array('block'=>'footnote', 'attrs'=>Array('tagid'=>'fnote1', 'numbr'=>1), 'spans'=>Array(Array('texts'=>'Second note.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Second note.'), "<aside id=\"fnote1\"><sup>1</sup> Second note.</aside>\n"));
 
 // Comments
 $cmntPth = makeDocx('comments.docx',
@@ -402,7 +402,7 @@ checkIdentical('cmnts: the comments of the reviewers, with the passage each is a
 	$envlope = docRead($cmntPth, Array('cmnts'=>true));
 	return Array(blkLines($envlope['items']), $envlope['infos']['cmnts']);
 }), Array(
-	Array('parag [Playing on 28 ][December|bold][ at Hall A]', 'parag [and Hall B.]', 'parag [Whole paragraph]'),
+	Array('paragrph [Playing on 28 ][December|boldFace][ at Hall A]', 'paragrph [and Hall B.]', 'paragrph [Whole paragraph]'),
 	Array(
 		Array('authr'=>'A. Martin', 'dated'=>'2026-10-02T14:05:00Z', 'plain'=>"Check this date\n\nSecond line", 'about'=>'28 December'),
 		Array('authr'=>'Les Enchaînés', 'dated'=>'', 'plain'=>'Both?', 'about'=>'Hall A and Hall B'),
@@ -429,7 +429,7 @@ checkIdentical('a document kept elsewhere in its archive, without styles nor lis
 	'_rels/.rels'=>'<Relationships '.PACKRELS.'><Relationship Id="rId1" Type="'.WORDRELS.'/officeDocument" Target="/doc/main.xml"/></Relationships>',
 	'word/document.xml'=>null, 'word/_rels/document.xml.rels'=>null, 'word/styles.xml'=>null, 'word/numbering.xml'=>null,
 	'doc/main.xml'=>'<w:document '.WORDMAIN.'><w:body>'.wPar(wRun('Heading?'), '<w:pStyle w:val="Titre1"/>').wPar(wRun('item'), wNum(5)).'</w:body></w:document>'
-)))['items']), Array('parag [Heading?]', 'lists {"lines":1,"bytes":4,"order":false}', '  entry [item]'));
+)))['items']), Array('paragrph [Heading?]', 'itemList {"lines":1,"bytes":4,"order":false}', '  listItem [item]'));
 
 // What is refused
 checkPregMatch('a workbook under the name of a document', docRead($offcDir.'SampleSS.xlsx'), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid archive: the document is not a text document/');
@@ -444,7 +444,7 @@ checkIdentical('one parser, several documents: a field, a note, a comment or an 
 	$prsrObj->parseFluxArray(Fluxd::openLocalFluxd($cmntPth), Array('cmnts'=>true));
 	$envlope = $prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeDocx('next.docx', wPar(wRun('c').'<w:r><w:footnoteReference w:id="1"/></w:r>').wPar(''))));
 	return Array(blkLines($envlope['items']), array_keys($envlope['infos']));
-}), Array(Array('parag [c][1|>#fnote1]', 'parag'), Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot')));
+}), Array(Array('paragrph [c][1|>#fnote1]', 'paragrph'), Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot')));
 checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
 
 // Through the index, Dcmnt and the HTML writer

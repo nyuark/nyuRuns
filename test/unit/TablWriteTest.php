@@ -45,7 +45,7 @@ checkIdentical('a cell holding the separator, a quote, a line end or a space at 
 checkIdentical('rows keep the number of cells they have; an empty row is an empty line; a content without row, or without sheet, is nothing', Array(tblOut(Array(Array('a', 'b', 'c'), Array('d'), Array(), Array('e', 'f'))), tblOut(Array(shtOf('S', Array()))), tblOut(Array())), Array("a,b,c\r\nd\r\n\r\ne,f\r\n", '', ''));
 
 // Separators
-checkIdentical('separ: the other separators, each quoting what holds it', Array(tblOut(Array(Array('a;b', 'c,d')), Array('separ'=>'semic')), tblOut(Array(Array("a\tb", 'c,d')), Array('separ'=>'TABUL')), tblOut(Array(Array('a|b', 'c')), Array('separ'=>'pipes'))), Array("\"a;b\";c,d\r\n", "\"a\tb\"\tc,d\r\n", "\"a|b\"|c\r\n"));
+checkIdentical('separ: the other separators, each quoting what holds it', Array(tblOut(Array(Array('a;b', 'c,d')), Array('separ'=>'semicSep')), tblOut(Array(Array("a\tb", 'c,d')), Array('separ'=>'TABULSEP')), tblOut(Array(Array('a|b', 'c')), Array('separ'=>'pipesSep'))), Array("\"a;b\";c,d\r\n", "\"a\tb\"\tc,d\r\n", "\"a|b\"|c\r\n"));
 checkPregMatch('separ: one that is not a known one is refused', tblOut($showRws, Array('separ'=>'colon')), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Invalid table option: unknown separator colon/');
 
 // Names of columns
@@ -71,7 +71,7 @@ $hardRws = Array(Array('Title', 'Note', 'Seats'), Array('Alpha, the "first" nigh
 checkIdentical('what is written reads back the same, with any separator', runCatchThrown(function() use ($hardRws){
 	$prsrObj = new TablParser();
 	$backLst = Array();
-	foreach( Array('comma', 'semic', 'tabul', 'pipes') as $sepKey ){
+	foreach( Array('commaSep', 'semicSep', 'tabulSep', 'pipesSep') as $sepKey ){
 		$backLst[] = ($prsrObj->parseDataArray(tblOut($hardRws, Array('separ'=>$sepKey)), Array('separ'=>$sepKey))['items'][0]['cells']===$hardRws);
 	}
 	return $backLst;
@@ -99,7 +99,7 @@ checkIdentical('a table read with its marker is written without it, unless asked
 }), Array(true, "Titre,Lieu\r\nÉté,Théâtre\r\n", true));
 
 // Through the index
-checkIdentical('index: tables by extension, with their separator and their content type', Array(get_class(Index::forExtnsParser('CSV')), get_class(Index::forExtnsParser('tsv')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::optionsOfExtns('tab'), Index::contentTypeFor('csv'), Index::contentTypeFor('tsv')), Array('nyu\Data\Writers\Tabl', 'nyu\Data\Writers\Tabl', Array(), Array('separ'=>'tabul'), Array('separ'=>'tabul'), 'text/csv; charset=utf-8', 'text/tab-separated-values; charset=utf-8'));
+checkIdentical('index: tables by extension, with their separator and their content type', Array(get_class(Index::forExtnsParser('CSV')), get_class(Index::forExtnsParser('tsv')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::optionsOfExtns('tab'), Index::contentTypeFor('csv'), Index::contentTypeFor('tsv')), Array('nyu\Data\Writers\Tabl', 'nyu\Data\Writers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep'), 'text/csv; charset=utf-8', 'text/tab-separated-values; charset=utf-8'));
 checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
 
 finishChecking();

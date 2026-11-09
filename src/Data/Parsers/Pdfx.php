@@ -58,13 +58,13 @@ class Pdfx extends Base {
 			$blckLst = Array();
 			foreach($pageLst as $pgeIdx=>$pgeObj){
 				if( $pgeIdx>0 ){
-					$blckLst[] = Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true));
+					$blckLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 				}
 				// An empty line stands between two paragraphs; the lines of a paragraph are those of the page
 				$pageTxt = self::recodeTextUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($pgeObj->getText())));
 				foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $pageTxt)) as $parTxt){
 					if( trim($parTxt)!=='' ){
-						$blckLst[] = Shape::makeBlockArray('parag', Array(Shape::makeASpanArray(trim($parTxt))));
+						$blckLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray(trim($parTxt))));
 					}
 				}
 			}

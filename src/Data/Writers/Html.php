@@ -16,9 +16,9 @@ use nyu\Data\Shape;
 class Html extends Base {
 
 	// HTML element of each formatting, from the outermost to the innermost
-	const MARK_TAGS = Array('bold'=>'strong', 'ital'=>'em', 'undr'=>'u', 'strk'=>'s', 'code'=>'code');
+	const MARK_TAGS = Array('boldFace'=>'strong', 'emphasis'=>'em', 'undrLine'=>'u', 'crossOut'=>'s', 'codeSpan'=>'code');
 	// The alignments, as a style sheet writes them
-	const ALGN_LIST = Array('lefts'=>'left', 'right'=>'right', 'centr'=>'center', 'justf'=>'justify');
+	const ALGN_LIST = Array('alignLft'=>'left', 'alignRgt'=>'right', 'alignCtr'=>'center', 'alignJst'=>'justify');
 
 	// What each style of the content gives, by its name, and whether the styles are written as classes
 	protected $formatList = Array();
@@ -159,14 +159,14 @@ class Html extends Base {
 				$propLst[] = 'color:'.$stlSet['color'];
 			}
 			$markLst = (array)($stlSet['marks'] ?? Array());
-			if( in_array('bold', $markLst) ){
+			if( in_array('boldFace', $markLst) ){
 				$propLst[] = 'font-weight:bold';
 			}
-			if( in_array('ital', $markLst) ){
+			if( in_array('emphasis', $markLst) ){
 				$propLst[] = 'font-style:italic';
 			}
-			if( in_array('undr', $markLst) || in_array('strk', $markLst) ){
-				$propLst[] = 'text-decoration:'.trim((in_array('undr', $markLst) ? 'underline ' : '').(in_array('strk', $markLst) ? 'line-through' : ''));
+			if( in_array('undrLine', $markLst) || in_array('crossOut', $markLst) ){
+				$propLst[] = 'text-decoration:'.trim((in_array('undrLine', $markLst) ? 'underline ' : '').(in_array('crossOut', $markLst) ? 'line-through' : ''));
 			}
 			if( isset(self::ALGN_LIST[strval($stlSet['align'] ?? '')]) ){
 				$propLst[] = 'text-align:'.self::ALGN_LIST[$stlSet['align']];
@@ -286,15 +286,15 @@ class Html extends Base {
 		foreach($bookBlockSet as $oneBlk){
 			$blckKnd = strval($oneBlk['block'] ?? '');
 			$blckAtr = $this->blockAttribute($oneBlk);
-			if( $blckKnd=='headr' ){
+			if( $blckKnd=='headline' ){
 				$headLvl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
 				if( $this->anchorList!==null && strpos($blckAtr, ' id="')===false ){
 					$blckAtr = ' id="'.$this->escapeXmlValue($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
 				}
 				$htmText .= '<h'.$headLvl.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans']).'</h'.$headLvl.">\n";
-			}elseif( $blckKnd=='parag' ){
+			}elseif( $blckKnd=='paragrph' ){
 				$htmText .= '<p'.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans'])."</p>\n";
-			}elseif( $blckKnd=='lists' ){
+			}elseif( $blckKnd=='itemList' ){
 				$listTag = empty($oneBlk['attrs']['order']) ? 'ul' : 'ol';
 				$htmText .= '<'.$listTag.$blckAtr.">\n";
 				foreach($oneBlk['items'] as $entBlk){
@@ -303,12 +303,12 @@ class Html extends Base {
 					$htmText .= '<li'.$this->blockAttribute($entBlk).'>'.$taskHtm.$this->innerOutString($entBlk)."</li>\n";
 				}
 				$htmText .= '</'.$listTag.">\n";
-			}elseif( $blckKnd=='table' ){
+			}elseif( $blckKnd=='tableSet' ){
 				$htmText .= '<table'.$blckAtr.">\n".$this->tableRowOutput($oneBlk['items'])."</table>\n";
-			}elseif( $blckKnd=='fnote' ){
+			}elseif( $blckKnd=='footnote' ){
 				$noteNum = intval($oneBlk['attrs']['numbr'] ?? 0);
 				$htmText .= '<aside'.$blckAtr.'>'.(($noteNum>0) ? '<sup>'.$noteNum.'</sup> ' : '').$this->innerOutString($oneBlk)."</aside>\n";
-			}elseif( $blckKnd=='quote' ){
+			}elseif( $blckKnd=='citation' ){
 				// Who is quoted is told under the quotation
 				$qutHtml = $this->innerOutString($oneBlk);
 				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
@@ -316,20 +316,20 @@ class Html extends Base {
 					$qutHtml .= ((substr($qutHtml, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeXmlValue($citeTxt)."</cite>\n";
 				}
 				$htmText .= '<blockquote'.$blckAtr.'>'.$qutHtml."</blockquote>\n";
-			}elseif( $blckKnd=='codes' ){
+			}elseif( $blckKnd=='codeBlck' ){
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
 				$htmText .= '<pre'.$blckAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? ' class="language-'.$this->escapeXmlValue($codeLng).'"' : '').'>'.$this->escapeXmlValue($oneBlk['plain'])."</code></pre>\n";
-			}elseif( $blckKnd=='image' ){
+			}elseif( $blckKnd=='imageBox' ){
 				$imgLink = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
 				if( $imgLink!=='' ){
 					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeXmlValue($imgLink).'" alt="'.$this->escapeXmlValue($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
 				}
-			}elseif( $blckKnd=='rules' ){
+			}elseif( $blckKnd=='ruleLine' ){
 				$htmText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr : '<hr class="break"').$this->shutVoidString()."\n";
-			}elseif( in_array($blckKnd, Array('entry', 'tcell')) ){
+			}elseif( in_array($blckKnd, Array('listItem', 'cellText')) ){
 				// An entry or a cell met outside its list or its table: what it holds
 				$htmText .= $this->innerOutString($oneBlk)."\n";
-			}elseif( in_array($blckKnd, Array('thead', 'tbrow')) ){
+			}elseif( in_array($blckKnd, Array('tableTop', 'tableRow')) ){
 				$htmText .= "<table>\n".$this->tableRowOutput(Array($oneBlk))."</table>\n";
 			}else{
 				throw new WriteError('Unknown kind of block: '.$blckKnd);
@@ -342,13 +342,13 @@ class Html extends Base {
 	 * Writes the rows of a table: the header rows in a thead element,
 	 * the others in a tbody.
 	 *
-	 * @param Array $rowBlockList The rows, as 'thead' and 'tbrow' blocks.
+	 * @param Array $rowBlockList The rows, as 'tableTop' and 'tableRow' blocks.
 	 * @return String The HTML.
 	 */
 	protected function tableRowOutput(Array $rowBlockList): String {
 		$partHtm = Array('thead'=>'', 'tbody'=>'');
 		foreach($rowBlockList as $oneRow){
-			$isHeadr = (strval($oneRow['block'] ?? '')=='thead');
+			$isHeadr = (strval($oneRow['block'] ?? '')=='tableTop');
 			$rowHtml = '<tr>';
 			foreach($oneRow['items'] as $celBlk){
 				$cellTag = ($isHeadr || !empty($celBlk['attrs']['headr'])) ? 'th' : 'td';

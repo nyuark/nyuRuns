@@ -10,14 +10,14 @@ namespace nyu\Data\Writers;
 class Tabl extends Base {
 
 	// Separators, by the code that asks for them
-	const SEPR_LIST = Array('comma'=>',', 'semic'=>';', 'tabul'=>"\t", 'pipes'=>'|');
+	const SEPR_LIST = Array('commaSep'=>',', 'semicSep'=>';', 'tabulSep'=>"\t", 'pipesSep'=>'|');
 
 	/**
 	 * Writes a sheet as a table.
 	 *
 	 * Options:
-	 *   'separ' => the separator: 'comma', 'semic', 'tabul' or 'pipes';
-	 *              'comma' when left out;
+	 *   'separ' => the separator: 'commaSep', 'semicSep', 'tabulSep' or 'pipesSep';
+	 *              'commaSep' when left out;
 	 *   'sheet' => the sheet to write: its name, or its position starting
 	 *              from 1; the first one when left out;
 	 *   'heads' => writes the names of the columns as the first row, when
@@ -37,7 +37,9 @@ class Tabl extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('sheet'), 'a table');
-		$divider = strtolower(strval($writeOptions['separ'] ?? 'comma'));
+		$divider = strval($writeOptions['separ'] ?? 'commaSep');
+		// The separator whatever its case, as SEPR_LIST writes it
+		$divider = strval( array_values(preg_grep('/^'.preg_quote($divider, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $divider );
 		if( !isset(self::SEPR_LIST[$divider]) ){
 			throw new WriteError('Invalid table option: unknown separator '.$divider);
 		}

@@ -27,9 +27,9 @@ class Docx extends Pack {
 	// Elements that only group pieces of a paragraph
 	const WRAP_LIST = Array('w:ins', 'w:moveTo', 'w:smartTag', 'w:customXml', 'w:dir', 'w:bdo');
 	// The alignments, as Word writes them
-	const ALGN_LIST = Array('left'=>'lefts', 'start'=>'lefts', 'right'=>'right', 'end'=>'right', 'center'=>'centr', 'both'=>'justf', 'distribute'=>'justf');
+	const ALGN_LIST = Array('left'=>'alignLft', 'start'=>'alignLft', 'right'=>'alignRgt', 'end'=>'alignRgt', 'center'=>'alignCtr', 'both'=>'alignJst', 'distribute'=>'alignJst');
 	// The styles of Word that make another kind of block than a paragraph, by their name in lower case
-	const KIND_LIST = Array('quote'=>'quote', 'intense quote'=>'quote', 'html preformatted'=>'codes', 'plain text'=>'codes');
+	const KIND_LIST = Array('quote'=>'citation', 'intense quote'=>'citation', 'html preformatted'=>'codeBlck', 'plain text'=>'codeBlck');
 	// The fields that show a property Word defines, and the fields that show a date
 	const FLDS_PROP = Array('TITLE'=>'Title', 'AUTHOR'=>'Author', 'SUBJECT'=>'Subject', 'KEYWORDS'=>'Keywords', 'COMMENTS'=>'Comments', 'LASTSAVEDBY'=>'LastSavedBy');
 	const FLDS_DATE = Array('DATE', 'TIME', 'CREATEDATE', 'SAVEDATE', 'PRINTDATE');
@@ -149,7 +149,7 @@ class Docx extends Pack {
 	 * Gives the formatting the properties of a run, or of a style, ask for.
 	 *
 	 * @param Array $elementArray The element holding those properties.
-	 * @return Array The formatting: bold, ital, undr, strk.
+	 * @return Array The formatting: boldFace, emphasis, undrLine, crossOut.
 	 */
 	protected function marksOfRnArray(Array $elementArray): Array {
 		$propArr = $this->findChildArray($elementArray, Array('w:rPr'));
@@ -157,7 +157,7 @@ class Docx extends Pack {
 		if( $propArr===null ){
 			return $markLst;
 		}
-		foreach(Array('w:b'=>'bold', 'w:i'=>'ital', 'w:u'=>'undr', 'w:strike'=>'strk', 'w:dstrike'=>'strk') as $prpNme=>$mrkKey){
+		foreach(Array('w:b'=>'boldFace', 'w:i'=>'emphasis', 'w:u'=>'undrLine', 'w:strike'=>'crossOut', 'w:dstrike'=>'crossOut') as $prpNme=>$mrkKey){
 			if( $this->isElementSetOn($this->findChildArray($propArr, Array($prpNme))) && !in_array($mrkKey, $markLst) ){
 				$markLst[] = $mrkKey;
 			}
@@ -344,7 +344,7 @@ class Docx extends Pack {
 				}
 				foreach($numList as $noteId=>$noteNb){
 					if( isset($noteLst[$noteId]) ){
-						$blckLst[] = $this->holdBlockArray('fnote', $this->fragmentBlocks($relSet['paths'], $noteLst[$noteId]), Array('tagid'=>$nteKnd.$noteNb, 'numbr'=>$noteNb));
+						$blckLst[] = $this->holdBlockArray('footnote', $this->fragmentBlocks($relSet['paths'], $noteLst[$noteId]), Array('tagid'=>$nteKnd.$noteNb, 'numbr'=>$noteNb));
 					}
 				}
 			}
@@ -439,20 +439,20 @@ class Docx extends Pack {
 		foreach($bodyNds as $chlArr){
 			$paraLst = ($chlArr['tagnm']=='w:p') ? $this->paragraphParts($chlArr) : null;
 			$paraKnd = strval($paraLst['kinds'] ?? '');
-			if( $paraKnd!='entry' && !empty($lstBffr) ){
+			if( $paraKnd!='listItem' && !empty($lstBffr) ){
 				$itmPstn = 0;
 				$blckLst = array_merge($blckLst, $this->buildListBlock($lstBffr, $itmPstn, 0));
 				$lstBffr = Array();
 			}
-			if( $paraKnd!='codes' && !empty($codBffr) ){
+			if( $paraKnd!='codeBlck' && !empty($codBffr) ){
 				$blckLst = array_merge($blckLst, $this->codeBlockArray($codBffr));
 				$codBffr = Array();
 			}
-			if( $paraKnd=='entry' ){
+			if( $paraKnd=='listItem' ){
 				if( $this->keepsEmpty || !empty($paraLst['spans']) || !empty($paraLst['holds']) ){
 					$lstBffr[] = $paraLst;
 				}
-			}elseif( $paraKnd=='codes' ){
+			}elseif( $paraKnd=='codeBlck' ){
 				$codBffr[] = $paraLst;
 			}elseif( $paraLst!==null ){
 				$blckLst = array_merge($blckLst, $this->paragrphBlocks($paraLst));
@@ -474,7 +474,7 @@ class Docx extends Pack {
 	 * Reads a paragraph: what it is, and what it holds.
 	 *
 	 * @param Array $elementArray The element of the paragraph.
-	 * @return Array What it is under 'kinds' (headr, entry, quote, codes or parag), its level as a heading under 'level', the list it belongs to under 'numid', its level in it under 'ilevl' and whether that level is numbered under 'order', its style, its alignment and its id under 'attrs', its text under 'spans' and as written under 'plain', the images and the page breaks it holds under 'holds', all of it in order, as blocks, under 'flows', and whether a page break stands before or after it under 'prior' and 'after'.
+	 * @return Array What it is under 'kinds' (headline, listItem, citation, codeBlck or paragrph), its level as a heading under 'level', the list it belongs to under 'numid', its level in it under 'ilevl' and whether that level is numbered under 'order', its style, its alignment and its id under 'attrs', its text under 'spans' and as written under 'plain', the images and the page breaks it holds under 'holds', all of it in order, as blocks, under 'flows', and whether a page break stands before or after it under 'prior' and 'after'.
 	 */
 	protected function paragraphParts(Array $elementArray): Array {
 		$propArr = $this->findChildArray($elementArray, Array('w:pPr')) ?? Array('nodes'=>Array());
@@ -507,7 +507,7 @@ class Docx extends Pack {
 		}
 		// The alignment is told when the paragraph does not follow its style
 		$ownAlgn = strval(self::ALGN_LIST[strtolower(strval($this->findChildArray($propArr, Array('w:jc'))['attrs']['w:val'] ?? ''))] ?? '');
-		if( $ownAlgn!=='' && $ownAlgn!==$stylSet['align'] && !($ownAlgn=='lefts' && $stylSet['align']==='') ){
+		if( $ownAlgn!=='' && $ownAlgn!==$stylSet['align'] && !($ownAlgn=='alignLft' && $stylSet['align']==='') ){
 			$attrSet['align'] = $ownAlgn;
 		}
 		// A bookmark starting the paragraph names it; those Word adds for itself start with an underscore
@@ -517,12 +517,12 @@ class Docx extends Pack {
 				$attrSet['tagid'] = $bkmName;
 			}
 		}
-		$paraKnd = 'parag';
+		$paraKnd = 'paragrph';
 		if( $headLvl>0 && !empty($spnsAll) ){
-			$paraKnd = 'headr';
+			$paraKnd = 'headline';
 		}elseif( $headLvl==0 && $numIdnt!=='' && $numIdnt!=='0' ){
-			$paraKnd = 'entry';
-		}elseif( $headLvl==0 && isset(self::KIND_LIST[strtolower($stylSet['names'])]) && (!empty($spnsAll) || self::KIND_LIST[strtolower($stylSet['names'])]=='codes') ){
+			$paraKnd = 'listItem';
+		}elseif( $headLvl==0 && isset(self::KIND_LIST[strtolower($stylSet['names'])]) && (!empty($spnsAll) || self::KIND_LIST[strtolower($stylSet['names'])]=='codeBlck') ){
 			$paraKnd = self::KIND_LIST[strtolower($stylSet['names'])];
 		}
 		$sctnArr = $this->findChildArray($propArr, Array('w:sectPr'));
@@ -540,7 +540,7 @@ class Docx extends Pack {
 	 * Tells what a field stands for, from what it asks for.
 	 *
 	 * @param String $fldInstrText What the field asks for, as Word writes it.
-	 * @return String 'pgnum', 'pgtot', 'dates', 'props:' followed by the name of a property, or '' for any other field.
+	 * @return String 'pageNumb', 'pageTotl', 'dateTime', 'props:' followed by the name of a property, or '' for any other field.
 	 */
 	protected function parseFieldCode(String $fldInstrText): String {
 		$codeLst = Array();
@@ -549,13 +549,13 @@ class Docx extends Pack {
 		}
 		$fldName = strtoupper($codeLst[1]);
 		if( $fldName=='PAGE' ){
-			return 'pgnum';
+			return 'pageNumb';
 		}
 		if( $fldName=='NUMPAGES' || $fldName=='SECTIONPAGES' ){
-			return 'pgtot';
+			return 'pageTotl';
 		}
 		if( in_array($fldName, self::FLDS_DATE) ){
-			return 'dates';
+			return 'dateTime';
 		}
 		if( isset(self::FLDS_PROP[$fldName]) ){
 			return 'props:'.self::FLDS_PROP[$fldName];
@@ -645,7 +645,7 @@ class Docx extends Pack {
 		}elseif( $picName=='w:tab' ){
 			$picText = "\t";
 		}elseif( $picName=='w:br' && strtolower(strval($elementArray['attrs']['w:type'] ?? ''))=='page' ){
-			$outputPieces[] = Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true));
+			$outputPieces[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 		}elseif( $picName=='w:cr' || ($picName=='w:br' && strtolower(strval($elementArray['attrs']['w:type'] ?? ''))!='column') ){
 			$picText = "\n";
 		}elseif( $picName=='w:noBreakHyphen' ){
@@ -694,7 +694,7 @@ class Docx extends Pack {
 		}
 		$altText = $this->deepNamedArray($elementArray, Array('wp:docPr'));
 		$imgText = trim(strval($altText['attrs']['descr'] ?? $blipArr['attrs']['o:title'] ?? ''));
-		return Shape::makeBlockArray('image', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink));
+		return Shape::makeBlockArray('imageBox', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink));
 	}
 
 	/**
@@ -717,23 +717,23 @@ class Docx extends Pack {
 			if( $itemSet['ilevl']>$levelValNumb ){
 				// Further in: the lists of that level go into the entry before them, an empty one when there is none
 				$deepLst = $this->buildListBlock($paragraphSet, $itemOffsetNb, $itemSet['ilevl']);
-				$lastEnt = empty($itemLst) ? Shape::makeBlockArray('entry') : array_pop($itemLst);
-				$itemLst[] = Shape::makeBlockArray('entry', $lastEnt['spans'], array_merge($lastEnt['items'], $deepLst), $lastEnt['attrs']);
+				$lastEnt = empty($itemLst) ? Shape::makeBlockArray('listItem') : array_pop($itemLst);
+				$itemLst[] = Shape::makeBlockArray('listItem', $lastEnt['spans'], array_merge($lastEnt['items'], $deepLst), $lastEnt['attrs']);
 				continue;
 			}
 			if( !empty($itemLst) && $itemSet['numid']!==$nowNumb ){
-				$listLst[] = Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>$nowOrdr));
+				$listLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>$nowOrdr));
 				$itemLst = Array();
 			}
 			if( empty($itemLst) ){
 				$nowNumb = $itemSet['numid'];
 				$nowOrdr = $itemSet['order'];
 			}
-			$itemLst[] = Shape::makeBlockArray('entry', $itemSet['spans'], $itemSet['holds'], $itemSet['attrs']);
+			$itemLst[] = Shape::makeBlockArray('listItem', $itemSet['spans'], $itemSet['holds'], $itemSet['attrs']);
 			$itemOffsetNb++;
 		}
 		if( !empty($itemLst) ){
-			$listLst[] = Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>$nowOrdr));
+			$listLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>$nowOrdr));
 		}
 		return $listLst;
 	}
@@ -770,7 +770,7 @@ class Docx extends Pack {
 				$cellBlk = $this->bodyBlocksList($celArr);
 				// Word ends every cell with a paragraph: an empty one after something else is only that
 				$lastBlk = end($cellBlk);
-				if( count($cellBlk)>1 && $lastBlk['block']=='parag' && empty($lastBlk['spans']) ){
+				if( count($cellBlk)>1 && $lastBlk['block']=='paragrph' && empty($lastBlk['spans']) ){
 					array_pop($cellBlk);
 				}
 				$cellArr[] = Array('blcks'=>$cellBlk, 'attrs'=>Array('colsp'=>$clmnSpn, 'rowsp'=>1));
@@ -785,13 +785,13 @@ class Docx extends Pack {
 				// Only what a cell covers beyond itself is worth telling; the paragraph that is its text tells its style
 				$colSpan = array_filter($celSet['attrs'], function($colSpanCount){ return $colSpanCount>1; });
 				$frstBlk = $celSet['blcks'][0] ?? Array('block'=>'', 'attrs'=>Array());
-				$cellLst[] = $this->holdBlockArray('tcell', $celSet['blcks'], $colSpan + (($frstBlk['block']=='parag') ? $frstBlk['attrs'] : Array()));
+				$cellLst[] = $this->holdBlockArray('cellText', $celSet['blcks'], $colSpan + (($frstBlk['block']=='paragrph') ? $frstBlk['attrs'] : Array()));
 			}
 			if( !empty($cellLst) ){
-				$rowsLst[] = Shape::makeBlockArray($rowSet['thead'] ? 'thead' : 'tbrow', Array(), $cellLst);
+				$rowsLst[] = Shape::makeBlockArray($rowSet['thead'] ? 'tableTop' : 'tableRow', Array(), $cellLst);
 			}
 		}
-		return Shape::makeBlockArray('table', Array(), $rowsLst);
+		return Shape::makeBlockArray('tableSet', Array(), $rowsLst);
 	}
 
 }

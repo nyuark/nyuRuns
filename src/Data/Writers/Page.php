@@ -16,7 +16,7 @@ use nyu\Data\Shape;
 abstract class Page extends Base {
 
 	// The sizes of paper, by the code that asks for them: width and height in twentieths of a point
-	const SIZE_LIST = Array('isoa3'=>Array(16838, 23811), 'isoa4'=>Array(11906, 16838), 'isoa5'=>Array(8391, 11906), 'lettr'=>Array(12240, 15840), 'legal'=>Array(12240, 20160));
+	const SIZE_LIST = Array('isoPgeA3'=>Array(16838, 23811), 'isoPgeA4'=>Array(11906, 16838), 'isoPgeA5'=>Array(8391, 11906), 'usLetter'=>Array(12240, 15840), 'legalUsa'=>Array(12240, 20160));
 	// Greatest size of all the pictures of a document, in bytes: 64 MB
 	const MEDI_MAXI = 67108864;
 	// The kinds of picture written as they are, with the type each is told for; any other is written as PNG
@@ -34,13 +34,15 @@ abstract class Page extends Base {
 	/**
 	 * Gives the size of the pages the options ask for.
 	 *
-	 * @param Array $writeOptions Options of the writer: the size of paper under 'paper', 'isoa4' when left out, and whether the pages lie on their long side under 'lands'.
+	 * @param Array $writeOptions Options of the writer: the size of paper under 'paper', 'isoPgeA4' when left out, and whether the pages lie on their long side under 'lands'.
 	 * @return Array The width and the height of a page, in twentieths of a point.
 	 *
 	 * @throws WriteError When the size of paper is not a known one.
 	 */
 	protected function paperSizeArray(Array $writeOptions): Array {
-		$sizeKey = strtolower(strval($writeOptions['paper'] ?? 'isoa4'));
+		$sizeKey = strval($writeOptions['paper'] ?? 'isoPgeA4');
+		// The size whatever its case, as SIZE_LIST writes it
+		$sizeKey = strval( array_values(preg_grep('/^'.preg_quote($sizeKey, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeKey );
 		if( !isset(self::SIZE_LIST[$sizeKey]) ){
 			throw new WriteError('Invalid document option: unknown paper '.$sizeKey);
 		}
@@ -77,7 +79,7 @@ abstract class Page extends Base {
 		$noteLst = Array('fnote'=>Array(), 'enote'=>Array());
 		$matches = Array();
 		foreach($bookBlockSet as $blkIdx=>$blkArr){
-			if( is_array($blkArr) && strval($blkArr['block'] ?? '')=='fnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($blkArr['attrs']['tagid'] ?? ''), $matches) ){
+			if( is_array($blkArr) && strval($blkArr['block'] ?? '')=='footnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($blkArr['attrs']['tagid'] ?? ''), $matches) ){
 				$noteLst[$matches[1]][$matches[0]] = $blkArr;
 				unset($bookBlockSet[$blkIdx]);
 			}
@@ -163,7 +165,7 @@ abstract class Page extends Base {
 				unset($cvrList[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
 				$spanLst[$mrgArr['atrow'].':'.$mrgArr['atcol']] = array_filter(Array('rowsp'=>$mrgArr['rowsp'], 'colsp'=>$mrgArr['colsp']), function(Int $colSpanCount){ return $colSpanCount>1; });
 			}
-			$tblRows = empty($headLst) ? Array() : Array(Shape::makeBlockArray('thead', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('tcell', Array(Shape::makeASpanArray($columnHeader))); }, $headLst)));
+			$tblRows = empty($headLst) ? Array() : Array(Shape::makeBlockArray('tableTop', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('cellText', Array(Shape::makeASpanArray($columnHeader))); }, $headLst)));
 			$colsNum = count($headLst);
 			foreach($rowsLst as $oneRow){
 				$colsNum = max($colsNum, count((array)$oneRow));
@@ -188,16 +190,16 @@ abstract class Page extends Base {
 						$cellTxt = strval(json_encode(Fluxd::nullifySources($cellVal), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
 					}
 					// Numbers stand on the right of their column, as in a spreadsheet
-					$cellLst[] = Shape::makeBlockArray('tcell', ($cellTxt==='') ? Array() : Array(Shape::makeASpanArray($cellTxt)), Array(), ($spanLst[$cellKey] ?? Array()) + ((is_int($cellVal) || is_float($cellVal)) ? Array('align'=>'right') : Array()));
+					$cellLst[] = Shape::makeBlockArray('cellText', ($cellTxt==='') ? Array() : Array(Shape::makeASpanArray($cellTxt)), Array(), ($spanLst[$cellKey] ?? Array()) + ((is_int($cellVal) || is_float($cellVal)) ? Array('align'=>'alignRgt') : Array()));
 				}
-				$tblRows[] = Shape::makeBlockArray('tbrow', Array(), $cellLst);
+				$tblRows[] = Shape::makeBlockArray('tableRow', Array(), $cellLst);
 			}
 			$shtName = is_scalar($shtArr['title'] ?? '') ? trim(strval($shtArr['title'] ?? '')) : '';
 			if( $shtName!=='' ){
-				$blckLst[] = Shape::makeBlockArray('headr', Array(Shape::makeASpanArray($shtName)), Array(), Array('level'=>2));
+				$blckLst[] = Shape::makeBlockArray('headline', Array(Shape::makeASpanArray($shtName)), Array(), Array('level'=>2));
 			}
 			if( !empty($tblRows) ){
-				$blckLst[] = Shape::makeBlockArray('table', Array(), $tblRows);
+				$blckLst[] = Shape::makeBlockArray('tableSet', Array(), $tblRows);
 			}
 		}
 		return $blckLst;

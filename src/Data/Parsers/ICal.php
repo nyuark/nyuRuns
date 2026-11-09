@@ -17,11 +17,11 @@ use nyu\Data\Shape;
 class ICal extends Base {
 
 	// The kinds of entry, by the name the format gives them
-	const KIND_LIST = Array('VEVENT'=>'event', 'VTODO'=>'tasks', 'VJOURNAL'=>'notes');
+	const KIND_LIST = Array('VEVENT'=>'calEvent', 'VTODO'=>'calTodos', 'VJOURNAL'=>'calNotes');
 	// The states of an entry, the replies of a guest, and how often an entry repeats
-	const STAT_LIST = Array('CONFIRMED'=>'cnfrm', 'TENTATIVE'=>'tentv', 'CANCELLED'=>'cancl', 'NEEDS-ACTION'=>'waits', 'IN-PROCESS'=>'activ', 'COMPLETED'=>'compl', 'DRAFT'=>'draft', 'FINAL'=>'final');
-	const REPL_LIST = Array('ACCEPTED'=>'accpt', 'DECLINED'=>'decln', 'TENTATIVE'=>'tentv', 'NEEDS-ACTION'=>'waits', 'DELEGATED'=>'deleg');
-	const FREQ_LIST = Array('DAILY'=>'daily', 'WEEKLY'=>'wekly', 'MONTHLY'=>'mthly', 'YEARLY'=>'yerly');
+	const STAT_LIST = Array('CONFIRMED'=>'definite', 'TENTATIVE'=>'possible', 'CANCELLED'=>'canceled', 'NEEDS-ACTION'=>'awaiting', 'IN-PROCESS'=>'underway', 'COMPLETED'=>'finished', 'DRAFT'=>'drafting', 'FINAL'=>'finalVer');
+	const REPL_LIST = Array('ACCEPTED'=>'accepted', 'DECLINED'=>'declined', 'TENTATIVE'=>'possible', 'NEEDS-ACTION'=>'awaiting', 'DELEGATED'=>'delegate');
+	const FREQ_LIST = Array('DAILY'=>'eachDays', 'WEEKLY'=>'eachWeek', 'MONTHLY'=>'eachMnth', 'YEARLY'=>'eachYear');
 	// The days of the week, as rules write them, from Monday
 	const DAYS_LIST = Array('mo', 'tu', 'we', 'th', 'fr', 'sa', 'su');
 	// Greatest number of spans (days, weeks, months or years) a rule is followed over
@@ -40,7 +40,7 @@ class ICal extends Base {
 	 *
 	 * @param String $nakedContent The calendar.
 	 * @param Array  $parseOptions Options: 'tzone', 'upper'.
-	 * @return Array The envelope, of shape 'nodes', holding the events under 'event', the tasks under 'tasks' and the notes under 'notes'; 'infos' holds the name of the calendar under 'title', its time zone under 'tzone', the program that wrote it under 'maker' and the number of its entries under 'count'.
+	 * @return Array The envelope, of shape 'nodes', holding the events under 'calEvent', the tasks under 'calTodos' and the notes under 'calNotes'; 'infos' holds the name of the calendar under 'title', its time zone under 'tzone', the program that wrote it under 'maker' and the number of its entries under 'count'.
 	 *
 	 * @throws ParseError When the content is not a calendar, an entry is not closed, or the time zone asked for is not a known one.
 	 */
@@ -53,7 +53,7 @@ class ICal extends Base {
 				throw new ParseError('Invalid calendar option: unknown time zone '.strval($parseOptions['tzone']), 0, $e);
 			}
 		}
-		$itemLst = Array('event'=>Array(), 'tasks'=>Array(), 'notes'=>Array());
+		$itemLst = Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array());
 		$infoArr = Array('title'=>'', 'tzone'=>'', 'maker'=>'', 'count'=>0);
 		foreach($this->readComponents($this->foldLinesArray(self::recodeTextUtf8($nakedContent))) as $cldArr){
 			foreach(Array('X-WR-CALNAME'=>'title', 'X-WR-TIMEZONE'=>'tzone', 'PRODID'=>'maker') as $prpNme=>$infKey){
@@ -246,7 +246,7 @@ class ICal extends Base {
 	 *
 	 * @param String $valOfTagText The rule, as written: FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TH;COUNT=10.
 	 * @param Bool   $everyWasRead Receives whether everything the rule says was read; what was not must be kept as written.
-	 * @return Array How often under 'every' (daily, wekly, mthly, yerly, '' for a rule that is none of these), every how many under 'steps', the days of the week under 'wdays', of the month under 'mdays', the months under 'month', the last date under 'until' and the number of times under 'times'.
+	 * @return Array How often under 'every' (eachDays, eachWeek, eachMnth, eachYear, '' for a rule that is none of these), every how many under 'steps', the days of the week under 'wdays', of the month under 'mdays', the months under 'month', the last date under 'until' and the number of times under 'times'.
 	 */
 	protected function rulePartsArray(String $valOfTagText, Bool &$everyWasRead): Array {
 		$ruleSet = Array('every'=>'', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0);
@@ -289,7 +289,7 @@ class ICal extends Base {
 	 * a date, or a number of times. Any other rule is refused, never
 	 * guessed.
 	 *
-	 * @param Array  $calendarItem The entry, as parseDataArray() gives it under 'event' or 'tasks'.
+	 * @param Array  $calendarItem The entry, as parseDataArray() gives it under 'calEvent' or 'calTodos'.
 	 * @param String $startsFromNb First date of the window, as '2026-10-01' or '2026-10-01 08:00:00', in the time zone of the entry.
 	 * @param String $windowFinish Last date of the window, the whole day when it tells no time.
 	 * @param Int    $countCeiling Greatest number of dates given.
@@ -326,7 +326,7 @@ class ICal extends Base {
 			}
 		}
 		$evryKey = strval($ruleSet['every'] ?? '');
-		if( !empty($ruleSet) && !in_array($evryKey, Array('daily', 'wekly', 'mthly', 'yerly')) ){
+		if( !empty($ruleSet) && !in_array($evryKey, Array('eachDays', 'eachWeek', 'eachMnth', 'eachYear')) ){
 			throw new ParseError('Calendar rule not covered: '.substr(preg_replace('/[^a-z]+/', '', $evryKey), 0, 10));
 		}
 		$stepNum = max(1, intval($ruleSet['steps'] ?? 1));
@@ -350,7 +350,7 @@ class ICal extends Base {
 		$spanIdx = 0;
 		if( $timeMax==0 && !empty($ruleSet) && $fromObj>$strtObj ){
 			$daysGap = intval($strtObj->diff($fromObj)->days)-(($spanObj===null) ? 0 : intval($spanObj->days))-1;
-			$spanIdx = max(0, intdiv($daysGap, Array('daily'=>1, 'wekly'=>7, 'mthly'=>31, 'yerly'=>366)[$evryKey]*$stepNum)-1);
+			$spanIdx = max(0, intdiv($daysGap, Array('eachDays'=>1, 'eachWeek'=>7, 'eachMnth'=>31, 'eachYear'=>366)[$evryKey]*$stepNum)-1);
 		}
 		$dateLst = Array();
 		$doneNum = 0;
@@ -359,14 +359,14 @@ class ICal extends Base {
 			$daysLst = Array();
 			if( empty($ruleSet) ){
 				$daysLst[] = $dayFrst->format('Y-m-d');
-			}elseif( $evryKey=='daily' ){
+			}elseif( $evryKey=='eachDays' ){
 				$daysLst[] = $dayFrst->modify('+'.($spanIdx*$stepNum).' days')->format('Y-m-d');
-			}elseif( $evryKey=='wekly' ){
+			}elseif( $evryKey=='eachWeek' ){
 				$weekOne = $dayFrst->modify('-'.((intval($dayFrst->format('N'))-1-$weekDay+7)%7).' days')->modify('+'.($spanIdx*$stepNum*7).' days');
 				foreach(empty($wkdyLst) ? Array(self::DAYS_LIST[intval($dayFrst->format('N'))-1]) : $wkdyLst as $dayKey){
 					$daysLst[] = $weekOne->modify('+'.((array_search(substr($dayKey, -2), self::DAYS_LIST)-$weekDay+7)%7).' days')->format('Y-m-d');
 				}
-			}elseif( $evryKey=='mthly' ){
+			}elseif( $evryKey=='eachMnth' ){
 				$monthNb = intval($dayFrst->format('Y'))*12+intval($dayFrst->format('n'))-1+$spanIdx*$stepNum;
 				$daysLst = self::ruleDaysOfMnth(intdiv($monthNb, 12), $monthNb%12+1, $wkdyLst, $mdayLst, intval($dayFrst->format('j')));
 			}else{
@@ -387,15 +387,15 @@ class ICal extends Base {
 				}
 			}
 			// What a rule of days or weeks adds to the days it gives: the months, the days of the month, the days of the week
-			if( $evryKey=='daily' || $evryKey=='wekly' ){
+			if( $evryKey=='eachDays' || $evryKey=='eachWeek' ){
 				$daysLst = array_values(array_filter($daysLst, function(String $dayOfASpnTxt) use ($evryKey, $wkdyLst, $mdayLst, $mnthLst, $zoneObj){
 					$dateObj = new \DateTimeImmutable($dayOfASpnTxt, $zoneObj);
 					$wkdyKys = array_map(function(String $wekDayString){ return substr($wekDayString, -2); }, $wkdyLst);
 					return (empty($mnthLst) || in_array(intval($dateObj->format('n')), $mnthLst))
-						&& ($evryKey=='wekly' || empty($wkdyKys) || in_array(self::DAYS_LIST[intval($dateObj->format('N'))-1], $wkdyKys))
-						&& ($evryKey=='wekly' || empty($mdayLst) || in_array($dayOfASpnTxt, self::ruleDaysOfMnth(intval($dateObj->format('Y')), intval($dateObj->format('n')), Array(), $mdayLst, 0)));
+						&& ($evryKey=='eachWeek' || empty($wkdyKys) || in_array(self::DAYS_LIST[intval($dateObj->format('N'))-1], $wkdyKys))
+						&& ($evryKey=='eachWeek' || empty($mdayLst) || in_array($dayOfASpnTxt, self::ruleDaysOfMnth(intval($dateObj->format('Y')), intval($dateObj->format('n')), Array(), $mdayLst, 0)));
 				}));
-			}elseif( $evryKey=='mthly' && !empty($mnthLst) ){
+			}elseif( $evryKey=='eachMnth' && !empty($mnthLst) ){
 				$daysLst = array_values(array_filter($daysLst, function(String $dayOfASpnTxt) use ($mnthLst){ return in_array(intval(substr($dayOfASpnTxt, 5, 2)), $mnthLst); }));
 			}
 			// The start of the entry is its first date, whatever its rule says
@@ -503,7 +503,7 @@ class ICal extends Base {
 			$endValu = $this->datesReadArray($propLst['DTEND'][0]['value'], $propLst['DTEND'][0]['parms'])['value'];
 		}elseif( $spanSec!==null && $strtSet['value']!=='' ){
 			$endValu = $this->switchDatesTxt($strtSet['value'], $spanSec);
-		}elseif( $itemKindsTxt!='event' ){
+		}elseif( $itemKindsTxt!='calEvent' ){
 			$endValu = '';
 		}
 		if( $strtSet['whole'] && strlen($endValu)==10 && $endValu>$strtSet['value'] ){
@@ -540,7 +540,7 @@ class ICal extends Base {
 		}
 		$gestLst = Array();
 		foreach($propLst['ATTENDEE'] ?? Array() as $prpSet){
-			$gestLst[] = $this->partyReadArray($prpSet) + Array('reply'=>strval(self::REPL_LIST[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'waits'));
+			$gestLst[] = $this->partyReadArray($prpSet) + Array('reply'=>strval(self::REPL_LIST[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
 		}
 		// A reminder counts back from the start of the entry; one set at a date of its own is kept as written
 		$alrmLst = Array();
@@ -562,9 +562,9 @@ class ICal extends Base {
 			'rpeat'=>$ruleSet, 'skips'=>$skipLst, 'alarm'=>$alrmLst,
 			'stamp'=>$this->zoneShiftArray($stmpSet, $zoneAskedFor)['value'], 'extra'=>$extrLst
 		);
-		if( $itemKindsTxt=='tasks' ){
+		if( $itemKindsTxt=='calTodos' ){
 			$itemSet = array_slice($itemSet, 0, -1, true) + Array('dueby'=>$this->zoneShiftArray($dueDate, $zoneAskedFor)['value'], 'ratio'=>max(0, min(100, intval($propLst['PERCENT-COMPLETE'][0]['value'] ?? 0))), 'extra'=>$extrLst);
-		}elseif( $itemKindsTxt=='notes' ){
+		}elseif( $itemKindsTxt=='calNotes' ){
 			$itemSet = array_intersect_key($itemSet, array_flip(Array('ident', 'title', 'start', 'whole', 'tzone', 'descr', 'state', 'label', 'stamp', 'extra')));
 		}
 		return $itemSet;

@@ -60,12 +60,12 @@ $mkBlck = Array(Shape::class, 'makeBlockArray');
 
 // The HTML writer, in its XHTML mode
 $htmlLst = Array(
-	$mkBlck('headr', Array($mkSpan('T & <t>')), Array(), Array('level'=>1, 'tagid'=>'top')),
-	$mkBlck('parag', Array($mkSpan("line\nbreak \x07bell 'q' \"d\"", Array('bold')), $mkSpan('link', Array(), 'https://nyuark.test/?a=1&b=2'), $mkSpan('1', Array(), '', 'pgnum')), Array(), Array('align'=>'centr')),
-	$mkBlck('lists', Array(), Array($mkBlck('entry', Array($mkSpan('done')), Array(), Array('check'=>true)), $mkBlck('entry', Array($mkSpan('open')), Array(), Array('check'=>false))), Array('order'=>false)),
-	$mkBlck('image', Array($mkSpan('alt & "text"')), Array(), Array('sourc'=>'a.png')),
-	$mkBlck('rules'), $mkBlck('rules', Array(), Array(), Array('break'=>true)),
-	$mkBlck('codes', Array($mkSpan("if (a < b && c) {\n}")), Array(), Array('langg'=>'php'))
+	$mkBlck('headline', Array($mkSpan('T & <t>')), Array(), Array('level'=>1, 'tagid'=>'top')),
+	$mkBlck('paragrph', Array($mkSpan("line\nbreak \x07bell 'q' \"d\"", Array('boldFace')), $mkSpan('link', Array(), 'https://nyuark.test/?a=1&b=2'), $mkSpan('1', Array(), '', 'pageNumb')), Array(), Array('align'=>'alignCtr')),
+	$mkBlck('itemList', Array(), Array($mkBlck('listItem', Array($mkSpan('done')), Array(), Array('check'=>true)), $mkBlck('listItem', Array($mkSpan('open')), Array(), Array('check'=>false))), Array('order'=>false)),
+	$mkBlck('imageBox', Array($mkSpan('alt & "text"')), Array(), Array('sourc'=>'a.png')),
+	$mkBlck('ruleLine'), $mkBlck('ruleLine', Array(), Array(), Array('break'=>true)),
+	$mkBlck('codeBlck', Array($mkSpan("if (a < b && c) {\n}")), Array(), Array('langg'=>'php'))
 );
 $htmlSet = Array('shape'=>'block', 'infos'=>Array('title'=>'A & B', 'langg'=>'fr'), 'items'=>$htmlLst);
 $plainHt = (new Html())->renderDocument($htmlSet, Array('whole'=>true));
@@ -83,22 +83,22 @@ checkIdentical('XHTML: a part of a page, sheets, and a tree of values are XML to
 
 // A book, part by part
 $bookLst = Array(
-	$mkBlck('parag', Array($mkSpan('Before any heading.'))),
-	$mkBlck('headr', Array($mkSpan('One & <first>')), Array(), Array('level'=>1, 'tagid'=>'one')),
-	$mkBlck('parag', Array($mkSpan('Text with a note'), $mkSpan('1', Array(), '#fnote1'), $mkSpan(' and a link to '), $mkSpan('the second chapter', Array(), '#two'), $mkSpan(', to '), $mkSpan('this one', Array(), '#one'), $mkSpan(' and '), $mkSpan('nowhere', Array(), 'javascript:alert(1)'), $mkSpan('.'))),
-	$mkBlck('headr', Array($mkSpan('One, a section')), Array(), Array('level'=>2)),
-	$mkBlck('headr', Array($mkSpan('One, deeper')), Array(), Array('level'=>3)),
-	$mkBlck('lists', Array(), Array($mkBlck('entry', Array($mkSpan('Done')), Array(), Array('check'=>true)), $mkBlck('entry', Array($mkSpan('Open')), Array(), Array('check'=>false))), Array('order'=>false)),
-	$mkBlck('image', Array($mkSpan('A picture described')), Array(), Array('sourc'=>'https://nyuark.test/picture.png')),
-	$mkBlck('headr', Array($mkSpan("Two\nlines")), Array(), Array('level'=>1, 'tagid'=>'two')),
-	$mkBlck('parag', Array($mkSpan('Page '), $mkSpan('3', Array(), '', 'pgnum'), $mkSpan(', a second note'), $mkSpan('2', Array(), '#fnote2'), $mkSpan(', the first again'), $mkSpan('1', Array(), '#fnote1')), Array(), Array('style'=>'Highlight')),
-	$mkBlck('headr', Array($mkSpan('Two, a section')), Array(), Array('level'=>2, 'tagid'=>'9 bad id')),
-	$mkBlck('headr', Array(), Array(), Array('level'=>1)),
-	$mkBlck('fnote', Array($mkSpan('First note')), Array(), Array('tagid'=>'fnote1', 'numbr'=>1)),
-	$mkBlck('fnote', Array($mkSpan('Second note')), Array(), Array('tagid'=>'fnote2', 'numbr'=>2)),
-	$mkBlck('fnote', Array($mkSpan('Never referred to')), Array(), Array('tagid'=>'fnote7', 'numbr'=>7))
+	$mkBlck('paragrph', Array($mkSpan('Before any heading.'))),
+	$mkBlck('headline', Array($mkSpan('One & <first>')), Array(), Array('level'=>1, 'tagid'=>'one')),
+	$mkBlck('paragrph', Array($mkSpan('Text with a note'), $mkSpan('1', Array(), '#fnote1'), $mkSpan(' and a link to '), $mkSpan('the second chapter', Array(), '#two'), $mkSpan(', to '), $mkSpan('this one', Array(), '#one'), $mkSpan(' and '), $mkSpan('nowhere', Array(), 'javascript:alert(1)'), $mkSpan('.'))),
+	$mkBlck('headline', Array($mkSpan('One, a section')), Array(), Array('level'=>2)),
+	$mkBlck('headline', Array($mkSpan('One, deeper')), Array(), Array('level'=>3)),
+	$mkBlck('itemList', Array(), Array($mkBlck('listItem', Array($mkSpan('Done')), Array(), Array('check'=>true)), $mkBlck('listItem', Array($mkSpan('Open')), Array(), Array('check'=>false))), Array('order'=>false)),
+	$mkBlck('imageBox', Array($mkSpan('A picture described')), Array(), Array('sourc'=>'https://nyuark.test/picture.png')),
+	$mkBlck('headline', Array($mkSpan("Two\nlines")), Array(), Array('level'=>1, 'tagid'=>'two')),
+	$mkBlck('paragrph', Array($mkSpan('Page '), $mkSpan('3', Array(), '', 'pageNumb'), $mkSpan(', a second note'), $mkSpan('2', Array(), '#fnote2'), $mkSpan(', the first again'), $mkSpan('1', Array(), '#fnote1')), Array(), Array('style'=>'Highlight')),
+	$mkBlck('headline', Array($mkSpan('Two, a section')), Array(), Array('level'=>2, 'tagid'=>'9 bad id')),
+	$mkBlck('headline', Array(), Array(), Array('level'=>1)),
+	$mkBlck('footnote', Array($mkSpan('First note')), Array(), Array('tagid'=>'fnote1', 'numbr'=>1)),
+	$mkBlck('footnote', Array($mkSpan('Second note')), Array(), Array('tagid'=>'fnote2', 'numbr'=>2)),
+	$mkBlck('footnote', Array($mkSpan('Never referred to')), Array(), Array('tagid'=>'fnote7', 'numbr'=>7))
 );
-$bookInf = Array('title'=>'The <Book> & more', 'authr'=>'Zoé', 'langg'=>'fr-CH', 'props'=>Array('Subject'=>'A subject', 'Comments'=>'About it', 'Keywords'=>'one, two', 'Publisher'=>'nyuArk', 'Client'=>'ignored'), 'frmat'=>Array('Highlight'=>Array('fonts'=>'Georgia', 'sizes'=>14, 'color'=>'#C00000', 'marks'=>Array('bold'))));
+$bookInf = Array('title'=>'The <Book> & more', 'authr'=>'Zoé', 'langg'=>'fr-CH', 'props'=>Array('Subject'=>'A subject', 'Comments'=>'About it', 'Keywords'=>'one, two', 'Publisher'=>'nyuArk', 'Client'=>'ignored'), 'frmat'=>Array('Highlight'=>Array('fonts'=>'Georgia', 'sizes'=>14, 'color'=>'#C00000', 'marks'=>Array('boldFace'))));
 $bookTxt = bokWrite($bookLst, $bookInf);
 $partLst = bokParts($bookTxt);
 checkIdentical('a book starts with what it is, kept as it is', Array(substr($bookTxt, 0, 4), unpack('v', substr($bookTxt, 8, 2))[1], substr($bookTxt, 30, 8), substr($bookTxt, 38, 20)), Array("PK\x03\x04", 0, 'mimetype', 'application/epub+zip'));
@@ -109,7 +109,7 @@ checkPregMatch('what tells of the book: its identifier, its title, its language,
 checkPregMatch('the parts of the book, and the order its chapters are read in', $partLst['OEBPS/content.opf'], '/<manifest><item id="nav" href="nav\.xhtml" media-type="application\/xhtml\+xml" properties="nav"\/><item id="ncx" href="toc\.ncx" media-type="application\/x-dtbncx\+xml"\/><item id="css" href="style\.css" media-type="text\/css"\/><item id="chap1" href="chap1\.xhtml" media-type="application\/xhtml\+xml"\/><item id="chap2" [^>]*\/><item id="chap3" [^>]*\/><\/manifest><spine toc="ncx"><itemref idref="chap1"\/><itemref idref="chap2"\/><itemref idref="chap3"\/><\/spine><\/package>$/');
 checkIdentical('the same book always bears the same identifier, another book another one, a book told its own bears it', Array(
 	preg_match('/<dc:identifier id="bookid">([^<]*)</', bokParts(bokWrite($bookLst, $bookInf))['OEBPS/content.opf'], $idntOne) && preg_match('/<dc:identifier id="bookid">([^<]*)</', $partLst['OEBPS/content.opf'], $idntTwo) && $idntOne[1]===$idntTwo[1],
-	preg_match('/<dc:identifier id="bookid">([^<]*)</', bokParts(bokWrite(Array($mkBlck('parag', Array($mkSpan('Another')))), $bookInf))['OEBPS/content.opf'], $idntOth) && $idntOth[1]!==$idntTwo[1],
+	preg_match('/<dc:identifier id="bookid">([^<]*)</', bokParts(bokWrite(Array($mkBlck('paragrph', Array($mkSpan('Another')))), $bookInf))['OEBPS/content.opf'], $idntOth) && $idntOth[1]!==$idntTwo[1],
 	preg_match('/<dc:identifier id="bookid">([^<]*)</', bokParts(bokWrite($bookLst, Array('props'=>Array('Identifier'=>"urn:isbn:978-2-12-345680-3\n"))))['OEBPS/content.opf'], $idntOwn) ? $idntOwn[1] : ''
 ), Array(true, true, 'urn:isbn:978-2-12-345680-3'));
 
@@ -130,7 +130,7 @@ checkPregMatch('the table of contents readers of today look for: the headings, o
 checkPregMatch('the one older readers look for: points, one in another, in the order of reading', $partLst['OEBPS/toc.ncx'], '/<docTitle><text>The &lt;Book&gt; &amp; more<\/text><\/docTitle><navMap><navPoint id="np1" playOrder="1"><navLabel><text>One &amp; &lt;first&gt;<\/text><\/navLabel><content src="chap2\.xhtml#one"\/><navPoint id="np2" playOrder="2"><navLabel><text>One, a section<\/text><\/navLabel><content src="chap2\.xhtml#sec-1"\/><\/navPoint><\/navPoint><navPoint id="np3" playOrder="3">.*<navPoint id="np4" playOrder="4">.*<\/navPoint><\/navPoint><\/navMap><\/ncx>$/');
 checkIdentical('both tell the identifier of the book', preg_match('/<meta name="dtb:uid" content="([^"]*)"/', $partLst['OEBPS/toc.ncx'], $idntNcx) ? $idntNcx[1] : '', $idntTwo[1]);
 checkIdentical('more levels of headings, or fewer', Array(substr_count(bokParts(bokWrite($bookLst, $bookInf, Array('depth'=>3)))['OEBPS/nav.xhtml'], '<li>'), substr_count(bokParts(bokWrite($bookLst, $bookInf, Array('depth'=>1)))['OEBPS/nav.xhtml'], '<li>')), Array(5, 2));
-checkPregMatch('a book without headings has its chapters for table of contents', bokParts(bokWrite(Array($mkBlck('parag', Array($mkSpan('Only text')))), Array('title'=>'Plain')))['OEBPS/nav.xhtml'], '/<ol>\n<li><a href="chap1\.xhtml">Plain<\/a><\/li>\n<\/ol>/');
+checkPregMatch('a book without headings has its chapters for table of contents', bokParts(bokWrite(Array($mkBlck('paragrph', Array($mkSpan('Only text')))), Array('title'=>'Plain')))['OEBPS/nav.xhtml'], '/<ol>\n<li><a href="chap1\.xhtml">Plain<\/a><\/li>\n<\/ol>/');
 
 // The style sheet, the language, sheets
 checkPregMatch('the style sheet: what every chapter looks like, then what the styles of the content give', $partLst['OEBPS/style.css'], '/^body\{margin:5%;line-height:1\.4\}\n.*hr\.break\{[^}]*\}\nbody\.cover\{[^}]*\}\nbody\.cover img\{[^}]*\}\n\.highlight\{font-family:"Georgia";font-size:14pt;color:#C00000;font-weight:bold\}\n$/s');
@@ -154,11 +154,11 @@ file_put_contents($baseDir.'/media/dot.png', $dotPng);
 file_put_contents($baseDir.'/media/front.gif', $dotGif);
 file_put_contents($baseDir.'/media/notes.png', 'This is a text, whatever its name says.');
 file_put_contents($baseDir.'/other/outside.png', $dotPng);
-$mkPict = function(String $sourceName, String $describedAs) use ($mkSpan, $mkBlck){ return $mkBlck('image', Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName)); };
+$mkPict = function(String $sourceName, String $describedAs) use ($mkSpan, $mkBlck){ return $mkBlck('imageBox', Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName)); };
 $pictLst = Array(
-	$mkBlck('headr', Array($mkSpan('Pictures')), Array(), Array('level'=>1)), $mkPict('dot.png', 'A "dot" & <more>'), $mkPict('dot.png', 'The same again'),
+	$mkBlck('headline', Array($mkSpan('Pictures')), Array(), Array('level'=>1)), $mkPict('dot.png', 'A "dot" & <more>'), $mkPict('dot.png', 'The same again'),
 	$mkPict('https://nyuark.test/picture.png', 'An address'), $mkPict('../other/outside.png', 'Outside the folder'), $mkPict('missing.png', 'Not there'), $mkPict('notes.png', 'Not a picture'),
-	$mkBlck('headr', Array($mkSpan('Second chapter')), Array(), Array('level'=>1)), $mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkBlck('tcell', Array($mkSpan('in a cell')), Array($mkPict('dot.png', 'In a cell')))))))
+	$mkBlck('headline', Array($mkSpan('Second chapter')), Array(), Array('level'=>1)), $mkBlck('tableSet', Array(), Array($mkBlck('tableRow', Array(), Array($mkBlck('cellText', Array($mkSpan('in a cell')), Array($mkPict('dot.png', 'In a cell')))))))
 );
 checkPregMatch('a folder that is not one', bokWrite(Array(), Array(), Array('media'=>$baseDir.'/nowhere')), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Invalid document option: the folder of the pictures cannot be read/');
 $partLst = bokParts(bokWrite($pictLst, Array('title'=>'With pictures'), Array('media'=>$baseDir.'/media', 'cover'=>'front.gif')));
@@ -185,8 +185,8 @@ if( !class_exists('ZipArchive') ){	recordSkipping('books written, then read back
 $backSet = (new EPubRead())->parseFluxArray(Fluxd::openBytesFluxd($bookTxt));
 checkIdentical('what tells of the book is read back', Array($backSet['infos']['title'], $backSet['infos']['authr'], $backSet['infos']['langg'], $backSet['infos']['chaps']), Array('The <Book> & more', 'Zoé', 'fr-CH', 3));
 // The parser tells where a chapter ends by a page break
-checkIdentical('its text is read back, chapter after chapter', array_map(function(Array $blockArray){ return $blockArray['block'].': '.$blockArray['plain']; }, array_slice($backSet['items'], 0, 7)), Array('parag: Before any heading.', 'rules: ', 'headr: One & <first>', 'parag: Text with a note1 and a link to the second chapter, to this one and nowhere.', 'headr: One, a section', 'headr: One, deeper', 'lists: '));
-checkIdentical('with its headings, their levels and their names', array_values(array_map(function(Array $blockArray){ return $blockArray['attrs']['level'].' '.strval($blockArray['attrs']['tagid'] ?? '').' '.$blockArray['plain']; }, array_filter($backSet['items'], function(Array $blockArray){ return $blockArray['block']=='headr' && $blockArray['plain']!==''; }))), Array('1 one One & <first>', '2 sec-1 One, a section', '3 sec-2 One, deeper', "1 two Two\nlines", '2 sec-3 Two, a section'));
+checkIdentical('its text is read back, chapter after chapter', array_map(function(Array $blockArray){ return $blockArray['block'].': '.$blockArray['plain']; }, array_slice($backSet['items'], 0, 7)), Array('paragrph: Before any heading.', 'ruleLine: ', 'headline: One & <first>', 'paragrph: Text with a note1 and a link to the second chapter, to this one and nowhere.', 'headline: One, a section', 'headline: One, deeper', 'itemList: '));
+checkIdentical('with its headings, their levels and their names', array_values(array_map(function(Array $blockArray){ return $blockArray['attrs']['level'].' '.strval($blockArray['attrs']['tagid'] ?? '').' '.$blockArray['plain']; }, array_filter($backSet['items'], function(Array $blockArray){ return $blockArray['block']=='headline' && $blockArray['plain']!==''; }))), Array('1 one One & <first>', '2 sec-1 One, a section', '3 sec-2 One, deeper', "1 two Two\nlines", '2 sec-3 Two, a section'));
 // A book of the samples, read, written, and read again: the same text
 $smplSet = (new EPubRead())->parseFluxArray(Fluxd::openBytesFluxd(bokWrite(Array_merge($bookLst, $htmlLst), $bookInf)));
 $againSt = (new EPubRead())->parseFluxArray(Fluxd::openBytesFluxd((new EPub())->renderDocument($smplSet)));
@@ -194,7 +194,7 @@ checkIdentical('a book read, written and read again keeps its text and its chapt
 
 // Its pictures and its cover are read back
 $pictSet = (new EPubRead())->parseFluxArray(Fluxd::openBytesFluxd(bokWrite($pictLst, Array('title'=>'With pictures'), Array('media'=>$baseDir.'/media', 'cover'=>'front.gif'))));
-checkIdentical('the cover, and a picture with what describes it', Array($pictSet['infos']['cover'], array_values(array_map(function(Array $blockArray){ return $blockArray['attrs']['sourc'].' '.$blockArray['plain']; }, array_filter($pictSet['items'], function(Array $blockArray){ return $blockArray['block']=='image'; })))), Array('OEBPS/images/image2.gif', Array('OEBPS/images/image2.gif With pictures', 'OEBPS/images/image1.png A "dot" & <more>', 'OEBPS/images/image1.png The same again')));
+checkIdentical('the cover, and a picture with what describes it', Array($pictSet['infos']['cover'], array_values(array_map(function(Array $blockArray){ return $blockArray['attrs']['sourc'].' '.$blockArray['plain']; }, array_filter($pictSet['items'], function(Array $blockArray){ return $blockArray['block']=='imageBox'; })))), Array('OEBPS/images/image2.gif', Array('OEBPS/images/image2.gif With pictures', 'OEBPS/images/image1.png A "dot" & <more>', 'OEBPS/images/image1.png The same again')));
 // Read into a folder, then written from that folder: the pictures and the cover go round
 mkdir($baseDir.'/round', 0777, true);
 $readSet = (new EPubRead())->parseFluxArray(Fluxd::openBytesFluxd(bokWrite($pictLst, Array('title'=>'With pictures'), Array('media'=>$baseDir.'/media', 'cover'=>'front.gif'))), Array('media'=>$baseDir.'/round'));

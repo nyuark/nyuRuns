@@ -23,13 +23,13 @@ use nyu\Data\Shape;
 class Odtx extends Pack {
 
 	// The alignments, as the document writes them
-	const ALGN_LIST = Array('start'=>'lefts', 'left'=>'lefts', 'end'=>'right', 'right'=>'right', 'center'=>'centr', 'justify'=>'justf');
+	const ALGN_LIST = Array('start'=>'alignLft', 'left'=>'alignLft', 'end'=>'alignRgt', 'right'=>'alignRgt', 'center'=>'alignCtr', 'justify'=>'alignJst');
 	// The styles that make another kind of block than a paragraph, by their name in lower case
-	const KIND_LIST = Array('quotations'=>'quote', 'quote'=>'quote', 'preformatted text'=>'codes');
+	const KIND_LIST = Array('quotations'=>'citation', 'quote'=>'citation', 'preformatted text'=>'codeBlck');
 	// The fields, and what each stands for
 	const FLDS_CODE = Array(
-		'text:page-number'=>'pgnum', 'text:page-count'=>'pgtot',
-		'text:date'=>'dates', 'text:time'=>'dates', 'text:creation-date'=>'dates', 'text:creation-time'=>'dates', 'text:modification-date'=>'dates', 'text:modification-time'=>'dates', 'text:print-date'=>'dates', 'text:print-time'=>'dates',
+		'text:page-number'=>'pageNumb', 'text:page-count'=>'pageTotl',
+		'text:date'=>'dateTime', 'text:time'=>'dateTime', 'text:creation-date'=>'dateTime', 'text:creation-time'=>'dateTime', 'text:modification-date'=>'dateTime', 'text:modification-time'=>'dateTime', 'text:print-date'=>'dateTime', 'text:print-time'=>'dateTime',
 		'text:title'=>'props:Title', 'text:subject'=>'props:Subject', 'text:keywords'=>'props:Keywords', 'text:description'=>'props:Comments', 'text:initial-creator'=>'props:Author', 'text:author-name'=>'props:Author', 'text:creator'=>'props:LastSavedBy'
 	);
 	// Elements that only group blocks
@@ -139,16 +139,16 @@ class Odtx extends Pack {
 		$paraAtr = $this->findChildArray($elementArray, Array('style:paragraph-properties'))['attrs'] ?? Array();
 		$markLst = Array();
 		if( strtolower(strval($textAtr['fo:font-weight'] ?? ''))=='bold' || intval($textAtr['fo:font-weight'] ?? 0)>=600 ){
-			$markLst[] = 'bold';
+			$markLst[] = 'boldFace';
 		}
 		if( in_array(strtolower(strval($textAtr['fo:font-style'] ?? '')), Array('italic', 'oblique')) ){
-			$markLst[] = 'ital';
+			$markLst[] = 'emphasis';
 		}
 		if( !in_array(strtolower(strval($textAtr['style:text-underline-style'] ?? 'none')), Array('none', '')) ){
-			$markLst[] = 'undr';
+			$markLst[] = 'undrLine';
 		}
 		if( !in_array(strtolower(strval($textAtr['style:text-line-through-style'] ?? $textAtr['style:text-line-through-type'] ?? 'none')), Array('none', '')) ){
-			$markLst[] = 'strk';
+			$markLst[] = 'crossOut';
 		}
 		$sizPart = Array();
 		$colrVal = strval($textAtr['fo:color'] ?? '');
@@ -304,11 +304,11 @@ class Odtx extends Pack {
 		foreach($bodyNds as $chlArr){
 			$chldNme = $chlArr['tagnm'];
 			$paraLst = ($chldNme=='text:p' || $chldNme=='text:h') ? $this->paragraphParts($chlArr) : null;
-			if( ($paraLst['kinds'] ?? '')!='codes' && !empty($codBffr) ){
+			if( ($paraLst['kinds'] ?? '')!='codeBlck' && !empty($codBffr) ){
 				$blckLst = array_merge($blckLst, $this->codeBlockArray($codBffr));
 				$codBffr = Array();
 			}
-			if( $paraLst!==null && $paraLst['kinds']=='codes' ){
+			if( $paraLst!==null && $paraLst['kinds']=='codeBlck' ){
 				$codBffr[] = $paraLst;
 			}elseif( $paraLst!==null ){
 				$blckLst = array_merge($blckLst, $this->paragrphBlocks($paraLst));
@@ -317,7 +317,7 @@ class Odtx extends Pack {
 			}elseif( $chldNme=='table:table' ){
 				$rowsLst = $this->rowsOfTableArr($chlArr, false);
 				if( !empty($rowsLst) ){
-					$blckLst[] = Shape::makeBlockArray('table', Array(), $rowsLst);
+					$blckLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsLst);
 				}
 			}elseif( in_array($chldNme, self::WRAP_LIST) ){
 				$blckLst = array_merge($blckLst, $this->bodyBlocksList($chlArr, $listsLevelNb, $listStyleNme));
@@ -344,10 +344,10 @@ class Odtx extends Pack {
 			}
 			$itmBlck = $this->bodyBlocksList($itmArr, $listsLevelNb, $ownStyl);
 			if( !empty($itmBlck) ){
-				$itemLst[] = $this->holdBlockArray('entry', $itmBlck);
+				$itemLst[] = $this->holdBlockArray('listItem', $itmBlck);
 			}
 		}
-		return empty($itemLst) ? Array() : Array(Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>!empty($this->listStyles[$ownStyl][$listsLevelNb]))));
+		return empty($itemLst) ? Array() : Array(Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>!empty($this->listStyles[$ownStyl][$listsLevelNb]))));
 	}
 
 	/**
@@ -377,10 +377,10 @@ class Odtx extends Pack {
 						$colSpan[$atrKey] = intval($celArr['attrs'][$atrNme]);
 					}
 				}
-				$cellLst[] = $this->holdBlockArray('tcell', $this->bodyBlocksList($celArr, 0, ''), $colSpan);
+				$cellLst[] = $this->holdBlockArray('cellText', $this->bodyBlocksList($celArr, 0, ''), $colSpan);
 			}
 			if( !empty($cellLst) ){
-				$rowsLst[] = Shape::makeBlockArray($innerHeadFlg ? 'thead' : 'tbrow', Array(), $cellLst);
+				$rowsLst[] = Shape::makeBlockArray($innerHeadFlg ? 'tableTop' : 'tableRow', Array(), $cellLst);
 			}
 		}
 		return $rowsLst;
@@ -390,7 +390,7 @@ class Odtx extends Pack {
 	 * Reads a paragraph: what it is, and what it holds.
 	 *
 	 * @param Array $elementArray The element of the paragraph, or of the heading.
-	 * @return Array What it is under 'kinds' (headr, quote, codes or parag), its level as a heading under 'level', its style, its alignment and its id under 'attrs', its text under 'spans' and as written under 'plain', the images and the page breaks it holds under 'holds', all of it in order, as blocks, under 'flows', and whether a page break stands before or after it under 'prior' and 'after'.
+	 * @return Array What it is under 'kinds' (headline, citation, codeBlck or paragrph), its level as a heading under 'level', its style, its alignment and its id under 'attrs', its text under 'spans' and as written under 'plain', the images and the page breaks it holds under 'holds', all of it in order, as blocks, under 'flows', and whether a page break stands before or after it under 'prior' and 'after'.
 	 */
 	protected function paragraphParts(Array $elementArray): Array {
 		// The style of a paragraph formatted by hand is one the document made for it, based on the one it names
@@ -426,7 +426,7 @@ class Odtx extends Pack {
 		// The alignment is told when the paragraph does not follow its style
 		$ownAlgn = strval($handSet['align'] ?? '');
 		$stlAlgn = strval($stylSet['align'] ?? '');
-		if( $ownAlgn!=='' && $ownAlgn!==$stlAlgn && !($ownAlgn=='lefts' && $stlAlgn==='') ){
+		if( $ownAlgn!=='' && $ownAlgn!==$stlAlgn && !($ownAlgn=='alignLft' && $stlAlgn==='') ){
 			$attrSet['align'] = $ownAlgn;
 		}
 		// A bookmark starting the paragraph names it; those the document adds for itself start with an underscore
@@ -436,11 +436,11 @@ class Odtx extends Pack {
 				$attrSet['tagid'] = $bkmName;
 			}
 		}
-		$paraKnd = 'parag';
+		$paraKnd = 'paragrph';
 		$kindFnd = strval(self::KIND_LIST[strtolower(strval($stylSet['names'] ?? ''))] ?? '');
 		if( $headLvl>0 && !empty($flowSet['spans']) ){
-			$paraKnd = 'headr';
-		}elseif( $headLvl==0 && $kindFnd!=='' && (!empty($flowSet['spans']) || $kindFnd=='codes') ){
+			$paraKnd = 'headline';
+		}elseif( $headLvl==0 && $kindFnd!=='' && (!empty($flowSet['spans']) || $kindFnd=='codeBlck') ){
 			$paraKnd = $kindFnd;
 		}
 		// A page break is asked for by the style, or by a change of the kind of page after the text has started
@@ -534,7 +534,7 @@ class Odtx extends Pack {
 		$this->keepsEmpty = false;
 		$bdyBlck = $this->bodyBlocksList($this->findChildArray($elementArray, Array('text:note-body')) ?? Array('nodes'=>Array()), 0, '');
 		$this->keepsEmpty = $keptVod;
-		$this->noteBlocks[$noteKnd][$noteNum-1] = $this->holdBlockArray('fnote', $bdyBlck, Array('tagid'=>$noteKnd.$noteNum, 'numbr'=>$noteNum));
+		$this->noteBlocks[$noteKnd][$noteNum-1] = $this->holdBlockArray('footnote', $bdyBlck, Array('tagid'=>$noteKnd.$noteNum, 'numbr'=>$noteNum));
 		$outputPieces[] = Shape::makeASpanArray(strval($noteNum), Array(), '#'.$noteKnd.$noteNum);
 	}
 
@@ -581,7 +581,7 @@ class Odtx extends Pack {
 			$imgLink = Shape::tidyLinkString(preg_replace('/^\.\//', '', strval($imgArry['attrs']['xlink:href'] ?? '')));
 			$imgText = trim($this->odfPieceAsText($this->findChildArray($elementArray, Array('svg:desc')) ?? $this->findChildArray($elementArray, Array('svg:title')) ?? Array('value'=>'', 'nodes'=>Array())));
 			if( $imgLink!=='' ){
-				$outputPieces[] = Shape::makeBlockArray('image', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink));
+				$outputPieces[] = Shape::makeBlockArray('imageBox', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink));
 			}
 			return;
 		}

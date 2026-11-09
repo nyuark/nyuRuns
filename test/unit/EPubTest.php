@@ -106,26 +106,26 @@ $bookPth = makeBook('alpha.epub');
 
 // The text
 checkIdentical('the chapters in the order of the book, a page break between two of them, what is not a page of text left out', blkLines(bookRead($bookPth)['items']), Array(
-	'headr {"level":1,"tagid":"one"} [Chapter ][one|ital]',
-	'parag [Playing at ][Hall A|>chapter%202.xhtml#two][, ][120|bold][ seats.]',
-	'image {"sourc":"OEBPS/images/hall.png"} [The hall]',
-	'rules {"break":true}',
-	'headr {"level":1,"tagid":"two"} [Chapter two]',
-	'lists {"lines":2,"bytes":13,"order":false}',
-	'  entry [Music]',
-	'    image {"sourc":"https://nyuark.test/far.png"} [Far]',
-	'  entry [Dance]',
-	'table {"heads":[],"colms":1,"lines":1,"bytes":0}',
-	'  tbrow',
-	'    tcell',
-	'      image {"sourc":"OEBPS/text/pic.png"}',
-	'parag [bad ][up|>#one]',
-	'rules {"break":true}',
-	'headr {"level":2} [Notes]',
-	'parag [Les Enchaînés été.]',
-	'image {"sourc":"/abs.png"}'
+	'headline {"level":1,"tagid":"one"} [Chapter ][one|emphasis]',
+	'paragrph [Playing at ][Hall A|>chapter%202.xhtml#two][, ][120|boldFace][ seats.]',
+	'imageBox {"sourc":"OEBPS/images/hall.png"} [The hall]',
+	'ruleLine {"break":true}',
+	'headline {"level":1,"tagid":"two"} [Chapter two]',
+	'itemList {"lines":2,"bytes":13,"order":false}',
+	'  listItem [Music]',
+	'    imageBox {"sourc":"https://nyuark.test/far.png"} [Far]',
+	'  listItem [Dance]',
+	'tableSet {"heads":[],"colms":1,"lines":1,"bytes":0}',
+	'  tableRow',
+	'    cellText',
+	'      imageBox {"sourc":"OEBPS/text/pic.png"}',
+	'paragrph [bad ][up|>#one]',
+	'ruleLine {"break":true}',
+	'headline {"level":2} [Notes]',
+	'paragrph [Les Enchaînés été.]',
+	'imageBox {"sourc":"/abs.png"}'
 ));
-checkIdentical('every span has its four keys, as any text block has', bookRead($bookPth)['items'][0]['spans'], Array(Array('texts'=>'Chapter ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'one', 'marks'=>Array('ital'), 'links'=>'', 'field'=>'')));
+checkIdentical('every span has its four keys, as any text block has', bookRead($bookPth)['items'][0]['spans'], Array(Array('texts'=>'Chapter ', 'marks'=>Array(), 'links'=>'', 'field'=>''), Array('texts'=>'one', 'marks'=>Array('emphasis'), 'links'=>'', 'field'=>'')));
 
 // The details
 checkIdentical('the details of the book: title, authors, language, chapters, cover, and all it tells of itself', bookRead($bookPth)['infos'], Array(
@@ -140,7 +140,7 @@ checkIdentical('an older book names its cover among its details, writes its elem
 		'page.htm'=>'<html><body><p>Old <i>page</i> <img src="img/a.png"></p></body></html>'
 	)));
 	return Array(blkLines($envlope['items']), $envlope['infos']);
-}), Array(Array('parag [Old ][page|ital]', 'image {"sourc":"img/a.png"}'), Array('title'=>'Old', 'authr'=>'', 'langg'=>'', 'chaps'=>1, 'cover'=>'img/cover.png', 'props'=>Array('Title'=>'Old'))));
+}), Array(Array('paragrph [Old ][page|emphasis]', 'imageBox {"sourc":"img/a.png"}'), Array('title'=>'Old', 'authr'=>'', 'langg'=>'', 'chaps'=>1, 'cover'=>'img/cover.png', 'props'=>Array('Title'=>'Old'))));
 checkIdentical('a book without chapters, and an empty content', Array(
 	bookRead(makeBook('void.epub', Array('OEBPS/content.opf'=>'<package '.BOOKPACK.'><metadata/><manifest/><spine/></package>'))),
 	runCatchThrown(function(){ return (new EPub())->parseDataArray(''); })
@@ -168,7 +168,7 @@ checkPregMatch('a chapter larger than the limit option', bookRead($bookPth, Arra
 $lockXml = function( String $lockedPath ){ return '<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container" xmlns:enc="http://www.w3.org/2001/04/xmlenc#"><enc:EncryptedData><enc:CipherData><enc:CipherReference URI="'.$lockedPath.'"/></enc:CipherData></enc:EncryptedData></encryption>'; };
 checkPregMatch('a book whose text a seller locked is refused', bookRead(makeBook('locked.epub', Array('META-INF/encryption.xml'=>$lockXml('OEBPS/text/chapter%202.xhtml')))), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid archive: the book is protected against copying/');
 checkIdentical('a book whose fonts only are locked is read', bookRead(makeBook('fonts.epub', Array('META-INF/encryption.xml'=>$lockXml('OEBPS/fonts/a.otf'))))['infos']['chaps'], 4);
-checkIdentical('a chapter that is not well-formed is repaired, as any page is', blkLines(bookRead(makeBook('loose.epub', Array('OEBPS/text/chapter1.xhtml'=>'<p>one<p>two <b>open</p>')))['items'])[1], 'parag [two ][open|bold]');
+checkIdentical('a chapter that is not well-formed is repaired, as any page is', blkLines(bookRead(makeBook('loose.epub', Array('OEBPS/text/chapter1.xhtml'=>'<p>one<p>two <b>open</p>')))['items'])[1], 'paragrph [two ][open|boldFace]');
 checkIdentical('one parser, several books', runCatchThrown(function() use ($bookPth){
 	$prsrObj = new EPub();
 	try{ $prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeBook('bad.epub', Array('OEBPS/content.opf'=>null)))); }catch( Throwable $e ){}

@@ -41,10 +41,10 @@ $showCsv = "Title,Venue,Seats\nAlpha Night,Hall A,120\nLes Enchaînés,,80\n";
 // The envelope
 checkIdentical('a table gives one sheet, and says what it found', tblRead($showCsv), Array(
 	'shape'=>'sheet',
-	'infos'=>Array('separ'=>'comma', 'heads'=>Array(), 'colms'=>3, 'lines'=>3, 'bomrk'=>false),
+	'infos'=>Array('separ'=>'commaSep', 'heads'=>Array(), 'colms'=>3, 'lines'=>3, 'bomrk'=>false),
 	'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('Title', 'Venue', 'Seats'), Array('Alpha Night', 'Hall A', '120'), Array('Les Enchaînés', '', '80'))))
 ));
-checkIdentical('an empty content gives no sheet', Array(tblRead(''), tblRead(" \n \n")['items']), Array(Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array(), 'colms'=>0, 'lines'=>0, 'bomrk'=>false), 'items'=>Array()), Array()));
+checkIdentical('an empty content gives no sheet', Array(tblRead(''), tblRead(" \n \n")['items']), Array(Array('shape'=>'sheet', 'infos'=>Array('separ'=>'commaSep', 'heads'=>Array(), 'colms'=>0, 'lines'=>0, 'bomrk'=>false), 'items'=>Array()), Array()));
 
 // Lines
 checkIdentical('the three kinds of line end, and a last line without one', Array(tblRows("a,b\r\nc,d\r\n"), tblRows("a,b\rc,d"), tblRows("a,b\nc,d")), array_fill(0, 3, Array(Array('a', 'b'), Array('c', 'd'))));
@@ -62,26 +62,26 @@ checkPregMatch('...counting the lines held by the quoted cells before it', tblRe
 
 // The separator
 $semiCsv = "Titre;Prix\nAlpha Night;12,50\nBeta;8,00\n";
-checkIdentical('the separator is told from the first lines', Array(tblRead($semiCsv)['infos']['separ'], tblRows($semiCsv)[1], tblRead("a\tb, c\n1\t2, 3\n")['infos']['separ'], tblRead("a|b\n1|2\n")['infos']['separ'], tblRead("alone\nwords\n")['infos']['separ']), Array('semic', Array('Alpha Night', '12,50'), 'tabul', 'pipes', 'comma'));
-checkIdentical('what stands between quotes does not count when guessing', tblRead("\"a;b;c;d\",e\n\"f;g\",h\n")['infos']['separ'], 'comma');
-checkIdentical('the separator can be told', Array(tblRows("a;b,c\n", Array('separ'=>'comma')), tblRows("a;b,c\n", Array('separ'=>'SEMIC')), tblRows("a\tb c\n", Array('separ'=>'tabul')), tblRows("a|b\n", Array('separ'=>'pipes'))), Array(Array(Array('a;b', 'c')), Array(Array('a', 'b,c')), Array(Array('a', 'b c')), Array(Array('a', 'b'))));
+checkIdentical('the separator is told from the first lines', Array(tblRead($semiCsv)['infos']['separ'], tblRows($semiCsv)[1], tblRead("a\tb, c\n1\t2, 3\n")['infos']['separ'], tblRead("a|b\n1|2\n")['infos']['separ'], tblRead("alone\nwords\n")['infos']['separ']), Array('semicSep', Array('Alpha Night', '12,50'), 'tabulSep', 'pipesSep', 'commaSep'));
+checkIdentical('what stands between quotes does not count when guessing', tblRead("\"a;b;c;d\",e\n\"f;g\",h\n")['infos']['separ'], 'commaSep');
+checkIdentical('the separator can be told', Array(tblRows("a;b,c\n", Array('separ'=>'commaSep')), tblRows("a;b,c\n", Array('separ'=>'SEMICSEP')), tblRows("a\tb c\n", Array('separ'=>'tabulSep')), tblRows("a|b\n", Array('separ'=>'pipesSep'))), Array(Array(Array('a;b', 'c')), Array(Array('a', 'b,c')), Array(Array('a', 'b c')), Array(Array('a', 'b'))));
 checkPregMatch('a separator that is not a known one is refused', tblRead('a,b', Array('separ'=>'colon')), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid table option: unknown separator colon/');
 
 // Column names
 checkIdentical('heads: the first row names the columns, the others are keyed by them', tblRead($showCsv, Array('heads'=>true)), Array(
 	'shape'=>'sheet',
-	'infos'=>Array('separ'=>'comma', 'heads'=>Array('Title', 'Venue', 'Seats'), 'colms'=>3, 'lines'=>2, 'bomrk'=>false),
+	'infos'=>Array('separ'=>'commaSep', 'heads'=>Array('Title', 'Venue', 'Seats'), 'colms'=>3, 'lines'=>2, 'bomrk'=>false),
 	'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('Title'=>'Alpha Night', 'Venue'=>'Hall A', 'Seats'=>'120'), Array('Title'=>'Les Enchaînés', 'Venue'=>'', 'Seats'=>'80'))))
 ));
 checkIdentical('heads: a short row has null for what it lacks, a long one keeps its extra cells by position', tblRows("a,b,c\n1\n1,2,3,4,5\n", Array('heads'=>true)), Array(Array('a'=>'1', 'b'=>null, 'c'=>null), Array('a'=>'1', 'b'=>'2', 'c'=>'3', '4'=>'4', '5'=>'5')));
 checkIdentical('heads: a column without name takes its position, a name met twice gets its position after it', Array(tblRead(" id ,,id,\n1,2,3,4\n", Array('heads'=>true))['infos']['heads'], tblRows(" id ,,id,\n1,2,3,4\n", Array('heads'=>true))), Array(Array('id', '2', 'id_3', '4'), Array(Array('id'=>'1', '2'=>'2', 'id_3'=>'3', '4'=>'4'))));
-checkIdentical('heads: a table made of its names only', tblRead("a,b\n", Array('heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array('a', 'b'), 'colms'=>2, 'lines'=>0, 'bomrk'=>false), 'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array()))));
+checkIdentical('heads: a table made of its names only', tblRead("a,b\n", Array('heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'commaSep', 'heads'=>Array('a', 'b'), 'colms'=>2, 'lines'=>0, 'bomrk'=>false), 'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array()))));
 
 // Typed values
 checkIdentical('types: numbers, booleans and empty cells as such', tblRows("12,-7,0,12.5,-0.25,1e3,2.5E-1,true,FALSE,,word\n", Array('types'=>true)), Array(Array(12, -7, 0, 12.5, -0.25, 1000.0, 0.25, true, false, null, 'word')));
 checkIdentical('types: what only looks like a number stays text', tblRows("0123,+33100,1 200,12.,.5,1-2,0x1F,1234567890123456789012,12a, yes\n", Array('types'=>true)), Array(Array('0123', '+33100', '1 200', '12.', '.5', '1-2', '0x1F', '1234567890123456789012', '12a', ' yes')));
-checkIdentical('types: a quoted cell stays text, and the spaces around a number do not matter', tblRows("\"12\",\"true\",\"\", 12 ,\ttrue \n", Array('types'=>true, 'separ'=>'comma')), Array(Array('12', 'true', '', 12, true)));
-checkIdentical('types with heads: the names stay text', tblRead("2026,2027\n1,2.5\n", Array('types'=>true, 'heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'comma', 'heads'=>Array('2026', '2027'), 'colms'=>2, 'lines'=>1, 'bomrk'=>false), 'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('2026'=>1, '2027'=>2.5))))));
+checkIdentical('types: a quoted cell stays text, and the spaces around a number do not matter', tblRows("\"12\",\"true\",\"\", 12 ,\ttrue \n", Array('types'=>true, 'separ'=>'commaSep')), Array(Array('12', 'true', '', 12, true)));
+checkIdentical('types with heads: the names stay text', tblRead("2026,2027\n1,2.5\n", Array('types'=>true, 'heads'=>true)), Array('shape'=>'sheet', 'infos'=>Array('separ'=>'commaSep', 'heads'=>Array('2026', '2027'), 'colms'=>2, 'lines'=>1, 'bomrk'=>false), 'items'=>Array(Array('title'=>'', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('2026'=>1, '2027'=>2.5))))));
 checkIdentical('without types, everything is text', tblRows("12,true,\n"), Array(Array('12', 'true', '')));
 
 // Encodings: the result is always UTF-8
@@ -92,13 +92,13 @@ checkIdentical('a UTF-16 table, as a spreadsheet exports its text', tblRows("\xF
 checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
 
 // Through the index, Dcmnt and the HTML writer
-checkIdentical('index: tables by extension and by content type', Array(get_class(Index::forExtnsParser('csv')), get_class(Index::forExtnsParser('TSV')), get_class(Index::forExtnsParser('tab')), get_class(Index::findTypeParser('text/csv; charset=utf-8')), get_class(Index::findTypeParser('text/tab-separated-values')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::typeOptionsArr('text/tab-separated-values')), Array('nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', Array(), Array('separ'=>'tabul'), Array('separ'=>'tabul')));
+checkIdentical('index: tables by extension and by content type', Array(get_class(Index::forExtnsParser('csv')), get_class(Index::forExtnsParser('TSV')), get_class(Index::forExtnsParser('tab')), get_class(Index::findTypeParser('text/csv; charset=utf-8')), get_class(Index::findTypeParser('text/tab-separated-values')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::typeOptionsArr('text/tab-separated-values')), Array('nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep')));
 checkIdentical('a CSV file through Dcmnt', runCatchThrown(function() use ($showCsv){
 	$docPath = inTemporaryDir('shows.csv');
 	file_put_contents($docPath, $showCsv);
 	$docFile = new Dcmnt($docPath);
 	return Array($docFile->readFileDetail('shp'), $docFile->readFileDetail('inf'), $docFile->readFileDetail()[0]['cells'][2]);
-}), Array('sheet', Array('separ'=>'comma', 'heads'=>Array(), 'colms'=>3, 'lines'=>3, 'bomrk'=>false), Array('Les Enchaînés', '', '80')));
+}), Array('sheet', Array('separ'=>'commaSep', 'heads'=>Array(), 'colms'=>3, 'lines'=>3, 'bomrk'=>false), Array('Les Enchaînés', '', '80')));
 checkIdentical('a TSV file holding commas, through Dcmnt', runCatchThrown(function(){
 	$docPath = inTemporaryDir('shows.tsv');
 	file_put_contents($docPath, "Alpha, the first\tHall A\n");

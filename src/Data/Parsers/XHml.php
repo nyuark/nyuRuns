@@ -38,7 +38,7 @@ class XHml extends Base {
 		'html', 'body', 'div', 'section', 'article', 'main', 'header', 'footer', 'aside', 'nav', 'figure', 'figcaption', 'dl', 'dt', 'dd', 'details', 'summary', 'address', 'fieldset', 'center'
 	);
 	// Formatting given by the inline HTML elements
-	const MARK_TAGS = Array('b'=>'bold', 'strong'=>'bold', 'i'=>'ital', 'em'=>'ital', 'u'=>'undr', 'ins'=>'undr', 's'=>'strk', 'strike'=>'strk', 'del'=>'strk', 'code'=>'code', 'kbd'=>'code', 'samp'=>'code', 'tt'=>'code');
+	const MARK_TAGS = Array('b'=>'boldFace', 'strong'=>'boldFace', 'i'=>'emphasis', 'em'=>'emphasis', 'u'=>'undrLine', 'ins'=>'undrLine', 's'=>'crossOut', 'strike'=>'crossOut', 'del'=>'crossOut', 'code'=>'codeSpan', 'kbd'=>'codeSpan', 'samp'=>'codeSpan', 'tt'=>'codeSpan');
 	// Stands for a line break while the spacing of a text is being tidied
 	const LINE_MARK = "\x1E";
 
@@ -354,13 +354,13 @@ class XHml extends Base {
 			$tidySpn = $this->tidySpansArray($spanBuf);
 			$spanBuf = Array();
 			if( !empty($tidySpn) ){
-				$blckLst[] = Shape::makeBlockArray('parag', $tidySpn);
+				$blckLst[] = Shape::makeBlockArray('paragrph', $tidySpn);
 			}
 			$blckLst = array_merge($blckLst, in_array($tagName, self::BLCK_LIST) ? $this->tagBlocksArray($chlArr) : $this->readFlowsArray($this->kidsOfTagArray($chlArr)));
 		}
 		$tidySpn = $this->tidySpansArray($spanBuf);
 		if( !empty($tidySpn) ){
-			$blckLst[] = Shape::makeBlockArray('parag', $tidySpn);
+			$blckLst[] = Shape::makeBlockArray('paragrph', $tidySpn);
 		}
 		return $blckLst;
 	}
@@ -449,7 +449,7 @@ class XHml extends Base {
 	 * @return Array Its spans first, then the blocks it contains.
 	 */
 	protected function splitHoldArray(Array $bookBlockSet): Array {
-		if( !empty($bookBlockSet) && $bookBlockSet[0]['block']=='parag' ){
+		if( !empty($bookBlockSet) && $bookBlockSet[0]['block']=='paragrph' ){
 			return Array($bookBlockSet[0]['spans'], array_slice($bookBlockSet, 1));
 		}
 		return Array(Array(), $bookBlockSet);
@@ -460,7 +460,7 @@ class XHml extends Base {
 	 *
 	 * @param Array $elementArray The table element, or one of its row groups.
 	 * @param Bool  $innerHeadFlg Whether the rows are those of a thead element.
-	 * @return Array The rows, as 'thead' and 'tbrow' blocks.
+	 * @return Array The rows, as 'tableTop' and 'tableRow' blocks.
 	 */
 	protected function rowsOfTableArr(Array $elementArray, Bool $innerHeadFlg=false): Array {
 		$rowsLst = Array();
@@ -498,9 +498,9 @@ class XHml extends Base {
 				if( $headRow ){
 					unset($celSet[2]['headr']);
 				}
-				$cellBlk[] = Shape::makeBlockArray('tcell', $celSet[0], $celSet[1], $celSet[2]);
+				$cellBlk[] = Shape::makeBlockArray('cellText', $celSet[0], $celSet[1], $celSet[2]);
 			}
-			$rowsLst[] = Shape::makeBlockArray($headRow ? 'thead' : 'tbrow', Array(), $cellBlk);
+			$rowsLst[] = Shape::makeBlockArray($headRow ? 'tableTop' : 'tableRow', Array(), $cellBlk);
 		}
 		return $rowsLst;
 	}
@@ -537,7 +537,7 @@ class XHml extends Base {
 		if( preg_match('/^h([1-6])$/D', $tagName, $hdrPart) ){
 			$hdrSpns = $this->tidySpansArray($this->inlineSpansArr(Array('tagnm'=>'span')+$elementArray, Array(), ''));
 			if( !empty($hdrSpns) ){
-				$blckLst[] = Shape::makeBlockArray('headr', $hdrSpns, Array(), Array('level'=>intval($hdrPart[1])) + $idValue);
+				$blckLst[] = Shape::makeBlockArray('headline', $hdrSpns, Array(), Array('level'=>intval($hdrPart[1])) + $idValue);
 			}
 		}elseif( $tagName=='ul' || $tagName=='ol' ){
 			$itemLst = Array();
@@ -546,20 +546,20 @@ class XHml extends Base {
 					continue;
 				}
 				$entPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($chlArr)));
-				$itemLst[] = Shape::makeBlockArray('entry', $entPart[0], $entPart[1], ($chlArr['tagid']!=='') ? Array('tagid'=>$chlArr['tagid']) : Array());
+				$itemLst[] = Shape::makeBlockArray('listItem', $entPart[0], $entPart[1], ($chlArr['tagid']!=='') ? Array('tagid'=>$chlArr['tagid']) : Array());
 			}
 			if( !empty($itemLst) ){
-				$blckLst[] = Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>($tagName=='ol')) + $idValue);
+				$blckLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>($tagName=='ol')) + $idValue);
 			}
 		}elseif( $tagName=='table' ){
 			$rowsLst = $this->rowsOfTableArr($elementArray);
 			if( !empty($rowsLst) ){
-				$blckLst[] = Shape::makeBlockArray('table', Array(), $rowsLst, $idValue);
+				$blckLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsLst, $idValue);
 			}
 		}elseif( $tagName=='blockquote' ){
 			$qutPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($elementArray)));
 			if( !empty($qutPart[0]) || !empty($qutPart[1]) ){
-				$blckLst[] = Shape::makeBlockArray('quote', $qutPart[0], $qutPart[1], $idValue);
+				$blckLst[] = Shape::makeBlockArray('citation', $qutPart[0], $qutPart[1], $idValue);
 			}
 		}elseif( $tagName=='pre' ){
 			$codeTxt = trim($this->elementRawText($elementArray), "\r\n");
@@ -569,15 +569,15 @@ class XHml extends Base {
 				$codeAtr = Array('langg'=>$langPrt[1]) + $codeAtr;
 			}
 			if( $codeTxt!=='' ){
-				$blckLst[] = Shape::makeBlockArray('codes', Array(Shape::makeASpanArray($codeTxt)), Array(), $codeAtr);
+				$blckLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), $codeAtr);
 			}
 		}elseif( $tagName=='hr' ){
-			$blckLst[] = Shape::makeBlockArray('rules', Array(), Array(), $idValue);
+			$blckLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), $idValue);
 		}elseif( $tagName=='img' ){
 			$imgLink = Shape::tidyLinkString(strval($elementArray['attrs']['src'] ?? ''));
 			$imgText = trim(strval($elementArray['attrs']['alt'] ?? ''));
 			if( $imgLink!=='' ){
-				$blckLst[] = Shape::makeBlockArray('image', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink) + $idValue);
+				$blckLst[] = Shape::makeBlockArray('imageBox', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink) + $idValue);
 			}
 		}else{
 			// A paragraph, or an element that only groups others: what it holds, in order

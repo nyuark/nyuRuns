@@ -89,7 +89,7 @@ class EPub extends Pack {
 			$chapter = $this->positionImages($chapter, ($slashAt===false) ? '' : substr($itemSet['paths'], 0, $slashAt+1));
 			// A chapter starts on a new page
 			if( !empty($blckLst) ){
-				$blckLst[] = Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true));
+				$blckLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 			}
 			$blckLst = array_merge($blckLst, $chapter);
 		}
@@ -129,7 +129,7 @@ class EPub extends Pack {
 	 */
 	protected function positionImages(Array $bookBlockSet, String $baseFoldText): Array {
 		foreach($bookBlockSet as $blkIdx=>$oneBlk){
-			if( $oneBlk['block']=='image' && !preg_match('/^(?:[a-z][a-z0-9+.\-]*:|\/|#)/i', strval($oneBlk['attrs']['sourc'] ?? '')) ){
+			if( $oneBlk['block']=='imageBox' && !preg_match('/^(?:[a-z][a-z0-9+.\-]*:|\/|#)/i', strval($oneBlk['attrs']['sourc'] ?? '')) ){
 				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $this->mergePathsText($baseFoldText, strval($oneBlk['attrs']['sourc'] ?? ''));
 			}
 			if( !empty($oneBlk['items']) ){

@@ -66,23 +66,23 @@ function odmShow( Array $blocksList ): Array {
 
 $mkSpan = Array(Shape::class, 'makeASpanArray');
 $mkBlck = Array(Shape::class, 'makeBlockArray');
-$mkPict = function(String $sourceName, String $describedAs='', Array $attrsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('image', ($describedAs==='') ? Array() : Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName) + $attrsArray); };
+$mkPict = function(String $sourceName, String $describedAs='', Array $attrsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('imageBox', ($describedAs==='') ? Array() : Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName) + $attrsArray); };
 
 // The top and the bottom of the pages, and fields
 $pageInf = Array(
-	'phead'=>Array($mkBlck('parag', Array($mkSpan('Top '), $mkSpan('old title', Array('bold'), '', 'props:Title'), $mkSpan(' '), $mkSpan('site', Array(), 'https://nyuark.test/top'), $mkSpan('1', Array(), '#fnote1')), Array(), Array('align'=>'right'))),
+	'phead'=>Array($mkBlck('paragrph', Array($mkSpan('Top '), $mkSpan('old title', Array('boldFace'), '', 'props:Title'), $mkSpan(' '), $mkSpan('site', Array(), 'https://nyuark.test/top'), $mkSpan('1', Array(), '#fnote1')), Array(), Array('align'=>'alignRgt'))),
 	'pfoot'=>Array(
-		$mkBlck('parag', Array($mkSpan('Page '), $mkSpan('3', Array(), '', 'pgnum'), $mkSpan(' of '), $mkSpan('', Array(), '', 'pgtot'), $mkSpan(' '), $mkSpan('x', Array(), '', 'props:My Client'), $mkSpan(' '), $mkSpan('2026', Array(), '', 'dates'), $mkSpan(' '), $mkSpan('kept', Array(), '', 'other')), Array(), Array('align'=>'centr')),
-		$mkBlck('lists', Array(), Array($mkBlck('entry', Array($mkSpan('in the footer')))), Array('order'=>true))
+		$mkBlck('paragrph', Array($mkSpan('Page '), $mkSpan('3', Array(), '', 'pageNumb'), $mkSpan(' of '), $mkSpan('', Array(), '', 'pageTotl'), $mkSpan(' '), $mkSpan('x', Array(), '', 'props:My Client'), $mkSpan(' '), $mkSpan('2026', Array(), '', 'dateTime'), $mkSpan(' '), $mkSpan('kept', Array(), '', 'other')), Array(), Array('align'=>'alignCtr')),
+		$mkBlck('itemList', Array(), Array($mkBlck('listItem', Array($mkSpan('in the footer')))), Array('order'=>true))
 	)
 );
-$partLst = odmParts(odmWrite(Array($mkBlck('parag', Array($mkSpan('Body '), $mkSpan('bold', Array('bold')), $mkSpan('1', Array(), '#fnote1')), Array(), Array('align'=>'centr')), $mkBlck('fnote', Array($mkSpan('Note')), Array(), Array('tagid'=>'fnote1'))), $pageInf));
+$partLst = odmParts(odmWrite(Array($mkBlck('paragrph', Array($mkSpan('Body '), $mkSpan('bold', Array('boldFace')), $mkSpan('1', Array(), '#fnote1')), Array(), Array('align'=>'alignCtr')), $mkBlck('footnote', Array($mkSpan('Note')), Array(), Array('tagid'=>'fnote1'))), $pageInf));
 checkTrueValue('every part is well-formed', @simplexml_load_string($partLst['content.xml'])!==false && @simplexml_load_string($partLst['styles.xml'])!==false && @simplexml_load_string($partLst['META-INF/manifest.xml'])!==false);
 checkPregMatch('the page tells what stands at its top and at its bottom; a note is not referred to from there', $partLst['styles.xml'], '/<office:master-styles><style:master-page style:name="Standard" style:page-layout-name="pm1"><style:header><text:p text:style-name="MP1">Top<text:s\/><text:span text:style-name="MT1"><text:title>old title<\/text:title><\/text:span><text:s\/><text:a xlink:type="simple" xlink:href="https:\/\/nyuark\.test\/top" [^>]*>site<\/text:a>1<\/text:p><\/style:header><style:footer><text:p text:style-name="MP2">Page<text:s\/>/');
 checkPregMatch('fields: what each asks the document for, around what it last showed; a field unknown is its text', $partLst['styles.xml'], '/<text:page-number text:select-page="current">3<\/text:page-number><text:s\/>of<text:s\/><text:page-count>1<\/text:page-count><text:s\/><text:user-defined text:name="My Client">x<\/text:user-defined><text:s\/><text:date>2026<\/text:date><text:s\/>kept<\/text:p><text:list text:style-name="LN">/');
 checkPregMatch('the styles made by hand around the pages are kept with them, under names of their own, with those their lists need', $partLst['styles.xml'], '/<office:automatic-styles><style:page-layout style:name="pm1"><style:page-layout-properties [^>]*\/><style:header-style><style:header-footer-properties fo:min-height="0\.6cm" fo:margin-bottom="0\.5cm"\/><\/style:header-style><style:footer-style><style:header-footer-properties fo:min-height="0\.6cm" fo:margin-top="0\.5cm"\/><\/style:footer-style><\/style:page-layout><style:style style:name="MP1" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:text-align="end"\/><\/style:style><style:style style:name="MP2" [^>]*><style:paragraph-properties fo:text-align="center"\/><\/style:style><style:style style:name="MT1" style:family="text">.*<text:list-style style:name="LN">/s');
 checkPregMatch('those of the text are kept with the text', $partLst['content.xml'], '/<office:automatic-styles><style:style style:name="P1" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:text-align="center"\/><\/style:style><style:style style:name="T1" style:family="text">.*<office:text><text:p text:style-name="P1">Body<text:s\/><text:span text:style-name="T1">bold<\/text:span><text:note /s');
-checkPregMatch('a document with nothing around its pages says nothing of it', odmParts(odmWrite(Array($mkBlck('parag', Array($mkSpan('x'))))))['styles.xml'], '/<office:automatic-styles><style:page-layout style:name="pm1"><style:page-layout-properties [^>]*\/><\/style:page-layout><\/office:automatic-styles><office:master-styles><style:master-page style:name="Standard" style:page-layout-name="pm1"><\/style:master-page><\/office:master-styles>/');
+checkPregMatch('a document with nothing around its pages says nothing of it', odmParts(odmWrite(Array($mkBlck('paragrph', Array($mkSpan('x'))))))['styles.xml'], '/<office:automatic-styles><style:page-layout style:name="pm1"><style:page-layout-properties [^>]*\/><\/style:page-layout><\/office:automatic-styles><office:master-styles><style:master-page style:name="Standard" style:page-layout-name="pm1"><\/style:master-page><\/office:master-styles>/');
 
 // Pictures: a folder of them, a folder beside it, and a file that is not a picture
 $dotPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
@@ -100,8 +100,8 @@ checkPregMatch('a folder that is not one', odmWrite(Array(), Array(), Array('med
 $partLst = odmParts(odmWrite(Array($mkPict('https://nyuark.test/picture.png', 'An address'), $mkPict('../other/outside.png', 'Outside the folder'), $mkPict('missing.png', 'Not there'), $mkPict('notes.png', 'Not a picture')), Array(), Array('media'=>$mediaDr)));
 checkIdentical('an address, a file of another folder, a missing file, a file that is not a picture: none is written', Array(strpos($partLst['content.xml'], '<draw:frame'), count(preg_grep('#^Pictures/#', array_keys($partLst))), substr_count($partLst['content.xml'], '<text:p text:style-name="Standard">'), strpos($partLst['content.xml'].$partLst['META-INF/manifest.xml'], 'nyuark.test')), Array(false, 0, 4, false));
 $partLst = odmParts(odmWrite(Array(
-	$mkPict('dot.png', 'A "dot" & <more>'), $mkPict('dot.png', '', Array('align'=>'centr')),
-	$mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkBlck('tcell', Array($mkSpan('with a picture')), Array($mkPict('dot.png', 'In a cell')))))))
+	$mkPict('dot.png', 'A "dot" & <more>'), $mkPict('dot.png', '', Array('align'=>'alignCtr')),
+	$mkBlck('tableSet', Array(), Array($mkBlck('tableRow', Array(), Array($mkBlck('cellText', Array($mkSpan('with a picture')), Array($mkPict('dot.png', 'In a cell')))))))
 ), Array('phead'=>Array($mkPict('dot.png', 'At the top'))), Array('media'=>$mediaDr)));
 checkIdentical('a picture is written into the document, once however often it is shown', Array(array_values(preg_grep('#^Pictures/#', array_keys($partLst))), substr_count($partLst['content.xml'], '<draw:frame'), substr_count($partLst['styles.xml'], '<draw:frame'), substr($partLst['Pictures/image1.png'], 0, 8)), Array(Array('Pictures/image1.png'), 3, 1, "\x89PNG\r\n\x1A\n"));
 checkPregMatch('the document is told what the picture is', $partLst['META-INF/manifest.xml'], '/<manifest:file-entry manifest:full-path="meta\.xml" manifest:media-type="text\/xml"\/><manifest:file-entry manifest:full-path="Pictures\/image1\.png" manifest:media-type="image\/png"\/><\/manifest:manifest>$/');
@@ -116,16 +116,16 @@ if( !class_exists('ZipArchive') ){
 }
 
 // Read back
-$backSet = (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd(odmWrite(Array($mkBlck('parag', Array($mkSpan('Body')))), $pageInf)));
+$backSet = (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd(odmWrite(Array($mkBlck('paragrph', Array($mkSpan('Body')))), $pageInf)));
 // The document read back here has no note: a reference to one is then a link to a place, as any other
 checkIdentical('the top and the bottom of the pages, with their fields', Array(odmShow($backSet['infos']['phead']), odmShow($backSet['infos']['pfoot'])), Array(
-	Array('parag align=right {Top }{old title|bold|props:Title}{ }{site|https://nyuark.test/top}{1|#fnote1}'),
-	Array('parag align=centr {Page }{3|pgnum}{ of }{1|pgtot}{ }{x|props:My Client}{ }{2026|dates}{ kept}', 'lists', '  entry {in the footer}')
+	Array('paragrph align=alignRgt {Top }{old title|boldFace|props:Title}{ }{site|https://nyuark.test/top}{1|#fnote1}'),
+	Array('paragrph align=alignCtr {Page }{3|pageNumb}{ of }{1|pageTotl}{ }{x|props:My Client}{ }{2026|dateTime}{ kept}', 'itemList', '  listItem {in the footer}')
 ));
 $twiceSt = (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd((new Odtx())->renderDocument($backSet)));
 checkIdentical('written and read a second time, they are the same', Array(odmShow($twiceSt['infos']['phead']), odmShow($twiceSt['infos']['pfoot'])), Array(odmShow($backSet['infos']['phead']), odmShow($backSet['infos']['pfoot'])));
-$backSet = (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd(odmWrite(Array($mkBlck('parag', Array($mkSpan('Before'))), $mkPict('dot.png', 'A dot'), $mkBlck('parag', Array($mkSpan('After')))), Array(), Array('media'=>$mediaDr))));
-checkIdentical('a picture is read back as an image, with what describes it', odmShow($backSet['items']), Array('parag {Before}', 'image sourc=Pictures/image1.png {A dot}', 'parag {After}'));
+$backSet = (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd(odmWrite(Array($mkBlck('paragrph', Array($mkSpan('Before'))), $mkPict('dot.png', 'A dot'), $mkBlck('paragrph', Array($mkSpan('After')))), Array(), Array('media'=>$mediaDr))));
+checkIdentical('a picture is read back as an image, with what describes it', odmShow($backSet['items']), Array('paragrph {Before}', 'imageBox sourc=Pictures/image1.png {A dot}', 'paragrph {After}'));
 // Read into a folder, then written from that folder: the pictures go round
 mkdir($baseDir.'/round', 0777, true);
 $readSet = (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd(odmWrite(Array($mkPict('dot.png', 'A dot'), $mkPict('dot.png', 'Again')), Array(), Array('media'=>$mediaDr))), Array('media'=>$baseDir.'/round'));
@@ -146,7 +146,7 @@ imagebmp($wideGd, $baseDir.'/media/wide.bmp');
 imagegif($wideGd, $baseDir.'/media/wide.gif');
 $partLst = odmParts(odmWrite(Array(
 	$mkPict('wide.jpg', 'Wide'), $mkPict('wide.gif', 'A GIF'), $mkPict('wide.bmp', 'A kind a document does not hold'),
-	$mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkBlck('tcell', Array($mkSpan('beside'))), $mkBlck('tcell', Array(), Array($mkPict('wide.jpg', 'Wide, in a cell')))))))
+	$mkBlck('tableSet', Array(), Array($mkBlck('tableRow', Array(), Array($mkBlck('cellText', Array($mkSpan('beside'))), $mkBlck('cellText', Array(), Array($mkPict('wide.jpg', 'Wide, in a cell')))))))
 ), Array(), Array('media'=>$mediaDr)));
 checkIdentical('each kind is written under its name, a kind a document does not hold as PNG', Array(array_values(preg_grep('#^Pictures/#', array_keys($partLst))), substr($partLst['Pictures/image1.jpg'], 0, 3)==="\xFF\xD8\xFF", substr($partLst['Pictures/image3.png'], 1, 3)), Array(Array('Pictures/image1.jpg', 'Pictures/image2.gif', 'Pictures/image3.png'), true, 'PNG'));
 checkPregMatch('the document is told of each kind', $partLst['META-INF/manifest.xml'], '/full-path="Pictures\/image1\.jpg" manifest:media-type="image\/jpeg"\/><manifest:file-entry manifest:full-path="Pictures\/image2\.gif" manifest:media-type="image\/gif"\/><manifest:file-entry manifest:full-path="Pictures\/image3\.png" manifest:media-type="image\/png"\/>/');

@@ -76,15 +76,15 @@ function pageSize( String $rawContent ): Array {
 }
 
 $showBlk = Array(
-	textBlk('headr', 'Les Enchaînés, été', Array('level'=>1, 'style'=>'heading 1')),
-	Shape::makeBlockArray('parag', Array(Shape::makeASpanArray('First paragraph, with '), Shape::makeASpanArray('bold', Array('bold')), Shape::makeASpanArray(' and a '), Shape::makeASpanArray('link', Array(), 'https://nyuark.test/a'), Shape::makeASpanArray('.'))),
-	Shape::makeBlockArray('lists', Array(), Array(textBlk('entry', 'Music'), textBlk('entry', 'Dance'))),
-	Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true)),
-	textBlk('parag', 'Second page.'),
-	Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true)),
-	textBlk('parag', 'Third page: 12 € & <b>not markup</b>.')
+	textBlk('headline', 'Les Enchaînés, été', Array('level'=>1, 'style'=>'heading 1')),
+	Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('First paragraph, with '), Shape::makeASpanArray('bold', Array('boldFace')), Shape::makeASpanArray(' and a '), Shape::makeASpanArray('link', Array(), 'https://nyuark.test/a'), Shape::makeASpanArray('.'))),
+	Shape::makeBlockArray('itemList', Array(), Array(textBlk('listItem', 'Music'), textBlk('listItem', 'Dance'))),
+	Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true)),
+	textBlk('paragrph', 'Second page.'),
+	Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true)),
+	textBlk('paragrph', 'Third page: 12 € & <b>not markup</b>.')
 );
-$showInf = Array('title'=>'Alpha Night', 'frmat'=>Array('heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri', 'sizes'=>18, 'marks'=>Array('bold'), 'align'=>'centr')));
+$showInf = Array('title'=>'Alpha Night', 'frmat'=>Array('heading 1'=>Array('class'=>'heading-1', 'fonts'=>'Calibri', 'sizes'=>18, 'marks'=>Array('boldFace'), 'align'=>'alignCtr')));
 $showPdf = pdfOut($showBlk, Array(), $showInf);
 
 // Written, then read
@@ -92,15 +92,15 @@ checkIdentical('a content written as PDF is a PDF document', Array(substr($showP
 checkIdentical('read back: its pages, a page break between two of them, its text with its accents, what was markup-like as text', runCatchThrown(function() use ($showPdf){
 	$envlope = pdfRead($showPdf);
 	return is_array($envlope) ? Array($envlope['shape'], array_column($envlope['items'], 'block'), array_column($envlope['items'], 'plain'), $envlope['items'][1]['attrs']) : $envlope;
-}), Array('block', Array('parag', 'rules', 'parag', 'rules', 'parag'), Array("Les Enchaînés, été\nFirst paragraph, with bold and a link.\nMusic\nDance", '', 'Second page.', '', 'Third page: 12 € & <b>not markup</b>.'), Array('break'=>true)));
+}), Array('block', Array('paragrph', 'ruleLine', 'paragrph', 'ruleLine', 'paragrph'), Array("Les Enchaînés, été\nFirst paragraph, with bold and a link.\nMusic\nDance", '', 'Second page.', '', 'Third page: 12 € & <b>not markup</b>.'), Array('break'=>true)));
 checkIdentical('read back: its details, with its title and the number of its pages', runCatchThrown(function() use ($showPdf){
 	$infoArr = pdfRead($showPdf)['infos'];
 	return Array($infoArr['title'], $infoArr['authr'], $infoArr['pages'], $infoArr['props']['Title'] ?? null, $infoArr['props']['Pages'] ?? null, array_keys($infoArr));
 }), Array('Alpha Night', '', 3, 'Alpha Night', 3, Array('title', 'authr', 'pages', 'props')));
-checkIdentical('every block read has its five keys, every span its four', pdfRead($showPdf)['items'][2], Array('block'=>'parag', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Second page.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Second page.'));
+checkIdentical('every block read has its five keys, every span its four', pdfRead($showPdf)['items'][2], Array('block'=>'paragrph', 'attrs'=>Array(), 'spans'=>Array(Array('texts'=>'Second page.', 'marks'=>Array(), 'links'=>'', 'field'=>'')), 'items'=>Array(), 'plain'=>'Second page.'));
 
 // Paper
-checkIdentical('paper: A4 upright unless told otherwise; the other sizes; lying on its long side', Array(pageSize($showPdf), pageSize(pdfOut($showBlk, Array('paper'=>'isoa5'))), pageSize(pdfOut($showBlk, Array('paper'=>'LETTR'))), pageSize(pdfOut($showBlk, Array('paper'=>'isoa4', 'lands'=>true))), pageSize(pdfOut($showBlk, Array('paper'=>'legal'))), pageSize(pdfOut($showBlk, Array('paper'=>'isoa3')))), Array(Array(595, 842), Array(420, 595), Array(612, 792), Array(842, 595), Array(612, 1008), Array(842, 1191)));
+checkIdentical('paper: A4 upright unless told otherwise; the other sizes; lying on its long side', Array(pageSize($showPdf), pageSize(pdfOut($showBlk, Array('paper'=>'isoPgeA5'))), pageSize(pdfOut($showBlk, Array('paper'=>'USLETTER'))), pageSize(pdfOut($showBlk, Array('paper'=>'isoPgeA4', 'lands'=>true))), pageSize(pdfOut($showBlk, Array('paper'=>'legalUsa'))), pageSize(pdfOut($showBlk, Array('paper'=>'isoPgeA3')))), Array(Array(595, 842), Array(420, 595), Array(612, 792), Array(842, 595), Array(612, 1008), Array(842, 1191)));
 checkPregMatch('paper: a size that is not a known one is refused', pdfOut($showBlk, Array('paper'=>'huge')), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Invalid PDF option: unknown paper huge/');
 
 // Other shapes
@@ -117,7 +117,7 @@ checkPregMatch('a shape that is not a known one is refused', pdfOut(Array(), Arr
 checkIdentical('an image is not fetched, from the network nor from the disk: its description is written in its stead, and a file of the server is not even named', runCatchThrown(function(){
 	$scrtPth = inTemporaryDir('secret.png');
 	file_put_contents($scrtPth, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
-	$pdfText = pdfOut(Array(textBlk('parag', 'Before'), textBlk('image', 'The hall', Array('sourc'=>'http://127.0.0.1:9/never.png')), textBlk('image', 'Local', Array('sourc'=>str_replace('\\', '/', $scrtPth))), textBlk('parag', 'After')));
+	$pdfText = pdfOut(Array(textBlk('paragrph', 'Before'), textBlk('imageBox', 'The hall', Array('sourc'=>'http://127.0.0.1:9/never.png')), textBlk('imageBox', 'Local', Array('sourc'=>str_replace('\\', '/', $scrtPth))), textBlk('paragrph', 'After')));
 	return Array(substr($pdfText, 0, 5), preg_replace('/\s+/', ' ', Shape::documentAsText(pdfRead($pdfText)['items'])), strpos($pdfText, '/Subtype /Image'));
 }), Array('%PDF-', 'Before The hall After', false));
 

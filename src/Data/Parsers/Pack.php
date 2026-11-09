@@ -391,7 +391,7 @@ abstract class Pack extends Base {
 			$tidySpn = Shape::joinSpansArray($spanBuf);
 			$spanBuf = Array();
 			if( trim(implode('', array_column($tidySpn, 'texts')))!=='' ){
-				$flowLst[] = Shape::makeBlockArray('parag', $tidySpn);
+				$flowLst[] = Shape::makeBlockArray('paragrph', $tidySpn);
 			}
 			if( $onePic['block']!='#end' ){
 				$flowLst[] = $onePic;
@@ -405,7 +405,7 @@ abstract class Pack extends Base {
 		}
 		// A paragraph holding nothing is a block without text, when those are kept
 		if( empty($flowLst) && $keepEmptyFlg ){
-			$flowLst[] = Shape::makeBlockArray('parag');
+			$flowLst[] = Shape::makeBlockArray('paragrph');
 		}
 		return Array('spans'=>$spnsAll, 'plain'=>$fullTxt, 'holds'=>$holdLst, 'flows'=>$flowLst);
 	}
@@ -415,24 +415,24 @@ abstract class Pack extends Base {
 	 * quote, or its text with the images it holds, and a page break
 	 * before or after it when it asks for one.
 	 *
-	 * @param Array $prgrphValues The paragraph: its 'kinds' (headr, quote or parag), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
+	 * @param Array $prgrphValues The paragraph: its 'kinds' (headline, citation or paragrph), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
 	 * @return Array The blocks.
 	 */
 	protected function paragrphBlocks(Array $prgrphValues): Array {
 		$paraKnd = $prgrphValues['kinds'];
 		$newPara = $prgrphValues['flows'];
-		if( $paraKnd=='headr' || $paraKnd=='quote' ){
+		if( $paraKnd=='headline' || $paraKnd=='citation' ){
 			// A heading and a quote hold their text only; what else their paragraph holds follows them
 			$newPara = array_merge(
-				Array(Shape::makeBlockArray($paraKnd, $prgrphValues['spans'], Array(), ($paraKnd=='headr') ? Array('level'=>$prgrphValues['level']) : Array())),
-				($paraKnd=='headr') ? array_values(array_filter($prgrphValues['holds'], function($contentBlock){ return $contentBlock['block']=='rules'; })) : $prgrphValues['holds']
+				Array(Shape::makeBlockArray($paraKnd, $prgrphValues['spans'], Array(), ($paraKnd=='headline') ? Array('level'=>$prgrphValues['level']) : Array())),
+				($paraKnd=='headline') ? array_values(array_filter($prgrphValues['holds'], function($contentBlock){ return $contentBlock['block']=='ruleLine'; })) : $prgrphValues['holds']
 			);
 		}
 		// The style, the alignment and the id are those of the text, not of an image or a page break
-		if( !empty($newPara) && !in_array($newPara[0]['block'], Array('rules', 'image')) ){
+		if( !empty($newPara) && !in_array($newPara[0]['block'], Array('ruleLine', 'imageBox')) ){
 			$newPara[0]['attrs'] = $newPara[0]['attrs'] + $prgrphValues['attrs'];
 		}
-		$brkBlck = Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true));
+		$brkBlck = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 		return array_merge($prgrphValues['prior'] ? Array($brkBlck) : Array(), $newPara, $prgrphValues['after'] ? Array($brkBlck) : Array());
 	}
 	
@@ -448,7 +448,7 @@ abstract class Pack extends Base {
 		if( trim($codeTxt)==='' ){
 			return Array();
 		}
-		return Array(Shape::makeBlockArray('codes', Array(Shape::makeASpanArray($codeTxt)), Array(), $prgrphsArray[0]['attrs'] ?? Array()));
+		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), $prgrphsArray[0]['attrs'] ?? Array()));
 	}
 	
 	/**
@@ -518,7 +518,7 @@ abstract class Pack extends Base {
 				$bookBlockSet[$blkIdx]['items'] = $this->mediaWalkArray($oneBlk['items'], $imagesFolder, $picturesSeen);
 			}
 			$innrPth = strval($oneBlk['attrs']['sourc'] ?? '');
-			if( ($oneBlk['block'] ?? '')!='image' || !$this->opnArchive->locateEntryFlg($innrPth) ){
+			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->opnArchive->locateEntryFlg($innrPth) ){
 				continue;
 			}
 			if( !isset($picturesSeen[$innrPth]) && count($picturesSeen)<self::MEDI_MAXI ){

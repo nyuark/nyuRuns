@@ -18,18 +18,18 @@ use nyu\Data\Shape;
 class ICal extends Base {
 
 	// The kinds of entry, by the key holding them, and the keys an entry may hold other values under
-	const KIND_LIST = Array('event'=>'VEVENT', 'tasks'=>'VTODO', 'notes'=>'VJOURNAL');
+	const KIND_LIST = Array('calEvent'=>'VEVENT', 'calTodos'=>'VTODO', 'calNotes'=>'VJOURNAL');
 	// The states of an entry, the replies of a guest, and how often an entry repeats
-	const STAT_LIST = Array('cnfrm'=>'CONFIRMED', 'tentv'=>'TENTATIVE', 'cancl'=>'CANCELLED', 'waits'=>'NEEDS-ACTION', 'activ'=>'IN-PROCESS', 'compl'=>'COMPLETED', 'draft'=>'DRAFT', 'final'=>'FINAL');
-	const REPL_LIST = Array('accpt'=>'ACCEPTED', 'decln'=>'DECLINED', 'tentv'=>'TENTATIVE', 'deleg'=>'DELEGATED');
-	const FREQ_LIST = Array('daily'=>'DAILY', 'wekly'=>'WEEKLY', 'mthly'=>'MONTHLY', 'yerly'=>'YEARLY');
+	const STAT_LIST = Array('definite'=>'CONFIRMED', 'possible'=>'TENTATIVE', 'canceled'=>'CANCELLED', 'awaiting'=>'NEEDS-ACTION', 'underway'=>'IN-PROCESS', 'finished'=>'COMPLETED', 'drafting'=>'DRAFT', 'finalVer'=>'FINAL');
+	const REPL_LIST = Array('accepted'=>'ACCEPTED', 'declined'=>'DECLINED', 'possible'=>'TENTATIVE', 'delegate'=>'DELEGATED');
+	const FREQ_LIST = Array('eachDays'=>'DAILY', 'eachWeek'=>'WEEKLY', 'eachMnth'=>'MONTHLY', 'eachYear'=>'YEARLY');
 	// The properties the writer writes itself: what is kept under 'extra' never writes them a second time
 	const OWNS_LIST = Array('BEGIN', 'END', 'UID', 'SUMMARY', 'DESCRIPTION', 'LOCATION', 'URL', 'STATUS', 'CATEGORIES', 'ORGANIZER', 'ATTENDEE', 'EXDATE', 'DTSTART', 'DTEND', 'DURATION', 'DTSTAMP', 'DUE', 'PERCENT-COMPLETE');
 
 	/**
 	 * Writes events, tasks and notes as an iCalendar text.
 	 *
-	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items', the items holding the events under 'event', the tasks under 'tasks' and the notes under 'notes'.
+	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items', the items holding the events under 'calEvent', the tasks under 'calTodos' and the notes under 'calNotes'.
 	 * @param Array $writeOptions Options: none.
 	 * @return String The calendar, its lines ending and folded as the format asks.
 	 *
@@ -37,7 +37,11 @@ class ICal extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes'), 'a calendar');
-		$itemLst = array_change_key_case((array)($dataEnvelope['items'] ?? Array()), CASE_LOWER);
+		$itemLst = Array();
+		// The kinds whatever their case (a calendar read with its keys in upper case), as KIND_LIST writes them
+		foreach( (array)($dataEnvelope['items'] ?? Array()) as $kndKey => $kndVal ){
+			$itemLst[ strval(array_values(preg_grep('/^'.preg_quote(strval($kndKey), '/').'$/iD', array_keys(self::KIND_LIST)))[0] ?? $kndKey) ] = $kndVal;
+		}
 		if( !empty(array_diff_key($itemLst, self::KIND_LIST)) ){
 			throw new WriteError('Content that cannot be written as a calendar: it holds something else than events, tasks and notes');
 		}
@@ -176,12 +180,12 @@ class ICal extends Base {
 		$lineLst = array_merge($lineLst, $this->datesLineArray('DTSTAMP', (strlen(strval($calendarItem['stamp'] ?? ''))>10) ? strval($calendarItem['stamp']) : gmdate('Y-m-d H:i:s'), 'UTC'));
 		$strtLin = $this->datesLineArray('DTSTART', $strtVal, $zoneNme);
 		$lineLst = array_merge($lineLst, $strtLin);
-		if( $itemKindsTxt=='event' && !empty($strtLin) ){
+		if( $itemKindsTxt=='calEvent' && !empty($strtLin) ){
 			// Whole days end, as the format writes it, on the day after their last one
 			$endValu = (strval($calendarItem['ended'] ?? '')!=='') ? strval($calendarItem['ended']) : $strtVal;
 			$lineLst = array_merge($lineLst, $this->datesLineArray('DTEND', $endValu, $zoneNme, $isWhole ? 1 : 0));
 		}
-		if( $itemKindsTxt=='tasks' ){
+		if( $itemKindsTxt=='calTodos' ){
 			$lineLst = array_merge($lineLst, $this->datesLineArray('DUE', strval($calendarItem['dueby'] ?? ''), $zoneNme));
 			if( intval($calendarItem['ratio'] ?? 0)>0 ){
 				$lineLst[] = 'PERCENT-COMPLETE:'.max(0, min(100, intval($calendarItem['ratio'])));

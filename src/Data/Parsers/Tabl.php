@@ -13,7 +13,7 @@ class Tabl extends Base {
 
 	// Separators, by the code that asks for them. When two of them fit a table
 	// as well, the first of this list is the one: a tabulation is rarely text
-	const SEPR_LIST = Array('tabul'=>"\t", 'semic'=>';', 'comma'=>',', 'pipes'=>'|');
+	const SEPR_LIST = Array('tabulSep'=>"\t", 'semicSep'=>';', 'commaSep'=>',', 'pipesSep'=>'|');
 
 	/**
 	 * Parses a table. An empty content gives no sheet. Empty lines are
@@ -21,7 +21,7 @@ class Tabl extends Base {
 	 * with.
 	 *
 	 * Options:
-	 *   'separ' => the separator: 'comma', 'semic', 'tabul' or 'pipes';
+	 *   'separ' => the separator: 'commaSep', 'semicSep', 'tabulSep' or 'pipesSep';
 	 *              told from the first lines when left out;
 	 *   'heads' => takes the first row as the names of the columns: every
 	 *              other row is then keyed by them. A column without name
@@ -41,7 +41,9 @@ class Tabl extends Base {
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
 		$tblText = self::recodeTextUtf8($nakedContent);
-		$divider = strtolower(strval($parseOptions['separ'] ?? ''));
+		$divider = strval($parseOptions['separ'] ?? '');
+		// The separator whatever its case, as SEPR_LIST writes it
+		$divider = strval( array_values(preg_grep('/^'.preg_quote($divider, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $divider );
 		if( $divider!=='' && !isset(self::SEPR_LIST[$divider]) ){
 			throw new ParseError('Invalid table option: unknown separator '.$divider);
 		}
@@ -72,11 +74,11 @@ class Tabl extends Base {
 	 * the most.
 	 *
 	 * @param String $nakedContent The table, in UTF-8.
-	 * @return String The code of the separator; 'comma' when none is met.
+	 * @return String The code of the separator; 'commaSep' when none is met.
 	 */
 	protected function guessSeparator(String $nakedContent): String {
 		$lineLst = array_slice(array_values(array_filter(preg_split('/\r\n|\r|\n/', substr($nakedContent, 0, 65536)), function($markdownLine){ return trim($markdownLine)!==''; })), 0, 10);
-		$bestKey = 'comma';
+		$bestKey = 'commaSep';
 		$bestScr = 0;
 		foreach(self::SEPR_LIST as $sprKey=>$sprChr){
 			$cntList = Array();

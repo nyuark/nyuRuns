@@ -20,8 +20,8 @@ class Text extends Base {
 	// The marks around a formatting, for each way of writing: what opens it, what closes it
 	const MARK_LIST = Array(
 		'plain'=>Array(),
-		'bbcod'=>Array('bold'=>Array('[b]', '[/b]'), 'ital'=>Array('[i]', '[/i]'), 'undr'=>Array('[u]', '[/u]'), 'strk'=>Array('[s]', '[/s]')),
-		'chats'=>Array('bold'=>Array('*', '*'), 'ital'=>Array('_', '_'), 'undr'=>Array('__', '__'), 'strk'=>Array('~', '~'))
+		'bbcod'=>Array('boldFace'=>Array('[b]', '[/b]'), 'emphasis'=>Array('[i]', '[/i]'), 'undrLine'=>Array('[u]', '[/u]'), 'crossOut'=>Array('[s]', '[/s]')),
+		'chats'=>Array('boldFace'=>Array('*', '*'), 'emphasis'=>Array('_', '_'), 'undrLine'=>Array('__', '__'), 'crossOut'=>Array('~', '~'))
 	);
 
 	// The way of writing asked for
@@ -97,7 +97,7 @@ class Text extends Base {
 		$outText = trim($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
 			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
-				$outText .= (($outText==='') ? '' : ((($oneBlk['block'] ?? '')=='lists') ? "\n" : "\n\n")).$blkTxt;
+				$outText .= (($outText==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$blkTxt;
 			}
 		}
 		return $outText;
@@ -139,22 +139,22 @@ class Text extends Base {
 	 */
 	protected function writeAllBlocks(Array $bookBlockSet): Array {
 		$textLst = Array();
-		$boldSet = self::MARK_LIST[$this->outputKind]['bold'] ?? Array('', '');
+		$boldSet = self::MARK_LIST[$this->outputKind]['boldFace'] ?? Array('', '');
 		foreach($bookBlockSet as $oneBlk){
 			$blckKnd = strval($oneBlk['block'] ?? '');
 			$blckTxt = '';
-			if( $blckKnd=='headr' ){
+			if( $blckKnd=='headline' ){
 				// A heading has no mark of its own: it is bold where bold can be written
 				$headTxt = trim($this->writeInlineTxt((array)$oneBlk['spans']));
-				$blckTxt = ($headTxt==='' || in_array('bold', array_merge(...array_column((array)$oneBlk['spans'], 'marks'), ...Array(Array())))) ? $headTxt : $boldSet[0].$headTxt.$boldSet[1];
-			}elseif( $blckKnd=='parag' ){
+				$blckTxt = ($headTxt==='' || in_array('boldFace', array_merge(...array_column((array)$oneBlk['spans'], 'marks'), ...Array(Array())))) ? $headTxt : $boldSet[0].$headTxt.$boldSet[1];
+			}elseif( $blckKnd=='paragrph' ){
 				$blckTxt = trim($this->writeInlineTxt((array)$oneBlk['spans']));
-			}elseif( $blckKnd=='lists' ){
+			}elseif( $blckKnd=='itemList' ){
 				$blckTxt = $this->writeListItems($oneBlk);
-			}elseif( $blckKnd=='table' || $blckKnd=='thead' || $blckKnd=='tbrow' ){
+			}elseif( $blckKnd=='tableSet' || $blckKnd=='tableTop' || $blckKnd=='tableRow' ){
 				// The rows one per line, tabulations between their cells
 				$rowsTxt = Array();
-				foreach(($blckKnd=='table') ? (array)$oneBlk['items'] : Array($oneBlk) as $oneRow){
+				foreach(($blckKnd=='tableSet') ? (array)$oneBlk['items'] : Array($oneBlk) as $oneRow){
 					$cellTxt = Array();
 					foreach((array)$oneRow['items'] as $celBlk){
 						$cellTxt[] = preg_replace('/\s+/', ' ', $this->innerOutString($celBlk));
@@ -162,7 +162,7 @@ class Text extends Base {
 					$rowsTxt[] = implode("\t", $cellTxt);
 				}
 				$blckTxt = implode("\n", $rowsTxt);
-			}elseif( $blckKnd=='quote' ){
+			}elseif( $blckKnd=='citation' ){
 				$qutText = $this->innerOutString($oneBlk);
 				$citeTxt = str_replace(Array('[', ']', "\n"), Array('(', ')', ' '), strval($oneBlk['attrs']['cites'] ?? ''));
 				if( $qutText!=='' && $this->outputKind=='bbcod' ){
@@ -170,18 +170,18 @@ class Text extends Base {
 				}elseif( $qutText!=='' ){
 					$blckTxt = preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $qutText.(($citeTxt!=='') ? "\n— ".$citeTxt : ''));
 				}
-			}elseif( $blckKnd=='codes' ){
+			}elseif( $blckKnd=='codeBlck' ){
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
 				$blckTxt = ($this->outputKind=='bbcod') ? '[code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? '='.$codeLng : '')."]\n".strval($oneBlk['plain'] ?? '')."\n[/code]" : strval($oneBlk['plain'] ?? '');
-			}elseif( $blckKnd=='image' ){
+			}elseif( $blckKnd=='imageBox' ){
 				// An image is a tag where there is one, and its description otherwise
 				$imgLink = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
 				$blckTxt = ($this->outputKind=='bbcod' && $imgLink!=='') ? '[img]'.$imgLink.'[/img]' : trim(strval($oneBlk['plain'] ?? ''));
-			}elseif( $blckKnd=='rules' ){
+			}elseif( $blckKnd=='ruleLine' ){
 				$blckTxt = '----------';
-			}elseif( $blckKnd=='fnote' ){
+			}elseif( $blckKnd=='footnote' ){
 				$blckTxt = '['.intval($oneBlk['attrs']['numbr'] ?? 0).'] '.$this->innerOutString($oneBlk);
-			}elseif( $blckKnd=='entry' || $blckKnd=='tcell' ){
+			}elseif( $blckKnd=='listItem' || $blckKnd=='cellText' ){
 				// An entry or a cell met outside its list or its table: what it holds
 				$blckTxt = $this->innerOutString($oneBlk);
 			}else{

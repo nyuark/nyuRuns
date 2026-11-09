@@ -15,7 +15,7 @@ use nyu\Data\Shape;
 class Mdwn extends Base {
 
 	// Formatting given by each mark
-	const MARK_LIST = Array(1=>Array('ital'), 2=>Array('bold'), 3=>Array('bold', 'ital'));
+	const MARK_LIST = Array(1=>Array('emphasis'), 2=>Array('boldFace'), 3=>Array('boldFace', 'emphasis'));
 	// A line that is a rule
 	const RULE_PTRN = '/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/D';
 	// The line under the names of the columns of a table
@@ -53,7 +53,7 @@ class Mdwn extends Base {
 		$fullTxt = preg_replace_callback('/^[ \t]*\t[ \t]*/m', function($locatedParts){ return str_replace("\t", '    ', $locatedParts[0]); }, $fullTxt);
 		$blckLst = $this->retrieveBlocks(explode("\n", $fullTxt));
 		foreach($blckLst as $oneBlk){
-			if( $oneBlk['block']=='headr' && $oneBlk['attrs']['level']==1 ){
+			if( $oneBlk['block']=='headline' && $oneBlk['attrs']['level']==1 ){
 				$infoArr['title'] = $oneBlk['plain'];
 				break;
 			}
@@ -143,7 +143,7 @@ class Mdwn extends Base {
 					$codeLns[] = strval(substr($linesToParse[$lineIdx], 4));
 					$lineIdx++;
 				}
-				$blckLst[] = Shape::makeBlockArray('codes', Array(Shape::makeASpanArray(rtrim(implode("\n", $codeLns)))));
+				$blckLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray(rtrim(implode("\n", $codeLns)))));
 			}elseif( preg_match('/^( {0,3})(`{3,}|~{3,})[ \t]*([^\s`]*)/', $lineTxt, $linPart) ){
 				$codeLns = Array();
 				$lineIdx++;
@@ -153,12 +153,12 @@ class Mdwn extends Base {
 					$lineIdx++;
 				}
 				$lineIdx++;
-				$blckLst[] = Shape::makeBlockArray('codes', Array(Shape::makeASpanArray(implode("\n", $codeLns))), Array(), preg_match('/^[\w+#.\-]+$/D', $linPart[3]) ? Array('langg'=>$linPart[3]) : Array());
+				$blckLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray(implode("\n", $codeLns))), Array(), preg_match('/^[\w+#.\-]+$/D', $linPart[3]) ? Array('langg'=>$linPart[3]) : Array());
 			}elseif( preg_match('/^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/D', $lineTxt, $linPart) ){
 				$blckLst[] = $this->headBlockArray(strval($linPart[2] ?? ''), strlen($linPart[1]));
 				$lineIdx++;
 			}elseif( preg_match(self::RULE_PTRN, $lineTxt) ){
-				$blckLst[] = Shape::makeBlockArray('rules');
+				$blckLst[] = Shape::makeBlockArray('ruleLine');
 				$lineIdx++;
 			}elseif( preg_match('/^ {0,3}>/', $lineTxt) ){
 				$heldLns = Array();
@@ -167,7 +167,7 @@ class Mdwn extends Base {
 					$heldLns[] = preg_replace('/^ {0,3}> ?/', '', $linesToParse[$lineIdx]);
 					$lineIdx++;
 				}
-				$blckLst[] = $this->holdBlockArray('quote', $this->retrieveBlocks($heldLns));
+				$blckLst[] = $this->holdBlockArray('citation', $this->retrieveBlocks($heldLns));
 			}else{
 				$blckLst[] = $this->readListsArray($linesToParse, $lineIdx);
 			}
@@ -190,7 +190,7 @@ class Mdwn extends Base {
 			$templateText = $idMatch[1];
 			$attrSet['tagid'] = $idMatch[2];
 		}
-		return Shape::makeBlockArray('headr', $this->textSpansArray($templateText), Array(), $attrSet);
+		return Shape::makeBlockArray('headline', $this->textSpansArray($templateText), Array(), $attrSet);
 	}
 
 	/**
@@ -240,7 +240,7 @@ class Mdwn extends Base {
 				$attrSet['check'] = ($tskPart[1]!==' ');
 				$itemLns[0] = $tskPart[2];
 			}
-			$itemLst[] = $this->holdBlockArray('entry', $this->retrieveBlocks($itemLns), $attrSet);
+			$itemLst[] = $this->holdBlockArray('listItem', $this->retrieveBlocks($itemLns), $attrSet);
 			// The list carries on when its next entry follows, blank lines apart
 			$nextIdx = $linesIndxNum;
 			while( $nextIdx<$lineNum && trim($linesToParse[$nextIdx])==='' ){
@@ -252,7 +252,7 @@ class Mdwn extends Base {
 			}
 			$linesIndxNum = $nextIdx;
 		}
-		return Shape::makeBlockArray('lists', Array(), $itemLst, Array('order'=>($frstMrk['numbr']!=='')));
+		return Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>($frstMrk['numbr']!=='')));
 	}
 
 	/**
@@ -286,16 +286,16 @@ class Mdwn extends Base {
 			$cellBlk = Array();
 			// Every row has the cells of the header: no more, no less
 			foreach(array_keys($headTxt) as $colInc){
-				$cellBlk[] = Shape::makeBlockArray('tcell', $this->textSpansArray(strval($cellTxt[$colInc] ?? '')));
+				$cellBlk[] = Shape::makeBlockArray('cellText', $this->textSpansArray(strval($cellTxt[$colInc] ?? '')));
 			}
-			$rowsLst[] = Shape::makeBlockArray(empty($rowsLst) ? 'thead' : 'tbrow', Array(), $cellBlk);
+			$rowsLst[] = Shape::makeBlockArray(empty($rowsLst) ? 'tableTop' : 'tableRow', Array(), $cellBlk);
 			if( !isset($linesToParse[$linesIndxNum]) || trim($linesToParse[$linesIndxNum])==='' || $this->startsBlockFlg($linesToParse[$linesIndxNum], true) ){
 				break;
 			}
 			$cellTxt = $this->splitCellArray($linesToParse[$linesIndxNum]);
 			$linesIndxNum++;
 		}
-		return Shape::makeBlockArray('table', Array(), $rowsLst);
+		return Shape::makeBlockArray('tableSet', Array(), $rowsLst);
 	}
 
 	/**
@@ -330,18 +330,18 @@ class Mdwn extends Base {
 		while( preg_match(self::IMGE_PTRN, $fullTxt, $imgPrts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readPos) ){
 			$spnsLst = $this->textSpansArray(substr($fullTxt, $readPos, $imgPrts[0][1]-$readPos));
 			if( !empty($spnsLst) ){
-				$blckLst[] = Shape::makeBlockArray('parag', $spnsLst);
+				$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
 			}
 			$imgLink = Shape::tidyLinkString(trim(strval($imgPrts['ls'][0] ?? $imgPrts['is'][0]), '<>'));
 			$imgText = trim(strval($imgPrts['la'][0] ?? $imgPrts['ia'][0]));
 			if( $imgLink!=='' ){
-				$blckLst[] = Shape::makeBlockArray('image', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink));
+				$blckLst[] = Shape::makeBlockArray('imageBox', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink));
 			}
 			$readPos = $imgPrts[0][1]+strlen($imgPrts[0][0]);
 		}
 		$spnsLst = $this->textSpansArray(strval(substr($fullTxt, $readPos)));
 		if( !empty($spnsLst) ){
-			$blckLst[] = Shape::makeBlockArray('parag', $spnsLst);
+			$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
 		}
 		return $blckLst;
 	}
@@ -389,7 +389,7 @@ class Mdwn extends Base {
 				if( strlen($codeTxt)>2 && $codeTxt[0]==' ' && substr($codeTxt, -1)==' ' && trim($codeTxt)!=='' ){
 					$codeTxt = substr($codeTxt, 1, -1);
 				}
-				$spnsLst[] = Shape::makeASpanArray($codeTxt, array_merge($runFormatSet, Array('code')), $linkGoalText);
+				$spnsLst[] = Shape::makeASpanArray($codeTxt, array_merge($runFormatSet, Array('codeSpan')), $linkGoalText);
 			}elseif( $matches['aut'][0]!==null ){
 				$autoAdr = $matches['aut'][0];
 				$spnsLst[] = Shape::makeASpanArray($autoAdr, $runFormatSet, Shape::tidyLinkString((strpos($autoAdr, ':')===false) ? 'mailto:'.$autoAdr : $autoAdr));
@@ -400,7 +400,7 @@ class Mdwn extends Base {
 				$linkAdr = Shape::tidyLinkString(preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', trim(strval($matches['lnk'][0]), '<>')));
 				$spnsLst = array_merge($spnsLst, $this->inlineSpansArr($matches['ltx'][0], $runFormatSet, ($linkAdr!=='') ? $linkAdr : $linkGoalText));
 			}elseif( $matches['tld'][0]!==null ){
-				$spnsLst = array_merge($spnsLst, $this->inlineSpansArr($matches['tld'][0], array_merge($runFormatSet, Array('strk')), $linkGoalText));
+				$spnsLst = array_merge($spnsLst, $this->inlineSpansArr($matches['tld'][0], array_merge($runFormatSet, Array('crossOut')), $linkGoalText));
 			}else{
 				$markTxt = strval($matches['stm'][0] ?? $matches['unm'][0]);
 				$spnsLst = array_merge($spnsLst, $this->inlineSpansArr(strval($matches['stx'][0] ?? $matches['unx'][0]), array_merge($runFormatSet, self::MARK_LIST[strlen($markTxt)]), $linkGoalText));
