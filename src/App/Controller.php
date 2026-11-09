@@ -18,21 +18,21 @@ use nyu\Output\Response;
  */
 class Controller{
 	
-	protected $appIdent;
-	protected $appFoldr;
-	protected $inputReg;
-	protected $axessReg;
-	protected $httpRqst;
-	protected $httpResp;
-	protected $routrObj;
-	protected $savedAct;
-	protected $savedOpt;
-	protected $appObjct;
-	protected $modStack;
-	protected $respVals;
-	protected $loadFail;
+	protected $appIdentty;
+	protected $appsFolder;
+	protected $inptRgstry;
+	protected $accessRgst;
+	protected $httpRequst;
+	protected $httpRespns;
+	protected $rotrObject;
+	protected $savdAction;
+	protected $savdOption;
+	protected $actionsObj;
+	protected $modelStack;
+	protected $respValues;
+	protected $loadFailed;
 	// Status reported with $loadFail
-	protected $failCode = 404;
+	protected $failStatus = 404;
 
 	// Initialize application
 	/**
@@ -41,84 +41,84 @@ class Controller{
 	 * application, one whose name is not made of letters and digits only,
 	 * one whose Actions.php does not declare its actionset and a name that
 	 * is not one of its actions are all the
-	 * same 404 "Not Found" through getStatus(): the client is not told
+	 * same 404 "Not Found" through retrieveStatus(): the client is not told
 	 * which. The reason is logged on the 'runner' channel. A default action
 	 * that names no action is a 500, logged as an error. A required input
 	 * that is missing or empty is a 400, the action not being run.
 	 *
-	 * @param String   $runAppName Name of the application (run) to load.
-	 * @param String   $runAppActn Name of the action/method to call on the application.
-	 * @param Registry $inRegistry Registry of input values to pass to the application.
-	 * @param ?String  $runAppOptn Optional extra parameter passed to the action.
-	 * @param ?Registry $axRegistry Access check result (logged user, role and identity) to pass to the application.
-	 * @param ?Request $requestObj The shared HTTP request, to pass to the application.
-	 * @param ?Response $httpRespns The shared response, to pass to the application.
-	 * @param ?Router  $routingObj The router of the request, to pass to the application.
+	 * @param String   $appNameToRun Name of the application (run) to load.
+	 * @param String   $runAppAction Name of the action/method to call on the application.
+	 * @param Registry $actionInRgst Registry of input values to pass to the application.
+	 * @param ?String  $runAppOption Optional extra parameter passed to the action.
+	 * @param ?Registry $actionAxRgst Access check result (logged user, role and identity) to pass to the application.
+	 * @param ?Request $requstObject The shared HTTP request, to pass to the application.
+	 * @param ?Response $httpResponse The shared response, to pass to the application.
+	 * @param ?Router  $routerObject The router of the request, to pass to the application.
 	 */
-	public function __construct( String $runAppName, String $runAppActn, Registry $inRegistry, ?String $runAppOptn = null, ?Registry $axRegistry = null, ?Request $requestObj = null, ?Response $httpRespns = null, ?Router $routingObj = null ){
+	public function __construct( String $appNameToRun, String $runAppAction, Registry $actionInRgst, ?String $runAppOption = null, ?Registry $actionAxRgst = null, ?Request $requstObject = null, ?Response $httpResponse = null, ?Router $routerObject = null ){
 		// Change case of AppName
-		$runAppName = UCFirst($runAppName);
+		$appNameToRun = UCFirst($appNameToRun);
 		// Save action and inputs
-		$this->appIdent = $runAppName;
-		$this->savedAct = $runAppActn;
-		$this->savedOpt = $runAppOptn;
-		$this->inputReg = $inRegistry;
-		$this->axessReg = $axRegistry;
-		$this->httpRqst = $requestObj;
-		$this->httpResp = $httpRespns;
-		$this->routrObj = $routingObj;
+		$this->appIdentty = $appNameToRun;
+		$this->savdAction = $runAppAction;
+		$this->savdOption = $runAppOption;
+		$this->inptRgstry = $actionInRgst;
+		$this->accessRgst = $actionAxRgst;
+		$this->httpRequst = $requstObject;
+		$this->httpRespns = $httpResponse;
+		$this->rotrObject = $routerObject;
 		// The name goes into a path and a class name : letters and digits only, anything else is no application
-		$logText = 'Not found: '.json_encode($runAppName.'/'.$runAppActn, JSON_INVALID_UTF8_SUBSTITUTE).': ';
-		if( !preg_match('/^[A-Za-z0-9]+$/D', $runAppName) ){
-			$this->loadFail = 'Not Found';
-			Logger::getLogger('runner')->info( $logText.'not a name of an application'.Logger::actorText() );
+		$logText = 'Not found: '.json_encode($appNameToRun.'/'.$runAppAction, JSON_INVALID_UTF8_SUBSTITUTE).': ';
+		if( !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
+			$this->loadFailed = 'Not Found';
+			Logger::retrieveLogger('runner')->info( $logText.'not a name of an application'.Logger::getActorSuffix() );
 			return;
 		}
 		// Check that application exists
-		$fullDir = RUN_DIR.DS.$runAppName;
-		$actPath = $fullDir.DS.'Actions.php';
-		$actNSpc = '\\nyu\\Runs\\'.$runAppName.'\\';
-		if( is_dir($fullDir) && file_exists($actPath) ){
-			$this->appFoldr = $fullDir;
-			require_once( $actPath );
+		$fullDir = RUN_DIR.DS.$appNameToRun;
+		$actnPth = $fullDir.DS.'Actions.php';
+		$actNSpc = '\\nyu\\Runs\\'.$appNameToRun.'\\';
+		if( is_dir($fullDir) && file_exists($actnPth) ){
+			$this->appsFolder = $fullDir;
+			require_once( $actnPth );
 			try{
 				// Load the actionset in a reflection class
-				$this->appObjct = new \ReflectionClass($actNSpc.'Actions');
+				$this->actionsObj = new \ReflectionClass($actNSpc.'Actions');
 			}catch(\ReflectionException $e){
 				// Actions.php does not declare the application's actionset : a mistake of the application, told to the client as nothing found
-				$this->loadFail = 'Not Found';
-				Logger::getLogger('runner')->warning( $logText.'Actions.php of the application declares no actionset'.Logger::actorText() );
+				$this->loadFailed = 'Not Found';
+				Logger::retrieveLogger('runner')->warning( $logText.'Actions.php of the application declares no actionset'.Logger::getActorSuffix() );
 				return;
 			}
 		}else{
-			// Unknown application : reported through getStatus()
-			$this->loadFail = 'Not Found';
-			Logger::getLogger('runner')->info( $logText.'unknown application'.Logger::actorText() );
+			// Unknown application : reported through retrieveStatus()
+			$this->loadFailed = 'Not Found';
+			Logger::retrieveLogger('runner')->info( $logText.'unknown application'.Logger::getActorSuffix() );
 			return;
 		}
 		$isDeflt = false;
-		if( $this->savedAct=='' ){
-			$this->savedAct = $this->defltActn();
+		if( $this->savdAction=='' ){
+			$this->savdAction = $this->dfltActionText();
 			$isDeflt = true;
 		}
 		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
-		$clsName = $this->appObjct->getName();
-		if( !$clsName::ownAction($this->savedAct) ){
+		$clsName = $this->actionsObj->getName();
+		if( !$clsName::hasActionNamed($this->savdAction) ){
 			if( $isDeflt ){
-				$this->failCode = 500;
-				$this->loadFail = 'Internal Server Error';
-				Logger::getLogger('runner')->error( 'The default action of '.$runAppName.' is not an action: '.json_encode($this->savedAct, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltActn, or no action declared)' );
+				$this->failStatus = 500;
+				$this->loadFailed = 'Internal Server Error';
+				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->savdAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltActn, or no action declared)' );
 				return;
 			}
-			$this->loadFail = 'Not Found';
-			Logger::getLogger('runner')->info( $logText.'not an action of the application'.Logger::actorText() );
+			$this->loadFailed = 'Not Found';
+			Logger::retrieveLogger('runner')->info( $logText.'not an action of the application'.Logger::getActorSuffix() );
 			return;
 		}
-		$this->actInputs();
-		if( $this->loadFail!==null ){
+		$this->applyInputDefs();
+		if( $this->loadFailed!==null ){
 			return;
 		}
-		$this->modLoader();
+		$this->loadModelStack();
 	}
 
 	/**
@@ -127,31 +127,31 @@ class Controller{
 	 * given its format, and the others are left out (see Tools\Input).
 	 * Without that file, the inputs stay as the preset built them. A
 	 * field the definition requires ('name!') that is missing or empty
-	 * refuses the request: a 400 naming the fields, through getStatus().
+	 * refuses the request: a 400 naming the fields, through retrieveStatus().
 	 *
 	 * @throws \RuntimeException When the file is not a valid definition.
 	 */
-	protected function actInputs(): Void {
-		if( !preg_match('/^\w+$/', $this->savedAct) || !$this->appObjct->hasMethod($this->savedAct) ){
+	protected function applyInputDefs(): Void {
+		if( !preg_match('/^\w+$/', $this->savdAction) || !$this->actionsObj->hasMethod($this->savdAction) ){
 			return;
 		}
 		// The file is named as the action is declared, whatever the case the request wrote it in
-		$actName = $this->appObjct->getMethod($this->savedAct)->getName();
-		$defPath = $this->appFoldr.DS.'input'.DS.$actName.'.json';
+		$actnNme = $this->actionsObj->getMethod($this->savdAction)->getName();
+		$defPath = $this->appsFolder.DS.'input'.DS.$actnNme.'.json';
 		if( !is_file($defPath) ){
 			return;
 		}
-		$defVals = json_decode( strval(file_get_contents($defPath)), true );
-		if( !is_array($defVals) || !isset($defVals['fields']) || !(is_array($defVals['fields']) || is_string($defVals['fields'])) ){
-			throw new \RuntimeException('Input misconfigured: '.$this->appIdent.'/input/'.$actName.'.json is not a definition of fields');
+		$fldDefs = json_decode( strval(file_get_contents($defPath)), true );
+		if( !is_array($fldDefs) || !isset($fldDefs['fields']) || !(is_array($fldDefs['fields']) || is_string($fldDefs['fields'])) ){
+			throw new \RuntimeException('Input misconfigured: '.$this->appIdentty.'/input/'.$actnNme.'.json is not a definition of fields');
 		}
-		$inptObj = new Input( null, 'ACTON', $defVals['fields'], $actName );
-		$this->inputReg = new Registry( $inptObj->parseVals($this->inputReg->readLines()) );
-		$missLst = $inptObj->getMissed();
+		$inptObj = new Input( null, 'ACTON', $fldDefs['fields'], $actnNme );
+		$this->inptRgstry = new Registry( $inptObj->parseValuesArr($this->inptRgstry->readLinesArray()) );
+		$missLst = $inptObj->retrieveMissed();
 		if( !empty($missLst) ){
 			// A required field is missing or empty : the action is not run
-			$this->failCode = 400;
-			$this->loadFail = 'Missing or invalid input: '.implode(', ', $missLst);
+			$this->failStatus = 400;
+			$this->loadFailed = 'Missing or invalid input: '.implode(', ', $missLst);
 		}
 	}
 
@@ -162,13 +162,13 @@ class Controller{
 	 *
 	 * @return String The default action name, or an empty string when the actionset declares no action.
 	 */
-	protected function defltActn(): String {
-		$clsProp = $this->appObjct->getDefaultProperties();
+	protected function dfltActionText(): String {
+		$clsProp = $this->actionsObj->getDefaultProperties();
 		if( !empty($clsProp['dfltActn']) && is_string($clsProp['dfltActn']) ){
 			return $clsProp['dfltActn'];
 		}
-		foreach( $this->appObjct->getMethods(\ReflectionMethod::IS_PUBLIC) as $mthObj ){
-			if( $mthObj->getDeclaringClass()->getName()==$this->appObjct->getName() && !$mthObj->isStatic() && substr($mthObj->getName(), 0, 2)!='__' ){
+		foreach( $this->actionsObj->getMethods(\ReflectionMethod::IS_PUBLIC) as $mthObj ){
+			if( $mthObj->getDeclaringClass()->getName()==$this->actionsObj->getName() && !$mthObj->isStatic() && substr($mthObj->getName(), 0, 2)!='__' ){
 				return $mthObj->getName();
 			}
 		}
@@ -180,10 +180,10 @@ class Controller{
 	 * Instantiates the model loader (ModelStack) for the current
 	 * application and triggers the actionset run.
 	 */
-	protected function modLoader(): Void {
-		$appName = $this->appIdent;
-		$this->modStack = new ModelStack( $appName );
-		$this->appRunner();
+	protected function loadModelStack(): Void {
+		$appName = $this->appIdentty;
+		$this->modelStack = new ModelStack( $appName );
+		$this->runApplication();
 	}
 	
 	/**
@@ -192,19 +192,19 @@ class Controller{
 	 *
 	 * @return RunContext The action, its option and inputs, the access result, request, response, router, models and application.
 	 */
-	protected function makeCntxt(): RunContext {
-		return new RunContext( $this->savedAct, $this->savedOpt, $this->inputReg, $this->axessReg, $this->httpRqst, $this->httpResp, $this->routrObj, $this->modStack, $this->appIdent, strval($this->appFoldr) );
+	protected function makeRunContext(): RunContext {
+		return new RunContext( $this->savdAction, $this->savdOption, $this->inptRgstry, $this->accessRgst, $this->httpRequst, $this->httpRespns, $this->rotrObject, $this->modelStack, $this->appIdentty, strval($this->appsFolder) );
 	}
 
 	// Execute application (from actionset)
 	/**
 	 * Creates the reflected actionset with the context of the request, then
-	 * runs it: its beforeAct() hook, then the action (see Actionset::runAction).
+	 * runs it: its setupForAction() hook, then the action (see Actionset::runAskedAction).
 	 * A StopRun thrown by either ends the run with its status.
 	 */
-	protected function appRunner(): Void {
-		$this->appObjct = $this->appObjct->newInstance( $this->makeCntxt() );
-		$this->appObjct->runAction();
+	protected function runApplication(): Void {
+		$this->actionsObj = $this->actionsObj->newInstance( $this->makeRunContext() );
+		$this->actionsObj->runAskedAction();
 	}
 	
 	// Prepare outcome message and/or data
@@ -215,13 +215,13 @@ class Controller{
 	 *
 	 * @return Array The status as ['code' => Int, 'mssg' => String].
 	 */
-	public function getStatus(): Array {
-		if( $this->loadFail!==null ){
-			return Array('code'=>$this->failCode, 'mssg'=>$this->loadFail);
+	public function retrieveStatus(): Array {
+		if( $this->loadFailed!==null ){
+			return Array('code'=>$this->failStatus, 'mssg'=>$this->loadFailed);
 		}
 		return Array(
-			'code'=>intval($this->appObjct->statCode ?? 200),
-			'mssg'=>strval($this->appObjct->statMssg ?? '')
+			'code'=>intval($this->actionsObj->statusCode ?? 200),
+			'mssg'=>strval($this->actionsObj->statusMssg ?? '')
 		);
 	}
 
@@ -230,9 +230,9 @@ class Controller{
 	 *
 	 * @return mixed The action's output data, or null when the action was not run.
 	 */
-	public function getOutput(): Mixed {
-		$this->respVals = ($this->loadFail===null) ? $this->appObjct->asOutput : null;
-		return $this->respVals;
+	public function retrieveOutput(): Mixed {
+		$this->respValues = ($this->loadFailed===null) ? $this->actionsObj->replyValue : null;
+		return $this->respValues;
 	}
 	
 }

@@ -16,50 +16,50 @@ use nyu\Output\Response;
 readonly class RunContext {
 
 	// Action being run, as the request named it (or the default action)
-	public String $actnName;
+	public String $actionName;
 	// Extra parameter of the action, from the path
-	public ?String $actnOptn;
+	public ?String $actnOption;
 	// Inputs of the action, once its definition is applied
-	public Registry $inputReg;
+	public Registry $inptRgstry;
 	// Access check result: 'logged', 'user', 'role' and 'ident' of the requester
-	public ?Registry $axessReg;
+	public ?Registry $accessRgst;
 	// The shared HTTP request (method, headers, files)
-	public ?Request $httpRqst;
+	public ?Request $httpRequst;
 	// The shared response (headers, file and page replies)
-	public ?Response $httpResp;
+	public ?Response $httpRespns;
 	// The router of the request (links to the declared routes)
-	public ?Router $routrObj;
+	public ?Router $rotrObject;
 	// The models of the application
-	public ?ModelStack $modStack;
+	public ?ModelStack $modelStack;
 	// Name of the application, as the request named it with its first letter in upper case
-	public String $appIdent;
+	public String $appIdentty;
 	// Folder of the application, in runs/
-	public String $appFoldr;
+	public String $appsFolder;
 
 	/**
 	 * Holds the values a run is given for the request.
 	 *
-	 * @param String      $runAppActn Name of the action to run.
-	 * @param ?String     $runAppOptn Extra parameter of the action, or null.
-	 * @param Registry    $inRegistry Inputs of the action.
-	 * @param ?Registry   $axRegistry Access check result, or null.
-	 * @param ?Request    $requestObj The shared HTTP request, or null.
-	 * @param ?Response   $httpRespns The shared response, or null.
-	 * @param ?Router     $routingObj The router of the request, or null.
-	 * @param ?ModelStack $modelStack The models of the application, or null.
-	 * @param String      $runAppName Name of the application.
-	 * @param String      $appsFolder Folder of the application.
+	 * @param String      $runAppAction Name of the action to run.
+	 * @param ?String     $runAppOption Extra parameter of the action, or null.
+	 * @param Registry    $actionInRgst Inputs of the action.
+	 * @param ?Registry   $actionAxRgst Access check result, or null.
+	 * @param ?Request    $requstObject The shared HTTP request, or null.
+	 * @param ?Response   $httpResponse The shared response, or null.
+	 * @param ?Router     $routerObject The router of the request, or null.
+	 * @param ?ModelStack $modelsLoader The models of the application, or null.
+	 * @param String      $appNameToRun Name of the application.
+	 * @param String      $appsFoldText Folder of the application.
 	 */
-	public function __construct( String $runAppActn, ?String $runAppOptn, Registry $inRegistry, ?Registry $axRegistry, ?Request $requestObj, ?Response $httpRespns, ?Router $routingObj, ?ModelStack $modelStack, String $runAppName, String $appsFolder ){
-		$this->actnName = $runAppActn;
-		$this->actnOptn = $runAppOptn;
-		$this->inputReg = $inRegistry;
-		$this->axessReg = $axRegistry;
-		$this->httpRqst = $requestObj;
-		$this->httpResp = $httpRespns;
-		$this->routrObj = $routingObj;
-		$this->modStack = $modelStack;
-		$this->appIdent = $runAppName;
-		$this->appFoldr = $appsFolder;
+	public function __construct( String $runAppAction, ?String $runAppOption, Registry $actionInRgst, ?Registry $actionAxRgst, ?Request $requstObject, ?Response $httpResponse, ?Router $routerObject, ?ModelStack $modelsLoader, String $appNameToRun, String $appsFoldText ){
+		$this->actionName = $runAppAction;
+		$this->actnOption = $runAppOption;
+		$this->inptRgstry = $actionInRgst;
+		$this->accessRgst = $actionAxRgst;
+		$this->httpRequst = $requstObject;
+		$this->httpRespns = $httpResponse;
+		$this->rotrObject = $routerObject;
+		$this->modelStack = $modelsLoader;
+		$this->appIdentty = $appNameToRun;
+		$this->appsFolder = $appsFoldText;
 	}
 }
