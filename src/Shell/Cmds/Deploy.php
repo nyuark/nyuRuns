@@ -196,7 +196,7 @@ class Deploy extends Command{
 			$this->terminateShell('The '.$srcName.' store holds no users: nothing to move', self::EXIT_DENY);
 		}
 		// The store moved to gets its block, and the native userbase its database, before anything is checked
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
 		$treeObj = $wrtrObj->importJsonsObj($accPath);
 		if( !isset($treeObj->$trgtNme) ){
@@ -281,7 +281,7 @@ class Deploy extends Command{
 	 * @throws ShellStop When the file cannot be used.
 	 */
 	protected function fromFilesArray( Array $configValues ): Array {
-		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 		$usrList = $fileObj->readUsersArray();
 		if( $usrList===false ){
 			$this->terminateShell('The users cannot be read: '.$fileObj->finalErrorText());
@@ -482,7 +482,7 @@ class Deploy extends Command{
 	 * @throws ShellStop When the file cannot be written.
 	 */
 	protected function writeUsersFile( Array $configValues, Array $usersRecords ): Void {
-		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 		if( !$fileObj->fillEmptyStore($usersRecords) ){
 			$this->terminateShell('Nothing was moved: '.$fileObj->finalErrorText());
 		}
@@ -555,7 +555,7 @@ class Deploy extends Command{
 	 * @throws ShellStop When an answer is not one of those proposed.
 	 */
 	protected function querySetupsTxt(): String {
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		$iniPath = TOP_DIR.DS.'conf'.DS.'system.ini';
 		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
 		$currEnv = strval($wrtrObj->retrieveIniKey($iniPath, 'ENV_NAME') ?? '');
@@ -672,7 +672,7 @@ class Deploy extends Command{
 		}
 		$passLst = Array();
 		if( $storeOfUsers=='userFile' ){
-			$fileObj = new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+			$fileObj = new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 			$usrList = $fileObj->listUsersNamed();
 			if( $usrList===false ){
 				$this->terminateShell('No user created: '.$fileObj->finalErrorText(), self::EXIT_FAIL);

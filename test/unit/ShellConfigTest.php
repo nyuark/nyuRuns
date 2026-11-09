@@ -37,30 +37,30 @@ $projDir = makeProjectTxt('config', Array(
 ));
 
 // shows
-checkIdentical('shows system lists the keys as written', array_slice(runShellAsJson($projDir, Array('settings', 'showConf', 'system'))['rows'] ?? Array(), 0, 2), Array(Array('key'=>'ENV_NAME', 'value'=>'DEVS'), Array('key'=>'LOG_MODE', 'value'=>'FULL')));
-checkIdentical('shows one key', callShellArray($projDir, Array('settings', 'showConf', 'system', 'LOG_PATH'))['text'], "key       value\nLOG_PATH  /temp/logs\n");
-checkIdentical('shows a block, its values as written', runShellAsJson($projDir, Array('settings', 'showConf', 'access', 'jwtToken'))['rows'] ?? null, Array(Array('key'=>'jwtToken.hmacSecr', 'value'=>'env:NYU_JWT_SECRET'), Array('key'=>'jwtToken.lifeSecs', 'value'=>3600), Array('key'=>'jwtToken.signAlgo', 'value'=>'HS256')));
-checkIdentical('a secret written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'access', 'inline'))['rows'] ?? null, Array(Array('key'=>'inline.hmacSecr', 'value'=>'********'), Array('key'=>'inline.keysList', 'value'=>Array('********', '********'))));
-checkIdentical('nothing under a path', Array(callShellArray($projDir, Array('settings', 'showConf', 'access', 'loginSet.nothing'))['code'], callShellArray($projDir, Array('settings', 'showConf', 'system', 'NOT_HERE'))['code'], callShellArray($projDir, Array('settings', 'showConf', 'other'))['code']), Array(3, 3, 2));
-checkIdentical('shows the databases, the password as the name it is kept under', runShellAsJson($projDir, Array('settings', 'showConf', 'dbases', 'main.password'))['rows'] ?? null, Array(Array('key'=>'main.password', 'value'=>'env:NYU_DB_PASS')));
+checkIdentical('shows system lists the keys as written', array_slice(runShellAsJson($projDir, Array('settings', 'showConf', 'coreConf'))['rows'] ?? Array(), 0, 2), Array(Array('key'=>'ENV_NAME', 'value'=>'DEVS'), Array('key'=>'LOG_MODE', 'value'=>'FULL')));
+checkIdentical('shows one key', callShellArray($projDir, Array('settings', 'showConf', 'coreConf', 'LOG_PATH'))['text'], "key       value\nLOG_PATH  /temp/logs\n");
+checkIdentical('shows a block, its values as written', runShellAsJson($projDir, Array('settings', 'showConf', 'accsConf', 'jwtToken'))['rows'] ?? null, Array(Array('key'=>'jwtToken.hmacSecr', 'value'=>'env:NYU_JWT_SECRET'), Array('key'=>'jwtToken.lifeSecs', 'value'=>3600), Array('key'=>'jwtToken.signAlgo', 'value'=>'HS256')));
+checkIdentical('a secret written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'accsConf', 'inline'))['rows'] ?? null, Array(Array('key'=>'inline.hmacSecr', 'value'=>'********'), Array('key'=>'inline.keysList', 'value'=>Array('********', '********'))));
+checkIdentical('nothing under a path', Array(callShellArray($projDir, Array('settings', 'showConf', 'accsConf', 'loginSet.nothing'))['code'], callShellArray($projDir, Array('settings', 'showConf', 'coreConf', 'NOT_HERE'))['code'], callShellArray($projDir, Array('settings', 'showConf', 'other'))['code']), Array(3, 3, 2));
+checkIdentical('shows the databases, the password as the name it is kept under', runShellAsJson($projDir, Array('settings', 'showConf', 'dataConf', 'main.password'))['rows'] ?? null, Array(Array('key'=>'main.password', 'value'=>'env:NYU_DB_PASS')));
 $rowList = runShellAsJson($projDir, Array('settings', 'showConf', 'preset'))['rows'] ?? Array();
 checkIdentical('shows the presets', Array(array_column($rowList, 'preset'), $rowList[1]['about'] ?? null), Array(Array('defaults', 'sample', 'wrongs'), 'A preset of the tests'));
 checkIdentical('shows a key of a preset', runShellAsJson($projDir, Array('settings', 'showConf', 'preset', 'sample.security.openList'))['rows'] ?? null, Array(Array('key'=>'security.openList', 'value'=>Array('auth/openSess', '/hello'))));
 checkIdentical('a preset that does not exist', callShellArray($projDir, Array('settings', 'showConf', 'preset', 'nosuch'))['code'], 1);
 
 // write : system.ini
-checkIdentical('write system changes the value on its line', Array(callShellArray($projDir, Array('settings', 'setValue', 'system', 'LOG_MODE', 'BASE'))['text'], fetchInProject($projDir, 'conf/system.ini')), Array("written: system LOG_MODE\n", str_replace('LOG_MODE = FULL', 'LOG_MODE = BASE', $iniText)));
-checkIdentical('the former file is copied to temp/backup', array_map(function( String $copyPath ): String { return strval(preg_replace('/\d{8}-\d{6}/', 'TIME', basename($copyPath))); }, glob($projDir.DS.'temp'.DS.'backup'.DS.'*')), Array('system.ini.TIME'));
-checkIdentical('a value that is not plain words is written between quotes', Array(callShellArray($projDir, Array('settings', 'setValue', 'system', 'PRX_LIST', '10.0.0.5, 10.0.0.6'))['code'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'PRX_LIST = "10.0.0.5, 10.0.0.6"'."\n")!==false), Array(0, true));
-checkIdentical('a value a key does not take, a key that is not there, a key that is not one', Array(callShellArray($projDir, Array('settings', 'setValue', 'system', 'LOG_MODE', 'LOUD'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'system', 'NOT_HERE', '1'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'system', 'logmode', '1'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'system', 'LOG_MODE'))['code']), Array(3, 3, 2, 2));
+checkIdentical('write system changes the value on its line', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'LOG_MODE', 'BASE'))['text'], fetchInProject($projDir, 'conf/system.ini')), Array("written: coreConf LOG_MODE\n", str_replace('LOG_MODE = FULL', 'LOG_MODE = BASE', $iniText)));
+checkIdentical('the former file is copied to temp/archives', array_map(function( String $copyPath ): String { return strval(preg_replace('/\d{8}-\d{6}/', 'TIME', basename($copyPath))); }, glob($projDir.DS.'temp'.DS.'archives'.DS.'*')), Array('system.ini.TIME'));
+checkIdentical('a value that is not plain words is written between quotes', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'PRX_LIST', '10.0.0.5, 10.0.0.6'))['code'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'PRX_LIST = "10.0.0.5, 10.0.0.6"'."\n")!==false), Array(0, true));
+checkIdentical('a value a key does not take, a key that is not there, a key that is not one', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'LOG_MODE', 'LOUD'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'NOT_HERE', '1'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'logmode', '1'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'LOG_MODE'))['code']), Array(3, 3, 2, 2));
 checkIdentical('nothing was changed by the refusals', strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'LOG_MODE = BASE')!==false, true);
 
 // write : access.json, database.json
-checkIdentical('write access keeps the layout of the file', Array(callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.minChars', '12'))['code'], fetchInProject($projDir, 'conf/access.json')), Array(0, str_replace('"minChars": 10', '"minChars": 12', $axsText)));
-checkIdentical('a check that does not exist, a key or a block that is not there', Array(callShellArray($projDir, Array('settings', 'setValue', 'access', 'loginSet.authWith', 'nothing'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.newkey', 'x'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'access', 'newblk.newkey', 'x'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'access', 'native', 'x'))['code']), Array(3, 3, 3, 2));
-checkIdentical('--overrule adds a key and a block', Array(callShellArray($projDir, Array('settings', 'setValue', 'access', 'newblk.keysList', '["a", "b"]', '--overrule'))['code'], fetchInProject($projDir, 'conf/access.json')), Array(0, str_replace(Array('"minChars": 10', "\"k-2\"] }\n"), Array('"minChars": 12', "\"k-2\"] },\n\t\"newblk\":   { \"keysList\": [\"a\", \"b\"] }\n"), $axsText)));
-checkIdentical('write access takes a known check', Array(callShellArray($projDir, Array('settings', 'setValue', 'access', 'loginSet.authWith', 'userFile'))['code'], runShellAsJson($projDir, Array('settings', 'showConf', 'access', 'loginSet.authWith'))['rows'][0]['value'] ?? null), Array(0, 'userFile'));
-checkIdentical('write dbases keeps the layout of the file', Array(callShellArray($projDir, Array('settings', 'setValue', 'dbases', 'main.hostName', 'db.local'))['code'], fetchInProject($projDir, 'conf/database.json')), Array(0, str_replace('"hostName": ""', '"hostName": "db.local"', $dbsText)));
+checkIdentical('write access keeps the layout of the file', Array(callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.minChars', '12'))['code'], fetchInProject($projDir, 'conf/access.json')), Array(0, str_replace('"minChars": 10', '"minChars": 12', $axsText)));
+checkIdentical('a check that does not exist, a key or a block that is not there', Array(callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'loginSet.authWith', 'nothing'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.newkey', 'x'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'newblk.newkey', 'x'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'native', 'x'))['code']), Array(3, 3, 3, 2));
+checkIdentical('--overrule adds a key and a block', Array(callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'newblk.keysList', '["a", "b"]', '--overrule'))['code'], fetchInProject($projDir, 'conf/access.json')), Array(0, str_replace(Array('"minChars": 10', "\"k-2\"] }\n"), Array('"minChars": 12', "\"k-2\"] },\n\t\"newblk\":   { \"keysList\": [\"a\", \"b\"] }\n"), $axsText)));
+checkIdentical('write access takes a known check', Array(callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'loginSet.authWith', 'userFile'))['code'], runShellAsJson($projDir, Array('settings', 'showConf', 'accsConf', 'loginSet.authWith'))['rows'][0]['value'] ?? null), Array(0, 'userFile'));
+checkIdentical('write dbases keeps the layout of the file', Array(callShellArray($projDir, Array('settings', 'setValue', 'dataConf', 'main.hostName', 'db.local'))['code'], fetchInProject($projDir, 'conf/database.json')), Array(0, str_replace('"hostName": ""', '"hostName": "db.local"', $dbsText)));
 
 // write : presets
 checkIdentical('write preset changes the value in its place, comments kept', Array(callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.sessWith', 'httpBasc'))['code'], fetchInProject($projDir, 'conf/presets/sample.rps')), Array(0, str_replace("\t\t\"sessWith\": \"jwtToken\"", "\t\t\"sessWith\": \"httpBasc\"", $rpsText)));
@@ -89,7 +89,7 @@ checkIdentical('a secret the block holds itself is written in the block', Array(
 checkIdentical('a block that holds no such secret', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=native', '--yesToAll'))['code'], callShellArray($projDir, Array('settings', 'makeSecr', 'other'))['code']), Array(3, 2));
 // With RS256, a key pair in conf/keys
 if( function_exists('openssl_pkey_new') ){
-	callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.signAlgo', 'RS256', '--overrule'));
+	callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.signAlgo', 'RS256', '--overrule'));
 	$runVals = callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn'));
 	$prvText = strval(fetchInProject($projDir, 'conf/keys/rstokn.key'));
 	$keyInfo = ($prvText!='') ? openssl_pkey_get_details(openssl_pkey_get_private($prvText)) : Array();
@@ -102,7 +102,7 @@ if( function_exists('openssl_pkey_new') ){
 	}
 	checkIdentical('keys in use are only replaced when confirmed', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn', '--noPrompt'))['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')), Array(3, $prvText));
 	$pubText = strval(fetchInProject($projDir, 'conf/keys/rstokn.pub'));
-	checkIdentical('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn', '--yesToAll'))['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'backup'.DS.'rstokn*')), Array(0, true, Array()));
+	checkIdentical('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn', '--yesToAll'))['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'archives'.DS.'rstokn*')), Array(0, true, Array()));
 	checkIdentical('the former public key is kept as prevFile, and checks the tokens it signed', Array(fetchInProject($projDir, 'conf/keys/rstokn.old.pub'), json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn']['prevFile'] ?? null), Array($pubText, 'conf/keys/rstokn.old.pub'));
 	$oldTokn = $rsaJwt->issueTokenText( Array('user'=>'anna') );
 	$nowJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'prevFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub', 'retireAt'=>time() + 5) );
@@ -122,30 +122,30 @@ if( function_exists('openssl_pkey_new') ){
 	checkIdentical('--dropsAll: a token of the former pair is refused', Array($dropJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$befTokn))), $dropJwt->finalErrorText()), Array(false, 'Invalid token'));
 	// write : the keys binding the tokens to this project
 	checkIdentical('write access: an issuer, audiences, a previous key that is one', Array(
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.issuerId', 'https://auth.example.org', '--overrule'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.audience', '["api.example.org", "app.example.org"]', '--overrule'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.prevFile', 'conf/keys/rstokn.pub'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.prevFile', ''))['code']
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.issuerId', 'https://auth.example.org', '--overrule'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.audience', '["api.example.org", "app.example.org"]', '--overrule'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.prevFile', 'conf/keys/rstokn.pub'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.prevFile', ''))['code']
 	), Array(0, 0, 0, 0));
 	checkIdentical('write access: refused, an issuer or audiences that are not texts, a previous key that is not one', Array(
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.issuerId', '42'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.audience', '[1, 2]'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.audience', '{"a": "b"}'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.prevFile', 'conf/access.json'))['code'],
-		callShellArray($projDir, Array('settings', 'setValue', 'access', 'rstokn.prevFile', 'conf/keys/rstokn.key.missing'))['code']
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.issuerId', '42'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.audience', '[1, 2]'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.audience', '{"a": "b"}'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.prevFile', 'conf/access.json'))['code'],
+		callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'rstokn.prevFile', 'conf/keys/rstokn.key.missing'))['code']
 	), Array(3, 3, 3, 3, 3));
 	checkIdentical('write access: what was refused was not written', array_intersect_key(json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array(), Array('issuerId'=>1, 'audience'=>1, 'prevFile'=>1)), Array('prevFile'=>'', 'issuerId'=>'https://auth.example.org', 'audience'=>Array('api.example.org', 'app.example.org')));
 }
 // The key of the 2FA secrets, in the block of the store the login uses
 checkIdentical('a store whose block holds no key of the 2FA secrets', callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey'))['code'], 3);
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.cryptKey', 'env:NYU_TFA_KEY', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'env:NYU_TFA_KEY', '--overrule'));
 $runVals = callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey'));
 $tfaKey = strval(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '');
 checkIdentical('the key of the 2FA secrets is written in the environment file, and not shown', Array($runVals['code'], $runVals['text'], strlen($tfaKey)>=48), Array(0, "written: .env NYU_TFA_KEY\n", true));
 checkIdentical('a key in use is only replaced when confirmed', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey', '--noPrompt'))['code'], parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? null), Array(3, $tfaKey));
 checkPregMatch('replacing it tells what is lost', callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey'), "n\n")['errs'], '/Replace the key of the 2FA secrets in use: every secret stored with it stops being readable/');
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.cryptKey', 'written-in-the-block'));
-checkIdentical('a key written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'access', 'nativeDb.cryptKey'))['rows'] ?? null, Array(Array('key'=>'nativeDb.cryptKey', 'value'=>'********')));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'written-in-the-block'));
+checkIdentical('a key written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'accsConf', 'nativeDb.cryptKey'))['rows'] ?? null, Array(Array('key'=>'nativeDb.cryptKey', 'value'=>'********')));
 $jsnVals = runShellAsJson($projDir, Array('settings', 'makeSecr', 'htpasswd', 'bob'));
 $htpLine = trim(strval(fetchInProject($projDir, 'conf/.htpasswd')));
 checkIdentical('a htpasswd line is written with a password made and shown once', Array(strpos($htpLine, 'bob:$2y$'), password_verify($jsnVals['secret']['Password of bob'] ?? '', substr($htpLine, 4))), Array(0, true));

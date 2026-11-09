@@ -534,7 +534,7 @@ class Manage extends Command{
 			$this->terminateShell('conf/access.json has no "'.$blckNme.'" block', self::EXIT_DENY);
 		}
 		$this->usersStore = $storNme;
-		return ($storNme=='nativeDb') ? new UserBase($blckCfg) : new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		return ($storNme=='nativeDb') ? new UserBase($blckCfg) : new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 	}
 
 	/**

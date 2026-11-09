@@ -347,7 +347,7 @@ class Bundle extends Command{
 		foreach( $projectModes as $modNme => $mdlVal ){
 			$treeObj->$modNme = (object)Array('system'=>(object)$mdlVal['system'], 'adding'=>array_values($mdlVal['adding']));
 		}
-		(new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' ))->saveJsonConfig( TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE), $treeObj );
+		(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveJsonConfig( TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE), $treeObj );
 	}
 
 	/**
@@ -489,7 +489,7 @@ class Bundle extends Command{
 		if( !is_file($iniPath) ){
 			$this->terminateShell('The bundle has no conf/system.ini: the settings of the mode cannot be written');
 		}
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		foreach( $this->readModesArray()[$packModeName]['system'] as $iniKey => $iniVal ){
 			if( !$wrtrObj->changeIniValue($iniPath, $iniKey, $iniVal) ){
 				$this->terminateShell('The bundle is not set for its mode: its system.ini has no '.$iniKey);

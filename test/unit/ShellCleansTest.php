@@ -52,7 +52,7 @@ $projDir = makeProjectTxt('cleans', Array(
 	'temp/cache/a.tmp'=>'a', 'temp/cache/sub/b.tmp'=>'b', 'temp/cache/.gitkeep'=>'',
 	'temp/logs/access.log'=>"[2026-10-01 10:00] [INFO] one\n[2026-10-01 10:01] [INFO] two\n[2026-10-01 10:02] [WARNING] three\n",
 	'temp/logs/access.log.1'=>"old\n", 'temp/logs/runner.log'=>"run\n",
-	'temp/backup/system.ini.20261001-100000'=>'x',
+	'temp/archives/system.ini.20261001-100000'=>'x',
 	'outside/keep.txt'=>'kept'
 ));
 touch($projDir.DS.'temp'.DS.'logs'.DS.'access.log.1', time()-40*86400);
@@ -96,16 +96,16 @@ checkIdentical('a channel is a plain name', callShellArray($projDir, Array('main
 
 // purge
 checkIdentical('purge needs to be told what', callShellArray($projDir, Array('maintain', 'cleanDir', '--yesToAll'))['code'], 2);
-checkIdentical('purge knows the folders of temp only', callShellArray($projDir, Array('maintain', 'cleanDir', 'cache', 'conf', '--yesToAll'))['code'], 2);
-checkIdentical('purge needs a confirmation', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'cache', '--noPrompt'))['code'], callShellArray($projDir, Array('maintain', 'cleanDir', 'cache'), "n\n")['code'], count(filesIn($projDir.DS.'temp'.DS.'cache'))), Array(3, 3, 3));
-checkIdentical('purge by age removes the old files only', Array(runShellAsJson($projDir, Array('maintain', 'cleanDir', 'logs', '--keepDays=30', '--yesToAll'))['rows'] ?? null, filesIn($projDir.DS.'temp'.DS.'logs')), Array(Array(Array('folder'=>'logs', 'removed'=>1, 'state'=>'purged')), Array('access.log', 'runner.log', 'shell.log')));
-checkIdentical('purge removes the files, and keeps the folders', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'cache', 'backup'), "yes\n")['code'], filesIn($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'cache'.DS.'sub'), filesIn($projDir.DS.'temp'.DS.'backup')), Array(0, Array('.gitkeep'), true, Array()));
+checkIdentical('purge knows the folders of temp only', callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir', 'conf', '--yesToAll'))['code'], 2);
+checkIdentical('purge needs a confirmation', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir', '--noPrompt'))['code'], callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir'), "n\n")['code'], count(filesIn($projDir.DS.'temp'.DS.'cache'))), Array(3, 3, 3));
+checkIdentical('purge by age removes the old files only', Array(runShellAsJson($projDir, Array('maintain', 'cleanDir', 'logFiles', '--keepDays=30', '--yesToAll'))['rows'] ?? null, filesIn($projDir.DS.'temp'.DS.'logs')), Array(Array(Array('folder'=>'logFiles', 'removed'=>1, 'state'=>'purged')), Array('access.log', 'runner.log', 'shell.log')));
+checkIdentical('purge removes the files, and keeps the folders', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir', 'archives'), "yes\n")['code'], filesIn($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'cache'.DS.'sub'), filesIn($projDir.DS.'temp'.DS.'archives')), Array(0, Array('.gitkeep'), true, Array()));
 $limiter->countFailedTry('203.0.113.9');
 checkIdentical('purge all', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'all', '--yesToAll', '--silently'))['code'], filesIn($projDir.DS.'temp'.DS.'limits'), fetchInProject($projDir, 'outside/keep.txt')), Array(0, Array(), 'kept'));
-checkPregMatch('a purge is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/Purge of limits: 1 files removed by user "cli:/');
+checkPregMatch('a purge is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/Purge of tryLimit: 1 files removed by user "cli:/');
 
 // A folder set outside temp is left alone
 writeInProject($projDir, 'conf/system.ini', str_replace('LOG_PATH = /temp/logs', 'LOG_PATH = /outside', buildSystemIni()));
-checkIdentical('logs kept outside temp are not purged', Array(runShellAsJson($projDir, Array('maintain', 'cleanDir', 'logs', '--yesToAll'))['rows'][0]['removed'] ?? null, is_file($projDir.DS.'outside'.DS.'keep.txt')), Array(0, true));
+checkIdentical('logs kept outside temp are not purged', Array(runShellAsJson($projDir, Array('maintain', 'cleanDir', 'logFiles', '--yesToAll'))['rows'][0]['removed'] ?? null, is_file($projDir.DS.'outside'.DS.'keep.txt')), Array(0, true));
 
 finishChecking();

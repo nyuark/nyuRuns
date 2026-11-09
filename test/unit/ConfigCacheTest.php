@@ -53,17 +53,17 @@ checkIdentical('deploy check finds it up to date', $rowList['config cache'] ?? n
 
 // What writes in conf removes it
 clearstatcache();
-checkIdentical('config write removes it', Array(callShellArray($projDir, Array('settings', 'setValue', 'system', 'LST_ROWS', '50'))['code'], is_file($cchPath)), Array(0, false));
+checkIdentical('config write removes it', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'LST_ROWS', '50'))['code'], is_file($cchPath)), Array(0, false));
 runScriptArray($runArgs);
-checkIdentical('CNF_CACH is checked', callShellArray($projDir, Array('settings', 'setValue', 'system', 'CNF_CACH', 'maybe'))['code']!=0, true);
+checkIdentical('CNF_CACH is checked', callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'CNF_CACH', 'maybe'))['code']!=0, true);
 clearstatcache();
 checkIdentical('and the cache was left as it was', is_file($cchPath), true);
-callShellArray($projDir, Array('settings', 'setValue', 'system', 'CNF_CACH', 'FALSE'));
+callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'CNF_CACH', 'FALSE'));
 runScriptArray($runArgs);
 clearstatcache();
 checkIdentical('with CNF_CACH FALSE, nothing is cached', is_file($cchPath), false);
-checkIdentical('TBL_CACH is checked too', callShellArray($projDir, Array('settings', 'setValue', 'system', 'TBL_CACH', 'maybe'))['code']!=0, true);
-callShellArray($projDir, Array('settings', 'setValue', 'system', 'TBL_CACH', 'TRUE'));
+checkIdentical('TBL_CACH is checked too', callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'TBL_CACH', 'maybe'))['code']!=0, true);
+callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'TBL_CACH', 'TRUE'));
 $rowList = array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
 checkIdentical('deploy check warns about TBL_CACH without CNF_CACH', $rowList['table cache'] ?? null, 'warn');
 

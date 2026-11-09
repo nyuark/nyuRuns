@@ -51,7 +51,7 @@ $projDir = freshPrjt('deploy');
 // servr, files
 $jsnVals = runShellAsJson($projDir, Array('installs', 'testHost'));
 $statLst = stateOf($jsnVals);
-checkIdentical('servr checks PHP and the folders, which it creates', Array($jsnVals['exit'] ?? null, $statLst['php'] ?? null, $statLst['folder temp/logs'] ?? null, $statLst['folder temp/limits'] ?? null, is_dir($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'backup')), Array(0, 'fine', 'fine', 'fine', true, true));
+checkIdentical('servr checks PHP and the folders, which it creates', Array($jsnVals['exit'] ?? null, $statLst['php'] ?? null, $statLst['folder temp/logs'] ?? null, $statLst['folder temp/limits'] ?? null, is_dir($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'archives')), Array(0, 'fine', 'fine', 'fine', true, true));
 checkIdentical('files creates the local files from their examples', Array(runShellAsJson($projDir, Array('installs', 'makeConf'))['rows'] ?? null, fetchInProject($projDir, '.env'), fetchInProject($projDir, 'conf/access.json')), Array(
 	Array(Array('file'=>'.env', 'state'=>'created from .env.example'), Array('file'=>'conf/access.json', 'state'=>'created from conf/access.json.dist'), Array('file'=>'conf/database.json', 'state'=>'not created: its example conf/database.json.dist is missing')),
 	"# Copy to .env and fill in\nNYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n", str_replace("\r\n", "\n", distAccss())
@@ -124,14 +124,14 @@ $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps'), "prod\nuserFi
 $statLst = stateOf($jsnVals);
 checkIdentical('the answers are written; ERR_SHOW left on in production is told, where it is ignored', Array($jsnVals['exit'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), "ENV_NAME = PROD\n")!==false, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), '; Environment platform (DEVS, TEST, PREV, PROD)')!==false, count(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array()), $statLst['errors'] ?? null, $statLst['users'] ?? null), Array(0, true, true, 3, 'warn', 'fine'));
 checkPregMatch('the row tells the setting is ignored there', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['errors'] ?? ''), '/^ERR_SHOW is on in the environment PROD, where it is ignored: set it to FALSE$/');
-checkIdentical('once it is off, the row is fine', Array(callShellArray($projDir, Array('settings', 'setValue', 'system', 'ERR_SHOW', 'FALSE'))['code'], stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['errors'] ?? null), Array(0, 'fine'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'phpSessn.secureOn', 'false'));
+checkIdentical('once it is off, the row is fine', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'ERR_SHOW', 'FALSE'))['code'], stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['errors'] ?? null), Array(0, 'fine'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'phpSessn.secureOn', 'false'));
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
 checkIdentical('a session cookie sent over plain HTTP in production is told, without failing the check', Array(json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['phpSessn']['secureOn'] ?? null, stateOf($jsnVals)['cookie phpSessn'] ?? null, $jsnVals['exit'] ?? null), Array(false, 'warn', 0));
 // The issuer and the audiences of the tokens, the previous key, the audiences of the application keys
 checkIdentical('tokens bound to no project are told, without failing the check', Array(stateOf($jsnVals)['token claims jwtToken'] ?? null, $jsnVals['exit'] ?? null), Array('warn', 0));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'jwtToken.issuerId', 'https://auth.example.org'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'jwtToken.audience', '["api.example.org"]'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'jwtToken.issuerId', 'https://auth.example.org'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'jwtToken.audience', '["api.example.org"]'));
 checkIdentical('once the issuer and the audiences are set, the row is fine', array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'found', 'check')['token claims jwtToken'] ?? null, 'issuer "https:\/\/auth.example.org", audience ["api.example.org"]');
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 $axsVals['jwtToken']['issuerId'] = 42;
@@ -157,30 +157,30 @@ checkIdentical('an answer that is not one of those proposed', Array(callShellArr
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=none'));
 checkIdentical('a store without users of its own', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(4, false));
 checkIdentical('without a store, no key of the 2FA secrets is made: the check tells the secrets would be readable', Array(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '', stateOf($jsnVals)['2FA key nativeDb'] ?? null), Array('', 'warn'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.cryptKey', 'too-short'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'too-short'));
 checkIdentical('a key of the 2FA secrets that is too short fails the check', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['2FA key nativeDb'] ?? null, 'fail');
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.cryptKey', 'env:NYU_TFA_KEY'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'env:NYU_TFA_KEY'));
 // The access mails : an account of conf/mailer.json, a front-end link holding the code, sign-ups a mail confirms
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.mailAcnt', 'nobody', '--overrule'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.linkTmpl', 'app.example.ch/access', '--overrule'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.codeMins', '0', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.mailAcnt', 'nobody', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.linkTmpl', 'app.example.ch/access', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.codeMins', '0', '--overrule'));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
 checkIdentical('an account that is not one, a link that is not one, a code lasting no minute', Array($statLst['access mails nativeDb'] ?? null, $statLst['access link nativeDb'] ?? null, $statLst['access codes nativeDb'] ?? null), Array('fail', 'fail', 'fail'));
 writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "sendWith": "emlFiles", "fromAddr": "dev@example.com", "mailsDir": "temp/mails" } }');
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.mailAcnt', 'devbox'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.linkTmpl', 'https://app.example.ch/access?do=%kind%&code=%code%'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.codeMins', '15'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.mailAcnt', 'devbox'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.linkTmpl', 'https://app.example.ch/access?do=%kind%&code=%code%'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.codeMins', '15'));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
 checkIdentical('a mail account that is one, a link holding the code', Array($statLst['access mails nativeDb'] ?? null, isset($statLst['access link nativeDb']), isset($statLst['access codes nativeDb'])), Array('fine', false, false));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.mailAcnt', ''));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.signupOn', 'true', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.mailAcnt', ''));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.signupOn', 'true', '--overrule'));
 checkIdentical('sign-ups without a mail account are told', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['sign-ups nativeDb'] ?? null, 'warn');
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.signupOn', 'false'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'tryLimit.maxQueue', '0', '--overrule'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'tryLimit.alertsAt', 'many', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.signupOn', 'false'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'tryLimit.maxQueue', '0', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'tryLimit.alertsAt', 'many', '--overrule'));
 checkIdentical('sign-up limits that are not numbers fail the check', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['sign-up limits tryLimit'] ?? null, 'fail');
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'tryLimit.maxQueue', '256'));
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'tryLimit.alertsAt', '[128, 200, 256]'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'tryLimit.maxQueue', '256'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'tryLimit.alertsAt', '[128, 200, 256]'));
 checkIdentical('sign-up limits that are numbers', isset(stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['sign-up limits tryLimit']), false);
 unlink($projDir.DS.'conf'.DS.'mailer.json');
 
@@ -226,7 +226,7 @@ if( function_exists('openssl_pkey_new') ){
 	$projDir = freshPrjt('external');
 	runShellAsJson($projDir, Array('installs', 'makeConf'));
 	writeInProject($projDir, 'conf/keys/jwtToken.pub', $srcPubl);
-	callShellArray($projDir, Array('settings', 'setValue', 'access', 'jwtToken.external', 'true', '--overrule'));
+	callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'jwtToken.external', 'true', '--overrule'));
 	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 	checkIdentical('external: the public key alone is the one of the server issuing the tokens, fine in PROD', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['token keys jwtToken'] ?? null, 'fine');
 	writeInProject($projDir, 'conf/system.ini', buildSystemIni());

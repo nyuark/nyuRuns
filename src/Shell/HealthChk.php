@@ -105,7 +105,7 @@ class HealthChk{
 			strval( (new Loader(Array('settings'=>Array('fileType'=>'all'))))->logConfigArray()['path'] ),
 			TOP_DIR.DS.( $lmtName!='' ? str_replace(Array('/', '\\'), DS, $lmtName) : 'temp'.DS.'limits' ),
 			TOP_DIR.DS.'temp'.DS.'cache',
-			TOP_DIR.DS.'temp'.DS.'backup'
+			TOP_DIR.DS.'temp'.DS.'archives'
 		);
 		foreach( array_unique($fldList) as $fldPth ){
 			if( !is_dir($fldPth) ){
@@ -474,8 +474,8 @@ class HealthChk{
 		$hasIssr = $appKeys || trim(strval($blckValueArr['issuerId'] ?? ''))!='';
 		if( !$hasAdnc || !$hasIssr ){
 			$this->addCheckResult('token claims '.$blckNamedTxt, 'warn', $appKeys
-				? 'no audience: the tokens of the applications are not bound to this project; "settings setValue access '.$blckNamedTxt.'.audience" sets it'
-				: 'no issuer or no audience: the tokens are not bound to this project; "settings setValue access '.$blckNamedTxt.'.issuer" and ".audience" set them');
+				? 'no audience: the tokens of the applications are not bound to this project; "settings setValue accsConf '.$blckNamedTxt.'.audience" sets it'
+				: 'no issuer or no audience: the tokens are not bound to this project; "settings setValue accsConf '.$blckNamedTxt.'.issuer" and ".audience" set them');
 			return;
 		}
 		$this->addCheckResult('token claims '.$blckNamedTxt, 'fine', $appKeys ? 'audience '.json_encode($adncVal) : 'issuer '.json_encode($blckValueArr['issuerId']).', audience '.json_encode($adncVal));

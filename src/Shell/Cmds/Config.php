@@ -18,26 +18,26 @@ use nyu\Tools\Router;
 /**
  * Reads and changes the configuration of the project:
  *
- *   php nyuRun settings showConf system        the keys of conf/system.ini
- *   php nyuRun settings showConf access login  a block of conf/access.json, secrets masked
- *   php nyuRun settings showConf preset restapis.auths a block of a preset
- *   php nyuRun settings setValue system LOG_MODE BASE
- *   php nyuRun settings setValue access native.minChars 12
- *   php nyuRun settings setValue dbases nyuRuns.host db.local
- *   php nyuRun settings setValue preset restapis.auths.authWith native
+ *   php nyuRun settings showConf coreConf          the keys of conf/system.ini
+ *   php nyuRun settings showConf accsConf loginSet  a block of conf/access.json, secrets masked
+ *   php nyuRun settings showConf preset restapis.security  a block of a preset
+ *   php nyuRun settings setValue coreConf LOG_MODE BASE
+ *   php nyuRun settings setValue accsConf nativeDb.minChars 12
+ *   php nyuRun settings setValue dataConf nyuRuns.hostName db.local
+ *   php nyuRun settings setValue preset restapis.security.authWith nativeDb
  *   php nyuRun settings wwwEntry index restapis  the preset www/index.php starts the Runner with
  *   php nyuRun settings makeSecr jwtToken        a new secret, written where the config reads it
  *   php nyuRun settings fullList restapis        the routes of a preset, and who they are served to
  *   php nyuRun settings clrCache               removes the config cache, after conf was edited by hand
  *
  * A file is written as ConfFile does: comments and layout kept, the
- * former file copied to temp/backup. A change that leaves the file
+ * former file copied to temp/archives. A change that leaves the file
  * unusable is undone, and every change removes the config cache.
  */
 class Config extends Command{
 
 	// The config files that are read and written, by the name they are asked under
-	const TRGT_LIST = Array('system'=>'conf/system.ini', 'access'=>'conf/access.json', 'dbases'=>'conf/database.json');
+	const TRGT_LIST = Array('coreConf'=>'conf/system.ini', 'accsConf'=>'conf/access.json', 'dataConf'=>'conf/database.json');
 	// Size of the RSA keys made for the tokens, in bits
 	const KEYS_BITS = 4096;
 	// Keys whose value is not shown, unless it only names where the secret is (env:NAME)
@@ -67,8 +67,8 @@ class Config extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'showConf'=>Array('args'=>'<system|access|dbases|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
-			'setValue'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
+			'showConf'=>Array('args'=>'<coreConf|accsConf|dataConf|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
+			'setValue'=>Array('args'=>'<coreConf|accsConf|dataConf|preset> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
 			'wwwEntry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
 			'makeSecr'=>Array('args'=>'<jwtToken|keysList|cryptKey|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'fullList'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
@@ -96,7 +96,11 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeShowConf(): Int {
-		$trgtNme = $this->needsShellWord('what to show (system, access, dbases, preset)');
+		$trgtNme = $this->needsShellWord('what to show (coreConf, accsConf, dataConf, preset)');
+		// Matched whatever its letter case, kept as TRGT_LIST writes it
+		foreach( array_merge(array_keys(self::TRGT_LIST), Array('preset')) as $oneCod ){
+			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
+		}
 		$pathTxt = strval($this->optnObject->shiftFirstWord() ?? '');
 		if( $trgtNme=='preset' ){
 			return $this->showPresetNumb($pathTxt);
@@ -106,7 +110,7 @@ class Config extends Command{
 		}
 		$filPath = $this->pathOfSettings(self::TRGT_LIST[$trgtNme]);
 		$rowList = Array();
-		if( $trgtNme=='system' ){
+		if( $trgtNme=='coreConf' ){
 			$lineLst = Array();
 			preg_match_all('/^[ \t]*([A-Z0-9_]+)[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filPath)), $lineLst, PREG_SET_ORDER);
 			foreach( $lineLst as $linVal ){
@@ -157,7 +161,11 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeSetValue(): Int {
-		$trgtNme = $this->needsShellWord('what to write in (system, access, dbases, preset)');
+		$trgtNme = $this->needsShellWord('what to write in (coreConf, accsConf, dataConf, preset)');
+		// Matched whatever its letter case, kept as TRGT_LIST writes it
+		foreach( array_merge(array_keys(self::TRGT_LIST), Array('preset')) as $oneCod ){
+			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
+		}
 		$pathTxt = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
 		$gvnText = $this->optnObject->shiftFirstWord();
 		if( $gvnText===null ){
@@ -167,10 +175,10 @@ class Config extends Command{
 		$wrtrObj = $this->generateWriter();
 		$isForcd = $this->optnObject->validateOption('overrule');
 		try{
-			if( $trgtNme=='system' ){
+			if( $trgtNme=='coreConf' ){
 				$this->writeSystemIni($wrtrObj, $pathTxt, $gvnText);
-			}elseif( $trgtNme=='access' || $trgtNme=='dbases' ){
-				if( count($pthPart)>2 || ($trgtNme=='access' && count($pthPart)!=2) || in_array('', $pthPart, true) ){
+			}elseif( $trgtNme=='accsConf' || $trgtNme=='dataConf' ){
+				if( count($pthPart)>2 || ($trgtNme=='accsConf' && count($pthPart)!=2) || in_array('', $pthPart, true) ){
 					$this->terminateShell('A value of '.self::TRGT_LIST[$trgtNme].' is named as block.key', self::EXIT_HELP);
 				}
 				$filPath = $this->pathOfSettings(self::TRGT_LIST[$trgtNme]);
@@ -192,11 +200,11 @@ class Config extends Command{
 				}
 				$newValu = $this->parseTypedText($gvnText);
 				// A check or a carrier that does not exist would refuse every request
-				if( $trgtNme=='access' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='sessWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
+				if( $trgtNme=='accsConf' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='sessWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
 					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authWith' ? 'credential check' : 'session carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
-				$tknFlaw = ($trgtNme=='access') ? $this->toknFlawString($keyName, $newValu) : '';
+				$tknFlaw = ($trgtNme=='accsConf') ? $this->toknFlawString($keyName, $newValu) : '';
 				if( $tknFlaw!='' ){
 					$this->terminateShell('Nothing was changed: '.$tknFlaw, self::EXIT_DENY);
 				}
@@ -283,7 +291,7 @@ class Config extends Command{
 		if( isset(self::RULE_LIST[$iniEntryName]) && !preg_match(self::RULE_LIST[$iniEntryName], $newIniValTxt) ){
 			$this->terminateShell('Nothing was changed: '.$iniEntryName.' does not take the value '.$newIniValTxt, self::EXIT_DENY);
 		}
-		$filPath = $this->pathOfSettings(self::TRGT_LIST['system']);
+		$filPath = $this->pathOfSettings(self::TRGT_LIST['coreConf']);
 		if( !$writerObject->changeIniValue($filPath, $iniEntryName, $newIniValTxt) ){
 			$this->terminateShell('Nothing was changed: no key '.$iniEntryName.' in conf/system.ini, and none is added', self::EXIT_DENY);
 		}
@@ -388,7 +396,7 @@ class Config extends Command{
 	 */
 	public function generateSecret( String $secrKindText, Bool $keepExisting=false ): Bool {
 		$wrtrObj = $this->generateWriter();
-		$filPath = $this->pathOfSettings(self::TRGT_LIST['access']);
+		$filPath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
 		$treeObj = $wrtrObj->importJsonsObj($filPath);
 		$blckNme = strval($this->optnObject->retrieveOption('useBlock', ''));
 		if( $secrKindText=='jwtToken' ){
@@ -481,7 +489,7 @@ class Config extends Command{
 	 */
 	protected function buildPairsFlag( String $blckNamedTxt, Bool $keepExisting ): Bool {
 		$wrtrObj = $this->generateWriter();
-		$filPath = $this->pathOfSettings(self::TRGT_LIST['access']);
+		$filPath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
 		$treeObj = $wrtrObj->importJsonsObj($filPath);
 		$blckNod = $treeObj->$blckNamedTxt;
 		$prvName = trim(strval($blckNod->privFile ?? ''), '/\\ ');
@@ -768,11 +776,11 @@ class Config extends Command{
 	}
 
 	/**
-	 * Gives a writer of config files keeping its copies in temp/backup.
+	 * Gives a writer of config files keeping its copies in temp/archives.
 	 *
 	 * @return ConfFile The writer.
 	 */
 	protected function generateWriter(): ConfFile {
-		return new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' );
+		return new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 	}
 }

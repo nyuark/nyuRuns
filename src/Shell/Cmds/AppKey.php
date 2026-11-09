@@ -84,7 +84,7 @@ class AppKey extends Command{
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
 		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
-			// The audiences naming this project are left empty : "settings setValue access appsKeys.audience" sets them
+			// The audiences naming this project are left empty : "settings setValue accsConf appsKeys.audience" sets them
 			$treeObj->$blckNme = (object)Array('headName'=>self::KEYS_HEAD, 'appsList'=>new \stdClass(), 'audience'=>Array());
 		}
 		if( !isset($treeObj->$blckNme->appsList) || !is_object($treeObj->$blckNme->appsList) ){
@@ -168,7 +168,7 @@ class AppKey extends Command{
 	 */
 	protected function readAccessConf(): Object {
 		try{
-			return (new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' ))->importJsonsObj( TOP_DIR.DS.'conf'.DS.'access.json' );
+			return (new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->importJsonsObj( TOP_DIR.DS.'conf'.DS.'access.json' );
 		}catch( \RuntimeException $e ){
 			$this->terminateShell('conf/access.json cannot be read: it is missing or is not a JSON object (installs makeConf makes it)');
 		}
@@ -181,7 +181,7 @@ class AppKey extends Command{
 	 */
 	protected function saveAccessConf( Object $appsAccsTree ): Void {
 		try{
-			(new ConfFile( TOP_DIR.DS.'temp'.DS.'backup' ))->saveJsonConfig( TOP_DIR.DS.'conf'.DS.'access.json', $appsAccsTree );
+			(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveJsonConfig( TOP_DIR.DS.'conf'.DS.'access.json', $appsAccsTree );
 		}catch( \RuntimeException $e ){
 			$this->terminateShell('conf/access.json cannot be written: '.$e->getMessage());
 		}

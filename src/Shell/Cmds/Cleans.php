@@ -20,7 +20,7 @@ use nyu\Shell\Command;
 class Cleans extends Command{
 
 	// What can be purged: the folders of temp, by their name
-	const KIND_LIST = Array('cache', 'logs', 'limits', 'backup');
+	const KIND_LIST = Array('cacheDir', 'logFiles', 'tryLimit', 'archives');
 
 	/**
 	 * Tells in one line what the command does.
@@ -38,7 +38,7 @@ class Cleans extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'cleanDir'=>Array('args'=>'<cache|logs|limits|backup|all> ... [--keepDays=<days>]', 'about'=>'removes the files of those folders of temp'),
+			'cleanDir'=>Array('args'=>'<cacheDir|logFiles|tryLimit|archives|all> ... [--keepDays=<days>]', 'about'=>'removes the files of those folders of temp'),
 			'tailLogs'=>Array('args'=>'<channel> [--numLines=<lines>] [--watching]', 'about'=>'shows the last lines of a log channel'),
 			'fullList'=>Array('args'=>'', 'about'=>'lists the addresses the limiter counts or holds'),
 			'freeAddr'=>Array('args'=>'<address|all>', 'about'=>'releases an address, or all of them')
@@ -103,7 +103,7 @@ class Cleans extends Command{
 		}
 		// With dated file names, the channel is read in its newest file
 		$logPath = '';
-		foreach( (array)glob($this->findTempFolder('logs').DS.$channel.'*.log') as $logFil ){
+		foreach( (array)glob($this->findTempFolder('logFiles').DS.$channel.'*.log') as $logFil ){
 			$logFil = strval($logFil);
 			if( preg_match('/^'.$channel.'(-[\dW_\-]+)?\.log$/D', basename($logFil)) && ($logPath=='' || filemtime($logFil)>filemtime($logPath)) ){
 				$logPath = $logFil;
@@ -188,18 +188,18 @@ class Cleans extends Command{
 	/**
 	 * Gives the folder of a kind of temporary files, as the config sets it.
 	 *
-	 * @param String $tempFileKind One of KINDLIST.
+	 * @param String $tempFileKind One of KIND_LIST.
 	 * @return String The full path of the folder.
 	 */
 	protected function findTempFolder( String $tempFileKind ): String {
-		if( $tempFileKind=='logs' ){
+		if( $tempFileKind=='logFiles' ){
 			return strval( (new Loader(Array('settings'=>Array('fileType'=>'all'))))->logConfigArray()['path'] );
 		}
-		if( $tempFileKind=='limits' ){
+		if( $tempFileKind=='tryLimit' ){
 			$fldName = trim( strval($this->accessSettings('tryLimit')['dataPath'] ?? ''), '/\\ ' );
 			return TOP_DIR.DS.( $fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'limits' );
 		}
-		return TOP_DIR.DS.'temp'.DS.$tempFileKind;
+		return TOP_DIR.DS.'temp'.DS.( ($tempFileKind=='cacheDir') ? 'cache' : $tempFileKind );
 	}
 
 	/**
