@@ -28,21 +28,21 @@ $natAuth = new Native( Array('useTable'=>'users') );
 // Reading
 $jsnVals = runShellAsJson($projDir, Array('accounts', 'fullList'));
 checkIdentical('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'userHandle'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'userHandle', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
-checkIdentical('lists by status', array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--statusIs=locked'))['rows'] ?? Array(), 'userHandle'), Array('dave'));
-checkIdentical('views a user; an unknown one', Array(runShellAsJson($projDir, Array('accounts', 'viewUser', 'ben'))['accessRole'] ?? null, callShellArray($projDir, Array('accounts', 'viewUser', 'nobody'))['errs']), Array('member', "User not found\n"));
+checkIdentical('lists by status', array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--statusIs=disabled'))['rows'] ?? Array(), 'userHandle'), Array('dave'));
+checkIdentical('views a user; an unknown one', Array(runShellAsJson($projDir, Array('accounts', 'viewUser', 'ben'))['accessRole'] ?? null, callShellArray($projDir, Array('accounts', 'viewUser', 'nobody'))['errs']), Array('internal', "User not found\n"));
 
 // Creation and activation
-$jsnVals = runShellAsJson($projDir, Array('accounts', 'makeUser', 'erin', 'system'));
+$jsnVals = runShellAsJson($projDir, Array('accounts', 'makeUser', 'erin', 'operator'));
 $actCode = strval($jsnVals['secret']['Activation code of erin'] ?? '');
-checkIdentical('enrol creates a pending user and shows its activation code once', Array($jsnVals['created'] ?? null, strlen($actCode), runShellAsJson($projDir, Array('accounts', 'viewUser', 'erin'))['userStatus'] ?? null), Array('erin', 12, 'pendng'));
+checkIdentical('enrol creates a pending user and shows its activation code once', Array($jsnVals['created'] ?? null, strlen($actCode), runShellAsJson($projDir, Array('accounts', 'viewUser', 'erin'))['userStatus'] ?? null), Array('erin', 12, 'awaiting'));
 checkIdentical('a name already taken', callShellArray($projDir, Array('accounts', 'makeUser', 'Erin'))['errs'], "User name already taken\n");
 checkIdentical('a wrong code does not activate', callShellArray($projDir, Array('accounts', 'activate', 'erin', 'wrong', '--typeItIn'), "pw-erin-long\n")['code'], 3);
-checkIdentical('actvt activates with the code and a typed password', Array(callShellArray($projDir, Array('accounts', 'activate', 'erin', $actCode, '--typeItIn'), "pw-erin-long\n")['text'], $natAuth->chckCredential(Array('user'=>'erin', 'pass'=>'pw-erin-long'))), Array("activated: erin\n", Array('user'=>'erin', 'role'=>'system', 'id'=>5)));
+checkIdentical('actvt activates with the code and a typed password', Array(callShellArray($projDir, Array('accounts', 'activate', 'erin', $actCode, '--typeItIn'), "pw-erin-long\n")['text'], $natAuth->chckCredential(Array('user'=>'erin', 'pass'=>'pw-erin-long'))), Array("activated: erin\n", Array('user'=>'erin', 'role'=>'operator', 'id'=>5)));
 
 // Status, role
 checkIdentical('locks and unlocks', Array(callShellArray($projDir, Array('accounts', 'lockUser', 'erin'))['text'], $natAuth->chckCredential(Array('user'=>'erin', 'pass'=>'pw-erin-long')), callShellArray($projDir, Array('accounts', 'freeUser', 'erin'))['text'], $natAuth->chckCredential(Array('user'=>'erin', 'pass'=>'pw-erin-long'))!==false), Array("locked: erin\n", false, "unlocked: erin\n", true));
 checkIdentical('the last active manager is kept as it is', Array(callShellArray($projDir, Array('accounts', 'lockUser', 'anna'))['errs'], callShellArray($projDir, Array('accounts', 'dropUser', 'anna', '--yesToAll'))['code']), Array("The last active manager cannot be locked\n", 3));
-checkIdentical('roles gives another role', Array(callShellArray($projDir, Array('accounts', 'giveRole', 'erin', 'manage'))['text'], $natAuth->usrIdentityArr('erin')['role'] ?? null), Array("erin: manage\n", 'manage'));
+checkIdentical('roles gives another role', Array(callShellArray($projDir, Array('accounts', 'giveRole', 'erin', 'sysadmin'))['text'], $natAuth->usrIdentityArr('erin')['role'] ?? null), Array("erin: sysadmin\n", 'sysadmin'));
 
 // Password, token, 2FA
 $jsnVals = runShellAsJson($projDir, Array('accounts', 'password', 'ben'));
@@ -62,14 +62,14 @@ callShellArray($projDir, Array('accounts', 'setEmail', 'erin', 'erin@example.ch'
 checkIdentical('twofa --emailOtp without a mailer is refused', callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['errs'], "No mail account sends the codes: mailer is not set\n");
 writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "sendWith": "emlFiles", "fromAddr": "no-reply@example.com", "mailsDir": "temp/mails" } }');
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'testBase.mailAcnt', 'devbox', '--overrule'));
-checkIdentical('twofa --emailOtp: the user gives a mailed code at each login', Array(callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFactWay FROM users WHERE userHandle='erin'")->fetchColumn()), Array("2FA set: erin (codes by mail)\n", 'mailed'));
+checkIdentical('twofa --emailOtp: the user gives a mailed code at each login', Array(callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFactWay FROM users WHERE userHandle='erin'")->fetchColumn()), Array("2FA set: erin (codes by mail)\n", 'emailOtp'));
 checkPregMatch('twofa --emailOtp is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Mailed codes set for user "erin" by user "cli:/');
 checkIdentical('a move to the users file is refused while a user has mailed codes', Array(callShellArray($projDir, Array('installs', 'moveUser', 'userFile', '--yesToAll'))['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array("Nothing was moved: codes by mail need the native userbase (erin); \"accounts setTwoFa <user> --removeIt\" takes them away\n", false));
 checkIdentical('twofa --removeIt takes them away', Array(callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--removeIt', '--yesToAll'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFactWay FROM users WHERE userHandle='erin'")->fetchColumn()), Array("2FA removed: erin\n", null));
 
 // Reset, removal
 $jsnVals = runShellAsJson($projDir, Array('accounts', 'resetPwd', 'ben'));
-checkIdentical('reset puts the user back to pending, with a new code', Array(strlen($jsnVals['secret']['Activation code of ben'] ?? ''), runShellAsJson($projDir, Array('accounts', 'viewUser', 'ben'))['userStatus'] ?? null), Array(12, 'pendng'));
+checkIdentical('reset puts the user back to pending, with a new code', Array(strlen($jsnVals['secret']['Activation code of ben'] ?? ''), runShellAsJson($projDir, Array('accounts', 'viewUser', 'ben'))['userStatus'] ?? null), Array(12, 'awaiting'));
 $sqlLink = new PDO('sqlite:'.$basePth);
 checkIdentical('a code shown here lasts 300 minutes', abs(strtotime(strval($sqlLink->query("SELECT codeExpiry FROM users WHERE userHandle='ben'")->fetchColumn())) - (time()+300*60))<=5, true);
 callShellArray($projDir, Array('accounts', 'resetPwd', 'ben', '--noExpiry'));
@@ -85,9 +85,9 @@ checkIdentical('langs: one that is not', callShellArray($projDir, Array('account
 callShellArray($projDir, Array('accounts', 'makeUser', 'hank', '--language=de-CH'));
 checkIdentical('--language: the language of a user created', Array($sqlLink->query("SELECT userLocale FROM users WHERE userHandle='hank'")->fetchColumn(), callShellArray($projDir, Array('accounts', 'makeUser', 'hugh', '--language=german'))['errs']), Array('de-ch', "Invalid language\n"));
 checkIdentical('prove without a user: nobody awaits review', callShellArray($projDir, Array('accounts', 'approves'))['text'], "userHandle\nNo user awaits review.\n");
-$sqlLink->exec("INSERT INTO users (userHandle, passwdHash, userStatus, mailboxAdr, signupDate) VALUES ('ivan', '!', 'review', 'ivan@example.ch', '2026-11-04 08:00:00')");
+$sqlLink->exec("INSERT INTO users (userHandle, passwdHash, userStatus, mailboxAdr, signupDate) VALUES ('ivan', '!', 'checking', 'ivan@example.ch', '2026-11-04 08:00:00')");
 checkIdentical('prove without a user lists those awaiting review', array_column(runShellAsJson($projDir, Array('accounts', 'approves'))['rows'] ?? Array(), 'userHandle'), Array('ivan'));
-checkIdentical('prove approves one; then it is no longer awaiting', Array(callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['text'], runShellAsJson($projDir, Array('accounts', 'viewUser', 'ivan'))['userStatus'] ?? null, callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['errs']), Array("approved: ivan\n", 'active', "User not awaiting review\n"));
+checkIdentical('prove approves one; then it is no longer awaiting', Array(callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['text'], runShellAsJson($projDir, Array('accounts', 'viewUser', 'ivan'))['userStatus'] ?? null, callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['errs']), Array("approved: ivan\n", 'approved', "User not awaiting review\n"));
 checkIdentical('prove on the users file', callShellArray($projDir, Array('accounts', 'approves', '--useStore=userFile'))['code'], 3);
 $sqlLink = null;
 checkIdentical('removal needs a confirmation', Array(callShellArray($projDir, Array('accounts', 'dropUser', 'ben', '--noPrompt'))['code'], callShellArray($projDir, Array('accounts', 'dropUser', 'ben', '--yesToAll'))['text'], callShellArray($projDir, Array('accounts', 'viewUser', 'ben'))['code']), Array(3, "removed: ben\n", 3));
@@ -95,7 +95,7 @@ checkIdentical('removal needs a confirmation', Array(callShellArray($projDir, Ar
 // The other store, and the traces
 checkIdentical('--useStore names the users file in place of the userbase', callShellArray($projDir, Array('accounts', 'fullList', '--useStore=userFile'))['text'], "userHandle\nNo user.\n");
 $logText = strval(fetchInProject($projDir, 'temp/logs/access.log'));
-checkIdentical('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "erin" created \(system\) by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "erin" removed by user "cli:/', $logText), preg_match('/\[NOTICE\] User "ben" removed \(member\) by user "cli:/', $logText), strpos($logText, $usrTokn), strpos($logText, 'pw-erin-long')), Array(1, 1, 1, false, false));
+checkIdentical('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "erin" created \(operator\) by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "erin" removed by user "cli:/', $logText), preg_match('/\[NOTICE\] User "ben" removed \(internal\) by user "cli:/', $logText), strpos($logText, $usrTokn), strpos($logText, 'pw-erin-long')), Array(1, 1, 1, false, false));
 checkPregMatch('what the userbase does not trace itself is traced by the command', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Personal token of user "ben" made by user "cli:/');
 
 // A database that does not answer
@@ -117,8 +117,8 @@ $projDir = makeProjectTxt('install', Array(
 $runVals = callShellArray($projDir, Array('installs', 'allSteps', '--outputAs=json'), "\nnativeDb\n\n\n");
 $jsnVals = json_decode($runVals['text'], true);
 $hashLst = (new PDO('sqlite:'.$newBase))->query('SELECT userHandle, passwdHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
-checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Database type (mysqldbs, postgres, sqlitedb) [sqlitedb]: Database file ['.$newBase.']: ');
-checkIdentical('the users table is created with the basic users, their passwords shown once', Array($jsnVals['exit'] ?? null, $jsnVals['fail'] ?? null, array_column(runShellAsJson($projDir, Array('accounts', 'fullList'))['rows'] ?? Array(), 'accessRole', 'userHandle'), password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $hashLst['managr'] ?? ''), password_verify($jsnVals['secret']['Password of system (system)'] ?? '', $hashLst['system'] ?? '')), Array(0, 0, Array('managr'=>'manage', 'member'=>'member', 'system'=>'system'), true, true));
+checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Database type (mysqldbs, postgres, sqlitedb) [sqlitedb]: Database file ['.$newBase.']: Name of the internal account [teammate]: Name of the operator account [engineer]: Name of the sysadmin account [sysAgent]: ');
+checkIdentical('the users table is created with the basic users, their passwords shown once', Array($jsnVals['exit'] ?? null, $jsnVals['fail'] ?? null, array_column(runShellAsJson($projDir, Array('accounts', 'fullList'))['rows'] ?? Array(), 'accessRole', 'userHandle'), password_verify($jsnVals['secret']['Password of sysAgent (sysadmin)'] ?? '', $hashLst['sysAgent'] ?? ''), password_verify($jsnVals['secret']['Password of engineer (operator)'] ?? '', $hashLst['engineer'] ?? '')), Array(0, 0, Array('engineer'=>'operator', 'sysAgent'=>'sysadmin', 'teammate'=>'internal'), true, true));
 checkIdentical('the check finds the database and the users', array_intersect_key(array_column($jsnVals['rows'] ?? Array(), 'state', 'check'), Array('database nyuruns'=>1, 'users'=>1, $tknRow=>1)), Array($tknRow=>'fine', 'database nyuruns'=>'fine', 'users'=>'fine'));
 checkIdentical('users alone: a table that holds users is left as it is', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], count((new PDO('sqlite:'.$newBase))->query('SELECT userHandle FROM users')->fetchAll())), Array("The table users already holds users: nothing was changed.\n", 3));
 // The devices table, only when the access config holds a device block

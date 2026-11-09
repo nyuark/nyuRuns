@@ -61,7 +61,7 @@ list($prvPath, $pubPath) = makePairs('main', 2048);
 list($othrPrv, $othrPub) = makePairs('other', 2048);
 list($weakPrv, $weakPub) = makePairs('weak', 1024);
 $fullJwt = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$prvPath, 'publFile'=>$pubPath, 'lifeSecs'=>60) );
-$rawTokn = $fullJwt->issueTokenText( Array('user'=>'anna', 'role'=>'manage') );
+$rawTokn = $fullJwt->issueTokenText( Array('user'=>'anna', 'role'=>'sysadmin') );
 
 // Signed with the private key, checked with the public one
 checkIdentical('RS256 a token is issued and checked', readsTokn($fullJwt, $rawTokn), 'anna');
@@ -73,8 +73,8 @@ checkIdentical('RS256 the kid follows the key: the same for the same key, anothe
 
 // What is refused
 $othrJwt = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'publFile'=>$othrPub) );
-checkIdentical('RS256 a token signed with another key is forged', readsTokn($fullJwt, strval($othrJwt->issueTokenText(Array('user'=>'eve', 'role'=>'manage')))), Array(false, 'Invalid token', true));
-$confTkn = JwtCodec::encode( Array('user'=>'eve', 'role'=>'manage', 'exp'=>time()+60), strval(file_get_contents($pubPath)), 'HS256' );
+checkIdentical('RS256 a token signed with another key is forged', readsTokn($fullJwt, strval($othrJwt->issueTokenText(Array('user'=>'eve', 'role'=>'sysadmin')))), Array(false, 'Invalid token', true));
+$confTkn = JwtCodec::encode( Array('user'=>'eve', 'role'=>'sysadmin', 'exp'=>time()+60), strval(file_get_contents($pubPath)), 'HS256' );
 checkIdentical('RS256 a token signed with HS256 and the public key as its secret is forged', readsTokn($fullJwt, $confTkn), Array(false, 'Invalid token', true));
 $hsJwt = new JWT( Array('hmacSecr'=>str_repeat('s', 40)) );
 checkIdentical('HS256 a token signed with RS256 is refused by a block on HS256', readsTokn($hsJwt, $rawTokn), Array(false, 'Invalid token', true));

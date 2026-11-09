@@ -34,7 +34,7 @@ class Bundle extends Command{
 	const MODE_LIST = Array(
 		'localdev'=>Array('ENV_NAME'=>'DEV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
 		'preprods'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
-		// Production writes errors, warnings and notices: no line for each access of a member
+		// Production writes errors, warnings and notices: no line for each access of an internal user
 		'releases'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
 	);
 	// The environments whose bundle finds every class from a complete class map, without looking for files, and caches its config (CNF_CACH)

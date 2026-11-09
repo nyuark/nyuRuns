@@ -7,7 +7,11 @@
 -- it adds the columns of the access mails (mailboxAdr, userLocale, recovrCode,
 -- codeExpiry, signupDate), those of the codes mailed as a second factor
 -- (twoFactWay, mailedCode, mailExpiry), the time of the last password
--- (passwdDate) and the status 'review' of a self-registration awaiting a manager.
+-- (passwdDate) and the status of a self-registration awaiting a manager. The roles
+-- and the statuses take their codes of 1.0: member, system and manage become
+-- internal, operator and sysadmin; pendng, review (of an early copy of 1.0),
+-- active and locked become awaiting, checking, approved and disabled; a second
+-- factor mailed becomes emailOtp.
 -- The devices table is moved by migrate-devices-1.0.sqlitedb.sql, after this one.
 --
 -- SQLite cannot change a CHECK constraint: the table is made again, as
@@ -29,8 +33,8 @@ CREATE TABLE `users_1_0` (
 	`userHandle` TEXT    NOT NULL,
 	`passwdHash` TEXT    NOT NULL,
 	`passwdDate` TEXT    NULL,
-	`accessRole` TEXT    NOT NULL DEFAULT 'member',
-	`userStatus` TEXT    NOT NULL DEFAULT 'pendng',
+	`accessRole` TEXT    NOT NULL DEFAULT 'internal',
+	`userStatus` TEXT    NOT NULL DEFAULT 'awaiting',
 	`mailboxAdr` TEXT    NULL,
 	`userLocale` TEXT    NULL,
 	`actvtnCode` TEXT    NULL,
@@ -50,13 +54,13 @@ CREATE TABLE `users_1_0` (
 	UNIQUE (`userHandle`),
 	UNIQUE (`bearerHash`),
 	UNIQUE (`mailboxAdr`),
-	CHECK (`accessRole` IN ('member', 'system', 'manage')),
-	CHECK (`userStatus` IN ('pendng', 'review', 'active', 'locked')),
-	CHECK (`twoFactWay` IN ('mailed'))
+	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
+	CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled')),
+	CHECK (`twoFactWay` IN ('emailOtp'))
 );
 
 INSERT INTO `users_1_0` (`id_user`, `userHandle`, `passwdHash`, `accessRole`, `userStatus`, `actvtnCode`, `bearerHash`, `twoFactKey`, `twoFactStp`, `failsCount`, `failedDate`, `createDate`, `accessDate`)
-	SELECT `id_user`, `userName`, `passHash`, `userRole`, `userStat`, `actvCode`, `tokenKey`, `twoFaKey`, `twoFaStp`, `failNmbr`, `failDate`, `madeDate`, `lastSeen` FROM `users`;
+	SELECT `id_user`, `userName`, `passHash`, CASE `userRole` WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' END, CASE `userStat` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'checking' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' END, `actvCode`, `tokenKey`, `twoFaKey`, `twoFaStp`, `failNmbr`, `failDate`, `madeDate`, `lastSeen` FROM `users`;
 
 DROP TABLE `users`;
 
@@ -73,4 +77,4 @@ PRAGMA foreign_keys = ON;
 -- leaving out of both lists the columns the table does not have yet.
 --
 -- INSERT INTO `users_1_0` (`id_user`, `userHandle`, `passwdHash`, `passwdDate`, `accessRole`, `userStatus`, `mailboxAdr`, `userLocale`, `actvtnCode`, `recovrCode`, `codeExpiry`, `signupDate`, `bearerHash`, `twoFactKey`, `twoFactStp`, `twoFactWay`, `mailedCode`, `mailExpiry`, `failsCount`, `failedDate`, `createDate`, `accessDate`)
--- 	SELECT `id_user`, `userName`, `passHash`, `passDate`, `userRole`, `userStat`, `userMail`, `userLang`, `actvCode`, `resetCod`, `codeDate`, `signDate`, `tokenKey`, `twoFaKey`, `twoFaStp`, `twoFaWay`, `mailCode`, `mailDate`, `failNmbr`, `failDate`, `madeDate`, `lastSeen` FROM `users`;
+-- 	SELECT `id_user`, `userName`, `passHash`, `passDate`, CASE `userRole` WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' END, CASE `userStat` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'checking' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' END, `userMail`, `userLang`, `actvCode`, `resetCod`, `codeDate`, `signDate`, `tokenKey`, `twoFaKey`, `twoFaStp`, CASE `twoFaWay` WHEN 'mailed' THEN 'emailOtp' END, `mailCode`, `mailDate`, `failNmbr`, `failDate`, `madeDate`, `lastSeen` FROM `users`;

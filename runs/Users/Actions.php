@@ -100,7 +100,7 @@ class Actions extends Actionset {
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'active');
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'approved');
 	}
 
 	/**
@@ -144,11 +144,11 @@ class Actions extends Actionset {
 	public function lockUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
-		if(!$usrBase->saveStatusFlag($gvnUser, 'locked')){
+		if(!$usrBase->saveStatusFlag($gvnUser, 'disabled')){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'locked');
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'disabled');
 	}
 
 	/**
@@ -157,11 +157,11 @@ class Actions extends Actionset {
 	public function freeUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		if(!$usrBase->saveStatusFlag($gvnUser, 'active')){
+		if(!$usrBase->saveStatusFlag($gvnUser, 'approved')){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'active');
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'approved');
 	}
 
 	/**

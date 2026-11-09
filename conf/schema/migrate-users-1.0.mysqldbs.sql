@@ -9,7 +9,11 @@
 -- it adds the columns of the access mails (mailboxAdr, userLocale, recovrCode,
 -- codeExpiry, signupDate), those of the codes mailed as a second factor
 -- (twoFactWay, mailedCode, mailExpiry), the time of the last password
--- (passwdDate) and the status 'review' of a self-registration awaiting a manager.
+-- (passwdDate) and the status of a self-registration awaiting a manager. The roles
+-- and the statuses take their codes of 1.0 (part 3): member, system and manage
+-- become internal, operator and sysadmin; pendng, active and locked become
+-- awaiting, approved and disabled, and 'checking' is the new status of a
+-- self-registration; a second factor mailed becomes emailOtp.
 -- The devices table is moved by migrate-devices-1.0.mysqldbs.sql, after this one.
 --
 -- A table already moved to an early copy of 1.0 (with userMail, userLang,
@@ -23,7 +27,8 @@
 --   mysqldump -u <user> -p <database> users > users-0.9.sql
 -- Then this file, on the database of the application:
 --   mysql -u <user> -p <database> < migrate-users-1.0.mysqldbs.sql
--- It runs part 1; part 2 is commented out, as its line depends on the server.
+-- It runs parts 1 and 3; parts 2 and 4 are commented out, as their lines depend
+-- on the server.
 -- The table name is the 'useTable' value of conf/access.json: change `users`
 -- below when it is another.
 
@@ -52,10 +57,10 @@ ALTER TABLE `users`
 	ADD COLUMN `recovrCode` VARCHAR(64)  NULL AFTER `actvtnCode`,
 	ADD COLUMN `codeExpiry` DATETIME     NULL AFTER `recovrCode`,
 	ADD COLUMN `signupDate` DATETIME     NULL AFTER `codeExpiry`,
-	ADD COLUMN `twoFactWay` CHAR(6)      NULL AFTER `twoFactStp`,
+	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactStp`,
 	ADD COLUMN `mailedCode` CHAR(64)     NULL AFTER `twoFactWay`,
 	ADD COLUMN `mailExpiry` DATETIME     NULL AFTER `mailedCode`,
-	ADD CONSTRAINT `twoFactWay` CHECK (`twoFactWay` IN ('mailed')),
+	ADD CONSTRAINT `twoFactWay` CHECK (`twoFactWay` IN ('emailOtp')),
 	ADD UNIQUE KEY `mailboxAdr` (`mailboxAdr`);
 
 -- 1, MySQL 5.7. Each column is named again with its whole definition, the one
@@ -82,31 +87,57 @@ ALTER TABLE `users`
 -- 	ADD COLUMN `recovrCode` VARCHAR(64)  NULL AFTER `actvtnCode`,
 -- 	ADD COLUMN `codeExpiry` DATETIME     NULL AFTER `recovrCode`,
 -- 	ADD COLUMN `signupDate` DATETIME     NULL AFTER `codeExpiry`,
--- 	ADD COLUMN `twoFactWay` CHAR(6)      NULL AFTER `twoFactStp`,
+-- 	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactStp`,
 -- 	ADD COLUMN `mailedCode` CHAR(64)     NULL AFTER `twoFactWay`,
 -- 	ADD COLUMN `mailExpiry` DATETIME     NULL AFTER `mailedCode`,
 -- 	ADD UNIQUE KEY `mailboxAdr` (`mailboxAdr`);
 
 
--- 2. The status 'review'. MySQL 5.7 does not enforce CHECK constraints: nothing
---    to do there. MySQL 8.0.16 or later and MariaDB do: the check of userStatus is
---    replaced. Its name is given by
+-- 2. MySQL 8.0.16 or later and MariaDB enforce CHECK constraints: the checks
+--    of the roles and of the statuses of 0.9 are dropped before the codes
+--    change (MySQL 5.7 does not enforce them: nothing to do there). Their names
+--    are given by
 --      SHOW CREATE TABLE `users`;
---    (the second CHECK, on userStatus): users_chk_2 on MySQL, CONSTRAINT_2 on
---    MariaDB, for a table made by the 0.9 schema. Run the line of your server,
---    with that name.
+--    (the first two CHECK): users_chk_1 and users_chk_2 on MySQL, CONSTRAINT_1
+--    and CONSTRAINT_2 on MariaDB, for a table made by the 0.9 schema. Run the
+--    line of your server, with those names.
 --
 -- MySQL 8:
--- ALTER TABLE `users` DROP CHECK `users_chk_2`, ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('pendng', 'review', 'active', 'locked'));
+-- ALTER TABLE `users` DROP CHECK `users_chk_1`, DROP CHECK `users_chk_2`;
 --
 -- MariaDB:
--- ALTER TABLE `users` DROP CONSTRAINT `CONSTRAINT_2`, ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('pendng', 'review', 'active', 'locked'));
+-- ALTER TABLE `users` DROP CONSTRAINT `CONSTRAINT_1`, DROP CONSTRAINT `CONSTRAINT_2`;
 
 
--- Going back to 0.9, if needed (no user may be in 'review'; on MySQL 8 or
--- MariaDB, put the former check back as well):
+-- 3. The codes of 1.0: the columns of the role and of the status are widened
+--    to 8 characters, and every row takes the code of its role and status.
+
+ALTER TABLE `users`
+	MODIFY `accessRole` VARCHAR(8) NOT NULL DEFAULT 'internal',
+	MODIFY `userStatus` VARCHAR(8) NOT NULL DEFAULT 'awaiting';
+
+UPDATE `users` SET
+	`accessRole` = CASE `accessRole` WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' ELSE `accessRole` END,
+	`userStatus` = CASE `userStatus` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'checking' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' ELSE `userStatus` END,
+	`twoFactWay` = CASE `twoFactWay` WHEN 'mailed' THEN 'emailOtp' ELSE `twoFactWay` END;
+
+
+-- 4. MySQL 8 and MariaDB: the checks of 1.0.
 --
 -- ALTER TABLE `users`
+-- 	ADD CONSTRAINT `accessRole` CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
+-- 	ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled'));
+
+
+-- Going back to 0.9, if needed (no user may be in 'checking'; on MySQL 8 or
+-- MariaDB, drop the checks of part 4 first, and put those of 0.9 back after):
+--
+-- UPDATE `users` SET
+-- 	`accessRole` = CASE `accessRole` WHEN 'internal' THEN 'member' WHEN 'operator' THEN 'system' WHEN 'sysadmin' THEN 'manage' ELSE `accessRole` END,
+-- 	`userStatus` = CASE `userStatus` WHEN 'awaiting' THEN 'pendng' WHEN 'approved' THEN 'active' WHEN 'disabled' THEN 'locked' ELSE `userStatus` END;
+-- ALTER TABLE `users`
+-- 	MODIFY `accessRole` VARCHAR(6) NOT NULL DEFAULT 'member',
+-- 	MODIFY `userStatus` VARCHAR(6) NOT NULL DEFAULT 'pendng',
 -- 	DROP INDEX  `mailboxAdr`,
 -- 	DROP COLUMN `mailboxAdr`,
 -- 	DROP COLUMN `userLocale`,

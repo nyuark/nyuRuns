@@ -10,7 +10,7 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  * Verifies a device token against a table of devices, each linked to a
  * user of the native userbase: the SHA-256 hash of the token must be the
  * bearerHash of a device that is not revoked, and its user must be
- * 'active'. Also stamps the time each device was last seen. A device is
+ * 'approved'. Also stamps the time each device was last seen. A device is
  * given a token, listed and revoked from the command line (php nyuRun
  * device), or by an application of its own.
  */
@@ -60,7 +60,7 @@ class Device implements Handler{
 			return false;
 		}
 		// A revoked device, or one whose user is not active, is answered like an unknown token
-		if( $devcVls===null || ($devcVls['revokeDate'] ?? null)!==null || ($devcVls['userStatus'] ?? '')!=='active' ){
+		if( $devcVls===null || ($devcVls['revokeDate'] ?? null)!==null || ($devcVls['userStatus'] ?? '')!=='approved' ){
 			$this->lastMessag = 'Invalid API key';
 			$this->invalidCrd = true;
 			return false;
@@ -115,7 +115,7 @@ class Device implements Handler{
 			$newTokn = bin2hex(random_bytes(32));
 			$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fldList).')'
 				.' SELECT ?, ?, ?, '.$dbHndlr->quoteFieldName('id_user').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
-				.' WHERE '.$dbHndlr->quoteFieldName('userHandle').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='active';";
+				.' WHERE '.$dbHndlr->quoteFieldName('userHandle').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved';";
 			$newData = Array($userDevcName, $deviceRleTxt, hash('sha256', $newTokn), $namedUserTxt);
 			return ( $dbHndlr->sendBuiltQuery($addStmt, true, $newData) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){

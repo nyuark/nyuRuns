@@ -11,10 +11,10 @@ CREATE TABLE `users` (
 	`passwdHash` TEXT    NOT NULL,
 	-- Time the password was last set: the sessions and tokens issued before it are refused
 	`passwdDate` TEXT    NULL,
-	-- member, system or manage
-	`accessRole` TEXT    NOT NULL DEFAULT 'member',
-	-- pendng (awaiting activation), review (signed up, awaiting a manager), active or locked
-	`userStatus` TEXT    NOT NULL DEFAULT 'pendng',
+	-- internal, operator or sysadmin, in that order
+	`accessRole` TEXT    NOT NULL DEFAULT 'internal',
+	-- awaiting (its activation), checking (signed up, a manager to approve it), approved or disabled
+	`userStatus` TEXT    NOT NULL DEFAULT 'awaiting',
 	-- Mail address, in lower case; one account each
 	`mailboxAdr` TEXT    NULL,
 	-- Language of the mails sent to the user, a tag in lower case ('fr', 'fr-ch'); the default one when empty
@@ -33,7 +33,7 @@ CREATE TABLE `users` (
 	`twoFactKey` TEXT    NULL,
 	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
 	`twoFactStp` INTEGER NULL,
-	-- Second factor sent by mail ('mailed'); an authenticator when empty and twoFactKey is set
+	-- Second factor sent by mail ('emailOtp'); an authenticator when empty and twoFactKey is set
 	`twoFactWay` TEXT    NULL,
 	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
 	`mailedCode` TEXT    NULL,
@@ -47,7 +47,7 @@ CREATE TABLE `users` (
 	UNIQUE (`userHandle`),
 	UNIQUE (`bearerHash`),
 	UNIQUE (`mailboxAdr`),
-	CHECK (`accessRole` IN ('member', 'system', 'manage')),
-	CHECK (`userStatus` IN ('pendng', 'review', 'active', 'locked')),
-	CHECK (`twoFactWay` IN ('mailed'))
+	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
+	CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled')),
+	CHECK (`twoFactWay` IN ('emailOtp'))
 );

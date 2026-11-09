@@ -144,7 +144,7 @@ class UserFile{
 				}
 				$lastNum = max( $lastNum, intval($usrRow['id_user'] ?? 0) );
 			}
-			$usersRecords[] = Array('id_user'=>$lastNum+1, 'userHandle'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVal, 'userStatus'=>'active') + ( ($langVal!=='') ? Array('userLocale'=>$langVal) : Array() );
+			$usersRecords[] = Array('id_user'=>$lastNum+1, 'userHandle'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVal, 'userStatus'=>'approved') + ( ($langVal!=='') ? Array('userLocale'=>$langVal) : Array() );
 			return $usersRecords;
 		} );
 		if( $isAdded ){
@@ -158,20 +158,20 @@ class UserFile{
 	 * highest role cannot be locked.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param String $statusString The status to give: 'locked' or 'active'.
+	 * @param String $statusString The status to give: 'disabled' or 'approved'.
 	 * @return Bool Whether the status was changed.
 	 */
 	public function saveStatusFlag( String $namedUserTxt, String $statusString ): Bool {
 		$this->forgetLastFail();
-		if( !in_array($statusString, Array('active', 'locked'), true) ){
+		if( !in_array($statusString, Array('approved', 'disabled'), true) ){
 			return $this->declineForFlag(400, 'Invalid status');
 		}
 		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $statusString ): ?Array {
-			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'active')==$statusString ){
+			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')==$statusString ){
 				$this->declineForFlag(409, 'User already '.$statusString);
 				return null;
 			}
-			if( $statusString=='locked' && $this->lastManagerFlg($usersRecords, $usersIndxNum) ){
+			if( $statusString=='disabled' && $this->lastManagerFlg($usersRecords, $usersIndxNum) ){
 				$this->declineForFlag(409, 'The last active manager cannot be locked');
 				return null;
 			}
@@ -179,7 +179,7 @@ class UserFile{
 			return $usersRecords;
 		} );
 		if( $isSaved ){
-			$this->logFileChanges( 'User '.json_encode($namedUserTxt).' '.($statusString=='locked' ? 'locked' : 'unlocked') );
+			$this->logFileChanges( 'User '.json_encode($namedUserTxt).' '.($statusString=='disabled' ? 'locked' : 'unlocked') );
 		}
 		return $isSaved;
 	}
@@ -335,7 +335,7 @@ class UserFile{
 		$this->forgetLastFail();
 		$newTokn = bin2hex(random_bytes(32));
 		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $newTokn ): ?Array {
-			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'active')!='active' ){
+			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
 				$this->declineForFlag(409, 'User not active');
 				return null;
 			}
@@ -369,7 +369,7 @@ class UserFile{
 		$newSecr = Totp::generateSecret();
 		$storTxt = Totp::sealSecretText($newSecr, $this->sealingKey);
 		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $storTxt ): ?Array {
-			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'active')!='active' ){
+			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
 				$this->declineForFlag(409, 'User not active');
 				return null;
 			}
@@ -606,7 +606,7 @@ class UserFile{
 			'id_user'=>$usrValuesArr['id_user'] ?? null,
 			'userHandle'=>strval($usrValuesArr['userHandle'] ?? ''),
 			'accessRole'=>strval($usrValuesArr['accessRole'] ?? Checker::ROLE_LIST[0]),
-			'userStatus'=>strval($usrValuesArr['userStatus'] ?? 'active'),
+			'userStatus'=>strval($usrValuesArr['userStatus'] ?? 'approved'),
 			'mailboxAdr'=>strval($usrValuesArr['mailboxAdr'] ?? ''),
 			'userLocale'=>strval($usrValuesArr['userLocale'] ?? ''),
 			'hasToken'=>strval($usrValuesArr['bearerHash'] ?? '')!='',
@@ -626,12 +626,12 @@ class UserFile{
 		$topRole = array_slice(Checker::ROLE_LIST, -1)[0];
 		$mngrNum = 0;
 		foreach( $usersRecords as $usrRow ){
-			if( strval($usrRow['accessRole'] ?? '')===$topRole && strval($usrRow['userStatus'] ?? 'active')==='active' ){
+			if( strval($usrRow['accessRole'] ?? '')===$topRole && strval($usrRow['userStatus'] ?? 'approved')==='approved' ){
 				$mngrNum++;
 			}
 		}
 		$userVls = $this->shownValuesArr($usersRecords[$usersIndxNum]);
-		return $userVls['accessRole']===$topRole && $userVls['userStatus']==='active' && $mngrNum<2;
+		return $userVls['accessRole']===$topRole && $userVls['userStatus']==='approved' && $mngrNum<2;
 	}
 
 	/**

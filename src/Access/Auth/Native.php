@@ -14,8 +14,8 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  */
 class Native implements Handler{
 
-	// Statuses a user can have; only an active user may log in. 'review' is a self-registration awaiting a manager
-	const STAT_LIST = Array('pendng', 'review', 'active', 'locked');
+	// Statuses a user can have; only an active user may log in. 'checking' is a self-registration awaiting a manager
+	const STAT_LIST = Array('awaiting', 'checking', 'approved', 'disabled');
 	// Seconds during which a user already seen is not stamped again
 	const STMP_SECS = 60;
 	// Longest password, in bytes : bcrypt reads nothing beyond
@@ -74,7 +74,7 @@ class Native implements Handler{
 	/**
 	 * Verifies a username/password pair against the users table. The
 	 * password must match the stored bcrypt hash and the user must be
-	 * 'active' (one that is not is refused as a wrong password is, and
+	 * 'approved' (one that is not is refused as a wrong password is, and
 	 * the reason logged); a user with a 2FA secret must also give the current code
 	 * of its authenticator, and a user with mailed codes ('twoFactWay') the code
 	 * sent to its address: asked without one, a code is mailed (see mailsCode)
@@ -136,7 +136,7 @@ class Native implements Handler{
 			$this->invalidCrd = true;
 			return false;
 		}
-		if( ($userVls['userStatus'] ?? '')!=='active' ){
+		if( ($userVls['userStatus'] ?? '')!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is not active ('.strval($userVls['userStatus'] ?? '').')' );
 			$this->lastMessag = 'Invalid credentials';
@@ -145,7 +145,7 @@ class Native implements Handler{
 		}
 		// A user with mailed codes gives the code sent to its address : asked without one, a code is mailed
 		$sealKey = strval($userVls['twoFactKey'] ?? '');
-		if( ($userVls['twoFactWay'] ?? null)==='mailed' ){
+		if( ($userVls['twoFactWay'] ?? null)==='emailOtp' ){
 			$gvnCode = strval($crdntlsArray['code'] ?? '');
 			if( $gvnCode=='' ){
 				// Only a caller that can carry a code (the login) has one mailed : a Basic header cannot
@@ -438,7 +438,7 @@ class Native implements Handler{
 			$newSecr = Totp::generateSecret();
 			$storTxt = Totp::sealSecretText($newSecr, $this->sealingKey);
 			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactKey']}=?, {$qtdName['twoFactStp']}=NULL, {$qtdName['twoFactWay']}=NULL, {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL"
-				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='active';";
+				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved';";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($storTxt, $namedUserTxt)) || $dbHndlr->countLastWrite()<1 ){
 				return false;
 			}
@@ -468,7 +468,7 @@ class Native implements Handler{
 			$this->lastMessag = 'Credential store unavailable';
 			return false;
 		}
-		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='active' ){
+		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='approved' ){
 			$this->lastMessag = 'Invalid API key';
 			$this->invalidCrd = true;
 			return false;
@@ -492,7 +492,7 @@ class Native implements Handler{
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$newTokn = bin2hex(random_bytes(32));
 			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['bearerHash']}='".hash('sha256', $newTokn)."'"
-				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='active';";
+				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved';";
 			return ( $dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt)) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
 			return false;
@@ -580,7 +580,7 @@ class Native implements Handler{
 			$this->lastMessag = 'Credential store unavailable';
 			return false;
 		}
-		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='active' ){
+		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='approved' ){
 			$this->lastMessag = 'Account not active';
 			return false;
 		}
@@ -611,7 +611,7 @@ class Native implements Handler{
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$nowTime = time();
 			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['accessDate']}='".date('Y-m-d H:i:s', $nowTime)."'"
-				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='active'"
+				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved'"
 				." AND ({$qtdName['accessDate']} IS NULL OR {$qtdName['accessDate']}<'".date('Y-m-d H:i:s', $nowTime - self::STMP_SECS)."');";
 			return $dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt)) && $dbHndlr->countLastWrite()>0;
 		}catch( \Throwable $e ){
@@ -632,7 +632,7 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$listQry = "SELECT {$qtdName['userHandle']} FROM {$qtdName['usrTable']} WHERE {$qtdName['userStatus']}='active'"
+			$listQry = "SELECT {$qtdName['userHandle']} FROM {$qtdName['usrTable']} WHERE {$qtdName['userStatus']}='approved'"
 				." AND {$qtdName['accessDate']}>='".date('Y-m-d H:i:s', time() - $this->idlePeriod)."' ORDER BY {$qtdName['userHandle']};";
 			if( !$dbHndlr->sendBuiltQuery($listQry) ){
 				return false;

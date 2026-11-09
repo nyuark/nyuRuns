@@ -62,13 +62,13 @@
 		"signRout": "/login",
         // Least role a route is served to; routes written as in "openList":
         // "app/action"; "app/*" or the path of a declared route ("/admin/*").
-        // Roles are ordered: member; system; manage; each one includes those before it.
+        // Roles are ordered: internal; operator; sysadmin; each one includes those before it.
         // When several entries name a route the highest role is asked for;
         // a request naming no action is taken as any action of its application.
         // A logged user without the role gets a 404, as for no route; a route cannot also be in "openList".
         // A check that gives no role (htpasswd; regdKeys; a certificate without a store)
-        // makes a member: a higher role needs a store ("authWith": "nativeDb" or "userFile")
-		"rteRoles": { "users/*": "manage" }
+        // gives the role internal: a higher role needs a store ("authWith": "nativeDb" or "userFile")
+		"rteRoles": { "users/*": "sysadmin" }
 	},
 	// Sources of the inputs given to the applications; without this block they get none
 	"incoming": [

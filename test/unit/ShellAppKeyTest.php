@@ -46,10 +46,10 @@ $jsnVals = runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'portal', '--r
 $keyText = strval($jsnVals['secret']['Key of portal'] ?? '');
 $appEntr = $axsJson()['appsKeys']['appsList']['portal'] ?? Array();
 checkIdentical('makes shows the key once and stores its hash only', Array($jsnVals['key made'] ?? null, strlen($keyText), $appEntr['keyDigst'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/access.json')), $keyText)), Array('portal', 43, hash('sha256', $keyText), false));
-checkIdentical('makes: the block created with its header, the routes, the key file, member by default', Array($axsJson()['appsKeys']['headName'] ?? null, $appEntr['routeSet'] ?? null, $appEntr['publFile'] ?? null, $appEntr['roleTops'] ?? null), Array('X-App-Key', Array('contacts/*', '/members/save'), 'conf/keys/portal.pub', 'member'));
+checkIdentical('makes: the block created with its header, the routes, the key file, member by default', Array($axsJson()['appsKeys']['headName'] ?? null, $appEntr['routeSet'] ?? null, $appEntr['publFile'] ?? null, $appEntr['roleTops'] ?? null), Array('X-App-Key', Array('contacts/*', '/members/save'), 'conf/keys/portal.pub', 'internal'));
 checkPregMatch('makes: the date it was made', strval($appEntr['madeDate'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
 checkIdentical('makes: the other blocks kept', $axsJson()['tryLimit'] ?? null, Array('maxTries'=>10, 'holdSecs'=>600, 'dataPath'=>'temp/limits'));
-checkIdentical('makes: a highest role of its own', runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'mobile', '--routeSet=contacts/view', '--publFile=conf/keys/portal.pub', '--roleTops=system'))['key made'] ?? null, 'mobile');
+checkIdentical('makes: a highest role of its own', runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'mobile', '--routeSet=contacts/view', '--publFile=conf/keys/portal.pub', '--roleTops=operator'))['key made'] ?? null, 'mobile');
 checkIdentical('makes: a name already listed', callShellArray($projDir, Array('appsKeys', 'makeKeys', 'portal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'], 3);
 checkIdentical('makes: a bad name, a missing name, no routes, a bad route', Array(
 	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'Por Tal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'],
@@ -68,13 +68,13 @@ checkIdentical('makes: nothing written by a refusal', array_keys($axsJson()['app
 // A key made here, checked as a request bearing it
 $blkConf = $axsJson()['appsKeys'];
 $blkConf['appsList']['portal']['publFile'] = writeInProject($projDir, 'conf/keys/portal.pub', $appPubl);
-$appTokn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>writeInProject($projDir, 'conf/keys/portal.key', $appPriv)) ))->issueTokenText( Array('user'=>'ann', 'role'=>'member') );
+$appTokn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>writeInProject($projDir, 'conf/keys/portal.key', $appPriv)) ))->issueTokenText( Array('user'=>'ann', 'role'=>'internal') );
 $idntArr = (new AppKey($blkConf))->verifyAppArray( mockRequestObj(Array('X-App-Key'=>$keyText, 'Authorization'=>'Bearer '.$appTokn)) );
 checkIdentical('the key made is accepted with a token of the application', Array($idntArr['user'] ?? null, $idntArr['fromApp'] ?? null), Array('ann', 'portal'));
 
 // Listing
 $rowList = runShellAsJson($projDir, Array('appsKeys', 'fullList'))['rows'] ?? Array();
-checkIdentical('lists the applications, their routes and highest role', array_map(function(Array $tableRow){ return $tableRow['application'].' '.$tableRow['routes'].' '.$tableRow['highest role']; }, $rowList), Array('portal contacts/*, /members/save member', 'mobile contacts/view system'));
+checkIdentical('lists the applications, their routes and highest role', array_map(function(Array $tableRow){ return $tableRow['application'].' '.$tableRow['routes'].' '.$tableRow['highest role']; }, $rowList), Array('portal contacts/*, /members/save internal', 'mobile contacts/view operator'));
 checkIdentical('lists never shows a hash', strpos(callShellArray($projDir, Array('appsKeys', 'fullList'))['text'], hash('sha256', $keyText)), false);
 
 // Routes

@@ -27,14 +27,14 @@ checkIdentical('Device addDevice refused for a pending user', $dvcAuth->pushDevi
 checkIdentical('Device addDevice refused for an unknown user', $dvcAuth->pushDeviceText('zed', 'Tablet', 'app'), false);
 
 // checkCred : the identity of the user, with the device under 'device'
-checkIdentical('Device token accepted, with the user and the device', $dvcAuth->chckCredential(Array('key'=>$phonTkn)), Array('user'=>'anna', 'role'=>'manage', 'id'=>1, 'device'=>Array('id'=>1, 'name'=>'Phone', 'role'=>'app')));
+checkIdentical('Device token accepted, with the user and the device', $dvcAuth->chckCredential(Array('key'=>$phonTkn)), Array('user'=>'anna', 'role'=>'sysadmin', 'id'=>1, 'device'=>Array('id'=>1, 'name'=>'Phone', 'role'=>'app')));
 checkIdentical('Device second device of the same user', $dvcAuth->chckCredential(Array('key'=>$homeTkn))['device'] ?? null, Array('id'=>2, 'name'=>'Home', 'role'=>'home'));
 checkIdentical('Device wrong token',          Array($dvcAuth->chckCredential(Array('key'=>str_repeat('0', 64))), $dvcAuth->finalErrorText()), Array(false, 'Invalid API key'));
 checkIdentical('Device empty token',          Array($dvcAuth->chckCredential(Array('key'=>'')), $dvcAuth->finalErrorText()), Array(false, 'No API key provided'));
 checkIdentical('Device the stored hash is not a token', $dvcAuth->chckCredential(Array('key'=>hash('sha256', strval($phonTkn)))), false);
-$sqlLink->exec("UPDATE users SET userStatus='locked' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
 checkIdentical('Device of a locked user',     Array($dvcAuth->chckCredential(Array('key'=>$phonTkn)), $dvcAuth->finalErrorText()), Array(false, 'Invalid API key'));
-$sqlLink->exec("UPDATE users SET userStatus='active' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE userHandle='anna'");
 
 // keepAlive : stamps the device verified last, not more often than 'stmpSecs'
 $newAuth = new DeviceAuth( Array() );
@@ -77,7 +77,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 $dvcConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'sessConf'=>'testbear', 'authWith'=>'devToken', 'authConf'=>'testdvc');
 $sqlLink->exec("UPDATE devices SET accessDate=NULL");
 $axsRslt = (new nyu\Access\Checker( $dvcConf, mockRequestObj(Array('Authorization'=>'Bearer '.$homeTkn)) ))->validateAccess();
-checkIdentical('Checker device token: user, role and device role', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'), $axsRslt->readFileDetail('ident')['device']['role'] ?? null), Array(200, 'anna', 'manage', 'home'));
+checkIdentical('Checker device token: user, role and device role', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'), $axsRslt->readFileDetail('ident')['device']['role'] ?? null), Array(200, 'anna', 'sysadmin', 'home'));
 checkIdentical('Checker device token: the device is stamped', $sqlLink->query("SELECT deviceName FROM devices WHERE accessDate IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN), Array('Home'));
 $axsRslt = (new nyu\Access\Checker( $dvcConf, mockRequestObj(Array('Authorization'=>'Bearer '.$phonTkn)) ))->validateAccess();
 checkIdentical('Checker device token: a revoked device is refused', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg')), Array(401, 'Invalid API key'));

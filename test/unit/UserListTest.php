@@ -49,7 +49,7 @@ function listReply( String $fileString ): Array {
 $fxtPath = 'test'.DS.'fixtures'.DS.'users.lst';
 $usrList = new UserList( Array('maxTries'=>0, 'listFile'=>$fxtPath) );
 $annaPwd = Array('user'=>'anna', 'pass'=>'pw-anna');
-$annaIdn = Array('user'=>'anna', 'role'=>'manage', 'id'=>1);
+$annaIdn = Array('user'=>'anna', 'role'=>'sysadmin', 'id'=>1);
 
 // The short name of the check
 checkIdentical('userFile is the short name of UserList', Checker::authClssString('userFile'), '\\nyu\\Access\\Auth\\UserList');
@@ -69,7 +69,7 @@ checkIdentical('UserList the path can start with a slash', (new UserList(Array('
 // Fields left out : a member, active, without an id
 $tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 $emmaPwd = Array('user'=>'emma', 'pass'=>'pw-emma');
-checkIdentical('UserList role, status and id left out', $usrList->chckCredential($emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()))), Array('user'=>'emma', 'role'=>'member', 'id'=>null));
+checkIdentical('UserList role, status and id left out', $usrList->chckCredential($emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()))), Array('user'=>'emma', 'role'=>'internal', 'id'=>null));
 
 // 2FA : a user with a secret must give the code of its authenticator
 checkIdentical('UserList 2FA: password alone', Array($usrList->chckCredential($emmaPwd), $usrList->finalErrorText(), $usrList->wrngCredential()), Array(false, 'Verification code required', false));
@@ -95,13 +95,13 @@ checkIdentical('UserList wrong token', Array($usrList->chckCredential(Array('key
 checkIdentical('UserList empty token', Array($usrList->chckCredential(Array('key'=>'')), $usrList->finalErrorText(), $usrList->wrngCredential()), Array(false, 'No API key provided', false));
 checkIdentical('UserList the hash itself is not a token', $usrList->chckCredential(Array('key'=>hash('sha256', 'list-test-token'))), false);
 $tknRows = Array('users'=>Array(
-	Array('userHandle'=>'anna', 'passwdHash'=>'x', 'userStatus'=>'locked', 'bearerHash'=>strtoupper(hash('sha256', 'tk-anna'))),
+	Array('userHandle'=>'anna', 'passwdHash'=>'x', 'userStatus'=>'disabled', 'bearerHash'=>strtoupper(hash('sha256', 'tk-anna'))),
 	Array('userHandle'=>'ben', 'passwdHash'=>'x', 'bearerHash'=>strtoupper(hash('sha256', 'tk-ben')))
 ));
 file_put_contents(inTemporaryDir('tokens.lst'), json_encode($tknRows));
 $tknList = new PathUserList( Array('listFile'=>inTemporaryDir('tokens.lst')) );
 checkIdentical('UserList the token of a locked user is refused', Array($tknList->chckCredential(Array('key'=>'tk-anna')), $tknList->finalErrorText()), Array(false, 'Invalid API key'));
-checkIdentical('UserList a bearerHash written in upper case', $tknList->chckCredential(Array('key'=>'tk-ben')), Array('user'=>'ben', 'role'=>'member', 'id'=>null));
+checkIdentical('UserList a bearerHash written in upper case', $tknList->chckCredential(Array('key'=>'tk-ben')), Array('user'=>'ben', 'role'=>'internal', 'id'=>null));
 
 // userIdent : the current identity of a user known by other means
 checkIdentical('UserList userIdent of an active user', $usrList->usrIdentityArr('anna'), $annaIdn);
@@ -123,7 +123,7 @@ $unavail = Array(false, 'Credential store unavailable', false);
 $annaHsh = password_hash('pw-anna', PASSWORD_BCRYPT, Array('cost'=>4));
 $annaRow = Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh);
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
-checkIdentical('UserList a file with its two required fields', listReply(json_encode(Array('users'=>Array($annaRow)))), Array(Array('user'=>'anna', 'role'=>'member', 'id'=>null), '', false));
+checkIdentical('UserList a file with its two required fields', listReply(json_encode(Array('users'=>Array($annaRow)))), Array(Array('user'=>'anna', 'role'=>'internal', 'id'=>null), '', false));
 checkIdentical('UserList no file named', Array((new UserList(Array()))->chckCredential($annaPwd), (new UserList(Array('listFile'=>Array('x'))))->chckCredential($annaPwd)), Array(false, false));
 $noneLst = new UserList( Array('listFile'=>'test'.DS.'fixtures'.DS.'missing.lst') );
 checkIdentical('UserList missing file', Array($noneLst->chckCredential($annaPwd), $noneLst->finalErrorText(), $noneLst->wrngCredential()), $unavail);
@@ -134,10 +134,10 @@ checkIdentical('UserList a user without a passwdHash', listReply(json_encode(Arr
 checkIdentical('UserList a user with an empty passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'ben', 'passwdHash'=>''))))), $unavail);
 checkIdentical('UserList a user without a userHandle', listReply(json_encode(Array('users'=>Array($annaRow, Array('passwdHash'=>$annaHsh))))), $unavail);
 checkIdentical('UserList a user that is not a block', listReply(json_encode(Array('users'=>Array($annaRow, 'ben')))), $unavail);
-checkIdentical('UserList a role that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>Array('manage')))))), $unavail);
+checkIdentical('UserList a role that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>Array('sysadmin')))))), $unavail);
 checkIdentical('UserList a language that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userLocale'=>Array('fr')))))), $unavail);
 checkIdentical('UserList an id that is not a number or a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('id_user'=>Array(1)))))), $unavail);
-checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh, 'accessRole'=>'manage'))))), $unavail);
+checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh, 'accessRole'=>'sysadmin'))))), $unavail);
 checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('mailboxAdr'=>'anna@example.ch'), Array('userHandle'=>'ben', 'passwdHash'=>$annaHsh, 'mailboxAdr'=>'Anna@Example.CH'))))), $unavail);
 checkIdentical('UserList a bearerHash shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('bearerHash'=>'ab12'), Array('userHandle'=>'ben', 'passwdHash'=>$annaHsh, 'bearerHash'=>'AB12'))))), $unavail);
 checkIdentical('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStatus'=>'online'))))), Array(false, 'Invalid credentials', true));
@@ -167,15 +167,15 @@ function listAccess( String $carrierStr, Array $headersArr, String $carrierCnf='
 	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, Array('REMOTE_ADDR'=>'203.0.113.7')) ))->validateAccess();
 	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'));
 }
-checkIdentical('Checker with UserList: Basic access', listAccess('httpBasc', Array('Authorization'=>'Basic '.base64_encode('anna:pw-anna'))), Array(200, '', 'anna', 'manage'));
+checkIdentical('Checker with UserList: Basic access', listAccess('httpBasc', Array('Authorization'=>'Basic '.base64_encode('anna:pw-anna'))), Array(200, '', 'anna', 'sysadmin'));
 checkIdentical('Checker with UserList: Basic access of a locked user', listAccess('httpBasc', Array('Authorization'=>'Basic '.base64_encode('dave:pw-dave'))), Array(401, 'Invalid credentials', '', null));
 checkIdentical('Checker with UserList: Basic access is closed to a user with a secret', listAccess('httpBasc', Array('Authorization'=>'Basic '.base64_encode('emma:pw-emma'))), Array(401, 'Verification code required', '', null));
-checkIdentical('Checker with UserList: personal token in the API key header', listAccess('apiHeadr', Array('X-Api-Key'=>'list-test-token')), Array(200, '', 'anna', 'manage'));
+checkIdentical('Checker with UserList: personal token in the API key header', listAccess('apiHeadr', Array('X-Api-Key'=>'list-test-token')), Array(200, '', 'anna', 'sysadmin'));
 checkIdentical('Checker with UserList: wrong personal token', listAccess('apiHeadr', Array('X-Api-Key'=>'another-token')), Array(401, 'Invalid API key', '', null));
 $jwtSess = new JWT( $jwtConf );
-checkIdentical('Checker with UserList: the role of a token is the one of the file', listAccess('jwtToken', Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'anna', 'role'=>'member'))), 'testTokn'), Array(200, '', 'anna', 'manage'));
-checkIdentical('Checker with UserList: the token of a locked user is refused', listAccess('jwtToken', Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'dave', 'role'=>'system'))), 'testTokn'), Array(401, 'Account not active', '', null));
-checkIdentical('Checker with UserList: the token of a user no longer in the file is refused', listAccess('jwtToken', Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'zed', 'role'=>'manage'))), 'testTokn')[0], 401);
+checkIdentical('Checker with UserList: the role of a token is the one of the file', listAccess('jwtToken', Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'anna', 'role'=>'internal'))), 'testTokn'), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('Checker with UserList: the token of a locked user is refused', listAccess('jwtToken', Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'dave', 'role'=>'operator'))), 'testTokn'), Array(401, 'Account not active', '', null));
+checkIdentical('Checker with UserList: the token of a user no longer in the file is refused', listAccess('jwtToken', Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'zed', 'role'=>'sysadmin'))), 'testTokn')[0], 401);
 
 // The limit by address still applies : counters in a folder of the project, removed at the end
 $prjFldr = 'temp'.DS.'limits_test_'.getmypid();

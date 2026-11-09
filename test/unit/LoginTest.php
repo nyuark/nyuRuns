@@ -101,10 +101,10 @@ checkPregMatch('login: the refusal is told in the access log, without the value'
 
 // Login on the users file : the role goes into the token, the status and the 2FA code are checked
 plugConf( $lstLogn );
-checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('openSess', $annaPwd)), Array('anna', 'manage'));
+checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('openSess', $annaPwd)), Array('anna', 'sysadmin'));
 checkIdentical('login x userFile: a pending user is refused as a wrong password is', authActn('openSess', Array('user'=>'cleo', 'pass'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
 checkIdentical('login x userFile: a user with a secret, password alone', authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma')), Array(401, 'Verification code required', null));
-checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'member'));
+checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'internal'));
 checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
 checkIdentical('login x userFile: a code that is not a text is no code', authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Array('1'))), Array(401, 'Verification code required', null));
 
@@ -170,8 +170,8 @@ authActn('openSess', Array('user'=>'ben', 'pass'=>'pw-ben'), 'POST', '198.51.100
 authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
 authActn('openSess', Array('user'=>"ben\n[".date('Y')."] [INFO] Login granted for user \"anna\"", 'pass'=>'top-secret-word'), 'POST', '198.51.100.7');
 authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
-authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'ben', 'role'=>'member'));
-authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'anna', 'role'=>'manage'));
+authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'ben', 'role'=>'internal'));
+authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'anna', 'role'=>'sysadmin'));
 authActn('quitSess', Array(), 'POST', '198.51.100.7');
 plugConf( Array('sessWith'=>'httpBasc') );
 authActn('openSess', $alicePw, 'POST', '198.51.100.8');
@@ -183,11 +183,11 @@ $yearTxt = '['.date('Y').'] ';
 $axsLogs = file_exists(inTemporaryDir('logs2').DS.'access.log') ? file(inTemporaryDir('logs2').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: the logins and logouts, one line each, notices that production writes too', $axsLogs, Array(
 	$yearTxt.'[NOTICE] Login granted for user "ben" from 198.51.100.7',
-	$yearTxt.'[NOTICE] Privileged login granted for user "anna" (manage) from 198.51.100.7',
+	$yearTxt.'[NOTICE] Privileged login granted for user "anna" (sysadmin) from 198.51.100.7',
 	$yearTxt.'[WARNING] Login refused for user "ben\n['.date('Y').'] [INFO] Login granted for user \"anna\"" from 198.51.100.7: Invalid credentials',
 	$yearTxt.'[WARNING] Login refused for user "anna" from 198.51.100.7: too many attempts',
 	$yearTxt.'[NOTICE] Logout of user "ben" from 198.51.100.7',
-	$yearTxt.'[NOTICE] Logout of privileged user "anna" (manage) from 198.51.100.7',
+	$yearTxt.'[NOTICE] Logout of privileged user "anna" (sysadmin) from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of user "" from 198.51.100.7',
 	$yearTxt.'[ERROR] Login unavailable: the session carrier issues no token',
 	$yearTxt.'[ERROR] Login unavailable: unknown authWith or sessWith in the login block'

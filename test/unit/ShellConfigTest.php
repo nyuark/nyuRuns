@@ -19,7 +19,7 @@ $axsText = "{\n"
 $dbsText = "{\n\t\"main\": {\n\t\t\"dbEngine\": \"sqlitedb\",\n\t\t\"hostName\": \"\",\n\t\t\"baseName\": \"data.sqlite\",\n\t\t\"userName\": \"\",\n\t\t\"password\": \"env:NYU_DB_PASS\"\n\t}\n}\n";
 $rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"describe\": \"A preset of the tests\",\n\t\"settings\": { \"fileType\": \"all\", \"fileName\": \"any\" },\n"
 	."\t# Access\n\t\"security\": {\n\t\t// Carrier : \"sessWith\": \"httpBasc\" would be another\n\t\t\"sessWith\": \"jwtToken\",\n\t\t\"sessConf\": \"jwtToken\",\n\t\t\"authWith\":\t\"native\",\n\t\t\"required\": true,\n"
-	."\t\t\"openList\": [\"auth/openSess\", \"/hello\"],\n\t\t\"rteRoles\": { \"users/*\": \"manage\", \"/admin/\$id\": \"system\" }\n\t},\n"
+	."\t\t\"openList\": [\"auth/openSess\", \"/hello\"],\n\t\t\"rteRoles\": { \"users/*\": \"sysadmin\", \"/admin/\$id\": \"operator\" }\n\t},\n"
 	."\t\"incoming\": [ { \"nameFrom\": \"QUERY\", \"dataFrom\": \"QUERY\", \"fieldSet\": \"all\" } ],\n"
 	."\t\"routings\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$app/\$action/\$param\", \"routeDir\": \"conf/routes\" },\n"
 	."\t\"response\": { \"outputAs\": \"jsonData\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
@@ -161,13 +161,13 @@ callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.securit
 $jsnVals = runShellAsJson($projDir, Array('settings', 'fullList', 'sample'));
 checkIdentical('route lists the declared routes, of the site then of the Runs with their owner, then the actions the access names', $jsnVals['rows'] ?? null, Array(
 	Array('path'=>'/hello', 'methods'=>'GET', 'kind'=>'htmlPage', 'target'=>'hello', 'owner'=>'site', 'access'=>'open'),
-	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'toAction', 'target'=>'users/viewUser', 'owner'=>'site', 'access'=>'manage'),
+	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'toAction', 'target'=>'users/viewUser', 'owner'=>'site', 'access'=>'sysadmin'),
 	Array('path'=>'/old', 'methods'=>'GET', 'kind'=>'redirect', 'target'=>'/hello', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'toAction', 'target'=>'shows/overview', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/things', 'methods'=>'POST', 'kind'=>'toAction', 'target'=>'shows/create', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/shelf/board', 'methods'=>'GET', 'kind'=>'toAction', 'target'=>'Shelf/index', 'owner'=>'Shelf', 'access'=>'logged'),
 	Array('path'=>'', 'methods'=>'any', 'kind'=>'toAction', 'target'=>'auth/opensess', 'owner'=>'', 'access'=>'open'),
-	Array('path'=>'', 'methods'=>'any', 'kind'=>'toAction', 'target'=>'users/*', 'owner'=>'', 'access'=>'manage')
+	Array('path'=>'', 'methods'=>'any', 'kind'=>'toAction', 'target'=>'users/*', 'owner'=>'', 'access'=>'sysadmin')
 ));
 checkIdentical('route tells the preset, how it finds a route, and who the other routes are served to', Array($jsnVals['exit'] ?? null, $jsnVals['preset'] ?? null, $jsnVals['detectBy'] ?? null, $jsnVals['others'] ?? null), Array(0, 'sample', 'autopath', 'logged'));
 checkIdentical('an open preset', runShellAsJson($projDir, Array('settings', 'fullList'))['others'] ?? null, 'open');

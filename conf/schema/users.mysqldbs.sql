@@ -11,10 +11,10 @@ CREATE TABLE `users` (
 	`passwdHash` VARCHAR(255) NOT NULL,
 	-- Time the password was last set: the sessions and tokens issued before it are refused
 	`passwdDate` DATETIME     NULL,
-	-- member, system or manage
-	`accessRole` VARCHAR(6)   NOT NULL DEFAULT 'member',
-	-- pendng (awaiting activation), review (signed up, awaiting a manager), active or locked
-	`userStatus` VARCHAR(6)   NOT NULL DEFAULT 'pendng',
+	-- internal, operator or sysadmin, in that order
+	`accessRole` VARCHAR(8)   NOT NULL DEFAULT 'internal',
+	-- awaiting (its activation), checking (signed up, a manager to approve it), approved or disabled
+	`userStatus` VARCHAR(8)   NOT NULL DEFAULT 'awaiting',
 	-- Mail address, in lower case; one account each
 	`mailboxAdr` VARCHAR(254) NULL,
 	-- Language of the mails sent to the user, a tag in lower case ('fr', 'fr-ch'); the default one when empty
@@ -33,8 +33,8 @@ CREATE TABLE `users` (
 	`twoFactKey` VARCHAR(128) NULL,
 	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
 	`twoFactStp` INT UNSIGNED NULL,
-	-- Second factor sent by mail ('mailed'); an authenticator when empty and twoFactKey is set
-	`twoFactWay` CHAR(6)      NULL,
+	-- Second factor sent by mail ('emailOtp'); an authenticator when empty and twoFactKey is set
+	`twoFactWay` CHAR(8)      NULL,
 	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
 	`mailedCode` CHAR(64)     NULL,
 	`mailExpiry` DATETIME     NULL,
@@ -48,7 +48,7 @@ CREATE TABLE `users` (
 	UNIQUE KEY `userHandle` (`userHandle`),
 	UNIQUE KEY `bearerHash` (`bearerHash`),
 	UNIQUE KEY `mailboxAdr` (`mailboxAdr`),
-	CHECK (`accessRole` IN ('member', 'system', 'manage')),
-	CHECK (`userStatus` IN ('pendng', 'review', 'active', 'locked')),
-	CHECK (`twoFactWay` IN ('mailed'))
+	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
+	CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled')),
+	CHECK (`twoFactWay` IN ('emailOtp'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -67,7 +67,7 @@ class Actions extends Actionset {
 			$this->needsActionRle($valueAsGiven);
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('member'=>$this->holdsActionRle('member'), 'system'=>$this->holdsActionRle('system'), 'manage'=>$this->holdsActionRle('manage'));
+		$this->replyValue = Array('internal'=>$this->holdsActionRle('internal'), 'operator'=>$this->holdsActionRle('operator'), 'sysadmin'=>$this->holdsActionRle('sysadmin'));
 	}
 
 	/**

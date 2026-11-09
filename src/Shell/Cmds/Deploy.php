@@ -36,7 +36,8 @@ class Deploy extends Command{
 	// The local files, and the example each is created from
 	const DIST_LIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist');
 	// The basic users, and the role of each
-	const USER_LIST = Array('member'=>'member', 'system'=>'system', 'managr'=>'manage');
+	// The basic accounts, one per role: the name proposed for each, asked when they are created
+	const USER_LIST = Array('teammate'=>'internal', 'engineer'=>'operator', 'sysAgent'=>'sysadmin');
 	// The stores the users can be created in, and 'none' for a project without users of its own
 	const STOR_LIST = Array('nativeDb', 'userFile', 'none');
 	// The block a store of users is given in conf/access.json when it has none
@@ -343,10 +344,10 @@ class Deploy extends Command{
 		}
 		$lostLst = Array();
 		$pending = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStatus'] ?? '')=='pendng' && strval($usrValuesArr['actvtnCode'] ?? '')!=='';
+			return ($usrValuesArr['userStatus'] ?? '')=='awaiting' && strval($usrValuesArr['actvtnCode'] ?? '')!=='';
 		}), 'userHandle' );
 		if( !empty($pending) ){
-			$lostLst[] = Array('activation codes', implode(', ', $pending).': pending until made active, or given a password, with manage');
+			$lostLst[] = Array('activation codes', implode(', ', $pending).': pending until made active, or given a password, with accounts');
 		}
 		$rsetLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return strval($usrValuesArr['recovrCode'] ?? '')!=='';
@@ -355,14 +356,14 @@ class Deploy extends Command{
 			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
 		}
 		$rvwList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStatus'] ?? '')=='review';
+			return ($usrValuesArr['userStatus'] ?? '')=='checking';
 		}), 'userHandle' );
 		if( !empty($rvwList) ){
 			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; accounts freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
 		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['twoFactWay'] ?? null)==='mailed';
+			return ($usrValuesArr['twoFactWay'] ?? null)==='emailOtp';
 		}), 'userHandle' );
 		if( !empty($mailLst) ){
 			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "accounts setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
@@ -419,7 +420,7 @@ class Deploy extends Command{
 			}
 			$userRow['id_user'] = (intval($userRow['id_user'] ?? 0)>0) ? intval($userRow['id_user']) : ++$lastNum;
 			$userRow['accessRole'] = $userRow['accessRole'] ?? Checker::ROLE_LIST[0];
-			$userRow['userStatus'] = $userRow['userStatus'] ?? 'active';
+			$userRow['userStatus'] = $userRow['userStatus'] ?? 'approved';
 			if( isset($userRow['twoFactKey']) && $srcSeal!==$trgtSel ){
 				$plainTx = Totp::openSecretText( strval($userRow['twoFactKey']), $srcSeal );
 				if( $plainTx===null ){
@@ -430,7 +431,7 @@ class Deploy extends Command{
 			$readyLs[] = $userRow;
 		}
 		if( !empty($nopsLst) ){
-			$this->terminateShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsLst).'); give them a password with manage first', self::EXIT_DENY);
+			$this->terminateShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsLst).'); give them a password with accounts first', self::EXIT_DENY);
 		}
 		return $readyLs;
 	}
@@ -617,7 +618,7 @@ class Deploy extends Command{
 		}
 		$treeObj = $writerObject->importJsonsObj($basePth);
 		$nodeObj = $treeObj;
-		if( !property_exists($treeObj, 'type') ){
+		if( !property_exists($treeObj, 'dbEngine') ){
 			foreach( get_object_vars($treeObj) as $blkVal ){
 				if( is_object($blkVal) ){
 					$nodeObj = $blkVal;
@@ -680,7 +681,7 @@ class Deploy extends Command{
 				$this->printerObj->printShellLine('The users file already holds users: nothing was changed.');
 				return;
 			}
-			foreach( self::USER_LIST as $usrNme => $usrRle ){
+			foreach( $this->queryUsersList() as $usrNme => $usrRle ){
 				$passLst[$usrNme] = bin2hex(random_bytes(10));
 				if( !$fileObj->enrolUsrString($usrNme, $usrRle, $passLst[$usrNme]) ){
 					$this->terminateShell('User '.$usrNme.' cannot be written: '.$fileObj->finalErrorText(), self::EXIT_FAIL);
@@ -699,15 +700,40 @@ class Deploy extends Command{
 				return;
 			}
 		}
-		$this->traceShellDone('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys(self::USER_LIST)).')');
+		// The accounts come in the order of USER_LIST, one per role
+		$acntLst = array_combine( array_keys($passLst), array_values(self::USER_LIST) );
+		$this->traceShellDone('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys($acntLst)).')');
 		$this->printerObj->printShellLine('Users created. Their passwords are shown this once:');
-		foreach( self::USER_LIST as $usrNme => $usrRle ){
+		foreach( $acntLst as $usrNme => $usrRle ){
 			$this->printerObj->printShellOnce('Password of '.$usrNme.' ('.$usrRle.')', $passLst[$usrNme]);
 		}
 		// The devices come after the passwords : a table that cannot be made does not hide them
 		if( $storeOfUsers=='nativeDb' ){
 			$this->makeDevicesTbl();
 		}
+	}
+
+	/**
+	 * Asks the name of each basic account, one per role, the one of
+	 * USER_LIST proposed: Enter alone, or --noPrompt, takes it.
+	 *
+	 * @return Array The role of each account, by its name, in the order of USER_LIST.
+	 *
+	 * @throws ShellStop When a name is not one a user can have, or two accounts are given one name.
+	 */
+	protected function queryUsersList(): Array {
+		$acntLst = Array();
+		foreach( self::USER_LIST as $usrNme => $usrRle ){
+			$gvnName = $this->queryAnswerTxt('Name of the '.$usrRle.' account', $usrNme);
+			if( !preg_match(\nyu\Access\Auth\UserBase::NAME_RULE, $gvnName) || in_array(strtolower($gvnName), \nyu\Access\Auth\UserBase::NAME_DENY, true) ){
+				$this->terminateShell('No user created: '.json_encode($gvnName).' is not a name a user can have', self::EXIT_DENY);
+			}
+			if( in_array(strtolower($gvnName), array_map('strtolower', array_keys($acntLst)), true) ){
+				$this->terminateShell('No user created: two accounts cannot share the name '.json_encode($gvnName), self::EXIT_DENY);
+			}
+			$acntLst[$gvnName] = $usrRle;
+		}
+		return $acntLst;
 	}
 
 	/**
@@ -778,9 +804,10 @@ class Deploy extends Command{
 		// The rules of the userbase are those of its block, except the length : the passwords made here are long enough for any
 		$ntvAuth = new Native( Array('minChars'=>1) + $configValues );
 		$passLst = Array();
-		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userHandle').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'active');";
+		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userHandle').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
+		$acntLst = $this->queryUsersList();
 		$dbHndlr->opnTransaction();
-		foreach( self::USER_LIST as $usrNme => $usrRle ){
+		foreach( $acntLst as $usrNme => $usrRle ){
 			$passLst[$usrNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
 			if( !$dbHndlr->sendBuiltQuery($addStmt, true, Array($usrNme, $usrRle)) || !$ntvAuth->savePasswdFlag($usrNme, $passLst[$usrNme]) ){

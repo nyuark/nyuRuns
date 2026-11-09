@@ -20,7 +20,7 @@ function freshPrjt( String $folderName ): String {
 		'conf/access.json.dist'=>distAccss(),
 		'conf/system.ini'=>buildSystemIni(),
 		'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }',
-		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "manage" } } }'
+		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "sysadmin" } } }'
 	));
 }
 
@@ -73,13 +73,13 @@ $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), tru
 $usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'userHandle');
 $keyText = fetchInProject($projDir, 'conf/keys/jwtToken.key');
 checkIdentical('start points the login at the store, makes the keys of the tokens, the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null, function_exists('openssl_pkey_new') ? is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key') : strlen($envVals['NYU_JWT_SECRET'] ?? '')>=48, $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'accessRole', 'userHandle'), $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
-	Array(0, 'userFile', 'userFile', true, $jsnVals['secret']['API key'] ?? 'none', Array('member'=>'member', 'system'=>'system', 'managr'=>'manage'), 'fine', 'fine', 'fine', 0));
+	Array(0, 'userFile', 'userFile', true, $jsnVals['secret']['API key'] ?? 'none', Array('teammate'=>'internal', 'engineer'=>'operator', 'sysAgent'=>'sysadmin'), 'fine', 'fine', 'fine', 0));
 checkIdentical('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key userFile'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
-checkIdentical('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $usrList['managr']['passwdHash'] ?? ''), password_verify($jsnVals['secret']['Password of member (member)'] ?? '', $usrList['member']['passwdHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
+checkIdentical('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of sysAgent (sysadmin)'] ?? '', $usrList['sysAgent']['passwdHash'] ?? ''), password_verify($jsnVals['secret']['Password of teammate (internal)'] ?? '', $usrList['teammate']['passwdHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
 checkPregMatch('the layout of the access config is kept', strval(fetchInProject($projDir, 'conf/access.json')), '/^\{\n\t"plugLibs": \{ "authWith": \[\], "sessWith": \[\] \},\n\t"loginSet": \{ "authWith": "userFile", "authConf": "userFile", /');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt'));
-checkIdentical('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, fetchInProject($projDir, 'conf/keys/jwtToken.key')===$keyText, parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'][2]['passwdHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, true, $envVals, $usrList['managr']['passwdHash'], false, true));
-checkPregMatch('the installation is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in userFile \(member, system, managr\) by user "cli:/');
+checkIdentical('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, fetchInProject($projDir, 'conf/keys/jwtToken.key')===$keyText, parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'][2]['passwdHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, true, $envVals, $usrList['sysAgent']['passwdHash'], false, true));
+checkPregMatch('the installation is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in userFile \(teammate, engineer, sysAgent\) by user "cli:/');
 // A public key laid over the server's own, by a bundle of another pair : the check fails
 if( function_exists('openssl_pkey_new') ){
 	$pubText = strval(fetchInProject($projDir, 'conf/keys/jwtToken.pub'));
@@ -108,7 +108,17 @@ checkIdentical('files alone still makes them all', Array(runShellAsJson(freshPrj
 // start, with its questions
 $projDir = freshPrjt('asked');
 $runVals = callShellArray($projDir, Array('installs', 'allSteps', '--silently'), "\n\n");
-checkIdentical('each question proposes a default, taken on Enter: the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEV')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: ', true, true));
+checkIdentical('each question proposes a default, taken on Enter: the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEV')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Name of the internal account [teammate]: Name of the operator account [engineer]: Name of the sysadmin account [sysAgent]: ', true, true));
+// The names of the basic accounts: each asked, the one proposed taken on Enter; a name a user cannot have, or one given twice, creates none
+$projDir = freshPrjt('accounts');
+$jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps'), "\n\nann.k\n\nBen-2\n");
+checkIdentical('names: the names answered, in the order of the roles', array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), 'accessRole', 'userHandle'), Array('ann.k'=>'internal', 'engineer'=>'operator', 'Ben-2'=>'sysadmin'));
+$projDir = freshPrjt('refused');
+runShellAsJson($projDir, Array('installs', 'makeConf'));
+$runVals = callShellArray($projDir, Array('installs', 'userBase', '--useStore=userFile'), "\nroot\n");
+$twoVals = callShellArray($projDir, Array('installs', 'userBase', '--useStore=userFile'), "ann\nANN\n");
+checkIdentical('names: one a user cannot have, one given twice: refused, nobody created', Array($runVals['code'], $runVals['errs'], $twoVals['code'], $twoVals['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')),
+	Array(3, "Name of the internal account [teammate]: Name of the operator account [engineer]: No user created: \"root\" is not a name a user can have\n", 3, "Name of the internal account [teammate]: Name of the operator account [engineer]: No user created: two accounts cannot share the name \"ANN\"\n", false));
 $projDir = freshPrjt('answer');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps'), "prod\nuserFile\n");
 $statLst = stateOf($jsnVals);

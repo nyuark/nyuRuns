@@ -8,7 +8,7 @@ use nyu\App\RunContext;
 use nyu\Tools\Registry;
 
 $inptReg = new Registry( Array('name'=>'Alpha') );
-$axesReg = new Registry( Array('logged'=>true, 'user'=>'anna', 'role'=>'member') );
+$axesReg = new Registry( Array('logged'=>true, 'user'=>'anna', 'role'=>'internal') );
 $ctxtObj = new RunContext( 'viewShow', '12', $inptReg, $axesReg, null, null, null, null, 'Shows', RUN_DIR.DS.'Shows' );
 
 checkIdentical('the action', $ctxtObj->actionName, 'viewShow');

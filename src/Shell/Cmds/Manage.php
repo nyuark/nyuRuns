@@ -14,7 +14,7 @@ use nyu\Shell\UserFile;
 /**
  * Manages the users, and calls the actions of the runs:
  *
- *   php nyuRun accounts fullList --roleName=manage  the users, filtered or not
+ *   php nyuRun accounts fullList --roleName=sysadmin  the users, filtered or not
  *   php nyuRun accounts makeUser ann system         creates a user
  *   php nyuRun accounts lockUser ann                locks it (unlck unlocks)
  *   php nyuRun accounts password ann                gives it a new password, made and shown once (--typeItIn to type it)
@@ -174,7 +174,7 @@ class Manage extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeLockUser(): Int {
-		return $this->statusSetCount('locked');
+		return $this->statusSetCount('disabled');
 	}
 
 	/**
@@ -183,13 +183,13 @@ class Manage extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFreeUser(): Int {
-		return $this->statusSetCount('active');
+		return $this->statusSetCount('approved');
 	}
 
 	/**
 	 * Gives the user named on the command line a status.
 	 *
-	 * @param String $statusString 'locked' or 'active'.
+	 * @param String $statusString 'disabled' or 'approved'.
 	 * @return Int The exit code.
 	 */
 	protected function statusSetCount( String $statusString ): Int {
@@ -198,7 +198,7 @@ class Manage extends Command{
 		if( !$storObj->saveStatusFlag($usrName, $statusString) ){
 			$this->stopStoreError($storObj);
 		}
-		$this->printerObj->printShellPair( ($statusString=='locked') ? 'locked' : 'unlocked', $usrName );
+		$this->printerObj->printShellPair( ($statusString=='disabled') ? 'locked' : 'unlocked', $usrName );
 		return self::EXIT_DONE;
 	}
 
@@ -271,7 +271,7 @@ class Manage extends Command{
 		}
 		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
 		if( $usrName=='' ){
-			$usrList = $storObj->listUsersNamed( Array('userStatus'=>'review') );
+			$usrList = $storObj->listUsersNamed( Array('userStatus'=>'checking') );
 			if( $usrList===false ){
 				$this->stopStoreError($storObj);
 			}
@@ -456,7 +456,7 @@ class Manage extends Command{
 	 * Calls an action of a run. Its inputs are the name=value words
 	 * (filters[search]=jazz for a nested one), over those of a JSON file
 	 * (--bodyFrom, - for the standard input). It runs as the user
-	 * cli:<system user>, with the role 'system' unless --roleName gives
+	 * cli:<system user>, with the role 'operator' unless --roleName gives
 	 * another. Its reply is written to the output, or to --saveInto.
 	 *
 	 * @return Int EXITDONE for a success or a redirection, EXITDENY for a 4xx status, EXITFAIL for a 5xx.
@@ -483,7 +483,7 @@ class Manage extends Command{
 		$wordVal = Array();
 		parse_str(implode('&', $pairLst), $wordVal);
 		$inptVls = array_replace_recursive($inptVls, $wordVal);
-		$roleNme = strval($this->optnObject->retrieveOption('roleName', 'system'));
+		$roleNme = strval($this->optnObject->retrieveOption('roleName', 'operator'));
 		$mthName = strtoupper(strval($this->optnObject->retrieveOption('httpVerb', 'GET')));
 		if( !in_array($roleNme, Checker::ROLE_LIST, true) || !in_array($mthName, self::MTHD_LIST, true) ){
 			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);

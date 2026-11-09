@@ -217,7 +217,7 @@ class Actions extends Actionset {
 	 * whichever it is, or one that ended, 429 when the address presented
 	 * too many wrong ones (see Access\Limiter) and 500 when the login does
 	 * not use the native userbase. The reply tells the status the user is
-	 * in: 'active', or 'review' for a sign-up a manager has to approve.
+	 * in: 'approved', or 'checking' for a sign-up a manager has to approve.
 	 */
 	public function activate(): Void {
 		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag('POST')){
@@ -267,9 +267,9 @@ class Actions extends Actionset {
 			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
-		$usrStts = strval( ($usrBase->userInfosArray($gvnUser) ?: Array())['userStatus'] ?? 'active' );
+		$usrStts = strval( ($usrBase->userInfosArray($gvnUser) ?: Array())['userStatus'] ?? 'approved' );
 		$this->statusCode = 200;
-		$this->replyValue = Array('active'=>$usrStts=='active', 'stat'=>$usrStts);
+		$this->replyValue = Array('active'=>$usrStts=='approved', 'stat'=>$usrStts);
 	}
 
 	/**

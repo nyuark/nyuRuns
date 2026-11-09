@@ -10,7 +10,7 @@ use nyu\Tools\Logger;
  * can run without any database: the native userbase (see Native), read
  * from a JSON file written as { "users": [ { field: value }, ... ] }.
  * A user has a 'userHandle' and a 'passwdHash' (as given by password_hash()),
- * and optionally a 'accessRole' (member when left out), a 'userStatus'
+ * and optionally an 'accessRole' (internal when left out), a 'userStatus'
  * (active when left out), a 'mailboxAdr' address (one account each), the
  * 'bearerHash' SHA-256 hash of a personal API token, a 'twoFactKey' 2FA
  * secret and an 'id_user'.
@@ -50,7 +50,7 @@ class UserList implements Handler{
 
 	/**
 	 * Verifies a username/password pair against the users file. The
-	 * password must match the stored hash and the user must be 'active'
+	 * password must match the stored hash and the user must be 'approved'
 	 * (one that is not is refused as a wrong password is, and the reason
 	 * logged); a user with a 2FA secret must also give the current code of its
 	 * authenticator. A 'key' entry is checked as a personal API token
@@ -104,7 +104,7 @@ class UserList implements Handler{
 			$this->invalidCrd = true;
 			return false;
 		}
-		if( $userVls['userStatus']!=='active' ){
+		if( $userVls['userStatus']!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
 			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is not active ('.$userVls['userStatus'].')' );
 			$this->lastMessag = 'Invalid credentials';
@@ -154,7 +154,7 @@ class UserList implements Handler{
 			$this->lastMessag = 'Credential store unavailable';
 			return false;
 		}
-		if( $userVls===null || $userVls['userStatus']!=='active' ){
+		if( $userVls===null || $userVls['userStatus']!=='approved' ){
 			$this->lastMessag = 'Invalid API key';
 			$this->invalidCrd = true;
 			return false;
@@ -180,7 +180,7 @@ class UserList implements Handler{
 			$this->lastMessag = 'Credential store unavailable';
 			return false;
 		}
-		if( $userVls===null || $userVls['userStatus']!=='active' ){
+		if( $userVls===null || $userVls['userStatus']!=='approved' ){
 			$this->lastMessag = 'Account not active';
 			return false;
 		}
@@ -274,7 +274,7 @@ class UserList implements Handler{
 
 	/**
 	 * Reads the users file. Each user is given every field: 'accessRole' is
-	 * member and 'userStatus' active when left out, 'mailboxAdr', 'userLocale',
+	 * internal and 'userStatus' approved when left out, 'mailboxAdr', 'userLocale',
 	 * 'bearerHash' and 'twoFactKey' empty, 'id_user' null; the address and the
 	 * language are read in lower case. The file is refused as a whole, and the refusal logged, when it
 	 * is not a JSON text holding a 'users' list, when a user lacks its
@@ -300,7 +300,7 @@ class UserList implements Handler{
 				break;
 			}
 			$userVls = Array('userHandle'=>$usrRow['userHandle'], 'passwdHash'=>$usrRow['passwdHash'], 'id_user'=>$usrRow['id_user'] ?? null);
-			foreach( Array('accessRole'=>'member', 'userStatus'=>'active', 'mailboxAdr'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
+			foreach( Array('accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
 				$userVls[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
 				if( !is_string($userVls[$fldNme]) ){
 					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['userHandle']).' is not a text';

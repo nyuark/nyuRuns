@@ -5,7 +5,7 @@
 		"fileType": "all",
 		"fileName": "any"
 	},
-	"security": { "required": true, "sessWith": "phpSessn", "sessConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/assets/*"], "signRout": "/login", "rteRoles": { "users/*": "manage" } },
+	"security": { "required": true, "sessWith": "phpSessn", "sessConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/assets/*"], "signRout": "/login", "rteRoles": { "users/*": "sysadmin" } },
 	"incoming": [
 		{
 			"nameFrom": "QUERY",

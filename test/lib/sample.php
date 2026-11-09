@@ -37,7 +37,7 @@ function createSampleDb( String $sqliteDbPath ): Void {
 	// The users table is the one the framework delivers
 	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/users.sqlitedb.sql')) );
 	$userSql = $pdoLink->prepare("INSERT INTO users (id_user, userHandle, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
-	foreach( Array(Array(1,'anna','manage','active'), Array(2,'ben','member','active'), Array(3,'cleo','member','pendng'), Array(4,'dave','system','locked')) as $usrRow ){
+	foreach( Array(Array(1,'anna','sysadmin','approved'), Array(2,'ben','internal','approved'), Array(3,'cleo','internal','awaiting'), Array(4,'dave','operator','disabled')) as $usrRow ){
 		// Passwords are pw-<name>, hashed at the lowest cost to keep the tests fast
 		$userSql->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 	}

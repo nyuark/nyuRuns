@@ -59,6 +59,9 @@ $newRows = $sqlLink->query('SELECT * FROM users ORDER BY id_user')->fetchAll(PDO
 // The values of 0.9 under the names of 1.0
 $colMap = Array('userName'=>'userHandle', 'passHash'=>'passwdHash', 'userRole'=>'accessRole', 'userStat'=>'userStatus', 'actvCode'=>'actvtnCode', 'tokenKey'=>'bearerHash', 'twoFaKey'=>'twoFactKey', 'twoFaStp'=>'twoFactStp', 'failNmbr'=>'failsCount', 'failDate'=>'failedDate', 'madeDate'=>'createDate', 'lastSeen'=>'accessDate');
 $oldRows = array_map(function( Array $userValues ) use ( $colMap ): Array { return array_combine(array_map(function( String $colName ) use ( $colMap ): String { return $colMap[$colName] ?? $colName; }, array_keys($userValues)), array_values($userValues)); }, $oldRows);
+// and the codes of 1.0 for their roles and statuses
+$codeMap = Array('member'=>'internal', 'system'=>'operator', 'manage'=>'sysadmin', 'pendng'=>'awaiting', 'active'=>'approved', 'locked'=>'disabled');
+$oldRows = array_map(function( Array $userValues ) use ( $codeMap ): Array { return array_replace($userValues, Array('accessRole'=>$codeMap[$userValues['accessRole']], 'userStatus'=>$codeMap[$userValues['userStatus']])); }, $oldRows);
 $keptRow = array_map(function( Array $userValues ): Array { return array_diff_key($userValues, array_flip(Array('mailboxAdr', 'userLocale', 'recovrCode', 'codeExpiry', 'signupDate', 'twoFactWay', 'mailedCode', 'mailExpiry', 'passwdDate'))); }, $newRows);
 checkIdentical('every user is kept, with its identifier and its values', $keptRow, $oldRows);
 checkIdentical('the new columns are empty', array_unique(array_merge(...array_map(function( Array $userValues ): Array { return Array($userValues['mailboxAdr'], $userValues['userLocale'], $userValues['recovrCode'], $userValues['codeExpiry'], $userValues['signupDate'], $userValues['twoFactWay'], $userValues['mailedCode'], $userValues['mailExpiry'], $userValues['passwdDate']); }, $newRows))), Array(null));
@@ -66,8 +69,8 @@ checkIdentical('the device is still there', $sqlLink->query('SELECT deviceName, 
 checkIdentical('the foreign keys are on again', intval($sqlLink->query('PRAGMA foreign_keys')->fetchColumn()), 1);
 checkIdentical('no table is left over', $sqlLink->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN), Array('devices', 'users'));
 
-$sqlLink->exec("UPDATE users SET userStatus='review', mailboxAdr='cleo@example.ch' WHERE id_user=7");
-checkIdentical('1.0 takes the status review', $sqlLink->query('SELECT userStatus FROM users WHERE id_user=7')->fetchColumn(), 'review');
+$sqlLink->exec("UPDATE users SET userStatus='checking', mailboxAdr='cleo@example.ch' WHERE id_user=7");
+checkIdentical('1.0 takes the status checking', $sqlLink->query('SELECT userStatus FROM users WHERE id_user=7')->fetchColumn(), 'checking');
 checkForThrows('an address is one account\'s', function() use ( $sqlLink ){ $sqlLink->exec("UPDATE users SET mailboxAdr='cleo@example.ch' WHERE id_user=3"); }, PDOException::class);
 checkForThrows('an unknown status is still refused', function() use ( $sqlLink ){ $sqlLink->exec("UPDATE users SET userStatus='online' WHERE id_user=3"); }, PDOException::class);
 $sqlLink->exec('DELETE FROM users WHERE id_user=3');
