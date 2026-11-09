@@ -27,12 +27,12 @@ class Preset{
     /**
 	 * Loads and parses the named RPS preset file.
 	 *
-	 * @param String $nameOfPreset Name of the preset file (without extension) to load; defaults to 'dfault'.
+	 * @param String $nameOfPreset Name of the preset file (without extension) to load; defaults to 'defaults'.
 	 * @throws \RuntimeException When the name is not valid, or the preset file is missing, not valid JSON, or empty.
 	 */
-    function __construct(String $nameOfPreset = 'dfault'){
+    function __construct(String $nameOfPreset = 'defaults'){
 		if($nameOfPreset==''){
-			$nameOfPreset = 'dfault';
+			$nameOfPreset = 'defaults';
 		}
 		$this->readPresetFile($nameOfPreset);
 		$this->presetName = $nameOfPreset;
@@ -106,8 +106,8 @@ class Preset{
 			}
 		}
 		// A format the reply cannot be written in would only fail at the first request
-		$frmtVal = $this->presetData['response']['outputAs'] ?? 'json';
-		if( !is_string($frmtVal) || !array_key_exists(strtolower($frmtVal), \nyu\Output\Response::FORM_LIST) ){
+		$frmtVal = $this->presetData['response']['outputAs'] ?? 'jsonData';
+		if( !is_string($frmtVal) || empty(preg_grep('/^'.preg_quote($frmtVal, '/').'$/iD', array_keys(\nyu\Output\Response::FORM_LIST))) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown output format: '.(is_scalar($frmtVal) ? strval($frmtVal) : gettype($frmtVal)).'; one of '.implode(', ', array_keys(\nyu\Output\Response::FORM_LIST)));
 		}
 	}

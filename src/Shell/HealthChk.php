@@ -272,9 +272,9 @@ class HealthChk{
 
 	/**
 	 * Checks the entry points of www: the preset each one starts the
-	 * Runner with (dfault when it names none) must check access. An open
+	 * Runner with (defaults when it names none) must check access. An open
 	 * one ("required": false) fails in PREV and PROD and is told in DEV and
-	 * TEST, unless its auths block says it is meant to be ("public": true).
+	 * TEST, unless its security block says it is meant to be ("isPublic": true).
 	 * An entry naming its preset at run time cannot be followed: it is told.
 	 */
 	public function validateEntrys(): Void {
@@ -292,7 +292,7 @@ class HealthChk{
 				$this->addCheckResult('entry '.$itemNme, 'warn', 'the preset is named at run time: check it gives one that checks access');
 				continue;
 			}
-			$prstNme = ($prstTxt=='') ? 'dfault' : substr($prstTxt, 1, -1);
+			$prstNme = ($prstTxt=='') ? 'defaults' : substr($prstTxt, 1, -1);
 			try{
 				$accConf = (new Preset($prstNme))->newSetupLoader()->setAccessArray();
 			}catch( \Throwable $e ){
@@ -302,9 +302,9 @@ class HealthChk{
 			if( ($accConf['required'] ?? true)!==false ){
 				$this->addCheckResult('entry '.$itemNme, 'fine', 'starts '.$prstNme.', which checks access');
 			}elseif( ($accConf['isPublic'] ?? false)===true ){
-				$this->addCheckResult('entry '.$itemNme, 'fine', 'starts '.$prstNme.', open by intent (public)');
+				$this->addCheckResult('entry '.$itemNme, 'fine', 'starts '.$prstNme.', open by intent (isPublic)');
 			}else{
-				$this->addCheckResult('entry '.$itemNme, $isFinal ? 'fail' : 'warn', 'starts '.$prstNme.': every request is served without a check; name a preset that checks access, or set "public": true in its auths block when the site is meant to be open');
+				$this->addCheckResult('entry '.$itemNme, $isFinal ? 'fail' : 'warn', 'starts '.$prstNme.': every request is served without a check; name a preset that checks access, or set "isPublic": true in its security block when the site is meant to be open');
 			}
 		}
 	}

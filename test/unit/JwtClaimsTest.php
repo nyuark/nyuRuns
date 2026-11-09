@@ -151,7 +151,7 @@ function askKeyset( Array $tokenBlock ): Array {
 		'JWTTOKEN'=>$tokenBlock
 	)) );
 	return runCatchThrown(function(): Array {
-		$respObj = new Response( Array('outputAs'=>'yaml', 'headList'=>Array('Cache-Control'=>'no-cache, no-store', 'Expires'=>'Mon, 26 Jul 1997 05:00:00 GMT')) );
+		$respObj = new Response( Array('outputAs'=>'yamlData', 'headList'=>Array('Cache-Control'=>'no-cache, no-store', 'Expires'=>'Mon, 26 Jul 1997 05:00:00 GMT')) );
 		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('jwksList', null, new Registry(Array()), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 		$actnSet->runAskedAction();
 		$respObj->convertOutFlag( $actnSet->replyValue ?? Array() );

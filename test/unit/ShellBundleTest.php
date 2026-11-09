@@ -28,7 +28,7 @@ function filesOfDr( String $folderPath ): Array {
 $projDir = makeProjectTxt('bundle', Array(
 	'src/Kernel.php'=>"<?php\n", 'runs/Shows/Actions.php'=>"<?php\n", 'runs/Shows/input/index.json'=>'{ "fieldSet": {} }',
 	'www/index.php'=>"<?php\n", 'www/.htaccess'=>"RewriteEngine On\n", 'pages/index.html'=>'<p>home</p>',
-	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"), 'conf/presets/dfault.rps'=>'{ "presetId": "dfault", "settings": { "fileType": "all" }, "security": { "required": false } }',
+	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"), 'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }',
 	'conf/access.json'=>'{ "secret": "real" }', 'conf/access.json.dist'=>'{ "secret": "env:NYU_JWT_SECRET" }', 'conf/database.json'=>'{ "pass": "real" }',
 	'conf/mailer.json'=>'{ "pass": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
 	'conf/keys/jwtToken.key'=>'PRIVATE', 'conf/keys/jwtToken.pub'=>'PUBLIC', 'conf/keys/jwtToken.old.pub'=>'FORMER',
@@ -43,7 +43,7 @@ $projDir = makeProjectTxt('bundle', Array(
 	'tools/failing.phar'=>"<?php\necho \"Could not scan the classes\\n\";\nexit(3);\n"
 ));
 $cmpsLog = 'temp/cmpsr.log';
-$keptLst = Array('LICENSE', 'NOTICE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/presets/dfault.rps', 'conf/system.ini',
+$keptLst = Array('LICENSE', 'NOTICE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/presets/defaults.rps', 'conf/system.ini',
 	'nyuRun', 'pages/index.html', 'runs/Shows/Actions.php', 'runs/Shows/input/index.json', 'src/Kernel.php', 'vendor/autoload.php', 'vendor/some/pkg/src/Lib.php', 'www/.htaccess', 'www/index.php');
 $distDir = $projDir.DS.'dist';
 

@@ -63,12 +63,12 @@ class ConfCache{
 	/**
 	 * Gives the values the cache holds for a preset.
 	 *
-	 * @param String $nameOfPreset Name of the preset, as the Runner is given it ('dfault' when empty).
+	 * @param String $nameOfPreset Name of the preset, as the Runner is given it ('defaults' when empty).
 	 * @return ?Array The values under 'preset', 'config', 'routes' and, when kept, 'tables'; null when there is no cache of the preset, it cannot be read, or the name is not one of a preset.
 	 */
 	public static function readCacheArray( String $nameOfPreset ): ?Array {
 		// The name goes into a path : letters, digits, '_' and '-' only, as a preset is named
-		$nameOfPreset = ($nameOfPreset=='') ? 'dfault' : $nameOfPreset;
+		$nameOfPreset = ($nameOfPreset=='') ? 'defaults' : $nameOfPreset;
 		if( !preg_match('/^[\w\-]+$/D', $nameOfPreset) ){
 			return null;
 		}
@@ -88,12 +88,12 @@ class ConfCache{
 	 * Writes the cache of a preset as a whole: a temporary file, then
 	 * renamed, so that a request reads the former cache or the new one.
 	 *
-	 * @param String $nameOfPreset Name of the preset ('dfault' when empty).
+	 * @param String $nameOfPreset Name of the preset ('defaults' when empty).
 	 * @param Array  $cachedValues The values: 'preset', 'config' and 'routes'.
 	 * @return Bool Whether it was written; a cache that cannot be written leaves the config read from its files.
 	 */
 	public static function buildCacheFlag( String $nameOfPreset, Array $cachedValues ): Bool {
-		$nameOfPreset = ($nameOfPreset=='') ? 'dfault' : $nameOfPreset;
+		$nameOfPreset = ($nameOfPreset=='') ? 'defaults' : $nameOfPreset;
 		if( !preg_match('/^[\w\-]+$/D', $nameOfPreset) || !isset($cachedValues['preset'], $cachedValues['config'], $cachedValues['routes']) ){
 			return false;
 		}

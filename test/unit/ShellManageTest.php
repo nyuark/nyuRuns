@@ -18,11 +18,11 @@ function fileUsers( String $projctRoot ): Array {
 	return array_column($fleVals['users'] ?? Array(), null, 'userName');
 }
 
-$rndrTxt = '"incoming": [ { "nameFrom": "QUERY", "dataFrom": "QUERY", "fieldSet": "all" } ], "routings": { "detectBy": "autopath", "pathForm": "$app/$action/$param" }, "response": { "outputAs": "json", "headList": {} }';
+$rndrTxt = '"incoming": [ { "nameFrom": "QUERY", "dataFrom": "QUERY", "fieldSet": "all" } ], "routings": { "detectBy": "autopath", "pathForm": "$app/$action/$param" }, "response": { "outputAs": "jsonData", "headList": {} }';
 $projDir = makeProjectTxt('manage', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"userFile\", \"authConf\": \"userFile\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\", \"minChars\": 8 },\n\t\"jwtToken\": { \"hmacSecr\": \"test-only-secret-0123456789-abcdefghij\", \"lifeSecs\": 300, \"signAlgo\": \"HS256\" }\n}\n",
-	'conf/presets/dfault.rps'=>'{ "presetId": "dfault", "settings": { "fileType": "all" }, "security": { "required": false }, '.$rndrTxt.' }',
+	'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false }, '.$rndrTxt.' }',
 	'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "authWith": "userFile", "authConf": "userFile", "rteRoles": { "probe/identify": "manage" } }, '.$rndrTxt.' }',
 	'test/fixtures/letters.txt'=>strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt'))
 ));

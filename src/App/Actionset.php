@@ -148,8 +148,8 @@ class Actionset {
 
 	/**
 	 * Writes the reply of this action in another format than the one of
-	 * the preset (see Response::FORM_LIST): a table ('tabl') for an
-	 * export, raw output ('flux') for a text or a Fluxd sent as it is,
+	 * the preset (see Response::FORM_LIST): a table ('csvTable') for an
+	 * export, raw output ('rawBytes') for a text or a Fluxd sent as it is,
 	 * with the Content-Type the action sets.
 	 *
 	 * @param String $outputFormat The format.

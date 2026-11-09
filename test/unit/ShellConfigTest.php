@@ -22,16 +22,16 @@ $rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"describ
 	."\t\t\"openList\": [\"auth/openSess\", \"/hello\"],\n\t\t\"rteRoles\": { \"users/*\": \"manage\", \"/admin/\$id\": \"system\" }\n\t},\n"
 	."\t\"incoming\": [ { \"nameFrom\": \"QUERY\", \"dataFrom\": \"QUERY\", \"fieldSet\": \"all\" } ],\n"
 	."\t\"routings\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$app/\$action/\$param\", \"routeDir\": \"conf/routes\" },\n"
-	."\t\"response\": { \"outputAs\": \"json\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
+	."\t\"response\": { \"outputAs\": \"jsonData\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
 $rteText = '{ "hello": { "pointsTo": { "pageFile": "hello" } }, "admin/$id": { "mthdList": "GET, POST", "pointsTo": { "appNamed": "users", "actNamed": "viewUser" } },'
 	.' "old": { "pointsTo": { "redirect": "/hello", "httpCode": 301 } }, "things": { "pointsTo": { "GET": { "appNamed": "shows", "actNamed": "overview" }, "POST": { "appNamed": "shows", "actNamed": "create" } } } }';
 
 $projDir = makeProjectTxt('config', Array(
 	'conf/system.ini'=>$iniText, 'conf/access.json'=>$axsText, 'conf/database.json'=>$dbsText,
-	'conf/presets/sample.rps'=>$rpsText, 'conf/presets/dfault.rps'=>'{ "presetId": "dfault", "settings": { "fileType": "all" }, "security": { "required": false } }',
+	'conf/presets/sample.rps'=>$rpsText, 'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }',
 	'conf/presets/wrongs.rps'=>'{ "presetId": "wrongs", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "rteRoles": { "users/*": "boss" } } }',
 	'conf/routes/main.rte'=>$rteText, 'runs/Shelf/routes.rte'=>'{ "board": { "mthdList": "GET", "pointsTo": { "actNamed": "index" } } }',
-	'www/index.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner();\n", 'www/api.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner( \"dfault\", \$overLoad );\n",
+	'www/index.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner();\n", 'www/api.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner( \"defaults\", \$overLoad );\n",
 	'www/own.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner(\$presetNm);\n", 'www/plain.php'=>"<?php echo 1;\n",
 	'.env'=>"# Secrets\nNYU_JWT_SECRET=\nNYU_API_KEY=old-key\n"
 ));
@@ -44,7 +44,7 @@ checkIdentical('a secret written in the file is masked', runShellAsJson($projDir
 checkIdentical('nothing under a path', Array(callShellArray($projDir, Array('settings', 'showConf', 'access', 'loginSet.nothing'))['code'], callShellArray($projDir, Array('settings', 'showConf', 'system', 'NOT_HERE'))['code'], callShellArray($projDir, Array('settings', 'showConf', 'other'))['code']), Array(3, 3, 2));
 checkIdentical('shows the databases, the password as the name it is kept under', runShellAsJson($projDir, Array('settings', 'showConf', 'dbases', 'main.pass'))['rows'] ?? null, Array(Array('key'=>'main.pass', 'value'=>'env:NYU_DB_PASS')));
 $rowList = runShellAsJson($projDir, Array('settings', 'showConf', 'preset'))['rows'] ?? Array();
-checkIdentical('shows the presets', Array(array_column($rowList, 'preset'), $rowList[1]['about'] ?? null), Array(Array('dfault', 'sample', 'wrongs'), 'A preset of the tests'));
+checkIdentical('shows the presets', Array(array_column($rowList, 'preset'), $rowList[1]['about'] ?? null), Array(Array('defaults', 'sample', 'wrongs'), 'A preset of the tests'));
 checkIdentical('shows a key of a preset', runShellAsJson($projDir, Array('settings', 'showConf', 'preset', 'sample.security.openList'))['rows'] ?? null, Array(Array('key'=>'security.openList', 'value'=>Array('auth/openSess', '/hello'))));
 checkIdentical('a preset that does not exist', callShellArray($projDir, Array('settings', 'showConf', 'preset', 'nosuch'))['code'], 1);
 
@@ -70,7 +70,7 @@ checkIdentical('a list of a preset is not written, nor a key it does not have, n
 checkPregMatch('a write is traced, without its value', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Config: preset sample\.describe written by user "cli:[\w.\-]+"\n/');
 
 // entry
-checkIdentical('entry lists the entry points and their preset', runShellAsJson($projDir, Array('settings', 'wwwEntry'))['rows'] ?? null, Array(Array('entry'=>'api', 'preset'=>'dfault'), Array('entry'=>'index', 'preset'=>'dfault'), Array('entry'=>'own', 'preset'=>'dfault')));
+checkIdentical('entry lists the entry points and their preset', runShellAsJson($projDir, Array('settings', 'wwwEntry'))['rows'] ?? null, Array(Array('entry'=>'api', 'preset'=>'defaults'), Array('entry'=>'index', 'preset'=>'defaults'), Array('entry'=>'own', 'preset'=>'defaults')));
 checkIdentical('entry names a preset where there was none', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'index', 'sample'))['text'], fetchInProject($projDir, 'www/index.php')), Array("index: sample\n", "<?php\n\$nyuRun = new \\nyu\\Runner('sample');\n"));
 checkIdentical('entry replaces the preset named, what follows it kept', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'api', 'sample'))['code'], fetchInProject($projDir, 'www/api.php'), callShellArray($projDir, Array('settings', 'wwwEntry', 'api'))['text']), Array(0, "<?php\n\$nyuRun = new \\nyu\\Runner( 'sample', \$overLoad );\n", "api: sample\n"));
 checkIdentical('a preset that does not exist, an entry that names its preset its own way, a file that starts no Runner or does not exist', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'index', 'nosuch'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', 'own', 'sample'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', 'plain', 'sample'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', '../conf/x', 'sample'))['code']), Array(3, 3, 3, 3));

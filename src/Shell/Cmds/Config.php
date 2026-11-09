@@ -20,14 +20,14 @@ use nyu\Tools\Router;
  *
  *   php nyuRun settings showConf system        the keys of conf/system.ini
  *   php nyuRun settings showConf access login  a block of conf/access.json, secrets masked
- *   php nyuRun settings showConf preset webapi.auths a block of a preset
+ *   php nyuRun settings showConf preset restapis.auths a block of a preset
  *   php nyuRun settings setValue system LOG_MODE BASE
  *   php nyuRun settings setValue access native.minChars 12
  *   php nyuRun settings setValue dbases nyuRuns.host db.local
- *   php nyuRun settings setValue preset webapi.auths.authWith native
- *   php nyuRun settings wwwEntry index webapi  the preset www/index.php starts the Runner with
+ *   php nyuRun settings setValue preset restapis.auths.authWith native
+ *   php nyuRun settings wwwEntry index restapis  the preset www/index.php starts the Runner with
  *   php nyuRun settings makeSecr jwtToken        a new secret, written where the config reads it
- *   php nyuRun settings fullList webapi        the routes of a preset, and who they are served to
+ *   php nyuRun settings fullList restapis        the routes of a preset, and who they are served to
  *   php nyuRun settings clrCache               removes the config cache, after conf was edited by hand
  *
  * A file is written as ConfFile does: comments and layout kept, the
@@ -307,7 +307,7 @@ class Config extends Command{
 			foreach( (array)glob(WEB_DIR.DS.'*.php') as $phpFil ){
 				$hitList = Array();
 				if( preg_match(self::RUNR_CALL, strval(file_get_contents(strval($phpFil))), $hitList) ){
-					$rowList[] = Array( basename(strval($phpFil), '.php'), trim(strval($hitList[2] ?? ''), '\'"') ?: 'dfault' );
+					$rowList[] = Array( basename(strval($phpFil), '.php'), trim(strval($hitList[2] ?? ''), '\'"') ?: 'defaults' );
 				}
 			}
 			$this->printerObj->printShellRows( Array('entry', 'preset'), $rowList );
@@ -323,7 +323,7 @@ class Config extends Command{
 		if( $fndngNb<1 ){
 			$this->terminateShell('www/'.$fileNme.'.php does not start a Runner', self::EXIT_DENY);
 		}
-		$nowPrst = trim(strval($hitList[0][2][0] ?? ''), '\'"') ?: 'dfault';
+		$nowPrst = trim(strval($hitList[0][2][0] ?? ''), '\'"') ?: 'defaults';
 		if( $prstNme===null ){
 			$this->printerObj->printShellPair($fileNme, $nowPrst);
 			return self::EXIT_DONE;
@@ -617,7 +617,7 @@ class Config extends Command{
 	 * @return Int The exit code: EXITFLAW when the roles of the routes cannot be applied.
 	 */
 	public function invokeFullList(): Int {
-		$prstNme = strval($this->optnObject->shiftFirstWord() ?? 'dfault');
+		$prstNme = strval($this->optnObject->shiftFirstWord() ?? 'defaults');
 		try{
 			$loadObj = (new Preset($prstNme))->newSetupLoader();
 		}catch( \RuntimeException $e ){

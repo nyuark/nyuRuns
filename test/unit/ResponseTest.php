@@ -43,49 +43,49 @@ $rowList = Array( Array('id'=>1, 'name'=>'Ann', 'admin'=>true), Array('id'=>2, '
 
 // JSON, the default
 checkIdentical('JSON body',               builtBody(Array(), Array('a'=>1, 'b'=>Array('c'))), '{"a":1,"b":["c"]}');
-checkIdentical('JSON is the default',     builtBody(Array('outputAs'=>'json'), Array()), '[]');
-checkIdentical('format name is case-insensitive', builtBody(Array('outputAs'=>'Json'), Array('a'=>1)), '{"a":1}');
+checkIdentical('JSON is the default',     builtBody(Array('outputAs'=>'jsonData'), Array()), '[]');
+checkIdentical('format name is case-insensitive', builtBody(Array('outputAs'=>'JsonData'), Array('a'=>1)), '{"a":1}');
 checkIdentical('JSON body: a string',     builtBody(Array(), 'plain text'), '"plain text"');
 checkIdentical('JSON body: a number',     builtBody(Array(), 42), '42');
 checkIdentical('JSON body: a boolean',    builtBody(Array(), false), 'false');
 checkIdentical('JSON body: an object',    builtBody(Array(), (object)Array('a'=>1)), '{"a":1}');
 
 // YAML, XML
-checkIdentical('YAML body', builtBody(Array('outputAs'=>'yaml'), Array('a'=>1, 'b'=>Array('c', 'd'))), "a: 1\nb:\n  - c\n  - d\n");
-checkPregMatch('XML body', builtBody(Array('outputAs'=>'xmlx'), Array('a'=>1, 'b'=>'x & y')), '/^<\?xml version="1\.0" encoding="UTF-8"\?>.*<a>1<\/a>.*<b>x &amp; y<\/b>/s');
+checkIdentical('YAML body', builtBody(Array('outputAs'=>'yamlData'), Array('a'=>1, 'b'=>Array('c', 'd'))), "a: 1\nb:\n  - c\n  - d\n");
+checkPregMatch('XML body', builtBody(Array('outputAs'=>'xmlNodes'), Array('a'=>1, 'b'=>'x & y')), '/^<\?xml version="1\.0" encoding="UTF-8"\?>.*<a>1<\/a>.*<b>x &amp; y<\/b>/s');
 
 // A table : a list of records, its columns in the order they first come
-checkIdentical('CSV body of records', builtBody(Array('outputAs'=>'tabl'), $rowList), "id,name,admin,mail\r\n1,Ann,true,\r\n2,\"Bo, \"\"B\"\"\",,\r\n");
-checkIdentical('CSV body of no record', builtBody(Array('outputAs'=>'tabl'), Array()), '');
-checkIdentical('what is not a list of records cannot be a table', Array(builtBody(Array('outputAs'=>'tabl'), Array('a'=>1)), count(preg_grep('/Response could not be encoded as tabl: a table is written from a list of records/', takeNotesArray()))), Array('{"error":"Response could not be encoded","code":500}', 1));
-checkIdentical('nor a list holding a nested value', builtBody(Array('outputAs'=>'tabl'), Array(Array('a'=>Array(1)))), '{"error":"Response could not be encoded","code":500}');
+checkIdentical('CSV body of records', builtBody(Array('outputAs'=>'csvTable'), $rowList), "id,name,admin,mail\r\n1,Ann,true,\r\n2,\"Bo, \"\"B\"\"\",,\r\n");
+checkIdentical('CSV body of no record', builtBody(Array('outputAs'=>'csvTable'), Array()), '');
+checkIdentical('what is not a list of records cannot be a table', Array(builtBody(Array('outputAs'=>'csvTable'), Array('a'=>1)), count(preg_grep('/Response could not be encoded as csvTable: a table is written from a list of records/', takeNotesArray()))), Array('{"error":"Response could not be encoded","code":500}', 1));
+checkIdentical('nor a list holding a nested value', builtBody(Array('outputAs'=>'csvTable'), Array(Array('a'=>Array(1)))), '{"error":"Response could not be encoded","code":500}');
 takeNotesArray();
-checkIdentical('an error is written as JSON with tabl', builtBody(Array('outputAs'=>'tabl'), Array('error'=>'Not found', 'code'=>404), true), '{"error":"Not found","code":404}');
+checkIdentical('an error is written as JSON with csvTable', builtBody(Array('outputAs'=>'csvTable'), Array('error'=>'Not found', 'code'=>404), true), '{"error":"Not found","code":404}');
 
 // An HTML page : records in a table, any other values in definition lists
-$htmPage = builtBody(Array('outputAs'=>'html'), $rowList);
+$htmPage = builtBody(Array('outputAs'=>'htmlView'), $rowList);
 checkIdentical('HTML page of records: a whole page, its table with a header row', Array(strpos($htmPage, '<!DOCTYPE html>')===0, preg_match('/<table.*<th[^>]*>id<\/th>.*<td[^>]*>Bo, &quot;B&quot;<\/td>/s', $htmPage)), Array(true, 1));
-checkIdentical('HTML page of other values', builtBody(Array('outputAs'=>'html'), Array('user'=>'<b>Ann</b>', 'roles'=>Array('a', 'b'), 'on'=>true)),
+checkIdentical('HTML page of other values', builtBody(Array('outputAs'=>'htmlView'), Array('user'=>'<b>Ann</b>', 'roles'=>Array('a', 'b'), 'on'=>true)),
 	"<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n<dl>\n<dt>user</dt>\n<dd><p>&lt;b&gt;Ann&lt;/b&gt;</p>\n</dd>\n<dt>roles</dt>\n<dd><dl>\n<dt>0</dt>\n<dd><p>a</p>\n</dd>\n<dt>1</dt>\n<dd><p>b</p>\n</dd>\n</dl>\n</dd>\n<dt>on</dt>\n<dd><p>true</p>\n</dd>\n</dl>\n</body>\n</html>\n");
-checkPregMatch('an error is a page with html', builtBody(Array('outputAs'=>'html'), Array('error'=>'Not found', 'code'=>404), true), '/<dt>error<\/dt>\n<dd><p>Not found<\/p>/');
+checkPregMatch('an error is a page with html', builtBody(Array('outputAs'=>'htmlView'), Array('error'=>'Not found', 'code'=>404), true), '/<dt>error<\/dt>\n<dd><p>Not found<\/p>/');
 
 // Raw output : a text as it is, a Fluxd piece by piece
-checkIdentical('raw output of a text', builtBody(Array('outputAs'=>'flux'), "line 1\nline 2"), "line 1\nline 2");
+checkIdentical('raw output of a text', builtBody(Array('outputAs'=>'rawBytes'), "line 1\nline 2"), "line 1\nline 2");
 $bigText = str_repeat('0123456789', 3000);
-checkIdentical('raw output of a Fluxd, across several pieces', builtBody(Array('outputAs'=>'flux'), Fluxd::openBytesFluxd($bigText)), $bigText);
-checkIdentical('raw output of what is neither', builtBody(Array('outputAs'=>'flux'), Array('a'=>1)), '{"error":"Response could not be encoded","code":500}');
+checkIdentical('raw output of a Fluxd, across several pieces', builtBody(Array('outputAs'=>'rawBytes'), Fluxd::openBytesFluxd($bigText)), $bigText);
+checkIdentical('raw output of what is neither', builtBody(Array('outputAs'=>'rawBytes'), Array('a'=>1)), '{"error":"Response could not be encoded","code":500}');
 takeNotesArray();
-checkIdentical('an error is written as JSON with flux', builtBody(Array('outputAs'=>'flux'), Array('error'=>'Gone', 'code'=>410), true), '{"error":"Gone","code":410}');
+checkIdentical('an error is written as JSON with rawBytes', builtBody(Array('outputAs'=>'rawBytes'), Array('error'=>'Gone', 'code'=>410), true), '{"error":"Gone","code":410}');
 
 // The format of one reply, chosen by its action
-$respons = new Response( Array('outputAs'=>'json') );
-$respons->useReplyFormat('TABL');
+$respons = new Response( Array('outputAs'=>'jsonData') );
+$respons->useReplyFormat('CSVTABLE');
 $respons->convertOutFlag( Array(Array('a'=>1)) );
 ob_start();
 $respons->transmitOutput();
 checkIdentical('useFormat writes the reply in another format', ob_get_clean(), "a\r\n1\r\n");
 checkForThrows('useFormat refuses a format that is not one', function(){ (new Response())->useReplyFormat('php'); }, 'RuntimeException');
-checkIdentical('warnings have no place in a table or raw output', Array((new Response(Array('outputAs'=>'tabl')))->takesReplyWarn(), (new Response(Array('outputAs'=>'flux')))->takesReplyWarn(), (new Response(Array('outputAs'=>'yaml')))->takesReplyWarn()), Array(false, false, true));
+checkIdentical('warnings have no place in a table or raw output', Array((new Response(Array('outputAs'=>'csvTable')))->takesReplyWarn(), (new Response(Array('outputAs'=>'rawBytes')))->takesReplyWarn(), (new Response(Array('outputAs'=>'yamlData')))->takesReplyWarn()), Array(false, false, true));
 
 // Data that cannot be encoded : an error body, a false result and one warning
 $respons = new Response();
@@ -93,7 +93,7 @@ checkIdentical('unencodable data is reported', $respons->convertOutFlag( Array('
 ob_start();
 $respons->transmitOutput();
 checkIdentical('unencodable data gives an error body', ob_get_clean(), '{"error":"Response could not be encoded","code":500}');
-checkIdentical('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as json: /', takeNotesArray())), 1);
+checkIdentical('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as jsonData: /', takeNotesArray())), 1);
 
 // An emptied response sends nothing, whatever was prepared before
 $respons = new Response();
@@ -104,7 +104,7 @@ $respons->transmitOutput();
 checkIdentical('emptied response sends nothing', ob_get_clean(), '');
 
 // The body can be written twice in one request (error reply after a body was prepared)
-$respons = new Response( Array('outputAs'=>'json') );
+$respons = new Response( Array('outputAs'=>'jsonData') );
 $respons->convertOutFlag( Array('first'=>1) );
 $respons->convertOutFlag( Array('error'=>'second', 'code'=>500), true );
 ob_start();
@@ -112,21 +112,21 @@ $respons->transmitOutput();
 checkIdentical('body built twice keeps the last one', ob_get_clean(), '{"error":"second","code":500}');
 
 // Content types
-checkIdentical('type for json',           foundType(Array('outputAs'=>'json')), 'application/json; charset=utf-8');
+checkIdentical('type for jsonData',           foundType(Array('outputAs'=>'jsonData')), 'application/json; charset=utf-8');
 checkIdentical('type for the defaults',   foundType(Array()), 'application/json; charset=utf-8');
-checkIdentical('type for yaml',           foundType(Array('outputAs'=>'yaml')), 'application/yaml; charset=utf-8');
-checkIdentical('type for xmlx',           foundType(Array('outputAs'=>'xmlx')), 'application/xml; charset=utf-8');
-checkIdentical('type for tabl',           foundType(Array('outputAs'=>'tabl')), 'text/csv; charset=utf-8');
-checkIdentical('type for html',           foundType(Array('outputAs'=>'html')), 'text/html; charset=utf-8');
-$respons = new Response( Array('outputAs'=>'flux') );
+checkIdentical('type for yamlData',           foundType(Array('outputAs'=>'yamlData')), 'application/yaml; charset=utf-8');
+checkIdentical('type for xmlNodes',           foundType(Array('outputAs'=>'xmlNodes')), 'application/xml; charset=utf-8');
+checkIdentical('type for csvTable',           foundType(Array('outputAs'=>'csvTable')), 'text/csv; charset=utf-8');
+checkIdentical('type for htmlView',           foundType(Array('outputAs'=>'htmlView')), 'text/html; charset=utf-8');
+$respons = new Response( Array('outputAs'=>'rawBytes') );
 $respons->convertOutFlag('raw bytes');
 $typeFnc = new ReflectionMethod($respons, 'contnReplyType');
 checkIdentical('type for flux, which its action sets', $typeFnc->invoke($respons), 'application/octet-stream');
 takeNotesArray();
-checkIdentical('type of an error with tabl', foundType(Array('outputAs'=>'tabl'), true), 'application/json; charset=utf-8');
+checkIdentical('type of an error with csvTable', foundType(Array('outputAs'=>'csvTable'), true), 'application/json; charset=utf-8');
 
 // A preset names a format that exists, or does not load
-checkIdentical('the example preset writes json', (new nyu\Setup\Preset('templt'))->newSetupLoader()->getRegistryKey('response')['outputAs'] ?? null, 'json');
+checkIdentical('the example preset writes json', (new nyu\Setup\Preset('template'))->newSetupLoader()->getRegistryKey('response')['outputAs'] ?? null, 'jsonData');
 /**
  * Registers a temporary file with a Range value and returns what is sent.
  *
@@ -299,6 +299,6 @@ checkIdentical('origins: without a list, the headers are sent as written', Array
 $respons = new Response($orgConf);
 $respons->setReplyOrigin('https://app.example.org');
 checkIdentical('origins: the other headers of the preset are kept', $respons->readHeadsArray()['Cache-Control'] ?? null, 'no-cache');
-checkIdentical('origins: the example preset loads with its empty list', (new nyu\Setup\Preset('templt'))->newSetupLoader()->getRegistryKey('response')['corsList'] ?? null, Array());
+checkIdentical('origins: the example preset loads with its empty list', (new nyu\Setup\Preset('template'))->newSetupLoader()->getRegistryKey('response')['corsList'] ?? null, Array());
 
 finishChecking();

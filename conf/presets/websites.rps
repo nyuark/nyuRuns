@@ -1,5 +1,5 @@
 {
-	"presetId": "websit",
+	"presetId": "websites",
 	"describe": "Preset for a site used from a browser: a session cookie, its users checked against the users table, the login left open, its own route folder",
 	"settings": {
 		"fileType": "all",
@@ -16,11 +16,11 @@
 	"routings": {
 		"detectBy": "autopath",
 		"pathForm": "$app/$action/$param",
-		"routeDir": "conf/routes/websit",
+		"routeDir": "conf/routes/websites",
 		"htmlRoot": "pages"
 	},
 	"response": {
-		"outputAs": "json",
+		"outputAs": "jsonData",
 		"headList": {
 			"Cache-Control":	"no-cache, no-store, max-age=0, must-revalidate",
 			"Expires":			"Mon, 26 Jul 1997 05:00:00 GMT",

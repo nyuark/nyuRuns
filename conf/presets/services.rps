@@ -1,5 +1,5 @@
 {
-	"presetId": "servce",
+	"presetId": "services",
 	"describe": "Preset for a service called by other programs: an API key in a header, checked against the list of keys",
 	"settings": {
 		"fileType": "all",
@@ -18,7 +18,7 @@
 		"pathForm": "$app/$action/$param"
 	},
 	"response": {
-		"outputAs": "json",
+		"outputAs": "jsonData",
 		"headList": {
 			"Cache-Control":	"no-cache, no-store, max-age=0, must-revalidate",
 			"Expires":			"Mon, 26 Jul 1997 05:00:00 GMT",

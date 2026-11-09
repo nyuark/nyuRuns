@@ -33,7 +33,7 @@ class Response{
 	);
 
 	// The formats a reply is written in (the 'outputAs' key of a preset's 'response' block), and the file extension of the writer of each
-	const FORM_LIST = Array('json'=>'json', 'yaml'=>'yaml', 'xmlx'=>'xml', 'tabl'=>'csv', 'html'=>'html', 'flux'=>'');
+	const FORM_LIST = Array('jsonData'=>'json', 'yamlData'=>'yaml', 'xmlNodes'=>'xml', 'csvTable'=>'csv', 'htmlView'=>'html', 'rawBytes'=>'');
 
 	protected $dataFormat;
 	protected $formatUsed;
@@ -56,11 +56,13 @@ class Response{
 	/**
 	 * Configures the response from the 'response' preset section.
 	 *
-	 * @param Array $renderValues Render configuration with 'headList' (response headers), 'outputAs' (the format of the reply, one of FORMTLST, 'json' when not set) and, optionally, 'corsList' (the origins other sites may call from, see setOrigin) keys.
+	 * @param Array $renderValues Render configuration with 'headList' (response headers), 'outputAs' (the format of the reply, one of FORM_LIST whatever its case, 'jsonData' when not set) and, optionally, 'corsList' (the origins other sites may call from, see setOrigin) keys.
 	 */
 	public function __construct( Array $renderValues=Array() ){
 		$this->headrArray = $renderValues['headList'] ?? Array();
-		$this->dataFormat = strtolower( strval($renderValues['outputAs'] ?? 'json') );
+		$frmtTxt = strval($renderValues['outputAs'] ?? 'jsonData');
+		// The code of the format whatever its case, kept as FORM_LIST writes it
+		$this->dataFormat = strval( array_values(preg_grep('/^'.preg_quote($frmtTxt, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $frmtTxt );
 		$this->formatUsed = $this->dataFormat;
 		// An origin is a scheme, a host and a port : compared without case, nor a slash at its end
 		foreach( (array)($renderValues['corsList'] ?? Array()) as $origin ){
@@ -121,12 +123,12 @@ class Response{
 	 * Sets the format of this reply, in place of the one of the preset:
 	 * an action exporting a table, for one.
 	 *
-	 * @param String $outputFormat One of FORMTLST, whatever its case.
+	 * @param String $outputFormat One of FORM_LIST, whatever its case.
 	 *
-	 * @throws \RuntimeException When the format is not one of FORMTLST.
+	 * @throws \RuntimeException When the format is not one of FORM_LIST.
 	 */
 	public function useReplyFormat( String $outputFormat ): Void {
-		$frmtKey = strtolower($outputFormat);
+		$frmtKey = strval( array_values(preg_grep('/^'.preg_quote($outputFormat, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $outputFormat );
 		if( !array_key_exists($frmtKey, self::FORM_LIST) ){
 			throw new \RuntimeException('Unknown output format: '.$outputFormat);
 		}
@@ -141,14 +143,14 @@ class Response{
 	 * @return Bool True when the format can carry them.
 	 */
 	public function takesReplyWarn(): Bool {
-		return !in_array($this->dataFormat, Array('tabl', 'flux'), true);
+		return !in_array($this->dataFormat, Array('csvTable', 'rawBytes'), true);
 	}
 
 	/**
-	 * Writes the data in the format of the reply (see FORMTLST): JSON,
+	 * Writes the data in the format of the reply (see FORM_LIST): JSON,
 	 * YAML or XML for any values; a table (CSV) for a list of records; an
 	 * HTML page, the records in a table and any other values in nested
-	 * definition lists; raw output (flux) for a text, or a Fluxd sent
+	 * definition lists; raw output (rawBytes) for a text, or a Fluxd sent
 	 * piece by piece. An error reply is written as JSON when the format is
 	 * a table or raw output. Data the format cannot hold raises a warning,
 	 * and an error body is prepared instead.
@@ -159,7 +161,7 @@ class Response{
 	 */
 	public function convertOutFlag( Array|Object|String|Int|Float|Bool $outputToSend = Array(), Bool $errReplyFlag=false ): Bool {
 		$this->fluxOutput = null;
-		$this->formatUsed = ( $errReplyFlag && !$this->takesReplyWarn() ) ? 'json' : $this->dataFormat;
+		$this->formatUsed = ( $errReplyFlag && !$this->takesReplyWarn() ) ? 'jsonData' : $this->dataFormat;
 		try{
 			$this->finlString = $this->writesReplyOut($outputToSend);
 			return true;
@@ -168,12 +170,12 @@ class Response{
 			$errBody = Array('error'=>'Response could not be encoded', 'code'=>500);
 			$this->fluxOutput = null;
 			if( !$this->takesReplyWarn() ){
-				$this->formatUsed = 'json';
+				$this->formatUsed = 'jsonData';
 			}
 			try{
 				$this->finlString = $this->writesReplyOut($errBody);
 			}catch( \Throwable $e ){
-				$this->formatUsed = 'json';
+				$this->formatUsed = 'jsonData';
 				$this->finlString = strval(json_encode($errBody));
 			}
 			return false;
@@ -189,7 +191,7 @@ class Response{
 	 * @throws \RuntimeException When the format cannot hold the data.
 	 */
 	protected function writesReplyOut( Mixed $outputToSend ): String {
-		if( $this->formatUsed=='json' ){
+		if( $this->formatUsed=='jsonData' ){
 			// A binary value cannot be written as text: it is given as null
 			$jsonTxt = json_encode(\nyu\Data\Fluxd::nullifySources($outputToSend));
 			if( $jsonTxt===false ){
@@ -197,7 +199,7 @@ class Response{
 			}
 			return $jsonTxt;
 		}
-		if( $this->formatUsed=='flux' ){
+		if( $this->formatUsed=='rawBytes' ){
 			if( $outputToSend instanceof \nyu\Data\Fluxd ){
 				$this->fluxOutput = $outputToSend;
 				return '';
@@ -214,13 +216,13 @@ class Response{
 		}
 		$dataVal = \nyu\Data\Fluxd::nullifySources( is_object($outputToSend) ? json_decode(strval(json_encode($outputToSend)), true) : $outputToSend );
 		$cellLst = $this->recordsOfArray($dataVal);
-		if( $this->formatUsed=='tabl' ){
+		if( $this->formatUsed=='csvTable' ){
 			if( $cellLst===null ){
 				throw new \RuntimeException('a table is written from a list of records');
 			}
 			return $wrtrObj->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellLst))), \nyu\Data\Writers\Index::optionsOfExtns($extName) );
 		}
-		if( $this->formatUsed=='html' ){
+		if( $this->formatUsed=='htmlView' ){
 			if( $cellLst!==null ){
 				return $wrtrObj->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellLst))), Array('whole'=>true, 'heads'=>true) );
 			}
@@ -401,7 +403,7 @@ class Response{
 	 * @return String The Content-Type header value.
 	 */
 	protected function contnReplyType(): String {
-		if( $this->formatUsed=='json' ){
+		if( $this->formatUsed=='jsonData' ){
 			return 'application/json; charset=utf-8';
 		}
 		$cntType = \nyu\Data\Writers\Index::contentTypeFor( self::FORM_LIST[$this->formatUsed] ?? '' );

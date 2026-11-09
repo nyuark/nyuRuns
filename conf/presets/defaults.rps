@@ -1,5 +1,5 @@
 {
-	"presetId": "dfault",
+	"presetId": "defaults",
 	"describe": "Preset loaded when the entry point names none: closed, Bearer tokens, the login through the users file (the login block of access.json), JSON replies",
 	"settings": {
 		"fileType": "all",
@@ -18,7 +18,7 @@
 		"pathForm": "$app/$action/$param"
 	},
 	"response": {
-		"outputAs": "json",
+		"outputAs": "jsonData",
 		"headList": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",

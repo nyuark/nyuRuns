@@ -1,5 +1,5 @@
 {
-	"presetId": "webapi",
+	"presetId": "restapis",
 	"describe": "Preset for a web API: Bearer tokens, with the login action left open",
 	"settings": {
 		"fileType": "all",
@@ -18,7 +18,7 @@
 		"pathForm": "$app/$action/$param"
 	},
 	"response": {
-		"outputAs": "json",
+		"outputAs": "jsonData",
 		"headList": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",

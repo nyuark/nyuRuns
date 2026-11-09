@@ -5,7 +5,7 @@
     // A key that is not one of those described here stops the run
     //
 	// Name of the PreSet; the name of its file
-	"presetId": "templt",
+	"presetId": "template",
     // Description of the PreSet
 	"describe": "Every setting of a preset, with what it does",
 	// Type and names of config files to load
@@ -106,7 +106,7 @@
         // flux (raw output: a text or a Fluxd; sent as it is with the type its action sets).
         // An error is written as json with tabl and flux. An unknown format stops the preset
         // from loading. An action can write its own reply in another one: useFormat()
-		"outputAs": "json",
+		"outputAs": "jsonData",
         // Origins other sites may call from, each a scheme; a host and a port when it has one:
         // ["https://app.example.org"]. With a list, Access-Control-Allow-Origin names the
         // origin of the request when it is listed, and is not sent otherwise, whatever

@@ -1,5 +1,5 @@
 {
-	"presetId": "manual",
+	"presetId": "manually",
 	"describe": "Preset for an entry point that declares its own routes: closed, Bearer tokens, the login through the users file (the login block of access.json), JSON replies",
 	"settings": {
 		"fileType": "all",
@@ -17,7 +17,7 @@
 		"detectBy": "manually"
 	},
 	"response": {
-		"outputAs": "json",
+		"outputAs": "jsonData",
 		"headList": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",

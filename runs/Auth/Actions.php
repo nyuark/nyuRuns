@@ -160,7 +160,7 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$this->useReplyFormat('json');
+		$this->useReplyFormat('jsonData');
 		if( $this->httpRespns!==null ){
 			$this->httpRespns->addReplyHeader('Cache-Control', 'public, max-age=300');
 			$this->httpRespns->addReplyHeader('Expires', gmdate('D, d M Y H:i:s', time() + 300).' GMT');
