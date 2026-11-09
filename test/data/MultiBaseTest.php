@@ -136,7 +136,7 @@ checkIdentical('a record deleted with its children, in its own database only', r
 use nyu\Access\Auth\Native;
 
 // The archive has lost ben, so that the two users tables can be told apart
-DBCon::linkNamedDbCon('archive')->readConnection()->sendBuiltQuery('DELETE FROM `users` WHERE `userName`=?', true, Array('ben'));
+DBCon::linkNamedDbCon('archive')->readConnection()->sendBuiltQuery('DELETE FROM `users` WHERE `userHandle`=?', true, Array('ben'));
 $benCred = Array('user'=>'ben', 'pass'=>'pw-ben');
 $annCred = Array('user'=>'anna', 'pass'=>'pw-anna');
 

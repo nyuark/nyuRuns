@@ -49,7 +49,7 @@ checkIdentical('the PostgreSQL handler is complete', (new ReflectionClass($pgsql
 checkIdentical('PostgreSQL: host and base only',     askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop')), 'pgsql:host=localhost;dbname=shop');
 checkIdentical('PostgreSQL: port and character set', askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop', Array('port'=>'5433', 'char'=>'UTF8'))), "pgsql:host=localhost;dbname=shop;port=5433;options='--client_encoding=UTF8'");
 checkPregMatch('PostgreSQL: a character set cannot add settings', askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop', Array('char'=>"UTF8' -c x=y"))), '/^THROWN RuntimeException: Invalid database character set/');
-checkIdentical('PostgreSQL: names take double quotes', askHandlr($pgsqlCl, 'quoteFieldName', Array('shows.userName')), '"shows"."userName"');
+checkIdentical('PostgreSQL: names take double quotes', askHandlr($pgsqlCl, 'quoteFieldName', Array('shows.userHandle')), '"shows"."userHandle"');
 checkIdentical('PostgreSQL: wildcard searches ignore the case', Array(askHandlr($pgsqlCl, 'getLikeKeyword', Array()), askHandlr($mysqlCl, 'getLikeKeyword', Array()), askHandlr('nyu\Data\DBHndlr\SQLite', 'getLikeKeyword', Array())), Array('ILIKE', 'LIKE', 'LIKE'));
 
 // SQLite file path

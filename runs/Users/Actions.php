@@ -30,7 +30,7 @@ class Actions extends Actionset {
 	public function fullList(): Void {
 		$usrBase = $this->requireManager('GET');
 		$usrList = $usrBase->listUsersNamed(
-			Array('userStat'=>$this->inptRgstry->readFileDetail('stat'), 'userRole'=>$this->inptRgstry->readFileDetail('role')),
+			Array('userStatus'=>$this->inptRgstry->readFileDetail('stat'), 'accessRole'=>$this->inptRgstry->readFileDetail('role')),
 			intval($this->inptRgstry->readFileDetail('limit')),
 			intval($this->inptRgstry->readFileDetail('offset'))
 		);
@@ -116,7 +116,7 @@ class Actions extends Actionset {
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfosArray($gvnUser) ?: Array())['userMail'] ?? null);
+		$this->replyValue = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfosArray($gvnUser) ?: Array())['mailboxAdr'] ?? null);
 	}
 
 	/**
@@ -133,7 +133,7 @@ class Actions extends Actionset {
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$gvnUser, 'lang'=>($usrBase->userInfosArray($gvnUser) ?: Array())['userLang'] ?? null);
+		$this->replyValue = Array('user'=>$gvnUser, 'lang'=>($usrBase->userInfosArray($gvnUser) ?: Array())['userLocale'] ?? null);
 	}
 
 	/**
@@ -205,7 +205,7 @@ class Actions extends Actionset {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();
-		$usrMail = strval( $usrInfo['userMail'] ?? '' );
+		$usrMail = strval( $usrInfo['mailboxAdr'] ?? '' );
 		$mailObj = ($usrMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
 		$newCode = $usrBase->resetUsrString( $gvnUser, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS );
 		if($newCode===false){
@@ -214,7 +214,7 @@ class Actions extends Actionset {
 		$this->statusCode = 200;
 		if($mailObj!==null){
 			// The mail is written in the language of the user, never in the one of the manager asking
-			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('actvte', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLang'] ?? null));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('actvte', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLocale'] ?? null));
 			return;
 		}
 		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);

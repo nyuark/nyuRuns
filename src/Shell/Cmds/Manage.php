@@ -79,14 +79,14 @@ class Manage extends Command{
 	public function invokeFullList(): Int {
 		$storObj = $this->openUsersStore();
 		$usrList = $storObj->listUsersNamed(
-			Array('userStat'=>$this->optnObject->retrieveOption('statusIs', ''), 'userRole'=>$this->optnObject->retrieveOption('roleName', '')),
+			Array('userStatus'=>$this->optnObject->retrieveOption('statusIs', ''), 'accessRole'=>$this->optnObject->retrieveOption('roleName', '')),
 			intval($this->optnObject->retrieveOption('rowCount', '0')),
 			intval($this->optnObject->retrieveOption('startRow', '0'))
 		);
 		if( $usrList===false ){
 			$this->stopStoreError($storObj);
 		}
-		$this->printerObj->printShellRows( empty($usrList) ? Array('userName') : array_keys($usrList[0]), array_map('array_values', $usrList) );
+		$this->printerObj->printShellRows( empty($usrList) ? Array('userHandle') : array_keys($usrList[0]), array_map('array_values', $usrList) );
 		if( empty($usrList) ){
 			$this->printerObj->printShellLine('No user.');
 		}
@@ -271,11 +271,11 @@ class Manage extends Command{
 		}
 		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
 		if( $usrName=='' ){
-			$usrList = $storObj->listUsersNamed( Array('userStat'=>'review') );
+			$usrList = $storObj->listUsersNamed( Array('userStatus'=>'review') );
 			if( $usrList===false ){
 				$this->stopStoreError($storObj);
 			}
-			$this->printerObj->printShellRows( empty($usrList) ? Array('userName') : array_keys($usrList[0]), array_map('array_values', $usrList) );
+			$this->printerObj->printShellRows( empty($usrList) ? Array('userHandle') : array_keys($usrList[0]), array_map('array_values', $usrList) );
 			if( empty($usrList) ){
 				$this->printerObj->printShellLine('No user awaits review.');
 			}
@@ -319,7 +319,7 @@ class Manage extends Command{
 			if( $userVls===false ){
 				$this->stopStoreError($storObj);
 			}
-			$this->printerObj->printShellPair( $usrName, (strval($userVls['userLang'] ?? '')!=='') ? strval($userVls['userLang']) : '(default)' );
+			$this->printerObj->printShellPair( $usrName, (strval($userVls['userLocale'] ?? '')!=='') ? strval($userVls['userLocale']) : '(default)' );
 			return self::EXIT_DONE;
 		}
 		if( !$storObj->changeLanguage($usrName, strval($langTag)) ){

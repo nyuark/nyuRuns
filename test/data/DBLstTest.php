@@ -164,7 +164,7 @@ checkIdentical('fieldScop with a star or nothing selects every field', runCatchT
 
 checkPregMatch('fieldScop refuses any other expression', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->pickReadFields('title, (SELECT passHash FROM users LIMIT 1) as leak');
+	$dbList->pickReadFields('title, (SELECT passwdHash FROM users LIMIT 1) as leak');
 	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: Invalid field selection/');
 

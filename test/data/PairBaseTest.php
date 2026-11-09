@@ -137,7 +137,7 @@ checkIdentical('clntCert x nativeDb: a locked user is refused', pairReply('clntC
 checkIdentical('clntCert x nativeDb: a pending user is refused', pairReply('clntCert', 'nativeDb', Array(), certVals('cleo'))[0], 401);
 checkIdentical('clntCert x nativeDb: a name with a quote is no user', pairReply('clntCert', 'nativeDb', Array(), certVals("anna' OR '1'='1")), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert x nativeDb: the user of the certificate is stamped as seen', (new Native(Array()))->onlineNowArray(), Array('anna'));
-$sqlLink->exec("UPDATE users SET lastSeen=NULL");
+$sqlLink->exec("UPDATE users SET accessDate=NULL");
 
 // device : a check of keys, which knows its users through its tokens only
 checkIdentical('apiHeadr x devToken: the token of a device, with the role of its user', pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'manage'));
@@ -154,9 +154,9 @@ checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pair
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: apiHeadr x devToken, the device has the role of its user', pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: clntCert x nativeDb, by the role of the table', Array(pairReply('clntCert', 'nativeDb', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
-$sqlLink->exec("UPDATE users SET userRole='member' WHERE userName='anna'");
+$sqlLink->exec("UPDATE users SET accessRole='member' WHERE userHandle='anna'");
 checkIdentical('role: a role taken back applies to the device and the certificate at once', Array(pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
-$sqlLink->exec("UPDATE users SET userRole='manage' WHERE userName='anna'");
+$sqlLink->exec("UPDATE users SET accessRole='manage' WHERE userHandle='anna'");
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
 plugConf(2);

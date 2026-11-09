@@ -267,7 +267,7 @@ class Actions extends Actionset {
 			$this->statusMssg = $usrBase->finalErrorText();
 			return;
 		}
-		$usrStts = strval( ($usrBase->userInfosArray($gvnUser) ?: Array())['userStat'] ?? 'active' );
+		$usrStts = strval( ($usrBase->userInfosArray($gvnUser) ?: Array())['userStatus'] ?? 'active' );
 		$this->statusCode = 200;
 		$this->replyValue = Array('active'=>$usrStts=='active', 'stat'=>$usrStts);
 	}
@@ -333,9 +333,9 @@ class Actions extends Actionset {
 		}
 		if($newCode===''){
 			// An address taken is told to its owner alone, in its language; a name taken, to an address of no account, says nothing of any account
-			$ownRows = $usrBase->listUsersNamed( Array('userMail'=>$gvnMail), 1 );
+			$ownRows = $usrBase->listUsersNamed( Array('mailboxAdr'=>$gvnMail), 1 );
 			if(is_array($ownRows) && !empty($ownRows)){
-				$mailObj->sendAddrExists($gvnMail, $gvnUser, strval($ownRows[0]['userLang'] ?? ''));
+				$mailObj->sendAddrExists($gvnMail, $gvnUser, strval($ownRows[0]['userLocale'] ?? ''));
 			}else{
 				$mailObj->sendNameExists(strtolower(trim($gvnMail)), $gvnUser, $clntLng);
 			}
@@ -593,7 +593,7 @@ class Actions extends Actionset {
 			return;
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('lang'=>($usrBase->userInfosArray($usrName) ?: Array())['userLang'] ?? null);
+		$this->replyValue = Array('lang'=>($usrBase->userInfosArray($usrName) ?: Array())['userLocale'] ?? null);
 	}
 
 	/**

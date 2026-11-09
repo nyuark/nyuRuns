@@ -2,23 +2,23 @@
 -- The table name is the 'useTable' value of the device block in conf/access.json, the users table its 'usersTbl' value.
 -- Created by php nyuRun installs userBase, after the users table, when conf/access.json holds a device block.
 -- The removal of a user takes its devices along: the framework's SQLite handler turns the foreign keys on.
--- madeDate is given by the clock of the database, in UTC, the other dates by the one of PHP.
+-- createDate is given by the clock of the database, in UTC, the other dates by the one of PHP.
 
 CREATE TABLE `devices` (
-	`id_device` INTEGER PRIMARY KEY,
+	`id_device`  INTEGER PRIMARY KEY,
 	-- Name the user gives the device; one name per device still standing
-	`devcName`  TEXT    NOT NULL,
+	`deviceName` TEXT    NOT NULL,
 	-- Role of the device, as the application understands it: a word of 8 characters at most
-	`devcRole`  TEXT    NOT NULL,
+	`deviceRole` TEXT    NOT NULL,
 	-- SHA-256 hash of the device's token
-	`tokenKey`  TEXT    NOT NULL,
+	`bearerHash` TEXT    NOT NULL,
 	-- The user the device works for: its devices are removed with it
-	`user_id`   INTEGER NOT NULL,
+	`user_id`    INTEGER NOT NULL,
 	-- Last authenticated request
-	`lastSeen`  TEXT    NULL,
+	`accessDate` TEXT    NULL,
 	-- Time of the revocation: a revoked device is kept
-	`revkDate`  TEXT    NULL,
-	`madeDate`  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	UNIQUE (`tokenKey`),
+	`revokeDate` TEXT    NULL,
+	`createDate` TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	UNIQUE (`bearerHash`),
 	FOREIGN KEY (`user_id`) REFERENCES `users` (`id_user`) ON DELETE CASCADE
 );

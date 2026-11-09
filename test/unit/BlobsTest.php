@@ -96,9 +96,9 @@ $mysHndl = new PlayedMys();
 $mysHndl->answrSet = Array(Array(
 	Array('Field'=>'id_track', 'Type'=>'int(11)', 'Key'=>'PRI'), Array('Field'=>'trckName', 'Type'=>'varchar(80)', 'Key'=>''), Array('Field'=>'fileNote', 'Type'=>'longtext', 'Key'=>''),
 	Array('Field'=>'fileData', 'Type'=>'longblob', 'Key'=>''), Array('Field'=>'thumbPic', 'Type'=>'BLOB', 'Key'=>''), Array('Field'=>'hashCode', 'Type'=>'binary(16)', 'Key'=>''),
-	Array('Field'=>'tokenKey', 'Type'=>'varbinary(64)', 'Key'=>''), Array('Field'=>'tinyData', 'Type'=>'tinyblob', 'Key'=>''), Array('Field'=>'midlData', 'Type'=>'mediumblob', 'Key'=>'')
+	Array('Field'=>'bearerHash', 'Type'=>'varbinary(64)', 'Key'=>''), Array('Field'=>'tinyData', 'Type'=>'tinyblob', 'Key'=>''), Array('Field'=>'midlData', 'Type'=>'mediumblob', 'Key'=>'')
 ));
-checkIdentical('MySQL: the binary fields of a table', $mysHndl->tableInfoArray('tracks')['blob'], Array('fileData', 'thumbPic', 'hashCode', 'tokenKey', 'tinyData', 'midlData'));
+checkIdentical('MySQL: the binary fields of a table', $mysHndl->tableInfoArray('tracks')['blob'], Array('fileData', 'thumbPic', 'hashCode', 'bearerHash', 'tinyData', 'midlData'));
 $mysHndl = new PlayedMys();
 $mysStor = new SqlStore($mysHndl);
 $mysHndl->answrSet = Array(

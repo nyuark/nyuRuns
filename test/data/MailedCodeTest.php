@@ -70,19 +70,19 @@ function codeOfMl( String $mailString ): String {
 
 setsConfg( $natConf );
 $sqlLink = new PDO('sqlite:'.$sqlFile);
-$sqlLink->exec("UPDATE users SET userMail='ben@example.ch' WHERE userName='ben'");
-$sqlLink->exec("UPDATE users SET userMail='anna@example.ch', userLang='fr' WHERE userName='anna'");
+$sqlLink->exec("UPDATE users SET mailboxAdr='ben@example.ch' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch', userLocale='fr' WHERE userHandle='anna'");
 $usrBase = new UserBase( $natConf );
 $natAuth = new Native( $natConf );
 $benLgin = Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>'');
 
 // Set : an active user with an address, a mailer to send the codes
 checkIdentical('mailTwoFa: an active user with an address', $usrBase->emailTwoFactor('ben'), true);
-checkIdentical('mailTwoFa: the way is stored, nothing else yet', $sqlLink->query("SELECT twoFaWay, mailCode, mailDate FROM users WHERE userName='ben'")->fetch(PDO::FETCH_NUM), Array('mailed', null, null));
+checkIdentical('mailTwoFa: the way is stored, nothing else yet', $sqlLink->query("SELECT twoFactWay, mailedCode, mailExpiry FROM users WHERE userHandle='ben'")->fetch(PDO::FETCH_NUM), Array('mailed', null, null));
 checkIdentical('mailTwoFa: refused for a user that is not active, unknown, or without an address', Array(
 	Array($usrBase->emailTwoFactor('cleo'), $usrBase->lastStateCount(), $usrBase->finalErrorText()),
 	Array($usrBase->emailTwoFactor('zed'), $usrBase->lastStateCount()),
-	(function() use ( $sqlLink, $usrBase ){ $sqlLink->exec("UPDATE users SET userMail=NULL WHERE userName='dave'"); $sqlLink->exec("UPDATE users SET userStat='active' WHERE userName='dave'"); $rslt = Array($usrBase->emailTwoFactor('dave'), $usrBase->lastStateCount(), $usrBase->finalErrorText()); $sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='dave'"); return $rslt; })()
+	(function() use ( $sqlLink, $usrBase ){ $sqlLink->exec("UPDATE users SET mailboxAdr=NULL WHERE userHandle='dave'"); $sqlLink->exec("UPDATE users SET userStatus='active' WHERE userHandle='dave'"); $rslt = Array($usrBase->emailTwoFactor('dave'), $usrBase->lastStateCount(), $usrBase->finalErrorText()); $sqlLink->exec("UPDATE users SET userStatus='locked' WHERE userHandle='dave'"); return $rslt; })()
 ), Array(Array(false, 409, 'User not active'), Array(false, 404), Array(false, 409, 'User without a mail address')));
 setsConfg( array_diff_key($natConf, Array('mailAcnt'=>1)) );
 checkIdentical('mailTwoFa: refused without a mailer', Array($usrBase->emailTwoFactor('anna'), $usrBase->lastStateCount(), $usrBase->finalErrorText()), Array(false, 409, 'No mail account sends the codes: mailer is not set'));
@@ -96,22 +96,22 @@ $mailLst = takeMails();
 $benCode = codeOfMl($mailLst[0] ?? '');
 checkIdentical('login: one mail, to the address of the user, with a code', Array(count($mailLst), preg_match('/\r\nTo: ben@example\.ch\r\nSubject: Your login code\r\n/', $mailLst[0] ?? ''), strlen($benCode)), Array(1, 1, 12));
 checkIdentical('login: the mail has no link, and tells the minutes', Array(strpos($mailLst[0] ?? '', 'https://'), preg_match('/within 15 minutes/', $mailLst[0] ?? '')), Array(false, 1));
-checkIdentical('login: only the hash of the code is stored, with its end', Array($sqlLink->query("SELECT mailCode FROM users WHERE userName='ben'")->fetchColumn()===hash('sha256', str_replace('-', '', $benCode)), abs(strtotime(strval($sqlLink->query("SELECT mailDate FROM users WHERE userName='ben'")->fetchColumn())) - time() - 900)<5), Array(true, true));
-checkIdentical('login: asked again within the minute, the same code, no mail', Array($natAuth->chckCredential($benLgin), $natAuth->finalErrorText(), count(takeMails()), $sqlLink->query("SELECT mailCode FROM users WHERE userName='ben'")->fetchColumn()===hash('sha256', str_replace('-', '', $benCode))), Array(false, 'Verification code required', 0, true));
+checkIdentical('login: only the hash of the code is stored, with its end', Array($sqlLink->query("SELECT mailedCode FROM users WHERE userHandle='ben'")->fetchColumn()===hash('sha256', str_replace('-', '', $benCode)), abs(strtotime(strval($sqlLink->query("SELECT mailExpiry FROM users WHERE userHandle='ben'")->fetchColumn())) - time() - 900)<5), Array(true, true));
+checkIdentical('login: asked again within the minute, the same code, no mail', Array($natAuth->chckCredential($benLgin), $natAuth->finalErrorText(), count(takeMails()), $sqlLink->query("SELECT mailedCode FROM users WHERE userHandle='ben'")->fetchColumn()===hash('sha256', str_replace('-', '', $benCode))), Array(false, 'Verification code required', 0, true));
 checkIdentical('login: a Basic header carries no code: nothing is mailed', Array($natAuth->chckCredential(Array('user'=>'ben', 'pass'=>'pw-ben')), $natAuth->finalErrorText(), count(takeMails())), Array(false, 'Verification code required', 0));
 checkIdentical('login: a wrong password mails nothing', Array($natAuth->chckCredential(Array('user'=>'ben', 'pass'=>'nope', 'code'=>'')), $natAuth->finalErrorText(), count(takeMails())), Array(false, 'Invalid credentials', 0));
-checkIdentical('login: a wrong code is refused and counted, after the wrong password', Array($natAuth->chckCredential(Array('code'=>'AAAA-BBBB-CC') + $benLgin), $natAuth->finalErrorText(), $natAuth->wrngCredential(), intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn())), Array(false, 'Invalid verification code', true, 2));
+checkIdentical('login: a wrong code is refused and counted, after the wrong password', Array($natAuth->chckCredential(Array('code'=>'AAAA-BBBB-CC') + $benLgin), $natAuth->finalErrorText(), $natAuth->wrngCredential(), intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle='ben'")->fetchColumn())), Array(false, 'Invalid verification code', true, 2));
 checkIdentical('login: the code, whatever its case and dashes, ends the login', $natAuth->chckCredential(Array('code'=>strtolower(str_replace('-', '', $benCode))) + $benLgin), Array('user'=>'ben', 'role'=>'member', 'id'=>2));
-checkIdentical('login: the code is cleared, and the failures with it', Array($sqlLink->query("SELECT mailCode, mailDate, failNmbr FROM users WHERE userName='ben'")->fetch(PDO::FETCH_NUM)), Array(Array(null, null, 0)));
+checkIdentical('login: the code is cleared, and the failures with it', Array($sqlLink->query("SELECT mailedCode, mailExpiry, failsCount FROM users WHERE userHandle='ben'")->fetch(PDO::FETCH_NUM)), Array(Array(null, null, 0)));
 checkIdentical('login: the same code a second time is refused', Array($natAuth->chckCredential(Array('code'=>$benCode) + $benLgin), $natAuth->finalErrorText()), Array(false, 'Invalid verification code'));
 // The minute passed, a new code replaces the former one
 $natAuth->chckCredential($benLgin);
 $fstCode = codeOfMl(takeMails()[0] ?? '');
-$sqlLink->exec("UPDATE users SET mailDate='".date('Y-m-d H:i:s', time() + 900 - 61)."' WHERE userName='ben'");
+$sqlLink->exec("UPDATE users SET mailExpiry='".date('Y-m-d H:i:s', time() + 900 - 61)."' WHERE userHandle='ben'");
 $natAuth->chckCredential($benLgin);
 $sndCode = codeOfMl(takeMails()[0] ?? '');
 checkIdentical('login: after a minute, a new code is mailed and the former one no longer works', Array($sndCode!='' && $sndCode!==$fstCode, $natAuth->chckCredential(Array('code'=>$fstCode) + $benLgin)), Array(true, false));
-$sqlLink->exec("UPDATE users SET mailDate='".date('Y-m-d H:i:s', time() - 1)."' WHERE userName='ben'");
+$sqlLink->exec("UPDATE users SET mailExpiry='".date('Y-m-d H:i:s', time() - 1)."' WHERE userHandle='ben'");
 checkIdentical('login: an ended code is refused', Array($natAuth->chckCredential(Array('code'=>$sndCode) + $benLgin), $natAuth->finalErrorText()), Array(false, 'Invalid verification code'));
 // The language of the user
 $usrBase->emailTwoFactor('anna');
@@ -121,7 +121,7 @@ checkPregMatch('login: the mail goes in the language of the user', takeMails()[0
 setsConfg( array_diff_key($natConf, Array('mailAcnt'=>1)) );
 checkIdentical('login: without a mailer, the store is unavailable for the user', Array($natAuth->chckCredential($benLgin), $natAuth->finalErrorText(), $natAuth->wrngCredential()), Array(false, 'Credential store unavailable', false));
 setsConfg( $natConf );
-$sqlLink->exec("UPDATE users SET userMail=NULL WHERE userName='anna'");
+$sqlLink->exec("UPDATE users SET mailboxAdr=NULL WHERE userHandle='anna'");
 checkIdentical('login: nor without an address', Array($natAuth->chckCredential(Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>'')), $natAuth->finalErrorText()), Array(false, 'Credential store unavailable'));
 Logger::plugLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
@@ -135,12 +135,12 @@ checkIdentical('the log tells the mails, the refusals and what cannot be sent', 
 
 // The authenticator and mailed codes : one or the other
 $benScrt = $usrBase->buildTwoFactor('ben');
-checkIdentical('a new authenticator secret ends the mailed codes', Array($sqlLink->query("SELECT twoFaWay FROM users WHERE userName='ben'")->fetchColumn(), $natAuth->chckCredential(Array('code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time())) + $benLgin)['user'] ?? null), Array(null, 'ben'));
+checkIdentical('a new authenticator secret ends the mailed codes', Array($sqlLink->query("SELECT twoFactWay FROM users WHERE userHandle='ben'")->fetchColumn(), $natAuth->chckCredential(Array('code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time())) + $benLgin)['user'] ?? null), Array(null, 'ben'));
 $usrBase->emailTwoFactor('ben');
-checkIdentical('mailed codes end the authenticator secret', $sqlLink->query("SELECT twoFaKey, twoFaStp FROM users WHERE userName='ben'")->fetch(PDO::FETCH_NUM), Array(null, null));
+checkIdentical('mailed codes end the authenticator secret', $sqlLink->query("SELECT twoFactKey, twoFactStp FROM users WHERE userHandle='ben'")->fetch(PDO::FETCH_NUM), Array(null, null));
 $natAuth->chckCredential($benLgin);
 takeMails();
-checkIdentical('dropTwoFa takes either away', Array($usrBase->clearTwoFactor('ben'), $sqlLink->query("SELECT twoFaWay, mailCode, mailDate FROM users WHERE userName='ben'")->fetch(PDO::FETCH_NUM), $natAuth->chckCredential($benLgin)['user'] ?? null), Array(true, Array(null, null, null), 'ben'));
+checkIdentical('dropTwoFa takes either away', Array($usrBase->clearTwoFactor('ben'), $sqlLink->query("SELECT twoFactWay, mailedCode, mailExpiry FROM users WHERE userHandle='ben'")->fetch(PDO::FETCH_NUM), $natAuth->chckCredential($benLgin)['user'] ?? null), Array(true, Array(null, null, null), 'ben'));
 
 dropTestFolder( TOP_DIR.DS.$foldNme );
 finishChecking();

@@ -9,7 +9,7 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  * Credential check of the device tokens, used as "authWith": "device".
  * Verifies a device token against a table of devices, each linked to a
  * user of the native userbase: the SHA-256 hash of the token must be the
- * tokenKey of a device that is not revoked, and its user must be
+ * bearerHash of a device that is not revoked, and its user must be
  * 'active'. Also stamps the time each device was last seen. A device is
  * given a token, listed and revoked from the command line (php nyuRun
  * device), or by an application of its own.
@@ -60,15 +60,15 @@ class Device implements Handler{
 			return false;
 		}
 		// A revoked device, or one whose user is not active, is answered like an unknown token
-		if( $devcVls===null || ($devcVls['revkDate'] ?? null)!==null || ($devcVls['userStat'] ?? '')!=='active' ){
+		if( $devcVls===null || ($devcVls['revokeDate'] ?? null)!==null || ($devcVls['userStatus'] ?? '')!=='active' ){
 			$this->lastMessag = 'Invalid API key';
 			$this->invalidCrd = true;
 			return false;
 		}
 		$this->seenDevice = $devcVls['id_device'];
 		return Array(
-			'user'=>$devcVls['userName'], 'role'=>strval($devcVls['userRole'] ?? ''), 'id'=>$devcVls['id_user'] ?? null,
-			'device'=>Array('id'=>$devcVls['id_device'], 'name'=>$devcVls['devcName'], 'role'=>$devcVls['devcRole'])
+			'user'=>$devcVls['userHandle'], 'role'=>strval($devcVls['accessRole'] ?? ''), 'id'=>$devcVls['id_user'] ?? null,
+			'device'=>Array('id'=>$devcVls['id_device'], 'name'=>$devcVls['deviceName'], 'role'=>$devcVls['deviceRole'])
 		);
 	}
 
@@ -86,7 +86,7 @@ class Device implements Handler{
 		}
 		try{
 			$dbHndlr = $this->attachDatabase();
-			$seenFld = $dbHndlr->quoteFieldName('lastSeen');
+			$seenFld = $dbHndlr->quoteFieldName('accessDate');
 			$nowTime = time();
 			$updtQry = 'UPDATE '.$dbHndlr->quoteFieldName($this->deviceTble)." SET $seenFld='".date('Y-m-d H:i:s', $nowTime)."'"
 				.' WHERE '.$dbHndlr->quoteFieldName('id_device')."=? AND ($seenFld IS NULL OR $seenFld<='".date('Y-m-d H:i:s', $nowTime - $this->stampEvery)."');";
@@ -111,11 +111,11 @@ class Device implements Handler{
 		}
 		try{
 			$dbHndlr = $this->attachDatabase();
-			$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), Array('devcName', 'devcRole', 'tokenKey', 'user_id') );
+			$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'bearerHash', 'user_id') );
 			$newTokn = bin2hex(random_bytes(32));
 			$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fldList).')'
 				.' SELECT ?, ?, ?, '.$dbHndlr->quoteFieldName('id_user').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
-				.' WHERE '.$dbHndlr->quoteFieldName('userName').'=? AND '.$dbHndlr->quoteFieldName('userStat')."='active';";
+				.' WHERE '.$dbHndlr->quoteFieldName('userHandle').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='active';";
 			$newData = Array($userDevcName, $deviceRleTxt, hash('sha256', $newTokn), $namedUserTxt);
 			return ( $dbHndlr->sendBuiltQuery($addStmt, true, $newData) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
@@ -136,7 +136,7 @@ class Device implements Handler{
 		}
 		try{
 			$dbHndlr = $this->attachDatabase();
-			$revkFld = $dbHndlr->quoteFieldName('revkDate');
+			$revkFld = $dbHndlr->quoteFieldName('revokeDate');
 			$updtQry = 'UPDATE '.$dbHndlr->quoteFieldName($this->deviceTble)." SET $revkFld='".date('Y-m-d H:i:s')."'"
 				.' WHERE '.$dbHndlr->quoteFieldName('id_device')."=? AND $revkFld IS NULL;";
 			return $dbHndlr->sendBuiltQuery($updtQry, true, Array($devcIdentity)) && $dbHndlr->countLastWrite()>0;
@@ -150,7 +150,7 @@ class Device implements Handler{
 	 * or all of them. The hash of a token is never given.
 	 *
 	 * @param String $namedUserTxt Login name of the user, '' for the devices of every user.
-	 * @return Array|Bool The devices, by user then by name: 'id_device', 'devcName', 'devcRole', 'lastSeen', 'revkDate', 'madeDate' and 'userName'; false when the tables cannot be read.
+	 * @return Array|Bool The devices, by user then by name: 'id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate' and 'userHandle'; false when the tables cannot be read.
 	 */
 	public function lstUserDevices( String $namedUserTxt='' ): Array|Bool {
 		if( $this->deviceTble=='' || $this->usersTable=='' ){
@@ -159,16 +159,16 @@ class Device implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$fldList = Array();
-			foreach( Array('id_device', 'devcName', 'devcRole', 'lastSeen', 'revkDate', 'madeDate') as $fldNme ){
+			foreach( Array('id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
-			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.userName');
-			$usrName = $dbHndlr->quoteFieldName($this->usersTable.'.userName');
+			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.userHandle');
+			$usrName = $dbHndlr->quoteFieldName($this->usersTable.'.userHandle');
 			$listQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)
 				.' INNER JOIN '.$dbHndlr->quoteFieldName($this->usersTable)
 				.' ON '.$dbHndlr->quoteFieldName($this->usersTable.'.id_user').'='.$dbHndlr->quoteFieldName($this->deviceTble.'.user_id')
 				.(($namedUserTxt!=='') ? ' WHERE '.$usrName.'=?' : '')
-				.' ORDER BY '.$usrName.', '.$dbHndlr->quoteFieldName($this->deviceTble.'.devcName').', '.$dbHndlr->quoteFieldName($this->deviceTble.'.id_device').';';
+				.' ORDER BY '.$usrName.', '.$dbHndlr->quoteFieldName($this->deviceTble.'.deviceName').', '.$dbHndlr->quoteFieldName($this->deviceTble.'.id_device').';';
 			if( !$dbHndlr->sendBuiltQuery($listQry, false, ($namedUserTxt!=='') ? Array($namedUserTxt) : Array()) ){
 				return false;
 			}
@@ -192,16 +192,16 @@ class Device implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$fldList = Array();
-			foreach( Array('id_device', 'devcName', 'devcRole', 'revkDate') as $fldNme ){
+			foreach( Array('id_device', 'deviceName', 'deviceRole', 'revokeDate') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
-			foreach( Array('id_user', 'userName', 'userRole', 'userStat') as $fldNme ){
+			foreach( Array('id_user', 'userHandle', 'accessRole', 'userStatus') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.'.$fldNme);
 			}
 			$devcQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)
 				.' INNER JOIN '.$dbHndlr->quoteFieldName($this->usersTable)
 				.' ON '.$dbHndlr->quoteFieldName($this->usersTable.'.id_user').'='.$dbHndlr->quoteFieldName($this->deviceTble.'.user_id')
-				.' WHERE '.$dbHndlr->quoteFieldName($this->deviceTble.'.tokenKey').'=? LIMIT 1;';
+				.' WHERE '.$dbHndlr->quoteFieldName($this->deviceTble.'.bearerHash').'=? LIMIT 1;';
 			if( !$dbHndlr->sendBuiltQuery($devcQry, false, Array($hashedTknTxt)) ){
 				return false;
 			}

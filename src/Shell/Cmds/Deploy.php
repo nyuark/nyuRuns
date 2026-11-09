@@ -263,7 +263,7 @@ class Deploy extends Command{
 		if( $dbHndlr===null || !preg_match('/^\w+$/D', $tblName) ){
 			$this->terminateShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXIT_DENY);
 		}
-		$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), array_merge(UserFile::FLDS_LIST, Array('actvCode', 'resetCod', 'twoFaWay')) );
+		$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), array_merge(UserFile::FLDS_LIST, Array('actvtnCode', 'recovrCode', 'twoFactWay')) );
 		if( !$dbHndlr->sendBuiltQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($tblName).' ORDER BY '.$dbHndlr->quoteFieldName('id_user').';') ){
 			$this->terminateShell('The users cannot be read: '.strval($dbHndlr->finalErrorText()));
 		}
@@ -343,27 +343,27 @@ class Deploy extends Command{
 		}
 		$lostLst = Array();
 		$pending = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStat'] ?? '')=='pendng' && strval($usrValuesArr['actvCode'] ?? '')!=='';
-		}), 'userName' );
+			return ($usrValuesArr['userStatus'] ?? '')=='pendng' && strval($usrValuesArr['actvtnCode'] ?? '')!=='';
+		}), 'userHandle' );
 		if( !empty($pending) ){
 			$lostLst[] = Array('activation codes', implode(', ', $pending).': pending until made active, or given a password, with manage');
 		}
 		$rsetLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return strval($usrValuesArr['resetCod'] ?? '')!=='';
-		}), 'userName' );
+			return strval($usrValuesArr['recovrCode'] ?? '')!=='';
+		}), 'userHandle' );
 		if( !empty($rsetLst) ){
 			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
 		}
 		$rvwList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStat'] ?? '')=='review';
-		}), 'userName' );
+			return ($usrValuesArr['userStatus'] ?? '')=='review';
+		}), 'userHandle' );
 		if( !empty($rvwList) ){
 			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; accounts freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
 		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['twoFaWay'] ?? null)==='mailed';
-		}), 'userName' );
+			return ($usrValuesArr['twoFactWay'] ?? null)==='mailed';
+		}), 'userHandle' );
 		if( !empty($mailLst) ){
 			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "accounts setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
@@ -373,9 +373,9 @@ class Deploy extends Command{
 		$devcIds = Array();
 		$devcNms = Array();
 		foreach( is_array($dvcRows) ? $dvcRows : Array() as $dvcRow ){
-			if( $dvcRow['revkDate']===null ){
+			if( $dvcRow['revokeDate']===null ){
 				$devcIds[] = intval($dvcRow['id_device']);
-				$devcNms[] = $dvcRow['userName'].'/'.$dvcRow['devcName'];
+				$devcNms[] = $dvcRow['userHandle'].'/'.$dvcRow['deviceName'];
 			}
 		}
 		if( !empty($devcIds) ){
@@ -413,19 +413,19 @@ class Deploy extends Command{
 					$userRow[$fldNme] = $usrRow[$fldNme];
 				}
 			}
-			if( strval($userRow['passHash'] ?? '')==='' ){
-				$nopsLst[] = strval($usrRow['userName'] ?? '');
+			if( strval($userRow['passwdHash'] ?? '')==='' ){
+				$nopsLst[] = strval($usrRow['userHandle'] ?? '');
 				continue;
 			}
 			$userRow['id_user'] = (intval($userRow['id_user'] ?? 0)>0) ? intval($userRow['id_user']) : ++$lastNum;
-			$userRow['userRole'] = $userRow['userRole'] ?? Checker::ROLE_LIST[0];
-			$userRow['userStat'] = $userRow['userStat'] ?? 'active';
-			if( isset($userRow['twoFaKey']) && $srcSeal!==$trgtSel ){
-				$plainTx = Totp::openSecretText( strval($userRow['twoFaKey']), $srcSeal );
+			$userRow['accessRole'] = $userRow['accessRole'] ?? Checker::ROLE_LIST[0];
+			$userRow['userStatus'] = $userRow['userStatus'] ?? 'active';
+			if( isset($userRow['twoFactKey']) && $srcSeal!==$trgtSel ){
+				$plainTx = Totp::openSecretText( strval($userRow['twoFactKey']), $srcSeal );
 				if( $plainTx===null ){
-					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userRow['userName']).' cannot be read with the key of its store', self::EXIT_DENY);
+					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userRow['userHandle']).' cannot be read with the key of its store', self::EXIT_DENY);
 				}
-				$userRow['twoFaKey'] = Totp::sealSecretText($plainTx, $trgtSel);
+				$userRow['twoFactKey'] = Totp::sealSecretText($plainTx, $trgtSel);
 			}
 			$readyLs[] = $userRow;
 		}
@@ -460,7 +460,7 @@ class Deploy extends Command{
 			if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($usrRow)) ){
 				$errText = strval($dbHndlr->finalErrorText());
 				$dbHndlr->remTransaction();
-				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['userName']).' cannot be written: '.$errText);
+				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['userHandle']).' cannot be written: '.$errText);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
@@ -778,7 +778,7 @@ class Deploy extends Command{
 		// The rules of the userbase are those of its block, except the length : the passwords made here are long enough for any
 		$ntvAuth = new Native( Array('minChars'=>1) + $configValues );
 		$passLst = Array();
-		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userName').', '.$dbHndlr->quoteFieldName('passHash').', '.$dbHndlr->quoteFieldName('userRole').', '.$dbHndlr->quoteFieldName('userStat').") VALUES (?, '!', ?, 'active');";
+		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userHandle').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'active');";
 		$dbHndlr->opnTransaction();
 		foreach( self::USER_LIST as $usrNme => $usrRle ){
 			$passLst[$usrNme] = bin2hex(random_bytes(10));

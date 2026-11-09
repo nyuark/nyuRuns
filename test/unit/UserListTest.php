@@ -80,7 +80,7 @@ checkIdentical('UserList 2FA: wrong password, whatever the code', Array($usrList
 $sealKey = str_repeat('k', 32);
 $emmaCod = $emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()));
 if( function_exists('openssl_encrypt') ){
-	file_put_contents(inTemporaryDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userName'=>'emma', 'passHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFaKey'=>Totp::sealSecretText($tfaScrt, $sealKey))))));
+	file_put_contents(inTemporaryDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userHandle'=>'emma', 'passwdHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFactKey'=>Totp::sealSecretText($tfaScrt, $sealKey))))));
 	checkIdentical('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('listFile'=>inTemporaryDir('sealed.lst'), 'cryptKey'=>$sealKey)))->chckCredential($emmaCod)['user'] ?? null, 'emma');
 	$noKeyLs = new PathUserList( Array('listFile'=>inTemporaryDir('sealed.lst')) );
 	checkIdentical('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->chckCredential($emmaCod), $noKeyLs->finalErrorText(), $noKeyLs->wrngCredential()), Array(false, 'Credential store unavailable', false));
@@ -89,19 +89,19 @@ if( function_exists('openssl_encrypt') ){
 }
 checkIdentical('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('maxTries'=>0, 'listFile'=>$fxtPath, 'cryptKey'=>$sealKey)))->chckCredential($emmaCod)['user'] ?? null, 'emma');
 
-// Personal API token : its SHA-256 hash is the tokenKey of an active user
+// Personal API token : its SHA-256 hash is the bearerHash of an active user
 checkIdentical('UserList personal token', $usrList->chckCredential(Array('key'=>'list-test-token')), $annaIdn);
 checkIdentical('UserList wrong token', Array($usrList->chckCredential(Array('key'=>'another-token')), $usrList->finalErrorText(), $usrList->wrngCredential()), Array(false, 'Invalid API key', true));
 checkIdentical('UserList empty token', Array($usrList->chckCredential(Array('key'=>'')), $usrList->finalErrorText(), $usrList->wrngCredential()), Array(false, 'No API key provided', false));
 checkIdentical('UserList the hash itself is not a token', $usrList->chckCredential(Array('key'=>hash('sha256', 'list-test-token'))), false);
 $tknRows = Array('users'=>Array(
-	Array('userName'=>'anna', 'passHash'=>'x', 'userStat'=>'locked', 'tokenKey'=>strtoupper(hash('sha256', 'tk-anna'))),
-	Array('userName'=>'ben', 'passHash'=>'x', 'tokenKey'=>strtoupper(hash('sha256', 'tk-ben')))
+	Array('userHandle'=>'anna', 'passwdHash'=>'x', 'userStatus'=>'locked', 'bearerHash'=>strtoupper(hash('sha256', 'tk-anna'))),
+	Array('userHandle'=>'ben', 'passwdHash'=>'x', 'bearerHash'=>strtoupper(hash('sha256', 'tk-ben')))
 ));
 file_put_contents(inTemporaryDir('tokens.lst'), json_encode($tknRows));
 $tknList = new PathUserList( Array('listFile'=>inTemporaryDir('tokens.lst')) );
 checkIdentical('UserList the token of a locked user is refused', Array($tknList->chckCredential(Array('key'=>'tk-anna')), $tknList->finalErrorText()), Array(false, 'Invalid API key'));
-checkIdentical('UserList a tokenKey written in upper case', $tknList->chckCredential(Array('key'=>'tk-ben')), Array('user'=>'ben', 'role'=>'member', 'id'=>null));
+checkIdentical('UserList a bearerHash written in upper case', $tknList->chckCredential(Array('key'=>'tk-ben')), Array('user'=>'ben', 'role'=>'member', 'id'=>null));
 
 // userIdent : the current identity of a user known by other means
 checkIdentical('UserList userIdent of an active user', $usrList->usrIdentityArr('anna'), $annaIdn);
@@ -121,7 +121,7 @@ checkIdentical('UserList the file is never written', hash_file('sha256', TOP_DIR
 // A file that cannot be used is refused as a whole, and is not a wrong credential
 $unavail = Array(false, 'Credential store unavailable', false);
 $annaHsh = password_hash('pw-anna', PASSWORD_BCRYPT, Array('cost'=>4));
-$annaRow = Array('userName'=>'anna', 'passHash'=>$annaHsh);
+$annaRow = Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh);
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('UserList a file with its two required fields', listReply(json_encode(Array('users'=>Array($annaRow)))), Array(Array('user'=>'anna', 'role'=>'member', 'id'=>null), '', false));
 checkIdentical('UserList no file named', Array((new UserList(Array()))->chckCredential($annaPwd), (new UserList(Array('listFile'=>Array('x'))))->chckCredential($annaPwd)), Array(false, false));
@@ -130,25 +130,25 @@ checkIdentical('UserList missing file', Array($noneLst->chckCredential($annaPwd)
 checkIdentical('UserList missing file: token and userIdent', Array($noneLst->chckCredential(Array('key'=>'list-test-token')), $noneLst->finalErrorText(), $noneLst->usrIdentityArr('anna'), $noneLst->finalErrorText()), Array(false, 'Credential store unavailable', false, 'Credential store unavailable'));
 checkIdentical('UserList not a JSON text', listReply('anna:'.$annaHsh), $unavail);
 checkIdentical('UserList no users list', listReply(json_encode(Array($annaRow))), $unavail);
-checkIdentical('UserList a user without a passHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userName'=>'ben'))))), $unavail);
-checkIdentical('UserList a user with an empty passHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userName'=>'ben', 'passHash'=>''))))), $unavail);
-checkIdentical('UserList a user without a userName', listReply(json_encode(Array('users'=>Array($annaRow, Array('passHash'=>$annaHsh))))), $unavail);
+checkIdentical('UserList a user without a passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'ben'))))), $unavail);
+checkIdentical('UserList a user with an empty passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'ben', 'passwdHash'=>''))))), $unavail);
+checkIdentical('UserList a user without a userHandle', listReply(json_encode(Array('users'=>Array($annaRow, Array('passwdHash'=>$annaHsh))))), $unavail);
 checkIdentical('UserList a user that is not a block', listReply(json_encode(Array('users'=>Array($annaRow, 'ben')))), $unavail);
-checkIdentical('UserList a role that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userRole'=>Array('manage')))))), $unavail);
-checkIdentical('UserList a language that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userLang'=>Array('fr')))))), $unavail);
+checkIdentical('UserList a role that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>Array('manage')))))), $unavail);
+checkIdentical('UserList a language that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userLocale'=>Array('fr')))))), $unavail);
 checkIdentical('UserList an id that is not a number or a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('id_user'=>Array(1)))))), $unavail);
-checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userName'=>'anna', 'passHash'=>$annaHsh, 'userRole'=>'manage'))))), $unavail);
-checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('userMail'=>'anna@example.ch'), Array('userName'=>'ben', 'passHash'=>$annaHsh, 'userMail'=>'Anna@Example.CH'))))), $unavail);
-checkIdentical('UserList a tokenKey shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('tokenKey'=>'ab12'), Array('userName'=>'ben', 'passHash'=>$annaHsh, 'tokenKey'=>'AB12'))))), $unavail);
-checkIdentical('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStat'=>'online'))))), Array(false, 'Invalid credentials', true));
-checkIdentical('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('userRole'=>'root')))))[0], Array('user'=>'anna', 'role'=>'root', 'id'=>null));
+checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh, 'accessRole'=>'manage'))))), $unavail);
+checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('mailboxAdr'=>'anna@example.ch'), Array('userHandle'=>'ben', 'passwdHash'=>$annaHsh, 'mailboxAdr'=>'Anna@Example.CH'))))), $unavail);
+checkIdentical('UserList a bearerHash shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('bearerHash'=>'ab12'), Array('userHandle'=>'ben', 'passwdHash'=>$annaHsh, 'bearerHash'=>'AB12'))))), $unavail);
+checkIdentical('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStatus'=>'online'))))), Array(false, 'Invalid credentials', true));
+checkIdentical('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>'root')))))[0], Array('user'=>'anna', 'role'=>'root', 'id'=>null));
 Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: one error per file refused, none for a missing one', count(preg_grep('/\[ERROR\] Users file /', $axsLogs)), 12);
 checkIdentical('access log: the status of a user that is not active is told there only', array_values(preg_grep('/is not active/', $axsLogs)), Array('['.date('Y').'] [WARNING] Credential refused: user "anna" is not active (online)'));
 checkIdentical('access log: why the file is refused', $axsLogs[9] ?? null, '['.date('Y').'] [ERROR] Users file "users.lst" cannot be used: user "anna" is listed twice');
-checkIdentical('access log: a language that is not a text', count(preg_grep('/cannot be used: the userLang of user \"anna\" is not a text$/', $axsLogs)), 1);
-checkIdentical('access log: an address shared', count(preg_grep('/cannot be used: the userMail of user \"ben\" is the one of another user$/', $axsLogs)), 1);
+checkIdentical('access log: a language that is not a text', count(preg_grep('/cannot be used: the userLocale of user \"anna\" is not a text$/', $axsLogs)), 1);
+checkIdentical('access log: an address shared', count(preg_grep('/cannot be used: the mailboxAdr of user \"ben\" is the one of another user$/', $axsLogs)), 1);
 checkIdentical('access log: neither a hash nor a token is told', count(preg_grep('/\$2y\$|ab12/i', $axsLogs)), 0);
 
 // Through the Checker : Basic credentials, a personal token, and a JWT confirmed against the file
