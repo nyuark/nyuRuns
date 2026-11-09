@@ -9,7 +9,7 @@ namespace nyu\Data\Parsers;
 class Index {
 
 	// Parser and default options of each file extension
-	protected static $extnList = Array(
+	protected static $extnsnList = Array(
 		'ini'    => Array('Init', Array()),
 		'json'   => Array('Json', Array()),
 		'jsonl'  => Array('Json', Array('lines'=>true)),
@@ -41,7 +41,7 @@ class Index {
 		'pdf'    => Array('Pdfx', Array())
 	);
 	// File extension standing for each request content type
-	protected static $typeList = Array(
+	protected static $parserList = Array(
 		'application/json'     => 'json',
 		'text/json'            => 'json',
 		'application/x-ndjson' => 'ndjson',
@@ -69,26 +69,26 @@ class Index {
 	/**
 	 * Gives the parser of a file extension.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @param String $filExtension The extension, without its dot, whatever its case.
 	 * @return ?Parser The parser, null when the extension has none.
 	 */
-	public static function forExtnsn(String $fileExtnsn): ?Parser {
-		$extnSet = self::$extnList[strtolower($fileExtnsn)] ?? null;
-		if( $extnSet===null ){
+	public static function forExtnsParser(String $filExtension): ?Parser {
+		$extList = self::$extnsnList[strtolower($filExtension)] ?? null;
+		if( $extList===null ){
 			return null;
 		}
-		$prsrCls = (strpos($extnSet[0], '\\')===false) ? __NAMESPACE__.'\\'.$extnSet[0] : $extnSet[0];
+		$prsrCls = (strpos($extList[0], '\\')===false) ? __NAMESPACE__.'\\'.$extList[0] : $extList[0];
 		return new $prsrCls();
 	}
 
 	/**
 	 * Gives the default options a file extension is parsed with.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @param String $filExtension The extension, without its dot, whatever its case.
 	 * @return Array The options, empty when the extension has none.
 	 */
-	public static function extnOptns(String $fileExtnsn): Array {
-		return self::$extnList[strtolower($fileExtnsn)][1] ?? Array();
+	public static function optionsOfExtns(String $filExtension): Array {
+		return self::$extnsnList[strtolower($filExtension)][1] ?? Array();
 	}
 
 	/**
@@ -96,13 +96,13 @@ class Index {
 	 * parameters after ';' are left out, and a type ending with '+json'
 	 * or '+xml' is JSON or XML.
 	 *
-	 * @param String $contntType The content type, as a request sends it.
+	 * @param String $sentMimeType The content type, as a request sends it.
 	 * @return String The extension, '' when the type is not known.
 	 */
-	protected static function typeExtns(String $contntType): String {
-		$typeKey = strtolower(trim(explode(';', $contntType)[0]));
-		if( isset(self::$typeList[$typeKey]) ){
-			return self::$typeList[$typeKey];
+	protected static function typeExtensions(String $sentMimeType): String {
+		$typeKey = strtolower(trim(explode(';', $sentMimeType)[0]));
+		if( isset(self::$parserList[$typeKey]) ){
+			return self::$parserList[$typeKey];
 		}
 		if( substr($typeKey, -5)=='+json' ){
 			return 'json';
@@ -113,43 +113,43 @@ class Index {
 	/**
 	 * Gives the parser of a request content type.
 	 *
-	 * @param String $contntType The content type, with or without its parameters.
+	 * @param String $sentMimeType The content type, with or without its parameters.
 	 * @return ?Parser The parser, null when the content type has none.
 	 */
-	public static function forCnType(String $contntType): ?Parser {
-		$typeExt = self::typeExtns($contntType);
-		return ($typeExt=='') ? null : self::forExtnsn($typeExt);
+	public static function findTypeParser(String $sentMimeType): ?Parser {
+		$fileExt = self::typeExtensions($sentMimeType);
+		return ($fileExt=='') ? null : self::forExtnsParser($fileExt);
 	}
 
 	/**
 	 * Gives the default options a request content type is parsed with.
 	 *
-	 * @param String $contntType The content type, with or without its parameters.
+	 * @param String $sentMimeType The content type, with or without its parameters.
 	 * @return Array The options, empty when the content type has none.
 	 */
-	public static function typeOptns(String $contntType): Array {
-		$typeExt = self::typeExtns($contntType);
-		return ($typeExt=='') ? Array() : self::extnOptns($typeExt);
+	public static function typeOptionsArr(String $sentMimeType): Array {
+		$fileExt = self::typeExtensions($sentMimeType);
+		return ($fileExt=='') ? Array() : self::optionsOfExtns($fileExt);
 	}
 
 	/**
 	 * Adds a parser for a file extension, or replaces the one it had.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot.
-	 * @param String $parserName Name of a class of this namespace, or full name of a class of the application; it must follow the Parser contract.
-	 * @param Array  $parseOptns Default options the extension is parsed with.
+	 * @param String $filExtension The extension, without its dot.
+	 * @param String $nameOfParser Name of a class of this namespace, or full name of a class of the application; it must follow the Parser contract.
+	 * @param Array  $parseOptions Default options the extension is parsed with.
 	 *
 	 * @throws \RuntimeException When the extension is not a plain name, or the class is not a parser.
 	 */
-	public static function addParser(String $fileExtnsn, String $parserName, Array $parseOptns=Array()): Void {
-		$prsrCls = (strpos($parserName, '\\')===false) ? __NAMESPACE__.'\\'.$parserName : $parserName;
-		if( !preg_match('/^\w+$/D', $fileExtnsn) ){
-			throw new \RuntimeException('Invalid file extension: '.$fileExtnsn);
+	public static function registerParser(String $filExtension, String $nameOfParser, Array $parseOptions=Array()): Void {
+		$prsrCls = (strpos($nameOfParser, '\\')===false) ? __NAMESPACE__.'\\'.$nameOfParser : $nameOfParser;
+		if( !preg_match('/^\w+$/D', $filExtension) ){
+			throw new \RuntimeException('Invalid file extension: '.$filExtension);
 		}
 		if( !class_exists($prsrCls) || !is_subclass_of($prsrCls, Parser::class) ){
-			throw new \RuntimeException('Not a parser: '.$parserName);
+			throw new \RuntimeException('Not a parser: '.$nameOfParser);
 		}
-		self::$extnList[strtolower($fileExtnsn)] = Array($parserName, $parseOptns);
+		self::$extnsnList[strtolower($filExtension)] = Array($nameOfParser, $parseOptions);
 	}
 
 }

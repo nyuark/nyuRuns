@@ -17,61 +17,61 @@ class Json extends Base {
 	 *   'lines' => reads one JSON value per line (JSON Lines), into a list;
 	 *   'depth' => deepest nesting accepted, 512 by default.
 	 *
-	 * @param String $rawContent The JSON content.
-	 * @param Array  $parseOptns Options: 'upper', 'cmnts', 'lines', 'depth'.
+	 * @param String $nakedContent The JSON content.
+	 * @param Array  $parseOptions Options: 'upper', 'cmnts', 'lines', 'depth'.
 	 * @return Array The envelope, of shape 'nodes'.
 	 *
 	 * @throws ParseError When the content is not valid JSON.
 	 */
-	public function parseData(String $rawContent, Array $parseOptns=Array()): Array {
-		$jsnText = self::cleanText($rawContent);
-		$maxDpth = max(1, intval($parseOptns['depth'] ?? 512));
-		if( !empty($parseOptns['cmnts']) ){
+	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
+		$jsonTxt = self::recodeTextUtf8($nakedContent);
+		$maxDpth = max(1, intval($parseOptions['depth'] ?? 512));
+		if( !empty($parseOptions['cmnts']) ){
 			$keptLns = Array();
-			foreach(preg_split('/\r\n|\r|\n/', $jsnText) as $lneTxt){
-				$trimLn = ltrim($lneTxt);
-				if( $trimLn==='' || $trimLn[0]=='#' || substr($trimLn, 0, 2)=='//' ){
+			foreach(preg_split('/\r\n|\r|\n/', $jsonTxt) as $linTxt){
+				$trmLine = ltrim($linTxt);
+				if( $trmLine==='' || $trmLine[0]=='#' || substr($trmLine, 0, 2)=='//' ){
 					continue;
 				}
-				$keptLns[] = $lneTxt;
+				$keptLns[] = $linTxt;
 			}
-			$jsnText = implode("\n", $keptLns);
+			$jsonTxt = implode("\n", $keptLns);
 		}
-		if( !empty($parseOptns['lines']) ){
-			$jsnVals = Array();
-			foreach(preg_split('/\r\n|\r|\n/', $jsnText) as $lneNum=>$lneTxt){
-				if( trim($lneTxt)==='' ){
+		if( !empty($parseOptions['lines']) ){
+			$jsonVls = Array();
+			foreach(preg_split('/\r\n|\r|\n/', $jsonTxt) as $lineNb=>$linTxt){
+				if( trim($linTxt)==='' ){
 					continue;
 				}
-				$jsnVals[] = $this->readValue($lneTxt, $maxDpth, ' on line '.($lneNum+1));
+				$jsonVls[] = $this->readFileDetail($linTxt, $maxDpth, ' on line '.($lineNb+1));
 			}
-		}elseif( trim($jsnText)==='' ){
-			$jsnVals = Array();
+		}elseif( trim($jsonTxt)==='' ){
+			$jsonVls = Array();
 		}else{
-			$jsnVals = $this->readValue($jsnText, $maxDpth, '');
+			$jsonVls = $this->readFileDetail($jsonTxt, $maxDpth, '');
 		}
-		if( !empty($parseOptns['upper']) && is_array($jsnVals) ){
-			$jsnVals = $this->upperKeys($jsnVals);
+		if( !empty($parseOptions['upper']) && is_array($jsonVls) ){
+			$jsonVls = $this->upperKeysArray($jsonVls);
 		}
-		return $this->makeShape('nodes', $jsnVals);
+		return $this->makeShapeArray('nodes', $jsonVls);
 	}
 
 	/**
 	 * Decodes one JSON value.
 	 *
-	 * @param String $jsonString The JSON text.
-	 * @param Int    $depthLimit Deepest nesting accepted.
-	 * @param String $placeLabel Where the text stands, added to the error message.
+	 * @param String $jsonDocument The JSON text.
+	 * @param Int    $depthCeiling Deepest nesting accepted.
+	 * @param String $locationText Where the text stands, added to the error message.
 	 * @return mixed The decoded value.
 	 *
 	 * @throws ParseError When the text is not valid JSON.
 	 */
-	protected function readValue(String $jsonString, Int $depthLimit, String $placeLabel): Mixed {
-		$jsnVals = json_decode($jsonString, true, $depthLimit);
+	protected function readFileDetail(String $jsonDocument, Int $depthCeiling, String $locationText): Mixed {
+		$jsonVls = json_decode($jsonDocument, true, $depthCeiling);
 		if( json_last_error()!==JSON_ERROR_NONE ){
-			throw new ParseError('Invalid JSON content'.$placeLabel.': '.json_last_error_msg());
+			throw new ParseError('Invalid JSON content'.$locationText.': '.json_last_error_msg());
 		}
-		return $jsnVals;
+		return $jsonVls;
 	}
 
 }

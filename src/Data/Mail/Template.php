@@ -16,78 +16,78 @@ namespace nyu\Data\Mail;
  */
 class Template {
 
-	protected $subjText;
-	protected $bodyText;
-	protected $htmlText;
+	protected $subjectTxt;
+	protected $bodyString;
+	protected $htmlString;
 
 	/**
 	 * Reads the templates of a mail.
 	 *
-	 * @param String  $plainTmplt The text file: the subject on its first line, then the body.
-	 * @param ?String $markupPath The HTML file, if any.
+	 * @param String  $planTemplate The text file: the subject on its first line, then the body.
+	 * @param ?String $htmlFilePath The HTML file, if any.
 	 *
 	 * @throws \RuntimeException When a file cannot be read.
 	 */
-	function __construct( String $plainTmplt, ?String $markupPath=null ){
-		$txtRead = is_file($plainTmplt) ? @file_get_contents($plainTmplt) : false;
-		$htmRead = ($markupPath===null) ? null : ( is_file($markupPath) ? @file_get_contents($markupPath) : false );
+	function __construct( String $planTemplate, ?String $htmlFilePath=null ){
+		$txtRead = is_file($planTemplate) ? @file_get_contents($planTemplate) : false;
+		$htmRead = ($htmlFilePath===null) ? null : ( is_file($htmlFilePath) ? @file_get_contents($htmlFilePath) : false );
 		if( $txtRead===false || $htmRead===false ){
-			throw new \RuntimeException( 'Mail template unreadable: '.basename($txtRead===false ? $plainTmplt : strval($markupPath)) );
+			throw new \RuntimeException( 'Mail template unreadable: '.basename($txtRead===false ? $planTemplate : strval($htmlFilePath)) );
 		}
-		$txtLins = explode( "\n", ltrim(str_replace("\r\n", "\n", $txtRead)), 2 );
-		$this->subjText = $txtLins[0];
-		$this->bodyText = ltrim( strval($txtLins[1] ?? ''), "\n" );
-		$this->htmlText = ($htmRead===null) ? null : str_replace("\r\n", "\n", $htmRead);
+		$textLns = explode( "\n", ltrim(str_replace("\r\n", "\n", $txtRead)), 2 );
+		$this->subjectTxt = $textLns[0];
+		$this->bodyString = ltrim( strval($textLns[1] ?? ''), "\n" );
+		$this->htmlString = ($htmRead===null) ? null : str_replace("\r\n", "\n", $htmRead);
 	}
 
 	/**
 	 * Gives the subject, its placeholders filled, on one line.
 	 *
-	 * @param Array $fillValues Values of the placeholders, by name.
+	 * @param Array $placeholders Values of the placeholders, by name.
 	 * @return String The subject.
 	 */
-	public function getSubjct( Array $fillValues ): String {
-		$subText = self::fillPlace( $this->keepParts($this->subjText, $fillValues), $fillValues, false );
+	public function getSubjectText( Array $placeholders ): String {
+		$subText = self::fillNamedSlots( $this->retainPartsTxt($this->subjectTxt, $placeholders), $placeholders, false );
 		return trim( str_replace(Array("\r", "\n"), ' ', $subText) );
 	}
 
 	/**
 	 * Gives the text body, its placeholders filled.
 	 *
-	 * @param Array $fillValues Values of the placeholders, by name.
+	 * @param Array $placeholders Values of the placeholders, by name.
 	 * @return String The body.
 	 */
-	public function plainBody( Array $fillValues ): String {
-		return self::fillPlace( $this->keepParts($this->bodyText, $fillValues), $fillValues, false );
+	public function simpleBodyText( Array $placeholders ): String {
+		return self::fillNamedSlots( $this->retainPartsTxt($this->bodyString, $placeholders), $placeholders, false );
 	}
 
 	/**
 	 * Gives the HTML body, its placeholders filled and HTML-encoded.
 	 *
-	 * @param Array $fillValues Values of the placeholders, by name.
+	 * @param Array $placeholders Values of the placeholders, by name.
 	 * @return ?String The HTML, or null when the mail has none.
 	 */
-	public function markupTxt( Array $fillValues ): ?String {
-		return ($this->htmlText===null) ? null : self::fillPlace( $this->keepParts($this->htmlText, $fillValues), $fillValues, true );
+	public function getHtmlVersion( Array $placeholders ): ?String {
+		return ($this->htmlString===null) ? null : self::fillNamedSlots( $this->retainPartsTxt($this->htmlString, $placeholders), $placeholders, true );
 	}
 
 	/**
 	 * Fills the %name% placeholders of a text. A placeholder without a
 	 * value, or whose value is not a text or a number, is left as written.
 	 *
-	 * @param String $textString The text.
-	 * @param Array  $fillValues Values of the placeholders, by name.
-	 * @param Bool   $encodeHtml Whether the values are HTML-encoded.
+	 * @param String $templateText The text.
+	 * @param Array  $placeholders Values of the placeholders, by name.
+	 * @param Bool   $escapeAsHtml Whether the values are HTML-encoded.
 	 * @return String The filled text.
 	 */
-	public static function fillPlace( String $textString, Array $fillValues, Bool $encodeHtml ): String {
-		return strval( preg_replace_callback('/%(\w+)%/', function( Array $matchedArr ) use ( $fillValues, $encodeHtml ): String {
-			$fillVal = $fillValues[$matchedArr[1]] ?? null;
+	public static function fillNamedSlots( String $templateText, Array $placeholders, Bool $escapeAsHtml ): String {
+		return strval( preg_replace_callback('/%(\w+)%/', function( Array $matchedArray ) use ( $placeholders, $escapeAsHtml ): String {
+			$fillVal = $placeholders[$matchedArray[1]] ?? null;
 			if( !is_scalar($fillVal) ){
-				return $matchedArr[0];
+				return $matchedArray[0];
 			}
-			return $encodeHtml ? htmlspecialchars(strval($fillVal), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : strval($fillVal);
-		}, $textString) );
+			return $escapeAsHtml ? htmlspecialchars(strval($fillVal), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : strval($fillVal);
+		}, $templateText) );
 	}
 
 	/**
@@ -95,14 +95,14 @@ class Template {
 	 * given and not empty, without their markers, and drops the others
 	 * with the line break that ends them.
 	 *
-	 * @param String $textString The template.
-	 * @param Array  $fillValues Values of the placeholders, by name.
+	 * @param String $templateText The template.
+	 * @param Array  $placeholders Values of the placeholders, by name.
 	 * @return String The template, its parts kept or dropped.
 	 */
-	protected function keepParts( String $textString, Array $fillValues ): String {
-		return strval( preg_replace_callback('#\[(\w+)\](.*?)\[/\1\]\n?#s', function( Array $matchedArr ) use ( $fillValues ): String {
-			$fillVal = $fillValues[$matchedArr[1]] ?? null;
-			return ( is_scalar($fillVal) && strval($fillVal)!=='' ) ? $matchedArr[2] : '';
-		}, $textString) );
+	protected function retainPartsTxt( String $templateText, Array $placeholders ): String {
+		return strval( preg_replace_callback('#\[(\w+)\](.*?)\[/\1\]\n?#s', function( Array $matchedArray ) use ( $placeholders ): String {
+			$fillVal = $placeholders[$matchedArray[1]] ?? null;
+			return ( is_scalar($fillVal) && strval($fillVal)!=='' ) ? $matchedArray[2] : '';
+		}, $templateText) );
 	}
 }

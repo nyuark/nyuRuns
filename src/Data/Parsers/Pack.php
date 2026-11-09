@@ -14,54 +14,54 @@ use nyu\Data\Shape;
 abstract class Pack extends Base {
 
 	// Shape of what the parser gives: 'sheet' or 'block'
-	const SHAPEOUT = 'block';
+	const SHPE_OUTS = 'block';
 	// Greatest number of cells filled with the value of the merged area they belong to
-	const FILLSMAX = 1000000;
+	const FILL_MAXI = 1000000;
 	// Greatest number of pictures taken out of a document
-	const MEDIAMAX = 1000;
+	const MEDI_MAXI = 1000;
 
 	// The archive being read, and the greatest size accepted for one of its entries
-	protected $openArch;
-	protected $sizeLimt = self::DFLTSIZE;
+	protected $opnArchive;
+	protected $maxSizeVal = self::DFLT_SIZE;
 
 	/**
 	 * Tells the kinds of content the parser reads: zip archives.
 	 *
 	 * @return Array The kinds.
 	 */
-	public function signsRead(): Array {
-		return Bina::PACKLIST;
+	public function signsReadArray(): Array {
+		return Bina::PACK_LIST;
 	}
 	
 	/**
 	 * Reads the document held by an opened archive.
 	 *
-	 * @param Array $parseOptns Options of the parser.
+	 * @param Array $parseOptions Options of the parser.
 	 * @return Array The envelope: 'shape', 'infos' and 'items'.
 	 *
 	 * @throws ParseError When the archive is not a valid document of the kind.
 	 */
-	abstract protected function readArchv(Array $parseOptns): Array;
+	abstract protected function readArchvArray(Array $parseOptions): Array;
 
 	/**
 	 * Parses a zipped document given as bytes. An empty content gives an
 	 * empty result.
 	 *
-	 * @param String $rawContent The bytes of the document.
-	 * @param Array  $parseOptns Options of the parser.
+	 * @param String $nakedContent The bytes of the document.
+	 * @param Array  $parseOptions Options of the parser.
 	 * @return Array The envelope: 'shape', 'infos' and 'items'.
 	 *
 	 * @throws ParseError When the content is not a valid document of the kind.
 	 */
-	public function parseData(String $rawContent, Array $parseOptns=Array()): Array {
-		if( $rawContent==='' ){
-			return $this->makeShape(static::SHAPEOUT, Array());
+	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
+		if( $nakedContent==='' ){
+			return $this->makeShapeArray(static::SHPE_OUTS, Array());
 		}
-		$byteFlx = Fluxd::openBytes($rawContent);
+		$bytFlux = Fluxd::openBytesFluxd($nakedContent);
 		try{
-			return $this->parseFlux($byteFlx, $parseOptns);
+			return $this->parseFluxArray($bytFlux, $parseOptions);
 		}finally{
-			$byteFlx->closeFlux();
+			$bytFlux->closeTheSource();
 		}
 	}
 
@@ -77,73 +77,73 @@ abstract class Pack extends Base {
 	 *              in the archive. What was saved is listed in the
 	 *              details, under 'media'.
 	 *
-	 * @param Fluxd $sourceFlux The source.
-	 * @param Array $parseOptns Options of the parser.
+	 * @param Fluxd $sourceStream The source.
+	 * @param Array $parseOptions Options of the parser.
 	 * @return Array The envelope: 'shape', 'infos' and 'items'.
 	 *
 	 * @throws ParseError When the source is not a zip archive, not a valid document of the kind, or the folder for its pictures cannot be written to.
 	 */
-	public function parseFlux(Fluxd $sourceFlux, Array $parseOptns=Array()): Array {
-		$this->sizeLimt = intval($parseOptns['limit'] ?? self::DFLTSIZE);
+	public function parseFluxArray(Fluxd $sourceStream, Array $parseOptions=Array()): Array {
+		$this->maxSizeVal = intval($parseOptions['limit'] ?? self::DFLT_SIZE);
 		try{
-			$this->openArch = Archv::openFluxd($sourceFlux);
-			$envlope = $this->readArchv($parseOptns);
+			$this->opnArchive = Archv::openFluxdArchv($sourceStream);
+			$envlope = $this->readArchvArray($parseOptions);
 			// The pictures are taken out while the archive is still open
-			return (strval($parseOptns['media'] ?? '')!=='' && $envlope['shape']=='block') ? $this->saveMedia($envlope, strval($parseOptns['media'])) : $envlope;
+			return (strval($parseOptions['media'] ?? '')!=='' && $envlope['shape']=='block') ? $this->saveMediaArray($envlope, strval($parseOptions['media'])) : $envlope;
 		}catch( ParseError $e ){
 			throw $e;
 		}catch( \RuntimeException $e ){
 			// An Office document protected by a password is no longer a zip archive, but a container of the older Office formats
-			if( $e->getMessage()=='Not a zip archive' && Bina::signature($sourceFlux->readRange(0, 511))=='ole' ){
+			if( $e->getMessage()=='Not a zip archive' && Bina::detectFileKind($sourceStream->getRangeString(0, 511))=='ole' ){
 				throw new ParseError('Invalid archive: the document is protected by a password, or saved in an older Office format', 0, $e);
 			}
 			throw new ParseError('Invalid archive: '.$e->getMessage(), 0, $e);
 		}finally{
-			if( $this->openArch!==null ){
-				$this->openArch->closeArch();
+			if( $this->opnArchive!==null ){
+				$this->opnArchive->releaseArchive();
 			}
-			$this->openArch = null;
+			$this->opnArchive = null;
 		}
 	}
 
 	/**
 	 * Reads an XML part of the archive into its tree of elements.
 	 *
-	 * @param String $insideName Name of the entry, with its folders.
-	 * @param Bool   $isRequired Whether the document cannot do without it.
-	 * @param Bool   $keepsSpace Whether the spacing written between two elements is kept, as the parts holding running text need.
+	 * @param String $fullPathName Name of the entry, with its folders.
+	 * @param Bool   $partRequired Whether the document cannot do without it.
+	 * @param Bool   $keepsSpacing Whether the spacing written between two elements is kept, as the parts holding running text need.
 	 * @return ?Array The root element, as XHml gives it; null when the part is missing and not required.
 	 *
 	 * @throws ParseError When the part is required and missing, or is not valid XML.
 	 */
-	protected function partNodes(String $insideName, Bool $isRequired=true, Bool $keepsSpace=false): ?Array {
-		if( !$this->openArch->findEntry($insideName) ){
-			if( $isRequired ){
-				throw new ParseError('Invalid archive: part '.$insideName.' is missing');
+	protected function partNodesArray(String $fullPathName, Bool $partRequired=true, Bool $keepsSpacing=false): ?Array {
+		if( !$this->opnArchive->locateEntryFlg($fullPathName) ){
+			if( $partRequired ){
+				throw new ParseError('Invalid archive: part '.$fullPathName.' is missing');
 			}
 			return null;
 		}
 		try{
-			$partEnv = (new XHml())->parseData($this->openArch->readEntry($insideName, $this->sizeLimt), Array('reads'=>'xml', 'shape'=>'nodes', 'space'=>$keepsSpace));
+			$partDoc = (new XHml())->parseDataArray($this->opnArchive->getEntryString($fullPathName, $this->maxSizeVal), Array('reads'=>'xml', 'shape'=>'nodes', 'space'=>$keepsSpacing));
 		}catch( ParseError $e ){
-			throw new ParseError('Invalid archive: part '.$insideName.': '.$e->getMessage(), 0, $e);
+			throw new ParseError('Invalid archive: part '.$fullPathName.': '.$e->getMessage(), 0, $e);
 		}
-		return empty($partEnv['items']) ? null : $partEnv['items'];
+		return empty($partDoc['items']) ? null : $partDoc['items'];
 	}
 
 	/**
 	 * Gives the child elements of an element that carry a name.
 	 *
-	 * @param Array  $nodeValues The element.
-	 * @param String $tagNameStr Name looked for. Given with its prefix, it is matched whole; given without, it matches whatever prefix the document uses.
+	 * @param Array  $elementArray The element.
+	 * @param String $tagNmeString Name looked for. Given with its prefix, it is matched whole; given without, it matches whatever prefix the document uses.
 	 * @return Array The children of that name, in order.
 	 */
-	protected function kidsNamed(Array $nodeValues, String $tagNameStr): Array {
+	protected function kidsNamedArray(Array $elementArray, String $tagNmeString): Array {
 		$kidsLst = Array();
-		$anyPrfx = (strpos($tagNameStr, ':')===false);
-		foreach($nodeValues['nodes'] as $chlArr){
+		$anyPrfx = (strpos($tagNmeString, ':')===false);
+		foreach($elementArray['nodes'] as $chlArr){
 			$chldNme = $chlArr['tagnm'];
-			if( $chldNme===$tagNameStr || ($anyPrfx && substr($chldNme, intval(strrpos($chldNme, ':'))+1)===$tagNameStr && strpos($chldNme, ':')!==false) ){
+			if( $chldNme===$tagNmeString || ($anyPrfx && substr($chldNme, intval(strrpos($chldNme, ':'))+1)===$tagNmeString && strpos($chldNme, ':')!==false) ){
 				$kidsLst[] = $chlArr;
 			}
 		}
@@ -154,31 +154,31 @@ abstract class Pack extends Base {
 	 * Follows a path of names down an element, taking the first child of
 	 * each name.
 	 *
-	 * @param Array $nodeValues The element.
-	 * @param Array $tagsToWalk Names to follow, one per level.
+	 * @param Array $elementArray The element.
+	 * @param Array $tagPathSteps Names to follow, one per level.
 	 * @return ?Array The element reached, null when the path breaks.
 	 */
-	protected function findChild(Array $nodeValues, Array $tagsToWalk): ?Array {
-		foreach($tagsToWalk as $tagNme){
-			$kidsLst = $this->kidsNamed($nodeValues, $tagNme);
+	protected function findChildArray(Array $elementArray, Array $tagPathSteps): ?Array {
+		foreach($tagPathSteps as $tagNme){
+			$kidsLst = $this->kidsNamedArray($elementArray, $tagNme);
 			if( empty($kidsLst) ){
 				return null;
 			}
-			$nodeValues = $kidsLst[0];
+			$elementArray = $kidsLst[0];
 		}
-		return $nodeValues;
+		return $elementArray;
 	}
 
 	/**
 	 * Gives the text an element holds, at any depth.
 	 *
-	 * @param Array $nodeValues The element.
+	 * @param Array $elementArray The element.
 	 * @return String Its text, with the text of what it holds, in order.
 	 */
-	protected function textOfTag(Array $nodeValues): String {
-		$fullTxt = $nodeValues['value'];
-		foreach($nodeValues['nodes'] as $chlArr){
-			$fullTxt .= $this->textOfTag($chlArr);
+	protected function collectAllText(Array $elementArray): String {
+		$fullTxt = $elementArray['value'];
+		foreach($elementArray['nodes'] as $chlArr){
+			$fullTxt .= $this->collectAllText($chlArr);
 		}
 		return $fullTxt;
 	}
@@ -188,28 +188,28 @@ abstract class Pack extends Base {
 	 * option asks for, by its name first and by its position otherwise,
 	 * or all of them, the hidden ones left out with the 'shown' option.
 	 *
-	 * @param Array $namesArray The names of the sheets, in order.
-	 * @param Array $shownArray Whether each of them is shown.
-	 * @param Array $parseOptns Options of the parser.
+	 * @param Array $sheetNameLst The names of the sheets, in order.
+	 * @param Array $visibleFlags Whether each of them is shown.
+	 * @param Array $parseOptions Options of the parser.
 	 * @return Array The positions of the sheets to read, counted from 0.
 	 *
 	 * @throws ParseError When the sheet asked for is not in the workbook.
 	 */
-	protected function pickSheet(Array $namesArray, Array $shownArray, Array $parseOptns): Array {
-		if( isset($parseOptns['sheet']) && $parseOptns['sheet']!=='' ){
-			$askdSht = strval($parseOptns['sheet']);
-			$fndIndx = array_search($askdSht, $namesArray, true);
-			if( $fndIndx===false && preg_match('/^[1-9]\d*$/D', $askdSht) && isset($namesArray[intval($askdSht)-1]) ){
-				$fndIndx = intval($askdSht)-1;
+	protected function pickSheetArray(Array $sheetNameLst, Array $visibleFlags, Array $parseOptions): Array {
+		if( isset($parseOptions['sheet']) && $parseOptions['sheet']!=='' ){
+			$askdSht = strval($parseOptions['sheet']);
+			$foundAt = array_search($askdSht, $sheetNameLst, true);
+			if( $foundAt===false && preg_match('/^[1-9]\d*$/D', $askdSht) && isset($sheetNameLst[intval($askdSht)-1]) ){
+				$foundAt = intval($askdSht)-1;
 			}
-			if( $fndIndx===false ){
+			if( $foundAt===false ){
 				throw new ParseError('Invalid workbook option: no sheet '.$askdSht);
 			}
-			return Array($fndIndx);
+			return Array($foundAt);
 		}
 		$keptIdx = Array();
-		foreach(array_keys($namesArray) as $shtIdx){
-			if( empty($parseOptns['shown']) || !empty($shownArray[$shtIdx]) ){
+		foreach(array_keys($sheetNameLst) as $shtIdx){
+			if( empty($parseOptions['shown']) || !empty($visibleFlags[$shtIdx]) ){
 				$keptIdx[] = $shtIdx;
 			}
 		}
@@ -221,29 +221,29 @@ abstract class Pack extends Base {
 	 * its merged cells, the 'heads' option keys its rows by the names of
 	 * its columns.
 	 *
-	 * @param String $sheetTitle Name of the sheet.
-	 * @param Array  $rowsOfGrid Its rows, each a list of values.
-	 * @param Array  $attrsArray What is particular to it: 'shown', 'merge'.
-	 * @param Array  $parseOptns Options of the parser.
-	 * @param Array  $headsFound Receives the names of its columns, with the 'heads' option.
+	 * @param String $sheetHeading Name of the sheet.
+	 * @param Array  $cellRowsList Its rows, each a list of values.
+	 * @param Array  $attributeSet What is particular to it: 'shown', 'merge'.
+	 * @param Array  $parseOptions Options of the parser.
+	 * @param Array  $columnTitles Receives the names of its columns, with the 'heads' option.
 	 * @return Array The sheet: 'title', 'attrs', 'cells'.
 	 *
 	 * @throws ParseError When the 'merge' option is not a known one, or the merged cells are too many to be filled.
 	 */
-	protected function doneSheet(String $sheetTitle, Array $rowsOfGrid, Array $attrsArray, Array $parseOptns, Array &$headsFound): Array {
-		$mergeAs = strtolower(strval($parseOptns['merge'] ?? 'keeps'));
+	protected function doneSheetArray(String $sheetHeading, Array $cellRowsList, Array $attributeSet, Array $parseOptions, Array &$columnTitles): Array {
+		$mergeAs = strtolower(strval($parseOptions['merge'] ?? 'keeps'));
 		if( $mergeAs!='keeps' && $mergeAs!='fills' ){
 			throw new ParseError('Invalid workbook option: unknown merge '.$mergeAs);
 		}
 		if( $mergeAs=='fills' ){
-			$rowsOfGrid = $this->fillMerge($rowsOfGrid, (array)($attrsArray['merge'] ?? Array()));
+			$cellRowsList = $this->fillMergeArray($cellRowsList, (array)($attributeSet['merge'] ?? Array()));
 		}
-		$headsFound = Array();
-		if( !empty($parseOptns['heads']) ){
-			$rowsOfGrid = $this->keyedRows($rowsOfGrid, $headsFound);
+		$columnTitles = Array();
+		if( !empty($parseOptions['heads']) ){
+			$cellRowsList = $this->keyedRowsArray($cellRowsList, $columnTitles);
 		}
-		$shetArr = Shape::makeSheet($sheetTitle, Array(), $attrsArray);
-		$shetArr['cells'] = $rowsOfGrid;
+		$shetArr = Shape::makeSheetArray($sheetHeading, Array(), $attributeSet);
+		$shetArr['cells'] = $cellRowsList;
 		return $shetArr;
 	}
 	
@@ -251,34 +251,34 @@ abstract class Pack extends Base {
 	 * Copies the value of each merged area into every cell it covers. An
 	 * area whose first cell is empty is left as it is.
 	 *
-	 * @param Array $rowsOfGrid The rows, each a list of values.
-	 * @param Array $mergeAreas The areas, each with its 'atrow', 'atcol', 'rowsp' and 'colsp'.
+	 * @param Array $cellRowsList The rows, each a list of values.
+	 * @param Array $mergedRanges The areas, each with its 'atrow', 'atcol', 'rowsp' and 'colsp'.
 	 * @return Array The rows, filled.
 	 *
 	 * @throws ParseError When the cells to fill are too many.
 	 */
-	protected function fillMerge(Array $rowsOfGrid, Array $mergeAreas): Array {
-		$fillNbr = 0;
-		foreach($mergeAreas as $oneAre){
-			$areaVal = $rowsOfGrid[$oneAre['atrow']][$oneAre['atcol']] ?? null;
+	protected function fillMergeArray(Array $cellRowsList, Array $mergedRanges): Array {
+		$fillNum = 0;
+		foreach($mergedRanges as $oneAre){
+			$areaVal = $cellRowsList[$oneAre['atrow']][$oneAre['atcol']] ?? null;
 			if( $areaVal===null ){
 				continue;
 			}
-			$fillNbr += $oneAre['rowsp']*$oneAre['colsp'];
-			if( $fillNbr>self::FILLSMAX ){
+			$fillNum += $oneAre['rowsp']*$oneAre['colsp'];
+			if( $fillNum>self::FILL_MAXI ){
 				throw new ParseError('Invalid workbook: merged cells too many to be filled');
 			}
 			for($rowIdx=$oneAre['atrow']; $rowIdx<$oneAre['atrow']+$oneAre['rowsp']; $rowIdx++){
-				while( count($rowsOfGrid)<=$rowIdx ){
-					$rowsOfGrid[] = Array();
+				while( count($cellRowsList)<=$rowIdx ){
+					$cellRowsList[] = Array();
 				}
-				$rowsOfGrid[$rowIdx] = array_pad($rowsOfGrid[$rowIdx], $oneAre['atcol']+$oneAre['colsp'], null);
-				for($colIdx=$oneAre['atcol']; $colIdx<$oneAre['atcol']+$oneAre['colsp']; $colIdx++){
-					$rowsOfGrid[$rowIdx][$colIdx] = $areaVal;
+				$cellRowsList[$rowIdx] = array_pad($cellRowsList[$rowIdx], $oneAre['atcol']+$oneAre['colsp'], null);
+				for($colInc=$oneAre['atcol']; $colInc<$oneAre['atcol']+$oneAre['colsp']; $colInc++){
+					$cellRowsList[$rowIdx][$colInc] = $areaVal;
 				}
 			}
 		}
-		return $rowsOfGrid;
+		return $cellRowsList;
 	}
 	
 	/**
@@ -287,8 +287,8 @@ abstract class Pack extends Base {
 	 *
 	 * @throws ParseError When the document is protected by a password.
 	 */
-	protected function checkLock(): Void {
-		if( $this->openArch->findEntry('META-INF/manifest.xml') && strpos($this->openArch->readEntry('META-INF/manifest.xml', $this->sizeLimt), 'encryption-data')!==false ){
+	protected function refuseIfLocked(): Void {
+		if( $this->opnArchive->locateEntryFlg('META-INF/manifest.xml') && strpos($this->opnArchive->getEntryString('META-INF/manifest.xml', $this->maxSizeVal), 'encryption-data')!==false ){
 			throw new ParseError('Invalid archive: the document is protected by a password');
 		}
 	}
@@ -298,12 +298,12 @@ abstract class Pack extends Base {
 	 * its spaces, tabulations and line breaks as their characters, and
 	 * without the notes attached to it.
 	 *
-	 * @param Array $nodeValues The element.
+	 * @param Array $elementArray The element.
 	 * @return String Its text.
 	 */
-	protected function odfOfText(Array $nodeValues): String {
-		$fullTxt = $nodeValues['value'];
-		foreach($nodeValues['nodes'] as $chlArr){
+	protected function odfPieceAsText(Array $elementArray): String {
+		$fullTxt = $elementArray['value'];
+		foreach($elementArray['nodes'] as $chlArr){
 			$chldNme = $chlArr['tagnm'];
 			if( $chldNme=='text:s' ){
 				$fullTxt .= str_repeat(' ', max(1, min(10000, intval($chlArr['attrs']['text:c'] ?? 1))));
@@ -312,7 +312,7 @@ abstract class Pack extends Base {
 			}elseif( $chldNme=='text:line-break' ){
 				$fullTxt .= "\n";
 			}elseif( !in_array($chldNme, Array('office:annotation', 'office:annotation-end', 'text:note', 'text:tracked-changes')) ){
-				$fullTxt .= $this->odfOfText($chlArr);
+				$fullTxt .= $this->odfPieceAsText($chlArr);
 			}
 		}
 		return $fullTxt;
@@ -322,27 +322,27 @@ abstract class Pack extends Base {
 	 * Reads the relations of a part of an Office document: the other
 	 * parts, and the addresses, it points to.
 	 *
-	 * @param String $insideName Name of the part, '' for the archive itself.
+	 * @param String $fullPathName Name of the part, '' for the archive itself.
 	 * @return Array The relations, by their id, each with its kind under 'types', the name of the part it points to under 'paths', what it points to as written under 'links', and whether that is outside the archive under 'outer'.
 	 */
-	protected function relsOfPrt(String $insideName): Array {
-		$slshPos = strrpos($insideName, '/');
-		$partDir = ($slshPos===false) ? '' : substr($insideName, 0, $slshPos+1);
-		$relsArr = $this->partNodes($partDir.'_rels/'.substr($insideName, strlen($partDir)).'.rels', false);
+	protected function relsOfFragment(String $fullPathName): Array {
+		$slashAt = strrpos($fullPathName, '/');
+		$partDir = ($slashAt===false) ? '' : substr($fullPathName, 0, $slashAt+1);
+		$relsArr = $this->partNodesArray($partDir.'_rels/'.substr($fullPathName, strlen($partDir)).'.rels', false);
 		$relsLst = Array();
-		foreach($this->kidsNamed($relsArr ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
+		foreach($this->kidsNamedArray($relsArr ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
 			$relTrgt = strval($relArr['attrs']['Target'] ?? '');
 			// A target is written from the folder of the part, or from the root of the archive when it starts with /
 			$relPath = (substr($relTrgt, 0, 1)=='/') ? substr($relTrgt, 1) : $partDir.$relTrgt;
-			$pathPrt = Array();
-			foreach(explode('/', $relPath) as $pthSeg){
-				if( $pthSeg=='..' ){
-					array_pop($pathPrt);
-				}elseif( $pthSeg!=='' && $pthSeg!='.' ){
-					$pathPrt[] = $pthSeg;
+			$pthPart = Array();
+			foreach(explode('/', $relPath) as $oneDir){
+				if( $oneDir=='..' ){
+					array_pop($pthPart);
+				}elseif( $oneDir!=='' && $oneDir!='.' ){
+					$pthPart[] = $oneDir;
 				}
 			}
-			$relsLst[strval($relArr['attrs']['Id'] ?? '')] = Array('types'=>strval($relArr['attrs']['Type'] ?? ''), 'paths'=>implode('/', $pathPrt), 'links'=>$relTrgt, 'outer'=>(strtolower(strval($relArr['attrs']['TargetMode'] ?? ''))=='external'));
+			$relsLst[strval($relArr['attrs']['Id'] ?? '')] = Array('types'=>strval($relArr['attrs']['Type'] ?? ''), 'paths'=>implode('/', $pthPart), 'links'=>$relTrgt, 'outer'=>(strtolower(strval($relArr['attrs']['TargetMode'] ?? ''))=='external'));
 		}
 		return $relsLst;
 	}
@@ -351,16 +351,16 @@ abstract class Pack extends Base {
 	 * Finds the first element carrying one of some names inside an
 	 * element, at any depth.
 	 *
-	 * @param Array $nodeValues The element.
-	 * @param Array $tagsToFind The names looked for, with their prefix.
+	 * @param Array $elementArray The element.
+	 * @param Array $namesToMatch The names looked for, with their prefix.
 	 * @return ?Array The element found, null when there is none.
 	 */
-	protected function deepNamed(Array $nodeValues, Array $tagsToFind): ?Array {
-		foreach($nodeValues['nodes'] as $chlArr){
-			if( in_array($chlArr['tagnm'], $tagsToFind, true) ){
+	protected function deepNamedArray(Array $elementArray, Array $namesToMatch): ?Array {
+		foreach($elementArray['nodes'] as $chlArr){
+			if( in_array($chlArr['tagnm'], $namesToMatch, true) ){
 				return $chlArr;
 			}
-			$deepArr = $this->deepNamed($chlArr, $tagsToFind);
+			$deepArr = $this->deepNamedArray($chlArr, $namesToMatch);
 			if( $deepArr!==null ){
 				return $deepArr;
 			}
@@ -372,40 +372,40 @@ abstract class Pack extends Base {
 	 * Sorts the pieces of a paragraph: a run of text makes a paragraph,
 	 * an image or a page break stands between two of them.
 	 *
-	 * @param Array $piecesList The pieces, in order: spans, and images and page breaks as blocks.
-	 * @param Bool  $keepsEmpty Whether a paragraph holding nothing is given as a block without text.
+	 * @param Array $outputPieces The pieces, in order: spans, and images and page breaks as blocks.
+	 * @param Bool  $keepEmptyFlg Whether a paragraph holding nothing is given as a block without text.
 	 * @return Array The whole text as spans under 'spans' and as written under 'plain', the images and the page breaks under 'holds', and all of it in order, as blocks, under 'flows'.
 	 */
-	protected function flowParts(Array $piecesList, Bool $keepsEmpty): Array {
+	protected function flowPartsArray(Array $outputPieces, Bool $keepEmptyFlg): Array {
 		$spnsAll = Array();
 		$holdLst = Array();
 		$flowLst = Array();
-		$spnsBuf = Array();
-		$piecesList[] = Array('block'=>'#end');
-		foreach($piecesList as $onePce){
-			if( !isset($onePce['block']) ){
-				$spnsBuf[] = $onePce;
-				$spnsAll[] = $onePce;
+		$spanBuf = Array();
+		$outputPieces[] = Array('block'=>'#end');
+		foreach($outputPieces as $onePic){
+			if( !isset($onePic['block']) ){
+				$spanBuf[] = $onePic;
+				$spnsAll[] = $onePic;
 				continue;
 			}
-			$tidySpn = Shape::joinSpans($spnsBuf);
-			$spnsBuf = Array();
+			$tidySpn = Shape::joinSpansArray($spanBuf);
+			$spanBuf = Array();
 			if( trim(implode('', array_column($tidySpn, 'texts')))!=='' ){
-				$flowLst[] = Shape::makeBlock('parag', $tidySpn);
+				$flowLst[] = Shape::makeBlockArray('parag', $tidySpn);
 			}
-			if( $onePce['block']!='#end' ){
-				$flowLst[] = $onePce;
-				$holdLst[] = $onePce;
+			if( $onePic['block']!='#end' ){
+				$flowLst[] = $onePic;
+				$holdLst[] = $onePic;
 			}
 		}
-		$spnsAll = Shape::joinSpans($spnsAll);
+		$spnsAll = Shape::joinSpansArray($spnsAll);
 		$fullTxt = implode('', array_column($spnsAll, 'texts'));
 		if( trim($fullTxt)==='' ){
 			$spnsAll = Array();
 		}
 		// A paragraph holding nothing is a block without text, when those are kept
-		if( empty($flowLst) && $keepsEmpty ){
-			$flowLst[] = Shape::makeBlock('parag');
+		if( empty($flowLst) && $keepEmptyFlg ){
+			$flowLst[] = Shape::makeBlockArray('parag');
 		}
 		return Array('spans'=>$spnsAll, 'plain'=>$fullTxt, 'holds'=>$holdLst, 'flows'=>$flowLst);
 	}
@@ -415,54 +415,54 @@ abstract class Pack extends Base {
 	 * quote, or its text with the images it holds, and a page break
 	 * before or after it when it asks for one.
 	 *
-	 * @param Array $paraValues The paragraph: its 'kinds' (headr, quote or parag), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
+	 * @param Array $prgrphValues The paragraph: its 'kinds' (headr, quote or parag), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
 	 * @return Array The blocks.
 	 */
-	protected function paraBlcks(Array $paraValues): Array {
-		$paraKnd = $paraValues['kinds'];
-		$paraBlk = $paraValues['flows'];
+	protected function paragrphBlocks(Array $prgrphValues): Array {
+		$paraKnd = $prgrphValues['kinds'];
+		$newPara = $prgrphValues['flows'];
 		if( $paraKnd=='headr' || $paraKnd=='quote' ){
 			// A heading and a quote hold their text only; what else their paragraph holds follows them
-			$paraBlk = array_merge(
-				Array(Shape::makeBlock($paraKnd, $paraValues['spans'], Array(), ($paraKnd=='headr') ? Array('level'=>$paraValues['level']) : Array())),
-				($paraKnd=='headr') ? array_values(array_filter($paraValues['holds'], function($blockArray){ return $blockArray['block']=='rules'; })) : $paraValues['holds']
+			$newPara = array_merge(
+				Array(Shape::makeBlockArray($paraKnd, $prgrphValues['spans'], Array(), ($paraKnd=='headr') ? Array('level'=>$prgrphValues['level']) : Array())),
+				($paraKnd=='headr') ? array_values(array_filter($prgrphValues['holds'], function($contentBlock){ return $contentBlock['block']=='rules'; })) : $prgrphValues['holds']
 			);
 		}
 		// The style, the alignment and the id are those of the text, not of an image or a page break
-		if( !empty($paraBlk) && !in_array($paraBlk[0]['block'], Array('rules', 'image')) ){
-			$paraBlk[0]['attrs'] = $paraBlk[0]['attrs'] + $paraValues['attrs'];
+		if( !empty($newPara) && !in_array($newPara[0]['block'], Array('rules', 'image')) ){
+			$newPara[0]['attrs'] = $newPara[0]['attrs'] + $prgrphValues['attrs'];
 		}
-		$brkBlck = Shape::makeBlock('rules', Array(), Array(), Array('break'=>true));
-		return array_merge($paraValues['prior'] ? Array($brkBlck) : Array(), $paraBlk, $paraValues['after'] ? Array($brkBlck) : Array());
+		$brkBlck = Shape::makeBlockArray('rules', Array(), Array(), Array('break'=>true));
+		return array_merge($prgrphValues['prior'] ? Array($brkBlck) : Array(), $newPara, $prgrphValues['after'] ? Array($brkBlck) : Array());
 	}
 	
 	/**
 	 * Makes one block of code of the paragraphs of code that follow one
 	 * another, each being one of its lines.
 	 *
-	 * @param Array $parasArray The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
+	 * @param Array $prgrphsArray The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
 	 * @return Array The block, in a list; an empty list when the lines hold nothing.
 	 */
-	protected function codeBlock(Array $parasArray): Array {
-		$codeTxt = trim(implode("\n", array_column($parasArray, 'plain')), "\n");
+	protected function codeBlockArray(Array $prgrphsArray): Array {
+		$codeTxt = trim(implode("\n", array_column($prgrphsArray, 'plain')), "\n");
 		if( trim($codeTxt)==='' ){
 			return Array();
 		}
-		return Array(Shape::makeBlock('codes', Array(Shape::makeASpan($codeTxt)), Array(), $parasArray[0]['attrs'] ?? Array()));
+		return Array(Shape::makeBlockArray('codes', Array(Shape::makeASpanArray($codeTxt)), Array(), $prgrphsArray[0]['attrs'] ?? Array()));
 	}
 	
 	/**
 	 * Gives what a style gives, as the details of a document list it.
 	 *
-	 * @param Array $styleArray The style: its name under 'names', then 'fonts', 'sizes', 'color', 'marks' and 'align'.
+	 * @param Array $styleDetails The style: its name under 'names', then 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 * @return Array A name fit for a style sheet under 'class', then what the style tells among 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 */
-	protected function frmatOfIt(Array $styleArray): Array {
-		$clssNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleArray['names'] ?? ''))), '-');
+	protected function frmatOfItArray(Array $styleDetails): Array {
+		$clssNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleDetails['names'] ?? ''))), '-');
 		$frmtSet = Array('class'=>preg_match('/^[a-z]/', $clssNme) ? $clssNme : 's-'.$clssNme);
 		foreach(Array('fonts', 'sizes', 'color', 'marks', 'align') as $prpKey){
-			if( !empty($styleArray[$prpKey]) ){
-				$frmtSet[$prpKey] = $styleArray[$prpKey];
+			if( !empty($styleDetails[$prpKey]) ){
+				$frmtSet[$prpKey] = $styleDetails[$prpKey];
 			}
 		}
 		// A size is a whole number of points more often than not
@@ -476,27 +476,27 @@ abstract class Pack extends Base {
 	 * Saves the pictures a document holds to a folder, and gives each
 	 * image block the name of its file.
 	 *
-	 * @param Array  $envelopeAr The envelope of the document, of shape 'block'.
-	 * @param String $mediaFoldr The folder.
+	 * @param Array  $envelopeData The envelope of the document, of shape 'block'.
+	 * @param String $imagesFolder The folder.
 	 * @return Array The envelope, its image blocks pointing to the files saved, and those files listed in its details under 'media': the name of each file => its place in the archive.
 	 *
 	 * @throws ParseError When the folder is not one that can be written to.
 	 */
-	protected function saveMedia(Array $envelopeAr, String $mediaFoldr): Array {
-		$realDir = realpath($mediaFoldr);
+	protected function saveMediaArray(Array $envelopeData, String $imagesFolder): Array {
+		$realDir = realpath($imagesFolder);
 		if( $realDir===false || !is_dir($realDir) || !is_writable($realDir) ){
 			throw new ParseError('Invalid option: the folder for the pictures cannot be written to');
 		}
 		$saveLst = Array();
-		$envelopeAr['items'] = $this->mediaWalk((array)$envelopeAr['items'], $realDir, $saveLst);
+		$envelopeData['items'] = $this->mediaWalkArray((array)$envelopeData['items'], $realDir, $saveLst);
 		// The headers and the footers of the pages hold pictures too
 		foreach(Array('phead', 'pfoot') as $infKey){
-			if( is_array($envelopeAr['infos'][$infKey] ?? null) ){
-				$envelopeAr['infos'][$infKey] = $this->mediaWalk($envelopeAr['infos'][$infKey], $realDir, $saveLst);
+			if( is_array($envelopeData['infos'][$infKey] ?? null) ){
+				$envelopeData['infos'][$infKey] = $this->mediaWalkArray($envelopeData['infos'][$infKey], $realDir, $saveLst);
 			}
 		}
-		$envelopeAr['infos']['media'] = array_flip(array_filter($saveLst, 'strlen'));
-		return $envelopeAr;
+		$envelopeData['infos']['media'] = array_flip(array_filter($saveLst, 'strlen'));
+		return $envelopeData;
 	}
 	
 	/**
@@ -507,44 +507,44 @@ abstract class Pack extends Base {
 	 * copied as it is otherwise. What is not a picture this server reads
 	 * is left where it is.
 	 *
-	 * @param Array  $blocksList The blocks.
-	 * @param String $mediaFoldr The folder, as the system names it.
-	 * @param Array  $savedNames The pictures met so far: their place in the archive => the name of their file, '' for what could not be saved.
+	 * @param Array  $bookBlockSet The blocks.
+	 * @param String $imagesFolder The folder, as the system names it.
+	 * @param Array  $picturesSeen The pictures met so far: their place in the archive => the name of their file, '' for what could not be saved.
 	 * @return Array The blocks.
 	 */
-	protected function mediaWalk(Array $blocksList, String $mediaFoldr, Array &$savedNames): Array {
-		foreach($blocksList as $blkIdx=>$oneBlk){
+	protected function mediaWalkArray(Array $bookBlockSet, String $imagesFolder, Array &$picturesSeen): Array {
+		foreach($bookBlockSet as $blkIdx=>$oneBlk){
 			if( !empty($oneBlk['items']) ){
-				$blocksList[$blkIdx]['items'] = $this->mediaWalk($oneBlk['items'], $mediaFoldr, $savedNames);
+				$bookBlockSet[$blkIdx]['items'] = $this->mediaWalkArray($oneBlk['items'], $imagesFolder, $picturesSeen);
 			}
 			$innrPth = strval($oneBlk['attrs']['sourc'] ?? '');
-			if( ($oneBlk['block'] ?? '')!='image' || !$this->openArch->findEntry($innrPth) ){
+			if( ($oneBlk['block'] ?? '')!='image' || !$this->opnArchive->locateEntryFlg($innrPth) ){
 				continue;
 			}
-			if( !isset($savedNames[$innrPth]) && count($savedNames)<self::MEDIAMAX ){
-				$savedNames[$innrPth] = '';
+			if( !isset($picturesSeen[$innrPth]) && count($picturesSeen)<self::MEDI_MAXI ){
+				$picturesSeen[$innrPth] = '';
 				try{
-					$rawText = $this->openArch->readEntry($innrPth, $this->sizeLimt);
-					$imgeObj = Image::openFluxd(Fluxd::openBytes($rawText));
+					$rawText = $this->opnArchive->getEntryString($innrPth, $this->maxSizeVal);
+					$picture = Image::openFluxdArchv(Fluxd::openBytesFluxd($rawText));
 					// A drawing is saved cleaned of what runs; any other picture written anew, or copied when this server cannot
-					if( $imgeObj->imageInfo()['kinds']=='svg' ){
-						$outText = $imgeObj->cleanedUp();
+					if( $picture->imageInfoArray()['kinds']=='svg' ){
+						$outText = $picture->dropRiskyParts();
 					}else{
-						$outText = function_exists('imagecreatefromstring') ? $imgeObj->setUprght()->giveBytes('', 90) : $rawText;
+						$outText = function_exists('imagecreatefromstring') ? $picture->fixOrientation()->grantBytesText('', 90) : $rawText;
 					}
-					$fileNme = substr(sha1($outText), 0, 20).'.'.$imgeObj->imageInfo()['kinds'];
-					if( @file_put_contents($mediaFoldr.DIRECTORY_SEPARATOR.$fileNme, $outText)!==false ){
-						$savedNames[$innrPth] = $fileNme;
+					$fileNme = substr(sha1($outText), 0, 20).'.'.$picture->imageInfoArray()['kinds'];
+					if( @file_put_contents($imagesFolder.DIRECTORY_SEPARATOR.$fileNme, $outText)!==false ){
+						$picturesSeen[$innrPth] = $fileNme;
 					}
 				}catch( \RuntimeException $e ){
 					// Not a picture this server reads, such as a drawing of an office suite: the block keeps its place in the archive
 				}
 			}
-			if( strval($savedNames[$innrPth] ?? '')!=='' ){
-				$blocksList[$blkIdx]['attrs']['sourc'] = $savedNames[$innrPth];
+			if( strval($picturesSeen[$innrPth] ?? '')!=='' ){
+				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $picturesSeen[$innrPth];
 			}
 		}
-		return $blocksList;
+		return $bookBlockSet;
 	}
 	
 }

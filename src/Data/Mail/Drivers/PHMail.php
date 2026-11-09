@@ -13,20 +13,20 @@ use \nyu\Data\Mail\MailFailure;
  */
 class PHMail extends Driver {
 
-	const MAILCLSS = '\\PHPMailer\\PHPMailer\\PHPMailer';
+	const MAIL_CLSS = '\\PHPMailer\\PHPMailer\\PHPMailer';
 
 	/**
 	 * Builds the driver, once the library is found.
 	 *
-	 * @param Array $acntConfig The settings of the account (see Mail\Mailer::acntSetup).
+	 * @param Array $accontConfig The settings of the account (see Mail\Mailer::acntSetupArray).
 	 *
 	 * @throws MailFailure When PHPMailer is not installed.
 	 */
-	public function __construct( Array $acntConfig ){
-		if( !class_exists(self::MAILCLSS) ){
+	public function __construct( Array $accontConfig ){
+		if( !class_exists(self::MAIL_CLSS) ){
 			throw new MailFailure('PHPMailer is not installed: composer require phpmailer/phpmailer');
 		}
-		parent::__construct($acntConfig);
+		parent::__construct($accontConfig);
 	}
 
 	/**
@@ -34,18 +34,18 @@ class PHMail extends Driver {
 	 * other addresses than those of the mail, is the same mail sent again
 	 * on the link of PHPMailer, with only those addresses as recipients.
 	 *
-	 * @param Message $mailMessge The mail.
-	 * @param Array   $recipients Checked addresses it is delivered to.
+	 * @param Message $emailMessage The mail.
+	 * @param Array   $recipientLst Checked addresses it is delivered to.
 	 * @return ?String Null when the server took it, or why it was not sent.
 	 */
-	public function sendMssge( Message $mailMessge, Array $recipients ): ?String {
+	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
 		try{
-			$mailLib = $this->buildMail($mailMessge);
-			if( $recipients===$mailMessge->recipList() ){
-				$mailLib->send();
+			$phpMail = $this->buildMailArray($emailMessage);
+			if( $recipientLst===$emailMessage->listRecipients() ){
+				$phpMail->send();
 				return null;
 			}
-			return $this->sendsCopy($mailLib, $recipients);
+			return $this->sendMailCopies($phpMail, $recipientLst);
 		}catch( \Exception $e ){
 			return $e->getMessage();
 		}
@@ -54,68 +54,68 @@ class PHMail extends Driver {
 	/**
 	 * Builds the mail with PHPMailer, set for the server of the account.
 	 *
-	 * @param Message $mailMessge The mail.
+	 * @param Message $emailMessage The mail.
 	 * @return Object The PHPMailer object, ready to send.
 	 */
-	protected function buildMail( Message $mailMessge ): Object {
-		$mailCls = self::MAILCLSS;
-		$mailLib = new $mailCls(true);
-		$srvPort = intval($this->setupArr['port'] ?? '') ?: 587;
-		$mailLib->isSMTP();
-		$mailLib->Host = strval($this->setupArr['host'] ?? '');
-		$mailLib->Port = $srvPort;
-		$mailLib->Timeout = intval($this->setupArr['wait'] ?? '') ?: 10;
-		$mailLib->CharSet = 'UTF-8';
-		if( $srvPort==465 ){
-			$mailLib->SMTPSecure = 'ssl';
-		}elseif( !self::localHost($mailLib->Host) ){
-			$mailLib->SMTPSecure = 'tls';
+	protected function buildMailArray( Message $emailMessage ): Object {
+		$mailCls = self::MAIL_CLSS;
+		$phpMail = new $mailCls(true);
+		$portNum = intval($this->setupArray['port'] ?? '') ?: 587;
+		$phpMail->isSMTP();
+		$phpMail->Host = strval($this->setupArray['host'] ?? '');
+		$phpMail->Port = $portNum;
+		$phpMail->Timeout = intval($this->setupArray['wait'] ?? '') ?: 10;
+		$phpMail->CharSet = 'UTF-8';
+		if( $portNum==465 ){
+			$phpMail->SMTPSecure = 'ssl';
+		}elseif( !self::localServerFlg($phpMail->Host) ){
+			$phpMail->SMTPSecure = 'tls';
 		}
-		$userNme = strval($this->setupArr['user'] ?? '');
+		$userNme = strval($this->setupArray['user'] ?? '');
 		if( $userNme!='' ){
-			$mailLib->SMTPAuth = true;
-			$mailLib->Username = $userNme;
-			$mailLib->Password = strval($this->setupArr['pass'] ?? '');
+			$phpMail->SMTPAuth = true;
+			$phpMail->Username = $userNme;
+			$phpMail->Password = strval($this->setupArray['pass'] ?? '');
 		}
-		$mailLib->setFrom($mailMessge->getSender(), $mailMessge->senderTag());
-		foreach( $mailMessge->recipList() as $rcpAdr ){
-			$mailLib->addAddress($rcpAdr);
+		$phpMail->setFrom($emailMessage->retrieveSender(), $emailMessage->getSenderLabel());
+		foreach( $emailMessage->listRecipients() as $toAddr ){
+			$phpMail->addAddress($toAddr);
 		}
-		$mailLib->Subject = $mailMessge->getSubjct();
-		if( $mailMessge->markupTxt()!==null ){
-			$mailLib->isHTML(true);
-			$mailLib->Body = $mailMessge->markupTxt();
-			$mailLib->AltBody = $mailMessge->plainBody();
+		$phpMail->Subject = $emailMessage->getSubjectText();
+		if( $emailMessage->getHtmlVersion()!==null ){
+			$phpMail->isHTML(true);
+			$phpMail->Body = $emailMessage->getHtmlVersion();
+			$phpMail->AltBody = $emailMessage->simpleBodyText();
 		}else{
-			$mailLib->Body = $mailMessge->plainBody();
+			$phpMail->Body = $emailMessage->simpleBodyText();
 		}
-		foreach( $mailMessge->attachLst() as $attFle ){
-			$mailLib->addAttachment($attFle);
+		foreach( $emailMessage->getAttachments() as $attFil ){
+			$phpMail->addAttachment($attFil);
 		}
-		return $mailLib;
+		return $phpMail;
 	}
 
 	/**
 	 * Sends the mail built by PHPMailer, as it is, to other addresses than
 	 * the ones it names.
 	 *
-	 * @param Object $mailObject The PHPMailer object, ready to send.
-	 * @param Array  $recipients Checked addresses it is delivered to.
+	 * @param Object $phpMailerObj The PHPMailer object, ready to send.
+	 * @param Array  $recipientLst Checked addresses it is delivered to.
 	 * @return ?String Null when the server took it, or why it was not sent.
 	 */
-	protected function sendsCopy( Object $mailObject, Array $recipients ): ?String {
-		$mailObject->preSend();
-		if( !$mailObject->smtpConnect() ){
+	protected function sendMailCopies( Object $phpMailerObj, Array $recipientLst ): ?String {
+		$phpMailerObj->preSend();
+		if( !$phpMailerObj->smtpConnect() ){
 			return 'no connection to the server';
 		}
-		$smtpLnk = $mailObject->getSMTPInstance();
-		$sentAll = $smtpLnk->mail($mailObject->Sender ?: $mailObject->From);
-		foreach( $recipients as $rcpAdr ){
-			$sentAll = $sentAll && $smtpLnk->recipient($rcpAdr);
+		$smtpLnk = $phpMailerObj->getSMTPInstance();
+		$sentAll = $smtpLnk->mail($phpMailerObj->Sender ?: $phpMailerObj->From);
+		foreach( $recipientLst as $toAddr ){
+			$sentAll = $sentAll && $smtpLnk->recipient($toAddr);
 		}
-		$sentAll = $sentAll && $smtpLnk->data($mailObject->getSentMIMEMessage());
+		$sentAll = $sentAll && $smtpLnk->data($phpMailerObj->getSentMIMEMessage());
 		$errInfo = $smtpLnk->getError();
-		$mailObject->smtpClose();
+		$phpMailerObj->smtpClose();
 		if( !$sentAll ){
 			return trim( strval($errInfo['error'] ?? '').' '.strval($errInfo['smtp_code'] ?? '').' '.strval($errInfo['detail'] ?? '') );
 		}

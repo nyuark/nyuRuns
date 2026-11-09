@@ -10,28 +10,28 @@ namespace nyu\Data;
  */
 class Archv {
 
-	protected $zipHndlr;
-	protected $srceFlux;
-	protected $nameList = Array();
+	protected $zipHandler;
+	protected $sourceFlux;
+	protected $entryNames = Array();
 
 	/**
-	 * Private: an archive is opened through openFluxd().
+	 * Private: an archive is opened through openFluxdArchv().
 	 *
-	 * @param \ZipArchive $zipArchive The open archive.
-	 * @param Fluxd       $sourceFlux The source it was opened from, kept as long as the archive is.
-	 * @param Array       $entryNames The entries it holds, name => size once unpacked.
+	 * @param \ZipArchive $archiveInUse The open archive.
+	 * @param Fluxd       $sourceStream The source it was opened from, kept as long as the archive is.
+	 * @param Array       $itemNamesArr The entries it holds, name => size once unpacked.
 	 */
-	private function __construct(\ZipArchive $zipArchive, Fluxd $sourceFlux, Array $entryNames){
-		$this->zipHndlr = $zipArchive;
-		$this->srceFlux = $sourceFlux;
-		$this->nameList = $entryNames;
+	private function __construct(\ZipArchive $archiveInUse, Fluxd $sourceStream, Array $itemNamesArr){
+		$this->zipHandler = $archiveInUse;
+		$this->sourceFlux = $sourceStream;
+		$this->entryNames = $itemNamesArr;
 	}
 
 	/**
 	 * Releases the archive when the object is no longer used.
 	 */
 	public function __destruct(){
-		$this->closeArch();
+		$this->releaseArchive();
 	}
 
 	/**
@@ -39,39 +39,39 @@ class Archv {
 	 * the server is copied to a temporary one first, deleted when the
 	 * source is closed.
 	 *
-	 * @param Fluxd $sourceFlux The source.
-	 * @param Int   $entriesMax Greatest number of entries accepted.
+	 * @param Fluxd $sourceStream The source.
+	 * @param Int   $entriesMaxNb Greatest number of entries accepted.
 	 * @return Archv The opened archive.
 	 *
 	 * @throws \RuntimeException When the source is not a zip archive, holds too many entries, or holds an entry whose name leaves the archive.
 	 */
-	public static function openFluxd(Fluxd $sourceFlux, Int $entriesMax=10000): Archv {
+	public static function openFluxdArchv(Fluxd $sourceStream, Int $entriesMaxNb=10000): Archv {
 		if( !class_exists('ZipArchive') ){
 			throw new \RuntimeException('Archives need the zip extension of PHP');
 		}
-		$zipArch = new \ZipArchive();
-		if( $zipArch->open($sourceFlux->saveLocal(), \ZipArchive::RDONLY)!==true ){
+		$archive = new \ZipArchive();
+		if( $archive->open($sourceStream->setLocalString(), \ZipArchive::RDONLY)!==true ){
 			throw new \RuntimeException('Not a zip archive');
 		}
-		if( $zipArch->numFiles>$entriesMax ){
-			$zipArch->close();
-			throw new \RuntimeException('Archive holding more than the '.$entriesMax.' entries allowed');
+		if( $archive->numFiles>$entriesMaxNb ){
+			$archive->close();
+			throw new \RuntimeException('Archive holding more than the '.$entriesMaxNb.' entries allowed');
 		}
 		$nameLst = Array();
-		for($entIdx=0; $entIdx<$zipArch->numFiles; $entIdx++){
-			$entStat = $zipArch->statIndex($entIdx);
-			$entName = strval($entStat['name'] ?? '');
+		for($zipInc=0; $zipInc<$archive->numFiles; $zipInc++){
+			$zipStat = $archive->statIndex($zipInc);
+			$itemNme = strval($zipStat['name'] ?? '');
 			// A name that would leave the archive is never a mistake
-			if( $entName==='' || $entName[0]=='/' || strpos($entName, '\\')!==false || strpos($entName, ':')!==false || in_array('..', explode('/', $entName), true) ){
-				$zipArch->close();
+			if( $itemNme==='' || $itemNme[0]=='/' || strpos($itemNme, '\\')!==false || strpos($itemNme, ':')!==false || in_array('..', explode('/', $itemNme), true) ){
+				$archive->close();
 				throw new \RuntimeException('Archive holding an entry whose name is not safe');
 			}
 			// Folders are not entries to read
-			if( substr($entName, -1)!='/' ){
-				$nameLst[$entName] = intval($entStat['size'] ?? 0);
+			if( substr($itemNme, -1)!='/' ){
+				$nameLst[$itemNme] = intval($zipStat['size'] ?? 0);
 			}
 		}
-		return new Archv($zipArch, $sourceFlux, $nameLst);
+		return new Archv($archive, $sourceStream, $nameLst);
 	}
 
 	/**
@@ -80,29 +80,29 @@ class Archv {
 	 * The entries are packed when PHP can pack them, kept as they are
 	 * otherwise.
 	 *
-	 * @param Array $entriesArr The entries, name with its folders => content, in the order they are written.
-	 * @param Array $plainNames Names of the entries never packed, as the first entry of a book must be.
+	 * @param Array $entriesArray The entries, name with its folders => content, in the order they are written.
+	 * @param Array $unpackedList Names of the entries never packed, as the first entry of a book must be.
 	 * @return String The bytes of the archive.
 	 *
 	 * @throws \RuntimeException When a name is not safe, or the archive would be larger than a plain zip can be.
 	 */
-	public static function makeBytes(Array $entriesArr, Array $plainNames=Array()): String {
+	public static function newBytesString(Array $entriesArray, Array $unpackedList=Array()): String {
 		$bodyTxt = '';
 		$listTxt = '';
 		// The date of the entries, as archives write it: two seconds at a time, from 1980
 		$timeArr = getdate();
 		$timeVal = ($timeArr['hours']<<11) | ($timeArr['minutes']<<5) | intdiv($timeArr['seconds'], 2);
 		$dateVal = (max(0, $timeArr['year']-1980)<<9) | ($timeArr['mon']<<5) | $timeArr['mday'];
-		foreach($entriesArr as $entNme=>$entTxt){
+		foreach($entriesArray as $entNme=>$entTxt){
 			$entNme = strval($entNme);
 			$entTxt = strval($entTxt);
 			if( $entNme==='' || $entNme[0]=='/' || strpos($entNme, '\\')!==false || strpos($entNme, ':')!==false || in_array('..', explode('/', $entNme), true) || strlen($entNme)>65535 ){
 				throw new \RuntimeException('Archive given an entry whose name is not safe');
 			}
-			$packTxt = (function_exists('gzdeflate') && $entTxt!=='' && !in_array($entNme, $plainNames, true)) ? gzdeflate($entTxt, 6) : false;
+			$packTxt = (function_exists('gzdeflate') && $entTxt!=='' && !in_array($entNme, $unpackedList, true)) ? gzdeflate($entTxt, 6) : false;
 			$isPackd = ($packTxt!==false && strlen($packTxt)<strlen($entTxt));
 			$dataTxt = $isPackd ? $packTxt : $entTxt;
-			if( strlen($bodyTxt)+strlen($dataTxt)>0x7FFFFFFF || count($entriesArr)>65535 ){
+			if( strlen($bodyTxt)+strlen($dataTxt)>0x7FFFFFFF || count($entriesArray)>65535 ){
 				throw new \RuntimeException('Archive too large to be written');
 			}
 			// Names are written in UTF-8, and say so
@@ -110,7 +110,7 @@ class Archv {
 			$listTxt .= "PK\x01\x02".pack('v', 20).$headTxt.pack('vvvVV', 0, 0, 0, 0, strlen($bodyTxt)).$entNme;
 			$bodyTxt .= "PK\x03\x04".$headTxt.$entNme.$dataTxt;
 		}
-		return $bodyTxt.$listTxt."PK\x05\x06".pack('vvvvVVv', 0, 0, count($entriesArr), count($entriesArr), strlen($listTxt), strlen($bodyTxt), 0);
+		return $bodyTxt.$listTxt."PK\x05\x06".pack('vvvvVVv', 0, 0, count($entriesArray), count($entriesArray), strlen($listTxt), strlen($bodyTxt), 0);
 	}
 	/**
 	 * Gives the open archive, or refuses one that was closed.
@@ -119,11 +119,11 @@ class Archv {
 	 *
 	 * @throws \RuntimeException When the archive is closed.
 	 */
-	protected function checkOpen(): \ZipArchive {
-		if( $this->zipHndlr===null ){
+	protected function getOpenArchive(): \ZipArchive {
+		if( $this->zipHandler===null ){
 			throw new \RuntimeException('The archive is closed');
 		}
-		return $this->zipHndlr;
+		return $this->zipHandler;
 	}
 
 	/**
@@ -133,22 +133,22 @@ class Archv {
 	 *
 	 * @throws \RuntimeException When the archive is closed.
 	 */
-	public function entryList(): Array {
-		$this->checkOpen();
-		return $this->nameList;
+	public function listEntryNames(): Array {
+		$this->getOpenArchive();
+		return $this->entryNames;
 	}
 
 	/**
 	 * Tells whether the archive holds an entry.
 	 *
-	 * @param String $insideName Name of the entry, with its folders, as 'word/document.xml'.
+	 * @param String $fullPathName Name of the entry, with its folders, as 'word/document.xml'.
 	 * @return Bool True when it does.
 	 *
 	 * @throws \RuntimeException When the archive is closed.
 	 */
-	public function findEntry(String $insideName): Bool {
-		$this->checkOpen();
-		return isset($this->nameList[$insideName]);
+	public function locateEntryFlg(String $fullPathName): Bool {
+		$this->getOpenArchive();
+		return isset($this->entryNames[$fullPathName]);
 	}
 
 	/**
@@ -156,42 +156,42 @@ class Archv {
 	 * it once unpacked is refused instead of being loaded, whatever size
 	 * the archive announces for it.
 	 *
-	 * @param String $insideName Name of the entry, with its folders.
-	 * @param ?Int   $limitBytes Greatest size accepted once unpacked, null for no limit.
+	 * @param String $fullPathName Name of the entry, with its folders.
+	 * @param ?Int   $ceilingBytes Greatest size accepted once unpacked, null for no limit.
 	 * @return String The content of the entry.
 	 *
 	 * @throws \RuntimeException When the entry is missing, protected by a password, larger than the limit, or cannot be read.
 	 */
-	public function readEntry(String $insideName, ?Int $limitBytes=null): String {
-		$zipArch = $this->checkOpen();
-		if( !isset($this->nameList[$insideName]) ){
-			throw new \RuntimeException('Entry not found in the archive: '.$insideName);
+	public function getEntryString(String $fullPathName, ?Int $ceilingBytes=null): String {
+		$archive = $this->getOpenArchive();
+		if( !isset($this->entryNames[$fullPathName]) ){
+			throw new \RuntimeException('Entry not found in the archive: '.$fullPathName);
 		}
-		if( $limitBytes!==null && $this->nameList[$insideName]>$limitBytes ){
-			throw new \RuntimeException('Entry larger than the '.$limitBytes.' bytes allowed: '.$insideName);
+		if( $ceilingBytes!==null && $this->entryNames[$fullPathName]>$ceilingBytes ){
+			throw new \RuntimeException('Entry larger than the '.$ceilingBytes.' bytes allowed: '.$fullPathName);
 		}
-		$entStat = $zipArch->statName($insideName);
-		if( intval($entStat['encryption_method'] ?? 0)!==0 ){
-			throw new \RuntimeException('Entry protected by a password: '.$insideName);
+		$zipStat = $archive->statName($fullPathName);
+		if( intval($zipStat['encryption_method'] ?? 0)!==0 ){
+			throw new \RuntimeException('Entry protected by a password: '.$fullPathName);
 		}
-		$entStrm = @$zipArch->getStream($insideName);
+		$entStrm = @$archive->getStream($fullPathName);
 		if( $entStrm===false ){
-			throw new \RuntimeException('Entry that cannot be read: '.$insideName);
+			throw new \RuntimeException('Entry that cannot be read: '.$fullPathName);
 		}
 		// The size an archive announces can be false: the reading itself stops one byte past the limit
-		$entText = '';
-		while( !feof($entStrm) && ($limitBytes===null || strlen($entText)<=$limitBytes) ){
+		$itemTxt = '';
+		while( !feof($entStrm) && ($ceilingBytes===null || strlen($itemTxt)<=$ceilingBytes) ){
 			$chnkTxt = fread($entStrm, 65536);
 			if( $chnkTxt===false || $chnkTxt==='' ){
 				break;
 			}
-			$entText .= $chnkTxt;
+			$itemTxt .= $chnkTxt;
 		}
 		fclose($entStrm);
-		if( $limitBytes!==null && strlen($entText)>$limitBytes ){
-			throw new \RuntimeException('Entry larger than the '.$limitBytes.' bytes allowed: '.$insideName);
+		if( $ceilingBytes!==null && strlen($itemTxt)>$ceilingBytes ){
+			throw new \RuntimeException('Entry larger than the '.$ceilingBytes.' bytes allowed: '.$fullPathName);
 		}
-		return $entText;
+		return $itemTxt;
 	}
 
 	/**
@@ -199,13 +199,13 @@ class Archv {
 	 * source it was opened from is left open: it belongs to whoever
 	 * opened it.
 	 */
-	public function closeArch(): Void {
-		if( $this->zipHndlr!==null ){
-			@$this->zipHndlr->close();
+	public function releaseArchive(): Void {
+		if( $this->zipHandler!==null ){
+			@$this->zipHandler->close();
 		}
-		$this->zipHndlr = null;
-		$this->srceFlux = null;
-		$this->nameList = Array();
+		$this->zipHandler = null;
+		$this->sourceFlux = null;
+		$this->entryNames = Array();
 	}
 
 }

@@ -12,25 +12,25 @@ use nyu\Data\Fluxd;
 abstract class Grid extends Base {
 
 	// The limits of a sheet, in every spreadsheet
-	const ROWLIMIT = 1048576;
-	const COLLIMIT = 16384;
+	const ROWS_MAXI = 1048576;
+	const COLS_MAXI = 16384;
 
 	/**
 	 * Gives a sheet a name every spreadsheet accepts: 31 characters at
 	 * most, none of those they keep for themselves, and no name twice.
 	 *
-	 * @param String $sheetTitle The name asked for.
-	 * @param Int    $sheetPlace The place of the sheet, starting from 1, for a sheet without a name.
-	 * @param Array  $namesTaken The names already given.
+	 * @param String $sheetHeading The name asked for.
+	 * @param Int    $sheetPlaceNb The place of the sheet, starting from 1, for a sheet without a name.
+	 * @param Array  $usedNameList The names already given.
 	 * @return String The name.
 	 */
-	protected function sheetName(String $sheetTitle, Int $sheetPlace, Array $namesTaken): String {
-		$cutsTxt = function(String $anyOfTexts, Int $lengthsMax){ return function_exists('mb_substr') ? mb_substr($anyOfTexts, 0, $lengthsMax, 'UTF-8') : substr($anyOfTexts, 0, $lengthsMax); };
-		$nameTxt = trim(strval(preg_replace('/[\[\]:*?\/\\\\\x00-\x1F]+/', ' ', preg_match('//u', $sheetTitle) ? $sheetTitle : '')), " '");
-		$nameTxt = rtrim($cutsTxt(($nameTxt==='') ? 'Sheet'.$sheetPlace : $nameTxt, 31));
-		$lowrLst = array_map('strtolower', $namesTaken);
+	protected function cleanSheetName(String $sheetHeading, Int $sheetPlaceNb, Array $usedNameList): String {
+		$cutsTxt = function(String $textToShrink, Int $lengthsMaxNb){ return function_exists('mb_substr') ? mb_substr($textToShrink, 0, $lengthsMaxNb, 'UTF-8') : substr($textToShrink, 0, $lengthsMaxNb); };
+		$nameTxt = trim(strval(preg_replace('/[\[\]:*?\/\\\\\x00-\x1F]+/', ' ', preg_match('//u', $sheetHeading) ? $sheetHeading : '')), " '");
+		$nameTxt = rtrim($cutsTxt(($nameTxt==='') ? 'Sheet'.$sheetPlaceNb : $nameTxt, 31));
+		$lwrList = array_map('strtolower', $usedNameList);
 		$baseTxt = $nameTxt;
-		for($tryIdx=2; in_array(strtolower($nameTxt), $lowrLst, true); $tryIdx++){
+		for($tryIdx=2; in_array(strtolower($nameTxt), $lwrList, true); $tryIdx++){
 			$nameTxt = $cutsTxt($baseTxt, 31-strlen(' ('.$tryIdx.')')).' ('.$tryIdx.')';
 		}
 		return $nameTxt;
@@ -40,12 +40,12 @@ abstract class Grid extends Base {
 	 * Tells which sheets are shown. A spreadsheet shows one sheet at
 	 * least: when all are hidden, the first is shown.
 	 *
-	 * @param Array $sheetsList The sheets.
+	 * @param Array $sheetEntries The sheets.
 	 * @return Array True or false for each sheet, in their order.
 	 */
-	protected function shownList(Array $sheetsList): Array {
+	protected function listShownSheet(Array $sheetEntries): Array {
 		$shwnLst = Array();
-		foreach($sheetsList as $shtArr){
+		foreach($sheetEntries as $shtArr){
 			$shwnLst[] = !isset($shtArr['attrs']['shown']) || !empty($shtArr['attrs']['shown']);
 		}
 		if( !empty($shwnLst) && !in_array(true, $shwnLst, true) ){
@@ -59,25 +59,25 @@ abstract class Grid extends Base {
 	 * their columns are put in the order the names are met; the names
 	 * make a row of their own when asked.
 	 *
-	 * @param Array $sheetArray The sheet: 'title', 'attrs', 'cells'.
-	 * @param Bool  $writeHeads Whether the names of the columns are written as the first row.
+	 * @param Array $sheetDetails The sheet: 'title', 'attrs', 'cells'.
+	 * @param Bool  $writeHeaders Whether the names of the columns are written as the first row.
 	 * @return Array The names written as the first row under 'heads', none when no such row is written; the rows under 'cells', each a list of values, without that row.
 	 *
 	 * @throws WriteError When the sheet is larger than a sheet can be.
 	 */
-	protected function sheetGrid(Array $sheetArray, Bool $writeHeads): Array {
-		$rowsLst = array_values((array)($sheetArray['cells'] ?? Array()));
+	protected function sheetGridArray(Array $sheetDetails, Bool $writeHeaders): Array {
+		$rowsLst = array_values((array)($sheetDetails['cells'] ?? Array()));
 		// Every name met, in the order they are met, makes a column
 		$headLst = Array();
 		$isKeyed = false;
 		foreach($rowsLst as $oneRow){
-			$isKeyed = ($isKeyed || !$this->isAListOf((array)$oneRow));
+			$isKeyed = ($isKeyed || !$this->validateALstOf((array)$oneRow));
 		}
 		if( $isKeyed ){
 			foreach($rowsLst as $oneRow){
-				foreach(array_keys((array)$oneRow) as $colKey){
-					if( !in_array(strval($colKey), $headLst, true) ){
-						$headLst[] = strval($colKey);
+				foreach(array_keys((array)$oneRow) as $column){
+					if( !in_array(strval($column), $headLst, true) ){
+						$headLst[] = strval($column);
 					}
 				}
 			}
@@ -86,50 +86,50 @@ abstract class Grid extends Base {
 		foreach($rowsLst as $oneRow){
 			$cellLst = Array();
 			if( $isKeyed ){
-				foreach($headLst as $colKey){
-					$cellLst[] = ((array)$oneRow)[$colKey] ?? null;
+				foreach($headLst as $column){
+					$cellLst[] = ((array)$oneRow)[$column] ?? null;
 				}
 			}else{
 				$cellLst = array_values((array)$oneRow);
 			}
 			$gridLst[] = $cellLst;
-			if( count($gridLst)+(($isKeyed && $writeHeads) ? 1 : 0)>self::ROWLIMIT || count($cellLst)>self::COLLIMIT ){
-				throw new WriteError('Sheet larger than a sheet can be: '.self::ROWLIMIT.' rows of '.self::COLLIMIT.' cells');
+			if( count($gridLst)+(($isKeyed && $writeHeaders) ? 1 : 0)>self::ROWS_MAXI || count($cellLst)>self::COLS_MAXI ){
+				throw new WriteError('Sheet larger than a sheet can be: '.self::ROWS_MAXI.' rows of '.self::COLS_MAXI.' cells');
 			}
 		}
-		return Array('heads'=>($isKeyed && $writeHeads) ? $headLst : Array(), 'cells'=>$gridLst);
+		return Array('heads'=>($isKeyed && $writeHeaders) ? $headLst : Array(), 'cells'=>$gridLst);
 	}
 
 	/**
 	 * Gives what a cell holds as what a spreadsheet can hold: a number,
 	 * true or false, a text, or nothing.
 	 *
-	 * @param mixed $valueToPut What the cell was given.
+	 * @param mixed $valueToWrite What the cell was given.
 	 * @return String|Int|Float|Bool|Null The value: null for nothing, a binary value or what is no number; a list as its JSON text.
 	 */
-	protected function plainCell(Mixed $valueToPut): String|Int|Float|Bool|Null {
-		if( $valueToPut===null || $valueToPut instanceof Fluxd || (is_float($valueToPut) && !is_finite($valueToPut)) ){
+	protected function simpleCellText(Mixed $valueToWrite): String|Int|Float|Bool|Null {
+		if( $valueToWrite===null || $valueToWrite instanceof Fluxd || (is_float($valueToWrite) && !is_finite($valueToWrite)) ){
 			return null;
 		}
-		if( is_array($valueToPut) || is_object($valueToPut) ){
-			return strval(json_encode(Fluxd::dropFluxd(is_array($valueToPut) ? $valueToPut : (array)$valueToPut), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
+		if( is_array($valueToWrite) || is_object($valueToWrite) ){
+			return strval(json_encode(Fluxd::nullifySources(is_array($valueToWrite) ? $valueToWrite : (array)$valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
 		}
-		return (is_bool($valueToPut) || is_int($valueToPut) || is_float($valueToPut)) ? $valueToPut : strval($valueToPut);
+		return (is_bool($valueToWrite) || is_int($valueToWrite) || is_float($valueToWrite)) ? $valueToWrite : strval($valueToWrite);
 	}
 
 	/**
 	 * Tells whether a text is a date: '2026-10-11', or with its time
 	 * '2026-10-11 14:30:00', the seconds being left out at will.
 	 *
-	 * @param String $plainTexts The text.
+	 * @param String $sourceString The text.
 	 * @return ?Array The year, the month and the day, then the hours, the minutes and the seconds when it tells a time; null when it is not a date that exists.
 	 */
-	protected function dateParts(String $plainTexts): ?Array {
-		$datePrt = Array();
-		if( !preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/D', $plainTexts, $datePrt) ){
+	protected function datePartsArray(String $sourceString): ?Array {
+		$dateLst = Array();
+		if( !preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/D', $sourceString, $dateLst) ){
 			return null;
 		}
-		$partLst = array_map('intval', array_slice($datePrt, 1));
+		$partLst = array_map('intval', array_slice($dateLst, 1));
 		if( !checkdate($partLst[1], $partLst[2], $partLst[0]) || ($partLst[3] ?? 0)>23 || ($partLst[4] ?? 0)>59 || ($partLst[5] ?? 0)>59 ){
 			return null;
 		}

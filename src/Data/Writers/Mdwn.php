@@ -23,36 +23,36 @@ class Mdwn extends Base {
 	 *              lines of ---: the ones the content was read with, or
 	 *              else its title, its author and its language.
 	 *
-	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array $writeOptns Options: 'front'.
+	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items'.
+	 * @param Array $writeOptions Options: 'front'.
 	 * @return String The Markdown.
 	 *
 	 * @throws WriteError When the shape is not 'block', or a block is of an unknown kind.
 	 */
-	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
-		$this->checkShpe($shapedData, Array('block'), 'Markdown');
-		$bodyTxt = implode("\n\n", $this->blocksOut((array)($shapedData['items'] ?? Array())));
+	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
+		$this->checkShapeText($dataEnvelope, Array('block'), 'Markdown');
+		$bodyTxt = implode("\n\n", $this->writeAllBlocks((array)($dataEnvelope['items'] ?? Array())));
 		$bodyTxt .= ($bodyTxt==='') ? '' : "\n";
-		if( empty($writeOptns['front']) ){
+		if( empty($writeOptions['front']) ){
 			return $bodyTxt;
 		}
-		$infoArr = (array)($shapedData['infos'] ?? Array());
+		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
 		$frntArr = (is_array($infoArr['front'] ?? null) && !empty($infoArr['front'])) ? $infoArr['front'] : array_filter(Array('title'=>strval($infoArr['title'] ?? ''), 'author'=>strval($infoArr['authr'] ?? ''), 'lang'=>strval($infoArr['langg'] ?? '')), 'strlen');
 		if( empty($frntArr) ){
 			return $bodyTxt;
 		}
-		return "---\n".(new Yaml())->writeData(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$frntArr))."---\n".(($bodyTxt==='') ? '' : "\n".$bodyTxt);
+		return "---\n".(new Yaml())->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$frntArr))."---\n".(($bodyTxt==='') ? '' : "\n".$bodyTxt);
 	}
 
 	/**
 	 * Writes a text so that Markdown reads it as text: the characters it
 	 * gives a meaning to stand after a backslash.
 	 *
-	 * @param String $textString The text.
+	 * @param String $templateText The text.
 	 * @return String The text, safe to write.
 	 */
-	protected function escapeTxt(String $textString): String {
-		$safeTxt = preg_replace('/[\\\\`*\[\]]/', '\\\\$0', $textString);
+	protected function escapeXmlValue(String $templateText): String {
+		$safeTxt = preg_replace('/[\\\\`*\[\]]/', '\\\\$0', $templateText);
 		// An underscore marks only against a word; a tilde only doubled; < and & only where an address or a character code could be read
 		$safeTxt = preg_replace('/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/u', '\\\\_', $safeTxt);
 		return preg_replace(Array('/~(?=~)/', '/<(?=[A-Za-z\/!?])/', '/&(?=#?\w+;)/'), Array('\\\\~', '\\\\<', '\\\\&'), $safeTxt);
@@ -63,11 +63,11 @@ class Mdwn extends Base {
 	 * than text after a backslash: a heading, a quote, an entry of a
 	 * list, a rule, a line that makes a heading of the one above it.
 	 *
-	 * @param String $textString The text of a paragraph, its lines as they will be written.
+	 * @param String $templateText The text of a paragraph, its lines as they will be written.
 	 * @return String The text, its lines safe to start a paragraph.
 	 */
-	protected function guardLine(String $textString): String {
-		$safeTxt = preg_replace('/^( {0,3})(#{1,6}(?:[ \t]|$)|>|[\-+](?:[ \t]|$)|=+[ \t]*$|-{2,}[ \t]*$|~{3})/m', '$1\\\\$2', $textString);
+	protected function protectLineTxt(String $templateText): String {
+		$safeTxt = preg_replace('/^( {0,3})(#{1,6}(?:[ \t]|$)|>|[\-+](?:[ \t]|$)|=+[ \t]*$|-{2,}[ \t]*$|~{3})/m', '$1\\\\$2', $templateText);
 		return preg_replace('/^( {0,3}\d{1,9})([.)](?:[ \t]|$))/m', '$1\\\\$2', $safeTxt);
 	}
 
@@ -75,11 +75,11 @@ class Mdwn extends Base {
 	 * Gives an address as it stands between the brackets of a link or of
 	 * an image.
 	 *
-	 * @param String $linkTarget The address.
+	 * @param String $linkGoalText The address.
 	 * @return String The address, between angle brackets when it holds a space or a bracket; '' when it is not safe to follow.
 	 */
-	protected function destOfLnk(String $linkTarget): String {
-		$linkAdr = Shape::cleanLink($linkTarget);
+	protected function destintnOfLink(String $linkGoalText): String {
+		$linkAdr = Shape::tidyLinkString($linkGoalText);
 		if( $linkAdr!=='' && preg_match('/[\s()<>]/', $linkAdr) ){
 			return '<'.str_replace(Array('<', '>', "\r", "\n"), Array('%3C', '%3E', '', ''), $linkAdr).'>';
 		}
@@ -91,66 +91,66 @@ class Mdwn extends Base {
 	 * it, inside the brackets of its link. The marks stand against the
 	 * words: the spaces at the ends of a span stay outside them.
 	 *
-	 * @param Array $spansArray The spans.
-	 * @param Bool  $oneLineOut Whether the line breaks of the text are written as spaces, where the text must hold on a line.
+	 * @param Array $textSpanList The spans.
+	 * @param Bool  $flattenLines Whether the line breaks of the text are written as spaces, where the text must hold on a line.
 	 * @return String The Markdown.
 	 */
-	protected function inlineOut(Array $spansArray, Bool $oneLineOut=false): String {
-		$mdwText = '';
-		foreach($spansArray as $oneSpn){
+	protected function writeInlineTxt(Array $textSpanList, Bool $flattenLines=false): String {
+		$outText = '';
+		foreach($textSpanList as $oneSpn){
 			$spanTxt = strval($oneSpn['texts'] ?? '');
 			$markLst = (array)($oneSpn['marks'] ?? Array());
 			$linkAdr = strval($oneSpn['links'] ?? '');
-			$notePrt = Array();
+			$matches = Array();
 			// The reference to a note is written as Markdown writes them, whatever number it showed
-			if( preg_match('/^#([fe])note(\d+)$/D', $linkAdr, $notePrt) ){
-				$mdwText .= '[^'.(($notePrt[1]=='e') ? 'e' : '').$notePrt[2].']';
+			if( preg_match('/^#([fe])note(\d+)$/D', $linkAdr, $matches) ){
+				$outText .= '[^'.(($matches[1]=='e') ? 'e' : '').$matches[2].']';
 				continue;
 			}
-			$edgePrt = Array();
-			preg_match('/^(\s*)(.*?)(\s*)$/Ds', $spanTxt, $edgePrt);
-			$coreTxt = $edgePrt[2];
+			$edgPart = Array();
+			preg_match('/^(\s*)(.*?)(\s*)$/Ds', $spanTxt, $edgPart);
+			$coreTxt = $edgPart[2];
 			if( $coreTxt==='' ){
-				$mdwText .= $oneLineOut ? preg_replace('/\s+/', ' ', $spanTxt) : $spanTxt;
+				$outText .= $flattenLines ? preg_replace('/\s+/', ' ', $spanTxt) : $spanTxt;
 				continue;
 			}
 			if( in_array('code', $markLst) ){
 				// Code is written as it is, between more backticks than it holds in a row
-				preg_match_all('/`+/', $coreTxt, $tickPrt);
-				$tickTxt = str_repeat('`', empty($tickPrt[0]) ? 1 : max(array_map('strlen', $tickPrt[0]))+1);
+				preg_match_all('/`+/', $coreTxt, $tckPart);
+				$tickTxt = str_repeat('`', empty($tckPart[0]) ? 1 : max(array_map('strlen', $tckPart[0]))+1);
 				$coreTxt = $tickTxt.(($coreTxt[0]=='`' || substr($coreTxt, -1)=='`') ? ' '.$coreTxt.' ' : $coreTxt).$tickTxt;
-				$coreTxt = $oneLineOut ? str_replace("\n", ' ', $coreTxt) : $coreTxt;
+				$coreTxt = $flattenLines ? str_replace("\n", ' ', $coreTxt) : $coreTxt;
 			}else{
-				$coreTxt = str_replace("\n", $oneLineOut ? ' ' : "\\\n", $this->escapeTxt($coreTxt));
+				$coreTxt = str_replace("\n", $flattenLines ? ' ' : "\\\n", $this->escapeXmlValue($coreTxt));
 			}
 			if( in_array('strk', $markLst) ){
 				$coreTxt = '~~'.$coreTxt.'~~';
 			}
-			$starNbr = (in_array('bold', $markLst) ? 2 : 0)+(in_array('ital', $markLst) ? 1 : 0);
-			if( $starNbr>0 ){
+			$starNum = (in_array('bold', $markLst) ? 2 : 0)+(in_array('ital', $markLst) ? 1 : 0);
+			if( $starNum>0 ){
 				// Stars standing against the stars of the span before would be read as one mark: underscores are written then
-				$markChr = (substr($mdwText, -1)=='*' && $edgePrt[1]==='') ? '_' : '*';
-				$coreTxt = str_repeat($markChr, $starNbr).$coreTxt.str_repeat($markChr, $starNbr);
+				$markChr = (substr($outText, -1)=='*' && $edgPart[1]==='') ? '_' : '*';
+				$coreTxt = str_repeat($markChr, $starNum).$coreTxt.str_repeat($markChr, $starNum);
 			}
-			$linkDst = $this->destOfLnk($linkAdr);
-			if( $linkDst!=='' ){
-				$coreTxt = '['.$coreTxt.']('.$linkDst.')';
+			$linkUrl = $this->destintnOfLink($linkAdr);
+			if( $linkUrl!=='' ){
+				$coreTxt = '['.$coreTxt.']('.$linkUrl.')';
 			}
-			$mdwText .= ($oneLineOut ? preg_replace('/\s+/', ' ', $edgePrt[1]) : $edgePrt[1]).$coreTxt.($oneLineOut ? preg_replace('/\s+/', ' ', $edgePrt[3]) : $edgePrt[3]);
+			$outText .= ($flattenLines ? preg_replace('/\s+/', ' ', $edgPart[1]) : $edgPart[1]).$coreTxt.($flattenLines ? preg_replace('/\s+/', ' ', $edgPart[3]) : $edgPart[3]);
 		}
-		return $oneLineOut ? trim($mdwText) : $mdwText;
+		return $flattenLines ? trim($outText) : $outText;
 	}
 
 	/**
 	 * Starts every line of a text with the same spaces, empty lines left
 	 * empty.
 	 *
-	 * @param String $textString The text.
-	 * @param String $indentText The spaces.
+	 * @param String $templateText The text.
+	 * @param String $indentString The spaces.
 	 * @return String The text, further in.
 	 */
-	protected function indentTxt(String $textString, String $indentText): String {
-		return preg_replace('/^(?=.)/m', $indentText, $textString);
+	protected function indentAllLines(String $templateText, String $indentString): String {
+		return preg_replace('/^(?=.)/m', $indentString, $templateText);
 	}
 
 	/**
@@ -158,17 +158,17 @@ class Mdwn extends Base {
 	 * the blocks it contains, a list right under it and anything else
 	 * after an empty line.
 	 *
-	 * @param Array $blockArray The block.
+	 * @param Array $contentBlock The block.
 	 * @return String The Markdown.
 	 */
-	protected function insideOut(Array $blockArray): String {
-		$mdwText = $this->guardLine($this->inlineOut((array)$blockArray['spans']));
-		foreach((array)$blockArray['items'] as $oneBlk){
-			foreach($this->blocksOut(Array($oneBlk)) as $blkTxt){
-				$mdwText .= (($mdwText==='') ? '' : ((($oneBlk['block'] ?? '')=='lists') ? "\n" : "\n\n")).$blkTxt;
+	protected function innerOutString(Array $contentBlock): String {
+		$outText = $this->protectLineTxt($this->writeInlineTxt((array)$contentBlock['spans']));
+		foreach((array)$contentBlock['items'] as $oneBlk){
+			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
+				$outText .= (($outText==='') ? '' : ((($oneBlk['block'] ?? '')=='lists') ? "\n" : "\n\n")).$blkTxt;
 			}
 		}
-		return $mdwText;
+		return $outText;
 	}
 
 	/**
@@ -176,36 +176,36 @@ class Mdwn extends Base {
 	 * dashes under it, then a line for each row. A table without header
 	 * row has an empty one, which Markdown asks for.
 	 *
-	 * @param Array $tableBlock The table.
+	 * @param Array $tableBlckArr The table.
 	 * @return String The Markdown, '' for a table without cell.
 	 */
-	protected function tablesOut(Array $tableBlock): String {
+	protected function writeTableText(Array $tableBlckArr): String {
 		$headRow = null;
 		$bodyRws = Array();
-		$colsNbr = 0;
-		foreach((array)$tableBlock['items'] as $rowBlk){
+		$colsNum = 0;
+		foreach((array)$tableBlckArr['items'] as $oneRow){
 			$cellTxt = Array();
-			foreach((array)$rowBlk['items'] as $celBlk){
+			foreach((array)$oneRow['items'] as $celBlk){
 				// A cell holds on one line: what it holds besides its text follows it there
-				$celText = $this->inlineOut((array)$celBlk['spans'], true);
+				$rawCell = $this->writeInlineTxt((array)$celBlk['spans'], true);
 				foreach((array)$celBlk['items'] as $oneBlk){
-					$celText = trim($celText.' '.$this->escapeTxt(preg_replace('/\s+/', ' ', Shape::plainText($oneBlk))));
+					$rawCell = trim($rawCell.' '.$this->escapeXmlValue(preg_replace('/\s+/', ' ', Shape::blockPlainText($oneBlk))));
 				}
-				$cellTxt[] = str_replace('|', '\\|', $celText);
+				$cellTxt[] = str_replace('|', '\\|', $rawCell);
 			}
-			$colsNbr = max($colsNbr, count($cellTxt));
-			if( ($rowBlk['block'] ?? '')=='thead' && $headRow===null && empty($bodyRws) ){
+			$colsNum = max($colsNum, count($cellTxt));
+			if( ($oneRow['block'] ?? '')=='thead' && $headRow===null && empty($bodyRws) ){
 				$headRow = $cellTxt;
 			}else{
 				$bodyRws[] = $cellTxt;
 			}
 		}
-		if( $colsNbr==0 ){
+		if( $colsNum==0 ){
 			return '';
 		}
-		$lineLst = Array('| '.implode(' | ', array_pad($headRow ?? Array(), $colsNbr, '')).' |', '|'.str_repeat(' --- |', $colsNbr));
+		$lineLst = Array('| '.implode(' | ', array_pad($headRow ?? Array(), $colsNum, '')).' |', '|'.str_repeat(' --- |', $colsNum));
 		foreach($bodyRws as $rowTxt){
-			$lineLst[] = '| '.implode(' | ', array_pad($rowTxt, $colsNbr, '')).' |';
+			$lineLst[] = '| '.implode(' | ', array_pad($rowTxt, $colsNum, '')).' |';
 		}
 		return implode("\n", $lineLst);
 	}
@@ -213,58 +213,58 @@ class Mdwn extends Base {
 	/**
 	 * Writes blocks, each as its text.
 	 *
-	 * @param Array $blocksList The blocks.
+	 * @param Array $bookBlockSet The blocks.
 	 * @return Array The Markdown of each block that gives some, to be separated by an empty line.
 	 *
 	 * @throws WriteError When a block is of an unknown kind.
 	 */
-	protected function blocksOut(Array $blocksList): Array {
+	protected function writeAllBlocks(Array $bookBlockSet): Array {
 		$textLst = Array();
-		foreach($blocksList as $oneBlk){
+		foreach($bookBlockSet as $oneBlk){
 			$blckKnd = strval($oneBlk['block'] ?? '');
 			$blckTxt = '';
 			if( $blckKnd=='headr' ){
-				$headTxt = preg_replace('/(?<=\s)#+$/D', '\\\\$0', $this->inlineOut((array)$oneBlk['spans'], true));
+				$headTxt = preg_replace('/(?<=\s)#+$/D', '\\\\$0', $this->writeInlineTxt((array)$oneBlk['spans'], true));
 				$tagIdnt = strval($oneBlk['attrs']['tagid'] ?? '');
 				$blckTxt = ($headTxt==='') ? '' : str_repeat('#', min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)))).' '.$headTxt.(preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' {#'.$tagIdnt.'}' : '');
 			}elseif( $blckKnd=='parag' ){
-				$blckTxt = $this->guardLine(trim($this->inlineOut((array)$oneBlk['spans'])));
+				$blckTxt = $this->protectLineTxt(trim($this->writeInlineTxt((array)$oneBlk['spans'])));
 			}elseif( $blckKnd=='lists' ){
-				$entrTxt = Array();
+				$itemTxt = Array();
 				foreach((array)$oneBlk['items'] as $entBlk){
-					$markTxt = empty($oneBlk['attrs']['order']) ? '- ' : (count($entrTxt)+1).'. ';
+					$markTxt = empty($oneBlk['attrs']['order']) ? '- ' : (count($itemTxt)+1).'. ';
 					$taskTxt = isset($entBlk['attrs']['check']) ? (empty($entBlk['attrs']['check']) ? '[ ] ' : '[x] ') : '';
 					// What an entry holds stands under its text, as far in as that text starts
-					$entrTxt[] = rtrim($markTxt.ltrim($this->indentTxt($taskTxt.$this->insideOut($entBlk), str_repeat(' ', strlen($markTxt)))));
+					$itemTxt[] = rtrim($markTxt.ltrim($this->indentAllLines($taskTxt.$this->innerOutString($entBlk), str_repeat(' ', strlen($markTxt)))));
 				}
-				$blckTxt = implode("\n", $entrTxt);
+				$blckTxt = implode("\n", $itemTxt);
 			}elseif( $blckKnd=='table' ){
-				$blckTxt = $this->tablesOut($oneBlk);
+				$blckTxt = $this->writeTableText($oneBlk);
 			}elseif( $blckKnd=='quote' ){
-				$qteText = $this->insideOut($oneBlk);
+				$qutText = $this->innerOutString($oneBlk);
 				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
-				$qteText .= ($citeTxt==='') ? '' : (($qteText==='') ? '' : "\n\n").'— '.$this->escapeTxt($citeTxt);
-				$blckTxt = ($qteText==='') ? '' : preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $qteText);
+				$qutText .= ($citeTxt==='') ? '' : (($qutText==='') ? '' : "\n\n").'— '.$this->escapeXmlValue($citeTxt);
+				$blckTxt = ($qutText==='') ? '' : preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $qutText);
 			}elseif( $blckKnd=='codes' ){
 				// The lines of marks around code are longer than any the code holds
 				$codeTxt = strval($oneBlk['plain'] ?? '');
-				preg_match_all('/^ {0,3}(`{3,})/m', $codeTxt, $tickPrt);
-				$tickTxt = str_repeat('`', empty($tickPrt[1]) ? 3 : max(array_map('strlen', $tickPrt[1]))+1);
+				preg_match_all('/^ {0,3}(`{3,})/m', $codeTxt, $tckPart);
+				$tickTxt = str_repeat('`', empty($tckPart[1]) ? 3 : max(array_map('strlen', $tckPart[1]))+1);
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
 				$blckTxt = $tickTxt.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? $codeLng : '')."\n".$codeTxt."\n".$tickTxt;
 			}elseif( $blckKnd=='image' ){
-				$imgDest = $this->destOfLnk(strval($oneBlk['attrs']['sourc'] ?? ''));
-				$blckTxt = ($imgDest==='') ? '' : '!['.$this->escapeTxt(str_replace("\n", ' ', strval($oneBlk['plain'] ?? ''))).']('.$imgDest.')';
+				$imgLink = $this->destintnOfLink(strval($oneBlk['attrs']['sourc'] ?? ''));
+				$blckTxt = ($imgLink==='') ? '' : '!['.$this->escapeXmlValue(str_replace("\n", ' ', strval($oneBlk['plain'] ?? ''))).']('.$imgLink.')';
 			}elseif( $blckKnd=='rules' ){
 				$blckTxt = '---';
 			}elseif( $blckKnd=='fnote' ){
-				$noteMrk = preg_match('/^([fe])note(\d+)$/D', strval($oneBlk['attrs']['tagid'] ?? ''), $notePrt) ? (($notePrt[1]=='e') ? 'e' : '').$notePrt[2] : strval(intval($oneBlk['attrs']['numbr'] ?? 0));
-				$blckTxt = '[^'.$noteMrk.']: '.ltrim($this->indentTxt($this->insideOut($oneBlk), '    '));
+				$noteMrk = preg_match('/^([fe])note(\d+)$/D', strval($oneBlk['attrs']['tagid'] ?? ''), $matches) ? (($matches[1]=='e') ? 'e' : '').$matches[2] : strval(intval($oneBlk['attrs']['numbr'] ?? 0));
+				$blckTxt = '[^'.$noteMrk.']: '.ltrim($this->indentAllLines($this->innerOutString($oneBlk), '    '));
 			}elseif( $blckKnd=='entry' || $blckKnd=='tcell' ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$blckTxt = $this->insideOut($oneBlk);
+				$blckTxt = $this->innerOutString($oneBlk);
 			}elseif( $blckKnd=='thead' || $blckKnd=='tbrow' ){
-				$blckTxt = $this->tablesOut(Array('items'=>Array($oneBlk)));
+				$blckTxt = $this->writeTableText(Array('items'=>Array($oneBlk)));
 			}else{
 				throw new WriteError('Unknown kind of block: '.$blckKnd);
 			}

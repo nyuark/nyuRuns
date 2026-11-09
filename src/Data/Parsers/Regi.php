@@ -10,14 +10,14 @@ class Regi extends Init {
 	/**
 	 * Parses INI content into a tree of upper-cased keys and typed values.
 	 *
-	 * @param String $rawContent The INI content.
-	 * @param Array  $parseOptns Options: none is read, the keys are always upper-cased.
+	 * @param String $nakedContent The INI content.
+	 * @param Array  $parseOptions Options: none is read, the keys are always upper-cased.
 	 * @return Array The envelope, of shape 'nodes'.
 	 *
 	 * @throws ParseError When the content is not valid INI.
 	 */
-	public function parseData(String $rawContent, Array $parseOptns=Array()): Array {
-		return parent::parseData($rawContent, Array('upper'=>true) + $parseOptns);
+	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
+		return parent::parseDataArray($nakedContent, Array('upper'=>true) + $parseOptions);
 	}
 
 }

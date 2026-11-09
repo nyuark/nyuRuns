@@ -13,11 +13,11 @@ use nyu\Data\Archv;
 class Xlsx extends Grid {
 
 	// The styles of the cells, by their place in the styles of the workbook
-	const STYLLIST = Array('heads'=>1, 'dates'=>2, 'times'=>3);
+	const STYL_LIST = Array('heads'=>1, 'dates'=>2, 'times'=>3);
 	// The address of the format, and of what ties its parts together
-	const MAINNAME = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-	const RELSNAME = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-	const PACKNAME = 'http://schemas.openxmlformats.org/package/2006';
+	const MAIN_NAME = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+	const RELS_NAME = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+	const PACK_NAME = 'http://schemas.openxmlformats.org/package/2006';
 
 	/**
 	 * Writes sheets as a workbook.
@@ -34,17 +34,17 @@ class Xlsx extends Grid {
 	 * not 'shown' is hidden, and its 'merge' areas are merged, their place
 	 * counted in the rows as they are written, the row of names included.
 	 *
-	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'; 'infos' may give the title of the workbook under 'title' and its author under 'authr'.
-	 * @param Array $writeOptns Options: 'heads', 'dates'.
+	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items'; 'infos' may give the title of the workbook under 'title' and its author under 'authr'.
+	 * @param Array $writeOptions Options: 'heads', 'dates'.
 	 * @return String The bytes of the workbook.
 	 *
 	 * @throws WriteError When the shape is not 'sheet', or a sheet is larger than a worksheet can be.
 	 */
-	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
-		$this->checkShpe($shapedData, Array('sheet'), 'a workbook');
-		$withHds = !isset($writeOptns['heads']) || !empty($writeOptns['heads']);
-		$asDates = !empty($writeOptns['dates']);
-		$shetLst = array_values((array)($shapedData['items'] ?? Array()));
+	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
+		$this->checkShapeText($dataEnvelope, Array('sheet'), 'a workbook');
+		$withHds = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
+		$asDates = !empty($writeOptions['dates']);
+		$shetLst = array_values((array)($dataEnvelope['items'] ?? Array()));
 		// A workbook holds one sheet at least
 		if( empty($shetLst) ){
 			$shetLst[] = Array('title'=>'Sheet1', 'attrs'=>Array(), 'cells'=>Array());
@@ -54,32 +54,32 @@ class Xlsx extends Grid {
 		$bookTxt = '';
 		$relsTxt = '';
 		$typeTxt = '';
-		$shwnLst = $this->shownList($shetLst);
+		$shwnLst = $this->listShownSheet($shetLst);
 		foreach($shetLst as $shtIdx=>$shtArr){
-			$shtName = $this->sheetName(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameLst);
+			$shtName = $this->cleanSheetName(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameLst);
 			$nameLst[] = $shtName;
-			$partLst['xl/worksheets/sheet'.($shtIdx+1).'.xml'] = $this->sheetPart((array)$shtArr, $withHds, $asDates, $shtIdx==array_search(true, $shwnLst, true));
-			$bookTxt .= '<sheet name="'.$this->escapeTxt($shtName).'" sheetId="'.($shtIdx+1).'"'.($shwnLst[$shtIdx] ? '' : ' state="hidden"').' r:id="rId'.($shtIdx+1).'"/>';
-			$relsTxt .= '<Relationship Id="rId'.($shtIdx+1).'" Type="'.self::RELSNAME.'/worksheet" Target="worksheets/sheet'.($shtIdx+1).'.xml"/>';
+			$partLst['xl/worksheets/sheet'.($shtIdx+1).'.xml'] = $this->sheetPieceText((array)$shtArr, $withHds, $asDates, $shtIdx==array_search(true, $shwnLst, true));
+			$bookTxt .= '<sheet name="'.$this->escapeXmlValue($shtName).'" sheetId="'.($shtIdx+1).'"'.($shwnLst[$shtIdx] ? '' : ' state="hidden"').' r:id="rId'.($shtIdx+1).'"/>';
+			$relsTxt .= '<Relationship Id="rId'.($shtIdx+1).'" Type="'.self::RELS_NAME.'/worksheet" Target="worksheets/sheet'.($shtIdx+1).'.xml"/>';
 			$typeTxt .= '<Override PartName="/xl/worksheets/sheet'.($shtIdx+1).'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
 		}
 		$headXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n";
-		$infoArr = (array)($shapedData['infos'] ?? Array());
-		$stylNbr = count($shetLst)+1;
+		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
+		$styleNb = count($shetLst)+1;
 		$fileLst = Array(
-			'[Content_Types].xml'=>$headXml.'<Types xmlns="'.self::PACKNAME.'/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+			'[Content_Types].xml'=>$headXml.'<Types xmlns="'.self::PACK_NAME.'/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
 				.'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'.$typeTxt
 				.'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
 				.'<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>',
-			'_rels/.rels'=>$headXml.'<Relationships xmlns="'.self::PACKNAME.'/relationships"><Relationship Id="rId1" Type="'.self::RELSNAME.'/officeDocument" Target="xl/workbook.xml"/>'
-				.'<Relationship Id="rId2" Type="'.self::PACKNAME.'/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>',
-			'docProps/core.xml'=>$headXml.'<cp:coreProperties xmlns:cp="'.self::PACKNAME.'/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
-				.'<dc:title>'.$this->escapeTxt(is_scalar($infoArr['title'] ?? '') ? strval($infoArr['title'] ?? '') : '').'</dc:title><dc:creator>'.$this->escapeTxt(is_scalar($infoArr['authr'] ?? '') ? strval($infoArr['authr'] ?? '') : '').'</dc:creator>'
+			'_rels/.rels'=>$headXml.'<Relationships xmlns="'.self::PACK_NAME.'/relationships"><Relationship Id="rId1" Type="'.self::RELS_NAME.'/officeDocument" Target="xl/workbook.xml"/>'
+				.'<Relationship Id="rId2" Type="'.self::PACK_NAME.'/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>',
+			'docProps/core.xml'=>$headXml.'<cp:coreProperties xmlns:cp="'.self::PACK_NAME.'/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+				.'<dc:title>'.$this->escapeXmlValue(is_scalar($infoArr['title'] ?? '') ? strval($infoArr['title'] ?? '') : '').'</dc:title><dc:creator>'.$this->escapeXmlValue(is_scalar($infoArr['authr'] ?? '') ? strval($infoArr['authr'] ?? '') : '').'</dc:creator>'
 				.'<dcterms:created xsi:type="dcterms:W3CDTF">'.gmdate('Y-m-d\TH:i:s\Z').'</dcterms:created></cp:coreProperties>',
-			'xl/workbook.xml'=>$headXml.'<workbook xmlns="'.self::MAINNAME.'" xmlns:r="'.self::RELSNAME.'"><bookViews><workbookView activeTab="'.intval(array_search(true, $shwnLst, true)).'"/></bookViews><sheets>'.$bookTxt.'</sheets></workbook>',
-			'xl/_rels/workbook.xml.rels'=>$headXml.'<Relationships xmlns="'.self::PACKNAME.'/relationships">'.$relsTxt.'<Relationship Id="rId'.$stylNbr.'" Type="'.self::RELSNAME.'/styles" Target="styles.xml"/></Relationships>',
+			'xl/workbook.xml'=>$headXml.'<workbook xmlns="'.self::MAIN_NAME.'" xmlns:r="'.self::RELS_NAME.'"><bookViews><workbookView activeTab="'.intval(array_search(true, $shwnLst, true)).'"/></bookViews><sheets>'.$bookTxt.'</sheets></workbook>',
+			'xl/_rels/workbook.xml.rels'=>$headXml.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$relsTxt.'<Relationship Id="rId'.$styleNb.'" Type="'.self::RELS_NAME.'/styles" Target="styles.xml"/></Relationships>',
 			// The styles: plain, bold for the names of the columns, a date, a date with its time
-			'xl/styles.xml'=>$headXml.'<styleSheet xmlns="'.self::MAINNAME.'"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy\-mm\-dd"/><numFmt numFmtId="165" formatCode="yyyy\-mm\-dd\ hh:mm:ss"/></numFmts>'
+			'xl/styles.xml'=>$headXml.'<styleSheet xmlns="'.self::MAIN_NAME.'"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy\-mm\-dd"/><numFmt numFmtId="165" formatCode="yyyy\-mm\-dd\ hh:mm:ss"/></numFmts>'
 				.'<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
 				.'<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
 				.'<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
@@ -89,7 +89,7 @@ class Xlsx extends Grid {
 				.'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
 		);
 		try{
-			return Archv::makeBytes($fileLst + $partLst);
+			return Archv::newBytesString($fileLst + $partLst);
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Workbook that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -98,13 +98,13 @@ class Xlsx extends Grid {
 	/**
 	 * Gives the letters of a column from its number.
 	 *
-	 * @param Int $columnNmbr The number of the column, starting from 0.
+	 * @param Int $columnNumber The number of the column, starting from 0.
 	 * @return String Its letters: A, B, and after Z, AA.
 	 */
-	protected function colLetter(Int $columnNmbr): String {
+	protected function columnCharText(Int $columnNumber): String {
 		$lttrTxt = '';
-		for($colNbr=$columnNmbr+1; $colNbr>0; $colNbr=intdiv($colNbr-1, 26)){
-			$lttrTxt = chr(65+($colNbr-1)%26).$lttrTxt;
+		for($clmnNb=$columnNumber+1; $clmnNb>0; $clmnNb=intdiv($clmnNb-1, 26)){
+			$lttrTxt = chr(65+($clmnNb-1)%26).$lttrTxt;
 		}
 		return $lttrTxt;
 	}
@@ -112,103 +112,103 @@ class Xlsx extends Grid {
 	/**
 	 * Writes a worksheet: the names of the columns when asked, a row for each row of cells, the widths of the columns and the merged areas.
 	 *
-	 * @param Array $sheetArray The sheet: 'title', 'attrs', 'cells'.
-	 * @param Bool  $writeHeads Whether the names of the columns are written as the first row.
-	 * @param Bool  $datesAsOne Whether the texts that are dates are written as dates.
-	 * @param Bool  $isSelected Whether the sheet is the one the workbook opens on.
+	 * @param Array $sheetDetails The sheet: 'title', 'attrs', 'cells'.
+	 * @param Bool  $writeHeaders Whether the names of the columns are written as the first row.
+	 * @param Bool  $writeAsDates Whether the texts that are dates are written as dates.
+	 * @param Bool  $isShownFirst Whether the sheet is the one the workbook opens on.
 	 * @return String The part of the worksheet.
 	 *
 	 * @throws WriteError When the sheet is larger than a worksheet can be.
 	 */
-	protected function sheetPart(Array $sheetArray, Bool $writeHeads, Bool $datesAsOne, Bool $isSelected): String {
-		$gridSet = $this->sheetGrid($sheetArray, $writeHeads);
+	protected function sheetPieceText(Array $sheetDetails, Bool $writeHeaders, Bool $writeAsDates, Bool $isShownFirst): String {
+		$gridSet = $this->sheetGridArray($sheetDetails, $writeHeaders);
 		$headLst = $gridSet['heads'];
 		$hasHead = !empty($headLst);
 		$dataTxt = '';
 		$wideLst = Array();
-		$rowNmbr = 0;
+		$rowNumb = 0;
 		if( $hasHead ){
-			$rowNmbr = 1;
+			$rowNumb = 1;
 			$dataTxt .= '<row r="1">';
-			foreach($headLst as $colIdx=>$colKey){
-				$dataTxt .= $this->cellsPart($colKey, $this->colLetter($colIdx).'1', false, self::STYLLIST['heads']);
-				$wideLst[$colIdx] = strlen($colKey);
+			foreach($headLst as $colInc=>$column){
+				$dataTxt .= $this->cellsPieceText($column, $this->columnCharText($colInc).'1', false, self::STYL_LIST['heads']);
+				$wideLst[$colInc] = strlen($column);
 			}
 			$dataTxt .= '</row>';
 		}
 		foreach($gridSet['cells'] as $oneRow){
-			$rowNmbr++;
+			$rowNumb++;
 			$rowText = '';
-			foreach($oneRow as $colIdx=>$celVal){
-				$celText = $this->cellsPart($celVal, $this->colLetter($colIdx).$rowNmbr, $datesAsOne, 0);
-				if( $celText!=='' ){
-					$rowText .= $celText;
-					$wideLst[$colIdx] = max($wideLst[$colIdx] ?? 0, is_scalar($celVal) ? strlen(strval($celVal)) : 0);
+			foreach($oneRow as $colInc=>$oneVal){
+				$cellTxt = $this->cellsPieceText($oneVal, $this->columnCharText($colInc).$rowNumb, $writeAsDates, 0);
+				if( $cellTxt!=='' ){
+					$rowText .= $cellTxt;
+					$wideLst[$colInc] = max($wideLst[$colInc] ?? 0, is_scalar($oneVal) ? strlen(strval($oneVal)) : 0);
 				}
 			}
 			// A row holding nothing is not written: the next one tells its number
 			if( $rowText!=='' ){
-				$dataTxt .= '<row r="'.$rowNmbr.'">'.$rowText.'</row>';
+				$dataTxt .= '<row r="'.$rowNumb.'">'.$rowText.'</row>';
 			}
 		}
 		// The columns are as wide as what they hold, within reason
 		$colsTxt = '';
 		ksort($wideLst);
-		foreach($wideLst as $colIdx=>$widNbr){
-			$colsTxt .= '<col min="'.($colIdx+1).'" max="'.($colIdx+1).'" width="'.max(8, min(60, $widNbr+2)).'" customWidth="1"/>';
+		foreach($wideLst as $colInc=>$wdthNb){
+			$colsTxt .= '<col min="'.($colInc+1).'" max="'.($colInc+1).'" width="'.max(8, min(60, $wdthNb+2)).'" customWidth="1"/>';
 		}
-		$mergTxt = '';
-		$mergNbr = 0;
-		foreach((array)($sheetArray['attrs']['merge'] ?? Array()) as $mrgArr){
+		$mrgText = '';
+		$mergeNb = 0;
+		foreach((array)($sheetDetails['attrs']['merge'] ?? Array()) as $mrgArr){
 			$mrgArr = array_map('intval', (array)$mrgArr) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
 			// An area of one cell is no merge, and one leaving the worksheet is not written
-			if( $mrgArr['atrow']<0 || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || ($mrgArr['rowsp']==1 && $mrgArr['colsp']==1) || $mrgArr['atrow']+$mrgArr['rowsp']>self::ROWLIMIT || $mrgArr['atcol']+$mrgArr['colsp']>self::COLLIMIT ){
+			if( $mrgArr['atrow']<0 || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || ($mrgArr['rowsp']==1 && $mrgArr['colsp']==1) || $mrgArr['atrow']+$mrgArr['rowsp']>self::ROWS_MAXI || $mrgArr['atcol']+$mrgArr['colsp']>self::COLS_MAXI ){
 				continue;
 			}
-			$mergTxt .= '<mergeCell ref="'.$this->colLetter($mrgArr['atcol']).($mrgArr['atrow']+1).':'.$this->colLetter($mrgArr['atcol']+$mrgArr['colsp']-1).($mrgArr['atrow']+$mrgArr['rowsp']).'"/>';
-			$mergNbr++;
+			$mrgText .= '<mergeCell ref="'.$this->columnCharText($mrgArr['atcol']).($mrgArr['atrow']+1).':'.$this->columnCharText($mrgArr['atcol']+$mrgArr['colsp']-1).($mrgArr['atrow']+$mrgArr['rowsp']).'"/>';
+			$mergeNb++;
 		}
-		return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<worksheet xmlns="'.self::MAINNAME.'">'
-			.'<sheetViews><sheetView workbookViewId="0"'.($isSelected ? ' tabSelected="1"' : '').'>'.($hasHead ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : '').'</sheetView></sheetViews>'
+		return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<worksheet xmlns="'.self::MAIN_NAME.'">'
+			.'<sheetViews><sheetView workbookViewId="0"'.($isShownFirst ? ' tabSelected="1"' : '').'>'.($hasHead ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : '').'</sheetView></sheetViews>'
 			.(($colsTxt==='') ? '' : '<cols>'.$colsTxt.'</cols>')
 			.'<sheetData>'.$dataTxt.'</sheetData>'
-			.(($mergNbr==0) ? '' : '<mergeCells count="'.$mergNbr.'">'.$mergTxt.'</mergeCells>')
+			.(($mergeNb==0) ? '' : '<mergeCells count="'.$mergeNb.'">'.$mrgText.'</mergeCells>')
 			.'</worksheet>';
 	}
 
 	/**
 	 * Writes a cell with the type of its value: boolean, number, date or text.
 	 *
-	 * @param mixed  $valueToPut What the cell holds.
-	 * @param String $cellsPlace Its place, as 'B4'.
-	 * @param Bool   $datesAsOne Whether a text that is a date is written as a date.
-	 * @param Int    $stylesNmbr The style of the cell, 0 for none.
+	 * @param mixed  $valueToWrite What the cell holds.
+	 * @param String $cellLocation Its place, as 'B4'.
+	 * @param Bool   $writeAsDates Whether a text that is a date is written as a date.
+	 * @param Int    $stylesNumber The style of the cell, 0 for none.
 	 * @return String The cell; '' for a cell holding nothing.
 	 */
-	protected function cellsPart(Mixed $valueToPut, String $cellsPlace, Bool $datesAsOne, Int $stylesNmbr): String {
-		$openTxt = '<c r="'.$cellsPlace.'"'.(($stylesNmbr>0) ? ' s="'.$stylesNmbr.'"' : '');
-		$valueToPut = $this->plainCell($valueToPut);
-		if( $valueToPut===null ){
+	protected function cellsPieceText(Mixed $valueToWrite, String $cellLocation, Bool $writeAsDates, Int $stylesNumber): String {
+		$openTxt = '<c r="'.$cellLocation.'"'.(($stylesNumber>0) ? ' s="'.$stylesNumber.'"' : '');
+		$valueToWrite = $this->simpleCellText($valueToWrite);
+		if( $valueToWrite===null ){
 			return '';
 		}
-		if( is_bool($valueToPut) ){
-			return $openTxt.' t="b"><v>'.($valueToPut ? '1' : '0').'</v></c>';
+		if( is_bool($valueToWrite) ){
+			return $openTxt.' t="b"><v>'.($valueToWrite ? '1' : '0').'</v></c>';
 		}
-		if( is_int($valueToPut) || is_float($valueToPut) ){
-			return $openTxt.'><v>'.$this->numbrText($valueToPut).'</v></c>';
+		if( is_int($valueToWrite) || is_float($valueToWrite) ){
+			return $openTxt.'><v>'.$this->writeNumberTxt($valueToWrite).'</v></c>';
 		}
-		$textVal = $valueToPut;
+		$textVal = $valueToWrite;
 		// A date is the number of its days since the end of 1899, and of the part of the day its time is
-		$datePrt = $datesAsOne ? $this->dateParts($textVal) : null;
-		if( $datePrt!==null && $datePrt[0]>1900 ){
-			$daysNbr = intdiv(gmmktime(0, 0, 0, $datePrt[1], $datePrt[2], $datePrt[0]), 86400)+25569;
-			if( !isset($datePrt[3]) ){
-				return '<c r="'.$cellsPlace.'" s="'.self::STYLLIST['dates'].'"><v>'.$daysNbr.'</v></c>';
+		$dateLst = $writeAsDates ? $this->datePartsArray($textVal) : null;
+		if( $dateLst!==null && $dateLst[0]>1900 ){
+			$daysNum = intdiv(gmmktime(0, 0, 0, $dateLst[1], $dateLst[2], $dateLst[0]), 86400)+25569;
+			if( !isset($dateLst[3]) ){
+				return '<c r="'.$cellLocation.'" s="'.self::STYL_LIST['dates'].'"><v>'.$daysNum.'</v></c>';
 			}
-			return '<c r="'.$cellsPlace.'" s="'.self::STYLLIST['times'].'"><v>'.$daysNbr.'.'.substr(sprintf('%.10F', ($datePrt[3]*3600+$datePrt[4]*60+$datePrt[5])/86400), 2).'</v></c>';
+			return '<c r="'.$cellLocation.'" s="'.self::STYL_LIST['times'].'"><v>'.$daysNum.'.'.substr(sprintf('%.10F', ($dateLst[3]*3600+$dateLst[4]*60+$dateLst[5])/86400), 2).'</v></c>';
 		}
 		// A text is written as text, in the cell itself: nothing in it is ever run
-		return $openTxt.' t="inlineStr"><is><t xml:space="preserve">'.$this->escapeTxt($textVal).'</t></is></c>';
+		return $openTxt.' t="inlineStr"><is><t xml:space="preserve">'.$this->escapeXmlValue($textVal).'</t></is></c>';
 	}
 
 }

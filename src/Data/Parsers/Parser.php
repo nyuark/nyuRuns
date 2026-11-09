@@ -20,23 +20,23 @@ interface Parser {
 	/**
 	 * Parses a content already in hand.
 	 *
-	 * @param String $rawContent The content, as read from its source.
-	 * @param Array  $parseOptns Options of the parser.
+	 * @param String $nakedContent The content, as read from its source.
+	 * @param Array  $parseOptions Options of the parser.
 	 * @return Array The envelope: 'shape', 'infos' and 'items'.
 	 *
 	 * @throws ParseError When the content is not valid.
 	 */
-	public function parseData(String $rawContent, Array $parseOptns=Array()): Array;
+	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array;
 
 	/**
 	 * Parses the content of a source read piece by piece.
 	 *
-	 * @param Fluxd $sourceFlux The source.
-	 * @param Array $parseOptns Options of the parser.
+	 * @param Fluxd $sourceStream The source.
+	 * @param Array $parseOptions Options of the parser.
 	 * @return Array The envelope: 'shape', 'infos' and 'items'.
 	 *
 	 * @throws ParseError When the content is not valid.
 	 */
-	public function parseFlux(Fluxd $sourceFlux, Array $parseOptns=Array()): Array;
+	public function parseFluxArray(Fluxd $sourceStream, Array $parseOptions=Array()): Array;
 
 }

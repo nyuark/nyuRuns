@@ -25,14 +25,14 @@ use nyu\Data\Fluxd;
 class Xmlx extends Base {
 
 	// The deepest an element stands in others
-	const DEEPMAXI = 256;
+	const DEEP_MAXI = 256;
 	// What the name of an element or of an attribute is made of
-	const NAMEPATT = '/^[\p{L}_][\p{L}\p{N}_.\-]*(:[\p{L}_][\p{L}\p{N}_.\-]*)?$/Du';
+	const NAME_PTRN = '/^[\p{L}_][\p{L}\p{N}_.\-]*(:[\p{L}_][\p{L}\p{N}_.\-]*)?$/Du';
 	// The name given to an element whose key is not one XML takes, and to the values of a list without a name
-	const ITEMNAME = 'item';
+	const ITEM_NAME = 'item';
 
 	// Whether the document is written over several lines, each element further in than the one holding it
-	protected $prettyUp = false;
+	protected $multiLines = false;
 
 	/**
 	 * Writes a tree of values as XML.
@@ -53,156 +53,156 @@ class Xmlx extends Base {
 	 *              read with, under 'dtype' in its 'infos', when left
 	 *              out; false to write none.
 	 *
-	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array $writeOptns Options: 'roots', 'prety', 'heads', 'dtype'.
+	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items'.
+	 * @param Array $writeOptions Options: 'roots', 'prety', 'heads', 'dtype'.
 	 * @return String The XML.
 	 *
 	 * @throws WriteError When the shape is not 'nodes', a name is not one XML takes, the kind of the document cannot be written, or the tree goes deeper than accepted.
 	 */
-	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
-		$this->checkShpe($shapedData, Array('nodes'), 'XML');
-		$this->prettyUp = !empty($writeOptns['prety']);
-		$itemVal = Fluxd::dropFluxd($shapedData['items'] ?? null);
-		$rootNme = strval($writeOptns['roots'] ?? '');
+	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
+		$this->checkShapeText($dataEnvelope, Array('nodes'), 'XML');
+		$this->multiLines = !empty($writeOptions['prety']);
+		$itemVal = Fluxd::nullifySources($dataEnvelope['items'] ?? null);
+		$rootNme = strval($writeOptions['roots'] ?? '');
 		if( $rootNme!=='' ){
-			$this->checkName($rootNme);
+			$this->checkNameChars($rootNme);
 		}
 		if( is_array($itemVal) && isset($itemVal['tagnm']) && array_key_exists('nodes', $itemVal) && $rootNme==='' ){
 			// The tree of elements, as the parser reads it
 			$rootNme = strval($itemVal['tagnm']);
-			$bodyTxt = $this->treesPart($itemVal, 0);
-		}elseif( is_array($itemVal) && $rootNme==='' && count($itemVal)==1 && is_string(array_key_first($itemVal)) && preg_match(self::NAMEPATT, strval(array_key_first($itemVal))) && !(is_array(current($itemVal)) && !empty(current($itemVal)) && $this->isAListOf(current($itemVal))) ){
+			$bodyTxt = $this->treesPieceText($itemVal, 0);
+		}elseif( is_array($itemVal) && $rootNme==='' && count($itemVal)==1 && is_string(array_key_first($itemVal)) && preg_match(self::NAME_PTRN, strval(array_key_first($itemVal))) && !(is_array(current($itemVal)) && !empty(current($itemVal)) && $this->validateALstOf(current($itemVal))) ){
 			// The compact form: the one key of the values names the root
 			$rootNme = strval(array_key_first($itemVal));
-			$bodyTxt = $this->valuePart($rootNme, current($itemVal), 0);
+			$bodyTxt = $this->valuePieceText($rootNme, current($itemVal), 0);
 		}else{
 			$rootNme = ($rootNme==='') ? 'root' : $rootNme;
-			$bodyTxt = $this->valuePart($rootNme, $itemVal, 0);
+			$bodyTxt = $this->valuePieceText($rootNme, $itemVal, 0);
 		}
-		$typeTxt = $this->dtypePart(array_key_exists('dtype', $writeOptns) ? $writeOptns['dtype'] : (((array)($shapedData['infos'] ?? Array()))['dtype'] ?? false), $rootNme);
-		$withHds = !isset($writeOptns['heads']) || !empty($writeOptns['heads']);
-		return ($withHds ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeTxt==='') ? '' : $typeTxt."\n").$bodyTxt.(($this->prettyUp || $withHds) ? "\n" : '');
+		$typeTxt = $this->dtypePieceText(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootNme);
+		$withHds = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
+		return ($withHds ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeTxt==='') ? '' : $typeTxt."\n").$bodyTxt.(($this->multiLines || $withHds) ? "\n" : '');
 	}
 
 	/**
 	 * Checks the name of an element or of an attribute.
 	 *
-	 * @param String $givenLabel The name.
+	 * @param String $elementLabel The name.
 	 * @return String The name, as given.
 	 *
 	 * @throws WriteError When the name is not one XML takes.
 	 */
-	protected function checkName(String $givenLabel): String {
-		if( !preg_match(self::NAMEPATT, $givenLabel) ){
-			throw new WriteError('Name that XML does not take: '.substr(strval(preg_replace('/[^\x20-\x7E]+/', '?', $givenLabel)), 0, 60));
+	protected function checkNameChars(String $elementLabel): String {
+		if( !preg_match(self::NAME_PTRN, $elementLabel) ){
+			throw new WriteError('Name that XML does not take: '.substr(strval(preg_replace('/[^\x20-\x7E]+/', '?', $elementLabel)), 0, 60));
 		}
-		return $givenLabel;
+		return $elementLabel;
 	}
 
 	/**
 	 * Writes the kind of the document, and where the rules of that kind
 	 * are told. Nothing is ever declared there by the document itself.
 	 *
-	 * @param mixed  $dtypeValue What is told of the kind: where its rules are told, as a text; its name, its public name and where its rules are told, under 'names', 'publc' and 'systm'; false or nothing for none.
-	 * @param String $rootsLabel The name of the root of the document, which is the name of its kind when none is told.
+	 * @param mixed  $doctypeValue What is told of the kind: where its rules are told, as a text; its name, its public name and where its rules are told, under 'names', 'publc' and 'systm'; false or nothing for none.
+	 * @param String $rootTagLabel The name of the root of the document, which is the name of its kind when none is told.
 	 * @return String The line telling the kind, '' when there is none.
 	 *
 	 * @throws WriteError When what is told of the kind cannot be written.
 	 */
-	protected function dtypePart(Mixed $dtypeValue, String $rootsLabel): String {
-		if( $dtypeValue===false || $dtypeValue===null || $dtypeValue==='' || $dtypeValue===Array() ){
+	protected function dtypePieceText(Mixed $doctypeValue, String $rootTagLabel): String {
+		if( $doctypeValue===false || $doctypeValue===null || $doctypeValue==='' || $doctypeValue===Array() ){
 			return '';
 		}
-		$typeSet = is_array($dtypeValue) ? $dtypeValue : Array('systm'=>strval($dtypeValue));
-		$typeNme = $this->checkName((strval($typeSet['names'] ?? '')==='') ? $rootsLabel : strval($typeSet['names']));
+		$typeSet = is_array($doctypeValue) ? $doctypeValue : Array('systm'=>strval($doctypeValue));
+		$typeNme = $this->checkNameChars((strval($typeSet['names'] ?? '')==='') ? $rootTagLabel : strval($typeSet['names']));
 		$publTxt = strval($typeSet['publc'] ?? '');
-		$systTxt = strval($typeSet['systm'] ?? '');
+		$dtdPath = strval($typeSet['systm'] ?? '');
 		// A public name is made of few signs; where the rules are told is an address, written between quotes it does not hold
-		if( !preg_match('/^[A-Za-z0-9 \-\'()+,.\/:=?;!*#@$_%]*$/D', $publTxt) || preg_match('/["\x00-\x1F<>]/', $systTxt) || strlen($publTxt)>500 || strlen($systTxt)>2000 ){
+		if( !preg_match('/^[A-Za-z0-9 \-\'()+,.\/:=?;!*#@$_%]*$/D', $publTxt) || preg_match('/["\x00-\x1F<>]/', $dtdPath) || strlen($publTxt)>500 || strlen($dtdPath)>2000 ){
 			throw new WriteError('Kind of document that cannot be written: its names hold what such a line does not take');
 		}
 		if( $publTxt!=='' ){
-			return '<!DOCTYPE '.$typeNme.' PUBLIC "'.$publTxt.'" "'.$systTxt.'">';
+			return '<!DOCTYPE '.$typeNme.' PUBLIC "'.$publTxt.'" "'.$dtdPath.'">';
 		}
-		return '<!DOCTYPE '.$typeNme.(($systTxt==='') ? '' : ' SYSTEM "'.$systTxt.'"').'>';
+		return '<!DOCTYPE '.$typeNme.(($dtdPath==='') ? '' : ' SYSTEM "'.$dtdPath.'"').'>';
 	}
 
 	/**
 	 * Writes the attributes of an element.
 	 *
-	 * @param Array $attrsArray The attributes, name => value.
+	 * @param Array $attributeSet The attributes, name => value.
 	 * @return String The attributes, each after a space.
 	 *
 	 * @throws WriteError When a name is not one XML takes.
 	 */
-	protected function attrsPart(Array $attrsArray): String {
-		$attrTxt = '';
-		foreach($attrsArray as $atrNme=>$atrVal){
+	protected function attrsPieceText(Array $attributeSet): String {
+		$xmlAttr = '';
+		foreach($attributeSet as $atrNme=>$atrVal){
 			if( $atrVal===null || is_array($atrVal) || is_object($atrVal) ){
 				continue;
 			}
-			$attrTxt .= ' '.$this->checkName(strval($atrNme)).'="'.str_replace(Array("\t", "\n", "\r"), Array('&#9;', '&#10;', '&#13;'), $this->escapeTxt($this->scalrText($atrVal))).'"';
+			$xmlAttr .= ' '.$this->checkNameChars(strval($atrNme)).'="'.str_replace(Array("\t", "\n", "\r"), Array('&#9;', '&#10;', '&#13;'), $this->escapeXmlValue($this->writeScalarTxt($atrVal))).'"';
 		}
-		return $attrTxt;
+		return $xmlAttr;
 	}
 
 	/**
 	 * Gives a single value as the text XML holds for it.
 	 *
-	 * @param mixed $givenValue The value.
+	 * @param mixed $valueAsGiven The value.
 	 * @return String Its text: true or false for a boolean, a number with the digits it needs and no more.
 	 */
-	protected function scalrText(Mixed $givenValue): String {
-		if( is_bool($givenValue) ){
-			return $givenValue ? 'true' : 'false';
+	protected function writeScalarTxt(Mixed $valueAsGiven): String {
+		if( is_bool($valueAsGiven) ){
+			return $valueAsGiven ? 'true' : 'false';
 		}
-		if( is_int($givenValue) || is_float($givenValue) ){
-			return is_finite(floatval($givenValue)) ? $this->numbrText($givenValue) : '';
+		if( is_int($valueAsGiven) || is_float($valueAsGiven) ){
+			return is_finite(floatval($valueAsGiven)) ? $this->writeNumberTxt($valueAsGiven) : '';
 		}
-		return is_scalar($givenValue) ? strval($givenValue) : '';
+		return is_scalar($valueAsGiven) ? strval($valueAsGiven) : '';
 	}
 
 	/**
 	 * Gives what starts a line of an element, when the document is
 	 * written over several lines.
 	 *
-	 * @param Int $depthLevel How far in the element stands.
+	 * @param Int $depthLevelNb How far in the element stands.
 	 * @return String The end of the line before it and what sets it in; '' when the document is written on one line.
 	 */
-	protected function linesHead(Int $depthLevel): String {
-		return $this->prettyUp ? "\n".str_repeat('  ', $depthLevel) : '';
+	protected function giveLineIndent(Int $depthLevelNb): String {
+		return $this->multiLines ? "\n".str_repeat('  ', $depthLevelNb) : '';
 	}
 
 	/**
 	 * Writes an element of the tree the parser reads, with what it holds.
 	 *
-	 * @param Array $nodeValues The element: 'tagnm', 'attrs', 'value', 'nodes'.
-	 * @param Int   $depthLevel How far in it stands.
+	 * @param Array $elementArray The element: 'tagnm', 'attrs', 'value', 'nodes'.
+	 * @param Int   $depthLevelNb How far in it stands.
 	 * @return String The element.
 	 *
 	 * @throws WriteError When a name is not one XML takes, or the tree goes deeper than accepted.
 	 */
-	protected function treesPart(Array $nodeValues, Int $depthLevel): String {
-		if( $depthLevel>self::DEEPMAXI ){
-			throw new WriteError('Tree nested deeper than the '.self::DEEPMAXI.' levels allowed');
+	protected function treesPieceText(Array $elementArray, Int $depthLevelNb): String {
+		if( $depthLevelNb>self::DEEP_MAXI ){
+			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
-		$tagName = $this->checkName(strval($nodeValues['tagnm'] ?? ''));
-		$openTxt = '<'.$tagName.$this->attrsPart((array)($nodeValues['attrs'] ?? Array()));
-		$chldLst = array_values(array_filter((array)($nodeValues['nodes'] ?? Array()), 'is_array'));
+		$tagName = $this->checkNameChars(strval($elementArray['tagnm'] ?? ''));
+		$openTxt = '<'.$tagName.$this->attrsPieceText((array)($elementArray['attrs'] ?? Array()));
+		$chldLst = array_values(array_filter((array)($elementArray['nodes'] ?? Array()), 'is_array'));
 		if( empty($chldLst) ){
-			$textTxt = $this->escapeTxt(is_scalar($nodeValues['value'] ?? '') ? strval($nodeValues['value'] ?? '') : '');
+			$textTxt = $this->escapeXmlValue(is_scalar($elementArray['value'] ?? '') ? strval($elementArray['value'] ?? '') : '');
 			return ($textTxt==='') ? $openTxt.'/>' : $openTxt.'>'.$textTxt.'</'.$tagName.'>';
 		}
 		// An element mixing text and elements is written as it is: a space added to it would be part of its text
 		$isMixed = in_array('#text', array_column($chldLst, 'tagnm'), true);
-		$keptPty = $this->prettyUp;
-		$this->prettyUp = ($keptPty && !$isMixed);
+		$keptPty = $this->multiLines;
+		$this->multiLines = ($keptPty && !$isMixed);
 		$holdTxt = '';
 		foreach($chldLst as $chlArr){
-			$holdTxt .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeTxt(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->linesHead($depthLevel+1).$this->treesPart($chlArr, $depthLevel+1);
+			$holdTxt .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLevelNb+1).$this->treesPieceText($chlArr, $depthLevelNb+1);
 		}
-		$holdTxt .= $this->linesHead($depthLevel);
-		$this->prettyUp = $keptPty;
+		$holdTxt .= $this->giveLineIndent($depthLevelNb);
+		$this->multiLines = $keptPty;
 		return $openTxt.'>'.$holdTxt.'</'.$tagName.'>';
 	}
 
@@ -212,55 +212,55 @@ class Xmlx extends Base {
 	 * one of its attributes, '#text' its own text, any other key an
 	 * element it holds, written as many times as the list it is given.
 	 *
-	 * @param String $givenLabel The name of the element; one XML does not take is written as an element named 'item', telling the name under 'key'.
-	 * @param mixed  $givenValue The value.
-	 * @param Int    $depthLevel How far in the element stands.
+	 * @param String $elementLabel The name of the element; one XML does not take is written as an element named 'item', telling the name under 'key'.
+	 * @param mixed  $valueAsGiven The value.
+	 * @param Int    $depthLevelNb How far in the element stands.
 	 * @return String The element.
 	 *
 	 * @throws WriteError When the name of an attribute is not one XML takes, or the values go deeper than accepted.
 	 */
-	protected function valuePart(String $givenLabel, Mixed $givenValue, Int $depthLevel): String {
-		if( $depthLevel>self::DEEPMAXI ){
-			throw new WriteError('Tree nested deeper than the '.self::DEEPMAXI.' levels allowed');
+	protected function valuePieceText(String $elementLabel, Mixed $valueAsGiven, Int $depthLevelNb): String {
+		if( $depthLevelNb>self::DEEP_MAXI ){
+			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
-		$tagName = $givenLabel;
-		$attrLst = Array();
-		if( !preg_match(self::NAMEPATT, $givenLabel) ){
-			$tagName = self::ITEMNAME;
-			$attrLst['key'] = $givenLabel;
+		$tagName = $elementLabel;
+		$attrSet = Array();
+		if( !preg_match(self::NAME_PTRN, $elementLabel) ){
+			$tagName = self::ITEM_NAME;
+			$attrSet['key'] = $elementLabel;
 		}
-		if( is_object($givenValue) ){
-			$givenValue = (array)$givenValue;
+		if( is_object($valueAsGiven) ){
+			$valueAsGiven = (array)$valueAsGiven;
 		}
-		if( !is_array($givenValue) ){
-			$textTxt = $this->escapeTxt($this->scalrText($givenValue));
-			return '<'.$tagName.$this->attrsPart($attrLst).(($textTxt==='') ? '/>' : '>'.$textTxt.'</'.$tagName.'>');
+		if( !is_array($valueAsGiven) ){
+			$textTxt = $this->escapeXmlValue($this->writeScalarTxt($valueAsGiven));
+			return '<'.$tagName.$this->attrsPieceText($attrSet).(($textTxt==='') ? '/>' : '>'.$textTxt.'</'.$tagName.'>');
 		}
 		$holdTxt = '';
 		$textTxt = '';
-		foreach($givenValue as $subKey=>$subVal){
+		foreach($valueAsGiven as $subKey=>$subVal){
 			$keyText = strval($subKey);
 			if( is_string($subKey) && $keyText!=='' && $keyText[0]=='@' && !is_array($subVal) && !is_object($subVal) ){
-				$attrLst[substr($keyText, 1)] = $subVal;
+				$attrSet[substr($keyText, 1)] = $subVal;
 			}elseif( $keyText==='#text' && !is_array($subVal) && !is_object($subVal) ){
-				$textTxt .= $this->escapeTxt($this->scalrText($subVal));
+				$textTxt .= $this->escapeXmlValue($this->writeScalarTxt($subVal));
 			}elseif( is_int($subKey) ){
 				// A value of a list without a name
-				$holdTxt .= $this->linesHead($depthLevel+1).$this->valuePart(self::ITEMNAME, $subVal, $depthLevel+1);
-			}elseif( is_array($subVal) && !empty($subVal) && $this->isAListOf($subVal) ){
+				$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText(self::ITEM_NAME, $subVal, $depthLevelNb+1);
+			}elseif( is_array($subVal) && !empty($subVal) && $this->validateALstOf($subVal) ){
 				// A list under a name: the element of that name, as many times
 				foreach($subVal as $oneVal){
-					$holdTxt .= $this->linesHead($depthLevel+1).$this->valuePart($keyText, $oneVal, $depthLevel+1);
+					$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyText, $oneVal, $depthLevelNb+1);
 				}
 			}else{
-				$holdTxt .= $this->linesHead($depthLevel+1).$this->valuePart($keyText, $subVal, $depthLevel+1);
+				$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyText, $subVal, $depthLevelNb+1);
 			}
 		}
-		$openTxt = '<'.$tagName.$this->attrsPart($attrLst);
+		$openTxt = '<'.$tagName.$this->attrsPieceText($attrSet);
 		if( $holdTxt==='' ){
 			return ($textTxt==='') ? $openTxt.'/>' : $openTxt.'>'.$textTxt.'</'.$tagName.'>';
 		}
-		return $openTxt.'>'.$textTxt.$holdTxt.$this->linesHead($depthLevel).'</'.$tagName.'>';
+		return $openTxt.'>'.$textTxt.$holdTxt.$this->giveLineIndent($depthLevelNb).'</'.$tagName.'>';
 	}
 
 }

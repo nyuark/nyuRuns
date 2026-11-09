@@ -12,17 +12,17 @@ abstract class Base implements Writer {
 	 * Gives the shape of a content, or refuses it when the writer does
 	 * not take that shape.
 	 *
-	 * @param Array  $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array  $shapesList The shapes the writer takes.
-	 * @param String $formatName Name of the format, for the message of the refusal.
+	 * @param Array  $dataEnvelope The envelope: 'shape', 'infos' and 'items'.
+	 * @param Array  $acceptShapes The shapes the writer takes.
+	 * @param String $nameOfFormat Name of the format, for the message of the refusal.
 	 * @return String The shape.
 	 *
 	 * @throws WriteError When the shape is not one of those.
 	 */
-	protected function checkShpe(Array $shapedData, Array $shapesList, String $formatName): String {
-		$shapeAs = strval($shapedData['shape'] ?? '');
-		if( !in_array($shapeAs, $shapesList, true) ){
-			throw new WriteError('Shape that cannot be written as '.$formatName.': '.$shapeAs);
+	protected function checkShapeText(Array $dataEnvelope, Array $acceptShapes, String $nameOfFormat): String {
+		$shapeAs = strval($dataEnvelope['shape'] ?? '');
+		if( !in_array($shapeAs, $acceptShapes, true) ){
+			throw new WriteError('Shape that cannot be written as '.$nameOfFormat.': '.$shapeAs);
 		}
 		return $shapeAs;
 	}
@@ -32,40 +32,40 @@ abstract class Base implements Writer {
 	 * such a part cannot hold, and with its signs written so that they
 	 * stay text.
 	 *
-	 * @param String $plainTexts The text.
+	 * @param String $sourceString The text.
 	 * @return String The text, ready to stand in a part.
 	 */
-	protected function escapeTxt(String $plainTexts): String {
-		if( !preg_match('//u', $plainTexts) ){
-			$plainTexts = strval(@iconv('Windows-1252', 'UTF-8//IGNORE', $plainTexts));
+	protected function escapeXmlValue(String $sourceString): String {
+		if( !preg_match('//u', $sourceString) ){
+			$sourceString = strval(@iconv('Windows-1252', 'UTF-8//IGNORE', $sourceString));
 		}
-		return htmlspecialchars(strval(preg_replace('/[^\x{9}\x{A}\x{D}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u', '', $plainTexts)), ENT_QUOTES | ENT_XML1, 'UTF-8');
+		return htmlspecialchars(strval(preg_replace('/[^\x{9}\x{A}\x{D}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u', '', $sourceString)), ENT_QUOTES | ENT_XML1, 'UTF-8');
 	}
 
 	/**
 	 * Writes a number with the digits it needs and no more, whatever the
 	 * server is set to.
 	 *
-	 * @param Int|Float $numbrToPut The number.
+	 * @param Int|Float $numberToShow The number.
 	 * @return String The number, as text.
 	 */
-	protected function numbrText(Int|Float $numbrToPut): String {
+	protected function writeNumberTxt(Int|Float $numberToShow): String {
 		$keptPrc = ini_set('serialize_precision', '-1');
-		$nmbrTxt = strval(json_encode($numbrToPut));
+		$numText = strval(json_encode($numberToShow));
 		if( $keptPrc!==false ){
 			ini_set('serialize_precision', $keptPrc);
 		}
-		return $nmbrTxt;
+		return $numText;
 	}
 
 	/**
 	 * Tells whether an array is a list: its keys are 0, 1, 2, and so on.
 	 *
-	 * @param Array $valueArray The array.
+	 * @param Array $fieldValList The array.
 	 * @return Bool True for a list, an empty one included.
 	 */
-	protected function isAListOf(Array $valueArray): Bool {
-		return (empty($valueArray) || array_keys($valueArray)===range(0, count($valueArray)-1));
+	protected function validateALstOf(Array $fieldValList): Bool {
+		return (empty($fieldValList) || array_keys($fieldValList)===range(0, count($fieldValList)-1));
 	}
 
 }

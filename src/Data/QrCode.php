@@ -17,11 +17,11 @@ namespace nyu\Data;
 class QrCode {
 
 	// The largest version made
-	const LASTVERS = 10;
+	const LAST_VERS = 10;
 	// The levels of error correction, and the two bits the format tells them by
-	const ECCLEVEL = Array('L'=>1, 'M'=>0, 'Q'=>3, 'H'=>2);
+	const ECCS_LEVL = Array('L'=>1, 'M'=>0, 'Q'=>3, 'H'=>2);
 	// For each version and level: error correction codewords per block, then the blocks of the first group and their data codewords, then those of the second group
-	const BLCKLIST = Array(
+	const BLCK_LIST = Array(
 		1=>Array('L'=>Array(7, 1, 19, 0, 0), 'M'=>Array(10, 1, 16, 0, 0), 'Q'=>Array(13, 1, 13, 0, 0), 'H'=>Array(17, 1, 9, 0, 0)),
 		2=>Array('L'=>Array(10, 1, 34, 0, 0), 'M'=>Array(16, 1, 28, 0, 0), 'Q'=>Array(22, 1, 22, 0, 0), 'H'=>Array(28, 1, 16, 0, 0)),
 		3=>Array('L'=>Array(15, 1, 55, 0, 0), 'M'=>Array(26, 1, 44, 0, 0), 'Q'=>Array(18, 2, 17, 0, 0), 'H'=>Array(22, 2, 13, 0, 0)),
@@ -34,53 +34,53 @@ class QrCode {
 		10=>Array('L'=>Array(18, 2, 68, 2, 69), 'M'=>Array(26, 4, 43, 1, 44), 'Q'=>Array(24, 6, 19, 2, 20), 'H'=>Array(28, 6, 15, 2, 16))
 	);
 	// The rows and columns the alignment patterns are centred on, by version
-	const ALGNLIST = Array(1=>Array(), 2=>Array(6, 18), 3=>Array(6, 22), 4=>Array(6, 26), 5=>Array(6, 30), 6=>Array(6, 34),
+	const ALGN_LIST = Array(1=>Array(), 2=>Array(6, 18), 3=>Array(6, 22), 4=>Array(6, 26), 5=>Array(6, 30), 6=>Array(6, 34),
 		7=>Array(6, 22, 38), 8=>Array(6, 24, 42), 9=>Array(6, 26, 46), 10=>Array(6, 28, 50));
 
-	protected $textData;
-	protected $eccLevel;
-	protected $versNmbr;
-	protected $sideSize;
-	protected $modulMap;
-	protected $fixedMap;
+	protected $encodeText;
+	protected $errorLevel;
+	protected $versNumber;
+	protected $sideLength;
+	protected $moduleGrid;
+	protected $fixedCells;
 
 	/**
 	 * Encodes a text. The code is made at once: a text that does not fit
 	 * is refused here.
 	 *
-	 * @param String $textString The text, taken byte by byte (UTF-8 stays UTF-8).
-	 * @param String $errorLevel The level of error correction: 'L', 'M', 'Q' or 'H'.
+	 * @param String $templateText The text, taken byte by byte (UTF-8 stays UTF-8).
+	 * @param String $errLevelNumb The level of error correction: 'L', 'M', 'Q' or 'H'.
 	 *
 	 * @throws QrCodeError When the level is unknown, or the text does not fit in a code of version 10.
 	 */
-	function __construct( String $textString, String $errorLevel='M' ){
-		if( !isset(self::ECCLEVEL[$errorLevel]) ){
-			throw new QrCodeError('Unknown level of error correction: '.json_encode($errorLevel));
+	function __construct( String $templateText, String $errLevelNumb='M' ){
+		if( !isset(self::ECCS_LEVL[$errLevelNumb]) ){
+			throw new QrCodeError('Unknown level of error correction: '.json_encode($errLevelNumb));
 		}
-		$this->textData = $textString;
-		$this->eccLevel = $errorLevel;
-		$this->versNmbr = $this->pickVersn( strlen($textString) );
-		$this->sideSize = 17 + 4*$this->versNmbr;
-		$this->modulMap = array_fill(0, $this->sideSize, array_fill(0, $this->sideSize, false));
-		$this->fixedMap = $this->modulMap;
-		$this->drawFixed();
-		$this->drawWords( $this->fullWords($this->dataWords()) );
+		$this->encodeText = $templateText;
+		$this->errorLevel = $errLevelNumb;
+		$this->versNumber = $this->pickVersionNum( strlen($templateText) );
+		$this->sideLength = 17 + 4*$this->versNumber;
+		$this->moduleGrid = array_fill(0, $this->sideLength, array_fill(0, $this->sideLength, false));
+		$this->fixedCells = $this->moduleGrid;
+		$this->drawFixedParts();
+		$this->placeCodewords( $this->fullWordsArray($this->dataWordsArray()) );
 
 		// The mask scored best is kept : each one is tried, then taken off
-		$bestMsk = 0;
+		$bstMask = 0;
 		$bestPts = PHP_INT_MAX;
-		for( $msk=0; $msk<8; $msk++ ){
-			$this->applyMask($msk);
-			$this->drawFormt($msk);
-			$mskPts = $this->maskPnlty();
-			if( $mskPts<$bestPts ){
-				$bestPts = $mskPts;
-				$bestMsk = $msk;
+		for( $mskInc=0; $mskInc<8; $mskInc++ ){
+			$this->maskDataModule($mskInc);
+			$this->drawCodeFormat($mskInc);
+			$maskPts = $this->maskPenaltyNum();
+			if( $maskPts<$bestPts ){
+				$bestPts = $maskPts;
+				$bstMask = $mskInc;
 			}
-			$this->applyMask($msk);
+			$this->maskDataModule($mskInc);
 		}
-		$this->applyMask($bestMsk);
-		$this->drawFormt($bestMsk);
+		$this->maskDataModule($bstMask);
+		$this->drawCodeFormat($bstMask);
 	}
 
 	/**
@@ -88,8 +88,8 @@ class QrCode {
 	 *
 	 * @return Int The version.
 	 */
-	public function versionOf(): Int {
-		return $this->versNmbr;
+	public function versionOfCount(): Int {
+		return $this->versNumber;
 	}
 
 	/**
@@ -97,44 +97,44 @@ class QrCode {
 	 *
 	 * @return Array The rows from the top, each a list of modules from the left: true for a dark one.
 	 */
-	public function makeMatrx(): Array {
-		return $this->modulMap;
+	public function generateMatrix(): Array {
+		return $this->moduleGrid;
 	}
 
 	/**
 	 * Gives the code as a drawing: dark modules on a white ground.
 	 *
-	 * @param Int $modulePixl The side of a module, in pixels (1 at least).
-	 * @param Int $quietZones The light margin around the code, in modules (the standard asks for 4).
+	 * @param Int $modulePixels The side of a module, in pixels (1 at least).
+	 * @param Int $quietZonesNb The light margin around the code, in modules (the standard asks for 4).
 	 * @return String A standalone SVG document.
 	 *
 	 * @throws QrCodeError When a size is out of range.
 	 */
-	public function asSvgCode( Int $modulePixl=4, Int $quietZones=4 ): String {
-		if( $modulePixl<1 || $quietZones<0 ){
+	public function drawAsSvgImage( Int $modulePixels=4, Int $quietZonesNb=4 ): String {
+		if( $modulePixels<1 || $quietZonesNb<0 ){
 			throw new QrCodeError('Invalid size of a module or of the quiet zone');
 		}
-		$fullSde = $this->sideSize + 2*$quietZones;
+		$sideLen = $this->sideLength + 2*$quietZonesNb;
 		$pathTxt = '';
-		foreach( $this->modulMap as $rowNum => $rowMap ){
+		foreach( $this->moduleGrid as $rowNum => $rowMap ){
 			// A run of dark modules on a row is one rectangle
-			$colNum = 0;
-			while( $colNum<$this->sideSize ){
-				if( !$rowMap[$colNum] ){
-					$colNum++;
+			$clmnNum = 0;
+			while( $clmnNum<$this->sideLength ){
+				if( !$rowMap[$clmnNum] ){
+					$clmnNum++;
 					continue;
 				}
-				$runLen = 1;
-				while( $colNum+$runLen<$this->sideSize && $rowMap[$colNum+$runLen] ){
-					$runLen++;
+				$runSize = 1;
+				while( $clmnNum+$runSize<$this->sideLength && $rowMap[$clmnNum+$runSize] ){
+					$runSize++;
 				}
-				$pathTxt .= 'M'.($colNum+$quietZones).','.($rowNum+$quietZones).'h'.$runLen.'v1h-'.$runLen.'z';
-				$colNum += $runLen;
+				$pathTxt .= 'M'.($clmnNum+$quietZonesNb).','.($rowNum+$quietZonesNb).'h'.$runSize.'v1h-'.$runSize.'z';
+				$clmnNum += $runSize;
 			}
 		}
-		return '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="'.($fullSde*$modulePixl).'" height="'.($fullSde*$modulePixl).'"'
-			.' viewBox="0 0 '.$fullSde.' '.$fullSde.'" shape-rendering="crispEdges">'
-			.'<rect width="'.$fullSde.'" height="'.$fullSde.'" fill="#fff"/>'
+		return '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="'.($sideLen*$modulePixels).'" height="'.($sideLen*$modulePixels).'"'
+			.' viewBox="0 0 '.$sideLen.' '.$sideLen.'" shape-rendering="crispEdges">'
+			.'<rect width="'.$sideLen.'" height="'.$sideLen.'" fill="#fff"/>'
 			.'<path fill="#000" d="'.$pathTxt.'"/></svg>';
 	}
 
@@ -144,28 +144,28 @@ class QrCode {
 	 * (█ ▀ ▄): on a terminal of light text on a dark ground, the code then
 	 * reads as it is printed.
 	 *
-	 * @param Int $quietZones The light margin around the code, in modules.
+	 * @param Int $quietZonesNb The light margin around the code, in modules.
 	 * @return String The lines, each ending with a line feed.
 	 *
 	 * @throws QrCodeError When the margin is negative.
 	 */
-	public function asTextArt( Int $quietZones=2 ): String {
-		if( $quietZones<0 ){
+	public function drawAsTerminal( Int $quietZonesNb=2 ): String {
+		if( $quietZonesNb<0 ){
 			throw new QrCodeError('Invalid size of the quiet zone');
 		}
-		$fullSde = $this->sideSize + 2*$quietZones;
+		$sideLen = $this->sideLength + 2*$quietZonesNb;
 		// A module of the margin, or beyond the last row, is light
-		$isLight = function( Int $rowIndexNb, Int $columnIndx ) use ( $quietZones ): Bool {
-			$rowInd = $rowIndexNb - $quietZones;
-			$colInd = $columnIndx - $quietZones;
-			return !isset($this->modulMap[$rowInd][$colInd]) || !$this->modulMap[$rowInd][$colInd];
+		$isLight = function( Int $rowIdxNumber, Int $columnIdxNum ) use ( $quietZonesNb ): Bool {
+			$rowIndx = $rowIdxNumber - $quietZonesNb;
+			$clmnInd = $columnIdxNum - $quietZonesNb;
+			return !isset($this->moduleGrid[$rowIndx][$clmnInd]) || !$this->moduleGrid[$rowIndx][$clmnInd];
 		};
 		$artText = '';
-		for( $row=0; $row<$fullSde; $row+=2 ){
-			for( $col=0; $col<$fullSde; $col++ ){
-				$topLgt = $isLight($row, $col);
-				$lowLgt = ($row+1<$fullSde) ? $isLight($row+1, $col) : false;
-				$artText .= $topLgt ? ($lowLgt ? '█' : '▀') : ($lowLgt ? '▄' : ' ');
+		for( $rowInc=0; $rowInc<$sideLen; $rowInc+=2 ){
+			for( $colInc=0; $colInc<$sideLen; $colInc++ ){
+				$topLite = $isLight($rowInc, $colInc);
+				$lowLite = ($rowInc+1<$sideLen) ? $isLight($rowInc+1, $colInc) : false;
+				$artText .= $topLite ? ($lowLite ? '█' : '▀') : ($lowLite ? '▄' : ' ');
 			}
 			$artText .= "\n";
 		}
@@ -175,20 +175,20 @@ class QrCode {
 	/**
 	 * Gives the smallest version holding the text at the level of the code.
 	 *
-	 * @param Int $byteLength The length of the text, in bytes.
+	 * @param Int $byteLengthNb The length of the text, in bytes.
 	 * @return Int The version.
 	 *
 	 * @throws QrCodeError When even the largest version made cannot hold it.
 	 */
-	protected function pickVersn( Int $byteLength ): Int {
-		for( $ver=1; $ver<=self::LASTVERS; $ver++ ){
-			$blkDef = self::BLCKLIST[$ver][$this->eccLevel];
-			$capBits = 8*($blkDef[1]*$blkDef[2] + $blkDef[3]*$blkDef[4]);
-			if( 4 + ($ver<10 ? 8 : 16) + 8*$byteLength<=$capBits ){
-				return $ver;
+	protected function pickVersionNum( Int $byteLengthNb ): Int {
+		for( $verInc=1; $verInc<=self::LAST_VERS; $verInc++ ){
+			$blckDef = self::BLCK_LIST[$verInc][$this->errorLevel];
+			$capBits = 8*($blckDef[1]*$blckDef[2] + $blckDef[3]*$blckDef[4]);
+			if( 4 + ($verInc<10 ? 8 : 16) + 8*$byteLengthNb<=$capBits ){
+				return $verInc;
 			}
 		}
-		throw new QrCodeError('Text too long for a QR code of version '.self::LASTVERS.' at level '.$this->eccLevel.': '.$byteLength.' bytes');
+		throw new QrCodeError('Text too long for a QR code of version '.self::LAST_VERS.' at level '.$this->errorLevel.': '.$byteLengthNb.' bytes');
 	}
 
 	/**
@@ -197,11 +197,11 @@ class QrCode {
 	 *
 	 * @return Array The codewords, as bytes.
 	 */
-	protected function dataWords(): Array {
-		$blkDef = self::BLCKLIST[$this->versNmbr][$this->eccLevel];
-		$capBits = 8*($blkDef[1]*$blkDef[2] + $blkDef[3]*$blkDef[4]);
-		$bitText = '0100'.str_pad(decbin(strlen($this->textData)), ($this->versNmbr<10 ? 8 : 16), '0', STR_PAD_LEFT);
-		foreach( str_split($this->textData) as $chrVal ){
+	protected function dataWordsArray(): Array {
+		$blckDef = self::BLCK_LIST[$this->versNumber][$this->errorLevel];
+		$capBits = 8*($blckDef[1]*$blckDef[2] + $blckDef[3]*$blckDef[4]);
+		$bitText = '0100'.str_pad(decbin(strlen($this->encodeText)), ($this->versNumber<10 ? 8 : 16), '0', STR_PAD_LEFT);
+		foreach( str_split($this->encodeText) as $chrVal ){
 			if( $chrVal!=='' ){
 				$bitText .= str_pad(decbin(ord($chrVal)), 8, '0', STR_PAD_LEFT);
 			}
@@ -209,8 +209,8 @@ class QrCode {
 		$bitText .= str_repeat('0', min(4, $capBits - strlen($bitText)));
 		$bitText .= str_repeat('0', (8 - strlen($bitText)%8)%8);
 		$wordLst = array_map('bindec', str_split($bitText, 8));
-		for( $pad=0; count($wordLst)<$capBits/8; $pad++ ){
-			$wordLst[] = ($pad%2==0) ? 0xEC : 0x11;
+		for( $padInc=0; count($wordLst)<$capBits/8; $padInc++ ){
+			$wordLst[] = ($padInc%2==0) ? 0xEC : 0x11;
 		}
 		return $wordLst;
 	}
@@ -219,35 +219,35 @@ class QrCode {
 	 * Splits the data codewords into blocks, adds the error correction of
 	 * each, and interleaves them as the code holds them.
 	 *
-	 * @param Array $dataBlocks The data codewords.
+	 * @param Array $dataWordList The data codewords.
 	 * @return Array All the codewords, in the order they are placed.
 	 */
-	protected function fullWords( Array $dataBlocks ): Array {
-		$blkDef = self::BLCKLIST[$this->versNmbr][$this->eccLevel];
-		$divList = $this->rsDivisor($blkDef[0]);
+	protected function fullWordsArray( Array $dataWordList ): Array {
+		$blckDef = self::BLCK_LIST[$this->versNumber][$this->errorLevel];
+		$dvsrLst = $this->rsDivisorArray($blckDef[0]);
 		$dataBlk = Array();
-		$eccBlks = Array();
-		$wordPos = 0;
-		foreach( Array(Array($blkDef[1], $blkDef[2]), Array($blkDef[3], $blkDef[4])) as $grpDef ){
-			for( $blk=0; $blk<$grpDef[0]; $blk++ ){
-				$blkData = array_slice($dataBlocks, $wordPos, $grpDef[1]);
-				$wordPos += $grpDef[1];
+		$eccList = Array();
+		$wrdPstn = 0;
+		foreach( Array(Array($blckDef[1], $blckDef[2]), Array($blckDef[3], $blckDef[4])) as $grpDef ){
+			for( $blkInc=0; $blkInc<$grpDef[0]; $blkInc++ ){
+				$blkData = array_slice($dataWordList, $wrdPstn, $grpDef[1]);
+				$wrdPstn += $grpDef[1];
 				$dataBlk[] = $blkData;
-				$eccBlks[] = $this->rsRemaind($blkData, $divList);
+				$eccList[] = $this->rsRemainderArr($blkData, $dvsrLst);
 			}
 		}
 		$allWrds = Array();
 		$longest = max(array_map('count', $dataBlk));
-		for( $pos=0; $pos<$longest; $pos++ ){
+		for( $posInc=0; $posInc<$longest; $posInc++ ){
 			foreach( $dataBlk as $blkDat ){
-				if( isset($blkDat[$pos]) ){
-					$allWrds[] = $blkDat[$pos];
+				if( isset($blkDat[$posInc]) ){
+					$allWrds[] = $blkDat[$posInc];
 				}
 			}
 		}
-		for( $pos=0; $pos<$blkDef[0]; $pos++ ){
-			foreach( $eccBlks as $eccDat ){
-				$allWrds[] = $eccDat[$pos];
+		for( $posInc=0; $posInc<$blckDef[0]; $posInc++ ){
+			foreach( $eccList as $eccDat ){
+				$allWrds[] = $eccDat[$posInc];
 			}
 		}
 		return $allWrds;
@@ -257,40 +257,40 @@ class QrCode {
 	 * Gives the generator polynomial of a Reed-Solomon code, its leading
 	 * term left out.
 	 *
-	 * @param Int $degreeNmbr The number of error correction codewords.
+	 * @param Int $degreeNumber The number of error correction codewords.
 	 * @return Array The coefficients, from the highest power down.
 	 */
-	protected function rsDivisor( Int $degreeNmbr ): Array {
-		$divList = array_fill(0, $degreeNmbr, 0);
-		$divList[$degreeNmbr-1] = 1;
+	protected function rsDivisorArray( Int $degreeNumber ): Array {
+		$dvsrLst = array_fill(0, $degreeNumber, 0);
+		$dvsrLst[$degreeNumber-1] = 1;
 		$rootVal = 1;
-		for( $deg=0; $deg<$degreeNmbr; $deg++ ){
-			for( $pos=0; $pos<$degreeNmbr; $pos++ ){
-				$divList[$pos] = $this->gfMultply($divList[$pos], $rootVal);
-				if( $pos+1<$degreeNmbr ){
-					$divList[$pos] ^= $divList[$pos+1];
+		for( $degInc=0; $degInc<$degreeNumber; $degInc++ ){
+			for( $posInc=0; $posInc<$degreeNumber; $posInc++ ){
+				$dvsrLst[$posInc] = $this->gfMultiplyNumb($dvsrLst[$posInc], $rootVal);
+				if( $posInc+1<$degreeNumber ){
+					$dvsrLst[$posInc] ^= $dvsrLst[$posInc+1];
 				}
 			}
-			$rootVal = $this->gfMultply($rootVal, 0x02);
+			$rootVal = $this->gfMultiplyNumb($rootVal, 0x02);
 		}
-		return $divList;
+		return $dvsrLst;
 	}
 
 	/**
 	 * Gives the error correction codewords of a block: the remainder of its
 	 * division by the generator polynomial.
 	 *
-	 * @param Array $dataBlocks The data codewords of the block.
-	 * @param Array $divisorLst The generator polynomial (see rsDivisor).
+	 * @param Array $dataWordList The data codewords of the block.
+	 * @param Array $divisorTerms The generator polynomial (see rsDivisor).
 	 * @return Array The error correction codewords.
 	 */
-	protected function rsRemaind( Array $dataBlocks, Array $divisorLst ): Array {
-		$remList = array_fill(0, count($divisorLst), 0);
-		foreach( $dataBlocks as $bytVal ){
-			$factor = $bytVal ^ array_shift($remList);
+	protected function rsRemainderArr( Array $dataWordList, Array $divisorTerms ): Array {
+		$remList = array_fill(0, count($divisorTerms), 0);
+		foreach( $dataWordList as $bytVal ){
+			$coefVal = $bytVal ^ array_shift($remList);
 			$remList[] = 0;
-			foreach( $divisorLst as $pos => $coeffs ){
-				$remList[$pos] ^= $this->gfMultply($coeffs, $factor);
+			foreach( $divisorTerms as $posInc => $coeffs ){
+				$remList[$posInc] ^= $this->gfMultiplyNumb($coeffs, $coefVal);
 			}
 		}
 		return $remList;
@@ -300,15 +300,15 @@ class QrCode {
 	 * Multiplies two elements of the Galois field GF(2^8) of QR codes
 	 * (polynomial 0x11D).
 	 *
-	 * @param Int $leftFactor A byte.
-	 * @param Int $rightFactr Another byte.
+	 * @param Int $lftFactorNum A byte.
+	 * @param Int $rgtFactorNum Another byte.
 	 * @return Int Their product, a byte.
 	 */
-	protected function gfMultply( Int $leftFactor, Int $rightFactr ): Int {
+	protected function gfMultiplyNumb( Int $lftFactorNum, Int $rgtFactorNum ): Int {
 		$product = 0;
-		for( $bit=7; $bit>=0; $bit-- ){
+		for( $bitInc=7; $bitInc>=0; $bitInc-- ){
 			$product = ($product<<1) ^ (($product>>7)*0x11D);
-			$product ^= (($rightFactr>>$bit) & 1)*$leftFactor;
+			$product ^= (($rgtFactorNum>>$bitInc) & 1)*$lftFactorNum;
 		}
 		return $product;
 	}
@@ -317,15 +317,15 @@ class QrCode {
 	 * Sets a module, and tells whether it belongs to the fixed patterns,
 	 * which the data and the mask leave alone.
 	 *
-	 * @param Int  $columnIndx The column, from the left.
-	 * @param Int  $rowIndexNb The row, from the top.
-	 * @param Bool $darkModule Whether the module is dark.
-	 * @param Bool $fixedPlace Whether it belongs to a fixed pattern.
+	 * @param Int  $columnIdxNum The column, from the left.
+	 * @param Int  $rowIdxNumber The row, from the top.
+	 * @param Bool $moduleIsDark Whether the module is dark.
+	 * @param Bool $fixedPattern Whether it belongs to a fixed pattern.
 	 */
-	protected function setModule( Int $columnIndx, Int $rowIndexNb, Bool $darkModule, Bool $fixedPlace=true ): Void {
-		$this->modulMap[$rowIndexNb][$columnIndx] = $darkModule;
-		if( $fixedPlace ){
-			$this->fixedMap[$rowIndexNb][$columnIndx] = true;
+	protected function setModuleColor( Int $columnIdxNum, Int $rowIdxNumber, Bool $moduleIsDark, Bool $fixedPattern=true ): Void {
+		$this->moduleGrid[$rowIdxNumber][$columnIdxNum] = $moduleIsDark;
+		if( $fixedPattern ){
+			$this->fixedCells[$rowIdxNumber][$columnIdxNum] = true;
 		}
 	}
 
@@ -333,43 +333,43 @@ class QrCode {
 	 * Draws the fixed patterns: timing, finders, alignment, and the room
 	 * of the format and of the version.
 	 */
-	protected function drawFixed(): Void {
-		for( $pos=0; $pos<$this->sideSize; $pos++ ){
-			$this->setModule(6, $pos, $pos%2==0);
-			$this->setModule($pos, 6, $pos%2==0);
+	protected function drawFixedParts(): Void {
+		for( $posInc=0; $posInc<$this->sideLength; $posInc++ ){
+			$this->setModuleColor(6, $posInc, $posInc%2==0);
+			$this->setModuleColor($posInc, 6, $posInc%2==0);
 		}
-		$this->drawFindr(3, 3);
-		$this->drawFindr($this->sideSize-4, 3);
-		$this->drawFindr(3, $this->sideSize-4);
-		$algList = self::ALGNLIST[$this->versNmbr];
-		$lastPos = count($algList) - 1;
-		foreach( $algList as $rowPos => $rowCtr ){
-			foreach( $algList as $colPos => $colCtr ){
+		$this->drawCodeFinder(3, 3);
+		$this->drawCodeFinder($this->sideLength-4, 3);
+		$this->drawCodeFinder(3, $this->sideLength-4);
+		$algoLst = self::ALGN_LIST[$this->versNumber];
+		$lastPos = count($algoLst) - 1;
+		foreach( $algoLst as $rowPos => $rowCtr ){
+			foreach( $algoLst as $colPos => $colCtr ){
 				// Not over the finders
 				if( ($rowPos==0 && $colPos==0) || ($rowPos==0 && $colPos==$lastPos) || ($rowPos==$lastPos && $colPos==0) ){
 					continue;
 				}
-				$this->drawAlign($colCtr, $rowCtr);
+				$this->drawAlignShape($colCtr, $rowCtr);
 			}
 		}
-		$this->drawFormt(0);
-		$this->drawVersn();
+		$this->drawCodeFormat(0);
+		$this->drawVersionNum();
 	}
 
 	/**
 	 * Draws a finder pattern and its light separator.
 	 *
-	 * @param Int $centreColm The column of its centre.
-	 * @param Int $centreRowN The row of its centre.
+	 * @param Int $centreColumn The column of its centre.
+	 * @param Int $centreRowNNb The row of its centre.
 	 */
-	protected function drawFindr( Int $centreColm, Int $centreRowN ): Void {
-		for( $rdt=-4; $rdt<=4; $rdt++ ){
-			for( $cdt=-4; $cdt<=4; $cdt++ ){
-				$colInd = $centreColm + $cdt;
-				$rowInd = $centreRowN + $rdt;
-				if( $colInd>=0 && $colInd<$this->sideSize && $rowInd>=0 && $rowInd<$this->sideSize ){
-					$distNb = max(abs($cdt), abs($rdt));
-					$this->setModule($colInd, $rowInd, $distNb!=2 && $distNb!=4);
+	protected function drawCodeFinder( Int $centreColumn, Int $centreRowNNb ): Void {
+		for( $rdtInc=-4; $rdtInc<=4; $rdtInc++ ){
+			for( $cdtInc=-4; $cdtInc<=4; $cdtInc++ ){
+				$clmnInd = $centreColumn + $cdtInc;
+				$rowIndx = $centreRowNNb + $rdtInc;
+				if( $clmnInd>=0 && $clmnInd<$this->sideLength && $rowIndx>=0 && $rowIndx<$this->sideLength ){
+					$distNum = max(abs($cdtInc), abs($rdtInc));
+					$this->setModuleColor($clmnInd, $rowIndx, $distNum!=2 && $distNum!=4);
 				}
 			}
 		}
@@ -378,13 +378,13 @@ class QrCode {
 	/**
 	 * Draws an alignment pattern.
 	 *
-	 * @param Int $centreColm The column of its centre.
-	 * @param Int $centreRowN The row of its centre.
+	 * @param Int $centreColumn The column of its centre.
+	 * @param Int $centreRowNNb The row of its centre.
 	 */
-	protected function drawAlign( Int $centreColm, Int $centreRowN ): Void {
-		for( $rdt=-2; $rdt<=2; $rdt++ ){
-			for( $cdt=-2; $cdt<=2; $cdt++ ){
-				$this->setModule($centreColm+$cdt, $centreRowN+$rdt, max(abs($cdt), abs($rdt))!=1);
+	protected function drawAlignShape( Int $centreColumn, Int $centreRowNNb ): Void {
+		for( $rdtInc=-2; $rdtInc<=2; $rdtInc++ ){
+			for( $cdtInc=-2; $cdtInc<=2; $cdtInc++ ){
+				$this->setModuleColor($centreColumn+$cdtInc, $centreRowNNb+$rdtInc, max(abs($cdtInc), abs($rdtInc))!=1);
 			}
 		}
 	}
@@ -393,55 +393,55 @@ class QrCode {
 	 * Draws the two copies of the format: the level and the mask, with
 	 * their BCH error correction.
 	 *
-	 * @param Int $maskNumber The mask, 0 to 7.
+	 * @param Int $codeMaskNumb The mask, 0 to 7.
 	 */
-	protected function drawFormt( Int $maskNumber ): Void {
-		$fmtData = (self::ECCLEVEL[$this->eccLevel]<<3) | $maskNumber;
-		$remVal = $fmtData;
-		for( $bit=0; $bit<10; $bit++ ){
-			$remVal = ($remVal<<1) ^ (($remVal>>9)*0x537);
+	protected function drawCodeFormat( Int $codeMaskNumb ): Void {
+		$fmtBits = (self::ECCS_LEVL[$this->errorLevel]<<3) | $codeMaskNumb;
+		$remValu = $fmtBits;
+		for( $bitInc=0; $bitInc<10; $bitInc++ ){
+			$remValu = ($remValu<<1) ^ (($remValu>>9)*0x537);
 		}
-		$fmtBits = (($fmtData<<10) | $remVal) ^ 0x5412;
-		$sideNb = $this->sideSize;
+		$frmtBts = (($fmtBits<<10) | $remValu) ^ 0x5412;
+		$sideNum = $this->sideLength;
 		// Around the finder of the top left corner
-		for( $bit=0; $bit<=5; $bit++ ){
-			$this->setModule(8, $bit, (($fmtBits>>$bit) & 1)==1);
+		for( $bitInc=0; $bitInc<=5; $bitInc++ ){
+			$this->setModuleColor(8, $bitInc, (($frmtBts>>$bitInc) & 1)==1);
 		}
-		$this->setModule(8, 7, (($fmtBits>>6) & 1)==1);
-		$this->setModule(8, 8, (($fmtBits>>7) & 1)==1);
-		$this->setModule(7, 8, (($fmtBits>>8) & 1)==1);
-		for( $bit=9; $bit<15; $bit++ ){
-			$this->setModule(14-$bit, 8, (($fmtBits>>$bit) & 1)==1);
+		$this->setModuleColor(8, 7, (($frmtBts>>6) & 1)==1);
+		$this->setModuleColor(8, 8, (($frmtBts>>7) & 1)==1);
+		$this->setModuleColor(7, 8, (($frmtBts>>8) & 1)==1);
+		for( $bitInc=9; $bitInc<15; $bitInc++ ){
+			$this->setModuleColor(14-$bitInc, 8, (($frmtBts>>$bitInc) & 1)==1);
 		}
 		// Along the two other finders
-		for( $bit=0; $bit<8; $bit++ ){
-			$this->setModule($sideNb-1-$bit, 8, (($fmtBits>>$bit) & 1)==1);
+		for( $bitInc=0; $bitInc<8; $bitInc++ ){
+			$this->setModuleColor($sideNum-1-$bitInc, 8, (($frmtBts>>$bitInc) & 1)==1);
 		}
-		for( $bit=8; $bit<15; $bit++ ){
-			$this->setModule(8, $sideNb-15+$bit, (($fmtBits>>$bit) & 1)==1);
+		for( $bitInc=8; $bitInc<15; $bitInc++ ){
+			$this->setModuleColor(8, $sideNum-15+$bitInc, (($frmtBts>>$bitInc) & 1)==1);
 		}
 		// The module that is always dark
-		$this->setModule(8, $sideNb-8, true);
+		$this->setModuleColor(8, $sideNum-8, true);
 	}
 
 	/**
 	 * Draws the two copies of the version, from version 7 on.
 	 */
-	protected function drawVersn(): Void {
-		if( $this->versNmbr<7 ){
+	protected function drawVersionNum(): Void {
+		if( $this->versNumber<7 ){
 			return;
 		}
-		$remVal = $this->versNmbr;
-		for( $bit=0; $bit<12; $bit++ ){
-			$remVal = ($remVal<<1) ^ (($remVal>>11)*0x1F25);
+		$remValu = $this->versNumber;
+		for( $bitInc=0; $bitInc<12; $bitInc++ ){
+			$remValu = ($remValu<<1) ^ (($remValu>>11)*0x1F25);
 		}
-		$verBits = ($this->versNmbr<<12) | $remVal;
-		for( $bit=0; $bit<18; $bit++ ){
-			$isDark = (($verBits>>$bit) & 1)==1;
-			$farPos = $this->sideSize - 11 + $bit%3;
-			$nearPs = intdiv($bit, 3);
-			$this->setModule($farPos, $nearPs, $isDark);
-			$this->setModule($nearPs, $farPos, $isDark);
+		$versBts = ($this->versNumber<<12) | $remValu;
+		for( $bitInc=0; $bitInc<18; $bitInc++ ){
+			$isBlack = (($versBts>>$bitInc) & 1)==1;
+			$farPstn = $this->sideLength - 11 + $bitInc%3;
+			$nearPos = intdiv($bitInc, 3);
+			$this->setModuleColor($farPstn, $nearPos, $isBlack);
+			$this->setModuleColor($nearPos, $farPstn, $isBlack);
 		}
 	}
 
@@ -449,24 +449,24 @@ class QrCode {
 	 * Places the codewords: two columns at a time from the right, going up
 	 * then down, around the fixed patterns. The modules left over stay light.
 	 *
-	 * @param Array $codeWordLs The codewords, in the order they are placed.
+	 * @param Array $codewordList The codewords, in the order they are placed.
 	 */
-	protected function drawWords( Array $codeWordLs ): Void {
-		$bitTotl = 8*count($codeWordLs);
+	protected function placeCodewords( Array $codewordList ): Void {
+		$bitTotl = 8*count($codewordList);
 		$bitIndx = 0;
-		for( $rgt=$this->sideSize-1; $rgt>=1; $rgt-=2 ){
+		for( $rgtInc=$this->sideLength-1; $rgtInc>=1; $rgtInc-=2 ){
 			// The vertical timing pattern is skipped
-			if( $rgt==6 ){
-				$rgt = 5;
+			if( $rgtInc==6 ){
+				$rgtInc = 5;
 			}
-			$goingUp = (($rgt+1) & 2)==0;
-			for( $vrt=0; $vrt<$this->sideSize; $vrt++ ){
-				$rowInd = $goingUp ? $this->sideSize-1-$vrt : $vrt;
-				for( $sid=0; $sid<2; $sid++ ){
-					$colInd = $rgt - $sid;
-					if( !$this->fixedMap[$rowInd][$colInd] && $bitIndx<$bitTotl ){
-						$wordVl = $codeWordLs[$bitIndx>>3];
-						$this->modulMap[$rowInd][$colInd] = (($wordVl>>(7-($bitIndx & 7))) & 1)==1;
+			$goingUp = (($rgtInc+1) & 2)==0;
+			for( $vrtInc=0; $vrtInc<$this->sideLength; $vrtInc++ ){
+				$rowIndx = $goingUp ? $this->sideLength-1-$vrtInc : $vrtInc;
+				for( $sidInc=0; $sidInc<2; $sidInc++ ){
+					$clmnInd = $rgtInc - $sidInc;
+					if( !$this->fixedCells[$rowIndx][$clmnInd] && $bitIndx<$bitTotl ){
+						$wordVal = $codewordList[$bitIndx>>3];
+						$this->moduleGrid[$rowIndx][$clmnInd] = (($wordVal>>(7-($bitIndx & 7))) & 1)==1;
 						$bitIndx++;
 					}
 				}
@@ -478,26 +478,26 @@ class QrCode {
 	 * Turns over the data modules a mask selects. Applied twice, a mask
 	 * is taken off.
 	 *
-	 * @param Int $maskNumber The mask, 0 to 7.
+	 * @param Int $codeMaskNumb The mask, 0 to 7.
 	 */
-	protected function applyMask( Int $maskNumber ): Void {
-		for( $row=0; $row<$this->sideSize; $row++ ){
-			for( $col=0; $col<$this->sideSize; $col++ ){
-				if( $this->fixedMap[$row][$col] ){
+	protected function maskDataModule( Int $codeMaskNumb ): Void {
+		for( $rowInc=0; $rowInc<$this->sideLength; $rowInc++ ){
+			for( $colInc=0; $colInc<$this->sideLength; $colInc++ ){
+				if( $this->fixedCells[$rowInc][$colInc] ){
 					continue;
 				}
-				switch( $maskNumber ){
-					case 0: $doFlip = ($col+$row)%2==0; break;
-					case 1: $doFlip = $row%2==0; break;
-					case 2: $doFlip = $col%3==0; break;
-					case 3: $doFlip = ($col+$row)%3==0; break;
-					case 4: $doFlip = (intdiv($col, 3)+intdiv($row, 2))%2==0; break;
-					case 5: $doFlip = ($col*$row)%2 + ($col*$row)%3==0; break;
-					case 6: $doFlip = (($col*$row)%2 + ($col*$row)%3)%2==0; break;
-					default: $doFlip = (($col+$row)%2 + ($col*$row)%3)%2==0;
+				switch( $codeMaskNumb ){
+					case 0: $flipNow = ($colInc+$rowInc)%2==0; break;
+					case 1: $flipNow = $rowInc%2==0; break;
+					case 2: $flipNow = $colInc%3==0; break;
+					case 3: $flipNow = ($colInc+$rowInc)%3==0; break;
+					case 4: $flipNow = (intdiv($colInc, 3)+intdiv($rowInc, 2))%2==0; break;
+					case 5: $flipNow = ($colInc*$rowInc)%2 + ($colInc*$rowInc)%3==0; break;
+					case 6: $flipNow = (($colInc*$rowInc)%2 + ($colInc*$rowInc)%3)%2==0; break;
+					default: $flipNow = (($colInc+$rowInc)%2 + ($colInc*$rowInc)%3)%2==0;
 				}
-				if( $doFlip ){
-					$this->modulMap[$row][$col] = !$this->modulMap[$row][$col];
+				if( $flipNow ){
+					$this->moduleGrid[$rowInc][$colInc] = !$this->moduleGrid[$rowInc][$colInc];
 				}
 			}
 		}
@@ -510,25 +510,25 @@ class QrCode {
 	 *
 	 * @return Int The penalty.
 	 */
-	protected function maskPnlty(): Int {
+	protected function maskPenaltyNum(): Int {
 		$penalty = 0;
-		$sideNb = $this->sideSize;
-		$darkNb = 0;
-		for( $pos=0; $pos<$sideNb; $pos++ ){
-			$penalty += $this->lineScore( $this->modulMap[$pos] );
-			$penalty += $this->lineScore( array_column($this->modulMap, $pos) );
-			$darkNb += count( array_filter($this->modulMap[$pos]) );
+		$sideNum = $this->sideLength;
+		$darkNum = 0;
+		for( $posInc=0; $posInc<$sideNum; $posInc++ ){
+			$penalty += $this->lineScoreCount( $this->moduleGrid[$posInc] );
+			$penalty += $this->lineScoreCount( array_column($this->moduleGrid, $posInc) );
+			$darkNum += count( array_filter($this->moduleGrid[$posInc]) );
 		}
-		for( $row=0; $row<$sideNb-1; $row++ ){
-			for( $col=0; $col<$sideNb-1; $col++ ){
-				$modVal = $this->modulMap[$row][$col];
-				if( $this->modulMap[$row][$col+1]===$modVal && $this->modulMap[$row+1][$col]===$modVal && $this->modulMap[$row+1][$col+1]===$modVal ){
+		for( $rowInc=0; $rowInc<$sideNum-1; $rowInc++ ){
+			for( $colInc=0; $colInc<$sideNum-1; $colInc++ ){
+				$mdlValu = $this->moduleGrid[$rowInc][$colInc];
+				if( $this->moduleGrid[$rowInc][$colInc+1]===$mdlValu && $this->moduleGrid[$rowInc+1][$colInc]===$mdlValu && $this->moduleGrid[$rowInc+1][$colInc+1]===$mdlValu ){
 					$penalty += 3;
 				}
 			}
 		}
-		$allMods = $sideNb*$sideNb;
-		$penalty += 10*( intdiv(abs($darkNb*20 - $allMods*10) + $allMods - 1, $allMods) - 1 );
+		$allMods = $sideNum*$sideNum;
+		$penalty += 10*( intdiv(abs($darkNum*20 - $allMods*10) + $allMods - 1, $allMods) - 1 );
 		return $penalty;
 	}
 
@@ -536,11 +536,11 @@ class QrCode {
 	 * Scores one row or column: each run of five modules of one colour or
 	 * more, and each pattern looking like a finder.
 	 *
-	 * @param Array $moduleLine The modules of the line, true for a dark one.
+	 * @param Array $modulesInRow The modules of the line, true for a dark one.
 	 * @return Int The penalty of the line.
 	 */
-	protected function lineScore( Array $moduleLine ): Int {
-		$lineTxt = implode('', array_map(function( Bool $darkModule ): String { return $darkModule ? '1' : '0'; }, $moduleLine));
+	protected function lineScoreCount( Array $modulesInRow ): Int {
+		$lineTxt = implode('', array_map(function( Bool $moduleIsDark ): String { return $moduleIsDark ? '1' : '0'; }, $modulesInRow));
 		$linePts = 0;
 		preg_match_all('/0{5,}|1{5,}/', $lineTxt, $runList);
 		foreach( $runList[0] as $runTxt ){

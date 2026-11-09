@@ -16,23 +16,23 @@ class ToFile extends Driver {
 	/**
 	 * Writes a mail into the folder of the account.
 	 *
-	 * @param Message $mailMessge The mail.
-	 * @param Array   $recipients Checked addresses it is for.
+	 * @param Message $emailMessage The mail.
+	 * @param Array   $recipientLst Checked addresses it is for.
 	 * @return ?String Null when it was written, or why it was not.
 	 */
-	public function sendMssge( Message $mailMessge, Array $recipients ): ?String {
-		$fldPath = $this->mailFoldr();
+	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
+		$fldPath = $this->emailFoldrText();
 		if( !is_dir($fldPath) && !@mkdir($fldPath, 0775, true) && !is_dir($fldPath) ){
 			return 'the folder '.json_encode($fldPath).' cannot be created';
 		}
-		$headTxt = 'X-Envelope-To: '.implode(', ', $recipients)."\r\n";
-		$attNmes = array_map('basename', $mailMessge->attachLst());
+		$headTxt = 'X-Envelope-To: '.implode(', ', $recipientLst)."\r\n";
+		$attNmes = array_map('basename', $emailMessage->getAttachments());
 		if( !empty($attNmes) ){
-			$headTxt .= 'X-Attachments: '.Message::encodHead(implode(', ', $attNmes))."\r\n";
+			$headTxt .= 'X-Attachments: '.Message::encodeHeadText(implode(', ', $attNmes))."\r\n";
 		}
-		$flePath = $fldPath.DIRECTORY_SEPARATOR.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.eml';
-		if( @file_put_contents($flePath, $headTxt.$mailMessge->buildText(), LOCK_EX)===false ){
-			return 'the file '.json_encode($flePath).' cannot be written';
+		$filPath = $fldPath.DIRECTORY_SEPARATOR.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.eml';
+		if( @file_put_contents($filPath, $headTxt.$emailMessage->writeWholeMail(), LOCK_EX)===false ){
+			return 'the file '.json_encode($filPath).' cannot be written';
 		}
 		return null;
 	}
@@ -42,8 +42,8 @@ class ToFile extends Driver {
 	 *
 	 * @return String Its full path.
 	 */
-	public function mailFoldr(): String {
-		$fldName = trim( strval($this->setupArr['fold'] ?? ''), '/\\ ' );
+	public function emailFoldrText(): String {
+		$fldName = trim( strval($this->setupArray['fold'] ?? ''), '/\\ ' );
 		return TOP_DIR.DIRECTORY_SEPARATOR.( $fldName!='' ? str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $fldName) : 'temp'.DIRECTORY_SEPARATOR.'mails' );
 	}
 }

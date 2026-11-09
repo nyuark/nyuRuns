@@ -10,7 +10,7 @@ namespace nyu\Data\Writers;
 class Index {
 
 	// Writer, default options and content type of each file extension
-	protected static $extnList = Array(
+	protected static $extnsnList = Array(
 		'html'   => Array('Html', Array(), 'text/html; charset=utf-8'),
 		'htm'    => Array('Html', Array(), 'text/html; charset=utf-8'),
 		'json'   => Array('Json', Array(), 'application/json; charset=utf-8'),
@@ -37,62 +37,62 @@ class Index {
 	/**
 	 * Gives the writer of a file extension.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @param String $filExtension The extension, without its dot, whatever its case.
 	 * @return ?Writer The writer, null when the extension has none.
 	 */
-	public static function forExtnsn(String $fileExtnsn): ?Writer {
-		$extnSet = self::$extnList[strtolower($fileExtnsn)] ?? null;
-		if( $extnSet===null ){
+	public static function forExtnsParser(String $filExtension): ?Writer {
+		$extList = self::$extnsnList[strtolower($filExtension)] ?? null;
+		if( $extList===null ){
 			return null;
 		}
-		$wrtrCls = (strpos($extnSet[0], '\\')===false) ? __NAMESPACE__.'\\'.$extnSet[0] : $extnSet[0];
+		$wrtrCls = (strpos($extList[0], '\\')===false) ? __NAMESPACE__.'\\'.$extList[0] : $extList[0];
 		return new $wrtrCls();
 	}
 
 	/**
 	 * Gives the default options a file extension is written with.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @param String $filExtension The extension, without its dot, whatever its case.
 	 * @return Array The options, empty when the extension has none.
 	 */
-	public static function extnOptns(String $fileExtnsn): Array {
-		return self::$extnList[strtolower($fileExtnsn)][1] ?? Array();
+	public static function optionsOfExtns(String $filExtension): Array {
+		return self::$extnsnList[strtolower($filExtension)][1] ?? Array();
 	}
 
 	/**
 	 * Gives the content type a reply written for a file extension is
 	 * sent with.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot, whatever its case.
+	 * @param String $filExtension The extension, without its dot, whatever its case.
 	 * @return String The content type, with its character set when it is text; '' when the extension has no writer.
 	 */
-	public static function cnTypeFor(String $fileExtnsn): String {
-		return strval(self::$extnList[strtolower($fileExtnsn)][2] ?? '');
+	public static function contentTypeFor(String $filExtension): String {
+		return strval(self::$extnsnList[strtolower($filExtension)][2] ?? '');
 	}
 
 	/**
 	 * Adds a writer for a file extension, or replaces the one it had.
 	 *
-	 * @param String $fileExtnsn The extension, without its dot.
-	 * @param String $writerName Name of a class of this namespace, or full name of a class of the application; it must follow the Writer contract.
-	 * @param Array  $writeOptns Default options the extension is written with.
-	 * @param String $contntType Content type a reply in that format is sent with.
+	 * @param String $filExtension The extension, without its dot.
+	 * @param String $writerClsNme Name of a class of this namespace, or full name of a class of the application; it must follow the Writer contract.
+	 * @param Array  $writeOptions Default options the extension is written with.
+	 * @param String $sentMimeType Content type a reply in that format is sent with.
 	 *
 	 * @throws \RuntimeException When the extension is not a plain name, the class is not a writer, or the content type is not one.
 	 */
-	public static function addWriter(String $fileExtnsn, String $writerName, Array $writeOptns=Array(), String $contntType='application/octet-stream'): Void {
-		$wrtrCls = (strpos($writerName, '\\')===false) ? __NAMESPACE__.'\\'.$writerName : $writerName;
-		if( !preg_match('/^\w+$/D', $fileExtnsn) ){
-			throw new \RuntimeException('Invalid file extension: '.$fileExtnsn);
+	public static function registerWriter(String $filExtension, String $writerClsNme, Array $writeOptions=Array(), String $sentMimeType='application/octet-stream'): Void {
+		$wrtrCls = (strpos($writerClsNme, '\\')===false) ? __NAMESPACE__.'\\'.$writerClsNme : $writerClsNme;
+		if( !preg_match('/^\w+$/D', $filExtension) ){
+			throw new \RuntimeException('Invalid file extension: '.$filExtension);
 		}
 		if( !class_exists($wrtrCls) || !is_subclass_of($wrtrCls, Writer::class) ){
-			throw new \RuntimeException('Not a writer: '.$writerName);
+			throw new \RuntimeException('Not a writer: '.$writerClsNme);
 		}
 		// A content type goes into a header of the reply: it holds nothing that could start another one
-		if( !preg_match('/^[\w.+\-]+\/[\w.+\-]+(?:; ?[\w\-]+=[\w.\-]+)*$/D', $contntType) ){
-			throw new \RuntimeException('Invalid content type: '.$contntType);
+		if( !preg_match('/^[\w.+\-]+\/[\w.+\-]+(?:; ?[\w\-]+=[\w.\-]+)*$/D', $sentMimeType) ){
+			throw new \RuntimeException('Invalid content type: '.$sentMimeType);
 		}
-		self::$extnList[strtolower($fileExtnsn)] = Array($writerName, $writeOptns, $contntType);
+		self::$extnsnList[strtolower($filExtension)] = Array($writerClsNme, $writeOptions, $sentMimeType);
 	}
 
 }

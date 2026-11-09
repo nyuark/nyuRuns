@@ -10,12 +10,12 @@ namespace nyu\Data\Parsers;
  */
 class Odsx extends Pack {
 
-	const SHAPEOUT = 'sheet';
+	const SHPE_OUTS = 'sheet';
 	// Greatest number of cells added by the rows and the cells written once for many
-	const PADLIMIT = 1000000;
+	const PADS_MAXI = 1000000;
 
 	// Cells added so far
-	protected $padCount = 0;
+	protected $addedCells = 0;
 
 	/**
 	 * Reads the spreadsheet of an opened archive.
@@ -30,58 +30,58 @@ class Odsx extends Pack {
 	 *              of them, 'fills' copies it into each; 'keeps' when
 	 *              left out.
 	 *
-	 * @param Array $parseOptns Options: 'sheet', 'heads', 'shown', 'merge'.
+	 * @param Array $parseOptions Options: 'sheet', 'heads', 'shown', 'merge'.
 	 * @return Array The envelope, of shape 'sheet'; 'infos' holds the names of all the sheets of the document under 'names', their number under 'count' and, with the 'heads' option, the names of the columns of each sheet read under 'heads'.
 	 *
 	 * @throws ParseError When the archive is not a valid spreadsheet, is protected by a password, the sheet asked for is not in it, or a sheet is too sparse to be laid out.
 	 */
-	protected function readArchv(Array $parseOptns): Array {
-		$this->checkLock();
-		$docuArr = $this->partNodes('content.xml', true, true);
-		$bookArr = $this->findChild($docuArr ?? Array('nodes'=>Array()), Array('office:body', 'office:spreadsheet'));
+	protected function readArchvArray(Array $parseOptions): Array {
+		$this->refuseIfLocked();
+		$docTree = $this->partNodesArray('content.xml', true, true);
+		$bookArr = $this->findChildArray($docTree ?? Array('nodes'=>Array()), Array('office:body', 'office:spreadsheet'));
 		if( $bookArr===null ){
 			throw new ParseError('Invalid archive: the document is not a spreadsheet');
 		}
 		// A sheet is hidden by its style
 		$hideLst = Array();
-		foreach($this->kidsNamed($this->findChild($docuArr, Array('office:automatic-styles')) ?? Array('nodes'=>Array()), 'style:style') as $stlArr){
-			if( strval($this->findChild($stlArr, Array('style:table-properties'))['attrs']['table:display'] ?? '')=='false' ){
+		foreach($this->kidsNamedArray($this->findChildArray($docTree, Array('office:automatic-styles')) ?? Array('nodes'=>Array()), 'style:style') as $stlArr){
+			if( strval($this->findChildArray($stlArr, Array('style:table-properties'))['attrs']['table:display'] ?? '')=='false' ){
 				$hideLst[] = strval($stlArr['attrs']['style:name'] ?? '');
 			}
 		}
-		$tblsLst = $this->kidsNamed($bookArr, 'table:table');
+		$tblsLst = $this->kidsNamedArray($bookArr, 'table:table');
 		$nameLst = Array();
 		$shwnLst = Array();
 		foreach($tblsLst as $tblArr){
 			$nameLst[] = strval($tblArr['attrs']['table:name'] ?? '');
 			$shwnLst[] = !in_array(strval($tblArr['attrs']['table:style-name'] ?? ''), $hideLst, true);
 		}
-		$this->padCount = 0;
+		$this->addedCells = 0;
 		$shetLst = Array();
 		$headSet = Array();
-		foreach($this->pickSheet($nameLst, $shwnLst, $parseOptns) as $shtIdx){
-			$mergLst = Array();
+		foreach($this->pickSheetArray($nameLst, $shwnLst, $parseOptions) as $shtIdx){
+			$mrgList = Array();
 			$headLst = Array();
-			$rowsLst = $this->sheetRows($tblsLst[$shtIdx], $mergLst);
-			$shetLst[] = $this->doneSheet($nameLst[$shtIdx], $rowsLst, Array('shown'=>$shwnLst[$shtIdx], 'merge'=>$mergLst), $parseOptns, $headLst);
-			if( !empty($parseOptns['heads']) ){
+			$rowsLst = $this->sheetRowsArray($tblsLst[$shtIdx], $mrgList);
+			$shetLst[] = $this->doneSheetArray($nameLst[$shtIdx], $rowsLst, Array('shown'=>$shwnLst[$shtIdx], 'merge'=>$mrgList), $parseOptions, $headLst);
+			if( !empty($parseOptions['heads']) ){
 				$headSet[$nameLst[$shtIdx]] = $headLst;
 			}
 		}
-		return $this->makeShape('sheet', $shetLst, Array('names'=>$nameLst, 'count'=>count($nameLst), 'heads'=>$headSet));
+		return $this->makeShapeArray('sheet', $shetLst, Array('names'=>$nameLst, 'count'=>count($nameLst), 'heads'=>$headSet));
 	}
 
 	/**
 	 * Counts the cells added to a sheet, and refuses the sheet when they
 	 * are too many.
 	 *
-	 * @param Int $addedCells Number of cells being added.
+	 * @param Int $addedCellsNb Number of cells being added.
 	 *
 	 * @throws ParseError When the sheet is too sparse to be laid out.
 	 */
-	protected function countPads(Int $addedCells): Void {
-		$this->padCount += max(0, $addedCells);
-		if( $this->padCount>self::PADLIMIT ){
+	protected function countFillCells(Int $addedCellsNb): Void {
+		$this->addedCells += max(0, $addedCellsNb);
+		if( $this->addedCells>self::PADS_MAXI ){
 			throw new ParseError('Invalid spreadsheet: a sheet too sparse to be laid out');
 		}
 	}
@@ -89,16 +89,16 @@ class Odsx extends Pack {
 	/**
 	 * Gives the rows of a table, whatever groups they are written in.
 	 *
-	 * @param Array $nodeValues The table, or a group of its rows.
+	 * @param Array $elementArray The table, or a group of its rows.
 	 * @return Array The elements of the rows, in order.
 	 */
-	protected function rowsOfTbl(Array $nodeValues): Array {
+	protected function rowsOfTableArr(Array $elementArray): Array {
 		$rowsLst = Array();
-		foreach($nodeValues['nodes'] as $chlArr){
+		foreach($elementArray['nodes'] as $chlArr){
 			if( $chlArr['tagnm']=='table:table-row' ){
 				$rowsLst[] = $chlArr;
 			}elseif( in_array($chlArr['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
-				$rowsLst = array_merge($rowsLst, $this->rowsOfTbl($chlArr));
+				$rowsLst = array_merge($rowsLst, $this->rowsOfTableArr($chlArr));
 			}
 		}
 		return $rowsLst;
@@ -109,52 +109,52 @@ class Odsx extends Pack {
 	 * is given as many times; the empty ones ending a row or a sheet,
 	 * which a spreadsheet writes by the thousand, are left out.
 	 *
-	 * @param Array $nodeValues The element of the table.
-	 * @param Array $mergeAreas Receives the areas of merged cells of the table.
+	 * @param Array $elementArray The element of the table.
+	 * @param Array $mergedRanges Receives the areas of merged cells of the table.
 	 * @return Array The rows, each a list of values.
 	 *
 	 * @throws ParseError When the table is too sparse to be laid out.
 	 */
-	protected function sheetRows(Array $nodeValues, Array &$mergeAreas): Array {
+	protected function sheetRowsArray(Array $elementArray, Array &$mergedRanges): Array {
 		$rowsLst = Array();
-		$mergeAreas = Array();
+		$mergedRanges = Array();
 		// Empty rows met, not yet known to be followed by a row holding something
 		$voidRws = 0;
-		foreach($this->rowsOfTbl($nodeValues) as $rowArr){
-			$rowRept = max(1, intval($rowArr['attrs']['table:number-rows-repeated'] ?? 1));
+		foreach($this->rowsOfTableArr($elementArray) as $rowArr){
+			$repeats = max(1, intval($rowArr['attrs']['table:number-rows-repeated'] ?? 1));
 			$cellLst = Array();
 			$voidCls = 0;
 			foreach($rowArr['nodes'] as $celArr){
 				if( $celArr['tagnm']!='table:table-cell' && $celArr['tagnm']!='table:covered-table-cell' ){
 					continue;
 				}
-				$celRept = max(1, intval($celArr['attrs']['table:number-columns-repeated'] ?? 1));
-				$colSpan = intval($celArr['attrs']['table:number-columns-spanned'] ?? 1);
+				$cellRpt = max(1, intval($celArr['attrs']['table:number-columns-repeated'] ?? 1));
+				$clmnSpn = intval($celArr['attrs']['table:number-columns-spanned'] ?? 1);
 				$rowSpan = intval($celArr['attrs']['table:number-rows-spanned'] ?? 1);
-				if( $celArr['tagnm']=='table:table-cell' && ($colSpan>1 || $rowSpan>1) ){
-					$mergeAreas[] = Array('atrow'=>count($rowsLst)+$voidRws, 'atcol'=>count($cellLst)+$voidCls, 'rowsp'=>max(1, $rowSpan), 'colsp'=>max(1, $colSpan));
+				if( $celArr['tagnm']=='table:table-cell' && ($clmnSpn>1 || $rowSpan>1) ){
+					$mergedRanges[] = Array('atrow'=>count($rowsLst)+$voidRws, 'atcol'=>count($cellLst)+$voidCls, 'rowsp'=>max(1, $rowSpan), 'colsp'=>max(1, $clmnSpn));
 				}
 				// A cell covered by a merged area holds nothing
-				$celValu = ($celArr['tagnm']=='table:table-cell') ? $this->cellValue($celArr) : null;
-				if( $celValu===null ){
-					$voidCls += $celRept;
+				$cellVal = ($celArr['tagnm']=='table:table-cell') ? $this->typedCellValue($celArr) : null;
+				if( $cellVal===null ){
+					$voidCls += $cellRpt;
 					continue;
 				}
-				$this->countPads($voidCls+$celRept-1);
+				$this->countFillCells($voidCls+$cellRpt-1);
 				$cellLst = array_pad($cellLst, count($cellLst)+$voidCls, null);
 				$voidCls = 0;
-				for($rptIdx=0; $rptIdx<$celRept; $rptIdx++){
-					$cellLst[] = $celValu;
+				for($rptIdx=0; $rptIdx<$cellRpt; $rptIdx++){
+					$cellLst[] = $cellVal;
 				}
 			}
 			if( empty($cellLst) ){
-				$voidRws += $rowRept;
+				$voidRws += $repeats;
 				continue;
 			}
-			$this->countPads($voidRws+($rowRept-1)*count($cellLst));
+			$this->countFillCells($voidRws+($repeats-1)*count($cellLst));
 			$rowsLst = array_pad($rowsLst, count($rowsLst)+$voidRws, Array());
 			$voidRws = 0;
-			for($rptIdx=0; $rptIdx<$rowRept; $rptIdx++){
+			for($rptIdx=0; $rptIdx<$repeats; $rptIdx++){
 				$rowsLst[] = $cellLst;
 			}
 		}
@@ -164,36 +164,36 @@ class Odsx extends Pack {
 	/**
 	 * Gives the value of a cell, from the type the document gives it.
 	 *
-	 * @param Array $nodeValues The element of the cell.
+	 * @param Array $elementArray The element of the cell.
 	 * @return String|Int|Float|Bool|Null The value; null for an empty cell.
 	 */
-	protected function cellValue(Array $nodeValues): String|Int|Float|Bool|Null {
-		$attrLst = $nodeValues['attrs'];
-		$cellTyp = strval($attrLst['office:value-type'] ?? '');
+	protected function typedCellValue(Array $elementArray): String|Int|Float|Bool|Null {
+		$attrSet = $elementArray['attrs'];
+		$cellTyp = strval($attrSet['office:value-type'] ?? '');
 		$valPrts = Array();
 		if( in_array($cellTyp, Array('float', 'percentage', 'currency')) ){
-			$rawValu = strval($attrLst['office:value'] ?? '');
+			$rawValu = strval($attrSet['office:value'] ?? '');
 			if( !is_numeric($rawValu) ){
 				return null;
 			}
 			return preg_match('/^-?\d{1,18}$/D', $rawValu) ? intval($rawValu) : floatval($rawValu);
 		}
 		if( $cellTyp=='boolean' ){
-			return (strval($attrLst['office:boolean-value'] ?? '')=='true');
+			return (strval($attrSet['office:boolean-value'] ?? '')=='true');
 		}
-		if( $cellTyp=='date' && preg_match('/^(-?\d{4,}-\d\d-\d\d)(?:T(\d\d:\d\d)(:\d\d)?)?/', strval($attrLst['office:date-value'] ?? ''), $valPrts) ){
+		if( $cellTyp=='date' && preg_match('/^(-?\d{4,}-\d\d-\d\d)(?:T(\d\d:\d\d)(:\d\d)?)?/', strval($attrSet['office:date-value'] ?? ''), $valPrts) ){
 			return isset($valPrts[2]) ? $valPrts[1].' '.$valPrts[2].($valPrts[3] ?? ':00') : $valPrts[1];
 		}
-		if( $cellTyp=='time' && preg_match('/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:[.,]\d+)?S)?$/D', strval($attrLst['office:time-value'] ?? ''), $valPrts) ){
+		if( $cellTyp=='time' && preg_match('/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:[.,]\d+)?S)?$/D', strval($attrSet['office:time-value'] ?? ''), $valPrts) ){
 			return sprintf('%02d:%02d:%02d', intval($valPrts[1] ?? 0), intval($valPrts[2] ?? 0), intval($valPrts[3] ?? 0));
 		}
-		if( isset($attrLst['office:string-value']) ){
-			return $attrLst['office:string-value'];
+		if( isset($attrSet['office:string-value']) ){
+			return $attrSet['office:string-value'];
 		}
 		// A text: the paragraphs of the cell, one per line; the notes attached to it are not part of it
 		$paraLst = Array();
-		foreach($this->kidsNamed($nodeValues, 'text:p') as $parArr){
-			$paraLst[] = $this->odfOfText($parArr);
+		foreach($this->kidsNamedArray($elementArray, 'text:p') as $parArr){
+			$paraLst[] = $this->odfPieceAsText($parArr);
 		}
 		if( empty($paraLst) ){
 			return ($cellTyp=='string') ? '' : null;

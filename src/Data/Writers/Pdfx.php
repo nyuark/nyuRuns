@@ -14,7 +14,7 @@ namespace nyu\Data\Writers;
 class Pdfx extends Base {
 
 	// The sizes of paper, by the code that asks for them
-	const SIZELIST = Array('isoa3'=>'A3', 'isoa4'=>'A4', 'isoa5'=>'A5', 'lettr'=>'letter', 'legal'=>'legal');
+	const SIZE_LIST = Array('isoa3'=>'A3', 'isoa4'=>'A4', 'isoa5'=>'A5', 'lettr'=>'letter', 'legal'=>'legal');
 
 	/**
 	 * Writes a content as a PDF document.
@@ -25,16 +25,16 @@ class Pdfx extends Base {
 	 *   'lands' => lays the pages out on their long side;
 	 *   and those of the HTML writer: 'class', 'heads', 'shown'.
 	 *
-	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array $writeOptns Options: 'paper', 'lands', 'class', 'heads', 'shown'.
+	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items'.
+	 * @param Array $writeOptions Options: 'paper', 'lands', 'class', 'heads', 'shown'.
 	 * @return String The bytes of the document.
 	 *
 	 * @throws WriteError When the library or the mbstring extension is missing, the shape is not a known one, the size of paper is not a known one, or the document cannot be laid out.
 	 */
-	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
-		$this->checkShpe($shapedData, Array('block', 'sheet', 'nodes'), 'PDF');
-		$sizeKey = strtolower(strval($writeOptns['paper'] ?? 'isoa4'));
-		if( !isset(self::SIZELIST[$sizeKey]) ){
+	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
+		$this->checkShapeText($dataEnvelope, Array('block', 'sheet', 'nodes'), 'PDF');
+		$sizeKey = strtolower(strval($writeOptions['paper'] ?? 'isoa4'));
+		if( !isset(self::SIZE_LIST[$sizeKey]) ){
 			throw new WriteError('Invalid PDF option: unknown paper '.$sizeKey);
 		}
 		if( !class_exists('\Dompdf\Dompdf') ){
@@ -43,21 +43,21 @@ class Pdfx extends Base {
 		if( !extension_loaded('mbstring') ){
 			throw new WriteError('Writing PDF documents needs the mbstring extension of PHP');
 		}
-		$htmPage = (new Html())->writeData($shapedData, Array('whole'=>true, 'frmat'=>true) + array_intersect_key($writeOptns, array_flip(Array('class', 'heads', 'shown'))));
+		$htmPage = (new Html())->renderDocument($dataEnvelope, Array('whole'=>true, 'frmat'=>true) + array_intersect_key($writeOptions, array_flip(Array('class', 'heads', 'shown'))));
 		try{
-			$libOpts = new \Dompdf\Options();
+			$options = new \Dompdf\Options();
 			// The document is made of what it is given, and of nothing it could go and fetch or run
-			$libOpts->setIsRemoteEnabled(false);
-			$libOpts->setIsPhpEnabled(false);
-			$libOpts->setIsJavascriptEnabled(false);
-			$libOpts->setAllowedProtocols(Array());
+			$options->setIsRemoteEnabled(false);
+			$options->setIsPhpEnabled(false);
+			$options->setIsJavascriptEnabled(false);
+			$options->setAllowedProtocols(Array());
 			// A font holding the accents is the one a text falls back on; what the library keeps of its fonts goes to the temporary folder
-			$libOpts->setDefaultFont('DejaVu Sans');
-			$libOpts->setFontCache(sys_get_temp_dir());
-			$libOpts->setTempDir(sys_get_temp_dir());
-			$pdfDocu = new \Dompdf\Dompdf($libOpts);
+			$options->setDefaultFont('DejaVu Sans');
+			$options->setFontCache(sys_get_temp_dir());
+			$options->setTempDir(sys_get_temp_dir());
+			$pdfDocu = new \Dompdf\Dompdf($options);
 			$pdfDocu->loadHtml($htmPage, 'UTF-8');
-			$pdfDocu->setPaper(self::SIZELIST[$sizeKey], empty($writeOptns['lands']) ? 'portrait' : 'landscape');
+			$pdfDocu->setPaper(self::SIZE_LIST[$sizeKey], empty($writeOptions['lands']) ? 'portrait' : 'landscape');
 			$pdfDocu->render();
 			return strval($pdfDocu->output());
 		}catch( \Throwable $e ){

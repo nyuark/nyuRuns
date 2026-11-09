@@ -29,44 +29,44 @@ namespace nyu\Data;
 class Shape {
 
 	// Kinds of block that carry text of their own
-	const TEXTLIST = Array('headr', 'parag', 'entry', 'tcell', 'quote', 'codes', 'image', 'fnote');
+	const TEXT_LIST = Array('headr', 'parag', 'entry', 'tcell', 'quote', 'codes', 'image', 'fnote');
 	// Kinds of block that only hold other blocks, or nothing
-	const HOLDLIST = Array('lists', 'table', 'thead', 'tbrow', 'rules');
+	const HOLD_LIST = Array('lists', 'table', 'thead', 'tbrow', 'rules');
 	// Formatting a span can carry
-	const MARKLIST = Array('bold', 'ital', 'undr', 'strk', 'code');
+	const MARK_LIST = Array('bold', 'ital', 'undr', 'strk', 'code');
 	// Kinds of address a link or an image may point to, besides a relative one
-	const LINKLIST = Array('http', 'https', 'mailto', 'tel');
+	const LINK_LIST = Array('http', 'https', 'mailto', 'tel');
 
 	/**
 	 * Keeps an address only when it is safe to follow: a relative one, or
 	 * one of the kinds of LINKLIST. An address that would run a script
 	 * (javascript:, data:, ...) is dropped.
 	 *
-	 * @param String $linkTarget The address, as written in a document.
+	 * @param String $linkGoalText The address, as written in a document.
 	 * @return String The address, '' when it is not accepted.
 	 */
-	public static function cleanLink(String $linkTarget): String {
-		$trimLnk = trim($linkTarget);
+	public static function tidyLinkString(String $linkGoalText): String {
+		$trmLink = trim($linkGoalText);
 		// Spaces and control characters inside an address are how a forbidden kind is hidden
-		$bareLnk = preg_replace('/[\x00-\x20]+/', '', $trimLnk);
-		$kindPrt = Array();
-		if( preg_match('/^([a-z][a-z0-9+.\-]*):/i', $bareLnk, $kindPrt) ){
-			return in_array(strtolower($kindPrt[1]), self::LINKLIST) ? $trimLnk : '';
+		$bareLnk = preg_replace('/[\x00-\x20]+/', '', $trmLink);
+		$kndPart = Array();
+		if( preg_match('/^([a-z][a-z0-9+.\-]*):/i', $bareLnk, $kndPart) ){
+			return in_array(strtolower($kndPart[1]), self::LINK_LIST) ? $trmLink : '';
 		}
-		return $trimLnk;
+		return $trmLink;
 	}
 
 	/**
 	 * Builds a piece of text.
 	 *
-	 * @param String $textString The text.
-	 * @param Array  $marksArray Its formatting, among bold, ital, undr, strk and code; anything else is left out.
-	 * @param String $linkTarget The address it points to, '' when it is not a link.
-	 * @param String $fieldCodes What the text stands for when its document works it out, '' for plain text.
+	 * @param String $templateText The text.
+	 * @param Array  $runFormatSet Its formatting, among bold, ital, undr, strk and code; anything else is left out.
+	 * @param String $linkGoalText The address it points to, '' when it is not a link.
+	 * @param String $fldCodesText What the text stands for when its document works it out, '' for plain text.
 	 * @return Array The span: 'texts', 'marks', 'links', 'field'.
 	 */
-	public static function makeASpan(String $textString, Array $marksArray=Array(), String $linkTarget='', String $fieldCodes=''): Array {
-		return Array('texts'=>$textString, 'marks'=>array_values(array_intersect(self::MARKLIST, $marksArray)), 'links'=>$linkTarget, 'field'=>$fieldCodes);
+	public static function makeASpanArray(String $templateText, Array $runFormatSet=Array(), String $linkGoalText='', String $fldCodesText=''): Array {
+		return Array('texts'=>$templateText, 'marks'=>array_values(array_intersect(self::MARK_LIST, $runFormatSet)), 'links'=>$linkGoalText, 'field'=>$fldCodesText);
 	}
 
 	/**
@@ -74,12 +74,12 @@ class Shape {
 	 * neighbours of the same formatting and the same address become one.
 	 * A field is never joined with what stands beside it.
 	 *
-	 * @param Array $spansArray The spans.
+	 * @param Array $textSpanList The spans.
 	 * @return Array The tidied spans.
 	 */
-	public static function joinSpans(Array $spansArray): Array {
+	public static function joinSpansArray(Array $textSpanList): Array {
 		$joinLst = Array();
-		foreach($spansArray as $oneSpn){
+		foreach($textSpanList as $oneSpn){
 			if( $oneSpn['texts']==='' ){
 				continue;
 			}
@@ -103,59 +103,59 @@ class Shape {
 	 *   - a list has no 'plain': its 'attrs' give its number of entries
 	 *     ('lines') and the size of its text in bytes ('bytes').
 	 *
-	 * @param String $blockLabel Kind of the block: headr, parag, lists, entry, table, thead, tbrow, tcell, quote, codes, image, rules or fnote.
-	 * @param Array  $spansArray Its own text, as spans.
-	 * @param Array  $itemsArray The blocks it contains.
-	 * @param Array  $attrsArray What is particular to it.
+	 * @param String $blckLabelTxt Kind of the block: headr, parag, lists, entry, table, thead, tbrow, tcell, quote, codes, image, rules or fnote.
+	 * @param Array  $textSpanList Its own text, as spans.
+	 * @param Array  $paragraphSet The blocks it contains.
+	 * @param Array  $attributeSet What is particular to it.
 	 * @return Array The block: 'block', 'attrs', 'spans', 'items', 'plain'.
 	 *
 	 * @throws \RuntimeException When the kind is not a known one.
 	 */
-	public static function makeBlock(String $blockLabel, Array $spansArray=Array(), Array $itemsArray=Array(), Array $attrsArray=Array()): Array {
-		if( !in_array($blockLabel, self::TEXTLIST) && !in_array($blockLabel, self::HOLDLIST) ){
-			throw new \RuntimeException('Unknown kind of block: '.$blockLabel);
+	public static function makeBlockArray(String $blckLabelTxt, Array $textSpanList=Array(), Array $paragraphSet=Array(), Array $attributeSet=Array()): Array {
+		if( !in_array($blckLabelTxt, self::TEXT_LIST) && !in_array($blckLabelTxt, self::HOLD_LIST) ){
+			throw new \RuntimeException('Unknown kind of block: '.$blckLabelTxt);
 		}
-		$itemsArray = array_values($itemsArray);
-		$plainTx = implode('', array_column($spansArray, 'texts'));
-		if( $blockLabel=='thead' || $blockLabel=='tbrow' ){
-			$plainTx = implode("\t", array_column($itemsArray, 'plain'));
-		}elseif( $blockLabel=='table' ){
+		$paragraphSet = array_values($paragraphSet);
+		$plainTx = implode('', array_column($textSpanList, 'texts'));
+		if( $blckLabelTxt=='thead' || $blckLabelTxt=='tbrow' ){
+			$plainTx = implode("\t", array_column($paragraphSet, 'plain'));
+		}elseif( $blckLabelTxt=='table' ){
 			$headLst = Array();
 			$colsMax = 0;
-			$lineNbr = 0;
-			foreach($itemsArray as $rowBlk){
-				$colsMax = max($colsMax, count($rowBlk['items']));
-				if( $rowBlk['block']=='thead' ){
-					$headLst = empty($headLst) ? array_column($rowBlk['items'], 'plain') : $headLst;
+			$lineNum = 0;
+			foreach($paragraphSet as $oneRow){
+				$colsMax = max($colsMax, count($oneRow['items']));
+				if( $oneRow['block']=='thead' ){
+					$headLst = empty($headLst) ? array_column($oneRow['items'], 'plain') : $headLst;
 				}else{
-					$lineNbr++;
+					$lineNum++;
 				}
 			}
 			$plainTx = '';
-			$attrsArray = Array('heads'=>$headLst, 'colms'=>$colsMax, 'lines'=>$lineNbr, 'bytes'=>self::textBytes($itemsArray)) + $attrsArray;
-		}elseif( $blockLabel=='lists' ){
+			$attributeSet = Array('heads'=>$headLst, 'colms'=>$colsMax, 'lines'=>$lineNum, 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
+		}elseif( $blckLabelTxt=='lists' ){
 			$plainTx = '';
-			$attrsArray = Array('lines'=>count($itemsArray), 'bytes'=>self::textBytes($itemsArray)) + $attrsArray;
+			$attributeSet = Array('lines'=>count($paragraphSet), 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
 		}
-		return Array('block'=>$blockLabel, 'attrs'=>$attrsArray, 'spans'=>array_values($spansArray), 'items'=>$itemsArray, 'plain'=>$plainTx);
+		return Array('block'=>$blckLabelTxt, 'attrs'=>$attributeSet, 'spans'=>array_values($textSpanList), 'items'=>$paragraphSet, 'plain'=>$plainTx);
 	}
 
 	/**
 	 * Counts the bytes of text some blocks hold, at any depth: the text
 	 * alone, without what separates or formats it.
 	 *
-	 * @param Array $blocksList The blocks.
+	 * @param Array $bookBlockSet The blocks.
 	 * @return Int The number of bytes.
 	 */
-	public static function textBytes(Array $blocksList): Int {
-		$byteNbr = 0;
-		foreach($blocksList as $oneBlk){
+	public static function textBytesCount(Array $bookBlockSet): Int {
+		$byteNum = 0;
+		foreach($bookBlockSet as $oneBlk){
 			foreach($oneBlk['spans'] as $oneSpn){
-				$byteNbr += strlen($oneSpn['texts']);
+				$byteNum += strlen($oneSpn['texts']);
 			}
-			$byteNbr += self::textBytes($oneBlk['items']);
+			$byteNum += self::textBytesCount($oneBlk['items']);
 		}
-		return $byteNbr;
+		return $byteNum;
 	}
 
 	/**
@@ -163,32 +163,32 @@ class Shape {
 	 * of a list and the rows of a table one per line, the cells of a row
 	 * separated by tabs.
 	 *
-	 * @param Array $blockArray The block.
+	 * @param Array $contentBlock The block.
 	 * @return String Its text, without formatting.
 	 */
-	public static function plainText(Array $blockArray): String {
-		$ownText = implode('', array_column($blockArray['spans'], 'texts'));
-		if( empty($blockArray['items']) ){
+	public static function blockPlainText(Array $contentBlock): String {
+		$ownText = implode('', array_column($contentBlock['spans'], 'texts'));
+		if( empty($contentBlock['items']) ){
 			return $ownText;
 		}
 		$chldTxt = Array();
-		foreach($blockArray['items'] as $oneBlk){
-			$chldTxt[] = self::plainText($oneBlk);
+		foreach($contentBlock['items'] as $oneBlk){
+			$chldTxt[] = self::blockPlainText($oneBlk);
 		}
-		$joinTxt = implode(in_array($blockArray['block'], Array('thead', 'tbrow')) ? "\t" : "\n", $chldTxt);
+		$joinTxt = implode(in_array($contentBlock['block'], Array('thead', 'tbrow')) ? "\t" : "\n", $chldTxt);
 		return ($ownText==='') ? $joinTxt : $ownText."\n".$joinTxt;
 	}
 
 	/**
 	 * Gives the whole text of a document: its blocks, one after the other.
 	 *
-	 * @param Array $blocksList The blocks of the document.
+	 * @param Array $bookBlockSet The blocks of the document.
 	 * @return String The text, a blank line between two blocks.
 	 */
-	public static function wholeText(Array $blocksList): String {
+	public static function documentAsText(Array $bookBlockSet): String {
 		$blckTxt = Array();
-		foreach($blocksList as $oneBlk){
-			$blckTxt[] = self::plainText($oneBlk);
+		foreach($bookBlockSet as $oneBlk){
+			$blckTxt[] = self::blockPlainText($oneBlk);
 		}
 		return implode("\n\n", $blckTxt);
 	}
@@ -197,15 +197,15 @@ class Shape {
 	 * Gives a table as a plain grid: its rows, each a list of the texts of
 	 * its cells. The header rows come first, like the others.
 	 *
-	 * @param Array $tableBlock A block of kind 'table'.
+	 * @param Array $tableBlckArr A block of kind 'table'.
 	 * @return Array The rows, each a list of texts.
 	 */
-	public static function tableGrid(Array $tableBlock): Array {
+	public static function tableGridArray(Array $tableBlckArr): Array {
 		$gridRws = Array();
-		foreach($tableBlock['items'] as $rowBlk){
+		foreach($tableBlckArr['items'] as $oneRow){
 			$cellTxt = Array();
-			foreach($rowBlk['items'] as $celBlk){
-				$cellTxt[] = self::plainText($celBlk);
+			foreach($oneRow['items'] as $celBlk){
+				$cellTxt[] = self::blockPlainText($celBlk);
 			}
 			$gridRws[] = $cellTxt;
 		}
@@ -218,34 +218,34 @@ class Shape {
 	 * title, of level 0. A section holds the blocks that follow its
 	 * heading, and the sections of a deeper level that follow them.
 	 *
-	 * @param Array $blocksList The blocks of the document, in order.
+	 * @param Array $bookBlockSet The blocks of the document, in order.
 	 * @return Array The sections, each with its 'title', its 'level', the 'attrs' of its heading, its own 'items' and its sub-sections under 'nodes'.
 	 */
-	public static function bySection(Array $blocksList): Array {
-		$rootSct = Array('title'=>'', 'level'=>0, 'attrs'=>Array(), 'items'=>Array(), 'nodes'=>Array());
+	public static function bySectionArray(Array $bookBlockSet): Array {
+		$rotSctn = Array('title'=>'', 'level'=>0, 'attrs'=>Array(), 'items'=>Array(), 'nodes'=>Array());
 		// The sections being filled, from the outermost to the innermost
-		$openSct = Array(&$rootSct);
-		foreach($blocksList as $oneBlk){
+		$opnSctn = Array(&$rotSctn);
+		foreach($bookBlockSet as $oneBlk){
 			if( $oneBlk['block']!=='headr' ){
-				$openSct[count($openSct)-1]['items'][] = $oneBlk;
+				$opnSctn[count($opnSctn)-1]['items'][] = $oneBlk;
 				continue;
 			}
-			$hdrLevl = max(1, intval($oneBlk['attrs']['level'] ?? 1));
-			while( count($openSct)>1 && $openSct[count($openSct)-1]['level']>=$hdrLevl ){
-				array_pop($openSct);
+			$headLvl = max(1, intval($oneBlk['attrs']['level'] ?? 1));
+			while( count($opnSctn)>1 && $opnSctn[count($opnSctn)-1]['level']>=$headLvl ){
+				array_pop($opnSctn);
 			}
-			$newSect = Array('title'=>$oneBlk['plain'], 'level'=>$hdrLevl, 'attrs'=>$oneBlk['attrs'], 'items'=>Array(), 'nodes'=>Array());
-			$prntIdx = count($openSct)-1;
-			$openSct[$prntIdx]['nodes'][] = $newSect;
-			$openSct[] = &$openSct[$prntIdx]['nodes'][count($openSct[$prntIdx]['nodes'])-1];
+			$newSctn = Array('title'=>$oneBlk['plain'], 'level'=>$headLvl, 'attrs'=>$oneBlk['attrs'], 'items'=>Array(), 'nodes'=>Array());
+			$ownerAt = count($opnSctn)-1;
+			$opnSctn[$ownerAt]['nodes'][] = $newSctn;
+			$opnSctn[] = &$opnSctn[$ownerAt]['nodes'][count($opnSctn[$ownerAt]['nodes'])-1];
 		}
 		// A document that starts with a heading has no untitled section
-		if( empty($rootSct['items']) ){
-			return $rootSct['nodes'];
+		if( empty($rotSctn['items']) ){
+			return $rotSctn['nodes'];
 		}
-		$leadSct = $rootSct;
-		$leadSct['nodes'] = Array();
-		return array_merge(Array($leadSct), $rootSct['nodes']);
+		$ledSctn = $rotSctn;
+		$ledSctn['nodes'] = Array();
+		return array_merge(Array($ledSctn), $rotSctn['nodes']);
 	}
 
 	/**
@@ -257,17 +257,17 @@ class Shape {
 	 *              counted from 0, and the rows and columns it covers
 	 *              under 'rowsp' and 'colsp'.
 	 *
-	 * @param String $sheetTitle Name of the sheet.
-	 * @param Array  $cellsArray Its rows, each a list of values.
-	 * @param Array  $attrsArray What is particular to it; a shown sheet without merged cells when left out.
+	 * @param String $sheetHeading Name of the sheet.
+	 * @param Array  $sheetRowList Its rows, each a list of values.
+	 * @param Array  $attributeSet What is particular to it; a shown sheet without merged cells when left out.
 	 * @return Array The sheet: 'title', 'attrs', 'cells'.
 	 */
-	public static function makeSheet(String $sheetTitle, Array $cellsArray, Array $attrsArray=Array()): Array {
+	public static function makeSheetArray(String $sheetHeading, Array $sheetRowList, Array $attributeSet=Array()): Array {
 		$rowsLst = Array();
-		foreach($cellsArray as $oneRow){
+		foreach($sheetRowList as $oneRow){
 			$rowsLst[] = array_values((array)$oneRow);
 		}
-		return Array('title'=>$sheetTitle, 'attrs'=>$attrsArray + Array('shown'=>true, 'merge'=>Array()), 'cells'=>$rowsLst);
+		return Array('title'=>$sheetHeading, 'attrs'=>$attributeSet + Array('shown'=>true, 'merge'=>Array()), 'cells'=>$rowsLst);
 	}
 
 }

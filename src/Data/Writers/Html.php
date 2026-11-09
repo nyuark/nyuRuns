@@ -16,17 +16,17 @@ use nyu\Data\Shape;
 class Html extends Base {
 
 	// HTML element of each formatting, from the outermost to the innermost
-	const MARKTAGS = Array('bold'=>'strong', 'ital'=>'em', 'undr'=>'u', 'strk'=>'s', 'code'=>'code');
+	const MARK_TAGS = Array('bold'=>'strong', 'ital'=>'em', 'undr'=>'u', 'strk'=>'s', 'code'=>'code');
 	// The alignments, as a style sheet writes them
-	const ALGNLIST = Array('lefts'=>'left', 'right'=>'right', 'centr'=>'center', 'justf'=>'justify');
+	const ALGN_LIST = Array('lefts'=>'left', 'right'=>'right', 'centr'=>'center', 'justf'=>'justify');
 
 	// What each style of the content gives, by its name, and whether the styles are written as classes
-	protected $frmtList = Array();
-	protected $withClss = true;
+	protected $formatList = Array();
+	protected $withClsFlg = true;
 	// Whether the content is written as XHTML
-	protected $xhtmlOut = false;
+	protected $writeXhtml = false;
 	// The anchors given to the headings of the page, null when they are not written
-	protected $anchList = null;
+	protected $anchorList = null;
 
 	/**
 	 * Writes a content as HTML.
@@ -49,62 +49,62 @@ class Html extends Base {
 	 *              written for it lead to the same places; a heading that
 	 *              has its own id keeps it.
 	 *
-	 * @param Array $shapedData The envelope: 'shape', 'infos' and 'items'.
-	 * @param Array $writeOptns Options: 'whole', 'class', 'frmat', 'heads', 'shown', 'xhtml', 'anchr'.
+	 * @param Array $dataEnvelope The envelope: 'shape', 'infos' and 'items'.
+	 * @param Array $writeOptions Options: 'whole', 'class', 'frmat', 'heads', 'shown', 'xhtml', 'anchr'.
 	 * @return String The HTML.
 	 *
 	 * @throws WriteError When the shape is not 'block', 'sheet' or 'nodes', or a block is of an unknown kind.
 	 */
-	public function writeData(Array $shapedData, Array $writeOptns=Array()): String {
-		$shapeAs = $this->checkShpe($shapedData, Array('block', 'sheet', 'nodes'), 'HTML');
-		$itemLst = $shapedData['items'] ?? Array();
-		$infoArr = (array)($shapedData['infos'] ?? Array());
-		$this->frmtList = is_array($infoArr['frmat'] ?? null) ? $infoArr['frmat'] : Array();
-		$this->withClss = !isset($writeOptns['class']) || !empty($writeOptns['class']);
-		$this->xhtmlOut = !empty($writeOptns['xhtml']);
-		$this->anchList = empty($writeOptns['anchr']) ? null : Array();
+	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
+		$shapeAs = $this->checkShapeText($dataEnvelope, Array('block', 'sheet', 'nodes'), 'HTML');
+		$itemLst = $dataEnvelope['items'] ?? Array();
+		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
+		$this->formatList = is_array($infoArr['frmat'] ?? null) ? $infoArr['frmat'] : Array();
+		$this->withClsFlg = !isset($writeOptions['class']) || !empty($writeOptions['class']);
+		$this->writeXhtml = !empty($writeOptions['xhtml']);
+		$this->anchorList = empty($writeOptions['anchr']) ? null : Array();
 		if( $shapeAs=='block' ){
-			$htmBody = $this->blocksOut((array)$itemLst);
+			$htmBody = $this->writeAllBlocks((array)$itemLst);
 		}elseif( $shapeAs=='sheet' ){
-			$htmBody = $this->sheetsOut((array)$itemLst, !empty($writeOptns['heads']), !empty($writeOptns['shown']));
+			$htmBody = $this->writeAllSheets((array)$itemLst, !empty($writeOptions['heads']), !empty($writeOptions['shown']));
 		}else{
-			$htmBody = '<pre>'.$this->escapeTxt(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
+			$htmBody = '<pre>'.$this->escapeXmlValue(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
 		}
-		$isWhole = !empty($writeOptns['whole']);
+		$isWhole = !empty($writeOptions['whole']);
 		$pageTop = '';
 		$pageEnd = '';
 		if( $isWhole && $shapeAs=='block' ){
 			// The headers and the footers of the pages of a document stand once, around its content
-			$pageTop = empty($infoArr['phead']) ? '' : "<header>\n".$this->blocksOut((array)$infoArr['phead'])."</header>\n";
-			$pageEnd = empty($infoArr['pfoot']) ? '' : "<footer>\n".$this->blocksOut((array)$infoArr['pfoot'])."</footer>\n";
+			$pageTop = empty($infoArr['phead']) ? '' : "<header>\n".$this->writeAllBlocks((array)$infoArr['phead'])."</header>\n";
+			$pageEnd = empty($infoArr['pfoot']) ? '' : "<footer>\n".$this->writeAllBlocks((array)$infoArr['pfoot'])."</footer>\n";
 		}
-		$stylHtm = (isset($writeOptns['frmat']) ? !empty($writeOptns['frmat']) : $isWhole) ? $this->stylesOut(strpos($pageTop.$htmBody.$pageEnd, '<hr class="break"')!==false) : '';
-		$this->frmtList = Array();
-		$this->anchList = null;
+		$cssText = (isset($writeOptions['frmat']) ? !empty($writeOptions['frmat']) : $isWhole) ? $this->writeCssStyles(strpos($pageTop.$htmBody.$pageEnd, '<hr class="break"')!==false) : '';
+		$this->formatList = Array();
+		$this->anchorList = null;
 		if( !$isWhole ){
-			return $stylHtm.$htmBody;
+			return $cssText.$htmBody;
 		}
-		$langAtr = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($infoArr['langg'] ?? '')) ? ' lang="'.$infoArr['langg'].'"' : '';
-		if( $this->xhtmlOut ){
+		$lngAttr = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($infoArr['langg'] ?? '')) ? ' lang="'.$infoArr['langg'].'"' : '';
+		if( $this->writeXhtml ){
 			// An XML reader is told what the page is written in, and in what language, its own way
-			$langAtr = ' xmlns="http://www.w3.org/1999/xhtml"'.$langAtr.str_replace(' lang=', ' xml:lang=', $langAtr);
-			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$langAtr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeTxt(strval($infoArr['title'] ?? ''))."</title>\n".$stylHtm."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+			$lngAttr = ' xmlns="http://www.w3.org/1999/xhtml"'.$lngAttr.str_replace(' lang=', ' xml:lang=', $lngAttr);
+			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeXmlValue(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
 		}
-		return "<!DOCTYPE html>\n<html".$langAtr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeTxt(strval($infoArr['title'] ?? ''))."</title>\n".$stylHtm."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+		return "<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeXmlValue(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
 	}
 
 	/**
 	 * Escapes a text for HTML, or for XHTML, in content or in an attribute.
 	 *
-	 * @param String $textString The text.
+	 * @param String $templateText The text.
 	 * @return String The text, safe to write.
 	 */
-	protected function escapeTxt(String $textString): String {
+	protected function escapeXmlValue(String $templateText): String {
 		// XHTML is XML: what XML cannot hold is left out, as for any part of a document made of it
-		if( $this->xhtmlOut ){
-			return parent::escapeTxt($textString);
+		if( $this->writeXhtml ){
+			return parent::escapeXmlValue($templateText);
 		}
-		return htmlspecialchars($textString, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+		return htmlspecialchars($templateText, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
 	}
 
 	/**
@@ -113,23 +113,23 @@ class Html extends Base {
 	 *
 	 * @return String The end of the element.
 	 */
-	protected function closeVoid(): String {
-		return $this->xhtmlOut ? '/>' : '>';
+	protected function shutVoidString(): String {
+		return $this->writeXhtml ? '/>' : '>';
 	}
 
 	/**
 	 * Gives the class a style is written as: the one the content tells
 	 * for it, when it is fit for a style sheet, or one made of its name.
 	 *
-	 * @param String $styleNames Name of the style.
+	 * @param String $styleNameTxt Name of the style.
 	 * @return String The class, '' when the name gives none.
 	 */
-	protected function classOfIt(String $styleNames): String {
-		$toldCls = strval($this->frmtList[$styleNames]['class'] ?? '');
+	protected function clssOfItString(String $styleNameTxt): String {
+		$toldCls = strval($this->formatList[$styleNameTxt]['class'] ?? '');
 		if( preg_match('/^[a-z][a-z0-9\-]*$/D', $toldCls) ){
 			return $toldCls;
 		}
-		$madeCls = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($styleNames)), '-');
+		$madeCls = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($styleNameTxt)), '-');
 		return ($madeCls==='') ? '' : (preg_match('/^[a-z]/', $madeCls) ? $madeCls : 's-'.$madeCls);
 	}
 
@@ -138,15 +138,15 @@ class Html extends Base {
 	 * value is checked before it is written: a font is a plain name, a
 	 * size a number, a colour six digits.
 	 *
-	 * @param Bool $withBreaks Whether the content holds page breaks.
+	 * @param Bool $hasPageBreak Whether the content holds page breaks.
 	 * @return String The style element, '' when there is nothing to write in it.
 	 */
-	protected function stylesOut(Bool $withBreaks): String {
+	protected function writeCssStyles(Bool $hasPageBreak): String {
 		$ruleLst = Array();
-		foreach($this->frmtList as $stlNme=>$stlSet){
-			$stlClss = $this->classOfIt(strval($stlNme));
+		foreach($this->formatList as $oneNme=>$stlSet){
+			$stylCls = $this->clssOfItString(strval($oneNme));
 			$propLst = Array();
-			if( !is_array($stlSet) || $stlClss==='' ){
+			if( !is_array($stlSet) || $stylCls==='' ){
 				continue;
 			}
 			if( preg_match('/^[\p{L}\p{N} \-_.]{1,80}$/Du', strval($stlSet['fonts'] ?? '')) ){
@@ -168,15 +168,15 @@ class Html extends Base {
 			if( in_array('undr', $markLst) || in_array('strk', $markLst) ){
 				$propLst[] = 'text-decoration:'.trim((in_array('undr', $markLst) ? 'underline ' : '').(in_array('strk', $markLst) ? 'line-through' : ''));
 			}
-			if( isset(self::ALGNLIST[strval($stlSet['align'] ?? '')]) ){
-				$propLst[] = 'text-align:'.self::ALGNLIST[$stlSet['align']];
+			if( isset(self::ALGN_LIST[strval($stlSet['align'] ?? '')]) ){
+				$propLst[] = 'text-align:'.self::ALGN_LIST[$stlSet['align']];
 			}
 			if( !empty($propLst) ){
-				$ruleLst[] = '.'.$stlClss.'{'.implode(';', $propLst).'}';
+				$ruleLst[] = '.'.$stylCls.'{'.implode(';', $propLst).'}';
 			}
 		}
 		// A page break shows as nothing on a screen, and starts a new page on paper
-		if( $withBreaks ){
+		if( $hasPageBreak ){
 			$ruleLst[] = 'hr.break{border:0;break-after:page;page-break-after:always}';
 		}
 		return empty($ruleLst) ? '' : "<style>\n".implode("\n", $ruleLst)."\n</style>\n";
@@ -186,21 +186,21 @@ class Html extends Base {
 	 * Writes what is particular to a block as attributes: its id, the
 	 * class of its style, and its alignment when it has one of its own.
 	 *
-	 * @param Array $blockArray The block.
+	 * @param Array $contentBlock The block.
 	 * @return String The attributes, each with its leading space, or ''.
 	 */
-	protected function blockAttr(Array $blockArray): String {
-		$attrLst = (array)($blockArray['attrs'] ?? Array());
-		$tagIdnt = strval($attrLst['tagid'] ?? '');
-		$attrHtm = preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' id="'.$this->escapeTxt($tagIdnt).'"' : '';
-		$stlClss = ($this->withClss && strval($attrLst['style'] ?? '')!=='') ? $this->classOfIt(strval($attrLst['style'])) : '';
-		if( $stlClss!=='' ){
-			$attrHtm .= ' class="'.$stlClss.'"';
+	protected function blockAttribute(Array $contentBlock): String {
+		$attrSet = (array)($contentBlock['attrs'] ?? Array());
+		$tagIdnt = strval($attrSet['tagid'] ?? '');
+		$htmAttr = preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' id="'.$this->escapeXmlValue($tagIdnt).'"' : '';
+		$stylCls = ($this->withClsFlg && strval($attrSet['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrSet['style'])) : '';
+		if( $stylCls!=='' ){
+			$htmAttr .= ' class="'.$stylCls.'"';
 		}
-		if( isset(self::ALGNLIST[strval($attrLst['align'] ?? '')]) ){
-			$attrHtm .= ' style="text-align:'.self::ALGNLIST[$attrLst['align']].'"';
+		if( isset(self::ALGN_LIST[strval($attrSet['align'] ?? '')]) ){
+			$htmAttr .= ' style="text-align:'.self::ALGN_LIST[$attrSet['align']].'"';
 		}
-		return $attrHtm;
+		return $htmAttr;
 	}
 
 	/**
@@ -209,18 +209,18 @@ class Html extends Base {
 	 * space, a dash or an underscore, its spaces as dashes. A text already
 	 * given in the page is followed by -1, -2, and so on.
 	 *
-	 * @param String $headngText The text of the heading, without its formatting.
+	 * @param String $plainHeading The text of the heading, without its formatting.
 	 * @return String The anchor, unique in the page.
 	 */
-	protected function slugTitle(String $headngText): String {
-		$slugTxt = str_replace(' ', '-', strval(preg_replace('/[^\p{L}\p{N}\- _]/u', '', mb_strtolower(trim($headngText)))));
+	protected function slugHeadingTxt(String $plainHeading): String {
+		$slugTxt = str_replace(' ', '-', strval(preg_replace('/[^\p{L}\p{N}\- _]/u', '', mb_strtolower(trim($plainHeading)))));
 		$fullSlg = $slugTxt;
-		$sameNbr = 0;
-		while( in_array($fullSlg, (array)$this->anchList, true) ){
-			$sameNbr++;
-			$fullSlg = $slugTxt.'-'.$sameNbr;
+		$sameNum = 0;
+		while( in_array($fullSlg, (array)$this->anchorList, true) ){
+			$sameNum++;
+			$fullSlg = $slugTxt.'-'.$sameNum;
 		}
-		$this->anchList[] = $fullSlg;
+		$this->anchorList[] = $fullSlg;
 		return $fullSlg;
 	}
 
@@ -230,24 +230,24 @@ class Html extends Base {
 	 * field tells what it stands for, so that it can be found and
 	 * replaced; the reference to a note is raised.
 	 *
-	 * @param Array $spansArray The spans.
+	 * @param Array $textSpanList The spans.
 	 * @return String The HTML.
 	 */
-	protected function inlineOut(Array $spansArray): String {
+	protected function writeInlineTxt(Array $textSpanList): String {
 		$htmText = '';
-		foreach($spansArray as $oneSpn){
-			$spanHtm = str_replace("\n", '<br'.$this->closeVoid()."\n", $this->escapeTxt(strval($oneSpn['texts'] ?? '')));
-			foreach(array_reverse(self::MARKTAGS) as $mrkKey=>$mrkTag){
+		foreach($textSpanList as $oneSpn){
+			$spanHtm = str_replace("\n", '<br'.$this->shutVoidString()."\n", $this->escapeXmlValue(strval($oneSpn['texts'] ?? '')));
+			foreach(array_reverse(self::MARK_TAGS) as $mrkKey=>$mrkTag){
 				if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
 					$spanHtm = '<'.$mrkTag.'>'.$spanHtm.'</'.$mrkTag.'>';
 				}
 			}
 			if( strval($oneSpn['field'] ?? '')!=='' ){
-				$spanHtm = '<span data-field="'.$this->escapeTxt(strval($oneSpn['field'])).'">'.$spanHtm.'</span>';
+				$spanHtm = '<span data-field="'.$this->escapeXmlValue(strval($oneSpn['field'])).'">'.$spanHtm.'</span>';
 			}
-			$linkAdr = Shape::cleanLink(strval($oneSpn['links'] ?? ''));
+			$linkAdr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
 			if( $linkAdr!=='' ){
-				$spanHtm = '<a href="'.$this->escapeTxt($linkAdr).'">'.$spanHtm.'</a>';
+				$spanHtm = '<a href="'.$this->escapeXmlValue($linkAdr).'">'.$spanHtm.'</a>';
 			}
 			// The reference to a note, in this page or in another
 			if( preg_match('/^[^#]*#[fe]note\d+$/D', $linkAdr) ){
@@ -262,75 +262,75 @@ class Html extends Base {
 	 * Writes what an entry, a cell, a quote or a note holds: its own
 	 * text, then the blocks it contains.
 	 *
-	 * @param Array $blockArray The block.
+	 * @param Array $contentBlock The block.
 	 * @return String The HTML.
 	 */
-	protected function insideOut(Array $blockArray): String {
-		$ownHtml = $this->inlineOut($blockArray['spans']);
-		if( empty($blockArray['items']) ){
+	protected function innerOutString(Array $contentBlock): String {
+		$ownHtml = $this->writeInlineTxt($contentBlock['spans']);
+		if( empty($contentBlock['items']) ){
 			return $ownHtml;
 		}
-		return $ownHtml."\n".$this->blocksOut($blockArray['items']);
+		return $ownHtml."\n".$this->writeAllBlocks($contentBlock['items']);
 	}
 
 	/**
 	 * Writes a list of blocks, one after the other.
 	 *
-	 * @param Array $blocksList The blocks.
+	 * @param Array $bookBlockSet The blocks.
 	 * @return String The HTML.
 	 *
 	 * @throws WriteError When a block is of an unknown kind.
 	 */
-	protected function blocksOut(Array $blocksList): String {
+	protected function writeAllBlocks(Array $bookBlockSet): String {
 		$htmText = '';
-		foreach($blocksList as $oneBlk){
+		foreach($bookBlockSet as $oneBlk){
 			$blckKnd = strval($oneBlk['block'] ?? '');
-			$blckAtr = $this->blockAttr($oneBlk);
+			$blckAtr = $this->blockAttribute($oneBlk);
 			if( $blckKnd=='headr' ){
-				$hdrLevl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
-				if( $this->anchList!==null && strpos($blckAtr, ' id="')===false ){
-					$blckAtr = ' id="'.$this->escapeTxt($this->slugTitle(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
+				$headLvl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
+				if( $this->anchorList!==null && strpos($blckAtr, ' id="')===false ){
+					$blckAtr = ' id="'.$this->escapeXmlValue($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
 				}
-				$htmText .= '<h'.$hdrLevl.$blckAtr.'>'.$this->inlineOut($oneBlk['spans']).'</h'.$hdrLevl.">\n";
+				$htmText .= '<h'.$headLvl.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans']).'</h'.$headLvl.">\n";
 			}elseif( $blckKnd=='parag' ){
-				$htmText .= '<p'.$blckAtr.'>'.$this->inlineOut($oneBlk['spans'])."</p>\n";
+				$htmText .= '<p'.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans'])."</p>\n";
 			}elseif( $blckKnd=='lists' ){
 				$listTag = empty($oneBlk['attrs']['order']) ? 'ul' : 'ol';
 				$htmText .= '<'.$listTag.$blckAtr.">\n";
 				foreach($oneBlk['items'] as $entBlk){
 					// A task shows the box that tells whether it is done
-					$taskHtm = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->xhtmlOut ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->xhtmlOut ? '="checked"' : '')).$this->closeVoid().' ' : '';
-					$htmText .= '<li'.$this->blockAttr($entBlk).'>'.$taskHtm.$this->insideOut($entBlk)."</li>\n";
+					$taskHtm = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->writeXhtml ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->writeXhtml ? '="checked"' : '')).$this->shutVoidString().' ' : '';
+					$htmText .= '<li'.$this->blockAttribute($entBlk).'>'.$taskHtm.$this->innerOutString($entBlk)."</li>\n";
 				}
 				$htmText .= '</'.$listTag.">\n";
 			}elseif( $blckKnd=='table' ){
-				$htmText .= '<table'.$blckAtr.">\n".$this->tblRowOut($oneBlk['items'])."</table>\n";
+				$htmText .= '<table'.$blckAtr.">\n".$this->tableRowOutput($oneBlk['items'])."</table>\n";
 			}elseif( $blckKnd=='fnote' ){
 				$noteNum = intval($oneBlk['attrs']['numbr'] ?? 0);
-				$htmText .= '<aside'.$blckAtr.'>'.(($noteNum>0) ? '<sup>'.$noteNum.'</sup> ' : '').$this->insideOut($oneBlk)."</aside>\n";
+				$htmText .= '<aside'.$blckAtr.'>'.(($noteNum>0) ? '<sup>'.$noteNum.'</sup> ' : '').$this->innerOutString($oneBlk)."</aside>\n";
 			}elseif( $blckKnd=='quote' ){
 				// Who is quoted is told under the quotation
-				$qteHtml = $this->insideOut($oneBlk);
+				$qutHtml = $this->innerOutString($oneBlk);
 				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
 				if( $citeTxt!=='' ){
-					$qteHtml .= ((substr($qteHtml, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeTxt($citeTxt)."</cite>\n";
+					$qutHtml .= ((substr($qutHtml, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeXmlValue($citeTxt)."</cite>\n";
 				}
-				$htmText .= '<blockquote'.$blckAtr.'>'.$qteHtml."</blockquote>\n";
+				$htmText .= '<blockquote'.$blckAtr.'>'.$qutHtml."</blockquote>\n";
 			}elseif( $blckKnd=='codes' ){
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
-				$htmText .= '<pre'.$blckAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? ' class="language-'.$this->escapeTxt($codeLng).'"' : '').'>'.$this->escapeTxt($oneBlk['plain'])."</code></pre>\n";
+				$htmText .= '<pre'.$blckAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? ' class="language-'.$this->escapeXmlValue($codeLng).'"' : '').'>'.$this->escapeXmlValue($oneBlk['plain'])."</code></pre>\n";
 			}elseif( $blckKnd=='image' ){
-				$imgSrce = Shape::cleanLink(strval($oneBlk['attrs']['sourc'] ?? ''));
-				if( $imgSrce!=='' ){
-					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeTxt($imgSrce).'" alt="'.$this->escapeTxt($oneBlk['plain']).'"'.$this->closeVoid()."\n";
+				$imgLink = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
+				if( $imgLink!=='' ){
+					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeXmlValue($imgLink).'" alt="'.$this->escapeXmlValue($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
 				}
 			}elseif( $blckKnd=='rules' ){
-				$htmText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr : '<hr class="break"').$this->closeVoid()."\n";
+				$htmText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr : '<hr class="break"').$this->shutVoidString()."\n";
 			}elseif( in_array($blckKnd, Array('entry', 'tcell')) ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$htmText .= $this->insideOut($oneBlk)."\n";
+				$htmText .= $this->innerOutString($oneBlk)."\n";
 			}elseif( in_array($blckKnd, Array('thead', 'tbrow')) ){
-				$htmText .= "<table>\n".$this->tblRowOut(Array($oneBlk))."</table>\n";
+				$htmText .= "<table>\n".$this->tableRowOutput(Array($oneBlk))."</table>\n";
 			}else{
 				throw new WriteError('Unknown kind of block: '.$blckKnd);
 			}
@@ -342,23 +342,23 @@ class Html extends Base {
 	 * Writes the rows of a table: the header rows in a thead element,
 	 * the others in a tbody.
 	 *
-	 * @param Array $rowsBlocks The rows, as 'thead' and 'tbrow' blocks.
+	 * @param Array $rowBlockList The rows, as 'thead' and 'tbrow' blocks.
 	 * @return String The HTML.
 	 */
-	protected function tblRowOut(Array $rowsBlocks): String {
+	protected function tableRowOutput(Array $rowBlockList): String {
 		$partHtm = Array('thead'=>'', 'tbody'=>'');
-		foreach($rowsBlocks as $rowBlk){
-			$isHeadr = (strval($rowBlk['block'] ?? '')=='thead');
+		foreach($rowBlockList as $oneRow){
+			$isHeadr = (strval($oneRow['block'] ?? '')=='thead');
 			$rowHtml = '<tr>';
-			foreach($rowBlk['items'] as $celBlk){
+			foreach($oneRow['items'] as $celBlk){
 				$cellTag = ($isHeadr || !empty($celBlk['attrs']['headr'])) ? 'th' : 'td';
-				$spanAtr = '';
+				$colSpan = '';
 				foreach(Array('colsp'=>'colspan', 'rowsp'=>'rowspan') as $atrKey=>$atrNme){
 					if( intval($celBlk['attrs'][$atrKey] ?? 1)>1 ){
-						$spanAtr .= ' '.$atrNme.'="'.intval($celBlk['attrs'][$atrKey]).'"';
+						$colSpan .= ' '.$atrNme.'="'.intval($celBlk['attrs'][$atrKey]).'"';
 					}
 				}
-				$rowHtml .= '<'.$cellTag.$this->blockAttr($celBlk).$spanAtr.'>'.$this->insideOut($celBlk).'</'.$cellTag.'>';
+				$rowHtml .= '<'.$cellTag.$this->blockAttribute($celBlk).$colSpan.'>'.$this->innerOutString($celBlk).'</'.$cellTag.'>';
 			}
 			$partHtm[$isHeadr ? 'thead' : 'tbody'] .= $rowHtml."</tr>\n";
 		}
@@ -370,15 +370,15 @@ class Html extends Base {
 	 * keyed by the names of their columns have those names as header;
 	 * merged cells are written as one cell over the others.
 	 *
-	 * @param Array $sheetsList The sheets, each with its 'title', its 'attrs' and its 'cells'.
-	 * @param Bool  $firstHeads Whether the first row of each sheet is its header.
-	 * @param Bool  $shownsOnly Whether the sheets their workbook hides are left out.
+	 * @param Array $sheetEntries The sheets, each with its 'title', its 'attrs' and its 'cells'.
+	 * @param Bool  $initialHeads Whether the first row of each sheet is its header.
+	 * @param Bool  $shownOnlyFlg Whether the sheets their workbook hides are left out.
 	 * @return String The HTML.
 	 */
-	protected function sheetsOut(Array $sheetsList, Bool $firstHeads, Bool $shownsOnly): String {
+	protected function writeAllSheets(Array $sheetEntries, Bool $initialHeads, Bool $shownOnlyFlg): String {
 		$htmText = '';
-		foreach($sheetsList as $oneSht){
-			if( $shownsOnly && isset($oneSht['attrs']['shown']) && $oneSht['attrs']['shown']===false ){
+		foreach($sheetEntries as $oneSht){
+			if( $shownOnlyFlg && isset($oneSht['attrs']['shown']) && $oneSht['attrs']['shown']===false ){
 				continue;
 			}
 			$rowsLst = array_values((array)($oneSht['cells'] ?? Array()));
@@ -386,7 +386,7 @@ class Html extends Base {
 			$frstRow = (array)($rowsLst[0] ?? Array());
 			$isKeyed = (!empty($frstRow) && array_keys($frstRow)!==range(0, count($frstRow)-1));
 			$headRow = $isKeyed ? array_map('strval', array_keys($frstRow)) : null;
-			if( !$isKeyed && $firstHeads && !empty($rowsLst) ){
+			if( !$isKeyed && $initialHeads && !empty($rowsLst) ){
 				$headRow = array_values((array)array_shift($rowsLst));
 			}
 			// The merged cells, by the place of their first cell in the rows of the body, and the cells each covers
@@ -394,29 +394,29 @@ class Html extends Base {
 			$coverLs = Array();
 			foreach((array)($oneSht['attrs']['merge'] ?? Array()) as $oneMrg){
 				$mrgdRow = intval($oneMrg['atrow'] ?? 0)-(($headRow!==null) ? 1 : 0);
-				$mrgdCol = intval($oneMrg['atcol'] ?? 0);
+				$colSpan = intval($oneMrg['atcol'] ?? 0);
 				$rowSpan = max(1, intval($oneMrg['rowsp'] ?? 1));
-				$colSpan = max(1, intval($oneMrg['colsp'] ?? 1));
+				$clmnSpn = max(1, intval($oneMrg['colsp'] ?? 1));
 				// An area starting in the header is left as it is; one running past the last row stops there
 				if( $mrgdRow<0 || !isset($rowsLst[$mrgdRow]) ){
 					continue;
 				}
 				$rowSpan = min($rowSpan, count($rowsLst)-$mrgdRow);
-				$spanLst[$mrgdRow][$mrgdCol] = (($colSpan>1) ? ' colspan="'.$colSpan.'"' : '').(($rowSpan>1) ? ' rowspan="'.$rowSpan.'"' : '');
+				$spanLst[$mrgdRow][$colSpan] = (($clmnSpn>1) ? ' colspan="'.$clmnSpn.'"' : '').(($rowSpan>1) ? ' rowspan="'.$rowSpan.'"' : '');
 				for($rowIdx=$mrgdRow; $rowIdx<$mrgdRow+$rowSpan; $rowIdx++){
-					for($colIdx=$mrgdCol; $colIdx<$mrgdCol+$colSpan && $colIdx<$mrgdCol+16384; $colIdx++){
-						$coverLs[$rowIdx][$colIdx] = ($rowIdx!=$mrgdRow || $colIdx!=$mrgdCol);
+					for($colInc=$colSpan; $colInc<$colSpan+$clmnSpn && $colInc<$colSpan+16384; $colInc++){
+						$coverLs[$rowIdx][$colInc] = ($rowIdx!=$mrgdRow || $colInc!=$colSpan);
 					}
 				}
 			}
 			$htmText .= "<table>\n";
 			if( strval($oneSht['title'] ?? '')!=='' ){
-				$htmText .= '<caption>'.$this->escapeTxt(strval($oneSht['title']))."</caption>\n";
+				$htmText .= '<caption>'.$this->escapeXmlValue(strval($oneSht['title']))."</caption>\n";
 			}
 			if( $headRow!==null ){
 				$htmText .= "<thead>\n<tr>";
-				foreach($headRow as $celVal){
-					$htmText .= '<th>'.$this->escapeTxt($this->cellTexts($celVal)).'</th>';
+				foreach($headRow as $oneVal){
+					$htmText .= '<th>'.$this->escapeXmlValue($this->writeCellValue($oneVal)).'</th>';
 				}
 				$htmText .= "</tr>\n</thead>\n";
 			}
@@ -424,9 +424,9 @@ class Html extends Base {
 				$htmText .= "<tbody>\n";
 				foreach($rowsLst as $rowIdx=>$oneRow){
 					$htmText .= '<tr>';
-					foreach(array_values((array)$oneRow) as $colIdx=>$celVal){
-						if( empty($coverLs[$rowIdx][$colIdx]) ){
-							$htmText .= '<td'.strval($spanLst[$rowIdx][$colIdx] ?? '').'>'.$this->escapeTxt($this->cellTexts($celVal)).'</td>';
+					foreach(array_values((array)$oneRow) as $colInc=>$oneVal){
+						if( empty($coverLs[$rowIdx][$colInc]) ){
+							$htmText .= '<td'.strval($spanLst[$rowIdx][$colInc] ?? '').'>'.$this->escapeXmlValue($this->writeCellValue($oneVal)).'</td>';
 						}
 					}
 					$htmText .= "</tr>\n";
@@ -441,11 +441,11 @@ class Html extends Base {
 	/**
 	 * Gives the value of a cell as text.
 	 *
-	 * @param mixed $cellValues The value.
+	 * @param mixed $cellContents The value.
 	 * @return String Its text: true or false for a boolean, nothing for what is not a single value.
 	 */
-	protected function cellTexts(Mixed $cellValues): String {
-		return is_bool($cellValues) ? ($cellValues ? 'true' : 'false') : (is_scalar($cellValues) ? strval($cellValues) : '');
+	protected function writeCellValue(Mixed $cellContents): String {
+		return is_bool($cellContents) ? ($cellContents ? 'true' : 'false') : (is_scalar($cellContents) ? strval($cellContents) : '');
 	}
 
 }

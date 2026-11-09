@@ -11,62 +11,62 @@ namespace nyu\Data\Mail;
  */
 class Message {
 
-	protected $sndrAddr;
-	protected $sndrName;
-	protected $rcptList;
-	protected $subjLine;
-	protected $textBody;
-	protected $htmlBody;
-	protected $attaList;
+	protected $senderAddr;
+	protected $senderName;
+	protected $recpntList;
+	protected $subjctLine;
+	protected $bodyAsText;
+	protected $bodyAsHtml;
+	protected $addedFiles;
 
 	/**
 	 * Builds a mail, checking what goes into its headers.
 	 *
-	 * @param String  $senderAddr Address of the sender.
-	 * @param String  $senderName Name shown for the sender, empty for none.
-	 * @param Array   $recipients Addresses of the recipients, one at least.
-	 * @param String  $subjctLine Subject of the mail.
-	 * @param String  $messgeBody Plain text of the mail.
-	 * @param ?String $htmlMessge HTML version of the mail, null for a plain text mail.
-	 * @param Array   $attachList Paths of the files attached.
+	 * @param String  $fromEmailAdr Address of the sender.
+	 * @param String  $nameOfSender Name shown for the sender, empty for none.
+	 * @param Array   $recipientLst Addresses of the recipients, one at least.
+	 * @param String  $emailSubject Subject of the mail.
+	 * @param String  $mssgBodyText Plain text of the mail.
+	 * @param ?String $htmlMssgText HTML version of the mail, null for a plain text mail.
+	 * @param Array   $attachedList Paths of the files attached.
 	 *
 	 * @throws MailFailure When an address is not valid, there is no recipient, the subject or the name holds a line break, or an attached file cannot be read.
 	 */
-	public function __construct( String $senderAddr, String $senderName, Array $recipients, String $subjctLine, String $messgeBody, ?String $htmlMessge=null, Array $attachList=Array() ){
-		$this->sndrAddr = self::checkAddr($senderAddr);
-		$this->sndrName = self::checkLine($senderName, 'sender name');
-		$this->rcptList = Array();
-		foreach( $recipients as $rcpAdr ){
-			$this->rcptList[] = self::checkAddr(strval($rcpAdr));
+	public function __construct( String $fromEmailAdr, String $nameOfSender, Array $recipientLst, String $emailSubject, String $mssgBodyText, ?String $htmlMssgText=null, Array $attachedList=Array() ){
+		$this->senderAddr = self::checkEmailAddr($fromEmailAdr);
+		$this->senderName = self::testLineString($nameOfSender, 'sender name');
+		$this->recpntList = Array();
+		foreach( $recipientLst as $toAddr ){
+			$this->recpntList[] = self::checkEmailAddr(strval($toAddr));
 		}
-		if( empty($this->rcptList) ){
+		if( empty($this->recpntList) ){
 			throw new MailFailure('A mail needs a recipient');
 		}
-		$this->subjLine = self::checkLine($subjctLine, 'subject');
-		$this->textBody = $messgeBody;
-		$this->htmlBody = $htmlMessge;
-		$this->attaList = Array();
-		foreach( $attachList as $attFle ){
-			$attFle = strval($attFle);
-			if( preg_match('/[\r\n\0]/', $attFle) || !is_file($attFle) || !is_readable($attFle) ){
-				throw new MailFailure('Attachment not found: '.json_encode($attFle));
+		$this->subjctLine = self::testLineString($emailSubject, 'subject');
+		$this->bodyAsText = $mssgBodyText;
+		$this->bodyAsHtml = $htmlMssgText;
+		$this->addedFiles = Array();
+		foreach( $attachedList as $attFil ){
+			$attFil = strval($attFil);
+			if( preg_match('/[\r\n\0]/', $attFil) || !is_file($attFil) || !is_readable($attFil) ){
+				throw new MailFailure('Attachment not found: '.json_encode($attFil));
 			}
-			$this->attaList[] = $attFle;
+			$this->addedFiles[] = $attFil;
 		}
 	}
 
 	/**
 	 * Checks one mail address: a valid address, with no line break.
 	 *
-	 * @param String $emailAddrs The address.
+	 * @param String $emlAddresses The address.
 	 * @return String The address, without the spaces around it.
 	 *
 	 * @throws MailFailure When it is not a valid address.
 	 */
-	public static function checkAddr( String $emailAddrs ): String {
-		$trimmed = trim($emailAddrs);
+	public static function checkEmailAddr( String $emlAddresses ): String {
+		$trimmed = trim($emlAddresses);
 		if( preg_match('/[\r\n\0]/', $trimmed) || filter_var($trimmed, FILTER_VALIDATE_EMAIL)===false ){
-			throw new MailFailure('Invalid mail address: '.json_encode($emailAddrs));
+			throw new MailFailure('Invalid mail address: '.json_encode($emlAddresses));
 		}
 		return $trimmed;
 	}
@@ -75,28 +75,28 @@ class Message {
 	 * Splits a list of addresses, given as a list or as one text where
 	 * they are separated by commas, leaving out the empty ones.
 	 *
-	 * @param Array|String $addrsGiven The addresses.
+	 * @param Array|String $addrsssGiven The addresses.
 	 * @return Array The addresses, unchecked.
 	 */
-	public static function addrsList( Array|String $addrsGiven ): Array {
-		$addrLst = is_array($addrsGiven) ? $addrsGiven : explode(',', $addrsGiven);
+	public static function splitAddresses( Array|String $addrsssGiven ): Array {
+		$addrLst = is_array($addrsssGiven) ? $addrsssGiven : explode(',', $addrsssGiven);
 		return array_values( array_filter( array_map('trim', array_map('strval', $addrLst)), 'strlen' ) );
 	}
 
 	/**
 	 * Refuses a line break in a text written into a header.
 	 *
-	 * @param String $headerText The text.
-	 * @param String $textsLabel What the text is, for the message of the failure.
+	 * @param String $textOfHeader The text.
+	 * @param String $failureLabel What the text is, for the message of the failure.
 	 * @return String The text.
 	 *
 	 * @throws MailFailure When the text holds a line break.
 	 */
-	protected static function checkLine( String $headerText, String $textsLabel ): String {
-		if( preg_match('/[\r\n\0]/', $headerText) ){
-			throw new MailFailure('Line break refused in the '.$textsLabel.' of a mail');
+	protected static function testLineString( String $textOfHeader, String $failureLabel ): String {
+		if( preg_match('/[\r\n\0]/', $textOfHeader) ){
+			throw new MailFailure('Line break refused in the '.$failureLabel.' of a mail');
 		}
-		return $headerText;
+		return $textOfHeader;
 	}
 
 	/**
@@ -104,8 +104,8 @@ class Message {
 	 *
 	 * @return String The address.
 	 */
-	public function getSender(): String {
-		return $this->sndrAddr;
+	public function retrieveSender(): String {
+		return $this->senderAddr;
 	}
 
 	/**
@@ -113,8 +113,8 @@ class Message {
 	 *
 	 * @return String The name, empty for none.
 	 */
-	public function senderTag(): String {
-		return $this->sndrName;
+	public function getSenderLabel(): String {
+		return $this->senderName;
 	}
 
 	/**
@@ -122,8 +122,8 @@ class Message {
 	 *
 	 * @return Array The addresses.
 	 */
-	public function recipList(): Array {
-		return $this->rcptList;
+	public function listRecipients(): Array {
+		return $this->recpntList;
 	}
 
 	/**
@@ -131,8 +131,8 @@ class Message {
 	 *
 	 * @return String The subject.
 	 */
-	public function getSubjct(): String {
-		return $this->subjLine;
+	public function getSubjectText(): String {
+		return $this->subjctLine;
 	}
 
 	/**
@@ -140,8 +140,8 @@ class Message {
 	 *
 	 * @return String The text.
 	 */
-	public function plainBody(): String {
-		return $this->textBody;
+	public function simpleBodyText(): String {
+		return $this->bodyAsText;
 	}
 
 	/**
@@ -149,8 +149,8 @@ class Message {
 	 *
 	 * @return ?String The HTML, null for a plain text mail.
 	 */
-	public function markupTxt(): ?String {
-		return $this->htmlBody;
+	public function getHtmlVersion(): ?String {
+		return $this->bodyAsHtml;
 	}
 
 	/**
@@ -158,8 +158,8 @@ class Message {
 	 *
 	 * @return Array The paths.
 	 */
-	public function attachLst(): Array {
-		return $this->attaList;
+	public function getAttachments(): Array {
+		return $this->addedFiles;
 	}
 
 	/**
@@ -169,24 +169,24 @@ class Message {
 	 *
 	 * @return String The mail.
 	 */
-	public function buildText(): String {
-		$sndDomn = substr(strrchr($this->sndrAddr, '@'), 1);
+	public function writeWholeMail(): String {
+		$sndDomn = substr(strrchr($this->senderAddr, '@'), 1);
 		$headLst = Array(
 			'Date: '.date('r'),
-			'From: '.self::addrHeadr($this->sndrAddr, $this->sndrName),
-			'To: '.implode(', ', $this->rcptList),
-			'Subject: '.self::encodHead($this->subjLine),
+			'From: '.self::writeNamedAddr($this->senderAddr, $this->senderName),
+			'To: '.implode(', ', $this->recpntList),
+			'Subject: '.self::encodeHeadText($this->subjctLine),
 			'Message-ID: <'.bin2hex(random_bytes(16)).'@'.$sndDomn.'>',
 			'MIME-Version: 1.0',
 		);
-		if( $this->htmlBody===null ){
-			return implode("\r\n", $headLst)."\r\n".self::buildPart($this->textBody, 'plain');
+		if( $this->bodyAsHtml===null ){
+			return implode("\r\n", $headLst)."\r\n".self::makePartString($this->bodyAsText, 'plain');
 		}
 		$boundry = '=_nyu_'.bin2hex(random_bytes(12));
 		$headLst[] = 'Content-Type: multipart/alternative; boundary="'.$boundry.'"';
 		return implode("\r\n", $headLst)."\r\n\r\n"
-			.'--'.$boundry."\r\n".self::buildPart($this->textBody, 'plain')."\r\n"
-			.'--'.$boundry."\r\n".self::buildPart($this->htmlBody, 'html')."\r\n"
+			.'--'.$boundry."\r\n".self::makePartString($this->bodyAsText, 'plain')."\r\n"
+			.'--'.$boundry."\r\n".self::makePartString($this->bodyAsHtml, 'html')."\r\n"
 			.'--'.$boundry.'--'."\r\n";
 	}
 
@@ -194,41 +194,41 @@ class Message {
 	 * Writes one text part: its two headers, a blank line, then the text
 	 * in quoted-printable.
 	 *
-	 * @param String $bodyOfPart The text.
-	 * @param String $mimeSubtyp 'plain' or 'html'.
+	 * @param String $partBodyText The text.
+	 * @param String $mimeTextKind 'plain' or 'html'.
 	 * @return String The part.
 	 */
-	protected static function buildPart( String $bodyOfPart, String $mimeSubtyp ): String {
-		return 'Content-Type: text/'.$mimeSubtyp.'; charset=UTF-8'."\r\n"
+	protected static function makePartString( String $partBodyText, String $mimeTextKind ): String {
+		return 'Content-Type: text/'.$mimeTextKind.'; charset=UTF-8'."\r\n"
 			.'Content-Transfer-Encoding: quoted-printable'."\r\n\r\n"
-			.quoted_printable_encode( self::crlfLines($bodyOfPart) );
+			.quoted_printable_encode( self::endLinesInCrlf($partBodyText) );
 	}
 
 	/**
 	 * Makes every line of a text end with CRLF, whatever it ended with.
 	 *
-	 * @param String $sourceText The text.
+	 * @param String $textToChange The text.
 	 * @return String The text with CRLF line ends.
 	 */
-	public static function crlfLines( String $sourceText ): String {
-		return str_replace( "\n", "\r\n", str_replace(Array("\r\n", "\r"), "\n", $sourceText) );
+	public static function endLinesInCrlf( String $textToChange ): String {
+		return str_replace( "\n", "\r\n", str_replace(Array("\r\n", "\r"), "\n", $textToChange) );
 	}
 
 	/**
 	 * Writes an address with the name shown for it.
 	 *
-	 * @param String $emailAddrs The address.
-	 * @param String $displyName The name, empty for none.
+	 * @param String $emlAddresses The address.
+	 * @param String $personalName The name, empty for none.
 	 * @return String The address as a header writes it.
 	 */
-	protected static function addrHeadr( String $emailAddrs, String $displyName ): String {
-		if( $displyName=='' ){
-			return $emailAddrs;
+	protected static function writeNamedAddr( String $emlAddresses, String $personalName ): String {
+		if( $personalName=='' ){
+			return $emlAddresses;
 		}
-		if( preg_match('/[^\x20-\x7E]/', $displyName) ){
-			return self::encodHead($displyName).' <'.$emailAddrs.'>';
+		if( preg_match('/[^\x20-\x7E]/', $personalName) ){
+			return self::encodeHeadText($personalName).' <'.$emlAddresses.'>';
 		}
-		return '"'.addcslashes($displyName, '"\\').'" <'.$emailAddrs.'>';
+		return '"'.addcslashes($personalName, '"\\').'" <'.$emlAddresses.'>';
 	}
 
 	/**
@@ -236,26 +236,26 @@ class Message {
 	 * (RFC 2047), each short enough for one line, never cutting a
 	 * character in two. Plain ASCII is kept as it is.
 	 *
-	 * @param String $headerText The text.
+	 * @param String $textOfHeader The text.
 	 * @return String The text as a header writes it.
 	 */
-	public static function encodHead( String $headerText ): String {
-		if( !preg_match('/[^\x20-\x7E]/', $headerText) ){
-			return $headerText;
+	public static function encodeHeadText( String $textOfHeader ): String {
+		if( !preg_match('/[^\x20-\x7E]/', $textOfHeader) ){
+			return $textOfHeader;
 		}
-		$charLst = preg_split('//u', $headerText, -1, PREG_SPLIT_NO_EMPTY);
+		$charLst = preg_split('//u', $textOfHeader, -1, PREG_SPLIT_NO_EMPTY);
 		if( $charLst===false ){
 			// Not valid UTF-8: cut by bytes
-			$charLst = str_split($headerText);
+			$charLst = str_split($textOfHeader);
 		}
 		$chnkLst = Array('');
-		foreach( $charLst as $oneChr ){
+		foreach( $charLst as $letter ){
 			$lastIdx = count($chnkLst)-1;
-			if( strlen($chnkLst[$lastIdx].$oneChr)>45 ){
+			if( strlen($chnkLst[$lastIdx].$letter)>45 ){
 				$chnkLst[] = '';
 				$lastIdx++;
 			}
-			$chnkLst[$lastIdx] .= $oneChr;
+			$chnkLst[$lastIdx] .= $letter;
 		}
 		$wordLst = Array();
 		foreach( $chnkLst as $oneChk ){
