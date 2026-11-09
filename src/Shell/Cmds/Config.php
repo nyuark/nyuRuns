@@ -22,11 +22,11 @@ use nyu\Tools\Router;
  *   php nyuRun settings showConf access login  a block of conf/access.json, secrets masked
  *   php nyuRun settings showConf preset webapi.auths a block of a preset
  *   php nyuRun settings setValue system LOG_MODE BASE
- *   php nyuRun settings setValue access native.minlen 12
+ *   php nyuRun settings setValue access native.minChars 12
  *   php nyuRun settings setValue dbases nyuRuns.host db.local
- *   php nyuRun settings setValue preset webapi.auths.authby native
+ *   php nyuRun settings setValue preset webapi.auths.authWith native
  *   php nyuRun settings wwwEntry index webapi  the preset www/index.php starts the Runner with
- *   php nyuRun settings makeSecr jtoken        a new secret, written where the config reads it
+ *   php nyuRun settings makeSecr jwtToken        a new secret, written where the config reads it
  *   php nyuRun settings fullList webapi        the routes of a preset, and who they are served to
  *   php nyuRun settings clrCache               removes the config cache, after conf was edited by hand
  *
@@ -41,7 +41,7 @@ class Config extends Command{
 	// Size of the RSA keys made for the tokens, in bits
 	const KEYS_BITS = 4096;
 	// Keys whose value is not shown, unless it only names where the secret is (env:NAME)
-	const SECR_LIST = Array('secret', 'pass', 'passwd', 'keylst', 'tfakey');
+	const SECR_LIST = Array('hmacSecr', 'pass', 'passwd', 'keysList', 'cryptKey');
 	// What the keys of system.ini that are checked may hold
 	const RULE_LIST = Array(
 		'ENV_NAME'=>'/^(DEV|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMBER|WEEKLY|MONTHS|UNIQUE)$/D',
@@ -70,7 +70,7 @@ class Config extends Command{
 			'showConf'=>Array('args'=>'<system|access|dbases|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
 			'setValue'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
 			'wwwEntry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
-			'makeSecr'=>Array('args'=>'<jtoken|apikey|tfakey|mrkkey|htpass> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
+			'makeSecr'=>Array('args'=>'<jwtToken|keysList|cryptKey|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'fullList'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
 			'clrCache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
 		);
@@ -138,7 +138,7 @@ class Config extends Command{
 				$prstNme = basename(strval($rpsFil), '.rps');
 				try{
 					$cfgVals = $this->retrievePreset($prstNme);
-					$rowList[] = Array($prstNme, strval($cfgVals['label'] ?? ''), strval($cfgVals['about'] ?? ''));
+					$rowList[] = Array($prstNme, strval($cfgVals['presetId'] ?? ''), strval($cfgVals['describe'] ?? ''));
 				}catch( \RuntimeException $e ){
 					$rowList[] = Array($prstNme, '', 'cannot be loaded: '.$e->getMessage());
 				}
@@ -192,8 +192,8 @@ class Config extends Command{
 				}
 				$newValu = $this->parseTypedText($gvnText);
 				// A check or a carrier that does not exist would refuse every request
-				if( $trgtNme=='access' && ( ($keyName=='authby' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='sessby' && Checker::sessnClassText(strval($gvnText))===null) ) ){
-					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authby' ? 'credential check' : 'session carrier' ), self::EXIT_DENY);
+				if( $trgtNme=='access' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='sessWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
+					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authWith' ? 'credential check' : 'session carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
 				$tknFlaw = ($trgtNme=='access') ? $this->toknFlawString($keyName, $newValu) : '';
@@ -233,8 +233,8 @@ class Config extends Command{
 
 	/**
 	 * Tells why a value cannot be written under a key binding the tokens
-	 * to this project: 'issuer' is a text, 'audnce' a text or a list of
-	 * texts, 'oldpub' empty or the path, from the project root, of a public
+	 * to this project: 'issuerId' is a text, 'audience' a text or a list of
+	 * texts, 'prevFile' empty or the path, from the project root, of a public
 	 * RSA key of JWT::RSAS_BITS bits at least.
 	 *
 	 * @param String $keyAsWritten The key written.
@@ -242,15 +242,15 @@ class Config extends Command{
 	 * @return String The reason; empty when the value can be written, or the key is none of those.
 	 */
 	protected function toknFlawString( String $keyAsWritten, Mixed $valueAsGiven ): String {
-		if( $keyAsWritten=='issuer' && !is_string($valueAsGiven) ){
+		if( $keyAsWritten=='issuerId' && !is_string($valueAsGiven) ){
 			return 'issuer is a text';
 		}
-		if( $keyAsWritten=='audnce' && !is_string($valueAsGiven) && !( is_array($valueAsGiven) && count(array_filter($valueAsGiven, 'is_string'))===count($valueAsGiven) ) ){
-			return 'audnce is a text or a list of texts: \'["api.example.org"]\'';
+		if( $keyAsWritten=='audience' && !is_string($valueAsGiven) && !( is_array($valueAsGiven) && count(array_filter($valueAsGiven, 'is_string'))===count($valueAsGiven) ) ){
+			return 'audience is a text or a list of texts: \'["api.example.org"]\'';
 		}
-		if( $keyAsWritten=='oldpub' ){
+		if( $keyAsWritten=='prevFile' ){
 			if( !is_string($valueAsGiven) ){
-				return 'oldpub is the path of a public key, from the project root';
+				return 'prevFile is the path of a public key, from the project root';
 			}
 			$keyPath = trim($valueAsGiven, '/\\ ');
 			if( $keyPath=='' ){
@@ -351,12 +351,12 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMakeSecr(): Int {
-		$kindNme = $this->needsShellWord('the secret to make (jtoken, apikey, tfakey, mrkkey, htpass)');
-		if( !in_array($kindNme, Array('jtoken', 'apikey', 'tfakey', 'mrkkey', 'htpass'), true) ){
+		$kindNme = $this->needsShellWord('the secret to make (jwtToken, keysList, cryptKey, markSecr, htpasswd)');
+		if( !in_array($kindNme, Array('jwtToken', 'keysList', 'cryptKey', 'markSecr', 'htpasswd'), true) ){
 			$this->terminateShell('No secret is made under that name: '.$kindNme, self::EXIT_HELP);
 		}
 		try{
-			if( $kindNme=='htpass' ){
+			if( $kindNme=='htpasswd' ){
 				$this->createHtpasswd( $this->needsShellWord('the user of the htpasswd line') );
 			}else{
 				$this->generateSecret($kindNme);
@@ -370,16 +370,16 @@ class Config extends Command{
 	}
 
 	/**
-	 * Makes the secret signing the tokens ('jtoken'), an API key
-	 * ('apikey') or the key the 2FA secrets are stored encrypted with
-	 * ('tfakey', in the block of the store the login uses), and writes it
+	 * Makes the secret signing the tokens ('jwtToken'), an API key
+	 * ('keysList') or the key the 2FA secrets are stored encrypted with
+	 * ('cryptKey', in the block of the store the login uses), and writes it
 	 * where the block of conf/access.json reads
 	 * it: in the environment file when the block names it as env:NAME, in
 	 * the block otherwise. The secret of the tokens and the key of the 2FA
 	 * secrets are only shown with
 	 * --showSecr; an API key is shown once, since its client needs it.
 	 *
-	 * @param String $secrKindText 'jtoken', 'apikey' or 'tfakey'.
+	 * @param String $secrKindText 'jwtToken', 'keysList' or 'cryptKey'.
 	 * @param Bool   $keepExisting Whether a secret already set is left as it is, without a question.
 	 * @return Bool Whether a secret was written.
 	 *
@@ -391,38 +391,38 @@ class Config extends Command{
 		$filPath = $this->pathOfSettings(self::TRGT_LIST['access']);
 		$treeObj = $wrtrObj->importJsonsObj($filPath);
 		$blckNme = strval($this->optnObject->retrieveOption('useBlock', ''));
-		if( $secrKindText=='jtoken' ){
+		if( $secrKindText=='jwtToken' ){
 			$labelTx = 'Secret of the tokens';
-			$blckNme = $blckNme ?: strval($treeObj->login->sesscf ?? 'dftokn');
+			$blckNme = $blckNme ?: strval($treeObj->loginSet->sessConf ?? 'jwtToken');
 			// With RS256 the tokens are signed by a key pair, not a secret
-			if( isset($treeObj->$blckNme) && is_object($treeObj->$blckNme) && strval($treeObj->$blckNme->algrtm ?? '')=='RS256' ){
+			if( isset($treeObj->$blckNme) && is_object($treeObj->$blckNme) && strval($treeObj->$blckNme->signAlgo ?? '')=='RS256' ){
 				return $this->buildPairsFlag($blckNme, $keepExisting);
 			}
-			$rawValu = $treeObj->$blckNme->secret ?? null;
+			$rawValu = $treeObj->$blckNme->hmacSecr ?? null;
 			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
-		}elseif( $secrKindText=='tfakey' ){
+		}elseif( $secrKindText=='cryptKey' ){
 			$labelTx = 'Key of the 2FA secrets';
-			$blckNme = $blckNme ?: strval($treeObj->login->authcf ?? 'native');
-			$rawValu = $treeObj->$blckNme->tfakey ?? null;
+			$blckNme = $blckNme ?: strval($treeObj->loginSet->authConf ?? 'nativeDb');
+			$rawValu = $treeObj->$blckNme->cryptKey ?? null;
 			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
-		}elseif( $secrKindText=='mrkkey' ){
+		}elseif( $secrKindText=='markSecr' ){
 			// The key the login marks are signed with, in the limits block
 			$labelTx = 'Key of the login marks';
-			$blckNme = $blckNme ?: 'limits';
-			$rawValu = $treeObj->$blckNme->mrkkey ?? null;
+			$blckNme = $blckNme ?: 'tryLimit';
+			$rawValu = $treeObj->$blckNme->markSecr ?? null;
 			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}else{
 			$labelTx = 'API key';
 			foreach( get_object_vars($treeObj) as $blkKey => $blkVal ){
-				if( $blckNme=='' && is_object($blkVal) && isset($blkVal->keylst) && is_array($blkVal->keylst) ){
+				if( $blckNme=='' && is_object($blkVal) && isset($blkVal->keysList) && is_array($blkVal->keysList) ){
 					$blckNme = strval($blkKey);
 				}
 			}
-			$rawValu = ($blckNme!='' && isset($treeObj->$blckNme->keylst) && is_array($treeObj->$blckNme->keylst)) ? ($treeObj->$blckNme->keylst[0] ?? '') : null;
+			$rawValu = ($blckNme!='' && isset($treeObj->$blckNme->keysList) && is_array($treeObj->$blckNme->keysList)) ? ($treeObj->$blckNme->keysList[0] ?? '') : null;
 			$newSecr = bin2hex(random_bytes(32));
 		}
 		if( !is_string($rawValu) ){
-			$whatLst = Array('jtoken'=>'the secret of the tokens', 'apikey'=>'a list of API keys', 'tfakey'=>'the key of the 2FA secrets (tfakey)', 'mrkkey'=>'the key of the login marks (mrkkey)');
+			$whatLst = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'cryptKey'=>'the key of the 2FA secrets (cryptKey)', 'markSecr'=>'the key of the login marks (markSecr)');
 			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatLst[$secrKindText].( $blckNme!='' ? ' under '.$blckNme : '' ), self::EXIT_DENY);
 		}
 		$envPath = TOP_DIR.DS.'.env';
@@ -431,7 +431,7 @@ class Config extends Command{
 		if( $nowSecr!='' && $keepExisting ){
 			return false;
 		}
-		$lossTxt = ($secrKindText=='tfakey') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTx).' in use: what was issued with it stops being accepted';
+		$lossTxt = ($secrKindText=='cryptKey') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTx).' in use: what was issued with it stops being accepted';
 		if( $nowSecr!='' && !$this->queryAgreedFlg('Replace the '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
@@ -439,14 +439,14 @@ class Config extends Command{
 			$wrtrObj->setEnvrnmntKey($envPath, $envName, $newSecr);
 			$whereTx = '.env '.$envName;
 		}else{
-			if( $secrKindText=='jtoken' ){
-				$treeObj->$blckNme->secret = $newSecr;
-			}elseif( $secrKindText=='tfakey' ){
-				$treeObj->$blckNme->tfakey = $newSecr;
-			}elseif( $secrKindText=='mrkkey' ){
-				$treeObj->$blckNme->mrkkey = $newSecr;
+			if( $secrKindText=='jwtToken' ){
+				$treeObj->$blckNme->hmacSecr = $newSecr;
+			}elseif( $secrKindText=='cryptKey' ){
+				$treeObj->$blckNme->cryptKey = $newSecr;
+			}elseif( $secrKindText=='markSecr' ){
+				$treeObj->$blckNme->markSecr = $newSecr;
 			}else{
-				$treeObj->$blckNme->keylst[0] = $newSecr;
+				$treeObj->$blckNme->keysList[0] = $newSecr;
 			}
 			$wrtrObj->saveJsonConfig($filPath, $treeObj);
 			$whereTx = 'conf/access.json '.$blckNme;
@@ -454,7 +454,7 @@ class Config extends Command{
 		Console::loadConfigLogs();
 		$this->traceShellDone( $labelTx.' made, written in '.$whereTx );
 		$this->printerObj->printShellPair('written', $whereTx);
-		if( $secrKindText=='apikey' || $this->optnObject->validateOption('showSecr') ){
+		if( $secrKindText=='keysList' || $this->optnObject->validateOption('showSecr') ){
 			$this->printerObj->printShellOnce($labelTx, $newSecr);
 		}
 		return true;
@@ -467,14 +467,14 @@ class Config extends Command{
 	 * others; the private one is readable by its owner only, and no copy of
 	 * a private key replaced is kept. The block is given the paths it lacks.
 	 * The public key of a pair replaced is kept as conf/keys/<block>.old.pub
-	 * and named by 'oldpub', with the time it was retired ('retire'): the
-	 * tokens it signed before are accepted until they end, 'lifetm' at most,
+	 * and named by 'prevFile', with the time it was retired ('retireAt'): the
+	 * tokens it signed before are accepted until they end, 'lifeSecs' at most,
 	 * and the next pair replaces it. With --dropsAll (a key that leaked), none
 	 * is kept: every token in use ends at once. Without a former private
 	 * key, a new pair ends every token checked with the former one.
 	 *
 	 * @param String $blckNamedTxt Block of conf/access.json.
-	 * @param Bool   $keepExisting Whether a private key already there is left as it is, without a question; a public key alone is too when the block says the tokens come from another server ('extern'), and is replaced by a pair otherwise.
+	 * @param Bool   $keepExisting Whether a private key already there is left as it is, without a question; a public key alone is too when the block says the tokens come from another server ('external'), and is replaced by a pair otherwise.
 	 * @return Bool Whether a pair was written.
 	 *
 	 * @throws ShellStop When replacing the keys is not confirmed, or they cannot be made or written.
@@ -484,15 +484,15 @@ class Config extends Command{
 		$filPath = $this->pathOfSettings(self::TRGT_LIST['access']);
 		$treeObj = $wrtrObj->importJsonsObj($filPath);
 		$blckNod = $treeObj->$blckNamedTxt;
-		$prvName = trim(strval($blckNod->prvkey ?? ''), '/\\ ');
-		$publNme = trim(strval($blckNod->pubkey ?? ''), '/\\ ');
+		$prvName = trim(strval($blckNod->privFile ?? ''), '/\\ ');
+		$publNme = trim(strval($blckNod->publFile ?? ''), '/\\ ');
 		$prvName = ($prvName!='') ? $prvName : 'conf/keys/'.$blckNamedTxt.'.key';
 		$publNme = ($publNme!='') ? $publNme : 'conf/keys/'.$blckNamedTxt.'.pub';
 		$prvPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $prvName);
 		$publPth = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publNme);
 		$hasKeys = is_file($prvPath) || is_file($publPth);
 		// A public key found alone is the one of another server only when the block says so : a bundle may have brought it from where it was built
-		if( $keepExisting && ( is_file($prvPath) || (is_file($publPth) && ($blckNod->extern ?? false)===true) ) ){
+		if( $keepExisting && ( is_file($prvPath) || (is_file($publPth) && ($blckNod->external ?? false)===true) ) ){
 			return false;
 		}
 		if( !function_exists('openssl_pkey_new') ){
@@ -542,18 +542,18 @@ class Config extends Command{
 				$this->terminateShell('No keys written: '.basename($keyFil).' cannot be replaced', self::EXIT_FAIL);
 			}
 		}
-		$blckNod->prvkey = $prvName;
-		$blckNod->pubkey = $publNme;
+		$blckNod->privFile = $prvName;
+		$blckNod->publFile = $publNme;
 		if( $oldText!='' ){
-			// The time the former key was retired : what it signs after, or beyond lifetm, is refused
-			$blckNod->oldpub = $oldName;
-			$blckNod->retire = time();
-		}elseif( $isDrops || isset($blckNod->oldpub) ){
+			// The time the former key was retired : what it signs after, or beyond lifeSecs, is refused
+			$blckNod->prevFile = $oldName;
+			$blckNod->retireAt = time();
+		}elseif( $isDrops || isset($blckNod->prevFile) ){
 			if( is_file(TOP_DIR.DS.str_replace('/', DS, $oldName)) ){
 				@unlink(TOP_DIR.DS.str_replace('/', DS, $oldName));
 			}
-			$blckNod->oldpub = '';
-			unset($blckNod->retire);
+			$blckNod->prevFile = '';
+			unset($blckNod->retireAt);
 		}
 		$wrtrObj->saveJsonConfig($filPath, $treeObj);
 		Console::loadConfigLogs();
@@ -565,7 +565,7 @@ class Config extends Command{
 
 	/**
 	 * Writes the line of a user in the htpasswd file the block names
-	 * ('dfpass' unless --useBlock names another): its password is made and
+	 * ('htpasswd' unless --useBlock names another): its password is made and
 	 * shown once, or typed with --typeItIn, and kept as a bcrypt hash.
 	 *
 	 * @param String $namedUserTxt Name of the user.
@@ -576,8 +576,8 @@ class Config extends Command{
 		if( !preg_match('/^[^:\s]+$/D', $namedUserTxt) ){
 			$this->terminateShell('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
 		}
-		$blckCfg = $this->accessSettings( strval($this->optnObject->retrieveOption('useBlock', 'dfpass')) );
-		$pwdFile = trim( strval($blckCfg['htpasswd'] ?? 'conf/.htpasswd'), '/\\ ' );
+		$blckCfg = $this->accessSettings( strval($this->optnObject->retrieveOption('useBlock', 'htpasswd')) );
+		$pwdFile = trim( strval($blckCfg['passFile'] ?? 'conf/.htpasswd'), '/\\ ' );
 		$filPath = $this->pathOfSettings($pwdFile);
 		$lineLst = is_file($filPath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filPath))), 'strlen')) : Array();
 		$lineIdx = null;
@@ -611,7 +611,7 @@ class Config extends Command{
 	/**
 	 * Lists the routes of a preset: those its route files declare and those
 	 * of the Runs it mounts, each with its owner ('site' or the Run), then
-	 * the actions its 'auths' block names, each with who it is served to:
+	 * the actions its 'security' block names, each with who it is served to:
 	 * open (anyone), logged (any logged user), or the least role asked.
 	 *
 	 * @return Int The exit code: EXITFLAW when the roles of the routes cannot be applied.
@@ -623,7 +623,7 @@ class Config extends Command{
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
 		}
-		$rteConf = $loadObj->getRegistryKey('route');
+		$rteConf = $loadObj->getRegistryKey('routings');
 		$rteConf = is_array($rteConf) ? $rteConf : Array();
 		$accConf = $loadObj->setAccessArray();
 		$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
@@ -632,9 +632,9 @@ class Config extends Command{
 			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['methods']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
-		$roleMap = is_array($accConf['rolert'] ?? null) ? $accConf['rolert'] : Array();
+		$roleMap = is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array();
 		$actnLst = Array();
-		foreach( array_merge(array_values((array)($accConf['openrt'] ?? Array())), array_keys($roleMap)) as $rteKey ){
+		foreach( array_merge(array_values((array)($accConf['openList'] ?? Array())), array_keys($roleMap)) as $rteKey ){
 			$rteKey = strtolower( trim(strval($rteKey)) );
 			if( $rteKey!='' && substr($rteKey, 0, 1)!='/' && !in_array($rteKey, $actnLst, true) ){
 				$actnLst[] = $rteKey;
@@ -645,8 +645,8 @@ class Config extends Command{
 			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('app'=>$actPart[0], 'action'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction')) );
 		}
 		$this->printerObj->printShellPair('preset', $prstNme);
-		$this->printerObj->printShellPair('detect', strval($rteConf['detect'] ?? ''));
-		$this->printerObj->printShellPair('others', ( empty($accConf) || ($accConf['needed'] ?? true)===false ) ? 'open' : 'logged');
+		$this->printerObj->printShellPair('detectBy', strval($rteConf['detectBy'] ?? ''));
+		$this->printerObj->printShellPair('others', ( empty($accConf) || ($accConf['required'] ?? true)===false ) ? 'open' : 'logged');
 		$this->printerObj->printShellRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowList );
 		$rleFlow = (new Checker($accConf, $rqstObj, new Registry(Array())))->checkRoleFlaws();
 		if( $rleFlow!='' ){
@@ -657,15 +657,15 @@ class Config extends Command{
 	}
 
 	/**
-	 * Tells who a route is served to under an 'auths' block.
+	 * Tells who a route is served to under an 'security' block.
 	 *
-	 * @param Array   $accessConfig The 'auths' block of the preset.
+	 * @param Array   $accessConfig The 'security' block of the preset.
 	 * @param Request $requstObject A request to build the access check with.
 	 * @param Array   $routesValues The route: its 'app', 'action', 'routPath' and 'routKind'.
 	 * @return String 'open', 'logged', or the least role asked for.
 	 */
 	protected function describeAccess( Array $accessConfig, Request $requstObject, Array $routesValues ): String {
-		if( empty($accessConfig) || ($accessConfig['needed'] ?? true)===false ){
+		if( empty($accessConfig) || ($accessConfig['required'] ?? true)===false ){
 			return 'open';
 		}
 		$chckObj = new Checker( $accessConfig, $requstObject, new Registry(Array('app'=>$routesValues['app'] ?? null, 'action'=>$routesValues['action'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')) );

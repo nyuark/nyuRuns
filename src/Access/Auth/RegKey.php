@@ -15,11 +15,11 @@ class RegKey implements Handler{
 	/**
 	 * Builds the check against the list of API keys from its config block.
 	 *
-	 * @param Array $configValues Config block with a 'keylst' of valid API keys: a plain list, or the keys by the name
+	 * @param Array $configValues Config block with a 'keysList' of valid API keys: a plain list, or the keys by the name
 	 *                          of their holder, which then identifies it.
 	 */
 	function __construct( Array $configValues ){
-		$this->acceptKeys = is_array($configValues['keylst'] ?? null) ? $configValues['keylst'] : Array();
+		$this->acceptKeys = is_array($configValues['keysList'] ?? null) ? $configValues['keysList'] : Array();
 		$this->lastMessag = '';
 	}
 

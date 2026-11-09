@@ -1,6 +1,6 @@
 {
-	"login":  { "authby": "native", "authcf": "tsnatv", "sessby": "jtoken", "sesscf": "tstokn" },
-	"tstokn": { "secret": "test-only-secret-0123456789-abcdefghij", "lifetm": 300, "algrtm": "HS256" },
-	"tsnatv": { "tblnme": "users" },
-	"limits": { "maxtry": 0 }
+	"loginSet":  { "authWith": "nativeDb", "authConf": "testBase", "sessWith": "jwtToken", "sessConf": "testTokn" },
+	"testTokn": { "hmacSecr": "test-only-secret-0123456789-abcdefghij", "lifeSecs": 300, "signAlgo": "HS256" },
+	"testBase": { "useTable": "users" },
+	"tryLimit": { "maxTries": 0 }
 }

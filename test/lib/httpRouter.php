@@ -8,18 +8,18 @@
 // that the shared database connection is opened beforehand on the sample
 // SQLite file named by the NYU_TEST_DB environment variable, and that a
 // request naming no X-Test-Auth, on the default preset or on manual, is
-// served open ("needed": false): both presets are closed.
+// served open ("required": false): both presets are closed.
 //
 // X-Test-* request headers switch on preset overloads, through the Runner's
 // own $overLoaded argument:
 //   X-Test-Auth: <carrier code>      access control required, with that session carrier
-//   X-Test-Store: <store code>       credential check of that access control (regkey by default)
+//   X-Test-Store: <store code>       credential check of that access control (regdKeys by default)
 //   X-Test-Confkey: <block name>     access.json block of that access control (none by default)
 //   X-Test-Conf: <folder>            config files read from test/fixtures/<folder> instead of conf
 //   X-Test-Public: <app/action,...>  public routes of that access control (with X-Test-Auth)
 //   X-Test-Signin: <path>            sign-in route of that access control (with X-Test-Auth)
 //   X-Test-Roles: <route=role,...>   roles the routes of that access control ask for (with X-Test-Auth)
-//   X-Test-Format: <format>          output format (rnder.format)
+//   X-Test-Format: <format>          output format (response.format)
 //   X-Test-Ctype: <value>            preset Content-Type header (name from X-Test-Ctname)
 //   X-Test-Origns: <origin,...>      origins the preset allows other sites to call from
 //   X-Test-Routes: 1               declared routes read from test/fixtures/routes, their files from test/fixtures/pages
@@ -50,41 +50,41 @@ if( isset($_SERVER['HTTP_X_TEST_CERT']) ){
 $overArr = Array();
 // dfault and manual are closed : a request naming no access control, on either of them, is served open, as the tests were written for
 if( !isset($_SERVER['HTTP_X_TEST_AUTH']) && in_array($_SERVER['HTTP_X_TEST_PRESET'] ?? '', Array('', 'dfault', 'manual'), true) ){
-	$overArr['auths'] = Array('needed'=>false);
+	$overArr['security'] = Array('required'=>false);
 }
 if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
-	$overArr['auths'] = Array('needed'=>true, 'sessby'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authby'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regkey', 'sesscf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
+	$overArr['security'] = Array('required'=>true, 'sessWith'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authWith'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regdKeys', 'sessConf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
 	if( isset($_SERVER['HTTP_X_TEST_PUBLIC']) ){
-		$overArr['auths']['openrt'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_PUBLIC']));
+		$overArr['security']['openList'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_PUBLIC']));
 	}
 	if( isset($_SERVER['HTTP_X_TEST_SIGNIN']) ){
-		$overArr['auths']['signin'] = $_SERVER['HTTP_X_TEST_SIGNIN'];
+		$overArr['security']['signRout'] = $_SERVER['HTTP_X_TEST_SIGNIN'];
 	}
 	if( isset($_SERVER['HTTP_X_TEST_ROLES']) ){
 		foreach( explode(',', $_SERVER['HTTP_X_TEST_ROLES']) as $rolPar ){
 			$pairArr = explode('=', $rolPar, 2) + Array('', '');
-			$overArr['auths']['rolert'][trim($pairArr[0])] = trim($pairArr[1]);
+			$overArr['security']['rteRoles'][trim($pairArr[0])] = trim($pairArr[1]);
 		}
 	}
 }
 if( isset($_SERVER['HTTP_X_TEST_CONF']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_CONF']) ){
-	$overArr['setup']['folder'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_CONF'];
+	$overArr['settings']['confPath'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_CONF'];
 }
 if( isset($_SERVER['HTTP_X_TEST_FORMAT']) ){
-	$overArr['rnder']['format'] = $_SERVER['HTTP_X_TEST_FORMAT'];
+	$overArr['response']['outputAs'] = $_SERVER['HTTP_X_TEST_FORMAT'];
 }
 if( isset($_SERVER['HTTP_X_TEST_CTYPE']) ){
-	$overArr['rnder']['headrs'] = Array( ($_SERVER['HTTP_X_TEST_CTNAME'] ?? 'Content-Type') => $_SERVER['HTTP_X_TEST_CTYPE'] );
+	$overArr['response']['headList'] = Array( ($_SERVER['HTTP_X_TEST_CTNAME'] ?? 'Content-Type') => $_SERVER['HTTP_X_TEST_CTYPE'] );
 }
 if( isset($_SERVER['HTTP_X_TEST_ORIGNS']) ){
-	$overArr['rnder']['origns'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_ORIGNS']));
+	$overArr['response']['corsList'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_ORIGNS']));
 }
 if( isset($_SERVER['HTTP_X_TEST_ROUTES']) ){
-	$overArr['route']['folder'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'routes';
-	$overArr['route']['htroot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'pages';
+	$overArr['routings']['routeDir'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'routes';
+	$overArr['routings']['htmlRoot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'pages';
 }
 if( isset($_SERVER['HTTP_X_TEST_HTROOT']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_HTROOT']) ){
-	$overArr['route']['htroot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_HTROOT'];
+	$overArr['routings']['htmlRoot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_HTROOT'];
 }
 
 $useFxtr = isset($_SERVER['HTTP_X_TEST_RUNS']);

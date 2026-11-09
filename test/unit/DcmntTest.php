@@ -104,14 +104,14 @@ checkIdentical('the preset files of the project are JSON with comment lines too'
 	foreach( glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps') as $rpsFle ){
 		$docFile = new Dcmnt($rpsFle);
 		$docFile->parseFileBytes('rps', false);
-		$rpsOkay[] = isset($docFile->readFileDetail()['label']);
+		$rpsOkay[] = isset($docFile->readFileDetail()['presetId']);
 	}
 	return Array(count($rpsOkay)>0, !in_array(false, $rpsOkay, true));
 }), Array(true, true));
 
 // The configuration loader reads its files through Dcmnt
 checkIdentical('config files: named in upper case; JSON keys upper-cased, INI keys as written', runCatchThrown(function(){
-	$cnfLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'folder'=>'test'.DS.'fixtures'.DS.'conf', 'fnames'=>'database,system')) );
+	$cnfLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'conf', 'fileName'=>'database,system')) );
 	$cnfVals = $cnfLoad->retrieveConfig();
 	return Array(array_keys($cnfVals->readLinesArray()), array_keys((array)$cnfVals->readFileDetail('database')), array_slice(array_keys((array)$cnfVals->readFileDetail('system')), 0, 3));
 }), Array(Array('DATABASE', 'SYSTEM'), Array('TYPE', 'HOST', 'BASE', 'USER', 'PASS'), Array('ENV_NAME', 'LOG_MODE', 'LOG_PATH')));

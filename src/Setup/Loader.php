@@ -34,7 +34,7 @@ class Loader{
 	*/
     public function __construct(Array $fullSetupArr = Array(), ?Array $cachedValues = null, String $nameOfPreset = ''){
 		$this->setAllRegistry( $fullSetupArr );
-		$this->blockNames = Array('setup','auths','route','rnder','input');
+		$this->blockNames = Array('settings','security','routings','response','incoming');
 		$this->presetName = $nameOfPreset;
 		$this->usesCached = ($cachedValues!==null);
 		// The preset is kept as it is before any overload of the Runner
@@ -100,15 +100,15 @@ class Loader{
 	* env: values are filled on each request, from the environment file.
 	*
 	* @return Registry The values of the config files.
-	* @throws \RuntimeException When the preset has no setup block.
+	* @throws \RuntimeException When the preset has no settings block.
 	*/
 	function retrieveConfig(): Registry {
-		$confSet = $this->getRegistryKey('setup');
+		$confSet = $this->getRegistryKey('settings');
 		if( $confSet===false ){
-			throw new \RuntimeException('The preset has no setup block');
+			throw new \RuntimeException('The preset has no settings block');
 		}
 		if( $this->usesCached ){
-			$confReg = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confSet['envfle'] ?? '.env') ) );
+			$confReg = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confSet['envsFile'] ?? '.env') ) );
 			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
 			$iniConf = $confReg->readFileDetail('system') ?: Array();
 			ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachValues['tables'] ?? Array()) : null;
@@ -119,12 +119,12 @@ class Loader{
 		// folder and store it into an array
 		$confArr = Array();
 		// Folder of the config files, relative to the project root : conf unless the preset names another
-		$conPath = TOP_DIR.DS.($confSet['folder'] ?? 'conf').DS;
+		$conPath = TOP_DIR.DS.($confSet['confPath'] ?? 'conf').DS;
 		$conScan = scandir($conPath);
 		// Allowed file types
 		$allowFt = Array('ini','json');
 		// File names to load : 'any', or a comma-separated list of names without extension
-		$conFltr = $confSet['fnames'] ?? 'any';
+		$conFltr = $confSet['fileName'] ?? 'any';
 		$nameLst = false;
 		if($conFltr!='any'){
 			$nameLst = array_map('trim', explode(',', $conFltr));
@@ -136,7 +136,7 @@ class Loader{
 			if( !in_array($fileExt, $allowFt) || ($nameLst!==false && !in_array($fileTtl, $nameLst)) ){
 				continue;
 			}
-			if( $confSet['ftypes']!='all' && $confSet['ftypes']!=$fileExt ){
+			if( $confSet['fileType']!='all' && $confSet['fileType']!=$fileExt ){
 				continue;
 			}
 			$nowPath = $conPath.$filNme;
@@ -147,7 +147,7 @@ class Loader{
 		}
 		// The cache holds the values as written: no secret of the environment file goes into it
 		$this->cachValues['config'] = $confArr;
-		$confArr = $this->replaceEnvVals( $confArr, $this->lodEnvironment($confSet['envfle'] ?? '.env') );
+		$confArr = $this->replaceEnvVals( $confArr, $this->lodEnvironment($confSet['envsFile'] ?? '.env') );
 		$confReg = new Registry( $confArr );
 		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
 		$iniConf = $confReg->readFileDetail('system') ?: Array();
@@ -207,16 +207,16 @@ class Loader{
 	 * Input object for each configured source (QUERY is the only one in
 	 * version 1.0; DFILE, DBREC, XTAPI, SESSN and RFLUX come with 1.1).
 	 * Server and client values are not inputs: they are read through the
-	 * request (getSrvVar, getClient). The 'fields' of a source are 'all',
+	 * request (getSrvVar, getClient). The 'fieldSet' of a source are 'all',
 	 * or a definition of the fields kept and of their formats (see
 	 * Tools\Input); an application can define them for each of its
 	 * actions, which its Controller applies.
 	 *
 	 * @param Request $requstObject The shared, already-parsed HTTP request.
-	 * @return Registry Registry of parsed input values, empty if no 'input' config is set.
+	 * @return Registry Registry of parsed input values, empty if no 'incoming' config is set.
 	 */
     function retrieveInputs( Request $requstObject ): Registry {
-		$inptSet = $this->getRegistryKey('input');
+		$inptSet = $this->getRegistryKey('incoming');
 		if($inptSet){
 			$inptArr = Array();
 			foreach($inptSet as $putSet){
@@ -224,10 +224,10 @@ class Loader{
 				// Version 1.0 :	'QUERY'
 				// Version 1.1 :	'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX'
 				$inptTyp = Array('QUERY');
-				$inptSrc = $putSet['source'];
+				$inptSrc = $putSet['dataFrom'];
 
 				if(in_array($inptSrc, $inptTyp)){
-					$inptObj = new Input( $requstObject, $inptSrc, $putSet['fields'], $putSet['naming']);
+					$inptObj = new Input( $requstObject, $inptSrc, $putSet['fieldSet'], $putSet['nameFrom']);
 					$inptArr = array_merge($inptArr, $inptObj->regiStackArray());
 				}
 			}
@@ -241,13 +241,13 @@ class Loader{
 
     /**
 	 * Resolves the application/action/param to run for the current request,
-	 * through the Router and the 'route' configuration of the active preset.
+	 * through the Router and the 'routings' configuration of the active preset.
 	 *
 	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Registry Registry holding the resolved 'app' and 'action' values.
 	 */
     function importRouteReg( Request $requstObject ): Registry {
-		$rteConf = $this->getRegistryKey('route');
+		$rteConf = $this->getRegistryKey('routings');
 		$this->rotrObject = new Router( is_array($rteConf) ? $rteConf : Array(), $requstObject );
 		if( $this->usesCached ){
 			$this->rotrObject->setRouteRoutes( $this->cachValues['routes'] );
@@ -304,14 +304,14 @@ class Loader{
 	}
 
     /**
-	 * Retrieves the resolved 'auths' configuration block for the active
+	 * Retrieves the resolved 'security' configuration block for the active
 	 * preset, for the Access\Checker to act on.
 	 *
-	 * @return Array The 'auths' config block, or ['needed' => false] if none is set.
+	 * @return Array The 'security' config block, or ['required' => false] if none is set.
 	 */
     function setAccessArray(): Array {
-		$accConf = $this->getRegistryKey('auths');
-		return is_array($accConf) ? $accConf : Array('needed'=>false);
+		$accConf = $this->getRegistryKey('security');
+		return is_array($accConf) ? $accConf : Array('required'=>false);
 	}
 
 	/**
@@ -424,14 +424,14 @@ class Loader{
 
     /**
 	 * Defines the output format and response template by building a
-	 * Response object from the 'rnder' configuration.
+	 * Response object from the 'response' configuration.
 	 *
 	 * @return Response The configured response object.
 	 */
     function saveOutputResp(): Response {
 		// Define the output format
 		// and response template
-		$outConf = $this->getRegistryKey('rnder');
+		$outConf = $this->getRegistryKey('response');
 
 		$respObj = new Response($outConf);
 		return $respObj;

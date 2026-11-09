@@ -12,7 +12,7 @@
 --
 -- First a copy of the database file. Then this file, on it:
 --   sqlite3 <database file> < migrate-users-1.0.sqlte.sql
--- All of it is done, or none. The table name is the 'tblnme' value of
+-- All of it is done, or none. The table name is the 'useTable' value of
 -- conf/access.json: change `users` below when it is another.
 
 PRAGMA foreign_keys = OFF;

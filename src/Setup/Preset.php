@@ -10,14 +10,14 @@ use \nyu\Data\Parsers\ParseError;
  */
 class Preset{
 
-	// The keys a preset may hold, block by block; 'input' is a list of sources, each holding those keys
+	// The keys a preset may hold, block by block; 'incoming' is a list of sources, each holding those keys
 	const KEYS_LIST = Array(
-		''      => Array('label', 'about', 'setup', 'auths', 'input', 'route', 'rnder'),
-		'setup' => Array('ftypes', 'fnames', 'folder', 'envfle'),
-		'auths' => Array('needed', 'sessby', 'sesscf', 'authby', 'authcf', 'openrt', 'signin', 'rolert', 'appkey', 'public'),
-		'input' => Array('naming', 'source', 'fields'),
-		'route' => Array('detect', 'mapper', 'folder', 'htroot', 'mounts'),
-		'rnder' => Array('format', 'origns', 'headrs')
+		''         => Array('presetId', 'describe', 'settings', 'security', 'incoming', 'routings', 'response'),
+		'settings' => Array('fileType', 'fileName', 'confPath', 'envsFile'),
+		'security' => Array('required', 'sessWith', 'sessConf', 'authWith', 'authConf', 'openList', 'signRout', 'rteRoles', 'appsConf', 'isPublic'),
+		'incoming' => Array('nameFrom', 'dataFrom', 'fieldSet'),
+		'routings' => Array('detectBy', 'pathForm', 'routeDir', 'htmlRoot', 'mountSet'),
+		'response' => Array('outputAs', 'corsList', 'headList')
 	);
 
 	protected $presetData;
@@ -87,7 +87,7 @@ class Preset{
 				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a block that is not a set of keys: '.$blkKey);
 			}
 			// The sources of the inputs are a list, each checked as a block
-			foreach( ($blkKey=='input' ? $blkVal : Array($blkVal)) as $setVal ){
+			foreach( ($blkKey=='incoming' ? $blkVal : Array($blkVal)) as $setVal ){
 				foreach( array_keys((array)$setVal) as $setKey ){
 					if( !in_array($setKey, self::KEYS_LIST[$blkKey], true) ){
 						throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown key: '.$blkKey.'.'.$setKey);
@@ -96,7 +96,7 @@ class Preset{
 			}
 		}
 		// The mounts are an object, Run name => false or a path prefix (empty for the root): anything else would only fail at the first request
-		$mntList = $this->presetData['route']['mounts'] ?? Array();
+		$mntList = $this->presetData['routings']['mountSet'] ?? Array();
 		if( !is_array($mntList) || (!empty($mntList) && array_is_list($mntList)) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds mounts that are not an object of applications: '.json_encode($mntList, JSON_UNESCAPED_SLASHES));
 		}
@@ -106,7 +106,7 @@ class Preset{
 			}
 		}
 		// A format the reply cannot be written in would only fail at the first request
-		$frmtVal = $this->presetData['rnder']['format'] ?? 'json';
+		$frmtVal = $this->presetData['response']['outputAs'] ?? 'json';
 		if( !is_string($frmtVal) || !array_key_exists(strtolower($frmtVal), \nyu\Output\Response::FORM_LIST) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown output format: '.(is_scalar($frmtVal) ? strval($frmtVal) : gettype($frmtVal)).'; one of '.implode(', ', array_keys(\nyu\Output\Response::FORM_LIST)));
 		}

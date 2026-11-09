@@ -7,7 +7,7 @@ use nyu\Output\Response;
 
 /**
  * Resolves the application, action and parameter to run for a request,
- * according to the 'route' block of the active preset.
+ * according to the 'routings' block of the active preset.
  */
 class Router{
 
@@ -17,7 +17,7 @@ class Router{
 	const KEYS_LIST = Array('mthdList', 'pointsTo');
 	const TRGT_KEYS = Array('appNamed', 'actNamed', 'redirect', 'httpCode', 'filePath', 'foldPath', 'pageFile');
 
-	protected $routConfig;	// 'route' block of the active preset
+	protected $routConfig;	// 'routings' block of the active preset
 	protected $httpRequst;	// The shared HTTP request
 	protected $rtePathTxt;	// Request path, without its leading slash and query string
 	protected $routeFiles;	// Declared routes, once read
@@ -26,7 +26,7 @@ class Router{
 	 * Prepares the router for a request: keeps the route configuration and
 	 * extracts the path to resolve from the request URI.
 	 *
-	 * @param Array   $routSettings The 'route' config block of the active preset.
+	 * @param Array   $routSettings The 'routings' config block of the active preset.
 	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 */
 	public function __construct( Array $routSettings, Request $requstObject ){
@@ -59,7 +59,7 @@ class Router{
 			'app'=>null,
 			'action'=>null
 		);
-		$dtcMode = $this->routConfig['detect'] ?? '';
+		$dtcMode = $this->routConfig['detectBy'] ?? '';
 
 		// Declared routes come first : the site's, then the Runs'
 		$urlPath = str_replace('.php', '', $this->rtePathTxt);
@@ -134,7 +134,7 @@ class Router{
 	 */
 	protected function autoRouteArray(): Array {
 		$urlPart = explode( '/', $this->rtePathTxt );
-		$mapPath = str_replace( '$', '', $this->routConfig['mapper'] ?? '' );
+		$mapPath = str_replace( '$', '', $this->routConfig['pathForm'] ?? '' );
 		$mapPart = explode( '/', $mapPath );
 		$mapping = Array();
 
@@ -177,7 +177,7 @@ class Router{
 
 	/**
 	 * Reads the declared routes: those of the site, every route file of the
-	 * routes folder (conf/routes, or the one named by the 'folder' key of the
+	 * routes folder (conf/routes, or the one named by the 'routeDir' key of the
 	 * route configuration) in file name order, then those of the Runs (see
 	 * runRoutes). Each is kept by its path without its slashes, its owner
 	 * under 'routOwnr': 'site', or the Run's name. When the site declares a
@@ -192,7 +192,7 @@ class Router{
 			return $this->routeFiles;
 		}
 		$rteData = Array();
-		$dirPath = TOP_DIR.DS.($this->routConfig['folder'] ?? 'conf'.DS.'routes');
+		$dirPath = TOP_DIR.DS.($this->routConfig['routeDir'] ?? 'conf'.DS.'routes');
 		if( is_dir($dirPath) ){
 			foreach( glob($dirPath.DS.'*.rte') as $rteFil ){
 				// Plain JSON (Parsers\Index), the keys kept as written
@@ -320,7 +320,7 @@ class Router{
 
 	/**
 	 * Gives the mount of a Run: the path its routes are moved under, from
-	 * the 'mounts' key of the route configuration, { "<run>": false |
+	 * the 'mountSet' key of the route configuration, { "<run>": false |
 	 * "<prefix>" }, the Run named whatever its case. A Run it does not name
 	 * is mounted under its name in lower case.
 	 *
@@ -328,7 +328,7 @@ class Router{
 	 * @return ?String The prefix, without its slashes (empty for the root of the site); null when the Run's routes are not served.
 	 */
 	public function mountRoutePath( String $appNameToRun ): ?String {
-		$mntList = $this->routConfig['mounts'] ?? Array();
+		$mntList = $this->routConfig['mountSet'] ?? Array();
 		foreach( (is_array($mntList) ? $mntList : Array()) as $mntKey => $mntVal ){
 			if( strcasecmp(strval($mntKey), $appNameToRun)!=0 ){
 				continue;
@@ -591,7 +591,7 @@ class Router{
 	/**
 	 * Builds the route values of a static file, of a file of a static
 	 * folder or of an HTML page. Everything lies in the folder the route
-	 * configuration names as 'htroot': without it, nothing is served. The
+	 * configuration names as 'htmlRoot': without it, nothing is served. The
 	 * file asked for in a folder is the rest of the path; it cannot be
 	 * outside that folder, nor be a hidden file, and its extension must
 	 * have a content type (see Response::TYPE_LIST). A folder gives its
@@ -601,11 +601,11 @@ class Router{
 	 * @param Array $capturedVals Values captured from the path, by name.
 	 * @return Array The 'routKind', 'routGoal' and 'routType' values, or a 404 as 'statCode' and 'statMssg'.
 	 *
-	 * @throws \RuntimeException When the target is outside the 'htroot' folder, or a page is not an HTML file.
+	 * @throws \RuntimeException When the target is outside the 'htmlRoot' folder, or a page is not an HTML file.
 	 */
 	protected function statxValuesArr( Array $targetValues, Array $capturedVals ): Array {
 		$missing = Array('statCode'=>404, 'statMssg'=>'Not Found', 'routKind'=>'toStatic');
-		$rootCnf = strval($this->routConfig['htroot'] ?? '');
+		$rootCnf = strval($this->routConfig['htmlRoot'] ?? '');
 		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
 		if( $rootDir===false || !is_dir($rootDir) ){
 			return $missing;
@@ -658,13 +658,13 @@ class Router{
 	/**
 	 * Gives the HTML page a site answers an error status with: the file
 	 * errors/<status>.html of the folder the route configuration names as
-	 * 'htroot', when it holds one.
+	 * 'htmlRoot', when it holds one.
 	 *
 	 * @param Int $responseCode The status of the reply.
 	 * @return ?String The full path of the page, or null when the site has none for that status.
 	 */
 	public function errorPgeString( Int $responseCode ): ?String {
-		$rootCnf = strval($this->routConfig['htroot'] ?? '');
+		$rootCnf = strval($this->routConfig['htmlRoot'] ?? '');
 		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
 		if( $rootDir===false || !is_dir($rootDir) ){
 			return null;
@@ -718,7 +718,7 @@ class Router{
 		$rtePath = trim($routShapeTxt, '/');
 		$isKnown = isset($this->loadFilesArray()[$rtePath]);
 		$hasVars = (strpos($rtePath, '$')!==false || strpos($rtePath, '*')!==false);
-		if( !$isKnown && ($hasVars || ($this->routConfig['detect'] ?? '')!='autopath') ){
+		if( !$isKnown && ($hasVars || ($this->routConfig['detectBy'] ?? '')!='autopath') ){
 			throw new \RuntimeException('No route is declared as "'.$routShapeTxt.'"');
 		}
 		$segList = Array();

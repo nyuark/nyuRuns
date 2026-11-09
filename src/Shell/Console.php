@@ -107,7 +107,7 @@ class Console{
 	 */
 	public static function loadConfigLogs(): Void {
 		try{
-			$loadObj = new Loader( Array('setup'=>Array('ftypes'=>'all')) );
+			$loadObj = new Loader( Array('settings'=>Array('fileType'=>'all')) );
 			$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
 			Logger::plugLogsConfig( $loadObj->logConfigArray() );
 		}catch( \Throwable $e ){

@@ -26,12 +26,12 @@ function filesOfDr( String $folderPath ): Array {
 }
 
 $projDir = makeProjectTxt('bundle', Array(
-	'src/Kernel.php'=>"<?php\n", 'runs/Shows/Actions.php'=>"<?php\n", 'runs/Shows/input/index.json'=>'{ "fields": {} }',
+	'src/Kernel.php'=>"<?php\n", 'runs/Shows/Actions.php'=>"<?php\n", 'runs/Shows/input/index.json'=>'{ "fieldSet": {} }',
 	'www/index.php'=>"<?php\n", 'www/.htaccess'=>"RewriteEngine On\n", 'pages/index.html'=>'<p>home</p>',
-	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"), 'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }',
+	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"), 'conf/presets/dfault.rps'=>'{ "presetId": "dfault", "settings": { "fileType": "all" }, "security": { "required": false } }',
 	'conf/access.json'=>'{ "secret": "real" }', 'conf/access.json.dist'=>'{ "secret": "env:NYU_JWT_SECRET" }', 'conf/database.json'=>'{ "pass": "real" }',
 	'conf/mailer.json'=>'{ "pass": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
-	'conf/keys/dftokn.key'=>'PRIVATE', 'conf/keys/dftokn.pub'=>'PUBLIC', 'conf/keys/dftokn.old.pub'=>'FORMER',
+	'conf/keys/jwtToken.key'=>'PRIVATE', 'conf/keys/jwtToken.pub'=>'PUBLIC', 'conf/keys/jwtToken.old.pub'=>'FORMER',
 	// The public key of a server issuing tokens, without its private key: a project checking them carries it
 	'conf/keys/issuer.pub'=>'ISSUER',
 	'vendor/autoload.php'=>"<?php\n", 'vendor/some/pkg/src/Lib.php'=>"<?php\n", 'vendor/some/pkg/.git/HEAD'=>'ref',
@@ -85,9 +85,9 @@ writeInProject($projDir, 'conf/system.ini', buildSystemIni("CNF_CACH = FALSE\n")
 writeInProject($projDir, $cmpsLog, '');
 $jsnVals = runShellAsJson($projDir, Array('bundling', 'preprods', '--planOnly'));
 $plnRows = array_column($jsnVals['rows'] ?? Array(), 'state', 'path');
-checkIdentical('--planOnly lists, and writes nothing', Array(is_dir($distDir.DS.'preprods'), $plnRows['conf/system.ini'] ?? null, $plnRows['conf/access.json'] ?? null, $plnRows['conf/keys/dftokn.key'] ?? null, $plnRows['test/'] ?? null, $plnRows['.env'] ?? null, $plnRows['vendor/some/pkg/.git/HEAD'] ?? null),
+checkIdentical('--planOnly lists, and writes nothing', Array(is_dir($distDir.DS.'preprods'), $plnRows['conf/system.ini'] ?? null, $plnRows['conf/access.json'] ?? null, $plnRows['conf/keys/jwtToken.key'] ?? null, $plnRows['test/'] ?? null, $plnRows['.env'] ?? null, $plnRows['vendor/some/pkg/.git/HEAD'] ?? null),
 	Array(false, 'copied', 'left out', 'left out', 'left out', 'left out', 'left out'));
-checkIdentical('--planOnly: nothing of conf/keys travels, public keys included', Array($plnRows['conf/keys/dftokn.pub'] ?? null, $plnRows['conf/keys/dftokn.old.pub'] ?? null, $plnRows['conf/keys/issuer.pub'] ?? null),
+checkIdentical('--planOnly: nothing of conf/keys travels, public keys included', Array($plnRows['conf/keys/jwtToken.pub'] ?? null, $plnRows['conf/keys/jwtToken.old.pub'] ?? null, $plnRows['conf/keys/issuer.pub'] ?? null),
 	Array('left out', 'left out', 'left out'));
 checkIdentical('--planOnly tells the class map, and runs no Composer', Array($jsnVals['class map'] ?? null, $plnRows['composer.phar'] ?? null, fetchInProject($projDir, $cmpsLog)), Array('complete, made by '.$projDir.DS.'composer.phar', 'left out', ''));
 checkIdentical('a local bundle keeps the autoloader of the project', fetchInProject($projDir, $cmpsLog), '');
@@ -146,7 +146,7 @@ checkIdentical('a folder of keys named by a mode brings back nothing', callShell
 writeInProject($projDir, 'conf/bundle.lst', $lstText);
 // The secrets conf/access.json names, wherever they lie
 $axsText = strval(fetchInProject($projDir, 'conf/access.json'));
-writeInProject($projDir, 'conf/access.json', '{ "dftokn": { "algrtm": "RS256", "prvkey": "conf/secret/jwt.pem", "pubkey": "/conf/secret/jwt.pub" }, "apkeys": { "applst": { "voice": { "pubkey": "pages/other.pub" } } }, "usrlst": { "usrfle": "conf/people.lst" }, "dfpass": { "htpasswd": "conf/web.pass" } }');
+writeInProject($projDir, 'conf/access.json', '{ "jwtToken": { "signAlgo": "RS256", "privFile": "conf/secret/jwt.pem", "publFile": "/conf/secret/jwt.pub" }, "appsKeys": { "appsList": { "voice": { "publFile": "pages/other.pub" } } }, "userFile": { "listFile": "conf/people.lst" }, "htpasswd": { "passFile": "conf/web.pass" } }');
 foreach( Array('conf/secret/jwt.pem', 'conf/secret/jwt.pub', 'pages/other.pub', 'conf/people.lst', 'conf/web.pass') as $scrtPth ){
 	writeInProject($projDir, $scrtPth, 'SECRET');
 }

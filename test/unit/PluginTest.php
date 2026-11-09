@@ -31,9 +31,9 @@ checkIdentical('a carrier is not a credential check',                  plugClss(
 checkIdentical('a credential check is not a carrier',                  plugClss('sess', 'sample', 'sample'), 'null');
 
 // The framework's own strategies cannot be replaced
-checkIdentical('a built-in credential check stays the framework\'s',   plugClss('auth', 'native', 'native'), '\nyu\Access\Auth\Native');
-checkIdentical('a built-in session carrier stays the framework\'s',    plugClss('sess', 'jtoken', 'jtoken'), '\nyu\Access\Sess\JWT');
-checkIdentical('built-in names need no listing',                       plugClss('auth', 'htpass'), '\nyu\Access\Auth\PassList');
+checkIdentical('a built-in credential check stays the framework\'s',   plugClss('auth', 'nativeDb', 'nativeDb'), '\nyu\Access\Auth\Native');
+checkIdentical('a built-in session carrier stays the framework\'s',    plugClss('sess', 'jwtToken', 'jwtToken'), '\nyu\Access\Sess\JWT');
+checkIdentical('built-in names need no listing',                       plugClss('auth', 'htpasswd'), '\nyu\Access\Auth\PassList');
 
 // Short names that are not six lower-case letters or digits
 checkIdentical('upper case is refused',                                plugClss('auth', 'Sample', 'Sample'), 'null');

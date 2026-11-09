@@ -18,12 +18,12 @@ function fileUsers( String $projctRoot ): Array {
 	return array_column($fleVals['users'] ?? Array(), null, 'userName');
 }
 
-$rndrTxt = '"input": [ { "naming": "QUERY", "source": "QUERY", "fields": "all" } ], "route": { "detect": "autopath", "mapper": "$app/$action/$param" }, "rnder": { "format": "json", "headrs": {} }';
+$rndrTxt = '"incoming": [ { "nameFrom": "QUERY", "dataFrom": "QUERY", "fieldSet": "all" } ], "routings": { "detectBy": "autopath", "pathForm": "$app/$action/$param" }, "response": { "outputAs": "json", "headList": {} }';
 $projDir = makeProjectTxt('manage', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/access.json'=>"{\n\t\"login\":  { \"authby\": \"usrlst\", \"authcf\": \"usrlst\", \"sessby\": \"jtoken\", \"sesscf\": \"dftokn\" },\n\t\"usrlst\": { \"usrfle\": \"conf/users.lst\", \"minlen\": 8 },\n\t\"dftokn\": { \"secret\": \"test-only-secret-0123456789-abcdefghij\", \"lifetm\": 300, \"algrtm\": \"HS256\" }\n}\n",
-	'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false }, '.$rndrTxt.' }',
-	'conf/presets/secure.rps'=>'{ "label": "secure", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "sesscf": "dftokn", "authby": "usrlst", "authcf": "usrlst", "rolert": { "probe/identify": "manage" } }, '.$rndrTxt.' }',
+	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"userFile\", \"authConf\": \"userFile\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\", \"minChars\": 8 },\n\t\"jwtToken\": { \"hmacSecr\": \"test-only-secret-0123456789-abcdefghij\", \"lifeSecs\": 300, \"signAlgo\": \"HS256\" }\n}\n",
+	'conf/presets/dfault.rps'=>'{ "presetId": "dfault", "settings": { "fileType": "all" }, "security": { "required": false }, '.$rndrTxt.' }',
+	'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "authWith": "userFile", "authConf": "userFile", "rteRoles": { "probe/identify": "manage" } }, '.$rndrTxt.' }',
 	'test/fixtures/letters.txt'=>strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt'))
 ));
 
@@ -78,7 +78,7 @@ checkIdentical('a lost authenticator: the secret is taken away', Array(callShell
 // With a key in the block, the secret is written encrypted, and the one shown is still the authenticator's
 if( function_exists('openssl_encrypt') ){
 	$axsText = strval(fetchInProject($projDir, 'conf/access.json'));
-	writeInProject($projDir, 'conf/access.json', str_replace('"minlen": 8 }', '"minlen": 8, "tfakey": "'.str_repeat('k', 40).'" }', $axsText));
+	writeInProject($projDir, 'conf/access.json', str_replace('"minChars": 8 }', '"minChars": 8, "cryptKey": "'.str_repeat('k', 40).'" }', $axsText));
 	$jsnVals = runShellAsJson($projDir, Array('accounts', 'setTwoFa', 'bob'));
 	$sealTxt = strval(fileUsers($projDir)['bob']['twoFaKey'] ?? '');
 	checkIdentical('twofa writes the secret encrypted when the block gives a key', Array(preg_match('/^enc1:[A-Za-z0-9+\/=]{80}$/D', $sealTxt), nyu\Access\Totp::openSecretText($sealTxt, str_repeat('k', 40)), runShellAsJson($projDir, Array('accounts', 'viewUser', 'bob'))['hasTwoFa'] ?? null), Array(1, $jsnVals['secret']['2FA secret of bob'] ?? '', true));
@@ -98,12 +98,12 @@ checkIdentical('removal needs a confirmation', Array(callShellArray($projDir, Ar
 checkIdentical('the former files are in temp/backup, the newest ones only', count(glob($projDir.DS.'temp'.DS.'backup'.DS.'users.lst.*')), nyu\Shell\ConfFile::KEEP_COPY);
 $logText = strval(fetchInProject($projDir, 'temp/logs/access.log'));
 checkIdentical('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "bob" created \(member\) in the users file by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "bob" removed in the users file by user/', $logText), preg_match('/\[NOTICE\] User "bob" removed in the users file by user/', $logText), strpos($logText, 'another-pass')), Array(1, 1, 1, false));
-checkIdentical('a secret written readable is told, once a write (three): the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no tfakey of 32 characters is set/', $logText), 3);
+checkIdentical('a secret written readable is told, once a write (three): the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no cryptKey of 32 characters is set/', $logText), 3);
 $fleText = strval(fetchInProject($projDir, 'conf/users.lst'));
 writeInProject($projDir, 'conf/users.lst', '{ "users": "none" }');
 checkIdentical('a file that is not a list of users is a failure, and is left alone', Array(callShellArray($projDir, Array('accounts', 'fullList'))['code'], callShellArray($projDir, Array('accounts', 'makeUser', 'carl'))['code'], fetchInProject($projDir, 'conf/users.lst')), Array(1, 1, '{ "users": "none" }'));
 writeInProject($projDir, 'conf/users.lst', $fleText);
-checkIdentical('a store the config does not have', Array(callShellArray($projDir, Array('accounts', 'fullList', '--useStore=native'))['code'], callShellArray($projDir, Array('accounts', 'fullList', '--useStore=other'))['code'], callShellArray($projDir, Array('accounts', 'fullList', '--useBlock=nothing'))['code']), Array(3, 2, 3));
+checkIdentical('a store the config does not have', Array(callShellArray($projDir, Array('accounts', 'fullList', '--useStore=nativeDb'))['code'], callShellArray($projDir, Array('accounts', 'fullList', '--useStore=other'))['code'], callShellArray($projDir, Array('accounts', 'fullList', '--useBlock=nothing'))['code']), Array(3, 2, 3));
 
 // Calling an action
 checkIdentical('calls runs an action and writes its reply', callShellArray($projDir, Array('accounts', 'doAction', 'probe/mirrored/hello')), Array('code'=>0, 'text'=>"{\"got\":\"hello\"}\n", 'errs'=>''));

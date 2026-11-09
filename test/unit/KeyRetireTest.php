@@ -1,7 +1,7 @@
 <?php
 
-// Access\Sess\JWT : the previous key ('oldpub') checks only the tokens it
-// signed before it was retired ('retire'), ending within 'lifetm' of it;
+// Access\Sess\JWT : the previous key ('prevFile') checks only the tokens it
+// signed before it was retired ('retireAt'), ending within 'lifeSecs' of it;
 // past that time it is neither used nor published.
 
 require __DIR__.'/../lib/harness.php';
@@ -56,24 +56,24 @@ function readsTokn( JWT $jwtCarrier, String $tokenValue ): Mixed {
 
 list($oldPriv, $oldPubl) = makePairs('former');
 list($newPriv, $newPubl) = makePairs('current');
-$oldKid = strval( json_decode(base64_decode(strtr(explode('.', (new JWT(Array('algrtm'=>'RS256', 'prvkey'=>$oldPriv)))->issueTokenText(Array('user'=>'x')))[0], '-_', '+/')), true)['kid'] ?? '' );
+$oldKid = strval( json_decode(base64_decode(strtr(explode('.', (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$oldPriv)))->issueTokenText(Array('user'=>'x')))[0], '-_', '+/')), true)['kid'] ?? '' );
 $nowTime = time();
 $retired = $nowTime - 100;
-$rotConf = Array('algrtm'=>'RS256', 'prvkey'=>$newPriv, 'pubkey'=>$newPubl, 'oldpub'=>$oldPubl, 'retire'=>$retired, 'lifetm'=>600);
+$rotConf = Array('signAlgo'=>'RS256', 'privFile'=>$newPriv, 'publFile'=>$newPubl, 'prevFile'=>$oldPubl, 'retireAt'=>$retired, 'lifeSecs'=>600);
 $rotJwt = new JWT( $rotConf );
 
-checkIdentical('previous key: a token issued before the rotation, ending within lifetm of it, passes', readsTokn($rotJwt, oldToken($retired - 50, $retired + 500)), 'anna');
+checkIdentical('previous key: a token issued before the rotation, ending within lifeSecs of it, passes', readsTokn($rotJwt, oldToken($retired - 50, $retired + 500)), 'anna');
 checkIdentical('previous key: one issued after the rotation is refused, and counted', readsTokn($rotJwt, oldToken($retired + 10, $retired + 500)), Array(false, 'Invalid token', true));
-checkIdentical('previous key: one ending beyond the rotation and lifetm is refused, and counted', readsTokn($rotJwt, oldToken($retired - 50, $retired + 601)), Array(false, 'Invalid token', true));
+checkIdentical('previous key: one ending beyond the rotation and lifeSecs is refused, and counted', readsTokn($rotJwt, oldToken($retired - 50, $retired + 601)), Array(false, 'Invalid token', true));
 checkIdentical('previous key: one without iat is refused', readsTokn($rotJwt, JwtCodec::encode(Array('user'=>'anna', 'exp'=>$retired + 500), strval(file_get_contents($oldPriv)), 'RS256', $oldKid)), Array(false, 'Invalid token', true));
 checkIdentical('previous key: published while its tokens may last', count($rotJwt->publicSetArray()['keys']), 2);
 checkIdentical('the current key is not bound by the rotation', readsTokn($rotJwt, (new JWT($rotConf))->issueTokenText(Array('user'=>'ben'))), 'ben');
 
-// Past the rotation and lifetm, the previous key is neither used nor published
-$endConf = Array('retire'=>$nowTime - 700) + $rotConf;
+// Past the rotation and lifeSecs, the previous key is neither used nor published
+$endConf = Array('retireAt'=>$nowTime - 700) + $rotConf;
 $endJwt = new JWT( $endConf );
 checkIdentical('past its time: not published', count($endJwt->publicSetArray()['keys']), 1);
 checkIdentical('past its time: what it signed is forged', readsTokn($endJwt, oldToken($nowTime - 800, $nowTime + 100)), Array(false, 'Invalid token', true));
-checkIdentical('without a retire time, it is not used either', Array(count((new JWT(array_diff_key($rotConf, Array('retire'=>1))))->publicSetArray()['keys']), readsTokn(new JWT(array_diff_key($rotConf, Array('retire'=>1))), oldToken($retired - 50, $retired + 500))), Array(1, Array(false, 'Invalid token', true)));
+checkIdentical('without a retire time, it is not used either', Array(count((new JWT(array_diff_key($rotConf, Array('retireAt'=>1))))->publicSetArray()['keys']), readsTokn(new JWT(array_diff_key($rotConf, Array('retireAt'=>1))), oldToken($retired - 50, $retired + 500))), Array(1, Array(false, 'Invalid token', true)));
 
 finishChecking();

@@ -9,7 +9,7 @@ use \nyu\Access\Auth\UserBase;
 
 /**
  * Manages the users of the native userbase (see Access\Auth\UserBase),
- * the one the 'login' block of the ACCESS config file names. Every
+ * the one the 'loginSet' block of the ACCESS config file names. Every
  * action is kept for the users of the highest role (see startCall).
  * A refusal of the userbase is reported with its own status: 400 for a
  * value that is not valid, 404 for an unknown user, 409 for a change the
@@ -225,7 +225,7 @@ class Actions extends Actionset {
 	 * from a logged user of the highest role of Checker::ROLE_LIST (see
 	 * needsRole), a 405 unless it uses the given method, and a 500 when
 	 * the login does not use the native userbase. The role is asked for
-	 * here whatever the preset does: a 'rolert' entry of its 'auths'
+	 * here whatever the preset does: a 'rteRoles' entry of its 'security'
 	 * block only refuses the request earlier.
 	 *
 	 * @param String $httpMthdText Method the action answers to.

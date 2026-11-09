@@ -43,18 +43,18 @@ class UserFile{
 	/**
 	 * Builds the writer of the users file from its config block.
 	 *
-	 * @param Array    $configValues Config block with the 'usrfle' path of the users file, relative to the project root
+	 * @param Array    $configValues Config block with the 'listFile' path of the users file, relative to the project root
 	 *                             (conf/users.lst when left out), and optionally the shortest password accepted,
-	 *                             in characters ('minlen', defaults to 10) and the key the 2FA secrets are written
-	 *                             encrypted with ('tfakey', 32 characters at least; without one they are written readable).
+	 *                             in characters ('minChars', defaults to 10) and the key the 2FA secrets are written
+	 *                             encrypted with ('cryptKey', 32 characters at least; without one they are written readable).
 	 * @param ConfFile $writerObject The writer of config files.
 	 */
 	function __construct( Array $configValues, ConfFile $writerObject ){
-		$fileNme = is_scalar($configValues['usrfle'] ?? '') ? trim( strval($configValues['usrfle'] ?? ''), '/\\ ' ) : '';
+		$fileNme = is_scalar($configValues['listFile'] ?? '') ? trim( strval($configValues['listFile'] ?? ''), '/\\ ' ) : '';
 		$this->nameOfFile = ($fileNme!='') ? $fileNme : 'conf/users.lst';
 		$this->usrLstPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $this->nameOfFile);
-		$this->minPasswrd = min( self::PASS_SIZE, max(1, intval($configValues['minlen'] ?? 10)) );
-		$this->sealingKey = is_scalar($configValues['tfakey'] ?? '') ? strval($configValues['tfakey'] ?? '') : '';
+		$this->minPasswrd = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
+		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
 		$this->fileWriter = $writerObject;
 	}
 
@@ -379,7 +379,7 @@ class UserFile{
 		if( $isSaved ){
 			$this->logFileChanges( '2FA secret of user '.json_encode($namedUserTxt).' made' );
 			if( $storTxt===$newSecr ){
-				Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfakey of '.Totp::SEAL_SIZE.' characters is set' );
+				Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no cryptKey of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 		}
 		return $isSaved ? $newSecr : false;
@@ -569,7 +569,7 @@ class UserFile{
 			return $this->declineForFlag(500, 'Users file cannot be written: '.$e->getMessage());
 		}
 		// Read as the application reads it : a file it refuses would lock everyone out
-		$chckObj = new UserList( Array('usrfle'=>$this->nameOfFile) );
+		$chckObj = new UserList( Array('listFile'=>$this->nameOfFile) );
 		$chckObj->usrIdentityArr('-');
 		if( $chckObj->finalErrorText()=='Credential store unavailable' ){
 			$this->fileWriter->revertWriteFlg($this->usrLstPath);
@@ -636,7 +636,7 @@ class UserFile{
 
 	/**
 	 * Tells which rule a password breaks, the rules being those of the
-	 * native userbase: at least 'minlen' characters and at most PASSSIZE
+	 * native userbase: at least 'minChars' characters and at most PASSSIZE
 	 * bytes, no control character, and not the name of its user.
 	 *
 	 * @param String $namedUserTxt Login name of the user.

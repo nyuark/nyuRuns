@@ -1,25 +1,25 @@
 {
-	"label": "servce",
-	"about": "Preset for a service called by other programs: an API key in a header, checked against the list of keys",
-	"setup": {
-		"ftypes": "all",
-		"fnames": "any"
+	"presetId": "servce",
+	"describe": "Preset for a service called by other programs: an API key in a header, checked against the list of keys",
+	"settings": {
+		"fileType": "all",
+		"fileName": "any"
 	},
-	"auths": { "needed": true, "sessby": "header", "sesscf": "dfkeys", "authby": "regkey" },
-	"input": [
+	"security": { "required": true, "sessWith": "apiHeadr", "sessConf": "regdKeys", "authWith": "regdKeys" },
+	"incoming": [
 		{
-			"naming": "QUERY",
-			"source": "QUERY",
-			"fields": "all"
+			"nameFrom": "QUERY",
+			"dataFrom": "QUERY",
+			"fieldSet": "all"
 		}
 	],
-	"route": {
-		"detect": "autopath",
-		"mapper": "$app/$action/$param"
+	"routings": {
+		"detectBy": "autopath",
+		"pathForm": "$app/$action/$param"
 	},
-	"rnder": {
-		"format": "json",
-		"headrs": {
+	"response": {
+		"outputAs": "json",
+		"headList": {
 			"Cache-Control":	"no-cache, no-store, max-age=0, must-revalidate",
 			"Expires":			"Mon, 26 Jul 1997 05:00:00 GMT",
 			"Pragma":			"no-cache"

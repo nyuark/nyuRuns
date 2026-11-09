@@ -41,7 +41,7 @@ function failTimes( Limiter $limiterObj, String $clientAddr, Int $failsCount, In
 }
 
 $cntFldr = inTemporaryDir('limits');
-$limiter = new FoldrLimiter( Array('maxtry'=>3, 'holdtm'=>600), $cntFldr );
+$limiter = new FoldrLimiter( Array('maxTries'=>3, 'holdSecs'=>600), $cntFldr );
 
 // Counting, holding, and the end of the hold
 checkIdentical('an address that never failed is not held', $limiter->heldUntilCount('203.0.113.7', 1000), 0);
@@ -80,35 +80,35 @@ checkIdentical('a counter still in use is kept', Array(count(glob($cntFldr.DS.'*
 checkIdentical('nothing left once every hold time has passed', Array($limiter->dropStaleCount(5000), count(glob($cntFldr.DS.'*.cnt'))), Array(2, 0));
 
 // Settings
-$offLimit = new FoldrLimiter( Array('maxtry'=>0), inTemporaryDir('limits_off') );
+$offLimit = new FoldrLimiter( Array('maxTries'=>0), inTemporaryDir('limits_off') );
 failTimes($offLimit, '203.0.113.7', 20, 1000);
-checkIdentical('maxtry 0 : no limit, and nothing kept', Array($offLimit->heldUntilCount('203.0.113.7', 1020), is_dir(inTemporaryDir('limits_off'))), Array(0, false));
+checkIdentical('maxTries 0 : no limit, and nothing kept', Array($offLimit->heldUntilCount('203.0.113.7', 1020), is_dir(inTemporaryDir('limits_off'))), Array(0, false));
 $dfltLmt = new FoldrLimiter( Array(), inTemporaryDir('limits_dflt') );
 failTimes($dfltLmt, '203.0.113.7', 9, 1000);
 checkIdentical('by default, nine failures do not hold', $dfltLmt->heldUntilCount('203.0.113.7', 1009), 0);
 $dfltLmt->countFailedTry('203.0.113.7', 1009);
 checkIdentical('by default, ten failures hold for ten minutes', $dfltLmt->heldUntilCount('203.0.113.7', 1010), 1609);
 $foldrPrp = new ReflectionProperty('nyu\Access\Limiter', 'countsFold');
-checkIdentical('the folder is read from the project root, temp/limits by default', Array($foldrPrp->getValue(new Limiter(Array())), $foldrPrp->getValue(new Limiter(Array('folder'=>'/var/tries/')))), Array(TOP_DIR.DS.'temp'.DS.'limits', TOP_DIR.DS.'var/tries'));
+checkIdentical('the folder is read from the project root, temp/limits by default', Array($foldrPrp->getValue(new Limiter(Array())), $foldrPrp->getValue(new Limiter(Array('dataPath'=>'/var/tries/')))), Array(TOP_DIR.DS.'temp'.DS.'limits', TOP_DIR.DS.'var/tries'));
 
 // A folder that cannot be written limits nothing, and breaks nothing
 file_put_contents(inTemporaryDir('limits_file'), 'in the way');
-$brknLmt = new FoldrLimiter( Array('maxtry'=>1), inTemporaryDir('limits_file').DS.'under' );
+$brknLmt = new FoldrLimiter( Array('maxTries'=>1), inTemporaryDir('limits_file').DS.'under' );
 checkIdentical('counters that cannot be written leave the address free', runCatchThrown(function() use ($brknLmt){
 	failTimes($brknLmt, '203.0.113.7', 3, 1000);
 	return $brknLmt->heldUntilCount('203.0.113.7', 1003);
 }), 0);
 
 // The credential checks tell a wrong credential from the rest
-$passLst = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
+$passLst = new PassList( Array('passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
 $passLst->chckCredential(Array('user'=>'alice', 'pass'=>'nope'));
 checkIdentical('PassList : a wrong password is a wrong credential', $passLst->wrngCredential(), true);
 $passLst->chckCredential(Array('user'=>'alice', 'pass'=>'s3cret'));
 checkIdentical('PassList : a right password is not', $passLst->wrngCredential(), false);
-$nonePss = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'missing.htpasswd') );
+$nonePss = new PassList( Array('passFile'=>'test'.DS.'fixtures'.DS.'missing.htpasswd') );
 $nonePss->chckCredential(Array('user'=>'alice', 'pass'=>'s3cret'));
 checkIdentical('PassList : a file that cannot be read is not', Array($nonePss->finalErrorText(), $nonePss->wrngCredential()), Array('Credential store unavailable', false));
-$keysLst = new RegKey( Array('keylst'=>Array('k-1')) );
+$keysLst = new RegKey( Array('keysList'=>Array('k-1')) );
 $keysLst->chckCredential(Array('key'=>'bad'));
 checkIdentical('RegKey : a wrong key is a wrong credential', $keysLst->wrngCredential(), true);
 $keysLst->chckCredential(Array());
@@ -116,8 +116,8 @@ checkIdentical('RegKey : a missing key is not', $keysLst->wrngCredential(), fals
 
 // Through the Checker : counters in a folder of the project, removed at the end
 $prjFldr = 'temp'.DS.'limits_test_'.getmypid();
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keylst'=>Array('k-1')), 'LIMITS'=>Array('maxtry'=>2, 'holdtm'=>600, 'folder'=>$prjFldr))) );
-$hdrConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys');
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keysList'=>Array('k-1')), 'TRYLIMIT'=>Array('maxTries'=>2, 'holdSecs'=>600, 'dataPath'=>$prjFldr))) );
+$hdrConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys');
 /**
  * Runs the access check of a request carrying an API key.
  *

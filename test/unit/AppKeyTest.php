@@ -51,7 +51,7 @@ function appsReqst( Array $headersArr, String $httpMethod='GET' ): nyu\Tools\Req
 /**
  * Checks a request through the Checker, on a route.
  *
- * @param Array  $accessConf The 'auths' block.
+ * @param Array  $accessConf The 'security' block.
  * @param Array  $headersArr Headers of the request.
  * @param Array  $routeArray The resolved route.
  * @param String $httpMethod Method of the request.
@@ -64,20 +64,20 @@ function appsReply( Array $accessConf, Array $headersArr, Array $routeArray, Str
 
 list($appPriv, $appPubl) = makePairs('portal');
 list($ownPriv, $ownPubl) = makePairs('own');
-$appTokn = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>$appPriv) );
-$ownTokn = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>$ownPriv) );
+$appTokn = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$appPriv) );
+$ownTokn = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$ownPriv) );
 $appKeys = Array(
-	'header'=>'X-App-Key',
-	'applst'=>Array(
-		'portal'=>Array('keyhsh'=>hash('sha256', 'key-portal'), 'routes'=>Array('contacts/*', '/members/save'), 'pubkey'=>$appPubl),
-		'mobile'=>Array('keyhsh'=>hash('sha256', 'key-mobile'), 'routes'=>Array('contacts/view'), 'pubkey'=>$appPubl, 'maxrol'=>'system'),
-		'broken'=>Array('keyhsh'=>hash('sha256', 'key-broke'), 'routes'=>Array('contacts/*'), 'pubkey'=>$appPubl, 'maxrol'=>'root'),
-		'nofile'=>Array('keyhsh'=>hash('sha256', 'key-nofle'), 'routes'=>Array('contacts/*'), 'pubkey'=>inTemporaryDir('none.pub')),
-		'nohash'=>Array('routes'=>Array('contacts/*'), 'pubkey'=>$appPubl)
+	'headName'=>'X-App-Key',
+	'appsList'=>Array(
+		'portal'=>Array('keyDigst'=>hash('sha256', 'key-portal'), 'routeSet'=>Array('contacts/*', '/members/save'), 'publFile'=>$appPubl),
+		'mobile'=>Array('keyDigst'=>hash('sha256', 'key-mobile'), 'routeSet'=>Array('contacts/view'), 'publFile'=>$appPubl, 'roleTops'=>'system'),
+		'broken'=>Array('keyDigst'=>hash('sha256', 'key-broke'), 'routeSet'=>Array('contacts/*'), 'publFile'=>$appPubl, 'roleTops'=>'root'),
+		'nofile'=>Array('keyDigst'=>hash('sha256', 'key-nofle'), 'routeSet'=>Array('contacts/*'), 'publFile'=>inTemporaryDir('none.pub')),
+		'nohash'=>Array('routeSet'=>Array('contacts/*'), 'publFile'=>$appPubl)
 	)
 );
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0), 'APKEYS'=>$appKeys, 'OWNTOKN'=>Array('algrtm'=>'RS256', 'pubkey'=>$ownPubl))) );
-$axsConf = Array('needed'=>true, 'sessby'=>'jtoken', 'sesscf'=>'owntokn', 'appkey'=>'apkeys');
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0), 'APPSKEYS'=>$appKeys, 'OWNTOKEN'=>Array('signAlgo'=>'RS256', 'publFile'=>$ownPubl))) );
+$axsConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'ownToken', 'appsConf'=>'appsKeys');
 $cntView = Array('app'=>'Contacts', 'action'=>'view');
 $bearsOf = function( JWT $jwtCarrier, String $loggedUser, String $loggedRole ): Array {
 	return Array('Authorization'=>'Bearer '.$jwtCarrier->issueTokenText(Array('user'=>$loggedUser, 'role'=>$loggedRole)));
@@ -94,7 +94,7 @@ checkIdentical('app key: the right key without a token, not counted', Array($key
 checkIdentical('app key: a token the application did not sign is forged', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($ownTokn, 'ann', 'member'))), $keyChck->finalErrorText(), $keyChck->wrngCredential()), Array(false, 'Invalid token', true));
 checkIdentical('app key: a refused call leaves no route', $keyChck->allowsRouteFlg(new Registry($cntView)), false);
 $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'member')) );
-checkIdentical('app key: the routes, as openrt writes them', Array(
+checkIdentical('app key: the routes, as openList writes them', Array(
 	$keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'contacts', 'action'=>''))),
 	$keyChck->allowsRouteFlg(new Registry(Array('app'=>null, 'action'=>null, 'routPath'=>'members/save'))), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'Members', 'action'=>'save')))
 ), Array(true, true, true, false));
@@ -103,19 +103,19 @@ checkIdentical('app key: an action alone, not its application without one', Arra
 checkIdentical('app key: no route before a key is verified', (new AppKey($appKeys))->allowsRouteFlg(new Registry($cntView)), false);
 
 // Through the Checker
-checkIdentical('call: granted, the role of the token kept up to maxrol', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(200, '', 'ann', 'member', 'portal'));
+checkIdentical('call: granted, the role of the token kept up to roleTops', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(200, '', 'ann', 'member', 'portal'));
 checkIdentical('call: a manager of the application is a member here', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'manage'), $cntView), Array(200, '', 'bob', 'member', 'portal'));
-checkIdentical('call: maxrol system keeps a system user', appsReply($axsConf, Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'bob', 'system'), $cntView)[3], 'system');
+checkIdentical('call: roleTops system keeps a system user', appsReply($axsConf, Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'bob', 'system'), $cntView)[3], 'system');
 checkIdentical('call: a route the key does not list is a 403', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'member'), Array('app'=>'Orders', 'action'=>'index')), Array(403, 'Forbidden', 'ann', 'member', 'portal'));
-checkIdentical('call: the role the route asks for still applies', appsReply($axsConf + Array('rolert'=>Array('contacts/*'=>'system')), Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'manage'), $cntView)[0], 403);
+checkIdentical('call: the role the route asks for still applies', appsReply($axsConf + Array('rteRoles'=>Array('contacts/*'=>'system')), Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'manage'), $cntView)[0], 403);
 checkIdentical('call: a wrong key is a 401', appsReply($axsConf, Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(401, 'Invalid app key', '', null, null));
 checkIdentical('call: the token of the application without its key is refused', appsReply($axsConf, $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(401, 'Invalid token', '', null, null));
 checkIdentical('call: the project\'s own token still goes through its carrier', appsReply($axsConf, $bearsOf($ownTokn, 'carl', 'member'), $cntView), Array(200, '', 'carl', 'member', null));
-checkIdentical('call: an unknown maxrol is a 500', appsReply($axsConf, Array('X-App-Key'=>'key-broke') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(500, 'Access misconfigured', '', null, null));
+checkIdentical('call: an unknown roleTops is a 500', appsReply($axsConf, Array('X-App-Key'=>'key-broke') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(500, 'Access misconfigured', '', null, null));
 checkIdentical('call: a missing key file is a 500', appsReply($axsConf, Array('X-App-Key'=>'key-nofle') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(500, 'Access misconfigured', '', null, null));
-checkIdentical('call: an open route ignores the key', appsReply($axsConf + Array('openrt'=>Array('contacts/view')), Array('X-App-Key'=>'key-other'), $cntView), Array(200, '', '', null, null));
+checkIdentical('call: an open route ignores the key', appsReply($axsConf + Array('openList'=>Array('contacts/view')), Array('X-App-Key'=>'key-other'), $cntView), Array(200, '', '', null, null));
 $noKeyCf = $axsConf;
-unset($noKeyCf['appkey']);
+unset($noKeyCf['appsConf']);
 checkIdentical('call: without appkey, the key is not read', appsReply($noKeyCf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'member'), $cntView), Array(401, 'Invalid token', '', null, null));
 
 // The logs : a write is a notice, a read an info, a route refused a warning

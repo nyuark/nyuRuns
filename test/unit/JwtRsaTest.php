@@ -60,49 +60,49 @@ function headOfTkn( String $tokenValue ): Array {
 list($prvPath, $pubPath) = makePairs('main', 2048);
 list($othrPrv, $othrPub) = makePairs('other', 2048);
 list($weakPrv, $weakPub) = makePairs('weak', 1024);
-$fullJwt = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>$prvPath, 'pubkey'=>$pubPath, 'lifetm'=>60) );
+$fullJwt = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$prvPath, 'publFile'=>$pubPath, 'lifeSecs'=>60) );
 $rawTokn = $fullJwt->issueTokenText( Array('user'=>'anna', 'role'=>'manage') );
 
 // Signed with the private key, checked with the public one
 checkIdentical('RS256 a token is issued and checked', readsTokn($fullJwt, $rawTokn), 'anna');
 $headArr = headOfTkn($rawTokn);
 checkIdentical('RS256 the token names its algorithm and its key', Array($headArr['alg'] ?? null, strlen(strval($headArr['kid'] ?? ''))), Array('RS256', 43));
-$sameKid = headOfTkn( (new JWT(Array('algrtm'=>'RS256', 'prvkey'=>$prvPath)))->issueTokenText(Array('user'=>'ben')) )['kid'] ?? null;
-$othrKid = headOfTkn( (new JWT(Array('algrtm'=>'RS256', 'prvkey'=>$othrPrv)))->issueTokenText(Array('user'=>'ben')) )['kid'] ?? null;
+$sameKid = headOfTkn( (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$prvPath)))->issueTokenText(Array('user'=>'ben')) )['kid'] ?? null;
+$othrKid = headOfTkn( (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv)))->issueTokenText(Array('user'=>'ben')) )['kid'] ?? null;
 checkIdentical('RS256 the kid follows the key: the same for the same key, another for another', Array($sameKid===($headArr['kid'] ?? null), $othrKid!==($headArr['kid'] ?? null)), Array(true, true));
 
 // What is refused
-$othrJwt = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>$othrPrv, 'pubkey'=>$othrPub) );
+$othrJwt = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'publFile'=>$othrPub) );
 checkIdentical('RS256 a token signed with another key is forged', readsTokn($fullJwt, strval($othrJwt->issueTokenText(Array('user'=>'eve', 'role'=>'manage')))), Array(false, 'Invalid token', true));
 $confTkn = JwtCodec::encode( Array('user'=>'eve', 'role'=>'manage', 'exp'=>time()+60), strval(file_get_contents($pubPath)), 'HS256' );
 checkIdentical('RS256 a token signed with HS256 and the public key as its secret is forged', readsTokn($fullJwt, $confTkn), Array(false, 'Invalid token', true));
-$hsJwt = new JWT( Array('secret'=>str_repeat('s', 40)) );
+$hsJwt = new JWT( Array('hmacSecr'=>str_repeat('s', 40)) );
 checkIdentical('HS256 a token signed with RS256 is refused by a block on HS256', readsTokn($hsJwt, $rawTokn), Array(false, 'Invalid token', true));
 checkIdentical('HS256 a block on HS256 still issues and checks', readsTokn($hsJwt, $hsJwt->issueTokenText(Array('user'=>'ben'))), 'ben');
 
 // A block holding only the public key checks the tokens another server issues
-$chkOnly = new JWT( Array('algrtm'=>'RS256', 'pubkey'=>$pubPath) );
+$chkOnly = new JWT( Array('signAlgo'=>'RS256', 'publFile'=>$pubPath) );
 checkIdentical('check only: the tokens of the server issuing them pass', Array($chkOnly->verifyOnlyFlag(), readsTokn($chkOnly, $rawTokn)), Array(true, 'anna'));
 checkIdentical('check only: it issues none', Array($chkOnly->issueTokenText(Array('user'=>'anna')), $chkOnly->finalErrorText()), Array('', 'Tokens are issued by another server'));
-$prvOnly = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>$prvPath) );
+$prvOnly = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$prvPath) );
 checkIdentical('a block with the private key alone draws the public key from it', Array($prvOnly->verifyOnlyFlag(), readsTokn($prvOnly, $rawTokn)), Array(false, 'anna'));
 
 // Keys that cannot be used
-$noKeys = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>inTemporaryDir('missing.key'), 'pubkey'=>inTemporaryDir('missing.pub')) );
+$noKeys = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>inTemporaryDir('missing.key'), 'publFile'=>inTemporaryDir('missing.pub')) );
 checkIdentical('RS256 without keys', Array($noKeys->verifyOnlyFlag(), $noKeys->issueTokenText(Array('user'=>'anna')), $noKeys->finalErrorText(), readsTokn($noKeys, $rawTokn)), Array(false, '', 'Token keys not configured', Array(false, 'Token keys not configured', false)));
-$weakJwt = new JWT( Array('algrtm'=>'RS256', 'prvkey'=>$weakPrv, 'pubkey'=>$weakPub) );
+$weakJwt = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$weakPrv, 'publFile'=>$weakPub) );
 checkIdentical('RS256 a key under 2048 bits is not used', Array($weakJwt->issueTokenText(Array('user'=>'anna')), $weakJwt->finalErrorText(), $weakJwt->verifyOnlyFlag()), Array('', 'Token keys not configured', false));
 file_put_contents(inTemporaryDir('broken.pub'), 'not a key');
-checkIdentical('RS256 a file that is not a key', readsTokn(new JWT(Array('algrtm'=>'RS256', 'pubkey'=>inTemporaryDir('broken.pub'))), $rawTokn), Array(false, 'Token keys not configured', false));
-checkIdentical('an algorithm that is not one of the list', readsTokn(new JWT(Array('algrtm'=>'none', 'secret'=>str_repeat('s', 40))), $rawTokn), Array(false, 'JWT secret not configured', false));
+checkIdentical('RS256 a file that is not a key', readsTokn(new JWT(Array('signAlgo'=>'RS256', 'publFile'=>inTemporaryDir('broken.pub'))), $rawTokn), Array(false, 'Token keys not configured', false));
+checkIdentical('an algorithm that is not one of the list', readsTokn(new JWT(Array('signAlgo'=>'none', 'hmacSecr'=>str_repeat('s', 40))), $rawTokn), Array(false, 'JWT secret not configured', false));
 
 // The login of a project that only checks tokens : 501, nothing checked or counted
 $lmtFldr = 'temp'.DS.'limits_test_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
-	'LOGIN'=>Array('authby'=>'htpass', 'authcf'=>'dfpass', 'sessby'=>'jtoken', 'sesscf'=>'chkonl'),
-	'DFPASS'=>Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd'),
-	'CHKONL'=>Array('algrtm'=>'RS256', 'pubkey'=>$pubPath),
-	'LIMITS'=>Array('maxtry'=>1, 'holdtm'=>600, 'folder'=>$lmtFldr)
+	'LOGINSET'=>Array('authWith'=>'htpasswd', 'authConf'=>'htpasswd', 'sessWith'=>'jwtToken', 'sessConf'=>'chkonl'),
+	'HTPASSWD'=>Array('passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd'),
+	'CHKONL'=>Array('signAlgo'=>'RS256', 'publFile'=>$pubPath),
+	'TRYLIMIT'=>Array('maxTries'=>1, 'holdSecs'=>600, 'dataPath'=>$lmtFldr)
 )) );
 $lgnRslt = runCatchThrown(function(){
 	$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.9') );

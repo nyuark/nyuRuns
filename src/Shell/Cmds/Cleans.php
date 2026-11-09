@@ -146,7 +146,7 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFullList(): Int {
-		$lmtrObj = new Limiter( $this->accessSettings('limits') );
+		$lmtrObj = new Limiter( $this->accessSettings('tryLimit') );
 		$rowList = Array();
 		foreach( $lmtrObj->listLimitHolds() as $cntVal ){
 			$rowList[] = Array(
@@ -176,7 +176,7 @@ class Cleans extends Command{
 		if( !$this->queryAgreedFlg('Release '.( $gvnAddr=='all' ? 'every address' : $gvnAddr )) ){
 			$this->terminateShell('Nothing was released: not confirmed', self::EXIT_DENY);
 		}
-		$lmtrObj = new Limiter( $this->accessSettings('limits') );
+		$lmtrObj = new Limiter( $this->accessSettings('tryLimit') );
 		$dropNum = $lmtrObj->freeHoldsCount( $gvnAddr=='all' ? null : $gvnAddr );
 		$this->printerObj->printShellPair('released', $dropNum);
 		if( $dropNum>0 ){
@@ -193,10 +193,10 @@ class Cleans extends Command{
 	 */
 	protected function findTempFolder( String $tempFileKind ): String {
 		if( $tempFileKind=='logs' ){
-			return strval( (new Loader(Array('setup'=>Array('ftypes'=>'all'))))->logConfigArray()['path'] );
+			return strval( (new Loader(Array('settings'=>Array('fileType'=>'all'))))->logConfigArray()['path'] );
 		}
 		if( $tempFileKind=='limits' ){
-			$fldName = trim( strval($this->accessSettings('limits')['folder'] ?? ''), '/\\ ' );
+			$fldName = trim( strval($this->accessSettings('tryLimit')['dataPath'] ?? ''), '/\\ ' );
 			return TOP_DIR.DS.( $fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'limits' );
 		}
 		return TOP_DIR.DS.'temp'.DS.$tempFileKind;

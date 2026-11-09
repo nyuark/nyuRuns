@@ -1,5 +1,5 @@
 -- Devices (Access\Auth\Device), SQLite: the machines allowed in with a token, each in the name of a user.
--- The table name is the 'tblnme' value of the device block in conf/access.json, the users table its 'usrtbl' value.
+-- The table name is the 'useTable' value of the device block in conf/access.json, the users table its 'usersTbl' value.
 -- Created by php nyuRun installs userBase, after the users table, when conf/access.json holds a device block.
 -- The removal of a user takes its devices along: the framework's SQLite handler turns the foreign keys on.
 -- madeDate is given by the clock of the database, in UTC, the other dates by the one of PHP.

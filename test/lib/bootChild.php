@@ -22,8 +22,8 @@ require $rootDir.'/vendor/autoload.php';
 mkdir(TOP_DIR.DS.'conf'.DS.'presets', 0775, true);
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'broken.rps', '{ "name": "broken", ');
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'empty.rps', "// Nothing set\n{\n}\n");
-file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'stale.rps', '{ "label": "stale", "setup": { "ftypes": "all", "config": "all" } }');
-file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'nested.rps', '{ "name": "nested", "setup": { "ftypes": "all" } }');
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'stale.rps', '{ "presetId": "stale", "settings": { "fileType": "all", "config": "all" } }');
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'nested.rps', '{ "name": "nested", "settings": { "fileType": "all" } }');
 
 // The error log is the standard error stream, whatever the machine's php.ini says
 ini_set('log_errors', '1');

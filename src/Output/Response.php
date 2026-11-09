@@ -32,7 +32,7 @@ class Response{
 		'pdf'=>'application/pdf'
 	);
 
-	// The formats a reply is written in (the 'format' key of a preset's 'rnder' block), and the file extension of the writer of each
+	// The formats a reply is written in (the 'outputAs' key of a preset's 'response' block), and the file extension of the writer of each
 	const FORM_LIST = Array('json'=>'json', 'yaml'=>'yaml', 'xmlx'=>'xml', 'tabl'=>'csv', 'html'=>'html', 'flux'=>'');
 
 	protected $dataFormat;
@@ -54,16 +54,16 @@ class Response{
 	protected $pageStatus;
 
 	/**
-	 * Configures the response from the 'rnder' preset section.
+	 * Configures the response from the 'response' preset section.
 	 *
-	 * @param Array $renderValues Render configuration with 'headrs' (response headers), 'format' (the format of the reply, one of FORMTLST, 'json' when not set) and, optionally, 'origns' (the origins other sites may call from, see setOrigin) keys.
+	 * @param Array $renderValues Render configuration with 'headList' (response headers), 'outputAs' (the format of the reply, one of FORMTLST, 'json' when not set) and, optionally, 'corsList' (the origins other sites may call from, see setOrigin) keys.
 	 */
 	public function __construct( Array $renderValues=Array() ){
-		$this->headrArray = $renderValues['headrs'] ?? Array();
-		$this->dataFormat = strtolower( strval($renderValues['format'] ?? 'json') );
+		$this->headrArray = $renderValues['headList'] ?? Array();
+		$this->dataFormat = strtolower( strval($renderValues['outputAs'] ?? 'json') );
 		$this->formatUsed = $this->dataFormat;
 		// An origin is a scheme, a host and a port : compared without case, nor a slash at its end
-		foreach( (array)($renderValues['origns'] ?? Array()) as $origin ){
+		foreach( (array)($renderValues['corsList'] ?? Array()) as $origin ){
 			$orgnTxt = is_scalar($origin) ? strtolower( rtrim(trim(strval($origin)), '/') ) : '';
 			if( $orgnTxt!='' && $orgnTxt!='*' ){
 				$this->originList[] = $orgnTxt;
@@ -72,8 +72,8 @@ class Response{
 	}
 
 	/**
-	 * Applies the origins the preset allows (the 'origns' key of its
-	 * 'rnder' block) to the request: an origin of the list is named in
+	 * Applies the origins the preset allows (the 'corsList' key of its
+	 * 'response' block) to the request: an origin of the list is named in
 	 * Access-Control-Allow-Origin, any other gets no such header, and
 	 * caches are told the reply differs by origin. Without a list, the
 	 * headers of the preset are sent as they are written.

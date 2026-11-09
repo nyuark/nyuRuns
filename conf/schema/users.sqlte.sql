@@ -1,5 +1,5 @@
 -- Native userbase (Access\Auth\Native), SQLite.
--- The table name is the 'tblnme' value of the strategy's config block in conf/access.json.
+-- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
 -- userName is matched with case: 'Anna' and 'anna' are two users.
 -- madeDate is given by the clock of the database, in UTC, the other dates by the one of PHP.
 

@@ -6,7 +6,7 @@ namespace nyu\Access\Auth;
  * Verifies credentials against an Apache-style .htpasswd file, so the
  * same file can be shared with an Apache/Nginx Basic-auth config. The
  * wrong passwords of each account are counted in the folder of the limits
- * (see Access\Limiter): after 'maxtry' of them within 'holdtm', the account
+ * (see Access\Limiter): after 'maxTries' of them within 'holdSecs', the account
  * is refused, whatever it gives, until the hold is over.
  */
 class PassList implements Handler{
@@ -20,20 +20,20 @@ class PassList implements Handler{
 	/**
 	 * Builds the check against the password file from its config block.
 	 *
-	 * @param Array $configValues Config block with an 'htpasswd' file path (relative to the project root),
-	 *                          and optionally 'unsecure' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default),
-	 *                          the wrong passwords allowed for one account ('maxtry', defaults to 5; 0 for no limit) and the
-	 *                          time in seconds they add up within and then hold it for ('holdtm', defaults to 600).
+	 * @param Array $configValues Config block with a 'passFile' file path (relative to the project root),
+	 *                          and optionally 'weakHash' => true to accept weak {SHA}, DES and MD5 crypt hashes (refused by default),
+	 *                          the wrong passwords allowed for one account ('maxTries', defaults to 5; 0 for no limit) and the
+	 *                          time in seconds they add up within and then hold it for ('holdSecs', defaults to 600).
 	 */
 	function __construct( Array $configValues ){
-		$pwdFile = $configValues['htpasswd'] ?? '';
+		$pwdFile = $configValues['passFile'] ?? '';
 		$this->htpsswdFil = ($pwdFile!='') ? TOP_DIR.DS.$pwdFile : '';
-		$this->weakHashes = (($configValues['unsecure'] ?? false) === true);
+		$this->weakHashes = (($configValues['weakHash'] ?? false) === true);
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
-			'maxtry'=>$configValues['maxtry'] ?? 5, 'holdtm'=>$configValues['holdtm'] ?? 600, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : ''
+			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : ''
 		) );		$this->lastMessag = '';
 	}
 
@@ -118,7 +118,7 @@ class PassList implements Handler{
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
 		$strngFm = in_array(substr($htpasswdHash,0,3), Array('$5$', '$6$'), true);
 		if( !$strngFm && !$this->weakHashes ){
-			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "unsecure" option' );
+			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "weakHash" option' );
 			return false;
 		}
 		if( $shaHash ){

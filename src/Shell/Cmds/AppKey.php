@@ -16,15 +16,15 @@ use nyu\Access\Sess\JWT;
  *   php nyuRun appsKeys setRoute portal --routeSet=…  replaces the routes of an application
  *   php nyuRun appsKeys revokeIt portal                 removes the key of an application
  *
- * The keys are those of the 'apkeys' block of conf/access.json: only the
+ * The keys are those of the 'appsKeys' block of conf/access.json: only the
  * hash of a key is stored, the key is shown once. A preset reads them
- * when its 'auths' block names that block under 'appkey'. Every change
+ * when its 'security' block names that block under 'appsConf'. Every change
  * is traced on the 'shell' log channel.
  */
 class AppKey extends Command{
 
 	// The block of conf/access.json holding the keys, and the header it is created with
-	const KEYS_BLCK = 'apkeys';
+	const KEYS_BLCK = 'appsKeys';
 	const KEYS_HEAD = 'X-App-Key';
 
 	/**
@@ -52,11 +52,11 @@ class AppKey extends Command{
 
 	/**
 	 * Makes the key of an application: its routes (--routeSet, written as
-	 * those of 'openrt', separated by commas), the public key its tokens
+	 * those of 'openList', separated by commas), the public key its tokens
 	 * are checked with (--publFile, an RSA key of JWT::RSAS_BITS bits at least,
 	 * from the project root) and the highest role of its users (--roleTops,
 	 * member when not told). A name already listed is refused. The key is
-	 * shown once; its hash is written in the 'apkeys' block, created when
+	 * shown once; its hash is written in the 'appsKeys' block, created when
 	 * conf/access.json has none.
 	 *
 	 * @return Int The exit code.
@@ -84,18 +84,18 @@ class AppKey extends Command{
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
 		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
-			// The audiences naming this project are left empty : "settings setValue access apkeys.audnce" sets them
-			$treeObj->$blckNme = (object)Array('header'=>self::KEYS_HEAD, 'applst'=>new \stdClass(), 'audnce'=>Array());
+			// The audiences naming this project are left empty : "settings setValue access appsKeys.audience" sets them
+			$treeObj->$blckNme = (object)Array('headName'=>self::KEYS_HEAD, 'appsList'=>new \stdClass(), 'audience'=>Array());
 		}
-		if( !isset($treeObj->$blckNme->applst) || !is_object($treeObj->$blckNme->applst) ){
-			$treeObj->$blckNme->applst = new \stdClass();
+		if( !isset($treeObj->$blckNme->appsList) || !is_object($treeObj->$blckNme->appsList) ){
+			$treeObj->$blckNme->appsList = new \stdClass();
 		}
-		if( isset($treeObj->$blckNme->applst->$appName) ){
+		if( isset($treeObj->$blckNme->appsList->$appName) ){
 			$this->terminateShell('No key made: the application '.json_encode($appName).' already has one (appsKeys revokeIt it first)', self::EXIT_DENY);
 		}
 		$keyText = rtrim( strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=' );
-		$treeObj->$blckNme->applst->$appName = (object)Array(
-			'keyhsh'=>hash('sha256', $keyText), 'routes'=>$rteList, 'pubkey'=>$publPth, 'maxrol'=>$maxRole, 'madedt'=>date('Y-m-d H:i:s')
+		$treeObj->$blckNme->appsList->$appName = (object)Array(
+			'keyDigst'=>hash('sha256', $keyText), 'routeSet'=>$rteList, 'publFile'=>$publPth, 'roleTops'=>$maxRole, 'madeDate'=>date('Y-m-d H:i:s')
 		);
 		$this->saveAccessConf($treeObj);
 		$this->traceShellDone( 'App key: made for application '.json_encode($appName).' ('.$maxRole.'), routes '.json_encode($rteList, JSON_UNESCAPED_SLASHES) );
@@ -105,7 +105,7 @@ class AppKey extends Command{
 	}
 
 	/**
-	 * Lists the applications of the 'apkeys' block: name, routes, public
+	 * Lists the applications of the 'appsKeys' block: name, routes, public
 	 * key, highest role and the date the key was made. A hash is never shown.
 	 *
 	 * @return Int The exit code.
@@ -114,9 +114,9 @@ class AppKey extends Command{
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
 		$rowList = Array();
-		foreach( get_object_vars($treeObj->$blckNme->applst ?? new \stdClass()) as $appKey => $appSet ){
+		foreach( get_object_vars($treeObj->$blckNme->appsList ?? new \stdClass()) as $appKey => $appSet ){
 			$appSet = (array)$appSet;
-			$rowList[] = Array(strval($appKey), implode(', ', array_map('strval', (array)($appSet['routes'] ?? Array()))), strval($appSet['pubkey'] ?? ''), strval($appSet['maxrol'] ?? Checker::ROLE_LIST[0]), strval($appSet['madedt'] ?? ''));
+			$rowList[] = Array(strval($appKey), implode(', ', array_map('strval', (array)($appSet['routeSet'] ?? Array()))), strval($appSet['publFile'] ?? ''), strval($appSet['roleTops'] ?? Checker::ROLE_LIST[0]), strval($appSet['madeDate'] ?? ''));
 		}
 		$this->printerObj->printShellRows( Array('application', 'routes', 'public key', 'highest role', 'made'), $rowList );
 		return self::EXIT_DONE;
@@ -132,10 +132,10 @@ class AppKey extends Command{
 		$rteList = $this->parseRouteList();
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
-		if( !isset($treeObj->$blckNme->applst->$appName) || !is_object($treeObj->$blckNme->applst->$appName) ){
+		if( !isset($treeObj->$blckNme->appsList->$appName) || !is_object($treeObj->$blckNme->appsList->$appName) ){
 			$this->terminateShell('No route changed: no application named '.json_encode($appName), self::EXIT_DENY);
 		}
-		$treeObj->$blckNme->applst->$appName->routes = $rteList;
+		$treeObj->$blckNme->appsList->$appName->routeSet = $rteList;
 		$this->saveAccessConf($treeObj);
 		$this->traceShellDone( 'App key: routes of application '.json_encode($appName).' set to '.json_encode($rteList, JSON_UNESCAPED_SLASHES) );
 		$this->printerObj->printShellPair('routes set', $appName);
@@ -151,10 +151,10 @@ class AppKey extends Command{
 		$appName = $this->needsShellWord('the name of the application');
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
-		if( !isset($treeObj->$blckNme->applst->$appName) ){
+		if( !isset($treeObj->$blckNme->appsList->$appName) ){
 			$this->terminateShell('Nothing revoked: no application named '.json_encode($appName), self::EXIT_DENY);
 		}
-		unset($treeObj->$blckNme->applst->$appName);
+		unset($treeObj->$blckNme->appsList->$appName);
 		$this->saveAccessConf($treeObj);
 		$this->traceShellDone( 'App key: key of application '.json_encode($appName).' revoked' );
 		$this->printerObj->printShellPair('key revoked', $appName);

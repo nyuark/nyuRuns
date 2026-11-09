@@ -15,7 +15,7 @@ use nyu\Access\Auth\Handler as AuthHndlr;
 class PHPSess implements Handler{
 
 	// SameSite policies of the cookie, by their config short name
-	const SITE_LIST = Array('strict'=>'Strict', 'relaxd'=>'Lax');
+	const SITE_LIST = Array('strict'=>'Strict', 'lax'=>'Lax');
 
 	protected $authObject;
 	protected $cookieName;
@@ -29,24 +29,24 @@ class PHPSess implements Handler{
 	/**
 	 * Builds the PHP session carrier from its config block.
 	 *
-	 * @param Array     $configValues Config block with the 'cookie' name (default 'nyuSessn'), the 'lifetm' in
-	 * 		seconds a session may stay unused (default 3600), the 'fulltm' in seconds it may
-	 * 		live in all, however much it is used (default 43200; 0 for no limit), the 'samest'
-	 * 		policy ('strict' by default, or 'relaxd'), 'secure' (true by default: the cookie only
-	 * 		travels over HTTPS) and the 'folder' its sessions are kept in, from the project root
+	 * @param Array     $configValues Config block with the 'cookName' name (default 'nyuSessn'), the 'lifeSecs' in
+	 * 		seconds a session may stay unused (default 3600), the 'fullSecs' in seconds it may
+	 * 		live in all, however much it is used (default 43200; 0 for no limit), the 'sameSite'
+	 * 		policy ('strict' by default, or 'lax'), 'secureOn' (true by default: the cookie only
+	 * 		travels over HTTPS) and the 'dataPath' its sessions are kept in, from the project root
 	 * 		(PHP's own when left empty).
 	 * @param ?AuthHndlr $authStrategy Optional credential store confirming the session's user (see verifyReq).
 	 */
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
-		$cookNme = strval($configValues['cookie'] ?? 'nyuSessn');
+		$cookNme = strval($configValues['cookName'] ?? 'nyuSessn');
 		$this->authObject = $authStrategy;
 		$this->cookieName = preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $cookNme) ? $cookNme : 'nyuSessn';
-		$this->sessinLife = max( 1, intval($configValues['lifetm'] ?? 3600) );
-		$this->entireLife = max( 0, intval($configValues['fulltm'] ?? 43200) );
-		$fldName = is_scalar($configValues['folder'] ?? '') ? trim( strval($configValues['folder'] ?? ''), '/\\ ' ) : '';
+		$this->sessinLife = max( 1, intval($configValues['lifeSecs'] ?? 3600) );
+		$this->entireLife = max( 0, intval($configValues['fullSecs'] ?? 43200) );
+		$fldName = is_scalar($configValues['dataPath'] ?? '') ? trim( strval($configValues['dataPath'] ?? ''), '/\\ ' ) : '';
 		$this->saveFolder = ($fldName!='') ? TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $fldName) : '';
-		$this->sitePolicy = self::SITE_LIST[$configValues['samest'] ?? 'strict'] ?? 'Strict';
-		$this->isHttpOnly = (($configValues['secure'] ?? true) !== false);
+		$this->sitePolicy = self::SITE_LIST[$configValues['sameSite'] ?? 'strict'] ?? 'Strict';
+		$this->isHttpOnly = (($configValues['secureOn'] ?? true) !== false);
 		$this->lastMessag = '';
 	}
 
@@ -54,7 +54,7 @@ class PHPSess implements Handler{
 	 * Opens the session named by the request's cookie and returns the
 	 * identity it holds. A session left unused for longer than its
 	 * lifetime is destroyed, and so is one opened longer ago than a
-	 * session may live in all ('fulltm'). With a credential store offering usrIdentityArr(),
+	 * session may live in all ('fullSecs'). With a credential store offering usrIdentityArr(),
 	 * the user must still be allowed in, and its current identity (role)
 	 * replaces the session's.
 	 *

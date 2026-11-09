@@ -17,7 +17,7 @@ use nyu\Access\Auth\Device as DeviceAuth;
  * The role is the one the application gives its devices: the framework
  * knows none. Only the hash of a token is stored; a revoked device is
  * kept in the list, with the time of its revocation. The settings are
- * those of the 'device' block of conf/access.json. Every change is
+ * those of the 'devToken' block of conf/access.json. Every change is
  * traced on the 'shell' log channel.
  */
 class Device extends Command{
@@ -116,13 +116,13 @@ class Device extends Command{
 	}
 
 	/**
-	 * Gives the check of the devices, from the 'device' block of the
+	 * Gives the check of the devices, from the 'devToken' block of the
 	 * ACCESS config.
 	 *
 	 * @return DeviceAuth The check.
 	 */
 	protected function getDeviceCheck(): DeviceAuth {
-		return new DeviceAuth( $this->accessSettings('device') );
+		return new DeviceAuth( $this->accessSettings('devToken') );
 	}
 
 	/**

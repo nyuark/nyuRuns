@@ -24,7 +24,7 @@ function madeRoutr( String $urlAddress, String $httpMethod='GET', Array $routeCo
 	foreach( Array('rqstInMthd'=>$httpMethod, 'requestUri'=>Array('reqstURI'=>$urlAddress)) as $prpNme=>$prpVal ){
 		(new ReflectionProperty($request, $prpNme))->setValue($request, $prpVal);
 	}
-	return new Router( $routeConfg + Array('detect'=>'autopath', 'mapper'=>'$app/$action/$param', 'folder'=>'test'.DS.'nosuchfolder'), $request );
+	return new Router( $routeConfg + Array('detectBy'=>'autopath', 'pathForm'=>'$app/$action/$param', 'routeDir'=>'test'.DS.'nosuchfolder'), $request );
 }
 
 @mkdir(RUN_DIR.DS.'Mixed', 0775, true);
@@ -55,7 +55,7 @@ $siteDir = 'temp'.DS.'runroutes_'.getmypid();
 @mkdir(TOP_DIR.DS.$siteDir, 0775, true);
 file_put_contents(TOP_DIR.DS.$siteDir.DS.'covers.rte', '{ "auth/*": { "pointsTo": { "redirect": "/elsewhere" } } }');
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('patlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-$patReg = madeRoutr('/auth/openSess', 'GET', Array('folder'=>$siteDir))->locateRouteReg();
+$patReg = madeRoutr('/auth/openSess', 'GET', Array('routeDir'=>$siteDir))->locateRouteReg();
 Logger::plugLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$siteDir);
 checkIdentical('site pattern: the site answers', Array($patReg->readFileDetail('routKind'), $patReg->readFileDetail('routOwnr'), $patReg->readFileDetail('routPath')), Array('redirect', 'site', 'auth/*'));
@@ -65,7 +65,7 @@ checkIdentical('site pattern: a route from the root is not under it', strpos($pa
 
 // installs checkAll: the route shadow row, and the mounts a preset may give
 $mntText = function( String $presetName, String $mountsJson ): String {
-	return '{ "label": "'.$presetName.'", "setup": { "ftypes": "all" }, "auths": { "needed": false, "public": true }, "route": { "detect": "autopath", "mapper": "$app/$action/$param", "folder": "conf/routes/'.$presetName.'", "mounts": '.$mountsJson.' } }';
+	return '{ "presetId": "'.$presetName.'", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true }, "routings": { "detectBy": "autopath", "pathForm": "$app/$action/$param", "routeDir": "conf/routes/'.$presetName.'", "mountSet": '.$mountsJson.' } }';
 };
 $projDir = makeProjectTxt('runroutes', Array(
 	'conf/system.ini'=>buildSystemIni(),
@@ -91,7 +91,7 @@ foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText
 	checkPregMatch('mounts: '.$rpsName.' says why', strval($chkRows['preset '.$rpsName]['found'] ?? ''), '#holds mounts that are not an object of applications: '.$badText.'#');
 }
 checkIdentical('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
-$rootRtr = madeRoutr('/openSess', 'POST', Array('mounts'=>Array('auth'=>'')));
+$rootRtr = madeRoutr('/openSess', 'POST', Array('mountSet'=>Array('auth'=>'')));
 checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readFileDetail('app'), $rootRtr->locateRouteReg()->readFileDetail('routPath')), Array('Auth', 'openSess'));
 
 finishChecking();

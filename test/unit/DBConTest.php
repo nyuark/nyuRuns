@@ -85,7 +85,7 @@ $twoBase = Array('NYURUNS'=>$mainSet, 'SHPSTAT'=>$statSet);
 
 checkIdentical('single block: it is the default database', setupOf(array_change_key_case($mainSet, CASE_UPPER)), $mainSet);
 checkIdentical('single block: settings left out are empty', setupOf(Array('TYPE'=>'sqlte', 'BASE'=>'data/app.sqlite')), Array('type'=>'sqlte', 'host'=>'', 'port'=>'', 'base'=>'data/app.sqlite', 'user'=>'', 'pass'=>'', 'char'=>'', 'auth'=>'', 'wait'=>''));
-checkIdentical('single block: anything else in it is left aside', setupOf(Array('TYPE'=>'sqlte', 'BASE'=>'app.sqlite', 'MORE'=>Array('ftypes'=>'all'), 'EXTRA'=>'x'))['base'] ?? null, 'app.sqlite');
+checkIdentical('single block: anything else in it is left aside', setupOf(Array('TYPE'=>'sqlte', 'BASE'=>'app.sqlite', 'MORE'=>Array('fileType'=>'all'), 'EXTRA'=>'x'))['base'] ?? null, 'app.sqlite');
 checkPregMatch('single block: it has no name to ask for', setupOf(array_change_key_case($mainSet, CASE_UPPER), 'nyuRuns'), '/^THROWN RuntimeException: Unknown database: nyuRuns/');
 checkIdentical('named blocks: the first one is the default', setupOf($twoBase), $mainSet);
 checkIdentical('named blocks: one asked by its name', setupOf($twoBase, 'shpStat'), $statSet);
@@ -96,7 +96,7 @@ checkPregMatch('an empty database block', setupOf(Array()), '/^THROWN RuntimeExc
 
 // The project's own configuration, as the loader reads it: conf/database.json is kept out of
 // the repository, so it is only checked where it exists
-$prjLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'fnames'=>'database')) );
+$prjLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'fileName'=>'database')) );
 $prjBase = $prjLoad->retrieveConfig()->readFileDetail('database');
 if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
 	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun installs makeConf" creates it');

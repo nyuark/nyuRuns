@@ -10,7 +10,7 @@
 --   pg_dump -U <user> -t '"users"' <database> > users-0.9.sql
 -- Then this file, on the database of the application:
 --   psql -U <user> -d <database> -f migrate-users-1.0.pgsql.sql
--- All of it is done, or none. The table name is the 'tblnme' value of
+-- All of it is done, or none. The table name is the 'useTable' value of
 -- conf/access.json: change "users" below when it is another, and the name
 -- of the check with it ("<table>_userStat_check").
 

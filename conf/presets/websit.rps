@@ -1,27 +1,27 @@
 {
-	"label": "websit",
-	"about": "Preset for a site used from a browser: a session cookie, its users checked against the users table, the login left open, its own route folder",
-	"setup": {
-		"ftypes": "all",
-		"fnames": "any"
+	"presetId": "websit",
+	"describe": "Preset for a site used from a browser: a session cookie, its users checked against the users table, the login left open, its own route folder",
+	"settings": {
+		"fileType": "all",
+		"fileName": "any"
 	},
-	"auths": { "needed": true, "sessby": "phsess", "sesscf": "dfsess", "authby": "native", "authcf": "native", "openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/assets/*"], "signin": "/login", "rolert": { "users/*": "manage" } },
-	"input": [
+	"security": { "required": true, "sessWith": "phpSessn", "sessConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/assets/*"], "signRout": "/login", "rteRoles": { "users/*": "manage" } },
+	"incoming": [
 		{
-			"naming": "QUERY",
-			"source": "QUERY",
-			"fields": "all"
+			"nameFrom": "QUERY",
+			"dataFrom": "QUERY",
+			"fieldSet": "all"
 		}
 	],
-	"route": {
-		"detect": "autopath",
-		"mapper": "$app/$action/$param",
-		"folder": "conf/routes/websit",
-		"htroot": "pages"
+	"routings": {
+		"detectBy": "autopath",
+		"pathForm": "$app/$action/$param",
+		"routeDir": "conf/routes/websit",
+		"htmlRoot": "pages"
 	},
-	"rnder": {
-		"format": "json",
-		"headrs": {
+	"response": {
+		"outputAs": "json",
+		"headList": {
 			"Cache-Control":	"no-cache, no-store, max-age=0, must-revalidate",
 			"Expires":			"Mon, 26 Jul 1997 05:00:00 GMT",
 			"Pragma":			"no-cache"

@@ -1,25 +1,25 @@
 {
-	"label": "dfault",
-	"about": "Preset loaded when the entry point names none: closed, Bearer tokens, the login through the users file (the login block of access.json), JSON replies",
-	"setup": {
-		"ftypes": "all",
-		"fnames": "any"
+	"presetId": "dfault",
+	"describe": "Preset loaded when the entry point names none: closed, Bearer tokens, the login through the users file (the login block of access.json), JSON replies",
+	"settings": {
+		"fileType": "all",
+		"fileName": "any"
 	},
-	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json"], "rolert": { "users/*": "manage" } },
-	"input": [
+	"security": { "required": true, "sessWith": "jwtToken", "sessConf": "jwtToken", "openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json"], "rteRoles": { "users/*": "manage" } },
+	"incoming": [
 		{
-			"naming": "QUERY",
-			"source": "QUERY",
-			"fields": "all"
+			"nameFrom": "QUERY",
+			"dataFrom": "QUERY",
+			"fieldSet": "all"
 		}
 	],
-	"route": {
-		"detect": "autopath",
-		"mapper": "$app/$action/$param"
+	"routings": {
+		"detectBy": "autopath",
+		"pathForm": "$app/$action/$param"
 	},
-	"rnder": {
-		"format": "json",
-		"headrs": {
+	"response": {
+		"outputAs": "json",
+		"headList": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",
 			"Access-Control-Allow-Headers":	"Authorization, Content-Type, X-Api-Key",

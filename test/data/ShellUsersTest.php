@@ -21,9 +21,9 @@ switchToSqlite($basePth);
 $projDir = makeProjectTxt('users', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$basePth, 'user'=>'', 'pass'=>'')),
-	'conf/access.json'=>"{\n\t\"login\":  { \"authby\": \"native\", \"authcf\": \"tsnatv\", \"sessby\": \"jtoken\", \"sesscf\": \"dftokn\" },\n\t\"tsnatv\": { \"tblnme\": \"users\", \"minlen\": 8 },\n\t\"usrlst\": { \"usrfle\": \"conf/users.lst\" }\n}\n"
+	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"nativeDb\", \"authConf\": \"testBase\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"testBase\": { \"useTable\": \"users\", \"minChars\": 8 },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\" }\n}\n"
 ));
-$natAuth = new Native( Array('tblnme'=>'users') );
+$natAuth = new Native( Array('useTable'=>'users') );
 
 // Reading
 $jsnVals = runShellAsJson($projDir, Array('accounts', 'fullList'));
@@ -61,10 +61,10 @@ checkIdentical('a locked or unknown user is given neither', Array(callShellArray
 callShellArray($projDir, Array('accounts', 'setEmail', 'erin', 'erin@example.ch'));
 checkIdentical('twofa --emailOtp without a mailer is refused', callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['errs'], "No mail account sends the codes: mailer is not set\n");
 writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "type": "tofile", "from": "no-reply@example.com", "fold": "temp/mails" } }');
-callShellArray($projDir, Array('settings', 'setValue', 'access', 'tsnatv.mailer', 'devbox', '--overrule'));
+callShellArray($projDir, Array('settings', 'setValue', 'access', 'testBase.mailAcnt', 'devbox', '--overrule'));
 checkIdentical('twofa --emailOtp: the user gives a mailed code at each login', Array(callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFaWay FROM users WHERE userName='erin'")->fetchColumn()), Array("2FA set: erin (codes by mail)\n", 'mailed'));
 checkPregMatch('twofa --emailOtp is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Mailed codes set for user "erin" by user "cli:/');
-checkIdentical('a move to the users file is refused while a user has mailed codes', Array(callShellArray($projDir, Array('installs', 'moveUser', 'usrlst', '--yesToAll'))['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array("Nothing was moved: codes by mail need the native userbase (erin); \"accounts setTwoFa <user> --removeIt\" takes them away\n", false));
+checkIdentical('a move to the users file is refused while a user has mailed codes', Array(callShellArray($projDir, Array('installs', 'moveUser', 'userFile', '--yesToAll'))['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array("Nothing was moved: codes by mail need the native userbase (erin); \"accounts setTwoFa <user> --removeIt\" takes them away\n", false));
 checkIdentical('twofa --removeIt takes them away', Array(callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--removeIt', '--yesToAll'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFaWay FROM users WHERE userName='erin'")->fetchColumn()), Array("2FA removed: erin\n", null));
 
 // Reset, removal
@@ -88,12 +88,12 @@ checkIdentical('prove without a user: nobody awaits review', callShellArray($pro
 $sqlLink->exec("INSERT INTO users (userName, passHash, userStat, userMail, signDate) VALUES ('ivan', '!', 'review', 'ivan@example.ch', '2026-11-04 08:00:00')");
 checkIdentical('prove without a user lists those awaiting review', array_column(runShellAsJson($projDir, Array('accounts', 'approves'))['rows'] ?? Array(), 'userName'), Array('ivan'));
 checkIdentical('prove approves one; then it is no longer awaiting', Array(callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['text'], runShellAsJson($projDir, Array('accounts', 'viewUser', 'ivan'))['userStat'] ?? null, callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['errs']), Array("approved: ivan\n", 'active', "User not awaiting review\n"));
-checkIdentical('prove on the users file', callShellArray($projDir, Array('accounts', 'approves', '--useStore=usrlst'))['code'], 3);
+checkIdentical('prove on the users file', callShellArray($projDir, Array('accounts', 'approves', '--useStore=userFile'))['code'], 3);
 $sqlLink = null;
 checkIdentical('removal needs a confirmation', Array(callShellArray($projDir, Array('accounts', 'dropUser', 'ben', '--noPrompt'))['code'], callShellArray($projDir, Array('accounts', 'dropUser', 'ben', '--yesToAll'))['text'], callShellArray($projDir, Array('accounts', 'viewUser', 'ben'))['code']), Array(3, "removed: ben\n", 3));
 
 // The other store, and the traces
-checkIdentical('--useStore names the users file in place of the userbase', callShellArray($projDir, Array('accounts', 'fullList', '--useStore=usrlst'))['text'], "userName\nNo user.\n");
+checkIdentical('--useStore names the users file in place of the userbase', callShellArray($projDir, Array('accounts', 'fullList', '--useStore=userFile'))['text'], "userName\nNo user.\n");
 $logText = strval(fetchInProject($projDir, 'temp/logs/access.log'));
 checkIdentical('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "erin" created \(system\) by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "erin" removed by user "cli:/', $logText), preg_match('/\[NOTICE\] User "ben" removed \(member\) by user "cli:/', $logText), strpos($logText, $usrTokn), strpos($logText, 'pw-erin-long')), Array(1, 1, 1, false, false));
 checkPregMatch('what the userbase does not trace itself is traced by the command', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Personal token of user "ben" made by user "cli:/');
@@ -103,21 +103,21 @@ writeInProject($projDir, 'conf/database.json', json_encode(Array('type'=>'sqlte'
 checkIdentical('a userbase that cannot be read is a failure', callShellArray($projDir, Array('accounts', 'fullList'))['code'], 1);
 
 // deploy : the users table and the basic users of a new database
-$tknRow = function_exists('openssl_pkey_new') ? 'token keys dftokn' : 'secret dftokn';
+$tknRow = function_exists('openssl_pkey_new') ? 'token keys jwtToken' : 'secret jwtToken';
 $newBase = inTemporaryDir('deploy.sqlite');
 $projDir = makeProjectTxt('install', Array(
 	'.env.example'=>"NYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n",
 	'conf/system.ini'=>buildSystemIni(),
 	// Without openssl, which RS256 needs to make its keys, the tokens are signed with a secret
-	'conf/access.json.dist'=>str_replace( function_exists('openssl_pkey_new') ? '' : '"algrtm": "RS256"', '"algrtm": "HS256"', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')) ),
+	'conf/access.json.dist'=>str_replace( function_exists('openssl_pkey_new') ? '' : '"signAlgo": "RS256"', '"signAlgo": "HS256"', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')) ),
 	'conf/database.json'=>"{\n\t\"nyuRuns\": {\n\t\t\"type\": \"sqlte\",\n\t\t\"host\": \"\",\n\t\t\"base\": ".json_encode($newBase, JSON_UNESCAPED_SLASHES).",\n\t\t\"user\": \"\",\n\t\t\"pass\": \"\"\n\t}\n}\n",
 	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
-	'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }'
+	'conf/presets/dfault.rps'=>'{ "presetId": "dfault", "settings": { "fileType": "all" }, "security": { "required": false } }'
 ));
-$runVals = callShellArray($projDir, Array('installs', 'allSteps', '--outputAs=json'), "\nnative\n\n\n");
+$runVals = callShellArray($projDir, Array('installs', 'allSteps', '--outputAs=json'), "\nnativeDb\n\n\n");
 $jsnVals = json_decode($runVals['text'], true);
 $hashLst = (new PDO('sqlite:'.$newBase))->query('SELECT userName, passHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
-checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (native, usrlst, none) [usrlst]: Database type (mysql, pgsql, sqlte) [sqlte]: Database file ['.$newBase.']: ');
+checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Database type (mysql, pgsql, sqlte) [sqlte]: Database file ['.$newBase.']: ');
 checkIdentical('the users table is created with the basic users, their passwords shown once', Array($jsnVals['exit'] ?? null, $jsnVals['fail'] ?? null, array_column(runShellAsJson($projDir, Array('accounts', 'fullList'))['rows'] ?? Array(), 'userRole', 'userName'), password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $hashLst['managr'] ?? ''), password_verify($jsnVals['secret']['Password of system (system)'] ?? '', $hashLst['system'] ?? '')), Array(0, 0, Array('managr'=>'manage', 'member'=>'member', 'system'=>'system'), true, true));
 checkIdentical('the check finds the database and the users', array_intersect_key(array_column($jsnVals['rows'] ?? Array(), 'state', 'check'), Array('database nyuruns'=>1, 'users'=>1, $tknRow=>1)), Array($tknRow=>'fine', 'database nyuruns'=>'fine', 'users'=>'fine'));
 checkIdentical('users alone: a table that holds users is left as it is', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], count((new PDO('sqlite:'.$newBase))->query('SELECT userName FROM users')->fetchAll())), Array("The table users already holds users: nothing was changed.\n", 3));
@@ -126,7 +126,7 @@ $dvcQury = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='devi
 checkIdentical('without a device block, no devices table', intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), 0);
 writeInProject($projDir, 'conf/schema/devices.sqlte.sql', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.sqlte.sql')));
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
-$axsVals['device'] = Array('basnme'=>'nyuRuns', 'tblnme'=>'devices', 'usrtbl'=>'users', 'stmptm'=>60);
+$axsVals['devToken'] = Array('linkName'=>'nyuRuns', 'useTable'=>'devices', 'usersTbl'=>'users', 'stmpSecs'=>60);
 writeInProject($projDir, 'conf/access.json', json_encode($axsVals, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 checkIdentical('with a device block, users creates the devices table, linked to the users', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), (new PDO('sqlite:'.$newBase))->query("SELECT \"table\", \"from\", \"to\", on_delete FROM pragma_foreign_key_list('devices')")->fetchAll(PDO::FETCH_NUM)), Array("The table users already holds users: nothing was changed.\nTable devices created.\n", 1, Array(Array('users', 'user_id', 'id_user', 'CASCADE'))));
 checkIdentical('a devices table that exists is left as it is', callShellArray($projDir, Array('installs', 'userBase'))['text'], "The table users already holds users: nothing was changed.\n");

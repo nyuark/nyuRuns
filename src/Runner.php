@@ -108,7 +108,7 @@ class Runner{
 		$contObj->generateObject('nyu\\Tools\\ServerReg', array());
 		// The client address is seen through the reverse proxies the config trusts
 		$contObj->generateObject('nyu\Tools\ClientReg', array(), Array(true, $this->confLoader->proxySetupConf()));
-		$rndrCnf = $this->confLoader->getRegistryKey('rnder');
+		$rndrCnf = $this->confLoader->getRegistryKey('response');
 		$this->requestRsp = $contObj->generateObject('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
 		// A body larger than the config allows is not read
 		$this->httpRequst = $contObj->generateObject('nyu\\Tools\\Request', array(), Array($this->confLoader->rqstConfigList()));
@@ -216,7 +216,7 @@ class Runner{
 	 * Verifies access for the current request against the configured
 	 * auth/sess strategy.
 	 *
-	 * @param Array $accessConfig Resolved 'auths' config block for the active preset.
+	 * @param Array $accessConfig Resolved 'security' config block for the active preset.
 	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys.
 	 */
 	function validateAccess( Array $accessConfig ): Registry {
@@ -272,7 +272,7 @@ class Runner{
 	}
 
 	/**
-	 * Writes the body of the response in its format (the 'format' of the
+	 * Writes the body of the response in its format (the 'outputAs' of the
 	 * preset, or the one the action chose).
 	 *
 	 * @param Array|Object|String|Int|Float|Bool $outputToSend The data returned by the application to format into the response.

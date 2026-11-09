@@ -17,8 +17,8 @@ use nyu\Tools\Logger;
  * The file is only read: what needs a write (presence, new tokens,
  * secrets or passwords) is answered false. The wrong passwords and codes
  * of each account are counted in the folder of the limits, as those of
- * each address are (see Access\Limiter): after 'maxtry' of them within
- * 'holdtm', the account is held as the native userbase holds it.
+ * each address are (see Access\Limiter): after 'maxTries' of them within
+ * 'holdSecs', the account is held as the native userbase holds it.
  */
 class UserList implements Handler{
 
@@ -31,20 +31,20 @@ class UserList implements Handler{
 	/**
 	 * Builds the check against the users file from its config block.
 	 *
-	 * @param Array $configValues Config block with the 'usrfle' path of the users file, relative to the project root, and
-	 *                          optionally the key its encrypted 2FA secrets are read with ('tfakey'), the wrong
-	 *                          credentials allowed for one account ('maxtry', defaults to 5; 0 for no limit) and the
-	 *                          time in seconds they add up within and then hold it for ('holdtm', defaults to 600).
+	 * @param Array $configValues Config block with the 'listFile' path of the users file, relative to the project root, and
+	 *                          optionally the key its encrypted 2FA secrets are read with ('cryptKey'), the wrong
+	 *                          credentials allowed for one account ('maxTries', defaults to 5; 0 for no limit) and the
+	 *                          time in seconds they add up within and then hold it for ('holdSecs', defaults to 600).
 	 */
 	function __construct( Array $configValues ){
-		$fileNme = is_scalar($configValues['usrfle'] ?? '') ? trim( strval($configValues['usrfle'] ?? ''), '/\\ ' ) : '';
+		$fileNme = is_scalar($configValues['listFile'] ?? '') ? trim( strval($configValues['listFile'] ?? ''), '/\\ ' ) : '';
 		$this->usrLstPath = ($fileNme!='') ? TOP_DIR.DS.$fileNme : '';
-		$this->sealingKey = is_scalar($configValues['tfakey'] ?? '') ? strval($configValues['tfakey'] ?? '') : '';
+		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
-			'maxtry'=>$configValues['maxtry'] ?? 5, 'holdtm'=>$configValues['holdtm'] ?? 600, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : ''
+			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : ''
 		) );		$this->lastMessag = '';
 	}
 
@@ -116,7 +116,7 @@ class UserList implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealKey = Totp::openSecretText($userVls['twoFaKey'], $this->sealingKey);
 			if( $sealKey===null ){
-				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userName']).' cannot be read: tfakey is missing or was changed' );
+				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userName']).' cannot be read: cryptKey is missing or was changed' );
 				$this->lastMessag = 'Credential store unavailable';
 				return false;
 			}

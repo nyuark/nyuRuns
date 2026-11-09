@@ -1,8 +1,8 @@
 <?php
 
 // The login and logout actions of runs/Auth, called as the Controller calls
-// them : each credential check a login can name without a database (htpass,
-// usrlst, regkey), each carrier it can issue with, what it counts against
+// them : each credential check a login can name without a database (htpasswd,
+// userFile, regdKeys), each carrier it can issue with, what it counts against
 // the address and what it writes on the access log.
 // The login on the users table, the session it opens and its cookie are
 // checked over HTTP, in test/http/HttpTest.php.
@@ -17,7 +17,7 @@ use nyu\Tools\Logger;
 
 // The counters of the address limit lie under the project root : in a folder of this script's own
 $lmtFldr = 'temp'.DS.'limits_test_'.getmypid();
-$tknConf = Array('secret'=>str_repeat('s', 40), 'lifetm'=>60);
+$tknConf = Array('hmacSecr'=>str_repeat('s', 40), 'lifeSecs'=>60);
 
 /**
  * Plugs the configuration the actions read.
@@ -27,13 +27,13 @@ $tknConf = Array('secret'=>str_repeat('s', 40), 'lifetm'=>60);
  */
 function plugConf( Array $loginBlock, Int $triesLimit=0 ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
-		'LOGIN'=>$loginBlock,
-		'DFPASS'=>Array('htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd'),
-		'DFTOKN'=>$GLOBALS['tknConf'],
-		'TSUSRS'=>Array('usrfle'=>'test'.DS.'fixtures'.DS.'users.lst'),
-		'TSKEYS'=>Array('keylst'=>Array('k-1')),
-		'TSSHRT'=>Array('secret'=>'REPLACE_ME'),
-		'LIMITS'=>Array('maxtry'=>$triesLimit, 'holdtm'=>600, 'folder'=>$GLOBALS['lmtFldr'])
+		'LOGINSET'=>$loginBlock,
+		'HTPASSWD'=>Array('passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd'),
+		'JWTTOKEN'=>$GLOBALS['tknConf'],
+		'TESTFILE'=>Array('listFile'=>'test'.DS.'fixtures'.DS.'users.lst'),
+		'TESTKEYS'=>Array('keysList'=>Array('k-1')),
+		'TESTSHRT'=>Array('hmacSecr'=>'REPLACE_ME'),
+		'TRYLIMIT'=>Array('maxTries'=>$triesLimit, 'holdSecs'=>600, 'dataPath'=>$GLOBALS['lmtFldr'])
 	)) );
 }
 
@@ -78,16 +78,16 @@ function tokenOf( Mixed $actnResult ): Mixed {
 
 $alicePw = Array('user'=>'alice', 'pass'=>'s3cret');
 $annaPwd = Array('user'=>'anna', 'pass'=>'pw-anna');
-$lstLogn = Array('authby'=>'usrlst', 'authcf'=>'tsusrs');
+$lstLogn = Array('authWith'=>'userFile', 'authConf'=>'testFile');
 $tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 
 // Login on the htpasswd file, the token of the JWT carrier : what an empty 'login' block gives
 plugConf( Array() );
 $lgnRslt = authActn('openSess', $alicePw);
-checkIdentical('login, by default: htpass and jtoken, their dfpass and dftokn blocks', Array($lgnRslt[0] ?? null, tokenOf($lgnRslt)), Array(200, Array('alice', null)));
-checkIdentical('login x htpass: wrong password', authActn('openSess', Array('user'=>'alice', 'pass'=>'nope')), Array(401, 'Invalid credentials', null));
-checkIdentical('login x htpass: unknown user', authActn('openSess', Array('user'=>'nobody', 'pass'=>'s3cret')), Array(401, 'Invalid credentials', null));
+checkIdentical('login, by default: htpasswd and jwtToken, their htpasswd and jwtToken blocks', Array($lgnRslt[0] ?? null, tokenOf($lgnRslt)), Array(200, Array('alice', null)));
+checkIdentical('login x htpasswd: wrong password', authActn('openSess', Array('user'=>'alice', 'pass'=>'nope')), Array(401, 'Invalid credentials', null));
+checkIdentical('login x htpasswd: unknown user', authActn('openSess', Array('user'=>'nobody', 'pass'=>'s3cret')), Array(401, 'Invalid credentials', null));
 checkIdentical('login by GET', authActn('openSess', $alicePw, 'GET'), Array(405, 'Method Not Allowed', null));
 checkIdentical('login: a name or a password that is not a text', Array(authActn('openSess', Array('user'=>Array('alice'), 'pass'=>'s3cret')), authActn('openSess', Array('user'=>'alice'))), Array(Array(400, 'Invalid user or pass', null), Array(400, 'Invalid user or pass', null)));
 
@@ -101,27 +101,27 @@ checkPregMatch('login: the refusal is told in the access log, without the value'
 
 // Login on the users file : the role goes into the token, the status and the 2FA code are checked
 plugConf( $lstLogn );
-checkIdentical('login x usrlst: the token carries the role of the file', tokenOf(authActn('openSess', $annaPwd)), Array('anna', 'manage'));
-checkIdentical('login x usrlst: a pending user is refused as a wrong password is', authActn('openSess', Array('user'=>'cleo', 'pass'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
-checkIdentical('login x usrlst: a user with a secret, password alone', authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma')), Array(401, 'Verification code required', null));
-checkIdentical('login x usrlst: with the code of its authenticator', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'member'));
-checkIdentical('login x usrlst: a code sent as a number', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
-checkIdentical('login x usrlst: a code that is not a text is no code', authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Array('1'))), Array(401, 'Verification code required', null));
+checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('openSess', $annaPwd)), Array('anna', 'manage'));
+checkIdentical('login x userFile: a pending user is refused as a wrong password is', authActn('openSess', Array('user'=>'cleo', 'pass'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
+checkIdentical('login x userFile: a user with a secret, password alone', authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma')), Array(401, 'Verification code required', null));
+checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'member'));
+checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
+checkIdentical('login x userFile: a code that is not a text is no code', authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>Array('1'))), Array(401, 'Verification code required', null));
 
 // A check that takes no password, a carrier that issues nothing, a block that names neither
-plugConf( Array('authby'=>'regkey', 'authcf'=>'tskeys') );
-checkIdentical('login x regkey: a check of keys takes no password, even a valid key', authActn('openSess', Array('user'=>'k-1', 'pass'=>'k-1')), Array(401, 'No API key provided', null));
-foreach( Array('hbasic', 'header', 'clcert') as $sesNme ){
-	plugConf( Array('sessby'=>$sesNme) );
+plugConf( Array('authWith'=>'regdKeys', 'authConf'=>'testKeys') );
+checkIdentical('login x regdKeys: a check of keys takes no password, even a valid key', authActn('openSess', Array('user'=>'k-1', 'pass'=>'k-1')), Array(401, 'No API key provided', null));
+foreach( Array('httpBasc', 'apiHeadr', 'clntCert') as $sesNme ){
+	plugConf( Array('sessWith'=>$sesNme) );
 	checkIdentical('login with '.$sesNme.': a carrier that issues nothing', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
 }
-plugConf( Array('authby'=>'nosuch') );
+plugConf( Array('authWith'=>'nosuch') );
 checkIdentical('login: an unknown credential check', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
-plugConf( Array('sessby'=>'nosuch') );
+plugConf( Array('sessWith'=>'nosuch') );
 checkIdentical('login: an unknown session carrier', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
-plugConf( Array('sessby'=>'nosuch') );
+plugConf( Array('sessWith'=>'nosuch') );
 checkIdentical('login: the misconfiguration is told before the credentials are checked', authActn('openSess', Array('user'=>'alice', 'pass'=>'nope')), Array(500, 'Login unavailable', null));
-plugConf( Array('sesscf'=>'tsshrt') );
+plugConf( Array('sessConf'=>'testShrt') );
 checkIdentical('login: a secret that cannot sign', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
 checkIdentical('login: wrong credentials are still told as such with it', authActn('openSess', Array('user'=>'alice', 'pass'=>'nope')), Array(401, 'Invalid credentials', null));
 
@@ -146,9 +146,9 @@ checkIdentical('limit: a wrong 2FA code is counted', Array(
 	authActn('openSess', Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>'000000'), 'POST', '198.51.100.4')[1] ?? null,
 	authActn('openSess', $annaPwd, 'POST', '198.51.100.4')[0] ?? null
 ), Array('Invalid verification code', 'Invalid verification code', 429));
-plugConf( Array('authby'=>'regkey', 'authcf'=>'tskeys'), 2 );
+plugConf( Array('authWith'=>'regdKeys', 'authConf'=>'testKeys'), 2 );
 checkIdentical('limit: a check that takes no password counts nothing', Array(authActn('openSess', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.5')[0] ?? null), Array(401, 401, 401));
-plugConf( Array('sessby'=>'nosuch'), 2 );
+plugConf( Array('sessWith'=>'nosuch'), 2 );
 checkIdentical('limit: a login that is misconfigured counts nothing', Array(authActn('openSess', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.6')[0] ?? null), Array(500, 500, 500));
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 
@@ -158,8 +158,8 @@ $lgnRslt = authActn('openSess', $alicePw);
 checkIdentical('logout by GET', authActn('quitSess', Array(), 'GET'), Array(405, 'Method Not Allowed', null));
 checkIdentical('logout with a token carrier', authActn('quitSess'), Array(200, '', Array('logged'=>false)));
 checkIdentical('logout: the token is still accepted until it expires', tokenOf($lgnRslt), Array('alice', null));
-foreach( Array('hbasic', 'header', 'clcert', 'nosuch') as $sesNme ){
-	plugConf( Array('sessby'=>$sesNme) );
+foreach( Array('httpBasc', 'apiHeadr', 'clntCert', 'nosuch') as $sesNme ){
+	plugConf( Array('sessWith'=>$sesNme) );
 	checkIdentical('logout with '.$sesNme.': nothing to end, the answer is the same', authActn('quitSess'), Array(200, '', Array('logged'=>false)));
 }
 
@@ -173,9 +173,9 @@ authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
 authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'ben', 'role'=>'member'));
 authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'anna', 'role'=>'manage'));
 authActn('quitSess', Array(), 'POST', '198.51.100.7');
-plugConf( Array('sessby'=>'hbasic') );
+plugConf( Array('sessWith'=>'httpBasc') );
 authActn('openSess', $alicePw, 'POST', '198.51.100.8');
-plugConf( Array('authby'=>'nosuch') );
+plugConf( Array('authWith'=>'nosuch') );
 authActn('openSess', $alicePw, 'POST', '198.51.100.8');
 Logger::plugLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
@@ -190,7 +190,7 @@ checkIdentical('access log: the logins and logouts, one line each, notices that 
 	$yearTxt.'[NOTICE] Logout of privileged user "anna" (manage) from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of user "" from 198.51.100.7',
 	$yearTxt.'[ERROR] Login unavailable: the session carrier issues no token',
-	$yearTxt.'[ERROR] Login unavailable: unknown authby or sessby in the login block'
+	$yearTxt.'[ERROR] Login unavailable: unknown authWith or sessWith in the login block'
 ));
 $allLogs = '';
 foreach( Array('logs', 'logs2') as $logFldr ){

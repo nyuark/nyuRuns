@@ -20,13 +20,13 @@ class Header implements Handler{
 	/**
 	 * Builds the header carrier from its config block, with the credential check it hands over to.
 	 *
-	 * @param Array     $configValues Config block, optionally with a 'header' name (defaults to 'X-Api-Key') and the
-	 *                              'scheme' the key must follow in it, such as 'Bearer' (none by default).
+	 * @param Array     $configValues Config block, optionally with a 'headName' name (defaults to 'X-Api-Key') and the
+	 *                              'authSchm' the key must follow in it, such as 'Bearer' (none by default).
 	 * @param ?AuthHndlr $authStrategy Credential-verification strategy to delegate to.
 	 */
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
-		$this->headerName = $configValues['header'] ?? 'X-Api-Key';
-		$this->schemaName = trim(strval($configValues['scheme'] ?? ''));
+		$this->headerName = $configValues['headName'] ?? 'X-Api-Key';
+		$this->schemaName = trim(strval($configValues['authSchm'] ?? ''));
 		$this->authObject = $authStrategy;
 		$this->lastMessag = '';
 	}

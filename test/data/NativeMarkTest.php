@@ -21,9 +21,9 @@ createSampleDb( $sqlFile );
 $lmtFldr = 'temp'.DS.'nativemarks_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
-	'access'=>Array('LIMITS'=>Array('maxtry'=>0, 'folder'=>$lmtFldr, 'mrkkey'=>str_repeat('k', 40)))
+	'access'=>Array('TRYLIMIT'=>Array('maxTries'=>0, 'dataPath'=>$lmtFldr, 'markSecr'=>str_repeat('k', 40)))
 ) );
-$natAuth = new Native( Array('tblnme'=>'users', 'maxtry'=>5, 'holdtm'=>600, 'minlen'=>8) );
+$natAuth = new Native( Array('useTable'=>'users', 'maxTries'=>5, 'holdSecs'=>600, 'minChars'=>8) );
 $sqlLink = new PDO('sqlite:'.$sqlFile);
 $benMark = LoginMark::fromLimitBlock()->createUserMark('ben');
 

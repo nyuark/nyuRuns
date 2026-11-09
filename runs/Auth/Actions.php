@@ -16,11 +16,11 @@ class Actions extends Actionset {
 	 * Checks the 'user' and 'pass' inputs (and 'code', for a user with
 	 * 2FA) against a credential store and, on success, issues a token
 	 * for the matched identity, or opens a session whose cookie goes out
-	 * with the reply. The 'login' block of the ACCESS config
-	 * file names the credential check ('authby', htpass by default),
-	 * the session carrier issuing the token ('sessby', jtoken by
-	 * default) and the blocks holding their settings ('authcf',
-	 * 'sesscf'). Reports 405
+	 * with the reply. The 'loginSet' block of the ACCESS config
+	 * file names the credential check ('authWith', htpasswd by default),
+	 * the session carrier issuing the token ('sessWith', jwtToken by
+	 * default) and the blocks holding their settings ('authConf',
+	 * 'sessConf'). Reports 405
 	 * unless the request is a POST, 400 when 'user' or 'pass' is missing
 	 * (both are required by input/login.json, so that reply comes before
 	 * the action runs), is not a text, or when the password came in the
@@ -49,18 +49,18 @@ class Actions extends Actionset {
 			return;
 		}
 
-		$lgnConf = $this->resolveConfArr('login');
+		$lgnConf = $this->resolveConfArr('loginSet');
 		$accsLog = Logger::retrieveLogger('access');
-		$authCls = Checker::authClssString( strval($lgnConf['authby'] ?? 'htpass') );
-		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
+		$authCls = Checker::authClssString( strval($lgnConf['authWith'] ?? 'htpasswd') );
+		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
 		if($authCls===null || $sessCls===null || !class_exists($authCls) || !class_exists($sessCls)){
-			$accsLog->error( 'Login unavailable: unknown authby or sessby in the login block' );
+			$accsLog->error( 'Login unavailable: unknown authWith or sessWith in the login block' );
 			$this->statusCode = 500;
 			$this->statusMssg = 'Login unavailable';
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolveConfArr('limits') );
+		$lmtrObj = new Limiter( $this->resolveConfArr('tryLimit') );
 		$clntReg = $this->httpRequst->retrieveClient();
 		$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
 		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
@@ -74,7 +74,7 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Too many attempts';
 			return;
 		}
-		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') );
+		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
 		if(method_exists($sessObj, 'verifyOnlyFlag') && $sessObj->verifyOnlyFlag()){
 			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': this project only checks tokens, issued by another server' );
@@ -82,7 +82,7 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Tokens are issued by another server';
 			return;
 		}
-		$authObj = new $authCls( $this->resolveConfArr($lgnConf['authcf'] ?? 'dfpass') );
+		$authObj = new $authCls( $this->resolveConfArr($lgnConf['authConf'] ?? 'htpasswd') );
 		// The 'code' input carries the one-time code of a user with 2FA
 		$gvnCode = $this->inptRgstry->readFileDetail('code');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
@@ -150,9 +150,9 @@ class Actions extends Actionset {
 	 * (HS256), or issued by another server.
 	 */
 	public function jwksList(): Void {
-		$lgnConf = $this->resolveConfArr('login');
-		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
-		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') ) : null;
+		$lgnConf = $this->resolveConfArr('loginSet');
+		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
+		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') ) : null;
 		$keysSet = ($sessObj!==null && method_exists($sessObj, 'publicSetArray')) ? $sessObj->publicSetArray() : Array('keys'=>Array());
 		if( empty($keysSet['keys']) ){
 			Logger::retrieveLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
@@ -181,10 +181,10 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		$lgnConf = $this->resolveConfArr('login');
-		$sessCls = Checker::sessnClassText( strval($lgnConf['sessby'] ?? 'jtoken') );
+		$lgnConf = $this->resolveConfArr('loginSet');
+		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
 		if($sessCls!==null && class_exists($sessCls)){
-			$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sesscf'] ?? 'dftokn') );
+			$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') );
 			if(method_exists($sessObj, 'dropUsrSession')){
 				$sessObj->dropUsrSession( $this->httpRequst );
 			}
@@ -210,7 +210,7 @@ class Actions extends Actionset {
 	 * Activates a pending user of the native userbase: the 'user' and
 	 * 'code' inputs name it and carry its activation code, the 'pass'
 	 * input the password it chooses, kept as sent. The action is meant to
-	 * be open ('openrt'): a pending user cannot log in. Reports 405
+	 * be open ('openList'): a pending user cannot log in. Reports 405
 	 * unless the request is a POST, 400 when an input is missing, is not
 	 * a text, the password breaks a rule or came in the query string of
 	 * the address (see passInUrl), 401 on a wrong name or code,
@@ -243,7 +243,7 @@ class Actions extends Actionset {
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolveConfArr('limits') );
+		$lmtrObj = new Limiter( $this->resolveConfArr('tryLimit') );
 		$clntReg = $this->httpRequst->retrieveClient();
 		$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
 		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
@@ -274,16 +274,16 @@ class Actions extends Actionset {
 
 	/**
 	 * Signs a user up, when the block of the native userbase allows it
-	 * ('signup') and names a mail account ('mailer'): the 'user' input is
+	 * ('signupOn') and names a mail account ('mailAcnt'): the 'user' input is
 	 * the name asked for, the 'mail' input its address. The address is
 	 * sent a code that confirms it and sets the password (auth/activate);
 	 * a manager then approves the account (users/approves). A name or an
 	 * address already taken gets the same reply, and the address is told
-	 * by mail. A client may sign up 'regmax' times (16) within 'holdtm' of
-	 * the 'limits' block, counted apart from its wrong credentials; at most
-	 * 'regtop' sign-ups (256) wait at once, and the managers are told by
-	 * mail at each count of 'regwrn' (128, 200, 256). The action is meant
-	 * to be open ('openrt'). Reports 202, 404 when sign-ups are not open,
+	 * by mail. A client may sign up 'maxPerIp' times (16) within 'holdSecs' of
+	 * the 'tryLimit' block, counted apart from its wrong credentials; at most
+	 * 'maxQueue' sign-ups (256) wait at once, and the managers are told by
+	 * mail at each count of 'alertsAt' (128, 200, 256). The action is meant
+	 * to be open ('openList'). Reports 202, 404 when sign-ups are not open,
 	 * 405 unless the request is a POST, 400 for a name or an address that
 	 * is not one, 429 when the address of the client asked too often or
 	 * is held, 503 when too many sign-ups
@@ -309,20 +309,20 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Invalid user or mail';
 			return;
 		}
-		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'regmax' of them within 'holdtm'
-		$lmtConf = $this->resolveConfArr('limits');
+		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'maxPerIp' of them within 'holdSecs'
+		$lmtConf = $this->resolveConfArr('tryLimit');
 		if($this->refuseHeldAddr('Sign-up', $gvnUser)===null){
 			return;
 		}
-		$fldName = trim(strval($lmtConf['folder'] ?? ''), '/\\ ');
-		$regLmtr = new Limiter( Array('maxtry'=>intval($lmtConf['regmax'] ?? 16), 'folder'=>(($fldName!='') ? $fldName : 'temp/limits').'/signup') + $lmtConf );
+		$fldName = trim(strval($lmtConf['dataPath'] ?? ''), '/\\ ');
+		$regLmtr = new Limiter( Array('maxTries'=>intval($lmtConf['maxPerIp'] ?? 16), 'dataPath'=>(($fldName!='') ? $fldName : 'temp/limits').'/signup') + $lmtConf );
 		$lmtrArr = $this->refuseHeldAddr('Sign-up', $gvnUser, $regLmtr);
 		if($lmtrArr===null){
 			return;
 		}
 		// Every sign-up counts : an address cannot fill the mailboxes of others
 		$lmtrArr[0]->countFailedTry($lmtrArr[1]);
-		$regTops = max( 1, intval($lmtConf['regtop'] ?? UserBase::SIGN_MAXI) );
+		$regTops = max( 1, intval($lmtConf['maxQueue'] ?? UserBase::SIGN_MAXI) );
 		$clntReg = $this->httpRequst->retrieveClient();
 		$clntLng = ($clntReg!==null) ? strval($clntReg->readFileDetail('language')) : '';
 		$newCode = $usrBase->signsUsrString($gvnUser, $gvnMail, $regTops, $clntLng);
@@ -341,7 +341,7 @@ class Actions extends Actionset {
 			}
 		}else{
 			$mailObj->sendCodeToUser('signup', $gvnUser, strtolower(trim($gvnMail)), $newCode, $clntLng);
-			$this->notifyManagers($usrBase, $mailObj, $regTops, is_array($lmtConf['regwrn'] ?? null) ? $lmtConf['regwrn'] : Array(128, 200, 256));
+			$this->notifyManagers($usrBase, $mailObj, $regTops, is_array($lmtConf['alertsAt'] ?? null) ? $lmtConf['alertsAt'] : Array(128, 200, 256));
 		}
 		$this->statusCode = 202;
 		$this->replyValue = Array('asked'=>true);
@@ -349,8 +349,8 @@ class Actions extends Actionset {
 
 	/**
 	 * Tells the managers, by mail and on the 'access' log, when a sign-up
-	 * brings the number of those waiting to one of the counts of 'regwrn';
-	 * at 'regtop', the sign-ups are closed.
+	 * brings the number of those waiting to one of the counts of 'alertsAt';
+	 * at 'maxQueue', the sign-ups are closed.
 	 *
 	 * @param UserBase   $userDatabase The userbase.
 	 * @param AccessMail $accessMailer The sender of the access mails.
@@ -383,7 +383,7 @@ class Actions extends Actionset {
 	 * password kept until the code is used (auth/useReset). Whoever the
 	 * user is, or is not, the reply is the same. Each request counts
 	 * against the address of the client (see Access\Limiter). The action
-	 * is meant to be open ('openrt'). Reports 202, 404 when no mail is
+	 * is meant to be open ('openList'). Reports 202, 404 when no mail is
 	 * sent, 405 unless the request is a POST, 400 for an input that is
 	 * not a text, 429 when the address of the client asked too often.
 	 */
@@ -425,7 +425,7 @@ class Actions extends Actionset {
 	 * Sets a new password with the code auth/askReset sent: the 'user' and
 	 * 'code' inputs name the user and carry the code, the 'pass' input the
 	 * new password, kept as sent. The action is meant to be open
-	 * ('openrt'). Reports 405 unless the request is a POST, 400 when an
+	 * ('openList'). Reports 405 unless the request is a POST, 400 when an
 	 * input is missing, is not a text, the password breaks a rule or came
 	 * in the query string of the address (see passInUrl), 401 on a wrong
 	 * name or code, or one that ended, 429 when the address presented too
@@ -477,11 +477,11 @@ class Actions extends Actionset {
 	 *
 	 * @param String   $requestLabel What was asked for, for the log.
 	 * @param String   $namedUserTxt The user named, for the log.
-	 * @param ?Limiter $ceilingCount The limiter to ask; the one of the 'limits' block when null.
+	 * @param ?Limiter $ceilingCount The limiter to ask; the one of the 'tryLimit' block when null.
 	 * @return ?Array The limiter and the address of the client, or null when the request is refused.
 	 */
 	protected function refuseHeldAddr( String $requestLabel, String $namedUserTxt, ?Limiter $ceilingCount=null ): ?Array {
-		$lmtrObj = $ceilingCount ?? new Limiter( $this->resolveConfArr('limits') );
+		$lmtrObj = $ceilingCount ?? new Limiter( $this->resolveConfArr('tryLimit') );
 		$clntReg = $this->httpRequst->retrieveClient();
 		$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
 		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
@@ -550,7 +550,7 @@ class Actions extends Actionset {
 		if(!$usrBase->editPasswdFlag($usrName, $gvnFrmr, $gvnPass)){
 			if($usrBase->wrngCredential()){
 				$clntReg = $this->httpRequst->retrieveClient();
-				(new Limiter( $this->resolveConfArr('limits') ))->countFailedTry( ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '' );
+				(new Limiter( $this->resolveConfArr('tryLimit') ))->countFailedTry( ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '' );
 			}
 			$this->statusCode = $usrBase->lastStateCount();
 			$this->statusMssg = $usrBase->finalErrorText();

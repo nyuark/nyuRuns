@@ -24,11 +24,11 @@ $sqlFile = inTemporaryDir('passset.sqlite');
 createSampleDb( $sqlFile );
 switchToSqlite( $sqlFile );
 $sqlLink = new PDO('sqlite:'.$sqlFile);
-$natConf = Array('tblnme'=>'users', 'minlen'=>8, 'maxtry'=>50);
+$natConf = Array('useTable'=>'users', 'minChars'=>8, 'maxTries'=>50);
 $usrBase = new UserBase( $natConf );
 $natAuth = new Native( $natConf );
 $jwtKeys = Array(str_repeat('s', 40), 'HS256');
-$jwtSess = new JWT( Array('secret'=>$jwtKeys[0]), $natAuth );
+$jwtSess = new JWT( Array('hmacSecr'=>$jwtKeys[0]), $natAuth );
 
 /**
  * Makes a token of a user, issued some seconds ago.
@@ -89,7 +89,7 @@ checkIdentical('setPasswd: the tokens before are refused too', Array($natAuth->s
 checkIdentical('resetUser: the time is stored', Array(is_string($usrBase->resetUsrString('ben')), abs(strtotime(strval(fieldOf('ben', 'passDate'))) - time())<5), Array(true, true));
 // A table without the column
 $sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, userName, passHash, userRole, userStat, tokenKey, failNmbr, failDate, lastSeen FROM users");
-$oldAuth = new Native( Array('tblnme'=>'oldusers', 'minlen'=>8) );
+$oldAuth = new Native( Array('useTable'=>'oldusers', 'minChars'=>8) );
 checkIdentical('a table without passDate: sessions are compared with nothing, a password cannot be written', Array($oldAuth->usrIdentityArr('anna', time() - 10)['user'] ?? null, runCatchThrown(function() use ( $oldAuth ){ return $oldAuth->savePasswdFlag('anna', 'pass-of-anna'); })), Array('anna', false));
 $sqlLink->exec("DROP TABLE oldusers");
 
@@ -103,10 +103,10 @@ $fakProp->setValue(null, null);
 $sqlLink->exec("UPDATE users SET passHash='!' WHERE userName='cleo'");
 checkIdentical('an account without a password is checked against it too', Array($natAuth->chckCredential(Array('user'=>'cleo', 'pass'=>'!')), is_string($fakProp->getValue())), Array(false, true));
 $fakProp->setValue(null, null);
-(new UserList( Array('usrfle'=>'test/fixtures/users.lst', 'maxtry'=>0) ))->chckCredential( Array('user'=>'zed', 'pass'=>'x') );
+(new UserList( Array('listFile'=>'test/fixtures/users.lst', 'maxTries'=>0) ))->chckCredential( Array('user'=>'zed', 'pass'=>'x') );
 $lstUsed = is_string($fakProp->getValue());
 $fakProp->setValue(null, null);
-(new PassList( Array('htpasswd'=>'test/fixtures/users.htpasswd', 'maxtry'=>0) ))->chckCredential( Array('user'=>'zed', 'pass'=>'x') );
+(new PassList( Array('passFile'=>'test/fixtures/users.htpasswd', 'maxTries'=>0) ))->chckCredential( Array('user'=>'zed', 'pass'=>'x') );
 checkIdentical('the users file and the htpasswd file use the same one', Array($lstUsed, is_string($fakProp->getValue())), Array(true, true));
 checkIdentical('one dummy hash for the process', Native::getDummyBcrypt(), Native::getDummyBcrypt());
 // The rehash after a good login

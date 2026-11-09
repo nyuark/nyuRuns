@@ -393,9 +393,9 @@ class Bundle extends Command{
 
 	/**
 	 * Gives the paths of the secrets conf/access.json names, as written:
-	 * the keys of the tokens ('prvkey', 'pubkey', 'oldpub' of any block),
-	 * the public key of each application of 'apkeys', the users file
-	 * ('usrfle') and the password file ('htpasswd'). Read once.
+	 * the keys of the tokens ('privFile', 'publFile', 'prevFile' of any block),
+	 * the public key of each application of 'appsKeys', the users file
+	 * ('listFile') and the password file ('passFile'). Read once.
 	 *
 	 * @return Array The paths, from the project root, written with slashes.
 	 */
@@ -409,12 +409,12 @@ class Bundle extends Command{
 		$blckLst = is_array($accTree) ? $accTree : Array();
 		foreach( $blckLst as $blkVal ){
 			// The applications of the application keys hold a public key each
-			foreach( (is_array($blkVal) && is_array($blkVal['applst'] ?? null)) ? $blkVal['applst'] : Array() as $appVal ){
-				$blckLst[] = is_array($appVal) ? Array('pubkey'=>$appVal['pubkey'] ?? '') : Array();
+			foreach( (is_array($blkVal) && is_array($blkVal['appsList'] ?? null)) ? $blkVal['appsList'] : Array() as $appVal ){
+				$blckLst[] = is_array($appVal) ? Array('publFile'=>$appVal['publFile'] ?? '') : Array();
 			}
 		}
 		foreach( $blckLst as $blkVal ){
-			foreach( Array('prvkey', 'pubkey', 'oldpub', 'usrfle', 'htpasswd') as $keyNme ){
+			foreach( Array('privFile', 'publFile', 'prevFile', 'listFile', 'passFile') as $keyNme ){
 				$pathTxt = is_array($blkVal) && is_string($blkVal[$keyNme] ?? null) ? trim(str_replace('\\', '/', $blkVal[$keyNme]), '/ ') : '';
 				if( $pathTxt!=='' ){
 					$pathLst[] = $pathTxt;

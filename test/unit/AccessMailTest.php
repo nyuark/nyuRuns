@@ -12,7 +12,7 @@ use nyu\Tools\Registry;
 
 $foldNme = 'temp'.DS.'accmails_'.getmypid();
 $fileSet = Array('type'=>'tofile', 'from'=>'no-reply@example.com', 'name'=>'nyuRuns', 'fold'=>'/'.str_replace(DS, '/', $foldNme));
-$natConf = Array('tblnme'=>'users', 'mailer'=>'devbox', 'codexp'=>20, 'lnkurl'=>'https://app.example.ch/access?do=%kind%&user=%user%&code=%code%');
+$natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>20, 'linkTmpl'=>'https://app.example.ch/access?do=%kind%&user=%user%&code=%code%');
 
 /**
  * Sets the config: a 'tofile' account, and a login on the native userbase.
@@ -23,7 +23,7 @@ function setsConfg( Array $nativeConf ): Void {
 	global $fileSet;
 	$GLOBALS['nyuConfig'] = new Registry( Array(
 		'mailer'=>Array('DEVBOX'=>$fileSet),
-		'access'=>Array('LOGIN'=>Array('authby'=>'native', 'authcf'=>'native'), 'NATIVE'=>$nativeConf)
+		'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb'), 'NATIVEDB'=>$nativeConf)
 	) );
 	Mailer::clearMailCache();
 }
@@ -60,17 +60,17 @@ function readMail( String $mailString ): String {
 // Who sends : only a login on the native userbase whose block names an account
 setsConfg($natConf);
 checkTrueValue('fromLogin: a block naming an account', AccessMail::fromLoginBlock() instanceof AccessMail);
-setsConfg( array_diff_key($natConf, Array('mailer'=>1)) );
+setsConfg( array_diff_key($natConf, Array('mailAcnt'=>1)) );
 checkIdentical('fromLogin: no mailer, no mail', AccessMail::fromLoginBlock(), null);
-setsConfg( Array('mailer'=>'') + $natConf );
+setsConfg( Array('mailAcnt'=>'') + $natConf );
 checkIdentical('fromLogin: an empty mailer, no mail', AccessMail::fromLoginBlock(), null);
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LOGIN'=>Array('authby'=>'usrlst', 'authcf'=>'usrlst'), 'USRLST'=>$natConf)) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LOGINSET'=>Array('authWith'=>'userFile', 'authConf'=>'userFile'), 'USERFILE'=>$natConf)) );
 checkIdentical('fromLogin: another credential check', AccessMail::fromLoginBlock(), null);
-setsConfg( Array('signup'=>true) + $natConf );
+setsConfg( Array('signupOn'=>true) + $natConf );
 checkIdentical('signupsOn: signup and a mailer', AccessMail::signupsAllowed(), true);
-setsConfg( Array('signup'=>true, 'mailer'=>'') + $natConf );
+setsConfg( Array('signupOn'=>true, 'mailAcnt'=>'') + $natConf );
 checkIdentical('signupsOn: without a mailer', AccessMail::signupsAllowed(), false);
-setsConfg( Array('signup'=>'yes') + $natConf );
+setsConfg( Array('signupOn'=>'yes') + $natConf );
 checkIdentical('signupsOn: only true opens them', AccessMail::signupsAllowed(), false);
 setsConfg($natConf);
 checkIdentical('signupsOn: left out', AccessMail::signupsAllowed(), false);
@@ -83,7 +83,7 @@ $mailLst = takeMails();
 $mailTxt = readMail($mailLst[0] ?? '');
 checkIdentical('sendCodes: one mail', count($mailLst), 1);
 checkPregMatch('sendCodes: to the address, the first line of the template as subject', $mailTxt, '/\r\nTo: ann@example\.ch\r\nSubject: Your sign-up: confirm your address\r\n/');
-checkPregMatch('sendCodes: the code and the minutes of codexp', $mailTxt, '/    K7QM-3XRP-WD\r?\n.*within 20 minutes/s');
+checkPregMatch('sendCodes: the code and the minutes of codeMins', $mailTxt, '/    K7QM-3XRP-WD\r?\n.*within 20 minutes/s');
 checkPregMatch('sendCodes: the link, its values encoded', $mailTxt, '/https:\/\/app\.example\.ch\/access\?do=signup&user=Ann\.B&code=K7QM-3XRP-WD/');
 checkPregMatch('sendCodes: an HTML part with the link', $mailTxt, '/<a href="https:\/\/app\.example\.ch\/access\?do=signup&amp;user=Ann\.B&amp;code=K7QM-3XRP-WD">this link<\/a>/');
 checkIdentical('sendCodes: no marker left', preg_match('/\[\/?link\]|%(user|code|link|mins)%/', $mailTxt), 0);
@@ -96,15 +96,15 @@ foreach( Array('actvte'=>'Your account: choose your password', 'pwdset'=>'Your p
 // The code of a login : typed where it was asked, never with a link
 $accMail->sendCodeToUser('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkIdentical('sendCodes: the code of a login, without a link though lnkurl is set', Array(preg_match('/Subject: Your login code\r\n/', $mailTxt), strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'https://'), preg_match('/within 20 minutes/', $mailTxt)), Array(1, true, false, 1));
+checkIdentical('sendCodes: the code of a login, without a link though linkTmpl is set', Array(preg_match('/Subject: Your login code\r\n/', $mailTxt), strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'https://'), preg_match('/within 20 minutes/', $mailTxt)), Array(1, true, false, 1));
 checkPregMatch('sendCodes: the code of a login, in French', readMail($accMail->sendCodeToUser('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre code de connexion\r\n.*dans les 20 minutes/s');
 
 // Without a link, the code alone
-$accMail = new AccessMail( array_diff_key($natConf, Array('lnkurl'=>1)) );
+$accMail = new AccessMail( array_diff_key($natConf, Array('linkTmpl'=>1)) );
 $accMail->sendCodeToUser('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkIdentical('no lnkurl: the code, neither a link nor its sentence', Array(strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'open this link'), strpos($mailTxt, 'https://')), Array(true, false, false));
-checkPregMatch('no lnkurl: the default minutes of a mailed code', readMail(strval((new AccessMail(Array('mailer'=>'devbox')))->sendCodeToUser('pwdset', 'a', 'a@example.ch', 'C') ? (takeMails()[0] ?? '') : '')), '/within 15 minutes/');
+checkIdentical('no linkTmpl: the code, neither a link nor its sentence', Array(strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'open this link'), strpos($mailTxt, 'https://')), Array(true, false, false));
+checkPregMatch('no linkTmpl: the default minutes of a mailed code', readMail(strval((new AccessMail(Array('mailAcnt'=>'devbox')))->sendCodeToUser('pwdset', 'a', 'a@example.ch', 'C') ? (takeMails()[0] ?? '') : '')), '/within 15 minutes/');
 
 // A name taken, told to an address of no account
 $accMail = new AccessMail($natConf);
@@ -169,11 +169,11 @@ checkIdentical('after the reply: sent', $sentTo, Array('ann@example.ch', 'bob@ex
 
 // What cannot be sent is logged, never thrown
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
-$accMail = new AccessMail( Array('mailer'=>'nobody') );
+$accMail = new AccessMail( Array('mailAcnt'=>'nobody') );
 checkIdentical('an unknown account: not sent', $accMail->sendCodeToUser('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC'), false);
-$accMail = new AccessMail( Array('mailer'=>'devbox'), inTemporaryDir('Empty') );
+$accMail = new AccessMail( Array('mailAcnt'=>'devbox'), inTemporaryDir('Empty') );
 setsConfg($natConf);
-checkIdentical('a missing template: not sent', (new AccessMail(Array('mailer'=>'devbox')))->sendCodeToUser('signup', 'ann', 'not an address', 'C'), false);
+checkIdentical('a missing template: not sent', (new AccessMail(Array('mailAcnt'=>'devbox')))->sendCodeToUser('signup', 'ann', 'not an address', 'C'), false);
 Logger::plugLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'runner.log'));
 checkPregMatch('the account is logged', $logText, '/\[WARNING\] Access mail not sent through account "nobody": Unknown mail account: "nobody"/');

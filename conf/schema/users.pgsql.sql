@@ -1,5 +1,5 @@
 -- Native userbase (Access\Auth\Native), PostgreSQL.
--- The table name is the 'tblnme' value of the strategy's config block in conf/access.json.
+-- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
 -- The names are quoted to keep their case. userName is matched with case: 'Anna' and 'anna' are two users.
 -- madeDate is given by the clock of the database, the other dates by the one of PHP.
 

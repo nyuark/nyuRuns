@@ -142,10 +142,10 @@ class Controller{
 			return;
 		}
 		$fldDefs = json_decode( strval(file_get_contents($defPath)), true );
-		if( !is_array($fldDefs) || !isset($fldDefs['fields']) || !(is_array($fldDefs['fields']) || is_string($fldDefs['fields'])) ){
+		if( !is_array($fldDefs) || !isset($fldDefs['fieldSet']) || !(is_array($fldDefs['fieldSet']) || is_string($fldDefs['fieldSet'])) ){
 			throw new \RuntimeException('Input misconfigured: '.$this->appIdentty.'/input/'.$actnNme.'.json is not a definition of fields');
 		}
-		$inptObj = new Input( null, 'ACTON', $fldDefs['fields'], $actnNme );
+		$inptObj = new Input( null, 'ACTON', $fldDefs['fieldSet'], $actnNme );
 		$this->inptRgstry = new Registry( $inptObj->parseValuesArr($this->inptRgstry->readLinesArray()) );
 		$missLst = $inptObj->retrieveMissed();
 		if( !empty($missLst) ){

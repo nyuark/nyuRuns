@@ -22,7 +22,7 @@ use nyu\Tools\Registry;
 $sqlFile = inTemporaryDir('mailed.sqlite');
 createSampleDb( $sqlFile );
 $foldNme = 'temp'.DS.'lgmails_'.getmypid();
-$natConf = Array('tblnme'=>'users', 'mailer'=>'devbox', 'codexp'=>15, 'lnkurl'=>'https://app.example.ch/access?code=%code%');
+$natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>15, 'linkTmpl'=>'https://app.example.ch/access?code=%code%');
 
 /**
  * Sets the config: the sample database, a 'tofile' account, and a login on the native userbase.
@@ -34,7 +34,7 @@ function setsConfg( Array $nativeConf ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array(
 		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
 		'mailer'=>Array('DEVBOX'=>Array('type'=>'tofile', 'from'=>'no-reply@example.com', 'name'=>'nyuRuns', 'fold'=>'/'.str_replace(DS, '/', $foldNme))),
-		'access'=>Array('LOGIN'=>Array('authby'=>'native', 'authcf'=>'native'), 'NATIVE'=>$nativeConf)
+		'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb'), 'NATIVEDB'=>$nativeConf)
 	) );
 	Mailer::clearMailCache();
 }
@@ -84,7 +84,7 @@ checkIdentical('mailTwoFa: refused for a user that is not active, unknown, or wi
 	Array($usrBase->emailTwoFactor('zed'), $usrBase->lastStateCount()),
 	(function() use ( $sqlLink, $usrBase ){ $sqlLink->exec("UPDATE users SET userMail=NULL WHERE userName='dave'"); $sqlLink->exec("UPDATE users SET userStat='active' WHERE userName='dave'"); $rslt = Array($usrBase->emailTwoFactor('dave'), $usrBase->lastStateCount(), $usrBase->finalErrorText()); $sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='dave'"); return $rslt; })()
 ), Array(Array(false, 409, 'User not active'), Array(false, 404), Array(false, 409, 'User without a mail address')));
-setsConfg( array_diff_key($natConf, Array('mailer'=>1)) );
+setsConfg( array_diff_key($natConf, Array('mailAcnt'=>1)) );
 checkIdentical('mailTwoFa: refused without a mailer', Array($usrBase->emailTwoFactor('anna'), $usrBase->lastStateCount(), $usrBase->finalErrorText()), Array(false, 409, 'No mail account sends the codes: mailer is not set'));
 setsConfg( $natConf );
 
@@ -118,7 +118,7 @@ $usrBase->emailTwoFactor('anna');
 $natAuth->chckCredential( Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>'') );
 checkPregMatch('login: the mail goes in the language of the user', takeMails()[0] ?? '', '/\r\nSubject: Votre code de connexion\r\n/');
 // No mailer : the login of such a user cannot end
-setsConfg( array_diff_key($natConf, Array('mailer'=>1)) );
+setsConfg( array_diff_key($natConf, Array('mailAcnt'=>1)) );
 checkIdentical('login: without a mailer, the store is unavailable for the user', Array($natAuth->chckCredential($benLgin), $natAuth->finalErrorText(), $natAuth->wrngCredential()), Array(false, 'Credential store unavailable', false));
 setsConfg( $natConf );
 $sqlLink->exec("UPDATE users SET userMail=NULL WHERE userName='anna'");

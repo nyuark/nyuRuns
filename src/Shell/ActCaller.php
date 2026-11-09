@@ -29,7 +29,7 @@ class ActCaller{
 	 * @param String $actionMthNme Method the request is said to use.
 	 * @param String $reqUriString Path it is said to ask for.
 	 * @param Array  $inputsValues Values it carries.
-	 * @param Array  $renderValues The 'rnder' block of the preset, for the response.
+	 * @param Array  $renderValues The 'response' block of the preset, for the response.
 	 * @param Array  $proxyConfArr The reverse proxy settings (see Setup\Loader::proxySetupConf).
 	 * @return Array The Request, then the Response.
 	 */
@@ -68,8 +68,8 @@ class ActCaller{
 		$loadObj = (new Preset($nameOfPreset))->newSetupLoader();
 		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
 		Logger::plugLogsConfig( $loadObj->logConfigArray() );
-		$rndrCnf = $loadObj->getRegistryKey('rnder');
-		$rteConf = $loadObj->getRegistryKey('route');
+		$rndrCnf = $loadObj->getRegistryKey('response');
+		$rteConf = $loadObj->getRegistryKey('routings');
 		$callLst = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrCnf) ? $rndrCnf : Array(), $loadObj->proxySetupConf() );
 		$rqstObj = $callLst[0];
 		$respObj = $callLst[1];

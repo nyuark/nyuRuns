@@ -1,5 +1,5 @@
 -- Native userbase (Access\Auth\Native), MySQL.
--- The table name is the 'tblnme' value of the strategy's config block in conf/access.json.
+-- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
 -- With the default collation, userName is matched without case: 'Anna' and 'anna' are the same user.
 -- madeDate is given by the clock of the database, the other dates by the one of PHP.
 

@@ -48,7 +48,7 @@ function filesIn( String $folderPath, String $prefixText='' ): Array {
 
 $projDir = makeProjectTxt('cleans', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/access.json'=>'{ "limits": { "maxtry": 2, "holdtm": 600, "folder": "temp/limits" } }',
+	'conf/access.json'=>'{ "tryLimit": { "maxTries": 2, "holdSecs": 600, "dataPath": "temp/limits" } }',
 	'temp/cache/a.tmp'=>'a', 'temp/cache/sub/b.tmp'=>'b', 'temp/cache/.gitkeep'=>'',
 	'temp/logs/access.log'=>"[2026-10-01 10:00] [INFO] one\n[2026-10-01 10:01] [INFO] two\n[2026-10-01 10:02] [WARNING] three\n",
 	'temp/logs/access.log.1'=>"old\n", 'temp/logs/runner.log'=>"run\n",
@@ -57,7 +57,7 @@ $projDir = makeProjectTxt('cleans', Array(
 ));
 touch($projDir.DS.'temp'.DS.'logs'.DS.'access.log.1', time()-40*86400);
 mkdir($projDir.DS.'temp'.DS.'limits');
-$limiter = new FoldrLimiter( Array('maxtry'=>2, 'holdtm'=>600), $projDir.DS.'temp'.DS.'limits' );
+$limiter = new FoldrLimiter( Array('maxTries'=>2, 'holdSecs'=>600), $projDir.DS.'temp'.DS.'limits' );
 $limiter->countFailedTry('203.0.113.7');
 $limiter->countFailedTry('203.0.113.7');
 $limiter->countFailedTry('198.51.100.1');

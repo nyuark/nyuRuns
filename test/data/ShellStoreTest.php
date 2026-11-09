@@ -34,22 +34,22 @@ $projDir = makeProjectTxt('storenat', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$basePth, 'user'=>'', 'pass'=>'')),
 	'conf/access.json'=>json_encode(Array(
-		'login'=>Array('authby'=>'native', 'authcf'=>'native', 'sessby'=>'jtoken', 'sesscf'=>'dftokn'),
-		'native'=>Array('tblnme'=>'users', 'tfakey'=>$natSeal),
-		'usrlst'=>Array('usrfle'=>'conf/users.lst', 'tfakey'=>$lstSeal),
-		'device'=>Array('tblnme'=>'devices', 'usrtbl'=>'users')
+		'loginSet'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
+		'nativeDb'=>Array('useTable'=>'users', 'cryptKey'=>$natSeal),
+		'userFile'=>Array('listFile'=>'conf/users.lst', 'cryptKey'=>$lstSeal),
+		'devToken'=>Array('useTable'=>'devices', 'usersTbl'=>'users')
 	), JSON_PRETTY_PRINT)
 ));
 checkIdentical('a store that is not one, a missing word', Array(callShellArray($projDir, Array('installs', 'moveUser', 'ldap'))['code'], callShellArray($projDir, Array('installs', 'moveUser'))['code']), Array(2, 2));
-checkIdentical('the store the login already uses', callShellArray($projDir, Array('installs', 'moveUser', 'native'))['code'], 3);
-$runVals = callShellArray($projDir, Array('installs', 'moveUser', 'usrlst', '--yesToAll'));
+checkIdentical('the store the login already uses', callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb'))['code'], 3);
+$runVals = callShellArray($projDir, Array('installs', 'moveUser', 'userFile', '--yesToAll'));
 checkIdentical('active devices stop the move', Array($runVals['code'], strpos($runVals['errs'], 'active devices need the native userbase (ben/Phone)')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(3, true, false));
-checkIdentical('without --yesToAll, --noPrompt moves nothing', Array(callShellArray($projDir, Array('installs', 'moveUser', 'usrlst', '--dropsAll', '--noPrompt'))['code'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array(3, false));
-$jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'usrlst', '--dropsAll', '--yesToAll'));
+checkIdentical('without --yesToAll, --noPrompt moves nothing', Array(callShellArray($projDir, Array('installs', 'moveUser', 'userFile', '--dropsAll', '--noPrompt'))['code'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array(3, false));
+$jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'userFile', '--dropsAll', '--yesToAll'));
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'userName');
-checkIdentical('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['userRole'].'/'.$userValues['userStat']; }, $usrList), $axsVals['login']['authby'] ?? null, $axsVals['login']['authcf'] ?? null),
-	Array(0, 5, Array('anna'=>'1/manage/active', 'ben'=>'2/member/active', 'cleo'=>'3/member/pendng', 'dave'=>'4/system/locked', 'erin'=>'5/member/review'), 'usrlst', 'usrlst'));
+checkIdentical('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['userRole'].'/'.$userValues['userStat']; }, $usrList), $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null),
+	Array(0, 5, Array('anna'=>'1/manage/active', 'ben'=>'2/member/active', 'cleo'=>'3/member/pendng', 'dave'=>'4/system/locked', 'erin'=>'5/member/review'), 'userFile', 'userFile'));
 checkIdentical('the addresses go along', array_column($usrList, 'userMail', 'userName'), Array('ben'=>'ben@example.ch', 'erin'=>'erin@example.ch'));
 checkIdentical('the languages go along', array_column($usrList, 'userLang', 'userName'), Array('ben'=>'fr-ch'));
 checkIdentical('the passwords and the personal token go along unchanged', Array(array_column($usrList, 'passHash', 'userName'), $usrList['anna']['tokenKey'] ?? null), Array($hashLst, hash('sha256', 'token-of-anna')));
@@ -64,8 +64,8 @@ if( $canSeal ){
 	checkIdentical('the 2FA secret is encrypted again with the key of the file', Array(Totp::openSecretText(strval($usrList['anna']['twoFaKey'] ?? ''), $lstSeal), Totp::openSecretText(strval($usrList['anna']['twoFaKey'] ?? ''), $natSeal)), Array($twoFaKy, null));
 }
 checkIdentical('the userbase left is kept, the device revoked', Array(intval($sqlLink->query('SELECT COUNT(*) FROM users')->fetchColumn()), $sqlLink->query('SELECT revkDate FROM devices')->fetchColumn()!==null), Array(5, true));
-checkPregMatch('the move is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: 5 users moved from native to usrlst, 1 devices revoked, the login points at usrlst by user "cli:/');
-checkIdentical('back to a userbase that holds users: refused', Array(callShellArray($projDir, Array('installs', 'moveUser', 'native', '--yesToAll', '--noPrompt'))['code'], json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['login']['authby'] ?? null), Array(3, 'usrlst'));
+checkPregMatch('the move is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: 5 users moved from nativeDb to userFile, 1 devices revoked, the login points at userFile by user "cli:/');
+checkIdentical('back to a userbase that holds users: refused', Array(callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'))['code'], json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['loginSet']['authWith'] ?? null), Array(3, 'userFile'));
 $sqlLink = null;
 
 // From the users file to a new native userbase, its table created
@@ -79,12 +79,12 @@ $projDir = makeProjectTxt('storelst', Array(
 	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$newBase, 'user'=>'', 'pass'=>'')),
 	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
 	'conf/access.json'=>json_encode(Array(
-		'login'=>Array('authby'=>'usrlst', 'authcf'=>'usrlst', 'sessby'=>'jtoken', 'sesscf'=>'dftokn'),
-		'usrlst'=>Array('usrfle'=>'conf/users.lst')
+		'loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
+		'userFile'=>Array('listFile'=>'conf/users.lst')
 	), JSON_PRETTY_PRINT),
 	'conf/users.lst'=>$fleUsrs
 ));
-$jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'native', '--yesToAll', '--noPrompt'));
+$jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
 $newLink = new PDO('sqlite:'.$newBase);
 $rowList = $newLink->query('SELECT id_user, userName, passHash, userRole, userStat, tokenKey, twoFaKey FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
@@ -92,7 +92,7 @@ checkIdentical('the table is created and the users written; a user without an id
 	Array(0, 5, Array('1/anna/manage/active', '2/ben/member/active', '3/cleo/member/pendng', '4/dave/system/locked', '5/emma/member/active')));
 $lstVals = array_column(json_decode($fleUsrs, true)['users'], null, 'userName');
 checkIdentical('the hashes, the token and the 2FA secret go along', Array(array_column($rowList, 'passHash', 'userName'), $rowList[0]['tokenKey'], $rowList[4]['twoFaKey']), Array(array_column($lstVals, 'passHash', 'userName'), $lstVals['anna']['tokenKey'], $lstVals['emma']['twoFaKey']));
-checkIdentical('the login follows, the native block is made, the file is kept', Array($axsVals['login']['authby'] ?? null, $axsVals['native']['tblnme'] ?? null, fetchInProject($projDir, 'conf/users.lst')), Array('native', 'users', str_replace("\r\n", "\n", $fleUsrs)));
+checkIdentical('the login follows, the native block is made, the file is kept', Array($axsVals['loginSet']['authWith'] ?? null, $axsVals['nativeDb']['useTable'] ?? null, fetchInProject($projDir, 'conf/users.lst')), Array('nativeDb', 'users', str_replace("\r\n", "\n", $fleUsrs)));
 $newLink->exec("INSERT INTO users (userName, passHash) VALUES ('fred', '!')");
 checkIdentical('a user created next takes the identifier after them', intval($newLink->lastInsertId()), 6);
 $newLink = null;
@@ -102,10 +102,10 @@ $projDir = makeProjectTxt('storenop', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>inTemporaryDir('storenop.sqlite'), 'user'=>'', 'pass'=>'')),
 	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
-	'conf/access.json'=>json_encode(Array('login'=>Array('authby'=>'usrlst', 'authcf'=>'usrlst'), 'usrlst'=>Array('usrfle'=>'conf/users.lst'))),
+	'conf/access.json'=>json_encode(Array('loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile'), 'userFile'=>Array('listFile'=>'conf/users.lst'))),
 	'conf/users.lst'=>'{ "users": [ { "userName": "zoe", "userRole": "member" } ] }'
 ));
-$runVals = callShellArray($projDir, Array('installs', 'moveUser', 'native', '--yesToAll', '--noPrompt'));
+$runVals = callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
 checkIdentical('a user without a password hash stops the move', Array($runVals['code'], $runVals['errs']), Array(3, "Nothing was moved: users without a password hash (zoe); give them a password with manage first\n"));
 
 finishChecking();

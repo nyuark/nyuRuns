@@ -6,17 +6,17 @@ namespace nyu\Access;
  * The mark a client gets once it has logged in as a user, and sends back
  * at its next logins ('lgmark': the X-Lgmark header, or the lgmark
  * cookie). It names the user, the time it was made and an identifier of
- * its own, signed with the key of the limits block ('mrkkey'); it holds no
+ * its own, signed with the key of the limits block ('markSecr'); it holds no
  * secret of the user. A client presenting a valid mark for the user it
  * logs in as is not stopped by the hold of the account: the stores count
  * its failures on the mark instead (see Limiter::countLimitUser), so that
  * guesses from elsewhere cannot keep the owner out. A mark ends after
- * 'mrkday' days, with the password set after it was made (native
+ * 'markDays' days, with the password set after it was made (native
  * userbase), or with its key.
  */
 class LoginMark{
 
-	// Days a mark lasts, unless 'mrkday' says otherwise
+	// Days a mark lasts, unless 'markDays' says otherwise
 	const MARK_DAYS = 90;
 	// Shortest key the marks are signed with, in characters : without one, no mark is made or read
 	const KEYS_SIZE = 32;
@@ -27,11 +27,11 @@ class LoginMark{
 	/**
 	 * Builds the marks from the limits block of the access config.
 	 *
-	 * @param Array $limitsConfig The block, with the key the marks are signed with ('mrkkey') and their lifetime in days ('mrkday').
+	 * @param Array $limitsConfig The block, with the key the marks are signed with ('markSecr') and their lifetime in days ('markDays').
 	 */
 	function __construct( Array $limitsConfig ){
-		$this->markSecret = is_string($limitsConfig['mrkkey'] ?? null) ? $limitsConfig['mrkkey'] : '';
-		$this->lifeInDays = max( 1, intval($limitsConfig['mrkday'] ?? self::MARK_DAYS) );
+		$this->markSecret = is_string($limitsConfig['markSecr'] ?? null) ? $limitsConfig['markSecr'] : '';
+		$this->lifeInDays = max( 1, intval($limitsConfig['markDays'] ?? self::MARK_DAYS) );
 	}
 
 	/**
@@ -41,7 +41,7 @@ class LoginMark{
 	 */
 	public static function fromLimitBlock(): LoginMark {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		return new self( is_array($lmtConf) ? $lmtConf : Array() );
 	}
 

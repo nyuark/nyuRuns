@@ -36,7 +36,7 @@ $sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='anna'");
 checkIdentical('Device of a locked user',     Array($dvcAuth->chckCredential(Array('key'=>$phonTkn)), $dvcAuth->finalErrorText()), Array(false, 'Invalid API key'));
 $sqlLink->exec("UPDATE users SET userStat='active' WHERE userName='anna'");
 
-// keepAlive : stamps the device verified last, not more often than 'stmptm'
+// keepAlive : stamps the device verified last, not more often than 'stmpSecs'
 $newAuth = new DeviceAuth( Array() );
 checkIdentical('Device keepAlive before any check', $newAuth->retainAliveFlg('anna'), false);
 $dvcAuth->chckCredential(Array('key'=>$homeTkn));
@@ -45,9 +45,9 @@ checkIdentical('Device only that device is stamped', $sqlLink->query("SELECT dev
 checkIdentical('Device keepAlive does not stamp twice within the gap', $dvcAuth->retainAliveFlg('anna'), false);
 $sqlLink->exec("UPDATE devices SET lastSeen='".date('Y-m-d H:i:s', time()-120)."' WHERE devcName='Home'");
 checkIdentical('Device keepAlive stamps again once the gap is over', $dvcAuth->retainAliveFlg('anna'), true);
-$evryReq = new DeviceAuth( Array('stmptm'=>0) );
+$evryReq = new DeviceAuth( Array('stmpSecs'=>0) );
 $evryReq->chckCredential(Array('key'=>$homeTkn));
-checkIdentical('Device stmptm 0 stamps on every request', Array($evryReq->retainAliveFlg('anna'), $evryReq->retainAliveFlg('anna')), Array(true, true));
+checkIdentical('Device stmpSecs 0 stamps on every request', Array($evryReq->retainAliveFlg('anna'), $evryReq->retainAliveFlg('anna')), Array(true, true));
 
 // remDevice : the token is refused from then on, the row is kept
 checkIdentical('Device remDevice revokes a device', $dvcAuth->remUserDevcFlg(1), true);
@@ -64,17 +64,17 @@ checkIdentical('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array
 checkIdentical('Device listDevcs of one user, of a user without any, of an unknown one', Array(array_column((array)$dvcAuth->lstUserDevices('ben'), 'devcName'), $dvcAuth->lstUserDevices('dave'), $dvcAuth->lstUserDevices('zed')), Array(Array('Laptop'), Array(), Array()));
 checkIdentical('Device listDevcs tells the revoked one', array_map(function(Array $deviceRow){ return $deviceRow['revkDate']!==null; }, (array)$dvcAuth->lstUserDevices('anna')), Array(false, true));
 // Tables that cannot be used
-$noTable = new DeviceAuth( Array('tblnme'=>'nodevices') );
+$noTable = new DeviceAuth( Array('useTable'=>'nodevices') );
 checkIdentical('Device missing table',        runCatchThrown(function() use ($noTable, $homeTkn){ return Array($noTable->chckCredential(Array('key'=>$homeTkn)), $noTable->finalErrorText(), $noTable->pushDeviceText('anna', 'Tablet', 'app'), $noTable->remUserDevcFlg(2), $noTable->lstUserDevices()); }), Array(false, 'Credential store unavailable', false, false, false));
-$badName = new DeviceAuth( Array('usrtbl'=>'users; DROP TABLE users') );
+$badName = new DeviceAuth( Array('usersTbl'=>'users; DROP TABLE users') );
 checkIdentical('Device unusable table name',  Array($badName->chckCredential(Array('key'=>$homeTkn)), $badName->finalErrorText()), Array(false, 'Credential store unavailable'));
 
 // Checker : 'device' is a check of the framework, needing no plug-in, and the token travels as "Authorization: Bearer <token>"
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('device.sqlite')),
-	'access'=>Array('TESTDVC'=>Array('stmptm'=>0), 'TESTBEAR'=>Array('header'=>'Authorization', 'scheme'=>'Bearer'))
+	'access'=>Array('TESTDVC'=>Array('stmpSecs'=>0), 'TESTBEAR'=>Array('headName'=>'Authorization', 'authSchm'=>'Bearer'))
 ) );
-$dvcConf = Array('needed'=>true, 'sessby'=>'header', 'sesscf'=>'testbear', 'authby'=>'device', 'authcf'=>'testdvc');
+$dvcConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'sessConf'=>'testbear', 'authWith'=>'devToken', 'authConf'=>'testdvc');
 $sqlLink->exec("UPDATE devices SET lastSeen=NULL");
 $axsRslt = (new nyu\Access\Checker( $dvcConf, mockRequestObj(Array('Authorization'=>'Bearer '.$homeTkn)) ))->validateAccess();
 checkIdentical('Checker device token: user, role and device role', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'), $axsRslt->readFileDetail('ident')['device']['role'] ?? null), Array(200, 'anna', 'manage', 'home'));

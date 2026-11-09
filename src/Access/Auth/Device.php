@@ -6,7 +6,7 @@ use nyu\Data\DBCon;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
 
 /**
- * Credential check of the device tokens, used as "authby": "device".
+ * Credential check of the device tokens, used as "authWith": "device".
  * Verifies a device token against a table of devices, each linked to a
  * user of the native userbase: the SHA-256 hash of the token must be the
  * tokenKey of a device that is not revoked, and its user must be
@@ -25,18 +25,18 @@ class Device implements Handler{
 	protected $invalidCrd = false;
 
 	/**
-	 * @param Array $configValues Config block, optionally with the 'basnme' configured database holding both tables
-	 *                          (defaults to the default database), the 'tblnme' table of the devices (defaults to
-	 *                          'devices'), the 'usrtbl' table of their users (defaults to 'users') and the 'stmptm'
+	 * @param Array $configValues Config block, optionally with the 'linkName' configured database holding both tables
+	 *                          (defaults to the default database), the 'useTable' table of the devices (defaults to
+	 *                          'devices'), the 'usersTbl' table of their users (defaults to 'users') and the 'stmpSecs'
 	 *                          time in seconds during which a device already seen is not stamped again (defaults to 60).
 	 */
 	function __construct( Array $configValues ){
-		$this->usersStore = is_scalar($configValues['basnme'] ?? '') ? strval($configValues['basnme'] ?? '') : '';
-		$devcNme = strval($configValues['tblnme'] ?? 'devices');
-		$usrName = strval($configValues['usrtbl'] ?? 'users');
+		$this->usersStore = is_scalar($configValues['linkName'] ?? '') ? strval($configValues['linkName'] ?? '') : '';
+		$devcNme = strval($configValues['useTable'] ?? 'devices');
+		$usrName = strval($configValues['usersTbl'] ?? 'users');
 		$this->deviceTble = preg_match('/^\w+$/D', $devcNme) ? $devcNme : '';
 		$this->usersTable = preg_match('/^\w+$/D', $usrName) ? $usrName : '';
-		$this->stampEvery = max( 0, intval($configValues['stmptm'] ?? 60) );
+		$this->stampEvery = max( 0, intval($configValues['stmpSecs'] ?? 60) );
 		$this->lastMessag = '';
 	}
 
@@ -75,7 +75,7 @@ class Device implements Handler{
 	/**
 	 * Stamps the time the device verified by chckCredential() was last seen.
 	 * Meant to be called on every authenticated request: the row is only
-	 * written when its stamp is at least 'stmptm' seconds old.
+	 * written when its stamp is at least 'stmpSecs' seconds old.
 	 *
 	 * @param String $namedUserTxt Login name of the device's user (not used: the device is the one just verified).
 	 * @return Bool Whether the stamp was written.
@@ -217,7 +217,7 @@ class Device implements Handler{
 
 	/**
 	 * Returns the handler of the database holding the devices and their
-	 * users: the one named by 'basnme', or the default database.
+	 * users: the one named by 'linkName', or the default database.
 	 *
 	 * @return DbHandlr The database handler.
 	 *

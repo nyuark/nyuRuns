@@ -155,11 +155,11 @@ checkIdentical('a field that is not required may be left out', formsStat('needFo
 
 // The definition the Auth application gives for its login
 $authDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'input'.DS.'openSess.json'), true );
-checkIdentical('Auth: the login requires its user and its pass, not its code', Array(inputMiss($authDef['fields'] ?? 'none', Array()), inputMiss($authDef['fields'] ?? 'none', Array('user'=>'ann', 'pass'=>'')), inputMiss($authDef['fields'] ?? 'none', Array('user'=>'ann', 'pass'=>'x'))), Array(Array('user', 'pass'), Array('pass'), Array()));
-checkIdentical('Auth: the login keeps its three fields as sent', inputVals($authDef['fields'] ?? 'none', Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345', 'debug'=>'1')), Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345'));
+checkIdentical('Auth: the login requires its user and its pass, not its code', Array(inputMiss($authDef['fieldSet'] ?? 'none', Array()), inputMiss($authDef['fieldSet'] ?? 'none', Array('user'=>'ann', 'pass'=>'')), inputMiss($authDef['fieldSet'] ?? 'none', Array('user'=>'ann', 'pass'=>'x'))), Array(Array('user', 'pass'), Array('pass'), Array()));
+checkIdentical('Auth: the login keeps its three fields as sent', inputVals($authDef['fieldSet'] ?? 'none', Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345', 'debug'=>'1')), Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345'));
 
 // The definition the Shows application gives for its list
 $showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'overview.json'), true );
-checkIdentical('Shows: the list keeps its filters, its order and its limits, as sent', inputVals($showDef['fields'] ?? 'none', Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids', 'other'=>'x'), 'sorting'=>'^title', 'indexes'=>'10,20', 'debug'=>'1')), Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids'), 'sorting'=>'^title', 'indexes'=>'10,20'));
+checkIdentical('Shows: the list keeps its filters, its order and its limits, as sent', inputVals($showDef['fieldSet'] ?? 'none', Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids', 'other'=>'x'), 'sorting'=>'^title', 'indexes'=>'10,20', 'debug'=>'1')), Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids'), 'sorting'=>'^title', 'indexes'=>'10,20'));
 
 finishChecking();

@@ -140,24 +140,24 @@ DBCon::linkNamedDbCon('archive')->readConnection()->sendBuiltQuery('DELETE FROM 
 $benCred = Array('user'=>'ben', 'pass'=>'pw-ben');
 $annCred = Array('user'=>'anna', 'pass'=>'pw-anna');
 
-checkIdentical('Native without basnme reads the default database', runCatchThrown(function() use ($benCred){
-	$natAuth = new Native( Array('tblnme'=>'users') );
+checkIdentical('Native without linkName reads the default database', runCatchThrown(function() use ($benCred){
+	$natAuth = new Native( Array('useTable'=>'users') );
 	return $natAuth->chckCredential($benCred)['user'] ?? null;
 }), 'ben');
-checkIdentical('Native with an empty basnme reads the default database', runCatchThrown(function() use ($benCred){
-	$natAuth = new Native( Array('basnme'=>'', 'tblnme'=>'users') );
+checkIdentical('Native with an empty linkName reads the default database', runCatchThrown(function() use ($benCred){
+	$natAuth = new Native( Array('linkName'=>'', 'useTable'=>'users') );
 	return $natAuth->chckCredential($benCred)['user'] ?? null;
 }), 'ben');
-checkIdentical('Native reads the database basnme names', runCatchThrown(function() use ($benCred, $annCred){
-	$natAuth = new Native( Array('basnme'=>'archive', 'tblnme'=>'users') );
+checkIdentical('Native reads the database linkName names', runCatchThrown(function() use ($benCred, $annCred){
+	$natAuth = new Native( Array('linkName'=>'archive', 'useTable'=>'users') );
 	return Array($natAuth->chckCredential($annCred)['user'] ?? null, $natAuth->chckCredential($benCred), $natAuth->finalErrorText());
 }), Array('anna', false, 'Invalid credentials'));
 checkIdentical('Native on an unknown database tells nothing more', runCatchThrown(function() use ($annCred){
-	$natAuth = new Native( Array('basnme'=>'nowhere', 'tblnme'=>'users') );
+	$natAuth = new Native( Array('linkName'=>'nowhere', 'useTable'=>'users') );
 	return Array($natAuth->chckCredential($annCred), $natAuth->finalErrorText(), $natAuth->makeToknString('anna'), $natAuth->onlineNowArray());
 }), Array(false, 'Credential store unavailable', false, false));
 checkIdentical('a token made in one database is unknown to the other', runCatchThrown(function(){
-	$archNat = new Native( Array('basnme'=>'archive') );
+	$archNat = new Native( Array('linkName'=>'archive') );
 	$mainNat = new Native( Array() );
 	$newTokn = $archNat->makeToknString('anna');
 	return Array(is_string($newTokn), $archNat->chckCredential(Array('key'=>$newTokn))['user'] ?? null, $mainNat->chckCredential(Array('key'=>$newTokn)));
@@ -165,16 +165,16 @@ checkIdentical('a token made in one database is unknown to the other', runCatchT
 
 // The project's own access configuration: conf/access.json is kept out of
 // the repository, so it is only checked where it exists
-$axsLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'fnames'=>'access,database')) );
+$axsLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'fileName'=>'access,database')) );
 $axsConf = $axsLoad->retrieveConfig();
-$natConf = is_file(TOP_DIR.DS.'conf'.DS.'access.json') ? $axsConf->obtainRowValue('ACCESS', 'NATIVE') : null;
+$natConf = is_file(TOP_DIR.DS.'conf'.DS.'access.json') ? $axsConf->obtainRowValue('ACCESS', 'NATIVEDB') : null;
 if( !is_array($natConf) ){
 	recordSkipping('conf/access.json', 'the file, or its native block, is not there');
 }else{
-	checkIdentical('conf/access.json: the native block names its database first', array_slice(array_keys($natConf), 0, 6), Array('basnme', 'tblnme', 'idletm', 'maxtry', 'holdtm', 'minlen'));
+	checkIdentical('conf/access.json: the native block names its database first', array_slice(array_keys($natConf), 0, 6), Array('linkName', 'useTable', 'idleSecs', 'maxTries', 'holdSecs', 'minChars'));
 	checkTrueValue('conf/access.json: that database is configured', runCatchThrown(function() use ($axsConf, $natConf){
 		$GLOBALS['nyuConfig'] = $axsConf;
-		return DBCon::baseSetupArray(strval($natConf['basnme'] ?? ''))['type']!='';
+		return DBCon::baseSetupArray(strval($natConf['linkName'] ?? ''))['type']!='';
 	}));
 }
 

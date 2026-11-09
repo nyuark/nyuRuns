@@ -72,7 +72,7 @@ function readsLogs( String $loggerChan ): String {
  */
 function dropLocal(): Void {
 	$axsConf = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
-	$limiter = new nyu\Access\Limiter( is_array($axsConf['limits'] ?? null) ? $axsConf['limits'] : Array() );
+	$limiter = new nyu\Access\Limiter( is_array($axsConf['tryLimit'] ?? null) ? $axsConf['tryLimit'] : Array() );
 	$keyMthd = new ReflectionMethod($limiter, 'keyLimitOfAddr');
 	$pthMthd = new ReflectionMethod($limiter, 'pathLimitOfKey');
 	foreach( Array('127.0.0.1', '::1') as $adr ){
@@ -226,16 +226,16 @@ if( !$isReady ){
 	checkTrueValue('uncaught exception: carries an error message', is_string($errVals['error'] ?? null) && $errVals['error']!='');
 
 	// Access control
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'header'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'apiHeadr'));
 	checkIdentical('access denied: 401 with an error body', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Missing X-Api-Key header","code":401}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'htpasswd'));
 	checkIdentical('Basic access denied: 401', $replyAr['code'], 401);
 	checkTrueValue('Basic access denied: challenge header, with its realm', in_array('WWW-Authenticate: Basic realm="nyuRuns", charset="UTF-8"', $replyAr['head']));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'regkey'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'regdKeys'));
 	checkIdentical('Basic access with a check of keys: a mistake of the config, told as a 500', Array($replyAr['code'], $replyAr['body'], count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head']))), Array(500, '{"error":"Access misconfigured","code":500}', 0));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('JWT access denied: 401', $replyAr['code'], 401);
 	checkTrueValue('JWT access denied: challenge header', in_array('WWW-Authenticate: Bearer', $replyAr['head']));
 
@@ -243,7 +243,7 @@ if( !$isReady ){
 	checkIdentical('misconfigured access: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
 
 	// Public routes
-	$pubHead = Array('X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'auth/openSess');
+	$pubHead = Array('X-Test-Auth'=>'jwtToken', 'X-Test-Public'=>'auth/openSess');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $pubHead);
 	checkIdentical('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
 
@@ -253,10 +253,10 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/auth', $pubHead);
 	checkIdentical('public route: the default action stays closed', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/gets', Array('X-Test-Auth'=>'jtoken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/gets', Array('X-Test-Auth'=>'jwtToken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
 	checkIdentical('public route: an OPTIONS answered by the route needs no credentials', $replyAr['code'], 204);
 
-	$replyAr = httpQuery('GET', $baseUrl.'/gets', Array('X-Test-Auth'=>'jtoken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
+	$replyAr = httpQuery('GET', $baseUrl.'/gets', Array('X-Test-Auth'=>'jwtToken', 'X-Test-Routes'=>'1', 'X-Test-Runs'=>'1'));
 	checkIdentical('public route: the same route stays closed for GET', $replyAr['code'], 401);
 
 	// CORS preflight : answered on any path with the preset's headers, without credentials and without running the action
@@ -266,13 +266,13 @@ if( !$isReady ){
 	checkIdentical('preflight: answered on an automatic route, without the record', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 	checkIdentical('preflight: the three CORS headers are sent', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
 
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/viewShow/1', $corsHed + Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/viewShow/1', $corsHed + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('preflight: answered without credentials under required access', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/auth/openSess', Array('Access-Control-Request-Method'=>'POST') + $corsHed);
 	checkIdentical('preflight: answered on a route that only accepts POST', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('an OPTIONS that is not a preflight stays closed under required access', $replyAr['code'], 401);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', $corsHed);
@@ -297,14 +297,14 @@ if( !$isReady ){
 	checkIdentical('origins: a reply to a listed origin', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(200, 'https://other.example'));
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('Origin'=>'https://evil.example') + $lstHead);
 	checkIdentical('origins: a reply to another origin is served, without the header', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(200, null));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('Origin'=>'https://evil.example', 'X-Test-Auth'=>'jtoken') + $lstHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('Origin'=>'https://evil.example', 'X-Test-Auth'=>'jwtToken') + $lstHead);
 	checkIdentical('origins: a denial follows the same rule', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(401, null));
 
 	// Every reply tells the client not to guess another type than the one announced
 	$sniffLs = Array();
 	foreach( Array(
 		'data'=>httpQuery('GET', $baseUrl.'/shows/viewShow/1'),
-		'denial'=>httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'jtoken')),
+		'denial'=>httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Auth'=>'jwtToken')),
 		'unknown'=>httpQuery('GET', $baseUrl.'/nothing/here'),
 		'refused method'=>httpQuery('GET', $baseUrl.'/auth/openSess'),
 		'preflight'=>httpQuery('OPTIONS', $baseUrl.'/shows/viewShow/1', $corsHed)
@@ -360,11 +360,11 @@ if( !$isReady ){
 	checkIdentical('error page: a path no route answers', Array($replyAr['code'], $replyAr['type'], trim(strval(strstr($replyAr['body'], '<h1>'))), $headOf($replyAr, 'X-Content-Type-Options')), Array(404, 'text/html; charset=utf-8', '<h1>404</h1><p>Nothing here: Not Found</p></body></html>', 'nosniff'));
 	$replyAr = httpQuery('GET', $baseUrl.'/hello/x', $errHead);
 	checkIdentical('error page: a page whose file is not there', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], 'Nothing here: Not Found')!==false), Array(404, 'text/html; charset=utf-8', true));
-	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead + Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('error page: a denial has the page of its status', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<h1>401</h1><p>Sign in first: Missing Bearer Authorization header</p>')!==false), Array(401, 'text/html; charset=utf-8', true));
 	$replyAr = httpQuery('POST', $baseUrl.'/ping', $errHead);
 	checkIdentical('error page: a status the site has no page for keeps the format of the preset', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/things/1', $errHead + Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('GET', $baseUrl.'/things/1', $errHead + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('error page: a route to an action keeps the format of the preset', Array($replyAr['code'], $replyAr['type']), Array(401, $jsonTyp));
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', Array('X-Test-Preset'=>'manual', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1'));
 	checkIdentical('error page: a site without one answers as before', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
@@ -376,11 +376,11 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1'));
 	checkIdentical('identity: no access control, not logged', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false,"user":"","role":null}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'probe/identify'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken', 'X-Test-Public'=>'probe/identify'));
 	checkIdentical('identity: public route, not logged', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false,"user":"","role":null}'));
 
 	// The API key block of test/fixtures/conf/access.json
-	$keyHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'header', 'X-Test-Confkey'=>'tskeys');
+	$keyHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'apiHeadr', 'X-Test-Confkey'=>'testKeys');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $keyHead + Array('X-Api-Key'=>'test-only-key-1'));
 	checkIdentical('identity: valid API key, logged as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"","role":"member"}'));
 
@@ -388,7 +388,7 @@ if( !$isReady ){
 	checkIdentical('identity: invalid API key, the action does not run', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
 
 	// Login round trip : htpasswd store and JWT of test/fixtures/conf
-	$whoHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn');
+	$whoHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
 	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkIdentical('round trip: login answers 200', $replyAr['code'], 200);
@@ -408,7 +408,7 @@ if( !$isReady ){
 		$jwkDir = TOP_DIR.DS.'temp'.DS.'httpjwk';
 		@mkdir($jwkDir, 0700, true);
 		$cnfOpts = Array('config'=>TOP_DIR.DS.'src'.DS.'Shell'.DS.'keygen.cnf');
-		foreach( Array('tstokn', 'tstokn.old') as $keyBase ){
+		foreach( Array('testTokn', 'testTokn.old') as $keyBase ){
 			$keyObjc = openssl_pkey_new( Array('private_key_bits'=>2048, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $cnfOpts );
 			$prvText = '';
 			openssl_pkey_export($keyObjc, $prvText, null, $cnfOpts);
@@ -426,9 +426,9 @@ if( !$isReady ){
 		$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 		$tknClms = runCatchThrown(function() use ( $jwToken, $keysSet ){ return (array)Firebase\JWT\JWT::decode($jwToken, Firebase\JWT\JWK::parseKeySet($keysSet)); });
 		checkIdentical('key set: another project checks the token of the login with it alone', Array($replyAr['code'], $tknClms['user'] ?? null, $tknClms['iss'] ?? null, $tknClms['aud'] ?? null), Array(200, 'alice', 'https://auth.example.org', 'api.example.org'));
-		$jwkHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn', 'X-Test-Conf'=>'confjwk');
+		$jwkHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn', 'X-Test-Conf'=>'confjwk');
 		checkIdentical('bound token: accepted by its audience', httpQuery('GET', $baseUrl.'/probe/identify', $jwkHead + Array('Authorization'=>'Bearer '.$jwToken))['body'], '{"logged":true,"user":"alice","role":"member"}');
-		$othTokn = Firebase\JWT\JWT::encode( Array('user'=>'alice', 'exp'=>time()+60, 'iss'=>'https://auth.example.org', 'aud'=>'other.example.org'), strval(file_get_contents($jwkDir.DS.'tstokn.key')), 'RS256' );
+		$othTokn = Firebase\JWT\JWT::encode( Array('user'=>'alice', 'exp'=>time()+60, 'iss'=>'https://auth.example.org', 'aud'=>'other.example.org'), strval(file_get_contents($jwkDir.DS.'testTokn.key')), 'RS256' );
 		checkIdentical('bound token: one meant for another audience is refused', Array(httpQuery('GET', $baseUrl.'/probe/identify', $jwkHead + Array('Authorization'=>'Bearer '.$othTokn))['body']), Array('{"error":"Invalid token","code":401}'));
 		dropTestFolder($jwkDir);
 	}else{
@@ -459,14 +459,14 @@ if( !$isReady ){
 	checkIdentical('presence: the user who logged in is online', $replyAr['body'], '{"online":["anna"]}');
 
 	// A request verified by Basic credentials against the users table stamps its user too
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
 	checkIdentical('presence: Basic access on the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"ben","role":"member"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
 	checkIdentical('presence: the user of a verified request is online', $replyAr['body'], '{"online":["anna","ben"]}');
 
 	// A token confirmed against the users table : a role change or a lock applies to a token already issued
 	$sqlLink = new PDO('sqlite:'.$sqlFile);
-	$storHed = $whoHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'Authorization'=>'Bearer '.$jwToken);
+	$storHed = $whoHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'nativeDb', 'Authorization'=>'Bearer '.$jwToken);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
 	checkIdentical('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 
@@ -484,7 +484,7 @@ if( !$isReady ){
 
 	// Personal API token of the users table, sent in the API key header
 	$sqlLink->exec("UPDATE users SET tokenKey='".hash('sha256', 'http-test-token')."' WHERE userName='anna'");
-	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'header', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv');
+	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'apiHeadr', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $tknHead + Array('X-Api-Key'=>'http-test-token'));
 	checkIdentical('personal token: identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $tknHead + Array('X-Api-Key'=>'another-token'));
@@ -500,7 +500,7 @@ if( !$isReady ){
 	checkIdentical('2FA login: wrong code', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid verification code","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben&code='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
 	checkIdentical('2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
 	checkIdentical('2FA: Basic access is closed to a user with a secret', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
 	$sqlLink->exec("UPDATE users SET twoFaKey=NULL WHERE userName='ben'");
 
@@ -518,7 +518,7 @@ if( !$isReady ){
 
 	// User management (runs/Users, auth/activate, auth/password) : a manager creates a user, who activates itself
 	$benToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
-	$usrHead = $formHed + Array('X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn', 'X-Test-Store'=>'native', 'X-Test-Public'=>'auth/openSess,auth/activate');
+	$usrHead = $formHed + Array('X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn', 'X-Test-Store'=>'nativeDb', 'X-Test-Public'=>'auth/openSess,auth/activate');
 	$mgrHead = $usrHead + Array('Authorization'=>'Bearer '.$jwToken);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $usrHead, 'user=henry');
 	checkIdentical('users: nothing without a session', $replyAr['code'], 401);
@@ -571,7 +571,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/dropUser', $mgrHead, 'user=henry');
 	checkIdentical('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE userName='henry'")->fetchColumn()), Array(200, 0));
 
-	// Roles : what a route asks for ('rolert'), and the helpers of an action
+	// Roles : what a route asks for ('rteRoles'), and the helpers of an action
 	$benHead = Array('Authorization'=>'Bearer '.$benToken);
 	$annHead = Array('Authorization'=>'Bearer '.$jwToken);
 	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=manage, probe/identify=system, /docs/*=system, /hello/$id=manage');
@@ -635,17 +635,17 @@ if( !$isReady ){
 	checkIdentical('users file 2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'user=emma&pass=pw-emma&code='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
 	checkIdentical('users file 2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
-	$lstAxss = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confusr', 'X-Test-Store'=>'usrlst', 'X-Test-Confkey'=>'tsusrs');
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'hbasic', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
+	$lstAxss = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confusr', 'X-Test-Store'=>'userFile', 'X-Test-Confkey'=>'testFile');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'httpBasc', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
 	checkIdentical('users file: Basic access', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"ben","role":"member"}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'header', 'X-Api-Key'=>'list-test-token'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'apiHeadr', 'X-Api-Key'=>'list-test-token'));
 	checkIdentical('users file: personal token identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'header', 'X-Api-Key'=>'another-token'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'apiHeadr', 'X-Api-Key'=>'another-token'));
 	checkIdentical('users file: a wrong personal token is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid API key","code":401}'));
 
 	// PHP session carrier (test/fixtures/confses) : the login opens a session, its cookie identifies the next requests
 	$sesConf = $formHed + Array('X-Test-Conf'=>'confses');
-	$sesHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess');
+	$sesHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phpSessn', 'X-Test-Confkey'=>'testSess');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
 	$cookLin = '';
 	foreach( $replyAr['head'] as $hedLin ){
@@ -697,7 +697,7 @@ if( !$isReady ){
 	$sqlLink->exec("UPDATE users SET userStat='locked' WHERE userName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('Cookie'=>$sessCok));
 	checkIdentical('session without a store: still open for a locked user', $replyAr['code'], 200);
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('X-Test-Store'=>'native', 'Cookie'=>$sessCok));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('X-Test-Store'=>'nativeDb', 'Cookie'=>$sessCok));
 	checkIdentical('session with a store: a locked user is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
 	$sqlLink->exec("UPDATE users SET userStat='active' WHERE userName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('Cookie'=>$sessCok));
@@ -728,10 +728,10 @@ if( !$isReady ){
 		}
 	}
 	$logMark = strlen(readsLogs('access'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/quitSess', Array('X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess', 'Cookie'=>$sessCok));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/quitSess', Array('X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phpSessn', 'X-Test-Confkey'=>'testSess', 'Cookie'=>$sessCok));
 	checkIdentical('logout on a checked route: answers 200', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":false}'));
 	checkPregMatch('access log: privileged logout', substr(readsLogs('access'), $logMark), '/\[NOTICE\] Logout of privileged user "anna" \(manage\)/');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/quitSess', Array('X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phsess', 'X-Test-Confkey'=>'tssess', 'Cookie'=>$sessCok));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/quitSess', Array('X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phpSessn', 'X-Test-Confkey'=>'testSess', 'Cookie'=>$sessCok));
 	checkIdentical('logout on a checked route: a second one finds no session', $replyAr['code'], 401);
 
 	// A login never keeps an id the client came with
@@ -758,12 +758,12 @@ if( !$isReady ){
 	checkIdentical('logout with a token carrier: the token is still accepted', $replyAr['code'], 200);
 
 	// Carriers that take a check of passwords or keys, on the htpasswd file : Basic access, and a key refused
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass', 'X-Test-Confkey'=>'tspass', 'Authorization'=>'Basic '.base64_encode('alice:s3cret')));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'htpasswd', 'X-Test-Confkey'=>'testPass', 'Authorization'=>'Basic '.base64_encode('alice:s3cret')));
 	checkIdentical('htpasswd file: Basic access, as a member', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"alice","role":"member"}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'hbasic', 'X-Test-Store'=>'htpass', 'X-Test-Confkey'=>'tspass', 'Authorization'=>'Basic '.base64_encode('alice:nope')));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conf', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'htpasswd', 'X-Test-Confkey'=>'testPass', 'Authorization'=>'Basic '.base64_encode('alice:nope')));
 	checkIdentical('htpasswd file: wrong password, with the challenge', Array($replyAr['code'], $replyAr['body'], in_array('WWW-Authenticate: Basic realm="nyuRuns", charset="UTF-8"', $replyAr['head'])), Array(401, '{"error":"Invalid credentials","code":401}', true));
 
-	// A session left unused for longer than its lifetime (1 second in the tsshrt block)
+	// A session left unused for longer than its lifetime (1 second in the testShrt block)
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
@@ -771,13 +771,13 @@ if( !$isReady ){
 		}
 	}
 	sleep(3);
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Confkey'=>'tsshrt') + $sesHead + Array('Cookie'=>$sessCok));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Confkey'=>'testShrt') + $sesHead + Array('Cookie'=>$sessCok));
 	checkIdentical('session: expired after its lifetime', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Session expired","code":401}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('Cookie'=>$sessCok));
 	checkIdentical('session: an expired session was destroyed', $replyAr['code'], 401);
 
 	// Client certificate carrier : the test router stands in for the web server's report (X-Test-Cert)
-	$crtHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'clcert');
+	$crtHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'clntCert');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead + Array('X-Test-Cert'=>'SUCCESS;anna;Test CA'));
 	checkIdentical('certificate: a verified certificate names its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"member"}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead);
@@ -787,9 +787,9 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead + Array('SSL-Client-Verify'=>'SUCCESS', 'SSL-Client-S-DN-CN'=>'anna', 'SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'anna'));
 	checkIdentical('certificate: the same values sent as request headers are ignored', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'X-Test-Cert'=>'SUCCESS;anna;Test CA'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'X-Test-Cert'=>'SUCCESS;anna;Test CA'));
 	checkIdentical('certificate with a store: the role comes from the users table', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"manage"}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'native', 'X-Test-Confkey'=>'tsnatv', 'X-Test-Cert'=>'SUCCESS;zed;Test CA'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $crtHead + Array('X-Test-Conf'=>'confnat', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'X-Test-Cert'=>'SUCCESS;zed;Test CA'));
 	checkIdentical('certificate with a store: a name that is not a user', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
 	$sqlLink = null;
 
@@ -1028,7 +1028,7 @@ if( !$isReady ){
 	checkIdentical('redirection: of another method, when allowed', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(307, '/both'));
 	$replyAr = httpQuery('GET', $baseUrl.'/badcode', $rteHead);
 	checkIdentical('redirection: a wrong status is a 500, without address', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(500, null));
-	$replyAr = httpQuery('GET', $baseUrl.'/old/42', $rteHead + Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('GET', $baseUrl.'/old/42', $rteHead + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('redirection: closed when access is required', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/style', $rteHead);
@@ -1042,7 +1042,7 @@ if( !$isReady ){
 	checkIdentical('static: a missing file is a JSON 404', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), $noFile);
 	$replyAr = httpQuery('GET', $baseUrl.'/secret', $rteHead);
 	checkIdentical('static: a file declared outside the root is a 500', Array($replyAr['code'], strpos($replyAr['body'], 'abcdefghijklmnopqrstuvwxyz')), Array(500, false));
-	$replyAr = httpQuery('GET', $baseUrl.'/style', $rteHead + Array('X-Test-Auth'=>'jtoken'));
+	$replyAr = httpQuery('GET', $baseUrl.'/style', $rteHead + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('static: closed when access is required', $replyAr['code'], 401);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/docs/guide.txt', $rteHead);
@@ -1089,7 +1089,7 @@ if( !$isReady ){
 	checkIdentical('page: one kind per method, POST runs the action', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(200, $jsonTyp, '{"ok":true}'));
 
 	// A declared route opened by its path, when access is required
-	$pthHead = $rteHead + Array('X-Test-Auth'=>'jtoken', 'X-Test-Public'=>'/enter, /docs/*');
+	$pthHead = $rteHead + Array('X-Test-Auth'=>'jwtToken', 'X-Test-Public'=>'/enter, /docs/*');
 	$replyAr = httpQuery('GET', $baseUrl.'/enter', $pthHead);
 	checkIdentical('public path: the page is served without credentials', Array($replyAr['code'], $replyAr['type']), Array(200, $htmlTyp));
 	$replyAr = httpQuery('POST', $baseUrl.'/enter', $pthHead);
@@ -1115,7 +1115,7 @@ if( !$isReady ){
 	checkIdentical('sign-in: a denied action keeps its error', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
 	$replyAr = httpQuery('GET', $baseUrl.'/style', $sgnHead);
 	checkIdentical('sign-in: so does a denied file', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
-	$replyAr = httpQuery('GET', $baseUrl.'/enter', $rteHead + Array('X-Test-Auth'=>'jtoken', 'X-Test-Signin'=>'/enter'));
+	$replyAr = httpQuery('GET', $baseUrl.'/enter', $rteHead + Array('X-Test-Auth'=>'jwtToken', 'X-Test-Signin'=>'/enter'));
 	checkIdentical('sign-in: a route left closed is not sent to itself', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(401, null));
 	$replyAr = httpQuery('GET', $baseUrl.'/hello/7', $pthHead + Array('X-Test-Signin'=>'https://example.org/enter'));
 	checkIdentical('sign-in: an address elsewhere is a misconfiguration', Array($replyAr['code'], $headOf($replyAr, 'Location')), Array(500, null));
@@ -1195,7 +1195,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'user=alice&pass=s3cret');
 	checkIdentical('address limit: the login is then refused, even with the right password', Array($replyAr['code'], $replyAr['body']), Array(429, '{"error":"Too many attempts","code":429}'));
 	checkTrueValue('address limit: the login tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'header', 'X-Test-Confkey'=>'tskeys', 'X-Api-Key'=>'test-only-key-1'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'apiHeadr', 'X-Test-Confkey'=>'testKeys', 'X-Api-Key'=>'test-only-key-1'));
 	checkIdentical('address limit: a checked route is refused too, even with the right key', Array($replyAr['code'], $replyAr['body']), Array(429, '{"error":"Too many attempts","code":429}'));
 	checkTrueValue('address limit: the checked route tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
@@ -1203,7 +1203,7 @@ if( !$isReady ){
 	dropTestFolder(TOP_DIR.DS.'temp'.DS.'limits_http');
 
 	// Forged tokens are counted like wrong passwords; a token that ended is not
-	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'jtoken', 'X-Test-Confkey'=>'tstokn');
+	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn');
 	$endHead = $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'alice', 'exp'=>time()-10), 'test-only-secret-0123456789-abcdefghij', 'HS256'));
 	$codeLst = Array();
 	for( $idx=0; $idx<3; $idx++ ){

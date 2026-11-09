@@ -16,10 +16,10 @@ use nyu\Tools\Logger;
  * already taken ('taken'), and the warning to the managers that sign-ups
  * are piling up ('onhold', with %count% and %limit%).
  *
- * It works from the block of the native userbase: 'mailer' names the
+ * It works from the block of the native userbase: 'mailAcnt' names the
  * account of conf/mailer.json the mails go through (no mail is sent
  * without it: the codes are then given in the replies, as before),
- * 'codexp' the minutes a mailed code lasts, and 'lnkurl' the address of
+ * 'codeMins' the minutes a mailed code lasts, and 'linkTmpl' the address of
  * the front end the mail links to, where %kind%, %user% and %code% are
  * filled in (no link without it: the code alone is typed).
  *
@@ -60,14 +60,14 @@ class AccessMail {
 	/**
 	 * Builds the sender from the block of the native userbase.
 	 *
-	 * @param Array  $configValues The block: 'mailer', 'codexp', 'lnkurl' (see the class).
+	 * @param Array  $configValues The block: 'mailAcnt', 'codeMins', 'linkTmpl' (see the class).
 	 * @param String $appsFoldText The folder of the application, whose mails folder comes first; '' for conf/mails alone.
 	 * @param Bool   $deferSending Whether the mails wait for the end of the request, after the reply.
 	 */
 	function __construct( Array $configValues, String $appsFoldText='', Bool $deferSending=false ){
-		$this->accountNme = is_string($configValues['mailer'] ?? null) ? $configValues['mailer'] : '';
-		$this->linkTemplt = is_string($configValues['lnkurl'] ?? null) ? $configValues['lnkurl'] : '';
-		$this->codeExpiry = max( 1, intval($configValues['codexp'] ?? Auth\UserBase::MAIL_MINS) );
+		$this->accountNme = is_string($configValues['mailAcnt'] ?? null) ? $configValues['mailAcnt'] : '';
+		$this->linkTemplt = is_string($configValues['linkTmpl'] ?? null) ? $configValues['linkTmpl'] : '';
+		$this->codeExpiry = max( 1, intval($configValues['codeMins'] ?? Auth\UserBase::MAIL_MINS) );
 		$this->folderList = Array();
 		if( $appsFoldText!='' ){
 			$this->folderList[] = rtrim($appsFoldText, '/\\').DS.'mails';
@@ -86,19 +86,19 @@ class AccessMail {
 	 */
 	public static function fromLoginBlock( String $appsFoldText='', Bool $deferSending=false ): ?AccessMail {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGIN') : null;
-		if( !is_array($lgnConf) || strval($lgnConf['authby'] ?? '')!=='native' ){
+		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		if( !is_array($lgnConf) || strval($lgnConf['authWith'] ?? '')!=='nativeDb' ){
 			return null;
 		}
-		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authcf'] ?? 'native')));
-		if( !is_array($blckCfg) || !is_string($blckCfg['mailer'] ?? null) || $blckCfg['mailer']==='' ){
+		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authConf'] ?? 'nativeDb')));
+		if( !is_array($blckCfg) || !is_string($blckCfg['mailAcnt'] ?? null) || $blckCfg['mailAcnt']==='' ){
 			return null;
 		}
 		return new self($blckCfg, $appsFoldText, $deferSending);
 	}
 
 	/**
-	 * Tells whether self-registration is open: the 'signup' key of the
+	 * Tells whether self-registration is open: the 'signupOn' key of the
 	 * block of the userbase the login uses, with a mail account to confirm
 	 * the addresses.
 	 *
@@ -106,12 +106,12 @@ class AccessMail {
 	 */
 	public static function signupsAllowed(): Bool {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGIN') : null;
-		if( !is_array($lgnConf) || strval($lgnConf['authby'] ?? '')!=='native' ){
+		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		if( !is_array($lgnConf) || strval($lgnConf['authWith'] ?? '')!=='nativeDb' ){
 			return false;
 		}
-		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authcf'] ?? 'native')));
-		return is_array($blckCfg) && ($blckCfg['signup'] ?? false)===true && is_string($blckCfg['mailer'] ?? null) && $blckCfg['mailer']!=='';
+		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authConf'] ?? 'nativeDb')));
+		return is_array($blckCfg) && ($blckCfg['signupOn'] ?? false)===true && is_string($blckCfg['mailAcnt'] ?? null) && $blckCfg['mailAcnt']!=='';
 	}
 
 	/**
@@ -169,7 +169,7 @@ class AccessMail {
 	 *
 	 * @param Array $mailMailsArr The addresses of the managers, as a list, or their languages by address.
 	 * @param Int   $mailCountVal The sign-ups waiting.
-	 * @param Int   $ceilingValue The most allowed at once ('regtop').
+	 * @param Int   $ceilingValue The most allowed at once ('maxQueue').
 	 * @return Bool Whether every mail was sent, or is to be sent after the reply.
 	 */
 	public function sendQueueAlert( Array $mailMailsArr, Int $mailCountVal, Int $ceilingValue ): Bool {

@@ -16,9 +16,9 @@ use Firebase\JWT\Key;
  * private key and checks with its public key: a project holding only the
  * public key checks the tokens another server issues, and issues none.
  *
- * A block naming its 'issuer' and its audiences ('audnce') puts them in
+ * A block naming its 'issuerId' and its audiences ('audience') puts them in
  * every token it issues ('iss', 'aud') and refuses a token that does not
- * name them. The previous public key ('oldpub') still checks the tokens
+ * name them. The previous public key ('prevFile') still checks the tokens
  * signed before the keys were replaced, found by their 'kid'; both are
  * published as a JWK Set (see publicSet).
  */
@@ -45,26 +45,26 @@ class JWT implements Handler{
 	/**
 	 * Builds the token carrier from its config block.
 	 *
-	 * @param Array     $configValues Config block with 'algrtm' (HS256 or RS256, default 'HS256'), 'lifetm' (seconds,
-	 *                              default 3600), the 'secret' of HS256, or the 'prvkey' and 'pubkey' of RS256: the paths
-	 *                              of the PEM files of the private and public keys, from the project root; 'oldpub', the
-	 *                              path of the previous public key, with 'retire', the Unix time it was retired (it is not
-	 *                              used without it, nor once 'lifetm' has passed since); 'issuer' (a text) and 'audnce'
+	 * @param Array     $configValues Config block with 'signAlgo' (HS256 or RS256, default 'HS256'), 'lifeSecs' (seconds,
+	 *                              default 3600), the 'hmacSecr' of HS256, or the 'privFile' and 'publFile' of RS256: the paths
+	 *                              of the PEM files of the private and public keys, from the project root; 'prevFile', the
+	 *                              path of the previous public key, with 'retireAt', the Unix time it was retired (it is not
+	 *                              used without it, nor once 'lifeSecs' has passed since); 'issuerId' (a text) and 'audience'
 	 *                              (a text or a list), not checked when empty.
 	 * @param ?AuthHndlr $authStrategy Optional credential store confirming the token's user (see verifyReq).
 	 */
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
 		$this->authObject = $authStrategy;
-		$this->usrJwtSecr = $configValues['secret'] ?? '';
-		$this->jwtAlgrthm = strval($configValues['algrtm'] ?? 'HS256');
-		$this->expiryTime = $configValues['lifetm'] ?? 3600;
-		$this->privatePem = $this->readPemKeyFile( $configValues['prvkey'] ?? '' );
-		$this->usrPublPem = $this->readPemKeyFile( $configValues['pubkey'] ?? '' );
+		$this->usrJwtSecr = $configValues['hmacSecr'] ?? '';
+		$this->jwtAlgrthm = strval($configValues['signAlgo'] ?? 'HS256');
+		$this->expiryTime = $configValues['lifeSecs'] ?? 3600;
+		$this->privatePem = $this->readPemKeyFile( $configValues['privFile'] ?? '' );
+		$this->usrPublPem = $this->readPemKeyFile( $configValues['publFile'] ?? '' );
 		// The previous key checks only what it signed before it was retired, and no longer than a token lasts
-		$this->priorRetir = is_int($configValues['retire'] ?? null) ? $configValues['retire'] : 0;
-		$this->priorPbPem = ( $this->priorRetir>0 && $this->priorRetir + intval($this->expiryTime)>=time() ) ? $this->readPemKeyFile( $configValues['oldpub'] ?? '' ) : '';
-		$this->issuerText = is_scalar($configValues['issuer'] ?? null) ? trim(strval($configValues['issuer'])) : '';
-		$this->audnceList = $this->readsAudiences( $configValues['audnce'] ?? null );
+		$this->priorRetir = is_int($configValues['retireAt'] ?? null) ? $configValues['retireAt'] : 0;
+		$this->priorPbPem = ( $this->priorRetir>0 && $this->priorRetir + intval($this->expiryTime)>=time() ) ? $this->readPemKeyFile( $configValues['prevFile'] ?? '' ) : '';
+		$this->issuerText = is_scalar($configValues['issuerId'] ?? null) ? trim(strval($configValues['issuerId'])) : '';
+		$this->audnceList = $this->readsAudiences( $configValues['audience'] ?? null );
 		$this->lastMessag = '';
 	}
 
@@ -119,7 +119,7 @@ class JWT implements Handler{
 			$this->lastMessag = 'Invalid token';
 			return false;
 		}
-		// The previous key: only a token issued before it was retired, and ending within lifetm of it; a leaked key signs nothing more
+		// The previous key: only a token issued before it was retired, and ending within lifeSecs of it; a leaked key signs nothing more
 		if( $usedOld && !( is_numeric($idntArr['iat'] ?? null) && $idntArr['iat']<$this->priorRetir && $idntArr['exp']<=$this->priorRetir + intval($this->expiryTime) ) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed with the previous key outside its time' );
 			$this->lastMessag = 'Invalid token';
@@ -300,7 +300,7 @@ class JWT implements Handler{
 
 	/**
 	 * Gives the public keys a token of RS256 is checked with, by their
-	 * 'kid': the current one first, then the previous one ('oldpub'), while
+	 * 'kid': the current one first, then the previous one ('prevFile'), while
 	 * the tokens it signed before it was retired may still last.
 	 *
 	 * @return Array The keys as PEM, by thumbprint; empty with HS256 or without a usable key.
@@ -340,7 +340,7 @@ class JWT implements Handler{
 
 	/**
 	 * Tells why the issuer or the audience of a token is not the one of
-	 * the block: 'iss' must be its 'issuer', and 'aud' (a text or a list)
+	 * the block: 'iss' must be its 'issuerId', and 'aud' (a text or a list)
 	 * name one of its audiences. Neither is checked while the block names
 	 * none.
 	 *

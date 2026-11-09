@@ -5,117 +5,117 @@
     // A key that is not one of those described here stops the run
     //
 	// Name of the PreSet; the name of its file
-	"label": "templt",
+	"presetId": "templt",
     // Description of the PreSet
-	"about": "Every setting of a preset, with what it does",
+	"describe": "Every setting of a preset, with what it does",
 	// Type and names of config files to load
-	"setup": {
+	"settings": {
         // Type of the config files read: ini; json; or all for both
-		"ftypes": "all",
+		"fileType": "all",
         // Names of the config files read (without extension; separated by commas);
         // or any for all of them
-		"fnames": "any",
+		"fileName": "any",
         // Folder of the config files; relative to the project root.
         // Uses conf when not set
-		"folder": "conf",
+		"confPath": "conf",
         // Uncommitted file of NAME=value lines; relative to the project root.
         // A config value written env:NAME takes the value of NAME. Uses .env when not set
-		"envfle": ".env"
+		"envsFile": ".env"
 	},
 	// Access control of the preset; its strategies live in src/Access.
-	// An open preset only needs "needed" set to false; "public": true beside it tells it is meant to be
+	// An open preset only needs "required" set to false; "isPublic": true beside it tells it is meant to be
 	// open: "installs checkAll" then accepts an entry point starting it in PREV and PROD
-	"auths": {
+	"security": {
         // Whether a request must be authenticated (true when not set)
-		"needed": true,
+		"required": true,
         // Session carrier (how the credential travels with the request):
-        // hbasic (Authorization: Basic header); header (API key in a header);
-        // jtoken (Authorization: Bearer token; self-verifying; needs no "authby");
-        // phsess (server-side PHP session found by its cookie; for browser clients);
-        // clcert (TLS client certificate; verified by the web server during the handshake)
-		"sessby": "hbasic",
+        // httpBasc (Authorization: Basic header); header (API key in a header);
+        // jwtToken (Authorization: Bearer token; self-verifying; needs no "authWith");
+        // phpSessn (server-side PHP session found by its cookie; for browser clients);
+        // clntCert (TLS client certificate; verified by the web server during the handshake)
+		"sessWith": "httpBasc",
         // Name of the block of conf/access.json holding the settings of the carrier
-		"sesscf": "dfpass",
+		"sessConf": "htpasswd",
         // Credential check the carrier delegates to:
-        // htpass (htpasswd file); native (users table of the database;
-        // see conf/schema/users.<type>.sql); regkey (list of API keys);
-        // usrlst (file of users; read only; the native users without a database);
+        // htpasswd (htpasswd file); native (users table of the database;
+        // see conf/schema/users.<type>.sql); regdKeys (list of API keys);
+        // userFile (file of users; read only; the native users without a database);
         // device (tokens of the devices working in the name of a user; see php nyuRun machines)
         // Planned for version 1.1: SSO; LDAP
         // Applications can add their own: a name listed in the "plugin" block of
         // conf/access.json is a class of runs/Shared (mychck -> MychckAuth.php);
         // the same goes for carriers (<Name>Sess.php)
-		"authby": "htpass",
+		"authWith": "htpasswd",
         // Block of the credential check; the carrier's block when not set.
-        // With jtoken; naming a store ("authby": "native") has every token
+        // With jwtToken; naming a store ("authWith": "nativeDb") has every token
         // confirmed against it: a locked user or a changed role applies at once
-		"authcf": "dfpass",
+		"authConf": "htpasswd",
         // Actions served without any check; as "app/action" or "app/*".
         // A declared route is named by its path with a leading slash ("/login");
         // or ("/assets/*") for a folder route; exactly as the route is declared;
         // it is then open whatever it answers with; and so is every file of the folder.
         // An OPTIONS request answered by a declared route is always served
-		"openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/.well-known/jwks.json"],
+		"openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/login", "/.well-known/jwks.json"],
         // Route a request without a session is sent to (302) when it asked for an HTML page;
         // as its path with a leading slash. The page asked for is given to it as "back".
-        // An action or a file keeps its 401. The route must be listed in "openrt"
-		"signin": "/login",
-        // Least role a route is served to; routes written as in "openrt":
+        // An action or a file keeps its 401. The route must be listed in "openList"
+		"signRout": "/login",
+        // Least role a route is served to; routes written as in "openList":
         // "app/action"; "app/*" or the path of a declared route ("/admin/*").
         // Roles are ordered: member; system; manage; each one includes those before it.
         // When several entries name a route the highest role is asked for;
         // a request naming no action is taken as any action of its application.
-        // A logged user without the role gets a 404, as for no route; a route cannot also be in "openrt".
-        // A check that gives no role (htpass; regkey; a certificate without a store)
-        // makes a member: a higher role needs a store ("authby": "native" or "usrlst")
-		"rolert": { "users/*": "manage" }
+        // A logged user without the role gets a 404, as for no route; a route cannot also be in "openList".
+        // A check that gives no role (htpasswd; regdKeys; a certificate without a store)
+        // makes a member: a higher role needs a store ("authWith": "nativeDb" or "userFile")
+		"rteRoles": { "users/*": "manage" }
 	},
 	// Sources of the inputs given to the applications; without this block they get none
-	"input": [
+	"incoming": [
 		{
 	        // Name of the source
-			"naming": "QUERY",
+			"nameFrom": "QUERY",
 	        // Where the values come from: QUERY (query string and body of the request)
 	        // Planned for version 1.1: DFILE; DBREC; XTAPI; SESSN; RFLUX
-			"source": "QUERY",
+			"dataFrom": "QUERY",
 	        // Fields kept: all; none; or a definition of the fields and of their formats,
 	        // as an application can give for each action in input/<action>.json
-			"fields": "all"
+			"fieldSet": "all"
 		}
 	],
 	// How the request finds what answers it: an action; a redirection; a file or a page
-	"route": {
+	"routings": {
         // How the route is found: autopath (from the path; through the mapper);
         // manually (from the routes the entry point declares). Declared route files are read in both
-		"detect": "autopath",
+		"detectBy": "autopath",
         // Names given to the parts of the path; in order
-		"mapper": "$app/$action/$param",
+		"pathForm": "$app/$action/$param",
         // Folder of the declared route files (*.rte); relative to the project root.
         // Uses conf/routes when not set. Declared routes are checked before the mapper
-		"folder": "conf/routes",
+		"routeDir": "conf/routes",
         // Folder of the static files and HTML pages the declared routes serve
         // (targets "fle"; "dir"; "pge"); relative to the project root.
         // Nothing is served when not set. A static file is sent with its own
         // cache headers (kept by the client; checked again at each use)
-		"htroot": "pages"
+		"htmlRoot": "pages"
 	},
 	// Format of the replies
-	"rnder": {
+	"response": {
         // Format the data is written in: json; yaml; xmlx (XML); tabl (CSV; for a list of
         // records); html (a page: records in a table; other values in definition lists);
         // flux (raw output: a text or a Fluxd; sent as it is with the type its action sets).
         // An error is written as json with tabl and flux. An unknown format stops the preset
         // from loading. An action can write its own reply in another one: useFormat()
-		"format": "json",
+		"outputAs": "json",
         // Origins other sites may call from, each a scheme; a host and a port when it has one:
         // ["https://app.example.org"]. With a list, Access-Control-Allow-Origin names the
         // origin of the request when it is listed, and is not sent otherwise, whatever
-        // "headrs" writes. An empty list leaves the headers as written
-		"origns": [],
+        // "headList" writes. An empty list leaves the headers as written
+		"corsList": [],
         // Headers sent with every reply; a CORS preflight is answered with them alone.
         // A Content-Type written here replaces the one the format gives;
         // a file or a page always sends its own
-		"headrs": {
+		"headList": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",
 			"Access-Control-Allow-Headers":	"Authorization, Content-Type, X-Api-Key",

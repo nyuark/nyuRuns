@@ -25,17 +25,17 @@ class ClCert implements Handler{
 	 * Builds the client certificate carrier from its config block.
 	 *
 	 * @param Array     $configValues Config block naming the server variables of the verification result
-	 * 		('chkvar', SSL_CLIENT_VERIFY by default), of the user name ('usrvar', SSL_CLIENT_S_DN_CN
-	 * 		by default) and of the name of the issuer ('issvar', SSL_CLIENT_I_DN_CN by default), and
-	 * 		optionally the common name of the only 'issuer' accepted.
+	 * 		('checkVar', SSL_CLIENT_VERIFY by default), of the user name ('ownerVar', SSL_CLIENT_S_DN_CN
+	 * 		by default) and of the name of the issuer ('issueVar', SSL_CLIENT_I_DN_CN by default), and
+	 * 		optionally the common name of the only 'issuerId' accepted.
 	 * @param ?AuthHndlr $authStrategy Optional credential store confirming the certificate's user.
 	 */
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
 		$this->authObject = $authStrategy;
-		$this->checkedVar = strtolower( strval($configValues['chkvar'] ?? 'SSL_CLIENT_VERIFY') );
-		$this->usrVrblNme = strtolower( strval($configValues['usrvar'] ?? 'SSL_CLIENT_S_DN_CN') );
-		$this->issVrblNme = strtolower( strval($configValues['issvar'] ?? 'SSL_CLIENT_I_DN_CN') );
-		$this->issuerName = strval($configValues['issuer'] ?? '');
+		$this->checkedVar = strtolower( strval($configValues['checkVar'] ?? 'SSL_CLIENT_VERIFY') );
+		$this->usrVrblNme = strtolower( strval($configValues['ownerVar'] ?? 'SSL_CLIENT_S_DN_CN') );
+		$this->issVrblNme = strtolower( strval($configValues['issueVar'] ?? 'SSL_CLIENT_I_DN_CN') );
+		$this->issuerName = strval($configValues['issuerId'] ?? '');
 		$this->lastMessag = '';
 	}
 

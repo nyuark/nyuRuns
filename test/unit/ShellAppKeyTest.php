@@ -31,9 +31,9 @@ function makesPair( Int $keysLength ): Array {
 
 list($appPriv, $appPubl) = makesPair(2048);
 list(, $weakPub) = makesPair(1024);
-$projDir = makeProjectTxt('appkey', Array(
+$projDir = makeProjectTxt('appsConf', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/access.json'=>"{\n\t\"limits\": { \"maxtry\": 10, \"holdtm\": 600, \"folder\": \"temp/limits\" }\n}\n",
+	'conf/access.json'=>"{\n\t\"tryLimit\": { \"maxTries\": 10, \"holdSecs\": 600, \"dataPath\": \"temp/limits\" }\n}\n",
 	'conf/keys/portal.pub'=>$appPubl,
 	'conf/keys/weak.pub'=>$weakPub
 ));
@@ -44,11 +44,11 @@ $axsJson = function() use ($projDir): Array {
 // Making
 $jsnVals = runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'portal', '--routeSet=contacts/*, /members/save', '--publFile=conf/keys/portal.pub'));
 $keyText = strval($jsnVals['secret']['Key of portal'] ?? '');
-$appEntr = $axsJson()['apkeys']['applst']['portal'] ?? Array();
-checkIdentical('makes shows the key once and stores its hash only', Array($jsnVals['key made'] ?? null, strlen($keyText), $appEntr['keyhsh'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/access.json')), $keyText)), Array('portal', 43, hash('sha256', $keyText), false));
-checkIdentical('makes: the block created with its header, the routes, the key file, member by default', Array($axsJson()['apkeys']['header'] ?? null, $appEntr['routes'] ?? null, $appEntr['pubkey'] ?? null, $appEntr['maxrol'] ?? null), Array('X-App-Key', Array('contacts/*', '/members/save'), 'conf/keys/portal.pub', 'member'));
-checkPregMatch('makes: the date it was made', strval($appEntr['madedt'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
-checkIdentical('makes: the other blocks kept', $axsJson()['limits'] ?? null, Array('maxtry'=>10, 'holdtm'=>600, 'folder'=>'temp/limits'));
+$appEntr = $axsJson()['appsKeys']['appsList']['portal'] ?? Array();
+checkIdentical('makes shows the key once and stores its hash only', Array($jsnVals['key made'] ?? null, strlen($keyText), $appEntr['keyDigst'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/access.json')), $keyText)), Array('portal', 43, hash('sha256', $keyText), false));
+checkIdentical('makes: the block created with its header, the routes, the key file, member by default', Array($axsJson()['appsKeys']['headName'] ?? null, $appEntr['routeSet'] ?? null, $appEntr['publFile'] ?? null, $appEntr['roleTops'] ?? null), Array('X-App-Key', Array('contacts/*', '/members/save'), 'conf/keys/portal.pub', 'member'));
+checkPregMatch('makes: the date it was made', strval($appEntr['madeDate'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
+checkIdentical('makes: the other blocks kept', $axsJson()['tryLimit'] ?? null, Array('maxTries'=>10, 'holdSecs'=>600, 'dataPath'=>'temp/limits'));
 checkIdentical('makes: a highest role of its own', runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'mobile', '--routeSet=contacts/view', '--publFile=conf/keys/portal.pub', '--roleTops=system'))['key made'] ?? null, 'mobile');
 checkIdentical('makes: a name already listed', callShellArray($projDir, Array('appsKeys', 'makeKeys', 'portal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'], 3);
 checkIdentical('makes: a bad name, a missing name, no routes, a bad route', Array(
@@ -63,12 +63,12 @@ checkIdentical('makes: an unknown role, no key file, a missing file, a weak key'
 	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/none.pub'))['code'],
 	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/weak.pub'))['code']
 ), Array(2, 2, 2, 2));
-checkIdentical('makes: nothing written by a refusal', array_keys($axsJson()['apkeys']['applst'] ?? Array()), Array('portal', 'mobile'));
+checkIdentical('makes: nothing written by a refusal', array_keys($axsJson()['appsKeys']['appsList'] ?? Array()), Array('portal', 'mobile'));
 
 // A key made here, checked as a request bearing it
-$blkConf = $axsJson()['apkeys'];
-$blkConf['applst']['portal']['pubkey'] = writeInProject($projDir, 'conf/keys/portal.pub', $appPubl);
-$appTokn = (new JWT( Array('algrtm'=>'RS256', 'prvkey'=>writeInProject($projDir, 'conf/keys/portal.key', $appPriv)) ))->issueTokenText( Array('user'=>'ann', 'role'=>'member') );
+$blkConf = $axsJson()['appsKeys'];
+$blkConf['appsList']['portal']['publFile'] = writeInProject($projDir, 'conf/keys/portal.pub', $appPubl);
+$appTokn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>writeInProject($projDir, 'conf/keys/portal.key', $appPriv)) ))->issueTokenText( Array('user'=>'ann', 'role'=>'member') );
 $idntArr = (new AppKey($blkConf))->verifyAppArray( mockRequestObj(Array('X-App-Key'=>$keyText, 'Authorization'=>'Bearer '.$appTokn)) );
 checkIdentical('the key made is accepted with a token of the application', Array($idntArr['user'] ?? null, $idntArr['fromApp'] ?? null), Array('ann', 'portal'));
 
@@ -78,11 +78,11 @@ checkIdentical('lists the applications, their routes and highest role', array_ma
 checkIdentical('lists never shows a hash', strpos(callShellArray($projDir, Array('appsKeys', 'fullList'))['text'], hash('sha256', $keyText)), false);
 
 // Routes
-checkIdentical('route replaces the routes of an application', Array(callShellArray($projDir, Array('appsKeys', 'setRoute', 'mobile', '--routeSet=contacts/*,/calendar/save'))['code'], $axsJson()['apkeys']['applst']['mobile']['routes'] ?? null), Array(0, Array('contacts/*', '/calendar/save')));
+checkIdentical('route replaces the routes of an application', Array(callShellArray($projDir, Array('appsKeys', 'setRoute', 'mobile', '--routeSet=contacts/*,/calendar/save'))['code'], $axsJson()['appsKeys']['appsList']['mobile']['routeSet'] ?? null), Array(0, Array('contacts/*', '/calendar/save')));
 checkIdentical('route: an unknown application, a bad route', Array(callShellArray($projDir, Array('appsKeys', 'setRoute', 'nobody', '--routeSet=contacts/*'))['code'], callShellArray($projDir, Array('appsKeys', 'setRoute', 'mobile', '--routeSet=*'))['code']), Array(3, 2));
 
 // Revoking
-checkIdentical('revok removes the key of that application only', Array(callShellArray($projDir, Array('appsKeys', 'revokeIt', 'portal'))['code'], array_keys($axsJson()['apkeys']['applst'] ?? Array())), Array(0, Array('mobile')));
+checkIdentical('revok removes the key of that application only', Array(callShellArray($projDir, Array('appsKeys', 'revokeIt', 'portal'))['code'], array_keys($axsJson()['appsKeys']['appsList'] ?? Array())), Array(0, Array('mobile')));
 checkIdentical('revok: twice, a missing name', Array(callShellArray($projDir, Array('appsKeys', 'revokeIt', 'portal'))['code'], callShellArray($projDir, Array('appsKeys', 'revokeIt'))['code']), Array(3, 2));
 checkPregMatch('every change traced on the shell channel', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/App key: key of application "portal" revoked/');
 

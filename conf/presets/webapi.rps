@@ -1,25 +1,25 @@
 {
-	"label": "webapi",
-	"about": "Preset for a web API: Bearer tokens, with the login action left open",
-	"setup": {
-		"ftypes": "all",
-		"fnames": "any"
+	"presetId": "webapi",
+	"describe": "Preset for a web API: Bearer tokens, with the login action left open",
+	"settings": {
+		"fileType": "all",
+		"fileName": "any"
 	},
-	"auths": { "needed": true, "sessby": "jtoken", "sesscf": "dftokn", "openrt": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json"], "rolert": { "users/*": "manage" } },
-	"input": [
+	"security": { "required": true, "sessWith": "jwtToken", "sessConf": "jwtToken", "openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json"], "rteRoles": { "users/*": "manage" } },
+	"incoming": [
 		{
-			"naming": "QUERY",
-			"source": "QUERY",
-			"fields": "all"
+			"nameFrom": "QUERY",
+			"dataFrom": "QUERY",
+			"fieldSet": "all"
 		}
 	],
-	"route": {
-		"detect": "autopath",
-		"mapper": "$app/$action/$param"
+	"routings": {
+		"detectBy": "autopath",
+		"pathForm": "$app/$action/$param"
 	},
-	"rnder": {
-		"format": "json",
-		"headrs": {
+	"response": {
+		"outputAs": "json",
+		"headList": {
 			"Access-Control-Allow-Origin":	"*",
 			"Access-Control-Allow-Methods":	"GET, POST, PUT, PATCH, DELETE, OPTIONS",
 			"Access-Control-Allow-Headers":	"Authorization, Content-Type, X-Api-Key",

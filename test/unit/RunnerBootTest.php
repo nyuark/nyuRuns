@@ -27,7 +27,7 @@ $failLst = Array(
 	'nosuchpreset' => 'Preset "nosuchpreset" is missing',
 	'broken'       => 'Preset "broken" is not valid JSON: broken\.rps: Invalid JSON content: .+',
 	'empty'        => 'Preset "empty" is empty',
-	'stale'        => 'Preset "stale" holds an unknown key: setup\.config',
+	'stale'        => 'Preset "stale" holds an unknown key: settings\.config',
 	'nested'       => 'Preset "nested" holds an unknown key: name',
 	'no.name'      => 'Preset "no\.name" has no valid name',
 );

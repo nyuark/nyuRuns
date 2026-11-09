@@ -8,8 +8,8 @@ use nyu\Tools\Router;
 use nyu\Tools\Logger;
 
 /**
- * Loads the session carrier ('sessby') and credential check ('authby')
- * the 'auths' block names for the current request, verifies access,
+ * Loads the session carrier ('sessWith') and credential check ('authWith')
+ * the 'security' block names for the current request, verifies access,
  * and reports the result.
  */
 class Checker{
@@ -19,20 +19,20 @@ class Checker{
 	const ROLE_LIST = Array('member', 'system', 'manage');
 	// Short names of the framework's strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
-	const AUTH_LIST = Array('htpass'=>'PassList', 'native'=>'Native', 'regkey'=>'RegKey', 'usrlst'=>'UserList', 'device'=>'Device');
-	const SESS_LIST = Array('hbasic'=>'Basic', 'header'=>'Header', 'jtoken'=>'JWT', 'phsess'=>'PHPSess', 'clcert'=>'ClCert');
+	const AUTH_LIST = Array('htpasswd'=>'PassList', 'nativeDb'=>'Native', 'regdKeys'=>'RegKey', 'userFile'=>'UserList', 'devToken'=>'Device');
+	const SESS_LIST = Array('httpBasc'=>'Basic', 'apiHeadr'=>'Header', 'jwtToken'=>'JWT', 'phpSessn'=>'PHPSess', 'clntCert'=>'ClCert');
 	// Carriers that hand what they carry to a credential check, and the framework's checks that can take it.
 	// A plug-in check is taken as able to
-	const PAIR_LIST = Array('hbasic'=>Array('htpass', 'native', 'usrlst'), 'header'=>Array('regkey', 'native', 'usrlst', 'device'));
+	const PAIR_LIST = Array('httpBasc'=>Array('htpasswd', 'nativeDb', 'userFile'), 'apiHeadr'=>Array('regdKeys', 'nativeDb', 'userFile', 'devToken'));
 
 	protected $accssSetup;
 	protected $httpRequst;
 	protected $routRgstry;
 
 	/**
-	 * Builds the access check of a request from the 'auths' block, the request and its route.
+	 * Builds the access check of a request from the 'security' block, the request and its route.
 	 *
-	 * @param Array     $accessConfig Resolved 'auths' config block for the active preset.
+	 * @param Array     $accessConfig Resolved 'security' config block for the active preset.
 	 * @param Request   $requstObject The shared, already-parsed HTTP request.
 	 * @param ?Registry $rtngRegistry The resolved route, used to recognise public routes.
 	 */
@@ -50,7 +50,7 @@ class Checker{
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
 	public static function authClssString( String $shrtNamedTxt ): ?String {
-		return isset(self::AUTH_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Auth\\'.self::AUTH_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'authby', 'Auth');
+		return isset(self::AUTH_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Auth\\'.self::AUTH_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'authWith', 'Auth');
 	}
 
 	/**
@@ -61,7 +61,7 @@ class Checker{
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
 	public static function sessnClassText( String $shrtNamedTxt ): ?String {
-		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Sess\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'sessby', 'Sess');
+		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Sess\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'sessWith', 'Sess');
 	}
 
 	/**
@@ -81,19 +81,19 @@ class Checker{
 	/**
 	 * Resolves the class of a strategy the applications add. Its short
 	 * name must be six lower-case letters or digits and be listed in the
-	 * 'plugin' block of the ACCESS config; runs/Shared must then hold
+	 * 'plugLibs' block of the ACCESS config; runs/Shared must then hold
 	 * <Name>Auth.php or <Name>Sess.php, declaring the class of that name
 	 * in nyu\Runs\Shared, which must implement the framework's Handler
 	 * interface of its kind. A listed plug-in that cannot be used is logged.
 	 *
 	 * @param String $shrtNamedTxt Short name, as written in the config.
-	 * @param String $accPluginLst Key of the 'plugin' block listing the names allowed: 'authby' or 'sessby'.
+	 * @param String $accPluginLst Key of the 'plugLibs' block listing the names allowed: 'authWith' or 'sessWith'.
 	 * @param String $pluginSuffix 'Auth' or 'Sess': suffix of the class, and namespace of its interface.
 	 * @return ?String The class name with its namespace, or null when there is no such plug-in.
 	 */
 	protected static function plugClssString( String $shrtNamedTxt, String $accPluginLst, String $pluginSuffix ): ?String {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$plugCfg = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'PLUGIN') : null;
+		$plugCfg = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'PLUGLIBS') : null;
 		$allwLst = is_array($plugCfg) ? ($plugCfg[$accPluginLst] ?? Array()) : Array();
 		if( !preg_match('/^[a-z][a-z0-9]{5}$/D', $shrtNamedTxt) || !in_array($shrtNamedTxt, (array)$allwLst, true) || !defined('RUN_DIR') ){
 			return null;
@@ -134,12 +134,12 @@ class Checker{
 	 * or a public route), the request goes through as not logged. An
 	 * address that presented too many wrong credentials is answered 429
 	 * until its hold ends (see Limiter). A request denied an HTML page is
-	 * given the sign-in route to go to, when the 'auths' block names one
+	 * given the sign-in route to go to, when the 'security' block names one
 	 * (see signinUrl). A logged user who does not hold the role its route
-	 * asks for (the 'rolert' key, see routeRole) is answered 404, as for a
+	 * asks for (the 'rteRoles' key, see routeRole) is answered 404, as for a
 	 * route that does not exist; the refusal is logged (see logDenial). The call
 	 * of an application for one of its users is checked by its own key and
-	 * token (the 'appkey' key, see appsCalls).
+	 * token (the 'appsConf' key, see appsCalls).
 	 *
 	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys, 'retryAft' (seconds to wait) with a 429 status, 'denyGoal' (address to send the visitor to) with the 401 of a page, and 'fromApp' (the name of the application) for the call of an application.
 	 */
@@ -151,7 +151,7 @@ class Checker{
 			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
 		$needRle = $this->routRoleString();
-		if( empty($this->accssSetup) || ($this->accssSetup['needed'] ?? true) === false || $this->openAccessRout() ){
+		if( empty($this->accssSetup) || ($this->accssSetup['required'] ?? true) === false || $this->openAccessRout() ){
 			// A route cannot be open and ask for a role : only its own OPTIONS answer goes through
 			if( $needRle!==null && $this->routRgstry->readFileDetail('statCode')!=204 ){
 				$this->logAccsAttempt( false, '', 'Access misconfigured: the route is both open and asking for a role' );
@@ -160,8 +160,8 @@ class Checker{
 			return new Registry( Array('logged'=>false, 'user'=>'', 'role'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		}
 
-		$sessNme = strval($this->accssSetup['sessby'] ?? '');
-		$authNme = $this->accssSetup['authby'] ?? null;
+		$sessNme = strval($this->accssSetup['sessWith'] ?? '');
+		$authNme = $this->accssSetup['authWith'] ?? null;
 
 		$sessCls = self::sessnClassText($sessNme);
 		if( $sessCls===null || !class_exists($sessCls) ){
@@ -170,7 +170,7 @@ class Checker{
 		}
 
 		// The sign-in route is a path of this site : never an address elsewhere
-		$signRte = $this->accssSetup['signin'] ?? null;
+		$signRte = $this->accssSetup['signRout'] ?? null;
 		if( $signRte!==null && ( !is_string($signRte) || !preg_match('#^/(?!/)#', $signRte) || !Router::validRouteAddr($signRte) ) ){
 			$this->logAccsAttempt( false, '', 'Access misconfigured: the sign-in route is not a path of this site' );
 			return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
@@ -183,8 +183,8 @@ class Checker{
 				$this->logAccsAttempt( false, '', 'Access misconfigured: unknown credential check "'.strval($authNme).'"' );
 				return new Registry( Array('logged'=>false, 'user'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 			}
-			// The credential check reads its own block when 'authcf' names one, the carrier's otherwise
-			$authObj = new $authCls( $this->resolveConfArr($this->accssSetup['authcf'] ?? $this->accssSetup['sesscf'] ?? '') );
+			// The credential check reads its own block when 'authConf' names one, the carrier's otherwise
+			$authObj = new $authCls( $this->resolveConfArr($this->accssSetup['authConf'] ?? $this->accssSetup['sessConf'] ?? '') );
 		}
 
 		// A carrier and a check that cannot work together refuse every request, as a mistake of the config
@@ -195,7 +195,7 @@ class Checker{
 		}
 
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolveConfArr('limits') );
+		$lmtrObj = new Limiter( $this->resolveConfArr('tryLimit') );
 		$usrAddr = $this->clntAddressTxt();
 		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
 		if( $heldEnd>0 ){
@@ -209,7 +209,7 @@ class Checker{
 			return $appRslt;
 		}
 
-		$sessObj = new $sessCls( $this->resolveConfArr($this->accssSetup['sesscf'] ?? ''), $authObj );
+		$sessObj = new $sessCls( $this->resolveConfArr($this->accssSetup['sessConf'] ?? ''), $authObj );
 		$idntArr = $sessObj->verifyRqstList( $this->httpRequst );
 
 		if( $idntArr===false ){
@@ -220,7 +220,7 @@ class Checker{
 			if( $credErr || $crrrBad ){
 				$lmtrObj->countFailedTry($usrAddr);
 			}
-			$chlgMap = Array('hbasic'=>'Basic realm="nyuRuns", charset="UTF-8"', 'jtoken'=>'Bearer');
+			$chlgMap = Array('httpBasc'=>'Basic realm="nyuRuns", charset="UTF-8"', 'jwtToken'=>'Bearer');
 			$wwwAuth = $chlgMap[$sessNme] ?? null;
 			$this->logAccsAttempt( false, '', $sessObj->finalErrorText() );
 			$denyArr = Array('logged'=>false, 'user'=>'', 'statCode'=>401, 'statMssg'=>$sessObj->finalErrorText(), 'wwwAuth'=>$wwwAuth);
@@ -251,7 +251,7 @@ class Checker{
 
 	/**
 	 * Checks the call of an application on behalf of one of its users,
-	 * when the 'appkey' key of the 'auths' block names the block of the
+	 * when the 'appsConf' key of the 'security' block names the block of the
 	 * application keys and the request carries one (see AppKey): the key
 	 * and the token of the user, then the routes of the application, then
 	 * the role the route asks for. A wrong key or a forged token counts
@@ -264,7 +264,7 @@ class Checker{
 	 * @return ?Registry The result, as validateAccess() gives it with the application under 'fromApp'; null when the request is not the call of an application.
 	 */
 	protected function verifyAppCalls( Limiter $limitrObject, String $clientIpAddr, ?String $requiredRole ): ?Registry {
-		$blckNme = strval($this->accssSetup['appkey'] ?? '');
+		$blckNme = strval($this->accssSetup['appsConf'] ?? '');
 		if( $blckNme=='' ){
 			return null;
 		}
@@ -316,7 +316,7 @@ class Checker{
 	 * Gives the access of an action called from the command line (see
 	 * Shell\ActCaller): no credential is checked, since whoever runs the
 	 * command line already holds the files of the project, but the role
-	 * the route asks for (the 'rolert' key) applies to the role the call
+	 * the route asks for (the 'rteRoles' key) applies to the role the call
 	 * is given. The call is traced on the 'access' channel.
 	 *
 	 * @param String $signedInUser Name the call runs under.
@@ -344,8 +344,8 @@ class Checker{
 
 	/**
 	 * Tells whether the resolved route is served without any access check:
-	 * an OPTIONS request the route answers by itself, or what the 'openrt'
-	 * key of the 'auths' block lists: an action, as "app/action" or "app/*"
+	 * an OPTIONS request the route answers by itself, or what the 'openList'
+	 * key of the 'security' block lists: an action, as "app/action" or "app/*"
 	 * (case-insensitive), or a declared route, as its path with a leading
 	 * slash ("/login", "/assets/*"). The path is the one the route is
 	 * declared with, to the letter: an entry opens that route only, and
@@ -360,7 +360,7 @@ class Checker{
 		$appName = strtolower( strval($this->routRgstry->readFileDetail('app')) );
 		$actnNme = strtolower( strval($this->routRgstry->readFileDetail('action')) );
 		$rtePath = strval($this->routRgstry->readFileDetail('routPath'));
-		$publLst = $this->accssSetup['openrt'] ?? Array();
+		$publLst = $this->accssSetup['openList'] ?? Array();
 		// Declared routes, by their path : whatever they answer with
 		foreach( (array)$publLst as $openRt ){
 			$openRt = strval($openRt);
@@ -385,7 +385,7 @@ class Checker{
 	}
 
 	/**
-	 * Tells what is wrong with the carrier and the check of the 'auths'
+	 * Tells what is wrong with the carrier and the check of the 'security'
 	 * block as a pair: a carrier that hands a name and a password, or a
 	 * key, to a check that takes the other, or to no check at all (see
 	 * PAIRLIST).
@@ -393,13 +393,13 @@ class Checker{
 	 * @return String What is wrong, empty when the pair can work.
 	 */
 	public function checkPairFlaws(): String {
-		$sessNme = strval($this->accssSetup['sessby'] ?? '');
-		$authNme = $this->accssSetup['authby'] ?? null;
+		$sessNme = strval($this->accssSetup['sessWith'] ?? '');
+		$authNme = $this->accssSetup['authWith'] ?? null;
 		if( !isset(self::PAIR_LIST[$sessNme]) ){
 			return '';
 		}
 		if( $authNme===null || $authNme==='' ){
-			return 'the carrier "'.$sessNme.'" needs a credential check (authby)';
+			return 'the carrier "'.$sessNme.'" needs a credential check (authWith)';
 		}
 		$authNme = strval($authNme);
 		if( isset(self::AUTH_LIST[$authNme]) && !in_array($authNme, self::PAIR_LIST[$sessNme], true) ){
@@ -409,20 +409,20 @@ class Checker{
 	}
 
 	/**
-	 * Checks the 'rolert' key of the 'auths' block: a list of routes, each
+	 * Checks the 'rteRoles' key of the 'security' block: a list of routes, each
 	 * with a role of ROLELIST, in a block that requires access.
 	 *
 	 * @return String What is wrong with it, empty when it can be applied.
 	 */
 	public function checkRoleFlaws(): String {
-		$roleMap = $this->accssSetup['rolert'] ?? null;
+		$roleMap = $this->accssSetup['rteRoles'] ?? null;
 		if( $roleMap===null ){
 			return '';
 		}
 		if( !is_array($roleMap) ){
 			return 'the roles of the routes are not a list of routes';
 		}
-		if( !empty($roleMap) && ($this->accssSetup['needed'] ?? true)===false ){
+		if( !empty($roleMap) && ($this->accssSetup['required'] ?? true)===false ){
 			return 'roles are asked for while access is not required';
 		}
 		foreach( $roleMap as $rteKey=>$rteRle ){
@@ -434,8 +434,8 @@ class Checker{
 	}
 
 	/**
-	 * Gives the role the resolved route asks for, from the 'rolert' key of
-	 * the 'auths' block: its routes are written as those of 'openrt' (see
+	 * Gives the role the resolved route asks for, from the 'rteRoles' key of
+	 * the 'security' block: its routes are written as those of 'openList' (see
 	 * openRoute), each with the least role it is served to. When several
 	 * entries name the route, the highest role is asked for. A request
 	 * naming no action is taken as any action of its application. A path
@@ -444,7 +444,7 @@ class Checker{
 	 * @return ?String The role, or null when the route asks for none.
 	 */
 	public function routRoleString(): ?String {
-		$roleMap = $this->accssSetup['rolert'] ?? Array();
+		$roleMap = $this->accssSetup['rteRoles'] ?? Array();
 		if( $this->routRgstry===null || !is_array($roleMap) ){
 			return null;
 		}
@@ -470,7 +470,7 @@ class Checker{
 
 	/**
 	 * Gives the address a denied request is sent to: the sign-in route the
-	 * 'signin' key of the 'auths' block names, when the request asked for
+	 * 'signRout' key of the 'security' block names, when the request asked for
 	 * a declared HTML page. The page asked for goes with it, as 'back',
 	 * for the sign-in to return to. Nothing is given for an action, a
 	 * file, or the sign-in route itself.
@@ -478,7 +478,7 @@ class Checker{
 	 * @return ?String The address, from the root of the site, or null when the denial is answered as it is.
 	 */
 	protected function getSigninRoute(): ?String {
-		$signRte = strval($this->accssSetup['signin'] ?? '');
+		$signRte = strval($this->accssSetup['signRout'] ?? '');
 		if( $signRte=='' || $this->routRgstry===null || $this->routRgstry->readFileDetail('routKind')!='htmlPage' ){
 			return null;
 		}

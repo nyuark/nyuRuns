@@ -1,5 +1,5 @@
 {
-	"fields": {
+	"fieldSet": {
 		"name!": "OutText",
 		"mail!": "EmlAddr",
 		"seats": "Integer",

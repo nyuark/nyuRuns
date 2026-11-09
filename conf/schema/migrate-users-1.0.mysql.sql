@@ -11,7 +11,7 @@
 -- Then this file, on the database of the application:
 --   mysql -u <user> -p <database> < migrate-users-1.0.mysql.sql
 -- It runs part 1; part 2 is commented out, as its line depends on the server.
--- The table name is the 'tblnme' value of conf/access.json: change `users`
+-- The table name is the 'useTable' value of conf/access.json: change `users`
 -- below when it is another.
 
 

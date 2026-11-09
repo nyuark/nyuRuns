@@ -10,8 +10,8 @@ use nyu\Access\Sess\JWT;
  * Checks a call an application makes on behalf of one of its users: the
  * key of the application, sent in its own header, and the user's token,
  * signed by that application and checked with its public key. The keys
- * are read from a block of the ACCESS config (the one the 'appkey' key of
- * the 'auths' block names), stored as their SHA-256 hash, each with the
+ * are read from a block of the ACCESS config (the one the 'appsConf' key of
+ * the 'security' block names), stored as their SHA-256 hash, each with the
  * routes it may reach, the public key of its tokens and the highest role
  * its users are given.
  */
@@ -30,18 +30,18 @@ class AppKey{
 	/**
 	 * Builds the check from its config block.
 	 *
-	 * @param Array $configValues Config block with the 'header' the key is sent in (default 'X-App-Key') and the 'applst'
-	 *                          of the applications, by name, each with its 'keyhsh' (SHA-256 of its key, hexadecimal),
-	 *                          its 'routes' (written as those of 'openrt'), its 'pubkey' (path of the PEM file of the
-	 *                          public key of its tokens, from the project root), its 'maxrol' (default 'member') and
-	 *                          the 'issuer' its tokens name (default: the name of the application); and the 'audnce'
+	 * @param Array $configValues Config block with the 'headName' the key is sent in (default 'X-App-Key') and the 'appsList'
+	 *                          of the applications, by name, each with its 'keyDigst' (SHA-256 of its key, hexadecimal),
+	 *                          its 'routeSet' (written as those of 'openList'), its 'publFile' (path of the PEM file of the
+	 *                          public key of its tokens, from the project root), its 'roleTops' (default 'member') and
+	 *                          the 'issuerId' its tokens name (default: the name of the application); and the 'audience'
 	 *                          of the block, the audiences naming this project (a text or a list): while it is
 	 *                          empty, neither the issuer nor the audience of the tokens is checked.
 	 */
 	function __construct( Array $configValues ){
-		$this->headerName = strval($configValues['header'] ?? 'X-App-Key');
-		$this->appsByName = is_array($configValues['applst'] ?? null) ? $configValues['applst'] : Array();
-		$this->audnceList = $configValues['audnce'] ?? Array();
+		$this->headerName = strval($configValues['headName'] ?? 'X-App-Key');
+		$this->appsByName = is_array($configValues['appsList'] ?? null) ? $configValues['appsList'] : Array();
+		$this->audnceList = $configValues['audience'] ?? Array();
 		$this->callingApp = null;
 		$this->lastMessag = '';
 	}
@@ -50,7 +50,7 @@ class AppKey{
 	 * Verifies the call of an application: its key, then the token of the
 	 * user it calls for. The user is taken from the token as it was issued,
 	 * not looked up in a store of this project; its role is never above
-	 * the 'maxrol' of the application.
+	 * the 'roleTops' of the application.
 	 *
 	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Array|Bool|null The identity of the user, with the application under 'fromApp'; false when the key or
@@ -66,7 +66,7 @@ class AppKey{
 		$gvnHash = hash('sha256', $sentKey);
 		$appName = null;
 		foreach( $this->appsByName as $appKey => $appSet ){
-			$keyHash = is_array($appSet) ? strtolower(strval($appSet['keyhsh'] ?? '')) : '';
+			$keyHash = is_array($appSet) ? strtolower(strval($appSet['keyDigst'] ?? '')) : '';
 			// An entry without a hash is the key of nobody
 			if( preg_match('/^[0-9a-f]{64}$/D', $keyHash) && hash_equals($keyHash, $gvnHash) ){
 				$appName = strval($appKey);
@@ -79,17 +79,17 @@ class AppKey{
 			return false;
 		}
 		$appInfo = $this->appsByName[$appName];
-		$maxRole = strval($appInfo['maxrol'] ?? Checker::ROLE_LIST[0]);
+		$maxRole = strval($appInfo['roleTops'] ?? Checker::ROLE_LIST[0]);
 		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
 			$this->lastMessag = 'Access misconfigured';
 			return false;
 		}
 		// The token is checked with the key of the application alone : it issues none here
-		$jwtConf = Array('algrtm'=>'RS256', 'pubkey'=>$appInfo['pubkey'] ?? '');
+		$jwtConf = Array('signAlgo'=>'RS256', 'publFile'=>$appInfo['publFile'] ?? '');
 		// Once the block names this project's audiences, the token names them and its application as issuer
 		if( !empty($this->audnceList) ){
-			$jwtConf['audnce'] = $this->audnceList;
-			$jwtConf['issuer'] = (is_string($appInfo['issuer'] ?? null) && trim($appInfo['issuer'])!='') ? $appInfo['issuer'] : $appName;
+			$jwtConf['audience'] = $this->audnceList;
+			$jwtConf['issuerId'] = (is_string($appInfo['issuerId'] ?? null) && trim($appInfo['issuerId'])!='') ? $appInfo['issuerId'] : $appName;
 		}
 		$decoded = new JWT( $jwtConf );
 		$idntArr = $decoded->verifyRqstList( $requstObject );
@@ -110,7 +110,7 @@ class AppKey{
 
 	/**
 	 * Tells whether the application verified last may reach the route: its
-	 * 'routes' are written as those of 'openrt', an action as "app/action"
+	 * 'routeSet' are written as those of 'openList', an action as "app/action"
 	 * or "app/*" (case-insensitive), a declared route as its path with a
 	 * leading slash, to the letter. A request naming no action is reached
 	 * through "app/*" only.
@@ -125,7 +125,7 @@ class AppKey{
 		$appName = strtolower( str_replace(' ', '', strval($rtngRegistry->readFileDetail('app'))) );
 		$actnNme = strtolower( strval($rtngRegistry->readFileDetail('action')) );
 		$rtePath = strval($rtngRegistry->readFileDetail('routPath'));
-		foreach( (array)($this->appsByName[$this->callingApp]['routes'] ?? Array()) as $rteVal ){
+		foreach( (array)($this->appsByName[$this->callingApp]['routeSet'] ?? Array()) as $rteVal ){
 			$rteVal = strval($rteVal);
 			if( substr($rteVal, 0, 1)=='/' ){
 				if( $rtePath!='' && trim($rteVal, '/')===$rtePath ){

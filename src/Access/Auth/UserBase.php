@@ -21,7 +21,7 @@ use nyu\Tools\Logger;
  * XXXX-XXXX-XX: it is read whatever its case, dashes and spaces, and
  * only its SHA-256 hash is stored. It ends after a time: the minutes
  * the caller gives for a code an administrator hands over (ADMNMINS by
- * default, 0 for no end), those of 'codexp' for a code sent by mail.
+ * default, 0 for no end), those of 'codeMins' for a code sent by mail.
  */
 class UserBase extends Native{
 
@@ -37,7 +37,7 @@ class UserBase extends Native{
 	const HAND_MINS = 300;
 	// Longest mail address
 	const MAIL_SIZE = 254;
-	// Most self-registrations waiting at once, confirmed or not, unless the 'regtop' of the limits says otherwise : beyond, sign-ups are closed for a while
+	// Most self-registrations waiting at once, confirmed or not, unless the 'maxQueue' of the limits says otherwise : beyond, sign-ups are closed for a while
 	const SIGN_MAXI = 256;
 
 	protected $latestCode = 200;
@@ -45,14 +45,14 @@ class UserBase extends Native{
 	/**
 	 * Builds the manager from the config block of the native userbase.
 	 *
-	 * @param Array $configValues The block (see Native), with the minutes a code sent by mail lasts ('codexp').
+	 * @param Array $configValues The block (see Native), with the minutes a code sent by mail lasts ('codeMins').
 	 */
 	function __construct( Array $configValues ){
 		parent::__construct($configValues);
 	}
 
 	/**
-	 * Gives the minutes a code sent by mail lasts: those of 'codexp'.
+	 * Gives the minutes a code sent by mail lasts: those of 'codeMins'.
 	 *
 	 * @return Int The minutes.
 	 */
@@ -61,20 +61,20 @@ class UserBase extends Native{
 	}
 
 	/**
-	 * Builds the manager of the userbase the login uses: the 'login'
+	 * Builds the manager of the userbase the login uses: the 'loginSet'
 	 * block of the ACCESS config must name the native credential check
-	 * ('authby'), and the block of its settings ('authcf', 'native' when
+	 * ('authWith'), and the block of its settings ('authConf', 'nativeDb' when
 	 * left out).
 	 *
 	 * @return ?UserBase The manager, or null when the login does not use the native userbase.
 	 */
 	public static function fromLoginBlock(): ?UserBase {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGIN') : null;
-		if( !is_array($lgnConf) || strval($lgnConf['authby'] ?? '')!=='native' ){
+		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		if( !is_array($lgnConf) || strval($lgnConf['authWith'] ?? '')!=='nativeDb' ){
 			return null;
 		}
-		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authcf'] ?? 'native')));
+		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authConf'] ?? 'nativeDb')));
 		return new self( is_array($blckCfg) ? $blckCfg : Array() );
 	}
 
@@ -150,7 +150,7 @@ class UserBase extends Native{
 	 *
 	 * @param String  $namedUserTxt Login name it asks for (see NAMERULE and NAMEDENY).
 	 * @param String  $emailAddress Its mail address.
-	 * @param Int     $maxWaitingNb Most sign-ups waiting at once, confirmed or not ('regtop' of the limits).
+	 * @param Int     $maxWaitingNb Most sign-ups waiting at once, confirmed or not ('maxQueue' of the limits).
 	 * @param ?String $langTagStrng The language of its mails: the one its request asks for; left out when it is not a tag.
 	 * @return String|Bool The activation code, '' when the name or the address is taken, or false when one is not valid, too many sign-ups are waiting, or the table cannot be used.
 	 */

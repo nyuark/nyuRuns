@@ -1,12 +1,12 @@
 {
-	"plugin": { "authby": [], "sessby": [] },
-	"login":  { "authby": "usrlst", "authcf": "usrlst", "sessby": "jtoken", "sesscf": "dftokn" },
-	"dfpass": { "htpasswd": "conf/.htpasswd", "maxtry": 5, "holdtm": 600 },
-	"native": { "basnme": "nyuRuns", "tblnme": "users", "idletm": 300, "maxtry": 5, "holdtm": 600, "minlen": 10, "tfakey": "env:NYU_TFA_KEY", "mailer": "", "signup": false, "codexp": 15, "lnkurl": "" },
-	"usrlst": { "usrfle": "conf/users.lst", "tfakey": "env:NYU_TFA_KEY", "maxtry": 5, "holdtm": 600 },
-	"limits": { "maxtry": 10, "holdtm": 600, "folder": "temp/limits", "regtop": 256, "regmax": 16, "regwrn": [128, 200, 256], "mrkkey": "env:NYU_MARK_KEY", "mrkday": 90 },
-	"dfkeys": { "header": "X-Api-Key", "keylst": ["env:NYU_API_KEY"] },
-	"dftokn": { "secret": "env:NYU_JWT_SECRET", "lifetm": 3600, "algrtm": "RS256", "prvkey": "conf/keys/dftokn.key", "pubkey": "conf/keys/dftokn.pub", "oldpub": "", "issuer": "", "audnce": [] },
-	"dfsess": { "cookie": "nyuSessn", "lifetm": 3600, "fulltm": 43200, "samest": "strict", "secure": true, "folder": "" },
-	"dfcert": { "chkvar": "SSL_CLIENT_VERIFY", "usrvar": "SSL_CLIENT_S_DN_CN", "issvar": "SSL_CLIENT_I_DN_CN", "issuer": "" }
+	"plugLibs": { "authWith": [], "sessWith": [] },
+	"loginSet": { "authWith": "userFile", "authConf": "userFile", "sessWith": "jwtToken", "sessConf": "jwtToken" },
+	"htpasswd": { "passFile": "conf/.htpasswd", "maxTries": 5, "holdSecs": 600 },
+	"nativeDb": { "linkName": "nyuRuns", "useTable": "users", "idleSecs": 300, "maxTries": 5, "holdSecs": 600, "minChars": 10, "cryptKey": "env:NYU_TFA_KEY", "mailAcnt": "", "signupOn": false, "codeMins": 15, "linkTmpl": "" },
+	"userFile": { "listFile": "conf/users.lst", "cryptKey": "env:NYU_TFA_KEY", "maxTries": 5, "holdSecs": 600 },
+	"tryLimit": { "maxTries": 10, "holdSecs": 600, "dataPath": "temp/limits", "maxQueue": 256, "maxPerIp": 16, "alertsAt": [128, 200, 256], "markSecr": "env:NYU_MARK_KEY", "markDays": 90 },
+	"regdKeys": { "headName": "X-Api-Key", "keysList": ["env:NYU_API_KEY"] },
+	"jwtToken": { "hmacSecr": "env:NYU_JWT_SECRET", "lifeSecs": 3600, "signAlgo": "RS256", "privFile": "conf/keys/jwtToken.key", "publFile": "conf/keys/jwtToken.pub", "prevFile": "", "issuerId": "", "audience": [] },
+	"phpSessn": { "cookName": "nyuSessn", "lifeSecs": 3600, "fullSecs": 43200, "sameSite": "strict", "secureOn": true, "dataPath": "" },
+	"clntCert": { "checkVar": "SSL_CLIENT_VERIFY", "ownerVar": "SSL_CLIENT_S_DN_CN", "issueVar": "SSL_CLIENT_I_DN_CN", "issuerId": "" }
 }

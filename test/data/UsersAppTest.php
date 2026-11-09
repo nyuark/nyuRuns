@@ -43,13 +43,13 @@ $mailDir = 'temp/tstmail_'.getmypid();
  * @param Array  $nativeMore Keys added to the block of the native userbase.
  * @param Array  $limitsMore Keys added to the limits block.
  */
-function plugConf( String $authbyName='native', Int $triesLimit=0, Array $nativeMore=Array(), Array $limitsMore=Array() ): Void {
+function plugConf( String $authbyName='nativeDb', Int $triesLimit=0, Array $nativeMore=Array(), Array $limitsMore=Array() ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array(
 		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('usersapp.sqlite')),
 		'access'=>Array(
-			'LOGIN'=>Array('authby'=>$authbyName, 'authcf'=>'native'),
-			'NATIVE'=>Array('tblnme'=>'users') + $nativeMore,
-			'LIMITS'=>Array('maxtry'=>$triesLimit, 'holdtm'=>600, 'folder'=>$GLOBALS['lmtFldr']) + $limitsMore
+			'LOGINSET'=>Array('authWith'=>$authbyName, 'authConf'=>'nativeDb'),
+			'NATIVEDB'=>Array('useTable'=>'users') + $nativeMore,
+			'TRYLIMIT'=>Array('maxTries'=>$triesLimit, 'holdSecs'=>600, 'dataPath'=>$GLOBALS['lmtFldr']) + $limitsMore
 		),
 		'mailer'=>Array('DEVBOX'=>Array('type'=>'tofile', 'from'=>'no-reply@example.com', 'fold'=>$GLOBALS['mailDir']))
 	) );
@@ -131,7 +131,7 @@ foreach( Array('fullList'=>'GET', 'viewUser'=>'GET', 'makeUser'=>'POST', 'lockUs
 checkIdentical('guard: a refusal changed nothing', $sqlLink->query("SELECT userName, userRole, userStat FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'manage', 'active'), Array('ben', 'member', 'active'), Array('dave', 'system', 'locked')));
 checkPregMatch('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(member\) from 192\.0\.2\.50 to users\/fullList: role manage needed/');
 checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/startCall', Array(), 'anna', 'manage')), statusOf(callActn('users/givenUser', Array(), 'anna', 'manage'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
-plugConf('htpass');
+plugConf('htpasswd');
 checkIdentical('guard: a login on another credential check', statusOf(callActn('users/fullList', Array(), 'anna', 'manage', 'GET')), Array(500, 'User management unavailable'));
 plugConf();
 
@@ -171,11 +171,11 @@ $outcome = callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pa
 checkIdentical('activate: the right code', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>true, 'stat'=>'active')));
 checkIdentical('activate: the password is kept as sent', password_verify('  <pass> "emma" & co  ', strval($sqlLink->query("SELECT passHash FROM users WHERE userName='emma'")->fetchColumn())), true);
 checkIdentical('activate: the code is used once', statusOf(callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pass'=>'pass-emma-2'), '', '')), Array(401, 'Invalid activation'));
-plugConf('htpass');
+plugConf('htpasswd');
 checkIdentical('activate: a login on another credential check', statusOf(callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pass'=>'pass-emma-2'), '', '')), Array(500, 'User management unavailable'));
 
 // auth/activate : wrong codes count against the address
-plugConf('native', 2);
+plugConf('nativeDb', 2);
 $fredInp = Array('user'=>'fred', 'code'=>str_repeat('0', 32), 'pass'=>'pass-fred-1');
 checkIdentical('activate limit: a broken rule is not counted', Array(statusOf(callActn('auth/activate', Array('pass'=>'short') + $fredInp, '', '')), statusOf(callActn('auth/activate', Array('pass'=>'short') + $fredInp, '', '')), callActn('auth/activate', Array('pass'=>'short') + $fredInp, '', '')['code'] ?? null), Array(Array(400, 'Password too short: 10 characters at least'), Array(400, 'Password too short: 10 characters at least'), 400));
 checkIdentical('activate limit: two wrong codes are answered 401', Array(callActn('auth/activate', $fredInp, '', '')['code'] ?? null, callActn('auth/activate', $fredInp, '', '')['code'] ?? null), Array(401, 401));
@@ -230,8 +230,8 @@ checkIdentical('remove: a manager cannot remove itself', statusOf(callActn('user
 checkIdentical('remove: who is left', array_column(callActn('users/fullList', Array(), 'anna', 'manage', 'GET')['out'] ?? Array(), 'userName'), Array('anna', 'ben', 'dave', 'emma'));
 
 // Access mails : without a mailer, the codes are given in the replies, as above
-$mailCnf = Array('mailer'=>'devbox', 'lnkurl'=>'https://app.example.ch/a?do=%kind%&user=%user%&code=%code%');
-plugConf('native', 0, $mailCnf);
+$mailCnf = Array('mailAcnt'=>'devbox', 'linkTmpl'=>'https://app.example.ch/a?do=%kind%&user=%user%&code=%code%');
+plugConf('nativeDb', 0, $mailCnf);
 sentMail();
 $outcome = callActn('users/makeUser', Array('user'=>'hana', 'mail'=>'Hana@Example.ch'));
 $mailLst = sentMail();
@@ -267,9 +267,9 @@ checkIdentical('reset of a user without an address: the code in the reply', isse
 
 // auth/register : open when the block says so, a manager approves
 checkIdentical('signup: closed unless the block opens it', statusOf(callActn('auth/register', Array('user'=>'ivan', 'mail'=>'ivan@example.ch'), '', '')), Array(404, 'Not Found'));
-plugConf('native', 0, Array('signup'=>true));
+plugConf('nativeDb', 0, Array('signupOn'=>true));
 checkIdentical('signup: closed without a mailer', statusOf(callActn('auth/register', Array('user'=>'ivan', 'mail'=>'ivan@example.ch'), '', '')), Array(404, 'Not Found'));
-plugConf('native', 0, $mailCnf + Array('signup'=>true));
+plugConf('nativeDb', 0, $mailCnf + Array('signupOn'=>true));
 checkIdentical('signup: a GET is refused', statusOf(callActn('auth/register', Array('user'=>'ivan', 'mail'=>'ivan@example.ch'), '', '', 'GET')), Array(405, 'Method Not Allowed'));
 $outcome = callActn('auth/register', Array('user'=>'ivan', 'mail'=>'Ivan@Example.ch'), '', '');
 $mailLst = sentMail();
@@ -300,29 +300,29 @@ callActn('auth/register', Array('user'=>'ivan', 'mail'=>'nobody@example.ch'), ''
 checkIdentical('language: a name taken, in the language of the request', sentMail()[0]['subject'] ?? null, 'Votre inscription : choisissez un autre nom');
 $GLOBALS['acptLang'] = '';
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
-plugConf('native', 0, $mailCnf + Array('signup'=>true), Array('regmax'=>2));
-checkIdentical('signup: regmax sign-ups from one address', Array(callActn('auth/register', Array('user'=>'kate', 'mail'=>'kate@example.ch'), '', '')['code'] ?? null, callActn('auth/register', Array('user'=>'lena', 'mail'=>'lena@example.ch'), '', '')['code'] ?? null, statusOf(callActn('auth/register', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', ''))), Array(202, 202, Array(429, 'Too many attempts')));
+plugConf('nativeDb', 0, $mailCnf + Array('signupOn'=>true), Array('maxPerIp'=>2));
+checkIdentical('signup: maxPerIp sign-ups from one address', Array(callActn('auth/register', Array('user'=>'kate', 'mail'=>'kate@example.ch'), '', '')['code'] ?? null, callActn('auth/register', Array('user'=>'lena', 'mail'=>'lena@example.ch'), '', '')['code'] ?? null, statusOf(callActn('auth/register', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', ''))), Array(202, 202, Array(429, 'Too many attempts')));
 checkIdentical('signup: counted apart from the wrong credentials', Array(is_dir(TOP_DIR.DS.str_replace('/', DS, $lmtFldr).DS.'signup'), count(glob(TOP_DIR.DS.str_replace('/', DS, $lmtFldr).DS.'*.cnt') ?: Array())), Array(true, 0));
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
-plugConf('native', 1, $mailCnf + Array('signup'=>true));
+plugConf('nativeDb', 1, $mailCnf + Array('signupOn'=>true));
 callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'pass-ben-66'), '', '');
 checkIdentical('signup: an address held for wrong credentials is refused', statusOf(callActn('auth/register', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', '')), Array(429, 'Too many attempts'));
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 sentMail();
 $sqlLink->exec("UPDATE users SET userMail='anna@example.ch' WHERE userName='anna'");
 $waitNow = intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signDate IS NOT NULL AND userStat IN ('pendng', 'review')")->fetchColumn());
-plugConf('native', 0, $mailCnf + Array('signup'=>true), Array('regtop'=>$waitNow+2, 'regwrn'=>Array($waitNow+1, $waitNow+2)));
+plugConf('nativeDb', 0, $mailCnf + Array('signupOn'=>true), Array('maxQueue'=>$waitNow+2, 'alertsAt'=>Array($waitNow+1, $waitNow+2)));
 callActn('auth/register', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', '');
 $mailLst = array_values(array_filter(sentMail(), function( Array $mailValue ): Bool { return $mailValue['to']=='anna@example.ch'; }));
-checkIdentical('signup: the managers are told at a count of regwrn', Array(count($mailLst), $mailLst[0]['subject'] ?? null, strpos($mailLst[0]['text'] ?? '', 'When '.($waitNow+2).' are waiting')!==false), Array(1, 'Sign-ups waiting for review: '.($waitNow+1), true));
+checkIdentical('signup: the managers are told at a count of alertsAt', Array(count($mailLst), $mailLst[0]['subject'] ?? null, strpos($mailLst[0]['text'] ?? '', 'When '.($waitNow+2).' are waiting')!==false), Array(1, 'Sign-ups waiting for review: '.($waitNow+1), true));
 callActn('auth/register', Array('user'=>'nora', 'mail'=>'nora@example.ch'), '', '');
-checkIdentical('signup: and at regtop, then closed', Array(count(array_filter(sentMail(), function( Array $mailValue ): Bool { return $mailValue['to']=='anna@example.ch'; })), statusOf(callActn('auth/register', Array('user'=>'olga', 'mail'=>'olga@example.ch'), '', ''))), Array(1, Array(503, 'Sign-ups closed for now')));
+checkIdentical('signup: and at maxQueue, then closed', Array(count(array_filter(sentMail(), function( Array $mailValue ): Bool { return $mailValue['to']=='anna@example.ch'; })), statusOf(callActn('auth/register', Array('user'=>'olga', 'mail'=>'olga@example.ch'), '', ''))), Array(1, Array(503, 'Sign-ups closed for now')));
 checkPregMatch('signup: the counts are logged', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[NOTICE\] '.($waitNow+1).' sign-ups are waiting, '.($waitNow+2).' at most.*\[WARNING\] '.($waitNow+2).' sign-ups are waiting: the sign-ups are closed/s');
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 sentMail();
 
 // auth/askReset and auth/useReset : a reset asked for by the user, by mail
-plugConf('native', 0, $mailCnf);
+plugConf('nativeDb', 0, $mailCnf);
 checkIdentical('forgot: a GET is refused', statusOf(callActn('auth/askReset', Array('user'=>'ben'), '', '', 'GET')), Array(405, 'Method Not Allowed'));
 $outcome = callActn('auth/askReset', Array('user'=>'ben'), '', '');
 $mailLst = sentMail();
@@ -334,7 +334,7 @@ checkIdentical('recovr: a password breaking a rule, and none', Array(statusOf(ca
 $outcome = callActn('auth/useReset', Array('user'=>'ben', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'pass-ben-55'), '', '');
 checkIdentical('recovr: the new password', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, password_verify('pass-ben-55', strval($sqlLink->query("SELECT passHash FROM users WHERE userName='ben'")->fetchColumn()))), Array(200, Array('changed'=>true), true));
 checkIdentical('recovr: the code is used once', statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'pass-ben-66'), '', '')), Array(401, 'Invalid code'));
-plugConf('native', 1, $mailCnf);
+plugConf('nativeDb', 1, $mailCnf);
 checkIdentical('recovr: wrong codes count against the address', Array(callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'pass-ben-66'), '', '')['code'] ?? null, statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'pass-ben-66'), '', ''))), Array(401, Array(429, 'Too many attempts')));
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 plugConf();

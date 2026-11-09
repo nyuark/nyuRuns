@@ -22,7 +22,7 @@ class Native implements Handler{
 	const PASS_SIZE = 72;
 	// The characters of a code : no 0, 1, I, L or O, which are taken for one another
 	const CODE_CHRS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-	// Minutes a code sent by mail lasts, unless 'codexp' says otherwise
+	// Minutes a code sent by mail lasts, unless 'codeMins' says otherwise
 	const MAIL_MINS = 15;
 	// Seconds before a login asking again for a mailed code is sent a new one
 	const MAIL_SECS = 60;
@@ -45,29 +45,29 @@ class Native implements Handler{
 	/**
 	 * Builds the check against the native userbase from its config block.
 	 *
-	 * @param Array $configValues Config block, optionally with the 'basnme' configured database holding the users
-	 *                          (defaults to the default database), their 'tblnme' table (defaults to 'users'),
-	 *                          the 'idletm' time in seconds after which a user is no longer online (defaults to 300),
-	 *                          the failed tries allowed ('maxtry', defaults to 5), the time in seconds they hold the
-	 *                          account for ('holdtm', defaults to 600), the shortest password accepted, in
-	 *                          characters ('minlen', defaults to 10) and the key the 2FA secrets are stored encrypted
-	 *                          with ('tfakey', 32 characters at least; without one they are stored readable), and the
-	 *                          minutes a code sent by mail lasts ('codexp', defaults to MAILMINS).
+	 * @param Array $configValues Config block, optionally with the 'linkName' configured database holding the users
+	 *                          (defaults to the default database), their 'useTable' table (defaults to 'users'),
+	 *                          the 'idleSecs' time in seconds after which a user is no longer online (defaults to 300),
+	 *                          the failed tries allowed ('maxTries', defaults to 5), the time in seconds they hold the
+	 *                          account for ('holdSecs', defaults to 600), the shortest password accepted, in
+	 *                          characters ('minChars', defaults to 10) and the key the 2FA secrets are stored encrypted
+	 *                          with ('cryptKey', 32 characters at least; without one they are stored readable), and the
+	 *                          minutes a code sent by mail lasts ('codeMins', defaults to MAILMINS).
 	 */
 	function __construct( Array $configValues ){
-		$this->usersStore = is_scalar($configValues['basnme'] ?? '') ? strval($configValues['basnme'] ?? '') : '';
-		$tblName = strval($configValues['tblnme'] ?? 'users');
+		$this->usersStore = is_scalar($configValues['linkName'] ?? '') ? strval($configValues['linkName'] ?? '') : '';
+		$tblName = strval($configValues['useTable'] ?? 'users');
 		$this->usersTable = preg_match('/^\w+$/D', $tblName) ? $tblName : '';
-		$this->idlePeriod = max( 1, intval($configValues['idletm'] ?? 300) );
-		$this->triesLimit = max( 1, intval($configValues['maxtry'] ?? 5) );
-		$this->holdPeriod = max( 1, intval($configValues['holdtm'] ?? 600) );
-		$this->minPasswrd = min( self::PASS_SIZE, max(1, intval($configValues['minlen'] ?? 10)) );
-		$this->sealingKey = is_scalar($configValues['tfakey'] ?? '') ? strval($configValues['tfakey'] ?? '') : '';
-		$this->mailExpiry = max( 1, intval($configValues['codexp'] ?? self::MAIL_MINS) );
+		$this->idlePeriod = max( 1, intval($configValues['idleSecs'] ?? 300) );
+		$this->triesLimit = max( 1, intval($configValues['maxTries'] ?? 5) );
+		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
+		$this->minPasswrd = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
+		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
+		$this->mailExpiry = max( 1, intval($configValues['codeMins'] ?? self::MAIL_MINS) );
 		// The failures of a client presenting a login mark are counted on the mark, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LIMITS') : null;
-		$this->mrkLimiter = new \nyu\Access\Limiter( Array('maxtry'=>$this->triesLimit, 'holdtm'=>$this->holdPeriod, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : '') );
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$this->mrkLimiter = new \nyu\Access\Limiter( Array('maxTries'=>$this->triesLimit, 'holdSecs'=>$this->holdPeriod, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : '') );
 		$this->lastMessag = '';
 	}
 
@@ -174,7 +174,7 @@ class Native implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealKey = Totp::openSecretText($sealKey, $this->sealingKey);
 			if( $sealKey===null ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userName']).' cannot be read: tfakey is missing or was changed' );
+				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userName']).' cannot be read: cryptKey is missing or was changed' );
 				$this->lastMessag = 'Credential store unavailable';
 				return false;
 			}
@@ -322,7 +322,7 @@ class Native implements Handler{
 
 	/**
 	 * Makes a code for the login of a user with mailed codes, stores its
-	 * hash with its end ('codexp' minutes on) and mails it after the reply,
+	 * hash with its end ('codeMins' minutes on) and mails it after the reply,
 	 * in the language of the user, through the account the block of the
 	 * login names (see Access\AccessMail). A code mailed less than MAILWAIT
 	 * seconds ago is kept, and nothing is sent: asking again does not flood
@@ -443,7 +443,7 @@ class Native implements Handler{
 				return false;
 			}
 			if( $storTxt===$newSecr ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfakey of '.Totp::SEAL_SIZE.' characters is set' );
+				\nyu\Tools\Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no cryptKey of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 			return $newSecr;
 		}catch( \Throwable $e ){
@@ -535,7 +535,7 @@ class Native implements Handler{
 	}
 
 	/**
-	 * Tells which rule a password breaks: it holds at least the 'minlen'
+	 * Tells which rule a password breaks: it holds at least the 'minChars'
 	 * characters of the config block and at most PASSSIZE bytes, no control
 	 * character, and is not the name of its user, whatever the case.
 	 * Nothing is asked about the kind of characters it is made of.
@@ -689,7 +689,7 @@ class Native implements Handler{
 
 	/**
 	 * Returns the handler of the database holding the users: the one
-	 * named by 'basnme', or the default database.
+	 * named by 'linkName', or the default database.
 	 *
 	 * @return DbHandlr The database handler.
 	 *

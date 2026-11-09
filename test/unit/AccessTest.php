@@ -28,14 +28,14 @@ function basicHead( String $userString, String $passString ): Array {
 }
 
 // PassList : .htpasswd file, path relative to the project root
-$passLst = new PassList( Array('maxtry'=>0, 'htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
+$passLst = new PassList( Array('maxTries'=>0, 'passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
 checkIdentical('PassList bcrypt hash',        $passLst->chckCredential(Array('user'=>'alice', 'pass'=>'s3cret')), Array('user'=>'alice'));
 checkIdentical('PassList legacy crypt hash refused by default', $passLst->chckCredential(Array('user'=>'bob', 'pass'=>'hunter2')), false);
 checkIdentical('PassList apr1 hash',          $passLst->chckCredential(Array('user'=>'erin', 'pass'=>'tr0ub4dor')), Array('user'=>'erin'));
 checkIdentical('PassList apr1 wrong password', $passLst->chckCredential(Array('user'=>'erin', 'pass'=>'nope')), false);
 checkIdentical('PassList SHA hash refused by default', $passLst->chckCredential(Array('user'=>'frank', 'pass'=>'letmein')), false);
 checkIdentical('PassList SHA hash refused message', $passLst->finalErrorText(), 'Invalid credentials');
-$weakLst = new PassList( Array('maxtry'=>0, 'htpasswd'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'unsecure'=>true) );
+$weakLst = new PassList( Array('maxTries'=>0, 'passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'weakHash'=>true) );
 checkIdentical('PassList SHA hash in unsecure mode', $weakLst->chckCredential(Array('user'=>'frank', 'pass'=>'letmein')), Array('user'=>'frank'));
 checkIdentical('PassList SHA wrong password in unsecure mode', $weakLst->chckCredential(Array('user'=>'frank', 'pass'=>'nope')), false);
 checkIdentical('PassList MD5 crypt hash refused by default', Array($passLst->chckCredential(Array('user'=>'gina', 'pass'=>'pw-gina')), $passLst->finalErrorText()), Array(false, 'Invalid credentials'));
@@ -49,12 +49,12 @@ checkIdentical('PassList wrong password',     $passLst->chckCredential(Array('us
 checkIdentical('PassList wrong password message', $passLst->finalErrorText(), 'Invalid credentials');
 checkIdentical('PassList unknown user',       $passLst->chckCredential(Array('user'=>'carol', 'pass'=>'x')), false);
 checkIdentical('PassList comment line is not a user', $passLst->chckCredential(Array('user'=>'# Test credentials only', 'pass'=>'x')), false);
-$noStore = new PassList( Array('htpasswd'=>'test'.DS.'fixtures'.DS.'missing.htpasswd') );
+$noStore = new PassList( Array('passFile'=>'test'.DS.'fixtures'.DS.'missing.htpasswd') );
 checkIdentical('PassList missing file',       $noStore->chckCredential(Array('user'=>'alice', 'pass'=>'s3cret')), false);
 checkIdentical('PassList missing file message', $noStore->finalErrorText(), 'Credential store unavailable');
 
 // RegKey : flat list of API keys
-$keysLst = new RegKey( Array('keylst'=>Array('k-111', 'k-222')) );
+$keysLst = new RegKey( Array('keysList'=>Array('k-111', 'k-222')) );
 checkIdentical('RegKey valid key',            $keysLst->chckCredential(Array('key'=>'k-222')), Array('user'=>''));
 checkIdentical('RegKey invalid key',          $keysLst->chckCredential(Array('key'=>'zzz')), false);
 checkIdentical('RegKey invalid key message',  $keysLst->finalErrorText(), 'Invalid API key');
@@ -77,7 +77,7 @@ checkIdentical('Basic without an auth handler', $noAuth->verifyRqstList(mockRequ
 checkIdentical('Basic without an auth handler message', $noAuth->finalErrorText(), 'No credential handler configured');
 
 // Header : API key in a configurable header, checked by RegKey
-$headrSs = new Header( Array('header'=>'X-Test-Key'), $keysLst );
+$headrSs = new Header( Array('headName'=>'X-Test-Key'), $keysLst );
 checkIdentical('Header valid',                $headrSs->verifyRqstList(mockRequestObj(Array('X-Test-Key'=>'k-111'))), Array('user'=>''));
 checkIdentical('Header invalid key',          $headrSs->verifyRqstList(mockRequestObj(Array('X-Test-Key'=>'zzz'))), false);
 checkIdentical('Header invalid key message',  $headrSs->finalErrorText(), 'Invalid API key');
@@ -87,7 +87,7 @@ $dfltHdr = new Header( Array(), $keysLst );
 checkIdentical('Header default name is X-Api-Key', $dfltHdr->verifyRqstList(mockRequestObj(Array('X-Api-Key'=>'k-111'))), Array('user'=>''));
 
 // Header with a scheme : "Authorization: Bearer <key>", only the key is checked
-$bearrSs = new Header( Array('header'=>'Authorization', 'scheme'=>'Bearer'), $keysLst );
+$bearrSs = new Header( Array('headName'=>'Authorization', 'authSchm'=>'Bearer'), $keysLst );
 checkIdentical('Header scheme valid',         $bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer k-111'))), Array('user'=>''));
 checkIdentical('Header scheme in another case', $bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'bearer k-111'))), Array('user'=>''));
 checkIdentical('Header scheme missing from the value', Array($bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'k-111'))), $bearrSs->finalErrorText()), Array(false, 'Missing Bearer Authorization header'));
@@ -95,7 +95,7 @@ checkIdentical('Header another scheme',       $bearrSs->verifyRqstList(mockReque
 checkIdentical('Header scheme without a key', Array($bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '))), $bearrSs->finalErrorText()), Array(false, 'No API key provided'));
 
 // JWT : self-verifying bearer token
-$jwtSess = new JWT( Array('secret'=>str_repeat('s', 40), 'lifetm'=>60) );
+$jwtSess = new JWT( Array('hmacSecr'=>str_repeat('s', 40), 'lifeSecs'=>60) );
 $jwToken = $jwtSess->issueTokenText(Array('user'=>'carol'));
 checkPregMatch('JWT token shape',             $jwToken, '/^[\w-]+\.[\w-]+\.[\w-]+$/');
 $payload = $jwtSess->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken)));
@@ -135,12 +135,12 @@ $jwtLogs = strval(@file_get_contents(inTemporaryDir('jwtlogs').DS.'access.log'))
 checkIdentical('JWT the reason is told in the log, at the debug level', Array(preg_match('/\[DEBUG\] Token refused: UnexpectedValueException: Wrong number of segments/', $jwtLogs), preg_match('/\[DEBUG\] Token refused: signed, but without an expiry or a user/', $jwtLogs), substr_count($jwtLogs, 'Token refused')), Array(1, 1, 8));
 checkIdentical('JWT no header',               $jwtSess->verifyRqstList(mockRequestObj()), false);
 checkIdentical('JWT no header message',       $jwtSess->finalErrorText(), 'Missing Bearer Authorization header');
-$othrJwt = new JWT( Array('secret'=>str_repeat('o', 40)) );
+$othrJwt = new JWT( Array('hmacSecr'=>str_repeat('o', 40)) );
 checkIdentical('JWT signed with another secret', $othrJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
 $noScrt = new JWT( Array() );
 checkIdentical('JWT without a secret',        $noScrt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
 checkIdentical('JWT without a secret message', $noScrt->finalErrorText(), 'JWT secret not configured');
-$shrtJwt = new JWT( Array('secret'=>'REPLACE_ME') );
+$shrtJwt = new JWT( Array('hmacSecr'=>'REPLACE_ME') );
 checkIdentical('JWT with a short secret',     $shrtJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
 checkIdentical('JWT with a short secret message', $shrtJwt->finalErrorText(), 'JWT secret not configured');
 checkIdentical('JWT with a short secret issues no token', $shrtJwt->issueTokenText(Array('user'=>'x')), '');
@@ -156,14 +156,14 @@ checkIdentical('ClCert verified, without a name', Array($certSes->verifyRqstList
 checkIdentical('ClCert the same values sent as headers are ignored', $certSes->verifyRqstList(mockRequestObj(Array('SSL-Client-Verify'=>'SUCCESS', 'SSL-Client-S-DN-CN'=>'carol'), Array('HTTP_SSL_CLIENT_VERIFY'=>'SUCCESS', 'HTTP_SSL_CLIENT_S_DN_CN'=>'carol'))), false);
 checkIdentical('ClCert issues no token',       $certSes->issueTokenText(Array('user'=>'x')), '');
 
-$pinSess = new ClCert( Array('issuer'=>'Test CA') );
+$pinSess = new ClCert( Array('issuerId'=>'Test CA') );
 checkIdentical('ClCert accepted issuer',       $pinSess->verifyRqstList(mockRequestObj(Array(), $crtVals)), Array('user'=>'carol'));
-$pinSess = new ClCert( Array('issuer'=>'Other CA') );
+$pinSess = new ClCert( Array('issuerId'=>'Other CA') );
 checkIdentical('ClCert other issuer',          Array($pinSess->verifyRqstList(mockRequestObj(Array(), $crtVals)), $pinSess->finalErrorText()), Array(false, 'Certificate issuer not accepted'));
 
-$nginxSs = new ClCert( Array('chkvar'=>'TLS_VERIFIED', 'usrvar'=>'TLS_SUBJECT') );
+$nginxSs = new ClCert( Array('checkVar'=>'TLS_VERIFIED', 'ownerVar'=>'TLS_SUBJECT') );
 checkIdentical('ClCert other variable names',  $nginxSs->verifyRqstList(mockRequestObj(Array(), Array('TLS_VERIFIED'=>'SUCCESS', 'TLS_SUBJECT'=>'dora'))), Array('user'=>'dora'));
-$hdrSess = new ClCert( Array('chkvar'=>'HTTP_X_SSL_VERIFY', 'usrvar'=>'HTTP_X_SSL_CN') );
+$hdrSess = new ClCert( Array('checkVar'=>'HTTP_X_SSL_VERIFY', 'ownerVar'=>'HTTP_X_SSL_CN') );
 checkIdentical('ClCert variables that are request headers are refused', Array($hdrSess->verifyRqstList(mockRequestObj(Array(), Array('HTTP_X_SSL_VERIFY'=>'SUCCESS', 'HTTP_X_SSL_CN'=>'carol'))), $hdrSess->finalErrorText()), Array(false, 'Certificate variables misconfigured'));
 
 // ClCert with a credential store : the certificate's user must be one of its users
@@ -184,11 +184,11 @@ $strSess = new ClCert( Array(), $fakeStr );
 checkIdentical('ClCert with a store: known user, with its role', $strSess->verifyRqstList(mockRequestObj(Array(), $crtVals)), Array('user'=>'carol', 'role'=>'manage', 'id'=>7));
 checkIdentical('ClCert with a store: unknown user', Array($strSess->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_S_DN_CN'=>'zed') + $crtVals)), $strSess->finalErrorText()), Array(false, 'Account not active'));
 
-// Checker : reads the strategy pair from the 'auths' block, and its config from the ACCESS registry row
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
-$hdrConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys');
+// Checker : reads the strategy pair from the 'security' block, and its config from the ACCESS registry row
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')))) );
+$hdrConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys');
 
-$checker = new Checker( Array('needed'=>false), mockRequestObj() );
+$checker = new Checker( Array('required'=>false), mockRequestObj() );
 checkIdentical('Checker not required: goes through, not logged', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('logged'), $checker->validateAccess()->readFileDetail('role')), Array(200, false, null));
 $checker = new Checker( Array(), mockRequestObj() );
 checkIdentical('Checker empty config',        $checker->validateAccess()->readFileDetail('statCode'), 200);
@@ -199,8 +199,8 @@ checkIdentical('Checker granted',             $axsRslt->readFileDetail('logged')
 checkIdentical('Checker granted status',      $axsRslt->readFileDetail('statCode'), 200);
 checkIdentical('Checker granted: member role by default', $axsRslt->readFileDetail('role'), 'member');
 
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
-$jwtConf = Array('needed'=>true, 'sessby'=>'jtoken', 'sesscf'=>'testjwt');
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
+$jwtConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'testjwt');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'manage')))) );
 checkIdentical('Checker keeps a known role',  $checker->validateAccess()->readFileDetail('role'), 'manage');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'root')))) );
@@ -221,7 +221,7 @@ checkIdentical('access log: privileged access to an action', $axsLogs[0] ?? null
 checkIdentical('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (system) from 10.0.0.1 to /docs/*');
 checkIdentical('access log: a member stays an info', $axsLogs[2] ?? null, '['.date('Y').'] [INFO] Access granted for user "erin" from 10.0.0.1');
 checkPregMatch('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\['.date('Y').'\] \[WARNING\] Access denied from 10\.0\.0\.1: /');
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')))) );
 
 $checker = new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'bad')) );
 $axsRslt = $checker->validateAccess();
@@ -230,32 +230,32 @@ checkIdentical('Checker denied status',       $axsRslt->readFileDetail('statCode
 checkIdentical('Checker denied message',      $axsRslt->readFileDetail('statMssg'), 'Invalid API key');
 checkIdentical('Checker denied, no Basic challenge', $axsRslt->readFileDetail('wwwAuth'), null);
 
-$checker = new Checker( Array('sessby'=>'hbasic', 'authby'=>'htpass', 'sesscf'=>'testkeys'), mockRequestObj() );
+$checker = new Checker( Array('sessWith'=>'httpBasc', 'authWith'=>'htpasswd', 'sessConf'=>'testkeys'), mockRequestObj() );
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker Basic denied status', $axsRslt->readFileDetail('statCode'), 401);
 checkIdentical('Checker Basic challenge, with its realm', $axsRslt->readFileDetail('wwwAuth'), 'Basic realm="nyuRuns", charset="UTF-8"');
 
 // A carrier and a check that cannot work together : a mistake of the config, told as such
 checkIdentical('pairsFlaw: the pairs that work', Array(
-	(new Checker(Array('sessby'=>'hbasic', 'authby'=>'htpass'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessby'=>'hbasic', 'authby'=>'native'), mockRequestObj()))->checkPairFlaws(),
-	(new Checker(Array('sessby'=>'header', 'authby'=>'regkey'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessby'=>'header', 'authby'=>'usrlst'), mockRequestObj()))->checkPairFlaws(),
-	(new Checker(Array('sessby'=>'jtoken'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessby'=>'phsess', 'authby'=>'htpass'), mockRequestObj()))->checkPairFlaws(),
-	(new Checker(Array('sessby'=>'clcert', 'authby'=>'regkey'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessby'=>'header', 'authby'=>'device'), mockRequestObj()))->checkPairFlaws()
+	(new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'nativeDb'), mockRequestObj()))->checkPairFlaws(),
+	(new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'userFile'), mockRequestObj()))->checkPairFlaws(),
+	(new Checker(Array('sessWith'=>'jwtToken'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'phpSessn', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(),
+	(new Checker(Array('sessWith'=>'clntCert', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'devToken'), mockRequestObj()))->checkPairFlaws()
 ), array_fill(0, 8, ''));
-checkIdentical('pairsFlaw: a name and a password handed to a check of keys', (new Checker(Array('sessby'=>'hbasic', 'authby'=>'regkey'), mockRequestObj()))->checkPairFlaws(), 'the credential check "regkey" cannot check what the carrier "hbasic" hands it');
-checkIdentical('pairsFlaw: a name and a password handed to the check of the device tokens', (new Checker(Array('sessby'=>'hbasic', 'authby'=>'device'), mockRequestObj()))->checkPairFlaws(), 'the credential check "device" cannot check what the carrier "hbasic" hands it');
-checkIdentical('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('sessby'=>'header', 'authby'=>'htpass'), mockRequestObj()))->checkPairFlaws(), 'the credential check "htpass" cannot check what the carrier "header" hands it');
-checkIdentical('pairsFlaw: a carrier left without a check', Array((new Checker(Array('sessby'=>'hbasic'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessby'=>'header', 'authby'=>''), mockRequestObj()))->checkPairFlaws()), Array('the carrier "hbasic" needs a credential check (authby)', 'the carrier "header" needs a credential check (authby)'));
-$axsRslt = (new Checker( Array('sessby'=>'hbasic', 'authby'=>'regkey', 'sesscf'=>'testkeys'), mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->validateAccess();
+checkIdentical('pairsFlaw: a name and a password handed to a check of keys', (new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), 'the credential check "regdKeys" cannot check what the carrier "httpBasc" hands it');
+checkIdentical('pairsFlaw: a name and a password handed to the check of the device tokens', (new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'devToken'), mockRequestObj()))->checkPairFlaws(), 'the credential check "devToken" cannot check what the carrier "httpBasc" hands it');
+checkIdentical('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), 'the credential check "htpasswd" cannot check what the carrier "apiHeadr" hands it');
+checkIdentical('pairsFlaw: a carrier left without a check', Array((new Checker(Array('sessWith'=>'httpBasc'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>''), mockRequestObj()))->checkPairFlaws()), Array('the carrier "httpBasc" needs a credential check (authWith)', 'the carrier "apiHeadr" needs a credential check (authWith)'));
+$axsRslt = (new Checker( Array('sessWith'=>'httpBasc', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys'), mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->validateAccess();
 checkIdentical('Checker: such a pair refuses every request with a 500, without a challenge', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('wwwAuth')), Array(500, 'Access misconfigured', null));
 
-$checker = new Checker( Array('sessby'=>'jtoken', 'sesscf'=>'testkeys'), mockRequestObj() );
+$checker = new Checker( Array('sessWith'=>'jwtToken', 'sessConf'=>'testkeys'), mockRequestObj() );
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker JWT denied status',   $axsRslt->readFileDetail('statCode'), 401);
 checkIdentical('Checker JWT challenge',       $axsRslt->readFileDetail('wwwAuth'), 'Bearer');
 
 // Checker : public routes, matched on the resolved application and action
-$pubConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'testkeys', 'openrt'=>Array('auth/openSess', 'Open/*'));
+$pubConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys', 'openList'=>Array('auth/openSess', 'Open/*'));
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'openSess')) );
 checkIdentical('Checker public action',       $checker->validateAccess()->readFileDetail('statCode'), 200);
 checkIdentical('Checker public action: not logged', $checker->validateAccess()->readFileDetail('logged'), false);
@@ -277,7 +277,7 @@ $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('app'=>nu
 checkIdentical('Checker unresolved route stays closed', $checker->validateAccess()->readFileDetail('statCode'), 401);
 
 // Checker : public routes, named by the path they are declared with
-$pthConf = Array('openrt'=>Array('/login', '/tokchk/', '/items/$id', '/docs/*', '/Auth/Other')) + $pubConf;
+$pthConf = Array('openList'=>Array('/login', '/tokchk/', '/items/$id', '/docs/*', '/Auth/Other')) + $pubConf;
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker public path: a page',  $checker->validateAccess()->readFileDetail('statCode'), 200);
 checkIdentical('Checker public path: not logged', $checker->validateAccess()->readFileDetail('logged'), false);
@@ -293,7 +293,7 @@ $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>nu
 checkIdentical('Checker public path: its * does not open another folder route', $checker->validateAccess()->readFileDetail('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/guide.txt')) );
 checkIdentical('Checker public path: nor a route declared under it', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( Array('openrt'=>Array('/docs')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*')) );
+$checker = new Checker( Array('openList'=>Array('/docs')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*')) );
 checkIdentical('Checker public path: a folder route needs its *', $checker->validateAccess()->readFileDetail('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'Login')) );
 checkIdentical('Checker public path: the case counts', $checker->validateAccess()->readFileDetail('statCode'), 401);
@@ -303,11 +303,11 @@ $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'l
 checkIdentical('Checker public path: is not an application name', $checker->validateAccess()->readFileDetail('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'other')) );
 checkIdentical('Checker public path: is not an action either', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( Array('openrt'=>Array('login')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
+$checker = new Checker( Array('openList'=>Array('login')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker public path: needs its leading slash', $checker->validateAccess()->readFileDetail('statCode'), 401);
 
 // Checker : a request denied an HTML page is given the sign-in route to go to
-$sgnConf = Array('signin'=>'/login') + $pthConf;
+$sgnConf = Array('signRout'=>'/login') + $pthConf;
 $askReqs = mockRequestObj();
 $askPrpt = new ReflectionProperty('nyu\Tools\Request', 'requestUri');
 $askPrpt->setValue($askReqs, Array('reqstURI'=>'/hello/7?tab=a b'));
@@ -325,19 +325,19 @@ $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'act
 checkIdentical('Checker sign-in: so does a denied file', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null)) );
 checkIdentical('Checker sign-in: and an unresolved route', $checker->validateAccess()->readFileDetail('denyGoal'), null);
-$checker = new Checker( Array('signin'=>'/enter') + $pubConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'enter')) );
+$checker = new Checker( Array('signRout'=>'/enter') + $pubConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'enter')) );
 checkIdentical('Checker sign-in: a sign-in route left closed is not sent to itself', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker sign-in: the open sign-in route is served', $checker->validateAccess()->readFileDetail('statCode'), 200);
 foreach( Array('https://example.org/login', '//example.org/login', 'login', '/log in', Array('/login')) as $badRte ){
-	$checker = new Checker( Array('signin'=>$badRte) + $pthConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
+	$checker = new Checker( Array('signRout'=>$badRte) + $pthConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
 	$axsRslt = $checker->validateAccess();
 	checkIdentical('Checker sign-in: '.json_encode($badRte).' is not a path of this site', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('denyGoal')), Array(500, null));
 }
 
-$checker = new Checker( Array('sessby'=>'Nope'), mockRequestObj() );
+$checker = new Checker( Array('sessWith'=>'Nope'), mockRequestObj() );
 checkIdentical('Checker unknown sess strategy', $checker->validateAccess()->readFileDetail('statCode'), 500);
-$checker = new Checker( Array('sessby'=>'header', 'authby'=>'Nope'), mockRequestObj() );
+$checker = new Checker( Array('sessWith'=>'apiHeadr', 'authWith'=>'Nope'), mockRequestObj() );
 checkIdentical('Checker unknown auth strategy', $checker->validateAccess()->readFileDetail('statCode'), 500);
 
 // The Probe fixture application, for the helpers of an action
@@ -351,7 +351,7 @@ checkIdentical('roleMeets: no role, or an unknown one, meets nothing', Array(Che
  * Runs the access check of a route for the user carol, logged with a
  * token carrying the given role.
  *
- * @param Array  $accessConf The 'auths' block.
+ * @param Array  $accessConf The 'security' block.
  * @param String $loggedRole Role of the token, empty for a request without a token.
  * @param Array  $routeArray The resolved route.
  * @return Array The status and the message of the check.
@@ -362,9 +362,9 @@ function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): 
 	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'));
 }
 
-// Checker : the role a route asks for ('rolert'), written as the routes of 'openrt'
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'TESTKEYS'=>Array('keylst'=>Array('k-1')), 'TESTJWT'=>Array('secret'=>str_repeat('s', 40)))) );
-$rolConf = Array('rolert'=>Array('users/*'=>'manage', 'users/viewUser'=>'member', 'Shows/Edit'=>'system', 'shows/*'=>'member', 'probe/sanitize'=>'system', 'probe/mirrored'=>'manage', '/docs/*'=>'system', '/tokchk'=>'manage', 'auth/check'=>'system', '/admin'=>'manage')) + $jwtConf;
+// Checker : the role a route asks for ('rteRoles'), written as the routes of 'openList'
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
+$rolConf = Array('rteRoles'=>Array('users/*'=>'manage', 'users/viewUser'=>'member', 'Shows/Edit'=>'system', 'shows/*'=>'member', 'probe/sanitize'=>'system', 'probe/mirrored'=>'manage', '/docs/*'=>'system', '/tokchk'=>'manage', 'auth/check'=>'system', '/admin'=>'manage')) + $jwtConf;
 checkIdentical('Checker role: refused to a lower role', roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lockUser')), Array(404, 'Not Found'));
 checkIdentical('Checker role: refused to the role between', roleReply($rolConf, 'system', Array('app'=>'users', 'action'=>'lockUser')), Array(404, 'Not Found'));
 checkIdentical('Checker role: served to the role asked for', roleReply($rolConf, 'manage', Array('app'=>'users', 'action'=>'lockUser')), Array(200, ''));
@@ -383,25 +383,25 @@ $actRoute = Array('app'=>'auth', 'action'=>'check', 'routKind'=>'toAction', 'rou
 checkIdentical('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'system', $actRoute), roleReply($rolConf, 'manage', $actRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkIdentical('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
-// A Run route is named by its final, mounted path, in rolert as in openrt
-$mntConf = Array('rolert'=>Array('/space/listed'=>'manage'), 'openrt'=>Array('/fromRoot')) + $jwtConf;
+// A Run route is named by its final, mounted path, in rteRoles as in openList
+$mntConf = Array('rteRoles'=>Array('/space/listed'=>'manage'), 'openList'=>Array('/fromRoot')) + $jwtConf;
 $mntRout = Array('app'=>'Mounted', 'action'=>'listed', 'routKind'=>'toAction', 'routPath'=>'space/listed', 'routOwnr'=>'Mounted');
 checkIdentical('Checker role: a Run route, by its mounted path', Array(roleReply($mntConf, 'member', $mntRout), roleReply($mntConf, 'manage', $mntRout)), Array(Array(404, 'Not Found'), Array(200, '')));
-checkIdentical('Checker role: not by the path its file declares it with', roleReply(Array('rolert'=>Array('/listed'=>'manage')) + $jwtConf, 'member', $mntRout), Array(200, ''));
+checkIdentical('Checker role: not by the path its file declares it with', roleReply(Array('rteRoles'=>Array('/listed'=>'manage')) + $jwtConf, 'member', $mntRout), Array(200, ''));
 $rotRout = Array('app'=>'Mounted', 'action'=>'fromRoot', 'routKind'=>'toAction', 'routPath'=>'fromRoot', 'routOwnr'=>'Mounted');
 checkIdentical('Checker open: a Run route from the root, by its path', roleReply($mntConf, '', $rotRout), Array(200, ''));
 checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('routPath'=>'mounted/fromRoot') + $rotRout)[0], 401);
 // A site route answering with an action is an alias: its role stays on its path, the action reached otherwise is named by app/action
-$pnlConf = Array('rolert'=>Array('/panel'=>'manage')) + $jwtConf;
+$pnlConf = Array('rteRoles'=>Array('/panel'=>'manage')) + $jwtConf;
 checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin', 'routKind'=>'toAction', 'routPath'=>'panel')), Array(404, 'Not Found'));
 checkIdentical('Checker role: not on its action reached by its own path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin')), Array(200, ''));
 
 // The refused user stays identified, and is not sent to the sign-in route
-$axsRslt = (new Checker( Array('signin'=>'/login', 'openrt'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')) ))->validateAccess();
+$axsRslt = (new Checker( Array('signRout'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')) ))->validateAccess();
 checkIdentical('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('logged'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'), $axsRslt->readFileDetail('wwwAuth'), $axsRslt->readFileDetail('denyGoal')), Array(404, true, 'carol', 'system', null, null));
 
 // A check that gives no role makes a member
-$keyConf = Array('rolert'=>Array('shows/*'=>'member', 'users/*'=>'system')) + $hdrConf;
+$keyConf = Array('rteRoles'=>Array('shows/*'=>'member', 'users/*'=>'system')) + $hdrConf;
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'shows', 'action'=>'overview')) );
 checkIdentical('Checker role: an API key meets the member role', $checker->validateAccess()->readFileDetail('statCode'), 200);
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'users', 'action'=>'fullList')) );
@@ -409,20 +409,20 @@ checkIdentical('Checker role: and no higher one', Array($checker->validateAccess
 
 // A block that cannot be applied refuses every request
 $anyRoute = Array('app'=>'shows', 'action'=>'overview');
-checkIdentical('Checker role: an unknown role', roleReply(Array('rolert'=>Array('users/*'=>'admin')) + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: a role that is not a text', roleReply(Array('rolert'=>Array('users/*'=>Array('manage'))) + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: not a list of routes', roleReply(Array('rolert'=>'manage') + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: asked for while access is not required', roleReply(Array('needed'=>false, 'rolert'=>Array('users/*'=>'manage')), 'manage', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: an empty list asks for nothing', roleReply(Array('needed'=>false, 'rolert'=>Array()), '', $anyRoute), Array(200, ''));
-$opnConf = Array('openrt'=>Array('users/*', '/docs/*')) + $rolConf;
+checkIdentical('Checker role: an unknown role', roleReply(Array('rteRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: a role that is not a text', roleReply(Array('rteRoles'=>Array('users/*'=>Array('manage'))) + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: not a list of routes', roleReply(Array('rteRoles'=>'manage') + $jwtConf, 'manage', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: asked for while access is not required', roleReply(Array('required'=>false, 'rteRoles'=>Array('users/*'=>'manage')), 'manage', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: an empty list asks for nothing', roleReply(Array('required'=>false, 'rteRoles'=>Array()), '', $anyRoute), Array(200, ''));
+$opnConf = Array('openList'=>Array('users/*', '/docs/*')) + $rolConf;
 checkIdentical('Checker role: a route both open and asking for a role', Array(roleReply($opnConf, 'manage', Array('app'=>'users', 'action'=>'lockUser')), roleReply($opnConf, '', $dirRoute)), Array(Array(500, 'Access misconfigured'), Array(500, 'Access misconfigured')));
-checkIdentical('Checker role: the other open routes are served', roleReply(Array('openrt'=>Array('auth/openSess')) + $rolConf, '', Array('app'=>'auth', 'action'=>'openSess')), Array(200, ''));
+checkIdentical('Checker role: the other open routes are served', roleReply(Array('openList'=>Array('auth/openSess')) + $rolConf, '', Array('app'=>'auth', 'action'=>'openSess')), Array(200, ''));
 
 // The access log : one warning for a refusal, with the role needed
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rolelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 roleReply($rolConf, 'member', Array('app'=>'users', 'action'=>'lockUser'));
 roleReply($rolConf, 'member', $dirRoute);
-roleReply(Array('rolert'=>Array('users/*'=>'admin')) + $jwtConf, 'manage', $anyRoute);
+roleReply(Array('rteRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'manage', $anyRoute);
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('rolelogs').DS.'access.log') ? file(inTemporaryDir('rolelogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: a refusal for the role is one line', count($axsLogs), 3);
@@ -461,22 +461,22 @@ checkIdentical('needsRole: its refusals are logged as those of a route', $axsLog
 
 // The issuer of a certificate is read from the variable the config names
 $crtVals = Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol', 'SSL_CLIENT_I_DN_CN'=>'Test CA');
-$varSess = new ClCert( Array('issvar'=>'TLS_ISSUER', 'issuer'=>'Test CA') );
+$varSess = new ClCert( Array('issueVar'=>'TLS_ISSUER', 'issuerId'=>'Test CA') );
 checkIdentical('ClCert issuer read from another variable', $varSess->verifyRqstList(mockRequestObj(Array(), Array('TLS_ISSUER'=>'Test CA') + $crtVals)), Array('user'=>'carol'));
 checkIdentical('ClCert the default variable is then not read', Array($varSess->verifyRqstList(mockRequestObj(Array(), Array('TLS_ISSUER'=>'Other CA') + $crtVals)), $varSess->finalErrorText(), $varSess->verifyRqstList(mockRequestObj(Array(), $crtVals))), Array(false, 'Certificate issuer not accepted', false));
-$hdrSess = new ClCert( Array('issvar'=>'HTTP_X_SSL_ISSUER', 'issuer'=>'Test CA') );
+$hdrSess = new ClCert( Array('issueVar'=>'HTTP_X_SSL_ISSUER', 'issuerId'=>'Test CA') );
 checkIdentical('ClCert an issuer variable that is a request header is refused', Array($hdrSess->verifyRqstList(mockRequestObj(Array(), Array('HTTP_X_SSL_ISSUER'=>'Test CA') + $crtVals)), $hdrSess->finalErrorText()), Array(false, 'Certificate variables misconfigured'));
 
 // API keys written under a name identify their holder
-$namdKey = new RegKey( Array('keylst'=>Array('orders'=>'k-ordr', 'reports'=>'k-rept', 'nobody'=>'', 'wrongs'=>Array('k-list'))) );
+$namdKey = new RegKey( Array('keysList'=>Array('orders'=>'k-ordr', 'reports'=>'k-rept', 'nobody'=>'', 'wrongs'=>Array('k-list'))) );
 checkIdentical('RegKey a key written under a name gives the name', Array($namdKey->chckCredential(Array('key'=>'k-rept')), $namdKey->chckCredential(Array('key'=>'k-ordr'))), Array(Array('user'=>'reports'), Array('user'=>'orders')));
 checkIdentical('RegKey a wrong key, with named keys', Array($namdKey->chckCredential(Array('key'=>'k-none')), $namdKey->finalErrorText(), $namdKey->wrngCredential()), Array(false, 'Invalid API key', true));
 checkIdentical('RegKey a name is not a key, nor is a key that is not a text', Array($namdKey->chckCredential(Array('key'=>'reports')), $namdKey->chckCredential(Array('key'=>'k-list'))), Array(false, false));
-checkIdentical('RegKey a plain list still names nobody', (new RegKey(Array('keylst'=>Array('k-1', 'k-2'))))->chckCredential(Array('key'=>'k-2')), Array('user'=>''));
-checkIdentical('RegKey a keylst that is not a list accepts nothing', (new RegKey(Array('keylst'=>'k-1')))->chckCredential(Array('key'=>'k-1')), false);
+checkIdentical('RegKey a plain list still names nobody', (new RegKey(Array('keysList'=>Array('k-1', 'k-2'))))->chckCredential(Array('key'=>'k-2')), Array('user'=>''));
+checkIdentical('RegKey a keysList that is not a list accepts nothing', (new RegKey(Array('keysList'=>'k-1')))->chckCredential(Array('key'=>'k-1')), false);
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('keylogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LIMITS'=>Array('maxtry'=>0),'NAMEKEYS'=>Array('keylst'=>Array('reports'=>'k-rept', "eve\" from 9.9.9.9\n[".date('Y')."] [INFO] forged"=>'k-evil')))) );
-$keyConf = Array('needed'=>true, 'sessby'=>'header', 'authby'=>'regkey', 'sesscf'=>'namekeys');
+$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'NAMEKEYS'=>Array('keysList'=>Array('reports'=>'k-rept', "eve\" from 9.9.9.9\n[".date('Y')."] [INFO] forged"=>'k-evil')))) );
+$keyConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'namekeys');
 $axsRslt = (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-rept'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();
 checkIdentical('Checker named key: the holder is the user, a member', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role')), Array(200, 'reports', 'member'));
 (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-evil'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();

@@ -5,7 +5,7 @@ namespace nyu\Access;
 /**
  * Limits the wrong credentials one client address may present: after as
  * many as allowed, the address is refused for the hold time, whatever it
- * presents. The stores read from a file (usrlst, htpass) count each account
+ * presents. The stores read from a file (userFile, htpasswd) count each account
  * the same way (see heldByUsr and countUser), in counters of their own. The counters are small files, one per address, so the limit
  * works with every credential check, with or without a database. Each
  * counter holds its address, for the held ones to be listed and released
@@ -23,15 +23,15 @@ class Limiter{
 	/**
 	 * Builds the limiter of wrong credentials from its config block.
 	 *
-	 * @param Array $configValues Config block, optionally with the wrong credentials allowed from one address ('maxtry',
+	 * @param Array $configValues Config block, optionally with the wrong credentials allowed from one address ('maxTries',
 	 *                          defaults to 10; 0 for no limit), the time in seconds they add up within and then hold the
-	 *                          address for ('holdtm', defaults to 600) and the 'folder' keeping the counters, relative to
+	 *                          address for ('holdSecs', defaults to 600) and the 'dataPath' keeping the counters, relative to
 	 *                          the project root (defaults to temp/limits).
 	 */
 	function __construct( Array $configValues ){
-		$this->triesLimit = max( 0, intval($configValues['maxtry'] ?? 10) );
-		$this->holdPeriod = max( 1, intval($configValues['holdtm'] ?? 600) );
-		$fldName = trim( strval($configValues['folder'] ?? ''), '/\\ ' );
+		$this->triesLimit = max( 0, intval($configValues['maxTries'] ?? 10) );
+		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
+		$fldName = trim( strval($configValues['dataPath'] ?? ''), '/\\ ' );
 		$this->countsFold = TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'limits');
 	}
 

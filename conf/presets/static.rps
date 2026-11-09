@@ -1,20 +1,20 @@
 {
-	"label": "static",
-	"about": "Preset for a site of pages, files and redirections: open access, no inputs, its own route folder",
-	"setup": {
-		"ftypes": "all",
-		"fnames": "any"
+	"presetId": "static",
+	"describe": "Preset for a site of pages, files and redirections: open access, no inputs, its own route folder",
+	"settings": {
+		"fileType": "all",
+		"fileName": "any"
 	},
-	"auths": { "needed": false, "public": true },
-	"route": {
-		"detect": "manually",
-		"folder": "conf/routes/static",
-		"htroot": "pages",
-		"mounts": { "auth": false }
+	"security": { "required": false, "isPublic": true },
+	"routings": {
+		"detectBy": "manually",
+		"routeDir": "conf/routes/static",
+		"htmlRoot": "pages",
+		"mountSet": { "auth": false }
 	},
-	"rnder": {
-		"format": "json",
-		"headrs": {
+	"response": {
+		"outputAs": "json",
+		"headList": {
 			"Cache-Control":	"no-cache"
 		}
 	}

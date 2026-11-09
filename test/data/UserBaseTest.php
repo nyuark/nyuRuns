@@ -98,7 +98,7 @@ foreach( Array('too short'=>'ab', 'too long'=>str_repeat('a', 33), 'starting wit
 }
 checkIdentical('enrol: unknown role', operates($usrBase, 'enrolUsrString', Array('henry', 'owner')), Array(false, 400, 'Invalid role'));
 checkIdentical('enrol: a refused creation writes nothing', Array(fieldOf($sqlLink, 'henry', 'userName'), readLogs()), Array(false, ''));
-checkIdentical('enrol: on a missing table', operates(new UserBase(Array('tblnme'=>'nousers')), 'enrolUsrString', Array('henry')), Array(false, 500, 'Credential store unavailable'));
+checkIdentical('enrol: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'enrolUsrString', Array('henry')), Array(false, 500, 'Credential store unavailable'));
 
 // 2. actvtUser : the code, once, gives the password and the active status
 Logger::setCurrentUser( '', '192.0.2.9' );
@@ -121,7 +121,7 @@ checkIdentical('activate: the code is used once', operates($usrBase, 'activateUs
 checkIdentical('activate: the password of the first use stays', $natAuth->chckCredential(Array('user'=>'emma', 'pass'=>'pass-emma-1'))['user'] ?? null, 'emma');
 checkIdentical('activate: a pending user without a code stays pending', Array(operates($usrBase, 'activateUsrFlg', Array('cleo', '', 'pass-cleo-2')), fieldOf($sqlLink, 'cleo', 'userStat')), Array(Array(false, 401, 'Invalid activation'), 'pendng'));
 checkIdentical('activate: a locked or active user is not activated', Array($usrBase->activateUsrFlg('dave', '', 'pass-dave-2'), $usrBase->activateUsrFlg('ben', '', 'pass-ben-22')), Array(false, false));
-checkIdentical('activate: on a missing table', operates(new UserBase(Array('tblnme'=>'nousers')), 'activateUsrFlg', Array('emma', strval($emmaCod), 'pass-emma-1')), Array(false, 500, 'Credential store unavailable'));
+checkIdentical('activate: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'activateUsrFlg', Array('emma', strval($emmaCod), 'pass-emma-1')), Array(false, 500, 'Credential store unavailable'));
 
 // 3. chgPasswd : the current password is the proof
 Logger::setCurrentUser( 'ben', '192.0.2.9' );
@@ -206,7 +206,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 ) );
 checkIdentical('list: the default number of rows is LST_ROWS', count((array)$usrBase->listUsersNamed()), 3);
 switchToSqlite( inTemporaryDir('userbase.sqlite') );
-checkIdentical('list: on a missing table', operates(new UserBase(Array('tblnme'=>'nousers')), 'listUsersNamed', Array()), Array(false, 500, 'Credential store unavailable'));
+checkIdentical('list: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'listUsersNamed', Array()), Array(false, 500, 'Credential store unavailable'));
 
 // 8. userInfos
 $sqlLink->exec("UPDATE users SET tokenKey='tk', twoFaKey='2f' WHERE userName='ben'");
@@ -218,7 +218,7 @@ checkIdentical('read: a pending user', $usrBase->userInfosArray('gina')['userSta
 checkIdentical('read: unknown user', operates($usrBase, 'userInfosArray', Array('zed')), Array(false, 404, 'User not found'));
 checkIdentical('read: no name', operates($usrBase, 'userInfosArray', Array('')), Array(false, 404, 'User not found'));
 checkIdentical('read: the name is matched with its case', operates($usrBase, 'userInfosArray', Array('BEN')), Array(false, 404, 'User not found'));
-checkIdentical('read: on a missing table', operates(new UserBase(Array('tblnme'=>'nousers')), 'userInfosArray', Array('ben')), Array(false, 500, 'Credential store unavailable'));
+checkIdentical('read: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'userInfosArray', Array('ben')), Array(false, 500, 'Credential store unavailable'));
 
 // 9. resetUser : back to pending, with a new code
 readLogs();
@@ -244,7 +244,7 @@ checkIdentical('remove: a locked user', $usrBase->removeUserFlag('dave'), true);
 checkIdentical('remove: the last active manager', Array(operates($usrBase, 'removeUserFlag', Array('anna')), fieldOf($sqlLink, 'anna', 'userName')), Array(Array(false, 409, 'The last active manager cannot be removed'), 'anna'));
 checkIdentical('remove: a name holding a quote removes nobody', Array($usrBase->removeUserFlag("x' OR '1'='1"), count((array)$usrBase->listUsersNamed())), Array(false, 5));
 checkIdentical('remove: the name is free again', is_string($usrBase->enrolUsrString('gina')), true);
-checkIdentical('remove: on a missing table', operates(new UserBase(Array('tblnme'=>'nousers')), 'removeUserFlag', Array('ben')), Array(false, 500, 'Credential store unavailable'));
+checkIdentical('remove: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'removeUserFlag', Array('ben')), Array(false, 500, 'Credential store unavailable'));
 
 // 10. Addresses : given at the creation or later, in lower case, one account each
 readLogs();
@@ -272,14 +272,14 @@ $sqlLink->exec("INSERT INTO users (userName, passHash, userStat, actvCode) VALUE
 checkIdentical('code: one made by 0.9', $usrBase->activateUsrFlg('mona', 'abcdef0123456789abcdef0123456789', 'pass-mona-1'), true);
 
 // 12. signsUser : pending with the address, then in review, then approved
-$sgnBase = new UserBase( Array('codexp'=>30) );
-checkIdentical('codexp: the minutes of a code sent by mail', Array($usrBase->mailedForCount(), $sgnBase->mailedForCount()), Array(15, 30));
+$sgnBase = new UserBase( Array('codeMins'=>30) );
+checkIdentical('codeMins: the minutes of a code sent by mail', Array($usrBase->mailedForCount(), $sgnBase->mailedForCount()), Array(15, 30));
 readLogs();
 Logger::setCurrentUser( '', '192.0.2.11' );
 $ivanCod = $sgnBase->signsUsrString('ivan', 'Ivan@Example.ch');
 checkPregMatch('sign-up: a code', $ivanCod, '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
 checkIdentical('sign-up: pending, a member, with its address and the time of the sign-up', Array(fieldOf($sqlLink, 'ivan', 'userStat'), fieldOf($sqlLink, 'ivan', 'userRole'), fieldOf($sqlLink, 'ivan', 'userMail'), fieldOf($sqlLink, 'ivan', 'passHash'), abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'signDate'))) - time())<=5), Array('pendng', 'member', 'ivan@example.ch', '!', true));
-checkIdentical('sign-up: the code lasts the minutes of codexp', abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'codeDate'))) - (time()+30*60))<=5, true);
+checkIdentical('sign-up: the code lasts the minutes of codeMins', abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'codeDate'))) - (time()+30*60))<=5, true);
 checkPregMatch('sign-up: logged as a notice', readLogs(), '/\[NOTICE\] User "ivan" signed up from 192\.0\.2\.11/');
 $usrNmbr = count((array)$usrBase->listUsersNamed());
 checkIdentical('sign-up: a name taken, whatever its case, is not a refusal', operates($sgnBase, 'signsUsrString', Array('IVAN', 'other@example.ch')), Array('', 200, ''));
@@ -339,7 +339,7 @@ $usrBase->changeLanguage('ben', 'fr');
 checkIdentical('language: the one of a reset asked by mail', ($usrBase->resetPassArray('ben@example.ch') ?: Array())['lang'] ?? 'none', 'fr');
 checkIdentical('listUsers: by address, in lower case', array_column((array)$usrBase->listUsersNamed(Array('userMail'=>' BEN@example.ch ')), 'userLang', 'userName'), Array('ben'=>'fr'));
 checkIdentical('listUsers: an address that is not a text', operates($usrBase, 'listUsersNamed', Array(Array('userMail'=>Array('x')))), Array(false, 400, 'Invalid filter'));
-checkIdentical('waitCount and managMail on a missing table', Array(operates(new UserBase(Array('tblnme'=>'nousers')), 'waitingSignups', Array()), operates(new UserBase(Array('tblnme'=>'nousers')), 'manageMailList', Array())), Array(Array(false, 500, 'Credential store unavailable'), Array(false, 500, 'Credential store unavailable')));
+checkIdentical('waitCount and managMail on a missing table', Array(operates(new UserBase(Array('useTable'=>'nousers')), 'waitingSignups', Array()), operates(new UserBase(Array('useTable'=>'nousers')), 'manageMailList', Array())), Array(Array(false, 500, 'Credential store unavailable'), Array(false, 500, 'Credential store unavailable')));
 $sgnStmt = null;
 
 // 13. resetPass and recovUser : a reset asked for by the user, its password kept until it is done
@@ -378,21 +378,21 @@ Logger::setCurrentUser( 'anna', '192.0.2.7' );
 checkIdentical('fromLogin: without a login block', UserBase::fromLoginBlock(), null);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
-	'access'=>Array('LOGIN'=>Array('authby'=>'htpass'), 'NATIVE'=>Array('tblnme'=>'users'), 'OTHERS'=>Array('tblnme'=>'nousers'))
+	'access'=>Array('LOGINSET'=>Array('authWith'=>'htpasswd'), 'NATIVEDB'=>Array('useTable'=>'users'), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
 checkIdentical('fromLogin: a login on another credential check', UserBase::fromLoginBlock(), null);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
-	'access'=>Array('LOGIN'=>Array('authby'=>'native'), 'NATIVE'=>Array('tblnme'=>'users', 'minlen'=>12), 'OTHERS'=>Array('tblnme'=>'nousers'))
+	'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb'), 'NATIVEDB'=>Array('useTable'=>'users', 'minChars'=>12), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
 $lgnBase = UserBase::fromLoginBlock();
 checkIdentical('fromLogin: the native block by default', ($lgnBase!==null) ? $lgnBase->userInfosArray('anna')['userRole'] ?? null : null, 'manage');
 checkIdentical('fromLogin: the block gives its password length', ($lgnBase!==null) ? operates($lgnBase, 'editPasswdFlag', Array('anna', 'pass-anna-1', 'pass-anna-2')) : null, Array(false, 400, 'Password too short: 12 characters at least'));
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
-	'access'=>Array('LOGIN'=>Array('authby'=>'native', 'authcf'=>'others'), 'NATIVE'=>Array('tblnme'=>'users'), 'OTHERS'=>Array('tblnme'=>'nousers'))
+	'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb', 'authConf'=>'others'), 'NATIVEDB'=>Array('useTable'=>'users'), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
-checkIdentical('fromLogin: the block authcf names', operates(UserBase::fromLoginBlock(), 'userInfosArray', Array('anna')), Array(false, 500, 'Credential store unavailable'));
+checkIdentical('fromLogin: the block authConf names', operates(UserBase::fromLoginBlock(), 'userInfosArray', Array('anna')), Array(false, 500, 'Credential store unavailable'));
 
 Logger::plugLogsConfig( Array() );
 Logger::setCurrentUser( '', '' );

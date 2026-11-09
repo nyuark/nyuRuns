@@ -24,7 +24,7 @@ use nyu\Shell\UserFile;
  *   php nyuRun accounts doAction shows/overview filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
- * (native) or the users file (usrlst); --useStore names the other, --useBlock
+ * (nativeDb) or the users file (userFile); --useStore names the other, --useBlock
  * the block of conf/access.json holding its settings. Every change is
  * traced on the 'access' log channel, as those made over HTTP.
  */
@@ -33,7 +33,7 @@ class Manage extends Command{
 	// Methods a call may be said to use
 	const MTHD_LIST = Array('GET', 'POST', 'PUT', 'PATCH', 'DELETE');
 
-	// The store the users are managed in: 'native' or 'usrlst'
+	// The store the users are managed in: 'nativeDb' or 'userFile'
 	protected $usersStore = '';
 
 	/**
@@ -54,14 +54,14 @@ class Manage extends Command{
 		return Array(
 			'fullList'=>Array('args'=>'[--statusIs=<status>] [--roleName=<role>] [--rowCount=<n>] [--startRow=<n>]', 'about'=>'lists the users'),
 			'viewUser'=>Array('args'=>'<user>', 'about'=>'shows a user'),
-			'makeUser'=>Array('args'=>'<user> [role] [--typeItIn] [--noExpiry] [--language=<language>]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noExpiry: no end) (native), active with its password (usrlst); --language gives the language of its mails'),
-			'activate'=>Array('args'=>'<user> <code> [--typeItIn]', 'about'=>'activates a pending user with its code, and gives it a password (native)'),
+			'makeUser'=>Array('args'=>'<user> [role] [--typeItIn] [--noExpiry] [--language=<language>]', 'about'=>'creates a user: pending with an activation code lasting 300 minutes (--noExpiry: no end) (nativeDb), active with its password (userFile); --language gives the language of its mails'),
+			'activate'=>Array('args'=>'<user> <code> [--typeItIn]', 'about'=>'activates a pending user with its code, and gives it a password (nativeDb)'),
 			'lockUser'=>Array('args'=>'<user>', 'about'=>'locks a user'),
 			'freeUser'=>Array('args'=>'<user>', 'about'=>'unlocks a user'),
 			'giveRole'=>Array('args'=>'<user> <role>', 'about'=>'gives a user another role'),
 			'dropUser'=>Array('args'=>'<user>', 'about'=>'removes a user'),
-			'resetPwd'=>Array('args'=>'<user> [--noExpiry]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noExpiry: no end) (native), a new password (usrlst)'),
-			'approves'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (native)'),
+			'resetPwd'=>Array('args'=>'<user> [--noExpiry]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noExpiry: no end) (nativeDb), a new password (userFile)'),
+			'approves'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (nativeDb)'),
 			'setEmail'=>Array('args'=>'<user> [address]', 'about'=>'gives a user a mail address, or takes it away when none is given'),
 			'language'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (LNG_DFLT) then'),
 			'password'=>Array('args'=>'<user> [--typeItIn]', 'about'=>'gives a user a new password'),
@@ -124,7 +124,7 @@ class Manage extends Command{
 		$roleNme = strval($this->optnObject->shiftFirstWord() ?? '');
 		$langTag = $this->optnObject->retrieveOption('language');
 		$langTag = ($langTag!==null) ? strval($langTag) : null;
-		if( $this->usersStore=='native' ){
+		if( $this->usersStore=='nativeDb' ){
 			$newCode = $storObj->enrolUsrString($usrName, $roleNme, null, $this->codesLastCount(), $langTag);
 			if( $newCode===false ){
 				$this->stopStoreError($storObj);
@@ -152,7 +152,7 @@ class Manage extends Command{
 	 */
 	public function invokeActivate(): Int {
 		$storObj = $this->openUsersStore();
-		if( $this->usersStore!='native' ){
+		if( $this->usersStore!='nativeDb' ){
 			$this->terminateShell('The users file knows no activation: a user is created active', self::EXIT_DENY);
 		}
 		$usrName = $this->needsShellWord('the user');
@@ -245,7 +245,7 @@ class Manage extends Command{
 	 */
 	public function invokeResetPwd(): Int {
 		$storObj = $this->openUsersStore();
-		if( $this->usersStore!='native' ){
+		if( $this->usersStore!='nativeDb' ){
 			return $this->passwdSetCount( $storObj, $this->needsShellWord('the user') );
 		}
 		$usrName = $this->needsShellWord('the user');
@@ -266,7 +266,7 @@ class Manage extends Command{
 	 */
 	public function invokeApproves(): Int {
 		$storObj = $this->openUsersStore();
-		if( $this->usersStore!='native' ){
+		if( $this->usersStore!='nativeDb' ){
 			$this->terminateShell('The users file knows no sign-up: a user is created active', self::EXIT_DENY);
 		}
 		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
@@ -360,7 +360,7 @@ class Manage extends Command{
 		if( !$dataStoreObj->savePasswdFlag($namedUserTxt, $passArr['pass']) ){
 			$this->stopStoreError($dataStoreObj, 'Password not written: the user is unknown, or its store cannot be written');
 		}
-		if( $this->usersStore=='native' ){
+		if( $this->usersStore=='nativeDb' ){
 			$this->traceShellDone( 'Password of user '.json_encode($namedUserTxt).' set' );
 		}
 		$this->printerObj->printShellPair('password set', $namedUserTxt);
@@ -393,7 +393,7 @@ class Manage extends Command{
 		if( $newTokn===false ){
 			$this->stopStoreError($storObj, 'No token made: the user is unknown or not active, or its store cannot be written');
 		}
-		if( $this->usersStore=='native' ){
+		if( $this->usersStore=='nativeDb' ){
 			$this->traceShellDone( 'Personal token of user '.json_encode($usrName).' made' );
 		}
 		$this->printerObj->printShellPair('token made', $usrName);
@@ -438,7 +438,7 @@ class Manage extends Command{
 		if( $newSecr===false ){
 			$this->stopStoreError($storObj, 'No 2FA secret made: the user is unknown or not active, or its store cannot be written');
 		}
-		if( $this->usersStore=='native' ){
+		if( $this->usersStore=='nativeDb' ){
 			$this->traceShellDone( '2FA secret of user '.json_encode($usrName).' made' );
 		}
 		$this->printerObj->printShellPair('2FA set', $usrName);
@@ -522,19 +522,19 @@ class Manage extends Command{
 	 * @throws \nyu\Shell\ShellStop When no store is named, or its block is missing.
 	 */
 	protected function openUsersStore(): Object {
-		$lgnConf = $this->accessSettings('login');
-		$lgnAuth = strval($lgnConf['authby'] ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('useStore', in_array($lgnAuth, Array('native', 'usrlst'), true) ? $lgnAuth : '') );
-		if( !in_array($storNme, Array('native', 'usrlst'), true) ){
-			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=native or --useStore=usrlst', self::EXIT_HELP);
+		$lgnConf = $this->accessSettings('loginSet');
+		$lgnAuth = strval($lgnConf['authWith'] ?? '');
+		$storNme = strval( $this->optnObject->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : '') );
+		if( !in_array($storNme, Array('nativeDb', 'userFile'), true) ){
+			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=nativeDb or --useStore=userFile', self::EXIT_HELP);
 		}
-		$blckNme = strval( $this->optnObject->retrieveOption('useBlock', ($lgnAuth==$storNme) ? strval($lgnConf['authcf'] ?? $storNme) : $storNme) );
+		$blckNme = strval( $this->optnObject->retrieveOption('useBlock', ($lgnAuth==$storNme) ? strval($lgnConf['authConf'] ?? $storNme) : $storNme) );
 		$blckCfg = $this->accessSettings($blckNme);
-		if( empty($blckCfg) && ($this->optnObject->validateOption('useBlock') || $storNme=='native') ){
+		if( empty($blckCfg) && ($this->optnObject->validateOption('useBlock') || $storNme=='nativeDb') ){
 			$this->terminateShell('conf/access.json has no "'.$blckNme.'" block', self::EXIT_DENY);
 		}
 		$this->usersStore = $storNme;
-		return ($storNme=='native') ? new UserBase($blckCfg) : new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
+		return ($storNme=='nativeDb') ? new UserBase($blckCfg) : new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'backup') );
 	}
 
 	/**
