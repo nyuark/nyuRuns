@@ -107,7 +107,7 @@ class Controller{
 			if( $isDeflt ){
 				$this->failStatus = 500;
 				$this->loadFailed = 'Internal Server Error';
-				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->savdAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltActn, or no action declared)' );
+				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->savdAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction, or no action declared)' );
 				return;
 			}
 			$this->loadFailed = 'Not Found';
@@ -157,15 +157,15 @@ class Controller{
 
 	/**
 	 * Resolves the action to run when the request names none: the
-	 * actionset's own $dfltActn when it sets one, otherwise the first
+	 * actionset's own $dfltAction when it sets one, otherwise the first
 	 * public method declared in the application's Actions class.
 	 *
 	 * @return String The default action name, or an empty string when the actionset declares no action.
 	 */
 	protected function dfltActionText(): String {
 		$clsProp = $this->actionsObj->getDefaultProperties();
-		if( !empty($clsProp['dfltActn']) && is_string($clsProp['dfltActn']) ){
-			return $clsProp['dfltActn'];
+		if( !empty($clsProp['dfltAction']) && is_string($clsProp['dfltAction']) ){
+			return $clsProp['dfltAction'];
 		}
 		foreach( $this->actionsObj->getMethods(\ReflectionMethod::IS_PUBLIC) as $mthObj ){
 			if( $mthObj->getDeclaringClass()->getName()==$this->actionsObj->getName() && !$mthObj->isStatic() && substr($mthObj->getName(), 0, 2)!='__' ){

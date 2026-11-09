@@ -120,6 +120,13 @@ if( $givnUrl!='' ){
 		Array(0=>Array('file', $nullDev, 'r'), 1=>Array('file', inTemporaryDir('server.out'), 'w'), 2=>Array('file', inTemporaryDir('server.err'), 'w')),
 		$pipeArr, WEB_DIR
 	);
+	// Stopped even when the script dies: the runner of the suite would wait for it
+	register_shutdown_function( function() use ( &$server ): Void {
+		if( is_resource($server) ){
+			proc_terminate($server);
+			proc_close($server);
+		}
+	} );
 	$baseUrl = 'http://127.0.0.1:'.$portNum;
 	$isReady = false;
 	for( $idx=0; $idx<50 && !$isReady; $idx++ ){
@@ -197,7 +204,7 @@ if( !$isReady ){
 	checkIdentical('auth route: an action of the closed Run reached by its path is a 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	checkIdentical('auth route: GET on one of its POST routes is refused', httpQuery('GET', $baseUrl.'/auth/openSess')['code'], 405);
 
-	// Default action : the one the application names in $dfltActn, otherwise its first declared action
+	// Default action : the one the application names in $dfltAction, otherwise its first declared action
 	$replyAr = httpQuery('GET', $baseUrl.'/probe', Array('X-Test-Runs'=>'1'));
 	checkIdentical('no action: the first declared action runs', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
@@ -450,7 +457,7 @@ if( !$isReady ){
 	// The login and the access of a privileged user are notices of the access log
 	$newLogs = substr(readsLogs('access'), $logMark);
 	checkPregMatch('access log: privileged login', $newLogs, '/\[NOTICE\] Privileged login granted for user "anna" \(sysadmin\) from \S+/');
-	checkPregMatch('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(sysadmin\) from \S+ to probe\/whoami/i');
+	checkPregMatch('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(sysadmin\) from \S+ to probe\/identify/i');
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=cleo&pass=pw-cleo');
 	checkIdentical('native round trip: a pending user gets no token, and is not told why', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
@@ -470,9 +477,9 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
 	checkIdentical('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"sysadmin"}'));
 
-	$sqlLink->exec("UPDATE users SET accessRole='system' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET accessRole='operator' WHERE userHandle='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
-	checkIdentical('token with a store: a role change applies at once', $replyAr['body'], '{"logged":true,"user":"anna","role":"system"}');
+	checkIdentical('token with a store: a role change applies at once', $replyAr['body'], '{"logged":true,"user":"anna","role":"operator"}');
 
 	$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
@@ -529,9 +536,9 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'user=henry');
 	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
 	checkIdentical('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 12));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'role=member');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'role=internal');
 	checkIdentical('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user","code":400}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList?stat=pendng', $mgrHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList?stat=awaiting', $mgrHead);
 	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userHandle'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userHandle', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/viewUser?user=henry', $mgrHead);
 	checkIdentical('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStatus'] ?? null), Array(200, 'awaiting'));
@@ -560,8 +567,8 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=henry&pass=pass-henry-2');
 	checkIdentical('password: the new one logs in', $replyAr['code'], 200);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/users/giveRole', $mgrHead, 'user=henry&role=system');
-	checkIdentical('users: a role is given', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","role":"system"}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/users/giveRole', $mgrHead, 'user=henry&role=operator');
+	checkIdentical('users: a role is given', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","role":"operator"}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/users/lockUser', $mgrHead, 'user=anna');
 	checkIdentical('users: a manager cannot lock itself', $replyAr['code'], 409);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/lockUser', $mgrHead, 'user=henry');
@@ -574,12 +581,12 @@ if( !$isReady ){
 	// Roles : what a route asks for ('rteRoles'), and the helpers of an action
 	$benHead = Array('Authorization'=>'Bearer '.$benToken);
 	$annHead = Array('Authorization'=>'Bearer '.$jwToken);
-	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=manage, probe/identify=system, /docs/*=system, /hello/$id=manage');
+	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=sysadmin, probe/identify=operator, /docs/*=operator, /hello/$id=sysadmin');
 	$logMark = strlen(readsLogs('access'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', $rolHead + $benHead);
 	checkIdentical('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	checkIdentical('roles: with no challenge', count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head'])), 0);
-	checkPregMatch('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(internal\) from \S+ to users\/index: role sysadmin needed/');
+	checkPregMatch('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(internal\) from \S+ to users\/fullList: role sysadmin needed/');
 	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $benHead);
 	checkIdentical('roles: so is its application, named without an action', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', $rolHead + $annHead);
@@ -602,21 +609,21 @@ if( !$isReady ){
 	checkIdentical('roles: a page is a 404, not the sign-in route', Array($replyAr['code'], count(preg_grep('/^Location:/i', $replyAr['head']))), Array(404, 0));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList', $prbHead + $benHead);
-	checkIdentical('roles: what a member holds', $replyAr['body'], '{"member":true,"system":false,"manage":false}');
+	checkIdentical('roles: what a member holds', $replyAr['body'], '{"internal":true,"operator":false,"sysadmin":false}');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList', $prbHead + $annHead);
-	checkIdentical('roles: what a manager holds', $replyAr['body'], '{"member":true,"system":true,"manage":true}');
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList/system', $prbHead + $benHead);
+	checkIdentical('roles: what a manager holds', $replyAr['body'], '{"internal":true,"operator":true,"sysadmin":true}');
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList/operator', $prbHead + $benHead);
 	checkIdentical('roles: an action asking for a role itself', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList/system', $prbHead + $annHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList/operator', $prbHead + $annHead);
 	checkIdentical('roles: and going on with it', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/roleList/root', $prbHead + $annHead);
 	checkIdentical('roles: an action asking for an unknown role is a 500', $replyAr['code'], 500);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/sanitize', Array('X-Test-Roles'=>'users/*=admin') + $prbHead + $annHead);
 	checkIdentical('roles: an unknown role refuses every request', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/identify=member'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/identify=internal'));
 	checkIdentical('roles: an API key meets the member role', $replyAr['code'], 200);
-	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/identify=system'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/identify=operator'));
 	checkIdentical('roles: and no higher one', $replyAr['code'], 404);
 	$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
 

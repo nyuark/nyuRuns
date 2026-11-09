@@ -50,7 +50,8 @@ if( isset($_SERVER['HTTP_X_TEST_CERT']) ){
 $overArr = Array();
 // defaults and manually are closed : a request naming no access control, on either of them, is served open, as the tests were written for
 if( !isset($_SERVER['HTTP_X_TEST_AUTH']) && in_array($_SERVER['HTTP_X_TEST_PRESET'] ?? '', Array('', 'defaults', 'manually'), true) ){
-	$overArr['security'] = Array('required'=>false);
+	// The roles of the preset's routes go with it: roles asked for while access is not required refuse every request
+	$overArr['security'] = Array('required'=>false, 'rteRoles'=>Array());
 }
 if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
 	$overArr['security'] = Array('required'=>true, 'sessWith'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authWith'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regdKeys', 'sessConf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
