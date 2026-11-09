@@ -5,7 +5,7 @@ namespace nyu\Data\DBStore;
 /**
  * Reads a filter array into plain conditions. The reading is the same for
  * every kind of database; each store then writes the conditions in its own
- * language: the SQL handlers through their makeWhere(), a document store
+ * language: the SQL handlers through their makeWhereArray(), a document store
  * with its own query.
  */
 class Filter {
@@ -32,22 +32,22 @@ class Filter {
 	 * any text; each store writes it its own way), among and nmong (the value is a list), unset and isset
 	 * (no value), never and every (no field: always false, always true).
 	 *
-	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
+	 * @param Array $filterFields Map of field name => value (or array of values) to filter by.
 	 * @return Array The conditions, all of which a row must meet.
 	 *
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
-	public static function readWhere( Array $whereArray ): Array {
+	public static function readWhereArray( Array $filterFields ): Array {
 		// The longer suffixes are looked for first
-		$oprtLst = Array('!~'=>'nmtch', '<='=>'undeq', '>='=>'aboeq', '~'=>'match', '!'=>'diffr', '<'=>'under', '>'=>'above', '?'=>'isset', '='=>'equal');
-		$cndList = Array();
-		foreach($whereArray as $fldNme=>$fldVal){
+		$opCodes = Array('!~'=>'nmtch', '<='=>'undeq', '>='=>'aboeq', '~'=>'match', '!'=>'diffr', '<'=>'under', '>'=>'above', '?'=>'isset', '='=>'equal');
+		$clauses = Array();
+		foreach($filterFields as $fldNme=>$fldVal){
 			$fldNme = strval($fldNme);
 			$operatr = 'equal';
-			foreach($oprtLst as $sfx=>$oprCod){
-				if( substr($fldNme, -strlen($sfx))==$sfx ){
-					$operatr = $oprCod;
-					$fldNme = substr($fldNme, 0, -strlen($sfx));
+			foreach($opCodes as $sfxInc=>$opCode){
+				if( substr($fldNme, -strlen($sfxInc))==$sfxInc ){
+					$operatr = $opCode;
+					$fldNme = substr($fldNme, 0, -strlen($sfxInc));
 					break;
 				}
 			}
@@ -60,26 +60,26 @@ class Filter {
 				if( !is_bool($fldVal) ){
 					throw new \RuntimeException('The ? suffix takes true or false: '.$fldNme);
 				}
-				$cndList[] = Array('field'=>$fldNme, 'opert'=>($fldVal ? 'isset' : 'unset'), 'value'=>null);
+				$clauses[] = Array('field'=>$fldNme, 'opert'=>($fldVal ? 'isset' : 'unset'), 'value'=>null);
 			}elseif( is_array($fldVal) ){
-				$lstVals = array_values(array_filter($fldVal, function($fieldValue){ return $fieldValue!==null && $fieldValue!==''; }));
-				if( empty($lstVals) ){
+				$listVls = array_values(array_filter($fldVal, function($fieldContent){ return $fieldContent!==null && $fieldContent!==''; }));
+				if( empty($listVls) ){
 					// An empty list matches nothing, its negation everything
-					$cndList[] = Array('field'=>'', 'opert'=>($negated ? 'every' : 'never'), 'value'=>null);
+					$clauses[] = Array('field'=>'', 'opert'=>($negated ? 'every' : 'never'), 'value'=>null);
 				}else{
-					$cndList[] = Array('field'=>$fldNme, 'opert'=>($negated ? 'nmong' : 'among'), 'value'=>$lstVals);
+					$clauses[] = Array('field'=>$fldNme, 'opert'=>($negated ? 'nmong' : 'among'), 'value'=>$listVls);
 				}
 			}elseif( $fldVal===null ){
 				// A null value matches nothing, like a comparison with NULL in SQL
-				$cndList[] = Array('field'=>'', 'opert'=>'never', 'value'=>null);
+				$clauses[] = Array('field'=>'', 'opert'=>'never', 'value'=>null);
 			}else{
 				// A match is made on a text : its * is any text, and nothing else in it is a wildcard
 				if( $operatr=='match' || $operatr=='nmtch' ){
 					$fldVal = is_scalar($fldVal) ? strval($fldVal) : '';
 				}
-				$cndList[] = Array('field'=>$fldNme, 'opert'=>$operatr, 'value'=>$fldVal);
+				$clauses[] = Array('field'=>$fldNme, 'opert'=>$operatr, 'value'=>$fldVal);
 			}
 		}
-		return $cndList;
+		return $clauses;
 	}
 }

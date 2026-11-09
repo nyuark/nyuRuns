@@ -8,45 +8,45 @@ namespace nyu\Data\DBHndlr;
 Class PgSQL extends PDO {
 
 	// Names are quoted with double quotes, and wildcard searches ignore the case as they do on the other types
-	protected	$quoteChr = '"';
-	protected	$likeWord = 'ILIKE';
+	protected	$qutCharctr = '"';
+	protected	$likeSyntax = 'ILIKE';
 
 	/**
 	 * Creates the underlying PDO connection for PostgreSQL.
 	 *
-	 * @param String $serverHost Database host.
-	 * @param String $serverUser Database user.
-	 * @param String $serverPass Database password.
-	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param String $databaseHost Database host.
+	 * @param String $serverUsrTxt Database user.
+	 * @param String $hostPassText Database password.
+	 * @param String $hostBaseText Database name.
+	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
-	public function openDBase(String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array()): Void {
-		$this->dbDriver = new \PDO($this->dsnString($serverHost, $serverBase, $moreParams), $serverUser, $serverPass, $this->pdoOption($moreParams));
+	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()): Void {
+		$this->baseDriver = new \PDO($this->buildDsnString($databaseHost, $hostBaseText, $moreParamtrs), $serverUsrTxt, $hostPassText, $this->pdoOptionArray($moreParamtrs));
 	}
 
 	/**
 	 * Builds the connection string. The port and the character set are
 	 * only written when they are given: without them, the server decides.
 	 *
-	 * @param String $serverHost Database host.
-	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param String $databaseHost Database host.
+	 * @param String $hostBaseText Database name.
+	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
 	 * @return String The PDO connection string.
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
-	protected function dsnString(String $serverHost, String $serverBase, Array $moreParams=Array()): String {
-		$dsnText = "pgsql:host=$serverHost;dbname=$serverBase";
-		$prtNmbr = strval($moreParams['port'] ?? '');
-		if( $prtNmbr!='' ){
-			if( !ctype_digit($prtNmbr) ){
-				throw new \RuntimeException('Invalid database port: '.$prtNmbr);
+	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $moreParamtrs=Array()): String {
+		$dsnText = "pgsql:host=$databaseHost;dbname=$hostBaseText";
+		$partNum = strval($moreParamtrs['port'] ?? '');
+		if( $partNum!='' ){
+			if( !ctype_digit($partNum) ){
+				throw new \RuntimeException('Invalid database port: '.$partNum);
 			}
-			$dsnText .= ';port='.$prtNmbr;
+			$dsnText .= ';port='.$partNum;
 		}
-		$charSet = strval($moreParams['char'] ?? '');
+		$charSet = strval($moreParamtrs['char'] ?? '');
 		if( $charSet!='' ){
 			// A character set name (UTF8, LATIN1), not a collation
 			if( !preg_match('/^[A-Za-z0-9]+$/D', $charSet) ){
@@ -61,20 +61,20 @@ Class PgSQL extends PDO {
 	 * Describes a table, through the PostgreSQL catalogue: its field names
 	 * and its primary key.
 	 *
-	 * @param String $tableLabel Name of the table.
+	 * @param String $tbleLabelTxt Name of the table.
 	 * @return Array|Bool The field names under 'flds', the primary key field under 'pkey' ('' when the table has none) and the binary fields under 'blob', or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfo(String $tableLabel): Array|Bool {
-		$infQury = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
+	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+		$infoQry = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
 			.' LEFT JOIN pg_index i ON i.indrelid = a.attrelid AND i.indisprimary AND a.attnum = ANY(i.indkey)'
 			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
 		// The quoted name keeps the case of the table as it is written
-		if( !$this->sendQuery($infQury, false, Array($this->quoteName($tableLabel))) ){
+		if( !$this->sendBuiltQuery($infoQry, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
 			return false;
 		}
-		$fldRows = $this->readQuery(true);
+		$fldRows = $this->readLastResult(true);
 		if( !is_array($fldRows) || empty($fldRows) ){
 			return false;
 		}
@@ -96,9 +96,9 @@ Class PgSQL extends PDO {
 	 *
 	 * @return String|Bool The last insert ID, or false when the insert did not draw a key from a sequence.
 	 */
-	public function lastAdded(): String|Bool {
+	public function finalAddedText(): String|Bool {
 		try{
-			return $this->dbDriver->lastInsertId();
+			return $this->baseDriver->lastInsertId();
 		}catch(\PDOException $e ){
 			return false;
 		}

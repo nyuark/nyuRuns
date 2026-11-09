@@ -19,30 +19,30 @@ namespace nyu\Data\DBStore;
 interface Store{
 
 	// Greatest size read from a binary field unless told otherwise: 16 MB
-	const BLOBSIZE = 16777216;
-	// The functions a list may select (see DBLst::fieldScop): aggregates every SQL database reads the same way
-	const FUNCLIST = Array('count', 'min', 'max', 'sum', 'avg');
+	const BLOB_SIZE = 16777216;
+	// The functions a list may select (see DBLst::pickReadFields): aggregates every SQL database reads the same way
+	const FUNC_LIST = Array('count', 'min', 'max', 'sum', 'avg');
 
 	/**
 	 * Checks a table or field name: letters, digits and underscores, with
 	 * an optional table prefix (`table.field`).
 	 *
-	 * @param String $fieldLabel The table or field name.
+	 * @param String $fldLabelText The table or field name.
 	 * @return String The name, as given.
 	 *
 	 * @throws \RuntimeException When the name holds any other character.
 	 */
-	public function checkName(String $fieldLabel): String;
+	public function checkNameChars(String $fldLabelText): String;
 
 	/**
 	 * Describes a table: its field names, its key field and its binary fields.
 	 *
-	 * @param String $tableLabel Name of the table.
+	 * @param String $tbleLabelTxt Name of the table.
 	 * @return Array|Bool The field names under 'flds' (empty when the store sets no list of fields) the key field under 'pkey' ('' when the table has none) and the binary fields under 'blob' (empty when the store tells them value by value), or false when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfo(String $tableLabel): Array|Bool;
+	public function tableInfoArray(String $tbleLabelTxt): Array|Bool;
 
 	/**
 	 * Reads the rows of a table matching a filter.
@@ -59,50 +59,50 @@ interface Store{
 	 *   'group' => list of the fields to group by;
 	 *   'devel' => Array of 'field', 'where', 'order' and 'limit' fragments written as SQL by the developer.
 	 *
-	 * @param String $tableLabel Name of the table.
-	 * @param Array  $whereArray Filter array, empty for every row.
-	 * @param Array  $findOption Options of the reading, see above.
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @param Array  $filterFields Filter array, empty for every row.
+	 * @param Array  $queryOptions Options of the reading, see above.
 	 * @return Array|Bool The rows, each an array of its fields, a binary one as a flux (nyu\Data\Fluxd), or false on failure.
 	 *
 	 * @throws \RuntimeException When a name is not valid, an option is not supported by the store, or a binary field is larger than accepted.
 	 */
-	public function findItems(String $tableLabel, Array $whereArray=Array(), Array $findOption=Array()): Array|Bool;
+	public function findItemsArray(String $tbleLabelTxt, Array $filterFields=Array(), Array $queryOptions=Array()): Array|Bool;
 
 	/**
 	 * Adds a row to a table.
 	 *
-	 * @param String $tableLabel Name of the table.
-	 * @param Array  $valueArray Map of field name => value of the new row; a flux (nyu\Data\Fluxd) for a binary field.
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @param Array  $fieldValList Map of field name => value of the new row; a flux (nyu\Data\Fluxd) for a binary field.
 	 * @return String|Bool The key the database gave to the row, '' when it gave none, or false on failure.
 	 *
 	 * @throws \RuntimeException When a name is not valid.
 	 */
-	public function insertRow(String $tableLabel, Array $valueArray): String|Bool;
+	public function insertTableRow(String $tbleLabelTxt, Array $fieldValList): String|Bool;
 
 	/**
 	 * Changes the rows of a table matching a filter. An empty filter is
 	 * refused: a store never changes a whole table at once.
 	 *
-	 * @param String $tableLabel Name of the table.
-	 * @param Array  $whereArray Filter array of the rows to change.
-	 * @param Array  $valueArray Map of field name => new value; a flux (nyu\Data\Fluxd) for a binary field.
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @param Array  $filterFields Filter array of the rows to change.
+	 * @param Array  $fieldValList Map of field name => new value; a flux (nyu\Data\Fluxd) for a binary field.
 	 * @return Int|Bool The number of rows concerned, which may be 0, or false on failure.
 	 *
 	 * @throws \RuntimeException When a name is not valid, or the filter is empty.
 	 */
-	public function updateRow(String $tableLabel, Array $whereArray, Array $valueArray): Int|Bool;
+	public function updateRowCount(String $tbleLabelTxt, Array $filterFields, Array $fieldValList): Int|Bool;
 
 	/**
 	 * Deletes the rows of a table matching a filter. An empty filter is
 	 * refused: a store never empties a whole table at once.
 	 *
-	 * @param String $tableLabel Name of the table.
-	 * @param Array  $whereArray Filter array of the rows to delete.
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @param Array  $filterFields Filter array of the rows to delete.
 	 * @return Int|Bool The number of rows deleted, which may be 0, or false on failure.
 	 *
 	 * @throws \RuntimeException When a name is not valid, or the filter is empty.
 	 */
-	public function deleteRow(String $tableLabel, Array $whereArray): Int|Bool;
+	public function deleteRowCount(String $tbleLabelTxt, Array $filterFields): Int|Bool;
 
 	/**
 	 * Tells whether the store has transactions. Without them, what needs
@@ -110,7 +110,7 @@ interface Store{
 	 *
 	 * @return Bool True when changes can be grouped in a transaction.
 	 */
-	public function canTrnsct(): Bool;
+	public function canTransaction(): Bool;
 	
 	/**
 	 * Starts a transaction. Inside an open transaction, this only adds a
@@ -118,7 +118,7 @@ interface Store{
 	 *
 	 * @return Bool True when the transaction is open, false on failure or when the store has no transactions.
 	 */
-	public function opnTrnsct(): Bool;
+	public function opnTransaction(): Bool;
 
 	/**
 	 * Makes the changes of the transaction permanent. On an inner level,
@@ -126,14 +126,14 @@ interface Store{
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function setTrnsct(): Bool;
+	public function setTransaction(): Bool;
 
 	/**
 	 * Cancels the changes of the whole transaction, outer levels included.
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function remTrnsct(): Bool;
+	public function remTransaction(): Bool;
 
 	/**
 	 * Returns the error of the last call. Each call clears the error of
@@ -141,6 +141,6 @@ interface Store{
 	 *
 	 * @return String|Bool The error message, or false when the last call succeeded.
 	 */
-	public function lastError(): String|Bool;
+	public function finalErrorText(): String|Bool;
 
 }

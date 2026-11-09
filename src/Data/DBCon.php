@@ -9,18 +9,18 @@ use \nyu\Data\DBHndlr;
  */
 class DBCon {
 	// Open connections, by database name; the default one is under ''
-	private static 	$linkList = Array();
-	public 			$dbHandle;
-	protected 		$storeObj;
+	private static 	$knownLinks = Array();
+	public 			$baseHandle;
+	protected 		$storObject;
 
 	// Handler class of each SQL database type code
-	private const TYPELIST = Array('mysql'=>'MySQL', 'sqlte'=>'SQLite', 'pgsql'=>'PgSQL');
+	private const TYPE_LIST = Array('mysql'=>'MySQL', 'sqlte'=>'SQLite', 'pgsql'=>'PgSQL');
 	// Store class of each database type that is not SQL: those have no handler
-	private const STORLIST = Array('mongo'=>'MongoStore');
+	private const STOR_LIST = Array('mongo'=>'MongoStore');
 
 	/**
-	 * Private: connections are opened through linkNamed(), getInstnc() or
-	 * fromStore().
+	 * Private: connections are opened through linkNamedDbCon(), obtainInstance() or
+	 * fromStoreDbCon().
 	 */
 	private function __construct(){
 	}
@@ -29,35 +29,35 @@ class DBCon {
 	 * Opens the connection of a database of the given type: an SQL type
 	 * through its handler, any other through its own store.
 	 *
-	 * @param String $serverType Database type code ('mysql'), or the name of a handler class under nyu\Data\DBHndlr. 'PDO', the former name of the MySQL handler, is still accepted.
-	 * @param String $serverHost Database host.
-	 * @param String $serverUser Database user.
-	 * @param String $serverPass Database password.
-	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
-	 * @param String $dbaseLabel Name of the database in the config, '' for the default one: the config cache keeps the descriptions of its tables under it.
+	 * @param String $hostTypeText Database type code ('mysql'), or the name of a handler class under nyu\Data\DBHndlr. 'PDO', the former name of the MySQL handler, is still accepted.
+	 * @param String $databaseHost Database host.
+	 * @param String $serverUsrTxt Database user.
+	 * @param String $hostPassText Database password.
+	 * @param String $hostBaseText Database name.
+	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param String $databasLabel Name of the database in the config, '' for the default one: the config cache keeps the descriptions of its tables under it.
 	 *
 	 * @return DBCon The new connection.
 	 *
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
 	 */
-	private static function buildLink( String $serverType, String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array(), String $dbaseLabel='' ): DBCon {
+	private static function buildLinkDbCon( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array(), String $databasLabel='' ): DBCon {
 		$newLink = new DBCon();
-		$typeKey = strtolower($serverType);
+		$typeKey = strtolower($hostTypeText);
 		if( $typeKey=='pdo' ){
 			$typeKey = 'mysql';
 		}
-		if( isset(self::STORLIST[$typeKey]) ){
-			$storCls = '\\nyu\\Data\\DBStore\\'.self::STORLIST[$typeKey];
-			$newLink->storeObj = new $storCls($serverHost, $serverUser, $serverPass, $serverBase, $moreParams);
+		if( isset(self::STOR_LIST[$typeKey]) ){
+			$storCls = '\\nyu\\Data\\DBStore\\'.self::STOR_LIST[$typeKey];
+			$newLink->storObject = new $storCls($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs);
 			return $newLink;
 		}
-		$dbClass = '\\nyu\\Data\\DBHndlr\\'.(self::TYPELIST[$typeKey] ?? $serverType);
-		if( !preg_match('/^\w+$/D', $serverType) || !class_exists($dbClass) || !is_subclass_of($dbClass, DBHndlr\Handler::class) ){
-			throw new \RuntimeException('Unknown database type: '.$serverType);
+		$dbClass = '\\nyu\\Data\\DBHndlr\\'.(self::TYPE_LIST[$typeKey] ?? $hostTypeText);
+		if( !preg_match('/^\w+$/D', $hostTypeText) || !class_exists($dbClass) || !is_subclass_of($dbClass, DBHndlr\Handler::class) ){
+			throw new \RuntimeException('Unknown database type: '.$hostTypeText);
 		}
-		$newLink->dbHandle = new $dbClass($serverHost, $serverUser, $serverPass, $serverBase, $moreParams);
-		$newLink->storeObj = new DBStore\SqlStore($newLink->dbHandle, $dbaseLabel);
+		$newLink->baseHandle = new $dbClass($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs);
+		$newLink->storObject = new DBStore\SqlStore($newLink->baseHandle, $databasLabel);
 		return $newLink;
 	}
 	
@@ -66,12 +66,12 @@ class DBCon {
 	 * configured databases. It is not kept: the caller hands it to the
 	 * lists and records that use it.
 	 *
-	 * @param DBStore\Store $storeObjct The store.
+	 * @param DBStore\Store $dataStoreObj The store.
 	 * @return DBCon A connection working through that store.
 	 */
-	public static function fromStore( DBStore\Store $storeObjct ): DBCon {
+	public static function fromStoreDbCon( DBStore\Store $dataStoreObj ): DBCon {
 		$newLink = new DBCon();
-		$newLink->storeObj = $storeObjct;
+		$newLink->storObject = $dataStoreObj;
 		return $newLink;
 	}
 
@@ -81,52 +81,52 @@ class DBCon {
 	 *
 	 * @return DBStore\Store The store of this connection.
 	 */
-	public function dataStore(): DBStore\Store {
-		return $this->storeObj;
+	public function getStoreObject(): DBStore\Store {
+		return $this->storObject;
 	}
 	
 	/**
 	 * Returns the connection of the default database, opening it on first
 	 * call with the given settings. Later calls ignore their arguments and
 	 * return the connection already open. Code that relies on the
-	 * configuration uses linkNamed() instead.
+	 * configuration uses linkNamedDbCon() instead.
 	 *
-	 * @param String $serverType Database type code ('mysql'), or the name of a handler class under nyu\Data\DBHndlr.
-	 * @param String $serverHost Database host.
-	 * @param String $serverUser Database user.
-	 * @param String $serverPass Database password.
-	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param String $hostTypeText Database type code ('mysql'), or the name of a handler class under nyu\Data\DBHndlr.
+	 * @param String $databaseHost Database host.
+	 * @param String $serverUsrTxt Database user.
+	 * @param String $hostPassText Database password.
+	 * @param String $hostBaseText Database name.
+	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
 	 * @return DBCon The connection of the default database.
 	 *
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
 	 */
-	public static function getInstnc( String $serverType, String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array() ): DBCon {
-		if( !isset(self::$linkList['']) ){
-			self::$linkList[''] = self::buildLink($serverType, $serverHost, $serverUser, $serverPass, $serverBase, $moreParams);
+	public static function obtainInstance( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array() ): DBCon {
+		if( !isset(self::$knownLinks['']) ){
+			self::$knownLinks[''] = self::buildLinkDbCon($hostTypeText, $databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs);
 		}
-		return self::$linkList[''];
+		return self::$knownLinks[''];
 	}
 	
 	/**
 	 * Returns the connection of a configured database, opening it the
 	 * first time it is asked for. Each database has a single connection.
 	 *
-	 * @param String $dbaseLabel Name of the database, whatever its case; '' for the default one.
+	 * @param String $databasLabel Name of the database, whatever its case; '' for the default one.
 	 * @return DBCon The connection of that database.
 	 *
 	 * @throws \RuntimeException When no database is configured, none has that name, or its type is unknown.
 	 */
-	public static function linkNamed( String $dbaseLabel='' ): DBCon {
-		if( $dbaseLabel=='' && isset(self::$linkList['']) ){
-			return self::$linkList[''];
+	public static function linkNamedDbCon( String $databasLabel='' ): DBCon {
+		if( $databasLabel=='' && isset(self::$knownLinks['']) ){
+			return self::$knownLinks[''];
 		}
-		$baseSet = self::readSetup($dbaseLabel);
+		$baseSet = self::readSetupArray($databasLabel);
 		$nameKey = $baseSet['name'];
-		if( !isset(self::$linkList[$nameKey]) ){
-			self::$linkList[$nameKey] = self::buildLink($baseSet['type'], $baseSet['host'], $baseSet['user'], $baseSet['pass'], $baseSet['base'], Array('port'=>$baseSet['port'], 'char'=>$baseSet['char'], 'auth'=>$baseSet['auth'], 'wait'=>$baseSet['wait']), $nameKey);
+		if( !isset(self::$knownLinks[$nameKey]) ){
+			self::$knownLinks[$nameKey] = self::buildLinkDbCon($baseSet['type'], $baseSet['host'], $baseSet['user'], $baseSet['pass'], $baseSet['base'], Array('port'=>$baseSet['port'], 'char'=>$baseSet['char'], 'auth'=>$baseSet['auth'], 'wait'=>$baseSet['wait']), $nameKey);
 		}
-		return self::$linkList[$nameKey];
+		return self::$knownLinks[$nameKey];
 	}
 	
 	/**
@@ -134,13 +134,13 @@ class DBCon {
 	 * holds either a single block of settings, or several blocks under
 	 * names: the first block is then the default database.
 	 *
-	 * @param String $dbaseLabel Name of the database, whatever its case; '' for the default one.
+	 * @param String $databasLabel Name of the database, whatever its case; '' for the default one.
 	 * @return Array The 'type', 'host', 'port', 'base', 'user', 'pass', 'char', 'auth' and 'wait' settings, '' for those left out.
 	 *
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
-	public static function baseSetup( String $dbaseLabel='' ): Array {
-		$baseSet = self::readSetup($dbaseLabel);
+	public static function baseSetupArray( String $databasLabel='' ): Array {
+		$baseSet = self::readSetupArray($databasLabel);
 		unset($baseSet['name']);
 		return $baseSet;
 	}
@@ -149,31 +149,31 @@ class DBCon {
 	 * Finds the settings of a configured database, and the name its
 	 * connection is kept under.
 	 *
-	 * @param String $dbaseLabel Name of the database, whatever its case; '' for the default one.
-	 * @return Array The settings of baseSetup(), plus 'name': the name in lower case, '' for the default database.
+	 * @param String $databasLabel Name of the database, whatever its case; '' for the default one.
+	 * @return Array The settings of baseSetupArray(), plus 'name': the name in lower case, '' for the default database.
 	 *
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
-	private static function readSetup( String $dbaseLabel ): Array {
+	private static function readSetupArray( String $databasLabel ): Array {
 		$dfltSet = Array('type'=>'', 'host'=>'', 'port'=>'', 'base'=>'', 'user'=>'', 'pass'=>'', 'char'=>'', 'auth'=>'', 'wait'=>'');
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$allBase = $nyuConf ? $nyuConf->readValue('database') : null;
+		$allBase = $nyuConf ? $nyuConf->readFileDetail('database') : null;
 		if( !is_array($allBase) || empty($allBase) ){
 			throw new \RuntimeException('No database is configured');
 		}
 		$allBase = array_change_key_case($allBase, CASE_LOWER);
 		if( array_key_exists('type', $allBase) ){
 			// A single block of settings: it has no name, and is the default
-			if( $dbaseLabel!='' ){
-				throw new \RuntimeException('Unknown database: '.$dbaseLabel);
+			if( $databasLabel!='' ){
+				throw new \RuntimeException('Unknown database: '.$databasLabel);
 			}
 			$baseSet = $allBase;
 			$nameKey = '';
 		}else{
 			$frstKey = strval(array_key_first($allBase));
-			$nameKey = ($dbaseLabel=='') ? $frstKey : strtolower($dbaseLabel);
+			$nameKey = ($databasLabel=='') ? $frstKey : strtolower($databasLabel);
 			if( !isset($allBase[$nameKey]) || !is_array($allBase[$nameKey]) ){
-				throw new \RuntimeException('Unknown database: '.$dbaseLabel);
+				throw new \RuntimeException('Unknown database: '.$databasLabel);
 			}
 			$baseSet = array_change_key_case($allBase[$nameKey], CASE_LOWER);
 			// The first block is the default, whether asked by its name or not
@@ -191,7 +191,7 @@ class DBCon {
 	 *
 	 * @return ?\nyu\Data\DBHndlr\Handler The SQL handler of the connection, null when the database is not an SQL one.
 	 */
-	public function getConnex(): ?DBHndlr\Handler {
-		return $this->dbHandle;
+	public function readConnection(): ?DBHndlr\Handler {
+		return $this->baseHandle;
 	}
 }

@@ -10,65 +10,65 @@ use nyu\Data\DBHndlr\Handler;
  */
 abstract Class PDO implements Handler {
 
-	public 		$dbDriver;
-	protected	$quoteChr = '`';
-	protected	$likeWord = 'LIKE';
-	private		$sqlQuery;
-	private		$queryRes;
-	private		$errorMsg = Array();
-	private		$transLvl = 0;
+	public 		$baseDriver;
+	protected	$qutCharctr = '`';
+	protected	$likeSyntax = 'LIKE';
+	private		$builtQuery;
+	private		$lastResult;
+	private		$errMessage = Array();
+	private		$transLevel = 0;
 	
 	/**
 	 * Opens the PDO database connection.
 	 *
-	 * @param String $serverHost Database host.
-	 * @param String $serverUser Database user.
-	 * @param String $serverPass Database password.
-	 * @param String $serverBase Database name.
-	 * @param Array  $moreParams Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param String $databaseHost Database host.
+	 * @param String $serverUsrTxt Database user.
+	 * @param String $hostPassText Database password.
+	 * @param String $hostBaseText Database name.
+	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
 	 */
-	public function __construct(String $serverHost, String $serverUser, String $serverPass, String $serverBase, Array $moreParams=Array()){
-		$this->openDBase($serverHost, $serverUser, $serverPass, $serverBase, $moreParams);
+	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()){
+		$this->openConnection($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs);
 	}
 	
 	/**
 	 * Sends a built SQL query to the database, either as a query (default,
 	 * for SELECTs) or as an exec (for INSERT/UPDATE/DELETE).
 	 *
-	 * @param String $builtQuery The SQL query to execute.
-	 * @param Bool   $query2Exec Whether to run the query via PDO::exec() instead of PDO::query().
-	 * @param Array  $boundArray Values bound, in order, to the ? placeholders of the query.
-	 * @return Bool True on success, false on failure (error recorded in lastError()).
+	 * @param String $createdQuery The SQL query to execute.
+	 * @param Bool   $isWriteQuery Whether to run the query via PDO::exec() instead of PDO::query().
+	 * @param Array  $valuesToBind Values bound, in order, to the ? placeholders of the query.
+	 * @return Bool True on success, false on failure (error recorded in finalErrorText()).
 	 */
-	public function sendQuery(String $builtQuery, Bool $query2Exec=false, Array $boundArray=Array()): Bool {
+	public function sendBuiltQuery(String $createdQuery, Bool $isWriteQuery=false, Array $valuesToBind=Array()): Bool {
 		try{
 			// The error and the result of the previous query do not outlive it
-			$this->errorMsg = Array();
-			$this->queryRes = false;
-			$this->sqlQuery = $builtQuery;
-			$errSrce = $this->dbDriver;
-			if( !empty($boundArray) ){
-				$prepStm = $this->dbDriver->prepare($this->sqlQuery);
-				if( $prepStm!==false && $this->bindsExec($prepStm, array_values($boundArray)) ){
-					$prepStm->setFetchMode(\PDO::FETCH_ASSOC);
-					$this->queryRes = $query2Exec ? $prepStm->rowCount() : $prepStm;
+			$this->errMessage = Array();
+			$this->lastResult = false;
+			$this->builtQuery = $createdQuery;
+			$errrSrc = $this->baseDriver;
+			if( !empty($valuesToBind) ){
+				$stmtObj = $this->baseDriver->prepare($this->builtQuery);
+				if( $stmtObj!==false && $this->execBoundQuery($stmtObj, array_values($valuesToBind)) ){
+					$stmtObj->setFetchMode(\PDO::FETCH_ASSOC);
+					$this->lastResult = $isWriteQuery ? $stmtObj->rowCount() : $stmtObj;
 				}else{
-					$this->queryRes = false;
-					if( $prepStm!==false ) $errSrce = $prepStm;
+					$this->lastResult = false;
+					if( $stmtObj!==false ) $errrSrc = $stmtObj;
 				}
-			}elseif($query2Exec){
-				$this->queryRes = $this->dbDriver->exec($this->sqlQuery);
+			}elseif($isWriteQuery){
+				$this->lastResult = $this->baseDriver->exec($this->builtQuery);
 			}else{
-				$this->queryRes = $this->dbDriver->query($this->sqlQuery, \PDO::FETCH_ASSOC);
+				$this->lastResult = $this->baseDriver->query($this->builtQuery, \PDO::FETCH_ASSOC);
 			}
-			if($this->queryRes===false){
-				$this->errorMsg[] = "PDO Error: ".$errSrce->errorInfo()[2];
+			if($this->lastResult===false){
+				$this->errMessage[] = "PDO Error: ".$errrSrc->errorInfo()[2];
 				return false;
 			}else{
 				return true;
 			}
 		}catch(\PDOException  $e ){
-			$this->errorMsg[] = "PDO Error: ".$e->getMessage();
+			$this->errMessage[] = "PDO Error: ".$e->getMessage();
 			return false;
 		}
 	}
@@ -78,27 +78,27 @@ abstract Class PDO implements Handler {
 	 * every database type asks for; without one, the values are bound the
 	 * usual way.
 	 *
-	 * @param \PDOStatement $preparedSt The prepared query.
-	 * @param Array         $boundArray Its values, in order.
+	 * @param \PDOStatement $preparedStmt The prepared query.
+	 * @param Array         $valuesToBind Its values, in order.
 	 * @return Bool True when the query ran.
 	 */
-	protected function bindsExec(\PDOStatement $preparedSt, Array $boundArray): Bool {
+	protected function execBoundQuery(\PDOStatement $preparedStmt, Array $valuesToBind): Bool {
 		$hasBlob = false;
-		foreach($boundArray as $bndVal){
+		foreach($valuesToBind as $bndVal){
 			$hasBlob = $hasBlob || ($bndVal instanceof \nyu\Data\Fluxd);
 		}
 		if( !$hasBlob ){
-			return $preparedSt->execute($boundArray);
+			return $preparedStmt->execute($valuesToBind);
 		}
-		foreach($boundArray as $bndIdx=>$bndVal){
+		foreach($valuesToBind as $bndIdx=>$bndVal){
 			if( $bndVal instanceof \nyu\Data\Fluxd ){
-				$bndVal->goToStart();
-				$preparedSt->bindValue($bndIdx+1, $bndVal->readWhole(), \PDO::PARAM_LOB);
+				$bndVal->rewindToOrigin();
+				$preparedStmt->bindValue($bndIdx+1, $bndVal->getWholeString(), \PDO::PARAM_LOB);
 			}else{
-				$preparedSt->bindValue($bndIdx+1, $bndVal);
+				$preparedStmt->bindValue($bndIdx+1, $bndVal);
 			}
 		}
-		return $preparedSt->execute();
+		return $preparedStmt->execute();
 	}
 
 	/**
@@ -106,42 +106,42 @@ abstract Class PDO implements Handler {
 	 * single-column result down to a scalar and a single-row multi-column
 	 * result down to that one row, unless a list of rows is asked for.
 	 *
-	 * @param Bool $keepAsList Whether to always return a list of rows, even for a single row.
+	 * @param Bool $alwaysAsList Whether to always return a list of rows, even for a single row.
 	 * @return mixed Array of rows/row/scalar value, or false on error.
 	 */
-	public function readQuery( Bool $keepAsList=false ): Mixed {
-		if(isset($this->queryRes) && $this->queryRes!=false ){
-			$rowVals = Array();
-			if(is_array($this->queryRes) || is_object($this->queryRes)){
-				foreach($this->queryRes as $resRow){
-					$rowVals[] = $resRow;
+	public function readLastResult( Bool $alwaysAsList=false ): Mixed {
+		if(isset($this->lastResult) && $this->lastResult!=false ){
+			$rowData = Array();
+			if(is_array($this->lastResult) || is_object($this->lastResult)){
+				foreach($this->lastResult as $resRow){
+					$rowData[] = $resRow;
 				}
-				if($keepAsList){
-					return $rowVals;
+				if($alwaysAsList){
+					return $rowData;
 				}
-				if(count($rowVals)==0 || $rowVals[0]==null){
-					return $rowVals;
+				if(count($rowData)==0 || $rowData[0]==null){
+					return $rowData;
 				}
-				if( count($rowVals)>1 ){
-					return $rowVals;
+				if( count($rowData)>1 ){
+					return $rowData;
 				}else{
-					if( count($rowVals[0])>1 ){
-						return $rowVals[0];
+					if( count($rowData[0])>1 ){
+						return $rowData[0];
 					}else{
-						return current($rowVals[0]);
+						return current($rowData[0]);
 					}
 				}
 			}else{
-				return $rowVals;
+				return $rowData;
 			}
 		}else{
 			// Throw errors
-			if( !isset($this->sqlQuery) ){
+			if( !isset($this->builtQuery) ){
 				// Empty query
-				$this->errorMsg[] = "Empty query cannot return results";
+				$this->errMessage[] = "Empty query cannot return results";
 			}else{
 				// Nothing to read is not an error; a failed query is
-				return (count($this->errorMsg)<1) ? Array() : false;
+				return (count($this->errMessage)<1) ? Array() : false;
 			}
 			return false;
 		}
@@ -151,13 +151,13 @@ abstract Class PDO implements Handler {
 	 * Reads the connection options every PDO-based handler shares: 'wait',
 	 * the seconds given to the database to answer.
 	 *
-	 * @param Array $moreParams Optional settings of the connection.
+	 * @param Array $moreParamtrs Optional settings of the connection.
 	 * @return Array The PDO options, empty when none is set.
 	 *
 	 * @throws \RuntimeException When the waiting time is not a number.
 	 */
-	protected function pdoOption(Array $moreParams): Array {
-		$waitSec = strval($moreParams['wait'] ?? '');
+	protected function pdoOptionArray(Array $moreParamtrs): Array {
+		$waitSec = strval($moreParamtrs['wait'] ?? '');
 		if( $waitSec=='' ){
 			return Array();
 		}
@@ -172,51 +172,51 @@ abstract Class PDO implements Handler {
 	 * digits and underscores are accepted, with an optional table prefix
 	 * (`table.field`). The quote character is the one of the database type.
 	 *
-	 * @param String $fieldLabel The table or field name.
+	 * @param String $fldLabelText The table or field name.
 	 * @return String The quoted name.
 	 *
 	 * @throws \RuntimeException When the name holds any other character.
 	 */
-	public function quoteName(String $fieldLabel): String {
-		if( !preg_match('/^\w+(\.\w+)?$/D', $fieldLabel) ){
-			throw new \RuntimeException('Invalid table or field name: '.$fieldLabel);
+	public function quoteFieldName(String $fldLabelText): String {
+		if( !preg_match('/^\w+(\.\w+)?$/D', $fldLabelText) ){
+			throw new \RuntimeException('Invalid table or field name: '.$fldLabelText);
 		}
-		return $this->quoteChr.str_replace('.', $this->quoteChr.'.'.$this->quoteChr, $fieldLabel).$this->quoteChr;
+		return $this->qutCharctr.str_replace('.', $this->qutCharctr.'.'.$this->qutCharctr, $fldLabelText).$this->qutCharctr;
 	}
 
 	/**
 	 * Builds the WHERE part of a query from a filter array, read by
-	 * DBStore\Filter::readWhere(). Names are quoted, and matches written,
+	 * DBStore\Filter::readWhereArray(). Names are quoted, and matches written,
 	 * the way this database type expects them.
 	 *
-	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
+	 * @param Array $filterFields Map of field name => value (or array of values) to filter by.
 	 * @return Array The clause under 'text', with ? placeholders, and its values under 'vals'.
 	 *
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
-	public function makeWhere( Array $whereArray ): Array {
+	public function makeWhereArray( Array $filterFields ): Array {
 		$signLst = Array('equal'=>'=', 'diffr'=>'!=', 'under'=>'<', 'undeq'=>'<=', 'above'=>'>', 'aboeq'=>'>=');
 		$whrText = Array();
-		$whrVals = Array();
-		foreach(\nyu\Data\DBStore\Filter::readWhere($whereArray) as $cndArr){
-			$oprCode = $cndArr['opert'];
-			$fldQutd = ($cndArr['field']!='') ? $this->quoteName($cndArr['field']) : '';
-			if( $oprCode=='never' || $oprCode=='every' ){
-				$whrText[] = ($oprCode=='every') ? '1=1' : '1=0';
-			}elseif( $oprCode=='unset' || $oprCode=='isset' ){
-				$whrText[] = $fldQutd.($oprCode=='isset' ? ' IS NOT NULL' : ' IS NULL');
-			}elseif( $oprCode=='among' || $oprCode=='nmong' ){
-				$whrText[] = $fldQutd.($oprCode=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($cndArr['value']), '?')).')';
-				$whrVals = array_merge($whrVals, $cndArr['value']);
-			}elseif( $oprCode=='match' || $oprCode=='nmtch' ){
-				$whrText[] = $fldQutd.' '.($oprCode=='nmtch' ? 'NOT ' : '').$this->likeOprtr()." ? ESCAPE '!'";
-				$whrVals[] = $this->likeValue( strval($cndArr['value']) );
+		$filters = Array();
+		foreach(\nyu\Data\DBStore\Filter::readWhereArray($filterFields) as $clause){
+			$opToken = $clause['opert'];
+			$safeFld = ($clause['field']!='') ? $this->quoteFieldName($clause['field']) : '';
+			if( $opToken=='never' || $opToken=='every' ){
+				$whrText[] = ($opToken=='every') ? '1=1' : '1=0';
+			}elseif( $opToken=='unset' || $opToken=='isset' ){
+				$whrText[] = $safeFld.($opToken=='isset' ? ' IS NOT NULL' : ' IS NULL');
+			}elseif( $opToken=='among' || $opToken=='nmong' ){
+				$whrText[] = $safeFld.($opToken=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($clause['value']), '?')).')';
+				$filters = array_merge($filters, $clause['value']);
+			}elseif( $opToken=='match' || $opToken=='nmtch' ){
+				$whrText[] = $safeFld.' '.($opToken=='nmtch' ? 'NOT ' : '').$this->getLikeKeyword()." ? ESCAPE '!'";
+				$filters[] = $this->writeLikeValue( strval($clause['value']) );
 			}else{
-				$whrText[] = $fldQutd.' '.$signLst[$oprCode].' ?';
-				$whrVals[] = $cndArr['value'];
+				$whrText[] = $safeFld.' '.$signLst[$opToken].' ?';
+				$filters[] = $clause['value'];
 			}
 		}
-		return Array('text'=>implode(' AND ', $whrText), 'vals'=>$whrVals);
+		return Array('text'=>implode(' AND ', $whrText), 'vals'=>$filters);
 	}
 	
 	/**
@@ -225,11 +225,11 @@ abstract Class PDO implements Handler {
 	 * database would read as wildcards (%, _) are escaped with '!', the
 	 * escape character the search is written with.
 	 *
-	 * @param String $searchText The text, in which * is any text.
+	 * @param String $wildcardText The text, in which * is any text.
 	 * @return String The pattern.
 	 */
-	protected function likeValue( String $searchText ): String {
-		return str_replace( '*', '%', strtr($searchText, Array('!'=>'!!', '%'=>'!%', '_'=>'!_')) );
+	protected function writeLikeValue( String $wildcardText ): String {
+		return str_replace( '*', '%', strtr($wildcardText, Array('!'=>'!!', '%'=>'!%', '_'=>'!_')) );
 	}
 
 	/**
@@ -237,8 +237,8 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return String The operator: LIKE, or what the database type uses in its place.
 	 */
-	public function likeOprtr(): String {
-		return $this->likeWord;
+	public function getLikeKeyword(): String {
+		return $this->likeSyntax;
 	}
 	
 	/**
@@ -247,8 +247,8 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return String|Bool The error message, or false when the last call succeeded.
 	 */
-	public function lastError(): String|Bool {
-		return end( $this->errorMsg );
+	public function finalErrorText(): String|Bool {
+		return end( $this->errMessage );
 	}
 	
 	/**
@@ -256,18 +256,18 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return String|Bool The last insert ID.
 	 */
-	public function lastAdded(): String|Bool {
-		return $this->dbDriver->lastInsertId();
+	public function finalAddedText(): String|Bool {
+		return $this->baseDriver->lastInsertId();
 	}
 
 	/**
 	 * Returns the number of rows changed by the last write sent with
-	 * sendQuery() in exec mode.
+	 * sendBuiltQuery() in exec mode.
 	 *
 	 * @return Int The number of affected rows, 0 when the last query was not a write.
 	 */
-	public function lastCount(): Int {
-		return is_int($this->queryRes) ? $this->queryRes : 0;
+	public function countLastWrite(): Int {
+		return is_int($this->lastResult) ? $this->lastResult : 0;
 	}
 
 	/**
@@ -276,21 +276,21 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function opnTrnsct(): Bool {
-		$this->errorMsg = Array();
-		if( $this->transLvl>0 ){
-			$this->transLvl++;
+	public function opnTransaction(): Bool {
+		$this->errMessage = Array();
+		if( $this->transLevel>0 ){
+			$this->transLevel++;
 			return true;
 		}
 		try{
-			if( !$this->dbDriver->beginTransaction() ){
+			if( !$this->baseDriver->beginTransaction() ){
 				return false;
 			}
 		}catch(\PDOException $e ){
-			$this->errorMsg[] = "PDO Error: ".$e->getMessage();
+			$this->errMessage[] = "PDO Error: ".$e->getMessage();
 			return false;
 		}
-		$this->transLvl = 1;
+		$this->transLevel = 1;
 		return true;
 	}
 
@@ -300,19 +300,19 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open (never opened, or already removed).
 	 */
-	public function setTrnsct(): Bool {
-		$this->errorMsg = Array();
-		if( $this->transLvl==0 ){
+	public function setTransaction(): Bool {
+		$this->errMessage = Array();
+		if( $this->transLevel==0 ){
 			return false;
 		}
-		if( --$this->transLvl>0 ){
+		if( --$this->transLevel>0 ){
 			// An outer transaction is still open: it decides
 			return true;
 		}
 		try{
-			return $this->dbDriver->commit();
+			return $this->baseDriver->commit();
 		}catch(\PDOException $e ){
-			$this->errorMsg[] = "PDO Error: ".$e->getMessage();
+			$this->errMessage[] = "PDO Error: ".$e->getMessage();
 			return false;
 		}
 	}
@@ -322,16 +322,16 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function remTrnsct(): Bool {
-		$this->errorMsg = Array();
-		if( $this->transLvl==0 ){
+	public function remTransaction(): Bool {
+		$this->errMessage = Array();
+		if( $this->transLevel==0 ){
 			return false;
 		}
-		$this->transLvl = 0;
+		$this->transLevel = 0;
 		try{
-			return $this->dbDriver->rollBack();
+			return $this->baseDriver->rollBack();
 		}catch(\PDOException $e ){
-			$this->errorMsg[] = "PDO Error: ".$e->getMessage();
+			$this->errMessage[] = "PDO Error: ".$e->getMessage();
 			return false;
 		}
 	}
@@ -339,8 +339,8 @@ abstract Class PDO implements Handler {
 	/**
 	 * Closes the PDO database connection.
 	 */
-	public function exitDBase(): Void {
-		$this->dbDriver = null;
+	public function exitConnection(): Void {
+		$this->baseDriver = null;
 	}
 	
 }

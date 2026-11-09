@@ -12,57 +12,57 @@ use \nyu\Tools\Logger;
  * asked.
  */
 class DBRec {
-	protected $tableNme;
-	protected $dbConnex;
+	protected $tableLabel;
+	protected $dbConnectn;
 	// Name of the configured database the table lives in: '' for the default one. A model sets its own.
-	protected $baseName = '';
+	protected $dbaseLabel = '';
 
-	protected $primaKey;
-	protected $keyField;
-	protected $fieldLst;
+	protected $primaryKey;
+	protected $keyColName;
+	protected $fieldsList;
 
-	protected $recArray;
-	protected $belongTo;
-	protected $children;
+	protected $recrdArray;
+	protected $parentRels;
+	protected $childLinks;
 	// Names under which linked rows were attached to the record: never saved
-	protected $linkKeys = Array();
+	protected $linkFields = Array();
 
 	/**
 	 * Builds a record object bound to a table: verifies the table exists by describing it,
 	 * reads its primary key and field list from the store, and stores the
 	 * declared child/parent relations for later loading.
 	 *
-	 * @param String $dbaseTable Name of the table this record maps to.
-	 * @param Array  $childArray Child relations to load via loadRelat(), keyed by table name or as [table, fld1, fld2, fld3].
-	 * @param Array  $parntArray Parent relations to load via loadRelat(), keyed by table name or as [table, fld1, fld2].
-	 * @param ?DBCon $handleLink Connection to use instead of the one of the database named by $baseName.
+	 * @param String $databaseTble Name of the table this record maps to.
+	 * @param Array  $childrenList Child relations to load via importRelation(), keyed by table name or as [table, fld1, fld2, fld3].
+	 * @param Array  $parentTables Parent relations to load via importRelation(), keyed by table name or as [table, fld1, fld2].
+	 * @param ?DBCon $dbConnection Connection to use instead of the one of the database named by $baseName.
 	 *
 	 * @throws \RuntimeException When the table cannot be read.
 	 */
-	function __construct( String $dbaseTable, Array $childArray=array(), Array $parntArray=Array(), ?DBCon $handleLink=null ){
-		$this->tableNme = $dbaseTable;
-		if($handleLink == null){
-			$this->dbConnex = DBCon::linkNamed($this->baseName);
+	function __construct( String $databaseTble, Array $childrenList=array(), Array $parentTables=Array(), ?DBCon $dbConnection=null ){
+		$this->tableLabel = $databaseTble;
+		if($dbConnection == null){
+			$this->dbConnectn = DBCon::linkNamedDbCon($this->dbaseLabel);
 		}else{
-			$this->dbConnex = $handleLink;
+			$this->dbConnectn = $dbConnection;
 		}
 
 		// A table name that is not a plain name is refused
-		$dbStore = $this->dbConnex->dataStore();
-		$dbStore->checkName($this->tableNme);
+		$dbStore = $this->dbConnectn->getStoreObject();
+		$dbStore->checkNameChars($this->tableLabel);
 
 		// The description of the table tells it exists: a missing table cannot be described
-		$tblInfo = $dbStore->tableInfo($this->tableNme);
+		$tblInfo = $dbStore->tableInfoArray($this->tableLabel);
 		if( $tblInfo===false ){
-			throw new \RuntimeException('Table "'.$this->tableNme.'" is not available: '.$dbStore->lastError());
+			throw new \RuntimeException('Table "'.$this->tableLabel.'" is not available: '.$dbStore->finalErrorText());
 		}
-		$this->keyField = $tblInfo['pkey'];
-		$this->fieldLst = $tblInfo['flds'];
-		if( !empty($childArray) ){
-			$this->children = $childArray;
+		$this->keyColName = $tblInfo['pkey'];
+		$this->fieldsList = $tblInfo['flds'];
+		if( !empty($childrenList) ){
+			$this->childLinks = $childrenList;
 		}
-		if( !empty($parntArray) ){
-			$this->belongTo = $parntArray;
+		if( !empty($parentTables) ){
+			$this->parentRels = $parentTables;
 		}
 	}
 
@@ -70,17 +70,17 @@ class DBRec {
 	 * Loads a single record by its primary key and loads its declared
 	 * relations.
 	 *
-	 * @param String $primaryKey Value of the primary key to look up.
+	 * @param String $primaryValue Value of the primary key to look up.
 	 * @return Array|Bool The loaded record's field array, or false if not found.
 	 */
-	function loadRecrd( String $primaryKey ): Array|Bool {
-		$fndRows = $this->rowsOfKey($primaryKey);
-		$this->recArray = $fndRows[0] ?? Array();
-		if( is_array($this->recArray) && !empty($this->recArray) ){
+	function loadRecordList( String $primaryValue ): Array|Bool {
+		$matches = $this->findRowWithKey($primaryValue);
+		$this->recrdArray = $matches[0] ?? Array();
+		if( is_array($this->recrdArray) && !empty($this->recrdArray) ){
 			// The key is kept as the database gives it, not as it was asked for
-			$this->primaKey = $this->recArray[$this->keyField] ?? $primaryKey;
-			$this->loadRelat();
-			return $this->recArray;
+			$this->primaryKey = $this->recrdArray[$this->keyColName] ?? $primaryValue;
+			$this->importRelation();
+			return $this->recrdArray;
 		}else{
 			return false;
 		}
@@ -89,11 +89,11 @@ class DBRec {
 	/**
 	 * Loads the record's declared child and parent relations (as set up
 	 * in the constructor), attaching each to the record's field array via
-	 * childList()/parentRec().
+	 * attachChildren()/parentRecdList().
 	 */
-	function loadRelat( ): Void {
-		if( !empty($this->children) ){
-			foreach( $this->children as $chlTab=>$chlFld){
+	function importRelation( ): Void {
+		if( !empty($this->childLinks) ){
+			foreach( $this->childLinks as $chlTab=>$chlFld){
 				$chlArg2 = false;
 				$chlArg3 = '';
 				$chlArg4 = '';
@@ -110,11 +110,11 @@ class DBRec {
 				}else{
 					$chlArg1 = $chlFld;
 				}
-				$this->childList($chlArg1, $chlArg2, $chlArg3, $chlArg4, $chlArg5);
+				$this->attachChildren($chlArg1, $chlArg2, $chlArg3, $chlArg4, $chlArg5);
 			}
 		}
-		if( !empty($this->belongTo) ){
-			foreach( $this->belongTo as $prnTab=>$prnFld){
+		if( !empty($this->parentRels) ){
+			foreach( $this->parentRels as $prnTab=>$prnFld){
 				$prnArg2 = false;
 				$prnArg3 = '';
 				$prnArg4 = '';
@@ -129,7 +129,7 @@ class DBRec {
 				}else{
 					$prnArg1 = $prnFld;
 				}
-				$this->parentRec($prnArg1, $prnArg2, $prnArg3, $prnArg4);
+				$this->parentRecdList($prnArg1, $prnArg2, $prnArg3, $prnArg4);
 			}
 		}
 	}
@@ -137,16 +137,16 @@ class DBRec {
 	/**
 	 * Checks whether a record with the given primary key exists.
 	 *
-	 * @param mixed $primaryKey Value of the primary key to look up.
+	 * @param mixed $primaryValue Value of the primary key to look up.
 	 * @return Bool True if a matching record exists.
 	 */
-	function exstRecrd( Mixed $primaryKey ): Bool {
-		if( $primaryKey===null || $primaryKey==='' ){
+	function existsRecdFlag( Mixed $primaryValue ): Bool {
+		if( $primaryValue===null || $primaryValue==='' ){
 			return false;
 		}
-		$fndRows = $this->rowsOfKey($primaryKey);
-		$tempRec = $fndRows[0] ?? null;
-		if( is_array($tempRec) && isset($tempRec[$this->keyField]) && $tempRec[$this->keyField]==$primaryKey ){
+		$matches = $this->findRowWithKey($primaryValue);
+		$tempRec = $matches[0] ?? null;
+		if( is_array($tempRec) && isset($tempRec[$this->keyColName]) && $tempRec[$this->keyColName]==$primaryValue ){
 			return true;
 		}else{
 			return false;
@@ -157,14 +157,14 @@ class DBRec {
 	 * Reads the row holding a key value, compared exactly: a key is never
 	 * read as a wildcard.
 	 *
-	 * @param mixed $primaryKey Value of the primary key.
+	 * @param mixed $primaryValue Value of the primary key.
 	 * @return Array|Bool The rows found, at most one, or false when the table has no key or cannot be read.
 	 */
-	protected function rowsOfKey( Mixed $primaryKey ): Array|Bool {
-		if( $this->keyField=='' ){
+	protected function findRowWithKey( Mixed $primaryValue ): Array|Bool {
+		if( $this->keyColName=='' ){
 			return false;
 		}
-		return $this->dbConnex->dataStore()->findItems($this->tableNme, Array($this->keyField.'='=>$primaryKey), Array('limit'=>1));
+		return $this->dbConnectn->getStoreObject()->findItemsArray($this->tableLabel, Array($this->keyColName.'='=>$primaryValue), Array('limit'=>1));
 	}
 
 	/**
@@ -173,15 +173,15 @@ class DBRec {
 	 * the primary key value when set. On a database that sets no list of
 	 * fields, any plain field name is taken.
 	 *
-	 * @param Array $valueArray Map of field name => value to bind onto the record.
+	 * @param Array $fieldValList Map of field name => value to bind onto the record.
 	 */
-	function bindArray( Array $valueArray ): Void {
-		foreach($valueArray as $fldNme=>$fldVal){
-			if( $this->ownsField(strval($fldNme)) ){
-				if($fldNme==$this->keyField){
-					$this->primaKey = $fldVal;
+	function bindFieldArray( Array $fieldValList ): Void {
+		foreach($fieldValList as $fldNme=>$fldVal){
+			if( $this->isFieldOfTable(strval($fldNme)) ){
+				if($fldNme==$this->keyColName){
+					$this->primaryKey = $fldVal;
 				}
-				$this->recArray[$fldNme] = $fldVal;
+				$this->recrdArray[$fldNme] = $fldVal;
 			}
 		}
 	}
@@ -191,23 +191,23 @@ class DBRec {
 	 * fields, or any plain name when the database sets no such list.
 	 * What was attached by a relation is never one.
 	 *
-	 * @param String $fieldLabel The name.
+	 * @param String $fldLabelText The name.
 	 * @return Bool True when the name is a field of the table.
 	 */
-	protected function ownsField( String $fieldLabel ): Bool {
-		if( in_array($fieldLabel, $this->linkKeys, true) ){
+	protected function isFieldOfTable( String $fldLabelText ): Bool {
+		if( in_array($fldLabelText, $this->linkFields, true) ){
 			return false;
 		}
-		return empty($this->fieldLst) ? (bool)preg_match('/^\w+$/D', $fieldLabel) : in_array($fieldLabel, $this->fieldLst);
+		return empty($this->fieldsList) ? (bool)preg_match('/^\w+$/D', $fldLabelText) : in_array($fldLabelText, $this->fieldsList);
 	}
 
 	/**
-	 * Empties the record: the next bindArray() and saveRecrd() create a
+	 * Empties the record: the next bindFieldArray() and insertOrUpdate() create a
 	 * new row instead of changing the one that was loaded.
 	 */
-	function initRecrd(): Void {
-		$this->primaKey = null;
-		$this->recArray = Array();
+	function initiateRecord(): Void {
+		$this->primaryKey = null;
+		$this->recrdArray = Array();
 	}
 
 	/**
@@ -219,93 +219,93 @@ class DBRec {
 	 * The removal is traced on the 'runner' log channel, signed with the
 	 * user and the address of the request; one the database refused too.
 	 *
-	 * @param Array $childArray Child tables whose linked rows go too: 'table', or 'table'=>'foreign key' (default `<singularized table>_id`).
+	 * @param Array $childrenList Child tables whose linked rows go too: 'table', or 'table'=>'foreign key' (default `<singularized table>_id`).
 	 * @return Bool True when the record was deleted, false when no record is loaded or the deletion failed.
 	 *
 	 * @throws \RuntimeException When a table or field name is not valid, or children are named on a database without transactions.
 	 */
-	function remvRecrd( Array $childArray=Array() ): Bool {
-		if( $this->primaKey===null || $this->primaKey==='' || $this->keyField=='' ){
+	function removeRecdFlag( Array $childrenList=Array() ): Bool {
+		if( $this->primaryKey===null || $this->primaryKey==='' || $this->keyColName=='' ){
 			return false;
 		}
-		$dbStore = $this->dbConnex->dataStore();
+		$dbStore = $this->dbConnectn->getStoreObject();
 		// Every name is checked before anything is deleted
 		$remList = Array();
-		foreach($childArray as $chlTab=>$chlFld){
+		foreach($childrenList as $chlTab=>$chlFld){
 			if( is_int($chlTab) ){
 				$chlTab = $chlFld;
-				$chlFld = StrKit::singlrize($this->tableNme).'_id';
+				$chlFld = StrKit::singularizeTxt($this->tableLabel).'_id';
 			}
-			$remList[] = Array($dbStore->checkName(strval($chlTab)), $dbStore->checkName(strval($chlFld)));
+			$remList[] = Array($dbStore->checkNameChars(strval($chlTab)), $dbStore->checkNameChars(strval($chlFld)));
 		}
 		// The record's own row comes last
-		$remList[] = Array($this->tableNme, $this->keyField);
+		$remList[] = Array($this->tableLabel, $this->keyColName);
 
 		// One deletion is safe by itself; several must go together, or not at all
-		$useTrns = $dbStore->canTrnsct();
+		$useTrns = $dbStore->canTransaction();
 		if( !$useTrns && count($remList)>1 ){
 			throw new \RuntimeException('Deleting a record with its children needs transactions, which this database does not have');
 		}
 		// A removal is traced with who asked for it, and so is one the database refused
-		$logInst = Logger::getLogger('runner');
+		$accsLog = Logger::retrieveLogger('runner');
 		// The key may come from the client : written as a JSON text
-		$recText = $this->tableNme.' #'.json_encode(strval($this->primaKey), JSON_INVALID_UTF8_SUBSTITUTE);
-		if( $useTrns && !$dbStore->opnTrnsct() ){
-			$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
+		$recText = $this->tableLabel.' #'.json_encode(strval($this->primaryKey), JSON_INVALID_UTF8_SUBSTITUTE);
+		if( $useTrns && !$dbStore->opnTransaction() ){
+			$accsLog->warning( 'Record removal failed: '.$recText.Logger::getActorSuffix() );
 			return false;
 		}
 		$rowsRem = 0;
 		foreach($remList as $remTbl){
-			$rowsRem = $dbStore->deleteRow($remTbl[0], Array($remTbl[1].'='=>$this->primaKey));
+			$rowsRem = $dbStore->deleteRowCount($remTbl[0], Array($remTbl[1].'='=>$this->primaryKey));
 			if( $rowsRem===false ){
-				if( $useTrns ) $dbStore->remTrnsct();
-				$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
+				if( $useTrns ) $dbStore->remTransaction();
+				$accsLog->warning( 'Record removal failed: '.$recText.Logger::getActorSuffix() );
 				return false;
 			}
 		}
 		// No row deleted for the record itself means it was not there
 		if( $rowsRem<1 ){
-			if( $useTrns ) $dbStore->remTrnsct();
+			if( $useTrns ) $dbStore->remTransaction();
 			return false;
 		}
-		if( $useTrns && !$dbStore->setTrnsct() ){
-			$logInst->warning( 'Record removal failed: '.$recText.Logger::actorText() );
+		if( $useTrns && !$dbStore->setTransaction() ){
+			$accsLog->warning( 'Record removal failed: '.$recText.Logger::getActorSuffix() );
 			return false;
 		}
 		if( count($remList)>1 ){
 			$recText .= ', with its rows in '.implode(', ', array_column(array_slice($remList, 0, -1), 0));
 		}
-		$logInst->notice( 'Record removed: '.$recText.Logger::actorText() );
-		$this->initRecrd();
+		$accsLog->notice( 'Record removed: '.$recText.Logger::getActorSuffix() );
+		$this->initiateRecord();
 		return true;
 	}
 
 	/**
 	 * Finds the first record matching a map of field => value(s) and loads
 	 * its declared relations. The filter syntax is the one of
-	 * DBStore\Filter::readWhere(): a field name may end with '!' (negation), '<=',
+	 * DBStore\Filter::readWhereArray(): a field name may end with '!' (negation), '<=',
 	 * '>=', '<' or '>'; an array value gives IN/NOT IN, and a name ending
 	 * with '~' or '!~' LIKE/NOT LIKE, '*' being any text in its value. Any
 	 * other value is compared exactly. 'field?'=>false gives IS NULL and
 	 * 'field?'=>true IS NOT NULL; a null value matches nothing.
 	 *
-	 * @param Array $whereArray Map of field name => value (or array of values) to filter by.
+	 * @param Array $filterFields Map of field name => value (or array of values) to filter by.
 	 * @return Array|Bool The matched record's field array, or false if not found.
 	 *
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
-	function findRecrd( Array $whereArray ): Array|Bool {
-		$fndRows = $this->dbConnex->dataStore()->findItems($this->tableNme, $whereArray, Array('limit'=>1));
-		$this->recArray = is_array($fndRows) ? ($fndRows[0] ?? Array()) : false;
-		if( is_array($this->recArray) ){
-			if(isset($this->recArray[$this->keyField])){
-				$this->primaKey = $this->recArray[$this->keyField];
+	function findRecordList( Array $filterFields ): Array|Bool {
+		$matches = $this->dbConnectn->getStoreObject()->findItemsArray($this->tableLabel, $filterFields, Array('limit'=>1));
+		$this->recrdArray = is_array($matches) ? ($matches[0] ?? Array()) : false;
+		if( is_array($this->recrdArray) ){
+			if(isset($this->recrdArray[$this->keyColName])){
+				$this->primaryKey = $this->recrdArray[$this->keyColName];
 			}
 			// Relations are only loaded for a record that was found
-			if( !empty($this->recArray) ){
-				$this->loadRelat();
+			if( !empty($this->recrdArray) ){
+				$this->importRelation();
 			}
-			return $this->recArray;
+			return $this->recrdArray;
 		}else{
 			return false;
 		}
@@ -317,73 +317,73 @@ class DBRec {
 	 * was bound to a new record is inserted as given; without one, the
 	 * database assigns it.
 	 *
-	 * @param Array $exludeFlds Field names to exclude from the save (in addition to the primary key, which is never updated).
+	 * @param Array $excludFields Field names to exclude from the save (in addition to the primary key, which is never updated).
 	 * @return mixed The primary key on success, or false on failure: for an update, the key as the database gave it; for an insert, the key the application bound, as bound, or the one the database numbered, as a number.
 	 */
-	function saveRecrd( Array $exludeFlds=Array() ): Mixed {
-		$recExst = false;
-		$sameRec = $this->exstRecrd($this->primaKey);
+	function insertOrUpdate( Array $excludFields=Array() ): Mixed {
+		$existed = false;
+		$sameRec = $this->existsRecdFlag($this->primaryKey);
 		if($sameRec!=false){
-			$recExst = true;
+			$existed = true;
 		}
 
 		$saveArr = Array();
-		foreach( $this->recArray as $fldNme => $fldVal ){
+		foreach( $this->recrdArray as $fldNme => $fldVal ){
 			// The key is never changed, and only the table's own fields are saved
-			if( $fldNme==$this->keyField || in_array($fldNme, $exludeFlds) || !$this->ownsField(strval($fldNme)) ){
+			if( $fldNme==$this->keyColName || in_array($fldNme, $excludFields) || !$this->isFieldOfTable(strval($fldNme)) ){
 				continue;
 			}
 			$saveArr[$fldNme] = $fldVal;
 		}
-		if($recExst){
+		if($existed){
 			if( empty($saveArr) ){
-				return $this->primaKey;
+				return $this->primaryKey;
 			}
-			$rowsDne = $this->dbConnex->dataStore()->updateRow($this->tableNme, Array($this->keyField.'='=>$this->primaKey), $saveArr);
-			return ($rowsDne===false) ? false : $this->primaKey;
+			$rwsDone = $this->dbConnectn->getStoreObject()->updateRowCount($this->tableLabel, Array($this->keyColName.'='=>$this->primaryKey), $saveArr);
+			return ($rwsDone===false) ? false : $this->primaryKey;
 		}
 		// A key bound to the new record is inserted with the other fields
-		$keyGivn = ($this->primaKey!==null && $this->primaKey!=='');
-		if( $keyGivn ){
-			$saveArr = Array($this->keyField=>$this->primaKey) + $saveArr;
+		$withKey = ($this->primaryKey!==null && $this->primaryKey!=='');
+		if( $withKey ){
+			$saveArr = Array($this->keyColName=>$this->primaryKey) + $saveArr;
 		}
-		$newKey = $this->dbConnex->dataStore()->insertRow($this->tableNme, $saveArr);
-		if( $newKey===false ){
+		$madeKey = $this->dbConnectn->getStoreObject()->insertTableRow($this->tableLabel, $saveArr);
+		if( $madeKey===false ){
 			return false;
 		}
-		if( $keyGivn ){
-			return $this->primaKey;
+		if( $withKey ){
+			return $this->primaryKey;
 		}
 		// A key the database numbered is an integer column, which a reading gives as a number: the insert tells it as a text
-		return ( is_string($newKey) && ctype_digit($newKey) ) ? intval($newKey) : $newKey;
+		return ( is_string($madeKey) && ctype_digit($madeKey) ) ? intval($madeKey) : $madeKey;
 	}
 
 	/**
 	 * Loads this record's parent row from another table and attaches it
 	 * under the parent table's name.
 	 *
-	 * @param String $parntTable Name of the parent table.
-	 * @param Bool   $returnVals Whether to return the updated record array.
-	 * @param String $foreignKey Field on the parent table this record points to (defaults to the key field of the parent).
-	 * @param String $currentKey Field on this record referencing the parent (defaults to `id_<singularized table>`).
-	 * @return ?Array The updated record array if $returnVals is true, otherwise null.
+	 * @param String $parentTblTxt Name of the parent table.
+	 * @param Bool   $returnValues Whether to return the updated record array.
+	 * @param String $foreignField Field on the parent table this record points to (defaults to the key field of the parent).
+	 * @param String $ownLinkField Field on this record referencing the parent (defaults to `id_<singularized table>`).
+	 * @return ?Array The updated record array if $returnValues is true, otherwise null.
 	 */
-	function parentRec( String $parntTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='' ): ?Array {
-		$prntRec = new DBRec( $parntTable, Array(), Array(), $this->dbConnex );
-		if( $foreignKey=='' ) {
-			$foreignKey = $prntRec->keyField;
+	function parentRecdList( String $parentTblTxt, Bool $returnValues=false, String $foreignField='', String $ownLinkField='' ): ?Array {
+		$linkRec = new DBRec( $parentTblTxt, Array(), Array(), $this->dbConnectn );
+		if( $foreignField=='' ) {
+			$foreignField = $linkRec->keyColName;
 		}
-		if( $currentKey=='' ) {
-			$intName = StrKit::singlrize($this->tableNme);
-			$currentKey = $intName.'_id';
+		if( $ownLinkField=='' ) {
+			$intName = StrKit::singularizeTxt($this->tableLabel);
+			$ownLinkField = $intName.'_id';
 		}
-		$whreArr = Array( $foreignKey.'=' => $this->recArray[$currentKey] ?? null );
-		$prntArr = $prntRec->findRecrd( $whreArr );
-		$prntKey = ucfirst(StrKit::singlrize($parntTable));
-		$this->recArray[$prntKey] = $prntArr;
-		$this->linkKeys[] = $prntKey;
-		if($returnVals==true){
-			return $this->recArray;
+		$whrArry = Array( $foreignField.'=' => $this->recrdArray[$ownLinkField] ?? null );
+		$linkRow = $linkRec->findRecordList( $whrArry );
+		$prntKey = ucfirst(StrKit::singularizeTxt($parentTblTxt));
+		$this->recrdArray[$prntKey] = $linkRow;
+		$this->linkFields[] = $prntKey;
+		if($returnValues==true){
+			return $this->recrdArray;
 		}
 		return null;
 	}
@@ -391,51 +391,51 @@ class DBRec {
 	 * Loads this record's child rows from another table via a foreign key
 	 * and attaches them under the child table's name.
 	 *
-	 * @param String $childTable Name of the child table.
-	 * @param Bool   $returnVals Whether to return the updated record array.
-	 * @param String $foreignKey Field on the child table referencing this record (defaults to `<singularized table>_id`).
-	 * @param String $currentKey Field on this record referenced by the child (defaults to this record's key field).
-	 * @param String $sortFields Sort of the children, as field names with their direction ("date ASC, time DESC") or
-	 *                           prefixed with '^' for a descending one ("^date, time"), through DBLst::listOrder().
-	 * @return ?Array The updated record array if $returnVals is true, otherwise null.
+	 * @param String $childTbleTxt Name of the child table.
+	 * @param Bool   $returnValues Whether to return the updated record array.
+	 * @param String $foreignField Field on the child table referencing this record (defaults to `<singularized table>_id`).
+	 * @param String $ownLinkField Field on this record referenced by the child (defaults to this record's key field).
+	 * @param String $childrenSort Sort of the children, as field names with their direction ("date ASC, time DESC") or
+	 *                           prefixed with '^' for a descending one ("^date, time"), through DBLst::setOrderFields().
+	 * @return ?Array The updated record array if $returnValues is true, otherwise null.
 	 *
 	 * @throws \RuntimeException When the sort names a field that is not valid, or has another form.
 	 */
-	function childList( String $childTable, Bool $returnVals=false, String $foreignKey='', String $currentKey='', String $sortFields='' ): ?Array {
-		if( $foreignKey=='' ) {
-			$extName = StrKit::singlrize($this->tableNme);
-			$foreignKey = $extName.'_id';
+	function attachChildren( String $childTbleTxt, Bool $returnValues=false, String $foreignField='', String $ownLinkField='', String $childrenSort='' ): ?Array {
+		if( $foreignField=='' ) {
+			$extName = StrKit::singularizeTxt($this->tableLabel);
+			$foreignField = $extName.'_id';
 		}
-		if( $currentKey=='' ) {
-			$currentKey = $this->keyField;
+		if( $ownLinkField=='' ) {
+			$ownLinkField = $this->keyColName;
 		}
-		$chldKey = ucfirst($childTable);
-		$this->linkKeys[] = $chldKey;
+		$chldKey = ucfirst($childTbleTxt);
+		$this->linkFields[] = $chldKey;
 
 		// A record without a key value has no children
-		if( !isset($this->recArray[$currentKey]) ){
-			$this->recArray[$chldKey] = Array();
+		if( !isset($this->recrdArray[$ownLinkField]) ){
+			$this->recrdArray[$chldKey] = Array();
 		}else{
-			$subList = new DBLst($childTable, null, null, null, null, $this->dbConnex);
-			// The sort goes through listOrder(), never into the query as written : "date ASC, time DESC" or "^date, time"
-			if( trim($sortFields)!='' ){
-				$srtList = Array();
-				foreach( explode(',', $sortFields) as $srtFld ){
-					$ordPart = preg_split('/\s+/', trim($srtFld));
-					$dscSort = (count($ordPart)==2 && strtoupper($ordPart[1])=='DESC');
-					if( count($ordPart)>2 || (count($ordPart)==2 && !in_array(strtoupper($ordPart[1]), Array('ASC', 'DESC'), true)) ){
+			$subList = new DBLst($childTbleTxt, null, null, null, null, $this->dbConnectn);
+			// The sort goes through setOrderFields(), never into the query as written : "date ASC, time DESC" or "^date, time"
+			if( trim($childrenSort)!='' ){
+				$sortLst = Array();
+				foreach( explode(',', $childrenSort) as $srtFld ){
+					$orderBy = preg_split('/\s+/', trim($srtFld));
+					$dscSort = (count($orderBy)==2 && strtoupper($orderBy[1])=='DESC');
+					if( count($orderBy)>2 || (count($orderBy)==2 && !in_array(strtoupper($orderBy[1]), Array('ASC', 'DESC'), true)) ){
 						throw new \RuntimeException('Invalid sort of the children: '.trim($srtFld));
 					}
-					$srtList[] = ($dscSort ? '^' : '').$ordPart[0];
+					$sortLst[] = ($dscSort ? '^' : '').$orderBy[0];
 				}
-				$subList->listOrder($srtList);
+				$subList->setOrderFields($sortLst);
 			}
-			$subList->lstSearch(Array($foreignKey.'='=>$this->recArray[$currentKey]));
-			$this->recArray[$chldKey] = $subList->readItems();
+			$subList->replaceFilters(Array($foreignField.'='=>$this->recrdArray[$ownLinkField]));
+			$this->recrdArray[$chldKey] = $subList->readRowsOfList();
 		}
 
-		if($returnVals==true){
-			return $this->recArray;
+		if($returnValues==true){
+			return $this->recrdArray;
 		}
 		return null;
 	}
