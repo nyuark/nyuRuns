@@ -543,8 +543,8 @@ class Request{
 	 * Returns the client registry: 'userAddr' (the client, seen through
 	 * the trusted reverse proxies), 'peerAddr' (the connection itself),
 	 * 'userHost', 'userSchm' (the scheme the client used, seen the same way),
-	 * 'usrAgent', 'clSystem', 'clDevice' (dsktop, mobile, tablet, aiagnt,
-	 * crawlr, script or shadow), 'language' and 'humanSys'. All but the
+	 * 'usrAgent', 'clSystem', 'clDevice' (computer, handheld, tabletPc, llmAgent,
+	 * crawlers, scripted or shadowed), 'language' and 'humanSys'. All but the
 	 * addresses and the scheme come from what the client sent: hints, never proofs.
 	 *
 	 * @return ?ClientReg The client registry, or null when the request was built without one.

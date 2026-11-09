@@ -205,9 +205,9 @@ class ClientReg extends Registry{
 
 	/**
 	 * Names the kind of client an agent string tells: a person's browser
-	 * ('dsktop', 'mobile', 'tablet'), an AI crawler or agent ('aiagnt'),
-	 * a search or indexing robot ('crawlr'), a scripted client or HTTP
-	 * library ('script'), or a client that sent no agent ('shadow').
+	 * ('computer', 'handheld', 'tabletPc'), an AI crawler or agent ('llmAgent'),
+	 * a search or indexing robot ('crawlers'), a scripted client or HTTP
+	 * library ('scripted'), or a client that sent no agent ('shadowed').
 	 * Only a client that names itself is told apart: an agent driving a
 	 * real browser reads as that browser.
 	 *
@@ -216,29 +216,29 @@ class ClientReg extends Registry{
 	 */
 	protected function findDeviceNumb( String $userAgentTxt ): String {
 		if( $userAgentTxt=='' ){
-			return 'shadow';
+			return 'shadowed';
 		}
 		// Names the AI crawlers and agents give themselves, to be completed as new ones appear
 		$aiNames = Array('GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'CCBot', 'Bytespider', 'Amazonbot', 'meta-externalagent', 'cohere-ai', 'MistralAI-User', 'DuckAssistBot', 'YouBot', 'Diffbot');
 		$aiPttrn = implode('|', array_map('preg_quote', $aiNames));
 		// Order matters : most AI names also read as robots
 		if( preg_match('/'.$aiPttrn.'/i', $userAgentTxt) ){
-			return 'aiagnt';
+			return 'llmAgent';
 		}
 		if( preg_match('/bot|crawl|spider|slurp/i', $userAgentTxt) ){
-			return 'crawlr';
+			return 'crawlers';
 		}
 		if( preg_match('/curl|wget|python|java\/|okhttp|go-http|libwww|httpclient|axios|node-fetch|guzzle|postman|insomnia|HeadlessChrome/i', $userAgentTxt) ){
-			return 'script';
+			return 'scripted';
 		}
 		// An Android agent without "Mobile" is a tablet
 		if( preg_match('/iPad|Tablet|Android(?!.*Mobile)/i', $userAgentTxt) ){
-			return 'tablet';
+			return 'tabletPc';
 		}
 		if( preg_match('/Mobi|iPhone|iPod|Android/i', $userAgentTxt) ){
-			return 'mobile';
+			return 'handheld';
 		}
-		return 'dsktop';
+		return 'computer';
 	}
 
 	/**
@@ -250,7 +250,7 @@ class ClientReg extends Registry{
 	 * @return Bool True for a desktop, mobile or tablet browser.
 	 */
 	protected function locateHumanFlg( String $userAgentTxt ): Bool {
-		return in_array( $this->findDeviceNumb($userAgentTxt), Array('dsktop', 'mobile', 'tablet'), true );
+		return in_array( $this->findDeviceNumb($userAgentTxt), Array('computer', 'handheld', 'tabletPc'), true );
 	}
 
 	/**

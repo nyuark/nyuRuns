@@ -42,23 +42,23 @@ $gptAgnt = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBo
 $pplAgnt = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)';
 $hdlAgnt = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/126.0.0.0 Safari/537.36';
 
-checkIdentical('a Windows browser',     agentVals($winAgnt), Array('Windows', 'dsktop', true));
-checkIdentical('a Mac browser',         agentVals($macAgnt), Array('macOS', 'dsktop', true));
-checkIdentical('a Linux browser',       agentVals($linAgnt), Array('Linux', 'dsktop', true));
-checkIdentical('a ChromeOS browser',    agentVals($crsAgnt), Array('ChromeOS', 'dsktop', true));
-checkIdentical('an iPhone is iOS, not macOS',          agentVals($iphAgnt), Array('iOS', 'mobile', true));
-checkIdentical('an iPad is a tablet',                  agentVals($ipdAgnt), Array('iOS', 'tablet', true));
-checkIdentical('an Android phone is Android, not Linux', agentVals($andAgnt), Array('Android', 'mobile', true));
-checkIdentical('an Android agent without "Mobile" is a tablet', agentVals($tabAgnt), Array('Android', 'tablet', true));
-checkIdentical('a search robot is a crawler, not human', agentVals($botAgnt), Array('', 'crawlr', false));
-checkIdentical('an AI crawler is an AI agent, though its name reads as a robot', agentVals($gptAgnt), Array('', 'aiagnt', false));
-checkIdentical('another AI crawler', agentVals($pplAgnt), Array('', 'aiagnt', false));
-checkIdentical('an AI agent acting for a user', agentVals('Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot'), Array('', 'aiagnt', false));
-checkIdentical('a scripted client is a script, not human', agentVals('curl/8.7.1'), Array('', 'script', false));
-checkIdentical('an HTTP library is a script', agentVals('python-requests/2.32.3'), Array('', 'script', false));
-checkIdentical('a headless browser is a script, whatever system it runs on', agentVals($hdlAgnt), Array('Linux', 'script', false));
-checkIdentical('no agent : a shadow, not human', agentVals(''), Array('', 'shadow', false));
-checkIdentical('every device code has six characters', array_unique(array_map(function( String $agentStrng ): Int { return strlen(agentVals($agentStrng)[1]); }, Array($winAgnt, $iphAgnt, $ipdAgnt, $botAgnt, $gptAgnt, 'curl/8.7.1', ''))), Array(6));
+checkIdentical('a Windows browser',     agentVals($winAgnt), Array('Windows', 'computer', true));
+checkIdentical('a Mac browser',         agentVals($macAgnt), Array('macOS', 'computer', true));
+checkIdentical('a Linux browser',       agentVals($linAgnt), Array('Linux', 'computer', true));
+checkIdentical('a ChromeOS browser',    agentVals($crsAgnt), Array('ChromeOS', 'computer', true));
+checkIdentical('an iPhone is iOS, not macOS',          agentVals($iphAgnt), Array('iOS', 'handheld', true));
+checkIdentical('an iPad is a tablet',                  agentVals($ipdAgnt), Array('iOS', 'tabletPc', true));
+checkIdentical('an Android phone is Android, not Linux', agentVals($andAgnt), Array('Android', 'handheld', true));
+checkIdentical('an Android agent without "Mobile" is a tablet', agentVals($tabAgnt), Array('Android', 'tabletPc', true));
+checkIdentical('a search robot is a crawler, not human', agentVals($botAgnt), Array('', 'crawlers', false));
+checkIdentical('an AI crawler is an AI agent, though its name reads as a robot', agentVals($gptAgnt), Array('', 'llmAgent', false));
+checkIdentical('another AI crawler', agentVals($pplAgnt), Array('', 'llmAgent', false));
+checkIdentical('an AI agent acting for a user', agentVals('Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot'), Array('', 'llmAgent', false));
+checkIdentical('a scripted client is a script, not human', agentVals('curl/8.7.1'), Array('', 'scripted', false));
+checkIdentical('an HTTP library is a script', agentVals('python-requests/2.32.3'), Array('', 'scripted', false));
+checkIdentical('a headless browser is a script, whatever system it runs on', agentVals($hdlAgnt), Array('Linux', 'scripted', false));
+checkIdentical('no agent : a shadow, not human', agentVals(''), Array('', 'shadowed', false));
+checkIdentical('every device code has eight characters', array_unique(array_map(function( String $agentStrng ): Int { return strlen(agentVals($agentStrng)[1]); }, Array($winAgnt, $iphAgnt, $ipdAgnt, $botAgnt, $gptAgnt, 'curl/8.7.1', ''))), Array(8));
 
 // Nothing told at all
 $clntReg = new ClientReg( makeFakeServer() );
@@ -130,7 +130,7 @@ checkIdentical('without settings, no proxy is trusted and the usual headers are 
 
 // Through the request
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7', 'HTTP_USER_AGENT'=>$andAgnt) );
-checkIdentical('a request gives its client registry', Array($request->retrieveClient()->readFileDetail('userAddr'), $request->retrieveClient()->readFileDetail('clDevice')), Array('203.0.113.7', 'mobile'));
+checkIdentical('a request gives its client registry', Array($request->retrieveClient()->readFileDetail('userAddr'), $request->retrieveClient()->readFileDetail('clDevice')), Array('203.0.113.7', 'handheld'));
 
 // A request built in full writes its address with the scheme the client used
 $servReg = makeFakeServer( Array('REQUEST_METHOD'=>'GET', 'REQUEST_URI'=>'/shows/overview?page=2', 'SERVER_NAME'=>'api.example.org', 'REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https') );
