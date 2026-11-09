@@ -1,0 +1,62 @@
+# The checks of nyuRuns on each push and each pull request: the unit, audit and data groups of test/run.php,
+# on the oldest and the newest PHP the framework supports. See test/README.md for the groups.
+# Left out: the http group (it writes to the project's temp/logs), the database servers (MySQL, PostgreSQL,
+# MongoDB: their tests skip themselves when no server answers), code coverage.
+# The actions are pinned to the commit of a release, named in the comment beside it.
+
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+# Read the code, nothing more: no secret is used
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run still going
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  groups:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.5']
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The extensions of composer.json, pdo_sqlite for the data group, openssl for the 2FA encryption
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, iconv, json, mbstring, zlib, pdo_sqlite, openssl
+          coverage: none
+          tools: composer
+
+      - name: Find Composer's cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep Composer's cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-
+
+      - name: Install the libraries
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Exits non-zero when a check fails, which fails the job
+      - name: Run the tests
+        run: php test/run.php unit audit data
