@@ -28,6 +28,16 @@ class Actions extends Actionset {
 	}
 
 	/**
+	 * Replies with the link to the route its option names (see routeLink), its $id given as 7.
+	 *
+	 * @param String $routeShape The path of the route: as this Run declares it, or its final path.
+	 */
+	public function linking( String $routeShape ): Void {
+		$this->statCode = 200;
+		$this->asOutput = $this->routeLink($routeShape, Array('id'=>'7'));
+	}
+
+	/**
 	 * Replies with its name; its route is from the root of the site.
 	 */
 	public function rooted(): Void {

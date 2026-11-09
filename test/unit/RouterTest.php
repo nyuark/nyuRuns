@@ -9,6 +9,7 @@
 define('RUN_DIR', dirname(__DIR__).DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'runs');
 require __DIR__.'/../lib/harness.php';
 require RUN_DIR.DS.'Probe'.DS.'Actions.php';
+require RUN_DIR.DS.'Mounted'.DS.'Actions.php';
 
 use nyu\Tools\Router;
 use nyu\Tools\Registry;
@@ -45,6 +46,21 @@ function foundVals( String $urlAddress, Array $wantedKeys, String $httpMethod='G
 		$rteReg = madeRoutr($urlAddress, $httpMethod, $routeConfg)->findRoute();
 		return array_map(function( String $keyNme ) use ( $rteReg ){ return $rteReg->readValue($keyNme); }, $wantedKeys);
 	});
+}
+
+/**
+ * Builds a link from an action of the Mounted application (see routeLink), its $id given as 7.
+ *
+ * @param String $routeShape The path of the route: as Mounted declares it, or its final path.
+ * @param Array  $routeConfg Values replacing those of the route configuration.
+ * @return String The link, or what was thrown.
+ */
+function linkFrom( String $routeShape, Array $routeConfg=Array() ): String {
+	return strval(runSafely(function() use ( $routeShape, $routeConfg ){
+		$actnObj = new nyu\Runs\Mounted\Actions( new nyu\App\RunContext('linking', $routeShape, new Registry(Array()), null, fakeReqst(), new Response(), madeRoutr('/', 'GET', $routeConfg), null, 'Mounted', RUN_DIR.DS.'Mounted') );
+		$actnObj->runAction();
+		return $actnObj->asOutput;
+	}));
 }
 
 $pageDir = realpath(TST_DIR.DS.'fixtures'.DS.'pages');
@@ -193,6 +209,15 @@ checkSame('run route: the root path is never moved', foundVals('/rooted', Array(
 checkSame('run route: an empty prefix mounts at the root', foundVals('/listed', Array('app', 'rtePath'), 'GET', Array('mounts'=>Array('mounted'=>''))), Array('Mounted', 'listed'));
 checkSame('run route: false serves none of them', Array(foundVals('/mounted/listed', Array('statCode', 'rteOwnr'), 'GET', Array('mounts'=>Array('mounted'=>false))), foundVals('/rooted', Array('rteOwnr'), 'GET', Array('mounts'=>Array('mounted'=>false)))), Array(Array(404, null), Array(null)));
 checkSame('run route: another Run keeps its default mount', foundVals('/clashed/listed', Array('app', 'action'), 'GET', Array('mounts'=>Array('mounted'=>false))), Array('Clashed', 'clashed'));
+
+// A Run links to its own routes as its file declares them, whatever its mount
+checkSame('run link: under its default mount', linkFrom('listed'), '/mounted/listed');
+checkSame('run link: under a renamed mount', Array(linkFrom('listed', Array('mounts'=>Array('mounted'=>'space'))), linkFrom('items/$id', Array('mounts'=>Array('mounted'=>'space/deep')))), Array('/space/listed', '/space/deep/items/7'));
+checkSame('run link: a route from the root, written with or without its slash', Array(linkFrom('/rooted'), linkFrom('rooted'), linkFrom('rooted', Array('mounts'=>Array('mounted'=>'space')))), Array('/rooted', '/rooted', '/rooted'));
+checkSame('run link: its $name parts filled', linkFrom('items/$id'), '/mounted/items/7');
+checkSame('run link: a path the Run does not declare is a final path of the site', linkFrom('hello/$id'), '/hello/7');
+checkSame('run link: a leading slash is always a final path', linkFrom('/items/$id'), '/items/7');
+checkLike('run link: a route the Run does not serve is not found (manually)', linkFrom('listed', Array('mounts'=>Array('mounted'=>false), 'detect'=>'manually')), '/^THROWN RuntimeException: No route is declared as "listed"/');
 
 // A Run declaring its routes is closed : none of its actions is reached by its path, a 404 logged on runner
 nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('runlogs'), 'mode'=>'BASE', 'pref'=>'Y') );

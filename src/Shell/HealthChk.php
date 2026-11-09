@@ -189,8 +189,8 @@ class HealthChk{
 	/**
 	 * Checks the routes each preset serves, the Runs' with their mounts:
 	 * two Runs declaring one path ('route clash': fail, the first in name
-	 * order answers), a site route over a Run route ('route shadow': warn,
-	 * the site's answers), and an entry of openrt or rolert naming no route
+	 * order answers), a site route over a Run route, on its path or by a
+	 * pattern matching it ('route shadow': warn, the site's answers), and an entry of openrt or rolert naming no route
 	 * ('access route': warn): a path no route declares, a Run that does not
 	 * exist, or an action that is not one of the Run, or that a Run
 	 * declaring its routes does not list. One row for each, naming the
@@ -220,6 +220,14 @@ class HealthChk{
 					$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'];
 				}elseif( $ownName!==$rteSet['rteOwnr'] ){
 					$clshLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$ownName.' and '.$rteSet['rteOwnr'];
+				}else{
+					// A pattern of the site over it answers first
+					foreach( array_keys(array_combine(array_keys($rteData), array_column($rteData, 'rteOwnr')), 'site', true) as $rteKey ){
+						if( $routObj->matchPath(strval($rteKey), strval($rteSet['rtePath']))!==null ){
+							$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'].' under /'.$rteKey;
+							break;
+						}
+					}
 				}
 			}
 			// What openrt and rolert name must be served by this preset

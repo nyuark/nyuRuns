@@ -221,6 +221,13 @@ class Router{
 				}
 				continue;
 			}
+			// A pattern of the site over it answers first : told as well
+			foreach( array_keys(array_combine(array_keys($siteRte), array_column($siteRte, 'rteOwnr')), 'site', true) as $rteKey ){
+				if( $this->matchPath(strval($rteKey), $rtePath)!==null ){
+					Logger::getLogger('runner')->warning( 'Route '.json_encode('/'.$rtePath, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['rteOwnr'].' falls under the site route '.json_encode('/'.$rteKey, JSON_UNESCAPED_SLASHES).': the site\'s answers' );
+					break;
+				}
+			}
 			unset($runRte['rtePath']);
 			$siteRte[$rtePath] = $runRte;
 		}
@@ -229,14 +236,34 @@ class Router{
 	}
 
 	/**
+	 * Gives the final path of a route a Run declares in its own routes.rte,
+	 * from the path written there (relative to its mount, or from the root
+	 * with a leading slash): the route under the Run's current mount.
+	 *
+	 * @param String $runAppName Name of the Run, whatever its case.
+	 * @param String $routeShape Path of the route as the Run's file declares it, such as items/$id.
+	 * @return ?String The final path, without its slashes; null when the Run declares no such route, or does not serve it.
+	 */
+	public function runsShape( String $runAppName, String $routeShape ): ?String {
+		foreach( $this->loadFiles() as $rteKey => $rteSet ){
+			if( strcasecmp(strval($rteSet['rteOwnr'] ?? 'site'), $runAppName)==0 && ($rteSet['rteDecl'] ?? null)===trim($routeShape, '/') ){
+				return strval($rteKey);
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Reads the routes the Runs declare, runs/<App>/routes.rte, in name
 	 * order of the Runs: the .rte format, each target naming an action of
 	 * that Run with 'act' alone (its 'app' is implied; any other key of a
-	 * target is warned as unknown). A path is moved under the mount of the
-	 * Run (see mountPath), except one with a leading slash, from the root of
-	 * the site. A Run the preset does not mount serves none.
+	 * target is warned as unknown). A target naming a redirection, a file or
+	 * a page is left out, not served: a whole route for one block, the
+	 * method alone in a block per method. A path is moved under the mount of
+	 * the Run (see mountPath), except one with a leading slash, from the root
+	 * of the site. A Run the preset does not mount serves none.
 	 *
-	 * @return Array The routes, in a list: each its declaration with its final path under 'rtePath' (without its slashes) and its Run under 'rteOwnr'.
+	 * @return Array The routes, in a list: each its declaration with its final path under 'rtePath' (without its slashes), its Run under 'rteOwnr' and the path its file declares it with under 'rteDecl' (without its slashes).
 	 */
 	public function runRoutes(): Array {
 		$rowList = Array();
@@ -260,19 +287,32 @@ class Router{
 				}
 				$rteKey = strval($rteKey);
 				$rtePath = (substr($rteKey, 0, 1)=='/') ? trim($rteKey, '/') : trim($mntPath.'/'.trim($rteKey, '/'), '/');
-				// The application of every target is the Run's own
 				$tgtVals = $rteSet['target'] ?? null;
-				if( is_array($tgtVals) && isset($tgtVals['act']) ){
+				if( !is_array($tgtVals) ){
+					continue;
+				}
+				// A Run serves its own actions only : a target naming a redirection, a file or a page is left out (warned by warnsKeys)
+				if( !empty(array_intersect(array_map('strval', array_keys($tgtVals)), array_merge(self::TRGTKEYS, Array('act')))) ){
+					// One block for every method
+					if( !empty(array_intersect(array_keys($tgtVals), array_diff(self::TRGTKEYS, Array('app', 'act')))) ){
+						continue;
+					}
 					$tgtVals['app'] = $appName;
-				}elseif( is_array($tgtVals) ){
+				}else{
+					// One block per method, each checked
 					foreach( $tgtVals as $mthNme => $mthTgt ){
-						if( is_array($mthTgt) ){
-							$tgtVals[$mthNme]['app'] = $appName;
+						if( !is_array($mthTgt) || !empty(array_intersect(array_keys($mthTgt), array_diff(self::TRGTKEYS, Array('app', 'act')))) ){
+							unset($tgtVals[$mthNme]);
+							continue;
 						}
+						$tgtVals[$mthNme]['app'] = $appName;
+					}
+					if( empty($tgtVals) ){
+						continue;
 					}
 				}
 				$rteSet['target'] = $tgtVals;
-				$rowList[] = Array('rtePath'=>$rtePath, 'rteOwnr'=>$appName) + $rteSet;
+				$rowList[] = Array('rtePath'=>$rtePath, 'rteOwnr'=>$appName, 'rteDecl'=>trim($rteKey, '/')) + $rteSet;
 			}
 		}
 		return $rowList;
@@ -372,7 +412,7 @@ class Router{
 	 * @param String $lookupPath Path of the request.
 	 * @return ?Array The captured values by name (URL-decoded), or null when the path does not match.
 	 */
-	protected function matchPath( String $routeShape, String $lookupPath ): ?Array {
+	public function matchPath( String $routeShape, String $lookupPath ): ?Array {
 		$keyPart = explode('/', trim($routeShape, '/'));
 		$urlPart = explode('/', $lookupPath);
 		$restVal = null;

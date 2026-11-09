@@ -232,10 +232,14 @@ class Actionset {
 	}
 
 	/**
-	 * Builds the link to a declared route, from the path it is declared
-	 * with (see Router::buildLink).
+	 * Builds the link to a declared route (see Router::buildLink). A path
+	 * without a leading slash is first one of the routes the Run declares in
+	 * its own routes.rte, as written there: the link follows the Run's
+	 * current mount (see Router::runsShape). When the Run declares no such
+	 * route, and for a path with a leading slash, it is the final path of a
+	 * route, as the site serves it.
 	 *
-	 * @param String $routeShape Path the route is declared with, such as profiles/$id.
+	 * @param String $routeShape Path of the route, such as profiles/$id: as the Run's file declares it, or its final path.
 	 * @param Array  $pathValues Values of the named parts of the path.
 	 * @param Array  $queryParam Values to add as a query string.
 	 * @return String The link, from the root of the site.
@@ -246,7 +250,8 @@ class Actionset {
 		if( $this->routrObj===null ){
 			throw new \RuntimeException('No router to build a link with');
 		}
-		return $this->routrObj->buildLink($routeShape, $pathValues, $queryParam);
+		$rtePath = (substr($routeShape, 0, 1)!='/') ? $this->routrObj->runsShape($this->runCntxt->appIdent, $routeShape) : null;
+		return $this->routrObj->buildLink($rtePath ?? $routeShape, $pathValues, $queryParam);
 	}
 
 	/**

@@ -95,6 +95,12 @@ class Preset{
 				}
 			}
 		}
+		// A mount is false or a path prefix (empty for the root): anything else would only fail at the first request
+		foreach( (array)($this->rpsArray['route']['mounts'] ?? Array()) as $mntKey => $mntVal ){
+			if( $mntVal!==false && (!is_string($mntVal) || !preg_match('#^[A-Za-z0-9_\-/]*$#D', $mntVal)) ){
+				throw new \RuntimeException('Preset "'.$presetName.'" holds a mount that is not false or a path prefix for the application '.json_encode(strval($mntKey)).': '.json_encode($mntVal, JSON_UNESCAPED_SLASHES));
+			}
+		}
 		// A format the reply cannot be written in would only fail at the first request
 		$frmtVal = $this->rpsArray['rnder']['format'] ?? 'json';
 		if( !is_string($frmtVal) || !array_key_exists(strtolower($frmtVal), \nyu\Output\Response::FORMTLST) ){
