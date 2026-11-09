@@ -263,7 +263,7 @@ class Deploy extends Command{
 		if( $dbHandl===null || !preg_match('/^\w+$/D', $tblName) ){
 			$this->stopShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXITDENY);
 		}
-		$fldList = array_map( Array($dbHandl, 'quoteName'), array_merge(UserFile::FLDSLIST, Array('actvCode', 'resetCod')) );
+		$fldList = array_map( Array($dbHandl, 'quoteName'), array_merge(UserFile::FLDSLIST, Array('actvCode', 'resetCod', 'twoFaWay')) );
 		if( !$dbHandl->sendQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHandl->quoteName($tblName).' ORDER BY '.$dbHandl->quoteName('id_user').';') ){
 			$this->stopShell('The users cannot be read: '.strval($dbHandl->lastError()));
 		}
@@ -328,14 +328,14 @@ class Deploy extends Command{
 	 * Lists what does not go along when the users leave the native
 	 * userbase for the users file, which is only read: activation and reset
 	 * codes, the review of sign-ups, presence and the step of the last 2FA
-	 * code. Active devices stop the
-	 * move, unless --drops lets them go.
+	 * code. Users with codes by mail stop the move; active devices stop it
+	 * too, unless --drops lets them go.
 	 *
 	 * @param String $sourceName The store the users leave.
 	 * @param Array  $usersArray The users, as that store holds them.
 	 * @return Array The rows of what is not kept, and the identifiers of the devices to revoke.
 	 *
-	 * @throws ShellStop When active devices are found without --drops.
+	 * @throws ShellStop When users with codes by mail are found, or active devices without --drops.
 	 */
 	protected function lostItems( String $sourceName, Array $usersArray ): Array {
 		if( $sourceName!='native' ){
@@ -359,6 +359,13 @@ class Deploy extends Command{
 		}), 'userName' );
 		if( !empty($rvwList) ){
 			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; manage unlck makes them active');
+		}
+		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
+		$mailLst = array_column( array_filter($usersArray, function( Array $userValues ): Bool {
+			return ($userValues['twoFaWay'] ?? null)==='mailed';
+		}), 'userName' );
+		if( !empty($mailLst) ){
+			$this->stopShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "manage twofa <user> --clear" takes them away', self::EXITDENY);
 		}
 		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
 		$dvcConf = $this->accessCnf('device');

@@ -1,0 +1,13 @@
+Votre code de connexion
+Bonjour %user%,
+
+Votre mot de passe a été donné pour vous connecter à votre compte. Pour
+terminer la connexion, saisissez ce code là où il vous est demandé :
+
+    %code%
+
+Le code ne sert qu'une fois, dans les %mins% minutes.
+
+Si vous n'avez pas essayé de vous connecter, quelqu'un d'autre connaît
+votre mot de passe : changez-le dès maintenant. Personne ne se connecte
+sans ce code.

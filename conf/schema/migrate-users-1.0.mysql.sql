@@ -1,7 +1,9 @@
 -- Users table, from 0.9 to 1.0, MySQL 5.7 or later, MariaDB 10.5 or later.
 -- For a users table made by conf/schema/users.mysql.sql of 0.9: it adds the
--- columns of the access mails (userMail, userLang, resetCod, codeDate, signDate) and the
--- status 'review' of a self-registration awaiting a manager.
+-- columns of the access mails (userMail, userLang, resetCod, codeDate, signDate), those of
+-- the codes mailed as a second factor (twoFaWay, mailCode, mailDate) and the status 'review'
+-- of a self-registration awaiting a manager. A table already moved to 1.0 before the mailed
+-- codes (an early copy of 1.0) only needs the three lines of twoFaWay, mailCode and mailDate.
 --
 -- First a backup of the table:
 --   mysqldump -u <user> -p <database> users > users-0.9.sql
@@ -20,6 +22,10 @@ ALTER TABLE `users`
 	ADD COLUMN `resetCod` VARCHAR(64)  NULL AFTER `actvCode`,
 	ADD COLUMN `codeDate` DATETIME     NULL AFTER `resetCod`,
 	ADD COLUMN `signDate` DATETIME     NULL AFTER `codeDate`,
+	ADD COLUMN `twoFaWay` CHAR(6)      NULL AFTER `twoFaStp`,
+	ADD COLUMN `mailCode` CHAR(64)     NULL AFTER `twoFaWay`,
+	ADD COLUMN `mailDate` DATETIME     NULL AFTER `mailCode`,
+	ADD CONSTRAINT `twoFaWay` CHECK (`twoFaWay` IN ('mailed')),
 	ADD UNIQUE KEY `userMail` (`userMail`);
 
 
@@ -47,4 +53,8 @@ ALTER TABLE `users`
 -- 	DROP COLUMN `userLang`,
 -- 	DROP COLUMN `resetCod`,
 -- 	DROP COLUMN `codeDate`,
--- 	DROP COLUMN `signDate`;
+-- 	DROP COLUMN `signDate`,
+-- 	DROP CHECK `twoFaWay`,
+-- 	DROP COLUMN `twoFaWay`,
+-- 	DROP COLUMN `mailCode`,
+-- 	DROP COLUMN `mailDate`;

@@ -1,7 +1,9 @@
 -- Users table, from 0.9 to 1.0, PostgreSQL.
 -- For a users table made by conf/schema/users.pgsql.sql of 0.9: it adds the
--- columns of the access mails ("userMail", "userLang", "resetCod", "codeDate", "signDate")
--- and the status 'review' of a self-registration awaiting a manager.
+-- columns of the access mails ("userMail", "userLang", "resetCod", "codeDate", "signDate"),
+-- those of the codes mailed as a second factor ("twoFaWay", "mailCode", "mailDate") and the
+-- status 'review' of a self-registration awaiting a manager. A table already moved to 1.0
+-- before the mailed codes (an early copy of 1.0) only needs the lines of those three.
 --
 -- First a backup of the table:
 --   pg_dump -U <user> -t '"users"' <database> > users-0.9.sql
@@ -20,6 +22,9 @@ ALTER TABLE "users"
 	ADD COLUMN "resetCod" VARCHAR(64)  NULL,
 	ADD COLUMN "codeDate" TIMESTAMP(0) NULL,
 	ADD COLUMN "signDate" TIMESTAMP(0) NULL,
+	ADD COLUMN "twoFaWay" CHAR(6)      NULL CHECK ("twoFaWay" IN ('mailed')),
+	ADD COLUMN "mailCode" CHAR(64)     NULL,
+	ADD COLUMN "mailDate" TIMESTAMP(0) NULL,
 	ADD UNIQUE ("userMail");
 
 -- The status 'review': the check of "userStat" is replaced.
@@ -34,5 +39,5 @@ COMMIT;
 -- BEGIN;
 -- ALTER TABLE "users" DROP CONSTRAINT "users_userStat_check";
 -- ALTER TABLE "users" ADD CONSTRAINT "users_userStat_check" CHECK ("userStat" IN ('pendng', 'active', 'locked'));
--- ALTER TABLE "users" DROP COLUMN "userMail", DROP COLUMN "userLang", DROP COLUMN "resetCod", DROP COLUMN "codeDate", DROP COLUMN "signDate";
+-- ALTER TABLE "users" DROP COLUMN "userMail", DROP COLUMN "userLang", DROP COLUMN "resetCod", DROP COLUMN "codeDate", DROP COLUMN "signDate", DROP COLUMN "twoFaWay", DROP COLUMN "mailCode", DROP COLUMN "mailDate";
 -- COMMIT;

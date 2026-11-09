@@ -11,7 +11,8 @@ use nyu\Tools\Logger;
 /**
  * Sends the mails of the access flows: the code that activates an account
  * ('actvte'), confirms a sign-up ('signup') or sets a new password
- * ('pwdset'), the notice that a sign-up asked for a name or an address
+ * ('pwdset'), the code of a login as a second factor ('lgcode'), the
+ * notice that a sign-up asked for a name or an address
  * already taken ('taken'), and the warning to the managers that sign-ups
  * are piling up ('onhold', with %count% and %limit%).
  *
@@ -40,8 +41,8 @@ use nyu\Tools\Logger;
  */
 class AccessMail {
 
-	// The mails a code is sent with
-	const KINDLIST = Array('actvte', 'signup', 'pwdset');
+	// The mails a code is sent with; the code of a login ('lgcode') is typed where it was asked, without a link
+	const KINDLIST = Array('actvte', 'signup', 'pwdset', 'lgcode');
 	// The mail of a sign-up that asked for a name or an address taken
 	const TAKENNME = 'taken';
 	// The mail telling the managers that sign-ups are piling up
@@ -114,7 +115,7 @@ class AccessMail {
 	/**
 	 * Sends a code to a user.
 	 *
-	 * @param String $mailedKind The mail: 'actvte', 'signup' or 'pwdset'.
+	 * @param String $mailedKind The mail: 'actvte', 'signup', 'pwdset' or 'lgcode' (never with a link).
 	 * @param String $userString Login name of the user.
 	 * @param String $mailString Its address.
 	 * @param String  $codeString The code.
@@ -126,7 +127,7 @@ class AccessMail {
 			return false;
 		}
 		$linkTxt = '';
-		if( $this->linkTmpl!='' ){
+		if( $this->linkTmpl!='' && $mailedKind!=='lgcode' ){
 			$linkTxt = strtr( $this->linkTmpl, Array('%kind%'=>rawurlencode($mailedKind), '%user%'=>rawurlencode($userString), '%code%'=>rawurlencode($codeString)) );
 		}
 		return $this->sendsMail( $mailedKind, $mailString, Array('user'=>$userString, 'code'=>$codeString, 'link'=>$linkTxt, 'mins'=>strval($this->codeMins)), $langTagStr );

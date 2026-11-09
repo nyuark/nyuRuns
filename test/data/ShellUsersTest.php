@@ -57,6 +57,15 @@ $usrScrt = strval($jsnVals['secret']['2FA secret of erin'] ?? '');
 checkSame('twofa gives a secret: the password alone is no longer enough', Array(strlen($usrScrt), $natAuth->checkCred(Array('user'=>'erin', 'pass'=>'pw-erin-long')), $natAuth->lastError(), $natAuth->checkCred(Array('user'=>'erin', 'pass'=>'pw-erin-long', 'code'=>Totp::codeAtTme($usrScrt, time())))['user'] ?? null), Array(32, false, 'Verification code required', 'erin'));
 checkSame('a lost authenticator: twofa --clear lets the password log in again', Array(runShell($projDir, Array('manage', 'twofa', 'erin', '--clear', '--noask'))['code'], runShell($projDir, Array('manage', 'twofa', 'erin', '--clear'), "y\n")['text'], $natAuth->checkCred(Array('user'=>'erin', 'pass'=>'pw-erin-long'))['user'] ?? null), Array(3, "2FA removed: erin\n", 'erin'));
 checkSame('a locked or unknown user is given neither', Array(runShell($projDir, Array('manage', 'token', 'dave'))['code'], runShell($projDir, Array('manage', 'twofa', 'nobody'))['code'], runShell($projDir, Array('manage', 'twofa', 'nobody', '--clear', '--agree'))['errs']), Array(3, 3, "User not found\n"));
+// Codes by mail : a mail account, and an address for the user
+runShell($projDir, Array('manage', 'email', 'erin', 'erin@example.ch'));
+checkSame('twofa --email without a mailer is refused', runShell($projDir, Array('manage', 'twofa', 'erin', '--email'))['errs'], "No mail account sends the codes: mailer is not set\n");
+putInProj($projDir, 'conf/mailer.json', '{ "devbox": { "type": "tofile", "from": "no-reply@example.com", "fold": "temp/mails" } }');
+runShell($projDir, Array('config', 'write', 'access', 'tsnatv.mailer', 'devbox', '--force'));
+checkSame('twofa --email: the user gives a mailed code at each login', Array(runShell($projDir, Array('manage', 'twofa', 'erin', '--email'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFaWay FROM users WHERE userName='erin'")->fetchColumn()), Array("2FA set: erin (codes by mail)\n", 'mailed'));
+checkLike('twofa --email is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Mailed codes set for user "erin" by user "cli:/');
+checkSame('a move to the users file is refused while a user has mailed codes', Array(runShell($projDir, Array('deploy', 'store', 'usrlst', '--agree'))['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array("Nothing was moved: codes by mail need the native userbase (erin); \"manage twofa <user> --clear\" takes them away\n", false));
+checkSame('twofa --clear takes them away', Array(runShell($projDir, Array('manage', 'twofa', 'erin', '--clear', '--agree'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFaWay FROM users WHERE userName='erin'")->fetchColumn()), Array("2FA removed: erin\n", null));
 
 // Reset, removal
 $jsnVals = jsonShell($projDir, Array('manage', 'reset', 'ben'));

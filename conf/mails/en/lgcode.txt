@@ -1,0 +1,12 @@
+Your login code
+Hello %user%,
+
+Your password was given to log in to your account. To end the login,
+give this code where you are asked for it:
+
+    %code%
+
+The code works once, within %mins% minutes.
+
+If you did not try to log in, your password is known to someone else:
+change it now. Nobody logs in without this code.

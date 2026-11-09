@@ -31,6 +31,11 @@ CREATE TABLE `users` (
 	`twoFaKey` VARCHAR(128) NULL,
 	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
 	`twoFaStp` INT UNSIGNED NULL,
+	-- Second factor sent by mail ('mailed'); an authenticator when empty and twoFaKey is set
+	`twoFaWay` CHAR(6)      NULL,
+	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
+	`mailCode` CHAR(64)     NULL,
+	`mailDate` DATETIME     NULL,
 	-- Failed attempts of the current window, and time of the last one
 	`failNmbr` INT UNSIGNED NOT NULL DEFAULT 0,
 	`failDate` DATETIME     NULL,
@@ -42,5 +47,6 @@ CREATE TABLE `users` (
 	UNIQUE KEY `tokenKey` (`tokenKey`),
 	UNIQUE KEY `userMail` (`userMail`),
 	CHECK (`userRole` IN ('member', 'system', 'manage')),
-	CHECK (`userStat` IN ('pendng', 'review', 'active', 'locked'))
+	CHECK (`userStat` IN ('pendng', 'review', 'active', 'locked')),
+	CHECK (`twoFaWay` IN ('mailed'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

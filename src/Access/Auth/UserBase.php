@@ -33,28 +33,22 @@ class UserBase extends Native{
 	const SHOWLIST = Array('id_user', 'userName', 'userRole', 'userStat', 'userMail', 'userLang', 'signDate', 'madeDate', 'lastSeen');
 	// Stored in place of a hash until the user sets its password : no password matches it
 	const VOIDHASH = '!';
-	// The characters of a code : no 0, 1, I, L or O, which are taken for one another
-	const CODECHRS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 	// Minutes a code handed over by an administrator lasts
 	const ADMNMINS = 300;
-	// Minutes a code sent by mail lasts, unless 'codexp' says otherwise
-	const MAILMINS = 15;
 	// Longest mail address
 	const MAILSIZE = 254;
 	// Most self-registrations waiting at once, confirmed or not, unless the 'regtop' of the limits says otherwise : beyond, sign-ups are closed for a while
 	const SIGNSCAP = 256;
 
 	protected $lastCode = 200;
-	protected $mailMins;
 
 	/**
 	 * Builds the manager from the config block of the native userbase.
 	 *
-	 * @param Array $confValues The block (see Native), and the minutes a code sent by mail lasts ('codexp').
+	 * @param Array $confValues The block (see Native), with the minutes a code sent by mail lasts ('codexp').
 	 */
 	function __construct( Array $confValues ){
 		parent::__construct($confValues);
-		$this->mailMins = max( 1, intval($confValues['codexp'] ?? self::MAILMINS) );
 	}
 
 	/**
@@ -637,10 +631,42 @@ class UserBase extends Native{
 		if( $this->knownUser($userString)===null ){
 			return false;
 		}
-		if( $this->sendWrite('UPDATE {usrTable} SET {twoFaKey}=NULL, {twoFaStp}=NULL WHERE {userName}=?;', Array($userString))<0 ){
+		if( $this->sendWrite('UPDATE {usrTable} SET {twoFaKey}=NULL, {twoFaStp}=NULL, {twoFaWay}=NULL, {mailCode}=NULL, {mailDate}=NULL WHERE {userName}=?;', Array($userString))<0 ){
 			return $this->refuseFor(500, 'User cannot be written');
 		}
 		Logger::getLogger('access')->notice( '2FA secret of user '.json_encode($userString).' removed'.Logger::actorText() );
+		return true;
+	}
+
+	/**
+	 * Has an active user give, after its password, a code sent to its
+	 * address at each login, in place of the code of an authenticator: a
+	 * 2FA secret it held is taken away. It needs an address, and a mail
+	 * account named by the block of the login (see Access\AccessMail).
+	 *
+	 * @param String $userString Login name of the user.
+	 * @return Bool Whether the user now logs in with mailed codes; false when it is unknown, not active, has no address, no mail is sent, or the table cannot be written.
+	 */
+	public function mailTwoFa( String $userString ): Bool {
+		$this->resetLast();
+		$usrVals = $this->knownUser($userString);
+		if( $usrVals===null ){
+			return false;
+		}
+		if( ($usrVals['userStat'] ?? '')!=='active' ){
+			return $this->refuseFor(409, 'User not active');
+		}
+		if( strval($usrVals['userMail'] ?? '')=='' ){
+			return $this->refuseFor(409, 'User without a mail address');
+		}
+		if( \nyu\Access\AccessMail::fromLogin()===null ){
+			return $this->refuseFor(409, 'No mail account sends the codes: mailer is not set');
+		}
+		$updQury = "UPDATE {usrTable} SET {twoFaWay}='mailed', {twoFaKey}=NULL, {twoFaStp}=NULL, {mailCode}=NULL, {mailDate}=NULL WHERE {userName}=? AND {userStat}='active';";
+		if( $this->sendWrite($updQury, Array($userString))<1 ){
+			return $this->refuseFor(500, 'User cannot be written');
+		}
+		Logger::getLogger('access')->notice( 'Mailed codes set for user '.json_encode($userString).Logger::actorText() );
 		return true;
 	}
 
@@ -799,33 +825,6 @@ class UserBase extends Native{
 	protected function mailInUse( String $mailString, String $userString ): ?Bool {
 		$usrRows = $this->sendFetch( 'SELECT {userName} FROM {usrTable} WHERE {userMail}=? AND {userName}<>? LIMIT 1;', Array($mailString, $userString) );
 		return ($usrRows===false) ? null : !empty($usrRows);
-	}
-
-	/**
-	 * Makes a new code: 10 characters of CODECHRS, as XXXX-XXXX-XX.
-	 *
-	 * @return String The code.
-	 */
-	protected function freshCode(): String {
-		$chrText = '';
-		$lastChr = strlen(self::CODECHRS) - 1;
-		for( $pos=0; $pos<10; $pos++ ){
-			$chrText .= self::CODECHRS[ random_int(0, $lastChr) ];
-		}
-		return substr($chrText, 0, 4).'-'.substr($chrText, 4, 4).'-'.substr($chrText, 8);
-	}
-
-	/**
-	 * Gives the hashes a code given is looked up by: the one of the code
-	 * as it is stored (in upper case, without dashes or spaces), and the
-	 * one of the code as it is given, for the codes of the earlier versions.
-	 *
-	 * @param String $codeString The code given.
-	 * @return Array The two SHA-256 hashes, the stored form first.
-	 */
-	protected function codeHashs( String $codeString ): Array {
-		$cmpCode = strtoupper( preg_replace('/[^A-Za-z0-9]/', '', $codeString) );
-		return Array( hash('sha256', $cmpCode), hash('sha256', $codeString) );
 	}
 
 	/**

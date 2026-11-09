@@ -20,6 +20,12 @@ class Native implements Handler{
 	const STAMPGAP = 60;
 	// Longest password, in bytes : bcrypt reads nothing beyond
 	const PASSSIZE = 72;
+	// The characters of a code : no 0, 1, I, L or O, which are taken for one another
+	const CODECHRS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+	// Minutes a code sent by mail lasts, unless 'codexp' says otherwise
+	const MAILMINS = 15;
+	// Seconds before a login asking again for a mailed code is sent a new one
+	const MAILWAIT = 60;
 
 	protected $userBase;
 	protected $usrTable;
@@ -28,6 +34,7 @@ class Native implements Handler{
 	protected $holdSecs;
 	protected $minPassw;
 	protected $sealPass;
+	protected $mailMins;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -40,7 +47,8 @@ class Native implements Handler{
 	 *                          the failed tries allowed ('maxtry', defaults to 5), the time in seconds they hold the
 	 *                          account for ('holdtm', defaults to 600), the shortest password accepted, in
 	 *                          characters ('minlen', defaults to 10) and the key the 2FA secrets are stored encrypted
-	 *                          with ('tfakey', 32 characters at least; without one they are stored readable).
+	 *                          with ('tfakey', 32 characters at least; without one they are stored readable), and the
+	 *                          minutes a code sent by mail lasts ('codexp', defaults to MAILMINS).
 	 */
 	function __construct( Array $confValues ){
 		$this->userBase = is_scalar($confValues['basnme'] ?? '') ? strval($confValues['basnme'] ?? '') : '';
@@ -51,6 +59,7 @@ class Native implements Handler{
 		$this->holdSecs = max( 1, intval($confValues['holdtm'] ?? 600) );
 		$this->minPassw = min( self::PASSSIZE, max(1, intval($confValues['minlen'] ?? 10)) );
 		$this->sealPass = is_scalar($confValues['tfakey'] ?? '') ? strval($confValues['tfakey'] ?? '') : '';
+		$this->mailMins = max( 1, intval($confValues['codexp'] ?? self::MAILMINS) );
 		$this->lastMssg = '';
 	}
 
@@ -59,7 +68,10 @@ class Native implements Handler{
 	 * password must match the stored bcrypt hash and the user must be
 	 * 'active' (one that is not is refused as a wrong password is, and
 	 * the reason logged); a user with a 2FA secret must also give the current code
-	 * of its authenticator. After too many wrong passwords or codes, the
+	 * of its authenticator, and a user with mailed codes ('twoFaWay') the code
+	 * sent to its address: asked without one, a code is mailed (see mailsCode)
+	 * when the credentials hold a 'code' entry, even empty, as the login's do.
+	 * After too many wrong passwords or codes, the
 	 * user is refused for the hold time, whatever it gives: the reply is
 	 * the one of a wrong password, and the hold is told in the log only. A 'key' entry
 	 * is checked as a personal API token instead.
@@ -108,9 +120,34 @@ class Native implements Handler{
 			$this->wrongCrd = true;
 			return false;
 		}
-		// A user with a 2FA secret must also give the current code of its authenticator
+		// A user with mailed codes gives the code sent to its address : asked without one, a code is mailed
 		$twoFaKy = strval($usrVals['twoFaKey'] ?? '');
-		if( $twoFaKy!='' ){
+		if( ($usrVals['twoFaWay'] ?? null)==='mailed' ){
+			$gvnCode = strval($credsArray['code'] ?? '');
+			if( $gvnCode=='' ){
+				// Only a caller that can carry a code (the login) has one mailed : a Basic header cannot
+				if( array_key_exists('code', $credsArray) && !$this->mailsCode($usrVals) ){
+					$this->lastMssg = 'Credential store unavailable';
+					return false;
+				}
+				// Not a failed attempt : the password was right, the client now asks for the code
+				$this->lastMssg = 'Verification code required';
+				return false;
+			}
+			$codeHit = $this->matchMail( $usrVals, $gvnCode );
+			if( $codeHit===null ){
+				$this->lastMssg = 'Credential store unavailable';
+				return false;
+			}
+			if( !$codeHit ){
+				\nyu\Tools\Logger::getLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($usrVals['userName']) );
+				$this->countFail( strval($usrVals['userName']) );
+				$this->lastMssg = 'Invalid verification code';
+				$this->wrongCrd = true;
+				return false;
+			}
+		}elseif( $twoFaKy!='' ){
+			// A user with a 2FA secret must also give the current code of its authenticator
 			// A secret stored encrypted is read with the key of the config
 			$twoFaKy = Totp::openSecrt($twoFaKy, $this->sealPass);
 			if( $twoFaKy===null ){
@@ -221,6 +258,106 @@ class Native implements Handler{
 	}
 
 	/**
+	 * Makes a code for the login of a user with mailed codes, stores its
+	 * hash with its end ('codexp' minutes on) and mails it after the reply,
+	 * in the language of the user, through the account the block of the
+	 * login names (see Access\AccessMail). A code mailed less than MAILWAIT
+	 * seconds ago is kept, and nothing is sent: asking again does not flood
+	 * the address.
+	 *
+	 * @param Array $userValues The user's row.
+	 * @return Bool Whether a code is on its way; false when no mailer or no address sends it, or the table cannot be written.
+	 */
+	protected function mailsCode( Array $userValues ): Bool {
+		$usrName = strval($userValues['userName'] ?? '');
+		$usrMail = strval($userValues['userMail'] ?? '');
+		// After the reply of a request; at once on the command line, which has none
+		$mailObj = \nyu\Access\AccessMail::fromLogin( '', PHP_SAPI!=='cli' );
+		if( $mailObj===null || $usrMail=='' ){
+			\nyu\Tools\Logger::getLogger('access')->error( 'Verification code of user '.json_encode($usrName).' not sent: no mailer or no address' );
+			return false;
+		}
+		$endDate = strval($userValues['mailDate'] ?? '');
+		if( strval($userValues['mailCode'] ?? '')!='' && $endDate!='' && strtotime($endDate) - 60*$this->mailMins > time() - self::MAILWAIT ){
+			return true;
+		}
+		$newCode = $this->freshCode();
+		try{
+			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailCode']}=?, {$qtdName['mailDate']}=? WHERE {$qtdName['userName']}=?;";
+			if( !$dbHandl->sendQuery($updQury, true, Array($this->codeHashs($newCode)[0], date('Y-m-d H:i:s', time() + 60*$this->mailMins), $usrName)) || $dbHandl->lastCount()<1 ){
+				\nyu\Tools\Logger::getLogger('access')->error( 'A mailed code cannot be recorded: the users table cannot be written, or has no mailCode column (see conf/schema)' );
+				return false;
+			}
+		}catch( \Throwable $e ){
+			return false;
+		}
+		$mailObj->sendCodes( 'lgcode', $usrName, $usrMail, $newCode, strval($userValues['userLang'] ?? '') ?: null );
+		\nyu\Tools\Logger::getLogger('access')->info( 'Verification code mailed to user '.json_encode($usrName) );
+		return true;
+	}
+
+	/**
+	 * Checks the code mailed for the login of a user, and clears it: it
+	 * is accepted once, before its end. One write decides: of two requests
+	 * giving the same code at once, one is refused.
+	 *
+	 * @param Array  $userValues The user's row.
+	 * @param String $codeString The code given, whatever its case and dashes.
+	 * @return ?Bool True when the code is the one mailed, false when it is not or has ended, null when the table cannot be written.
+	 */
+	protected function matchMail( Array $userValues, String $codeString ): ?Bool {
+		$strHash = strval($userValues['mailCode'] ?? '');
+		$endDate = strval($userValues['mailDate'] ?? '');
+		if( $strHash=='' || $endDate=='' || $endDate<date('Y-m-d H:i:s') ){
+			return false;
+		}
+		$gvnHash = $this->codeHashs($codeString)[0];
+		if( !hash_equals($strHash, $gvnHash) ){
+			return false;
+		}
+		try{
+			$dbHandl = $this->linkDBase();
+			$qtdName = $this->quoteFlds($dbHandl);
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailCode']}=NULL, {$qtdName['mailDate']}=NULL WHERE {$qtdName['userName']}=? AND {$qtdName['mailCode']}=?;";
+			if( !$dbHandl->sendQuery($updQury, true, Array(strval($userValues['userName'] ?? ''), $strHash)) ){
+				return null;
+			}
+			return $dbHandl->lastCount()>0;
+		}catch( \Throwable $e ){
+			return null;
+		}
+	}
+
+	/**
+	 * Makes a new code: 10 characters of CODECHRS, as XXXX-XXXX-XX.
+	 *
+	 * @return String The code.
+	 */
+	protected function freshCode(): String {
+		$chrText = '';
+		$lastChr = strlen(self::CODECHRS) - 1;
+		for( $pos=0; $pos<10; $pos++ ){
+			$chrText .= self::CODECHRS[ random_int(0, $lastChr) ];
+		}
+		return substr($chrText, 0, 4).'-'.substr($chrText, 4, 4).'-'.substr($chrText, 8);
+	}
+
+	/**
+	 * Gives the hashes a code given is looked up by: the one of the code
+	 * as it is stored (in upper case, without dashes or spaces), and the
+	 * one of the code as it is given, for the codes of the earlier versions.
+	 *
+	 * @param String $codeString The code given.
+	 * @return Array The two SHA-256 hashes, the stored form first.
+	 */
+	protected function codeHashs( String $codeString ): Array {
+		$cmpCode = strtoupper( preg_replace('/[^A-Za-z0-9]/', '', $codeString) );
+		return Array( hash('sha256', $cmpCode), hash('sha256', $codeString) );
+	}
+
+	/**
 	 * Gives an active user a new 2FA secret, replacing any previous one.
 	 * From then on its password must come with the code of an
 	 * authenticator set up with that secret.
@@ -237,7 +374,7 @@ class Native implements Handler{
 			$qtdName = $this->quoteFlds($dbHandl);
 			$newScrt = Totp::makeSecrt();
 			$storTxt = Totp::sealSecrt($newScrt, $this->sealPass);
-			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFaKey']}=?, {$qtdName['twoFaStp']}=NULL"
+			$updQury = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFaKey']}=?, {$qtdName['twoFaStp']}=NULL, {$qtdName['twoFaWay']}=NULL, {$qtdName['mailCode']}=NULL, {$qtdName['mailDate']}=NULL"
 				." WHERE {$qtdName['userName']}=? AND {$qtdName['userStat']}='active';";
 			if( !$dbHandl->sendQuery($updQury, true, Array($storTxt, $userString)) || $dbHandl->lastCount()<1 ){
 				return false;
@@ -464,7 +601,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFlds( DbHandlr $handlerObj ): Array {
 		$qtdName = Array('usrTable'=>$handlerObj->quoteName($this->usrTable));
-		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'userLang', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
+		foreach( Array('id_user', 'userName', 'passHash', 'userRole', 'userStat', 'userMail', 'userLang', 'actvCode', 'resetCod', 'codeDate', 'signDate', 'tokenKey', 'twoFaKey', 'twoFaStp', 'twoFaWay', 'mailCode', 'mailDate', 'failNmbr', 'failDate', 'madeDate', 'lastSeen') as $fldNme ){
 			$qtdName[$fldNme] = $handlerObj->quoteName($fldNme);
 		}
 		return $qtdName;

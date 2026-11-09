@@ -93,6 +93,12 @@ foreach( Array('actvte'=>'Your account: choose your password', 'pwdset'=>'Your p
 	checkLike('sendCodes: the mail '.$mailKnd, readMail(takeMails()[0] ?? ''), '/Subject: '.preg_quote($subjTxt, '/').'\r\n.*do='.$mailKnd.'&user=ann&code=AAAA-BBBB-CC/s');
 }
 
+// The code of a login : typed where it was asked, never with a link
+$accMail->sendCodes('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+$mailTxt = readMail(takeMails()[0] ?? '');
+checkSame('sendCodes: the code of a login, without a link though lnkurl is set', Array(preg_match('/Subject: Your login code\r\n/', $mailTxt), strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'https://'), preg_match('/within 20 minutes/', $mailTxt)), Array(1, true, false, 1));
+checkLike('sendCodes: the code of a login, in French', readMail($accMail->sendCodes('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre code de connexion\r\n.*dans les 20 minutes/s');
+
 // Without a link, the code alone
 $accMail = new AccessMail( array_diff_key($natConf, Array('lnkurl'=>1)) );
 $accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');

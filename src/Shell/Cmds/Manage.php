@@ -19,6 +19,7 @@ use nyu\Shell\UserFile;
  *   php nyuRun manage locks ann                locks it (unlck unlocks)
  *   php nyuRun manage passw ann                gives it a new password, made and shown once (--typed to type it)
  *   php nyuRun manage twofa ann --clear        takes its 2FA secret away, when its authenticator is lost
+ *   php nyuRun manage twofa ann --email        has it give a code sent to its address at each login
  *   php nyuRun manage prove                    the sign-ups awaiting review (prove ann approves one)
  *   php nyuRun manage calls shows/index filters[search]=jazz
  *
@@ -65,7 +66,7 @@ class Manage extends Command{
 			'langs'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (LNG_DFLT) then'),
 			'passw'=>Array('args'=>'<user> [--typed]', 'about'=>'gives a user a new password'),
 			'token'=>Array('args'=>'<user> [--clear]', 'about'=>'gives a user a new personal API token, or takes it away'),
-			'twofa'=>Array('args'=>'<user> [--clear] [--plain]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--plain: without), or takes it away'),
+			'twofa'=>Array('args'=>'<user> [--clear] [--plain] [--email]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--plain: without), codes by mail (--email), or takes it away'),
 			'calls'=>Array('args'=>'<app/action[/param]> [name=value ...] [--input=<file|->] [--mthod=<method>] [--prset=<preset>] [--urole=<role>] [--saved=<file>]', 'about'=>'calls an action of a run, as the user cli:<system user>')
 		);
 	}
@@ -403,7 +404,8 @@ class Manage extends Command{
 	/**
 	 * Gives a user a new 2FA secret, shown once with the address an
 	 * authenticator reads and its QR code (left out with --plain, and in
-	 * JSON), or takes the one it holds away with --clear.
+	 * JSON), has it give a code mailed at each login instead (--email,
+	 * native userbase only), or takes either away with --clear.
 	 *
 	 * @return Int The exit code.
 	 */
@@ -418,6 +420,18 @@ class Manage extends Command{
 				$this->failStore($storObj);
 			}
 			$this->prntObjc->printPair('2FA removed', $usrName);
+			return self::EXITDONE;
+		}
+		// Codes by mail : the users file is only read, and cannot keep a code
+		if( $this->optnObjc->hasOption('email') ){
+			if( !method_exists($storObj, 'mailTwoFa') ){
+				$this->stopShell('Nothing was changed: codes by mail need the native userbase; the users file is only read', self::EXITDENY);
+			}
+			if( !$storObj->mailTwoFa($usrName) ){
+				$this->failStore($storObj);
+			}
+			$this->traceDone( 'Mailed codes set for user '.json_encode($usrName) );
+			$this->prntObjc->printPair('2FA set', $usrName.' (codes by mail)');
 			return self::EXITDONE;
 		}
 		$newScrt = $storObj->makeTwoFa($usrName);
