@@ -273,7 +273,7 @@ class HealthChk{
 	/**
 	 * Checks the entry points of www: the preset each one starts the
 	 * Runner with (defaults when it names none) must check access. An open
-	 * one ("required": false) fails in PREV and PROD and is told in DEV and
+	 * one ("required": false) fails in PREV and PROD and is told in DEVS and
 	 * TEST, unless its security block says it is meant to be ("isPublic": true).
 	 * An entry naming its preset at run time cannot be followed: it is told.
 	 */

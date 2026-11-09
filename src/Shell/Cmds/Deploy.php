@@ -560,8 +560,8 @@ class Deploy extends Command{
 		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
 		$currEnv = strval($wrtrObj->retrieveIniKey($iniPath, 'ENV_NAME') ?? '');
 		if( $currEnv!='' ){
-			$wantEnv = strtoupper( $this->queryAnswerTxt('Environment (DEV, TEST, PREV, PROD)', $currEnv) );
-			if( !in_array($wantEnv, Array('DEV', 'TEST', 'PREV', 'PROD'), true) ){
+			$wantEnv = strtoupper( $this->queryAnswerTxt('Environment (DEVS, TEST, PREV, PROD)', $currEnv) );
+			if( !in_array($wantEnv, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
 				$this->terminateShell('Not an environment: '.$wantEnv, self::EXIT_DENY);
 			}
 			if( $wantEnv!=$currEnv ){

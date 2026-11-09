@@ -46,13 +46,13 @@ class Logger{
 	 * @param String $logDirectory Directory where log files are stored; empty for a logger that writes nothing.
 	 * @param String $channelLabel Log channel/file name (without extension), e.g. 'error', 'runner', 'access': letters, digits and underscores.
 	 * @param String $verboseLevel Verbosity: FULL, BASE or MINI.
-	 * @param Int    $loggerLength Max file size in KB before rotation (NUMBER rotation only); 0 = unlimited.
-	 * @param String $lggrRotation Rotation mode: NUMBER, WEEKLY, MONTHS or UNIQUE.
+	 * @param Int    $loggerLength Max file size in KB before rotation (NUMB rotation only); 0 = unlimited.
+	 * @param String $lggrRotation Rotation mode: NUMB, WEEK, MNTH or NONE.
 	 * @param String $loggerPrefix date() format of the time written at the start of each entry.
 	 *
 	 * @throws \RuntimeException When the channel is not a plain name.
 	 */
-	function __construct( String $logDirectory, String $channelLabel='runner', String $verboseLevel='FULL', Int $loggerLength=0, String $lggrRotation='NUMBER', String $loggerPrefix='Y-m-d H:i' ){
+	function __construct( String $logDirectory, String $channelLabel='runner', String $verboseLevel='FULL', Int $loggerLength=0, String $lggrRotation='NUMB', String $loggerPrefix='Y-m-d H:i' ){
 		// The channel names a file : it cannot lead out of the log folder
 		if( !preg_match('/^\w+$/D', $channelLabel) ){
 			throw new \RuntimeException('Log channel refused: '.json_encode($channelLabel).' is not a plain name');
@@ -97,7 +97,7 @@ class Logger{
 			if( $confVls===null ){
 				self::$channelLst[$channelLabel] = new Logger( '', $channelLabel );
 			}else{
-				self::$channelLst[$channelLabel] = new Logger( strval($confVls['path'] ?? ''), $channelLabel, strval($confVls['mode'] ?? 'FULL'), intval($confVls['size'] ?? 0), strval($confVls['rota'] ?? 'NUMBER'), strval($confVls['pref'] ?? 'Y-m-d H:i') );
+				self::$channelLst[$channelLabel] = new Logger( strval($confVls['path'] ?? ''), $channelLabel, strval($confVls['mode'] ?? 'FULL'), intval($confVls['size'] ?? 0), strval($confVls['rota'] ?? 'NUMB'), strval($confVls['pref'] ?? 'Y-m-d H:i') );
 			}
 		}
 		return self::$channelLst[$channelLabel];
@@ -231,11 +231,11 @@ class Logger{
 	 */
 	protected function resolveLogPath(): String {
 		$nameEnd = '';
-		if( $this->logsRotatn=='WEEKLY' ){
+		if( $this->logsRotatn=='WEEK' ){
 			$nameEnd = '-W'.date('oW');
-		}elseif( $this->logsRotatn=='MONTHS' ){
+		}elseif( $this->logsRotatn=='MNTH' ){
 			$nameEnd = '-'.date('Y-m');
-		}elseif( $this->logsRotatn=='UNIQUE' ){
+		}elseif( $this->logsRotatn=='NONE' ){
 			$nameEnd = $this->uniqSuffix;
 		}
 		return $this->logsFolder.DIRECTORY_SEPARATOR.$this->channelNme.$nameEnd.'.log';
@@ -243,14 +243,14 @@ class Logger{
 
 	/**
 	 * Rotates the given log file to a numbered backup when it exceeds
-	 * the configured LOG_SIZE (NUMBER rotation mode only). When another
+	 * the configured LOG_SIZE (NUMB rotation mode only). When another
 	 * process rotates the file at the same moment, one of the two keeps
 	 * writing in it until its next entry.
 	 *
 	 * @param String $logsFilePath Path to the active log file.
 	 */
 	protected function rotateLogFiles( String $logsFilePath ): Void {
-		if( $this->logsRotatn!='NUMBER' || $this->logsLength<=0 ){
+		if( $this->logsRotatn!='NUMB' || $this->logsLength<=0 ){
 			return;
 		}
 		// filesize() is cached per process : refresh it to see our own writes

@@ -44,7 +44,7 @@ class Config extends Command{
 	const SECR_LIST = Array('hmacSecr', 'password', 'passwd', 'keysList', 'cryptKey');
 	// What the keys of system.ini that are checked may hold
 	const RULE_LIST = Array(
-		'ENV_NAME'=>'/^(DEV|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMBER|WEEKLY|MONTHS|UNIQUE)$/D',
+		'ENV_NAME'=>'/^(DEVS|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMB|WEEK|MNTH|NONE)$/D',
 		'ERR_SHOW'=>'/^(TRUE|FALSE)$/D', 'CNF_CACH'=>'/^(TRUE|FALSE)$/D', 'TBL_CACH'=>'/^(TRUE|FALSE)$/D','LOG_SIZE'=>'/^\d{1,9}$/D', 'LST_ROWS'=>'/^[1-9]\d{0,8}$/D', 'SND_TIME'=>'/^[1-9]\d{0,8}$/D',
 		'REQ_SIZE'=>'/^\d{1,9}$/D', 'REQ_PART'=>'/^\d{1,9}$/D', 'LNG_DFLT'=>'/^[a-z]{2,3}([-_][a-z0-9]{2,8})*$/Di', 'ERR_LEVL'=>'/^(\d{1,9}|~?\s*E_[A-Z_]+(\s*[|&]\s*~?\s*E_[A-Z_]+)*)$/D'
 	);

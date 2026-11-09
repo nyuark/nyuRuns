@@ -108,7 +108,7 @@ checkIdentical('files alone still makes them all', Array(runShellAsJson(freshPrj
 // start, with its questions
 $projDir = freshPrjt('asked');
 $runVals = callShellArray($projDir, Array('installs', 'allSteps', '--silently'), "\n\n");
-checkIdentical('each question proposes a default, taken on Enter: the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEV')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Name of the internal account [teammate]: Name of the operator account [engineer]: Name of the sysadmin account [sysAgent]: ', true, true));
+checkIdentical('each question proposes a default, taken on Enter: the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Name of the internal account [teammate]: Name of the operator account [engineer]: Name of the sysadmin account [sysAgent]: ', true, true));
 // The names of the basic accounts: each asked, the one proposed taken on Enter; a name a user cannot have, or one given twice, creates none
 $projDir = freshPrjt('accounts');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps'), "\n\nann.k\n\nBen-2\n");
@@ -122,7 +122,7 @@ checkIdentical('names: one a user cannot have, one given twice: refused, nobody 
 $projDir = freshPrjt('answer');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps'), "prod\nuserFile\n");
 $statLst = stateOf($jsnVals);
-checkIdentical('the answers are written; ERR_SHOW left on in production is told, where it is ignored', Array($jsnVals['exit'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), "ENV_NAME = PROD\n")!==false, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), '; Environment platform (DEV, TEST, PREV, PROD)')!==false, count(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array()), $statLst['errors'] ?? null, $statLst['users'] ?? null), Array(0, true, true, 3, 'warn', 'fine'));
+checkIdentical('the answers are written; ERR_SHOW left on in production is told, where it is ignored', Array($jsnVals['exit'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), "ENV_NAME = PROD\n")!==false, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), '; Environment platform (DEVS, TEST, PREV, PROD)')!==false, count(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array()), $statLst['errors'] ?? null, $statLst['users'] ?? null), Array(0, true, true, 3, 'warn', 'fine'));
 checkPregMatch('the row tells the setting is ignored there', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['errors'] ?? ''), '/^ERR_SHOW is on in the environment PROD, where it is ignored: set it to FALSE$/');
 checkIdentical('once it is off, the row is fine', Array(callShellArray($projDir, Array('settings', 'setValue', 'system', 'ERR_SHOW', 'FALSE'))['code'], stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['errors'] ?? null), Array(0, 'fine'));
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'phpSessn.secureOn', 'false'));
@@ -217,8 +217,8 @@ if( function_exists('openssl_pkey_new') ){
 	runShellAsJson($projDir, Array('installs', 'makeConf'));
 	writeInProject($projDir, 'conf/keys/jwtToken.pub', $srcPubl);
 	$chkVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
-	checkIdentical('in DEV, a login issuing tokens with a public key alone is told', stateOf($chkVals)['token keys jwtToken'] ?? null, 'warn');
-	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEV', 'ENV_NAME = PROD', buildSystemIni()));
+	checkIdentical('in DEVS, a login issuing tokens with a public key alone is told', stateOf($chkVals)['token keys jwtToken'] ?? null, 'warn');
+	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 	checkIdentical('in PROD, it fails the check', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['token keys jwtToken'] ?? null, 'fail');
 	writeInProject($projDir, 'conf/system.ini', buildSystemIni());
 	runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=userFile'));
@@ -227,7 +227,7 @@ if( function_exists('openssl_pkey_new') ){
 	runShellAsJson($projDir, Array('installs', 'makeConf'));
 	writeInProject($projDir, 'conf/keys/jwtToken.pub', $srcPubl);
 	callShellArray($projDir, Array('settings', 'setValue', 'access', 'jwtToken.external', 'true', '--overrule'));
-	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEV', 'ENV_NAME = PROD', buildSystemIni()));
+	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 	checkIdentical('external: the public key alone is the one of the server issuing the tokens, fine in PROD', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['token keys jwtToken'] ?? null, 'fine');
 	writeInProject($projDir, 'conf/system.ini', buildSystemIni());
 	runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=userFile'));
@@ -250,10 +250,10 @@ writeInProject($projDir, 'www/plain.php', "<?php echo 1;\n");
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
 $statLst = stateOf($jsnVals);
 $fndList = array_column($jsnVals['rows'] ?? Array(), 'found', 'check');
-checkIdentical('in DEV, an entry on an open preset is told; one that checks access, or open by intent, is fine', Array($statLst['entry index'] ?? null, $statLst['entry api'] ?? null, $statLst['entry site'] ?? null, $statLst['entry own'] ?? null, array_key_exists('entry plain', $statLst)), Array('warn', 'fine', 'fine', 'warn', false));
+checkIdentical('in DEVS, an entry on an open preset is told; one that checks access, or open by intent, is fine', Array($statLst['entry index'] ?? null, $statLst['entry api'] ?? null, $statLst['entry site'] ?? null, $statLst['entry own'] ?? null, array_key_exists('entry plain', $statLst)), Array('warn', 'fine', 'fine', 'warn', false));
 checkIdentical('what the rows say', Array($fndList['entry index'] ?? null, $fndList['entry site'] ?? null), Array('starts defaults: every request is served without a check; name a preset that checks access, or set "isPublic": true in its security block when the site is meant to be open', 'starts showcase, open by intent (isPublic)'));
 checkIdentical('public on a preset that checks access, every origin with tokens: both told', Array($statLst['public tokens'] ?? null, $fndList['origins tokens'] ?? null), Array('warn', 'every origin is allowed while the preset reads tokens: list the origins under "corsList"'));
-writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEV', 'ENV_NAME = PROD', buildSystemIni()));
+writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
 checkIdentical('in PROD, an entry on an open preset fails the check; one open by intent does not', Array(stateOf($jsnVals)['entry index'] ?? null, stateOf($jsnVals)['entry site'] ?? null, $jsnVals['exit'] ?? null), Array('fail', 'fine', 4));
 

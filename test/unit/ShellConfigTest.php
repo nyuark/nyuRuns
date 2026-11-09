@@ -37,7 +37,7 @@ $projDir = makeProjectTxt('config', Array(
 ));
 
 // shows
-checkIdentical('shows system lists the keys as written', array_slice(runShellAsJson($projDir, Array('settings', 'showConf', 'system'))['rows'] ?? Array(), 0, 2), Array(Array('key'=>'ENV_NAME', 'value'=>'DEV'), Array('key'=>'LOG_MODE', 'value'=>'FULL')));
+checkIdentical('shows system lists the keys as written', array_slice(runShellAsJson($projDir, Array('settings', 'showConf', 'system'))['rows'] ?? Array(), 0, 2), Array(Array('key'=>'ENV_NAME', 'value'=>'DEVS'), Array('key'=>'LOG_MODE', 'value'=>'FULL')));
 checkIdentical('shows one key', callShellArray($projDir, Array('settings', 'showConf', 'system', 'LOG_PATH'))['text'], "key       value\nLOG_PATH  /temp/logs\n");
 checkIdentical('shows a block, its values as written', runShellAsJson($projDir, Array('settings', 'showConf', 'access', 'jwtToken'))['rows'] ?? null, Array(Array('key'=>'jwtToken.hmacSecr', 'value'=>'env:NYU_JWT_SECRET'), Array('key'=>'jwtToken.lifeSecs', 'value'=>3600), Array('key'=>'jwtToken.signAlgo', 'value'=>'HS256')));
 checkIdentical('a secret written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'access', 'inline'))['rows'] ?? null, Array(Array('key'=>'inline.hmacSecr', 'value'=>'********'), Array('key'=>'inline.keysList', 'value'=>Array('********', '********'))));

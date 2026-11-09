@@ -32,7 +32,7 @@ class Bundle extends Command{
 
 	// The modes of the framework, with the settings written in the system.ini of their bundle
 	const MODE_LIST = Array(
-		'localdev'=>Array('ENV_NAME'=>'DEV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
+		'localdev'=>Array('ENV_NAME'=>'DEVS', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
 		'preprods'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
 		// Production writes errors, warnings and notices: no line for each access of an internal user
 		'releases'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
@@ -64,7 +64,7 @@ class Bundle extends Command{
 	public function subsTableArray(): Array {
 		$optnTxt = '[--destPath=<path>] [--archived] [--planOnly] [--yesToAll] [--composer=<path>]';
 		$subList = Array(
-			'localdev'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEV, errors shown, full logs'),
+			'localdev'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEVS, errors shown, full logs'),
 			'preprods'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
 			'releases'=>Array('args'=>$optnTxt, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
 		);
@@ -145,7 +145,7 @@ class Bundle extends Command{
 		$isKnown = isset($modeLst[$modeNme]);
 		$nowMode = $modeLst[$modeNme] ?? Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array());
 		$iniVals = $nowMode['system'];
-		$iniVals['ENV_NAME'] = strtoupper( $this->queryAnswerTxt('Environment (DEV, TEST, PREV, PROD)', strval($iniVals['ENV_NAME'] ?? 'TEST')) );
+		$iniVals['ENV_NAME'] = strtoupper( $this->queryAnswerTxt('Environment (DEVS, TEST, PREV, PROD)', strval($iniVals['ENV_NAME'] ?? 'TEST')) );
 		$iniVals['ERR_LEVL'] = trim( $this->queryAnswerTxt('Errors reported (E_* names joined by |, & and ~)', strval($iniVals['ERR_LEVL'] ?? 'E_ALL')) );
 		$iniVals['ERR_SHOW'] = strtoupper( $this->queryAnswerTxt('Show errors (TRUE, FALSE)', strval($iniVals['ERR_SHOW'] ?? 'TRUE')) );
 		$iniVals['LOG_MODE'] = strtoupper( $this->queryAnswerTxt('Logging mode (FULL, BASE, MINI)', strval($iniVals['LOG_MODE'] ?? 'FULL')) );
@@ -310,8 +310,8 @@ class Bundle extends Command{
 			$whyText = '';
 			if( !preg_match('/^[a-z0-9]{8}$/D', $modNme) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
 				$whyText = 'not eight lower-case letters or digits, or the name of a sub-command';
-			}elseif( !is_array($iniVals) || !in_array($iniVals['ENV_NAME'] ?? null, Array('DEV', 'TEST', 'PREV', 'PROD'), true) ){
-				$whyText = 'its "system" has no ENV_NAME of DEV, TEST, PREV or PROD';
+			}elseif( !is_array($iniVals) || !in_array($iniVals['ENV_NAME'] ?? null, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
+				$whyText = 'its "system" has no ENV_NAME of DEVS, TEST, PREV or PROD';
 			}elseif( !is_array($newData) ){
 				$whyText = 'its "adding" is not a list of paths';
 			}

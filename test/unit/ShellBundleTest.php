@@ -76,7 +76,7 @@ checkIdentical('confirmed, the former bundle is replaced as a whole', Array(call
 // local, stage
 writeInProject($projDir, $cmpsLog, '');
 callShellArray($projDir, Array('bundling', 'localdev'));
-checkIdentical('a local bundle shows its errors and logs in full, and reads its config on each request', Array(strpos(strval(fetchInProject($projDir, 'dist/localdev/conf/system.ini')), 'ENV_NAME = DEV')!==false, strpos(strval(fetchInProject($projDir, 'dist/localdev/conf/system.ini')), 'LOG_MODE = FULL')!==false, strpos(strval(fetchInProject($projDir, 'dist/localdev/conf/system.ini')), 'CNF_CACH = FALSE')!==false), Array(true, true, true));
+checkIdentical('a local bundle shows its errors and logs in full, and reads its config on each request', Array(strpos(strval(fetchInProject($projDir, 'dist/localdev/conf/system.ini')), 'ENV_NAME = DEVS')!==false, strpos(strval(fetchInProject($projDir, 'dist/localdev/conf/system.ini')), 'LOG_MODE = FULL')!==false, strpos(strval(fetchInProject($projDir, 'dist/localdev/conf/system.ini')), 'CNF_CACH = FALSE')!==false), Array(true, true, true));
 // A system.ini made before the config cache: told, not refused
 writeInProject($projDir, 'conf/system.ini', buildSystemIni());
 $runVals = callShellArray($projDir, Array('bundling', 'releases', '--yesToAll'));
@@ -103,7 +103,7 @@ if( class_exists('PharData') ){
 	$runVals = callShellArray($projDir, Array('bundling', 'localdev', '--yesToAll', '--archived'));
 	$arcPath = $distDir.DS.'localdev.tar.gz';
 	$arcText = is_file($arcPath) ? strval(file_get_contents('phar://'.$arcPath.'/conf/system.ini')) : '';
-	checkIdentical('--archived makes the archive beside the folder, as the folder holds it', Array($runVals['code'], is_file($arcPath), is_file($distDir.DS.'localdev.tar'), strpos($arcText, 'ENV_NAME = DEV')!==false, file_exists('phar://'.$arcPath.'/conf/access.json')), Array(0, true, false, true, false));
+	checkIdentical('--archived makes the archive beside the folder, as the folder holds it', Array($runVals['code'], is_file($arcPath), is_file($distDir.DS.'localdev.tar'), strpos($arcText, 'ENV_NAME = DEVS')!==false, file_exists('phar://'.$arcPath.'/conf/access.json')), Array(0, true, false, true, false));
 }
 
 // Packages for development only cannot be left out : it is told
@@ -118,7 +118,7 @@ $jsnVals = runShellAsJson($projDir, Array('bundling', 'makeMode', 'qaserver', '-
 checkIdentical('mkpak declares a mode, TEST, errors shown and full logs unless told otherwise', Array($jsnVals['mode declared'] ?? null, json_decode(strval(fetchInProject($projDir, 'conf/bundle.lst')), true)), Array('qaserver', Array('qaserver'=>Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array()))));
 $runVals = callShellArray($projDir, Array('bundling', 'makeMode', 'qaserver'), "\nE_ALL & ~E_DEPRECATED\nfalse\nbase\ntest\n");
 checkIdentical('mkpak changes it, the present values proposed', Array($runVals['code'], $runVals['errs'], json_decode(strval(fetchInProject($projDir, 'conf/bundle.lst')), true)['qaserver'] ?? null), Array(0,
-	'Environment (DEV, TEST, PREV, PROD) [TEST]: Errors reported (E_* names joined by |, & and ~) [E_ALL]: Show errors (TRUE, FALSE) [TRUE]: Logging mode (FULL, BASE, MINI) [FULL]: Paths the bundle adds, separated by commas (none for none) [none]: ',
+	'Environment (DEVS, TEST, PREV, PROD) [TEST]: Errors reported (E_* names joined by |, & and ~) [E_ALL]: Show errors (TRUE, FALSE) [TRUE]: Logging mode (FULL, BASE, MINI) [FULL]: Paths the bundle adds, separated by commas (none for none) [none]: ',
 	Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL & ~E_DEPRECATED', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'), 'adding'=>Array('test'))));
 checkIdentical('packs lists it with the others', runShellAsJson($projDir, Array('bundling', 'fullList'))['rows'][3] ?? null, Array('mode'=>'qaserver', 'kind'=>'project', 'settings'=>'ENV_NAME=TEST, ERR_LEVL=E_ALL & ~E_DEPRECATED, ERR_SHOW=FALSE, LOG_MODE=BASE', 'adding'=>'test'));
 $runVals = callShellArray($projDir, Array('bundling', 'qaserver'));

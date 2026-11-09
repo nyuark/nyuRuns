@@ -100,5 +100,5 @@ function runShellAsJson( String $rootPathName, Array $commandWords, String $type
  * @return String The content of the file.
  */
 function buildSystemIni( String $moreLinesTxt='' ): String {
-	return "\n; System Configuration file\n\n; Environment platform (DEV, TEST, PREV, PROD)\nENV_NAME = DEV\n\n; LOGGING\n; Logging mode\nLOG_MODE = FULL\nLOG_PATH = /temp/logs\nLOG_SIZE = 1024\nLOG_ROTA = NUMBER\nLOG_PREF = Y-m-d H:i\n\n; Errors reported\nERR_LEVL = E_ALL\n; Show errors (TRUE/FALSE)\nERR_SHOW = TRUE\nLST_ROWS = 100\n".$moreLinesTxt;
+	return "\n; System Configuration file\n\n; Environment platform (DEVS, TEST, PREV, PROD)\nENV_NAME = DEVS\n\n; LOGGING\n; Logging mode\nLOG_MODE = FULL\nLOG_PATH = /temp/logs\nLOG_SIZE = 1024\nLOG_ROTA = NUMB\nLOG_PREF = Y-m-d H:i\n\n; Errors reported\nERR_LEVL = E_ALL\n; Show errors (TRUE/FALSE)\nERR_SHOW = TRUE\nLST_ROWS = 100\n".$moreLinesTxt;
 }

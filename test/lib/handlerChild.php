@@ -15,7 +15,7 @@ require $topDir.'/vendor/autoload.php';
 
 if( $runMode!='nologger' && $runMode!='block' ){
 	// The 'trace' scenario reads the context of an entry, which only the FULL mode writes
-	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', ($runMode=='trace') ? 'FULL' : 'BASE', 0, 'NUMBER', 'Y');
+	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', ($runMode=='trace') ? 'FULL' : 'BASE', 0, 'NUMB', 'Y');
 }
 require $topDir.'/src/Error/handling.php';
 
@@ -63,7 +63,7 @@ if( $runMode=='reply' ){
 	);
 	foreach( $caseLst as $casNme=>$casSet ){
 		$sentLst = Array();
-		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$casSet[0], 'ENV_NAME'=>$casSet[2] ?? 'DEV')) );
+		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$casSet[0], 'ENV_NAME'=>$casSet[2] ?? 'DEVS')) );
 		unset($GLOBALS['ErrorResponse']);
 		if( $casSet[1]!==null ){
 			$GLOBALS['ErrorResponse'] = $casSet[1];
