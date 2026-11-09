@@ -4,9 +4,11 @@
 //
 //   php -S 127.0.0.1:<port> test/lib/httpRouter.php
 //
-// Every request is served by the framework exactly as www/index.php would,
-// except that the shared database connection is opened beforehand on the
-// sample SQLite file named by the NYU_TEST_DB environment variable.
+// Every request is served by the framework as www/index.php would, except
+// that the shared database connection is opened beforehand on the sample
+// SQLite file named by the NYU_TEST_DB environment variable, and that a
+// request naming no X-Test-Auth, on the default preset or on manual, is
+// served open ("needed": false): both presets are closed.
 //
 // X-Test-* request headers switch on preset overloads, through the Runner's
 // own $overLoaded argument:
@@ -46,6 +48,10 @@ if( isset($_SERVER['HTTP_X_TEST_CERT']) ){
 }
 
 $overArr = Array();
+// dfault and manual are closed : a request naming no access control, on either of them, is served open, as the tests were written for
+if( !isset($_SERVER['HTTP_X_TEST_AUTH']) && in_array($_SERVER['HTTP_X_TEST_PRESET'] ?? '', Array('', 'dfault', 'manual'), true) ){
+	$overArr['auths'] = Array('needed'=>false);
+}
 if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
 	$overArr['auths'] = Array('needed'=>true, 'sessby'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authby'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regkey', 'sesscf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
 	if( isset($_SERVER['HTTP_X_TEST_PUBLIC']) ){
