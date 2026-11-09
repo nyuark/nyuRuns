@@ -21,8 +21,8 @@ use nyu\Tools\Registry;
 createSampleDb( inTemporaryDir('tblmain.sqlite') );
 createSampleDb( inTemporaryDir('tblarch.sqlite') );
 $GLOBALS['nyuConfig'] = new Registry( Array('database'=>Array(
-	'NYURUNS'=>Array('type'=>'sqlte', 'base'=>inTemporaryDir('tblmain.sqlite')),
-	'ARCHIVE'=>Array('type'=>'sqlte', 'base'=>inTemporaryDir('tblarch.sqlite'))
+	'NYURUNS'=>Array('dbEngine'=>'sqlitedb', 'baseName'=>inTemporaryDir('tblmain.sqlite')),
+	'ARCHIVE'=>Array('dbEngine'=>'sqlitedb', 'baseName'=>inTemporaryDir('tblarch.sqlite'))
 )) );
 $realDsc = Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array());
 $fakeDsc = Array('flds'=>Array('id_show', 'title', 'venue', 'gonecol'), 'pkey'=>'id_show', 'blob'=>Array());

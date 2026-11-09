@@ -70,7 +70,7 @@ checkIdentical('Native presence on a missing table', Array($noTable->retainAlive
 
 // Checker : a verified request stamps the user when the credential store tracks presence
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('nativeDb.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('nativeDb.sqlite')),
 	'access'=>Array('TESTNAT'=>Array('useTable'=>'users'))
 ) );
 $natConf = Array('required'=>true, 'sessWith'=>'httpBasc', 'authWith'=>'nativeDb', 'sessConf'=>'testnat');
@@ -91,7 +91,7 @@ checkIdentical('Native userIdent on a missing table', Array($noTable->usrIdentit
 
 // Checker : a token is confirmed against the users table when the preset names it as the credential store
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('nativeDb.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('nativeDb.sqlite')),
 	'access'=>Array('TESTNAT'=>Array('useTable'=>'users'), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)), 'OTHERTB'=>Array('useTable'=>'nousers'))
 ) );
 $jwtSess = new nyu\Access\Sess\JWT( Array('hmacSecr'=>str_repeat('s', 40)) );

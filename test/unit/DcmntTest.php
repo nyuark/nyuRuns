@@ -114,7 +114,7 @@ checkIdentical('config files: named in upper case; JSON keys upper-cased, INI ke
 	$cnfLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'conf', 'fileName'=>'database,system')) );
 	$cnfVals = $cnfLoad->retrieveConfig();
 	return Array(array_keys($cnfVals->readLinesArray()), array_keys((array)$cnfVals->readFileDetail('database')), array_slice(array_keys((array)$cnfVals->readFileDetail('system')), 0, 3));
-}), Array(Array('DATABASE', 'SYSTEM'), Array('TYPE', 'HOST', 'BASE', 'USER', 'PASS'), Array('ENV_NAME', 'LOG_MODE', 'LOG_PATH')));
+}), Array(Array('DATABASE', 'SYSTEM'), Array('DBENGINE', 'HOSTNAME', 'BASENAME', 'USERNAME', 'PASSWORD'), Array('ENV_NAME', 'LOG_MODE', 'LOG_PATH')));
 
 // The envelope
 checkIdentical('a parser returns its content in the envelope', runCatchThrown(function(){ $prsrObj = new Json(); return $prsrObj->parseDataArray('{"a":1}'); }), Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array('a'=>1)));

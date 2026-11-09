@@ -24,9 +24,9 @@ $archLnk->exec('DELETE FROM events WHERE id_event>1');
 $archLnk = null;
 
 $GLOBALS['nyuConfig'] = new Registry( Array('database'=>Array(
-	'NYURUNS'=>Array('type'=>'sqlte', 'base'=>inTemporaryDir('main.sqlite')),
-	'ARCHIVE'=>Array('type'=>'sqlte', 'base'=>inTemporaryDir('arch.sqlite'), 'wait'=>'2'),
-	'BROKEN7'=>Array('type'=>'oracle', 'base'=>'nowhere')
+	'NYURUNS'=>Array('dbEngine'=>'sqlitedb', 'baseName'=>inTemporaryDir('main.sqlite')),
+	'ARCHIVE'=>Array('dbEngine'=>'sqlitedb', 'baseName'=>inTemporaryDir('arch.sqlite'), 'waitSecs'=>'2'),
+	'BROKEN7'=>Array('dbEngine'=>'oracle', 'baseName'=>'nowhere')
 )) );
 
 /**
@@ -45,8 +45,8 @@ checkIdentical('a database asked by its name', runCatchThrown(function(){ return
 checkTrueValue('each database has its own connection', runCatchThrown(function(){ return DBCon::linkNamedDbCon()!==DBCon::linkNamedDbCon('archive'); }));
 checkTrueValue('a database is connected once', runCatchThrown(function(){ return DBCon::linkNamedDbCon('archive')===DBCon::linkNamedDbCon('ARCHIVE'); }));
 checkTrueValue('the default database, by its name, is the same connection', runCatchThrown(function(){ return DBCon::linkNamedDbCon('nyuRuns')===DBCon::linkNamedDbCon(); }));
-checkTrueValue('getInstnc returns the default connection already open', runCatchThrown(function(){ return DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('arch.sqlite'))===DBCon::linkNamedDbCon(); }));
-checkIdentical('...whatever settings it is given', runCatchThrown(function(){ return showsOn(DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('arch.sqlite'))); }), 5);
+checkTrueValue('getInstnc returns the default connection already open', runCatchThrown(function(){ return DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('arch.sqlite'))===DBCon::linkNamedDbCon(); }));
+checkIdentical('...whatever settings it is given', runCatchThrown(function(){ return showsOn(DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('arch.sqlite'))); }), 5);
 checkPregMatch('an unknown name is refused', runCatchThrown(function(){ return DBCon::linkNamedDbCon('nowhere'); }), '/^THROWN RuntimeException: Unknown database: nowhere/');
 checkPregMatch('a database is only opened when asked for: a faulty one does not stop the others', runCatchThrown(function(){ return DBCon::linkNamedDbCon('broken7'); }), '/^THROWN RuntimeException: Unknown database type: oracle/');
 
@@ -174,7 +174,7 @@ if( !is_array($natConf) ){
 	checkIdentical('conf/access.json: the native block names its database first', array_slice(array_keys($natConf), 0, 6), Array('linkName', 'useTable', 'idleSecs', 'maxTries', 'holdSecs', 'minChars'));
 	checkTrueValue('conf/access.json: that database is configured', runCatchThrown(function() use ($axsConf, $natConf){
 		$GLOBALS['nyuConfig'] = $axsConf;
-		return DBCon::baseSetupArray(strval($natConf['linkName'] ?? ''))['type']!='';
+		return DBCon::baseSetupArray(strval($natConf['linkName'] ?? ''))['dbEngine']!='';
 	}));
 }
 

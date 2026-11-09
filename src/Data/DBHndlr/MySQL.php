@@ -3,7 +3,7 @@
 namespace nyu\Data\DBHndlr;
 
 /**
- * MySQL (and MariaDB) handler, type code 'mysql'
+ * MySQL (and MariaDB) handler, type code 'mysqldbs'
  */
 Class MySQL extends PDO {
 
@@ -14,7 +14,7 @@ Class MySQL extends PDO {
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
@@ -28,21 +28,21 @@ Class MySQL extends PDO {
 	 *
 	 * @param String $databaseHost Database host.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 * @return String The PDO connection string.
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $moreParamtrs=Array()): String {
 		$dsnText = "mysql:host=$databaseHost;dbname=$hostBaseText";
-		$partNum = strval($moreParamtrs['port'] ?? '');
+		$partNum = strval($moreParamtrs['portNumb'] ?? '');
 		if( $partNum!='' ){
 			if( !ctype_digit($partNum) ){
 				throw new \RuntimeException('Invalid database port: '.$partNum);
 			}
 			$dsnText .= ';port='.$partNum;
 		}
-		$charSet = strval($moreParamtrs['char'] ?? '');
+		$charSet = strval($moreParamtrs['encoding'] ?? '');
 		if( $charSet!='' ){
 			// A character set name (utf8, utf8mb4), not a collation such as utf8_general_ci
 			if( !preg_match('/^[A-Za-z0-9]+$/D', $charSet) ){

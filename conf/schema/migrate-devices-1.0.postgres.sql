@@ -1,11 +1,11 @@
 -- Devices table, from 0.9 to 1.0, PostgreSQL.
 -- For a devices table made by conf/schema/devices.pgsql.sql of 0.9: its columns
--- take their names of 1.0 (10 characters). Run it after migrate-users-1.0.pgsql.sql.
+-- take their names of 1.0 (10 characters). Run it after migrate-users-1.0.postgres.sql.
 --
 -- First a backup of the table:
 --   pg_dump -U <user> -t '"devices"' <database> > devices-0.9.sql
 -- Then this file, on the database of the application:
---   psql -U <user> -d <database> -f migrate-devices-1.0.pgsql.sql
+--   psql -U <user> -d <database> -f migrate-devices-1.0.postgres.sql
 -- All of it is done, or none. The table name is the 'useTable' value of the
 -- device block of conf/access.json: change "devices" below when it is another.
 

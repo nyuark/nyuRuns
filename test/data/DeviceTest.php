@@ -71,7 +71,7 @@ checkIdentical('Device unusable table name',  Array($badName->chckCredential(Arr
 
 // Checker : 'device' is a check of the framework, needing no plug-in, and the token travels as "Authorization: Bearer <token>"
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('device.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('device.sqlite')),
 	'access'=>Array('TESTDVC'=>Array('stmpSecs'=>0), 'TESTBEAR'=>Array('headName'=>'Authorization', 'authSchm'=>'Bearer'))
 ) );
 $dvcConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'sessConf'=>'testbear', 'authWith'=>'devToken', 'authConf'=>'testdvc');

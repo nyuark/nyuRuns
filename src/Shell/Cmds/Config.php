@@ -41,7 +41,7 @@ class Config extends Command{
 	// Size of the RSA keys made for the tokens, in bits
 	const KEYS_BITS = 4096;
 	// Keys whose value is not shown, unless it only names where the secret is (env:NAME)
-	const SECR_LIST = Array('hmacSecr', 'pass', 'passwd', 'keysList', 'cryptKey');
+	const SECR_LIST = Array('hmacSecr', 'password', 'passwd', 'keysList', 'cryptKey');
 	// What the keys of system.ini that are checked may hold
 	const RULE_LIST = Array(
 		'ENV_NAME'=>'/^(DEV|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(NUMBER|WEEKLY|MONTHS|UNIQUE)$/D',

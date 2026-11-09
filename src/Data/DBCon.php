@@ -14,9 +14,9 @@ class DBCon {
 	protected 		$storObject;
 
 	// Handler class of each SQL database type code
-	private const TYPE_LIST = Array('mysql'=>'MySQL', 'sqlte'=>'SQLite', 'pgsql'=>'PgSQL');
+	private const TYPE_LIST = Array('mysqldbs'=>'MySQL', 'sqlitedb'=>'SQLite', 'postgres'=>'PgSQL');
 	// Store class of each database type that is not SQL: those have no handler
-	private const STOR_LIST = Array('mongo'=>'MongoStore');
+	private const STOR_LIST = Array('mongodbs'=>'MongoStore');
 
 	/**
 	 * Private: connections are opened through linkNamedDbCon(), obtainInstance() or
@@ -29,12 +29,12 @@ class DBCon {
 	 * Opens the connection of a database of the given type: an SQL type
 	 * through its handler, any other through its own store.
 	 *
-	 * @param String $hostTypeText Database type code ('mysql'), or the name of a handler class under nyu\Data\DBHndlr. 'PDO', the former name of the MySQL handler, is still accepted.
+	 * @param String $hostTypeText Database type code ('mysqldbs'), or the name of a handler class under nyu\Data\DBHndlr. 'PDO', the former name of the MySQL handler, is still accepted.
 	 * @param String $databaseHost Database host.
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set), 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
 	 * @param String $databasLabel Name of the database in the config, '' for the default one: the config cache keeps the descriptions of its tables under it.
 	 *
 	 * @return DBCon The new connection.
@@ -45,7 +45,7 @@ class DBCon {
 		$newLink = new DBCon();
 		$typeKey = strtolower($hostTypeText);
 		if( $typeKey=='pdo' ){
-			$typeKey = 'mysql';
+			$typeKey = 'mysqldbs';
 		}
 		if( isset(self::STOR_LIST[$typeKey]) ){
 			$storCls = '\\nyu\\Data\\DBStore\\'.self::STOR_LIST[$typeKey];
@@ -91,12 +91,12 @@ class DBCon {
 	 * return the connection already open. Code that relies on the
 	 * configuration uses linkNamedDbCon() instead.
 	 *
-	 * @param String $hostTypeText Database type code ('mysql'), or the name of a handler class under nyu\Data\DBHndlr.
+	 * @param String $hostTypeText Database type code ('mysqldbs'), or the name of a handler class under nyu\Data\DBHndlr.
 	 * @param String $databaseHost Database host.
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set), 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set), 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
 	 * @return DBCon The connection of the default database.
 	 *
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
@@ -124,7 +124,7 @@ class DBCon {
 		$baseSet = self::readSetupArray($databasLabel);
 		$nameKey = $baseSet['name'];
 		if( !isset(self::$knownLinks[$nameKey]) ){
-			self::$knownLinks[$nameKey] = self::buildLinkDbCon($baseSet['type'], $baseSet['host'], $baseSet['user'], $baseSet['pass'], $baseSet['base'], Array('port'=>$baseSet['port'], 'char'=>$baseSet['char'], 'auth'=>$baseSet['auth'], 'wait'=>$baseSet['wait']), $nameKey);
+			self::$knownLinks[$nameKey] = self::buildLinkDbCon($baseSet['dbEngine'], $baseSet['hostName'], $baseSet['userName'], $baseSet['password'], $baseSet['baseName'], Array('portNumb'=>$baseSet['portNumb'], 'encoding'=>$baseSet['encoding'], 'authBase'=>$baseSet['authBase'], 'waitSecs'=>$baseSet['waitSecs']), $nameKey);
 		}
 		return self::$knownLinks[$nameKey];
 	}
@@ -135,7 +135,7 @@ class DBCon {
 	 * names: the first block is then the default database.
 	 *
 	 * @param String $databasLabel Name of the database, whatever its case; '' for the default one.
-	 * @return Array The 'type', 'host', 'port', 'base', 'user', 'pass', 'char', 'auth' and 'wait' settings, '' for those left out.
+	 * @return Array The 'dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'password', 'encoding', 'authBase' and 'waitSecs' settings, whatever their case in the file, '' for those left out.
 	 *
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
@@ -155,14 +155,14 @@ class DBCon {
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
 	private static function readSetupArray( String $databasLabel ): Array {
-		$dfltSet = Array('type'=>'', 'host'=>'', 'port'=>'', 'base'=>'', 'user'=>'', 'pass'=>'', 'char'=>'', 'auth'=>'', 'wait'=>'');
+		$dfltSet = Array('dbEngine'=>'', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'', 'userName'=>'', 'password'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>'');
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$allBase = $nyuConf ? $nyuConf->readFileDetail('database') : null;
 		if( !is_array($allBase) || empty($allBase) ){
 			throw new \RuntimeException('No database is configured');
 		}
 		$allBase = array_change_key_case($allBase, CASE_LOWER);
-		if( array_key_exists('type', $allBase) ){
+		if( array_key_exists('dbengine', $allBase) ){
 			// A single block of settings: it has no name, and is the default
 			if( $databasLabel!='' ){
 				throw new \RuntimeException('Unknown database: '.$databasLabel);
@@ -181,7 +181,11 @@ class DBCon {
 				$nameKey = '';
 			}
 		}
-		$baseSet = array_merge( $dfltSet, array_map('strval', array_filter(array_intersect_key($baseSet, $dfltSet), 'is_scalar')) );
+		// The keys are read in lower case, and given as dfltSet writes them
+		foreach( array_keys($dfltSet) as $keyNme ){
+			$dfltSet[$keyNme] = is_scalar($baseSet[strtolower($keyNme)] ?? null) ? strval($baseSet[strtolower($keyNme)]) : '';
+		}
+		$baseSet = $dfltSet;
 		$baseSet['name'] = $nameKey;
 		return $baseSet;
 	}

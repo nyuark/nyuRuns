@@ -16,7 +16,7 @@ interface Handler{
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 */
 	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array());
 	
@@ -27,7 +27,7 @@ interface Handler{
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 */
 	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()): Void;
 	/**

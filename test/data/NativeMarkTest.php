@@ -20,7 +20,7 @@ $sqlFile = inTemporaryDir('marks.sqlite');
 createSampleDb( $sqlFile );
 $lmtFldr = 'temp'.DS.'nativemarks_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>$sqlFile),
 	'access'=>Array('TRYLIMIT'=>Array('maxTries'=>0, 'dataPath'=>$lmtFldr, 'markSecr'=>str_repeat('k', 40)))
 ) );
 $natAuth = new Native( Array('useTable'=>'users', 'maxTries'=>5, 'holdSecs'=>600, 'minChars'=>8) );

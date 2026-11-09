@@ -10,7 +10,7 @@
 -- codeExpiry, signupDate), those of the codes mailed as a second factor
 -- (twoFactWay, mailedCode, mailExpiry), the time of the last password
 -- (passwdDate) and the status 'review' of a self-registration awaiting a manager.
--- The devices table is moved by migrate-devices-1.0.mysql.sql, after this one.
+-- The devices table is moved by migrate-devices-1.0.mysqldbs.sql, after this one.
 --
 -- A table already moved to an early copy of 1.0 (with userMail, userLang,
 -- resetCod, codeDate, signDate, and maybe twoFaWay, mailCode, mailDate and
@@ -22,7 +22,7 @@
 -- First a backup of the table:
 --   mysqldump -u <user> -p <database> users > users-0.9.sql
 -- Then this file, on the database of the application:
---   mysql -u <user> -p <database> < migrate-users-1.0.mysql.sql
+--   mysql -u <user> -p <database> < migrate-users-1.0.mysqldbs.sql
 -- It runs part 1; part 2 is commented out, as its line depends on the server.
 -- The table name is the 'useTable' value of conf/access.json: change `users`
 -- below when it is another.

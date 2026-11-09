@@ -1,7 +1,7 @@
 {
-	"type": "sqlte",
-	"host": "",
-	"base": "",
-	"user": "",
-	"pass": ""
+	"dbEngine": "sqlitedb",
+	"hostName": "",
+	"baseName": "",
+	"userName": "",
+	"password": ""
 }

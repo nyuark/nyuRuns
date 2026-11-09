@@ -1,6 +1,6 @@
 <?php
 
-// conf/schema/migrate-users-1.0.sqlte.sql, then migrate-devices-1.0.sqlte.sql :
+// conf/schema/migrate-users-1.0.sqlitedb.sql, then migrate-devices-1.0.sqlitedb.sql :
 // a users table of 0.9, with a device, made again as 1.0 makes it, its
 // columns renamed; the users and their devices stay.
 
@@ -48,12 +48,12 @@ $sqlLink->exec("INSERT INTO devices (devcName, devcRole, tokenKey, user_id) VALU
 $oldRows = $sqlLink->query('SELECT * FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 checkForThrows('0.9 refuses the status review', function() use ( $sqlLink ){ $sqlLink->exec("UPDATE users SET userStat='review' WHERE id_user=7"); }, PDOException::class);
 
-$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'migrate-users-1.0.sqlte.sql')) );
-$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'migrate-devices-1.0.sqlte.sql')) );
+$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'migrate-users-1.0.sqlitedb.sql')) );
+$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'migrate-devices-1.0.sqlitedb.sql')) );
 
 $newCols = array_column( $sqlLink->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_ASSOC), 'name' );
 $freshDb = new PDO('sqlite::memory:');
-$freshDb->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')) );
+$freshDb->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
 checkIdentical('the columns are those of the 1.0 schema, in its order', $newCols, array_column( $freshDb->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_ASSOC), 'name' ));
 $newRows = $sqlLink->query('SELECT * FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 // The values of 0.9 under the names of 1.0

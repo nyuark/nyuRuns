@@ -94,7 +94,7 @@ if( function_exists('openssl_pkey_new') ){
 checkIdentical('users alone: a store that holds users is left as it is; a store that is not one', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], callShellArray($projDir, Array('installs', 'userBase', '--useStore=other'))['code']), Array("The users file already holds users: nothing was changed.\n", 2));
 
 // start : the settings of a database are made with the native userbase only
-$baseDst = '{ "nyuRuns": { "type": "mysql", "host": "localhost", "port": "", "base": "nyuRuns", "user": "nyuruns", "pass": "env:NYU_DB_PASS", "char": "utf8" } }';
+$baseDst = '{ "nyuRuns": { "dbEngine": "mysqldbs", "hostName": "localhost", "portNumb": "", "baseName": "nyuRuns", "userName": "nyuruns", "password": "env:NYU_DB_PASS", "encoding": "utf8" } }';
 $projDir = freshPrjt('nodbase');
 writeInProject($projDir, 'conf/database.json.dist', $baseDst);
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=userFile'));

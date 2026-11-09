@@ -16,7 +16,7 @@
 function serverSettings( String $typeLabelTxt ): Array {
 	$srvrLod = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'confsrv')) );
 	$hostCfg = array_map('strval', (array)$srvrLod->retrieveConfig()->obtainRowValue('SERVERS', $typeLabelTxt));
-	if( ($hostCfg['user'] ?? '')=='' ){
+	if( ($hostCfg['userName'] ?? '')=='' ){
 		// No test account : the account of the project is used, on the test database
 		$loadObj = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'fileName'=>'database')) );
 		$keepCnf = $GLOBALS['nyuConfig'] ?? null;
@@ -27,22 +27,22 @@ function serverSettings( String $typeLabelTxt ): Array {
 			$projCfg = Array();
 		}
 		$GLOBALS['nyuConfig'] = $keepCnf;
-		if( strtolower(strval($projCfg['type'] ?? ''))==$typeLabelTxt ){
-			foreach( Array('host', 'port', 'user', 'pass') as $cnfKey ){
+		if( strtolower(strval($projCfg['dbEngine'] ?? ''))==Array('mysql'=>'mysqldbs', 'pgsql'=>'postgres', 'mongo'=>'mongodbs')[$typeLabelTxt] ){
+			foreach( Array('hostName', 'portNumb', 'userName', 'password') as $cnfKey ){
 				$hostCfg[$cnfKey] = strval($projCfg[$cnfKey] ?? '');
 			}
 		}
 	}
-	$hostCfg += Array('host'=>'', 'port'=>'', 'base'=>'', 'user'=>'', 'pass'=>'');
-	if( $hostCfg['host']=='' ) $hostCfg['host'] = '127.0.0.1';
-	if( $hostCfg['base']=='' ) $hostCfg['base'] = 'nyuruns_test';
+	$hostCfg += Array('hostName'=>'', 'portNumb'=>'', 'baseName'=>'', 'userName'=>'', 'password'=>'');
+	if( $hostCfg['hostName']=='' ) $hostCfg['hostName'] = '127.0.0.1';
+	if( $hostCfg['baseName']=='' ) $hostCfg['baseName'] = 'nyuruns_test';
 	$hostCfg['skip'] = '';
-	if( $hostCfg['user']=='' && $typeLabelTxt!='mongo' ){
+	if( $hostCfg['userName']=='' && $typeLabelTxt!='mongo' ){
 		// A local MongoDB server often asks for no account: it is tried as it is
 		$hostCfg['skip'] = 'no '.$typeLabelTxt.' test server is configured (see .env.example)';
-	}elseif( !preg_match('/^\w+$/D', $hostCfg['base']) || stripos($hostCfg['base'], 'test')===false ){
+	}elseif( !preg_match('/^\w+$/D', $hostCfg['baseName']) || stripos($hostCfg['baseName'], 'test')===false ){
 		$hostCfg['skip'] = 'the name of the test database must be a plain name containing "test"';
-	}elseif( $hostCfg['port']!='' && !ctype_digit($hostCfg['port']) ){
+	}elseif( $hostCfg['portNumb']!='' && !ctype_digit($hostCfg['portNumb']) ){
 		$hostCfg['skip'] = 'the port of the test server is not a number';
 	}
 	return $hostCfg;
@@ -57,19 +57,19 @@ function serverSettings( String $typeLabelTxt ): Array {
  * @return String '' when the database is ready, or the reason it is not.
  */
 function generateServer( String $typeLabelTxt, Array $serverConfig ): String {
-	$dsnHead = $typeLabelTxt.':host='.$serverConfig['host'].($serverConfig['port']!='' ? ';port='.$serverConfig['port'] : '');
+	$dsnHead = $typeLabelTxt.':host='.$serverConfig['hostName'].($serverConfig['portNumb']!='' ? ';port='.$serverConfig['portNumb'] : '');
 	$pdoArgs = Array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>3);
-	$baseNme = $serverConfig['base'];
+	$baseNme = $serverConfig['baseName'];
 	try{
 		if( $typeLabelTxt=='mysql' ){
-			$admLink = new PDO($dsnHead, $serverConfig['user'], $serverConfig['pass'], $pdoArgs);
+			$admLink = new PDO($dsnHead, $serverConfig['userName'], $serverConfig['password'], $pdoArgs);
 			$admLink->exec('CREATE DATABASE IF NOT EXISTS `'.$baseNme.'` CHARACTER SET utf8');
 			$admLink = null;
 			$autoKey = 'INT AUTO_INCREMENT PRIMARY KEY';
 			$tblTail = ' ENGINE=InnoDB';
 			$nameQut = '`';
 		}elseif( $typeLabelTxt=='pgsql' ){
-			$admLink = new PDO($dsnHead.';dbname=postgres', $serverConfig['user'], $serverConfig['pass'], $pdoArgs);
+			$admLink = new PDO($dsnHead.';dbname=postgres', $serverConfig['userName'], $serverConfig['password'], $pdoArgs);
 			$hasBase = $admLink->prepare('SELECT 1 FROM pg_database WHERE datname = ?');
 			$hasBase->execute( Array($baseNme) );
 			if( $hasBase->fetchColumn()===false ){
@@ -83,7 +83,7 @@ function generateServer( String $typeLabelTxt, Array $serverConfig ): String {
 		}else{
 			return 'no sample data is defined for '.$typeLabelTxt;
 		}
-		$pdoLink = new PDO($dsnHead.';dbname='.$baseNme, $serverConfig['user'], $serverConfig['pass'], $pdoArgs);
+		$pdoLink = new PDO($dsnHead.';dbname='.$baseNme, $serverConfig['userName'], $serverConfig['password'], $pdoArgs);
 		foreach( Array('items', 'events', 'shows') as $tblNme ){
 			$pdoLink->exec('DROP TABLE IF EXISTS '.$nameQut.$tblNme.$nameQut);
 		}
@@ -114,6 +114,6 @@ function generateServer( String $typeLabelTxt, Array $serverConfig ): String {
  */
 function switchToServer( String $typeLabelTxt, Array $serverConfig ): Void {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('TYPE'=>$typeLabelTxt, 'HOST'=>$serverConfig['host'], 'PORT'=>$serverConfig['port'], 'USER'=>$serverConfig['user'], 'PASS'=>$serverConfig['pass'], 'BASE'=>$serverConfig['base'], 'CHAR'=>'', 'AUTH'=>'', 'WAIT'=>'5')
+		'database'=>Array('DBENGINE'=>Array('mysql'=>'mysqldbs', 'pgsql'=>'postgres', 'mongo'=>'mongodbs')[$typeLabelTxt], 'HOSTNAME'=>$serverConfig['hostName'], 'PORTNUMB'=>$serverConfig['portNumb'], 'USERNAME'=>$serverConfig['userName'], 'PASSWORD'=>$serverConfig['password'], 'BASENAME'=>$serverConfig['baseName'], 'ENCODING'=>'', 'AUTHBASE'=>'', 'WAITSECS'=>'5')
 	) );
 }

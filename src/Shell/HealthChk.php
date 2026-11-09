@@ -26,7 +26,7 @@ use nyu\Tools\Router;
 class HealthChk{
 
 	// Extension each type of database needs
-	const BASE_EXTS = Array('mysql'=>'pdo_mysql', 'pgsql'=>'pdo_pgsql', 'sqlte'=>'pdo_sqlite', 'mongo'=>'mongodb');
+	const BASE_EXTS = Array('mysqldbs'=>'pdo_mysql', 'postgres'=>'pdo_pgsql', 'sqlitedb'=>'pdo_sqlite', 'mongodbs'=>'mongodb');
 	// Extensions the framework works without, each giving it something more
 	const MORE_EXTS = Array('openssl', 'mbstring', 'zip', 'gd', 'exif', 'imagick');
 	// Shortest secret signing the tokens, in characters
@@ -548,11 +548,11 @@ class HealthChk{
 			return;
 		}
 		$allBase = array_change_key_case($allBase, CASE_LOWER);
-		foreach( (array_key_exists('type', $allBase) ? Array('') : array_keys($allBase)) as $dbName ){
+		foreach( (array_key_exists('dbengine', $allBase) ? Array('') : array_keys($allBase)) as $dbName ){
 			$baseNme = strval($dbName);
 			$rowName = 'database'.( $baseNme!='' ? ' '.$baseNme : '' );
 			try{
-				$baseTyp = strtolower( strval(DBCon::baseSetupArray($baseNme)['type']) );
+				$baseTyp = strtolower( strval(DBCon::baseSetupArray($baseNme)['dbEngine']) );
 				$extName = self::BASE_EXTS[$baseTyp] ?? '';
 				if( $extName!='' && !extension_loaded($extName) ){
 					$this->addCheckResult($rowName, 'fail', 'the extension '.$extName.' is not loaded');

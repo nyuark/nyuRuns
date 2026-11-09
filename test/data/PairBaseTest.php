@@ -37,7 +37,7 @@ $lmtConf = Array('maxTries'=>2, 'holdSecs'=>600, 'dataPath'=>$lmtFldr);
  */
 function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array(
-		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('pairs.sqlite')),
+		'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('pairs.sqlite')),
 		'access'=>Array(
 			'LOGINSET'=>$loginBlock,
 			'TESTBASE'=>Array('useTable'=>'users', 'maxTries'=>5),

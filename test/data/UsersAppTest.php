@@ -3,7 +3,7 @@
 // runs/Users and the activate / password actions of runs/Auth : the users
 // of the native userbase managed through the framework's Controller, so
 // that the input definitions apply, against a SQLite table built from the
-// packaged schema (conf/schema/users.sqlte.sql).
+// packaged schema (conf/schema/users.sqlitedb.sql).
 //
 //   user 1  anna   manage  active
 //   user 2  ben    member  active
@@ -23,7 +23,7 @@ use nyu\Tools\Logger;
 use nyu\Tools\Registry;
 
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('usersapp.sqlite'));
-$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')) );
+$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
 $usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, userHandle, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
 foreach( Array(Array(1,'anna','manage','active'), Array(2,'ben','member','active'), Array(3,'dave','system','locked')) as $usrRow ){
 	$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pass-'.$usrRow[1].'-1', PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
@@ -45,7 +45,7 @@ $mailDir = 'temp/tstmail_'.getmypid();
  */
 function plugConf( String $authbyName='nativeDb', Int $triesLimit=0, Array $nativeMore=Array(), Array $limitsMore=Array() ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array(
-		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('usersapp.sqlite')),
+		'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('usersapp.sqlite')),
 		'access'=>Array(
 			'LOGINSET'=>Array('authWith'=>$authbyName, 'authConf'=>'nativeDb'),
 			'NATIVEDB'=>Array('useTable'=>'users') + $nativeMore,

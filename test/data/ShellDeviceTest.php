@@ -17,7 +17,7 @@ createSampleDb($basePth);
 $sqlLink = new PDO('sqlite:'.$basePth);
 $projDir = makeProjectTxt('device', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$basePth, 'user'=>'', 'pass'=>''))
+	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'password'=>''))
 ));
 
 // Tokens

@@ -20,7 +20,7 @@ createSampleDb($basePth);
 switchToSqlite($basePth);
 $projDir = makeProjectTxt('users', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$basePth, 'user'=>'', 'pass'=>'')),
+	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'password'=>'')),
 	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"nativeDb\", \"authConf\": \"testBase\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"testBase\": { \"useTable\": \"users\", \"minChars\": 8 },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\" }\n}\n"
 ));
 $natAuth = new Native( Array('useTable'=>'users') );
@@ -99,7 +99,7 @@ checkIdentical('the changes are traced on the access channel, signed', Array(pre
 checkPregMatch('what the userbase does not trace itself is traced by the command', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Personal token of user "ben" made by user "cli:/');
 
 // A database that does not answer
-writeInProject($projDir, 'conf/database.json', json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>inTemporaryDir('nofolder').DS.'none.sqlite', 'user'=>'', 'pass'=>'')));
+writeInProject($projDir, 'conf/database.json', json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>inTemporaryDir('nofolder').DS.'none.sqlite', 'userName'=>'', 'password'=>'')));
 checkIdentical('a userbase that cannot be read is a failure', callShellArray($projDir, Array('accounts', 'fullList'))['code'], 1);
 
 // deploy : the users table and the basic users of a new database
@@ -110,28 +110,28 @@ $projDir = makeProjectTxt('install', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	// Without openssl, which RS256 needs to make its keys, the tokens are signed with a secret
 	'conf/access.json.dist'=>str_replace( function_exists('openssl_pkey_new') ? '' : '"signAlgo": "RS256"', '"signAlgo": "HS256"', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')) ),
-	'conf/database.json'=>"{\n\t\"nyuRuns\": {\n\t\t\"type\": \"sqlte\",\n\t\t\"host\": \"\",\n\t\t\"base\": ".json_encode($newBase, JSON_UNESCAPED_SLASHES).",\n\t\t\"user\": \"\",\n\t\t\"pass\": \"\"\n\t}\n}\n",
-	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
+	'conf/database.json'=>"{\n\t\"nyuRuns\": {\n\t\t\"dbEngine\": \"sqlitedb\",\n\t\t\"hostName\": \"\",\n\t\t\"baseName\": ".json_encode($newBase, JSON_UNESCAPED_SLASHES).",\n\t\t\"userName\": \"\",\n\t\t\"password\": \"\"\n\t}\n}\n",
+	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
 	'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }'
 ));
 $runVals = callShellArray($projDir, Array('installs', 'allSteps', '--outputAs=json'), "\nnativeDb\n\n\n");
 $jsnVals = json_decode($runVals['text'], true);
 $hashLst = (new PDO('sqlite:'.$newBase))->query('SELECT userHandle, passwdHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
-checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Database type (mysql, pgsql, sqlte) [sqlte]: Database file ['.$newBase.']: ');
+checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEV, TEST, PREV, PROD) [DEV]: Store of the users (nativeDb, userFile, none) [userFile]: Database type (mysqldbs, postgres, sqlitedb) [sqlitedb]: Database file ['.$newBase.']: ');
 checkIdentical('the users table is created with the basic users, their passwords shown once', Array($jsnVals['exit'] ?? null, $jsnVals['fail'] ?? null, array_column(runShellAsJson($projDir, Array('accounts', 'fullList'))['rows'] ?? Array(), 'accessRole', 'userHandle'), password_verify($jsnVals['secret']['Password of managr (manage)'] ?? '', $hashLst['managr'] ?? ''), password_verify($jsnVals['secret']['Password of system (system)'] ?? '', $hashLst['system'] ?? '')), Array(0, 0, Array('managr'=>'manage', 'member'=>'member', 'system'=>'system'), true, true));
 checkIdentical('the check finds the database and the users', array_intersect_key(array_column($jsnVals['rows'] ?? Array(), 'state', 'check'), Array('database nyuruns'=>1, 'users'=>1, $tknRow=>1)), Array($tknRow=>'fine', 'database nyuruns'=>'fine', 'users'=>'fine'));
 checkIdentical('users alone: a table that holds users is left as it is', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], count((new PDO('sqlite:'.$newBase))->query('SELECT userHandle FROM users')->fetchAll())), Array("The table users already holds users: nothing was changed.\n", 3));
 // The devices table, only when the access config holds a device block
 $dvcQury = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='devices'";
 checkIdentical('without a device block, no devices table', intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), 0);
-writeInProject($projDir, 'conf/schema/devices.sqlte.sql', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.sqlte.sql')));
+writeInProject($projDir, 'conf/schema/devices.sqlitedb.sql', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.sqlitedb.sql')));
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 $axsVals['devToken'] = Array('linkName'=>'nyuRuns', 'useTable'=>'devices', 'usersTbl'=>'users', 'stmpSecs'=>60);
 writeInProject($projDir, 'conf/access.json', json_encode($axsVals, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 checkIdentical('with a device block, users creates the devices table, linked to the users', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), (new PDO('sqlite:'.$newBase))->query("SELECT \"table\", \"from\", \"to\", on_delete FROM pragma_foreign_key_list('devices')")->fetchAll(PDO::FETCH_NUM)), Array("The table users already holds users: nothing was changed.\nTable devices created.\n", 1, Array(Array('users', 'user_id', 'id_user', 'CASCADE'))));
 checkIdentical('a devices table that exists is left as it is', callShellArray($projDir, Array('installs', 'userBase'))['text'], "The table users already holds users: nothing was changed.\n");
 (new PDO('sqlite:'.$newBase))->exec('DROP TABLE devices');
-unlink($projDir.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql');
+unlink($projDir.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql');
 (new PDO('sqlite:'.$newBase))->exec('DROP TABLE users');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
 checkIdentical('a missing users table fails the check, and cannot be created without its schema', Array($jsnVals['exit'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'state', 'check')['users'] ?? null, callShellArray($projDir, Array('installs', 'userBase'))['code']), Array(4, 'fail', 3));

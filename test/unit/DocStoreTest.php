@@ -146,17 +146,17 @@ checkIdentical('mongo: the usual injection through a value matches nothing', run
 
 // MongoDB store: connection string and availability
 checkIdentical('mongo: connection string', runCatchThrown(function(){ return MongoStore::buildDsnString('', '', '', 'shop'); }), 'mongodb://localhost/shop');
-checkIdentical('mongo: connection string with an account and a port', runCatchThrown(function(){ return MongoStore::buildDsnString('db.local', 'web@app', 'p:ss/w?rd', 'shop', Array('port'=>'27018')); }), 'mongodb://web%40app:p%3Ass%2Fw%3Frd@db.local:27018/shop');
-checkIdentical('mongo: connection string with the database of the account and a waiting time', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', 'web', 'pw', 'shop', Array('auth'=>'admin', 'wait'=>'5')); }), 'mongodb://web:pw@localhost/shop?authSource=admin&serverSelectionTimeoutMS=5000');
-checkIdentical('mongo: settings of the SQL types are left aside', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop', Array('port'=>'', 'char'=>'utf8', 'auth'=>'', 'wait'=>'')); }), 'mongodb://localhost/shop');
-checkPregMatch('mongo: an account database that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', 'web', 'pw', 'shop', Array('auth'=>'admin&tls=false')); }), '/^THROWN RuntimeException: Invalid account database name/');
-checkPregMatch('mongo: a waiting time that is not a number is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop', Array('wait'=>'5&x=1')); }), '/^THROWN RuntimeException: Invalid database waiting time/');
+checkIdentical('mongo: connection string with an account and a port', runCatchThrown(function(){ return MongoStore::buildDsnString('db.local', 'web@app', 'p:ss/w?rd', 'shop', Array('portNumb'=>'27018')); }), 'mongodb://web%40app:p%3Ass%2Fw%3Frd@db.local:27018/shop');
+checkIdentical('mongo: connection string with the database of the account and a waiting time', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', 'web', 'pw', 'shop', Array('authBase'=>'admin', 'waitSecs'=>'5')); }), 'mongodb://web:pw@localhost/shop?authSource=admin&serverSelectionTimeoutMS=5000');
+checkIdentical('mongo: settings of the SQL types are left aside', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop', Array('portNumb'=>'', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'')); }), 'mongodb://localhost/shop');
+checkPregMatch('mongo: an account database that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', 'web', 'pw', 'shop', Array('authBase'=>'admin&tls=false')); }), '/^THROWN RuntimeException: Invalid account database name/');
+checkPregMatch('mongo: a waiting time that is not a number is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop', Array('waitSecs'=>'5&x=1')); }), '/^THROWN RuntimeException: Invalid database waiting time/');
 checkPregMatch('mongo: a database name that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop?authSource=admin'); }), '/^THROWN RuntimeException: Invalid database name/');
 checkPregMatch('mongo: a host carrying anything else is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost,evil.example/x', '', '', 'shop'); }), '/^THROWN RuntimeException: Invalid database host/');
 if( extension_loaded('mongodb') ){
 	recordSkipping('mongo without its extension', 'the mongodb extension is loaded');
 }else{
-	checkPregMatch('mongo: without the extension, the type says what is missing', runCatchThrown(function(){ return DBCon::obtainInstance('mongo', 'localhost', '', '', 'shop'); }), '/^THROWN RuntimeException: The mongodb extension of PHP is not loaded/');
+	checkPregMatch('mongo: without the extension, the type says what is missing', runCatchThrown(function(){ return DBCon::obtainInstance('mongodbs', 'localhost', '', '', 'shop'); }), '/^THROWN RuntimeException: The mongodb extension of PHP is not loaded/');
 }
 
 finishChecking();

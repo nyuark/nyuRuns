@@ -1,23 +1,23 @@
 {
 	"mysql": {
-		"host": "env:NYU_TEST_MYSQL_HOST",
-		"port": "env:NYU_TEST_MYSQL_PORT",
-		"base": "env:NYU_TEST_MYSQL_BASE",
-		"user": "env:NYU_TEST_MYSQL_USER",
-		"pass": "env:NYU_TEST_MYSQL_PASS"
+		"hostName": "env:NYU_TEST_MYSQL_HOST",
+		"portNumb": "env:NYU_TEST_MYSQL_PORT",
+		"baseName": "env:NYU_TEST_MYSQL_BASE",
+		"userName": "env:NYU_TEST_MYSQL_USER",
+		"password": "env:NYU_TEST_MYSQL_PASS"
 	},
 	"pgsql": {
-		"host": "env:NYU_TEST_PGSQL_HOST",
-		"port": "env:NYU_TEST_PGSQL_PORT",
-		"base": "env:NYU_TEST_PGSQL_BASE",
-		"user": "env:NYU_TEST_PGSQL_USER",
-		"pass": "env:NYU_TEST_PGSQL_PASS"
+		"hostName": "env:NYU_TEST_PGSQL_HOST",
+		"portNumb": "env:NYU_TEST_PGSQL_PORT",
+		"baseName": "env:NYU_TEST_PGSQL_BASE",
+		"userName": "env:NYU_TEST_PGSQL_USER",
+		"password": "env:NYU_TEST_PGSQL_PASS"
 	},
 	"mongo": {
-		"host": "env:NYU_TEST_MONGO_HOST",
-		"port": "env:NYU_TEST_MONGO_PORT",
-		"base": "env:NYU_TEST_MONGO_BASE",
-		"user": "env:NYU_TEST_MONGO_USER",
-		"pass": "env:NYU_TEST_MONGO_PASS"
+		"hostName": "env:NYU_TEST_MONGO_HOST",
+		"portNumb": "env:NYU_TEST_MONGO_PORT",
+		"baseName": "env:NYU_TEST_MONGO_BASE",
+		"userName": "env:NYU_TEST_MONGO_USER",
+		"password": "env:NYU_TEST_MONGO_PASS"
 	}
 }

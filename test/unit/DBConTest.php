@@ -36,19 +36,19 @@ function askHandlr( String $handlerCls, String $methodName, Array $callValues ):
 // MySQL connection string
 $mysqlCl = 'nyu\Data\DBHndlr\MySQL';
 checkIdentical('MySQL: host and base only',       askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop')), 'mysql:host=localhost;dbname=shop');
-checkIdentical('MySQL: empty settings add nothing', askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('port'=>'', 'char'=>''))), 'mysql:host=localhost;dbname=shop');
-checkIdentical('MySQL: port and character set',   askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('port'=>'8889', 'char'=>'utf8'))), 'mysql:host=localhost;dbname=shop;port=8889;charset=utf8');
-checkIdentical('MySQL: a port given as a number', askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('port'=>3307))), 'mysql:host=localhost;dbname=shop;port=3307');
-checkPregMatch('MySQL: a port that is not a number is refused', askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('port'=>'33o6'))), '/^THROWN RuntimeException: Invalid database port/');
-checkPregMatch('MySQL: a collation is not a character set',     askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('char'=>'utf8_general_ci'))), '/^THROWN RuntimeException: Invalid database character set/');
-checkPregMatch('MySQL: a character set cannot add settings',    askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('char'=>'utf8;host=evil'))), '/^THROWN RuntimeException: Invalid database character set/');
+checkIdentical('MySQL: empty settings add nothing', askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('portNumb'=>'', 'encoding'=>''))), 'mysql:host=localhost;dbname=shop');
+checkIdentical('MySQL: port and character set',   askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('portNumb'=>'8889', 'encoding'=>'utf8'))), 'mysql:host=localhost;dbname=shop;port=8889;charset=utf8');
+checkIdentical('MySQL: a port given as a number', askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('portNumb'=>3307))), 'mysql:host=localhost;dbname=shop;port=3307');
+checkPregMatch('MySQL: a port that is not a number is refused', askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('portNumb'=>'33o6'))), '/^THROWN RuntimeException: Invalid database port/');
+checkPregMatch('MySQL: a collation is not a character set',     askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('encoding'=>'utf8_general_ci'))), '/^THROWN RuntimeException: Invalid database character set/');
+checkPregMatch('MySQL: a character set cannot add settings',    askHandlr($mysqlCl, 'buildDsnString', Array('localhost', 'shop', Array('encoding'=>'utf8;host=evil'))), '/^THROWN RuntimeException: Invalid database character set/');
 
 // PostgreSQL connection string, quoting and wildcard operator
 $pgsqlCl = 'nyu\Data\DBHndlr\PgSQL';
 checkIdentical('the PostgreSQL handler is complete', (new ReflectionClass($pgsqlCl))->isInstantiable(), true);
 checkIdentical('PostgreSQL: host and base only',     askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop')), 'pgsql:host=localhost;dbname=shop');
-checkIdentical('PostgreSQL: port and character set', askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop', Array('port'=>'5433', 'char'=>'UTF8'))), "pgsql:host=localhost;dbname=shop;port=5433;options='--client_encoding=UTF8'");
-checkPregMatch('PostgreSQL: a character set cannot add settings', askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop', Array('char'=>"UTF8' -c x=y"))), '/^THROWN RuntimeException: Invalid database character set/');
+checkIdentical('PostgreSQL: port and character set', askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop', Array('portNumb'=>'5433', 'encoding'=>'UTF8'))), "pgsql:host=localhost;dbname=shop;port=5433;options='--client_encoding=UTF8'");
+checkPregMatch('PostgreSQL: a character set cannot add settings', askHandlr($pgsqlCl, 'buildDsnString', Array('localhost', 'shop', Array('encoding'=>"UTF8' -c x=y"))), '/^THROWN RuntimeException: Invalid database character set/');
 checkIdentical('PostgreSQL: names take double quotes', askHandlr($pgsqlCl, 'quoteFieldName', Array('shows.userHandle')), '"shows"."userHandle"');
 checkIdentical('PostgreSQL: wildcard searches ignore the case', Array(askHandlr($pgsqlCl, 'getLikeKeyword', Array()), askHandlr($mysqlCl, 'getLikeKeyword', Array()), askHandlr('nyu\Data\DBHndlr\SQLite', 'getLikeKeyword', Array())), Array('ILIKE', 'LIKE', 'LIKE'));
 
@@ -60,9 +60,9 @@ checkIdentical('SQLite: a rooted path is kept',     askHandlr($sqlteCl, 'locateB
 checkIdentical('SQLite: the in-memory database is kept', askHandlr($sqlteCl, 'locateBaseFile', Array(':memory:')), ':memory:');
 
 // Waiting time, shared by the SQL handlers
-checkIdentical('wait: no option when left out',  askHandlr($mysqlCl, 'pdoOptionArray', Array(Array('port'=>'3306'))), Array());
-checkIdentical('wait: seconds, as a PDO option', Array(askHandlr($mysqlCl, 'pdoOptionArray', Array(Array('wait'=>'5'))), askHandlr($pgsqlCl, 'pdoOptionArray', Array(Array('wait'=>3))), askHandlr($sqlteCl, 'pdoOptionArray', Array(Array('wait'=>'10')))), Array(Array(PDO::ATTR_TIMEOUT=>5), Array(PDO::ATTR_TIMEOUT=>3), Array(PDO::ATTR_TIMEOUT=>10)));
-checkPregMatch('wait: anything but a number is refused', askHandlr($mysqlCl, 'pdoOptionArray', Array(Array('wait'=>'5s'))), '/^THROWN RuntimeException: Invalid database waiting time/');
+checkIdentical('wait: no option when left out',  askHandlr($mysqlCl, 'pdoOptionArray', Array(Array('portNumb'=>'3306'))), Array());
+checkIdentical('wait: seconds, as a PDO option', Array(askHandlr($mysqlCl, 'pdoOptionArray', Array(Array('waitSecs'=>'5'))), askHandlr($pgsqlCl, 'pdoOptionArray', Array(Array('waitSecs'=>3))), askHandlr($sqlteCl, 'pdoOptionArray', Array(Array('waitSecs'=>'10')))), Array(Array(PDO::ATTR_TIMEOUT=>5), Array(PDO::ATTR_TIMEOUT=>3), Array(PDO::ATTR_TIMEOUT=>10)));
+checkPregMatch('wait: anything but a number is refused', askHandlr($mysqlCl, 'pdoOptionArray', Array(Array('waitSecs'=>'5s'))), '/^THROWN RuntimeException: Invalid database waiting time/');
 
 // Settings of a configured database
 use nyu\Tools\Registry;
@@ -79,13 +79,13 @@ function setupOf( Mixed $baseConfig, String $baseLabel='' ): Mixed {
 	return runCatchThrown(function() use ($baseLabel){ return DBCon::baseSetupArray($baseLabel); });
 }
 
-$mainSet = Array('type'=>'mysql', 'host'=>'localhost', 'port'=>'', 'base'=>'shop', 'user'=>'web', 'pass'=>'s3', 'char'=>'utf8', 'auth'=>'', 'wait'=>'');
-$statSet = Array('type'=>'pgsql', 'host'=>'10.0.0.5', 'port'=>'5433', 'base'=>'stats', 'user'=>'ro', 'pass'=>'', 'char'=>'', 'auth'=>'admin', 'wait'=>'5');
+$mainSet = Array('dbEngine'=>'mysqldbs', 'hostName'=>'localhost', 'portNumb'=>'', 'baseName'=>'shop', 'userName'=>'web', 'password'=>'s3', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'');
+$statSet = Array('dbEngine'=>'postgres', 'hostName'=>'10.0.0.5', 'portNumb'=>'5433', 'baseName'=>'stats', 'userName'=>'ro', 'password'=>'', 'encoding'=>'', 'authBase'=>'admin', 'waitSecs'=>'5');
 $twoBase = Array('NYURUNS'=>$mainSet, 'SHPSTAT'=>$statSet);
 
 checkIdentical('single block: it is the default database', setupOf(array_change_key_case($mainSet, CASE_UPPER)), $mainSet);
-checkIdentical('single block: settings left out are empty', setupOf(Array('TYPE'=>'sqlte', 'BASE'=>'data/app.sqlite')), Array('type'=>'sqlte', 'host'=>'', 'port'=>'', 'base'=>'data/app.sqlite', 'user'=>'', 'pass'=>'', 'char'=>'', 'auth'=>'', 'wait'=>''));
-checkIdentical('single block: anything else in it is left aside', setupOf(Array('TYPE'=>'sqlte', 'BASE'=>'app.sqlite', 'MORE'=>Array('fileType'=>'all'), 'EXTRA'=>'x'))['base'] ?? null, 'app.sqlite');
+checkIdentical('single block: settings left out are empty', setupOf(Array('DBENGINE'=>'sqlitedb', 'BASENAME'=>'data/app.sqlite')), Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'data/app.sqlite', 'userName'=>'', 'password'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>''));
+checkIdentical('single block: anything else in it is left aside', setupOf(Array('DBENGINE'=>'sqlitedb', 'BASENAME'=>'app.sqlite', 'MORE'=>Array('fileType'=>'all'), 'EXTRA'=>'x'))['baseName'] ?? null, 'app.sqlite');
 checkPregMatch('single block: it has no name to ask for', setupOf(array_change_key_case($mainSet, CASE_UPPER), 'nyuRuns'), '/^THROWN RuntimeException: Unknown database: nyuRuns/');
 checkIdentical('named blocks: the first one is the default', setupOf($twoBase), $mainSet);
 checkIdentical('named blocks: one asked by its name', setupOf($twoBase, 'shpStat'), $statSet);
@@ -102,9 +102,9 @@ if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
 	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun installs makeConf" creates it');
 }else{
 	checkIdentical('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
-	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('type', 'host', 'port', 'base', 'user', 'pass', 'char'));
+	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'password', 'encoding'));
 	$GLOBALS['nyuConfig'] = $prjLoad->retrieveConfig();
-	checkTrueValue('conf/database.json: the type is a known code', in_array(runCatchThrown(function(){ return DBCon::baseSetupArray()['type']; }), Array('mysql', 'sqlte', 'pgsql'), true));
+	checkTrueValue('conf/database.json: the type is a known code', in_array(runCatchThrown(function(){ return DBCon::baseSetupArray()['dbEngine']; }), Array('mysqldbs', 'sqlitedb', 'postgres'), true));
 }
 
 finishChecking();

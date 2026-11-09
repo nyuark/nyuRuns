@@ -32,7 +32,7 @@ $sqlLink->exec("INSERT INTO devices (deviceName, deviceRole, bearerHash, user_id
 $hashLst = $sqlLink->query('SELECT userHandle, passwdHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
 $projDir = makeProjectTxt('storenat', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$basePth, 'user'=>'', 'pass'=>'')),
+	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'password'=>'')),
 	'conf/access.json'=>json_encode(Array(
 		'loginSet'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
 		'nativeDb'=>Array('useTable'=>'users', 'cryptKey'=>$natSeal),
@@ -76,8 +76,8 @@ if( file_exists($newBase) ){
 $fleUsrs = strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'users.lst'));
 $projDir = makeProjectTxt('storelst', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>$newBase, 'user'=>'', 'pass'=>'')),
-	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
+	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$newBase, 'userName'=>'', 'password'=>'')),
+	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
 	'conf/access.json'=>json_encode(Array(
 		'loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
 		'userFile'=>Array('listFile'=>'conf/users.lst')
@@ -100,8 +100,8 @@ $newLink = null;
 // A user without a password hash
 $projDir = makeProjectTxt('storenop', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/database.json'=>json_encode(Array('type'=>'sqlte', 'host'=>'', 'base'=>inTemporaryDir('storenop.sqlite'), 'user'=>'', 'pass'=>'')),
-	'conf/schema/users.sqlte.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')),
+	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>inTemporaryDir('storenop.sqlite'), 'userName'=>'', 'password'=>'')),
+	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
 	'conf/access.json'=>json_encode(Array('loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile'), 'userFile'=>Array('listFile'=>'conf/users.lst'))),
 	'conf/users.lst'=>'{ "users": [ { "userHandle": "zoe", "accessRole": "member" } ] }'
 ));

@@ -25,7 +25,7 @@ abstract Class PDO implements Handler {
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'char' (character set) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 */
 	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()){
 		$this->openConnection($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs);
@@ -148,7 +148,7 @@ abstract Class PDO implements Handler {
 	}
 
 	/**
-	 * Reads the connection options every PDO-based handler shares: 'wait',
+	 * Reads the connection options every PDO-based handler shares: 'waitSecs',
 	 * the seconds given to the database to answer.
 	 *
 	 * @param Array $moreParamtrs Optional settings of the connection.
@@ -157,7 +157,7 @@ abstract Class PDO implements Handler {
 	 * @throws \RuntimeException When the waiting time is not a number.
 	 */
 	protected function pdoOptionArray(Array $moreParamtrs): Array {
-		$waitSec = strval($moreParamtrs['wait'] ?? '');
+		$waitSec = strval($moreParamtrs['waitSecs'] ?? '');
 		if( $waitSec=='' ){
 			return Array();
 		}

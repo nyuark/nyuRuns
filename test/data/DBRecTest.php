@@ -223,7 +223,7 @@ checkIdentical('relations declared in the constructor are loaded', runCatchThrow
 }), Array('music', 'dance'));
 
 // A table with a single column
-$dbHandl = DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('record.sqlite'))->readConnection();
+$dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('record.sqlite'))->readConnection();
 $dbHandl->sendBuiltQuery("CREATE TABLE `tags` (`label` TEXT PRIMARY KEY);", true);
 $dbHandl->sendBuiltQuery("INSERT INTO `tags` (`label`) VALUES ('rock');", true);
 
@@ -362,7 +362,7 @@ checkIdentical('removal log: one entry per removal done or refused by the databa
 
 // Connection
 checkIdentical('getConnex returns the handler', runCatchThrown(function(){
-	return get_class( DBCon::obtainInstance('sqlte', '', '', '', '')->readConnection() );
+	return get_class( DBCon::obtainInstance('sqlitedb', '', '', '', '')->readConnection() );
 }), 'nyu\Data\DBHndlr\SQLite');
 
 finishChecking();

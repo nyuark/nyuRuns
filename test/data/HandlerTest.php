@@ -16,7 +16,7 @@ use nyu\Data\DBCon;
 createSampleDb( inTemporaryDir('handler.sqlite') );
 switchToSqlite( inTemporaryDir('handler.sqlite') );
 
-$dbHandl = DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
+$dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
 
 // Errors
 checkIdentical('lastError before any error', runCatchThrown(function() use ($dbHandl){ return $dbHandl->finalErrorText(); }), false);
@@ -105,7 +105,7 @@ checkIdentical('lastError is cleared by a transaction call', runCatchThrown(func
  * @return mixed The venue.
  */
 function venueOf4(): Mixed {
-	$dbHandl = DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
+	$dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
 	$dbHandl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(4));
 	return $dbHandl->readLastResult(true)[0]['venue'] ?? null;
 }

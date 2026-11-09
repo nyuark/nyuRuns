@@ -32,7 +32,7 @@ $natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>15, 'lin
 function setsConfg( Array $nativeConf ): Void {
 	global $sqlFile, $foldNme;
 	$GLOBALS['nyuConfig'] = new Registry( Array(
-		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
+		'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>$sqlFile),
 		'mailer'=>Array('DEVBOX'=>Array('sendWith'=>'emlFiles', 'fromAddr'=>'no-reply@example.com', 'fromName'=>'nyuRuns', 'mailsDir'=>'/'.str_replace(DS, '/', $foldNme))),
 		'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb'), 'NATIVEDB'=>$nativeConf)
 	) );

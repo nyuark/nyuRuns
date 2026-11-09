@@ -8,15 +8,15 @@
 -- codeExpiry, signupDate), those of the codes mailed as a second factor
 -- (twoFactWay, mailedCode, mailExpiry), the time of the last password
 -- (passwdDate) and the status 'review' of a self-registration awaiting a manager.
--- The devices table is moved by migrate-devices-1.0.sqlte.sql, after this one.
+-- The devices table is moved by migrate-devices-1.0.sqlitedb.sql, after this one.
 --
 -- SQLite cannot change a CHECK constraint: the table is made again, as
--- conf/schema/users.sqlte.sql of 1.0 makes it, and its rows copied over with
+-- conf/schema/users.sqlitedb.sql of 1.0 makes it, and its rows copied over with
 -- their identifiers. The foreign keys are turned off for the time of it, so
 -- that the devices of the users stay where they are.
 --
 -- First a copy of the database file. Then this file, on it:
---   sqlite3 <database file> < migrate-users-1.0.sqlte.sql
+--   sqlite3 <database file> < migrate-users-1.0.sqlitedb.sql
 -- All of it is done, or none. The table name is the 'useTable' value of
 -- conf/access.json: change `users` below when it is another.
 

@@ -299,7 +299,7 @@ checkIdentical('childList with a single child', runCatchThrown(function(){
 }), Array(Array('id_show'=>4, 'title'=>'Solo Gig', 'venue'=>'Hall S', 'items'=>Array(Array('id_item'=>7, 'show_id'=>4, 'type'=>'solo')))));
 
 checkIdentical('a row without a key value gets no children, not the orphan rows', runCatchThrown(function(){
-	$dbHandl = nyu\Data\DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('list.sqlite'))->readConnection();
+	$dbHandl = nyu\Data\DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('list.sqlite'))->readConnection();
 	$dbHandl->sendBuiltQuery("INSERT INTO `events` (`id_event`,`show_id`,`date`,`time`) VALUES (90,NULL,'2027-02-01','18:00');", true);
 	$dbList = new DBLst('shows');
 	$dbList->replaceFilters(Array('id_show'=>5));

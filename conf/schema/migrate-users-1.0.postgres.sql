@@ -9,7 +9,7 @@
 -- those of the codes mailed as a second factor ("twoFactWay", "mailedCode",
 -- "mailExpiry"), the time of the last password ("passwdDate") and the status
 -- 'review' of a self-registration awaiting a manager.
--- The devices table is moved by migrate-devices-1.0.pgsql.sql, after this one.
+-- The devices table is moved by migrate-devices-1.0.postgres.sql, after this one.
 --
 -- A table already moved to an early copy of 1.0 (with "userMail", "userLang",
 -- "resetCod", "codeDate", "signDate", and maybe "twoFaWay", "mailCode",
@@ -20,7 +20,7 @@
 -- First a backup of the table:
 --   pg_dump -U <user> -t '"users"' <database> > users-0.9.sql
 -- Then this file, on the database of the application:
---   psql -U <user> -d <database> -f migrate-users-1.0.pgsql.sql
+--   psql -U <user> -d <database> -f migrate-users-1.0.postgres.sql
 -- All of it is done, or none. The table name is the 'useTable' value of
 -- conf/access.json: change "users" below when it is another, and the name
 -- of the checks with it ("<table>_userStat_check").

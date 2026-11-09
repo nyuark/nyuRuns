@@ -447,7 +447,7 @@ class Deploy extends Command{
 	protected function saveUsersTable( Array $configValues, Array $usersRecords ): Void {
 		try{
 			$dbHndlr = $this->openUsersTable($configValues);
-			$baseTyp = strval(DBCon::baseSetupArray( strval($configValues['linkName'] ?? '') )['type']);
+			$baseTyp = strval(DBCon::baseSetupArray( strval($configValues['linkName'] ?? '') )['dbEngine']);
 		}catch( ShellStop $e ){
 			throw $e;
 		}catch( \Throwable $e ){
@@ -464,7 +464,7 @@ class Deploy extends Command{
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
-		if( $baseTyp=='pgsql' && !$dbHndlr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHndlr->quoteFieldName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
+		if( $baseTyp=='postgres' && !$dbHndlr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHndlr->quoteFieldName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
 			$errText = strval($dbHndlr->finalErrorText());
 			$dbHndlr->remTransaction();
 			$this->terminateShell('Nothing was moved: the identifiers cannot be set: '.$errText);
@@ -625,24 +625,24 @@ class Deploy extends Command{
 				}
 			}
 		}
-		$baseTyp = strtolower( $this->queryAnswerTxt('Database type (mysql, pgsql, sqlte)', strval($nodeObj->type ?? 'mysql')) );
-		if( !in_array($baseTyp, Array('mysql', 'pgsql', 'sqlte'), true) ){
-			$this->terminateShell('The native userbase works on mysql, pgsql or sqlte, not on: '.$baseTyp, self::EXIT_DENY);
+		$baseTyp = strtolower( $this->queryAnswerTxt('Database type (mysqldbs, postgres, sqlitedb)', strval($nodeObj->dbEngine ?? 'mysqldbs')) );
+		if( !in_array($baseTyp, Array('mysqldbs', 'postgres', 'sqlitedb'), true) ){
+			$this->terminateShell('The native userbase works on mysqldbs, postgres or sqlitedb, not on: '.$baseTyp, self::EXIT_DENY);
 		}
-		$nodeObj->type = $baseTyp;
-		if( $baseTyp=='sqlte' ){
-			$nodeObj->base = $this->queryAnswerTxt('Database file', strval($nodeObj->base ?? ''));
+		$nodeObj->dbEngine = $baseTyp;
+		if( $baseTyp=='sqlitedb' ){
+			$nodeObj->baseName = $this->queryAnswerTxt('Database file', strval($nodeObj->baseName ?? ''));
 		}else{
-			$nodeObj->host = $this->queryAnswerTxt('Database host', strval($nodeObj->host ?? 'localhost'));
-			$nodeObj->port = $this->queryAnswerTxt('Database port (empty for the usual one)', strval($nodeObj->port ?? ''));
-			$nodeObj->base = $this->queryAnswerTxt('Database name', strval($nodeObj->base ?? ''));
-			$nodeObj->user = $this->queryAnswerTxt('Database user', strval($nodeObj->user ?? ''));
+			$nodeObj->hostName = $this->queryAnswerTxt('Database host', strval($nodeObj->hostName ?? 'localhost'));
+			$nodeObj->portNumb = $this->queryAnswerTxt('Database port (empty for the usual one)', strval($nodeObj->portNumb ?? ''));
+			$nodeObj->baseName = $this->queryAnswerTxt('Database name', strval($nodeObj->baseName ?? ''));
+			$nodeObj->userName = $this->queryAnswerTxt('Database user', strval($nodeObj->userName ?? ''));
 			$gvnPass = $this->querySecretTxt('Password of that user (Enter keeps the present one)');
 			if( $gvnPass!=='' ){
-				$nowPass = strval($nodeObj->pass ?? '');
+				$nowPass = strval($nodeObj->password ?? '');
 				$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_DB_PASS';
 				$writerObject->setEnvrnmntKey(TOP_DIR.DS.'.env', $envName, $gvnPass);
-				$nodeObj->pass = 'env:'.$envName;
+				$nodeObj->password = 'env:'.$envName;
 			}
 		}
 		$writerObject->saveJsonConfig($basePth, $treeObj);
@@ -727,7 +727,7 @@ class Deploy extends Command{
 		$usrTble = strval($dvcConf['usersTbl'] ?? 'users');
 		try{
 			$baseNme = strval($dvcConf['linkName'] ?? '');
-			$baseTyp = strval(DBCon::baseSetupArray($baseNme)['type']);
+			$baseTyp = strval(DBCon::baseSetupArray($baseNme)['dbEngine']);
 			$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
 		}catch( \Throwable $e ){
 			$this->terminateShell('No devices table created: '.$e->getMessage(), self::EXIT_FAIL);
@@ -805,7 +805,7 @@ class Deploy extends Command{
 	protected function openUsersTable( Array $configValues ): DbHandlr {
 		$baseNme = strval($configValues['linkName'] ?? '');
 		$tblName = strval($configValues['useTable'] ?? 'users');
-		$baseTyp = strval(DBCon::baseSetupArray($baseNme)['type']);
+		$baseTyp = strval(DBCon::baseSetupArray($baseNme)['dbEngine']);
 		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseTyp.'.sql';
 		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !is_file($sqlFile) ){
 			$this->terminateShell('No users table: there is no users schema for a database of type "'.$baseTyp.'"', self::EXIT_DENY);

@@ -37,7 +37,7 @@ if( !file_exists($sqlFile) ){
 	createSampleDb($sqlFile);
 }
 // DBCon is a singleton that ignores later arguments, so this decides the connection for the request
-nyu\Data\DBCon::obtainInstance('sqlte', '', '', '', $sqlFile);
+nyu\Data\DBCon::obtainInstance('sqlitedb', '', '', '', $sqlFile);
 
 // X-Test-Cert: <result>;<name>;<issuer> stands in for the web server reporting a TLS client certificate
 if( isset($_SERVER['HTTP_X_TEST_CERT']) ){

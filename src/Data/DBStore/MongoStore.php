@@ -3,7 +3,7 @@
 namespace nyu\Data\DBStore;
 
 /**
- * MongoDB as a store, type code 'mongo', through the mongodb extension of
+ * MongoDB as a store, type code 'mongodbs', through the mongodb extension of
  * PHP. A table is a collection, a row a document, and the key of every
  * table is the _id MongoDB gives to each document.
  *
@@ -29,7 +29,7 @@ class MongoStore implements Store {
 	 * @param String $serverUsrTxt Database user, '' when the server asks for none.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
 	 *
 	 * @throws \RuntimeException When the mongodb extension is not loaded, or a setting is not valid.
 	 */
@@ -49,7 +49,7 @@ class MongoStore implements Store {
 	 * @param String $serverUsrTxt Database user, '' when the server asks for none.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'port', 'auth' (database holding the account) and 'wait' (seconds given to the server to answer).
+	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
 	 * @return String The connection string.
 	 *
 	 * @throws \RuntimeException When the database name, the host, the port, the account database or the waiting time is not valid.
@@ -64,7 +64,7 @@ class MongoStore implements Store {
 		if( !preg_match('/^[\w.\-]+$/D', $databaseHost) ){
 			throw new \RuntimeException('Invalid database host: '.$databaseHost);
 		}
-		$partNum = strval($moreParamtrs['port'] ?? '');
+		$partNum = strval($moreParamtrs['portNumb'] ?? '');
 		if( $partNum!='' && !ctype_digit($partNum) ){
 			throw new \RuntimeException('Invalid database port: '.$partNum);
 		}
@@ -75,7 +75,7 @@ class MongoStore implements Store {
 		$linkTxt .= $databaseHost.($partNum!='' ? ':'.$partNum : '').'/'.$hostBaseText;
 		$optnLst = Array();
 		// Database holding the account: the one of the connection when left out
-		$authNme = strval($moreParamtrs['auth'] ?? '');
+		$authNme = strval($moreParamtrs['authBase'] ?? '');
 		if( $authNme!='' ){
 			if( !preg_match('/^\w+$/D', $authNme) ){
 				throw new \RuntimeException('Invalid account database name: '.$authNme);
@@ -83,7 +83,7 @@ class MongoStore implements Store {
 			$optnLst[] = 'authSource='.$authNme;
 		}
 		// Seconds given to the server to answer, the default of the driver when left out
-		$waitSec = strval($moreParamtrs['wait'] ?? '');
+		$waitSec = strval($moreParamtrs['waitSecs'] ?? '');
 		if( $waitSec!='' ){
 			if( !ctype_digit($waitSec) ){
 				throw new \RuntimeException('Invalid database waiting time: '.$waitSec);

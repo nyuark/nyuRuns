@@ -1,7 +1,7 @@
 <?php
 
 // Access\Auth\UserBase : the users of the native userbase, managed in a
-// SQLite table built from the packaged schema (conf/schema/users.sqlte.sql).
+// SQLite table built from the packaged schema (conf/schema/users.sqlitedb.sql).
 //
 //   user 1  anna   manage  active
 //   user 2  ben    member  active
@@ -23,7 +23,7 @@ use nyu\Access\Auth\UserBase;
 use nyu\Tools\Logger;
 
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('userbase.sqlite'));
-$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlte.sql')) );
+$sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
 $usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, userHandle, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
 foreach( Array(Array(1,'anna','manage','active'), Array(2,'ben','member','active'), Array(3,'cleo','member','pendng'), Array(4,'dave','system','locked')) as $usrRow ){
 	$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pass-'.$usrRow[1].'-1', PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
@@ -201,7 +201,7 @@ checkIdentical('list: a filter that is not a status', operates($usrBase, 'listUs
 checkIdentical('list: a filter given as an array', operates($usrBase, 'listUsersNamed', Array(Array('accessRole'=>Array('member')))), Array(false, 400, 'Invalid filter'));
 checkIdentical('list: another field is not a filter', count((array)$usrBase->listUsersNamed(Array('passwdHash'=>'!'))), 7);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),
 	'system'=>Array('LST_ROWS'=>3)
 ) );
 checkIdentical('list: the default number of rows is LST_ROWS', count((array)$usrBase->listUsersNamed()), 3);
@@ -377,19 +377,19 @@ Logger::setCurrentUser( 'anna', '192.0.2.7' );
 // fromLogin : the userbase the login uses
 checkIdentical('fromLogin: without a login block', UserBase::fromLoginBlock(), null);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),
 	'access'=>Array('LOGINSET'=>Array('authWith'=>'htpasswd'), 'NATIVEDB'=>Array('useTable'=>'users'), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
 checkIdentical('fromLogin: a login on another credential check', UserBase::fromLoginBlock(), null);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),
 	'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb'), 'NATIVEDB'=>Array('useTable'=>'users', 'minChars'=>12), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
 $lgnBase = UserBase::fromLoginBlock();
 checkIdentical('fromLogin: the native block by default', ($lgnBase!==null) ? $lgnBase->userInfosArray('anna')['accessRole'] ?? null : null, 'manage');
 checkIdentical('fromLogin: the block gives its password length', ($lgnBase!==null) ? operates($lgnBase, 'editPasswdFlag', Array('anna', 'pass-anna-1', 'pass-anna-2')) : null, Array(false, 400, 'Password too short: 12 characters at least'));
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('userbase.sqlite')),
+	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),
 	'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb', 'authConf'=>'others'), 'NATIVEDB'=>Array('useTable'=>'users'), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
 checkIdentical('fromLogin: the block authConf names', operates(UserBase::fromLoginBlock(), 'userInfosArray', Array('anna')), Array(false, 500, 'Credential store unavailable'));

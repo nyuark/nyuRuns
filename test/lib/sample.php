@@ -9,14 +9,14 @@
 //   show 4  Solo Gig       exactly one event and one item
 //   show 5  Empty Stage    no venue (NULL), no events, no items
 //
-// and a `users` table for the native userbase (conf/schema/users.sqlte.sql), password pw-<name> :
+// and a `users` table for the native userbase (conf/schema/users.sqlitedb.sql), password pw-<name> :
 //
 //   user 1  anna   manage  active
 //   user 2  ben    member  active
 //   user 3  cleo   member  pendng
 //   user 4  dave   system  locked
 //
-// and an empty `devices` table (conf/schema/devices.sqlte.sql), each device linked to a user.
+// and an empty `devices` table (conf/schema/devices.sqlitedb.sql), each device linked to a user.
 
 /**
  * Creates the sample SQLite database, replacing any previous file.
@@ -35,14 +35,14 @@ function createSampleDb( String $sqliteDbPath ): Void {
 	$pdoLink->exec("INSERT INTO events VALUES (1,1,'2026-12-28','20:00'),(2,1,'2027-01-03','20:00'),(3,2,'2026-11-02','19:00'),(4,2,'2026-11-09','19:00'),(5,3,'2026-10-05','14:00'),(6,3,'2026-10-06','14:00'),(7,4,'2026-12-01','21:00')");
 	$pdoLink->exec("INSERT INTO items VALUES (1,1,'music'),(2,1,'dance'),(3,2,'theatre'),(4,2,'music'),(5,3,'dance'),(6,3,'circus'),(7,4,'solo')");
 	// The users table is the one the framework delivers
-	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/users.sqlte.sql')) );
+	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/users.sqlitedb.sql')) );
 	$userSql = $pdoLink->prepare("INSERT INTO users (id_user, userHandle, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
 	foreach( Array(Array(1,'anna','manage','active'), Array(2,'ben','member','active'), Array(3,'cleo','member','pendng'), Array(4,'dave','system','locked')) as $usrRow ){
 		// Passwords are pw-<name>, hashed at the lowest cost to keep the tests fast
 		$userSql->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 	}
 	// The devices table is the one the framework delivers
-	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/devices.sqlte.sql')) );
+	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/devices.sqlitedb.sql')) );
 	$userSql = null;
 	$pdoLink = null;
 }
@@ -55,6 +55,6 @@ function createSampleDb( String $sqliteDbPath ): Void {
  */
 function switchToSqlite( String $sqliteDbPath ): Void {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqliteDbPath)
+		'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>$sqliteDbPath)
 	) );
 }
