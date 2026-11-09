@@ -7,7 +7,8 @@
 //   methods      9-character camelCase (magic __methods are ignored)
 //   parameters   10-character camelCase
 //   properties   8-character camelCase
-//   loop vars    6- or 3-character camelCase (foreach / for iteration variables)
+//   loop vars    6-character camelCase (foreach / for iteration variables); those of 3 that
+//                test/audit/looplabels.txt lists are accepted by ConventionTest
 //   locals       7-character camelCase (6 and 3 are tolerated)
 //   docblocks    required on public methods
 //   types        every parameter typed, every method with a return type
@@ -268,7 +269,7 @@ function auditCode( String $projctRoot, Array $folderList ): Array {
 			if( $isLoopV && !isset($seenLop[$scopeKy]) ){
 				$seenLop[$scopeKy] = true;
 				$counter['loop']++;
-				if( !in_array(strlen($varName), Array(3, 6), true) || !isCamelCs($varName) ){
+				if( strlen($varName)!==6 || !isCamelCs($varName) ){
 					$finding['loop'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>$scopeNm, 'name'=>$varName);
 				}
 			}
