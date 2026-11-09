@@ -1,12 +1,21 @@
 {% extends 'layout.html.twig' %}
 
-{# The text font is Cabin, served from the site itself (see css/custom.css.twig): Open Sans is not asked for #}
+{# Nothing is asked from another host: the fonts, the icons and the Prism styles are served from the site itself
+   (fonts/ and libs/, copied by build.ps1). The text font is Cabin and the code font Source Code Pro, both in
+   css/custom.css.twig; Open Sans is not asked for. The icons are the solid style of Font Awesome only. #}
 {% block stylesheets %}
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/template.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.0/css/all.min.css" integrity="sha256-ybRkN9dBjhcS2qrW1z+hfCxq+1aBdwyQM5wlQoQVt/0=" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.23.0/themes/prism-okaidia.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.23.0/plugins/line-numbers/prism-line-numbers.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.23.0/plugins/line-highlight/prism-line-highlight.css">
+    <link rel="stylesheet" href="libs/fontawesome/css/fontawesome.min.css">
+    <link rel="stylesheet" href="libs/fontawesome/css/solid.min.css">
+    <link rel="stylesheet" href="libs/prism/prism-okaidia.min.css">
+    <link rel="stylesheet" href="libs/prism/prism-line-numbers.min.css">
+    <link rel="stylesheet" href="libs/prism/prism-line-highlight.min.css">
+{% endblock %}
+
+{# Fuse runs the search; css-vars-ponyfill, only needed by Internet Explorer, is left out #}
+{% block javascripts %}
+    <script src="libs/fuse/fuse.js"></script>
+    <script src="js/template.js"></script>
+    <script src="js/search.js"></script>
+    <script defer src="js/searchIndex.js"></script>
 {% endblock %}

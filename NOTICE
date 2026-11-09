@@ -49,3 +49,16 @@ Files of others in this repository
   .phpdoc/template/fonts/   the Cabin font, SIL Open Font License 1.1
                             (OFL.txt beside it); used to build the code
                             reference, left out of bundles
+  .phpdoc/template/fonts/   the Source Code Pro font 2.042R of Adobe, in
+                            WOFF2, SIL Open Font License 1.1
+                            (SourceCodePro-LICENSE.md beside it)
+  .phpdoc/template/libs/    the scripts and styles of the documentation
+                            site, served from the site itself, each with
+                            its licence in its folder:
+                              prism/        Prism 1.30.0, MIT License
+                              fuse/         Fuse.js 3.4.6, Apache License 2.0
+                              fontawesome/  Font Awesome Free 5.15.4, the
+                                            solid style: font SIL OFL 1.1,
+                                            styles MIT License, icons
+                                            CC BY 4.0 (LICENSE.txt)
+                            used to build the site, left out of bundles

@@ -1,7 +1,8 @@
 # Builds the documentation site of nyuRuns into docs/site (not tracked): the code reference in
 # docs/site/reference, made by phpDocumentor, then the pages of the documents (.phpdoc/site/build.php).
 # Run from the project root: pwsh .phpdoc/build.ps1
-# phpDocumentor only renders the Twig files of .phpdoc/template: the logo and the fonts are copied here.
+# phpDocumentor only renders the Twig files of .phpdoc/template: the logo, the fonts and the libraries
+# (Prism, Fuse, Font Awesome, in libs) are copied here, so that the site asks nothing from another host.
 
 $outDir = 'docs/site/reference'
 
@@ -17,6 +18,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 New-Item -ItemType Directory -Force "$outDir/fonts" | Out-Null
 Copy-Item .phpdoc/template/images/logo.png "$outDir/images/" -Force
 Copy-Item .phpdoc/template/fonts/* "$outDir/fonts/" -Force
+Copy-Item .phpdoc/template/libs "$outDir/" -Recurse -Force
 
 # The pages of the documents, around the reference
 php @phpArg .phpdoc/site/build.php

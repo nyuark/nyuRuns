@@ -1,0 +1,17 @@
+{# The class diagram page of phpDocumentor 3.10's default template, without panzoom, which it asks from unpkg.com:
+   the site asks nothing from another host. The graphs are off (graphs.enabled in phpdoc.dist.xml), so no page links
+   here and no diagram is drawn; turning them on would need panzoom served from libs/ to zoom the diagram. #}
+{% extends 'base.html.twig' %}
+{% set baseUrl = renderBaseUrlHeader() %}
+
+{% block stylesheets %}
+{% endblock %}
+
+{% block javascripts %}
+{% endblock %}
+
+{% block content %}
+    <div class="phpdocumentor-class-graph">
+        <img class="phpdocumentor-class-graph__graph" src="graphs/classes.svg" id="scene" />
+    </div>
+{% endblock %}
