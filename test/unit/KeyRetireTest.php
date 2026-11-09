@@ -1,0 +1,79 @@
+<?php
+
+// Access\Sess\JWT : the previous key ('oldpub') checks only the tokens it
+// signed before it was retired ('retire'), ending within 'lifetm' of it;
+// past that time it is neither used nor published.
+
+require __DIR__.'/../lib/harness.php';
+
+use nyu\Access\Sess\JWT;
+use Firebase\JWT\JWT as JwtCodec;
+
+if( !function_exists('openssl_pkey_new') ){
+	skipCheck('previous key retired', 'the openssl extension is not loaded');
+	endChecks();
+}
+
+/**
+ * Makes an RSA key pair of 2048 bits in the temporary folder of the script.
+ *
+ * @param String $namePrefix Name of the files, without their extension.
+ * @return Array The paths of the private and public keys.
+ */
+function makePairs( String $namePrefix ): Array {
+	$cnfOpts = Array('config'=>TOP_DIR.DS.'src'.DS.'Shell'.DS.'keygen.cnf');
+	$keyObjc = openssl_pkey_new( Array('private_key_bits'=>2048, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $cnfOpts );
+	$prvText = '';
+	openssl_pkey_export($keyObjc, $prvText, null, $cnfOpts);
+	file_put_contents(inTempDir($namePrefix.'.key'), $prvText);
+	file_put_contents(inTempDir($namePrefix.'.pub'), strval(openssl_pkey_get_details($keyObjc)['key']));
+	return Array(inTempDir($namePrefix.'.key'), inTempDir($namePrefix.'.pub'));
+}
+
+/**
+ * Signs a token with the previous key, naming it by its kid.
+ *
+ * @param Int $issuedUnix Its 'iat'.
+ * @param Int $endingUnix Its 'exp'.
+ * @return String The token.
+ */
+function oldToken( Int $issuedUnix, Int $endingUnix ): String {
+	global $oldPriv, $oldKid;
+	return JwtCodec::encode( Array('user'=>'anna', 'iat'=>$issuedUnix, 'exp'=>$endingUnix), strval(file_get_contents($oldPriv)), 'RS256', $oldKid );
+}
+
+/**
+ * Tells what a carrier answers to a token.
+ *
+ * @param JWT    $jwtCarrier The carrier.
+ * @param String $tokenValue The token.
+ * @return Mixed The user, or false with the message and whether it counts.
+ */
+function readsTokn( JWT $jwtCarrier, String $tokenValue ): Mixed {
+	$idntArr = $jwtCarrier->verifyReq( fakeReqst(Array('Authorization'=>'Bearer '.$tokenValue)) );
+	return is_array($idntArr) ? ($idntArr['user'] ?? null) : Array(false, $jwtCarrier->lastError(), $jwtCarrier->wrongCred());
+}
+
+list($oldPriv, $oldPubl) = makePairs('former');
+list($newPriv, $newPubl) = makePairs('current');
+$oldKid = strval( json_decode(base64_decode(strtr(explode('.', (new JWT(Array('algrtm'=>'RS256', 'prvkey'=>$oldPriv)))->issueTokn(Array('user'=>'x')))[0], '-_', '+/')), true)['kid'] ?? '' );
+$nowTime = time();
+$retired = $nowTime - 100;
+$rotConf = Array('algrtm'=>'RS256', 'prvkey'=>$newPriv, 'pubkey'=>$newPubl, 'oldpub'=>$oldPubl, 'retire'=>$retired, 'lifetm'=>600);
+$rotJwt = new JWT( $rotConf );
+
+checkSame('previous key: a token issued before the rotation, ending within lifetm of it, passes', readsTokn($rotJwt, oldToken($retired - 50, $retired + 500)), 'anna');
+checkSame('previous key: one issued after the rotation is refused, and counted', readsTokn($rotJwt, oldToken($retired + 10, $retired + 500)), Array(false, 'Invalid token', true));
+checkSame('previous key: one ending beyond the rotation and lifetm is refused, and counted', readsTokn($rotJwt, oldToken($retired - 50, $retired + 601)), Array(false, 'Invalid token', true));
+checkSame('previous key: one without iat is refused', readsTokn($rotJwt, JwtCodec::encode(Array('user'=>'anna', 'exp'=>$retired + 500), strval(file_get_contents($oldPriv)), 'RS256', $oldKid)), Array(false, 'Invalid token', true));
+checkSame('previous key: published while its tokens may last', count($rotJwt->publicSet()['keys']), 2);
+checkSame('the current key is not bound by the rotation', readsTokn($rotJwt, (new JWT($rotConf))->issueTokn(Array('user'=>'ben'))), 'ben');
+
+// Past the rotation and lifetm, the previous key is neither used nor published
+$endConf = Array('retire'=>$nowTime - 700) + $rotConf;
+$endJwt = new JWT( $endConf );
+checkSame('past its time: not published', count($endJwt->publicSet()['keys']), 1);
+checkSame('past its time: what it signed is forged', readsTokn($endJwt, oldToken($nowTime - 800, $nowTime + 100)), Array(false, 'Invalid token', true));
+checkSame('without a retire time, it is not used either', Array(count((new JWT(array_diff_key($rotConf, Array('retire'=>1))))->publicSet()['keys']), readsTokn(new JWT(array_diff_key($rotConf, Array('retire'=>1))), oldToken($retired - 50, $retired + 500))), Array(1, Array(false, 'Invalid token', true)));
+
+endChecks();

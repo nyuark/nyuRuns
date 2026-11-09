@@ -38,6 +38,7 @@ class Native implements Handler{
 	protected $minPassw;
 	protected $sealPass;
 	protected $mailMins;
+	protected $markLmtr;
 	protected $lastMssg;
 	protected $wrongCrd = false;
 
@@ -63,6 +64,10 @@ class Native implements Handler{
 		$this->minPassw = min( self::PASSSIZE, max(1, intval($confValues['minlen'] ?? 10)) );
 		$this->sealPass = is_scalar($confValues['tfakey'] ?? '') ? strval($confValues['tfakey'] ?? '') : '';
 		$this->mailMins = max( 1, intval($confValues['codexp'] ?? self::MAILMINS) );
+		// The failures of a client presenting a login mark are counted on the mark, in the folder of the limits
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$lmtConf = ($nyuConf!==null) ? $nyuConf->getRowVal('ACCESS', 'LIMITS') : null;
+		$this->markLmtr = new \nyu\Access\Limiter( Array('maxtry'=>$this->maxTries, 'holdtm'=>$this->holdSecs, 'folder'=>is_array($lmtConf) ? strval($lmtConf['folder'] ?? '') : '') );
 		$this->lastMssg = '';
 	}
 
@@ -76,10 +81,14 @@ class Native implements Handler{
 	 * when the credentials hold a 'code' entry, even empty, as the login's do.
 	 * After too many wrong passwords or codes, the
 	 * user is refused for the hold time, whatever it gives: the reply is
-	 * the one of a wrong password, and the hold is told in the log only. A 'key' entry
-	 * is checked as a personal API token instead.
+	 * the one of a wrong password, and the hold is told in the log only. A
+	 * client presenting a valid login mark of the user ('mark', made before
+	 * the password was last set is not one) is not stopped by that hold:
+	 * its failures are counted on the mark, which is refused in its turn
+	 * after as many (see Access\LoginMark). A 'key' entry is checked as a
+	 * personal API token instead.
 	 *
-	 * @param Array $credsArray Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
+	 * @param Array $credsArray Must contain 'user' and 'pass' entries (and 'code' for a 2FA user, 'mark' for a client already used), or a 'key' entry.
 	 * @return Array|Bool An identity array ('user', 'role', 'id') on success, or false on failure.
 	 */
 	function checkCred( Array $credsArray ): Array|Bool {
@@ -102,8 +111,18 @@ class Native implements Handler{
 		}else{
 			$matched = password_verify( $gvnPass, $strHash );
 		}
+		// A client already used by the user : its mark, while it has not failed too often itself
+		$markKey = '';
+		if( is_array($usrVals) && is_string($credsArray['mark'] ?? null) && $credsArray['mark']!=='' ){
+			$pssUnix = (strval($usrVals['passDate'] ?? '')!='') ? intval(strtotime(strval($usrVals['passDate']))) : null;
+			$markKey = \nyu\Access\LoginMark::fromLimit()->readsMark( $credsArray['mark'], strval($usrVals['userName']), $pssUnix );
+			if( $markKey!='' && $this->markLmtr->heldByUsr($markKey)>0 ){
+				\nyu\Tools\Logger::getLogger('access')->warning( 'Login mark refused for user '.json_encode($usrVals['userName']).': too many attempts with it' );
+				$markKey = '';
+			}
+		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-		if( is_array($usrVals) && $this->isHeldNow($usrVals) ){
+		if( is_array($usrVals) && $markKey=='' && $this->isHeldNow($usrVals) ){
 			\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is held after too many attempts' );
 			$this->lastMssg = 'Invalid credentials';
 			$this->wrongCrd = true;
@@ -111,7 +130,7 @@ class Native implements Handler{
 		}
 		if( $usrVals===null || !$matched ){
 			if( $usrVals!==null ){
-				$this->countFail( strval($usrVals['userName']) );
+				($markKey!='') ? $this->markLmtr->countUser($markKey) : $this->countFail( strval($usrVals['userName']) );
 			}
 			$this->lastMssg = 'Invalid credentials';
 			$this->wrongCrd = true;
@@ -145,7 +164,7 @@ class Native implements Handler{
 			}
 			if( !$codeHit ){
 				\nyu\Tools\Logger::getLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($usrVals['userName']) );
-				$this->countFail( strval($usrVals['userName']) );
+				($markKey!='') ? $this->markLmtr->countUser($markKey) : $this->countFail( strval($usrVals['userName']) );
 				$this->lastMssg = 'Invalid verification code';
 				$this->wrongCrd = true;
 				return false;
@@ -176,7 +195,7 @@ class Native implements Handler{
 				if( $stepNum!==null ){
 					\nyu\Tools\Logger::getLogger('access')->warning( 'Verification code refused: already used by user '.json_encode($usrVals['userName']) );
 				}
-				$this->countFail( strval($usrVals['userName']) );
+				($markKey!='') ? $this->markLmtr->countUser($markKey) : $this->countFail( strval($usrVals['userName']) );
 				$this->lastMssg = 'Invalid verification code';
 				$this->wrongCrd = true;
 				return false;
@@ -184,6 +203,9 @@ class Native implements Handler{
 		}
 		if( intval($usrVals['failNmbr'] ?? 0)>0 ){
 			$this->clearFail( strval($usrVals['userName']) );
+		}
+		if( $markKey!='' ){
+			$this->markLmtr->clearUser($markKey);
 		}
 		// A hash made at a lower cost than new ones is made again, now that the password is known
 		if( password_needs_rehash($strHash, PASSWORD_BCRYPT) ){

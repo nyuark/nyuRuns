@@ -6,6 +6,7 @@ use \nyu\App\Actionset;
 use \nyu\Access\AccessMail;
 use \nyu\Access\Checker;
 use \nyu\Access\Limiter;
+use \nyu\Access\LoginMark;
 use \nyu\Access\Auth\UserBase;
 use \nyu\Tools\Logger;
 
@@ -84,7 +85,9 @@ class Actions extends Actionset {
 		$authObj = new $authCls( $this->resolvCnf($lgnConf['authcf'] ?? 'dfpass') );
 		// The 'code' input carries the one-time code of a user with 2FA
 		$gvnCode = $this->inputReg->readValue('code');
-		$idntArr = $authObj->checkCred( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '') );
+		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
+		$gvnMark = strval( $this->httpRqst->getHeader('X-Lgmark') ?? (is_string($this->httpRqst->getCookie('lgmark')) ? $this->httpRqst->getCookie('lgmark') : '') );
+		$idntArr = $authObj->checkCred( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '', 'mark'=>$gvnMark) );
 
 		if($idntArr===false){
 			// Only a credential presented and refused counts against the address
@@ -123,6 +126,18 @@ class Actions extends Actionset {
 		$this->statCode = 200;
 		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page
 		$this->asOutput = method_exists($sessObj, 'dropSessn') ? Array('logged'=>true) : Array('token'=>$rawTokn);
+		// A new login mark for this client : in a cookie the scripts of the page cannot read, or in the reply of a token
+		$markObj = LoginMark::fromLimit();
+		$newMark = $markObj->makesMark( strval($idntArr['user'] ?? $gvnUser) );
+		if($newMark!==''){
+			if(method_exists($sessObj, 'dropSessn')){
+				if(!headers_sent()){
+					setcookie('lgmark', $newMark, Array('expires'=>time() + 86400*$markObj->markLasts(), 'path'=>'/auth', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
+				}
+			}else{
+				$this->asOutput['lgmark'] = $newMark;
+			}
+		}
 	}
 
 	/**

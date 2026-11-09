@@ -184,6 +184,7 @@ class HealthChk{
 		}
 	}
 
+
 	/**
 	 * Checks the entry points of www: the preset each one starts the
 	 * Runner with (dfault when it names none) must check access. An open
@@ -281,6 +282,10 @@ class HealthChk{
 			}
 			$this->chkMailer($blkName, $blkVal);
 		}
+		// The key of the login marks : without one, the hold of an account also stops its owner
+		$lmtConf = $this->accessCnf('limits');
+		$mrkSize = strlen(strval($lmtConf['mrkkey'] ?? ''));
+		$this->addResult( 'login marks', ($mrkSize>=\nyu\Access\LoginMark::KEYSSIZE) ? 'fine' : 'warn', ($mrkSize>=\nyu\Access\LoginMark::KEYSSIZE) ? 'set: a client already used logs in while its account is held' : 'no mrkkey of '.\nyu\Access\LoginMark::KEYSSIZE.' characters: the hold of an account also stops its owner; "config secrt mrkkey" makes one' );
 		// The language of the mails of a user who has none
 		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->getRowVal('SYSTEM', 'LNG_DFLT') ?? ''))) );
 		if( $dfltTag!=='' && !Language::checksTag($dfltTag) ){
@@ -369,6 +374,9 @@ class HealthChk{
 				$clmFlaw[] = 'oldpub is not the public RSA key of '.JWT::RSAMINIM.' bits at least: empty it, or "config secrt jtoken" writes it';
 			}elseif( ($blockValue['algrtm'] ?? '')!='RS256' ){
 				$this->addResult('previous key '.$blockNamed, 'warn', 'oldpub is only read with RS256');
+			}elseif( !is_int($blockValue['retire'] ?? null) || $blockValue['retire'] + max(1, intval($blockValue['lifetm'] ?? 3600))<time() ){
+				// Past the time the tokens it signed could last, or never retired : it checks nothing any more
+				$this->addResult('previous key '.$blockNamed, 'warn', 'oldpub checks no token any more (no retire time, or past it by lifetm): it can be removed');
 			}
 		}
 		if( !empty($clmFlaw) ){
@@ -390,8 +398,9 @@ class HealthChk{
 	 * Checks the keys of a block signing its tokens with RS256: a private
 	 * key that signs and the public key checking them, or the public key
 	 * alone when the tokens are issued by another server. A key must be an
-	 * RSA key of JWT::RSAMINIM bits at least; a private key readable by the
-	 * other users of the server is told.
+	 * RSA key of JWT::RSAMINIM bits at least, and the public key the one of
+	 * the private key; a private key readable by the other users of the
+	 * server is told.
 	 *
 	 * @param String $blockNamed Name of the block.
 	 * @param Array  $blockValue Its values.
@@ -419,12 +428,21 @@ class HealthChk{
 				$keyBits[] = (($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA) ? intval($keyInfo['bits'] ?? 0) : 0;
 			}
 		}
+		// A public key laid over the server's own (a bundle of another pair) no longer checks what its private key signs
+		$pairsOk = ($prvObjc===false || $pubObjc===false) || strval(openssl_pkey_get_details($prvObjc)['key'] ?? '')===strval(openssl_pkey_get_details($pubObjc)['key'] ?? '');
 		if( ($keyText['prvkey']!='' && $prvObjc===false) || ($keyText['pubkey']!='' && $pubObjc===false) ){
 			$this->addResult('token keys '.$blockNamed, 'fail', 'a key file is not a PEM key: "config secrt jtoken" makes a new pair');
+		}elseif( !$pairsOk ){
+			$this->addResult('token keys '.$blockNamed, 'fail', 'the public key is not the one of the private key: "config secrt jtoken" makes a new pair');
 		}elseif( empty($keyBits) ){
 			$this->addResult('token keys '.$blockNamed, 'fail', 'missing: "config secrt jtoken" makes them');
 		}elseif( min($keyBits)<JWT::RSAMINIM ){
 			$this->addResult('token keys '.$blockNamed, 'fail', 'not an RSA key of '.JWT::RSAMINIM.' bits at least: "config secrt jtoken" makes a new pair');
+		}elseif( $prvObjc===false && ($blockValue['extern'] ?? false)!==true && !empty($lgnConf = $this->accessCnf('login')) && strval($lgnConf['sessby'] ?? 'jtoken')=='jtoken' && strtolower(strval($lgnConf['sesscf'] ?? 'dftokn'))==$blockNamed ){
+			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
+			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+			$isFinal = in_array(strtoupper(strval(($nyuConf!==null) ? $nyuConf->getRowVal('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
+			$this->addResult('token keys '.$blockNamed, $isFinal ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "config secrt jtoken" makes a pair; "extern": true when the tokens come from another server');
 		}else{
 			$this->addResult('token keys '.$blockNamed, 'fine', ($prvObjc===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($keyBits).' bits');
 		}

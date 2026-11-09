@@ -42,7 +42,7 @@ class Bundle extends Command{
 	// What a bundle holds, from the project root : nothing else is copied, but what a mode adds
 	const KEEPLIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE', 'NOTICE');
 	// What is left out of those, from the project root : the local settings, their secrets, the private keys, the modes of the project
-	const DROPLIST = Array('conf/access.json', 'conf/database.json', 'conf/mailer.json', 'conf/users.lst', 'conf/.htpasswd', 'conf/keys/*.key', 'conf/bundle.lst');
+	const DROPLIST = Array('conf/access.json', 'conf/database.json', 'conf/mailer.json', 'conf/users.lst', 'conf/.htpasswd', 'conf/keys/*', 'conf/bundle.lst');
 	// The modes the project declares: { "<mode>": { "system": { "ENV_NAME": ..., ... }, "adding": [ <paths> ] } }
 	const BNDLFILE = 'conf/bundle.lst';
 
@@ -281,7 +281,8 @@ class Bundle extends Command{
 	 * as the file would be. A mode of the project is named with five
 	 * lower-case letters or digits that no sub-command uses; its 'system'
 	 * holds keys of system.ini, ENV_NAME one of the four environments;
-	 * its 'adding' holds paths of the project, outside KEEPLIST, none of
+	 * its 'adding' holds paths of the project, outside KEEPLIST or files
+	 * inside it (a file left out otherwise, named to be copied), none of
 	 * them hidden nor going up.
 	 *
 	 * @param ?Array $modesArray The modes of the project to check; those of conf/bundle.lst when null.
@@ -321,8 +322,10 @@ class Bundle extends Command{
 			}
 			foreach( (array)$addVals as $addPth ){
 				$addPth = is_string($addPth) ? $addPth : '';
-				if( $whyText=='' && ( !preg_match('#^[\w\-]+(/[\w.\-]+)*$#D', $addPth) || preg_match('#(^|/)\.#', $addPth) || in_array(explode('/', $addPth)[0], self::KEEPLIST, true) || !file_exists(TOP_DIR.DS.str_replace('/', DS, $addPth)) ) ){
-					$whyText = 'it adds what is not a path of the project outside what every bundle holds: '.$addPth;
+				// Inside what every bundle holds, only a file is named : one that is left out otherwise, such as the public key of a server issuing the tokens
+				$inKeeps = in_array(explode('/', $addPth)[0], self::KEEPLIST, true);
+				if( $whyText=='' && ( !preg_match('#^[\w\-]+(/[\w.\-]+)*$#D', $addPth) || preg_match('#(^|/)\.#', $addPth) || ($inKeeps && !is_file(TOP_DIR.DS.str_replace('/', DS, $addPth))) || !file_exists(TOP_DIR.DS.str_replace('/', DS, $addPth)) ) ){
+					$whyText = 'it adds what is not a path of the project outside what every bundle holds, nor a file of it: '.$addPth;
 				}
 			}
 			if( $whyText!='' ){
@@ -351,6 +354,11 @@ class Bundle extends Command{
 	 * Tells whether a file of the project goes into a bundle: under one of
 	 * KEEPLIST or a path the mode adds, not named by DROPLIST, and no part
 	 * of its path hidden (starting with a dot), except a .htaccess file.
+	 * Nothing of conf/keys travels, nor any key, users file or password
+	 * file conf/access.json names, wherever it lies (see secrPaths): the
+	 * server makes its own keys (deploy start). A mode brings one of them
+	 * back only by naming that very file in its 'adding' paths, the public
+	 * key of a server issuing the tokens for one.
 	 *
 	 * @param String $insidePath Path of the file from the project root, written with slashes.
 	 * @param Array  $addedArray Paths the mode adds, from the project root.
@@ -365,10 +373,15 @@ class Bundle extends Command{
 		if( !$isAdded && !in_array($partLst[0], self::KEEPLIST, true) ){
 			return false;
 		}
+		// A file the mode names itself is copied, whatever drops it otherwise: a folder it names brings back nothing dropped
+		$isNamed = in_array($insidePath, $addedArray, true);
 		foreach( self::DROPLIST as $dropPt ){
-			if( fnmatch($dropPt, $insidePath, FNM_PATHNAME) ){
+			if( !$isNamed && fnmatch($dropPt, $insidePath, FNM_PATHNAME) ){
 				return false;
 			}
+		}
+		if( !$isNamed && ( strpos($insidePath, 'conf/keys/')===0 || in_array($insidePath, $this->secrPaths(), true) ) ){
+			return false;
 		}
 		foreach( $partLst as $partNm ){
 			if( $partNm!=='' && $partNm[0]=='.' && $partNm!=='.htaccess' ){
@@ -376,6 +389,39 @@ class Bundle extends Command{
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Gives the paths of the secrets conf/access.json names, as written:
+	 * the keys of the tokens ('prvkey', 'pubkey', 'oldpub' of any block),
+	 * the public key of each application of 'apkeys', the users file
+	 * ('usrfle') and the password file ('htpasswd'). Read once.
+	 *
+	 * @return Array The paths, from the project root, written with slashes.
+	 */
+	protected function secrPaths(): Array {
+		static $pathLst = null;
+		if( $pathLst!==null ){
+			return $pathLst;
+		}
+		$pathLst = Array();
+		$axsTree = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
+		$blkList = is_array($axsTree) ? $axsTree : Array();
+		foreach( $blkList as $blkVal ){
+			// The applications of the application keys hold a public key each
+			foreach( (is_array($blkVal) && is_array($blkVal['applst'] ?? null)) ? $blkVal['applst'] : Array() as $appVal ){
+				$blkList[] = is_array($appVal) ? Array('pubkey'=>$appVal['pubkey'] ?? '') : Array();
+			}
+		}
+		foreach( $blkList as $blkVal ){
+			foreach( Array('prvkey', 'pubkey', 'oldpub', 'usrfle', 'htpasswd') as $keyNme ){
+				$pathTxt = is_array($blkVal) && is_string($blkVal[$keyNme] ?? null) ? trim(str_replace('\\', '/', $blkVal[$keyNme]), '/ ') : '';
+				if( $pathTxt!=='' ){
+					$pathLst[] = $pathTxt;
+				}
+			}
+		}
+		return $pathLst;
 	}
 
 	/**

@@ -105,9 +105,21 @@ if( function_exists('openssl_pkey_new') ){
 	checkSame('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--agree'))['code'], readInPrj($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'backup'.DS.'rstokn*')), Array(0, true, Array()));
 	checkSame('the former public key is kept as oldpub, and checks the tokens it signed', Array(readInPrj($projDir, 'conf/keys/rstokn.old.pub'), json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['rstokn']['oldpub'] ?? null), Array($pubText, 'conf/keys/rstokn.old.pub'));
 	$oldTokn = $rsaJwt->issueTokn( Array('user'=>'anna') );
-	$nowJwt = new nyu\Access\Sess\JWT( Array('algrtm'=>'RS256', 'prvkey'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'oldpub'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub') );
+	$nowJwt = new nyu\Access\Sess\JWT( Array('algrtm'=>'RS256', 'prvkey'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'oldpub'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub', 'retire'=>time() + 5) );
 	checkSame('a token of the former pair passes with oldpub', ($nowJwt->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$oldTokn))) ?: Array())['user'] ?? null, 'anna');
 	checkLike('replacing them tells the former tokens are still accepted', runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn'), "n\n")['errs'], '/still accepted until they end, checked with conf\/keys\/rstokn\.old\.pub/');
+	$rsaBlok = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
+	checkSame('the time the former key was retired is written beside it', is_int($rsaBlok['retire'] ?? null) && abs($rsaBlok['retire'] - time())<60, true);
+	// A key that leaked : --drops keeps no former key, every token in use ends
+	checkLike('--drops tells every token in use ends', runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--drops'), "n\n")['errs'], '/Replace the keys of the tokens in use: every token in use ends now/');
+	$befKey = strval(readInPrj($projDir, 'conf/keys/rstokn.key'));
+	$runVals = runShell($projDir, Array('config', 'secrt', 'jtoken', '--block=rstokn', '--drops', '--agree'));
+	$rsaBlok = json_decode(strval(readInPrj($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
+	checkSame('--drops: a new pair, no former key file, oldpub empty, no retire time', Array($runVals['code'], readInPrj($projDir, 'conf/keys/rstokn.key')!==$befKey, is_file($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub'), $rsaBlok['oldpub'] ?? null, array_key_exists('retire', $rsaBlok)), Array(0, true, false, '', false));
+	$dropJwt = new nyu\Access\Sess\JWT( Array('algrtm'=>'RS256', 'prvkey'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') + $rsaBlok );
+	file_put_contents(inTempDir('former.key'), $befKey);
+	$befTokn = (new nyu\Access\Sess\JWT( Array('algrtm'=>'RS256', 'prvkey'=>inTempDir('former.key')) ))->issueTokn( Array('user'=>'anna') );
+	checkSame('--drops: a token of the former pair is refused', Array($dropJwt->verifyReq(fakeReqst(Array('Authorization'=>'Bearer '.$befTokn))), $dropJwt->lastError()), Array(false, 'Invalid token'));
 	// write : the keys binding the tokens to this project
 	checkSame('write access: an issuer, audiences, a previous key that is one', Array(
 		runShell($projDir, Array('config', 'write', 'access', 'rstokn.issuer', 'https://auth.example.org', '--force'))['code'],

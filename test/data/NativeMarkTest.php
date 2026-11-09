@@ -1,0 +1,60 @@
+<?php
+
+// Access\Auth\Native and Access\LoginMark : a client holding the mark of a
+// user logs in while the account is held; its failures count on the mark;
+// a password set after the mark was made ends it.
+
+require __DIR__.'/../lib/harness.php';
+require __DIR__.'/../lib/sample.php';
+
+if( !extension_loaded('pdo_sqlite') ){
+	skipCheck('Native marks', 'pdo_sqlite is not available');
+	endChecks();
+}
+
+use nyu\Access\LoginMark;
+use nyu\Access\Auth\Native;
+use nyu\Tools\Registry;
+
+$sqlFile = inTempDir('marks.sqlite');
+buildData( $sqlFile );
+$lmtFldr = 'temp'.DS.'nativemarks_'.getmypid();
+$GLOBALS['nyuConfig'] = new Registry( Array(
+	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
+	'access'=>Array('LIMITS'=>Array('maxtry'=>0, 'folder'=>$lmtFldr, 'mrkkey'=>str_repeat('k', 40)))
+) );
+$natAuth = new Native( Array('tblnme'=>'users', 'maxtry'=>5, 'holdtm'=>600, 'minlen'=>8) );
+$sqlLink = new PDO('sqlite:'.$sqlFile);
+$benMark = LoginMark::fromLimit()->makesMark('ben');
+
+/**
+ * Tells what the userbase answers to a login.
+ *
+ * @param String $passwdText The password of ben.
+ * @param String $markString The mark sent; '' for none.
+ * @return Mixed The user, or false.
+ */
+function benLogin( String $passwdText, String $markString='' ): Mixed {
+	global $natAuth;
+	$idntArr = $natAuth->checkCred( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
+	return is_array($idntArr) ? ($idntArr['user'] ?? null) : false;
+}
+
+for( $idx=0; $idx<5; $idx++ ){
+	benLogin('wrong-'.$idx);
+}
+checkSame('native: ben held for a client without his mark', benLogin('pw-ben'), false);
+checkSame('native: his mark lets its client in, the account held', benLogin('pw-ben', $benMark), 'ben');
+$befFail = intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn());
+benLogin('wrong-x', $benMark);
+checkSame('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn()), $befFail);
+checkSame('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn()), 0);
+// A password set after the mark was made ends it : held again, the mark no longer lets its client in
+$sqlLink->exec("UPDATE users SET passDate='".date('Y-m-d H:i:s', time() + 5)."' WHERE userName='ben'");
+for( $idx=0; $idx<5; $idx++ ){
+	benLogin('again-'.$idx);
+}
+checkSame('native: a mark made before the password was last set is no mark', benLogin('pw-ben', $benMark), false);
+
+dropFoldr( TOP_DIR.DS.$lmtFldr );
+endChecks();

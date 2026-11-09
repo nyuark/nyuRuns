@@ -31,7 +31,9 @@ $projDir = makeProjt('bundle', Array(
 	'conf/system.ini'=>sampleIni("CNF_CACH = FALSE\n"), 'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }',
 	'conf/access.json'=>'{ "secret": "real" }', 'conf/access.json.dist'=>'{ "secret": "env:NYU_JWT_SECRET" }', 'conf/database.json'=>'{ "pass": "real" }',
 	'conf/mailer.json'=>'{ "pass": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
-	'conf/keys/dftokn.key'=>'PRIVATE', 'conf/keys/dftokn.pub'=>'PUBLIC',
+	'conf/keys/dftokn.key'=>'PRIVATE', 'conf/keys/dftokn.pub'=>'PUBLIC', 'conf/keys/dftokn.old.pub'=>'FORMER',
+	// The public key of a server issuing tokens, without its private key: a project checking them carries it
+	'conf/keys/issuer.pub'=>'ISSUER',
 	'vendor/autoload.php'=>"<?php\n", 'vendor/some/pkg/src/Lib.php'=>"<?php\n", 'vendor/some/pkg/.git/HEAD'=>'ref',
 	'composer.json'=>'{ "require": {} }', 'composer.lock'=>'{}', 'nyuRun'=>"<?php\n", 'LICENSE'=>'MIT', 'NOTICE'=>'Libraries',
 	'.env'=>"NYU_JWT_SECRET=real\n", 'test/unit/SomeTest.php'=>"<?php\n", 'README.md'=>'# doc', 'notes.md'=>'# notes',
@@ -41,7 +43,7 @@ $projDir = makeProjt('bundle', Array(
 	'tools/failing.phar'=>"<?php\necho \"Could not scan the classes\\n\";\nexit(3);\n"
 ));
 $cmpsLog = 'temp/cmpsr.log';
-$keptLst = Array('LICENSE', 'NOTICE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/keys/dftokn.pub', 'conf/presets/dfault.rps', 'conf/system.ini',
+$keptLst = Array('LICENSE', 'NOTICE', 'composer.json', 'composer.lock', 'conf/access.json.dist', 'conf/presets/dfault.rps', 'conf/system.ini',
 	'nyuRun', 'pages/index.html', 'runs/Shows/Actions.php', 'runs/Shows/input/index.json', 'src/Kernel.php', 'vendor/autoload.php', 'vendor/some/pkg/src/Lib.php', 'www/.htaccess', 'www/index.php');
 $distDir = $projDir.DS.'dist';
 
@@ -54,7 +56,7 @@ checkSame('its config is cached', strpos($bndlIni, 'CNF_CACH = TRUE')!==false, t
 checkSame('the project keeps its own settings', readInPrj($projDir, 'conf/system.ini'), sampleIni("CNF_CACH = FALSE\n"));
 checkSame('the folders the framework writes in are there, empty', Array(is_dir($distDir.DS.'final'.DS.'media'), is_dir($distDir.DS.'final'.DS.'temp'), filesOfDr($distDir.DS.'final'.DS.'temp')), Array(true, true, Array()));
 checkSame('the next steps are told', strpos($runVals['text'], 'On its server: php nyuRun deploy start, then php nyuRun deploy check.')!==false, true);
-checkLike('the bundle is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Bundle: final, 17 files in .*dist.final by user "cli:/');
+checkLike('the bundle is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Bundle: final, 16 files in .*dist.final by user "cli:/');
 
 // The class map of a PREV or PROD bundle, made by Composer in the copy
 checkSame('Composer makes a complete class map in a final bundle', json_decode(strval(readInPrj($projDir, $cmpsLog)), true),
@@ -85,6 +87,8 @@ $jsnVals = jsonShell($projDir, Array('bundle', 'stage', '--plans'));
 $plnRows = array_column($jsnVals['rows'] ?? Array(), 'state', 'path');
 checkSame('--plans lists, and writes nothing', Array(is_dir($distDir.DS.'stage'), $plnRows['conf/system.ini'] ?? null, $plnRows['conf/access.json'] ?? null, $plnRows['conf/keys/dftokn.key'] ?? null, $plnRows['test/'] ?? null, $plnRows['.env'] ?? null, $plnRows['vendor/some/pkg/.git/HEAD'] ?? null),
 	Array(false, 'copied', 'left out', 'left out', 'left out', 'left out', 'left out'));
+checkSame('--plans: nothing of conf/keys travels, public keys included', Array($plnRows['conf/keys/dftokn.pub'] ?? null, $plnRows['conf/keys/dftokn.old.pub'] ?? null, $plnRows['conf/keys/issuer.pub'] ?? null),
+	Array('left out', 'left out', 'left out'));
 checkSame('--plans tells the class map, and runs no Composer', Array($jsnVals['class map'] ?? null, $plnRows['composer.phar'] ?? null, readInPrj($projDir, $cmpsLog)), Array('complete, made by '.$projDir.DS.'composer.phar', 'left out', ''));
 checkSame('a local bundle keeps the autoloader of the project', readInPrj($projDir, $cmpsLog), '');
 
@@ -132,6 +136,24 @@ $lstText = strval(readInPrj($projDir, 'conf/bundle.lst'));
 putInProj($projDir, 'conf/bundle.lst', '{ "badmd": { "system": { "ENV_NAME": "LIVE" }, "adding": [] } }');
 checkSame('a list of modes written by hand that holds what is not one', Array(runShell($projDir, Array('bundle', 'packs'))['code'], strpos(runShell($projDir, Array('bundle', 'packs'))['errs'], 'conf/bundle.lst: the mode badmd cannot be used')!==false), Array(3, true));
 putInProj($projDir, 'conf/bundle.lst', $lstText);
+
+// A key comes along only when a mode names that very file
+putInProj($projDir, 'conf/bundle.lst', '{ "check": { "system": { "ENV_NAME": "PROD" }, "adding": [ "conf/keys/issuer.pub" ] } }');
+$runVals = runShell($projDir, Array('bundle', 'check'));
+checkSame('a mode naming the public key of the server issuing the tokens gets it, and only it', Array($runVals['code'], array_values(array_filter(filesOfDr($distDir.DS.'check'), function( String $filePathNm ): Bool { return strpos($filePathNm, 'conf/keys/')===0; }))), Array(0, Array('conf/keys/issuer.pub')));
+putInProj($projDir, 'conf/bundle.lst', '{ "check": { "system": { "ENV_NAME": "PROD" }, "adding": [ "conf/keys" ] } }');
+checkSame('a folder of keys named by a mode brings back nothing', runShell($projDir, Array('bundle', 'check'))['code'], 3);
+putInProj($projDir, 'conf/bundle.lst', $lstText);
+// The secrets conf/access.json names, wherever they lie
+$axsText = strval(readInPrj($projDir, 'conf/access.json'));
+putInProj($projDir, 'conf/access.json', '{ "dftokn": { "algrtm": "RS256", "prvkey": "conf/secret/jwt.pem", "pubkey": "/conf/secret/jwt.pub" }, "apkeys": { "applst": { "voice": { "pubkey": "pages/other.pub" } } }, "usrlst": { "usrfle": "conf/people.lst" }, "dfpass": { "htpasswd": "conf/web.pass" } }');
+foreach( Array('conf/secret/jwt.pem', 'conf/secret/jwt.pub', 'pages/other.pub', 'conf/people.lst', 'conf/web.pass') as $scrtPth ){
+	putInProj($projDir, $scrtPth, 'SECRET');
+}
+$plnRows = array_column(jsonShell($projDir, Array('bundle', 'final', '--plans'))['rows'] ?? Array(), 'state', 'path');
+checkSame('the keys, users and password files access.json names are left out, wherever they lie', Array($plnRows['conf/secret/jwt.pem'] ?? null, $plnRows['conf/secret/jwt.pub'] ?? null, $plnRows['pages/other.pub'] ?? null, $plnRows['conf/people.lst'] ?? null, $plnRows['conf/web.pass'] ?? null, $plnRows['pages/index.html'] ?? null),
+	Array('left out', 'left out', 'left out', 'left out', 'left out', 'copied'));
+putInProj($projDir, 'conf/access.json', $axsText);
 
 // rmpak
 checkSame('rmpak is confirmed, and leaves the modes of the framework', Array(runShell($projDir, Array('bundle', 'rmpak', 'qatst', '--noask'))['code'], runShell($projDir, Array('bundle', 'rmpak', 'final', '--agree'))['code'], runShell($projDir, Array('bundle', 'rmpak', 'nomod', '--agree'))['code']), Array(3, 3, 3));

@@ -66,7 +66,8 @@ class UserList implements Handler{
 		}
 		$gvnUser = strval($credsArray['user'] ?? '');
 		$gvnPass = strval($credsArray['pass'] ?? '');
-		$usrVals = ($gvnUser!='') ? $this->fetchUser($gvnUser) : null;
+		// A name of the file written as the counter of a login mark is the name of nobody
+		$usrVals = ($gvnUser!='' && strncmp($gvnUser, 'mark:', 5)!==0) ? $this->fetchUser($gvnUser) : null;
 		if( $usrVals===false ){
 			$this->lastMssg = 'Credential store unavailable';
 			return false;
@@ -78,8 +79,18 @@ class UserList implements Handler{
 		}else{
 			$matched = password_verify( $gvnPass, $usrVals['passHash'] );
 		}
+		// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
+		$cntName = is_array($usrVals) ? strval($usrVals['userName']) : '';
+		if( is_array($usrVals) && is_string($credsArray['mark'] ?? null) && $credsArray['mark']!=='' ){
+			$markKey = \nyu\Access\LoginMark::fromLimit()->readsMark( $credsArray['mark'], $cntName );
+			if( $markKey!='' && $this->userLmtr->heldByUsr($markKey)>0 ){
+				Logger::getLogger('access')->warning( 'Login mark refused for user '.json_encode($cntName).': too many attempts with it' );
+			}elseif( $markKey!='' ){
+				$cntName = $markKey;
+			}
+		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-		if( is_array($usrVals) && $this->userLmtr->heldByUsr($usrVals['userName'])>0 ){
+		if( is_array($usrVals) && $this->userLmtr->heldByUsr($cntName)>0 ){
 			Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($usrVals['userName']).' is held after too many attempts' );
 			$this->lastMssg = 'Invalid credentials';
 			$this->wrongCrd = true;
@@ -87,7 +98,7 @@ class UserList implements Handler{
 		}
 		if( $usrVals===null || !$matched ){
 			if( $usrVals!==null ){
-				$this->userLmtr->countUser( $usrVals['userName'] );
+				$this->userLmtr->countUser( $cntName );
 			}
 			$this->lastMssg = 'Invalid credentials';
 			$this->wrongCrd = true;
@@ -116,13 +127,13 @@ class UserList implements Handler{
 				return false;
 			}
 			if( !Totp::checkCode($twoFaKy, $gvnCode) ){
-				$this->userLmtr->countUser( $usrVals['userName'] );
+				$this->userLmtr->countUser( $cntName );
 				$this->lastMssg = 'Invalid verification code';
 				$this->wrongCrd = true;
 				return false;
 			}
 		}
-		$this->userLmtr->clearUser( $usrVals['userName'] );
+		$this->userLmtr->clearUser( $cntName );
 		return $this->makeIdent($usrVals);
 	}
 

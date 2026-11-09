@@ -1,6 +1,6 @@
 {
 	"login":  { "authby": "htpass", "authcf": "tspass", "sessby": "jtoken", "sesscf": "tstokn" },
-	"tstokn": { "lifetm": 300, "algrtm": "RS256", "prvkey": "temp/httpjwk/tstokn.key", "pubkey": "temp/httpjwk/tstokn.pub", "oldpub": "temp/httpjwk/tstokn.old.pub", "issuer": "https://auth.example.org", "audnce": ["api.example.org"] },
+	"tstokn": { "lifetm": 300, "algrtm": "RS256", "prvkey": "temp/httpjwk/tstokn.key", "pubkey": "temp/httpjwk/tstokn.pub", "oldpub": "temp/httpjwk/tstokn.old.pub", "retire": 4102444800, "issuer": "https://auth.example.org", "audnce": ["api.example.org"] },
 	"tspass": { "htpasswd": "test/fixtures/users.htpasswd" },
 	"limits": { "maxtry": 0 }
 }

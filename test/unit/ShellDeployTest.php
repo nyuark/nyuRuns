@@ -80,6 +80,17 @@ checkLike('the layout of the access config is kept', strval(readInPrj($projDir, 
 $jsnVals = jsonShell($projDir, Array('deploy', 'start', '--noask'));
 checkSame('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, readInPrj($projDir, 'conf/keys/dftokn.key')===$keyText, parse_ini_string(strval(readInPrj($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(readInPrj($projDir, 'conf/users.lst')), true)['users'][2]['passHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, true, $envVals, $usrList['managr']['passHash'], false, true));
 checkLike('the installation is traced', strval(readInPrj($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in usrlst \(member, system, managr\) by user "cli:/');
+// A public key laid over the server's own, by a bundle of another pair : the check fails
+if( function_exists('openssl_pkey_new') ){
+	$pubText = strval(readInPrj($projDir, 'conf/keys/dftokn.pub'));
+	$keyObjc = openssl_pkey_new( Array('private_key_bits'=>2048, 'private_key_type'=>OPENSSL_KEYTYPE_RSA, 'config'=>TOP_DIR.DS.'src'.DS.'Shell'.DS.'keygen.cnf') );
+	putInProj($projDir, 'conf/keys/dftokn.pub', strval(openssl_pkey_get_details($keyObjc)['key'] ?? ''));
+	$jsnVals = jsonShell($projDir, Array('deploy', 'check'));
+	checkSame('a public key that is not the one of the private key fails the check', Array(stateOf($jsnVals)[$tknRow] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')[$tknRow] ?? null),
+		Array('fail', 'the public key is not the one of the private key: "config secrt jtoken" makes a new pair'));
+	putInProj($projDir, 'conf/keys/dftokn.pub', $pubText);
+	checkSame('its own public key back, the check is fine', stateOf(jsonShell($projDir, Array('deploy', 'check')))[$tknRow] ?? null, 'fine');
+}
 checkSame('users alone: a store that holds users is left as it is; a store that is not one', Array(runShell($projDir, Array('deploy', 'users'))['text'], runShell($projDir, Array('deploy', 'users', '--store=other'))['code']), Array("The users file already holds users: nothing was changed.\n", 2));
 
 // start : the settings of a database are made with the native userbase only
@@ -187,6 +198,31 @@ checkSame('no default language, or a tag: nothing told', Array(array_key_exists(
 putInProj($projDir, 'conf/system.ini', sampleIni("LNG_DFLT = french\n"));
 checkSame('a default language that is not a tag fails the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['mail language'] ?? null, 'fail');
 putInProj($projDir, 'conf/system.ini', sampleIni());
+
+// A public key found without its private key : made again, unless the block says the tokens come from another server
+if( function_exists('openssl_pkey_new') ){
+	$keyObjc = openssl_pkey_new( Array('private_key_bits'=>2048, 'private_key_type'=>OPENSSL_KEYTYPE_RSA, 'config'=>TOP_DIR.DS.'src'.DS.'Shell'.DS.'keygen.cnf') );
+	$srcPubl = strval(openssl_pkey_get_details($keyObjc)['key'] ?? '');
+	$projDir = freshPrjt('pubonly');
+	jsonShell($projDir, Array('deploy', 'files'));
+	putInProj($projDir, 'conf/keys/dftokn.pub', $srcPubl);
+	$chkVals = jsonShell($projDir, Array('deploy', 'check'));
+	checkSame('in DEV, a login issuing tokens with a public key alone is told', stateOf($chkVals)['token keys dftokn'] ?? null, 'warn');
+	putInProj($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEV', 'ENV_NAME = PROD', sampleIni()));
+	checkSame('in PROD, it fails the check', stateOf(jsonShell($projDir, Array('deploy', 'check')))['token keys dftokn'] ?? null, 'fail');
+	putInProj($projDir, 'conf/system.ini', sampleIni());
+	jsonShell($projDir, Array('deploy', 'start', '--noask', '--store=usrlst'));
+	checkSame('deploy start makes a pair of its own, the public key found replaced', Array(is_file($projDir.DS.'conf'.DS.'keys'.DS.'dftokn.key'), readInPrj($projDir, 'conf/keys/dftokn.pub')!==$srcPubl), Array(true, true));
+	$projDir = freshPrjt('external');
+	jsonShell($projDir, Array('deploy', 'files'));
+	putInProj($projDir, 'conf/keys/dftokn.pub', $srcPubl);
+	runShell($projDir, Array('config', 'write', 'access', 'dftokn.extern', 'true', '--force'));
+	putInProj($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEV', 'ENV_NAME = PROD', sampleIni()));
+	checkSame('extern: the public key alone is the one of the server issuing the tokens, fine in PROD', stateOf(jsonShell($projDir, Array('deploy', 'check')))['token keys dftokn'] ?? null, 'fine');
+	putInProj($projDir, 'conf/system.ini', sampleIni());
+	jsonShell($projDir, Array('deploy', 'start', '--noask', '--store=usrlst'));
+	checkSame('extern: deploy start keeps it and makes no pair', Array(is_file($projDir.DS.'conf'.DS.'keys'.DS.'dftokn.key'), readInPrj($projDir, 'conf/keys/dftokn.pub')), Array(false, $srcPubl));
+}
 
 // The rights of the secret files : not read on Windows, which is told
 checkSame('the rights not checked on Windows are told once; elsewhere, no such row', array_count_values(array_column(jsonShell($projDir, Array('deploy', 'check'))['rows'] ?? Array(), 'check'))['file rights'] ?? 0, (DS=='\\') ? 1 : 0);

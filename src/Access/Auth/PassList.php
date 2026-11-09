@@ -69,14 +69,24 @@ class PassList implements Handler{
 			password_verify( $gvnPass, Native::dummyHash() );
 		}else{
 			$matched = $this->hashMatch($gvnPass, $usrHash);
+			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
+			$cntName = strval($gvnUser);
+			if( is_string($credsArray['mark'] ?? null) && $credsArray['mark']!=='' ){
+				$markKey = \nyu\Access\LoginMark::fromLimit()->readsMark( $credsArray['mark'], $cntName );
+				if( $markKey!='' && $this->userLmtr->heldByUsr($markKey)>0 ){
+					\nyu\Tools\Logger::getLogger('access')->warning( 'Login mark refused for user '.json_encode($gvnUser).': too many attempts with it' );
+				}elseif( $markKey!='' ){
+					$cntName = $markKey;
+				}
+			}
 			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-			if( $this->userLmtr->heldByUsr(strval($gvnUser))>0 ){
+			if( $this->userLmtr->heldByUsr($cntName)>0 ){
 				\nyu\Tools\Logger::getLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
 			}elseif( $matched ){
-				$this->userLmtr->clearUser( strval($gvnUser) );
+				$this->userLmtr->clearUser( $cntName );
 				return Array('user'=>$gvnUser);
 			}else{
-				$this->userLmtr->countUser( strval($gvnUser) );
+				$this->userLmtr->countUser( $cntName );
 			}
 		}
 		$this->lastMssg = 'Invalid credentials';

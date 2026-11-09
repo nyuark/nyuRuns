@@ -36,6 +36,7 @@ class JWT implements Handler{
 	protected $privtPem;
 	protected $publcPem;
 	protected $oldPbPem;
+	protected $oldRetir;
 	protected $jwtIssur;
 	protected $jwtAudnc;
 	protected $lastMssg;
@@ -47,8 +48,9 @@ class JWT implements Handler{
 	 * @param Array     $confValues Config block with 'algrtm' (HS256 or RS256, default 'HS256'), 'lifetm' (seconds,
 	 *                              default 3600), the 'secret' of HS256, or the 'prvkey' and 'pubkey' of RS256: the paths
 	 *                              of the PEM files of the private and public keys, from the project root; 'oldpub', the
-	 *                              path of the previous public key; 'issuer' (a text) and 'audnce' (a text or a list),
-	 *                              not checked when empty.
+	 *                              path of the previous public key, with 'retire', the Unix time it was retired (it is not
+	 *                              used without it, nor once 'lifetm' has passed since); 'issuer' (a text) and 'audnce'
+	 *                              (a text or a list), not checked when empty.
 	 * @param ?AuthHndlr $authHandlr Optional credential store confirming the token's user (see verifyReq).
 	 */
 	function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
@@ -58,7 +60,9 @@ class JWT implements Handler{
 		$this->jwtExpir = $confValues['lifetm'] ?? 3600;
 		$this->privtPem = $this->readsKeys( $confValues['prvkey'] ?? '' );
 		$this->publcPem = $this->readsKeys( $confValues['pubkey'] ?? '' );
-		$this->oldPbPem = $this->readsKeys( $confValues['oldpub'] ?? '' );
+		// The previous key checks only what it signed before it was retired, and no longer than a token lasts
+		$this->oldRetir = is_int($confValues['retire'] ?? null) ? $confValues['retire'] : 0;
+		$this->oldPbPem = ( $this->oldRetir>0 && $this->oldRetir + intval($this->jwtExpir)>=time() ) ? $this->readsKeys( $confValues['oldpub'] ?? '' ) : '';
 		$this->jwtIssur = is_scalar($confValues['issuer'] ?? null) ? trim(strval($confValues['issuer'])) : '';
 		$this->jwtAudnc = $this->readsAuds( $confValues['audnce'] ?? null );
 		$this->lastMssg = '';
@@ -88,10 +92,13 @@ class JWT implements Handler{
 		}
 		$rawTokn = substr( $authHed, 7 );
 		// A token signed before the keys were replaced names the previous key in its 'kid'
+		$byOldKy = false;
 		if( $this->jwtAlgor=='RS256' && $this->oldPbPem!='' ){
 			$hedJson = json_decode( strval(base64_decode(strtr(explode('.', $rawTokn)[0], '-_', '+/'))), true );
 			$askdKid = is_array($hedJson) && is_string($hedJson['kid'] ?? null) ? $hedJson['kid'] : '';
-			$chckKey = $this->checkKeys()[$askdKid] ?? $chckKey;
+			$keysArr = $this->checkKeys();
+			$byOldKy = isset($keysArr[$askdKid]) && $keysArr[$askdKid]===$this->oldPbPem && $askdKid!==$this->keysThumb();
+			$chckKey = $keysArr[$askdKid] ?? $chckKey;
 		}
 		try{
 			$payload = JwtCodec::decode( $rawTokn, new Key($chckKey, $this->jwtAlgor) );
@@ -110,6 +117,13 @@ class JWT implements Handler{
 		if( !is_numeric($idntArr['exp'] ?? null) || !is_scalar($idntArr['user'] ?? null) || strval($idntArr['user'])==='' ){
 			\nyu\Tools\Logger::getLogger('access')->debug( 'Token refused: signed, but without an expiry or a user' );
 			$this->lastMssg = 'Invalid token';
+			return false;
+		}
+		// The previous key: only a token issued before it was retired, and ending within lifetm of it; a leaked key signs nothing more
+		if( $byOldKy && !( is_numeric($idntArr['iat'] ?? null) && $idntArr['iat']<$this->oldRetir && $idntArr['exp']<=$this->oldRetir + intval($this->jwtExpir) ) ){
+			\nyu\Tools\Logger::getLogger('access')->debug( 'Token refused: signed with the previous key outside its time' );
+			$this->lastMssg = 'Invalid token';
+			$this->wrongCrd = true;
 			return false;
 		}
 		// A token issued for another project, or by another issuer, is not counted : its signature is right
@@ -286,7 +300,8 @@ class JWT implements Handler{
 
 	/**
 	 * Gives the public keys a token of RS256 is checked with, by their
-	 * 'kid': the current one first, then the previous one ('oldpub').
+	 * 'kid': the current one first, then the previous one ('oldpub'), while
+	 * the tokens it signed before it was retired may still last.
 	 *
 	 * @return Array The keys as PEM, by thumbprint; empty with HS256 or without a usable key.
 	 */

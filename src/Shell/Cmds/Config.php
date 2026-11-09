@@ -70,7 +70,7 @@ class Config extends Command{
 			'shows'=>Array('args'=>'<system|access|dbases|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
 			'write'=>Array('args'=>'<system|access|dbases|preset> <path> <value> [--force]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
 			'entry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
-			'secrt'=>Array('args'=>'<jtoken|apikey|tfakey|htpass> [user] [--block=<name>] [--shown] [--typed]', 'about'=>'makes a secret and writes it where the config reads it'),
+			'secrt'=>Array('args'=>'<jtoken|apikey|tfakey|mrkkey|htpass> [user] [--block=<name>] [--shown] [--typed] [--drops]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'route'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
 			'cache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
 		);
@@ -351,8 +351,8 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function callSecrt(): Int {
-		$kindNme = $this->needsWord('the secret to make (jtoken, apikey, tfakey, htpass)');
-		if( !in_array($kindNme, Array('jtoken', 'apikey', 'tfakey', 'htpass'), true) ){
+		$kindNme = $this->needsWord('the secret to make (jtoken, apikey, tfakey, mrkkey, htpass)');
+		if( !in_array($kindNme, Array('jtoken', 'apikey', 'tfakey', 'mrkkey', 'htpass'), true) ){
 			$this->stopShell('No secret is made under that name: '.$kindNme, self::EXITUSGE);
 		}
 		try{
@@ -405,6 +405,12 @@ class Config extends Command{
 			$blkName = $blkName ?: strval($treeObj->login->authcf ?? 'native');
 			$rawValu = $treeObj->$blkName->tfakey ?? null;
 			$newScrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
+		}elseif( $secretKind=='mrkkey' ){
+			// The key the login marks are signed with, in the limits block
+			$labelTx = 'Key of the login marks';
+			$blkName = $blkName ?: 'limits';
+			$rawValu = $treeObj->$blkName->mrkkey ?? null;
+			$newScrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}else{
 			$labelTx = 'API key';
 			foreach( get_object_vars($treeObj) as $blkKey => $blkVal ){
@@ -416,7 +422,7 @@ class Config extends Command{
 			$newScrt = bin2hex(random_bytes(32));
 		}
 		if( !is_string($rawValu) ){
-			$whatLst = Array('jtoken'=>'the secret of the tokens', 'apikey'=>'a list of API keys', 'tfakey'=>'the key of the 2FA secrets (tfakey)');
+			$whatLst = Array('jtoken'=>'the secret of the tokens', 'apikey'=>'a list of API keys', 'tfakey'=>'the key of the 2FA secrets (tfakey)', 'mrkkey'=>'the key of the login marks (mrkkey)');
 			$this->stopShell('Nothing was written: no block of conf/access.json holds '.$whatLst[$secretKind].( $blkName!='' ? ' under '.$blkName : '' ), self::EXITDENY);
 		}
 		$envPath = TOP_DIR.DS.'.env';
@@ -437,6 +443,8 @@ class Config extends Command{
 				$treeObj->$blkName->secret = $newScrt;
 			}elseif( $secretKind=='tfakey' ){
 				$treeObj->$blkName->tfakey = $newScrt;
+			}elseif( $secretKind=='mrkkey' ){
+				$treeObj->$blkName->mrkkey = $newScrt;
 			}else{
 				$treeObj->$blkName->keylst[0] = $newScrt;
 			}
@@ -459,13 +467,14 @@ class Config extends Command{
 	 * others; the private one is readable by its owner only, and no copy of
 	 * a private key replaced is kept. The block is given the paths it lacks.
 	 * The public key of a pair replaced is kept as conf/keys/<block>.old.pub
-	 * and named by 'oldpub': the tokens it signed are accepted until they
-	 * end, and the next pair replaces it. Without a former private key (a
-	 * public key copied from another server), a new pair ends every token
-	 * checked with the former one.
+	 * and named by 'oldpub', with the time it was retired ('retire'): the
+	 * tokens it signed before are accepted until they end, 'lifetm' at most,
+	 * and the next pair replaces it. With --drops (a key that leaked), none
+	 * is kept: every token in use ends at once. Without a former private
+	 * key, a new pair ends every token checked with the former one.
 	 *
 	 * @param String $blockNamed Block of conf/access.json.
-	 * @param Bool   $onlyIfVoid Whether keys already there are left as they are, without a question: a public key copied from the server issuing the tokens is one.
+	 * @param Bool   $onlyIfVoid Whether a private key already there is left as it is, without a question; a public key alone is too when the block says the tokens come from another server ('extern'), and is replaced by a pair otherwise.
 	 * @return Bool Whether a pair was written.
 	 *
 	 * @throws ShellStop When replacing the keys is not confirmed, or they cannot be made or written.
@@ -482,7 +491,8 @@ class Config extends Command{
 		$prvPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $prvName);
 		$pubPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $pubName);
 		$hasKeys = is_file($prvPath) || is_file($pubPath);
-		if( $hasKeys && $onlyIfVoid ){
+		// A public key found alone is the one of another server only when the block says so : a bundle may have brought it from where it was built
+		if( $onlyIfVoid && ( is_file($prvPath) || (is_file($pubPath) && ($blkNode->extern ?? false)===true) ) ){
 			return false;
 		}
 		if( !function_exists('openssl_pkey_new') ){
@@ -491,9 +501,12 @@ class Config extends Command{
 		// The public key of the pair replaced keeps checking the tokens it signed, until the next pair
 		$oldName = 'conf/keys/'.$blockNamed.'.old.pub';
 		$oldPrvt = is_file($prvPath) ? @openssl_pkey_get_private(strval(@file_get_contents($prvPath))) : false;
-		$oldText = ($oldPrvt!==false) ? strval(openssl_pkey_get_details($oldPrvt)['key'] ?? '') : '';
-		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : 'what was issued with them stops being accepted';
-		if( $hasKeys && !$this->askAgreed('Replace the keys of the tokens in use: '.$lossTxt) ){
+		// A key that leaked keeps nothing : the tokens it signed end with it
+		$isDrops = $this->optnObjc->hasOption('drops');
+		$oldText = ($oldPrvt!==false && !$isDrops) ? strval(openssl_pkey_get_details($oldPrvt)['key'] ?? '') : '';
+		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : ( $isDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
+		// deploy start replaces a public key found alone without a question : it is not one of this server's
+		if( $hasKeys && !$onlyIfVoid && !$this->askAgreed('Replace the keys of the tokens in use: '.$lossTxt) ){
 			$this->stopShell('Nothing was written: not confirmed', self::EXITDENY);
 		}
 		$cnfOpts = Array('config'=>dirname(__DIR__).DS.'keygen.cnf');
@@ -529,16 +542,22 @@ class Config extends Command{
 				$this->stopShell('No keys written: '.basename($keyFle).' cannot be replaced', self::EXITFAIL);
 			}
 		}
-		if( !isset($blkNode->prvkey) || !isset($blkNode->pubkey) || ($oldText!='' && strval($blkNode->oldpub ?? '')!==$oldName) ){
-			$blkNode->prvkey = $prvName;
-			$blkNode->pubkey = $pubName;
-			if( $oldText!='' ){
-				$blkNode->oldpub = $oldName;
+		$blkNode->prvkey = $prvName;
+		$blkNode->pubkey = $pubName;
+		if( $oldText!='' ){
+			// The time the former key was retired : what it signs after, or beyond lifetm, is refused
+			$blkNode->oldpub = $oldName;
+			$blkNode->retire = time();
+		}elseif( $isDrops || isset($blkNode->oldpub) ){
+			if( is_file(TOP_DIR.DS.str_replace('/', DS, $oldName)) ){
+				@unlink(TOP_DIR.DS.str_replace('/', DS, $oldName));
 			}
-			$wrtrObj->saveJsons($filePth, $treeObj);
+			$blkNode->oldpub = '';
+			unset($blkNode->retire);
 		}
+		$wrtrObj->saveJsons($filePth, $treeObj);
 		Console::loadConfg();
-		$oldNote = ($oldText!='') ? ', the former public key kept as '.$oldName : '';
+		$oldNote = ($oldText!='') ? ', the former public key kept as '.$oldName : ( $isDrops ? ', no former key kept' : '' );
 		$this->traceDone( 'Keys of the tokens made ('.self::KEYSBITS.' bits): '.$prvName.' and '.$pubName.$oldNote );
 		$this->prntObjc->printPair('written', $prvName.', '.$pubName.( $oldText!='' ? ', '.$oldName : '' ));
 		return true;
@@ -622,7 +641,7 @@ class Config extends Command{
 		}
 		foreach( $actList as $actKey ){
 			$actPart = explode('/', $actKey, 2);
-			$rowList[] = Array( '', 'any', 'action', $actKey, $this->axessText($axsConf, $rqstObj, Array('app'=>$actPart[0], 'action'=>$actPart[1] ?? '', 'rtePath'=>'', 'rteKind'=>'action')) );
+			$rowList[] = Array( '', 'any', 'action', $actKey, '', $this->axessText($axsConf, $rqstObj, Array('app'=>$actPart[0], 'action'=>$actPart[1] ?? '', 'rtePath'=>'', 'rteKind'=>'action')) );
 		}
 		$this->prntObjc->printPair('preset', $prstNme);
 		$this->prntObjc->printPair('detect', strval($rteConf['detect'] ?? ''));
