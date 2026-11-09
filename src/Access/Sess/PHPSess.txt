@@ -1,3 +1,0 @@
-
-
-    // A javascript authentication token for access check
