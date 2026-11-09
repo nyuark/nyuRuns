@@ -1,7 +1,7 @@
 <?php
 
 // Data\Mail\Mailer and Data\Mail\Message : the accounts of the 'mailer' config, the
-// checks of a mail, how it is written out, and the 'tofile' account.
+// checks of a mail, how it is written out, and the 'emlFiles' account.
 
 require __DIR__.'/../lib/harness.php';
 
@@ -24,10 +24,10 @@ function acntOf( Mixed $mailConfig, String $acntLabel='' ): Mixed {
 }
 
 // The accounts of the config
-$mainSet = Array('type'=>'native', 'host'=>'smtp.example.com', 'port'=>'587', 'user'=>'u', 'pass'=>'p', 'from'=>'app@example.com', 'name'=>'App', 'wait'=>'10', 'fold'=>'', 'copy'=>'');
-$fileSet = Array('type'=>'tofile', 'host'=>'', 'port'=>'', 'user'=>'', 'pass'=>'', 'from'=>'dev@example.com', 'name'=>'', 'wait'=>'', 'fold'=>'temp/mails', 'copy'=>'');
+$mainSet = Array('sendWith'=>'selfSmtp', 'hostName'=>'smtp.example.com', 'portNumb'=>'587', 'userName'=>'u', 'password'=>'p', 'fromAddr'=>'app@example.com', 'fromName'=>'App', 'waitSecs'=>'10', 'mailsDir'=>'', 'copiesTo'=>'');
+$fileSet = Array('sendWith'=>'emlFiles', 'hostName'=>'', 'portNumb'=>'', 'userName'=>'', 'password'=>'', 'fromAddr'=>'dev@example.com', 'fromName'=>'', 'waitSecs'=>'', 'mailsDir'=>'temp/mails', 'copiesTo'=>'');
 checkIdentical('single block: it is the default account', acntOf(array_change_key_case($mainSet, CASE_UPPER)), $mainSet);
-checkIdentical('single block: settings left out are empty', acntOf(Array('TYPE'=>'tofile', 'FROM'=>'dev@example.com', 'MORE'=>'x')), array_merge(array_fill_keys(Mailer::KEYS_LIST, ''), Array('type'=>'tofile', 'from'=>'dev@example.com')));
+checkIdentical('single block: settings left out are empty', acntOf(Array('SENDWITH'=>'emlFiles', 'FROMADDR'=>'dev@example.com', 'MORE'=>'x')), array_merge(array_fill_keys(Mailer::KEYS_LIST, ''), Array('sendWith'=>'emlFiles', 'fromAddr'=>'dev@example.com')));
 checkPregMatch('single block: it has no name to ask for', acntOf(array_change_key_case($mainSet, CASE_UPPER), 'main'), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: Unknown mail account: "main"/');
 checkIdentical('named blocks: the first one is the default', acntOf(Array('NYURUNS'=>$mainSet, 'DEVBOX'=>$fileSet)), $mainSet);
 checkIdentical('named blocks: one asked by its name, whatever its case', acntOf(Array('NYURUNS'=>$mainSet, 'DEVBOX'=>$fileSet), 'DevBox'), $fileSet);
@@ -36,13 +36,13 @@ checkPregMatch('no mailer block', acntOf(null), '/^THROWN nyu\\\\Data\\\\Mail\\\
 checkIdentical('the failure is a RuntimeException', is_subclass_of(MailFailure::class, RuntimeException::class), true);
 
 // The accounts that cannot work
-checkPregMatch('an unknown type is refused', runCatchThrown(function(){ return new Mailer('x', Array('type'=>'sendmail', 'from'=>'a@example.com')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: Unknown mail type: "sendmail"/');
-checkPregMatch('an account without sender is refused', runCatchThrown(function(){ return new Mailer('x', Array('type'=>'native', 'from'=>'')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: The mail account "x" has no sender address/');
-checkPregMatch('a sender that is not an address is refused', runCatchThrown(function(){ return new Mailer('x', Array('type'=>'native', 'from'=>'nobody')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: Invalid mail address: "nobody"/');
+checkPregMatch('an unknown type is refused', runCatchThrown(function(){ return new Mailer('x', Array('sendWith'=>'sendmail', 'fromAddr'=>'a@example.com')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: Unknown mail type: "sendmail"/');
+checkPregMatch('an account without sender is refused', runCatchThrown(function(){ return new Mailer('x', Array('sendWith'=>'selfSmtp', 'fromAddr'=>'')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: The mail account "x" has no sender address/');
+checkPregMatch('a sender that is not an address is refused', runCatchThrown(function(){ return new Mailer('x', Array('sendWith'=>'selfSmtp', 'fromAddr'=>'nobody')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: Invalid mail address: "nobody"/');
 if( class_exists('\PHPMailer\PHPMailer\PHPMailer') ){
-	checkTrueValue('phmail: the account is built when PHPMailer is installed', runCatchThrown(function(){ return new Mailer('x', Array('type'=>'phmail', 'from'=>'a@example.com')); }) instanceof Mailer);
+	checkTrueValue('phpMailr: the account is built when PHPMailer is installed', runCatchThrown(function(){ return new Mailer('x', Array('sendWith'=>'phpMailr', 'fromAddr'=>'a@example.com')); }) instanceof Mailer);
 }else{
-	checkPregMatch('phmail: the account is refused without PHPMailer', runCatchThrown(function(){ return new Mailer('x', Array('type'=>'phmail', 'from'=>'a@example.com')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: PHPMailer is not installed/');
+	checkPregMatch('phpMailr: the account is refused without PHPMailer', runCatchThrown(function(){ return new Mailer('x', Array('sendWith'=>'phpMailr', 'fromAddr'=>'a@example.com')); }), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: PHPMailer is not installed/');
 }
 
 // What a mail is checked for
@@ -85,9 +85,9 @@ checkPregMatch('plain: an ASCII sender name is quoted', $newMail(Array('name'=>'
 $altMail = $newMail(Array('text'=>'Hi', 'html'=>'<p>Hi</p>'))->writeWholeMail();
 checkPregMatch('html: two alternatives', $altMail, '/\r\nContent-Type: multipart\/alternative; boundary="(=_nyu_[0-9a-f]{24})"\r\n\r\n--\1\r\nContent-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi\r\n--\1\r\nContent-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Hi<\/p>\r\n--\1--\r\n$/');
 
-// The 'tofile' account, with a copy
+// The 'emlFiles' account, with a copy
 $foldNme = 'temp'.DS.'mailtest_'.getmypid();
-$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>array_merge($fileSet, Array('fold'=>'/'.str_replace(DS, '/', $foldNme), 'copy'=>'backup@example.com, archive@example.com')))) );
+$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>array_merge($fileSet, Array('mailsDir'=>'/'.str_replace(DS, '/', $foldNme), 'copiesTo'=>'backup@example.com, archive@example.com')))) );
 Mailer::clearMailCache();
 $sentRes = runCatchThrown(function(){ return Mailer::retrieveMailer('devbox')->deliverEmlFlag(Array('ann@example.com'), 'Report', 'See attached', null, Array(__FILE__)); });
 checkIdentical('tofile: the mail is written', $sentRes, true);
@@ -105,7 +105,7 @@ sort($envList);
 checkIdentical('tofile: who each file was for', $envList, Array('ann@example.com', 'backup@example.com, archive@example.com'));
 checkIdentical('tofile: the same mailer is given again', Mailer::retrieveMailer('DEVBOX')===Mailer::retrieveMailer('devbox'), true);
 checkPregMatch('tofile: a copy address that is not one is refused', runCatchThrown(function() use ($fileSet){
-	$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>array_merge($fileSet, Array('copy'=>'backup'))) );
+	$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>array_merge($fileSet, Array('copiesTo'=>'backup'))) );
 	Mailer::clearMailCache();
 	return Mailer::retrieveMailer()->deliverEmlFlag('ann@example.com', 'Hi', 'Hello');
 }), '/MailFailure: Invalid mail address: "backup"/');
@@ -114,6 +114,6 @@ dropTestFolder(TOP_DIR.DS.$foldNme);
 // The example config: the keys of every account, and its types
 $distCnf = json_decode(strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'mailer.json.dist')), true);
 checkIdentical('mailer.json.dist: every account has every key', array_values(array_unique(array_map(function( Array $oneAct ){ return implode(',', array_keys($oneAct)); }, $distCnf))), Array(implode(',', Mailer::KEYS_LIST)));
-checkIdentical('mailer.json.dist: its types', array_column($distCnf, 'type'), array_keys(Mailer::TYPE_LIST));
+checkIdentical('mailer.json.dist: its types', array_column($distCnf, 'sendWith'), array_keys(Mailer::TYPE_LIST));
 
 finishChecking();

@@ -1,7 +1,7 @@
 <?php
 
 // Access\Auth\Native and UserBase : codes mailed as a second factor, set
-// with emailTwoFactor(), mailed at the login through a 'tofile' account,
+// with emailTwoFactor(), mailed at the login through a 'emlFiles' account,
 // accepted once before their end, at most one mail a minute; and the
 // commands that set them (accounts setTwoFa --emailOtp) or refuse them.
 
@@ -25,7 +25,7 @@ $foldNme = 'temp'.DS.'lgmails_'.getmypid();
 $natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>15, 'linkTmpl'=>'https://app.example.ch/access?code=%code%');
 
 /**
- * Sets the config: the sample database, a 'tofile' account, and a login on the native userbase.
+ * Sets the config: the sample database, a 'emlFiles' account, and a login on the native userbase.
  *
  * @param Array $nativeConf The block of the native userbase.
  */
@@ -33,7 +33,7 @@ function setsConfg( Array $nativeConf ): Void {
 	global $sqlFile, $foldNme;
 	$GLOBALS['nyuConfig'] = new Registry( Array(
 		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
-		'mailer'=>Array('DEVBOX'=>Array('type'=>'tofile', 'from'=>'no-reply@example.com', 'name'=>'nyuRuns', 'fold'=>'/'.str_replace(DS, '/', $foldNme))),
+		'mailer'=>Array('DEVBOX'=>Array('sendWith'=>'emlFiles', 'fromAddr'=>'no-reply@example.com', 'fromName'=>'nyuRuns', 'mailsDir'=>'/'.str_replace(DS, '/', $foldNme))),
 		'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb'), 'NATIVEDB'=>$nativeConf)
 	) );
 	Mailer::clearMailCache();

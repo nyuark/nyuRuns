@@ -60,22 +60,22 @@ class PHMail extends Driver {
 	protected function buildMailArray( Message $emailMessage ): Object {
 		$mailCls = self::MAIL_CLSS;
 		$phpMail = new $mailCls(true);
-		$portNum = intval($this->setupArray['port'] ?? '') ?: 587;
+		$portNum = intval($this->setupArray['portNumb'] ?? '') ?: 587;
 		$phpMail->isSMTP();
-		$phpMail->Host = strval($this->setupArray['host'] ?? '');
+		$phpMail->Host = strval($this->setupArray['hostName'] ?? '');
 		$phpMail->Port = $portNum;
-		$phpMail->Timeout = intval($this->setupArray['wait'] ?? '') ?: 10;
+		$phpMail->Timeout = intval($this->setupArray['waitSecs'] ?? '') ?: 10;
 		$phpMail->CharSet = 'UTF-8';
 		if( $portNum==465 ){
 			$phpMail->SMTPSecure = 'ssl';
 		}elseif( !self::localServerFlg($phpMail->Host) ){
 			$phpMail->SMTPSecure = 'tls';
 		}
-		$userNme = strval($this->setupArray['user'] ?? '');
+		$userNme = strval($this->setupArray['userName'] ?? '');
 		if( $userNme!='' ){
 			$phpMail->SMTPAuth = true;
 			$phpMail->Username = $userNme;
-			$phpMail->Password = strval($this->setupArray['pass'] ?? '');
+			$phpMail->Password = strval($this->setupArray['password'] ?? '');
 		}
 		$phpMail->setFrom($emailMessage->retrieveSender(), $emailMessage->getSenderLabel());
 		foreach( $emailMessage->listRecipients() as $toAddr ){

@@ -28,7 +28,7 @@ abstract class Driver {
 	 * @param Array   $recipientLst Checked addresses it is delivered to.
 	 * @return ?String Null when it was sent, or why it was not.
 	 *
-	 * @throws \nyu\Data\Mail\MailFailure When the account cannot send this mail at all (attachments, for a 'native' account).
+	 * @throws \nyu\Data\Mail\MailFailure When the account cannot send this mail at all (attachments, for a 'selfSmtp' account).
 	 */
 	abstract public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String;
 

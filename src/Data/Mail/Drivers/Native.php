@@ -54,10 +54,10 @@ class Native extends Driver {
 	 * @throws MailFailure When any step fails.
 	 */
 	protected function connectAndAuth(): Void {
-		$srvrHst = strval($this->setupArray['host'] ?? '');
-		$portNum = strval($this->setupArray['port'] ?? '');
+		$srvrHst = strval($this->setupArray['hostName'] ?? '');
+		$portNum = strval($this->setupArray['portNumb'] ?? '');
 		$portNum = ($portNum=='') ? 587 : intval($portNum);
-		$waitSec = intval($this->setupArray['wait'] ?? '') ?: 10;
+		$waitSec = intval($this->setupArray['waitSecs'] ?? '') ?: 10;
 		if( $srvrHst=='' || $portNum<=0 ){
 			throw new MailFailure('the account has no server');
 		}
@@ -97,11 +97,11 @@ class Native extends Driver {
 	 * @throws MailFailure When the server offers neither, or refuses the login.
 	 */
 	protected function signInToServer( String $serverAnswer ): Void {
-		$userNme = strval($this->setupArray['user'] ?? '');
+		$userNme = strval($this->setupArray['userName'] ?? '');
 		if( $userNme=='' ){
 			return;
 		}
-		$passTxt = strval($this->setupArray['pass'] ?? '');
+		$passTxt = strval($this->setupArray['password'] ?? '');
 		$authLst = Array();
 		if( preg_match('/^\d{3}[ -]AUTH[ =](.*)$/mi', $serverAnswer, $authMth) ){
 			$authLst = preg_split('/\s+/', strtoupper(trim($authMth[1])));

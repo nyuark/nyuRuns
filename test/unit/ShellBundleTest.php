@@ -30,7 +30,7 @@ $projDir = makeProjectTxt('bundle', Array(
 	'www/index.php'=>"<?php\n", 'www/.htaccess'=>"RewriteEngine On\n", 'pages/index.html'=>'<p>home</p>',
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"), 'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }',
 	'conf/access.json'=>'{ "secret": "real" }', 'conf/access.json.dist'=>'{ "secret": "env:NYU_JWT_SECRET" }', 'conf/database.json'=>'{ "pass": "real" }',
-	'conf/mailer.json'=>'{ "pass": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
+	'conf/mailer.json'=>'{ "password": "real" }', 'conf/users.lst'=>'{ "users": [] }', 'conf/.htpasswd'=>"anna:hash\n",
 	'conf/keys/jwtToken.key'=>'PRIVATE', 'conf/keys/jwtToken.pub'=>'PUBLIC', 'conf/keys/jwtToken.old.pub'=>'FORMER',
 	// The public key of a server issuing tokens, without its private key: a project checking them carries it
 	'conf/keys/issuer.pub'=>'ISSUER',

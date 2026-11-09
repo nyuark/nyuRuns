@@ -394,7 +394,7 @@ class HealthChk{
 		if( $hasMail ){
 			try{
 				$acntSet = Mailer::acntSetupArray($acntNme);
-				$this->addCheckResult( 'access mails '.$blckNamedTxt, 'fine', 'through the account '.$acntNme.' ('.$acntSet['type'].')' );
+				$this->addCheckResult( 'access mails '.$blckNamedTxt, 'fine', 'through the account '.$acntNme.' ('.$acntSet['sendWith'].')' );
 			}catch( \Throwable $e ){
 				$this->addCheckResult('access mails '.$blckNamedTxt, 'fail', 'mailAcnt names no account of conf/mailer.json: '.$e->getMessage());
 			}

@@ -156,7 +156,7 @@ callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.linkT
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.codeMins', '0', '--overrule'));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
 checkIdentical('an account that is not one, a link that is not one, a code lasting no minute', Array($statLst['access mails nativeDb'] ?? null, $statLst['access link nativeDb'] ?? null, $statLst['access codes nativeDb'] ?? null), Array('fail', 'fail', 'fail'));
-writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "type": "tofile", "from": "dev@example.com", "fold": "temp/mails" } }');
+writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "sendWith": "emlFiles", "fromAddr": "dev@example.com", "mailsDir": "temp/mails" } }');
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.mailAcnt', 'devbox'));
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.linkTmpl', 'https://app.example.ch/access?do=%kind%&code=%code%'));
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'nativeDb.codeMins', '15'));

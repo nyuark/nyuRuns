@@ -43,7 +43,7 @@ class ToFile extends Driver {
 	 * @return String Its full path.
 	 */
 	public function emailFoldrText(): String {
-		$fldName = trim( strval($this->setupArray['fold'] ?? ''), '/\\ ' );
+		$fldName = trim( strval($this->setupArray['mailsDir'] ?? ''), '/\\ ' );
 		return TOP_DIR.DIRECTORY_SEPARATOR.( $fldName!='' ? str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $fldName) : 'temp'.DIRECTORY_SEPARATOR.'mails' );
 	}
 }

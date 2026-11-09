@@ -60,7 +60,7 @@ checkIdentical('a locked or unknown user is given neither', Array(callShellArray
 // Codes by mail : a mail account, and an address for the user
 callShellArray($projDir, Array('accounts', 'setEmail', 'erin', 'erin@example.ch'));
 checkIdentical('twofa --emailOtp without a mailer is refused', callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['errs'], "No mail account sends the codes: mailer is not set\n");
-writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "type": "tofile", "from": "no-reply@example.com", "fold": "temp/mails" } }');
+writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "sendWith": "emlFiles", "fromAddr": "no-reply@example.com", "mailsDir": "temp/mails" } }');
 callShellArray($projDir, Array('settings', 'setValue', 'access', 'testBase.mailAcnt', 'devbox', '--overrule'));
 checkIdentical('twofa --emailOtp: the user gives a mailed code at each login', Array(callShellArray($projDir, Array('accounts', 'setTwoFa', 'erin', '--emailOtp'))['text'], (new PDO('sqlite:'.$basePth))->query("SELECT twoFactWay FROM users WHERE userHandle='erin'")->fetchColumn()), Array("2FA set: erin (codes by mail)\n", 'mailed'));
 checkPregMatch('twofa --emailOtp is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Mailed codes set for user "erin" by user "cli:/');

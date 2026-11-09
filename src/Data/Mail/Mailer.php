@@ -7,18 +7,18 @@ use \nyu\Tools\Logger;
 /**
  * Sends mails through the accounts of the 'mailer' config (conf/mailer.json).
  * Each account is a block of settings; the first one is the default. Its
- * type says how it sends: 'native' (the framework's own SMTP client, text
- * and HTML, no attachment), 'phmail' (the PHPMailer library, when it is
- * installed) or 'tofile' (writes each mail as a file and sends nothing).
- * When the account has a 'copy' address, every mail sent is sent again,
+ * sendWith says how it sends: 'selfSmtp' (the framework's own SMTP client, text
+ * and HTML, no attachment), 'phpMailr' (the PHPMailer library, when it is
+ * installed) or 'emlFiles' (writes each mail as a file and sends nothing).
+ * When the account has a 'copiesTo' address, every mail sent is sent again,
  * separately and as it is, to that address.
  */
 class Mailer {
 
 	// Driver class of each account type
-	const TYPE_LIST = Array('native'=>'Native', 'phmail'=>'PHMail', 'tofile'=>'ToFile');
+	const TYPE_LIST = Array('selfSmtp'=>'Native', 'phpMailr'=>'PHMail', 'emlFiles'=>'ToFile');
 	// The settings of an account
-	const KEYS_LIST = Array('type', 'host', 'port', 'user', 'pass', 'from', 'name', 'wait', 'fold', 'copy');
+	const KEYS_LIST = Array('sendWith', 'hostName', 'portNumb', 'userName', 'password', 'fromAddr', 'fromName', 'waitSecs', 'mailsDir', 'copiesTo');
 
 	// The mailer of each account already asked for, by name in lower case
 	protected static $mailerList = Array();
@@ -38,14 +38,15 @@ class Mailer {
 	public function __construct( String $accountLabel, Array $accontConfig ){
 		$this->accountNme = $accountLabel;
 		$this->setupArray = $accontConfig;
-		$typeKey = strtolower($accontConfig['type'] ?? '');
+		// The type whatever its case, as TYPE_LIST writes it
+		$typeKey = strval( array_values(preg_grep('/^'.preg_quote(strval($accontConfig['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
 		if( !isset(self::TYPE_LIST[$typeKey]) ){
-			throw new MailFailure('Unknown mail type: '.json_encode($accontConfig['type'] ?? ''));
+			throw new MailFailure('Unknown mail type: '.json_encode($accontConfig['sendWith'] ?? ''));
 		}
-		if( ($accontConfig['from'] ?? '')=='' ){
+		if( ($accontConfig['fromAddr'] ?? '')=='' ){
 			throw new MailFailure('The mail account '.json_encode($accountLabel).' has no sender address');
 		}
-		Message::checkEmailAddr($accontConfig['from']);
+		Message::checkEmailAddr($accontConfig['fromAddr']);
 		$drvrCls = '\\nyu\\Data\\Mail\\Drivers\\'.self::TYPE_LIST[$typeKey];
 		$this->drvrObject = new $drvrCls($accontConfig);
 	}
@@ -81,7 +82,7 @@ class Mailer {
 	 * names: the first block is then the default account.
 	 *
 	 * @param String $accountLabel Name of the account, whatever its case; '' for the default one.
-	 * @return Array The settings of KEYSLIST, '' for those left out.
+	 * @return Array The settings of KEYS_LIST, under the names it writes whatever their case in the file, '' for those left out.
 	 *
 	 * @throws MailFailure When no account is configured, or none has that name.
 	 */
@@ -92,7 +93,7 @@ class Mailer {
 			throw new MailFailure('No mail account is configured');
 		}
 		$allAcnt = array_change_key_case($allAcnt, CASE_LOWER);
-		if( array_key_exists('type', $allAcnt) ){
+		if( array_key_exists('sendwith', $allAcnt) ){
 			// A single block of settings: it has no name, and is the default
 			if( $accountLabel!='' ){
 				throw new MailFailure('Unknown mail account: '.json_encode($accountLabel));
@@ -105,8 +106,11 @@ class Mailer {
 			}
 			$acntSet = array_change_key_case($allAcnt[$nameKey], CASE_LOWER);
 		}
-		$dfltSet = array_fill_keys(self::KEYS_LIST, '');
-		return array_merge( $dfltSet, array_map('strval', array_filter(array_intersect_key($acntSet, $dfltSet), 'is_scalar')) );
+		$dfltSet = Array();
+		foreach( self::KEYS_LIST as $keyNme ){
+			$dfltSet[$keyNme] = is_scalar($acntSet[strtolower($keyNme)] ?? null) ? strval($acntSet[strtolower($keyNme)]) : '';
+		}
+		return $dfltSet;
 	}
 
 	/**
@@ -118,15 +122,15 @@ class Mailer {
 	 * @param String       $emailSubject Subject of the mail.
 	 * @param String       $mssgBodyText Plain text of the mail.
 	 * @param ?String      $htmlMssgText HTML version of the mail, null for a plain text mail.
-	 * @param Array        $attachedList Paths of the files attached; a 'native' account sends none.
-	 * @return Bool Whether the mail was sent (written, for a 'tofile' account).
+	 * @param Array        $attachedList Paths of the files attached; a 'selfSmtp' account sends none.
+	 * @return Bool Whether the mail was sent (written, for an 'emlFiles' account).
 	 *
 	 * @throws MailFailure When an address is not valid, the subject holds a line break, an attachment cannot be read or the account cannot send attachments.
 	 */
 	public function deliverEmlFlag( Array|String $recipientLst, String $emailSubject, String $mssgBodyText, ?String $htmlMssgText=null, Array $attachedList=Array() ): Bool {
-		$mailObj = new Message( $this->setupArray['from'], $this->setupArray['name'], Message::splitAddresses($recipientLst), $emailSubject, $mssgBodyText, $htmlMssgText, $attachedList );
+		$mailObj = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $mssgBodyText, $htmlMssgText, $attachedList );
 		$copyLst = Array();
-		foreach( Message::splitAddresses($this->setupArray['copy']) as $cpyAdr ){
+		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $cpyAdr ){
 			$copyLst[] = Message::checkEmailAddr($cpyAdr);
 		}
 		$channel = Logger::retrieveLogger('runner');

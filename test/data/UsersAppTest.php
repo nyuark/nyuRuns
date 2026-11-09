@@ -32,7 +32,7 @@ $usrStmt = null;
 
 // The counters of the address limit lie under the project root : in a folder of this script's own
 $lmtFldr = 'temp/tstlim_'.getmypid();
-// The mails of a 'tofile' account : in a folder of its own too
+// The mails of a 'emlFiles' account : in a folder of its own too
 $mailDir = 'temp/tstmail_'.getmypid();
 
 /**
@@ -51,7 +51,7 @@ function plugConf( String $authbyName='nativeDb', Int $triesLimit=0, Array $nati
 			'NATIVEDB'=>Array('useTable'=>'users') + $nativeMore,
 			'TRYLIMIT'=>Array('maxTries'=>$triesLimit, 'holdSecs'=>600, 'dataPath'=>$GLOBALS['lmtFldr']) + $limitsMore
 		),
-		'mailer'=>Array('DEVBOX'=>Array('type'=>'tofile', 'from'=>'no-reply@example.com', 'fold'=>$GLOBALS['mailDir']))
+		'mailer'=>Array('DEVBOX'=>Array('sendWith'=>'emlFiles', 'fromAddr'=>'no-reply@example.com', 'mailsDir'=>$GLOBALS['mailDir']))
 	) );
 	nyu\Data\Mail\Mailer::clearMailCache();
 }
