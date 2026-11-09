@@ -9,7 +9,7 @@
 //   properties   8-character camelCase
 //   loop vars    6-character camelCase (foreach / for iteration variables); those of 3 that
 //                test/audit/looplabels.txt lists are accepted by ConventionTest
-//   locals       7-character camelCase (6 and 3 are tolerated)
+//   locals       7-character camelCase
 //   docblocks    required on public methods
 //   types        every parameter typed, every method with a return type
 //
@@ -19,27 +19,27 @@
 /**
  * Tells whether a name is camelCase.
  *
- * @param String $testedName Name to test, without its '$'.
+ * @param String $nameToVerify Name to test, without its '$'.
  * @return Bool True for a camelCase name.
  */
-function isCamelCs( String $testedName ): Bool {
-	return preg_match('/^[a-z][a-zA-Z0-9]*$/', $testedName)===1;
+function checkCamelCase( String $nameToVerify ): Bool {
+	return preg_match('/^[a-z][a-zA-Z0-9]*$/', $nameToVerify)===1;
 }
 
 /**
  * Lists the PHP files under the given folders.
  *
- * @param String $projctRoot Project root.
- * @param Array  $folderList Folders to scan, relative to the root.
+ * @param String $rootPathName Project root.
+ * @param Array  $scanFoldList Folders to scan, relative to the root.
  * @return Array Full paths of the PHP files found, sorted.
  */
-function listFiles( String $projctRoot, Array $folderList ): Array {
+function getUploadFiles( String $rootPathName, Array $scanFoldList ): Array {
 	$fileLst = Array();
-	foreach( $folderList as $fldNme ){
-		$walker = new RecursiveIteratorIterator( new RecursiveDirectoryIterator($projctRoot.DIRECTORY_SEPARATOR.$fldNme, FilesystemIterator::SKIP_DOTS) );
-		foreach( $walker as $fleObj ){
-			if( strtolower($fleObj->getExtension())==='php' ){
-				$fileLst[] = $fleObj->getPathname();
+	foreach( $scanFoldList as $fldNme ){
+		$dirIter = new RecursiveIteratorIterator( new RecursiveDirectoryIterator($rootPathName.DIRECTORY_SEPARATOR.$fldNme, FilesystemIterator::SKIP_DOTS) );
+		foreach( $dirIter as $filObj ){
+			if( strtolower($filObj->getExtension())==='php' ){
+				$fileLst[] = $filObj->getPathname();
 			}
 		}
 	}
@@ -50,47 +50,47 @@ function listFiles( String $projctRoot, Array $folderList ): Array {
 /**
  * Audits the PHP files under the given folders.
  *
- * @param String $projctRoot Project root.
- * @param Array  $folderList Folders to scan, relative to the root.
+ * @param String $rootPathName Project root.
+ * @param Array  $scanFoldList Folders to scan, relative to the root.
  * @return Array Findings per kind ('class', 'method', 'param', 'prop', 'loop', 'local', 'nodoc', 'notype', 'parse'),
  *               each a list of ['file', 'line', 'scope', 'name'], plus the number of names seen under 'count'.
  */
-function auditCode( String $projctRoot, Array $folderList ): Array {
-	$superGl = Array('$this', '$_SERVER', '$_GET', '$_POST', '$_FILES', '$_COOKIE', '$_SESSION', '$_REQUEST', '$_ENV', '$GLOBALS', '$argv', '$argc', '$http_response_header');
+function auditCodeFiles( String $rootPathName, Array $scanFoldList ): Array {
+	$sprGlbl = Array('$this', '$_SERVER', '$_GET', '$_POST', '$_FILES', '$_COOKIE', '$_SESSION', '$_REQUEST', '$_ENV', '$GLOBALS', '$argv', '$argc', '$http_response_header');
 	$modifrs = Array(T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC, T_ABSTRACT, T_FINAL);
 	$finding = Array('class'=>Array(), 'method'=>Array(), 'param'=>Array(), 'prop'=>Array(), 'loop'=>Array(), 'local'=>Array(), 'nodoc'=>Array(), 'notype'=>Array(), 'parse'=>Array());
 	$counter = Array('class'=>0, 'method'=>0, 'param'=>0, 'prop'=>0, 'loop'=>0, 'local'=>0);
 
-	foreach( listFiles($projctRoot, $folderList) as $fleNme ){
-		$relPath = str_replace('\\', '/', substr($fleNme, strlen($projctRoot)+1));
+	foreach( getUploadFiles($rootPathName, $scanFoldList) as $filNme ){
+		$relPath = str_replace('\\', '/', substr($filNme, strlen($rootPathName)+1));
 		try{
-			$allToks = PhpToken::tokenize( file_get_contents($fleNme), TOKEN_PARSE );
+			$allTkns = PhpToken::tokenize( file_get_contents($filNme), TOKEN_PARSE );
 		}catch( Throwable $e ){
 			$finding['parse'][] = Array('file'=>$relPath, 'line'=>$e->getLine(), 'scope'=>'', 'name'=>$e->getMessage());
 			continue;
 		}
-		$tokList = array_values( array_filter($allToks, function($tokenObjct){ return !$tokenObjct->is(Array(T_WHITESPACE, T_COMMENT)); }) );
-		$tokSize = count($tokList);
+		$tknList = array_values( array_filter($allTkns, function($phpTokenItem){ return !$phpTokenItem->is(Array(T_WHITESPACE, T_COMMENT)); }) );
+		$tknSize = count($tknList);
 
 		$depthNb = 0;			// current brace depth
 		$clsDpth = Array();		// brace depths at which a class body opened
-		$fncDpth = Array();		// brace depths at which a function body opened
+		$fnDepth = Array();		// brace depths at which a function body opened
 		$clsWait = false;		// a class header was read, its body has not opened yet
-		$curFunc = null;		// name of the outermost function being read
-		$knownPr = Array();		// parameters of the functions being read
+		$outerFn = null;		// name of the outermost function being read
+		$argsSet = Array();		// parameters of the functions being read
 		$seenLcl = Array();		// locals already reported in the current function
-		$seenLop = Array();		// loop variables already reported in the current function
+		$senLoop = Array();		// loop variables already reported in the current function
 
-		for( $idx=0; $idx<$tokSize; $idx++ ){
-			$tok = $tokList[$idx];
+		for( $idxInc=0; $idxInc<$tknSize; $idxInc++ ){
+			$thisTkn = $tknList[$idxInc];
 
 			// Class, interface, trait or enum header
-			if( $tok->is(Array(T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM)) && !($idx>0 && $tokList[$idx-1]->id===T_DOUBLE_COLON) ){
-				if( isset($tokList[$idx+1]) && $tokList[$idx+1]->id===T_STRING ){
-					$clsName = $tokList[$idx+1]->text;
+			if( $thisTkn->is(Array(T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM)) && !($idxInc>0 && $tknList[$idxInc-1]->id===T_DOUBLE_COLON) ){
+				if( isset($tknList[$idxInc+1]) && $tknList[$idxInc+1]->id===T_STRING ){
+					$clsName = $tknList[$idxInc+1]->text;
 					$counter['class']++;
 					if( !preg_match('/^[A-Z][a-zA-Z0-9]*$/', $clsName) ){
-						$finding['class'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>'', 'name'=>$clsName);
+						$finding['class'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>'', 'name'=>$clsName);
 					}
 				}
 				$clsWait = true;
@@ -98,109 +98,109 @@ function auditCode( String $projctRoot, Array $folderList ): Array {
 			}
 
 			// Function, method, closure or arrow function
-			if( $tok->id===T_FUNCTION || $tok->id===T_FN ){
-				$jdx = $idx+1;
-				if( $tokList[$jdx]->text==='&' ){
-					$jdx++;
+			if( $thisTkn->id===T_FUNCTION || $thisTkn->id===T_FN ){
+				$nextIdx = $idxInc+1;
+				if( $tknList[$nextIdx]->text==='&' ){
+					$nextIdx++;
 				}
-				$fncName = null;
-				if( $tokList[$jdx]->text!=='(' ){
-					$fncName = $tokList[$jdx]->text;
-					$jdx++;
+				$funcNme = null;
+				if( $tknList[$nextIdx]->text!=='(' ){
+					$funcNme = $tknList[$nextIdx]->text;
+					$nextIdx++;
 				}
-				$modList = Array();
-				$kdx = $idx-1;
-				while( $kdx>=0 && $tokList[$kdx]->is($modifrs) ){
-					$modList[] = strtolower($tokList[$kdx]->text);
-					$kdx--;
+				$mdlList = Array();
+				$prevIdx = $idxInc-1;
+				while( $prevIdx>=0 && $tknList[$prevIdx]->is($modifrs) ){
+					$mdlList[] = strtolower($tknList[$prevIdx]->text);
+					$prevIdx--;
 				}
-				$hasDocs = $kdx>=0 && $tokList[$kdx]->id===T_DOC_COMMENT;
-				$inClass = !empty($clsDpth) && empty($fncDpth);
-				$isPublc = $inClass && empty(array_intersect($modList, Array('private', 'protected')));
-				$isMagic = $fncName!==null && str_starts_with($fncName, '__');
-				$fncLabl = $fncName ?? '{closure}';
+				$docFlag = $prevIdx>=0 && $tknList[$prevIdx]->id===T_DOC_COMMENT;
+				$inClass = !empty($clsDpth) && empty($fnDepth);
+				$isPublc = $inClass && empty(array_intersect($mdlList, Array('private', 'protected')));
+				$isMagic = $funcNme!==null && str_starts_with($funcNme, '__');
+				$fnLabel = $funcNme ?? '{closure}';
 
-				if( $fncName!==null && !$isMagic ){
+				if( $funcNme!==null && !$isMagic ){
 					$counter['method']++;
-					if( strlen($fncName)!==9 || !isCamelCs($fncName) ){
-						$finding['method'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>'', 'name'=>$fncName);
+					if( strlen($funcNme)!==14 || !checkCamelCase($funcNme) ){
+						$finding['method'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>'', 'name'=>$funcNme);
 					}
 				}
-				if( $fncName!==null && $isPublc && !$hasDocs ){
-					$finding['nodoc'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>'', 'name'=>$fncName);
+				if( $funcNme!==null && $isPublc && !$docFlag ){
+					$finding['nodoc'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>'', 'name'=>$funcNme);
 				}
 
 				// Parameter list
-				$parDpth = 0;
-				$parList = Array();
-				for( ; $jdx<$tokSize; $jdx++ ){
-					$parTok = $tokList[$jdx];
-					if( $parTok->text==='(' ){
-						$parDpth++;
-					}elseif( $parTok->text===')' ){
-						$parDpth--;
-						if( $parDpth===0 ){
+				$nesting = 0;
+				$argList = Array();
+				for( ; $nextIdx<$tknSize; $nextIdx++ ){
+					$argTokn = $tknList[$nextIdx];
+					if( $argTokn->text==='(' ){
+						$nesting++;
+					}elseif( $argTokn->text===')' ){
+						$nesting--;
+						if( $nesting===0 ){
 							break;
 						}
-					}elseif( $parTok->id===T_VARIABLE && $parDpth===1 ){
-						$parName = substr($parTok->text, 1);
-						$parList[] = $parTok->text;
+					}elseif( $argTokn->id===T_VARIABLE && $nesting===1 ){
+						$argName = substr($argTokn->text, 1);
+						$argList[] = $argTokn->text;
 						$counter['param']++;
-						$qdx = $jdx-1;
-						while( in_array($tokList[$qdx]->text, Array('&', '...'), true) ){
-							$qdx--;
+						$typeIdx = $nextIdx-1;
+						while( in_array($tknList[$typeIdx]->text, Array('&', '...'), true) ){
+							$typeIdx--;
 						}
-						$isTyped = !in_array($tokList[$qdx]->text, Array('(', ','), true) && !$tokList[$qdx]->is(Array(T_PUBLIC, T_PROTECTED, T_PRIVATE, T_READONLY));
-						if( strlen($parName)!==10 || !isCamelCs($parName) ){
-							$finding['param'][] = Array('file'=>$relPath, 'line'=>$parTok->line, 'scope'=>$fncLabl, 'name'=>$parName);
+						$isTyped = !in_array($tknList[$typeIdx]->text, Array('(', ','), true) && !$tknList[$typeIdx]->is(Array(T_PUBLIC, T_PROTECTED, T_PRIVATE, T_READONLY));
+						if( strlen($argName)!==12 || !checkCamelCase($argName) ){
+							$finding['param'][] = Array('file'=>$relPath, 'line'=>$argTokn->line, 'scope'=>$fnLabel, 'name'=>$argName);
 						}
-						if( !$isTyped && $fncName!==null ){
-							$finding['notype'][] = Array('file'=>$relPath, 'line'=>$parTok->line, 'scope'=>$fncLabl, 'name'=>'$'.$parName);
+						if( !$isTyped && $funcNme!==null ){
+							$finding['notype'][] = Array('file'=>$relPath, 'line'=>$argTokn->line, 'scope'=>$fnLabel, 'name'=>'$'.$argName);
 						}
 					}
 				}
 
 				// Closure "use" list, then the return type
-				$jdx++;
-				if( isset($tokList[$jdx]) && $tokList[$jdx]->id===T_USE ){
-					while( $tokList[$jdx]->text!==')' ){
-						if( $tokList[$jdx]->id===T_VARIABLE ){
-							$parList[] = $tokList[$jdx]->text;
+				$nextIdx++;
+				if( isset($tknList[$nextIdx]) && $tknList[$nextIdx]->id===T_USE ){
+					while( $tknList[$nextIdx]->text!==')' ){
+						if( $tknList[$nextIdx]->id===T_VARIABLE ){
+							$argList[] = $tknList[$nextIdx]->text;
 						}
-						$jdx++;
+						$nextIdx++;
 					}
-					$jdx++;
+					$nextIdx++;
 				}
-				$hasRetn = isset($tokList[$jdx]) && $tokList[$jdx]->text===':';
-				if( !$hasRetn && $fncName!==null && !$isMagic ){
-					$finding['notype'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>$fncLabl, 'name'=>'(return type)');
+				$hasRtrn = isset($tknList[$nextIdx]) && $tknList[$nextIdx]->text===':';
+				if( !$hasRtrn && $funcNme!==null && !$isMagic ){
+					$finding['notype'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$fnLabel, 'name'=>'(return type)');
 				}
 
-				if( $tok->id===T_FUNCTION ){
-					while( $jdx<$tokSize && !in_array($tokList[$jdx]->text, Array('{', ';'), true) ){
-						$jdx++;
+				if( $thisTkn->id===T_FUNCTION ){
+					while( $nextIdx<$tknSize && !in_array($tknList[$nextIdx]->text, Array('{', ';'), true) ){
+						$nextIdx++;
 					}
-					if( $jdx<$tokSize && $tokList[$jdx]->text==='{' ){
+					if( $nextIdx<$tknSize && $tknList[$nextIdx]->text==='{' ){
 						$depthNb++;
-						$fncDpth[] = $depthNb;
-						if( count($fncDpth)===1 ){
-							$curFunc = $fncLabl;
-							$knownPr = $parList;
+						$fnDepth[] = $depthNb;
+						if( count($fnDepth)===1 ){
+							$outerFn = $fnLabel;
+							$argsSet = $argList;
 							$seenLcl = Array();
-							$seenLop = Array();
+							$senLoop = Array();
 						}else{
-							$knownPr = array_merge($knownPr, $parList);
+							$argsSet = array_merge($argsSet, $argList);
 						}
 					}
 				}else{
-					$knownPr = array_merge($knownPr, $parList);
+					$argsSet = array_merge($argsSet, $argList);
 				}
-				$idx = $jdx;
+				$idxInc = $nextIdx;
 				continue;
 			}
 
 			// Braces
-			if( $tok->text==='{' || $tok->is(Array(T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES)) ){
+			if( $thisTkn->text==='{' || $thisTkn->is(Array(T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES)) ){
 				$depthNb++;
 				if( $clsWait ){
 					$clsDpth[] = $depthNb;
@@ -208,9 +208,9 @@ function auditCode( String $projctRoot, Array $folderList ): Array {
 				}
 				continue;
 			}
-			if( $tok->text==='}' ){
-				if( !empty($fncDpth) && end($fncDpth)===$depthNb ){
-					array_pop($fncDpth);
+			if( $thisTkn->text==='}' ){
+				if( !empty($fnDepth) && end($fnDepth)===$depthNb ){
+					array_pop($fnDepth);
 				}
 				if( !empty($clsDpth) && end($clsDpth)===$depthNb ){
 					array_pop($clsDpth);
@@ -220,64 +220,64 @@ function auditCode( String $projctRoot, Array $folderList ): Array {
 			}
 
 			// Variables
-			if( $tok->id!==T_VARIABLE ){
+			if( $thisTkn->id!==T_VARIABLE ){
 				continue;
 			}
-			if( $idx>0 && $tokList[$idx-1]->id===T_DOUBLE_COLON ){
+			if( $idxInc>0 && $tknList[$idxInc-1]->id===T_DOUBLE_COLON ){
 				continue;	// static property access
 			}
-			if( in_array($tok->text, $superGl, true) ){
+			if( in_array($thisTkn->text, $sprGlbl, true) ){
 				continue;
 			}
-			$varName = substr($tok->text, 1);
+			$vrblNme = substr($thisTkn->text, 1);
 
 			// Property declaration : directly inside a class body
-			if( !empty($clsDpth) && empty($fncDpth) ){
+			if( !empty($clsDpth) && empty($fnDepth) ){
 				if( end($clsDpth)===$depthNb ){
 					$counter['prop']++;
-					if( strlen($varName)!==8 || !isCamelCs($varName) ){
-						$finding['prop'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>'', 'name'=>$varName);
+					if( strlen($vrblNme)!==10 || !checkCamelCase($vrblNme) ){
+						$finding['prop'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>'', 'name'=>$vrblNme);
 					}
 				}
 				continue;
 			}
-			if( in_array($tok->text, $knownPr, true) ){
+			if( in_array($thisTkn->text, $argsSet, true) ){
 				continue;
 			}
-			$scopeNm = !empty($fncDpth) ? $curFunc : '{file scope}';
-			$scopeKy = $scopeNm.'|'.$tok->text;
+			$scpName = !empty($fnDepth) ? $outerFn : '{file scope}';
+			$scopeId = $scpName.'|'.$thisTkn->text;
 
 			// Iteration variable : foreach (... as [$k =>] $v) or for ($i = ...
-			$prvTok1 = $tokList[$idx-1];
-			$prvTok2 = $tokList[$idx-2] ?? null;
-			$prvTok3 = $tokList[$idx-3] ?? null;
-			$prvTok4 = $tokList[$idx-4] ?? null;
+			$prvTkn1 = $tknList[$idxInc-1];
+			$prvTkn2 = $tknList[$idxInc-2] ?? null;
+			$prvTkn3 = $tknList[$idxInc-3] ?? null;
+			$prvTkn4 = $tknList[$idxInc-4] ?? null;
 			$isLoopV = false;
-			if( $prvTok1->id===T_AS || ($prvTok1->text==='&' && $prvTok2 && $prvTok2->id===T_AS) ){
+			if( $prvTkn1->id===T_AS || ($prvTkn1->text==='&' && $prvTkn2 && $prvTkn2->id===T_AS) ){
 				$isLoopV = true;
 			}
-			if( $prvTok1->id===T_DOUBLE_ARROW && $prvTok2 && $prvTok2->id===T_VARIABLE && $prvTok3 && $prvTok3->id===T_AS ){
+			if( $prvTkn1->id===T_DOUBLE_ARROW && $prvTkn2 && $prvTkn2->id===T_VARIABLE && $prvTkn3 && $prvTkn3->id===T_AS ){
 				$isLoopV = true;
 			}
-			if( $prvTok1->text==='&' && $prvTok2 && $prvTok2->id===T_DOUBLE_ARROW && $prvTok4 && $prvTok4->id===T_AS ){
+			if( $prvTkn1->text==='&' && $prvTkn2 && $prvTkn2->id===T_DOUBLE_ARROW && $prvTkn4 && $prvTkn4->id===T_AS ){
 				$isLoopV = true;
 			}
-			if( $prvTok1->text==='(' && $prvTok2 && $prvTok2->id===T_FOR ){
+			if( $prvTkn1->text==='(' && $prvTkn2 && $prvTkn2->id===T_FOR ){
 				$isLoopV = true;
 			}
 
-			if( $isLoopV && !isset($seenLop[$scopeKy]) ){
-				$seenLop[$scopeKy] = true;
+			if( $isLoopV && !isset($senLoop[$scopeId]) ){
+				$senLoop[$scopeId] = true;
 				$counter['loop']++;
-				if( strlen($varName)!==6 || !isCamelCs($varName) ){
-					$finding['loop'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>$scopeNm, 'name'=>$varName);
+				if( strlen($vrblNme)!==6 || !checkCamelCase($vrblNme) ){
+					$finding['loop'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$scpName, 'name'=>$vrblNme);
 				}
 			}
-			if( !$isLoopV && !isset($seenLcl[$scopeKy]) && !isset($seenLop[$scopeKy]) ){
-				$seenLcl[$scopeKy] = true;
+			if( !$isLoopV && !isset($seenLcl[$scopeId]) && !isset($senLoop[$scopeId]) ){
+				$seenLcl[$scopeId] = true;
 				$counter['local']++;
-				if( !in_array(strlen($varName), Array(7, 6, 3), true) || !isCamelCs($varName) ){
-					$finding['local'][] = Array('file'=>$relPath, 'line'=>$tok->line, 'scope'=>$scopeNm, 'name'=>$varName);
+				if( strlen($vrblNme)!==7 || !checkCamelCase($vrblNme) ){
+					$finding['local'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$scpName, 'name'=>$vrblNme);
 				}
 			}
 		}

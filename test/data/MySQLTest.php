@@ -10,18 +10,18 @@ require __DIR__.'/../lib/servers.php';
 require __DIR__.'/../lib/dialect.php';
 
 if( !extension_loaded('pdo_mysql') ){
-	skipCheck('MySQL', 'pdo_mysql is not available');
-	endChecks();
+	recordSkipping('MySQL', 'pdo_mysql is not available');
+	finishChecking();
 }
 
-$srvConf = serverCnf('mysql');
-$skipWhy = ($srvConf['skip']!='') ? $srvConf['skip'] : buildSrvr('mysql', $srvConf);
+$srvConf = serverSettings('mysql');
+$skipWhy = ($srvConf['skip']!='') ? $srvConf['skip'] : generateServer('mysql', $srvConf);
 if( $skipWhy!='' ){
-	skipCheck('MySQL', $skipWhy);
-	endChecks();
+	recordSkipping('MySQL', $skipWhy);
+	finishChecking();
 }
 
-useServer('mysql', $srvConf);
-runDialct('nyu\Data\DBHndlr\MySQL');
+switchToServer('mysql', $srvConf);
+executeDialect('nyu\Data\DBHndlr\MySQL');
 
-endChecks();
+finishChecking();

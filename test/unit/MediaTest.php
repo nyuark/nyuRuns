@@ -13,8 +13,8 @@ use nyu\Data\Parsers\Odtx;
 use nyu\Data\Parsers\Xlsx;
 
 if( !class_exists('ZipArchive') ){
-	skipCheck('pictures of documents', 'the zip extension is not loaded');
-	endChecks();
+	recordSkipping('pictures of documents', 'the zip extension is not loaded');
+	finishChecking();
 }
 
 // A picture of one pixel, as PNG, and what gd writes of it when this server has gd
@@ -29,7 +29,7 @@ $withGd = function_exists('imagecreatetruecolor');
  * @return String The path of the archive.
  */
 function makeZip( String $archivName, Array $entryTexts ): String {
-	$zipPath = inTempDir($archivName);
+	$zipPath = inTemporaryDir($archivName);
 	$zipArch = new ZipArchive();
 	$zipArch->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 	foreach( $entryTexts as $entNme=>$entTxt ){
@@ -46,8 +46,8 @@ function makeZip( String $archivName, Array $entryTexts ): String {
  * @return String Its path.
  */
 function makeDir( String $folderName ): String {
-	$dirPath = inTempDir($folderName);
-	dropFoldr($dirPath);
+	$dirPath = inTemporaryDir($folderName);
+	dropTestFolder($dirPath);
 	mkdir($dirPath, 0775, true);
 	return $dirPath;
 }
@@ -85,15 +85,15 @@ $docxPth = makeZip('pics.docx', Array(
 ));
 
 // Without the option, nothing is saved
-checkSame('without the option, the images give their place in the archive, and the details list nothing', runSafely(function() use ($docxPth){
-	$envlope = (new Docx())->parseFlux(Fluxd::openLocal($docxPth), Array('empty'=>false));
+checkIdentical('without the option, the images give their place in the archive, and the details list nothing', runCatchThrown(function() use ($docxPth){
+	$envlope = (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('empty'=>false));
 	return Array(srcList($envlope['items']), isset($envlope['infos']['media']));
 }), Array(Array('word/media/image1.png', 'word/media/image2.png', 'word/media/image1.png', 'https://nyuark.test/far.png', 'word/media/drawing.emf', 'word/media/nowhere.png', 'word/media/image2.png'), false));
 
 // With it
 $mdiaDir = makeDir('media');
-$docxEnv = runSafely(function() use ($docxPth, $mdiaDir){ return (new Docx())->parseFlux(Fluxd::openLocal($docxPth), Array('empty'=>false, 'media'=>$mdiaDir)); });
-checkSame('media: each picture is saved once, under a name made from its content and of the kind it really is; the blocks showing it give that name; what is kept elsewhere, is not a picture, or is missing, is left as it is', runSafely(function() use ($docxEnv, $mdiaDir){
+$docxEnv = runCatchThrown(function() use ($docxPth, $mdiaDir){ return (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('empty'=>false, 'media'=>$mdiaDir)); });
+checkIdentical('media: each picture is saved once, under a name made from its content and of the kind it really is; the blocks showing it give that name; what is kept elsewhere, is not a picture, or is missing, is left as it is', runCatchThrown(function() use ($docxEnv, $mdiaDir){
 	$srceLst = srcList($docxEnv['items']);
 	$fileLst = array_values(array_diff(scandir($mdiaDir), Array('.', '..')));
 	sort($fileLst);
@@ -101,28 +101,28 @@ checkSame('media: each picture is saved once, under a name made from its content
 	sort($usedLst);
 	return Array(count($srceLst), $srceLst[0]===$srceLst[2], $srceLst[1]===$srceLst[6], preg_match('/^[0-9a-f]{20}\.png$/D', $srceLst[0]), preg_match('/^[0-9a-f]{20}\.gif$/D', $srceLst[1]), $srceLst[3], $srceLst[4], $srceLst[5], $fileLst===$usedLst);
 }), Array(7, true, true, 1, 1, 'https://nyuark.test/far.png', 'word/media/drawing.emf', 'word/media/nowhere.png', true));
-checkSame('media: the details list what was saved, the name of each file with its place in the archive; a picture of a header is saved too', runSafely(function() use ($docxEnv){
+checkIdentical('media: the details list what was saved, the name of each file with its place in the archive; a picture of a header is saved too', runCatchThrown(function() use ($docxEnv){
 	$srceLst = srcList($docxEnv['items']);
 	return Array($docxEnv['infos']['media']===Array($srceLst[0]=>'word/media/image1.png', $srceLst[1]=>'word/media/image2.png'), srcList($docxEnv['infos']['phead'])===Array($srceLst[0]));
 }), Array(true, true));
-checkSame('media: what is saved is a picture of the kind its name tells', runSafely(function() use ($docxEnv, $mdiaDir){
+checkIdentical('media: what is saved is a picture of the kind its name tells', runCatchThrown(function() use ($docxEnv, $mdiaDir){
 	$kindLst = Array();
 	foreach( array_keys($docxEnv['infos']['media']) as $fleNme ){
-		$infoArr = Image::openFluxd(Fluxd::openLocal($mdiaDir.DS.$fleNme))->imageInfo();
+		$infoArr = Image::openFluxdArchv(Fluxd::openLocalFluxd($mdiaDir.DS.$fleNme))->imageInfoArray();
 		$kindLst[] = $infoArr['kinds'].' '.$infoArr['width'].'x'.$infoArr['heght'];
 	}
 	sort($kindLst);
 	return $kindLst;
 }), Array('gif 1x1', 'png 1x1'));
-checkSame('media: reading the same document again saves nothing new', runSafely(function() use ($docxPth, $mdiaDir){
+checkIdentical('media: reading the same document again saves nothing new', runCatchThrown(function() use ($docxPth, $mdiaDir){
 	$fileNbr = count(scandir($mdiaDir));
-	(new Docx())->parseFlux(Fluxd::openLocal($docxPth), Array('media'=>$mdiaDir));
+	(new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('media'=>$mdiaDir));
 	return count(scandir($mdiaDir))===$fileNbr;
 }), true);
 
 // A picture taken by a camera
 if( $withGd && function_exists('exif_read_data') ){
-	checkSame('media: a photograph is saved standing the right way up, without what the camera recorded', runSafely(function() use ($wDraw, $relOf){
+	checkIdentical('media: a photograph is saved standing the right way up, without what the camera recorded', runCatchThrown(function() use ($wDraw, $relOf){
 		// A picture twice as wide as high, recorded as held on its side, with the name of a camera in it
 		$gdImage = imagecreatetruecolor(40, 20);
 		ob_start();
@@ -137,25 +137,25 @@ if( $withGd && function_exists('exif_read_data') ){
 			'word/media/photo.jpeg'=>$photoJp
 		));
 		$mdiaDir = makeDir('photos');
-		$envlope = (new Docx())->parseFlux(Fluxd::openLocal($docxPth), Array('media'=>$mdiaDir));
+		$envlope = (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('media'=>$mdiaDir));
 		$fileNme = srcList($envlope['items'])[0];
-		$infoArr = Image::openFluxd(Fluxd::openLocal($mdiaDir.DS.$fileNme))->imageInfo();
+		$infoArr = Image::openFluxdArchv(Fluxd::openLocalFluxd($mdiaDir.DS.$fileNme))->imageInfoArray();
 		return Array(substr($fileNme, -4), $infoArr['width'].'x'.$infoArr['heght'], $infoArr['turns'], $infoArr['exifs'], strpos(file_get_contents($mdiaDir.DS.$fileNme), 'Test Camera'), strpos($photoJp, 'Test Camera')!==false);
 	}), Array('.jpg', '20x40', 1, Array(), false, true));
 }else{
-	skipCheck('a photograph saved upright', 'the gd and exif extensions are not both loaded');
+	recordSkipping('a photograph saved upright', 'the gd and exif extensions are not both loaded');
 }
 
 // The other kinds of document
-checkSame('media: the pictures of an OpenDocument text', runSafely(function() use ($dotPng){
+checkIdentical('media: the pictures of an OpenDocument text', runCatchThrown(function() use ($dotPng){
 	$odfSpce = 'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink"';
 	$odtPath = makeZip('pics.odt', Array('mimetype'=>'application/vnd.oasis.opendocument.text', 'content.xml'=>'<office:document-content '.$odfSpce.'><office:body><office:text><text:p>Before <draw:frame><draw:image xlink:href="Pictures/hall.png"/></draw:frame> after</text:p></office:text></office:body></office:document-content>', 'Pictures/hall.png'=>$dotPng));
 	$mdiaDir = makeDir('odt');
-	$envlope = (new Odtx())->parseFlux(Fluxd::openLocal($odtPath), Array('media'=>$mdiaDir));
+	$envlope = (new Odtx())->parseFluxArray(Fluxd::openLocalFluxd($odtPath), Array('media'=>$mdiaDir));
 	$srceLst = srcList($envlope['items']);
 	return Array(preg_match('/^[0-9a-f]{20}\.png$/D', $srceLst[0]), is_file($mdiaDir.DS.$srceLst[0]), $envlope['infos']['media']===Array($srceLst[0]=>'Pictures/hall.png'));
 }), Array(1, true, true));
-checkSame('media: the pictures of a book, from whichever chapter shows them', runSafely(function() use ($dotPng){
+checkIdentical('media: the pictures of a book, from whichever chapter shows them', runCatchThrown(function() use ($dotPng){
 	$bookPth = makeZip('pics.epub', Array(
 		'mimetype'=>'application/epub+zip',
 		'META-INF/container.xml'=>'<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>',
@@ -165,29 +165,29 @@ checkSame('media: the pictures of a book, from whichever chapter shows them', ru
 		'OEBPS/images/hall.png'=>$dotPng
 	));
 	$mdiaDir = makeDir('book');
-	$envlope = (new EPub())->parseFlux(Fluxd::openLocal($bookPth), Array('media'=>$mdiaDir));
+	$envlope = (new EPub())->parseFluxArray(Fluxd::openLocalFluxd($bookPth), Array('media'=>$mdiaDir));
 	$srceLst = srcList($envlope['items']);
 	return Array(count($srceLst), $srceLst[0]===$srceLst[1], $srceLst[2], count(scandir($mdiaDir))-2, array_values($envlope['infos']['media']));
 }), Array(3, true, 'https://nyuark.test/far.png', 1, Array('OEBPS/images/hall.png')));
-checkSame('media: a workbook has no image blocks, and is read as it is', runSafely(function(){
-	$envlope = (new Xlsx())->parseFlux(Fluxd::openLocal(TST_DIR.DS.'fixtures'.DS.'office'.DS.'SampleSS.xlsx'), Array('media'=>makeDir('book2')));
+checkIdentical('media: a workbook has no image blocks, and is read as it is', runCatchThrown(function(){
+	$envlope = (new Xlsx())->parseFluxArray(Fluxd::openLocalFluxd(TST_DIR.DS.'fixtures'.DS.'office'.DS.'SampleSS.xlsx'), Array('media'=>makeDir('book2')));
 	return Array($envlope['shape'], isset($envlope['infos']['media']));
 }), Array('sheet', false));
 
 // What is refused, and what is guarded
-checkLike('media: a folder that does not exist is refused', runSafely(function() use ($docxPth){ return (new Docx())->parseFlux(Fluxd::openLocal($docxPth), Array('media'=>inTempDir('nowhere'.DS.'deep'))); }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid option: the folder for the pictures cannot be written to/');
-checkLike('media: a file is not a folder', runSafely(function() use ($docxPth){ return (new Docx())->parseFlux(Fluxd::openLocal($docxPth), Array('media'=>$docxPth)); }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid option: the folder for the pictures cannot be written to/');
-checkSame('media: a picture is never saved under the name its document gives it, whatever that name', runSafely(function() use ($dotPng, $wDraw, $relOf){
+checkPregMatch('media: a folder that does not exist is refused', runCatchThrown(function() use ($docxPth){ return (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('media'=>inTemporaryDir('nowhere'.DS.'deep'))); }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid option: the folder for the pictures cannot be written to/');
+checkPregMatch('media: a file is not a folder', runCatchThrown(function() use ($docxPth){ return (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('media'=>$docxPth)); }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid option: the folder for the pictures cannot be written to/');
+checkIdentical('media: a picture is never saved under the name its document gives it, whatever that name', runCatchThrown(function() use ($dotPng, $wDraw, $relOf){
 	$evilPth = makeZip('evil.docx', Array(
 		'word/document.xml'=>'<w:document '.WORDMAIN.'><w:body>'.$wDraw('rIdA').$wDraw('rIdB').'</w:body></w:document>',
 		'word/_rels/document.xml.rels'=>'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.$relOf('rIdA', 'media/shell.php').$relOf('rIdB', 'media/page.html').'</Relationships>',
 		'word/media/shell.php'=>$dotPng, 'word/media/page.html'=>'<script>alert(1)</script>'
 	));
 	$mdiaDir = makeDir('evil');
-	$envlope = (new Docx())->parseFlux(Fluxd::openLocal($evilPth), Array('media'=>$mdiaDir));
+	$envlope = (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($evilPth), Array('media'=>$mdiaDir));
 	$fileLst = array_values(array_diff(scandir($mdiaDir), Array('.', '..')));
 	return Array(count($fileLst), preg_match('/^[0-9a-f]{20}\.png$/D', $fileLst[0] ?? ''), srcList($envlope['items'])[1], array_values($envlope['infos']['media']));
 }), Array(1, 1, 'word/media/page.html', Array('word/media/shell.php')));
-checkSame('no PHP warning along the way', takeNotes(), Array());
+checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
 
-endChecks();
+finishChecking();

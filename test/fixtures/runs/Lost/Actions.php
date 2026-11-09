@@ -8,13 +8,13 @@ use \nyu\App\Actionset;
 
 class Actions extends Actionset {
 
-	protected $dfltActn = 'nowhere';
+	protected $dfltAction = 'nowhere';
 
 	/**
 	 * Answers normally.
 	 */
 	public function here(): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array('found'=>true);
+		$this->statusCode = 200;
+		$this->replyValue = Array('found'=>true);
 	}
 }

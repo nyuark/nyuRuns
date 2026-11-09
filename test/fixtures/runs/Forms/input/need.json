@@ -1,10 +1,10 @@
 {
 	"fields": {
-		"name!": "TextStr",
+		"name!": "OutText",
 		"mail!": "EmlAddr",
 		"seats": "Integer",
 		"filters": {
-			"search!": "TextStr"
+			"search!": "OutText"
 		}
 	}
 }

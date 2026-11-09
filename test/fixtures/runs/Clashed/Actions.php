@@ -14,7 +14,7 @@ class Actions extends Actionset {
 	 * Replies with its name.
 	 */
 	public function clashed(): Void {
-		$this->statCode = 200;
-		$this->asOutput = 'clashed/clashed';
+		$this->statusCode = 200;
+		$this->replyValue = 'clashed/clashed';
 	}
 }

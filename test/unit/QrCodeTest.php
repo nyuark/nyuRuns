@@ -203,15 +203,15 @@ function readText( Array $codeWords, Array $blockDefin ): Array {
 // Reed-Solomon : the example of a 1-M code the standard's tutorials use ("HELLO WORLD", alphanumeric)
 $rsProbe = new class('') extends QrCode {
 	public function remOfData( Array $dataBlocks, Int $degreeNmbr ): Array {
-		return $this->rsRemaind($dataBlocks, $this->rsDivisor($degreeNmbr));
+		return $this->rsRemainderArr($dataBlocks, $this->rsDivisorArray($degreeNmbr));
 	}
 };
-checkSame('Reed-Solomon codewords of a known block',
+checkIdentical('Reed-Solomon codewords of a known block',
 	$rsProbe->remOfData(Array(32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236, 17, 236, 17), 10),
 	Array(196, 35, 39, 119, 235, 215, 231, 226, 93, 23));
 
 // Codes of several sizes and levels, read back
-$blkTbl = (new ReflectionClass(QrCode::class))->getConstant('BLCKLIST');
+$blkTbl = (new ReflectionClass(QrCode::class))->getConstant('BLCK_LIST');
 // The bytes each version holds, by level, as the standard lists them
 $capTbl = Array(
 	'L'=>Array(17, 32, 53, 78, 106, 134, 154, 192, 230, 271),
@@ -248,59 +248,59 @@ foreach( $smpLst as $smpDef ){
 	$verSeen[$smpVer] = true;
 	$qrcObj = new QrCode($smpTxt, $smpLvl);
 	$smpLbl = $smpLvl.'/'.strlen($smpTxt).' bytes';
-	checkSame($smpLbl.': smallest version', $qrcObj->versionOf(), $smpVer);
-	$readOf = readCode($qrcObj->makeMatrx());
-	checkSame($smpLbl.': side', $readOf['side'], 17+4*$smpVer);
-	checkSame($smpLbl.': format, from the standard\'s table', $readOf['level'], $smpLvl);
-	checkSame($smpLbl.': copy of the format', $readOf['copy'], $readOf['format']);
-	checkSame($smpLbl.': dark module', $readOf['dark'], '1');
+	checkIdentical($smpLbl.': smallest version', $qrcObj->versionOfCount(), $smpVer);
+	$readOf = readCode($qrcObj->generateMatrix());
+	checkIdentical($smpLbl.': side', $readOf['side'], 17+4*$smpVer);
+	checkIdentical($smpLbl.': format, from the standard\'s table', $readOf['level'], $smpLvl);
+	checkIdentical($smpLbl.': copy of the format', $readOf['copy'], $readOf['format']);
+	checkIdentical($smpLbl.': dark module', $readOf['dark'], '1');
 	if( $smpVer>=7 ){
-		checkSame($smpLbl.': version, from the standard\'s table', $readOf['version'], VERTABLE[$smpVer]);
+		checkIdentical($smpLbl.': version, from the standard\'s table', $readOf['version'], VERTABLE[$smpVer]);
 	}
 	$blkDef = $blkTbl[$smpVer][$smpLvl];
 	$allCnt = $blkDef[1]*$blkDef[2] + $blkDef[3]*$blkDef[4] + ($blkDef[1]+$blkDef[3])*$blkDef[0];
-	checkSame($smpLbl.': codewords read', count($readOf['words'] ?? Array()), $allCnt);
+	checkIdentical($smpLbl.': codewords read', count($readOf['words'] ?? Array()), $allCnt);
 	$blkDef[5] = ($smpVer<10) ? 8 : 16;
 	$txtOut = readText($readOf['words'] ?? Array(), $blkDef);
-	checkSame($smpLbl.': byte mode', $txtOut['mode'], '0100');
-	checkSame($smpLbl.': error correction of every block', $txtOut['syndromes'], true);
-	checkSame($smpLbl.': text read back', $txtOut['text'], $smpTxt);
+	checkIdentical($smpLbl.': byte mode', $txtOut['mode'], '0100');
+	checkIdentical($smpLbl.': error correction of every block', $txtOut['syndromes'], true);
+	checkIdentical($smpLbl.': text read back', $txtOut['text'], $smpTxt);
 }
 
 ksort($verSeen);
-checkSame('every version is made', array_keys($verSeen), range(1, 10));
+checkIdentical('every version is made', array_keys($verSeen), range(1, 10));
 
 // Every mask makes a code that reads back : the mask chosen is one of them
 $mskSeen = Array();
 foreach( Array('a', 'ab', 'abc', 'abcd', 'hello', 'nyuRuns 1.0', 'K7QM-3XRP-WD', '0', '00', 'zzzzzz', 'QR', 'mask?', 'xyz123', 'https://x.ch') as $smpTxt ){
-	$mskSeen[ readCode( (new QrCode($smpTxt, 'M'))->makeMatrx() )['mask'] ] = true;
+	$mskSeen[ readCode( (new QrCode($smpTxt, 'M'))->generateMatrix() )['mask'] ] = true;
 }
-checkTrue('the mask changes with the text', count($mskSeen)>1);
+checkTrueValue('the mask changes with the text', count($mskSeen)>1);
 
 // Capacity : 213 bytes at M in version 10, one more is refused
-checkThrw('a text beyond version 10 is refused', function(){ new QrCode(str_repeat('a', 214), 'M'); }, QrCodeError::class);
-checkThrw('an unknown level is refused', function(){ new QrCode('x', 'm'); }, QrCodeError::class);
-checkSame('the largest text at L', (new QrCode(str_repeat('a', 271), 'L'))->versionOf(), 10);
+checkForThrows('a text beyond version 10 is refused', function(){ new QrCode(str_repeat('a', 214), 'M'); }, QrCodeError::class);
+checkForThrows('an unknown level is refused', function(){ new QrCode('x', 'm'); }, QrCodeError::class);
+checkIdentical('the largest text at L', (new QrCode(str_repeat('a', 271), 'L'))->versionOfCount(), 10);
 
 // Outputs
 $qrcObj = new QrCode('nyuRuns', 'M');
-$svgTxt = $qrcObj->asSvgCode(3, 4);
-checkLike('SVG: a standalone drawing of the right size', $svgTxt, '/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" version="1\.1" width="87" height="87" viewBox="0 0 29 29"/');
+$svgTxt = $qrcObj->drawAsSvgImage(3, 4);
+checkPregMatch('SVG: a standalone drawing of the right size', $svgTxt, '/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" version="1\.1" width="87" height="87" viewBox="0 0 29 29"/');
 $svgXml = @simplexml_load_string($svgTxt);
-checkTrue('SVG: well formed', $svgXml!==false);
+checkTrueValue('SVG: well formed', $svgXml!==false);
 $drkCnt = 0;
-foreach( $qrcObj->makeMatrx() as $rowArr ){
+foreach( $qrcObj->generateMatrix() as $rowArr ){
 	$drkCnt += count(array_filter($rowArr));
 }
 preg_match_all('/h(\d+)v1/', $svgTxt, $runMtc);
-checkSame('SVG: every dark module drawn once', array_sum(array_map('intval', $runMtc[1])), $drkCnt);
-checkThrw('SVG: a module of no size is refused', function() use ( $qrcObj ){ $qrcObj->asSvgCode(0); }, QrCodeError::class);
+checkIdentical('SVG: every dark module drawn once', array_sum(array_map('intval', $runMtc[1])), $drkCnt);
+checkForThrows('SVG: a module of no size is refused', function() use ( $qrcObj ){ $qrcObj->drawAsSvgImage(0); }, QrCodeError::class);
 
-$artTxt = $qrcObj->asTextArt(2);
+$artTxt = $qrcObj->drawAsTerminal(2);
 $artLns = explode("\n", rtrim($artTxt, "\n"));
-checkSame('text: two rows of modules a line', count($artLns), intdiv(21+4+1, 2));
-checkSame('text: every line as wide as the code and its margin', array_unique(array_map('mb_strlen', $artLns)), Array(25));
-checkSame('text: the margin is light (blocks)', $artLns[0], str_repeat('█', 25));
+checkIdentical('text: two rows of modules a line', count($artLns), intdiv(21+4+1, 2));
+checkIdentical('text: every line as wide as the code and its margin', array_unique(array_map('mb_strlen', $artLns)), Array(25));
+checkIdentical('text: the margin is light (blocks)', $artLns[0], str_repeat('█', 25));
 // Back from the text to the grid : a block is light
 $artGrd = Array();
 foreach( $artLns as $lneTxt ){
@@ -314,7 +314,7 @@ foreach( $artLns as $lneTxt ){
 	$artGrd[] = $lowRow;
 }
 $inGrid = array_map(function( Array $gridOfRow ): Array { return array_slice($gridOfRow, 2, 21); }, array_slice($artGrd, 2, 21));
-checkSame('text: the modules are those of the grid', $inGrid, $qrcObj->makeMatrx());
-checkThrw('text: a negative margin is refused', function() use ( $qrcObj ){ $qrcObj->asTextArt(-1); }, QrCodeError::class);
+checkIdentical('text: the modules are those of the grid', $inGrid, $qrcObj->generateMatrix());
+checkForThrows('text: a negative margin is refused', function() use ( $qrcObj ){ $qrcObj->drawAsTerminal(-1); }, QrCodeError::class);
 
-endChecks();
+finishChecking();

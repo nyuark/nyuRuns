@@ -13,72 +13,72 @@
 
 $trnFile = strval($argv[1] ?? '');
 $authTxt = strval($argv[2] ?? 'PLAIN LOGIN');
-$connNmb = max(1, intval($argv[3] ?? 1));
+$connNum = max(1, intval($argv[3] ?? 1));
 $lstAddr = strval($argv[4] ?? '127.0.0.1');
 
-$srvSock = @stream_socket_server('tcp://'.$lstAddr.':0', $errCode, $errText);
-if( $srvSock===false ){
+$tcpSock = @stream_socket_server('tcp://'.$lstAddr.':0', $errCode, $errText);
+if( $tcpSock===false ){
 	echo "0\n";
 	exit(1);
 }
-$sockNme = strval(stream_socket_get_name($srvSock, false));
-echo substr($sockNme, strrpos($sockNme, ':')+1)."\n";
+$scktNme = strval(stream_socket_get_name($tcpSock, false));
+echo substr($scktNme, strrpos($scktNme, ':')+1)."\n";
 flush();
 
 /**
  * Writes what the client sent into the transcript.
  *
- * @param String $trnscrFile Path of the transcript file.
- * @param String $clientLine What the client sent.
+ * @param String $dialogueFile Path of the transcript file.
+ * @param String $clntLineText What the client sent.
  */
-function noteLine( String $trnscrFile, String $clientLine ): Void {
-	file_put_contents($trnscrFile, $clientLine, FILE_APPEND);
+function noteClientLine( String $dialogueFile, String $clntLineText ): Void {
+	file_put_contents($dialogueFile, $clntLineText, FILE_APPEND);
 }
 
-for( $conNum=0; $conNum<$connNmb; $conNum++ ){
-	$cltLink = @stream_socket_accept($srvSock, 10);
-	if( $cltLink===false ){
+for( $conNum=0; $conNum<$connNum; $conNum++ ){
+	$clntLnk = @stream_socket_accept($tcpSock, 10);
+	if( $clntLnk===false ){
 		exit(1);
 	}
-	stream_set_timeout($cltLink, 10);
-	fwrite($cltLink, "220 fake.test ESMTP\r\n");
-	$authStp = '';
-	while( ($cmdLine = fgets($cltLink, 4096))!==false ){
-		noteLine($trnFile, $cmdLine);
-		$cmdWord = strtoupper(trim(strtok($cmdLine, " \r\n")));
-		if( $authStp=='user' ){
-			$authStp = (base64_decode(trim($cmdLine))=='user') ? 'pass' : 'bad';
-			fwrite($cltLink, "334 UGFzc3dvcmQ6\r\n");
-		}elseif( $authStp=='pass' || $authStp=='bad' ){
-			fwrite($cltLink, ($authStp=='pass' && base64_decode(trim($cmdLine))=='secret') ? "235 ok\r\n" : "535 no\r\n");
-			$authStp = '';
-		}elseif( $cmdWord=='EHLO' ){
-			fwrite($cltLink, "250-fake.test\r\n".($authTxt!='none' ? '250-AUTH '.$authTxt."\r\n" : '')."250 8BITMIME\r\n");
-		}elseif( $cmdWord=='AUTH' && stripos($cmdLine, 'AUTH PLAIN ')===0 ){
-			fwrite($cltLink, (base64_decode(trim(substr($cmdLine, 11)))=="\0user\0secret") ? "235 ok\r\n" : "535 no\r\n");
-		}elseif( $cmdWord=='AUTH' ){
-			$authStp = 'user';
-			fwrite($cltLink, "334 VXNlcm5hbWU6\r\n");
-		}elseif( $cmdWord=='MAIL' ){
-			fwrite($cltLink, "250 ok\r\n");
-		}elseif( $cmdWord=='RCPT' ){
-			fwrite($cltLink, (stripos($cmdLine, 'RCPT TO:<refused')===0) ? "550 no such user\r\n" : "250 ok\r\n");
-		}elseif( $cmdWord=='DATA' ){
-			fwrite($cltLink, "354 go\r\n");
-			while( ($datLine = fgets($cltLink, 4096))!==false ){
-				noteLine($trnFile, $datLine);
-				if( $datLine==".\r\n" ){
+	stream_set_timeout($clntLnk, 10);
+	fwrite($clntLnk, "220 fake.test ESMTP\r\n");
+	$athStep = '';
+	while( ($command = fgets($clntLnk, 4096))!==false ){
+		noteClientLine($trnFile, $command);
+		$smtpCmd = strtoupper(trim(strtok($command, " \r\n")));
+		if( $athStep=='user' ){
+			$athStep = (base64_decode(trim($command))=='user') ? 'pass' : 'bad';
+			fwrite($clntLnk, "334 UGFzc3dvcmQ6\r\n");
+		}elseif( $athStep=='pass' || $athStep=='bad' ){
+			fwrite($clntLnk, ($athStep=='pass' && base64_decode(trim($command))=='secret') ? "235 ok\r\n" : "535 no\r\n");
+			$athStep = '';
+		}elseif( $smtpCmd=='EHLO' ){
+			fwrite($clntLnk, "250-fake.test\r\n".($authTxt!='none' ? '250-AUTH '.$authTxt."\r\n" : '')."250 8BITMIME\r\n");
+		}elseif( $smtpCmd=='AUTH' && stripos($command, 'AUTH PLAIN ')===0 ){
+			fwrite($clntLnk, (base64_decode(trim(substr($command, 11)))=="\0user\0secret") ? "235 ok\r\n" : "535 no\r\n");
+		}elseif( $smtpCmd=='AUTH' ){
+			$athStep = 'user';
+			fwrite($clntLnk, "334 VXNlcm5hbWU6\r\n");
+		}elseif( $smtpCmd=='MAIL' ){
+			fwrite($clntLnk, "250 ok\r\n");
+		}elseif( $smtpCmd=='RCPT' ){
+			fwrite($clntLnk, (stripos($command, 'RCPT TO:<refused')===0) ? "550 no such user\r\n" : "250 ok\r\n");
+		}elseif( $smtpCmd=='DATA' ){
+			fwrite($clntLnk, "354 go\r\n");
+			while( ($dataLin = fgets($clntLnk, 4096))!==false ){
+				noteClientLine($trnFile, $dataLin);
+				if( $dataLin==".\r\n" ){
 					break;
 				}
 			}
-			fwrite($cltLink, "250 queued\r\n");
-		}elseif( $cmdWord=='QUIT' ){
-			fwrite($cltLink, "221 bye\r\n");
+			fwrite($clntLnk, "250 queued\r\n");
+		}elseif( $smtpCmd=='QUIT' ){
+			fwrite($clntLnk, "221 bye\r\n");
 			break;
 		}else{
-			fwrite($cltLink, "502 unknown\r\n");
+			fwrite($clntLnk, "502 unknown\r\n");
 		}
 	}
-	fclose($cltLink);
+	fclose($clntLnk);
 }
-fclose($srvSock);
+fclose($tcpSock);

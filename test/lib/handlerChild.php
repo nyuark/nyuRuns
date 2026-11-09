@@ -27,19 +27,19 @@ if( $runMode=='block' ){
 		Array('function'=>'{closure}'),
 	);
 	$results = Array(
-		'table'=>stackTble($traceAr),
-		'empty'=>stackTble(Array()),
-		'trace'=>errorBlck('E_EXCEPTION', "<script>x</script>\r\nsecond", 'a&b.php', 7, $traceAr),
-		'text'=>errorBlck(E_USER_WARNING, 'm', null, null, '#0 first <x>#1 second'),
-		'scope'=>errorBlck(E_WARNING, 'm', 'f.php', 1, Array('secret'=>'hunter2')),
+		'table'=>stackTableText($traceAr),
+		'empty'=>stackTableText(Array()),
+		'trace'=>errorBlockText('E_EXCEPTION', "<script>x</script>\r\nsecond", 'a&b.php', 7, $traceAr),
+		'text'=>errorBlockText(E_USER_WARNING, 'm', null, null, '#0 first <x>#1 second'),
+		'scope'=>errorBlockText(E_WARNING, 'm', 'f.php', 1, Array('secret'=>'hunter2')),
 	);
 	ob_start();
-	showError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	printErrorHtml('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
 	$results['show'] = ob_get_clean();
 	ob_start();
-	$GLOBALS['ErrorHandler']->pushError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	$GLOBALS['ErrorHandler']->handleOneError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
 	$results['push'] = ob_get_clean();
-	$results['same'] = errorBlck('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	$results['same'] = errorBlockText('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
 	echo json_encode($results);
 	exit(0);
 }
@@ -49,17 +49,17 @@ if( $runMode=='reply' ){
 	// end: headers_sent() turns true on the command line as soon as there is output.
 	$results = Array();
 	$sentLst = Array();
-	$replyFn = function( String $errMessage ) use (&$sentLst){ $sentLst[] = $errMessage; };
-	$brokeFn = function( String $errMessage ){ throw new LogicException('responder broken'); };
+	$replier = function( String $errorMessage ) use (&$sentLst){ $sentLst[] = $errorMessage; };
+	$failing = function( String $errorMessage ){ throw new LogicException('responder broken'); };
 	$caseLst = Array(
-		'responder, show off'    => Array(false, $replyFn),
-		'responder, show on'     => Array(true, $replyFn),
+		'responder, show off'    => Array(false, $replier),
+		'responder, show on'     => Array(true, $replier),
 		'no responder, show on'  => Array(true, null),
 		'no responder, show off' => Array(false, null),
-		'broken responder, show on' => Array(true, $brokeFn),
-		'responder, show on, in production' => Array(true, $replyFn, 'prod'),
+		'broken responder, show on' => Array(true, $failing),
+		'responder, show on, in production' => Array(true, $replier, 'prod'),
 		'no responder, show on, in production' => Array(true, null, 'PROD'),
-		'responder, show on, in preview' => Array(true, $replyFn, 'PREV'),
+		'responder, show on, in preview' => Array(true, $replier, 'PREV'),
 	);
 	foreach( $caseLst as $casNme=>$casSet ){
 		$sentLst = Array();
@@ -69,7 +69,7 @@ if( $runMode=='reply' ){
 			$GLOBALS['ErrorResponse'] = $casSet[1];
 		}
 		ob_start();
-		hndlExcpt( new RuntimeException('boom', 42) );
+		treatException( new RuntimeException('boom', 42) );
 		$results[$casNme] = Array('sent'=>$sentLst, 'echo'=>trim(preg_replace('/\s+/', ' ', strip_tags(ob_get_clean()))));
 	}
 	echo json_encode($results);
@@ -80,31 +80,31 @@ if( $runMode=='stack' ){
 	// Warnings inside a framework request (a responder is registered) are kept
 	// for the response body instead of echoed
 	$results = Array();
-	foreach( Array('show on'=>true, 'show off'=>false) as $casNme=>$showVal ){
-		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$showVal)) );
-		$GLOBALS['ErrorResponse'] = function( String $errMessage ){};
+	foreach( Array('show on'=>true, 'show off'=>false) as $casNme=>$shwVal ){
+		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$shwVal)) );
+		$GLOBALS['ErrorResponse'] = function( String $errorMessage ){};
 		ob_start();
-		hndlError(E_USER_WARNING, 'kept warning', 'file.php', 12);
-		hndlError(E_NOTICE, 'kept notice', 'file.php', 13);
+		handleErrorFlg(E_USER_WARNING, 'kept warning', 'file.php', 12);
+		handleErrorFlg(E_NOTICE, 'kept notice', 'file.php', 13);
 		$results[$casNme] = Array(
 			'echo'=>trim(ob_get_clean()),
-			'first'=>$GLOBALS['ErrorHandler']->takeStack(),
-			'again'=>$GLOBALS['ErrorHandler']->takeStack()
+			'first'=>$GLOBALS['ErrorHandler']->takeStackArray(),
+			'again'=>$GLOBALS['ErrorHandler']->takeStackArray()
 		);
 	}
 	// In production, nothing is kept for the response body, whatever ERR_SHOW says
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true, 'ENV_NAME'=>'PROD')) );
-	$GLOBALS['ErrorResponse'] = function( String $errMessage ){};
+	$GLOBALS['ErrorResponse'] = function( String $errorMessage ){};
 	ob_start();
-	hndlError(E_USER_WARNING, 'production warning', 'file.php', 15);
-	$results['production'] = Array('echo'=>trim(ob_get_clean()), 'first'=>$GLOBALS['ErrorHandler']->takeStack());
+	handleErrorFlg(E_USER_WARNING, 'production warning', 'file.php', 15);
+	$results['production'] = Array('echo'=>trim(ob_get_clean()), 'first'=>$GLOBALS['ErrorHandler']->takeStackArray());
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true)) );
 	unset($GLOBALS['ErrorResponse']);
 	ob_start();
-	hndlError(E_USER_WARNING, 'shown warning', 'file.php', 14);
+	handleErrorFlg(E_USER_WARNING, 'shown warning', 'file.php', 14);
 	$results['no responder'] = Array(
 		'echo'=>trim(preg_replace('/\s+/', ' ', strip_tags(ob_get_clean()))),
-		'first'=>$GLOBALS['ErrorHandler']->takeStack()
+		'first'=>$GLOBALS['ErrorHandler']->takeStackArray()
 	);
 	echo json_encode($results);
 	exit(0);
@@ -113,14 +113,14 @@ if( $runMode=='stack' ){
 if( $runMode=='memreply' ){
 	// Real fatal error with a responder registered: argv[3] is 'on' or 'off' for ERR_SHOW
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>(($argv[3] ?? 'off')=='on'))) );
-	$GLOBALS['ErrorResponse'] = function( String $errMessage ){ echo 'REPLY:'.$errMessage; };
-	initError();
+	$GLOBALS['ErrorResponse'] = function( String $errorMessage ){ echo 'REPLY:'.$errorMessage; };
+	installHandler();
 	ini_set('memory_limit', '16M');
 	$bigText = str_repeat('x', 64*1024*1024);
 	exit(0);
 }
 
-initError();
+installHandler();
 
 if( $runMode=='warning' ){
 	trigger_error('custom warning', E_USER_WARNING);
@@ -135,13 +135,13 @@ if( $runMode=='warning' ){
 	/**
 	 * Fails while checking credentials.
 	 *
-	 * @param String $userString Login name.
-	 * @param String $passwdText Password.
+	 * @param String $namedUserTxt Login name.
+	 * @param String $usrPasswdTxt Password.
 	 */
-	function checksIn( String $userString, String $passwdText ): Void {
+	function failCredential( String $namedUserTxt, String $usrPasswdTxt ): Void {
 		throw new RuntimeException('store down', 7);
 	}
-	checksIn('root', 'hunter2-top-secret');
+	failCredential('root', 'hunter2-top-secret');
 }elseif( $runMode=='pdoexception' ){
 	$pdoLink = new PDO('sqlite::memory:');
 	$pdoLink->query('SELECT * FROM no_such_table');

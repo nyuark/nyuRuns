@@ -21,13 +21,13 @@
 /**
  * Creates the sample SQLite database, replacing any previous file.
  *
- * @param String $sqliteFile Path of the SQLite file to create.
+ * @param String $sqliteDbPath Path of the SQLite file to create.
  */
-function buildData( String $sqliteFile ): Void {
-	if( file_exists($sqliteFile) ){
-		unlink($sqliteFile);
+function createSampleDb( String $sqliteDbPath ): Void {
+	if( file_exists($sqliteDbPath) ){
+		unlink($sqliteDbPath);
 	}
-	$pdoLink = new PDO('sqlite:'.$sqliteFile);
+	$pdoLink = new PDO('sqlite:'.$sqliteDbPath);
 	$pdoLink->exec("CREATE TABLE shows (id_show INTEGER PRIMARY KEY, title TEXT, venue TEXT)");
 	$pdoLink->exec("CREATE TABLE events (id_event INTEGER PRIMARY KEY, show_id INTEGER, date TEXT, time TEXT)");
 	$pdoLink->exec("CREATE TABLE items (id_item INTEGER PRIMARY KEY, show_id INTEGER, type TEXT)");
@@ -36,14 +36,14 @@ function buildData( String $sqliteFile ): Void {
 	$pdoLink->exec("INSERT INTO items VALUES (1,1,'music'),(2,1,'dance'),(3,2,'theatre'),(4,2,'music'),(5,3,'dance'),(6,3,'circus'),(7,4,'solo')");
 	// The users table is the one the framework delivers
 	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/users.sqlte.sql')) );
-	$usrStmt = $pdoLink->prepare("INSERT INTO users (id_user, userName, passHash, userRole, userStat, madeDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
+	$userSql = $pdoLink->prepare("INSERT INTO users (id_user, userName, passHash, userRole, userStat, madeDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
 	foreach( Array(Array(1,'anna','manage','active'), Array(2,'ben','member','active'), Array(3,'cleo','member','pendng'), Array(4,'dave','system','locked')) as $usrRow ){
 		// Passwords are pw-<name>, hashed at the lowest cost to keep the tests fast
-		$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
+		$userSql->execute( Array($usrRow[0], $usrRow[1], password_hash('pw-'.$usrRow[1], PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 	}
 	// The devices table is the one the framework delivers
 	$pdoLink->exec( strval(file_get_contents(__DIR__.'/../../conf/schema/devices.sqlte.sql')) );
-	$usrStmt = null;
+	$userSql = null;
 	$pdoLink = null;
 }
 
@@ -51,10 +51,10 @@ function buildData( String $sqliteFile ): Void {
  * Points the framework's database configuration at a SQLite file, through
  * the framework's SQLite handler.
  *
- * @param String $sqliteFile Path of the SQLite file to use.
+ * @param String $sqliteDbPath Path of the SQLite file to use.
  */
-function useSqlite( String $sqliteFile ): Void {
+function switchToSqlite( String $sqliteDbPath ): Void {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqliteFile)
+		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqliteDbPath)
 	) );
 }

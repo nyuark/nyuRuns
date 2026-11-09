@@ -13,16 +13,16 @@ class Actions extends Actionset {
 	 * Answers normally. Declared first, so it is also the default action.
 	 */
 	public function clean(): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array('ok'=>true);
+		$this->statusCode = 200;
+		$this->replyValue = Array('ok'=>true);
 	}
 
 	/**
 	 * Answers with the parameter it was called with.
 	 */
-	public function mirror( String $givenValue ): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array('got'=>$givenValue);
+	public function mirror( String $valueAsGiven ): Void {
+		$this->statusCode = 200;
+		$this->replyValue = Array('got'=>$valueAsGiven);
 	}
 
 	/**
@@ -30,9 +30,9 @@ class Actions extends Actionset {
 	 * request, whatever its method: 401 when both were, 400 otherwise.
 	 */
 	public function creds(): Void {
-		$gotBoth = is_string($this->inputReg->readValue('user')) && is_string($this->inputReg->readValue('pass'));
-		$this->statCode = $gotBoth ? 401 : 400;
-		$this->statMssg = $gotBoth ? 'Credentials read' : 'Missing user or pass';
+		$gotBoth = is_string($this->inptRgstry->readFileDetail('user')) && is_string($this->inptRgstry->readFileDetail('pass'));
+		$this->statusCode = $gotBoth ? 401 : 400;
+		$this->statusMssg = $gotBoth ? 'Credentials read' : 'Missing user or pass';
 	}
 
 	/**
@@ -41,20 +41,20 @@ class Actions extends Actionset {
 	 */
 	public function leave(): Void {
 		header('Set-Cookie: probeKept=1; path=/', false);
-		(new \nyu\Access\Sess\PHPSess( Array('cookie'=>'nyuTests', 'secure'=>false) ))->dropSessn( $this->httpRqst );
-		$this->statCode = 200;
-		$this->asOutput = Array('left'=>true);
+		(new \nyu\Access\Sess\PHPSess( Array('cookie'=>'nyuTests', 'secure'=>false) ))->dropUsrSession( $this->httpRequst );
+		$this->statusCode = 200;
+		$this->replyValue = Array('left'=>true);
 	}
 
 	/**
 	 * Answers with what the access check reported about the requester.
 	 */
 	public function whoami(): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array(
-			'logged'=>$this->axessReg->readValue('logged'),
-			'user'=>$this->axessReg->readValue('user'),
-			'role'=>$this->axessReg->readValue('role')
+		$this->statusCode = 200;
+		$this->replyValue = Array(
+			'logged'=>$this->accessRgst->readFileDetail('logged'),
+			'user'=>$this->accessRgst->readFileDetail('user'),
+			'role'=>$this->accessRgst->readFileDetail('role')
 		);
 	}
 
@@ -62,21 +62,21 @@ class Actions extends Actionset {
 	 * Answers with the roles the requester holds, after asking for the
 	 * role named by its parameter when it is given one.
 	 */
-	public function roles( String $givenValue='' ): Void {
-		if( $givenValue!='' ){
-			$this->needsRole($givenValue);
+	public function roles( String $valueAsGiven='' ): Void {
+		if( $valueAsGiven!='' ){
+			$this->needsActionRle($valueAsGiven);
 		}
-		$this->statCode = 200;
-		$this->asOutput = Array('member'=>$this->holdsRole('member'), 'system'=>$this->holdsRole('system'), 'manage'=>$this->holdsRole('manage'));
+		$this->statusCode = 200;
+		$this->replyValue = Array('member'=>$this->holdsActionRle('member'), 'system'=>$this->holdsActionRle('system'), 'manage'=>$this->holdsActionRle('manage'));
 	}
 
 	/**
 	 * Answers with the users of the native userbase who are online.
 	 */
 	public function online(): Void {
-		$natAuth = new \nyu\Access\Auth\Native( Array() );
-		$this->statCode = 200;
-		$this->asOutput = Array('online'=>$natAuth->onlineNow());
+		$ntvAuth = new \nyu\Access\Auth\Native( Array() );
+		$this->statusCode = 200;
+		$this->replyValue = Array('online'=>$ntvAuth->onlineNowArray());
 	}
 
 	/**
@@ -84,108 +84,108 @@ class Actions extends Actionset {
 	 */
 	public function vanish(): Void {
 		trigger_error('probe warning', E_USER_WARNING);
-		$this->statCode = 204;
+		$this->statusCode = 204;
 	}
 
 	/**
 	 * Sets a first output, then stops through a helper in the way named by
 	 * its parameter. The lines after the stop must never run.
 	 */
-	public function halt( String $givenValue ): Void {
-		if( $givenValue!='none' ){
-			$this->asOutput = Array('step'=>1);
+	public function halt( String $valueAsGiven ): Void {
+		if( $valueAsGiven!='none' ){
+			$this->replyValue = Array('step'=>1);
 		}
-		$this->stopHere($givenValue);
-		$this->statCode = 200;
-		$this->asOutput = Array('step'=>2);
+		$this->stopActionHere($valueAsGiven);
+		$this->statusCode = 200;
+		$this->replyValue = Array('step'=>2);
 	}
 
 	/**
 	 * A helper, not an action: ends the action it is called from.
 	 */
-	protected function stopHere( String $givenValue ): Void {
-		if( $givenValue=='fail' ){
-			$this->endAction(404, 'Stopped early');
+	protected function stopActionHere( String $valueAsGiven ): Void {
+		if( $valueAsGiven=='fail' ){
+			$this->stopThisAction(404, 'Stopped early');
 		}
-		if( $givenValue=='full' ){
-			$this->endAction(200, '', Array('done'=>true));
+		if( $valueAsGiven=='full' ){
+			$this->stopThisAction(200, '', Array('done'=>true));
 		}
-		if( $givenValue=='none' ){
-			$this->endAction(204);
+		if( $valueAsGiven=='none' ){
+			$this->stopThisAction(204);
 		}
-		$this->endAction(200);
+		$this->stopThisAction(200);
 	}
 
 	/**
 	 * Answers with a bare string, not an array.
 	 */
 	public function text(): Void {
-		$this->statCode = 200;
-		$this->asOutput = 'plain text';
+		$this->statusCode = 200;
+		$this->replyValue = 'plain text';
 	}
 
 	/**
 	 * Answers with text that is not valid UTF-8, which JSON cannot carry.
 	 */
 	public function badutf(): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array('name'=>"caf\xE9");
+		$this->statusCode = 200;
+		$this->replyValue = Array('name'=>"caf\xE9");
 	}
 
 	/**
 	 * Answers with the letters fixture file, or with a missing one when
 	 * called with a parameter.
 	 */
-	public function media( String $givenValue='' ): Void {
-		$this->replyFile( TOP_DIR.DS.'test'.DS.'fixtures'.DS.($givenValue=='' ? 'letters.txt' : 'nosuchfile.txt'), 'audio/mp4' );
+	public function media( String $valueAsGiven='' ): Void {
+		$this->serveFileReply( TOP_DIR.DS.'test'.DS.'fixtures'.DS.($valueAsGiven=='' ? 'letters.txt' : 'nosuchfile.txt'), 'audio/mp4' );
 	}
 
 	/**
 	 * Registers the letters fixture file, then answers with an error status.
 	 */
 	public function mediafail(): Void {
-		$this->replyFile( TOP_DIR.DS.'test'.DS.'fixtures'.DS.'letters.txt', 'audio/mp4' );
-		$this->statCode = 403;
-		$this->statMssg = 'Not yours';
+		$this->serveFileReply( TOP_DIR.DS.'test'.DS.'fixtures'.DS.'letters.txt', 'audio/mp4' );
+		$this->statusCode = 403;
+		$this->statusMssg = 'Not yours';
 	}
 
 	/**
 	 * Sends the client elsewhere, in the way named by its parameter. The
 	 * lines after the redirection must never run.
 	 */
-	public function moved( String $givenValue='' ): Void {
-		if( $givenValue=='out' ){
-			$this->replyMove('https://example.org/', 303);
+	public function moved( String $valueAsGiven='' ): Void {
+		if( $valueAsGiven=='out' ){
+			$this->redirectClient('https://example.org/', 303);
 		}
-		if( $givenValue=='bad' ){
-			$this->replyMove('//example.org/');
+		if( $valueAsGiven=='bad' ){
+			$this->redirectClient('//example.org/');
 		}
-		if( $givenValue=='code' ){
-			$this->replyMove('/probe/clean', 200);
+		if( $valueAsGiven=='code' ){
+			$this->redirectClient('/probe/clean', 200);
 		}
-		$this->asOutput = Array('step'=>1);
-		$this->replyMove('/probe/clean');
-		$this->statCode = 200;
-		$this->asOutput = Array('step'=>2);
+		$this->replyValue = Array('step'=>1);
+		$this->redirectClient('/probe/clean');
+		$this->statusCode = 200;
+		$this->replyValue = Array('step'=>2);
 	}
 
 	/**
 	 * Answers with the card page of the application, or with a page that
 	 * cannot be served, in the way named by its parameter.
 	 */
-	public function page( String $givenValue='' ): Void {
-		if( $givenValue=='none' ){
-			$this->replyPage('nosuchpage');
-		}elseif( $givenValue=='out' ){
-			$this->replyPage('../Actions');
-		}elseif( $givenValue=='gone' ){
-			$this->replyPage('card', Array('title'=>'Gone'), 404);
-		}elseif( $givenValue=='fail' ){
-			$this->replyPage('card', Array('title'=>'Never sent'));
-			$this->statCode = 403;
-			$this->statMssg = 'Not yours';
+	public function page( String $valueAsGiven='' ): Void {
+		if( $valueAsGiven=='none' ){
+			$this->answerPageFlag('nosuchpage');
+		}elseif( $valueAsGiven=='out' ){
+			$this->answerPageFlag('../Actions');
+		}elseif( $valueAsGiven=='gone' ){
+			$this->answerPageFlag('card', Array('title'=>'Gone'), 404);
+		}elseif( $valueAsGiven=='fail' ){
+			$this->answerPageFlag('card', Array('title'=>'Never sent'));
+			$this->statusCode = 403;
+			$this->statusMssg = 'Not yours';
 		}else{
-			$this->replyPage('card', Array('title'=>'<b>Tom & "Jerry"</b>', 'link'=>$this->routeLink('items/$id', Array('id'=>'a b'), Array('tab'=>'x y'))));
+			$this->answerPageFlag('card', Array('title'=>'<b>Tom & "Jerry"</b>', 'link'=>$this->routLinkString('items/$id', Array('id'=>'a b'), Array('tab'=>'x y'))));
 		}
 	}
 
@@ -193,17 +193,17 @@ class Actions extends Actionset {
 	 * Answers with the link to a declared route, or fails on one that is
 	 * not declared when called with a parameter.
 	 */
-	public function link( String $givenValue='' ): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array('link'=>($givenValue=='') ? $this->routeLink('things/$id', Array('id'=>7)) : $this->routeLink('nosuch/$id', Array('id'=>7)));
+	public function link( String $valueAsGiven='' ): Void {
+		$this->statusCode = 200;
+		$this->replyValue = Array('link'=>($valueAsGiven=='') ? $this->routLinkString('things/$id', Array('id'=>7)) : $this->routLinkString('nosuch/$id', Array('id'=>7)));
 	}
 
 	/**
 	 * A helper, not an action: must not be reachable by URL.
 	 */
-	protected function hidden(): Void {
-		$this->statCode = 200;
-		$this->asOutput = Array('hidden'=>true);
+	protected function hiddenFromUrls(): Void {
+		$this->statusCode = 200;
+		$this->replyValue = Array('hidden'=>true);
 	}
 
 	/**
@@ -219,8 +219,8 @@ class Actions extends Actionset {
 		trigger_error('probe warning', E_USER_WARNING);
 		$emptyAr = Array();
 		$missing = $emptyAr['missing'];
-		$this->statCode = 200;
-		$this->asOutput = Array(1, 2, 3);
+		$this->statusCode = 200;
+		$this->replyValue = Array(1, 2, 3);
 	}
 
 	/**
@@ -228,8 +228,8 @@ class Actions extends Actionset {
 	 */
 	public function warnfail(): Void {
 		trigger_error('probe warning', E_USER_WARNING);
-		$this->statCode = 404;
-		$this->statMssg = 'Nothing here';
+		$this->statusCode = 404;
+		$this->statusMssg = 'Nothing here';
 	}
 
 	/**
@@ -246,7 +246,7 @@ class Actions extends Actionset {
 	public function fatal(): Void {
 		ini_set('memory_limit', '24M');
 		$bigText = str_repeat('x', 64*1024*1024);
-		$this->statCode = 200;
-		$this->asOutput = Array(strlen($bigText));
+		$this->statusCode = 200;
+		$this->replyValue = Array(strlen($bigText));
 	}
 }

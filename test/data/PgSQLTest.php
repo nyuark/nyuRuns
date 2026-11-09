@@ -10,18 +10,18 @@ require __DIR__.'/../lib/servers.php';
 require __DIR__.'/../lib/dialect.php';
 
 if( !extension_loaded('pdo_pgsql') ){
-	skipCheck('PostgreSQL', 'pdo_pgsql is not available');
-	endChecks();
+	recordSkipping('PostgreSQL', 'pdo_pgsql is not available');
+	finishChecking();
 }
 
-$srvConf = serverCnf('pgsql');
-$skipWhy = ($srvConf['skip']!='') ? $srvConf['skip'] : buildSrvr('pgsql', $srvConf);
+$srvConf = serverSettings('pgsql');
+$skipWhy = ($srvConf['skip']!='') ? $srvConf['skip'] : generateServer('pgsql', $srvConf);
 if( $skipWhy!='' ){
-	skipCheck('PostgreSQL', $skipWhy);
-	endChecks();
+	recordSkipping('PostgreSQL', $skipWhy);
+	finishChecking();
 }
 
-useServer('pgsql', $srvConf);
-runDialct('nyu\Data\DBHndlr\PgSQL');
+switchToServer('pgsql', $srvConf);
+executeDialect('nyu\Data\DBHndlr\PgSQL');
 
-endChecks();
+finishChecking();

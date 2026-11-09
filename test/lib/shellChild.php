@@ -21,6 +21,6 @@ require $topDir.'/vendor/autoload.php';
 ini_set('log_errors', '1');
 ini_set('error_log', '');
 
-$nyuShell = new \nyu\Shell\Console( array_slice($argv, 2) );
-$nyuShell->plugError();
-exit( $nyuShell->runCommnd() );
+$nyuShll = new \nyu\Shell\Console( array_slice($argv, 2) );
+$nyuShll->plugShellError();
+exit( $nyuShll->executeCommand() );

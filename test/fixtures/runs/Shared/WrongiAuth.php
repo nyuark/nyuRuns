@@ -9,10 +9,10 @@ class WrongiAuth{
 	/**
 	 * Would accept anyone, if the framework ever called it.
 	 *
-	 * @param Array $credsArray Unused.
+	 * @param Array $crdntlsArray Unused.
 	 * @return Array|Bool Always an identity.
 	 */
-	public function checkCred( Array $credsArray ): Array|Bool {
+	public function chckCredential( Array $crdntlsArray ): Array|Bool {
 		return Array('user'=>'anyone');
 	}
 }

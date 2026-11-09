@@ -1,7 +1,7 @@
 <?php
 
 // Shared helpers for the self-checking test scripts (see test/run.php).
-// Every test script requires this file, runs its checks, then calls endChecks().
+// Every test script requires this file, runs its checks, then calls finishChecking().
 
 error_reporting(E_ALL);
 
@@ -20,108 +20,108 @@ require TOP_DIR.DS.'vendor'.DS.'autoload.php';
 $GLOBALS['tstStats'] = Array('pass'=>0, 'fail'=>0, 'skip'=>0, 'note'=>Array());
 
 // Any PHP notice or warning raised by the tested code is recorded, and
-// reported as a failure by endChecks() unless the test collected it first
-set_error_handler(function( Int $errorLevel, String $errMessage, String $errFilePth, Int $errLineNum ){
-	if( !(error_reporting() & $errorLevel) ){
+// reported as a failure by finishChecking() unless the test collected it first
+set_error_handler(function( Int $errLevelNumb, String $errorMessage, String $errorFilPath, Int $errorLineNum ){
+	if( !(error_reporting() & $errLevelNumb) ){
 		return true;
 	}
-	$GLOBALS['tstStats']['note'][] = basename($errFilePth).':'.$errLineNum.' '.$errMessage;
+	$GLOBALS['tstStats']['note'][] = basename($errorFilPath).':'.$errorLineNum.' '.$errorMessage;
 	return true;
 });
 
 /**
  * Renders a value for a failure message.
  *
- * @param mixed $shownValue The value to render.
+ * @param mixed $valueToPrint The value to render.
  * @return String The value as compact JSON.
  */
-function showValue( Mixed $shownValue ): String {
-	$jsnText = json_encode($shownValue, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-	return ($jsnText===false) ? var_export($shownValue, true) : $jsnText;
+function printValueText( Mixed $valueToPrint ): String {
+	$jsonTxt = json_encode($valueToPrint, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+	return ($jsonTxt===false) ? var_export($valueToPrint, true) : $jsonTxt;
 }
 
 /**
  * Records a failed check and prints its details.
  *
- * @param String $checkLabel Label of the check.
- * @param String $detailText What was expected and what was found.
+ * @param String $checkSubject Label of the check.
+ * @param String $foundDetails What was expected and what was found.
  */
-function failCheck( String $checkLabel, String $detailText ): Void {
+function recordFailures( String $checkSubject, String $foundDetails ): Void {
 	$GLOBALS['tstStats']['fail']++;
-	echo '  FAIL  '.$checkLabel."\n".$detailText;
+	echo '  FAIL  '.$checkSubject."\n".$foundDetails;
 }
 
 /**
  * Checks that a value is strictly identical to the expected one.
  *
- * @param String $checkLabel Label of the check.
- * @param mixed  $actualData Value produced by the tested code.
- * @param mixed  $expectData Value it should be identical to.
+ * @param String $checkSubject Label of the check.
+ * @param mixed  $actualOutput Value produced by the tested code.
+ * @param mixed  $expectOutput Value it should be identical to.
  */
-function checkSame( String $checkLabel, Mixed $actualData, Mixed $expectData ): Void {
-	if( $actualData===$expectData ){
+function checkIdentical( String $checkSubject, Mixed $actualOutput, Mixed $expectOutput ): Void {
+	if( $actualOutput===$expectOutput ){
 		$GLOBALS['tstStats']['pass']++;
 		return;
 	}
-	failCheck( $checkLabel, '        expected: '.showValue($expectData)."\n".'        actual:   '.showValue($actualData)."\n" );
+	recordFailures( $checkSubject, '        expected: '.printValueText($expectOutput)."\n".'        actual:   '.printValueText($actualOutput)."\n" );
 }
 
 /**
  * Checks that a value is strictly true.
  *
- * @param String $checkLabel Label of the check.
- * @param mixed  $actualData Value produced by the tested code.
+ * @param String $checkSubject Label of the check.
+ * @param mixed  $actualOutput Value produced by the tested code.
  */
-function checkTrue( String $checkLabel, Mixed $actualData ): Void {
-	checkSame( $checkLabel, $actualData, true );
+function checkTrueValue( String $checkSubject, Mixed $actualOutput ): Void {
+	checkIdentical( $checkSubject, $actualOutput, true );
 }
 
 /**
  * Checks that a string matches a regular expression.
  *
- * @param String $checkLabel Label of the check.
- * @param mixed  $actualData Value produced by the tested code.
- * @param String $regexPattn Regular expression it should match.
+ * @param String $checkSubject Label of the check.
+ * @param mixed  $actualOutput Value produced by the tested code.
+ * @param String $regexPattern Regular expression it should match.
  */
-function checkLike( String $checkLabel, Mixed $actualData, String $regexPattn ): Void {
-	if( is_string($actualData) && preg_match($regexPattn, $actualData)===1 ){
+function checkPregMatch( String $checkSubject, Mixed $actualOutput, String $regexPattern ): Void {
+	if( is_string($actualOutput) && preg_match($regexPattern, $actualOutput)===1 ){
 		$GLOBALS['tstStats']['pass']++;
 		return;
 	}
-	failCheck( $checkLabel, '        pattern:  '.$regexPattn."\n".'        actual:   '.showValue($actualData)."\n" );
+	recordFailures( $checkSubject, '        pattern:  '.$regexPattern."\n".'        actual:   '.printValueText($actualOutput)."\n" );
 }
 
 /**
  * Checks that calling a function throws.
  *
- * @param String   $checkLabel Label of the check.
- * @param callable $testedFunc Function expected to throw.
- * @param String   $thrownType Class the thrown object should be an instance of.
+ * @param String   $checkSubject Label of the check.
+ * @param callable $tstdFunction Function expected to throw.
+ * @param String   $expectedType Class the thrown object should be an instance of.
  */
-function checkThrw( String $checkLabel, callable $testedFunc, String $thrownType='Throwable' ): Void {
+function checkForThrows( String $checkSubject, callable $tstdFunction, String $expectedType='Throwable' ): Void {
 	try{
-		$testedFunc();
+		$tstdFunction();
 	}catch( Throwable $e ){
-		if( $e instanceof $thrownType ){
+		if( $e instanceof $expectedType ){
 			$GLOBALS['tstStats']['pass']++;
 		}else{
-			failCheck( $checkLabel, '        expected: '.$thrownType."\n".'        thrown:   '.get_class($e).': '.$e->getMessage()."\n" );
+			recordFailures( $checkSubject, '        expected: '.$expectedType."\n".'        thrown:   '.get_class($e).': '.$e->getMessage()."\n" );
 		}
 		return;
 	}
-	failCheck( $checkLabel, '        expected: '.$thrownType."\n".'        thrown:   nothing'."\n" );
+	recordFailures( $checkSubject, '        expected: '.$expectedType."\n".'        thrown:   nothing'."\n" );
 }
 
 /**
  * Runs a function and returns its result, or a 'THROWN ...' string when
  * it throws, so that one unexpected exception fails one check only.
  *
- * @param callable $testedFunc Function to run.
+ * @param callable $tstdFunction Function to run.
  * @return mixed The function's result, or a description of what it threw.
  */
-function runSafely( callable $testedFunc ): Mixed {
+function runCatchThrown( callable $tstdFunction ): Mixed {
 	try{
-		return $testedFunc();
+		return $tstdFunction();
 	}catch( Throwable $e ){
 		return 'THROWN '.get_class($e).': '.$e->getMessage().' @'.basename($e->getFile()).':'.$e->getLine();
 	}
@@ -130,12 +130,12 @@ function runSafely( callable $testedFunc ): Mixed {
 /**
  * Records a check that could not be run in this environment.
  *
- * @param String $checkLabel Label of the check.
- * @param String $skipReason Why it was skipped.
+ * @param String $checkSubject Label of the check.
+ * @param String $reasonToSkip Why it was skipped.
  */
-function skipCheck( String $checkLabel, String $skipReason ): Void {
+function recordSkipping( String $checkSubject, String $reasonToSkip ): Void {
 	$GLOBALS['tstStats']['skip']++;
-	echo '  SKIP  '.$checkLabel.' ('.$skipReason.')'."\n";
+	echo '  SKIP  '.$checkSubject.' ('.$reasonToSkip.')'."\n";
 }
 
 /**
@@ -144,7 +144,7 @@ function skipCheck( String $checkLabel, String $skipReason ): Void {
  *
  * @return Array The recorded notices, as 'file:line message' strings.
  */
-function takeNotes(): Array {
+function takeNotesArray(): Array {
 	$noteLst = $GLOBALS['tstStats']['note'];
 	$GLOBALS['tstStats']['note'] = Array();
 	return $noteLst;
@@ -154,49 +154,49 @@ function takeNotes(): Array {
  * Returns a path inside this script's own temporary folder, creating
  * the folder on first use.
  *
- * @param String $insideName File or folder name inside the temporary folder.
+ * @param String $fullPathName File or folder name inside the temporary folder.
  * @return String The full path.
  */
-function inTempDir( String $insideName ): String {
+function inTemporaryDir( String $fullPathName ): String {
 	if( !is_dir(TMP_DIR) ){
 		mkdir(TMP_DIR, 0775, true);
 	}
-	return TMP_DIR.DS.$insideName;
+	return TMP_DIR.DS.$fullPathName;
 }
 
 /**
  * Deletes a folder created by the tests, with everything in it.
  *
- * @param String $folderPath Folder to delete.
+ * @param String $fullFoldPath Folder to delete.
  */
-function dropFoldr( String $folderPath ): Void {
-	if( !is_dir($folderPath) ){
+function dropTestFolder( String $fullFoldPath ): Void {
+	if( !is_dir($fullFoldPath) ){
 		return;
 	}
-	foreach( scandir($folderPath) as $entNme ){
+	foreach( scandir($fullFoldPath) as $entNme ){
 		if( $entNme=='.' || $entNme=='..' ){
 			continue;
 		}
-		$entPath = $folderPath.DS.$entNme;
-		if( is_dir($entPath) ){
-			dropFoldr($entPath);
+		$subPath = $fullFoldPath.DS.$entNme;
+		if( is_dir($subPath) ){
+			dropTestFolder($subPath);
 		}else{
-			@unlink($entPath);
+			@unlink($subPath);
 		}
 	}
-	@rmdir($folderPath);
+	@rmdir($fullFoldPath);
 }
 
 /**
  * Runs a PHP script in a separate process.
  *
- * @param Array $scriptArgs Script path followed by its arguments.
+ * @param Array $scrptArgmnts Script path followed by its arguments.
  * @return Array The exit code under 'code' and the combined output under 'text'.
  */
-function runScript( Array $scriptArgs ): Array {
-	$cmdLine = array_merge( Array(PHP_BINARY), $scriptArgs );
+function runScriptArray( Array $scrptArgmnts ): Array {
+	$command = array_merge( Array(PHP_BINARY), $scrptArgmnts );
 	$pipeArr = Array();
-	$process = proc_open( $cmdLine, Array(0=>Array('pipe','r'), 1=>Array('pipe','w'), 2=>Array('redirect',1)), $pipeArr, TOP_DIR );
+	$process = proc_open( $command, Array(0=>Array('pipe','r'), 1=>Array('pipe','w'), 2=>Array('redirect',1)), $pipeArr, TOP_DIR );
 	fclose($pipeArr[0]);
 	$outText = stream_get_contents($pipeArr[1]);
 	fclose($pipeArr[1]);
@@ -208,35 +208,35 @@ function runScript( Array $scriptArgs ): Array {
  * Builds a server registry holding only the given values, without
  * running its constructor: $_SERVER is neither read nor unset.
  *
- * @param Array $serverVals Server variable => value pairs the registry should hold.
+ * @param Array $serverValues Server variable => value pairs the registry should hold.
  * @return nyu\Tools\ServerReg The server registry.
  */
-function fakeServr( Array $serverVals=Array() ): nyu\Tools\ServerReg {
+function makeFakeServer( Array $serverValues=Array() ): nyu\Tools\ServerReg {
 	$reflect = new ReflectionClass('nyu\Tools\ServerReg');
-	$servReg = $reflect->newInstanceWithoutConstructor();
+	$srvrReg = $reflect->newInstanceWithoutConstructor();
 	// Keys in lower case, as the framework's own server registry holds them
-	$reflect->getParentClass()->getConstructor()->invoke($servReg, $serverVals, true);
-	return $servReg;
+	$reflect->getParentClass()->getConstructor()->invoke($srvrReg, $serverValues, true);
+	return $srvrReg;
 }
 
 /**
  * Builds a Request without running its constructor, carrying only the
  * given headers and server values, and the client registry read off them.
  *
- * @param Array $headersArr Header name => value pairs the request should report.
- * @param Array $serverVals Server variable => value pairs the request should report.
+ * @param Array $headersArray Header name => value pairs the request should report.
+ * @param Array $serverValues Server variable => value pairs the request should report.
  * @return nyu\Tools\Request The request object.
  */
-function fakeReqst( Array $headersArr=Array(), Array $serverVals=Array() ): nyu\Tools\Request {
+function mockRequestObj( Array $headersArray=Array(), Array $serverValues=Array() ): nyu\Tools\Request {
 	$reflect = new ReflectionClass('nyu\Tools\Request');
 	$request = $reflect->newInstanceWithoutConstructor();
-	$headPrp = $reflect->getProperty('allHeads');
-	$headPrp->setValue($request, $headersArr);
+	$hdrProp = $reflect->getProperty('everyHeads');
+	$hdrProp->setValue($request, $headersArray);
 	// Keys in lower case, as the framework's own server registry holds them
-	$servPrp = $reflect->getProperty('serveReg');
-	$servPrp->setValue($request, new nyu\Tools\Registry($serverVals + Array('REQUEST_METHOD'=>'GET'), true));
-	$clntPrp = $reflect->getProperty('clienReg');
-	$clntPrp->setValue($request, new nyu\Tools\ClientReg(fakeServr($serverVals)));
+	$srvProp = $reflect->getProperty('servRgstry');
+	$srvProp->setValue($request, new nyu\Tools\Registry($serverValues + Array('REQUEST_METHOD'=>'GET'), true));
+	$clntPrp = $reflect->getProperty('clientRgst');
+	$clntPrp->setValue($request, new nyu\Tools\ClientReg(makeFakeServer($serverValues)));
 	return $request;
 }
 
@@ -244,12 +244,12 @@ function fakeReqst( Array $headersArr=Array(), Array $serverVals=Array() ): nyu\
  * Ends a test script: reports unexpected PHP notices as failures, prints
  * the summary line, cleans the temporary folder and sets the exit code.
  */
-function endChecks(): Void {
+function finishChecking(): Void {
 	foreach( array_count_values($GLOBALS['tstStats']['note']) as $noteTx=>$noteNb ){
-		failCheck( 'unexpected PHP notice (x'.$noteNb.')', '        '.$noteTx."\n" );
+		recordFailures( 'unexpected PHP notice (x'.$noteNb.')', '        '.$noteTx."\n" );
 	}
-	dropFoldr(TMP_DIR);
-	$tstStat = $GLOBALS['tstStats'];
-	echo '  '.$tstStat['pass'].' passed, '.$tstStat['fail'].' failed'.($tstStat['skip']>0 ? ', '.$tstStat['skip'].' skipped' : '')."\n";
-	exit( $tstStat['fail']>0 ? 1 : 0 );
+	dropTestFolder(TMP_DIR);
+	$tstStts = $GLOBALS['tstStats'];
+	echo '  '.$tstStts['pass'].' passed, '.$tstStts['fail'].' failed'.($tstStts['skip']>0 ? ', '.$tstStts['skip'].' skipped' : '')."\n";
+	exit( $tstStts['fail']>0 ? 1 : 0 );
 }

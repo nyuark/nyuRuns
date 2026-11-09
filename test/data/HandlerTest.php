@@ -7,94 +7,94 @@ require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
 
 if( !extension_loaded('pdo_sqlite') ){
-	skipCheck('Handler', 'pdo_sqlite is not available');
-	endChecks();
+	recordSkipping('Handler', 'pdo_sqlite is not available');
+	finishChecking();
 }
 
 use nyu\Data\DBCon;
 
-buildData( inTempDir('handler.sqlite') );
-useSqlite( inTempDir('handler.sqlite') );
+createSampleDb( inTemporaryDir('handler.sqlite') );
+switchToSqlite( inTemporaryDir('handler.sqlite') );
 
-$dbHandl = DBCon::getInstnc('sqlte', '', '', '', inTempDir('handler.sqlite'))->getConnex();
+$dbHandl = DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
 
 // Errors
-checkSame('lastError before any error', runSafely(function() use ($dbHandl){ return $dbHandl->lastError(); }), false);
-checkSame('sendQuery on a missing table returns false', runSafely(function() use ($dbHandl){ return $dbHandl->sendQuery('SELECT * FROM `nowhere`'); }), false);
-checkLike('lastError tells the failure', (string)$dbHandl->lastError(), '/^PDO Error: .*nowhere/');
+checkIdentical('lastError before any error', runCatchThrown(function() use ($dbHandl){ return $dbHandl->finalErrorText(); }), false);
+checkIdentical('sendQuery on a missing table returns false', runCatchThrown(function() use ($dbHandl){ return $dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`'); }), false);
+checkPregMatch('lastError tells the failure', (string)$dbHandl->finalErrorText(), '/^PDO Error: .*nowhere/');
 
 // Writes
-checkSame('a write matching no row succeeds, with a count of 0', runSafely(function() use ($dbHandl){
-	return Array($dbHandl->sendQuery("UPDATE `shows` SET `venue`='Hall Z' WHERE `id_show`=999;", true), $dbHandl->lastCount());
+checkIdentical('a write matching no row succeeds, with a count of 0', runCatchThrown(function() use ($dbHandl){
+	return Array($dbHandl->sendBuiltQuery("UPDATE `shows` SET `venue`='Hall Z' WHERE `id_show`=999;", true), $dbHandl->countLastWrite());
 }), Array(true, 0));
-checkSame('a write matching a row gives a count of 1', runSafely(function() use ($dbHandl){
-	return Array($dbHandl->sendQuery("UPDATE `shows` SET `venue`='Hall Z' WHERE `id_show`=1;", true), $dbHandl->lastCount());
+checkIdentical('a write matching a row gives a count of 1', runCatchThrown(function() use ($dbHandl){
+	return Array($dbHandl->sendBuiltQuery("UPDATE `shows` SET `venue`='Hall Z' WHERE `id_show`=1;", true), $dbHandl->countLastWrite());
 }), Array(true, 1));
-checkSame('lastCount after a read is 0', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('SELECT * FROM `shows`');
-	return $dbHandl->lastCount();
+checkIdentical('lastCount after a read is 0', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('SELECT * FROM `shows`');
+	return $dbHandl->countLastWrite();
 }), 0);
 
 // Bound values
-checkSame('a read with a bound value', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('SELECT `title` FROM `shows` WHERE `id_show`=?', false, Array(2));
-	return $dbHandl->readQuery(true);
+checkIdentical('a read with a bound value', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('SELECT `title` FROM `shows` WHERE `id_show`=?', false, Array(2));
+	return $dbHandl->readLastResult(true);
 }), Array(Array('title'=>'Beta Evening')));
-checkSame('a bound read matching nothing gives an empty list', runSafely(function() use ($dbHandl){
-	return Array($dbHandl->sendQuery('SELECT `title` FROM `shows` WHERE `id_show`=?', false, Array(999)), $dbHandl->readQuery(true));
+checkIdentical('a bound read matching nothing gives an empty list', runCatchThrown(function() use ($dbHandl){
+	return Array($dbHandl->sendBuiltQuery('SELECT `title` FROM `shows` WHERE `id_show`=?', false, Array(999)), $dbHandl->readLastResult(true));
 }), Array(true, Array()));
-checkSame('a bound write keeps quotes and SQL as plain text', runSafely(function() use ($dbHandl){
-	$sentOky = $dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array("O'Hall'; DROP TABLE `shows`; --", 2));
-	$rowsDne = $dbHandl->lastCount();
-	$dbHandl->sendQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(2));
-	return Array($sentOky, $rowsDne, $dbHandl->readQuery(true));
+checkIdentical('a bound write keeps quotes and SQL as plain text', runCatchThrown(function() use ($dbHandl){
+	$sentOky = $dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array("O'Hall'; DROP TABLE `shows`; --", 2));
+	$rowsDne = $dbHandl->countLastWrite();
+	$dbHandl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(2));
+	return Array($sentOky, $rowsDne, $dbHandl->readLastResult(true));
 }), Array(true, 1, Array(Array('venue'=>"O'Hall'; DROP TABLE `shows`; --"))));
-checkSame('a bound NULL is written as NULL', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array(null, 3));
-	$dbHandl->sendQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(3));
-	return $dbHandl->readQuery(true);
+checkIdentical('a bound NULL is written as NULL', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array(null, 3));
+	$dbHandl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(3));
+	return $dbHandl->readLastResult(true);
 }), Array(Array('venue'=>null)));
-checkSame('more values than placeholders fails', runSafely(function() use ($dbHandl){
-	return $dbHandl->sendQuery('SELECT `title` FROM `shows` WHERE `id_show`=?', false, Array(1, 2));
+checkIdentical('more values than placeholders fails', runCatchThrown(function() use ($dbHandl){
+	return $dbHandl->sendBuiltQuery('SELECT `title` FROM `shows` WHERE `id_show`=?', false, Array(1, 2));
 }), false);
 
 // Table and field names
-checkSame('quoteName of a plain name', runSafely(function() use ($dbHandl){ return $dbHandl->quoteName('id_show'); }), '`id_show`');
-checkSame('quoteName of a table.field name', runSafely(function() use ($dbHandl){ return $dbHandl->quoteName('shows.title'); }), '`shows`.`title`');
-checkThrw('quoteName refuses a backtick', function() use ($dbHandl){ $dbHandl->quoteName('title` = 1 OR `venue'); }, 'RuntimeException');
-checkThrw('quoteName refuses a space', function() use ($dbHandl){ $dbHandl->quoteName('title venue'); }, 'RuntimeException');
-checkThrw('quoteName refuses an empty name', function() use ($dbHandl){ $dbHandl->quoteName(''); }, 'RuntimeException');
-checkThrw('quoteName refuses a trailing line break', function() use ($dbHandl){ $dbHandl->quoteName("title\n"); }, 'RuntimeException');
+checkIdentical('quoteName of a plain name', runCatchThrown(function() use ($dbHandl){ return $dbHandl->quoteFieldName('id_show'); }), '`id_show`');
+checkIdentical('quoteName of a table.field name', runCatchThrown(function() use ($dbHandl){ return $dbHandl->quoteFieldName('shows.title'); }), '`shows`.`title`');
+checkForThrows('quoteName refuses a backtick', function() use ($dbHandl){ $dbHandl->quoteFieldName('title` = 1 OR `venue'); }, 'RuntimeException');
+checkForThrows('quoteName refuses a space', function() use ($dbHandl){ $dbHandl->quoteFieldName('title venue'); }, 'RuntimeException');
+checkForThrows('quoteName refuses an empty name', function() use ($dbHandl){ $dbHandl->quoteFieldName(''); }, 'RuntimeException');
+checkForThrows('quoteName refuses a trailing line break', function() use ($dbHandl){ $dbHandl->quoteFieldName("title\n"); }, 'RuntimeException');
 
 // Table description
-checkSame('tableInfo gives the fields and the key', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
-checkSame('tableInfo of a table without a key', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('CREATE TABLE `notes` (`body` TEXT, `madeDate` TEXT);', true);
-	return $dbHandl->tableInfo('notes');
+checkIdentical('tableInfo gives the fields and the key', runCatchThrown(function() use ($dbHandl){ return $dbHandl->tableInfoArray('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
+checkIdentical('tableInfo of a table without a key', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('CREATE TABLE `notes` (`body` TEXT, `madeDate` TEXT);', true);
+	return $dbHandl->tableInfoArray('notes');
 }), Array('flds'=>Array('body', 'madeDate'), 'pkey'=>'', 'blob'=>Array()));
-checkSame('tableInfo of a missing table', runSafely(function() use ($dbHandl){ return $dbHandl->tableInfo('nowhere'); }), false);
-checkThrw('tableInfo refuses an invalid table name', function() use ($dbHandl){ $dbHandl->tableInfo("shows'); DROP TABLE shows; --"); }, 'RuntimeException');
+checkIdentical('tableInfo of a missing table', runCatchThrown(function() use ($dbHandl){ return $dbHandl->tableInfoArray('nowhere'); }), false);
+checkForThrows('tableInfo refuses an invalid table name', function() use ($dbHandl){ $dbHandl->tableInfoArray("shows'); DROP TABLE shows; --"); }, 'RuntimeException');
 
 // Errors do not outlive the call that raised them
-checkSame('lastError is cleared by the next successful query', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('SELECT * FROM `nowhere`');
-	$failMsg = $dbHandl->lastError();
-	$dbHandl->sendQuery('SELECT * FROM `shows`');
-	return Array(is_string($failMsg), $dbHandl->lastError());
+checkIdentical('lastError is cleared by the next successful query', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
+	$failMsg = $dbHandl->finalErrorText();
+	$dbHandl->sendBuiltQuery('SELECT * FROM `shows`');
+	return Array(is_string($failMsg), $dbHandl->finalErrorText());
 }), Array(true, false));
-checkSame('readQuery after a failed query gives false', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('SELECT * FROM `nowhere`');
-	return $dbHandl->readQuery(true);
+checkIdentical('readQuery after a failed query gives false', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
+	return $dbHandl->readLastResult(true);
 }), false);
-checkSame('readQuery after a write that changed nothing is empty, without an error', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Nowhere', 999));
-	return Array($dbHandl->readQuery(true), $dbHandl->lastError());
+checkIdentical('readQuery after a write that changed nothing is empty, without an error', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Nowhere', 999));
+	return Array($dbHandl->readLastResult(true), $dbHandl->finalErrorText());
 }), Array(Array(), false));
-checkSame('lastError is cleared by a transaction call', runSafely(function() use ($dbHandl){
-	$dbHandl->sendQuery('SELECT * FROM `nowhere`');
-	$dbHandl->opnTrnsct();
-	$opnMssg = $dbHandl->lastError();
-	$dbHandl->remTrnsct();
+checkIdentical('lastError is cleared by a transaction call', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
+	$dbHandl->opnTransaction();
+	$opnMssg = $dbHandl->finalErrorText();
+	$dbHandl->remTransaction();
 	return $opnMssg;
 }), false);
 
@@ -105,44 +105,44 @@ checkSame('lastError is cleared by a transaction call', runSafely(function() use
  * @return mixed The venue.
  */
 function venueOf4(): Mixed {
-	$dbHandl = DBCon::getInstnc('sqlte', '', '', '', inTempDir('handler.sqlite'))->getConnex();
-	$dbHandl->sendQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(4));
-	return $dbHandl->readQuery(true)[0]['venue'] ?? null;
+	$dbHandl = DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
+	$dbHandl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(4));
+	return $dbHandl->readLastResult(true)[0]['venue'] ?? null;
 }
 
-checkSame('nothing to set or remove without a transaction', runSafely(function() use ($dbHandl){
-	return Array($dbHandl->setTrnsct(), $dbHandl->remTrnsct());
+checkIdentical('nothing to set or remove without a transaction', runCatchThrown(function() use ($dbHandl){
+	return Array($dbHandl->setTransaction(), $dbHandl->remTransaction());
 }), Array(false, false));
-checkSame('a removed transaction leaves the table unchanged', runSafely(function() use ($dbHandl){
-	$opnDone = $dbHandl->opnTrnsct();
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Undone', 4));
+checkIdentical('a removed transaction leaves the table unchanged', runCatchThrown(function() use ($dbHandl){
+	$opnDone = $dbHandl->opnTransaction();
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Undone', 4));
 	$midRead = venueOf4();
-	return Array($opnDone, $midRead, $dbHandl->remTrnsct(), venueOf4());
+	return Array($opnDone, $midRead, $dbHandl->remTransaction(), venueOf4());
 }), Array(true, 'Undone', true, 'Hall S'));
-checkSame('a set transaction is kept', runSafely(function() use ($dbHandl){
-	$dbHandl->opnTrnsct();
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Kept', 4));
-	return Array($dbHandl->setTrnsct(), venueOf4(), $dbHandl->remTrnsct());
+checkIdentical('a set transaction is kept', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->opnTransaction();
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Kept', 4));
+	return Array($dbHandl->setTransaction(), venueOf4(), $dbHandl->remTransaction());
 }), Array(true, 'Kept', false));
-checkSame('an inner set followed by an outer remove keeps nothing', runSafely(function() use ($dbHandl){
-	$dbHandl->opnTrnsct();
-	$dbHandl->opnTrnsct();
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
-	$innrSet = $dbHandl->setTrnsct();
-	return Array($innrSet, $dbHandl->remTrnsct(), venueOf4());
+checkIdentical('an inner set followed by an outer remove keeps nothing', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->opnTransaction();
+	$dbHandl->opnTransaction();
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
+	$innrSet = $dbHandl->setTransaction();
+	return Array($innrSet, $dbHandl->remTransaction(), venueOf4());
 }), Array(true, true, 'Kept'));
-checkSame('an inner remove makes the outer set fail', runSafely(function() use ($dbHandl){
-	$dbHandl->opnTrnsct();
-	$dbHandl->opnTrnsct();
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
-	$innrRem = $dbHandl->remTrnsct();
-	return Array($innrRem, $dbHandl->setTrnsct(), venueOf4());
+checkIdentical('an inner remove makes the outer set fail', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->opnTransaction();
+	$dbHandl->opnTransaction();
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
+	$innrRem = $dbHandl->remTransaction();
+	return Array($innrRem, $dbHandl->setTransaction(), venueOf4());
 }), Array(true, false, 'Kept'));
-checkSame('both levels set: the change is written', runSafely(function() use ($dbHandl){
-	$dbHandl->opnTrnsct();
-	$dbHandl->opnTrnsct();
-	$dbHandl->sendQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Both', 4));
-	return Array($dbHandl->setTrnsct(), $dbHandl->setTrnsct(), $dbHandl->setTrnsct(), venueOf4());
+checkIdentical('both levels set: the change is written', runCatchThrown(function() use ($dbHandl){
+	$dbHandl->opnTransaction();
+	$dbHandl->opnTransaction();
+	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Both', 4));
+	return Array($dbHandl->setTransaction(), $dbHandl->setTransaction(), $dbHandl->setTransaction(), venueOf4());
 }), Array(true, true, false, 'Both'));
 
-endChecks();
+finishChecking();

@@ -8,16 +8,16 @@ require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
 
 if( !extension_loaded('pdo_sqlite') ){
-	skipCheck('Native marks', 'pdo_sqlite is not available');
-	endChecks();
+	recordSkipping('Native marks', 'pdo_sqlite is not available');
+	finishChecking();
 }
 
 use nyu\Access\LoginMark;
 use nyu\Access\Auth\Native;
 use nyu\Tools\Registry;
 
-$sqlFile = inTempDir('marks.sqlite');
-buildData( $sqlFile );
+$sqlFile = inTemporaryDir('marks.sqlite');
+createSampleDb( $sqlFile );
 $lmtFldr = 'temp'.DS.'nativemarks_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array(
 	'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>$sqlFile),
@@ -25,7 +25,7 @@ $GLOBALS['nyuConfig'] = new Registry( Array(
 ) );
 $natAuth = new Native( Array('tblnme'=>'users', 'maxtry'=>5, 'holdtm'=>600, 'minlen'=>8) );
 $sqlLink = new PDO('sqlite:'.$sqlFile);
-$benMark = LoginMark::fromLimit()->makesMark('ben');
+$benMark = LoginMark::fromLimitBlock()->createUserMark('ben');
 
 /**
  * Tells what the userbase answers to a login.
@@ -36,25 +36,25 @@ $benMark = LoginMark::fromLimit()->makesMark('ben');
  */
 function benLogin( String $passwdText, String $markString='' ): Mixed {
 	global $natAuth;
-	$idntArr = $natAuth->checkCred( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
+	$idntArr = $natAuth->chckCredential( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
 	return is_array($idntArr) ? ($idntArr['user'] ?? null) : false;
 }
 
 for( $idx=0; $idx<5; $idx++ ){
 	benLogin('wrong-'.$idx);
 }
-checkSame('native: ben held for a client without his mark', benLogin('pw-ben'), false);
-checkSame('native: his mark lets its client in, the account held', benLogin('pw-ben', $benMark), 'ben');
+checkIdentical('native: ben held for a client without his mark', benLogin('pw-ben'), false);
+checkIdentical('native: his mark lets its client in, the account held', benLogin('pw-ben', $benMark), 'ben');
 $befFail = intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn());
 benLogin('wrong-x', $benMark);
-checkSame('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn()), $befFail);
-checkSame('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn()), 0);
+checkIdentical('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn()), $befFail);
+checkIdentical('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failNmbr FROM users WHERE userName='ben'")->fetchColumn()), 0);
 // A password set after the mark was made ends it : held again, the mark no longer lets its client in
 $sqlLink->exec("UPDATE users SET passDate='".date('Y-m-d H:i:s', time() + 5)."' WHERE userName='ben'");
 for( $idx=0; $idx<5; $idx++ ){
 	benLogin('again-'.$idx);
 }
-checkSame('native: a mark made before the password was last set is no mark', benLogin('pw-ben', $benMark), false);
+checkIdentical('native: a mark made before the password was last set is no mark', benLogin('pw-ben', $benMark), false);
 
-dropFoldr( TOP_DIR.DS.$lmtFldr );
-endChecks();
+dropTestFolder( TOP_DIR.DS.$lmtFldr );
+finishChecking();

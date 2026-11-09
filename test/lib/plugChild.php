@@ -16,8 +16,8 @@ define('WEB_DIR', TOP_DIR.DS.'www');
 define('RUN_DIR', TOP_DIR.DS.'test'.DS.'fixtures'.DS.'runs');
 require $topDir.'/vendor/autoload.php';
 
-$lstCods = array_values( array_filter(explode(',', $argv[3] ?? ''), 'strlen') );
-$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('access'=>Array('PLUGIN'=>Array('authby'=>$lstCods, 'sessby'=>$lstCods))) );
+$listCds = array_values( array_filter(explode(',', $argv[3] ?? ''), 'strlen') );
+$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('access'=>Array('PLUGIN'=>Array('authby'=>$listCds, 'sessby'=>$listCds))) );
 
-$clsName = ($argv[1]=='sess') ? nyu\Access\Checker::sessClass($argv[2]) : nyu\Access\Checker::authClass($argv[2]);
+$clsName = ($argv[1]=='sess') ? nyu\Access\Checker::sessnClassText($argv[2]) : nyu\Access\Checker::authClssString($argv[2]);
 echo ($clsName===null) ? 'null' : $clsName;

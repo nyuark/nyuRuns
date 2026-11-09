@@ -3,19 +3,19 @@
 // Test-only replacement for the php:// stream wrapper, so that reading
 // php://input returns a body chosen by the test:
 //
-//   FakeInput::plugInput();
+//   FakeInput::plugFakeStream();
 //   FakeInput::$bodyText = '{"a":1}';
 
 class FakeInput {
 
-	public static $bodyText = '';
+	public static $bodyString = '';
 	public $context;
-	protected $readPosn = 0;
+	protected $readOffset = 0;
 
 	/**
 	 * Replaces the php:// wrapper with this class.
 	 */
-	public static function plugInput(): Void {
+	public static function plugFakeStream(): Void {
 		stream_wrapper_unregister('php');
 		stream_wrapper_register('php', 'FakeInput');
 	}
@@ -23,26 +23,26 @@ class FakeInput {
 	/**
 	 * Stream wrapper hook: opens the fake stream.
 	 *
-	 * @param String  $streamPath Path being opened.
-	 * @param String  $accessMode Mode it is opened with.
-	 * @param Int     $optionBits Stream options.
-	 * @param ?String $openedPath Path actually opened, set by the wrapper.
+	 * @param String  $pathAskedFor Path being opened.
+	 * @param String  $accsModeText Mode it is opened with.
+	 * @param Int     $optionBitsNb Stream options.
+	 * @param ?String $pathReturned Path actually opened, set by the wrapper.
 	 * @return Bool Always true.
 	 */
-	public function stream_open( String $streamPath, String $accessMode, Int $optionBits, ?String &$openedPath ): Bool {
-		$this->readPosn = 0;
+	public function stream_open( String $pathAskedFor, String $accsModeText, Int $optionBitsNb, ?String &$pathReturned ): Bool {
+		$this->readOffset = 0;
 		return true;
 	}
 
 	/**
 	 * Stream wrapper hook: reads the next chunk of the chosen body.
 	 *
-	 * @param Int $bytesCount Number of bytes asked for.
+	 * @param Int $dataByteSize Number of bytes asked for.
 	 * @return String The chunk read.
 	 */
-	public function stream_read( Int $bytesCount ): String {
-		$chunkTx = substr(self::$bodyText, $this->readPosn, $bytesCount);
-		$this->readPosn += strlen($chunkTx);
+	public function stream_read( Int $dataByteSize ): String {
+		$chunkTx = substr(self::$bodyString, $this->readOffset, $dataByteSize);
+		$this->readOffset += strlen($chunkTx);
 		return $chunkTx;
 	}
 
@@ -52,7 +52,7 @@ class FakeInput {
 	 * @return Bool True at the end of the body.
 	 */
 	public function stream_eof(): Bool {
-		return $this->readPosn >= strlen(self::$bodyText);
+		return $this->readOffset >= strlen(self::$bodyString);
 	}
 
 	/**

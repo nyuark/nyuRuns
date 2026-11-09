@@ -34,17 +34,17 @@ chdir($topDir.DIRECTORY_SEPARATOR.'www');
 require $topDir.'/vendor/autoload.php';
 require __DIR__.'/sample.php';
 if( !file_exists($sqlFile) ){
-	buildData($sqlFile);
+	createSampleDb($sqlFile);
 }
 // DBCon is a singleton that ignores later arguments, so this decides the connection for the request
-nyu\Data\DBCon::getInstnc('sqlte', '', '', '', $sqlFile);
+nyu\Data\DBCon::obtainInstance('sqlte', '', '', '', $sqlFile);
 
 // X-Test-Cert: <result>;<name>;<issuer> stands in for the web server reporting a TLS client certificate
 if( isset($_SERVER['HTTP_X_TEST_CERT']) ){
-	$certPrt = explode(';', $_SERVER['HTTP_X_TEST_CERT']) + Array('', '', '');
-	$_SERVER['SSL_CLIENT_VERIFY'] = $certPrt[0];
-	$_SERVER['SSL_CLIENT_S_DN_CN'] = $certPrt[1];
-	$_SERVER['SSL_CLIENT_I_DN_CN'] = $certPrt[2];
+	$crtPart = explode(';', $_SERVER['HTTP_X_TEST_CERT']) + Array('', '', '');
+	$_SERVER['SSL_CLIENT_VERIFY'] = $crtPart[0];
+	$_SERVER['SSL_CLIENT_S_DN_CN'] = $crtPart[1];
+	$_SERVER['SSL_CLIENT_I_DN_CN'] = $crtPart[2];
 }
 
 $overArr = Array();
@@ -87,11 +87,11 @@ if( isset($_SERVER['HTTP_X_TEST_HTROOT']) && preg_match('/^\w+$/', $_SERVER['HTT
 	$overArr['route']['htroot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_HTROOT'];
 }
 
-$useFixtr = isset($_SERVER['HTTP_X_TEST_RUNS']);
+$useFxtr = isset($_SERVER['HTTP_X_TEST_RUNS']);
 
 $presetNm = $_SERVER['HTTP_X_TEST_PRESET'] ?? '';
 
-if( empty($overArr) && !$useFixtr && $presetNm=='' ){
+if( empty($overArr) && !$useFxtr && $presetNm=='' ){
 	require $topDir.'/www/index.php';
 	return;
 }
@@ -100,5 +100,5 @@ if( empty($overArr) && !$useFixtr && $presetNm=='' ){
 define('DS', DIRECTORY_SEPARATOR);
 define('TOP_DIR', realpath($topDir));
 define('WEB_DIR', TOP_DIR.DS.'www');
-define('RUN_DIR', $useFixtr ? TOP_DIR.DS.'test'.DS.'fixtures'.DS.'runs' : TOP_DIR.DS.'runs');
+define('RUN_DIR', $useFxtr ? TOP_DIR.DS.'test'.DS.'fixtures'.DS.'runs' : TOP_DIR.DS.'runs');
 $nyuRun = new \nyu\Runner($presetNm, $overArr);

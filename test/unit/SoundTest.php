@@ -17,8 +17,8 @@ $dotPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
  * @return mixed The sound, or a 'THROWN ...' string.
  */
 function sndOpen( String $rawContent ): Mixed {
-	return runSafely(function() use ($rawContent){
-		return Sound::openFluxd(Fluxd::openBytes($rawContent));
+	return runCatchThrown(function() use ($rawContent){
+		return Sound::openFluxdArchv(Fluxd::openBytesFluxd($rawContent));
 	});
 }
 
@@ -139,32 +139,32 @@ function sndMp4( String $trackKinds, String $tagsBoxes='' ): String {
 }
 
 // What is not a sound
-checkLike('an empty content', sndOpen(''), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkLike('a content that is not a sound', sndOpen('<html><body><p>not a sound</p></body></html>'), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkLike('a picture is not a sound', sndOpen($dotPng), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkLike('bytes that only look like the start of a frame', sndOpen(str_repeat("\xFF\xFB\x90\x00junk", 50)), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkLike('a tag claiming more than the file holds', sndOpen("ID3\x03\x00\x00\x7F\x7F\x7F\x7F".sndMp3(10)), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkLike('a source larger than the size accepted', runSafely(function(){ return Sound::openFluxd(Fluxd::openBytes(sndWav(8000)), 100); }), '/^THROWN RuntimeException: Content larger than the 100 bytes allowed/');
+checkPregMatch('an empty content', sndOpen(''), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkPregMatch('a content that is not a sound', sndOpen('<html><body><p>not a sound</p></body></html>'), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkPregMatch('a picture is not a sound', sndOpen($dotPng), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkPregMatch('bytes that only look like the start of a frame', sndOpen(str_repeat("\xFF\xFB\x90\x00junk", 50)), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkPregMatch('a tag claiming more than the file holds', sndOpen("ID3\x03\x00\x00\x7F\x7F\x7F\x7F".sndMp3(10)), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkPregMatch('a source larger than the size accepted', runCatchThrown(function(){ return Sound::openFluxdArchv(Fluxd::openBytesFluxd(sndWav(8000)), 100); }), '/^THROWN RuntimeException: Content larger than the 100 bytes allowed/');
 
 // WAV
 $wavTags = 'LIST'.pack('V', 4+8+10+8+6).'INFO'.'INAM'.pack('V', 10)."Morning\0\0\0".'IART'.pack('V', 6)."Alice\0";
 $wavFile = sndWav(16000, $wavTags);
 $wavSnd = sndOpen($wavFile);
-checkSame('a WAV sound', $wavSnd->soundInfo(), Array('kinds'=>'wav', 'secnd'=>2.0, 'rates'=>8000, 'chans'=>1, 'bitrt'=>128, 'bytes'=>strlen($wavFile), 'tagsl'=>Array('title'=>'Morning', 'artst'=>'Alice')));
-checkSame('a WAV sound carrying no picture', $wavSnd->giveCover(), null);
-checkSame('a WAV sound given back without its tags', Array(strlen($wavSnd->giveBytes()), sndOpen($wavSnd->giveBytes())->soundInfo()['tagsl'], strpos($wavSnd->giveBytes(), 'Alice')), Array(44+32000, Array(), false));
-$wavPart = $wavSnd->trimSound(0.5, 1.25);
-checkSame('a part of a WAV sound', Array($wavPart->soundInfo()['secnd'], $wavPart->soundInfo()['bytes'], unpack('v2', substr($wavPart->giveBytes(), 44, 4)), unpack('v', substr($wavPart->giveBytes(), -2))[1]), Array(0.75, 44+12000, Array(1=>4000, 2=>4001), 9999));
-checkSame('a part running past the end stops at the end', $wavSnd->trimSound(1.5, 60)->soundInfo()['secnd'], 0.5);
-checkSame('a part starting before the start starts at the start', $wavSnd->trimSound(-3, 0.25)->soundInfo()['secnd'], 0.25);
-checkLike('a part holding nothing', runSafely(function() use ($wavSnd){ return $wavSnd->trimSound(1.5, 1.5); }), '/^THROWN RuntimeException: The part asked for holds nothing of the sound/');
-checkLike('a part past the end', runSafely(function() use ($wavSnd){ return $wavSnd->trimSound(5, 6); }), '/^THROWN RuntimeException: The part asked for holds nothing of the sound/');
-checkLike('another kind is not given without a program', runSafely(function() use ($wavSnd){ return $wavSnd->giveBytes('mp3'); }), '/^THROWN RuntimeException: Giving a sound as another kind takes a program/');
-checkLike('a WAV sound cut short', sndOpen(substr($wavFile, 0, 30)), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkIdentical('a WAV sound', $wavSnd->soundInfoArray(), Array('kinds'=>'wav', 'secnd'=>2.0, 'rates'=>8000, 'chans'=>1, 'bitrt'=>128, 'bytes'=>strlen($wavFile), 'tagsl'=>Array('title'=>'Morning', 'artst'=>'Alice')));
+checkIdentical('a WAV sound carrying no picture', $wavSnd->giveCoverImage(), null);
+checkIdentical('a WAV sound given back without its tags', Array(strlen($wavSnd->grantBytesText()), sndOpen($wavSnd->grantBytesText())->soundInfoArray()['tagsl'], strpos($wavSnd->grantBytesText(), 'Alice')), Array(44+32000, Array(), false));
+$wavPart = $wavSnd->makeSoundSlice(0.5, 1.25);
+checkIdentical('a part of a WAV sound', Array($wavPart->soundInfoArray()['secnd'], $wavPart->soundInfoArray()['bytes'], unpack('v2', substr($wavPart->grantBytesText(), 44, 4)), unpack('v', substr($wavPart->grantBytesText(), -2))[1]), Array(0.75, 44+12000, Array(1=>4000, 2=>4001), 9999));
+checkIdentical('a part running past the end stops at the end', $wavSnd->makeSoundSlice(1.5, 60)->soundInfoArray()['secnd'], 0.5);
+checkIdentical('a part starting before the start starts at the start', $wavSnd->makeSoundSlice(-3, 0.25)->soundInfoArray()['secnd'], 0.25);
+checkPregMatch('a part holding nothing', runCatchThrown(function() use ($wavSnd){ return $wavSnd->makeSoundSlice(1.5, 1.5); }), '/^THROWN RuntimeException: The part asked for holds nothing of the sound/');
+checkPregMatch('a part past the end', runCatchThrown(function() use ($wavSnd){ return $wavSnd->makeSoundSlice(5, 6); }), '/^THROWN RuntimeException: The part asked for holds nothing of the sound/');
+checkPregMatch('another kind is not given without a program', runCatchThrown(function() use ($wavSnd){ return $wavSnd->grantBytesText('mp3'); }), '/^THROWN RuntimeException: Giving a sound as another kind takes a program/');
+checkPregMatch('a WAV sound cut short', sndOpen(substr($wavFile, 0, 30)), '/^THROWN RuntimeException: Not a sound of a known kind/');
 // A tag written as MP3 sounds write theirs, in a WAV sound
 $wavId3 = sndId3(Array('TIT2'=>"\x03Evening", 'APIC'=>"\x00image/png\x00\x03\x00".$dotPng));
 $wavSnd = sndOpen(sndWav(8000, 'id3 '.pack('V', strlen($wavId3)).$wavId3));
-checkSame('a WAV sound tagged as MP3 sounds are', Array($wavSnd->soundInfo()['tagsl'], $wavSnd->giveCover()->imageInfo()['kinds']), Array(Array('title'=>'Evening'), 'png'));
+checkIdentical('a WAV sound tagged as MP3 sounds are', Array($wavSnd->soundInfoArray()['tagsl'], $wavSnd->giveCoverImage()->imageInfoArray()['kinds']), Array(Array('title'=>'Evening'), 'png'));
 
 // MP3
 $mp3Tags = sndId3(Array(
@@ -173,30 +173,30 @@ $mp3Tags = sndId3(Array(
 ));
 $mp3File = $mp3Tags.sndMp3(100);
 $mp3Snd = sndOpen($mp3File);
-checkSame('an MP3 sound', $mp3Snd->soundInfo(), Array('kinds'=>'mp3', 'secnd'=>2.612, 'rates'=>44100, 'chans'=>2, 'bitrt'=>128, 'bytes'=>strlen($mp3File), 'tagsl'=>Array('title'=>'Café du matin', 'artst'=>'Zoé', 'album'=>'Été', 'years'=>'2019', 'track'=>'3', 'genre'=>'Rock')));
-checkSame('the picture an MP3 sound carries', Array($mp3Snd->giveCover()->imageInfo()['kinds'], $mp3Snd->giveCover()->imageInfo()['width']), Array('png', 1));
-checkSame('an MP3 sound given back without its tags', Array($mp3Snd->giveBytes()===sndMp3(100), sndOpen($mp3Snd->giveBytes())->soundInfo()['tagsl'], sndOpen($mp3Snd->giveBytes())->giveCover()), Array(true, Array(), null));
+checkIdentical('an MP3 sound', $mp3Snd->soundInfoArray(), Array('kinds'=>'mp3', 'secnd'=>2.612, 'rates'=>44100, 'chans'=>2, 'bitrt'=>128, 'bytes'=>strlen($mp3File), 'tagsl'=>Array('title'=>'Café du matin', 'artst'=>'Zoé', 'album'=>'Été', 'years'=>'2019', 'track'=>'3', 'genre'=>'Rock')));
+checkIdentical('the picture an MP3 sound carries', Array($mp3Snd->giveCoverImage()->imageInfoArray()['kinds'], $mp3Snd->giveCoverImage()->imageInfoArray()['width']), Array('png', 1));
+checkIdentical('an MP3 sound given back without its tags', Array($mp3Snd->grantBytesText()===sndMp3(100), sndOpen($mp3Snd->grantBytesText())->soundInfoArray()['tagsl'], sndOpen($mp3Snd->grantBytesText())->giveCoverImage()), Array(true, Array(), null));
 // Frames of 1152 samples at 44100 Hz: the frames 39 to 76 start between the first and the second second
-$mp3Part = $mp3Snd->trimSound(1.0, 2.0);
-checkSame('a part of an MP3 sound, cut at its frames', Array($mp3Part->soundInfo()['secnd'], $mp3Part->soundInfo()['bytes'], ord($mp3Part->giveBytes()[4]), ord($mp3Part->giveBytes()[37*417+4])), Array(0.993, 38*417, 39, 76));
+$mp3Part = $mp3Snd->makeSoundSlice(1.0, 2.0);
+checkIdentical('a part of an MP3 sound, cut at its frames', Array($mp3Part->soundInfoArray()['secnd'], $mp3Part->soundInfoArray()['bytes'], ord($mp3Part->grantBytesText()[4]), ord($mp3Part->grantBytesText()[37*417+4])), Array(0.993, 38*417, 39, 76));
 // The first kind of tag, at the very end
 $oldTags = 'TAG'.str_pad('Old title', 30, "\0").str_pad("Ren\xE9", 30, "\0").str_pad('Old album', 30, ' ').'1987'.str_repeat("\0", 28)."\0\x07\x08";
 $mp3Snd = sndOpen(sndMp3(50).$oldTags);
-checkSame('the tags at the end of an MP3 sound', Array($mp3Snd->soundInfo()['tagsl'], strlen($mp3Snd->giveBytes())), Array(Array('title'=>'Old title', 'artst'=>'René', 'album'=>'Old album', 'years'=>'1987', 'track'=>'7', 'genre'=>'Jazz'), 50*417));
-checkSame('the tags before the sound win over the tags at its end', sndOpen(sndId3(Array('TIT2'=>"\x00New title")).sndMp3(50).$oldTags)->soundInfo()['tagsl']['title'], 'New title');
+checkIdentical('the tags at the end of an MP3 sound', Array($mp3Snd->soundInfoArray()['tagsl'], strlen($mp3Snd->grantBytesText())), Array(Array('title'=>'Old title', 'artst'=>'René', 'album'=>'Old album', 'years'=>'1987', 'track'=>'7', 'genre'=>'Jazz'), 50*417));
+checkIdentical('the tags before the sound win over the tags at its end', sndOpen(sndId3(Array('TIT2'=>"\x00New title")).sndMp3(50).$oldTags)->soundInfoArray()['tagsl']['title'], 'New title');
 // A first frame only telling how the sound is laid out is not counted
 $layFrme = "\xFF\xFB\x90\x00".str_repeat("\0", 32).'Xing'.str_repeat("\0", 377);
-checkSame('a frame holding nothing heard', Array(sndOpen($layFrme.sndMp3(100))->soundInfo()['secnd'], sndOpen($layFrme.sndMp3(100))->giveBytes()===sndMp3(100)), Array(2.612, true));
+checkIdentical('a frame holding nothing heard', Array(sndOpen($layFrme.sndMp3(100))->soundInfoArray()['secnd'], sndOpen($layFrme.sndMp3(100))->grantBytesText()===sndMp3(100)), Array(2.612, true));
 // What a tag may hold
 $badTags = sndId3(Array('TIT2'=>"\x03Line one\nLine\x07 two\x1B[31m", 'TPE1'=>"\x03".str_repeat('é', 700), 'TALB'=>"\x03\xFF\xFEnot utf-8", 'TYER'=>"\x00year 1999!", 'TRCK'=>"\x00none", 'TCON'=>"\x00(200)", 'APIC'=>"\x00text/plain\x00\x03\x00not a picture"));
 $mp3Snd = sndOpen($badTags.sndMp3(20));
-checkSame('a tag is one line, without what cannot be shown', $mp3Snd->soundInfo()['tagsl']['title'], 'Line one Line two [31m');
-checkSame('a tag is no longer than 500 characters', mb_strlen($mp3Snd->soundInfo()['tagsl']['artst'], 'UTF-8'), 500);
-checkSame('a tag is always UTF-8', preg_match('//u', $mp3Snd->soundInfo()['tagsl']['album']), 1);
-checkSame('a year is four digits, a track a number, a genre unknown is not told', Array($mp3Snd->soundInfo()['tagsl']['years'], isset($mp3Snd->soundInfo()['tagsl']['track']), isset($mp3Snd->soundInfo()['tagsl']['genre'])), Array('1999', false, false));
-checkSame('what is carried as a picture and is not one', $mp3Snd->giveCover(), null);
+checkIdentical('a tag is one line, without what cannot be shown', $mp3Snd->soundInfoArray()['tagsl']['title'], 'Line one Line two [31m');
+checkIdentical('a tag is no longer than 500 characters', mb_strlen($mp3Snd->soundInfoArray()['tagsl']['artst'], 'UTF-8'), 500);
+checkIdentical('a tag is always UTF-8', preg_match('//u', $mp3Snd->soundInfoArray()['tagsl']['album']), 1);
+checkIdentical('a year is four digits, a track a number, a genre unknown is not told', Array($mp3Snd->soundInfoArray()['tagsl']['years'], isset($mp3Snd->soundInfoArray()['tagsl']['track']), isset($mp3Snd->soundInfoArray()['tagsl']['genre'])), Array('1999', false, false));
+checkIdentical('what is carried as a picture and is not one', $mp3Snd->giveCoverImage(), null);
 // A tag whose frames run past its end
-checkSame('a tag whose frame claims more than it holds', sndOpen("ID3\x03\x00\x00".sndSafe(20).'TIT2'.pack('N', 5000)."\0\0".'abcdefghij'.sndMp3(20))->soundInfo()['tagsl'], Array());
+checkIdentical('a tag whose frame claims more than it holds', sndOpen("ID3\x03\x00\x00".sndSafe(20).'TIT2'.pack('N', 5000)."\0\0".'abcdefghij'.sndMp3(20))->soundInfoArray()['tagsl'], Array());
 
 // FLAC
 $flacInf = pack('nn', 4096, 4096).str_repeat("\0", 6).pack('J', (44100<<44) | (1<<41) | (15<<36) | 88200).str_repeat("\0", 16);
@@ -205,34 +205,34 @@ $flacPic = sndPic($dotPng);
 $flacBdy = "\xFF\xF8".str_repeat("\x55", 998);
 $flacFle = 'fLaC'."\x00".substr(pack('N', strlen($flacInf)), 1).$flacInf."\x04".substr(pack('N', strlen($flacCmt)), 1).$flacCmt."\x86".substr(pack('N', strlen($flacPic)), 1).$flacPic.$flacBdy;
 $flacSnd = sndOpen($flacFle);
-checkSame('a FLAC sound', $flacSnd->soundInfo(), Array('kinds'=>'flac', 'secnd'=>2.0, 'rates'=>44100, 'chans'=>2, 'bitrt'=>4, 'bytes'=>strlen($flacFle), 'tagsl'=>Array('title'=>'Nocturne', 'artst'=>'Frédéric', 'album'=>'Piano', 'years'=>'1832', 'track'=>'2', 'genre'=>'Classical')));
-checkSame('the picture a FLAC sound carries', $flacSnd->giveCover()->imageInfo()['kinds'], 'png');
-$flacOut = $flacSnd->giveBytes();
-checkSame('a FLAC sound given back without its tags', Array($flacOut==='fLaC'."\x80".substr(pack('N', strlen($flacInf)), 1).$flacInf.$flacBdy, sndOpen($flacOut)->soundInfo()['tagsl'], sndOpen($flacOut)->soundInfo()['secnd'], sndOpen($flacOut)->giveCover()), Array(true, Array(), 2.0, null));
-checkLike('a FLAC sound is not cut without a program', runSafely(function() use ($flacSnd){ return $flacSnd->trimSound(0, 1); }), '/^THROWN RuntimeException: Cutting a sound of this kind takes a program that unpacks it, which this server does not have: flac/');
-checkLike('a FLAC sound cut short', sndOpen(substr($flacFle, 0, 20)), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkSame('a FLAC sound standing after a tag of MP3 sounds', sndOpen(sndId3(Array('TIT2'=>"\x00Ignored")).$flacFle)->soundInfo()['kinds'], 'flac');
+checkIdentical('a FLAC sound', $flacSnd->soundInfoArray(), Array('kinds'=>'flac', 'secnd'=>2.0, 'rates'=>44100, 'chans'=>2, 'bitrt'=>4, 'bytes'=>strlen($flacFle), 'tagsl'=>Array('title'=>'Nocturne', 'artst'=>'Frédéric', 'album'=>'Piano', 'years'=>'1832', 'track'=>'2', 'genre'=>'Classical')));
+checkIdentical('the picture a FLAC sound carries', $flacSnd->giveCoverImage()->imageInfoArray()['kinds'], 'png');
+$flacOut = $flacSnd->grantBytesText();
+checkIdentical('a FLAC sound given back without its tags', Array($flacOut==='fLaC'."\x80".substr(pack('N', strlen($flacInf)), 1).$flacInf.$flacBdy, sndOpen($flacOut)->soundInfoArray()['tagsl'], sndOpen($flacOut)->soundInfoArray()['secnd'], sndOpen($flacOut)->giveCoverImage()), Array(true, Array(), 2.0, null));
+checkPregMatch('a FLAC sound is not cut without a program', runCatchThrown(function() use ($flacSnd){ return $flacSnd->makeSoundSlice(0, 1); }), '/^THROWN RuntimeException: Cutting a sound of this kind takes a program that unpacks it, which this server does not have: flac/');
+checkPregMatch('a FLAC sound cut short', sndOpen(substr($flacFle, 0, 20)), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkIdentical('a FLAC sound standing after a tag of MP3 sounds', sndOpen(sndId3(Array('TIT2'=>"\x00Ignored")).$flacFle)->soundInfoArray()['kinds'], 'flac');
 
 // Ogg
 $oggCmt = sndCmt(Array('TITLE=Rain', 'ARTIST=Bob', 'METADATA_BLOCK_PICTURE='.base64_encode(sndPic($dotPng))));
 $oggFile = sndOgg(Array("\x01vorbis".pack('V', 0).chr(2).pack('V', 48000).str_repeat("\0", 14)), 0).sndOgg(Array("\x03vorbis".$oggCmt, "\x05vorbis".str_repeat("\0", 20)), 0).sndOgg(Array(str_repeat("\x11", 300)), 96000);
 $oggSnd = sndOpen($oggFile);
-checkSame('an Ogg Vorbis sound', $oggSnd->soundInfo(), Array('kinds'=>'ogg', 'secnd'=>2.0, 'rates'=>48000, 'chans'=>2, 'bitrt'=>intval(round(strlen($oggFile)*8/2000)), 'bytes'=>strlen($oggFile), 'tagsl'=>Array('title'=>'Rain', 'artst'=>'Bob')));
-checkSame('the picture an Ogg sound carries', $oggSnd->giveCover()->imageInfo()['kinds'], 'png');
-checkLike('the tags of an Ogg sound are not taken off as it is written', runSafely(function() use ($oggSnd){ return $oggSnd->giveBytes(); }), '/^THROWN RuntimeException: The tags of a sound of this kind cannot be taken off as it is written: ogg/');
+checkIdentical('an Ogg Vorbis sound', $oggSnd->soundInfoArray(), Array('kinds'=>'ogg', 'secnd'=>2.0, 'rates'=>48000, 'chans'=>2, 'bitrt'=>intval(round(strlen($oggFile)*8/2000)), 'bytes'=>strlen($oggFile), 'tagsl'=>Array('title'=>'Rain', 'artst'=>'Bob')));
+checkIdentical('the picture an Ogg sound carries', $oggSnd->giveCoverImage()->imageInfoArray()['kinds'], 'png');
+checkPregMatch('the tags of an Ogg sound are not taken off as it is written', runCatchThrown(function() use ($oggSnd){ return $oggSnd->grantBytesText(); }), '/^THROWN RuntimeException: The tags of a sound of this kind cannot be taken off as it is written: ogg/');
 $opusFle = sndOgg(Array('OpusHead'.chr(1).chr(1).pack('v', 312).pack('V', 44100)."\0\0\0"), 0).sndOgg(Array('OpusTags'.sndCmt(Array('TITLE=Voice'))), 0).sndOgg(Array(str_repeat("\x11", 300)), 96312);
-checkSame('an Ogg Opus sound', array_slice(sndOpen($opusFle)->soundInfo(), 0, 4)+Array('tagsl'=>sndOpen($opusFle)->soundInfo()['tagsl']), Array('kinds'=>'ogg', 'secnd'=>2.0, 'rates'=>48000, 'chans'=>1, 'tagsl'=>Array('title'=>'Voice')));
-checkLike('an Ogg file that holds no sound this reads', sndOpen(sndOgg(Array("\x80theora".str_repeat("\0", 30)), 0).sndOgg(Array('x'), 500)), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkIdentical('an Ogg Opus sound', array_slice(sndOpen($opusFle)->soundInfoArray(), 0, 4)+Array('tagsl'=>sndOpen($opusFle)->soundInfoArray()['tagsl']), Array('kinds'=>'ogg', 'secnd'=>2.0, 'rates'=>48000, 'chans'=>1, 'tagsl'=>Array('title'=>'Voice')));
+checkPregMatch('an Ogg file that holds no sound this reads', sndOpen(sndOgg(Array("\x80theora".str_repeat("\0", 30)), 0).sndOgg(Array('x'), 500)), '/^THROWN RuntimeException: Not a sound of a known kind/');
 
 // MP4
 $mp4Tags = sndBox("\xA9nam", sndBox('data', pack('NN', 1, 0).'Sunrise')).sndBox("\xA9ART", sndBox('data', pack('NN', 1, 0).'Carol')).sndBox("\xA9day", sndBox('data', pack('NN', 1, 0).'2021-03-04')).sndBox('trkn', sndBox('data', pack('NN', 0, 0).pack('nnnn', 0, 5, 9, 0))).sndBox('gnre', sndBox('data', pack('NN', 0, 0).pack('n', 9))).sndBox('covr', sndBox('data', pack('NN', 14, 0).$dotPng));
 $mp4File = sndMp4('soun', $mp4Tags);
 $mp4Snd = sndOpen($mp4File);
-checkSame('an MP4 sound', $mp4Snd->soundInfo(), Array('kinds'=>'m4a', 'secnd'=>2.0, 'rates'=>44100, 'chans'=>2, 'bitrt'=>intval(round(strlen($mp4File)*8/2000)), 'bytes'=>strlen($mp4File), 'tagsl'=>Array('title'=>'Sunrise', 'artst'=>'Carol', 'years'=>'2021', 'track'=>'5', 'genre'=>'Jazz')));
-checkSame('the picture an MP4 sound carries', $mp4Snd->giveCover()->imageInfo()['kinds'], 'png');
-checkSame('an MP4 sound without tags', sndOpen(sndMp4('soun'))->soundInfo()['tagsl'], Array());
-checkLike('an MP4 file holding moving pictures is not a sound', sndOpen(sndMp4('vide')), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkLike('an MP4 sound is not cut without a program', runSafely(function() use ($mp4Snd){ return $mp4Snd->trimSound(0, 1); }), '/^THROWN RuntimeException: Cutting a sound of this kind takes a program/');
+checkIdentical('an MP4 sound', $mp4Snd->soundInfoArray(), Array('kinds'=>'m4a', 'secnd'=>2.0, 'rates'=>44100, 'chans'=>2, 'bitrt'=>intval(round(strlen($mp4File)*8/2000)), 'bytes'=>strlen($mp4File), 'tagsl'=>Array('title'=>'Sunrise', 'artst'=>'Carol', 'years'=>'2021', 'track'=>'5', 'genre'=>'Jazz')));
+checkIdentical('the picture an MP4 sound carries', $mp4Snd->giveCoverImage()->imageInfoArray()['kinds'], 'png');
+checkIdentical('an MP4 sound without tags', sndOpen(sndMp4('soun'))->soundInfoArray()['tagsl'], Array());
+checkPregMatch('an MP4 file holding moving pictures is not a sound', sndOpen(sndMp4('vide')), '/^THROWN RuntimeException: Not a sound of a known kind/');
+checkPregMatch('an MP4 sound is not cut without a program', runCatchThrown(function() use ($mp4Snd){ return $mp4Snd->makeSoundSlice(0, 1); }), '/^THROWN RuntimeException: Cutting a sound of this kind takes a program/');
 
 // A WAV sound changed without a program
 /**
@@ -259,40 +259,40 @@ function sndRaw( Array $samplesArr, Int $ratesHertz, Int $chansCount, Int $sampl
  * @return Array Its samples a second, channels, bits a sample, then the samples.
  */
 function sndSee( Sound $soundToSee, Int $samplesNbr ): Array {
-	$wavBytes = $soundToSee->giveBytes();
+	$wavBytes = $soundToSee->grantBytesText();
 	$bitsNbr = unpack('v', substr($wavBytes, 34, 2))[1];
 	$bytesNbr = intdiv($bitsNbr, 8);
 	$smplLst = Array();
 	for($smpIdx=0; $smpIdx<$samplesNbr; $smpIdx++){
 		$smplLst[] = unpack('V', str_pad(substr($wavBytes, 44+$smpIdx*$bytesNbr, $bytesNbr), 4, "\0"))[1];
 	}
-	return Array($soundToSee->soundInfo()['rates'], $soundToSee->soundInfo()['chans'], $bitsNbr, $smplLst);
+	return Array($soundToSee->soundInfoArray()['rates'], $soundToSee->soundInfoArray()['chans'], $bitsNbr, $smplLst);
 }
 $wavSnd = sndOpen(sndRaw(array_merge(Array(0, 100, 200, 65436, 1000, 3000), array_fill(0, 15994, 0)), 8000, 1, 16));
-checkSame('one channel made two', sndSee($wavSnd->changeWav(0, 2), 8), Array(8000, 2, 16, Array(0, 0, 100, 100, 200, 200, 65436, 65436)));
-checkSame('twice the samples a second: a line drawn between two samples', sndSee($wavSnd->changeWav(16000), 8), Array(16000, 1, 16, Array(0, 50, 100, 150, 200, 50, 65436, 450)));
-checkSame('the sound lasts as long, whatever is changed', Array($wavSnd->soundInfo()['secnd'], $wavSnd->changeWav(16000)->soundInfo()['secnd'], $wavSnd->changeWav(11025, 2, 8)->soundInfo()['secnd'], $wavSnd->changeWav(48000, 2, 24)->soundInfo()['bytes']), Array(2.0, 2.0, 2.0, 44+96000*6));
-checkSame('16 bits made 8, written from 0 to 255', sndSee(sndOpen(sndRaw(Array(0, 16384, 49152, 32767, 32768), 8000, 1, 16))->changeWav(0, 0, 8), 5), Array(8000, 1, 8, Array(128, 192, 64, 255, 0)));
-checkSame('8 bits made 16, written around 0', sndSee(sndOpen(sndRaw(Array(128, 192, 64, 255, 0, 128), 8000, 1, 8))->changeWav(0, 0, 16), 5), Array(8000, 1, 16, Array(0, 16384, 49152, 32512, 32768)));
-checkSame('16 bits made 24 and 32, and back', Array(sndSee(sndOpen(sndRaw(Array(1, 65535), 8000, 1, 16))->changeWav(0, 0, 24), 2)[3], sndSee(sndOpen(sndRaw(Array(1, 65535), 8000, 1, 16))->changeWav(0, 0, 32), 2)[3], sndSee(sndOpen(sndRaw(Array(1, 65535), 8000, 1, 16))->changeWav(0, 0, 24)->changeWav(0, 0, 16), 2)[3]), Array(Array(256, 0xFFFF00), Array(65536, 0xFFFF0000), Array(1, 65535)));
+checkIdentical('one channel made two', sndSee($wavSnd->changeWavSound(0, 2), 8), Array(8000, 2, 16, Array(0, 0, 100, 100, 200, 200, 65436, 65436)));
+checkIdentical('twice the samples a second: a line drawn between two samples', sndSee($wavSnd->changeWavSound(16000), 8), Array(16000, 1, 16, Array(0, 50, 100, 150, 200, 50, 65436, 450)));
+checkIdentical('the sound lasts as long, whatever is changed', Array($wavSnd->soundInfoArray()['secnd'], $wavSnd->changeWavSound(16000)->soundInfoArray()['secnd'], $wavSnd->changeWavSound(11025, 2, 8)->soundInfoArray()['secnd'], $wavSnd->changeWavSound(48000, 2, 24)->soundInfoArray()['bytes']), Array(2.0, 2.0, 2.0, 44+96000*6));
+checkIdentical('16 bits made 8, written from 0 to 255', sndSee(sndOpen(sndRaw(Array(0, 16384, 49152, 32767, 32768), 8000, 1, 16))->changeWavSound(0, 0, 8), 5), Array(8000, 1, 8, Array(128, 192, 64, 255, 0)));
+checkIdentical('8 bits made 16, written around 0', sndSee(sndOpen(sndRaw(Array(128, 192, 64, 255, 0, 128), 8000, 1, 8))->changeWavSound(0, 0, 16), 5), Array(8000, 1, 16, Array(0, 16384, 49152, 32512, 32768)));
+checkIdentical('16 bits made 24 and 32, and back', Array(sndSee(sndOpen(sndRaw(Array(1, 65535), 8000, 1, 16))->changeWavSound(0, 0, 24), 2)[3], sndSee(sndOpen(sndRaw(Array(1, 65535), 8000, 1, 16))->changeWavSound(0, 0, 32), 2)[3], sndSee(sndOpen(sndRaw(Array(1, 65535), 8000, 1, 16))->changeWavSound(0, 0, 24)->changeWavSound(0, 0, 16), 2)[3]), Array(Array(256, 0xFFFF00), Array(65536, 0xFFFF0000), Array(1, 65535)));
 $twoSnd = sndOpen(sndRaw(Array(1000, 3000, 65436, 65336, 10, 20, 30, 40), 16000, 2, 16));
-checkSame('two channels made one: the middle of both', sndSee($twoSnd->changeWav(0, 1), 4), Array(16000, 1, 16, Array(2000, 65386, 15, 35)));
-checkSame('half the samples a second: one sample out of two', sndSee($twoSnd->changeWav(8000), 4), Array(8000, 2, 16, Array(1000, 3000, 10, 20)));
-checkSame('nothing asked gives the same sound', $wavSnd->changeWav()->giveBytes()===$wavSnd->giveBytes(), true);
-checkSame('four channels made two are the first two, made one the middle of all', Array(sndSee(sndOpen(sndRaw(Array(100, 200, 300, 400, 1, 2, 3, 4), 8000, 4, 16))->changeWav(0, 2), 4)[3], sndSee(sndOpen(sndRaw(Array(100, 200, 300, 400, 1, 2, 3, 6), 8000, 4, 16))->changeWav(0, 1), 2)[3]), Array(Array(100, 200, 1, 2), Array(250, 3)));
-checkLike('samples a second out of what is accepted', runSafely(function() use ($wavSnd){ return $wavSnd->changeWav(100); }), '/^THROWN RuntimeException: Samples a second out of the 8000 to 192000 accepted: 100/');
-checkLike('channels out of what is accepted', runSafely(function() use ($wavSnd){ return $wavSnd->changeWav(0, 6); }), '/^THROWN RuntimeException: Channels other than the 1 or 2 accepted: 6/');
-checkLike('bits a sample out of what is accepted', runSafely(function() use ($wavSnd){ return $wavSnd->changeWav(0, 0, 12); }), '/^THROWN RuntimeException: Bits a sample other than the 8, 16, 24 or 32 accepted: 12/');
-checkLike('a WAV sound whose samples are not whole numbers', runSafely(function(){ return sndOpen(sndRaw(array_fill(0, 8000, 0), 8000, 1, 16, 3))->changeWav(16000); }), '/^THROWN RuntimeException: A WAV sound packed this way is not changed without a program/');
-checkLike('a sound of another kind is not changed without a program', runSafely(function(){ return sndOpen(sndMp3(50))->changeWav(22050); }), '/^THROWN RuntimeException: Giving a sound as another kind takes a program/');
+checkIdentical('two channels made one: the middle of both', sndSee($twoSnd->changeWavSound(0, 1), 4), Array(16000, 1, 16, Array(2000, 65386, 15, 35)));
+checkIdentical('half the samples a second: one sample out of two', sndSee($twoSnd->changeWavSound(8000), 4), Array(8000, 2, 16, Array(1000, 3000, 10, 20)));
+checkIdentical('nothing asked gives the same sound', $wavSnd->changeWavSound()->grantBytesText()===$wavSnd->grantBytesText(), true);
+checkIdentical('four channels made two are the first two, made one the middle of all', Array(sndSee(sndOpen(sndRaw(Array(100, 200, 300, 400, 1, 2, 3, 4), 8000, 4, 16))->changeWavSound(0, 2), 4)[3], sndSee(sndOpen(sndRaw(Array(100, 200, 300, 400, 1, 2, 3, 6), 8000, 4, 16))->changeWavSound(0, 1), 2)[3]), Array(Array(100, 200, 1, 2), Array(250, 3)));
+checkPregMatch('samples a second out of what is accepted', runCatchThrown(function() use ($wavSnd){ return $wavSnd->changeWavSound(100); }), '/^THROWN RuntimeException: Samples a second out of the 8000 to 192000 accepted: 100/');
+checkPregMatch('channels out of what is accepted', runCatchThrown(function() use ($wavSnd){ return $wavSnd->changeWavSound(0, 6); }), '/^THROWN RuntimeException: Channels other than the 1 or 2 accepted: 6/');
+checkPregMatch('bits a sample out of what is accepted', runCatchThrown(function() use ($wavSnd){ return $wavSnd->changeWavSound(0, 0, 12); }), '/^THROWN RuntimeException: Bits a sample other than the 8, 16, 24 or 32 accepted: 12/');
+checkPregMatch('a WAV sound whose samples are not whole numbers', runCatchThrown(function(){ return sndOpen(sndRaw(array_fill(0, 8000, 0), 8000, 1, 16, 3))->changeWavSound(16000); }), '/^THROWN RuntimeException: A WAV sound packed this way is not changed without a program/');
+checkPregMatch('a sound of another kind is not changed without a program', runCatchThrown(function(){ return sndOpen(sndMp3(50))->changeWavSound(22050); }), '/^THROWN RuntimeException: Giving a sound as another kind takes a program/');
 
 // Written to a file
-$tempDir = inTempDir('sound');
+$tempDir = inTemporaryDir('sound');
 @mkdir($tempDir, 0777, true);
 $mp3Snd = sndOpen($mp3File);
-$savePth = $mp3Snd->trimSound(0, 1)->saveLocal($tempDir.'/part.mp3');
-checkSame('a part of a sound written to a file', Array(basename($savePth), Sound::openFluxd(Fluxd::openLocal($savePth))->soundInfo()['secnd'], Sound::openFluxd(Fluxd::openLocal($savePth))->soundInfo()['tagsl']), Array('part.mp3', 1.019, Array()));
-checkLike('a file that cannot be written', runSafely(function() use ($mp3Snd, $tempDir){ return $mp3Snd->saveLocal($tempDir.'/none/part.mp3'); }), '/^THROWN RuntimeException: File cannot be written: part.mp3/');
-dropFoldr($tempDir);
+$savePth = $mp3Snd->makeSoundSlice(0, 1)->setLocalString($tempDir.'/part.mp3');
+checkIdentical('a part of a sound written to a file', Array(basename($savePth), Sound::openFluxdArchv(Fluxd::openLocalFluxd($savePth))->soundInfoArray()['secnd'], Sound::openFluxdArchv(Fluxd::openLocalFluxd($savePth))->soundInfoArray()['tagsl']), Array('part.mp3', 1.019, Array()));
+checkPregMatch('a file that cannot be written', runCatchThrown(function() use ($mp3Snd, $tempDir){ return $mp3Snd->setLocalString($tempDir.'/none/part.mp3'); }), '/^THROWN RuntimeException: File cannot be written: part.mp3/');
+dropTestFolder($tempDir);
 
-endChecks();
+finishChecking();

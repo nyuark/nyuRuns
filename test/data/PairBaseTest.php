@@ -15,8 +15,8 @@ require __DIR__.'/../lib/sample.php';
 require_once RUN_DIR.DS.'Auth'.DS.'Actions.php';
 
 if( !extension_loaded('pdo_sqlite') ){
-	skipCheck('Pairs', 'pdo_sqlite is not available');
-	endChecks();
+	recordSkipping('Pairs', 'pdo_sqlite is not available');
+	finishChecking();
 }
 
 use nyu\Access\Checker;
@@ -37,7 +37,7 @@ $lmtConf = Array('maxtry'=>2, 'holdtm'=>600, 'folder'=>$lmtFldr);
  */
 function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array(
-		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTempDir('pairs.sqlite')),
+		'database'=>Array('TYPE'=>'sqlte', 'HOST'=>'', 'USER'=>'', 'PASS'=>'', 'BASE'=>inTemporaryDir('pairs.sqlite')),
 		'access'=>Array(
 			'LOGIN'=>$loginBlock,
 			'TSNATV'=>Array('tblnme'=>'users', 'maxtry'=>5),
@@ -61,8 +61,8 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
  */
 function pairReply( String $carrierStr, String $checkNamed, Array $headersArr=Array(), Array $serverVals=Array(), Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
 	$axsConf = $moreConfig + Array('needed'=>true, 'sessby'=>$carrierStr, 'sesscf'=>($carrierStr=='jtoken') ? 'tstokn' : 'nothing', 'authby'=>$checkNamed, 'authcf'=>($checkNamed=='native') ? 'tsnatv' : 'tsdevc');
-	$axsRslt = (new Checker( $axsConf, fakeReqst($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->verifyAxs();
-	return Array($axsRslt->readValue('statCode'), $axsRslt->readValue('statMssg'), $axsRslt->readValue('user'), $axsRslt->readValue('role'));
+	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->validateAccess();
+	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'));
 }
 
 /**
@@ -90,7 +90,7 @@ function sendTrice( String $clientAddr, String $carrierStr, String $checkNamed, 
  * @return Bool Whether the address is held.
  */
 function heldAddr( String $clientAddr ): Bool {
-	return (new Limiter($GLOBALS['lmtConf']))->heldUntil($clientAddr)>0;
+	return (new Limiter($GLOBALS['lmtConf']))->heldUntilCount($clientAddr)>0;
 }
 
 /**
@@ -111,7 +111,7 @@ function basicHead( String $userString, String $passString ): Array {
  * @return Array The headers.
  */
 function tokenHead( Array $identArray ): Array {
-	return Array('Authorization'=>'Bearer '.(new JWT(Array('secret'=>str_repeat('s', 40), 'lifetm'=>60)))->issueTokn($identArray));
+	return Array('Authorization'=>'Bearer '.(new JWT(Array('secret'=>str_repeat('s', 40), 'lifetm'=>60)))->issueTokenText($identArray));
 }
 
 /**
@@ -124,61 +124,61 @@ function certVals( String $userString ): Array {
 	return Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>$userString, 'SSL_CLIENT_I_DN_CN'=>'Test CA');
 }
 
-buildData( inTempDir('pairs.sqlite') );
+createSampleDb( inTemporaryDir('pairs.sqlite') );
 plugConf();
-$sqlLink = new PDO('sqlite:'.inTempDir('pairs.sqlite'));
+$sqlLink = new PDO('sqlite:'.inTemporaryDir('pairs.sqlite'));
 $dvcAuth = new nyu\Access\Auth\Device( Array() );
-$phonTkn = strval($dvcAuth->addDevice('anna', 'Phone', 'app'));
-$annaTkn = strval((new Native(Array()))->makeToken('anna'));
+$phonTkn = strval($dvcAuth->pushDeviceText('anna', 'Phone', 'app'));
+$annaTkn = strval((new Native(Array()))->makeToknString('anna'));
 
 // clcert x native : the certificate names the user, the table tells whether it is let in, and its role
-checkSame('clcert x native: the role of the table', pairReply('clcert', 'native', Array(), certVals('anna')), Array(200, '', 'anna', 'manage'));
-checkSame('clcert x native: a locked user is refused', pairReply('clcert', 'native', Array(), certVals('dave')), Array(401, 'Account not active', '', null));
-checkSame('clcert x native: a pending user is refused', pairReply('clcert', 'native', Array(), certVals('cleo'))[0], 401);
-checkSame('clcert x native: a name with a quote is no user', pairReply('clcert', 'native', Array(), certVals("anna' OR '1'='1")), Array(401, 'Account not active', '', null));
-checkSame('clcert x native: the user of the certificate is stamped as seen', (new Native(Array()))->onlineNow(), Array('anna'));
+checkIdentical('clcert x native: the role of the table', pairReply('clcert', 'native', Array(), certVals('anna')), Array(200, '', 'anna', 'manage'));
+checkIdentical('clcert x native: a locked user is refused', pairReply('clcert', 'native', Array(), certVals('dave')), Array(401, 'Account not active', '', null));
+checkIdentical('clcert x native: a pending user is refused', pairReply('clcert', 'native', Array(), certVals('cleo'))[0], 401);
+checkIdentical('clcert x native: a name with a quote is no user', pairReply('clcert', 'native', Array(), certVals("anna' OR '1'='1")), Array(401, 'Account not active', '', null));
+checkIdentical('clcert x native: the user of the certificate is stamped as seen', (new Native(Array()))->onlineNowArray(), Array('anna'));
 $sqlLink->exec("UPDATE users SET lastSeen=NULL");
 
 // device : a check of keys, which knows its users through its tokens only
-checkSame('header x device: the token of a device, with the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'manage'));
-checkSame('header x device: the personal token of the user is not a device', pairReply('header', 'device', Array('X-Api-Key'=>$annaTkn)), Array(401, 'Invalid API key', '', null));
-checkSame('header x native: the token of a device is not a personal token', pairReply('header', 'native', Array('X-Api-Key'=>$phonTkn)), Array(401, 'Invalid API key', '', null));
-checkSame('hbasic x device: a check of tokens takes no password: the pair refuses every request', pairReply('hbasic', 'device', basicHead('anna', $phonTkn)), Array(500, 'Access misconfigured', '', null));
-checkSame('jtoken x device: the token alone decides, with the role it was issued with', pairReply('jtoken', 'device', tokenHead(Array('user'=>'dave', 'role'=>'system'))), Array(200, '', 'dave', 'system'));
-checkSame('clcert x device: the certificate alone decides', pairReply('clcert', 'device', Array(), certVals('dave')), Array(200, '', 'dave', 'member'));
+checkIdentical('header x device: the token of a device, with the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'manage'));
+checkIdentical('header x device: the personal token of the user is not a device', pairReply('header', 'device', Array('X-Api-Key'=>$annaTkn)), Array(401, 'Invalid API key', '', null));
+checkIdentical('header x native: the token of a device is not a personal token', pairReply('header', 'native', Array('X-Api-Key'=>$phonTkn)), Array(401, 'Invalid API key', '', null));
+checkIdentical('hbasic x device: a check of tokens takes no password: the pair refuses every request', pairReply('hbasic', 'device', basicHead('anna', $phonTkn)), Array(500, 'Access misconfigured', '', null));
+checkIdentical('jtoken x device: the token alone decides, with the role it was issued with', pairReply('jtoken', 'device', tokenHead(Array('user'=>'dave', 'role'=>'system'))), Array(200, '', 'dave', 'system'));
+checkIdentical('clcert x device: the certificate alone decides', pairReply('clcert', 'device', Array(), certVals('dave')), Array(200, '', 'dave', 'member'));
 
 // Roles : measured against the role of the users table
 $rolConf = Array('rolert'=>Array('shows/*'=>'system'));
 $anyRoute = Array('app'=>'shows', 'action'=>'index');
-checkSame('role: hbasic x native, by the role of the table', Array(pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('hbasic', 'native', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'member'), Array(200, '', 'anna', 'manage')));
-checkSame('role: header x native, the personal token has the role of its user', pairReply('header', 'native', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
-checkSame('role: header x device, the device has the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
-checkSame('role: clcert x native, by the role of the table', Array(pairReply('clcert', 'native', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
+checkIdentical('role: hbasic x native, by the role of the table', Array(pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('hbasic', 'native', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'member'), Array(200, '', 'anna', 'manage')));
+checkIdentical('role: header x native, the personal token has the role of its user', pairReply('header', 'native', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
+checkIdentical('role: header x device, the device has the role of its user', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
+checkIdentical('role: clcert x native, by the role of the table', Array(pairReply('clcert', 'native', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
 $sqlLink->exec("UPDATE users SET userRole='member' WHERE userName='anna'");
-checkSame('role: a role taken back applies to the device and the certificate at once', Array(pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
+checkIdentical('role: a role taken back applies to the device and the certificate at once', Array(pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clcert', 'native', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
 $sqlLink->exec("UPDATE users SET userRole='manage' WHERE userName='anna'");
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
 plugConf(2);
-checkSame('limit: hbasic x native, a wrong password is counted', Array(sendTrice('198.51.100.1', 'hbasic', 'native', basicHead('ben', 'nope')), heldAddr('198.51.100.1')), Array(Array(401, 401, 429), true));
-checkSame('limit: the account itself is not held yet, from another address', pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array('REMOTE_ADDR'=>'198.51.100.2'))[0], 200);
-checkSame('limit: hbasic x native, an account not active is counted, as a wrong password is', Array(sendTrice('198.51.100.3', 'hbasic', 'native', basicHead('cleo', 'pw-cleo')), heldAddr('198.51.100.3')), Array(Array(401, 401, 429), true));
-checkSame('limit: header x native, a wrong personal token is counted', Array(sendTrice('198.51.100.4', 'header', 'native', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.4')), Array(Array(401, 401, 429), true));
-checkSame('limit: header x device, a wrong device token is counted', Array(sendTrice('198.51.100.5', 'header', 'device', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.5')), Array(Array(401, 401, 429), true));
-checkSame('limit: the held address is refused with the right device token', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array('REMOTE_ADDR'=>'198.51.100.5'))[0], 429);
-checkSame('limit: the certificate of a locked user is not counted', Array(sendTrice('198.51.100.6', 'clcert', 'native', Array(), certVals('dave')), heldAddr('198.51.100.6')), Array(Array(401, 401, 401), false));
-checkSame('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.7', 'jtoken', 'native', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.7')), Array(Array(401, 401, 401), false));
-checkSame('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.8', 'hbasic', 'device', basicHead('anna', $phonTkn)), heldAddr('198.51.100.8')), Array(Array(500, 500, 500), false));
-dropFoldr(TOP_DIR.DS.$lmtFldr);
+checkIdentical('limit: hbasic x native, a wrong password is counted', Array(sendTrice('198.51.100.1', 'hbasic', 'native', basicHead('ben', 'nope')), heldAddr('198.51.100.1')), Array(Array(401, 401, 429), true));
+checkIdentical('limit: the account itself is not held yet, from another address', pairReply('hbasic', 'native', basicHead('ben', 'pw-ben'), Array('REMOTE_ADDR'=>'198.51.100.2'))[0], 200);
+checkIdentical('limit: hbasic x native, an account not active is counted, as a wrong password is', Array(sendTrice('198.51.100.3', 'hbasic', 'native', basicHead('cleo', 'pw-cleo')), heldAddr('198.51.100.3')), Array(Array(401, 401, 429), true));
+checkIdentical('limit: header x native, a wrong personal token is counted', Array(sendTrice('198.51.100.4', 'header', 'native', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.4')), Array(Array(401, 401, 429), true));
+checkIdentical('limit: header x device, a wrong device token is counted', Array(sendTrice('198.51.100.5', 'header', 'device', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.5')), Array(Array(401, 401, 429), true));
+checkIdentical('limit: the held address is refused with the right device token', pairReply('header', 'device', Array('X-Api-Key'=>$phonTkn), Array('REMOTE_ADDR'=>'198.51.100.5'))[0], 429);
+checkIdentical('limit: the certificate of a locked user is not counted', Array(sendTrice('198.51.100.6', 'clcert', 'native', Array(), certVals('dave')), heldAddr('198.51.100.6')), Array(Array(401, 401, 401), false));
+checkIdentical('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.7', 'jtoken', 'native', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.7')), Array(Array(401, 401, 401), false));
+checkIdentical('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.8', 'hbasic', 'device', basicHead('anna', $phonTkn)), heldAddr('198.51.100.8')), Array(Array(500, 500, 500), false));
+dropTestFolder(TOP_DIR.DS.$lmtFldr);
 
 // Login : a check of device tokens takes no password
 plugConf( 0, Array('authby'=>'device', 'authcf'=>'tsdevc', 'sesscf'=>'tstokn') );
-$request = fakeReqst( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
-$mthProp = new ReflectionProperty('nyu\Tools\Request', 'inMethod');
+$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
+$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 $mthProp->setValue($request, 'POST');
 $actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
-$actnSet->runAction();
-checkSame('login x device: no token is issued for a device token sent as a password', Array($actnSet->statCode, $actnSet->statMssg, $actnSet->asOutput), Array(401, 'No API key provided', null));
+$actnSet->runAskedAction();
+checkIdentical('login x device: no token is issued for a device token sent as a password', Array($actnSet->statusCode, $actnSet->statusMssg, $actnSet->replyValue), Array(401, 'No API key provided', null));
 $sqlLink = null;
 
-endChecks();
+finishChecking();

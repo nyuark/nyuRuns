@@ -1,13 +1,13 @@
 {
 	"fields": {
-		"name": "TextStr",
+		"name": "OutText",
 		"mail": "EmlAddr",
 		"seats": "Integer",
 		"since": "DateStr(Y/m/d)",
 		"pass": "",
 		"tags": "UrlText",
 		"filters": {
-			"search": "TextStr",
+			"search": "OutText",
 			"price": "FloatNb"
 		}
 	}

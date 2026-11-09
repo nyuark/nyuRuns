@@ -8,7 +8,7 @@ require __DIR__.'/../lib/harness.php';
 
 use nyu\Shell\ConfFile;
 
-$workDir = inTempDir('conffile');
+$workDir = inTemporaryDir('conffile');
 $backDir = $workDir.DS.'backup';
 @mkdir($workDir, 0775, true);
 $wrtrObj = new ConfFile( $backDir );
@@ -33,31 +33,31 @@ function copiesOf( String $backupFldr, String $fileNamed ): Array {
 
 // The copies : KEEPCOPY of each file, the newest ones
 $envPath = $workDir.DS.'.env';
-$wrtrObj->writeFile( $workDir.DS.'access.json.dist', 'dist-0' );
-$wrtrObj->writeFile( $workDir.DS.'access.json.dist', 'dist-1' );
+$wrtrObj->saveFileAtomic( $workDir.DS.'access.json.dist', 'dist-0' );
+$wrtrObj->saveFileAtomic( $workDir.DS.'access.json.dist', 'dist-1' );
 for( $idx=0; $idx<8; $idx++ ){
-	$wrtrObj->writeFile( $envPath, 'SECRET=v'.$idx."\n" );
+	$wrtrObj->saveFileAtomic( $envPath, 'SECRET=v'.$idx."\n" );
 }
-checkSame('the copies of a file written 8 times: the 5 newest of the 7 it replaced', copiesOf($backDir, 'env'), Array("SECRET=v2\n", "SECRET=v3\n", "SECRET=v4\n", "SECRET=v5\n", "SECRET=v6\n"));
-checkSame('the file holds the last content', file_get_contents($envPath), "SECRET=v7\n");
-checkSame('another file sharing the first letters keeps its own copies', copiesOf($backDir, 'access.json.dist'), Array('dist-0'));
-checkSame('KEEPCOPY is 5', ConfFile::KEEPCOPY, 5);
+checkIdentical('the copies of a file written 8 times: the 5 newest of the 7 it replaced', copiesOf($backDir, 'env'), Array("SECRET=v2\n", "SECRET=v3\n", "SECRET=v4\n", "SECRET=v5\n", "SECRET=v6\n"));
+checkIdentical('the file holds the last content', file_get_contents($envPath), "SECRET=v7\n");
+checkIdentical('another file sharing the first letters keeps its own copies', copiesOf($backDir, 'access.json.dist'), Array('dist-0'));
+checkIdentical('KEEPCOPY is 5', ConfFile::KEEP_COPY, 5);
 
 // The rights : a secret and its copies, for their owner only
 if( DS=='/' ){
-	$wrtrObj->setEnvKey( $workDir.DS.'new.env', 'NYU_KEY', 'value' );
-	$wrtrObj->setEnvKey( $workDir.DS.'new.env', 'NYU_KEY', 'other' );
-	$wrtrObj->writeFile( $workDir.DS.'users.lst', '{ "users": [] }', 0640 );
+	$wrtrObj->setEnvrnmntKey( $workDir.DS.'new.env', 'NYU_KEY', 'value' );
+	$wrtrObj->setEnvrnmntKey( $workDir.DS.'new.env', 'NYU_KEY', 'other' );
+	$wrtrObj->saveFileAtomic( $workDir.DS.'users.lst', '{ "users": [] }', 0640 );
 	$cpyRgts = array_unique( array_map(function( String $copyNamed ) use ( $backDir ): Int { return fileperms($backDir.DS.$copyNamed) & 0777; }, array_values(array_diff((array)scandir($backDir), Array('.', '..')))) );
-	checkSame('a new secret is readable by its owner only, a new users file by its group too', Array(fileperms($workDir.DS.'new.env') & 0777, fileperms($workDir.DS.'users.lst') & 0777), Array(0600, 0640));
-	checkSame('every copy is readable by its owner only', array_values($cpyRgts), Array(0600));
+	checkIdentical('a new secret is readable by its owner only, a new users file by its group too', Array(fileperms($workDir.DS.'new.env') & 0777, fileperms($workDir.DS.'users.lst') & 0777), Array(0600, 0640));
+	checkIdentical('every copy is readable by its owner only', array_values($cpyRgts), Array(0600));
 	chmod($envPath, 0644);
-	$wrtrObj->writeFile( $envPath, 'SECRET=v8' );
-	checkSame('a file that existed keeps its own rights', fileperms($envPath) & 0777, 0644);
-	checkSame('no temporary file is left', glob($workDir.DS.'*.tmp*') ?: Array(), Array());
+	$wrtrObj->saveFileAtomic( $envPath, 'SECRET=v8' );
+	checkIdentical('a file that existed keeps its own rights', fileperms($envPath) & 0777, 0644);
+	checkIdentical('no temporary file is left', glob($workDir.DS.'*.tmp*') ?: Array(), Array());
 }else{
-	skipCheck('rights of the secrets and of their copies', 'the rights are not read on Windows');
+	recordSkipping('rights of the secrets and of their copies', 'the rights are not read on Windows');
 }
 
-dropFoldr($workDir);
-endChecks();
+dropTestFolder($workDir);
+finishChecking();

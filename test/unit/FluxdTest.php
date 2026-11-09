@@ -12,121 +12,121 @@ $lttrPth = TST_DIR.DS.'fixtures'.DS.'letters.txt';
 $fixtDir = TST_DIR.DS.'fixtures';
 
 // A file of the server
-checkSame('file: size, and not at the end', runSafely(function() use ($lttrPth){
-	$fileFlx = Fluxd::openLocal($lttrPth);
-	return Array($fileFlx->totalSize(), $fileFlx->endOfFlux());
+checkIdentical('file: size, and not at the end', runCatchThrown(function() use ($lttrPth){
+	$fileFlx = Fluxd::openLocalFluxd($lttrPth);
+	return Array($fileFlx->totalSizeCount(), $fileFlx->stopOfFluxFlag());
 }), Array(26, false));
-checkSame('file: read piece by piece until the end', runSafely(function() use ($lttrPth){
-	$fileFlx = Fluxd::openLocal($lttrPth);
+checkIdentical('file: read piece by piece until the end', runCatchThrown(function() use ($lttrPth){
+	$fileFlx = Fluxd::openLocalFluxd($lttrPth);
 	$chnkLst = Array();
-	while( ($chnkTxt = $fileFlx->readChunk(10))!==false ){
+	while( ($chnkTxt = $fileFlx->getChunkString(10))!==false ){
 		$chnkLst[] = $chnkTxt;
 	}
-	return Array($chnkLst, $fileFlx->endOfFlux(), $fileFlx->readChunk(10));
+	return Array($chnkLst, $fileFlx->stopOfFluxFlag(), $fileFlx->getChunkString(10));
 }), Array(Array('abcdefghij', 'klmnopqrst', 'uvwxyz'), true, false));
-checkSame('file: the end is known as soon as the last byte is read', runSafely(function() use ($lttrPth){
-	$fileFlx = Fluxd::openLocal($lttrPth);
-	$fileFlx->readChunk(26);
-	return $fileFlx->endOfFlux();
+checkIdentical('file: the end is known as soon as the last byte is read', runCatchThrown(function() use ($lttrPth){
+	$fileFlx = Fluxd::openLocalFluxd($lttrPth);
+	$fileFlx->getChunkString(26);
+	return $fileFlx->stopOfFluxFlag();
 }), true);
-checkSame('file: a range, both ends included, then the reading goes on', runSafely(function() use ($lttrPth){
-	$fileFlx = Fluxd::openLocal($lttrPth);
-	return Array($fileFlx->readRange(0, 4), $fileFlx->readChunk(3), $fileFlx->readRange(23, 99), $fileFlx->readRange(5, 5));
+checkIdentical('file: a range, both ends included, then the reading goes on', runCatchThrown(function() use ($lttrPth){
+	$fileFlx = Fluxd::openLocalFluxd($lttrPth);
+	return Array($fileFlx->getRangeString(0, 4), $fileFlx->getChunkString(3), $fileFlx->getRangeString(23, 99), $fileFlx->getRangeString(5, 5));
 }), Array('abcde', 'fgh', 'xyz', 'f'));
-checkSame('file: back to the start', runSafely(function() use ($lttrPth){
-	$fileFlx = Fluxd::openLocal($lttrPth);
-	$fileFlx->readChunk(20);
-	$fileFlx->goToStart();
-	return $fileFlx->readChunk(3);
+checkIdentical('file: back to the start', runCatchThrown(function() use ($lttrPth){
+	$fileFlx = Fluxd::openLocalFluxd($lttrPth);
+	$fileFlx->getChunkString(20);
+	$fileFlx->rewindToOrigin();
+	return $fileFlx->getChunkString(3);
 }), 'abc');
-checkSame('file: the whole content, from the start wherever the reading was', runSafely(function() use ($lttrPth){
-	$fileFlx = Fluxd::openLocal($lttrPth);
-	$fileFlx->readChunk(20);
-	return Array($fileFlx->readWhole(), $fileFlx->readWhole(26));
+checkIdentical('file: the whole content, from the start wherever the reading was', runCatchThrown(function() use ($lttrPth){
+	$fileFlx = Fluxd::openLocalFluxd($lttrPth);
+	$fileFlx->getChunkString(20);
+	return Array($fileFlx->getWholeString(), $fileFlx->getWholeString(26));
 }), Array('abcdefghijklmnopqrstuvwxyz', 'abcdefghijklmnopqrstuvwxyz'));
-checkLike('file: a content larger than the limit is refused', runSafely(function() use ($lttrPth){ return Fluxd::openLocal($lttrPth)->readWhole(25); }), '/^THROWN RuntimeException: Content larger than the 25 bytes allowed/');
-checkSame('file: as a local file, it is its own path, and nothing is copied', runSafely(function() use ($lttrPth){
-	return Fluxd::openLocal($lttrPth)->saveLocal()===realpath($lttrPth);
+checkPregMatch('file: a content larger than the limit is refused', runCatchThrown(function() use ($lttrPth){ return Fluxd::openLocalFluxd($lttrPth)->getWholeString(25); }), '/^THROWN RuntimeException: Content larger than the 25 bytes allowed/');
+checkIdentical('file: as a local file, it is its own path, and nothing is copied', runCatchThrown(function() use ($lttrPth){
+	return Fluxd::openLocalFluxd($lttrPth)->setLocalString()===realpath($lttrPth);
 }), true);
 
 // Refusals
-checkLike('a missing file is refused, without its full path', runSafely(function(){ return Fluxd::openLocal(inTempDir('nowhere.txt')); }), '/^THROWN RuntimeException: File not found: nowhere\.txt/');
-checkLike('a folder is not a file', runSafely(function() use ($fixtDir){ return Fluxd::openLocal($fixtDir); }), '/^THROWN RuntimeException: File not found/');
-checkSame('a file inside the base folder is accepted', runSafely(function() use ($lttrPth, $fixtDir){ return Fluxd::openLocal($lttrPth, $fixtDir)->totalSize(); }), 26);
-checkLike('a path climbing out of the base folder is refused', runSafely(function() use ($fixtDir){
-	return Fluxd::openLocal($fixtDir.DS.'conf'.DS.'..'.DS.'..'.DS.'README.md', $fixtDir.DS.'conf');
+checkPregMatch('a missing file is refused, without its full path', runCatchThrown(function(){ return Fluxd::openLocalFluxd(inTemporaryDir('nowhere.txt')); }), '/^THROWN RuntimeException: File not found: nowhere\.txt/');
+checkPregMatch('a folder is not a file', runCatchThrown(function() use ($fixtDir){ return Fluxd::openLocalFluxd($fixtDir); }), '/^THROWN RuntimeException: File not found/');
+checkIdentical('a file inside the base folder is accepted', runCatchThrown(function() use ($lttrPth, $fixtDir){ return Fluxd::openLocalFluxd($lttrPth, $fixtDir)->totalSizeCount(); }), 26);
+checkPregMatch('a path climbing out of the base folder is refused', runCatchThrown(function() use ($fixtDir){
+	return Fluxd::openLocalFluxd($fixtDir.DS.'conf'.DS.'..'.DS.'..'.DS.'README.md', $fixtDir.DS.'conf');
 }), '/^THROWN RuntimeException: File outside the allowed folder: README\.md/');
-checkLike('a folder whose name only starts like the base folder is outside it', runSafely(function() use ($fixtDir){
-	return Fluxd::openLocal($fixtDir.DS.'confbad'.DS.'system.ini', $fixtDir.DS.'conf');
+checkPregMatch('a folder whose name only starts like the base folder is outside it', runCatchThrown(function() use ($fixtDir){
+	return Fluxd::openLocalFluxd($fixtDir.DS.'confbad'.DS.'system.ini', $fixtDir.DS.'conf');
 }), '/^THROWN RuntimeException: File outside the allowed folder/');
-checkLike('a range that ends before it starts is refused', runSafely(function() use ($lttrPth){ return Fluxd::openLocal($lttrPth)->readRange(5, 4); }), '/^THROWN RuntimeException: Invalid byte range: 5-4/');
-checkLike('a piece of no byte is refused', runSafely(function() use ($lttrPth){ return Fluxd::openLocal($lttrPth)->readChunk(0); }), '/^THROWN RuntimeException: A piece holds at least one byte/');
+checkPregMatch('a range that ends before it starts is refused', runCatchThrown(function() use ($lttrPth){ return Fluxd::openLocalFluxd($lttrPth)->getRangeString(5, 4); }), '/^THROWN RuntimeException: Invalid byte range: 5-4/');
+checkPregMatch('a piece of no byte is refused', runCatchThrown(function() use ($lttrPth){ return Fluxd::openLocalFluxd($lttrPth)->getChunkString(0); }), '/^THROWN RuntimeException: A piece holds at least one byte/');
 
 // Bytes in memory
-checkSame('bytes: lines, whatever their ending', runSafely(function(){
-	$byteFlx = Fluxd::openBytes("first\nsecond\r\n\nfourth");
+checkIdentical('bytes: lines, whatever their ending', runCatchThrown(function(){
+	$byteFlx = Fluxd::openBytesFluxd("first\nsecond\r\n\nfourth");
 	$lineLst = Array();
-	while( ($lineTxt = $byteFlx->readALine())!==false ){
+	while( ($lineTxt = $byteFlx->getALineString())!==false ){
 		$lineLst[] = $lineTxt;
 	}
-	return Array($lineLst, $byteFlx->totalSize(), $byteFlx->endOfFlux());
+	return Array($lineLst, $byteFlx->totalSizeCount(), $byteFlx->stopOfFluxFlag());
 }), Array(Array('first', 'second', '', 'fourth'), 21, true));
-checkSame('bytes: binary content is kept byte for byte', runSafely(function(){
+checkIdentical('bytes: binary content is kept byte for byte', runCatchThrown(function(){
 	$rawBlob = "\x00\x01\xFF\x89PNG\r\n";
-	$byteFlx = Fluxd::openBytes($rawBlob);
-	return Array($byteFlx->readWhole()===$rawBlob, $byteFlx->totalSize());
+	$byteFlx = Fluxd::openBytesFluxd($rawBlob);
+	return Array($byteFlx->getWholeString()===$rawBlob, $byteFlx->totalSizeCount());
 }), Array(true, 9));
-checkSame('bytes: an empty source is at its end at once', runSafely(function(){
-	$byteFlx = Fluxd::openBytes('');
-	return Array($byteFlx->totalSize(), $byteFlx->endOfFlux(), $byteFlx->readChunk(), $byteFlx->readALine(), $byteFlx->readWhole());
+checkIdentical('bytes: an empty source is at its end at once', runCatchThrown(function(){
+	$byteFlx = Fluxd::openBytesFluxd('');
+	return Array($byteFlx->totalSizeCount(), $byteFlx->stopOfFluxFlag(), $byteFlx->getChunkString(), $byteFlx->getALineString(), $byteFlx->getWholeString());
 }), Array(0, true, false, false, ''));
-checkSame('bytes: saved to a temporary file, the position kept, the file removed on closing', runSafely(function(){
-	$byteFlx = Fluxd::openBytes('blob of a table');
-	$byteFlx->readChunk(5);
-	$savePth = $byteFlx->saveLocal();
-	$readOut = Array(is_file($savePth), file_get_contents($savePth), $byteFlx->readChunk(3));
-	$byteFlx->closeFlux();
+checkIdentical('bytes: saved to a temporary file, the position kept, the file removed on closing', runCatchThrown(function(){
+	$byteFlx = Fluxd::openBytesFluxd('blob of a table');
+	$byteFlx->getChunkString(5);
+	$savePth = $byteFlx->setLocalString();
+	$readOut = Array(is_file($savePth), file_get_contents($savePth), $byteFlx->getChunkString(3));
+	$byteFlx->closeTheSource();
 	return array_merge($readOut, Array(is_file($savePth)));
 }), Array(true, 'blob of a table', 'of ', false));
-checkSame('bytes: saved to a chosen path, which is kept after closing', runSafely(function(){
-	$savePth = inTempDir('kept.bin');
-	$byteFlx = Fluxd::openBytes('kept content');
-	$gotPath = $byteFlx->saveLocal($savePth);
-	$byteFlx->closeFlux();
+checkIdentical('bytes: saved to a chosen path, which is kept after closing', runCatchThrown(function(){
+	$savePth = inTemporaryDir('kept.bin');
+	$byteFlx = Fluxd::openBytesFluxd('kept content');
+	$gotPath = $byteFlx->setLocalString($savePth);
+	$byteFlx->closeTheSource();
 	return Array($gotPath===$savePth, file_get_contents($savePth));
 }), Array(true, 'kept content'));
-checkLike('a path that cannot be written is refused', runSafely(function(){ return Fluxd::openBytes('x')->saveLocal(inTempDir('no'.DS.'such'.DS.'folder'.DS.'x.bin')); }), '/^THROWN RuntimeException: File cannot be written: x\.bin/');
+checkPregMatch('a path that cannot be written is refused', runCatchThrown(function(){ return Fluxd::openBytesFluxd('x')->setLocalString(inTemporaryDir('no'.DS.'such'.DS.'folder'.DS.'x.bin')); }), '/^THROWN RuntimeException: File cannot be written: x\.bin/');
 
 // Closing
-checkLike('a closed source refuses to be read', runSafely(function(){
-	$byteFlx = Fluxd::openBytes('abc');
-	$byteFlx->closeFlux();
-	return $byteFlx->readChunk();
+checkPregMatch('a closed source refuses to be read', runCatchThrown(function(){
+	$byteFlx = Fluxd::openBytesFluxd('abc');
+	$byteFlx->closeTheSource();
+	return $byteFlx->getChunkString();
 }), '/^THROWN RuntimeException: The source is closed/');
-checkSame('closing twice does nothing', runSafely(function(){
-	$byteFlx = Fluxd::openBytes('abc');
-	$byteFlx->closeFlux();
-	$byteFlx->closeFlux();
+checkIdentical('closing twice does nothing', runCatchThrown(function(){
+	$byteFlx = Fluxd::openBytesFluxd('abc');
+	$byteFlx->closeTheSource();
+	$byteFlx->closeTheSource();
 	return true;
 }), true);
-checkSame('a temporary file is removed when the source is dropped', runSafely(function(){
-	$byteFlx = Fluxd::openBytes('abc');
-	$savePth = $byteFlx->saveLocal();
+checkIdentical('a temporary file is removed when the source is dropped', runCatchThrown(function(){
+	$byteFlx = Fluxd::openBytesFluxd('abc');
+	$savePth = $byteFlx->setLocalString();
 	unset($byteFlx);
 	return is_file($savePth);
 }), false);
 
 // The body of the request
-FakeInput::plugInput();
-FakeInput::$bodyText = '{"title":"Alpha Night","seats":120}';
-checkSame('request body: measured, read, and read again', runSafely(function(){
-	$bodyFlx = Fluxd::openInput();
-	return Array($bodyFlx->totalSize(), $bodyFlx->readChunk(8), $bodyFlx->readWhole(), $bodyFlx->endOfFlux());
+FakeInput::plugFakeStream();
+FakeInput::$bodyString = '{"title":"Alpha Night","seats":120}';
+checkIdentical('request body: measured, read, and read again', runCatchThrown(function(){
+	$bodyFlx = Fluxd::openInputFluxd();
+	return Array($bodyFlx->totalSizeCount(), $bodyFlx->getChunkString(8), $bodyFlx->getWholeString(), $bodyFlx->stopOfFluxFlag());
 }), Array(35, '{"title"', '{"title":"Alpha Night","seats":120}', true));
-FakeInput::$bodyText = '';
-checkSame('request body: empty', runSafely(function(){
-	$bodyFlx = Fluxd::openInput();
-	return Array($bodyFlx->totalSize(), $bodyFlx->readWhole(), $bodyFlx->readChunk());
+FakeInput::$bodyString = '';
+checkIdentical('request body: empty', runCatchThrown(function(){
+	$bodyFlx = Fluxd::openInputFluxd();
+	return Array($bodyFlx->totalSizeCount(), $bodyFlx->getWholeString(), $bodyFlx->getChunkString());
 }), Array(0, '', false));
 
-endChecks();
+finishChecking();

@@ -25,7 +25,7 @@ function setsConfg( Array $nativeConf ): Void {
 		'mailer'=>Array('DEVBOX'=>$fileSet),
 		'access'=>Array('LOGIN'=>Array('authby'=>'native', 'authcf'=>'native'), 'NATIVE'=>$nativeConf)
 	) );
-	Mailer::dropCache();
+	Mailer::clearMailCache();
 }
 
 /**
@@ -59,125 +59,125 @@ function readMail( String $mailString ): String {
 
 // Who sends : only a login on the native userbase whose block names an account
 setsConfg($natConf);
-checkTrue('fromLogin: a block naming an account', AccessMail::fromLogin() instanceof AccessMail);
+checkTrueValue('fromLogin: a block naming an account', AccessMail::fromLoginBlock() instanceof AccessMail);
 setsConfg( array_diff_key($natConf, Array('mailer'=>1)) );
-checkSame('fromLogin: no mailer, no mail', AccessMail::fromLogin(), null);
+checkIdentical('fromLogin: no mailer, no mail', AccessMail::fromLoginBlock(), null);
 setsConfg( Array('mailer'=>'') + $natConf );
-checkSame('fromLogin: an empty mailer, no mail', AccessMail::fromLogin(), null);
+checkIdentical('fromLogin: an empty mailer, no mail', AccessMail::fromLoginBlock(), null);
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LOGIN'=>Array('authby'=>'usrlst', 'authcf'=>'usrlst'), 'USRLST'=>$natConf)) );
-checkSame('fromLogin: another credential check', AccessMail::fromLogin(), null);
+checkIdentical('fromLogin: another credential check', AccessMail::fromLoginBlock(), null);
 setsConfg( Array('signup'=>true) + $natConf );
-checkSame('signupsOn: signup and a mailer', AccessMail::signupsOn(), true);
+checkIdentical('signupsOn: signup and a mailer', AccessMail::signupsAllowed(), true);
 setsConfg( Array('signup'=>true, 'mailer'=>'') + $natConf );
-checkSame('signupsOn: without a mailer', AccessMail::signupsOn(), false);
+checkIdentical('signupsOn: without a mailer', AccessMail::signupsAllowed(), false);
 setsConfg( Array('signup'=>'yes') + $natConf );
-checkSame('signupsOn: only true opens them', AccessMail::signupsOn(), false);
+checkIdentical('signupsOn: only true opens them', AccessMail::signupsAllowed(), false);
 setsConfg($natConf);
-checkSame('signupsOn: left out', AccessMail::signupsOn(), false);
+checkIdentical('signupsOn: left out', AccessMail::signupsAllowed(), false);
 
 // A code, with its link
-$accMail = AccessMail::fromLogin();
+$accMail = AccessMail::fromLoginBlock();
 takeMails();
-checkSame('sendCodes: sent', $accMail->sendCodes('signup', 'Ann.B', 'ann@example.ch', 'K7QM-3XRP-WD'), true);
+checkIdentical('sendCodes: sent', $accMail->sendCodeToUser('signup', 'Ann.B', 'ann@example.ch', 'K7QM-3XRP-WD'), true);
 $mailLst = takeMails();
 $mailTxt = readMail($mailLst[0] ?? '');
-checkSame('sendCodes: one mail', count($mailLst), 1);
-checkLike('sendCodes: to the address, the first line of the template as subject', $mailTxt, '/\r\nTo: ann@example\.ch\r\nSubject: Your sign-up: confirm your address\r\n/');
-checkLike('sendCodes: the code and the minutes of codexp', $mailTxt, '/    K7QM-3XRP-WD\r?\n.*within 20 minutes/s');
-checkLike('sendCodes: the link, its values encoded', $mailTxt, '/https:\/\/app\.example\.ch\/access\?do=signup&user=Ann\.B&code=K7QM-3XRP-WD/');
-checkLike('sendCodes: an HTML part with the link', $mailTxt, '/<a href="https:\/\/app\.example\.ch\/access\?do=signup&amp;user=Ann\.B&amp;code=K7QM-3XRP-WD">this link<\/a>/');
-checkSame('sendCodes: no marker left', preg_match('/\[\/?link\]|%(user|code|link|mins)%/', $mailTxt), 0);
-checkSame('sendCodes: a mail that is not one of its kinds', $accMail->sendCodes('taken', 'ann', 'ann@example.ch', 'X'), false);
+checkIdentical('sendCodes: one mail', count($mailLst), 1);
+checkPregMatch('sendCodes: to the address, the first line of the template as subject', $mailTxt, '/\r\nTo: ann@example\.ch\r\nSubject: Your sign-up: confirm your address\r\n/');
+checkPregMatch('sendCodes: the code and the minutes of codexp', $mailTxt, '/    K7QM-3XRP-WD\r?\n.*within 20 minutes/s');
+checkPregMatch('sendCodes: the link, its values encoded', $mailTxt, '/https:\/\/app\.example\.ch\/access\?do=signup&user=Ann\.B&code=K7QM-3XRP-WD/');
+checkPregMatch('sendCodes: an HTML part with the link', $mailTxt, '/<a href="https:\/\/app\.example\.ch\/access\?do=signup&amp;user=Ann\.B&amp;code=K7QM-3XRP-WD">this link<\/a>/');
+checkIdentical('sendCodes: no marker left', preg_match('/\[\/?link\]|%(user|code|link|mins)%/', $mailTxt), 0);
+checkIdentical('sendCodes: a mail that is not one of its kinds', $accMail->sendCodeToUser('taken', 'ann', 'ann@example.ch', 'X'), false);
 foreach( Array('actvte'=>'Your account: choose your password', 'pwdset'=>'Your password: choose a new one') as $mailKnd=>$subjTxt ){
-	$accMail->sendCodes($mailKnd, 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
-	checkLike('sendCodes: the mail '.$mailKnd, readMail(takeMails()[0] ?? ''), '/Subject: '.preg_quote($subjTxt, '/').'\r\n.*do='.$mailKnd.'&user=ann&code=AAAA-BBBB-CC/s');
+	$accMail->sendCodeToUser($mailKnd, 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+	checkPregMatch('sendCodes: the mail '.$mailKnd, readMail(takeMails()[0] ?? ''), '/Subject: '.preg_quote($subjTxt, '/').'\r\n.*do='.$mailKnd.'&user=ann&code=AAAA-BBBB-CC/s');
 }
 
 // The code of a login : typed where it was asked, never with a link
-$accMail->sendCodes('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+$accMail->sendCodeToUser('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkSame('sendCodes: the code of a login, without a link though lnkurl is set', Array(preg_match('/Subject: Your login code\r\n/', $mailTxt), strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'https://'), preg_match('/within 20 minutes/', $mailTxt)), Array(1, true, false, 1));
-checkLike('sendCodes: the code of a login, in French', readMail($accMail->sendCodes('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre code de connexion\r\n.*dans les 20 minutes/s');
+checkIdentical('sendCodes: the code of a login, without a link though lnkurl is set', Array(preg_match('/Subject: Your login code\r\n/', $mailTxt), strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'https://'), preg_match('/within 20 minutes/', $mailTxt)), Array(1, true, false, 1));
+checkPregMatch('sendCodes: the code of a login, in French', readMail($accMail->sendCodeToUser('lgcode', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre code de connexion\r\n.*dans les 20 minutes/s');
 
 // Without a link, the code alone
 $accMail = new AccessMail( array_diff_key($natConf, Array('lnkurl'=>1)) );
-$accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+$accMail->sendCodeToUser('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkSame('no lnkurl: the code, neither a link nor its sentence', Array(strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'open this link'), strpos($mailTxt, 'https://')), Array(true, false, false));
-checkLike('no lnkurl: the default minutes of a mailed code', readMail(strval((new AccessMail(Array('mailer'=>'devbox')))->sendCodes('pwdset', 'a', 'a@example.ch', 'C') ? (takeMails()[0] ?? '') : '')), '/within 15 minutes/');
+checkIdentical('no lnkurl: the code, neither a link nor its sentence', Array(strpos($mailTxt, 'AAAA-BBBB-CC')!==false, strpos($mailTxt, 'open this link'), strpos($mailTxt, 'https://')), Array(true, false, false));
+checkPregMatch('no lnkurl: the default minutes of a mailed code', readMail(strval((new AccessMail(Array('mailer'=>'devbox')))->sendCodeToUser('pwdset', 'a', 'a@example.ch', 'C') ? (takeMails()[0] ?? '') : '')), '/within 15 minutes/');
 
 // A name taken, told to an address of no account
 $accMail = new AccessMail($natConf);
-checkSame('sendNamed: sent', $accMail->sendNamed('new@example.ch', 'ann'), true);
+checkIdentical('sendNamed: sent', $accMail->sendNameExists('new@example.ch', 'ann'), true);
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkSame('sendNamed: to the address, the name asked for, nothing of an account', Array(preg_match('/\r\nTo: new@example\.ch\r\nSubject: Your sign-up: choose another name\r\n/', $mailTxt), strpos($mailTxt, 'as ann with')!==false, stripos($mailTxt, 'account')), Array(1, true, false));
-checkLike('sendNamed: in French', readMail($accMail->sendNamed('new@example.ch', 'ann', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre inscription : choisissez un autre nom\r\n/');
+checkIdentical('sendNamed: to the address, the name asked for, nothing of an account', Array(preg_match('/\r\nTo: new@example\.ch\r\nSubject: Your sign-up: choose another name\r\n/', $mailTxt), strpos($mailTxt, 'as ann with')!==false, stripos($mailTxt, 'account')), Array(1, true, false));
+checkPregMatch('sendNamed: in French', readMail($accMail->sendNameExists('new@example.ch', 'ann', 'fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre inscription : choisissez un autre nom\r\n/');
 
 // A name or an address taken
 $accMail = new AccessMail($natConf);
-checkSame('sendTaken: sent', $accMail->sendTaken('ann@example.ch', '<b>ann</b>'), true);
+checkIdentical('sendTaken: sent', $accMail->sendAddrExists('ann@example.ch', '<b>ann</b>'), true);
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkLike('sendTaken: its subject, the name asked for, encoded in the HTML part', $mailTxt, '/Subject: Your sign-up\r\n.*sign up as <b>ann<\/b> with.*<strong>&lt;b&gt;ann&lt;\/b&gt;<\/strong>/s');
+checkPregMatch('sendTaken: its subject, the name asked for, encoded in the HTML part', $mailTxt, '/Subject: Your sign-up\r\n.*sign up as <b>ann<\/b> with.*<strong>&lt;b&gt;ann&lt;\/b&gt;<\/strong>/s');
 
 // The managers told that sign-ups pile up : one mail each
 $accMail = new AccessMail($natConf);
-checkSame('sendWatch: sent', $accMail->sendWatch(Array('anna@example.ch', 'ben@example.ch'), 128, 256), true);
+checkIdentical('sendWatch: sent', $accMail->sendQueueAlert(Array('anna@example.ch', 'ben@example.ch'), 128, 256), true);
 $mailLst = array_map('readMail', takeMails());
 $sentTo = array_map(function( String $mailString ): String { return preg_match('/\r\nTo: (\S+)\r\n/', $mailString, $toMatch) ? $toMatch[1] : ''; }, $mailLst);
 sort($sentTo);
-checkSame('sendWatch: one mail for each manager', $sentTo, Array('anna@example.ch', 'ben@example.ch'));
-checkLike('sendWatch: the count and the limit', $mailLst[0] ?? '', '/Subject: Sign-ups waiting for review: 128\r\n.*When 256 are waiting/s');
-checkSame('sendWatch: nobody to tell', $accMail->sendWatch(Array(), 128, 256), true);
+checkIdentical('sendWatch: one mail for each manager', $sentTo, Array('anna@example.ch', 'ben@example.ch'));
+checkPregMatch('sendWatch: the count and the limit', $mailLst[0] ?? '', '/Subject: Sign-ups waiting for review: 128\r\n.*When 256 are waiting/s');
+checkIdentical('sendWatch: nobody to tell', $accMail->sendQueueAlert(Array(), 128, 256), true);
 
 // The language of the user, along its chain
 $accMail = new AccessMail($natConf);
-$accMail->sendCodes('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr-ch');
+$accMail->sendCodeToUser('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr-ch');
 $mailTxt = readMail(takeMails()[0] ?? '');
-checkLike('language: fr-ch is written in fr, text and HTML', $mailTxt, '/Subject: Votre inscription : confirmez votre adresse\r\n.*Quelqu\'un \(vous, on l\'esp.*<a href="https:\/\/app\.example\.ch\/access\?do=signup&amp;user=ann&amp;code=AAAA-BBBB-CC">ce lien<\/a>/s');
-checkLike('language: one that is not delivered falls back to the default', readMail($accMail->sendTaken('ann@example.ch', 'ann', 'de-at') ? (takeMails()[0] ?? '') : ''), '/Subject: Your sign-up\r\n/');
-checkLike('language: one that is not a tag is the default', readMail($accMail->sendTaken('ann@example.ch', 'ann', '../fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Your sign-up\r\n/');
+checkPregMatch('language: fr-ch is written in fr, text and HTML', $mailTxt, '/Subject: Votre inscription : confirmez votre adresse\r\n.*Quelqu\'un \(vous, on l\'esp.*<a href="https:\/\/app\.example\.ch\/access\?do=signup&amp;user=ann&amp;code=AAAA-BBBB-CC">ce lien<\/a>/s');
+checkPregMatch('language: one that is not delivered falls back to the default', readMail($accMail->sendAddrExists('ann@example.ch', 'ann', 'de-at') ? (takeMails()[0] ?? '') : ''), '/Subject: Your sign-up\r\n/');
+checkPregMatch('language: one that is not a tag is the default', readMail($accMail->sendAddrExists('ann@example.ch', 'ann', '../fr') ? (takeMails()[0] ?? '') : ''), '/Subject: Your sign-up\r\n/');
 $GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>$fileSet), 'system'=>Array('LNG_DFLT'=>'fr')) );
-checkLike('language: LNG_DFLT when the user has none', readMail((new AccessMail($natConf))->sendTaken('ann@example.ch', 'ann') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre inscription\r\n/');
+checkPregMatch('language: LNG_DFLT when the user has none', readMail((new AccessMail($natConf))->sendAddrExists('ann@example.ch', 'ann') ? (takeMails()[0] ?? '') : ''), '/Subject: Votre inscription\r\n/');
 setsConfg($natConf);
 $accMail = new AccessMail($natConf);
-$sentOk = $accMail->sendWatch(Array('anna@example.ch'=>'fr', 'ben@example.ch'=>null), 3, 9);
+$sentOk = $accMail->sendQueueAlert(Array('anna@example.ch'=>'fr', 'ben@example.ch'=>null), 3, 9);
 $sentTo = array_map(function( String $mailString ): String { return preg_match('/\r\nTo: (\S+)\r\n.*?(attente|waiting)/s', readMail($mailString), $toMatch) ? $toMatch[1].' '.$toMatch[2] : ''; }, takeMails());
 sort($sentTo);
-checkSame('sendWatch: the language of each manager', Array($sentOk, $sentTo), Array(true, Array('anna@example.ch attente', 'ben@example.ch waiting')));
+checkIdentical('sendWatch: the language of each manager', Array($sentOk, $sentTo), Array(true, Array('anna@example.ch attente', 'ben@example.ch waiting')));
 
 // The templates of the application come first, language by language
-$appFldr = inTempDir('Probe');
+$appFldr = inTemporaryDir('Probe');
 mkdir($appFldr.DS.'mails'.DS.'fr', 0777, true);
 file_put_contents($appFldr.DS.'mails'.DS.'fr'.DS.'pwdset.txt', "Mot de passe\nBonjour %user%, votre code : %code%\n");
 $accMail = new AccessMail($natConf, $appFldr);
-$accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr');
+$accMail->sendCodeToUser('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr');
 $mailTxt = takeMails()[0] ?? '';
-checkSame('application template: its subject and text, no HTML part without its .html', Array(preg_match('/Subject: Mot de passe\r\n/', $mailTxt), strpos(readMail($mailTxt), 'Bonjour ann, votre code : AAAA-BBBB-CC')!==false, strpos($mailTxt, 'text/html')), Array(1, true, false));
-$accMail->sendCodes('actvte', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr');
-checkLike('application template: conf/mails in the same language for the others', readMail(takeMails()[0] ?? ''), '/Subject: Votre compte : choisissez votre mot de passe\r\n/');
-$accMail->sendCodes('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
-checkLike('application template: another language is not given its text', readMail(takeMails()[0] ?? ''), '/Subject: Your password: choose a new one/');
+checkIdentical('application template: its subject and text, no HTML part without its .html', Array(preg_match('/Subject: Mot de passe\r\n/', $mailTxt), strpos(readMail($mailTxt), 'Bonjour ann, votre code : AAAA-BBBB-CC')!==false, strpos($mailTxt, 'text/html')), Array(1, true, false));
+$accMail->sendCodeToUser('actvte', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC', 'fr');
+checkPregMatch('application template: conf/mails in the same language for the others', readMail(takeMails()[0] ?? ''), '/Subject: Votre compte : choisissez votre mot de passe\r\n/');
+$accMail->sendCodeToUser('pwdset', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
+checkPregMatch('application template: another language is not given its text', readMail(takeMails()[0] ?? ''), '/Subject: Your password: choose a new one/');
 
 // After the reply : kept, then sent at the end of the request
 $accMail = new AccessMail($natConf, '', true);
-checkSame('after the reply: kept', Array($accMail->sendCodes('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC'), $accMail->sendTaken('bob@example.ch', 'bob'), count(takeMails())), Array(true, true, 0));
+checkIdentical('after the reply: kept', Array($accMail->sendCodeToUser('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC'), $accMail->sendAddrExists('bob@example.ch', 'bob'), count(takeMails())), Array(true, true, 0));
 ob_start();
-$accMail->sendLater();
+$accMail->sendQueuedMail();
 $sentTo = array_map(function( String $mailString ): String { return preg_match('/\r\nTo: (\S+)\r\n/', $mailString, $toMatch) ? $toMatch[1] : ''; }, takeMails());
 sort($sentTo);
-checkSame('after the reply: sent', $sentTo, Array('ann@example.ch', 'bob@example.ch'));
+checkIdentical('after the reply: sent', $sentTo, Array('ann@example.ch', 'bob@example.ch'));
 
 // What cannot be sent is logged, never thrown
-Logger::plugSetup( Array('path'=>inTempDir('logs')) );
+Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 $accMail = new AccessMail( Array('mailer'=>'nobody') );
-checkSame('an unknown account: not sent', $accMail->sendCodes('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC'), false);
-$accMail = new AccessMail( Array('mailer'=>'devbox'), inTempDir('Empty') );
+checkIdentical('an unknown account: not sent', $accMail->sendCodeToUser('signup', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC'), false);
+$accMail = new AccessMail( Array('mailer'=>'devbox'), inTemporaryDir('Empty') );
 setsConfg($natConf);
-checkSame('a missing template: not sent', (new AccessMail(Array('mailer'=>'devbox')))->sendCodes('signup', 'ann', 'not an address', 'C'), false);
-Logger::plugSetup( Array() );
-$logText = strval(@file_get_contents(inTempDir('logs').DS.'runner.log'));
-checkLike('the account is logged', $logText, '/\[WARNING\] Access mail not sent through account "nobody": Unknown mail account: "nobody"/');
-checkLike('the address refused is logged', $logText, '/\[WARNING\] Access mail not sent through account "devbox": Invalid mail address/');
+checkIdentical('a missing template: not sent', (new AccessMail(Array('mailer'=>'devbox')))->sendCodeToUser('signup', 'ann', 'not an address', 'C'), false);
+Logger::plugLogsConfig( Array() );
+$logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'runner.log'));
+checkPregMatch('the account is logged', $logText, '/\[WARNING\] Access mail not sent through account "nobody": Unknown mail account: "nobody"/');
+checkPregMatch('the address refused is logged', $logText, '/\[WARNING\] Access mail not sent through account "devbox": Invalid mail address/');
 
-dropFoldr(TOP_DIR.DS.$foldNme);
-endChecks();
+dropTestFolder(TOP_DIR.DS.$foldNme);
+finishChecking();

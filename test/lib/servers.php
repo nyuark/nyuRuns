@@ -10,66 +10,66 @@
  * values of the environment file first, then the project's own database
  * block when it is of the same type.
  *
- * @param String $typeLabel Type code of the server: 'mysql', 'pgsql' or 'mongo'.
+ * @param String $typeLabelTxt Type code of the server: 'mysql', 'pgsql' or 'mongo'.
  * @return Array The 'host', 'port', 'base', 'user' and 'pass' settings, plus 'skip': the reason not to use the server, or ''.
  */
-function serverCnf( String $typeLabel ): Array {
-	$srvLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'folder'=>'test'.DS.'fixtures'.DS.'confsrv')) );
-	$srvConf = array_map('strval', (array)$srvLoad->getConfig()->getRowVal('SERVERS', $typeLabel));
-	if( ($srvConf['user'] ?? '')=='' ){
+function serverSettings( String $typeLabelTxt ): Array {
+	$srvrLod = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'folder'=>'test'.DS.'fixtures'.DS.'confsrv')) );
+	$hostCfg = array_map('strval', (array)$srvrLod->retrieveConfig()->obtainRowValue('SERVERS', $typeLabelTxt));
+	if( ($hostCfg['user'] ?? '')=='' ){
 		// No test account : the account of the project is used, on the test database
-		$prjLoad = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'fnames'=>'database')) );
+		$loadObj = new nyu\Setup\Loader( Array('setup'=>Array('ftypes'=>'all', 'fnames'=>'database')) );
 		$keepCnf = $GLOBALS['nyuConfig'] ?? null;
-		$GLOBALS['nyuConfig'] = $prjLoad->getConfig();
+		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
 		try{
-			$prjConf = nyu\Data\DBCon::baseSetup();
+			$projCfg = nyu\Data\DBCon::baseSetupArray();
 		}catch( RuntimeException $e ){
-			$prjConf = Array();
+			$projCfg = Array();
 		}
 		$GLOBALS['nyuConfig'] = $keepCnf;
-		if( strtolower(strval($prjConf['type'] ?? ''))==$typeLabel ){
+		if( strtolower(strval($projCfg['type'] ?? ''))==$typeLabelTxt ){
 			foreach( Array('host', 'port', 'user', 'pass') as $cnfKey ){
-				$srvConf[$cnfKey] = strval($prjConf[$cnfKey] ?? '');
+				$hostCfg[$cnfKey] = strval($projCfg[$cnfKey] ?? '');
 			}
 		}
 	}
-	$srvConf += Array('host'=>'', 'port'=>'', 'base'=>'', 'user'=>'', 'pass'=>'');
-	if( $srvConf['host']=='' ) $srvConf['host'] = '127.0.0.1';
-	if( $srvConf['base']=='' ) $srvConf['base'] = 'nyuruns_test';
-	$srvConf['skip'] = '';
-	if( $srvConf['user']=='' && $typeLabel!='mongo' ){
+	$hostCfg += Array('host'=>'', 'port'=>'', 'base'=>'', 'user'=>'', 'pass'=>'');
+	if( $hostCfg['host']=='' ) $hostCfg['host'] = '127.0.0.1';
+	if( $hostCfg['base']=='' ) $hostCfg['base'] = 'nyuruns_test';
+	$hostCfg['skip'] = '';
+	if( $hostCfg['user']=='' && $typeLabelTxt!='mongo' ){
 		// A local MongoDB server often asks for no account: it is tried as it is
-		$srvConf['skip'] = 'no '.$typeLabel.' test server is configured (see .env.example)';
-	}elseif( !preg_match('/^\w+$/D', $srvConf['base']) || stripos($srvConf['base'], 'test')===false ){
-		$srvConf['skip'] = 'the name of the test database must be a plain name containing "test"';
-	}elseif( $srvConf['port']!='' && !ctype_digit($srvConf['port']) ){
-		$srvConf['skip'] = 'the port of the test server is not a number';
+		$hostCfg['skip'] = 'no '.$typeLabelTxt.' test server is configured (see .env.example)';
+	}elseif( !preg_match('/^\w+$/D', $hostCfg['base']) || stripos($hostCfg['base'], 'test')===false ){
+		$hostCfg['skip'] = 'the name of the test database must be a plain name containing "test"';
+	}elseif( $hostCfg['port']!='' && !ctype_digit($hostCfg['port']) ){
+		$hostCfg['skip'] = 'the port of the test server is not a number';
 	}
-	return $srvConf;
+	return $hostCfg;
 }
 
 /**
  * Creates the test database when it does not exist, and fills it with the
  * sample tables (the shows, events and items of test/lib/sample.php).
  *
- * @param String $typeLabel  Type code of the server: 'mysql' or 'pgsql'.
- * @param Array  $serverConf Settings returned by serverCnf().
+ * @param String $typeLabelTxt  Type code of the server: 'mysql' or 'pgsql'.
+ * @param Array  $serverConfig Settings returned by serverSettings().
  * @return String '' when the database is ready, or the reason it is not.
  */
-function buildSrvr( String $typeLabel, Array $serverConf ): String {
-	$dsnHead = $typeLabel.':host='.$serverConf['host'].($serverConf['port']!='' ? ';port='.$serverConf['port'] : '');
-	$pdoOpts = Array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>3);
-	$baseNme = $serverConf['base'];
+function generateServer( String $typeLabelTxt, Array $serverConfig ): String {
+	$dsnHead = $typeLabelTxt.':host='.$serverConfig['host'].($serverConfig['port']!='' ? ';port='.$serverConfig['port'] : '');
+	$pdoArgs = Array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>3);
+	$baseNme = $serverConfig['base'];
 	try{
-		if( $typeLabel=='mysql' ){
-			$admLink = new PDO($dsnHead, $serverConf['user'], $serverConf['pass'], $pdoOpts);
+		if( $typeLabelTxt=='mysql' ){
+			$admLink = new PDO($dsnHead, $serverConfig['user'], $serverConfig['pass'], $pdoArgs);
 			$admLink->exec('CREATE DATABASE IF NOT EXISTS `'.$baseNme.'` CHARACTER SET utf8');
 			$admLink = null;
 			$autoKey = 'INT AUTO_INCREMENT PRIMARY KEY';
 			$tblTail = ' ENGINE=InnoDB';
-			$nameQte = '`';
-		}elseif( $typeLabel=='pgsql' ){
-			$admLink = new PDO($dsnHead.';dbname=postgres', $serverConf['user'], $serverConf['pass'], $pdoOpts);
+			$nameQut = '`';
+		}elseif( $typeLabelTxt=='pgsql' ){
+			$admLink = new PDO($dsnHead.';dbname=postgres', $serverConfig['user'], $serverConfig['pass'], $pdoArgs);
 			$hasBase = $admLink->prepare('SELECT 1 FROM pg_database WHERE datname = ?');
 			$hasBase->execute( Array($baseNme) );
 			if( $hasBase->fetchColumn()===false ){
@@ -79,13 +79,13 @@ function buildSrvr( String $typeLabel, Array $serverConf ): String {
 			$admLink = null;
 			$autoKey = 'SERIAL PRIMARY KEY';
 			$tblTail = '';
-			$nameQte = '"';
+			$nameQut = '"';
 		}else{
-			return 'no sample data is defined for '.$typeLabel;
+			return 'no sample data is defined for '.$typeLabelTxt;
 		}
-		$pdoLink = new PDO($dsnHead.';dbname='.$baseNme, $serverConf['user'], $serverConf['pass'], $pdoOpts);
+		$pdoLink = new PDO($dsnHead.';dbname='.$baseNme, $serverConfig['user'], $serverConfig['pass'], $pdoArgs);
 		foreach( Array('items', 'events', 'shows') as $tblNme ){
-			$pdoLink->exec('DROP TABLE IF EXISTS '.$nameQte.$tblNme.$nameQte);
+			$pdoLink->exec('DROP TABLE IF EXISTS '.$nameQut.$tblNme.$nameQut);
 		}
 		// The quote character of the server replaces the double quotes below
 		$sqlList = Array(
@@ -97,11 +97,11 @@ function buildSrvr( String $typeLabel, Array $serverConf ): String {
 			'INSERT INTO "items" ("show_id", "type") VALUES (1,\'music\'),(1,\'dance\'),(2,\'theatre\'),(2,\'music\'),(3,\'dance\'),(3,\'circus\'),(4,\'solo\')'
 		);
 		foreach( $sqlList as $sqlTxt ){
-			$pdoLink->exec( str_replace('"', $nameQte, $sqlTxt) );
+			$pdoLink->exec( str_replace('"', $nameQut, $sqlTxt) );
 		}
 		$pdoLink = null;
 	}catch( PDOException $e ){
-		return 'the '.$typeLabel.' server did not accept the test database: '.$e->getMessage();
+		return 'the '.$typeLabelTxt.' server did not accept the test database: '.$e->getMessage();
 	}
 	return '';
 }
@@ -109,11 +109,11 @@ function buildSrvr( String $typeLabel, Array $serverConf ): String {
 /**
  * Points the framework's database configuration at a test server.
  *
- * @param String $typeLabel  Type code of the server.
- * @param Array  $serverConf Settings returned by serverCnf().
+ * @param String $typeLabelTxt  Type code of the server.
+ * @param Array  $serverConfig Settings returned by serverSettings().
  */
-function useServer( String $typeLabel, Array $serverConf ): Void {
+function switchToServer( String $typeLabelTxt, Array $serverConfig ): Void {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('TYPE'=>$typeLabel, 'HOST'=>$serverConf['host'], 'PORT'=>$serverConf['port'], 'USER'=>$serverConf['user'], 'PASS'=>$serverConf['pass'], 'BASE'=>$serverConf['base'], 'CHAR'=>'', 'AUTH'=>'', 'WAIT'=>'5')
+		'database'=>Array('TYPE'=>$typeLabelTxt, 'HOST'=>$serverConfig['host'], 'PORT'=>$serverConfig['port'], 'USER'=>$serverConfig['user'], 'PASS'=>$serverConfig['pass'], 'BASE'=>$serverConfig['base'], 'CHAR'=>'', 'AUTH'=>'', 'WAIT'=>'5')
 	) );
 }

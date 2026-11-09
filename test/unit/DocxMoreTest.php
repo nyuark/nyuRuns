@@ -19,8 +19,8 @@ use nyu\Data\Writers\Docx;
  * @return mixed The bytes, or a 'THROWN ...' string.
  */
 function dcmWrite( Array $itemsArray, Array $infosArray=Array(), String $shapeLabel='block' ): Mixed {
-	return runSafely(function() use ($itemsArray, $infosArray, $shapeLabel){
-		return (new Docx())->writeData(Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsArray));
+	return runCatchThrown(function() use ($itemsArray, $infosArray, $shapeLabel){
+		return (new Docx())->renderDocument(Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsArray));
 	});
 }
 
@@ -90,11 +90,11 @@ function dcmShow( Array $blocksList ): Array {
  * @return Array The envelope read.
  */
 function dcmBack( Array $itemsArray, Array $infosArray=Array(), String $shapeLabel='block' ): Array {
-	return (new DocxRead())->parseFlux(Fluxd::openBytes((new Docx())->writeData(Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsArray))));
+	return (new DocxRead())->parseFluxArray(Fluxd::openBytesFluxd((new Docx())->renderDocument(Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsArray))));
 }
 
-$mkSpan = Array(Shape::class, 'makeASpan');
-$mkBlck = Array(Shape::class, 'makeBlock');
+$mkSpan = Array(Shape::class, 'makeASpanArray');
+$mkBlck = Array(Shape::class, 'makeBlockArray');
 $mkCell = function(String $cellsText, Array $attrsArray=Array(), Array $itemsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('tcell', ($cellsText==='') ? Array() : Array($mkSpan($cellsText)), $itemsArray, $attrsArray); };
 
 // Tables, as Word is told of them
@@ -103,22 +103,22 @@ $tblBlck = $mkBlck('table', Array(), Array(
 	$mkBlck('tbrow', Array(), Array($mkCell('Alpha & <Beta>'), $mkCell('120', Array('align'=>'right'))))
 ));
 $tblText = dcmBody(Array($tblBlck));
-checkLike('a table takes the width of the page, with its lines and its columns', $tblText, '/^<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"\/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="808080"\/>.*<\/w:tblBorders>.*<\/w:tblPr><w:tblGrid><w:gridCol\/><w:gridCol\/><\/w:tblGrid><w:tr><w:trPr>/');
-checkLike('a header row is repeated on each page, its cells in the style of the headings of tables', $tblText, '/<w:tr><w:trPr><w:cantSplit\/><w:tblHeader\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"\/><\/w:tcPr><w:p><w:pPr><w:pStyle w:val="TableHeading"\/><\/w:pPr><w:r><w:t xml:space="preserve">Show<\/w:t><\/w:r><\/w:p><\/w:tc>/');
-checkLike('a cell: its text, as it is aligned', $tblText, '/<w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><\/w:tcPr><w:p><w:r><w:t xml:space="preserve">Alpha &amp; &lt;Beta&gt;<\/w:t><\/w:r><\/w:p><\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><\/w:tcPr><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr><w:r><w:t xml:space="preserve">120<\/w:t><\/w:r><\/w:p><\/w:tc><\/w:tr><\/w:tbl><w:p\/>$/');
+checkPregMatch('a table takes the width of the page, with its lines and its columns', $tblText, '/^<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"\/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="808080"\/>.*<\/w:tblBorders>.*<\/w:tblPr><w:tblGrid><w:gridCol\/><w:gridCol\/><\/w:tblGrid><w:tr><w:trPr>/');
+checkPregMatch('a header row is repeated on each page, its cells in the style of the headings of tables', $tblText, '/<w:tr><w:trPr><w:cantSplit\/><w:tblHeader\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"\/><\/w:tcPr><w:p><w:pPr><w:pStyle w:val="TableHeading"\/><\/w:pPr><w:r><w:t xml:space="preserve">Show<\/w:t><\/w:r><\/w:p><\/w:tc>/');
+checkPregMatch('a cell: its text, as it is aligned', $tblText, '/<w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><\/w:tcPr><w:p><w:r><w:t xml:space="preserve">Alpha &amp; &lt;Beta&gt;<\/w:t><\/w:r><\/w:p><\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><\/w:tcPr><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr><w:r><w:t xml:space="preserve">120<\/w:t><\/w:r><\/w:p><\/w:tc><\/w:tr><\/w:tbl><w:p\/>$/');
 $spanTbl = $mkBlck('table', Array(), Array(
 	$mkBlck('tbrow', Array(), Array($mkCell('tall', Array('rowsp'=>3)), $mkCell('wide', Array('colsp'=>2)), $mkCell('both', Array('rowsp'=>2, 'colsp'=>2)))),
 	$mkBlck('tbrow', Array(), Array($mkCell('b1'), $mkCell('b2'))),
 	$mkBlck('tbrow', Array(), Array($mkCell('c1'), $mkCell('c2'), $mkCell('c3'), $mkCell('c4')))
 ));
 $spanTxt = dcmBody(Array($spanTbl));
-checkLike('a cell over several columns says so, a cell over several rows starts an area', $spanTxt, '/<w:tblGrid>(<w:gridCol\/>){5}<\/w:tblGrid><w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:vMerge w:val="restart"\/><\/w:tcPr>.*?<\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:gridSpan w:val="2"\/><\/w:tcPr>.*?<\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:gridSpan w:val="2"\/><w:vMerge w:val="restart"\/><\/w:tcPr>/');
-checkLike('the rows under it go on with the area, wherever it stands in them', $spanTxt, '/<\/w:tr><w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:vMerge\/><\/w:tcPr><w:p\/><\/w:tc><w:tc>.*?b1.*?<\/w:tc><w:tc>.*?b2.*?<\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:gridSpan w:val="2"\/><w:vMerge\/><\/w:tcPr><w:p\/><\/w:tc><\/w:tr><w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:vMerge\/><\/w:tcPr><w:p\/><\/w:tc><w:tc>.*?c1/');
+checkPregMatch('a cell over several columns says so, a cell over several rows starts an area', $spanTxt, '/<w:tblGrid>(<w:gridCol\/>){5}<\/w:tblGrid><w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:vMerge w:val="restart"\/><\/w:tcPr>.*?<\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:gridSpan w:val="2"\/><\/w:tcPr>.*?<\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:gridSpan w:val="2"\/><w:vMerge w:val="restart"\/><\/w:tcPr>/');
+checkPregMatch('the rows under it go on with the area, wherever it stands in them', $spanTxt, '/<\/w:tr><w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:vMerge\/><\/w:tcPr><w:p\/><\/w:tc><w:tc>.*?b1.*?<\/w:tc><w:tc>.*?b2.*?<\/w:tc><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:gridSpan w:val="2"\/><w:vMerge\/><\/w:tcPr><w:p\/><\/w:tc><\/w:tr><w:tr><w:trPr><w:cantSplit\/><\/w:trPr><w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"\/><w:vMerge\/><\/w:tcPr><w:p\/><\/w:tc><w:tc>.*?c1/');
 $innrTbl = $mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkCell('inner')))));
 $outrTbl = $mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkCell('', Array(), Array($innrTbl))))));
 $nextTbl = $mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkCell('second')))));
-checkLike('a paragraph stands between two tables, and ends a cell holding one', dcmBody(Array($outrTbl, $nextTbl)), '/inner<\/w:t><\/w:r><\/w:p><\/w:tc><\/w:tr><\/w:tbl><w:p\/><\/w:tc><\/w:tr><\/w:tbl><w:p\/><w:tbl>.*second.*<\/w:tbl><w:p\/>$/');
-checkSame('a table without rows is not written', dcmBody(Array($mkBlck('table'))), '');
+checkPregMatch('a paragraph stands between two tables, and ends a cell holding one', dcmBody(Array($outrTbl, $nextTbl)), '/inner<\/w:t><\/w:r><\/w:p><\/w:tc><\/w:tr><\/w:tbl><w:p\/><\/w:tc><\/w:tr><\/w:tbl><w:p\/><w:tbl>.*second.*<\/w:tbl><w:p\/>$/');
+checkIdentical('a table without rows is not written', dcmBody(Array($mkBlck('table'))), '');
 
 // Notes
 $noteLst = Array(
@@ -128,30 +128,30 @@ $noteLst = Array(
 	$mkBlck('fnote', Array($mkSpan('Never referred to')), Array(), Array('tagid'=>'fnote5', 'numbr'=>5))
 );
 $noteDoc = dcmWrite($noteLst);
-checkLike('a note is referred to once, by the number Word knows it by; a second reference and one to no note are text', dcmPart($noteDoc, 'word/document.xml'), '/<w:body><w:p><w:r><w:t xml:space="preserve">Text<\/w:t><\/w:r><w:r><w:rPr><w:rStyle w:val="FootnoteReference"\/><\/w:rPr><w:footnoteReference w:id="1"\/><\/w:r><w:r><w:t xml:space="preserve"> more<\/w:t><\/w:r><w:r><w:rPr><w:rStyle w:val="EndnoteReference"\/><\/w:rPr><w:endnoteReference w:id="1"\/><\/w:r><w:r><w:t xml:space="preserve"> again<\/w:t><\/w:r><w:r><w:t xml:space="preserve">1<\/w:t><\/w:r><w:r><w:t xml:space="preserve"> and nowhere<\/w:t><\/w:r><w:hyperlink w:anchor="fnote7" w:history="1">/');
-checkLike('a note nothing refers to ends the text, and is not lost', dcmPart($noteDoc, 'word/document.xml'), '/<w:p><w:r><w:t xml:space="preserve">Never referred to<\/w:t><\/w:r><\/w:p><w:sectPr>/');
-checkLike('the notes of the pages: the lines Word draws, then each note, its number, a space and its text', dcmPart($noteDoc, 'word/footnotes.xml'), '/<w:footnotes [^>]*><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator\/><\/w:r><\/w:p><\/w:footnote><w:footnote w:type="continuationSeparator" w:id="0">.*<\/w:footnote><w:footnote w:id="1"><w:p><w:pPr><w:pStyle w:val="FootnoteText"\/><\/w:pPr><w:r><w:rPr><w:rStyle w:val="FootnoteReference"\/><\/w:rPr><w:footnoteRef\/><\/w:r><w:r><w:t xml:space="preserve"> <\/w:t><\/w:r><w:r><w:t xml:space="preserve">A note with a <\/w:t><\/w:r><w:hyperlink r:id="rLk1" w:history="1">.*<\/w:hyperlink><\/w:p><w:p><w:r><w:t xml:space="preserve">Second paragraph<\/w:t><\/w:r><\/w:p><\/w:footnote><\/w:footnotes>$/');
-checkLike('the addresses a note points to are among the relations of the notes, not of the text', dcmPart($noteDoc, 'word/_rels/footnotes.xml.rels').'|'.dcmPart($noteDoc, 'word/_rels/document.xml.rels'), '/<Relationship Id="rLk1" Type="[^"]*\/hyperlink" Target="https:\/\/nyuark\.test\/note" TargetMode="External"\/><\/Relationships>\|.*<Relationship Id="rId2" [^>]*\/><Relationship Id="rId5" Type="[^"]*\/footnotes" Target="footnotes\.xml"\/><Relationship Id="rId6" Type="[^"]*\/endnotes" Target="endnotes\.xml"\/><\/Relationships>$/s');
-checkLike('the notes of the end', dcmPart($noteDoc, 'word/endnotes.xml'), '/<w:endnote w:id="1"><w:p><w:pPr><w:pStyle w:val="EndnoteText"\/><\/w:pPr><w:r><w:rPr><w:rStyle w:val="EndnoteReference"\/><\/w:rPr><w:endnoteRef\/><\/w:r>.*A note of the end/');
-checkSame('a document without notes has no part for them', Array(dcmPart(dcmWrite(Array($mkBlck('parag', Array($mkSpan('x'))))), 'word/footnotes.xml'), strpos(dcmPart(dcmWrite(Array($mkBlck('parag', Array($mkSpan('x'))))), '[Content_Types].xml'), 'footnotes')), Array('', false));
+checkPregMatch('a note is referred to once, by the number Word knows it by; a second reference and one to no note are text', dcmPart($noteDoc, 'word/document.xml'), '/<w:body><w:p><w:r><w:t xml:space="preserve">Text<\/w:t><\/w:r><w:r><w:rPr><w:rStyle w:val="FootnoteReference"\/><\/w:rPr><w:footnoteReference w:id="1"\/><\/w:r><w:r><w:t xml:space="preserve"> more<\/w:t><\/w:r><w:r><w:rPr><w:rStyle w:val="EndnoteReference"\/><\/w:rPr><w:endnoteReference w:id="1"\/><\/w:r><w:r><w:t xml:space="preserve"> again<\/w:t><\/w:r><w:r><w:t xml:space="preserve">1<\/w:t><\/w:r><w:r><w:t xml:space="preserve"> and nowhere<\/w:t><\/w:r><w:hyperlink w:anchor="fnote7" w:history="1">/');
+checkPregMatch('a note nothing refers to ends the text, and is not lost', dcmPart($noteDoc, 'word/document.xml'), '/<w:p><w:r><w:t xml:space="preserve">Never referred to<\/w:t><\/w:r><\/w:p><w:sectPr>/');
+checkPregMatch('the notes of the pages: the lines Word draws, then each note, its number, a space and its text', dcmPart($noteDoc, 'word/footnotes.xml'), '/<w:footnotes [^>]*><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator\/><\/w:r><\/w:p><\/w:footnote><w:footnote w:type="continuationSeparator" w:id="0">.*<\/w:footnote><w:footnote w:id="1"><w:p><w:pPr><w:pStyle w:val="FootnoteText"\/><\/w:pPr><w:r><w:rPr><w:rStyle w:val="FootnoteReference"\/><\/w:rPr><w:footnoteRef\/><\/w:r><w:r><w:t xml:space="preserve"> <\/w:t><\/w:r><w:r><w:t xml:space="preserve">A note with a <\/w:t><\/w:r><w:hyperlink r:id="rLk1" w:history="1">.*<\/w:hyperlink><\/w:p><w:p><w:r><w:t xml:space="preserve">Second paragraph<\/w:t><\/w:r><\/w:p><\/w:footnote><\/w:footnotes>$/');
+checkPregMatch('the addresses a note points to are among the relations of the notes, not of the text', dcmPart($noteDoc, 'word/_rels/footnotes.xml.rels').'|'.dcmPart($noteDoc, 'word/_rels/document.xml.rels'), '/<Relationship Id="rLk1" Type="[^"]*\/hyperlink" Target="https:\/\/nyuark\.test\/note" TargetMode="External"\/><\/Relationships>\|.*<Relationship Id="rId2" [^>]*\/><Relationship Id="rId5" Type="[^"]*\/footnotes" Target="footnotes\.xml"\/><Relationship Id="rId6" Type="[^"]*\/endnotes" Target="endnotes\.xml"\/><\/Relationships>$/s');
+checkPregMatch('the notes of the end', dcmPart($noteDoc, 'word/endnotes.xml'), '/<w:endnote w:id="1"><w:p><w:pPr><w:pStyle w:val="EndnoteText"\/><\/w:pPr><w:r><w:rPr><w:rStyle w:val="EndnoteReference"\/><\/w:rPr><w:endnoteRef\/><\/w:r>.*A note of the end/');
+checkIdentical('a document without notes has no part for them', Array(dcmPart(dcmWrite(Array($mkBlck('parag', Array($mkSpan('x'))))), 'word/footnotes.xml'), strpos(dcmPart(dcmWrite(Array($mkBlck('parag', Array($mkSpan('x'))))), '[Content_Types].xml'), 'footnotes')), Array('', false));
 
 // The top and the bottom of the pages, and fields
 $pageDoc = dcmWrite(Array($mkBlck('parag', Array($mkSpan('Body'), $mkSpan('1', Array(), '#fnote1'))), $mkBlck('fnote', Array($mkSpan('Note')), Array(), Array('tagid'=>'fnote1'))), Array(
 	'phead'=>Array($mkBlck('parag', Array($mkSpan('Top '), $mkSpan('old title', Array(), '', 'props:Title'), $mkSpan(' '), $mkSpan('site', Array(), 'https://nyuark.test/top'), $mkSpan('1', Array(), '#fnote1')), Array(), Array('align'=>'right'))),
 	'pfoot'=>Array($mkBlck('parag', Array($mkSpan('Page '), $mkSpan('3', Array('bold'), '', 'pgnum'), $mkSpan(' of '), $mkSpan('', Array(), '', 'pgtot'), $mkSpan(' '), $mkSpan('x', Array(), '', 'props:My "Client"\\ name'), $mkSpan(' '), $mkSpan('2026', Array(), '', 'dates'), $mkSpan(' '), $mkSpan('kept', Array(), '', 'other'))), $mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($mkCell('in the footer'))))))
 ));
-checkLike('the pages are told what stands at their top and at their bottom', dcmPart($pageDoc, 'word/document.xml'), '/<w:sectPr><w:headerReference w:type="default" r:id="rId3"\/><w:footerReference w:type="default" r:id="rId4"\/><w:pgSz /');
-checkLike('the top of the pages: a part of its own, with its own addresses; a note is not referred to from there', dcmPart($pageDoc, 'word/header1.xml').'|'.dcmPart($pageDoc, 'word/_rels/header1.xml.rels'), '/<w:hdr [^>]*><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr><w:r><w:t xml:space="preserve">Top <\/w:t><\/w:r><w:fldSimple w:instr=" TITLE "><w:r><w:t xml:space="preserve">old title<\/w:t><\/w:r><\/w:fldSimple>.*<w:hyperlink r:id="rLk1" w:history="1">.*<\/w:hyperlink><w:r><w:t xml:space="preserve">1<\/w:t><\/w:r><\/w:p><\/w:hdr>\|.*Target="https:\/\/nyuark\.test\/top" TargetMode="External"\/><\/Relationships>$/s');
-checkLike('fields: what each asks Word for, around what it last showed; a field unknown is its text', dcmPart($pageDoc, 'word/footer1.xml'), '/<w:fldSimple w:instr=" PAGE "><w:r><w:rPr><w:b\/><w:bCs\/><\/w:rPr><w:t xml:space="preserve">3<\/w:t><\/w:r><\/w:fldSimple>.*<w:fldSimple w:instr=" NUMPAGES "><w:r><w:t xml:space="preserve">1<\/w:t><\/w:r><\/w:fldSimple>.*<w:fldSimple w:instr=" DOCPROPERTY &quot;My Client name&quot; "><w:r><w:t xml:space="preserve">x<\/w:t><\/w:r><\/w:fldSimple>.*<w:fldSimple w:instr=" DATE "><w:r><w:t xml:space="preserve">2026<\/w:t><\/w:r><\/w:fldSimple><w:r><w:t xml:space="preserve"> <\/w:t><\/w:r><w:r><w:t xml:space="preserve">kept<\/w:t><\/w:r><\/w:p>/');
-checkLike('the bottom of the pages ends with a paragraph, even after a table', dcmPart($pageDoc, 'word/footer1.xml'), '/<\/w:tbl><w:p\/><\/w:ftr>$/');
-checkTrue('every part is well-formed', array_reduce(Array('[Content_Types].xml', 'word/document.xml', 'word/_rels/document.xml.rels', 'word/styles.xml', 'word/footnotes.xml', 'word/_rels/footnotes.xml.rels', 'word/header1.xml', 'word/_rels/header1.xml.rels', 'word/footer1.xml', 'word/_rels/footer1.xml.rels'), function($allAreGood, $insideName) use ($pageDoc){ return $allAreGood && @simplexml_load_string(dcmPart($pageDoc, $insideName))!==false; }, true));
-checkLike('each part is told for what it is', dcmPart($pageDoc, '[Content_Types].xml'), '/<Override PartName="\/word\/header1\.xml" ContentType="[^"]*wordprocessingml\.header\+xml"\/><Override PartName="\/word\/footer1\.xml" ContentType="[^"]*wordprocessingml\.footer\+xml"\/><Override PartName="\/word\/footnotes\.xml" ContentType="[^"]*wordprocessingml\.footnotes\+xml"\/>/');
+checkPregMatch('the pages are told what stands at their top and at their bottom', dcmPart($pageDoc, 'word/document.xml'), '/<w:sectPr><w:headerReference w:type="default" r:id="rId3"\/><w:footerReference w:type="default" r:id="rId4"\/><w:pgSz /');
+checkPregMatch('the top of the pages: a part of its own, with its own addresses; a note is not referred to from there', dcmPart($pageDoc, 'word/header1.xml').'|'.dcmPart($pageDoc, 'word/_rels/header1.xml.rels'), '/<w:hdr [^>]*><w:p><w:pPr><w:jc w:val="right"\/><\/w:pPr><w:r><w:t xml:space="preserve">Top <\/w:t><\/w:r><w:fldSimple w:instr=" TITLE "><w:r><w:t xml:space="preserve">old title<\/w:t><\/w:r><\/w:fldSimple>.*<w:hyperlink r:id="rLk1" w:history="1">.*<\/w:hyperlink><w:r><w:t xml:space="preserve">1<\/w:t><\/w:r><\/w:p><\/w:hdr>\|.*Target="https:\/\/nyuark\.test\/top" TargetMode="External"\/><\/Relationships>$/s');
+checkPregMatch('fields: what each asks Word for, around what it last showed; a field unknown is its text', dcmPart($pageDoc, 'word/footer1.xml'), '/<w:fldSimple w:instr=" PAGE "><w:r><w:rPr><w:b\/><w:bCs\/><\/w:rPr><w:t xml:space="preserve">3<\/w:t><\/w:r><\/w:fldSimple>.*<w:fldSimple w:instr=" NUMPAGES "><w:r><w:t xml:space="preserve">1<\/w:t><\/w:r><\/w:fldSimple>.*<w:fldSimple w:instr=" DOCPROPERTY &quot;My Client name&quot; "><w:r><w:t xml:space="preserve">x<\/w:t><\/w:r><\/w:fldSimple>.*<w:fldSimple w:instr=" DATE "><w:r><w:t xml:space="preserve">2026<\/w:t><\/w:r><\/w:fldSimple><w:r><w:t xml:space="preserve"> <\/w:t><\/w:r><w:r><w:t xml:space="preserve">kept<\/w:t><\/w:r><\/w:p>/');
+checkPregMatch('the bottom of the pages ends with a paragraph, even after a table', dcmPart($pageDoc, 'word/footer1.xml'), '/<\/w:tbl><w:p\/><\/w:ftr>$/');
+checkTrueValue('every part is well-formed', array_reduce(Array('[Content_Types].xml', 'word/document.xml', 'word/_rels/document.xml.rels', 'word/styles.xml', 'word/footnotes.xml', 'word/_rels/footnotes.xml.rels', 'word/header1.xml', 'word/_rels/header1.xml.rels', 'word/footer1.xml', 'word/_rels/footer1.xml.rels'), function($allAreGood, $insideName) use ($pageDoc){ return $allAreGood && @simplexml_load_string(dcmPart($pageDoc, $insideName))!==false; }, true));
+checkPregMatch('each part is told for what it is', dcmPart($pageDoc, '[Content_Types].xml'), '/<Override PartName="\/word\/header1\.xml" ContentType="[^"]*wordprocessingml\.header\+xml"\/><Override PartName="\/word\/footer1\.xml" ContentType="[^"]*wordprocessingml\.footer\+xml"\/><Override PartName="\/word\/footnotes\.xml" ContentType="[^"]*wordprocessingml\.footnotes\+xml"\/>/');
 
 // Properties
 $propDoc = dcmWrite(Array(), Array('title'=>'The <title>', 'authr'=>'Zoé', 'props'=>Array('Title'=>'overridden', 'Subject'=>'A subject', 'Keywords'=>'a, b', 'Comments'=>'Some comments', 'Category'=>'Tests', 'LastSavedBy'=>'Me', 'Client'=>'Théâtre & <Test>', 'Revision'=>7, 'Large'=>5000000000, 'Approved'=>true, 'Ratio'=>0.1, ''=>'no name', 'List'=>Array(1, 2), 'Nothing'=>null)));
-checkLike('the properties Word keeps a place for; the title and the author told of the document come first', dcmPart($propDoc, 'docProps/core.xml'), '/<dc:title>The &lt;title&gt;<\/dc:title><dc:creator>Zoé<\/dc:creator><dc:subject>A subject<\/dc:subject><cp:keywords>a, b<\/cp:keywords><dc:description>Some comments<\/dc:description><cp:category>Tests<\/cp:category><cp:lastModifiedBy>Me<\/cp:lastModifiedBy><dcterms:created/');
-checkLike('the other properties, each with the kind of its value', dcmPart($propDoc, 'docProps/custom.xml'), '/<Properties [^>]*><property fmtid="\{D5CDD505-2E9C-101B-9397-08002B2CF9AE\}" pid="2" name="Client"><vt:lpwstr>Théâtre &amp; &lt;Test&gt;<\/vt:lpwstr><\/property><property [^>]* pid="3" name="Revision"><vt:i4>7<\/vt:i4><\/property><property [^>]* pid="4" name="Large"><vt:i8>5000000000<\/vt:i8><\/property><property [^>]* pid="5" name="Approved"><vt:bool>true<\/vt:bool><\/property><property [^>]* pid="6" name="Ratio"><vt:r8>0\.1<\/vt:r8><\/property><\/Properties>$/');
-checkSame('a document without such properties has no part for them', Array(dcmPart(dcmWrite(Array(), Array('title'=>'x')), 'docProps/custom.xml'), strpos(dcmPart(dcmWrite(Array(), Array('title'=>'x')), '_rels/.rels'), 'custom')), Array('', false));
+checkPregMatch('the properties Word keeps a place for; the title and the author told of the document come first', dcmPart($propDoc, 'docProps/core.xml'), '/<dc:title>The &lt;title&gt;<\/dc:title><dc:creator>Zoé<\/dc:creator><dc:subject>A subject<\/dc:subject><cp:keywords>a, b<\/cp:keywords><dc:description>Some comments<\/dc:description><cp:category>Tests<\/cp:category><cp:lastModifiedBy>Me<\/cp:lastModifiedBy><dcterms:created/');
+checkPregMatch('the other properties, each with the kind of its value', dcmPart($propDoc, 'docProps/custom.xml'), '/<Properties [^>]*><property fmtid="\{D5CDD505-2E9C-101B-9397-08002B2CF9AE\}" pid="2" name="Client"><vt:lpwstr>Théâtre &amp; &lt;Test&gt;<\/vt:lpwstr><\/property><property [^>]* pid="3" name="Revision"><vt:i4>7<\/vt:i4><\/property><property [^>]* pid="4" name="Large"><vt:i8>5000000000<\/vt:i8><\/property><property [^>]* pid="5" name="Approved"><vt:bool>true<\/vt:bool><\/property><property [^>]* pid="6" name="Ratio"><vt:r8>0\.1<\/vt:r8><\/property><\/Properties>$/');
+checkIdentical('a document without such properties has no part for them', Array(dcmPart(dcmWrite(Array(), Array('title'=>'x')), 'docProps/custom.xml'), strpos(dcmPart(dcmWrite(Array(), Array('title'=>'x')), '_rels/.rels'), 'custom')), Array('', false));
 
 // Named styles
 $stylDoc = dcmWrite(Array(
@@ -161,10 +161,10 @@ $stylDoc = dcmWrite(Array(
 	$mkBlck('parag', Array($mkSpan('four')), Array(), Array('style'=>'Normal')),
 	$mkBlck('headr', Array($mkSpan('five')), Array(), Array('level'=>2, 'style'=>'Highlight'))
 ), Array('frmat'=>Array('Highlight'=>Array('fonts'=>'Georgia "x"', 'sizes'=>14.5, 'color'=>'#c00000', 'marks'=>Array('undr', 'bold', 'ital', 'strk'), 'align'=>'centr'), 'Unused'=>Array('sizes'=>'huge', 'color'=>'red;'), 'heading 1'=>Array('sizes'=>99))));
-checkLike('a style the content tells of is a style of the document, what it gives written in the order Word reads it', dcmPart($stylDoc, 'word/styles.xml'), '/<w:style w:type="paragraph" w:customStyle="1" w:styleId="nyu1Highlight"><w:name w:val="Highlight"\/><w:basedOn w:val="Normal"\/><w:qFormat\/><w:pPr><w:jc w:val="center"\/><\/w:pPr><w:rPr><w:rFonts w:ascii="Georgia &quot;x&quot;" w:hAnsi="Georgia &quot;x&quot;" w:cs="Georgia &quot;x&quot;"\/><w:b\/><w:bCs\/><w:i\/><w:iCs\/><w:strike\/><w:color w:val="C00000"\/><w:sz w:val="29"\/><w:szCs w:val="29"\/><w:u w:val="single"\/><\/w:rPr><\/w:style>/');
-checkLike('what is not a size or a colour is left out, a style only named is defined, the styles of the document are not defined twice', dcmPart($stylDoc, 'word/styles.xml'), '/<w:style w:type="paragraph" w:customStyle="1" w:styleId="nyu2Unused"><w:name w:val="Unused"\/><w:basedOn w:val="Normal"\/><w:qFormat\/><\/w:style><w:style w:type="paragraph" w:customStyle="1" w:styleId="nyu3OnlyNamedstyle"><w:name w:val="Only &quot;Named&quot; &lt;style&gt;"\/><w:basedOn w:val="Normal"\/><w:qFormat\/><\/w:style><\/w:styles>$/');
-checkLike('a paragraph is given the style it names, whatever the case; a heading keeps the style of its level', dcmPart($stylDoc, 'word/document.xml'), '/<w:body><w:p><w:pPr><w:pStyle w:val="nyu1Highlight"\/><\/w:pPr>.*?<\/w:p><w:p><w:pPr><w:pStyle w:val="nyu3OnlyNamedstyle"\/><\/w:pPr>.*?<\/w:p><w:p><w:pPr><w:pStyle w:val="nyu1Highlight"\/><\/w:pPr>.*?<\/w:p><w:p><w:r><w:t xml:space="preserve">four<\/w:t><\/w:r><\/w:p><w:p><w:pPr><w:pStyle w:val="Heading2"\/><\/w:pPr>/');
-checkSame('the heading styles of the document are defined once', substr_count(dcmPart($stylDoc, 'word/styles.xml'), '<w:name w:val="heading 1"/>'), 1);
+checkPregMatch('a style the content tells of is a style of the document, what it gives written in the order Word reads it', dcmPart($stylDoc, 'word/styles.xml'), '/<w:style w:type="paragraph" w:customStyle="1" w:styleId="nyu1Highlight"><w:name w:val="Highlight"\/><w:basedOn w:val="Normal"\/><w:qFormat\/><w:pPr><w:jc w:val="center"\/><\/w:pPr><w:rPr><w:rFonts w:ascii="Georgia &quot;x&quot;" w:hAnsi="Georgia &quot;x&quot;" w:cs="Georgia &quot;x&quot;"\/><w:b\/><w:bCs\/><w:i\/><w:iCs\/><w:strike\/><w:color w:val="C00000"\/><w:sz w:val="29"\/><w:szCs w:val="29"\/><w:u w:val="single"\/><\/w:rPr><\/w:style>/');
+checkPregMatch('what is not a size or a colour is left out, a style only named is defined, the styles of the document are not defined twice', dcmPart($stylDoc, 'word/styles.xml'), '/<w:style w:type="paragraph" w:customStyle="1" w:styleId="nyu2Unused"><w:name w:val="Unused"\/><w:basedOn w:val="Normal"\/><w:qFormat\/><\/w:style><w:style w:type="paragraph" w:customStyle="1" w:styleId="nyu3OnlyNamedstyle"><w:name w:val="Only &quot;Named&quot; &lt;style&gt;"\/><w:basedOn w:val="Normal"\/><w:qFormat\/><\/w:style><\/w:styles>$/');
+checkPregMatch('a paragraph is given the style it names, whatever the case; a heading keeps the style of its level', dcmPart($stylDoc, 'word/document.xml'), '/<w:body><w:p><w:pPr><w:pStyle w:val="nyu1Highlight"\/><\/w:pPr>.*?<\/w:p><w:p><w:pPr><w:pStyle w:val="nyu3OnlyNamedstyle"\/><\/w:pPr>.*?<\/w:p><w:p><w:pPr><w:pStyle w:val="nyu1Highlight"\/><\/w:pPr>.*?<\/w:p><w:p><w:r><w:t xml:space="preserve">four<\/w:t><\/w:r><\/w:p><w:p><w:pPr><w:pStyle w:val="Heading2"\/><\/w:pPr>/');
+checkIdentical('the heading styles of the document are defined once', substr_count(dcmPart($stylDoc, 'word/styles.xml'), '<w:name w:val="heading 1"/>'), 1);
 
 // Sheets as tables
 $shetLst = Array(
@@ -174,52 +174,52 @@ $shetLst = Array(
 	Array('title'=>'', 'attrs'=>Array(), 'cells'=>Array())
 );
 $shetDoc = dcmPart(dcmWrite($shetLst, Array(), 'sheet'), 'word/document.xml');
-checkSame('a hidden sheet is not written, nor a sheet holding nothing', Array(strpos($shetDoc, 'secret'), strpos($shetDoc, 'Hidden'), substr_count($shetDoc, '<w:tbl>')), Array(false, false, 2));
-checkLike('a sheet: a heading bearing its name, then a table whose first row names its columns', $shetDoc, '/<w:body><w:p><w:pPr><w:pStyle w:val="Heading2"\/><\/w:pPr><w:r><w:t xml:space="preserve">Shows<\/w:t><\/w:r><\/w:p><w:tbl>.*?<w:tr><w:trPr><w:cantSplit\/><w:tblHeader\/><\/w:trPr><w:tc>.*?<w:pStyle w:val="TableHeading"\/>.*?Show<\/w:t>/');
+checkIdentical('a hidden sheet is not written, nor a sheet holding nothing', Array(strpos($shetDoc, 'secret'), strpos($shetDoc, 'Hidden'), substr_count($shetDoc, '<w:tbl>')), Array(false, false, 2));
+checkPregMatch('a sheet: a heading bearing its name, then a table whose first row names its columns', $shetDoc, '/<w:body><w:p><w:pPr><w:pStyle w:val="Heading2"\/><\/w:pPr><w:r><w:t xml:space="preserve">Shows<\/w:t><\/w:r><\/w:p><w:tbl>.*?<w:tr><w:trPr><w:cantSplit\/><w:tblHeader\/><\/w:trPr><w:tc>.*?<w:pStyle w:val="TableHeading"\/>.*?Show<\/w:t>/');
 
 if( !class_exists('ZipArchive') ){
-	skipCheck('documents written, then read back', 'the zip extension is not loaded');
-	endChecks();
+	recordSkipping('documents written, then read back', 'the zip extension is not loaded');
+	finishChecking();
 }
 
 // Written, then read back
-checkSame('a table: its header row, its cells, what they cover', dcmShow(dcmBack(Array($tblBlck, $spanTbl))['items']), Array(
+checkIdentical('a table: its header row, its cells, what they cover', dcmShow(dcmBack(Array($tblBlck, $spanTbl))['items']), Array(
 	'table', '  thead', '    tcell style="Table Heading" {Show}', '    tcell align="right" style="Table Heading" {Seats}', '  tbrow', '    tcell {Alpha & <Beta>}', '    tcell align="right" {120}', 'parag',
 	'table', '  tbrow', '    tcell rowsp=3 {tall}', '    tcell colsp=2 {wide}', '    tcell colsp=2 rowsp=2 {both}', '  tbrow', '    tcell {b1}', '    tcell {b2}', '  tbrow', '    tcell {c1}', '    tcell {c2}', '    tcell {c3}', '    tcell {c4}', 'parag'
 ));
 $listCel = $mkCell('with a list', Array(), Array($mkBlck('lists', Array(), Array($mkBlck('entry', Array($mkSpan('one')))), Array('order'=>true))));
 $holdTbl = $mkBlck('table', Array(), Array($mkBlck('tbrow', Array(), Array($listCel, $mkCell('', Array(), Array($innrTbl))))));
-checkSame('a cell holding a list and a table', dcmShow(dcmBack(Array($holdTbl))['items']), Array('table', '  tbrow', '    tcell {with a list}', '      lists order=true', '        entry {one}', '    tcell', '      table', '        tbrow', '          tcell {inner}', 'parag'));
+checkIdentical('a cell holding a list and a table', dcmShow(dcmBack(Array($holdTbl))['items']), Array('table', '  tbrow', '    tcell {with a list}', '      lists order=true', '        entry {one}', '    tcell', '      table', '        tbrow', '          tcell {inner}', 'parag'));
 $noteSet = dcmBack($noteLst);
-checkSame('notes: read back where the text refers to them, numbered again, the one never referred to as text', dcmShow($noteSet['items']), Array(
+checkIdentical('notes: read back where the text refers to them, numbered again, the one never referred to as text', dcmShow($noteSet['items']), Array(
 	'parag {Text}{1|#fnote1}{ more}{1|#enote1}{ again1 and nowhere}{7|undr|#fnote7}', 'parag {Never referred to}',
 	'fnote tagid="fnote1" numbr=1 style="footnote text" { A note with a }{link|undr|https://nyuark.test/note}', '  parag {Second paragraph}', 'fnote tagid="enote1" numbr=1 style="endnote text" { A note of the end}'
 ));
 $twiceSt = dcmBack($noteSet['items'], $noteSet['infos']);
-checkSame('written and read a second time, the notes are the same: the space after their number does not grow', dcmShow($twiceSt['items']), dcmShow($noteSet['items']));
+checkIdentical('written and read a second time, the notes are the same: the space after their number does not grow', dcmShow($twiceSt['items']), dcmShow($noteSet['items']));
 $pageSet = dcmBack(Array($mkBlck('parag', Array($mkSpan('Body')))), Array(
 	'title'=>'A title', 'props'=>Array('Client'=>'Théâtre', 'Revision'=>7, 'Approved'=>true, 'Ratio'=>0.5, 'Subject'=>'Tests'),
 	'phead'=>Array($mkBlck('parag', Array($mkSpan('Top '), $mkSpan('old', Array(), '', 'props:Title')), Array(), Array('align'=>'right'))),
 	'pfoot'=>Array($mkBlck('parag', Array($mkSpan('Page '), $mkSpan('3', Array(), '', 'pgnum'), $mkSpan(' of '), $mkSpan('9', Array(), '', 'pgtot'), $mkSpan(' '), $mkSpan('x', Array(), '', 'props:Client'), $mkSpan(' '), $mkSpan('2026', Array(), '', 'dates'))))
 ));
-checkSame('the top and the bottom of the pages, with their fields', Array(dcmShow($pageSet['infos']['phead']), dcmShow($pageSet['infos']['pfoot'])), Array(Array('parag align="right" {Top }{old|props:Title}'), Array('parag {Page }{3|pgnum}{ of }{9|pgtot}{ }{x|props:Client}{ }{2026|dates}')));
-checkSame('the properties, each with the kind of its value', $pageSet['infos']['props'], Array('Title'=>'A title', 'Subject'=>'Tests', 'Client'=>'Théâtre', 'Revision'=>7, 'Approved'=>true, 'Ratio'=>0.5));
+checkIdentical('the top and the bottom of the pages, with their fields', Array(dcmShow($pageSet['infos']['phead']), dcmShow($pageSet['infos']['pfoot'])), Array(Array('parag align="right" {Top }{old|props:Title}'), Array('parag {Page }{3|pgnum}{ of }{9|pgtot}{ }{x|props:Client}{ }{2026|dates}')));
+checkIdentical('the properties, each with the kind of its value', $pageSet['infos']['props'], Array('Title'=>'A title', 'Subject'=>'Tests', 'Client'=>'Théâtre', 'Revision'=>7, 'Approved'=>true, 'Ratio'=>0.5));
 $stylSet = dcmBack(Array($mkBlck('parag', Array($mkSpan('one')), Array(), Array('style'=>'Highlight')), $mkBlck('parag', Array($mkSpan('two')), Array(), Array('style'=>'Only Named'))), Array('frmat'=>Array('Highlight'=>Array('fonts'=>'Georgia', 'sizes'=>14, 'color'=>'#C00000', 'marks'=>Array('bold', 'ital'), 'align'=>'centr'))));
-checkSame('named styles: the paragraphs name them, the document tells what they give', Array(dcmShow($stylSet['items']), $stylSet['infos']['frmat']['Highlight'], $stylSet['infos']['frmat']['Only Named']), Array(
+checkIdentical('named styles: the paragraphs name them, the document tells what they give', Array(dcmShow($stylSet['items']), $stylSet['infos']['frmat']['Highlight'], $stylSet['infos']['frmat']['Only Named']), Array(
 	Array('parag style="Highlight" {one}', 'parag style="Only Named" {two}'),
 	Array('class'=>'highlight', 'fonts'=>'Georgia', 'sizes'=>14, 'color'=>'#C00000', 'marks'=>Array('bold', 'ital'), 'align'=>'centr'),
 	Array('class'=>'only-named', 'fonts'=>'Calibri', 'sizes'=>11)
 ));
-checkSame('sheets: a table each, the numbers on the right, what is merged', dcmShow(dcmBack($shetLst, Array(), 'sheet')['items']), Array(
+checkIdentical('sheets: a table each, the numbers on the right, what is merged', dcmShow(dcmBack($shetLst, Array(), 'sheet')['items']), Array(
 	'headr level=2 style="heading 2" {Shows}', 'table', '  thead', '    tcell style="Table Heading" {Show}', '    tcell style="Table Heading" {Seats}', '    tcell style="Table Heading" {Price}', '    tcell style="Table Heading" {Open}', '    tcell style="Table Heading" {Note}',
 	'  tbrow', '    tcell {Alpha}', '    tcell align="right" {120}', '    tcell align="right" {9.9}', '    tcell {TRUE}', '    tcell',
 	'  tbrow', '    tcell {=SUM(B2)}', '    tcell align="right" {-3}', '    tcell align="right" {0.1}', '    tcell {FALSE}', '    tcell {{"a":1}}',
 	'headr level=2 style="heading 2" {Merged}', 'table', '  tbrow', '    tcell colsp=3 {Title}', '  tbrow', '    tcell {a}', '    tcell {b}', '    tcell {c}', '  tbrow', '    tcell rowsp=2 {tall}', '    tcell align="right" {1}', '    tcell align="right" {2}', '  tbrow', '    tcell align="right" {3}', '    tcell', 'parag'
 ));
 // Documents of Word, read, written, and read again: their tables are still tables
-$smplSet = (new DocxRead())->parseFlux(Fluxd::openLocal(TST_DIR.DS.'fixtures'.DS.'office'.DS.'TestTableCellAlign.docx'));
+$smplSet = (new DocxRead())->parseFluxArray(Fluxd::openLocalFluxd(TST_DIR.DS.'fixtures'.DS.'office'.DS.'TestTableCellAlign.docx'));
 $againSt = dcmBack($smplSet['items'], $smplSet['infos']);
 $kindsOf = function(Array $blocksList) use (&$kindsOf){ $kindLst = Array(); foreach($blocksList as $blkArr){ $kindLst[] = $blkArr['block'].((empty($blkArr['attrs']['colsp']) ? '' : 'c'.$blkArr['attrs']['colsp']).(empty($blkArr['attrs']['rowsp']) ? '' : 'r'.$blkArr['attrs']['rowsp'])); $kindLst = array_merge($kindLst, $kindsOf($blkArr['items'])); } return $kindLst; };
-checkSame('a document of Word holding tables read, written and read again: the same tables, the same text', Array(array_values(array_diff($kindsOf($againSt['items']), Array('parag')))===array_values(array_diff($kindsOf($smplSet['items']), Array('parag'))), in_array('table', $kindsOf($smplSet['items'])), preg_replace('/\s+/', ' ', Shape::wholeText($againSt['items']))===preg_replace('/\s+/', ' ', Shape::wholeText($smplSet['items']))), Array(true, true, true));
+checkIdentical('a document of Word holding tables read, written and read again: the same tables, the same text', Array(array_values(array_diff($kindsOf($againSt['items']), Array('parag')))===array_values(array_diff($kindsOf($smplSet['items']), Array('parag'))), in_array('table', $kindsOf($smplSet['items'])), preg_replace('/\s+/', ' ', Shape::documentAsText($againSt['items']))===preg_replace('/\s+/', ' ', Shape::documentAsText($smplSet['items']))), Array(true, true, true));
 
-endChecks();
+finishChecking();

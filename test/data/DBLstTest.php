@@ -7,304 +7,304 @@ require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';
 
 if( !extension_loaded('pdo_sqlite') ){
-	skipCheck('DBLst', 'pdo_sqlite is not available');
-	endChecks();
+	recordSkipping('DBLst', 'pdo_sqlite is not available');
+	finishChecking();
 }
 
 use nyu\Data\DBLst;
 
-buildData( inTempDir('list.sqlite') );
-useSqlite( inTempDir('list.sqlite') );
+createSampleDb( inTemporaryDir('list.sqlite') );
+switchToSqlite( inTemporaryDir('list.sqlite') );
 
-checkSame('readItems returns every row', runSafely(function(){
+checkIdentical('readItems returns every row', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	return array_column($dbList->readItems(), 'title');
+	return array_column($dbList->readRowsOfList(), 'title');
 }), Array('Alpha Night', 'Beta Evening', 'Alpha Matinee', 'Solo Gig', 'Empty Stage'));
 
-checkSame('lstSearch with a wildcard, descending order', runSafely(function(){
+checkIdentical('lstSearch with a wildcard, descending order', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title~'=>'Alpha*'));
-	$dbList->listOrder('^id_show');
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->replaceFilters(Array('title~'=>'Alpha*'));
+	$dbList->setOrderFields('^id_show');
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(3, 1));
 
-checkSame('lstSearch negated wildcard', runSafely(function(){
+checkIdentical('lstSearch negated wildcard', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title!~'=>'Alpha*'));
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->replaceFilters(Array('title!~'=>'Alpha*'));
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(2, 4, 5));
 
-checkSame('lstSearch with a list of values, ordered and limited', runSafely(function(){
+checkIdentical('lstSearch with a list of values, ordered and limited', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show'=>Array(1, 2, 3)));
-	$dbList->listOrder(Array('title'));
-	$dbList->listLimit('2');
-	return array_column($dbList->readItems(), 'title');
+	$dbList->replaceFilters(Array('id_show'=>Array(1, 2, 3)));
+	$dbList->setOrderFields(Array('title'));
+	$dbList->setLimitOffset('2');
+	return array_column($dbList->readRowsOfList(), 'title');
 }), Array('Alpha Matinee', 'Alpha Night'));
 
-checkSame('lstSearch excluding a list of values', runSafely(function(){
+checkIdentical('lstSearch excluding a list of values', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show!'=>Array(1, 2, 3)));
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->replaceFilters(Array('id_show!'=>Array(1, 2, 3)));
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(4, 5));
 
-checkSame('lstSearch on two fields', runSafely(function(){
+checkIdentical('lstSearch on two fields', runCatchThrown(function(){
 	$dbList = new DBLst('events');
-	$dbList->lstSearch(Array('show_id'=>'1', 'date>='=>'2027-01-01'));
-	return array_column($dbList->readItems(), 'id_event');
+	$dbList->replaceFilters(Array('show_id'=>'1', 'date>='=>'2027-01-01'));
+	return array_column($dbList->readRowsOfList(), 'id_event');
 }), Array(2));
 
-checkSame('lstSearch on a field left unset', runSafely(function(){
+checkIdentical('lstSearch on a field left unset', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('venue?'=>false));
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->replaceFilters(Array('venue?'=>false));
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(5));
 
-checkSame('lstSearch with a null value matches nothing', runSafely(function(){
+checkIdentical('lstSearch with a null value matches nothing', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('venue'=>null));
-	return $dbList->readItems();
+	$dbList->replaceFilters(Array('venue'=>null));
+	return $dbList->readRowsOfList();
 }), Array());
 
-checkSame('lstSearch with a strict comparison', runSafely(function(){
+checkIdentical('lstSearch with a strict comparison', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show>'=>3));
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->replaceFilters(Array('id_show>'=>3));
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(4, 5));
 
-checkSame('lstSearch with an empty list matches nothing', runSafely(function(){
+checkIdentical('lstSearch with an empty list matches nothing', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show'=>Array()));
-	return $dbList->readItems();
+	$dbList->replaceFilters(Array('id_show'=>Array()));
+	return $dbList->readRowsOfList();
 }), Array());
 
-checkSame('lstSearch with a value holding a quote', runSafely(function(){
+checkIdentical('lstSearch with a value holding a quote', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('venue'=>"Hall A' OR '1'='1"));
-	return $dbList->readItems();
+	$dbList->replaceFilters(Array('venue'=>"Hall A' OR '1'='1"));
+	return $dbList->readRowsOfList();
 }), Array());
 
-checkSame('a second lstSearch replaces the first', runSafely(function(){
+checkIdentical('a second lstSearch replaces the first', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show'=>Array(1, 2), 'venue'=>'Hall A'));
-	$dbList->lstSearch(Array('venue?'=>false));
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->replaceFilters(Array('id_show'=>Array(1, 2), 'venue'=>'Hall A'));
+	$dbList->replaceFilters(Array('venue?'=>false));
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(5));
 
-checkLike('lstSearch with an invalid field name throws', runSafely(function(){
+checkPregMatch('lstSearch with an invalid field name throws', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('venue` = 1 OR `title'=>'x'));
-	return $dbList->readItems();
+	$dbList->replaceFilters(Array('venue` = 1 OR `title'=>'x'));
+	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: Invalid table or field name/');
 
-checkSame('listLimit with an offset', runSafely(function(){
+checkIdentical('listLimit with an offset', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->listOrder('id_show');
-	$dbList->listLimit('2,3');
-	return array_column($dbList->readItems(), 'id_show');
+	$dbList->setOrderFields('id_show');
+	$dbList->setLimitOffset('2,3');
+	return array_column($dbList->readRowsOfList(), 'id_show');
 }), Array(4, 5));
 
-checkSame('listLimit as an array, and as a string with spaces', runSafely(function(){
+checkIdentical('listLimit as an array, and as a string with spaces', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->listOrder('id_show');
-	$dbList->listLimit(Array(2, 3));
-	$arrRows = array_column($dbList->readItems(), 'id_show');
-	$dbList->listLimit(' 2 , 1 ');
-	return Array($arrRows, array_column($dbList->readItems(), 'id_show'));
+	$dbList->setOrderFields('id_show');
+	$dbList->setLimitOffset(Array(2, 3));
+	$arrRows = array_column($dbList->readRowsOfList(), 'id_show');
+	$dbList->setLimitOffset(' 2 , 1 ');
+	return Array($arrRows, array_column($dbList->readRowsOfList(), 'id_show'));
 }), Array(Array(4, 5), Array(2, 3)));
 
-checkSame('listLimit keeps only numbers', runSafely(function(){
+checkIdentical('listLimit keeps only numbers', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->listOrder('id_show');
-	$dbList->listLimit('2,1; DROP TABLE shows');
-	$cutRows = array_column($dbList->readItems(), 'id_show');
-	$dbList->listLimit('1 UNION SELECT title FROM shows');
+	$dbList->setOrderFields('id_show');
+	$dbList->setLimitOffset('2,1; DROP TABLE shows');
+	$cutRows = array_column($dbList->readRowsOfList(), 'id_show');
+	$dbList->setLimitOffset('1 UNION SELECT title FROM shows');
 	$allRows = new DBLst('shows');
-	return Array($cutRows, count($dbList->readItems()), count($allRows->readItems()));
+	return Array($cutRows, count($dbList->readRowsOfList()), count($allRows->readRowsOfList()));
 }), Array(Array(1, 2), 5, 5));
 
-checkSame('listLimit with a negative number or nothing', runSafely(function(){
+checkIdentical('listLimit with a negative number or nothing', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->listLimit('-3');
-	$noneRow = $dbList->readItems();
-	$dbList->listLimit();
-	return Array($noneRow, count($dbList->readItems()));
+	$dbList->setLimitOffset('-3');
+	$noneRow = $dbList->readRowsOfList();
+	$dbList->setLimitOffset();
+	return Array($noneRow, count($dbList->readRowsOfList()));
 }), Array(Array(), 5));
 
-checkSame('flatItems skips NULL values', runSafely(function(){
+checkIdentical('flatItems skips NULL values', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	return $dbList->flatItems('venue');
+	return $dbList->flatItemsArray('venue');
 }), Array('Hall A', 'Hall B', 'Hall C', 'Hall S'));
 
-checkSame('fieldScop with an expression, grouped', runSafely(function(){
+checkIdentical('fieldScop with an expression, grouped', runCatchThrown(function(){
 	$dbList = new DBLst('items');
-	$dbList->fieldScop('type, count(*) as nb');
-	$dbList->grpFields('type');
-	$dbList->listOrder('type');
-	return $dbList->readItems();
+	$dbList->pickReadFields('type, count(*) as nb');
+	$dbList->setGroupFields('type');
+	$dbList->setOrderFields('type');
+	return $dbList->readRowsOfList();
 }), Array(
 	Array('type'=>'circus', 'nb'=>1), Array('type'=>'dance', 'nb'=>2), Array('type'=>'music', 'nb'=>2),
 	Array('type'=>'solo', 'nb'=>1), Array('type'=>'theatre', 'nb'=>1)
 ));
 
-checkSame('fieldScop with an alias and a table.field name', runSafely(function(){
+checkIdentical('fieldScop with an alias and a table.field name', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->fieldScop('shows.title as name, max(id_show) as last');
-	return $dbList->readItems();
+	$dbList->pickReadFields('shows.title as name, max(id_show) as last');
+	return $dbList->readRowsOfList();
 }), Array(Array('name'=>'Empty Stage', 'last'=>5)));
 
-checkSame('fieldScop with a star or nothing selects every field', runSafely(function(){
+checkIdentical('fieldScop with a star or nothing selects every field', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show'=>2));
-	$dbList->fieldScop(' * ');
-	$starRow = $dbList->readItems();
-	$dbList->fieldScop();
-	return Array(array_keys($starRow[0]), $dbList->readItems()==$starRow);
+	$dbList->replaceFilters(Array('id_show'=>2));
+	$dbList->pickReadFields(' * ');
+	$starRow = $dbList->readRowsOfList();
+	$dbList->pickReadFields();
+	return Array(array_keys($starRow[0]), $dbList->readRowsOfList()==$starRow);
 }), Array(Array('id_show', 'title', 'venue'), true));
 
-checkLike('fieldScop refuses any other expression', runSafely(function(){
+checkPregMatch('fieldScop refuses any other expression', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->fieldScop('title, (SELECT passHash FROM users LIMIT 1) as leak');
-	return $dbList->readItems();
+	$dbList->pickReadFields('title, (SELECT passHash FROM users LIMIT 1) as leak');
+	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: Invalid field selection/');
 
-checkSame('fieldScop takes the aggregates of the list only, whatever their case, and * for a count alone', array_map(function( Mixed $rsltVal ): Mixed { return is_string($rsltVal) ? preg_replace('/ @\S+$/', '', $rsltVal) : $rsltVal; }, Array(
-	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('COUNT(*) as nb, Min(id_show) as first, sum(id_show) as total, avg(id_show) as mean'); return array_keys($dbList->readItems()[0] ?? Array()); }),
-	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('sleep(1) as x'); return $dbList->readItems(); }),
-	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('lower(title)'); return $dbList->readItems(); }),
-	runSafely(function(){ $dbList = new DBLst('shows'); $dbList->fieldScop('max(*)'); return $dbList->readItems(); })
+checkIdentical('fieldScop takes the aggregates of the list only, whatever their case, and * for a count alone', array_map(function( Mixed $rsltVal ): Mixed { return is_string($rsltVal) ? preg_replace('/ @\S+$/', '', $rsltVal) : $rsltVal; }, Array(
+	runCatchThrown(function(){ $dbList = new DBLst('shows'); $dbList->pickReadFields('COUNT(*) as nb, Min(id_show) as first, sum(id_show) as total, avg(id_show) as mean'); return array_keys($dbList->readRowsOfList()[0] ?? Array()); }),
+	runCatchThrown(function(){ $dbList = new DBLst('shows'); $dbList->pickReadFields('sleep(1) as x'); return $dbList->readRowsOfList(); }),
+	runCatchThrown(function(){ $dbList = new DBLst('shows'); $dbList->pickReadFields('lower(title)'); return $dbList->readRowsOfList(); }),
+	runCatchThrown(function(){ $dbList = new DBLst('shows'); $dbList->pickReadFields('max(*)'); return $dbList->readRowsOfList(); })
 )), Array(Array('nb', 'first', 'total', 'mean'), 'THROWN RuntimeException: Invalid field selection: sleep(1) as x', 'THROWN RuntimeException: Invalid field selection: lower(title)', 'THROWN RuntimeException: Invalid field selection: max(*)'));
 
-checkLike('the store refuses another function, called without the list', runSafely(function(){
-	return nyu\Data\DBCon::linkNamed('')->dataStore()->findItems('shows', Array(), Array('funcs'=>Array(Array('funct'=>'load_file', 'field'=>'title', 'alias'=>'x'))));
+checkPregMatch('the store refuses another function, called without the list', runCatchThrown(function(){
+	return nyu\Data\DBCon::linkNamedDbCon('')->getStoreObject()->findItemsArray('shows', Array(), Array('funcs'=>Array(Array('funct'=>'load_file', 'field'=>'title', 'alias'=>'x'))));
 }), '/^THROWN RuntimeException: Invalid function name: load_file /');
 
-checkLike('an order written as SQL is kept, and told on runner', runSafely(function(){
-	nyu\Tools\Logger::plugSetup( Array('path'=>inTempDir('lstlogs')) );
+checkPregMatch('an order written as SQL is kept, and told on runner', runCatchThrown(function(){
+	nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('lstlogs')) );
 	$dbList = new DBLst('shows', null, null, 'length(title) DESC');
-	$rowList = $dbList->flatItems('title');
-	nyu\Tools\Logger::plugSetup( Array() );
-	return ($rowList[0] ?? '').' | '.strval(@file_get_contents(inTempDir('lstlogs').DS.'runner.log'));
+	$rowList = $dbList->flatItemsArray('title');
+	nyu\Tools\Logger::plugLogsConfig( Array() );
+	return ($rowList[0] ?? '').' | '.strval(@file_get_contents(inTemporaryDir('lstlogs').DS.'runner.log'));
 }), '/^Alpha Matinee \| .*\[NOTICE\] List of "shows": order written as SQL, kept as given/s');
 
-checkLike('grpFields refuses an invalid name', runSafely(function(){
+checkPregMatch('grpFields refuses an invalid name', runCatchThrown(function(){
 	$dbList = new DBLst('items');
-	$dbList->grpFields('type` HAVING 1=1 --');
-	return $dbList->readItems();
+	$dbList->setGroupFields('type` HAVING 1=1 --');
+	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: Invalid table or field name/');
 
-checkLike('listOrder refuses an invalid name', runSafely(function(){
+checkPregMatch('listOrder refuses an invalid name', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->listOrder('^title`; DROP TABLE shows');
-	return $dbList->readItems();
+	$dbList->setOrderFields('^title`; DROP TABLE shows');
+	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: Invalid table or field name/');
 
-checkLike('a table name that is not a plain name is refused', runSafely(function(){ return new DBLst('shows` WHERE 1=1; --'); }), '/^THROWN RuntimeException: Invalid table or field name/');
+checkPregMatch('a table name that is not a plain name is refused', runCatchThrown(function(){ return new DBLst('shows` WHERE 1=1; --'); }), '/^THROWN RuntimeException: Invalid table or field name/');
 
-checkSame('tableJoin', runSafely(function(){
+checkIdentical('joinOtherTable', runCatchThrown(function(){
 	$dbList = new DBLst('events');
-	$dbList->fieldScop('title');
-	$dbList->tableJoin(Array('shows', 'show_id', 'id_show'));
-	$dbList->lstSearch(Array('time'=>'19:00'));
-	return $dbList->flatItems('title');
+	$dbList->pickReadFields('title');
+	$dbList->joinOtherTable(Array('shows', 'show_id', 'id_show'));
+	$dbList->replaceFilters(Array('time'=>'19:00'));
+	return $dbList->flatItemsArray('title');
 }), Array('Beta Evening', 'Beta Evening'));
 
-checkSame('tableJoin with table.field names', runSafely(function(){
+checkIdentical('tableJoin with table.field names', runCatchThrown(function(){
 	$dbList = new DBLst('events');
-	$dbList->fieldScop('shows.title, events.date');
-	$dbList->tableJoin(Array('shows', 'events.show_id', 'shows.id_show'));
-	$dbList->lstSearch(Array('events.id_event'=>7));
-	return $dbList->readItems();
+	$dbList->pickReadFields('shows.title, events.date');
+	$dbList->joinOtherTable(Array('shows', 'events.show_id', 'shows.id_show'));
+	$dbList->replaceFilters(Array('events.id_event'=>7));
+	return $dbList->readRowsOfList();
 }), Array(Array('title'=>'Solo Gig', 'date'=>'2026-12-01')));
 
-checkLike('tableJoin refuses an invalid field name', runSafely(function(){
+checkPregMatch('tableJoin refuses an invalid field name', runCatchThrown(function(){
 	$dbList = new DBLst('events');
-	$dbList->tableJoin(Array('shows', 'show_id', 'id_show OR 1=1'));
-	return $dbList->readItems();
+	$dbList->joinOtherTable(Array('shows', 'show_id', 'id_show OR 1=1'));
+	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: Invalid table or field name/');
 
-checkLike('tableJoin refuses a join without its two fields', runSafely(function(){
+checkPregMatch('tableJoin refuses a join without its two fields', runCatchThrown(function(){
 	$dbList = new DBLst('events');
-	$dbList->tableJoin(Array('shows', 'show_id'));
-	return $dbList->readItems();
+	$dbList->joinOtherTable(Array('shows', 'show_id'));
+	return $dbList->readRowsOfList();
 }), '/^THROWN RuntimeException: A join needs a table and two field names/');
 
-checkSame('an empty tableJoin clears the join', runSafely(function(){
+checkIdentical('an empty tableJoin clears the join', runCatchThrown(function(){
 	$dbList = new DBLst('events');
-	$dbList->tableJoin(Array('shows', 'show_id', 'id_show'));
-	$dbList->tableJoin(Array());
-	return array_keys($dbList->readItems()[0]);
+	$dbList->joinOtherTable(Array('shows', 'show_id', 'id_show'));
+	$dbList->joinOtherTable(Array());
+	return array_keys($dbList->readRowsOfList()[0]);
 }), Array('id_event', 'show_id', 'date', 'time'));
 
-checkSame('childList with a single field', runSafely(function(){
+checkIdentical('childList with a single field', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->readItems();
-	return array_column($dbList->childList('items', 'type'), 'items');
+	$dbList->readRowsOfList();
+	return array_column($dbList->attachChildren('items', 'type'), 'items');
 }), Array(Array('music', 'dance'), Array('theatre', 'music'), Array('dance', 'circus'), Array('solo'), Array()));
 
-checkSame('constructor with where and order clauses', runSafely(function(){
+checkIdentical('constructor with where and order clauses', runCatchThrown(function(){
 	$dbList = new DBLst('events', null, "`show_id` = '1'", 'date DESC');
-	return array_column($dbList->readItems(), 'date');
+	return array_column($dbList->readRowsOfList(), 'date');
 }), Array('2027-01-03', '2026-12-28'));
 
-checkSame('constructor fragments are replaced by the matching calls', runSafely(function(){
+checkIdentical('constructor fragments are replaced by the matching calls', runCatchThrown(function(){
 	$dbList = new DBLst('events', 'date', "`show_id` = '1'", 'date DESC', '1');
-	$frstRow = $dbList->readItems();
-	$dbList->fieldScop('id_event');
-	$dbList->lstSearch(Array('show_id'=>2));
-	$dbList->listOrder('id_event');
-	$dbList->listLimit();
-	return Array($frstRow, $dbList->readItems());
+	$frstRow = $dbList->readRowsOfList();
+	$dbList->pickReadFields('id_event');
+	$dbList->replaceFilters(Array('show_id'=>2));
+	$dbList->setOrderFields('id_event');
+	$dbList->setLimitOffset();
+	return Array($frstRow, $dbList->readRowsOfList());
 }), Array(Array(Array('date'=>'2027-01-03')), Array(Array('id_event'=>3), Array('id_event'=>4))));
 
-checkSame('rows already read are given again when asked', runSafely(function(){
+checkIdentical('rows already read are given again when asked', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show'=>1));
-	$dbList->readItems();
-	$dbList->lstSearch(Array('id_show'=>2));
-	return Array(array_column($dbList->readItems(true), 'id_show'), array_column($dbList->readItems(), 'id_show'));
+	$dbList->replaceFilters(Array('id_show'=>1));
+	$dbList->readRowsOfList();
+	$dbList->replaceFilters(Array('id_show'=>2));
+	return Array(array_column($dbList->readRowsOfList(true), 'id_show'), array_column($dbList->readRowsOfList(), 'id_show'));
 }), Array(Array(1), Array(2)));
 
-checkSame('no match gives an empty list', runSafely(function(){
+checkIdentical('no match gives an empty list', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title~'=>'Zzz*'));
-	return $dbList->readItems();
+	$dbList->replaceFilters(Array('title~'=>'Zzz*'));
+	return $dbList->readRowsOfList();
 }), Array());
 
 // A single matching row must still come back as a list of rows
-checkSame('one row is a list of one row', runSafely(function(){
+checkIdentical('one row is a list of one row', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title~'=>'Beta*'));
-	return $dbList->readItems();
+	$dbList->replaceFilters(Array('title~'=>'Beta*'));
+	return $dbList->readRowsOfList();
 }), Array(Array('id_show'=>2, 'title'=>'Beta Evening', 'venue'=>'Hall B')));
 
-checkSame('one row with one column is a list of one row', runSafely(function(){
+checkIdentical('one row with one column is a list of one row', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->fieldScop('title');
-	$dbList->lstSearch(Array('title~'=>'Beta*'));
-	return $dbList->readItems();
+	$dbList->pickReadFields('title');
+	$dbList->replaceFilters(Array('title~'=>'Beta*'));
+	return $dbList->readRowsOfList();
 }), Array(Array('title'=>'Beta Evening')));
 
-checkSame('flatItems on one row', runSafely(function(){
+checkIdentical('flatItems on one row', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title~'=>'Beta*'));
-	return $dbList->flatItems('venue');
+	$dbList->replaceFilters(Array('title~'=>'Beta*'));
+	return $dbList->flatItemsArray('venue');
 }), Array('Hall B'));
 
-checkSame('childList with a single child', runSafely(function(){
+checkIdentical('childList with a single child', runCatchThrown(function(){
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('title~'=>'Solo*'));
-	$dbList->readItems();
-	return $dbList->childList('items');
+	$dbList->replaceFilters(Array('title~'=>'Solo*'));
+	$dbList->readRowsOfList();
+	return $dbList->attachChildren('items');
 }), Array(Array('id_show'=>4, 'title'=>'Solo Gig', 'venue'=>'Hall S', 'items'=>Array(Array('id_item'=>7, 'show_id'=>4, 'type'=>'solo')))));
 
-checkSame('a row without a key value gets no children, not the orphan rows', runSafely(function(){
-	$dbHandl = nyu\Data\DBCon::getInstnc('sqlte', '', '', '', inTempDir('list.sqlite'))->getConnex();
-	$dbHandl->sendQuery("INSERT INTO `events` (`id_event`,`show_id`,`date`,`time`) VALUES (90,NULL,'2027-02-01','18:00');", true);
+checkIdentical('a row without a key value gets no children, not the orphan rows', runCatchThrown(function(){
+	$dbHandl = nyu\Data\DBCon::obtainInstance('sqlte', '', '', '', inTemporaryDir('list.sqlite'))->readConnection();
+	$dbHandl->sendBuiltQuery("INSERT INTO `events` (`id_event`,`show_id`,`date`,`time`) VALUES (90,NULL,'2027-02-01','18:00');", true);
 	$dbList = new DBLst('shows');
-	$dbList->lstSearch(Array('id_show'=>5));
-	$dbList->readItems();
-	return $dbList->childList('events', 'id_event', 'show_id', 'venue');
+	$dbList->replaceFilters(Array('id_show'=>5));
+	$dbList->readRowsOfList();
+	return $dbList->attachChildren('events', 'id_event', 'show_id', 'venue');
 }), Array(Array('id_show'=>5, 'title'=>'Empty Stage', 'venue'=>null, 'events'=>Array())));
 
-endChecks();
+finishChecking();

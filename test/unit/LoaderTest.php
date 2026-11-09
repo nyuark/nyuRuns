@@ -14,9 +14,9 @@ use nyu\Setup\Loader;
  * @return mixed The sorted names of the loaded configurations, or a 'THROWN ...' string.
  */
 function loadedCnf( Array $setupBlock ): Mixed {
-	return runSafely(function() use ($setupBlock){
+	return runCatchThrown(function() use ($setupBlock){
 		$loadObj = new Loader( Array('setup'=>$setupBlock) );
-		$nameLst = array_keys( $loadObj->getConfig()->readLines() );
+		$nameLst = array_keys( $loadObj->retrieveConfig()->readLinesArray() );
 		sort($nameLst);
 		return $nameLst;
 	});
@@ -36,14 +36,14 @@ foreach( scandir(TOP_DIR.DS.'conf') as $fleNme ){
 }
 sort($allCnfs);
 sort($iniCnfs);
-checkSame('fnames any: every file',            loadedCnf(Array('ftypes'=>'all', 'fnames'=>'any')), $allCnfs);
-checkSame('fnames missing: every file',        loadedCnf(Array('ftypes'=>'all')), $allCnfs);
-checkSame('fnames with one name',              loadedCnf(Array('ftypes'=>'all', 'fnames'=>'system')), Array('SYSTEM'));
-checkSame('ftypes keeps one extension',        loadedCnf(Array('ftypes'=>'ini', 'fnames'=>'any')), $iniCnfs);
+checkIdentical('fnames any: every file',            loadedCnf(Array('ftypes'=>'all', 'fnames'=>'any')), $allCnfs);
+checkIdentical('fnames missing: every file',        loadedCnf(Array('ftypes'=>'all')), $allCnfs);
+checkIdentical('fnames with one name',              loadedCnf(Array('ftypes'=>'all', 'fnames'=>'system')), Array('SYSTEM'));
+checkIdentical('ftypes keeps one extension',        loadedCnf(Array('ftypes'=>'ini', 'fnames'=>'any')), $iniCnfs);
 
 // Config folder named by the preset
 $fxtFldr = 'test'.DS.'fixtures'.DS.'confenv';
-checkSame('folder: the files of another folder', loadedCnf(Array('ftypes'=>'all', 'folder'=>$fxtFldr)), Array('SECRETS'));
+checkIdentical('folder: the files of another folder', loadedCnf(Array('ftypes'=>'all', 'folder'=>$fxtFldr)), Array('SECRETS'));
 
 /**
  * Reads one value of the fixture's secrets file, as a setup block loads it.
@@ -53,9 +53,9 @@ checkSame('folder: the files of another folder', loadedCnf(Array('ftypes'=>'all'
  * @return mixed The loaded value, or a 'THROWN ...' string.
  */
 function loadedVal( Array $setupBlock, String $secretName ): Mixed {
-	return runSafely(function() use ($setupBlock, $secretName){
+	return runCatchThrown(function() use ($setupBlock, $secretName){
 		$loadObj = new Loader( Array('setup'=>$setupBlock) );
-		return $loadObj->getConfig()->getRowVal('SECRETS', $secretName);
+		return $loadObj->retrieveConfig()->obtainRowValue('SECRETS', $secretName);
 	});
 }
 
@@ -63,16 +63,16 @@ function loadedVal( Array $setupBlock, String $secretName ): Mixed {
 putenv('NYU_TEST_TOKEN=from-the-process');
 putenv('NYU_TEST_PROCESS=only-in-the-process');
 $envSetp = Array('ftypes'=>'all', 'folder'=>$fxtFldr, 'envfle'=>'test'.DS.'fixtures'.DS.'test.env');
-checkSame('env: a plain value is kept',             loadedVal($envSetp, 'plain'), 'kept as written');
-checkSame('env: only a value starting with env: is replaced', loadedVal($envSetp, 'inside'), 'not at the start env:NYU_TEST_TOKEN');
-checkSame('env: value of the file, before the process', loadedVal($envSetp, 'token'), 'abc123');
-checkSame('env: quotes are removed, the rest is kept', loadedVal($envSetp, 'quoted'), 'with spaces = and equals');
-checkSame('env: spaces around name and value are trimmed', loadedVal($envSetp, 'spaced'), 'padded');
-checkSame('env: a commented line defines nothing',  loadedVal($envSetp, 'commented'), '');
-checkSame('env: value of the process when the file has none', loadedVal($envSetp, 'process'), 'only-in-the-process');
-checkSame('env: an unknown name gives an empty value', loadedVal($envSetp, 'missing'), '');
-checkSame('env: values are replaced at any depth',  loadedVal($envSetp, 'nested'), Array('keys'=>Array('abc123', 'literal'), 'ttl'=>60));
-checkSame('env: without the file, the process is used', loadedVal(Array('ftypes'=>'all', 'folder'=>$fxtFldr, 'envfle'=>'test'.DS.'fixtures'.DS.'none.env'), 'token'), 'from-the-process');
+checkIdentical('env: a plain value is kept',             loadedVal($envSetp, 'plain'), 'kept as written');
+checkIdentical('env: only a value starting with env: is replaced', loadedVal($envSetp, 'inside'), 'not at the start env:NYU_TEST_TOKEN');
+checkIdentical('env: value of the file, before the process', loadedVal($envSetp, 'token'), 'abc123');
+checkIdentical('env: quotes are removed, the rest is kept', loadedVal($envSetp, 'quoted'), 'with spaces = and equals');
+checkIdentical('env: spaces around name and value are trimmed', loadedVal($envSetp, 'spaced'), 'padded');
+checkIdentical('env: a commented line defines nothing',  loadedVal($envSetp, 'commented'), '');
+checkIdentical('env: value of the process when the file has none', loadedVal($envSetp, 'process'), 'only-in-the-process');
+checkIdentical('env: an unknown name gives an empty value', loadedVal($envSetp, 'missing'), '');
+checkIdentical('env: values are replaced at any depth',  loadedVal($envSetp, 'nested'), Array('keys'=>Array('abc123', 'literal'), 'ttl'=>60));
+checkIdentical('env: without the file, the process is used', loadedVal(Array('ftypes'=>'all', 'folder'=>$fxtFldr, 'envfle'=>'test'.DS.'fixtures'.DS.'none.env'), 'token'), 'from-the-process');
 
 /**
  * Reads the error level a value of ERR_LEVL gives, as system.ini hands it.
@@ -82,20 +82,20 @@ checkSame('env: without the file, the process is used', loadedVal(Array('ftypes'
  */
 function levelOf( Mixed $levelValue ): Mixed {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>($levelValue===null ? Array() : Array('ERR_LEVL'=>$levelValue))) );
-	return runSafely(function(){
-		return (new Loader( Array('setup'=>Array('ftypes'=>'none')) ))->errConfig();
+	return runCatchThrown(function(){
+		return (new Loader( Array('setup'=>Array('ftypes'=>'none')) ))->errorConfigNum();
 	});
 }
 
 // ERR_LEVL : E_* names read one by one, never run; a value left unquoted arrives as the number PHP made of it
-checkSame('error level: E_ALL when not set, or empty', Array(levelOf(null), levelOf('')), Array(E_ALL, E_ALL));
-checkSame('error level: as the parser of system.ini gives it unquoted', Array(levelOf('32767'), levelOf(E_ALL & ~E_DEPRECATED)), Array(E_ALL, E_ALL & ~E_DEPRECATED));
-checkSame('error level: names joined by & and ~, quoted', levelOf('E_ALL & ~E_DEPRECATED & ~E_NOTICE'), E_ALL & ~E_DEPRECATED & ~E_NOTICE);
-checkSame('error level: & binds before |, as in PHP', levelOf('E_ERROR | E_WARNING & ~E_WARNING'), E_ERROR | (E_WARNING & ~E_WARNING));
-checkSame('error level: spaces do not matter', levelOf('E_ERROR|E_WARNING'), E_ERROR | E_WARNING);
-checkLike('error level: an unknown name stops the start-up', strval(levelOf('E_ALL & ~E_FOO')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: E_FOO @Loader\.php:\d+$/');
-checkLike('error level: what is not a name is never run', strval(levelOf('E_ALL | phpinfo()')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: phpinfo\(\) @Loader\.php:\d+$/');
-checkLike('error level: a constant that is not one of the errors', strval(levelOf('PHP_VERSION')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: PHP_VERSION @Loader\.php:\d+$/');
+checkIdentical('error level: E_ALL when not set, or empty', Array(levelOf(null), levelOf('')), Array(E_ALL, E_ALL));
+checkIdentical('error level: as the parser of system.ini gives it unquoted', Array(levelOf('32767'), levelOf(E_ALL & ~E_DEPRECATED)), Array(E_ALL, E_ALL & ~E_DEPRECATED));
+checkIdentical('error level: names joined by & and ~, quoted', levelOf('E_ALL & ~E_DEPRECATED & ~E_NOTICE'), E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+checkIdentical('error level: & binds before |, as in PHP', levelOf('E_ERROR | E_WARNING & ~E_WARNING'), E_ERROR | (E_WARNING & ~E_WARNING));
+checkIdentical('error level: spaces do not matter', levelOf('E_ERROR|E_WARNING'), E_ERROR | E_WARNING);
+checkPregMatch('error level: an unknown name stops the start-up', strval(levelOf('E_ALL & ~E_FOO')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: E_FOO @Loader\.php:\d+$/');
+checkPregMatch('error level: what is not a name is never run', strval(levelOf('E_ALL | phpinfo()')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: phpinfo\(\) @Loader\.php:\d+$/');
+checkPregMatch('error level: a constant that is not one of the errors', strval(levelOf('PHP_VERSION')), '/^THROWN RuntimeException: ERR_LEVL holds what is not an error level: PHP_VERSION @Loader\.php:\d+$/');
 $GLOBALS['nyuConfig'] = null;
 
-endChecks();
+finishChecking();

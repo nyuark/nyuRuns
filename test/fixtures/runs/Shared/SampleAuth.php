@@ -9,25 +9,25 @@ use nyu\Access\Auth\Handler as AuthHndlr;
 class SampleAuth implements AuthHndlr{
 
 	/**
-	 * @param Array $confValues Unused.
+	 * @param Array $configValues Unused.
 	 */
-	public function __construct( Array $confValues ){
+	public function __construct( Array $configValues ){
 	}
 
 	/**
 	 * Accepts the key "sample-key" alone.
 	 *
-	 * @param Array $credsArray Must contain a 'key' entry.
+	 * @param Array $crdntlsArray Must contain a 'key' entry.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	public function checkCred( Array $credsArray ): Array|Bool {
-		return ( ($credsArray['key'] ?? '')==='sample-key' ) ? Array('user'=>'sampleUser') : false;
+	public function chckCredential( Array $crdntlsArray ): Array|Bool {
+		return ( ($crdntlsArray['key'] ?? '')==='sample-key' ) ? Array('user'=>'sampleUser') : false;
 	}
 
 	/**
 	 * @return String The last error message.
 	 */
-	public function lastError(): String {
+	public function finalErrorText(): String {
 		return 'Invalid sample key';
 	}
 }

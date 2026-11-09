@@ -14,39 +14,39 @@ class Actions extends Actionset {
 	 * action; input/send.json defines its fields.
 	 */
 	public function send(): Void {
-		$this->statCode = 200;
-		$this->asOutput = $this->inputReg->readLines();
+		$this->statusCode = 200;
+		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
 
 	/**
 	 * Answers with its inputs; no file defines them.
 	 */
 	public function free(): Void {
-		$this->statCode = 200;
-		$this->asOutput = $this->inputReg->readLines();
+		$this->statusCode = 200;
+		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
 
 	/**
 	 * Answers with its inputs; input/need.json requires some of its fields.
 	 */
 	public function need(): Void {
-		$this->statCode = 200;
-		$this->asOutput = $this->inputReg->readLines();
+		$this->statusCode = 200;
+		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
 
 	/**
 	 * Answers with its inputs; input/wrong.json names a format that does not exist.
 	 */
 	public function wrong(): Void {
-		$this->statCode = 200;
-		$this->asOutput = $this->inputReg->readLines();
+		$this->statusCode = 200;
+		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
 
 	/**
 	 * Answers with its inputs; input/broke.json is not a definition.
 	 */
 	public function broke(): Void {
-		$this->statCode = 200;
-		$this->asOutput = $this->inputReg->readLines();
+		$this->statusCode = 200;
+		$this->replyValue = $this->inptRgstry->readLinesArray();
 	}
 }

@@ -11,35 +11,35 @@ use nyu\Access\Sess\Handler as SessHndlr;
 class CarierSess implements SessHndlr{
 
 	/**
-	 * @param Array      $confValues Unused.
-	 * @param ?AuthHndlr $authHandlr Unused.
+	 * @param Array      $configValues Unused.
+	 * @param ?AuthHndlr $authStrategy Unused.
 	 */
-	public function __construct( Array $confValues, ?AuthHndlr $authHandlr = null ){
+	public function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
 	}
 
 	/**
 	 * Identifies whoever sends an X-Carier header, by its value.
 	 *
-	 * @param Request $requestObj The shared, already-parsed HTTP request.
+	 * @param Request $requstObject The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	public function verifyReq( Request $requestObj ): Array|Bool {
-		$headVal = $requestObj->getHeader('X-Carier');
+	public function verifyRqstList( Request $requstObject ): Array|Bool {
+		$headVal = $requstObject->retrieveHeader('X-Carier');
 		return ( $headVal!==null && $headVal!='' ) ? Array('user'=>$headVal) : false;
 	}
 
 	/**
-	 * @param Array $identArray Unused.
+	 * @param Array $identtyArray Unused.
 	 * @return String Always an empty string.
 	 */
-	public function issueTokn( Array $identArray ): String {
+	public function issueTokenText( Array $identtyArray ): String {
 		return '';
 	}
 
 	/**
 	 * @return String The last error message.
 	 */
-	public function lastError(): String {
+	public function finalErrorText(): String {
 		return 'Missing X-Carier header';
 	}
 }
