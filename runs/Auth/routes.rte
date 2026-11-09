@@ -1,0 +1,38 @@
+{
+	"login" : {
+		"allows": "POST",
+		"target": { "act": "login" }
+	},
+	"logout" : {
+		"allows": "POST",
+		"target": { "act": "logout" }
+	},
+	"activate" : {
+		"allows": "POST",
+		"target": { "act": "activate" }
+	},
+	"signup" : {
+		"allows": "POST",
+		"target": { "act": "signup" }
+	},
+	"forgot" : {
+		"allows": "POST",
+		"target": { "act": "forgot" }
+	},
+	"recovr" : {
+		"allows": "POST",
+		"target": { "act": "recovr" }
+	},
+	"password" : {
+		"allows": "POST",
+		"target": { "act": "password" }
+	},
+	"langs" : {
+		"allows": "POST",
+		"target": { "act": "langs" }
+	},
+	"/.well-known/jwks.json" : {
+		"allows": "GET",
+		"target": { "act": "keyset" }
+	}
+}

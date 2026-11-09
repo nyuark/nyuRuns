@@ -9,7 +9,8 @@
 	"route": {
 		"detect": "manually",
 		"folder": "conf/routes/static",
-		"htroot": "pages"
+		"htroot": "pages",
+		"mounts": { "auth": false }
 	},
 	"rnder": {
 		"format": "json",

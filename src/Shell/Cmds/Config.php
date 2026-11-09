@@ -609,7 +609,8 @@ class Config extends Command{
 	}
 
 	/**
-	 * Lists the routes of a preset: those its route files declare, then
+	 * Lists the routes of a preset: those its route files declare and those
+	 * of the Runs it mounts, each with its owner ('site' or the Run), then
 	 * the actions its 'auths' block names, each with who it is served to:
 	 * open (anyone), logged (any logged user), or the least role asked.
 	 *
@@ -628,7 +629,7 @@ class Config extends Command{
 		$rqstObj = ActCaller::makeReqst('GET', '/')[0];
 		$rowList = Array();
 		foreach( (new Router($rteConf, $rqstObj))->allRoutes() as $rteVal ){
-			$rowList[] = Array( '/'.$rteVal['rtePath'], implode(', ', $rteVal['methods']), $rteVal['rteKind'], $rteVal['rteGoal'], $this->axessText($axsConf, $rqstObj, $rteVal) );
+			$rowList[] = Array( '/'.$rteVal['rtePath'], implode(', ', $rteVal['methods']), $rteVal['rteKind'], $rteVal['rteGoal'], $rteVal['rteOwnr'], $this->axessText($axsConf, $rqstObj, $rteVal) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleMap = is_array($axsConf['rolert'] ?? null) ? $axsConf['rolert'] : Array();
@@ -646,7 +647,7 @@ class Config extends Command{
 		$this->prntObjc->printPair('preset', $prstNme);
 		$this->prntObjc->printPair('detect', strval($rteConf['detect'] ?? ''));
 		$this->prntObjc->printPair('others', ( empty($axsConf) || ($axsConf['needed'] ?? true)===false ) ? 'open' : 'logged');
-		$this->prntObjc->printRows( Array('path', 'methods', 'kind', 'target', 'access'), $rowList );
+		$this->prntObjc->printRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowList );
 		$roleFlw = (new Checker($axsConf, $rqstObj, new Registry(Array())))->rolesFlaw();
 		if( $roleFlw!='' ){
 			$this->prntObjc->printFail('Every request of this preset is refused: '.$roleFlw);

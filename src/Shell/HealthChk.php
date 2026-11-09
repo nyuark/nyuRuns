@@ -13,6 +13,7 @@ use nyu\Setup\Loader;
 use nyu\Setup\Preset;
 use nyu\Tools\Language;
 use nyu\Tools\Registry;
+use nyu\Tools\Router;
 
 /**
  * Checks that a project can serve requests, and that nothing unsafe is
@@ -44,6 +45,7 @@ class HealthChk{
 		$this->chkServer();
 		$this->chkFoldrs();
 		$this->chkPreset();
+		$this->chkRoutes();
 		$this->chkEntrys();
 		$this->chkAccess();
 		$this->chkDbases();
@@ -132,10 +134,10 @@ class HealthChk{
 		}
 		$srcTime = 0;
 		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
-			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte') ) as $srcFle ){
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFle ){
 			$srcTime = max($srcTime, intval(@filemtime(strval($srcFle))));
 		}
-		$this->addResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file changed since: run "config cache", the next request reads the files' : 'up to date' );
+		$this->addResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file (a Run\'s routes.rte too) changed since: run "config cache", the next request reads the files' : 'up to date' );
 	}
 
 	/**
@@ -184,6 +186,81 @@ class HealthChk{
 		}
 	}
 
+	/**
+	 * Checks the routes each preset serves, the Runs' with their mounts:
+	 * two Runs declaring one path ('route clash': fail, the first in name
+	 * order answers), a site route over a Run route ('route shadow': warn,
+	 * the site's answers), and an entry of openrt or rolert naming no route
+	 * ('access route': warn): a path no route declares, a Run that does not
+	 * exist, or an action that is not one of the Run, or that a Run
+	 * declaring its routes does not list. One row for each, naming the
+	 * presets concerned.
+	 */
+	public function chkRoutes(): Void {
+		$rpsList = (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps');
+		$runList = defined('RUN_DIR') ? array_map('basename', array_filter((array)glob(RUN_DIR.DS.'*'), 'is_dir')) : Array();
+		$clshLst = Array();
+		$shdwLst = Array();
+		$lostLst = Array();
+		foreach( $rpsList as $rpsFle ){
+			$prstNme = basename(strval($rpsFle), '.rps');
+			try{
+				$stupObj = (new Preset($prstNme))->makeSetup();
+				$axsConf = $stupObj->setAccess();
+			}catch( \Throwable $e ){
+				// A preset that does not load is told by its own row
+				continue;
+			}
+			$rteConf = $stupObj->getRegKey('route');
+			$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), ActCaller::makeReqst('GET', '/')[0] );
+			$rteData = $routObj->getRoutes();
+			foreach( $routObj->runRoutes() as $rteSet ){
+				$ownName = strval($rteData[$rteSet['rtePath']]['rteOwnr'] ?? '');
+				if( $ownName=='site' ){
+					$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'];
+				}elseif( $ownName!==$rteSet['rteOwnr'] ){
+					$clshLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$ownName.' and '.$rteSet['rteOwnr'];
+				}
+			}
+			// What openrt and rolert name must be served by this preset
+			foreach( array_merge(array_values((array)($axsConf['openrt'] ?? Array())), array_keys(is_array($axsConf['rolert'] ?? null) ? $axsConf['rolert'] : Array())) as $rteKey ){
+				$rteKey = trim(strval($rteKey));
+				if( substr($rteKey, 0, 1)=='/' ){
+					if( !isset($rteData[trim($rteKey, '/')]) ){
+						$lostLst[] = $prstNme.': '.$rteKey.' (no route on that path)';
+					}
+					continue;
+				}
+				$actPart = explode('/', trim($rteKey, '/'), 2);
+				$ownName = strval( current(preg_grep('/^'.preg_quote($actPart[0], '/').'$/i', $runList)) ?: '' );
+				if( $ownName=='' ){
+					$lostLst[] = $prstNme.': '.$rteKey.' (no such application)';
+					continue;
+				}
+				if( ($actPart[1] ?? '*')=='*' ){
+					continue;
+				}
+				if( is_file(RUN_DIR.DS.$ownName.DS.'routes.rte') ){
+					// A Run declaring its routes is reached through them only (or a site alias): one of them names the action
+					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutes(), 'rteGoal'))) ){
+						$lostLst[] = $prstNme.': '.$rteKey.' (not listed in the routes of '.$ownName.')';
+					}
+					continue;
+				}
+				$actPath = RUN_DIR.DS.$ownName.DS.'Actions.php';
+				$clsName = '\\nyu\\Runs\\'.$ownName.'\\Actions';
+				if( is_file($actPath) ){
+					require_once $actPath;
+				}
+				if( !class_exists($clsName, false) || !$clsName::ownAction($actPart[1]) ){
+					$lostLst[] = $prstNme.': '.$rteKey.' (not an action of '.$ownName.')';
+				}
+			}
+		}
+		$this->addResult( 'route clash', empty($clshLst) ? 'fine' : 'fail', empty($clshLst) ? 'no two applications declare one path' : 'declared by two applications, the first in name order answers: '.implode('; ', array_unique($clshLst)) );
+		$this->addResult( 'route shadow', empty($shdwLst) ? 'fine' : 'warn', empty($shdwLst) ? 'no site route over a route of an application' : 'a site route answers in place of the application\'s: '.implode('; ', array_unique($shdwLst)) );
+		$this->addResult( 'access route', empty($lostLst) ? 'fine' : 'warn', empty($lostLst) ? 'every entry of openrt and rolert names a route' : 'naming no route: '.implode('; ', array_unique($lostLst)) );
+	}
 
 	/**
 	 * Checks the entry points of www: the preset each one starts the

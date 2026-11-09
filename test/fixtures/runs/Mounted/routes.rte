@@ -1,0 +1,5 @@
+{
+	"listed" :  { "allows": "GET", "target": { "act": "listed" } },
+	"/rooted" : { "target": { "act": "rooted" } },
+	"ping" :    { "target": { "act": "listed" } }
+}

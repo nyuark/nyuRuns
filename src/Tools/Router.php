@@ -17,7 +17,6 @@ class Router{
 	const KEYSLIST = Array('allows', 'target');
 	const TRGTKEYS = Array('app', 'act', 'url', 'cod', 'fle', 'dir', 'pge');
 
-	protected $fromAuto = false;	// Whether the route was found from the path, by position
 	protected $routeCnf;	// 'route' block of the active preset
 	protected $httpRqst;	// The shared HTTP request
 	protected $pathText;	// Request path, without its leading slash and query string
@@ -38,9 +37,10 @@ class Router{
 
 	/**
 	 * Resolves the route of the request: from the declared routes first (the
-	 * entry point's manual routes, then the files of conf/routes), otherwise
-	 * positionally from the URL path in autopath mode. The entry point's
-	 * routes are only read in manually mode. A CORS preflight
+	 * site's, in the routes folder of the preset, then the Runs' own, in
+	 * runs/<App>/routes.rte), otherwise positionally from the URL path in
+	 * autopath mode. A Run declaring its routes is closed: nothing of it is
+	 * reached by its path, a 404 logged on 'runner'. A CORS preflight
 	 * (an OPTIONS request carrying Access-Control-Request-Method) resolves
 	 * to no application: it is answered with the preset's headers alone.
 	 * A declared route can also answer without an application, with a
@@ -61,74 +61,24 @@ class Router{
 		);
 		$dtcMode = $this->routeCnf['detect'] ?? '';
 
-		// Declared routes come first : the routes folder
+		// Declared routes come first : the site's, then the Runs'
 		$urlPath = str_replace('.php', '', $this->pathText);
 		$fndVals = $this->fileRoute($urlPath);
 		if( $fndVals!==null ){
 			return new Registry( $fndVals );
 		}
 
-		// Automatic path detection (from url path)
+		// Automatic path detection (from url path), for the Runs that declare no routes
 		if( $dtcMode=='autopath' ){
 			$rteVals = array_merge($rteVals, $this->autoRoute());
-			$this->fromAuto = true;
-			// The declared routes answering with this action leave it open to its path : their roles follow it here (see Checker::routeRole)
-			$rteVals['rteFrom'] = $this->openPaths( strval($rteVals['app'] ?? ''), strval($rteVals['action'] ?? '') );
+			$appName = strval($rteVals['app'] ?? '');
+			// A Run declaring its routes is closed : its actions are reached through them only
+			if( preg_match('/^[A-Za-z0-9]+$/D', $appName) && is_file(RUN_DIR.DS.ucfirst($appName).DS.'routes.rte') ){
+				Logger::getLogger('runner')->info( 'Not found: '.json_encode($appName.'/'.strval($rteVals['action'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_SLASHES).': not listed in the routes of the application'.Logger::actorText() );
+				return new Registry( Array('app'=>null, 'action'=>null, 'statCode'=>404, 'statMssg'=>'Not Found') );
+			}
 		}
 		return new Registry( $rteVals );
-	}
-
-	/**
-	 * Lists the declared routes that answer with an action without closing
-	 * it to its path (they limit no method): the action is also reached by
-	 * its own path, where a role asked for on those routes must still
-	 * apply. The names are compared whatever their case; a route naming no
-	 * action stands for the requests naming none.
-	 *
-	 * @param String $runAppName Name of the application, as the path gives it.
-	 * @param String $runAppActn Name of the action, as the path gives it; empty for none.
-	 * @return Array The paths of those routes, as declared, without their slashes.
-	 */
-	protected function openPaths( String $runAppName, String $runAppActn ): Array {
-		$pathLst = Array();
-		if( $runAppName=='' ){
-			return $pathLst;
-		}
-		foreach( $this->allRoutes() as $rteRow ){
-			if( $rteRow['rteKind']=='action' && !$rteRow['rteLock'] && strcasecmp(strval($rteRow['app']), $runAppName)==0 && strcasecmp(strval($rteRow['action']), $runAppActn)==0 ){
-				$pathLst[] = strval($rteRow['rtePath']);
-			}
-		}
-		return array_values( array_unique($pathLst) );
-	}
-
-	/**
-	 * Tells whether an action found from the path is closed: a declared
-	 * route limiting its methods ('allows', or one target per method)
-	 * answers with it, so it is only reached through that route, with
-	 * the methods the route allows. The names are compared whatever
-	 * their case. An action reached through its declared route, or called
-	 * without a route being looked for, is never closed.
-	 *
-	 * @param String $runAppName Name of the application.
-	 * @param String $runAppActn Name of the action that would run.
-	 * @param Bool   $ranDefault Whether that action is the one the application runs when none is named.
-	 * @return Bool True when the action must not run.
-	 */
-	public function shutsActn( String $runAppName, String $runAppActn, Bool $ranDefault=false ): Bool {
-		if( !$this->fromAuto ){
-			return false;
-		}
-		foreach( $this->allRoutes() as $rteRow ){
-			if( $rteRow['rteKind']!='action' || !$rteRow['rteLock'] || strcasecmp(strval($rteRow['app']), $runAppName)!=0 ){
-				continue;
-			}
-			// A route naming no action answers with the default one
-			if( strcasecmp(strval($rteRow['action']), $runAppActn)==0 || (strval($rteRow['action'])==='' && $ranDefault) ){
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
@@ -138,8 +88,9 @@ class Router{
 	 *
 	 * @param Array  $routesList The routes of a file, by path.
 	 * @param String $routesFile Name of the file, for the message.
+	 * @param Array  $targetKeys The keys a target block of the file may hold: TRGTKEYS for the site, 'act' alone for a Run.
 	 */
-	protected function warnsKeys( Array $routesList, String $routesFile ): Void {
+	protected function warnsKeys( Array $routesList, String $routesFile, Array $targetKeys=self::TRGTKEYS ): Void {
 		foreach( $routesList as $rteKey => $rteSet ){
 			if( !is_array($rteSet) ){
 				continue;
@@ -147,10 +98,10 @@ class Router{
 			$badKeys = array_values( array_diff(array_map('strval', array_keys($rteSet)), self::KEYSLIST) );
 			$tgtVals = $rteSet['target'] ?? null;
 			if( is_array($tgtVals) ){
-				// One block, or one per method
-				$blkList = ($this->targtKind($tgtVals)!==null) ? Array($tgtVals) : array_filter($tgtVals, 'is_array');
+				// One block, or one per method (a block of a Run names its action alone)
+				$blkList = ($this->targtKind($tgtVals)!==null || isset($tgtVals['act'])) ? Array($tgtVals) : array_filter($tgtVals, 'is_array');
 				foreach( $blkList as $blkVal ){
-					foreach( array_diff(array_map('strval', array_keys($blkVal)), self::TRGTKEYS) as $tgtKey ){
+					foreach( array_diff(array_map('strval', array_keys($blkVal)), $targetKeys) as $tgtKey ){
 						$badKeys[] = 'target.'.$tgtKey;
 					}
 				}
@@ -194,9 +145,9 @@ class Router{
 	}
 
 	/**
-	 * Looks the path up in the declared routes (conf/routes/*.rte): a key
-	 * equal to the path wins, then the first pattern that matches it. An
-	 * empty path is looked up as 'index'.
+	 * Looks the path up in the declared routes: the site's first, then the
+	 * Runs'; in each, a key equal to the path wins, then the first pattern
+	 * that matches it. An empty path is looked up as 'index'.
 	 *
 	 * @param String $lookupPath Path to look up, without its .php extension.
 	 * @return ?Array The route values (see buildVals), or null when no route matches.
@@ -207,22 +158,32 @@ class Router{
 			$lookupPath = 'index';
 		}
 		$rteData = $this->loadFiles();
-		if( isset($rteData[$lookupPath]) ){
-			return $this->buildVals( $rteData[$lookupPath], Array(), $lookupPath );
-		}
-		foreach( $rteData as $rteKey => $rteSet ){
-			$capVals = $this->matchPath( strval($rteKey), $lookupPath );
-			if( $capVals!==null ){
-				return $this->buildVals( $rteSet, $capVals, strval($rteKey) );
+		foreach( Array(true, false) as $ofSite ){
+			if( isset($rteData[$lookupPath]) && (strval($rteData[$lookupPath]['rteOwnr'] ?? 'site')=='site')===$ofSite ){
+				return $this->buildVals( $rteData[$lookupPath], Array(), $lookupPath );
+			}
+			foreach( $rteData as $rteKey => $rteSet ){
+				if( (strval($rteSet['rteOwnr'] ?? 'site')=='site')!==$ofSite ){
+					continue;
+				}
+				$capVals = $this->matchPath( strval($rteKey), $lookupPath );
+				if( $capVals!==null ){
+					return $this->buildVals( $rteSet, $capVals, strval($rteKey) );
+				}
 			}
 		}
 		return null;
 	}
 
 	/**
-	 * Reads every route file of the routes folder (conf/routes, or the one
-	 * named by the 'folder' key of the route configuration), in file name
-	 * order. When a path is declared twice, its first declaration is kept.
+	 * Reads the declared routes: those of the site, every route file of the
+	 * routes folder (conf/routes, or the one named by the 'folder' key of the
+	 * route configuration) in file name order, then those of the Runs (see
+	 * runRoutes). Each is kept by its path without its slashes, its owner
+	 * under 'rteOwnr': 'site', or the Run's name. When the site declares a
+	 * path twice, its first declaration is kept. A site route on the path of
+	 * a Run route wins over it, with a warning on 'runner'; two Runs on one
+	 * path, the first in name order answers, logged as an error.
 	 *
 	 * @return Array The declared routes, by path or path pattern.
 	 */
@@ -231,22 +192,110 @@ class Router{
 			return $this->rteFiles;
 		}
 		$rteData = Array();
-		$this->rteFiles = Array();
 		$dirPath = TOP_DIR.DS.($this->routeCnf['folder'] ?? 'conf'.DS.'routes');
-		if( !is_dir($dirPath) ){
-			return $rteData;
-		}
-		foreach( glob($dirPath.DS.'*.rte') as $rteFle ){
-			// Plain JSON (Parsers\Index), the keys kept as written
-			$rteFile = new Dcmnt($rteFle, false);
-			$fleData = $rteFile->readValue('out');
-			if( is_array($fleData) ){
-				$this->warnsKeys( $fleData, basename(strval($rteFle)) );
-				$rteData = $rteData + $fleData;
+		if( is_dir($dirPath) ){
+			foreach( glob($dirPath.DS.'*.rte') as $rteFle ){
+				// Plain JSON (Parsers\Index), the keys kept as written
+				$rteFile = new Dcmnt($rteFle, false);
+				$fleData = $rteFile->readValue('out');
+				if( is_array($fleData) ){
+					$this->warnsKeys( $fleData, basename(strval($rteFle)) );
+					$rteData = $rteData + $fleData;
+				}
 			}
 		}
-		$this->rteFiles = $rteData;
-		return $rteData;
+		$siteRte = Array();
+		foreach( $rteData as $rteKey => $rteSet ){
+			$rtePath = trim(strval($rteKey), '/');
+			if( is_array($rteSet) && !isset($siteRte[$rtePath]) ){
+				$siteRte[$rtePath] = Array('rteOwnr'=>'site') + $rteSet;
+			}
+		}
+		foreach( $this->runRoutes() as $runRte ){
+			$rtePath = strval($runRte['rtePath']);
+			if( isset($siteRte[$rtePath]) ){
+				if( $siteRte[$rtePath]['rteOwnr']=='site' ){
+					Logger::getLogger('runner')->warning( 'Route '.json_encode('/'.$rtePath, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['rteOwnr'].' is also declared by the site: the site\'s answers' );
+				}else{
+					Logger::getLogger('runner')->error( 'Route '.json_encode('/'.$rtePath, JSON_UNESCAPED_SLASHES).' is declared by the applications '.$siteRte[$rtePath]['rteOwnr'].' and '.$runRte['rteOwnr'].': '.$siteRte[$rtePath]['rteOwnr'].' answers' );
+				}
+				continue;
+			}
+			unset($runRte['rtePath']);
+			$siteRte[$rtePath] = $runRte;
+		}
+		$this->rteFiles = $siteRte;
+		return $siteRte;
+	}
+
+	/**
+	 * Reads the routes the Runs declare, runs/<App>/routes.rte, in name
+	 * order of the Runs: the .rte format, each target naming an action of
+	 * that Run with 'act' alone (its 'app' is implied; any other key of a
+	 * target is warned as unknown). A path is moved under the mount of the
+	 * Run (see mountPath), except one with a leading slash, from the root of
+	 * the site. A Run the preset does not mount serves none.
+	 *
+	 * @return Array The routes, in a list: each its declaration with its final path under 'rtePath' (without its slashes) and its Run under 'rteOwnr'.
+	 */
+	public function runRoutes(): Array {
+		$rowList = Array();
+		if( !defined('RUN_DIR') ){
+			return $rowList;
+		}
+		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') as $rteFle ){
+			$appName = basename(dirname(strval($rteFle)));
+			$mntPath = $this->mountPath($appName);
+			if( $mntPath===null || !preg_match('/^[A-Za-z0-9]+$/D', $appName) ){
+				continue;
+			}
+			$fleData = (new Dcmnt(strval($rteFle), false))->readValue('out');
+			if( !is_array($fleData) ){
+				continue;
+			}
+			$this->warnsKeys( $fleData, $appName.'/routes.rte', Array('act') );
+			foreach( $fleData as $rteKey => $rteSet ){
+				if( !is_array($rteSet) ){
+					continue;
+				}
+				$rteKey = strval($rteKey);
+				$rtePath = (substr($rteKey, 0, 1)=='/') ? trim($rteKey, '/') : trim($mntPath.'/'.trim($rteKey, '/'), '/');
+				// The application of every target is the Run's own
+				$tgtVals = $rteSet['target'] ?? null;
+				if( is_array($tgtVals) && isset($tgtVals['act']) ){
+					$tgtVals['app'] = $appName;
+				}elseif( is_array($tgtVals) ){
+					foreach( $tgtVals as $mthNme => $mthTgt ){
+						if( is_array($mthTgt) ){
+							$tgtVals[$mthNme]['app'] = $appName;
+						}
+					}
+				}
+				$rteSet['target'] = $tgtVals;
+				$rowList[] = Array('rtePath'=>$rtePath, 'rteOwnr'=>$appName) + $rteSet;
+			}
+		}
+		return $rowList;
+	}
+
+	/**
+	 * Gives the mount of a Run: the path its routes are moved under, from
+	 * the 'mounts' key of the route configuration, { "<run>": false |
+	 * "<prefix>" }, the Run named whatever its case. A Run it does not name
+	 * is mounted under its name in lower case.
+	 *
+	 * @param String $runAppName Name of the Run.
+	 * @return ?String The prefix, without its slashes (empty for the root of the site); null when the Run's routes are not served.
+	 */
+	public function mountPath( String $runAppName ): ?String {
+		$mntList = $this->routeCnf['mounts'] ?? Array();
+		foreach( (is_array($mntList) ? $mntList : Array()) as $mntKey => $mntVal ){
+			if( strcasecmp(strval($mntKey), $runAppName)!=0 ){
+				continue;
+			}
+			return ($mntVal===false) ? null : trim(strval($mntVal), '/');
+		}
+		return strtolower($runAppName);
 	}
 
 	/**
@@ -273,7 +322,7 @@ class Router{
 	 * Lists the declared routes, for what they answer with: one entry for
 	 * each target of a route, with the methods it serves.
 	 *
-	 * @return Array The entries, each with the path under 'rtePath', its 'methods', its 'rteKind' (action, redrct, static or htpage), what it answers with under 'rteGoal', whether the route limits its methods under 'rteLock' and, for an action, its 'app' and 'action'.
+	 * @return Array The entries, each with the path under 'rtePath', its 'methods', its 'rteKind' (action, redrct, static or htpage), what it answers with under 'rteGoal', its owner under 'rteOwnr' ('site' or a Run) and, for an action, its 'app' and 'action'.
 	 */
 	public function allRoutes(): Array {
 		$rowList = Array();
@@ -283,8 +332,6 @@ class Router{
 				continue;
 			}
 			$alwList = array_filter( array_map('trim', explode(',', strtoupper(strval($rteSet['allows'] ?? '')))) );
-			// A route limiting its methods closes its action to the path (shutsActn)
-			$rteLock = isset($rteSet['allows']) || $this->targtKind($tgtVals)===null;
 			if( $this->targtKind($tgtVals)!==null ){
 				$mthList = array_diff($alwList, Array('HEAD', 'OPTIONS'));
 				$tgtVals = array_fill_keys( empty($mthList) ? Array('GET') : $mthList, $tgtVals );
@@ -304,7 +351,7 @@ class Router{
 				}
 				$goalKey = $rteKind.' '.$goalTxt;
 				if( !isset($goalLst[$goalKey]) ){
-					$goalLst[$goalKey] = Array('rtePath'=>trim(strval($rteKey), '/'), 'methods'=>Array(), 'rteKind'=>$rteKind, 'rteGoal'=>$goalTxt, 'app'=>($rteKind=='action') ? strval($mthTgt['app']) : null, 'action'=>($rteKind=='action') ? strval($mthTgt['act'] ?? '') : null, 'rteLock'=>$rteLock);
+					$goalLst[$goalKey] = Array('rtePath'=>trim(strval($rteKey), '/'), 'methods'=>Array(), 'rteKind'=>$rteKind, 'rteGoal'=>$goalTxt, 'app'=>($rteKind=='action') ? strval($mthTgt['app']) : null, 'action'=>($rteKind=='action') ? strval($mthTgt['act'] ?? '') : null, 'rteOwnr'=>strval($rteSet['rteOwnr'] ?? 'site'));
 				}
 				$goalLst[$goalKey]['methods'][] = strval($mthNme);
 			}
@@ -375,7 +422,7 @@ class Router{
 	 * @param Array  $routeEntry The declared route, with its 'target' block.
 	 * @param Array  $captureSet Values captured from the path, by name.
 	 * @param String $routeShape Path the route is declared with.
-	 * @return ?Array The 'app', 'action', 'param' and 'pathVars' values, or 'statCode', 'statMssg' and 'allowed' when no action is to run, or the 'rteGoal' of another kind of reply; always with 'rteKind' and 'rtePath'. Null when the route names no target.
+	 * @return ?Array The 'app', 'action', 'param' and 'pathVars' values, or 'statCode', 'statMssg' and 'allowed' when no action is to run, or the 'rteGoal' of another kind of reply; always with 'rteKind', 'rtePath' and 'rteOwnr' ('site' or the Run declaring it). Null when the route names no target.
 	 *
 	 * @throws \RuntimeException When the target is not properly declared.
 	 */
@@ -402,7 +449,7 @@ class Router{
 			$xtrList[] = 'HEAD';
 		}
 		$alwList = array_unique( array_merge(array_map('strval', array_keys($tgtVals)), $xtrList) );
-		$rteBase = Array('app'=>null, 'action'=>null, 'rtePath'=>trim($routeShape, '/'));
+		$rteBase = Array('app'=>null, 'action'=>null, 'rtePath'=>trim($routeShape, '/'), 'rteOwnr'=>strval($routeEntry['rteOwnr'] ?? 'site'));
 
 		$usedMth = null;
 		foreach( $alwList as $mthNme ){

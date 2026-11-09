@@ -39,9 +39,8 @@ class Controller{
 	 * Loads the application's Actions.php file and prepares it (via
 	 * reflection) for execution, then loads its model stack. A missing
 	 * application, one whose name is not made of letters and digits only,
-	 * one whose Actions.php does not declare its actionset, a name that is
-	 * not one of its actions, and an action found from the path while a
-	 * declared route answers with it (see Router::shutsActn) are all the
+	 * one whose Actions.php does not declare its actionset and a name that
+	 * is not one of its actions are all the
 	 * same 404 "Not Found" through getStatus(): the client is not told
 	 * which. The reason is logged on the 'runner' channel. A default action
 	 * that names no action is a 500, logged as an error. A required input
@@ -101,15 +100,6 @@ class Controller{
 		if( $this->savedAct=='' ){
 			$this->savedAct = $this->defltActn();
 			$isDeflt = true;
-		}
-		// An action a declared route answers with is only reached through that route
-		if( $this->routrObj!==null ){
-			$actName = ( preg_match('/^\w+$/', $this->savedAct) && $this->appObjct->hasMethod($this->savedAct) ) ? $this->appObjct->getMethod($this->savedAct)->getName() : $this->savedAct;
-			if( $this->routrObj->shutsActn($this->appIdent, $actName, strcasecmp($actName, $this->defltActn())==0) ){
-				$this->loadFail = 'Not Found';
-				Logger::getLogger('runner')->info( $logText.'the action is only reached through its declared route'.Logger::actorText() );
-				return;
-			}
 		}
 		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
 		$clsName = $this->appObjct->getName();

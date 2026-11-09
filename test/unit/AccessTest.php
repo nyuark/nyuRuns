@@ -383,11 +383,18 @@ $actRoute = Array('app'=>'auth', 'action'=>'check', 'rteKind'=>'action', 'rtePat
 checkSame('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'system', $actRoute), roleReply($rolConf, 'manage', $actRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkSame('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkSame('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
-// A declared path whose route leaves its action open : the role follows the action reached by its own path
+// A Run route is named by its final, mounted path, in rolert as in openrt
+$mntConf = Array('rolert'=>Array('/space/listed'=>'manage'), 'openrt'=>Array('/rooted')) + $jwtConf;
+$mntRout = Array('app'=>'Mounted', 'action'=>'listed', 'rteKind'=>'action', 'rtePath'=>'space/listed', 'rteOwnr'=>'Mounted');
+checkSame('Checker role: a Run route, by its mounted path', Array(roleReply($mntConf, 'member', $mntRout), roleReply($mntConf, 'manage', $mntRout)), Array(Array(404, 'Not Found'), Array(200, '')));
+checkSame('Checker role: not by the path its file declares it with', roleReply(Array('rolert'=>Array('/listed'=>'manage')) + $jwtConf, 'member', $mntRout), Array(200, ''));
+$rotRout = Array('app'=>'Mounted', 'action'=>'rooted', 'rteKind'=>'action', 'rtePath'=>'rooted', 'rteOwnr'=>'Mounted');
+checkSame('Checker open: a Run route from the root, by its path', roleReply($mntConf, '', $rotRout), Array(200, ''));
+checkSame('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('rtePath'=>'mounted/rooted') + $rotRout)[0], 401);
+// A site route answering with an action is an alias: its role stays on its path, the action reached otherwise is named by app/action
 $pnlConf = Array('rolert'=>Array('/panel'=>'manage')) + $jwtConf;
-$autoRte = Array('app'=>'reports', 'action'=>'admin', 'rteFrom'=>Array('panel'));
-checkSame('Checker role: the role of a declared path applies to its action reached by its own path', Array(roleReply($pnlConf, 'member', $autoRte), roleReply($pnlConf, 'manage', $autoRte)), Array(Array(404, 'Not Found'), Array(200, '')));
-checkSame('Checker role: another action of the application is not named by it', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'index', 'rteFrom'=>Array())), Array(200, ''));
+checkSame('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin', 'rteKind'=>'action', 'rtePath'=>'panel')), Array(404, 'Not Found'));
+checkSame('Checker role: not on its action reached by its own path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin')), Array(200, ''));
 
 // The refused user stays identified, and is not sent to the sign-in route
 $axsRslt = (new Checker( Array('signin'=>'/login', 'openrt'=>Array('/login')) + $rolConf, fakeReqst(Array('Authorization'=>'Bearer '.$jwtSess->issueTokn(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'admin')) ))->verifyAxs();

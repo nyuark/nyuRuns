@@ -30,7 +30,7 @@ $projDir = makeProjt('config', Array(
 	'conf/system.ini'=>$iniText, 'conf/access.json'=>$axsText, 'conf/database.json'=>$dbsText,
 	'conf/presets/sample.rps'=>$rpsText, 'conf/presets/dfault.rps'=>'{ "label": "dfault", "setup": { "ftypes": "all" }, "auths": { "needed": false } }',
 	'conf/presets/wrongs.rps'=>'{ "label": "wrongs", "setup": { "ftypes": "all" }, "auths": { "sessby": "jtoken", "rolert": { "users/*": "boss" } } }',
-	'conf/routes/main.rte'=>$rteText,
+	'conf/routes/main.rte'=>$rteText, 'runs/Shelf/routes.rte'=>'{ "board": { "allows": "GET", "target": { "act": "index" } } }',
 	'www/index.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner();\n", 'www/api.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner( \"dfault\", \$overLoad );\n",
 	'www/own.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner(\$presetNm);\n", 'www/plain.php'=>"<?php echo 1;\n",
 	'.env'=>"# Secrets\nNYU_JWT_SECRET=\nNYU_API_KEY=old-key\n"
@@ -159,14 +159,15 @@ checkSame('no secret goes to the log', Array(strpos($logText, parse_ini_string(s
 // route
 runShell($projDir, Array('config', 'write', 'preset', 'sample.auths.needed', 'true'));
 $jsnVals = jsonShell($projDir, Array('config', 'route', 'sample'));
-checkSame('route lists the declared routes, then the actions the access names', $jsnVals['rows'] ?? null, Array(
-	Array('path'=>'/hello', 'methods'=>'GET', 'kind'=>'htpage', 'target'=>'hello', 'access'=>'open'),
-	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'action', 'target'=>'users/view', 'access'=>'manage'),
-	Array('path'=>'/old', 'methods'=>'GET', 'kind'=>'redrct', 'target'=>'/hello', 'access'=>'logged'),
-	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'action', 'target'=>'shows/index', 'access'=>'logged'),
-	Array('path'=>'/things', 'methods'=>'POST', 'kind'=>'action', 'target'=>'shows/create', 'access'=>'logged'),
-	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'auth/login', 'access'=>'open'),
-	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'users/*', 'access'=>'manage')
+checkSame('route lists the declared routes, of the site then of the Runs with their owner, then the actions the access names', $jsnVals['rows'] ?? null, Array(
+	Array('path'=>'/hello', 'methods'=>'GET', 'kind'=>'htpage', 'target'=>'hello', 'owner'=>'site', 'access'=>'open'),
+	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'action', 'target'=>'users/view', 'owner'=>'site', 'access'=>'manage'),
+	Array('path'=>'/old', 'methods'=>'GET', 'kind'=>'redrct', 'target'=>'/hello', 'owner'=>'site', 'access'=>'logged'),
+	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'action', 'target'=>'shows/index', 'owner'=>'site', 'access'=>'logged'),
+	Array('path'=>'/things', 'methods'=>'POST', 'kind'=>'action', 'target'=>'shows/create', 'owner'=>'site', 'access'=>'logged'),
+	Array('path'=>'/shelf/board', 'methods'=>'GET', 'kind'=>'action', 'target'=>'Shelf/index', 'owner'=>'Shelf', 'access'=>'logged'),
+	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'auth/login', 'owner'=>'', 'access'=>'open'),
+	Array('path'=>'', 'methods'=>'any', 'kind'=>'action', 'target'=>'users/*', 'owner'=>'', 'access'=>'manage')
 ));
 checkSame('route tells the preset, how it finds a route, and who the other routes are served to', Array($jsnVals['exit'] ?? null, $jsnVals['preset'] ?? null, $jsnVals['detect'] ?? null, $jsnVals['others'] ?? null), Array(0, 'sample', 'autopath', 'logged'));
 checkSame('an open preset', jsonShell($projDir, Array('config', 'route'))['others'] ?? null, 'open');

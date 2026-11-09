@@ -272,10 +272,10 @@ class Loader{
 		if( !in_array( strtoupper(strval($sysConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->cachRead && !ConfCache::$tblAdded) || $this->rpsLabel=='' || $this->routrObj===null || !isset($this->cachVals['config']) ){
 			return false;
 		}
-		// A config, preset or route file written since the request began: what it read is not cached
+		// A config, preset or route file written since the request began (the Runs' routes too): what it read is not cached
 		$srcTime = 0;
 		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
-			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte') ) as $srcFle ){
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFle ){
 			$srcTime = max($srcTime, intval(@filemtime(strval($srcFle))));
 		}
 		// File times are in seconds: a change within the second the request began is not told apart

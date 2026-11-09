@@ -438,9 +438,8 @@ class Checker{
 	 * the 'auths' block: its routes are written as those of 'openrt' (see
 	 * openRoute), each with the least role it is served to. When several
 	 * entries name the route, the highest role is asked for. A request
-	 * naming no action is taken as any action of its application. A
-	 * declared path also names the action its route answers with when that
-	 * action is reached by its own path ('rteFrom' of the route).
+	 * naming no action is taken as any action of its application. A path
+	 * names a declared route by its final path: a Run's route with its mount.
 	 *
 	 * @return ?String The role, or null when the route asks for none.
 	 */
@@ -453,13 +452,11 @@ class Checker{
 		$appName = strtolower( str_replace(' ', '', strval($this->routeReg->readValue('app'))) );
 		$actName = strtolower( strval($this->routeReg->readValue('action')) );
 		$rtePath = strval($this->routeReg->readValue('rtePath'));
-		// An action found from the path also takes the roles of the declared routes that leave it open (see Router::openPaths)
-		$frmList = array_map( 'strval', (array)($this->routeReg->readValue('rteFrom') ?? Array()) );
 		$needRle = null;
 		foreach( $roleMap as $rteKey=>$rteRle ){
 			$rteKey = strval($rteKey);
 			if( substr($rteKey, 0, 1)=='/' ){
-				$isNamed = ($rtePath!='' && trim($rteKey, '/')===$rtePath) || in_array(trim($rteKey, '/'), $frmList, true);
+				$isNamed = ($rtePath!='' && trim($rteKey, '/')===$rtePath);
 			}else{
 				$rteKey = strtolower( trim($rteKey, '/') );
 				$isNamed = ($appName!='' && ( $rteKey==$appName.'/'.$actName || $rteKey==$appName.'/*' || ($actName=='' && strpos($rteKey, $appName.'/')===0) ));
