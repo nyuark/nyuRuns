@@ -353,9 +353,9 @@ class Runner{
 		if( $rotrObj===null || $this->routRgstry===null ){
 			return;
 		}
-		$rteKind = $this->routRgstry->readFileDetail('rteKind');
-		$noRoute = ( $rteKind==null && $this->routRgstry->readFileDetail('app')==null && strval($this->routRgstry->readFileDetail('rtePath'))=='' );
-		if( !$noRoute && !in_array($rteKind, Array('htpage', 'static'), true) ){
+		$rteKind = $this->routRgstry->readFileDetail('routKind');
+		$noRoute = ( $rteKind==null && $this->routRgstry->readFileDetail('app')==null && strval($this->routRgstry->readFileDetail('routPath'))=='' );
+		if( !$noRoute && !in_array($rteKind, Array('htmlPage', 'toStatic'), true) ){
 			return;
 		}
 		$pgePath = $rotrObj->errorPgeString($responseCode);
@@ -400,15 +400,15 @@ class Runner{
 	 * fill the placeholders of their name.
 	 */
 	protected function routeReqAnswer(): Void {
-		$rteKind = $this->routRgstry->readFileDetail('rteKind');
-		$rteGoal = strval($this->routRgstry->readFileDetail('rteGoal'));
-		if( $rteKind=='redrct' ){
+		$rteKind = $this->routRgstry->readFileDetail('routKind');
+		$rteGoal = strval($this->routRgstry->readFileDetail('routGoal'));
+		if( $rteKind=='redirect' ){
 			$this->requestRsp->addReplyHeader('Location', $rteGoal);
-			$this->saveStatusFlag( intval($this->routRgstry->obtainDefValue('rteCode', 302)) );
+			$this->saveStatusFlag( intval($this->routRgstry->obtainDefValue('routCode', 302)) );
 			return;
 		}
-		if( $rteKind=='static' ){
-			$isFound = $this->requestRsp->setFileToReply( $rteGoal, strval($this->routRgstry->readFileDetail('rteType')), strval($this->httpRequst->retrieveHeader('Range')) );
+		if( $rteKind=='toStatic' ){
+			$isFound = $this->requestRsp->setFileToReply( $rteGoal, strval($this->routRgstry->readFileDetail('routType')), strval($this->httpRequst->retrieveHeader('Range')) );
 			// The client may keep the file, and a proxy too when it is served to anyone
 			$askHead = Array();
 			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $hdrKey ){
@@ -443,7 +443,7 @@ class Runner{
 				$this->requestRsp->addReplyHeader('Allow', $allwLst);
 			}
 			$this->saveStatusFlag( $rteStts, strval($this->routRgstry->readFileDetail('statMssg')) );
-		}elseif( in_array($this->routRgstry->readFileDetail('rteKind'), Array('redrct', 'static', 'htpage'), true) ){
+		}elseif( in_array($this->routRgstry->readFileDetail('routKind'), Array('redirect', 'toStatic', 'htmlPage'), true) ){
 			$this->routeReqAnswer();
 		}elseif( $appCall==null ){
 			// No route resolved for this request

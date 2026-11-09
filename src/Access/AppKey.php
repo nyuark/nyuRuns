@@ -124,7 +124,7 @@ class AppKey{
 		}
 		$appName = strtolower( str_replace(' ', '', strval($rtngRegistry->readFileDetail('app'))) );
 		$actnNme = strtolower( strval($rtngRegistry->readFileDetail('action')) );
-		$rtePath = strval($rtngRegistry->readFileDetail('rtePath'));
+		$rtePath = strval($rtngRegistry->readFileDetail('routPath'));
 		foreach( (array)($this->appsByName[$this->callingApp]['routes'] ?? Array()) as $rteVal ){
 			$rteVal = strval($rteVal);
 			if( substr($rteVal, 0, 1)=='/' ){

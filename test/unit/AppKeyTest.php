@@ -96,7 +96,7 @@ checkIdentical('app key: a refused call leaves no route', $keyChck->allowsRouteF
 $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'member')) );
 checkIdentical('app key: the routes, as openrt writes them', Array(
 	$keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'contacts', 'action'=>''))),
-	$keyChck->allowsRouteFlg(new Registry(Array('app'=>null, 'action'=>null, 'rtePath'=>'members/save'))), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'Members', 'action'=>'save')))
+	$keyChck->allowsRouteFlg(new Registry(Array('app'=>null, 'action'=>null, 'routPath'=>'members/save'))), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'Members', 'action'=>'save')))
 ), Array(true, true, true, false));
 $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'ann', 'member')) );
 checkIdentical('app key: an action alone, not its application without one', Array($keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'contacts', 'action'=>'')))), Array(true, false));

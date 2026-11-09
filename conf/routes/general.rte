@@ -1,8 +1,8 @@
 {
 	"index" : {
-		"target": {
-			"app": "shows",
-			"act": "overview"
+		"pointsTo": {
+			"appNamed": "shows",
+			"actNamed": "overview"
 		}
 	}
 }

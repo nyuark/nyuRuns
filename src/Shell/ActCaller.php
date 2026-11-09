@@ -74,7 +74,7 @@ class ActCaller{
 		$rqstObj = $callLst[0];
 		$respObj = $callLst[1];
 		$inptReg = $loadObj->retrieveInputs($rqstObj);
-		$routReg = new Registry( Array('app'=>$pthPart[1], 'action'=>$pthPart[2], 'param'=>$pthPart[3] ?? null, 'rteKind'=>'action', 'rtePath'=>'') );
+		$routReg = new Registry( Array('app'=>$pthPart[1], 'action'=>$pthPart[2], 'param'=>$pthPart[3] ?? null, 'routKind'=>'toAction', 'routPath'=>'') );
 		$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg))->grantShellCall($signedInUser, $signedInRole);
 		$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
 		$sttsMsg = strval($accsReg->readFileDetail('statMssg'));

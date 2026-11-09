@@ -1,17 +1,17 @@
 {
 	"index" : {
-		"target": {
-			"pge": "home.html"
+		"pointsTo": {
+			"pageFile": "home.html"
 		}
 	},
 	"login" : {
-		"target": {
-			"pge": "login.html"
+		"pointsTo": {
+			"pageFile": "login.html"
 		}
 	},
 	"assets/*" : {
-		"target": {
-			"dir": "assets"
+		"pointsTo": {
+			"foldPath": "assets"
 		}
 	}
 }

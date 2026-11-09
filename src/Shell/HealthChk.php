@@ -215,16 +215,16 @@ class HealthChk{
 			$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), ActCaller::makeRequestArr('GET', '/')[0] );
 			$rteData = $routObj->retrieveRoutes();
 			foreach( $routObj->runRoutesArray() as $rteSet ){
-				$ownName = strval($rteData[$rteSet['rtePath']]['rteOwnr'] ?? '');
+				$ownName = strval($rteData[$rteSet['routPath']]['routOwnr'] ?? '');
 				if( $ownName=='site' ){
-					$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'];
-				}elseif( $ownName!==$rteSet['rteOwnr'] ){
-					$clshLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$ownName.' and '.$rteSet['rteOwnr'];
+					$shdwLst[] = $prstNme.': /'.$rteSet['routPath'].' of '.$rteSet['routOwnr'];
+				}elseif( $ownName!==$rteSet['routOwnr'] ){
+					$clshLst[] = $prstNme.': /'.$rteSet['routPath'].' of '.$ownName.' and '.$rteSet['routOwnr'];
 				}else{
 					// A pattern of the site over it answers first
-					foreach( array_keys(array_combine(array_keys($rteData), array_column($rteData, 'rteOwnr')), 'site', true) as $rteKey ){
-						if( $routObj->matchRoutePath(strval($rteKey), strval($rteSet['rtePath']))!==null ){
-							$shdwLst[] = $prstNme.': /'.$rteSet['rtePath'].' of '.$rteSet['rteOwnr'].' under /'.$rteKey;
+					foreach( array_keys(array_combine(array_keys($rteData), array_column($rteData, 'routOwnr')), 'site', true) as $rteKey ){
+						if( $routObj->matchRoutePath(strval($rteKey), strval($rteSet['routPath']))!==null ){
+							$shdwLst[] = $prstNme.': /'.$rteSet['routPath'].' of '.$rteSet['routOwnr'].' under /'.$rteKey;
 							break;
 						}
 					}
@@ -250,7 +250,7 @@ class HealthChk{
 				}
 				if( is_file(RUN_DIR.DS.$ownName.DS.'routes.rte') ){
 					// A Run declaring its routes is reached through them only (or a site alias): one of them names the action
-					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutesArray(), 'rteGoal'))) ){
+					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutesArray(), 'routGoal'))) ){
 						$lostLst[] = $prstNme.': '.$rteKey.' (not listed in the routes of '.$ownName.')';
 					}
 					continue;

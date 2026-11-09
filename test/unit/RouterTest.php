@@ -64,28 +64,28 @@ function linkFrom( String $routeShape, Array $routeConfg=Array() ): String {
 }
 
 $pageDir = realpath(TST_DIR.DS.'fixtures'.DS.'pages');
-$moveKey = Array('rteKind', 'rteGoal', 'rteCode');
-$fileKey = Array('rteKind', 'rteGoal', 'rteType');
+$moveKey = Array('routKind', 'routGoal', 'routCode');
+$fileKey = Array('routKind', 'routGoal', 'routType');
 $statKey = Array('statCode', 'statMssg');
 $notFile = Array(404, 'Not Found');
 $txtType = 'text/plain; charset=utf-8';
 
 // Action routes still resolve, and tell their kind and their declared path
-checkIdentical('action: kind and declared path', foundVals('/items/42', Array('app', 'action', 'param', 'rteKind', 'rtePath')), Array('probe', 'mirrored', '42', 'action', 'items/$id'));
-checkIdentical('action: exact key', foundVals('/ping', Array('app', 'rteKind', 'rtePath')), Array('probe', 'action', 'ping'));
-checkIdentical('action: a refused method keeps the declared path', foundVals('/ping', Array('statCode', 'allowed', 'rtePath'), 'POST'), Array(405, 'GET', 'ping'));
-checkIdentical('action: an entry without target falls back to autopath', foundVals('/broken', Array('app', 'rteKind')), Array('broken', null));
+checkIdentical('action: kind and declared path', foundVals('/items/42', Array('app', 'action', 'param', 'routKind', 'routPath')), Array('probe', 'mirrored', '42', 'toAction', 'items/$id'));
+checkIdentical('action: exact key', foundVals('/ping', Array('app', 'routKind', 'routPath')), Array('probe', 'toAction', 'ping'));
+checkIdentical('action: a refused method keeps the declared path', foundVals('/ping', Array('statCode', 'allowed', 'routPath'), 'POST'), Array(405, 'GET', 'ping'));
+checkIdentical('action: an entry without target falls back to autopath', foundVals('/broken', Array('app', 'routKind')), Array('broken', null));
 
 // Redirections
-checkIdentical('move: address and status', foundVals('/old/42', $moveKey), Array('redrct', '/items/42', 301));
+checkIdentical('move: address and status', foundVals('/old/42', $moveKey), Array('redirect', '/items/42', 301));
 checkIdentical('move: no application is named', foundVals('/old/42', Array('app', 'action', 'statCode')), Array(null, null, null));
-checkIdentical('move: a captured value is encoded again', foundVals('/old/a%20b', $moveKey), Array('redrct', '/items/a%20b', 301));
-checkIdentical('move: a captured value stays one part of the path', foundVals('/old/..%2F..%2Fx', $moveKey), Array('redrct', '/items/..%2F..%2Fx', 301));
-checkIdentical('move: a captured address cannot become the target', foundVals('/old/%2F%2Fexample.org', $moveKey), Array('redrct', '/items/%2F%2Fexample.org', 301));
-checkIdentical('move: 302 by default, to a full address', foundVals('/away', $moveKey), Array('redrct', 'https://example.org/docs', 302));
-checkIdentical('move: HEAD is served as GET', foundVals('/away', $moveKey, 'HEAD'), Array('redrct', 'https://example.org/docs', 302));
+checkIdentical('move: a captured value is encoded again', foundVals('/old/a%20b', $moveKey), Array('redirect', '/items/a%20b', 301));
+checkIdentical('move: a captured value stays one part of the path', foundVals('/old/..%2F..%2Fx', $moveKey), Array('redirect', '/items/..%2F..%2Fx', 301));
+checkIdentical('move: a captured address cannot become the target', foundVals('/old/%2F%2Fexample.org', $moveKey), Array('redirect', '/items/%2F%2Fexample.org', 301));
+checkIdentical('move: 302 by default, to a full address', foundVals('/away', $moveKey), Array('redirect', 'https://example.org/docs', 302));
+checkIdentical('move: HEAD is served as GET', foundVals('/away', $moveKey, 'HEAD'), Array('redirect', 'https://example.org/docs', 302));
 checkIdentical('move: another method is refused', foundVals('/away', Array('statCode', 'allowed'), 'POST'), Array(405, 'GET, HEAD'));
-checkIdentical('move: allows opens it to another method', foundVals('/resend', $moveKey, 'POST'), Array('redrct', '/both', 307));
+checkIdentical('move: allows opens it to another method', foundVals('/resend', $moveKey, 'POST'), Array('redirect', '/both', 307));
 checkIdentical('move: and to that one only', foundVals('/resend', Array('statCode', 'allowed')), Array(405, 'POST'));
 checkPregMatch('move: a status that is not a redirection stops the run', foundVals('/badcode', $moveKey), '/^THROWN RuntimeException: Route misconfigured/');
 checkPregMatch('move: an address without scheme stops the run', foundVals('/badaddr', $moveKey), '/^THROWN RuntimeException: Route misconfigured/');
@@ -98,7 +98,7 @@ foreach( Array('/'=>true, '/a/b?c=d#e'=>true, 'https://example.org'=>true, 'HTTP
 }
 
 // Static file
-checkIdentical('file: a declared file', foundVals('/style', $fileKey), Array('static', $pageDir.DS.'site.css', 'text/css; charset=utf-8'));
+checkIdentical('file: a declared file', foundVals('/style', $fileKey), Array('toStatic', $pageDir.DS.'site.css', 'text/css; charset=utf-8'));
 checkIdentical('file: a missing file is a 404', foundVals('/nofile', $statKey), $notFile);
 checkPregMatch('file: a file outside the root stops the run', foundVals('/secret', $fileKey), '/^THROWN RuntimeException: Route misconfigured/');
 checkIdentical('file: nothing is served without a root', foundVals('/style', $statKey, 'GET', Array('htroot'=>'')), $notFile);
@@ -106,12 +106,12 @@ checkIdentical('file: nor with a root that does not exist', foundVals('/style', 
 checkIdentical('file: POST is refused', foundVals('/style', Array('statCode', 'allowed'), 'POST'), Array(405, 'GET, HEAD'));
 
 // Static folder
-checkIdentical('folder: a file', foundVals('/docs/guide.txt', $fileKey), Array('static', $pageDir.DS.'docs'.DS.'guide.txt', $txtType));
-checkIdentical('folder: a file of a sub-folder', foundVals('/docs/deep/note.txt', $fileKey), Array('static', $pageDir.DS.'docs'.DS.'deep'.DS.'note.txt', $txtType));
-checkIdentical('folder: the folder itself gives its index', foundVals('/docs', $fileKey), Array('static', $pageDir.DS.'docs'.DS.'index.html', 'text/html; charset=utf-8'));
-checkIdentical('folder: with a trailing slash too', foundVals('/docs/', $fileKey), Array('static', $pageDir.DS.'docs'.DS.'index.html', 'text/html; charset=utf-8'));
-checkIdentical('folder: the query string is not part of the name', foundVals('/docs/guide.txt?v=2', $fileKey), Array('static', $pageDir.DS.'docs'.DS.'guide.txt', $txtType));
-checkIdentical('folder: its declared path', foundVals('/docs/guide.txt', Array('rtePath')), Array('docs/*'));
+checkIdentical('folder: a file', foundVals('/docs/guide.txt', $fileKey), Array('toStatic', $pageDir.DS.'docs'.DS.'guide.txt', $txtType));
+checkIdentical('folder: a file of a sub-folder', foundVals('/docs/deep/note.txt', $fileKey), Array('toStatic', $pageDir.DS.'docs'.DS.'deep'.DS.'note.txt', $txtType));
+checkIdentical('folder: the folder itself gives its index', foundVals('/docs', $fileKey), Array('toStatic', $pageDir.DS.'docs'.DS.'index.html', 'text/html; charset=utf-8'));
+checkIdentical('folder: with a trailing slash too', foundVals('/docs/', $fileKey), Array('toStatic', $pageDir.DS.'docs'.DS.'index.html', 'text/html; charset=utf-8'));
+checkIdentical('folder: the query string is not part of the name', foundVals('/docs/guide.txt?v=2', $fileKey), Array('toStatic', $pageDir.DS.'docs'.DS.'guide.txt', $txtType));
+checkIdentical('folder: its declared path', foundVals('/docs/guide.txt', Array('routPath')), Array('docs/*'));
 checkIdentical('folder: a sub-folder without index is never listed', foundVals('/docs/deep', $statKey), $notFile);
 checkIdentical('folder: a missing file', foundVals('/docs/nosuch.txt', $statKey), $notFile);
 
@@ -139,11 +139,11 @@ foreach( Array(
 }
 
 // HTML page
-checkIdentical('page: the file and the captured values', foundVals('/hello/7', Array('rteKind', 'rteGoal', 'pathVars')), Array('htpage', $pageDir.DS.'hello.html', Array('id'=>'7')));
+checkIdentical('page: the file and the captured values', foundVals('/hello/7', Array('routKind', 'routGoal', 'pathVars')), Array('htmlPage', $pageDir.DS.'hello.html', Array('id'=>'7')));
 checkPregMatch('page: a file that is not HTML stops the run', foundVals('/notpage', $fileKey), '/^THROWN RuntimeException: Route misconfigured/');
-checkIdentical('page: one kind per method, GET', foundVals('/enter', Array('rteKind', 'app')), Array('htpage', null));
-checkIdentical('page: one kind per method, POST', foundVals('/enter', Array('rteKind', 'app', 'action', 'rtePath'), 'POST'), Array('action', 'probe', 'sanitize', 'enter'));
-checkIdentical('page: one kind per method, HEAD as GET', foundVals('/enter', Array('rteKind'), 'HEAD'), Array('htpage'));
+checkIdentical('page: one kind per method, GET', foundVals('/enter', Array('routKind', 'app')), Array('htmlPage', null));
+checkIdentical('page: one kind per method, POST', foundVals('/enter', Array('routKind', 'app', 'action', 'routPath'), 'POST'), Array('toAction', 'probe', 'sanitize', 'enter'));
+checkIdentical('page: one kind per method, HEAD as GET', foundVals('/enter', Array('routKind'), 'HEAD'), Array('htmlPage'));
 checkIdentical('page: one kind per method, the rest refused', foundVals('/enter', Array('statCode', 'allowed'), 'PUT'), Array(405, 'GET, POST, HEAD'));
 
 // Links to the declared routes
@@ -198,16 +198,16 @@ checkIdentical('helper: a name cannot lead out of the pages', ranAction('pgeProb
 checkPregMatch('helper: a link to an undeclared route fails', ranAction('routeUrl', 'x'), '/^THROWN RuntimeException: No route is declared/');
 
 // The Runs' own routes (test/fixtures/runs/Mounted, Clashed), mounted under the name of the Run in lower case
-$runKeys = Array('app', 'action', 'rtePath', 'rteOwnr');
+$runKeys = Array('app', 'action', 'routPath', 'routOwnr');
 checkIdentical('run route: under its default mount, with its owner', foundVals('/mounted/listed', $runKeys), Array('Mounted', 'listed', 'mounted/listed', 'Mounted'));
-checkIdentical('run route: a site route tells its owner too', foundVals('/items/42', Array('rteOwnr')), Array('site'));
+checkIdentical('run route: a site route tells its owner too', foundVals('/items/42', Array('routOwnr')), Array('site'));
 checkIdentical('run route: a path with a leading slash is from the root', foundVals('/fromRoot', $runKeys), Array('Mounted', 'fromRoot', 'fromRoot', 'Mounted'));
 checkIdentical('run route: its methods apply', foundVals('/mounted/listed', Array('statCode', 'allowed'), 'POST'), Array(405, 'GET'));
 checkIdentical('run route: a prefix replaces the name, whatever the case it is written in', foundVals('/space/listed', $runKeys, 'GET', Array('mounts'=>Array('MOUNTED'=>'/space/'))), Array('Mounted', 'listed', 'space/listed', 'Mounted'));
 checkIdentical('run route: the name is then no mount', foundVals('/mounted/listed', $statKey, 'GET', Array('mounts'=>Array('mounted'=>'space'))), $notFile);
 checkIdentical('run route: the root path is never moved', foundVals('/fromRoot', Array('action'), 'GET', Array('mounts'=>Array('mounted'=>'space'))), Array('fromRoot'));
-checkIdentical('run route: an empty prefix mounts at the root', foundVals('/listed', Array('app', 'rtePath'), 'GET', Array('mounts'=>Array('mounted'=>''))), Array('Mounted', 'listed'));
-checkIdentical('run route: false serves none of them', Array(foundVals('/mounted/listed', Array('statCode', 'rteOwnr'), 'GET', Array('mounts'=>Array('mounted'=>false))), foundVals('/fromRoot', Array('rteOwnr'), 'GET', Array('mounts'=>Array('mounted'=>false)))), Array(Array(404, null), Array(null)));
+checkIdentical('run route: an empty prefix mounts at the root', foundVals('/listed', Array('app', 'routPath'), 'GET', Array('mounts'=>Array('mounted'=>''))), Array('Mounted', 'listed'));
+checkIdentical('run route: false serves none of them', Array(foundVals('/mounted/listed', Array('statCode', 'routOwnr'), 'GET', Array('mounts'=>Array('mounted'=>false))), foundVals('/fromRoot', Array('routOwnr'), 'GET', Array('mounts'=>Array('mounted'=>false)))), Array(Array(404, null), Array(null)));
 checkIdentical('run route: another Run keeps its default mount', foundVals('/clashed/listed', Array('app', 'action'), 'GET', Array('mounts'=>Array('mounted'=>false))), Array('Clashed', 'clashing'));
 
 // A Run links to its own routes as its file declares them, whatever its mount
@@ -230,7 +230,7 @@ checkPregMatch('closed run: the reason is logged on runner', implode("\n", file_
 
 // A site route on the path of a Run route wins, with a warning; two Runs on one path: the first by name answers, an error
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('clashlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-checkIdentical('site over run: the site route answers', foundVals('/ping', Array('app', 'action', 'rteOwnr'), 'GET', Array('mounts'=>Array('mounted'=>''))), Array('probe', 'sanitize', 'site'));
+checkIdentical('site over run: the site route answers', foundVals('/ping', Array('app', 'action', 'routOwnr'), 'GET', Array('mounts'=>Array('mounted'=>''))), Array('probe', 'sanitize', 'site'));
 checkIdentical('run clash: the first Run in name order answers', foundVals('/mounted/listed', $runKeys, 'GET', Array('mounts'=>Array('clashed'=>'mounted'))), Array('Clashed', 'clashing', 'mounted/listed', 'Clashed'));
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $clshLog = implode("\n", file_exists(inTemporaryDir('clashlogs').DS.'runner.log') ? file(inTemporaryDir('clashlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array());
@@ -240,8 +240,8 @@ checkPregMatch('run clash: an error on runner', $clshLog, '#\[ERROR\] Route "/mo
 // A site route answering with an action is an alias : its methods apply to it only, it closes nothing
 $alsFldr = 'temp'.DS.'alias_'.getmypid();
 @mkdir(TOP_DIR.DS.$alsFldr, 0775, true);
-file_put_contents(TOP_DIR.DS.$alsFldr.DS.'alias.rte', '{ "hidden": { "allows": "POST", "target": { "app": "mounted", "act": "unlisted" } }, "mirrors": { "allows": "POST", "target": { "app": "probe", "act": "mirrored" } } }');
-checkIdentical('alias: reaches an action its Run does not list', foundVals('/hidden', Array('app', 'action', 'rteOwnr'), 'POST', Array('folder'=>$alsFldr)), Array('mounted', 'unlisted', 'site'));
+file_put_contents(TOP_DIR.DS.$alsFldr.DS.'alias.rte', '{ "hidden": { "mthdList": "POST", "pointsTo": { "appNamed": "mounted", "actNamed": "unlisted" } }, "mirrors": { "mthdList": "POST", "pointsTo": { "appNamed": "probe", "actNamed": "mirrored" } } }');
+checkIdentical('alias: reaches an action its Run does not list', foundVals('/hidden', Array('app', 'action', 'routOwnr'), 'POST', Array('folder'=>$alsFldr)), Array('mounted', 'unlisted', 'site'));
 checkIdentical('alias: its methods apply to it', foundVals('/hidden', Array('statCode'), 'GET', Array('folder'=>$alsFldr)), Array(405));
 checkIdentical('alias: the action stays reached by its own path, with any method', foundVals('/probe/mirrored/x', Array('app', 'action'), 'GET', Array('folder'=>$alsFldr)), Array('probe', 'mirrored'));
 dropTestFolder(TOP_DIR.DS.$alsFldr);
@@ -249,17 +249,17 @@ dropTestFolder(TOP_DIR.DS.$alsFldr);
 // The cache holds the Run routes, mounted: a router given them reads no file
 $cchRout = madeRoutr('/space/listed', 'GET', Array('mounts'=>Array('mounted'=>'space')));
 $cchList = $cchRout->retrieveRoutes();
-checkIdentical('cache: the routes given hold the Run routes, by their mounted path, with their owner', Array($cchList['space/listed']['rteOwnr'] ?? null, $cchList['fromRoot']['target']['app'] ?? null, isset($cchList['listed'])), Array('Mounted', 'Mounted', false));
+checkIdentical('cache: the routes given hold the Run routes, by their mounted path, with their owner', Array($cchList['space/listed']['routOwnr'] ?? null, $cchList['fromRoot']['pointsTo']['appNamed'] ?? null, isset($cchList['listed'])), Array('Mounted', 'Mounted', false));
 $cchRout = madeRoutr('/space/listed', 'GET', Array('folder'=>'test'.DS.'nosuchfolder', 'mounts'=>Array('mounted'=>false)));
 $cchRout->setRouteRoutes($cchList);
-checkIdentical('cache: a router given them resolves a Run route without its file', Array($cchRout->locateRouteReg()->readFileDetail('app'), $cchRout->locateRouteReg()->readFileDetail('rteOwnr')), Array('Mounted', 'Mounted'));
+checkIdentical('cache: a router given them resolves a Run route without its file', Array($cchRout->locateRouteReg()->readFileDetail('app'), $cchRout->locateRouteReg()->readFileDetail('routOwnr')), Array('Mounted', 'Mounted'));
 
 // Keys of a declared route that nothing reads are told in the log
 $rteFldr = 'temp'.DS.'routes_test_'.getmypid();
 mkdir(TOP_DIR.DS.$rteFldr, 0775, true);
-file_put_contents(TOP_DIR.DS.$rteFldr.DS.'odd.rte', '{ "fine": { "allows": "GET", "target": { "app": "probe", "act": "sanitize" } },'
-	.' "aged": { "limited": { "call": 1 }, "auth": "x", "target": { "app": "probe", "act": "sanitize", "role": "manage" } },'
-	.' "both": { "target": { "GET": { "pge": "hello.html", "code": 200 }, "POST": { "app": "probe" } } } }');
+file_put_contents(TOP_DIR.DS.$rteFldr.DS.'odd.rte', '{ "fine": { "mthdList": "GET", "pointsTo": { "appNamed": "probe", "actNamed": "sanitize" } },'
+	.' "aged": { "limited": { "call": 1 }, "auth": "x", "pointsTo": { "appNamed": "probe", "actNamed": "sanitize", "role": "manage" } },'
+	.' "both": { "pointsTo": { "GET": { "pageFile": "hello.html", "code": 200 }, "POST": { "appNamed": "probe" } } } }');
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rtelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $oddRoutr = madeRoutr('/fine', 'GET', Array('folder'=>$rteFldr));
 checkIdentical('unknown keys: the routes are still read', $oddRoutr->locateRouteReg()->readFileDetail('app'), 'probe');
@@ -269,15 +269,15 @@ dropTestFolder(TOP_DIR.DS.$rteFldr);
 checkIdentical('unknown keys: each is told once, with its route and its file', file_exists(inTemporaryDir('rtelogs').DS.'runner.log') ? file(inTemporaryDir('rtelogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array(), Array(
 	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: limited',
 	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: auth',
-	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: target.role',
-	'['.date('Y').'] [WARNING] Route "both" of odd.rte holds an unknown key: target.code'
+	'['.date('Y').'] [WARNING] Route "aged" of odd.rte holds an unknown key: pointsTo.role',
+	'['.date('Y').'] [WARNING] Route "both" of odd.rte holds an unknown key: pointsTo.code'
 ));
 
 // The page a site answers an error with
 $errRoutr = madeRoutr('/nothing', 'GET', Array('htroot'=>'test'.DS.'fixtures'.DS.'errpages'));
 checkIdentical('error page: the one of the status, in the errors folder of the pages', $errRoutr->errorPgeString(404), realpath(TST_DIR.DS.'fixtures'.DS.'errpages'.DS.'errors'.DS.'404.html'));
 checkIdentical('error page: none for a status without a page, nor without a folder of pages', Array($errRoutr->errorPgeString(500), madeRoutr('/nothing')->errorPgeString(404), madeRoutr('/nothing', 'GET', Array('htroot'=>''))->errorPgeString(404)), Array(null, null, null));
-checkIdentical('static: a file that is not found is told as a static reply', foundVals('/nofile', Array('statCode', 'rteKind')), Array(404, 'static'));
+checkIdentical('static: a file that is not found is told as a static reply', foundVals('/nofile', Array('statCode', 'routKind')), Array(404, 'toStatic'));
 
 // A hidden file reached by its short name (Windows, 8.3 names on): the real name is checked too.
 // The site lies in the temporary folder of the system, linked into the project: the volume of the project may make no short names
@@ -292,7 +292,7 @@ if( DS=='\\' ){
 }else{
 	@symlink($sysFldr, TOP_DIR.DS.$shtFldr.DS.'site');
 }
-file_put_contents(TOP_DIR.DS.$shtFldr.DS.'short.rte', '{ "box/*": { "target": { "dir": "files" } } }');
+file_put_contents(TOP_DIR.DS.$shtFldr.DS.'short.rte', '{ "box/*": { "pointsTo": { "foldPath": "files" } } }');
 $shrtNme = '';
 if( DS=='\\' ){
 	foreach( (array)explode("\n", strval(shell_exec('cmd /c dir /x /a "'.$sysFldr.DS.'files"'))) as $dirLin ){
@@ -302,7 +302,7 @@ if( DS=='\\' ){
 	}
 }
 $shrtCnf = Array('folder'=>$shtFldr, 'htroot'=>$shtFldr.DS.'site');
-checkIdentical('folder route: a plain file is served', foundVals('/box/shown.txt', Array('rteKind'), 'GET', $shrtCnf), Array('static'));
+checkIdentical('folder route: a plain file is served', foundVals('/box/shown.txt', Array('routKind'), 'GET', $shrtCnf), Array('toStatic'));
 if( $shrtNme!=='' ){
 	checkIdentical('folder route: a hidden file asked for by its short name is the same 404', foundVals('/box/'.$shrtNme, $statKey, 'GET', $shrtCnf), $notFile);
 }else{

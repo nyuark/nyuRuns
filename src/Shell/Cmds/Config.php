@@ -629,7 +629,7 @@ class Config extends Command{
 		$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
 		$rowList = Array();
 		foreach( (new Router($rteConf, $rqstObj))->allRoutesArray() as $rteVal ){
-			$rowList[] = Array( '/'.$rteVal['rtePath'], implode(', ', $rteVal['methods']), $rteVal['rteKind'], $rteVal['rteGoal'], $rteVal['rteOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal) );
+			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['methods']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleMap = is_array($accConf['rolert'] ?? null) ? $accConf['rolert'] : Array();
@@ -642,7 +642,7 @@ class Config extends Command{
 		}
 		foreach( $actnLst as $action ){
 			$actPart = explode('/', $action, 2);
-			$rowList[] = Array( '', 'any', 'action', $action, '', $this->describeAccess($accConf, $rqstObj, Array('app'=>$actPart[0], 'action'=>$actPart[1] ?? '', 'rtePath'=>'', 'rteKind'=>'action')) );
+			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('app'=>$actPart[0], 'action'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction')) );
 		}
 		$this->printerObj->printShellPair('preset', $prstNme);
 		$this->printerObj->printShellPair('detect', strval($rteConf['detect'] ?? ''));
@@ -661,14 +661,14 @@ class Config extends Command{
 	 *
 	 * @param Array   $accessConfig The 'auths' block of the preset.
 	 * @param Request $requstObject A request to build the access check with.
-	 * @param Array   $routesValues The route: its 'app', 'action', 'rtePath' and 'rteKind'.
+	 * @param Array   $routesValues The route: its 'app', 'action', 'routPath' and 'routKind'.
 	 * @return String 'open', 'logged', or the least role asked for.
 	 */
 	protected function describeAccess( Array $accessConfig, Request $requstObject, Array $routesValues ): String {
 		if( empty($accessConfig) || ($accessConfig['needed'] ?? true)===false ){
 			return 'open';
 		}
-		$chckObj = new Checker( $accessConfig, $requstObject, new Registry(Array('app'=>$routesValues['app'] ?? null, 'action'=>$routesValues['action'] ?? null, 'rtePath'=>$routesValues['rtePath'] ?? '', 'rteKind'=>$routesValues['rteKind'] ?? '')) );
+		$chckObj = new Checker( $accessConfig, $requstObject, new Registry(Array('app'=>$routesValues['app'] ?? null, 'action'=>$routesValues['action'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')) );
 		if( $chckObj->openAccessRout() ){
 			return 'open';
 		}

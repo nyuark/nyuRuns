@@ -1,6 +1,6 @@
 {
-	"listed" :    { "allows": "GET", "target": { "act": "listed" } },
-	"/fromRoot" :   { "target": { "act": "fromRoot" } },
-	"ping" :      { "target": { "act": "listed" } },
-	"items/$id" : { "target": { "act": "listed" } }
+	"listed" :    { "mthdList": "GET", "pointsTo": { "actNamed": "listed" } },
+	"/fromRoot" :   { "pointsTo": { "actNamed": "fromRoot" } },
+	"ping" :      { "pointsTo": { "actNamed": "listed" } },
+	"items/$id" : { "pointsTo": { "actNamed": "listed" } }
 }

@@ -1,38 +1,38 @@
 {
 	"openSess" : {
-		"allows": "POST",
-		"target": { "act": "openSess" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "openSess" }
 	},
 	"quitSess" : {
-		"allows": "POST",
-		"target": { "act": "quitSess" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "quitSess" }
 	},
 	"activate" : {
-		"allows": "POST",
-		"target": { "act": "activate" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "activate" }
 	},
 	"register" : {
-		"allows": "POST",
-		"target": { "act": "register" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "register" }
 	},
 	"askReset" : {
-		"allows": "POST",
-		"target": { "act": "askReset" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "askReset" }
 	},
 	"useReset" : {
-		"allows": "POST",
-		"target": { "act": "useReset" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "useReset" }
 	},
 	"password" : {
-		"allows": "POST",
-		"target": { "act": "password" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "password" }
 	},
 	"language" : {
-		"allows": "POST",
-		"target": { "act": "language" }
+		"mthdList": "POST",
+		"pointsTo": { "actNamed": "language" }
 	},
 	"/.well-known/jwks.json" : {
-		"allows": "GET",
-		"target": { "act": "jwksList" }
+		"mthdList": "GET",
+		"pointsTo": { "actNamed": "jwksList" }
 	}
 }

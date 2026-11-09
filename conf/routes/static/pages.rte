@@ -1,18 +1,18 @@
 {
 	"index" : {
-		"target": {
-			"pge": "index.html"
+		"pointsTo": {
+			"pageFile": "index.html"
 		}
 	},
 	"home" : {
-		"target": {
-			"url": "/",
-			"cod": 301
+		"pointsTo": {
+			"redirect": "/",
+			"httpCode": 301
 		}
 	},
 	"assets/*" : {
-		"target": {
-			"dir": "assets"
+		"pointsTo": {
+			"foldPath": "assets"
 		}
 	}
 }

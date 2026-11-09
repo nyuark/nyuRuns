@@ -211,7 +211,7 @@ nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>
 $admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'manage')));
 $adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
 (new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('app'=>'Users', 'action'=>'dropUser')) ))->validateAccess();
-(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'dave', 'role'=>'system'))), $adrVals), new Registry(Array('app'=>null, 'action'=>null, 'rtePath'=>'docs/*')) ))->validateAccess();
+(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'dave', 'role'=>'system'))), $adrVals), new Registry(Array('app'=>null, 'action'=>null, 'routPath'=>'docs/*')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'erin', 'role'=>'member'))), $adrVals) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer nope'), $adrVals) ))->validateAccess();
 nyu\Tools\Logger::plugLogsConfig( Array() );
@@ -278,32 +278,32 @@ checkIdentical('Checker unresolved route stays closed', $checker->validateAccess
 
 // Checker : public routes, named by the path they are declared with
 $pthConf = Array('openrt'=>Array('/login', '/tokchk/', '/items/$id', '/docs/*', '/Auth/Other')) + $pubConf;
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker public path: a page',  $checker->validateAccess()->readFileDetail('statCode'), 200);
 checkIdentical('Checker public path: not logged', $checker->validateAccess()->readFileDetail('logged'), false);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'check', 'rteKind'=>'action', 'rtePath'=>'tokchk')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'check', 'routKind'=>'toAction', 'routPath'=>'tokchk')) );
 checkIdentical('Checker public path: an action', $checker->validateAccess()->readFileDetail('statCode'), 200);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'statCode'=>405, 'rtePath'=>'login')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'statCode'=>405, 'routPath'=>'login')) );
 checkIdentical('Checker public path: its refusals are open too', $checker->validateAccess()->readFileDetail('statCode'), 200);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'probe', 'action'=>'mirrored', 'rtePath'=>'items/$id')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'probe', 'action'=>'mirrored', 'routPath'=>'items/$id')) );
 checkIdentical('Checker public path: a pattern, as it is declared', $checker->validateAccess()->readFileDetail('statCode'), 200);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*')) );
 checkIdentical('Checker public path: a folder route, as it is declared', $checker->validateAccess()->readFileDetail('statCode'), 200);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/private/*')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/private/*')) );
 checkIdentical('Checker public path: its * does not open another folder route', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/guide.txt')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/guide.txt')) );
 checkIdentical('Checker public path: nor a route declared under it', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( Array('openrt'=>Array('/docs')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*')) );
+$checker = new Checker( Array('openrt'=>Array('/docs')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*')) );
 checkIdentical('Checker public path: a folder route needs its *', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'Login')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'Login')) );
 checkIdentical('Checker public path: the case counts', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'other')) );
+$checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
 checkIdentical('Checker public path: another page stays closed', $checker->validateAccess()->readFileDetail('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'login', 'action'=>null)) );
 checkIdentical('Checker public path: is not an application name', $checker->validateAccess()->readFileDetail('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('app'=>'auth', 'action'=>'other')) );
 checkIdentical('Checker public path: is not an action either', $checker->validateAccess()->readFileDetail('statCode'), 401);
-$checker = new Checker( Array('openrt'=>Array('login')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
+$checker = new Checker( Array('openrt'=>Array('login')) + $pubConf, mockRequestObj(), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker public path: needs its leading slash', $checker->validateAccess()->readFileDetail('statCode'), 401);
 
 // Checker : a request denied an HTML page is given the sign-in route to go to
@@ -311,26 +311,26 @@ $sgnConf = Array('signin'=>'/login') + $pthConf;
 $askReqs = mockRequestObj();
 $askPrpt = new ReflectionProperty('nyu\Tools\Request', 'requestUri');
 $askPrpt->setValue($askReqs, Array('reqstURI'=>'/hello/7?tab=a b'));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'hello/$id')) );
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'hello/$id')) );
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker sign-in: a denied page is still a 401', $axsRslt->readFileDetail('statCode'), 401);
 checkIdentical('Checker sign-in: with the route to go to, and the page asked for', $axsRslt->readFileDetail('denyGoal'), '/login?back=%2Fhello%2F7%3Ftab%3Da%20b');
 $askPrpt->setValue($askReqs, Array('reqstURI'=>'/'));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'index')) );
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'index')) );
 checkIdentical('Checker sign-in: the home page is not carried back', $checker->validateAccess()->readFileDetail('denyGoal'), '/login');
 $askPrpt->setValue($askReqs, Array('reqstURI'=>'/shows/viewShow/1'));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>'shows', 'action'=>'viewShow', 'rteKind'=>'action', 'rtePath'=>'')) );
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>'shows', 'action'=>'viewShow', 'routKind'=>'toAction', 'routPath'=>'')) );
 checkIdentical('Checker sign-in: a denied action keeps its 401', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'style')) );
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'style')) );
 checkIdentical('Checker sign-in: so does a denied file', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null)) );
 checkIdentical('Checker sign-in: and an unresolved route', $checker->validateAccess()->readFileDetail('denyGoal'), null);
-$checker = new Checker( Array('signin'=>'/enter') + $pubConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'enter')) );
+$checker = new Checker( Array('signin'=>'/enter') + $pubConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'enter')) );
 checkIdentical('Checker sign-in: a sign-in route left closed is not sent to itself', Array($checker->validateAccess()->readFileDetail('statCode'), $checker->validateAccess()->readFileDetail('denyGoal')), Array(401, null));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'login')) );
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker sign-in: the open sign-in route is served', $checker->validateAccess()->readFileDetail('statCode'), 200);
 foreach( Array('https://example.org/login', '//example.org/login', 'login', '/log in', Array('/login')) as $badRte ){
-	$checker = new Checker( Array('signin'=>$badRte) + $pthConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'other')) );
+	$checker = new Checker( Array('signin'=>$badRte) + $pthConf, $askReqs, new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
 	$axsRslt = $checker->validateAccess();
 	checkIdentical('Checker sign-in: '.json_encode($badRte).' is not a path of this site', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('denyGoal')), Array(500, null));
 }
@@ -376,28 +376,28 @@ checkIdentical('Checker role: an entry cannot lower the one of its application',
 checkIdentical('Checker role: no action named, the highest of the application', Array(roleReply($rolConf, 'system', Array('app'=>'probe', 'action'=>null)), roleReply($rolConf, 'manage', Array('app'=>'probe', 'action'=>null))), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: a route that asks for none', roleReply($rolConf, 'member', Array('app'=>'auth', 'action'=>'other')), Array(200, ''));
 checkIdentical('Checker role: nobody logged is a 401 first', roleReply($rolConf, '', Array('app'=>'users', 'action'=>'lockUser'))[0], 401);
-$dirRoute = Array('app'=>null, 'action'=>null, 'rteKind'=>'static', 'rtePath'=>'docs/*');
+$dirRoute = Array('app'=>null, 'action'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*');
 checkIdentical('Checker role: a declared route, by its path', Array(roleReply($rolConf, 'member', $dirRoute), roleReply($rolConf, 'system', $dirRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
-checkIdentical('Checker role: its * does not name another folder route', roleReply($rolConf, 'member', Array('rtePath'=>'docs/private/*') + $dirRoute), Array(200, ''));
-$actRoute = Array('app'=>'auth', 'action'=>'check', 'rteKind'=>'action', 'rtePath'=>'tokchk');
+checkIdentical('Checker role: its * does not name another folder route', roleReply($rolConf, 'member', Array('routPath'=>'docs/private/*') + $dirRoute), Array(200, ''));
+$actRoute = Array('app'=>'auth', 'action'=>'check', 'routKind'=>'toAction', 'routPath'=>'tokchk');
 checkIdentical('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'system', $actRoute), roleReply($rolConf, 'manage', $actRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'member', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkIdentical('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
 // A Run route is named by its final, mounted path, in rolert as in openrt
 $mntConf = Array('rolert'=>Array('/space/listed'=>'manage'), 'openrt'=>Array('/fromRoot')) + $jwtConf;
-$mntRout = Array('app'=>'Mounted', 'action'=>'listed', 'rteKind'=>'action', 'rtePath'=>'space/listed', 'rteOwnr'=>'Mounted');
+$mntRout = Array('app'=>'Mounted', 'action'=>'listed', 'routKind'=>'toAction', 'routPath'=>'space/listed', 'routOwnr'=>'Mounted');
 checkIdentical('Checker role: a Run route, by its mounted path', Array(roleReply($mntConf, 'member', $mntRout), roleReply($mntConf, 'manage', $mntRout)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: not by the path its file declares it with', roleReply(Array('rolert'=>Array('/listed'=>'manage')) + $jwtConf, 'member', $mntRout), Array(200, ''));
-$rotRout = Array('app'=>'Mounted', 'action'=>'fromRoot', 'rteKind'=>'action', 'rtePath'=>'fromRoot', 'rteOwnr'=>'Mounted');
+$rotRout = Array('app'=>'Mounted', 'action'=>'fromRoot', 'routKind'=>'toAction', 'routPath'=>'fromRoot', 'routOwnr'=>'Mounted');
 checkIdentical('Checker open: a Run route from the root, by its path', roleReply($mntConf, '', $rotRout), Array(200, ''));
-checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('rtePath'=>'mounted/fromRoot') + $rotRout)[0], 401);
+checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('routPath'=>'mounted/fromRoot') + $rotRout)[0], 401);
 // A site route answering with an action is an alias: its role stays on its path, the action reached otherwise is named by app/action
 $pnlConf = Array('rolert'=>Array('/panel'=>'manage')) + $jwtConf;
-checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin', 'rteKind'=>'action', 'rtePath'=>'panel')), Array(404, 'Not Found'));
+checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin', 'routKind'=>'toAction', 'routPath'=>'panel')), Array(404, 'Not Found'));
 checkIdentical('Checker role: not on its action reached by its own path', roleReply($pnlConf, 'member', Array('app'=>'reports', 'action'=>'admin')), Array(200, ''));
 
 // The refused user stays identified, and is not sent to the sign-in route
-$axsRslt = (new Checker( Array('signin'=>'/login', 'openrt'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'rteKind'=>'htpage', 'rtePath'=>'admin')) ))->validateAccess();
+$axsRslt = (new Checker( Array('signin'=>'/login', 'openrt'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('user'=>'carol', 'role'=>'system')))), new Registry(Array('app'=>null, 'action'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')) ))->validateAccess();
 checkIdentical('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('logged'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'), $axsRslt->readFileDetail('wwwAuth'), $axsRslt->readFileDetail('denyGoal')), Array(404, true, 'carol', 'system', null, null));
 
 // A check that gives no role makes a member

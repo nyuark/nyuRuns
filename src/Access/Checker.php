@@ -359,7 +359,7 @@ class Checker{
 		}
 		$appName = strtolower( strval($this->routRgstry->readFileDetail('app')) );
 		$actnNme = strtolower( strval($this->routRgstry->readFileDetail('action')) );
-		$rtePath = strval($this->routRgstry->readFileDetail('rtePath'));
+		$rtePath = strval($this->routRgstry->readFileDetail('routPath'));
 		$publLst = $this->accssSetup['openrt'] ?? Array();
 		// Declared routes, by their path : whatever they answer with
 		foreach( (array)$publLst as $openRt ){
@@ -451,7 +451,7 @@ class Checker{
 		// The application is named as the Controller reads it : without its spaces
 		$appName = strtolower( str_replace(' ', '', strval($this->routRgstry->readFileDetail('app'))) );
 		$actnNme = strtolower( strval($this->routRgstry->readFileDetail('action')) );
-		$rtePath = strval($this->routRgstry->readFileDetail('rtePath'));
+		$rtePath = strval($this->routRgstry->readFileDetail('routPath'));
 		$needRle = null;
 		foreach( $roleMap as $rteKey=>$rteRle ){
 			$rteKey = strval($rteKey);
@@ -479,10 +479,10 @@ class Checker{
 	 */
 	protected function getSigninRoute(): ?String {
 		$signRte = strval($this->accssSetup['signin'] ?? '');
-		if( $signRte=='' || $this->routRgstry===null || $this->routRgstry->readFileDetail('rteKind')!='htpage' ){
+		if( $signRte=='' || $this->routRgstry===null || $this->routRgstry->readFileDetail('routKind')!='htmlPage' ){
 			return null;
 		}
-		if( trim($signRte, '/')===strval($this->routRgstry->readFileDetail('rtePath')) ){
+		if( trim($signRte, '/')===strval($this->routRgstry->readFileDetail('routPath')) ){
 			return null;
 		}
 		$askedUr = strval($this->httpRequst->obtainUrlValue('reqstURI'));
@@ -511,7 +511,7 @@ class Checker{
 			return '/';
 		}
 		$appName = strval($this->routRgstry->readFileDetail('app'));
-		return ($appName!='') ? $appName.'/'.strval($this->routRgstry->readFileDetail('action')) : '/'.strval($this->routRgstry->readFileDetail('rtePath'));
+		return ($appName!='') ? $appName.'/'.strval($this->routRgstry->readFileDetail('action')) : '/'.strval($this->routRgstry->readFileDetail('routPath'));
 	}
 
 	/**
