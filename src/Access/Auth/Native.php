@@ -27,8 +27,8 @@ class Native implements Handler{
 	// Seconds before a login asking again for a mailed code is sent a new one
 	const MAIL_SECS = 60;
 
-	// A bcrypt hash of nothing, made once at the cost of new hashes : what an unknown name or an account without a password is checked against
-	protected static $fakeBcrypt = null;
+	// Bcrypt hashes of a random text nobody kept, by cost : what an unknown name or an account without a password is checked against (PHP 8.2 and 8.3 make new hashes at 10, 8.4 and later at 12)
+	const FAKE_HASH = Array(10=>'$2y$10$Fdnk.lO11uVQBMad/9rSpuQKozWVG5hALhoedmIbRTEOA5ZnjDyHW', 12=>'$2y$12$KjqesoS7NOz7URh6H2REheW1ltOYzkBZU0VN8f0O7qeZ5gjZOfSby');
 
 	protected $usersStore;
 	protected $usersTable;
@@ -39,6 +39,7 @@ class Native implements Handler{
 	protected $sealingKey;
 	protected $mailExpiry;
 	protected $markedLmtr;
+	protected $passedUser = null;
 	protected $errMessage;
 	protected $badTryFlag = false;
 
@@ -93,6 +94,7 @@ class Native implements Handler{
 	 */
 	function checkSecretArr( Array $loginDataArr ): Array|Bool {
 		$this->badTryFlag = false;
+		$this->passedUser = null;
 		if( isset($loginDataArr['key']) ){
 			return $this->checkTokenList( strval($loginDataArr['key']) );
 		}
@@ -114,8 +116,8 @@ class Native implements Handler{
 		// A client already used by the user : its mark, while it has not failed too often itself
 		$markKey = '';
 		if( is_array($userVls) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
-			$pssUnix = (strval($userVls['passwdDate'] ?? '')!='') ? intval(strtotime(strval($userVls['passwdDate']))) : null;
-			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], strval($userVls['userHandle']), $pssUnix );
+			// Signed with the hash the password has now : a password set after the mark was made ends it
+			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], strval($userVls['userHandle']), (password_get_info($rowHash)['algo']!==null) ? $rowHash : '' );
 			if( $markKey!='' && $this->markedLmtr->heldByUserNumb($markKey)>0 ){
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($userVls['userHandle']).': too many attempts with it' );
 				$markKey = '';
@@ -210,23 +212,37 @@ class Native implements Handler{
 		// A hash made at a lower cost than new ones is made again, now that the password is known
 		if( password_needs_rehash($rowHash, PASSWORD_BCRYPT) ){
 			$this->rehashPassword( strval($userVls['userHandle']), $gvnPass );
+			$fresVls = $this->fetchUserArray( strval($userVls['userHandle']) );
+			$rowHash = is_array($fresVls) ? strval($fresVls['passwdHash'] ?? '') : '';
 		}
+		$this->passedUser = Array('userHandle'=>strval($userVls['userHandle']), 'passwdHash'=>$rowHash);
 		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
-	 * Gives a bcrypt hash of nothing, made once per process at the cost PHP
-	 * gives new hashes: the stores check an unknown name, or an account
-	 * without a password, against it, so the reply time tells neither apart
-	 * from a wrong password.
+	 * Gives the bcrypt hash of FAKEHASH at the cost PHP gives new hashes
+	 * (the cost-12 one when it is neither 10 nor 12), without making one:
+	 * an unknown name, or an account without a password, is checked against
+	 * it, so the reply time tells neither apart from a wrong password.
 	 *
 	 * @return String The hash.
 	 */
 	public static function getDummyBcrypt(): String {
-		if( self::$fakeBcrypt===null ){
-			self::$fakeBcrypt = password_hash( bin2hex(random_bytes(16)), PASSWORD_BCRYPT );
+		return password_needs_rehash(self::FAKE_HASH[12], PASSWORD_BCRYPT) && !password_needs_rehash(self::FAKE_HASH[10], PASSWORD_BCRYPT) ? self::FAKE_HASH[10] : self::FAKE_HASH[12];
+	}
+
+	/**
+	 * Makes the login mark of the user the last check accepted, signed
+	 * with the hash of its password (see Access\LoginMark).
+	 *
+	 * @param String $namedUserTxt Login name of the user.
+	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
+	 */
+	public function createUserMark( String $namedUserTxt ): String {
+		if( $this->passedUser===null || $this->passedUser['userHandle']!==$namedUserTxt ){
+			return '';
 		}
-		return self::$fakeBcrypt;
+		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
 	}
 
 	/**

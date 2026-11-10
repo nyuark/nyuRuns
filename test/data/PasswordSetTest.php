@@ -86,29 +86,19 @@ checkIdentical('recovUser: the tokens before and the personal token are refused'
 // A password given by the command line, and a reset by a manager
 $thrdTkn = pastTokn('ben', 5);
 checkIdentical('setPasswd: the tokens before are refused too', Array($natAuth->savePasswdFlag('ben', 'third-pass-ben'), tokenFor($thrdTkn)), Array(true, Array(false, 'Password changed: sign in again')));
-checkIdentical('resetUser: the time is stored', Array(is_string($usrBase->resetUsrString('ben')), abs(strtotime(strval(fieldOf('ben', 'passwdDate'))) - time())<5), Array(true, true));
+$befHash = fieldOf('ben', 'passwdHash');
+checkIdentical('resetUser: the time is stored, and the hash changed (the login marks made before end with it)', Array(is_string($usrBase->resetUsrString('ben')), abs(strtotime(strval(fieldOf('ben', 'passwdDate'))) - time())<5, fieldOf('ben', 'passwdHash')!==$befHash), Array(true, true, true));
 // A table without the column
 $sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, userHandle, passwdHash, accessRole, userStatus, bearerHash, failsCount, failedDate, accessDate FROM users");
 $oldAuth = new Native( Array('useTable'=>'oldusers', 'minChars'=>8) );
 checkIdentical('a table without passwdDate: sessions are compared with nothing, a password cannot be written', Array($oldAuth->usrIdentityArr('anna', time() - 10)['userName'] ?? null, runCatchThrown(function() use ( $oldAuth ){ return $oldAuth->savePasswdFlag('anna', 'pass-of-anna'); })), Array('anna', false));
 $sqlLink->exec("DROP TABLE oldusers");
 
-// M3 : the dummy hash, for an unknown name and for an account without a password
-$fakProp = new ReflectionProperty(Native::class, 'fakeBcrypt');
-$fakProp->setValue(null, null);
-$natAuth->checkSecretArr( Array('user'=>'zed', 'pass'=>'whatever') );
-$dmyHash = $fakProp->getValue();
-checkIdentical('an unknown name is checked against the dummy hash, made at the cost of new hashes', Array(is_string($dmyHash), password_get_info(strval($dmyHash))['options']['cost'] ?? null), Array(true, password_get_info(password_hash('x', PASSWORD_BCRYPT))['options']['cost'] ?? null));
-$fakProp->setValue(null, null);
+// M3 : the dummy hash, for an unknown name and for an account without a password : a constant at the cost of new hashes (no hash made, see unit/FakeHashTest)
+$dmyHash = Native::getDummyBcrypt();
+checkIdentical('the dummy hash is a constant, at the cost of new hashes', Array(in_array($dmyHash, Native::FAKE_HASH, true), password_get_info($dmyHash)['options']['cost'] ?? null), Array(true, password_get_info(password_hash('x', PASSWORD_BCRYPT))['options']['cost'] ?? null));
 $sqlLink->exec("UPDATE users SET passwdHash='!' WHERE userHandle='cleo'");
-checkIdentical('an account without a password is checked against it too', Array($natAuth->checkSecretArr(Array('user'=>'cleo', 'pass'=>'!')), is_string($fakProp->getValue())), Array(false, true));
-$fakProp->setValue(null, null);
-(new UserList( Array('listFile'=>'test/fixtures/users.lst', 'maxTries'=>0) ))->checkSecretArr( Array('user'=>'zed', 'pass'=>'x') );
-$lstUsed = is_string($fakProp->getValue());
-$fakProp->setValue(null, null);
-(new PassList( Array('passFile'=>'test/fixtures/users.htpasswd', 'maxTries'=>0) ))->checkSecretArr( Array('user'=>'zed', 'pass'=>'x') );
-checkIdentical('the users file and the htpasswd file use the same one', Array($lstUsed, is_string($fakProp->getValue())), Array(true, true));
-checkIdentical('one dummy hash for the process', Native::getDummyBcrypt(), Native::getDummyBcrypt());
+checkIdentical('an unknown name and an account without a password are refused', Array($natAuth->checkSecretArr(Array('user'=>'zed', 'pass'=>'whatever')), $natAuth->checkSecretArr(Array('user'=>'cleo', 'pass'=>'!'))), Array(false, false));
 // The rehash after a good login
 $natAuth->savePasswdFlag('anna', 'pw-anna-cost');
 $sqlLink->exec("UPDATE users SET passwdHash='".password_hash('pw-anna-cost', PASSWORD_BCRYPT, Array('cost'=>4))."' WHERE userHandle='anna'");

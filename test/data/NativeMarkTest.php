@@ -25,7 +25,8 @@ $GLOBALS['nyuConfig'] = new Registry( Array(
 ) );
 $natAuth = new Native( Array('useTable'=>'users', 'maxTries'=>5, 'holdSecs'=>600, 'minChars'=>8) );
 $sqlLink = new PDO('sqlite:'.$sqlFile);
-$benMark = LoginMark::fromLimitBlock()->createUserMark('ben');
+benLogin('pw-ben');
+$benMark = $natAuth->createUserMark('ben');
 
 /**
  * Tells what the userbase answers to a login.
@@ -49,12 +50,15 @@ $befFail = intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle
 benLogin('wrong-x', $benMark);
 checkIdentical('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle='ben'")->fetchColumn()), $befFail);
 checkIdentical('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle='ben'")->fetchColumn()), 0);
+checkIdentical('native: the store makes the mark of the user it just accepted only', Array($benMark!=='', $natAuth->createUserMark('anna')), Array(true, ''));
 // A password set after the mark was made ends it : held again, the mark no longer lets its client in
-$sqlLink->exec("UPDATE users SET passwdDate='".date('Y-m-d H:i:s', time() + 5)."' WHERE userHandle='ben'");
+$newHash = password_hash('pw-ben-2', PASSWORD_BCRYPT, Array('cost'=>4));
+$sqlLink->exec("UPDATE users SET passwdHash='".$newHash."' WHERE userHandle='ben'");
 for( $idx=0; $idx<5; $idx++ ){
 	benLogin('again-'.$idx);
 }
-checkIdentical('native: a mark made before the password was last set is no mark', benLogin('pw-ben', $benMark), false);
+checkIdentical('native: a mark made under the former password is no mark', benLogin('pw-ben-2', $benMark), false);
+checkIdentical('native: a mark made under the new one is', benLogin('pw-ben-2', LoginMark::fromLimitBlock()->createUserMark('ben', $newHash)), 'ben');
 
 dropTestFolder( TOP_DIR.DS.$lmtFldr );
 finishChecking();

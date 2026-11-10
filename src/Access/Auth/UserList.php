@@ -25,6 +25,7 @@ class UserList implements Handler{
 	protected $usrLstPath;
 	protected $sealingKey;
 	protected $usrLimiter;
+	protected $passedUser = null;
 	protected $errMessage;
 	protected $badTryFlag = false;
 
@@ -61,6 +62,7 @@ class UserList implements Handler{
 	 */
 	function checkSecretArr( Array $loginDataArr ): Array|Bool {
 		$this->badTryFlag = false;
+		$this->passedUser = null;
 		if( isset($loginDataArr['key']) ){
 			return $this->checkTokenList( strval($loginDataArr['key']) );
 		}
@@ -72,9 +74,10 @@ class UserList implements Handler{
 			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
-		if( $userVls===null || password_get_info(strval($userVls['passwdHash']))['algo']===null ){
-			// Unknown user, or an account without a password : the same check is run, so the reply time tells neither apart from a wrong password
-			password_verify( $gvnPass, Native::getDummyBcrypt() );
+		$isHashd = is_array($userVls) && password_get_info(strval($userVls['passwdHash']))['algo']!==null;
+		if( !$isHashd ){
+			// Unknown user, or an account without a password : the hash of the first user of the file is checked, at the cost the file's own hashes have, so the reply time tells neither apart from a wrong password
+			password_verify( $gvnPass, $this->fakeHashString() );
 			$matched = false;
 		}else{
 			$matched = password_verify( $gvnPass, $userVls['passwdHash'] );
@@ -82,7 +85,8 @@ class UserList implements Handler{
 		// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 		$cntName = is_array($userVls) ? strval($userVls['userHandle']) : '';
 		if( is_array($userVls) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
-			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName );
+			// Signed with the hash the password has now : a password set after the mark was made ends it
+			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName, $isHashd ? strval($userVls['passwdHash']) : '' );
 			if( $markKey!='' && $this->usrLimiter->heldByUserNumb($markKey)>0 ){
 				Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($cntName).': too many attempts with it' );
 			}elseif( $markKey!='' ){
@@ -134,7 +138,22 @@ class UserList implements Handler{
 			}
 		}
 		$this->usrLimiter->clearLimitUser( $cntName );
+		$this->passedUser = Array('userHandle'=>strval($userVls['userHandle']), 'passwdHash'=>strval($userVls['passwdHash']));
 		return $this->createIdentity($userVls);
+	}
+
+	/**
+	 * Makes the login mark of the user the last check accepted, signed
+	 * with the hash of its password (see Access\LoginMark).
+	 *
+	 * @param String $namedUserTxt Login name of the user.
+	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
+	 */
+	public function createUserMark( String $namedUserTxt ): String {
+		if( $this->passedUser===null || $this->passedUser['userHandle']!==$namedUserTxt ){
+			return '';
+		}
+		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
 	}
 
 	/**
@@ -238,6 +257,23 @@ class UserList implements Handler{
 	 */
 	public function savePasswdFlag( String $namedUserTxt, String $usrPasswdTxt ): Bool {
 		return false;
+	}
+
+	/**
+	 * Gives the hash an unknown name is checked against: the one of the
+	 * first user of the file whose password is hashed, so that it costs
+	 * what the file's own hashes cost; Native::FAKEHASH when there is none.
+	 *
+	 * @return String The hash.
+	 */
+	protected function fakeHashString(): String {
+		$usrList = $this->loadUsersArray();
+		foreach( is_array($usrList) ? $usrList : Array() as $usrRow ){
+			if( password_get_info(strval($usrRow['passwdHash']))['algo']!==null ){
+				return strval($usrRow['passwdHash']);
+			}
+		}
+		return Native::getDummyBcrypt();
 	}
 
 	/**

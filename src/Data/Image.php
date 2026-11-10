@@ -193,7 +193,8 @@ class Image {
 			$nodeNme = strtolower(strval($oneTag->localName));
 			$animAtr = strtolower($oneTag->getAttribute('attributeName'));
 			// What runs, what holds another document, a style reaching outside, and what would write an address or a script later on
-			if( in_array($nodeNme, self::DROP_LIST) || ($nodeNme=='style' && preg_match(self::RISK_PATT, self::decodeStyleTxt($oneTag->textContent))) || ($animAtr!=='' && preg_match('/^on|href$/', $animAtr)) ){
+			// A comment in a style is not read past : the style holding one is dropped, whatever quotes it stands in
+			if( in_array($nodeNme, self::DROP_LIST) || ($nodeNme=='style' && (str_contains($oneTag->textContent, '/*') || preg_match(self::RISK_PATT, self::decodeStyleTxt($oneTag->textContent)))) || ($animAtr!=='' && preg_match('/^on|href$/', $animAtr)) ){
 				$dropLst[] = $oneTag;
 				continue;
 			}
@@ -204,7 +205,8 @@ class Image {
 			foreach($attrSet as $attrib){
 				$attrKey = strtolower(strval($attrib->localName));
 				$attrTxt = trim($attrib->value);
-				$badAttr = (strncmp($attrKey, 'on', 2)===0 || preg_match(self::RISK_PATT, self::decodeStyleTxt($attrTxt))===1);
+				// A list of addresses (srcset, imagesrcset) is never kept; nor a value holding a comment
+				$badAttr = (strncmp($attrKey, 'on', 2)===0 || in_array($attrKey, Array('srcset', 'imagesrcset'), true) || str_contains($attrTxt, '/*') || preg_match(self::RISK_PATT, self::decodeStyleTxt($attrTxt))===1);
 				// What a form or a ping would send elsewhere : kept only when it points inside the drawing
 				if( !$badAttr && in_array($attrKey, Array('action', 'formaction', 'ping'), true) ){
 					$badAttr = (strncmp($attrTxt, '#', 1)!==0);
@@ -230,15 +232,16 @@ class Image {
 	
 	/**
 	 * Gives a style as a browser reads it, for RISKPATT to be matched on:
-	 * its comments removed, and its escapes decoded (a backslash followed
-	 * by 1 to 6 hexadecimal digits and one optional space, or by any other
-	 * character), so that 'u\72l(' is read as 'url('.
+	 * its escapes decoded (a backslash followed by 1 to 6 hexadecimal
+	 * digits and one optional space, or by any other character), so that
+	 * 'u\72l(' is read as 'url('. A style holding a comment is dropped
+	 * before it is read here: comments are left as they are.
 	 *
 	 * @param String $styleOrValue The style, or the value of an attribute.
 	 * @return String The style, plain.
 	 */
 	protected static function decodeStyleTxt( String $styleOrValue ): String {
-		$cssText = strval( preg_replace('#/\*.*?(\*/|$)#s', '', $styleOrValue) );
+		$cssText = $styleOrValue;
 		return strval( preg_replace_callback('/\\\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))/su', function( Array $escapeGroups ): String {
 			if( ($escapeGroups[1] ?? '')!=='' ){
 				// Written as an entity and decoded : no need of mbstring

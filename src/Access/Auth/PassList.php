@@ -14,6 +14,7 @@ class PassList implements Handler{
 	protected $passwdFile;
 	protected $weakHashes;
 	protected $usrLimiter;
+	protected $passedUser = null;
 	protected $errMessage;
 	protected $badTryFlag = false;
 
@@ -50,14 +51,20 @@ class PassList implements Handler{
 		$gvnUser = $loginDataArr['user'] ?? '';
 		$gvnPass = $loginDataArr['pass'] ?? '';
 		$this->badTryFlag = false;
+		$this->passedUser = null;
 		if( $this->passwdFile=='' || !file_exists($this->passwdFile) ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		$pwdRows = file( $this->passwdFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 		$usrHash = null;
+		$fakeHsh = null;
 		foreach( $pwdRows as $pwdRow ){
 			$colonAt = strpos( $pwdRow, ':' );
+			// The first entry is what an unknown name is checked against : a comment is none
+			if( $fakeHsh===null && $colonAt!==false && $colonAt>0 && $pwdRow[0]!=='#' && substr($pwdRow, $colonAt+1)!=='' ){
+				$fakeHsh = substr( $pwdRow, $colonAt+1 );
+			}
 			// An empty name is the one of no user, whatever a line may start with
 			if( $gvnUser!=='' && $colonAt!==false && substr($pwdRow, 0, $colonAt)===$gvnUser ){
 				$usrHash = substr( $pwdRow, $colonAt+1 );
@@ -65,14 +72,15 @@ class PassList implements Handler{
 			}
 		}
 		if( $usrHash===null ){
-			// Unknown user : the same check is run, at the cost of new hashes, so the reply time does not tell which names exist
-			password_verify( $gvnPass, Native::getDummyBcrypt() );
+			// Unknown user : the hash of the first entry is checked as a real one is, at the cost the file's own hashes have, so the reply time does not tell which names exist
+			($fakeHsh!==null) ? $this->verifyHtpasswd($gvnPass, $fakeHsh) : password_verify( $gvnPass, Native::getDummyBcrypt() );
 		}else{
 			$matched = $this->verifyHtpasswd($gvnPass, $usrHash);
 			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 			$cntName = strval($gvnUser);
 			if( is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
-				$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName );
+				// Signed with the hash the password has now : a password set after the mark was made ends it
+				$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName, $usrHash );
 				if( $markKey!='' && $this->usrLimiter->heldByUserNumb($markKey)>0 ){
 					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($gvnUser).': too many attempts with it' );
 				}elseif( $markKey!='' ){
@@ -84,6 +92,7 @@ class PassList implements Handler{
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
 			}elseif( $matched ){
 				$this->usrLimiter->clearLimitUser( $cntName );
+				$this->passedUser = Array('userHandle'=>strval($gvnUser), 'passwdHash'=>$usrHash);
 				return Array('userName'=>$gvnUser);
 			}else{
 				$this->usrLimiter->countLimitUser( $cntName );
@@ -92,6 +101,20 @@ class PassList implements Handler{
 		$this->errMessage = 'Invalid credentials';
 		$this->badTryFlag = true;
 		return false;
+	}
+
+	/**
+	 * Makes the login mark of the user the last check accepted, signed
+	 * with the hash of its password (see Access\LoginMark).
+	 *
+	 * @param String $namedUserTxt Login name of the user.
+	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
+	 */
+	public function createUserMark( String $namedUserTxt ): String {
+		if( $this->passedUser===null || $this->passedUser['userHandle']!==$namedUserTxt ){
+			return '';
+		}
+		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
 	}
 
 	/**

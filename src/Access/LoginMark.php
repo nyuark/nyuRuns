@@ -6,13 +6,14 @@ namespace nyu\Access;
  * The mark a client gets once it has logged in as a user, and sends back
  * at its next logins ('lgmark': the X-Lgmark header, or the lgmark
  * cookie). It names the user, the time it was made and an identifier of
- * its own, signed with the key of the limits block ('markSecr'); it holds no
- * secret of the user. A client presenting a valid mark for the user it
- * logs in as is not stopped by the hold of the account: the stores count
+ * its own, signed with the key of the limits block ('markSecr') together
+ * with the hash of the user's password; it holds no secret of the user,
+ * nor any part of that hash. A client presenting a valid mark for the user
+ * it logs in as is not stopped by the hold of the account: the stores count
  * its failures on the mark instead (see Limiter::countLimitUser), so that
  * guesses from elsewhere cannot keep the owner out. A mark ends after
- * 'markDays' days, with the password set after it was made (native
- * userbase), or with its key.
+ * 'markDays' days, with any change of the password's hash (a new password,
+ * a reset, a hash made again at another cost), or with its key.
  */
 class LoginMark{
 
@@ -49,36 +50,39 @@ class LoginMark{
 	 * Makes the mark of a user that has just logged in.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @return String The mark, or '' when no key of KEYSSIZE characters at least is set.
+	 * @param String $userPassHash Hash of the user's password, as the store keeps it: the mark is signed with it, and ends when it changes.
+	 * @return String The mark, or '' when no key of KEYSSIZE characters at least is set, or no hash is given.
 	 */
-	public function createUserMark( String $namedUserTxt ): String {
-		if( strlen($this->markSecret)<self::KEYS_SIZE || $namedUserTxt==='' ){
+	public function createUserMark( String $namedUserTxt, String $userPassHash ): String {
+		if( strlen($this->markSecret)<self::KEYS_SIZE || $namedUserTxt==='' || $userPassHash==='' ){
 			return '';
 		}
 		$markTxt = $this->base64UrlNoPad($namedUserTxt).'.'.time().'.'.bin2hex(random_bytes(8));
-		return $markTxt.'.'.$this->base64UrlNoPad( hash_hmac('sha256', $markTxt, $this->markSecret, true) );
+		return $markTxt.'.'.$this->base64UrlNoPad( hash_hmac('sha256', $markTxt.'.'.$userPassHash, $this->markSecret, true) );
 	}
 
 	/**
-	 * Reads a mark a client sent: signed with the key, made for the user it
-	 * logs in as, within its lifetime, and after the password was last set.
+	 * Reads a mark a client sent: signed with the key and the hash the
+	 * password has now, made for the user it logs in as, within its
+	 * lifetime. A password set after the mark was made changes the hash,
+	 * so the mark is no longer one.
 	 *
 	 * @param String $sentMarkText The mark, as sent.
 	 * @param String $namedUserTxt Login name of the user logging in.
-	 * @param ?Int   $suppliedUnix Unix time the password was last set; null when the store keeps none.
+	 * @param String $userPassHash Hash of the user's password, as the store keeps it now.
 	 * @return String The key its failures are counted under ('mark:' and its identifier), or '' when it is not a valid mark for that user.
 	 */
-	public function readClientMark( String $sentMarkText, String $namedUserTxt, ?Int $suppliedUnix=null ): String {
+	public function readClientMark( String $sentMarkText, String $namedUserTxt, String $userPassHash ): String {
 		$mrkPart = explode('.', $sentMarkText);
-		if( strlen($this->markSecret)<self::KEYS_SIZE || count($mrkPart)!==4 || !preg_match('/^\d{1,12}$/D', $mrkPart[1]) || !preg_match('/^[0-9a-f]{16}$/D', $mrkPart[2]) ){
+		if( strlen($this->markSecret)<self::KEYS_SIZE || $userPassHash==='' || count($mrkPart)!==4 || !preg_match('/^\d{1,12}$/D', $mrkPart[1]) || !preg_match('/^[0-9a-f]{16}$/D', $mrkPart[2]) ){
 			return '';
 		}
-		$signTxt = $this->base64UrlNoPad( hash_hmac('sha256', $mrkPart[0].'.'.$mrkPart[1].'.'.$mrkPart[2], $this->markSecret, true) );
+		$signTxt = $this->base64UrlNoPad( hash_hmac('sha256', $mrkPart[0].'.'.$mrkPart[1].'.'.$mrkPart[2].'.'.$userPassHash, $this->markSecret, true) );
 		if( !hash_equals($signTxt, $mrkPart[3]) || $mrkPart[0]!==$this->base64UrlNoPad($namedUserTxt) ){
 			return '';
 		}
 		$madeUnx = intval($mrkPart[1]);
-		if( $madeUnx>time() + 60 || $madeUnx + 86400*$this->lifeInDays<time() || ($suppliedUnix!==null && $madeUnx<$suppliedUnix) ){
+		if( $madeUnx>time() + 60 || $madeUnx + 86400*$this->lifeInDays<time() ){
 			return '';
 		}
 		return 'mark:'.$mrkPart[2];

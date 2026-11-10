@@ -128,7 +128,8 @@ class Actions extends Actionset {
 		$this->replyValue = method_exists($sessObj, 'dropUsrSession') ? Array('logged'=>true) : Array('token'=>$rawTokn);
 		// A new login mark for this client : in a cookie the scripts of the page cannot read, or in the reply of a token
 		$markObj = LoginMark::fromLimitBlock();
-		$newMark = $markObj->createUserMark( strval($idntArr['userName'] ?? $gvnUser) );
+		// Made by the store, which signs it with the hash of the password it just checked : a check without one gives no mark
+		$newMark = method_exists($authObj, 'createUserMark') ? strval($authObj->createUserMark( strval($idntArr['userName'] ?? $gvnUser) )) : '';
 		if($newMark!==''){
 			if(method_exists($sessObj, 'dropUsrSession')){
 				if(!headers_sent()){
