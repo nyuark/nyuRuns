@@ -31,7 +31,7 @@ function fetchShowsKeys( Array $filterFields ): Mixed {
  */
 function executeDialect( String $handlerClass ): Void {
 	$nyuBase = DBCon::baseSetupArray();
-	$dbHndlr = DBCon::obtainInstance($nyuBase['type'], $nyuBase['host'], $nyuBase['user'], $nyuBase['pass'], $nyuBase['base'], Array('port'=>$nyuBase['port'], 'char'=>$nyuBase['char']))->readConnection();
+	$dbHndlr = DBCon::obtainInstance($nyuBase['dbEngine'], $nyuBase['hostName'], $nyuBase['userName'], $nyuBase['password'], $nyuBase['baseName'], Array('portNumb'=>$nyuBase['portNumb'], 'encoding'=>$nyuBase['encoding']))->readConnection();
 
 	// Handler
 	checkIdentical('the handler of the type is used', get_class($dbHndlr), $handlerClass);

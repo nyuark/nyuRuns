@@ -171,20 +171,21 @@ if( !$isReady ){
 	checkIdentical('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
 
 	$formHed = Array('Content-Type'=>'application/x-www-form-urlencoded');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed, 'user[]=nobody&pass=x');
+	$lgnHead = $formHed + Array('X-Test-Conf'=>'confusr');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lgnHead, 'user[]=nobody&pass=x');
 	checkIdentical('login with a user that is not a string: 400', $replyAr['code'], 400);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed, 'user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lgnHead, 'user=nobody-here&pass=wrong');
 	checkIdentical('login with unknown credentials: 401', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', Array('Content-Type'=>'application/json'), '{"user":"nobody-here","pass":"wrong"}');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', Array('Content-Type'=>'application/json', 'X-Test-Conf'=>'confusr'), '{"user":"nobody-here","pass":"wrong"}');
 	checkIdentical('login with a JSON body: 401', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?pass=wrong', $formHed, 'user=nobody-here');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?pass=wrong', $lgnHead, 'user=nobody-here');
 	checkIdentical('login with the password in the query string: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Password sent in the query string","code":400}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?PASS=wrong', $formHed, 'user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?PASS=wrong', $lgnHead, 'user=nobody-here&pass=wrong');
 	checkIdentical('login with the password in both: 400 too', $replyAr['code'], 400);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?user=nobody-here', $formHed, 'pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?user=nobody-here', $lgnHead, 'pass=wrong');
 	checkIdentical('login with the name alone in the query string: checked as usual', $replyAr['code'], 401);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/auth/openSess?user=nobody-here&pass=wrong');
@@ -581,7 +582,7 @@ if( !$isReady ){
 	// Roles : what a route asks for ('rteRoles'), and the helpers of an action
 	$benHead = Array('Authorization'=>'Bearer '.$benToken);
 	$annHead = Array('Authorization'=>'Bearer '.$jwToken);
-	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=sysadmin, probe/identify=operator, /docs/*=operator, /hello/$id=sysadmin');
+	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=sysadmin, probe/identify=operator');
 	$logMark = strlen(readsLogs('access'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', $rolHead + $benHead);
 	checkIdentical('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
@@ -593,10 +594,12 @@ if( !$isReady ){
 	checkIdentical('roles: served to a manager', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', $rolHead);
 	checkIdentical('roles: nobody logged is a 401', $replyAr['code'], 401);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', Array('X-Test-Roles'=>'users/*=sysadmin, /docs/*=operator') + $usrHead + $annHead);
+	checkIdentical('roles: a declared path that no route declares refuses every request', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/makeUser?user=henry', $usrHead + $benHead);
 	checkIdentical('roles: an action asks for the role before the method', $replyAr['code'], 404);
 
-	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter') + $rolHead;
+	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter', 'X-Test-Roles'=>'users/*=sysadmin, probe/identify=operator, /docs/*=operator, /hello/$id=sysadmin') + $rolHead;
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $prbHead + $benHead);
 	checkIdentical('roles: an action of another application', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $prbHead + $annHead);

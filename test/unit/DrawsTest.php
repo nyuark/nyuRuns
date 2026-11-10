@@ -136,9 +136,15 @@ if( class_exists('ZipArchive') ){
 }
 
 // Drawing into pixels
-if( !class_exists('Imagick') || !function_exists('imagecreatefromstring') ){
-	checkPregMatch('drawing into pixels asks for the extensions that do it', runCatchThrown(function() use ($quadSvg){ return Image::openFluxdImage(Fluxd::openBytesFluxd($quadSvg))->resizeFitImage(20, 20); }), '/^THROWN RuntimeException: (A drawing needs the imagick extension of PHP to be drawn into pixels|Pictures need the gd extension of PHP to be changed)/');
-	recordSkipping('drawings made pixels', 'the imagick and gd extensions are not both loaded');
+$svgDraw = class_exists('Imagick') && function_exists('imagecreatefromstring') && \Imagick::queryFormats('SVG')!=Array();
+if( !$svgDraw ){
+	if( !class_exists('Imagick') || !function_exists('imagecreatefromstring') ){
+		checkPregMatch('drawing into pixels asks for the extensions that do it', runCatchThrown(function() use ($quadSvg){ return Image::openFluxdImage(Fluxd::openBytesFluxd($quadSvg))->resizeFitImage(20, 20); }), '/^THROWN RuntimeException: (A drawing needs the imagick extension of PHP to be drawn into pixels|Pictures need the gd extension of PHP to be changed)/');
+		recordSkipping('drawings made pixels', 'the imagick and gd extensions are not both loaded');
+	}else{
+		checkPregMatch('without an SVG delegate, a drawing is refused as one that cannot be drawn', runCatchThrown(function() use ($quadSvg){ return Image::openFluxdImage(Fluxd::openBytesFluxd($quadSvg))->resizeFitImage(20, 20); }), '/^THROWN RuntimeException: Drawing that cannot be drawn into pixels/');
+		recordSkipping('drawings made pixels', 'this Imagick build has no SVG delegate (Imagick::queryFormats(\'SVG\') is empty)');
+	}
 	checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 	finishChecking();
 }

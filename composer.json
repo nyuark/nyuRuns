@@ -13,7 +13,8 @@
 	"autoload": {
 		"psr-4": {
 			"nyu\\": "src/"
-		}
+		},
+		"exclude-from-classmap": ["src/Error/handling.php"]
 	},
 	"config": {
 		"optimize-autoloader": true

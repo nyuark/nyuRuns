@@ -26,9 +26,10 @@ script runs in its own PHP process and can also be run on its own
 ## Things to know
 
 - **Database.** The data and HTTP tests need the `pdo_sqlite` extension and skip
-  themselves without it. They never touch MySQL: they select the framework's own
-  SQLite handler (`DBHndlr\SQLite`, type code `sqlte`) and point it at a SQLite file
-  in the system temporary folder.
+  themselves without it. Apart from the optional real-server tests below, they
+  touch no database server: they select the framework's own SQLite handler
+  (`DBHndlr\SQLite`, type code `sqlitedb`) and point it at a SQLite file in the
+  system temporary folder.
 - **Real servers (optional).** `data/MySQLTest.php` and `data/PgSQLTest.php` run
   the checks of `lib/dialect.php` through the MySQL and PostgreSQL handlers. Each
   skips itself, saying why, when its extension (`pdo_mysql`, `pdo_pgsql`) is not
@@ -61,7 +62,7 @@ script runs in its own PHP process and can also be run on its own
 - **Credentials.** `fixtures/users.htpasswd` holds four test-only users
   (`alice` / `s3cret`, `erin` / `tr0ub4dor`, and `bob` / `hunter2`, `frank` / `letmein`
   whose weak hashes only pass in unsecure mode). `fixtures/users.lst` is the
-  flat file of users (`usrlst`): `anna`, `ben`, `cleo`, `dave` as in the sample
+  users file (`userFile`): `anna`, `ben`, `cleo`, `dave` as in the sample
   database, and `emma` with a 2FA secret, password `pw-<name>`.
 - **PHP notices.** A notice or warning raised by the tested code fails the script
   that triggered it, unless the test collects it with `takeNotes()`.

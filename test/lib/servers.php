@@ -11,7 +11,7 @@
  * block when it is of the same type.
  *
  * @param String $typeLabelTxt Type code of the server: 'mysql', 'pgsql' or 'mongo'.
- * @return Array The 'host', 'port', 'base', 'user' and 'pass' settings, plus 'skip': the reason not to use the server, or ''.
+ * @return Array The 'hostName', 'portNumb', 'baseName', 'userName' and 'password' settings, plus 'skip': the reason not to use the server, or ''.
  */
 function serverSettings( String $typeLabelTxt ): Array {
 	$srvrLod = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'confsrv')) );

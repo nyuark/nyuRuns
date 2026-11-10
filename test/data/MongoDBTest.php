@@ -24,10 +24,10 @@ if( $srvConf['skip']!='' ){
 	recordSkipping('MongoDB', $srvConf['skip']);
 	finishChecking();
 }
-$prtNmbr = ($srvConf['port']!='') ? intval($srvConf['port']) : 27017;
-$tryLink = @fsockopen($srvConf['host'], $prtNmbr, $errNmbr, $errText, 2);
+$prtNmbr = ($srvConf['portNumb']!='') ? intval($srvConf['portNumb']) : 27017;
+$tryLink = @fsockopen($srvConf['hostName'], $prtNmbr, $errNmbr, $errText, 2);
 if( !$tryLink ){
-	recordSkipping('MongoDB', 'no server answers on '.$srvConf['host'].':'.$prtNmbr);
+	recordSkipping('MongoDB', 'no server answers on '.$srvConf['hostName'].':'.$prtNmbr);
 	finishChecking();
 }
 fclose($tryLink);
