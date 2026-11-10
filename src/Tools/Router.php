@@ -73,7 +73,8 @@ class Router{
 			$routVls = array_merge($routVls, $this->autoRouteArray());
 			$appName = strval($routVls['appToRun'] ?? '');
 			// A Run declaring its routes is closed : its actions are reached through them only
-			if( preg_match('/^[A-Za-z0-9]+$/D', $appName) && is_file(RUN_DIR.DS.ucfirst($appName).DS.'routes.rte') ){
+			$runFldr = \nyu\App\Controller::runFoldrString($appName);
+			if( $runFldr!=='' && is_file(RUN_DIR.DS.$runFldr.DS.'routes.rte') ){
 				Logger::retrieveLogger('runner')->info( 'Not found: '.json_encode($appName.'/'.strval($routVls['doAction'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_SLASHES).': not listed in the routes of the application'.Logger::getActorSuffix() );
 				return new Registry( Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>404, 'statMssg'=>'Not Found') );
 			}

@@ -117,9 +117,11 @@ checkPregMatch('a shape that is not a known one is refused', pdfOut(Array(), Arr
 checkIdentical('an image is not fetched, from the network nor from the disk: its description is written in its stead, and a file of the server is not even named', runCatchThrown(function(){
 	$scrtPth = inTemporaryDir('secret.png');
 	file_put_contents($scrtPth, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
-	$pdfText = pdfOut(Array(textBlk('paragrph', 'Before'), textBlk('imageBox', 'The hall', Array('sourc'=>'http://127.0.0.1:9/never.png')), textBlk('imageBox', 'Local', Array('sourc'=>str_replace('\\', '/', $scrtPth))), textBlk('paragrph', 'After')));
-	return Array(substr($pdfText, 0, 5), preg_replace('/\s+/', ' ', Shape::documentAsText(pdfRead($pdfText)['items'])), strpos($pdfText, '/Subtype /Image'));
-}), Array('%PDF-', 'Before The hall After', false));
+	// The path as Linux gives it, a drive letter left out: every system takes the same way
+	$diskSrc = preg_replace('#^[A-Za-z]:#', '', str_replace('\\', '/', $scrtPth));
+	$pdfText = pdfOut(Array(textBlk('paragrph', 'Before'), textBlk('imageBox', 'The hall', Array('sourc'=>'http://127.0.0.1:9/never.png')), textBlk('imageBox', 'Local', Array('sourc'=>$diskSrc)), textBlk('paragrph', 'After')));
+	return Array(substr($diskSrc, 0, 1), substr($pdfText, 0, 5), preg_replace('/\s+/', ' ', Shape::documentAsText(pdfRead($pdfText)['items'])), strpos($pdfText, 'secret'), strpos($pdfText, '/Subtype /Image'));
+}), Array('/', '%PDF-', 'Before The hall Local After', false, false));
 
 // Reading: what is refused
 checkIdentical('an empty content gives no block', pdfRead(''), Array('shape'=>'block', 'infos'=>Array('title'=>'', 'authr'=>'', 'pages'=>0, 'props'=>Array()), 'items'=>Array()));

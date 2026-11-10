@@ -8,6 +8,7 @@
 
 define('RUN_DIR', dirname(__DIR__).DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'runs');
 require __DIR__.'/../lib/harness.php';
+require __DIR__.'/../lib/shellKit.php';
 require RUN_DIR.DS.'Probe'.DS.'Actions.php';
 require RUN_DIR.DS.'Mounted'.DS.'Actions.php';
 
@@ -223,10 +224,36 @@ checkPregMatch('run link: a route the Run does not serve is not found (manually)
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('runlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('closed run: an action its file does not list', foundVals('/mounted/unlisted', Array('appToRun', 'statCode', 'statMssg')), Array(null, 404, 'Not Found'));
 checkIdentical('closed run: nor one it lists, by its path', foundVals('/mounted/fromRoot', $statKey), $notFile);
-checkIdentical('closed run: whatever the case of its name', foundVals('/MOUNTED/unlisted', $statKey), $notFile);
+checkIdentical('closed run: whatever the case of its name', Array(foundVals('/MOUNTED/unlisted', $statKey), foundVals('/mOunted/unlisted', $statKey)), Array($notFile, $notFile));
 checkIdentical('open run: one without a routes file stays on autopath', foundVals('/probe/identify/x', Array('appToRun', 'doAction', 'argument')), Array('probe', 'identify', 'x'));
 nyu\Tools\Logger::plugLogsConfig( Array() );
 checkPregMatch('closed run: the reason is logged on runner', implode("\n", file_exists(inTemporaryDir('runlogs').DS.'runner.log') ? file(inTemporaryDir('runlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array()), '#Not found: "mounted/unlisted": not listed in the routes of the application#');
+
+// The folder of a Run, found whatever the case of its name (Controller::runFoldrString), as the Router, the Controller and the Checker find it
+$twinDir = inTemporaryDir('twinruns');
+mkdir($twinDir.DS.'Twins', 0775, true);
+mkdir($twinDir.DS.'Alone');
+$caseFlg = !is_dir($twinDir.DS.'TWINS');
+checkIdentical('run folder: found whatever the case of its name, as the disk writes it; a name that is not one is none', Array(nyu\App\Controller::runFoldrString('ALONE', $twinDir), nyu\App\Controller::runFoldrString('alone', $twinDir), nyu\App\Controller::runFoldrString('nowhere', $twinDir), nyu\App\Controller::runFoldrString('al/one', $twinDir)), Array('Alone', 'Alone', '', ''));
+if( $caseFlg ){
+	mkdir($twinDir.DS.'TWINS');
+	nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('twinlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+	checkIdentical('run folder: two folders differing by their case alone are neither, whatever the case asked', Array(nyu\App\Controller::runFoldrString('twins', $twinDir), nyu\App\Controller::runFoldrString('Twins', $twinDir), nyu\App\Controller::runFoldrString('TWINS', $twinDir)), Array('', '', ''));
+	nyu\Tools\Logger::plugLogsConfig( Array() );
+	checkIdentical('run folder: the twins are logged as an error on runner, once', count(preg_grep('#\[ERROR\] Run folders \["(Twins","TWINS|TWINS","Twins)"\] differ by their case alone: neither is served#', file_exists(inTemporaryDir('twinlogs').DS.'runner.log') ? file(inTemporaryDir('twinlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array())), 1);
+}else{
+	recordSkipping('run folders differing by their case alone', 'this disk does not tell the case of a name apart');
+}
+
+// End to end, through the Runner (test/lib/cacheChild.php): a closed Run named in another case never runs its action
+$caseDir = makeProjectTxt('caserun', Array(
+	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"),
+	'conf/presets/caserun.rps'=>'{ "presetId": "caserun", "settings": { "fileType": "all" }, "security": { "required": false }, "routings": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument" } }',
+	// The Runner installs the error handler from the project it runs
+	'src/Error/handling.php'=>strval(file_get_contents(TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php'))
+));
+$caseRun = Array(TST_DIR.DS.'lib'.DS.'cacheChild.php', $caseDir, 'caserun');
+checkIdentical('closed run, end to end: its listed route answers, an action it does not list is never run, whatever the case of its name', array_map(function( String $urlAddress ) use ( $caseRun ){ return trim(runScriptArray(array_merge($caseRun, Array($urlAddress)))['text']); }, Array('/mounted/listed', '/MOUNTED/unlisted', '/mOunted/unlisted')), Array('"mounted\/listed"', '{"error":"Not Found","code":404}', '{"error":"Not Found","code":404}'));
 
 // A site route on the path of a Run route wins, with a warning; two Runs on one path: the first by name answers, an error
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('clashlogs'), 'mode'=>'BASE', 'pref'=>'Y') );

@@ -1,6 +1,6 @@
 <?php
 
-// Child process for test/unit/ConfigCacheTest.php. Runs one GET request
+// Child process for test/unit/ConfigCacheTest.php and test/unit/RouterTest.php. Runs one GET request
 // through the Runner on a project folder of its own, whose temp/cache the
 // config cache is written in; the applications are those of the fixtures:
 //

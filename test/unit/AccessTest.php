@@ -5,6 +5,7 @@
 // Credentials come from test/fixtures/users.htpasswd (alice / s3cret, bob / hunter2,
 // erin / tr0ub4dor, frank / letmein, gina / pw-gina, hank / pw-hank).
 
+define('RUN_DIR', dirname(__DIR__).DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'runs');
 require __DIR__.'/../lib/harness.php';
 
 use nyu\Access\Auth\PassList;

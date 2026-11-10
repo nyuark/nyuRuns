@@ -487,13 +487,13 @@ class Checker{
 	 * @return String The default action, or '' for an application that is not one.
 	 */
 	protected function dfltActnString( String $appNameToRun ): String {
-		$appName = UCFirst($appNameToRun);
-		if( !preg_match('/^[A-Za-z0-9]+$/D', $appName) || !defined('RUN_DIR') ){
+		$appName = \nyu\App\Controller::runFoldrString($appNameToRun);
+		if( $appName==='' ){
 			return '';
 		}
 		$clsName = '\\nyu\\Runs\\'.$appName.'\\Actions';
 		$actnPth = RUN_DIR.DS.$appName.DS.'Actions.php';
-		if( !class_exists($clsName, false) && is_dir(RUN_DIR.DS.$appName) && is_file($actnPth) ){
+		if( !class_exists($clsName, false) && is_file($actnPth) ){
 			require_once $actnPth;
 		}
 		return class_exists($clsName, false) ? \nyu\App\Controller::dfltActionText( new \ReflectionClass($clsName) ) : '';

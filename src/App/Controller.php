@@ -20,6 +20,8 @@ class Controller{
 	
 	protected $runAppName;
 	protected $appsFolder;
+	// The names whose folders differ by their case alone, already logged as errors : once each
+	protected static $loggdTwins = Array();
 	protected $inputsRgst;
 	protected $accessRgst;
 	protected $requestObj;
@@ -74,11 +76,16 @@ class Controller{
 			Logger::retrieveLogger('runner')->info( $logText.'not a name of an application'.Logger::getActorSuffix() );
 			return;
 		}
-		// Check that application exists
+		// Check that application exists : its folder found whatever the case of its name, as the Router and the Checker find it
+		$fldName = self::runFoldrString($appNameToRun);
+		if( $fldName!=='' ){
+			$appNameToRun = $fldName;
+			$this->runAppName = $fldName;
+		}
 		$fullDir = RUN_DIR.DS.$appNameToRun;
 		$actnPth = $fullDir.DS.'Actions.php';
 		$actNSpc = '\\nyu\\Runs\\'.$appNameToRun.'\\';
-		if( is_dir($fullDir) && file_exists($actnPth) ){
+		if( $fldName!=='' && file_exists($actnPth) ){
 			$this->appsFolder = $fullDir;
 			require_once( $actnPth );
 			try{
@@ -176,7 +183,35 @@ class Controller{
 		}
 		return '';
 	}
-	
+
+	/**
+	 * Finds the folder of a Run from its name as a path or a route writes it,
+	 * whatever its case: the Router, the Controller and the Checker all go
+	 * through it, so that they designate the same Run.
+	 *
+	 * @param String  $appNameToRun Name of the application, as written.
+	 * @param ?String $runsFldrPath Folder holding the Runs; RUN_DIR when left out.
+	 * @return String The name of its folder, as the disk writes it; '' for a name that is not letters and digits only, for no folder, or for two folders differing by their case alone.
+	 */
+	public static function runFoldrString( String $appNameToRun, ?String $runsFldrPath = null ): String {
+		$runsDir = $runsFldrPath ?? (defined('RUN_DIR') ? RUN_DIR : '');
+		if( $runsDir==='' || !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
+			return '';
+		}
+		$fndList = Array();
+		foreach( (array)glob($runsDir.DS.'*', GLOB_ONLYDIR) as $oneDir ){
+			if( strcasecmp(basename(strval($oneDir)), $appNameToRun)===0 ){
+				$fndList[] = basename(strval($oneDir));
+			}
+		}
+		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them
+		if( count($fndList)>1 && !isset(self::$loggdTwins[strtolower($appNameToRun)]) ){
+			self::$loggdTwins[strtolower($appNameToRun)] = true;
+			Logger::retrieveLogger('runner')->error( 'Run folders '.json_encode($fndList, JSON_UNESCAPED_SLASHES).' differ by their case alone: neither is served'.Logger::getActorSuffix() );
+		}
+		return (count($fndList)===1) ? $fndList[0] : '';
+	}
+
 	// Instantiate model loader class
 	/**
 	 * Instantiates the model loader (ModelStack) for the current
