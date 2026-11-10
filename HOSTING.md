@@ -432,7 +432,7 @@ preset reads the keys when its `security` block names that block:
   does not look it up in its own store, so a lock in the application applies
   only when its token ends. Keep the application's `lifeSecs` short.
 - The role of that user is never above `roleTops` (`internal` by default), and
-  the role a route asks for (`rteRoles`, `needsRole()`) still applies.
+  the role a route asks for (`rteRoles`, `needsActionRle()`) still applies.
 - An application only reaches its `routeSet`, written as `openList`; any other
   route is a 403. A route open to everyone ignores the key.
 - A wrong key and a forged token count against the address. Every write is a
