@@ -26,9 +26,9 @@ class Logger{
 	protected $channelNme;
 	protected $logModeVal;
 	protected $logsLength;
-	protected $logsRotatn;
+	protected $rotateMode;
 	protected $logsPrefix;
-	protected $uniqSuffix;
+	protected $nameEndTxt;
 
 	// Log configuration the channels are built with, null until the Runner plugs it
 	protected static $confValues = null;
@@ -47,12 +47,12 @@ class Logger{
 	 * @param String $channelLabel Log channel/file name (without extension), e.g. 'error', 'runner', 'access': letters, digits and underscores.
 	 * @param String $verboseLevel Verbosity: FULL, BASE or MINI.
 	 * @param Int    $loggerLength Max file size in KB before rotation (NUMB rotation only); 0 = unlimited.
-	 * @param String $lggrRotation Rotation mode: NUMB, WEEK, MNTH or NONE.
+	 * @param String $rotationMode Rotation mode: NUMB, WEEK, MNTH or NONE.
 	 * @param String $loggerPrefix date() format of the time written at the start of each entry.
 	 *
 	 * @throws \RuntimeException When the channel is not a plain name.
 	 */
-	function __construct( String $logDirectory, String $channelLabel='runner', String $verboseLevel='FULL', Int $loggerLength=0, String $lggrRotation='NUMB', String $loggerPrefix='Y-m-d H:i' ){
+	function __construct( String $logDirectory, String $channelLabel='runner', String $verboseLevel='FULL', Int $loggerLength=0, String $rotationMode='NUMB', String $loggerPrefix='Y-m-d H:i' ){
 		// The channel names a file : it cannot lead out of the log folder
 		if( !preg_match('/^\w+$/D', $channelLabel) ){
 			throw new \RuntimeException('Log channel refused: '.json_encode($channelLabel).' is not a plain name');
@@ -61,10 +61,10 @@ class Logger{
 		$this->channelNme = $channelLabel;
 		$this->logModeVal = strtoupper($verboseLevel);
 		$this->logsLength = $loggerLength;
-		$this->logsRotatn = strtoupper($lggrRotation);
+		$this->rotateMode = strtoupper($rotationMode);
 		$this->logsPrefix = $loggerPrefix;
 		// One file per process : named once, whatever the time its entries are written at
-		$this->uniqSuffix = '-'.date('Y-m-d_His').'-'.getmypid();
+		$this->nameEndTxt = '-'.date('Y-m-d_His').'-'.getmypid();
 		if( $this->logsFolder!=='' && !is_dir($this->logsFolder) ){
 			@mkdir( $this->logsFolder, 0775, true );
 		}
@@ -231,12 +231,12 @@ class Logger{
 	 */
 	protected function resolveLogPath(): String {
 		$nameEnd = '';
-		if( $this->logsRotatn=='WEEK' ){
+		if( $this->rotateMode=='WEEK' ){
 			$nameEnd = '-W'.date('oW');
-		}elseif( $this->logsRotatn=='MNTH' ){
+		}elseif( $this->rotateMode=='MNTH' ){
 			$nameEnd = '-'.date('Y-m');
-		}elseif( $this->logsRotatn=='NONE' ){
-			$nameEnd = $this->uniqSuffix;
+		}elseif( $this->rotateMode=='NONE' ){
+			$nameEnd = $this->nameEndTxt;
 		}
 		return $this->logsFolder.DIRECTORY_SEPARATOR.$this->channelNme.$nameEnd.'.log';
 	}
@@ -250,7 +250,7 @@ class Logger{
 	 * @param String $logsFilePath Path to the active log file.
 	 */
 	protected function rotateLogFiles( String $logsFilePath ): Void {
-		if( $this->logsRotatn!='NUMB' || $this->logsLength<=0 ){
+		if( $this->rotateMode!='NUMB' || $this->logsLength<=0 ){
 			return;
 		}
 		// filesize() is cached per process : refresh it to see our own writes

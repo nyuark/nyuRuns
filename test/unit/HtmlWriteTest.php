@@ -101,7 +101,7 @@ checkIdentical('a page read then written comes back as it was', runCatchThrown(f
 checkIdentical('...and a hostile page comes back harmless', runCatchThrown(function(){
 	return (new Html())->renderDocument((new XHml())->parseDataArray('<p onclick="alert(1)" id="a b">Hi <a href="javascript:alert(1)" onmouseover="x()">there</a><script>alert(2)</script></p><img src="x" onerror="alert(3)"><iframe src="//evil.test"></iframe>', Array('reads'=>'html')));
 }), "<p>Hi there</p>\n<img src=\"x\" alt=\"\">\n");
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Styles
 $stylEnv = Array('shape'=>'block', 'infos'=>Array('title'=>'Alpha Night', 'langg'=>'fr', 'frmat'=>Array(
@@ -181,7 +181,7 @@ checkIdentical('one writer, several contents: the styles of one do not reach the
 	$wrtrObj->renderDocument($stylEnv, Array('class'=>false, 'frmat'=>true));
 	return $wrtrObj->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array(textBlk('paragrph', 'x', Array('style'=>'heading 1')))), Array('frmat'=>true));
 }), "<p class=\"heading-1\">x</p>\n");
-checkIdentical('no PHP warning from the new checks', takeNotesArray(), Array());
+checkIdentical('no PHP warning from the new checks', takePhpNotices(), Array());
 
 // The anchors of the headings, made as GitHub makes them for a Markdown page
 $hdrList = Array(textBlk('headline', '1.4 What version 1.0 holds', Array('level'=>3)), textBlk('headline', '7.6 bundle: a copy, for each environment', Array('level'=>3)), textBlk('headline', 'Summary', Array('level'=>2)), textBlk('headline', 'Summary', Array('level'=>2)), textBlk('headline', 'Mine', Array('level'=>2, 'tagid'=>'kept')));

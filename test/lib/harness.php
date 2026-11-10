@@ -21,11 +21,11 @@ $GLOBALS['tstStats'] = Array('pass'=>0, 'fail'=>0, 'skip'=>0, 'note'=>Array());
 
 // Any PHP notice or warning raised by the tested code is recorded, and
 // reported as a failure by finishChecking() unless the test collected it first
-set_error_handler(function( Int $errLevelNumb, String $errorMessage, String $errorFilPath, Int $errorLineNum ){
+set_error_handler(function( Int $errLevelNumb, String $errorMessage, String $errorFileTxt, Int $errorLineNum ){
 	if( !(error_reporting() & $errLevelNumb) ){
 		return true;
 	}
-	$GLOBALS['tstStats']['note'][] = basename($errorFilPath).':'.$errorLineNum.' '.$errorMessage;
+	$GLOBALS['tstStats']['note'][] = basename($errorFileTxt).':'.$errorLineNum.' '.$errorMessage;
 	return true;
 });
 
@@ -95,12 +95,12 @@ function checkPregMatch( String $checkSubject, Mixed $actualOutput, String $rege
  * Checks that calling a function throws.
  *
  * @param String   $checkSubject Label of the check.
- * @param callable $tstdFunction Function expected to throw.
+ * @param callable $testCallable Function expected to throw.
  * @param String   $expectedType Class the thrown object should be an instance of.
  */
-function checkForThrows( String $checkSubject, callable $tstdFunction, String $expectedType='Throwable' ): Void {
+function checkForThrows( String $checkSubject, callable $testCallable, String $expectedType='Throwable' ): Void {
 	try{
-		$tstdFunction();
+		$testCallable();
 	}catch( Throwable $e ){
 		if( $e instanceof $expectedType ){
 			$GLOBALS['tstStats']['pass']++;
@@ -116,12 +116,12 @@ function checkForThrows( String $checkSubject, callable $tstdFunction, String $e
  * Runs a function and returns its result, or a 'THROWN ...' string when
  * it throws, so that one unexpected exception fails one check only.
  *
- * @param callable $tstdFunction Function to run.
+ * @param callable $testCallable Function to run.
  * @return mixed The function's result, or a description of what it threw.
  */
-function runCatchThrown( callable $tstdFunction ): Mixed {
+function runCatchThrown( callable $testCallable ): Mixed {
 	try{
-		return $tstdFunction();
+		return $testCallable();
 	}catch( Throwable $e ){
 		return 'THROWN '.get_class($e).': '.$e->getMessage().' @'.basename($e->getFile()).':'.$e->getLine();
 	}
@@ -144,7 +144,7 @@ function recordSkipping( String $checkSubject, String $reasonToSkip ): Void {
  *
  * @return Array The recorded notices, as 'file:line message' strings.
  */
-function takeNotesArray(): Array {
+function takePhpNotices(): Array {
 	$noteLst = $GLOBALS['tstStats']['note'];
 	$GLOBALS['tstStats']['note'] = Array();
 	return $noteLst;
@@ -167,34 +167,34 @@ function inTemporaryDir( String $fullPathName ): String {
 /**
  * Deletes a folder created by the tests, with everything in it.
  *
- * @param String $fullFoldPath Folder to delete.
+ * @param String $fullFldrPath Folder to delete.
  */
-function dropTestFolder( String $fullFoldPath ): Void {
-	if( !is_dir($fullFoldPath) ){
+function dropTestFolder( String $fullFldrPath ): Void {
+	if( !is_dir($fullFldrPath) ){
 		return;
 	}
-	foreach( scandir($fullFoldPath) as $entNme ){
+	foreach( scandir($fullFldrPath) as $entNme ){
 		if( $entNme=='.' || $entNme=='..' ){
 			continue;
 		}
-		$subPath = $fullFoldPath.DS.$entNme;
+		$subPath = $fullFldrPath.DS.$entNme;
 		if( is_dir($subPath) ){
 			dropTestFolder($subPath);
 		}else{
 			@unlink($subPath);
 		}
 	}
-	@rmdir($fullFoldPath);
+	@rmdir($fullFldrPath);
 }
 
 /**
  * Runs a PHP script in a separate process.
  *
- * @param Array $scrptArgmnts Script path followed by its arguments.
+ * @param Array $argumentsArr Script path followed by its arguments.
  * @return Array The exit code under 'code' and the combined output under 'text'.
  */
-function runScriptArray( Array $scrptArgmnts ): Array {
-	$command = array_merge( Array(PHP_BINARY), $scrptArgmnts );
+function runScriptArray( Array $argumentsArr ): Array {
+	$command = array_merge( Array(PHP_BINARY), $argumentsArr );
 	$pipeArr = Array();
 	$process = proc_open( $command, Array(0=>Array('pipe','r'), 1=>Array('pipe','w'), 2=>Array('redirect',1)), $pipeArr, TOP_DIR );
 	fclose($pipeArr[0]);
@@ -233,7 +233,7 @@ function mockRequestObj( Array $headersArray=Array(), Array $serverValues=Array(
 	$hdrProp = $reflect->getProperty('everyHeads');
 	$hdrProp->setValue($request, $headersArray);
 	// Keys in lower case, as the framework's own server registry holds them
-	$srvProp = $reflect->getProperty('servRgstry');
+	$srvProp = $reflect->getProperty('serverRgst');
 	$srvProp->setValue($request, new nyu\Tools\Registry($serverValues + Array('REQUEST_METHOD'=>'GET'), true));
 	$clntPrp = $reflect->getProperty('clientRgst');
 	$clntPrp->setValue($request, new nyu\Tools\ClientReg(makeFakeServer($serverValues)));

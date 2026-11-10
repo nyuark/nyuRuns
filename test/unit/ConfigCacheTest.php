@@ -15,7 +15,7 @@ use nyu\Setup\Loader;
 $projDir = makeProjectTxt('confcache', Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = TRUE\nTBL_CACH = FALSE\n"),
 	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "fileType": "all" }, "security": { "required": false }, "routings": { "detectBy": "manually" } }',
-	'conf/routes/probe.rte'=>'{ "one": { "pointsTo": { "appNamed": "probe", "actNamed": "sanitize" } } }',
+	'conf/routes/probe.rte'=>'{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } } }',
 	'conf/probe.json'=>'{ "value": "env:NYU_PROBE" }',
 	'.env'=>"NYU_PROBE=from-the-env-file\n",
 	// The Runner installs the error handler from the project it runs
@@ -33,7 +33,7 @@ $cchText = is_file($cchPath) ? strval(file_get_contents($cchPath)) : '';
 checkIdentical('the cache holds the env: values as written, never what the environment file gives', Array(strpos($cchText, 'env:NYU_PROBE')!==false, strpos($cchText, 'from-the-env-file')!==false), Array(true, false));
 
 // The next ones read the cache: a route file changed by hand is not seen, until the cache is removed
-writeInProject($projDir, 'conf/routes/probe.rte', '{ "one": { "pointsTo": { "appNamed": "probe", "actNamed": "signsOut" } } }');
+writeInProject($projDir, 'conf/routes/probe.rte', '{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "signsOut" } } }');
 touch($projDir.DS.'conf'.DS.'routes'.DS.'probe.rte', time()+60);
 checkIdentical('the next request reads the cache, not the files', trim(runScriptArray($runArgs)['text']), '{"ok":true}');
 $rowList = array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
@@ -70,7 +70,7 @@ checkIdentical('deploy check warns about TBL_CACH without CNF_CACH', $rowList['t
 // The values of the cache, as the Loader takes them
 putenv('NYU_CACHE_TEST=from-the-process');
 $cchLoad = new Loader( Array('settings'=>Array('fileType'=>'all', 'envsFile'=>'no-such-env')), Array('preset'=>Array(), 'config'=>Array('PROBE'=>Array('value'=>'env:NYU_CACHE_TEST')), 'routes'=>Array()), 'probe' );
-checkIdentical('the env: values of the cache are filled on each request', ($cchLoad->retrieveConfig()->readFileDetail('probe') ?: Array())['value'] ?? null, 'from-the-process');
+checkIdentical('the env: values of the cache are filled on each request', ($cchLoad->retrieveConfig()->readValueByKey('probe') ?: Array())['value'] ?? null, 'from-the-process');
 checkIdentical('a cache read is never written again', $cchLoad->retainCacheFlg(), false);
 putenv('NYU_CACHE_TEST');
 

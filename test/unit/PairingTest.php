@@ -59,7 +59,7 @@ function pairReply( String $carrierStr, ?String $checkNamed, Array $headersArr=A
 		$axsConf += Array('authWith'=>$checkNamed, 'authConf'=>$blkList[$checkNamed]);
 	}
 	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->validateAccess();
-	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'));
+	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }
 
 /**
@@ -114,7 +114,7 @@ checkIdentical('httpBasc x regdKeys: a check of keys takes no password, the pair
 checkIdentical('httpBasc x plug-in check of keys: refused the same way', pairReply('httpBasc', 'sample', basicHead('sample-key', 'sample-key'))[0], 401);
 checkIdentical('httpBasc without a check: nobody goes through, the config is told wrong', pairReply('httpBasc', null, basicHead('alice', 's3cret')), Array(500, 'Access misconfigured', '', null));
 $axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'httpBasc', 'authWith'=>'htpasswd', 'authConf'=>'testPass'), mockRequestObj(basicHead('alice', 'nope')) ))->validateAccess();
-checkIdentical('httpBasc: a refusal sends the challenge, with its realm', $axsRslt->readFileDetail('wwwAuth'), 'Basic realm="nyuRuns", charset="UTF-8"');
+checkIdentical('httpBasc: a refusal sends the challenge, with its realm', $axsRslt->readValueByKey('wwwHeadr'), 'Basic realm="nyuRuns", charset="UTF-8"');
 checkIdentical('httpBasc x htpasswd: an empty name is a wrong credential, not a store that cannot be read', pairReply('httpBasc', 'htpasswd', basicHead('', 's3cret')), Array(401, 'Invalid credentials', '', null));
 
 // header : a key, which only a check of keys can take
@@ -127,10 +127,10 @@ checkIdentical('Header without an auth handler', Array($noCheck->verifyRqstList(
 
 // jwtToken : the token decides alone, unless the check knows its users (userFile, native)
 foreach( Array('htpasswd', 'regdKeys', 'sample') as $chkNme ){
-	checkIdentical('jwtToken x '.$chkNme.': the token alone decides, with the role it was issued with', pairReply('jwtToken', $chkNme, tokenHead(Array('user'=>'zed', 'role'=>'operator'))), Array(200, '', 'zed', 'operator'));
+	checkIdentical('jwtToken x '.$chkNme.': the token alone decides, with the role it was issued with', pairReply('jwtToken', $chkNme, tokenHead(Array('userName'=>'zed', 'userRole'=>'operator'))), Array(200, '', 'zed', 'operator'));
 	checkIdentical('jwtToken x '.$chkNme.': a forged token is refused', pairReply('jwtToken', $chkNme, Array('Authorization'=>'Bearer a.b.c'))[0], 401);
 }
-checkIdentical('jwtToken x userFile: the file decides the role', pairReply('jwtToken', 'userFile', tokenHead(Array('user'=>'anna', 'role'=>'internal'))), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('jwtToken x userFile: the file decides the role', pairReply('jwtToken', 'userFile', tokenHead(Array('userName'=>'anna', 'userRole'=>'internal'))), Array(200, '', 'anna', 'sysadmin'));
 
 // clntCert : the certificate decides alone, unless the check knows its users
 checkIdentical('clntCert without a check: granted, as a member', pairReply('clntCert', null, Array(), certVals('carol')), Array(200, '', 'carol', 'internal'));
@@ -143,7 +143,7 @@ checkIdentical('clntCert x userFile: a pending user is refused', pairReply('clnt
 checkIdentical('clntCert x userFile: a name that is not in the file is refused', pairReply('clntCert', 'userFile', Array(), certVals('zed')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert: no certificate', pairReply('clntCert', 'userFile'), Array(401, 'No verified client certificate', '', null));
 $axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'clntCert'), mockRequestObj() ))->validateAccess();
-checkIdentical('clntCert: a refusal carries no challenge', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('wwwAuth')), Array(401, null));
+checkIdentical('clntCert: a refusal carries no challenge', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('wwwHeadr')), Array(401, null));
 checkIdentical('clntCert: the issuer of its config block is accepted', pairReply('clntCert', null, Array(), certVals('carol'), Array('sessConf'=>'tscert')), Array(200, '', 'carol', 'internal'));
 checkIdentical('clntCert: another issuer is refused', pairReply('clntCert', null, Array(), certVals('carol', 'Other CA'), Array('sessConf'=>'tscert')), Array(401, 'Certificate issuer not accepted', '', null));
 checkIdentical('clntCert: a certificate without an issuer is refused when one is asked for', pairReply('clntCert', null, Array(), Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol'), Array('sessConf'=>'tscert'))[0], 401);
@@ -153,7 +153,7 @@ $certSes = new ClCert( Array() );
 foreach( Array('success', 'GENEROUS', 'SUCCESS ', '1', '') as $vrfWord ){
 	checkIdentical('ClCert '.json_encode($vrfWord).' is not a verified certificate', $certSes->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>$vrfWord) + certVals('carol'))), false);
 }
-checkIdentical('ClCert the name is taken without the spaces around it', $certSes->verifyRqstList(mockRequestObj(Array(), certVals('  carol '))), Array('user'=>'carol'));
+checkIdentical('ClCert the name is taken without the spaces around it', $certSes->verifyRqstList(mockRequestObj(Array(), certVals('  carol '))), Array('userName'=>'carol'));
 $noVarbl = new ClCert( Array('checkVar'=>'', 'ownerVar'=>'') );
 checkIdentical('ClCert variables left empty in the config: nobody goes through', $noVarbl->verifyRqstList(mockRequestObj(Array(), certVals('carol'))), false);
 
@@ -165,13 +165,13 @@ checkIdentical('a plug-in that is not listed is a misconfiguration', pairReply('
 
 // Roles : what each pair gives is measured against the role a route asks for
 $rolConf = Array('rteRoles'=>Array('shows/*'=>'operator'));
-$anyRoute = Array('app'=>'shows', 'action'=>'overview');
+$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
 checkIdentical('role: httpBasc x htpasswd gives a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'internal'));
 checkIdentical('role: apiHeadr x plug-in check gives a member', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 404);
 checkIdentical('role: a certificate without a store gives a member', pairReply('clntCert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(404, 'Not Found', 'carol', 'internal'));
 checkIdentical('role: a certificate with a store gives the role of the store', pairReply('clntCert', 'userFile', Array(), certVals('anna'), $rolConf, $anyRoute), Array(200, '', 'anna', 'sysadmin'));
 checkIdentical('role: a plug-in carrier gives a member', pairReply('carier', null, Array('X-Carier'=>'dora'), Array(), $rolConf, $anyRoute)[0], 404);
-checkIdentical('role: a token without a store keeps the role it was issued with', Array(pairReply('jwtToken', 'htpasswd', tokenHead(Array('user'=>'zed', 'role'=>'operator')), Array(), $rolConf, $anyRoute)[0], pairReply('jwtToken', 'htpasswd', tokenHead(Array('user'=>'zed', 'role'=>'internal')), Array(), $rolConf, $anyRoute)[0]), Array(200, 404));
+checkIdentical('role: a token without a store keeps the role it was issued with', Array(pairReply('jwtToken', 'htpasswd', tokenHead(Array('userName'=>'zed', 'userRole'=>'operator')), Array(), $rolConf, $anyRoute)[0], pairReply('jwtToken', 'htpasswd', tokenHead(Array('userName'=>'zed', 'userRole'=>'internal')), Array(), $rolConf, $anyRoute)[0]), Array(200, 404));
 checkIdentical('role: Basic access on the users file, by its role', Array(pairReply('httpBasc', 'userFile', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute)[0], pairReply('httpBasc', 'userFile', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)[0]), Array(404, 200));
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
@@ -203,28 +203,28 @@ checkIdentical('limit: a pair that cannot work is not counted', Array(sendTrice(
 checkIdentical('limit: a plug-in check that does not tell a wrong credential has each refusal counted', Array(sendTrice('198.51.100.5', 'apiHeadr', 'sample', Array('X-Api-Key'=>'k-1')), heldAddr('198.51.100.5')), Array(Array(401, 401, 429), true));
 checkIdentical('limit: a forged token is counted, without a store', Array(sendTrice('198.51.100.6', 'jwtToken', null, Array('Authorization'=>'Bearer a.b.c')), heldAddr('198.51.100.6')), Array(Array(401, 401, 429), true));
 checkIdentical('limit: and with one', Array(sendTrice('198.51.100.7', 'jwtToken', 'userFile', Array('Authorization'=>'Bearer a.b.c')), heldAddr('198.51.100.7')), Array(Array(401, 401, 429), true));
-checkIdentical('limit: a token signed with another secret is counted', Array(sendTrice('198.51.100.12', 'jwtToken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'anna', 'exp'=>time()+60), str_repeat('x', 40), 'HS256'))), heldAddr('198.51.100.12')), Array(Array(401, 401, 429), true));
-checkIdentical('limit: a token that ended is not counted', Array(sendTrice('198.51.100.13', 'jwtToken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'anna', 'exp'=>time()-10), str_repeat('s', 40), 'HS256'))), heldAddr('198.51.100.13')), Array(Array(401, 401, 401), false));
-checkIdentical('limit: a token signed here without an expiry is not counted', Array(sendTrice('198.51.100.14', 'jwtToken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'anna'), str_repeat('s', 40), 'HS256'))), heldAddr('198.51.100.14')), Array(Array(401, 401, 401), false));
+checkIdentical('limit: a token signed with another secret is counted', Array(sendTrice('198.51.100.12', 'jwtToken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('userName'=>'anna', 'exp'=>time()+60), str_repeat('x', 40), 'HS256'))), heldAddr('198.51.100.12')), Array(Array(401, 401, 429), true));
+checkIdentical('limit: a token that ended is not counted', Array(sendTrice('198.51.100.13', 'jwtToken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('userName'=>'anna', 'exp'=>time()-10), str_repeat('s', 40), 'HS256'))), heldAddr('198.51.100.13')), Array(Array(401, 401, 401), false));
+checkIdentical('limit: a token signed here without an expiry is not counted', Array(sendTrice('198.51.100.14', 'jwtToken', null, Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('userName'=>'anna'), str_repeat('s', 40), 'HS256'))), heldAddr('198.51.100.14')), Array(Array(401, 401, 401), false));
 checkIdentical('limit: a request without a token is not counted', Array(sendTrice('198.51.100.15', 'jwtToken', null), heldAddr('198.51.100.15')), Array(Array(401, 401, 401), false));
-checkIdentical('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.8', 'jwtToken', 'userFile', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.8')), Array(Array(401, 401, 401), false));
+checkIdentical('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.8', 'jwtToken', 'userFile', tokenHead(Array('userName'=>'dave'))), heldAddr('198.51.100.8')), Array(Array(401, 401, 401), false));
 checkIdentical('limit: the certificate of an unknown user is not counted', Array(sendTrice('198.51.100.9', 'clntCert', 'userFile', Array(), certVals('zed')), heldAddr('198.51.100.9')), Array(Array(401, 401, 401), false));
 checkIdentical('limit: a plug-in carrier counts nothing', Array(sendTrice('198.51.100.10', 'carier', null), heldAddr('198.51.100.10')), Array(Array(401, 401, 401), false));
 checkIdentical('limit: a refusal for the role is not counted', Array(sendTrice('198.51.100.11', 'httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), heldAddr('198.51.100.11')), Array(Array(404, 404, 404), false));
 
 // A held address : what needs no check is still served
-checkIdentical('limit: a held address keeps the open routes', pairReply('httpBasc', 'htpasswd', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/openSess')), Array('app'=>'auth', 'action'=>'openSess')), Array(200, '', '', null));
-checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/openSess')), Array('app'=>'shows', 'action'=>'overview'))[0], 429);
+checkIdentical('limit: a held address keeps the open routes', pairReply('httpBasc', 'htpasswd', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/openSess')), Array('appToRun'=>'auth', 'doAction'=>'openSess')), Array(200, '', '', null));
+checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/openSess')), Array('appToRun'=>'shows', 'doAction'=>'overview'))[0], 429);
 checkIdentical('limit: a certificate does not lift the hold of its address', pairReply('clntCert', null, Array(), Array('REMOTE_ADDR'=>'198.51.100.1') + certVals('carol'))[0], 429);
 $axsRslt = (new Checker( Array('required'=>false), mockRequestObj(Array(), Array('REMOTE_ADDR'=>'198.51.100.1')) ))->validateAccess();
-checkIdentical('limit: nothing is held where access is not required', $axsRslt->readFileDetail('statCode'), 200);
+checkIdentical('limit: nothing is held where access is not required', $axsRslt->readValueByKey('statCode'), 200);
 plugConf();
 
 // An open route : credentials sent with the request are not read
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('app'=>'auth', 'action'=>'openSess')) ))->validateAccess();
-checkIdentical('open route: a valid key does not log its holder', Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('logged'), $axsRslt->readFileDetail('role')), Array(200, false, null));
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('app'=>'auth', 'action'=>'openSess')) ))->validateAccess();
-checkIdentical('open route: nor is a wrong key refused', $axsRslt->readFileDetail('statCode'), 200);
+$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'openSess')) ))->validateAccess();
+checkIdentical('open route: a valid key does not log its holder', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userRole')), Array(200, false, null));
+$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'openSess')) ))->validateAccess();
+checkIdentical('open route: nor is a wrong key refused', $axsRslt->readValueByKey('statCode'), 200);
 
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 

@@ -13,8 +13,8 @@ class Message {
 
 	protected $senderAddr;
 	protected $senderName;
-	protected $recpntList;
-	protected $subjctLine;
+	protected $recipients;
+	protected $subjectTxt;
 	protected $bodyAsText;
 	protected $bodyAsHtml;
 	protected $addedFiles;
@@ -35,14 +35,14 @@ class Message {
 	public function __construct( String $fromEmailAdr, String $nameOfSender, Array $recipientLst, String $emailSubject, String $mssgBodyText, ?String $htmlMssgText=null, Array $attachedList=Array() ){
 		$this->senderAddr = self::checkEmailAddr($fromEmailAdr);
 		$this->senderName = self::testLineString($nameOfSender, 'sender name');
-		$this->recpntList = Array();
+		$this->recipients = Array();
 		foreach( $recipientLst as $toAddr ){
-			$this->recpntList[] = self::checkEmailAddr(strval($toAddr));
+			$this->recipients[] = self::checkEmailAddr(strval($toAddr));
 		}
-		if( empty($this->recpntList) ){
+		if( empty($this->recipients) ){
 			throw new MailFailure('A mail needs a recipient');
 		}
-		$this->subjctLine = self::testLineString($emailSubject, 'subject');
+		$this->subjectTxt = self::testLineString($emailSubject, 'subject');
 		$this->bodyAsText = $mssgBodyText;
 		$this->bodyAsHtml = $htmlMssgText;
 		$this->addedFiles = Array();
@@ -75,11 +75,11 @@ class Message {
 	 * Splits a list of addresses, given as a list or as one text where
 	 * they are separated by commas, leaving out the empty ones.
 	 *
-	 * @param Array|String $addrsssGiven The addresses.
+	 * @param Array|String $givenAddrLst The addresses.
 	 * @return Array The addresses, unchecked.
 	 */
-	public static function splitAddresses( Array|String $addrsssGiven ): Array {
-		$addrLst = is_array($addrsssGiven) ? $addrsssGiven : explode(',', $addrsssGiven);
+	public static function splitAddresses( Array|String $givenAddrLst ): Array {
+		$addrLst = is_array($givenAddrLst) ? $givenAddrLst : explode(',', $givenAddrLst);
 		return array_values( array_filter( array_map('trim', array_map('strval', $addrLst)), 'strlen' ) );
 	}
 
@@ -123,7 +123,7 @@ class Message {
 	 * @return Array The addresses.
 	 */
 	public function listRecipients(): Array {
-		return $this->recpntList;
+		return $this->recipients;
 	}
 
 	/**
@@ -132,7 +132,7 @@ class Message {
 	 * @return String The subject.
 	 */
 	public function getSubjectText(): String {
-		return $this->subjctLine;
+		return $this->subjectTxt;
 	}
 
 	/**
@@ -174,8 +174,8 @@ class Message {
 		$headLst = Array(
 			'Date: '.date('r'),
 			'From: '.self::writeNamedAddr($this->senderAddr, $this->senderName),
-			'To: '.implode(', ', $this->recpntList),
-			'Subject: '.self::encodeHeadText($this->subjctLine),
+			'To: '.implode(', ', $this->recipients),
+			'Subject: '.self::encodeHeadText($this->subjectTxt),
 			'Message-ID: <'.bin2hex(random_bytes(16)).'@'.$sndDomn.'>',
 			'MIME-Version: 1.0',
 		);

@@ -1,15 +1,15 @@
 {
-	"ping" :                  { "pointsTo": { "appNamed": "probe", "actNamed": "sanitize" } },
-	"items/$id" :             { "pointsTo": { "appNamed": "probe", "actNamed": "mirrored" } },
-	"items/$id/parts/$part" : { "pointsTo": { "appNamed": "probe", "actNamed": "mirrored" } },
-	"probe/warnfail" :        { "pointsTo": { "appNamed": "probe", "actNamed": "sanitize" } },
-	"plain" :                 { "pointsTo": { "appNamed": "probe", "actNamed": "txtProbe" } },
+	"ping" :                  { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } },
+	"items/$id" :             { "pointsTo": { "appToRun": "probe", "doAction": "mirrored" } },
+	"items/$id/parts/$part" : { "pointsTo": { "appToRun": "probe", "doAction": "mirrored" } },
+	"probe/warnfail" :        { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } },
+	"plain" :                 { "pointsTo": { "appToRun": "probe", "doAction": "txtProbe" } },
 	"broken" :                { "mthdList": "GET" },
-	"gets" :                  { "mthdList": "head, options", "pointsTo": { "appNamed": "probe", "actNamed": "sanitize" } },
-	"both" :                  { "mthdList": "GET, POST", "pointsTo": { "appNamed": "probe", "actNamed": "sanitize" } },
+	"gets" :                  { "mthdList": "head, options", "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } },
+	"both" :                  { "mthdList": "GET, POST", "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } },
 	"things/$id" :            { "pointsTo": {
-		"GET":    { "appNamed": "probe", "actNamed": "mirrored" },
-		"delete": { "appNamed": "probe", "actNamed": "sanitize" }
+		"GET":    { "appToRun": "probe", "doAction": "mirrored" },
+		"delete": { "appToRun": "probe", "doAction": "sanitize" }
 	} },
 	"old/$id" :               { "pointsTo": { "redirect": "/items/$id", "httpCode": 301 } },
 	"away" :                  { "pointsTo": { "redirect": "https://example.org/docs" } },
@@ -19,11 +19,11 @@
 	"style" :                 { "pointsTo": { "filePath": "site.css" } },
 	"nofile" :                { "pointsTo": { "filePath": "missing.css" } },
 	"secret" :                { "pointsTo": { "filePath": "../letters.txt" } },
-	"docs/*" :                { "pointsTo": { "foldPath": "docs" } },
+	"docs/*" :                { "pointsTo": { "fldrPath": "docs" } },
 	"hello/$id" :             { "pointsTo": { "pageFile": "hello.html" } },
 	"notpage" :               { "pointsTo": { "pageFile": "site.css" } },
 	"enter" :                 { "pointsTo": {
 		"GET":  { "pageFile": "hello.html" },
-		"POST": { "appNamed": "probe", "actNamed": "sanitize" }
+		"POST": { "appToRun": "probe", "doAction": "sanitize" }
 	} }
 }

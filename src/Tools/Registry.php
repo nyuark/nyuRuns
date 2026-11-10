@@ -10,7 +10,7 @@ namespace nyu\Tools;
 class Registry{
 
 	protected $fieldUCase;
-	protected $valuRgstry = Array();
+	protected $valuesList = Array();
 
 	// Builds the values
     /**
@@ -40,16 +40,16 @@ class Registry{
 	 * Stores a value in the registry under the given key, normalizing the
 	 * key's case to match the registry's configuration.
 	 *
-	 * @param String $rgstryLinKey Key under which to store the value.
+	 * @param String $entryKeyText Key under which to store the value.
 	 * @param mixed  $regLineValue Value to store.
 	 */
-	public function saveValueByKey( String $rgstryLinKey, Mixed $regLineValue ): Void {
+	public function saveValueByKey( String $entryKeyText, Mixed $regLineValue ): Void {
 		if($this->fieldUCase){
-			$rgstryLinKey = strtoupper($rgstryLinKey);
+			$entryKeyText = strtoupper($entryKeyText);
 		}else{
-			$rgstryLinKey = strtolower($rgstryLinKey);
+			$entryKeyText = strtolower($entryKeyText);
 		}
-		$this->valuRgstry[$rgstryLinKey] = $regLineValue;
+		$this->valuesList[$entryKeyText] = $regLineValue;
 	}
 
 	/**
@@ -58,15 +58,15 @@ class Registry{
 	 * @param String $valueRgstKey Key to look up.
 	 * @return mixed The stored value, or null if the key doesn't exist.
 	 */
-	public function readFileDetail( String $valueRgstKey ): Mixed {
+	public function readValueByKey( String $valueRgstKey ): Mixed {
 		if($this->fieldUCase){
 			$valueRgstKey = strtoupper($valueRgstKey);
 		}else{
 			$valueRgstKey = strtolower($valueRgstKey);
 		}
 		$l1Value = null;
-		if(isset($this->valuRgstry[$valueRgstKey])){
-			$l1Value = $this->valuRgstry[$valueRgstKey];
+		if(isset($this->valuesList[$valueRgstKey])){
+			$l1Value = $this->valuesList[$valueRgstKey];
 		}
 		return $l1Value;
 	}
@@ -75,27 +75,27 @@ class Registry{
 	 * Reads a nested value from a two-dimensional registry entry, trying
 	 * the given key case first and falling back to uppercase.
 	 *
-	 * @param String $rgstryRowNme Key of the top-level (row) entry.
-	 * @param String $rgstryLinKey Key within that row's array.
+	 * @param String $rowEntryName Key of the top-level (row) entry.
+	 * @param String $entryKeyText Key within that row's array.
 	 * @return mixed The stored value, or null if the row or key doesn't exist.
 	 */
-	public function obtainRowValue( String $rgstryRowNme, String $rgstryLinKey ): Mixed {
+	public function obtainRowValue( String $rowEntryName, String $entryKeyText ): Mixed {
 		$l2Value = null;
 		if($this->fieldUCase){
-			$rgstryRowNme = strtoupper($rgstryRowNme);
-			$rgstryLinKey = strtoupper($rgstryLinKey);
+			$rowEntryName = strtoupper($rowEntryName);
+			$entryKeyText = strtoupper($entryKeyText);
 		}else{
-			$rgstryRowNme = strtolower($rgstryRowNme);
-			$rgstryLinKey = strtolower($rgstryLinKey);
+			$rowEntryName = strtolower($rowEntryName);
+			$entryKeyText = strtolower($entryKeyText);
 		}
-		$l1Value = $this->readFileDetail($rgstryRowNme);
+		$l1Value = $this->readValueByKey($rowEntryName);
 		if($l1Value!=null){
-			if(isset($l1Value[$rgstryLinKey])){
-				$l2Value = $l1Value[$rgstryLinKey];
+			if(isset($l1Value[$entryKeyText])){
+				$l2Value = $l1Value[$entryKeyText];
 			}else{
-				$rgstryLinKey = strtoupper($rgstryLinKey);
-				if(isset($l1Value[$rgstryLinKey])){
-					$l2Value = $l1Value[$rgstryLinKey];
+				$entryKeyText = strtoupper($entryKeyText);
+				if(isset($l1Value[$entryKeyText])){
+					$l2Value = $l1Value[$entryKeyText];
 				}
 			}
 		}
@@ -106,25 +106,25 @@ class Registry{
 	 * Writes a value into a two-dimensional registry entry, creating the
 	 * row if it doesn't already exist.
 	 *
-	 * @param String $rgstryRowNme Key of the top-level (row) entry.
-	 * @param String $rgstryLinKey Key within that row's array to write.
+	 * @param String $rowEntryName Key of the top-level (row) entry.
+	 * @param String $entryKeyText Key within that row's array to write.
 	 * @param mixed  $regLineValue Value to store.
 	 * @return mixed The value that was stored.
 	 */
-	public function assignRowValue( String $rgstryRowNme, String $rgstryLinKey, Mixed $regLineValue ): Mixed {
+	public function assignRowValue( String $rowEntryName, String $entryKeyText, Mixed $regLineValue ): Mixed {
 		if($this->fieldUCase){
-			$rgstryRowNme = strtoupper($rgstryRowNme);
-			$rgstryLinKey = strtoupper($rgstryLinKey);
+			$rowEntryName = strtoupper($rowEntryName);
+			$entryKeyText = strtoupper($entryKeyText);
 		}else{
-			$rgstryRowNme = strtolower($rgstryRowNme);
-			$rgstryLinKey = strtolower($rgstryLinKey);
+			$rowEntryName = strtolower($rowEntryName);
+			$entryKeyText = strtolower($entryKeyText);
 		}
-		$l1Value = $this->readFileDetail($rgstryRowNme);
+		$l1Value = $this->readValueByKey($rowEntryName);
 		if(!is_array($l1Value)){
 			$l1Value = Array();
 		}
-		$l1Value[$rgstryLinKey] = $regLineValue;
-		$this->saveValueByKey($rgstryRowNme, $l1Value);
+		$l1Value[$entryKeyText] = $regLineValue;
+		$this->saveValueByKey($rowEntryName, $l1Value);
 		return $regLineValue;
 	}
 
@@ -133,12 +133,12 @@ class Registry{
 	 * the value is missing, null or an empty string. 0, false and an
 	 * empty array are values, and are returned as they are.
 	 *
-	 * @param String $rgstryLinKey Key to look up.
+	 * @param String $entryKeyText Key to look up.
 	 * @param mixed  $defaultValue Value to return when the key is unset, null or blank.
 	 * @return mixed The stored value, or $defaultValue.
 	 */
-	public function obtainDefValue( String $rgstryLinKey, Mixed $defaultValue=null ): Mixed {
-		$nuValue = $this->readFileDetail( $rgstryLinKey );
+	public function obtainDefValue( String $entryKeyText, Mixed $defaultValue=null ): Mixed {
+		$nuValue = $this->readValueByKey( $entryKeyText );
 		if($nuValue===null || $nuValue===''){
 			return $defaultValue;
 		}else{
@@ -157,14 +157,14 @@ class Registry{
 		$lineArr = Array();
 		if($keysCriteria!=''){
 			$fltrLen = strlen($keysCriteria);
-			foreach($this->valuRgstry as $arrKey => $arrVal){
+			foreach($this->valuesList as $arrKey => $arrVal){
 				$chckKey = substr($arrKey, 0, $fltrLen);
 				if($chckKey==$keysCriteria){
 					$lineArr[$arrKey] = $arrVal;
 				}
 			}
 		}else{
-			foreach($this->valuRgstry as $arrKey => $arrVal){
+			foreach($this->valuesList as $arrKey => $arrVal){
 				$lineArr[$arrKey] = $arrVal;
 			}
 		}

@@ -18,7 +18,7 @@ class Limiter{
 
 	protected $triesLimit;
 	protected $holdPeriod;
-	protected $countsFold;
+	protected $countsFldr;
 
 	/**
 	 * Builds the limiter of wrong credentials from its config block.
@@ -32,7 +32,7 @@ class Limiter{
 		$this->triesLimit = max( 0, intval($configValues['maxTries'] ?? 10) );
 		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
 		$fldName = trim( strval($configValues['dataPath'] ?? ''), '/\\ ' );
-		$this->countsFold = TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'limits');
+		$this->countsFldr = TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'limits');
 	}
 
 	/**
@@ -148,9 +148,9 @@ class Limiter{
 			return;
 		}
 		$nowTime = $unixMomentNb;
-		$cntFile = $this->openLimitFoldr() ? @fopen($cntPath, 'c+b') : false;
+		$cntFile = $this->openLimitsFldr() ? @fopen($cntPath, 'c+b') : false;
 		if( $cntFile===false || !flock($cntFile, LOCK_EX) ){
-			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFold );
+			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFldr );
 			if( $cntFile!==false ){
 				fclose($cntFile);
 			}
@@ -180,7 +180,7 @@ class Limiter{
 	public function dropStaleCount( ?Int $unixMomentNb = null ): Int {
 		$nowTime = $unixMomentNb ?? time();
 		$dropNum = 0;
-		foreach( array_merge((array)glob($this->countsFold.DS.'*.cnt'), (array)glob($this->countsFold.DS.'*.usr')) as $cntFil ){
+		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
 			$tallies = $this->readLimitCount( strval(@file_get_contents($cntFil)) );
 			if( ($tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime) && @unlink($cntFil) ){
 				$dropNum++;
@@ -230,7 +230,7 @@ class Limiter{
 	public function listLimitHolds( ?Int $unixMomentNb = null ): Array {
 		$nowTime = $unixMomentNb ?? time();
 		$heldLst = Array();
-		foreach( (array)glob($this->countsFold.DS.'*.cnt') as $cntFil ){
+		foreach( (array)glob($this->countsFldr.DS.'*.cnt') as $cntFil ){
 			$tallies = $this->readLimitCount( strval(@file_get_contents(strval($cntFil))) );
 			if( $tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime ){
 				continue;
@@ -255,7 +255,7 @@ class Limiter{
 			return ( $cntPath!='' && is_file($cntPath) && @unlink($cntPath) ) ? 1 : 0;
 		}
 		$dropNum = 0;
-		foreach( array_merge((array)glob($this->countsFold.DS.'*.cnt'), (array)glob($this->countsFold.DS.'*.usr')) as $cntFil ){
+		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
 			if( @unlink(strval($cntFil)) ){
 				$dropNum++;
 			}
@@ -270,7 +270,7 @@ class Limiter{
 	 * @return String The path of the file; empty for an empty key.
 	 */
 	protected function pathLimitOfKey( String $limitAddrKey ): String {
-		return ($limitAddrKey=='') ? '' : $this->countsFold.DS.$limitAddrKey.'.cnt';
+		return ($limitAddrKey=='') ? '' : $this->countsFldr.DS.$limitAddrKey.'.cnt';
 	}
 
 	/**
@@ -282,7 +282,7 @@ class Limiter{
 	 * @return String The path of the file; empty for an empty name.
 	 */
 	protected function pathOfUserText( String $namedUserTxt ): String {
-		return ($namedUserTxt=='') ? '' : $this->countsFold.DS.hash('sha256', 'user:'.$namedUserTxt).'.usr';
+		return ($namedUserTxt=='') ? '' : $this->countsFldr.DS.hash('sha256', 'user:'.$namedUserTxt).'.usr';
 	}
 
 	/**
@@ -305,10 +305,10 @@ class Limiter{
 	 *
 	 * @return Bool True when counters can be written.
 	 */
-	protected function openLimitFoldr(): Bool {
-		if( !is_dir($this->countsFold) ){
-			@mkdir($this->countsFold, 0770, true);
+	protected function openLimitsFldr(): Bool {
+		if( !is_dir($this->countsFldr) ){
+			@mkdir($this->countsFldr, 0770, true);
 		}
-		return is_dir($this->countsFold) && is_writable($this->countsFold);
+		return is_dir($this->countsFldr) && is_writable($this->countsFldr);
 	}
 }

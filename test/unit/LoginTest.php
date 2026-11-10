@@ -55,7 +55,7 @@ function authActn( String $actionName, Array $inputArray=Array(), String $httpMe
 		$qryProp->setValue($request, $queryNames);
 		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 		$mthProp->setValue($request, $httpMethod);
-		$axssReg = new Registry( $loggedVals + Array('logged'=>false, 'user'=>'', 'role'=>null) );
+		$axssReg = new Registry( $loggedVals + Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null) );
 		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext($actionName, null, new Registry($inputArray), $axssReg, $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 		$actnSet->runAskedAction();
 		return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue);
@@ -73,7 +73,7 @@ function tokenOf( Mixed $actnResult ): Mixed {
 		return $actnResult;
 	}
 	$idntArr = (new JWT($GLOBALS['tknConf']))->verifyRqstList( mockRequestObj(Array('Authorization'=>'Bearer '.$actnResult[2]['token'])) );
-	return is_array($idntArr) ? Array($idntArr['user'] ?? null, $idntArr['role'] ?? null) : $idntArr;
+	return is_array($idntArr) ? Array($idntArr['userName'] ?? null, $idntArr['userRole'] ?? null) : $idntArr;
 }
 
 $alicePw = Array('user'=>'alice', 'pass'=>'s3cret');
@@ -170,8 +170,8 @@ authActn('openSess', Array('user'=>'ben', 'pass'=>'pw-ben'), 'POST', '198.51.100
 authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
 authActn('openSess', Array('user'=>"ben\n[".date('Y')."] [INFO] Login granted for user \"anna\"", 'pass'=>'top-secret-word'), 'POST', '198.51.100.7');
 authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
-authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'ben', 'role'=>'internal'));
-authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('logged'=>true, 'user'=>'anna', 'role'=>'sysadmin'));
+authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'ben', 'userRole'=>'internal'));
+authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'sysadmin'));
 authActn('quitSess', Array(), 'POST', '198.51.100.7');
 plugConf( Array('sessWith'=>'httpBasc') );
 authActn('openSess', $alicePw, 'POST', '198.51.100.8');

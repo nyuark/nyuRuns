@@ -12,7 +12,7 @@ class Printer{
 	protected $jsonFormat;
 	protected $quietPrint;
 	protected $outsStream;
-	protected $errorsStrm;
+	protected $failStream;
 	protected $jsonOutput = Array();
 
 	/**
@@ -27,7 +27,7 @@ class Printer{
 		$this->jsonFormat = $printsAsJson;
 		$this->quietPrint = $skipsRemarks;
 		$this->outsStream = $outputStream ?? STDOUT;
-		$this->errorsStrm = $errorsStream ?? STDERR;
+		$this->failStream = $errorsStream ?? STDERR;
 	}
 
 	/**
@@ -79,7 +79,7 @@ class Printer{
 			$this->jsonOutput['error'] = $markdownLine;
 			return;
 		}
-		fwrite($this->errorsStrm, $markdownLine.PHP_EOL);
+		fwrite($this->failStream, $markdownLine.PHP_EOL);
 	}
 
 	/**
@@ -89,7 +89,7 @@ class Printer{
 	 * @param String $markdownLine The question.
 	 */
 	public function printShellAsks( String $markdownLine ): Void {
-		fwrite($this->errorsStrm, $markdownLine);
+		fwrite($this->failStream, $markdownLine);
 	}
 
 	/**

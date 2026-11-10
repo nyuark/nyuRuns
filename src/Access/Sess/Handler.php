@@ -24,20 +24,20 @@ interface Handler{
 	/**
 	 * Extracts and verifies the credential carried by the given request.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
-	public function verifyRqstList( Request $requstObject ): Array|Bool;
+	public function verifyRqstList( Request $givenRequest ): Array|Bool;
 
 	/**
 	 * Issues a new token for the given identity, for token-based
 	 * strategies (e.g. JWT). Not meaningful for header/credential-only
 	 * strategies.
 	 *
-	 * @param Array $identtyArray The identity to encode into the token.
+	 * @param Array $identityList The identity to encode into the token.
 	 * @return String The issued token.
 	 */
-	public function issueTokenText( Array $identtyArray ): String;
+	public function issueTokenText( Array $identityList ): String;
 
 	/**
 	 * Returns the most recent error message, if any.

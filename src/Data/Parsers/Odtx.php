@@ -50,7 +50,7 @@ class Odtx extends Pack {
 	protected $keepsEmpty = true;
 	protected $redComment = false;
 	protected $commentLst = Array();
-	protected $commntOpen = Array();
+	protected $openedList = Array();
 
 	/**
 	 * Reads the document of an opened archive.
@@ -82,7 +82,7 @@ class Odtx extends Pack {
 		$this->keepsEmpty = !isset($parseOptions['empty']) || !empty($parseOptions['empty']);
 		$this->redComment = !empty($parseOptions['cmnts']);
 		$this->commentLst = Array();
-		$this->commntOpen = Array();
+		$this->openedList = Array();
 		$this->loadNamedStyle($this->findChildArray($stlsArr, Array('office:styles')) ?? Array('nodes'=>Array()));
 		// The styles made for what is formatted by hand: those of the pages are apart from those of the text
 		$pgeStyl = $this->loadAutosArray($this->findChildArray($stlsArr, Array('office:automatic-styles')) ?? Array('nodes'=>Array()));
@@ -118,7 +118,7 @@ class Odtx extends Pack {
 			}
 		}
 		foreach(array_keys($this->stylesUsed) as $stlKey){
-			$infoArr['frmat'][$this->namedStyle['paragraph'][$stlKey]['names']] = $this->frmatOfItArray($this->namedStyle['paragraph'][$stlKey]);
+			$infoArr['frmat'][$this->namedStyle['paragraph'][$stlKey]['names']] = $this->styleFormatArr($this->namedStyle['paragraph'][$stlKey]);
 		}
 		$this->namedStyle = Array();
 		$this->autoStyles = Array();
@@ -412,7 +412,7 @@ class Odtx extends Pack {
 			}
 		}
 		// A passage commented over several paragraphs has a space between two of them
-		foreach($this->commntOpen as $cmtIdx){
+		foreach($this->openedList as $cmtIdx){
 			$this->commentLst[$cmtIdx]['about'] .= ($this->commentLst[$cmtIdx]['about']==='') ? '' : ' ';
 		}
 		$picList = Array();
@@ -468,7 +468,7 @@ class Odtx extends Pack {
 			return;
 		}
 		$outputPieces[] = Shape::makeASpanArray($templateText, $runFormatSet, $linkGoalText, $fldCodesText);
-		foreach($this->commntOpen as $cmtIdx){
+		foreach($this->openedList as $cmtIdx){
 			$this->commentLst[$cmtIdx]['about'] .= $templateText;
 		}
 	}
@@ -547,23 +547,23 @@ class Odtx extends Pack {
 	protected function commentPortion(Array $elementArray): Void {
 		$noteNme = strval($elementArray['attrs']['office:name'] ?? '');
 		if( $elementArray['tagnm']=='office:annotation-end' ){
-			unset($this->commntOpen[$noteNme]);
+			unset($this->openedList[$noteNme]);
 			return;
 		}
 		if( !$this->redComment ){
 			return;
 		}
 		// What a comment says is not part of the passages being commented
-		$kptOpen = $this->commntOpen;
+		$kptOpen = $this->openedList;
 		$keptVod = $this->keepsEmpty;
-		$this->commntOpen = Array();
+		$this->openedList = Array();
 		$this->keepsEmpty = false;
 		$noteTxt = Shape::documentAsText($this->bodyBlocksList($elementArray, 0, ''));
-		$this->commntOpen = $kptOpen;
+		$this->openedList = $kptOpen;
 		$this->keepsEmpty = $keptVod;
 		$this->commentLst[] = Array('authr'=>trim(strval($this->findChildArray($elementArray, Array('dc:creator'))['value'] ?? '')), 'dated'=>trim(strval($this->findChildArray($elementArray, Array('dc:date'))['value'] ?? '')), 'plain'=>$noteTxt, 'about'=>'');
 		if( $noteNme!=='' ){
-			$this->commntOpen[$noteNme] = count($this->commentLst)-1;
+			$this->openedList[$noteNme] = count($this->commentLst)-1;
 		}
 	}
 

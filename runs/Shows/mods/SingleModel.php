@@ -27,16 +27,16 @@ class Single extends DBRec {
 	public function importRelation( ): Void {
 		parent::importRelation( );
 		$itemLst = Array();
-		if(!empty( $this->recrdArray['Items'] )){			
-			foreach( $this->recrdArray['Items'] as $itmRec){
+		if(!empty( $this->recordData['Items'] )){			
+			foreach( $this->recordData['Items'] as $itmRec){
 				if(isset($itmRec['type'])){				
 					$itemLst[] = $itmRec['type'];
 				}
 			}
 		}
-		$this->recrdArray['Items'] = $itemLst;
+		$this->recordData['Items'] = $itemLst;
 		
-		$this->recrdArray['evntSpan'] = $this->eventSpnString();
+		$this->recordData['evntSpan'] = $this->eventSpnString();
 	}
 	
 	/**
@@ -46,7 +46,7 @@ class Single extends DBRec {
 	 * @return Bool True if one of the show's items has that type.
 	 */
 	public function verifyCategory( String $hasEntryType ): Bool {
-		if( in_array($hasEntryType, $this->recrdArray['Items'] ) ){
+		if( in_array($hasEntryType, $this->recordData['Items'] ) ){
 			return true;
 		}else{
 			return false;
@@ -60,12 +60,12 @@ class Single extends DBRec {
 	 * @return mixed The formatted date span, or false when the show has no events list.
 	 */
 	public function eventSpnString( ): String|Bool {
-		$evntLst = $this->recrdArray['Events'] ?? null;
+		$evntLst = $this->recordData['Events'] ?? null;
 		if(is_array($evntLst) && !empty($evntLst)){
 			$frstDay = $evntLst[0]['date'];
 			$lastDay = $evntLst[count($evntLst)-1]['date'];
 			$spnVrbl = new Variable($frstDay);
-			$spanTxt = $spnVrbl->readFileDetail('DateSpn',$lastDay);			
+			$spanTxt = $spnVrbl->castWrappedVal('DateSpn',$lastDay);			
 			return $spanTxt;
 		}else{
 			return false;

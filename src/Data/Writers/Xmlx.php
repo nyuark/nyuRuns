@@ -27,7 +27,7 @@ class Xmlx extends Base {
 	// The deepest an element stands in others
 	const DEEP_MAXI = 256;
 	// What the name of an element or of an attribute is made of
-	const NAME_PTRN = '/^[\p{L}_][\p{L}\p{N}_.\-]*(:[\p{L}_][\p{L}\p{N}_.\-]*)?$/Du';
+	const NAME_PATT = '/^[\p{L}_][\p{L}\p{N}_.\-]*(:[\p{L}_][\p{L}\p{N}_.\-]*)?$/Du';
 	// The name given to an element whose key is not one XML takes, and to the values of a list without a name
 	const ITEM_NAME = 'item';
 
@@ -71,7 +71,7 @@ class Xmlx extends Base {
 			// The tree of elements, as the parser reads it
 			$rootNme = strval($itemVal['tagnm']);
 			$bodyTxt = $this->treesPieceText($itemVal, 0);
-		}elseif( is_array($itemVal) && $rootNme==='' && count($itemVal)==1 && is_string(array_key_first($itemVal)) && preg_match(self::NAME_PTRN, strval(array_key_first($itemVal))) && !(is_array(current($itemVal)) && !empty(current($itemVal)) && $this->validateALstOf(current($itemVal))) ){
+		}elseif( is_array($itemVal) && $rootNme==='' && count($itemVal)==1 && is_string(array_key_first($itemVal)) && preg_match(self::NAME_PATT, strval(array_key_first($itemVal))) && !(is_array(current($itemVal)) && !empty(current($itemVal)) && $this->validateALstOf(current($itemVal))) ){
 			// The compact form: the one key of the values names the root
 			$rootNme = strval(array_key_first($itemVal));
 			$bodyTxt = $this->valuePieceText($rootNme, current($itemVal), 0);
@@ -79,7 +79,7 @@ class Xmlx extends Base {
 			$rootNme = ($rootNme==='') ? 'root' : $rootNme;
 			$bodyTxt = $this->valuePieceText($rootNme, $itemVal, 0);
 		}
-		$typeTxt = $this->dtypePieceText(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootNme);
+		$typeTxt = $this->makeDoctypeTxt(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootNme);
 		$withHds = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
 		return ($withHds ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeTxt==='') ? '' : $typeTxt."\n").$bodyTxt.(($this->multiLines || $withHds) ? "\n" : '');
 	}
@@ -93,7 +93,7 @@ class Xmlx extends Base {
 	 * @throws WriteError When the name is not one XML takes.
 	 */
 	protected function checkNameChars(String $elementLabel): String {
-		if( !preg_match(self::NAME_PTRN, $elementLabel) ){
+		if( !preg_match(self::NAME_PATT, $elementLabel) ){
 			throw new WriteError('Name that XML does not take: '.substr(strval(preg_replace('/[^\x20-\x7E]+/', '?', $elementLabel)), 0, 60));
 		}
 		return $elementLabel;
@@ -109,7 +109,7 @@ class Xmlx extends Base {
 	 *
 	 * @throws WriteError When what is told of the kind cannot be written.
 	 */
-	protected function dtypePieceText(Mixed $doctypeValue, String $rootTagLabel): String {
+	protected function makeDoctypeTxt(Mixed $doctypeValue, String $rootTagLabel): String {
 		if( $doctypeValue===false || $doctypeValue===null || $doctypeValue==='' || $doctypeValue===Array() ){
 			return '';
 		}
@@ -135,7 +135,7 @@ class Xmlx extends Base {
 	 *
 	 * @throws WriteError When a name is not one XML takes.
 	 */
-	protected function attrsPieceText(Array $attributeSet): String {
+	protected function attributesText(Array $attributeSet): String {
 		$xmlAttr = '';
 		foreach($attributeSet as $atrNme=>$atrVal){
 			if( $atrVal===null || is_array($atrVal) || is_object($atrVal) ){
@@ -187,7 +187,7 @@ class Xmlx extends Base {
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
 		$tagName = $this->checkNameChars(strval($elementArray['tagnm'] ?? ''));
-		$openTxt = '<'.$tagName.$this->attrsPieceText((array)($elementArray['attrs'] ?? Array()));
+		$openTxt = '<'.$tagName.$this->attributesText((array)($elementArray['attrs'] ?? Array()));
 		$chldLst = array_values(array_filter((array)($elementArray['nodes'] ?? Array()), 'is_array'));
 		if( empty($chldLst) ){
 			$textTxt = $this->escapeXmlValue(is_scalar($elementArray['value'] ?? '') ? strval($elementArray['value'] ?? '') : '');
@@ -225,7 +225,7 @@ class Xmlx extends Base {
 		}
 		$tagName = $elementLabel;
 		$attrSet = Array();
-		if( !preg_match(self::NAME_PTRN, $elementLabel) ){
+		if( !preg_match(self::NAME_PATT, $elementLabel) ){
 			$tagName = self::ITEM_NAME;
 			$attrSet['key'] = $elementLabel;
 		}
@@ -234,7 +234,7 @@ class Xmlx extends Base {
 		}
 		if( !is_array($valueAsGiven) ){
 			$textTxt = $this->escapeXmlValue($this->writeScalarTxt($valueAsGiven));
-			return '<'.$tagName.$this->attrsPieceText($attrSet).(($textTxt==='') ? '/>' : '>'.$textTxt.'</'.$tagName.'>');
+			return '<'.$tagName.$this->attributesText($attrSet).(($textTxt==='') ? '/>' : '>'.$textTxt.'</'.$tagName.'>');
 		}
 		$holdTxt = '';
 		$textTxt = '';
@@ -256,7 +256,7 @@ class Xmlx extends Base {
 				$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyText, $subVal, $depthLevelNb+1);
 			}
 		}
-		$openTxt = '<'.$tagName.$this->attrsPieceText($attrSet);
+		$openTxt = '<'.$tagName.$this->attributesText($attrSet);
 		if( $holdTxt==='' ){
 			return ($textTxt==='') ? $openTxt.'/>' : $openTxt.'>'.$textTxt.'</'.$tagName.'>';
 		}

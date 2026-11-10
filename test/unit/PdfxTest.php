@@ -126,10 +126,10 @@ checkIdentical('an empty content gives no block', pdfRead(''), Array('shape'=>'b
 checkPregMatch('a content that is not a PDF document', pdfRead('<p>not a pdf</p>'), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid PDF content: the content is not a PDF document/');
 checkPregMatch('a PDF document cut short, or damaged', pdfRead(substr($showPdf, 0, 400)), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid PDF content: /');
 checkPregMatch('a PDF document holding nothing but its first line', pdfRead("%PDF-1.7\n%%EOF\n"), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid PDF content: /');
-checkIdentical('no PHP warning is left behind, by a refusal or otherwise', takeNotesArray(), Array());
+checkIdentical('no PHP warning is left behind, by a refusal or otherwise', takePhpNotices(), Array());
 
 // Through the indexes and Dcmnt
-checkIdentical('index: PDF documents by extension and by content type, to read and to write', Array(get_class(ReadIndex::forExtnsParser('PDF')), get_class(ReadIndex::findTypeParser('application/pdf')), get_class(WriteIndex::forExtnsParser('pdf')), WriteIndex::contentTypeFor('pdf')), Array('nyu\Data\Parsers\Pdfx', 'nyu\Data\Parsers\Pdfx', 'nyu\Data\Writers\Pdfx', 'application/pdf'));
+checkIdentical('index: PDF documents by extension and by content type, to read and to write', Array(get_class(ReadIndex::forExtnsParser('PDF')), get_class(ReadIndex::findTypeParser('application/pdf')), get_class(WriteIndex::forExtnsWriter('pdf')), WriteIndex::contentTypeFor('pdf')), Array('nyu\Data\Parsers\Pdfx', 'nyu\Data\Parsers\Pdfx', 'nyu\Data\Writers\Pdfx', 'application/pdf'));
 checkIdentical('a PDF file through Dcmnt, with and without its extension', runCatchThrown(function() use ($showPdf){
 	$docPath = inTemporaryDir('show.pdf');
 	$barePth = inTemporaryDir('document');

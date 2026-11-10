@@ -33,8 +33,8 @@ class Shell extends Command{
 	 */
 	public function invokeSayHello(): Int {
 		$this->printerObj->printShellLine('Hello '.$this->needsShellWord('name'));
-		$this->printerObj->printShellPair('rest', $this->optnObject->restWordsArray());
-		$this->printerObj->printShellPair('tone', $this->optnObject->retrieveOption('greeting', 'plain'));
+		$this->printerObj->printShellPair('rest', $this->optionsObj->restWordsArray());
+		$this->printerObj->printShellPair('tone', $this->optionsObj->retrieveOption('greeting', 'plain'));
 		$this->printerObj->printShellRows( Array('name', 'size'), Array(Array('a', 1), Array('long one', 22)) );
 		return self::EXIT_DONE;
 	}

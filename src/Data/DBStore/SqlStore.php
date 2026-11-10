@@ -17,19 +17,19 @@ class SqlStore implements Store {
 	// What the tables already described tell of their fields, by table name
 	protected $detailList = Array();
 	// Name of the database in the config, which the config cache keeps its tables under ('' for the default one)
-	protected $dbaseLabel = '';
+	protected $dbLinkName = '';
 	// The tables whose description came from the config cache
-	protected $cachedTbls = Array();
+	protected $cachTblArr = Array();
 
 	/**
 	 * Builds the store on the handler of a database.
 	 *
 	 * @param Handler $dbHandlerObj Handler of the database the store works on.
-	 * @param String  $databasLabel  Name of the database in the config ('' for the default one), for the descriptions of its tables the config cache keeps (TBL_CACH).
+	 * @param String  $linkNameText  Name of the database in the config ('' for the default one), for the descriptions of its tables the config cache keeps (TBL_CACH).
 	 */
-	public function __construct(Handler $dbHandlerObj, String $databasLabel = ''){
+	public function __construct(Handler $dbHandlerObj, String $linkNameText = ''){
 		$this->baseHandle = $dbHandlerObj;
-		$this->dbaseLabel = $databasLabel;
+		$this->dbLinkName = $linkNameText;
 	}
 
 	/**
@@ -58,9 +58,9 @@ class SqlStore implements Store {
 	 */
 	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
 		if( !isset($this->detailList[$tbleLabelTxt]) ){
-			$tblInfo = ConfCache::tableInfoArray($this->dbaseLabel, $tbleLabelTxt);
+			$tblInfo = ConfCache::tableInfoArray($this->dbLinkName, $tbleLabelTxt);
 			if( $tblInfo!==null ){
-				$this->cachedTbls[] = $tbleLabelTxt;
+				$this->cachTblArr[] = $tbleLabelTxt;
 			}else{
 				$tblInfo = $this->baseHandle->tableInfoArray($tbleLabelTxt);
 				// A table that cannot be described is asked again next time
@@ -68,7 +68,7 @@ class SqlStore implements Store {
 					return false;
 				}
 				$tblInfo = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
-				ConfCache::keepCacheTable($this->dbaseLabel, $tbleLabelTxt, $tblInfo);
+				ConfCache::keepCacheTable($this->dbLinkName, $tbleLabelTxt, $tblInfo);
 			}
 			$this->detailList[$tbleLabelTxt] = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
 		}
@@ -200,8 +200,8 @@ class SqlStore implements Store {
 
 		if( !$dbHndlr->sendBuiltQuery($findQry, false, $whrPart['vals']) ){
 			// A table changed since the config cache described it: the next request describes it again
-			if( !empty(array_intersect($tblList, $this->cachedTbls)) ){
-				ConfCache::clearMailCache();
+			if( !empty(array_intersect($tblList, $this->cachTblArr)) ){
+				ConfCache::clearConfCache();
 			}
 			return false;
 		}
@@ -258,8 +258,8 @@ class SqlStore implements Store {
 		}
 		$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($tbleLabelTxt).' ('.implode(',', $fldsQtd).') VALUES ('.implode(',', array_fill(0, count($fieldValList), '?')).');';
 		if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($fieldValList)) ){
-			if( in_array($tbleLabelTxt, $this->cachedTbls, true) ){
-				ConfCache::clearMailCache();
+			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
+				ConfCache::clearConfCache();
 			}
 			return false;
 		}
@@ -291,8 +291,8 @@ class SqlStore implements Store {
 		}
 		$updtQry = 'UPDATE '.$tbleQtd.' SET '.implode(',', $setList).' WHERE '.$whrPart['text'].';';
 		if( !$dbHndlr->sendBuiltQuery($updtQry, true, array_merge(array_values($fieldValList), $whrPart['vals'])) ){
-			if( in_array($tbleLabelTxt, $this->cachedTbls, true) ){
-				ConfCache::clearMailCache();
+			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
+				ConfCache::clearConfCache();
 			}
 			return false;
 		}
@@ -314,8 +314,8 @@ class SqlStore implements Store {
 		$whrPart = $this->needWhereArray($filterFields);
 		$delStmt = 'DELETE FROM '.$dbHndlr->quoteFieldName($tbleLabelTxt).' WHERE '.$whrPart['text'].';';
 		if( !$dbHndlr->sendBuiltQuery($delStmt, true, $whrPart['vals']) ){
-			if( in_array($tbleLabelTxt, $this->cachedTbls, true) ){
-				ConfCache::clearMailCache();
+			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
+				ConfCache::clearConfCache();
 			}
 			return false;
 		}
@@ -355,8 +355,8 @@ class SqlStore implements Store {
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function opnTransaction(): Bool {
-		return $this->baseHandle->opnTransaction();
+	public function newTransaction(): Bool {
+		return $this->baseHandle->newTransaction();
 	}
 
 	/**
@@ -374,8 +374,8 @@ class SqlStore implements Store {
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function remTransaction(): Bool {
-		return $this->baseHandle->remTransaction();
+	public function delTransaction(): Bool {
+		return $this->baseHandle->delTransaction();
 	}
 
 	/**

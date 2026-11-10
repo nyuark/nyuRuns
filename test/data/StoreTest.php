@@ -107,10 +107,10 @@ checkIdentical('delete on a missing table gives false', runCatchThrown(function(
 
 // Transactions
 checkIdentical('a removed transaction cancels the changes of the store', runCatchThrown(function() use ($dbStore){
-	$opnDone = $dbStore->opnTransaction();
+	$opnDone = $dbStore->newTransaction();
 	$dbStore->deleteRowCount('items', Array('show_id'=>1));
 	$midRows = count($dbStore->findItemsArray('items'));
-	return Array($opnDone, $midRows, $dbStore->remTransaction(), count($dbStore->findItemsArray('items')), $dbStore->setTransaction());
+	return Array($opnDone, $midRows, $dbStore->delTransaction(), count($dbStore->findItemsArray('items')), $dbStore->setTransaction());
 }), Array(true, 5, true, 7, false));
 
 finishChecking();

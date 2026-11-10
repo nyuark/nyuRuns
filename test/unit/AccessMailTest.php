@@ -10,8 +10,8 @@ use nyu\Data\Mail\Mailer;
 use nyu\Tools\Logger;
 use nyu\Tools\Registry;
 
-$foldNme = 'temp'.DS.'accmails_'.getmypid();
-$fileSet = Array('sendWith'=>'emlFiles', 'fromAddr'=>'no-reply@example.com', 'fromName'=>'nyuRuns', 'mailsDir'=>'/'.str_replace(DS, '/', $foldNme));
+$fldrNme = 'temp'.DS.'accmails_'.getmypid();
+$fileSet = Array('sendWith'=>'emlFiles', 'fromAddr'=>'no-reply@example.com', 'fromName'=>'nyuRuns', 'mailsDir'=>'/'.str_replace(DS, '/', $fldrNme));
 $natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>20, 'linkTmpl'=>'https://app.example.ch/access?do=%kind%&user=%user%&code=%code%');
 
 /**
@@ -34,8 +34,8 @@ function setsConfg( Array $nativeConf ): Void {
  * @return Array The mails, as written.
  */
 function takeMails(): Array {
-	global $foldNme;
-	$fleList = glob(TOP_DIR.DS.$foldNme.DS.'*.eml') ?: Array();
+	global $fldrNme;
+	$fleList = glob(TOP_DIR.DS.$fldrNme.DS.'*.eml') ?: Array();
 	sort($fleList);
 	$mailLst = Array();
 	foreach( $fleList as $fleNme ){
@@ -179,5 +179,5 @@ $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'runner.log'));
 checkPregMatch('the account is logged', $logText, '/\[WARNING\] Access mail not sent through account "nobody": Unknown mail account: "nobody"/');
 checkPregMatch('the address refused is logged', $logText, '/\[WARNING\] Access mail not sent through account "devbox": Invalid mail address/');
 
-dropTestFolder(TOP_DIR.DS.$foldNme);
+dropTestFolder(TOP_DIR.DS.$fldrNme);
 finishChecking();

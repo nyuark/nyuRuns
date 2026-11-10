@@ -21,16 +21,16 @@ $rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"describ
 	."\t# Access\n\t\"security\": {\n\t\t// Carrier : \"sessWith\": \"httpBasc\" would be another\n\t\t\"sessWith\": \"jwtToken\",\n\t\t\"sessConf\": \"jwtToken\",\n\t\t\"authWith\":\t\"native\",\n\t\t\"required\": true,\n"
 	."\t\t\"openList\": [\"auth/openSess\", \"/hello\"],\n\t\t\"rteRoles\": { \"users/*\": \"sysadmin\", \"/admin/\$id\": \"operator\" }\n\t},\n"
 	."\t\"incoming\": [ { \"nameFrom\": \"QUERY\", \"dataFrom\": \"QUERY\", \"fieldSet\": \"all\" } ],\n"
-	."\t\"routings\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$app/\$action/\$param\", \"routeDir\": \"conf/routes\" },\n"
+	."\t\"routings\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$appToRun/\$doAction/\$argument\", \"routeDir\": \"conf/routes\" },\n"
 	."\t\"response\": { \"outputAs\": \"jsonData\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
-$rteText = '{ "hello": { "pointsTo": { "pageFile": "hello" } }, "admin/$id": { "mthdList": "GET, POST", "pointsTo": { "appNamed": "users", "actNamed": "viewUser" } },'
-	.' "old": { "pointsTo": { "redirect": "/hello", "httpCode": 301 } }, "things": { "pointsTo": { "GET": { "appNamed": "shows", "actNamed": "overview" }, "POST": { "appNamed": "shows", "actNamed": "create" } } } }';
+$rteText = '{ "hello": { "pointsTo": { "pageFile": "hello" } }, "admin/$id": { "mthdList": "GET, POST", "pointsTo": { "appToRun": "users", "doAction": "viewUser" } },'
+	.' "old": { "pointsTo": { "redirect": "/hello", "httpCode": 301 } }, "things": { "pointsTo": { "GET": { "appToRun": "shows", "doAction": "overview" }, "POST": { "appToRun": "shows", "doAction": "create" } } } }';
 
 $projDir = makeProjectTxt('config', Array(
 	'conf/system.ini'=>$iniText, 'conf/access.json'=>$axsText, 'conf/database.json'=>$dbsText,
 	'conf/presets/sample.rps'=>$rpsText, 'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }',
 	'conf/presets/wrongs.rps'=>'{ "presetId": "wrongs", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "rteRoles": { "users/*": "boss" } } }',
-	'conf/routes/main.rte'=>$rteText, 'runs/Shelf/routes.rte'=>'{ "board": { "mthdList": "GET", "pointsTo": { "actNamed": "index" } } }',
+	'conf/routes/main.rte'=>$rteText, 'runs/Shelf/routes.rte'=>'{ "board": { "mthdList": "GET", "pointsTo": { "doAction": "index" } } }',
 	'www/index.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner();\n", 'www/api.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner( \"defaults\", \$overLoad );\n",
 	'www/own.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner(\$presetNm);\n", 'www/plain.php'=>"<?php echo 1;\n",
 	'.env'=>"# Secrets\nNYU_JWT_SECRET=\nNYU_API_KEY=old-key\n"
@@ -96,7 +96,7 @@ if( function_exists('openssl_pkey_new') ){
 	$rsaBlok = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
 	checkIdentical('with RS256, a key pair of 4096 bits is made in conf/keys, its paths given to the block', Array($runVals['code'], $runVals['text'], $keyInfo['bits'] ?? null, ($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA, $rsaBlok), Array(0, "written: conf/keys/rstokn.key, conf/keys/rstokn.pub\n", 4096, true, Array('signAlgo'=>'RS256', 'privFile'=>'conf/keys/rstokn.key', 'publFile'=>'conf/keys/rstokn.pub')));
 	$rsaJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'publFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.pub') );
-	checkIdentical('the pair signs and checks a token', ($rsaJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$rsaJwt->issueTokenText(Array('user'=>'anna'))))) ?: Array())['user'] ?? null, 'anna');
+	checkIdentical('the pair signs and checks a token', ($rsaJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$rsaJwt->issueTokenText(Array('userName'=>'anna'))))) ?: Array())['userName'] ?? null, 'anna');
 	if( DS=='/' ){
 		checkIdentical('the private key is readable by its owner only', fileperms($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') & 0777, 0600);
 	}
@@ -104,9 +104,9 @@ if( function_exists('openssl_pkey_new') ){
 	$pubText = strval(fetchInProject($projDir, 'conf/keys/rstokn.pub'));
 	checkIdentical('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn', '--yesToAll'))['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'archives'.DS.'rstokn*')), Array(0, true, Array()));
 	checkIdentical('the former public key is kept as prevFile, and checks the tokens it signed', Array(fetchInProject($projDir, 'conf/keys/rstokn.old.pub'), json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn']['prevFile'] ?? null), Array($pubText, 'conf/keys/rstokn.old.pub'));
-	$oldTokn = $rsaJwt->issueTokenText( Array('user'=>'anna') );
+	$oldTokn = $rsaJwt->issueTokenText( Array('userName'=>'anna') );
 	$nowJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'prevFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub', 'retireAt'=>time() + 5) );
-	checkIdentical('a token of the former pair passes with prevFile', ($nowJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$oldTokn))) ?: Array())['user'] ?? null, 'anna');
+	checkIdentical('a token of the former pair passes with prevFile', ($nowJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$oldTokn))) ?: Array())['userName'] ?? null, 'anna');
 	checkPregMatch('replacing them tells the former tokens are still accepted', callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn'), "n\n")['errs'], '/still accepted until they end, checked with conf\/keys\/rstokn\.old\.pub/');
 	$rsaBlok = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
 	checkIdentical('the time the former key was retired is written beside it', is_int($rsaBlok['retireAt'] ?? null) && abs($rsaBlok['retireAt'] - time())<60, true);
@@ -118,7 +118,7 @@ if( function_exists('openssl_pkey_new') ){
 	checkIdentical('--dropsAll: a new pair, no former key file, prevFile empty, no retire time', Array($runVals['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')!==$befKey, is_file($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub'), $rsaBlok['prevFile'] ?? null, array_key_exists('retireAt', $rsaBlok)), Array(0, true, false, '', false));
 	$dropJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') + $rsaBlok );
 	file_put_contents(inTemporaryDir('former.key'), $befKey);
-	$befTokn = (new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>inTemporaryDir('former.key')) ))->issueTokenText( Array('user'=>'anna') );
+	$befTokn = (new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>inTemporaryDir('former.key')) ))->issueTokenText( Array('userName'=>'anna') );
 	checkIdentical('--dropsAll: a token of the former pair is refused', Array($dropJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$befTokn))), $dropJwt->finalErrorText()), Array(false, 'Invalid token'));
 	// write : the keys binding the tokens to this project
 	checkIdentical('write access: an issuer, audiences, a previous key that is one', Array(

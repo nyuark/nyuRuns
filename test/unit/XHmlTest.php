@@ -101,7 +101,7 @@ checkPregMatch('entities that multiply each other are refused', xmlItems('<?xml 
 checkIdentical('a document type without entities is accepted, and not fetched', xmlItems('<?xml version="1.0"?><!DOCTYPE a SYSTEM "http://127.0.0.1:9/never.dtd"><a>ok</a>')['value'], 'ok');
 checkPregMatch('nesting deeper than allowed is refused', xmlItems('<a><b><c><d/></c></b></a>', Array('depth'=>3)), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid XML content: nested deeper than allowed/');
 checkIdentical('...and accepted at the limit', xmlItems('<a><b><c/></b></a>', Array('depth'=>3))['nodes'][0]['nodes'][0]['tagnm'], 'c');
-checkIdentical('no PHP warning is left behind by a refusal', takeNotesArray(), Array());
+checkIdentical('no PHP warning is left behind by a refusal', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: XML by extension and by content type', Array(get_class(Index::forExtnsParser('xml')), get_class(Index::forExtnsParser('SVG')), get_class(Index::findTypeParser('application/xml; charset=utf-8')), get_class(Index::findTypeParser('text/xml')), get_class(Index::findTypeParser('application/atom+xml'))), array_fill(0, 5, 'nyu\Data\Parsers\XHml'));

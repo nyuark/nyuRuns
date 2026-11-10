@@ -47,7 +47,7 @@ function makePairs( String $namePrefix ): Array {
  */
 function readsTokn( JWT $jwtCarrier, String $tokenValue ): Mixed {
 	$idntArr = $jwtCarrier->verifyRqstList( mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)) );
-	return is_array($idntArr) ? ($idntArr['user'] ?? null) : Array(false, $jwtCarrier->finalErrorText(), $jwtCarrier->wrngCredential());
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $jwtCarrier->finalErrorText(), $jwtCarrier->hasWrongSecret());
 }
 
 /**
@@ -69,32 +69,32 @@ $bndConf = Array('signAlgo'=>'RS256', 'privFile'=>$prvPath, 'publFile'=>$pubPath
 $bndJwt = new JWT( $bndConf );
 
 // Issued : the issuer and the audiences of the block, never those of the identity
-$rawTokn = $bndJwt->issueTokenText( Array('user'=>'anna', 'role'=>'internal', 'iss'=>'forged', 'aud'=>'elsewhere') );
+$rawTokn = $bndJwt->issueTokenText( Array('userName'=>'anna', 'userRole'=>'internal', 'iss'=>'forged', 'aud'=>'elsewhere') );
 $clmVals = partOfTkn($rawTokn, 1);
 checkIdentical('issued: one audience is a text, the issuer the block\'s', Array($clmVals['iss'] ?? null, $clmVals['aud'] ?? null), Array('https://auth.example.org', 'api.example.org'));
 $twoJwt = new JWT( Array('audience'=>Array('app.example.org', 'api.example.org')) + $bndConf );
-checkIdentical('issued: several audiences are a list', partOfTkn($twoJwt->issueTokenText(Array('user'=>'anna')), 1)['aud'] ?? null, Array('app.example.org', 'api.example.org'));
-checkIdentical('issued: a block naming neither puts neither', array_intersect_key(partOfTkn((new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$prvPath)))->issueTokenText(Array('user'=>'anna', 'iss'=>'x', 'aud'=>'y')), 1), Array('iss'=>1, 'aud'=>1)), Array());
-checkIdentical('issued: an audience given as a text', partOfTkn((new JWT(Array('audience'=>' api.example.org ') + $bndConf))->issueTokenText(Array('user'=>'anna')), 1)['aud'] ?? null, 'api.example.org');
+checkIdentical('issued: several audiences are a list', partOfTkn($twoJwt->issueTokenText(Array('userName'=>'anna')), 1)['aud'] ?? null, Array('app.example.org', 'api.example.org'));
+checkIdentical('issued: a block naming neither puts neither', array_intersect_key(partOfTkn((new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$prvPath)))->issueTokenText(Array('userName'=>'anna', 'iss'=>'x', 'aud'=>'y')), 1), Array('iss'=>1, 'aud'=>1)), Array());
+checkIdentical('issued: an audience given as a text', partOfTkn((new JWT(Array('audience'=>' api.example.org ') + $bndConf))->issueTokenText(Array('userName'=>'anna')), 1)['aud'] ?? null, 'api.example.org');
 
 // Checked
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'FULL') );
 checkIdentical('checked: the token of the block passes', readsTokn($bndJwt, $rawTokn), 'anna');
 checkIdentical('checked: one audience of the token among those of the block is enough', readsTokn(new JWT(Array('audience'=>Array('other.example.org', 'api.example.org')) + $bndConf), $rawTokn), 'anna');
-checkIdentical('checked: a token naming several audiences, one of them the block\'s', readsTokn($bndJwt, $twoJwt->issueTokenText(Array('user'=>'anna'))), 'anna');
+checkIdentical('checked: a token naming several audiences, one of them the block\'s', readsTokn($bndJwt, $twoJwt->issueTokenText(Array('userName'=>'anna'))), 'anna');
 $prvKeys = Array(strval(file_get_contents($prvPath)), 'RS256');
-$tknBase = Array('user'=>'anna', 'exp'=>time()+60);
+$tknBase = Array('userName'=>'anna', 'exp'=>time()+60);
 checkIdentical('refused, not counted: no issuer', readsTokn($bndJwt, JwtCodec::encode($tknBase + Array('aud'=>'api.example.org'), ...$prvKeys)), Array(false, 'Invalid token', false));
 checkIdentical('refused, not counted: another issuer', readsTokn($bndJwt, JwtCodec::encode($tknBase + Array('iss'=>'https://other.example.org', 'aud'=>'api.example.org'), ...$prvKeys)), Array(false, 'Invalid token', false));
 checkIdentical('refused, not counted: no audience', readsTokn($bndJwt, JwtCodec::encode($tknBase + Array('iss'=>'https://auth.example.org'), ...$prvKeys)), Array(false, 'Invalid token', false));
 checkIdentical('refused, not counted: another audience', readsTokn($bndJwt, JwtCodec::encode($tknBase + Array('iss'=>'https://auth.example.org', 'aud'=>Array('x.example.org', 'y.example.org')), ...$prvKeys)), Array(false, 'Invalid token', false));
 checkIdentical('refused, not counted: an issuer that is not a text', readsTokn($bndJwt, JwtCodec::encode($tknBase + Array('iss'=>Array('https://auth.example.org'), 'aud'=>'api.example.org'), ...$prvKeys)), Array(false, 'Invalid token', false));
-checkIdentical('a token issued before the change is refused', readsTokn($bndJwt, (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$prvPath)))->issueTokenText(Array('user'=>'anna'))), Array(false, 'Invalid token', false));
-checkIdentical('a forged token is still counted first', readsTokn($bndJwt, (new JWT(Array('privFile'=>$othrPrv) + $bndConf))->issueTokenText(Array('user'=>'eve'))), Array(false, 'Invalid token', true));
-checkIdentical('an ended token is still told as ended', readsTokn($bndJwt, JwtCodec::encode(Array('user'=>'anna', 'exp'=>time()-10, 'iss'=>'x'), ...$prvKeys)), Array(false, 'Expired token', false));
+checkIdentical('a token issued before the change is refused', readsTokn($bndJwt, (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$prvPath)))->issueTokenText(Array('userName'=>'anna'))), Array(false, 'Invalid token', false));
+checkIdentical('a forged token is still counted first', readsTokn($bndJwt, (new JWT(Array('privFile'=>$othrPrv) + $bndConf))->issueTokenText(Array('userName'=>'eve'))), Array(false, 'Invalid token', true));
+checkIdentical('an ended token is still told as ended', readsTokn($bndJwt, JwtCodec::encode(Array('userName'=>'anna', 'exp'=>time()-10, 'iss'=>'x'), ...$prvKeys)), Array(false, 'Expired token', false));
 checkIdentical('a block naming neither checks neither', readsTokn(new JWT(Array('signAlgo'=>'RS256', 'publFile'=>$pubPath)), JwtCodec::encode($tknBase + Array('iss'=>'x', 'aud'=>'y'), ...$prvKeys)), 'anna');
 $hsBound = new JWT( Array('hmacSecr'=>$hsSecrt, 'issuerId'=>'nyu', 'audience'=>'api') );
-checkIdentical('HS256 issues and checks them too', Array(readsTokn($hsBound, $hsBound->issueTokenText(Array('user'=>'ben'))), readsTokn($hsBound, (new JWT(Array('hmacSecr'=>$hsSecrt)))->issueTokenText(Array('user'=>'ben')))), Array('ben', Array(false, 'Invalid token', false)));
+checkIdentical('HS256 issues and checks them too', Array(readsTokn($hsBound, $hsBound->issueTokenText(Array('userName'=>'ben'))), readsTokn($hsBound, (new JWT(Array('hmacSecr'=>$hsSecrt)))->issueTokenText(Array('userName'=>'ben')))), Array('ben', Array(false, 'Invalid token', false)));
 Logger::plugLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
 checkIdentical('the reasons are in the log, at the debug level', Array(
@@ -113,9 +113,9 @@ $oldTokn = $rawTokn;
 // Retired a moment from now : the tokens of the previous key were issued before
 $rotConf = Array('privFile'=>$newPriv, 'publFile'=>$newPubl, 'prevFile'=>$pubPath, 'retireAt'=>time() + 5) + $bndConf;
 $rotJwt = new JWT( $rotConf );
-$newTokn = $rotJwt->issueTokenText( Array('user'=>'carl') );
+$newTokn = $rotJwt->issueTokenText( Array('userName'=>'carl') );
 checkIdentical('replaced keys: the tokens of the previous key pass, those of the new one too', Array(readsTokn($rotJwt, $oldTokn), readsTokn($rotJwt, $newTokn)), Array('anna', 'carl'));
-checkIdentical('replaced keys: the new tokens name the new key', partOfTkn($newTokn, 0)['kid'] ?? null, partOfTkn((new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$newPriv)))->issueTokenText(Array('user'=>'x')), 0)['kid'] ?? '');
+checkIdentical('replaced keys: the new tokens name the new key', partOfTkn($newTokn, 0)['kid'] ?? null, partOfTkn((new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$newPriv)))->issueTokenText(Array('userName'=>'x')), 0)['kid'] ?? '');
 unset($rotConf['prevFile']);
 checkIdentical('replaced keys: without prevFile the previous key\'s tokens are forged', readsTokn(new JWT($rotConf), $oldTokn), Array(false, 'Invalid token', true));
 $kidTokn = JwtCodec::encode( $tknBase + Array('iss'=>'https://auth.example.org', 'aud'=>'api.example.org'), strval(file_get_contents($othrPrv)), 'RS256', partOfTkn($oldTokn, 0)['kid'] ?? null );
@@ -130,7 +130,7 @@ checkIdentical('key set: the members of a key', array_keys($keyList[0] ?? Array(
 checkIdentical('key set: what a key says', Array($keyList[0]['kty'] ?? null, $keyList[0]['use'] ?? null, $keyList[0]['alg'] ?? null, $keyList[0]['e'] ?? null), Array('RSA', 'sig', 'RS256', 'AQAB'));
 $jwkKeys = runCatchThrown(function() use ( $keysSet ){ return Firebase\JWT\JWK::parseKeySet($keysSet); });
 checkIdentical('key set: another project checks the tokens with it alone', is_array($jwkKeys) ? (array)JwtCodec::decode($newTokn, $jwkKeys) : $jwkKeys, (array)JwtCodec::decode($newTokn, new Firebase\JWT\Key(strval(file_get_contents($newPubl)), 'RS256')));
-checkIdentical('key set: the previous key checks the tokens it signed', is_array($jwkKeys) ? (JwtCodec::decode($oldTokn, $jwkKeys)->user ?? null) : $jwkKeys, 'anna');
+checkIdentical('key set: the previous key checks the tokens it signed', is_array($jwkKeys) ? (JwtCodec::decode($oldTokn, $jwkKeys)->userName ?? null) : $jwkKeys, 'anna');
 checkIdentical('key set: no private part', preg_match('/"(d|p|q|dp|dq|qi)"/', strval(json_encode($keysSet))), 0);
 checkIdentical('key set: a previous key that is the current one is listed once', count((new JWT(Array('prevFile'=>$pubPath) + $bndConf))->publicSetArray()['keys']), 1);
 checkIdentical('key set: nothing with HS256', Array((new JWT(Array('hmacSecr'=>$hsSecrt)))->publicSetArray(), $hsBound->publicSetArray()), Array(Array('keys'=>Array()), Array('keys'=>Array())));
@@ -152,7 +152,7 @@ function askKeyset( Array $tokenBlock ): Array {
 	)) );
 	return runCatchThrown(function(): Array {
 		$respObj = new Response( Array('outputAs'=>'yamlData', 'headList'=>Array('Cache-Control'=>'no-cache, no-store', 'Expires'=>'Mon, 26 Jul 1997 05:00:00 GMT')) );
-		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('jwksList', null, new Registry(Array()), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('jwksList', null, new Registry(Array()), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 		$actnSet->runAskedAction();
 		$respObj->convertOutFlag( $actnSet->replyValue ?? Array() );
 		return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue, $respObj->readHeadsArray());
@@ -180,15 +180,15 @@ $appKeys = Array( 'headName'=>'X-App-Key', 'appsList'=>Array(
 function callsApp( Array $keysConfig, String $appKeyText, String $tokenValue ): Mixed {
 	$keyChck = new AppKey( $keysConfig );
 	$idntArr = $keyChck->verifyAppArray( mockRequestObj(Array('X-App-Key'=>$appKeyText, 'Authorization'=>'Bearer '.$tokenValue)) );
-	return is_array($idntArr) ? ($idntArr['user'] ?? null) : Array(false, $keyChck->finalErrorText(), $keyChck->wrngCredential());
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $keyChck->finalErrorText(), $keyChck->hasWrongSecret());
 }
-$bareTkn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv) ))->issueTokenText( Array('user'=>'ann') );
+$bareTkn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv) ))->issueTokenText( Array('userName'=>'ann') );
 checkIdentical('app call: without audience, neither is checked', callsApp($appKeys, 'key-portal', $bareTkn), 'ann');
 $appKeys['audience'] = Array('nyu-api');
-checkIdentical('app call: its name as issuer and this project as audience', callsApp($appKeys, 'key-portal', $appTokn->issueTokenText(Array('user'=>'ann'))), 'ann');
+checkIdentical('app call: its name as issuer and this project as audience', callsApp($appKeys, 'key-portal', $appTokn->issueTokenText(Array('userName'=>'ann'))), 'ann');
 checkIdentical('app call: a token without them is refused, not counted', callsApp($appKeys, 'key-portal', $bareTkn), Array(false, 'Invalid token', false));
-checkIdentical('app call: the issuer of the entry replaces its name', callsApp($appKeys, 'key-mobile', $appTokn->issueTokenText(Array('user'=>'ann'))), 'ann');
-checkIdentical('app call: another application\'s name as issuer', callsApp($appKeys, 'key-portal', (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'issuerId'=>'mobile', 'audience'=>'nyu-api')))->issueTokenText(Array('user'=>'ann'))), Array(false, 'Invalid token', false));
-checkIdentical('app call: a token meant for another project', callsApp($appKeys, 'key-portal', (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'issuerId'=>'portal', 'audience'=>'other-api')))->issueTokenText(Array('user'=>'ann'))), Array(false, 'Invalid token', false));
+checkIdentical('app call: the issuer of the entry replaces its name', callsApp($appKeys, 'key-mobile', $appTokn->issueTokenText(Array('userName'=>'ann'))), 'ann');
+checkIdentical('app call: another application\'s name as issuer', callsApp($appKeys, 'key-portal', (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'issuerId'=>'mobile', 'audience'=>'nyu-api')))->issueTokenText(Array('userName'=>'ann'))), Array(false, 'Invalid token', false));
+checkIdentical('app call: a token meant for another project', callsApp($appKeys, 'key-portal', (new JWT(Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'issuerId'=>'portal', 'audience'=>'other-api')))->issueTokenText(Array('userName'=>'ann'))), Array(false, 'Invalid token', false));
 
 finishChecking();

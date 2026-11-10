@@ -21,7 +21,7 @@ abstract class Pack extends Base {
 	const MEDI_MAXI = 1000;
 
 	// The archive being read, and the greatest size accepted for one of its entries
-	protected $opnArchive;
+	protected $archiveObj;
 	protected $maxSizeVal = self::DFLT_SIZE;
 
 	/**
@@ -86,7 +86,7 @@ abstract class Pack extends Base {
 	public function parseFluxArray(Fluxd $sourceStream, Array $parseOptions=Array()): Array {
 		$this->maxSizeVal = intval($parseOptions['limit'] ?? self::DFLT_SIZE);
 		try{
-			$this->opnArchive = Archv::openFluxdArchv($sourceStream);
+			$this->archiveObj = Archv::openFluxdArchv($sourceStream);
 			$envlope = $this->readArchvArray($parseOptions);
 			// The pictures are taken out while the archive is still open
 			return (strval($parseOptions['media'] ?? '')!=='' && $envlope['shape']=='block') ? $this->saveMediaArray($envlope, strval($parseOptions['media'])) : $envlope;
@@ -99,10 +99,10 @@ abstract class Pack extends Base {
 			}
 			throw new ParseError('Invalid archive: '.$e->getMessage(), 0, $e);
 		}finally{
-			if( $this->opnArchive!==null ){
-				$this->opnArchive->releaseArchive();
+			if( $this->archiveObj!==null ){
+				$this->archiveObj->releaseArchive();
 			}
-			$this->opnArchive = null;
+			$this->archiveObj = null;
 		}
 	}
 
@@ -117,14 +117,14 @@ abstract class Pack extends Base {
 	 * @throws ParseError When the part is required and missing, or is not valid XML.
 	 */
 	protected function partNodesArray(String $fullPathName, Bool $partRequired=true, Bool $keepsSpacing=false): ?Array {
-		if( !$this->opnArchive->locateEntryFlg($fullPathName) ){
+		if( !$this->archiveObj->locateEntryFlg($fullPathName) ){
 			if( $partRequired ){
 				throw new ParseError('Invalid archive: part '.$fullPathName.' is missing');
 			}
 			return null;
 		}
 		try{
-			$partDoc = (new XHml())->parseDataArray($this->opnArchive->getEntryString($fullPathName, $this->maxSizeVal), Array('reads'=>'xml', 'shape'=>'nodes', 'space'=>$keepsSpacing));
+			$partDoc = (new XHml())->parseDataArray($this->archiveObj->getEntryString($fullPathName, $this->maxSizeVal), Array('reads'=>'xml', 'shape'=>'nodes', 'space'=>$keepsSpacing));
 		}catch( ParseError $e ){
 			throw new ParseError('Invalid archive: part '.$fullPathName.': '.$e->getMessage(), 0, $e);
 		}
@@ -288,7 +288,7 @@ abstract class Pack extends Base {
 	 * @throws ParseError When the document is protected by a password.
 	 */
 	protected function refuseIfLocked(): Void {
-		if( $this->opnArchive->locateEntryFlg('META-INF/manifest.xml') && strpos($this->opnArchive->getEntryString('META-INF/manifest.xml', $this->maxSizeVal), 'encryption-data')!==false ){
+		if( $this->archiveObj->locateEntryFlg('META-INF/manifest.xml') && strpos($this->archiveObj->getEntryString('META-INF/manifest.xml', $this->maxSizeVal), 'encryption-data')!==false ){
 			throw new ParseError('Invalid archive: the document is protected by a password');
 		}
 	}
@@ -440,15 +440,15 @@ abstract class Pack extends Base {
 	 * Makes one block of code of the paragraphs of code that follow one
 	 * another, each being one of its lines.
 	 *
-	 * @param Array $prgrphsArray The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
+	 * @param Array $paragraphArr The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
 	 * @return Array The block, in a list; an empty list when the lines hold nothing.
 	 */
-	protected function codeBlockArray(Array $prgrphsArray): Array {
-		$codeTxt = trim(implode("\n", array_column($prgrphsArray, 'plain')), "\n");
+	protected function codeBlockArray(Array $paragraphArr): Array {
+		$codeTxt = trim(implode("\n", array_column($paragraphArr, 'plain')), "\n");
 		if( trim($codeTxt)==='' ){
 			return Array();
 		}
-		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), $prgrphsArray[0]['attrs'] ?? Array()));
+		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), $paragraphArr[0]['attrs'] ?? Array()));
 	}
 	
 	/**
@@ -457,7 +457,7 @@ abstract class Pack extends Base {
 	 * @param Array $styleDetails The style: its name under 'names', then 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 * @return Array A name fit for a style sheet under 'class', then what the style tells among 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 */
-	protected function frmatOfItArray(Array $styleDetails): Array {
+	protected function styleFormatArr(Array $styleDetails): Array {
 		$clssNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleDetails['names'] ?? ''))), '-');
 		$frmtSet = Array('class'=>preg_match('/^[a-z]/', $clssNme) ? $clssNme : 's-'.$clssNme);
 		foreach(Array('fonts', 'sizes', 'color', 'marks', 'align') as $prpKey){
@@ -518,14 +518,14 @@ abstract class Pack extends Base {
 				$bookBlockSet[$blkIdx]['items'] = $this->mediaWalkArray($oneBlk['items'], $imagesFolder, $picturesSeen);
 			}
 			$innrPth = strval($oneBlk['attrs']['sourc'] ?? '');
-			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->opnArchive->locateEntryFlg($innrPth) ){
+			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->archiveObj->locateEntryFlg($innrPth) ){
 				continue;
 			}
 			if( !isset($picturesSeen[$innrPth]) && count($picturesSeen)<self::MEDI_MAXI ){
 				$picturesSeen[$innrPth] = '';
 				try{
-					$rawText = $this->opnArchive->getEntryString($innrPth, $this->maxSizeVal);
-					$picture = Image::openFluxdArchv(Fluxd::openBytesFluxd($rawText));
+					$rawText = $this->archiveObj->getEntryString($innrPth, $this->maxSizeVal);
+					$picture = Image::openFluxdImage(Fluxd::openBytesFluxd($rawText));
 					// A drawing is saved cleaned of what runs; any other picture written anew, or copied when this server cannot
 					if( $picture->imageInfoArray()['kinds']=='svg' ){
 						$outText = $picture->dropRiskyParts();

@@ -29,7 +29,7 @@ class Sound {
 
 	protected $nakedBytes;
 	protected $detailList;
-	protected $cvrPicture;
+	protected $coverBytes;
 	// For the kinds cut as they are written: where what is heard starts and ends, and the frames it is made of
 	protected $trimValues;
 	// The program that unpacks sounds, where the server has one
@@ -56,7 +56,7 @@ class Sound {
 	}
 
 	/**
-	 * Private: a sound is opened through openFluxdArchv(), or made from
+	 * Private: a sound is opened through openFluxdSound(), or made from
 	 * another one.
 	 *
 	 * @param String $nakedContent The bytes of the sound.
@@ -67,7 +67,7 @@ class Sound {
 	private function __construct(String $nakedContent, Array $mediaDetails, String $pictureBytes, Array $trimSettings){
 		$this->nakedBytes = $nakedContent;
 		$this->detailList = $mediaDetails;
-		$this->cvrPicture = $pictureBytes;
+		$this->coverBytes = $pictureBytes;
 		$this->trimValues = $trimSettings;
 	}
 
@@ -81,7 +81,7 @@ class Sound {
 	 *
 	 * @throws \RuntimeException When the source is larger than the limit, or is not a sound of a known kind.
 	 */
-	public static function openFluxdArchv(Fluxd $sourceStream, Int $bytesCeiling=self::MAXI_BYTE): Sound {
+	public static function openFluxdSound(Fluxd $sourceStream, Int $bytesCeiling=self::MAXI_BYTE): Sound {
 		return self::fromBytesSound($sourceStream->getWholeString($bytesCeiling));
 	}
 
@@ -678,11 +678,11 @@ class Sound {
 	 * @return ?Image The picture, null when the sound carries none, or carries what is not a picture.
 	 */
 	public function giveCoverImage(Int $pixelCeiling=Image::MAXI_PIXL): ?Image {
-		if( $this->cvrPicture==='' ){
+		if( $this->coverBytes==='' ){
 			return null;
 		}
 		try{
-			return Image::openFluxdArchv(Fluxd::openBytesFluxd($this->cvrPicture), $pixelCeiling);
+			return Image::openFluxdImage(Fluxd::openBytesFluxd($this->coverBytes), $pixelCeiling);
 		}catch( \RuntimeException $e ){
 			return null;
 		}
@@ -693,18 +693,18 @@ class Sound {
 	 * being left as it is written.
 	 *
 	 * @param String $targetFormat Kind to give: the kind of the sound when left out. Another kind takes a program that unpacks the sound.
-	 * @param Int    $bitrtKilbyts Thousands of bits a second to pack it with, for the kinds that lose some of the sound; left to the kind when 0. Asking for one packs the sound again.
+	 * @param Int    $kilobitsRate Thousands of bits a second to pack it with, for the kinds that lose some of the sound; left to the kind when 0. Asking for one packs the sound again.
 	 * @return String The bytes.
 	 *
 	 * @throws \RuntimeException When the kind is unknown, or what is asked takes a program that unpacks sounds and the server has none.
 	 */
-	public function grantBytesText(String $targetFormat='', Int $bitrtKilbyts=0): String {
+	public function grantBytesText(String $targetFormat='', Int $kilobitsRate=0): String {
 		$kindKey = strtolower(($targetFormat==='') ? $this->detailList['kinds'] : $targetFormat);
 		if( !isset(Codec::KIND_LIST[$kindKey]) ){
 			throw new \RuntimeException('Unknown kind of sound: '.substr(preg_replace('/[^a-z0-9]+/', '', $kindKey), 0, 10));
 		}
-		if( ($kindKey!==$this->detailList['kinds'] || $bitrtKilbyts>0) && self::validateACodec() ){
-			return self::$soundCodec->alterSndString($this->nakedBytes, $this->detailList['kinds'], $kindKey, Array('kbits'=>$bitrtKilbyts));
+		if( ($kindKey!==$this->detailList['kinds'] || $kilobitsRate>0) && self::validateACodec() ){
+			return self::$soundCodec->alterSoundText($this->nakedBytes, $this->detailList['kinds'], $kindKey, Array('kbits'=>$kilobitsRate));
 		}
 		if( $kindKey!==$this->detailList['kinds'] ){
 			throw new \RuntimeException('Giving a sound as another kind takes a program that unpacks it, which this server does not have');
@@ -726,7 +726,7 @@ class Sound {
 			return $headTxt.substr($this->nakedBytes, $this->trimValues['start']);
 		}
 		if( self::validateACodec() ){
-			return self::$soundCodec->alterSndString($this->nakedBytes, $kindKey, $kindKey);
+			return self::$soundCodec->alterSoundText($this->nakedBytes, $kindKey, $kindKey);
 		}
 		throw new \RuntimeException('The tags of a sound of this kind cannot be taken off as it is written: '.$kindKey);
 	}
@@ -735,13 +735,13 @@ class Sound {
 	 * Makes the same sound of another kind, without its tags.
 	 *
 	 * @param String $targetFormat The kind to make: wav, mp3, flac, ogg or m4a.
-	 * @param Int    $bitrtKilbyts Thousands of bits a second to pack it with; left to the kind when 0.
+	 * @param Int    $kilobitsRate Thousands of bits a second to pack it with; left to the kind when 0.
 	 * @return Sound The sound made.
 	 *
 	 * @throws \RuntimeException When the kind is unknown, or the server has no program that unpacks sounds.
 	 */
-	public function convertToSound(String $targetFormat, Int $bitrtKilbyts=0): Sound {
-		return self::fromBytesSound($this->grantBytesText($targetFormat, $bitrtKilbyts));
+	public function convertToSound(String $targetFormat, Int $kilobitsRate=0): Sound {
+		return self::fromBytesSound($this->grantBytesText($targetFormat, $kilobitsRate));
 	}
 	
 	/**
@@ -802,7 +802,7 @@ class Sound {
 			return self::fromBytesSound($partTxt);
 		}
 		if( self::validateACodec() ){
-			return self::fromBytesSound(self::$soundCodec->alterSndString($this->nakedBytes, $this->detailList['kinds'], $this->detailList['kinds'], Array('start'=>$fromSec, 'until'=>$tillSec)));
+			return self::fromBytesSound(self::$soundCodec->alterSoundText($this->nakedBytes, $this->detailList['kinds'], $this->detailList['kinds'], Array('start'=>$fromSec, 'until'=>$tillSec)));
 		}
 		throw new \RuntimeException('Cutting a sound of this kind takes a program that unpacks it, which this server does not have: '.$this->detailList['kinds']);
 	}
@@ -818,15 +818,15 @@ class Sound {
 	 * the program does when a sound is brought to fewer samples a second.
 	 *
 	 * @param Int $ratesHertzNb Samples a second to give it, from 8000 to 192000; its own when 0.
-	 * @param Int $channlsCount Channels to give it, 1 or 2; its own when 0.
+	 * @param Int $channelCount Channels to give it, 1 or 2; its own when 0.
 	 * @param Int $sampleBitsNb Bits a sample to give it: 8, 16, 24 or 32; its own when 0.
 	 * @return Sound The sound made.
 	 *
 	 * @throws \RuntimeException When a value asked for is not one of those accepted, or the sound is packed in a way that is not read here.
 	 */
-	public function changeWavSound(Int $ratesHertzNb=0, Int $channlsCount=0, Int $sampleBitsNb=0): Sound {
+	public function changeWavSound(Int $ratesHertzNb=0, Int $channelCount=0, Int $sampleBitsNb=0): Sound {
 		if( $this->detailList['kinds']!='wav' ){
-			return $this->convertToSound('wav')->changeWavSound($ratesHertzNb, $channlsCount, $sampleBitsNb);
+			return $this->convertToSound('wav')->changeWavSound($ratesHertzNb, $channelCount, $sampleBitsNb);
 		}
 		$frmtVls = unpack('vkind/vchans/Vrates/Vbytes/valign/vbits', $this->trimValues['headr']);
 		// Samples written as whole numbers, told so directly or in the longer way of telling it
@@ -839,7 +839,7 @@ class Sound {
 			throw new \RuntimeException('A WAV sound packed this way is not changed without a program that unpacks sounds');
 		}
 		$intoRte = ($ratesHertzNb==0) ? $fromRte : $ratesHertzNb;
-		$intoChn = ($channlsCount==0) ? $fromChn : $channlsCount;
+		$intoChn = ($channelCount==0) ? $fromChn : $channelCount;
 		$intoBit = ($sampleBitsNb==0) ? $fromBit : $sampleBitsNb;
 		if( $intoRte<8000 || $intoRte>192000 ){
 			throw new \RuntimeException('Samples a second out of the 8000 to 192000 accepted: '.$intoRte);
@@ -934,13 +934,13 @@ class Sound {
 	 *
 	 * @param String $saveFilePath Path of the file to write.
 	 * @param String $targetFormat Kind to write; the kind of the sound when left out.
-	 * @param Int    $bitrtKilbyts Thousands of bits a second to pack it with; left to the kind when 0.
+	 * @param Int    $kilobitsRate Thousands of bits a second to pack it with; left to the kind when 0.
 	 * @return String The path of the file.
 	 *
 	 * @throws \RuntimeException When the file cannot be written, or the sound cannot be given as asked.
 	 */
-	public function setLocalString(String $saveFilePath, String $targetFormat='', Int $bitrtKilbyts=0): String {
-		if( @file_put_contents($saveFilePath, $this->grantBytesText($targetFormat, $bitrtKilbyts))===false ){
+	public function writeLocalFile(String $saveFilePath, String $targetFormat='', Int $kilobitsRate=0): String {
+		if( @file_put_contents($saveFilePath, $this->grantBytesText($targetFormat, $kilobitsRate))===false ){
 			throw new \RuntimeException('File cannot be written: '.basename($saveFilePath));
 		}
 		return $saveFilePath;

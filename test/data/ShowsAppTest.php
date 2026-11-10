@@ -23,13 +23,13 @@ require RUN_DIR.DS.'Shows'.DS.'Actions.php';
  * Runs an action of the Shows application.
  *
  * @param String  $actionName Action to run.
- * @param ?String $actnOption Option passed to the action.
+ * @param ?String $runAppOption Option passed to the action.
  * @param Array   $inputArray Input values available to the action.
  * @return mixed Array with 'code', 'mssg' and 'out', or a 'THROWN ...' string.
  */
-function runAction( String $actionName, ?String $actnOption=null, Array $inputArray=Array() ): Mixed {
-	return runCatchThrown(function() use ($actionName, $actnOption, $inputArray){
-		$actnSet = new nyu\Runs\Shows\Actions( new nyu\App\RunContext($actionName, $actnOption, new Registry($inputArray), null, null, null, null, new ModelStack('Shows'), 'Shows', RUN_DIR.DS.'Shows') );
+function runAction( String $actionName, ?String $runAppOption=null, Array $inputArray=Array() ): Mixed {
+	return runCatchThrown(function() use ($actionName, $runAppOption, $inputArray){
+		$actnSet = new nyu\Runs\Shows\Actions( new nyu\App\RunContext($actionName, $runAppOption, new Registry($inputArray), null, null, null, null, new ModelStack('Shows'), 'Shows', RUN_DIR.DS.'Shows') );
 		$actnSet->runAskedAction();
 		return Array('code'=>$actnSet->statusCode, 'mssg'=>$actnSet->statusMssg, 'out'=>$actnSet->replyValue);
 	});

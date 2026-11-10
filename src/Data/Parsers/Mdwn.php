@@ -17,14 +17,14 @@ class Mdwn extends Base {
 	// Formatting given by each mark
 	const MARK_LIST = Array(1=>Array('emphasis'), 2=>Array('boldFace'), 3=>Array('boldFace', 'emphasis'));
 	// A line that is a rule
-	const RULE_PTRN = '/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/D';
+	const RULE_PATT = '/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/D';
 	// The line under the names of the columns of a table
-	const TBLE_PTRN = '/^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/D';
+	const TBLE_PATT = '/^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/D';
 	// An address between the brackets of a link or of an image, and the title that may follow it
-	const ADDR_PTRN = '(?:<[^>\n]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)';
-	const TITL_PTRN = '(?:[ \t]+(?:"[^"]*"|\'[^\']*\'))?[ \t]*';
+	const ADDR_PATT = '(?:<[^>\n]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)';
+	const TITL_PATT = '(?:[ \t]+(?:"[^"]*"|\'[^\']*\'))?[ \t]*';
 	// An image, alone or inside a link
-	const IMGE_PTRN = '/\[!\[(?<la>[^\]]*)\]\([ \t]*(?<ls>'.self::ADDR_PTRN.')'.self::TITL_PTRN.'\)\]\([ \t]*'.self::ADDR_PTRN.self::TITL_PTRN.'\)|!\[(?<ia>[^\]]*)\]\([ \t]*(?<is>'.self::ADDR_PTRN.')'.self::TITL_PTRN.'\)/';
+	const IMGE_PATT = '/\[!\[(?<la>[^\]]*)\]\([ \t]*(?<ls>'.self::ADDR_PATT.')'.self::TITL_PATT.'\)\]\([ \t]*'.self::ADDR_PATT.self::TITL_PATT.'\)|!\[(?<ia>[^\]]*)\]\([ \t]*(?<is>'.self::ADDR_PATT.')'.self::TITL_PATT.'\)/';
 
 	/**
 	 * Parses a Markdown text into blocks. An empty content gives no block.
@@ -70,7 +70,7 @@ class Mdwn extends Base {
 	 * @return Bool True when it does.
 	 */
 	protected function startsBlockFlg(String $markdownLine, Bool $insidePrgrph): Bool {
-		if( preg_match('/^ {0,3}(?:`{3,}[^`]*$|~{3,}|#{1,6}(?:[ \t]|$)|>)/D', $markdownLine) || preg_match(self::RULE_PTRN, $markdownLine) ){
+		if( preg_match('/^ {0,3}(?:`{3,}[^`]*$|~{3,}|#{1,6}(?:[ \t]|$)|>)/D', $markdownLine) || preg_match(self::RULE_PATT, $markdownLine) ){
 			return true;
 		}
 		$lstMark = $this->readListMarker($markdownLine);
@@ -123,7 +123,7 @@ class Mdwn extends Base {
 				$lineIdx++;
 				continue;
 			}
-			$tblStrt = (strpos($lineTxt, '|')!==false && isset($linesToParse[$lineIdx+1]) && preg_match(self::TBLE_PTRN, $linesToParse[$lineIdx+1]) && count($this->splitCellArray($lineTxt))==count($this->splitCellArray($linesToParse[$lineIdx+1])));
+			$tblStrt = (strpos($lineTxt, '|')!==false && isset($linesToParse[$lineIdx+1]) && preg_match(self::TBLE_PATT, $linesToParse[$lineIdx+1]) && count($this->splitCellArray($lineTxt))==count($this->splitCellArray($linesToParse[$lineIdx+1])));
 			$codeInd = (empty($paraLns) && substr($lineTxt, 0, 4)==='    ');
 			if( trim($lineTxt)!=='' && !$tblStrt && !$codeInd && !$this->startsBlockFlg($lineTxt, !empty($paraLns)) ){
 				$paraLns[] = $lineTxt;
@@ -157,7 +157,7 @@ class Mdwn extends Base {
 			}elseif( preg_match('/^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/D', $lineTxt, $linPart) ){
 				$blckLst[] = $this->headBlockArray(strval($linPart[2] ?? ''), strlen($linPart[1]));
 				$lineIdx++;
-			}elseif( preg_match(self::RULE_PTRN, $lineTxt) ){
+			}elseif( preg_match(self::RULE_PATT, $lineTxt) ){
 				$blckLst[] = Shape::makeBlockArray('ruleLine');
 				$lineIdx++;
 			}elseif( preg_match('/^ {0,3}>/', $lineTxt) ){
@@ -246,7 +246,7 @@ class Mdwn extends Base {
 			while( $nextIdx<$lineNum && trim($linesToParse[$nextIdx])==='' ){
 				$nextIdx++;
 			}
-			$nxtMark = ($nextIdx<$lineNum && !preg_match(self::RULE_PTRN, $linesToParse[$nextIdx])) ? $this->readListMarker($linesToParse[$nextIdx]) : null;
+			$nxtMark = ($nextIdx<$lineNum && !preg_match(self::RULE_PATT, $linesToParse[$nextIdx])) ? $this->readListMarker($linesToParse[$nextIdx]) : null;
 			if( $nxtMark===null || $nxtMark['kinds']!==$frstMrk['kinds'] ){
 				break;
 			}
@@ -327,7 +327,7 @@ class Mdwn extends Base {
 		$fullTxt = $this->mergeLinesText($linesToParse);
 		$imgPrts = Array();
 		$readPos = 0;
-		while( preg_match(self::IMGE_PTRN, $fullTxt, $imgPrts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readPos) ){
+		while( preg_match(self::IMGE_PATT, $fullTxt, $imgPrts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readPos) ){
 			$spnsLst = $this->textSpansArray(substr($fullTxt, $readPos, $imgPrts[0][1]-$readPos));
 			if( !empty($spnsLst) ){
 				$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
@@ -370,8 +370,8 @@ class Mdwn extends Base {
 		$pattern = '/\\\\(?<esc>[!-\/:-@\[-`{-~])'
 			.'|(?<!`)(?<tck>`++)(?<cod>.+?)(?<!`)\k<tck>(?!`)'
 			.'|<(?<aut>https?:\/\/[^\s<>]+|mailto:[^\s<>]+|[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+)>'
-			.'|!\[(?<alt>[^\]]*)\]\([ \t]*'.self::ADDR_PTRN.self::TITL_PTRN.'\)'
-			.'|\[(?<ltx>(?:[^\[\]\\\\]|\\\\.|\[[^\[\]]*\])*)\]\([ \t]*(?<lnk>'.self::ADDR_PTRN.')'.self::TITL_PTRN.'\)'
+			.'|!\[(?<alt>[^\]]*)\]\([ \t]*'.self::ADDR_PATT.self::TITL_PATT.'\)'
+			.'|\[(?<ltx>(?:[^\[\]\\\\]|\\\\.|\[[^\[\]]*\])*)\]\([ \t]*(?<lnk>'.self::ADDR_PATT.')'.self::TITL_PATT.'\)'
 			.'|(?<!\*)(?<stm>\*{1,3})(?![\s*])(?<stx>.+?)(?<![\s*])\k<stm>(?!\*)'
 			.'|(?<![\p{L}\p{N}_])(?<unm>_{1,3})(?![\s_])(?<unx>.+?)(?<![\s_])\k<unm>(?![\p{L}\p{N}_])'
 			.'|(?<!~)~~(?![\s~])(?<tld>.+?)(?<![\s~])~~(?!~)/us';

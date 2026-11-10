@@ -8,7 +8,7 @@ namespace nyu\Data\DBHndlr;
 Class PgSQL extends PDO {
 
 	// Names are quoted with double quotes, and wildcard searches ignore the case as they do on the other types
-	protected	$qutCharctr = '"';
+	protected	$quotesChar = '"';
 	protected	$likeSyntax = 'ILIKE';
 
 	/**
@@ -18,12 +18,12 @@ Class PgSQL extends PDO {
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
-	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()): Void {
-		$this->baseDriver = new \PDO($this->buildDsnString($databaseHost, $hostBaseText, $moreParamtrs), $serverUsrTxt, $hostPassText, $this->pdoOptionArray($moreParamtrs));
+	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): Void {
+		$this->baseDriver = new \PDO($this->buildDsnString($databaseHost, $hostBaseText, $settingsList), $serverUsrTxt, $hostPassText, $this->pdoOptionArray($settingsList));
 	}
 
 	/**
@@ -32,21 +32,21 @@ Class PgSQL extends PDO {
 	 *
 	 * @param String $databaseHost Database host.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 * @return String The PDO connection string.
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
-	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $moreParamtrs=Array()): String {
+	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
 		$dsnText = "pgsql:host=$databaseHost;dbname=$hostBaseText";
-		$partNum = strval($moreParamtrs['portNumb'] ?? '');
+		$partNum = strval($settingsList['portNumb'] ?? '');
 		if( $partNum!='' ){
 			if( !ctype_digit($partNum) ){
 				throw new \RuntimeException('Invalid database port: '.$partNum);
 			}
 			$dsnText .= ';port='.$partNum;
 		}
-		$charSet = strval($moreParamtrs['encoding'] ?? '');
+		$charSet = strval($settingsList['encoding'] ?? '');
 		if( $charSet!='' ){
 			// A character set name (UTF8, LATIN1), not a collation
 			if( !preg_match('/^[A-Za-z0-9]+$/D', $charSet) ){

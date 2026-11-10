@@ -23,7 +23,7 @@ class TestCodec extends Codec {
  * @return Sound The sound.
  */
 function cdcOpen( String $rawContent ): Sound {
-	return Sound::openFluxdArchv(Fluxd::openBytesFluxd($rawContent));
+	return Sound::openFluxdSound(Fluxd::openBytesFluxd($rawContent));
 }
 
 /**
@@ -72,7 +72,7 @@ $oggFile = 'OggS'."\0\0".pack('P', 0).pack('VVV', 1, 0, 0).chr(1).chr(strlen($og
 // Without a program
 checkIdentical('no program is plugged at first', Sound::validateACodec(), false);
 checkIdentical('a program told to be nowhere cannot be used', Array((new Codec(''))->isProgramReady(), (new Codec(__DIR__.'/no-such-program'))->isProgramReady()), Array(false, false));
-checkPregMatch('a program that cannot be run', runCatchThrown(function() use ($wavFile){ return (new Codec(''))->alterSndString($wavFile, 'wav', 'mp3'); }), '/^THROWN RuntimeException: The program that unpacks sounds cannot be run on this server/');
+checkPregMatch('a program that cannot be run', runCatchThrown(function() use ($wavFile){ return (new Codec(''))->alterSoundText($wavFile, 'wav', 'mp3'); }), '/^THROWN RuntimeException: The program that unpacks sounds cannot be run on this server/');
 Sound::plugSoundCodec(new Codec(__DIR__.'/no-such-program'));
 checkPregMatch('a program plugged and missing changes nothing', runCatchThrown(function() use ($wavFile){ return cdcOpen($wavFile)->grantBytesText('mp3'); }), '/^THROWN RuntimeException: Giving a sound as another kind takes a program/');
 

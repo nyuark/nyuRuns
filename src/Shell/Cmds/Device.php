@@ -80,7 +80,7 @@ class Device extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFullList(): Int {
-		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
+		$usrName = strval($this->optionsObj->shiftFirstWord() ?? '');
 		$dvcRows = $this->getDeviceCheck()->lstUserDevices($usrName);
 		if( $dvcRows===false ){
 			$this->terminateShell('The devices cannot be read');

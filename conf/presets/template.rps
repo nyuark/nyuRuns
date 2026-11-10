@@ -89,7 +89,7 @@
         // manually (from the routes the entry point declares). Declared route files are read in both
 		"detectBy": "autopath",
         // Names given to the parts of the path; in order
-		"pathForm": "$app/$action/$param",
+		"pathForm": "$appToRun/$doAction/$argument",
         // Folder of the declared route files (*.rte); relative to the project root.
         // Uses conf/routes when not set. Declared routes are checked before the mapper
 		"routeDir": "conf/routes",

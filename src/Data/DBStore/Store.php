@@ -118,7 +118,7 @@ interface Store{
 	 *
 	 * @return Bool True when the transaction is open, false on failure or when the store has no transactions.
 	 */
-	public function opnTransaction(): Bool;
+	public function newTransaction(): Bool;
 
 	/**
 	 * Makes the changes of the transaction permanent. On an inner level,
@@ -133,7 +133,7 @@ interface Store{
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function remTransaction(): Bool;
+	public function delTransaction(): Bool;
 
 	/**
 	 * Returns the error of the last call. Each call clears the error of

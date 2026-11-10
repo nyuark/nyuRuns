@@ -25,30 +25,30 @@ class Mailer {
 
 	protected $accountNme;
 	protected $setupArray;
-	protected $drvrObject;
+	protected $mailDriver;
 
 	/**
 	 * Builds the mailer of an account.
 	 *
 	 * @param String $accountLabel Name of the account, in lower case; '' for the default one.
-	 * @param Array  $accontConfig The settings of the account (see acntSetup).
+	 * @param Array  $acntSetupArr The settings of the account (see acntSetup).
 	 *
 	 * @throws MailFailure When the type is unknown, the account has no sender, or its driver cannot work.
 	 */
-	public function __construct( String $accountLabel, Array $accontConfig ){
+	public function __construct( String $accountLabel, Array $acntSetupArr ){
 		$this->accountNme = $accountLabel;
-		$this->setupArray = $accontConfig;
+		$this->setupArray = $acntSetupArr;
 		// The type whatever its case, as TYPE_LIST writes it
-		$typeKey = strval( array_values(preg_grep('/^'.preg_quote(strval($accontConfig['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
+		$typeKey = strval( array_values(preg_grep('/^'.preg_quote(strval($acntSetupArr['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
 		if( !isset(self::TYPE_LIST[$typeKey]) ){
-			throw new MailFailure('Unknown mail type: '.json_encode($accontConfig['sendWith'] ?? ''));
+			throw new MailFailure('Unknown mail type: '.json_encode($acntSetupArr['sendWith'] ?? ''));
 		}
-		if( ($accontConfig['fromAddr'] ?? '')=='' ){
+		if( ($acntSetupArr['fromAddr'] ?? '')=='' ){
 			throw new MailFailure('The mail account '.json_encode($accountLabel).' has no sender address');
 		}
-		Message::checkEmailAddr($accontConfig['fromAddr']);
+		Message::checkEmailAddr($acntSetupArr['fromAddr']);
 		$drvrCls = '\\nyu\\Data\\Mail\\Drivers\\'.self::TYPE_LIST[$typeKey];
-		$this->drvrObject = new $drvrCls($accontConfig);
+		$this->mailDriver = new $drvrCls($acntSetupArr);
 	}
 
 	/**
@@ -88,7 +88,7 @@ class Mailer {
 	 */
 	public static function acntSetupArray( String $accountLabel='' ): Array {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$allAcnt = $nyuConf ? $nyuConf->readFileDetail('mailer') : null;
+		$allAcnt = $nyuConf ? $nyuConf->readValueByKey('mailer') : null;
 		if( !is_array($allAcnt) || empty($allAcnt) ){
 			throw new MailFailure('No mail account is configured');
 		}
@@ -135,14 +135,14 @@ class Mailer {
 		}
 		$channel = Logger::retrieveLogger('runner');
 		$acntTxt = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);
-		$failTxt = $this->drvrObject->deliverMessage( $mailObj, $mailObj->listRecipients() );
+		$failTxt = $this->mailDriver->deliverMessage( $mailObj, $mailObj->listRecipients() );
 		if( $failTxt!==null ){
 			$channel->warning('Mail not sent to '.json_encode($mailObj->listRecipients()).' through account '.$acntTxt.': '.$failTxt.Logger::getActorSuffix());
 			return false;
 		}
 		$channel->info('Mail sent to '.json_encode($mailObj->listRecipients()).' through account '.$acntTxt.Logger::getActorSuffix());
 		if( !empty($copyLst) ){
-			$failTxt = $this->drvrObject->deliverMessage( $mailObj, $copyLst );
+			$failTxt = $this->mailDriver->deliverMessage( $mailObj, $copyLst );
 			if( $failTxt!==null ){
 				$channel->warning('Copy of a mail not sent to '.json_encode($copyLst).' through account '.$acntTxt.': '.$failTxt);
 			}else{

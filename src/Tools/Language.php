@@ -24,27 +24,27 @@ class Language {
 	/**
 	 * Builds the chooser, with the default language of the project.
 	 *
-	 * @param ?String $langTagStrng The default language; LNG_DFLT of system.ini when not given.
+	 * @param ?String $givenLangTag The default language; LNG_DFLT of system.ini when not given.
 	 */
-	function __construct( ?String $langTagStrng=null ){
-		if( $langTagStrng===null ){
+	function __construct( ?String $givenLangTag=null ){
+		if( $givenLangTag===null ){
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-			$iniConf = ($nyuConf!==null) ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
-			$langTagStrng = strval($iniConf['LNG_DFLT'] ?? '');
+			$iniConf = ($nyuConf!==null) ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
+			$givenLangTag = strval($iniConf['LNG_DFLT'] ?? '');
 		}
-		$langTagStrng = strtolower( trim(str_replace('_', '-', $langTagStrng)) );
-		$this->defaultLng = self::isValidLangTag($langTagStrng) ? $langTagStrng : 'en';
+		$givenLangTag = strtolower( trim(str_replace('_', '-', $givenLangTag)) );
+		$this->defaultLng = self::isValidLangTag($givenLangTag) ? $givenLangTag : 'en';
 	}
 
 	/**
 	 * Tells whether a text is a language tag, in lower case: two or three
 	 * letters, then parts of 2 to 8 letters or digits, each after a '-'.
 	 *
-	 * @param String $langTagStrng The text.
+	 * @param String $givenLangTag The text.
 	 * @return Bool Whether it is a tag.
 	 */
-	public static function isValidLangTag( String $langTagStrng ): Bool {
-		return strlen($langTagStrng)<=16 && preg_match('/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/D', $langTagStrng)===1;
+	public static function isValidLangTag( String $givenLangTag ): Bool {
+		return strlen($givenLangTag)<=16 && preg_match('/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/D', $givenLangTag)===1;
 	}
 
 	/**
@@ -70,12 +70,12 @@ class Language {
 	 * Gives the languages a text is looked for in, the most precise first:
 	 * the tag, the tag cut part by part, then the default, cut the same way.
 	 *
-	 * @param String $langTagStrng The language chosen.
+	 * @param String $givenLangTag The language chosen.
 	 * @return Array The languages, each once ('fr-ch' gives 'fr-ch', 'fr', 'en').
 	 */
-	public function langChainArray( String $langTagStrng ): Array {
+	public function langChainArray( String $givenLangTag ): Array {
 		$chainLs = Array();
-		foreach( Array(strtolower($langTagStrng), $this->defaultLng) as $oneTag ){
+		foreach( Array(strtolower($givenLangTag), $this->defaultLng) as $oneTag ){
 			if( !self::isValidLangTag($oneTag) ){
 				continue;
 			}
@@ -90,12 +90,12 @@ class Language {
 	/**
 	 * Finds the file of a text in the first language of a chain that has it.
 	 *
-	 * @param String $baseFoldText The folder holding one folder per language.
+	 * @param String $baseFldrText The folder holding one folder per language.
 	 * @param String $templateName The name of the file.
 	 * @param Array  $languageList The languages, the most precise first (see langChainArray()).
 	 * @return ?String The path of the file, or null when no language has it.
 	 */
-	public function locateTemplate( String $baseFoldText, String $templateName, Array $languageList ): ?String {
+	public function locateTemplate( String $baseFldrText, String $templateName, Array $languageList ): ?String {
 		if( $templateName=='' || basename($templateName)!==$templateName ){
 			return null;
 		}
@@ -103,7 +103,7 @@ class Language {
 			if( !is_string($oneTag) || !self::isValidLangTag($oneTag) ){
 				continue;
 			}
-			$filPath = rtrim($baseFoldText, '/\\').DS.$oneTag.DS.$templateName;
+			$filPath = rtrim($baseFldrText, '/\\').DS.$oneTag.DS.$templateName;
 			if( is_file($filPath) && is_readable($filPath) ){
 				return $filPath;
 			}

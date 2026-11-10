@@ -97,8 +97,8 @@ function callActn( String $routeNamed, Array $inputArray=Array(), String $logged
 		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 		$mthProp->setValue($request, $httpMethod);
 		$axssReg = new Registry( ($loggedUser!='')
-			? Array('logged'=>true, 'user'=>$loggedUser, 'role'=>$loggedRole, 'statCode'=>200, 'statMssg'=>'')
-			: Array('logged'=>false, 'user'=>'', 'role'=>null, 'statCode'=>200, 'statMssg'=>'') );
+			? Array('loggedIn'=>true, 'userName'=>$loggedUser, 'userRole'=>$loggedRole, 'statCode'=>200, 'statMssg'=>'')
+			: Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		Logger::setCurrentUser( $loggedUser, '192.0.2.50' );
 		$rteName = explode('/', $routeNamed);
 		$control = new Controller( $rteName[0], $rteName[1], new Registry($inputArray), null, $axssReg, $request );

@@ -1,8 +1,8 @@
 {
 	"index" : {
 		"pointsTo": {
-			"appNamed": "shows",
-			"actNamed": "overview"
+			"appToRun": "shows",
+			"doAction": "overview"
 		}
 	}
 }

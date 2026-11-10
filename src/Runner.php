@@ -22,16 +22,16 @@ class Runner{
 
 	protected 	$presetUsed;	// RPS (Runner PreSet) Object
 	protected	$confLoader;	// Loader Container (Configuration)
-	protected	$sharedObjs;	// Shared Container (client and server values)
-	protected	$httpRequst;	// Initial HTTP Request
-	protected 	$routRgstry;	// Route Registry
-	protected 	$inputLbrry;	// Library (Registry) of allowed Inputs
+	protected	$objBuilder;	// Shared Container (client and server values)
+	protected	$requestObj;	// Initial HTTP Request
+	protected 	$routerRgst;	// Route Registry
+	protected 	$inputsRgst;	// Library (Registry) of allowed Inputs
 	protected 	$rqstAccCon;	// Access Container (Access\Checker result)
 	protected 	$reqAppBlck;	// Application Object
 	protected 	$requestRsp;	// Output Container
 
-	public 		$errrObject;
-	public 		$procssStts;
+	public 		$errorHndlr;
+	public 		$statusCode;
 	public 		$runnerLogs;
 
 	/**
@@ -59,7 +59,7 @@ class Runner{
 			}
 			// Load Shared Data (conf, request, response)
 			$GLOBALS['nyuConfig'] = $this->confLoader->retrieveConfig();
-			$this->loadSharedObjs();
+			$this->buildSharedSet();
 
 			// Wire the logger into PHP's error/exception/shutdown handling, on its own channel
 			$GLOBALS['nyuLogger'] = Logger::retrieveLogger('error');
@@ -99,7 +99,7 @@ class Runner{
 	 * response) through the DI container so they're available throughout
 	 * the whole running process.
 	 */
-	function loadSharedObjs( ): Void {
+	function buildSharedSet( ): Void {
 		// Instanciate the shared objects to
 		// be available during all the running
 		// process through DI Container
@@ -111,21 +111,21 @@ class Runner{
 		$rndrCnf = $this->confLoader->getRegistryKey('response');
 		$this->requestRsp = $contObj->generateObject('nyu\\Output\\Response', array(), Array($rndrCnf ?: Array()));
 		// A body larger than the config allows is not read
-		$this->httpRequst = $contObj->generateObject('nyu\\Tools\\Request', array(), Array($this->confLoader->rqstConfigList()));
+		$this->requestObj = $contObj->generateObject('nyu\\Tools\\Request', array(), Array($this->confLoader->rqstConfigList()));
 		// Another site is named in the reply only when the preset lists it
-		$this->requestRsp->setReplyOrigin( $this->httpRequst->retrieveHeader('Origin') );
+		$this->requestRsp->setReplyOrigin( $this->requestObj->retrieveHeader('Origin') );
 
 		// Every log channel is built with this configuration; the Runner writes on its own
 		Logger::plugLogsConfig( $this->confLoader->logConfigArray() );
 		$this->runnerLogs = Logger::retrieveLogger('runner');
 
 		// Plug the program that unpacks sounds, where the server has one
-		$sndConf = $this->confLoader->sndConfigArray();
+		$sndConf = $this->confLoader->soundConfigArr();
 		if( $sndConf['tool']!=='' ){
 			\nyu\Data\Sound::plugSoundCodec( $contObj->generateObject('nyu\\Data\\Codec', array(), Array($sndConf['tool'], $sndConf['time'])) );
 		}
 
-		$this->sharedObjs = $contObj;
+		$this->objBuilder = $contObj;
 	}
 
 	/**
@@ -138,20 +138,20 @@ class Runner{
 		// running the sequence and the Registrys needed
 
 		// A request larger than allowed is refused before anything is done with it
-		if( $this->httpRequst->overCeilingFlg() ){
-			$clntReg = $this->httpRequst->retrieveClient();
-			$usrAddr = ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '';
+		if( $this->requestObj->overCeilingFlg() ){
+			$clntReg = $this->requestObj->retrieveClient();
+			$usrAddr = ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '';
 			$this->runnerLogs->warning( 'Request refused'.(($usrAddr!='') ? ' from '.$usrAddr : '').': body larger than allowed (REQ_SIZE, REQ_PART)' );
-			$this->saveStatusFlag( 413, 'Payload Too Large' );
-			$this->sendFinalReply( $this->procssStts );
+			$this->setReplyStatus( 413, 'Payload Too Large' );
+			$this->sendFinalReply( $this->statusCode );
 			return;
 		}
 
 		// The preset tells the sources of the inputs; the definition an application
 		// gives for an action (input/<action>.json) is applied by its Controller
-		$this->inputLbrry = $this->confLoader->retrieveInputs( $this->httpRequst );
+		$this->inputsRgst = $this->confLoader->retrieveInputs( $this->requestObj );
 
-		$this->routRgstry = $this->confLoader->importRouteReg( $this->httpRequst );
+		$this->routerRgst = $this->confLoader->importRouteReg( $this->requestObj );
 		// Read from its files, the config is cached for the next requests when CNF_CACH is TRUE
 		$this->confLoader->retainCacheFlg();
 
@@ -159,9 +159,9 @@ class Runner{
 		$this->rqstAccCon = $this->validateAccess( $accConf );
 
 		// The events traced from here on are signed with the user and the address of the request
-		$clntReg = $this->httpRequst->retrieveClient();
-		Logger::setCurrentUser( strval($this->rqstAccCon->readFileDetail('user')), ($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '' );
-		$this->logUploadFiles( $this->httpRequst->getUploadFiles() );
+		$clntReg = $this->requestObj->retrieveClient();
+		Logger::setCurrentUser( strval($this->rqstAccCon->readValueByKey('userName')), ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '' );
+		$this->logUploadFiles( $this->requestObj->getUploadFiles() );
 
 		if( $this->rqstAccCon->obtainDefValue('statCode', 200) == 200 ){
 			$this->processRequest();
@@ -217,10 +217,10 @@ class Runner{
 	 * auth/sess strategy.
 	 *
 	 * @param Array $accessConfig Resolved 'security' config block for the active preset.
-	 * @return Registry Registry with 'logged', 'user', 'role', 'ident', 'statCode' and 'statMssg' keys.
+	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys.
 	 */
 	function validateAccess( Array $accessConfig ): Registry {
-		$chckObj = new Checker( $accessConfig, $this->httpRequst, $this->routRgstry );
+		$chckObj = new Checker( $accessConfig, $this->requestObj, $this->routerRgst );
 		return $chckObj->validateAccess();
 	}
 
@@ -229,28 +229,28 @@ class Runner{
 	 * to the sign-in route, directly, without ever constructing the
 	 * requested application's Controller/Actionset.
 	 *
-	 * @param Registry $accessResult The Access\Checker result carrying the denial status/message.
+	 * @param Registry $accsCheckReg The Access\Checker result carrying the denial status/message.
 	 */
-	function denyRqstAccess( Registry $accessResult ): Void {
+	function denyRqstAccess( Registry $accsCheckReg ): Void {
 		// A visitor denied a page is sent to the sign-in route, in place of the error
-		$goalUrl = $accessResult->readFileDetail('denyGoal');
+		$goalUrl = $accsCheckReg->readValueByKey('denyGoal');
 		if( $goalUrl!=null ){
 			$this->requestRsp->addReplyHeader('Location', strval($goalUrl));
-			$this->saveStatusFlag( 302 );
-			$this->sendFinalReply( $this->procssStts );
+			$this->setReplyStatus( 302 );
+			$this->sendFinalReply( $this->statusCode );
 			return;
 		}
-		$wwwAuth = $accessResult->readFileDetail('wwwAuth');
+		$wwwAuth = $accsCheckReg->readValueByKey('wwwHeadr');
 		if( $wwwAuth!=null ){
 			$this->requestRsp->addReplyHeader('WWW-Authenticate', $wwwAuth);
 		}
 		// A held address is told how long to wait
-		$rtrAftr = $accessResult->readFileDetail('retryAft');
+		$rtrAftr = $accsCheckReg->readValueByKey('retryAft');
 		if( $rtrAftr!=null ){
 			$this->requestRsp->addReplyHeader('Retry-After', strval($rtrAftr));
 		}
-		$this->saveStatusFlag( $accessResult->obtainDefValue('statCode', 401), strval($accessResult->readFileDetail('statMssg')) );
-		$this->sendFinalReply( $this->procssStts );
+		$this->setReplyStatus( $accsCheckReg->obtainDefValue('statCode', 401), strval($accsCheckReg->readValueByKey('statMssg')) );
+		$this->sendFinalReply( $this->statusCode );
 	}
 
 	/**
@@ -266,9 +266,9 @@ class Runner{
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
-		$conTrol = new Controller( $appNameToRun, $runAppAction, $this->inputLbrry, $runAppOption, $this->rqstAccCon, $this->httpRequst, $this->requestRsp, $this->confLoader->retrieveRouter() );
+		$conTrol = new Controller( $appNameToRun, $runAppAction, $this->inputsRgst, $runAppOption, $this->rqstAccCon, $this->requestObj, $this->requestRsp, $this->confLoader->retrieveRouter() );
 		$sttsArr = $conTrol->retrieveStatus();
-		$this->saveStatusFlag( $sttsArr['code'], $sttsArr['mssg'], $conTrol->retrieveOutput() );
+		$this->setReplyStatus( $sttsArr['code'], $sttsArr['mssg'], $conTrol->retrieveOutput() );
 	}
 
 	/**
@@ -288,20 +288,20 @@ class Runner{
 	 * send: the output data for a 2xx status, an error body otherwise.
 	 *
 	 * @param Int    $responseCode Status reported by the application or the access check.
-	 * @param String $statusMessag Message describing a non-2xx status.
+	 * @param String $statusReason Message describing a non-2xx status.
 	 * @param mixed  $outputToSend Output data for a 2xx status.
 	 */
-	protected function saveStatusFlag( Int $responseCode, String $statusMessag='', Mixed $outputToSend=null ): Void {
+	protected function setReplyStatus( Int $responseCode, String $statusReason='', Mixed $outputToSend=null ): Void {
 		// "No content" without any output is sent as such : no body, and no warnings
 		if( $responseCode==204 && $outputToSend===null ){
 			$this->requestRsp->clearReplyBody();
-			$this->procssStts = 204;
+			$this->statusCode = 204;
 			return;
 		}
 		// A redirection is its Location header : no body either
 		if( $responseCode>=300 && $responseCode<400 ){
 			$this->requestRsp->clearReplyBody();
-			$this->procssStts = $responseCode;
+			$this->statusCode = $responseCode;
 			return;
 		}
 		$success = ($responseCode>=200 && $responseCode<300);
@@ -312,7 +312,7 @@ class Runner{
 			}
 			$bodyArr = $outputToSend ?? Array();
 		}else{
-			$bodyArr = Array('error'=>$statusMessag, 'code'=>$responseCode);
+			$bodyArr = Array('error'=>$statusReason, 'code'=>$responseCode);
 		}
 
 		// Warnings and notices collected by the error handler (only when errors may be shown)
@@ -332,9 +332,9 @@ class Runner{
 			$responseCode = 500;
 		}
 		if( !$success ){
-			$this->htmlRequestErr( $responseCode, $statusMessag );
+			$this->htmlRequestErr( $responseCode, $statusReason );
 		}
-		$this->procssStts = $responseCode;
+		$this->statusCode = $responseCode;
 	}
 
 	/**
@@ -346,21 +346,21 @@ class Runner{
 	 * the message as %error%.
 	 *
 	 * @param Int    $responseCode Status of the reply.
-	 * @param String $statusMessag Message describing it.
+	 * @param String $statusReason Message describing it.
 	 */
-	protected function htmlRequestErr( Int $responseCode, String $statusMessag ): Void {
-		$rotrObj = ($this->confLoader!==null) ? $this->confLoader->retrieveRouter() : null;
-		if( $rotrObj===null || $this->routRgstry===null ){
+	protected function htmlRequestErr( Int $responseCode, String $statusReason ): Void {
+		$routObj = ($this->confLoader!==null) ? $this->confLoader->retrieveRouter() : null;
+		if( $routObj===null || $this->routerRgst===null ){
 			return;
 		}
-		$rteKind = $this->routRgstry->readFileDetail('routKind');
-		$noRoute = ( $rteKind==null && $this->routRgstry->readFileDetail('app')==null && strval($this->routRgstry->readFileDetail('routPath'))=='' );
+		$rteKind = $this->routerRgst->readValueByKey('routKind');
+		$noRoute = ( $rteKind==null && $this->routerRgst->readValueByKey('appToRun')==null && strval($this->routerRgst->readValueByKey('routPath'))=='' );
 		if( !$noRoute && !in_array($rteKind, Array('htmlPage', 'toStatic'), true) ){
 			return;
 		}
-		$pgePath = $rotrObj->errorPgeString($responseCode);
+		$pgePath = $routObj->errorPgeString($responseCode);
 		if( $pgePath!==null ){
-			$this->requestRsp->setPageToReply( $pgePath, Array('code'=>$responseCode, 'error'=>$statusMessag), $responseCode );
+			$this->requestRsp->setPageToReply( $pgePath, Array('code'=>$responseCode, 'error'=>$statusReason), $responseCode );
 		}
 	}
 
@@ -371,8 +371,8 @@ class Runner{
 	 * @param String $errorMessage Message to expose in the response body.
 	 */
 	public function replyWithError( String $errorMessage ): Void {
-		$this->saveStatusFlag( 500, $errorMessage );
-		$this->sendFinalReply( $this->procssStts );
+		$this->setReplyStatus( 500, $errorMessage );
+		$this->sendFinalReply( $this->statusCode );
 	}
 
 	/**
@@ -386,7 +386,7 @@ class Runner{
 		// output the contents to the requester
 		$this->requestRsp->buildReplyHead( $responseCode );
 		// A HEAD request is answered by its headers alone, whatever the web server does with a body
-		if( $this->httpRequst!==null && $this->httpRequst->usedMethodFlag('HEAD') ){
+		if( $this->requestObj!==null && $this->requestObj->usedMethodFlag('HEAD') ){
 			return;
 		}
 		$this->requestRsp->transmitOutput();
@@ -400,60 +400,60 @@ class Runner{
 	 * fill the placeholders of their name.
 	 */
 	protected function routeReqAnswer(): Void {
-		$rteKind = $this->routRgstry->readFileDetail('routKind');
-		$rteGoal = strval($this->routRgstry->readFileDetail('routGoal'));
+		$rteKind = $this->routerRgst->readValueByKey('routKind');
+		$rteGoal = strval($this->routerRgst->readValueByKey('routGoal'));
 		if( $rteKind=='redirect' ){
 			$this->requestRsp->addReplyHeader('Location', $rteGoal);
-			$this->saveStatusFlag( intval($this->routRgstry->obtainDefValue('routCode', 302)) );
+			$this->setReplyStatus( intval($this->routerRgst->obtainDefValue('routCode', 302)) );
 			return;
 		}
 		if( $rteKind=='toStatic' ){
-			$isFound = $this->requestRsp->setFileToReply( $rteGoal, strval($this->routRgstry->readFileDetail('routType')), strval($this->httpRequst->retrieveHeader('Range')) );
+			$isFound = $this->requestRsp->setFileToReply( $rteGoal, strval($this->routerRgst->readValueByKey('routType')), strval($this->requestObj->retrieveHeader('Range')) );
 			// The client may keep the file, and a proxy too when it is served to anyone
 			$askHead = Array();
 			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $hdrKey ){
-				$askHead[$hdrKey] = strval($this->httpRequst->retrieveHeader($hdrKey));
+				$askHead[$hdrKey] = strval($this->requestObj->retrieveHeader($hdrKey));
 			}
-			$this->requestRsp->cacheReplyFile( $askHead, !$this->rqstAccCon->readFileDetail('logged') );
+			$this->requestRsp->cacheReplyFile( $askHead, !$this->rqstAccCon->readValueByKey('loggedIn') );
 		}else{
-			$isFound = $this->requestRsp->setPageToReply( $rteGoal, (array)$this->routRgstry->obtainDefValue('pathVars', Array()) );
+			$isFound = $this->requestRsp->setPageToReply( $rteGoal, (array)$this->routerRgst->obtainDefValue('pathVars', Array()) );
 		}
 		if( $isFound ){
-			$this->saveStatusFlag( 200 );
+			$this->setReplyStatus( 200 );
 		}else{
-			$this->saveStatusFlag( 404, 'Not Found' );
+			$this->setReplyStatus( 404, 'Not Found' );
 		}
 	}
 
 	/**
-	 * Runs the request-handling sequence: reads the resolved app/action/param
+	 * Runs the request-handling sequence: reads the resolved appToRun/doAction/argument
 	 * from the route registry, calls the application or prepares the reply
 	 * the route gives by itself, and sends the response.
 	 */
 	function processRequest( ): Void {
-		$appCall = $this->routRgstry->readFileDetail('app');
-		$actName = $this->routRgstry->readFileDetail('action');
-		$actOptn = $this->routRgstry->obtainDefValue('param', null);
+		$appCall = $this->routerRgst->readValueByKey('appToRun');
+		$actName = $this->routerRgst->readValueByKey('doAction');
+		$actOptn = $this->routerRgst->obtainDefValue('argument', null);
 
-		$rteStts = $this->routRgstry->obtainDefValue('statCode', 200);
+		$rteStts = $this->routerRgst->obtainDefValue('statCode', 200);
 		if( $rteStts!=200 ){
 			// The route answers by itself : method refused, or OPTIONS
-			$allwLst = $this->routRgstry->readFileDetail('allowed');
+			$allwLst = $this->routerRgst->readValueByKey('allowHdr');
 			if( $allwLst!=null ){
 				$this->requestRsp->addReplyHeader('Allow', $allwLst);
 			}
-			$this->saveStatusFlag( $rteStts, strval($this->routRgstry->readFileDetail('statMssg')) );
-		}elseif( in_array($this->routRgstry->readFileDetail('routKind'), Array('redirect', 'toStatic', 'htmlPage'), true) ){
+			$this->setReplyStatus( $rteStts, strval($this->routerRgst->readValueByKey('statMssg')) );
+		}elseif( in_array($this->routerRgst->readValueByKey('routKind'), Array('redirect', 'toStatic', 'htmlPage'), true) ){
 			$this->routeReqAnswer();
 		}elseif( $appCall==null ){
 			// No route resolved for this request
-			$this->saveStatusFlag( 404, 'Not Found' );
+			$this->setReplyStatus( 404, 'Not Found' );
 		}else{
 			$this->runApplication($appCall, strval($actName), $actOptn);
 		}
 		// The tables described by the action are added to the config cache (TBL_CACH)
 		$this->confLoader->retainCacheFlg();
-		$this->sendFinalReply( $this->procssStts );
+		$this->sendFinalReply( $this->statusCode );
 		exit();
 	}
 }

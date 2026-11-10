@@ -38,7 +38,7 @@ class Docx extends Pack {
 	// the styles met, and whether each level of its lists is numbered
 	protected $docRelsMap = Array();
 	protected $styleTable = Array();
-	protected $defltStyle = '';
+	protected $defaultKey = '';
 	protected $stylesUsed = Array();
 	protected $numberList = Array();
 	// The fonts of the theme of the document: the one of its text under 'minor', the one of its headings under 'major'
@@ -50,11 +50,11 @@ class Docx extends Pack {
 	protected $fieldLinks = '';
 	protected $fieldCodes = '';
 	// The notes met, by kind: their id in the document => their number
-	protected $noteNumbrs = Array('fnote'=>Array(), 'enote'=>Array());
+	protected $noteNumArr = Array('fnote'=>Array(), 'enote'=>Array());
 	// Whether empty paragraphs are kept, whether comments are read, the passages being commented and those that were
 	protected $keepsEmpty = true;
 	protected $redComment = false;
-	protected $commntOpen = Array();
+	protected $openedList = Array();
 	protected $commentTxt = Array();
 
 	/**
@@ -86,16 +86,16 @@ class Docx extends Pack {
 		$docRels = $this->relsOfFragment($docPath);
 		$this->docRelsMap = $docRels;
 		$this->styleTable = Array();
-		$this->defltStyle = '';
+		$this->defaultKey = '';
 		$this->stylesUsed = Array();
 		$this->numberList = Array();
 		$this->fieldState = 0;
 		$this->fieldLinks = '';
 		$this->fieldCodes = '';
-		$this->noteNumbrs = Array('fnote'=>Array(), 'enote'=>Array());
+		$this->noteNumArr = Array('fnote'=>Array(), 'enote'=>Array());
 		$this->keepsEmpty = !isset($parseOptions['empty']) || !empty($parseOptions['empty']);
 		$this->redComment = !empty($parseOptions['cmnts']);
-		$this->commntOpen = Array();
+		$this->openedList = Array();
 		$this->commentTxt = Array();
 		// A style may name its font through the theme: the theme is read before the styles
 		$this->themeFonts = Array();
@@ -126,7 +126,7 @@ class Docx extends Pack {
 			$infoArr['cmnts'] = $this->gatherComments($docRels);
 		}
 		foreach(array_keys($this->stylesUsed) as $stlKey){
-			$infoArr['frmat'][$this->styleTable[$stlKey]['names']] = $this->frmatOfItArray($this->styleTable[$stlKey]);
+			$infoArr['frmat'][$this->styleTable[$stlKey]['names']] = $this->styleFormatArr($this->styleTable[$stlKey]);
 		}
 		$this->docRelsMap = Array();
 		$this->styleTable = Array();
@@ -151,7 +151,7 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element holding those properties.
 	 * @return Array The formatting: boldFace, emphasis, undrLine, crossOut.
 	 */
-	protected function marksOfRnArray(Array $elementArray): Array {
+	protected function marksOfRunList(Array $elementArray): Array {
 		$propArr = $this->findChildArray($elementArray, Array('w:rPr'));
 		$markLst = Array();
 		if( $propArr===null ){
@@ -212,13 +212,13 @@ class Docx extends Pack {
 			}
 			$numbArr = $this->findChildArray($stlArr, Array('w:pPr', 'w:numPr')) ?? Array('nodes'=>Array());
 			$this->styleTable[$stylKey] = Array(
-				'names'=>$stylNme, 'level'=>$headLvl, 'marks'=>$this->marksOfRnArray($stlArr),
+				'names'=>$stylNme, 'level'=>$headLvl, 'marks'=>$this->marksOfRunList($stlArr),
 				'numid'=>strval($this->findChildArray($numbArr, Array('w:numId'))['attrs']['w:val'] ?? ''), 'ilevl'=>intval($this->findChildArray($numbArr, Array('w:ilvl'))['attrs']['w:val'] ?? 0),
 				'align'=>strval(self::ALGN_LIST[strtolower(strval($this->findChildArray($stlArr, Array('w:pPr', 'w:jc'))['attrs']['w:val'] ?? ''))] ?? ''),
 				'based'=>strval($this->findChildArray($stlArr, Array('w:basedOn'))['attrs']['w:val'] ?? '')
 			) + $this->fontOfStyleArr($stlArr);
 			if( strtolower(strval($stlArr['attrs']['w:type'] ?? ''))=='paragraph' && in_array(strtolower(strval($stlArr['attrs']['w:default'] ?? '')), Array('1', 'true')) ){
-				$this->defltStyle = $stylKey;
+				$this->defaultKey = $stylKey;
 			}
 		}
 		$baseSet = $this->fontOfStyleArr($this->findChildArray($stlsArr, Array('w:docDefaults', 'w:rPrDefault')) ?? Array('nodes'=>Array()));
@@ -327,14 +327,14 @@ class Docx extends Pack {
 	 * Reads the notes the text refers to, in the order it refers to
 	 * them: the notes of the pages first, then those of the end.
 	 *
-	 * @param Array $documntRltns The relations of the document.
+	 * @param Array $relationList The relations of the document.
 	 * @return Array The notes, as blocks.
 	 */
-	protected function notesReadArray(Array $documntRltns): Array {
+	protected function notesReadArray(Array $relationList): Array {
 		$blckLst = Array();
 		foreach(Array('fnote'=>Array('/footnotes', 'w:footnote'), 'enote'=>Array('/endnotes', 'w:endnote')) as $nteKnd=>$nteSet){
-			$numList = $this->noteNumbrs[$nteKnd];
-			foreach($documntRltns as $relSet){
+			$numList = $this->noteNumArr[$nteKnd];
+			foreach($relationList as $relSet){
 				if( substr($relSet['types'], -strlen($nteSet[0]))!==$nteSet[0] || empty($numList) ){
 					continue;
 				}
@@ -356,14 +356,14 @@ class Docx extends Pack {
 	 * Reads the headers, or the footers, of the pages. A document may
 	 * have several: each one that differs is given once.
 	 *
-	 * @param Array  $documntRltns The relations of the document.
+	 * @param Array  $relationList The relations of the document.
 	 * @param String $suffixOfKind What ends the kind of the relations to read: '/header' or '/footer'.
 	 * @return Array Their blocks.
 	 */
-	protected function pagesReadArray(Array $documntRltns, String $suffixOfKind): Array {
+	protected function pagesReadArray(Array $relationList, String $suffixOfKind): Array {
 		$blckLst = Array();
 		$seenLst = Array();
-		foreach($documntRltns as $relSet){
+		foreach($relationList as $relSet){
 			if( substr($relSet['types'], -strlen($suffixOfKind))!==$suffixOfKind ){
 				continue;
 			}
@@ -380,12 +380,12 @@ class Docx extends Pack {
 	/**
 	 * Reads the comments of the reviewers.
 	 *
-	 * @param Array $documntRltns The relations of the document.
+	 * @param Array $relationList The relations of the document.
 	 * @return Array The comments, each with its author under 'authr', its date under 'dated', its text under 'plain' and the passage it is about under 'about'.
 	 */
-	protected function gatherComments(Array $documntRltns): Array {
+	protected function gatherComments(Array $relationList): Array {
 		$noteLst = Array();
-		foreach($documntRltns as $relSet){
+		foreach($relationList as $relSet){
 			if( substr($relSet['types'], -9)!=='/comments' ){
 				continue;
 			}
@@ -413,10 +413,10 @@ class Docx extends Pack {
 		}
 		$cmntIdn = strval($elementArray['attrs']['w:id'] ?? '');
 		if( $this->redComment && $elementArray['tagnm']=='w:commentRangeStart' ){
-			$this->commntOpen[$cmntIdn] = '';
-		}elseif( isset($this->commntOpen[$cmntIdn]) ){
-			$this->commentTxt[$cmntIdn] = $this->commntOpen[$cmntIdn];
-			unset($this->commntOpen[$cmntIdn]);
+			$this->openedList[$cmntIdn] = '';
+		}elseif( isset($this->openedList[$cmntIdn]) ){
+			$this->commentTxt[$cmntIdn] = $this->openedList[$cmntIdn];
+			unset($this->openedList[$cmntIdn]);
 		}
 		return true;
 	}
@@ -480,7 +480,7 @@ class Docx extends Pack {
 		$propArr = $this->findChildArray($elementArray, Array('w:pPr')) ?? Array('nodes'=>Array());
 		$stylKey = strval($this->findChildArray($propArr, Array('w:pStyle'))['attrs']['w:val'] ?? '');
 		if( !isset($this->styleTable[$stylKey]) ){
-			$stylKey = $this->defltStyle;
+			$stylKey = $this->defaultKey;
 		}
 		$stylSet = $this->styleTable[$stylKey] ?? Array('names'=>'', 'level'=>0, 'numid'=>'', 'ilevl'=>0, 'align'=>'');
 		$headLvl = $stylSet['level'];
@@ -493,8 +493,8 @@ class Docx extends Pack {
 		$numIdnt = ($numbArr===null) ? $stylSet['numid'] : strval($this->findChildArray($numbArr, Array('w:numId'))['attrs']['w:val'] ?? '');
 		$nbLevel = ($numbArr===null) ? $stylSet['ilevl'] : intval($this->findChildArray($numbArr, Array('w:ilvl'))['attrs']['w:val'] ?? 0);
 		// A passage commented over several paragraphs has a space between two of them
-		foreach($this->commntOpen as $cmtIdn=>$cmtTxt){
-			$this->commntOpen[$cmtIdn] = ($cmtTxt==='') ? '' : $cmtTxt.' ';
+		foreach($this->openedList as $cmtIdn=>$cmtTxt){
+			$this->openedList[$cmtIdn] = ($cmtTxt==='') ? '' : $cmtTxt.' ';
 		}
 		$picList = Array();
 		$this->readParaPieces($elementArray, '', $picList);
@@ -592,7 +592,7 @@ class Docx extends Pack {
 			}elseif( $chldNme=='w:sdt' ){
 				$this->readParaPieces($this->findChildArray($chlArr, Array('w:sdtContent')) ?? Array('nodes'=>Array()), $linkGoalText, $outputPieces);
 			}elseif( $chldNme=='w:r' ){
-				$markLst = array_values(array_intersect(Shape::MARK_LIST, array_merge($this->styleTable[strval($this->findChildArray($chlArr, Array('w:rPr', 'w:rStyle'))['attrs']['w:val'] ?? '')]['marks'] ?? Array(), $this->marksOfRnArray($chlArr))));
+				$markLst = array_values(array_intersect(Shape::MARK_LIST, array_merge($this->styleTable[strval($this->findChildArray($chlArr, Array('w:rPr', 'w:rStyle'))['attrs']['w:val'] ?? '')]['marks'] ?? Array(), $this->marksOfRunList($chlArr))));
 				foreach($chlArr['nodes'] as $oneRun){
 					$this->readOneRunPart($oneRun, $markLst, $linkGoalText, $outputPieces);
 				}
@@ -654,10 +654,10 @@ class Docx extends Pack {
 			// A note is numbered by the place of its first reference in the text
 			$noteKnd = ($picName=='w:footnoteReference') ? 'fnote' : 'enote';
 			$noteRef = strval($elementArray['attrs']['w:id'] ?? '');
-			if( !isset($this->noteNumbrs[$noteKnd][$noteRef]) ){
-				$this->noteNumbrs[$noteKnd][$noteRef] = count($this->noteNumbrs[$noteKnd])+1;
+			if( !isset($this->noteNumArr[$noteKnd][$noteRef]) ){
+				$this->noteNumArr[$noteKnd][$noteRef] = count($this->noteNumArr[$noteKnd])+1;
 			}
-			$outputPieces[] = Shape::makeASpanArray(strval($this->noteNumbrs[$noteKnd][$noteRef]), Array(), '#'.$noteKnd.$this->noteNumbrs[$noteKnd][$noteRef]);
+			$outputPieces[] = Shape::makeASpanArray(strval($this->noteNumArr[$noteKnd][$noteRef]), Array(), '#'.$noteKnd.$this->noteNumArr[$noteKnd][$noteRef]);
 			return;
 		}elseif( in_array($picName, Array('w:drawing', 'w:pict', 'w:object')) ){
 			$imgBlck = $this->imageBlockList($elementArray);
@@ -667,8 +667,8 @@ class Docx extends Pack {
 		}
 		if( $picText!=='' ){
 			$outputPieces[] = Shape::makeASpanArray($picText, $runFormatSet, $picLink, $this->fieldCodes);
-			foreach(array_keys($this->commntOpen) as $cmtIdn){
-				$this->commntOpen[$cmtIdn] .= $picText;
+			foreach(array_keys($this->openedList) as $cmtIdn){
+				$this->openedList[$cmtIdn] .= $picText;
 			}
 		}
 	}

@@ -35,7 +35,7 @@ function builtBody( Array $renderVals, Array|Object|String|Int|Float|Bool $dataV
 function foundType( Array $renderVals, Bool $errorReply=false ): String {
 	$respons = new Response($renderVals);
 	$respons->convertOutFlag( Array(Array('a'=>1)), $errorReply );
-	$typeFnc = new ReflectionMethod($respons, 'contnReplyType');
+	$typeFnc = new ReflectionMethod($respons, 'contentTypeTxt');
 	return $typeFnc->invoke($respons);
 }
 
@@ -57,9 +57,9 @@ checkPregMatch('XML body', builtBody(Array('outputAs'=>'xmlNodes'), Array('a'=>1
 // A table : a list of records, its columns in the order they first come
 checkIdentical('CSV body of records', builtBody(Array('outputAs'=>'csvTable'), $rowList), "id,name,admin,mail\r\n1,Ann,true,\r\n2,\"Bo, \"\"B\"\"\",,\r\n");
 checkIdentical('CSV body of no record', builtBody(Array('outputAs'=>'csvTable'), Array()), '');
-checkIdentical('what is not a list of records cannot be a table', Array(builtBody(Array('outputAs'=>'csvTable'), Array('a'=>1)), count(preg_grep('/Response could not be encoded as csvTable: a table is written from a list of records/', takeNotesArray()))), Array('{"error":"Response could not be encoded","code":500}', 1));
+checkIdentical('what is not a list of records cannot be a table', Array(builtBody(Array('outputAs'=>'csvTable'), Array('a'=>1)), count(preg_grep('/Response could not be encoded as csvTable: a table is written from a list of records/', takePhpNotices()))), Array('{"error":"Response could not be encoded","code":500}', 1));
 checkIdentical('nor a list holding a nested value', builtBody(Array('outputAs'=>'csvTable'), Array(Array('a'=>Array(1)))), '{"error":"Response could not be encoded","code":500}');
-takeNotesArray();
+takePhpNotices();
 checkIdentical('an error is written as JSON with csvTable', builtBody(Array('outputAs'=>'csvTable'), Array('error'=>'Not found', 'code'=>404), true), '{"error":"Not found","code":404}');
 
 // An HTML page : records in a table, any other values in definition lists
@@ -74,7 +74,7 @@ checkIdentical('raw output of a text', builtBody(Array('outputAs'=>'rawBytes'), 
 $bigText = str_repeat('0123456789', 3000);
 checkIdentical('raw output of a Fluxd, across several pieces', builtBody(Array('outputAs'=>'rawBytes'), Fluxd::openBytesFluxd($bigText)), $bigText);
 checkIdentical('raw output of what is neither', builtBody(Array('outputAs'=>'rawBytes'), Array('a'=>1)), '{"error":"Response could not be encoded","code":500}');
-takeNotesArray();
+takePhpNotices();
 checkIdentical('an error is written as JSON with rawBytes', builtBody(Array('outputAs'=>'rawBytes'), Array('error'=>'Gone', 'code'=>410), true), '{"error":"Gone","code":410}');
 
 // The format of one reply, chosen by its action
@@ -93,7 +93,7 @@ checkIdentical('unencodable data is reported', $respons->convertOutFlag( Array('
 ob_start();
 $respons->transmitOutput();
 checkIdentical('unencodable data gives an error body', ob_get_clean(), '{"error":"Response could not be encoded","code":500}');
-checkIdentical('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as jsonData: /', takeNotesArray())), 1);
+checkIdentical('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as jsonData: /', takePhpNotices())), 1);
 
 // An emptied response sends nothing, whatever was prepared before
 $respons = new Response();
@@ -120,9 +120,9 @@ checkIdentical('type for csvTable',           foundType(Array('outputAs'=>'csvTa
 checkIdentical('type for htmlView',           foundType(Array('outputAs'=>'htmlView')), 'text/html; charset=utf-8');
 $respons = new Response( Array('outputAs'=>'rawBytes') );
 $respons->convertOutFlag('raw bytes');
-$typeFnc = new ReflectionMethod($respons, 'contnReplyType');
+$typeFnc = new ReflectionMethod($respons, 'contentTypeTxt');
 checkIdentical('type for flux, which its action sets', $typeFnc->invoke($respons), 'application/octet-stream');
-takeNotesArray();
+takePhpNotices();
 checkIdentical('type of an error with csvTable', foundType(Array('outputAs'=>'csvTable'), true), 'application/json; charset=utf-8');
 
 // A preset names a format that exists, or does not load
@@ -269,10 +269,10 @@ $headPrp = new ReflectionProperty($respons, 'headrArray');
 checkIdentical('cache: nothing is set without a file', $headPrp->getValue($respons), Array());
 
 // Content types of the files a declared route serves
-checkIdentical('type of a stylesheet',            Response::typOfExtension('css'), 'text/css; charset=utf-8');
-checkIdentical('type: the case is ignored',       Response::typOfExtension('PNG'), 'image/png');
-checkIdentical('type: a script has none',         Response::typOfExtension('php'), null);
-checkIdentical('type: no extension has none',     Response::typOfExtension(''), null);
+checkIdentical('type of a stylesheet',            Response::mimeOfExtnsTxt('css'), 'text/css; charset=utf-8');
+checkIdentical('type: the case is ignored',       Response::mimeOfExtnsTxt('PNG'), 'image/png');
+checkIdentical('type: a script has none',         Response::mimeOfExtnsTxt('php'), null);
+checkIdentical('type: no extension has none',     Response::mimeOfExtnsTxt(''), null);
 
 // Origins : with a list, only a listed origin is named, whatever the headers of the preset write
 /**

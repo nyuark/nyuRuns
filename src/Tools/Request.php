@@ -12,12 +12,12 @@ use nyu\Output\Response;
  */
 class Request{
 
-	protected $servRgstry;
+	protected $serverRgst;
 	protected $clientRgst;
 
 	protected $rqstInMthd;
-	protected $requestUri;
-	protected $queryStrng;
+	protected $uriDetails;
+	protected $givenQuery;
 	protected $everyHeads;
 	protected $nakedInput;
 
@@ -25,7 +25,7 @@ class Request{
 	protected $addrValues = Array(); // Names of the values sent in the query string, in lower case
 	protected $cookValues; // Registry of readable cookie values (written through response)
 	protected $uploadData; // Registry of files
-	protected $temprryFls = Array(); // Temporary files written for uploads received in the raw body
+	protected $tmpFileArr = Array(); // Temporary files written for uploads received in the raw body
 	protected $maxSizeVal = 0; // Largest body read, in KB; 0 for no limit
 	protected $pieceLimit = 0; // Most parts read from a multipart body; 0 for no limit
 	protected $overLength = false; // Whether the body went over one of those limits
@@ -35,25 +35,25 @@ class Request{
 	 * headers from the server registry, then loads the request's content
 	 * (body vars, cookies, files).
 	 *
-	 * @param ServerReg $srvrRegistry Registry of $_SERVER values.
+	 * @param ServerReg $serverValReg Registry of $_SERVER values.
 	 * @param Response  $httpResponse The response object (reserved for cookie writes).
 	 * @param ClientReg $clntRegistry Registry of client values (address, agent, system, device, language).
 	 * @param Array     $limitsConfig The limits of a body: its largest 'size' in KB and the most 'part's of a multipart one, 0 or left out for no limit (see Setup\Loader::rqstConfigList).
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-	 function __construct( ServerReg $srvrRegistry, Response $httpResponse, ClientReg $clntRegistry, Array $limitsConfig=Array() ){
+	 function __construct( ServerReg $serverValReg, Response $httpResponse, ClientReg $clntRegistry, Array $limitsConfig=Array() ){
 
-		$this->servRgstry = $srvrRegistry;
+		$this->serverRgst = $serverValReg;
 		$this->clientRgst = $clntRegistry;
 		$this->maxSizeVal = max( 0, intval($limitsConfig['size'] ?? 0) );
 		$this->pieceLimit = max( 0, intval($limitsConfig['part'] ?? 0) );
 
 		// Request method
-		$this->rqstInMthd = $this->servRgstry->readFileDetail('request_method');
+		$this->rqstInMthd = $this->serverRgst->readValueByKey('request_method');
 
 		// Query Values
-		$rqstURI = $this->servRgstry->readFileDetail('request_uri');
+		$rqstURI = $this->serverRgst->readValueByKey('request_uri');
 		$quoMark = strPos($rqstURI, '?');
 		$urlArgs = Array();
 
@@ -65,20 +65,20 @@ class Request{
 			$urlPage = $rqstURI;
 		}
 		$urlInfo = Array(
-						'htScheme'=>$this->clientRgst->readFileDetail('userSchm'),
-						'servName'=>$this->servRgstry->readFileDetail('server_name'),
-						'reqstURI'=>$rqstURI,
-						'document'=>$this->servRgstry->readFileDetail('script_name'),
-						'protocol'=>$this->servRgstry->readFileDetail('server_protocol')
+						'htScheme'=>$this->clientRgst->readValueByKey('userSchm'),
+						'servName'=>$this->serverRgst->readValueByKey('server_name'),
+						'fullPath'=>$rqstURI,
+						'scriptAt'=>$this->serverRgst->readValueByKey('script_name'),
+						'httpVers'=>$this->serverRgst->readValueByKey('server_protocol')
 					);
-		$urlInfo['full_url'] = 	$urlInfo['htScheme'].'://'.$urlInfo['servName'].$urlPage;
-		$urlInfo['full_uri'] = 	$this->rqstInMthd.' '.$urlInfo['htScheme'].'://'.$urlInfo['servName']
-								.$urlInfo['reqstURI'].' '.$urlInfo['document'].' '.$urlInfo['protocol'];
-		$this->requestUri = $urlInfo;
-		$this->queryStrng = $this->servRgstry->readFileDetail('query_string');
+		$urlInfo['wholeUrl'] = 	$urlInfo['htScheme'].'://'.$urlInfo['servName'].$urlPage;
+		$urlInfo['rqstLine'] = 	$this->rqstInMthd.' '.$urlInfo['htScheme'].'://'.$urlInfo['servName']
+								.$urlInfo['fullPath'].' '.$urlInfo['scriptAt'].' '.$urlInfo['httpVers'];
+		$this->uriDetails = $urlInfo;
+		$this->givenQuery = $this->serverRgst->readValueByKey('query_string');
 
 		// Get received headers
-		$this->everyHeads = $this->retrieveHeadrs();
+		$this->everyHeads = $this->fetchHeadsList();
 
 		$this->getRqstContent( $urlArgs );
 	}
@@ -89,16 +89,16 @@ class Request{
 	 * registries, merging raw parsed body vars with $_GET/$_POST, then
 	 * unsets the superglobals so nothing downstream reads them directly.
 	 *
-	 * @param Array $queryStrVals Query-string values parsed from the request URI.
+	 * @param Array $uriQueryList Query-string values parsed from the request URI.
 	 */
-	protected function getRqstContent( Array $queryStrVals = Array() ): Void {
+	protected function getRqstContent( Array $uriQueryList = Array() ): Void {
 		// Read Variables
 		$this->nakedInput = $this->getRawDataList();
 		$this->dataValues = Array();
 		// What came in the address is remembered by name (see fromQuery)
-		$this->addrValues = array_map( 'strtolower', array_map('strval', array_merge(array_keys($queryStrVals), array_keys($_GET ?? Array()))) );
-		if(!empty($queryStrVals)){
-			$this->dataValues = array_merge($this->dataValues, $queryStrVals);
+		$this->addrValues = array_map( 'strtolower', array_map('strval', array_merge(array_keys($uriQueryList), array_keys($_GET ?? Array()))) );
+		if(!empty($uriQueryList)){
+			$this->dataValues = array_merge($this->dataValues, $uriQueryList);
 		}
 		if(!empty($this->nakedInput['vars'])){
 			$this->dataValues = array_merge($this->dataValues, $this->nakedInput['vars']);
@@ -185,7 +185,7 @@ class Request{
 		}
 		$maxByts = $this->maxSizeVal * 1024;
 		// What the request announces is checked first : nothing is then read
-		$claimed = max( intval($this->retrieveHeader('Content-Length')), intval($this->servRgstry->readFileDetail('content_length')) );
+		$claimed = max( intval($this->retrieveHeader('Content-Length')), intval($this->serverRgst->readValueByKey('content_length')) );
 		if( $claimed>$maxByts ){
 			$this->overLength = true;
 			return '';
@@ -316,11 +316,11 @@ class Request{
 	 * [a][b] or [] (next free index), creating the levels on the way.
 	 *
 	 * @param ?Array $goalNodeList Array to store into, created when null.
-	 * @param String $bracktString The bracket part of a field name.
+	 * @param String $bracketsText The bracket part of a field name.
 	 * @param mixed  $storedAtLeaf Value to store at the end of the path.
 	 */
-	protected function nestRequestVal( ?Array &$goalNodeList, String $bracktString, Mixed $storedAtLeaf ): Void {
-		preg_match_all('/\[([^\]]*)\]/', $bracktString, $keyList);
+	protected function nestRequestVal( ?Array &$goalNodeList, String $bracketsText, Mixed $storedAtLeaf ): Void {
+		preg_match_all('/\[([^\]]*)\]/', $bracketsText, $keyList);
 		$nodeRef = &$goalNodeList;
 		foreach( $keyList[1] as $keyNme ){
 			if( $keyNme==='' ){
@@ -355,10 +355,10 @@ class Request{
 			$fileVls['error'] = UPLOAD_ERR_CANT_WRITE;
 			return $fileVls;
 		}
-		if( empty($this->temprryFls) ){
+		if( empty($this->tmpFileArr) ){
 			register_shutdown_function( Array($this, 'dropTmpUploads') );
 		}
-		$this->temprryFls[] = $tmpFile;
+		$this->tmpFileArr[] = $tmpFile;
 		$fileVls['tmp_name'] = $tmpFile;
 		$fileVls['error'] = UPLOAD_ERR_OK;
 		$fileVls['size'] = $filSize;
@@ -370,12 +370,12 @@ class Request{
 	 * request. A file the application moved elsewhere is left alone.
 	 */
 	public function dropTmpUploads(): Void {
-		foreach( $this->temprryFls as $oneTmp ){
+		foreach( $this->tmpFileArr as $oneTmp ){
 			if( file_exists($oneTmp) ){
 				@unlink($oneTmp);
 			}
 		}
-		$this->temprryFls = Array();
+		$this->tmpFileArr = Array();
 	}
 
 	//function getHeadrs
@@ -386,7 +386,7 @@ class Request{
 	 *
 	 * @return Array Associative array of header name => value.
 	 */
-	protected function retrieveHeadrs(): Array {
+	protected function fetchHeadsList(): Array {
 		// NGinX compatibility
 		if (!function_exists('apache_request_headers')){
 			$headers = Array();
@@ -402,7 +402,7 @@ class Request{
                 'Content-Id'       => 'Content-ID',
                 'Content-Features' => 'Content-features',
 			);
-			$srvVars = $this->servRgstry->readLinesArray('http_');
+			$srvVars = $this->serverRgst->readLinesArray('http_');
 			foreach ($srvVars as $srvKey => $srvVal){
 				$headKey = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($srvKey, 5)))));
 				if ( array_key_exists( $headKey, $xcepted ) ) {
@@ -438,8 +438,8 @@ class Request{
 	 * @return mixed The value, or null if not set.
 	 */
 	public function obtainUrlValue( String $uriValuesKey='' ): Mixed {
-		if( isset( $this->requestUri[$uriValuesKey] ) ){
-			return $this->requestUri[$uriValuesKey];
+		if( isset( $this->uriDetails[$uriValuesKey] ) ){
+			return $this->uriDetails[$uriValuesKey];
 		}else{
 			return NULL;
 		}
@@ -464,12 +464,12 @@ class Request{
 	 * Reads a single user-submitted value (query/body) received with the
 	 * request.
 	 *
-	 * @param String $userVrblName Name of the value to read.
+	 * @param String $variableName Name of the value to read.
 	 * @return mixed The value, or null if not present.
 	 */
-	public function getUsrVariable( String $userVrblName ): Mixed {
-		if( isset( $this->dataValues[$userVrblName] ) ){
-			return $this->dataValues[$userVrblName];
+	public function getUsrVariable( String $variableName ): Mixed {
+		if( isset( $this->dataValues[$variableName] ) ){
+			return $this->dataValues[$variableName];
 		}else{
 			return NULL;
 		}
@@ -479,11 +479,11 @@ class Request{
 	 * whatever else the body holds under the same name. What travels in
 	 * an address is kept by the logs of every server on its way.
 	 *
-	 * @param String $userVrblName Name of the value, whatever its case.
+	 * @param String $variableName Name of the value, whatever its case.
 	 * @return Bool True when the query string holds that name.
 	 */
-	public function isSentViaQuery( String $userVrblName ): Bool {
-		return in_array( strtolower($userVrblName), $this->addrValues, true );
+	public function isSentViaQuery( String $variableName ): Bool {
+		return in_array( strtolower($variableName), $this->addrValues, true );
 	}
 	/**
 	 * Reads a single cookie value received with the request.
@@ -537,7 +537,7 @@ class Request{
 	 * @return Array Matching server values.
 	 */
 	public function getServerValue( String $keysCriteria='' ): Array {
-		return $this->servRgstry->readLinesArray($keysCriteria);
+		return $this->serverRgst->readLinesArray($keysCriteria);
 	}
 	/**
 	 * Returns the client registry: 'userAddr' (the client, seen through

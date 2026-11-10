@@ -84,7 +84,7 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeClrCache(): Int {
-		$dropNum = ConfCache::clearMailCache();
+		$dropNum = ConfCache::clearConfCache();
 		$this->traceShellDone( 'Config: cache removed, '.$dropNum.' files' );
 		$this->printerObj->printShellPair('cache files removed', $dropNum);
 		return self::EXIT_DONE;
@@ -101,7 +101,7 @@ class Config extends Command{
 		foreach( array_merge(array_keys(self::TRGT_LIST), Array('preset')) as $oneCod ){
 			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
 		}
-		$pathTxt = strval($this->optnObject->shiftFirstWord() ?? '');
+		$pathTxt = strval($this->optionsObj->shiftFirstWord() ?? '');
 		if( $trgtNme=='preset' ){
 			return $this->showPresetNumb($pathTxt);
 		}
@@ -167,13 +167,13 @@ class Config extends Command{
 			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
 		}
 		$pathTxt = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
-		$gvnText = $this->optnObject->shiftFirstWord();
+		$gvnText = $this->optionsObj->shiftFirstWord();
 		if( $gvnText===null ){
 			$this->terminateShell('Missing argument: the value', self::EXIT_HELP);
 		}
 		$pthPart = explode('.', $pathTxt);
 		$wrtrObj = $this->generateWriter();
-		$isForcd = $this->optnObject->validateOption('overrule');
+		$isForcd = $this->optionsObj->validateOption('overrule');
 		try{
 			if( $trgtNme=='coreConf' ){
 				$this->writeSystemIni($wrtrObj, $pathTxt, $gvnText);
@@ -308,8 +308,8 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeWwwEntry(): Int {
-		$fileNme = $this->optnObject->shiftFirstWord();
-		$prstNme = $this->optnObject->shiftFirstWord();
+		$fileNme = $this->optionsObj->shiftFirstWord();
+		$prstNme = $this->optionsObj->shiftFirstWord();
 		if( $fileNme===null ){
 			$rowList = Array();
 			foreach( (array)glob(WEB_DIR.DS.'*.php') as $phpFil ){
@@ -398,7 +398,7 @@ class Config extends Command{
 		$wrtrObj = $this->generateWriter();
 		$filPath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
 		$treeObj = $wrtrObj->importJsonsObj($filPath);
-		$blckNme = strval($this->optnObject->retrieveOption('useBlock', ''));
+		$blckNme = strval($this->optionsObj->retrieveOption('useBlock', ''));
 		if( $secrKindText=='jwtToken' ){
 			$labelTx = 'Secret of the tokens';
 			$blckNme = $blckNme ?: strval($treeObj->loginSet->sessConf ?? 'jwtToken');
@@ -435,7 +435,7 @@ class Config extends Command{
 		}
 		$envPath = TOP_DIR.DS.'.env';
 		$envName = (strpos($rawValu, 'env:')===0) ? substr($rawValu, 4) : '';
-		$nowSecr = ($envName!='') ? strval($wrtrObj->getEnvrnmntKey($envPath, $envName) ?? '') : $rawValu;
+		$nowSecr = ($envName!='') ? strval($wrtrObj->retrieveEnvKey($envPath, $envName) ?? '') : $rawValu;
 		if( $nowSecr!='' && $keepExisting ){
 			return false;
 		}
@@ -444,7 +444,7 @@ class Config extends Command{
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
 		if( $envName!='' ){
-			$wrtrObj->setEnvrnmntKey($envPath, $envName, $newSecr);
+			$wrtrObj->changeEnvValue($envPath, $envName, $newSecr);
 			$whereTx = '.env '.$envName;
 		}else{
 			if( $secrKindText=='jwtToken' ){
@@ -462,7 +462,7 @@ class Config extends Command{
 		Console::loadConfigLogs();
 		$this->traceShellDone( $labelTx.' made, written in '.$whereTx );
 		$this->printerObj->printShellPair('written', $whereTx);
-		if( $secrKindText=='keysList' || $this->optnObject->validateOption('showSecr') ){
+		if( $secrKindText=='keysList' || $this->optionsObj->validateOption('showSecr') ){
 			$this->printerObj->printShellOnce($labelTx, $newSecr);
 		}
 		return true;
@@ -510,7 +510,7 @@ class Config extends Command{
 		$oldName = 'conf/keys/'.$blckNamedTxt.'.old.pub';
 		$oldPriv = is_file($prvPath) ? @openssl_pkey_get_private(strval(@file_get_contents($prvPath))) : false;
 		// A key that leaked keeps nothing : the tokens it signed end with it
-		$isDrops = $this->optnObject->validateOption('dropsAll');
+		$isDrops = $this->optionsObj->validateOption('dropsAll');
 		$oldText = ($oldPriv!==false && !$isDrops) ? strval(openssl_pkey_get_details($oldPriv)['key'] ?? '') : '';
 		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : ( $isDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
 		// installs allSteps replaces a public key found alone without a question : it is not one of this server's
@@ -584,7 +584,7 @@ class Config extends Command{
 		if( !preg_match('/^[^:\s]+$/D', $namedUserTxt) ){
 			$this->terminateShell('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
 		}
-		$blckCfg = $this->accessSettings( strval($this->optnObject->retrieveOption('useBlock', 'htpasswd')) );
+		$blckCfg = $this->accessSettings( strval($this->optionsObj->retrieveOption('useBlock', 'htpasswd')) );
 		$pwdFile = trim( strval($blckCfg['passFile'] ?? 'conf/.htpasswd'), '/\\ ' );
 		$filPath = $this->pathOfSettings($pwdFile);
 		$lineLst = is_file($filPath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filPath))), 'strlen')) : Array();
@@ -597,7 +597,7 @@ class Config extends Command{
 		if( $lineIdx!==null && !$this->queryAgreedFlg('Replace the password of user '.$namedUserTxt.' in '.$pwdFile) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
-		$isTyped = $this->optnObject->validateOption('typeItIn');
+		$isTyped = $this->optionsObj->validateOption('typeItIn');
 		$passTxt = $isTyped ? $this->querySecretTxt('Password of '.$namedUserTxt) : bin2hex(random_bytes(10));
 		if( $passTxt=='' ){
 			$this->terminateShell('Nothing was written: no password given', self::EXIT_DENY);
@@ -625,7 +625,7 @@ class Config extends Command{
 	 * @return Int The exit code: EXITFLAW when the roles of the routes cannot be applied.
 	 */
 	public function invokeFullList(): Int {
-		$prstNme = strval($this->optnObject->shiftFirstWord() ?? 'defaults');
+		$prstNme = strval($this->optionsObj->shiftFirstWord() ?? 'defaults');
 		try{
 			$loadObj = (new Preset($prstNme))->newSetupLoader();
 		}catch( \RuntimeException $e ){
@@ -637,7 +637,7 @@ class Config extends Command{
 		$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
 		$rowList = Array();
 		foreach( (new Router($rteConf, $rqstObj))->allRoutesArray() as $rteVal ){
-			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['methods']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal) );
+			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleMap = is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array();
@@ -650,7 +650,7 @@ class Config extends Command{
 		}
 		foreach( $actnLst as $action ){
 			$actPart = explode('/', $action, 2);
-			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('app'=>$actPart[0], 'action'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction')) );
+			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('appToRun'=>$actPart[0], 'doAction'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction')) );
 		}
 		$this->printerObj->printShellPair('preset', $prstNme);
 		$this->printerObj->printShellPair('detectBy', strval($rteConf['detectBy'] ?? ''));
@@ -668,15 +668,15 @@ class Config extends Command{
 	 * Tells who a route is served to under an 'security' block.
 	 *
 	 * @param Array   $accessConfig The 'security' block of the preset.
-	 * @param Request $requstObject A request to build the access check with.
-	 * @param Array   $routesValues The route: its 'app', 'action', 'routPath' and 'routKind'.
+	 * @param Request $givenRequest A request to build the access check with.
+	 * @param Array   $routesValues The route: its 'appToRun', 'doAction', 'routPath' and 'routKind'.
 	 * @return String 'open', 'logged', or the least role asked for.
 	 */
-	protected function describeAccess( Array $accessConfig, Request $requstObject, Array $routesValues ): String {
+	protected function describeAccess( Array $accessConfig, Request $givenRequest, Array $routesValues ): String {
 		if( empty($accessConfig) || ($accessConfig['required'] ?? true)===false ){
 			return 'open';
 		}
-		$chckObj = new Checker( $accessConfig, $requstObject, new Registry(Array('app'=>$routesValues['app'] ?? null, 'action'=>$routesValues['action'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')) );
+		$chckObj = new Checker( $accessConfig, $givenRequest, new Registry(Array('appToRun'=>$routesValues['appToRun'] ?? null, 'doAction'=>$routesValues['doAction'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')) );
 		if( $chckObj->openAccessRout() ){
 			return 'open';
 		}

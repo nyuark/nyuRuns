@@ -27,8 +27,8 @@ $markObj = LoginMark::fromLimitBlock();
  * @return Mixed The user, or false.
  */
 function logsInto( Object $storeObjct, String $userString, String $passwdText, String $markString='' ): Mixed {
-	$idntArr = $storeObjct->chckCredential( Array('user'=>$userString, 'pass'=>$passwdText, 'mark'=>$markString) );
-	return is_array($idntArr) ? ($idntArr['user'] ?? null) : false;
+	$idntArr = $storeObjct->checkSecretArr( Array('user'=>$userString, 'pass'=>$passwdText, 'mark'=>$markString) );
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : false;
 }
 
 // The mark itself

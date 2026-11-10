@@ -179,7 +179,7 @@ checkIdentical('...and a hostile text comes back harmless', runCatchThrown(funct
 	return (new Html())->renderDocument((new Mdwn())->parseDataArray("<script>alert(1)</script> [x](javascript:alert(2)) ![y](javascript:alert(3)) <img src=x onerror=alert(4)>\n\n# T {#a\" onclick=\"x}\n\n```a\" onclick=\"x\ncode\n```"));
 }), "<p>&lt;script&gt;alert(1)&lt;/script&gt; x</p>\n<p>&lt;img src=x onerror=alert(4)&gt;</p>\n<h1>T {#a&quot; onclick=&quot;x}</h1>\n<pre><code>code</code></pre>\n");
 checkIdentical('any line end, a marker at the start, a text saved by an older tool', Array(mdwLines("# a\r\n\r\ntext\rmore\r\n"), mdwLines("\xEF\xBB\xBF# Été"), mdwLines("# \xC9t\xE9 \x80")), Array(Array('headline {"level":1} [a]', 'paragrph [text more]'), Array('headline {"level":1} [Été]'), Array('headline {"level":1} [Été €]')));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: Markdown by extension and by content type', Array(get_class(Index::forExtnsParser('md')), get_class(Index::forExtnsParser('MARKDOWN')), get_class(Index::findTypeParser('text/markdown; charset=utf-8')), Index::optionsOfExtns('md')), Array('nyu\Data\Parsers\Mdwn', 'nyu\Data\Parsers\Mdwn', 'nyu\Data\Parsers\Mdwn', Array()));

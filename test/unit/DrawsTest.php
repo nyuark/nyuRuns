@@ -22,7 +22,7 @@ const SVGSPACE = 'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.
  */
 function imgOpen( String $rawContent, Int $pixelLimit=Image::MAXI_PIXL ): Mixed {
 	return runCatchThrown(function() use ($rawContent, $pixelLimit){
-		return Image::openFluxdArchv(Fluxd::openBytesFluxd($rawContent), $pixelLimit);
+		return Image::openFluxdImage(Fluxd::openBytesFluxd($rawContent), $pixelLimit);
 	});
 }
 
@@ -36,7 +36,7 @@ function imgOpen( String $rawContent, Int $pixelLimit=Image::MAXI_PIXL ): Mixed 
  */
 function cleaned( String $drawingXml, String $rootsAttrs='' ): String {
 	return runCatchThrown(function() use ($drawingXml, $rootsAttrs){
-		$outText = Image::openFluxdArchv(Fluxd::openBytesFluxd('<svg '.SVGSPACE.' width="40" height="20"'.$rootsAttrs.'>'.$drawingXml.'</svg>'))->dropRiskyParts();
+		$outText = Image::openFluxdImage(Fluxd::openBytesFluxd('<svg '.SVGSPACE.' width="40" height="20"'.$rootsAttrs.'>'.$drawingXml.'</svg>'))->dropRiskyParts();
 		return trim(str_replace(Array('<?xml version="1.0" encoding="UTF-8"?>', "\n", ' '.SVGSPACE.' width="40" height="20"'), '', $outText));
 	});
 }
@@ -83,24 +83,24 @@ checkIdentical('forms, their fields and buttons, and meta are taken out, in any 
 checkIdentical('what a form or a ping would send elsewhere is taken off; inside the drawing, it is kept', cleaned('<a href="#top" ping="https://evil.test/p">x</a><g action="https://evil.test/" formaction="javascript:alert(1)"/><g action="#here"/>'), '<svg><a href="#top">x</a><g/><g action="#here"/></svg>');
 checkIdentical('a plain style and a local reference are left as they are', cleaned('<style>rect { fill: red; }</style><rect fill="url(#g)"/>'), '<svg><style>rect { fill: red; }</style><rect fill="url(#g)"/></svg>');
 checkIdentical('what stands around the drawing is taken off: what it asks a browser to load, its comments, the kind of document it says it is', runCatchThrown(function(){
-	$outText = Image::openFluxdArchv(Fluxd::openBytesFluxd('<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet href="https://evil.test/x.css"?><!-- top --><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://127.0.0.1:9/never.dtd"><svg '.SVGSPACE.'><!-- in --><rect width="1"/><?php echo 1; ?></svg>'))->dropRiskyParts();
+	$outText = Image::openFluxdImage(Fluxd::openBytesFluxd('<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet href="https://evil.test/x.css"?><!-- top --><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://127.0.0.1:9/never.dtd"><svg '.SVGSPACE.'><!-- in --><rect width="1"/><?php echo 1; ?></svg>'))->dropRiskyParts();
 	return str_replace("\n", '', $outText);
 }), '<?xml version="1.0" encoding="UTF-8"?><svg '.SVGSPACE.'><rect width="1"/></svg>');
 checkIdentical('what is drawn stays as it is: shapes, paths, text with its accents, gradients, groups, what tools add of their own', cleaned('<title>Les Enchaînés</title><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#f00"/></linearGradient></defs><g transform="translate(1 2)" id="layer" class="a"><path d="M0 0L10 10z" fill="url(#g)" stroke-width="1.5"/><text x="1" y="2" font-family="Arial">Été &amp; &lt;b&gt;</text></g><metadata><x:note xmlns:x="urn:x" x:kept="yes">tool data</x:note></metadata>'),
 	'<svg><title>Les Enchaînés</title><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#f00"/></linearGradient></defs><g transform="translate(1 2)" id="layer" class="a"><path d="M0 0L10 10z" fill="url(#g)" stroke-width="1.5"/><text x="1" y="2" font-family="Arial">Été &amp; &lt;b&gt;</text></g><metadata><x:note xmlns:x="urn:x" x:kept="yes">tool data</x:note></metadata></svg>');
 checkIdentical('a drawing cleaned once is unchanged when cleaned again; giving it back as a drawing gives it cleaned', runCatchThrown(function(){
 	$evilSvg = '<svg '.SVGSPACE.' width="40" height="20" onload="x()"><script>alert(1)</script><rect width="1" height="1" onclick="y()"/><image href="https://evil.test/t.png"/></svg>';
-	$onceTxt = Image::openFluxdArchv(Fluxd::openBytesFluxd($evilSvg))->dropRiskyParts();
-	$srceImg = Image::openFluxdArchv(Fluxd::openBytesFluxd($evilSvg));
-	return Array(Image::openFluxdArchv(Fluxd::openBytesFluxd($onceTxt))->dropRiskyParts()===$onceTxt, $srceImg->grantBytesText()===$onceTxt, $srceImg->grantBytesText('SVG')===$onceTxt, strpos($onceTxt, 'alert'), strpos($onceTxt, 'evil'), strpos($onceTxt, 'onclick'), Image::openFluxdArchv(Fluxd::openBytesFluxd($onceTxt))->imageInfoArray()['kinds']);
+	$onceTxt = Image::openFluxdImage(Fluxd::openBytesFluxd($evilSvg))->dropRiskyParts();
+	$srceImg = Image::openFluxdImage(Fluxd::openBytesFluxd($evilSvg));
+	return Array(Image::openFluxdImage(Fluxd::openBytesFluxd($onceTxt))->dropRiskyParts()===$onceTxt, $srceImg->grantBytesText()===$onceTxt, $srceImg->grantBytesText('SVG')===$onceTxt, strpos($onceTxt, 'alert'), strpos($onceTxt, 'evil'), strpos($onceTxt, 'onclick'), Image::openFluxdImage(Fluxd::openBytesFluxd($onceTxt))->imageInfoArray()['kinds']);
 }), Array(true, true, true, false, false, false, 'svg'));
-checkPregMatch('only a drawing is cleaned up', runCatchThrown(function(){ return Image::openFluxdArchv(Fluxd::openBytesFluxd(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')))->dropRiskyParts(); }), '/^THROWN RuntimeException: Only a drawing is cleaned up/');
-checkPregMatch('pixels cannot be given back as a drawing', runCatchThrown(function(){ return Image::openFluxdArchv(Fluxd::openBytesFluxd(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')))->grantBytesText('svg'); }), '/^THROWN RuntimeException: Only a drawing is cleaned up/');
+checkPregMatch('only a drawing is cleaned up', runCatchThrown(function(){ return Image::openFluxdImage(Fluxd::openBytesFluxd(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')))->dropRiskyParts(); }), '/^THROWN RuntimeException: Only a drawing is cleaned up/');
+checkPregMatch('pixels cannot be given back as a drawing', runCatchThrown(function(){ return Image::openFluxdImage(Fluxd::openBytesFluxd(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')))->grantBytesText('svg'); }), '/^THROWN RuntimeException: Only a drawing is cleaned up/');
 
 // Saving a drawing
 checkIdentical('a drawing saved to a file is saved cleaned', runCatchThrown(function(){
-	$savePth = Image::openFluxdArchv(Fluxd::openBytesFluxd('<svg '.SVGSPACE.' width="4" height="2"><script>alert(1)</script><rect width="1"/></svg>'))->setLocalString(inTemporaryDir('logo.svg'));
-	return Array(strpos(file_get_contents($savePth), 'script'), Image::openFluxdArchv(Fluxd::openLocalFluxd($savePth))->imageInfoArray()['width']);
+	$savePth = Image::openFluxdImage(Fluxd::openBytesFluxd('<svg '.SVGSPACE.' width="4" height="2"><script>alert(1)</script><rect width="1"/></svg>'))->writeLocalFile(inTemporaryDir('logo.svg'));
+	return Array(strpos(file_get_contents($savePth), 'script'), Image::openFluxdImage(Fluxd::openLocalFluxd($savePth))->imageInfoArray()['width']);
 }), Array(false, 4));
 
 // Through documents
@@ -133,9 +133,9 @@ if( class_exists('ZipArchive') ){
 
 // Drawing into pixels
 if( !class_exists('Imagick') || !function_exists('imagecreatefromstring') ){
-	checkPregMatch('drawing into pixels asks for the extensions that do it', runCatchThrown(function() use ($quadSvg){ return Image::openFluxdArchv(Fluxd::openBytesFluxd($quadSvg))->resizeFitImage(20, 20); }), '/^THROWN RuntimeException: (A drawing needs the imagick extension of PHP to be drawn into pixels|Pictures need the gd extension of PHP to be changed)/');
+	checkPregMatch('drawing into pixels asks for the extensions that do it', runCatchThrown(function() use ($quadSvg){ return Image::openFluxdImage(Fluxd::openBytesFluxd($quadSvg))->resizeFitImage(20, 20); }), '/^THROWN RuntimeException: (A drawing needs the imagick extension of PHP to be drawn into pixels|Pictures need the gd extension of PHP to be changed)/');
 	recordSkipping('drawings made pixels', 'the imagick and gd extensions are not both loaded');
-	checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+	checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 	finishChecking();
 }
 
@@ -181,6 +181,6 @@ checkIdentical('a drawing is cleaned before it is drawn: what it points to outsi
 	return colours($evilImg->grantBytesText('png'));
 }), '40x20 RR');
 checkPregMatch('a drawing that cannot be drawn is refused', runCatchThrown(function(){ return imgOpen('<svg '.SVGSPACE.' width="40" height="20"><path d="this is not a path" transform="matrix(nonsense)"/><rect width="abc"/></svg>')->grantBytesText('png')==='' ? 'empty' : 'drawn'; }), '/^(drawn|THROWN RuntimeException: Drawing that cannot be drawn into pixels)/');
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 finishChecking();

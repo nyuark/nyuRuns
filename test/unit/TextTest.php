@@ -145,7 +145,7 @@ checkIdentical('a text read then written as HTML is harmless', runCatchThrown(fu
 	return (new Html())->renderDocument((new Text())->parseDataArray("[b]Hi[/b] <script>alert(1)</script> [url=javascript:alert(2)]x[/url]\nnext [url=/a?b=1&c=2]link[/url][quote=Bob]q[/quote]", Array('reads'=>'bbcod')));
 }), "<p><strong>Hi</strong> &lt;script&gt;alert(1)&lt;/script&gt; x<br>\nnext <a href=\"/a?b=1&amp;c=2\">link</a></p>\n<blockquote>q\n<cite>Bob</cite>\n</blockquote>\n");
 checkIdentical('joining spans: empty ones left out, same neighbours made one', Shape::joinSpansArray(Array(Shape::makeASpanArray('a'), Shape::makeASpanArray(''), Shape::makeASpanArray('b'), Shape::makeASpanArray('c', Array('boldFace')), Shape::makeASpanArray('d', Array('boldFace')), Shape::makeASpanArray('e', Array('boldFace'), '/x'), Shape::makeASpanArray('f'))), Array(Shape::makeASpanArray('ab'), Shape::makeASpanArray('cd', Array('boldFace')), Shape::makeASpanArray('e', Array('boldFace'), '/x'), Shape::makeASpanArray('f')));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: text by extension and by content type', Array(get_class(Index::forExtnsParser('txt')), get_class(Index::findTypeParser('text/plain; charset=utf-8')), Index::optionsOfExtns('TXT')), Array('nyu\Data\Parsers\Text', 'nyu\Data\Parsers\Text', Array('reads'=>'plain')));

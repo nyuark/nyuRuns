@@ -92,9 +92,9 @@ checkIdentical('readQuery after a write that changed nothing is empty, without a
 }), Array(Array(), false));
 checkIdentical('lastError is cleared by a transaction call', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
-	$dbHandl->opnTransaction();
+	$dbHandl->newTransaction();
 	$opnMssg = $dbHandl->finalErrorText();
-	$dbHandl->remTransaction();
+	$dbHandl->delTransaction();
 	return $opnMssg;
 }), false);
 
@@ -111,36 +111,36 @@ function venueOf4(): Mixed {
 }
 
 checkIdentical('nothing to set or remove without a transaction', runCatchThrown(function() use ($dbHandl){
-	return Array($dbHandl->setTransaction(), $dbHandl->remTransaction());
+	return Array($dbHandl->setTransaction(), $dbHandl->delTransaction());
 }), Array(false, false));
 checkIdentical('a removed transaction leaves the table unchanged', runCatchThrown(function() use ($dbHandl){
-	$opnDone = $dbHandl->opnTransaction();
+	$opnDone = $dbHandl->newTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Undone', 4));
 	$midRead = venueOf4();
-	return Array($opnDone, $midRead, $dbHandl->remTransaction(), venueOf4());
+	return Array($opnDone, $midRead, $dbHandl->delTransaction(), venueOf4());
 }), Array(true, 'Undone', true, 'Hall S'));
 checkIdentical('a set transaction is kept', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->opnTransaction();
+	$dbHandl->newTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Kept', 4));
-	return Array($dbHandl->setTransaction(), venueOf4(), $dbHandl->remTransaction());
+	return Array($dbHandl->setTransaction(), venueOf4(), $dbHandl->delTransaction());
 }), Array(true, 'Kept', false));
 checkIdentical('an inner set followed by an outer remove keeps nothing', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->opnTransaction();
-	$dbHandl->opnTransaction();
+	$dbHandl->newTransaction();
+	$dbHandl->newTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
 	$innrSet = $dbHandl->setTransaction();
-	return Array($innrSet, $dbHandl->remTransaction(), venueOf4());
+	return Array($innrSet, $dbHandl->delTransaction(), venueOf4());
 }), Array(true, true, 'Kept'));
 checkIdentical('an inner remove makes the outer set fail', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->opnTransaction();
-	$dbHandl->opnTransaction();
+	$dbHandl->newTransaction();
+	$dbHandl->newTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
-	$innrRem = $dbHandl->remTransaction();
+	$innrRem = $dbHandl->delTransaction();
 	return Array($innrRem, $dbHandl->setTransaction(), venueOf4());
 }), Array(true, false, 'Kept'));
 checkIdentical('both levels set: the change is written', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->opnTransaction();
-	$dbHandl->opnTransaction();
+	$dbHandl->newTransaction();
+	$dbHandl->newTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Both', 4));
 	return Array($dbHandl->setTransaction(), $dbHandl->setTransaction(), $dbHandl->setTransaction(), venueOf4());
 }), Array(true, true, false, 'Both'));

@@ -41,7 +41,7 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
 		'access'=>Array(
 			'LOGINSET'=>$loginBlock,
 			'TESTBASE'=>Array('useTable'=>'users', 'maxTries'=>5),
-			'TSDEVC'=>Array('stmpSecs'=>0),
+			'TSDEVC'=>Array('seenSecs'=>0),
 			'TESTTOKN'=>Array('hmacSecr'=>str_repeat('s', 40), 'lifeSecs'=>60),
 			'TRYLIMIT'=>Array('maxTries'=>$triesLimit) + $GLOBALS['lmtConf']
 		)
@@ -62,7 +62,7 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
 function pairReply( String $carrierStr, String $checkNamed, Array $headersArr=Array(), Array $serverVals=Array(), Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
 	$axsConf = $moreConfig + Array('required'=>true, 'sessWith'=>$carrierStr, 'sessConf'=>($carrierStr=='jwtToken') ? 'testTokn' : 'nothing', 'authWith'=>$checkNamed, 'authConf'=>($checkNamed=='nativeDb') ? 'testBase' : 'tsdevc');
 	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->validateAccess();
-	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'));
+	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }
 
 /**
@@ -144,12 +144,12 @@ checkIdentical('apiHeadr x devToken: the token of a device, with the role of its
 checkIdentical('apiHeadr x devToken: the personal token of the user is not a device', pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$annaTkn)), Array(401, 'Invalid API key', '', null));
 checkIdentical('apiHeadr x nativeDb: the token of a device is not a personal token', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$phonTkn)), Array(401, 'Invalid API key', '', null));
 checkIdentical('httpBasc x devToken: a check of tokens takes no password: the pair refuses every request', pairReply('httpBasc', 'devToken', basicHead('anna', $phonTkn)), Array(500, 'Access misconfigured', '', null));
-checkIdentical('jwtToken x devToken: the token alone decides, with the role it was issued with', pairReply('jwtToken', 'devToken', tokenHead(Array('user'=>'dave', 'role'=>'operator'))), Array(200, '', 'dave', 'operator'));
+checkIdentical('jwtToken x devToken: the token alone decides, with the role it was issued with', pairReply('jwtToken', 'devToken', tokenHead(Array('userName'=>'dave', 'userRole'=>'operator'))), Array(200, '', 'dave', 'operator'));
 checkIdentical('clntCert x devToken: the certificate alone decides', pairReply('clntCert', 'devToken', Array(), certVals('dave')), Array(200, '', 'dave', 'internal'));
 
 // Roles : measured against the role of the users table
 $rolConf = Array('rteRoles'=>Array('shows/*'=>'operator'));
-$anyRoute = Array('app'=>'shows', 'action'=>'overview');
+$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
 checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pairReply('httpBasc', 'nativeDb', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('httpBasc', 'nativeDb', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'internal'), Array(200, '', 'anna', 'sysadmin')));
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: apiHeadr x devToken, the device has the role of its user', pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
@@ -167,7 +167,7 @@ checkIdentical('limit: apiHeadr x nativeDb, a wrong personal token is counted', 
 checkIdentical('limit: apiHeadr x devToken, a wrong device token is counted', Array(sendTrice('198.51.100.5', 'apiHeadr', 'devToken', Array('X-Api-Key'=>'nope')), heldAddr('198.51.100.5')), Array(Array(401, 401, 429), true));
 checkIdentical('limit: the held address is refused with the right device token', pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn), Array('REMOTE_ADDR'=>'198.51.100.5'))[0], 429);
 checkIdentical('limit: the certificate of a locked user is not counted', Array(sendTrice('198.51.100.6', 'clntCert', 'nativeDb', Array(), certVals('dave')), heldAddr('198.51.100.6')), Array(Array(401, 401, 401), false));
-checkIdentical('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.7', 'jwtToken', 'nativeDb', tokenHead(Array('user'=>'dave'))), heldAddr('198.51.100.7')), Array(Array(401, 401, 401), false));
+checkIdentical('limit: the token of a locked user is not counted', Array(sendTrice('198.51.100.7', 'jwtToken', 'nativeDb', tokenHead(Array('userName'=>'dave'))), heldAddr('198.51.100.7')), Array(Array(401, 401, 401), false));
 checkIdentical('limit: a pair that cannot work is not counted', Array(sendTrice('198.51.100.8', 'httpBasc', 'devToken', basicHead('anna', $phonTkn)), heldAddr('198.51.100.8')), Array(Array(500, 500, 500), false));
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 
@@ -176,7 +176,7 @@ plugConf( 0, Array('authWith'=>'devToken', 'authConf'=>'tsdevc', 'sessConf'=>'te
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 $mthProp->setValue($request, 'POST');
-$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('openSess', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('logged'=>false, 'user'=>'', 'role'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('openSess', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 $actnSet->runAskedAction();
 checkIdentical('login x devToken: no token is issued for a device token sent as a password', Array($actnSet->statusCode, $actnSet->statusMssg, $actnSet->replyValue), Array(401, 'No API key provided', null));
 $sqlLink = null;

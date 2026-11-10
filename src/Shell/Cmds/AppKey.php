@@ -67,11 +67,11 @@ class AppKey extends Command{
 			$this->terminateShell('Invalid name: a lower-case word of 2 to 16 letters and digits', self::EXIT_HELP);
 		}
 		$rteList = $this->parseRouteList();
-		$maxRole = strval($this->optnObject->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
+		$maxRole = strval($this->optionsObj->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
 		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
 			$this->terminateShell('Invalid role: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
 		}
-		$publPth = trim( strval($this->optnObject->retrieveOption('publFile', '')) );
+		$publPth = trim( strval($this->optionsObj->retrieveOption('publFile', '')) );
 		if( $publPth=='' ){
 			$this->terminateShell('Missing option: --publFile, the public key of the tokens of the application', self::EXIT_HELP);
 		}
@@ -195,7 +195,7 @@ class AppKey extends Command{
 	 * @return Array The routes.
 	 */
 	protected function parseRouteList(): Array {
-		$rteList = array_values( array_filter(array_map('trim', explode(',', strval($this->optnObject->retrieveOption('routeSet', '')))), 'strlen') );
+		$rteList = array_values( array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('routeSet', '')))), 'strlen') );
 		if( empty($rteList) ){
 			$this->terminateShell('Missing option: --routeSet, the routes the application may reach, separated by commas', self::EXIT_HELP);
 		}

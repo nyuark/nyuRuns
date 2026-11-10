@@ -445,7 +445,7 @@ checkIdentical('one parser, several documents: a field, a note, a comment or an 
 	$envlope = $prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeDocx('next.docx', wPar(wRun('c').'<w:r><w:footnoteReference w:id="1"/></w:r>').wPar(''))));
 	return Array(blkLines($envlope['items']), array_keys($envlope['infos']));
 }), Array(Array('paragrph [c][1|>#fnote1]', 'paragrph'), Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot')));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
 checkIdentical('index: documents by extension and by content type', Array(get_class(Index::forExtnsParser('DOCX')), get_class(Index::findTypeParser('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))), Array('nyu\Data\Parsers\Docx', 'nyu\Data\Parsers\Docx'));

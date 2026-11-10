@@ -15,11 +15,11 @@ class StopRun extends \RuntimeException {
 	 * status, message and output it carries. It is not an error.
 	 *
 	 * @param Int    $responseCode HTTP status to reply with.
-	 * @param String $statusMessag Message describing a non-2xx status.
+	 * @param String $statusReason Message describing a non-2xx status.
 	 * @param Array|Object|String|Int|Float|Bool|Null $outputToSend Output to send; null keeps what the action had already set.
 	 */
-	public function __construct( Int $responseCode, String $statusMessag='', Array|Object|String|Int|Float|Bool|Null $outputToSend=null ){
-		parent::__construct($statusMessag, $responseCode);
+	public function __construct( Int $responseCode, String $statusReason='', Array|Object|String|Int|Float|Bool|Null $outputToSend=null ){
+		parent::__construct($statusReason, $responseCode);
 		$this->stopOutput = $outputToSend;
 	}
 

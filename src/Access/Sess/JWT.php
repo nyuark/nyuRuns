@@ -31,16 +31,16 @@ class JWT implements Handler{
 
 	protected $authObject;
 	protected $usrJwtSecr;
-	protected $jwtAlgrthm;
+	protected $jwtAlgoTxt;
 	protected $expiryTime;
 	protected $privatePem;
 	protected $usrPublPem;
-	protected $priorPbPem;
-	protected $priorRetir;
+	protected $prevPemKey;
+	protected $retireUnix;
 	protected $issuerText;
-	protected $audnceList;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $audValList;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * Builds the token carrier from its config block.
@@ -56,16 +56,16 @@ class JWT implements Handler{
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
 		$this->authObject = $authStrategy;
 		$this->usrJwtSecr = $configValues['hmacSecr'] ?? '';
-		$this->jwtAlgrthm = strval($configValues['signAlgo'] ?? 'HS256');
+		$this->jwtAlgoTxt = strval($configValues['signAlgo'] ?? 'HS256');
 		$this->expiryTime = $configValues['lifeSecs'] ?? 3600;
 		$this->privatePem = $this->readPemKeyFile( $configValues['privFile'] ?? '' );
 		$this->usrPublPem = $this->readPemKeyFile( $configValues['publFile'] ?? '' );
 		// The previous key checks only what it signed before it was retired, and no longer than a token lasts
-		$this->priorRetir = is_int($configValues['retireAt'] ?? null) ? $configValues['retireAt'] : 0;
-		$this->priorPbPem = ( $this->priorRetir>0 && $this->priorRetir + intval($this->expiryTime)>=time() ) ? $this->readPemKeyFile( $configValues['prevFile'] ?? '' ) : '';
+		$this->retireUnix = is_int($configValues['retireAt'] ?? null) ? $configValues['retireAt'] : 0;
+		$this->prevPemKey = ( $this->retireUnix>0 && $this->retireUnix + intval($this->expiryTime)>=time() ) ? $this->readPemKeyFile( $configValues['prevFile'] ?? '' ) : '';
 		$this->issuerText = is_scalar($configValues['issuerId'] ?? null) ? trim(strval($configValues['issuerId'])) : '';
-		$this->audnceList = $this->readsAudiences( $configValues['audience'] ?? null );
-		$this->lastMessag = '';
+		$this->audValList = $this->readsAudiences( $configValues['audience'] ?? null );
+		$this->errMessage = '';
 	}
 
 	/**
@@ -76,14 +76,14 @@ class JWT implements Handler{
 	 * With a credential store offering usrIdentityArr(), the user must still be
 	 * allowed in, and its current identity (role) replaces the token's.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The decoded identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $requstObject ): Array|Bool {
-		$this->invalidCrd = false;
-		$authHdr = $requstObject->retrieveHeader('Authorization');
+	function verifyRqstList( Request $givenRequest ): Array|Bool {
+		$this->badTryFlag = false;
+		$authHdr = $givenRequest->retrieveHeader('Authorization');
 		if( $authHdr===null || stripos($authHdr, 'Bearer ')!==0 ){
-			$this->lastMessag = 'Missing Bearer Authorization header';
+			$this->errMessage = 'Missing Bearer Authorization header';
 			return false;
 		}
 		$chckKey = $this->getCheckingKey();
@@ -93,52 +93,52 @@ class JWT implements Handler{
 		$rawTokn = substr( $authHdr, 7 );
 		// A token signed before the keys were replaced names the previous key in its 'kid'
 		$usedOld = false;
-		if( $this->jwtAlgrthm=='RS256' && $this->priorPbPem!='' ){
+		if( $this->jwtAlgoTxt=='RS256' && $this->prevPemKey!='' ){
 			$hdrJson = json_decode( strval(base64_decode(strtr(explode('.', $rawTokn)[0], '-_', '+/'))), true );
 			$askdKid = is_array($hdrJson) && is_string($hdrJson['kid'] ?? null) ? $hdrJson['kid'] : '';
-			$keysArr = $this->checkKeysArray();
-			$usedOld = isset($keysArr[$askdKid]) && $keysArr[$askdKid]===$this->priorPbPem && $askdKid!==$this->keysThumbprint();
+			$keysArr = $this->publicKeysList();
+			$usedOld = isset($keysArr[$askdKid]) && $keysArr[$askdKid]===$this->prevPemKey && $askdKid!==$this->keysThumbprint();
 			$chckKey = $keysArr[$askdKid] ?? $chckKey;
 		}
 		try{
-			$payload = JwtCodec::decode( $rawTokn, new Key($chckKey, $this->jwtAlgrthm) );
+			$payload = JwtCodec::decode( $rawTokn, new Key($chckKey, $this->jwtAlgoTxt) );
 			$idntArr = (array)$payload;
 		}catch( \Firebase\JWT\ExpiredException $e ){
-			$this->lastMessag = 'Expired token';
+			$this->errMessage = 'Expired token';
 			return false;
 		}catch( \Throwable $e ){
 			// What the library found is for the log : the client is only told the token is not valid
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.get_class($e).': '.$e->getMessage() );
-			$this->lastMessag = 'Invalid token';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid token';
+			$this->badTryFlag = true;
 			return false;
 		}
 		// A token names its user and ends : one that does neither was not issued here
-		if( !is_numeric($idntArr['exp'] ?? null) || !is_scalar($idntArr['user'] ?? null) || strval($idntArr['user'])==='' ){
+		if( !is_numeric($idntArr['exp'] ?? null) || !is_scalar($idntArr['userName'] ?? null) || strval($idntArr['userName'])==='' ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed, but without an expiry or a user' );
-			$this->lastMessag = 'Invalid token';
+			$this->errMessage = 'Invalid token';
 			return false;
 		}
 		// The previous key: only a token issued before it was retired, and ending within lifeSecs of it; a leaked key signs nothing more
-		if( $usedOld && !( is_numeric($idntArr['iat'] ?? null) && $idntArr['iat']<$this->priorRetir && $idntArr['exp']<=$this->priorRetir + intval($this->expiryTime) ) ){
+		if( $usedOld && !( is_numeric($idntArr['iat'] ?? null) && $idntArr['iat']<$this->retireUnix && $idntArr['exp']<=$this->retireUnix + intval($this->expiryTime) ) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed with the previous key outside its time' );
-			$this->lastMessag = 'Invalid token';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid token';
+			$this->badTryFlag = true;
 			return false;
 		}
 		// A token issued for another project, or by another issuer, is not counted : its signature is right
 		$clmFlaw = $this->checkClaimFlaw( $idntArr );
 		if( $clmFlaw!='' ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.$clmFlaw );
-			$this->lastMessag = 'Invalid token';
+			$this->errMessage = 'Invalid token';
 			return false;
 		}
 		// A credential store that knows its users confirms the token's user is still allowed in
 		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
 			// The time the token was issued at : a password set since ends it
-			$nowIdnt = $this->authObject->usrIdentityArr( strval($idntArr['user'] ?? ''), intval($idntArr['iat'] ?? 0) );
+			$nowIdnt = $this->authObject->usrIdentityArr( strval($idntArr['userName'] ?? ''), intval($idntArr['iat'] ?? 0) );
 			if( $nowIdnt===false ){
-				$this->lastMessag = $this->authObject->finalErrorText();
+				$this->errMessage = $this->authObject->finalErrorText();
 				return false;
 			}
 			$idntArr = array_merge($idntArr, $nowIdnt);
@@ -153,26 +153,26 @@ class JWT implements Handler{
 	 * the audiences of the block are written as 'iss' and 'aud': one
 	 * audience as a text, several as a list.
 	 *
-	 * @param Array $identtyArray The identity to encode into the token.
+	 * @param Array $identityList The identity to encode into the token.
 	 * @return String The issued JWT, or an empty string when the secret or the private key is not usable.
 	 */
-	function issueTokenText( Array $identtyArray ): String {
+	function issueTokenText( Array $identityList ): String {
 		$signKey = $this->findSigningKey();
 		if( $signKey===null ){
 			return '';
 		}
-		$payload = $identtyArray;
+		$payload = $identityList;
 		// Only the block names the issuer and the audiences, never the identity
 		unset( $payload['iss'], $payload['aud'] );
 		if( $this->issuerText!='' ){
 			$payload['iss'] = $this->issuerText;
 		}
-		if( !empty($this->audnceList) ){
-			$payload['aud'] = (count($this->audnceList)==1) ? $this->audnceList[0] : $this->audnceList;
+		if( !empty($this->audValList) ){
+			$payload['aud'] = (count($this->audValList)==1) ? $this->audValList[0] : $this->audValList;
 		}
 		$payload['iat'] = time();
 		$payload['exp'] = time() + $this->expiryTime;
-		return JwtCodec::encode( $payload, $signKey, $this->jwtAlgrthm, ($this->jwtAlgrthm=='RS256') ? $this->keysThumbprint() : null );
+		return JwtCodec::encode( $payload, $signKey, $this->jwtAlgoTxt, ($this->jwtAlgoTxt=='RS256') ? $this->keysThumbprint() : null );
 	}
 
 	/**
@@ -182,7 +182,7 @@ class JWT implements Handler{
 	 * @return Bool True when the block checks tokens and issues none.
 	 */
 	public function verifyOnlyFlag(): Bool {
-		return $this->jwtAlgrthm=='RS256' && $this->privatePem=='' && $this->rsaUserPublTxt()!==null;
+		return $this->jwtAlgoTxt=='RS256' && $this->privatePem=='' && $this->rsaUserPublTxt()!==null;
 	}
 
 	/**
@@ -193,15 +193,15 @@ class JWT implements Handler{
 	 * @return ?String The key, or null when it is not usable; finalErrorText() then tells why.
 	 */
 	protected function getCheckingKey(): ?String {
-		if( $this->jwtAlgrthm=='RS256' ){
+		if( $this->jwtAlgoTxt=='RS256' ){
 			$chckKey = $this->rsaUserPublTxt();
 			if( $chckKey===null ){
-				$this->lastMessag = 'Token keys not configured';
+				$this->errMessage = 'Token keys not configured';
 			}
 			return $chckKey;
 		}
-		if( $this->jwtAlgrthm!='HS256' || !is_string($this->usrJwtSecr) || strlen($this->usrJwtSecr)<32 ){
-			$this->lastMessag = 'JWT secret not configured';
+		if( $this->jwtAlgoTxt!='HS256' || !is_string($this->usrJwtSecr) || strlen($this->usrJwtSecr)<32 ){
+			$this->errMessage = 'JWT secret not configured';
 			return null;
 		}
 		return $this->usrJwtSecr;
@@ -214,16 +214,16 @@ class JWT implements Handler{
 	 * @return ?String The key, or null when it is not usable; finalErrorText() then tells why.
 	 */
 	protected function findSigningKey(): ?String {
-		if( $this->jwtAlgrthm!='RS256' ){
+		if( $this->jwtAlgoTxt!='RS256' ){
 			return $this->getCheckingKey();
 		}
 		if( $this->verifyOnlyFlag() ){
-			$this->lastMessag = 'Tokens are issued by another server';
+			$this->errMessage = 'Tokens are issued by another server';
 			return null;
 		}
 		$keyInst = ($this->privatePem!='' && function_exists('openssl_pkey_get_private')) ? @openssl_pkey_get_private($this->privatePem) : false;
 		if( $keyInst===false || !$this->isStrongRsaKey($keyInst) ){
-			$this->lastMessag = 'Token keys not configured';
+			$this->errMessage = 'Token keys not configured';
 			return null;
 		}
 		return $this->privatePem;
@@ -305,13 +305,13 @@ class JWT implements Handler{
 	 *
 	 * @return Array The keys as PEM, by thumbprint; empty with HS256 or without a usable key.
 	 */
-	protected function checkKeysArray(): Array {
-		if( $this->jwtAlgrthm!='RS256' ){
+	protected function publicKeysList(): Array {
+		if( $this->jwtAlgoTxt!='RS256' ){
 			return Array();
 		}
 		$keysArr = Array();
 		$pemText = $this->rsaUserPublTxt();
-		foreach( Array($pemText, ($this->priorPbPem!='') ? $this->priorPbPem : null) as $pemTxt ){
+		foreach( Array($pemText, ($this->prevPemKey!='') ? $this->prevPemKey : null) as $pemTxt ){
 			$keysKid = ($pemTxt!==null) ? $this->keysThumbprint($pemTxt) : null;
 			if( $keysKid!==null && !isset($keysArr[$keysKid]) ){
 				$keysArr[$keysKid] = $pemTxt;
@@ -331,7 +331,7 @@ class JWT implements Handler{
 	public function publicSetArray(): Array {
 		$keysLst = Array();
 		if( !$this->verifyOnlyFlag() ){
-			foreach( $this->checkKeysArray() as $pemTxt ){
+			foreach( $this->publicKeysList() as $pemTxt ){
 				$keysLst[] = $this->rsaToJwksArray($pemTxt);
 			}
 		}
@@ -344,12 +344,12 @@ class JWT implements Handler{
 	 * name one of its audiences. Neither is checked while the block names
 	 * none.
 	 *
-	 * @param Array $identtyArray The decoded claims of the token.
+	 * @param Array $identityList The decoded claims of the token.
 	 * @return String The reason, for the log; empty when the token is the block's.
 	 */
-	protected function checkClaimFlaw( Array $identtyArray ): String {
+	protected function checkClaimFlaw( Array $identityList ): String {
 		if( $this->issuerText!='' ){
-			$tknIssr = $identtyArray['iss'] ?? null;
+			$tknIssr = $identityList['iss'] ?? null;
 			if( !is_string($tknIssr) || $tknIssr=='' ){
 				return 'no issuer';
 			}
@@ -357,13 +357,13 @@ class JWT implements Handler{
 				return 'issuer '.json_encode($tknIssr).' is not '.json_encode($this->issuerText);
 			}
 		}
-		if( !empty($this->audnceList) ){
-			$audList = $this->readsAudiences( $identtyArray['aud'] ?? null );
+		if( !empty($this->audValList) ){
+			$audList = $this->readsAudiences( $identityList['aud'] ?? null );
 			if( empty($audList) ){
 				return 'no audience';
 			}
-			if( empty(array_intersect($audList, $this->audnceList)) ){
-				return 'audience '.json_encode((count($audList)==1) ? $audList[0] : $audList).' is not one of '.json_encode($this->audnceList);
+			if( empty(array_intersect($audList, $this->audValList)) ){
+				return 'audience '.json_encode((count($audList)==1) ? $audList[0] : $audList).' is not one of '.json_encode($this->audValList);
 			}
 		}
 		return '';
@@ -421,8 +421,8 @@ class JWT implements Handler{
 	 *
 	 * @return Bool True when a token was presented and found forged.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
@@ -431,6 +431,6 @@ class JWT implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

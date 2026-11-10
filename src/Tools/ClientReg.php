@@ -36,10 +36,10 @@ class ClientReg extends Registry{
 	 * @return Array The client values, by name.
 	 */
 	protected function clientSetArray( ServerReg $serverValues, Array $proxyConfArr = Array() ): Array {
-		$uaHeadr = strval($serverValues->readFileDetail('http_user_agent'));
-		$peerAdr = strval($serverValues->readFileDetail('remote_addr'));
+		$uaHeadr = strval($serverValues->readValueByKey('http_user_agent'));
+		$peerAdr = strval($serverValues->readValueByKey('remote_addr'));
 		$addrTxt = $this->findClientAddr($serverValues, $proxyConfArr);
-		$hostTxt = strval($serverValues->readFileDetail('remote_host'));
+		$hostTxt = strval($serverValues->readValueByKey('remote_host'));
 		return Array(
 			'userAddr'=>$addrTxt,
 			'peerAddr'=>$peerAdr,
@@ -48,8 +48,8 @@ class ClientReg extends Registry{
 			'userSchm'=>$this->proxySchemaTxt($serverValues, $proxyConfArr),
 			'usrAgent'=>$uaHeadr,
 			'clSystem'=>$this->findSystemText($uaHeadr),
-			'clDevice'=>$this->findDeviceNumb($uaHeadr),
-			'language'=>$this->getLangsString( strval($serverValues->readFileDetail('http_accept_language')) ),
+			'clDevice'=>$this->clientKindText($uaHeadr),
+			'language'=>$this->getLangsString( strval($serverValues->readValueByKey('http_accept_language')) ),
 			'humanSys'=>$this->locateHumanFlg($uaHeadr)
 		);
 	}
@@ -65,14 +65,14 @@ class ClientReg extends Registry{
 	 * @return String The address of the client; the one of the connection when no trusted proxy stands in front.
 	 */
 	protected function findClientAddr( ServerReg $serverValues, Array $proxyConfArr ): String {
-		$peerAdr = $this->unwrapIpv4Addr( strval($serverValues->readFileDetail('remote_addr')) );
+		$peerAdr = $this->unwrapIpv4Addr( strval($serverValues->readValueByKey('remote_addr')) );
 		$trstLst = $proxyConfArr['list'] ?? Array();
 		if( empty($trstLst) || !$this->hasTrustedFlag($peerAdr, $trstLst) ){
 			return $peerAdr;
 		}
 		// The header as the server registry names it : X-Forwarded-For is http_x_forwarded_for
 		$headKey = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfArr['head'] ?? 'X-Forwarded-For')));
-		$fwdList = array_reverse( array_map('trim', explode(',', strval($serverValues->readFileDetail($headKey)))) );
+		$fwdList = array_reverse( array_map('trim', explode(',', strval($serverValues->readValueByKey($headKey)))) );
 		$addrTxt = $peerAdr;
 		foreach( $fwdList as $fwdAdr ){
 			// What is not an address ends the reading : the last address found is kept
@@ -97,14 +97,14 @@ class ClientReg extends Registry{
 	 * @return String The scheme; the one of the connection when no trusted proxy tells another.
 	 */
 	protected function proxySchemaTxt( ServerReg $serverValues, Array $proxyConfArr ): String {
-		$schmStr = strval($serverValues->readFileDetail('request_scheme'));
+		$schmStr = strval($serverValues->readValueByKey('request_scheme'));
 		$trstLst = $proxyConfArr['list'] ?? Array();
-		if( empty($trstLst) || !$this->hasTrustedFlag(strval($serverValues->readFileDetail('remote_addr')), $trstLst) ){
+		if( empty($trstLst) || !$this->hasTrustedFlag(strval($serverValues->readValueByKey('remote_addr')), $trstLst) ){
 			return $schmStr;
 		}
 		// The header as the server registry names it : X-Forwarded-Proto is http_x_forwarded_proto
 		$headKey = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfArr['schm'] ?? 'X-Forwarded-Proto')));
-		$fwdSchm = strtolower(trim(strval($serverValues->readFileDetail($headKey))));
+		$fwdSchm = strtolower(trim(strval($serverValues->readValueByKey($headKey))));
 		return in_array($fwdSchm, Array('http', 'https'), true) ? $fwdSchm : $schmStr;
 	}
 
@@ -112,11 +112,11 @@ class ClientReg extends Registry{
 	 * Tells whether an address is one of the trusted proxies.
 	 *
 	 * @param String $searchedAddr The address to look for.
-	 * @param Array  $trustedAddrs Addresses or CIDR ranges of the trusted proxies.
+	 * @param Array  $proxyAddrArr Addresses or CIDR ranges of the trusted proxies.
 	 * @return Bool True when the address is listed, or within a listed range.
 	 */
-	protected function hasTrustedFlag( String $searchedAddr, Array $trustedAddrs ): Bool {
-		foreach( $trustedAddrs as $trsNet ){
+	protected function hasTrustedFlag( String $searchedAddr, Array $proxyAddrArr ): Bool {
+		foreach( $proxyAddrArr as $trsNet ){
 			if( $this->isAddrInSubnet($searchedAddr, strval($trsNet)) ){
 				return true;
 			}
@@ -214,7 +214,7 @@ class ClientReg extends Registry{
 	 * @param String $userAgentTxt The User-Agent of the request.
 	 * @return String The six-character code of the kind of client.
 	 */
-	protected function findDeviceNumb( String $userAgentTxt ): String {
+	protected function clientKindText( String $userAgentTxt ): String {
 		if( $userAgentTxt=='' ){
 			return 'shadowed';
 		}
@@ -250,7 +250,7 @@ class ClientReg extends Registry{
 	 * @return Bool True for a desktop, mobile or tablet browser.
 	 */
 	protected function locateHumanFlg( String $userAgentTxt ): Bool {
-		return in_array( $this->findDeviceNumb($userAgentTxt), Array('computer', 'handheld', 'tabletPc'), true );
+		return in_array( $this->clientKindText($userAgentTxt), Array('computer', 'handheld', 'tabletPc'), true );
 	}
 
 	/**

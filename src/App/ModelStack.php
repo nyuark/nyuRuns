@@ -9,8 +9,8 @@ namespace nyu\App;
  */
 class ModelStack{
 
-	protected $appIdentty;
-	protected $modelFoldr;
+	protected $runAppName;
+	protected $modelsFldr;
 	protected $modelsList;
 	// The models of the mods folder, by name in lower case, with their name as written
 	protected $modelFiles;
@@ -24,12 +24,12 @@ class ModelStack{
 	 * @param String $appNameToRun Name of the application (run) whose models to load.
 	 */
 	public function __construct(String $appNameToRun){
-		$this->appIdentty = $appNameToRun;
-		$this->modelFoldr = RUN_DIR.DS.$appNameToRun.DS.'mods';
+		$this->runAppName = $appNameToRun;
+		$this->modelsFldr = RUN_DIR.DS.$appNameToRun.DS.'mods';
 		$this->modelsList = array();
 		$this->modelFiles = array();
-		if(is_dir($this->modelFoldr)){
-			foreach( scandir($this->modelFoldr) as $mdlFil ){
+		if(is_dir($this->modelsFldr)){
+			foreach( scandir($this->modelsFldr) as $mdlFil ){
 				$nmeSize = strpos($mdlFil,'Model.php');
 				if( $nmeSize!==false ){
 					$mdlName = substr($mdlFil, 0, $nmeSize);
@@ -80,12 +80,12 @@ class ModelStack{
 	 * @throws \RuntimeException When the model cannot be created.
 	 */
 	protected function newModelObject(String $modelClsName): Object {
-		require_once($this->modelFoldr.DS.$modelClsName.'Model.php');
+		require_once($this->modelsFldr.DS.$modelClsName.'Model.php');
 		try{
-			$clsName = "\\nyu\\Runs\\".$this->appIdentty."\\mods\\".$modelClsName;
+			$clsName = "\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName;
 			return new $clsName();
 		}catch( \Throwable $e ){
-			throw new \RuntimeException('Model "'.$modelClsName.'" of "'.$this->appIdentty.'" could not be loaded: '.$e->getMessage(), 0, $e);
+			throw new \RuntimeException('Model "'.$modelClsName.'" of "'.$this->runAppName.'" could not be loaded: '.$e->getMessage(), 0, $e);
 		}
 	}
 

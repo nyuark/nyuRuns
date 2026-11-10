@@ -49,9 +49,9 @@ function executeDialect( String $handlerClass ): Void {
 		return Array($dbHndlr->sendBuiltQuery($updtQry, true, Array('Hall Z', 4)), $dbHndlr->countLastWrite(), $dbHndlr->sendBuiltQuery($updtQry, true, Array('Hall Z', 999)), $dbHndlr->countLastWrite());
 	}), Array(true, 1, true, 0));
 	checkIdentical('a removed transaction leaves the table unchanged', runCatchThrown(function() use ($dbHndlr){
-		$dbHndlr->opnTransaction();
+		$dbHndlr->newTransaction();
 		$dbHndlr->sendBuiltQuery('UPDATE '.$dbHndlr->quoteFieldName('shows').' SET '.$dbHndlr->quoteFieldName('venue').'=? WHERE '.$dbHndlr->quoteFieldName('id_show').'=?', true, Array('Undone', 4));
-		$dbHndlr->remTransaction();
+		$dbHndlr->delTransaction();
 		$showRec = new DBRec('shows');
 		return $showRec->loadRecordList('4')['venue'];
 	}), 'Hall Z');

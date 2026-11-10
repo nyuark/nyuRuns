@@ -122,7 +122,7 @@ checkPregMatch('a line that is not a key, in a map', ymlItems("a: 1\njust text\n
 checkPregMatch('a map after a list, at the same level', ymlItems("- a\nb: 1"), ymlFail('unexpected content', 2));
 checkPregMatch('an unknown escape', ymlItems('a: "\q"'), ymlFail('\\\\q is not a known escape', 1));
 checkPregMatch('an unknown mark for a text over several lines', ymlItems("a: |x\n  t"), ymlFail('unknown mark "\|x" for a text over several lines', 1));
-checkIdentical('no PHP warning is left behind by a refusal', takeNotesArray(), Array());
+checkIdentical('no PHP warning is left behind by a refusal', takePhpNotices(), Array());
 
 // Encodings and line ends
 checkIdentical('any line end, a marker at the start, a file saved by an older tool', Array(ymlItems("a: 1\r\nb:\r\n  - x\r\n"), ymlItems("\xEF\xBB\xBFa: été"), ymlItems("a: \xE9t\xE9 \x80")), Array(Array('a'=>1, 'b'=>Array('x')), Array('a'=>'été'), Array('a'=>'été €')));

@@ -17,7 +17,7 @@ class Native implements Handler{
 	// Statuses a user can have; only an active user may log in. 'checking' is a self-registration awaiting a manager
 	const STAT_LIST = Array('awaiting', 'checking', 'approved', 'disabled');
 	// Seconds during which a user already seen is not stamped again
-	const STMP_SECS = 60;
+	const SEEN_SECS = 60;
 	// Longest password, in bytes : bcrypt reads nothing beyond
 	const PASS_SIZE = 72;
 	// The characters of a code : no 0, 1, I, L or O, which are taken for one another
@@ -35,12 +35,12 @@ class Native implements Handler{
 	protected $idlePeriod;
 	protected $triesLimit;
 	protected $holdPeriod;
-	protected $minPasswrd;
+	protected $minPwdSize;
 	protected $sealingKey;
 	protected $mailExpiry;
-	protected $mrkLimiter;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $markedLmtr;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * Builds the check against the native userbase from its config block.
@@ -61,14 +61,14 @@ class Native implements Handler{
 		$this->idlePeriod = max( 1, intval($configValues['idleSecs'] ?? 300) );
 		$this->triesLimit = max( 1, intval($configValues['maxTries'] ?? 5) );
 		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
-		$this->minPasswrd = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
+		$this->minPwdSize = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
 		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
 		$this->mailExpiry = max( 1, intval($configValues['codeMins'] ?? self::MAIL_MINS) );
 		// The failures of a client presenting a login mark are counted on the mark, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
-		$this->mrkLimiter = new \nyu\Access\Limiter( Array('maxTries'=>$this->triesLimit, 'holdSecs'=>$this->holdPeriod, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : '') );
-		$this->lastMessag = '';
+		$this->markedLmtr = new \nyu\Access\Limiter( Array('maxTries'=>$this->triesLimit, 'holdSecs'=>$this->holdPeriod, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : '') );
+		$this->errMessage = '';
 	}
 
 	/**
@@ -88,19 +88,19 @@ class Native implements Handler{
 	 * after as many (see Access\LoginMark). A 'key' entry is checked as a
 	 * personal API token instead.
 	 *
-	 * @param Array $crdntlsArray Must contain 'user' and 'pass' entries (and 'code' for a 2FA user, 'mark' for a client already used), or a 'key' entry.
-	 * @return Array|Bool An identity array ('user', 'role', 'id') on success, or false on failure.
+	 * @param Array $loginDataArr Must contain 'user' and 'pass' entries (and 'code' for a 2FA user, 'mark' for a client already used), or a 'key' entry.
+	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
-	function chckCredential( Array $crdntlsArray ): Array|Bool {
-		$this->invalidCrd = false;
-		if( isset($crdntlsArray['key']) ){
-			return $this->checkTokenList( strval($crdntlsArray['key']) );
+	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+		$this->badTryFlag = false;
+		if( isset($loginDataArr['key']) ){
+			return $this->checkTokenList( strval($loginDataArr['key']) );
 		}
-		$gvnUser = strval($crdntlsArray['user'] ?? '');
-		$gvnPass = strval($crdntlsArray['pass'] ?? '');
+		$gvnUser = strval($loginDataArr['user'] ?? '');
+		$gvnPass = strval($loginDataArr['pass'] ?? '');
 		$userVls = ($gvnUser!='') ? $this->fetchUserArray($gvnUser) : null;
 		if( $userVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		$rowHash = is_array($userVls) ? strval($userVls['passwdHash'] ?? '') : '';
@@ -113,10 +113,10 @@ class Native implements Handler{
 		}
 		// A client already used by the user : its mark, while it has not failed too often itself
 		$markKey = '';
-		if( is_array($userVls) && is_string($crdntlsArray['mark'] ?? null) && $crdntlsArray['mark']!=='' ){
+		if( is_array($userVls) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
 			$pssUnix = (strval($userVls['passwdDate'] ?? '')!='') ? intval(strtotime(strval($userVls['passwdDate']))) : null;
-			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $crdntlsArray['mark'], strval($userVls['userHandle']), $pssUnix );
-			if( $markKey!='' && $this->mrkLimiter->heldByUserNumb($markKey)>0 ){
+			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], strval($userVls['userHandle']), $pssUnix );
+			if( $markKey!='' && $this->markedLmtr->heldByUserNumb($markKey)>0 ){
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($userVls['userHandle']).': too many attempts with it' );
 				$markKey = '';
 			}
@@ -124,49 +124,49 @@ class Native implements Handler{
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($userVls) && $markKey=='' && $this->hasHeldNowFlag($userVls) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is held after too many attempts' );
-			$this->lastMessag = 'Invalid credentials';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid credentials';
+			$this->badTryFlag = true;
 			return false;
 		}
 		if( $userVls===null || !$matched ){
 			if( $userVls!==null ){
-				($markKey!='') ? $this->mrkLimiter->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
+				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
 			}
-			$this->lastMessag = 'Invalid credentials';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid credentials';
+			$this->badTryFlag = true;
 			return false;
 		}
 		if( ($userVls['userStatus'] ?? '')!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is not active ('.strval($userVls['userStatus'] ?? '').')' );
-			$this->lastMessag = 'Invalid credentials';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid credentials';
+			$this->badTryFlag = true;
 			return false;
 		}
 		// A user with mailed codes gives the code sent to its address : asked without one, a code is mailed
 		$sealKey = strval($userVls['twoFactKey'] ?? '');
 		if( ($userVls['twoFactWay'] ?? null)==='emailOtp' ){
-			$gvnCode = strval($crdntlsArray['code'] ?? '');
+			$gvnCode = strval($loginDataArr['code'] ?? '');
 			if( $gvnCode=='' ){
 				// Only a caller that can carry a code (the login) has one mailed : a Basic header cannot
-				if( array_key_exists('code', $crdntlsArray) && !$this->sendCodeByMail($userVls) ){
-					$this->lastMessag = 'Credential store unavailable';
+				if( array_key_exists('code', $loginDataArr) && !$this->sendCodeByMail($userVls) ){
+					$this->errMessage = 'Credential store unavailable';
 					return false;
 				}
 				// Not a failed attempt : the password was right, the client now asks for the code
-				$this->lastMessag = 'Verification code required';
+				$this->errMessage = 'Verification code required';
 				return false;
 			}
 			$codeHit = $this->compareMailFlg( $userVls, $gvnCode );
 			if( $codeHit===null ){
-				$this->lastMessag = 'Credential store unavailable';
+				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
 			if( !$codeHit ){
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($userVls['userHandle']) );
-				($markKey!='') ? $this->mrkLimiter->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
-				$this->lastMessag = 'Invalid verification code';
-				$this->invalidCrd = true;
+				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
+				$this->errMessage = 'Invalid verification code';
+				$this->badTryFlag = true;
 				return false;
 			}
 		}elseif( $sealKey!='' ){
@@ -175,29 +175,29 @@ class Native implements Handler{
 			$sealKey = Totp::openSecretText($sealKey, $this->sealingKey);
 			if( $sealKey===null ){
 				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: cryptKey is missing or was changed' );
-				$this->lastMessag = 'Credential store unavailable';
+				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
-			$gvnCode = strval($crdntlsArray['code'] ?? '');
+			$gvnCode = strval($loginDataArr['code'] ?? '');
 			if( $gvnCode=='' ){
 				// Not a failed attempt : the password was right, the client now asks for the code
-				$this->lastMessag = 'Verification code required';
+				$this->errMessage = 'Verification code required';
 				return false;
 			}
 			$stepNum = Totp::matchStepCount($sealKey, $gvnCode);
 			// A code is accepted once : its step, and those before it, are closed
 			$claimed = ($stepNum!==null) ? $this->claimTwoFaStep( strval($userVls['userHandle']), $stepNum ) : false;
 			if( $claimed===null ){
-				$this->lastMessag = 'Credential store unavailable';
+				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
 			if( !$claimed ){
 				if( $stepNum!==null ){
 					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: already used by user '.json_encode($userVls['userHandle']) );
 				}
-				($markKey!='') ? $this->mrkLimiter->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
-				$this->lastMessag = 'Invalid verification code';
-				$this->invalidCrd = true;
+				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
+				$this->errMessage = 'Invalid verification code';
+				$this->badTryFlag = true;
 				return false;
 			}
 		}
@@ -205,13 +205,13 @@ class Native implements Handler{
 			$this->clearFailedTry( strval($userVls['userHandle']) );
 		}
 		if( $markKey!='' ){
-			$this->mrkLimiter->clearLimitUser($markKey);
+			$this->markedLmtr->clearLimitUser($markKey);
 		}
 		// A hash made at a lower cost than new ones is made again, now that the password is known
 		if( password_needs_rehash($rowHash, PASSWORD_BCRYPT) ){
 			$this->rehashPassword( strval($userVls['userHandle']), $gvnPass );
 		}
-		return Array('user'=>$userVls['userHandle'], 'role'=>strval($userVls['accessRole'] ?? ''), 'id'=>$userVls['id_user'] ?? null);
+		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
@@ -456,24 +456,24 @@ class Native implements Handler{
 	 * bearerHash of an active user.
 	 *
 	 * @param String $toknValueTxt The token, as sent by the client.
-	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false on failure.
+	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false on failure.
 	 */
 	protected function checkTokenList( String $toknValueTxt ): Array|Bool {
 		if( $toknValueTxt=='' ){
-			$this->lastMessag = 'No API key provided';
+			$this->errMessage = 'No API key provided';
 			return false;
 		}
 		$userVls = $this->fetchUserArray( hash('sha256', $toknValueTxt), 'bearerHash' );
 		if( $userVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='approved' ){
-			$this->lastMessag = 'Invalid API key';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid API key';
+			$this->badTryFlag = true;
 			return false;
 		}
-		return Array('user'=>$userVls['userHandle'], 'role'=>strval($userVls['accessRole'] ?? ''), 'id'=>$userVls['id_user'] ?? null);
+		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
@@ -517,7 +517,7 @@ class Native implements Handler{
 		}
 		$ruleMsg = $this->testPassString($namedUserTxt, $usrPasswdTxt);
 		if( $ruleMsg!='' ){
-			$this->lastMessag = $ruleMsg;
+			$this->errMessage = $ruleMsg;
 			return false;
 		}
 		try{
@@ -547,8 +547,8 @@ class Native implements Handler{
 	protected function testPassString( String $namedUserTxt, String $usrPasswdTxt ): String {
 		// Characters are counted when the password is UTF-8, bytes otherwise
 		$charNum = preg_match_all('/./su', $usrPasswdTxt);
-		if( ($charNum ?: strlen($usrPasswdTxt))<$this->minPasswrd ){
-			return 'Password too short: '.$this->minPasswrd.' characters at least';
+		if( ($charNum ?: strlen($usrPasswdTxt))<$this->minPwdSize ){
+			return 'Password too short: '.$this->minPwdSize.' characters at least';
 		}
 		if( strlen($usrPasswdTxt)>self::PASS_SIZE ){
 			return 'Password too long: '.self::PASS_SIZE.' bytes at most';
@@ -571,27 +571,27 @@ class Native implements Handler{
 	 *
 	 * @param String $namedUserTxt Login name of the user.
 	 * @param ?Int   $issuedUnixNb Unix time the session or the token was issued at; null when there is none to compare.
-	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false when the user is unknown, not active, its password was set since, or the table cannot be read.
+	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, its password was set since, or the table cannot be read.
 	 */
 	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedUnixNb=null ): Array|Bool {
-		$this->invalidCrd = false;
+		$this->badTryFlag = false;
 		$userVls = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
 		if( $userVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='approved' ){
-			$this->lastMessag = 'Account not active';
+			$this->errMessage = 'Account not active';
 			return false;
 		}
 		// A password set since the session or the token was issued ends it
 		$pssDate = strval($userVls['passwdDate'] ?? '');
 		if( $issuedUnixNb!==null && $pssDate!='' && strtotime($pssDate)>$issuedUnixNb ){
 			\nyu\Tools\Logger::retrieveLogger('access')->info( 'Session refused for user '.json_encode($namedUserTxt).': issued before its password was set' );
-			$this->lastMessag = 'Password changed: sign in again';
+			$this->errMessage = 'Password changed: sign in again';
 			return false;
 		}
-		return Array('user'=>$userVls['userHandle'], 'role'=>strval($userVls['accessRole'] ?? ''), 'id'=>$userVls['id_user'] ?? null);
+		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
@@ -612,7 +612,7 @@ class Native implements Handler{
 			$nowTime = time();
 			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['accessDate']}='".date('Y-m-d H:i:s', $nowTime)."'"
 				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved'"
-				." AND ({$qtdName['accessDate']} IS NULL OR {$qtdName['accessDate']}<'".date('Y-m-d H:i:s', $nowTime - self::STMP_SECS)."');";
+				." AND ({$qtdName['accessDate']} IS NULL OR {$qtdName['accessDate']}<'".date('Y-m-d H:i:s', $nowTime - self::SEEN_SECS)."');";
 			return $dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt)) && $dbHndlr->countLastWrite()>0;
 		}catch( \Throwable $e ){
 			return false;
@@ -707,8 +707,8 @@ class Native implements Handler{
 	 *
 	 * @return Bool True when a credential was presented and refused.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
@@ -717,6 +717,6 @@ class Native implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

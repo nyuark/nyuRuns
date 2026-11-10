@@ -12,16 +12,16 @@ use \nyu\Tools\StrKit;
  */
 class DBLst {
 	protected $tableLabel;
-	protected $dbConnectn;
+	protected $tableDbCon;
 	// Name of the configured database the table lives in: '' for the default one. A model sets its own.
-	protected $dbaseLabel = '';
+	protected $dbLinkName = '';
 	
 	// What the list reads, as plain values: the store turns them into a query
 	protected $whereArray = Array();
-	protected $slctFields = Array();
-	protected $slctFnctns = Array();
+	protected $selectList = Array();
+	protected $aggregates = Array();
 	protected $orderTerms = Array();
-	protected $limitNumbr = null;
+	protected $limitCount = null;
 	protected $offsetNumb = null;
 	protected $tableJoins = Array();
 	protected $groupNames = Array();
@@ -53,12 +53,12 @@ class DBLst {
 	function __construct( String $databaseTble, ?String $selectFields=null, ?String $filterClause=null, ?String $orderByTerms=null, ?String $ceilingValue=null, ?DBCon $dbConnection=null ){
 		$this->tableLabel = $databaseTble;
 		if($dbConnection == null){
-			$this->dbConnectn = DBCon::linkNamedDbCon($this->dbaseLabel);
+			$this->tableDbCon = DBCon::linkNamedDbCon($this->dbLinkName);
 		}else{
-			$this->dbConnectn = $dbConnection;
+			$this->tableDbCon = $dbConnection;
 		}
 		// A table name that is not a plain name is refused
-		$this->dbConnectn->getStoreObject()->checkNameChars($this->tableLabel);
+		$this->tableDbCon->getStoreObject()->checkNameChars($this->tableLabel);
 		
 		if( $selectFields!==null && trim($selectFields)!='' && trim($selectFields)!='*' ){
 			$this->sqlClauses['field'] = $selectFields;
@@ -81,7 +81,7 @@ class DBLst {
 		}
 		if( $ceilingValue!==null && trim($ceilingValue)!='' ){
 			if( ctype_digit(trim($ceilingValue)) ){
-				$this->limitNumbr = intval(trim($ceilingValue));
+				$this->limitCount = intval(trim($ceilingValue));
 			}else{
 				$this->sqlClauses['limit'] = $ceilingValue;
 			}
@@ -99,13 +99,13 @@ class DBLst {
 			return $this->loadedRows;
 		}
 		$fndOptn = Array(
-			'field'=>$this->slctFields, 'funcs'=>$this->slctFnctns, 'order'=>$this->orderTerms,
-			'limit'=>$this->limitNumbr, 'offst'=>$this->offsetNumb,
+			'field'=>$this->selectList, 'funcs'=>$this->aggregates, 'order'=>$this->orderTerms,
+			'limit'=>$this->limitCount, 'offst'=>$this->offsetNumb,
 			'joins'=>$this->tableJoins, 'group'=>$this->groupNames, 'devel'=>$this->sqlClauses
 		);
 		// Only what is set is asked for: a store refuses the options it cannot honour
 		$fndOptn = array_filter($fndOptn, function($optionsValue){ return $optionsValue!==null && $optionsValue!==Array(); });
-		$this->loadedRows = $this->dbConnectn->getStoreObject()->findItemsArray($this->tableLabel, $this->whereArray, $fndOptn);
+		$this->loadedRows = $this->tableDbCon->getStoreObject()->findItemsArray($this->tableLabel, $this->whereArray, $fndOptn);
 		
 		return $this->loadedRows;
 	}
@@ -167,13 +167,13 @@ class DBLst {
 	 * @throws \RuntimeException When an entry has any other form, or names another function.
 	 */
 	public function pickReadFields( ?String $fldScopeText = null ): Void {
-		$this->slctFields = Array();
-		$this->slctFnctns = Array();
+		$this->selectList = Array();
+		$this->aggregates = Array();
 		unset($this->sqlClauses['field']);
 		if( $fldScopeText===null || trim($fldScopeText)=='' || trim($fldScopeText)=='*' ){
 			return;
 		}
-		$dbStore = $this->dbConnectn->getStoreObject();
+		$dbStore = $this->tableDbCon->getStoreObject();
 		$fldsLst = Array();
 		$funcSet = Array();
 		foreach(explode(',', str_replace('`', '', $fldScopeText)) as $column){
@@ -195,8 +195,8 @@ class DBLst {
 				$fldsLst[] = $dbStore->checkNameChars($fldPart[3]);
 			}
 		}
-		$this->slctFields = $fldsLst;
-		$this->slctFnctns = $funcSet;
+		$this->selectList = $fldsLst;
+		$this->aggregates = $funcSet;
 	}
 	
 	/**
@@ -209,7 +209,7 @@ class DBLst {
 	public function setGroupFields( String|Array $groupByField ): Void {
 		$groupBy = Array();
 		foreach((array)$groupByField as $fldNme){
-			$groupBy[] = $this->dbConnectn->getStoreObject()->checkNameChars(strval($fldNme));
+			$groupBy[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($fldNme));
 		}
 		$this->groupNames = $groupBy;
 	}
@@ -230,7 +230,7 @@ class DBLst {
 			if( $dscSort ){
 				$fldNme = substr($fldNme, 1);
 			}
-			$ordrVal[] = Array($this->dbConnectn->getStoreObject()->checkNameChars($fldNme), $dscSort);
+			$ordrVal[] = Array($this->tableDbCon->getStoreObject()->checkNameChars($fldNme), $dscSort);
 		}
 		$this->orderTerms = $ordrVal;
 		unset($this->sqlClauses['order']);
@@ -245,15 +245,15 @@ class DBLst {
 	 * @param mixed $limitIndexes Limit as a number, or a "count[,offset]" string/array; null clears the limit.
 	 */
 	public function setLimitOffset( Mixed $limitIndexes=null ): Void {
-		$this->limitNumbr = null;
+		$this->limitCount = null;
 		$this->offsetNumb = null;
 		unset($this->sqlClauses['limit']);
 		if($limitIndexes!=null){
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-			$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+			$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 			$dfltLmt = intval($iniConf['LST_ROWS'] ?? 100) ?: 100;
 			$lmtIndx = is_array($limitIndexes) ? array_values($limitIndexes) : explode(',', strval($limitIndexes));
-			$this->limitNumbr = $this->completeNumber($lmtIndx[0] ?? null) ?? $dfltLmt;
+			$this->limitCount = $this->completeNumber($lmtIndx[0] ?? null) ?? $dfltLmt;
 			$this->offsetNumb = $this->completeNumber($lmtIndx[1] ?? null);
 		}
 	}
@@ -292,7 +292,7 @@ class DBLst {
 				throw new \RuntimeException('A join needs a table and two field names');
 			}
 			foreach(array_values($joinSettings) as $jonNme){
-				$this->tableJoins[] = $this->dbConnectn->getStoreObject()->checkNameChars(strval($jonNme));
+				$this->tableJoins[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($jonNme));
 			}
 		}
 	}
@@ -327,7 +327,7 @@ class DBLst {
 				$lstRows[$rowKey][$childTbleTxt] = Array();
 				continue;
 			}
-			$subList = new DBLst($childTbleTxt, null, null, null, null, $this->dbConnectn);
+			$subList = new DBLst($childTbleTxt, null, null, null, null, $this->tableDbCon);
 			// The key is compared exactly, never read as a wildcard
 			$subList->replaceFilters(Array($childLinkFld.'='=>$rowArr[$ownLinkField]));
 			if($singleFldTxt!=''){

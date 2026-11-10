@@ -19,12 +19,12 @@ class PHPSess implements Handler{
 
 	protected $authObject;
 	protected $cookieName;
-	protected $sessinLife;
+	protected $unusedSecs;
 	protected $entireLife;
 	protected $saveFolder;
 	protected $sitePolicy;
 	protected $isHttpOnly;
-	protected $lastMessag;
+	protected $errMessage;
 
 	/**
 	 * Builds the PHP session carrier from its config block.
@@ -41,13 +41,13 @@ class PHPSess implements Handler{
 		$cookNme = strval($configValues['cookName'] ?? 'nyuSessn');
 		$this->authObject = $authStrategy;
 		$this->cookieName = preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $cookNme) ? $cookNme : 'nyuSessn';
-		$this->sessinLife = max( 1, intval($configValues['lifeSecs'] ?? 3600) );
+		$this->unusedSecs = max( 1, intval($configValues['lifeSecs'] ?? 3600) );
 		$this->entireLife = max( 0, intval($configValues['fullSecs'] ?? 43200) );
 		$fldName = is_scalar($configValues['dataPath'] ?? '') ? trim( strval($configValues['dataPath'] ?? ''), '/\\ ' ) : '';
 		$this->saveFolder = ($fldName!='') ? TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $fldName) : '';
 		$this->sitePolicy = self::SITE_LIST[$configValues['sameSite'] ?? 'strict'] ?? 'Strict';
 		$this->isHttpOnly = (($configValues['secureOn'] ?? true) !== false);
-		$this->lastMessag = '';
+		$this->errMessage = '';
 	}
 
 	/**
@@ -58,34 +58,34 @@ class PHPSess implements Handler{
 	 * the user must still be allowed in, and its current identity (role)
 	 * replaces the session's.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $requstObject ): Array|Bool {
-		$sesIdnt = $this->cookUserSidTxt($requstObject);
+	function verifyRqstList( Request $givenRequest ): Array|Bool {
+		$sesIdnt = $this->cookUserSidTxt($givenRequest);
 		if( $sesIdnt=='' ){
-			$this->lastMessag = 'No active session';
+			$this->errMessage = 'No active session';
 			return false;
 		}
 		if( !$this->startSessnFlag($sesIdnt) ){
-			$this->lastMessag = 'Session unavailable';
+			$this->errMessage = 'Session unavailable';
 			return false;
 		}
 		$idntArr = $_SESSION['nyuIdent'] ?? null;
 		// Left unused for too long, or open for longer than a session may live, however much it was used
-		$isEnded = intval($_SESSION['nyuStamp'] ?? 0)<time() - $this->sessinLife
+		$isEnded = intval($_SESSION['nyuStamp'] ?? 0)<time() - $this->unusedSecs
 			|| ($this->entireLife>0 && intval($_SESSION['nyuBirth'] ?? 0)<time() - $this->entireLife);
 		if( !is_array($idntArr) || $isEnded ){
-			$this->lastMessag = is_array($idntArr) ? 'Session expired' : 'No active session';
+			$this->errMessage = is_array($idntArr) ? 'Session expired' : 'No active session';
 			$this->closeUserSessn();
 			return false;
 		}
 		// A credential store that knows its users confirms the session's user is still allowed in
 		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
 			// The start of the session : a password set since ends it
-			$nowIdnt = $this->authObject->usrIdentityArr( strval($idntArr['user'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
+			$nowIdnt = $this->authObject->usrIdentityArr( strval($idntArr['userName'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
 			if( $nowIdnt===false ){
-				$this->lastMessag = $this->authObject->finalErrorText();
+				$this->errMessage = $this->authObject->finalErrorText();
 				$this->closeUserSessn();
 				return false;
 			}
@@ -100,17 +100,17 @@ class PHPSess implements Handler{
 	 * Opens a new session for the given identity, under a new session
 	 * id. The cookie carrying it is sent with the response.
 	 *
-	 * @param Array $identtyArray The identity to keep in the session.
+	 * @param Array $identityList The identity to keep in the session.
 	 * @return String The session id, or an empty string when no session can be opened.
 	 */
-	function issueTokenText( Array $identtyArray ): String {
+	function issueTokenText( Array $identityList ): String {
 		if( !$this->startSessnFlag() ){
-			$this->lastMessag = 'Session unavailable';
+			$this->errMessage = 'Session unavailable';
 			return '';
 		}
 		// Never keep an id the client came with
 		session_regenerate_id(true);
-		$_SESSION = Array('nyuIdent'=>$identtyArray, 'nyuStamp'=>time(), 'nyuBirth'=>time());
+		$_SESSION = Array('nyuIdent'=>$identityList, 'nyuStamp'=>time(), 'nyuBirth'=>time());
 		$sesIdnt = strval(session_id());
 		session_write_close();
 		return $sesIdnt;
@@ -120,10 +120,10 @@ class PHPSess implements Handler{
 	 * Destroys the session named by the request's cookie, and has the
 	 * client forget the cookie.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 */
-	public function dropUsrSession( Request $requstObject ): Void {
-		$sesIdnt = $this->cookUserSidTxt($requstObject);
+	public function dropUsrSession( Request $givenRequest ): Void {
+		$sesIdnt = $this->cookUserSidTxt($givenRequest);
 		if( $sesIdnt!='' && $this->startSessnFlag($sesIdnt) ){
 			$this->closeUserSessn();
 		}
@@ -132,11 +132,11 @@ class PHPSess implements Handler{
 	/**
 	 * Reads the session id carried by the request's cookie.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return String The session id, empty when there is none or it is not shaped like one.
 	 */
-	protected function cookUserSidTxt( Request $requstObject ): String {
-		$sesIdnt = $requstObject->retrieveCookie($this->cookieName);
+	protected function cookUserSidTxt( Request $givenRequest ): String {
+		$sesIdnt = $givenRequest->retrieveCookie($this->cookieName);
 		return ( is_string($sesIdnt) && preg_match('/^[A-Za-z0-9,-]{20,128}$/', $sesIdnt) ) ? $sesIdnt : '';
 	}
 
@@ -154,7 +154,7 @@ class PHPSess implements Handler{
 		ini_set('session.use_strict_mode', '1');
 		ini_set('session.use_only_cookies', '1');
 		ini_set('session.use_trans_sid', '0');
-		ini_set('session.gc_maxlifetime', strval(max($this->sessinLife, intval(ini_get('session.gc_maxlifetime')))));
+		ini_set('session.gc_maxlifetime', strval(max($this->unusedSecs, intval(ini_get('session.gc_maxlifetime')))));
 		session_cache_limiter('');
 		// A folder of its own keeps the sessions away from the other PHP applications of the server
 		if( $this->saveFolder!='' ){
@@ -215,6 +215,6 @@ class PHPSess implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

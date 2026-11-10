@@ -182,7 +182,7 @@ checkIdentical('one parser, several workbooks', runCatchThrown(function() use ($
 	$frstRow = $prsrObj->parseFluxArray(Fluxd::openLocalFluxd($datePth))['items'][0]['cells'][0][0];
 	return Array($frstRow, $prsrObj->parseFluxArray(Fluxd::openLocalFluxd($smplPth))['items'][1]['cells'][6]);
 }), Array('2026-12-28', Array(1, 10, 2, 13)));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
 checkIdentical('index: workbooks by extension and by content type', Array(get_class(Index::forExtnsParser('XLSX')), get_class(Index::findTypeParser('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))), Array('nyu\Data\Parsers\Xlsx', 'nyu\Data\Parsers\Xlsx'));

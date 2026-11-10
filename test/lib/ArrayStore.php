@@ -221,7 +221,7 @@ class ArrayStore implements Store {
 	/**
 	 * @return Bool Always false.
 	 */
-	public function opnTransaction(): Bool {
+	public function newTransaction(): Bool {
 		return false;
 	}
 
@@ -235,7 +235,7 @@ class ArrayStore implements Store {
 	/**
 	 * @return Bool Always false.
 	 */
-	public function remTransaction(): Bool {
+	public function delTransaction(): Bool {
 		return false;
 	}
 

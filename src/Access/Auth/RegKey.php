@@ -9,8 +9,8 @@ namespace nyu\Access\Auth;
 class RegKey implements Handler{
 
 	protected $acceptKeys;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * Builds the check against the list of API keys from its config block.
@@ -20,31 +20,31 @@ class RegKey implements Handler{
 	 */
 	function __construct( Array $configValues ){
 		$this->acceptKeys = is_array($configValues['keysList'] ?? null) ? $configValues['keysList'] : Array();
-		$this->lastMessag = '';
+		$this->errMessage = '';
 	}
 
 	/**
 	 * Checks the given key against the configured valid-keys list.
 	 *
-	 * @param Array $crdntlsArray Must contain a 'key' entry.
-	 * @return Array|Bool An identity array on success, its 'user' being the name the key is written under ('' in a plain list), or false on failure.
+	 * @param Array $loginDataArr Must contain a 'key' entry.
+	 * @return Array|Bool An identity array on success, its 'userName' being the name the key is written under ('' in a plain list), or false on failure.
 	 */
-	function chckCredential( Array $crdntlsArray ): Array|Bool {
-		$sentKey = $crdntlsArray['key'] ?? '';
-		$this->invalidCrd = false;
+	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+		$sentKey = $loginDataArr['key'] ?? '';
+		$this->badTryFlag = false;
 		if( $sentKey=='' ){
-			$this->lastMessag = 'No API key provided';
+			$this->errMessage = 'No API key provided';
 			return false;
 		}
 		foreach( $this->acceptKeys as $keyNme => $oneKey ){
 			// An empty key, as a secret left unset gives, is the key of nobody
 			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $sentKey ) ){
 				// A key written under a name identifies its holder
-				return Array('user'=>is_string($keyNme) ? $keyNme : '');
+				return Array('userName'=>is_string($keyNme) ? $keyNme : '');
 			}
 		}
-		$this->lastMessag = 'Invalid API key';
-		$this->invalidCrd = true;
+		$this->errMessage = 'Invalid API key';
+		$this->badTryFlag = true;
 		return false;
 	}
 
@@ -55,8 +55,8 @@ class RegKey implements Handler{
 	 *
 	 * @return Bool True when a key was presented and refused.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
@@ -65,6 +65,6 @@ class RegKey implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

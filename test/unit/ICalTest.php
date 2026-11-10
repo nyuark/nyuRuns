@@ -204,7 +204,7 @@ checkPregMatch('a calendar cut short', calRead("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\
 checkPregMatch('something closed that was not opened', calRead("BEGIN:VCALENDAR\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid calendar content: VEVENT closed where VCALENDAR is open on line 2/');
 checkPregMatch('a line that is not a property, with its line counted past the folded ones', calRead(makeCal(evnt(Array('DESCRIPTION:folded', ' once', ' twice', 'no colon here')))), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid calendar content: a line that is not a property on line 8/');
 checkPregMatch('entries nested deeper than allowed', calRead(str_repeat("BEGIN:VCALENDAR\r\n", 9)), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid calendar content: nested deeper than allowed on line 9/');
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: calendars by extension and by content type', Array(get_class(Index::forExtnsParser('ICS')), get_class(Index::findTypeParser('text/calendar; charset=utf-8'))), Array('nyu\Data\Parsers\ICal', 'nyu\Data\Parsers\ICal'));

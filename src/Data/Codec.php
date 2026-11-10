@@ -70,7 +70,7 @@ class Codec {
 	 *
 	 * @throws \RuntimeException When the program cannot be run, a kind is unknown, or the program fails or takes too long.
 	 */
-	public function alterSndString(String $nakedContent, String $sourceFormat, String $goalKindText, Array $codecOptions=Array()): String {
+	public function alterSoundText(String $nakedContent, String $sourceFormat, String $goalKindText, Array $codecOptions=Array()): String {
 		if( !$this->isProgramReady() ){
 			throw new \RuntimeException('The program that unpacks sounds cannot be run on this server');
 		}
@@ -138,17 +138,17 @@ class Codec {
 	/**
 	 * Runs the program, and waits for it no longer than allowed.
 	 *
-	 * @param Array  $argmntsOfTol What the program is given, one value each.
+	 * @param Array  $toolArgsList What the program is given, one value each.
 	 * @param String $errorLogPath Path of the file it writes its complaints to.
 	 * @return Void
 	 *
 	 * @throws \RuntimeException When the program cannot be started, fails, or takes too long.
 	 */
-	protected function runWithTimeout(Array $argmntsOfTol, String $errorLogPath): Void {
+	protected function runWithTimeout(Array $toolArgsList, String $errorLogPath): Void {
 		$nullDev = (PHP_OS_FAMILY=='Windows') ? 'NUL' : '/dev/null';
 		$pipeLst = Array();
 		// Given as a list, the command is run as it is: no shell reads it
-		$process = @proc_open(array_merge($this->commandOfArray(), $argmntsOfTol), Array(0=>Array('file', $nullDev, 'r'), 1=>Array('file', $nullDev, 'w'), 2=>Array('file', $errorLogPath, 'w')), $pipeLst);
+		$process = @proc_open(array_merge($this->commandOfArray(), $toolArgsList), Array(0=>Array('file', $nullDev, 'r'), 1=>Array('file', $nullDev, 'w'), 2=>Array('file', $errorLogPath, 'w')), $pipeLst);
 		if( !is_resource($process) ){
 			throw new \RuntimeException('The program that unpacks sounds cannot be started');
 		}

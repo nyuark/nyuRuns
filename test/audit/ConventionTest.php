@@ -53,7 +53,7 @@ $okMethd = function( Array $oneFinding ): Bool {
 };
 // Class constants: XXXX_YYYY, the PSR-3 level constants of Tools\Logger kept as they are
 $cnstBad = Array();
-foreach( getUploadFiles(TOP_DIR, $folders) as $filNme ){
+foreach( listPhpFileArr(TOP_DIR, $folders) as $filNme ){
 	$tknList = array_values(array_filter(PhpToken::tokenize(strval(file_get_contents($filNme))), function( PhpToken $oneToken ): Bool { return !$oneToken->is(Array(T_WHITESPACE, T_COMMENT, T_DOC_COMMENT)); }));
 	foreach( $tknList as $tknIdx => $oneToken ){
 		if( $oneToken->id!==T_CONST ){

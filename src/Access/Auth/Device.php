@@ -21,13 +21,13 @@ class Device implements Handler{
 	protected $usersTable;
 	protected $stampEvery;
 	protected $seenDevice;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * @param Array $configValues Config block, optionally with the 'linkName' configured database holding both tables
 	 *                          (defaults to the default database), the 'useTable' table of the devices (defaults to
-	 *                          'devices'), the 'usersTbl' table of their users (defaults to 'users') and the 'stmpSecs'
+	 *                          'devices'), the 'usersTbl' table of their users (defaults to 'users') and the 'seenSecs'
 	 *                          time in seconds during which a device already seen is not stamped again (defaults to 60).
 	 */
 	function __construct( Array $configValues ){
@@ -36,46 +36,46 @@ class Device implements Handler{
 		$usrName = strval($configValues['usersTbl'] ?? 'users');
 		$this->deviceTble = preg_match('/^\w+$/D', $devcNme) ? $devcNme : '';
 		$this->usersTable = preg_match('/^\w+$/D', $usrName) ? $usrName : '';
-		$this->stampEvery = max( 0, intval($configValues['stmpSecs'] ?? 60) );
-		$this->lastMessag = '';
+		$this->stampEvery = max( 0, intval($configValues['seenSecs'] ?? 60) );
+		$this->errMessage = '';
 	}
 
 	/**
 	 * Verifies a device token. The identity is the one of the device's
 	 * user, with the device itself under 'device'.
 	 *
-	 * @param Array $crdntlsArray Must contain a 'key' entry: the token, as sent by the client.
-	 * @return Array|Bool An identity array ('user', 'role', 'id', 'device') on success, or false on failure.
+	 * @param Array $loginDataArr Must contain a 'key' entry: the token, as sent by the client.
+	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser', 'device') on success, or false on failure.
 	 */
-	function chckCredential( Array $crdntlsArray ): Array|Bool {
-		$gvnTokn = strval($crdntlsArray['key'] ?? '');
-		$this->invalidCrd = false;
+	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+		$gvnTokn = strval($loginDataArr['key'] ?? '');
+		$this->badTryFlag = false;
 		if( $gvnTokn=='' ){
-			$this->lastMessag = 'No API key provided';
+			$this->errMessage = 'No API key provided';
 			return false;
 		}
 		$devcVls = $this->retrieveDevice( hash('sha256', $gvnTokn) );
 		if( $devcVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		// A revoked device, or one whose user is not active, is answered like an unknown token
 		if( $devcVls===null || ($devcVls['revokeDate'] ?? null)!==null || ($devcVls['userStatus'] ?? '')!=='approved' ){
-			$this->lastMessag = 'Invalid API key';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid API key';
+			$this->badTryFlag = true;
 			return false;
 		}
 		$this->seenDevice = $devcVls['id_device'];
 		return Array(
-			'user'=>$devcVls['userHandle'], 'role'=>strval($devcVls['accessRole'] ?? ''), 'id'=>$devcVls['id_user'] ?? null,
+			'userName'=>$devcVls['userHandle'], 'userRole'=>strval($devcVls['accessRole'] ?? ''), 'idOfUser'=>$devcVls['id_user'] ?? null,
 			'device'=>Array('id'=>$devcVls['id_device'], 'name'=>$devcVls['deviceName'], 'role'=>$devcVls['deviceRole'])
 		);
 	}
 
 	/**
-	 * Stamps the time the device verified by chckCredential() was last seen.
+	 * Stamps the time the device verified by checkSecretArr() was last seen.
 	 * Meant to be called on every authenticated request: the row is only
-	 * written when its stamp is at least 'stmpSecs' seconds old.
+	 * written when its stamp is at least 'seenSecs' seconds old.
 	 *
 	 * @param String $namedUserTxt Login name of the device's user (not used: the device is the one just verified).
 	 * @return Bool Whether the stamp was written.
@@ -234,14 +234,14 @@ class Device implements Handler{
 	 *
 	 * @return Bool True when a token was presented and refused.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

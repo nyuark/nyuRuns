@@ -11,11 +11,11 @@ namespace nyu\Access\Auth;
  */
 class PassList implements Handler{
 
-	protected $htpsswdFil;
+	protected $passwdFile;
 	protected $weakHashes;
 	protected $usrLimiter;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * Builds the check against the password file from its config block.
@@ -27,14 +27,14 @@ class PassList implements Handler{
 	 */
 	function __construct( Array $configValues ){
 		$pwdFile = $configValues['passFile'] ?? '';
-		$this->htpsswdFil = ($pwdFile!='') ? TOP_DIR.DS.$pwdFile : '';
+		$this->passwdFile = ($pwdFile!='') ? TOP_DIR.DS.$pwdFile : '';
 		$this->weakHashes = (($configValues['weakHash'] ?? false) === true);
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
 			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : ''
-		) );		$this->lastMessag = '';
+		) );		$this->errMessage = '';
 	}
 
 	/**
@@ -43,18 +43,18 @@ class PassList implements Handler{
 	 * htpasswd hashes, plus {SHA}, legacy crypt (DES) and MD5 crypt
 	 * hashes in unsecure mode only.
 	 *
-	 * @param Array $crdntlsArray Must contain 'user' and 'pass' entries.
+	 * @param Array $loginDataArr Must contain 'user' and 'pass' entries.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	function chckCredential( Array $crdntlsArray ): Array|Bool {
-		$gvnUser = $crdntlsArray['user'] ?? '';
-		$gvnPass = $crdntlsArray['pass'] ?? '';
-		$this->invalidCrd = false;
-		if( $this->htpsswdFil=='' || !file_exists($this->htpsswdFil) ){
-			$this->lastMessag = 'Credential store unavailable';
+	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+		$gvnUser = $loginDataArr['user'] ?? '';
+		$gvnPass = $loginDataArr['pass'] ?? '';
+		$this->badTryFlag = false;
+		if( $this->passwdFile=='' || !file_exists($this->passwdFile) ){
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
-		$pwdRows = file( $this->htpsswdFil, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		$pwdRows = file( $this->passwdFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 		$usrHash = null;
 		foreach( $pwdRows as $pwdRow ){
 			$colonAt = strpos( $pwdRow, ':' );
@@ -71,8 +71,8 @@ class PassList implements Handler{
 			$matched = $this->verifyHtpasswd($gvnPass, $usrHash);
 			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 			$cntName = strval($gvnUser);
-			if( is_string($crdntlsArray['mark'] ?? null) && $crdntlsArray['mark']!=='' ){
-				$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $crdntlsArray['mark'], $cntName );
+			if( is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
+				$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName );
 				if( $markKey!='' && $this->usrLimiter->heldByUserNumb($markKey)>0 ){
 					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($gvnUser).': too many attempts with it' );
 				}elseif( $markKey!='' ){
@@ -84,13 +84,13 @@ class PassList implements Handler{
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
 			}elseif( $matched ){
 				$this->usrLimiter->clearLimitUser( $cntName );
-				return Array('user'=>$gvnUser);
+				return Array('userName'=>$gvnUser);
 			}else{
 				$this->usrLimiter->countLimitUser( $cntName );
 			}
 		}
-		$this->lastMessag = 'Invalid credentials';
-		$this->invalidCrd = true;
+		$this->errMessage = 'Invalid credentials';
+		$this->badTryFlag = true;
 		return false;
 	}
 
@@ -178,8 +178,8 @@ class PassList implements Handler{
 	 *
 	 * @return Bool True when a credential was presented and refused.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
@@ -188,6 +188,6 @@ class PassList implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

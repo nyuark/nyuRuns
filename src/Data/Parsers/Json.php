@@ -43,12 +43,12 @@ class Json extends Base {
 				if( trim($linTxt)==='' ){
 					continue;
 				}
-				$jsonVls[] = $this->readFileDetail($linTxt, $maxDpth, ' on line '.($lineNb+1));
+				$jsonVls[] = $this->parseJsonValue($linTxt, $maxDpth, ' on line '.($lineNb+1));
 			}
 		}elseif( trim($jsonTxt)==='' ){
 			$jsonVls = Array();
 		}else{
-			$jsonVls = $this->readFileDetail($jsonTxt, $maxDpth, '');
+			$jsonVls = $this->parseJsonValue($jsonTxt, $maxDpth, '');
 		}
 		if( !empty($parseOptions['upper']) && is_array($jsonVls) ){
 			$jsonVls = $this->upperKeysArray($jsonVls);
@@ -66,7 +66,7 @@ class Json extends Base {
 	 *
 	 * @throws ParseError When the text is not valid JSON.
 	 */
-	protected function readFileDetail(String $jsonDocument, Int $depthCeiling, String $locationText): Mixed {
+	protected function parseJsonValue(String $jsonDocument, Int $depthCeiling, String $locationText): Mixed {
 		$jsonVls = json_decode($jsonDocument, true, $depthCeiling);
 		if( json_last_error()!==JSON_ERROR_NONE ){
 			throw new ParseError('Invalid JSON content'.$locationText.': '.json_last_error_msg());

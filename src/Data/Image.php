@@ -32,7 +32,7 @@ class Image {
 	// The elements taken out of a drawing: what runs, and what holds a document of another kind
 	const DROP_LIST = Array('script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'handler', 'listener', 'set', 'form', 'input', 'button', 'meta');
 	// What makes a style, or a value, reach outside the drawing or run
-	const RISK_PTRN = '/@import|expression\s*\(|behavior\s*:|-moz-binding|j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:|url\s*\(\s*(?!["\']?\s*#)|image-set\s*\(/i';
+	const RISK_PATT = '/@import|expression\s*\(|behavior\s*:|-moz-binding|j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:|url\s*\(\s*(?!["\']?\s*#)|image-set\s*\(/i';
 
 	protected $nakedBytes;
 	protected $detailList;
@@ -40,7 +40,7 @@ class Image {
 	protected $pixelLimit;
 
 	/**
-	 * Private: a picture is opened through openFluxdArchv(), or made from
+	 * Private: a picture is opened through openFluxdImage(), or made from
 	 * another one.
 	 *
 	 * @param String $nakedContent The bytes of the picture, '' for one made from another.
@@ -67,7 +67,7 @@ class Image {
 	 *
 	 * @throws \RuntimeException When the source is larger than the limit, is not a picture of a known kind, or holds more pixels than accepted.
 	 */
-	public static function openFluxdArchv(Fluxd $sourceStream, Int $pixelCeiling=self::MAXI_PIXL, Int $bytesCeiling=self::MAXI_BYTE): Image {
+	public static function openFluxdImage(Fluxd $sourceStream, Int $pixelCeiling=self::MAXI_PIXL, Int $bytesCeiling=self::MAXI_BYTE): Image {
 		$rawText = $sourceStream->getWholeString($bytesCeiling);
 		if( Bina::detectFileKind(substr($rawText, 0, 512))=='svg' ){
 			return self::openADrawImage($rawText, $pixelCeiling);
@@ -193,7 +193,7 @@ class Image {
 			$nodeNme = strtolower(strval($oneTag->localName));
 			$animAtr = strtolower($oneTag->getAttribute('attributeName'));
 			// What runs, what holds another document, a style reaching outside, and what would write an address or a script later on
-			if( in_array($nodeNme, self::DROP_LIST) || ($nodeNme=='style' && preg_match(self::RISK_PTRN, self::decodeStyleTxt($oneTag->textContent))) || ($animAtr!=='' && preg_match('/^on|href$/', $animAtr)) ){
+			if( in_array($nodeNme, self::DROP_LIST) || ($nodeNme=='style' && preg_match(self::RISK_PATT, self::decodeStyleTxt($oneTag->textContent))) || ($animAtr!=='' && preg_match('/^on|href$/', $animAtr)) ){
 				$dropLst[] = $oneTag;
 				continue;
 			}
@@ -204,7 +204,7 @@ class Image {
 			foreach($attrSet as $attrib){
 				$attrKey = strtolower(strval($attrib->localName));
 				$attrTxt = trim($attrib->value);
-				$badAttr = (strncmp($attrKey, 'on', 2)===0 || preg_match(self::RISK_PTRN, self::decodeStyleTxt($attrTxt))===1);
+				$badAttr = (strncmp($attrKey, 'on', 2)===0 || preg_match(self::RISK_PATT, self::decodeStyleTxt($attrTxt))===1);
 				// What a form or a ping would send elsewhere : kept only when it points inside the drawing
 				if( !$badAttr && in_array($attrKey, Array('action', 'formaction', 'ping'), true) ){
 					$badAttr = (strncmp($attrTxt, '#', 1)!==0);
@@ -430,16 +430,16 @@ class Image {
 	 * Makes a picture of this one turned to the right, the way the hands
 	 * of a clock go.
 	 *
-	 * @param Int $degresNumber The quarter turns, in degrees: 90, 180 or 270, or any of them more or less whole turns.
+	 * @param Int $angleDegrees The quarter turns, in degrees: 90, 180 or 270, or any of them more or less whole turns.
 	 * @return Image The picture made.
 	 *
 	 * @throws \RuntimeException When the degrees are not quarter turns, or gd is missing.
 	 */
-	public function turnRightImage(Int $degresNumber): Image {
-		if( $degresNumber%90!=0 ){
+	public function turnRightImage(Int $angleDegrees): Image {
+		if( $angleDegrees%90!=0 ){
 			throw new \RuntimeException('A picture is turned by quarter turns: 90, 180 or 270 degrees');
 		}
-		$turnDgr = (($degresNumber%360)+360)%360;
+		$turnDgr = (($angleDegrees%360)+360)%360;
 		$madeImg = $this->makesFromImage($this->detailList['width'], $this->detailList['heght'], 0, 0, $this->detailList['width'], $this->detailList['heght']);
 		if( $turnDgr==0 ){
 			return $madeImg;
@@ -477,12 +477,12 @@ class Image {
 	 * nothing the camera recorded is kept.
 	 *
 	 * @param String $pictureKinds Kind to write: png, jpg, gif, webp, bmp or avif, or svg for a drawing; the kind of the picture when left out.
-	 * @param Int    $qultyPercent For the kinds that lose some of the picture to weigh less, how much of it is kept, from 1 to 100.
+	 * @param Int    $qualityLevel For the kinds that lose some of the picture to weigh less, how much of it is kept, from 1 to 100.
 	 * @return String The bytes.
 	 *
 	 * @throws \RuntimeException When the kind is not one this server writes, or gd is missing.
 	 */
-	public function grantBytesText(String $pictureKinds='', Int $qultyPercent=85): String {
+	public function grantBytesText(String $pictureKinds='', Int $qualityLevel=85): String {
 		$kindKey = strtolower(($pictureKinds==='') ? $this->detailList['kinds'] : $pictureKinds);
 		$kindKey = ($kindKey=='jpeg') ? 'jpg' : $kindKey;
 		if( $kindKey=='svg' ){
@@ -494,7 +494,7 @@ class Image {
 		if( !isset($gdFuncs[$kindKey]) || !function_exists($gdFuncs[$kindKey]) ){
 			throw new \RuntimeException('Kind of picture this server does not write: '.$kindKey);
 		}
-		$quality = max(1, min(100, $qultyPercent));
+		$quality = max(1, min(100, $qualityLevel));
 		if( $kindKey=='jpg' || $kindKey=='bmp' ){
 			// These kinds have nothing see-through: the picture is laid on white
 			$flatImg = imagecreatetruecolor(imagesx($gdImage), imagesy($gdImage));
@@ -520,13 +520,13 @@ class Image {
 	 *
 	 * @param String $saveFilePath Path of the file to write.
 	 * @param String $pictureKinds Kind to write; the kind of the picture when left out.
-	 * @param Int    $qultyPercent How much of the picture is kept, from 1 to 100, for the kinds that lose some.
+	 * @param Int    $qualityLevel How much of the picture is kept, from 1 to 100, for the kinds that lose some.
 	 * @return String The path of the file.
 	 *
 	 * @throws \RuntimeException When the file cannot be written, the kind is not one this server writes, or gd is missing.
 	 */
-	public function setLocalString(String $saveFilePath, String $pictureKinds='', Int $qultyPercent=85): String {
-		if( @file_put_contents($saveFilePath, $this->grantBytesText($pictureKinds, $qultyPercent))===false ){
+	public function writeLocalFile(String $saveFilePath, String $pictureKinds='', Int $qualityLevel=85): String {
+		if( @file_put_contents($saveFilePath, $this->grantBytesText($pictureKinds, $qualityLevel))===false ){
 			throw new \RuntimeException('File cannot be written: '.basename($saveFilePath));
 		}
 		return $saveFilePath;

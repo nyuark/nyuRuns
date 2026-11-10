@@ -19,7 +19,7 @@ class FoldrLimiter extends Limiter{
 	 */
 	function __construct( Array $confValues, String $folderPath ){
 		parent::__construct($confValues);
-		$this->countsFold = $folderPath;
+		$this->countsFldr = $folderPath;
 	}
 }
 

@@ -154,7 +154,7 @@ checkPregMatch('text: a writing that is not a known one', txtOut(Array(), 'markd
 checkPregMatch('text: a block of an unknown kind', txtOut(Array(Array('block'=>'title', 'attrs'=>Array(), 'spans'=>Array(), 'items'=>Array(), 'plain'=>''))), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Unknown kind of block: title/');
 
 // Through the index
-checkIdentical('index: Markdown and text by extension, with their content type', Array(get_class(Index::forExtnsParser('MD')), get_class(Index::forExtnsParser('markdown')), get_class(Index::forExtnsParser('txt')), Index::contentTypeFor('md'), Index::contentTypeFor('txt'), Index::optionsOfExtns('txt')), Array('nyu\Data\Writers\Mdwn', 'nyu\Data\Writers\Mdwn', 'nyu\Data\Writers\Text', 'text/markdown; charset=utf-8', 'text/plain; charset=utf-8', Array('gives'=>'plain')));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('index: Markdown and text by extension, with their content type', Array(get_class(Index::forExtnsWriter('MD')), get_class(Index::forExtnsWriter('markdown')), get_class(Index::forExtnsWriter('txt')), Index::contentTypeFor('md'), Index::contentTypeFor('txt'), Index::optionsOfExtns('txt')), Array('nyu\Data\Writers\Mdwn', 'nyu\Data\Writers\Mdwn', 'nyu\Data\Writers\Text', 'text/markdown; charset=utf-8', 'text/plain; charset=utf-8', Array('gives'=>'plain')));
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 finishChecking();

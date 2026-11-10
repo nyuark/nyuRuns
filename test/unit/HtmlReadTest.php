@@ -204,7 +204,7 @@ checkIdentical('a UTF-8 page with its marker, and a UTF-16 one', Array(htmRead("
 checkIdentical('tags left open or closed twice', htmLines('<p>one<p>two <b>open</p></i><div>div'), Array('paragrph [one]', 'paragrph [two ][open|boldFace]', 'paragrph [div]'));
 checkIdentical('unknown elements are read through', htmLines('<my-card><p>inside <x-tag>custom</x-tag></p></my-card>'), Array('paragrph [inside custom]'));
 checkPregMatch('nesting deeper than allowed is refused', htmRead('<div><div><div><div><p>x</p></div></div></div></div>', Array('depth'=>4)), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid HTML content: nested deeper than allowed/');
-checkIdentical('no PHP warning is left behind by a page that is not well-formed', takeNotesArray(), Array());
+checkIdentical('no PHP warning is left behind by a page that is not well-formed', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: HTML by extension and by content type', Array(get_class(Index::forExtnsParser('html')), get_class(Index::forExtnsParser('HTM')), get_class(Index::forExtnsParser('xhtml')), get_class(Index::findTypeParser('text/html; charset=utf-8')), Index::optionsOfExtns('html'), Index::optionsOfExtns('xml')), Array('nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', Array('reads'=>'html'), Array('reads'=>'xml')));

@@ -1,38 +1,38 @@
 {
 	"openSess" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "openSess" }
+		"pointsTo": { "doAction": "openSess" }
 	},
 	"quitSess" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "quitSess" }
+		"pointsTo": { "doAction": "quitSess" }
 	},
 	"activate" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "activate" }
+		"pointsTo": { "doAction": "activate" }
 	},
 	"register" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "register" }
+		"pointsTo": { "doAction": "register" }
 	},
 	"askReset" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "askReset" }
+		"pointsTo": { "doAction": "askReset" }
 	},
 	"useReset" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "useReset" }
+		"pointsTo": { "doAction": "useReset" }
 	},
 	"password" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "password" }
+		"pointsTo": { "doAction": "password" }
 	},
 	"language" : {
 		"mthdList": "POST",
-		"pointsTo": { "actNamed": "language" }
+		"pointsTo": { "doAction": "language" }
 	},
 	"/.well-known/jwks.json" : {
 		"mthdList": "GET",
-		"pointsTo": { "actNamed": "jwksList" }
+		"pointsTo": { "doAction": "jwksList" }
 	}
 }

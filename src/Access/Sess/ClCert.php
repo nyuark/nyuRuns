@@ -16,10 +16,10 @@ class ClCert implements Handler{
 
 	protected $authObject;
 	protected $checkedVar;
-	protected $usrVrblNme;
-	protected $issVrblNme;
+	protected $usrVarName;
+	protected $issVarName;
 	protected $issuerName;
-	protected $lastMessag;
+	protected $errMessage;
 
 	/**
 	 * Builds the client certificate carrier from its config block.
@@ -33,10 +33,10 @@ class ClCert implements Handler{
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
 		$this->authObject = $authStrategy;
 		$this->checkedVar = strtolower( strval($configValues['checkVar'] ?? 'SSL_CLIENT_VERIFY') );
-		$this->usrVrblNme = strtolower( strval($configValues['ownerVar'] ?? 'SSL_CLIENT_S_DN_CN') );
-		$this->issVrblNme = strtolower( strval($configValues['issueVar'] ?? 'SSL_CLIENT_I_DN_CN') );
+		$this->usrVarName = strtolower( strval($configValues['ownerVar'] ?? 'SSL_CLIENT_S_DN_CN') );
+		$this->issVarName = strtolower( strval($configValues['issueVar'] ?? 'SSL_CLIENT_I_DN_CN') );
 		$this->issuerName = strval($configValues['issuerId'] ?? '');
-		$this->lastMessag = '';
+		$this->errMessage = '';
 	}
 
 	/**
@@ -44,35 +44,35 @@ class ClCert implements Handler{
 	 * it must be verified, come from the accepted issuer when one is
 	 * set, and name a user.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $requstObject ): Array|Bool {
+	function verifyRqstList( Request $givenRequest ): Array|Bool {
 		// A variable named HTTP_... is a request header : anyone could send it
-		if( strpos($this->checkedVar, 'http_')===0 || strpos($this->usrVrblNme, 'http_')===0 || strpos($this->issVrblNme, 'http_')===0 ){
-			$this->lastMessag = 'Certificate variables misconfigured';
+		if( strpos($this->checkedVar, 'http_')===0 || strpos($this->usrVarName, 'http_')===0 || strpos($this->issVarName, 'http_')===0 ){
+			$this->errMessage = 'Certificate variables misconfigured';
 			return false;
 		}
-		$srvrVls = $requstObject->getServerValue();
+		$srvrVls = $givenRequest->getServerValue();
 		if( ($srvrVls[$this->checkedVar] ?? '')!=='SUCCESS' ){
-			$this->lastMessag = 'No verified client certificate';
+			$this->errMessage = 'No verified client certificate';
 			return false;
 		}
-		if( $this->issuerName!='' && ($srvrVls[$this->issVrblNme] ?? '')!==$this->issuerName ){
-			$this->lastMessag = 'Certificate issuer not accepted';
+		if( $this->issuerName!='' && ($srvrVls[$this->issVarName] ?? '')!==$this->issuerName ){
+			$this->errMessage = 'Certificate issuer not accepted';
 			return false;
 		}
-		$certUsr = trim( strval($srvrVls[$this->usrVrblNme] ?? '') );
+		$certUsr = trim( strval($srvrVls[$this->usrVarName] ?? '') );
 		if( $certUsr=='' ){
-			$this->lastMessag = 'Certificate names no user';
+			$this->errMessage = 'Certificate names no user';
 			return false;
 		}
-		$idntArr = Array('user'=>$certUsr);
+		$idntArr = Array('userName'=>$certUsr);
 		// A credential store that knows its users confirms the certificate's user is allowed in
 		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
 			$nowIdnt = $this->authObject->usrIdentityArr($certUsr);
 			if( $nowIdnt===false ){
-				$this->lastMessag = $this->authObject->finalErrorText();
+				$this->errMessage = $this->authObject->finalErrorText();
 				return false;
 			}
 			$idntArr = array_merge($idntArr, $nowIdnt);
@@ -83,10 +83,10 @@ class ClCert implements Handler{
 	/**
 	 * Not applicable — a certificate is issued by its authority.
 	 *
-	 * @param Array $identtyArray Unused.
+	 * @param Array $identityList Unused.
 	 * @return String Always an empty string.
 	 */
-	function issueTokenText( Array $identtyArray ): String {
+	function issueTokenText( Array $identityList ): String {
 		return '';
 	}
 
@@ -96,6 +96,6 @@ class ClCert implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

@@ -20,10 +20,10 @@ interface Handler{
 	/**
 	 * Verifies a set of raw credentials.
 	 *
-	 * @param Array $crdntlsArray Credential fields to check (e.g. ['user'=>..,'pass'=>..] or ['key'=>..]).
+	 * @param Array $loginDataArr Credential fields to check (e.g. ['user'=>..,'pass'=>..] or ['key'=>..]).
 	 * @return Array|Bool The matched identity array, or false on failure.
 	 */
-	public function chckCredential( Array $crdntlsArray ): Array|Bool;
+	public function checkSecretArr( Array $loginDataArr ): Array|Bool;
 
 	/**
 	 * Returns the most recent error message, if any.

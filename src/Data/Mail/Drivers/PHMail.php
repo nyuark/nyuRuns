@@ -18,15 +18,15 @@ class PHMail extends Driver {
 	/**
 	 * Builds the driver, once the library is found.
 	 *
-	 * @param Array $accontConfig The settings of the account (see Mail\Mailer::acntSetupArray).
+	 * @param Array $acntSetupArr The settings of the account (see Mail\Mailer::acntSetupArray).
 	 *
 	 * @throws MailFailure When PHPMailer is not installed.
 	 */
-	public function __construct( Array $accontConfig ){
+	public function __construct( Array $acntSetupArr ){
 		if( !class_exists(self::MAIL_CLSS) ){
 			throw new MailFailure('PHPMailer is not installed: composer require phpmailer/phpmailer');
 		}
-		parent::__construct($accontConfig);
+		parent::__construct($acntSetupArr);
 	}
 
 	/**

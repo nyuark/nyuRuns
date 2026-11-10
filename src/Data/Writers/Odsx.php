@@ -203,7 +203,7 @@ class Odsx extends Grid {
 		// A text is written as text, a paragraph for each of its lines: nothing in it is ever run
 		$paraTxt = '';
 		foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", $valueToWrite)) as $oneLin){
-			$paraTxt .= '<text:p>'.$this->textsPieceText($oneLin).'</text:p>';
+			$paraTxt .= '<text:p>'.$this->plainToOdfText($oneLin).'</text:p>';
 		}
 		return $openTxt.' office:value-type="string">'.(($valueToWrite==='') ? '' : $paraTxt).'</table:table-cell>';
 	}
@@ -216,7 +216,7 @@ class Odsx extends Grid {
 	 * @param String $sourceString The line.
 	 * @return String The line, ready to stand in a paragraph.
 	 */
-	protected function textsPieceText(String $sourceString): String {
+	protected function plainToOdfText(String $sourceString): String {
 		if( !preg_match('/\t|^ | $| {2}/', $sourceString) ){
 			return $this->escapeXmlValue($sourceString);
 		}

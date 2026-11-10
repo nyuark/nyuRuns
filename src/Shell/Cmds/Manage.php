@@ -79,9 +79,9 @@ class Manage extends Command{
 	public function invokeFullList(): Int {
 		$storObj = $this->openUsersStore();
 		$usrList = $storObj->listUsersNamed(
-			Array('userStatus'=>$this->optnObject->retrieveOption('statusIs', ''), 'accessRole'=>$this->optnObject->retrieveOption('roleName', '')),
-			intval($this->optnObject->retrieveOption('rowCount', '0')),
-			intval($this->optnObject->retrieveOption('startRow', '0'))
+			Array('userStatus'=>$this->optionsObj->retrieveOption('statusIs', ''), 'accessRole'=>$this->optionsObj->retrieveOption('roleName', '')),
+			intval($this->optionsObj->retrieveOption('rowCount', '0')),
+			intval($this->optionsObj->retrieveOption('startRow', '0'))
 		);
 		if( $usrList===false ){
 			$this->stopStoreError($storObj);
@@ -121,8 +121,8 @@ class Manage extends Command{
 	public function invokeMakeUser(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		$roleNme = strval($this->optnObject->shiftFirstWord() ?? '');
-		$langTag = $this->optnObject->retrieveOption('language');
+		$roleNme = strval($this->optionsObj->shiftFirstWord() ?? '');
+		$langTag = $this->optionsObj->retrieveOption('language');
 		$langTag = ($langTag!==null) ? strval($langTag) : null;
 		if( $this->usersStore=='nativeDb' ){
 			$newCode = $storObj->enrolUsrString($usrName, $roleNme, null, $this->codesLastCount(), $langTag);
@@ -269,7 +269,7 @@ class Manage extends Command{
 		if( $this->usersStore!='nativeDb' ){
 			$this->terminateShell('The users file knows no sign-up: a user is created active', self::EXIT_DENY);
 		}
-		$usrName = strval($this->optnObject->shiftFirstWord() ?? '');
+		$usrName = strval($this->optionsObj->shiftFirstWord() ?? '');
 		if( $usrName=='' ){
 			$usrList = $storObj->listUsersNamed( Array('userStatus'=>'checking') );
 			if( $usrList===false ){
@@ -296,8 +296,8 @@ class Manage extends Command{
 	public function invokeSetEmail(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		$mailTxt = strval($this->optnObject->shiftFirstWord() ?? '');
-		if( !$storObj->chngeEmailFlag($usrName, $mailTxt) ){
+		$mailTxt = strval($this->optionsObj->shiftFirstWord() ?? '');
+		if( !$storObj->changeMailFlag($usrName, $mailTxt) ){
 			$this->stopStoreError($storObj);
 		}
 		$this->printerObj->printShellPair( ($mailTxt=='') ? 'address removed' : 'address set', $usrName );
@@ -313,7 +313,7 @@ class Manage extends Command{
 	public function invokeLanguage(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		$langTag = $this->optnObject->shiftFirstWord();
+		$langTag = $this->optionsObj->shiftFirstWord();
 		if( $langTag===null ){
 			$userVls = $storObj->userInfosArray($usrName);
 			if( $userVls===false ){
@@ -336,7 +336,7 @@ class Manage extends Command{
 	 * @return Int The minutes, 0 for no end.
 	 */
 	protected function codesLastCount(): Int {
-		return $this->optnObject->validateOption('noExpiry') ? 0 : UserBase::HAND_MINS;
+		return $this->optionsObj->validateOption('noExpiry') ? 0 : UserBase::HAND_MINS;
 	}
 
 	/**
@@ -379,7 +379,7 @@ class Manage extends Command{
 	public function invokeApiToken(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		if( $this->optnObject->validateOption('removeIt') ){
+		if( $this->optionsObj->validateOption('removeIt') ){
 			if( !$this->queryAgreedFlg('Take the personal token of '.$usrName.' away') ){
 				$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 			}
@@ -412,7 +412,7 @@ class Manage extends Command{
 	public function invokeSetTwoFa(): Int {
 		$storObj = $this->openUsersStore();
 		$usrName = $this->needsShellWord('the user');
-		if( $this->optnObject->validateOption('removeIt') ){
+		if( $this->optionsObj->validateOption('removeIt') ){
 			if( !$this->queryAgreedFlg('Take the 2FA secret of '.$usrName.' away: its password alone will log it in') ){
 				$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 			}
@@ -423,7 +423,7 @@ class Manage extends Command{
 			return self::EXIT_DONE;
 		}
 		// Codes by mail : the users file is only read, and cannot keep a code
-		if( $this->optnObject->validateOption('emailOtp') ){
+		if( $this->optionsObj->validateOption('emailOtp') ){
 			if( !method_exists($storObj, 'emailTwoFactor') ){
 				$this->terminateShell('Nothing was changed: codes by mail need the native userbase; the users file is only read', self::EXIT_DENY);
 			}
@@ -446,7 +446,7 @@ class Manage extends Command{
 		$otpAddr = 'otpauth://totp/nyuRuns:'.rawurlencode($usrName).'?secret='.$newSecr.'&issuer=nyuRuns';
 		$this->printerObj->printShellOnce('Address for the authenticator', $otpAddr);
 		// The address as a QR code, for the authenticator to scan : it holds the secret, and is shown once too
-		if( !$this->optnObject->validateOption('noQrCode') && !$this->printerObj->jsonShellShape() ){
+		if( !$this->optionsObj->validateOption('noQrCode') && !$this->printerObj->jsonShellShape() ){
 			$this->printerObj->printShellBody( (new QrCode($otpAddr, 'M'))->drawAsTerminal(2) );
 		}
 		return self::EXIT_DONE;
@@ -464,16 +464,16 @@ class Manage extends Command{
 	public function invokeDoAction(): Int {
 		$actnPth = $this->needsShellWord('the action, as app/action');
 		$inptVls = Array();
-		$inptFil = $this->optnObject->retrieveOption('bodyFrom');
+		$inptFil = $this->optionsObj->retrieveOption('bodyFrom');
 		if( $inptFil!==null ){
-			$inptTxt = ($inptFil=='-') ? stream_get_contents($this->inptStream) : @file_get_contents($inptFil);
+			$inptTxt = ($inptFil=='-') ? stream_get_contents($this->readStream) : @file_get_contents($inptFil);
 			$inptVls = json_decode(strval($inptTxt), true);
 			if( !is_array($inptVls) ){
 				$this->terminateShell('The inputs of --bodyFrom are not a JSON object', self::EXIT_HELP);
 			}
 		}
 		$pairLst = Array();
-		foreach( $this->optnObject->restWordsArray() as $gvnWrd ){
+		foreach( $this->optionsObj->restWordsArray() as $gvnWrd ){
 			$pairPrt = explode('=', $gvnWrd, 2);
 			if( count($pairPrt)!=2 || $pairPrt[0]=='' ){
 				$this->terminateShell('An input is written name=value: '.$gvnWrd, self::EXIT_HELP);
@@ -483,13 +483,13 @@ class Manage extends Command{
 		$wordVal = Array();
 		parse_str(implode('&', $pairLst), $wordVal);
 		$inptVls = array_replace_recursive($inptVls, $wordVal);
-		$roleNme = strval($this->optnObject->retrieveOption('roleName', 'operator'));
-		$mthName = strtoupper(strval($this->optnObject->retrieveOption('httpVerb', 'GET')));
+		$roleNme = strval($this->optionsObj->retrieveOption('roleName', 'operator'));
+		$mthName = strtoupper(strval($this->optionsObj->retrieveOption('httpVerb', 'GET')));
 		if( !in_array($roleNme, Checker::ROLE_LIST, true) || !in_array($mthName, self::MTHD_LIST, true) ){
 			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
 		}
-		$replyAr = (new ActCaller())->runAskedAction( strval($this->optnObject->retrieveOption('presetId', '')), $actnPth, $inptVls, $mthName, 'cli:'.Console::osShellUsrName(), $roleNme );
-		$savPath = $this->optnObject->retrieveOption('saveInto');
+		$replyAr = (new ActCaller())->runAskedAction( strval($this->optionsObj->retrieveOption('presetId', '')), $actnPth, $inptVls, $mthName, 'cli:'.Console::osShellUsrName(), $roleNme );
+		$savPath = $this->optionsObj->retrieveOption('saveInto');
 		if( $this->printerObj->jsonShellShape() ){
 			$this->printerObj->printShellPair('code', $replyAr['code']);
 		}
@@ -524,13 +524,13 @@ class Manage extends Command{
 	protected function openUsersStore(): Object {
 		$lgnConf = $this->accessSettings('loginSet');
 		$lgnAuth = strval($lgnConf['authWith'] ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : '') );
+		$storNme = strval( $this->optionsObj->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : '') );
 		if( !in_array($storNme, Array('nativeDb', 'userFile'), true) ){
 			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=nativeDb or --useStore=userFile', self::EXIT_HELP);
 		}
-		$blckNme = strval( $this->optnObject->retrieveOption('useBlock', ($lgnAuth==$storNme) ? strval($lgnConf['authConf'] ?? $storNme) : $storNme) );
+		$blckNme = strval( $this->optionsObj->retrieveOption('useBlock', ($lgnAuth==$storNme) ? strval($lgnConf['authConf'] ?? $storNme) : $storNme) );
 		$blckCfg = $this->accessSettings($blckNme);
-		if( empty($blckCfg) && ($this->optnObject->validateOption('useBlock') || $storNme=='nativeDb') ){
+		if( empty($blckCfg) && ($this->optionsObj->validateOption('useBlock') || $storNme=='nativeDb') ){
 			$this->terminateShell('conf/access.json has no "'.$blckNme.'" block', self::EXIT_DENY);
 		}
 		$this->usersStore = $storNme;
@@ -542,13 +542,13 @@ class Manage extends Command{
 	 * store that cannot be used is a failure, anything else a refusal.
 	 *
 	 * @param Object $dataStoreObj The store.
-	 * @param String $defltMessage What is told when the store gives no reason.
+	 * @param String $fallbackText What is told when the store gives no reason.
 	 *
 	 * @throws \nyu\Shell\ShellStop Always.
 	 */
-	protected function stopStoreError( Object $dataStoreObj, String $defltMessage='The store of the users refused' ): Never {
+	protected function stopStoreError( Object $dataStoreObj, String $fallbackText='The store of the users refused' ): Never {
 		$whyText = strval($dataStoreObj->finalErrorText());
-		$this->terminateShell( ($whyText!='') ? $whyText : $defltMessage, ($dataStoreObj->lastStateCount()>=500) ? self::EXIT_FAIL : self::EXIT_DENY );
+		$this->terminateShell( ($whyText!='') ? $whyText : $fallbackText, ($dataStoreObj->lastStateCount()>=500) ? self::EXIT_FAIL : self::EXIT_DENY );
 	}
 
 	/**
@@ -558,7 +558,7 @@ class Manage extends Command{
 	 * @return Array The password under 'pass', and whether it was made, and so is to be shown, under 'made'.
 	 */
 	protected function givenPassArray( String $namedUserTxt ): Array {
-		if( !$this->optnObject->validateOption('typeItIn') ){
+		if( !$this->optionsObj->validateOption('typeItIn') ){
 			return Array('pass'=>bin2hex(random_bytes(10)), 'made'=>true);
 		}
 		return Array('pass'=>$this->querySecretTxt('Password of '.$namedUserTxt), 'made'=>false);

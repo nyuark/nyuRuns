@@ -129,7 +129,7 @@ $jpegTxt = strval(file_get_contents($baseDir.'/media/wide.jpg'));
 $exifTxt = "Exif\0\0II*\0\x08\0\0\0\x01\0\x0F\x01\x02\0\x0C\0\0\0\x1A\0\0\0\0\0\0\0SecretMaker\0";
 file_put_contents($baseDir.'/media/carries.jpg', substr($jpegTxt, 0, 2)."\xFF\xE1".pack('n', strlen($exifTxt)+2).$exifTxt.substr($jpegTxt, 2));
 $partLst = pctParts(pctWrite(Array($mkPict('carries.jpg', 'Carries something')), Array('media'=>$mediaDr)));
-checkIdentical('what a picture carried does not come into the document', Array(strpos(strval(file_get_contents($baseDir.'/media/carries.jpg')), 'SecretMaker')!==false, strpos($partLst['word/media/image1.jpeg'], 'SecretMaker'), Image::openFluxdArchv(Fluxd::openBytesFluxd($partLst['word/media/image1.jpeg']))->imageInfoArray()['width']), Array(true, false, 3000));
+checkIdentical('what a picture carried does not come into the document', Array(strpos(strval(file_get_contents($baseDir.'/media/carries.jpg')), 'SecretMaker')!==false, strpos($partLst['word/media/image1.jpeg'], 'SecretMaker'), Image::openFluxdImage(Fluxd::openBytesFluxd($partLst['word/media/image1.jpeg']))->imageInfoArray()['width']), Array(true, false, 3000));
 
 dropTestFolder($baseDir);
 finishChecking();

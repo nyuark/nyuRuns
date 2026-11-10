@@ -432,10 +432,10 @@ if( !$isReady ){
 		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confjwk'), 'user=alice&pass=s3cret');
 		$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 		$tknClms = runCatchThrown(function() use ( $jwToken, $keysSet ){ return (array)Firebase\JWT\JWT::decode($jwToken, Firebase\JWT\JWK::parseKeySet($keysSet)); });
-		checkIdentical('key set: another project checks the token of the login with it alone', Array($replyAr['code'], $tknClms['user'] ?? null, $tknClms['iss'] ?? null, $tknClms['aud'] ?? null), Array(200, 'alice', 'https://auth.example.org', 'api.example.org'));
+		checkIdentical('key set: another project checks the token of the login with it alone', Array($replyAr['code'], $tknClms['userName'] ?? null, $tknClms['iss'] ?? null, $tknClms['aud'] ?? null), Array(200, 'alice', 'https://auth.example.org', 'api.example.org'));
 		$jwkHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn', 'X-Test-Conf'=>'confjwk');
 		checkIdentical('bound token: accepted by its audience', httpQuery('GET', $baseUrl.'/probe/identify', $jwkHead + Array('Authorization'=>'Bearer '.$jwToken))['body'], '{"logged":true,"user":"alice","role":"internal"}');
-		$othTokn = Firebase\JWT\JWT::encode( Array('user'=>'alice', 'exp'=>time()+60, 'iss'=>'https://auth.example.org', 'aud'=>'other.example.org'), strval(file_get_contents($jwkDir.DS.'testTokn.key')), 'RS256' );
+		$othTokn = Firebase\JWT\JWT::encode( Array('userName'=>'alice', 'exp'=>time()+60, 'iss'=>'https://auth.example.org', 'aud'=>'other.example.org'), strval(file_get_contents($jwkDir.DS.'testTokn.key')), 'RS256' );
 		checkIdentical('bound token: one meant for another audience is refused', Array(httpQuery('GET', $baseUrl.'/probe/identify', $jwkHead + Array('Authorization'=>'Bearer '.$othTokn))['body']), Array('{"error":"Invalid token","code":401}'));
 		dropTestFolder($jwkDir);
 	}else{
@@ -1211,7 +1211,7 @@ if( !$isReady ){
 
 	// Forged tokens are counted like wrong passwords; a token that ended is not
 	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn');
-	$endHead = $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'alice', 'exp'=>time()-10), 'test-only-secret-0123456789-abcdefghij', 'HS256'));
+	$endHead = $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('userName'=>'alice', 'exp'=>time()-10), 'test-only-secret-0123456789-abcdefghij', 'HS256'));
 	$codeLst = Array();
 	for( $idx=0; $idx<3; $idx++ ){
 		$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $endHead);
@@ -1220,7 +1220,7 @@ if( !$isReady ){
 	checkIdentical('address limit: a token that ended is not counted', Array($codeLst, $replyAr['body']), Array(Array(401, 401, 401), '{"error":"Expired token","code":401}'));
 	$codeLst = Array();
 	for( $idx=0; $idx<3; $idx++ ){
-		$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('user'=>'alice', 'exp'=>time()+60), str_repeat('x', 40), 'HS256')));
+		$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $tknHead + Array('Authorization'=>'Bearer '.Firebase\JWT\JWT::encode(Array('userName'=>'alice', 'exp'=>time()+60), str_repeat('x', 40), 'HS256')));
 		$codeLst[] = $replyAr['code'];
 	}
 	checkIdentical('address limit: forged tokens hold the address', $codeLst, Array(401, 401, 429));

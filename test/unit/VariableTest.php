@@ -1,13 +1,13 @@
 <?php
 
-// Tools\Variable : every format reachable through readFileDetail()
+// Tools\Variable : every format reachable through castWrappedVal()
 
 require __DIR__.'/../lib/harness.php';
 
 use nyu\Tools\Variable;
 
 /**
- * Formats a value through Variable::readFileDetail().
+ * Formats a value through Variable::castWrappedVal().
  *
  * @param mixed  $givenValue Raw value to wrap.
  * @param String $formatName Format key (the to* method name without 'to').
@@ -17,13 +17,13 @@ use nyu\Tools\Variable;
 function formatVal( Mixed $givenValue, String $formatName, Mixed $formatOpts=false ): Mixed {
 	return runCatchThrown(function() use ($givenValue, $formatName, $formatOpts){
 		$varObjc = new Variable($givenValue);
-		return $varObjc->readFileDetail($formatName, $formatOpts);
+		return $varObjc->castWrappedVal($formatName, $formatOpts);
 	});
 }
 
 // OutText : tags stripped, quotes encoded
 checkIdentical('OutText plain',            formatVal('plain text', 'OutText'), 'plain text');
-checkIdentical('OutText is the default',   runCatchThrown(function(){ $varObjc = new Variable('<i>x</i>'); return $varObjc->readFileDetail(); }), 'x');
+checkIdentical('OutText is the default',   runCatchThrown(function(){ $varObjc = new Variable('<i>x</i>'); return $varObjc->castWrappedVal(); }), 'x');
 checkIdentical('OutText tags and quote',   formatVal("<b>it's</b>", 'OutText'), 'it&#39;s');
 checkIdentical('OutText double quotes',    formatVal('say "hi" & <i>bye</i>', 'OutText'), 'say &#34;hi&#34; & bye');
 checkIdentical('OutText script tag',       formatVal('<script>alert(1)</script>x', 'OutText'), 'alert(1)x');
@@ -195,7 +195,7 @@ checkIdentical('DateSpn end that is no date', Array(formatVal('2026-12-01', 'Dat
 checkIdentical('unknown format',           formatVal('x', 'Nope'), 'x');
 
 // saveValue replaces the wrapped value
-checkIdentical('saveValueByKey', runCatchThrown(function(){ $varObjc = new Variable('1'); $varObjc->saveValueByKey('<b>2</b>'); return $varObjc->readFileDetail('OutText'); }), '2');
+checkIdentical('replaceWrapped', runCatchThrown(function(){ $varObjc = new Variable('1'); $varObjc->replaceWrapped('<b>2</b>'); return $varObjc->castWrappedVal('OutText'); }), '2');
 
 // OutText must keep behaving like the filter it replaced, for as long as PHP still ships it
 if( defined('FILTER_SANITIZE_STRING') ){

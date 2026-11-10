@@ -105,7 +105,7 @@ abstract class Page extends Base {
 			return null;
 		}
 		try{
-			$pctrObj = Image::openFluxdArchv(Fluxd::openLocalFluxd($filPath, $this->pictureDir));
+			$pctrObj = Image::openFluxdImage(Fluxd::openLocalFluxd($filPath, $this->pictureDir));
 			$kindKey = strval($pctrObj->imageInfoArray()['kinds']);
 			$givKind = isset(self::PICT_LIST[$kindKey]) ? $kindKey : 'png';
 			try{
@@ -133,7 +133,7 @@ abstract class Page extends Base {
 	 * @param Array $sheetEntries The sheets.
 	 * @return Array The blocks.
 	 */
-	protected function writeAllSheets(Array $sheetEntries): Array {
+	protected function sheetsAsBlocks(Array $sheetEntries): Array {
 		$blckLst = Array();
 		foreach($sheetEntries as $shtArr){
 			if( !is_array($shtArr) || (isset($shtArr['attrs']['shown']) && empty($shtArr['attrs']['shown'])) ){

@@ -64,7 +64,7 @@ class EPub extends Page {
 		$this->readPictureDir($writeOptions);
 		$this->mediaFiles = Array();
 		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
-		$blckLst = ($shapeAs=='sheet') ? $this->writeAllSheets((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$blckLst = ($shapeAs=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
 		$propLst = (array)($infoArr['props'] ?? Array());
 		$bookTtl = trim(strval(is_scalar($infoArr['title'] ?? null) ? $infoArr['title'] : (is_scalar($propLst['Title'] ?? null) ? $propLst['Title'] : '')));
 		$bookAut = trim(strval(is_scalar($infoArr['authr'] ?? null) ? $infoArr['authr'] : (is_scalar($propLst['Author'] ?? null) ? $propLst['Author'] : '')));

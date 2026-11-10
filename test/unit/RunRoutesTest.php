@@ -21,33 +21,33 @@ use nyu\Tools\Logger;
  */
 function madeRoutr( String $urlAddress, String $httpMethod='GET', Array $routeConfg=Array() ): Router {
 	$request = mockRequestObj();
-	foreach( Array('rqstInMthd'=>$httpMethod, 'requestUri'=>Array('reqstURI'=>$urlAddress)) as $prpNme=>$prpVal ){
+	foreach( Array('rqstInMthd'=>$httpMethod, 'uriDetails'=>Array('fullPath'=>$urlAddress)) as $prpNme=>$prpVal ){
 		(new ReflectionProperty($request, $prpNme))->setValue($request, $prpVal);
 	}
-	return new Router( $routeConfg + Array('detectBy'=>'autopath', 'pathForm'=>'$app/$action/$param', 'routeDir'=>'test'.DS.'nosuchfolder'), $request );
+	return new Router( $routeConfg + Array('detectBy'=>'autopath', 'pathForm'=>'$appToRun/$doAction/$argument', 'routeDir'=>'test'.DS.'nosuchfolder'), $request );
 }
 
 @mkdir(RUN_DIR.DS.'Mixed', 0775, true);
 @mkdir(RUN_DIR.DS.'Auth', 0775, true);
-file_put_contents(RUN_DIR.DS.'Mixed'.DS.'routes.rte', '{ "away": { "pointsTo": { "redirect": "/elsewhere" } }, "kept": { "pointsTo": { "actNamed": "kept" } },'
-	.' "split": { "pointsTo": { "GET": { "pageFile": "hello.html" }, "POST": { "actNamed": "kept" } } } }');
+file_put_contents(RUN_DIR.DS.'Mixed'.DS.'routes.rte', '{ "away": { "pointsTo": { "redirect": "/elsewhere" } }, "kept": { "pointsTo": { "doAction": "kept" } },'
+	.' "split": { "pointsTo": { "GET": { "pageFile": "hello.html" }, "POST": { "doAction": "kept" } } } }');
 copy(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'routes.rte', RUN_DIR.DS.'Auth'.DS.'routes.rte');
-$keyList = Array('app', 'action', 'statCode', 'routOwnr');
+$keyList = Array('appToRun', 'doAction', 'statCode', 'routOwnr');
 
 // A Run serves its own actions only: a target naming anything else is warned and left out
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('mixlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $mixReg = madeRoutr('/mixed/away')->locateRouteReg();
 Logger::plugLogsConfig( Array() );
-checkIdentical('not an action: the route is not served, a 404 of the closed Run', Array($mixReg->readFileDetail('app'), $mixReg->readFileDetail('statCode')), Array(null, 404));
+checkIdentical('not an action: the route is not served, a 404 of the closed Run', Array($mixReg->readValueByKey('appToRun'), $mixReg->readValueByKey('statCode')), Array(null, 404));
 $mixLog = implode("\n", file_exists(inTemporaryDir('mixlogs').DS.'runner.log') ? file(inTemporaryDir('mixlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array());
 checkPregMatch('not an action: its key is warned on runner', $mixLog, '#\[WARNING\] Route "away" of Mixed/routes.rte holds an unknown key: pointsTo\.redirect#');
 checkPregMatch('not an action: in a block per method too', $mixLog, '#\[WARNING\] Route "split" of Mixed/routes.rte holds an unknown key: pointsTo\.pageFile#');
 $mixReg = madeRoutr('/mixed/kept')->locateRouteReg();
-checkIdentical('not an action: its act sibling still answers', Array($mixReg->readFileDetail('app'), $mixReg->readFileDetail('action'), $mixReg->readFileDetail('routOwnr')), Array('Mixed', 'kept', 'Mixed'));
+checkIdentical('not an action: its act sibling still answers', Array($mixReg->readValueByKey('appToRun'), $mixReg->readValueByKey('doAction'), $mixReg->readValueByKey('routOwnr')), Array('Mixed', 'kept', 'Mixed'));
 $mixReg = madeRoutr('/mixed/split', 'POST')->locateRouteReg();
-checkIdentical('block per method: the action of its other method answers', Array($mixReg->readFileDetail('app'), $mixReg->readFileDetail('action')), Array('Mixed', 'kept'));
+checkIdentical('block per method: the action of its other method answers', Array($mixReg->readValueByKey('appToRun'), $mixReg->readValueByKey('doAction')), Array('Mixed', 'kept'));
 $mixReg = madeRoutr('/mixed/split', 'GET')->locateRouteReg();
-checkIdentical('block per method: the method left out is not served', Array($mixReg->readFileDetail('statCode'), $mixReg->readFileDetail('allowed')), Array(405, 'POST'));
+checkIdentical('block per method: the method left out is not served', Array($mixReg->readValueByKey('statCode'), $mixReg->readValueByKey('allowHdr')), Array(405, 'POST'));
 checkIdentical('not an action: none of it is listed', array_column(array_filter(madeRoutr('/')->allRoutesArray(), function( Array $routeEntry ): Bool { return $routeEntry['routOwnr']=='Mixed'; }), 'routPath'), Array('mixed/kept', 'mixed/split'));
 
 // A site pattern over a Run route: the site answers, with a warning
@@ -58,14 +58,14 @@ Logger::plugLogsConfig( Array('path'=>inTemporaryDir('patlogs'), 'mode'=>'BASE',
 $patReg = madeRoutr('/auth/openSess', 'GET', Array('routeDir'=>$siteDir))->locateRouteReg();
 Logger::plugLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$siteDir);
-checkIdentical('site pattern: the site answers', Array($patReg->readFileDetail('routKind'), $patReg->readFileDetail('routOwnr'), $patReg->readFileDetail('routPath')), Array('redirect', 'site', 'auth/*'));
+checkIdentical('site pattern: the site answers', Array($patReg->readValueByKey('routKind'), $patReg->readValueByKey('routOwnr'), $patReg->readValueByKey('routPath')), Array('redirect', 'site', 'auth/*'));
 $patLog = implode("\n", file_exists(inTemporaryDir('patlogs').DS.'runner.log') ? file(inTemporaryDir('patlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array());
 checkPregMatch('site pattern: the Auth routes under it are warned', $patLog, '#\[WARNING\] Route "/auth/openSess" of the application Auth falls under the site route "/auth/\*": the site\'s answers#');
 checkIdentical('site pattern: a route from the root is not under it', strpos($patLog, '"/.well-known/jwks.json"'), false);
 
 // installs checkAll: the route shadow row, and the mounts a preset may give
 $mntText = function( String $presetName, String $mountsJson ): String {
-	return '{ "presetId": "'.$presetName.'", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true }, "routings": { "detectBy": "autopath", "pathForm": "$app/$action/$param", "routeDir": "conf/routes/'.$presetName.'", "mountSet": '.$mountsJson.' } }';
+	return '{ "presetId": "'.$presetName.'", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true }, "routings": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument", "routeDir": "conf/routes/'.$presetName.'", "mountSet": '.$mountsJson.' } }';
 };
 $projDir = makeProjectTxt('runroutes', Array(
 	'conf/system.ini'=>buildSystemIni(),
@@ -92,6 +92,6 @@ foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText
 }
 checkIdentical('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
 $rootRtr = madeRoutr('/openSess', 'POST', Array('mountSet'=>Array('auth'=>'')));
-checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readFileDetail('app'), $rootRtr->locateRouteReg()->readFileDetail('routPath')), Array('Auth', 'openSess'));
+checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readValueByKey('appToRun'), $rootRtr->locateRouteReg()->readValueByKey('routPath')), Array('Auth', 'openSess'));
 
 finishChecking();

@@ -17,7 +17,7 @@ namespace nyu\Data\Parsers;
 class Yaml extends Base {
 
 	// A line holding a key: quoted with ", quoted with ', or bare; then what follows its colon
-	const KEYS_PTRN = '/^(?:"((?:[^"\\\\]|\\\\.)*)"|\'((?:[^\']|\'\')*)\'|((?:[^\s"\'\[\]{}#&*!|>%@`,?\-]|[\-?](?=\S))(?:(?![ \t]#).)*?))[ \t]*:(?:[ \t]+(.*))?$/Ds';
+	const KEYS_PATT = '/^(?:"((?:[^"\\\\]|\\\\.)*)"|\'((?:[^\']|\'\')*)\'|((?:[^\s"\'\[\]{}#&*!|>%@`,?\-]|[\-?](?=\S))(?:(?![ \t]#).)*?))[ \t]*:(?:[ \t]+(.*))?$/Ds';
 	// Characters written after a backslash, between double quotes
 	const ESCP_LIST = Array('0'=>"\0", 'a'=>"\x07", 'b'=>"\x08", 't'=>"\t", "\t"=>"\t", 'n'=>"\n", 'v'=>"\x0B", 'f'=>"\x0C", 'r'=>"\r", 'e'=>"\x1B", ' '=>' ', '"'=>'"', '/'=>'/', '\\'=>'\\', 'N'=>"\u{85}", '_'=>"\u{A0}", 'L'=>"\u{2028}", 'P'=>"\u{2029}");
 
@@ -182,7 +182,7 @@ class Yaml extends Base {
 			return null;
 		}
 		$isSeqnc = (preg_match('/^-(?:[ \t]|$)/D', $nxtLine[1])===1);
-		$isMppng = (!$isSeqnc && preg_match(self::KEYS_PTRN, $nxtLine[1])===1);
+		$isMppng = (!$isSeqnc && preg_match(self::KEYS_PATT, $nxtLine[1])===1);
 		if( ($isSeqnc || $isMppng) && $depthsLftNum<1 ){
 			$this->throwYamlError('nested deeper than allowed', $nxtLine[2]);
 		}
@@ -196,7 +196,7 @@ class Yaml extends Base {
 			$this->throwYamlError('a key that is not plain text is not supported', $nxtLine[2]);
 		}
 		$this->lineCursor++;
-		return $this->readFileDetail($this->trimCommentTxt($nxtLine[1]), $minIndentLen-1, $nxtLine[2], $depthsLftNum);
+		return $this->parseLineValue($this->trimCommentTxt($nxtLine[1]), $minIndentLen-1, $nxtLine[2], $depthsLftNum);
 	}
 
 	/**
@@ -242,7 +242,7 @@ class Yaml extends Base {
 		$mapping = Array();
 		$keyPrts = Array();
 		while( ($nxtLine = $this->peekALineArray())!==null && $nxtLine[0]==$blckIndentNb ){
-			if( !preg_match(self::KEYS_PTRN, $nxtLine[1], $keyPrts, PREG_UNMATCHED_AS_NULL) ){
+			if( !preg_match(self::KEYS_PATT, $nxtLine[1], $keyPrts, PREG_UNMATCHED_AS_NULL) ){
 				$this->throwYamlError('a key was expected', $nxtLine[2]);
 			}
 			if( $keyPrts[1]!==null ){
@@ -259,7 +259,7 @@ class Yaml extends Base {
 			$this->lineCursor++;
 			$valText = $this->trimCommentTxt(strval($keyPrts[4] ?? ''));
 			if( $valText!=='' ){
-				$mapping[$keyName] = $this->readFileDetail($valText, $blckIndentNb, $nxtLine[2], $depthsLftNum-1);
+				$mapping[$keyName] = $this->parseLineValue($valText, $blckIndentNb, $nxtLine[2], $depthsLftNum-1);
 				continue;
 			}
 			// Nothing after the colon: the value is what follows, further in; a list may stand at the indentation of its key
@@ -293,7 +293,7 @@ class Yaml extends Base {
 	 *
 	 * @throws ParseError When the value is not valid, or uses a part of YAML that is not read.
 	 */
-	protected function readFileDetail(String $scalarString, Int $parentIndent, Int $sourceLineNb, Int $depthsLftNum): Mixed {
+	protected function parseLineValue(String $scalarString, Int $parentIndent, Int $sourceLineNb, Int $depthsLftNum): Mixed {
 		$leading = $scalarString[0] ?? '';
 		$valPrts = Array();
 		if( $leading=='&' || $leading=='*' ){
@@ -331,7 +331,7 @@ class Yaml extends Base {
 		// A bare value may carry on over the lines that follow it, further in than its key
 		$moreLns = false;
 		while( ($nxtLine = $this->peekALineArray())!==null && $nxtLine[0]>$parentIndent ){
-			if( preg_match(self::KEYS_PTRN, $nxtLine[1]) || preg_match('/^-(?:[ \t]|$)/D', $nxtLine[1]) ){
+			if( preg_match(self::KEYS_PATT, $nxtLine[1]) || preg_match('/^-(?:[ \t]|$)/D', $nxtLine[1]) ){
 				$this->throwYamlError('unexpected indentation', $nxtLine[2]);
 			}
 			$scalarString .= ' '.$this->trimCommentTxt($nxtLine[1]);

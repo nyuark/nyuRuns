@@ -50,16 +50,16 @@ class Tester extends Command{
 		if( !is_file($runFile) ){
 			$this->terminateShell('The test runner is missing: test/run.php');
 		}
-		$grpList = $this->optnObject->restWordsArray();
+		$grpList = $this->optionsObj->restWordsArray();
 		if( empty($grpList) ){
 			$grpList = self::GRPS_LIST;
 		}elseif( in_array('all', $grpList, true) ){
 			$grpList = Array();
 		}
 		$envVals = getenv();
-		$iniFold = $this->newAddonString();
-		if( $iniFold!==null ){
-			$envVals['PHPRC'] = $iniFold;
+		$iniFldr = $this->newAddonString();
+		if( $iniFldr!==null ){
+			$envVals['PHPRC'] = $iniFldr;
 		}
 		$pipeArr = Array();
 		$process = proc_open( array_merge(Array(PHP_BINARY, $runFile), $grpList), Array(0=>Array('pipe', 'r'), 1=>Array('pipe', 'w'), 2=>Array('redirect', 1)), $pipeArr, TOP_DIR, $envVals );
@@ -83,9 +83,9 @@ class Tester extends Command{
 		}
 		fclose($pipeArr[1]);
 		$exitNum = proc_close($process);
-		if( $iniFold!==null ){
-			@unlink($iniFold.DS.'php.ini');
-			@rmdir($iniFold);
+		if( $iniFldr!==null ){
+			@unlink($iniFldr.DS.'php.ini');
+			@rmdir($iniFldr);
 		}
 		$summary = Array();
 		if( preg_match('/^(\d+) checks passed, (\d+) failed(?:, (\d+) skipped)?/', $sumLine, $summary) && $this->printerObj->jsonShellShape() ){
@@ -111,37 +111,37 @@ class Tester extends Command{
 	 * @return ?String The folder holding that php.ini, to name in PHPRC; null when nothing is to add.
 	 */
 	protected function newAddonString(): ?String {
-		$askList = $this->optnObject->validateOption('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optnObject->retrieveOption('addExtns', ''))))) : self::ADDS_LIST;
-		$extFold = strval(ini_get('extension_dir'));
-		if( $extFold=='' || !is_dir($extFold) ){
-			$extFold = dirname(PHP_BINARY).DS.'ext';
+		$askList = $this->optionsObj->validateOption('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('addExtns', ''))))) : self::ADDS_LIST;
+		$extFldr = strval(ini_get('extension_dir'));
+		if( $extFldr=='' || !is_dir($extFldr) ){
+			$extFldr = dirname(PHP_BINARY).DS.'ext';
 		}
 		$addList = Array();
 		foreach( $askList as $oneExt ){
 			if( !preg_match('/^\w+$/D', $oneExt) || extension_loaded($oneExt) ){
 				continue;
 			}
-			if( is_file($extFold.DS.'php_'.$oneExt.'.dll') || is_file($extFold.DS.$oneExt.'.so') ){
+			if( is_file($extFldr.DS.'php_'.$oneExt.'.dll') || is_file($extFldr.DS.$oneExt.'.so') ){
 				$addList[] = $oneExt;
 			}
 		}
 		if( empty($addList) ){
 			return null;
 		}
-		$iniFold = sys_get_temp_dir().DS.'nyuruns_tester_'.getmypid();
-		if( !is_dir($iniFold) && !@mkdir($iniFold, 0700, true) ){
+		$iniFldr = sys_get_temp_dir().DS.'nyuruns_tester_'.getmypid();
+		if( !is_dir($iniFldr) && !@mkdir($iniFldr, 0700, true) ){
 			return null;
 		}
 		$loadIni = php_ini_loaded_file();
 		$iniText = is_string($loadIni) ? strval(@file_get_contents($loadIni)).PHP_EOL : '';
-		$iniText .= 'extension_dir="'.$extFold.'"'.PHP_EOL;
+		$iniText .= 'extension_dir="'.$extFldr.'"'.PHP_EOL;
 		foreach( $addList as $oneExt ){
 			$iniText .= 'extension='.$oneExt.PHP_EOL;
 		}
-		if( @file_put_contents($iniFold.DS.'php.ini', $iniText)===false ){
+		if( @file_put_contents($iniFldr.DS.'php.ini', $iniText)===false ){
 			return null;
 		}
 		$this->printerObj->printShellLine( 'Extensions given for the run: '.implode(', ', $addList) );
-		return $iniFold;
+		return $iniFldr;
 	}
 }

@@ -59,7 +59,7 @@ function appsReqst( Array $headersArr, String $httpMethod='GET' ): nyu\Tools\Req
  */
 function appsReply( Array $accessConf, Array $headersArr, Array $routeArray, String $httpMethod='GET' ): Array {
 	$axsRslt = (new Checker( $accessConf, appsReqst($headersArr, $httpMethod), new Registry($routeArray) ))->validateAccess();
-	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('user'), $axsRslt->readFileDetail('role'), $axsRslt->readFileDetail('fromApp'));
+	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('appsName'));
 }
 
 list($appPriv, $appPubl) = makePairs('portal');
@@ -78,35 +78,35 @@ $appKeys = Array(
 );
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0), 'APPSKEYS'=>$appKeys, 'OWNTOKEN'=>Array('signAlgo'=>'RS256', 'publFile'=>$ownPubl))) );
 $axsConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'ownToken', 'appsConf'=>'appsKeys');
-$cntView = Array('app'=>'Contacts', 'action'=>'view');
+$cntView = Array('appToRun'=>'Contacts', 'doAction'=>'view');
 $bearsOf = function( JWT $jwtCarrier, String $loggedUser, String $loggedRole ): Array {
-	return Array('Authorization'=>'Bearer '.$jwtCarrier->issueTokenText(Array('user'=>$loggedUser, 'role'=>$loggedRole)));
+	return Array('Authorization'=>'Bearer '.$jwtCarrier->issueTokenText(Array('userName'=>$loggedUser, 'userRole'=>$loggedRole)));
 };
 
 // AppKey alone
 $keyChck = new AppKey( $appKeys );
 checkIdentical('app key: none sent, not the call of an application', $keyChck->verifyAppArray(appsReqst(Array())), null);
 $idntArr = $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal')) );
-checkIdentical('app key: the user of the token, with the application', Array($idntArr['user'] ?? null, $idntArr['role'] ?? null, $idntArr['fromApp'] ?? null), Array('ann', 'internal', 'portal'));
-checkIdentical('app key: a wrong key is refused and counted', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'internal'))), $keyChck->finalErrorText(), $keyChck->wrngCredential()), Array(false, 'Invalid app key', true));
+checkIdentical('app key: the user of the token, with the application', Array($idntArr['userName'] ?? null, $idntArr['userRole'] ?? null, $idntArr['appsName'] ?? null), Array('ann', 'internal', 'portal'));
+checkIdentical('app key: a wrong key is refused and counted', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'internal'))), $keyChck->finalErrorText(), $keyChck->hasWrongSecret()), Array(false, 'Invalid app key', true));
 checkIdentical('app key: an empty key is no key', $keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'') + $bearsOf($appTokn, 'ann', 'internal'))), null);
-checkIdentical('app key: the right key without a token, not counted', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal'))), $keyChck->finalErrorText(), $keyChck->wrngCredential()), Array(false, 'Missing Bearer Authorization header', false));
-checkIdentical('app key: a token the application did not sign is forged', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($ownTokn, 'ann', 'internal'))), $keyChck->finalErrorText(), $keyChck->wrngCredential()), Array(false, 'Invalid token', true));
+checkIdentical('app key: the right key without a token, not counted', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal'))), $keyChck->finalErrorText(), $keyChck->hasWrongSecret()), Array(false, 'Missing Bearer Authorization header', false));
+checkIdentical('app key: a token the application did not sign is forged', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($ownTokn, 'ann', 'internal'))), $keyChck->finalErrorText(), $keyChck->hasWrongSecret()), Array(false, 'Invalid token', true));
 checkIdentical('app key: a refused call leaves no route', $keyChck->allowsRouteFlg(new Registry($cntView)), false);
 $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal')) );
 checkIdentical('app key: the routes, as openList writes them', Array(
-	$keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'contacts', 'action'=>''))),
-	$keyChck->allowsRouteFlg(new Registry(Array('app'=>null, 'action'=>null, 'routPath'=>'members/save'))), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'Members', 'action'=>'save')))
+	$keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>'contacts', 'doAction'=>''))),
+	$keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'members/save'))), $keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>'Members', 'doAction'=>'save')))
 ), Array(true, true, true, false));
 $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'ann', 'internal')) );
-checkIdentical('app key: an action alone, not its application without one', Array($keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('app'=>'contacts', 'action'=>'')))), Array(true, false));
+checkIdentical('app key: an action alone, not its application without one', Array($keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>'contacts', 'doAction'=>'')))), Array(true, false));
 checkIdentical('app key: no route before a key is verified', (new AppKey($appKeys))->allowsRouteFlg(new Registry($cntView)), false);
 
 // Through the Checker
 checkIdentical('call: granted, the role of the token kept up to roleTops', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), $cntView), Array(200, '', 'ann', 'internal', 'portal'));
 checkIdentical('call: a manager of the application is a member here', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'sysadmin'), $cntView), Array(200, '', 'bob', 'internal', 'portal'));
 checkIdentical('call: roleTops system keeps a system user', appsReply($axsConf, Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'bob', 'operator'), $cntView)[3], 'operator');
-checkIdentical('call: a route the key does not list is a 403', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), Array('app'=>'Orders', 'action'=>'index')), Array(403, 'Forbidden', 'ann', 'internal', 'portal'));
+checkIdentical('call: a route the key does not list is a 403', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), Array('appToRun'=>'Orders', 'doAction'=>'index')), Array(403, 'Forbidden', 'ann', 'internal', 'portal'));
 checkIdentical('call: the role the route asks for still applies', appsReply($axsConf + Array('rteRoles'=>Array('contacts/*'=>'operator')), Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'sysadmin'), $cntView)[0], 403);
 checkIdentical('call: a wrong key is a 401', appsReply($axsConf, Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'internal'), $cntView), Array(401, 'Invalid app key', '', null, null));
 checkIdentical('call: the token of the application without its key is refused', appsReply($axsConf, $bearsOf($appTokn, 'ann', 'internal'), $cntView), Array(401, 'Invalid token', '', null, null));
@@ -122,7 +122,7 @@ checkIdentical('call: without appkey, the key is not read', appsReply($noKeyCf, 
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), $cntView, 'POST');
 appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), $cntView);
-appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), Array('app'=>'Orders', 'action'=>'index'), 'DELETE');
+appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), Array('appToRun'=>'Orders', 'doAction'=>'index'), 'DELETE');
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('log: one line per call', count($axsLogs), 3);

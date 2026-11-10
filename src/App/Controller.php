@@ -18,15 +18,15 @@ use nyu\Output\Response;
  */
 class Controller{
 	
-	protected $appIdentty;
+	protected $runAppName;
 	protected $appsFolder;
-	protected $inptRgstry;
+	protected $inputsRgst;
 	protected $accessRgst;
-	protected $httpRequst;
-	protected $httpRespns;
-	protected $rotrObject;
-	protected $savdAction;
-	protected $savdOption;
+	protected $requestObj;
+	protected $respondObj;
+	protected $routingObj;
+	protected $keptAction;
+	protected $keptOption;
 	protected $actionsObj;
 	protected $modelStack;
 	protected $respValues;
@@ -48,25 +48,25 @@ class Controller{
 	 *
 	 * @param String   $appNameToRun Name of the application (run) to load.
 	 * @param String   $runAppAction Name of the action/method to call on the application.
-	 * @param Registry $actionInRgst Registry of input values to pass to the application.
+	 * @param Registry $runInputsReg Registry of input values to pass to the application.
 	 * @param ?String  $runAppOption Optional extra parameter passed to the action.
-	 * @param ?Registry $actionAxRgst Access check result (logged user, role and identity) to pass to the application.
-	 * @param ?Request $requstObject The shared HTTP request, to pass to the application.
+	 * @param ?Registry $accsCheckReg Access check result (logged user, role and identity) to pass to the application.
+	 * @param ?Request $givenRequest The shared HTTP request, to pass to the application.
 	 * @param ?Response $httpResponse The shared response, to pass to the application.
 	 * @param ?Router  $routerObject The router of the request, to pass to the application.
 	 */
-	public function __construct( String $appNameToRun, String $runAppAction, Registry $actionInRgst, ?String $runAppOption = null, ?Registry $actionAxRgst = null, ?Request $requstObject = null, ?Response $httpResponse = null, ?Router $routerObject = null ){
+	public function __construct( String $appNameToRun, String $runAppAction, Registry $runInputsReg, ?String $runAppOption = null, ?Registry $accsCheckReg = null, ?Request $givenRequest = null, ?Response $httpResponse = null, ?Router $routerObject = null ){
 		// Change case of AppName
 		$appNameToRun = UCFirst($appNameToRun);
 		// Save action and inputs
-		$this->appIdentty = $appNameToRun;
-		$this->savdAction = $runAppAction;
-		$this->savdOption = $runAppOption;
-		$this->inptRgstry = $actionInRgst;
-		$this->accessRgst = $actionAxRgst;
-		$this->httpRequst = $requstObject;
-		$this->httpRespns = $httpResponse;
-		$this->rotrObject = $routerObject;
+		$this->runAppName = $appNameToRun;
+		$this->keptAction = $runAppAction;
+		$this->keptOption = $runAppOption;
+		$this->inputsRgst = $runInputsReg;
+		$this->accessRgst = $accsCheckReg;
+		$this->requestObj = $givenRequest;
+		$this->respondObj = $httpResponse;
+		$this->routingObj = $routerObject;
 		// The name goes into a path and a class name : letters and digits only, anything else is no application
 		$logText = 'Not found: '.json_encode($appNameToRun.'/'.$runAppAction, JSON_INVALID_UTF8_SUBSTITUTE).': ';
 		if( !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
@@ -97,17 +97,17 @@ class Controller{
 			return;
 		}
 		$isDeflt = false;
-		if( $this->savdAction=='' ){
-			$this->savdAction = $this->dfltActionText();
+		if( $this->keptAction=='' ){
+			$this->keptAction = $this->dfltActionText();
 			$isDeflt = true;
 		}
 		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
 		$clsName = $this->actionsObj->getName();
-		if( !$clsName::hasActionNamed($this->savdAction) ){
+		if( !$clsName::hasActionNamed($this->keptAction) ){
 			if( $isDeflt ){
 				$this->failStatus = 500;
 				$this->loadFailed = 'Internal Server Error';
-				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->savdAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction, or no action declared)' );
+				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->keptAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction, or no action declared)' );
 				return;
 			}
 			$this->loadFailed = 'Not Found';
@@ -132,21 +132,21 @@ class Controller{
 	 * @throws \RuntimeException When the file is not a valid definition.
 	 */
 	protected function applyInputDefs(): Void {
-		if( !preg_match('/^\w+$/', $this->savdAction) || !$this->actionsObj->hasMethod($this->savdAction) ){
+		if( !preg_match('/^\w+$/', $this->keptAction) || !$this->actionsObj->hasMethod($this->keptAction) ){
 			return;
 		}
 		// The file is named as the action is declared, whatever the case the request wrote it in
-		$actnNme = $this->actionsObj->getMethod($this->savdAction)->getName();
+		$actnNme = $this->actionsObj->getMethod($this->keptAction)->getName();
 		$defPath = $this->appsFolder.DS.'input'.DS.$actnNme.'.json';
 		if( !is_file($defPath) ){
 			return;
 		}
 		$fldDefs = json_decode( strval(file_get_contents($defPath)), true );
 		if( !is_array($fldDefs) || !isset($fldDefs['fieldSet']) || !(is_array($fldDefs['fieldSet']) || is_string($fldDefs['fieldSet'])) ){
-			throw new \RuntimeException('Input misconfigured: '.$this->appIdentty.'/input/'.$actnNme.'.json is not a definition of fields');
+			throw new \RuntimeException('Input misconfigured: '.$this->runAppName.'/input/'.$actnNme.'.json is not a definition of fields');
 		}
 		$inptObj = new Input( null, 'ACTON', $fldDefs['fieldSet'], $actnNme );
-		$this->inptRgstry = new Registry( $inptObj->parseValuesArr($this->inptRgstry->readLinesArray()) );
+		$this->inputsRgst = new Registry( $inptObj->parseValuesArr($this->inputsRgst->readLinesArray()) );
 		$missLst = $inptObj->retrieveMissed();
 		if( !empty($missLst) ){
 			// A required field is missing or empty : the action is not run
@@ -181,7 +181,7 @@ class Controller{
 	 * application and triggers the actionset run.
 	 */
 	protected function loadModelStack(): Void {
-		$appName = $this->appIdentty;
+		$appName = $this->runAppName;
 		$this->modelStack = new ModelStack( $appName );
 		$this->runApplication();
 	}
@@ -193,7 +193,7 @@ class Controller{
 	 * @return RunContext The action, its option and inputs, the access result, request, response, router, models and application.
 	 */
 	protected function makeRunContext(): RunContext {
-		return new RunContext( $this->savdAction, $this->savdOption, $this->inptRgstry, $this->accessRgst, $this->httpRequst, $this->httpRespns, $this->rotrObject, $this->modelStack, $this->appIdentty, strval($this->appsFolder) );
+		return new RunContext( $this->keptAction, $this->keptOption, $this->inputsRgst, $this->accessRgst, $this->requestObj, $this->respondObj, $this->routingObj, $this->modelStack, $this->runAppName, strval($this->appsFolder) );
 	}
 
 	// Execute application (from actionset)

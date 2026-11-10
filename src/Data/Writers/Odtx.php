@@ -37,7 +37,7 @@ class Odtx extends Page {
 	// The notes of the document, by their kind then their name: the block of each
 	protected $remarkList = Array();
 	// The notes the text has referred to so far, by their kind then their name
-	protected $noteRfrncs = Array();
+	protected $citedNotes = Array();
 	// Whether what is being written may not refer to a note: a note may not hold another
 	protected $notesMuted = false;
 	// The styles of the content written as styles of the document: name in small letters => name in the document
@@ -86,11 +86,11 @@ class Odtx extends Page {
 		$this->mediaFiles = Array();
 		$this->autoPrefix = '';
 		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
-		$blckLst = ($shapeAs=='sheet') ? $this->writeAllSheets((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$blckLst = ($shapeAs=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
 		$this->autoPrgrph = Array();
 		$this->autoStyles = Array();
 		$this->anchorList = Array();
-		$this->noteRfrncs = Array('fnote'=>Array(), 'enote'=>Array());
+		$this->citedNotes = Array('fnote'=>Array(), 'enote'=>Array());
 		$this->notesMuted = false;
 		$this->breakAhead = false;
 		$this->tableCount = 0;
@@ -101,7 +101,7 @@ class Odtx extends Page {
 		// A note the text never referred to is not lost: it ends the document, as text
 		$this->notesMuted = true;
 		foreach(Array('fnote', 'enote') as $nteKnd){
-			foreach(array_diff_key($this->remarkList[$nteKnd], $this->noteRfrncs[$nteKnd]) as $blkArr){
+			foreach(array_diff_key($this->remarkList[$nteKnd], $this->citedNotes[$nteKnd]) as $blkArr){
 				$bodyTxt .= $this->blckPartString(Array('block'=>'paragrph') + $blkArr);
 			}
 		}
@@ -570,9 +570,9 @@ class Odtx extends Page {
 			$matches = Array();
 			if( preg_match('/^#((fnote|enote)\d+)$/D', $linkAdr, $matches) && isset($this->remarkList[$matches[2]][$matches[1]]) ){
 				// A note is written where the text first refers to it: the document numbers it
-				if( !$this->notesMuted && !isset($this->noteRfrncs[$matches[2]][$matches[1]]) ){
-					$this->noteRfrncs[$matches[2]][$matches[1]] = count($this->noteRfrncs[$matches[2]])+1;
-					$fullTxt .= $this->notesPieceText($matches[2], $this->noteRfrncs[$matches[2]][$matches[1]], $this->remarkList[$matches[2]][$matches[1]]);
+				if( !$this->notesMuted && !isset($this->citedNotes[$matches[2]][$matches[1]]) ){
+					$this->citedNotes[$matches[2]][$matches[1]] = count($this->citedNotes[$matches[2]])+1;
+					$fullTxt .= $this->notesPieceText($matches[2], $this->citedNotes[$matches[2]][$matches[1]], $this->remarkList[$matches[2]][$matches[1]]);
 					continue;
 				}
 				// Any other reference to it is the text it shows
@@ -585,7 +585,7 @@ class Odtx extends Page {
 			if( $spanTxt==='' && $fldName==='' && $propNme==='' ){
 				continue;
 			}
-			$partTxt = $this->textsPieceText(($spanTxt==='') ? '1' : $spanTxt);
+			$partTxt = $this->plainToOdfText(($spanTxt==='') ? '1' : $spanTxt);
 			if( $fldName!=='' ){
 				$partTxt = '<'.$fldName.(($fldCode=='pageNumb') ? ' text:select-page="current"' : '').'>'.$partTxt.'</'.$fldName.'>';
 			}elseif( $propNme!=='' ){
@@ -635,7 +635,7 @@ class Odtx extends Page {
 	 * @param String $sourceString The text.
 	 * @return String The text, ready to stand in a paragraph.
 	 */
-	protected function textsPieceText(String $sourceString): String {
+	protected function plainToOdfText(String $sourceString): String {
 		$lineTxt = '';
 		foreach(preg_split('/(\n|\t|^ +| +$| {2,})/', str_replace(Array("\r\n", "\r"), "\n", $sourceString), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $onePrt){
 			if( $onePrt==="\n" ){

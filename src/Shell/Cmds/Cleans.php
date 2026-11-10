@@ -52,7 +52,7 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeCleanDir(): Int {
-		$kindLst = $this->optnObject->restWordsArray();
+		$kindLst = $this->optionsObj->restWordsArray();
 		if( empty($kindLst) ){
 			$this->terminateShell('Missing argument: what to purge ('.implode(', ', self::KIND_LIST).', or all)', self::EXIT_HELP);
 		}
@@ -63,7 +63,7 @@ class Cleans extends Command{
 		if( !empty($badList) ){
 			$this->terminateShell('Nothing is purged under that name: '.implode(', ', $badList), self::EXIT_HELP);
 		}
-		$oldDays = $this->optnObject->retrieveOption('keepDays');
+		$oldDays = $this->optionsObj->retrieveOption('keepDays');
 		if( $oldDays!==null && !preg_match('/^\d{1,5}$/D', $oldDays) ){
 			$this->terminateShell('--keepDays takes a number of days', self::EXIT_HELP);
 		}
@@ -74,7 +74,7 @@ class Cleans extends Command{
 		}
 		$rowList = Array();
 		foreach( $kindLst as $kndNme ){
-			$fldPath = $this->temporaryFoldr( $this->findTempFolder($kndNme) );
+			$fldPath = $this->verifyTempPath( $this->findTempFolder($kndNme) );
 			if( $fldPath===null ){
 				$rowList[] = Array($kndNme, 0, 'left alone: its folder is missing, or not under temp');
 				continue;
@@ -97,7 +97,7 @@ class Cleans extends Command{
 		if( !preg_match('/^\w+$/D', $channel) ){
 			$this->terminateShell('A log channel is a plain name', self::EXIT_HELP);
 		}
-		$lineNum = $this->optnObject->retrieveOption('numLines', '20');
+		$lineNum = $this->optionsObj->retrieveOption('numLines', '20');
 		if( !preg_match('/^\d{1,6}$/D', strval($lineNum)) ){
 			$this->terminateShell('--numLines takes a number of lines', self::EXIT_HELP);
 		}
@@ -120,7 +120,7 @@ class Cleans extends Command{
 		foreach( $lineLst as $logLin ){
 			$this->printerObj->printShellBody($logLin.PHP_EOL);
 		}
-		if( !$this->optnObject->validateOption('watching') || $this->printerObj->jsonShellShape() ){
+		if( !$this->optionsObj->validateOption('watching') || $this->printerObj->jsonShellShape() ){
 			return self::EXIT_DONE;
 		}
 		// Followed until the command is interrupted
@@ -206,11 +206,11 @@ class Cleans extends Command{
 	 * Checks that a folder exists and lies under the temp folder of the
 	 * project: nothing is removed anywhere else.
 	 *
-	 * @param String $fullFoldPath Full path of the folder.
+	 * @param String $fullFldrPath Full path of the folder.
 	 * @return ?String Its real path, or null when it is missing or lies elsewhere.
 	 */
-	protected function temporaryFoldr( String $fullFoldPath ): ?String {
-		$realFld = realpath($fullFoldPath);
+	protected function verifyTempPath( String $fullFldrPath ): ?String {
+		$realFld = realpath($fullFldrPath);
 		$realDir = realpath(TOP_DIR.DS.'temp');
 		if( $realFld===false || $realDir===false || !is_dir($realFld) || strpos($realFld.DS, $realDir.DS)!==0 || $realFld===$realDir ){
 			return null;
@@ -221,17 +221,17 @@ class Cleans extends Command{
 	/**
 	 * Removes the files of a folder and of its sub-folders, which are kept.
 	 *
-	 * @param String $fullFoldPath Full path of the folder.
+	 * @param String $fullFldrPath Full path of the folder.
 	 * @param ?Int   $unixMomentNb Only the files last written before that Unix time are removed; all of them when null.
 	 * @return Int The number of files removed.
 	 */
-	protected function dropFilesCount( String $fullFoldPath, ?Int $unixMomentNb=null ): Int {
+	protected function dropFilesCount( String $fullFldrPath, ?Int $unixMomentNb=null ): Int {
 		$dropNum = 0;
-		foreach( (array)scandir($fullFoldPath) as $entNme ){
+		foreach( (array)scandir($fullFldrPath) as $entNme ){
 			if( $entNme=='.' || $entNme=='..' || $entNme=='.gitkeep' ){
 				continue;
 			}
-			$subPath = $fullFoldPath.DS.$entNme;
+			$subPath = $fullFldrPath.DS.$entNme;
 			if( is_link($subPath) ){
 				continue;
 			}

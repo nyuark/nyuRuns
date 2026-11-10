@@ -20,19 +20,19 @@ class CarierSess implements SessHndlr{
 	/**
 	 * Identifies whoever sends an X-Carier header, by its value.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	public function verifyRqstList( Request $requstObject ): Array|Bool {
-		$headVal = $requstObject->retrieveHeader('X-Carier');
-		return ( $headVal!==null && $headVal!='' ) ? Array('user'=>$headVal) : false;
+	public function verifyRqstList( Request $givenRequest ): Array|Bool {
+		$headVal = $givenRequest->retrieveHeader('X-Carier');
+		return ( $headVal!==null && $headVal!='' ) ? Array('userName'=>$headVal) : false;
 	}
 
 	/**
-	 * @param Array $identtyArray Unused.
+	 * @param Array $identityList Unused.
 	 * @return String Always an empty string.
 	 */
-	public function issueTokenText( Array $identtyArray ): String {
+	public function issueTokenText( Array $identityList ): String {
 		return '';
 	}
 

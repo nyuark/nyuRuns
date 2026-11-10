@@ -38,24 +38,24 @@ class Variable{
 	 * @param mixed $valueAsGiven The raw value to wrap.
 	 */
 	function __construct( Mixed $valueAsGiven ){
-		$this->saveValueByKey($valueAsGiven);
+		$this->replaceWrapped($valueAsGiven);
 	}
 
 	/**
 	 * Returns the wrapped value formatted as the given type, by calling
-	 * the matching to{$respnsFormat}() method (e.g. 'DateStr' -> formatsDateStr()).
+	 * the matching to{$wantedFormat}() method (e.g. 'DateStr' -> formatsDateStr()).
 	 *
-	 * @param String $respnsFormat Name of the format to apply (must match an existing to*() method).
-	 * @param mixed  $formatOptins Optional format-specific options passed to the to*() method.
+	 * @param String $wantedFormat Name of the format to apply (must match an existing to*() method).
+	 * @param mixed  $formatOption Optional format-specific options passed to the to*() method.
 	 * @return mixed The formatted value.
 	 */
-	function readFileDetail( String $respnsFormat='OutText', Mixed $formatOptins=false ): Mixed {
-		if( $respnsFormat!=false && method_exists($this,"formats$respnsFormat") ){
-			$mthName = 'formats'.$respnsFormat;
-			if(!$formatOptins){
+	function castWrappedVal( String $wantedFormat='OutText', Mixed $formatOption=false ): Mixed {
+		if( $wantedFormat!=false && method_exists($this,"formats$wantedFormat") ){
+			$mthName = 'formats'.$wantedFormat;
+			if(!$formatOption){
 				$outcome = call_user_func(array($this, $mthName));
 			}else{				
-				$outcome = call_user_func(array($this, $mthName), $formatOptins);
+				$outcome = call_user_func(array($this, $mthName), $formatOption);
 			}
 			return $this->wrappedVal;
 		}
@@ -67,7 +67,7 @@ class Variable{
 	 *
 	 * @param mixed $valueAsGiven The new raw value to wrap.
 	 */
-	function saveValueByKey( Mixed $valueAsGiven ): Void {
+	function replaceWrapped( Mixed $valueAsGiven ): Void {
 		$this->wrappedVal = $valueAsGiven;
 	}
 
@@ -91,11 +91,11 @@ class Variable{
 	 * Formats the wrapped value as a number with the given decimal and
 	 * thousands separators.
 	 *
-	 * @param Array $numbrOptions Format options: 'decimals', 'decimsep', 'thsndsep'.
+	 * @param Array $optionsArray Format options: 'decimals', 'decimsep', 'thsndsep'.
 	 */
-	function formatsNumeric( Array $numbrOptions ): Void {
+	function formatsNumeric( Array $optionsArray ): Void {
 		$numData = floatval( filter_var( $this->wrappedVal.'', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
-		$this->wrappedVal = number_format($numData, $numbrOptions['decimals'], $numbrOptions['decimsep'], $numbrOptions['thsndsep']);
+		$this->wrappedVal = number_format($numData, $optionsArray['decimals'], $optionsArray['decimsep'], $optionsArray['thsndsep']);
 	}
 	
 	/**

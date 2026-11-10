@@ -96,7 +96,7 @@ checkPregMatch('a row of more cells than a worksheet holds', xlsWrite(Array(Shap
 checkPregMatch('no sheet at all gives a workbook of one empty sheet', xlsPart(xlsWrite(Array()), 'xl/workbook.xml'), '/<sheet name="Sheet1" sheetId="1" r:id="rId1"\/>/');
 $oddsXml = xlsPart(xlsWrite(Array(Shape::makeSheetArray('Odd', Array(Array("bell\x07 and\x00 nul", Array('a'=>1, 'b'=>Array(2)), Fluxd::openBytesFluxd('binary'), NAN, "caf\xE9", 'last'))))), 'xl/worksheets/sheet1.xml');
 checkPregMatch('what a part cannot hold is dropped, a list is written as text, a binary value and what is no number as nothing', $oddsXml, '/<row r="1"><c r="A1" t="inlineStr"><is><t xml:space="preserve">bell and nul<\/t><\/is><\/c><c r="B1" t="inlineStr"><is><t xml:space="preserve">\{&quot;a&quot;:1,&quot;b&quot;:\[2\]\}<\/t><\/is><\/c><c r="E1" t="inlineStr"><is><t xml:space="preserve">café<\/t><\/is><\/c><c r="F1" t="inlineStr">/');
-checkIdentical('the writer of the xlsx extension', Array(get_class(Index::forExtnsParser('XLSX')), Index::contentTypeFor('xlsx')), Array('nyu\\Data\\Writers\\Xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+checkIdentical('the writer of the xlsx extension', Array(get_class(Index::forExtnsWriter('XLSX')), Index::contentTypeFor('xlsx')), Array('nyu\\Data\\Writers\\Xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
 
 // Dates
 $dateXml = xlsPart(xlsWrite(Array(Shape::makeSheetArray('Dates', Array(Array('2026-10-11', '2026-10-11 14:30:00', '2026-02-30', '1899-12-31', 'on 2026-10-11', '2026-10-11T06:00')))), Array('dates'=>true)), 'xl/worksheets/sheet1.xml');

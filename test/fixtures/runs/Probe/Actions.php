@@ -30,7 +30,7 @@ class Actions extends Actionset {
 	 * request, whatever its method: 401 when both were, 400 otherwise.
 	 */
 	public function userPass(): Void {
-		$gotBoth = is_string($this->inptRgstry->readFileDetail('user')) && is_string($this->inptRgstry->readFileDetail('pass'));
+		$gotBoth = is_string($this->inputsRgst->readValueByKey('user')) && is_string($this->inputsRgst->readValueByKey('pass'));
 		$this->statusCode = $gotBoth ? 401 : 400;
 		$this->statusMssg = $gotBoth ? 'Credentials read' : 'Missing user or pass';
 	}
@@ -41,7 +41,7 @@ class Actions extends Actionset {
 	 */
 	public function signsOut(): Void {
 		header('Set-Cookie: probeKept=1; path=/', false);
-		(new \nyu\Access\Sess\PHPSess( Array('cookName'=>'nyuTests', 'secureOn'=>false) ))->dropUsrSession( $this->httpRequst );
+		(new \nyu\Access\Sess\PHPSess( Array('cookName'=>'nyuTests', 'secureOn'=>false) ))->dropUsrSession( $this->requestObj );
 		$this->statusCode = 200;
 		$this->replyValue = Array('left'=>true);
 	}
@@ -52,9 +52,9 @@ class Actions extends Actionset {
 	public function identify(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array(
-			'logged'=>$this->accessRgst->readFileDetail('logged'),
-			'user'=>$this->accessRgst->readFileDetail('user'),
-			'role'=>$this->accessRgst->readFileDetail('role')
+			'logged'=>$this->accessRgst->readValueByKey('loggedIn'),
+			'user'=>$this->accessRgst->readValueByKey('userName'),
+			'role'=>$this->accessRgst->readValueByKey('userRole')
 		);
 	}
 

@@ -20,7 +20,7 @@ class ICal extends Base {
 	const KIND_LIST = Array('VEVENT'=>'calEvent', 'VTODO'=>'calTodos', 'VJOURNAL'=>'calNotes');
 	// The states of an entry, the replies of a guest, and how often an entry repeats
 	const STAT_LIST = Array('CONFIRMED'=>'definite', 'TENTATIVE'=>'possible', 'CANCELLED'=>'canceled', 'NEEDS-ACTION'=>'awaiting', 'IN-PROCESS'=>'underway', 'COMPLETED'=>'finished', 'DRAFT'=>'drafting', 'FINAL'=>'finalVer');
-	const REPL_LIST = Array('ACCEPTED'=>'accepted', 'DECLINED'=>'declined', 'TENTATIVE'=>'possible', 'NEEDS-ACTION'=>'awaiting', 'DELEGATED'=>'delegate');
+	const PART_STAT = Array('ACCEPTED'=>'accepted', 'DECLINED'=>'declined', 'TENTATIVE'=>'possible', 'NEEDS-ACTION'=>'awaiting', 'DELEGATED'=>'delegate');
 	const FREQ_LIST = Array('DAILY'=>'eachDays', 'WEEKLY'=>'eachWeek', 'MONTHLY'=>'eachMnth', 'YEARLY'=>'eachYear');
 	// The days of the week, as rules write them, from Monday
 	const DAYS_LIST = Array('mo', 'tu', 'we', 'th', 'fr', 'sa', 'su');
@@ -187,10 +187,10 @@ class ICal extends Base {
 	 * Reads a date, with or without a time.
 	 *
 	 * @param String $valOfTagText The date, as written: 20261228, 20261228T203000 or 20261228T203000Z.
-	 * @param Array  $paramtrsArry What qualifies it: its time zone under TZID.
+	 * @param Array  $parameterArr What qualifies it: its time zone under TZID.
 	 * @return Array The date as ISO text under 'value', '' when it cannot be read; whether it has no time under 'whole'; and the time zone it is written in under 'tzone', 'UTC' for a time ending with Z and '' when it tells none.
 	 */
-	protected function datesReadArray(String $valOfTagText, Array $paramtrsArry): Array {
+	protected function datesReadArray(String $valOfTagText, Array $parameterArr): Array {
 		$dateLst = Array();
 		if( !preg_match('/^(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)?(Z)?)?$/Di', trim($valOfTagText), $dateLst) || !checkdate(intval($dateLst[2]), intval($dateLst[3]), intval($dateLst[1])) ){
 			return Array('value'=>'', 'whole'=>false, 'tzone'=>'');
@@ -199,7 +199,7 @@ class ICal extends Base {
 		if( !isset($dateLst[4]) || $dateLst[4]==='' ){
 			return Array('value'=>$dateTxt, 'whole'=>true, 'tzone'=>'');
 		}
-		$zoneNme = (($dateLst[7] ?? '')!=='') ? 'UTC' : ltrim(strval($paramtrsArry['TZID'] ?? ''), '/');
+		$zoneNme = (($dateLst[7] ?? '')!=='') ? 'UTC' : ltrim(strval($parameterArr['TZID'] ?? ''), '/');
 		return Array('value'=>$dateTxt.' '.$dateLst[4].':'.$dateLst[5].':'.((($dateLst[6] ?? '')!=='') ? $dateLst[6] : '00'), 'whole'=>false, 'tzone'=>$zoneNme);
 	}
 
@@ -222,13 +222,13 @@ class ICal extends Base {
 	 * Moves a date by a number of seconds, the clock being read as it
 	 * stands, without the hour a change of season adds or takes.
 	 *
-	 * @param String $isoDateStrng The date, as ISO text, with or without a time.
+	 * @param String $givenIsoDate The date, as ISO text, with or without a time.
 	 * @param Int    $secondsAddNb The seconds to add, negative to go back.
 	 * @return String The date moved, in the form it came in.
 	 */
-	protected function switchDatesTxt(String $isoDateStrng, Int $secondsAddNb): String {
-		$dateObj = new \DateTimeImmutable($isoDateStrng, new \DateTimeZone('UTC'));
-		return $dateObj->modify(sprintf('%+d seconds', $secondsAddNb))->format((strlen($isoDateStrng)>10) ? 'Y-m-d H:i:s' : 'Y-m-d');
+	protected function switchDatesTxt(String $givenIsoDate, Int $secondsAddNb): String {
+		$dateObj = new \DateTimeImmutable($givenIsoDate, new \DateTimeZone('UTC'));
+		return $dateObj->modify(sprintf('%+d seconds', $secondsAddNb))->format((strlen($givenIsoDate)>10) ? 'Y-m-d H:i:s' : 'Y-m-d');
 	}
 
 	/**
@@ -264,7 +264,7 @@ class ICal extends Base {
 			}elseif( $partNme=='UNTIL' ){
 				$ruleSet['until'] = $this->datesReadArray($partVal, Array())['value'];
 			}elseif( $partNme=='BYDAY' ){
-				$ruleSet['wdays'] = array_values(array_filter(array_map('strtolower', array_map('trim', explode(',', $partVal))), function($wekDayString){ return preg_match('/^[+\-]?\d{0,2}(mo|tu|we|th|fr|sa|su)$/D', $wekDayString)===1; }));
+				$ruleSet['wdays'] = array_values(array_filter(array_map('strtolower', array_map('trim', explode(',', $partVal))), function($rruleDayCode){ return preg_match('/^[+\-]?\d{0,2}(mo|tu|we|th|fr|sa|su)$/D', $rruleDayCode)===1; }));
 			}elseif( $partNme=='BYMONTHDAY' ){
 				$ruleSet['mdays'] = array_map('intval', array_filter(explode(',', $partVal), 'is_numeric'));
 			}elseif( $partNme=='BYMONTH' ){
@@ -390,7 +390,7 @@ class ICal extends Base {
 			if( $evryKey=='eachDays' || $evryKey=='eachWeek' ){
 				$daysLst = array_values(array_filter($daysLst, function(String $dayOfASpnTxt) use ($evryKey, $wkdyLst, $mdayLst, $mnthLst, $zoneObj){
 					$dateObj = new \DateTimeImmutable($dayOfASpnTxt, $zoneObj);
-					$wkdyKys = array_map(function(String $wekDayString){ return substr($wekDayString, -2); }, $wkdyLst);
+					$wkdyKys = array_map(function(String $rruleDayCode){ return substr($rruleDayCode, -2); }, $wkdyLst);
 					return (empty($mnthLst) || in_array(intval($dateObj->format('n')), $mnthLst))
 						&& ($evryKey=='eachWeek' || empty($wkdyKys) || in_array(self::DAYS_LIST[intval($dateObj->format('N'))-1], $wkdyKys))
 						&& ($evryKey=='eachWeek' || empty($mdayLst) || in_array($dayOfASpnTxt, self::ruleDaysOfMnth(intval($dateObj->format('Y')), intval($dateObj->format('n')), Array(), $mdayLst, 0)));
@@ -478,15 +478,15 @@ class ICal extends Base {
 	/**
 	 * Reads an entry of a calendar: an event, a task or a note.
 	 *
-	 * @param Array          $cmpnntValues The entry, as readComponents() gives it.
+	 * @param Array          $componentArr The entry, as readComponents() gives it.
 	 * @param String         $itemKindsTxt Its kind: event, tasks or notes.
 	 * @param ?\DateTimeZone $zoneAskedFor The time zone its times are asked in, null to leave them as written.
 	 * @return Array The entry, with every key of its kind.
 	 */
-	protected function entryReadArray(Array $cmpnntValues, String $itemKindsTxt, ?\DateTimeZone $zoneAskedFor): Array {
+	protected function entryReadArray(Array $componentArr, String $itemKindsTxt, ?\DateTimeZone $zoneAskedFor): Array {
 		$propLst = Array();
 		$extrLst = Array();
-		foreach($cmpnntValues['props'] as $prpSet){
+		foreach($componentArr['props'] as $prpSet){
 			$propLst[$prpSet['names']][] = $prpSet;
 			// What has no key of its own is kept as written; a property given several times keeps all its values
 			if( !in_array($prpSet['names'], self::READ_LIST) ){
@@ -540,11 +540,11 @@ class ICal extends Base {
 		}
 		$gestLst = Array();
 		foreach($propLst['ATTENDEE'] ?? Array() as $prpSet){
-			$gestLst[] = $this->partyReadArray($prpSet) + Array('reply'=>strval(self::REPL_LIST[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
+			$gestLst[] = $this->partyReadArray($prpSet) + Array('reply'=>strval(self::PART_STAT[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
 		}
 		// A reminder counts back from the start of the entry; one set at a date of its own is kept as written
 		$alrmLst = Array();
-		foreach($cmpnntValues['comps'] as $almArr){
+		foreach($componentArr['comps'] as $almArr){
 			foreach($almArr['props'] as $prpSet){
 				$trigSec = ($almArr['kinds']=='VALARM' && $prpSet['names']=='TRIGGER') ? $this->spanOfDuration($prpSet['value']) : null;
 				if( $trigSec!==null ){

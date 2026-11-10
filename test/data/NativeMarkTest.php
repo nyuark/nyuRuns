@@ -36,8 +36,8 @@ $benMark = LoginMark::fromLimitBlock()->createUserMark('ben');
  */
 function benLogin( String $passwdText, String $markString='' ): Mixed {
 	global $natAuth;
-	$idntArr = $natAuth->chckCredential( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
-	return is_array($idntArr) ? ($idntArr['user'] ?? null) : false;
+	$idntArr = $natAuth->checkSecretArr( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : false;
 }
 
 for( $idx=0; $idx<5; $idx++ ){

@@ -174,7 +174,7 @@ checkIdentical('one parser, several books', runCatchThrown(function() use ($book
 	try{ $prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeBook('bad.epub', Array('OEBPS/content.opf'=>null)))); }catch( Throwable $e ){}
 	return $prsrObj->parseFluxArray(Fluxd::openLocalFluxd($bookPth))['infos']['chaps'];
 }), 4);
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: books by extension and by content type', Array(get_class(Index::forExtnsParser('EPUB')), get_class(Index::findTypeParser('application/epub+zip'))), Array('nyu\Data\Parsers\EPub', 'nyu\Data\Parsers\EPub'));

@@ -41,7 +41,7 @@ class Response{
 	protected $headrArray;
 	protected $originList = Array();
 
-	protected $finlString;
+	protected $outputText;
 
 	protected $fileToSend;
 	protected $mimeOfFile;
@@ -163,7 +163,7 @@ class Response{
 		$this->fluxOutput = null;
 		$this->formatUsed = ( $errReplyFlag && !$this->takesReplyWarn() ) ? 'jsonData' : $this->dataFormat;
 		try{
-			$this->finlString = $this->writesReplyOut($outputToSend);
+			$this->outputText = $this->writesReplyOut($outputToSend);
 			return true;
 		}catch( \Throwable $e ){
 			trigger_error('Response could not be encoded as '.$this->formatUsed.': '.$e->getMessage(), E_USER_WARNING);
@@ -173,10 +173,10 @@ class Response{
 				$this->formatUsed = 'jsonData';
 			}
 			try{
-				$this->finlString = $this->writesReplyOut($errBody);
+				$this->outputText = $this->writesReplyOut($errBody);
 			}catch( \Throwable $e ){
 				$this->formatUsed = 'jsonData';
-				$this->finlString = strval(json_encode($errBody));
+				$this->outputText = strval(json_encode($errBody));
 			}
 			return false;
 		}
@@ -210,7 +210,7 @@ class Response{
 			return $outputToSend;
 		}
 		$extName = self::FORM_LIST[$this->formatUsed] ?? '';
-		$wrtrObj = \nyu\Data\Writers\Index::forExtnsParser($extName);
+		$wrtrObj = \nyu\Data\Writers\Index::forExtnsWriter($extName);
 		if( $wrtrObj===null ){
 			throw new \RuntimeException('no writer for the format '.$this->formatUsed);
 		}
@@ -226,7 +226,7 @@ class Response{
 			if( $cellLst!==null ){
 				return $wrtrObj->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellLst))), Array('whole'=>true, 'heads'=>true) );
 			}
-			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->dlistReplyHtml($dataVal)."</body>\n</html>\n";
+			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->valuesHtmlText($dataVal)."</body>\n</html>\n";
 		}
 		return $wrtrObj->renderDocument( Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$dataVal), \nyu\Data\Writers\Index::optionsOfExtns($extName) );
 	}
@@ -277,14 +277,14 @@ class Response{
 	 * @param mixed $valueToWrite The values.
 	 * @return String The HTML.
 	 */
-	protected function dlistReplyHtml( Mixed $valueToWrite ): String {
+	protected function valuesHtmlText( Mixed $valueToWrite ): String {
 		if( !is_array($valueToWrite) ){
 			$plainTx = is_bool($valueToWrite) ? ($valueToWrite ? 'true' : 'false') : strval($valueToWrite ?? '');
 			return '<p>'.htmlspecialchars($plainTx, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</p>\n";
 		}
 		$htmText = "<dl>\n";
 		foreach( $valueToWrite as $valKey => $oneVal ){
-			$htmText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->dlistReplyHtml($oneVal)."</dd>\n";
+			$htmText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->valuesHtmlText($oneVal)."</dd>\n";
 		}
 		return $htmText."</dl>\n";
 	}
@@ -320,12 +320,12 @@ class Response{
 		}
 		$hasType = in_array('content-type', array_map('strtolower', array_keys($this->headrArray)));
 		$samFile = ($this->fileToSend!==null && $this->fileStatus==304);
-		if( $samFile || ($this->finlString==='' && $this->fileToSend===null && $this->pageOutput===null && $this->fluxOutput===null) ){
+		if( $samFile || ($this->outputText==='' && $this->fileToSend===null && $this->pageOutput===null && $this->fluxOutput===null) ){
 			// Emptied response, or a file the client already has : no type is announced, not even PHP's own default
 			ini_set('default_mimetype', '');
 		}elseif( !$hasType ){
 			// Default Content-Type, unless the preset sets its own
-			$this->headrArray['Content-Type'] = $this->contnReplyType();
+			$this->headrArray['Content-Type'] = $this->contentTypeTxt();
 		}
 		// The client is never left to guess another type than the one announced
 		$this->dropReplyHeads( Array('x-content-type-options') );
@@ -388,11 +388,11 @@ class Response{
 	 * Gives the content type a file is served with by a declared route,
 	 * from its extension.
 	 *
-	 * @param String $filExtension The extension, without its dot, whatever its case.
+	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return ?String The Content-Type value, null when the extension is not served.
 	 */
-	public static function typOfExtension( String $filExtension ): ?String {
-		return self::TYPE_LIST[strtolower($filExtension)] ?? null;
+	public static function mimeOfExtnsTxt( String $extensionTxt ): ?String {
+		return self::TYPE_LIST[strtolower($extensionTxt)] ?? null;
 	}
 
 	/**
@@ -402,7 +402,7 @@ class Response{
 	 *
 	 * @return String The Content-Type header value.
 	 */
-	protected function contnReplyType(): String {
+	protected function contentTypeTxt(): String {
 		if( $this->formatUsed=='jsonData' ){
 			return 'application/json; charset=utf-8';
 		}
@@ -415,7 +415,7 @@ class Response{
 	 * Content-Type is announced. Used for a "no content" reply.
 	 */
 	public function clearReplyBody(): Void {
-		$this->finlString = '';
+		$this->outputText = '';
 		$this->fluxOutput = null;
 		$this->fileToSend = null;
 		$this->pageOutput = null;
@@ -472,7 +472,7 @@ class Response{
 		$this->fileToSend = $sentFilePath;
 		$this->mimeOfFile = $mimeTypeText;
 		$this->fileLength = filesize($sentFilePath);
-		$this->fileStatus = $this->getRangeString($rangeValText, $this->fileLength);
+		$this->fileStatus = $this->parseRangeHead($rangeValText, $this->fileLength);
 		return true;
 	}
 
@@ -505,7 +505,7 @@ class Response{
 		$rngChck = trim(strval($reqHdrs['if-range'] ?? ''));
 		if( $rngChck!=='' && $rngChck!==$etagVal && $rngChck!==$mdlDate ){
 			// The range was asked for another version of the file
-			$this->fileStatus = $this->getRangeString('', intval($this->fileLength));
+			$this->fileStatus = $this->parseRangeHead('', intval($this->fileLength));
 		}
 		$noneHdr = trim(strval($reqHdrs['if-none-match'] ?? ''));
 		$sinceTm = strtotime(strval($reqHdrs['if-modified-since'] ?? ''));
@@ -552,7 +552,7 @@ class Response{
 	 * @param Int    $totlBytesNum Size of the file, in bytes.
 	 * @return Int The status to reply with: 200 (whole file), 206 (partial) or 416 (range outside the file).
 	 */
-	protected function getRangeString( String $rangeValText, Int $totlBytesNum ): Int {
+	protected function parseRangeHead( String $rangeValText, Int $totlBytesNum ): Int {
 		$this->rangeStart = 0;
 		$this->rangeUntil = max(0, $totlBytesNum-1);
 		$matched = Array();
@@ -632,7 +632,7 @@ class Response{
 			$this->sendReplyFluxd();
 			return;
 		}
-		print($this->finlString);
+		print($this->outputText);
 	}
 
 	/**

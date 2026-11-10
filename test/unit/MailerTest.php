@@ -86,12 +86,12 @@ $altMail = $newMail(Array('text'=>'Hi', 'html'=>'<p>Hi</p>'))->writeWholeMail();
 checkPregMatch('html: two alternatives', $altMail, '/\r\nContent-Type: multipart\/alternative; boundary="(=_nyu_[0-9a-f]{24})"\r\n\r\n--\1\r\nContent-Type: text\/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nHi\r\n--\1\r\nContent-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>Hi<\/p>\r\n--\1--\r\n$/');
 
 // The 'emlFiles' account, with a copy
-$foldNme = 'temp'.DS.'mailtest_'.getmypid();
-$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>array_merge($fileSet, Array('mailsDir'=>'/'.str_replace(DS, '/', $foldNme), 'copiesTo'=>'backup@example.com, archive@example.com')))) );
+$fldrNme = 'temp'.DS.'mailtest_'.getmypid();
+$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>array_merge($fileSet, Array('mailsDir'=>'/'.str_replace(DS, '/', $fldrNme), 'copiesTo'=>'backup@example.com, archive@example.com')))) );
 Mailer::clearMailCache();
 $sentRes = runCatchThrown(function(){ return Mailer::retrieveMailer('devbox')->deliverEmlFlag(Array('ann@example.com'), 'Report', 'See attached', null, Array(__FILE__)); });
 checkIdentical('tofile: the mail is written', $sentRes, true);
-$fleList = glob(TOP_DIR.DS.$foldNme.DS.'*.eml') ?: Array();
+$fleList = glob(TOP_DIR.DS.$fldrNme.DS.'*.eml') ?: Array();
 sort($fleList);
 checkIdentical('tofile: one file for the mail, one for its copy', count($fleList), 2);
 $envList = Array();
@@ -109,7 +109,7 @@ checkPregMatch('tofile: a copy address that is not one is refused', runCatchThro
 	Mailer::clearMailCache();
 	return Mailer::retrieveMailer()->deliverEmlFlag('ann@example.com', 'Hi', 'Hello');
 }), '/MailFailure: Invalid mail address: "backup"/');
-dropTestFolder(TOP_DIR.DS.$foldNme);
+dropTestFolder(TOP_DIR.DS.$fldrNme);
 
 // The example config: the keys of every account, and its types
 $distCnf = json_decode(strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'mailer.json.dist')), true);

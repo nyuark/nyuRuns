@@ -27,8 +27,8 @@ $htpConf = Array('passFile'=>'test/fixtures/users.htpasswd', 'maxTries'=>3, 'hol
  * @return Array The user or false, the message and whether it counts against the address.
  */
 function answerOf( Object $storeObjct, String $userString, String $passwdText ): Array {
-	$idntArr = $storeObjct->chckCredential( Array('user'=>$userString, 'pass'=>$passwdText) );
-	return Array( is_array($idntArr) ? ($idntArr['user'] ?? null) : false, $storeObjct->finalErrorText(), $storeObjct->wrngCredential() );
+	$idntArr = $storeObjct->checkSecretArr( Array('user'=>$userString, 'pass'=>$passwdText) );
+	return Array( is_array($idntArr) ? ($idntArr['userName'] ?? null) : false, $storeObjct->finalErrorText(), $storeObjct->hasWrongSecret() );
 }
 
 // The limiter alone
@@ -65,7 +65,7 @@ checkIdentical('userFile: maxTries 0 holds nobody', answerOf(new UserList(Array(
 (new Limiter(Array('dataPath'=>$lmtFldr)))->freeHoldsCount();
 $emmaLst = new UserList( $lstConf );
 foreach( Array('000000', '111111', '222222') as $wrngCd ){
-	$emmaLst->chckCredential( Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>$wrngCd) );
+	$emmaLst->checkSecretArr( Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>$wrngCd) );
 }
 checkIdentical('userFile: wrong 2FA codes count too', answerOf($emmaLst, 'emma', 'pw-emma'), Array(false, 'Invalid credentials', true));
 

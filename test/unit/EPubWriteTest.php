@@ -141,7 +141,7 @@ checkIdentical('the language: told of the book, or asked for, or English', Array
 ), Array('de', 'it', 'en'));
 checkPregMatch('sheets: a table each, under a heading bearing its name', bokParts(bokWrite(Array(Array('title'=>'Shows', 'attrs'=>Array(), 'cells'=>Array(Array('Show'=>'Alpha', 'Seats'=>120)))), Array(), Array('split'=>2), 'sheet'))['OEBPS/chap1.xhtml'], '/<h2 id="sec-1">Shows<\/h2>\n<table>\n<thead>\n<tr><th>Show<\/th><th>Seats<\/th><\/tr>\n<\/thead>\n<tbody>\n<tr><td>Alpha<\/td><td style="text-align:right">120<\/td><\/tr>/');
 checkPregMatch('a shape that is not blocks', bokWrite(Array(), Array(), Array(), 'nodes'), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as a book: nodes/');
-checkIdentical('the writer of the epub extension', Array(get_class(Index::forExtnsParser('EPUB')), Index::contentTypeFor('epub')), Array('nyu\\Data\\Writers\\EPub', 'application/epub+zip'));
+checkIdentical('the writer of the epub extension', Array(get_class(Index::forExtnsWriter('EPUB')), Index::contentTypeFor('epub')), Array('nyu\\Data\\Writers\\EPub', 'application/epub+zip'));
 
 // Pictures and the cover: a folder of them, a folder beside it, and a file that is not a picture
 $dotPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');

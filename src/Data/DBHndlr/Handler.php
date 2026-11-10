@@ -16,9 +16,9 @@ interface Handler{
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 */
-	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array());
+	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array());
 	
 	/**
 	 * Opens the underlying database connection.
@@ -27,9 +27,9 @@ interface Handler{
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 */
-	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()): Void;
+	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): Void;
 	/**
 	 * Sends a built SQL query to the database.
 	 *
@@ -71,7 +71,7 @@ interface Handler{
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function opnTransaction(): Bool;
+	public function newTransaction(): Bool;
 	/**
 	 * Makes the changes of the transaction permanent. On an inner level,
 	 * nothing is written yet: the outermost transaction decides.
@@ -84,7 +84,7 @@ interface Handler{
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function remTransaction(): Bool;
+	public function delTransaction(): Bool;
 	/**
 	 * Quotes a table or field name for inclusion in a query.
 	 *

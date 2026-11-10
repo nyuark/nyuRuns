@@ -15,8 +15,8 @@ namespace nyu\Data\DBStore;
  */
 class MongoStore implements Store {
 
-	protected $managerLnk;
-	protected $dbaseLabel;
+	protected $managerObj;
+	protected $hostDbName;
 	protected $errMessage = false;
 
 	// Greatest size of a binary value written: a document holds 16 MB at most, the rest of it included
@@ -29,17 +29,17 @@ class MongoStore implements Store {
 	 * @param String $serverUsrTxt Database user, '' when the server asks for none.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
 	 *
 	 * @throws \RuntimeException When the mongodb extension is not loaded, or a setting is not valid.
 	 */
-	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()){
+	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()){
 		if( !class_exists('\\MongoDB\\Driver\\Manager') ){
 			throw new \RuntimeException('The mongodb extension of PHP is not loaded');
 		}
 		$mngrCls = '\\MongoDB\\Driver\\Manager';
-		$this->dbaseLabel = $hostBaseText;
-		$this->managerLnk = new $mngrCls( self::buildDsnString($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs) );
+		$this->hostDbName = $hostBaseText;
+		$this->managerObj = new $mngrCls( self::buildDsnString($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList) );
 	}
 
 	/**
@@ -49,12 +49,12 @@ class MongoStore implements Store {
 	 * @param String $serverUsrTxt Database user, '' when the server asks for none.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'authBase' (database holding the account) and 'waitSecs' (seconds given to the server to answer).
 	 * @return String The connection string.
 	 *
 	 * @throws \RuntimeException When the database name, the host, the port, the account database or the waiting time is not valid.
 	 */
-	public static function buildDsnString(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()): String {
+	public static function buildDsnString(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): String {
 		if( !preg_match('/^\w+$/D', $hostBaseText) ){
 			throw new \RuntimeException('Invalid database name: '.$hostBaseText);
 		}
@@ -64,7 +64,7 @@ class MongoStore implements Store {
 		if( !preg_match('/^[\w.\-]+$/D', $databaseHost) ){
 			throw new \RuntimeException('Invalid database host: '.$databaseHost);
 		}
-		$partNum = strval($moreParamtrs['portNumb'] ?? '');
+		$partNum = strval($settingsList['portNumb'] ?? '');
 		if( $partNum!='' && !ctype_digit($partNum) ){
 			throw new \RuntimeException('Invalid database port: '.$partNum);
 		}
@@ -75,7 +75,7 @@ class MongoStore implements Store {
 		$linkTxt .= $databaseHost.($partNum!='' ? ':'.$partNum : '').'/'.$hostBaseText;
 		$optnLst = Array();
 		// Database holding the account: the one of the connection when left out
-		$authNme = strval($moreParamtrs['authBase'] ?? '');
+		$authNme = strval($settingsList['authBase'] ?? '');
 		if( $authNme!='' ){
 			if( !preg_match('/^\w+$/D', $authNme) ){
 				throw new \RuntimeException('Invalid account database name: '.$authNme);
@@ -83,7 +83,7 @@ class MongoStore implements Store {
 			$optnLst[] = 'authSource='.$authNme;
 		}
 		// Seconds given to the server to answer, the default of the driver when left out
-		$waitSec = strval($moreParamtrs['waitSecs'] ?? '');
+		$waitSec = strval($settingsList['waitSecs'] ?? '');
 		if( $waitSec!='' ){
 			if( !ctype_digit($waitSec) ){
 				throw new \RuntimeException('Invalid database waiting time: '.$waitSec);
@@ -322,7 +322,7 @@ class MongoStore implements Store {
 		$rowList = Array();
 		try{
 			$qryClss = '\\MongoDB\\Driver\\Query';
-			$rowCrsr = $this->managerLnk->executeQuery($this->dbaseLabel.'.'.$tbleLabelTxt, new $qryClss($findDoc, $options));
+			$rowCrsr = $this->managerObj->executeQuery($this->hostDbName.'.'.$tbleLabelTxt, new $qryClss($findDoc, $options));
 			$rowCrsr->setTypeMap(Array('root'=>'array', 'document'=>'array', 'array'=>'array'));
 			foreach($rowCrsr as $oneDoc){
 				$rowList[] = $oneDoc;
@@ -372,7 +372,7 @@ class MongoStore implements Store {
 			$blckCls = '\\MongoDB\\Driver\\BulkWrite';
 			$bulkOps = new $blckCls();
 			$madeKey = $bulkOps->insert($fieldValList);
-			$this->managerLnk->executeBulkWrite($this->dbaseLabel.'.'.$tbleLabelTxt, $bulkOps);
+			$this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOps);
 			return strval($madeKey ?? $fieldValList['_id'] ?? '');
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
@@ -406,7 +406,7 @@ class MongoStore implements Store {
 			$blckCls = '\\MongoDB\\Driver\\BulkWrite';
 			$bulkOps = new $blckCls();
 			$bulkOps->update($findDoc, Array('$set'=>$fieldValList), Array('multi'=>true));
-			$wrtDone = $this->managerLnk->executeBulkWrite($this->dbaseLabel.'.'.$tbleLabelTxt, $bulkOps);
+			$wrtDone = $this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOps);
 			return intval($wrtDone->getMatchedCount());
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
@@ -432,7 +432,7 @@ class MongoStore implements Store {
 			$blckCls = '\\MongoDB\\Driver\\BulkWrite';
 			$bulkOps = new $blckCls();
 			$bulkOps->delete($findDoc, Array('limit'=>0));
-			$wrtDone = $this->managerLnk->executeBulkWrite($this->dbaseLabel.'.'.$tbleLabelTxt, $bulkOps);
+			$wrtDone = $this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOps);
 			return intval($wrtDone->getDeletedCount());
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
@@ -454,7 +454,7 @@ class MongoStore implements Store {
 	 *
 	 * @return Bool Always false.
 	 */
-	public function opnTransaction(): Bool {
+	public function newTransaction(): Bool {
 		$this->errMessage = 'This database has no transactions';
 		return false;
 	}
@@ -474,7 +474,7 @@ class MongoStore implements Store {
 	 *
 	 * @return Bool Always false.
 	 */
-	public function remTransaction(): Bool {
+	public function delTransaction(): Bool {
 		$this->errMessage = 'This database has no transactions';
 		return false;
 	}

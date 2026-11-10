@@ -30,12 +30,12 @@ function checkCamelCase( String $nameToVerify ): Bool {
  * Lists the PHP files under the given folders.
  *
  * @param String $rootPathName Project root.
- * @param Array  $scanFoldList Folders to scan, relative to the root.
+ * @param Array  $scanFldrList Folders to scan, relative to the root.
  * @return Array Full paths of the PHP files found, sorted.
  */
-function getUploadFiles( String $rootPathName, Array $scanFoldList ): Array {
+function listPhpFileArr( String $rootPathName, Array $scanFldrList ): Array {
 	$fileLst = Array();
-	foreach( $scanFoldList as $fldNme ){
+	foreach( $scanFldrList as $fldNme ){
 		$dirIter = new RecursiveIteratorIterator( new RecursiveDirectoryIterator($rootPathName.DIRECTORY_SEPARATOR.$fldNme, FilesystemIterator::SKIP_DOTS) );
 		foreach( $dirIter as $filObj ){
 			if( strtolower($filObj->getExtension())==='php' ){
@@ -51,17 +51,17 @@ function getUploadFiles( String $rootPathName, Array $scanFoldList ): Array {
  * Audits the PHP files under the given folders.
  *
  * @param String $rootPathName Project root.
- * @param Array  $scanFoldList Folders to scan, relative to the root.
+ * @param Array  $scanFldrList Folders to scan, relative to the root.
  * @return Array Findings per kind ('class', 'method', 'param', 'prop', 'loop', 'local', 'nodoc', 'notype', 'parse'),
  *               each a list of ['file', 'line', 'scope', 'name'], plus the number of names seen under 'count'.
  */
-function auditCodeFiles( String $rootPathName, Array $scanFoldList ): Array {
+function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 	$sprGlbl = Array('$this', '$_SERVER', '$_GET', '$_POST', '$_FILES', '$_COOKIE', '$_SESSION', '$_REQUEST', '$_ENV', '$GLOBALS', '$argv', '$argc', '$http_response_header');
 	$modifrs = Array(T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC, T_ABSTRACT, T_FINAL);
 	$finding = Array('class'=>Array(), 'method'=>Array(), 'param'=>Array(), 'prop'=>Array(), 'loop'=>Array(), 'local'=>Array(), 'nodoc'=>Array(), 'notype'=>Array(), 'parse'=>Array());
 	$counter = Array('class'=>0, 'method'=>0, 'param'=>0, 'prop'=>0, 'loop'=>0, 'local'=>0);
 
-	foreach( getUploadFiles($rootPathName, $scanFoldList) as $filNme ){
+	foreach( listPhpFileArr($rootPathName, $scanFldrList) as $filNme ){
 		$relPath = str_replace('\\', '/', substr($filNme, strlen($rootPathName)+1));
 		try{
 			$allTkns = PhpToken::tokenize( file_get_contents($filNme), TOKEN_PARSE );

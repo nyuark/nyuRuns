@@ -26,7 +26,7 @@ $ctxVals = $conTrol->retrieveOutput();
 checkIdentical('the action, from the context', $ctxVals['actnName'] ?? null, 'context');
 checkIdentical('the option, from the context', $ctxVals['actnOptn'] ?? null, '7');
 checkIdentical('the application, from the context', $ctxVals['appIdent'] ?? null, 'Hooked');
-checkIdentical('the folder, from the context', $ctxVals['appFoldr'] ?? null, RUN_DIR.DS.'Hooked');
+checkIdentical('the folder, from the context', $ctxVals['appsFldr'] ?? null, RUN_DIR.DS.'Hooked');
 checkTrueValue('the inputs property is the one of the context', $ctxVals['inputReg'] ?? false);
 checkTrueValue('the models property is the one of the context', $ctxVals['modStack'] ?? false);
 

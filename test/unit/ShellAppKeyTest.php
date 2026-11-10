@@ -68,9 +68,9 @@ checkIdentical('makes: nothing written by a refusal', array_keys($axsJson()['app
 // A key made here, checked as a request bearing it
 $blkConf = $axsJson()['appsKeys'];
 $blkConf['appsList']['portal']['publFile'] = writeInProject($projDir, 'conf/keys/portal.pub', $appPubl);
-$appTokn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>writeInProject($projDir, 'conf/keys/portal.key', $appPriv)) ))->issueTokenText( Array('user'=>'ann', 'role'=>'internal') );
+$appTokn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>writeInProject($projDir, 'conf/keys/portal.key', $appPriv)) ))->issueTokenText( Array('userName'=>'ann', 'userRole'=>'internal') );
 $idntArr = (new AppKey($blkConf))->verifyAppArray( mockRequestObj(Array('X-App-Key'=>$keyText, 'Authorization'=>'Bearer '.$appTokn)) );
-checkIdentical('the key made is accepted with a token of the application', Array($idntArr['user'] ?? null, $idntArr['fromApp'] ?? null), Array('ann', 'portal'));
+checkIdentical('the key made is accepted with a token of the application', Array($idntArr['userName'] ?? null, $idntArr['appsName'] ?? null), Array('ann', 'portal'));
 
 // Listing
 $rowList = runShellAsJson($projDir, Array('appsKeys', 'fullList'))['rows'] ?? Array();

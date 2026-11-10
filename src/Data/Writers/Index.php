@@ -10,7 +10,7 @@ namespace nyu\Data\Writers;
 class Index {
 
 	// Writer, default options and content type of each file extension
-	protected static $extnsnList = Array(
+	protected static $extnsArray = Array(
 		'html'   => Array('Html', Array(), 'text/html; charset=utf-8'),
 		'htm'    => Array('Html', Array(), 'text/html; charset=utf-8'),
 		'json'   => Array('Json', Array(), 'application/json; charset=utf-8'),
@@ -37,11 +37,11 @@ class Index {
 	/**
 	 * Gives the writer of a file extension.
 	 *
-	 * @param String $filExtension The extension, without its dot, whatever its case.
+	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return ?Writer The writer, null when the extension has none.
 	 */
-	public static function forExtnsParser(String $filExtension): ?Writer {
-		$extList = self::$extnsnList[strtolower($filExtension)] ?? null;
+	public static function forExtnsWriter(String $extensionTxt): ?Writer {
+		$extList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
 		if( $extList===null ){
 			return null;
 		}
@@ -52,38 +52,38 @@ class Index {
 	/**
 	 * Gives the default options a file extension is written with.
 	 *
-	 * @param String $filExtension The extension, without its dot, whatever its case.
+	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return Array The options, empty when the extension has none.
 	 */
-	public static function optionsOfExtns(String $filExtension): Array {
-		return self::$extnsnList[strtolower($filExtension)][1] ?? Array();
+	public static function optionsOfExtns(String $extensionTxt): Array {
+		return self::$extnsArray[strtolower($extensionTxt)][1] ?? Array();
 	}
 
 	/**
 	 * Gives the content type a reply written for a file extension is
 	 * sent with.
 	 *
-	 * @param String $filExtension The extension, without its dot, whatever its case.
+	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return String The content type, with its character set when it is text; '' when the extension has no writer.
 	 */
-	public static function contentTypeFor(String $filExtension): String {
-		return strval(self::$extnsnList[strtolower($filExtension)][2] ?? '');
+	public static function contentTypeFor(String $extensionTxt): String {
+		return strval(self::$extnsArray[strtolower($extensionTxt)][2] ?? '');
 	}
 
 	/**
 	 * Adds a writer for a file extension, or replaces the one it had.
 	 *
-	 * @param String $filExtension The extension, without its dot.
+	 * @param String $extensionTxt The extension, without its dot.
 	 * @param String $writerClsNme Name of a class of this namespace, or full name of a class of the application; it must follow the Writer contract.
 	 * @param Array  $writeOptions Default options the extension is written with.
 	 * @param String $sentMimeType Content type a reply in that format is sent with.
 	 *
 	 * @throws \RuntimeException When the extension is not a plain name, the class is not a writer, or the content type is not one.
 	 */
-	public static function registerWriter(String $filExtension, String $writerClsNme, Array $writeOptions=Array(), String $sentMimeType='application/octet-stream'): Void {
+	public static function registerWriter(String $extensionTxt, String $writerClsNme, Array $writeOptions=Array(), String $sentMimeType='application/octet-stream'): Void {
 		$wrtrCls = (strpos($writerClsNme, '\\')===false) ? __NAMESPACE__.'\\'.$writerClsNme : $writerClsNme;
-		if( !preg_match('/^\w+$/D', $filExtension) ){
-			throw new \RuntimeException('Invalid file extension: '.$filExtension);
+		if( !preg_match('/^\w+$/D', $extensionTxt) ){
+			throw new \RuntimeException('Invalid file extension: '.$extensionTxt);
 		}
 		if( !class_exists($wrtrCls) || !is_subclass_of($wrtrCls, Writer::class) ){
 			throw new \RuntimeException('Not a writer: '.$writerClsNme);
@@ -92,7 +92,7 @@ class Index {
 		if( !preg_match('/^[\w.+\-]+\/[\w.+\-]+(?:; ?[\w\-]+=[\w.\-]+)*$/D', $sentMimeType) ){
 			throw new \RuntimeException('Invalid content type: '.$sentMimeType);
 		}
-		self::$extnsnList[strtolower($filExtension)] = Array($writerClsNme, $writeOptions, $sentMimeType);
+		self::$extnsArray[strtolower($extensionTxt)] = Array($writerClsNme, $writeOptions, $sentMimeType);
 	}
 
 }

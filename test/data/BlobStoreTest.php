@@ -73,7 +73,7 @@ checkIdentical('a table without binary fields is read as before', (new SqlStore(
 
 // A picture, from the database to what is made of it
 $covrFlx = $dbStore->findItemsArray('albums', Array('id_album'=>1), Array('field'=>Array('coverPic')))[0]['coverPic'];
-checkIdentical('a picture read from a store is opened as any picture', Array(Image::openFluxdArchv($covrFlx)->imageInfoArray()['kinds'], Image::openFluxdArchv($covrFlx)->imageInfoArray()['width']), Array('png', 1));
+checkIdentical('a picture read from a store is opened as any picture', Array(Image::openFluxdImage($covrFlx)->imageInfoArray()['kinds'], Image::openFluxdImage($covrFlx)->imageInfoArray()['width']), Array('png', 1));
 $savePth = inTemporaryDir('blob-cover.png');
 checkIdentical('and written to a file', Array(basename($covrFlx->setLocalString($savePth)), file_get_contents($savePth)===$dotPng), Array('blob-cover.png', true));
 checkIdentical('a file is written to a store from where it lies', Array($dbStore->updateRowCount('tracks', Array('id_track'=>2), Array('fileData'=>Fluxd::openLocalFluxd($savePth))), blobSeen($dbStore->findItemsArray('tracks', Array('id_track'=>2), Array('field'=>Array('fileData')))[0]['fileData'])), Array(1, 'FLUXD '.bin2hex($dotPng)));

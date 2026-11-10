@@ -25,8 +25,8 @@ class UserList implements Handler{
 	protected $usrLstPath;
 	protected $sealingKey;
 	protected $usrLimiter;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * Builds the check against the users file from its config block.
@@ -45,7 +45,7 @@ class UserList implements Handler{
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
 			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : ''
-		) );		$this->lastMessag = '';
+		) );		$this->errMessage = '';
 	}
 
 	/**
@@ -56,20 +56,20 @@ class UserList implements Handler{
 	 * authenticator. A 'key' entry is checked as a personal API token
 	 * instead.
 	 *
-	 * @param Array $crdntlsArray Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
-	 * @return Array|Bool An identity array ('user', 'role', 'id') on success, or false on failure.
+	 * @param Array $loginDataArr Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
+	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
-	function chckCredential( Array $crdntlsArray ): Array|Bool {
-		$this->invalidCrd = false;
-		if( isset($crdntlsArray['key']) ){
-			return $this->checkTokenList( strval($crdntlsArray['key']) );
+	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+		$this->badTryFlag = false;
+		if( isset($loginDataArr['key']) ){
+			return $this->checkTokenList( strval($loginDataArr['key']) );
 		}
-		$gvnUser = strval($crdntlsArray['user'] ?? '');
-		$gvnPass = strval($crdntlsArray['pass'] ?? '');
+		$gvnUser = strval($loginDataArr['user'] ?? '');
+		$gvnPass = strval($loginDataArr['pass'] ?? '');
 		// A name of the file written as the counter of a login mark is the name of nobody
 		$userVls = ($gvnUser!='' && strncmp($gvnUser, 'mark:', 5)!==0) ? $this->fetchUserArray($gvnUser) : null;
 		if( $userVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		if( $userVls===null || password_get_info(strval($userVls['passwdHash']))['algo']===null ){
@@ -81,8 +81,8 @@ class UserList implements Handler{
 		}
 		// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 		$cntName = is_array($userVls) ? strval($userVls['userHandle']) : '';
-		if( is_array($userVls) && is_string($crdntlsArray['mark'] ?? null) && $crdntlsArray['mark']!=='' ){
-			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $crdntlsArray['mark'], $cntName );
+		if( is_array($userVls) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
+			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName );
 			if( $markKey!='' && $this->usrLimiter->heldByUserNumb($markKey)>0 ){
 				Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($cntName).': too many attempts with it' );
 			}elseif( $markKey!='' ){
@@ -92,23 +92,23 @@ class UserList implements Handler{
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($userVls) && $this->usrLimiter->heldByUserNumb($cntName)>0 ){
 			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is held after too many attempts' );
-			$this->lastMessag = 'Invalid credentials';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid credentials';
+			$this->badTryFlag = true;
 			return false;
 		}
 		if( $userVls===null || !$matched ){
 			if( $userVls!==null ){
 				$this->usrLimiter->countLimitUser( $cntName );
 			}
-			$this->lastMessag = 'Invalid credentials';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid credentials';
+			$this->badTryFlag = true;
 			return false;
 		}
 		if( $userVls['userStatus']!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
 			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is not active ('.$userVls['userStatus'].')' );
-			$this->lastMessag = 'Invalid credentials';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid credentials';
+			$this->badTryFlag = true;
 			return false;
 		}
 		// A user with a 2FA secret must also give the current code of its authenticator
@@ -117,19 +117,19 @@ class UserList implements Handler{
 			$sealKey = Totp::openSecretText($userVls['twoFactKey'], $this->sealingKey);
 			if( $sealKey===null ){
 				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: cryptKey is missing or was changed' );
-				$this->lastMessag = 'Credential store unavailable';
+				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
-			$gvnCode = strval($crdntlsArray['code'] ?? '');
+			$gvnCode = strval($loginDataArr['code'] ?? '');
 			if( $gvnCode=='' ){
 				// Not a failed attempt : the password was right, the client now asks for the code
-				$this->lastMessag = 'Verification code required';
+				$this->errMessage = 'Verification code required';
 				return false;
 			}
 			if( !Totp::verifyTotpCode($sealKey, $gvnCode) ){
 				$this->usrLimiter->countLimitUser( $cntName );
-				$this->lastMessag = 'Invalid verification code';
-				$this->invalidCrd = true;
+				$this->errMessage = 'Invalid verification code';
+				$this->badTryFlag = true;
 				return false;
 			}
 		}
@@ -142,21 +142,21 @@ class UserList implements Handler{
 	 * bearerHash of an active user.
 	 *
 	 * @param String $toknValueTxt The token, as sent by the client.
-	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false on failure.
+	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false on failure.
 	 */
 	protected function checkTokenList( String $toknValueTxt ): Array|Bool {
 		if( $toknValueTxt=='' ){
-			$this->lastMessag = 'No API key provided';
+			$this->errMessage = 'No API key provided';
 			return false;
 		}
 		$userVls = $this->fetchUserArray( hash('sha256', $toknValueTxt), 'bearerHash' );
 		if( $userVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		if( $userVls===null || $userVls['userStatus']!=='approved' ){
-			$this->lastMessag = 'Invalid API key';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid API key';
+			$this->badTryFlag = true;
 			return false;
 		}
 		return $this->createIdentity($userVls);
@@ -171,17 +171,17 @@ class UserList implements Handler{
 	 *
 	 * @param String $namedUserTxt Login name of the user.
 	 * @param ?Int   $issuedUnixNb Unix time the session or the token was issued at; not compared.
-	 * @return Array|Bool The identity array ('user', 'role', 'id'), or false when the user is unknown, not active, or the file cannot be read.
+	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, or the file cannot be read.
 	 */
 	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedUnixNb=null ): Array|Bool {
-		$this->invalidCrd = false;
+		$this->badTryFlag = false;
 		$userVls = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
 		if( $userVls===false ){
-			$this->lastMessag = 'Credential store unavailable';
+			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		if( $userVls===null || $userVls['userStatus']!=='approved' ){
-			$this->lastMessag = 'Account not active';
+			$this->errMessage = 'Account not active';
 			return false;
 		}
 		return $this->createIdentity($userVls);
@@ -244,10 +244,10 @@ class UserList implements Handler{
 	 * Gives the identity of a user of the file.
 	 *
 	 * @param Array $usrValuesArr The user's values, as loadUsersArray() gives them.
-	 * @return Array The identity array ('user', 'role', 'id').
+	 * @return Array The identity array ('userName', 'userRole', 'idOfUser').
 	 */
 	protected function createIdentity( Array $usrValuesArr ): Array {
-		return Array('user'=>$usrValuesArr['userHandle'], 'role'=>$usrValuesArr['accessRole'], 'id'=>$usrValuesArr['id_user']);
+		return Array('userName'=>$usrValuesArr['userHandle'], 'userRole'=>$usrValuesArr['accessRole'], 'idOfUser'=>$usrValuesArr['id_user']);
 	}
 
 	/**
@@ -346,8 +346,8 @@ class UserList implements Handler{
 	 *
 	 * @return Bool True when a credential was presented and refused.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
@@ -356,6 +356,6 @@ class UserList implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

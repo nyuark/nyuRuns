@@ -60,12 +60,12 @@ function installHandler(): Void
  *
  * @param Int|String $errLevelNumb   PHP error level constant (e.g. E_WARNING).
  * @param String $errorMessage The error message.
- * @param ?String $errorFilPath    File where the error occurred.
+ * @param ?String $errorFileTxt    File where the error occurred.
  * @param ?int   $errorLineNum    Line where the error occurred.
  * @param mixed  $errorContext Variable scope at the point of the error.
  * @return Bool Always true, to tell PHP the error was handled.
  */
-function handleErrorFlg( Int|String $errLevelNumb, String $errorMessage, ?String $errorFilPath=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Bool
+function handleErrorFlg( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Bool
 {
     // What the error level leaves out (ERR_LEVL), or the @ operator silences, is neither shown nor logged; an exception (E_EXCEPTION) always is
     if( is_int($errLevelNumb) && !(error_reporting() & $errLevelNumb) )
@@ -76,13 +76,13 @@ function handleErrorFlg( Int|String $errLevelNumb, String $errorMessage, ?String
     {
         //  Pass errors up to the global ErrorHandler to be later inserted into
         // final output at the appropriate time.
-        $GLOBALS['ErrorHandler']->handleOneError($errLevelNumb,$errorMessage,$errorFilPath,$errorLineNum,$errorContext);
+        $GLOBALS['ErrorHandler']->handleOneError($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext);
 
         return true;
     }
     else
     {
-        printErrorHtml($errLevelNumb,$errorMessage,$errorFilPath,$errorLineNum,$errorContext);
+        printErrorHtml($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext);
         return true;
     }
 }
@@ -128,12 +128,12 @@ function treatException( Throwable $exceptionObj ): Bool
  *
  * @param int|String $errLevelNumb PHP error level constant, or 'E_EXCEPTION'.
  * @param String     $errorMessage The error message.
- * @param ?String    $errorFilPath File where the error occurred.
+ * @param ?String    $errorFileTxt File where the error occurred.
  * @param ?int       $errorLineNum Line where the error occurred.
  * @param mixed      $errorContext Stack trace at the point of the error.
  * @return Bool True when the response was sent.
  */
-function replyWithError( Int|String $errLevelNumb, String $errorMessage, ?String $errorFilPath=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Bool
+function replyWithError( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Bool
 {
     $hndlObj = $GLOBALS['ErrorHandler'] ?? null;
     $respond = $GLOBALS['ErrorResponse'] ?? null;
@@ -142,9 +142,9 @@ function replyWithError( Int|String $errLevelNumb, String $errorMessage, ?String
 
     try
     {
-        $hndlObj->writeErrorLogs($errLevelNumb,$errorMessage,$errorFilPath,$errorLineNum,$errorContext);
+        $hndlObj->writeErrorLogs($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext);
         if( $hndlObj->showsErrorsFlg() )
-            $respond( $errorMessage.' in '.$errorFilPath.' on line '.$errorLineNum );
+            $respond( $errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum );
         else
             $respond( 'Internal Server Error' );
         return true;
@@ -259,12 +259,12 @@ function stackTableText( Array $callFrameSet ): String
  *
  * @param int|String $errLevelNumb PHP error level constant, or 'E_EXCEPTION'.
  * @param String     $errorMessage The error message.
- * @param ?String    $errorFilPath File where the error occurred.
+ * @param ?String    $errorFileTxt File where the error occurred.
  * @param ?int       $errorLineNum Line where the error occurred.
  * @param mixed      $errorContext Stack trace, or text, at the point of the error.
  * @return String The HTML block.
  */
-function errorBlockText( Int|String $errLevelNumb, String $errorMessage, ?String $errorFilPath=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): String
+function errorBlockText( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): String
 {
     $encoder = function( String $plainValText ): String { return htmlspecialchars($plainValText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
     $errType = ErrorHandler::errCategoryTxt($errLevelNumb);
@@ -274,8 +274,8 @@ function errorBlockText( Int|String $errLevelNumb, String $errorMessage, ?String
 
     $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Error Level:</span> <span class=\"ErrorValue\">$errType</span></p>\r\n";
 
-    if( isset($errorFilPath) && strlen($errorFilPath) > 0 )
-        $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'" . $encoder($errorFilPath) . "'</span></p>\r\n";
+    if( isset($errorFileTxt) && strlen($errorFileTxt) > 0 )
+        $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'" . $encoder($errorFileTxt) . "'</span></p>\r\n";
 
     if( isset($errorLineNum) )
         $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Line:</span> <span class=\"ErrorValue\">$errorLineNum</span></p>\r\n";
@@ -303,13 +303,13 @@ function errorBlockText( Int|String $errLevelNumb, String $errorMessage, ?String
  *
  * @param Int|String $errLevelNumb   PHP error level constant, or an exception code.
  * @param String $errorMessage The error message.
- * @param ?String $errorFilPath    File where the error occurred.
+ * @param ?String $errorFileTxt    File where the error occurred.
  * @param ?int   $errorLineNum    Line where the error occurred.
  * @param mixed  $errorContext Variable scope or stack trace at the point of the error.
  */
-function printErrorHtml( Int|String $errLevelNumb, String $errorMessage, ?String $errorFilPath=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Void
+function printErrorHtml( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Void
 {
-    echo(errorBlockText($errLevelNumb,$errorMessage,$errorFilPath,$errorLineNum,$errorContext));
+    echo(errorBlockText($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext));
 }
 
 /**
@@ -318,17 +318,17 @@ function printErrorHtml( Int|String $errLevelNumb, String $errorMessage, ?String
  */
 class ErrorHandler
 {
-    protected $lggrInstnc;
+    protected $loggingObj;
     protected $errorStack = Array();
 
     /**
      * Builds the error handler, with the logger it writes through.
      *
-     * @param ?\nyu\Tools\Logger $lggrInstance A logger instance (nyu\Tools\Logger) to log through, or null to echo (fallback, e.g. CLI/dev).
+     * @param ?\nyu\Tools\Logger $loggerObject A logger instance (nyu\Tools\Logger) to log through, or null to echo (fallback, e.g. CLI/dev).
      */
-    public function __construct( ?\nyu\Tools\Logger $lggrInstance = null )
+    public function __construct( ?\nyu\Tools\Logger $loggerObject = null )
     {
-        $this->lggrInstnc = $lggrInstance;
+        $this->loggingObj = $loggerObject;
     }
 
     /**
@@ -338,13 +338,13 @@ class ErrorHandler
      *
      * @param Int|String $errLevelNumb   PHP error level constant, or an exception code.
      * @param String $errorMessage The error message.
-     * @param ?String $errorFilPath    File where the error occurred.
+     * @param ?String $errorFileTxt    File where the error occurred.
      * @param ?int   $errorLineNum    Line where the error occurred.
      * @param mixed  $errorContext Variable scope or stack trace at the point of the error.
      */
-    public function handleOneError( Int|String $errLevelNumb, String $errorMessage, ?String $errorFilPath=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Void
+    public function handleOneError( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Void
     {
-        $this->writeErrorLogs($errLevelNumb,$errorMessage,$errorFilPath,$errorLineNum,$errorContext);
+        $this->writeErrorLogs($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext);
         if( !$this->showsErrorsFlg() )
         {
             return;
@@ -356,11 +356,11 @@ class ErrorHandler
         if( isset($GLOBALS['ErrorResponse']) )
         {
             // Inside a framework request: kept for the response body instead of echoed
-            $this->errorStack[] = $errType.': '.$errorMessage.' in '.$errorFilPath.' on line '.$errorLineNum;
+            $this->errorStack[] = $errType.': '.$errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum;
             return;
         }
 
-        echo(errorBlockText($errLevelNumb,$errorMessage,$errorFilPath,$errorLineNum,$errorContext));
+        echo(errorBlockText($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext));
     }
 
     /**
@@ -382,19 +382,19 @@ class ErrorHandler
      *
      * @param Int|String $errLevelNumb PHP error level constant, or 'E_EXCEPTION'.
      * @param String $errorMessage The error message.
-     * @param ?String $errorFilPath File where the error occurred.
+     * @param ?String $errorFileTxt File where the error occurred.
      * @param ?int   $errorLineNum Line where the error occurred.
      * @param mixed  $errorContext Variable scope or stack trace at the point of the error.
      */
-    public function writeErrorLogs( Int|String $errLevelNumb, String $errorMessage, ?String $errorFilPath=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Void
+    public function writeErrorLogs( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Void
     {
-        if( $this->lggrInstnc === null )
+        if( $this->loggingObj === null )
         {
             return;
         }
 
         $logMssg = ErrorHandler::errCategoryTxt($errLevelNumb).': '.$errorMessage;
-        if( isset($errorFilPath) ) $logMssg .= ' in '.$errorFilPath;
+        if( isset($errorFileTxt) ) $logMssg .= ' in '.$errorFileTxt;
         if( isset($errorLineNum) ) $logMssg .= ' on line '.$errorLineNum;
         // A trace is logged without the arguments of its calls
         $context = is_array($errorContext) ? plainTraceList($errorContext) : Array();
@@ -402,16 +402,16 @@ class ErrorHandler
         switch( $errLevelNumb )
         {
             case E_ERROR: case E_USER_ERROR: case E_CORE_ERROR: case E_COMPILE_ERROR: case E_RECOVERABLE_ERROR: case 'E_EXCEPTION':
-                $this->lggrInstnc->error($logMssg, $context);
+                $this->loggingObj->error($logMssg, $context);
                 break;
             case E_WARNING: case E_USER_WARNING: case E_CORE_WARNING: case E_COMPILE_WARNING:
-                $this->lggrInstnc->warning($logMssg, $context);
+                $this->loggingObj->warning($logMssg, $context);
                 break;
             case E_NOTICE: case E_USER_NOTICE: case E_DEPRECATED: case E_USER_DEPRECATED:
-                $this->lggrInstnc->notice($logMssg, $context);
+                $this->loggingObj->notice($logMssg, $context);
                 break;
             default:
-                $this->lggrInstnc->info($logMssg, $context);
+                $this->loggingObj->info($logMssg, $context);
         }
     }
 
@@ -424,7 +424,7 @@ class ErrorHandler
      */
     public function showsErrorsFlg(): Bool
     {
-        if( $this->lggrInstnc === null )
+        if( $this->loggingObj === null )
         {
             return true;
         }

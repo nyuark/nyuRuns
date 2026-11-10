@@ -23,10 +23,10 @@ class Console{
 	// The framework's commands and their classes, under nyu\Shell\Cmds. Any other name is the one of an application (see findClass)
 	const CMDS_LIST = Array('installs'=>'Deploy', 'settings'=>'Config', 'runTests'=>'Tester', 'maintain'=>'Cleans', 'accounts'=>'Manage', 'machines'=>'Device', 'bundling'=>'Bundle', 'appsKeys'=>'AppKey');
 
-	protected $gvnArgmnts;
+	protected $commandArr;
 	protected $outsStream;
-	protected $errorsStrm;
-	protected $inptStream;
+	protected $failStream;
+	protected $readStream;
 
 	/**
 	 * Builds the console from the arguments of the command line and its streams.
@@ -37,10 +37,10 @@ class Console{
 	 * @param mixed $answerStream Stream the answers are read from; the standard input when null.
 	 */
 	function __construct( Array $commandWords, Mixed $outputStream=null, Mixed $errorsStream=null, Mixed $answerStream=null ){
-		$this->gvnArgmnts = $commandWords;
+		$this->commandArr = $commandWords;
 		$this->outsStream = $outputStream;
-		$this->errorsStrm = $errorsStream;
-		$this->inptStream = $answerStream;
+		$this->failStream = $errorsStream;
+		$this->readStream = $answerStream;
 	}
 
 	/**
@@ -51,11 +51,11 @@ class Console{
 	public function plugShellError(): Void {
 		error_reporting(E_ALL);
 		ini_set('display_errors', '0');
-		set_error_handler( function( Int $errLevelNumb, String $errorMessage, String $errorFilPath='', Int $errorLineNum=0 ): Bool {
+		set_error_handler( function( Int $errLevelNumb, String $errorMessage, String $errorFileTxt='', Int $errorLineNum=0 ): Bool {
 			if( !(error_reporting() & $errLevelNumb) ){
 				return true;
 			}
-			$fullMsg = $errorMessage.' in '.$errorFilPath.' on line '.$errorLineNum;
+			$fullMsg = $errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum;
 			Logger::retrieveLogger('error')->warning( 'Command line: '.$fullMsg );
 			fwrite(STDERR, 'Warning: '.$fullMsg.PHP_EOL);
 			return true;
@@ -69,8 +69,8 @@ class Console{
 	 * @return Int The exit code: 0 done, 1 failed, 2 wrong usage, 3 refused or declined, 4 problems found.
 	 */
 	public function executeCommand(): Int {
-		$optnObj = new Options($this->gvnArgmnts);
-		$printer = new Printer( $optnObj->retrieveOption('outputAs', 'text')=='json', $optnObj->validateOption('silently'), $this->outsStream, $this->errorsStrm );
+		$optnObj = new Options($this->commandArr);
+		$printer = new Printer( $optnObj->retrieveOption('outputAs', 'text')=='json', $optnObj->validateOption('silently'), $this->outsStream, $this->failStream );
 		$exitNum = Command::EXIT_DONE;
 		try{
 			self::loadConfigLogs();
@@ -84,7 +84,7 @@ class Console{
 				if( $cmdClss===null ){
 					throw new ShellStop('Unknown command: '.$command, Command::EXIT_HELP);
 				}
-				$handler = new $cmdClss($optnObj, $printer, $this->inptStream);
+				$handler = new $cmdClss($optnObj, $printer, $this->readStream);
 				$exitNum = $handler->runCalledCount();
 			}
 		}catch( ShellStop $e ){
@@ -157,11 +157,11 @@ class Console{
 	/**
 	 * Lists the commands: the framework's, then those the applications bring.
 	 *
-	 * @param Options $optinsObject The options of the command line.
-	 * @param Printer $printrObject Where the commands write.
+	 * @param Options $givenOptions The options of the command line.
+	 * @param Printer $givenPrinter Where the commands write.
 	 * @return Array Rows of name and description.
 	 */
-	protected function usageShellList( Options $optinsObject, Printer $printrObject ): Array {
+	protected function usageShellList( Options $givenOptions, Printer $givenPrinter ): Array {
 		$nameLst = array_keys(self::CMDS_LIST);
 		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'Shell.php') as $clsFil ){
 			$nameLst[] = strtolower( basename(dirname(strval($clsFil))) );
@@ -170,7 +170,7 @@ class Console{
 		foreach( $nameLst as $oneCmd ){
 			$cmdClss = $this->findClssString($oneCmd);
 			if( $cmdClss!==null ){
-				$rowList[] = Array( $oneCmd, (new $cmdClss($optinsObject, $printrObject, $this->inptStream))->describeInLine() );
+				$rowList[] = Array( $oneCmd, (new $cmdClss($givenOptions, $givenPrinter, $this->readStream))->describeInLine() );
 			}
 		}
 		return $rowList;

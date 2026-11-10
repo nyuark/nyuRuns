@@ -21,21 +21,21 @@ abstract class Command{
 	const EXIT_DENY = 3;
 	const EXIT_FLAW = 4;
 
-	protected $optnObject;
+	protected $optionsObj;
 	protected $printerObj;
-	protected $inptStream;
+	protected $readStream;
 
 	/**
 	 * Builds the command with its command line and where it writes.
 	 *
-	 * @param Options $optinsObject The words and options of the command line, after the name of the command.
-	 * @param Printer $printrObject Where the command writes.
+	 * @param Options $givenOptions The words and options of the command line, after the name of the command.
+	 * @param Printer $givenPrinter Where the command writes.
 	 * @param mixed   $answerStream Stream the answers are read from; the standard input when null.
 	 */
-	function __construct( Options $optinsObject, Printer $printrObject, Mixed $answerStream=null ){
-		$this->optnObject = $optinsObject;
-		$this->printerObj = $printrObject;
-		$this->inptStream = $answerStream ?? STDIN;
+	function __construct( Options $givenOptions, Printer $givenPrinter, Mixed $answerStream=null ){
+		$this->optionsObj = $givenOptions;
+		$this->printerObj = $givenPrinter;
+		$this->readStream = $answerStream ?? STDIN;
 	}
 
 	/**
@@ -66,14 +66,14 @@ abstract class Command{
 	 */
 	public function runCalledCount(): Int {
 		$subList = $this->subsTableArray();
-		if( $this->optnObject->validateOption('helpText') ){
+		if( $this->optionsObj->validateOption('helpText') ){
 			$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
 			return self::EXIT_DONE;
 		}
 		if( isset($subList['']) ){
 			$callNme = strval($subList['']['call'] ?? '');
 		}else{
-			$subName = $this->optnObject->shiftFirstWord();
+			$subName = $this->optionsObj->shiftFirstWord();
 			if( $subName===null ){
 				$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
 				return self::EXIT_DONE;
@@ -125,7 +125,7 @@ abstract class Command{
 	 * @throws ShellStop When no word is left.
 	 */
 	protected function needsShellWord( String $wordKindText ): String {
-		$gvnWord = $this->optnObject->shiftFirstWord();
+		$gvnWord = $this->optionsObj->shiftFirstWord();
 		if( $gvnWord===null || $gvnWord==='' ){
 			$this->terminateShell( 'Missing argument: '.$wordKindText, self::EXIT_HELP );
 		}
@@ -141,11 +141,11 @@ abstract class Command{
 	 * @return String The answer, without the spaces around it.
 	 */
 	protected function queryAnswerTxt( String $questionText, String $defaultValue='' ): String {
-		if( $this->optnObject->validateOption('noPrompt') ){
+		if( $this->optionsObj->validateOption('noPrompt') ){
 			return $defaultValue;
 		}
 		$this->printerObj->printShellAsks( $questionText.( $defaultValue!=='' ? ' ['.$defaultValue.']' : '' ).': ' );
-		$gvnLine = fgets($this->inptStream);
+		$gvnLine = fgets($this->readStream);
 		$gvnText = ($gvnLine===false) ? '' : trim($gvnLine);
 		return ($gvnText==='') ? $defaultValue : $gvnText;
 	}
@@ -158,14 +158,14 @@ abstract class Command{
 	 * @return Bool Whether it is confirmed.
 	 */
 	protected function queryAgreedFlg( String $questionText ): Bool {
-		if( $this->optnObject->validateOption('yesToAll') ){
+		if( $this->optionsObj->validateOption('yesToAll') ){
 			return true;
 		}
-		if( $this->optnObject->validateOption('noPrompt') ){
+		if( $this->optionsObj->validateOption('noPrompt') ){
 			return false;
 		}
 		$this->printerObj->printShellAsks( $questionText.' [y/N]: ' );
-		$gvnLine = fgets($this->inptStream);
+		$gvnLine = fgets($this->readStream);
 		return in_array( strtolower(trim(strval($gvnLine))), Array('y', 'yes'), true );
 	}
 
@@ -180,11 +180,11 @@ abstract class Command{
 	protected function querySecretTxt( String $questionText ): String {
 		$this->printerObj->printShellAsks( $questionText.': ' );
 		$gvnText = null;
-		if( $this->inptStream===STDIN && @stream_isatty(STDIN) ){
+		if( $this->readStream===STDIN && @stream_isatty(STDIN) ){
 			$gvnText = (DIRECTORY_SEPARATOR=='\\') ? $this->obtainSecurity() : $this->getStarsString();
 		}
 		if( $gvnText===null ){
-			$gvnLine = fgets($this->inptStream);
+			$gvnLine = fgets($this->readStream);
 			$gvnText = ($gvnLine===false) ? '' : rtrim($gvnLine, "\r\n");
 		}
 		return $gvnText;

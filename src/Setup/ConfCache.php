@@ -32,15 +32,15 @@ class ConfCache{
 	 * Gives the description of a table the config cache keeps (TBL_CACH),
 	 * in place of asking the database.
 	 *
-	 * @param String $databasLabel  Name of the database in the config, '' for the default one.
+	 * @param String $linkNameText  Name of the database in the config, '' for the default one.
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @return ?Array The description: 'flds', 'pkey' and 'blob'; null when the cache keeps none, or no description of the table.
 	 */
-	public static function tableInfoArray( String $databasLabel, String $tbleLabelTxt ): ?Array {
-		if( self::$tableInfos===null || !isset(self::$tableInfos[$databasLabel][$tbleLabelTxt]) || !is_array(self::$tableInfos[$databasLabel][$tbleLabelTxt]) ){
+	public static function tableInfoArray( String $linkNameText, String $tbleLabelTxt ): ?Array {
+		if( self::$tableInfos===null || !isset(self::$tableInfos[$linkNameText][$tbleLabelTxt]) || !is_array(self::$tableInfos[$linkNameText][$tbleLabelTxt]) ){
 			return null;
 		}
-		return self::$tableInfos[$databasLabel][$tbleLabelTxt];
+		return self::$tableInfos[$linkNameText][$tbleLabelTxt];
 	}
 
 	/**
@@ -48,15 +48,15 @@ class ConfCache{
 	 * hold it from the end of the request (TBL_CACH); nothing is kept when
 	 * the descriptions are not.
 	 *
-	 * @param String $databasLabel  Name of the database in the config, '' for the default one.
+	 * @param String $linkNameText  Name of the database in the config, '' for the default one.
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @param Array  $tbleValueArr The description: 'flds', 'pkey' and 'blob'.
 	 */
-	public static function keepCacheTable( String $databasLabel, String $tbleLabelTxt, Array $tbleValueArr ): Void {
+	public static function keepCacheTable( String $linkNameText, String $tbleLabelTxt, Array $tbleValueArr ): Void {
 		if( self::$tableInfos===null ){
 			return;
 		}
-		self::$tableInfos[$databasLabel][$tbleLabelTxt] = $tbleValueArr;
+		self::$tableInfos[$linkNameText][$tbleLabelTxt] = $tbleValueArr;
 		self::$tableAdded = true;
 	}
 
@@ -119,7 +119,7 @@ class ConfCache{
 	 *
 	 * @return Int The number of cache files removed.
 	 */
-	public static function clearMailCache(): Int {
+	public static function clearConfCache(): Int {
 		// The descriptions this request knows are no longer to be trusted, nor written again
 		self::$tableInfos = (self::$tableInfos===null) ? null : Array();
 		self::$tableAdded = false;

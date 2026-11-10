@@ -29,7 +29,7 @@ class Input{
 	protected $storedName;
 	protected $fieldArray;
 	protected $rqstObject;
-	protected $inptRgstry;
+	protected $inputsList;
 	protected $missingSet = Array();
 
 	/**
@@ -37,21 +37,21 @@ class Input{
 	 * given source off the shared Request, keeping the fields the
 	 * definition lists and giving each its format.
 	 *
-	 * @param ?Request     $requstObject The shared, already-parsed HTTP request; null when the values are given to parseValuesArr().
+	 * @param ?Request     $givenRequest The shared, already-parsed HTTP request; null when the values are given to parseValuesArr().
 	 * @param String       $sourceOfData 'QUERY' (request vars); any other source yields no value.
-	 * @param String|Array $fieldsDefntn The definition of the fields: 'all', 'none', a text of name:Format(option) items, or an array shaped like the values.
+	 * @param String|Array $fieldsConfig The definition of the fields: 'all', 'none', a text of name:Format(option) items, or an array shaped like the values.
 	 * @param String       $registryName Name under which the parsed values are stored.
 	 *
 	 * @throws \RuntimeException When the definition names a format that does not exist.
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
-    function __construct( ?Request $requstObject, String $sourceOfData, String|Array $fieldsDefntn, String $registryName ){
-		$this->rqstObject = $requstObject;
+    function __construct( ?Request $givenRequest, String $sourceOfData, String|Array $fieldsConfig, String $registryName ){
+		$this->rqstObject = $givenRequest;
 		$this->storedName = $registryName;
-		$this->fieldArray = $this->fieldsInputMap( $fieldsDefntn );
-		$allData = ($sourceOfData=='QUERY' && $requstObject!==null) ? $requstObject->getAllVariable() : Array();
-		$this->inptRgstry[$this->storedName] = $this->parseValuesArr( $allData );
+		$this->fieldArray = $this->fieldsInputMap( $fieldsConfig );
+		$allData = ($sourceOfData=='QUERY' && $givenRequest!==null) ? $givenRequest->getAllVariable() : Array();
+		$this->inputsList[$this->storedName] = $this->parseValuesArr( $allData );
 	}
 
 	/**
@@ -187,7 +187,7 @@ class Input{
 		}
 		try{
 			$vrblObj = new Variable($valueAsGiven);
-			return $vrblObj->readFileDetail($nameOfFormat, $formatOption ?? false);
+			return $vrblObj->castWrappedVal($nameOfFormat, $formatOption ?? false);
 		}catch( \TypeError | \ValueError $e ){
 			return '';
 		}
@@ -200,28 +200,28 @@ class Input{
 	 * fields of its own, those fields ('kids'), and whether the field is
 	 * required ('reqd': its name ends with '!', which is not kept in it).
 	 *
-	 * @param String|Array $fieldsDefntn 'all', 'none', a text of name:Format(option) items separated by semicolons, or an array of name => format, name => fields, or plain names.
+	 * @param String|Array $fieldsConfig 'all', 'none', a text of name:Format(option) items separated by semicolons, or an array of name => format, name => fields, or plain names.
 	 * @return ?Array The fields by name; an empty array for 'none'; null for 'all'.
 	 *
 	 * @throws \RuntimeException When a format is not written as Name or Name(option), or does not exist.
 	 */
-	protected function fieldsInputMap( String|Array $fieldsDefntn ): ?Array {
-		if( is_string($fieldsDefntn) ){
-			$defText = trim($fieldsDefntn);
+	protected function fieldsInputMap( String|Array $fieldsConfig ): ?Array {
+		if( is_string($fieldsConfig) ){
+			$defText = trim($fieldsConfig);
 			if( $defText=='all' ){
 				return null;
 			}
 			// name:Format(option) items; the option may hold a colon, not a semicolon
-			$fieldsDefntn = Array();
+			$fieldsConfig = Array();
 			foreach( ($defText=='none' ? Array() : explode(';', $defText)) as $lstItm ){
 				$itmPrts = explode(':', $lstItm, 2);
 				if( trim($itmPrts[0])!='' ){
-					$fieldsDefntn[trim($itmPrts[0])] = trim($itmPrts[1] ?? '');
+					$fieldsConfig[trim($itmPrts[0])] = trim($itmPrts[1] ?? '');
 				}
 			}
 		}
 		$nodeMap = Array();
-		foreach( $fieldsDefntn as $fldKey => $fldDef ){
+		foreach( $fieldsConfig as $fldKey => $fldDef ){
 			// In a plain list of names, the name is the value
 			$isPlain = is_int($fldKey) && !is_array($fldDef);
 			$fldName = strval($isPlain ? $fldDef : $fldKey);
@@ -259,9 +259,9 @@ class Input{
 	 *
 	 * @return Array The stored values for this input's registry name.
 	 */
-    public function regiStackArray( ): Array {
+    public function readRgstValues( ): Array {
 		// Stack values of the current Registry
 		// by merging it with an existing array
-		return $this->inptRgstry[$this->storedName];
+		return $this->inputsList[$this->storedName];
 	}
 }

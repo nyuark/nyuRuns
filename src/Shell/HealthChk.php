@@ -32,7 +32,7 @@ class HealthChk{
 	// Shortest secret signing the tokens, in characters
 	const SECR_SIZE = 32;
 	// First release of each branch of PHP fixing php2shell (CVE-2026-109618, CVE-2026-109619)
-	const PTCH_LIST = Array('8.2'=>'8.2.35', '8.3'=>'8.3.36', '8.4'=>'8.4.27', '8.5'=>'8.5.12');
+	const SAFE_VERS = Array('8.2'=>'8.2.35', '8.3'=>'8.3.36', '8.4'=>'8.4.27', '8.5'=>'8.5.12');
 
 	protected $resultRows = Array();
 
@@ -43,11 +43,11 @@ class HealthChk{
 	 */
 	public function runChecksArray(): Array {
 		$this->validateServer();
-		$this->checkFoldWrite();
+		$this->checkFldrWrite();
 		$this->validatePreset();
 		$this->validateRoutes();
 		$this->validateEntrys();
-		$this->validateAccess();
+		$this->verifyAccsConf();
 		$this->checkDatabases();
 		$this->validateStores();
 		$this->validateUnsafe();
@@ -81,9 +81,9 @@ class HealthChk{
 	public function validateServer(): Void {
 		$this->addCheckResult( 'php', version_compare(PHP_VERSION, '8.2.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.2 at least is needed' );
 		$phpVers = PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
-		if( isset(self::PTCH_LIST[$phpVers]) ){
-			$patched = version_compare(PHP_VERSION, self::PTCH_LIST[$phpVers], '>=');
-			$this->addCheckResult( 'php patch', $patched ? 'fine' : 'warn', $patched ? 'php2shell fixed' : 'php2shell (CVE-2026-109618, CVE-2026-109619) is fixed from '.self::PTCH_LIST[$phpVers].': update, unless the fix was backported' );
+		if( isset(self::SAFE_VERS[$phpVers]) ){
+			$patched = version_compare(PHP_VERSION, self::SAFE_VERS[$phpVers], '>=');
+			$this->addCheckResult( 'php patch', $patched ? 'fine' : 'warn', $patched ? 'php2shell fixed' : 'php2shell (CVE-2026-109618, CVE-2026-109619) is fixed from '.self::SAFE_VERS[$phpVers].': update, unless the fix was backported' );
 		}
 		$upldPrg = filter_var(ini_get('session.upload_progress.enabled'), FILTER_VALIDATE_BOOLEAN);
 		$this->addCheckResult( 'upload progress', $upldPrg ? 'warn' : 'fine', $upldPrg ? 'on: set session.upload_progress.enabled = 0 in php.ini (CVE-2026-115560), the framework does not use it' : 'off' );
@@ -97,7 +97,7 @@ class HealthChk{
 	 * missing, and must be writable. A config cache older than a file it
 	 * comes from (conf, a preset, a route file) was left by a hand edit.
 	 */
-	public function checkFoldWrite(): Void {
+	public function checkFldrWrite(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$lmtName = trim( strval(is_array($lmtConf) ? ($lmtConf['dataPath'] ?? '') : ''), '/\\ ' );
@@ -119,7 +119,7 @@ class HealthChk{
 			$this->addCheckResult('file rights', 'warn', 'the rights of the secret files are not checked on Windows: limit conf and temp to the web server\'s account (icacls)');
 		}
 		// The descriptions of the tables are kept in the config cache only
-		$iniConf = ($nyuConf!==null) ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = ($nyuConf!==null) ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		if( in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && !in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ){
 			$this->addCheckResult('table cache', 'warn', 'TBL_CACH is TRUE, but CNF_CACH is not: the descriptions of the tables are not kept');
 		}
@@ -313,9 +313,9 @@ class HealthChk{
 	 * Checks the access config: the login, the secrets signing the
 	 * tokens, the API keys, and what is set as unsecure.
 	 */
-	public function validateAccess(): Void {
+	public function verifyAccsConf(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$accsVls = ($nyuConf!==null) ? $nyuConf->readFileDetail('access') : null;
+		$accsVls = ($nyuConf!==null) ? $nyuConf->readValueByKey('access') : null;
 		if( !is_array($accsVls) || empty($accsVls) ){
 			$this->addCheckResult('access', 'fail', 'conf/access.json is missing or empty: "installs makeConf" creates it from its example');
 			return;
@@ -541,7 +541,7 @@ class HealthChk{
 	 */
 	public function checkDatabases(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$allBase = ($nyuConf!==null) ? $nyuConf->readFileDetail('database') : null;
+		$allBase = ($nyuConf!==null) ? $nyuConf->readValueByKey('database') : null;
 		if( !is_array($allBase) || empty($allBase) ){
 			$needsDb = strval($this->accessSettings('loginSet')['authWith'] ?? '')=='nativeDb';
 			$this->addCheckResult( 'databases', $needsDb ? 'fail' : 'fine', $needsDb ? 'none is configured, and the login uses the native userbase' : 'none is configured' );
@@ -606,7 +606,7 @@ class HealthChk{
 	 */
 	public function validateUnsafe(): Void {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$iniConf = ($nyuConf!==null) ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = ($nyuConf!==null) ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		$envName = strtoupper( strval($iniConf['ENV_NAME'] ?? '') );
 		$showErr = in_array( strtoupper(strval($iniConf['ERR_SHOW'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true );
 		$errStts = ( $showErr && in_array($envName, Array('PROD', 'PREV'), true) ) ? 'warn' : 'fine';

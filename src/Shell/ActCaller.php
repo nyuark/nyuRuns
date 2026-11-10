@@ -74,10 +74,10 @@ class ActCaller{
 		$rqstObj = $callLst[0];
 		$respObj = $callLst[1];
 		$inptReg = $loadObj->retrieveInputs($rqstObj);
-		$routReg = new Registry( Array('app'=>$pthPart[1], 'action'=>$pthPart[2], 'param'=>$pthPart[3] ?? null, 'routKind'=>'toAction', 'routPath'=>'') );
+		$routReg = new Registry( Array('appToRun'=>$pthPart[1], 'doAction'=>$pthPart[2], 'argument'=>$pthPart[3] ?? null, 'routKind'=>'toAction', 'routPath'=>'') );
 		$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg))->grantShellCall($signedInUser, $signedInRole);
 		$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
-		$sttsMsg = strval($accsReg->readFileDetail('statMssg'));
+		$sttsMsg = strval($accsReg->readValueByKey('statMssg'));
 		$outData = null;
 		if( $sttsNum==200 ){
 			$control = new Controller( $pthPart[1], $pthPart[2], $inptReg, $pthPart[3] ?? null, $accsReg, $rqstObj, $respObj, new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj) );
@@ -96,11 +96,11 @@ class ActCaller{
 	 *
 	 * @param Response $httpResponse The response the action worked with.
 	 * @param Int      $responseCode Status of the action.
-	 * @param String   $statusMessag Message of a status that is not a success.
+	 * @param String   $statusReason Message of a status that is not a success.
 	 * @param mixed    $outputToSend Output of the action.
 	 * @return Array The 'code', 'mssg', 'body' and 'goal' values (see runAction).
 	 */
-	protected function replyValuesArr( Response $httpResponse, Int $responseCode, String $statusMessag, Mixed $outputToSend ): Array {
+	protected function replyValuesArr( Response $httpResponse, Int $responseCode, String $statusReason, Mixed $outputToSend ): Array {
 		$headLst = $httpResponse->readHeadsArray();
 		$bodyTxt = '';
 		$isMoved = ($responseCode>=300 && $responseCode<400);
@@ -110,13 +110,13 @@ class ActCaller{
 			if( $responseCode<200 || $responseCode>=300 ){
 				// A file or a page is only the reply of a success
 				$httpResponse->clearReplyBody();
-				$outputToSend = Array('error'=>$statusMessag, 'code'=>$responseCode);
+				$outputToSend = Array('error'=>$statusReason, 'code'=>$responseCode);
 			}
 			$httpResponse->convertOutFlag( $outputToSend ?? Array(), $responseCode<200 || $responseCode>=300 );
 			ob_start();
 			$httpResponse->transmitOutput();
 			$bodyTxt = strval(ob_get_clean());
 		}
-		return Array('code'=>$responseCode, 'mssg'=>$statusMessag, 'body'=>$bodyTxt, 'goal'=>$isMoved ? strval($headLst['Location'] ?? '') : '');
+		return Array('code'=>$responseCode, 'mssg'=>$statusReason, 'body'=>$bodyTxt, 'goal'=>$isMoved ? strval($headLst['Location'] ?? '') : '');
 	}
 }

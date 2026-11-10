@@ -22,10 +22,10 @@ class AppKey{
 
 	protected $headerName;
 	protected $appsByName;
-	protected $audnceList;
+	protected $audValList;
 	protected $callingApp;
-	protected $lastMessag;
-	protected $invalidCrd = false;
+	protected $errMessage;
+	protected $badTryFlag = false;
 
 	/**
 	 * Builds the check from its config block.
@@ -41,9 +41,9 @@ class AppKey{
 	function __construct( Array $configValues ){
 		$this->headerName = strval($configValues['headName'] ?? 'X-App-Key');
 		$this->appsByName = is_array($configValues['appsList'] ?? null) ? $configValues['appsList'] : Array();
-		$this->audnceList = $configValues['audience'] ?? Array();
+		$this->audValList = $configValues['audience'] ?? Array();
 		$this->callingApp = null;
-		$this->lastMessag = '';
+		$this->errMessage = '';
 	}
 
 	/**
@@ -52,14 +52,14 @@ class AppKey{
 	 * not looked up in a store of this project; its role is never above
 	 * the 'roleTops' of the application.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
-	 * @return Array|Bool|null The identity of the user, with the application under 'fromApp'; false when the key or
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
+	 * @return Array|Bool|null The identity of the user, with the application under 'appsName'; false when the key or
 	 *                         the token is refused; null when the request carries no application key.
 	 */
-	public function verifyAppArray( Request $requstObject ): Array|Bool|null {
-		$this->invalidCrd = false;
+	public function verifyAppArray( Request $givenRequest ): Array|Bool|null {
+		$this->badTryFlag = false;
 		$this->callingApp = null;
-		$sentKey = strval($requstObject->retrieveHeader($this->headerName) ?? '');
+		$sentKey = strval($givenRequest->retrieveHeader($this->headerName) ?? '');
 		if( $sentKey=='' ){
 			return null;
 		}
@@ -74,36 +74,36 @@ class AppKey{
 			}
 		}
 		if( $appName===null ){
-			$this->lastMessag = 'Invalid app key';
-			$this->invalidCrd = true;
+			$this->errMessage = 'Invalid app key';
+			$this->badTryFlag = true;
 			return false;
 		}
 		$appInfo = $this->appsByName[$appName];
 		$maxRole = strval($appInfo['roleTops'] ?? Checker::ROLE_LIST[0]);
 		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
-			$this->lastMessag = 'Access misconfigured';
+			$this->errMessage = 'Access misconfigured';
 			return false;
 		}
 		// The token is checked with the key of the application alone : it issues none here
 		$jwtConf = Array('signAlgo'=>'RS256', 'publFile'=>$appInfo['publFile'] ?? '');
 		// Once the block names this project's audiences, the token names them and its application as issuer
-		if( !empty($this->audnceList) ){
-			$jwtConf['audience'] = $this->audnceList;
+		if( !empty($this->audValList) ){
+			$jwtConf['audience'] = $this->audValList;
 			$jwtConf['issuerId'] = (is_string($appInfo['issuerId'] ?? null) && trim($appInfo['issuerId'])!='') ? $appInfo['issuerId'] : $appName;
 		}
 		$decoded = new JWT( $jwtConf );
-		$idntArr = $decoded->verifyRqstList( $requstObject );
+		$idntArr = $decoded->verifyRqstList( $givenRequest );
 		if( $idntArr===false ){
-			$this->lastMessag = $decoded->finalErrorText();
-			$this->invalidCrd = $decoded->wrngCredential();
+			$this->errMessage = $decoded->finalErrorText();
+			$this->badTryFlag = $decoded->hasWrongSecret();
 			return false;
 		}
-		$usrRole = strval($idntArr['role'] ?? '');
+		$usrRole = strval($idntArr['userRole'] ?? '');
 		if( !in_array($usrRole, Checker::ROLE_LIST, true) ){
 			$usrRole = Checker::ROLE_LIST[0];
 		}
-		$idntArr['role'] = Checker::rleAccessMeets($maxRole, $usrRole) ? $usrRole : $maxRole;
-		$idntArr['fromApp'] = $appName;
+		$idntArr['userRole'] = Checker::rleAccessMeets($maxRole, $usrRole) ? $usrRole : $maxRole;
+		$idntArr['appsName'] = $appName;
 		$this->callingApp = $appName;
 		return $idntArr;
 	}
@@ -115,16 +115,16 @@ class AppKey{
 	 * leading slash, to the letter. A request naming no action is reached
 	 * through "app/*" only.
 	 *
-	 * @param Registry $rtngRegistry The resolved route.
+	 * @param Registry $resolvedRgst The resolved route.
 	 * @return Bool True when the route is one of the application's.
 	 */
-	public function allowsRouteFlg( Registry $rtngRegistry ): Bool {
+	public function allowsRouteFlg( Registry $resolvedRgst ): Bool {
 		if( $this->callingApp===null ){
 			return false;
 		}
-		$appName = strtolower( str_replace(' ', '', strval($rtngRegistry->readFileDetail('app'))) );
-		$actnNme = strtolower( strval($rtngRegistry->readFileDetail('action')) );
-		$rtePath = strval($rtngRegistry->readFileDetail('routPath'));
+		$appName = strtolower( str_replace(' ', '', strval($resolvedRgst->readValueByKey('appToRun'))) );
+		$actnNme = strtolower( strval($resolvedRgst->readValueByKey('doAction')) );
+		$rtePath = strval($resolvedRgst->readValueByKey('routPath'));
 		foreach( (array)($this->appsByName[$this->callingApp]['routeSet'] ?? Array()) as $rteVal ){
 			$rteVal = strval($rteVal);
 			if( substr($rteVal, 0, 1)=='/' ){
@@ -148,8 +148,8 @@ class AppKey{
 	 *
 	 * @return Bool True when a credential was presented and refused.
 	 */
-	public function wrngCredential(): Bool {
-		return $this->invalidCrd;
+	public function hasWrongSecret(): Bool {
+		return $this->badTryFlag;
 	}
 
 	/**
@@ -158,6 +158,6 @@ class AppKey{
 	 * @return String The last error message.
 	 */
 	public function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

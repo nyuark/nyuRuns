@@ -17,7 +17,7 @@ class Loader{
 
 	protected $blockNames;
 	protected $confBlocks;
-	protected $rotrObject;
+	protected $routingObj;
 	// The values read from the config cache, or those gathered to write it (see ConfCache)
 	protected $cachValues;
 	// Whether they were read from the cache
@@ -110,7 +110,7 @@ class Loader{
 		if( $this->usesCached ){
 			$confReg = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confSet['envsFile'] ?? '.env') ) );
 			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
-			$iniConf = $confReg->readFileDetail('system') ?: Array();
+			$iniConf = $confReg->readValueByKey('system') ?: Array();
 			ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachValues['tables'] ?? Array()) : null;
 			ConfCache::$tableAdded = false;
 			return $confReg;
@@ -150,7 +150,7 @@ class Loader{
 		$confArr = $this->replaceEnvVals( $confArr, $this->lodEnvironment($confSet['envsFile'] ?? '.env') );
 		$confReg = new Registry( $confArr );
 		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
-		$iniConf = $confReg->readFileDetail('system') ?: Array();
+		$iniConf = $confReg->readValueByKey('system') ?: Array();
 		ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? Array() : null;
 		ConfCache::$tableAdded = false;
 		return $confReg;
@@ -212,10 +212,10 @@ class Loader{
 	 * Tools\Input); an application can define them for each of its
 	 * actions, which its Controller applies.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Registry Registry of parsed input values, empty if no 'incoming' config is set.
 	 */
-    function retrieveInputs( Request $requstObject ): Registry {
+    function retrieveInputs( Request $givenRequest ): Registry {
 		$inptSet = $this->getRegistryKey('incoming');
 		if($inptSet){
 			$inptArr = Array();
@@ -227,8 +227,8 @@ class Loader{
 				$inptSrc = $putSet['dataFrom'];
 
 				if(in_array($inptSrc, $inptTyp)){
-					$inptObj = new Input( $requstObject, $inptSrc, $putSet['fieldSet'], $putSet['nameFrom']);
-					$inptArr = array_merge($inptArr, $inptObj->regiStackArray());
+					$inptObj = new Input( $givenRequest, $inptSrc, $putSet['fieldSet'], $putSet['nameFrom']);
+					$inptArr = array_merge($inptArr, $inptObj->readRgstValues());
 				}
 			}
 			$inptReg = new Registry( $inptArr );
@@ -243,16 +243,16 @@ class Loader{
 	 * Resolves the application/action/param to run for the current request,
 	 * through the Router and the 'routings' configuration of the active preset.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
-	 * @return Registry Registry holding the resolved 'app' and 'action' values.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
+	 * @return Registry Registry holding the resolved 'appToRun' and 'doAction' values.
 	 */
-    function importRouteReg( Request $requstObject ): Registry {
+    function importRouteReg( Request $givenRequest ): Registry {
 		$rteConf = $this->getRegistryKey('routings');
-		$this->rotrObject = new Router( is_array($rteConf) ? $rteConf : Array(), $requstObject );
+		$this->routingObj = new Router( is_array($rteConf) ? $rteConf : Array(), $givenRequest );
 		if( $this->usesCached ){
-			$this->rotrObject->setRouteRoutes( $this->cachValues['routes'] );
+			$this->routingObj->assignRouteSet( $this->cachValues['routes'] );
 		}
-		return $this->rotrObject->locateRouteReg();
+		return $this->routingObj->locateRouteReg();
 	}
 
 	/**
@@ -268,8 +268,8 @@ class Loader{
 	 */
 	public function retainCacheFlg(): Bool {
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
-		if( !in_array( strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->usesCached && !ConfCache::$tableAdded) || $this->presetName=='' || $this->rotrObject===null || !isset($this->cachValues['config']) ){
+		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
+		if( !in_array( strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->usesCached && !ConfCache::$tableAdded) || $this->presetName=='' || $this->routingObj===null || !isset($this->cachValues['config']) ){
 			return false;
 		}
 		// A config, preset or route file written since the request began (the Runs' routes too): what it read is not cached
@@ -282,7 +282,7 @@ class Loader{
 		if( $srcTime>intval($_SERVER['REQUEST_TIME'] ?? time()) ){
 			return false;
 		}
-		$this->cachValues['routes'] = $this->rotrObject->retrieveRoutes();
+		$this->cachValues['routes'] = $this->routingObj->retrieveRoutes();
 		$this->cachValues['tables'] = ConfCache::$tableInfos ?? Array();
 		ConfCache::$tableAdded = false;
 		if( !ConfCache::buildCacheFlag($this->presetName, $this->cachValues) ){
@@ -300,7 +300,7 @@ class Loader{
 	 * @return ?Router The router, null as long as no route was resolved.
 	 */
 	public function retrieveRouter(): ?Router {
-		return $this->rotrObject;
+		return $this->routingObj;
 	}
 
     /**
@@ -324,7 +324,7 @@ class Loader{
 	 */
 	function logConfigArray(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		$fldName = trim( strval($iniConf['LOG_PATH'] ?? ''), '/\\ ' );
 		return Array(
 			'path' => TOP_DIR.DS.($fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'logs'),
@@ -341,9 +341,9 @@ class Loader{
 	 *
 	 * @return Array Sound settings: 'tool' ('' when the server has none), 'time' in seconds.
 	 */
-	function sndConfigArray(): Array {
+	function soundConfigArr(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		return Array(
 			'tool' => strval($iniConf['SND_TOOL'] ?? ''),
 			'time' => intval($iniConf['SND_TIME'] ?? 60),
@@ -359,7 +359,7 @@ class Loader{
 	 */
 	function proxySetupConf(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		$prxList = array_filter( array_map('trim', explode(',', strval($iniConf['PRX_LIST'] ?? ''))), 'strlen' );
 		return Array(
 			'list' => array_values($prxList),
@@ -376,7 +376,7 @@ class Loader{
 	 */
 	function rqstConfigList(): Array {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		return Array(
 			'size' => max( 0, intval($iniConf['REQ_SIZE'] ?? 8192) ),
 			'part' => max( 0, intval($iniConf['REQ_PART'] ?? 200) ),
@@ -397,7 +397,7 @@ class Loader{
 	 */
 	function errorConfigNum(): Int {
 		$nyuConf = $GLOBALS['nyuConfig'];
-		$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		$lvlText = trim( strval($iniConf['ERR_LEVL'] ?? '') );
 		if( $lvlText=='' ){
 			return E_ALL;

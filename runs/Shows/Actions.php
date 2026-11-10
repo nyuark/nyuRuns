@@ -19,7 +19,7 @@ class Actions extends Actionset {
 		// Data in here should be strTyped Variables object from inputReg
 		// $reqVals = $this->inputReg->getRegVal('QUERY');
 		// $this->inputReg['varname']['index']->get();
-		$filters = $this->inptRgstry->obtainDefValue('filters', array());
+		$filters = $this->inputsRgst->obtainDefValue('filters', array());
 		$byCateg = '';
 		if(isset($filters['categ']) && is_string($filters['categ'])){
 			$byCateg = $filters['categ'];
@@ -34,10 +34,10 @@ class Actions extends Actionset {
 		}
 		$showLst->replaceFilters($itmFile);
 		// Sort results
-		$sorting = $this->inptRgstry->obtainDefValue('sorting', array('id_show'));
+		$sorting = $this->inputsRgst->obtainDefValue('sorting', array('id_show'));
 		$showLst->setOrderFields($sorting);
 		// Limit results
-		$indexes = $this->inptRgstry->obtainDefValue('indexes', array());
+		$indexes = $this->inputsRgst->obtainDefValue('indexes', array());
 		$showLst->setLimitOffset($indexes);
 		
 		$showLst = $showLst->readRowsOfList();
@@ -73,12 +73,12 @@ class Actions extends Actionset {
 	/**
 	 * Loads a single show with its relations and sets it as output.
 	 *
-	 * @param String $currentShwId Primary key of the show to load.
+	 * @param String $idOfShowText Primary key of the show to load.
 	 */
-	public function viewShow( String $currentShwId ): Void {
+	public function viewShow( String $idOfShowText ): Void {
 		$showRec = $this->modelStack->getModelObject('single');
 		// Filter results
-		$shwIdnt = $currentShwId;
+		$shwIdnt = $idOfShowText;
 		$showArr = $showRec->loadRecordList($shwIdnt);
 		//print_r($showArr);
 		//die();

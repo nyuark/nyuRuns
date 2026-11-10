@@ -189,6 +189,6 @@ checkPregMatch('an archive under the name of a text file is still refused', runC
 	copy($packZip, $docPath);
 	return new Dcmnt($docPath);
 }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: archive\.json: the content is not what the name announces/');
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 finishChecking();

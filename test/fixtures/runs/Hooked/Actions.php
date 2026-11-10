@@ -19,7 +19,7 @@ class Actions extends Actionset {
 	 */
 	protected function setupForAction(): Void {
 		$this->stepsTaken[] = 'setupForAction';
-		if( $this->inptRgstry->readFileDetail('refuse')==='yes' ){
+		if( $this->inputsRgst->readValueByKey('refuse')==='yes' ){
 			$this->replyValue = $this->stepsTaken;
 			$this->stopThisAction(403, 'Refused before the action');
 		}
@@ -41,10 +41,10 @@ class Actions extends Actionset {
 		$this->statusCode = 200;
 		$this->replyValue = Array(
 			'actnName'=>$this->actionName,
-			'actnOptn'=>$this->runContext->actnOption,
-			'appIdent'=>$this->runContext->appIdentty,
-			'appFoldr'=>$this->runContext->appsFolder,
-			'inputReg'=>$this->inptRgstry===$this->runContext->inptRgstry,
+			'actnOptn'=>$this->runContext->optionText,
+			'appIdent'=>$this->runContext->runAppName,
+			'appsFldr'=>$this->runContext->appsFolder,
+			'inputReg'=>$this->inputsRgst===$this->runContext->inputsRgst,
 			'modStack'=>$this->modelStack===$this->runContext->modelStack
 		);
 	}

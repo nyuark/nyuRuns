@@ -21,12 +21,12 @@ class Actionset {
 	public		$statusCode;
 	public		$statusMssg;
 	
-	protected 	$inptRgstry;
+	protected 	$inputsRgst;
 	protected 	$modelStack;
 	protected 	$accessRgst;
-	protected 	$httpRequst;
-	protected 	$httpRespns;
-	protected 	$rotrObject;
+	protected 	$requestObj;
+	protected 	$respondObj;
+	protected 	$routingObj;
 	// Action run when the request names none; when empty, the first action declared is used
 	protected 	$dfltAction = '';
 	// Action being run, as the request named it
@@ -43,12 +43,12 @@ class Actionset {
 	 */
 	function __construct( RunContext $contextOfRun ){
 		$this->runContext = $contextOfRun;
-		$this->inptRgstry = $contextOfRun->inptRgstry;
+		$this->inputsRgst = $contextOfRun->inputsRgst;
 		$this->modelStack = $contextOfRun->modelStack;
 		$this->accessRgst = $contextOfRun->accessRgst;
-		$this->httpRequst = $contextOfRun->httpRequst;
-		$this->httpRespns = $contextOfRun->httpRespns;
-		$this->rotrObject = $contextOfRun->rotrObject;
+		$this->requestObj = $contextOfRun->requestObj;
+		$this->respondObj = $contextOfRun->respondObj;
+		$this->routingObj = $contextOfRun->routingObj;
 		$this->actionName = $contextOfRun->actionName;
 	}
 
@@ -73,8 +73,8 @@ class Actionset {
 		if( static::hasActionNamed($this->runContext->actionName) ){
 			try{
 				$this->setupForAction();
-				if($this->runContext->actnOption!=null){
-					call_user_func( array($this, $this->runContext->actionName), $this->runContext->actnOption );
+				if($this->runContext->optionText!=null){
+					call_user_func( array($this, $this->runContext->actionName), $this->runContext->optionText );
 				}else{
 					call_user_func( array($this, $this->runContext->actionName) );
 				}
@@ -157,8 +157,8 @@ class Actionset {
 	 * @throws \RuntimeException When the format is not one of Response::FORM_LIST.
 	 */
 	protected function useReplyFormat( String $outputFormat ): Void {
-		if( $this->httpRespns!==null ){
-			$this->httpRespns->useReplyFormat($outputFormat);
+		if( $this->respondObj!==null ){
+			$this->respondObj->useReplyFormat($outputFormat);
 		}
 	}
 
@@ -172,8 +172,8 @@ class Actionset {
 	 * @return Bool True when the file was registered.
 	 */
 	protected function serveFileReply( String $sentFilePath, String $mimeTypeText ): Bool {
-		$rangStr = ($this->httpRequst!==null) ? strval($this->httpRequst->retrieveHeader('Range')) : '';
-		if( $this->httpRespns===null || !$this->httpRespns->setFileToReply($sentFilePath, $mimeTypeText, $rangStr) ){
+		$rangStr = ($this->requestObj!==null) ? strval($this->requestObj->retrieveHeader('Range')) : '';
+		if( $this->respondObj===null || !$this->respondObj->setFileToReply($sentFilePath, $mimeTypeText, $rangStr) ){
 			$this->statusCode = 404;
 			$this->statusMssg = 'Not Found';
 			$this->replyValue = null;
@@ -200,7 +200,7 @@ class Actionset {
 		$pgePath = $this->runContext->appsFolder.DS.'pages'.DS.str_replace('/', DS, $pageFileName).'.html';
 		// Letters, digits, dashes and underscores only : the name cannot lead out of the folder
 		$isNamed = (preg_match('#^[\w\-]+(/[\w\-]+)*$#D', $pageFileName)===1);
-		if( !$isNamed || $this->httpRespns===null || !$this->httpRespns->setPageToReply($pgePath, $pgeValuesArr, $responseCode) ){
+		if( !$isNamed || $this->respondObj===null || !$this->respondObj->setPageToReply($pgePath, $pgeValuesArr, $responseCode) ){
 			$this->statusCode = 404;
 			$this->statusMssg = 'Not Found';
 			$this->replyValue = null;
@@ -225,14 +225,14 @@ class Actionset {
 		if( !Router::validRouteAddr($redirectAddr) || !in_array($responseCode, Router::MOVE_LIST, true) ){
 			throw new \RuntimeException('Redirection refused: the address or the status '.$responseCode.' is not one of a redirection');
 		}
-		if( $this->httpRespns!==null ){
-			$this->httpRespns->addReplyHeader('Location', $redirectAddr);
+		if( $this->respondObj!==null ){
+			$this->respondObj->addReplyHeader('Location', $redirectAddr);
 		}
 		$this->stopThisAction($responseCode);
 	}
 
 	/**
-	 * Builds the link to a declared route (see Router::buildLinkDbCon). A path
+	 * Builds the link to a declared route (see Router::buildRouteLink). A path
 	 * without a leading slash is first one of the routes the Run declares in
 	 * its own routes.rte, as written there: the link follows the Run's
 	 * current mount (see Router::runsRouteShape). When the Run declares no such
@@ -241,17 +241,17 @@ class Actionset {
 	 *
 	 * @param String $routShapeTxt Path of the route, such as profiles/$id: as the Run's file declares it, or its final path.
 	 * @param Array  $pathPartVals Values of the named parts of the path.
-	 * @param Array  $qryParameter Values to add as a query string.
+	 * @param Array  $linkQueryArr Values to add as a query string.
 	 * @return String The link, from the root of the site.
 	 *
 	 * @throws \RuntimeException When no such route is declared, a named part has no value, or no router was given.
 	 */
-	protected function routLinkString( String $routShapeTxt, Array $pathPartVals=Array(), Array $qryParameter=Array() ): String {
-		if( $this->rotrObject===null ){
+	protected function routLinkString( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryArr=Array() ): String {
+		if( $this->routingObj===null ){
 			throw new \RuntimeException('No router to build a link with');
 		}
-		$rtePath = (substr($routShapeTxt, 0, 1)!='/') ? $this->rotrObject->runsRouteShape($this->runContext->appIdentty, $routShapeTxt) : null;
-		return $this->rotrObject->buildLinkDbCon($rtePath ?? $routShapeTxt, $pathPartVals, $qryParameter);
+		$rtePath = (substr($routShapeTxt, 0, 1)!='/') ? $this->routingObj->runsRouteShape($this->runContext->runAppName, $routShapeTxt) : null;
+		return $this->routingObj->buildRouteLink($rtePath ?? $routShapeTxt, $pathPartVals, $linkQueryArr);
 	}
 
 	/**
@@ -263,7 +263,7 @@ class Actionset {
 	 * @return Logger The logger of the application.
 	 */
 	protected function getLoggerOfApp(): Logger {
-		return Logger::retrieveLogger( strtolower($this->runContext->appIdentty) );
+		return Logger::retrieveLogger( strtolower($this->runContext->runAppName) );
 	}
 
 	/**
@@ -279,10 +279,10 @@ class Actionset {
 		if( !in_array($requiredRole, Checker::ROLE_LIST, true) ){
 			throw new \RuntimeException('Unknown role "'.$requiredRole.'"');
 		}
-		if( $this->accessRgst===null || $this->accessRgst->readFileDetail('logged')!==true ){
+		if( $this->accessRgst===null || $this->accessRgst->readValueByKey('loggedIn')!==true ){
 			return false;
 		}
-		$usrRole = $this->accessRgst->readFileDetail('role');
+		$usrRole = $this->accessRgst->readValueByKey('userRole');
 		return Checker::rleAccessMeets( is_string($usrRole) ? $usrRole : null, $requiredRole );
 	}
 
@@ -301,15 +301,15 @@ class Actionset {
 		if( $this->holdsActionRle($requiredRole) ){
 			return;
 		}
-		$isLoggd = ($this->accessRgst!==null && $this->accessRgst->readFileDetail('logged')===true);
-		$usrRole = $isLoggd ? $this->accessRgst->readFileDetail('role') : null;
-		$clntReg = ($this->httpRequst!==null) ? $this->httpRequst->retrieveClient() : null;
+		$isLoggd = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true);
+		$usrRole = $isLoggd ? $this->accessRgst->readValueByKey('userRole') : null;
+		$clntReg = ($this->requestObj!==null) ? $this->requestObj->retrieveClient() : null;
 		$nameLst = explode('\\', static::class);
 		Checker::logRoleRefusal(
-			$isLoggd ? strval($this->accessRgst->readFileDetail('user')) : '',
+			$isLoggd ? strval($this->accessRgst->readValueByKey('userName')) : '',
 			is_string($usrRole) ? $usrRole : null,
 			$requiredRole,
-			($clntReg!==null) ? strval($clntReg->readFileDetail('userAddr')) : '',
+			($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '',
 			strtolower(strval($nameLst[count($nameLst)-2] ?? '')).'/'.$this->actionName
 		);
 		$this->stopThisAction(404, 'Not Found');
@@ -320,10 +320,10 @@ class Actionset {
 	 * helper it calls, and replies with the given status.
 	 *
 	 * @param Int    $responseCode HTTP status to reply with.
-	 * @param String $statusMessag Message describing a non-2xx status.
+	 * @param String $statusReason Message describing a non-2xx status.
 	 * @param Array|Object|String|Int|Float|Bool|Null $outputToSend Output to send; null keeps what the action had already set.
 	 */
-	protected function stopThisAction( Int $responseCode, String $statusMessag='', Array|Object|String|Int|Float|Bool|Null $outputToSend=null ): Never {
-		throw new StopRun($responseCode, $statusMessag, $outputToSend);
+	protected function stopThisAction( Int $responseCode, String $statusReason='', Array|Object|String|Int|Float|Bool|Null $outputToSend=null ): Never {
+		throw new StopRun($responseCode, $statusReason, $outputToSend);
 	}
 }

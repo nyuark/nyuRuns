@@ -14,10 +14,10 @@ abstract class Driver {
 	/**
 	 * Builds the driver of an account.
 	 *
-	 * @param Array $accontConfig The settings of the account (see Mail\Mailer::acntSetupArray).
+	 * @param Array $acntSetupArr The settings of the account (see Mail\Mailer::acntSetupArray).
 	 */
-	public function __construct( Array $accontConfig ){
-		$this->setupArray = $accontConfig;
+	public function __construct( Array $acntSetupArr ){
+		$this->setupArray = $acntSetupArr;
 	}
 
 	/**

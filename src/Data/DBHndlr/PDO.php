@@ -11,7 +11,7 @@ use nyu\Data\DBHndlr\Handler;
 abstract Class PDO implements Handler {
 
 	public 		$baseDriver;
-	protected	$qutCharctr = '`';
+	protected	$quotesChar = '`';
 	protected	$likeSyntax = 'LIKE';
 	private		$builtQuery;
 	private		$lastResult;
@@ -25,10 +25,10 @@ abstract Class PDO implements Handler {
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
 	 * @param String $hostBaseText Database name.
-	 * @param Array  $moreParamtrs Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
+	 * @param Array  $settingsList Optional settings: 'portNumb', 'encoding' (character set) and 'waitSecs' (seconds given to the server to answer).
 	 */
-	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()){
-		$this->openConnection($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $moreParamtrs);
+	public function __construct(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()){
+		$this->openConnection($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
 	}
 	
 	/**
@@ -78,27 +78,27 @@ abstract Class PDO implements Handler {
 	 * every database type asks for; without one, the values are bound the
 	 * usual way.
 	 *
-	 * @param \PDOStatement $preparedStmt The prepared query.
+	 * @param \PDOStatement $statementObj The prepared query.
 	 * @param Array         $valuesToBind Its values, in order.
 	 * @return Bool True when the query ran.
 	 */
-	protected function execBoundQuery(\PDOStatement $preparedStmt, Array $valuesToBind): Bool {
+	protected function execBoundQuery(\PDOStatement $statementObj, Array $valuesToBind): Bool {
 		$hasBlob = false;
 		foreach($valuesToBind as $bndVal){
 			$hasBlob = $hasBlob || ($bndVal instanceof \nyu\Data\Fluxd);
 		}
 		if( !$hasBlob ){
-			return $preparedStmt->execute($valuesToBind);
+			return $statementObj->execute($valuesToBind);
 		}
 		foreach($valuesToBind as $bndIdx=>$bndVal){
 			if( $bndVal instanceof \nyu\Data\Fluxd ){
 				$bndVal->rewindToOrigin();
-				$preparedStmt->bindValue($bndIdx+1, $bndVal->getWholeString(), \PDO::PARAM_LOB);
+				$statementObj->bindValue($bndIdx+1, $bndVal->getWholeString(), \PDO::PARAM_LOB);
 			}else{
-				$preparedStmt->bindValue($bndIdx+1, $bndVal);
+				$statementObj->bindValue($bndIdx+1, $bndVal);
 			}
 		}
-		return $preparedStmt->execute();
+		return $statementObj->execute();
 	}
 
 	/**
@@ -151,13 +151,13 @@ abstract Class PDO implements Handler {
 	 * Reads the connection options every PDO-based handler shares: 'waitSecs',
 	 * the seconds given to the database to answer.
 	 *
-	 * @param Array $moreParamtrs Optional settings of the connection.
+	 * @param Array $settingsList Optional settings of the connection.
 	 * @return Array The PDO options, empty when none is set.
 	 *
 	 * @throws \RuntimeException When the waiting time is not a number.
 	 */
-	protected function pdoOptionArray(Array $moreParamtrs): Array {
-		$waitSec = strval($moreParamtrs['waitSecs'] ?? '');
+	protected function pdoOptionArray(Array $settingsList): Array {
+		$waitSec = strval($settingsList['waitSecs'] ?? '');
 		if( $waitSec=='' ){
 			return Array();
 		}
@@ -181,7 +181,7 @@ abstract Class PDO implements Handler {
 		if( !preg_match('/^\w+(\.\w+)?$/D', $fldLabelText) ){
 			throw new \RuntimeException('Invalid table or field name: '.$fldLabelText);
 		}
-		return $this->qutCharctr.str_replace('.', $this->qutCharctr.'.'.$this->qutCharctr, $fldLabelText).$this->qutCharctr;
+		return $this->quotesChar.str_replace('.', $this->quotesChar.'.'.$this->quotesChar, $fldLabelText).$this->quotesChar;
 	}
 
 	/**
@@ -276,7 +276,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function opnTransaction(): Bool {
+	public function newTransaction(): Bool {
 		$this->errMessage = Array();
 		if( $this->transLevel>0 ){
 			$this->transLevel++;
@@ -322,7 +322,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function remTransaction(): Bool {
+	public function delTransaction(): Bool {
 		$this->errMessage = Array();
 		if( $this->transLevel==0 ){
 			return false;

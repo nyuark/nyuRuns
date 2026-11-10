@@ -509,7 +509,7 @@ order:
    matches it. An empty path is looked up as `index`.
 4. **The path itself**, in an `autopath` preset: its parts are given the
    names of the `mapper` of the preset, by position
-   (`$app/$action/$param`, so `shows/view/12`).
+   (`$appToRun/$doAction/$argument`, so `shows/view/12`).
 
 A declared route names what answers: an action, a redirection, a static
 file or folder, or an HTML page. A method it does not allow is answered
@@ -966,7 +966,7 @@ preset), JSON with comment lines, by their path:
 {
     "profiles/$id": {
         "allows": "GET, POST",
-        "target": { "app": "client", "act": "edit" }
+        "pointsTo": { "appToRun": "client", "doAction": "edit" }
     },
     "assets/*": {
         "target": { "dir": "assets" }
@@ -979,7 +979,7 @@ preset), JSON with comment lines, by their path:
   `*` takes the rest of the path.
 - `allows` lists the methods of the route (`GET` alone otherwise); a
   `target` can also hold one block per method.
-- A target names one kind: an action (`app`, `act`), a redirection
+- A target names one kind: an action (`appToRun`, `doAction`), a redirection
   (`url`, with its status in `cod`), a static file (`fle`) or folder
   (`dir`), or an HTML page (`pge`).
 
@@ -1221,7 +1221,7 @@ class Actions extends Actionset {
 - **`$dfltActn`** names the action run when the path names none; without
   it, the first action declared runs.
 - **The parameter** of an action is the part of the path the `mapper`
-  names `$param` (the third in the presets of the framework:
+  names `$argument` (the third in the presets of the framework:
   `notes/view/12`), or the first value a declared route captures. An
   action that needs one declares it; one that takes none ignores it.
 - An action follows the conventions of the project (chapter 12), except
@@ -1233,7 +1233,7 @@ class Actions extends Actionset {
 |---|---|
 | `$this->inputReg` | the inputs, defined by `input/<action>.json`: `getDefVal('name', default)`, `readLines()` |
 | `$this->modStack` | the models of the run: `readModel('name')` |
-| `$this->axessReg` | the access result: `logged`, `user`, `role`, `ident` (what the store tells of the user), `fromApp` for the call of an application |
+| `$this->axessReg` | the access result: `loggedIn`, `userName`, `userRole`, `identity` (what the store tells of the user), `appsName` for the call of an application |
 | `$this->httpRqst` | the request: `usedMethd()`, `getHeader()`, `getCookie()`, `listFiles()`, `getInFile()`, `getSrvVar()`, `getClient()` |
 | `$this->httpResp` | the response, for its headers |
 | `$this->routrObj` | the router, for the links to the declared routes |
@@ -1743,7 +1743,7 @@ The same rule holds beyond the code:
 
 | Element | Rule | Example |
 |---|---|---|
-| keys of a configuration block | one length per block: 6 in the JSON files, 3 in a route target | `sessby`, `app` |
+| keys of a configuration block | one length per block: 8 in the JSON files and in a route target | `sessWith`, `appToRun` |
 | keys of `system.ini` | 8, in the form `XXX_YYYY` | `LOG_MODE` |
 | codes made at run time | one length per list | `member`, `system`, `manage` |
 | columns of a table | 8 | `userName` |

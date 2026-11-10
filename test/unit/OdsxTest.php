@@ -207,7 +207,7 @@ checkPregMatch('an Office document protected by a password is not an archive any
 	return (new Xlsx())->parseDataArray("\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1".str_repeat("\x00", 600));
 }), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid archive: the document is protected by a password, or saved in an older Office format/');
 checkPregMatch('a content that is not valid XML', odsRead(makeOds('broken.ods', '', '', Array('content.xml'=>'<a><b></a>'))), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid archive: part content\.xml: Invalid XML content/');
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
 checkIdentical('index: spreadsheets by extension and by content type', Array(get_class(Index::forExtnsParser('ODS')), get_class(Index::findTypeParser('application/vnd.oasis.opendocument.spreadsheet'))), Array('nyu\Data\Parsers\Odsx', 'nyu\Data\Parsers\Odsx'));

@@ -16,10 +16,10 @@ Class SQLite extends PDO {
 	 * @param String $serverUsrTxt Unused.
 	 * @param String $hostPassText Unused.
 	 * @param String $hostBaseText Path of the SQLite file, absolute or from the project root.
-	 * @param Array  $moreParamtrs Optional settings: 'waitSecs', the seconds given to a file locked by another connection.
+	 * @param Array  $settingsList Optional settings: 'waitSecs', the seconds given to a file locked by another connection.
 	 */
-	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $moreParamtrs=Array()): Void {
-		$this->baseDriver = new \PDO('sqlite:'.$this->locateBaseFile($hostBaseText), null, null, $this->pdoOptionArray($moreParamtrs));
+	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): Void {
+		$this->baseDriver = new \PDO('sqlite:'.$this->locateBaseFile($hostBaseText), null, null, $this->pdoOptionArray($settingsList));
 		$this->baseDriver->exec('PRAGMA foreign_keys = ON;');
 	}
 

@@ -11,7 +11,7 @@ use \nyu\Data\Parsers;
 class Dcmnt{
 	protected $nameOfFile;
 	protected $plainTitle;
-	protected $fileExtnsn;
+	protected $fileSuffix;
 	protected $headerKind;
 	protected $fileSource;
 	protected $latestData;
@@ -35,12 +35,12 @@ class Dcmnt{
 		$this->nameOfFile = basename($fileLocation);
 		$nmePart = pathinfo($this->nameOfFile);
 		$this->plainTitle = strval($nmePart['filename'] ?? '');
-		$this->fileExtnsn = strtolower(strval($nmePart['extension'] ?? ''));
+		$this->fileSuffix = strtolower(strval($nmePart['extension'] ?? ''));
 		$this->headerKind = Parsers\Bina::detectFileKind($this->fileSource->getRangeString(0, 511));
-		if( $this->fileExtnsn=='' && $this->headerKind!='' ){
-			$this->fileExtnsn = $this->headerKind;
+		if( $this->fileSuffix=='' && $this->headerKind!='' ){
+			$this->fileSuffix = $this->headerKind;
 		}
-		$this->parseFileBytes( $this->fileExtnsn, $upperTopKeys );
+		$this->parseFileBytes( $this->fileSuffix, $upperTopKeys );
 	}
 
 	/**
@@ -48,16 +48,16 @@ class Dcmnt{
 	 * and stores the result as the file's final data. An extension without
 	 * a parser leaves the data empty.
 	 *
-	 * @param String $fileTypExtns Extension identifying the parser to use, as known by Parsers\Index.
+	 * @param String $extensionTxt Extension identifying the parser to use, as known by Parsers\Index.
 	 * @param Bool   $upperTopKeys Whether the parser should uppercase the keys of the first level.
 	 *
 	 * @throws Parsers\ParseError When the content is not valid, or is not what the extension announces.
 	 */
-	function parseFileBytes( String $fileTypExtns, Bool $upperTopKeys = true ): Void {
+	function parseFileBytes( String $extensionTxt, Bool $upperTopKeys = true ): Void {
 		$this->latestData = Array();
 		$this->finalShape = '';
 		$this->dataDetail = Array();
-		$prsrObj = Parsers\Index::forExtnsParser($fileTypExtns);
+		$prsrObj = Parsers\Index::forExtnsParser($extensionTxt);
 		if( $prsrObj===null ){
 			return;
 		}
@@ -67,7 +67,7 @@ class Dcmnt{
 			throw new Parsers\ParseError($this->nameOfFile.': the content is not what the name announces');
 		}
 		try{
-			$envlope = $prsrObj->parseFluxArray( $this->fileSource, Array('upper'=>$upperTopKeys) + Parsers\Index::optionsOfExtns($fileTypExtns) );
+			$envlope = $prsrObj->parseFluxArray( $this->fileSource, Array('upper'=>$upperTopKeys) + Parsers\Index::optionsOfExtns($extensionTxt) );
 		}catch( Parsers\ParseError $e ){
 			throw new Parsers\ParseError($this->nameOfFile.': '.$e->getMessage(), 0, $e);
 		}
@@ -84,7 +84,7 @@ class Dcmnt{
 	 */
 	function readFileDetail(String $detailWanted = 'out'): Mixed {
 		if($detailWanted=='ext'){
-			return $this->fileExtnsn;
+			return $this->fileSuffix;
 		}
 		if($detailWanted=='nme'){
 			return $this->nameOfFile;

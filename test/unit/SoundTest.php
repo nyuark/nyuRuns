@@ -18,7 +18,7 @@ $dotPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
  */
 function sndOpen( String $rawContent ): Mixed {
 	return runCatchThrown(function() use ($rawContent){
-		return Sound::openFluxdArchv(Fluxd::openBytesFluxd($rawContent));
+		return Sound::openFluxdSound(Fluxd::openBytesFluxd($rawContent));
 	});
 }
 
@@ -144,7 +144,7 @@ checkPregMatch('a content that is not a sound', sndOpen('<html><body><p>not a so
 checkPregMatch('a picture is not a sound', sndOpen($dotPng), '/^THROWN RuntimeException: Not a sound of a known kind/');
 checkPregMatch('bytes that only look like the start of a frame', sndOpen(str_repeat("\xFF\xFB\x90\x00junk", 50)), '/^THROWN RuntimeException: Not a sound of a known kind/');
 checkPregMatch('a tag claiming more than the file holds', sndOpen("ID3\x03\x00\x00\x7F\x7F\x7F\x7F".sndMp3(10)), '/^THROWN RuntimeException: Not a sound of a known kind/');
-checkPregMatch('a source larger than the size accepted', runCatchThrown(function(){ return Sound::openFluxdArchv(Fluxd::openBytesFluxd(sndWav(8000)), 100); }), '/^THROWN RuntimeException: Content larger than the 100 bytes allowed/');
+checkPregMatch('a source larger than the size accepted', runCatchThrown(function(){ return Sound::openFluxdSound(Fluxd::openBytesFluxd(sndWav(8000)), 100); }), '/^THROWN RuntimeException: Content larger than the 100 bytes allowed/');
 
 // WAV
 $wavTags = 'LIST'.pack('V', 4+8+10+8+6).'INFO'.'INAM'.pack('V', 10)."Morning\0\0\0".'IART'.pack('V', 6)."Alice\0";
@@ -290,9 +290,9 @@ checkPregMatch('a sound of another kind is not changed without a program', runCa
 $tempDir = inTemporaryDir('sound');
 @mkdir($tempDir, 0777, true);
 $mp3Snd = sndOpen($mp3File);
-$savePth = $mp3Snd->makeSoundSlice(0, 1)->setLocalString($tempDir.'/part.mp3');
-checkIdentical('a part of a sound written to a file', Array(basename($savePth), Sound::openFluxdArchv(Fluxd::openLocalFluxd($savePth))->soundInfoArray()['secnd'], Sound::openFluxdArchv(Fluxd::openLocalFluxd($savePth))->soundInfoArray()['tagsl']), Array('part.mp3', 1.019, Array()));
-checkPregMatch('a file that cannot be written', runCatchThrown(function() use ($mp3Snd, $tempDir){ return $mp3Snd->setLocalString($tempDir.'/none/part.mp3'); }), '/^THROWN RuntimeException: File cannot be written: part.mp3/');
+$savePth = $mp3Snd->makeSoundSlice(0, 1)->writeLocalFile($tempDir.'/part.mp3');
+checkIdentical('a part of a sound written to a file', Array(basename($savePth), Sound::openFluxdSound(Fluxd::openLocalFluxd($savePth))->soundInfoArray()['secnd'], Sound::openFluxdSound(Fluxd::openLocalFluxd($savePth))->soundInfoArray()['tagsl']), Array('part.mp3', 1.019, Array()));
+checkPregMatch('a file that cannot be written', runCatchThrown(function() use ($mp3Snd, $tempDir){ return $mp3Snd->writeLocalFile($tempDir.'/none/part.mp3'); }), '/^THROWN RuntimeException: File cannot be written: part.mp3/');
 dropTestFolder($tempDir);
 
 finishChecking();

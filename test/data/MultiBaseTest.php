@@ -54,10 +54,10 @@ checkPregMatch('a database is only opened when asked for: a faulty one does not 
 checkIdentical('a transaction on one database leaves the other alone', runCatchThrown(function(){
 	$mainHdl = DBCon::linkNamedDbCon()->readConnection();
 	$archHdl = DBCon::linkNamedDbCon('archive')->readConnection();
-	$mainHdl->opnTransaction();
+	$mainHdl->newTransaction();
 	$mainHdl->sendBuiltQuery('DELETE FROM `shows` WHERE `id_show`=?', true, Array(5));
 	$archHdl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Vault', 1));
-	$mainHdl->remTransaction();
+	$mainHdl->delTransaction();
 	$archHdl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(1));
 	return Array(showsOn(DBCon::linkNamedDbCon()), $archHdl->readLastResult(true)[0]['venue']);
 }), Array(5, 'Vault'));
@@ -72,7 +72,7 @@ class MainShow extends nyu\Data\DBLst {
 	}
 }
 class ArchShow extends nyu\Data\DBLst {
-	protected $dbaseLabel = 'archive';
+	protected $dbLinkName = 'archive';
 	/**
 	 * A list of shows in the archive, unless a connection is given.
 	 *
@@ -83,7 +83,7 @@ class ArchShow extends nyu\Data\DBLst {
 	}
 }
 class ArchRecd extends nyu\Data\DBRec {
-	protected $dbaseLabel = 'archive';
+	protected $dbLinkName = 'archive';
 	/**
 	 * A show of the archive, with its events.
 	 */
@@ -92,7 +92,7 @@ class ArchRecd extends nyu\Data\DBRec {
 	}
 }
 class LostShow extends nyu\Data\DBLst {
-	protected $dbaseLabel = 'nowhere';
+	protected $dbLinkName = 'nowhere';
 	/**
 	 * A list naming a database that is not configured.
 	 */
@@ -142,25 +142,25 @@ $annCred = Array('user'=>'anna', 'pass'=>'pw-anna');
 
 checkIdentical('Native without linkName reads the default database', runCatchThrown(function() use ($benCred){
 	$natAuth = new Native( Array('useTable'=>'users') );
-	return $natAuth->chckCredential($benCred)['user'] ?? null;
+	return $natAuth->checkSecretArr($benCred)['userName'] ?? null;
 }), 'ben');
 checkIdentical('Native with an empty linkName reads the default database', runCatchThrown(function() use ($benCred){
 	$natAuth = new Native( Array('linkName'=>'', 'useTable'=>'users') );
-	return $natAuth->chckCredential($benCred)['user'] ?? null;
+	return $natAuth->checkSecretArr($benCred)['userName'] ?? null;
 }), 'ben');
 checkIdentical('Native reads the database linkName names', runCatchThrown(function() use ($benCred, $annCred){
 	$natAuth = new Native( Array('linkName'=>'archive', 'useTable'=>'users') );
-	return Array($natAuth->chckCredential($annCred)['user'] ?? null, $natAuth->chckCredential($benCred), $natAuth->finalErrorText());
+	return Array($natAuth->checkSecretArr($annCred)['userName'] ?? null, $natAuth->checkSecretArr($benCred), $natAuth->finalErrorText());
 }), Array('anna', false, 'Invalid credentials'));
 checkIdentical('Native on an unknown database tells nothing more', runCatchThrown(function() use ($annCred){
 	$natAuth = new Native( Array('linkName'=>'nowhere', 'useTable'=>'users') );
-	return Array($natAuth->chckCredential($annCred), $natAuth->finalErrorText(), $natAuth->makeToknString('anna'), $natAuth->onlineNowArray());
+	return Array($natAuth->checkSecretArr($annCred), $natAuth->finalErrorText(), $natAuth->makeToknString('anna'), $natAuth->onlineNowArray());
 }), Array(false, 'Credential store unavailable', false, false));
 checkIdentical('a token made in one database is unknown to the other', runCatchThrown(function(){
 	$archNat = new Native( Array('linkName'=>'archive') );
 	$mainNat = new Native( Array() );
 	$newTokn = $archNat->makeToknString('anna');
-	return Array(is_string($newTokn), $archNat->chckCredential(Array('key'=>$newTokn))['user'] ?? null, $mainNat->chckCredential(Array('key'=>$newTokn)));
+	return Array(is_string($newTokn), $archNat->checkSecretArr(Array('key'=>$newTokn))['userName'] ?? null, $mainNat->checkSecretArr(Array('key'=>$newTokn)));
 }), Array(true, 'anna', false));
 
 // The project's own access configuration: conf/access.json is kept out of

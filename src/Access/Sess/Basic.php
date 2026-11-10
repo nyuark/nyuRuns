@@ -12,7 +12,7 @@ use nyu\Access\Auth\Handler as AuthHndlr;
 class Basic implements Handler{
 
 	protected $authObject;
-	protected $lastMessag;
+	protected $errMessage;
 
 	/**
 	 * Builds the HTTP Basic carrier, with the credential check it hands over to.
@@ -22,36 +22,36 @@ class Basic implements Handler{
 	 */
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
 		$this->authObject = $authStrategy;
-		$this->lastMessag = '';
+		$this->errMessage = '';
 	}
 
 	/**
 	 * Parses the Authorization: Basic header and checks the decoded
 	 * credentials against the delegated Auth handler.
 	 *
-	 * @param Request $requstObject The shared, already-parsed HTTP request.
+	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $requstObject ): Array|Bool {
-		$authHdr = $requstObject->retrieveHeader('Authorization');
+	function verifyRqstList( Request $givenRequest ): Array|Bool {
+		$authHdr = $givenRequest->retrieveHeader('Authorization');
 		if( $authHdr===null || stripos($authHdr, 'Basic ')!==0 ){
-			$this->lastMessag = 'Missing Basic Authorization header';
+			$this->errMessage = 'Missing Basic Authorization header';
 			return false;
 		}
 		$decoded = base64_decode( substr($authHdr, 6), true );
 		if( $decoded===false || strpos($decoded, ':')===false ){
-			$this->lastMessag = 'Malformed Basic credentials';
+			$this->errMessage = 'Malformed Basic credentials';
 			return false;
 		}
 		list($gvnUser, $gvnPass) = explode( ':', $decoded, 2 );
 
 		if( $this->authObject===null ){
-			$this->lastMessag = 'No credential handler configured';
+			$this->errMessage = 'No credential handler configured';
 			return false;
 		}
-		$idntArr = $this->authObject->chckCredential( Array('user'=>$gvnUser, 'pass'=>$gvnPass) );
+		$idntArr = $this->authObject->checkSecretArr( Array('user'=>$gvnUser, 'pass'=>$gvnPass) );
 		if( $idntArr===false ){
-			$this->lastMessag = $this->authObject->finalErrorText();
+			$this->errMessage = $this->authObject->finalErrorText();
 			return false;
 		}
 		return $idntArr;
@@ -60,10 +60,10 @@ class Basic implements Handler{
 	/**
 	 * Not applicable — this is not a token-issuing strategy.
 	 *
-	 * @param Array $identtyArray Unused.
+	 * @param Array $identityList Unused.
 	 * @return String Always an empty string.
 	 */
-	function issueTokenText( Array $identtyArray ): String {
+	function issueTokenText( Array $identityList ): String {
 		return '';
 	}
 
@@ -73,6 +73,6 @@ class Basic implements Handler{
 	 * @return String The last error message.
 	 */
 	function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 }

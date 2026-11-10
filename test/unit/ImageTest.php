@@ -19,7 +19,7 @@ $dotPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
  */
 function imgOpen( String $rawContent, Int $pixelLimit=Image::MAXI_PIXL ): Mixed {
 	return runCatchThrown(function() use ($rawContent, $pixelLimit){
-		return Image::openFluxdArchv(Fluxd::openBytesFluxd($rawContent), $pixelLimit);
+		return Image::openFluxdImage(Fluxd::openBytesFluxd($rawContent), $pixelLimit);
 	});
 }
 
@@ -28,14 +28,14 @@ checkIdentical('what a picture is, told from its content', imgOpen($dotPng)->ima
 checkPregMatch('a content that is not a picture', imgOpen('<html><body><p>not a picture</p></body></html>'), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkPregMatch('an empty content', imgOpen(''), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkPregMatch('a picture cut short', imgOpen(substr($dotPng, 0, 12)), '/^THROWN RuntimeException: Not a picture of a known kind/');
-checkPregMatch('a source larger than the size accepted', runCatchThrown(function() use ($dotPng){ return Image::openFluxdArchv(Fluxd::openBytesFluxd($dotPng), Image::MAXI_PIXL, 20); }), '/^THROWN RuntimeException: Content larger than the 20 bytes allowed/');
+checkPregMatch('a source larger than the size accepted', runCatchThrown(function() use ($dotPng){ return Image::openFluxdImage(Fluxd::openBytesFluxd($dotPng), Image::MAXI_PIXL, 20); }), '/^THROWN RuntimeException: Content larger than the 20 bytes allowed/');
 // A picture claiming a huge size in a few bytes: refused from its first bytes, before anything is unpacked
 $bombPng = substr($dotPng, 0, 16).pack('NN', 60000, 60000).substr($dotPng, 24);
 checkPregMatch('a picture holding more pixels than accepted is refused before it is unpacked', imgOpen($bombPng), '/^THROWN RuntimeException: Picture larger than the 32000000 pixels allowed/');
 checkIdentical('the limit can be raised, or lowered', Array(imgOpen($bombPng, 4000000000)->imageInfoArray()['width'], preg_replace('/ @.*$/', '', imgOpen($dotPng, 0))), Array(60000, 'THROWN RuntimeException: Picture larger than the 0 pixels allowed'));
 
 if( !function_exists('imagecreatetruecolor') ){
-	checkPregMatch('changing a picture asks for the gd extension', runCatchThrown(function() use ($dotPng){ return Image::openFluxdArchv(Fluxd::openBytesFluxd($dotPng))->resizeFitImage(10, 10); }), '/^THROWN RuntimeException: Pictures need the gd extension of PHP to be changed/');
+	checkPregMatch('changing a picture asks for the gd extension', runCatchThrown(function() use ($dotPng){ return Image::openFluxdImage(Fluxd::openBytesFluxd($dotPng))->resizeFitImage(10, 10); }), '/^THROWN RuntimeException: Pictures need the gd extension of PHP to be changed/');
 	recordSkipping('pictures made from pictures', 'the gd extension is not loaded');
 	finishChecking();
 }
@@ -210,17 +210,17 @@ checkIdentical('an animated picture gives its first image', runCatchThrown(funct
 
 // Saving
 checkIdentical('a picture saved to a file is a picture of the kind asked for', runCatchThrown(function() use ($quadImg){
-	$savePth = $quadImg->resizeFitImage(50, 50)->setLocalString(inTemporaryDir('thumb.jpg'), 'jpg', 80);
-	$backInf = Image::openFluxdArchv(Fluxd::openLocalFluxd($savePth))->imageInfoArray();
+	$savePth = $quadImg->resizeFitImage(50, 50)->writeLocalFile(inTemporaryDir('thumb.jpg'), 'jpg', 80);
+	$backInf = Image::openFluxdImage(Fluxd::openLocalFluxd($savePth))->imageInfoArray();
 	return Array(basename($savePth), $backInf['kinds'], $backInf['width'], $backInf['heght'], $backInf['bytes']===filesize($savePth));
 }), Array('thumb.jpg', 'jpg', 50, 25, true));
-checkPregMatch('a file that cannot be written is refused, without its full path', runCatchThrown(function() use ($quadImg){ return $quadImg->setLocalString(inTemporaryDir('nowhere'.DS.'deep'.DS.'x.png')); }), '/^THROWN RuntimeException: File cannot be written: x\.png/');
+checkPregMatch('a file that cannot be written is refused, without its full path', runCatchThrown(function() use ($quadImg){ return $quadImg->writeLocalFile(inTemporaryDir('nowhere'.DS.'deep'.DS.'x.png')); }), '/^THROWN RuntimeException: File cannot be written: x\.png/');
 
 // Damaged pictures
 checkPregMatch('a picture whose first bytes are right and whose content is damaged', runCatchThrown(function(){
 	$quadPng = drawQuad(400, 200);
 	return imgOpen(substr($quadPng, 0, 60).str_repeat("\x00", 200))->resizeFitImage(10, 10);
 }), '/^THROWN RuntimeException: Picture that cannot be read/');
-checkIdentical('no PHP warning is left behind, by a refusal or otherwise', takeNotesArray(), Array());
+checkIdentical('no PHP warning is left behind, by a refusal or otherwise', takePhpNotices(), Array());
 
 finishChecking();

@@ -17,11 +17,11 @@ class SampleAuth implements AuthHndlr{
 	/**
 	 * Accepts the key "sample-key" alone.
 	 *
-	 * @param Array $crdntlsArray Must contain a 'key' entry.
+	 * @param Array $loginDataArr Must contain a 'key' entry.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	public function chckCredential( Array $crdntlsArray ): Array|Bool {
-		return ( ($crdntlsArray['key'] ?? '')==='sample-key' ) ? Array('user'=>'sampleUser') : false;
+	public function checkSecretArr( Array $loginDataArr ): Array|Bool {
+		return ( ($loginDataArr['key'] ?? '')==='sample-key' ) ? Array('userName'=>'sampleUser') : false;
 	}
 
 	/**

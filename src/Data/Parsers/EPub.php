@@ -61,7 +61,7 @@ class EPub extends Pack {
 			}
 		}
 		// The parts a seller locked cannot be read: a book whose text is locked is refused, one whose fonts only are is not
-		$lockTxt = $this->opnArchive->locateEntryFlg('META-INF/encryption.xml') ? $this->opnArchive->getEntryString('META-INF/encryption.xml', $this->maxSizeVal) : '';
+		$lockTxt = $this->archiveObj->locateEntryFlg('META-INF/encryption.xml') ? $this->archiveObj->getEntryString('META-INF/encryption.xml', $this->maxSizeVal) : '';
 		$blckLst = Array();
 		$chptrNb = 0;
 		foreach($this->kidsNamedArray($this->findChildArray($packArr, Array('spine')) ?? Array('nodes'=>Array()), 'itemref') as $oneRef){
@@ -70,14 +70,14 @@ class EPub extends Pack {
 			if( $itemSet===null || !preg_match('/html|^$/', $itemSet['types']) || ($itemSet['types']==='' && !preg_match('/\.x?html?$/Di', $itemSet['paths'])) ){
 				continue;
 			}
-			if( !$this->opnArchive->locateEntryFlg($itemSet['paths']) ){
+			if( !$this->archiveObj->locateEntryFlg($itemSet['paths']) ){
 				throw new ParseError('Invalid archive: part '.$itemSet['paths'].' is missing');
 			}
 			if( $lockTxt!=='' && (strpos($lockTxt, '"'.$itemSet['paths'].'"')!==false || strpos($lockTxt, '"'.rawurlencode($itemSet['paths']).'"')!==false || strpos($lockTxt, '"'.str_replace('%2F', '/', rawurlencode($itemSet['paths'])).'"')!==false) ){
 				throw new ParseError('Invalid archive: the book is protected against copying');
 			}
 			try{
-				$chapter = (new XHml())->parseDataArray($this->opnArchive->getEntryString($itemSet['paths'], $this->maxSizeVal), Array('reads'=>'html', 'shape'=>'block'))['items'];
+				$chapter = (new XHml())->parseDataArray($this->archiveObj->getEntryString($itemSet['paths'], $this->maxSizeVal), Array('reads'=>'html', 'shape'=>'block'))['items'];
 			}catch( ParseError $e ){
 				throw new ParseError('Invalid archive: part '.$itemSet['paths'].': '.$e->getMessage(), 0, $e);
 			}
@@ -102,13 +102,13 @@ class EPub extends Pack {
 	/**
 	 * Gives the place in the archive of what a part points to.
 	 *
-	 * @param String $baseFoldText Folder of the part, ending with a slash, '' for the root of the archive.
+	 * @param String $baseFldrText Folder of the part, ending with a slash, '' for the root of the archive.
 	 * @param String $relativePath The address, as the part writes it: from its own folder, with or without a place in the page after #.
 	 * @return String The place in the archive.
 	 */
-	protected function mergePathsText(String $baseFoldText, String $relativePath): String {
+	protected function mergePathsText(String $baseFldrText, String $relativePath): String {
 		$pthPart = Array();
-		foreach(explode('/', $baseFoldText.rawurldecode(preg_replace('/[#?].*$/s', '', $relativePath))) as $oneDir){
+		foreach(explode('/', $baseFldrText.rawurldecode(preg_replace('/[#?].*$/s', '', $relativePath))) as $oneDir){
 			if( $oneDir=='..' ){
 				array_pop($pthPart);
 			}elseif( $oneDir!=='' && $oneDir!='.' ){
@@ -124,16 +124,16 @@ class EPub extends Pack {
 	 * image kept outside the book keeps its address.
 	 *
 	 * @param Array  $bookBlockSet The blocks, at any depth.
-	 * @param String $baseFoldText Folder of the chapter, ending with a slash.
+	 * @param String $baseFldrText Folder of the chapter, ending with a slash.
 	 * @return Array The blocks.
 	 */
-	protected function positionImages(Array $bookBlockSet, String $baseFoldText): Array {
+	protected function positionImages(Array $bookBlockSet, String $baseFldrText): Array {
 		foreach($bookBlockSet as $blkIdx=>$oneBlk){
 			if( $oneBlk['block']=='imageBox' && !preg_match('/^(?:[a-z][a-z0-9+.\-]*:|\/|#)/i', strval($oneBlk['attrs']['sourc'] ?? '')) ){
-				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $this->mergePathsText($baseFoldText, strval($oneBlk['attrs']['sourc'] ?? ''));
+				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $this->mergePathsText($baseFldrText, strval($oneBlk['attrs']['sourc'] ?? ''));
 			}
 			if( !empty($oneBlk['items']) ){
-				$bookBlockSet[$blkIdx]['items'] = $this->positionImages($oneBlk['items'], $baseFoldText);
+				$bookBlockSet[$blkIdx]['items'] = $this->positionImages($oneBlk['items'], $baseFldrText);
 			}
 		}
 		return $bookBlockSet;

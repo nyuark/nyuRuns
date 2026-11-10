@@ -51,7 +51,7 @@ class Mdwn extends Base {
 	 * @param String $templateText The text.
 	 * @return String The text, safe to write.
 	 */
-	protected function escapeXmlValue(String $templateText): String {
+	protected function escapeMdwnText(String $templateText): String {
 		$safeTxt = preg_replace('/[\\\\`*\[\]]/', '\\\\$0', $templateText);
 		// An underscore marks only against a word; a tilde only doubled; < and & only where an address or a character code could be read
 		$safeTxt = preg_replace('/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/u', '\\\\_', $safeTxt);
@@ -78,7 +78,7 @@ class Mdwn extends Base {
 	 * @param String $linkGoalText The address.
 	 * @return String The address, between angle brackets when it holds a space or a bracket; '' when it is not safe to follow.
 	 */
-	protected function destintnOfLink(String $linkGoalText): String {
+	protected function linkTargetText(String $linkGoalText): String {
 		$linkAdr = Shape::tidyLinkString($linkGoalText);
 		if( $linkAdr!=='' && preg_match('/[\s()<>]/', $linkAdr) ){
 			return '<'.str_replace(Array('<', '>', "\r", "\n"), Array('%3C', '%3E', '', ''), $linkAdr).'>';
@@ -121,7 +121,7 @@ class Mdwn extends Base {
 				$coreTxt = $tickTxt.(($coreTxt[0]=='`' || substr($coreTxt, -1)=='`') ? ' '.$coreTxt.' ' : $coreTxt).$tickTxt;
 				$coreTxt = $flattenLines ? str_replace("\n", ' ', $coreTxt) : $coreTxt;
 			}else{
-				$coreTxt = str_replace("\n", $flattenLines ? ' ' : "\\\n", $this->escapeXmlValue($coreTxt));
+				$coreTxt = str_replace("\n", $flattenLines ? ' ' : "\\\n", $this->escapeMdwnText($coreTxt));
 			}
 			if( in_array('crossOut', $markLst) ){
 				$coreTxt = '~~'.$coreTxt.'~~';
@@ -132,7 +132,7 @@ class Mdwn extends Base {
 				$markChr = (substr($outText, -1)=='*' && $edgPart[1]==='') ? '_' : '*';
 				$coreTxt = str_repeat($markChr, $starNum).$coreTxt.str_repeat($markChr, $starNum);
 			}
-			$linkUrl = $this->destintnOfLink($linkAdr);
+			$linkUrl = $this->linkTargetText($linkAdr);
 			if( $linkUrl!=='' ){
 				$coreTxt = '['.$coreTxt.']('.$linkUrl.')';
 			}
@@ -189,7 +189,7 @@ class Mdwn extends Base {
 				// A cell holds on one line: what it holds besides its text follows it there
 				$rawCell = $this->writeInlineTxt((array)$celBlk['spans'], true);
 				foreach((array)$celBlk['items'] as $oneBlk){
-					$rawCell = trim($rawCell.' '.$this->escapeXmlValue(preg_replace('/\s+/', ' ', Shape::blockPlainText($oneBlk))));
+					$rawCell = trim($rawCell.' '.$this->escapeMdwnText(preg_replace('/\s+/', ' ', Shape::blockPlainText($oneBlk))));
 				}
 				$cellTxt[] = str_replace('|', '\\|', $rawCell);
 			}
@@ -243,7 +243,7 @@ class Mdwn extends Base {
 			}elseif( $blckKnd=='citation' ){
 				$qutText = $this->innerOutString($oneBlk);
 				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
-				$qutText .= ($citeTxt==='') ? '' : (($qutText==='') ? '' : "\n\n").'— '.$this->escapeXmlValue($citeTxt);
+				$qutText .= ($citeTxt==='') ? '' : (($qutText==='') ? '' : "\n\n").'— '.$this->escapeMdwnText($citeTxt);
 				$blckTxt = ($qutText==='') ? '' : preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $qutText);
 			}elseif( $blckKnd=='codeBlck' ){
 				// The lines of marks around code are longer than any the code holds
@@ -253,8 +253,8 @@ class Mdwn extends Base {
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
 				$blckTxt = $tickTxt.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? $codeLng : '')."\n".$codeTxt."\n".$tickTxt;
 			}elseif( $blckKnd=='imageBox' ){
-				$imgLink = $this->destintnOfLink(strval($oneBlk['attrs']['sourc'] ?? ''));
-				$blckTxt = ($imgLink==='') ? '' : '!['.$this->escapeXmlValue(str_replace("\n", ' ', strval($oneBlk['plain'] ?? ''))).']('.$imgLink.')';
+				$imgLink = $this->linkTargetText(strval($oneBlk['attrs']['sourc'] ?? ''));
+				$blckTxt = ($imgLink==='') ? '' : '!['.$this->escapeMdwnText(str_replace("\n", ' ', strval($oneBlk['plain'] ?? ''))).']('.$imgLink.')';
 			}elseif( $blckKnd=='ruleLine' ){
 				$blckTxt = '---';
 			}elseif( $blckKnd=='footnote' ){

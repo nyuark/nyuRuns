@@ -361,7 +361,7 @@ checkIdentical('one parser, several documents: a note, a comment or an option of
 	$envlope = $prsrObj->parseFluxArray(Fluxd::openLocalFluxd(makeOdt('next.odt', oPar('c<text:note text:note-class="footnote"><text:note-body>'.oPar('n').'</text:note-body></text:note>').oPar(''))));
 	return Array(blkLines($envlope['items']), array_keys($envlope['infos']));
 }), Array(Array('paragrph [c][1|>#fnote1]', 'paragrph', 'footnote {"tagid":"fnote1","numbr":1} [n]'), Array('title', 'authr', 'props', 'frmat', 'phead', 'pfoot')));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
 checkIdentical('index: texts by extension and by content type', Array(get_class(Index::forExtnsParser('ODT')), get_class(Index::findTypeParser('application/vnd.oasis.opendocument.text'))), Array('nyu\Data\Parsers\Odtx', 'nyu\Data\Parsers\Odtx'));

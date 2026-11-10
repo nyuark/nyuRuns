@@ -115,12 +115,12 @@ writeInProject($projDir, 'composer.json', '{ "require": {} }');
 // The modes of the project : declared, listed, built, changed and removed
 checkIdentical('packs lists the modes of the framework', array_column(runShellAsJson($projDir, Array('bundling', 'fullList'))['rows'] ?? Array(), 'kind', 'mode'), Array('localdev'=>'framework', 'preprods'=>'framework', 'releases'=>'framework'));
 $jsnVals = runShellAsJson($projDir, Array('bundling', 'makeMode', 'qaserver', '--noPrompt'));
-checkIdentical('mkpak declares a mode, TEST, errors shown and full logs unless told otherwise', Array($jsnVals['mode declared'] ?? null, json_decode(strval(fetchInProject($projDir, 'conf/bundle.lst')), true)), Array('qaserver', Array('qaserver'=>Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'adding'=>Array()))));
+checkIdentical('mkpak declares a mode, TEST, errors shown and full logs unless told otherwise', Array($jsnVals['mode declared'] ?? null, json_decode(strval(fetchInProject($projDir, 'conf/bundle.lst')), true)), Array('qaserver', Array('qaserver'=>Array('settings'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'addPaths'=>Array()))));
 $runVals = callShellArray($projDir, Array('bundling', 'makeMode', 'qaserver'), "\nE_ALL & ~E_DEPRECATED\nfalse\nbase\ntest\n");
 checkIdentical('mkpak changes it, the present values proposed', Array($runVals['code'], $runVals['errs'], json_decode(strval(fetchInProject($projDir, 'conf/bundle.lst')), true)['qaserver'] ?? null), Array(0,
 	'Environment (DEVS, TEST, PREV, PROD) [TEST]: Errors reported (E_* names joined by |, & and ~) [E_ALL]: Show errors (TRUE, FALSE) [TRUE]: Logging mode (FULL, BASE, MINI) [FULL]: Paths the bundle adds, separated by commas (none for none) [none]: ',
-	Array('system'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL & ~E_DEPRECATED', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'), 'adding'=>Array('test'))));
-checkIdentical('packs lists it with the others', runShellAsJson($projDir, Array('bundling', 'fullList'))['rows'][3] ?? null, Array('mode'=>'qaserver', 'kind'=>'project', 'settings'=>'ENV_NAME=TEST, ERR_LEVL=E_ALL & ~E_DEPRECATED, ERR_SHOW=FALSE, LOG_MODE=BASE', 'adding'=>'test'));
+	Array('settings'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL & ~E_DEPRECATED', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'), 'addPaths'=>Array('test'))));
+checkIdentical('packs lists it with the others', runShellAsJson($projDir, Array('bundling', 'fullList'))['rows'][3] ?? null, Array('mode'=>'qaserver', 'kind'=>'project', 'settings'=>'ENV_NAME=TEST, ERR_LEVL=E_ALL & ~E_DEPRECATED, ERR_SHOW=FALSE, LOG_MODE=BASE', 'addPaths'=>'test'));
 $runVals = callShellArray($projDir, Array('bundling', 'qaserver'));
 $qatList = array_merge($keptLst, Array('test/unit/SomeTest.php'));
 sort($qatList);
@@ -133,15 +133,15 @@ checkIdentical('an environment, a setting, a path, an error level that cannot be
 	callShellArray($projDir, Array('bundling', 'makeMode', 'othermod'), "\n\n\n\n../outside\n")['code'], callShellArray($projDir, Array('bundling', 'makeMode', 'othermod'), "\n\n\n\nsrc\n")['code'], callShellArray($projDir, Array('bundling', 'makeMode', 'othermod'), "\n\n\n\n.git\n")['code'], callShellArray($projDir, Array('bundling', 'makeMode', 'othermod'), "\n\n\n\nnowhere\n")['code'], callShellArray($projDir, Array('bundling', 'makeMode', 'othermod'), "\nE_ALL or E_ERROR\n\n\n\n")['code']), Array(3, 3, 3, 3, 3, 3, 3));
 checkIdentical('nothing refused was written', array_keys(json_decode(strval(fetchInProject($projDir, 'conf/bundle.lst')), true)), Array('qaserver'));
 $lstText = strval(fetchInProject($projDir, 'conf/bundle.lst'));
-writeInProject($projDir, 'conf/bundle.lst', '{ "badmodes": { "system": { "ENV_NAME": "LIVE" }, "adding": [] } }');
+writeInProject($projDir, 'conf/bundle.lst', '{ "badmodes": { "settings": { "ENV_NAME": "LIVE" }, "addPaths": [] } }');
 checkIdentical('a list of modes written by hand that holds what is not one', Array(callShellArray($projDir, Array('bundling', 'fullList'))['code'], strpos(callShellArray($projDir, Array('bundling', 'fullList'))['errs'], 'conf/bundle.lst: the mode badmodes cannot be used')!==false), Array(3, true));
 writeInProject($projDir, 'conf/bundle.lst', $lstText);
 
 // A key comes along only when a mode names that very file
-writeInProject($projDir, 'conf/bundle.lst', '{ "checkkey": { "system": { "ENV_NAME": "PROD" }, "adding": [ "conf/keys/issuer.pub" ] } }');
+writeInProject($projDir, 'conf/bundle.lst', '{ "checkkey": { "settings": { "ENV_NAME": "PROD" }, "addPaths": [ "conf/keys/issuer.pub" ] } }');
 $runVals = callShellArray($projDir, Array('bundling', 'checkkey'));
 checkIdentical('a mode naming the public key of the server issuing the tokens gets it, and only it', Array($runVals['code'], array_values(array_filter(filesOfDr($distDir.DS.'checkkey'), function( String $filePathNm ): Bool { return strpos($filePathNm, 'conf/keys/')===0; }))), Array(0, Array('conf/keys/issuer.pub')));
-writeInProject($projDir, 'conf/bundle.lst', '{ "checkkey": { "system": { "ENV_NAME": "PROD" }, "adding": [ "conf/keys" ] } }');
+writeInProject($projDir, 'conf/bundle.lst', '{ "checkkey": { "settings": { "ENV_NAME": "PROD" }, "addPaths": [ "conf/keys" ] } }');
 checkIdentical('a folder of keys named by a mode brings back nothing', callShellArray($projDir, Array('bundling', 'checkkey'))['code'], 3);
 writeInProject($projDir, 'conf/bundle.lst', $lstText);
 // The secrets conf/access.json names, wherever they lie

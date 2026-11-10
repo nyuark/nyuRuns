@@ -89,7 +89,7 @@ checkIdentical('the marker at the start of a table is told, whatever its kind, a
 checkIdentical('a UTF-8 table with its marker', tblRows("\xEF\xBB\xBFTitre,Lieu\nÉté,Théâtre\n", Array('heads'=>true)), Array(Array('Titre'=>'Été', 'Lieu'=>'Théâtre')));
 checkIdentical('a table saved by an older tool, read as Windows-1252', tblRows("Titre;Prix\n\xC9t\xE9;12 \x80\n"), Array(Array('Titre', 'Prix'), Array('Été', '12 €')));
 checkIdentical('a UTF-16 table, as a spreadsheet exports its text', tblRows("\xFF\xFE".iconv('UTF-8', 'UTF-16LE', "Titre\tLieu\r\nÉté\tThéâtre\r\n")), Array(Array('Titre', 'Lieu'), Array('Été', 'Théâtre')));
-checkIdentical('no PHP warning along the way', takeNotesArray(), Array());
+checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
 checkIdentical('index: tables by extension and by content type', Array(get_class(Index::forExtnsParser('csv')), get_class(Index::forExtnsParser('TSV')), get_class(Index::forExtnsParser('tab')), get_class(Index::findTypeParser('text/csv; charset=utf-8')), get_class(Index::findTypeParser('text/tab-separated-values')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::typeOptionsArr('text/tab-separated-values')), Array('nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep')));

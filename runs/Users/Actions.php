@@ -30,9 +30,9 @@ class Actions extends Actionset {
 	public function fullList(): Void {
 		$usrBase = $this->requireManager('GET');
 		$usrList = $usrBase->listUsersNamed(
-			Array('userStatus'=>$this->inptRgstry->readFileDetail('stat'), 'accessRole'=>$this->inptRgstry->readFileDetail('role')),
-			intval($this->inptRgstry->readFileDetail('limit')),
-			intval($this->inptRgstry->readFileDetail('offset'))
+			Array('userStatus'=>$this->inputsRgst->readValueByKey('stat'), 'accessRole'=>$this->inputsRgst->readValueByKey('role')),
+			intval($this->inputsRgst->readValueByKey('limit')),
+			intval($this->inputsRgst->readValueByKey('offset'))
 		);
 		if($usrList===false){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -69,10 +69,10 @@ class Actions extends Actionset {
 	public function makeUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		$gvnRole = $this->inptRgstry->readFileDetail('role');
-		$gvnMail = $this->inptRgstry->readFileDetail('mail');
+		$gvnRole = $this->inputsRgst->readValueByKey('role');
+		$gvnMail = $this->inputsRgst->readValueByKey('mail');
 		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
-		$gvnLang = $this->inptRgstry->readFileDetail('lang');
+		$gvnLang = $this->inputsRgst->readValueByKey('lang');
 		$gvnLang = is_string($gvnLang) ? $gvnLang : null;
 		$mailObj = ($gvnMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
 		$newCode = $usrBase->enrolUsrString( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS, $gvnLang );
@@ -111,8 +111,8 @@ class Actions extends Actionset {
 	public function setEmail(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		$gvnMail = $this->inptRgstry->readFileDetail('mail');
-		if(!$usrBase->chngeEmailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
+		$gvnMail = $this->inputsRgst->readValueByKey('mail');
+		if(!$usrBase->changeMailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
@@ -128,7 +128,7 @@ class Actions extends Actionset {
 	public function language(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		$gvnLang = $this->inptRgstry->readFileDetail('lang');
+		$gvnLang = $this->inputsRgst->readValueByKey('lang');
 		if(!$usrBase->changeLanguage($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
@@ -171,7 +171,7 @@ class Actions extends Actionset {
 	public function giveRole(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
-		$gvnRole = $this->inptRgstry->readFileDetail('role');
+		$gvnRole = $this->inputsRgst->readValueByKey('role');
 		if(!$usrBase->changeRoleFlag($gvnUser, is_string($gvnRole) ? $gvnRole : '')){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
@@ -233,7 +233,7 @@ class Actions extends Actionset {
 	 */
 	protected function requireManager( String $httpMthdText ): UserBase {
 		$this->needsActionRle( array_slice(Checker::ROLE_LIST, -1)[0] );
-		if($this->httpRequst===null || !$this->httpRequst->usedMethodFlag($httpMthdText)){
+		if($this->requestObj===null || !$this->requestObj->usedMethodFlag($httpMthdText)){
 			$this->stopThisAction(405, 'Method Not Allowed');
 		}
 		$usrBase = UserBase::fromLoginBlock();
@@ -252,11 +252,11 @@ class Actions extends Actionset {
 	 * @return String The name of the user.
 	 */
 	protected function givenUsrString( Bool $notOnOwnAcnt ): String {
-		$gvnUser = $this->inptRgstry->readFileDetail('user');
+		$gvnUser = $this->inputsRgst->readValueByKey('user');
 		if(!is_string($gvnUser) || $gvnUser==''){
 			$this->stopThisAction(400, 'Invalid user');
 		}
-		if($notOnOwnAcnt && $gvnUser===strval($this->accessRgst->readFileDetail('user'))){
+		if($notOnOwnAcnt && $gvnUser===strval($this->accessRgst->readValueByKey('userName'))){
 			$this->stopThisAction(409, 'A manager cannot do this to its own account');
 		}
 		return $gvnUser;

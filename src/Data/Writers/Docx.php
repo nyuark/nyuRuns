@@ -40,7 +40,7 @@ class Docx extends Page {
 	// The notes of the document, by their kind then their name: the block of each
 	protected $remarkList = Array();
 	// The notes the text has referred to so far, by their kind then their name: the number Word knows each by
-	protected $noteRfrncs = Array();
+	protected $citedNotes = Array();
 	// Whether the part being written may not refer to a note: only the text of the document may
 	protected $notesMuted = false;
 	// The styles of the content written as styles of the document: name in small letters => id
@@ -85,11 +85,11 @@ class Docx extends Page {
 		$this->pictureLst = Array();
 		$this->mediaFiles = Array();
 		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
-		$blckLst = ($shapeAs=='sheet') ? $this->writeAllSheets((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$blckLst = ($shapeAs=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
 		$this->knownLinks = Array();
 		$this->numbersLst = Array();
 		$this->anchorList = Array();
-		$this->noteRfrncs = Array('fnote'=>Array(), 'enote'=>Array());
+		$this->citedNotes = Array('fnote'=>Array(), 'enote'=>Array());
 		// The notes are taken out of the text: each is written where the text refers to it
 		$this->remarkList = $this->takeNotesArray($blckLst);
 		$stylTxt = $this->stylePieceText((array)($infoArr['frmat'] ?? Array()), $blckLst);
@@ -121,8 +121,8 @@ class Docx extends Page {
 		// The notes the text referred to: those of the pages, those of the end
 		$lostLst = Array();
 		foreach(Array('fnote'=>Array('footnote', 'rId5'), 'enote'=>Array('endnote', 'rId6')) as $nteKnd=>$nteSet){
-			$lostLst = array_merge($lostLst, array_values(array_diff_key($this->remarkList[$nteKnd], $this->noteRfrncs[$nteKnd])));
-			if( empty($this->noteRfrncs[$nteKnd]) ){
+			$lostLst = array_merge($lostLst, array_values(array_diff_key($this->remarkList[$nteKnd], $this->citedNotes[$nteKnd])));
+			if( empty($this->citedNotes[$nteKnd]) ){
 				continue;
 			}
 			$this->knownLinks = Array();
@@ -335,7 +335,7 @@ class Docx extends Page {
 	protected function notesPieceText(String $noteTypeCode, String $wordNoteName): String {
 		$noteTxt = '<w:'.$wordNoteName.' w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:'.$wordNoteName.'><w:'.$wordNoteName.' w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:'.$wordNoteName.'>';
 		$styleId = ucfirst($wordNoteName);
-		foreach($this->noteRfrncs[$noteTypeCode] as $noteId=>$noteNb){
+		foreach($this->citedNotes[$noteTypeCode] as $noteId=>$noteNb){
 			$noteArr = $this->remarkList[$noteTypeCode][$noteId];
 			$spanLst = array_values((array)($noteArr['spans'] ?? Array()));
 			// The number of the note, a space, then its text: the space is Word's, not the note's
@@ -629,10 +629,10 @@ class Docx extends Page {
 			$matches = Array();
 			if( preg_match('/^#((fnote|enote)\d+)$/D', $linkAdr, $matches) && isset($this->remarkList[$matches[2]][$matches[1]]) ){
 				// A note is referred to once, from the text of the document: Word numbers it, and writes its number
-				if( !$this->notesMuted && !isset($this->noteRfrncs[$matches[2]][$matches[1]]) ){
-					$this->noteRfrncs[$matches[2]][$matches[1]] = count($this->noteRfrncs[$matches[2]])+1;
+				if( !$this->notesMuted && !isset($this->citedNotes[$matches[2]][$matches[1]]) ){
+					$this->citedNotes[$matches[2]][$matches[1]] = count($this->citedNotes[$matches[2]])+1;
 					$wordNme = ($matches[2]=='fnote') ? 'footnote' : 'endnote';
-					$runsTxt .= '<w:r><w:rPr><w:rStyle w:val="'.ucfirst($wordNme).'Reference"/></w:rPr><w:'.$wordNme.'Reference w:id="'.$this->noteRfrncs[$matches[2]][$matches[1]].'"/></w:r>';
+					$runsTxt .= '<w:r><w:rPr><w:rStyle w:val="'.ucfirst($wordNme).'Reference"/></w:rPr><w:'.$wordNme.'Reference w:id="'.$this->citedNotes[$matches[2]][$matches[1]].'"/></w:r>';
 					continue;
 				}
 				// Any other reference to it is the text it shows

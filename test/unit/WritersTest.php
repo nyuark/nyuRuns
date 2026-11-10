@@ -38,17 +38,17 @@ class CountOut implements Writer {
 }
 
 // The index
-checkIdentical('index: the writer of an extension, whatever its case', Array(get_class(Index::forExtnsParser('html')), get_class(Index::forExtnsParser('HTM')), get_class(Index::forExtnsParser('json')), get_class(Index::forExtnsParser('Jsonl')), get_class(Index::forExtnsParser('yaml')), get_class(Index::forExtnsParser('yml')), Index::forExtnsParser('exe'), Index::forExtnsParser('')), Array('nyu\Data\Writers\Html', 'nyu\Data\Writers\Html', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Yaml', 'nyu\Data\Writers\Yaml', null, null));
+checkIdentical('index: the writer of an extension, whatever its case', Array(get_class(Index::forExtnsWriter('html')), get_class(Index::forExtnsWriter('HTM')), get_class(Index::forExtnsWriter('json')), get_class(Index::forExtnsWriter('Jsonl')), get_class(Index::forExtnsWriter('yaml')), get_class(Index::forExtnsWriter('yml')), Index::forExtnsWriter('exe'), Index::forExtnsWriter('')), Array('nyu\Data\Writers\Html', 'nyu\Data\Writers\Html', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Yaml', 'nyu\Data\Writers\Yaml', null, null));
 checkIdentical('index: the options an extension is written with', Array(Index::optionsOfExtns('json'), Index::optionsOfExtns('jsonl'), Index::optionsOfExtns('NDJSON'), Index::optionsOfExtns('exe')), Array(Array(), Array('lines'=>true), Array('lines'=>true), Array()));
 checkIdentical('index: the content type a reply is sent with', Array(Index::contentTypeFor('html'), Index::contentTypeFor('JSON'), Index::contentTypeFor('ndjson'), Index::contentTypeFor('yml'), Index::contentTypeFor('exe')), Array('text/html; charset=utf-8', 'application/json; charset=utf-8', 'application/x-ndjson; charset=utf-8', 'application/yaml; charset=utf-8', ''));
 checkIdentical('index: a writer of the application is added, with its options and its content type', runCatchThrown(function(){
 	Index::registerWriter('CNT', '\CountOut', Array('x'=>1), 'text/plain; charset=utf-8');
-	return Array(Index::forExtnsParser('cnt')->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array(1, 2, 3))), Index::optionsOfExtns('cnt'), Index::contentTypeFor('Cnt'));
+	return Array(Index::forExtnsWriter('cnt')->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array(1, 2, 3))), Index::optionsOfExtns('cnt'), Index::contentTypeFor('Cnt'));
 }), Array('3', Array('x'=>1), 'text/plain; charset=utf-8'));
 checkIdentical('index: a writer added without content type is sent as bytes; one of this namespace by its short name', runCatchThrown(function(){
 	Index::registerWriter('bin', '\CountOut');
 	Index::registerWriter('page', 'Html', Array('whole'=>true), 'text/html');
-	return Array(Index::contentTypeFor('bin'), get_class(Index::forExtnsParser('page')), Index::optionsOfExtns('page'));
+	return Array(Index::contentTypeFor('bin'), get_class(Index::forExtnsWriter('page')), Index::optionsOfExtns('page'));
 }), Array('application/octet-stream', 'nyu\Data\Writers\Html', Array('whole'=>true)));
 checkPregMatch('index: a class that is not a writer is refused', runCatchThrown(function(){ Index::registerWriter('bad', '\stdClass'); }), '/^THROWN RuntimeException: Not a writer: \\\\stdClass/');
 checkPregMatch('index: a class that does not exist is refused', runCatchThrown(function(){ Index::registerWriter('bad', 'Nowhere'); }), '/^THROWN RuntimeException: Not a writer: Nowhere/');
@@ -130,6 +130,6 @@ checkIdentical('yaml: a file read then written then read is unchanged', runCatch
 	$frstArr = $prsrObj->parseDataArray("# A settings file\nname: Alpha Night   # the show\n\"quoted key\": 'it''s'\nzip: 0123\nurl: http://nyuark.test/a#b\ntags: [a, \"b, c\", 3, {k: v}]\nvenue:\n  rooms:\n    - one\n    - name: two\n      seats: 40\ntext: |\n  line one\n    indented\nfolded: >-\n  one\n  two\n")['items'];
 	return $prsrObj->parseDataArray(putVals($yamlObj, $frstArr))['items']===$frstArr;
 }), true);
-checkIdentical('one writer, several contents; no PHP warning along the way', Array(putVals($yamlObj, Array('a'=>1)), putVals($jsonObj, Array('a'=>1)), takeNotesArray()), Array("a: 1\n", '{"a":1}', Array()));
+checkIdentical('one writer, several contents; no PHP warning along the way', Array(putVals($yamlObj, Array('a'=>1)), putVals($jsonObj, Array('a'=>1)), takePhpNotices()), Array("a: 1\n", '{"a":1}', Array()));
 
 finishChecking();

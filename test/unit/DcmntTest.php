@@ -113,7 +113,7 @@ checkIdentical('the preset files of the project are JSON with comment lines too'
 checkIdentical('config files: named in upper case; JSON keys upper-cased, INI keys as written', runCatchThrown(function(){
 	$cnfLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'conf', 'fileName'=>'database,system')) );
 	$cnfVals = $cnfLoad->retrieveConfig();
-	return Array(array_keys($cnfVals->readLinesArray()), array_keys((array)$cnfVals->readFileDetail('database')), array_slice(array_keys((array)$cnfVals->readFileDetail('system')), 0, 3));
+	return Array(array_keys($cnfVals->readLinesArray()), array_keys((array)$cnfVals->readValueByKey('database')), array_slice(array_keys((array)$cnfVals->readValueByKey('system')), 0, 3));
 }), Array(Array('DATABASE', 'SYSTEM'), Array('DBENGINE', 'HOSTNAME', 'BASENAME', 'USERNAME', 'PASSWORD'), Array('ENV_NAME', 'LOG_MODE', 'LOG_PATH')));
 
 // The envelope
@@ -133,7 +133,7 @@ checkIdentical('an INI file through Dcmnt: its keys are upper-cased when asked, 
 checkIdentical('Init: empty text gives an empty tree', itemsOf('Init', ''), Array());
 checkPregMatch('Init: invalid INI is refused, with the reason', itemsOf('Init', "a = (\n[broken\n"), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid INI content: syntax error, unexpected .* on line \d+/');
 checkPregMatch('Init: a reserved word used as a key is refused, and explained', itemsOf('Init', "name = x\noff = false\n"), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid INI content: .*a key cannot be named on, off, yes, no, true, false, null or none/');
-checkIdentical('...without any PHP warning left behind', takeNotesArray(), Array());
+checkIdentical('...without any PHP warning left behind', takePhpNotices(), Array());
 checkIdentical('Regi: the same reading, keys always in upper case', itemsOf('Regi', "a = 1\nB = two\n[s]\nc = 3\n"), Array('A'=>1, 'B'=>'two', 'C'=>3));
 checkPregMatch('Regi: invalid INI is refused like any other', itemsOf('Regi', "a = (\n[broken\n"), '/^THROWN nyu\\\\Data\\\\Parsers\\\\ParseError: Invalid INI content/');
 

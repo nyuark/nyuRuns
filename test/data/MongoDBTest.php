@@ -80,7 +80,7 @@ function docTitle( Array $whereArray ): Mixed {
 checkIdentical('the mongo type gives the MongoDB store, and no SQL handler', Array(get_class($dbStore), DBCon::linkNamedDbCon()->readConnection()), Array('nyu\Data\DBStore\MongoStore', null));
 checkIdentical('the keys given by the server are 24 hexadecimal characters', array_map(function($givenValue){ return is_string($givenValue) && preg_match('/^[0-9a-f]{24}$/', $givenValue)==1; }, $showKey), Array(true, true, true, true));
 checkIdentical('tableInfoArray', $dbStore->tableInfoArray('shows'), Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array()));
-checkIdentical('there are no transactions', Array($dbStore->canTransaction(), $dbStore->opnTransaction()), Array(false, false));
+checkIdentical('there are no transactions', Array($dbStore->canTransaction(), $dbStore->newTransaction()), Array(false, false));
 
 // Lists
 checkIdentical('list: every row', docTitle(Array()), Array('Alpha Matinee', 'Alpha Night', 'Beta Evening', 'Empty Stage'));

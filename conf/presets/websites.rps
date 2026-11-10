@@ -15,7 +15,7 @@
 	],
 	"routings": {
 		"detectBy": "autopath",
-		"pathForm": "$app/$action/$param",
+		"pathForm": "$appToRun/$doAction/$argument",
 		"routeDir": "conf/routes/websites",
 		"htmlRoot": "pages"
 	},

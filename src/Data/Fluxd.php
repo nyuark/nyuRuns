@@ -9,9 +9,9 @@ namespace nyu\Data;
  */
 class Fluxd {
 
-	protected $strmHandle;
+	protected $fileHandle;
 	protected $sourcePath;
-	protected $temprryFls = Array();
+	protected $tmpFileArr = Array();
 
 	/**
 	 * Private: a source is opened through openLocalFluxd(), openInputFluxd() or
@@ -21,7 +21,7 @@ class Fluxd {
 	 * @param ?String $sentFilePath Path of the local file behind it, null when there is none.
 	 */
 	private function __construct( Mixed $streamHandle, ?String $sentFilePath=null ){
-		$this->strmHandle = $streamHandle;
+		$this->fileHandle = $streamHandle;
 		$this->sourcePath = $sentFilePath;
 	}
 
@@ -38,18 +38,18 @@ class Fluxd {
 	 * kept from reaching the rest of the disk.
 	 *
 	 * @param String $sentFilePath Path of the file.
-	 * @param String $baseFoldText Folder the file must be in, '' for no restriction.
+	 * @param String $baseFldrText Folder the file must be in, '' for no restriction.
 	 * @return Fluxd The opened source.
 	 *
 	 * @throws \RuntimeException When the file cannot be read, or is outside the base folder.
 	 */
-	public static function openLocalFluxd( String $sentFilePath, String $baseFoldText='' ): Fluxd {
+	public static function openLocalFluxd( String $sentFilePath, String $baseFldrText='' ): Fluxd {
 		$relPath = realpath($sentFilePath);
 		if( $relPath===false || !is_file($relPath) || !is_readable($relPath) ){
 			throw new \RuntimeException('File not found: '.basename($sentFilePath));
 		}
-		if( $baseFoldText!='' ){
-			$realDir = realpath($baseFoldText);
+		if( $baseFldrText!='' ){
+			$realDir = realpath($baseFldrText);
 			if( $realDir===false || strpos($relPath, rtrim($realDir, '/\\').DIRECTORY_SEPARATOR)!==0 ){
 				throw new \RuntimeException('File outside the allowed folder: '.basename($sentFilePath));
 			}
@@ -106,11 +106,11 @@ class Fluxd {
 	 *
 	 * @throws \RuntimeException When the source is closed.
 	 */
-	protected function getOpenArchive(): Mixed {
-		if( !is_resource($this->strmHandle) ){
+	protected function readOpenStream(): Mixed {
+		if( !is_resource($this->fileHandle) ){
 			throw new \RuntimeException('The source is closed');
 		}
-		return $this->strmHandle;
+		return $this->fileHandle;
 	}
 
 	/**
@@ -122,7 +122,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the size is not positive, or the source is closed.
 	 */
 	public function getChunkString( Int $chunkBytesNb=8192 ): String|Bool {
-		$pointer = $this->getOpenArchive();
+		$pointer = $this->readOpenStream();
 		if( $chunkBytesNb<1 ){
 			throw new \RuntimeException('A piece holds at least one byte');
 		}
@@ -138,7 +138,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function getALineString(): String|Bool {
-		$lineTxt = fgets($this->getOpenArchive());
+		$lineTxt = fgets($this->readOpenStream());
 		return ($lineTxt===false) ? false : rtrim($lineTxt, "\r\n");
 	}
 
@@ -153,7 +153,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the range is not valid, or the source is closed.
 	 */
 	public function getRangeString( Int $rangeStartNb, Int $rangeUntilNb ): String {
-		$pointer = $this->getOpenArchive();
+		$pointer = $this->readOpenStream();
 		if( $rangeStartNb<0 || $rangeUntilNb<$rangeStartNb ){
 			throw new \RuntimeException('Invalid byte range: '.$rangeStartNb.'-'.$rangeUntilNb);
 		}
@@ -181,7 +181,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is larger than the limit, or is closed.
 	 */
 	public function getWholeString( ?Int $ceilingBytes=null ): String {
-		$pointer = $this->getOpenArchive();
+		$pointer = $this->readOpenStream();
 		rewind($pointer);
 		if( $ceilingBytes===null ){
 			return strval(stream_get_contents($pointer));
@@ -202,7 +202,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function stopOfFluxFlag(): Bool {
-		$pointer = $this->getOpenArchive();
+		$pointer = $this->readOpenStream();
 		$srcSize = $this->totalSizeCount();
 		return ($srcSize!==null) ? ftell($pointer)>=$srcSize : feof($pointer);
 	}
@@ -215,7 +215,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function totalSizeCount(): ?Int {
-		$strmInf = fstat($this->getOpenArchive());
+		$strmInf = fstat($this->readOpenStream());
 		return isset($strmInf['size']) ? intval($strmInf['size']) : null;
 	}
 
@@ -225,7 +225,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function rewindToOrigin(): Void {
-		rewind($this->getOpenArchive());
+		rewind($this->readOpenStream());
 	}
 
 	/**
@@ -241,7 +241,7 @@ class Fluxd {
 	 * @throws \RuntimeException When the file cannot be written, or the source is closed.
 	 */
 	public function setLocalString( ?String $saveFilePath=null ): String {
-		$pointer = $this->getOpenArchive();
+		$pointer = $this->readOpenStream();
 		if( $saveFilePath===null && $this->sourcePath!==null ){
 			return $this->sourcePath;
 		}
@@ -251,7 +251,7 @@ class Fluxd {
 			if( $savPath===false ){
 				throw new \RuntimeException('The temporary file cannot be made');
 			}
-			$this->temprryFls[] = $savPath;
+			$this->tmpFileArr[] = $savPath;
 		}
 		$savHndl = @fopen($savPath, 'wb');
 		if( $savHndl===false ){
@@ -289,16 +289,16 @@ class Fluxd {
 	 * Closing a source twice does nothing.
 	 */
 	public function closeTheSource(): Void {
-		if( is_resource($this->strmHandle) ){
-			fclose($this->strmHandle);
+		if( is_resource($this->fileHandle) ){
+			fclose($this->fileHandle);
 		}
-		$this->strmHandle = null;
-		foreach( $this->temprryFls as $oneTmp ){
+		$this->fileHandle = null;
+		foreach( $this->tmpFileArr as $oneTmp ){
 			if( is_file($oneTmp) ){
 				@unlink($oneTmp);
 			}
 		}
-		$this->temprryFls = Array();
+		$this->tmpFileArr = Array();
 	}
 
 }

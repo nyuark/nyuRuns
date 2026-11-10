@@ -21,7 +21,7 @@ class ToFile extends Driver {
 	 * @return ?String Null when it was written, or why it was not.
 	 */
 	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
-		$fldPath = $this->emailFoldrText();
+		$fldPath = $this->emailsFldrText();
 		if( !is_dir($fldPath) && !@mkdir($fldPath, 0775, true) && !is_dir($fldPath) ){
 			return 'the folder '.json_encode($fldPath).' cannot be created';
 		}
@@ -42,7 +42,7 @@ class ToFile extends Driver {
 	 *
 	 * @return String Its full path.
 	 */
-	public function emailFoldrText(): String {
+	public function emailsFldrText(): String {
 		$fldName = trim( strval($this->setupArray['mailsDir'] ?? ''), '/\\ ' );
 		return TOP_DIR.DIRECTORY_SEPARATOR.( $fldName!='' ? str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $fldName) : 'temp'.DIRECTORY_SEPARATOR.'mails' );
 	}

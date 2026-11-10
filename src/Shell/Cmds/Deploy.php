@@ -88,7 +88,7 @@ class Deploy extends Command{
 		$this->makeLocalFiles( Array('.env', 'conf/access.json') );
 		$storNme = $this->querySetupsTxt();
 		// The secrets that are still empty are made; those in use are left alone
-		$confCmd = new Config($this->optnObject, $this->printerObj, $this->inptStream);
+		$confCmd = new Config($this->optionsObj, $this->printerObj, $this->readStream);
 		$secrLst = Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
 		// The 2FA secrets of the users are stored encrypted : their key is made with the store
 		if( $storNme!='none' ){
@@ -111,7 +111,7 @@ class Deploy extends Command{
 			}
 		}
 		// A config cache brought along, or left by a former installation, is not the config of this one
-		ConfCache::clearMailCache();
+		ConfCache::clearConfCache();
 		$this->traceShellDone('Deploy: installation run, users in '.$storNme);
 		return $this->showCheckCount();
 	}
@@ -124,7 +124,7 @@ class Deploy extends Command{
 	public function invokeTestHost(): Int {
 		$chckObj = new HealthChk();
 		$chckObj->validateServer();
-		$chckObj->checkFoldWrite();
+		$chckObj->checkFldrWrite();
 		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $chckObj->rowsFoundArray() );
 		return $chckObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
 	}
@@ -146,8 +146,8 @@ class Deploy extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeUserBase(): Int {
-		$blckNme = strval($this->optnObject->shiftFirstWord() ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('useStore', strval($this->accessSettings('loginSet')['authWith'] ?? '')) );
+		$blckNme = strval($this->optionsObj->shiftFirstWord() ?? '');
+		$storNme = strval( $this->optionsObj->retrieveOption('useStore', strval($this->accessSettings('loginSet')['authWith'] ?? '')) );
 		if( !in_array($storNme, Array('nativeDb', 'userFile'), true) ){
 			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=nativeDb or --useStore=userFile', self::EXIT_HELP);
 		}
@@ -203,7 +203,7 @@ class Deploy extends Command{
 			$treeObj->$trgtNme = (object)self::STOR_CONF[$trgtNme];
 			$wrtrObj->saveJsonConfig($accPath, $treeObj);
 		}
-		if( $trgtNme=='nativeDb' && !$this->optnObject->validateOption('noPrompt') ){
+		if( $trgtNme=='nativeDb' && !$this->optionsObj->validateOption('noPrompt') ){
 			$this->queryDatabases($wrtrObj);
 		}
 		Console::loadConfigLogs();
@@ -380,7 +380,7 @@ class Deploy extends Command{
 			}
 		}
 		if( !empty($devcIds) ){
-			if( !$this->optnObject->validateOption('dropsAll') ){
+			if( !$this->optionsObj->validateOption('dropsAll') ){
 				$this->terminateShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $devcNms).'); --dropsAll revokes them', self::EXIT_DENY);
 			}
 			$lostLst[] = Array('devices', implode(', ', $devcNms).': revoked');
@@ -455,19 +455,19 @@ class Deploy extends Command{
 			$this->terminateShell('Nothing was moved: '.$e->getMessage());
 		}
 		$qtdTble = $dbHndlr->quoteFieldName( strval($configValues['useTable'] ?? 'users') );
-		$dbHndlr->opnTransaction();
+		$dbHndlr->newTransaction();
 		foreach( $usersRecords as $usrRow ){
 			$addStmt = 'INSERT INTO '.$qtdTble.' ('.implode(', ', array_map(Array($dbHndlr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
 			if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($usrRow)) ){
 				$errText = strval($dbHndlr->finalErrorText());
-				$dbHndlr->remTransaction();
+				$dbHndlr->delTransaction();
 				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['userHandle']).' cannot be written: '.$errText);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
 		if( $baseTyp=='postgres' && !$dbHndlr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHndlr->quoteFieldName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
 			$errText = strval($dbHndlr->finalErrorText());
-			$dbHndlr->remTransaction();
+			$dbHndlr->delTransaction();
 			$this->terminateShell('Nothing was moved: the identifiers cannot be set: '.$errText);
 		}
 		$dbHndlr->setTransaction();
@@ -569,7 +569,7 @@ class Deploy extends Command{
 			}
 		}
 		$lgnAuth = strval($this->accessSettings('loginSet')['authWith'] ?? '');
-		$storNme = strval( $this->optnObject->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : 'none') );
+		$storNme = strval( $this->optionsObj->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : 'none') );
 		$storNme = $this->queryAnswerTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storNme);
 		// Matched whatever its letter case, kept as the list writes it
 		foreach( self::STOR_LIST as $oneCod ){
@@ -593,7 +593,7 @@ class Deploy extends Command{
 		}
 		if( $storNme=='nativeDb' ){
 			$this->makeLocalFiles( Array('conf/database.json') );
-			if( !$this->optnObject->validateOption('noPrompt') ){
+			if( !$this->optionsObj->validateOption('noPrompt') ){
 				$this->queryDatabases($wrtrObj);
 			}
 		}
@@ -642,7 +642,7 @@ class Deploy extends Command{
 			if( $gvnPass!=='' ){
 				$nowPass = strval($nodeObj->password ?? '');
 				$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_DB_PASS';
-				$writerObject->setEnvrnmntKey(TOP_DIR.DS.'.env', $envName, $gvnPass);
+				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envName, $gvnPass);
 				$nodeObj->password = 'env:'.$envName;
 			}
 		}
@@ -663,7 +663,7 @@ class Deploy extends Command{
 	 */
 	protected function makeBasicUsers( String $storeOfUsers, String $blckNamedTxt ): Void {
 		// Tables are made: the descriptions the config cache keeps (TBL_CACH) are no longer the whole story
-		ConfCache::clearMailCache();
+		ConfCache::clearConfCache();
 		$lgnConf = $this->accessSettings('loginSet');
 		$blckNme = ($blckNamedTxt!='') ? $blckNamedTxt : ( strval($lgnConf['authWith'] ?? '')==$storeOfUsers ? strval($lgnConf['authConf'] ?? $storeOfUsers) : $storeOfUsers );
 		$blckCfg = $this->accessSettings($blckNme);
@@ -806,12 +806,12 @@ class Deploy extends Command{
 		$passLst = Array();
 		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userHandle').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
 		$acntLst = $this->queryUsersList();
-		$dbHndlr->opnTransaction();
+		$dbHndlr->newTransaction();
 		foreach( $acntLst as $usrNme => $usrRle ){
 			$passLst[$usrNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
 			if( !$dbHndlr->sendBuiltQuery($addStmt, true, Array($usrNme, $usrRle)) || !$ntvAuth->savePasswdFlag($usrNme, $passLst[$usrNme]) ){
-				$dbHndlr->remTransaction();
+				$dbHndlr->delTransaction();
 				$this->terminateShell('User '.$usrNme.' cannot be written; nothing was changed');
 			}
 		}

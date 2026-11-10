@@ -62,7 +62,7 @@ class ConfFile{
 			if( @rename($tmpPath, $filePathName) ){
 				clearstatcache(true, $filePathName);
 				if( strpos(str_replace('/', DS, $filePathName), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
-					\nyu\Setup\ConfCache::clearMailCache();
+					\nyu\Setup\ConfCache::clearConfCache();
 				}
 				return;
 			}
@@ -74,7 +74,7 @@ class ConfFile{
 			throw new \RuntimeException('File not written: '.basename($filePathName).' cannot be replaced');
 		}
 		if( strpos(str_replace('/', DS, $filePathName), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
-			\nyu\Setup\ConfCache::clearMailCache();
+			\nyu\Setup\ConfCache::clearConfCache();
 		}
 	}
 
@@ -207,7 +207,7 @@ class ConfFile{
 	 * @param String $envValueName Name of the value.
 	 * @return ?String The value, without the quotes around it; null when the file does not hold the name.
 	 */
-	public function getEnvrnmntKey( String $filePathName, String $envValueName ): ?String {
+	public function retrieveEnvKey( String $filePathName, String $envValueName ): ?String {
 		$valPart = Array();
 		if( !preg_match('/^[ \t]*'.preg_quote($envValueName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valPart) ){
 			return null;
@@ -226,7 +226,7 @@ class ConfFile{
 	 *
 	 * @throws \RuntimeException When the name or the value cannot be written in such a file, or the file cannot be written.
 	 */
-	public function setEnvrnmntKey( String $filePathName, String $envValueName, String $envValueText ): Void {
+	public function changeEnvValue( String $filePathName, String $envValueName, String $envValueText ): Void {
 		if( !preg_match('/^\w+$/D', $envValueName) || preg_match('/[\r\n]/', $envValueText) ){
 			throw new \RuntimeException('Value refused: a plain name, and no line break in the value');
 		}

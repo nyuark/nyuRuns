@@ -15,17 +15,17 @@ use nyu\Tools\ClientReg;
  */
 function agentVals( String $agentStrng ): Array {
 	$clntReg = new ClientReg( makeFakeServer(Array('HTTP_USER_AGENT'=>$agentStrng)) );
-	return Array($clntReg->readFileDetail('clSystem'), $clntReg->readFileDetail('clDevice'), $clntReg->readFileDetail('humanSys'));
+	return Array($clntReg->readValueByKey('clSystem'), $clntReg->readValueByKey('clDevice'), $clntReg->readValueByKey('humanSys'));
 }
 
 // Address, host and language
 $clntReg = new ClientReg( makeFakeServer(Array('REMOTE_ADDR'=>'203.0.113.7', 'HTTP_ACCEPT_LANGUAGE'=>'fr-CH, fr;q=0.9, en;q=0.8', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1')) );
-checkIdentical('the address is the one of the connection, whatever a forwarding header says', $clntReg->readFileDetail('userAddr'), '203.0.113.7');
-checkIdentical('without a host name, the host is the address', $clntReg->readFileDetail('userHost'), '203.0.113.7');
-checkIdentical('the language is the first one accepted, in lower case', $clntReg->readFileDetail('language'), 'fr-ch');
+checkIdentical('the address is the one of the connection, whatever a forwarding header says', $clntReg->readValueByKey('userAddr'), '203.0.113.7');
+checkIdentical('without a host name, the host is the address', $clntReg->readValueByKey('userHost'), '203.0.113.7');
+checkIdentical('the language is the first one accepted, in lower case', $clntReg->readValueByKey('language'), 'fr-ch');
 $clntReg = new ClientReg( makeFakeServer(Array('REMOTE_ADDR'=>'203.0.113.7', 'REMOTE_HOST'=>'client.example.org', 'HTTP_ACCEPT_LANGUAGE'=>'en;q=0.8')) );
-checkIdentical('the host name is kept when the server tells one', $clntReg->readFileDetail('userHost'), 'client.example.org');
-checkIdentical('a single language with a weight', $clntReg->readFileDetail('language'), 'en');
+checkIdentical('the host name is kept when the server tells one', $clntReg->readValueByKey('userHost'), 'client.example.org');
+checkIdentical('a single language with a weight', $clntReg->readValueByKey('language'), 'en');
 
 // System, device and human or not, by agent
 $winAgnt = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -62,7 +62,7 @@ checkIdentical('every device code has eight characters', array_unique(array_map(
 
 // Nothing told at all
 $clntReg = new ClientReg( makeFakeServer() );
-checkIdentical('an empty server registry gives empty values', Array($clntReg->readFileDetail('userAddr'), $clntReg->readFileDetail('userHost'), $clntReg->readFileDetail('usrAgent'), $clntReg->readFileDetail('language')), Array('', '', '', ''));
+checkIdentical('an empty server registry gives empty values', Array($clntReg->readValueByKey('userAddr'), $clntReg->readValueByKey('userHost'), $clntReg->readValueByKey('usrAgent'), $clntReg->readValueByKey('language')), Array('', '', '', ''));
 checkIdentical('only the client values are held, not the server ones', array_keys($clntReg->readLinesArray()), Array('useraddr', 'peeraddr', 'userhost', 'userschm', 'usragent', 'clsystem', 'cldevice', 'language', 'humansys'));
 
 // Reverse proxies : the forwarding header is only read from a trusted proxy
@@ -75,7 +75,7 @@ checkIdentical('only the client values are held, not the server ones', array_key
  */
 function proxyVals( Array $serverVals, Array $proxyConfg ): Array {
 	$clntReg = new ClientReg( makeFakeServer($serverVals), true, $proxyConfg );
-	return Array($clntReg->readFileDetail('userAddr'), $clntReg->readFileDetail('peerAddr'), $clntReg->readFileDetail('userHost'));
+	return Array($clntReg->readValueByKey('userAddr'), $clntReg->readValueByKey('peerAddr'), $clntReg->readValueByKey('userHost'));
 }
 $onePrxy = Array('list'=>Array('10.0.0.5'), 'head'=>'X-Forwarded-For');
 checkIdentical('no proxy trusted : the header is ignored', proxyVals(Array('REMOTE_ADDR'=>'10.0.0.5', 'HTTP_X_FORWARDED_FOR'=>'198.51.100.1'), Array('list'=>Array(), 'head'=>'X-Forwarded-For')), Array('10.0.0.5', '10.0.0.5', '10.0.0.5'));
@@ -109,7 +109,7 @@ checkIdentical('the header the config names is the one read', proxyVals(Array('R
  */
 function readsSchm( Array $serverVals, Array $proxyConfg ): String {
 	$clntReg = new ClientReg( makeFakeServer($serverVals), true, $proxyConfg );
-	return strval($clntReg->readFileDetail('userSchm'));
+	return strval($clntReg->readValueByKey('userSchm'));
 }
 checkIdentical('no proxy trusted : the scheme is the one of the connection', readsSchm(Array('REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https'), Array('list'=>Array())), 'http');
 checkIdentical('a client connecting directly cannot give itself a scheme', readsSchm(Array('REMOTE_ADDR'=>'203.0.113.7', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https'), $onePrxy), 'http');
@@ -130,11 +130,11 @@ checkIdentical('without settings, no proxy is trusted and the usual headers are 
 
 // Through the request
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7', 'HTTP_USER_AGENT'=>$andAgnt) );
-checkIdentical('a request gives its client registry', Array($request->retrieveClient()->readFileDetail('userAddr'), $request->retrieveClient()->readFileDetail('clDevice')), Array('203.0.113.7', 'handheld'));
+checkIdentical('a request gives its client registry', Array($request->retrieveClient()->readValueByKey('userAddr'), $request->retrieveClient()->readValueByKey('clDevice')), Array('203.0.113.7', 'handheld'));
 
 // A request built in full writes its address with the scheme the client used
 $servReg = makeFakeServer( Array('REQUEST_METHOD'=>'GET', 'REQUEST_URI'=>'/shows/overview?page=2', 'SERVER_NAME'=>'api.example.org', 'REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https') );
 $request = new nyu\Tools\Request( $servReg, new nyu\Output\Response(), new ClientReg($servReg, true, $onePrxy) );
-checkIdentical('behind a trusted proxy, the address of the request carries the scheme the client used', Array($request->obtainUrlValue('htScheme'), $request->obtainUrlValue('full_url')), Array('https', 'https://api.example.org/shows/overview'));
+checkIdentical('behind a trusted proxy, the address of the request carries the scheme the client used', Array($request->obtainUrlValue('htScheme'), $request->obtainUrlValue('wholeUrl')), Array('https', 'https://api.example.org/shows/overview'));
 
 finishChecking();

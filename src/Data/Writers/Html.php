@@ -68,7 +68,7 @@ class Html extends Base {
 		}elseif( $shapeAs=='sheet' ){
 			$htmBody = $this->writeAllSheets((array)$itemLst, !empty($writeOptions['heads']), !empty($writeOptions['shown']));
 		}else{
-			$htmBody = '<pre>'.$this->escapeXmlValue(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
+			$htmBody = '<pre>'.$this->escapeHtmlText(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
 		}
 		$isWhole = !empty($writeOptions['whole']);
 		$pageTop = '';
@@ -88,9 +88,9 @@ class Html extends Base {
 		if( $this->writeXhtml ){
 			// An XML reader is told what the page is written in, and in what language, its own way
 			$lngAttr = ' xmlns="http://www.w3.org/1999/xhtml"'.$lngAttr.str_replace(' lang=', ' xml:lang=', $lngAttr);
-			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeXmlValue(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeHtmlText(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
 		}
-		return "<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeXmlValue(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+		return "<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeHtmlText(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
 	}
 
 	/**
@@ -99,7 +99,7 @@ class Html extends Base {
 	 * @param String $templateText The text.
 	 * @return String The text, safe to write.
 	 */
-	protected function escapeXmlValue(String $templateText): String {
+	protected function escapeHtmlText(String $templateText): String {
 		// XHTML is XML: what XML cannot hold is left out, as for any part of a document made of it
 		if( $this->writeXhtml ){
 			return parent::escapeXmlValue($templateText);
@@ -192,7 +192,7 @@ class Html extends Base {
 	protected function blockAttribute(Array $contentBlock): String {
 		$attrSet = (array)($contentBlock['attrs'] ?? Array());
 		$tagIdnt = strval($attrSet['tagid'] ?? '');
-		$htmAttr = preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' id="'.$this->escapeXmlValue($tagIdnt).'"' : '';
+		$htmAttr = preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' id="'.$this->escapeHtmlText($tagIdnt).'"' : '';
 		$stylCls = ($this->withClsFlg && strval($attrSet['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrSet['style'])) : '';
 		if( $stylCls!=='' ){
 			$htmAttr .= ' class="'.$stylCls.'"';
@@ -236,18 +236,18 @@ class Html extends Base {
 	protected function writeInlineTxt(Array $textSpanList): String {
 		$htmText = '';
 		foreach($textSpanList as $oneSpn){
-			$spanHtm = str_replace("\n", '<br'.$this->shutVoidString()."\n", $this->escapeXmlValue(strval($oneSpn['texts'] ?? '')));
+			$spanHtm = str_replace("\n", '<br'.$this->shutVoidString()."\n", $this->escapeHtmlText(strval($oneSpn['texts'] ?? '')));
 			foreach(array_reverse(self::MARK_TAGS) as $mrkKey=>$mrkTag){
 				if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
 					$spanHtm = '<'.$mrkTag.'>'.$spanHtm.'</'.$mrkTag.'>';
 				}
 			}
 			if( strval($oneSpn['field'] ?? '')!=='' ){
-				$spanHtm = '<span data-field="'.$this->escapeXmlValue(strval($oneSpn['field'])).'">'.$spanHtm.'</span>';
+				$spanHtm = '<span data-field="'.$this->escapeHtmlText(strval($oneSpn['field'])).'">'.$spanHtm.'</span>';
 			}
 			$linkAdr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
 			if( $linkAdr!=='' ){
-				$spanHtm = '<a href="'.$this->escapeXmlValue($linkAdr).'">'.$spanHtm.'</a>';
+				$spanHtm = '<a href="'.$this->escapeHtmlText($linkAdr).'">'.$spanHtm.'</a>';
 			}
 			// The reference to a note, in this page or in another
 			if( preg_match('/^[^#]*#[fe]note\d+$/D', $linkAdr) ){
@@ -289,7 +289,7 @@ class Html extends Base {
 			if( $blckKnd=='headline' ){
 				$headLvl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
 				if( $this->anchorList!==null && strpos($blckAtr, ' id="')===false ){
-					$blckAtr = ' id="'.$this->escapeXmlValue($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
+					$blckAtr = ' id="'.$this->escapeHtmlText($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
 				}
 				$htmText .= '<h'.$headLvl.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans']).'</h'.$headLvl.">\n";
 			}elseif( $blckKnd=='paragrph' ){
@@ -313,16 +313,16 @@ class Html extends Base {
 				$qutHtml = $this->innerOutString($oneBlk);
 				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
 				if( $citeTxt!=='' ){
-					$qutHtml .= ((substr($qutHtml, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeXmlValue($citeTxt)."</cite>\n";
+					$qutHtml .= ((substr($qutHtml, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeHtmlText($citeTxt)."</cite>\n";
 				}
 				$htmText .= '<blockquote'.$blckAtr.'>'.$qutHtml."</blockquote>\n";
 			}elseif( $blckKnd=='codeBlck' ){
 				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
-				$htmText .= '<pre'.$blckAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? ' class="language-'.$this->escapeXmlValue($codeLng).'"' : '').'>'.$this->escapeXmlValue($oneBlk['plain'])."</code></pre>\n";
+				$htmText .= '<pre'.$blckAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? ' class="language-'.$this->escapeHtmlText($codeLng).'"' : '').'>'.$this->escapeHtmlText($oneBlk['plain'])."</code></pre>\n";
 			}elseif( $blckKnd=='imageBox' ){
 				$imgLink = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
 				if( $imgLink!=='' ){
-					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeXmlValue($imgLink).'" alt="'.$this->escapeXmlValue($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
+					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeHtmlText($imgLink).'" alt="'.$this->escapeHtmlText($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
 				}
 			}elseif( $blckKnd=='ruleLine' ){
 				$htmText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr : '<hr class="break"').$this->shutVoidString()."\n";
@@ -411,12 +411,12 @@ class Html extends Base {
 			}
 			$htmText .= "<table>\n";
 			if( strval($oneSht['title'] ?? '')!=='' ){
-				$htmText .= '<caption>'.$this->escapeXmlValue(strval($oneSht['title']))."</caption>\n";
+				$htmText .= '<caption>'.$this->escapeHtmlText(strval($oneSht['title']))."</caption>\n";
 			}
 			if( $headRow!==null ){
 				$htmText .= "<thead>\n<tr>";
 				foreach($headRow as $oneVal){
-					$htmText .= '<th>'.$this->escapeXmlValue($this->writeCellValue($oneVal)).'</th>';
+					$htmText .= '<th>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</th>';
 				}
 				$htmText .= "</tr>\n</thead>\n";
 			}
@@ -426,7 +426,7 @@ class Html extends Base {
 					$htmText .= '<tr>';
 					foreach(array_values((array)$oneRow) as $colInc=>$oneVal){
 						if( empty($coverLs[$rowIdx][$colInc]) ){
-							$htmText .= '<td'.strval($spanLst[$rowIdx][$colInc] ?? '').'>'.$this->escapeXmlValue($this->writeCellValue($oneVal)).'</td>';
+							$htmText .= '<td'.strval($spanLst[$rowIdx][$colInc] ?? '').'>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</td>';
 						}
 					}
 					$htmText .= "</tr>\n";

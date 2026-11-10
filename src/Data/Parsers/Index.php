@@ -9,7 +9,7 @@ namespace nyu\Data\Parsers;
 class Index {
 
 	// Parser and default options of each file extension
-	protected static $extnsnList = Array(
+	protected static $extnsArray = Array(
 		'ini'    => Array('Init', Array()),
 		'json'   => Array('Json', Array()),
 		'jsonl'  => Array('Json', Array('lines'=>true)),
@@ -69,11 +69,11 @@ class Index {
 	/**
 	 * Gives the parser of a file extension.
 	 *
-	 * @param String $filExtension The extension, without its dot, whatever its case.
+	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return ?Parser The parser, null when the extension has none.
 	 */
-	public static function forExtnsParser(String $filExtension): ?Parser {
-		$extList = self::$extnsnList[strtolower($filExtension)] ?? null;
+	public static function forExtnsParser(String $extensionTxt): ?Parser {
+		$extList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
 		if( $extList===null ){
 			return null;
 		}
@@ -84,11 +84,11 @@ class Index {
 	/**
 	 * Gives the default options a file extension is parsed with.
 	 *
-	 * @param String $filExtension The extension, without its dot, whatever its case.
+	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return Array The options, empty when the extension has none.
 	 */
-	public static function optionsOfExtns(String $filExtension): Array {
-		return self::$extnsnList[strtolower($filExtension)][1] ?? Array();
+	public static function optionsOfExtns(String $extensionTxt): Array {
+		return self::$extnsArray[strtolower($extensionTxt)][1] ?? Array();
 	}
 
 	/**
@@ -135,21 +135,21 @@ class Index {
 	/**
 	 * Adds a parser for a file extension, or replaces the one it had.
 	 *
-	 * @param String $filExtension The extension, without its dot.
+	 * @param String $extensionTxt The extension, without its dot.
 	 * @param String $nameOfParser Name of a class of this namespace, or full name of a class of the application; it must follow the Parser contract.
 	 * @param Array  $parseOptions Default options the extension is parsed with.
 	 *
 	 * @throws \RuntimeException When the extension is not a plain name, or the class is not a parser.
 	 */
-	public static function registerParser(String $filExtension, String $nameOfParser, Array $parseOptions=Array()): Void {
+	public static function registerParser(String $extensionTxt, String $nameOfParser, Array $parseOptions=Array()): Void {
 		$prsrCls = (strpos($nameOfParser, '\\')===false) ? __NAMESPACE__.'\\'.$nameOfParser : $nameOfParser;
-		if( !preg_match('/^\w+$/D', $filExtension) ){
-			throw new \RuntimeException('Invalid file extension: '.$filExtension);
+		if( !preg_match('/^\w+$/D', $extensionTxt) ){
+			throw new \RuntimeException('Invalid file extension: '.$extensionTxt);
 		}
 		if( !class_exists($prsrCls) || !is_subclass_of($prsrCls, Parser::class) ){
 			throw new \RuntimeException('Not a parser: '.$nameOfParser);
 		}
-		self::$extnsnList[strtolower($filExtension)] = Array($nameOfParser, $parseOptions);
+		self::$extnsArray[strtolower($extensionTxt)] = Array($nameOfParser, $parseOptions);
 	}
 
 }

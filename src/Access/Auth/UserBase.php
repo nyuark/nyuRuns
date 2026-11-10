@@ -89,10 +89,10 @@ class UserBase extends Native{
 	 * @param String  $usrRleString Its role, one of Checker::ROLE_LIST; the first one when left empty.
 	 * @param ?String $emailAddress Its mail address, none when null or empty.
 	 * @param Int     $codeMinuteNb Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedForCount() for one sent by mail.
-	 * @param ?String $langTagStrng The language of its mails (see Tools\Language), none when null or empty.
+	 * @param ?String $givenLangTag The language of its mails (see Tools\Language), none when null or empty.
 	 * @return String|Bool The activation code, or false when the name, the role, the address or the language is not valid, the name or the address taken, or the table cannot be written.
 	 */
-	public function enrolUsrString( String $namedUserTxt, String $usrRleString='', ?String $emailAddress=null, Int $codeMinuteNb=self::HAND_MINS, ?String $langTagStrng=null ): String|Bool {
+	public function enrolUsrString( String $namedUserTxt, String $usrRleString='', ?String $emailAddress=null, Int $codeMinuteNb=self::HAND_MINS, ?String $givenLangTag=null ): String|Bool {
 		$this->forgetLastFail();
 		$roleVal = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
 		if( !preg_match(self::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), self::NAME_DENY, true) ){
@@ -101,7 +101,7 @@ class UserBase extends Native{
 		if( !in_array($roleVal, Checker::ROLE_LIST, true) ){
 			return $this->declineForFlag(400, 'Invalid role');
 		}
-		$langVal = $this->testLangString($langTagStrng);
+		$langVal = $this->testLangString($givenLangTag);
 		if( $langVal===false ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
@@ -151,10 +151,10 @@ class UserBase extends Native{
 	 * @param String  $namedUserTxt Login name it asks for (see NAMERULE and NAMEDENY).
 	 * @param String  $emailAddress Its mail address.
 	 * @param Int     $maxWaitingNb Most sign-ups waiting at once, confirmed or not ('maxQueue' of the limits).
-	 * @param ?String $langTagStrng The language of its mails: the one its request asks for; left out when it is not a tag.
+	 * @param ?String $givenLangTag The language of its mails: the one its request asks for; left out when it is not a tag.
 	 * @return String|Bool The activation code, '' when the name or the address is taken, or false when one is not valid, too many sign-ups are waiting, or the table cannot be used.
 	 */
-	public function signsUsrString( String $namedUserTxt, String $emailAddress, Int $maxWaitingNb=self::SIGN_MAXI, ?String $langTagStrng=null ): String|Bool {
+	public function signsUsrString( String $namedUserTxt, String $emailAddress, Int $maxWaitingNb=self::SIGN_MAXI, ?String $givenLangTag=null ): String|Bool {
 		$this->forgetLastFail();
 		if( !preg_match(self::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), self::NAME_DENY, true) ){
 			return $this->declineForFlag(400, 'Invalid user name');
@@ -184,7 +184,7 @@ class UserBase extends Native{
 		}
 		$newCode = $this->makeAccessCode();
 		// The language of the request is a hint : one that is not a tag is left out, never refused
-		$langVal = $this->testLangString($langTagStrng);
+		$langVal = $this->testLangString($givenLangTag);
 		$addStmt = "INSERT INTO {usrTable} ({userHandle}, {passwdHash}, {accessRole}, {userStatus}, {mailboxAdr}, {userLocale}, {actvtnCode}, {codeExpiry}, {signupDate}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?, ?);";
 		if( $this->sendWriteCount($addStmt, Array($namedUserTxt, self::VOID_HASH, Checker::ROLE_LIST[0], $mailVal, ($langVal===false) ? null : $langVal, $this->codeHashesList($newCode)[0], $this->getCodeEndDate($this->mailExpiry), date('Y-m-d H:i:s')))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
@@ -234,16 +234,16 @@ class UserBase extends Native{
 	 * @param String  $namedUserTxt Login name of the user.
 	 * @param String  $codeAsString The activation code, as given at its creation or its reset.
 	 * @param String  $usrPasswdTxt The password it chooses, following the rules (see checkPass).
-	 * @param ?String $langTagStrng The language its request asks for: given to a user who has none yet; left out when it is not a tag.
+	 * @param ?String $givenLangTag The language its request asks for: given to a user who has none yet; left out when it is not a tag.
 	 * @return Bool Whether the user is now active, or in review.
 	 */
-	public function activateUsrFlg( String $namedUserTxt, String $codeAsString, String $usrPasswdTxt, ?String $langTagStrng=null ): Bool {
+	public function activateUsrFlg( String $namedUserTxt, String $codeAsString, String $usrPasswdTxt, ?String $givenLangTag=null ): Bool {
 		$this->forgetLastFail();
 		$ruleMsg = $this->testPassString($namedUserTxt, $usrPasswdTxt);
 		if( $ruleMsg!='' ){
 			return $this->declineForFlag(400, $ruleMsg);
 		}
-		$langVal = $this->testLangString($langTagStrng);
+		$langVal = $this->testLangString($givenLangTag);
 		// One write decides : a code cannot be used twice, even by two requests at once
 		$updtQry = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {userStatus}=CASE WHEN {signupDate} IS NULL THEN 'approved' ELSE 'checking' END,"
 			." {userLocale}=CASE WHEN {userLocale} IS NULL OR {userLocale}='' THEN ? ELSE {userLocale} END,"
@@ -255,7 +255,7 @@ class UserBase extends Native{
 		}
 		if( $rowNumb<1 ){
 			Logger::retrieveLogger('access')->warning( 'Activation refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
-			$this->invalidCrd = true;
+			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid activation');
 		}
 		$userVls = $this->fetchUserArray($namedUserTxt);
@@ -355,7 +355,7 @@ class UserBase extends Native{
 		}
 		if( $rowNumb<1 ){
 			Logger::retrieveLogger('access')->warning( 'Password reset refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
-			$this->invalidCrd = true;
+			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid code');
 		}
 		Logger::retrieveLogger('access')->notice( 'Password of user '.json_encode($namedUserTxt).' reset with its code'.Logger::getActorSuffix() );
@@ -371,7 +371,7 @@ class UserBase extends Native{
 	 * @param ?String $emailAddress The address, none when null or empty.
 	 * @return Bool Whether the address was written.
 	 */
-	public function chngeEmailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
+	public function changeMailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
 		$this->forgetLastFail();
 		$mailVal = null;
 		if( $emailAddress!==null && $emailAddress!=='' ){
@@ -405,12 +405,12 @@ class UserBase extends Native{
 	 * are then written in the default one (LNG_DFLT).
 	 *
 	 * @param String  $namedUserTxt Login name of the user.
-	 * @param ?String $langTagStrng The language (see Tools\Language), none when null or empty.
+	 * @param ?String $givenLangTag The language (see Tools\Language), none when null or empty.
 	 * @return Bool Whether the language was written.
 	 */
-	public function changeLanguage( String $namedUserTxt, ?String $langTagStrng ): Bool {
+	public function changeLanguage( String $namedUserTxt, ?String $givenLangTag ): Bool {
 		$this->forgetLastFail();
-		$langVal = $this->testLangString($langTagStrng);
+		$langVal = $this->testLangString($givenLangTag);
 		if( $langVal===false ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
@@ -448,13 +448,13 @@ class UserBase extends Native{
 		$matched = password_verify( $previousPass, strval($userVls['passwdHash'] ?? '') );
 		if( $this->hasHeldNowFlag($userVls) ){
 			$accsLog->warning( 'Password change refused: user '.json_encode($namedUserTxt).' is held after too many attempts'.Logger::getActorSuffix() );
-			$this->invalidCrd = true;
+			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid credentials');
 		}
 		if( !$matched ){
 			$this->countFailedTry($namedUserTxt);
 			$accsLog->warning( 'Password change refused for user '.json_encode($namedUserTxt).': wrong current password'.Logger::getActorSuffix() );
-			$this->invalidCrd = true;
+			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid credentials');
 		}
 		if( $previousPass===$usrPasswdTxt ){
@@ -462,7 +462,7 @@ class UserBase extends Native{
 		}
 		if( !$this->savePasswdFlag($namedUserTxt, $usrPasswdTxt) ){
 			// setPasswd tells the rule that is broken; without one, the table could not be written
-			return ($this->lastMessag!='') ? $this->declineForFlag(400, $this->lastMessag) : $this->declineForFlag(500, 'Credential store unavailable');
+			return ($this->errMessage!='') ? $this->declineForFlag(400, $this->errMessage) : $this->declineForFlag(500, 'Credential store unavailable');
 		}
 		$accsLog->notice( 'Password changed for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 		return true;
@@ -704,7 +704,7 @@ class UserBase extends Native{
 		$rowsLmt = $ceilingCount;
 		if( $rowsLmt<1 ){
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-			$iniConf = $nyuConf ? ($nyuConf->readFileDetail('system') ?: Array()) : Array();
+			$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 			$rowsLmt = intval($iniConf['LST_ROWS'] ?? 100) ?: 100;
 		}
 		$listQry = 'SELECT {'.implode('}, {', self::SHOW_LIST).'} FROM {usrTable}'
@@ -750,20 +750,20 @@ class UserBase extends Native{
 	 */
 	protected function forgetLastFail(): Void {
 		$this->latestCode = 200;
-		$this->lastMessag = '';
-		$this->invalidCrd = false;
+		$this->errMessage = '';
+		$this->badTryFlag = false;
 	}
 
 	/**
 	 * Records why the running operation is refused.
 	 *
 	 * @param Int    $responseCode The status the refusal stands for (see lastState).
-	 * @param String $statusMessag Why it is refused.
+	 * @param String $statusReason Why it is refused.
 	 * @return Bool Always false, for the operation to return.
 	 */
-	protected function declineForFlag( Int $responseCode, String $statusMessag ): Bool {
+	protected function declineForFlag( Int $responseCode, String $statusReason ): Bool {
 		$this->latestCode = $responseCode;
-		$this->lastMessag = $statusMessag;
+		$this->errMessage = $statusReason;
 		return false;
 	}
 
@@ -804,11 +804,11 @@ class UserBase extends Native{
 	 * Checks a language and gives it as it is stored: a tag in lower case,
 	 * '_' read as '-' (see Tools\Language).
 	 *
-	 * @param ?String $langTagStrng The language given.
+	 * @param ?String $givenLangTag The language given.
 	 * @return String|Bool|null The language to store, null when none is given, or false when it is not a tag.
 	 */
-	protected function testLangString( ?String $langTagStrng ): String|Bool|null {
-		$langVal = strtolower( trim(str_replace('_', '-', strval($langTagStrng))) );
+	protected function testLangString( ?String $givenLangTag ): String|Bool|null {
+		$langVal = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
 		if( $langVal==='' ){
 			return null;
 		}

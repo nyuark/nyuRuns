@@ -34,10 +34,10 @@ class UserFile{
 
 	protected $nameOfFile;
 	protected $usrLstPath;
-	protected $minPasswrd;
+	protected $minPwdSize;
 	protected $sealingKey;
 	protected $fileWriter;
-	protected $lastMessag = '';
+	protected $errMessage = '';
 	protected $latestCode = 200;
 
 	/**
@@ -53,7 +53,7 @@ class UserFile{
 		$fileNme = is_scalar($configValues['listFile'] ?? '') ? trim( strval($configValues['listFile'] ?? ''), '/\\ ' ) : '';
 		$this->nameOfFile = ($fileNme!='') ? $fileNme : 'conf/users.lst';
 		$this->usrLstPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $this->nameOfFile);
-		$this->minPasswrd = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
+		$this->minPwdSize = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
 		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
 		$this->fileWriter = $writerObject;
 	}
@@ -115,10 +115,10 @@ class UserFile{
 	 * @param String $namedUserTxt Login name of the new user (see UserBase::NAME_RULE and NAMEDENY).
 	 * @param String $usrRleString Its role, one of Checker::ROLE_LIST; the first one when left empty.
 	 * @param String  $usrPasswdTxt Its password, following the rules (see checkPass).
-	 * @param ?String $langTagStrng The language of its mails (see Tools\Language), none when null or empty.
+	 * @param ?String $givenLangTag The language of its mails (see Tools\Language), none when null or empty.
 	 * @return Bool Whether the user was added.
 	 */
-	public function enrolUsrString( String $namedUserTxt, String $usrRleString, String $usrPasswdTxt, ?String $langTagStrng=null ): Bool {
+	public function enrolUsrString( String $namedUserTxt, String $usrRleString, String $usrPasswdTxt, ?String $givenLangTag=null ): Bool {
 		$this->forgetLastFail();
 		$roleVal = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
 		if( !preg_match(UserBase::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), UserBase::NAME_DENY, true) ){
@@ -127,7 +127,7 @@ class UserFile{
 		if( !in_array($roleVal, Checker::ROLE_LIST, true) ){
 			return $this->declineForFlag(400, 'Invalid role');
 		}
-		$langVal = strtolower( trim(str_replace('_', '-', strval($langTagStrng))) );
+		$langVal = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
 		if( $langVal!=='' && !Language::isValidLangTag($langVal) ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
@@ -223,7 +223,7 @@ class UserFile{
 	 * @param ?String $emailAddress The address, none when null or empty.
 	 * @return Bool Whether the address was written.
 	 */
-	public function chngeEmailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
+	public function changeMailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
 		$this->forgetLastFail();
 		$mailVal = strtolower( trim(strval($emailAddress)) );
 		if( $mailVal!=='' && (strlen($mailVal)>254 || filter_var($mailVal, FILTER_VALIDATE_EMAIL)===false) ){
@@ -254,12 +254,12 @@ class UserFile{
 	 * away.
 	 *
 	 * @param String  $namedUserTxt Login name of the user.
-	 * @param ?String $langTagStrng The language (see Tools\Language), none when null or empty.
+	 * @param ?String $givenLangTag The language (see Tools\Language), none when null or empty.
 	 * @return Bool Whether the language was written.
 	 */
-	public function changeLanguage( String $namedUserTxt, ?String $langTagStrng ): Bool {
+	public function changeLanguage( String $namedUserTxt, ?String $givenLangTag ): Bool {
 		$this->forgetLastFail();
-		$langVal = strtolower( trim(str_replace('_', '-', strval($langTagStrng))) );
+		$langVal = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
 		if( $langVal!=='' && !Language::isValidLangTag($langVal) ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
@@ -436,7 +436,7 @@ class UserFile{
 	 * @return String The last error message, empty when it was not refused.
 	 */
 	public function finalErrorText(): String {
-		return $this->lastMessag;
+		return $this->errMessage;
 	}
 
 	/**
@@ -477,10 +477,10 @@ class UserFile{
 	 * waits.
 	 *
 	 * @param ?String  $namedUserTxt Login name of the user the change is about; null when it is about none.
-	 * @param callable $chngFunction Gets the users and, when a user is named, its place in them; returns the users to write, or null once it has recorded a refusal.
+	 * @param callable $editCallable Gets the users and, when a user is named, its place in them; returns the users to write, or null once it has recorded a refusal.
 	 * @return Bool Whether the file was written.
 	 */
-	protected function alterUsersFlag( ?String $namedUserTxt, callable $chngFunction ): Bool {
+	protected function alterUsersFlag( ?String $namedUserTxt, callable $editCallable ): Bool {
 		$lckHndl = @fopen( $this->freezePathsTxt(), 'c' );
 		if( $lckHndl===false || !flock($lckHndl, LOCK_EX) ){
 			return $this->declineForFlag(500, 'Users file cannot be locked for writing');
@@ -491,13 +491,13 @@ class UserFile{
 				return false;
 			}
 			if( $namedUserTxt===null ){
-				$newList = $chngFunction($usrList);
+				$newList = $editCallable($usrList);
 			}else{
 				$usrIndx = $this->findIndexCount($usrList, $namedUserTxt);
 				if( $usrIndx===null ){
 					return $this->declineForFlag(404, 'User not found');
 				}
-				$newList = $chngFunction($usrList, $usrIndx);
+				$newList = $editCallable($usrList, $usrIndx);
 			}
 			return is_array($newList) ? $this->storeUsersFlag($newList) : false;
 		}finally{
@@ -645,8 +645,8 @@ class UserFile{
 	 */
 	protected function testPassString( String $namedUserTxt, String $usrPasswdTxt ): String {
 		$charNum = preg_match_all('/./su', $usrPasswdTxt);
-		if( ($charNum ?: strlen($usrPasswdTxt))<$this->minPasswrd ){
-			return 'Password too short: '.$this->minPasswrd.' characters at least';
+		if( ($charNum ?: strlen($usrPasswdTxt))<$this->minPwdSize ){
+			return 'Password too short: '.$this->minPwdSize.' characters at least';
 		}
 		if( strlen($usrPasswdTxt)>self::PASS_SIZE ){
 			return 'Password too long: '.self::PASS_SIZE.' bytes at most';
@@ -675,19 +675,19 @@ class UserFile{
 	 */
 	protected function forgetLastFail(): Void {
 		$this->latestCode = 200;
-		$this->lastMessag = '';
+		$this->errMessage = '';
 	}
 
 	/**
 	 * Records why the running operation is refused.
 	 *
 	 * @param Int    $responseCode The status the refusal stands for (see lastState).
-	 * @param String $statusMessag Why it is refused.
+	 * @param String $statusReason Why it is refused.
 	 * @return Bool Always false, for the operation to return.
 	 */
-	protected function declineForFlag( Int $responseCode, String $statusMessag ): Bool {
+	protected function declineForFlag( Int $responseCode, String $statusReason ): Bool {
 		$this->latestCode = $responseCode;
-		$this->lastMessag = $statusMessag;
+		$this->errMessage = $statusReason;
 		return false;
 	}
 }

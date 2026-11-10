@@ -22,7 +22,7 @@ class FoldrLimiter extends Limiter{
 	 */
 	function __construct( Array $confValues, String $folderPath ){
 		parent::__construct($confValues);
-		$this->countsFold = $folderPath;
+		$this->countsFldr = $folderPath;
 	}
 }
 
@@ -88,8 +88,8 @@ failTimes($dfltLmt, '203.0.113.7', 9, 1000);
 checkIdentical('by default, nine failures do not hold', $dfltLmt->heldUntilCount('203.0.113.7', 1009), 0);
 $dfltLmt->countFailedTry('203.0.113.7', 1009);
 checkIdentical('by default, ten failures hold for ten minutes', $dfltLmt->heldUntilCount('203.0.113.7', 1010), 1609);
-$foldrPrp = new ReflectionProperty('nyu\Access\Limiter', 'countsFold');
-checkIdentical('the folder is read from the project root, temp/limits by default', Array($foldrPrp->getValue(new Limiter(Array())), $foldrPrp->getValue(new Limiter(Array('dataPath'=>'/var/tries/')))), Array(TOP_DIR.DS.'temp'.DS.'limits', TOP_DIR.DS.'var/tries'));
+$fldrPrp = new ReflectionProperty('nyu\Access\Limiter', 'countsFldr');
+checkIdentical('the folder is read from the project root, temp/limits by default', Array($fldrPrp->getValue(new Limiter(Array())), $fldrPrp->getValue(new Limiter(Array('dataPath'=>'/var/tries/')))), Array(TOP_DIR.DS.'temp'.DS.'limits', TOP_DIR.DS.'var/tries'));
 
 // A folder that cannot be written limits nothing, and breaks nothing
 file_put_contents(inTemporaryDir('limits_file'), 'in the way');
@@ -101,18 +101,18 @@ checkIdentical('counters that cannot be written leave the address free', runCatc
 
 // The credential checks tell a wrong credential from the rest
 $passLst = new PassList( Array('passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
-$passLst->chckCredential(Array('user'=>'alice', 'pass'=>'nope'));
-checkIdentical('PassList : a wrong password is a wrong credential', $passLst->wrngCredential(), true);
-$passLst->chckCredential(Array('user'=>'alice', 'pass'=>'s3cret'));
-checkIdentical('PassList : a right password is not', $passLst->wrngCredential(), false);
+$passLst->checkSecretArr(Array('user'=>'alice', 'pass'=>'nope'));
+checkIdentical('PassList : a wrong password is a wrong credential', $passLst->hasWrongSecret(), true);
+$passLst->checkSecretArr(Array('user'=>'alice', 'pass'=>'s3cret'));
+checkIdentical('PassList : a right password is not', $passLst->hasWrongSecret(), false);
 $nonePss = new PassList( Array('passFile'=>'test'.DS.'fixtures'.DS.'missing.htpasswd') );
-$nonePss->chckCredential(Array('user'=>'alice', 'pass'=>'s3cret'));
-checkIdentical('PassList : a file that cannot be read is not', Array($nonePss->finalErrorText(), $nonePss->wrngCredential()), Array('Credential store unavailable', false));
+$nonePss->checkSecretArr(Array('user'=>'alice', 'pass'=>'s3cret'));
+checkIdentical('PassList : a file that cannot be read is not', Array($nonePss->finalErrorText(), $nonePss->hasWrongSecret()), Array('Credential store unavailable', false));
 $keysLst = new RegKey( Array('keysList'=>Array('k-1')) );
-$keysLst->chckCredential(Array('key'=>'bad'));
-checkIdentical('RegKey : a wrong key is a wrong credential', $keysLst->wrngCredential(), true);
-$keysLst->chckCredential(Array());
-checkIdentical('RegKey : a missing key is not', $keysLst->wrngCredential(), false);
+$keysLst->checkSecretArr(Array('key'=>'bad'));
+checkIdentical('RegKey : a wrong key is a wrong credential', $keysLst->hasWrongSecret(), true);
+$keysLst->checkSecretArr(Array());
+checkIdentical('RegKey : a missing key is not', $keysLst->hasWrongSecret(), false);
 
 // Through the Checker : counters in a folder of the project, removed at the end
 $prjFldr = 'temp'.DS.'limits_test_'.getmypid();
@@ -128,7 +128,7 @@ $hdrConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys
 function keyAccess( ?String $apiKeyText, String $clientAddr ): Array {
 	$headLst = ($apiKeyText===null) ? Array() : Array('X-Api-Key'=>$apiKeyText);
 	$axsRslt = (new Checker( $GLOBALS['hdrConf'], mockRequestObj($headLst, Array('REMOTE_ADDR'=>$clientAddr)) ))->validateAccess();
-	return Array($axsRslt->readFileDetail('statCode'), $axsRslt->readFileDetail('statMssg'), $axsRslt->readFileDetail('retryAft'));
+	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('retryAft'));
 }
 checkIdentical('Checker : a request without a key is refused, not counted', Array(keyAccess(null, '203.0.113.7'), keyAccess(null, '203.0.113.7'), keyAccess(null, '203.0.113.7')), array_fill(0, 3, Array(401, 'Missing X-Api-Key header', null)));
 checkIdentical('Checker : a wrong key is refused as before', keyAccess('bad', '203.0.113.7'), Array(401, 'Invalid API key', null));
