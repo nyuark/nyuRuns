@@ -75,12 +75,13 @@ class ActCaller{
 		$respObj = $callLst[1];
 		$inptReg = $loadObj->retrieveInputs($rqstObj);
 		$routReg = new Registry( Array('appToRun'=>$pthPart[1], 'doAction'=>$pthPart[2], 'argument'=>$pthPart[3] ?? null, 'routKind'=>'toAction', 'routPath'=>'') );
-		$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg))->grantShellCall($signedInUser, $signedInRole);
+		$routObj = new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj);
+		$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg, $routObj))->grantShellCall($signedInUser, $signedInRole);
 		$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
 		$sttsMsg = strval($accsReg->readValueByKey('statMssg'));
 		$outData = null;
 		if( $sttsNum==200 ){
-			$control = new Controller( $pthPart[1], $pthPart[2], $inptReg, $pthPart[3] ?? null, $accsReg, $rqstObj, $respObj, new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj) );
+			$control = new Controller( $pthPart[1], $pthPart[2], $inptReg, $pthPart[3] ?? null, $accsReg, $rqstObj, $respObj, $routObj );
 			$sttsArr = $control->retrieveStatus();
 			$sttsNum = intval($sttsArr['code']);
 			$sttsMsg = strval($sttsArr['mssg']);

@@ -392,12 +392,16 @@ REQ_PART = 200
 
 ## 13. Routing notes
 
-- An action that a declared route answers with, when that route limits its
-  methods (`mthdList`, or one target per method), is only reached through that
-  route, with those methods. The same action asked for by its path
-  (`/app/action`) is a 404. Declare such a route when you want to restrict the
-  methods of an action; a route that limits nothing leaves its action reachable
-  by its path too.
+- A declared route that limits its methods (`mthdList`, or one target per
+  method) limits that route only. The action it points to can still be reached
+  with any method by its other paths: `/app/action`, a route of its Run, or
+  another alias. Method limits aren't an access control, so an action that
+  cares about the method checks it itself.
+- A role given to a declared path in `rteRoles` (`"/panel": "sysadmin"`) goes
+  with the action that path points to, for every method's target and the default
+  action included, whatever path reaches it. A `/path` there that no route
+  declares, written exactly as the route is, makes every request of the preset
+  fail with a 500, and `installs checkAll` fails on it (`access route`).
 - An application is named with letters and digits only.
 - A key that nothing reads in a route file is told on the `runner` log at each
   request.

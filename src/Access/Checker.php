@@ -28,6 +28,8 @@ class Checker{
 	protected $accessConf;
 	protected $requestObj;
 	protected $routerRgst;
+	protected $routingObj;
+	protected $routesList = null;
 
 	/**
 	 * Builds the access check of a request from the 'security' block, the request and its route.
@@ -35,11 +37,13 @@ class Checker{
 	 * @param Array     $accessConfig Resolved 'security' config block for the active preset.
 	 * @param Request   $givenRequest The shared, already-parsed HTTP request.
 	 * @param ?Registry $resolvedRgst The resolved route, used to recognise public routes.
+	 * @param ?Router   $routerObject The router of the preset, for the declared routes a '/path' of 'rteRoles' names: without one, such a key cannot be applied (see checkRoleFlaws).
 	 */
-	function __construct( Array $accessConfig, Request $givenRequest, ?Registry $resolvedRgst = null ){
+	function __construct( Array $accessConfig, Request $givenRequest, ?Registry $resolvedRgst = null, ?Router $routerObject = null ){
 		$this->accessConf = $accessConfig;
 		$this->requestObj = $givenRequest;
 		$this->routerRgst = $resolvedRgst;
+		$this->routingObj = $routerObject;
 	}
 
 	/**
@@ -410,7 +414,10 @@ class Checker{
 
 	/**
 	 * Checks the 'rteRoles' key of the 'security' block: a list of routes, each
-	 * with a role of ROLELIST, in a block that requires access.
+	 * with a role of ROLELIST, in a block that requires access. A '/path'
+	 * must name a declared route, exactly as the router matches it: one
+	 * naming none, or a check given no router to read the routes from,
+	 * would ask for nothing, and is refused.
 	 *
 	 * @return String What is wrong with it, empty when it can be applied.
 	 */
@@ -430,7 +437,66 @@ class Checker{
 				return 'unknown role for the route '.json_encode(strval($rteKey));
 			}
 		}
+		foreach( array_keys($roleMap) as $rteKey ){
+			$rteKey = strval($rteKey);
+			if( substr($rteKey, 0, 1)!='/' ){
+				continue;
+			}
+			if( $this->routingObj===null ){
+				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of rteRoles cannot be checked: no router is given';
+			}
+			$this->routesList ??= $this->routingObj->allRoutesArray();
+			if( !in_array(trim($rteKey, '/'), array_column($this->routesList, 'routPath'), true) ){
+				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of rteRoles is declared nowhere';
+			}
+		}
 		return '';
+	}
+
+	/**
+	 * Tells whether a declared route answers with the action asked for:
+	 * the same application and the same action, whatever their case, the
+	 * default action of the application standing for the one a side does
+	 * not name.
+	 *
+	 * @param String $appNameToRun Application asked for, as the route of the request names it.
+	 * @param String $runAppAction Action asked for, in lower case; '' for none.
+	 * @param Array  $routEntryArr An entry of Router::allRoutesArray().
+	 * @return Bool True when the route answers with that action.
+	 */
+	protected function matchActionFlg( String $appNameToRun, String $runAppAction, Array $routEntryArr ): Bool {
+		$appName = strtolower( str_replace(' ', '', $appNameToRun) );
+		if( ($routEntryArr['routKind'] ?? '')!=='toAction' || $appName=='' || strtolower(str_replace(' ', '', strval($routEntryArr['appToRun'] ?? '')))!==$appName ){
+			return false;
+		}
+		$rteActn = strtolower( strval($routEntryArr['doAction'] ?? '') );
+		if( $rteActn===$runAppAction ){
+			return true;
+		}
+		// One side names no action : the default action of the application stands for it
+		$dfltAct = strtolower( $this->dfltActnString($appNameToRun) );
+		return $dfltAct!=='' && (($rteActn==='') ? $dfltAct : $rteActn)===(($runAppAction==='') ? $dfltAct : $runAppAction);
+	}
+
+	/**
+	 * Gives the default action of an application, as the Controller resolves
+	 * it (see Controller::dfltActionText): its Actions.php is loaded, from
+	 * the folder the Controller would load it from.
+	 *
+	 * @param String $appNameToRun Name of the application, as the route of the request names it.
+	 * @return String The default action, or '' for an application that is not one.
+	 */
+	protected function dfltActnString( String $appNameToRun ): String {
+		$appName = UCFirst($appNameToRun);
+		if( !preg_match('/^[A-Za-z0-9]+$/D', $appName) || !defined('RUN_DIR') ){
+			return '';
+		}
+		$clsName = '\\nyu\\Runs\\'.$appName.'\\Actions';
+		$actnPth = RUN_DIR.DS.$appName.DS.'Actions.php';
+		if( !class_exists($clsName, false) && is_dir(RUN_DIR.DS.$appName) && is_file($actnPth) ){
+			require_once $actnPth;
+		}
+		return class_exists($clsName, false) ? \nyu\App\Controller::dfltActionText( new \ReflectionClass($clsName) ) : '';
 	}
 
 	/**
@@ -440,6 +506,9 @@ class Checker{
 	 * entries name the route, the highest role is asked for. A request
 	 * naming no action is taken as any action of its application. A path
 	 * names a declared route by its final path: a Run's route with its mount.
+	 * The role of a path declared to answer with an action (with any of its
+	 * methods) follows that action, whatever path reaches it: its own path
+	 * (autopath), a route of its Run, another route.
 	 *
 	 * @return ?String The role, or null when the route asks for none.
 	 */
@@ -449,7 +518,8 @@ class Checker{
 			return null;
 		}
 		// The application is named as the Controller reads it : without its spaces
-		$appName = strtolower( str_replace(' ', '', strval($this->routerRgst->readValueByKey('appToRun'))) );
+		$appRead = strval($this->routerRgst->readValueByKey('appToRun'));
+		$appName = strtolower( str_replace(' ', '', $appRead) );
 		$actnNme = strtolower( strval($this->routerRgst->readValueByKey('doAction')) );
 		$rtePath = strval($this->routerRgst->readValueByKey('routPath'));
 		$needRle = null;
@@ -457,6 +527,16 @@ class Checker{
 			$rteKey = strval($rteKey);
 			if( substr($rteKey, 0, 1)=='/' ){
 				$isNamed = ($rtePath!='' && trim($rteKey, '/')===$rtePath);
+				// The action a declared route answers with carries its role, on every path that reaches it
+				if( !$isNamed && $appName!='' && $this->routingObj!==null ){
+					$this->routesList ??= $this->routingObj->allRoutesArray();
+					foreach( $this->routesList as $rteRow ){
+						if( $rteRow['routPath']===trim($rteKey, '/') && $this->matchActionFlg($appRead, $actnNme, $rteRow) ){
+							$isNamed = true;
+							break;
+						}
+					}
+				}
 			}else{
 				$rteKey = strtolower( trim($rteKey, '/') );
 				$isNamed = ($appName!='' && ( $rteKey==$appName.'/'.$actnNme || $rteKey==$appName.'/*' || ($actnNme=='' && strpos($rteKey, $appName.'/')===0) ));

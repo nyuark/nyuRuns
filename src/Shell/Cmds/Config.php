@@ -636,8 +636,9 @@ class Config extends Command{
 		$accConf = $loadObj->setAccessArray();
 		$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
 		$rowList = Array();
-		foreach( (new Router($rteConf, $rqstObj))->allRoutesArray() as $rteVal ){
-			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal) );
+		$routObj = new Router($rteConf, $rqstObj);
+		foreach( $routObj->allRoutesArray() as $rteVal ){
+			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal, $routObj) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleMap = is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array();
@@ -650,13 +651,13 @@ class Config extends Command{
 		}
 		foreach( $actnLst as $action ){
 			$actPart = explode('/', $action, 2);
-			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('appToRun'=>$actPart[0], 'doAction'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction')) );
+			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('appToRun'=>$actPart[0], 'doAction'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routObj) );
 		}
 		$this->printerObj->printShellPair('preset', $prstNme);
 		$this->printerObj->printShellPair('detectBy', strval($rteConf['detectBy'] ?? ''));
 		$this->printerObj->printShellPair('others', ( empty($accConf) || ($accConf['required'] ?? true)===false ) ? 'open' : 'logged');
 		$this->printerObj->printShellRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowList );
-		$rleFlow = (new Checker($accConf, $rqstObj, new Registry(Array())))->checkRoleFlaws();
+		$rleFlow = (new Checker($accConf, $rqstObj, new Registry(Array()), $routObj))->checkRoleFlaws();
 		if( $rleFlow!='' ){
 			$this->printerObj->printShellFail('Every request of this preset is refused: '.$rleFlow);
 			return self::EXIT_FLAW;
@@ -670,13 +671,14 @@ class Config extends Command{
 	 * @param Array   $accessConfig The 'security' block of the preset.
 	 * @param Request $givenRequest A request to build the access check with.
 	 * @param Array   $routesValues The route: its 'appToRun', 'doAction', 'routPath' and 'routKind'.
+	 * @param Router  $routerObject The router of the preset, for the roles a declared path carries to its action.
 	 * @return String 'open', 'logged', or the least role asked for.
 	 */
-	protected function describeAccess( Array $accessConfig, Request $givenRequest, Array $routesValues ): String {
+	protected function describeAccess( Array $accessConfig, Request $givenRequest, Array $routesValues, Router $routerObject ): String {
 		if( empty($accessConfig) || ($accessConfig['required'] ?? true)===false ){
 			return 'open';
 		}
-		$chckObj = new Checker( $accessConfig, $givenRequest, new Registry(Array('appToRun'=>$routesValues['appToRun'] ?? null, 'doAction'=>$routesValues['doAction'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')) );
+		$chckObj = new Checker( $accessConfig, $givenRequest, new Registry(Array('appToRun'=>$routesValues['appToRun'] ?? null, 'doAction'=>$routesValues['doAction'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')), $routerObject );
 		if( $chckObj->openAccessRout() ){
 			return 'open';
 		}

@@ -175,7 +175,10 @@ class HealthChk{
 			if( !empty($accConf) && ($accConf['required'] ?? true)!==false ){
 				$flawTxt = $this->coupleFlawsTxt($accConf);
 			}
-			$checker = new Checker($accConf, ActCaller::makeRequestArr('GET', '/')[0], new Registry(Array()));
+			// The routes of the preset, for the paths its roles name
+			$rteConf = $setpObj->getRegistryKey('routings');
+			$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
+			$checker = new Checker($accConf, $rqstObj, new Registry(Array()), new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj));
 			if( $flawTxt=='' && !empty($accConf) && ($accConf['required'] ?? true)!==false ){
 				$flawTxt = $checker->checkPairFlaws();
 			}
@@ -191,7 +194,8 @@ class HealthChk{
 	 * two Runs declaring one path ('route clash': fail, the first in name
 	 * order answers), a site route over a Run route, on its path or by a
 	 * pattern matching it ('route shadow': warn, the site's answers), and an entry of openList or rteRoles naming no route
-	 * ('access route': warn): a path no route declares, a Run that does not
+	 * ('access route': warn; fail for a path of rteRoles, which refuses every
+	 * request of the preset): a path no route declares, a Run that does not
 	 * exist, or an action that is not one of the Run, or that a Run
 	 * declaring its routes does not list. One row for each, naming the
 	 * presets concerned.
@@ -202,6 +206,7 @@ class HealthChk{
 		$clshLst = Array();
 		$shdwLst = Array();
 		$lostLst = Array();
+		$roleLst = Array();
 		foreach( $rpsList as $rpsFil ){
 			$prstNme = basename(strval($rpsFil), '.rps');
 			try{
@@ -231,11 +236,17 @@ class HealthChk{
 				}
 			}
 			// What openList and rteRoles name must be served by this preset
-			foreach( array_merge(array_values((array)($accConf['openList'] ?? Array())), array_keys(is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array())) as $rteKey ){
+			$roleKys = array_map('strval', array_keys(is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array()));
+			foreach( array_merge(array_values((array)($accConf['openList'] ?? Array())), $roleKys) as $rteKey ){
 				$rteKey = trim(strval($rteKey));
 				if( substr($rteKey, 0, 1)=='/' ){
 					if( !isset($rteData[trim($rteKey, '/')]) ){
-						$lostLst[] = $prstNme.': '.$rteKey.' (no route on that path)';
+						// A path of rteRoles naming no route refuses every request : a failure, not a warning
+						if( in_array($rteKey, $roleKys, true) ){
+							$roleLst[] = $prstNme.': '.$rteKey.' (no route on that path)';
+						}else{
+							$lostLst[] = $prstNme.': '.$rteKey.' (no route on that path)';
+						}
 					}
 					continue;
 				}
@@ -267,7 +278,8 @@ class HealthChk{
 		}
 		$this->addCheckResult( 'route clash', empty($clshLst) ? 'fine' : 'fail', empty($clshLst) ? 'no two applications declare one path' : 'declared by two applications, the first in name order answers: '.implode('; ', array_unique($clshLst)) );
 		$this->addCheckResult( 'route shadow', empty($shdwLst) ? 'fine' : 'warn', empty($shdwLst) ? 'no site route over a route of an application' : 'a site route answers in place of the application\'s: '.implode('; ', array_unique($shdwLst)) );
-		$this->addCheckResult( 'access route', empty($lostLst) ? 'fine' : 'warn', empty($lostLst) ? 'every entry of openList and rteRoles names a route' : 'naming no route: '.implode('; ', array_unique($lostLst)) );
+		$allLost = array_unique( array_merge($roleLst, $lostLst) );
+		$this->addCheckResult( 'access route', !empty($roleLst) ? 'fail' : (empty($lostLst) ? 'fine' : 'warn'), empty($allLost) ? 'every entry of openList and rteRoles names a route' : 'naming no route: '.implode('; ', $allLost) );
 	}
 
 	/**

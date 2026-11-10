@@ -220,7 +220,7 @@ class Runner{
 	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys.
 	 */
 	function validateAccess( Array $accessConfig ): Registry {
-		$chckObj = new Checker( $accessConfig, $this->requestObj, $this->routerRgst );
+		$chckObj = new Checker( $accessConfig, $this->requestObj, $this->routerRgst, $this->confLoader->retrieveRouter() );
 		return $chckObj->validateAccess();
 	}
 

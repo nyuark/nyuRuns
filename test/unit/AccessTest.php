@@ -15,6 +15,7 @@ use nyu\Access\Sess\JWT;
 use nyu\Access\Sess\ClCert;
 use nyu\Access\Checker;
 use nyu\Tools\Registry;
+use nyu\Tools\Router;
 
 /**
  * Builds the Authorization header value for Basic credentials.
@@ -358,9 +359,23 @@ checkIdentical('roleMeets: no role, or an unknown one, meets nothing', Array(Che
  */
 function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): Array {
 	$tknHead = ($loggedRole!='') ? Array('Authorization'=>'Bearer '.$GLOBALS['jwtSess']->issueTokenText(Array('userName'=>'carol', 'userRole'=>$loggedRole))) : Array();
-	$axsRslt = (new Checker( $accessConf, mockRequestObj($tknHead, Array('REMOTE_ADDR'=>'10.0.0.1')), new Registry($routeArray) ))->validateAccess();
+	$axsRslt = (new Checker( $accessConf, mockRequestObj($tknHead, Array('REMOTE_ADDR'=>'10.0.0.1')), new Registry($routeArray), $GLOBALS['roleRout'] ))->validateAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'));
 }
+
+// The declared routes the paths of rteRoles name : the site's, and a route of the Run Probe under its mount
+$GLOBALS['roleRout'] = new Router( Array(), mockRequestObj() );
+$GLOBALS['roleRout']->assignRouteSet( Array(
+	'docs/*'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('fldrPath'=>'docs')),
+	'tokchk'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('appToRun'=>'auth', 'doAction'=>'check')),
+	'admin'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('pageFile'=>'admin.html')),
+	'space/listed'=>Array('routOwnr'=>'Mounted', 'routDecl'=>'listed', 'pointsTo'=>Array('appToRun'=>'Mounted', 'doAction'=>'listed')),
+	'panel'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('appToRun'=>'reports', 'doAction'=>'admin')),
+	'probes'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('appToRun'=>'Probe')),
+	'console'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('appToRun'=>'Probe', 'doAction'=>'sanitize')),
+	'probe/board'=>Array('routOwnr'=>'Probe', 'routDecl'=>'board', 'pointsTo'=>Array('appToRun'=>'Probe', 'doAction'=>'sanitize')),
+	'twofold'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('GET'=>Array('appToRun'=>'Probe', 'doAction'=>'mirrored'), 'POST'=>Array('appToRun'=>'Probe', 'doAction'=>'identify'))),
+) );
 
 // Checker : the role a route asks for ('rteRoles'), written as the routes of 'openList'
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
@@ -387,17 +402,32 @@ checkIdentical('Checker role: its own OPTIONS answer needs no role', roleReply($
 $mntConf = Array('rteRoles'=>Array('/space/listed'=>'sysadmin'), 'openList'=>Array('/fromRoot')) + $jwtConf;
 $mntRout = Array('appToRun'=>'Mounted', 'doAction'=>'listed', 'routKind'=>'toAction', 'routPath'=>'space/listed', 'routOwnr'=>'Mounted');
 checkIdentical('Checker role: a Run route, by its mounted path', Array(roleReply($mntConf, 'internal', $mntRout), roleReply($mntConf, 'sysadmin', $mntRout)), Array(Array(404, 'Not Found'), Array(200, '')));
-checkIdentical('Checker role: not by the path its file declares it with', roleReply(Array('rteRoles'=>Array('/listed'=>'sysadmin')) + $jwtConf, 'internal', $mntRout), Array(200, ''));
+checkIdentical('Checker role: not by the path its file declares it with, which names no route: the block cannot be applied', roleReply(Array('rteRoles'=>Array('/listed'=>'sysadmin')) + $jwtConf, 'internal', $mntRout), Array(500, 'Access misconfigured'));
 $rotRout = Array('appToRun'=>'Mounted', 'doAction'=>'fromRoot', 'routKind'=>'toAction', 'routPath'=>'fromRoot', 'routOwnr'=>'Mounted');
 checkIdentical('Checker open: a Run route from the root, by its path', roleReply($mntConf, '', $rotRout), Array(200, ''));
 checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('routPath'=>'mounted/fromRoot') + $rotRout)[0], 401);
-// A site route answering with an action is an alias: its role stays on its path, the action reached otherwise is named by app/action
+// A declared route answering with an action : its role follows the action, whatever path reaches it
 $pnlConf = Array('rteRoles'=>Array('/panel'=>'sysadmin')) + $jwtConf;
 checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'internal', Array('appToRun'=>'reports', 'doAction'=>'admin', 'routKind'=>'toAction', 'routPath'=>'panel')), Array(404, 'Not Found'));
-checkIdentical('Checker role: not on its action reached by its own path', roleReply($pnlConf, 'internal', Array('appToRun'=>'reports', 'doAction'=>'admin')), Array(200, ''));
+checkIdentical('Checker role: and on its action reached by its own path', Array(roleReply($pnlConf, 'internal', Array('appToRun'=>'reports', 'doAction'=>'admin')), roleReply($pnlConf, 'internal', Array('appToRun'=>'Reports', 'doAction'=>'ADMIN'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
+$dfltAct = nyu\App\Controller::dfltActionText( new ReflectionClass('nyu\Runs\Probe\Actions') );
+$prbConf = Array('rteRoles'=>Array('/probes'=>'sysadmin')) + $jwtConf;
+checkIdentical('Checker role: a route to the default action of a Run, the Run asked for by its path, with or without its default action', Array($dfltAct, roleReply($prbConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>null)), roleReply($prbConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>$dfltAct)), roleReply($prbConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>$dfltAct))), Array('sanitize', Array(404, 'Not Found'), Array(404, 'Not Found'), Array(200, '')));
+checkIdentical('Checker role: another action of that Run asks for nothing', roleReply($prbConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'mirrored')), Array(200, ''));
+$cnsConf = Array('rteRoles'=>Array('/console'=>'sysadmin')) + $jwtConf;
+$brdRout = Array('appToRun'=>'Probe', 'doAction'=>'sanitize', 'routKind'=>'toAction', 'routPath'=>'probe/board', 'routOwnr'=>'Probe');
+checkIdentical('Checker role: a site alias carries its role to the route of the Run answering with the same action, and to the Run asked for with none', Array(roleReply($cnsConf, 'internal', $brdRout), roleReply($cnsConf, 'sysadmin', $brdRout), roleReply($cnsConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>null))), Array(Array(404, 'Not Found'), Array(200, ''), Array(404, 'Not Found')));
+checkIdentical('Checker role: an alias with no role leaves its action as it was', roleReply(Array('rteRoles'=>Array('/docs/*'=>'operator')) + $jwtConf, 'internal', $brdRout), Array(200, ''));
+$twoConf = Array('rteRoles'=>Array('/twofold'=>'sysadmin')) + $jwtConf;
+checkIdentical('Checker role: a path pointing each method to its own action carries its role to every one of them', Array(roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'mirrored')), roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'identify')), roleReply($twoConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>'identify')), roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'userPass'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found'), Array(200, ''), Array(200, '')));
+checkIdentical('Checker role: an unknown application matches no route: its own 404 comes later', roleReply($prbConf, 'internal', Array('appToRun'=>'nowhere', 'doAction'=>null)), Array(200, ''));
+// A path of rteRoles must name a declared route, as the router matches it; without a router, nothing can be checked
+checkIdentical('Checker role: a path naming no declared route (its case differs) refuses every request', roleReply(Array('rteRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, 'sysadmin', $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview')), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: a path without a router to read the routes from refuses every request', Array((new Checker( $pnlConf, mockRequestObj() ))->checkRoleFlaws(), (new Checker( Array('rteRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, mockRequestObj(), null, $GLOBALS['roleRout'] ))->checkRoleFlaws()), Array('the route "/panel" of rteRoles cannot be checked: no router is given', 'the route "/Panel" of rteRoles is declared nowhere'));
+checkIdentical('Checker role: an entry naming an action needs no router', (new Checker( $rolConf + Array(), mockRequestObj() ))->checkRoleFlaws()!=='' && (new Checker( Array('rteRoles'=>Array('users/*'=>'sysadmin')) + $jwtConf, mockRequestObj() ))->checkRoleFlaws()==='', true);
 
 // The refused user stays identified, and is not sent to the sign-in route
-$axsRslt = (new Checker( Array('signRout'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'operator')))), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')) ))->validateAccess();
+$axsRslt = (new Checker( Array('signRout'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'operator')))), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')), $GLOBALS['roleRout'] ))->validateAccess();
 checkIdentical('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('wwwHeadr'), $axsRslt->readValueByKey('denyGoal')), Array(404, true, 'carol', 'operator', null, null));
 
 // A check that gives no role makes a member

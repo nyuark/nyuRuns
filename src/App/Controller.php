@@ -98,7 +98,7 @@ class Controller{
 		}
 		$isDeflt = false;
 		if( $this->keptAction=='' ){
-			$this->keptAction = $this->dfltActionText();
+			$this->keptAction = self::dfltActionText( $this->actionsObj );
 			$isDeflt = true;
 		}
 		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
@@ -158,17 +158,19 @@ class Controller{
 	/**
 	 * Resolves the action to run when the request names none: the
 	 * actionset's own $dfltAction when it sets one, otherwise the first
-	 * public method declared in the application's Actions class.
+	 * public method declared in the application's Actions class. The access
+	 * check reads it too, for the role of a route to follow its action.
 	 *
+	 * @param \ReflectionClass $actionsClass The application's Actions class.
 	 * @return String The default action name, or an empty string when the actionset declares no action.
 	 */
-	protected function dfltActionText(): String {
-		$clsProp = $this->actionsObj->getDefaultProperties();
+	public static function dfltActionText( \ReflectionClass $actionsClass ): String {
+		$clsProp = $actionsClass->getDefaultProperties();
 		if( !empty($clsProp['dfltAction']) && is_string($clsProp['dfltAction']) ){
 			return $clsProp['dfltAction'];
 		}
-		foreach( $this->actionsObj->getMethods(\ReflectionMethod::IS_PUBLIC) as $mthObj ){
-			if( $mthObj->getDeclaringClass()->getName()==$this->actionsObj->getName() && !$mthObj->isStatic() && substr($mthObj->getName(), 0, 2)!='__' ){
+		foreach( $actionsClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $mthObj ){
+			if( $mthObj->getDeclaringClass()->getName()==$actionsClass->getName() && !$mthObj->isStatic() && substr($mthObj->getName(), 0, 2)!='__' ){
 				return $mthObj->getName();
 			}
 		}
