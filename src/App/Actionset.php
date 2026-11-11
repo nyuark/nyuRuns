@@ -69,7 +69,7 @@ class Actionset {
 	 * ends the run and sets its status; one from setupForAction() keeps the
 	 * action from running.
 	 */
-	function runAskedAction(): Void {
+	public function runAskedAction(): Void {
 		if( static::hasActionNamed($this->runContext->actionName) ){
 			try{
 				$this->setupForAction();
@@ -117,7 +117,7 @@ class Actionset {
 	 *
 	 * @return Bool Always false.
 	 */
-	function fallbackAction(): Bool {
+	protected function fallbackAction(): Bool {
 		$this->statusCode = 404;
 		$this->statusMssg = 'Not Found';
 		$this->replyValue = null;
@@ -125,24 +125,20 @@ class Actionset {
 	}
 
 	/**
-	 * Helper for list-style actions: sets the action's status/output based
-	 * on whether the given results are present and non-empty.
+	 * Helper for list-style actions: sets the action's status and output from
+	 * the rows it found, a 200 with them, a 204 when there is none. A list
+	 * that could not be read is the action's to refuse before (see Users::index).
 	 *
-	 * @param Array $resultsArray The query/list results to report, or false on failure.
+	 * @param Array $resultsArray The rows of the list.
 	 */
 	function checkActionLst( Array $resultsArray ): Void {
-		if($resultsArray!==false){
-			if(!empty($resultsArray)){
-				$this->statusCode = 200;
-				$this->replyValue = $resultsArray;
-			}else{
-				$this->statusCode = 204;
-				$this->statusMssg = 'List returned no results';
-				$this->replyValue = $resultsArray;
-			}
+		if(!empty($resultsArray)){
+			$this->statusCode = 200;
+			$this->replyValue = $resultsArray;
 		}else{
-			$this->statusCode = 500;
-			$this->statusMssg = 'An error occurred while processing query for this list';
+			$this->statusCode = 204;
+			$this->statusMssg = 'List returned no results';
+			$this->replyValue = $resultsArray;
 		}
 	}
 

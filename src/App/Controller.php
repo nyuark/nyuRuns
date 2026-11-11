@@ -22,6 +22,8 @@ class Controller{
 	protected $appsFolder;
 	// The names whose folders differ by their case alone, already logged as errors : once each
 	protected static $loggdTwins = Array();
+	// The folder names of each folder of Runs, by its path: read once for the request (see runFoldrString)
+	protected static $runFolders = Array();
 	protected $inputsRgst;
 	protected $accessRgst;
 	protected $requestObj;
@@ -195,10 +197,17 @@ class Controller{
 		if( $runsDir==='' || !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
 			return '';
 		}
+		// The folders of the Runs are read once for the request, every lookup then served from that list
+		if( !isset(self::$runFolders[$runsDir]) ){
+			self::$runFolders[$runsDir] = Array();
+			foreach( (array)glob($runsDir.DS.'*', GLOB_ONLYDIR) as $oneDir ){
+				self::$runFolders[$runsDir][] = basename(strval($oneDir));
+			}
+		}
 		$fndList = Array();
-		foreach( (array)glob($runsDir.DS.'*', GLOB_ONLYDIR) as $oneDir ){
-			if( strcasecmp(basename(strval($oneDir)), $appNameToRun)===0 ){
-				$fndList[] = basename(strval($oneDir));
+		foreach( self::$runFolders[$runsDir] as $oneDir ){
+			if( strcasecmp($oneDir, $appNameToRun)===0 ){
+				$fndList[] = $oneDir;
 			}
 		}
 		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them
