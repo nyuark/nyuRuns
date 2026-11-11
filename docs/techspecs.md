@@ -180,8 +180,8 @@ reverse proxy, TLS, `php.ini`) is covered in `HOSTING.md`.
 
 A new project needs no database. Its example access config signs users in
 through a users file (`conf/users.lst`), which `php nyuRun install userBase`
-creates with its basic users: two (the lowest role and the managers), or one per role. The application only ever
-reads that file. When users need to change their own password, receive
+creates with its basic users: two (the lowest role and the managers), or
+one per role. The application only ever reads that file. When users need to change their own password, receive
 their codes by mail, sign up on their own, or hold devices, one command
 moves them to a users table in a database:
 
@@ -225,7 +225,10 @@ sign-outs and refusals, but no line for each access of a standard user.
 
 A project with servers of its own in between (a test or integration
 server, a preview for a client) declares their modes with
-`php nyuRun bundles makeMode`, and builds them like the others.
+`php nyuRun bundles makeMode`, and builds them like the others. A mode is
+named freely, as an action is: lower-case letters and digits, of any
+length (`qa`, `preview`, `integration`). What it is for, it carries as its
+environment, `ENV_NAME` (`DEVS`, `TEST`, `PREV`, `PROD`), which `makeMode` asks.
 
 ### 2.3 Keep the secrets in one place
 
@@ -309,7 +312,7 @@ An action receives only the fields its definition lists, in
 `runs/<App>/input/<action>.json`, each with its format; the others are
 left out. Give every action a definition, even one without inputs.
 
-- Mark a field as required with a `!` at the end of its name (`"user!"`)
+- Mark a field as required with a `!` at the end of its name (`"userName!"`)
   when the action can't work without it: a request without it gets a 400.
 - List a password with an empty format, so it's kept exactly as sent.
 - `OutText` is meant for what gets shown, not for what goes into a query:
@@ -701,11 +704,11 @@ with a **check**, which verifies it (`authWith`):
 
 | Carrier | Class | Carries |
 |---|---|---|
-| `httpBasc` | `Sess\Basic` | a name and a password, through HTTP Basic |
-| `apiHeadr` | `Sess\Header` | a key in a header |
-| `jwtToken` | `Sess\JWT` | a signed token (HS256, RS256) |
-| `phpSessn` | `Sess\PHPSess` | a PHP session, through its cookie |
-| `clntCert` | `Sess\ClCert` | a client certificate, checked by the web server |
+| `httpBasc` | `Carr\Basic` | a name and a password, through HTTP Basic |
+| `apiHeadr` | `Carr\Header` | a key in a header |
+| `jwtToken` | `Carr\JWT` | a signed token (HS256, RS256) |
+| `phpSessn` | `Carr\PHPSess` | a PHP session, through its cookie |
+| `clntCert` | `Carr\ClCert` | a client certificate, checked by the web server |
 
 | Check | Class | Verifies against |
 |---|---|---|
@@ -1054,9 +1057,10 @@ unknown format stops the request with a 500 (400 for a required field).
 php nyuRun <command> <sub-command> [arguments] [--options]
 ```
 
-Every command is a word of seven letters, and every sub-command one of eight,
-matched whatever its case. A command without a sub-command, or with `--helpText`, lists
-what it does.
+Every command is a word of seven letters, and every sub-command one of
+eight, matched whatever its case. A command without a sub-command, or with
+`--helpText`, lists what it does; `showlog` and `cronjob` have none, and
+take their arguments directly.
 
 | Option | Effect |
 |---|---|
@@ -1128,8 +1132,8 @@ another block):
 | `language <user> [language]` | shows, sets or removes the language |
 | `approves [user]` | lists the sign-ups to review, or approves one |
 
-`php nyuRun cronjob <app/action[/param]> [field=value]`, a command of its own with
-no sub-command, calls an action of a run for automated tasks, as the user
+`php nyuRun cronjob <app/action[/param]> [field=value]`, a command of its
+own with no sub-command, calls an action of a run for automated tasks, as the user
 `cli:<system user>`, with the roles of a preset (`--presetId`, `--roleName`,
 `--bodyFrom`, `--httpVerb`, `--saveInto`).
 
@@ -1164,8 +1168,11 @@ Composer (`--composer` names it, or else `composer.phar` at the root, or
 the one on the path). Without Composer, the copy keeps the project's
 autoloader, and says so.
 
-A mode of the project, in `conf/bundle.lst`, holds `settings` (keys of
-`system.ini`) and `addPaths` (paths copied beyond the allow-list).
+A mode of the project, in `conf/bundle.lst`, is named freely (lower-case
+letters and digits, of any length, neither a mode of the framework nor a
+sub-command). It holds `settings` (keys of `system.ini`, its environment
+`ENV_NAME` among them: `DEVS`, `TEST`, `PREV` or `PROD`, asked by `makeMode`)
+and `addPaths` (paths copied beyond the allow-list).
 
 ### 7.7 `cleanup`, `showlog`: temporary files and logs
 
@@ -1276,8 +1283,7 @@ class Actions extends Actionset {
   `notes/view/12`), or the first value a declared route captures. An
   action that needs one declares it; one that takes none ignores it.
 - An action follows the project's conventions (chapter 12), apart from its
-  name, which is the word of the path. The delivered runs name theirs with
-  8 characters; a project's own runs are free to choose.
+  name, which is the word of the path, of any length.
 
 ### 8.3 What an action is given
 
@@ -1479,7 +1485,7 @@ all ([`HOSTING.md` §5](../HOSTING.md#5-limit-by-address-and-account-holds)).
   ends up in a log.
 - Names given by a client are written in the logs as JSON strings, so no
   line can be forged.
-- Users holding `advanced` or `managers` are traced on every access, and
+- Users holding any role above `standard` are traced on every access, and
   every refusal is traced with its reason
   ([`HOSTING.md` §12](../HOSTING.md#12-errors-and-logs)).
 
@@ -1796,6 +1802,9 @@ Exempt from the lengths:
 - the actions of every run, delivered or a project's own (`login`,
   `index`, `view`, `card`): their name is the word of the path, and the
   audit leaves every method of `runs/*/Actions.php` alone;
+- the bundle modes, named freely as an action is (`local`, `stage`,
+  `final`, and those of `conf/bundle.lst`): what a mode is for, it carries
+  as `ENV_NAME`;
 - the PSR-3 methods of `Tools\Logger` (`error`, `warning`, `notice`,
   `info`, `debug`) and its level constants (`LEVL_ERROR`, …);
 - the variable of a `catch`, `$e`;
@@ -1827,7 +1836,7 @@ The same rule holds beyond the code:
 |---|---|---|
 | keys of a configuration block | 8, in the JSON files and in a route target | `carrWith`, `appToRun` |
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
-| codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `standard`, `advanced`, `delegate`, `managers` |
+| codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type) | `standard`, `advanced`, `delegate`, `managers` |
 | columns of a table | 10 | `systemName` |
 | commands of `php nyuRun`, and their sub-commands | 7 for a command, 8 for a sub-command | `install complete`, `cleanup cleanDir` |
 | options of `php nyuRun` | 8 | `--noPrompt`, `--yesToAll` |

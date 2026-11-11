@@ -107,9 +107,9 @@ class Bundle extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMakeMode(): Int {
-		$modeNme = $this->needsShellWord('the mode: five to eight lower-case letters or digits');
-		if( !preg_match('/^[a-z0-9]{5,8}$/D', $modeNme) ){
-			$this->terminateShell('A mode is named with five to eight lower-case letters or digits', self::EXIT_HELP);
+		$modeNme = $this->needsShellWord('the mode: lower-case letters or digits, of any length');
+		if( !preg_match('/^[a-z0-9]+$/D', $modeNme) ){
+			$this->terminateShell('A mode is named with lower-case letters or digits', self::EXIT_HELP);
 		}
 		if( method_exists($this, 'invoke'.ucfirst($modeNme)) ){
 			$this->terminateShell('Nothing was declared: '.$modeNme.' is a mode of the framework or a sub-command', self::EXIT_DENY);
@@ -251,8 +251,9 @@ class Bundle extends Command{
 	/**
 	 * Gives every mode: those of the framework, then those the project
 	 * declares in conf/bundle.lst, or in the list given, which is checked
-	 * as the file would be. A mode of the project is named with five
-	 * lower-case letters or digits that no sub-command uses; its 'settings'
+	 * as the file would be. A mode of the project is named freely, with
+	 * lower-case letters or digits, of any length, that neither a mode of
+	 * the framework nor a sub-command uses; its 'settings'
 	 * holds keys of system.ini, ENV_NAME one of the four environments;
 	 * its 'addPaths' holds paths of the project, outside KEEPLIST or files
 	 * inside it (a file left out otherwise, named to be copied), none of
@@ -281,8 +282,8 @@ class Bundle extends Command{
 			$iniVals = is_array($mdlVal) ? ($mdlVal['settings'] ?? null) : null;
 			$newData = is_array($mdlVal) ? ($mdlVal['addPaths'] ?? Array()) : null;
 			$whyText = '';
-			if( !preg_match('/^[a-z0-9]{5,8}$/D', $modNme) || isset(self::MODE_LIST[$modNme]) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
-				$whyText = 'not five to eight lower-case letters or digits, or the name of a mode of the framework or of a sub-command';
+			if( !preg_match('/^[a-z0-9]+$/D', $modNme) || isset(self::MODE_LIST[$modNme]) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
+				$whyText = 'not lower-case letters or digits, or the name of a mode of the framework or of a sub-command';
 			}elseif( !is_array($iniVals) || !in_array($iniVals['ENV_NAME'] ?? null, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
 				$whyText = 'its "settings" has no ENV_NAME of DEVS, TEST, PREV or PROD';
 			}elseif( !is_array($newData) ){
