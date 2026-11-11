@@ -34,4 +34,7 @@ checkTrueValue('the models property is the one of the context', $ctxVals['modSta
 $conTrol = new Controller( 'hooked', 'nowhere', new Registry(Array('refuse'=>'yes')) );
 checkIdentical('an unknown action is still a 404', $conTrol->retrieveStatus(), Array('code'=>404, 'mssg'=>'Not Found'));
 
+// A Run without $dfltAction has no default action: a request naming none is a 500, the first action no longer standing in for it
+checkIdentical('no $dfltAction: a request naming no action is a 500', (new Controller( 'hooked', '', new Registry(Array()) ))->retrieveStatus(), Array('code'=>500, 'mssg'=>'Internal Server Error'));
+
 finishChecking();

@@ -1085,7 +1085,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 | You get | Why | What to do |
 |---|---|---|
 | `404` on an action you just wrote | the client is never told why. Maybe the action isn't a public method of `Actions`, its run's folder or class is misnamed, its run has its own routes file, so only those routes reach it, or the user lacks the role | check `runner.log` (`Not found: "notes/view": …`) or `access.log` (`role … needed`) |
-| `500 Internal Server Error` on a run's URL with no action | the default action (`$dfltAction`) names no action | `runner.log` names it |
+| `500 Internal Server Error` on a run's URL with no action | the default action (`$dfltAction`) names no action, or isn't set | `runner.log` names it |
 | `500 Access misconfigured` on every request | an access setting can't be applied: an unknown role in `minRoles`, a route both open and given a role, a carrier and a check that don't work together, or a sign-in route that isn't a path of the site | `access.log` says which (`Access misconfigured: …`) |
 | `500` naming `Input misconfigured` | an `input/<action>.json` that isn't `{ "fieldSet": … }`, or that names a format that doesn't exist | fix the file; formats come from `nyu\Tools\Variable` |
 | `400 Missing or invalid input: …` | a required field (`name!`) was missing or empty | send it, and check its name |

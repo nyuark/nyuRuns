@@ -9,6 +9,8 @@ use \nyu\App\Actionset;
 
 class Actions extends Actionset {
 
+	protected $dfltAction = 'transmit';
+
 	/**
 	 * Answers with its inputs. Declared first, so it is also the default
 	 * action; input/send.json defines its fields.

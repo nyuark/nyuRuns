@@ -151,7 +151,6 @@ checkIdentical('create: a name that is not a text', statusOf(callActn('users/cre
 $outcome = callActn('users/index', Array(), 'anna', 'managers', 'GET');
 checkIdentical('index: every user, by name', Array($outcome['code'] ?? $outcome, array_column($outcome['out'] ?? Array(), 'systemName')), Array(200, Array('anna', 'ben', 'dave', 'emma', 'fred')));
 checkIdentical('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
-checkIdentical('index: by default action', callActn('users/', Array(), 'anna', 'managers', 'GET')['code'] ?? null, 200);
 checkIdentical('index: filters', array_column(callActn('users/index', Array('currStat'=>'awaiting', 'saveRole'=>'advanced'), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('fred'));
 checkIdentical('index: limit and offset, as sent in a query', array_column(callActn('users/index', Array('limitVal'=>'2', 'rowIndex'=>'1'), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('ben', 'dave'));
 checkIdentical('index: nobody is 204', callActn('users/index', Array('currStat'=>'disabled', 'saveRole'=>'managers'), 'anna', 'managers', 'GET')['code'] ?? null, 204);

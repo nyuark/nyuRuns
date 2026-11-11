@@ -114,7 +114,7 @@ class Controller{
 			if( $isDeflt ){
 				$this->failStatus = 500;
 				$this->loadFailed = 'Internal Server Error';
-				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->keptAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction, or no action declared)' );
+				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->keptAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction names no action, or is not set)' );
 				return;
 			}
 			$this->loadFailed = 'Not Found';
@@ -167,24 +167,18 @@ class Controller{
 
 	/**
 	 * Resolves the action to run when the request names none: the
-	 * actionset's own $dfltAction when it sets one, otherwise the first
-	 * public method declared in the application's Actions class. The access
+	 * actionset's own $dfltAction, and nothing else. A Run that sets none
+	 * has no default action: a request naming none is answered 500 (see
+	 * the constructor), and `install checkAll` tells it. A Run declaring its
+	 * routes says what its path alone answers with its "" route. The access
 	 * check reads it too, for the role of a route to follow its action.
 	 *
 	 * @param \ReflectionClass $actionsClass The application's Actions class.
-	 * @return String The default action name, or an empty string when the actionset declares no action.
+	 * @return String The default action name, or an empty string when the actionset sets none.
 	 */
 	public static function dfltActionText( \ReflectionClass $actionsClass ): String {
 		$clsProp = $actionsClass->getDefaultProperties();
-		if( !empty($clsProp['dfltAction']) && is_string($clsProp['dfltAction']) ){
-			return $clsProp['dfltAction'];
-		}
-		foreach( $actionsClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $mthObj ){
-			if( $mthObj->getDeclaringClass()->getName()==$actionsClass->getName() && !$mthObj->isStatic() && substr($mthObj->getName(), 0, 2)!='__' ){
-				return $mthObj->getName();
-			}
-		}
-		return '';
+		return (!empty($clsProp['dfltAction']) && is_string($clsProp['dfltAction'])) ? $clsProp['dfltAction'] : '';
 	}
 
 	/**

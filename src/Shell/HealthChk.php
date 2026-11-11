@@ -290,6 +290,34 @@ class HealthChk{
 		$this->addCheckResult( 'route shadow', empty($shdwLst) ? 'fine' : 'warn', empty($shdwLst) ? 'no site route over a route of an application' : 'a site route answers in place of the application\'s: '.implode('; ', array_unique($shdwLst)) );
 		$allLost = array_unique( array_merge($roleLst, $lostLst) );
 		$this->addCheckResult( 'access route', !empty($roleLst) ? 'fail' : (empty($lostLst) ? 'fine' : 'warn'), empty($allLost) ? 'every entry of openList and minRoles names a route' : 'naming no route: '.implode('; ', $allLost) );
+		// An open Run is reached from its path: a request naming no action runs the one its $dfltAction names, and is a 500 without it.
+		// A Run declaring its routes is closed, its "" route saying what its path alone answers: it has no row
+		foreach( $runList as $oneDir ){
+			$actnPth = RUN_DIR.DS.$oneDir.DS.'Actions.php';
+			if( is_file(RUN_DIR.DS.$oneDir.DS.'routes.rte') || !is_file($actnPth) ){
+				continue;
+			}
+			$clsName = '\\nyu\\Runs\\'.$oneDir.'\\Actions';
+			try{
+				if( !class_exists($clsName, false) ){
+					require_once $actnPth;
+				}
+				$actnNme = class_exists($clsName, false) ? \nyu\App\Controller::dfltActionText( new \ReflectionClass($clsName) ) : null;
+			}catch( \Throwable $e ){
+				$this->addCheckResult('default '.$oneDir, 'fail', 'Actions.php cannot be loaded: '.$e->getMessage());
+				continue;
+			}
+			if( $actnNme===null ){
+				continue;
+			}
+			if( $actnNme=='' ){
+				$this->addCheckResult('default '.$oneDir, 'warn', 'no $dfltAction: a request naming no action is answered 500');
+			}elseif( !$clsName::hasActionNamed($actnNme) ){
+				$this->addCheckResult('default '.$oneDir, 'fail', '$dfltAction names no action: '.$actnNme);
+			}else{
+				$this->addCheckResult('default '.$oneDir, 'fine', $actnNme);
+			}
+		}
 	}
 
 	/**

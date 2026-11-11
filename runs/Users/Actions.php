@@ -18,8 +18,6 @@ use \nyu\Access\Auth\UserBase;
  */
 class Actions extends Actionset {
 
-	protected $dfltAction = 'index';
-
 	// The native userbase, opened for the action by setupForAction()
 	protected $userBaseDb;
 

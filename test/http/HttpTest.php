@@ -205,9 +205,9 @@ if( !$isReady ){
 	checkIdentical('auth route: an action of the closed Run reached by its path is a 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	checkIdentical('auth route: GET on one of its POST routes is refused', httpQuery('GET', $baseUrl.'/auth/login')['code'], 405);
 
-	// Default action : the one the application names in $dfltAction, otherwise its first declared action
+	// Default action : the one the application names in $dfltAction, and nothing else (a 500 without it)
 	$replyAr = httpQuery('GET', $baseUrl.'/probe', Array('X-Test-Runs'=>'1'));
-	checkIdentical('no action: the first declared action runs', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	checkIdentical('no action: the action $dfltAction names runs', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/', Array('X-Test-Runs'=>'1'));
 	checkIdentical('no action, trailing slash', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
@@ -863,7 +863,7 @@ if( !$isReady ){
 	checkIdentical('fixture: clean action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe', $fixHead);
-	checkIdentical('fixture: first declared action is the default', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
+	checkIdentical('fixture: the action $dfltAction names is the default', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/lost', $fixHead);
 	checkIdentical('fixture: a default action that does not exist is 500, told no more', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Internal Server Error","code":500}'));

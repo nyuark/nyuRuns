@@ -585,8 +585,8 @@ Otherwise the route names an application, and its Controller
 1. **The application** must be a folder of `runs/` named with letters and
    digits only, holding an `Actions.php` that declares its actionset.
 2. **The action** is the one the route names, or the application's default
-   when it names none: the `$dfltAction` of its actionset, or else its
-   first action. It must be one of the application's actions: a public
+   when it names none: the `$dfltAction` of its actionset, and nothing else
+   (without it, a 500, logged). It must be one of the application's actions: a public
    method of its actionset, not a helper or a method of the framework. An
    action that a declared route limits isn't reached by its path.
 3. **The inputs** get the action's definition (`input/<action>.json`): the
@@ -1278,7 +1278,9 @@ class Actions extends Actionset {
 ```
 
 - **`$dfltAction`** names the action that runs when the path names none;
-  without it, the first action declared runs.
+  without it, such a request is a 500, logged on `runner`, and `install checkAll`
+  tells it (`default <Run>`). A run declaring its routes needs none: its `""`
+  route says what its path alone answers.
 - **`setupForAction()`**, when the run declares it, runs before every
   action: a check the whole run shares (a role, a setting) goes there,
   and it can stop the request with `stopThisAction()`.

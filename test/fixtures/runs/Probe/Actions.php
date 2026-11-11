@@ -9,6 +9,8 @@ use \nyu\App\Actionset;
 
 class Actions extends Actionset {
 
+	protected $dfltAction = 'sanitize';
+
 	/**
 	 * Answers normally. Declared first, so it is also the default action.
 	 */
