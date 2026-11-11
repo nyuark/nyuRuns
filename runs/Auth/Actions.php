@@ -60,20 +60,13 @@ class Actions extends Actionset {
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolveConfArr('tryLimit') );
-		$clntReg = $this->requestObj->retrieveClient();
-		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '';
-		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
-		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
-		if($heldEnd>0){
-			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': too many attempts' );
-			if($this->respondObj!==null){
-				$this->respondObj->addReplyHeader('Retry-After', strval(max(1, $heldEnd - time())));
-			}
-			$this->statusCode = 429;
-			$this->statusMssg = 'Too many attempts';
+		$lmtrArr = $this->refuseHeldAddr('Login', $gvnUser);
+		if($lmtrArr===null){
 			return;
 		}
+		$lmtrObj = $lmtrArr[0];
+		$usrAddr = $lmtrArr[1];
+		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
 		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
 		if(method_exists($sessObj, 'verifyOnlyFlag') && $sessObj->verifyOnlyFlag()){
@@ -244,19 +237,13 @@ class Actions extends Actionset {
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrObj = new Limiter( $this->resolveConfArr('tryLimit') );
-		$clntReg = $this->requestObj->retrieveClient();
-		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '';
-		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
-		if($heldEnd>0){
-			Logger::retrieveLogger('access')->warning( 'Activation refused for user '.json_encode($gvnUser).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
-			if($this->respondObj!==null){
-				$this->respondObj->addReplyHeader('Retry-After', strval(max(1, $heldEnd - time())));
-			}
-			$this->statusCode = 429;
-			$this->statusMssg = 'Too many attempts';
+		$lmtrArr = $this->refuseHeldAddr('Activation', $gvnUser);
+		if($lmtrArr===null){
 			return;
 		}
+		$lmtrObj = $lmtrArr[0];
+		$usrAddr = $lmtrArr[1];
+		$clntReg = $this->requestObj->retrieveClient();
 		// The language the request asks for is given to a user who has none yet : the one who activates is the one the mails go to
 		$clntLng = ($clntReg!==null) ? strval($clntReg->readValueByKey('language')) : '';
 		if(!$usrBase->activateUsrFlg($gvnUser, $gvnCode, $gvnPass, $clntLng)){
