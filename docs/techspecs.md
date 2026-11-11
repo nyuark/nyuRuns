@@ -1054,8 +1054,8 @@ unknown format stops the request with a 500 (400 for a required field).
 php nyuRun <command> <sub-command> [arguments] [--options]
 ```
 
-Every command and sub-command is a word of eight letters, matched whatever
-its case. A command without a sub-command, or with `--helpText`, lists
+Every command is a word of seven letters, and every sub-command one of eight,
+matched whatever its case. A command without a sub-command, or with `--helpText`, lists
 what it does.
 
 | Option | Effect |
@@ -1790,13 +1790,12 @@ rather than one word squeezed down. Classes are the exception:
 | local variable | 7 | `$endDate`, `$noteLst` |
 | loop variable | 6 | `$oneRow`, `$rowIdx` |
 | constant | 9, in the form `XXXX_YYYY` | `KEYS_LIST`, `TYPE_LIST` |
-| action of a delivered run | 8 | `login`, `view` |
 
 Exempt from the lengths:
 
-- the actions in a project's own runs (`index`, `view`, `card`): their
-  name is the word of the path, and the audit leaves every method of
-  `runs/*/Actions.php` alone;
+- the actions of every run, delivered or a project's own (`login`,
+  `index`, `view`, `card`): their name is the word of the path, and the
+  audit leaves every method of `runs/*/Actions.php` alone;
 - the PSR-3 methods of `Tools\Logger` (`error`, `warning`, `notice`,
   `info`, `debug`) and its level constants (`LEVL_ERROR`, …);
 - the variable of a `catch`, `$e`;
@@ -1830,7 +1829,7 @@ The same rule holds beyond the code:
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
 | codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `standard`, `advanced`, `delegate`, `managers` |
 | columns of a table | 10 | `systemName` |
-| commands and sub-commands of `php nyuRun` | 8 | `install complete`, `cleanup cleanDir` |
+| commands of `php nyuRun`, and their sub-commands | 7 for a command, 8 for a sub-command | `install complete`, `cleanup cleanDir` |
 | options of `php nyuRun` | 8 | `--noPrompt`, `--yesToAll` |
 | formats of `Tools\Variable` | 7, so each `formats…()` method is 14 | `OutText`, `formatsOutText()` |
 

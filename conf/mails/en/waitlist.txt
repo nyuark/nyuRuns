@@ -4,7 +4,7 @@ Hello,
 %count% sign-ups are waiting, confirmed or not. When %limit% are waiting,
 the sign-ups close until some are approved or removed.
 
-To see those awaiting review: users?currStat=review, or on the server
+To see those awaiting review: users?currStat=inReview, or on the server
     php nyuRun account approves
 
 Approve one with users/approve (accounts approves <user>), refuse one by

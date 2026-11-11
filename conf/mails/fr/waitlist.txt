@@ -5,7 +5,7 @@ Bonjour,
 sont en attente, les inscriptions se ferment jusqu'à ce que certaines
 soient approuvées ou supprimées.
 
-Pour voir celles qui attendent un examen : users?currStat=review, ou sur le
+Pour voir celles qui attendent un examen : users?currStat=inReview, ou sur le
 serveur
     php nyuRun account approves
 
