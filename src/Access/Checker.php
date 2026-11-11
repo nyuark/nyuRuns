@@ -19,11 +19,11 @@ class Checker{
 	const ROLE_LIST = Array('internal', 'operator', 'sysadmin');
 	// Short names of the framework's strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
-	const AUTH_LIST = Array('htpasswd'=>'PassList', 'nativeDb'=>'Native', 'regdKeys'=>'RegKey', 'userFile'=>'UserList', 'devToken'=>'Device');
+	const AUTH_LIST = Array('htpasswd'=>'PassList', 'nativeDb'=>'Native', 'regdKeys'=>'RegKey', 'userFile'=>'UserList', 'dvcToken'=>'Device');
 	const SESS_LIST = Array('httpBasc'=>'Basic', 'apiHeadr'=>'Header', 'jwtToken'=>'JWT', 'phpSessn'=>'PHPSess', 'clntCert'=>'ClCert');
 	// Carriers that hand what they carry to a credential check, and the framework's checks that can take it.
 	// A plug-in check is taken as able to
-	const PAIR_LIST = Array('httpBasc'=>Array('htpasswd', 'nativeDb', 'userFile'), 'apiHeadr'=>Array('regdKeys', 'nativeDb', 'userFile', 'devToken'));
+	const PAIR_LIST = Array('httpBasc'=>Array('htpasswd', 'nativeDb', 'userFile'), 'apiHeadr'=>Array('regdKeys', 'nativeDb', 'userFile', 'dvcToken'));
 
 	protected $accessConf;
 	protected $requestObj;

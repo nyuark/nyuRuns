@@ -191,7 +191,7 @@ php nyuRun installs moveUser nativeDb
 
 Every user keeps their identifier, password, role, status, address,
 language and 2FA secret. The users file is left as it was, so the move can
-be undone. Devices, and their table, only come with a `devToken` block in
+be undone. Devices, and their table, only come with a `dvcToken` block in
 `conf/access.json`.
 
 ### 2.2 One bundle per environment
@@ -713,7 +713,7 @@ with a **check**, which verifies it (`authWith`):
 | `regdKeys` | `Auth\RegKey` | a list of API keys |
 | `userFile` | `Auth\UserList` | the users file, read only |
 | `nativeDb` | `Auth\Native` | the users table of a database |
-| `devToken` | `Auth\Device` | the tokens of the devices |
+| `dvcToken` | `Auth\Device` | the tokens of the devices |
 
 A carrier and a check that can't work together refuse every request
 (`Checker::PAIR_LIST`). Alongside them:
@@ -954,7 +954,7 @@ carrier, so a value naming a block reads on its own
 | `htpasswd` | `passFile`, `weakHash`, `maxTries`, `holdSecs` | the password file of the `htpasswd` check, and its limit by account |
 | `nativeDb` | `linkName`, `useTable`, `idleSecs`, `maxTries`, `holdSecs`, `minChars`, `tfaCrypt`, `mailAcnt`, `signupOn`, `codeMins`, `linkTmpl` | the native userbase: its database and table, the time after which a user is no longer online, the wrong passwords before the account is held and for how long, the shortest password, the key of the 2FA secrets, the access mails |
 | `userFile` | `listFile`, `tfaCrypt`, `maxTries`, `holdSecs` | the users file, the key of its 2FA secrets, and its limit by account |
-| `devToken` | `useTable`, `usersTbl`, `seenSecs` | the table of the devices, the one of their users, and how often a device's last use is recorded |
+| `dvcToken` | `useTable`, `usersTbl`, `seenSecs` | the table of the devices, the one of their users, and how often a device's last use is recorded |
 | `tryLimit` | `maxTries`, `holdSecs`, `dataPath`, `maxQueue`, `maxPerIp`, `alertsAt`, `markSecr`, `markDays` | the limit by address, the bounds of the sign-ups, and the login marks |
 | `regdKeys` | `headName`, `keysList` | the header of the API keys, and the keys |
 | `jwtToken` | `hmacSecr`, `lifeSecs`, `signAlgo`, `privFile`, `publFile`, `prevFile`, `issuerId`, `audience` | the tokens: their algorithm, secret or keys, the previous public key, their life, issuer and audience |
@@ -1086,7 +1086,7 @@ like the same change made over HTTP.
 | `allSteps` | the whole installation: the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `--useStore` picks the store) |
 | `testHost` | checks the server: PHP, its extensions, the folders written |
 | `makeConf` | makes `.env`, `access.json` and `database.json` from their examples |
-| `userBase` | creates the users table and the basic users, or the users file; the devices table with a `devToken` block |
+| `userBase` | creates the users table and the basic users, or the users file; the devices table with a `dvcToken` block |
 | `checkAll` | the health check: each row `fine`, `warn` or `fail`; exit code 4 on a `fail` |
 | `moveUser <nativeDb\|userFile>` | moves the users to the other store, and the login with them (`--dropsAll`, `--yesToAll`) |
 

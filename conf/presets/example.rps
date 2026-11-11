@@ -42,7 +42,7 @@
         // htpasswd (htpasswd file); nativeDb (users table of the database;
         // see conf/schema/users.<type>.sql); regdKeys (list of API keys);
         // userFile (file of users; read only; the native users without a database);
-        // devToken (tokens of the devices working in the name of a user; see php nyuRun machines)
+        // dvcToken (tokens of the devices working in the name of a user; see php nyuRun machines)
         // Planned for version 1.1: SSO; LDAP
         // Applications can add their own: a name listed under "authWith" in the "plugLibs" block of
         // conf/access.json is a class of runs/Shared (mychck -> MychckAuth.php);

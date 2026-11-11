@@ -74,7 +74,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('device.sqlite')),
 	'access'=>Array('TESTDVC'=>Array('seenSecs'=>0), 'TESTBEAR'=>Array('headName'=>'Authorization', 'authSchm'=>'Bearer'))
 ) );
-$dvcConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'carrConf'=>'testbear', 'authWith'=>'devToken', 'authConf'=>'testdvc');
+$dvcConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'carrConf'=>'testbear', 'authWith'=>'dvcToken', 'authConf'=>'testdvc');
 $sqlLink->exec("UPDATE devices SET accessDate=NULL");
 $axsRslt = (new nyu\Access\Checker( $dvcConf, mockRequestObj(Array('Authorization'=>'Bearer '.$homeTkn)) ))->validateAccess();
 checkIdentical('Checker device token: user, role and device role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('identity')['device']['role'] ?? null), Array(200, 'anna', 'sysadmin', 'home'));

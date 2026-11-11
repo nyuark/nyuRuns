@@ -226,7 +226,7 @@ class Deploy extends Command{
 			$this->writeUsersFile($dstConf, $usrList);
 		}
 		// Devices left behind would still pass on users the project no longer manages
-		$dvcAuth = new DeviceAuth( $this->accessSettings('devToken') );
+		$dvcAuth = new DeviceAuth( $this->accessSettings('dvcToken') );
 		foreach( $devcIds as $devcId ){
 			$dvcAuth->remUserDevcFlg($devcId);
 		}
@@ -369,7 +369,7 @@ class Deploy extends Command{
 			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "accounts setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
 		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
-		$dvcConf = $this->accessSettings('devToken');
+		$dvcConf = $this->accessSettings('dvcToken');
 		$dvcRows = empty($dvcConf) ? Array() : (new DeviceAuth($dvcConf))->lstUserDevices();
 		$devcIds = Array();
 		$devcNms = Array();
@@ -745,7 +745,7 @@ class Deploy extends Command{
 	 * @throws ShellStop When the table cannot be created.
 	 */
 	protected function makeDevicesTbl(): Void {
-		$dvcConf = $this->accessSettings('devToken');
+		$dvcConf = $this->accessSettings('dvcToken');
 		if( empty($dvcConf) ){
 			return;
 		}

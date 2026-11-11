@@ -126,7 +126,7 @@ $dvcQury = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='devi
 checkIdentical('without a device block, no devices table', intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), 0);
 writeInProject($projDir, 'conf/schema/devices.sqlitedb.sql', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.sqlitedb.sql')));
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
-$axsVals['devToken'] = Array('linkName'=>'nyuRuns', 'useTable'=>'devices', 'usersTbl'=>'users', 'seenSecs'=>60);
+$axsVals['dvcToken'] = Array('linkName'=>'nyuRuns', 'useTable'=>'devices', 'usersTbl'=>'users', 'seenSecs'=>60);
 writeInProject($projDir, 'conf/access.json', json_encode($axsVals, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 checkIdentical('with a device block, users creates the devices table, linked to the users', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], intval((new PDO('sqlite:'.$newBase))->query($dvcQury)->fetchColumn()), (new PDO('sqlite:'.$newBase))->query("SELECT \"table\", \"from\", \"to\", on_delete FROM pragma_foreign_key_list('devices')")->fetchAll(PDO::FETCH_NUM)), Array("The table users already holds users: nothing was changed.\nTable devices created.\n", 1, Array(Array('users', 'user_id', 'id_user', 'CASCADE'))));
 checkIdentical('a devices table that exists is left as it is', callShellArray($projDir, Array('installs', 'userBase'))['text'], "The table users already holds users: nothing was changed.\n");

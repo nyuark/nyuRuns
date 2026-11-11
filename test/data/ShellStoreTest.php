@@ -37,7 +37,7 @@ $projDir = makeProjectTxt('storenat', Array(
 		'loginSet'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb', 'carrWith'=>'jwtToken', 'carrConf'=>'jwtToken'),
 		'nativeDb'=>Array('useTable'=>'users', 'tfaCrypt'=>$natSeal),
 		'userFile'=>Array('listFile'=>'conf/users.lst', 'tfaCrypt'=>$lstSeal),
-		'devToken'=>Array('useTable'=>'devices', 'usersTbl'=>'users')
+		'dvcToken'=>Array('useTable'=>'devices', 'usersTbl'=>'users')
 	), JSON_PRETTY_PRINT)
 ));
 checkIdentical('a store that is not one, a missing word', Array(callShellArray($projDir, Array('installs', 'moveUser', 'ldap'))['code'], callShellArray($projDir, Array('installs', 'moveUser'))['code']), Array(2, 2));
