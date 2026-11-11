@@ -22,8 +22,9 @@ part of the documentation, or a new feature.
    `test/README.md` tells how the tests are organised, and which PHP
    extensions and servers the optional ones need.
 
-2. **The conventions of the code.** Names have fixed lengths (methods 9
-   characters, parameters 10, properties 8, local variables 7), types are
+2. **The conventions of the code.** Names have fixed lengths (methods 14
+   characters, parameters 12, properties 10, local variables 7, constants 9
+   as `XXXX_YYYY`), types are
    declared and written capitalised (`String`, `Array`, `Bool`), and every
    public method has its docblock. The audit group checks them:
 

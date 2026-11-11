@@ -61,11 +61,11 @@ script runs in its own PHP process and can also be run on its own
   has to be stopped by hand.
 - **Credentials.** `fixtures/users.htpasswd` holds four test-only users
   (`alice` / `s3cret`, `erin` / `tr0ub4dor`, and `bob` / `hunter2`, `frank` / `letmein`
-  whose weak hashes only pass in unsecure mode). `fixtures/users.lst` is the
+  whose weak hashes only pass with `weakHash`). `fixtures/users.lst` is the
   users file (`userFile`): `anna`, `ben`, `cleo`, `dave` as in the sample
   database, and `emma` with a 2FA secret, password `pw-<name>`.
 - **PHP notices.** A notice or warning raised by the tested code fails the script
-  that triggered it, unless the test collects it with `takeNotes()`.
+  that triggered it, unless the test collects it with `takePhpNotices()`.
 - **Conventions.** `audit/ConventionTest.php` lists the accepted exceptions at its
   top; run it with `--list` to print every finding.
 
@@ -77,10 +77,10 @@ Create `test/<group>/<Name>Test.php`:
 <?php
 require __DIR__.'/../lib/harness.php';
 
-checkSame('label', $actual, $expected);   // strict comparison
-checkTrue('label', $condition);
-checkLike('label', $string, '/regex/');
-checkThrw('label', function(){ ... }, 'TypeError');
+checkIdentical('label', $actual, $expected);   // strict comparison
+checkTrueValue('label', $condition);
+checkPregMatch('label', $string, '/regex/');
+checkForThrows('label', function(){ ... }, 'TypeError');
 
-endChecks();
+finishChecking();
 ```

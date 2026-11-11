@@ -236,8 +236,8 @@ upload progress        fine   off
 extension json         fine   loaded
 extensions             warn   optional, not loaded: zip, gd, exif, imagick
 folder temp/logs       fine   writable
-origins default       warn   every origin is allowed while the preset reads tokens: list the origins under "corsList"
-preset default        fine   loads
+origins default        warn   every origin is allowed while the preset reads tokens: list the origins under "corsList"
+preset default         fine   loads
 preset example         fine   its keys are known; never loaded, it only explains them
 route clash            fine   no two applications declare one path
 access route           fine   every entry of openList and minRoles names a route
@@ -258,9 +258,9 @@ serve, or is exposed). On a fresh install a few warnings are normal:
 `extensions` (optional ones you may not need), `origins` for each profile
 that reads tokens (any site may call the API from a browser),
 `token claims` (your tokens aren't bound to your project yet) and, on
-Windows, `file rights`. The `example` profile only explains the settings:
-it's never loaded, and an entry point naming it fails the check. A `warn` on `upload progress` comes from PHP's own
-settings: set `session.upload_progress.enabled = 0` in your `php.ini`.
+Windows, `file rights`. The `example` profile only explains the
+settings: it's never loaded, and an entry point naming it fails the check.
+A `warn` on `upload progress` comes from PHP's own settings: set `session.upload_progress.enabled = 0` in your `php.ini`.
 Appendix A explains the other rows.
 
 ### 3.6 On a real server
@@ -314,7 +314,8 @@ The `owner` column says who declares each route: the site
 token (`others: logged`). The exceptions are
 signing in and what visitors do before they have an account: activating
 it, signing up, recovering a forgotten password. The `Users` run is for
-managers (the `managers` role) only. Try it on `curl http://localhost:8000/users`:
+managers only (the `managers` role). Try it on
+`curl http://localhost:8000/users`:
 without a token you get a 401, with `userDemo`'s token a 404, and with
 `bossDemo`'s the list of users.
 
@@ -334,8 +335,8 @@ Open `conf/presets/restapi.rps` and look for:
 
 Name a route as `run/action`, as `run/*` for all the actions of a run, or
 as `/path` for a declared route, mount included. Roles are ranked
-(`standard` < `advanced` < `delegate` < `managers`), so a route asking for `advanced`
-lets managers in too. Chapter 5 adds the `Notes` routes here. After an
+(`standard` < `advanced` < `delegate` < `managers`), so a route asking
+for `advanced` lets the two roles above it in too. Chapter 5 adds the `Notes` routes here. After an
 edit, `setting fullList restapi` shows the result, and
 `install checkAll` tells you whether the profile still loads.
 
@@ -403,7 +404,7 @@ Once mails work, two more doors open:
   `auth/recover`.
 - **Sign-ups** open with
   `php nyuRun setting setValue accsConf nativeDb.signupOn true`. Each one
-  then waits for a manager's approval (`accounts approves`).
+  then waits for a manager's approval (`account approves`).
 
 Set `nativeDb.linkTmpl` to the page of your front end that takes a code
 (`https://…/activate?code=%sentCode%`), and the mails will include a clickable
@@ -418,7 +419,7 @@ php nyuRun setting setValue coreConf DEF_LANG fr
 ```
 
 nyuRuns ships its mails in English and French. Set a user's language with
-`accounts language ann fr`, or let users set their own (`auth/usrlang`).
+`account language ann fr`, or let users set their own (`auth/usrlang`).
 
 ### 4.6 Keep the secrets
 

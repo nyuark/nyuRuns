@@ -54,15 +54,16 @@ line to install, configure, test and ship a project.
 | Actor | Who | What they do |
 |---|---|---|
 | **Visitor** | anyone not signed in | reaches whatever is open to everyone: a public page, signing in, signing up, resetting a forgotten password |
-| **Internal user** | a signed-in user with the `standard` role | uses the service with the rights of the lowest role |
-| **Operator** | the `advanced` role | gets what the service keeps for its staff |
+| **Standard user** | a signed-in user with the `standard` role | uses the service with the rights of the lowest role |
+| **Advanced user** | the `advanced` role | gets what the service keeps for its staff |
+| **Delegate** | the `delegate` role | someone the managers hand part of their power to; what that covers is up to the project |
 | **Manager** | the `managers` role | manages the users: creates, approves, locks, resets and removes them, and assigns roles |
 | **Device** | a machine with its own token, acting for a user | talks to the service with no one signing in: a kiosk, a sensor, a home server |
 | **Application** | another program holding a key | calls the service on behalf of one of its own users |
 | **Administrator** | the person running the server | installs, configures, checks and updates the project from the command line |
 
-Roles are ranked: an `advanced` has all the rights of an `standard` user,
-and a manager has those of both. What each role can reach is up to the project,
+Roles are ranked: each one has all the rights of the roles before it, from
+`standard` to `advanced`, `delegate` and `managers`. What each role can reach is up to the project,
 route by route.
 
 ### 1.4 What version 1.0 covers
@@ -434,20 +435,20 @@ A token can't be withdrawn: the front end just forgets it.
 **Signed-in users** can also change their own password (`auth/setpass`,
 with the current one) and the language of their mails (`auth/usrlang`).
 
-Signing in as an `advanced` or a `managers` is traced, and so is each of
+Signing in with any role above `standard` is traced, and so is each of
 their accesses. Every refusal is traced with its reason.
 
 ### 5.3 The life of an account
 
 ```
-     POST users, account makeUser        auth/signup (5.4)
+     POST users, account makeUser           auth/signup (5.4)
        (by a manager)                        (by the visitor)
                │                                     │
                ▼  code mailed, or given              ▼  code mailed
           ┌──────────┐                          ┌──────────┐
     ┌────▶│ awaiting │                          │ awaiting │── code ended: removed
     │     └──────────┘                          └──────────┘
-    │          │ auth/active:                      │ auth/active:
+    │          │ auth/active:                        │ auth/active:
     │          │ code, chosen password               │ code, chosen password
     │          │                                     ▼
     │          │                                ┌──────────┐
@@ -476,7 +477,7 @@ their accesses. Every refusal is traced with its reason.
   `approved`, and one a visitor signed up for goes to `inReview`. A wrong code
   is refused just like a wrong name, and counted.
 - **Review**: a manager approves the account (`POST users/<user>/approve`, or
-  `accounts approves`) and it becomes `approved`, or refuses it by
+  `account approves`) and it becomes `approved`, or refuses it by
   removing it. An account in `inReview` can't sign in, and can't be locked.
 - **Locking**: a locked user can't sign in, and their session ends at
   their next request when the profile checks the store (5.2). Only an
@@ -505,14 +506,15 @@ account, and a manager decides whether it stays.
 
 ```
 visitor                              service                                manager
-   │  auth/signup: name, address      │                                      │
+   │  auth/signup: name, address        │                                      │
    │──────────────────────────────────▶│ 202, always                          │
    │                                    │ free: awaiting account, code mailed  │
-   │                                    │ taken: the owner of the address told │
-   │  auth/active: code, password     │                                      │
-   │──────────────────────────────────▶│ the account in inReview              │
+   │                                    │ name taken: the address given told   │
+   │                                    │ address taken: its owner told        │
+   │  auth/active: code, password       │                                      │
+   │──────────────────────────────────▶│ the account in review                │
    │                                    │ managers told when sign-ups pile up ─▶│
-   │                                    │     POST users/<user>/approve       │
+   │                                    │     POST users/<user>/approve        │
    │                                    │◀─────────────────────────────────────│
    │                                    │ the account approved                 │
 ```
@@ -520,8 +522,9 @@ visitor                              service                                mana
 1. The visitor gives a name and an email address. The answer is 202
    whatever happens, so no one can find out which names or addresses are
    taken. A free name and address create an `awaiting` account, and a code
-   goes to the address. If the address is already taken, its owner gets a
-   mail saying someone tried to use it.
+   goes to the address. If the name is already taken, the address given is
+   told so; if the address is, its owner gets a mail saying someone tried
+   to use it.
 2. The visitor confirms the address with the code and chooses a password
    (`auth/active`), and the account goes to `inReview`.
 3. A manager approves it (`POST users/<user>/approve`, or `account approves`), and
@@ -705,7 +708,8 @@ service accepts is refused before it's read (413).
 | `register` | a visitor signs up | the address given |
 | `password` | a user asks for a new password | the user |
 | `passcode` | a user with mailed two-factor codes signs in | the user |
-| `emltaken` | a sign-up uses a name or an address already in use | the owner of the address |
+| `usrtaken` | a sign-up asks for a name already in use | the address given |
+| `emltaken` | a sign-up uses an address already in use | the owner of the address |
 | `waitlist` | the number of waiting sign-ups reaches a set level | the managers |
 
 Each one goes out in the user's language. If the user has none, it uses
@@ -718,7 +722,7 @@ French, and a run can replace them with its own wording and look.
 ```
 developer machine                           server
 ──────────────────                          ──────────────────────────────────────
-php nyuRun bundles final ──▶ copy ────▶ php nyuRun install complete
+php nyuRun bundles final ──▶ copy ────────▶ php nyuRun install complete
   (code, examples,                            checks the server, makes the local
    libraries; no secret,                      settings from the examples, makes the
    no local setting)                          secrets and keys, creates the users,
@@ -1086,7 +1090,7 @@ The replies of the `Auth` run:
 |---|---|---|
 | **400** | `Missing or invalid input: <fields>` | a required input is missing or invalid |
 | | `Password sent in the query string` | a password came in the URL |
-| | `Invalid user or pass`, `Invalid user, code or pass`, `Invalid user or mail`, `Invalid former or pass`, `Invalid user` | an input of an `Auth` or `Users` action isn't text |
+| | `Invalid userName or passWord`, `Invalid userName, sentCode or passWord`, `Invalid userName or userMail`, `Invalid oldValue or passWord`, `Invalid userName` | an input of an `Auth` or `Users` action isn't text |
 | | `Password too short: …`, `Password too long: …`, `Password holding a control character`, `Password identical to the user name`, `Password identical to the current one` | a new password breaks a rule |
 | | `Invalid user name`, `Invalid mail address`, `Invalid role`, `Invalid status`, `Invalid language`, `Invalid filter` | a value given to the `Users` run isn't a valid one |
 | **401** | `Invalid credentials` | a wrong name or password at sign-in, or an inactive account |

@@ -42,8 +42,8 @@ web server and its TLS, the firewall, `php.ini`, the reverse proxy or CDN
 - A vulnerability of a library goes to that library's project (`NOTICE`
   lists them). Tell us too when nyuRuns exposes it.
 - A setting that the health check reports as a `fail` or a `warn` is not a
-  vulnerability of the framework: `php nyuRun deploy check` (for example
-  `maxtry` 0, an htpasswd file with `"unsecure": true`, `PRX_LIST` open to
+  vulnerability of the framework: `php nyuRun install checkAll` (for example
+  `maxTries` 0, an htpasswd file with `"weakHash": true`, `PRX_LIST` open to
   every address).
 
 ## Known limits of 1.0
@@ -60,7 +60,7 @@ These are documented in `HOSTING.md` and need no report:
   address and account holds").
 - Attempts sent at the very same moment can pass the count of an account by
   a few (same section).
-- With the users file (`usrlst`), a 2FA code can be used again within about
+- With the users file (`userFile`), a 2FA code can be used again within about
   90 seconds ("Two-factor codes").
 - A code sent by mail is only as safe as the mailbox it goes to.
 - With htpasswd hashes other than bcrypt, a careful measure of time can tell
@@ -75,7 +75,7 @@ These are documented in `HOSTING.md` and need no report:
 ## Running it safely
 
 Before real users come, follow `HOSTING.md`, "Going live", and run
-`php nyuRun deploy check`. In particular:
+`php nyuRun install checkAll`. In particular:
 
 - PHP 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later;
 - `ENV_NAME = PROD` in `conf/system.ini`;

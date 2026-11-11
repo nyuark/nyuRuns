@@ -40,9 +40,10 @@ php nyuRun install complete
 ```
 
 `install complete` asks where your users should live (`userFile` for a
-file, `nativeDb` for a database), whether to create two basic users or one
-per role, and what to call them. It creates your local settings and secrets, adds those users
-and shows their passwords once, then finishes with a health check.
+file, `nativeDb` for a database), whether to create two basic users or
+one per role, and what to call them. It creates your local settings and
+secrets, adds those users and shows their passwords once, then finishes
+with a health check.
 
 Serve it with PHP's built-in web server, from `www`:
 
@@ -69,8 +70,8 @@ Every setting lives in `conf/` and every secret in `.env`. The command
 line changes them one value at a time, checking each one as it goes:
 
 ```
-php nyuRun setting entryPts index restapi           # the profile: an API with tokens
-php nyuRun setting fullList restapi                 # who can reach what
+php nyuRun setting entryPts index restapi            # the profile: an API with tokens
+php nyuRun setting fullList restapi                  # who can reach what
 php nyuRun setting setValue coreConf LOG_MODE BASE   # a single value
 php nyuRun install checkAll                          # what's fine, worth a look, or failing
 ```
