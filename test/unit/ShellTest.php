@@ -33,8 +33,8 @@ function shellRun( Array $shellWords, String $inputsText='' ): Array {
 }
 
 // Words and options
-$optnObj = new Options( Array('sysadmin', '--store=userFile', 'lists', '--noask', 'a=b', '--', '--kept', '--x=1') );
-checkIdentical('words are read in order', Array($optnObj->shiftFirstWord(), $optnObj->shiftFirstWord(), $optnObj->restWordsArray()), Array('sysadmin', 'lists', Array('a=b', '--kept', '--x=1')));
+$optnObj = new Options( Array('managers', '--store=userFile', 'lists', '--noask', 'a=b', '--', '--kept', '--x=1') );
+checkIdentical('words are read in order', Array($optnObj->shiftFirstWord(), $optnObj->shiftFirstWord(), $optnObj->restWordsArray()), Array('managers', 'lists', Array('a=b', '--kept', '--x=1')));
 checkIdentical('an option with a value, one without, one not written', Array($optnObj->retrieveOption('store'), $optnObj->validateOption('noask'), $optnObj->retrieveOption('noask', 'dflt'), $optnObj->validateOption('kept'), $optnObj->retrieveOption('kept', 'none')), Array('userFile', true, 'dflt', false, 'none'));
 checkIdentical('no word left', (new Options(Array('--only')))->shiftFirstWord(), null);
 

@@ -17,8 +17,8 @@ createSampleDb( inTemporaryDir('nativeDb.sqlite') );
 switchToSqlite( inTemporaryDir('nativeDb.sqlite') );
 
 $natAuth = new Native( Array('useTable'=>'users') );
-checkIdentical('Native active user',          $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna')), Array('userName'=>'anna', 'userRole'=>'sysadmin', 'idOfUser'=>1));
-checkIdentical('Native active member',        $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben')), Array('userName'=>'ben', 'userRole'=>'internal', 'idOfUser'=>2));
+checkIdentical('Native active user',          $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna')), Array('userName'=>'anna', 'userRole'=>'managers', 'idOfUser'=>1));
+checkIdentical('Native active member',        $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben')), Array('userName'=>'ben', 'userRole'=>'standard', 'idOfUser'=>2));
 checkIdentical('Native wrong password',       $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'nope')), false);
 checkIdentical('Native wrong password message', $natAuth->finalErrorText(), 'Invalid credentials');
 checkIdentical('Native unknown user',         $natAuth->checkSecretArr(Array('user'=>'zed', 'pass'=>'pw-zed')), false);
@@ -76,14 +76,14 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 $natConf = Array('required'=>true, 'carrWith'=>'httpBasc', 'authWith'=>'nativeDb', 'carrConf'=>'testnat');
 $checker = new nyu\Access\Checker( $natConf, mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('ben:pw-ben'))) );
 $axsRslt = $checker->validateAccess();
-checkIdentical('Checker with Native: granted with the stored role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'ben', 'internal'));
+checkIdentical('Checker with Native: granted with the stored role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'ben', 'standard'));
 checkIdentical('Checker with Native: the verified user is online', $natAuth->onlineNowArray(), Array('anna', 'ben'));
 $checker = new nyu\Access\Checker( $natConf, mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('cleo:pw-cleo'))) );
 checkIdentical('Checker with Native: a pending user is refused', $checker->validateAccess()->readValueByKey('statCode'), 401);
 checkIdentical('Checker with Native: a refused user is not online', $natAuth->onlineNowArray(), Array('anna', 'ben'));
 
 // userIdent : the current identity of a user known by other means
-checkIdentical('Native userIdent of an active user', $natAuth->usrIdentityArr('anna'), Array('userName'=>'anna', 'userRole'=>'sysadmin', 'idOfUser'=>1));
+checkIdentical('Native userIdent of an active user', $natAuth->usrIdentityArr('anna'), Array('userName'=>'anna', 'userRole'=>'managers', 'idOfUser'=>1));
 checkIdentical('Native userIdent of a pending user', Array($natAuth->usrIdentityArr('cleo'), $natAuth->finalErrorText()), Array(false, 'Account not active'));
 checkIdentical('Native userIdent of an unknown user', Array($natAuth->usrIdentityArr('zed'), $natAuth->finalErrorText()), Array(false, 'Account not active'));
 checkIdentical('Native userIdent without a name', $natAuth->usrIdentityArr(''), false);
@@ -95,18 +95,18 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'access'=>Array('TESTNAT'=>Array('useTable'=>'users'), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)), 'OTHERTB'=>Array('useTable'=>'nousers'))
 ) );
 $jwtSess = new nyu\Access\Carr\JWT( Array('hmacSecr'=>str_repeat('s', 40)) );
-$annaHed = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'anna', 'userRole'=>'internal')));
+$annaHed = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'anna', 'userRole'=>'standard')));
 $tknConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt', 'authWith'=>'nativeDb', 'authConf'=>'testnat');
 
 $axsRslt = (new nyu\Access\Checker( $tknConf, mockRequestObj($annaHed) ))->validateAccess();
-checkIdentical('Checker token with a store: the role comes from the table, not from the token', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'sysadmin'));
+checkIdentical('Checker token with a store: the role comes from the table, not from the token', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'managers'));
 
 $sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'");
 $axsRslt = (new nyu\Access\Checker( $tknConf, mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token with a store: a locked user is refused at once', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg')), Array(401, 'Account not active'));
 
 $axsRslt = (new nyu\Access\Checker( Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt'), mockRequestObj($annaHed) ))->validateAccess();
-checkIdentical('Checker token without a store: the token alone decides', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userRole')), Array(200, 'internal'));
+checkIdentical('Checker token without a store: the token alone decides', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userRole')), Array(200, 'standard'));
 $sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'");
 
 $zedHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'zed')));
@@ -119,7 +119,7 @@ checkIdentical('Checker authConf names the block of the store', Array($axsRslt->
 $annaTkn = $natAuth->makeToknString('anna');
 checkPregMatch('Native makeToken gives a 64 character token', $annaTkn, '/^[0-9a-f]{64}$/');
 checkIdentical('Native the token itself is not stored', $sqlLink->query("SELECT bearerHash FROM users WHERE systemName='anna'")->fetchColumn(), hash('sha256', strval($annaTkn)));
-checkIdentical('Native token accepted, with the user and role', $natAuth->checkSecretArr(Array('key'=>$annaTkn)), Array('userName'=>'anna', 'userRole'=>'sysadmin', 'idOfUser'=>1));
+checkIdentical('Native token accepted, with the user and role', $natAuth->checkSecretArr(Array('key'=>$annaTkn)), Array('userName'=>'anna', 'userRole'=>'managers', 'idOfUser'=>1));
 checkIdentical('Native wrong token',          Array($natAuth->checkSecretArr(Array('key'=>str_repeat('0', 64))), $natAuth->finalErrorText()), Array(false, 'Invalid API key'));
 checkIdentical('Native empty token',          Array($natAuth->checkSecretArr(Array('key'=>'')), $natAuth->finalErrorText()), Array(false, 'No API key provided'));
 checkIdentical('Native the stored hash is not a token', $natAuth->checkSecretArr(Array('key'=>hash('sha256', strval($annaTkn)))), false);
@@ -135,7 +135,7 @@ checkIdentical('Native token on a missing table', Array($noTable->checkSecretArr
 // Checker : the token travels in the API key header and identifies its user
 $keyConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'nativeDb', 'carrConf'=>'testnat');
 $axsRslt = (new nyu\Access\Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>$nextTkn)) ))->validateAccess();
-checkIdentical('Checker personal token: user and role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'sysadmin'));
+checkIdentical('Checker personal token: user and role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'managers'));
 $axsRslt = (new nyu\Access\Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'nope')) ))->validateAccess();
 checkIdentical('Checker personal token: wrong token', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg')), Array(401, 'Invalid API key'));
 
@@ -145,7 +145,7 @@ $benScrt = $natAuth->buildTwoFactor('ben');
 checkPregMatch('Native makeTwoFa gives a base32 secret', $benScrt, '/^[A-Z2-7]{32}$/');
 checkIdentical('Native 2FA: password alone', Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben')), $natAuth->finalErrorText()), Array(false, 'Verification code required'));
 checkIdentical('Native 2FA: wrong code',     Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>'000000')), $natAuth->finalErrorText()), Array(false, 'Invalid verification code'));
-checkIdentical('Native 2FA: valid code',     $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), Array('userName'=>'ben', 'userRole'=>'internal', 'idOfUser'=>2));
+checkIdentical('Native 2FA: valid code',     $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), Array('userName'=>'ben', 'userRole'=>'standard', 'idOfUser'=>2));
 // A code is accepted once : its step is remembered, and nothing of that step or before passes again
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 checkIdentical('Native 2FA: the same code a second time', Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), $natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array(false, 'Invalid verification code', true));

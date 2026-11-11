@@ -43,7 +43,7 @@ class AppKey extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'makeKeys'=>Array('args'=>'<name> --routeSet=<routes> --publFile=<file> [--roleTops=internal]', 'about'=>'makes the key of an application, with its routes, the public key of its tokens and the highest role of its users: shown once'),
+			'makeKeys'=>Array('args'=>'<name> --routeSet=<routes> --publFile=<file> [--roleTops=standard]', 'about'=>'makes the key of an application, with its routes, the public key of its tokens and the highest role of its users: shown once'),
 			'fullList'=>Array('args'=>'', 'about'=>'lists the applications, their routes, public key, highest role and date'),
 			'setRoute'=>Array('args'=>'<name> --routeSet=<routes>', 'about'=>'replaces the routes of an application'),
 			'revokeIt'=>Array('args'=>'<name>', 'about'=>'removes the key of an application: it is refused from the next request')
@@ -55,7 +55,7 @@ class AppKey extends Command{
 	 * those of 'openList', separated by commas), the public key its tokens
 	 * are checked with (--publFile, an RSA key of JWT::RSAS_BITS bits at least,
 	 * from the project root) and the highest role of its users (--roleTops,
-	 * internal when not told). A name already listed is refused. The key is
+	 * standard when not told). A name already listed is refused. The key is
 	 * shown once; its hash is written in the 'appsKeys' block, created when
 	 * conf/access.json has none.
 	 *

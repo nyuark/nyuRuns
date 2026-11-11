@@ -10,7 +10,7 @@ use nyu\Tools\Logger;
  * can run without any database: the native userbase (see Native), read
  * from a JSON file written as { "users": [ { field: value }, ... ] }.
  * A user has a 'systemName' and a 'passwdHash' (as given by password_hash()),
- * and optionally an 'accessRole' (internal when left out), a 'userStatus'
+ * and optionally an 'accessRole' (standard when left out), a 'userStatus'
  * (active when left out), a 'contactEml' address (one account each), the
  * 'bearerHash' SHA-256 hash of a personal API token, a 'twoFactKey' 2FA
  * secret and an 'id_user'.
@@ -310,7 +310,7 @@ class UserList implements Handler{
 
 	/**
 	 * Reads the users file. Each user is given every field: 'accessRole' is
-	 * internal and 'userStatus' approved when left out, 'contactEml', 'userLocale',
+	 * standard and 'userStatus' approved when left out, 'contactEml', 'userLocale',
 	 * 'bearerHash' and 'twoFactKey' empty, 'id_user' null; the address and the
 	 * language are read in lower case. The file is refused as a whole, and the refusal logged, when it
 	 * is not a JSON text holding a 'users' list, when a user lacks its
@@ -336,7 +336,7 @@ class UserList implements Handler{
 				break;
 			}
 			$userVls = Array('systemName'=>$usrRow['systemName'], 'passwdHash'=>$usrRow['passwdHash'], 'id_user'=>$usrRow['id_user'] ?? null);
-			foreach( Array('accessRole'=>'internal', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
+			foreach( Array('accessRole'=>'standard', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
 				$userVls[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
 				if( !is_string($userVls[$fldNme]) ){
 					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['systemName']).' is not a text';

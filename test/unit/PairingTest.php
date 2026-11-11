@@ -107,7 +107,7 @@ function certVals( String $userString, String $issuerName='Test CA' ): Array {
 plugConf();
 
 // httpBasc : a name and a password, which only a check of passwords can take
-checkIdentical('httpBasc x htpasswd: granted, as a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret')), Array(200, '', 'alice', 'internal'));
+checkIdentical('httpBasc x htpasswd: granted, as a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret')), Array(200, '', 'alice', 'standard'));
 checkIdentical('httpBasc x htpasswd: wrong password', pairReply('httpBasc', 'htpasswd', basicHead('alice', 'nope')), Array(401, 'Invalid credentials', '', null));
 checkIdentical('httpBasc x htpasswd: no header', pairReply('httpBasc', 'htpasswd'), Array(401, 'Missing Basic Authorization header', '', null));
 checkIdentical('httpBasc x regdKeys: a check of keys takes no password, the pair is a mistake of the config', pairReply('httpBasc', 'regdKeys', basicHead('k-1', 'k-1')), Array(500, 'Access misconfigured', '', null));
@@ -119,7 +119,7 @@ checkIdentical('httpBasc x htpasswd: an empty name is a wrong credential, not a 
 
 // header : a key, which only a check of keys can take
 checkIdentical('apiHeadr x htpasswd: a check of passwords takes no key, the pair is a mistake of the config', pairReply('apiHeadr', 'htpasswd', Array('X-Api-Key'=>'alice')), Array(500, 'Access misconfigured', '', null));
-checkIdentical('apiHeadr x plug-in check: granted, as a member', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'sample-key')), Array(200, '', 'sampleUser', 'internal'));
+checkIdentical('apiHeadr x plug-in check: granted, as a member', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'sample-key')), Array(200, '', 'sampleUser', 'standard'));
 checkIdentical('apiHeadr x plug-in check: wrong key', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'k-1')), Array(401, 'Invalid sample key', '', null));
 checkIdentical('apiHeadr without a check: nobody goes through, the config is told wrong', pairReply('apiHeadr', null, Array('X-Api-Key'=>'k-1')), Array(500, 'Access misconfigured', '', null));
 $noCheck = new Header( Array() );
@@ -127,24 +127,24 @@ checkIdentical('Header without an auth handler', Array($noCheck->verifyRqstList(
 
 // jwtToken : the token decides alone, unless the check knows its users (userFile, native)
 foreach( Array('htpasswd', 'regdKeys', 'sample') as $chkNme ){
-	checkIdentical('jwtToken x '.$chkNme.': the token alone decides, with the role it was issued with', pairReply('jwtToken', $chkNme, tokenHead(Array('userName'=>'zed', 'userRole'=>'operator'))), Array(200, '', 'zed', 'operator'));
+	checkIdentical('jwtToken x '.$chkNme.': the token alone decides, with the role it was issued with', pairReply('jwtToken', $chkNme, tokenHead(Array('userName'=>'zed', 'userRole'=>'advanced'))), Array(200, '', 'zed', 'advanced'));
 	checkIdentical('jwtToken x '.$chkNme.': a forged token is refused', pairReply('jwtToken', $chkNme, Array('Authorization'=>'Bearer a.b.c'))[0], 401);
 }
-checkIdentical('jwtToken x userFile: the file decides the role', pairReply('jwtToken', 'userFile', tokenHead(Array('userName'=>'anna', 'userRole'=>'internal'))), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('jwtToken x userFile: the file decides the role', pairReply('jwtToken', 'userFile', tokenHead(Array('userName'=>'anna', 'userRole'=>'standard'))), Array(200, '', 'anna', 'managers'));
 
 // clntCert : the certificate decides alone, unless the check knows its users
-checkIdentical('clntCert without a check: granted, as a member', pairReply('clntCert', null, Array(), certVals('carol')), Array(200, '', 'carol', 'internal'));
+checkIdentical('clntCert without a check: granted, as a member', pairReply('clntCert', null, Array(), certVals('carol')), Array(200, '', 'carol', 'standard'));
 foreach( Array('htpasswd', 'regdKeys', 'sample') as $chkNme ){
-	checkIdentical('clntCert x '.$chkNme.': the certificate alone decides', pairReply('clntCert', $chkNme, Array(), certVals('carol')), Array(200, '', 'carol', 'internal'));
+	checkIdentical('clntCert x '.$chkNme.': the certificate alone decides', pairReply('clntCert', $chkNme, Array(), certVals('carol')), Array(200, '', 'carol', 'standard'));
 }
-checkIdentical('clntCert x userFile: the file gives the role', pairReply('clntCert', 'userFile', Array(), certVals('anna')), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('clntCert x userFile: the file gives the role', pairReply('clntCert', 'userFile', Array(), certVals('anna')), Array(200, '', 'anna', 'managers'));
 checkIdentical('clntCert x userFile: a locked user is refused', pairReply('clntCert', 'userFile', Array(), certVals('dave')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert x userFile: a pending user is refused', pairReply('clntCert', 'userFile', Array(), certVals('cleo'))[0], 401);
 checkIdentical('clntCert x userFile: a name that is not in the file is refused', pairReply('clntCert', 'userFile', Array(), certVals('zed')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert: no certificate', pairReply('clntCert', 'userFile'), Array(401, 'No verified client certificate', '', null));
 $axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'clntCert'), mockRequestObj() ))->validateAccess();
 checkIdentical('clntCert: a refusal carries no challenge', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('wwwHeadr')), Array(401, null));
-checkIdentical('clntCert: the issuer of its config block is accepted', pairReply('clntCert', null, Array(), certVals('carol'), Array('carrConf'=>'tscert')), Array(200, '', 'carol', 'internal'));
+checkIdentical('clntCert: the issuer of its config block is accepted', pairReply('clntCert', null, Array(), certVals('carol'), Array('carrConf'=>'tscert')), Array(200, '', 'carol', 'standard'));
 checkIdentical('clntCert: another issuer is refused', pairReply('clntCert', null, Array(), certVals('carol', 'Other CA'), Array('carrConf'=>'tscert')), Array(401, 'Certificate issuer not accepted', '', null));
 checkIdentical('clntCert: a certificate without an issuer is refused when one is asked for', pairReply('clntCert', null, Array(), Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol'), Array('carrConf'=>'tscert'))[0], 401);
 
@@ -158,20 +158,20 @@ $noVarbl = new ClCert( Array('checkVar'=>'', 'ownerVar'=>'') );
 checkIdentical('ClCert variables left empty in the config: nobody goes through', $noVarbl->verifyRqstList(mockRequestObj(Array(), certVals('carol'))), false);
 
 // A plug-in carrier, alone or with a check it does not use
-checkIdentical('plug-in carrier: granted, as a member', pairReply('carier', null, Array('X-Carier'=>'dora')), Array(200, '', 'dora', 'internal'));
+checkIdentical('plug-in carrier: granted, as a member', pairReply('carier', null, Array('X-Carier'=>'dora')), Array(200, '', 'dora', 'standard'));
 checkIdentical('plug-in carrier: refused without its header', pairReply('carier', null), Array(401, 'Missing X-Carier header', '', null));
-checkIdentical('plug-in carrier x plug-in check', pairReply('carier', 'sample', Array('X-Carier'=>'dora')), Array(200, '', 'dora', 'internal'));
+checkIdentical('plug-in carrier x plug-in check', pairReply('carier', 'sample', Array('X-Carier'=>'dora')), Array(200, '', 'dora', 'standard'));
 checkIdentical('a plug-in that is not listed is a misconfiguration', pairReply('sample', null, Array('X-Api-Key'=>'sample-key')), Array(500, 'Access misconfigured', '', null));
 
 // Roles : what each pair gives is measured against the role a route asks for
-$rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
+$rolConf = Array('minRoles'=>Array('shows/*'=>'advanced'));
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
-checkIdentical('role: httpBasc x htpasswd gives a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'internal'));
+checkIdentical('role: httpBasc x htpasswd gives a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'standard'));
 checkIdentical('role: apiHeadr x plug-in check gives a member', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 404);
-checkIdentical('role: a certificate without a store gives a member', pairReply('clntCert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(404, 'Not Found', 'carol', 'internal'));
-checkIdentical('role: a certificate with a store gives the role of the store', pairReply('clntCert', 'userFile', Array(), certVals('anna'), $rolConf, $anyRoute), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('role: a certificate without a store gives a member', pairReply('clntCert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(404, 'Not Found', 'carol', 'standard'));
+checkIdentical('role: a certificate with a store gives the role of the store', pairReply('clntCert', 'userFile', Array(), certVals('anna'), $rolConf, $anyRoute), Array(200, '', 'anna', 'managers'));
 checkIdentical('role: a plug-in carrier gives a member', pairReply('carier', null, Array('X-Carier'=>'dora'), Array(), $rolConf, $anyRoute)[0], 404);
-checkIdentical('role: a token without a store keeps the role it was issued with', Array(pairReply('jwtToken', 'htpasswd', tokenHead(Array('userName'=>'zed', 'userRole'=>'operator')), Array(), $rolConf, $anyRoute)[0], pairReply('jwtToken', 'htpasswd', tokenHead(Array('userName'=>'zed', 'userRole'=>'internal')), Array(), $rolConf, $anyRoute)[0]), Array(200, 404));
+checkIdentical('role: a token without a store keeps the role it was issued with', Array(pairReply('jwtToken', 'htpasswd', tokenHead(Array('userName'=>'zed', 'userRole'=>'advanced')), Array(), $rolConf, $anyRoute)[0], pairReply('jwtToken', 'htpasswd', tokenHead(Array('userName'=>'zed', 'userRole'=>'standard')), Array(), $rolConf, $anyRoute)[0]), Array(200, 404));
 checkIdentical('role: Basic access on the users file, by its role', Array(pairReply('httpBasc', 'userFile', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute)[0], pairReply('httpBasc', 'userFile', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)[0]), Array(404, 200));
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)

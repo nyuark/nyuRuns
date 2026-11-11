@@ -54,14 +54,14 @@ line to install, configure, test and ship a project.
 | Actor | Who | What they do |
 |---|---|---|
 | **Visitor** | anyone not signed in | reaches whatever is open to everyone: a public page, signing in, signing up, resetting a forgotten password |
-| **Internal user** | a signed-in user with the `internal` role | uses the service with the rights of the lowest role |
-| **Operator** | the `operator` role | gets what the service keeps for its staff |
-| **Manager** | the `sysadmin` role | manages the users: creates, approves, locks, resets and removes them, and assigns roles |
+| **Internal user** | a signed-in user with the `standard` role | uses the service with the rights of the lowest role |
+| **Operator** | the `advanced` role | gets what the service keeps for its staff |
+| **Manager** | the `managers` role | manages the users: creates, approves, locks, resets and removes them, and assigns roles |
 | **Device** | a machine with its own token, acting for a user | talks to the service with no one signing in: a kiosk, a sensor, a home server |
 | **Application** | another program holding a key | calls the service on behalf of one of its own users |
 | **Administrator** | the person running the server | installs, configures, checks and updates the project from the command line |
 
-Roles are ranked: an `operator` has all the rights of an `internal` user,
+Roles are ranked: an `advanced` has all the rights of an `standard` user,
 and a manager has those of both. What each role can reach is up to the project,
 route by route.
 
@@ -87,7 +87,7 @@ Chapter 2 goes through it from the angle of needs.
 | **route** | the URL that leads to an action, a page or a file |
 | **preset** | the service's profile: how it's reached, how access is checked, and how it replies |
 | **store** | where users are kept: a users file, or a database table |
-| **role** | what a user can reach: `internal`, `operator`, `sysadmin` |
+| **role** | what a user can reach: `standard`, `advanced`, `delegate`, `managers` |
 | **status** | where an account stands: `awaiting`, `inReview`, `approved`, `disabled` |
 
 ---
@@ -246,7 +246,7 @@ kind of database.
 | **Inputs** | the values a request carries, kept only when the action declares them, each in the right format | a name, a date, an address |
 | **Model** | a record or a list of a table | a show, the list of shows |
 | **Store** | where users are kept | the users file, the users table |
-| **Role** | what a user can reach, ranked: `internal`, `operator`, `sysadmin` | a manager has every right of an operator |
+| **Role** | what a user can reach, ranked: `standard`, `advanced`, `delegate`, `managers` | a manager has every right of the roles before it |
 | **Status** | where an account stands | see below |
 | **Reply** | the status, plus data, a file, a page or an error | `200` with the list of shows |
 
@@ -434,7 +434,7 @@ A token can't be withdrawn: the front end just forgets it.
 **Signed-in users** can also change their own password (`auth/setpass`,
 with the current one) and the language of their mails (`auth/usrlang`).
 
-Signing in as an `operator` or a `sysadmin` is traced, and so is each of
+Signing in as an `advanced` or a `managers` is traced, and so is each of
 their accesses. Every refusal is traced with its reason.
 
 ### 5.3 The life of an account
@@ -990,8 +990,8 @@ naming) are in the [Technical Specifications, chapters 2 and
    with tokens, or a site with sessions.
 2. **Open routes on purpose**: list the routes anyone may reach (signing
    in, signing up, a public page). Every other one needs a credential.
-3. **Plan the roles**: `internal` for users, `operator` for staff,
-   `sysadmin` for those who manage the users. Give each route the minimum role it
+3. **Plan the roles**: `standard` for users, `advanced` for staff,
+   `managers` for those who manage the users. Give each route the minimum role it
    needs, in the profile. An action that needs more asks for it itself,
    and a whole run can check it once, in `setupForAction()`.
 4. **Let the front end hide what a user can't reach**: the service

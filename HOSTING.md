@@ -397,7 +397,7 @@ REQ_PART = 200
   with any method by its other paths: `/app/action`, a route of its Run, or
   another alias. Method limits aren't an access control, so an action that
   cares about the method checks it itself.
-- A role given to a declared path in `minRoles` (`"/panel": "sysadmin"`) goes
+- A role given to a declared path in `minRoles` (`"/panel": "managers"`) goes
   with the action that path points to, for every method's target and the default
   action included, whatever path reaches it. A `/path` there that no route
   declares, written exactly as the route is, makes every request of the preset
@@ -420,7 +420,7 @@ preset reads the keys when its `security` block names that block:
 `"appsConf": "appsKeys"`.
 
 ```json
-"appsKeys": { "headName": "X-App-Key", "appsList": { "portal": { "keyDigst": "…", "routeSet": ["contacts/*"], "publFile": "conf/keys/portal.pub", "roleTops": "internal", "madeDate": "…" } } }
+"appsKeys": { "headName": "X-App-Key", "appsList": { "portal": { "keyDigst": "…", "routeSet": ["contacts/*"], "publFile": "conf/keys/portal.pub", "roleTops": "standard", "madeDate": "…" } } }
 ```
 
 - Keys are made, given routes and revoked from the command line only
@@ -435,7 +435,7 @@ preset reads the keys when its `security` block names that block:
 - The user is taken from the token, as the application issued it: this project
   does not look it up in its own store, so a lock in the application applies
   only when its token ends. Keep the application's `lifeSecs` short.
-- The role of that user is never above `roleTops` (`internal` by default), and
+- The role of that user is never above `roleTops` (`standard` by default), and
   the role a route asks for (`minRoles`, `needsActionRle()`) still applies.
 - An application only reaches its `routeSet`, written as `openList`; any other
   route is a 403. A route open to everyone ignores the key.

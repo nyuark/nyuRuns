@@ -221,7 +221,7 @@ modes set them this way:
 | `releases` | `PROD` | `E_ALL` | `FALSE` | `MINI` | `TRUE` | complete, authoritative |
 
 In production, the logs keep errors, warnings and notices: sign-ins,
-sign-outs and refusals, but no line for each access of an internal user.
+sign-outs and refusals, but no line for each access of an standard user.
 
 A project with servers of its own in between (a test or integration
 server, a preview for a client) declares their modes with
@@ -323,7 +323,7 @@ left out. Give every action a definition, even one without inputs.
   Every other route asks for a credential.
 - Ask for a role by route in the preset (`minRoles`), or in the action
   itself (`needsActionRle()`). Both must pass. A user without the role gets
-  a 404, as for a route that doesn't exist, so an internal user can't map
+  a 404, as for a route that doesn't exist, so an standard user can't map
   out the managers' routes. Keep the front end from offering them.
 - Keep the limit by address on (the `tryLimit` block): wrong passwords,
   keys and codes from one address then get it held for a while.
@@ -1374,7 +1374,7 @@ declare every action, even one that takes none (`{ "fieldSet": {} }`).
 `Auth` declares its routes in its own `routes.rte` (`/auth/login`, …,
 and `/.well-known/jwks.json`). `Auth` and `Users` work on the store the
 `loginSet` block names, and every action of `Users` asks for the
-`sysadmin` role itself.
+`managers` role itself.
 
 ---
 
@@ -1473,7 +1473,7 @@ all ([`HOSTING.md` §5](../HOSTING.md#5-limit-by-address-and-account-holds)).
   ends up in a log.
 - Names given by a client are written in the logs as JSON strings, so no
   line can be forged.
-- Users holding `operator` or `sysadmin` are traced on every access, and
+- Users holding `advanced` or `managers` are traced on every access, and
   every refusal is traced with its reason
   ([`HOSTING.md` §12](../HOSTING.md#12-errors-and-logs)).
 
@@ -1822,7 +1822,7 @@ The same rule holds beyond the code:
 |---|---|---|
 | keys of a configuration block | 8, in the JSON files and in a route target | `carrWith`, `appToRun` |
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
-| codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `internal`, `operator`, `sysadmin` |
+| codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `standard`, `advanced`, `delegate`, `managers` |
 | columns of a table | 10 | `systemName` |
 | commands and sub-commands of `php nyuRun` | 8 | `installs allSteps`, `maintain cleanDir` |
 | options of `php nyuRun` | 8 | `--noPrompt`, `--yesToAll` |

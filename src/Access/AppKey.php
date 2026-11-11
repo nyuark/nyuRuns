@@ -33,7 +33,7 @@ class AppKey{
 	 * @param Array $configValues Config block with the 'headName' the key is sent in (default 'X-App-Key') and the 'appsList'
 	 *                          of the applications, by name, each with its 'keyDigst' (SHA-256 of its key, hexadecimal),
 	 *                          its 'routeSet' (written as those of 'openList'), its 'publFile' (path of the PEM file of the
-	 *                          public key of its tokens, from the project root), its 'roleTops' (default 'internal') and
+	 *                          public key of its tokens, from the project root), its 'roleTops' (default 'standard') and
 	 *                          the 'issuerId' its tokens name (default: the name of the application); and the 'audience'
 	 *                          of the block, the audiences naming this project (a text or a list): while it is
 	 *                          empty, neither the issuer nor the audience of the tokens is checked.

@@ -11,8 +11,8 @@ CREATE TABLE "users" (
 	"passwdHash" VARCHAR(255) NOT NULL,
 	-- Time the password was last set: the sessions and tokens issued before it are refused
 	"passwdDate" TIMESTAMP(0) NULL,
-	-- internal, operator or sysadmin, in that order
-	"accessRole" VARCHAR(8)   NOT NULL DEFAULT 'internal',
+	-- standard, advanced, delegate or managers, in that order
+	"accessRole" VARCHAR(8)   NOT NULL DEFAULT 'standard',
 	-- awaiting (its activation), inReview (signed up, a manager to approve it), approved or disabled
 	"userStatus" VARCHAR(8)   NOT NULL DEFAULT 'awaiting',
 	-- Mail address, in lower case; one account each
@@ -48,7 +48,7 @@ CREATE TABLE "users" (
 	UNIQUE ("systemName"),
 	UNIQUE ("bearerHash"),
 	UNIQUE ("contactEml"),
-	CHECK ("accessRole" IN ('internal', 'operator', 'sysadmin')),
+	CHECK ("accessRole" IN ('standard', 'advanced', 'delegate', 'managers')),
 	CONSTRAINT "users_userStatus_check" CHECK ("userStatus" IN ('awaiting', 'inReview', 'approved', 'disabled')),
 	CHECK ("twoFactWay" IN ('emailOtp'))
 );

@@ -132,7 +132,7 @@ $phonTkn = strval($dvcAuth->pushDeviceText('anna', 'Phone', 'app'));
 $annaTkn = strval((new Native(Array()))->makeToknString('anna'));
 
 // clntCert x nativeDb : the certificate names the user, the table tells whether it is let in, and its role
-checkIdentical('clntCert x nativeDb: the role of the table', pairReply('clntCert', 'nativeDb', Array(), certVals('anna')), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('clntCert x nativeDb: the role of the table', pairReply('clntCert', 'nativeDb', Array(), certVals('anna')), Array(200, '', 'anna', 'managers'));
 checkIdentical('clntCert x nativeDb: a locked user is refused', pairReply('clntCert', 'nativeDb', Array(), certVals('dave')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert x nativeDb: a pending user is refused', pairReply('clntCert', 'nativeDb', Array(), certVals('cleo'))[0], 401);
 checkIdentical('clntCert x nativeDb: a name with a quote is no user', pairReply('clntCert', 'nativeDb', Array(), certVals("anna' OR '1'='1")), Array(401, 'Account not active', '', null));
@@ -140,23 +140,23 @@ checkIdentical('clntCert x nativeDb: the user of the certificate is stamped as s
 $sqlLink->exec("UPDATE users SET accessDate=NULL");
 
 // device : a check of keys, which knows its users through its tokens only
-checkIdentical('apiHeadr x dvcToken: the token of a device, with the role of its user', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'sysadmin'));
+checkIdentical('apiHeadr x dvcToken: the token of a device, with the role of its user', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'managers'));
 checkIdentical('apiHeadr x dvcToken: the personal token of the user is not a device', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$annaTkn)), Array(401, 'Invalid API key', '', null));
 checkIdentical('apiHeadr x nativeDb: the token of a device is not a personal token', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$phonTkn)), Array(401, 'Invalid API key', '', null));
 checkIdentical('httpBasc x dvcToken: a check of tokens takes no password: the pair refuses every request', pairReply('httpBasc', 'dvcToken', basicHead('anna', $phonTkn)), Array(500, 'Access misconfigured', '', null));
-checkIdentical('jwtToken x dvcToken: the token alone decides, with the role it was issued with', pairReply('jwtToken', 'dvcToken', tokenHead(Array('userName'=>'dave', 'userRole'=>'operator'))), Array(200, '', 'dave', 'operator'));
-checkIdentical('clntCert x dvcToken: the certificate alone decides', pairReply('clntCert', 'dvcToken', Array(), certVals('dave')), Array(200, '', 'dave', 'internal'));
+checkIdentical('jwtToken x dvcToken: the token alone decides, with the role it was issued with', pairReply('jwtToken', 'dvcToken', tokenHead(Array('userName'=>'dave', 'userRole'=>'advanced'))), Array(200, '', 'dave', 'advanced'));
+checkIdentical('clntCert x dvcToken: the certificate alone decides', pairReply('clntCert', 'dvcToken', Array(), certVals('dave')), Array(200, '', 'dave', 'standard'));
 
 // Roles : measured against the role of the users table
-$rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
+$rolConf = Array('minRoles'=>Array('shows/*'=>'advanced'));
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
-checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pairReply('httpBasc', 'nativeDb', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('httpBasc', 'nativeDb', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'internal'), Array(200, '', 'anna', 'sysadmin')));
+checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pairReply('httpBasc', 'nativeDb', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('httpBasc', 'nativeDb', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'standard'), Array(200, '', 'anna', 'managers')));
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: apiHeadr x dvcToken, the device has the role of its user', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: clntCert x nativeDb, by the role of the table', Array(pairReply('clntCert', 'nativeDb', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
-$sqlLink->exec("UPDATE users SET accessRole='internal' WHERE systemName='anna'");
+$sqlLink->exec("UPDATE users SET accessRole='standard' WHERE systemName='anna'");
 checkIdentical('role: a role taken back applies to the device and the certificate at once', Array(pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
-$sqlLink->exec("UPDATE users SET accessRole='sysadmin' WHERE systemName='anna'");
+$sqlLink->exec("UPDATE users SET accessRole='managers' WHERE systemName='anna'");
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
 plugConf(2);

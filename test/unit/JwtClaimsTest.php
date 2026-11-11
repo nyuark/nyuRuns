@@ -69,7 +69,7 @@ $bndConf = Array('signAlgo'=>'RS256', 'privFile'=>$prvPath, 'publFile'=>$pubPath
 $bndJwt = new JWT( $bndConf );
 
 // Issued : the issuer and the audiences of the block, never those of the identity
-$rawTokn = $bndJwt->issueTokenText( Array('userName'=>'anna', 'userRole'=>'internal', 'iss'=>'forged', 'aud'=>'elsewhere') );
+$rawTokn = $bndJwt->issueTokenText( Array('userName'=>'anna', 'userRole'=>'standard', 'iss'=>'forged', 'aud'=>'elsewhere') );
 $clmVals = partOfTkn($rawTokn, 1);
 checkIdentical('issued: one audience is a text, the issuer the block\'s', Array($clmVals['iss'] ?? null, $clmVals['aud'] ?? null), Array('https://auth.example.org', 'api.example.org'));
 $twoJwt = new JWT( Array('audience'=>Array('app.example.org', 'api.example.org')) + $bndConf );

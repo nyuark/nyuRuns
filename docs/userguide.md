@@ -131,7 +131,7 @@ suggests an answer, and Enter accepts it. For this guide, answer:
 | `Store of the users (nativeDb, userFile, none) [userFile]` | `nativeDb` | users go in a database, which the tutorial needs anyway |
 | `Database type (mysql_db, postgres, sqlitedb) [mysql_db]` | `sqlitedb` | SQLite: the database is just a file, no server needed |
 | `Database file [nyuRuns]` | `notes.sqlite` | the file, at the root of your project |
-| `Name of the internal account [teammate]`, then the `operator` and `sysadmin` ones | Enter, three times | the names this guide uses |
+| `Name of the standard account [teammate]`, then the `advanced` and `managers` ones | Enter, three times | the names this guide uses |
 
 Then it handles everything else by itself:
 
@@ -151,9 +151,9 @@ written: .env NYU_MARK_KEY
 written: .env NYU_TFA_KEY
 Table users created.
 Users created. Their passwords are shown this once:
-Password of teammate (internal) (shown this once): 501dfc2edfd1d66323e4
-Password of engineer (operator) (shown this once): f5f01d6b34b3427a48b6
-Password of sysAgent (sysadmin) (shown this once): 586182c0d12ce1893394
+Password of teammate (standard) (shown this once): 501dfc2edfd1d66323e4
+Password of engineer (advanced) (shown this once): f5f01d6b34b3427a48b6
+Password of sysAgent (managers) (shown this once): 586182c0d12ce1893394
 ```
 
 Here's what just happened:
@@ -164,8 +164,8 @@ Here's what just happened:
   `conf/database.json` says where the database is. None of them ever gets
   committed.
 - **Token keys** were generated in `conf/keys`.
-- **Three users** were created, one per role: `teammate` (`internal`),
-  `engineer` (`operator`) and `sysAgent` (`sysadmin`). **Copy their passwords now**:
+- **Three users** were created, one per role: `teammate` (`standard`),
+  `engineer` (`advanced`) and `sysAgent` (`managers`). **Copy their passwords now**:
   you won't see them again, and you'll need them in the next steps. Yours
   will differ from the ones above.
 - **A health check** wraps it all up (3.5).
@@ -302,7 +302,7 @@ path                    methods  kind      target          owner  access
 /auth/logout            POST     toAction  Auth/logout     Auth   logged
 /auth/active            POST     toAction  Auth/active     Auth   open
 …
-                        any      toAction  users/*                sysadmin
+                        any      toAction  users/*                managers
 ```
 
 The `owner` column says who declares each route: the site
@@ -310,7 +310,7 @@ The `owner` column says who declares each route: the site
 token (`others: logged`). The exceptions are
 signing in and what visitors do before they have an account: activating
 it, signing up, recovering a forgotten password. The `Users` run is for
-managers (the `sysadmin` role) only. Try it on `curl http://localhost:8000/users/index`:
+managers (the `managers` role) only. Try it on `curl http://localhost:8000/users/index`:
 without a token you get a 401, with `teammate`'s token a 404, and with
 `sysAgent`'s the list of users.
 
@@ -325,12 +325,12 @@ The minimum role for each route is set in the profile, under `minRoles`.
 Open `conf/presets/restapi.rps` and look for:
 
 ```json
-"minRoles": { "users/*": "sysadmin" }
+"minRoles": { "users/*": "managers" }
 ```
 
 Name a route as `run/action`, as `run/*` for all the actions of a run, or
 as `/path` for a declared route, mount included. Roles are ranked
-(`internal` < `operator` < `sysadmin`), so a route asking for `operator`
+(`standard` < `advanced` < `delegate` < `managers`), so a route asking for `advanced`
 lets managers in too. Chapter 5 adds the `Notes` routes here. After an
 edit, `settings fullList restapi` shows the result, and
 `installs checkAll` tells you whether the profile still loads.
@@ -346,17 +346,17 @@ php nyuRun accounts fullList
 
 ```
 id_user  systemName  accessRole  userStatus  contactEml  userLocale  signupDate  createDate           accessDate
-2        engineer    operator    approved                                        2026-11-10 01:13:00
-3        sysAgent    sysadmin    approved                                        2026-11-10 01:13:00
-1        teammate    internal    approved                                        2026-11-10 01:13:00
+2        engineer    advanced    approved                                        2026-11-10 01:13:00
+3        sysAgent    managers    approved                                        2026-11-10 01:13:00
+1        teammate    standard    approved                                        2026-11-10 01:13:00
 ```
 
 | To | Run |
 |---|---|
-| create a pending user | `php nyuRun accounts makeUser ann operator` (the activation code is shown once) |
+| create a pending user | `php nyuRun accounts makeUser ann advanced` (the activation code is shown once) |
 | set their email address | `php nyuRun accounts setEmail ann ann@example.org` |
 | reset their password | `php nyuRun accounts password ann` (shown once) |
-| change their role | `php nyuRun accounts giveRole ann sysadmin` |
+| change their role | `php nyuRun accounts giveRole ann managers` |
 | lock or unlock them | `php nyuRun accounts lockUser ann`, `php nyuRun accounts freeUser ann` |
 | list what a command takes | `php nyuRun accounts --helpText` |
 
@@ -380,7 +380,7 @@ file in `temp/mails`. Now, signed in as `sysAgent`, create a user with an
 email address:
 
 ```
-curl -X POST http://localhost:8000/users/create -H "Authorization: Bearer <token of sysAgent>" -d "userName=bob&saveRole=internal&userMail=bob@example.org"
+curl -X POST http://localhost:8000/users/create -H "Authorization: Bearer <token of sysAgent>" -d "userName=bob&saveRole=standard&userMail=bob@example.org"
 ```
 
 ```json
@@ -442,9 +442,9 @@ php nyuRun maintain tailLogs access --numLines=3
 ```
 
 ```
-[2026-11-10 01:16] [NOTICE] Privileged login granted for user "sysAgent" (sysadmin) from 127.0.0.1
-[2026-11-10 01:16] [NOTICE] Privileged access granted for user "sysAgent" (sysadmin) from 127.0.0.1 to users/create
-[2026-11-10 01:16] [NOTICE] User "bob" created (internal) by user "sysAgent" from 127.0.0.1
+[2026-11-10 01:16] [NOTICE] Privileged login granted for user "sysAgent" (managers) from 127.0.0.1
+[2026-11-10 01:16] [NOTICE] Privileged access granted for user "sysAgent" (managers) from 127.0.0.1 to users/create
+[2026-11-10 01:16] [NOTICE] User "bob" created (standard) by user "sysAgent" from 127.0.0.1
 ```
 
 ### 4.8 From the users file to a database
@@ -470,7 +470,7 @@ anything changed in the database since then won't be in the file.
 ## 5. Building your first application (run)
 
 Time to build `Notes`: a list of notes that every signed-in user can read
-and only staff (the `operator` role) can write, with each note at its own
+and only staff (the `advanced` role) can write, with each note at its own
 URL and a page for browsers. It only takes a handful of short files:
 
 ```
@@ -731,7 +731,7 @@ writing for staff:
 
 ```json
 "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json", "notes/card"],
-"minRoles": { "users/*": "sysadmin", "notes/create": "operator", "notes/update": "operator", "notes/remove": "operator" }
+"minRoles": { "users/*": "managers", "notes/create": "advanced", "notes/update": "advanced", "notes/remove": "advanced" }
 ```
 
 Naming the page by its action keeps it open wherever the run is mounted.
@@ -743,10 +743,10 @@ php nyuRun settings fullList restapi
 
 ```
 /notes                  GET      toAction  Notes/index     Notes  logged
-/notes                  POST     toAction  Notes/create    Notes  operator
+/notes                  POST     toAction  Notes/create    Notes  advanced
 /notes/$id              GET      toAction  Notes/view      Notes  logged
-/notes/$id              PATCH    toAction  Notes/update    Notes  operator
-/notes/$id              DELETE   toAction  Notes/remove    Notes  operator
+/notes/$id              PATCH    toAction  Notes/update    Notes  advanced
+/notes/$id              DELETE   toAction  Notes/remove    Notes  advanced
 /note/$id               GET      toAction  Notes/card      Notes  open
 ```
 

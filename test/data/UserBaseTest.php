@@ -25,7 +25,7 @@ use nyu\Tools\Logger;
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('userbase.sqlite'));
 $sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
 $usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
-foreach( Array(Array(1,'anna','sysadmin','approved'), Array(2,'ben','internal','approved'), Array(3,'cleo','internal','awaiting'), Array(4,'dave','operator','disabled')) as $usrRow ){
+foreach( Array(Array(1,'anna','managers','approved'), Array(2,'ben','standard','approved'), Array(3,'cleo','standard','awaiting'), Array(4,'dave','advanced','disabled')) as $usrRow ){
 	$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pass-'.$usrRow[1].'-1', PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 }
 $usrStmt = null;
@@ -81,14 +81,14 @@ $natAuth = new Native( Array() );
 // 1. enrolUser : a pending user, without a password, with an activation code
 $emmaCod = $usrBase->enrolUsrString('emma');
 checkPregMatch('enrol: the code is 10 characters that are not taken for one another, as XXXX-XXXX-XX', $emmaCod, '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
-checkIdentical('enrol: pending, member by default, no password', Array(fieldOf($sqlLink, 'emma', 'userStatus'), fieldOf($sqlLink, 'emma', 'accessRole'), fieldOf($sqlLink, 'emma', 'passwdHash')), Array('awaiting', 'internal', '!'));
+checkIdentical('enrol: pending, member by default, no password', Array(fieldOf($sqlLink, 'emma', 'userStatus'), fieldOf($sqlLink, 'emma', 'accessRole'), fieldOf($sqlLink, 'emma', 'passwdHash')), Array('awaiting', 'standard', '!'));
 checkIdentical('enrol: only the hash of the code is stored, without its dashes', fieldOf($sqlLink, 'emma', 'actvtnCode'), hash('sha256', str_replace('-', '', strval($emmaCod))));
 checkIdentical('enrol: the code handed over lasts 300 minutes', abs(strtotime(strval(fieldOf($sqlLink, 'emma', 'codeExpiry'))) - (time()+300*60))<=5, true);
 checkPregMatch('enrol: the creation date is given by the database', fieldOf($sqlLink, 'emma', 'createDate'), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
-checkPregMatch('enrol: logged as a notice, signed', readLogs(), '/\[NOTICE\] User "emma" created \(internal\) by user "anna" from 192\.0\.2\.7/');
+checkPregMatch('enrol: logged as a notice, signed', readLogs(), '/\[NOTICE\] User "emma" created \(standard\) by user "anna" from 192\.0\.2\.7/');
 checkIdentical('enrol: a pending user cannot log in, whatever it gives', Array($natAuth->checkSecretArr(Array('user'=>'emma', 'pass'=>'!')), $natAuth->checkSecretArr(Array('user'=>'emma', 'pass'=>'')), $natAuth->checkSecretArr(Array('user'=>'emma', 'pass'=>strval($emmaCod)))), Array(false, false, false));
-checkPregMatch('enrol: with a role', $usrBase->enrolUsrString('Fred.Opr-2', 'operator'), '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
-checkIdentical('enrol: the role is stored', fieldOf($sqlLink, 'Fred.Opr-2', 'accessRole'), 'operator');
+checkPregMatch('enrol: with a role', $usrBase->enrolUsrString('Fred.Opr-2', 'advanced'), '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
+checkIdentical('enrol: the role is stored', fieldOf($sqlLink, 'Fred.Opr-2', 'accessRole'), 'advanced');
 checkIdentical('enrol: two codes are never the same', $emmaCod===$usrBase->enrolUsrString('gina'), false);
 readLogs();
 checkIdentical('enrol: name taken', operates($usrBase, 'enrolUsrString', Array('ben')), Array(false, 409, 'User name already taken'));
@@ -116,7 +116,7 @@ readLogs();
 checkIdentical('activate: the right code', operates($usrBase, 'activateUsrFlg', Array('emma', strval($emmaCod), 'pass-emma-1')), Array(true, 200, ''));
 checkIdentical('activate: active, the code cleared', Array(fieldOf($sqlLink, 'emma', 'userStatus'), fieldOf($sqlLink, 'emma', 'actvtnCode')), Array('approved', null));
 checkPregMatch('activate: logged as a notice, which production writes', readLogs(), '/\[NOTICE\] User "emma" activated from 192\.0\.2\.9/');
-checkIdentical('activate: the user logs in with its password', $natAuth->checkSecretArr(Array('user'=>'emma', 'pass'=>'pass-emma-1'))['userRole'] ?? null, 'internal');
+checkIdentical('activate: the user logs in with its password', $natAuth->checkSecretArr(Array('user'=>'emma', 'pass'=>'pass-emma-1'))['userRole'] ?? null, 'standard');
 checkIdentical('activate: the code is used once', operates($usrBase, 'activateUsrFlg', Array('emma', strval($emmaCod), 'pass-emma-2')), Array(false, 401, 'Invalid activation'));
 checkIdentical('activate: the password of the first use stays', $natAuth->checkSecretArr(Array('user'=>'emma', 'pass'=>'pass-emma-1'))['userName'] ?? null, 'emma');
 checkIdentical('activate: a pending user without a code stays pending', Array(operates($usrBase, 'activateUsrFlg', Array('cleo', '', 'pass-cleo-2')), fieldOf($sqlLink, 'cleo', 'userStatus')), Array(Array(false, 401, 'Invalid activation'), 'awaiting'));
@@ -171,34 +171,34 @@ checkIdentical('lock: a name holding a quote', operates($usrBase, 'saveStatusFla
 
 // 5. changRole
 readLogs();
-checkIdentical('role: changed', operates($usrBase, 'changeRoleFlag', Array('ben', 'operator')), Array(true, 200, ''));
-checkPregMatch('role: logged as a notice, with both roles', readLogs(), '/\[NOTICE\] Role of user "ben" changed from internal to operator by user "anna"/');
-checkIdentical('role: the next login carries it', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-1'))['userRole'] ?? null, 'operator');
-checkIdentical('role: already that one', operates($usrBase, 'changeRoleFlag', Array('ben', 'operator')), Array(false, 409, 'User already of that role'));
+checkIdentical('role: changed', operates($usrBase, 'changeRoleFlag', Array('ben', 'advanced')), Array(true, 200, ''));
+checkPregMatch('role: logged as a notice, with both roles', readLogs(), '/\[NOTICE\] Role of user "ben" changed from standard to advanced by user "anna"/');
+checkIdentical('role: the next login carries it', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-1'))['userRole'] ?? null, 'advanced');
+checkIdentical('role: already that one', operates($usrBase, 'changeRoleFlag', Array('ben', 'advanced')), Array(false, 409, 'User already of that role'));
 checkIdentical('role: unknown role', Array(operates($usrBase, 'changeRoleFlag', Array('ben', 'owner')), operates($usrBase, 'changeRoleFlag', Array('ben', ''))), Array(Array(false, 400, 'Invalid role'), Array(false, 400, 'Invalid role')));
-checkIdentical('role: unknown user', operates($usrBase, 'changeRoleFlag', Array('zed', 'operator')), Array(false, 404, 'User not found'));
-checkIdentical('role: the last active manager keeps its role', Array(operates($usrBase, 'changeRoleFlag', Array('anna', 'internal')), fieldOf($sqlLink, 'anna', 'accessRole')), Array(Array(false, 409, 'The last active manager cannot be given another role'), 'sysadmin'));
-checkIdentical('role: a pending or locked user can be given one', Array($usrBase->changeRoleFlag('cleo', 'operator'), $usrBase->changeRoleFlag('dave', 'sysadmin')), Array(true, true));
-checkIdentical('role: a locked manager does not make the active one less the last', operates($usrBase, 'changeRoleFlag', Array('anna', 'internal')), Array(false, 409, 'The last active manager cannot be given another role'));
-checkIdentical('role: with a second active manager, the first can be demoted', Array($usrBase->changeRoleFlag('ben', 'sysadmin'), $usrBase->changeRoleFlag('anna', 'operator'), $usrBase->changeRoleFlag('anna', 'sysadmin')), Array(true, true, true));
-$usrBase->changeRoleFlag('ben', 'internal');
-$usrBase->changeRoleFlag('cleo', 'internal');
-$usrBase->changeRoleFlag('dave', 'operator');
+checkIdentical('role: unknown user', operates($usrBase, 'changeRoleFlag', Array('zed', 'advanced')), Array(false, 404, 'User not found'));
+checkIdentical('role: the last active manager keeps its role', Array(operates($usrBase, 'changeRoleFlag', Array('anna', 'standard')), fieldOf($sqlLink, 'anna', 'accessRole')), Array(Array(false, 409, 'The last active manager cannot be given another role'), 'managers'));
+checkIdentical('role: a pending or locked user can be given one', Array($usrBase->changeRoleFlag('cleo', 'advanced'), $usrBase->changeRoleFlag('dave', 'managers')), Array(true, true));
+checkIdentical('role: a locked manager does not make the active one less the last', operates($usrBase, 'changeRoleFlag', Array('anna', 'standard')), Array(false, 409, 'The last active manager cannot be given another role'));
+checkIdentical('role: with a second active manager, the first can be demoted', Array($usrBase->changeRoleFlag('ben', 'managers'), $usrBase->changeRoleFlag('anna', 'advanced'), $usrBase->changeRoleFlag('anna', 'managers')), Array(true, true, true));
+$usrBase->changeRoleFlag('ben', 'standard');
+$usrBase->changeRoleFlag('cleo', 'standard');
+$usrBase->changeRoleFlag('dave', 'advanced');
 
 // 7. listUsers
 $allList = $usrBase->listUsersNamed();
 checkIdentical('list: every user, by name', array_column((array)$allList, 'systemName'), Array('Fred.Opr-2', 'anna', 'ben', 'cleo', 'dave', 'emma', 'gina'));
 checkIdentical('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
-checkIdentical('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'systemName'=>'anna', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
+checkIdentical('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'systemName'=>'anna', 'accessRole'=>'managers', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
 checkIdentical('list: by status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'awaiting')), 'systemName'), Array('Fred.Opr-2', 'cleo', 'gina'));
-checkIdentical('list: by role', array_column((array)$usrBase->listUsersNamed(Array('accessRole'=>'operator')), 'systemName'), Array('Fred.Opr-2', 'dave'));
-checkIdentical('list: by status and role', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'approved', 'accessRole'=>'internal')), 'systemName'), Array('ben', 'emma'));
+checkIdentical('list: by role', array_column((array)$usrBase->listUsersNamed(Array('accessRole'=>'advanced')), 'systemName'), Array('Fred.Opr-2', 'dave'));
+checkIdentical('list: by status and role', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'approved', 'accessRole'=>'standard')), 'systemName'), Array('ben', 'emma'));
 checkIdentical('list: empty filters are left out', count((array)$usrBase->listUsersNamed(Array('userStatus'=>'', 'accessRole'=>null))), 7);
-checkIdentical('list: nobody', $usrBase->listUsersNamed(Array('userStatus'=>'disabled', 'accessRole'=>'sysadmin')), Array());
+checkIdentical('list: nobody', $usrBase->listUsersNamed(Array('userStatus'=>'disabled', 'accessRole'=>'managers')), Array());
 checkIdentical('list: limit and offset', array_column((array)$usrBase->listUsersNamed(Array(), 2, 1), 'systemName'), Array('anna', 'ben'));
 checkIdentical('list: an offset beyond the end', $usrBase->listUsersNamed(Array(), 2, 50), Array());
 checkIdentical('list: a filter that is not a status', operates($usrBase, 'listUsersNamed', Array(Array('userStatus'=>"active' OR '1'='1"))), Array(false, 400, 'Invalid filter'));
-checkIdentical('list: a filter given as an array', operates($usrBase, 'listUsersNamed', Array(Array('accessRole'=>Array('internal')))), Array(false, 400, 'Invalid filter'));
+checkIdentical('list: a filter given as an array', operates($usrBase, 'listUsersNamed', Array(Array('accessRole'=>Array('standard')))), Array(false, 400, 'Invalid filter'));
 checkIdentical('list: another field is not a filter', count((array)$usrBase->listUsersNamed(Array('passwdHash'=>'!'))), 7);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),
@@ -210,7 +210,7 @@ checkIdentical('list: on a missing table', operates(new UserBase(Array('useTable
 
 // 8. userInfos
 $sqlLink->exec("UPDATE users SET bearerHash='tk', twoFactKey='2f' WHERE systemName='ben'");
-checkIdentical('read: one user, without hash, code, token or secret', $usrBase->userInfosArray('ben'), Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
+checkIdentical('read: one user, without hash, code, token or secret', $usrBase->userInfosArray('ben'), Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'standard', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
 $sqlLink->exec("UPDATE users SET twoFactPos=58000000 WHERE systemName='ben'");
 checkIdentical('2FA: the secret is taken away with the step of its last code', Array($usrBase->clearTwoFactor('ben'), $sqlLink->query("SELECT twoFactKey, twoFactPos FROM users WHERE systemName='ben'")->fetch(PDO::FETCH_NUM)), Array(true, Array(null, null)));
 checkIdentical('2FA: nothing to take away from an unknown user', operates($usrBase, 'clearTwoFactor', Array('zed')), Array(false, 404, 'User not found'));
@@ -224,7 +224,7 @@ checkIdentical('read: on a missing table', operates(new UserBase(Array('useTable
 readLogs();
 $benCode = $usrBase->resetUsrString('ben');
 checkPregMatch('reset: gives a new code', $benCode, '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
-checkIdentical('reset: pending, no password, no token, role kept', Array(fieldOf($sqlLink, 'ben', 'userStatus'), fieldOf($sqlLink, 'ben', 'passwdHash'), fieldOf($sqlLink, 'ben', 'bearerHash'), fieldOf($sqlLink, 'ben', 'accessRole')), Array('awaiting', '!', null, 'internal'));
+checkIdentical('reset: pending, no password, no token, role kept', Array(fieldOf($sqlLink, 'ben', 'userStatus'), fieldOf($sqlLink, 'ben', 'passwdHash'), fieldOf($sqlLink, 'ben', 'bearerHash'), fieldOf($sqlLink, 'ben', 'accessRole')), Array('awaiting', '!', null, 'standard'));
 checkPregMatch('reset: logged as a notice, without the code', $logText = readLogs(), '/\[NOTICE\] User "ben" reset by user "anna"/');
 checkIdentical('reset: no code in the log', strpos($logText, strval($benCode)), false);
 checkIdentical('reset: the former password no longer logs in', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-1')), false);
@@ -238,7 +238,7 @@ checkIdentical('reset: unknown user', operates($usrBase, 'resetUsrString', Array
 // 6. removUser
 readLogs();
 checkIdentical('remove: a user', Array(operates($usrBase, 'removeUserFlag', Array('gina')), fieldOf($sqlLink, 'gina', 'systemName')), Array(Array(true, 200, ''), false));
-checkPregMatch('remove: logged as a notice, with the role it had', readLogs(), '/\[NOTICE\] User "gina" removed \(internal\) by user "anna" from 192\.0\.2\.7/');
+checkPregMatch('remove: logged as a notice, with the role it had', readLogs(), '/\[NOTICE\] User "gina" removed \(standard\) by user "anna" from 192\.0\.2\.7/');
 checkIdentical('remove: already gone', operates($usrBase, 'removeUserFlag', Array('gina')), Array(false, 404, 'User not found'));
 checkIdentical('remove: a locked user', $usrBase->removeUserFlag('dave'), true);
 checkIdentical('remove: the last active manager', Array(operates($usrBase, 'removeUserFlag', Array('anna')), fieldOf($sqlLink, 'anna', 'systemName')), Array(Array(false, 409, 'The last active manager cannot be removed'), 'anna'));
@@ -278,7 +278,7 @@ readLogs();
 Logger::setCurrentUser( '', '192.0.2.11' );
 $ivanCod = $sgnBase->signsUsrString('ivan', 'Ivan@Example.ch');
 checkPregMatch('sign-up: a code', $ivanCod, '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
-checkIdentical('sign-up: pending, a member, with its address and the time of the sign-up', Array(fieldOf($sqlLink, 'ivan', 'userStatus'), fieldOf($sqlLink, 'ivan', 'accessRole'), fieldOf($sqlLink, 'ivan', 'contactEml'), fieldOf($sqlLink, 'ivan', 'passwdHash'), abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'signupDate'))) - time())<=5), Array('awaiting', 'internal', 'ivan@example.ch', '!', true));
+checkIdentical('sign-up: pending, a member, with its address and the time of the sign-up', Array(fieldOf($sqlLink, 'ivan', 'userStatus'), fieldOf($sqlLink, 'ivan', 'accessRole'), fieldOf($sqlLink, 'ivan', 'contactEml'), fieldOf($sqlLink, 'ivan', 'passwdHash'), abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'signupDate'))) - time())<=5), Array('awaiting', 'standard', 'ivan@example.ch', '!', true));
 checkIdentical('sign-up: the code lasts the minutes of codeMins', abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'codeExpiry'))) - (time()+30*60))<=5, true);
 checkPregMatch('sign-up: logged as a notice', readLogs(), '/\[NOTICE\] User "ivan" signed up from 192\.0\.2\.11/');
 $usrNmbr = count((array)$usrBase->listUsersNamed());
@@ -386,7 +386,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'access'=>Array('LOGINSET'=>Array('authWith'=>'nativeDb'), 'NATIVEDB'=>Array('useTable'=>'users', 'minChars'=>12), 'OTHERS'=>Array('useTable'=>'nousers'))
 ) );
 $lgnBase = UserBase::fromLoginBlock();
-checkIdentical('fromLogin: the native block by default', ($lgnBase!==null) ? $lgnBase->userInfosArray('anna')['accessRole'] ?? null : null, 'sysadmin');
+checkIdentical('fromLogin: the native block by default', ($lgnBase!==null) ? $lgnBase->userInfosArray('anna')['accessRole'] ?? null : null, 'managers');
 checkIdentical('fromLogin: the block gives its password length', ($lgnBase!==null) ? operates($lgnBase, 'editPasswdFlag', Array('anna', 'pass-anna-1', 'pass-anna-2')) : null, Array(false, 400, 'Password too short: 12 characters at least'));
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),

@@ -16,7 +16,7 @@ class Checker{
 
 	// Roles an identity can carry, from the least to the most privileged.
 	// A route or an action asks for one as a minimum (see roleMeets)
-	const ROLE_LIST = Array('internal', 'operator', 'sysadmin');
+	const ROLE_LIST = Array('standard', 'advanced', 'delegate', 'managers');
 	// Short names of the framework's strategies, as the config files write them, and their classes.
 	// This is the only place that ties the two together. Any other short name is a plug-in (see plugClass)
 	const AUTH_LIST = Array('htpasswd'=>'PassList', 'nativeDb'=>'Native', 'regdKeys'=>'RegKey', 'userFile'=>'UserList', 'dvcToken'=>'Device');
@@ -239,7 +239,7 @@ class Checker{
 		if( $authObj!==null && method_exists($authObj, 'retainAliveFlg') && ($idntArr['userName'] ?? '')!='' ){
 			$authObj->retainAliveFlg( strval($idntArr['userName']) );
 		}
-		// An identity without a known role is given the lowest one, internal
+		// An identity without a known role is given the lowest one, standard
 		$usrRole = $idntArr['userRole'] ?? '';
 		if( !in_array($usrRole, self::ROLE_LIST, true) ){
 			$usrRole = self::ROLE_LIST[0];

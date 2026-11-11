@@ -14,7 +14,7 @@ use nyu\Shell\UserFile;
 /**
  * Manages the users, and calls the actions of the runs:
  *
- *   php nyuRun accounts fullList --roleName=sysadmin  the users, filtered or not
+ *   php nyuRun accounts fullList --roleName=managers  the users, filtered or not
  *   php nyuRun accounts makeUser ann system         creates a user
  *   php nyuRun accounts lockUser ann                locks it (unlck unlocks)
  *   php nyuRun accounts password ann                gives it a new password, made and shown once (--typeItIn to type it)
@@ -456,7 +456,7 @@ class Manage extends Command{
 	 * Calls an action of a run. Its inputs are the name=value words
 	 * (filters[search]=jazz for a nested one), over those of a JSON file
 	 * (--bodyFrom, - for the standard input). It runs as the user
-	 * cli:<system user>, with the role 'operator' unless --roleName gives
+	 * cli:<system user>, with the role 'advanced' unless --roleName gives
 	 * another. Its reply is written to the output, or to --saveInto.
 	 *
 	 * @return Int EXITDONE for a success or a redirection, EXITDENY for a 4xx status, EXITFAIL for a 5xx.
@@ -483,7 +483,7 @@ class Manage extends Command{
 		$wordVal = Array();
 		parse_str(implode('&', $pairLst), $wordVal);
 		$inptVls = array_replace_recursive($inptVls, $wordVal);
-		$roleNme = strval($this->optionsObj->retrieveOption('roleName', 'operator'));
+		$roleNme = strval($this->optionsObj->retrieveOption('roleName', 'advanced'));
 		$mthName = strtoupper(strval($this->optionsObj->retrieveOption('httpVerb', 'GET')));
 		if( !in_array($roleNme, Checker::ROLE_LIST, true) || !in_array($mthName, self::MTHD_LIST, true) ){
 			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);

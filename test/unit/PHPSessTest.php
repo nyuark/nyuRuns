@@ -88,7 +88,7 @@ function cookSets( Array $confValues, Int $expiryTime=0 ): Array {
 	return $setMthd->invoke( new PHPSess($confValues), $expiryTime );
 }
 
-$annaIdn = Array('userName'=>'anna', 'userRole'=>'sysadmin', 'idOfUser'=>1);
+$annaIdn = Array('userName'=>'anna', 'userRole'=>'managers', 'idOfUser'=>1);
 $sessCar = new PHPSess( Array('lifeSecs'=>300, 'secureOn'=>false) );
 
 // The login opens a session, its id names it on the next requests
@@ -155,17 +155,17 @@ checkIdentical('a session whose identity is not a block is refused, and destroye
 // With a store that knows its users : the user is confirmed on every request
 $usrList = new UserList( Array('listFile'=>'test'.DS.'fixtures'.DS.'users.lst') );
 $strSess = new PHPSess( Array('lifeSecs'=>300), $usrList );
-$sessIdn = openSessn($strSess, Array('userName'=>'anna', 'userRole'=>'internal'));
+$sessIdn = openSessn($strSess, Array('userName'=>'anna', 'userRole'=>'standard'));
 checkIdentical('with a store: the role is the one of the store', $strSess->verifyRqstList(cookReqst($sessIdn)), $annaIdn);
-checkIdentical('without a store: the role is the one of the session', $sessCar->verifyRqstList(cookReqst($sessIdn)), Array('userName'=>'anna', 'userRole'=>'internal'));
-$daveIdn = openSessn($strSess, Array('userName'=>'dave', 'userRole'=>'operator'));
+checkIdentical('without a store: the role is the one of the session', $sessCar->verifyRqstList(cookReqst($sessIdn)), Array('userName'=>'anna', 'userRole'=>'standard'));
+$daveIdn = openSessn($strSess, Array('userName'=>'dave', 'userRole'=>'advanced'));
 checkIdentical('with a store: a locked user is refused', Array($strSess->verifyRqstList(cookReqst($daveIdn)), $strSess->finalErrorText()), Array(false, 'Account not active'));
 checkIdentical('with a store: the refused session is destroyed', Array($sessCar->verifyRqstList(cookReqst($daveIdn)), $sessCar->finalErrorText()), Array(false, 'No active session'));
-$zedIdnt = openSessn($strSess, Array('userRole'=>'sysadmin'));
+$zedIdnt = openSessn($strSess, Array('userRole'=>'managers'));
 checkIdentical('with a store: a session naming no user is refused', $strSess->verifyRqstList(cookReqst($zedIdnt)), false);
 $keySess = new PHPSess( Array('lifeSecs'=>300), new RegKey(Array('keysList'=>Array('k-1'))) );
-$zedIdnt = openSessn($keySess, Array('userName'=>'zed', 'userRole'=>'operator'));
-checkIdentical('with a check that does not know its users: the session alone decides', $keySess->verifyRqstList(cookReqst($zedIdnt)), Array('userName'=>'zed', 'userRole'=>'operator'));
+$zedIdnt = openSessn($keySess, Array('userName'=>'zed', 'userRole'=>'advanced'));
+checkIdentical('with a check that does not know its users: the session alone decides', $keySess->verifyRqstList(cookReqst($zedIdnt)), Array('userName'=>'zed', 'userRole'=>'advanced'));
 
 // Logout
 $keptNmb = sessCount();
@@ -195,15 +195,15 @@ function sessReply( ?String $sessnIdent, Array $moreConfig=Array(), Array $route
 }
 $usrStor = Array('authWith'=>'userFile', 'authConf'=>'testFile');
 checkIdentical('phpSessn is the short name of PHPSess', Checker::sessnClassText('phpSessn'), '\\nyu\\Access\\Carr\\PHPSess');
-checkIdentical('Checker phpSessn without a store: the role of the session', sessReply($sessIdn), Array(200, '', 'anna', 'internal', null));
-checkIdentical('Checker phpSessn x userFile: the role of the file', sessReply($sessIdn, $usrStor), Array(200, '', 'anna', 'sysadmin', null));
-checkIdentical('Checker phpSessn x regdKeys: the session alone decides', sessReply($sessIdn, Array('authWith'=>'regdKeys'))[3], 'internal');
+checkIdentical('Checker phpSessn without a store: the role of the session', sessReply($sessIdn), Array(200, '', 'anna', 'standard', null));
+checkIdentical('Checker phpSessn x userFile: the role of the file', sessReply($sessIdn, $usrStor), Array(200, '', 'anna', 'managers', null));
+checkIdentical('Checker phpSessn x regdKeys: the session alone decides', sessReply($sessIdn, Array('authWith'=>'regdKeys'))[3], 'standard');
 checkIdentical('Checker phpSessn: no cookie is a 401, without a challenge', sessReply(null), Array(401, 'No active session', '', null, null));
-checkIdentical('Checker phpSessn: an unknown role makes a member', sessReply(openSessn($sessCar, Array('userName'=>'erin', 'userRole'=>'root')))[3], 'internal');
-$rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
+checkIdentical('Checker phpSessn: an unknown role makes a member', sessReply(openSessn($sessCar, Array('userName'=>'erin', 'userRole'=>'root')))[3], 'standard');
+$rolConf = Array('minRoles'=>Array('shows/*'=>'advanced'));
 checkIdentical('Checker phpSessn: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('appToRun'=>'shows', 'doAction'=>'index'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('appToRun'=>'shows', 'doAction'=>'index'))[0]), Array(404, 200));
 checkIdentical('Checker phpSessn: a refusal for the role leaves the session open', sessReply($sessIdn)[0], 200);
-$lockIdn = openSessn($sessCar, Array('userName'=>'dave', 'userRole'=>'operator'));
+$lockIdn = openSessn($sessCar, Array('userName'=>'dave', 'userRole'=>'advanced'));
 checkIdentical('Checker phpSessn x userFile: a locked user is refused, its session destroyed', Array(sessReply($lockIdn, $usrStor), sessReply($lockIdn)[1]), Array(Array(401, 'Account not active', '', null, null), 'No active session'));
 
 // Settings of the cookie

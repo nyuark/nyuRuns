@@ -26,7 +26,7 @@ createSampleDb($basePth);
 $sqlLink = new PDO('sqlite:'.$basePth);
 $sqlLink->exec("UPDATE users SET actvtnCode='code-of-cleo' WHERE systemName='cleo'");
 $sqlLink->exec("UPDATE users SET contactEml='ben@example.ch', userLocale='fr-ch', recovrCode='reset-of-ben', codeExpiry='2026-11-04 10:00:00' WHERE systemName='ben'");
-$sqlLink->exec("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, contactEml, signupDate) VALUES (5, 'erin', '".password_hash('pw-erin', PASSWORD_BCRYPT, Array('cost'=>4))."', 'internal', 'inReview', 'erin@example.ch', '2026-11-04 09:00:00')");
+$sqlLink->exec("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, contactEml, signupDate) VALUES (5, 'erin', '".password_hash('pw-erin', PASSWORD_BCRYPT, Array('cost'=>4))."', 'standard', 'inReview', 'erin@example.ch', '2026-11-04 09:00:00')");
 $sqlLink->prepare("UPDATE users SET twoFactKey=?, bearerHash=? WHERE systemName='anna'")->execute( Array(Totp::sealSecretText($twoFaKy, $natSeal), hash('sha256', 'token-of-anna')) );
 $sqlLink->exec("INSERT INTO devices (deviceName, deviceRole, bearerHash, user_id) VALUES ('Phone', 'app', '".hash('sha256', 'phone')."', 2)");
 $hashLst = $sqlLink->query('SELECT systemName, passwdHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -49,7 +49,7 @@ $jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'userFile', '-
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'systemName');
 checkIdentical('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['accessRole'].'/'.$userValues['userStatus']; }, $usrList), $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null),
-	Array(0, 5, Array('anna'=>'1/sysadmin/approved', 'ben'=>'2/internal/approved', 'cleo'=>'3/internal/awaiting', 'dave'=>'4/operator/disabled', 'erin'=>'5/internal/inReview'), 'userFile', 'userFile'));
+	Array(0, 5, Array('anna'=>'1/managers/approved', 'ben'=>'2/standard/approved', 'cleo'=>'3/standard/awaiting', 'dave'=>'4/advanced/disabled', 'erin'=>'5/standard/inReview'), 'userFile', 'userFile'));
 checkIdentical('the addresses go along', array_column($usrList, 'contactEml', 'systemName'), Array('ben'=>'ben@example.ch', 'erin'=>'erin@example.ch'));
 checkIdentical('the languages go along', array_column($usrList, 'userLocale', 'systemName'), Array('ben'=>'fr-ch'));
 checkIdentical('the passwords and the personal token go along unchanged', Array(array_column($usrList, 'passwdHash', 'systemName'), $usrList['anna']['bearerHash'] ?? null), Array($hashLst, hash('sha256', 'token-of-anna')));
@@ -89,7 +89,7 @@ $newLink = new PDO('sqlite:'.$newBase);
 $rowList = $newLink->query('SELECT id_user, systemName, passwdHash, accessRole, userStatus, bearerHash, twoFactKey FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 checkIdentical('the table is created and the users written; a user without an identifier gets the next one, the role and status the file leaves out', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['systemName'].'/'.$userValues['accessRole'].'/'.$userValues['userStatus']; }, $rowList)),
-	Array(0, 5, Array('1/anna/sysadmin/approved', '2/ben/internal/approved', '3/cleo/internal/awaiting', '4/dave/operator/disabled', '5/emma/internal/approved')));
+	Array(0, 5, Array('1/anna/managers/approved', '2/ben/standard/approved', '3/cleo/standard/awaiting', '4/dave/advanced/disabled', '5/emma/standard/approved')));
 $lstVals = array_column(json_decode($fleUsrs, true)['users'], null, 'systemName');
 checkIdentical('the hashes, the token and the 2FA secret go along', Array(array_column($rowList, 'passwdHash', 'systemName'), $rowList[0]['bearerHash'], $rowList[4]['twoFactKey']), Array(array_column($lstVals, 'passwdHash', 'systemName'), $lstVals['anna']['bearerHash'], $lstVals['emma']['twoFactKey']));
 checkIdentical('the login follows, the native block is made, the file is kept', Array($axsVals['loginSet']['authWith'] ?? null, $axsVals['nativeDb']['useTable'] ?? null, fetchInProject($projDir, 'conf/users.lst')), Array('nativeDb', 'users', str_replace("\r\n", "\n", $fleUsrs)));
@@ -103,7 +103,7 @@ $projDir = makeProjectTxt('storenop', Array(
 	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>inTemporaryDir('storenop.sqlite'), 'userName'=>'', 'passWord'=>'')),
 	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
 	'conf/access.json'=>json_encode(Array('loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile'), 'userFile'=>Array('listFile'=>'conf/users.lst'))),
-	'conf/users.lst'=>'{ "users": [ { "systemName": "zoe", "accessRole": "internal" } ] }'
+	'conf/users.lst'=>'{ "users": [ { "systemName": "zoe", "accessRole": "standard" } ] }'
 ));
 $runVals = callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
 checkIdentical('a user without a password hash stops the move', Array($runVals['code'], $runVals['errs']), Array(3, "Nothing was moved: users without a password hash (zoe); give them a password with accounts first\n"));

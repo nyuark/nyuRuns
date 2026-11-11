@@ -101,10 +101,10 @@ checkPregMatch('login: the refusal is told in the access log, without the value'
 
 // Login on the users file : the role goes into the token, the status and the 2FA code are checked
 plugConf( $lstLogn );
-checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('login', $annaPwd)), Array('anna', 'sysadmin'));
+checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('login', $annaPwd)), Array('anna', 'managers'));
 checkIdentical('login x userFile: a pending user is refused as a wrong password is', authActn('login', Array('userName'=>'cleo', 'passWord'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
 checkIdentical('login x userFile: a user with a secret, password alone', authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma')), Array(401, 'Verification code required', null));
-checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'internal'));
+checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'standard'));
 checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
 checkIdentical('login x userFile: a code that is not a text is no code', authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Array('1'))), Array(401, 'Verification code required', null));
 
@@ -170,8 +170,8 @@ authActn('login', Array('userName'=>'ben', 'passWord'=>'pw-ben'), 'POST', '198.5
 authActn('login', $annaPwd, 'POST', '198.51.100.7');
 authActn('login', Array('userName'=>"ben\n[".date('Y')."] [INFO] Login granted for user \"anna\"", 'passWord'=>'top-secret-word'), 'POST', '198.51.100.7');
 authActn('login', $annaPwd, 'POST', '198.51.100.7');
-authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'ben', 'userRole'=>'internal'));
-authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'sysadmin'));
+authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'ben', 'userRole'=>'standard'));
+authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'managers'));
 authActn('logout', Array(), 'POST', '198.51.100.7');
 plugConf( Array('carrWith'=>'httpBasc') );
 authActn('login', $alicePw, 'POST', '198.51.100.8');
@@ -183,11 +183,11 @@ $yearTxt = '['.date('Y').'] ';
 $axsLogs = file_exists(inTemporaryDir('logs2').DS.'access.log') ? file(inTemporaryDir('logs2').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: the logins and logouts, one line each, notices that production writes too', $axsLogs, Array(
 	$yearTxt.'[NOTICE] Login granted for user "ben" from 198.51.100.7',
-	$yearTxt.'[NOTICE] Privileged login granted for user "anna" (sysadmin) from 198.51.100.7',
+	$yearTxt.'[NOTICE] Privileged login granted for user "anna" (managers) from 198.51.100.7',
 	$yearTxt.'[WARNING] Login refused for user "ben\n['.date('Y').'] [INFO] Login granted for user \"anna\"" from 198.51.100.7: Invalid credentials',
 	$yearTxt.'[WARNING] Login refused for user "anna" from 198.51.100.7: too many attempts',
 	$yearTxt.'[NOTICE] Logout of user "ben" from 198.51.100.7',
-	$yearTxt.'[NOTICE] Logout of privileged user "anna" (sysadmin) from 198.51.100.7',
+	$yearTxt.'[NOTICE] Logout of privileged user "anna" (managers) from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of user "" from 198.51.100.7',
 	$yearTxt.'[ERROR] Login unavailable: the carrier issues no token',
 	$yearTxt.'[ERROR] Login unavailable: unknown authWith or carrWith in the login block'

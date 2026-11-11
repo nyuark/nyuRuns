@@ -285,7 +285,7 @@ checkIdentical('cache: a router given them resolves a Run route without its file
 $rteFldr = 'temp'.DS.'routes_test_'.getmypid();
 mkdir(TOP_DIR.DS.$rteFldr, 0775, true);
 file_put_contents(TOP_DIR.DS.$rteFldr.DS.'odd.rte', '{ "fine": { "mthdList": "GET", "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } },'
-	.' "aged": { "limited": { "call": 1 }, "auth": "x", "pointsTo": { "appToRun": "probe", "doAction": "sanitize", "role": "sysadmin" } },'
+	.' "aged": { "limited": { "call": 1 }, "auth": "x", "pointsTo": { "appToRun": "probe", "doAction": "sanitize", "role": "managers" } },'
 	.' "both": { "pointsTo": { "GET": { "pageFile": "hello.html", "code": 200 }, "POST": { "appToRun": "probe" } } } }');
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rtelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $oddRoutr = madeRoutr('/fine', 'GET', Array('routeDir'=>$rteFldr));

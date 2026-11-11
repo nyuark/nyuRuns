@@ -37,7 +37,7 @@ class Deploy extends Command{
 	const DIST_LIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist');
 	// The basic users, and the role of each
 	// The basic accounts, one per role: the name proposed for each, asked when they are created
-	const USER_LIST = Array('teammate'=>'internal', 'engineer'=>'operator', 'sysAgent'=>'sysadmin');
+	const USER_LIST = Array('teammate'=>'standard', 'engineer'=>'advanced', 'sysAgent'=>'managers');
 	// The stores the users can be created in, and 'none' for a project without users of its own
 	const STOR_LIST = Array('nativeDb', 'userFile', 'none');
 	// The block a store of users is given in conf/access.json when it has none

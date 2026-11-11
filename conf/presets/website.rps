@@ -5,7 +5,7 @@
 		"confType": "all",
 		"confList": "any"
 	},
-	"security": { "required": true, "carrWith": "phpSessn", "carrConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/login", "/assets/*"], "signPath": "/login", "minRoles": { "users/*": "sysadmin" } },
+	"security": { "required": true, "carrWith": "phpSessn", "carrConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/login", "/assets/*"], "signPath": "/login", "minRoles": { "users/*": "managers" } },
 	"inputSet": [
 		{
 			"sourceId": "QUERY",
