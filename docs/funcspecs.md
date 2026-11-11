@@ -601,8 +601,8 @@ service       ── key known? token signed by that application? route listed? 
    - the key: a wrong one is a 401, counted against the address;
    - the token: it must be signed by that application, not expired, and
      name this project's audience when one is set;
-   - the route: one the key doesn't list is a 403;
-   - the route's role: a 403 when it isn't held.
+   - the route: one the key doesn't list is a 404;
+   - the route's role: a 404 when it isn't held.
 
    The role is never higher than the cap set for the application.
 4. **The action runs** for that user, and is told which application
@@ -1095,8 +1095,8 @@ The replies of the `Auth` run:
 | | `Account not active` | the account behind a session or token was locked in the meantime |
 | | `Invalid activation`, `Invalid code` | a wrong name or code at activation or recovery, or an expired code |
 | | `Invalid API key`, `No API key provided`, `Invalid app key`, `Not logged in`, `No active session`, `Missing Bearer Authorization header`, … | the credential the profile asks for is missing or wrong |
-| **403** | `Forbidden` | an application key reaches a route it doesn't list, or a role above its cap; a command-line call without the role |
-| **404** | `Not Found` | nothing answers the URL; the application, action, file or page isn't there; a run with its own routes is called by its plain path; the role isn't held; a feature is switched off (sign-ups, forgotten passwords) |
+| **403** | `Forbidden` | given by an action itself (`stopThisAction(403, …)`); the framework never answers it: what a user, an application key or a command-line call can't reach is a 404 |
+| **404** | `Not Found` | nothing answers the URL; the application, action, file or page isn't there; a run with its own routes is called by its plain path; the role isn't held (by a user, an application key or a command-line call); an application key reaches a route it doesn't list; a feature is switched off (sign-ups, forgotten passwords) |
 | | `User not found` | the `Users` run is asked for a user that doesn't exist |
 | **405** | `Method Not Allowed` | the route or action doesn't take that method; the `Allow` header lists the ones it does |
 | **409** | `User name already taken`, `Mail address already used` | the name or address belongs to another account |

@@ -440,7 +440,7 @@ preset reads the keys when its `security` block names that block:
 - The role of that user is never above `roleTops` (`standard` by default), and
   the role a route asks for (`minRoles`, `needsActionRle()`) still applies.
 - An application only reaches its `routeSet`, written as `openList`; any other
-  route is a 403. A route open to everyone ignores the key.
+  route is a 404, as a route that does not exist. A route open to everyone ignores the key.
 - A wrong key and a forged token count against the address. Every write is a
   notice on the `access` log, naming the application, the user and the route;
   a read is an info. The record itself is the action's to log.

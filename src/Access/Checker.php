@@ -292,7 +292,7 @@ class Checker{
 		$usrName = strval($idntArr['userName'] ?? '');
 		$appName = strval($idntArr['appsName']);
 		$fromTxt = ($clientIpAddr!='') ? ' from '.$clientIpAddr : '';
-		$denyArr = Array('loggedIn'=>true, 'userName'=>$usrName, 'userRole'=>$idntArr['userRole'], 'identity'=>$idntArr, 'appsName'=>$appName, 'statCode'=>403, 'statMssg'=>'Forbidden');
+		$denyArr = Array('loggedIn'=>true, 'userName'=>$usrName, 'userRole'=>$idntArr['userRole'], 'identity'=>$idntArr, 'appsName'=>$appName, 'statCode'=>404, 'statMssg'=>'Not Found');
 		if( $this->routerRgst===null || !$keyInst->allowsRouteFlg($this->routerRgst) ){
 			Logger::retrieveLogger('access')->warning( 'App call refused for app '.json_encode($appName).', user '.json_encode($usrName).$fromTxt.' to '.$this->rteDestination().': not a route of the application' );
 			return new Registry( $denyArr );
@@ -325,7 +325,7 @@ class Checker{
 	 *
 	 * @param String $signedInUser Name the call runs under.
 	 * @param String $signedInRole Role the call runs with, one of ROLELIST.
-	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys: 200 when the action may run, 403 when the role is not enough, 500 when the roles of the routes cannot be applied.
+	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys: 200 when the action may run, 404 when the role is not enough (as for a route that does not exist), 500 when the roles of the routes cannot be applied.
 	 */
 	public function grantShellCall( String $signedInUser, String $signedInRole ): Registry {
 		$rleFlow = $this->checkRoleFlaws();
@@ -340,7 +340,7 @@ class Checker{
 		$needRle = $this->routRoleString();
 		if( $needRle!==null && !self::rleAccessMeets($signedInRole, $needRle) ){
 			self::logRoleRefusal( $signedInUser, $signedInRole, $needRle, '', $this->rteDestination() );
-			return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntArr, 'statCode'=>403, 'statMssg'=>'Forbidden') );
+			return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntArr, 'statCode'=>404, 'statMssg'=>'Not Found') );
 		}
 		Logger::retrieveLogger('access')->notice( 'Action '.$this->rteDestination().' called from the command line by user '.json_encode($signedInUser).' ('.$signedInRole.')' );
 		return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntArr, 'statCode'=>200, 'statMssg'=>'') );
