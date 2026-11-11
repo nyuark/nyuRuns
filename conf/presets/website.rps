@@ -1,5 +1,5 @@
 {
-	"presetId": "websites",
+	"presetId": "website",
 	"describe": "Preset for a site used from a browser: a session cookie, its users checked against the users table, the login left open, its own route folder",
 	"settings": {
 		"fileType": "all",
@@ -16,7 +16,7 @@
 	"routings": {
 		"detectBy": "autopath",
 		"pathForm": "$appToRun/$doAction/$argument",
-		"routeDir": "conf/routes/websites",
+		"routeDir": "conf/routes/website",
 		"htmlRoot": "pages"
 	},
 	"response": {

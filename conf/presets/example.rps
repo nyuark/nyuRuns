@@ -5,7 +5,7 @@
     // A key that is not one of those described here stops the run
     //
 	// Name of the PreSet; the name of its file
-	"presetId": "template",
+	"presetId": "example",
     // Description of the PreSet
 	"describe": "Every setting of a preset, with what it does",
 	// Type and names of config files to load

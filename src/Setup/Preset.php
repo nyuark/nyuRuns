@@ -27,12 +27,12 @@ class Preset{
     /**
 	 * Loads and parses the named RPS preset file.
 	 *
-	 * @param String $nameOfPreset Name of the preset file (without extension) to load; defaults to 'defaults'.
+	 * @param String $nameOfPreset Name of the preset file (without extension) to load; defaults to 'default'.
 	 * @throws \RuntimeException When the name is not valid, or the preset file is missing, not valid JSON, or empty.
 	 */
-    function __construct(String $nameOfPreset = 'defaults'){
+    function __construct(String $nameOfPreset = 'default'){
 		if($nameOfPreset==''){
-			$nameOfPreset = 'defaults';
+			$nameOfPreset = 'default';
 		}
 		$this->readPresetFile($nameOfPreset);
 		$this->presetName = $nameOfPreset;

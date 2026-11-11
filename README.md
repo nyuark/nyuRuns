@@ -69,8 +69,8 @@ Every setting lives in `conf/` and every secret in `.env`. The command
 line changes them one value at a time, checking each one as it goes:
 
 ```
-php nyuRun settings wwwEntry index restapis           # the profile: an API with tokens
-php nyuRun settings fullList restapis                 # who can reach what
+php nyuRun settings wwwEntry index restapi           # the profile: an API with tokens
+php nyuRun settings fullList restapi                 # who can reach what
 php nyuRun settings setValue coreConf LOG_MODE BASE   # a single value
 php nyuRun installs checkAll                          # what's fine, worth a look, or failing
 ```

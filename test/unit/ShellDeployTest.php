@@ -19,7 +19,7 @@ function freshPrjt( String $folderName ): String {
 		'.env.example'=>"# Copy to .env and fill in\nNYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n",
 		'conf/access.json.dist'=>distAccss(),
 		'conf/system.ini'=>buildSystemIni(),
-		'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }',
+		'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "fileType": "all" }, "security": { "required": false } }',
 		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "sysadmin" } } }'
 	));
 }
@@ -62,7 +62,7 @@ checkIdentical('a local file that exists is kept', Array(array_column(runShellAs
 // check, before anything is set
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
 $statLst = stateOf($jsnVals);
-checkIdentical('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset defaults'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys regdKeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
+checkIdentical('the health check tells what is missing', Array($jsnVals['exit'] ?? null, $statLst['preset default'] ?? null, $statLst['preset secure'] ?? null, $statLst['access login'] ?? null, $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $statLst['keys regdKeys'] ?? null, $statLst['errors'] ?? null, ($jsnVals['fail'] ?? 0)>=2),
 	Array(4, 'fine', 'fine', 'fine', 'fail', 'fine', 'fail', 'warn', 'fine', true));
 
 // start, without a question
@@ -193,8 +193,8 @@ $cookRps = '{ "presetId": "%s", "settings": { "fileType": "all" }, "security": {
 writeInProject($projDir, 'conf/presets/cookie.rps', sprintf($cookRps, 'cookie', ''));
 writeInProject($projDir, 'conf/presets/listed.rps', sprintf($cookRps, 'listed', '"corsList": ["https://app.example.org"], '));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
-checkIdentical('a session cookie with every origin allowed is told, unless the origins are listed', Array($statLst['origins cookie'] ?? null, $statLst['preset cookie'] ?? null, array_key_exists('origins listed', $statLst), array_key_exists('origins defaults', $statLst)), Array('warn', 'fine', false, false));
-checkIdentical('a preset that does not load, names a block that is not there, or asks for a role that is not one; proxies trusted from anywhere', Array($statLst['preset broken'] ?? null, $statLst['preset noblok'] ?? null, $statLst['preset norole'] ?? null, $statLst['preset defaults'] ?? null, $statLst['proxies'] ?? null), Array('fail', 'fail', 'fail', 'fine', 'fail'));
+checkIdentical('a session cookie with every origin allowed is told, unless the origins are listed', Array($statLst['origins cookie'] ?? null, $statLst['preset cookie'] ?? null, array_key_exists('origins listed', $statLst), array_key_exists('origins default', $statLst)), Array('warn', 'fine', false, false));
+checkIdentical('a preset that does not load, names a block that is not there, or asks for a role that is not one; proxies trusted from anywhere', Array($statLst['preset broken'] ?? null, $statLst['preset noblok'] ?? null, $statLst['preset norole'] ?? null, $statLst['preset default'] ?? null, $statLst['proxies'] ?? null), Array('fail', 'fail', 'fail', 'fine', 'fail'));
 
 // An error level that cannot be read stops every request : the check fails
 writeInProject($projDir, 'conf/system.ini', str_replace('ERR_LEVL = E_ALL', 'ERR_LEVL = "E_ALL & ~E_FOO"', buildSystemIni()));
@@ -240,18 +240,18 @@ checkIdentical('the rights not checked on Windows are told once; elsewhere, no s
 // The entry points : the preset each one starts, open or not, open by intent or not
 $projDir = freshPrjt('entries');
 runShellAsJson($projDir, Array('installs', 'makeConf'));
-writeInProject($projDir, 'conf/presets/showcase.rps', '{ "presetId": "showcase", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true } }');
+writeInProject($projDir, 'conf/presets/statics.rps', '{ "presetId": "statics", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true } }');
 writeInProject($projDir, 'conf/presets/tokens.rps', '{ "presetId": "tokens", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "isPublic": true }, "response": { "headList": { "Access-Control-Allow-Origin": "*" } } }');
 writeInProject($projDir, 'www/index.php', "<?php\n\$nyuRun = new \\nyu\\Runner();\n");
 writeInProject($projDir, 'www/api.php', "<?php\n\$nyuRun = new \\nyu\\Runner( 'secure' );\n");
-writeInProject($projDir, 'www/site.php', "<?php\n\$nyuRun = new \\nyu\\Runner('showcase');\n");
+writeInProject($projDir, 'www/site.php', "<?php\n\$nyuRun = new \\nyu\\Runner('statics');\n");
 writeInProject($projDir, 'www/own.php', "<?php\n\$nyuRun = new \\nyu\\Runner(\$presetNm);\n");
 writeInProject($projDir, 'www/plain.php', "<?php echo 1;\n");
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));
 $statLst = stateOf($jsnVals);
 $fndList = array_column($jsnVals['rows'] ?? Array(), 'found', 'check');
 checkIdentical('in DEVS, an entry on an open preset is told; one that checks access, or open by intent, is fine', Array($statLst['entry index'] ?? null, $statLst['entry api'] ?? null, $statLst['entry site'] ?? null, $statLst['entry own'] ?? null, array_key_exists('entry plain', $statLst)), Array('warn', 'fine', 'fine', 'warn', false));
-checkIdentical('what the rows say', Array($fndList['entry index'] ?? null, $fndList['entry site'] ?? null), Array('starts defaults: every request is served without a check; name a preset that checks access, or set "isPublic": true in its security block when the site is meant to be open', 'starts showcase, open by intent (isPublic)'));
+checkIdentical('what the rows say', Array($fndList['entry index'] ?? null, $fndList['entry site'] ?? null), Array('starts default: every request is served without a check; name a preset that checks access, or set "isPublic": true in its security block when the site is meant to be open', 'starts statics, open by intent (isPublic)'));
 checkIdentical('public on a preset that checks access, every origin with tokens: both told', Array($statLst['public tokens'] ?? null, $fndList['origins tokens'] ?? null), Array('warn', 'every origin is allowed while the preset reads tokens: list the origins under "corsList"'));
 writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 $jsnVals = runShellAsJson($projDir, Array('installs', 'checkAll'));

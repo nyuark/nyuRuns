@@ -1,6 +1,6 @@
 {
-	"presetId": "manually",
-	"describe": "Preset for an entry point that declares its own routes: closed, Bearer tokens, the login through the users file (the login block of access.json), JSON replies",
+	"presetId": "default",
+	"describe": "Preset loaded when the entry point names none: closed, Bearer tokens, the login through the users file (the login block of access.json), JSON replies",
 	"settings": {
 		"fileType": "all",
 		"fileName": "any"
@@ -14,7 +14,8 @@
 		}
 	],
 	"routings": {
-		"detectBy": "manually"
+		"detectBy": "autopath",
+		"pathForm": "$appToRun/$doAction/$argument"
 	},
 	"response": {
 		"outputAs": "jsonData",

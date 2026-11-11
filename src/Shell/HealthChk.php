@@ -304,7 +304,7 @@ class HealthChk{
 				$this->addCheckResult('entry '.$itemNme, 'warn', 'the preset is named at run time: check it gives one that checks access');
 				continue;
 			}
-			$prstNme = ($prstTxt=='') ? 'defaults' : substr($prstTxt, 1, -1);
+			$prstNme = ($prstTxt=='') ? 'default' : substr($prstTxt, 1, -1);
 			try{
 				$accConf = (new Preset($prstNme))->newSetupLoader()->setAccessArray();
 			}catch( \Throwable $e ){

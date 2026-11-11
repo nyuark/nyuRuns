@@ -38,7 +38,7 @@ class Runner{
 	 * Loads the given preset, builds the shared objects (config, request,
 	 * response), then sets up routing and access before running the request.
 	 *
-	 * @param String $presetToLoad Name of the .rps preset file to load (defaults to 'defaults').
+	 * @param String $presetToLoad Name of the .rps preset file to load (defaults to 'default').
 	 * @param Array  $overrideConf Configuration values to merge over the loaded preset.
 	 */
 	function __construct( String $presetToLoad = '', Array $overrideConf = Array() ){
@@ -46,7 +46,7 @@ class Runner{
 			// The config cache of the preset stands for its files, when there is one (CNF_CACH)
 			$cachVls = ConfCache::readCacheArray($presetToLoad);
 			if( $cachVls!==null ){
-				$this->confLoader = new Loader( $cachVls['preset'], $cachVls, ($presetToLoad=='') ? 'defaults' : $presetToLoad );
+				$this->confLoader = new Loader( $cachVls['preset'], $cachVls, ($presetToLoad=='') ? 'default' : $presetToLoad );
 			}else{
 				// Load the preset object and call setup
 				$this->presetUsed = new Preset($presetToLoad);

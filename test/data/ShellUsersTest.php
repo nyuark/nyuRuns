@@ -112,7 +112,7 @@ $projDir = makeProjectTxt('install', Array(
 	'conf/access.json.dist'=>str_replace( function_exists('openssl_pkey_new') ? '' : '"signAlgo": "RS256"', '"signAlgo": "HS256"', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json.dist')) ),
 	'conf/database.json'=>"{\n\t\"nyuRuns\": {\n\t\t\"dbEngine\": \"sqlitedb\",\n\t\t\"hostName\": \"\",\n\t\t\"baseName\": ".json_encode($newBase, JSON_UNESCAPED_SLASHES).",\n\t\t\"userName\": \"\",\n\t\t\"password\": \"\"\n\t}\n}\n",
 	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
-	'conf/presets/defaults.rps'=>'{ "presetId": "defaults", "settings": { "fileType": "all" }, "security": { "required": false } }'
+	'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "fileType": "all" }, "security": { "required": false } }'
 ));
 $runVals = callShellArray($projDir, Array('installs', 'allSteps', '--outputAs=json'), "\nnativeDb\n\n\n");
 $jsnVals = json_decode($runVals['text'], true);

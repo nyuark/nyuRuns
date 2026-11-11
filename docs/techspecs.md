@@ -479,7 +479,7 @@ www/index.php
 ### 4.1 Start-up
 
 The entry point, `www/index.php`, defines the project's folders and
-creates the Runner, naming its preset (`defaults` when it names none).
+creates the Runner, naming its preset (`default` when it names none).
 
 1. **The preset** (`conf/presets/<name>.rps`) is read and checked: a key
    it doesn't know stops it from loading (`Preset::KEYS_LIST`).
@@ -519,7 +519,7 @@ order:
 
 1. **A CORS preflight**, an `OPTIONS` request asking about a method, gets
    a 204 with the preset's headers, on any path.
-2. **The routes of the entry point**, in a `manually` preset.
+2. **The routes of the entry point**, in a `mapping` preset.
 3. **The declared routes**: first the site's, in `conf/routes/*.rte` (or
    the preset's own folder), then those each run declares in
    `runs/<App>/routes.rte`, mounted under the run's name or where the
@@ -932,13 +932,13 @@ seven presets:
 
 | Preset | For |
 |---|---|
-| `defaults` | the entry point that names none: closed, Bearer tokens, JSON |
-| `manually` | an entry point that declares its own routes: closed, Bearer tokens |
-| `services` | a service called by other programs: an API key in a header |
-| `restapis` | a web API: Bearer tokens, signing in left open |
-| `websites` | a site used from a browser: a session cookie, the users table, its own routes |
-| `showcase` | a site of pages, files and redirections: open, no inputs, its own routes |
-| `template` | never loaded: every setting of a preset, with what it does |
+| `default` | the entry point that names none: closed, Bearer tokens, JSON |
+| `mapping` | an entry point that declares its own routes: closed, Bearer tokens |
+| `service` | a service called by other programs: an API key in a header |
+| `restapi` | a web API: Bearer tokens, signing in left open |
+| `website` | a site used from a browser: a session cookie, the users table, its own routes |
+| `statics` | a site of pages, files and redirections: open, no inputs, its own routes |
+| `example` | never loaded: every setting of a preset, with what it does |
 
 ### 6.5 `access.json`
 

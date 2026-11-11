@@ -232,11 +232,11 @@ upload progress        fine   off
 extension json         fine   loaded
 extensions             warn   optional, not loaded: zip, gd, exif, imagick
 folder temp/logs       fine   writable
-origins defaults       warn   every origin is allowed while the preset reads tokens: list the origins under "corsList"
-preset defaults        fine   loads
+origins default       warn   every origin is allowed while the preset reads tokens: list the origins under "corsList"
+preset default        fine   loads
 route clash            fine   no two applications declare one path
-access route           warn   naming no route: template: /login (no route on that path)
-entry index            fine   starts defaults, which checks access
+access route           warn   naming no route: example: /login (no route on that path)
+entry index            fine   starts default, which checks access
 access login           fine   nativeDb through jwtToken
 token keys jwtToken    fine   set, 4096 bits
 token claims jwtToken  warn   no issuer or no audience: the tokens are not bound to this project; …
@@ -253,7 +253,7 @@ serve, or is exposed). On a fresh install a few warnings are normal:
 `extensions` (optional ones you may not need), `origins` for each profile
 that reads tokens (any site may call the API from a browser),
 `token claims` (your tokens aren't bound to your project yet),
-`access route` (the `template` profile, which never gets loaded, still
+`access route` (the `example` profile, which never gets loaded, still
 names an old path) and, on Windows, `file rights`. A `warn` on `upload progress` comes from PHP's own
 settings: set `session.upload_progress.enabled = 0` in your `php.ini`.
 Appendix A explains the other rows.
@@ -277,22 +277,22 @@ it checks the new value first, and keeps the previous file in
 
 ### 4.1 Choose the profile
 
-Out of the box, every request starts the `defaults` profile: tokens, with
-signing in left open. The `restapis` profile works the same way, and it's
+Out of the box, every request starts the `default` profile: tokens, with
+signing in left open. The `restapi` profile works the same way, and it's
 the one meant for a web API, so give it to your entry point:
 
 ```
-php nyuRun settings wwwEntry index restapis
+php nyuRun settings wwwEntry index restapi
 ```
 
 Then see who can reach what:
 
 ```
-php nyuRun settings fullList restapis
+php nyuRun settings fullList restapi
 ```
 
 ```
-preset: restapis
+preset: restapi
 detectBy: autopath
 others: logged
 path                    methods  kind      target          owner  access
@@ -313,15 +313,15 @@ managers (the `sysadmin` role) only. Try it on `curl http://localhost:8000/users
 without a token you get a 401, with `teammate`'s token a 404, and with
 `sysAgent`'s the list of users.
 
-The other profiles are `services` (programs calling with an API key),
-`websites` (a site with a session cookie), `showcase` (pages and files
-only), `manually` (only the routes you declare), and `template`, which never
+The other profiles are `service` (programs calling with an API key),
+`website` (a site with a session cookie), `statics` (pages and files
+only), `mapping` (only the routes you declare), and `example`, which never
 gets loaded but shows every setting a profile can hold.
 
 ### 4.2 Decide who gets in where
 
 The minimum role for each route is set in the profile, under `rteRoles`.
-Open `conf/presets/restapis.rps` and look for:
+Open `conf/presets/restapi.rps` and look for:
 
 ```json
 "rteRoles": { "users/*": "sysadmin" }
@@ -331,7 +331,7 @@ Name a route as `run/action`, as `run/*` for all the actions of a run, or
 as `/path` for a declared route, mount included. Roles are ranked
 (`internal` < `operator` < `sysadmin`), so a route asking for `operator`
 lets managers in too. Chapter 5 adds the `Notes` routes here. After an
-edit, `settings fullList restapis` shows the result, and
+edit, `settings fullList restapi` shows the result, and
 `installs checkAll` tells you whether the profile still loads.
 
 Blocks like `rteRoles` are edited by hand in the file, since
@@ -484,7 +484,7 @@ runs/Notes/
 test/data/NotesTest.php     its test
 ```
 
-The profile is `restapis` (4.1) and the database is `notes.sqlite` (3.2).
+The profile is `restapi` (4.1) and the database is `notes.sqlite` (3.2).
 
 ### 5.1 The table
 
@@ -725,7 +725,7 @@ serving it (`false`).
 
 ### 5.6 The roles
 
-In `conf/presets/restapis.rps`, open the page route to everyone, and keep
+In `conf/presets/restapi.rps`, open the page route to everyone, and keep
 writing for staff:
 
 ```json
@@ -737,7 +737,7 @@ Naming the page by its action keeps it open wherever the run is mounted.
 Check it:
 
 ```
-php nyuRun settings fullList restapis
+php nyuRun settings fullList restapi
 ```
 
 ```
@@ -903,7 +903,7 @@ notes/
     access.json               how users sign in            (yours, not committed)
     database.json             where the database is        (yours, not committed)
     mailer.json               the mail accounts            (yours, not committed)
-    presets/restapis.rps      the service's profile: its open routes and roles
+    presets/restapi.rps      the service's profile: its open routes and roles
     routes/                   the routes of the whole site
     keys/                     the token keys               (yours, not committed)
   .env                        the secrets                  (yours, not committed)

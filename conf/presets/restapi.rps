@@ -1,5 +1,5 @@
 {
-	"presetId": "restapis",
+	"presetId": "restapi",
 	"describe": "Preset for a web API: Bearer tokens, with the login action left open",
 	"settings": {
 		"fileType": "all",

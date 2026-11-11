@@ -363,7 +363,7 @@ if( !$isReady ){
 	checkIdentical('body limit: the usual configuration reads that body', $replyAr['code'], 401);
 
 	// Error pages : a site answers an error with its own page, an action keeps the format of the preset
-	$errHead = Array('X-Test-Preset'=>'manually', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Htroot'=>'errpages');
+	$errHead = Array('X-Test-Preset'=>'mapping', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Htroot'=>'errpages');
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', $errHead);
 	checkIdentical('error page: a path no route answers', Array($replyAr['code'], $replyAr['type'], trim(strval(strstr($replyAr['body'], '<h1>'))), $headOf($replyAr, 'X-Content-Type-Options')), Array(404, 'text/html; charset=utf-8', '<h1>404</h1><p>Nothing here: Not Found</p></body></html>', 'nosniff'));
 	$replyAr = httpQuery('GET', $baseUrl.'/hello/x', $errHead);
@@ -374,7 +374,7 @@ if( !$isReady ){
 	checkIdentical('error page: a status the site has no page for keeps the format of the preset', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/things/1', $errHead + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('error page: a route to an action keeps the format of the preset', Array($replyAr['code'], $replyAr['type']), Array(401, $jsonTyp));
-	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', Array('X-Test-Preset'=>'manually', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1'));
+	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', Array('X-Test-Preset'=>'mapping', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1'));
 	checkIdentical('error page: a site without one answers as before', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', Array('X-Test-Ctname'=>'x-content-type-options', 'X-Test-Ctype'=>'off'));
@@ -427,7 +427,7 @@ if( !$isReady ){
 		$keysSet = json_decode($replyAr['body'], true);
 		checkIdentical('key set: served as JSON, the current key and the previous one', Array($replyAr['code'], $replyAr['type'], count($keysSet['keys'] ?? Array())), Array(200, $jsonTyp, 2));
 		checkTrueValue('key set: may be kept five minutes', in_array('Cache-Control: public, max-age=300', $replyAr['head']));
-		checkIdentical('key set: open to anyone, also in a preset asking for a token', httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk', 'X-Test-Preset'=>'restapis'))['code'], 200);
+		checkIdentical('key set: open to anyone, also in a preset asking for a token', httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk', 'X-Test-Preset'=>'restapi'))['code'], 200);
 		checkIdentical('key set: GET only', httpQuery('POST', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk'))['code'], 405);
 		checkIdentical('key set: nothing published with HS256', Array(httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'conf'))['code']), Array(404));
 		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confjwk'), 'user=alice&pass=s3cret');

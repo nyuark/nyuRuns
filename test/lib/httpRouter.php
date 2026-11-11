@@ -7,7 +7,7 @@
 // Every request is served by the framework as www/index.php would, except
 // that the shared database connection is opened beforehand on the sample
 // SQLite file named by the NYU_TEST_DB environment variable, and that a
-// request naming no X-Test-Auth, on the default preset or on manually, is
+// request naming no X-Test-Auth, on the default preset or on mapping, is
 // served open ("required": false): both presets are closed.
 //
 // X-Test-* request headers switch on preset overloads, through the Runner's
@@ -48,8 +48,8 @@ if( isset($_SERVER['HTTP_X_TEST_CERT']) ){
 }
 
 $overArr = Array();
-// defaults and manually are closed : a request naming no access control, on either of them, is served open, as the tests were written for
-if( !isset($_SERVER['HTTP_X_TEST_AUTH']) && in_array($_SERVER['HTTP_X_TEST_PRESET'] ?? '', Array('', 'defaults', 'manually'), true) ){
+// default and mapping are closed : a request naming no access control, on either of them, is served open, as the tests were written for
+if( !isset($_SERVER['HTTP_X_TEST_AUTH']) && in_array($_SERVER['HTTP_X_TEST_PRESET'] ?? '', Array('', 'default', 'mapping'), true) ){
 	// The roles of the preset's routes go with it: roles asked for while access is not required refuse every request
 	$overArr['security'] = Array('required'=>false, 'rteRoles'=>Array());
 }

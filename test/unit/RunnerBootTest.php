@@ -13,7 +13,7 @@ checkForThrows('a missing preset throws', function(){ new Preset('nosuchpreset')
 checkTrueValue('the default preset loads', runCatchThrown(function(){ return (new Preset('')) instanceof Preset; }));
 checkPregMatch('a missing preset says so', runCatchThrown(function(){ return new Preset('nosuchpreset'); }), '/THROWN.*Preset "nosuchpreset" is missing/');
 checkPregMatch('a name leading out of the presets folder is refused', runCatchThrown(function(){ return new Preset('../routes/general'); }), '/THROWN.*Preset "\.\.\/routes\/general" has no valid name/');
-checkPregMatch('a name with a dot is refused', runCatchThrown(function(){ return new Preset('defaults.rps'); }), '/THROWN.*Preset "defaults\.rps" has no valid name/');
+checkPregMatch('a name with a dot is refused', runCatchThrown(function(){ return new Preset('default.rps'); }), '/THROWN.*Preset "default\.rps" has no valid name/');
 checkPregMatch('a name with a space is refused', runCatchThrown(function(){ return new Preset('my preset'); }), '/THROWN.*Preset "my preset" has no valid name/');
 checkTrueValue('every preset of the project loads', runCatchThrown(function(){
 	foreach( glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps') as $rpsFle ){

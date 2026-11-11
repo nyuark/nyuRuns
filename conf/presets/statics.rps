@@ -1,5 +1,5 @@
 {
-	"presetId": "showcase",
+	"presetId": "statics",
 	"describe": "Preset for a site of pages, files and redirections: open access, no inputs, its own route folder",
 	"settings": {
 		"fileType": "all",
@@ -8,7 +8,7 @@
 	"security": { "required": false, "isPublic": true },
 	"routings": {
 		"detectBy": "manually",
-		"routeDir": "conf/routes/showcase",
+		"routeDir": "conf/routes/statics",
 		"htmlRoot": "pages",
 		"mountSet": { "auth": false }
 	},

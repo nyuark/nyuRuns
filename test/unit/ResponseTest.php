@@ -126,7 +126,7 @@ takePhpNotices();
 checkIdentical('type of an error with csvTable', foundType(Array('outputAs'=>'csvTable'), true), 'application/json; charset=utf-8');
 
 // A preset names a format that exists, or does not load
-checkIdentical('the example preset writes json', (new nyu\Setup\Preset('template'))->newSetupLoader()->getRegistryKey('response')['outputAs'] ?? null, 'jsonData');
+checkIdentical('the example preset writes json', (new nyu\Setup\Preset('example'))->newSetupLoader()->getRegistryKey('response')['outputAs'] ?? null, 'jsonData');
 /**
  * Registers a temporary file with a Range value and returns what is sent.
  *
@@ -299,6 +299,6 @@ checkIdentical('origins: without a list, the headers are sent as written', Array
 $respons = new Response($orgConf);
 $respons->setReplyOrigin('https://app.example.org');
 checkIdentical('origins: the other headers of the preset are kept', $respons->readHeadsArray()['Cache-Control'] ?? null, 'no-cache');
-checkIdentical('origins: the example preset loads with its empty list', (new nyu\Setup\Preset('template'))->newSetupLoader()->getRegistryKey('response')['corsList'] ?? null, Array());
+checkIdentical('origins: the example preset loads with its empty list', (new nyu\Setup\Preset('example'))->newSetupLoader()->getRegistryKey('response')['corsList'] ?? null, Array());
 
 finishChecking();
