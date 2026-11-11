@@ -168,27 +168,27 @@ if( !$isReady ){
 	checkIdentical('missing show: 404 with an error body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Show not found","code":404}'));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess');
-	checkIdentical('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
+	checkIdentical('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName, passWord","code":400}'));
 
 	$formHed = Array('Content-Type'=>'application/x-www-form-urlencoded');
 	$lgnHead = $formHed + Array('X-Test-Conf'=>'confusr');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lgnHead, 'user[]=nobody&pass=x');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lgnHead, 'userName[]=nobody&passWord=x');
 	checkIdentical('login with a user that is not a string: 400', $replyAr['code'], 400);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lgnHead, 'user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lgnHead, 'userName=nobody-here&passWord=wrong');
 	checkIdentical('login with unknown credentials: 401', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', Array('Content-Type'=>'application/json', 'X-Test-Conf'=>'confusr'), '{"user":"nobody-here","pass":"wrong"}');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', Array('Content-Type'=>'application/json', 'X-Test-Conf'=>'confusr'), '{"userName":"nobody-here","passWord":"wrong"}');
 	checkIdentical('login with a JSON body: 401', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?pass=wrong', $lgnHead, 'user=nobody-here');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?passWord=wrong', $lgnHead, 'userName=nobody-here');
 	checkIdentical('login with the password in the query string: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Password sent in the query string","code":400}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?PASS=wrong', $lgnHead, 'user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?PASSWORD=wrong', $lgnHead, 'userName=nobody-here&passWord=wrong');
 	checkIdentical('login with the password in both: 400 too', $replyAr['code'], 400);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?user=nobody-here', $lgnHead, 'pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess?userName=nobody-here', $lgnHead, 'passWord=wrong');
 	checkIdentical('login with the name alone in the query string: checked as usual', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('GET', $baseUrl.'/auth/openSess?user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/openSess?userName=nobody-here&passWord=wrong');
 	checkIdentical('login by GET: 405', Array($replyAr['code'], $replyAr['body']), Array(405, '{"error":"Method Not Allowed","code":405}'));
 	checkTrueValue('login by GET: POST is announced', in_array('Allow: POST', $replyAr['head']));
 
@@ -219,9 +219,9 @@ if( !$isReady ){
 	checkIdentical('no action: the first action of auth is the login, which its declared route alone reaches', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
 	// The login action refuses anything but a POST by itself, whatever the path that leads to it
-	$replyAr = httpQuery('GET', $baseUrl.'/auth?user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('GET', $baseUrl.'/auth?userName=nobody-here&passWord=wrong');
 	checkIdentical('login by GET through the default action: not found', $replyAr['code'], 404);
-	$replyAr = httpQuery('GET', $baseUrl.'/Auth/openSess?user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('GET', $baseUrl.'/Auth/openSess?userName=nobody-here&passWord=wrong');
 	checkIdentical('login by GET through another case of the path: not found', $replyAr['code'], 404);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here');
@@ -253,7 +253,7 @@ if( !$isReady ){
 	// Public routes
 	$pubHead = Array('X-Test-Auth'=>'jwtToken', 'X-Test-Public'=>'auth/openSess');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $pubHead);
-	checkIdentical('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user, pass","code":400}'));
+	checkIdentical('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName, passWord","code":400}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/shows/viewShow/1', $pubHead);
 	checkIdentical('public route: other routes stay closed', $replyAr['code'], 401);
@@ -334,9 +334,9 @@ if( !$isReady ){
 		$codeLst[$sidePth] = httpQuery('GET', $baseUrl.$sidePth)['code'];
 	}
 	checkIdentical('declared route: its action is not reached beside it, whatever the case or what follows', $codeLst, Array('/auth/openSess/x'=>404, '/Auth/openSess'=>404, '/AUTH/OPENSESS'=>404, '/auth'=>404));
-	$replyAr = httpQuery('POST', $baseUrl.'/Auth/openSess', $formHed, 'user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/Auth/openSess', $formHed, 'userName=nobody-here&passWord=wrong');
 	checkIdentical('declared route: nor with the method it takes, on another path', $replyAr['code'], 404);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed, 'user=nobody-here&pass=wrong');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed, 'userName=nobody-here&passWord=wrong');
 	checkIdentical('declared route: through the route, the action runs', $replyAr['code'], 401);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/txtProbe', Array('X-Test-Runs'=>'1'));
 	checkIdentical('an action no route answers with is still found from the path', $replyAr['code'], 200);
@@ -397,7 +397,7 @@ if( !$isReady ){
 
 	// Login round trip : htpasswd store and JWT of test/fixtures/conf
 	$whoHead = Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'userName=alice&passWord=s3cret');
 	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkIdentical('round trip: login answers 200', $replyAr['code'], 200);
 	checkPregMatch('round trip: login gives a token', $jwToken, '/^[\w-]+\.[\w-]+\.[\w-]+$/');
@@ -408,7 +408,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $whoHead + Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken.'x'));
 	checkIdentical('round trip: a tampered token is refused', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=nope');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'userName=alice&passWord=nope');
 	checkIdentical('round trip: wrong password, no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 
 	// The published keys : RS256 tokens bound to an issuer and an audience (test/fixtures/confjwk), the keys made here
@@ -430,7 +430,7 @@ if( !$isReady ){
 		checkIdentical('key set: open to anyone, also in a preset asking for a token', httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk', 'X-Test-Preset'=>'restapi'))['code'], 200);
 		checkIdentical('key set: GET only', httpQuery('POST', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'confjwk'))['code'], 405);
 		checkIdentical('key set: nothing published with HS256', Array(httpQuery('GET', $baseUrl.'/.well-known/jwks.json', Array('X-Test-Conf'=>'conf'))['code']), Array(404));
-		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confjwk'), 'user=alice&pass=s3cret');
+		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confjwk'), 'userName=alice&passWord=s3cret');
 		$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 		$tknClms = runCatchThrown(function() use ( $jwToken, $keysSet ){ return (array)Firebase\JWT\JWT::decode($jwToken, Firebase\JWT\JWK::parseKeySet($keysSet)); });
 		checkIdentical('key set: another project checks the token of the login with it alone', Array($replyAr['code'], $tknClms['userName'] ?? null, $tknClms['iss'] ?? null, $tknClms['aud'] ?? null), Array(200, 'alice', 'https://auth.example.org', 'api.example.org'));
@@ -448,7 +448,7 @@ if( !$isReady ){
 	checkIdentical('presence: nobody is online before any login', Array($replyAr['code'], $replyAr['body']), Array(200, '{"online":[]}'));
 
 	$logMark = strlen(readsLogs('access'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confnat'), 'userName=anna&passWord=pw-anna');
 	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkIdentical('native round trip: login answers 200', $replyAr['code'], 200);
 
@@ -460,7 +460,7 @@ if( !$isReady ){
 	checkPregMatch('access log: privileged login', $newLogs, '/\[NOTICE\] Privileged login granted for user "anna" \(sysadmin\) from \S+/');
 	checkPregMatch('access log: privileged access, with what was asked for', $newLogs, '/\[NOTICE\] Privileged access granted for user "anna" \(sysadmin\) from \S+ to probe\/identify/i');
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confnat'), 'user=cleo&pass=pw-cleo');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confnat'), 'userName=cleo&passWord=pw-cleo');
 	checkIdentical('native round trip: a pending user gets no token, and is not told why', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/online', Array('X-Test-Runs'=>'1'));
@@ -502,11 +502,11 @@ if( !$isReady ){
 	$tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 	$sqlLink->exec("UPDATE users SET twoFactKey='".$tfaScrt."' WHERE systemName='ben'");
 	$natHead = $formHed + Array('X-Test-Conf'=>'confnat');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=ben&passWord=pw-ben');
 	checkIdentical('2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben&code=000000');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=ben&passWord=pw-ben&sentCode=000000');
 	checkIdentical('2FA login: wrong code', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid verification code","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben&code='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=ben&passWord=pw-ben&sentCode='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
 	checkIdentical('2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
 	checkIdentical('2FA: Basic access is closed to a user with a secret', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
@@ -515,68 +515,68 @@ if( !$isReady ){
 	// Attempt throttling : five wrong passwords hold the account, even for the right one
 	$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 	for( $idx=0; $idx<5; $idx++ ){
-		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=nope');
+		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=ben&passWord=nope');
 	}
 	checkIdentical('throttle: the fifth wrong password is told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=ben&passWord=pw-ben');
 	checkIdentical('throttle: the right password is then refused, as a wrong one would be', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$sqlLink->exec("UPDATE users SET failedTime='".date('Y-m-d H:i:s', time()-601)."' WHERE systemName='ben'");
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=ben&passWord=pw-ben');
 	checkIdentical('throttle: accepted again once the hold is over', $replyAr['code'], 200);
 
 	// User management (runs/Users, auth/activate, auth/password) : a manager creates a user, who activates itself
 	$benToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	$usrHead = $formHed + Array('X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn', 'X-Test-Store'=>'nativeDb', 'X-Test-Public'=>'auth/openSess,auth/activate');
 	$mgrHead = $usrHead + Array('Authorization'=>'Bearer '.$jwToken);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $usrHead, 'user=henry');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $usrHead, 'userName=henry');
 	checkIdentical('users: nothing without a session', $replyAr['code'], 401);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $usrHead + Array('Authorization'=>'Bearer '.$benToken), 'user=henry');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $usrHead + Array('Authorization'=>'Bearer '.$benToken), 'userName=henry');
 	checkIdentical('users: refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', $usrHead + Array('Authorization'=>'Bearer '.$benToken));
 	checkIdentical('users: the list is refused to a member too', $replyAr['code'], 404);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'user=henry');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'userName=henry');
 	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
 	checkIdentical('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 12));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'role=internal');
-	checkIdentical('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user","code":400}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList?stat=awaiting', $mgrHead);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'saveRole=internal');
+	checkIdentical('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName","code":400}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList?currStat=awaiting', $mgrHead);
 	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'systemName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/viewUser?user=henry', $mgrHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/viewUser?userName=henry', $mgrHead);
 	checkIdentical('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStatus'] ?? null), Array(200, 'awaiting'));
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.str_repeat('0', 32).'&pass=pass-henry-1');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'userName=henry&sentCode='.str_repeat('0', 32).'&passWord=pass-henry-1');
 	checkIdentical('activate: open without a session, a wrong code is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid activation","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.$newCode.'&pass=short');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'userName=henry&sentCode='.$newCode.'&passWord=short');
 	checkIdentical('activate: a password breaking a rule', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Password too short: 10 characters at least","code":400}'));
 	// The route is declared for POST : another method is not the open route, and meets the access check first
-	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?user=henry&code='.$newCode.'&pass=pass-henry-1', $usrHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?userName=henry&sentCode='.$newCode.'&passWord=pass-henry-1', $usrHead);
 	checkIdentical('activate: a GET is not open', $replyAr['code'], 401);
-	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?user=henry&code='.$newCode.'&pass=pass-henry-1', $mgrHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/auth/activate?userName=henry&sentCode='.$newCode.'&passWord=pass-henry-1', $mgrHead);
 	checkIdentical('activate: a GET is refused, even with a session', $replyAr['code'], 405);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'user=henry&code='.$newCode.'&pass='.rawurlencode('pass "henry" <1>'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/activate', $usrHead, 'userName=henry&sentCode='.$newCode.'&passWord='.rawurlencode('pass "henry" <1>'));
 	checkIdentical('activate: the code gives the password', Array($replyAr['code'], $replyAr['body']), Array(200, '{"active":true,"stat":"approved"}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=henry&pass='.rawurlencode('pass "henry" <1>'));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=henry&passWord='.rawurlencode('pass "henry" <1>'));
 	$newToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkIdentical('activate: the user logs in with its password, kept as sent', Array($replyAr['code'], $newToken!=''), Array(200, true));
 
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead, 'former='.rawurlencode('pass "henry" <1>').'&pass=pass-henry-2');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead, 'oldValue='.rawurlencode('pass "henry" <1>').'&passWord=pass-henry-2');
 	checkIdentical('password: nothing without a session', $replyAr['code'], 401);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former=nope&pass=pass-henry-2');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'oldValue=nope&passWord=pass-henry-2');
 	checkIdentical('password: wrong current one', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former='.rawurlencode('pass "henry" <1>').'&pass=pass-henry-2');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'oldValue='.rawurlencode('pass "henry" <1>').'&passWord=pass-henry-2');
 	checkIdentical('password: changed by its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"changed":true}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=henry&pass=pass-henry-2');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'userName=henry&passWord=pass-henry-2');
 	checkIdentical('password: the new one logs in', $replyAr['code'], 200);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/users/giveRole', $mgrHead, 'user=henry&role=operator');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/giveRole', $mgrHead, 'userName=henry&saveRole=operator');
 	checkIdentical('users: a role is given', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","role":"operator"}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/lockUser', $mgrHead, 'user=anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/lockUser', $mgrHead, 'userName=anna');
 	checkIdentical('users: a manager cannot lock itself', $replyAr['code'], 409);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/lockUser', $mgrHead, 'user=henry');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/lockUser', $mgrHead, 'userName=henry');
 	checkIdentical('users: a user is locked', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","stat":"disabled"}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former=pass-henry-2&pass=pass-henry-3');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'oldValue=pass-henry-2&passWord=pass-henry-3');
 	checkIdentical('users: the lock ends the session the user held', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/dropUser', $mgrHead, 'user=henry');
+	$replyAr = httpQuery('POST', $baseUrl.'/users/dropUser', $mgrHead, 'userName=henry');
 	checkIdentical('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(200, 0));
 
 	// Roles : what a route asks for ('rteRoles'), and the helpers of an action
@@ -596,7 +596,7 @@ if( !$isReady ){
 	checkIdentical('roles: nobody logged is a 401', $replyAr['code'], 401);
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList', Array('X-Test-Roles'=>'users/*=sysadmin, /docs/*=operator') + $usrHead + $annHead);
 	checkIdentical('roles: a declared path that no route declares refuses every request', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/makeUser?user=henry', $usrHead + $benHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/makeUser?userName=henry', $usrHead + $benHead);
 	checkIdentical('roles: an action asks for the role before the method', $replyAr['code'], 404);
 
 	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter', 'X-Test-Roles'=>'users/*=sysadmin, probe/identify=operator, /docs/*=operator, /hello/$id=sysadmin') + $rolHead;
@@ -632,18 +632,18 @@ if( !$isReady ){
 
 	// Login round trip : flat file of users (test/fixtures/confusr, test/fixtures/users.lst), without the database
 	$lstHead = $formHed + Array('X-Test-Conf'=>'confusr');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'userName=anna&passWord=pw-anna');
 	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	checkIdentical('users file round trip: login answers 200', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $whoHead + Array('X-Test-Conf'=>'confusr', 'Authorization'=>'Bearer '.$jwToken));
 	checkIdentical('users file round trip: the role of the file reaches the action', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"sysadmin"}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'user=anna&pass=nope');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'userName=anna&passWord=nope');
 	checkIdentical('users file round trip: wrong password, no token', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'user=cleo&pass=pw-cleo');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'userName=cleo&passWord=pw-cleo');
 	checkIdentical('users file round trip: a pending user gets no token, and is not told why', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'user=emma&pass=pw-emma');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'userName=emma&passWord=pw-emma');
 	checkIdentical('users file 2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'user=emma&pass=pw-emma&code='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $lstHead, 'userName=emma&passWord=pw-emma&sentCode='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
 	checkIdentical('users file 2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
 	$lstAxss = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confusr', 'X-Test-Store'=>'userFile', 'X-Test-Confkey'=>'testFile');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'httpBasc', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
@@ -656,7 +656,7 @@ if( !$isReady ){
 	// PHP session carrier (test/fixtures/confses) : the login opens a session, its cookie identifies the next requests
 	$sesConf = $formHed + Array('X-Test-Conf'=>'confses');
 	$sesHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confses', 'X-Test-Auth'=>'phpSessn', 'X-Test-Confkey'=>'testSess');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'userName=anna&passWord=pw-anna');
 	$cookLin = '';
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
@@ -681,7 +681,7 @@ if( !$isReady ){
 
 	// A login from a browser that already holds a session closes it, and opens another
 	$frstCok = $sessCok;
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf + Array('Cookie'=>$frstCok), 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf + Array('Cookie'=>$frstCok), 'userName=anna&passWord=pw-anna');
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
 			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
@@ -693,7 +693,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('Cookie'=>$sessCok));
 	checkIdentical('session: the new one is open', $replyAr['code'], 200);
 	// Ending a session takes its own cookie away, not the other cookies of the reply
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'userName=anna&passWord=pw-anna');
 	$leftCok = '';
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
@@ -714,7 +714,7 @@ if( !$isReady ){
 	checkIdentical('session with a store: the refused session was destroyed', $replyAr['code'], 401);
 
 	// Logout
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'userName=anna&passWord=pw-anna');
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
 			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
@@ -731,7 +731,7 @@ if( !$isReady ){
 	checkIdentical('logout: the session is gone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"No active session","code":401}'));
 
 	// A privileged logout on a checked route is a notice of the access log
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'userName=anna&passWord=pw-anna');
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
 			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
@@ -746,7 +746,7 @@ if( !$isReady ){
 
 	// A login never keeps an id the client came with
 	$gvnIdnt = str_repeat('a', 32);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf + Array('Cookie'=>'nyuTests='.$gvnIdnt), 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf + Array('Cookie'=>'nyuTests='.$gvnIdnt), 'userName=anna&passWord=pw-anna');
 	$sessCok = '';
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
@@ -760,7 +760,7 @@ if( !$isReady ){
 	checkIdentical('session login: the id it was given does', $replyAr['code'], 200);
 
 	// Logout with a token carrier : nothing to destroy, the token stays valid until it expires
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'userName=alice&passWord=s3cret');
 	$jwToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/quitSess', Array('X-Test-Conf'=>'conf', 'Authorization'=>'Bearer '.$jwToken));
 	checkIdentical('logout with a token carrier: answers 200, without a cookie', Array($replyAr['code'], $replyAr['body'], count(preg_grep('/^Set-Cookie:/i', $replyAr['head']))), Array(200, '{"logged":false}', 0));
@@ -774,7 +774,7 @@ if( !$isReady ){
 	checkIdentical('htpasswd file: wrong password, with the challenge', Array($replyAr['code'], $replyAr['body'], in_array('WWW-Authenticate: Basic realm="nyuRuns", charset="UTF-8"', $replyAr['head'])), Array(401, '{"error":"Invalid credentials","code":401}', true));
 
 	// A session left unused for longer than its lifetime (1 second in the testShrt block)
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'user=anna&pass=pw-anna');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $sesConf, 'userName=anna&passWord=pw-anna');
 	foreach( $replyAr['head'] as $hedLin ){
 		if( stripos($hedLin, 'Set-Cookie: nyuTests=')===0 ){
 			$sessCok = 'nyuTests='.strtok(substr($hedLin, strlen('Set-Cookie: nyuTests=')), ';');
@@ -804,7 +804,7 @@ if( !$isReady ){
 	$sqlLink = null;
 
 	// Valid credentials but a JWT secret that cannot sign (test/fixtures/confbad)
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confbad'), 'user=alice&pass=s3cret');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'confbad'), 'userName=alice&passWord=s3cret');
 	checkIdentical('login with an unusable secret: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Login unavailable","code":500}'));
 
 	// Content types
@@ -1199,16 +1199,16 @@ if( !$isReady ){
 	// Limit by address (test/fixtures/conflim : two wrong credentials allowed) : the address is then answered 429
 	dropTestFolder(TOP_DIR.DS.'temp'.DS.'limits_http');
 	$limHead = $formHed + Array('X-Test-Conf'=>'conflim');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'user=alice&pass=nope');
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'user=alice&pass=nope');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'userName=alice&passWord=nope');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'userName=alice&passWord=nope');
 	checkIdentical('address limit: the second wrong password is still told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'user=alice&pass=s3cret');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $limHead, 'userName=alice&passWord=s3cret');
 	checkIdentical('address limit: the login is then refused, even with the right password', Array($replyAr['code'], $replyAr['body']), Array(429, '{"error":"Too many attempts","code":429}'));
 	checkTrueValue('address limit: the login tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'conflim', 'X-Test-Auth'=>'apiHeadr', 'X-Test-Confkey'=>'testKeys', 'X-Api-Key'=>'test-only-key-1'));
 	checkIdentical('address limit: a checked route is refused too, even with the right key', Array($replyAr['code'], $replyAr['body']), Array(429, '{"error":"Too many attempts","code":429}'));
 	checkTrueValue('address limit: the checked route tells how long to wait', intval($headOf($replyAr, 'Retry-After'))>=1 && intval($headOf($replyAr, 'Retry-After'))<=600);
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'user=alice&pass=s3cret');
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $formHed + Array('X-Test-Conf'=>'conf'), 'userName=alice&passWord=s3cret');
 	checkIdentical('address limit: a configuration without a limit is not held', $replyAr['code'], 200);
 	dropTestFolder(TOP_DIR.DS.'temp'.DS.'limits_http');
 

@@ -197,7 +197,7 @@ Sign in as `teammate` with its password (on Windows PowerShell 5, type
 `curl.exe` instead of `curl`):
 
 ```
-curl -X POST http://localhost:8000/auth/openSess -d "user=teammate&pass=501dfc2edfd1d66323e4"
+curl -X POST http://localhost:8000/auth/openSess -d "userName=teammate&passWord=501dfc2edfd1d66323e4"
 ```
 
 ```json
@@ -379,7 +379,7 @@ file in `temp/mails`. Now, signed in as `sysAgent`, create a user with an
 email address:
 
 ```
-curl -X POST http://localhost:8000/users/makeUser -H "Authorization: Bearer <token of sysAgent>" -d "user=bob&role=internal&mail=bob@example.org"
+curl -X POST http://localhost:8000/users/makeUser -H "Authorization: Bearer <token of sysAgent>" -d "userName=bob&saveRole=internal&userMail=bob@example.org"
 ```
 
 ```json

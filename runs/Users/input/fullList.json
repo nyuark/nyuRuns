@@ -1,8 +1,8 @@
 {
 	"fieldSet": {
-		"stat": "",
-		"role": "",
-		"limit": "Integer",
-		"offset": "Integer"
+		"currStat": "",
+		"saveRole": "",
+		"limitVal": "Integer",
+		"rowIndex": "Integer"
 	}
 }

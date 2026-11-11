@@ -1,6 +1,6 @@
 {
 	"fieldSet": {
-		"user!": "",
-		"lang": ""
+		"userName!": "",
+		"saveLang": ""
 	}
 }

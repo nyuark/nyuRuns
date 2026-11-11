@@ -1,8 +1,8 @@
 {
 	"fieldSet": {
-		"user!": "",
-		"role": "",
-		"mail": "",
-		"lang": ""
+		"userName!": "",
+		"saveRole": "",
+		"userMail": "",
+		"saveLang": ""
 	}
 }

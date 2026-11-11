@@ -22,17 +22,17 @@ class Actions extends Actionset {
 	/**
 	 * Lists the users, by name: identifier, name, role, status, address,
 	 * time of the sign-up awaiting review, creation date and last time
-	 * seen of each. Reads the 'stat' and 'role' inputs
-	 * as filters, 'limit' and 'offset' as the part of the list to give
-	 * (LST_ROWS users when 'limit' is left out). Reports 204 when the
+	 * seen of each. Reads the 'currStat' and 'saveRole' inputs
+	 * as filters, 'limitVal' and 'rowIndex' as the part of the list to give
+	 * (LST_ROWS users when 'limitVal' is left out). Reports 204 when the
 	 * list is empty.
 	 */
 	public function fullList(): Void {
 		$usrBase = $this->requireManager('GET');
 		$usrList = $usrBase->listUsersNamed(
-			Array('userStatus'=>$this->inputsRgst->readValueByKey('stat'), 'accessRole'=>$this->inputsRgst->readValueByKey('role')),
-			intval($this->inputsRgst->readValueByKey('limit')),
-			intval($this->inputsRgst->readValueByKey('offset'))
+			Array('userStatus'=>$this->inputsRgst->readValueByKey('currStat'), 'accessRole'=>$this->inputsRgst->readValueByKey('saveRole')),
+			intval($this->inputsRgst->readValueByKey('limitVal')),
+			intval($this->inputsRgst->readValueByKey('rowIndex'))
 		);
 		if($usrList===false){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -41,7 +41,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Reads the user the 'user' input names: identifier, name, role,
+	 * Reads the user the 'userName' input names: identifier, name, role,
 	 * status, address, time of the sign-up awaiting review, creation date
 	 * and last time seen.
 	 */
@@ -56,10 +56,10 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Creates the user the 'user' input names, with the role of the
-	 * 'role' input (the lowest one when left out), the address of the
-	 * 'mail' input (none when left out) and the language of its mails of
-	 * the 'lang' input (the default one when left out). The user is pending, with an
+	 * Creates the user the 'userName' input names, with the role of the
+	 * 'saveRole' input (the lowest one when left out), the address of the
+	 * 'userMail' input (none when left out) and the language of its mails of
+	 * the 'saveLang' input (the default one when left out). The user is pending, with an
 	 * activation code to choose its password with (auth/activate). When
 	 * the userbase sends mails and the user has an address, the code is
 	 * mailed to it, and not told here; otherwise the reply carries it,
@@ -69,10 +69,10 @@ class Actions extends Actionset {
 	public function makeUser(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		$gvnRole = $this->inputsRgst->readValueByKey('role');
-		$gvnMail = $this->inputsRgst->readValueByKey('mail');
+		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
+		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
 		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
-		$gvnLang = $this->inputsRgst->readValueByKey('lang');
+		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
 		$gvnLang = is_string($gvnLang) ? $gvnLang : null;
 		$mailObj = ($gvnMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
 		$newCode = $usrBase->enrolUsrString( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS, $gvnLang );
@@ -89,7 +89,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Approves the user the 'user' input names, who signed up itself and
+	 * Approves the user the 'userName' input names, who signed up itself and
 	 * confirmed its address: it becomes active. Refusing it is removing
 	 * it (users/dropUser). Reports 409 for a user not awaiting review.
 	 */
@@ -104,14 +104,14 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Gives the user the 'user' input names the address of the 'mail'
-	 * input, or takes its address away when 'mail' is empty or left out.
+	 * Gives the user the 'userName' input names the address of the 'userMail'
+	 * input, or takes its address away when 'userMail' is empty or left out.
 	 * Reports 409 for an address another user holds.
 	 */
 	public function setEmail(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		$gvnMail = $this->inputsRgst->readValueByKey('mail');
+		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
 		if(!$usrBase->changeMailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
@@ -120,15 +120,15 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Gives the user the 'user' input names the language of the 'lang'
-	 * input, for its mails, or takes it away when 'lang' is empty or left
+	 * Gives the user the 'userName' input names the language of the 'saveLang'
+	 * input, for its mails, or takes it away when 'saveLang' is empty or left
 	 * out: its mails are then written in the default one (DEF_LANG).
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
 	public function language(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
-		$gvnLang = $this->inputsRgst->readValueByKey('lang');
+		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
 		if(!$usrBase->changeLanguage($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
@@ -137,7 +137,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Locks the user the 'user' input names: it can no longer log in,
+	 * Locks the user the 'userName' input names: it can no longer log in,
 	 * and a session it holds ends as soon as its preset names the
 	 * userbase as its credential store. A manager cannot lock itself.
 	 */
@@ -152,7 +152,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Unlocks the user the 'user' input names.
+	 * Unlocks the user the 'userName' input names.
 	 */
 	public function freeUser(): Void {
 		$usrBase = $this->requireManager('POST');
@@ -165,13 +165,13 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Gives the user the 'user' input names the role of the 'role'
+	 * Gives the user the 'userName' input names the role of the 'saveRole'
 	 * input. A manager cannot change its own role.
 	 */
 	public function giveRole(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
-		$gvnRole = $this->inputsRgst->readValueByKey('role');
+		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
 		if(!$usrBase->changeRoleFlag($gvnUser, is_string($gvnRole) ? $gvnRole : '')){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
@@ -180,7 +180,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Removes the user the 'user' input names. A manager cannot remove
+	 * Removes the user the 'userName' input names. A manager cannot remove
 	 * itself.
 	 */
 	public function dropUser(): Void {
@@ -194,7 +194,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Puts the user the 'user' input names back to pending, for one
+	 * Puts the user the 'userName' input names back to pending, for one
 	 * whose password is lost, with a new activation code to choose a
 	 * password with (auth/activate). When the userbase sends mails and the
 	 * user has an address, the code is mailed to it, and not told here;
@@ -244,7 +244,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Reads the 'user' input: the name of the user the action is about.
+	 * Reads the 'userName' input: the name of the user the action is about.
 	 * Ends the action with a 400 when it is not a text, and with a 409
 	 * when it must be another user than the one asking and is not.
 	 *
@@ -252,9 +252,9 @@ class Actions extends Actionset {
 	 * @return String The name of the user.
 	 */
 	protected function givenUsrString( Bool $notOnOwnAcnt ): String {
-		$gvnUser = $this->inputsRgst->readValueByKey('user');
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
 		if(!is_string($gvnUser) || $gvnUser==''){
-			$this->stopThisAction(400, 'Invalid user');
+			$this->stopThisAction(400, 'Invalid userName');
 		}
 		if($notOnOwnAcnt && $gvnUser===strval($this->accessRgst->readValueByKey('userName'))){
 			$this->stopThisAction(409, 'A manager cannot do this to its own account');

@@ -394,7 +394,7 @@ request
 
 **Signing in** is an action open to everyone, `auth/openSess`:
 
-1. The front end sends the name and password (`user`, `pass`) with
+1. The front end sends the name and password (`userName`, `passWord`) with
    `POST`, in the request body. A password in the URL is refused (400),
    because URLs end up in logs and browser histories.
 2. A client address held after too many wrong attempts is turned away at
@@ -403,7 +403,7 @@ request
    name, a wrong password and an inactive account all get the same answer,
    `Invalid credentials` (401), and count against the client's address.
    The response time doesn't give away whether the name exists.
-4. A user with two-factor codes must also send a code (`code`):
+4. A user with two-factor codes must also send a code (`sentCode`):
    - **from an authenticator**: without one, the reply is
      `Verification code required` (401);
    - **by mail**: a first attempt without a code mails one to the user's

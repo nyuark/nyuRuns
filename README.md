@@ -54,7 +54,7 @@ php -S localhost:8000 index.php
 Then sign in:
 
 ```
-curl -X POST http://localhost:8000/auth/openSess -d "user=teammate&pass=<its password>"
+curl -X POST http://localhost:8000/auth/openSess -d "userName=teammate&passWord=<its password>"
 ```
 
 ```json

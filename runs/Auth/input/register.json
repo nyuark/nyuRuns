@@ -1,6 +1,6 @@
 {
 	"fieldSet": {
-		"user!": "",
-		"mail!": ""
+		"userName!": "",
+		"userMail!": ""
 	}
 }

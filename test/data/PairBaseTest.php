@@ -176,7 +176,7 @@ plugConf( 0, Array('authWith'=>'devToken', 'authConf'=>'tsdevc', 'sessConf'=>'te
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 $mthProp->setValue($request, 'POST');
-$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('openSess', null, new Registry(Array('user'=>'anna', 'pass'=>$phonTkn)), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('openSess', null, new Registry(Array('userName'=>'anna', 'passWord'=>$phonTkn)), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 $actnSet->runAskedAction();
 checkIdentical('login x devToken: no token is issued for a device token sent as a password', Array($actnSet->statusCode, $actnSet->statusMssg, $actnSet->replyValue), Array(401, 'No API key provided', null));
 $sqlLink = null;

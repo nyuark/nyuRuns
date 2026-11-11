@@ -13,7 +13,7 @@ use \nyu\Tools\Logger;
 class Actions extends Actionset {
 
 	/**
-	 * Checks the 'user' and 'pass' inputs (and 'code', for a user with
+	 * Checks the 'userName' and 'passWord' inputs (and 'sentCode', for a user with
 	 * 2FA) against a credential store and, on success, issues a token
 	 * for the matched identity, or opens a session whose cookie goes out
 	 * with the reply. The 'loginSet' block of the ACCESS config
@@ -21,7 +21,7 @@ class Actions extends Actionset {
 	 * the session carrier issuing the token ('sessWith', jwtToken by
 	 * default) and the blocks holding their settings ('authConf',
 	 * 'sessConf'). Reports 405
-	 * unless the request is a POST, 400 when 'user' or 'pass' is missing
+	 * unless the request is a POST, 400 when 'userName' or 'passWord' is missing
 	 * (both are required by input/login.json, so that reply comes before
 	 * the action runs), is not a text, or when the password came in the
 	 * query string of the address (see passInUrl), 401
@@ -35,17 +35,17 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->refuseUrlPassw( Array('pass'), 'Login' )){
+		if($this->refuseUrlPassw( Array('passWord'), 'Login' )){
 			return;
 		}
 
-		$gvnUser = $this->inputsRgst->readValueByKey('user');
-		$gvnPass = $this->inputsRgst->readValueByKey('pass');
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
+		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
 
 		// Both are required by input/login.json; what is left to refuse is a value that is not a text
 		if(!is_string($gvnUser) || !is_string($gvnPass)){
 			$this->statusCode = 400;
-			$this->statusMssg = 'Invalid user or pass';
+			$this->statusMssg = 'Invalid userName or passWord';
 			return;
 		}
 
@@ -83,8 +83,8 @@ class Actions extends Actionset {
 			return;
 		}
 		$authObj = new $authCls( $this->resolveConfArr($lgnConf['authConf'] ?? 'htpasswd') );
-		// The 'code' input carries the one-time code of a user with 2FA
-		$gvnCode = $this->inputsRgst->readValueByKey('code');
+		// The 'sentCode' input carries the one-time code of a user with 2FA
+		$gvnCode = $this->inputsRgst->readValueByKey('sentCode');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
 		$gvnMark = strval( $this->requestObj->retrieveHeader('X-Lgmark') ?? (is_string($this->requestObj->retrieveCookie('lgmark')) ? $this->requestObj->retrieveCookie('lgmark') : '') );
 		$idntArr = $authObj->checkSecretArr( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '', 'mark'=>$gvnMark) );
@@ -208,8 +208,8 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Activates a pending user of the native userbase: the 'user' and
-	 * 'code' inputs name it and carry its activation code, the 'pass'
+	 * Activates a pending user of the native userbase: the 'userName' and
+	 * 'sentCode' inputs name it and carry its activation code, the 'passWord'
 	 * input the password it chooses, kept as sent. The action is meant to
 	 * be open ('openList'): a pending user cannot log in. Reports 405
 	 * unless the request is a POST, 400 when an input is missing, is not
@@ -226,15 +226,15 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->refuseUrlPassw( Array('pass'), 'Activation' )){
+		if($this->refuseUrlPassw( Array('passWord'), 'Activation' )){
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('user');
-		$gvnCode = $this->inputsRgst->readValueByKey('code');
-		$gvnPass = $this->inputsRgst->readValueByKey('pass');
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
+		$gvnCode = $this->inputsRgst->readValueByKey('sentCode');
+		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
 		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
 			$this->statusCode = 400;
-			$this->statusMssg = 'Invalid user, code or pass';
+			$this->statusMssg = 'Invalid userName, sentCode or passWord';
 			return;
 		}
 		$usrBase = UserBase::fromLoginBlock();
@@ -275,8 +275,8 @@ class Actions extends Actionset {
 
 	/**
 	 * Signs a user up, when the block of the native userbase allows it
-	 * ('signupOn') and names a mail account ('mailAcnt'): the 'user' input is
-	 * the name asked for, the 'mail' input its address. The address is
+	 * ('signupOn') and names a mail account ('mailAcnt'): the 'userName' input is
+	 * the name asked for, the 'userMail' input its address. The address is
 	 * sent a code that confirms it and sets the password (auth/activate);
 	 * a manager then approves the account (users/approves). A name or an
 	 * address already taken gets the same reply, and the address is told
@@ -303,11 +303,11 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('user');
-		$gvnMail = $this->inputsRgst->readValueByKey('mail');
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
+		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
 		if(!is_string($gvnUser) || !is_string($gvnMail)){
 			$this->statusCode = 400;
-			$this->statusMssg = 'Invalid user or mail';
+			$this->statusMssg = 'Invalid userName or userMail';
 			return;
 		}
 		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'maxPerIp' of them within 'holdSecs'
@@ -379,7 +379,7 @@ class Actions extends Actionset {
 
 	/**
 	 * Asks for a new password, when the block of the native userbase names
-	 * a mail account: the 'user' input is the login name or the address
+	 * a mail account: the 'userName' input is the login name or the address
 	 * of the user. An active user with an address is sent a code, its
 	 * password kept until the code is used (auth/useReset). Whoever the
 	 * user is, or is not, the reply is the same. Each request counts
@@ -401,10 +401,10 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('user');
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
 		if(!is_string($gvnUser)){
 			$this->statusCode = 400;
-			$this->statusMssg = 'Invalid user';
+			$this->statusMssg = 'Invalid userName';
 			return;
 		}
 		$lmtrArr = $this->refuseHeldAddr('Reset', $gvnUser);
@@ -423,8 +423,8 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Sets a new password with the code auth/askReset sent: the 'user' and
-	 * 'code' inputs name the user and carry the code, the 'pass' input the
+	 * Sets a new password with the code auth/askReset sent: the 'userName' and
+	 * 'sentCode' inputs name the user and carry the code, the 'passWord' input the
 	 * new password, kept as sent. The action is meant to be open
 	 * ('openList'). Reports 405 unless the request is a POST, 400 when an
 	 * input is missing, is not a text, the password breaks a rule or came
@@ -439,15 +439,15 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->refuseUrlPassw( Array('pass'), 'Password reset' )){
+		if($this->refuseUrlPassw( Array('passWord'), 'Password reset' )){
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('user');
-		$gvnCode = $this->inputsRgst->readValueByKey('code');
-		$gvnPass = $this->inputsRgst->readValueByKey('pass');
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
+		$gvnCode = $this->inputsRgst->readValueByKey('sentCode');
+		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
 		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
 			$this->statusCode = 400;
-			$this->statusMssg = 'Invalid user, code or pass';
+			$this->statusMssg = 'Invalid userName, sentCode or passWord';
 			return;
 		}
 		$usrBase = UserBase::fromLoginBlock();
@@ -510,7 +510,7 @@ class Actions extends Actionset {
 
 	/**
 	 * Changes the password of the logged user, in the native userbase:
-	 * the 'former' input carries its current password, the 'pass' input
+	 * the 'oldValue' input carries its current password, the 'passWord' input
 	 * the new one, both kept as sent. No name is read: the user is the
 	 * one the access check identified. Reports 405 unless the request is
 	 * a POST, 400 when an input is missing, is not a text, the new
@@ -526,7 +526,7 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Method Not Allowed';
 			return;
 		}
-		if($this->refuseUrlPassw( Array('former', 'pass'), 'Password change' )){
+		if($this->refuseUrlPassw( Array('oldValue', 'passWord'), 'Password change' )){
 			return;
 		}
 		$usrName = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true) ? strval($this->accessRgst->readValueByKey('userName')) : '';
@@ -535,11 +535,11 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Not logged in';
 			return;
 		}
-		$gvnFrmr = $this->inputsRgst->readValueByKey('former');
-		$gvnPass = $this->inputsRgst->readValueByKey('pass');
+		$gvnFrmr = $this->inputsRgst->readValueByKey('oldValue');
+		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
 		if(!is_string($gvnFrmr) || !is_string($gvnPass)){
 			$this->statusCode = 400;
-			$this->statusMssg = 'Invalid former or pass';
+			$this->statusMssg = 'Invalid oldValue or passWord';
 			return;
 		}
 		$usrBase = UserBase::fromLoginBlock();
@@ -563,7 +563,7 @@ class Actions extends Actionset {
 
 	/**
 	 * Sets the language of the mails of the logged user, in the native
-	 * userbase: the 'lang' input is a language tag (fr, fr-ch), or empty
+	 * userbase: the 'saveLang' input is a language tag (fr, fr-ch), or empty
 	 * to have the default one (DEF_LANG). No name is read: the user is the
 	 * one the access check identified. Reports 405 unless the request is a
 	 * POST, 400 for a language that is not a tag, 401 when nobody is logged
@@ -587,7 +587,7 @@ class Actions extends Actionset {
 			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		$gvnLang = $this->inputsRgst->readValueByKey('lang');
+		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
 		if(!$usrBase->changeLanguage($usrName, is_string($gvnLang) ? $gvnLang : null)){
 			$this->statusCode = $usrBase->lastStateCount();
 			$this->statusMssg = $usrBase->finalErrorText();
