@@ -744,8 +744,8 @@ php nyuRun bundles final ──▶ copy ────▶ php nyuRun install compl
    look and what fails. It exits with a failure code when a row fails, so
    a deployment script stops there.
 5. **Run**: users are managed from the command line or through the
-   `Users` run. `cleanup` shows the logs, releases a held address, and
-   clears out old temporary files.
+   `Users` run. `showlog` shows the logs; `cleanup` releases a held
+   address and clears out old temporary files.
 6. **Update**: a new copy replaces the code, while the server's local
    settings, secrets, keys and data stay as they are.
 

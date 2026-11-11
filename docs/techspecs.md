@@ -816,8 +816,8 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
 - **`Shell\Command`**: the parent of every command, with its sub-commands
   (`subsTableArray()`), along with **`Options`**, **`Printer`** (text, or
   JSON for a script) and **`ShellStop`** (the exit code).
-- **`Shell\Cmds\*`**: `install`, `setting`, `testing`, `cleanup`,
-  `accounts`, `machines`, `bundling`, `appsKeys` (chapter 7).
+- **`Shell\Cmds\*`**: `install`, `setting`, `testing`, `cleanup`, `showlog`,
+  `account`, `devices`, `bundles`, `appkeys` (chapter 7).
 - **`HealthChk`** runs the checks of `install checkAll`. **`ConfFile`**
   writes the configuration files, each in its own way, and **`UserFile`**
   the users file. **`ActCaller`** calls an action of a run from the
@@ -1163,16 +1163,18 @@ autoloader, and says so.
 A mode of the project, in `conf/bundle.lst`, holds `settings` (keys of
 `system.ini`) and `addPaths` (paths copied beyond the allow-list).
 
-### 7.7 `cleanup`: temporary files and logs
+### 7.7 `cleanup`, `showlog`: temporary files and logs
 
 | Sub-command | Does |
 |---|---|
 | `cleanDir <cacheDir\|logFiles\|tryLimit\|archives\|all>` | removes the files of those folders of `temp` (`--keepDays=<days>`) |
-| `tailLogs <channel>` | the last lines of a log (`--numLines`, `--watching` to follow it) |
 | `fullList` | the addresses the limit on attempts counts or holds |
 | `freeAddr <address\|all>` | releases an address |
 
 Nothing is removed outside the project's `temp` folder.
+
+`php nyuRun showlog <channel>`, a command of its own with no sub-command, shows the
+last lines of a log (`--numLines`, `--watching` to follow it).
 
 ### 7.8 `testing`: the test suite
 

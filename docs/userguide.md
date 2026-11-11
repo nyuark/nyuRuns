@@ -443,7 +443,7 @@ signed with the old ones, and everyone has to sign in again.
 To read a log from the command line:
 
 ```
-php nyuRun cleanup tailLogs access --numLines=3
+php nyuRun showlog access --numLines=3
 ```
 
 ```
@@ -1053,7 +1053,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
       with an error code, so a deployment script stops right there.
 - [ ] Back up what can't be rebuilt: the database, `.env`, `conf/keys`
       and your local files in `conf/`.
-- [ ] Read the logs now and then (`php nyuRun cleanup tailLogs access`),
+- [ ] Read the logs now and then (`php nyuRun showlog access`),
       and clear out the old ones
       (`php nyuRun cleanup cleanDir logFiles --keepDays=30`).
 - [ ] To update, build a new copy and lay it over the code. `.env`, the
@@ -1075,7 +1075,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 2. **The logs** in `temp/logs`, one file per topic: `error.log` (code
    errors), `access.log` (sign-ins, refusals and why), `runner.log` (what
    wasn't found and why, mails, removals, uploads), `shell.log` (what
-   commands changed). `php nyuRun cleanup tailLogs <channel>` shows the latest
+   commands changed). `php nyuRun showlog <channel>` shows the latest
    lines.
 3. **`php nyuRun install checkAll`** for the settings (A.3).
 4. **`php nyuRun setting fullList <profile>`** for who can reach what.

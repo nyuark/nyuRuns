@@ -1,7 +1,7 @@
 <?php
 
-// Command line, cleans : the temporary files removed by kind and by age, a
-// log channel shown, the addresses of the limiter listed and released.
+// Command line, cleanup : the temporary files removed by kind and by age, the
+// addresses of the limiter listed and released.
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/shellKit.php';
@@ -87,12 +87,6 @@ checkIdentical('frees releases an address', Array(callShellArray($projDir, Array
 checkIdentical('an IPv6 address releases its network', Array(callShellArray($projDir, Array('cleanup', 'freeAddr', '2001:db8:1:2::99', '--yesToAll'))['text'], count($limiter->listLimitHolds())), Array("released: 1\n", 1));
 checkIdentical('frees all releases every address', Array(runShellAsJson($projDir, Array('cleanup', 'freeAddr', 'all', '--yesToAll'))['released'] ?? null, count($limiter->listLimitHolds())), Array(1, 0));
 checkPregMatch('a release is traced, signed with the user of the system', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Limiter: address 203\.0\.113\.7 released by user "cli:[\w.\-]+"\n/');
-
-// trace
-checkIdentical('trace shows the last lines of a channel', callShellArray($projDir, Array('cleanup', 'tailLogs', 'access', '--numLines=2'))['text'], "[2026-10-01 10:01] [INFO] two\n[2026-10-01 10:02] [WARNING] three\n");
-checkIdentical('trace shows 20 lines when not told', substr_count(callShellArray($projDir, Array('cleanup', 'tailLogs', 'access'))['text'], "\n"), 3);
-checkIdentical('a channel without a log', callShellArray($projDir, Array('cleanup', 'tailLogs', 'nothing'))['code'], 3);
-checkIdentical('a channel is a plain name', callShellArray($projDir, Array('cleanup', 'tailLogs', '../conf/system'))['code'], 2);
 
 // purge
 checkIdentical('purge needs to be told what', callShellArray($projDir, Array('cleanup', 'cleanDir', '--yesToAll'))['code'], 2);

@@ -11,7 +11,6 @@ use nyu\Shell\Command;
  *
  *   php nyuRun cleanup cleanDir logs --keepDays=30    removes the log files older than 30 days
  *   php nyuRun cleanup cleanDir all                   removes every temporary file
- *   php nyuRun cleanup tailLogs access --numLines=50  shows the last lines of a log channel (--watching follows it)
  *   php nyuRun cleanup fullList                       lists the addresses the limiter counts or holds
  *   php nyuRun cleanup freeAddr 203.0.113.7           releases an address (or all)
  *
@@ -28,7 +27,7 @@ class Cleans extends Command{
 	 * @return String The line shown in the list of commands.
 	 */
 	public function describeInLine(): String {
-		return 'Removes temporary files and logs, shows a log, lists and releases the held addresses';
+		return 'Removes temporary files and logs, lists and releases the held addresses';
 	}
 
 	/**
@@ -39,7 +38,6 @@ class Cleans extends Command{
 	public function subsTableArray(): Array {
 		return Array(
 			'cleanDir'=>Array('args'=>'<cacheDir|logFiles|tryLimit|archives|all> ... [--keepDays=<days>]', 'about'=>'removes the files of those folders of temp'),
-			'tailLogs'=>Array('args'=>'<channel> [--numLines=<lines>] [--watching]', 'about'=>'shows the last lines of a log channel'),
 			'fullList'=>Array('args'=>'', 'about'=>'lists the addresses the limiter counts or holds'),
 			'freeAddr'=>Array('args'=>'<address|all>', 'about'=>'releases an address, or all of them')
 		);
@@ -85,59 +83,6 @@ class Cleans extends Command{
 		}
 		$this->printerObj->printShellRows( Array('folder', 'removed', 'state'), $rowList );
 		return self::EXIT_DONE;
-	}
-
-	/**
-	 * Shows the last lines of a log channel, and follows it with --watching.
-	 *
-	 * @return Int The exit code.
-	 */
-	public function invokeTailLogs(): Int {
-		$channel = $this->needsShellWord('the log channel (error, access, runner, shell, or the name of an application)');
-		if( !preg_match('/^\w+$/D', $channel) ){
-			$this->terminateShell('A log channel is a plain name', self::EXIT_HELP);
-		}
-		$lineNum = $this->optionsObj->retrieveOption('numLines', '20');
-		if( !preg_match('/^\d{1,6}$/D', strval($lineNum)) ){
-			$this->terminateShell('--numLines takes a number of lines', self::EXIT_HELP);
-		}
-		// With dated file names, the channel is read in its newest file
-		$logPath = '';
-		foreach( (array)glob($this->findTempFolder('logFiles').DS.$channel.'*.log') as $logFil ){
-			$logFil = strval($logFil);
-			if( preg_match('/^'.$channel.'(-[\dW_\-]+)?\.log$/D', basename($logFil)) && ($logPath=='' || filemtime($logFil)>filemtime($logPath)) ){
-				$logPath = $logFil;
-			}
-		}
-		if( $logPath=='' ){
-			$this->terminateShell('No log for the channel '.$channel, self::EXIT_DENY);
-		}
-		$logSize = filesize($logPath);
-		$readLen = min($logSize, 2097152);
-		$logText = strval( file_get_contents($logPath, false, null, $logSize-$readLen, $readLen) );
-		$lineLst = explode("\n", rtrim(str_replace("\r\n", "\n", $logText), "\n"));
-		$lineLst = ($logText=='' || intval($lineNum)==0) ? Array() : array_slice($lineLst, -intval($lineNum));
-		foreach( $lineLst as $logLin ){
-			$this->printerObj->printShellBody($logLin.PHP_EOL);
-		}
-		if( !$this->optionsObj->validateOption('watching') || $this->printerObj->jsonShellShape() ){
-			return self::EXIT_DONE;
-		}
-		// Followed until the command is interrupted
-		$redPstn = $logSize;
-		while( true ){
-			usleep(500000);
-			clearstatcache(true, $logPath);
-			$logSize = is_file($logPath) ? filesize($logPath) : 0;
-			if( $logSize<$redPstn ){
-				// The file was rotated : it is read again from its start
-				$redPstn = 0;
-			}
-			if( $logSize>$redPstn ){
-				$this->printerObj->printShellBody( strval(file_get_contents($logPath, false, null, $redPstn, $logSize-$redPstn)) );
-				$redPstn = $logSize;
-			}
-		}
 	}
 
 	/**
