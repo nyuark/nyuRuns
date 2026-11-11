@@ -108,4 +108,5 @@ checkIdentical('users: locked by PUT, unlocked by DELETE', Array($userRte('/user
 checkIdentical('users: reset and approved by POST', Array($userRte('/users/ben/reset', 'POST'), $userRte('/users/ben/approve', 'POST'), $userRte('/users/ben/reset', 'GET')[2]), Array(Array('reset', 'ben', 200), Array('approve', 'ben', 200), 405));
 checkIdentical('users: an action its routes answer is not reached from its path', $userRte('/users/view/ben', 'GET')[2], 404);
 
+checkIdentical('auth: the route alone sets the method, every action POST, keyset GET', Array(array_map(function( String $actnNme ): Int { return intval(madeRoutr('/auth/'.$actnNme, 'GET')->locateRouteReg()->obtainDefValue('statCode', 200)); }, Array('login', 'logout', 'active', 'signup', 'forgot', 'recover', 'setpass', 'usrlang')), intval(madeRoutr('/.well-known/jwks.json', 'POST')->locateRouteReg()->obtainDefValue('statCode', 200))), Array(array_fill(0, 8, 405), 405));
 finishChecking();

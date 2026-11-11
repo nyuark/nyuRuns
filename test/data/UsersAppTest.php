@@ -166,7 +166,6 @@ checkIdentical('activate: wrong code', statusOf(callActn('auth/active', Array('u
 checkIdentical('activate: unknown user, same reply', statusOf(callActn('auth/active', Array('userName'=>'zed', 'sentCode'=>$emmaCod, 'passWord'=>'pass-zed-01'), '', '')), Array(401, 'Invalid activation'));
 checkIdentical('activate: a password breaking a rule', statusOf(callActn('auth/active', Array('userName'=>'emma', 'sentCode'=>$emmaCod, 'passWord'=>'short'), '', '')), Array(400, 'Password too short: 10 characters at least'));
 checkIdentical('activate: no password', statusOf(callActn('auth/active', Array('userName'=>'emma', 'sentCode'=>$emmaCod), '', '')), Array(400, 'Missing or invalid input: passWord'));
-checkIdentical('activate: a GET is refused', statusOf(callActn('auth/active', Array('userName'=>'emma', 'sentCode'=>$emmaCod, 'passWord'=>'pass-emma-1'), '', '', 'GET')), Array(405, 'Method Not Allowed'));
 $outcome = callActn('auth/active', Array('userName'=>'emma', 'sentCode'=>$emmaCod, 'passWord'=>'  <pass> "emma" & co  '), '', '');
 checkIdentical('activate: the right code', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>true, 'stat'=>'approved')));
 checkIdentical('activate: the password is kept as sent', password_verify('  <pass> "emma" & co  ', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='emma'")->fetchColumn())), true);
@@ -191,7 +190,6 @@ checkIdentical('password: nobody logged', statusOf(callActn('auth/setpass', Arra
 checkIdentical('password: a name sent is not read', Array(statusOf(callActn('auth/setpass', Array('userName'=>'anna', 'oldValue'=>'pass-anna-1', 'passWord'=>'pass-anna-2'), 'ben', 'standard')), password_verify('pass-anna-1', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='anna'")->fetchColumn()))), Array(Array(401, 'Invalid credentials'), true));
 checkIdentical('password: a new one breaking a rule', statusOf(callActn('auth/setpass', Array('oldValue'=>'pass-ben-1', 'passWord'=>'short'), 'ben', 'standard')), Array(400, 'Password too short: 10 characters at least'));
 checkIdentical('password: no new one', statusOf(callActn('auth/setpass', Array('oldValue'=>'pass-ben-1'), 'ben', 'standard')), Array(400, 'Missing or invalid input: passWord'));
-checkIdentical('password: a GET is refused', statusOf(callActn('auth/setpass', Array('oldValue'=>'pass-ben-1', 'passWord'=>'pass-ben-22'), 'ben', 'standard', 'GET')), Array(405, 'Method Not Allowed'));
 $sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 $outcome = callActn('auth/setpass', Array('oldValue'=>'pass-ben-1', 'passWord'=>'pass-ben-22'), 'ben', 'standard');
 checkIdentical('password: changed', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('changed'=>true)));
@@ -255,7 +253,7 @@ checkIdentical('langs: one that is not, then taken away', Array(statusOf(callAct
 checkIdentical('langs: a member is not a manager', statusOf(callActn('users/langs/hugo', Array('saveLang'=>'fr'), 'ben', 'standard')), Array(404, 'Not Found'));
 $outcome = callActn('auth/usrlang', Array('userName'=>'hugo', 'saveLang'=>'de'), 'ben', 'standard');
 checkIdentical('auth/usrlang: the logged user, for itself; a name sent is not read', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT systemName, userLocale FROM users WHERE systemName IN ('ben', 'hugo') ORDER BY systemName")->fetchAll(PDO::FETCH_KEY_PAIR)), Array(200, Array('lang'=>'de'), Array('ben'=>'de', 'hugo'=>null)));
-checkIdentical('auth/usrlang: nobody logged, a GET, one that is not', Array(statusOf(callActn('auth/usrlang', Array('saveLang'=>'de'), '', '')), statusOf(callActn('auth/usrlang', Array('saveLang'=>'de'), 'ben', 'standard', 'GET')), statusOf(callActn('auth/usrlang', Array('saveLang'=>'*'), 'ben', 'standard'))), Array(Array(401, 'Not logged in'), Array(405, 'Method Not Allowed'), Array(400, 'Invalid language')));
+checkIdentical('auth/usrlang: nobody logged, one that is not', Array(statusOf(callActn('auth/usrlang', Array('saveLang'=>'de'), '', '')), statusOf(callActn('auth/usrlang', Array('saveLang'=>'*'), 'ben', 'standard'))), Array(Array(401, 'Not logged in'), Array(400, 'Invalid language')));
 callActn('auth/usrlang', Array(), 'ben', 'standard');
 $outcome = callActn('users/create', Array('userName'=>'xena', 'saveLang'=>'it'));
 checkIdentical('create: with the language of its mails', Array($outcome['code'] ?? $outcome, $sqlLink->query("SELECT userLocale FROM users WHERE systemName='xena'")->fetchColumn(), statusOf(callActn('users/create', Array('userName'=>'xavi', 'saveLang'=>'italian')))), Array(201, 'it', Array(400, 'Invalid language')));
@@ -270,7 +268,6 @@ checkIdentical('signup: closed unless the block opens it', statusOf(callActn('au
 plugConf('nativeDb', 0, Array('signupOn'=>true));
 checkIdentical('signup: closed without a mailer', statusOf(callActn('auth/signup', Array('userName'=>'ivan', 'userMail'=>'ivan@example.ch'), '', '')), Array(404, 'Not Found'));
 plugConf('nativeDb', 0, $mailCnf + Array('signupOn'=>true));
-checkIdentical('signup: a GET is refused', statusOf(callActn('auth/signup', Array('userName'=>'ivan', 'userMail'=>'ivan@example.ch'), '', '', 'GET')), Array(405, 'Method Not Allowed'));
 $outcome = callActn('auth/signup', Array('userName'=>'ivan', 'userMail'=>'Ivan@Example.ch'), '', '');
 $mailLst = sentMail();
 checkIdentical('signup: 202', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(202, Array('asked'=>true)));
@@ -323,7 +320,6 @@ sentMail();
 
 // auth/forgot and auth/recover : a reset asked for by the user, by mail
 plugConf('nativeDb', 0, $mailCnf);
-checkIdentical('forgot: a GET is refused', statusOf(callActn('auth/forgot', Array('userName'=>'ben'), '', '', 'GET')), Array(405, 'Method Not Allowed'));
 $outcome = callActn('auth/forgot', Array('userName'=>'ben'), '', '');
 $mailLst = sentMail();
 checkIdentical('forgot: 202, the code goes to the address', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $mailLst[0]['to'] ?? null, $mailLst[0]['subject'] ?? null, strpos($mailLst[0]['text'] ?? '', 'do=password&user=ben&code=')!==false), Array(202, Array('asked'=>true), 'ben@example.ch', 'Your password: choose a new one', true));

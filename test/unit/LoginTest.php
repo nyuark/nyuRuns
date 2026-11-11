@@ -88,7 +88,6 @@ $lgnRslt = authActn('login', $alicePw);
 checkIdentical('login, by default: htpasswd and jwtToken, their htpasswd and jwtToken blocks', Array($lgnRslt[0] ?? null, tokenOf($lgnRslt)), Array(200, Array('alice', null)));
 checkIdentical('login x htpasswd: wrong password', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(401, 'Invalid credentials', null));
 checkIdentical('login x htpasswd: unknown user', authActn('login', Array('userName'=>'nobody', 'passWord'=>'s3cret')), Array(401, 'Invalid credentials', null));
-checkIdentical('login by GET', authActn('login', $alicePw, 'GET'), Array(405, 'Method Not Allowed', null));
 checkIdentical('login: a name or a password that is not a text', Array(authActn('login', Array('userName'=>Array('alice'), 'passWord'=>'s3cret')), authActn('login', Array('userName'=>'alice'))), Array(Array(400, 'Invalid userName or passWord', null), Array(400, 'Invalid userName or passWord', null)));
 
 // A password in the query string of the address is refused, wherever else it is sent
@@ -155,7 +154,6 @@ dropTestFolder(TOP_DIR.DS.$lmtFldr);
 // Logout : a token cannot be taken back, the client is told to forget it
 plugConf( Array() );
 $lgnRslt = authActn('login', $alicePw);
-checkIdentical('logout by GET', authActn('logout', Array(), 'GET'), Array(405, 'Method Not Allowed', null));
 checkIdentical('logout with a token carrier', authActn('logout'), Array(200, '', Array('logged'=>false)));
 checkIdentical('logout: the token is still accepted until it expires', tokenOf($lgnRslt), Array('alice', null));
 foreach( Array('httpBasc', 'apiHeadr', 'clntCert', 'nosuch') as $sesNme ){

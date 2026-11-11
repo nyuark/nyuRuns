@@ -10,6 +10,11 @@ use \nyu\Access\LoginMark;
 use \nyu\Access\Auth\UserBase;
 use \nyu\Tools\Logger;
 
+/**
+ * Signs users in and out, activates, signs up and resets their accounts. The
+ * methods are those of routes.rte: every action takes POST alone, keyset GET;
+ * another method is answered 405 by the route, before the action is reached.
+ */
 class Actions extends Actionset {
 
 	/**
@@ -20,8 +25,7 @@ class Actions extends Actionset {
 	 * file names the credential check ('authWith', htpasswd by default),
 	 * the carrier issuing the token ('carrWith', jwtToken by
 	 * default) and the blocks holding their settings ('authConf',
-	 * 'carrConf'). Reports 405
-	 * unless the request is a POST, 400 when 'userName' or 'passWord' is missing
+	 * 'carrConf'). Its route takes POST alone (routes.rte). Reports 400 when 'userName' or 'passWord' is missing
 	 * (both are required by input/login.json, so that reply comes before
 	 * the action runs), is not a text, or when the password came in the
 	 * query string of the address (see passInUrl), 401
@@ -30,11 +34,6 @@ class Actions extends Actionset {
 	 * Credential checks and their outcome are logged.
 	 */
 	public function login(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		if($this->refuseUrlPassw( Array('passWord'), 'Login' )){
 			return;
 		}
@@ -166,15 +165,10 @@ class Actions extends Actionset {
 	/**
 	 * Ends the session the login opened: a server-side session is
 	 * destroyed and its cookie expired. A token cannot be taken back, so
-	 * with a token carrier this only tells the client to forget it.
-	 * Reports 405 unless the request is a POST.
+	 * with a token carrier this only tells the client to forget it. Its
+	 * route takes POST alone (routes.rte).
 	 */
 	public function logout(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		$lgnConf = $this->resolveConfArr('loginSet');
 		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
 		if($sessCls!==null && class_exists($sessCls)){
@@ -204,8 +198,8 @@ class Actions extends Actionset {
 	 * Activates a pending user of the native userbase: the 'userName' and
 	 * 'sentCode' inputs name it and carry its activation code, the 'passWord'
 	 * input the password it chooses, kept as sent. The action is meant to
-	 * be open ('openList'): a pending user cannot log in. Reports 405
-	 * unless the request is a POST, 400 when an input is missing, is not
+	 * be open ('openList'): a pending user cannot log in. Its route takes
+	 * POST alone (routes.rte). Reports 400 when an input is missing, is not
 	 * a text, the password breaks a rule or came in the query string of
 	 * the address (see passInUrl), 401 on a wrong name or code,
 	 * whichever it is, or one that ended, 429 when the address presented
@@ -214,11 +208,6 @@ class Actions extends Actionset {
 	 * in: 'approved', or 'inReview' for a sign-up a manager has to approve.
 	 */
 	public function active(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		if($this->refuseUrlPassw( Array('passWord'), 'Activation' )){
 			return;
 		}
@@ -272,17 +261,12 @@ class Actions extends Actionset {
 	 * 'maxQueue' sign-ups (256) wait at once, and the managers are told by
 	 * mail at each count of 'alertsAt' (128, 200, 256). The action is meant
 	 * to be open ('openList'). Reports 202, 404 when sign-ups are not open,
-	 * 405 unless the request is a POST, 400 for a name or an address that
+	 * 400 for a name or an address that
 	 * is not one, 429 when the address of the client asked too often or
 	 * is held, 503 when too many sign-ups
 	 * are waiting.
 	 */
 	public function signup(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		$usrBase = UserBase::fromLoginBlock();
 		$mailObj = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
 		if($usrBase===null || $mailObj===null || !AccessMail::signupsAllowed()){
@@ -372,15 +356,10 @@ class Actions extends Actionset {
 	 * user is, or is not, the reply is the same. Each request counts
 	 * against the address of the client (see Access\Limiter). The action
 	 * is meant to be open ('openList'). Reports 202, 404 when no mail is
-	 * sent, 405 unless the request is a POST, 400 for an input that is
+	 * sent, 400 for an input that is
 	 * not a text, 429 when the address of the client asked too often.
 	 */
 	public function forgot(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		$usrBase = UserBase::fromLoginBlock();
 		$mailObj = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
 		if($usrBase===null || $mailObj===null){
@@ -413,7 +392,7 @@ class Actions extends Actionset {
 	 * Sets a new password with the code auth/forgot sent: the 'userName' and
 	 * 'sentCode' inputs name the user and carry the code, the 'passWord' input the
 	 * new password, kept as sent. The action is meant to be open
-	 * ('openList'). Reports 405 unless the request is a POST, 400 when an
+	 * ('openList'). Reports 400 when an
 	 * input is missing, is not a text, the password breaks a rule or came
 	 * in the query string of the address (see passInUrl), 401 on a wrong
 	 * name or code, or one that ended, 429 when the address presented too
@@ -421,11 +400,6 @@ class Actions extends Actionset {
 	 * use the native userbase.
 	 */
 	public function recover(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		if($this->refuseUrlPassw( Array('passWord'), 'Password reset' )){
 			return;
 		}
@@ -499,8 +473,7 @@ class Actions extends Actionset {
 	 * Changes the password of the logged user, in the native userbase:
 	 * the 'oldValue' input carries its current password, the 'passWord' input
 	 * the new one, both kept as sent. No name is read: the user is the
-	 * one the access check identified. Reports 405 unless the request is
-	 * a POST, 400 when an input is missing, is not a text, the new
+	 * one the access check identified. Reports 400 when an input is missing, is not a text, the new
 	 * password breaks a rule, or a password came in the query string of
 	 * the address (see passInUrl), 401 when nobody is logged or the current
 	 * password is wrong (a wrong one counts as a failed attempt, for the
@@ -508,11 +481,6 @@ class Actions extends Actionset {
 	 * native userbase.
 	 */
 	public function setpass(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		if($this->refuseUrlPassw( Array('oldValue', 'passWord'), 'Password change' )){
 			return;
 		}
@@ -552,16 +520,10 @@ class Actions extends Actionset {
 	 * Sets the language of the mails of the logged user, in the native
 	 * userbase: the 'saveLang' input is a language tag (fr, fr-ch), or empty
 	 * to have the default one (DEF_LANG). No name is read: the user is the
-	 * one the access check identified. Reports 405 unless the request is a
-	 * POST, 400 for a language that is not a tag, 401 when nobody is logged
+	 * one the access check identified. Reports 400 for a language that is not a tag, 401 when nobody is logged
 	 * and 500 when the login does not use the native userbase.
 	 */
 	public function usrlang(): Void {
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
-			$this->statusCode = 405;
-			$this->statusMssg = 'Method Not Allowed';
-			return;
-		}
 		$usrName = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true) ? strval($this->accessRgst->readValueByKey('userName')) : '';
 		if($usrName==''){
 			$this->statusCode = 401;
