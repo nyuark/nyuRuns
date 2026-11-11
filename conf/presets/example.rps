@@ -4,7 +4,7 @@
     //  Route detection; base rendering config
     // A key that is not one of those described here stops the run
     // This preset only explains the keys: it is never loaded. An entry point naming it
-    // is answered 500; "settings wwwEntry" refuses it and "installs checkAll" fails on it
+    // is answered 500; "setting wwwEntry" refuses it and "install checkAll" fails on it
     //
 	// Name of the PreSet; the name of its file
 	"presetId": "example",
@@ -26,7 +26,7 @@
 	},
 	// Access control of the preset; its strategies live in src/Access.
 	// An open preset only needs "required" set to false; "isPublic": true beside it tells it is meant to be
-	// open: "installs checkAll" then accepts an entry point starting it in PREV and PROD
+	// open: "install checkAll" then accepts an entry point starting it in PREV and PROD
 	"security": {
         // Whether a request must be authenticated (true when not set)
 		"required": true,
@@ -42,7 +42,7 @@
         // htpasswd (htpasswd file); nativeDb (users table of the database;
         // see conf/schema/users.<type>.sql); regdKeys (list of API keys);
         // userFile (file of users; read only; the native users without a database);
-        // dvcToken (tokens of the devices working in the name of a user; see php nyuRun machines)
+        // dvcToken (tokens of the devices working in the name of a user; see php nyuRun devices)
         // Planned for version 1.1: SSO; LDAP
         // Applications can add their own: a name listed under "authWith" in the "plugLibs" block of
         // conf/access.json is a class of runs/Shared (mychck -> MychckAuth.php);

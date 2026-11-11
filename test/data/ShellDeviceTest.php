@@ -21,27 +21,27 @@ $projDir = makeProjectTxt('device', Array(
 ));
 
 // Tokens
-$jsnVals = runShellAsJson($projDir, Array('machines', 'newToken', 'Home', 'anna', 'home'));
+$jsnVals = runShellAsJson($projDir, Array('devices', 'newToken', 'Home', 'anna', 'home'));
 $homeTkn = strval($jsnVals['secret']['Token of Home'] ?? '');
 checkIdentical('token gives a device a token, shown once, only its hash stored', Array($jsnVals['token made'] ?? null, strlen($homeTkn), $sqlLink->query("SELECT deviceName, deviceRole, bearerHash, user_id FROM devices")->fetchAll(PDO::FETCH_NUM)), Array('Home', 64, Array(Array('Home', 'home', hash('sha256', $homeTkn), 1))));
-checkIdentical('token: a name the user already gives a device, another user giving the same name', Array(callShellArray($projDir, Array('machines', 'newToken', 'Home', 'anna', 'home'))['code'], strlen(strval(runShellAsJson($projDir, Array('machines', 'newToken', 'Home', 'ben', 'app'))['secret']['Token of Home'] ?? ''))), Array(3, 64));
-checkIdentical('token: a pending, a locked, an unknown user', Array(callShellArray($projDir, Array('machines', 'newToken', 'Tab', 'cleo', 'app'))['code'], callShellArray($projDir, Array('machines', 'newToken', 'Tab', 'dave', 'app'))['code'], callShellArray($projDir, Array('machines', 'newToken', 'Tab', 'zed', 'app'))['code']), Array(1, 1, 1));
-checkIdentical('token: a role that is not a word of 8 characters at most, a missing word', Array(callShellArray($projDir, Array('machines', 'newToken', 'Tab', 'anna', 'Home Box'))['code'], callShellArray($projDir, Array('machines', 'newToken', 'Tab', 'anna', 'aboxtoolong'))['code'], callShellArray($projDir, Array('machines', 'newToken', 'Tab', 'anna'))['code']), Array(2, 2, 2));
+checkIdentical('token: a name the user already gives a device, another user giving the same name', Array(callShellArray($projDir, Array('devices', 'newToken', 'Home', 'anna', 'home'))['code'], strlen(strval(runShellAsJson($projDir, Array('devices', 'newToken', 'Home', 'ben', 'app'))['secret']['Token of Home'] ?? ''))), Array(3, 64));
+checkIdentical('token: a pending, a locked, an unknown user', Array(callShellArray($projDir, Array('devices', 'newToken', 'Tab', 'cleo', 'app'))['code'], callShellArray($projDir, Array('devices', 'newToken', 'Tab', 'dave', 'app'))['code'], callShellArray($projDir, Array('devices', 'newToken', 'Tab', 'zed', 'app'))['code']), Array(1, 1, 1));
+checkIdentical('token: a role that is not a word of 8 characters at most, a missing word', Array(callShellArray($projDir, Array('devices', 'newToken', 'Tab', 'anna', 'Home Box'))['code'], callShellArray($projDir, Array('devices', 'newToken', 'Tab', 'anna', 'aboxtoolong'))['code'], callShellArray($projDir, Array('devices', 'newToken', 'Tab', 'anna'))['code']), Array(2, 2, 2));
 
 // Listing
-checkIdentical('lists the devices of every user, by user then by name', array_map(function(Array $tableRow){ return $tableRow['user'].'/'.$tableRow['device'].'/'.$tableRow['role']; }, runShellAsJson($projDir, Array('machines', 'fullList'))['rows'] ?? Array()), Array('anna/Home/home', 'ben/Home/app'));
-checkIdentical('lists those of one user', array_column(runShellAsJson($projDir, Array('machines', 'fullList', 'ben'))['rows'] ?? Array(), 'device'), Array('Home'));
-checkIdentical('lists never shows a token', strpos(callShellArray($projDir, Array('machines', 'fullList'))['text'], hash('sha256', $homeTkn)), false);
+checkIdentical('lists the devices of every user, by user then by name', array_map(function(Array $tableRow){ return $tableRow['user'].'/'.$tableRow['device'].'/'.$tableRow['role']; }, runShellAsJson($projDir, Array('devices', 'fullList'))['rows'] ?? Array()), Array('anna/Home/home', 'ben/Home/app'));
+checkIdentical('lists those of one user', array_column(runShellAsJson($projDir, Array('devices', 'fullList', 'ben'))['rows'] ?? Array(), 'device'), Array('Home'));
+checkIdentical('lists never shows a token', strpos(callShellArray($projDir, Array('devices', 'fullList'))['text'], hash('sha256', $homeTkn)), false);
 
 // Revoking
-checkIdentical('revok revokes the device of that name of that user only', Array(callShellArray($projDir, Array('machines', 'revokeIt', 'Home', 'anna'))['code'], $sqlLink->query("SELECT user_id FROM devices WHERE revokeDate IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN)), Array(0, Array(1)));
-checkPregMatch('revok: kept in the list, with the time of its revocation', strval(runShellAsJson($projDir, Array('machines', 'fullList', 'anna'))['rows'][0]['revoked'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
-checkIdentical('revok: twice, an unknown device, a missing word', Array(callShellArray($projDir, Array('machines', 'revokeIt', 'Home', 'anna'))['code'], callShellArray($projDir, Array('machines', 'revokeIt', 'Robot', 'anna'))['code'], callShellArray($projDir, Array('machines', 'revokeIt', 'Home'))['code']), Array(3, 3, 2));
-checkIdentical('token: once revoked, the name can be given again', strlen(strval(runShellAsJson($projDir, Array('machines', 'newToken', 'Home', 'anna', 'home'))['secret']['Token of Home'] ?? '')), 64);
+checkIdentical('revok revokes the device of that name of that user only', Array(callShellArray($projDir, Array('devices', 'revokeIt', 'Home', 'anna'))['code'], $sqlLink->query("SELECT user_id FROM devices WHERE revokeDate IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN)), Array(0, Array(1)));
+checkPregMatch('revok: kept in the list, with the time of its revocation', strval(runShellAsJson($projDir, Array('devices', 'fullList', 'anna'))['rows'][0]['revoked'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
+checkIdentical('revok: twice, an unknown device, a missing word', Array(callShellArray($projDir, Array('devices', 'revokeIt', 'Home', 'anna'))['code'], callShellArray($projDir, Array('devices', 'revokeIt', 'Robot', 'anna'))['code'], callShellArray($projDir, Array('devices', 'revokeIt', 'Home'))['code']), Array(3, 3, 2));
+checkIdentical('token: once revoked, the name can be given again', strlen(strval(runShellAsJson($projDir, Array('devices', 'newToken', 'Home', 'anna', 'home'))['secret']['Token of Home'] ?? '')), 64);
 
 // A project without a database
 $bareDir = makeProjectTxt('nodevice', Array('conf/system.ini'=>buildSystemIni()));
-checkIdentical('a project whose devices cannot be read is told so', callShellArray($bareDir, Array('machines', 'fullList'))['errs'], "The devices cannot be read\n");
+checkIdentical('a project whose devices cannot be read is told so', callShellArray($bareDir, Array('devices', 'fullList'))['errs'], "The devices cannot be read\n");
 $sqlLink = null;
 
 finishChecking();

@@ -16,12 +16,12 @@ framework never edits it:
 - the reverse proxy or CDN, when there is one.
 
 The framework's own settings are in `conf/` and `.env`, and are read and
-written with `php nyuRun settings`.
+written with `php nyuRun setting`.
 
 ## 2. Going live
 
 ```bash
-php nyuRun installs allSteps
+php nyuRun install allSteps
 ```
 
 It checks the server, creates the local files from their examples (`.env`,
@@ -33,7 +33,7 @@ each, those proposed; `--noPrompt` takes the simple version with those names.
 Run again, it replaces nothing that exists.
 
 ```bash
-php nyuRun installs checkAll
+php nyuRun install checkAll
 ```
 
 Each row is `fine`, `warn` (deserves a look) or `fail` (requests cannot be
@@ -247,11 +247,11 @@ IPv6 address is counted with its whole /64 network. `maxTries` 0 turns the limit
 off, which the health check reports.
 
 ```bash
-php nyuRun maintain fullList
+php nyuRun cleanup fullList
 ```
 
 ```bash
-php nyuRun maintain freeAddr 203.0.113.7
+php nyuRun cleanup freeAddr 203.0.113.7
 ```
 
 The first lists the addresses counted and held, the second releases one.
@@ -279,7 +279,7 @@ The `htpasswd` check reads an htpasswd file.
 - bcrypt, and SHA-256 or SHA-512 crypt, are accepted.
 - apr1 (Apache's MD5) is accepted too, because it is what Apache's tool writes
   by default. It is weak by today's measure: write new lines with bcrypt
-  (`php nyuRun settings makeSecr htpasswd <user>` does).
+  (`php nyuRun setting makeSecr htpasswd <user>` does).
 - `{SHA}`, DES crypt and MD5 crypt are refused unless the block sets
   `"weakHash": true`, which the health check reports.
 - The time of a refusal does not tell whether a name exists only when the
@@ -297,14 +297,14 @@ The secrets are stored encrypted when the block of the store gives a key:
 ```
 
 ```bash
-php nyuRun settings makeSecr tfaCrypt --useBlock=nativeDb
+php nyuRun setting makeSecr tfaCrypt --useBlock=nativeDb
 ```
 
 - Without a key of 32 characters, secrets are stored readable, with a warning
   on `access` each time one is made.
 - Keep a copy of the key. If it is lost or changed, every encrypted secret is
   unreadable and those users are refused. Each then needs
-  `php nyuRun accounts setTwoFa <user> --removeIt` and a new secret.
+  `php nyuRun account setTwoFa <user> --removeIt` and a new secret.
 - A secret stored readable before a key was set keeps working, and is not
   encrypted until a new one is made.
 - The key is not rotated in place.
@@ -321,7 +321,7 @@ php nyuRun settings makeSecr tfaCrypt --useBlock=nativeDb
   user is then confirmed on every request, and a lock or a role change applies
   at once.
 - Keep `lifeSecs` short where there is no store.
-- Replacing the secret (`php nyuRun settings makeSecr jwtToken`) ends every token
+- Replacing the secret (`php nyuRun setting makeSecr jwtToken`) ends every token
   at once.
 - A client is only told "Invalid token" or "Expired token". Why a token was
   refused is in the `access` log, in `FULL` mode.
@@ -403,7 +403,7 @@ REQ_PART = 200
   with the action that path points to, for every method's target and the default
   action included, whatever path reaches it. A `/path` there that no route
   declares, written exactly as the route is, makes every request of the preset
-  fail with a 500, and `installs checkAll` fails on it (`access route`).
+  fail with a 500, and `install checkAll` fails on it (`access route`).
 - An application is named with letters and digits only.
 - A key that nothing reads in a route file is told on the `runner` log at each
   request.
@@ -426,7 +426,7 @@ preset reads the keys when its `security` block names that block:
 ```
 
 - Keys are made, given routes and revoked from the command line only
-  (`php nyuRun appsKeys makeKeys|fullList|setRoute|revokeIt`). A key is shown
+  (`php nyuRun appkeys makeKeys|fullList|setRoute|revokeIt`). A key is shown
   once; the file holds its SHA-256 hash. A revoked key is refused from the next
   request.
 - Copy the application's public key into `conf/keys` and give its path. Never
@@ -459,8 +459,8 @@ the replies, to be handed over, as before.
 ```
 
 - `codeMins` is the minutes a mailed code lasts (15 by default). A code handed
-  over by a manager lasts 300 minutes; `accounts makeUser` and
-  `accounts resetPwd` take `--noExpiry` for one with no end, on the command
+  over by a manager lasts 300 minutes; `account makeUser` and
+  `account resetPwd` take `--noExpiry` for one with no end, on the command
   line only.
 - `linkTmpl` is the page of the front end the mail links to. `%mailKind%` tells it
   which form to show: `activate` and `register` post to `auth/active`,
@@ -469,7 +469,7 @@ the replies, to be handed over, as before.
   one.
 - `signupOn: true` opens `auth/signup`. A sign-up confirms its address with
   the code, then waits in `inReview` for a manager (`users/approve`,
-  `php nyuRun accounts approves`); refusing it is removing it. Sign-ups never
+  `php nyuRun account approves`); refusing it is removing it. Sign-ups never
   confirmed are removed once their code ends.
 - The `tryLimit` block bounds the sign-ups: `maxQueue` waiting at once (256),
   beyond which `auth/signup` answers 503 until some are approved or removed;

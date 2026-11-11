@@ -179,14 +179,14 @@ reverse proxy, TLS, `php.ini`) is covered in `HOSTING.md`.
 ### 2.1 Start light, grow when needed
 
 A new project needs no database. Its example access config signs users in
-through a users file (`conf/users.lst`), which `php nyuRun installs userBase`
+through a users file (`conf/users.lst`), which `php nyuRun install userBase`
 creates with its basic users: two (the lowest role and the managers), or one per role. The application only ever
 reads that file. When users need to change their own password, receive
 their codes by mail, sign up on their own, or hold devices, one command
 moves them to a users table in a database:
 
 ```
-php nyuRun installs moveUser nativeDb
+php nyuRun install moveUser nativeDb
 ```
 
 Every user keeps their identifier, password, role, status, address,
@@ -201,13 +201,13 @@ secrets, its tests and its documents. Ship a bundle instead, built for the
 environment it's going to:
 
 ```
-php nyuRun bundling final
+php nyuRun bundles final
 ```
 
 A bundle holds the code, the configuration examples and the libraries, and
 nothing else, and its `system.ini` is set for its environment. On the
-server, `php nyuRun installs allSteps` makes its local files, secrets and
-users, and `php nyuRun installs checkAll` tells what isn't ready. The check
+server, `php nyuRun install allSteps` makes its local files, secrets and
+users, and `php nyuRun install checkAll` tells what isn't ready. The check
 ends with a failure code when a row fails, so a deployment script can stop
 there.
 
@@ -225,7 +225,7 @@ sign-outs and refusals, but no line for each access of a standard user.
 
 A project with servers of its own in between (a test or integration
 server, a preview for a client) declares their modes with
-`php nyuRun bundling makeMode`, and builds them like the others.
+`php nyuRun bundles makeMode`, and builds them like the others.
 
 ### 2.3 Keep the secrets in one place
 
@@ -239,7 +239,7 @@ files only name them (`env:NYU_DB_PASS`, `env:NYU_MAIL_PASS`).
   out.
 - Make the secrets with the command line rather than by hand. It makes
   them long enough, and writes them where the configuration reads them
-  (`php nyuRun settings makeSecr jwtToken`, `keysList`, `tfaCrypt`,
+  (`php nyuRun setting makeSecr jwtToken`, `keysList`, `tfaCrypt`,
   `markSecr`).
 - Give the users store a `tfaCrypt`. Without one, the 2FA secrets are
   stored readable, and the health check says so.
@@ -344,7 +344,7 @@ all of them.
 ## 3. System requirements
 
 What a server needs to run a nyuRuns project, and what each optional part
-adds. On the server itself, `php nyuRun installs checkAll` tells what's
+adds. On the server itself, `php nyuRun install checkAll` tells what's
 missing.
 
 ### 3.1 PHP
@@ -357,7 +357,7 @@ A release that fixes php2shell (CVE-2026-109618, CVE-2026-109619) is
 expected: 8.2.35, 8.3.36, 8.4.27, 8.5.12 or later, or a distribution's
 package with the fix backported. `session.upload_progress.enabled` is best
 turned off in `php.ini`: the framework doesn't use it, and it carries
-CVE-2026-115560. `installs checkAll` warns about both.
+CVE-2026-115560. `install checkAll` warns about both.
 
 The command line runs other programs (ffmpeg, the tests) through
 `proc_open()`. A server that disables it in `php.ini`
@@ -816,9 +816,9 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
 - **`Shell\Command`**: the parent of every command, with its sub-commands
   (`subsTableArray()`), along with **`Options`**, **`Printer`** (text, or
   JSON for a script) and **`ShellStop`** (the exit code).
-- **`Shell\Cmds\*`**: `installs`, `settings`, `runTests`, `maintain`,
+- **`Shell\Cmds\*`**: `install`, `setting`, `testing`, `cleanup`,
   `accounts`, `machines`, `bundling`, `appsKeys` (chapter 7).
-- **`HealthChk`** runs the checks of `installs checkAll`. **`ConfFile`**
+- **`HealthChk`** runs the checks of `install checkAll`. **`ConfFile`**
   writes the configuration files, each in its own way, and **`UserFile`**
   the users file. **`ActCaller`** calls an action of a run from the
   command line, with the preset's roles.
@@ -850,8 +850,8 @@ name of its file in capitals: `system.ini` is `SYSTEM`, `access.json` is
 `ACCESS`. With `CNF_CACH`, the first request of a preset writes what it
 read to `temp/cache`, and the next ones read that file instead. Every
 command that writes in `conf/` removes the cache, and so do
-`installs allSteps` and `settings clrCache`. After a hand edit,
-`php nyuRun settings clrCache` removes it, and `installs checkAll` warns
+`install allSteps` and `setting clrCache`. After a hand edit,
+`php nyuRun setting clrCache` removes it, and `install checkAll` warns
 about a cache older than its files. No secret goes into the cache: `.env`
 is read on each request. So a file of `conf/` that isn't a configuration
 must not end in `.json` or `.ini`: the examples end in `.dist`, the lists
@@ -863,8 +863,8 @@ Secrets are only ever written this way (2.3).
 
 The files made from an example (`access.json`, `database.json`,
 `mailer.json`, `users.lst`) and `.env` are local to each installation:
-git ignores them, and bundles leave them out. `php nyuRun installs
-allSteps` makes them from their examples, and `php nyuRun settings` reads
+git ignores them, and bundles leave them out. `php nyuRun install
+allSteps` makes them from their examples, and `php nyuRun setting` reads
 and changes them, checking each value.
 
 All names follow the same rule: the keys of one block share one length,
@@ -1040,7 +1040,7 @@ unknown format stops the request with a 500 (400 for a required field).
 | `conf/users.lst` | the users file: `{ "users": [ ... ] }`, with the column names of the users table |
 | `conf/bundle.lst` | the project's bundle modes (chapter 7) |
 | `conf/.htpasswd` | the password file of the `htpasswd` check |
-| `conf/keys/` | the token keys (`.key`, `.pub`), made by `settings makeSecr jwtToken` |
+| `conf/keys/` | the token keys (`.key`, `.pub`), made by `setting makeSecr jwtToken` |
 | `conf/schema/` | the delivered tables, one file per table and database type (`users.sqlitedb.sql`), and their migrations |
 | `conf/mails/<language>/` | the templates of the access mails |
 
@@ -1073,13 +1073,13 @@ what it does.
 | 1 | failed |
 | 2 | wrong usage: an unknown word, a missing argument |
 | 3 | refused or declined |
-| 4 | done, with problems found (`installs checkAll`) |
+| 4 | done, with problems found (`install checkAll`) |
 
 What a command changes is traced on the `shell` log channel, signed
 `cli:<system user>`. What it changes in the users is traced on `access`,
 like the same change made over HTTP.
 
-### 7.2 `installs`: install and check
+### 7.2 `install`: install and check
 
 | Sub-command | Does |
 |---|---|
@@ -1093,7 +1093,7 @@ like the same change made over HTTP.
 Nothing that exists is replaced: a file, a secret, a table, a store that
 holds users.
 
-### 7.3 `settings`: read and change the configuration
+### 7.3 `setting`: read and change the configuration
 
 | Sub-command | Does |
 |---|---|
@@ -1107,7 +1107,7 @@ holds users.
 A file is written with its comments and layout kept, the previous version
 copied to `temp/archives`. A change that leaves it unusable is undone.
 
-### 7.4 `accounts`: users and actions
+### 7.4 `account`: users and actions
 
 The users of the store the login uses (`--useStore`, or `--useBlock` for
 another block):
@@ -1129,18 +1129,18 @@ another block):
 | `approves [user]` | lists the sign-ups to review, or approves one |
 | `doAction <app/action> [field=value]` | calls an action of a run, for automated tasks, with the roles of a preset (`--presetId`, `--roleName`, `--bodyFrom`, `--httpVerb`, `--saveInto`) |
 
-### 7.5 `machines`, `appsKeys`: devices and applications
+### 7.5 `devices`, `appkeys`: devices and applications
 
 | Command | Sub-commands |
 |---|---|
-| `machines` | `newToken <name> <user> <role>` gives a device a token, shown once; `fullList [user]`; `revokeIt <name> <user>` |
-| `appsKeys` | `makeKeys <app>` with `--routeSet`, `--publFile`, `--roleTops`, gives a key shown once; `fullList`; `setRoute <app>` replaces its routes; `revokeIt <app>` |
+| `devices` | `newToken <name> <user> <role>` gives a device a token, shown once; `fullList [user]`; `revokeIt <name> <user>` |
+| `appkeys` | `makeKeys <app>` with `--routeSet`, `--publFile`, `--roleTops`, gives a key shown once; `fullList`; `setRoute <app>` replaces its routes; `revokeIt <app>` |
 
 Only the hash of a token or a key is stored. A revoked device stays in the
 list with the time it was revoked; a revoked key is refused from the next
 request.
 
-### 7.6 `bundling`: a copy for each environment
+### 7.6 `bundles`: a copy for each environment
 
 | Sub-command | Does |
 |---|---|
@@ -1163,7 +1163,7 @@ autoloader, and says so.
 A mode of the project, in `conf/bundle.lst`, holds `settings` (keys of
 `system.ini`) and `addPaths` (paths copied beyond the allow-list).
 
-### 7.7 `maintain`: temporary files and logs
+### 7.7 `cleanup`: temporary files and logs
 
 | Sub-command | Does |
 |---|---|
@@ -1174,9 +1174,9 @@ A mode of the project, in `conf/bundle.lst`, holds `settings` (keys of
 
 Nothing is removed outside the project's `temp` folder.
 
-### 7.8 `runTests`: the test suite
+### 7.8 `testing`: the test suite
 
-`php nyuRun runTests` runs the `unit`, `audit` and `data` groups. A group
+`php nyuRun testing` runs the `unit`, `audit` and `data` groups. A group
 or a word runs those scripts, and `all` runs every group. The extensions
 the tests need and PHP doesn't load are given for the run
 (`--addExtns`). Chapter 13 describes the suite.
@@ -1480,7 +1480,7 @@ all ([`HOSTING.md` §5](../HOSTING.md#5-limit-by-address-and-account-holds)).
 ### 9.7 Shipping
 
 A bundle only copies what `Bundle::KEEP_LIST` names: no `.env`, no local
-configuration, no key, no test (7.6). `php nyuRun installs checkAll`
+configuration, no key, no test (7.6). `php nyuRun install checkAll`
 fails on what would expose a server or stop it (a secret or a 2FA key too
 short, a proxy list open to all, access settings or a preset that can't
 be applied, token keys that can't be used or don't pair up), and warns on
@@ -1652,7 +1652,7 @@ key is the `_id` MongoDB gives. What differs from the SQL types:
 
 `conf/schema/` holds the tables the framework uses, one file per table and
 database type: `users` and `devices`, in `.mysql_db.sql` (MariaDB
-included), `.postgres.sql` and `.sqlitedb.sql`. `php nyuRun installs
+included), `.postgres.sql` and `.sqlitedb.sql`. `php nyuRun install
 userBase` creates them; a table that exists is left as it is. The files
 `migrate-<table>-<version>.<type>.sql` move a table made by an earlier
 version, renaming its columns when needed: they're applied by hand, after
@@ -1724,16 +1724,16 @@ A bundle only copies the paths of `Bundle::KEEP_LIST` (`src`, `runs`,
 `www`, `pages`, `conf`, `vendor`, the Composer files, `nyuRun`, `LICENSE`,
 `NOTICE`, `.htaccess`), minus those of `DROP_LIST` (the local
 configuration, every file of `conf/keys`, `bundle.lst`), plus the paths
-its mode adds. Each server makes its own keys with `installs allSteps`.
+its mode adds. Each server makes its own keys with `install allSteps`.
 
 ### 11.3 `temp/`
 
 | Folder | Holds | Removed by |
 |---|---|---|
-| `logs/` | the logs, one file per channel (`LOG_PATH`) | `maintain cleanDir logFiles` |
-| `limits/` | the counts of the limit by address (`tryLimit.dataPath`) | `maintain cleanDir tryLimit`, `maintain freeAddr` |
-| `archives/` | the configuration files as they were before a command changed them | `maintain cleanDir archives` |
-| `cache/` | the config cache, one file per preset (`CNF_CACH`) | `maintain cleanDir cacheDir`, `settings clrCache`, any command that writes in `conf/` |
+| `logs/` | the logs, one file per channel (`LOG_PATH`) | `cleanup cleanDir logFiles` |
+| `limits/` | the counts of the limit by address (`tryLimit.dataPath`) | `cleanup cleanDir tryLimit`, `cleanup freeAddr` |
+| `archives/` | the configuration files as they were before a command changed them | `cleanup cleanDir archives` |
+| `cache/` | the config cache, one file per preset (`CNF_CACH`) | `cleanup cleanDir cacheDir`, `setting clrCache`, any command that writes in `conf/` |
 | `mails/` | the mails of an `emlFiles` account | by hand |
 
 Only the user the web server runs as needs to write there (3.7).
@@ -1824,7 +1824,7 @@ The same rule holds beyond the code:
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
 | codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `standard`, `advanced`, `delegate`, `managers` |
 | columns of a table | 10 | `systemName` |
-| commands and sub-commands of `php nyuRun` | 8 | `installs allSteps`, `maintain cleanDir` |
+| commands and sub-commands of `php nyuRun` | 8 | `install allSteps`, `cleanup cleanDir` |
 | options of `php nyuRun` | 8 | `--noPrompt`, `--yesToAll` |
 | formats of `Tools\Variable` | 7, so each `formats…()` method is 14 | `OutText`, `formatsOutText()` |
 
@@ -1900,7 +1900,7 @@ details.
 php test/run.php                 every group
 php test/run.php unit audit      the named groups
 php test/run.php Variable        the scripts whose name holds the word
-php nyuRun runTests              unit, audit and data, from the command line
+php nyuRun testing              unit, audit and data, from the command line
 ```
 
 Each `*Test.php` runs in its own PHP process, and can be run alone

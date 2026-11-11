@@ -40,7 +40,7 @@ checkIdentical('no word left', (new Options(Array('--only')))->shiftFirstWord(),
 
 // The list of commands, the version
 $runVals = shellRun( Array() );
-checkIdentical('without a command, the commands are listed', Array($runVals['code'], preg_match('/^runTests\s+Runs the tests/m', $runVals['text']), preg_match('/^probe\s+Probe of the command line/m', $runVals['text'])), Array(0, 1, 1));
+checkIdentical('without a command, the commands are listed', Array($runVals['code'], preg_match('/^testing\s+Runs the tests/m', $runVals['text']), preg_match('/^probe\s+Probe of the command line/m', $runVals['text'])), Array(0, 1, 1));
 checkIdentical('the version', shellRun(Array('--versions')), Array('code'=>0, 'text'=>'nyuRuns: '.Console::NYUR_VERS."\n", 'errs'=>''));
 checkIdentical('an unknown command is a wrong usage', shellRun(Array('nothing')), Array('code'=>2, 'text'=>'', 'errs'=>"Unknown command: nothing\n"));
 checkIdentical('a name that is not one of a command', shellRun(Array('../probe'))['code'], 2);
@@ -65,10 +65,10 @@ checkIdentical('--noPrompt asks nothing and takes the defaults', shellRun(Array(
 checkIdentical('--yesToAll is the yes given beforehand', shellRun(Array('probe', 'askInput', '--noPrompt', '--yesToAll'), "pw\n")['text'], "value: dflt\nagree: true\ntyped (shown this once): pw\n");
 
 // The entry point, and the tester command
-$runVals = runScriptArray( Array(TOP_DIR.DS.'nyuRun', 'runTests', 'StrKitTest', '--outputAs=json', '--silently') );
+$runVals = runScriptArray( Array(TOP_DIR.DS.'nyuRun', 'testing', 'StrKitTest', '--outputAs=json', '--silently') );
 $jsnVals = json_decode($runVals['text'], true);
 checkIdentical('the tester runs the scripts named and tells their result', Array($runVals['code'], $jsnVals['done'] ?? null, ($jsnVals['passed'] ?? 0)>0, $jsnVals['failed'] ?? null), Array(0, true, true, 0));
-$runVals = runScriptArray( Array(TOP_DIR.DS.'nyuRun', 'runTests', 'NoSuchScriptAnywhere') );
+$runVals = runScriptArray( Array(TOP_DIR.DS.'nyuRun', 'testing', 'NoSuchScriptAnywhere') );
 checkIdentical('no script run is not a failure', Array($runVals['code'], preg_match('/0 checks passed, 0 failed/', $runVals['text'])), Array(0, 1));
 
 finishChecking();

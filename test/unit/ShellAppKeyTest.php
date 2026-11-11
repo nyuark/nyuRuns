@@ -42,26 +42,26 @@ $axsJson = function() use ($projDir): Array {
 };
 
 // Making
-$jsnVals = runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'portal', '--routeSet=contacts/*, /members/save', '--publFile=conf/keys/portal.pub'));
+$jsnVals = runShellAsJson($projDir, Array('appkeys', 'makeKeys', 'portal', '--routeSet=contacts/*, /members/save', '--publFile=conf/keys/portal.pub'));
 $keyText = strval($jsnVals['secret']['Key of portal'] ?? '');
 $appEntr = $axsJson()['appsKeys']['appsList']['portal'] ?? Array();
 checkIdentical('makes shows the key once and stores its hash only', Array($jsnVals['key made'] ?? null, strlen($keyText), $appEntr['keyDigst'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/access.json')), $keyText)), Array('portal', 43, hash('sha256', $keyText), false));
 checkIdentical('makes: the block created with its header, the routes, the key file, member by default', Array($axsJson()['appsKeys']['headName'] ?? null, $appEntr['routeSet'] ?? null, $appEntr['publFile'] ?? null, $appEntr['roleTops'] ?? null), Array('X-App-Key', Array('contacts/*', '/members/save'), 'conf/keys/portal.pub', 'standard'));
 checkPregMatch('makes: the date it was made', strval($appEntr['madeDate'] ?? ''), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
 checkIdentical('makes: the other blocks kept', $axsJson()['tryLimit'] ?? null, Array('maxTries'=>10, 'holdSecs'=>600, 'dataPath'=>'temp/limits'));
-checkIdentical('makes: a highest role of its own', runShellAsJson($projDir, Array('appsKeys', 'makeKeys', 'mobile', '--routeSet=contacts/view', '--publFile=conf/keys/portal.pub', '--roleTops=advanced'))['key made'] ?? null, 'mobile');
-checkIdentical('makes: a name already listed', callShellArray($projDir, Array('appsKeys', 'makeKeys', 'portal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'], 3);
+checkIdentical('makes: a highest role of its own', runShellAsJson($projDir, Array('appkeys', 'makeKeys', 'mobile', '--routeSet=contacts/view', '--publFile=conf/keys/portal.pub', '--roleTops=advanced'))['key made'] ?? null, 'mobile');
+checkIdentical('makes: a name already listed', callShellArray($projDir, Array('appkeys', 'makeKeys', 'portal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'], 3);
 checkIdentical('makes: a bad name, a missing name, no routes, a bad route', Array(
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'Por Tal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'],
-	callShellArray($projDir, Array('appsKeys', 'makeKeys'))['code'],
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--publFile=conf/keys/portal.pub'))['code'],
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts', '--publFile=conf/keys/portal.pub'))['code']
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'Por Tal', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub'))['code'],
+	callShellArray($projDir, Array('appkeys', 'makeKeys'))['code'],
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'other', '--publFile=conf/keys/portal.pub'))['code'],
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'other', '--routeSet=contacts', '--publFile=conf/keys/portal.pub'))['code']
 ), Array(2, 2, 2, 2));
 checkIdentical('makes: an unknown role, no key file, a missing file, a weak key', Array(
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub', '--roleTops=root'))['code'],
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts/*'))['code'],
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/none.pub'))['code'],
-	callShellArray($projDir, Array('appsKeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/weak.pub'))['code']
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/portal.pub', '--roleTops=root'))['code'],
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'other', '--routeSet=contacts/*'))['code'],
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/none.pub'))['code'],
+	callShellArray($projDir, Array('appkeys', 'makeKeys', 'other', '--routeSet=contacts/*', '--publFile=conf/keys/weak.pub'))['code']
 ), Array(2, 2, 2, 2));
 checkIdentical('makes: nothing written by a refusal', array_keys($axsJson()['appsKeys']['appsList'] ?? Array()), Array('portal', 'mobile'));
 
@@ -73,21 +73,21 @@ $idntArr = (new AppKey($blkConf))->verifyAppArray( mockRequestObj(Array('X-App-K
 checkIdentical('the key made is accepted with a token of the application', Array($idntArr['userName'] ?? null, $idntArr['appsName'] ?? null), Array('ann', 'portal'));
 
 // Listing
-$rowList = runShellAsJson($projDir, Array('appsKeys', 'fullList'))['rows'] ?? Array();
+$rowList = runShellAsJson($projDir, Array('appkeys', 'fullList'))['rows'] ?? Array();
 checkIdentical('lists the applications, their routes and highest role', array_map(function(Array $tableRow){ return $tableRow['application'].' '.$tableRow['routes'].' '.$tableRow['highest role']; }, $rowList), Array('portal contacts/*, /members/save standard', 'mobile contacts/view advanced'));
-checkIdentical('lists never shows a hash', strpos(callShellArray($projDir, Array('appsKeys', 'fullList'))['text'], hash('sha256', $keyText)), false);
+checkIdentical('lists never shows a hash', strpos(callShellArray($projDir, Array('appkeys', 'fullList'))['text'], hash('sha256', $keyText)), false);
 
 // Routes
-checkIdentical('route replaces the routes of an application', Array(callShellArray($projDir, Array('appsKeys', 'setRoute', 'mobile', '--routeSet=contacts/*,/calendar/save'))['code'], $axsJson()['appsKeys']['appsList']['mobile']['routeSet'] ?? null), Array(0, Array('contacts/*', '/calendar/save')));
-checkIdentical('route: an unknown application, a bad route', Array(callShellArray($projDir, Array('appsKeys', 'setRoute', 'nobody', '--routeSet=contacts/*'))['code'], callShellArray($projDir, Array('appsKeys', 'setRoute', 'mobile', '--routeSet=*'))['code']), Array(3, 2));
+checkIdentical('route replaces the routes of an application', Array(callShellArray($projDir, Array('appkeys', 'setRoute', 'mobile', '--routeSet=contacts/*,/calendar/save'))['code'], $axsJson()['appsKeys']['appsList']['mobile']['routeSet'] ?? null), Array(0, Array('contacts/*', '/calendar/save')));
+checkIdentical('route: an unknown application, a bad route', Array(callShellArray($projDir, Array('appkeys', 'setRoute', 'nobody', '--routeSet=contacts/*'))['code'], callShellArray($projDir, Array('appkeys', 'setRoute', 'mobile', '--routeSet=*'))['code']), Array(3, 2));
 
 // Revoking
-checkIdentical('revok removes the key of that application only', Array(callShellArray($projDir, Array('appsKeys', 'revokeIt', 'portal'))['code'], array_keys($axsJson()['appsKeys']['appsList'] ?? Array())), Array(0, Array('mobile')));
-checkIdentical('revok: twice, a missing name', Array(callShellArray($projDir, Array('appsKeys', 'revokeIt', 'portal'))['code'], callShellArray($projDir, Array('appsKeys', 'revokeIt'))['code']), Array(3, 2));
+checkIdentical('revok removes the key of that application only', Array(callShellArray($projDir, Array('appkeys', 'revokeIt', 'portal'))['code'], array_keys($axsJson()['appsKeys']['appsList'] ?? Array())), Array(0, Array('mobile')));
+checkIdentical('revok: twice, a missing name', Array(callShellArray($projDir, Array('appkeys', 'revokeIt', 'portal'))['code'], callShellArray($projDir, Array('appkeys', 'revokeIt'))['code']), Array(3, 2));
 checkPregMatch('every change traced on the shell channel', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/App key: key of application "portal" revoked/');
 
 // A project without its access config
 $bareDir = makeProjectTxt('noaccess', Array('conf/system.ini'=>buildSystemIni()));
-checkPregMatch('a project without conf/access.json is told so', callShellArray($bareDir, Array('appsKeys', 'fullList'))['errs'], '/^conf\/access\.json cannot be read/');
+checkPregMatch('a project without conf/access.json is told so', callShellArray($bareDir, Array('appkeys', 'fullList'))['errs'], '/^conf\/access\.json cannot be read/');
 
 finishChecking();

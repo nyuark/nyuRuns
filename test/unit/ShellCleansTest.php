@@ -77,35 +77,35 @@ checkIdentical('a counter written without its address is still read', (function(
 })(), Array(1, 5));
 
 // holds, frees
-$jsnVals = runShellAsJson($projDir, Array('maintain', 'fullList'));
+$jsnVals = runShellAsJson($projDir, Array('cleanup', 'fullList'));
 $rowList = $jsnVals['rows'] ?? Array();
 usort($rowList, function( Array $firstHold, Array $otherHold ): Int { return strcmp($firstHold['address'], $otherHold['address']); });
 checkIdentical('holds lists the addresses and which are held', array_map(function( Array $oneHold ): Array { return Array($oneHold['address'], $oneHold['failures'], $oneHold['held until']!=''); }, $rowList), Array(Array('198.51.100.1', 1, false), Array('2001:db8:1:2::', 1, false), Array('203.0.113.7', 2, true)));
-checkIdentical('frees needs a confirmation', Array(callShellArray($projDir, Array('maintain', 'freeAddr', '203.0.113.7', '--noPrompt'))['code'], $limiter->heldUntilCount('203.0.113.7')>0), Array(3, true));
-checkIdentical('what is not an address is a wrong usage', callShellArray($projDir, Array('maintain', 'freeAddr', 'someone', '--yesToAll'))['code'], 2);
-checkIdentical('frees releases an address', Array(callShellArray($projDir, Array('maintain', 'freeAddr', '203.0.113.7'), "y\n")['text'], $limiter->heldUntilCount('203.0.113.7'), count($limiter->listLimitHolds())), Array("released: 1\n", 0, 2));
-checkIdentical('an IPv6 address releases its network', Array(callShellArray($projDir, Array('maintain', 'freeAddr', '2001:db8:1:2::99', '--yesToAll'))['text'], count($limiter->listLimitHolds())), Array("released: 1\n", 1));
-checkIdentical('frees all releases every address', Array(runShellAsJson($projDir, Array('maintain', 'freeAddr', 'all', '--yesToAll'))['released'] ?? null, count($limiter->listLimitHolds())), Array(1, 0));
+checkIdentical('frees needs a confirmation', Array(callShellArray($projDir, Array('cleanup', 'freeAddr', '203.0.113.7', '--noPrompt'))['code'], $limiter->heldUntilCount('203.0.113.7')>0), Array(3, true));
+checkIdentical('what is not an address is a wrong usage', callShellArray($projDir, Array('cleanup', 'freeAddr', 'someone', '--yesToAll'))['code'], 2);
+checkIdentical('frees releases an address', Array(callShellArray($projDir, Array('cleanup', 'freeAddr', '203.0.113.7'), "y\n")['text'], $limiter->heldUntilCount('203.0.113.7'), count($limiter->listLimitHolds())), Array("released: 1\n", 0, 2));
+checkIdentical('an IPv6 address releases its network', Array(callShellArray($projDir, Array('cleanup', 'freeAddr', '2001:db8:1:2::99', '--yesToAll'))['text'], count($limiter->listLimitHolds())), Array("released: 1\n", 1));
+checkIdentical('frees all releases every address', Array(runShellAsJson($projDir, Array('cleanup', 'freeAddr', 'all', '--yesToAll'))['released'] ?? null, count($limiter->listLimitHolds())), Array(1, 0));
 checkPregMatch('a release is traced, signed with the user of the system', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Limiter: address 203\.0\.113\.7 released by user "cli:[\w.\-]+"\n/');
 
 // trace
-checkIdentical('trace shows the last lines of a channel', callShellArray($projDir, Array('maintain', 'tailLogs', 'access', '--numLines=2'))['text'], "[2026-10-01 10:01] [INFO] two\n[2026-10-01 10:02] [WARNING] three\n");
-checkIdentical('trace shows 20 lines when not told', substr_count(callShellArray($projDir, Array('maintain', 'tailLogs', 'access'))['text'], "\n"), 3);
-checkIdentical('a channel without a log', callShellArray($projDir, Array('maintain', 'tailLogs', 'nothing'))['code'], 3);
-checkIdentical('a channel is a plain name', callShellArray($projDir, Array('maintain', 'tailLogs', '../conf/system'))['code'], 2);
+checkIdentical('trace shows the last lines of a channel', callShellArray($projDir, Array('cleanup', 'tailLogs', 'access', '--numLines=2'))['text'], "[2026-10-01 10:01] [INFO] two\n[2026-10-01 10:02] [WARNING] three\n");
+checkIdentical('trace shows 20 lines when not told', substr_count(callShellArray($projDir, Array('cleanup', 'tailLogs', 'access'))['text'], "\n"), 3);
+checkIdentical('a channel without a log', callShellArray($projDir, Array('cleanup', 'tailLogs', 'nothing'))['code'], 3);
+checkIdentical('a channel is a plain name', callShellArray($projDir, Array('cleanup', 'tailLogs', '../conf/system'))['code'], 2);
 
 // purge
-checkIdentical('purge needs to be told what', callShellArray($projDir, Array('maintain', 'cleanDir', '--yesToAll'))['code'], 2);
-checkIdentical('purge knows the folders of temp only', callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir', 'conf', '--yesToAll'))['code'], 2);
-checkIdentical('purge needs a confirmation', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir', '--noPrompt'))['code'], callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir'), "n\n")['code'], count(filesIn($projDir.DS.'temp'.DS.'cache'))), Array(3, 3, 3));
-checkIdentical('purge by age removes the old files only', Array(runShellAsJson($projDir, Array('maintain', 'cleanDir', 'logFiles', '--keepDays=30', '--yesToAll'))['rows'] ?? null, filesIn($projDir.DS.'temp'.DS.'logs')), Array(Array(Array('folder'=>'logFiles', 'removed'=>1, 'state'=>'purged')), Array('access.log', 'runner.log', 'shell.log')));
-checkIdentical('purge removes the files, and keeps the folders', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'cacheDir', 'archives'), "yes\n")['code'], filesIn($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'cache'.DS.'sub'), filesIn($projDir.DS.'temp'.DS.'archives')), Array(0, Array('.gitkeep'), true, Array()));
+checkIdentical('purge needs to be told what', callShellArray($projDir, Array('cleanup', 'cleanDir', '--yesToAll'))['code'], 2);
+checkIdentical('purge knows the folders of temp only', callShellArray($projDir, Array('cleanup', 'cleanDir', 'cacheDir', 'conf', '--yesToAll'))['code'], 2);
+checkIdentical('purge needs a confirmation', Array(callShellArray($projDir, Array('cleanup', 'cleanDir', 'cacheDir', '--noPrompt'))['code'], callShellArray($projDir, Array('cleanup', 'cleanDir', 'cacheDir'), "n\n")['code'], count(filesIn($projDir.DS.'temp'.DS.'cache'))), Array(3, 3, 3));
+checkIdentical('purge by age removes the old files only', Array(runShellAsJson($projDir, Array('cleanup', 'cleanDir', 'logFiles', '--keepDays=30', '--yesToAll'))['rows'] ?? null, filesIn($projDir.DS.'temp'.DS.'logs')), Array(Array(Array('folder'=>'logFiles', 'removed'=>1, 'state'=>'purged')), Array('access.log', 'runner.log', 'shell.log')));
+checkIdentical('purge removes the files, and keeps the folders', Array(callShellArray($projDir, Array('cleanup', 'cleanDir', 'cacheDir', 'archives'), "yes\n")['code'], filesIn($projDir.DS.'temp'.DS.'cache'), is_dir($projDir.DS.'temp'.DS.'cache'.DS.'sub'), filesIn($projDir.DS.'temp'.DS.'archives')), Array(0, Array('.gitkeep'), true, Array()));
 $limiter->countFailedTry('203.0.113.9');
-checkIdentical('purge all', Array(callShellArray($projDir, Array('maintain', 'cleanDir', 'all', '--yesToAll', '--silently'))['code'], filesIn($projDir.DS.'temp'.DS.'limits'), fetchInProject($projDir, 'outside/keep.txt')), Array(0, Array(), 'kept'));
+checkIdentical('purge all', Array(callShellArray($projDir, Array('cleanup', 'cleanDir', 'all', '--yesToAll', '--silently'))['code'], filesIn($projDir.DS.'temp'.DS.'limits'), fetchInProject($projDir, 'outside/keep.txt')), Array(0, Array(), 'kept'));
 checkPregMatch('a purge is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/Purge of tryLimit: 1 files removed by user "cli:/');
 
 // A folder set outside temp is left alone
 writeInProject($projDir, 'conf/system.ini', str_replace('LOG_PATH = /temp/logs', 'LOG_PATH = /outside', buildSystemIni()));
-checkIdentical('logs kept outside temp are not purged', Array(runShellAsJson($projDir, Array('maintain', 'cleanDir', 'logFiles', '--yesToAll'))['rows'][0]['removed'] ?? null, is_file($projDir.DS.'outside'.DS.'keep.txt')), Array(0, true));
+checkIdentical('logs kept outside temp are not purged', Array(runShellAsJson($projDir, Array('cleanup', 'cleanDir', 'logFiles', '--yesToAll'))['rows'][0]['removed'] ?? null, is_file($projDir.DS.'outside'.DS.'keep.txt')), Array(0, true));
 
 finishChecking();

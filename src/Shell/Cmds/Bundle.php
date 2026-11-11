@@ -7,21 +7,21 @@ use nyu\Shell\ConfFile;
 
 /**
  * Builds a copy of the project for one environment, to be carried to its
- * server, where "php nyuRun installs allSteps" installs it:
+ * server, where "php nyuRun install allSteps" installs it:
  *
- *   php nyuRun bundling local                       for a developer's machine
- *   php nyuRun bundling stage                       for a server before production
- *   php nyuRun bundling final                       for production
- *   php nyuRun bundling final --archived            the same, and its .tar.gz beside it
- *   php nyuRun bundling final --planOnly            lists what would be copied, and writes nothing
- *   php nyuRun bundling final --destPath=<path>     in another folder than dist/<mode>, which must be empty
- *   php nyuRun bundling final --composer=<path>     with the Composer that makes its class map
- *   php nyuRun bundling fullList                    lists the modes, those of the framework and those of the project
- *   php nyuRun bundling makeMode qaserver           declares a mode of the project (an integration server), or changes it
- *   php nyuRun bundling dropMode qaserver           removes a mode of the project
+ *   php nyuRun bundles local                       for a developer's machine
+ *   php nyuRun bundles stage                       for a server before production
+ *   php nyuRun bundles final                       for production
+ *   php nyuRun bundles final --archived            the same, and its .tar.gz beside it
+ *   php nyuRun bundles final --planOnly            lists what would be copied, and writes nothing
+ *   php nyuRun bundles final --destPath=<path>     in another folder than dist/<mode>, which must be empty
+ *   php nyuRun bundles final --composer=<path>     with the Composer that makes its class map
+ *   php nyuRun bundles fullList                    lists the modes, those of the framework and those of the project
+ *   php nyuRun bundles makeMode qaserver           declares a mode of the project (an integration server), or changes it
+ *   php nyuRun bundles dropMode qaserver           removes a mode of the project
  *
  * A mode the project declares, in conf/bundle.lst, is built as the others
- * are: php nyuRun bundling qaserver. Only what KEEPLIST names is copied, with
+ * are: php nyuRun bundles qaserver. Only what KEEPLIST names is copied, with
  * the paths the mode adds, and nothing DROPLIST names within them: no
  * secret, no local setting and no private key reach a bundle. The
  * settings of the mode are written in the system.ini of the copy, never
@@ -244,7 +244,7 @@ class Bundle extends Command{
 			$this->printerObj->printShellPair('archive', $this->makeTarArchive($trgtDir));
 		}
 		$this->traceShellDone( 'Bundle: '.$packModeName.', '.count($keptLst).' files in '.$trgtDir.( $this->optionsObj->validateOption('archived') ? ', and its archive' : '' ) );
-		$this->printerObj->printShellLine('On its server: php nyuRun installs allSteps, then php nyuRun installs checkAll.');
+		$this->printerObj->printShellLine('On its server: php nyuRun install allSteps, then php nyuRun install checkAll.');
 		return self::EXIT_DONE;
 	}
 
@@ -329,7 +329,7 @@ class Bundle extends Command{
 	 * of its path hidden (starting with a dot), except a .htaccess file.
 	 * Nothing of conf/keys travels, nor any key, users file or password
 	 * file conf/access.json names, wherever it lies (see secrPaths): the
-	 * server makes its own keys (installs allSteps). A mode brings one of them
+	 * server makes its own keys (install allSteps). A mode brings one of them
 	 * back only by naming that very file in its 'addPaths' paths, the public
 	 * key of a server issuing the tokens for one.
 	 *

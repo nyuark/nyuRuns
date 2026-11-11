@@ -9,11 +9,11 @@ use nyu\Shell\Command;
 /**
  * Cleans what the framework leaves in the temp folder, and shows it:
  *
- *   php nyuRun maintain cleanDir logs --keepDays=30    removes the log files older than 30 days
- *   php nyuRun maintain cleanDir all                   removes every temporary file
- *   php nyuRun maintain tailLogs access --numLines=50  shows the last lines of a log channel (--watching follows it)
- *   php nyuRun maintain fullList                       lists the addresses the limiter counts or holds
- *   php nyuRun maintain freeAddr 203.0.113.7           releases an address (or all)
+ *   php nyuRun cleanup cleanDir logs --keepDays=30    removes the log files older than 30 days
+ *   php nyuRun cleanup cleanDir all                   removes every temporary file
+ *   php nyuRun cleanup tailLogs access --numLines=50  shows the last lines of a log channel (--watching follows it)
+ *   php nyuRun cleanup fullList                       lists the addresses the limiter counts or holds
+ *   php nyuRun cleanup freeAddr 203.0.113.7           releases an address (or all)
  *
  * Nothing is ever removed outside the temp folder of the project.
  */

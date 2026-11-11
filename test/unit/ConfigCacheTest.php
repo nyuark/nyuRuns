@@ -3,7 +3,7 @@
 // Config cache (Setup\ConfCache): written by the first request of a preset
 // when CNF_CACH is TRUE, read by the next ones in place of the preset, the
 // config files and the route files; removed by what writes in conf and by
-// "settings clrCache"; seen as stale by "installs checkAll". Each request runs in a
+// "setting clrCache"; seen as stale by "install checkAll". Each request runs in a
 // child process (test/lib/cacheChild.php) on a project folder of its own.
 
 require __DIR__.'/../lib/harness.php';
@@ -36,9 +36,9 @@ checkIdentical('the cache holds the env: values as written, never what the envir
 writeInProject($projDir, 'conf/routes/probe.rte', '{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "signsOut" } } }');
 touch($projDir.DS.'conf'.DS.'routes'.DS.'probe.rte', time()+60);
 checkIdentical('the next request reads the cache, not the files', trim(runScriptArray($runArgs)['text']), '{"ok":true}');
-$rowList = array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
+$rowList = array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
 checkIdentical('deploy check sees a cache older than a file changed since', $rowList['config cache'] ?? null, 'warn');
-$runVals = callShellArray($projDir, Array('settings', 'clrCache'));
+$runVals = callShellArray($projDir, Array('setting', 'clrCache'));
 clearstatcache();
 checkIdentical('config cache removes it', Array($runVals['code'], is_file($cchPath), strpos($runVals['text'], 'cache files removed')!==false), Array(0, false, true));
 checkPregMatch('it is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Config: cache removed, 1 files/');
@@ -48,23 +48,23 @@ checkIdentical('a config file newer than the request: the files are read, and no
 touch($projDir.DS.'conf'.DS.'routes'.DS.'probe.rte', time()-60);
 clearstatcache();
 checkIdentical('the next request reads the files again, and caches them', Array(trim(runScriptArray($runArgs)['text']), is_file($cchPath)), Array('{"left":true}', true));
-$rowList = array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
+$rowList = array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
 checkIdentical('deploy check finds it up to date', $rowList['config cache'] ?? null, 'fine');
 
 // What writes in conf removes it
 clearstatcache();
-checkIdentical('config write removes it', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'DEF_ROWS', '50'))['code'], is_file($cchPath)), Array(0, false));
+checkIdentical('config write removes it', Array(callShellArray($projDir, Array('setting', 'setValue', 'coreConf', 'DEF_ROWS', '50'))['code'], is_file($cchPath)), Array(0, false));
 runScriptArray($runArgs);
-checkIdentical('CNF_CACH is checked', callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'CNF_CACH', 'maybe'))['code']!=0, true);
+checkIdentical('CNF_CACH is checked', callShellArray($projDir, Array('setting', 'setValue', 'coreConf', 'CNF_CACH', 'maybe'))['code']!=0, true);
 clearstatcache();
 checkIdentical('and the cache was left as it was', is_file($cchPath), true);
-callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'CNF_CACH', 'FALSE'));
+callShellArray($projDir, Array('setting', 'setValue', 'coreConf', 'CNF_CACH', 'FALSE'));
 runScriptArray($runArgs);
 clearstatcache();
 checkIdentical('with CNF_CACH FALSE, nothing is cached', is_file($cchPath), false);
-checkIdentical('TBL_CACH is checked too', callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'TBL_CACH', 'maybe'))['code']!=0, true);
-callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'TBL_CACH', 'TRUE'));
-$rowList = array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
+checkIdentical('TBL_CACH is checked too', callShellArray($projDir, Array('setting', 'setValue', 'coreConf', 'TBL_CACH', 'maybe'))['code']!=0, true);
+callShellArray($projDir, Array('setting', 'setValue', 'coreConf', 'TBL_CACH', 'TRUE'));
+$rowList = array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'state', 'check');
 checkIdentical('deploy check warns about TBL_CACH without CNF_CACH', $rowList['table cache'] ?? null, 'warn');
 
 // The values of the cache, as the Loader takes them

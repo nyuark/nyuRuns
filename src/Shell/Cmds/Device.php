@@ -10,9 +10,9 @@ use nyu\Access\Auth\Device as DeviceAuth;
  * own, each in the name of a user of the native userbase (see
  * Access\Auth\Device):
  *
- *   php nyuRun machines newToken home anna home  gives a device a token, with its role: shown once
- *   php nyuRun machines fullList anna            lists the devices, of a user or of every user
- *   php nyuRun machines revokeIt home anna       revokes the device of that name of a user
+ *   php nyuRun devices newToken home anna home  gives a device a token, with its role: shown once
+ *   php nyuRun devices fullList anna            lists the devices, of a user or of every user
+ *   php nyuRun devices revokeIt home anna       revokes the device of that name of a user
  *
  * The role is the one the application gives its devices: the framework
  * knows none. Only the hash of a token is stored; a revoked device is
@@ -61,7 +61,7 @@ class Device extends Command{
 		}
 		$dvcAuth = $this->getDeviceCheck();
 		if( $this->findDeviceNumb($dvcAuth, $devcNme, $usrName)!==null ){
-			$this->terminateShell('No token made: the user already has a device named '.json_encode($devcNme).' (machines revokeIt it first)', self::EXIT_DENY);
+			$this->terminateShell('No token made: the user already has a device named '.json_encode($devcNme).' (devices revokeIt it first)', self::EXIT_DENY);
 		}
 		$newTokn = $dvcAuth->pushDeviceText($usrName, $devcNme, $devcRle);
 		if( $newTokn===false ){

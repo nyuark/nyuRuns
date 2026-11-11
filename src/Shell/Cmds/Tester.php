@@ -7,9 +7,9 @@ use nyu\Shell\Command;
 /**
  * Runs the test suite (test/run.php):
  *
- *   php nyuRun runTests       the unit, audit and data groups
- *   php nyuRun runTests http  the named groups, or the scripts whose name holds the word
- *   php nyuRun runTests all   every group, http included
+ *   php nyuRun testing       the unit, audit and data groups
+ *   php nyuRun testing http  the named groups, or the scripts whose name holds the word
+ *   php nyuRun testing all   every group, http included
  *
  * The extensions the tests use and this PHP does not load are given for
  * the run, when their files are in the extension folder: --addExtns=a,b

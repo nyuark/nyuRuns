@@ -3,7 +3,7 @@
 // Access\Auth\Native and UserBase : codes mailed as a second factor, set
 // with emailTwoFactor(), mailed at the login through a 'emlFiles' account,
 // accepted once before their end, at most one mail a minute; and the
-// commands that set them (accounts setTwoFa --emailOtp) or refuse them.
+// commands that set them (account setTwoFa --emailOtp) or refuse them.
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/sample.php';

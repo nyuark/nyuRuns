@@ -137,7 +137,7 @@ class HealthChk{
 			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFil ){
 			$srcTime = max($srcTime, intval(@filemtime(strval($srcFil))));
 		}
-		$this->addCheckResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file (a Run\'s routes.rte too) changed since: run "settings clrCache", the next request reads the files' : 'up to date' );
+		$this->addCheckResult( 'config cache', ($srcTime>$cchTime) ? 'warn' : 'fine', ($srcTime>$cchTime) ? 'older than a config, preset or route file (a Run\'s routes.rte too) changed since: run "setting clrCache", the next request reads the files' : 'up to date' );
 	}
 
 	/**
@@ -343,7 +343,7 @@ class HealthChk{
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$accsVls = ($nyuConf!==null) ? $nyuConf->readValueByKey('access') : null;
 		if( !is_array($accsVls) || empty($accsVls) ){
-			$this->addCheckResult('access', 'fail', 'conf/access.json is missing or empty: "installs makeConf" creates it from its example');
+			$this->addCheckResult('access', 'fail', 'conf/access.json is missing or empty: "install makeConf" creates it from its example');
 			return;
 		}
 		$lgnConf = $this->accessSettings('loginSet');
@@ -371,13 +371,13 @@ class HealthChk{
 				$this->validateRsakey($blckNme, $blkVal);
 			}elseif( array_key_exists('hmacSecr', $blkVal) ){
 				$secrLen = strlen(strval($blkVal['hmacSecr']));
-				$this->addCheckResult( 'secret '.$blckNme, ($secrLen>=self::SECR_SIZE) ? 'fine' : 'fail', ($secrLen>=self::SECR_SIZE) ? 'set' : ( $secrLen==0 ? 'empty' : 'too short' ).': '.self::SECR_SIZE.' characters at least; "settings makeSecr jwtToken" makes one' );
+				$this->addCheckResult( 'secret '.$blckNme, ($secrLen>=self::SECR_SIZE) ? 'fine' : 'fail', ($secrLen>=self::SECR_SIZE) ? 'set' : ( $secrLen==0 ? 'empty' : 'too short' ).': '.self::SECR_SIZE.' characters at least; "setting makeSecr jwtToken" makes one' );
 			}
 			if( array_key_exists('signAlgo', $blkVal) || array_key_exists('issuerId', $blkVal) && array_key_exists('audience', $blkVal) || array_key_exists('appsList', $blkVal) ){
 				$this->validateClaims($blckNme, $blkVal);
 			}
 			if( isset($blkVal['keysList']) && is_array($blkVal['keysList']) && in_array('', array_map('strval', $blkVal['keysList']), true) ){
-				$this->addCheckResult('keys '.$blckNme, 'warn', 'an API key of the block is empty; "settings makeSecr keysList" makes one');
+				$this->addCheckResult('keys '.$blckNme, 'warn', 'an API key of the block is empty; "setting makeSecr keysList" makes one');
 			}
 			if( ($blkVal['secureOn'] ?? true)===false && array_key_exists('cookName', $blkVal) && strtoupper(strval($nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME')))=='PROD' ){
 				$this->addCheckResult('cookie '.$blckNme, 'warn', 'the session cookie also travels over plain HTTP (secureOn is false) in the environment PROD');
@@ -385,9 +385,9 @@ class HealthChk{
 			if( array_key_exists('tfaCrypt', $blkVal) ){
 				$keySize = strlen(strval($blkVal['tfaCrypt']));
 				if( $keySize==0 ){
-					$this->addCheckResult('2FA key '.$blckNme, 'warn', 'empty: the 2FA secrets are stored readable; "settings makeSecr tfaCrypt" makes one');
+					$this->addCheckResult('2FA key '.$blckNme, 'warn', 'empty: the 2FA secrets are stored readable; "setting makeSecr tfaCrypt" makes one');
 				}else{
-					$this->addCheckResult( '2FA key '.$blckNme, ($keySize>=Totp::SEAL_SIZE) ? 'fine' : 'fail', ($keySize>=Totp::SEAL_SIZE) ? 'set' : 'too short: '.Totp::SEAL_SIZE.' characters at least; "settings makeSecr tfaCrypt" makes one' );
+					$this->addCheckResult( '2FA key '.$blckNme, ($keySize>=Totp::SEAL_SIZE) ? 'fine' : 'fail', ($keySize>=Totp::SEAL_SIZE) ? 'set' : 'too short: '.Totp::SEAL_SIZE.' characters at least; "setting makeSecr tfaCrypt" makes one' );
 				}
 			}
 			if( ($blkVal['weakHash'] ?? false)===true ){
@@ -398,7 +398,7 @@ class HealthChk{
 		// The key of the login marks : without one, the hold of an account also stops its owner
 		$lmtConf = $this->accessSettings('tryLimit');
 		$mrkSize = strlen(strval($lmtConf['markSecr'] ?? ''));
-		$this->addCheckResult( 'login marks', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'fine' : 'warn', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'set: a client already used logs in while its account is held' : 'no markSecr of '.\nyu\Access\LoginMark::KEYS_SIZE.' characters: the hold of an account also stops its owner; "settings makeSecr markSecr" makes one' );
+		$this->addCheckResult( 'login marks', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'fine' : 'warn', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'set: a client already used logs in while its account is held' : 'no markSecr of '.\nyu\Access\LoginMark::KEYS_SIZE.' characters: the hold of an account also stops its owner; "setting makeSecr markSecr" makes one' );
 		// The language of the mails of a user who has none
 		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->obtainRowValue('SYSTEM', 'DEF_LANG') ?? ''))) );
 		if( $dfltTag!=='' && !Language::isValidLangTag($dfltTag) ){
@@ -484,7 +484,7 @@ class HealthChk{
 			$prevObj = ($oldText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($oldText) : false;
 			$oldInfo = ($prevObj!==false) ? openssl_pkey_get_details($prevObj) : false;
 			if( !is_array($oldInfo) || ($oldInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($oldInfo['bits'] ?? 0)<JWT::RSAS_BITS ){
-				$clmFlaw[] = 'prevFile is not the public RSA key of '.JWT::RSAS_BITS.' bits at least: empty it, or "settings makeSecr jwtToken" writes it';
+				$clmFlaw[] = 'prevFile is not the public RSA key of '.JWT::RSAS_BITS.' bits at least: empty it, or "setting makeSecr jwtToken" writes it';
 			}elseif( ($blckValueArr['signAlgo'] ?? '')!='RS256' ){
 				$this->addCheckResult('previous key '.$blckNamedTxt, 'warn', 'prevFile is only read with RS256');
 			}elseif( !is_int($blckValueArr['retireAt'] ?? null) || $blckValueArr['retireAt'] + max(1, intval($blckValueArr['lifeSecs'] ?? 3600))<time() ){
@@ -500,8 +500,8 @@ class HealthChk{
 		$hasIssr = $appKeys || trim(strval($blckValueArr['issuerId'] ?? ''))!='';
 		if( !$hasAdnc || !$hasIssr ){
 			$this->addCheckResult('token claims '.$blckNamedTxt, 'warn', $appKeys
-				? 'no audience: the tokens of the applications are not bound to this project; "settings setValue accsConf '.$blckNamedTxt.'.audience" sets it'
-				: 'no issuer or no audience: the tokens are not bound to this project; "settings setValue accsConf '.$blckNamedTxt.'.issuer" and ".audience" set them');
+				? 'no audience: the tokens of the applications are not bound to this project; "setting setValue accsConf '.$blckNamedTxt.'.audience" sets it'
+				: 'no issuer or no audience: the tokens are not bound to this project; "setting setValue accsConf '.$blckNamedTxt.'.issuer" and ".audience" set them');
 			return;
 		}
 		$this->addCheckResult('token claims '.$blckNamedTxt, 'fine', $appKeys ? 'audience '.json_encode($adncVal) : 'issuer '.json_encode($blckValueArr['issuerId']).', audience '.json_encode($adncVal));
@@ -544,18 +544,18 @@ class HealthChk{
 		// A public key laid over the server's own (a bundle of another pair) no longer checks what its private key signs
 		$pairsOk = ($privKey===false || $publObj===false) || strval(openssl_pkey_get_details($privKey)['key'] ?? '')===strval(openssl_pkey_get_details($publObj)['key'] ?? '');
 		if( ($keyText['privFile']!='' && $privKey===false) || ($keyText['publFile']!='' && $publObj===false) ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'a key file is not a PEM key: "settings makeSecr jwtToken" makes a new pair');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'a key file is not a PEM key: "setting makeSecr jwtToken" makes a new pair');
 		}elseif( !$pairsOk ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'the public key is not the one of the private key: "settings makeSecr jwtToken" makes a new pair');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'the public key is not the one of the private key: "setting makeSecr jwtToken" makes a new pair');
 		}elseif( empty($keyBits) ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'missing: "settings makeSecr jwtToken" makes them');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'missing: "setting makeSecr jwtToken" makes them');
 		}elseif( min($keyBits)<JWT::RSAS_BITS ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "settings makeSecr jwtToken" makes a new pair');
+			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "setting makeSecr jwtToken" makes a new pair');
 		}elseif( $privKey===false && ($blckValueArr['external'] ?? false)!==true && !empty($lgnConf = $this->accessSettings('loginSet')) && strval($lgnConf['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($lgnConf['carrConf'] ?? 'jwtToken'), $blckNamedTxt)==0 ){
 			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 			$isFinal = in_array(strtoupper(strval(($nyuConf!==null) ? $nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
-			$this->addCheckResult('token keys '.$blckNamedTxt, $isFinal ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "settings makeSecr jwtToken" makes a pair; "external": true when the tokens come from another server');
+			$this->addCheckResult('token keys '.$blckNamedTxt, $isFinal ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "setting makeSecr jwtToken" makes a pair; "external": true when the tokens come from another server');
 		}else{
 			$this->addCheckResult('token keys '.$blckNamedTxt, 'fine', ($privKey===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($keyBits).' bits');
 		}
@@ -610,7 +610,7 @@ class HealthChk{
 				$dbHndlr = DBCon::linkNamedDbCon( strval($blckCfg['linkName'] ?? '') )->readConnection();
 				$tblName = strval($blckCfg['useTable'] ?? 'users');
 				$hasTble = ($dbHndlr!==null) && $dbHndlr->tableInfoArray($tblName)!==false;
-				$this->addCheckResult( 'users', $hasTble ? 'fine' : 'fail', $hasTble ? 'the table '.$tblName.' is there' : 'the table '.$tblName.' is missing: "installs userBase" creates it' );
+				$this->addCheckResult( 'users', $hasTble ? 'fine' : 'fail', $hasTble ? 'the table '.$tblName.' is there' : 'the table '.$tblName.' is missing: "install userBase" creates it' );
 			}catch( \Throwable $e ){
 				$this->addCheckResult('users', 'fail', 'the userbase cannot be read: '.$e->getMessage());
 			}
@@ -618,11 +618,11 @@ class HealthChk{
 			$chckObj = new UserList($blckCfg);
 			$chckObj->usrIdentityArr('-');
 			$isReady = ($chckObj->finalErrorText()!='Credential store unavailable');
-			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the users file is read' : 'the users file is missing or cannot be used: "installs userBase" creates it' );
+			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the users file is read' : 'the users file is missing or cannot be used: "install userBase" creates it' );
 		}elseif( $authNme=='htpasswd' ){
 			$pwdFile = trim( strval($blckCfg['passFile'] ?? ''), '/\\ ' );
 			$isReady = ($pwdFile!='') && is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $pwdFile));
-			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "settings makeSecr htpasswd <user>" writes it' );
+			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "setting makeSecr htpasswd <user>" writes it' );
 		}
 	}
 

@@ -19,14 +19,14 @@ use nyu\Shell\UserFile;
 /**
  * Installs the project on a server, and checks it:
  *
- *   php nyuRun installs allSteps             the whole sequence, asking what it needs with a default to take on Enter
- *   php nyuRun installs allSteps --noPrompt  the same without a question, for a deployment script
- *   php nyuRun installs testHost             checks the server: PHP, extensions, folders
- *   php nyuRun installs makeConf             creates the local files from their examples
- *   php nyuRun installs userBase             creates the users table and the basic users, or the users file;
+ *   php nyuRun install allSteps             the whole sequence, asking what it needs with a default to take on Enter
+ *   php nyuRun install allSteps --noPrompt  the same without a question, for a deployment script
+ *   php nyuRun install testHost             checks the server: PHP, extensions, folders
+ *   php nyuRun install makeConf             creates the local files from their examples
+ *   php nyuRun install userBase             creates the users table and the basic users, or the users file;
  *                                      the devices table too when conf/access.json has a device block
- *   php nyuRun installs checkAll         the health check
- *   php nyuRun installs moveUser native  moves the users to the other store (native or userFile), the login with them
+ *   php nyuRun install checkAll         the health check
+ *   php nyuRun install moveUser native  moves the users to the other store (native or userFile), the login with them
  *
  * Nothing that exists is replaced: a local file, a secret, a table or a
  * file that already holds users are left as they are.
@@ -359,14 +359,14 @@ class Deploy extends Command{
 			return ($usrValuesArr['userStatus'] ?? '')=='inReview';
 		}), 'systemName' );
 		if( !empty($rvwList) ){
-			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; accounts freeUser makes them active');
+			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; account freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
 		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['twoFactWay'] ?? null)==='emailOtp';
 		}), 'systemName' );
 		if( !empty($mailLst) ){
-			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "accounts setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
+			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "account setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
 		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
 		$dvcConf = $this->accessSettings('dvcToken');

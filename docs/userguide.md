@@ -98,7 +98,7 @@ sounds, or extensions for images and office documents.
   lists what each part needs.
 - [`HOSTING.md`](../HOSTING.md) walks you through setting up the server.
 
-On any machine, `php nyuRun installs checkAll` tells you what's missing.
+On any machine, `php nyuRun install checkAll` tells you what's missing.
 
 ---
 
@@ -118,7 +118,7 @@ from the `notes` folder, the root of your project.
 ### 3.2 Install the project
 
 ```
-php nyuRun installs allSteps
+php nyuRun install allSteps
 ```
 
 The command asks a few questions: the environment, where your users
@@ -174,7 +174,7 @@ Here's what just happened:
   will differ from the ones above.
 - **A health check** wraps it all up (3.5).
 
-Run it again and nothing breaks: `installs allSteps` never replaces what
+Run it again and nothing breaks: `install allSteps` never replaces what
 already exists, be it a file, a secret, a table or a user.
 
 > Don't want a database? Answer `userFile`. Your users are then kept in a
@@ -226,7 +226,7 @@ Chapter 4 shows how to decide who gets in where.
 ### 3.5 Check it
 
 ```
-php nyuRun installs checkAll
+php nyuRun install checkAll
 ```
 
 ```
@@ -266,8 +266,8 @@ Appendix A explains the other rows.
 ### 3.6 On a real server
 
 You don't copy a project to a server as is. You build a copy made for
-that server (`php nyuRun bundling final`), install it there with
-`installs allSteps`, and put it behind a web server that sends every URL to
+that server (`php nyuRun bundles final`), install it there with
+`install allSteps`, and put it behind a web server that sends every URL to
 `www/index.php`. Chapter 8 has the checklist for going live, and
 [`HOSTING.md`](../HOSTING.md) covers the server setup.
 
@@ -276,7 +276,7 @@ that server (`php nyuRun bundling final`), install it there with
 ## 4. Configuration steps
 
 Every setting lives in a file in `conf/`, except the secrets, which go in
-`.env`. `php nyuRun settings` shows them and changes one value at a time:
+`.env`. `php nyuRun setting` shows them and changes one value at a time:
 it checks the new value first, and keeps the previous file in
 `temp/archives`. Each step below ends with a way to check that it worked.
 
@@ -287,13 +287,13 @@ signing in left open. The `restapi` profile works the same way, and it's
 the one meant for a web API, so give it to your entry point:
 
 ```
-php nyuRun settings wwwEntry index restapi
+php nyuRun setting wwwEntry index restapi
 ```
 
 Then see who can reach what:
 
 ```
-php nyuRun settings fullList restapi
+php nyuRun setting fullList restapi
 ```
 
 ```
@@ -336,16 +336,16 @@ Name a route as `run/action`, as `run/*` for all the actions of a run, or
 as `/path` for a declared route, mount included. Roles are ranked
 (`standard` < `advanced` < `delegate` < `managers`), so a route asking for `advanced`
 lets managers in too. Chapter 5 adds the `Notes` routes here. After an
-edit, `settings fullList restapi` shows the result, and
-`installs checkAll` tells you whether the profile still loads.
+edit, `setting fullList restapi` shows the result, and
+`install checkAll` tells you whether the profile still loads.
 
 Blocks like `minRoles` are edited by hand in the file, since
-`settings setValue` only changes single values.
+`setting setValue` only changes single values.
 
 ### 4.3 Manage the users
 
 ```
-php nyuRun accounts fullList
+php nyuRun account fullList
 ```
 
 ```
@@ -358,12 +358,12 @@ id_user  systemName  accessRole  userStatus  contactEml  userLocale  signupDate 
 
 | To | Run |
 |---|---|
-| create a pending user | `php nyuRun accounts makeUser ann advanced` (the activation code is shown once) |
-| set their email address | `php nyuRun accounts setEmail ann ann@example.org` |
-| reset their password | `php nyuRun accounts password ann` (shown once) |
-| change their role | `php nyuRun accounts giveRole ann managers` |
-| lock or unlock them | `php nyuRun accounts lockUser ann`, `php nyuRun accounts freeUser ann` |
-| list what a command takes | `php nyuRun accounts --helpText` |
+| create a pending user | `php nyuRun account makeUser ann advanced` (the activation code is shown once) |
+| set their email address | `php nyuRun account setEmail ann ann@example.org` |
+| reset their password | `php nyuRun account password ann` (shown once) |
+| change their role | `php nyuRun account giveRole ann managers` |
+| lock or unlock them | `php nyuRun account lockUser ann`, `php nyuRun account freeUser ann` |
+| list what a command takes | `php nyuRun account --helpText` |
 
 A manager can do all of this over HTTP too, through the `Users` run
 (`users/create`, `users/lock`, …). Every change is traced in
@@ -377,7 +377,7 @@ sending anything for real, use an account that writes mails to files:
 
 ```
 cp conf/mailer.json.dist conf/mailer.json
-php nyuRun settings setValue accsConf nativeDb.mailAcnt devbox
+php nyuRun setting setValue accsConf nativeDb.mailAcnt devbox
 ```
 
 `devbox` is the third account in the example, and it saves each mail as a
@@ -402,7 +402,7 @@ Once mails work, two more doors open:
 - **Forgotten passwords** work right away: `auth/forgot`, then
   `auth/recover`.
 - **Sign-ups** open with
-  `php nyuRun settings setValue accsConf nativeDb.signupOn true`. Each one
+  `php nyuRun setting setValue accsConf nativeDb.signupOn true`. Each one
   then waits for a manager's approval (`accounts approves`).
 
 Set `nativeDb.linkTmpl` to the page of your front end that takes a code
@@ -414,7 +414,7 @@ link.
 Mails go out in each user's language, or else in the default one:
 
 ```
-php nyuRun settings setValue coreConf DEF_LANG fr
+php nyuRun setting setValue coreConf DEF_LANG fr
 ```
 
 nyuRuns ships its mails in English and French. Set a user's language with
@@ -422,11 +422,11 @@ nyuRuns ships its mails in English and French. Set a user's language with
 
 ### 4.6 Keep the secrets
 
-`installs allSteps` put the secrets in `.env` and the token keys in
+`install allSteps` put the secrets in `.env` and the token keys in
 `conf/keys`. Never commit them. To make new keys:
 
 ```
-php nyuRun settings makeSecr jwtToken
+php nyuRun setting makeSecr jwtToken
 ```
 
 It asks before replacing keys in use, because new keys void every token
@@ -436,14 +436,14 @@ signed with the old ones, and everyone has to sign in again.
 
 | Setting | Command | Effect |
 |---|---|---|
-| how much gets logged | `php nyuRun settings setValue coreConf LOG_MODE BASE` | `FULL` everything, `BASE` all but debug, `MINI` errors, warnings and notices |
-| whether errors are shown | `php nyuRun settings setValue coreConf ERR_SHOW FALSE` | never shown in production, whatever this says |
-| the environment | `php nyuRun settings setValue coreConf ENV_NAME PROD` | `DEVS`, `TEST`, `PREV`, `PROD` |
+| how much gets logged | `php nyuRun setting setValue coreConf LOG_MODE BASE` | `FULL` everything, `BASE` all but debug, `MINI` errors, warnings and notices |
+| whether errors are shown | `php nyuRun setting setValue coreConf ERR_SHOW FALSE` | never shown in production, whatever this says |
+| the environment | `php nyuRun setting setValue coreConf ENV_NAME PROD` | `DEVS`, `TEST`, `PREV`, `PROD` |
 
 To read a log from the command line:
 
 ```
-php nyuRun maintain tailLogs access --numLines=3
+php nyuRun cleanup tailLogs access --numLines=3
 ```
 
 ```
@@ -458,8 +458,8 @@ If you answered `userFile` during installation, your users live in
 `conf/users.lst`. To move them into a database:
 
 ```
-php nyuRun installs makeConf
-php nyuRun installs moveUser nativeDb --yesToAll
+php nyuRun install makeConf
+php nyuRun install moveUser nativeDb --yesToAll
 ```
 
 The first command creates `conf/database.json` from its example. The
@@ -743,7 +743,7 @@ Naming the page by its action keeps it open wherever the run is mounted.
 Check it:
 
 ```
-php nyuRun settings fullList restapi
+php nyuRun setting fullList restapi
 ```
 
 ```
@@ -928,7 +928,7 @@ there: git ignores it, and the copy built for a server leaves it out.
 Nothing in `conf/keys` goes along, not even a public key, because the
 server makes its own. If your server checks tokens issued by another one,
 name that server's public key in a project mode (its `addPaths` paths, see
-`bundling makeMode`) to bring it along.
+`bundles makeMode`) to bring it along.
 
 `notes.sqlite` is left out of that copy too, but git doesn't know that.
 Add it to `.gitignore`, or move the database out of the project and give
@@ -1008,19 +1008,19 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 - [ ] The test suite passes, including your runs' tests and the audit:
       `php test/run.php`.
 - [ ] Every action has its `input/<action>.json` and every route its
-      minimum role: `php nyuRun settings fullList <profile>` shows nothing open
+      minimum role: `php nyuRun setting fullList <profile>` shows nothing open
       that shouldn't be.
 - [ ] Your front end hides whatever a user's role can't reach, since the
       service answers it as "not found".
 
 ### 8.2 Ship a copy, not the folder
 
-- [ ] Build the production copy: `php nyuRun bundling final --archived`. It
+- [ ] Build the production copy: `php nyuRun bundles final --archived`. It
       holds no secrets, no local settings, no private key and no tests.
       Its `system.ini` is set for production (`PROD`, errors hidden,
       `MINI` logs, config cache on), and its classes are mapped when
       Composer is available.
-- [ ] Install it on the server with `php nyuRun installs allSteps`: secrets
+- [ ] Install it on the server with `php nyuRun install allSteps`: secrets
       and keys are made there and never leave.
 - [ ] Make `.env` readable by its owner only (`chmod 600 .env`).
 
@@ -1043,25 +1043,25 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 - [ ] You have at least two managers, since a manager can't reset, lock or
       remove their own account.
 - [ ] After editing a file in `conf/` by hand, you've run
-      `php nyuRun settings clrCache`. With the cache on, the service keeps
-      reading the old settings until you do. `installs checkAll` warns about a
+      `php nyuRun setting clrCache`. With the cache on, the service keeps
+      reading the old settings until you do. `install checkAll` warns about a
       cache older than its files.
 
 ### 8.5 Before it goes live, and after
 
-- [ ] `php nyuRun installs checkAll` ends with `fail: 0`. On a failure it exits
+- [ ] `php nyuRun install checkAll` ends with `fail: 0`. On a failure it exits
       with an error code, so a deployment script stops right there.
 - [ ] Back up what can't be rebuilt: the database, `.env`, `conf/keys`
       and your local files in `conf/`.
-- [ ] Read the logs now and then (`php nyuRun maintain tailLogs access`),
+- [ ] Read the logs now and then (`php nyuRun cleanup tailLogs access`),
       and clear out the old ones
-      (`php nyuRun maintain cleanDir logFiles --keepDays=30`).
+      (`php nyuRun cleanup cleanDir logFiles --keepDays=30`).
 - [ ] To update, build a new copy and lay it over the code. `.env`, the
       keys, your local files in `conf/` and the data stay as they are;
-      then run `php nyuRun settings clrCache`. The copy brings its own
+      then run `php nyuRun setting clrCache`. The copy brings its own
       `system.ini`, profiles and routes, so a setting you changed on the
       server has to be changed again, or kept in a project mode
-      (`bundling makeMode`).
+      (`bundles makeMode`).
 
 ---
 
@@ -1075,10 +1075,10 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 2. **The logs** in `temp/logs`, one file per topic: `error.log` (code
    errors), `access.log` (sign-ins, refusals and why), `runner.log` (what
    wasn't found and why, mails, removals, uploads), `shell.log` (what
-   commands changed). `php nyuRun maintain tailLogs <channel>` shows the latest
+   commands changed). `php nyuRun cleanup tailLogs <channel>` shows the latest
    lines.
-3. **`php nyuRun installs checkAll`** for the settings (A.3).
-4. **`php nyuRun settings fullList <profile>`** for who can reach what.
+3. **`php nyuRun install checkAll`** for the settings (A.3).
+4. **`php nyuRun setting fullList <profile>`** for who can reach what.
 
 ### A.2 Replies that surprise you
 
@@ -1090,17 +1090,17 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 | `500` naming `Input misconfigured` | an `input/<action>.json` that isn't `{ "fieldSet": … }`, or that names a format that doesn't exist | fix the file; formats come from `nyu\Tools\Variable` |
 | `400 Missing or invalid input: …` | a required field (`name!`) was missing or empty | send it, and check its name |
 | `401 Missing Bearer Authorization header` | the profile wants a token | sign in and send `Authorization: Bearer <token>` |
-| `401 Invalid credentials` with the right password | the account isn't active (`awaiting`, `inReview` or `disabled`) | `php nyuRun accounts fullList` shows its status |
+| `401 Invalid credentials` with the right password | the account isn't active (`awaiting`, `inReview` or `disabled`) | `php nyuRun account fullList` shows its status |
 | `400 Password sent in the query string` | the password came in the URL | send it in the body, with `POST` |
 | `405 Method Not Allowed` | the route doesn't take that method | its `Allow` header lists the ones it does |
 | `413 Payload Too Large` | the body is bigger than `REQ_SIZE`, or has more parts than `REQ_PART` | raise them in `system.ini` if that's intended |
-| `429 Too many attempts` | that address sent too many wrong credentials | wait `Retry-After` seconds, or run `php nyuRun maintain freeAddr <address>` |
+| `429 Too many attempts` | that address sent too many wrong credentials | wait `Retry-After` seconds, or run `php nyuRun cleanup freeAddr <address>` |
 | `501 Tokens are issued by another server` | the profile only checks tokens signed elsewhere | sign in on the service that issues them |
-| a change in `conf/` doesn't show | the config cache is on (`CNF_CACH`) | `php nyuRun settings clrCache` |
+| a change in `conf/` doesn't show | the config cache is on (`CNF_CACH`) | `php nyuRun setting clrCache` |
 | `"mailed": true`, but nothing arrives | the mail failed after the reply went out | `runner.log` says why; with an `emlFiles` account, look in `temp/mails` |
 | every request: `Class "nyu\Runner" not found` | PHP's built-in server was started outside `www` | start it from `www` (3.3) |
 
-### A.3 The rows of `installs checkAll`
+### A.3 The rows of `install checkAll`
 
 A `fail` means the service can't serve, or is exposed. A `warn` is worth a
 look.
@@ -1111,22 +1111,22 @@ look.
 | `php patch`, `upload progress` | PHP is missing its latest fixes, or upload progress is on | update PHP; set `session.upload_progress.enabled = 0` in `php.ini` |
 | `extension json`, `extensions` | a required or optional extension is missing | see A.4 |
 | `folder temp/…` | missing or not writable | let the web server's user write to `temp/` |
-| `access` | `conf/access.json` is missing | `php nyuRun installs makeConf` |
+| `access` | `conf/access.json` is missing | `php nyuRun install makeConf` |
 | `access login` | no sign-in set up, or one naming a check or block that isn't there | fix the `loginSet` block of `access.json` |
 | `preset <name>` | the profile won't load (an unknown key, a role that isn't one, an open route given a role) | the row says which; fix the `.rps` file |
 | `entry index` | the entry starts a profile that asks for no credentials | name a profile that checks access (4.1), or set `"isPublic": true` in its `security` block if the site is meant to be open |
 | `origins <profile>` | any site may call the API from a browser | list the allowed origins under `corsList` |
 | `route clash`, `route shadow` | two runs declare the same path, or a site route hides a run's route | rename one of the paths, or change a run's mount |
 | `access route` | `openList` or `minRoles` names a route that doesn't exist | fix the entry in the profile |
-| `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun settings setValue accsConf jwtToken.issuer …` and `.audience` |
-| `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun settings makeSecr markSecr` |
+| `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun setting setValue accsConf jwtToken.issuer …` and `.audience` |
+| `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun setting makeSecr markSecr` |
 | `file rights` | the rights of the secret files can't be checked (Windows) | limit `conf` and `temp` to the web server's account (`icacls`) |
-| `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun settings makeSecr jwtToken` (or `keysList`, `tfaCrypt`) |
+| `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun setting makeSecr jwtToken` (or `keysList`, `tfaCrypt`) |
 | `database …` | the database doesn't answer, or its extension isn't loaded | check `conf/database.json`, the server, and A.4 |
-| `users` | the users table or file is missing | `php nyuRun installs userBase` |
+| `users` | the users table or file is missing | `php nyuRun install userBase` |
 | `access mails …`, `access link …`, `access codes …` | the mail account, the link or the code length isn't valid | see 4.4 |
 | `sign-ups …` | sign-ups are open, but there's no mail to confirm them | name a mail account in `nativeDb.mailAcnt`, or close sign-ups |
-| `config cache` | the cache is older than a file changed since | `php nyuRun settings clrCache` |
+| `config cache` | the cache is older than a file changed since | `php nyuRun setting clrCache` |
 | `table cache` | `TBL_CACH` is on without `CNF_CACH` | turn both on, or both off |
 | `error level` | `ERR_LEVL` holds something that isn't an error level | use `E_*` names (`E_ALL & ~E_DEPRECATED`, in quotes) |
 | `mail language` | `DEF_LANG` isn't a language tag | `en`, `fr`, `fr-ch`, … |
@@ -1140,11 +1140,11 @@ look.
 
 | Missing | What you see |
 |---|---|
-| `json` | nothing gets answered, and `installs checkAll` fails right away |
+| `json` | nothing gets answered, and `install checkAll` fails right away |
 | `dom`, `iconv`, `zlib`, `mbstring` | `composer install` refuses to install the libraries, and PDF and HTML documents can't be read |
 | `openssl` | RS256 tokens can't be made (`token keys …: RS256 needs the openssl extension`), and 2FA secrets can't be encrypted |
 | `pdo_sqlite`, `pdo_mysql`, `pdo_pgsql` | `database …: the extension … is not loaded`; without `pdo_sqlite`, the `data` and `http` tests are skipped |
-| `gd`, `imagick`, `zip`, `exif` | images can't be changed, SVG isn't drawn, and office documents and photo details can't be read; `installs checkAll` lists them under `extensions` |
+| `gd`, `imagick`, `zip`, `exif` | images can't be changed, SVG isn't drawn, and office documents and photo details can't be read; `install checkAll` lists them under `extensions` |
 
 Enable an extension in `php.ini` (`extension=openssl`) and check it with
 `php -m`. A command-line PHP that loads no `php.ini` can be given one

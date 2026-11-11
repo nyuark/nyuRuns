@@ -21,7 +21,7 @@ class Console{
 
 	const NYUR_VERS = '1.0.0';
 	// The framework's commands and their classes, under nyu\Shell\Cmds. Any other name is the one of an application (see findClass)
-	const CMDS_LIST = Array('installs'=>'Deploy', 'settings'=>'Config', 'runTests'=>'Tester', 'maintain'=>'Cleans', 'accounts'=>'Manage', 'machines'=>'Device', 'bundling'=>'Bundle', 'appsKeys'=>'AppKey');
+	const CMDS_LIST = Array('install'=>'Deploy', 'setting'=>'Config', 'testing'=>'Tester', 'cleanup'=>'Cleans', 'account'=>'Manage', 'devices'=>'Device', 'bundles'=>'Bundle', 'appkeys'=>'AppKey');
 
 	protected $commandArr;
 	protected $outsStream;

@@ -14,14 +14,14 @@ use nyu\Shell\UserFile;
 /**
  * Manages the users, and calls the actions of the runs:
  *
- *   php nyuRun accounts fullList --roleName=managers  the users, filtered or not
- *   php nyuRun accounts makeUser ann system         creates a user
- *   php nyuRun accounts lockUser ann                locks it (unlck unlocks)
- *   php nyuRun accounts password ann                gives it a new password, made and shown once (--typeItIn to type it)
- *   php nyuRun accounts setTwoFa ann --removeIt     takes its 2FA secret away, when its authenticator is lost
- *   php nyuRun accounts setTwoFa ann --emailOtp     has it give a code sent to its address at each login
- *   php nyuRun accounts approves                    the sign-ups awaiting review (prove ann approves one)
- *   php nyuRun accounts doAction shows/index filters[search]=jazz
+ *   php nyuRun account fullList --roleName=managers  the users, filtered or not
+ *   php nyuRun account makeUser ann system         creates a user
+ *   php nyuRun account lockUser ann                locks it (unlck unlocks)
+ *   php nyuRun account password ann                gives it a new password, made and shown once (--typeItIn to type it)
+ *   php nyuRun account setTwoFa ann --removeIt     takes its 2FA secret away, when its authenticator is lost
+ *   php nyuRun account setTwoFa ann --emailOtp     has it give a code sent to its address at each login
+ *   php nyuRun account approves                    the sign-ups awaiting review (prove ann approves one)
+ *   php nyuRun account doAction shows/index filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
  * (nativeDb) or the users file (userFile); --useStore names the other, --useBlock

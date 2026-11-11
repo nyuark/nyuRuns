@@ -18,17 +18,17 @@ use nyu\Tools\Router;
 /**
  * Reads and changes the configuration of the project:
  *
- *   php nyuRun settings showConf coreConf          the keys of conf/system.ini
- *   php nyuRun settings showConf accsConf loginSet  a block of conf/access.json, secrets masked
- *   php nyuRun settings showConf preset restapi.security  a block of a preset
- *   php nyuRun settings setValue coreConf LOG_MODE BASE
- *   php nyuRun settings setValue accsConf nativeDb.minChars 12
- *   php nyuRun settings setValue dataConf nyuRuns.hostName db.local
- *   php nyuRun settings setValue preset restapi.security.authWith nativeDb
- *   php nyuRun settings wwwEntry index restapi  the preset www/index.php starts the Runner with
- *   php nyuRun settings makeSecr jwtToken        a new secret, written where the config reads it
- *   php nyuRun settings fullList restapi        the routes of a preset, and who they are served to
- *   php nyuRun settings clrCache               removes the config cache, after conf was edited by hand
+ *   php nyuRun setting showConf coreConf          the keys of conf/system.ini
+ *   php nyuRun setting showConf accsConf loginSet  a block of conf/access.json, secrets masked
+ *   php nyuRun setting showConf preset restapi.security  a block of a preset
+ *   php nyuRun setting setValue coreConf LOG_MODE BASE
+ *   php nyuRun setting setValue accsConf nativeDb.minChars 12
+ *   php nyuRun setting setValue dataConf nyuRuns.hostName db.local
+ *   php nyuRun setting setValue preset restapi.security.authWith nativeDb
+ *   php nyuRun setting wwwEntry index restapi  the preset www/index.php starts the Runner with
+ *   php nyuRun setting makeSecr jwtToken        a new secret, written where the config reads it
+ *   php nyuRun setting fullList restapi        the routes of a preset, and who they are served to
+ *   php nyuRun setting clrCache               removes the config cache, after conf was edited by hand
  *
  * A file is written as ConfFile does: comments and layout kept, the
  * former file copied to temp/archives. A change that leaves the file
@@ -517,7 +517,7 @@ class Config extends Command{
 		$isDrops = $this->optionsObj->validateOption('dropsAll');
 		$oldText = ($oldPriv!==false && !$isDrops) ? strval(openssl_pkey_get_details($oldPriv)['key'] ?? '') : '';
 		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : ( $isDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
-		// installs allSteps replaces a public key found alone without a question : it is not one of this server's
+		// install allSteps replaces a public key found alone without a question : it is not one of this server's
 		if( $hasKeys && !$keepExisting && !$this->queryAgreedFlg('Replace the keys of the tokens in use: '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}

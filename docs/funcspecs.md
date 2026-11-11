@@ -440,7 +440,7 @@ their accesses. Every refusal is traced with its reason.
 ### 5.3 The life of an account
 
 ```
-     users/create, accounts makeUser      auth/signup (5.4)
+     users/create, account makeUser      auth/signup (5.4)
        (by a manager)                        (by the visitor)
                │                                     │
                ▼  code mailed, or given              ▼  code mailed
@@ -464,7 +464,7 @@ their accesses. Every refusal is traced with its reason.
 ```
 
 - **Creation**: a manager creates the account (`users/create`, or
-  `accounts makeUser` on the command line) with its name and role, and
+  `account makeUser` on the command line) with its name and role, and
   optionally an email address and a language. It starts out `awaiting`, with
   an activation code. When the service sends mails and the user has an
   address, the code is mailed. Otherwise, the reply gives it once to the
@@ -561,7 +561,7 @@ kiosk, a sensor, a home server. It acts on behalf of a user of the native
 userbase, with its own token.
 
 1. The administrator gives the device a token, with a name and a role
-   (`php nyuRun machines newToken <name> <user> <role>`). The token is shown
+   (`php nyuRun devices newToken <name> <user> <role>`). The token is shown
    once, and only its hash is kept.
 2. The device sends its token in a header with each request. It's
    accepted as long as the device isn't revoked and its user is active,
@@ -569,8 +569,8 @@ userbase, with its own token.
 3. The device gets the role it was given, if that's one of the service's
    roles, and the lowest role otherwise. What that role can reach is
    decided by the routes, just as for a user.
-4. The administrator lists the devices (`machines fullList`) and can
-   revoke one (`machines revokeIt`). A revoked device is refused from its next request,
+4. The administrator lists the devices (`devices fullList`) and can
+   revoke one (`devices revokeIt`). A revoked device is refused from its next request,
    and stays in the list with the time it was revoked. A device whose user
    is locked is refused, and one whose user is removed goes with them.
 
@@ -584,7 +584,7 @@ service on behalf of its own users, who never sign in to the service
 itself.
 
 ```
-administrator ── php nyuRun appsKeys makeKeys <app> --routeSet=… --publFile=… --roleTops=… ──▶ key, shown once
+administrator ── php nyuRun appkeys makeKeys <app> --routeSet=… --publFile=… --roleTops=… ──▶ key, shown once
 application   ── request: its key in X-App-Key, and a token it signed for its user ──▶ service
 service       ── key known? token signed by that application? route listed? role held? ──▶ action
 ```
@@ -718,33 +718,33 @@ French, and a run can replace them with its own wording and look.
 ```
 developer machine                           server
 ──────────────────                          ──────────────────────────────────────
-php nyuRun bundling final ──▶ copy ────▶ php nyuRun installs allSteps
+php nyuRun bundles final ──▶ copy ────▶ php nyuRun install allSteps
   (code, examples,                            checks the server, makes the local
    libraries; no secret,                      settings from the examples, makes the
    no local setting)                          secrets and keys, creates the users,
                                               checks all
-                                            php nyuRun settings …  (changes a setting)
-                                            php nyuRun installs checkAll (before serving)
+                                            php nyuRun setting …  (changes a setting)
+                                            php nyuRun install checkAll (before serving)
 ```
 
 1. **Build** a copy for where it's going: the developer's machine, a
    pre-production server, production, or a place the project declares.
    Its settings (environment, errors shown, what gets logged) are those of
    that place.
-2. **Install** it: `installs allSteps` checks PHP and its extensions, makes the
+2. **Install** it: `install allSteps` checks PHP and its extensions, makes the
    local settings from their examples, makes any missing secrets and token
    keys, creates the users (a users file, or database tables), and runs
    the health check. It asks for what it needs, suggesting a default for
    each question, and a deployment script can skip all of them. Nothing
    that already exists is replaced.
-3. **Configure**: `settings` shows and changes the settings. Each value is
+3. **Configure**: `setting` shows and changes the settings. Each value is
    checked, the previous file is kept, and a change that would leave the
    service unusable is undone.
-4. **Check**: `installs checkAll` says, row by row, what's fine, what's worth a
+4. **Check**: `install checkAll` says, row by row, what's fine, what's worth a
    look and what fails. It exits with a failure code when a row fails, so
    a deployment script stops there.
 5. **Run**: users are managed from the command line or through the
-   `Users` run. `maintain` shows the logs, releases a held address, and
+   `Users` run. `cleanup` shows the logs, releases a held address, and
    clears out old temporary files.
 6. **Update**: a new copy replaces the code, while the server's local
    settings, secrets, keys and data stay as they are.
@@ -756,7 +756,7 @@ php nyuRun bundling final ──▶ copy ────▶ php nyuRun installs all
 ### 6.1 What a project chooses
 
 Every choice below is a setting in a file, changed with
-`php nyuRun settings` and checked by `php nyuRun installs checkAll`. The files
+`php nyuRun setting` and checked by `php nyuRun install checkAll`. The files
 and their keys are listed in the
 [Technical Specifications, chapter 6](techspecs.md#6-configuration-files).
 
@@ -783,7 +783,7 @@ A service starts small and grows without being rewritten:
 
 | From | To | How |
 |---|---|---|
-| users in a file | users in a database, with self-service passwords, sign-ups, mails, devices | one command moves them, with their passwords, roles and two-factor secrets (`installs moveUser nativeDb`). The file is left as it was, so sign-in can be pointed back at it, minus anything changed since |
+| users in a file | users in a database, with self-service passwords, sign-ups, mails, devices | one command moves them, with their passwords, roles and two-factor secrets (`install moveUser nativeDb`). The file is left as it was, so sign-in can be pointed back at it, minus anything changed since |
 | one database | several, of several kinds | each is named in the settings, and each model names the one it uses |
 | one application | many | a folder each in `runs/`, and models shared by all in `runs/Shared` |
 | one service | several working together | one issues the tokens and the others check them; applications call each other with keys (4.4) |
@@ -803,8 +803,8 @@ balancer has to plan for each:
 | **Counts of wrong attempts** | files in `temp/limits` on each server | each server counts its own, so an address is held by the server that saw the attempts |
 | **Held accounts, users, devices** | the database | shared by all |
 | **Logs** | each server's files | gathered by the host, if wanted |
-| **Settings, secrets and token keys** | each server's files | the same on all: made once and copied by the host. Running `installs allSteps` on each server would give each its own keys, and their tokens wouldn't work on the others |
-| **Config cache** | `temp/cache` on each server | each server makes its own; after a settings change, run `php nyuRun settings clrCache` on each |
+| **Settings, secrets and token keys** | each server's files | the same on all: made once and copied by the host. Running `install allSteps` on each server would give each its own keys, and their tokens wouldn't work on the others |
+| **Config cache** | `temp/cache` on each server | each server makes its own; after a settings change, run `php nyuRun setting clrCache` on each |
 
 ### 6.4 What's not there yet
 

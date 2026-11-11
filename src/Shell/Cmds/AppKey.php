@@ -11,10 +11,10 @@ use nyu\Access\Carr\JWT;
  * Manages the keys of the applications calling this project for their
  * users (see Access\AppKey):
  *
- *   php nyuRun appsKeys makeKeys portal --routeSet=contacts/*,/members/save --publFile=conf/keys/portal.pub
- *   php nyuRun appsKeys fullList                        lists the applications and their routes
- *   php nyuRun appsKeys setRoute portal --routeSet=…  replaces the routes of an application
- *   php nyuRun appsKeys revokeIt portal                 removes the key of an application
+ *   php nyuRun appkeys makeKeys portal --routeSet=contacts/*,/members/save --publFile=conf/keys/portal.pub
+ *   php nyuRun appkeys fullList                        lists the applications and their routes
+ *   php nyuRun appkeys setRoute portal --routeSet=…  replaces the routes of an application
+ *   php nyuRun appkeys revokeIt portal                 removes the key of an application
  *
  * The keys are those of the 'appsKeys' block of conf/access.json: only the
  * hash of a key is stored, the key is shown once. A preset reads them
@@ -84,14 +84,14 @@ class AppKey extends Command{
 		$treeObj = $this->readAccessConf();
 		$blckNme = self::KEYS_BLCK;
 		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
-			// The audiences naming this project are left empty : "settings setValue accsConf appsKeys.audience" sets them
+			// The audiences naming this project are left empty : "setting setValue accsConf appsKeys.audience" sets them
 			$treeObj->$blckNme = (object)Array('headName'=>self::KEYS_HEAD, 'appsList'=>new \stdClass(), 'audience'=>Array());
 		}
 		if( !isset($treeObj->$blckNme->appsList) || !is_object($treeObj->$blckNme->appsList) ){
 			$treeObj->$blckNme->appsList = new \stdClass();
 		}
 		if( isset($treeObj->$blckNme->appsList->$appName) ){
-			$this->terminateShell('No key made: the application '.json_encode($appName).' already has one (appsKeys revokeIt it first)', self::EXIT_DENY);
+			$this->terminateShell('No key made: the application '.json_encode($appName).' already has one (appkeys revokeIt it first)', self::EXIT_DENY);
 		}
 		$keyText = rtrim( strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=' );
 		$treeObj->$blckNme->appsList->$appName = (object)Array(
@@ -170,7 +170,7 @@ class AppKey extends Command{
 		try{
 			return (new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->importJsonsObj( TOP_DIR.DS.'conf'.DS.'access.json' );
 		}catch( \RuntimeException $e ){
-			$this->terminateShell('conf/access.json cannot be read: it is missing or is not a JSON object (installs makeConf makes it)');
+			$this->terminateShell('conf/access.json cannot be read: it is missing or is not a JSON object (install makeConf makes it)');
 		}
 	}
 

@@ -63,7 +63,7 @@ $patLog = implode("\n", file_exists(inTemporaryDir('patlogs').DS.'runner.log') ?
 checkPregMatch('site pattern: the Auth routes under it are warned', $patLog, '#\[WARNING\] Route "/auth/login" of the application Auth falls under the site route "/auth/\*": the site\'s answers#');
 checkIdentical('site pattern: a route from the root is not under it', strpos($patLog, '"/.well-known/jwks.json"'), false);
 
-// installs checkAll: the route shadow row, and the mounts a preset may give
+// install checkAll: the route shadow row, and the mounts a preset may give
 $mntText = function( String $presetName, String $mountsJson ): String {
 	return '{ "presetId": "'.$presetName.'", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument", "routeDir": "conf/routes/'.$presetName.'", "runMount": '.$mountsJson.' } }';
 };
@@ -79,7 +79,7 @@ $projDir = makeProjectTxt('runroutes', Array(
 	'conf/presets/mntlst.rps'=>$mntText('mntlst', '["auth"]'),
 	'runs/Auth/routes.rte'=>strval(file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'routes.rte'))
 ));
-$chkRows = array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), null, 'check');
+$chkRows = array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), null, 'check');
 checkIdentical('route shadow: a site pattern over the Auth routes is a warning', $chkRows['route shadow']['state'] ?? null, 'warn');
 checkPregMatch('route shadow: naming the preset, the route and the pattern', strval($chkRows['route shadow']['found'] ?? ''), '#covers: /auth/login of Auth under /auth/\*#');
 foreach( Array('mntyes'=>'true', 'mntnum'=>'12', 'mntarr'=>'\["account"\]') as $rpsName=>$badText ){

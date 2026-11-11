@@ -1,6 +1,6 @@
 <?php
 
-// Command line, installs moveUser : the users moved from the native userbase to the
+// Command line, install moveUser : the users moved from the native userbase to the
 // users file and back, with their passwords, roles, statuses, tokens and 2FA
 // secrets, on SQLite databases (see test/lib/sample.php).
 
@@ -40,12 +40,12 @@ $projDir = makeProjectTxt('storenat', Array(
 		'dvcToken'=>Array('useTable'=>'devices', 'usersTbl'=>'users')
 	), JSON_PRETTY_PRINT)
 ));
-checkIdentical('a store that is not one, a missing word', Array(callShellArray($projDir, Array('installs', 'moveUser', 'ldap'))['code'], callShellArray($projDir, Array('installs', 'moveUser'))['code']), Array(2, 2));
-checkIdentical('the store the login already uses', callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb'))['code'], 3);
-$runVals = callShellArray($projDir, Array('installs', 'moveUser', 'userFile', '--yesToAll'));
+checkIdentical('a store that is not one, a missing word', Array(callShellArray($projDir, Array('install', 'moveUser', 'ldap'))['code'], callShellArray($projDir, Array('install', 'moveUser'))['code']), Array(2, 2));
+checkIdentical('the store the login already uses', callShellArray($projDir, Array('install', 'moveUser', 'nativeDb'))['code'], 3);
+$runVals = callShellArray($projDir, Array('install', 'moveUser', 'userFile', '--yesToAll'));
 checkIdentical('active devices stop the move', Array($runVals['code'], strpos($runVals['errs'], 'active devices need the native userbase (ben/Phone)')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(3, true, false));
-checkIdentical('without --yesToAll, --noPrompt moves nothing', Array(callShellArray($projDir, Array('installs', 'moveUser', 'userFile', '--dropsAll', '--noPrompt'))['code'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array(3, false));
-$jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'userFile', '--dropsAll', '--yesToAll'));
+checkIdentical('without --yesToAll, --noPrompt moves nothing', Array(callShellArray($projDir, Array('install', 'moveUser', 'userFile', '--dropsAll', '--noPrompt'))['code'], is_file($projDir.DS.'conf'.DS.'users.lst')), Array(3, false));
+$jsnVals = runShellAsJson($projDir, Array('install', 'moveUser', 'userFile', '--dropsAll', '--yesToAll'));
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'systemName');
 checkIdentical('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['accessRole'].'/'.$userValues['userStatus']; }, $usrList), $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null),
@@ -56,7 +56,7 @@ checkIdentical('the passwords and the personal token go along unchanged', Array(
 checkIdentical('what is not kept is told', array_column($jsnVals['rows'] ?? Array(), 'details', 'not kept'), Array(
 	'activation codes'=>'cleo: pending until made active, or given a password, with accounts',
 	'reset codes'=>'ben: the resets asked are forgotten, the passwords kept',
-	'sign-ups to review'=>'erin: kept in review, which the users file cannot approve; accounts freeUser makes them active',
+	'sign-ups to review'=>'erin: kept in review, which the users file cannot approve; account freeUser makes them active',
 	'presence and 2FA steps'=>'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept',
 	'devices'=>'ben/Phone: revoked'
 ));
@@ -65,7 +65,7 @@ if( $canSeal ){
 }
 checkIdentical('the userbase left is kept, the device revoked', Array(intval($sqlLink->query('SELECT COUNT(*) FROM users')->fetchColumn()), $sqlLink->query('SELECT revokeDate FROM devices')->fetchColumn()!==null), Array(5, true));
 checkPregMatch('the move is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: 5 users moved from nativeDb to userFile, 1 devices revoked, the login points at userFile by user "cli:/');
-checkIdentical('back to a userbase that holds users: refused', Array(callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'))['code'], json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['loginSet']['authWith'] ?? null), Array(3, 'userFile'));
+checkIdentical('back to a userbase that holds users: refused', Array(callShellArray($projDir, Array('install', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'))['code'], json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['loginSet']['authWith'] ?? null), Array(3, 'userFile'));
 $sqlLink = null;
 
 // From the users file to a new native userbase, its table created
@@ -84,7 +84,7 @@ $projDir = makeProjectTxt('storelst', Array(
 	), JSON_PRETTY_PRINT),
 	'conf/users.lst'=>$fleUsrs
 ));
-$jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
+$jsnVals = runShellAsJson($projDir, Array('install', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
 $newLink = new PDO('sqlite:'.$newBase);
 $rowList = $newLink->query('SELECT id_user, systemName, passwdHash, accessRole, userStatus, bearerHash, twoFactKey FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
@@ -105,7 +105,7 @@ $projDir = makeProjectTxt('storenop', Array(
 	'conf/access.json'=>json_encode(Array('loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile'), 'userFile'=>Array('listFile'=>'conf/users.lst'))),
 	'conf/users.lst'=>'{ "users": [ { "systemName": "zoe", "accessRole": "standard" } ] }'
 ));
-$runVals = callShellArray($projDir, Array('installs', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
+$runVals = callShellArray($projDir, Array('install', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
 checkIdentical('a user without a password hash stops the move', Array($runVals['code'], $runVals['errs']), Array(3, "Nothing was moved: users without a password hash (zoe); give them a password with accounts first\n"));
 
 finishChecking();
