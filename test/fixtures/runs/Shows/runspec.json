@@ -1,0 +1,41 @@
+{
+	"appsName": "Shows",
+	"database": "",
+	"tableRef": "shows",
+	"idColumn": "id_show",
+	"fieldSet": {
+		"title!": "",
+		"venue": ""
+	},
+	"actnList": [
+		"index",
+		"view",
+		"create",
+		"update",
+		"remove"
+	],
+	"minmRole": "standard",
+	"runMount": "shows",
+	"childSet": {
+		"events": {
+			"linkedBy": "show_id",
+			"fieldSet": {
+				"id_event": "",
+				"date": "",
+				"time": ""
+			},
+			"sortedBy": "^date",
+			"ownRoute": true,
+			"listsToo": true
+		},
+		"items": {
+			"linkedBy": "show_id",
+			"fieldSet": {
+				"type": ""
+			},
+			"sortedBy": "",
+			"ownRoute": false,
+			"listsToo": false
+		}
+	}
+}

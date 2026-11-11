@@ -1,0 +1,11 @@
+{
+	"fieldSet": {
+		"filters": {
+			"title": "",
+			"venue": ""
+		},
+		"sortedBy": "",
+		"limitVal": "Integer",
+		"rowIndex": "Integer"
+	}
+}

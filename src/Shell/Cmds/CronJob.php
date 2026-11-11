@@ -10,8 +10,8 @@ use nyu\Shell\Console;
 /**
  * Calls an action of a run from the command line, as a scheduled task would:
  *
- *   php nyuRun cronjob shows/index filters[search]=jazz
- *   php nyuRun cronjob users/index currStat=inReview --roleName=managers --saveInto=review.json
+ *   php nyuRun cronjob shows filters[title]=jazz
+ *   php nyuRun cronjob users currStat=inReview --roleName=managers --saveInto=review.json
  *
  * The action runs as the user cli:<system user>, through the preset
  * --presetId names (the default one when none is named).

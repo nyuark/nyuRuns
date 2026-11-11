@@ -1,0 +1,31 @@
+{
+	"": {
+		"pointsTo": {
+			"GET": {
+				"doAction": "index"
+			},
+			"POST": {
+				"doAction": "create"
+			}
+		}
+	},
+	"$id": {
+		"pointsTo": {
+			"GET": {
+				"doAction": "view"
+			},
+			"PUT": {
+				"doAction": "update"
+			},
+			"DELETE": {
+				"doAction": "remove"
+			}
+		}
+	},
+	"$id/events": {
+		"mthdList": "GET",
+		"pointsTo": {
+			"doAction": "events"
+		}
+	}
+}

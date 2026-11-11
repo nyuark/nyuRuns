@@ -37,6 +37,12 @@ $runVals = callShellArray($projDir, Array('makerun', 'crudlRun', 'shows'), $answ
 checkIdentical('crudlRun: generated, the lines of the preset printed', Array($runVals['code'], strpos($runVals['text'], '"minRoles": { "shows/*": "standard" }')!==false), Array(0, true));
 $genList = Array('runspec.json', 'routes.rte', 'Actions.php', 'input/index.json', 'input/view.json', 'input/create.json', 'input/update.json', 'input/remove.json', 'input/events.json');
 checkIdentical('crudlRun: the spec, the routes, the actions and an input file for each', array_map(function( String $fileRelPath ): Bool { return is_file(RUN_DIR.DS.'Shows'.DS.str_replace('/', DS, $fileRelPath)); }, $genList), array_fill(0, count($genList), true));
+// The example Run of the framework, test/fixtures/runs/Shows, is this one: generate it again with makerun when the generator changes
+$sameLst = Array();
+foreach( $genList as $fileRel ){
+	$sameLst[$fileRel] = str_replace("\r\n", "\n", strval(@file_get_contents(TST_DIR.DS.'fixtures'.DS.'runs'.DS.'Shows'.DS.str_replace('/', DS, $fileRel))))===str_replace("\r\n", "\n", strval(fetchInProject($projDir, 'runs/Shows/'.$fileRel)));
+}
+checkIdentical('the example Run of the fixtures is what makerun generates', $sameLst, array_fill_keys($genList, true));
 $specArr = json_decode(strval(fetchInProject($projDir, 'runs/Shows/runspec.json')), true);
 checkIdentical('crudlRun: the spec holds the answers', Array($specArr['fieldSet'] ?? null, array_keys($specArr['childSet'] ?? Array()), $specArr['childSet']['events']['sortedBy'] ?? null, $specArr['childSet']['items']['fieldSet'] ?? null, $specArr['runMount'] ?? null), Array(Array('title!'=>'', 'venue'=>''), Array('events', 'items'), '^date', Array('type'=>''), 'shows'));
 checkIdentical('crudlRun: every file written is traced on shell', substr_count(strval(fetchInProject($projDir, 'temp/logs/shell.log')), 'Makerun: '), count($genList));

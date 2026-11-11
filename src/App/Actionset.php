@@ -252,7 +252,7 @@ class Actionset {
 
 	/**
 	 * Gives the logger of the application: its own channel, a log file
-	 * named after the application, in lower case (shows.log for Shows).
+	 * named after the application, in lower case (shows.log for Shows, the example Run of test/fixtures/runs).
 	 * It writes with the level methods of Tools\Logger: error(),
 	 * warning(), notice(), info() and debug().
 	 *
