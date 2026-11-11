@@ -184,6 +184,15 @@ class Controller{
 	}
 
 	/**
+	 * Forgets the folders of Runs read for the request: the next lookup reads
+	 * them again. For a command or a test that has just written a Run folder;
+	 * a web request keeps the list it read once.
+	 */
+	public static function clearRunFoldrs(): Void {
+		self::$runFolders = Array();
+	}
+
+	/**
 	 * Finds the folder of a Run from its name as a path or a route writes it,
 	 * whatever its case: the Router, the Controller and the Checker all go
 	 * through it, so that they designate the same Run.

@@ -42,7 +42,7 @@ class Bundle extends Command{
 	// What a bundle holds, from the project root : nothing else is copied, but what a mode adds
 	const KEEP_LIST = Array('src', 'runs', 'www', 'pages', 'conf', 'vendor', 'composer.json', 'composer.lock', 'nyuRun', 'LICENSE', 'NOTICE', '.htaccess');
 	// What is left out of those, from the project root : the local settings, their secrets, the private keys, the modes of the project
-	const DROP_LIST = Array('conf/access.json', 'conf/database.json', 'conf/mailer.json', 'conf/users.lst', 'conf/.htpasswd', 'conf/keys/*', 'conf/bundle.lst');
+	const DROP_LIST = Array('conf/access.json', 'conf/database.json', 'conf/mailer.json', 'conf/users.lst', 'conf/.htpasswd', 'conf/keys/*', 'conf/bundle.lst', 'runs/*/runspec.json');
 	// The modes the project declares: { "<mode>": { "settings": { "ENV_NAME": ..., ... }, "addPaths": [ <paths> ] } }
 	const BNDL_FILE = 'conf/bundle.lst';
 

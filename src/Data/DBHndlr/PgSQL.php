@@ -92,6 +92,37 @@ Class PgSQL extends PDO {
 	}
 
 	/**
+	 * Gives the type of each column of a table, through the PostgreSQL catalogue.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The types by column name, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
+		$typeQry = 'SELECT a.attname AS name, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
+			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
+		if( !$this->sendBuiltQuery($typeQry, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
+			return false;
+		}
+		$fldRows = $this->readLastResult(true);
+		return ( is_array($fldRows) && !empty($fldRows) ) ? array_column($fldRows, 'type', 'name') : false;
+	}
+
+	/**
+	 * Lists the tables of the current schema, views left out.
+	 *
+	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
+	 */
+	public function tableNameArray(): Array|Bool {
+		if( !$this->sendBuiltQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY table_name;") ){
+			return false;
+		}
+		$tblRows = $this->readLastResult(true);
+		return is_array($tblRows) ? array_map('strval', array_column($tblRows, 'table_name')) : false;
+	}
+
+	/**
 	 * Returns the key given by the database to the last inserted row.
 	 *
 	 * @return String|Bool The last insert ID, or false when the insert did not draw a key from a sequence.

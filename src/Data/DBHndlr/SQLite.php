@@ -69,4 +69,35 @@ Class SQLite extends PDO {
 		return $tblInfo;
 	}
 
+	/**
+	 * Gives the type of each column of a table, through SQLite's table_info.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The types by column name, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
+		$this->quoteFieldName($tbleLabelTxt);
+		if( !$this->sendBuiltQuery('SELECT name, type FROM pragma_table_info(?) ORDER BY cid;', false, Array($tbleLabelTxt)) ){
+			return false;
+		}
+		$fldRows = $this->readLastResult(true);
+		return ( is_array($fldRows) && !empty($fldRows) ) ? array_column($fldRows, 'type', 'name') : false;
+	}
+
+	/**
+	 * Lists the tables of the database, through sqlite_master: SQLite's own
+	 * tables (sqlite_*) left out.
+	 *
+	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
+	 */
+	public function tableNameArray(): Array|Bool {
+		if( !$this->sendBuiltQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name;") ){
+			return false;
+		}
+		$tblRows = $this->readLastResult(true);
+		return is_array($tblRows) ? array_map('strval', array_column($tblRows, 'name')) : false;
+	}
+
 }

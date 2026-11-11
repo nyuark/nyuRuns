@@ -82,4 +82,42 @@ Class MySQL extends PDO {
 		return $tblInfo;
 	}
 
+	/**
+	 * Gives the type of each column of a table, through EXPLAIN.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The types by column name, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
+		if( !$this->sendBuiltQuery('EXPLAIN '.$this->quoteFieldName($tbleLabelTxt).';') ){
+			return false;
+		}
+		$fldRows = $this->readLastResult(true);
+		return ( is_array($fldRows) && !empty($fldRows) ) ? array_column($fldRows, 'Type', 'Field') : false;
+	}
+
+	/**
+	 * Lists the tables of the database, views left out.
+	 *
+	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
+	 */
+	public function tableNameArray(): Array|Bool {
+		if( !$this->sendBuiltQuery("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE';") ){
+			return false;
+		}
+		$tblRows = $this->readLastResult(true);
+		if( !is_array($tblRows) ){
+			return false;
+		}
+		// The first column is named after the database: it is read by its place
+		$tblList = Array();
+		foreach( $tblRows as $oneRow ){
+			$tblList[] = strval( array_values((array)$oneRow)[0] ?? '' );
+		}
+		sort($tblList);
+		return $tblList;
+	}
+
 }

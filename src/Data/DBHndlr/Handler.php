@@ -120,6 +120,21 @@ interface Handler{
 	 */
 	public function tableInfoArray(String $tbleLabelTxt): Array|Bool;
 	/**
+	 * Gives the type of each column of a table, as the database writes it.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The types by column name, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function columnTypeList(String $tbleLabelTxt): Array|Bool;
+	/**
+	 * Lists the tables of the database, views and the database's own tables left out.
+	 *
+	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
+	 */
+	public function tableNameArray(): Array|Bool;
+	/**
 	 * Closes the database connection.
 	 */
 	public function exitConnection(): Void;
