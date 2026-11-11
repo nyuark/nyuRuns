@@ -6,21 +6,21 @@
 -- passwdHash, userRole accessRole, userStat userStatus, actvCode actvtnCode,
 -- tokenKey bearerHash, twoFaKey twoFactKey, twoFaStp twoFactPos, failNmbr
 -- failsCount, failDate failedTime, madeDate createDate, lastSeen accessDate), and
--- it adds the columns of the access mails (mailboxAdr, userLocale, recovrCode,
+-- it adds the columns of the access mails (contactEml, userLocale, recovrCode,
 -- codeExpiry, signupDate), those of the codes mailed as a second factor
--- (twoFactWay, mailedCode, mailExpiry), the time of the last password
+-- (twoFactWay, twoFactHsh, twoFactExp), the time of the last password
 -- (passwdDate) and the status of a self-registration awaiting a manager. The roles
 -- and the statuses take their codes of 1.0 (part 3): member, system and manage
 -- become internal, operator and sysadmin; pendng, active and locked become
--- awaiting, approved and disabled, and 'checking' is the new status of a
+-- awaiting, approved and disabled, and 'inReview' is the new status of a
 -- self-registration; a second factor mailed becomes emailOtp.
 -- The devices table is moved by migrate-devices-1.0.mysql_db.sql, after this one.
 --
 -- A table already moved to an early copy of 1.0 (with userMail, userLang,
 -- resetCod, codeDate, signDate, and maybe twoFaWay, mailCode, mailDate and
 -- passDate) has its columns renamed instead of added: in part 1, a line
--- RENAME COLUMN `userMail` TO `mailboxAdr` (and so on) in place of each ADD
--- COLUMN of a column it has, and RENAME INDEX `userMail` TO `mailboxAdr` in
+-- RENAME COLUMN `userMail` TO `contactEml` (and so on) in place of each ADD
+-- COLUMN of a column it has, and RENAME INDEX `userMail` TO `contactEml` in
 -- place of the ADD UNIQUE KEY.
 --
 -- First a backup of the table:
@@ -52,16 +52,16 @@ ALTER TABLE `users`
 	RENAME INDEX  `userName` TO `systemName`,
 	RENAME INDEX  `tokenKey` TO `bearerHash`,
 	ADD COLUMN `passwdDate` DATETIME     NULL AFTER `passwdHash`,
-	ADD COLUMN `mailboxAdr` VARCHAR(254) NULL AFTER `userStatus`,
-	ADD COLUMN `userLocale` VARCHAR(16)  NULL AFTER `mailboxAdr`,
+	ADD COLUMN `contactEml` VARCHAR(254) NULL AFTER `userStatus`,
+	ADD COLUMN `userLocale` VARCHAR(16)  NULL AFTER `contactEml`,
 	ADD COLUMN `recovrCode` VARCHAR(64)  NULL AFTER `actvtnCode`,
 	ADD COLUMN `codeExpiry` DATETIME     NULL AFTER `recovrCode`,
 	ADD COLUMN `signupDate` DATETIME     NULL AFTER `codeExpiry`,
 	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactPos`,
-	ADD COLUMN `mailedCode` CHAR(64)     NULL AFTER `twoFactWay`,
-	ADD COLUMN `mailExpiry` DATETIME     NULL AFTER `mailedCode`,
+	ADD COLUMN `twoFactHsh` CHAR(64)     NULL AFTER `twoFactWay`,
+	ADD COLUMN `twoFactExp` DATETIME     NULL AFTER `twoFactHsh`,
 	ADD CONSTRAINT `twoFactWay` CHECK (`twoFactWay` IN ('emailOtp')),
-	ADD UNIQUE KEY `mailboxAdr` (`mailboxAdr`);
+	ADD UNIQUE KEY `contactEml` (`contactEml`);
 
 -- 1, MySQL 5.7. Each column is named again with its whole definition, the one
 --    of the 0.9 schema; no row is changed. RENAME INDEX is there since 5.7.
@@ -82,15 +82,15 @@ ALTER TABLE `users`
 -- 	RENAME INDEX  `userName` TO `systemName`,
 -- 	RENAME INDEX  `tokenKey` TO `bearerHash`,
 -- 	ADD COLUMN `passwdDate` DATETIME     NULL AFTER `passwdHash`,
--- 	ADD COLUMN `mailboxAdr` VARCHAR(254) NULL AFTER `userStatus`,
--- 	ADD COLUMN `userLocale` VARCHAR(16)  NULL AFTER `mailboxAdr`,
+-- 	ADD COLUMN `contactEml` VARCHAR(254) NULL AFTER `userStatus`,
+-- 	ADD COLUMN `userLocale` VARCHAR(16)  NULL AFTER `contactEml`,
 -- 	ADD COLUMN `recovrCode` VARCHAR(64)  NULL AFTER `actvtnCode`,
 -- 	ADD COLUMN `codeExpiry` DATETIME     NULL AFTER `recovrCode`,
 -- 	ADD COLUMN `signupDate` DATETIME     NULL AFTER `codeExpiry`,
 -- 	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactPos`,
--- 	ADD COLUMN `mailedCode` CHAR(64)     NULL AFTER `twoFactWay`,
--- 	ADD COLUMN `mailExpiry` DATETIME     NULL AFTER `mailedCode`,
--- 	ADD UNIQUE KEY `mailboxAdr` (`mailboxAdr`);
+-- 	ADD COLUMN `twoFactHsh` CHAR(64)     NULL AFTER `twoFactWay`,
+-- 	ADD COLUMN `twoFactExp` DATETIME     NULL AFTER `twoFactHsh`,
+-- 	ADD UNIQUE KEY `contactEml` (`contactEml`);
 
 
 -- 2. MySQL 8.0.16 or later and MariaDB enforce CHECK constraints: the checks
@@ -118,7 +118,7 @@ ALTER TABLE `users`
 
 UPDATE `users` SET
 	`accessRole` = CASE `accessRole` WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' ELSE `accessRole` END,
-	`userStatus` = CASE `userStatus` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'checking' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' ELSE `userStatus` END,
+	`userStatus` = CASE `userStatus` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'inReview' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' ELSE `userStatus` END,
 	`twoFactWay` = CASE `twoFactWay` WHEN 'mailed' THEN 'emailOtp' ELSE `twoFactWay` END;
 
 
@@ -126,10 +126,10 @@ UPDATE `users` SET
 --
 -- ALTER TABLE `users`
 -- 	ADD CONSTRAINT `accessRole` CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
--- 	ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled'));
+-- 	ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled'));
 
 
--- Going back to 0.9, if needed (no user may be in 'checking'; on MySQL 8 or
+-- Going back to 0.9, if needed (no user may be in 'inReview'; on MySQL 8 or
 -- MariaDB, drop the checks of part 4 first, and put those of 0.9 back after):
 --
 -- UPDATE `users` SET
@@ -138,16 +138,16 @@ UPDATE `users` SET
 -- ALTER TABLE `users`
 -- 	MODIFY `accessRole` VARCHAR(6) NOT NULL DEFAULT 'member',
 -- 	MODIFY `userStatus` VARCHAR(6) NOT NULL DEFAULT 'pendng',
--- 	DROP INDEX  `mailboxAdr`,
--- 	DROP COLUMN `mailboxAdr`,
+-- 	DROP INDEX  `contactEml`,
+-- 	DROP COLUMN `contactEml`,
 -- 	DROP COLUMN `userLocale`,
 -- 	DROP COLUMN `recovrCode`,
 -- 	DROP COLUMN `codeExpiry`,
 -- 	DROP COLUMN `signupDate`,
 -- 	DROP CHECK  `twoFactWay`,
 -- 	DROP COLUMN `twoFactWay`,
--- 	DROP COLUMN `mailedCode`,
--- 	DROP COLUMN `mailExpiry`,
+-- 	DROP COLUMN `twoFactHsh`,
+-- 	DROP COLUMN `twoFactExp`,
 -- 	DROP COLUMN `passwdDate`,
 -- 	RENAME COLUMN `systemName` TO `userName`,
 -- 	RENAME COLUMN `passwdHash` TO `passHash`,
@@ -163,15 +163,31 @@ UPDATE `users` SET
 -- 	RENAME COLUMN `accessDate` TO `lastSeen`,
 -- 	RENAME INDEX  `systemName` TO `userName`,
 -- 	RENAME INDEX  `bearerHash` TO `tokenKey`;
--- A table already at 1.0, made before userHandle, twoFactStp and failedDate
--- took their names of 1.0 final (systemName, twoFactPos, failedTime): none of
--- the lines above, only these, after a backup of the table. No row is changed.
+-- A table already at 1.0, made before userHandle, twoFactStp, failedDate,
+-- mailboxAdr, mailedCode and mailExpiry took their names of 1.0 final
+-- (systemName, twoFactPos, failedTime, contactEml, twoFactHsh, twoFactExp) and
+-- the status checking became inReview: none of the lines above, only these, after a backup of the
+-- table. On MySQL 8 and MariaDB, the check of userStatus is dropped before the
+-- update and made again after it: its name is given by SHOW CREATE TABLE `users`;
+-- MySQL 5.7 does not enforce checks: the update alone.
 --
 -- ALTER TABLE `users`
 -- 	RENAME COLUMN `userHandle` TO `systemName`,
 -- 	RENAME COLUMN `twoFactStp` TO `twoFactPos`,
 -- 	RENAME COLUMN `failedDate` TO `failedTime`,
--- 	RENAME INDEX  `userHandle` TO `systemName`;
+-- 	RENAME COLUMN `mailboxAdr` TO `contactEml`,
+-- 	RENAME COLUMN `mailedCode` TO `twoFactHsh`,
+-- 	RENAME COLUMN `mailExpiry` TO `twoFactExp`,
+-- 	RENAME INDEX  `userHandle` TO `systemName`,
+-- 	RENAME INDEX  `mailboxAdr` TO `contactEml`;
+--
+-- MySQL 8:  ALTER TABLE `users` DROP CHECK `<name of the check of userStatus>`;
+-- MariaDB:  ALTER TABLE `users` DROP CONSTRAINT `<name of the check of userStatus>`;
+--
+-- UPDATE `users` SET `userStatus` = 'inReview' WHERE `userStatus` = 'checking';
+--
+-- MySQL 8 and MariaDB:
+-- ALTER TABLE `users` ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled'));
 --
 -- MySQL 5.7, which has no RENAME COLUMN: each column named again with its
 -- whole definition, the one of conf/schema/users.mysql_db.sql.
@@ -180,4 +196,9 @@ UPDATE `users` SET
 -- 	CHANGE COLUMN `userHandle` `systemName` VARCHAR(64)  NOT NULL,
 -- 	CHANGE COLUMN `twoFactStp` `twoFactPos` INT UNSIGNED NULL,
 -- 	CHANGE COLUMN `failedDate` `failedTime` DATETIME     NULL,
--- 	RENAME INDEX  `userHandle` TO `systemName`;
+-- 	CHANGE COLUMN `mailboxAdr` `contactEml` VARCHAR(254) NULL,
+-- 	CHANGE COLUMN `mailedCode` `twoFactHsh` CHAR(64)     NULL,
+-- 	CHANGE COLUMN `mailExpiry` `twoFactExp` DATETIME     NULL,
+-- 	RENAME INDEX  `userHandle` TO `systemName`,
+-- 	RENAME INDEX  `mailboxAdr` TO `contactEml`;
+

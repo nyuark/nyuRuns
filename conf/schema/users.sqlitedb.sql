@@ -13,10 +13,10 @@ CREATE TABLE `users` (
 	`passwdDate` TEXT    NULL,
 	-- internal, operator or sysadmin, in that order
 	`accessRole` TEXT    NOT NULL DEFAULT 'internal',
-	-- awaiting (its activation), checking (signed up, a manager to approve it), approved or disabled
+	-- awaiting (its activation), inReview (signed up, a manager to approve it), approved or disabled
 	`userStatus` TEXT    NOT NULL DEFAULT 'awaiting',
 	-- Mail address, in lower case; one account each
-	`mailboxAdr` TEXT    NULL,
+	`contactEml` TEXT    NULL,
 	-- Language of the mails sent to the user, a tag in lower case ('fr', 'fr-ch'); the default one when empty
 	`userLocale` TEXT    NULL,
 	-- SHA-256 hash of the activation code, cleared once used
@@ -36,8 +36,8 @@ CREATE TABLE `users` (
 	-- Second factor sent by mail ('emailOtp'); an authenticator when empty and twoFactKey is set
 	`twoFactWay` TEXT    NULL,
 	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
-	`mailedCode` TEXT    NULL,
-	`mailExpiry` TEXT    NULL,
+	`twoFactHsh` TEXT    NULL,
+	`twoFactExp` TEXT    NULL,
 	-- Failed attempts of the current window, and time of the last one
 	`failsCount` INTEGER NOT NULL DEFAULT 0,
 	`failedTime` TEXT    NULL,
@@ -46,8 +46,8 @@ CREATE TABLE `users` (
 	`accessDate` TEXT    NULL,
 	UNIQUE (`systemName`),
 	UNIQUE (`bearerHash`),
-	UNIQUE (`mailboxAdr`),
+	UNIQUE (`contactEml`),
 	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
-	CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled')),
+	CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled')),
 	CHECK (`twoFactWay` IN ('emailOtp'))
 );

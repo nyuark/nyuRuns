@@ -41,14 +41,14 @@ checkIdentical('a typed password is not shown; the user is a member when no role
 
 // Reading
 checkIdentical('lists the users by name, never a hash', runShellAsJson($projDir, Array('accounts', 'fullList'))['rows'] ?? null, Array(
-	Array('id_user'=>1, 'systemName'=>'ann', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
-	Array('id_user'=>2, 'systemName'=>'bob', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
+	Array('id_user'=>1, 'systemName'=>'ann', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
+	Array('id_user'=>2, 'systemName'=>'bob', 'accessRole'=>'internal', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
 ));
 checkIdentical('lists by role, by count; a role that is not one', Array(array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--roleName=sysadmin'))['rows'] ?? Array(), 'systemName'), array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--rowCount=1', '--startRow=1'))['rows'] ?? Array(), 'systemName'), callShellArray($projDir, Array('accounts', 'fullList', '--roleName=boss'))['code']), Array(Array('ann'), Array('bob'), 3));
-checkIdentical('views a user', callShellArray($projDir, Array('accounts', 'viewUser', 'bob'))['text'], "id_user: 2\nsystemName: bob\naccessRole: internal\nuserStatus: approved\nmailboxAdr: \nuserLocale: \nhasToken: false\nhasTwoFa: false\n");
-checkIdentical('email gives an address in the file, in lower case', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'bob', 'Bob@Example.ch'))['text'], fileUsers($projDir)['bob']['mailboxAdr'] ?? null), Array("address set: bob\n", 'bob@example.ch'));
+checkIdentical('views a user', callShellArray($projDir, Array('accounts', 'viewUser', 'bob'))['text'], "id_user: 2\nsystemName: bob\naccessRole: internal\nuserStatus: approved\ncontactEml: \nuserLocale: \nhasToken: false\nhasTwoFa: false\n");
+checkIdentical('email gives an address in the file, in lower case', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'bob', 'Bob@Example.ch'))['text'], fileUsers($projDir)['bob']['contactEml'] ?? null), Array("address set: bob\n", 'bob@example.ch'));
 checkIdentical('an address taken, one that is not', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'ann', 'BOB@example.ch'))['errs'], callShellArray($projDir, Array('accounts', 'setEmail', 'ann', 'ann'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
-checkIdentical('email without an address takes it away from the file', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'bob'))['text'], isset(fileUsers($projDir)['bob']['mailboxAdr'])), Array("address removed: bob\n", false));
+checkIdentical('email without an address takes it away from the file', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'bob'))['text'], isset(fileUsers($projDir)['bob']['contactEml'])), Array("address removed: bob\n", false));
 checkIdentical('langs gives a language in the file, takes it away', Array(callShellArray($projDir, Array('accounts', 'language', 'bob', 'FR'))['text'], fileUsers($projDir)['bob']['userLocale'] ?? null, callShellArray($projDir, Array('accounts', 'language', 'bob', ''))['text'], isset(fileUsers($projDir)['bob']['userLocale']), callShellArray($projDir, Array('accounts', 'language', 'bob', 'f'))['errs']), Array("language set: bob\n", 'fr', "language removed: bob\n", false, "Invalid language\n"));
 callShellArray($projDir, Array('accounts', 'makeUser', 'cid', '--language=it'));
 checkIdentical('--language: in the file', fileUsers($projDir)['cid']['userLocale'] ?? null, 'it');

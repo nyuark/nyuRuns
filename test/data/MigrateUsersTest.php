@@ -62,16 +62,16 @@ $oldRows = array_map(function( Array $userValues ) use ( $colMap ): Array { retu
 // and the codes of 1.0 for their roles and statuses
 $codeMap = Array('member'=>'internal', 'system'=>'operator', 'manage'=>'sysadmin', 'pendng'=>'awaiting', 'active'=>'approved', 'locked'=>'disabled');
 $oldRows = array_map(function( Array $userValues ) use ( $codeMap ): Array { return array_replace($userValues, Array('accessRole'=>$codeMap[$userValues['accessRole']], 'userStatus'=>$codeMap[$userValues['userStatus']])); }, $oldRows);
-$keptRow = array_map(function( Array $userValues ): Array { return array_diff_key($userValues, array_flip(Array('mailboxAdr', 'userLocale', 'recovrCode', 'codeExpiry', 'signupDate', 'twoFactWay', 'mailedCode', 'mailExpiry', 'passwdDate'))); }, $newRows);
+$keptRow = array_map(function( Array $userValues ): Array { return array_diff_key($userValues, array_flip(Array('contactEml', 'userLocale', 'recovrCode', 'codeExpiry', 'signupDate', 'twoFactWay', 'twoFactHsh', 'twoFactExp', 'passwdDate'))); }, $newRows);
 checkIdentical('every user is kept, with its identifier and its values', $keptRow, $oldRows);
-checkIdentical('the new columns are empty', array_unique(array_merge(...array_map(function( Array $userValues ): Array { return Array($userValues['mailboxAdr'], $userValues['userLocale'], $userValues['recovrCode'], $userValues['codeExpiry'], $userValues['signupDate'], $userValues['twoFactWay'], $userValues['mailedCode'], $userValues['mailExpiry'], $userValues['passwdDate']); }, $newRows))), Array(null));
+checkIdentical('the new columns are empty', array_unique(array_merge(...array_map(function( Array $userValues ): Array { return Array($userValues['contactEml'], $userValues['userLocale'], $userValues['recovrCode'], $userValues['codeExpiry'], $userValues['signupDate'], $userValues['twoFactWay'], $userValues['twoFactHsh'], $userValues['twoFactExp'], $userValues['passwdDate']); }, $newRows))), Array(null));
 checkIdentical('the device is still there', $sqlLink->query('SELECT deviceName, user_id FROM devices')->fetchAll(PDO::FETCH_ASSOC), Array(Array('deviceName'=>'phone', 'user_id'=>3)));
 checkIdentical('the foreign keys are on again', intval($sqlLink->query('PRAGMA foreign_keys')->fetchColumn()), 1);
 checkIdentical('no table is left over', $sqlLink->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN), Array('devices', 'users'));
 
-$sqlLink->exec("UPDATE users SET userStatus='checking', mailboxAdr='cleo@example.ch' WHERE id_user=7");
-checkIdentical('1.0 takes the status checking', $sqlLink->query('SELECT userStatus FROM users WHERE id_user=7')->fetchColumn(), 'checking');
-checkForThrows('an address is one account\'s', function() use ( $sqlLink ){ $sqlLink->exec("UPDATE users SET mailboxAdr='cleo@example.ch' WHERE id_user=3"); }, PDOException::class);
+$sqlLink->exec("UPDATE users SET userStatus='inReview', contactEml='cleo@example.ch' WHERE id_user=7");
+checkIdentical('1.0 takes the status inReview', $sqlLink->query('SELECT userStatus FROM users WHERE id_user=7')->fetchColumn(), 'inReview');
+checkForThrows('an address is one account\'s', function() use ( $sqlLink ){ $sqlLink->exec("UPDATE users SET contactEml='cleo@example.ch' WHERE id_user=3"); }, PDOException::class);
 checkForThrows('an unknown status is still refused', function() use ( $sqlLink ){ $sqlLink->exec("UPDATE users SET userStatus='online' WHERE id_user=3"); }, PDOException::class);
 $sqlLink->exec('DELETE FROM users WHERE id_user=3');
 checkIdentical('removing a user still takes its devices along', intval($sqlLink->query('SELECT COUNT(*) FROM devices')->fetchColumn()), 0);

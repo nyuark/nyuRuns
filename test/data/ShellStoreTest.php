@@ -25,8 +25,8 @@ $basePth = inTemporaryDir('store.sqlite');
 createSampleDb($basePth);
 $sqlLink = new PDO('sqlite:'.$basePth);
 $sqlLink->exec("UPDATE users SET actvtnCode='code-of-cleo' WHERE systemName='cleo'");
-$sqlLink->exec("UPDATE users SET mailboxAdr='ben@example.ch', userLocale='fr-ch', recovrCode='reset-of-ben', codeExpiry='2026-11-04 10:00:00' WHERE systemName='ben'");
-$sqlLink->exec("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, mailboxAdr, signupDate) VALUES (5, 'erin', '".password_hash('pw-erin', PASSWORD_BCRYPT, Array('cost'=>4))."', 'internal', 'checking', 'erin@example.ch', '2026-11-04 09:00:00')");
+$sqlLink->exec("UPDATE users SET contactEml='ben@example.ch', userLocale='fr-ch', recovrCode='reset-of-ben', codeExpiry='2026-11-04 10:00:00' WHERE systemName='ben'");
+$sqlLink->exec("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, contactEml, signupDate) VALUES (5, 'erin', '".password_hash('pw-erin', PASSWORD_BCRYPT, Array('cost'=>4))."', 'internal', 'inReview', 'erin@example.ch', '2026-11-04 09:00:00')");
 $sqlLink->prepare("UPDATE users SET twoFactKey=?, bearerHash=? WHERE systemName='anna'")->execute( Array(Totp::sealSecretText($twoFaKy, $natSeal), hash('sha256', 'token-of-anna')) );
 $sqlLink->exec("INSERT INTO devices (deviceName, deviceRole, bearerHash, user_id) VALUES ('Phone', 'app', '".hash('sha256', 'phone')."', 2)");
 $hashLst = $sqlLink->query('SELECT systemName, passwdHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -49,8 +49,8 @@ $jsnVals = runShellAsJson($projDir, Array('installs', 'moveUser', 'userFile', '-
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 $usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'systemName');
 checkIdentical('the users go to the file with their identifier, role and status; the login follows', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['accessRole'].'/'.$userValues['userStatus']; }, $usrList), $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null),
-	Array(0, 5, Array('anna'=>'1/sysadmin/approved', 'ben'=>'2/internal/approved', 'cleo'=>'3/internal/awaiting', 'dave'=>'4/operator/disabled', 'erin'=>'5/internal/checking'), 'userFile', 'userFile'));
-checkIdentical('the addresses go along', array_column($usrList, 'mailboxAdr', 'systemName'), Array('ben'=>'ben@example.ch', 'erin'=>'erin@example.ch'));
+	Array(0, 5, Array('anna'=>'1/sysadmin/approved', 'ben'=>'2/internal/approved', 'cleo'=>'3/internal/awaiting', 'dave'=>'4/operator/disabled', 'erin'=>'5/internal/inReview'), 'userFile', 'userFile'));
+checkIdentical('the addresses go along', array_column($usrList, 'contactEml', 'systemName'), Array('ben'=>'ben@example.ch', 'erin'=>'erin@example.ch'));
 checkIdentical('the languages go along', array_column($usrList, 'userLocale', 'systemName'), Array('ben'=>'fr-ch'));
 checkIdentical('the passwords and the personal token go along unchanged', Array(array_column($usrList, 'passwdHash', 'systemName'), $usrList['anna']['bearerHash'] ?? null), Array($hashLst, hash('sha256', 'token-of-anna')));
 checkIdentical('what is not kept is told', array_column($jsnVals['rows'] ?? Array(), 'details', 'not kept'), Array(

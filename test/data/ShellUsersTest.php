@@ -27,7 +27,7 @@ $natAuth = new Native( Array('useTable'=>'users') );
 
 // Reading
 $jsnVals = runShellAsJson($projDir, Array('accounts', 'fullList'));
-checkIdentical('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'systemName'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
+checkIdentical('lists the users of the userbase the login names', Array(array_column($jsnVals['rows'] ?? Array(), 'systemName'), array_keys($jsnVals['rows'][0] ?? Array())), Array(Array('anna', 'ben', 'cleo', 'dave'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
 checkIdentical('lists by status', array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--statusIs=disabled'))['rows'] ?? Array(), 'systemName'), Array('dave'));
 checkIdentical('views a user; an unknown one', Array(runShellAsJson($projDir, Array('accounts', 'viewUser', 'ben'))['accessRole'] ?? null, callShellArray($projDir, Array('accounts', 'viewUser', 'nobody'))['errs']), Array('internal', "User not found\n"));
 
@@ -77,15 +77,15 @@ callShellArray($projDir, Array('accounts', 'makeUser', 'gail', '--noExpiry'));
 checkIdentical('--noExpiry: no end, at a reset or a creation', $sqlLink->query("SELECT codeExpiry FROM users WHERE systemName IN ('ben', 'gail')")->fetchAll(PDO::FETCH_COLUMN), Array(null, null));
 
 // Addresses, sign-ups awaiting review
-checkIdentical('email gives an address, in lower case', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'erin', 'Erin@Example.ch'))['text'], runShellAsJson($projDir, Array('accounts', 'viewUser', 'erin'))['mailboxAdr'] ?? null), Array("address set: erin\n", 'erin@example.ch'));
+checkIdentical('email gives an address, in lower case', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'erin', 'Erin@Example.ch'))['text'], runShellAsJson($projDir, Array('accounts', 'viewUser', 'erin'))['contactEml'] ?? null), Array("address set: erin\n", 'erin@example.ch'));
 checkIdentical('an address taken, one that is not', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'anna', 'erin@example.ch'))['errs'], callShellArray($projDir, Array('accounts', 'setEmail', 'anna', 'anna'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
-checkIdentical('email without an address takes it away', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'erin'))['text'], array_key_exists('mailboxAdr', $viewArr = runShellAsJson($projDir, Array('accounts', 'viewUser', 'erin'))) ? $viewArr['mailboxAdr'] : 'missing'), Array("address removed: erin\n", null));
+checkIdentical('email without an address takes it away', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'erin'))['text'], array_key_exists('contactEml', $viewArr = runShellAsJson($projDir, Array('accounts', 'viewUser', 'erin'))) ? $viewArr['contactEml'] : 'missing'), Array("address removed: erin\n", null));
 checkIdentical('langs gives a language, shows it, takes it away', Array(callShellArray($projDir, Array('accounts', 'language', 'erin', 'FR_ch'))['text'], callShellArray($projDir, Array('accounts', 'language', 'erin'))['text'], callShellArray($projDir, Array('accounts', 'language', 'erin', ''))['text'], callShellArray($projDir, Array('accounts', 'language', 'erin'))['text']), Array("language set: erin\n", "erin: fr-ch\n", "language removed: erin\n", "erin: (default)\n"));
 checkIdentical('langs: one that is not', callShellArray($projDir, Array('accounts', 'language', 'erin', 'french'))['errs'], "Invalid language\n");
 callShellArray($projDir, Array('accounts', 'makeUser', 'hank', '--language=de-CH'));
 checkIdentical('--language: the language of a user created', Array($sqlLink->query("SELECT userLocale FROM users WHERE systemName='hank'")->fetchColumn(), callShellArray($projDir, Array('accounts', 'makeUser', 'hugh', '--language=german'))['errs']), Array('de-ch', "Invalid language\n"));
 checkIdentical('prove without a user: nobody awaits review', callShellArray($projDir, Array('accounts', 'approves'))['text'], "systemName\nNo user awaits review.\n");
-$sqlLink->exec("INSERT INTO users (systemName, passwdHash, userStatus, mailboxAdr, signupDate) VALUES ('ivan', '!', 'checking', 'ivan@example.ch', '2026-11-04 08:00:00')");
+$sqlLink->exec("INSERT INTO users (systemName, passwdHash, userStatus, contactEml, signupDate) VALUES ('ivan', '!', 'inReview', 'ivan@example.ch', '2026-11-04 08:00:00')");
 checkIdentical('prove without a user lists those awaiting review', array_column(runShellAsJson($projDir, Array('accounts', 'approves'))['rows'] ?? Array(), 'systemName'), Array('ivan'));
 checkIdentical('prove approves one; then it is no longer awaiting', Array(callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['text'], runShellAsJson($projDir, Array('accounts', 'viewUser', 'ivan'))['userStatus'] ?? null, callShellArray($projDir, Array('accounts', 'approves', 'ivan'))['errs']), Array("approved: ivan\n", 'approved', "User not awaiting review\n"));
 checkIdentical('prove on the users file', callShellArray($projDir, Array('accounts', 'approves', '--useStore=userFile'))['code'], 3);

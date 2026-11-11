@@ -116,7 +116,7 @@ class Actions extends Actionset {
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfosArray($gvnUser) ?: Array())['mailboxAdr'] ?? null);
+		$this->replyValue = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfosArray($gvnUser) ?: Array())['contactEml'] ?? null);
 	}
 
 	/**
@@ -205,7 +205,7 @@ class Actions extends Actionset {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();
-		$usrMail = strval( $usrInfo['mailboxAdr'] ?? '' );
+		$usrMail = strval( $usrInfo['contactEml'] ?? '' );
 		$mailObj = ($usrMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
 		$newCode = $usrBase->resetUsrString( $gvnUser, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS );
 		if($newCode===false){

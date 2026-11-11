@@ -356,7 +356,7 @@ class Deploy extends Command{
 			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
 		}
 		$rvwList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStatus'] ?? '')=='checking';
+			return ($usrValuesArr['userStatus'] ?? '')=='inReview';
 		}), 'systemName' );
 		if( !empty($rvwList) ){
 			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; accounts freeUser makes them active');

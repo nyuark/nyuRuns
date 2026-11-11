@@ -11,7 +11,7 @@ use nyu\Tools\Logger;
  * from a JSON file written as { "users": [ { field: value }, ... ] }.
  * A user has a 'systemName' and a 'passwdHash' (as given by password_hash()),
  * and optionally an 'accessRole' (internal when left out), a 'userStatus'
- * (active when left out), a 'mailboxAdr' address (one account each), the
+ * (active when left out), a 'contactEml' address (one account each), the
  * 'bearerHash' SHA-256 hash of a personal API token, a 'twoFactKey' 2FA
  * secret and an 'id_user'.
  * The file is only read: what needs a write (presence, new tokens,
@@ -310,12 +310,12 @@ class UserList implements Handler{
 
 	/**
 	 * Reads the users file. Each user is given every field: 'accessRole' is
-	 * internal and 'userStatus' approved when left out, 'mailboxAdr', 'userLocale',
+	 * internal and 'userStatus' approved when left out, 'contactEml', 'userLocale',
 	 * 'bearerHash' and 'twoFactKey' empty, 'id_user' null; the address and the
 	 * language are read in lower case. The file is refused as a whole, and the refusal logged, when it
 	 * is not a JSON text holding a 'users' list, when a user lacks its
 	 * 'systemName' or 'passwdHash', when a field is not a text, or when two
-	 * users share a 'systemName', a 'mailboxAdr' or a 'bearerHash'.
+	 * users share a 'systemName', a 'contactEml' or a 'bearerHash'.
 	 *
 	 * @return Array|Bool The users, or false when the file cannot be used.
 	 */
@@ -336,7 +336,7 @@ class UserList implements Handler{
 				break;
 			}
 			$userVls = Array('systemName'=>$usrRow['systemName'], 'passwdHash'=>$usrRow['passwdHash'], 'id_user'=>$usrRow['id_user'] ?? null);
-			foreach( Array('accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
+			foreach( Array('accessRole'=>'internal', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
 				$userVls[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
 				if( !is_string($userVls[$fldNme]) ){
 					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['systemName']).' is not a text';
@@ -348,7 +348,7 @@ class UserList implements Handler{
 				break;
 			}
 			$userVls['bearerHash'] = strtolower($userVls['bearerHash']);
-			$userVls['mailboxAdr'] = strtolower($userVls['mailboxAdr']);
+			$userVls['contactEml'] = strtolower($userVls['contactEml']);
 			$userVls['userLocale'] = strtolower($userVls['userLocale']);
 			if( in_array($userVls['systemName'], $nameLst, true) ){
 				$whyText = 'user '.json_encode($userVls['systemName']).' is listed twice';
@@ -358,13 +358,13 @@ class UserList implements Handler{
 				$whyText = 'the bearerHash of user '.json_encode($userVls['systemName']).' is the one of another user';
 				break;
 			}
-			if( $userVls['mailboxAdr']!='' && in_array($userVls['mailboxAdr'], $mailLst, true) ){
-				$whyText = 'the mailboxAdr of user '.json_encode($userVls['systemName']).' is the one of another user';
+			if( $userVls['contactEml']!='' && in_array($userVls['contactEml'], $mailLst, true) ){
+				$whyText = 'the contactEml of user '.json_encode($userVls['systemName']).' is the one of another user';
 				break;
 			}
 			$nameLst[] = $userVls['systemName'];
 			$tknList[] = $userVls['bearerHash'];
-			$mailLst[] = $userVls['mailboxAdr'];
+			$mailLst[] = $userVls['contactEml'];
 			$usrList[] = $userVls;
 		}
 		if( $whyText!='' ){

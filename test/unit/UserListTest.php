@@ -138,7 +138,7 @@ checkIdentical('UserList a role that is not a text', listReply(json_encode(Array
 checkIdentical('UserList a language that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userLocale'=>Array('fr')))))), $unavail);
 checkIdentical('UserList an id that is not a number or a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('id_user'=>Array(1)))))), $unavail);
 checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('systemName'=>'anna', 'passwdHash'=>$annaHsh, 'accessRole'=>'sysadmin'))))), $unavail);
-checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('mailboxAdr'=>'anna@example.ch'), Array('systemName'=>'ben', 'passwdHash'=>$annaHsh, 'mailboxAdr'=>'Anna@Example.CH'))))), $unavail);
+checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('contactEml'=>'anna@example.ch'), Array('systemName'=>'ben', 'passwdHash'=>$annaHsh, 'contactEml'=>'Anna@Example.CH'))))), $unavail);
 checkIdentical('UserList a bearerHash shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('bearerHash'=>'ab12'), Array('systemName'=>'ben', 'passwdHash'=>$annaHsh, 'bearerHash'=>'AB12'))))), $unavail);
 checkIdentical('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStatus'=>'online'))))), Array(false, 'Invalid credentials', true));
 checkIdentical('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>'root')))))[0], Array('userName'=>'anna', 'userRole'=>'root', 'idOfUser'=>null));
@@ -148,7 +148,7 @@ checkIdentical('access log: one error per file refused, none for a missing one',
 checkIdentical('access log: the status of a user that is not active is told there only', array_values(preg_grep('/is not active/', $axsLogs)), Array('['.date('Y').'] [WARNING] Credential refused: user "anna" is not active (online)'));
 checkIdentical('access log: why the file is refused', $axsLogs[9] ?? null, '['.date('Y').'] [ERROR] Users file "users.lst" cannot be used: user "anna" is listed twice');
 checkIdentical('access log: a language that is not a text', count(preg_grep('/cannot be used: the userLocale of user \"anna\" is not a text$/', $axsLogs)), 1);
-checkIdentical('access log: an address shared', count(preg_grep('/cannot be used: the mailboxAdr of user \"ben\" is the one of another user$/', $axsLogs)), 1);
+checkIdentical('access log: an address shared', count(preg_grep('/cannot be used: the contactEml of user \"ben\" is the one of another user$/', $axsLogs)), 1);
 checkIdentical('access log: neither a hash nor a token is told', count(preg_grep('/\$2y\$|ab12/i', $axsLogs)), 0);
 
 // Through the Checker : Basic credentials, a personal token, and a JWT confirmed against the file

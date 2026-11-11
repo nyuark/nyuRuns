@@ -88,7 +88,7 @@ Chapter 2 goes through it from the angle of needs.
 | **preset** | the service's profile: how it's reached, how access is checked, and how it replies |
 | **store** | where users are kept: a users file, or a database table |
 | **role** | what a user can reach: `internal`, `operator`, `sysadmin` |
-| **status** | where an account stands: `awaiting`, `checking`, `approved`, `disabled` |
+| **status** | where an account stands: `awaiting`, `inReview`, `approved`, `disabled` |
 
 ---
 
@@ -255,7 +255,7 @@ Account statuses:
 | Status | Meaning | Can sign in |
 |---|---|---|
 | `awaiting` | created, waiting for its code to be used | no |
-| `checking` | signed up on their own and confirmed, waiting for a manager | no |
+| `inReview` | signed up on their own and confirmed, waiting for a manager | no |
 | `approved` | in use | yes |
 | `disabled` | stopped by a manager | no |
 
@@ -451,7 +451,7 @@ their accesses. Every refusal is traced with its reason.
     │          │ code, chosen password               │ code, chosen password
     │          │                                     ▼
     │          │                                ┌──────────┐
-    │          │                                │ checking │── refused: removed
+    │          │                                │ inReview │── refused: removed
     │          │                                └──────────┘
     │          │                                     │ users/approve, accounts approves
     │          ▼                                     │ (by a manager)
@@ -473,11 +473,11 @@ their accesses. Every refusal is traced with its reason.
   service allows it (5.4).
 - **Activation**: the user sends their name, the code and the password
   they choose (`auth/active`). An account created by a manager becomes
-  `approved`, and one a visitor signed up for goes to `checking`. A wrong code
+  `approved`, and one a visitor signed up for goes to `inReview`. A wrong code
   is refused just like a wrong name, and counted.
 - **Review**: a manager approves the account (`users/approve`, or
   `accounts approves`) and it becomes `approved`, or refuses it by
-  removing it. An account in `checking` can't sign in, and can't be locked.
+  removing it. An account in `inReview` can't sign in, and can't be locked.
 - **Locking**: a locked user can't sign in, and their session ends at
   their next request when the profile checks the store (5.2). Only an
   `approved` account can be locked.
@@ -510,7 +510,7 @@ visitor                              service                                mana
    │                                    │ free: awaiting account, code mailed  │
    │                                    │ taken: the owner of the address told │
    │  auth/active: code, password     │                                      │
-   │──────────────────────────────────▶│ the account in checking              │
+   │──────────────────────────────────▶│ the account in inReview              │
    │                                    │ managers told when sign-ups pile up ─▶│
    │                                    │               users/approve         │
    │                                    │◀─────────────────────────────────────│
@@ -523,7 +523,7 @@ visitor                              service                                mana
    goes to the address. If the address is already taken, its owner gets a
    mail saying someone tried to use it.
 2. The visitor confirms the address with the code and chooses a password
-   (`auth/active`), and the account goes to `checking`.
+   (`auth/active`), and the account goes to `inReview`.
 3. A manager approves it (`users/approve`, or `accounts approves`), and
    it becomes `approved`. Refusing it means removing it.
 
@@ -1067,7 +1067,7 @@ The replies of the `Auth` run:
 |---|---|
 | `auth/login` | `{"token": "<the token>"}`, or `{"logged": true}` with the session cookie |
 | `auth/logout` | `{"logged": false}` |
-| `auth/active` | `{"active": true, "stat": "approved"}`, or `{"active": false, "stat": "checking"}` for a sign-up |
+| `auth/active` | `{"active": true, "stat": "approved"}`, or `{"active": false, "stat": "inReview"}` for a sign-up |
 | `auth/setpass`, `auth/recover` | `{"changed": true}` |
 | `auth/usrlang` | `{"lang": "<the language>"}` |
 | `auth/keyset`, at `/.well-known/jwks.json` | the public keys that check the tokens (RS256); a 404 when tokens are signed with a secret (HS256) |

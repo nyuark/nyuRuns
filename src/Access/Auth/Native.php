@@ -14,8 +14,8 @@ use nyu\Data\DBHndlr\Handler as DbHandlr;
  */
 class Native implements Handler{
 
-	// Statuses a user can have; only an active user may log in. 'checking' is a self-registration awaiting a manager
-	const STAT_LIST = Array('awaiting', 'checking', 'approved', 'disabled');
+	// Statuses a user can have; only an active user may log in. 'inReview' is a self-registration awaiting a manager
+	const STAT_LIST = Array('awaiting', 'inReview', 'approved', 'disabled');
 	// Seconds during which a user already seen is not stamped again
 	const SEEN_SECS = 60;
 	// Longest password, in bytes : bcrypt reads nothing beyond
@@ -37,7 +37,7 @@ class Native implements Handler{
 	protected $holdPeriod;
 	protected $minPwdSize;
 	protected $sealingKey;
-	protected $mailExpiry;
+	protected $twoFactExp;
 	protected $markedLmtr;
 	protected $passedUser = null;
 	protected $errMessage;
@@ -64,7 +64,7 @@ class Native implements Handler{
 		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
 		$this->minPwdSize = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
 		$this->sealingKey = is_scalar($configValues['tfaCrypt'] ?? '') ? strval($configValues['tfaCrypt'] ?? '') : '';
-		$this->mailExpiry = max( 1, intval($configValues['codeMins'] ?? self::MAIL_MINS) );
+		$this->twoFactExp = max( 1, intval($configValues['codeMins'] ?? self::MAIL_MINS) );
 		// The failures of a client presenting a login mark are counted on the mark, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
@@ -349,24 +349,24 @@ class Native implements Handler{
 	 */
 	protected function sendCodeByMail( Array $usrValuesArr ): Bool {
 		$usrName = strval($usrValuesArr['systemName'] ?? '');
-		$usrMail = strval($usrValuesArr['mailboxAdr'] ?? '');
+		$usrMail = strval($usrValuesArr['contactEml'] ?? '');
 		// After the reply of a request; at once on the command line, which has none
 		$mailObj = \nyu\Access\AccessMail::fromLoginBlock( '', PHP_SAPI!=='cli' );
 		if( $mailObj===null || $usrMail=='' ){
 			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Verification code of user '.json_encode($usrName).' not sent: no mailer or no address' );
 			return false;
 		}
-		$endDate = strval($usrValuesArr['mailExpiry'] ?? '');
-		if( strval($usrValuesArr['mailedCode'] ?? '')!='' && $endDate!='' && strtotime($endDate) - 60*$this->mailExpiry > time() - self::MAIL_SECS ){
+		$endDate = strval($usrValuesArr['twoFactExp'] ?? '');
+		if( strval($usrValuesArr['twoFactHsh'] ?? '')!='' && $endDate!='' && strtotime($endDate) - 60*$this->twoFactExp > time() - self::MAIL_SECS ){
 			return true;
 		}
 		$newCode = $this->makeAccessCode();
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailedCode']}=?, {$qtdName['mailExpiry']}=? WHERE {$qtdName['systemName']}=?;";
-			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($this->codeHashesList($newCode)[0], date('Y-m-d H:i:s', time() + 60*$this->mailExpiry), $usrName)) || $dbHndlr->countLastWrite()<1 ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( 'A mailed code cannot be recorded: the users table cannot be written, or has no mailedCode column (see conf/schema)' );
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactHsh']}=?, {$qtdName['twoFactExp']}=? WHERE {$qtdName['systemName']}=?;";
+			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($this->codeHashesList($newCode)[0], date('Y-m-d H:i:s', time() + 60*$this->twoFactExp), $usrName)) || $dbHndlr->countLastWrite()<1 ){
+				\nyu\Tools\Logger::retrieveLogger('access')->error( 'A mailed code cannot be recorded: the users table cannot be written, or has no twoFactHsh column (see conf/schema)' );
 				return false;
 			}
 		}catch( \Throwable $e ){
@@ -387,8 +387,8 @@ class Native implements Handler{
 	 * @return ?Bool True when the code is the one mailed, false when it is not or has ended, null when the table cannot be written.
 	 */
 	protected function compareMailFlg( Array $usrValuesArr, String $codeAsString ): ?Bool {
-		$rowHash = strval($usrValuesArr['mailedCode'] ?? '');
-		$endDate = strval($usrValuesArr['mailExpiry'] ?? '');
+		$rowHash = strval($usrValuesArr['twoFactHsh'] ?? '');
+		$endDate = strval($usrValuesArr['twoFactExp'] ?? '');
 		if( $rowHash=='' || $endDate=='' || $endDate<date('Y-m-d H:i:s') ){
 			return false;
 		}
@@ -399,7 +399,7 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL WHERE {$qtdName['systemName']}=? AND {$qtdName['mailedCode']}=?;";
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactHsh']}=NULL, {$qtdName['twoFactExp']}=NULL WHERE {$qtdName['systemName']}=? AND {$qtdName['twoFactHsh']}=?;";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array(strval($usrValuesArr['systemName'] ?? ''), $rowHash)) ){
 				return null;
 			}
@@ -453,7 +453,7 @@ class Native implements Handler{
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$newSecr = Totp::generateSecret();
 			$storTxt = Totp::sealSecretText($newSecr, $this->sealingKey);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactKey']}=?, {$qtdName['twoFactPos']}=NULL, {$qtdName['twoFactWay']}=NULL, {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL"
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactKey']}=?, {$qtdName['twoFactPos']}=NULL, {$qtdName['twoFactWay']}=NULL, {$qtdName['twoFactHsh']}=NULL, {$qtdName['twoFactExp']}=NULL"
 				." WHERE {$qtdName['systemName']}=? AND {$qtdName['userStatus']}='approved';";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($storTxt, $namedUserTxt)) || $dbHndlr->countLastWrite()<1 ){
 				return false;
@@ -697,7 +697,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFieldsArr( DbHandlr $dbHandlerObj ): Array {
 		$qtdName = Array('usrTable'=>$dbHandlerObj->quoteFieldName($this->usersTable));
-		foreach( Array('id_user', 'systemName', 'passwdHash', 'passwdDate', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'actvtnCode', 'recovrCode', 'codeExpiry', 'signupDate', 'bearerHash', 'twoFactKey', 'twoFactPos', 'twoFactWay', 'mailedCode', 'mailExpiry', 'failsCount', 'failedTime', 'createDate', 'accessDate') as $fldNme ){
+		foreach( Array('id_user', 'systemName', 'passwdHash', 'passwdDate', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'actvtnCode', 'recovrCode', 'codeExpiry', 'signupDate', 'bearerHash', 'twoFactKey', 'twoFactPos', 'twoFactWay', 'twoFactHsh', 'twoFactExp', 'failsCount', 'failedTime', 'createDate', 'accessDate') as $fldNme ){
 			$qtdName[$fldNme] = $dbHandlerObj->quoteFieldName($fldNme);
 		}
 		return $qtdName;

@@ -271,7 +271,7 @@ class Manage extends Command{
 		}
 		$usrName = strval($this->optionsObj->shiftFirstWord() ?? '');
 		if( $usrName=='' ){
-			$usrList = $storObj->listUsersNamed( Array('userStatus'=>'checking') );
+			$usrList = $storObj->listUsersNamed( Array('userStatus'=>'inReview') );
 			if( $usrList===false ){
 				$this->stopStoreError($storObj);
 			}

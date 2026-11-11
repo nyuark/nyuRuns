@@ -345,7 +345,7 @@ php nyuRun accounts fullList
 ```
 
 ```
-id_user  systemName  accessRole  userStatus  mailboxAdr  userLocale  signupDate  createDate           accessDate
+id_user  systemName  accessRole  userStatus  contactEml  userLocale  signupDate  createDate           accessDate
 2        engineer    operator    approved                                        2026-11-10 01:13:00
 3        sysAgent    sysadmin    approved                                        2026-11-10 01:13:00
 1        teammate    internal    approved                                        2026-11-10 01:13:00
@@ -1085,7 +1085,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 | `500` naming `Input misconfigured` | an `input/<action>.json` that isn't `{ "fieldSet": … }`, or that names a format that doesn't exist | fix the file; formats come from `nyu\Tools\Variable` |
 | `400 Missing or invalid input: …` | a required field (`name!`) was missing or empty | send it, and check its name |
 | `401 Missing Bearer Authorization header` | the profile wants a token | sign in and send `Authorization: Bearer <token>` |
-| `401 Invalid credentials` with the right password | the account isn't active (`awaiting`, `checking` or `disabled`) | `php nyuRun accounts fullList` shows its status |
+| `401 Invalid credentials` with the right password | the account isn't active (`awaiting`, `inReview` or `disabled`) | `php nyuRun accounts fullList` shows its status |
 | `400 Password sent in the query string` | the password came in the URL | send it in the body, with `POST` |
 | `405 Method Not Allowed` | the route doesn't take that method | its `Allow` header lists the ones it does |
 | `413 Payload Too Large` | the body is bigger than `REQ_SIZE`, or has more parts than `REQ_PART` | raise them in `system.ini` if that's intended |

@@ -13,10 +13,10 @@ CREATE TABLE `users` (
 	`passwdDate` DATETIME     NULL,
 	-- internal, operator or sysadmin, in that order
 	`accessRole` VARCHAR(8)   NOT NULL DEFAULT 'internal',
-	-- awaiting (its activation), checking (signed up, a manager to approve it), approved or disabled
+	-- awaiting (its activation), inReview (signed up, a manager to approve it), approved or disabled
 	`userStatus` VARCHAR(8)   NOT NULL DEFAULT 'awaiting',
 	-- Mail address, in lower case; one account each
-	`mailboxAdr` VARCHAR(254) NULL,
+	`contactEml` VARCHAR(254) NULL,
 	-- Language of the mails sent to the user, a tag in lower case ('fr', 'fr-ch'); the default one when empty
 	`userLocale` VARCHAR(16)  NULL,
 	-- SHA-256 hash of the activation code, cleared once used
@@ -36,8 +36,8 @@ CREATE TABLE `users` (
 	-- Second factor sent by mail ('emailOtp'); an authenticator when empty and twoFactKey is set
 	`twoFactWay` CHAR(8)      NULL,
 	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
-	`mailedCode` CHAR(64)     NULL,
-	`mailExpiry` DATETIME     NULL,
+	`twoFactHsh` CHAR(64)     NULL,
+	`twoFactExp` DATETIME     NULL,
 	-- Failed attempts of the current window, and time of the last one
 	`failsCount` INT UNSIGNED NOT NULL DEFAULT 0,
 	`failedTime` DATETIME     NULL,
@@ -47,8 +47,8 @@ CREATE TABLE `users` (
 	PRIMARY KEY (`id_user`),
 	UNIQUE KEY `systemName` (`systemName`),
 	UNIQUE KEY `bearerHash` (`bearerHash`),
-	UNIQUE KEY `mailboxAdr` (`mailboxAdr`),
+	UNIQUE KEY `contactEml` (`contactEml`),
 	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
-	CHECK (`userStatus` IN ('awaiting', 'checking', 'approved', 'disabled')),
+	CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled')),
 	CHECK (`twoFactWay` IN ('emailOtp'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

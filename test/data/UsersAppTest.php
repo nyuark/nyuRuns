@@ -150,14 +150,14 @@ checkIdentical('create: a name that is not a text', statusOf(callActn('users/cre
 // index and view
 $outcome = callActn('users/index', Array(), 'anna', 'sysadmin', 'GET');
 checkIdentical('index: every user, by name', Array($outcome['code'] ?? $outcome, array_column($outcome['out'] ?? Array(), 'systemName')), Array(200, Array('anna', 'ben', 'dave', 'emma', 'fred')));
-checkIdentical('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
+checkIdentical('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
 checkIdentical('index: by default action', callActn('users/', Array(), 'anna', 'sysadmin', 'GET')['code'] ?? null, 200);
 checkIdentical('index: filters', array_column(callActn('users/index', Array('currStat'=>'awaiting', 'saveRole'=>'operator'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('fred'));
 checkIdentical('index: limit and offset, as sent in a query', array_column(callActn('users/index', Array('limitVal'=>'2', 'rowIndex'=>'1'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('ben', 'dave'));
 checkIdentical('index: nobody is 204', callActn('users/index', Array('currStat'=>'disabled', 'saveRole'=>'sysadmin'), 'anna', 'sysadmin', 'GET')['code'] ?? null, 204);
 checkIdentical('index: invalid filter', statusOf(callActn('users/index', Array('currStat'=>'online'), 'anna', 'sysadmin', 'GET')), Array(400, 'Invalid filter'));
 $outcome = callActn('users/view', Array('userName'=>'ben'), 'anna', 'sysadmin', 'GET');
-checkIdentical('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null)));
+checkIdentical('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null)));
 checkIdentical('view: unknown user', statusOf(callActn('users/view', Array('userName'=>'zed'), 'anna', 'sysadmin', 'GET')), Array(404, 'User not found'));
 checkIdentical('view: no name', statusOf(callActn('users/view', Array(), 'anna', 'sysadmin', 'GET')), Array(400, 'Missing or invalid input: userName'));
 
@@ -283,8 +283,8 @@ $takenMl = sentMail();
 checkIdentical('signup: an address taken is told to its owner', Array($outcome['code'] ?? null, count($takenMl), $takenMl[0]['to'] ?? null, $takenMl[0]['subject'] ?? null), Array(202, 1, 'ben@example.ch', 'Your sign-up'));
 checkIdentical('signup: a name or an address that is not one', Array(statusOf(callActn('auth/signup', Array('userName'=>'a b', 'userMail'=>'jack@example.ch'), '', '')), statusOf(callActn('auth/signup', Array('userName'=>'jack', 'userMail'=>'jack'), '', '')), statusOf(callActn('auth/signup', Array('userName'=>'jack'), '', ''))), Array(Array(400, 'Invalid user name'), Array(400, 'Invalid mail address'), Array(400, 'Missing or invalid input: userMail')));
 $outcome = callActn('auth/active', Array('userName'=>'ivan', 'sentCode'=>strval($mailLst[0]['code'] ?? ''), 'passWord'=>'pass-ivan-1'), '', '');
-checkIdentical('signup: confirmed, it awaits review', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>false, 'stat'=>'checking')));
-checkIdentical('signup: listed by its status', array_column(callActn('users/index', Array('currStat'=>'checking'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('ivan'));
+checkIdentical('signup: confirmed, it awaits review', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>false, 'stat'=>'inReview')));
+checkIdentical('signup: listed by its status', array_column(callActn('users/index', Array('currStat'=>'inReview'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('ivan'));
 $outcome = callActn('users/approve', Array('userName'=>'ivan'));
 checkIdentical('approve: active', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ivan', 'stat'=>'approved')));
 checkIdentical('approve: only a user in review', statusOf(callActn('users/approve', Array('userName'=>'ivan'))), Array(409, 'User not awaiting review'));
@@ -309,8 +309,8 @@ callActn('auth/recover', Array('userName'=>'ben', 'sentCode'=>'AAAA-BBBB-CC', 'p
 checkIdentical('signup: an address held for wrong credentials is refused', statusOf(callActn('auth/signup', Array('userName'=>'mona', 'userMail'=>'mona@example.ch'), '', '')), Array(429, 'Too many attempts'));
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 sentMail();
-$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE systemName='anna'");
-$waitNow = intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signupDate IS NOT NULL AND userStatus IN ('awaiting', 'checking')")->fetchColumn());
+$sqlLink->exec("UPDATE users SET contactEml='anna@example.ch' WHERE systemName='anna'");
+$waitNow = intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signupDate IS NOT NULL AND userStatus IN ('awaiting', 'inReview')")->fetchColumn());
 plugConf('nativeDb', 0, $mailCnf + Array('signupOn'=>true), Array('maxQueue'=>$waitNow+2, 'alertsAt'=>Array($waitNow+1, $waitNow+2)));
 callActn('auth/signup', Array('userName'=>'mona', 'userMail'=>'mona@example.ch'), '', '');
 $mailLst = array_values(array_filter(sentMail(), function( Array $mailValue ): Bool { return $mailValue['to']=='anna@example.ch'; }));

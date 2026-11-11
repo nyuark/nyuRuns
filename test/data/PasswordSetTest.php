@@ -78,7 +78,7 @@ checkIdentical('a token issued after the change passes', tokenFor($jwtSess->issu
 checkIdentical('userIdent: a session started before is refused, one started after passes, none to compare passes', Array($natAuth->usrIdentityArr('ben', time() - 10), $natAuth->usrIdentityArr('ben', time() + 1)['userName'] ?? null, $natAuth->usrIdentityArr('ben')['userName'] ?? null), Array(false, 'ben', 'ben'));
 // A reset asked by the user, used with its code
 $natAuth->makeToknString('anna');
-$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE systemName='anna'");
+$sqlLink->exec("UPDATE users SET contactEml='anna@example.ch' WHERE systemName='anna'");
 $rsetVal = $usrBase->resetPassArray('anna');
 $annaTkn = pastTokn('anna', 5);
 checkIdentical('recovUser: the password is set with the code', $usrBase->recoverUserFlg('anna', strval($rsetVal['code'] ?? ''), 'new-pass-anna'), true);

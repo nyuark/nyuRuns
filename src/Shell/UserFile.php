@@ -26,9 +26,9 @@ use nyu\Tools\Logger;
 class UserFile{
 
 	// The fields of a user, in the order they are written; any other field a person added is kept after them
-	const FLDS_LIST = Array('id_user', 'systemName', 'passwdHash', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'bearerHash', 'twoFactKey');
+	const FLDS_LIST = Array('id_user', 'systemName', 'passwdHash', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'bearerHash', 'twoFactKey');
 	// What is told about a user : never a hash or a secret
-	const SHOW_LIST = Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale');
+	const SHOW_LIST = Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale');
 	// Longest password, in bytes : bcrypt reads nothing beyond
 	const PASS_SIZE = 72;
 
@@ -231,15 +231,15 @@ class UserFile{
 		}
 		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVal ): ?Array {
 			foreach( $usersRecords as $usrPos => $usrRow ){
-				if( $mailVal!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['mailboxAdr'] ?? ''))===$mailVal ){
+				if( $mailVal!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['contactEml'] ?? ''))===$mailVal ){
 					$this->declineForFlag(409, 'Mail address already used');
 					return null;
 				}
 			}
 			if( $mailVal==='' ){
-				unset($usersRecords[$usersIndxNum]['mailboxAdr']);
+				unset($usersRecords[$usersIndxNum]['contactEml']);
 			}else{
-				$usersRecords[$usersIndxNum]['mailboxAdr'] = $mailVal;
+				$usersRecords[$usersIndxNum]['contactEml'] = $mailVal;
 			}
 			return $usersRecords;
 		} );
@@ -607,7 +607,7 @@ class UserFile{
 			'systemName'=>strval($usrValuesArr['systemName'] ?? ''),
 			'accessRole'=>strval($usrValuesArr['accessRole'] ?? Checker::ROLE_LIST[0]),
 			'userStatus'=>strval($usrValuesArr['userStatus'] ?? 'approved'),
-			'mailboxAdr'=>strval($usrValuesArr['mailboxAdr'] ?? ''),
+			'contactEml'=>strval($usrValuesArr['contactEml'] ?? ''),
 			'userLocale'=>strval($usrValuesArr['userLocale'] ?? ''),
 			'hasToken'=>strval($usrValuesArr['bearerHash'] ?? '')!='',
 			'hasTwoFa'=>strval($usrValuesArr['twoFactKey'] ?? '')!=''

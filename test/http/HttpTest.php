@@ -540,7 +540,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'saveRole=internal');
 	checkIdentical('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName","code":400}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/index?currStat=awaiting', $mgrHead);
-	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'systemName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
+	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'systemName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/view?userName=henry', $mgrHead);
 	checkIdentical('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStatus'] ?? null), Array(200, 'awaiting'));
 

@@ -188,8 +188,8 @@ $usrBase->changeRoleFlag('dave', 'operator');
 // 7. listUsers
 $allList = $usrBase->listUsersNamed();
 checkIdentical('list: every user, by name', array_column((array)$allList, 'systemName'), Array('Fred.Opr-2', 'anna', 'ben', 'cleo', 'dave', 'emma', 'gina'));
-checkIdentical('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
-checkIdentical('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'systemName'=>'anna', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
+checkIdentical('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
+checkIdentical('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'systemName'=>'anna', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
 checkIdentical('list: by status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'awaiting')), 'systemName'), Array('Fred.Opr-2', 'cleo', 'gina'));
 checkIdentical('list: by role', array_column((array)$usrBase->listUsersNamed(Array('accessRole'=>'operator')), 'systemName'), Array('Fred.Opr-2', 'dave'));
 checkIdentical('list: by status and role', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'approved', 'accessRole'=>'internal')), 'systemName'), Array('ben', 'emma'));
@@ -210,7 +210,7 @@ checkIdentical('list: on a missing table', operates(new UserBase(Array('useTable
 
 // 8. userInfos
 $sqlLink->exec("UPDATE users SET bearerHash='tk', twoFactKey='2f' WHERE systemName='ben'");
-checkIdentical('read: one user, without hash, code, token or secret', $usrBase->userInfosArray('ben'), Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
+checkIdentical('read: one user, without hash, code, token or secret', $usrBase->userInfosArray('ben'), Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
 $sqlLink->exec("UPDATE users SET twoFactPos=58000000 WHERE systemName='ben'");
 checkIdentical('2FA: the secret is taken away with the step of its last code', Array($usrBase->clearTwoFactor('ben'), $sqlLink->query("SELECT twoFactKey, twoFactPos FROM users WHERE systemName='ben'")->fetch(PDO::FETCH_NUM)), Array(true, Array(null, null)));
 checkIdentical('2FA: nothing to take away from an unknown user', operates($usrBase, 'clearTwoFactor', Array('zed')), Array(false, 404, 'User not found'));
@@ -249,15 +249,15 @@ checkIdentical('remove: on a missing table', operates(new UserBase(Array('useTab
 // 10. Addresses : given at the creation or later, in lower case, one account each
 readLogs();
 $hanaCod = $usrBase->enrolUsrString('hana', '', 'Hana@Example.CH');
-checkIdentical('address: given at the creation, in lower case', Array(is_string($hanaCod), fieldOf($sqlLink, 'hana', 'mailboxAdr')), Array(true, 'hana@example.ch'));
+checkIdentical('address: given at the creation, in lower case', Array(is_string($hanaCod), fieldOf($sqlLink, 'hana', 'contactEml')), Array(true, 'hana@example.ch'));
 checkIdentical('address: one account each, whatever its case', operates($usrBase, 'enrolUsrString', Array('hugo', '', 'HANA@example.ch')), Array(false, 409, 'Mail address already used'));
 checkIdentical('address: one that is not', Array(operates($usrBase, 'enrolUsrString', Array('hugo', '', 'hugo@')), operates($usrBase, 'enrolUsrString', Array('hugo', '', "hugo@example.ch\r\nBcc: x@y.z"))), Array(Array(false, 400, 'Invalid mail address'), Array(false, 400, 'Invalid mail address')));
-checkIdentical('address: an empty one is none', Array(is_string($usrBase->enrolUsrString('hugo', '', '', 0)), fieldOf($sqlLink, 'hugo', 'mailboxAdr'), fieldOf($sqlLink, 'hugo', 'codeExpiry')), Array(true, null, null));
-checkIdentical('address: given later', Array(operates($usrBase, 'changeMailFlag', Array('ben', ' Ben@Example.ch ')), fieldOf($sqlLink, 'ben', 'mailboxAdr')), Array(Array(true, 200, ''), 'ben@example.ch'));
+checkIdentical('address: an empty one is none', Array(is_string($usrBase->enrolUsrString('hugo', '', '', 0)), fieldOf($sqlLink, 'hugo', 'contactEml'), fieldOf($sqlLink, 'hugo', 'codeExpiry')), Array(true, null, null));
+checkIdentical('address: given later', Array(operates($usrBase, 'changeMailFlag', Array('ben', ' Ben@Example.ch ')), fieldOf($sqlLink, 'ben', 'contactEml')), Array(Array(true, 200, ''), 'ben@example.ch'));
 checkIdentical('address: given again, the same', operates($usrBase, 'changeMailFlag', Array('ben', 'ben@example.ch')), Array(true, 200, ''));
 checkIdentical('address: held by another user', operates($usrBase, 'changeMailFlag', Array('ben', 'hana@example.ch')), Array(false, 409, 'Mail address already used'));
 checkIdentical('address: not one, unknown user', Array(operates($usrBase, 'changeMailFlag', Array('ben', 'not an address')), operates($usrBase, 'changeMailFlag', Array('zed', 'zed@example.ch'))), Array(Array(false, 400, 'Invalid mail address'), Array(false, 404, 'User not found')));
-checkIdentical('address: taken away', Array($usrBase->changeMailFlag('hugo', 'hugo@example.ch'), $usrBase->changeMailFlag('hugo', null), fieldOf($sqlLink, 'hugo', 'mailboxAdr')), Array(true, true, null));
+checkIdentical('address: taken away', Array($usrBase->changeMailFlag('hugo', 'hugo@example.ch'), $usrBase->changeMailFlag('hugo', null), fieldOf($sqlLink, 'hugo', 'contactEml')), Array(true, true, null));
 checkPregMatch('address: logged as a notice, without the address', $logText = readLogs(), '/\[NOTICE\] Address of user "ben" set by user "anna"/');
 checkIdentical('address: never in the log', preg_match('/@example\.ch/i', $logText), 0);
 
@@ -278,7 +278,7 @@ readLogs();
 Logger::setCurrentUser( '', '192.0.2.11' );
 $ivanCod = $sgnBase->signsUsrString('ivan', 'Ivan@Example.ch');
 checkPregMatch('sign-up: a code', $ivanCod, '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');
-checkIdentical('sign-up: pending, a member, with its address and the time of the sign-up', Array(fieldOf($sqlLink, 'ivan', 'userStatus'), fieldOf($sqlLink, 'ivan', 'accessRole'), fieldOf($sqlLink, 'ivan', 'mailboxAdr'), fieldOf($sqlLink, 'ivan', 'passwdHash'), abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'signupDate'))) - time())<=5), Array('awaiting', 'internal', 'ivan@example.ch', '!', true));
+checkIdentical('sign-up: pending, a member, with its address and the time of the sign-up', Array(fieldOf($sqlLink, 'ivan', 'userStatus'), fieldOf($sqlLink, 'ivan', 'accessRole'), fieldOf($sqlLink, 'ivan', 'contactEml'), fieldOf($sqlLink, 'ivan', 'passwdHash'), abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'signupDate'))) - time())<=5), Array('awaiting', 'internal', 'ivan@example.ch', '!', true));
 checkIdentical('sign-up: the code lasts the minutes of codeMins', abs(strtotime(strval(fieldOf($sqlLink, 'ivan', 'codeExpiry'))) - (time()+30*60))<=5, true);
 checkPregMatch('sign-up: logged as a notice', readLogs(), '/\[NOTICE\] User "ivan" signed up from 192\.0\.2\.11/');
 $usrNmbr = count((array)$usrBase->listUsersNamed());
@@ -287,11 +287,11 @@ checkIdentical('sign-up: nor is an address taken', operates($sgnBase, 'signsUsrS
 checkIdentical('sign-up: neither writes anything', count((array)$usrBase->listUsersNamed()), $usrNmbr);
 checkPregMatch('sign-up: a name or an address taken is logged as a notice', readLogs(), '/\[NOTICE\] Sign-up as "IVAN": the name or the address is taken from 192\.0\.2\.11/');
 checkIdentical('sign-up: names and addresses that are not', Array(operates($sgnBase, 'signsUsrString', Array('admin', 'jack@example.ch')), operates($sgnBase, 'signsUsrString', Array('jack', 'jack'))), Array(Array(false, 400, 'Invalid user name'), Array(false, 400, 'Invalid mail address')));
-checkIdentical('sign-up: confirmed with its code, it awaits review', Array($usrBase->activateUsrFlg('ivan', strval($ivanCod), 'pass-ivan-1'), fieldOf($sqlLink, 'ivan', 'userStatus')), Array(true, 'checking'));
+checkIdentical('sign-up: confirmed with its code, it awaits review', Array($usrBase->activateUsrFlg('ivan', strval($ivanCod), 'pass-ivan-1'), fieldOf($sqlLink, 'ivan', 'userStatus')), Array(true, 'inReview'));
 checkPregMatch('sign-up: the confirmation is logged as a notice', readLogs(), '/\[NOTICE\] User "ivan" confirmed its address, awaits review/');
 checkIdentical('review: no login yet', $natAuth->checkSecretArr(Array('user'=>'ivan', 'pass'=>'pass-ivan-1')), false);
 checkIdentical('review: neither locked nor unlocked', Array(operates($usrBase, 'saveStatusFlag', Array('ivan', 'approved')), operates($usrBase, 'saveStatusFlag', Array('ivan', 'disabled'))), Array(Array(false, 409, 'A user in review is approved or removed'), Array(false, 409, 'A user in review is approved or removed')));
-checkIdentical('review: listed by its status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'checking')), 'systemName'), Array('ivan'));
+checkIdentical('review: listed by its status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'inReview')), 'systemName'), Array('ivan'));
 Logger::setCurrentUser( 'anna', '192.0.2.7' );
 checkIdentical('approve: a user in review', Array(operates($usrBase, 'approveNewUser', Array('ivan')), fieldOf($sqlLink, 'ivan', 'userStatus'), fieldOf($sqlLink, 'ivan', 'signupDate')), Array(Array(true, 200, ''), 'approved', null));
 checkPregMatch('approve: logged as a notice, signed', readLogs(), '/\[NOTICE\] User "ivan" approved by user "anna" from 192\.0\.2\.7/');
@@ -306,7 +306,7 @@ readLogs();
 checkIdentical('sign-up: the next sign-up removes it, its name and address are free again', Array(is_string($sgnBase->signsUsrString('lena', 'lena@example.ch')), fieldOf($sqlLink, 'kate', 'systemName'), is_string($sgnBase->signsUsrString('kate', 'kate@example.ch')) && $sgnBase->lastStateCount()==200), Array(true, false, true));
 checkPregMatch('sign-up: the removal is logged as an info', readLogs(), '/\[INFO\] 1 sign-ups not confirmed in time removed/');
 $sqlLink->exec('BEGIN');
-$sgnStmt = $sqlLink->prepare("INSERT INTO users (systemName, passwdHash, userStatus, mailboxAdr, signupDate) VALUES (?, '!', 'checking', ?, '2026-11-04 08:00:00')");
+$sgnStmt = $sqlLink->prepare("INSERT INTO users (systemName, passwdHash, userStatus, contactEml, signupDate) VALUES (?, '!', 'inReview', ?, '2026-11-04 08:00:00')");
 for( $idx=0; $idx<UserBase::SIGN_MAXI; $idx++ ){
 	$sgnStmt->execute( Array('wait'.$idx, 'wait'.$idx.'@example.ch') );
 }
@@ -315,9 +315,9 @@ checkIdentical('sign-up: closed for a while when too many are waiting', operates
 checkIdentical('sign-up: the cap is the one given', Array($usrBase->waitingSignups()>=UserBase::SIGN_MAXI, operates($sgnBase, 'signsUsrString', Array('nina', 'nina@example.ch', UserBase::SIGN_MAXI+10))[1]), Array(true, 200));
 $sqlLink->exec("DELETE FROM users WHERE systemName LIKE 'wait%' OR systemName='nina'");
 $waitNum = $usrBase->waitingSignups();
-checkIdentical('waitCount: the sign-ups not confirmed, and those in review', Array($waitNum, $usrBase->waitingSignups()), Array(intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signupDate IS NOT NULL AND userStatus IN ('awaiting', 'checking')")->fetchColumn()), $waitNum));
+checkIdentical('waitCount: the sign-ups not confirmed, and those in review', Array($waitNum, $usrBase->waitingSignups()), Array(intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signupDate IS NOT NULL AND userStatus IN ('awaiting', 'inReview')")->fetchColumn()), $waitNum));
 checkIdentical('sign-up: refused at a lower cap', operates($sgnBase, 'signsUsrString', Array('olga', 'olga@example.ch', $waitNum)), Array(false, 503, 'Sign-ups closed for now'));
-$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE systemName='anna'");
+$sqlLink->exec("UPDATE users SET contactEml='anna@example.ch' WHERE systemName='anna'");
 checkIdentical('managMail: the addresses of the active managers, with their language', $usrBase->manageMailList(), Array('anna@example.ch'=>null));
 $sqlLink->exec("UPDATE users SET userLocale='fr' WHERE systemName='anna'");
 checkIdentical('managMail: a manager with a language', $usrBase->manageMailList(), Array('anna@example.ch'=>'fr'));
@@ -337,8 +337,8 @@ checkIdentical('language: not one, unknown user', Array(operates($usrBase, 'chan
 checkPregMatch('language: logged as an info', readLogs(), '/\[INFO\] Language of user "ben" set to es by user "anna"/');
 $usrBase->changeLanguage('ben', 'fr');
 checkIdentical('language: the one of a reset asked by mail', ($usrBase->resetPassArray('ben@example.ch') ?: Array())['lang'] ?? 'none', 'fr');
-checkIdentical('listUsers: by address, in lower case', array_column((array)$usrBase->listUsersNamed(Array('mailboxAdr'=>' BEN@example.ch ')), 'userLocale', 'systemName'), Array('ben'=>'fr'));
-checkIdentical('listUsers: an address that is not a text', operates($usrBase, 'listUsersNamed', Array(Array('mailboxAdr'=>Array('x')))), Array(false, 400, 'Invalid filter'));
+checkIdentical('listUsers: by address, in lower case', array_column((array)$usrBase->listUsersNamed(Array('contactEml'=>' BEN@example.ch ')), 'userLocale', 'systemName'), Array('ben'=>'fr'));
+checkIdentical('listUsers: an address that is not a text', operates($usrBase, 'listUsersNamed', Array(Array('contactEml'=>Array('x')))), Array(false, 400, 'Invalid filter'));
 checkIdentical('waitCount and managMail on a missing table', Array(operates(new UserBase(Array('useTable'=>'nousers')), 'waitingSignups', Array()), operates(new UserBase(Array('useTable'=>'nousers')), 'manageMailList', Array())), Array(Array(false, 500, 'Credential store unavailable'), Array(false, 500, 'Credential store unavailable')));
 $sgnStmt = null;
 
