@@ -2,10 +2,10 @@
 -- On MySQL 5.7, which has no RENAME COLUMN, use the variant
 -- of part 1 written below it instead: comment part 1 out, and the variant in.
 -- For a users table made by conf/schema/users.mysql.sql of 0.9: its columns take
--- their names of 1.0 (10 characters: userName becomes userHandle, passHash
+-- their names of 1.0 (10 characters: userName becomes systemName, passHash
 -- passwdHash, userRole accessRole, userStat userStatus, actvCode actvtnCode,
--- tokenKey bearerHash, twoFaKey twoFactKey, twoFaStp twoFactStp, failNmbr
--- failsCount, failDate failedDate, madeDate createDate, lastSeen accessDate), and
+-- tokenKey bearerHash, twoFaKey twoFactKey, twoFaStp twoFactPos, failNmbr
+-- failsCount, failDate failedTime, madeDate createDate, lastSeen accessDate), and
 -- it adds the columns of the access mails (mailboxAdr, userLocale, recovrCode,
 -- codeExpiry, signupDate), those of the codes mailed as a second factor
 -- (twoFactWay, mailedCode, mailExpiry), the time of the last password
@@ -37,19 +37,19 @@
 --    address. No row is changed.
 
 ALTER TABLE `users`
-	RENAME COLUMN `userName` TO `userHandle`,
+	RENAME COLUMN `userName` TO `systemName`,
 	RENAME COLUMN `passHash` TO `passwdHash`,
 	RENAME COLUMN `userRole` TO `accessRole`,
 	RENAME COLUMN `userStat` TO `userStatus`,
 	RENAME COLUMN `actvCode` TO `actvtnCode`,
 	RENAME COLUMN `tokenKey` TO `bearerHash`,
 	RENAME COLUMN `twoFaKey` TO `twoFactKey`,
-	RENAME COLUMN `twoFaStp` TO `twoFactStp`,
+	RENAME COLUMN `twoFaStp` TO `twoFactPos`,
 	RENAME COLUMN `failNmbr` TO `failsCount`,
-	RENAME COLUMN `failDate` TO `failedDate`,
+	RENAME COLUMN `failDate` TO `failedTime`,
 	RENAME COLUMN `madeDate` TO `createDate`,
 	RENAME COLUMN `lastSeen` TO `accessDate`,
-	RENAME INDEX  `userName` TO `userHandle`,
+	RENAME INDEX  `userName` TO `systemName`,
 	RENAME INDEX  `tokenKey` TO `bearerHash`,
 	ADD COLUMN `passwdDate` DATETIME     NULL AFTER `passwdHash`,
 	ADD COLUMN `mailboxAdr` VARCHAR(254) NULL AFTER `userStatus`,
@@ -57,7 +57,7 @@ ALTER TABLE `users`
 	ADD COLUMN `recovrCode` VARCHAR(64)  NULL AFTER `actvtnCode`,
 	ADD COLUMN `codeExpiry` DATETIME     NULL AFTER `recovrCode`,
 	ADD COLUMN `signupDate` DATETIME     NULL AFTER `codeExpiry`,
-	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactStp`,
+	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactPos`,
 	ADD COLUMN `mailedCode` CHAR(64)     NULL AFTER `twoFactWay`,
 	ADD COLUMN `mailExpiry` DATETIME     NULL AFTER `mailedCode`,
 	ADD CONSTRAINT `twoFactWay` CHECK (`twoFactWay` IN ('emailOtp')),
@@ -67,19 +67,19 @@ ALTER TABLE `users`
 --    of the 0.9 schema; no row is changed. RENAME INDEX is there since 5.7.
 --
 -- ALTER TABLE `users`
--- 	CHANGE COLUMN `userName` `userHandle` VARCHAR(64)  NOT NULL,
+-- 	CHANGE COLUMN `userName` `systemName` VARCHAR(64)  NOT NULL,
 -- 	CHANGE COLUMN `passHash` `passwdHash` VARCHAR(255) NOT NULL,
 -- 	CHANGE COLUMN `userRole` `accessRole` VARCHAR(6)   NOT NULL DEFAULT 'member',
 -- 	CHANGE COLUMN `userStat` `userStatus` VARCHAR(6)   NOT NULL DEFAULT 'pendng',
 -- 	CHANGE COLUMN `actvCode` `actvtnCode` VARCHAR(64)  NULL,
 -- 	CHANGE COLUMN `tokenKey` `bearerHash` CHAR(64)     NULL,
 -- 	CHANGE COLUMN `twoFaKey` `twoFactKey` VARCHAR(128) NULL,
--- 	CHANGE COLUMN `twoFaStp` `twoFactStp` INT UNSIGNED NULL,
+-- 	CHANGE COLUMN `twoFaStp` `twoFactPos` INT UNSIGNED NULL,
 -- 	CHANGE COLUMN `failNmbr` `failsCount` INT UNSIGNED NOT NULL DEFAULT 0,
--- 	CHANGE COLUMN `failDate` `failedDate` DATETIME     NULL,
+-- 	CHANGE COLUMN `failDate` `failedTime` DATETIME     NULL,
 -- 	CHANGE COLUMN `madeDate` `createDate` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 -- 	CHANGE COLUMN `lastSeen` `accessDate` DATETIME     NULL,
--- 	RENAME INDEX  `userName` TO `userHandle`,
+-- 	RENAME INDEX  `userName` TO `systemName`,
 -- 	RENAME INDEX  `tokenKey` TO `bearerHash`,
 -- 	ADD COLUMN `passwdDate` DATETIME     NULL AFTER `passwdHash`,
 -- 	ADD COLUMN `mailboxAdr` VARCHAR(254) NULL AFTER `userStatus`,
@@ -87,7 +87,7 @@ ALTER TABLE `users`
 -- 	ADD COLUMN `recovrCode` VARCHAR(64)  NULL AFTER `actvtnCode`,
 -- 	ADD COLUMN `codeExpiry` DATETIME     NULL AFTER `recovrCode`,
 -- 	ADD COLUMN `signupDate` DATETIME     NULL AFTER `codeExpiry`,
--- 	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactStp`,
+-- 	ADD COLUMN `twoFactWay` CHAR(8)      NULL AFTER `twoFactPos`,
 -- 	ADD COLUMN `mailedCode` CHAR(64)     NULL AFTER `twoFactWay`,
 -- 	ADD COLUMN `mailExpiry` DATETIME     NULL AFTER `mailedCode`,
 -- 	ADD UNIQUE KEY `mailboxAdr` (`mailboxAdr`);
@@ -149,17 +149,17 @@ UPDATE `users` SET
 -- 	DROP COLUMN `mailedCode`,
 -- 	DROP COLUMN `mailExpiry`,
 -- 	DROP COLUMN `passwdDate`,
--- 	RENAME COLUMN `userHandle` TO `userName`,
+-- 	RENAME COLUMN `systemName` TO `userName`,
 -- 	RENAME COLUMN `passwdHash` TO `passHash`,
 -- 	RENAME COLUMN `accessRole` TO `userRole`,
 -- 	RENAME COLUMN `userStatus` TO `userStat`,
 -- 	RENAME COLUMN `actvtnCode` TO `actvCode`,
 -- 	RENAME COLUMN `bearerHash` TO `tokenKey`,
 -- 	RENAME COLUMN `twoFactKey` TO `twoFaKey`,
--- 	RENAME COLUMN `twoFactStp` TO `twoFaStp`,
+-- 	RENAME COLUMN `twoFactPos` TO `twoFaStp`,
 -- 	RENAME COLUMN `failsCount` TO `failNmbr`,
--- 	RENAME COLUMN `failedDate` TO `failDate`,
+-- 	RENAME COLUMN `failedTime` TO `failDate`,
 -- 	RENAME COLUMN `createDate` TO `madeDate`,
 -- 	RENAME COLUMN `accessDate` TO `lastSeen`,
--- 	RENAME INDEX  `userHandle` TO `userName`,
+-- 	RENAME INDEX  `systemName` TO `userName`,
 -- 	RENAME INDEX  `bearerHash` TO `tokenKey`;

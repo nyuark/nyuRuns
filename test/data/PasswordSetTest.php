@@ -63,7 +63,7 @@ function tokenFor( String $tokenValue ): Mixed {
  */
 function fieldOf( String $userString, String $fieldNamed ): Mixed {
 	global $sqlLink;
-	return $sqlLink->query("SELECT ".$fieldNamed." FROM users WHERE userHandle='".$userString."'")->fetchColumn();
+	return $sqlLink->query("SELECT ".$fieldNamed." FROM users WHERE systemName='".$userString."'")->fetchColumn();
 }
 
 // M2 : a password changed ends the sessions and tokens issued before it, the one that changed it included
@@ -78,7 +78,7 @@ checkIdentical('a token issued after the change passes', tokenFor($jwtSess->issu
 checkIdentical('userIdent: a session started before is refused, one started after passes, none to compare passes', Array($natAuth->usrIdentityArr('ben', time() - 10), $natAuth->usrIdentityArr('ben', time() + 1)['userName'] ?? null, $natAuth->usrIdentityArr('ben')['userName'] ?? null), Array(false, 'ben', 'ben'));
 // A reset asked by the user, used with its code
 $natAuth->makeToknString('anna');
-$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE systemName='anna'");
 $rsetVal = $usrBase->resetPassArray('anna');
 $annaTkn = pastTokn('anna', 5);
 checkIdentical('recovUser: the password is set with the code', $usrBase->recoverUserFlg('anna', strval($rsetVal['code'] ?? ''), 'new-pass-anna'), true);
@@ -89,7 +89,7 @@ checkIdentical('setPasswd: the tokens before are refused too', Array($natAuth->s
 $befHash = fieldOf('ben', 'passwdHash');
 checkIdentical('resetUser: the time is stored, and the hash changed (the login marks made before end with it)', Array(is_string($usrBase->resetUsrString('ben')), abs(strtotime(strval(fieldOf('ben', 'passwdDate'))) - time())<5, fieldOf('ben', 'passwdHash')!==$befHash), Array(true, true, true));
 // A table without the column
-$sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, userHandle, passwdHash, accessRole, userStatus, bearerHash, failsCount, failedDate, accessDate FROM users");
+$sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, systemName, passwdHash, accessRole, userStatus, bearerHash, failsCount, failedTime, accessDate FROM users");
 $oldAuth = new Native( Array('useTable'=>'oldusers', 'minChars'=>8) );
 checkIdentical('a table without passwdDate: sessions are compared with nothing, a password cannot be written', Array($oldAuth->usrIdentityArr('anna', time() - 10)['userName'] ?? null, runCatchThrown(function() use ( $oldAuth ){ return $oldAuth->savePasswdFlag('anna', 'pass-of-anna'); })), Array('anna', false));
 $sqlLink->exec("DROP TABLE oldusers");
@@ -97,15 +97,15 @@ $sqlLink->exec("DROP TABLE oldusers");
 // M3 : the dummy hash, for an unknown name and for an account without a password : a constant at the cost of new hashes (no hash made, see unit/FakeHashTest)
 $dmyHash = Native::getDummyBcrypt();
 checkIdentical('the dummy hash is a constant, at the cost of new hashes', Array(in_array($dmyHash, Native::FAKE_HASH, true), password_get_info($dmyHash)['options']['cost'] ?? null), Array(true, password_get_info(password_hash('x', PASSWORD_BCRYPT))['options']['cost'] ?? null));
-$sqlLink->exec("UPDATE users SET passwdHash='!' WHERE userHandle='cleo'");
+$sqlLink->exec("UPDATE users SET passwdHash='!' WHERE systemName='cleo'");
 checkIdentical('an unknown name and an account without a password are refused', Array($natAuth->checkSecretArr(Array('user'=>'zed', 'pass'=>'whatever')), $natAuth->checkSecretArr(Array('user'=>'cleo', 'pass'=>'!'))), Array(false, false));
 // The rehash after a good login
 $natAuth->savePasswdFlag('anna', 'pw-anna-cost');
-$sqlLink->exec("UPDATE users SET passwdHash='".password_hash('pw-anna-cost', PASSWORD_BCRYPT, Array('cost'=>4))."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET passwdHash='".password_hash('pw-anna-cost', PASSWORD_BCRYPT, Array('cost'=>4))."' WHERE systemName='anna'");
 $befDate = fieldOf('anna', 'passwdDate');
 checkIdentical('a good login', $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna-cost'))['userName'] ?? null, 'anna');
 $newHash = strval(fieldOf('anna', 'passwdHash'));
 checkIdentical('a hash of a lower cost is made again at the current cost, the time of the password kept', Array(password_get_info($newHash)['options']['cost'] ?? null, password_verify('pw-anna-cost', $newHash), fieldOf('anna', 'passwdDate')===$befDate), Array(password_get_info(password_hash('x', PASSWORD_BCRYPT))['options']['cost'] ?? null, true, true));
-checkIdentical('a wrong password rehashes nothing', (function() use ( $natAuth, $sqlLink, $newHash ){ $sqlLink->exec("UPDATE users SET passwdHash='".password_hash('pw-anna-cost', PASSWORD_BCRYPT, Array('cost'=>4))."' WHERE userHandle='anna'"); $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'nope')); return password_get_info(strval(fieldOf('anna', 'passwdHash')))['options']['cost'] ?? null; })(), 4);
+checkIdentical('a wrong password rehashes nothing', (function() use ( $natAuth, $sqlLink, $newHash ){ $sqlLink->exec("UPDATE users SET passwdHash='".password_hash('pw-anna-cost', PASSWORD_BCRYPT, Array('cost'=>4))."' WHERE systemName='anna'"); $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'nope')); return password_get_info(strval(fieldOf('anna', 'passwdHash')))['options']['cost'] ?? null; })(), 4);
 
 finishChecking();

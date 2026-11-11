@@ -9,7 +9,7 @@ use nyu\Tools\Logger;
  * Verifies credentials against a flat file of users, so an application
  * can run without any database: the native userbase (see Native), read
  * from a JSON file written as { "users": [ { field: value }, ... ] }.
- * A user has a 'userHandle' and a 'passwdHash' (as given by password_hash()),
+ * A user has a 'systemName' and a 'passwdHash' (as given by password_hash()),
  * and optionally an 'accessRole' (internal when left out), a 'userStatus'
  * (active when left out), a 'mailboxAdr' address (one account each), the
  * 'bearerHash' SHA-256 hash of a personal API token, a 'twoFactKey' 2FA
@@ -83,7 +83,7 @@ class UserList implements Handler{
 			$matched = password_verify( $gvnPass, $userVls['passwdHash'] );
 		}
 		// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
-		$cntName = is_array($userVls) ? strval($userVls['userHandle']) : '';
+		$cntName = is_array($userVls) ? strval($userVls['systemName']) : '';
 		if( is_array($userVls) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
 			// Signed with the hash the password has now : a password set after the mark was made ends it
 			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName, $isHashd ? strval($userVls['passwdHash']) : '' );
@@ -95,7 +95,7 @@ class UserList implements Handler{
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($userVls) && $this->usrLimiter->heldByUserNumb($cntName)>0 ){
-			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is held after too many attempts' );
+			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
 			$this->badTryFlag = true;
 			return false;
@@ -110,7 +110,7 @@ class UserList implements Handler{
 		}
 		if( $userVls['userStatus']!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
-			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is not active ('.$userVls['userStatus'].')' );
+			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['systemName']).' is not active ('.$userVls['userStatus'].')' );
 			$this->errMessage = 'Invalid credentials';
 			$this->badTryFlag = true;
 			return false;
@@ -120,7 +120,7 @@ class UserList implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealKey = Totp::openSecretText($userVls['twoFactKey'], $this->sealingKey);
 			if( $sealKey===null ){
-				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: tfaCrypt is missing or was changed' );
+				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['systemName']).' cannot be read: tfaCrypt is missing or was changed' );
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
@@ -138,7 +138,7 @@ class UserList implements Handler{
 			}
 		}
 		$this->usrLimiter->clearLimitUser( $cntName );
-		$this->passedUser = Array('userHandle'=>strval($userVls['userHandle']), 'passwdHash'=>strval($userVls['passwdHash']));
+		$this->passedUser = Array('systemName'=>strval($userVls['systemName']), 'passwdHash'=>strval($userVls['passwdHash']));
 		return $this->createIdentity($userVls);
 	}
 
@@ -150,7 +150,7 @@ class UserList implements Handler{
 	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
 	 */
 	public function createUserMark( String $namedUserTxt ): String {
-		if( $this->passedUser===null || $this->passedUser['userHandle']!==$namedUserTxt ){
+		if( $this->passedUser===null || $this->passedUser['systemName']!==$namedUserTxt ){
 			return '';
 		}
 		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
@@ -283,18 +283,18 @@ class UserList implements Handler{
 	 * @return Array The identity array ('userName', 'userRole', 'idOfUser').
 	 */
 	protected function createIdentity( Array $usrValuesArr ): Array {
-		return Array('userName'=>$usrValuesArr['userHandle'], 'userRole'=>$usrValuesArr['accessRole'], 'idOfUser'=>$usrValuesArr['id_user']);
+		return Array('userName'=>$usrValuesArr['systemName'], 'userRole'=>$usrValuesArr['accessRole'], 'idOfUser'=>$usrValuesArr['id_user']);
 	}
 
 	/**
 	 * Reads a user's values by login name, or by the hash of its API token.
 	 *
 	 * @param String $usrLookupTxt Value to look up.
-	 * @param String $fldNamedText Field it is looked up in: 'userHandle' or 'bearerHash'.
+	 * @param String $fldNamedText Field it is looked up in: 'systemName' or 'bearerHash'.
 	 * @return Array|Bool|Null The user's values, null when there is none, or false when the file cannot be read.
 	 */
-	protected function fetchUserArray( String $usrLookupTxt, String $fldNamedText = 'userHandle' ): Array|Bool|Null {
-		$usrList = in_array($fldNamedText, Array('userHandle', 'bearerHash'), true) ? $this->loadUsersArray() : false;
+	protected function fetchUserArray( String $usrLookupTxt, String $fldNamedText = 'systemName' ): Array|Bool|Null {
+		$usrList = in_array($fldNamedText, Array('systemName', 'bearerHash'), true) ? $this->loadUsersArray() : false;
 		if( $usrList===false ){
 			return false;
 		}
@@ -314,8 +314,8 @@ class UserList implements Handler{
 	 * 'bearerHash' and 'twoFactKey' empty, 'id_user' null; the address and the
 	 * language are read in lower case. The file is refused as a whole, and the refusal logged, when it
 	 * is not a JSON text holding a 'users' list, when a user lacks its
-	 * 'userHandle' or 'passwdHash', when a field is not a text, or when two
-	 * users share a 'userHandle', a 'mailboxAdr' or a 'bearerHash'.
+	 * 'systemName' or 'passwdHash', when a field is not a text, or when two
+	 * users share a 'systemName', a 'mailboxAdr' or a 'bearerHash'.
 	 *
 	 * @return Array|Bool The users, or false when the file cannot be used.
 	 */
@@ -331,38 +331,38 @@ class UserList implements Handler{
 		$tknList = Array();
 		$mailLst = Array();
 		foreach( (array)$rowList as $usrRow ){
-			if( !is_array($usrRow) || !is_string($usrRow['userHandle'] ?? null) || $usrRow['userHandle']=='' || !is_string($usrRow['passwdHash'] ?? null) || $usrRow['passwdHash']=='' ){
-				$whyText = 'a user has no userHandle or no passwdHash';
+			if( !is_array($usrRow) || !is_string($usrRow['systemName'] ?? null) || $usrRow['systemName']=='' || !is_string($usrRow['passwdHash'] ?? null) || $usrRow['passwdHash']=='' ){
+				$whyText = 'a user has no systemName or no passwdHash';
 				break;
 			}
-			$userVls = Array('userHandle'=>$usrRow['userHandle'], 'passwdHash'=>$usrRow['passwdHash'], 'id_user'=>$usrRow['id_user'] ?? null);
+			$userVls = Array('systemName'=>$usrRow['systemName'], 'passwdHash'=>$usrRow['passwdHash'], 'id_user'=>$usrRow['id_user'] ?? null);
 			foreach( Array('accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
 				$userVls[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
 				if( !is_string($userVls[$fldNme]) ){
-					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['userHandle']).' is not a text';
+					$whyText = 'the '.$fldNme.' of user '.json_encode($usrRow['systemName']).' is not a text';
 					break 2;
 				}
 			}
 			if( $userVls['id_user']!==null && !is_int($userVls['id_user']) && !is_string($userVls['id_user']) ){
-				$whyText = 'the id_user of user '.json_encode($usrRow['userHandle']).' is neither a number nor a text';
+				$whyText = 'the id_user of user '.json_encode($usrRow['systemName']).' is neither a number nor a text';
 				break;
 			}
 			$userVls['bearerHash'] = strtolower($userVls['bearerHash']);
 			$userVls['mailboxAdr'] = strtolower($userVls['mailboxAdr']);
 			$userVls['userLocale'] = strtolower($userVls['userLocale']);
-			if( in_array($userVls['userHandle'], $nameLst, true) ){
-				$whyText = 'user '.json_encode($userVls['userHandle']).' is listed twice';
+			if( in_array($userVls['systemName'], $nameLst, true) ){
+				$whyText = 'user '.json_encode($userVls['systemName']).' is listed twice';
 				break;
 			}
 			if( $userVls['bearerHash']!='' && in_array($userVls['bearerHash'], $tknList, true) ){
-				$whyText = 'the bearerHash of user '.json_encode($userVls['userHandle']).' is the one of another user';
+				$whyText = 'the bearerHash of user '.json_encode($userVls['systemName']).' is the one of another user';
 				break;
 			}
 			if( $userVls['mailboxAdr']!='' && in_array($userVls['mailboxAdr'], $mailLst, true) ){
-				$whyText = 'the mailboxAdr of user '.json_encode($userVls['userHandle']).' is the one of another user';
+				$whyText = 'the mailboxAdr of user '.json_encode($userVls['systemName']).' is the one of another user';
 				break;
 			}
-			$nameLst[] = $userVls['userHandle'];
+			$nameLst[] = $userVls['systemName'];
 			$tknList[] = $userVls['bearerHash'];
 			$mailLst[] = $userVls['mailboxAdr'];
 			$usrList[] = $userVls;

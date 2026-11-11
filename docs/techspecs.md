@@ -1535,7 +1535,7 @@ rely on to find their relations without being told:
 | Element | Rule | Example |
 |---|---|---|
 | table | a plural name | `shows`, `events` |
-| column | 10 characters | `userHandle`, `createDate` |
+| column | 10 characters | `systemName`, `createDate` |
 | identifier | `id_` and the table's name in the singular | `id_show` |
 | link to another table (one to many) | that table's name in the singular, and `_id` | `show_id` |
 | link to a parent in the same table | `parent_id` | |
@@ -1823,7 +1823,7 @@ The same rule holds beyond the code:
 | keys of a configuration block | 8, in the JSON files and in a route target | `sessWith`, `appToRun` |
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
 | codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `internal`, `operator`, `sysadmin` |
-| columns of a table | 10 | `userHandle` |
+| columns of a table | 10 | `systemName` |
 | commands and sub-commands of `php nyuRun` | 8 | `installs allSteps`, `maintain cleanDir` |
 | options of `php nyuRun` | 8 | `--noPrompt`, `--yesToAll` |
 | formats of `Tools\Variable` | 7, so each `formats…()` method is 14 | `OutText`, `formatsOutText()` |

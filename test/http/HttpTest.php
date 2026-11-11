@@ -478,20 +478,20 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
 	checkIdentical('token with a store: accepted', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"sysadmin"}'));
 
-	$sqlLink->exec("UPDATE users SET accessRole='operator' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET accessRole='operator' WHERE systemName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
 	checkIdentical('token with a store: a role change applies at once', $replyAr['body'], '{"logged":true,"user":"anna","role":"operator"}');
 
-	$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $storHed);
 	checkIdentical('token with a store: a locked user is refused at once', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $whoHead + Array('X-Test-Conf'=>'confnat', 'Authorization'=>'Bearer '.$jwToken));
 	checkIdentical('token without a store: still accepted until it expires', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"sysadmin"}'));
-	$sqlLink->exec("UPDATE users SET userStatus='approved', accessRole='sysadmin' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET userStatus='approved', accessRole='sysadmin' WHERE systemName='anna'");
 
 	// Personal API token of the users table, sent in the API key header
-	$sqlLink->exec("UPDATE users SET bearerHash='".hash('sha256', 'http-test-token')."' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET bearerHash='".hash('sha256', 'http-test-token')."' WHERE systemName='anna'");
 	$tknHead = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'apiHeadr', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $tknHead + Array('X-Api-Key'=>'http-test-token'));
 	checkIdentical('personal token: identifies its user', Array($replyAr['code'], $replyAr['body']), Array(200, '{"logged":true,"user":"anna","role":"sysadmin"}'));
@@ -500,7 +500,7 @@ if( !$isReady ){
 
 	// 2FA : the login of a user with a secret needs the code of its authenticator
 	$tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
-	$sqlLink->exec("UPDATE users SET twoFactKey='".$tfaScrt."' WHERE userHandle='ben'");
+	$sqlLink->exec("UPDATE users SET twoFactKey='".$tfaScrt."' WHERE systemName='ben'");
 	$natHead = $formHed + Array('X-Test-Conf'=>'confnat');
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben');
 	checkIdentical('2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
@@ -510,17 +510,17 @@ if( !$isReady ){
 	checkIdentical('2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
 	checkIdentical('2FA: Basic access is closed to a user with a secret', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
-	$sqlLink->exec("UPDATE users SET twoFactKey=NULL WHERE userHandle='ben'");
+	$sqlLink->exec("UPDATE users SET twoFactKey=NULL WHERE systemName='ben'");
 
 	// Attempt throttling : five wrong passwords hold the account, even for the right one
-	$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+	$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 	for( $idx=0; $idx<5; $idx++ ){
 		$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=nope');
 	}
 	checkIdentical('throttle: the fifth wrong password is told as such', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben');
 	checkIdentical('throttle: the right password is then refused, as a wrong one would be', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
-	$sqlLink->exec("UPDATE users SET failedDate='".date('Y-m-d H:i:s', time()-601)."' WHERE userHandle='ben'");
+	$sqlLink->exec("UPDATE users SET failedTime='".date('Y-m-d H:i:s', time()-601)."' WHERE systemName='ben'");
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/openSess', $natHead, 'user=ben&pass=pw-ben');
 	checkIdentical('throttle: accepted again once the hold is over', $replyAr['code'], 200);
 
@@ -540,7 +540,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/makeUser', $mgrHead, 'role=internal');
 	checkIdentical('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: user","code":400}'));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/fullList?stat=awaiting', $mgrHead);
-	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'userHandle'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'userHandle', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
+	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'systemName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
 	$replyAr = httpQuery('GET', $baseUrl.'/users/viewUser?user=henry', $mgrHead);
 	checkIdentical('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStatus'] ?? null), Array(200, 'awaiting'));
 
@@ -577,7 +577,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/password', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'former=pass-henry-2&pass=pass-henry-3');
 	checkIdentical('users: the lock ends the session the user held', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/users/dropUser', $mgrHead, 'user=henry');
-	checkIdentical('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE userHandle='henry'")->fetchColumn()), Array(200, 0));
+	checkIdentical('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(200, 0));
 
 	// Roles : what a route asks for ('rteRoles'), and the helpers of an action
 	$benHead = Array('Authorization'=>'Bearer '.$benToken);
@@ -628,7 +628,7 @@ if( !$isReady ){
 	checkIdentical('roles: an API key meets the member role', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $keyHead + Array('X-Api-Key'=>'test-only-key-1', 'X-Test-Roles'=>'probe/identify=operator'));
 	checkIdentical('roles: and no higher one', $replyAr['code'], 404);
-	$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+	$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 
 	// Login round trip : flat file of users (test/fixtures/confusr, test/fixtures/users.lst), without the database
 	$lstHead = $formHed + Array('X-Test-Conf'=>'confusr');
@@ -704,12 +704,12 @@ if( !$isReady ){
 	checkIdentical('session: ending it keeps the cookie the application set', Array($replyAr['code'], count(preg_grep('/^Set-Cookie: probeKept=1/i', $replyAr['head'])), count(preg_grep('/^Set-Cookie: nyuTests=deleted/i', $replyAr['head'])), count(preg_grep('/^Set-Cookie:/i', $replyAr['head']))), Array(200, 1, 1, 2));
 
 	// With the users table named as the store, a lock ends the session at once
-	$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('Cookie'=>$sessCok));
 	checkIdentical('session without a store: still open for a locked user', $replyAr['code'], 200);
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('X-Test-Store'=>'nativeDb', 'Cookie'=>$sessCok));
 	checkIdentical('session with a store: a locked user is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
-	$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'");
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $sesHead + Array('Cookie'=>$sessCok));
 	checkIdentical('session with a store: the refused session was destroyed', $replyAr['code'], 401);
 

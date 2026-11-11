@@ -24,7 +24,7 @@ use nyu\Tools\Logger;
 
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('userbase.sqlite'));
 $sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
-$usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, userHandle, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
+$usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
 foreach( Array(Array(1,'anna','sysadmin','approved'), Array(2,'ben','internal','approved'), Array(3,'cleo','internal','awaiting'), Array(4,'dave','operator','disabled')) as $usrRow ){
 	$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pass-'.$usrRow[1].'-1', PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 }
@@ -40,7 +40,7 @@ switchToSqlite( inTemporaryDir('userbase.sqlite') );
  * @return mixed Its value, false when there is no such user.
  */
 function fieldOf( PDO $sqliteLink, String $userString, String $fieldNamed ): Mixed {
-	$fldStmt = $sqliteLink->prepare('SELECT '.$fieldNamed.' FROM users WHERE userHandle=?');
+	$fldStmt = $sqliteLink->prepare('SELECT '.$fieldNamed.' FROM users WHERE systemName=?');
 	$fldStmt->execute( Array($userString) );
 	return $fldStmt->fetchColumn();
 }
@@ -97,7 +97,7 @@ foreach( Array('too short'=>'ab', 'too long'=>str_repeat('a', 33), 'starting wit
 	checkIdentical('enrol: name refused, '.$whyBad, operates($usrBase, 'enrolUsrString', Array($badNme)), Array(false, 400, 'Invalid user name'));
 }
 checkIdentical('enrol: unknown role', operates($usrBase, 'enrolUsrString', Array('henry', 'owner')), Array(false, 400, 'Invalid role'));
-checkIdentical('enrol: a refused creation writes nothing', Array(fieldOf($sqlLink, 'henry', 'userHandle'), readLogs()), Array(false, ''));
+checkIdentical('enrol: a refused creation writes nothing', Array(fieldOf($sqlLink, 'henry', 'systemName'), readLogs()), Array(false, ''));
 checkIdentical('enrol: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'enrolUsrString', Array('henry')), Array(false, 500, 'Credential store unavailable'));
 
 // 2. actvtUser : the code, once, gives the password and the active status
@@ -136,18 +136,18 @@ checkPregMatch('password: logged as a notice, without any password', $logText = 
 checkIdentical('password: no password in the log', preg_match('/pass-ben/', $logText), 0);
 checkIdentical('password: the failures are forgotten by the change', intval(fieldOf($sqlLink, 'ben', 'failsCount')), 0);
 checkIdentical('password: the new one logs in, the former does not', Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-22'))['userName'] ?? null, $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-1'))), Array('ben', false));
-$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
-$sqlLink->exec("UPDATE users SET bearerHash='tk', twoFactKey='2f' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
+$sqlLink->exec("UPDATE users SET bearerHash='tk', twoFactKey='2f' WHERE systemName='ben'");
 $usrBase->editPasswdFlag('ben', 'pass-ben-22', 'pass-ben-1');
 checkIdentical('password: the personal token is taken away, the 2FA secret kept', Array(fieldOf($sqlLink, 'ben', 'bearerHash'), fieldOf($sqlLink, 'ben', 'twoFactKey')), Array(null, '2f'));
-$sqlLink->exec("UPDATE users SET bearerHash=NULL, twoFactKey=NULL WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET bearerHash=NULL, twoFactKey=NULL WHERE systemName='ben'");
 checkIdentical('password: a locked user', operates($usrBase, 'editPasswdFlag', Array('dave', 'pass-dave-1', 'pass-dave-2')), Array(false, 401, 'Account not active'));
 checkIdentical('password: a pending user', operates($usrBase, 'editPasswdFlag', Array('cleo', 'pass-cleo-1', 'pass-cleo-2')), Array(false, 401, 'Account not active'));
 checkIdentical('password: an unknown user', operates($usrBase, 'editPasswdFlag', Array('zed', 'pass-zed-01', 'pass-zed-02')), Array(false, 401, 'Account not active'));
-$sqlLink->exec("UPDATE users SET failsCount=5, failedDate='".date('Y-m-d H:i:s')."' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET failsCount=5, failedTime='".date('Y-m-d H:i:s')."' WHERE systemName='ben'");
 checkIdentical('password: a held user is refused with the right password', operates($usrBase, 'editPasswdFlag', Array('ben', 'pass-ben-1', 'pass-ben-22')), Array(false, 401, 'Invalid credentials'));
 checkIdentical('password: and keeps its password', password_verify('pass-ben-1', strval(fieldOf($sqlLink, 'ben', 'passwdHash'))), true);
-$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 
 // 4. setStatus : lock and unlock
 Logger::setCurrentUser( 'anna', '192.0.2.7' );
@@ -156,10 +156,10 @@ checkIdentical('lock: an active user', operates($usrBase, 'saveStatusFlag', Arra
 checkPregMatch('lock: logged as a notice', readLogs(), '/\[NOTICE\] User "ben" locked by user "anna" from 192\.0\.2\.7/');
 checkIdentical('lock: the user no longer logs in', Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-1')), $natAuth->finalErrorText(), $natAuth->usrIdentityArr('ben')), Array(false, 'Invalid credentials', false));
 checkIdentical('lock: already locked', operates($usrBase, 'saveStatusFlag', Array('ben', 'disabled')), Array(false, 409, 'User already disabled'));
-$sqlLink->exec("UPDATE users SET failsCount=3, failedDate='".date('Y-m-d H:i:s')."' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET failsCount=3, failedTime='".date('Y-m-d H:i:s')."' WHERE systemName='ben'");
 checkIdentical('unlock: a locked user', operates($usrBase, 'saveStatusFlag', Array('ben', 'approved')), Array(true, 200, ''));
 checkPregMatch('unlock: logged as a notice', readLogs(), '/\[NOTICE\] User "ben" unlocked by user "anna"/');
-checkIdentical('unlock: the failures are forgotten', Array(intval(fieldOf($sqlLink, 'ben', 'failsCount')), fieldOf($sqlLink, 'ben', 'failedDate')), Array(0, null));
+checkIdentical('unlock: the failures are forgotten', Array(intval(fieldOf($sqlLink, 'ben', 'failsCount')), fieldOf($sqlLink, 'ben', 'failedTime')), Array(0, null));
 checkIdentical('unlock: the user logs in again', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pass-ben-1'))['userName'] ?? null, 'ben');
 checkIdentical('unlock: already active', operates($usrBase, 'saveStatusFlag', Array('ben', 'approved')), Array(false, 409, 'User already approved'));
 checkIdentical('lock: a pending user', operates($usrBase, 'saveStatusFlag', Array('cleo', 'disabled')), Array(false, 409, 'A pending user is neither locked nor unlocked'));
@@ -187,15 +187,15 @@ $usrBase->changeRoleFlag('dave', 'operator');
 
 // 7. listUsers
 $allList = $usrBase->listUsersNamed();
-checkIdentical('list: every user, by name', array_column((array)$allList, 'userHandle'), Array('Fred.Opr-2', 'anna', 'ben', 'cleo', 'dave', 'emma', 'gina'));
-checkIdentical('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'userHandle', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
-checkIdentical('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'userHandle'=>'anna', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
-checkIdentical('list: by status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'awaiting')), 'userHandle'), Array('Fred.Opr-2', 'cleo', 'gina'));
-checkIdentical('list: by role', array_column((array)$usrBase->listUsersNamed(Array('accessRole'=>'operator')), 'userHandle'), Array('Fred.Opr-2', 'dave'));
-checkIdentical('list: by status and role', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'approved', 'accessRole'=>'internal')), 'userHandle'), Array('ben', 'emma'));
+checkIdentical('list: every user, by name', array_column((array)$allList, 'systemName'), Array('Fred.Opr-2', 'anna', 'ben', 'cleo', 'dave', 'emma', 'gina'));
+checkIdentical('list: only what may be told', array_keys($allList[1] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
+checkIdentical('list: a row', $allList[1] ?? null, Array('id_user'=>1, 'systemName'=>'anna', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
+checkIdentical('list: by status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'awaiting')), 'systemName'), Array('Fred.Opr-2', 'cleo', 'gina'));
+checkIdentical('list: by role', array_column((array)$usrBase->listUsersNamed(Array('accessRole'=>'operator')), 'systemName'), Array('Fred.Opr-2', 'dave'));
+checkIdentical('list: by status and role', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'approved', 'accessRole'=>'internal')), 'systemName'), Array('ben', 'emma'));
 checkIdentical('list: empty filters are left out', count((array)$usrBase->listUsersNamed(Array('userStatus'=>'', 'accessRole'=>null))), 7);
 checkIdentical('list: nobody', $usrBase->listUsersNamed(Array('userStatus'=>'disabled', 'accessRole'=>'sysadmin')), Array());
-checkIdentical('list: limit and offset', array_column((array)$usrBase->listUsersNamed(Array(), 2, 1), 'userHandle'), Array('anna', 'ben'));
+checkIdentical('list: limit and offset', array_column((array)$usrBase->listUsersNamed(Array(), 2, 1), 'systemName'), Array('anna', 'ben'));
 checkIdentical('list: an offset beyond the end', $usrBase->listUsersNamed(Array(), 2, 50), Array());
 checkIdentical('list: a filter that is not a status', operates($usrBase, 'listUsersNamed', Array(Array('userStatus'=>"active' OR '1'='1"))), Array(false, 400, 'Invalid filter'));
 checkIdentical('list: a filter given as an array', operates($usrBase, 'listUsersNamed', Array(Array('accessRole'=>Array('internal')))), Array(false, 400, 'Invalid filter'));
@@ -209,10 +209,10 @@ switchToSqlite( inTemporaryDir('userbase.sqlite') );
 checkIdentical('list: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'listUsersNamed', Array()), Array(false, 500, 'Credential store unavailable'));
 
 // 8. userInfos
-$sqlLink->exec("UPDATE users SET bearerHash='tk', twoFactKey='2f' WHERE userHandle='ben'");
-checkIdentical('read: one user, without hash, code, token or secret', $usrBase->userInfosArray('ben'), Array('id_user'=>2, 'userHandle'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
-$sqlLink->exec("UPDATE users SET twoFactStp=58000000 WHERE userHandle='ben'");
-checkIdentical('2FA: the secret is taken away with the step of its last code', Array($usrBase->clearTwoFactor('ben'), $sqlLink->query("SELECT twoFactKey, twoFactStp FROM users WHERE userHandle='ben'")->fetch(PDO::FETCH_NUM)), Array(true, Array(null, null)));
+$sqlLink->exec("UPDATE users SET bearerHash='tk', twoFactKey='2f' WHERE systemName='ben'");
+checkIdentical('read: one user, without hash, code, token or secret', $usrBase->userInfosArray('ben'), Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null));
+$sqlLink->exec("UPDATE users SET twoFactPos=58000000 WHERE systemName='ben'");
+checkIdentical('2FA: the secret is taken away with the step of its last code', Array($usrBase->clearTwoFactor('ben'), $sqlLink->query("SELECT twoFactKey, twoFactPos FROM users WHERE systemName='ben'")->fetch(PDO::FETCH_NUM)), Array(true, Array(null, null)));
 checkIdentical('2FA: nothing to take away from an unknown user', operates($usrBase, 'clearTwoFactor', Array('zed')), Array(false, 404, 'User not found'));
 checkIdentical('read: a pending user', $usrBase->userInfosArray('gina')['userStatus'] ?? null, 'awaiting');
 checkIdentical('read: unknown user', operates($usrBase, 'userInfosArray', Array('zed')), Array(false, 404, 'User not found'));
@@ -237,11 +237,11 @@ checkIdentical('reset: unknown user', operates($usrBase, 'resetUsrString', Array
 
 // 6. removUser
 readLogs();
-checkIdentical('remove: a user', Array(operates($usrBase, 'removeUserFlag', Array('gina')), fieldOf($sqlLink, 'gina', 'userHandle')), Array(Array(true, 200, ''), false));
+checkIdentical('remove: a user', Array(operates($usrBase, 'removeUserFlag', Array('gina')), fieldOf($sqlLink, 'gina', 'systemName')), Array(Array(true, 200, ''), false));
 checkPregMatch('remove: logged as a notice, with the role it had', readLogs(), '/\[NOTICE\] User "gina" removed \(internal\) by user "anna" from 192\.0\.2\.7/');
 checkIdentical('remove: already gone', operates($usrBase, 'removeUserFlag', Array('gina')), Array(false, 404, 'User not found'));
 checkIdentical('remove: a locked user', $usrBase->removeUserFlag('dave'), true);
-checkIdentical('remove: the last active manager', Array(operates($usrBase, 'removeUserFlag', Array('anna')), fieldOf($sqlLink, 'anna', 'userHandle')), Array(Array(false, 409, 'The last active manager cannot be removed'), 'anna'));
+checkIdentical('remove: the last active manager', Array(operates($usrBase, 'removeUserFlag', Array('anna')), fieldOf($sqlLink, 'anna', 'systemName')), Array(Array(false, 409, 'The last active manager cannot be removed'), 'anna'));
 checkIdentical('remove: a name holding a quote removes nobody', Array($usrBase->removeUserFlag("x' OR '1'='1"), count((array)$usrBase->listUsersNamed())), Array(false, 5));
 checkIdentical('remove: the name is free again', is_string($usrBase->enrolUsrString('gina')), true);
 checkIdentical('remove: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'removeUserFlag', Array('ben')), Array(false, 500, 'Credential store unavailable'));
@@ -264,11 +264,11 @@ checkIdentical('address: never in the log', preg_match('/@example\.ch/i', $logTe
 // 11. Codes : read whatever their case and dashes, until their end; those of 0.9 still read
 checkIdentical('code: in lower case, without its dashes', $usrBase->activateUsrFlg('hana', strtolower(str_replace('-', ' ', strval($hanaCod))), 'pass-hana-1'), true);
 $hugoCod = strval($usrBase->resetUsrString('hugo'));
-$sqlLink->exec("UPDATE users SET codeExpiry='".date('Y-m-d H:i:s', time()-60)."' WHERE userHandle='hugo'");
+$sqlLink->exec("UPDATE users SET codeExpiry='".date('Y-m-d H:i:s', time()-60)."' WHERE systemName='hugo'");
 checkIdentical('code: refused once ended, as a wrong one', Array(operates($usrBase, 'activateUsrFlg', Array('hugo', $hugoCod, 'pass-hugo-1')), fieldOf($sqlLink, 'hugo', 'userStatus')), Array(Array(false, 401, 'Invalid activation'), 'awaiting'));
 $hugoCod = strval($usrBase->resetUsrString('hugo', 0));
 checkIdentical('code: without an end', Array(fieldOf($sqlLink, 'hugo', 'codeExpiry'), $usrBase->activateUsrFlg('hugo', $hugoCod, 'pass-hugo-1')), Array(null, true));
-$sqlLink->exec("INSERT INTO users (userHandle, passwdHash, userStatus, actvtnCode) VALUES ('mona', '!', 'awaiting', '".hash('sha256', 'abcdef0123456789abcdef0123456789')."')");
+$sqlLink->exec("INSERT INTO users (systemName, passwdHash, userStatus, actvtnCode) VALUES ('mona', '!', 'awaiting', '".hash('sha256', 'abcdef0123456789abcdef0123456789')."')");
 checkIdentical('code: one made by 0.9', $usrBase->activateUsrFlg('mona', 'abcdef0123456789abcdef0123456789', 'pass-mona-1'), true);
 
 // 12. signsUser : pending with the address, then in review, then approved
@@ -291,7 +291,7 @@ checkIdentical('sign-up: confirmed with its code, it awaits review', Array($usrB
 checkPregMatch('sign-up: the confirmation is logged as a notice', readLogs(), '/\[NOTICE\] User "ivan" confirmed its address, awaits review/');
 checkIdentical('review: no login yet', $natAuth->checkSecretArr(Array('user'=>'ivan', 'pass'=>'pass-ivan-1')), false);
 checkIdentical('review: neither locked nor unlocked', Array(operates($usrBase, 'saveStatusFlag', Array('ivan', 'approved')), operates($usrBase, 'saveStatusFlag', Array('ivan', 'disabled'))), Array(Array(false, 409, 'A user in review is approved or removed'), Array(false, 409, 'A user in review is approved or removed')));
-checkIdentical('review: listed by its status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'checking')), 'userHandle'), Array('ivan'));
+checkIdentical('review: listed by its status', array_column((array)$usrBase->listUsersNamed(Array('userStatus'=>'checking')), 'systemName'), Array('ivan'));
 Logger::setCurrentUser( 'anna', '192.0.2.7' );
 checkIdentical('approve: a user in review', Array(operates($usrBase, 'approveNewUser', Array('ivan')), fieldOf($sqlLink, 'ivan', 'userStatus'), fieldOf($sqlLink, 'ivan', 'signupDate')), Array(Array(true, 200, ''), 'approved', null));
 checkPregMatch('approve: logged as a notice, signed', readLogs(), '/\[NOTICE\] User "ivan" approved by user "anna" from 192\.0\.2\.7/');
@@ -300,28 +300,28 @@ checkIdentical('approve: only a user in review', Array(operates($usrBase, 'appro
 $ivanCod = strval($usrBase->resetUsrString('ivan'));
 checkIdentical('approve: a reset afterwards activates without a review', Array($usrBase->activateUsrFlg('ivan', $ivanCod, 'pass-ivan-2'), fieldOf($sqlLink, 'ivan', 'userStatus')), Array(true, 'approved'));
 $kateCod = strval($sgnBase->signsUsrString('kate', 'kate@example.ch'));
-$sqlLink->exec("UPDATE users SET codeExpiry='".date('Y-m-d H:i:s', time()-60)."' WHERE userHandle='kate'");
+$sqlLink->exec("UPDATE users SET codeExpiry='".date('Y-m-d H:i:s', time()-60)."' WHERE systemName='kate'");
 checkIdentical('sign-up: its code ended, it is not confirmed', operates($usrBase, 'activateUsrFlg', Array('kate', $kateCod, 'pass-kate-1')), Array(false, 401, 'Invalid activation'));
 readLogs();
-checkIdentical('sign-up: the next sign-up removes it, its name and address are free again', Array(is_string($sgnBase->signsUsrString('lena', 'lena@example.ch')), fieldOf($sqlLink, 'kate', 'userHandle'), is_string($sgnBase->signsUsrString('kate', 'kate@example.ch')) && $sgnBase->lastStateCount()==200), Array(true, false, true));
+checkIdentical('sign-up: the next sign-up removes it, its name and address are free again', Array(is_string($sgnBase->signsUsrString('lena', 'lena@example.ch')), fieldOf($sqlLink, 'kate', 'systemName'), is_string($sgnBase->signsUsrString('kate', 'kate@example.ch')) && $sgnBase->lastStateCount()==200), Array(true, false, true));
 checkPregMatch('sign-up: the removal is logged as an info', readLogs(), '/\[INFO\] 1 sign-ups not confirmed in time removed/');
 $sqlLink->exec('BEGIN');
-$sgnStmt = $sqlLink->prepare("INSERT INTO users (userHandle, passwdHash, userStatus, mailboxAdr, signupDate) VALUES (?, '!', 'checking', ?, '2026-11-04 08:00:00')");
+$sgnStmt = $sqlLink->prepare("INSERT INTO users (systemName, passwdHash, userStatus, mailboxAdr, signupDate) VALUES (?, '!', 'checking', ?, '2026-11-04 08:00:00')");
 for( $idx=0; $idx<UserBase::SIGN_MAXI; $idx++ ){
 	$sgnStmt->execute( Array('wait'.$idx, 'wait'.$idx.'@example.ch') );
 }
 $sqlLink->exec('COMMIT');
 checkIdentical('sign-up: closed for a while when too many are waiting', operates($sgnBase, 'signsUsrString', Array('nina', 'nina@example.ch')), Array(false, 503, 'Sign-ups closed for now'));
 checkIdentical('sign-up: the cap is the one given', Array($usrBase->waitingSignups()>=UserBase::SIGN_MAXI, operates($sgnBase, 'signsUsrString', Array('nina', 'nina@example.ch', UserBase::SIGN_MAXI+10))[1]), Array(true, 200));
-$sqlLink->exec("DELETE FROM users WHERE userHandle LIKE 'wait%' OR userHandle='nina'");
+$sqlLink->exec("DELETE FROM users WHERE systemName LIKE 'wait%' OR systemName='nina'");
 $waitNum = $usrBase->waitingSignups();
 checkIdentical('waitCount: the sign-ups not confirmed, and those in review', Array($waitNum, $usrBase->waitingSignups()), Array(intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signupDate IS NOT NULL AND userStatus IN ('awaiting', 'checking')")->fetchColumn()), $waitNum));
 checkIdentical('sign-up: refused at a lower cap', operates($sgnBase, 'signsUsrString', Array('olga', 'olga@example.ch', $waitNum)), Array(false, 503, 'Sign-ups closed for now'));
-$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE systemName='anna'");
 checkIdentical('managMail: the addresses of the active managers, with their language', $usrBase->manageMailList(), Array('anna@example.ch'=>null));
-$sqlLink->exec("UPDATE users SET userLocale='fr' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userLocale='fr' WHERE systemName='anna'");
 checkIdentical('managMail: a manager with a language', $usrBase->manageMailList(), Array('anna@example.ch'=>'fr'));
-$sqlLink->exec("UPDATE users SET userLocale=NULL WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userLocale=NULL WHERE systemName='anna'");
 
 // 13. Languages : given at the creation, by a sign-up, at the activation, or later
 readLogs();
@@ -337,7 +337,7 @@ checkIdentical('language: not one, unknown user', Array(operates($usrBase, 'chan
 checkPregMatch('language: logged as an info', readLogs(), '/\[INFO\] Language of user "ben" set to es by user "anna"/');
 $usrBase->changeLanguage('ben', 'fr');
 checkIdentical('language: the one of a reset asked by mail', ($usrBase->resetPassArray('ben@example.ch') ?: Array())['lang'] ?? 'none', 'fr');
-checkIdentical('listUsers: by address, in lower case', array_column((array)$usrBase->listUsersNamed(Array('mailboxAdr'=>' BEN@example.ch ')), 'userLocale', 'userHandle'), Array('ben'=>'fr'));
+checkIdentical('listUsers: by address, in lower case', array_column((array)$usrBase->listUsersNamed(Array('mailboxAdr'=>' BEN@example.ch ')), 'userLocale', 'systemName'), Array('ben'=>'fr'));
 checkIdentical('listUsers: an address that is not a text', operates($usrBase, 'listUsersNamed', Array(Array('mailboxAdr'=>Array('x')))), Array(false, 400, 'Invalid filter'));
 checkIdentical('waitCount and managMail on a missing table', Array(operates(new UserBase(Array('useTable'=>'nousers')), 'waitingSignups', Array()), operates(new UserBase(Array('useTable'=>'nousers')), 'manageMailList', Array())), Array(Array(false, 500, 'Credential store unavailable'), Array(false, 500, 'Credential store unavailable')));
 $sgnStmt = null;
@@ -355,13 +355,13 @@ checkIdentical('reset asked: unknown, without an address, not active', Array(ope
 	Array(Array(false, 404, 'User not found'), Array(false, 404, 'User not found'), Array(false, 409, 'No reset for this user'), Array(false, 409, 'No reset for this user'), Array(false, 404, 'User not found')));
 checkIdentical('reset: a new password breaking a rule', operates($usrBase, 'recoverUserFlg', Array('ben', strval($scndRst['code'] ?? ''), 'short')), Array(false, 400, 'Password too short: 10 characters at least'));
 checkIdentical('reset: the code of another user', operates($usrBase, 'recoverUserFlg', Array('ivan', strval($scndRst['code'] ?? ''), 'pass-ivan-44')), Array(false, 401, 'Invalid code'));
-$sqlLink->exec("UPDATE users SET failsCount=5, failedDate='".date('Y-m-d H:i:s')."', bearerHash='tk', twoFactKey='2f' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET failsCount=5, failedTime='".date('Y-m-d H:i:s')."', bearerHash='tk', twoFactKey='2f' WHERE systemName='ben'");
 checkIdentical('reset: done with the code', operates($usrBase, 'recoverUserFlg', Array('ben', strval($scndRst['code'] ?? ''), 'pass-ben-44')), Array(true, 200, ''));
 checkIdentical('reset: the new password, the code cleared, the failures forgotten, the token taken away, the secret kept', Array(password_verify('pass-ben-44', strval(fieldOf($sqlLink, 'ben', 'passwdHash'))), fieldOf($sqlLink, 'ben', 'recovrCode'), fieldOf($sqlLink, 'ben', 'codeExpiry'), intval(fieldOf($sqlLink, 'ben', 'failsCount')), fieldOf($sqlLink, 'ben', 'bearerHash'), fieldOf($sqlLink, 'ben', 'twoFactKey')), Array(true, null, null, 0, null, '2f'));
-$sqlLink->exec("UPDATE users SET bearerHash=NULL, twoFactKey=NULL WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET bearerHash=NULL, twoFactKey=NULL WHERE systemName='ben'");
 checkIdentical('reset: the code is used once', operates($usrBase, 'recoverUserFlg', Array('ben', strval($scndRst['code'] ?? ''), 'pass-ben-55')), Array(false, 401, 'Invalid code'));
 $thrdRst = $usrBase->resetPassArray('ben');
-$sqlLink->exec("UPDATE users SET codeExpiry='".date('Y-m-d H:i:s', time()-60)."' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET codeExpiry='".date('Y-m-d H:i:s', time()-60)."' WHERE systemName='ben'");
 checkIdentical('reset: a code ended', operates($usrBase, 'recoverUserFlg', Array('ben', strval($thrdRst['code'] ?? ''), 'pass-ben-55')), Array(false, 401, 'Invalid code'));
 $logText = readLogs();
 checkPregMatch('reset: asked, refused and done are logged', $logText, '/\[NOTICE\] Reset asked for user "ben" from 192\.0\.2\.12.*\[WARNING\] Password reset refused for user "ben".*\[NOTICE\] Reset asked for an unknown user.*\[NOTICE\] Password of user "ben" reset with its code/s');

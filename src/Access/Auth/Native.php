@@ -117,22 +117,22 @@ class Native implements Handler{
 		$markKey = '';
 		if( is_array($userVls) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
 			// Signed with the hash the password has now : a password set after the mark was made ends it
-			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], strval($userVls['userHandle']), (password_get_info($rowHash)['algo']!==null) ? $rowHash : '' );
+			$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], strval($userVls['systemName']), (password_get_info($rowHash)['algo']!==null) ? $rowHash : '' );
 			if( $markKey!='' && $this->markedLmtr->heldByUserNumb($markKey)>0 ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($userVls['userHandle']).': too many attempts with it' );
+				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($userVls['systemName']).': too many attempts with it' );
 				$markKey = '';
 			}
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($userVls) && $markKey=='' && $this->hasHeldNowFlag($userVls) ){
-			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is held after too many attempts' );
+			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
 			$this->badTryFlag = true;
 			return false;
 		}
 		if( $userVls===null || !$matched ){
 			if( $userVls!==null ){
-				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
+				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['systemName']) );
 			}
 			$this->errMessage = 'Invalid credentials';
 			$this->badTryFlag = true;
@@ -140,7 +140,7 @@ class Native implements Handler{
 		}
 		if( ($userVls['userStatus'] ?? '')!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
-			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['userHandle']).' is not active ('.strval($userVls['userStatus'] ?? '').')' );
+			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVls['systemName']).' is not active ('.strval($userVls['userStatus'] ?? '').')' );
 			$this->errMessage = 'Invalid credentials';
 			$this->badTryFlag = true;
 			return false;
@@ -165,8 +165,8 @@ class Native implements Handler{
 				return false;
 			}
 			if( !$codeHit ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($userVls['userHandle']) );
-				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
+				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($userVls['systemName']) );
+				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['systemName']) );
 				$this->errMessage = 'Invalid verification code';
 				$this->badTryFlag = true;
 				return false;
@@ -176,7 +176,7 @@ class Native implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealKey = Totp::openSecretText($sealKey, $this->sealingKey);
 			if( $sealKey===null ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: tfaCrypt is missing or was changed' );
+				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['systemName']).' cannot be read: tfaCrypt is missing or was changed' );
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
@@ -188,35 +188,35 @@ class Native implements Handler{
 			}
 			$stepNum = Totp::matchStepCount($sealKey, $gvnCode);
 			// A code is accepted once : its step, and those before it, are closed
-			$claimed = ($stepNum!==null) ? $this->claimTwoFaStep( strval($userVls['userHandle']), $stepNum ) : false;
+			$claimed = ($stepNum!==null) ? $this->claimTwoFaStep( strval($userVls['systemName']), $stepNum ) : false;
 			if( $claimed===null ){
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
 			if( !$claimed ){
 				if( $stepNum!==null ){
-					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: already used by user '.json_encode($userVls['userHandle']) );
+					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: already used by user '.json_encode($userVls['systemName']) );
 				}
-				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['userHandle']) );
+				($markKey!='') ? $this->markedLmtr->countLimitUser($markKey) : $this->countFailedTry( strval($userVls['systemName']) );
 				$this->errMessage = 'Invalid verification code';
 				$this->badTryFlag = true;
 				return false;
 			}
 		}
 		if( intval($userVls['failsCount'] ?? 0)>0 ){
-			$this->clearFailedTry( strval($userVls['userHandle']) );
+			$this->clearFailedTry( strval($userVls['systemName']) );
 		}
 		if( $markKey!='' ){
 			$this->markedLmtr->clearLimitUser($markKey);
 		}
 		// A hash made at a lower cost than new ones is made again, now that the password is known
 		if( password_needs_rehash($rowHash, PASSWORD_BCRYPT) ){
-			$this->rehashPassword( strval($userVls['userHandle']), $gvnPass );
-			$fresVls = $this->fetchUserArray( strval($userVls['userHandle']) );
+			$this->rehashPassword( strval($userVls['systemName']), $gvnPass );
+			$fresVls = $this->fetchUserArray( strval($userVls['systemName']) );
 			$rowHash = is_array($fresVls) ? strval($fresVls['passwdHash'] ?? '') : '';
 		}
-		$this->passedUser = Array('userHandle'=>strval($userVls['userHandle']), 'passwdHash'=>$rowHash);
-		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
+		$this->passedUser = Array('systemName'=>strval($userVls['systemName']), 'passwdHash'=>$rowHash);
+		return Array('userName'=>$userVls['systemName'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
@@ -239,7 +239,7 @@ class Native implements Handler{
 	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
 	 */
 	public function createUserMark( String $namedUserTxt ): String {
-		if( $this->passedUser===null || $this->passedUser['userHandle']!==$namedUserTxt ){
+		if( $this->passedUser===null || $this->passedUser['systemName']!==$namedUserTxt ){
 			return '';
 		}
 		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
@@ -257,7 +257,7 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$dbHndlr->sendBuiltQuery( "UPDATE {$qtdName['usrTable']} SET {$qtdName['passwdHash']}=? WHERE {$qtdName['userHandle']}=?;", true, Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), $namedUserTxt) );
+			$dbHndlr->sendBuiltQuery( "UPDATE {$qtdName['usrTable']} SET {$qtdName['passwdHash']}=? WHERE {$qtdName['systemName']}=?;", true, Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), $namedUserTxt) );
 		}catch( \Throwable $e ){
 			// A hash that cannot be written again leaves the former one, which still works
 		}
@@ -271,7 +271,7 @@ class Native implements Handler{
 	 * @return Bool Whether attempts are refused for now.
 	 */
 	protected function hasHeldNowFlag( Array $usrValuesArr ): Bool {
-		$falDate = strval($usrValuesArr['failedDate'] ?? '');
+		$falDate = strval($usrValuesArr['failedTime'] ?? '');
 		return intval($usrValuesArr['failsCount'] ?? 0)>=$this->triesLimit
 			&& $falDate!='' && $falDate>date('Y-m-d H:i:s', time() - $this->holdPeriod);
 	}
@@ -287,9 +287,9 @@ class Native implements Handler{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$nowTime = time();
-			// failsCount is set first : it must read the previous failedDate
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['failsCount']}=CASE WHEN {$qtdName['failedDate']} IS NULL OR {$qtdName['failedDate']}<='".date('Y-m-d H:i:s', $nowTime - $this->holdPeriod)."' THEN 1 ELSE {$qtdName['failsCount']}+1 END,"
-				." {$qtdName['failedDate']}='".date('Y-m-d H:i:s', $nowTime)."' WHERE {$qtdName['userHandle']}=?;";
+			// failsCount is set first : it must read the previous failedTime
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['failsCount']}=CASE WHEN {$qtdName['failedTime']} IS NULL OR {$qtdName['failedTime']}<='".date('Y-m-d H:i:s', $nowTime - $this->holdPeriod)."' THEN 1 ELSE {$qtdName['failsCount']}+1 END,"
+				." {$qtdName['failedTime']}='".date('Y-m-d H:i:s', $nowTime)."' WHERE {$qtdName['systemName']}=?;";
 			$dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt));
 		}catch( \Throwable $e ){
 			// A count that cannot be written does not change the answer given to the client
@@ -305,7 +305,7 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$dbHndlr->sendBuiltQuery( "UPDATE {$qtdName['usrTable']} SET {$qtdName['failsCount']}=0, {$qtdName['failedDate']}=NULL WHERE {$qtdName['userHandle']}=?;", true, Array($namedUserTxt) );
+			$dbHndlr->sendBuiltQuery( "UPDATE {$qtdName['usrTable']} SET {$qtdName['failsCount']}=0, {$qtdName['failedTime']}=NULL WHERE {$qtdName['systemName']}=?;", true, Array($namedUserTxt) );
 		}catch( \Throwable $e ){
 			// A count that cannot be written does not change the answer given to the client
 		}
@@ -324,10 +324,10 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactStp']}=".$userStepNumb
-				." WHERE {$qtdName['userHandle']}=? AND ({$qtdName['twoFactStp']} IS NULL OR {$qtdName['twoFactStp']}<".$userStepNumb.");";
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactPos']}=".$userStepNumb
+				." WHERE {$qtdName['systemName']}=? AND ({$qtdName['twoFactPos']} IS NULL OR {$qtdName['twoFactPos']}<".$userStepNumb.");";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt)) ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( 'The step of a 2FA code cannot be recorded: the users table cannot be written, or has no twoFactStp column (see conf/schema)' );
+				\nyu\Tools\Logger::retrieveLogger('access')->error( 'The step of a 2FA code cannot be recorded: the users table cannot be written, or has no twoFactPos column (see conf/schema)' );
 				return null;
 			}
 			return $dbHndlr->countLastWrite()>0;
@@ -348,7 +348,7 @@ class Native implements Handler{
 	 * @return Bool Whether a code is on its way; false when no mailer or no address sends it, or the table cannot be written.
 	 */
 	protected function sendCodeByMail( Array $usrValuesArr ): Bool {
-		$usrName = strval($usrValuesArr['userHandle'] ?? '');
+		$usrName = strval($usrValuesArr['systemName'] ?? '');
 		$usrMail = strval($usrValuesArr['mailboxAdr'] ?? '');
 		// After the reply of a request; at once on the command line, which has none
 		$mailObj = \nyu\Access\AccessMail::fromLoginBlock( '', PHP_SAPI!=='cli' );
@@ -364,7 +364,7 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailedCode']}=?, {$qtdName['mailExpiry']}=? WHERE {$qtdName['userHandle']}=?;";
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailedCode']}=?, {$qtdName['mailExpiry']}=? WHERE {$qtdName['systemName']}=?;";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($this->codeHashesList($newCode)[0], date('Y-m-d H:i:s', time() + 60*$this->mailExpiry), $usrName)) || $dbHndlr->countLastWrite()<1 ){
 				\nyu\Tools\Logger::retrieveLogger('access')->error( 'A mailed code cannot be recorded: the users table cannot be written, or has no mailedCode column (see conf/schema)' );
 				return false;
@@ -399,8 +399,8 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL WHERE {$qtdName['userHandle']}=? AND {$qtdName['mailedCode']}=?;";
-			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array(strval($usrValuesArr['userHandle'] ?? ''), $rowHash)) ){
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL WHERE {$qtdName['systemName']}=? AND {$qtdName['mailedCode']}=?;";
+			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array(strval($usrValuesArr['systemName'] ?? ''), $rowHash)) ){
 				return null;
 			}
 			return $dbHndlr->countLastWrite()>0;
@@ -453,8 +453,8 @@ class Native implements Handler{
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$newSecr = Totp::generateSecret();
 			$storTxt = Totp::sealSecretText($newSecr, $this->sealingKey);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactKey']}=?, {$qtdName['twoFactStp']}=NULL, {$qtdName['twoFactWay']}=NULL, {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL"
-				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved';";
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['twoFactKey']}=?, {$qtdName['twoFactPos']}=NULL, {$qtdName['twoFactWay']}=NULL, {$qtdName['mailedCode']}=NULL, {$qtdName['mailExpiry']}=NULL"
+				." WHERE {$qtdName['systemName']}=? AND {$qtdName['userStatus']}='approved';";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array($storTxt, $namedUserTxt)) || $dbHndlr->countLastWrite()<1 ){
 				return false;
 			}
@@ -489,7 +489,7 @@ class Native implements Handler{
 			$this->badTryFlag = true;
 			return false;
 		}
-		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
+		return Array('userName'=>$userVls['systemName'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
@@ -508,7 +508,7 @@ class Native implements Handler{
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$newTokn = bin2hex(random_bytes(32));
 			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['bearerHash']}='".hash('sha256', $newTokn)."'"
-				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved';";
+				." WHERE {$qtdName['systemName']}=? AND {$qtdName['userStatus']}='approved';";
 			return ( $dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt)) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
 			return false;
@@ -539,7 +539,7 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['passwdHash']}=?, {$qtdName['passwdDate']}=?, {$qtdName['bearerHash']}=NULL, {$qtdName['failsCount']}=0, {$qtdName['failedDate']}=NULL WHERE {$qtdName['userHandle']}=?;";
+			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['passwdHash']}=?, {$qtdName['passwdDate']}=?, {$qtdName['bearerHash']}=NULL, {$qtdName['failsCount']}=0, {$qtdName['failedTime']}=NULL WHERE {$qtdName['systemName']}=?;";
 			if( !$dbHndlr->sendBuiltQuery($updtQry, true, Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), date('Y-m-d H:i:s'), $namedUserTxt)) ){
 				\nyu\Tools\Logger::retrieveLogger('access')->error( 'A password cannot be written: the users table cannot be written, or has no passwdDate column (see conf/schema)' );
 				return false;
@@ -607,7 +607,7 @@ class Native implements Handler{
 			$this->errMessage = 'Password changed: sign in again';
 			return false;
 		}
-		return Array('userName'=>$userVls['userHandle'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
+		return Array('userName'=>$userVls['systemName'], 'userRole'=>strval($userVls['accessRole'] ?? ''), 'idOfUser'=>$userVls['id_user'] ?? null);
 	}
 
 	/**
@@ -627,7 +627,7 @@ class Native implements Handler{
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
 			$nowTime = time();
 			$updtQry = "UPDATE {$qtdName['usrTable']} SET {$qtdName['accessDate']}='".date('Y-m-d H:i:s', $nowTime)."'"
-				." WHERE {$qtdName['userHandle']}=? AND {$qtdName['userStatus']}='approved'"
+				." WHERE {$qtdName['systemName']}=? AND {$qtdName['userStatus']}='approved'"
 				." AND ({$qtdName['accessDate']} IS NULL OR {$qtdName['accessDate']}<'".date('Y-m-d H:i:s', $nowTime - self::SEEN_SECS)."');";
 			return $dbHndlr->sendBuiltQuery($updtQry, true, Array($namedUserTxt)) && $dbHndlr->countLastWrite()>0;
 		}catch( \Throwable $e ){
@@ -648,8 +648,8 @@ class Native implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$qtdName = $this->quoteFieldsArr($dbHndlr);
-			$listQry = "SELECT {$qtdName['userHandle']} FROM {$qtdName['usrTable']} WHERE {$qtdName['userStatus']}='approved'"
-				." AND {$qtdName['accessDate']}>='".date('Y-m-d H:i:s', time() - $this->idlePeriod)."' ORDER BY {$qtdName['userHandle']};";
+			$listQry = "SELECT {$qtdName['systemName']} FROM {$qtdName['usrTable']} WHERE {$qtdName['userStatus']}='approved'"
+				." AND {$qtdName['accessDate']}>='".date('Y-m-d H:i:s', time() - $this->idlePeriod)."' ORDER BY {$qtdName['systemName']};";
 			if( !$dbHndlr->sendBuiltQuery($listQry) ){
 				return false;
 			}
@@ -657,18 +657,18 @@ class Native implements Handler{
 		}catch( \Throwable $e ){
 			return false;
 		}
-		return is_array($usrRows) ? array_column($usrRows, 'userHandle') : false;
+		return is_array($usrRows) ? array_column($usrRows, 'systemName') : false;
 	}
 
 	/**
 	 * Reads a user's row by login name, or by the hash of its API token.
 	 *
 	 * @param String $usrLookupTxt Value to look up.
-	 * @param String $fldNamedText Field it is looked up in: 'userHandle' or 'bearerHash'.
+	 * @param String $fldNamedText Field it is looked up in: 'systemName' or 'bearerHash'.
 	 * @return Array|Bool|Null The user's row, null when there is none, or false when the table cannot be read.
 	 */
-	protected function fetchUserArray( String $usrLookupTxt, String $fldNamedText = 'userHandle' ): Array|Bool|Null {
-		if( $this->usersTable=='' || !in_array($fldNamedText, Array('userHandle', 'bearerHash'), true) ){
+	protected function fetchUserArray( String $usrLookupTxt, String $fldNamedText = 'systemName' ): Array|Bool|Null {
+		if( $this->usersTable=='' || !in_array($fldNamedText, Array('systemName', 'bearerHash'), true) ){
 			return false;
 		}
 		try{
@@ -697,7 +697,7 @@ class Native implements Handler{
 	 */
 	protected function quoteFieldsArr( DbHandlr $dbHandlerObj ): Array {
 		$qtdName = Array('usrTable'=>$dbHandlerObj->quoteFieldName($this->usersTable));
-		foreach( Array('id_user', 'userHandle', 'passwdHash', 'passwdDate', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'actvtnCode', 'recovrCode', 'codeExpiry', 'signupDate', 'bearerHash', 'twoFactKey', 'twoFactStp', 'twoFactWay', 'mailedCode', 'mailExpiry', 'failsCount', 'failedDate', 'createDate', 'accessDate') as $fldNme ){
+		foreach( Array('id_user', 'systemName', 'passwdHash', 'passwdDate', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'actvtnCode', 'recovrCode', 'codeExpiry', 'signupDate', 'bearerHash', 'twoFactKey', 'twoFactPos', 'twoFactWay', 'mailedCode', 'mailExpiry', 'failsCount', 'failedTime', 'createDate', 'accessDate') as $fldNme ){
 			$qtdName[$fldNme] = $dbHandlerObj->quoteFieldName($fldNme);
 		}
 		return $qtdName;

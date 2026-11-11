@@ -345,26 +345,26 @@ class Deploy extends Command{
 		$lostLst = Array();
 		$pending = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['userStatus'] ?? '')=='awaiting' && strval($usrValuesArr['actvtnCode'] ?? '')!=='';
-		}), 'userHandle' );
+		}), 'systemName' );
 		if( !empty($pending) ){
 			$lostLst[] = Array('activation codes', implode(', ', $pending).': pending until made active, or given a password, with accounts');
 		}
 		$rsetLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return strval($usrValuesArr['recovrCode'] ?? '')!=='';
-		}), 'userHandle' );
+		}), 'systemName' );
 		if( !empty($rsetLst) ){
 			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
 		}
 		$rvwList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['userStatus'] ?? '')=='checking';
-		}), 'userHandle' );
+		}), 'systemName' );
 		if( !empty($rvwList) ){
 			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; accounts freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
 		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['twoFactWay'] ?? null)==='emailOtp';
-		}), 'userHandle' );
+		}), 'systemName' );
 		if( !empty($mailLst) ){
 			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "accounts setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
@@ -376,7 +376,7 @@ class Deploy extends Command{
 		foreach( is_array($dvcRows) ? $dvcRows : Array() as $dvcRow ){
 			if( $dvcRow['revokeDate']===null ){
 				$devcIds[] = intval($dvcRow['id_device']);
-				$devcNms[] = $dvcRow['userHandle'].'/'.$dvcRow['deviceName'];
+				$devcNms[] = $dvcRow['systemName'].'/'.$dvcRow['deviceName'];
 			}
 		}
 		if( !empty($devcIds) ){
@@ -415,7 +415,7 @@ class Deploy extends Command{
 				}
 			}
 			if( strval($userRow['passwdHash'] ?? '')==='' ){
-				$nopsLst[] = strval($usrRow['userHandle'] ?? '');
+				$nopsLst[] = strval($usrRow['systemName'] ?? '');
 				continue;
 			}
 			$userRow['id_user'] = (intval($userRow['id_user'] ?? 0)>0) ? intval($userRow['id_user']) : ++$lastNum;
@@ -424,7 +424,7 @@ class Deploy extends Command{
 			if( isset($userRow['twoFactKey']) && $srcSeal!==$trgtSel ){
 				$plainTx = Totp::openSecretText( strval($userRow['twoFactKey']), $srcSeal );
 				if( $plainTx===null ){
-					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userRow['userHandle']).' cannot be read with the key of its store', self::EXIT_DENY);
+					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userRow['systemName']).' cannot be read with the key of its store', self::EXIT_DENY);
 				}
 				$userRow['twoFactKey'] = Totp::sealSecretText($plainTx, $trgtSel);
 			}
@@ -461,7 +461,7 @@ class Deploy extends Command{
 			if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($usrRow)) ){
 				$errText = strval($dbHndlr->finalErrorText());
 				$dbHndlr->delTransaction();
-				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['userHandle']).' cannot be written: '.$errText);
+				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['systemName']).' cannot be written: '.$errText);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
@@ -804,7 +804,7 @@ class Deploy extends Command{
 		// The rules of the userbase are those of its block, except the length : the passwords made here are long enough for any
 		$ntvAuth = new Native( Array('minChars'=>1) + $configValues );
 		$passLst = Array();
-		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('userHandle').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
+		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('systemName').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
 		$acntLst = $this->queryUsersList();
 		$dbHndlr->newTransaction();
 		foreach( $acntLst as $usrNme => $usrRle ){

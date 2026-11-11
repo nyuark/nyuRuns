@@ -154,9 +154,9 @@ checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pair
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: apiHeadr x devToken, the device has the role of its user', pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: clntCert x nativeDb, by the role of the table', Array(pairReply('clntCert', 'nativeDb', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
-$sqlLink->exec("UPDATE users SET accessRole='internal' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET accessRole='internal' WHERE systemName='anna'");
 checkIdentical('role: a role taken back applies to the device and the certificate at once', Array(pairReply('apiHeadr', 'devToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
-$sqlLink->exec("UPDATE users SET accessRole='sysadmin' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET accessRole='sysadmin' WHERE systemName='anna'");
 
 // Limit by address : what each pair counts against the address (two wrong credentials allowed)
 plugConf(2);

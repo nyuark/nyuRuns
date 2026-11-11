@@ -12,8 +12,8 @@ use nyu\Tools\Logger;
  * Sends the mails of the access flows: the code that activates an account
  * ('activate'), confirms a sign-up ('register') or sets a new password
  * ('password'), the code of a login as a second factor ('passcode'), the
- * notice that a sign-up asked for a name ('nameused') or an address
- * already taken ('occupied'), and the warning to the managers that sign-ups
+ * notice that a sign-up asked for a name ('usrtaken') or an address
+ * already taken ('emltaken'), and the warning to the managers that sign-ups
  * are piling up ('backlogs', with %count% and %limit%).
  *
  * It works from the block of the native userbase: 'mailAcnt' names the
@@ -44,9 +44,9 @@ class AccessMail {
 	// The mails a code is sent with; the code of a login ('passcode') is typed where it was asked, without a link
 	const KIND_LIST = Array('activate', 'register', 'password', 'passcode');
 	// The mail of a sign-up that asked for an address taken, sent to its owner
-	const TAKE_NAME = 'occupied';
+	const TAKE_NAME = 'emltaken';
 	// The mail of a sign-up that asked for a name taken, with an address of no account
-	const USED_NAME = 'nameused';
+	const USED_NAME = 'usrtaken';
 	// The mail telling the managers that sign-ups are piling up
 	const WARN_NAME = 'backlogs';
 

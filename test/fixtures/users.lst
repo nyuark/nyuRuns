@@ -1,9 +1,9 @@
 {
 	"users": [
-		{ "id_user": 1, "userHandle": "anna", "passwdHash": "$2y$04$4.k1sfCpzantIx5bLE4NeekuwSucazSQ8Nik2LOt6AAPWaHlw0/0K", "accessRole": "sysadmin", "userStatus": "approved", "bearerHash": "812336d31f6c0808c514635ebe673433abc6d139dce5878500ba867011751033" },
-		{ "id_user": 2, "userHandle": "ben",  "passwdHash": "$2y$04$AvgqSZrGAyFuFaSGOICsNuutrJSPAw/Y5CBY/NLY19Z5s2GnqJHSm", "accessRole": "internal", "userStatus": "approved" },
-		{ "id_user": 3, "userHandle": "cleo", "passwdHash": "$2y$04$tJowmW5/LKRSsClUevBccelXBkDFS9Q7n0cCpqZ3Kh3YfDP0ThdHO", "accessRole": "internal", "userStatus": "awaiting" },
-		{ "id_user": 4, "userHandle": "dave", "passwdHash": "$2y$04$VLEU16yB86XmfSkLxMbryuOB37rsQhR5nR4QF0yx9Q8KLCmbuOPt.", "accessRole": "operator", "userStatus": "disabled" },
-		{ "userHandle": "emma", "passwdHash": "$2y$04$btzyl1RrI2ALLlPACXDbAuaSGlCDLaoCEoE9o6hp1bLKgW5/xzX1K", "twoFactKey": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ" }
+		{ "id_user": 1, "systemName": "anna", "passwdHash": "$2y$04$4.k1sfCpzantIx5bLE4NeekuwSucazSQ8Nik2LOt6AAPWaHlw0/0K", "accessRole": "sysadmin", "userStatus": "approved", "bearerHash": "812336d31f6c0808c514635ebe673433abc6d139dce5878500ba867011751033" },
+		{ "id_user": 2, "systemName": "ben",  "passwdHash": "$2y$04$AvgqSZrGAyFuFaSGOICsNuutrJSPAw/Y5CBY/NLY19Z5s2GnqJHSm", "accessRole": "internal", "userStatus": "approved" },
+		{ "id_user": 3, "systemName": "cleo", "passwdHash": "$2y$04$tJowmW5/LKRSsClUevBccelXBkDFS9Q7n0cCpqZ3Kh3YfDP0ThdHO", "accessRole": "internal", "userStatus": "awaiting" },
+		{ "id_user": 4, "systemName": "dave", "passwdHash": "$2y$04$VLEU16yB86XmfSkLxMbryuOB37rsQhR5nR4QF0yx9Q8KLCmbuOPt.", "accessRole": "operator", "userStatus": "disabled" },
+		{ "systemName": "emma", "passwdHash": "$2y$04$btzyl1RrI2ALLlPACXDbAuaSGlCDLaoCEoE9o6hp1bLKgW5/xzX1K", "twoFactKey": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ" }
 	]
 }

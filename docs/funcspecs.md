@@ -705,7 +705,7 @@ service accepts is refused before it's read (413).
 | `register` | a visitor signs up | the address given |
 | `password` | a user asks for a new password | the user |
 | `passcode` | a user with mailed two-factor codes signs in | the user |
-| `occupied` | a sign-up uses a name or an address already in use | the owner of the address |
+| `emltaken` | a sign-up uses a name or an address already in use | the owner of the address |
 | `backlogs` | the number of waiting sign-ups reaches a set level | the managers |
 
 Each one goes out in the user's language. If the user has none, it uses

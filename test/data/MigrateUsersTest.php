@@ -57,7 +57,7 @@ $freshDb->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users
 checkIdentical('the columns are those of the 1.0 schema, in its order', $newCols, array_column( $freshDb->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_ASSOC), 'name' ));
 $newRows = $sqlLink->query('SELECT * FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 // The values of 0.9 under the names of 1.0
-$colMap = Array('userName'=>'userHandle', 'passHash'=>'passwdHash', 'userRole'=>'accessRole', 'userStat'=>'userStatus', 'actvCode'=>'actvtnCode', 'tokenKey'=>'bearerHash', 'twoFaKey'=>'twoFactKey', 'twoFaStp'=>'twoFactStp', 'failNmbr'=>'failsCount', 'failDate'=>'failedDate', 'madeDate'=>'createDate', 'lastSeen'=>'accessDate');
+$colMap = Array('userName'=>'systemName', 'passHash'=>'passwdHash', 'userRole'=>'accessRole', 'userStat'=>'userStatus', 'actvCode'=>'actvtnCode', 'tokenKey'=>'bearerHash', 'twoFaKey'=>'twoFactKey', 'twoFaStp'=>'twoFactPos', 'failNmbr'=>'failsCount', 'failDate'=>'failedTime', 'madeDate'=>'createDate', 'lastSeen'=>'accessDate');
 $oldRows = array_map(function( Array $userValues ) use ( $colMap ): Array { return array_combine(array_map(function( String $colName ) use ( $colMap ): String { return $colMap[$colName] ?? $colName; }, array_keys($userValues)), array_values($userValues)); }, $oldRows);
 // and the codes of 1.0 for their roles and statuses
 $codeMap = Array('member'=>'internal', 'system'=>'operator', 'manage'=>'sysadmin', 'pendng'=>'awaiting', 'active'=>'approved', 'locked'=>'disabled');

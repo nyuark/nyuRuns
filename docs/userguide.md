@@ -344,7 +344,7 @@ php nyuRun accounts fullList
 ```
 
 ```
-id_user  userHandle  accessRole  userStatus  mailboxAdr  userLocale  signupDate  createDate           accessDate
+id_user  systemName  accessRole  userStatus  mailboxAdr  userLocale  signupDate  createDate           accessDate
 2        engineer    operator    approved                                        2026-11-10 01:13:00
 3        sysAgent    sysadmin    approved                                        2026-11-10 01:13:00
 1        teammate    internal    approved                                        2026-11-10 01:13:00

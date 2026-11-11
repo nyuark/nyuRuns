@@ -87,7 +87,7 @@ checkPregMatch('sendCodes: the code and the minutes of codeMins', $mailTxt, '/  
 checkPregMatch('sendCodes: the link, its values encoded', $mailTxt, '/https:\/\/app\.example\.ch\/access\?do=register&user=Ann\.B&code=K7QM-3XRP-WD/');
 checkPregMatch('sendCodes: an HTML part with the link', $mailTxt, '/<a href="https:\/\/app\.example\.ch\/access\?do=register&amp;user=Ann\.B&amp;code=K7QM-3XRP-WD">this link<\/a>/');
 checkIdentical('sendCodes: no marker left', preg_match('/\[\/?link\]|%(user|code|link|mins)%/', $mailTxt), 0);
-checkIdentical('sendCodes: a mail that is not one of its kinds', $accMail->sendCodeToUser('occupied', 'ann', 'ann@example.ch', 'X'), false);
+checkIdentical('sendCodes: a mail that is not one of its kinds', $accMail->sendCodeToUser('emltaken', 'ann', 'ann@example.ch', 'X'), false);
 foreach( Array('activate'=>'Your account: choose your password', 'password'=>'Your password: choose a new one') as $mailKnd=>$subjTxt ){
 	$accMail->sendCodeToUser($mailKnd, 'ann', 'ann@example.ch', 'AAAA-BBBB-CC');
 	checkPregMatch('sendCodes: the mail '.$mailKnd, readMail(takeMails()[0] ?? ''), '/Subject: '.preg_quote($subjTxt, '/').'\r\n.*do='.$mailKnd.'&user=ann&code=AAAA-BBBB-CC/s');

@@ -46,14 +46,14 @@ for( $idx=0; $idx<5; $idx++ ){
 }
 checkIdentical('native: ben held for a client without his mark', benLogin('pw-ben'), false);
 checkIdentical('native: his mark lets its client in, the account held', benLogin('pw-ben', $benMark), 'ben');
-$befFail = intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle='ben'")->fetchColumn());
+$befFail = intval($sqlLink->query("SELECT failsCount FROM users WHERE systemName='ben'")->fetchColumn());
 benLogin('wrong-x', $benMark);
-checkIdentical('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle='ben'")->fetchColumn()), $befFail);
-checkIdentical('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failsCount FROM users WHERE userHandle='ben'")->fetchColumn()), 0);
+checkIdentical('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failsCount FROM users WHERE systemName='ben'")->fetchColumn()), $befFail);
+checkIdentical('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failsCount FROM users WHERE systemName='ben'")->fetchColumn()), 0);
 checkIdentical('native: the store makes the mark of the user it just accepted only', Array($benMark!=='', $natAuth->createUserMark('anna')), Array(true, ''));
 // A password set after the mark was made ends it : held again, the mark no longer lets its client in
 $newHash = password_hash('pw-ben-2', PASSWORD_BCRYPT, Array('cost'=>4));
-$sqlLink->exec("UPDATE users SET passwdHash='".$newHash."' WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET passwdHash='".$newHash."' WHERE systemName='ben'");
 for( $idx=0; $idx<5; $idx++ ){
 	benLogin('again-'.$idx);
 }

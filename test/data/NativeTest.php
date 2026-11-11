@@ -28,7 +28,7 @@ checkIdentical('Native pending user',         $natAuth->checkSecretArr(Array('us
 checkIdentical('Native pending user: refused as a wrong password is', Array($natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array('Invalid credentials', true));
 checkIdentical('Native locked user',          $natAuth->checkSecretArr(Array('user'=>'dave', 'pass'=>'pw-dave')), false);
 checkIdentical('Native locked user: refused the same way', Array($natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array('Invalid credentials', true));
-checkIdentical('Native a user that is not active has no failure counted for it', intval((new PDO('sqlite:'.inTemporaryDir('nativeDb.sqlite')))->query("SELECT SUM(failsCount) FROM users WHERE userHandle IN ('cleo', 'dave')")->fetchColumn()), 0);
+checkIdentical('Native a user that is not active has no failure counted for it', intval((new PDO('sqlite:'.inTemporaryDir('nativeDb.sqlite')))->query("SELECT SUM(failsCount) FROM users WHERE systemName IN ('cleo', 'dave')")->fetchColumn()), 0);
 checkIdentical('Native locked user, wrong password: the status is not told', Array($natAuth->checkSecretArr(Array('user'=>'dave', 'pass'=>'nope')), $natAuth->finalErrorText()), Array(false, 'Invalid credentials'));
 checkIdentical('Native name with a quote',    $natAuth->checkSecretArr(Array('user'=>"anna' OR '1'='1", 'pass'=>'pw-anna')), false);
 checkIdentical('Native name with a quote message', $natAuth->finalErrorText(), 'Invalid credentials');
@@ -60,7 +60,7 @@ checkIdentical('Native keepAlive leaves a locked user alone', $natAuth->retainAl
 checkIdentical('Native keepAlive on an unknown user', $natAuth->retainAliveFlg('zed'), false);
 checkIdentical('Native only the stamped user is online', $natAuth->onlineNowArray(), Array('anna'));
 
-$sqlLink->exec("UPDATE users SET accessDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET accessDate='".date('Y-m-d H:i:s', time()-120)."' WHERE systemName='anna'");
 checkIdentical('Native seen two minutes ago: still online with the default idle time', $natAuth->onlineNowArray(), Array('anna'));
 $shrtNat = new Native( Array('idleSecs'=>90) );
 checkIdentical('Native seen two minutes ago: not online with a 90 second idle time', $shrtNat->onlineNowArray(), Array());
@@ -101,13 +101,13 @@ $tknConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'testjwt'
 $axsRslt = (new nyu\Access\Checker( $tknConf, mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token with a store: the role comes from the table, not from the token', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'sysadmin'));
 
-$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'");
 $axsRslt = (new nyu\Access\Checker( $tknConf, mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token with a store: a locked user is refused at once', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg')), Array(401, 'Account not active'));
 
 $axsRslt = (new nyu\Access\Checker( Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'testjwt'), mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token without a store: the token alone decides', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userRole')), Array(200, 'internal'));
-$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'");
 
 $zedHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'zed')));
 checkIdentical('Checker token with a store: a user missing from the table is refused', (new nyu\Access\Checker( $tknConf, mockRequestObj($zedHead) ))->validateAccess()->readValueByKey('statCode'), 401);
@@ -118,7 +118,7 @@ checkIdentical('Checker authConf names the block of the store', Array($axsRslt->
 // Personal API tokens : only the SHA-256 hash is stored, one token per user
 $annaTkn = $natAuth->makeToknString('anna');
 checkPregMatch('Native makeToken gives a 64 character token', $annaTkn, '/^[0-9a-f]{64}$/');
-checkIdentical('Native the token itself is not stored', $sqlLink->query("SELECT bearerHash FROM users WHERE userHandle='anna'")->fetchColumn(), hash('sha256', strval($annaTkn)));
+checkIdentical('Native the token itself is not stored', $sqlLink->query("SELECT bearerHash FROM users WHERE systemName='anna'")->fetchColumn(), hash('sha256', strval($annaTkn)));
 checkIdentical('Native token accepted, with the user and role', $natAuth->checkSecretArr(Array('key'=>$annaTkn)), Array('userName'=>'anna', 'userRole'=>'sysadmin', 'idOfUser'=>1));
 checkIdentical('Native wrong token',          Array($natAuth->checkSecretArr(Array('key'=>str_repeat('0', 64))), $natAuth->finalErrorText()), Array(false, 'Invalid API key'));
 checkIdentical('Native empty token',          Array($natAuth->checkSecretArr(Array('key'=>'')), $natAuth->finalErrorText()), Array(false, 'No API key provided'));
@@ -127,9 +127,9 @@ $nextTkn = $natAuth->makeToknString('anna');
 checkIdentical('Native a new token replaces the previous one', Array($natAuth->checkSecretArr(Array('key'=>$annaTkn)), $natAuth->checkSecretArr(Array('key'=>$nextTkn))['userName'] ?? null), Array(false, 'anna'));
 checkIdentical('Native makeToken refused for a pending user', $natAuth->makeToknString('cleo'), false);
 checkIdentical('Native makeToken refused for an unknown user', $natAuth->makeToknString('zed'), false);
-$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'");
 checkIdentical('Native token of a locked user', Array($natAuth->checkSecretArr(Array('key'=>$nextTkn)), $natAuth->finalErrorText()), Array(false, 'Invalid API key'));
-$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'");
 checkIdentical('Native token on a missing table', Array($noTable->checkSecretArr(Array('key'=>$nextTkn)), $noTable->finalErrorText(), $noTable->makeToknString('anna')), Array(false, 'Credential store unavailable', false));
 
 // Checker : the token travels in the API key header and identifies its user
@@ -152,14 +152,14 @@ checkIdentical('Native 2FA: the same code a second time', Array($natAuth->checkS
 nyu\Tools\Logger::plugLogsConfig( Array() );
 checkPregMatch('Native 2FA: the replay is told in the access log', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Verification code refused: already used by user "ben"/');
 checkIdentical('Native 2FA: the replay counts as a failed attempt', failsOf($sqlLink, 'ben'), 1);
-$sqlLink->exec("UPDATE users SET twoFactStp=".(intdiv(time(), 30)+5)." WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET twoFactPos=".(intdiv(time(), 30)+5)." WHERE systemName='ben'");
 checkIdentical('Native 2FA: a code older than the last one accepted', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), false);
 $benScrt = $natAuth->buildTwoFactor('ben');
-checkIdentical('Native makeTwoFa forgets the last step', $sqlLink->query("SELECT twoFactStp FROM users WHERE userHandle='ben'")->fetchColumn(), null);
+checkIdentical('Native makeTwoFa forgets the last step', $sqlLink->query("SELECT twoFactPos FROM users WHERE systemName='ben'")->fetchColumn(), null);
 checkIdentical('Native 2FA: the code of the new secret', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time())))['userName'] ?? null, 'ben');
-checkIdentical('Native 2FA: its step is remembered', intval($sqlLink->query("SELECT twoFactStp FROM users WHERE userHandle='ben'")->fetchColumn())>=intdiv(time(), 30)-1, true);
+checkIdentical('Native 2FA: its step is remembered', intval($sqlLink->query("SELECT twoFactPos FROM users WHERE systemName='ben'")->fetchColumn())>=intdiv(time(), 30)-1, true);
 // A users table made before the step was remembered : a user with 2FA is refused until the table is upgraded
-$sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, userHandle, passwdHash, accessRole, userStatus, actvtnCode, bearerHash, twoFactKey, failsCount, failedDate, createDate, accessDate FROM users");
+$sqlLink->exec("CREATE TABLE oldusers AS SELECT id_user, systemName, passwdHash, accessRole, userStatus, actvtnCode, bearerHash, twoFactKey, failsCount, failedTime, createDate, accessDate FROM users");
 $oldAuth = new Native( Array('useTable'=>'oldusers') );
 checkIdentical('Native 2FA: a table without the step column', Array(runCatchThrown(function() use ($oldAuth, $benScrt){ return $oldAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))); }), $oldAuth->finalErrorText(), $oldAuth->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
 checkIdentical('Native 2FA: a table without the step column, user without a secret', $oldAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna'))['userName'] ?? null, 'anna');
@@ -172,13 +172,13 @@ if( $canSeal ){
 	$keyAuth = new Native( Array('useTable'=>'users', 'tfaCrypt'=>str_repeat('k', 40)) );
 	$annaSct = strval($keyAuth->buildTwoFactor('anna'));
 	$annaCod = Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>nyu\Access\Totp::codeAtTimeText($annaSct, time()));
-	checkPregMatch('Native 2FA: with a key, the secret is stored encrypted', strval($sqlLink->query("SELECT twoFactKey FROM users WHERE userHandle='anna'")->fetchColumn()), '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
+	checkPregMatch('Native 2FA: with a key, the secret is stored encrypted', strval($sqlLink->query("SELECT twoFactKey FROM users WHERE systemName='anna'")->fetchColumn()), '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
 	checkPregMatch('Native 2FA: the secret given back is the one the authenticator takes', $annaSct, '/^[A-Z2-7]{32}$/');
 	checkIdentical('Native 2FA: without the key, the user is refused as a store that cannot be read', Array($natAuth->checkSecretArr($annaCod), $natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
 	checkIdentical('Native 2FA: with another key too', Array((new Native(Array('tfaCrypt'=>str_repeat('x', 40))))->checkSecretArr($annaCod), failsOf($sqlLink, 'anna')), Array(false, 0));
 	checkIdentical('Native 2FA: with the key, the code passes', $keyAuth->checkSecretArr($annaCod)['userName'] ?? null, 'anna');
 	checkIdentical('Native 2FA: a secret stored readable is still read with a key set', $keyAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben'))!==false || $keyAuth->finalErrorText()=='Verification code required', true);
-	$sqlLink->exec("UPDATE users SET twoFactKey=NULL, twoFactStp=NULL WHERE userHandle='anna'");
+	$sqlLink->exec("UPDATE users SET twoFactKey=NULL, twoFactPos=NULL WHERE systemName='anna'");
 }else{
 	recordSkipping('Native 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
 }
@@ -202,11 +202,11 @@ checkIdentical('Native 2FA: a personal token is not asked for a code', $natAuth-
  * @return Int The value of failsCount.
  */
 function failsOf( PDO $sqliteLink, String $userString ): Int {
-	return intval( $sqliteLink->query("SELECT failsCount FROM users WHERE userHandle='".$userString."'")->fetchColumn() );
+	return intval( $sqliteLink->query("SELECT failsCount FROM users WHERE systemName='".$userString."'")->fetchColumn() );
 }
 $annaPwd = Array('user'=>'anna', 'pass'=>'pw-anna');
 $annaBad = Array('user'=>'anna', 'pass'=>'nope');
-$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 $thrAuth = new Native( Array('useTable'=>'users', 'maxTries'=>3) );
 $thrAuth->checkSecretArr($annaBad);
 $thrAuth->checkSecretArr($annaBad);
@@ -223,29 +223,29 @@ checkIdentical('Throttle held: a wrong password is refused the same way', Array(
 nyu\Tools\Logger::plugLogsConfig( Array() );
 checkPregMatch('Throttle held: the hold is told in the access log, with the name', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Credential refused: user "anna" is held after too many attempts/');
 checkIdentical('Throttle held: nothing more is counted', failsOf($sqlLink, 'anna'), 3);
-$sqlLink->exec("UPDATE users SET twoFactStp=NULL WHERE userHandle='ben'");
+$sqlLink->exec("UPDATE users SET twoFactPos=NULL WHERE systemName='ben'");
 checkIdentical('Throttle held: other users are not affected', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time())))['userName'] ?? null, 'ben');
 checkIdentical('Throttle held: a personal token still passes', $natAuth->checkSecretArr(Array('key'=>$nextTkn))['userName'] ?? null, 'anna');
 
-$sqlLink->exec("UPDATE users SET failedDate='".date('Y-m-d H:i:s', time()-601)."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET failedTime='".date('Y-m-d H:i:s', time()-601)."' WHERE systemName='anna'");
 checkIdentical('Throttle the hold is over after its time', $natAuth->checkSecretArr($annaPwd)['userName'] ?? null, 'anna');
 checkIdentical('Throttle the count is forgotten once back in', failsOf($sqlLink, 'anna'), 0);
 
-$sqlLink->exec("UPDATE users SET failsCount=2, failedDate='".date('Y-m-d H:i:s', time()-601)."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET failsCount=2, failedTime='".date('Y-m-d H:i:s', time()-601)."' WHERE systemName='anna'");
 $natAuth->checkSecretArr($annaBad);
 checkIdentical('Throttle old failures expire: the count restarts at 1', failsOf($sqlLink, 'anna'), 1);
 
 $oneTry = new Native( Array('maxTries'=>1, 'holdSecs'=>60) );
-$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 $oneTry->checkSecretArr($annaBad);
 checkIdentical('Throttle maxTries is read from the config', Array($oneTry->checkSecretArr($annaPwd), $oneTry->finalErrorText()), Array(false, 'Invalid credentials'));
-$sqlLink->exec("UPDATE users SET failedDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET failedTime='".date('Y-m-d H:i:s', time()-120)."' WHERE systemName='anna'");
 checkIdentical('Throttle holdSecs is read from the config', $oneTry->checkSecretArr($annaPwd)['userName'] ?? null, 'anna');
-checkIdentical('Throttle by default, four failures do not hold', Array($sqlLink->exec("UPDATE users SET failsCount=4, failedDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userHandle='anna'"), $natAuth->checkSecretArr($annaPwd)['userName'] ?? null), Array(1, 'anna'));
-checkIdentical('Throttle by default, five failures hold, and the same failure still holds with the default time', Array($sqlLink->exec("UPDATE users SET failsCount=5, failedDate='".date('Y-m-d H:i:s', time()-120)."' WHERE userHandle='anna'"), $natAuth->checkSecretArr($annaPwd)), Array(1, false));
+checkIdentical('Throttle by default, four failures do not hold', Array($sqlLink->exec("UPDATE users SET failsCount=4, failedTime='".date('Y-m-d H:i:s', time()-120)."' WHERE systemName='anna'"), $natAuth->checkSecretArr($annaPwd)['userName'] ?? null), Array(1, 'anna'));
+checkIdentical('Throttle by default, five failures hold, and the same failure still holds with the default time', Array($sqlLink->exec("UPDATE users SET failsCount=5, failedTime='".date('Y-m-d H:i:s', time()-120)."' WHERE systemName='anna'"), $natAuth->checkSecretArr($annaPwd)), Array(1, false));
 
 // 2FA and throttling : a missing code is not a failure, a wrong code is
-$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben'));
 checkIdentical('Throttle a missing code is not counted', failsOf($sqlLink, 'ben'), 0);
 $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>'000000'));
@@ -255,11 +255,11 @@ checkIdentical('Throttle an unknown user is not counted and raises nothing', Arr
 // Passwords : setPasswd replaces the hash and forgets the failures, whatever the status
 // The sample passwords are short : the shortest length is brought down to theirs
 $lowAuth = new Native( Array('useTable'=>'users', 'minChars'=>6) );
-$sqlLink->exec("UPDATE users SET failsCount=2, failedDate='".date('Y-m-d H:i:s')."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET failsCount=2, failedTime='".date('Y-m-d H:i:s')."' WHERE systemName='anna'");
 checkIdentical('Native setPasswd on a known user', $lowAuth->savePasswdFlag('anna', 'new-anna'), true);
 checkIdentical('Native setPasswd: the new password is accepted', $natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'new-anna'))['userName'] ?? null, 'anna');
 checkIdentical('Native setPasswd: the previous password is refused', Array($natAuth->checkSecretArr($annaPwd), $natAuth->finalErrorText()), Array(false, 'Invalid credentials'));
-$sqlLink->exec("UPDATE users SET failsCount=2, failedDate='".date('Y-m-d H:i:s')."' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET failsCount=2, failedTime='".date('Y-m-d H:i:s')."' WHERE systemName='anna'");
 checkIdentical('Native setPasswd forgets the failures', Array($lowAuth->savePasswdFlag('anna', 'pw-anna'), failsOf($sqlLink, 'anna')), Array(true, 0));
 checkIdentical('Native setPasswd leaves the status as it is', Array($lowAuth->savePasswdFlag('cleo', 'new-cleo'), $natAuth->checkSecretArr(Array('user'=>'cleo', 'pass'=>'new-cleo')), $natAuth->finalErrorText()), Array(true, false, 'Invalid credentials'));
 checkIdentical('Native setPasswd on an unknown user', $lowAuth->savePasswdFlag('zed', 'pw-zed'), false);

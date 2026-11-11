@@ -86,7 +86,7 @@ class Manage extends Command{
 		if( $usrList===false ){
 			$this->stopStoreError($storObj);
 		}
-		$this->printerObj->printShellRows( empty($usrList) ? Array('userHandle') : array_keys($usrList[0]), array_map('array_values', $usrList) );
+		$this->printerObj->printShellRows( empty($usrList) ? Array('systemName') : array_keys($usrList[0]), array_map('array_values', $usrList) );
 		if( empty($usrList) ){
 			$this->printerObj->printShellLine('No user.');
 		}
@@ -275,7 +275,7 @@ class Manage extends Command{
 			if( $usrList===false ){
 				$this->stopStoreError($storObj);
 			}
-			$this->printerObj->printShellRows( empty($usrList) ? Array('userHandle') : array_keys($usrList[0]), array_map('array_values', $usrList) );
+			$this->printerObj->printShellRows( empty($usrList) ? Array('systemName') : array_keys($usrList[0]), array_map('array_values', $usrList) );
 			if( empty($usrList) ){
 				$this->printerObj->printShellLine('No user awaits review.');
 			}

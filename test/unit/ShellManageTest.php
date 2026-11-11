@@ -15,7 +15,7 @@ require __DIR__.'/../lib/shellKit.php';
  */
 function fileUsers( String $projctRoot ): Array {
 	$fleVals = json_decode(strval(fetchInProject($projctRoot, 'conf/users.lst')), true);
-	return array_column($fleVals['users'] ?? Array(), null, 'userHandle');
+	return array_column($fleVals['users'] ?? Array(), null, 'systemName');
 }
 
 $rndrTxt = '"incoming": [ { "nameFrom": "QUERY", "dataFrom": "QUERY", "fieldSet": "all" } ], "routings": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument" }, "response": { "outputAs": "jsonData", "headList": {} }';
@@ -28,11 +28,11 @@ $projDir = makeProjectTxt('sysadmin', Array(
 ));
 
 // The users file : creation
-checkIdentical('no file yet is no user', callShellArray($projDir, Array('accounts', 'fullList')), Array('code'=>0, 'text'=>"userHandle\nNo user.\n", 'errs'=>''));
+checkIdentical('no file yet is no user', callShellArray($projDir, Array('accounts', 'fullList')), Array('code'=>0, 'text'=>"systemName\nNo user.\n", 'errs'=>''));
 $jsnVals = runShellAsJson($projDir, Array('accounts', 'makeUser', 'ann', 'sysadmin'));
 $usrList = fileUsers($projDir);
-checkIdentical('enrol creates an active user, its password made and shown once', Array($jsnVals['created'] ?? null, strlen($jsnVals['secret']['Password of ann'] ?? ''), password_verify($jsnVals['secret']['Password of ann'] ?? '', $usrList['ann']['passwdHash'] ?? ''), array_diff_key($usrList['ann'] ?? Array(), Array('passwdHash'=>1))), Array('ann', 20, true, Array('id_user'=>1, 'userHandle'=>'ann', 'accessRole'=>'sysadmin', 'userStatus'=>'approved')));
-checkPregMatch('the file is written one user per line', strval(fetchInProject($projDir, 'conf/users.lst')), '/^\{\n\t"users": \[\n\t\t\{ "id_user": 1, "userHandle": "ann", "passwdHash": "[^"]+", "accessRole": "sysadmin", "userStatus": "approved" \}\n\t\]\n\}\n$/D');
+checkIdentical('enrol creates an active user, its password made and shown once', Array($jsnVals['created'] ?? null, strlen($jsnVals['secret']['Password of ann'] ?? ''), password_verify($jsnVals['secret']['Password of ann'] ?? '', $usrList['ann']['passwdHash'] ?? ''), array_diff_key($usrList['ann'] ?? Array(), Array('passwdHash'=>1))), Array('ann', 20, true, Array('id_user'=>1, 'systemName'=>'ann', 'accessRole'=>'sysadmin', 'userStatus'=>'approved')));
+checkPregMatch('the file is written one user per line', strval(fetchInProject($projDir, 'conf/users.lst')), '/^\{\n\t"users": \[\n\t\t\{ "id_user": 1, "systemName": "ann", "passwdHash": "[^"]+", "accessRole": "sysadmin", "userStatus": "approved" \}\n\t\]\n\}\n$/D');
 checkIdentical('a name taken whatever its case, a name no user is given, a role that is not one', Array(callShellArray($projDir, Array('accounts', 'makeUser', 'Ann'))['errs'], callShellArray($projDir, Array('accounts', 'makeUser', 'root'))['code'], callShellArray($projDir, Array('accounts', 'makeUser', 'bob', 'boss'))['errs']), Array("User name already taken\n", 3, "Invalid role\n"));
 checkIdentical('a typed password follows the rules', Array(callShellArray($projDir, Array('accounts', 'makeUser', 'bob', '--typeItIn'), "short\n")['errs'], count(fileUsers($projDir))), Array("Password of bob: Password too short: 8 characters at least\n", 1));
 $runVals = callShellArray($projDir, Array('accounts', 'makeUser', 'bob', '--typeItIn'), "pw-bob-long\n");
@@ -41,11 +41,11 @@ checkIdentical('a typed password is not shown; the user is a member when no role
 
 // Reading
 checkIdentical('lists the users by name, never a hash', runShellAsJson($projDir, Array('accounts', 'fullList'))['rows'] ?? null, Array(
-	Array('id_user'=>1, 'userHandle'=>'ann', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
-	Array('id_user'=>2, 'userHandle'=>'bob', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
+	Array('id_user'=>1, 'systemName'=>'ann', 'accessRole'=>'sysadmin', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false),
+	Array('id_user'=>2, 'systemName'=>'bob', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>'', 'userLocale'=>'', 'hasToken'=>false, 'hasTwoFa'=>false)
 ));
-checkIdentical('lists by role, by count; a role that is not one', Array(array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--roleName=sysadmin'))['rows'] ?? Array(), 'userHandle'), array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--rowCount=1', '--startRow=1'))['rows'] ?? Array(), 'userHandle'), callShellArray($projDir, Array('accounts', 'fullList', '--roleName=boss'))['code']), Array(Array('ann'), Array('bob'), 3));
-checkIdentical('views a user', callShellArray($projDir, Array('accounts', 'viewUser', 'bob'))['text'], "id_user: 2\nuserHandle: bob\naccessRole: internal\nuserStatus: approved\nmailboxAdr: \nuserLocale: \nhasToken: false\nhasTwoFa: false\n");
+checkIdentical('lists by role, by count; a role that is not one', Array(array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--roleName=sysadmin'))['rows'] ?? Array(), 'systemName'), array_column(runShellAsJson($projDir, Array('accounts', 'fullList', '--rowCount=1', '--startRow=1'))['rows'] ?? Array(), 'systemName'), callShellArray($projDir, Array('accounts', 'fullList', '--roleName=boss'))['code']), Array(Array('ann'), Array('bob'), 3));
+checkIdentical('views a user', callShellArray($projDir, Array('accounts', 'viewUser', 'bob'))['text'], "id_user: 2\nsystemName: bob\naccessRole: internal\nuserStatus: approved\nmailboxAdr: \nuserLocale: \nhasToken: false\nhasTwoFa: false\n");
 checkIdentical('email gives an address in the file, in lower case', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'bob', 'Bob@Example.ch'))['text'], fileUsers($projDir)['bob']['mailboxAdr'] ?? null), Array("address set: bob\n", 'bob@example.ch'));
 checkIdentical('an address taken, one that is not', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'ann', 'BOB@example.ch'))['errs'], callShellArray($projDir, Array('accounts', 'setEmail', 'ann', 'ann'))['errs']), Array("Mail address already used\n", "Invalid mail address\n"));
 checkIdentical('email without an address takes it away from the file', Array(callShellArray($projDir, Array('accounts', 'setEmail', 'bob'))['text'], isset(fileUsers($projDir)['bob']['mailboxAdr'])), Array("address removed: bob\n", false));
@@ -92,7 +92,7 @@ checkIdentical('a locked user is given neither a token nor a secret', Array(call
 
 // What a person wrote in the file is kept; a file that cannot be used is not written
 $fleText = strval(fetchInProject($projDir, 'conf/users.lst'));
-writeInProject($projDir, 'conf/users.lst', str_replace('"userHandle": "bob"', '"userHandle": "bob", "note": "kept"', $fleText));
+writeInProject($projDir, 'conf/users.lst', str_replace('"systemName": "bob"', '"systemName": "bob", "note": "kept"', $fleText));
 checkIdentical('a field added by hand is kept, after the others', Array(callShellArray($projDir, Array('accounts', 'freeUser', 'bob'))['code'], fileUsers($projDir)['bob']['note'] ?? null, array_slice(array_keys(fileUsers($projDir)['bob']), -1)), Array(0, 'kept', Array('note')));
 checkIdentical('removal needs a confirmation', Array(callShellArray($projDir, Array('accounts', 'dropUser', 'bob', '--noPrompt'))['code'], callShellArray($projDir, Array('accounts', 'dropUser', 'bob'), "no\n")['code'], callShellArray($projDir, Array('accounts', 'dropUser', 'bob'), "yes\n")['text'], array_keys(fileUsers($projDir))), Array(3, 3, "removed: bob\n", Array('ann')));
 checkIdentical('the former files are in temp/archives, the newest ones only', count(glob($projDir.DS.'temp'.DS.'archives'.DS.'users.lst.*')), nyu\Shell\ConfFile::KEEP_COPY);

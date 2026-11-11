@@ -70,9 +70,9 @@ $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', 
 $statLst = stateOf($jsnVals);
 $envVals = parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW);
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
-$usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'userHandle');
+$usrList = array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), null, 'systemName');
 $keyText = fetchInProject($projDir, 'conf/keys/jwtToken.key');
-checkIdentical('start points the login at the store, makes the keys of the tokens, the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null, function_exists('openssl_pkey_new') ? is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key') : strlen($envVals['NYU_JWT_SECRET'] ?? '')>=48, $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'accessRole', 'userHandle'), $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
+checkIdentical('start points the login at the store, makes the keys of the tokens, the secrets and the users, and ends on a clean check', Array($jsnVals['exit'] ?? null, $axsVals['loginSet']['authWith'] ?? null, $axsVals['loginSet']['authConf'] ?? null, function_exists('openssl_pkey_new') ? is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key') : strlen($envVals['NYU_JWT_SECRET'] ?? '')>=48, $envVals['NYU_API_KEY'] ?? '', array_column($usrList, 'accessRole', 'systemName'), $statLst[$tknRow] ?? null, $statLst['databases'] ?? null, $statLst['users'] ?? null, $jsnVals['fail'] ?? null),
 	Array(0, 'userFile', 'userFile', true, $jsnVals['secret']['API key'] ?? 'none', Array('teammate'=>'internal', 'engineer'=>'operator', 'sysAgent'=>'sysadmin'), 'fine', 'fine', 'fine', 0));
 checkIdentical('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key userFile'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
 checkIdentical('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of sysAgent (sysadmin)'] ?? '', $usrList['sysAgent']['passwdHash'] ?? ''), password_verify($jsnVals['secret']['Password of teammate (internal)'] ?? '', $usrList['teammate']['passwdHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
@@ -112,7 +112,7 @@ checkIdentical('each question proposes a default, taken on Enter: the users file
 // The names of the basic accounts: each asked, the one proposed taken on Enter; a name a user cannot have, or one given twice, creates none
 $projDir = freshPrjt('accounts');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps'), "\n\nann.k\n\nBen-2\n");
-checkIdentical('names: the names answered, in the order of the roles', array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), 'accessRole', 'userHandle'), Array('ann.k'=>'internal', 'engineer'=>'operator', 'Ben-2'=>'sysadmin'));
+checkIdentical('names: the names answered, in the order of the roles', array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), 'accessRole', 'systemName'), Array('ann.k'=>'internal', 'engineer'=>'operator', 'Ben-2'=>'sysadmin'));
 $projDir = freshPrjt('refused');
 runShellAsJson($projDir, Array('installs', 'makeConf'));
 $runVals = callShellArray($projDir, Array('installs', 'userBase', '--useStore=userFile'), "\nroot\n");

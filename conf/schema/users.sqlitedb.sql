@@ -1,12 +1,12 @@
 -- Native userbase (Access\Auth\Native), SQLite.
 -- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
--- userHandle is matched with case: 'Anna' and 'anna' are two users.
+-- systemName is matched with case: 'Anna' and 'anna' are two users.
 -- createDate is given by the clock of the database, in UTC, the other dates by the one of PHP.
 
 CREATE TABLE `users` (
 	`id_user`    INTEGER PRIMARY KEY,
 	-- Login name
-	`userHandle` TEXT    NOT NULL,
+	`systemName` TEXT    NOT NULL,
 	-- bcrypt hash, as given by password_hash()
 	`passwdHash` TEXT    NOT NULL,
 	-- Time the password was last set: the sessions and tokens issued before it are refused
@@ -32,7 +32,7 @@ CREATE TABLE `users` (
 	-- 2FA secret; a user holding one must give its code
 	`twoFactKey` TEXT    NULL,
 	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
-	`twoFactStp` INTEGER NULL,
+	`twoFactPos` INTEGER NULL,
 	-- Second factor sent by mail ('emailOtp'); an authenticator when empty and twoFactKey is set
 	`twoFactWay` TEXT    NULL,
 	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
@@ -40,11 +40,11 @@ CREATE TABLE `users` (
 	`mailExpiry` TEXT    NULL,
 	-- Failed attempts of the current window, and time of the last one
 	`failsCount` INTEGER NOT NULL DEFAULT 0,
-	`failedDate` TEXT    NULL,
+	`failedTime` TEXT    NULL,
 	`createDate` TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	-- Last authenticated request; a user seen within the idle time is online
 	`accessDate` TEXT    NULL,
-	UNIQUE (`userHandle`),
+	UNIQUE (`systemName`),
 	UNIQUE (`bearerHash`),
 	UNIQUE (`mailboxAdr`),
 	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),

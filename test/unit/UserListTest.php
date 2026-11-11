@@ -80,7 +80,7 @@ checkIdentical('UserList 2FA: wrong password, whatever the code', Array($usrList
 $sealKey = str_repeat('k', 32);
 $emmaCod = $emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()));
 if( function_exists('openssl_encrypt') ){
-	file_put_contents(inTemporaryDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userHandle'=>'emma', 'passwdHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFactKey'=>Totp::sealSecretText($tfaScrt, $sealKey))))));
+	file_put_contents(inTemporaryDir('sealed.lst'), json_encode(Array('users'=>Array(Array('systemName'=>'emma', 'passwdHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFactKey'=>Totp::sealSecretText($tfaScrt, $sealKey))))));
 	checkIdentical('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('listFile'=>inTemporaryDir('sealed.lst'), 'tfaCrypt'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
 	$noKeyLs = new PathUserList( Array('listFile'=>inTemporaryDir('sealed.lst')) );
 	checkIdentical('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkSecretArr($emmaCod), $noKeyLs->finalErrorText(), $noKeyLs->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
@@ -95,8 +95,8 @@ checkIdentical('UserList wrong token', Array($usrList->checkSecretArr(Array('key
 checkIdentical('UserList empty token', Array($usrList->checkSecretArr(Array('key'=>'')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'No API key provided', false));
 checkIdentical('UserList the hash itself is not a token', $usrList->checkSecretArr(Array('key'=>hash('sha256', 'list-test-token'))), false);
 $tknRows = Array('users'=>Array(
-	Array('userHandle'=>'anna', 'passwdHash'=>'x', 'userStatus'=>'disabled', 'bearerHash'=>strtoupper(hash('sha256', 'tk-anna'))),
-	Array('userHandle'=>'ben', 'passwdHash'=>'x', 'bearerHash'=>strtoupper(hash('sha256', 'tk-ben')))
+	Array('systemName'=>'anna', 'passwdHash'=>'x', 'userStatus'=>'disabled', 'bearerHash'=>strtoupper(hash('sha256', 'tk-anna'))),
+	Array('systemName'=>'ben', 'passwdHash'=>'x', 'bearerHash'=>strtoupper(hash('sha256', 'tk-ben')))
 ));
 file_put_contents(inTemporaryDir('tokens.lst'), json_encode($tknRows));
 $tknList = new PathUserList( Array('listFile'=>inTemporaryDir('tokens.lst')) );
@@ -121,7 +121,7 @@ checkIdentical('UserList the file is never written', hash_file('sha256', TOP_DIR
 // A file that cannot be used is refused as a whole, and is not a wrong credential
 $unavail = Array(false, 'Credential store unavailable', false);
 $annaHsh = password_hash('pw-anna', PASSWORD_BCRYPT, Array('cost'=>4));
-$annaRow = Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh);
+$annaRow = Array('systemName'=>'anna', 'passwdHash'=>$annaHsh);
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('UserList a file with its two required fields', listReply(json_encode(Array('users'=>Array($annaRow)))), Array(Array('userName'=>'anna', 'userRole'=>'internal', 'idOfUser'=>null), '', false));
 checkIdentical('UserList no file named', Array((new UserList(Array()))->checkSecretArr($annaPwd), (new UserList(Array('listFile'=>Array('x'))))->checkSecretArr($annaPwd)), Array(false, false));
@@ -130,16 +130,16 @@ checkIdentical('UserList missing file', Array($noneLst->checkSecretArr($annaPwd)
 checkIdentical('UserList missing file: token and userIdent', Array($noneLst->checkSecretArr(Array('key'=>'list-test-token')), $noneLst->finalErrorText(), $noneLst->usrIdentityArr('anna'), $noneLst->finalErrorText()), Array(false, 'Credential store unavailable', false, 'Credential store unavailable'));
 checkIdentical('UserList not a JSON text', listReply('anna:'.$annaHsh), $unavail);
 checkIdentical('UserList no users list', listReply(json_encode(Array($annaRow))), $unavail);
-checkIdentical('UserList a user without a passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'ben'))))), $unavail);
-checkIdentical('UserList a user with an empty passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'ben', 'passwdHash'=>''))))), $unavail);
-checkIdentical('UserList a user without a userHandle', listReply(json_encode(Array('users'=>Array($annaRow, Array('passwdHash'=>$annaHsh))))), $unavail);
+checkIdentical('UserList a user without a passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('systemName'=>'ben'))))), $unavail);
+checkIdentical('UserList a user with an empty passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('systemName'=>'ben', 'passwdHash'=>''))))), $unavail);
+checkIdentical('UserList a user without a systemName', listReply(json_encode(Array('users'=>Array($annaRow, Array('passwdHash'=>$annaHsh))))), $unavail);
 checkIdentical('UserList a user that is not a block', listReply(json_encode(Array('users'=>Array($annaRow, 'ben')))), $unavail);
 checkIdentical('UserList a role that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>Array('sysadmin')))))), $unavail);
 checkIdentical('UserList a language that is not a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('userLocale'=>Array('fr')))))), $unavail);
 checkIdentical('UserList an id that is not a number or a text', listReply(json_encode(Array('users'=>Array($annaRow + Array('id_user'=>Array(1)))))), $unavail);
-checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('userHandle'=>'anna', 'passwdHash'=>$annaHsh, 'accessRole'=>'sysadmin'))))), $unavail);
-checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('mailboxAdr'=>'anna@example.ch'), Array('userHandle'=>'ben', 'passwdHash'=>$annaHsh, 'mailboxAdr'=>'Anna@Example.CH'))))), $unavail);
-checkIdentical('UserList a bearerHash shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('bearerHash'=>'ab12'), Array('userHandle'=>'ben', 'passwdHash'=>$annaHsh, 'bearerHash'=>'AB12'))))), $unavail);
+checkIdentical('UserList a user listed twice', listReply(json_encode(Array('users'=>Array($annaRow, Array('systemName'=>'anna', 'passwdHash'=>$annaHsh, 'accessRole'=>'sysadmin'))))), $unavail);
+checkIdentical('UserList an address shared by two users, whatever its case', listReply(json_encode(Array('users'=>Array($annaRow + Array('mailboxAdr'=>'anna@example.ch'), Array('systemName'=>'ben', 'passwdHash'=>$annaHsh, 'mailboxAdr'=>'Anna@Example.CH'))))), $unavail);
+checkIdentical('UserList a bearerHash shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('bearerHash'=>'ab12'), Array('systemName'=>'ben', 'passwdHash'=>$annaHsh, 'bearerHash'=>'AB12'))))), $unavail);
 checkIdentical('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStatus'=>'online'))))), Array(false, 'Invalid credentials', true));
 checkIdentical('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>'root')))))[0], Array('userName'=>'anna', 'userRole'=>'root', 'idOfUser'=>null));
 Logger::plugLogsConfig( Array() );

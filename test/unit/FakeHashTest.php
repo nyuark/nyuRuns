@@ -33,7 +33,7 @@ $usrList = new UserList( Array('listFile'=>'test/fixtures/users.lst', 'maxTries'
 $GLOBALS['hashRead'] = Array();
 $usrList->checkSecretArr( Array('user'=>'nobody', 'pass'=>'x') );
 checkIdentical('userFile: an unknown name is checked against the first hash of the file (cost 4), and no hash is made', Array($GLOBALS['hashRead'], $GLOBALS['hashMade']), Array(Array('$2y$04$'), 0));
-file_put_contents(TOP_DIR.DS.$ownFldr.DS.'users.lst', json_encode(Array('users'=>Array(Array('userHandle'=>'void', 'passwdHash'=>'!')))));
+file_put_contents(TOP_DIR.DS.$ownFldr.DS.'users.lst', json_encode(Array('users'=>Array(Array('systemName'=>'void', 'passwdHash'=>'!')))));
 $GLOBALS['hashRead'] = Array();
 (new UserList( Array('listFile'=>$ownFldr.DS.'users.lst', 'maxTries'=>0) ))->checkSecretArr( Array('user'=>'nobody', 'pass'=>'x') );
 checkIdentical('userFile: without a hashed user, the dummy of the native userbase', $GLOBALS['hashRead'], Array(substr(Native::getDummyBcrypt(), 0, 7)));

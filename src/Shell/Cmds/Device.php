@@ -87,7 +87,7 @@ class Device extends Command{
 		}
 		$rowList = Array();
 		foreach( $dvcRows as $dvcRow ){
-			$rowList[] = Array(strval($dvcRow['deviceName']), strval($dvcRow['userHandle']), strval($dvcRow['deviceRole']), strval($dvcRow['createDate']), strval($dvcRow['accessDate'] ?? ''), strval($dvcRow['revokeDate'] ?? ''));
+			$rowList[] = Array(strval($dvcRow['deviceName']), strval($dvcRow['systemName']), strval($dvcRow['deviceRole']), strval($dvcRow['createDate']), strval($dvcRow['accessDate'] ?? ''), strval($dvcRow['revokeDate'] ?? ''));
 		}
 		$this->printerObj->printShellRows( Array('device', 'user', 'role', 'made', 'last seen', 'revoked'), $rowList );
 		return self::EXIT_DONE;

@@ -92,7 +92,7 @@ class PassList implements Handler{
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
 			}elseif( $matched ){
 				$this->usrLimiter->clearLimitUser( $cntName );
-				$this->passedUser = Array('userHandle'=>strval($gvnUser), 'passwdHash'=>$usrHash);
+				$this->passedUser = Array('systemName'=>strval($gvnUser), 'passwdHash'=>$usrHash);
 				return Array('userName'=>$gvnUser);
 			}else{
 				$this->usrLimiter->countLimitUser( $cntName );
@@ -111,7 +111,7 @@ class PassList implements Handler{
 	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
 	 */
 	public function createUserMark( String $namedUserTxt ): String {
-		if( $this->passedUser===null || $this->passedUser['userHandle']!==$namedUserTxt ){
+		if( $this->passedUser===null || $this->passedUser['systemName']!==$namedUserTxt ){
 			return '';
 		}
 		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );

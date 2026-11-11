@@ -67,7 +67,7 @@ class Device implements Handler{
 		}
 		$this->seenDevice = $devcVls['id_device'];
 		return Array(
-			'userName'=>$devcVls['userHandle'], 'userRole'=>strval($devcVls['accessRole'] ?? ''), 'idOfUser'=>$devcVls['id_user'] ?? null,
+			'userName'=>$devcVls['systemName'], 'userRole'=>strval($devcVls['accessRole'] ?? ''), 'idOfUser'=>$devcVls['id_user'] ?? null,
 			'device'=>Array('id'=>$devcVls['id_device'], 'name'=>$devcVls['deviceName'], 'role'=>$devcVls['deviceRole'])
 		);
 	}
@@ -115,7 +115,7 @@ class Device implements Handler{
 			$newTokn = bin2hex(random_bytes(32));
 			$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fldList).')'
 				.' SELECT ?, ?, ?, '.$dbHndlr->quoteFieldName('id_user').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
-				.' WHERE '.$dbHndlr->quoteFieldName('userHandle').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved';";
+				.' WHERE '.$dbHndlr->quoteFieldName('systemName').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved';";
 			$newData = Array($userDevcName, $deviceRleTxt, hash('sha256', $newTokn), $namedUserTxt);
 			return ( $dbHndlr->sendBuiltQuery($addStmt, true, $newData) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
@@ -150,7 +150,7 @@ class Device implements Handler{
 	 * or all of them. The hash of a token is never given.
 	 *
 	 * @param String $namedUserTxt Login name of the user, '' for the devices of every user.
-	 * @return Array|Bool The devices, by user then by name: 'id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate' and 'userHandle'; false when the tables cannot be read.
+	 * @return Array|Bool The devices, by user then by name: 'id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate' and 'systemName'; false when the tables cannot be read.
 	 */
 	public function lstUserDevices( String $namedUserTxt='' ): Array|Bool {
 		if( $this->deviceTble=='' || $this->usersTable=='' ){
@@ -162,8 +162,8 @@ class Device implements Handler{
 			foreach( Array('id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
-			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.userHandle');
-			$usrName = $dbHndlr->quoteFieldName($this->usersTable.'.userHandle');
+			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.systemName');
+			$usrName = $dbHndlr->quoteFieldName($this->usersTable.'.systemName');
 			$listQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)
 				.' INNER JOIN '.$dbHndlr->quoteFieldName($this->usersTable)
 				.' ON '.$dbHndlr->quoteFieldName($this->usersTable.'.id_user').'='.$dbHndlr->quoteFieldName($this->deviceTble.'.user_id')
@@ -195,7 +195,7 @@ class Device implements Handler{
 			foreach( Array('id_device', 'deviceName', 'deviceRole', 'revokeDate') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
-			foreach( Array('id_user', 'userHandle', 'accessRole', 'userStatus') as $fldNme ){
+			foreach( Array('id_user', 'systemName', 'accessRole', 'userStatus') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.'.$fldNme);
 			}
 			$devcQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)

@@ -1,9 +1,9 @@
 -- Users table, from 0.9 to 1.0, PostgreSQL.
 -- For a users table made by conf/schema/users.pgsql.sql of 0.9: its columns take
--- their names of 1.0 (10 characters: "userName" becomes "userHandle", "passHash"
+-- their names of 1.0 (10 characters: "userName" becomes "systemName", "passHash"
 -- "passwdHash", "userRole" "accessRole", "userStat" "userStatus", "actvCode"
 -- "actvtnCode", "tokenKey" "bearerHash", "twoFaKey" "twoFactKey", "twoFaStp"
--- "twoFactStp", "failNmbr" "failsCount", "failDate" "failedDate", "madeDate"
+-- "twoFactPos", "failNmbr" "failsCount", "failDate" "failedTime", "madeDate"
 -- "createDate", "lastSeen" "accessDate"), and it adds the columns of the access
 -- mails ("mailboxAdr", "userLocale", "recovrCode", "codeExpiry", "signupDate"),
 -- those of the codes mailed as a second factor ("twoFactWay", "mailedCode",
@@ -31,16 +31,16 @@
 BEGIN;
 
 -- The columns renamed. No row is changed.
-ALTER TABLE "users" RENAME COLUMN "userName" TO "userHandle";
+ALTER TABLE "users" RENAME COLUMN "userName" TO "systemName";
 ALTER TABLE "users" RENAME COLUMN "passHash" TO "passwdHash";
 ALTER TABLE "users" RENAME COLUMN "userRole" TO "accessRole";
 ALTER TABLE "users" RENAME COLUMN "userStat" TO "userStatus";
 ALTER TABLE "users" RENAME COLUMN "actvCode" TO "actvtnCode";
 ALTER TABLE "users" RENAME COLUMN "tokenKey" TO "bearerHash";
 ALTER TABLE "users" RENAME COLUMN "twoFaKey" TO "twoFactKey";
-ALTER TABLE "users" RENAME COLUMN "twoFaStp" TO "twoFactStp";
+ALTER TABLE "users" RENAME COLUMN "twoFaStp" TO "twoFactPos";
 ALTER TABLE "users" RENAME COLUMN "failNmbr" TO "failsCount";
-ALTER TABLE "users" RENAME COLUMN "failDate" TO "failedDate";
+ALTER TABLE "users" RENAME COLUMN "failDate" TO "failedTime";
 ALTER TABLE "users" RENAME COLUMN "madeDate" TO "createDate";
 ALTER TABLE "users" RENAME COLUMN "lastSeen" TO "accessDate";
 
@@ -84,16 +84,16 @@ COMMIT;
 -- UPDATE "users" SET "accessRole" = CASE "accessRole" WHEN 'internal' THEN 'member' WHEN 'operator' THEN 'system' WHEN 'sysadmin' THEN 'manage' ELSE "accessRole" END, "userStatus" = CASE "userStatus" WHEN 'awaiting' THEN 'pendng' WHEN 'approved' THEN 'active' WHEN 'disabled' THEN 'locked' ELSE "userStatus" END;
 -- ALTER TABLE "users" ALTER COLUMN "accessRole" SET DEFAULT 'member', ALTER COLUMN "userStatus" SET DEFAULT 'pendng';
 -- ALTER TABLE "users" DROP COLUMN "mailboxAdr", DROP COLUMN "userLocale", DROP COLUMN "recovrCode", DROP COLUMN "codeExpiry", DROP COLUMN "signupDate", DROP COLUMN "twoFactWay", DROP COLUMN "mailedCode", DROP COLUMN "mailExpiry", DROP COLUMN "passwdDate";
--- ALTER TABLE "users" RENAME COLUMN "userHandle" TO "userName";
+-- ALTER TABLE "users" RENAME COLUMN "systemName" TO "userName";
 -- ALTER TABLE "users" RENAME COLUMN "passwdHash" TO "passHash";
 -- ALTER TABLE "users" RENAME COLUMN "accessRole" TO "userRole";
 -- ALTER TABLE "users" RENAME COLUMN "userStatus" TO "userStat";
 -- ALTER TABLE "users" RENAME COLUMN "actvtnCode" TO "actvCode";
 -- ALTER TABLE "users" RENAME COLUMN "bearerHash" TO "tokenKey";
 -- ALTER TABLE "users" RENAME COLUMN "twoFactKey" TO "twoFaKey";
--- ALTER TABLE "users" RENAME COLUMN "twoFactStp" TO "twoFaStp";
+-- ALTER TABLE "users" RENAME COLUMN "twoFactPos" TO "twoFaStp";
 -- ALTER TABLE "users" RENAME COLUMN "failsCount" TO "failNmbr";
--- ALTER TABLE "users" RENAME COLUMN "failedDate" TO "failDate";
+-- ALTER TABLE "users" RENAME COLUMN "failedTime" TO "failDate";
 -- ALTER TABLE "users" RENAME COLUMN "createDate" TO "madeDate";
 -- ALTER TABLE "users" RENAME COLUMN "accessDate" TO "lastSeen";
 -- ALTER TABLE "users" ADD CONSTRAINT "users_userRole_check" CHECK ("userRole" IN ('member', 'system', 'manage'));

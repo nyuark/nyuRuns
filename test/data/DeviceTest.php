@@ -32,9 +32,9 @@ checkIdentical('Device second device of the same user', $dvcAuth->checkSecretArr
 checkIdentical('Device wrong token',          Array($dvcAuth->checkSecretArr(Array('key'=>str_repeat('0', 64))), $dvcAuth->finalErrorText()), Array(false, 'Invalid API key'));
 checkIdentical('Device empty token',          Array($dvcAuth->checkSecretArr(Array('key'=>'')), $dvcAuth->finalErrorText()), Array(false, 'No API key provided'));
 checkIdentical('Device the stored hash is not a token', $dvcAuth->checkSecretArr(Array('key'=>hash('sha256', strval($phonTkn)))), false);
-$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'");
 checkIdentical('Device of a locked user',     Array($dvcAuth->checkSecretArr(Array('key'=>$phonTkn)), $dvcAuth->finalErrorText()), Array(false, 'Invalid API key'));
-$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'");
 
 // keepAlive : stamps the device verified last, not more often than 'seenSecs'
 $newAuth = new DeviceAuth( Array() );
@@ -59,8 +59,8 @@ checkIdentical('Device the other device still passes', $dvcAuth->checkSecretArr(
 // listDevcs : the devices with their user, by user then by name, never a hash
 $dvcAuth->pushDeviceText('ben', 'Laptop', 'app');
 $allDvcs = $dvcAuth->lstUserDevices();
-checkIdentical('Device listDevcs lists every device, with its user', array_map(function(Array $deviceRow){ return $deviceRow['userHandle'].'/'.$deviceRow['deviceName'].'/'.$deviceRow['deviceRole']; }, (array)$allDvcs), Array('anna/Home/home', 'anna/Phone/app', 'ben/Laptop/app'));
-checkIdentical('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array()), Array('id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate', 'userHandle'));
+checkIdentical('Device listDevcs lists every device, with its user', array_map(function(Array $deviceRow){ return $deviceRow['systemName'].'/'.$deviceRow['deviceName'].'/'.$deviceRow['deviceRole']; }, (array)$allDvcs), Array('anna/Home/home', 'anna/Phone/app', 'ben/Laptop/app'));
+checkIdentical('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array()), Array('id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate', 'systemName'));
 checkIdentical('Device listDevcs of one user, of a user without any, of an unknown one', Array(array_column((array)$dvcAuth->lstUserDevices('ben'), 'deviceName'), $dvcAuth->lstUserDevices('dave'), $dvcAuth->lstUserDevices('zed')), Array(Array('Laptop'), Array(), Array()));
 checkIdentical('Device listDevcs tells the revoked one', array_map(function(Array $deviceRow){ return $deviceRow['revokeDate']!==null; }, (array)$dvcAuth->lstUserDevices('anna')), Array(false, true));
 // Tables that cannot be used
@@ -83,7 +83,7 @@ $axsRslt = (new nyu\Access\Checker( $dvcConf, mockRequestObj(Array('Authorizatio
 checkIdentical('Checker device token: a revoked device is refused', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg')), Array(401, 'Invalid API key'));
 
 // The devices of a removed user go with it : the framework's SQLite handler turns the foreign keys on
-nyu\Data\DBCon::linkNamedDbCon('')->readConnection()->sendBuiltQuery('DELETE FROM users WHERE userHandle=?;', true, Array('ben'));
+nyu\Data\DBCon::linkNamedDbCon('')->readConnection()->sendBuiltQuery('DELETE FROM users WHERE systemName=?;', true, Array('ben'));
 checkIdentical('Device the devices of a removed user go with it', intval($sqlLink->query("SELECT COUNT(*) FROM devices WHERE deviceName='Laptop'")->fetchColumn()), 0);
 $sqlLink = null;
 

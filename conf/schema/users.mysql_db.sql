@@ -1,12 +1,12 @@
 -- Native userbase (Access\Auth\Native), MySQL.
 -- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
--- With the default collation, userHandle is matched without case: 'Anna' and 'anna' are the same user.
+-- With the default collation, systemName is matched without case: 'Anna' and 'anna' are the same user.
 -- createDate is given by the clock of the database, the other dates by the one of PHP.
 
 CREATE TABLE `users` (
 	`id_user`    INT UNSIGNED NOT NULL AUTO_INCREMENT,
 	-- Login name
-	`userHandle` VARCHAR(64)  NOT NULL,
+	`systemName` VARCHAR(64)  NOT NULL,
 	-- bcrypt hash, as given by password_hash()
 	`passwdHash` VARCHAR(255) NOT NULL,
 	-- Time the password was last set: the sessions and tokens issued before it are refused
@@ -32,7 +32,7 @@ CREATE TABLE `users` (
 	-- 2FA secret; a user holding one must give its code
 	`twoFactKey` VARCHAR(128) NULL,
 	-- Step of the last 2FA code accepted: neither it nor an earlier one is accepted again
-	`twoFactStp` INT UNSIGNED NULL,
+	`twoFactPos` INT UNSIGNED NULL,
 	-- Second factor sent by mail ('emailOtp'); an authenticator when empty and twoFactKey is set
 	`twoFactWay` CHAR(8)      NULL,
 	-- SHA-256 hash of the code mailed for a login, and its end; cleared once used
@@ -40,12 +40,12 @@ CREATE TABLE `users` (
 	`mailExpiry` DATETIME     NULL,
 	-- Failed attempts of the current window, and time of the last one
 	`failsCount` INT UNSIGNED NOT NULL DEFAULT 0,
-	`failedDate` DATETIME     NULL,
+	`failedTime` DATETIME     NULL,
 	`createDate` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	-- Last authenticated request; a user seen within the idle time is online
 	`accessDate` DATETIME     NULL,
 	PRIMARY KEY (`id_user`),
-	UNIQUE KEY `userHandle` (`userHandle`),
+	UNIQUE KEY `systemName` (`systemName`),
 	UNIQUE KEY `bearerHash` (`bearerHash`),
 	UNIQUE KEY `mailboxAdr` (`mailboxAdr`),
 	CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),

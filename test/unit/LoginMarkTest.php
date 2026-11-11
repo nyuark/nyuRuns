@@ -20,7 +20,7 @@ $mrkKeys = str_repeat('m', 40);
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0, 'dataPath'=>$lmtFldr, 'markSecr'=>$mrkKeys, 'markDays'=>90))) );
 $markObj = LoginMark::fromLimitBlock();
 $fileVls = json_decode(strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'users.lst')), true);
-$hashLst = array_column($fileVls['users'], 'passwdHash', 'userHandle');
+$hashLst = array_column($fileVls['users'], 'passwdHash', 'systemName');
 
 /**
  * Tells what a check answers to a login, with or without a mark.
@@ -76,11 +76,11 @@ checkIdentical('userFile: a name written as a counter of a mark is the name of n
 
 // A password changed : the marks made before it no longer lift the hold; one made after it does (a users file of the test's own)
 $ownList = $ownFldr.DS.'users.lst';
-file_put_contents(TOP_DIR.DS.$ownList, json_encode(Array('users'=>Array(Array('userHandle'=>'gwen', 'passwdHash'=>password_hash('old-pass', PASSWORD_BCRYPT, Array('cost'=>4)))))));
+file_put_contents(TOP_DIR.DS.$ownList, json_encode(Array('users'=>Array(Array('systemName'=>'gwen', 'passwdHash'=>password_hash('old-pass', PASSWORD_BCRYPT, Array('cost'=>4)))))));
 $gwenLst = new UserList( Array('listFile'=>$ownList, 'maxTries'=>5, 'holdSecs'=>600) );
 logsInto($gwenLst, 'gwen', 'old-pass');
 $gwenOld = $gwenLst->createUserMark('gwen');
-file_put_contents(TOP_DIR.DS.$ownList, json_encode(Array('users'=>Array(Array('userHandle'=>'gwen', 'passwdHash'=>password_hash('new-pass', PASSWORD_BCRYPT, Array('cost'=>4)))))));
+file_put_contents(TOP_DIR.DS.$ownList, json_encode(Array('users'=>Array(Array('systemName'=>'gwen', 'passwdHash'=>password_hash('new-pass', PASSWORD_BCRYPT, Array('cost'=>4)))))));
 for( $idx=0; $idx<5; $idx++ ){
 	logsInto($gwenLst, 'gwen', 'guess-'.$idx);
 }

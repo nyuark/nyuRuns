@@ -26,9 +26,9 @@ use nyu\Tools\Logger;
 class UserFile{
 
 	// The fields of a user, in the order they are written; any other field a person added is kept after them
-	const FLDS_LIST = Array('id_user', 'userHandle', 'passwdHash', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'bearerHash', 'twoFactKey');
+	const FLDS_LIST = Array('id_user', 'systemName', 'passwdHash', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'bearerHash', 'twoFactKey');
 	// What is told about a user : never a hash or a secret
-	const SHOW_LIST = Array('id_user', 'userHandle', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale');
+	const SHOW_LIST = Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale');
 	// Longest password, in bytes : bcrypt reads nothing beyond
 	const PASS_SIZE = 72;
 
@@ -87,7 +87,7 @@ class UserFile{
 			}
 		}
 		usort($rowList, function( Array $lftUsrRowArr, Array $secondUsrRow ): Int {
-			return strcmp($lftUsrRowArr['userHandle'], $secondUsrRow['userHandle']);
+			return strcmp($lftUsrRowArr['systemName'], $secondUsrRow['systemName']);
 		});
 		return array_slice( $rowList, max(0, $offsetRowsNb), ($ceilingCount>0) ? $ceilingCount : null );
 	}
@@ -138,13 +138,13 @@ class UserFile{
 		$isAdded = $this->alterUsersFlag( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVal, $usrPasswdTxt, $langVal ): ?Array {
 			$lastNum = 0;
 			foreach( $usersRecords as $usrRow ){
-				if( strcasecmp(strval($usrRow['userHandle'] ?? ''), $namedUserTxt)==0 ){
+				if( strcasecmp(strval($usrRow['systemName'] ?? ''), $namedUserTxt)==0 ){
 					$this->declineForFlag(409, 'User name already taken');
 					return null;
 				}
 				$lastNum = max( $lastNum, intval($usrRow['id_user'] ?? 0) );
 			}
-			$usersRecords[] = Array('id_user'=>$lastNum+1, 'userHandle'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVal, 'userStatus'=>'approved') + ( ($langVal!=='') ? Array('userLocale'=>$langVal) : Array() );
+			$usersRecords[] = Array('id_user'=>$lastNum+1, 'systemName'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVal, 'userStatus'=>'approved') + ( ($langVal!=='') ? Array('userLocale'=>$langVal) : Array() );
 			return $usersRecords;
 		} );
 		if( $isAdded ){
@@ -533,7 +533,7 @@ class UserFile{
 		$usrList = is_array($fileVls) ? ($fileVls['users'] ?? null) : null;
 		$isValid = is_array($usrList);
 		foreach( (array)$usrList as $usrRow ){
-			$isValid = $isValid && is_array($usrRow) && is_string($usrRow['userHandle'] ?? null) && $usrRow['userHandle']!='';
+			$isValid = $isValid && is_array($usrRow) && is_string($usrRow['systemName'] ?? null) && $usrRow['systemName']!='';
 		}
 		if( !$isValid ){
 			$this->declineForFlag(500, 'Users file cannot be used: '.$this->nameOfFile.' is not a JSON text holding a "users" list');
@@ -587,7 +587,7 @@ class UserFile{
 	 */
 	protected function findIndexCount( Array $usersRecords, String $namedUserTxt ): ?Int {
 		foreach( $usersRecords as $usrIdx => $usrRow ){
-			if( ($usrRow['userHandle'] ?? null)===$namedUserTxt ){
+			if( ($usrRow['systemName'] ?? null)===$namedUserTxt ){
 				return intval($usrIdx);
 			}
 		}
@@ -604,7 +604,7 @@ class UserFile{
 	protected function shownValuesArr( Array $usrValuesArr ): Array {
 		return Array(
 			'id_user'=>$usrValuesArr['id_user'] ?? null,
-			'userHandle'=>strval($usrValuesArr['userHandle'] ?? ''),
+			'systemName'=>strval($usrValuesArr['systemName'] ?? ''),
 			'accessRole'=>strval($usrValuesArr['accessRole'] ?? Checker::ROLE_LIST[0]),
 			'userStatus'=>strval($usrValuesArr['userStatus'] ?? 'approved'),
 			'mailboxAdr'=>strval($usrValuesArr['mailboxAdr'] ?? ''),

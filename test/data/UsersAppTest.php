@@ -24,7 +24,7 @@ use nyu\Tools\Registry;
 
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('usersapp.sqlite'));
 $sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
-$usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, userHandle, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
+$usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
 foreach( Array(Array(1,'anna','sysadmin','approved'), Array(2,'ben','internal','approved'), Array(3,'dave','operator','disabled')) as $usrRow ){
 	$usrStmt->execute( Array($usrRow[0], $usrRow[1], password_hash('pass-'.$usrRow[1].'-1', PASSWORD_BCRYPT, Array('cost'=>4)), $usrRow[2], $usrRow[3]) );
 }
@@ -128,7 +128,7 @@ foreach( Array('fullList'=>'GET', 'viewUser'=>'GET', 'makeUser'=>'POST', 'lockUs
 	checkIdentical('guard: users/'.$actNme.' refused when nobody is logged', statusOf(callActn('users/'.$actNme, $inptArr, '', '', $mthNme)), Array(404, 'Not Found'));
 	checkIdentical('guard: users/'.$actNme.' answers to '.$mthNme.' only', statusOf(callActn('users/'.$actNme, $inptArr, 'anna', 'sysadmin', ($mthNme=='GET') ? 'POST' : 'GET')), Array(405, 'Method Not Allowed'));
 }
-checkIdentical('guard: a refusal changed nothing', $sqlLink->query("SELECT userHandle, accessRole, userStatus FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'sysadmin', 'approved'), Array('ben', 'internal', 'approved'), Array('dave', 'operator', 'disabled')));
+checkIdentical('guard: a refusal changed nothing', $sqlLink->query("SELECT systemName, accessRole, userStatus FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'sysadmin', 'approved'), Array('ben', 'internal', 'approved'), Array('dave', 'operator', 'disabled')));
 checkPregMatch('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(internal\) from 192\.0\.2\.50 to users\/fullList: role sysadmin needed/');
 checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/startCall', Array(), 'anna', 'sysadmin')), statusOf(callActn('users/givenUser', Array(), 'anna', 'sysadmin'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 plugConf('htpasswd');
@@ -149,15 +149,15 @@ checkIdentical('create: a name that is not a text', statusOf(callActn('users/mak
 
 // index and view
 $outcome = callActn('users/fullList', Array(), 'anna', 'sysadmin', 'GET');
-checkIdentical('index: every user, by name', Array($outcome['code'] ?? $outcome, array_column($outcome['out'] ?? Array(), 'userHandle')), Array(200, Array('anna', 'ben', 'dave', 'emma', 'fred')));
-checkIdentical('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'userHandle', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
+checkIdentical('index: every user, by name', Array($outcome['code'] ?? $outcome, array_column($outcome['out'] ?? Array(), 'systemName')), Array(200, Array('anna', 'ben', 'dave', 'emma', 'fred')));
+checkIdentical('index: only what may be told', array_keys($outcome['out'][0] ?? Array()), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'mailboxAdr', 'userLocale', 'signupDate', 'createDate', 'accessDate'));
 checkIdentical('index: by default action', callActn('users/', Array(), 'anna', 'sysadmin', 'GET')['code'] ?? null, 200);
-checkIdentical('index: filters', array_column(callActn('users/fullList', Array('stat'=>'awaiting', 'role'=>'operator'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'userHandle'), Array('fred'));
-checkIdentical('index: limit and offset, as sent in a query', array_column(callActn('users/fullList', Array('limit'=>'2', 'offset'=>'1'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'userHandle'), Array('ben', 'dave'));
+checkIdentical('index: filters', array_column(callActn('users/fullList', Array('stat'=>'awaiting', 'role'=>'operator'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('fred'));
+checkIdentical('index: limit and offset, as sent in a query', array_column(callActn('users/fullList', Array('limit'=>'2', 'offset'=>'1'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('ben', 'dave'));
 checkIdentical('index: nobody is 204', callActn('users/fullList', Array('stat'=>'disabled', 'role'=>'sysadmin'), 'anna', 'sysadmin', 'GET')['code'] ?? null, 204);
 checkIdentical('index: invalid filter', statusOf(callActn('users/fullList', Array('stat'=>'online'), 'anna', 'sysadmin', 'GET')), Array(400, 'Invalid filter'));
 $outcome = callActn('users/viewUser', Array('user'=>'ben'), 'anna', 'sysadmin', 'GET');
-checkIdentical('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'userHandle'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null)));
+checkIdentical('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'internal', 'userStatus'=>'approved', 'mailboxAdr'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null)));
 checkIdentical('view: unknown user', statusOf(callActn('users/viewUser', Array('user'=>'zed'), 'anna', 'sysadmin', 'GET')), Array(404, 'User not found'));
 checkIdentical('view: no name', statusOf(callActn('users/viewUser', Array(), 'anna', 'sysadmin', 'GET')), Array(400, 'Missing or invalid input: user'));
 
@@ -169,7 +169,7 @@ checkIdentical('activate: no password', statusOf(callActn('auth/activate', Array
 checkIdentical('activate: a GET is refused', statusOf(callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pass'=>'pass-emma-1'), '', '', 'GET')), Array(405, 'Method Not Allowed'));
 $outcome = callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pass'=>'  <pass> "emma" & co  '), '', '');
 checkIdentical('activate: the right code', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>true, 'stat'=>'approved')));
-checkIdentical('activate: the password is kept as sent', password_verify('  <pass> "emma" & co  ', strval($sqlLink->query("SELECT passwdHash FROM users WHERE userHandle='emma'")->fetchColumn())), true);
+checkIdentical('activate: the password is kept as sent', password_verify('  <pass> "emma" & co  ', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='emma'")->fetchColumn())), true);
 checkIdentical('activate: the code is used once', statusOf(callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pass'=>'pass-emma-2'), '', '')), Array(401, 'Invalid activation'));
 plugConf('htpasswd');
 checkIdentical('activate: a login on another credential check', statusOf(callActn('auth/activate', Array('user'=>'emma', 'code'=>$emmaCod, 'pass'=>'pass-emma-2'), '', '')), Array(500, 'User management unavailable'));
@@ -188,14 +188,14 @@ checkIdentical('password: a wrong current one counts against the address', count
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 plugConf();
 checkIdentical('password: nobody logged', statusOf(callActn('auth/password', Array('former'=>'pass-ben-1', 'pass'=>'pass-ben-22'), '', '')), Array(401, 'Not logged in'));
-checkIdentical('password: a name sent is not read', Array(statusOf(callActn('auth/password', Array('user'=>'anna', 'former'=>'pass-anna-1', 'pass'=>'pass-anna-2'), 'ben', 'internal')), password_verify('pass-anna-1', strval($sqlLink->query("SELECT passwdHash FROM users WHERE userHandle='anna'")->fetchColumn()))), Array(Array(401, 'Invalid credentials'), true));
+checkIdentical('password: a name sent is not read', Array(statusOf(callActn('auth/password', Array('user'=>'anna', 'former'=>'pass-anna-1', 'pass'=>'pass-anna-2'), 'ben', 'internal')), password_verify('pass-anna-1', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='anna'")->fetchColumn()))), Array(Array(401, 'Invalid credentials'), true));
 checkIdentical('password: a new one breaking a rule', statusOf(callActn('auth/password', Array('former'=>'pass-ben-1', 'pass'=>'short'), 'ben', 'internal')), Array(400, 'Password too short: 10 characters at least'));
 checkIdentical('password: no new one', statusOf(callActn('auth/password', Array('former'=>'pass-ben-1'), 'ben', 'internal')), Array(400, 'Missing or invalid input: pass'));
 checkIdentical('password: a GET is refused', statusOf(callActn('auth/password', Array('former'=>'pass-ben-1', 'pass'=>'pass-ben-22'), 'ben', 'internal', 'GET')), Array(405, 'Method Not Allowed'));
-$sqlLink->exec("UPDATE users SET failsCount=0, failedDate=NULL");
+$sqlLink->exec("UPDATE users SET failsCount=0, failedTime=NULL");
 $outcome = callActn('auth/password', Array('former'=>'pass-ben-1', 'pass'=>'pass-ben-22'), 'ben', 'internal');
 checkIdentical('password: changed', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('changed'=>true)));
-checkIdentical('password: the new one is stored', password_verify('pass-ben-22', strval($sqlLink->query("SELECT passwdHash FROM users WHERE userHandle='ben'")->fetchColumn())), true);
+checkIdentical('password: the new one is stored', password_verify('pass-ben-22', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='ben'")->fetchColumn())), true);
 
 // lock, unlock, role, remove, reset
 $outcome = callActn('users/lockUser', Array('user'=>'ben'));
@@ -227,7 +227,7 @@ $outcome = callActn('users/dropUser', Array('user'=>'fred'));
 checkIdentical('remove: removed', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'fred', 'removed'=>true)));
 checkIdentical('remove: already gone', statusOf(callActn('users/dropUser', Array('user'=>'fred'))), Array(404, 'User not found'));
 checkIdentical('remove: a manager cannot remove itself', statusOf(callActn('users/dropUser', Array('user'=>'anna'))), Array(409, 'A manager cannot do this to its own account'));
-checkIdentical('remove: who is left', array_column(callActn('users/fullList', Array(), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'userHandle'), Array('anna', 'ben', 'dave', 'emma'));
+checkIdentical('remove: who is left', array_column(callActn('users/fullList', Array(), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('anna', 'ben', 'dave', 'emma'));
 
 // Access mails : without a mailer, the codes are given in the replies, as above
 $mailCnf = Array('mailAcnt'=>'devbox', 'linkTmpl'=>'https://app.example.ch/a?do=%kind%&user=%user%&code=%code%');
@@ -237,7 +237,7 @@ $outcome = callActn('users/makeUser', Array('user'=>'hana', 'mail'=>'Hana@Exampl
 $mailLst = sentMail();
 checkIdentical('create, mailed: 201, the code not in the reply', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(201, Array('user'=>'hana', 'mailed'=>true)));
 checkIdentical('create, mailed: the code goes to the address, with its link', Array(count($mailLst), $mailLst[0]['to'] ?? null, $mailLst[0]['subject'] ?? null, strpos($mailLst[0]['text'] ?? '', 'https://app.example.ch/a?do=activate&user=hana&code='.($mailLst[0]['code'] ?? '-'))!==false), Array(1, 'hana@example.ch', 'Your account: choose your password', true));
-checkIdentical('create, mailed: the code lasts the minutes of a mailed code', abs(strtotime(strval($sqlLink->query("SELECT codeExpiry FROM users WHERE userHandle='hana'")->fetchColumn())) - (time()+15*60))<=5, true);
+checkIdentical('create, mailed: the code lasts the minutes of a mailed code', abs(strtotime(strval($sqlLink->query("SELECT codeExpiry FROM users WHERE systemName='hana'")->fetchColumn())) - (time()+15*60))<=5, true);
 $outcome = callActn('auth/activate', Array('user'=>'hana', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'pass-hana-1'), '', '');
 checkIdentical('create, mailed: the code activates', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>true, 'stat'=>'approved')));
 checkIdentical('create: an address taken', statusOf(callActn('users/makeUser', Array('user'=>'hugo', 'mail'=>'HANA@example.ch'))), Array(409, 'Mail address already used'));
@@ -254,11 +254,11 @@ checkIdentical('langs: a manager gives one, in lower case', Array($outcome['code
 checkIdentical('langs: one that is not, then taken away', Array(statusOf(callActn('users/language', Array('user'=>'hugo', 'lang'=>'french'))), callActn('users/language', Array('user'=>'hugo'))['out'] ?? null), Array(Array(400, 'Invalid language'), Array('user'=>'hugo', 'lang'=>null)));
 checkIdentical('langs: a member is not a manager', statusOf(callActn('users/language', Array('user'=>'hugo', 'lang'=>'fr'), 'ben', 'internal')), Array(404, 'Not Found'));
 $outcome = callActn('auth/language', Array('user'=>'hugo', 'lang'=>'de'), 'ben', 'internal');
-checkIdentical('auth/language: the logged user, for itself; a name sent is not read', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT userHandle, userLocale FROM users WHERE userHandle IN ('ben', 'hugo') ORDER BY userHandle")->fetchAll(PDO::FETCH_KEY_PAIR)), Array(200, Array('lang'=>'de'), Array('ben'=>'de', 'hugo'=>null)));
+checkIdentical('auth/language: the logged user, for itself; a name sent is not read', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT systemName, userLocale FROM users WHERE systemName IN ('ben', 'hugo') ORDER BY systemName")->fetchAll(PDO::FETCH_KEY_PAIR)), Array(200, Array('lang'=>'de'), Array('ben'=>'de', 'hugo'=>null)));
 checkIdentical('auth/language: nobody logged, a GET, one that is not', Array(statusOf(callActn('auth/language', Array('lang'=>'de'), '', '')), statusOf(callActn('auth/language', Array('lang'=>'de'), 'ben', 'internal', 'GET')), statusOf(callActn('auth/language', Array('lang'=>'*'), 'ben', 'internal'))), Array(Array(401, 'Not logged in'), Array(405, 'Method Not Allowed'), Array(400, 'Invalid language')));
 callActn('auth/language', Array(), 'ben', 'internal');
 $outcome = callActn('users/makeUser', Array('user'=>'xena', 'lang'=>'it'));
-checkIdentical('create: with the language of its mails', Array($outcome['code'] ?? $outcome, $sqlLink->query("SELECT userLocale FROM users WHERE userHandle='xena'")->fetchColumn(), statusOf(callActn('users/makeUser', Array('user'=>'xavi', 'lang'=>'italian')))), Array(201, 'it', Array(400, 'Invalid language')));
+checkIdentical('create: with the language of its mails', Array($outcome['code'] ?? $outcome, $sqlLink->query("SELECT userLocale FROM users WHERE systemName='xena'")->fetchColumn(), statusOf(callActn('users/makeUser', Array('user'=>'xavi', 'lang'=>'italian')))), Array(201, 'it', Array(400, 'Invalid language')));
 $outcome = callActn('users/resetPwd', Array('user'=>'ben'));
 $mailLst = sentMail();
 checkIdentical('reset, mailed: the code goes to the address of the user', Array($outcome['out'] ?? null, $mailLst[0]['to'] ?? null), Array(Array('user'=>'ben', 'mailed'=>true), 'ben@example.ch'));
@@ -284,7 +284,7 @@ checkIdentical('signup: an address taken is told to its owner', Array($outcome['
 checkIdentical('signup: a name or an address that is not one', Array(statusOf(callActn('auth/register', Array('user'=>'a b', 'mail'=>'jack@example.ch'), '', '')), statusOf(callActn('auth/register', Array('user'=>'jack', 'mail'=>'jack'), '', '')), statusOf(callActn('auth/register', Array('user'=>'jack'), '', ''))), Array(Array(400, 'Invalid user name'), Array(400, 'Invalid mail address'), Array(400, 'Missing or invalid input: mail')));
 $outcome = callActn('auth/activate', Array('user'=>'ivan', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'pass-ivan-1'), '', '');
 checkIdentical('signup: confirmed, it awaits review', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>false, 'stat'=>'checking')));
-checkIdentical('signup: listed by its status', array_column(callActn('users/fullList', Array('stat'=>'checking'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'userHandle'), Array('ivan'));
+checkIdentical('signup: listed by its status', array_column(callActn('users/fullList', Array('stat'=>'checking'), 'anna', 'sysadmin', 'GET')['out'] ?? Array(), 'systemName'), Array('ivan'));
 $outcome = callActn('users/approves', Array('user'=>'ivan'));
 checkIdentical('approve: active', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ivan', 'stat'=>'approved')));
 checkIdentical('approve: only a user in review', statusOf(callActn('users/approves', Array('user'=>'ivan'))), Array(409, 'User not awaiting review'));
@@ -292,8 +292,8 @@ checkIdentical('approve: only a user in review', statusOf(callActn('users/approv
 $GLOBALS['acptLang'] = 'fr-CH, fr;q=0.9';
 sentMail();
 callActn('auth/register', Array('user'=>'yann', 'mail'=>'yann@example.ch'), '', '');
-checkIdentical('language: a sign-up is written in the language of its request, which it keeps', Array(sentMail()[0]['subject'] ?? null, $sqlLink->query("SELECT userLocale FROM users WHERE userHandle='yann'")->fetchColumn()), Array('Votre inscription : confirmez votre adresse', 'fr-ch'));
-$sqlLink->exec("UPDATE users SET userLocale='en' WHERE userHandle='ben'");
+checkIdentical('language: a sign-up is written in the language of its request, which it keeps', Array(sentMail()[0]['subject'] ?? null, $sqlLink->query("SELECT userLocale FROM users WHERE systemName='yann'")->fetchColumn()), Array('Votre inscription : confirmez votre adresse', 'fr-ch'));
+$sqlLink->exec("UPDATE users SET userLocale='en' WHERE systemName='ben'");
 callActn('auth/register', Array('user'=>'zoe', 'mail'=>'ben@example.ch'), '', '');
 checkIdentical('language: an address taken is told in the language of its owner', sentMail()[0]['subject'] ?? null, 'Your sign-up');
 callActn('auth/register', Array('user'=>'ivan', 'mail'=>'nobody@example.ch'), '', '');
@@ -309,7 +309,7 @@ callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'
 checkIdentical('signup: an address held for wrong credentials is refused', statusOf(callActn('auth/register', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', '')), Array(429, 'Too many attempts'));
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 sentMail();
-$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE userHandle='anna'");
+$sqlLink->exec("UPDATE users SET mailboxAdr='anna@example.ch' WHERE systemName='anna'");
 $waitNow = intval($sqlLink->query("SELECT COUNT(*) FROM users WHERE signupDate IS NOT NULL AND userStatus IN ('awaiting', 'checking')")->fetchColumn());
 plugConf('nativeDb', 0, $mailCnf + Array('signupOn'=>true), Array('maxQueue'=>$waitNow+2, 'alertsAt'=>Array($waitNow+1, $waitNow+2)));
 callActn('auth/register', Array('user'=>'mona', 'mail'=>'mona@example.ch'), '', '');
@@ -328,11 +328,11 @@ $outcome = callActn('auth/askReset', Array('user'=>'ben'), '', '');
 $mailLst = sentMail();
 checkIdentical('forgot: 202, the code goes to the address', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $mailLst[0]['to'] ?? null, $mailLst[0]['subject'] ?? null, strpos($mailLst[0]['text'] ?? '', 'do=password&user=ben&code=')!==false), Array(202, Array('asked'=>true), 'ben@example.ch', 'Your password: choose a new one', true));
 checkIdentical('forgot: unknown or without an address, the same reply and no mail', Array(callActn('auth/askReset', Array('user'=>'zed'), '', '')['code'] ?? null, callActn('auth/askReset', Array('user'=>'nobody@example.ch'), '', '')['code'] ?? null, callActn('auth/askReset', Array('user'=>'hugo'), '', '')['code'] ?? null, sentMail()), Array(202, 202, 202, Array()));
-checkIdentical('forgot: the password still works', password_verify('pass-ben-44', strval($sqlLink->query("SELECT passwdHash FROM users WHERE userHandle='ben'")->fetchColumn())), true);
+checkIdentical('forgot: the password still works', password_verify('pass-ben-44', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='ben'")->fetchColumn())), true);
 checkIdentical('recovr: a wrong code', statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'pass-ben-55'), '', '')), Array(401, 'Invalid code'));
 checkIdentical('recovr: a password breaking a rule, and none', Array(statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'short'), '', '')), statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>strval($mailLst[0]['code'] ?? '')), '', ''))), Array(Array(400, 'Password too short: 10 characters at least'), Array(400, 'Missing or invalid input: pass')));
 $outcome = callActn('auth/useReset', Array('user'=>'ben', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'pass-ben-55'), '', '');
-checkIdentical('recovr: the new password', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, password_verify('pass-ben-55', strval($sqlLink->query("SELECT passwdHash FROM users WHERE userHandle='ben'")->fetchColumn()))), Array(200, Array('changed'=>true), true));
+checkIdentical('recovr: the new password', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, password_verify('pass-ben-55', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='ben'")->fetchColumn()))), Array(200, Array('changed'=>true), true));
 checkIdentical('recovr: the code is used once', statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>strval($mailLst[0]['code'] ?? ''), 'pass'=>'pass-ben-66'), '', '')), Array(401, 'Invalid code'));
 plugConf('nativeDb', 1, $mailCnf);
 checkIdentical('recovr: wrong codes count against the address', Array(callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'pass-ben-66'), '', '')['code'] ?? null, statusOf(callActn('auth/useReset', Array('user'=>'ben', 'code'=>'AAAA-BBBB-CC', 'pass'=>'pass-ben-66'), '', ''))), Array(401, Array(429, 'Too many attempts')));
