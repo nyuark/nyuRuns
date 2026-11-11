@@ -4,7 +4,7 @@ namespace nyu\Access;
 
 use nyu\Tools\Request;
 use nyu\Tools\Registry;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 
 /**
  * Checks a call an application makes on behalf of one of its users: the

@@ -17,7 +17,7 @@ use nyu\Access\Auth\Native;
 use nyu\Access\Auth\PassList;
 use nyu\Access\Auth\UserBase;
 use nyu\Access\Auth\UserList;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use Firebase\JWT\JWT as JwtCodec;
 
 $sqlFile = inTemporaryDir('passset.sqlite');

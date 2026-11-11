@@ -10,7 +10,7 @@ require __DIR__.'/../lib/harness.php';
 /**
  * Resolves a strategy in a child process.
  *
- * @param String $kindOfPlug 'auth' for a credential check, 'sess' for a session carrier.
+ * @param String $kindOfPlug 'auth' for a credential check, 'sess' for a carrier.
  * @param String $shortNamed Short name to resolve.
  * @param String $listedCods Short names listed in the 'plugin' block, comma separated.
  * @return String The resolved class, or 'null'.
@@ -21,7 +21,7 @@ function plugClss( String $kindOfPlug, String $shortNamed, String $listedCods=''
 
 // Listed plug-ins of both kinds
 checkIdentical('a listed credential check is resolved in runs/Shared', plugClss('auth', 'sample', 'sample'), '\nyu\Runs\Shared\SampleAuth');
-checkIdentical('a listed session carrier is resolved in runs/Shared',  plugClss('sess', 'carier', 'carier'), '\nyu\Runs\Shared\CarierSess');
+checkIdentical('a listed carrier is resolved in runs/Shared',  plugClss('sess', 'carier', 'carier'), '\nyu\Runs\Shared\CarierCarr');
 checkIdentical('listed among others',                                  plugClss('auth', 'sample', 'wrongi,sample,carier'), '\nyu\Runs\Shared\SampleAuth');
 
 // Not listed, or listed for the other kind of class
@@ -32,7 +32,7 @@ checkIdentical('a credential check is not a carrier',                  plugClss(
 
 // The framework's own strategies cannot be replaced
 checkIdentical('a built-in credential check stays the framework\'s',   plugClss('auth', 'nativeDb', 'nativeDb'), '\nyu\Access\Auth\Native');
-checkIdentical('a built-in session carrier stays the framework\'s',    plugClss('sess', 'jwtToken', 'jwtToken'), '\nyu\Access\Sess\JWT');
+checkIdentical('a built-in carrier stays the framework\'s',    plugClss('sess', 'jwtToken', 'jwtToken'), '\nyu\Access\Carr\JWT');
 checkIdentical('built-in names need no listing',                       plugClss('auth', 'htpasswd'), '\nyu\Access\Auth\PassList');
 
 // Short names that are not six lower-case letters or digits

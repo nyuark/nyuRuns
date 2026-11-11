@@ -1,14 +1,14 @@
 <?php
 
-// Test-only access plug-in : a session carrier that test/unit/PluginTest.php resolves as "carier".
+// Test-only access plug-in : a carrier that test/unit/PluginTest.php resolves as "carier".
 
 namespace nyu\Runs\Shared;
 
 use nyu\Tools\Request;
 use nyu\Access\Auth\Handler as AuthHndlr;
-use nyu\Access\Sess\Handler as SessHndlr;
+use nyu\Access\Carr\Handler as SessHndlr;
 
-class CarierSess implements SessHndlr{
+class CarierCarr implements SessHndlr{
 
 	/**
 	 * @param Array      $configValues Unused.

@@ -1,6 +1,6 @@
 <?php
 
-// PHP session carrier (Access\Sess\PHPSess) : the session a login opens, the
+// PHP session carrier (Access\Carr\PHPSess) : the session a login opens, the
 // cookie that names it on the next requests, its lifetime, the store that
 // confirms its user and the logout. The sessions are kept in a folder of the
 // tests. What goes out with the reply (the Set-Cookie line, the id a client
@@ -9,7 +9,7 @@
 require __DIR__.'/../lib/harness.php';
 
 use nyu\Access\Checker;
-use nyu\Access\Sess\PHPSess;
+use nyu\Access\Carr\PHPSess;
 use nyu\Access\Auth\UserList;
 use nyu\Access\Auth\RegKey;
 use nyu\Tools\Registry;
@@ -84,7 +84,7 @@ function openSessn( PHPSess $carrierObj, Array $identArray ): String {
  * @return Array The settings, as PHPSess::cookieSetArray() gives them.
  */
 function cookSets( Array $confValues, Int $expiryTime=0 ): Array {
-	$setMthd = new ReflectionMethod('nyu\Access\Sess\PHPSess', 'cookieSetArray');
+	$setMthd = new ReflectionMethod('nyu\Access\Carr\PHPSess', 'cookieSetArray');
 	return $setMthd->invoke( new PHPSess($confValues), $expiryTime );
 }
 
@@ -194,7 +194,7 @@ function sessReply( ?String $sessnIdent, Array $moreConfig=Array(), Array $route
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('wwwHeadr'));
 }
 $usrStor = Array('authWith'=>'userFile', 'authConf'=>'testFile');
-checkIdentical('phpSessn is the short name of PHPSess', Checker::sessnClassText('phpSessn'), '\\nyu\\Access\\Sess\\PHPSess');
+checkIdentical('phpSessn is the short name of PHPSess', Checker::sessnClassText('phpSessn'), '\\nyu\\Access\\Carr\\PHPSess');
 checkIdentical('Checker phpSessn without a store: the role of the session', sessReply($sessIdn), Array(200, '', 'anna', 'internal', null));
 checkIdentical('Checker phpSessn x userFile: the role of the file', sessReply($sessIdn, $usrStor), Array(200, '', 'anna', 'sysadmin', null));
 checkIdentical('Checker phpSessn x regdKeys: the session alone decides', sessReply($sessIdn, Array('authWith'=>'regdKeys'))[3], 'internal');
@@ -213,7 +213,7 @@ checkIdentical('cookie: lax is SameSite=Lax', cookSets(Array('sameSite'=>'lax'))
 checkIdentical('cookie: an unknown policy is the strict one', Array(cookSets(Array('sameSite'=>'none'))['samesite'], cookSets(Array('sameSite'=>'Lax'))['samesite']), Array('Strict', 'Strict'));
 checkIdentical('cookie: only false sends it over plain HTTP', Array(cookSets(Array('secureOn'=>false))['secure'], cookSets(Array('secureOn'=>0))['secure'], cookSets(Array('secureOn'=>'no'))['secure']), Array(false, true, true));
 checkIdentical('cookie: expired with a date, not a lifetime', cookSets(Array(), 1), Array('path'=>'/', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'expires'=>1));
-$namePrp = new ReflectionProperty('nyu\Access\Sess\PHPSess', 'cookieName');
+$namePrp = new ReflectionProperty('nyu\Access\Carr\PHPSess', 'cookieName');
 checkIdentical('cookie: named nyuSessn by default, and when the name given cannot be one', Array($namePrp->getValue(new PHPSess(Array())), $namePrp->getValue(new PHPSess(Array('cookName'=>'my cookie; Path=/'))), $namePrp->getValue(new PHPSess(Array('cookName'=>'9lives'))), $namePrp->getValue(new PHPSess(Array('cookName'=>'nyu_Tests1')))), Array('nyuSessn', 'nyuSessn', 'nyuSessn', 'nyu_Tests1'));
 
 // The cookie of one carrier is not read by another

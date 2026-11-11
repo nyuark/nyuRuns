@@ -1,13 +1,13 @@
 <?php
 
-// Access\Sess\JWT with RS256 : tokens signed with a private key and checked
+// Access\Carr\JWT with RS256 : tokens signed with a private key and checked
 // with its public key, a block holding only the public key, the keys refused,
 // the kid header, and the login of a project that issues no token.
 
 require __DIR__.'/../lib/harness.php';
 require_once TOP_DIR.DS.'runs'.DS.'Auth'.DS.'Actions.php';
 
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use nyu\Tools\Registry;
 use Firebase\JWT\JWT as JwtCodec;
 

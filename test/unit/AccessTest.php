@@ -10,10 +10,10 @@ require __DIR__.'/../lib/harness.php';
 
 use nyu\Access\Auth\PassList;
 use nyu\Access\Auth\RegKey;
-use nyu\Access\Sess\Basic;
-use nyu\Access\Sess\Header;
-use nyu\Access\Sess\JWT;
-use nyu\Access\Sess\ClCert;
+use nyu\Access\Carr\Basic;
+use nyu\Access\Carr\Header;
+use nyu\Access\Carr\JWT;
+use nyu\Access\Carr\ClCert;
 use nyu\Access\Checker;
 use nyu\Tools\Registry;
 use nyu\Tools\Router;

@@ -8,7 +8,7 @@ use nyu\Tools\Router;
 use nyu\Tools\Logger;
 
 /**
- * Loads the session carrier ('carrWith') and credential check ('authWith')
+ * Loads the carrier ('carrWith') and credential check ('authWith')
  * the 'security' block names for the current request, verifies access,
  * and reports the result.
  */
@@ -58,14 +58,14 @@ class Checker{
 	}
 
 	/**
-	 * Resolves the class of a session carrier from its short name: one of
+	 * Resolves the class of a carrier from its short name: one of
 	 * the framework's (see SESSLIST), otherwise a plug-in of runs/Shared.
 	 *
 	 * @param String $shrtNamedTxt Short name, as written in the config.
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
 	public static function sessnClassText( String $shrtNamedTxt ): ?String {
-		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Sess\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'carrWith', 'Sess');
+		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Carr\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'carrWith', 'Carr');
 	}
 
 	/**
@@ -86,13 +86,13 @@ class Checker{
 	 * Resolves the class of a strategy the applications add. Its short
 	 * name must be six lower-case letters or digits and be listed in the
 	 * 'plugLibs' block of the ACCESS config; runs/Shared must then hold
-	 * <Name>Auth.php or <Name>Sess.php, declaring the class of that name
+	 * <Name>Auth.php or <Name>Carr.php, declaring the class of that name
 	 * in nyu\Runs\Shared, which must implement the framework's Handler
 	 * interface of its kind. A listed plug-in that cannot be used is logged.
 	 *
 	 * @param String $shrtNamedTxt Short name, as written in the config.
 	 * @param String $accPluginLst Key of the 'plugLibs' block listing the names allowed: 'authWith' or 'carrWith'.
-	 * @param String $pluginSuffix 'Auth' or 'Sess': suffix of the class, and namespace of its interface.
+	 * @param String $pluginSuffix 'Auth' or 'Carr': suffix of the class, and namespace of its interface.
 	 * @return ?String The class name with its namespace, or null when there is no such plug-in.
 	 */
 	protected static function plugClssString( String $shrtNamedTxt, String $accPluginLst, String $pluginSuffix ): ?String {
@@ -169,7 +169,7 @@ class Checker{
 
 		$sessCls = self::sessnClassText($sessNme);
 		if( $sessCls===null || !class_exists($sessCls) ){
-			$this->logAccsAttempt( false, '', 'Access misconfigured: unknown session carrier "'.$sessNme.'"' );
+			$this->logAccsAttempt( false, '', 'Access misconfigured: unknown carrier "'.$sessNme.'"' );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
 

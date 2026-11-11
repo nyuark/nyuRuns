@@ -41,7 +41,7 @@ class Actions extends Actionset {
 	 */
 	public function signsOut(): Void {
 		header('Set-Cookie: probeKept=1; path=/', false);
-		(new \nyu\Access\Sess\PHPSess( Array('cookName'=>'nyuTests', 'secureOn'=>false) ))->dropUsrSession( $this->requestObj );
+		(new \nyu\Access\Carr\PHPSess( Array('cookName'=>'nyuTests', 'secureOn'=>false) ))->dropUsrSession( $this->requestObj );
 		$this->statusCode = 200;
 		$this->replyValue = Array('left'=>true);
 	}

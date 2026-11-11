@@ -1,12 +1,12 @@
 <?php
 
-// Access\Sess\JWT : the previous key ('prevFile') checks only the tokens it
+// Access\Carr\JWT : the previous key ('prevFile') checks only the tokens it
 // signed before it was retired ('retireAt'), ending within 'lifeSecs' of it;
 // past that time it is neither used nor published.
 
 require __DIR__.'/../lib/harness.php';
 
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use Firebase\JWT\JWT as JwtCodec;
 
 if( !function_exists('openssl_pkey_new') ){

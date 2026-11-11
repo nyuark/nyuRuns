@@ -828,7 +828,7 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
 | To add | Write | Declared in |
 |---|---|---|
 | a credential check | `runs/Shared/<Name>Auth.php`, implementing `Access\Auth\Handler` | the `plugLibs` block of `access.json`, under `authWith` |
-| a carrier | `runs/Shared/<Name>Sess.php`, implementing `Access\Sess\Handler` | the `plugLibs` block, under `carrWith` |
+| a carrier | `runs/Shared/<Name>Carr.php`, implementing `Access\Carr\Handler` | the `plugLibs` block, under `carrWith` |
 | a model shared by runs | `runs/Shared/<Name>Model.php` | nothing: found by name |
 | a preset | `conf/presets/<name>.rps` | the entry point that names it |
 | a mail template | `runs/<App>/mails/<language>/<kind>.txt` and `.html` | nothing: replaces the framework's |

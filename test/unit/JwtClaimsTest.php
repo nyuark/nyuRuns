@@ -1,6 +1,6 @@
 <?php
 
-// Access\Sess\JWT : the issuer and the audiences of the tokens ('iss',
+// Access\Carr\JWT : the issuer and the audiences of the tokens ('iss',
 // 'aud') issued and checked, the reasons in the log, the previous key still
 // checking the tokens it signed, the public keys published as a JWK Set
 // (auth/keyset), and the issuer and audience of the calls of applications.
@@ -9,7 +9,7 @@ require __DIR__.'/../lib/harness.php';
 require_once TOP_DIR.DS.'runs'.DS.'Auth'.DS.'Actions.php';
 
 use nyu\Access\AppKey;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use nyu\Output\Response;
 use nyu\Tools\Logger;
 use nyu\Tools\Registry;

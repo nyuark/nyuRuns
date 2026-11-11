@@ -8,7 +8,7 @@ require __DIR__.'/../lib/harness.php';
 
 use nyu\Access\AppKey;
 use nyu\Access\Checker;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use nyu\Tools\Registry;
 
 if( !function_exists('openssl_pkey_new') ){

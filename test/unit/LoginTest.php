@@ -10,7 +10,7 @@
 require __DIR__.'/../lib/harness.php';
 require_once TOP_DIR.DS.'runs'.DS.'Auth'.DS.'Actions.php';
 
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use nyu\Access\Totp;
 use nyu\Tools\Registry;
 use nyu\Tools\Logger;
@@ -118,7 +118,7 @@ foreach( Array('httpBasc', 'apiHeadr', 'clntCert') as $sesNme ){
 plugConf( Array('authWith'=>'nosuch') );
 checkIdentical('login: an unknown credential check', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 plugConf( Array('carrWith'=>'nosuch') );
-checkIdentical('login: an unknown session carrier', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
+checkIdentical('login: an unknown carrier', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 plugConf( Array('carrWith'=>'nosuch') );
 checkIdentical('login: the misconfiguration is told before the credentials are checked', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(500, 'Login unavailable', null));
 plugConf( Array('carrConf'=>'testShrt') );
@@ -189,7 +189,7 @@ checkIdentical('access log: the logins and logouts, one line each, notices that 
 	$yearTxt.'[NOTICE] Logout of user "ben" from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of privileged user "anna" (sysadmin) from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of user "" from 198.51.100.7',
-	$yearTxt.'[ERROR] Login unavailable: the session carrier issues no token',
+	$yearTxt.'[ERROR] Login unavailable: the carrier issues no token',
 	$yearTxt.'[ERROR] Login unavailable: unknown authWith or carrWith in the login block'
 ));
 $allLogs = '';

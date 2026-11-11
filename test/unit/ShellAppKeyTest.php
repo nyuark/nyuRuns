@@ -8,7 +8,7 @@ require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/shellKit.php';
 
 use nyu\Access\AppKey;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 
 if( !function_exists('openssl_pkey_new') ){
 	recordSkipping('Shell appkey', 'the openssl extension is not loaded');

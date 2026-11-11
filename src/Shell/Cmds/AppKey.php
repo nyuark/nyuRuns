@@ -5,7 +5,7 @@ namespace nyu\Shell\Cmds;
 use nyu\Shell\Command;
 use nyu\Shell\ConfFile;
 use nyu\Access\Checker;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 
 /**
  * Manages the keys of the applications calling this project for their

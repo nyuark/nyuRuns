@@ -94,7 +94,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('nativeDb.sqlite')),
 	'access'=>Array('TESTNAT'=>Array('useTable'=>'users'), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)), 'OTHERTB'=>Array('useTable'=>'nousers'))
 ) );
-$jwtSess = new nyu\Access\Sess\JWT( Array('hmacSecr'=>str_repeat('s', 40)) );
+$jwtSess = new nyu\Access\Carr\JWT( Array('hmacSecr'=>str_repeat('s', 40)) );
 $annaHed = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'anna', 'userRole'=>'internal')));
 $tknConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt', 'authWith'=>'nativeDb', 'authConf'=>'testnat');
 

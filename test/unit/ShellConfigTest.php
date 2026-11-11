@@ -98,7 +98,7 @@ if( function_exists('openssl_pkey_new') ){
 	$keyInfo = ($prvText!='') ? openssl_pkey_get_details(openssl_pkey_get_private($prvText)) : Array();
 	$rsaBlok = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
 	checkIdentical('with RS256, a key pair of 4096 bits is made in conf/keys, its paths given to the block', Array($runVals['code'], $runVals['text'], $keyInfo['bits'] ?? null, ($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA, $rsaBlok), Array(0, "written: conf/keys/rstokn.key, conf/keys/rstokn.pub\n", 4096, true, Array('signAlgo'=>'RS256', 'privFile'=>'conf/keys/rstokn.key', 'publFile'=>'conf/keys/rstokn.pub')));
-	$rsaJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'publFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.pub') );
+	$rsaJwt = new nyu\Access\Carr\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'publFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.pub') );
 	checkIdentical('the pair signs and checks a token', ($rsaJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$rsaJwt->issueTokenText(Array('userName'=>'anna'))))) ?: Array())['userName'] ?? null, 'anna');
 	if( DS=='/' ){
 		checkIdentical('the private key is readable by its owner only', fileperms($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') & 0777, 0600);
@@ -108,7 +108,7 @@ if( function_exists('openssl_pkey_new') ){
 	checkIdentical('confirmed, a new pair replaces them, and no copy of the former key is kept', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn', '--yesToAll'))['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')!==$prvText, glob($projDir.DS.'temp'.DS.'archives'.DS.'rstokn*')), Array(0, true, Array()));
 	checkIdentical('the former public key is kept as prevFile, and checks the tokens it signed', Array(fetchInProject($projDir, 'conf/keys/rstokn.old.pub'), json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn']['prevFile'] ?? null), Array($pubText, 'conf/keys/rstokn.old.pub'));
 	$oldTokn = $rsaJwt->issueTokenText( Array('userName'=>'anna') );
-	$nowJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'prevFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub', 'retireAt'=>time() + 5) );
+	$nowJwt = new nyu\Access\Carr\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key', 'prevFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub', 'retireAt'=>time() + 5) );
 	checkIdentical('a token of the former pair passes with prevFile', ($nowJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$oldTokn))) ?: Array())['userName'] ?? null, 'anna');
 	checkPregMatch('replacing them tells the former tokens are still accepted', callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn'), "n\n")['errs'], '/still accepted until they end, checked with conf\/keys\/rstokn\.old\.pub/');
 	$rsaBlok = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
@@ -119,9 +119,9 @@ if( function_exists('openssl_pkey_new') ){
 	$runVals = callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken', '--useBlock=rstokn', '--dropsAll', '--yesToAll'));
 	$rsaBlok = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array();
 	checkIdentical('--dropsAll: a new pair, no former key file, prevFile empty, no retire time', Array($runVals['code'], fetchInProject($projDir, 'conf/keys/rstokn.key')!==$befKey, is_file($projDir.DS.'conf'.DS.'keys'.DS.'rstokn.old.pub'), $rsaBlok['prevFile'] ?? null, array_key_exists('retireAt', $rsaBlok)), Array(0, true, false, '', false));
-	$dropJwt = new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') + $rsaBlok );
+	$dropJwt = new nyu\Access\Carr\JWT( Array('signAlgo'=>'RS256', 'privFile'=>$projDir.DS.'conf'.DS.'keys'.DS.'rstokn.key') + $rsaBlok );
 	file_put_contents(inTemporaryDir('former.key'), $befKey);
-	$befTokn = (new nyu\Access\Sess\JWT( Array('signAlgo'=>'RS256', 'privFile'=>inTemporaryDir('former.key')) ))->issueTokenText( Array('userName'=>'anna') );
+	$befTokn = (new nyu\Access\Carr\JWT( Array('signAlgo'=>'RS256', 'privFile'=>inTemporaryDir('former.key')) ))->issueTokenText( Array('userName'=>'anna') );
 	checkIdentical('--dropsAll: a token of the former pair is refused', Array($dropJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$befTokn))), $dropJwt->finalErrorText()), Array(false, 'Invalid token'));
 	// write : the keys binding the tokens to this project
 	checkIdentical('write access: an issuer, audiences, a previous key that is one', Array(

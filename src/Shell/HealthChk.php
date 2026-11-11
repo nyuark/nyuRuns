@@ -5,7 +5,7 @@ namespace nyu\Shell;
 use nyu\Access\Checker;
 use nyu\Access\Totp;
 use nyu\Access\Auth\UserList;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use nyu\Data\DBCon;
 use nyu\Data\Mail\Mailer;
 use nyu\Setup\ConfCache;
@@ -674,7 +674,7 @@ class HealthChk{
 	protected function coupleFlawsTxt( Array $accessConfig ): String {
 		$sessNme = strval($accessConfig['carrWith'] ?? '');
 		if( Checker::sessnClassText($sessNme)===null ){
-			return 'unknown session carrier "'.$sessNme.'"';
+			return 'unknown carrier "'.$sessNme.'"';
 		}
 		$authNme = $accessConfig['authWith'] ?? null;
 		if( $authNme!==null && Checker::authClssString(strval($authNme))===null ){

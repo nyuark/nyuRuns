@@ -22,7 +22,7 @@ if( !extension_loaded('pdo_sqlite') ){
 use nyu\Access\Checker;
 use nyu\Access\Limiter;
 use nyu\Access\Auth\Native;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\JWT;
 use nyu\Tools\Registry;
 
 // The counters of the address limit lie under the project root : in a folder of this script's own
@@ -51,7 +51,7 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
 /**
  * Runs the access check of a request, for a carrier and a check.
  *
- * @param String $carrierStr Short name of the session carrier.
+ * @param String $carrierStr Short name of the carrier.
  * @param String $checkNamed Short name of the credential check.
  * @param Array  $headersArr Headers of the request.
  * @param Array  $serverVals Server values of the request.
@@ -69,7 +69,7 @@ function pairReply( String $carrierStr, String $checkNamed, Array $headersArr=Ar
  * Sends the same request three times, each from the given address.
  *
  * @param String $clientAddr Address the requests come from.
- * @param String $carrierStr Short name of the session carrier.
+ * @param String $carrierStr Short name of the carrier.
  * @param String $checkNamed Short name of the credential check.
  * @param Array  $headersArr Headers of the requests.
  * @param Array  $serverVals Server values of the requests.

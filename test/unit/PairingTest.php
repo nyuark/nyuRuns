@@ -15,9 +15,9 @@ require __DIR__.'/../lib/harness.php';
 
 use nyu\Access\Checker;
 use nyu\Access\Limiter;
-use nyu\Access\Sess\Header;
-use nyu\Access\Sess\JWT;
-use nyu\Access\Sess\ClCert;
+use nyu\Access\Carr\Header;
+use nyu\Access\Carr\JWT;
+use nyu\Access\Carr\ClCert;
 use nyu\Tools\Registry;
 
 // The counters of the address limit lie under the project root : in a folder of this script's own
@@ -44,7 +44,7 @@ function plugConf( Int $triesLimit=0 ): Void {
 /**
  * Runs the access check of a request, for a carrier and a check.
  *
- * @param String  $carrierStr Short name of the session carrier.
+ * @param String  $carrierStr Short name of the carrier.
  * @param ?String $checkNamed Short name of the credential check, null for none.
  * @param Array   $headersArr Headers of the request.
  * @param Array   $serverVals Server values of the request.
@@ -180,7 +180,7 @@ plugConf(2);
  * Sends the same request three times, each from the given address.
  *
  * @param String  $clientAddr Address the requests come from.
- * @param String  $carrierStr Short name of the session carrier.
+ * @param String  $carrierStr Short name of the carrier.
  * @param ?String $checkNamed Short name of the credential check, null for none.
  * @param Array   $headersArr Headers of the requests.
  * @param Array   $serverVals Server values of the requests.

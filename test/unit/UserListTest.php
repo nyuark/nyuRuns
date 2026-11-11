@@ -13,8 +13,8 @@
 require __DIR__.'/../lib/harness.php';
 
 use nyu\Access\Auth\UserList;
-use nyu\Access\Sess\Basic;
-use nyu\Access\Sess\JWT;
+use nyu\Access\Carr\Basic;
+use nyu\Access\Carr\JWT;
 use nyu\Access\Checker;
 use nyu\Access\Totp;
 use nyu\Tools\Registry;
@@ -157,7 +157,7 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTFILE'=>Array('m
 /**
  * Runs the access check of a request against the users file.
  *
- * @param String $carrierStr Short name of the session carrier.
+ * @param String $carrierStr Short name of the carrier.
  * @param Array  $headersArr Headers of the request.
  * @param String $carrierCnf Config block of the carrier.
  * @return Array The status, the message, the user and the role.

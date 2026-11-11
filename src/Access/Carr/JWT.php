@@ -1,6 +1,6 @@
 <?php
 
-namespace nyu\Access\Sess;
+namespace nyu\Access\Carr;
 
 use nyu\Tools\Request;
 use nyu\Access\Auth\Handler as AuthHndlr;

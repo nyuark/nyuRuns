@@ -18,7 +18,7 @@ class Actions extends Actionset {
 	 * for the matched identity, or opens a session whose cookie goes out
 	 * with the reply. The 'loginSet' block of the ACCESS config
 	 * file names the credential check ('authWith', htpasswd by default),
-	 * the session carrier issuing the token ('carrWith', jwtToken by
+	 * the carrier issuing the token ('carrWith', jwtToken by
 	 * default) and the blocks holding their settings ('authConf',
 	 * 'carrConf'). Reports 405
 	 * unless the request is a POST, 400 when 'userName' or 'passWord' is missing
@@ -106,7 +106,7 @@ class Actions extends Actionset {
 		}
 		$rawTokn = $sessObj->issueTokenText( $idntArr );
 		if($rawTokn==''){
-			$accsLog->error( 'Login unavailable: '.($sessObj->finalErrorText() ?: 'the session carrier issues no token') );
+			$accsLog->error( 'Login unavailable: '.($sessObj->finalErrorText() ?: 'the carrier issues no token') );
 			$this->statusCode = 500;
 			$this->statusMssg = 'Login unavailable';
 			return;

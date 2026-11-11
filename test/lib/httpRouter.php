@@ -12,7 +12,7 @@
 //
 // X-Test-* request headers switch on preset overloads, through the Runner's
 // own $overLoaded argument:
-//   X-Test-Auth: <carrier code>      access control required, with that session carrier
+//   X-Test-Auth: <carrier code>      access control required, with that carrier
 //   X-Test-Store: <store code>       credential check of that access control (regdKeys by default)
 //   X-Test-Confkey: <block name>     access.json block of that access control (none by default)
 //   X-Test-Conf: <folder>            config files read from test/fixtures/<folder> instead of conf

@@ -201,7 +201,7 @@ class Config extends Command{
 				$newValu = $this->parseTypedText($gvnText);
 				// A check or a carrier that does not exist would refuse every request
 				if( $trgtNme=='accsConf' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='carrWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
-					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authWith' ? 'credential check' : 'session carrier' ), self::EXIT_DENY);
+					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authWith' ? 'credential check' : 'carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
 				$tknFlaw = ($trgtNme=='accsConf') ? $this->toknFlawString($keyName, $newValu) : '';
@@ -267,8 +267,8 @@ class Config extends Command{
 			$keyText = is_file($this->pathOfSettings($keyPath)) ? strval(@file_get_contents($this->pathOfSettings($keyPath))) : '';
 			$keyInst = ($keyText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($keyText) : false;
 			$keyInfo = ($keyInst!==false) ? openssl_pkey_get_details($keyInst) : false;
-			if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<\nyu\Access\Sess\JWT::RSAS_BITS ){
-				return json_encode($valueAsGiven).' is not a public RSA key of '.\nyu\Access\Sess\JWT::RSAS_BITS.' bits at least';
+			if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
+				return json_encode($valueAsGiven).' is not a public RSA key of '.\nyu\Access\Carr\JWT::RSAS_BITS.' bits at least';
 			}
 		}
 		return '';
