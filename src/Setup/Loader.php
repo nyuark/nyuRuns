@@ -330,8 +330,8 @@ class Loader{
 			'path' => TOP_DIR.DS.($fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'logs'),
 			'mode' => $iniConf['LOG_MODE'] ?? 'FULL',
 			'size' => $iniConf['LOG_SIZE'] ?? 0,
-			'rota' => $iniConf['LOG_ROTA'] ?? 'NUMB',
-			'pref' => $iniConf['LOG_PREF'] ?? 'Y-m-d H:i',
+			'rota' => $iniConf['LOG_ROTA'] ?? 'INDX',
+			'pref' => $iniConf['LOG_PRFX'] ?? 'Y-m-d H:i',
 		);
 	}
 

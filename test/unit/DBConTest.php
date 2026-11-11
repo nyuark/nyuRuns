@@ -79,7 +79,7 @@ function setupOf( Mixed $baseConfig, String $baseLabel='' ): Mixed {
 	return runCatchThrown(function() use ($baseLabel){ return DBCon::baseSetupArray($baseLabel); });
 }
 
-$mainSet = Array('dbEngine'=>'mysqldbs', 'hostName'=>'localhost', 'portNumb'=>'', 'baseName'=>'shop', 'userName'=>'web', 'password'=>'s3', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'');
+$mainSet = Array('dbEngine'=>'mysql_db', 'hostName'=>'localhost', 'portNumb'=>'', 'baseName'=>'shop', 'userName'=>'web', 'password'=>'s3', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'');
 $statSet = Array('dbEngine'=>'postgres', 'hostName'=>'10.0.0.5', 'portNumb'=>'5433', 'baseName'=>'stats', 'userName'=>'ro', 'password'=>'', 'encoding'=>'', 'authBase'=>'admin', 'waitSecs'=>'5');
 $twoBase = Array('NYURUNS'=>$mainSet, 'SHPSTAT'=>$statSet);
 
@@ -104,7 +104,7 @@ if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
 	checkIdentical('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
 	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'password', 'encoding'));
 	$GLOBALS['nyuConfig'] = $prjLoad->retrieveConfig();
-	checkTrueValue('conf/database.json: the type is a known code', in_array(runCatchThrown(function(){ return DBCon::baseSetupArray()['dbEngine']; }), Array('mysqldbs', 'sqlitedb', 'postgres'), true));
+	checkTrueValue('conf/database.json: the type is a known code', in_array(runCatchThrown(function(){ return DBCon::baseSetupArray()['dbEngine']; }), Array('mysql_db', 'sqlitedb', 'postgres'), true));
 }
 
 finishChecking();

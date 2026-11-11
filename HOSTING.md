@@ -486,13 +486,13 @@ the replies, to be handed over, as before.
   (`userFile`) holds addresses too, but cannot send codes: it is only read.
 - The mails are `conf/mails/<language>/<kind>.txt` (its first line is the
   subject) and `.html`, in English (`en`) and French (`fr`). A mail is written
-  in the language of the user it goes to (`userLocale`), else in `LNG_DFLT` of
+  in the language of the user it goes to (`userLocale`), else in `DEF_LANG` of
   `system.ini` (`en` when not set); `fr-ch` falls back to `fr`, then to the
   default. Another language is a folder beside them. An application replaces
   them with its own in `runs/Auth/mails/<language>/`.
 - A table made by 0.9 needs `conf/schema/migrate-users-1.0.<type>.sql` first,
   then `migrate-devices-1.0.<type>.sql` when it has devices (`<type>` is
-  `mysqldbs`, `postgres` or `sqlitedb`). They rename the columns and give the
+  `mysql_db`, `postgres` or `sqlitedb`). They rename the columns and give the
   roles and statuses their codes of 1.0. On MySQL 8 and MariaDB, the parts 2
   and 4 of the users file (the checks of the roles and statuses) are run by
   hand.

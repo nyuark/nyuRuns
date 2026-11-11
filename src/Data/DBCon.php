@@ -14,9 +14,9 @@ class DBCon {
 	protected 		$dbStoreObj;
 
 	// Handler class of each SQL database type code
-	private const TYPE_LIST = Array('mysqldbs'=>'MySQL', 'sqlitedb'=>'SQLite', 'postgres'=>'PgSQL');
+	private const TYPE_LIST = Array('mysql_db'=>'MySQL', 'sqlitedb'=>'SQLite', 'postgres'=>'PgSQL');
 	// Store class of each database type that is not SQL: those have no handler
-	private const STOR_LIST = Array('mongodbs'=>'MongoStore');
+	private const STOR_LIST = Array('mongo_db'=>'MongoStore');
 
 	/**
 	 * Private: connections are opened through linkNamedDbCon(), obtainInstance() or
@@ -29,7 +29,7 @@ class DBCon {
 	 * Opens the connection of a database of the given type: an SQL type
 	 * through its handler, any other through its own store.
 	 *
-	 * @param String $hostTypeText Database type code ('mysqldbs'), or the name of a handler class under nyu\Data\DBHndlr. 'PDO', the former name of the MySQL handler, is still accepted.
+	 * @param String $hostTypeText Database type code ('mysql_db'), or the name of a handler class under nyu\Data\DBHndlr. 'PDO', the former name of the MySQL handler, is still accepted.
 	 * @param String $databaseHost Database host.
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.
@@ -45,7 +45,7 @@ class DBCon {
 		$newLink = new DBCon();
 		$typeKey = strtolower($hostTypeText);
 		if( $typeKey=='pdo' ){
-			$typeKey = 'mysqldbs';
+			$typeKey = 'mysql_db';
 		}
 		if( isset(self::STOR_LIST[$typeKey]) ){
 			$storCls = '\\nyu\\Data\\DBStore\\'.self::STOR_LIST[$typeKey];
@@ -91,7 +91,7 @@ class DBCon {
 	 * return the connection already open. Code that relies on the
 	 * configuration uses linkNamedDbCon() instead.
 	 *
-	 * @param String $hostTypeText Database type code ('mysqldbs'), or the name of a handler class under nyu\Data\DBHndlr.
+	 * @param String $hostTypeText Database type code ('mysql_db'), or the name of a handler class under nyu\Data\DBHndlr.
 	 * @param String $databaseHost Database host.
 	 * @param String $serverUsrTxt Database user.
 	 * @param String $hostPassText Database password.

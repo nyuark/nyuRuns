@@ -10,7 +10,7 @@ namespace nyu\Tools;
  * then its parts joined by '-' ('fr', 'fr-ch', 'zh-hant'). It is chosen in
  * this order: the one stored for the person, the one the request asks for
  * (to be given only when the person making the request is the one the text
- * goes to), then the default of the project, LNG_DFLT in system.ini ('en'
+ * goes to), then the default of the project, DEF_LANG in system.ini ('en'
  * when not set or not a tag).
  *
  * A text is looked for along a chain of languages, the most precise first:
@@ -24,13 +24,13 @@ class Language {
 	/**
 	 * Builds the chooser, with the default language of the project.
 	 *
-	 * @param ?String $givenLangTag The default language; LNG_DFLT of system.ini when not given.
+	 * @param ?String $givenLangTag The default language; DEF_LANG of system.ini when not given.
 	 */
 	function __construct( ?String $givenLangTag=null ){
 		if( $givenLangTag===null ){
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 			$iniConf = ($nyuConf!==null) ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
-			$givenLangTag = strval($iniConf['LNG_DFLT'] ?? '');
+			$givenLangTag = strval($iniConf['DEF_LANG'] ?? '');
 		}
 		$givenLangTag = strtolower( trim(str_replace('_', '-', $givenLangTag)) );
 		$this->defaultLng = self::isValidLangTag($givenLangTag) ? $givenLangTag : 'en';

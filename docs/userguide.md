@@ -129,7 +129,7 @@ suggests an answer, and Enter accepts it. For this guide, answer:
 |---|---|---|
 | `Environment (DEVS, TEST, PREV, PROD) [DEVS]` | Enter | you're developing: errors are shown and everything is logged |
 | `Store of the users (nativeDb, userFile, none) [userFile]` | `nativeDb` | users go in a database, which the tutorial needs anyway |
-| `Database type (mysqldbs, postgres, sqlitedb) [mysqldbs]` | `sqlitedb` | SQLite: the database is just a file, no server needed |
+| `Database type (mysql_db, postgres, sqlitedb) [mysql_db]` | `sqlitedb` | SQLite: the database is just a file, no server needed |
 | `Database file [nyuRuns]` | `notes.sqlite` | the file, at the root of your project |
 | `Name of the internal account [teammate]`, then the `operator` and `sysadmin` ones | Enter, three times | the names this guide uses |
 
@@ -408,7 +408,7 @@ link.
 Mails go out in each user's language, or else in the default one:
 
 ```
-php nyuRun settings setValue coreConf LNG_DFLT fr
+php nyuRun settings setValue coreConf DEF_LANG fr
 ```
 
 nyuRuns ships its mails in English and French. Set a user's language with
@@ -1123,7 +1123,7 @@ look.
 | `config cache` | the cache is older than a file changed since | `php nyuRun settings clrCache` |
 | `table cache` | `TBL_CACH` is on without `CNF_CACH` | turn both on, or both off |
 | `error level` | `ERR_LEVL` holds something that isn't an error level | use `E_*` names (`E_ALL & ~E_DEPRECATED`, in quotes) |
-| `mail language` | `LNG_DFLT` isn't a language tag | `en`, `fr`, `fr-ch`, … |
+| `mail language` | `DEF_LANG` isn't a language tag | `en`, `fr`, `fr-ch`, … |
 | `proxies` | `PRX_LIST` trusts every address | list only your proxies |
 | `.env`, `key rights …` | other users on the system can read them | `chmod 600` |
 | `cookie …`, `origins …` | a session cookie over plain HTTP in production, or every site allowed to call | set `secureOn` to true, and list the origins (`corsList`) |

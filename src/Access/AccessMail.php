@@ -26,7 +26,7 @@ use nyu\Tools\Logger;
  * A mail is made of two templates, <name>.txt and <name>.html (see
  * Data\Mail\Template), in one folder per language: <folder>/<language>/.
  * It is written in the language given (the one of the user it goes to),
- * else in the next of its chain (fr-ch, fr, then LNG_DFLT; see
+ * else in the next of its chain (fr-ch, fr, then DEF_LANG; see
  * Tools\Language). For each language of the chain, the mails folder of the
  * application is looked into first, then conf/mails: a language the
  * application lacks is taken from the framework before falling back to

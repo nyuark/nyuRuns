@@ -26,7 +26,7 @@ use nyu\Tools\Router;
 class HealthChk{
 
 	// Extension each type of database needs
-	const BASE_EXTS = Array('mysqldbs'=>'pdo_mysql', 'postgres'=>'pdo_pgsql', 'sqlitedb'=>'pdo_sqlite', 'mongodbs'=>'mongodb');
+	const BASE_EXTS = Array('mysql_db'=>'pdo_mysql', 'postgres'=>'pdo_pgsql', 'sqlitedb'=>'pdo_sqlite', 'mongo_db'=>'mongodb');
 	// Extensions the framework works without, each giving it something more
 	const MORE_EXTS = Array('openssl', 'mbstring', 'zip', 'gd', 'exif', 'imagick');
 	// Shortest secret signing the tokens, in characters
@@ -386,9 +386,9 @@ class HealthChk{
 		$mrkSize = strlen(strval($lmtConf['markSecr'] ?? ''));
 		$this->addCheckResult( 'login marks', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'fine' : 'warn', ($mrkSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'set: a client already used logs in while its account is held' : 'no markSecr of '.\nyu\Access\LoginMark::KEYS_SIZE.' characters: the hold of an account also stops its owner; "settings makeSecr markSecr" makes one' );
 		// The language of the mails of a user who has none
-		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->obtainRowValue('SYSTEM', 'LNG_DFLT') ?? ''))) );
+		$dfltTag = strtolower( trim(str_replace('_', '-', strval($nyuConf->obtainRowValue('SYSTEM', 'DEF_LANG') ?? ''))) );
 		if( $dfltTag!=='' && !Language::isValidLangTag($dfltTag) ){
-			$this->addCheckResult('mail language', 'fail', 'LNG_DFLT is not a language tag (en, fr, fr-ch): the mails are written in en');
+			$this->addCheckResult('mail language', 'fail', 'DEF_LANG is not a language tag (en, fr, fr-ch): the mails are written in en');
 		}
 	}
 

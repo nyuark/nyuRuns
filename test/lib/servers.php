@@ -27,7 +27,7 @@ function serverSettings( String $typeLabelTxt ): Array {
 			$projCfg = Array();
 		}
 		$GLOBALS['nyuConfig'] = $keepCnf;
-		if( strtolower(strval($projCfg['dbEngine'] ?? ''))==Array('mysql'=>'mysqldbs', 'pgsql'=>'postgres', 'mongo'=>'mongodbs')[$typeLabelTxt] ){
+		if( strtolower(strval($projCfg['dbEngine'] ?? ''))==Array('mysql'=>'mysql_db', 'pgsql'=>'postgres', 'mongo'=>'mongo_db')[$typeLabelTxt] ){
 			foreach( Array('hostName', 'portNumb', 'userName', 'password') as $cnfKey ){
 				$hostCfg[$cnfKey] = strval($projCfg[$cnfKey] ?? '');
 			}
@@ -114,6 +114,6 @@ function generateServer( String $typeLabelTxt, Array $serverConfig ): String {
  */
 function switchToServer( String $typeLabelTxt, Array $serverConfig ): Void {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
-		'database'=>Array('DBENGINE'=>Array('mysql'=>'mysqldbs', 'pgsql'=>'postgres', 'mongo'=>'mongodbs')[$typeLabelTxt], 'HOSTNAME'=>$serverConfig['hostName'], 'PORTNUMB'=>$serverConfig['portNumb'], 'USERNAME'=>$serverConfig['userName'], 'PASSWORD'=>$serverConfig['password'], 'BASENAME'=>$serverConfig['baseName'], 'ENCODING'=>'', 'AUTHBASE'=>'', 'WAITSECS'=>'5')
+		'database'=>Array('DBENGINE'=>Array('mysql'=>'mysql_db', 'pgsql'=>'postgres', 'mongo'=>'mongo_db')[$typeLabelTxt], 'HOSTNAME'=>$serverConfig['hostName'], 'PORTNUMB'=>$serverConfig['portNumb'], 'USERNAME'=>$serverConfig['userName'], 'PASSWORD'=>$serverConfig['password'], 'BASENAME'=>$serverConfig['baseName'], 'ENCODING'=>'', 'AUTHBASE'=>'', 'WAITSECS'=>'5')
 	) );
 }

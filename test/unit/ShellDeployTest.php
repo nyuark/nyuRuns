@@ -94,7 +94,7 @@ if( function_exists('openssl_pkey_new') ){
 checkIdentical('users alone: a store that holds users is left as it is; a store that is not one', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], callShellArray($projDir, Array('installs', 'userBase', '--useStore=other'))['code']), Array("The users file already holds users: nothing was changed.\n", 2));
 
 // start : the settings of a database are made with the native userbase only
-$baseDst = '{ "nyuRuns": { "dbEngine": "mysqldbs", "hostName": "localhost", "portNumb": "", "baseName": "nyuRuns", "userName": "nyuruns", "password": "env:NYU_DB_PASS", "encoding": "utf8" } }';
+$baseDst = '{ "nyuRuns": { "dbEngine": "mysql_db", "hostName": "localhost", "portNumb": "", "baseName": "nyuRuns", "userName": "nyuruns", "password": "env:NYU_DB_PASS", "encoding": "utf8" } }';
 $projDir = freshPrjt('nodbase');
 writeInProject($projDir, 'conf/database.json.dist', $baseDst);
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=userFile'));
@@ -204,8 +204,8 @@ writeInProject($projDir, 'conf/system.ini', buildSystemIni());
 checkIdentical('E_ALL, every error is reported', array_column(runShellAsJson($projDir, Array('installs', 'checkAll'))['rows'] ?? Array(), 'found', 'check')['error level'] ?? null, 'every error is reported (E_ALL)');
 
 // The default language of the mails : a tag, or the check fails
-checkIdentical('no default language, or a tag: nothing told', Array(array_key_exists('mail language', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))), array_key_exists('mail language', stateOf((function() use ( $projDir ): Array { writeInProject($projDir, 'conf/system.ini', buildSystemIni("LNG_DFLT = fr_CH\n")); return runShellAsJson($projDir, Array('installs', 'checkAll')); })()))), Array(false, false));
-writeInProject($projDir, 'conf/system.ini', buildSystemIni("LNG_DFLT = french\n"));
+checkIdentical('no default language, or a tag: nothing told', Array(array_key_exists('mail language', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))), array_key_exists('mail language', stateOf((function() use ( $projDir ): Array { writeInProject($projDir, 'conf/system.ini', buildSystemIni("DEF_LANG = fr_CH\n")); return runShellAsJson($projDir, Array('installs', 'checkAll')); })()))), Array(false, false));
+writeInProject($projDir, 'conf/system.ini', buildSystemIni("DEF_LANG = french\n"));
 checkIdentical('a default language that is not a tag fails the check', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['mail language'] ?? null, 'fail');
 writeInProject($projDir, 'conf/system.ini', buildSystemIni());
 

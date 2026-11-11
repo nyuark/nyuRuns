@@ -15,7 +15,7 @@ require $topDir.'/vendor/autoload.php';
 
 if( $runMode!='nologger' && $runMode!='block' ){
 	// The 'trace' scenario reads the context of an entry, which only the FULL mode writes
-	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', ($runMode=='trace') ? 'FULL' : 'BASE', 0, 'NUMB', 'Y');
+	$GLOBALS['nyuLogger'] = new nyu\Tools\Logger($logsDir, 'err', ($runMode=='trace') ? 'FULL' : 'BASE', 0, 'INDX', 'Y');
 }
 require $topDir.'/src/Error/handling.php';
 

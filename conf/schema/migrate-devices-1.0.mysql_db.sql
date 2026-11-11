@@ -2,12 +2,12 @@
 -- On MySQL 5.7, which has no RENAME COLUMN, use the variant
 -- written below it instead: comment the first ALTER TABLE out, and the variant in.
 -- For a devices table made by conf/schema/devices.mysql.sql of 0.9: its columns
--- take their names of 1.0 (10 characters). Run it after migrate-users-1.0.mysqldbs.sql.
+-- take their names of 1.0 (10 characters). Run it after migrate-users-1.0.mysql_db.sql.
 --
 -- First a backup of the table:
 --   mysqldump -u <user> -p <database> devices > devices-0.9.sql
 -- Then this file, on the database of the application:
---   mysql -u <user> -p <database> < migrate-devices-1.0.mysqldbs.sql
+--   mysql -u <user> -p <database> < migrate-devices-1.0.mysql_db.sql
 -- The table name is the 'useTable' value of the device block of
 -- conf/access.json: change `devices` below when it is another.
 

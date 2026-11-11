@@ -64,7 +64,7 @@ function mailerFor( Array $moreSetup ): Mailer {
 
 // Log of the warnings, in a folder of this test
 $logPath = inTemporaryDir('logs');
-Logger::plugLogsConfig( Array('path'=>$logPath, 'mode'=>'FULL', 'size'=>0, 'rota'=>'NUMB', 'pref'=>'Y-m-d H:i') );
+Logger::plugLogsConfig( Array('path'=>$logPath, 'mode'=>'FULL', 'size'=>0, 'rota'=>'INDX', 'pref'=>'Y-m-d H:i') );
 
 // A mail, its copy, AUTH PLAIN
 $smtpSrv = startSmtp('PLAIN LOGIN', 2);

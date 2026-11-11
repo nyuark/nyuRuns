@@ -1,6 +1,6 @@
 {
 	"nyuRuns": {
-		"dbEngine": "mysqldbs",
+		"dbEngine": "mysql_db",
 		"hostName": "localhost",
 		"portNumb": "",
 		"baseName": "nyuRuns",

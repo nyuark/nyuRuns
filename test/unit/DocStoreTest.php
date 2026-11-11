@@ -156,7 +156,7 @@ checkPregMatch('mongo: a host carrying anything else is refused', runCatchThrown
 if( extension_loaded('mongodb') ){
 	recordSkipping('mongo without its extension', 'the mongodb extension is loaded');
 }else{
-	checkPregMatch('mongo: without the extension, the type says what is missing', runCatchThrown(function(){ return DBCon::obtainInstance('mongodbs', 'localhost', '', '', 'shop'); }), '/^THROWN RuntimeException: The mongodb extension of PHP is not loaded/');
+	checkPregMatch('mongo: without the extension, the type says what is missing', runCatchThrown(function(){ return DBCon::obtainInstance('mongo_db', 'localhost', '', '', 'shop'); }), '/^THROWN RuntimeException: The mongodb extension of PHP is not loaded/');
 }
 
 finishChecking();

@@ -122,7 +122,7 @@ class Actions extends Actionset {
 	/**
 	 * Gives the user the 'user' input names the language of the 'lang'
 	 * input, for its mails, or takes it away when 'lang' is empty or left
-	 * out: its mails are then written in the default one (LNG_DFLT).
+	 * out: its mails are then written in the default one (DEF_LANG).
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
 	public function language(): Void {

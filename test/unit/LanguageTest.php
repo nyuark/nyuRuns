@@ -11,7 +11,7 @@ use nyu\Tools\Language;
 checkIdentical('tags in lower case', array_map(Array(Language::class, 'isValidLangTag'), Array('en', 'fr-ch', 'zh-hant', 'gsw', 'es-419')), Array(true, true, true, true, true));
 checkIdentical('what is not a tag', array_map(Array(Language::class, 'isValidLangTag'), Array('', 'FR', 'fr_ch', 'f', 'french', '*', 'fr-', 'fr-c', '../en', 'en-abcdefghij')), Array(false, false, false, false, false, false, false, false, false, false));
 
-// The default : given, read off LNG_DFLT, or en
+// The default : given, read off DEF_LANG, or en
 $frLangs = new Language('fr_CH');
 checkIdentical('the default given, read in lower case', $frLangs->chooseLanguage(null, null), 'fr-ch');
 checkIdentical('a default that is not a tag is en', (new Language('french'))->chooseLanguage(null, null), 'en');

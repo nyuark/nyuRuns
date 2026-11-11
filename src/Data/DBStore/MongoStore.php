@@ -3,7 +3,7 @@
 namespace nyu\Data\DBStore;
 
 /**
- * MongoDB as a store, type code 'mongodbs', through the mongodb extension of
+ * MongoDB as a store, type code 'mongo_db', through the mongodb extension of
  * PHP. A table is a collection, a row a document, and the key of every
  * table is the _id MongoDB gives to each document.
  *

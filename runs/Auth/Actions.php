@@ -564,7 +564,7 @@ class Actions extends Actionset {
 	/**
 	 * Sets the language of the mails of the logged user, in the native
 	 * userbase: the 'lang' input is a language tag (fr, fr-ch), or empty
-	 * to have the default one (LNG_DFLT). No name is read: the user is the
+	 * to have the default one (DEF_LANG). No name is read: the user is the
 	 * one the access check identified. Reports 405 unless the request is a
 	 * POST, 400 for a language that is not a tag, 401 when nobody is logged
 	 * and 500 when the login does not use the native userbase.

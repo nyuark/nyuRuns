@@ -402,7 +402,7 @@ class UserBase extends Native{
 
 	/**
 	 * Gives a user the language of its mails, or takes it away: its mails
-	 * are then written in the default one (LNG_DFLT).
+	 * are then written in the default one (DEF_LANG).
 	 *
 	 * @param String  $namedUserTxt Login name of the user.
 	 * @param ?String $givenLangTag The language (see Tools\Language), none when null or empty.

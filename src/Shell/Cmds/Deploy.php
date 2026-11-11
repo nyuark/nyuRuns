@@ -626,9 +626,9 @@ class Deploy extends Command{
 				}
 			}
 		}
-		$baseTyp = strtolower( $this->queryAnswerTxt('Database type (mysqldbs, postgres, sqlitedb)', strval($nodeObj->dbEngine ?? 'mysqldbs')) );
-		if( !in_array($baseTyp, Array('mysqldbs', 'postgres', 'sqlitedb'), true) ){
-			$this->terminateShell('The native userbase works on mysqldbs, postgres or sqlitedb, not on: '.$baseTyp, self::EXIT_DENY);
+		$baseTyp = strtolower( $this->queryAnswerTxt('Database type (mysql_db, postgres, sqlitedb)', strval($nodeObj->dbEngine ?? 'mysql_db')) );
+		if( !in_array($baseTyp, Array('mysql_db', 'postgres', 'sqlitedb'), true) ){
+			$this->terminateShell('The native userbase works on mysql_db, postgres or sqlitedb, not on: '.$baseTyp, self::EXIT_DENY);
 		}
 		$nodeObj->dbEngine = $baseTyp;
 		if( $baseTyp=='sqlitedb' ){

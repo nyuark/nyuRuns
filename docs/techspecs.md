@@ -269,7 +269,7 @@ account, users of the native userbase get their codes directly:
 - The replies to a sign-up and to a forgotten password are the same
   whoever the user is. Keep it that way in the front end, which shouldn't
   reveal whether a name or an address is known.
-- Each mail goes out in its user's language, or else in `LNG_DFLT`. The
+- Each mail goes out in its user's language, or else in `DEF_LANG`. The
   framework ships its templates in English and French
   (`conf/mails/<language>/`). A run writes its own, with its wording and
   look, in `runs/<App>/mails/<language>/`, for each language its users
@@ -879,12 +879,12 @@ All names follow the same rule: the keys of one block share one length,
 | `LOG_MODE` | the levels written: `MINI` (errors, warnings, notices), `BASE` (plus information), `FULL` (plus debug, with the context) | `FULL` |
 | `LOG_PATH` | the folder of the logs, from the root of the project | `temp/logs` |
 | `LOG_SIZE` | the size of a log, in KB, before it's rotated; 0 for no limit | 1024 |
-| `LOG_ROTA` | the rotation: `NUMB` (numbered copies past `LOG_SIZE`), `WEEK`, `MNTH` (dated file names), `NONE` | `NUMB` |
-| `LOG_PREF` | the `date()` format at the start of each line | `Y-m-d H:i` |
+| `LOG_ROTA` | the rotation: `INDX` (numbered copies past `LOG_SIZE`), `WEEK`, `MNTH` (dated file names), `NONE` | `INDX` |
+| `LOG_PRFX` | the `date()` format at the start of each line | `Y-m-d H:i` |
 | `ERR_LEVL` | the errors PHP reports, `E_*` names joined by `\|`, `&` and `~` | `E_ALL` |
 | `ERR_SHOW` | whether errors are shown in the reply, `TRUE` or `FALSE`; never in `PROD` | |
 | `LST_ROWS` | the rows a list reads when it isn't told how many | 100 |
-| `LNG_DFLT` | the language of the mails of a user who has none | `en` |
+| `DEF_LANG` | the language of the mails of a user who has none | `en` |
 | `REQ_SIZE` | the largest body read, in KB; 0 for no limit | |
 | `REQ_PART` | the most parts of a multipart body; 0 for no limit | |
 | `CNF_CACH` | whether the preset, the configuration files and the routes are cached (`TRUE`, `FALSE`) | `FALSE`; `TRUE` in the `preprods` and `releases` bundles |
@@ -971,7 +971,7 @@ One database, or several by name, the first being the default:
 
 | Key | Value |
 |---|---|
-| `dbEngine` | `mysqldbs` (MariaDB included), `postgres`, `sqlitedb`, `mongodbs` |
+| `dbEngine` | `mysql_db` (MariaDB included), `postgres`, `sqlitedb`, `mongo_db` |
 | `hostName`, `portNumb` | the server; empty for SQLite |
 | `baseName` | the database, or the file of an SQLite one |
 | `userName`, `password` | the account, with the password as `env:NAME` |
@@ -1651,7 +1651,7 @@ key is the `_id` MongoDB gives. What differs from the SQL types:
 ### 10.9 Delivered tables
 
 `conf/schema/` holds the tables the framework uses, one file per table and
-database type: `users` and `devices`, in `.mysqldbs.sql` (MariaDB
+database type: `users` and `devices`, in `.mysql_db.sql` (MariaDB
 included), `.postgres.sql` and `.sqlitedb.sql`. `php nyuRun installs
 userBase` creates them; a table that exists is left as it is. The files
 `migrate-<table>-<version>.<type>.sql` move a table made by an earlier
@@ -1821,7 +1821,7 @@ The same rule holds beyond the code:
 | Element | Rule | Example |
 |---|---|---|
 | keys of a configuration block | 8, in the JSON files and in a route target | `sessWith`, `appToRun` |
-| keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `NUMB` |
+| keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
 | codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `internal`, `operator`, `sysadmin` |
 | columns of a table | 10 | `userHandle` |
 | commands and sub-commands of `php nyuRun` | 8 | `installs allSteps`, `maintain cleanDir` |

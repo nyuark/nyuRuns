@@ -63,7 +63,7 @@ class Manage extends Command{
 			'resetPwd'=>Array('args'=>'<user> [--noExpiry]', 'about'=>'for a lost password: a new activation code lasting 300 minutes (--noExpiry: no end) (nativeDb), a new password (userFile)'),
 			'approves'=>Array('args'=>'[user]', 'about'=>'approves a user who signed up and confirmed its address; without a user, lists those awaiting review (nativeDb)'),
 			'setEmail'=>Array('args'=>'<user> [address]', 'about'=>'gives a user a mail address, or takes it away when none is given'),
-			'language'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (LNG_DFLT) then'),
+			'language'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (DEF_LANG) then'),
 			'password'=>Array('args'=>'<user> [--typeItIn]', 'about'=>'gives a user a new password'),
 			'apiToken'=>Array('args'=>'<user> [--removeIt]', 'about'=>'gives a user a new personal API token, or takes it away'),
 			'setTwoFa'=>Array('args'=>'<user> [--removeIt] [--noQrCode] [--emailOtp]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--noQrCode: without), codes by mail (--emailOtp), or takes it away'),
