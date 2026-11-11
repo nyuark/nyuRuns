@@ -1,0 +1,31 @@
+{
+	"" : {
+		"pointsTo": { "GET": { "doAction": "index" }, "POST": { "doAction": "create" } }
+	},
+	"$user" : {
+		"pointsTo": { "GET": { "doAction": "view" }, "DELETE": { "doAction": "remove" } }
+	},
+	"$user/role" : {
+		"mthdList": "PUT",
+		"pointsTo": { "doAction": "role" }
+	},
+	"$user/email" : {
+		"mthdList": "PUT",
+		"pointsTo": { "doAction": "setmail" }
+	},
+	"$user/langs" : {
+		"mthdList": "PUT",
+		"pointsTo": { "doAction": "langs" }
+	},
+	"$user/lock" : {
+		"pointsTo": { "PUT": { "doAction": "lock" }, "DELETE": { "doAction": "unlock" } }
+	},
+	"$user/reset" : {
+		"mthdList": "POST",
+		"pointsTo": { "doAction": "reset" }
+	},
+	"$user/approve" : {
+		"mthdList": "POST",
+		"pointsTo": { "doAction": "approve" }
+	}
+}

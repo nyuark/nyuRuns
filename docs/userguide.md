@@ -314,7 +314,7 @@ The `owner` column says who declares each route: the site
 token (`others: logged`). The exceptions are
 signing in and what visitors do before they have an account: activating
 it, signing up, recovering a forgotten password. The `Users` run is for
-managers (the `managers` role) only. Try it on `curl http://localhost:8000/users/index`:
+managers (the `managers` role) only. Try it on `curl http://localhost:8000/users`:
 without a token you get a 401, with `userDemo`'s token a 404, and with
 `bossDemo`'s the list of users.
 
@@ -366,7 +366,7 @@ id_user  systemName  accessRole  userStatus  contactEml  userLocale  signupDate 
 | list what a command takes | `php nyuRun account --helpText` |
 
 A manager can do all of this over HTTP too, through the `Users` run
-(`users/create`, `users/lock`, …). Every change is traced in
+(`POST /users`, `PUT /users/<user>/lock`, …: its routes name the user in the path). Every change is traced in
 `temp/logs/access.log`.
 
 ### 4.4 Send the access mails
@@ -385,7 +385,7 @@ file in `temp/mails`. Now, signed in as `bossDemo`, create a user with an
 email address:
 
 ```
-curl -X POST http://localhost:8000/users/create -H "Authorization: Bearer <token of bossDemo>" -d "userName=bob&saveRole=standard&userMail=bob@example.org"
+curl -X POST http://localhost:8000/users -H "Authorization: Bearer <token of bossDemo>" -d "userName=bob&saveRole=standard&userMail=bob@example.org"
 ```
 
 ```json

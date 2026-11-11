@@ -101,7 +101,8 @@ function callActn( String $routeNamed, Array $inputArray=Array(), String $logged
 			: Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		Logger::setCurrentUser( $loggedUser, '192.0.2.50' );
 		$rteName = explode('/', $routeNamed);
-		$control = new Controller( $rteName[0], $rteName[1], new Registry($inputArray), null, $axssReg, $request );
+		// The user the path names (users/<action>/<user>) is the option of the action, as a route gives it
+		$control = new Controller( $rteName[0], $rteName[1], new Registry($inputArray), $rteName[2] ?? null, $axssReg, $request );
 		$statArr = $control->retrieveStatus();
 		return Array('code'=>$statArr['code'], 'mssg'=>$statArr['mssg'], 'out'=>$control->retrieveOutput());
 	});
@@ -121,16 +122,15 @@ Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 plugConf();
 
 // Who may call : a logged user of the highest role, and nobody else
-foreach( Array('index'=>'GET', 'view'=>'GET', 'create'=>'POST', 'lock'=>'POST', 'unlock'=>'POST', 'role'=>'POST', 'remove'=>'POST', 'reset'=>'POST', 'approve'=>'POST', 'setmail'=>'POST') as $actNme=>$mthNme ){
+foreach( Array('index', 'view', 'create', 'lock', 'unlock', 'role', 'remove', 'reset', 'approve', 'setmail') as $actNme ){
 	$inptArr = Array('userName'=>'ben', 'saveRole'=>'advanced');
-	checkIdentical('guard: users/'.$actNme.' refused to a member', statusOf(callActn('users/'.$actNme, $inptArr, 'ben', 'standard', $mthNme)), Array(404, 'Not Found'));
-	checkIdentical('guard: users/'.$actNme.' refused to the system role', statusOf(callActn('users/'.$actNme, $inptArr, 'dave', 'advanced', $mthNme)), Array(404, 'Not Found'));
-	checkIdentical('guard: users/'.$actNme.' refused when nobody is logged', statusOf(callActn('users/'.$actNme, $inptArr, '', '', $mthNme)), Array(404, 'Not Found'));
-	checkIdentical('guard: users/'.$actNme.' answers to '.$mthNme.' only', statusOf(callActn('users/'.$actNme, $inptArr, 'anna', 'managers', ($mthNme=='GET') ? 'POST' : 'GET')), Array(405, 'Method Not Allowed'));
+	checkIdentical('guard: users/'.$actNme.' refused to a member', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, 'ben', 'standard')), Array(404, 'Not Found'));
+	checkIdentical('guard: users/'.$actNme.' refused to the system role', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, 'dave', 'advanced')), Array(404, 'Not Found'));
+	checkIdentical('guard: users/'.$actNme.' refused when nobody is logged', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, '', '')), Array(404, 'Not Found'));
 }
 checkIdentical('guard: a refusal changed nothing', $sqlLink->query("SELECT systemName, accessRole, userStatus FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'managers', 'approved'), Array('ben', 'standard', 'approved'), Array('dave', 'advanced', 'disabled')));
 checkPregMatch('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(standard\) from 192\.0\.2\.50 to users\/index: role managers needed/');
-checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/startCall', Array(), 'anna', 'managers')), statusOf(callActn('users/givenUser', Array(), 'anna', 'managers'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
+checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/setupForAction', Array(), 'anna', 'managers')), statusOf(callActn('users/givenUsrString', Array(), 'anna', 'managers'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 plugConf('htpasswd');
 checkIdentical('guard: a login on another credential check', statusOf(callActn('users/index', Array(), 'anna', 'managers', 'GET')), Array(500, 'User management unavailable'));
 plugConf();
@@ -156,10 +156,10 @@ checkIdentical('index: filters', array_column(callActn('users/index', Array('cur
 checkIdentical('index: limit and offset, as sent in a query', array_column(callActn('users/index', Array('limitVal'=>'2', 'rowIndex'=>'1'), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('ben', 'dave'));
 checkIdentical('index: nobody is 204', callActn('users/index', Array('currStat'=>'disabled', 'saveRole'=>'managers'), 'anna', 'managers', 'GET')['code'] ?? null, 204);
 checkIdentical('index: invalid filter', statusOf(callActn('users/index', Array('currStat'=>'online'), 'anna', 'managers', 'GET')), Array(400, 'Invalid filter'));
-$outcome = callActn('users/view', Array('userName'=>'ben'), 'anna', 'managers', 'GET');
+$outcome = callActn('users/view/ben', Array(), 'anna', 'managers', 'GET');
 checkIdentical('view: one user', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('id_user'=>2, 'systemName'=>'ben', 'accessRole'=>'standard', 'userStatus'=>'approved', 'contactEml'=>null, 'userLocale'=>null, 'signupDate'=>null, 'createDate'=>'2026-10-01 09:00:00', 'accessDate'=>null)));
-checkIdentical('view: unknown user', statusOf(callActn('users/view', Array('userName'=>'zed'), 'anna', 'managers', 'GET')), Array(404, 'User not found'));
-checkIdentical('view: no name', statusOf(callActn('users/view', Array(), 'anna', 'managers', 'GET')), Array(400, 'Missing or invalid input: userName'));
+checkIdentical('view: unknown user', statusOf(callActn('users/view/zed', Array(), 'anna', 'managers', 'GET')), Array(404, 'User not found'));
+checkIdentical('view: no user in the path', statusOf(callActn('users/view', Array(), 'anna', 'managers', 'GET')), Array(400, 'Invalid user'));
 
 // auth/active : open to anyone holding the code
 checkIdentical('activate: wrong code', statusOf(callActn('auth/active', Array('userName'=>'emma', 'sentCode'=>str_repeat('0', 32), 'passWord'=>'pass-emma-1'), '', '')), Array(401, 'Invalid activation'));
@@ -198,35 +198,35 @@ checkIdentical('password: changed', Array($outcome['code'] ?? $outcome, $outcome
 checkIdentical('password: the new one is stored', password_verify('pass-ben-22', strval($sqlLink->query("SELECT passwdHash FROM users WHERE systemName='ben'")->fetchColumn())), true);
 
 // lock, unlock, role, remove, reset
-$outcome = callActn('users/lock', Array('userName'=>'ben'));
+$outcome = callActn('users/lock/ben', Array());
 checkIdentical('lock: locked', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ben', 'stat'=>'disabled')));
-checkIdentical('lock: already locked', statusOf(callActn('users/lock', Array('userName'=>'ben'))), Array(409, 'User already disabled'));
-checkIdentical('lock: unknown user', statusOf(callActn('users/lock', Array('userName'=>'zed'))), Array(404, 'User not found'));
-checkIdentical('lock: a manager cannot lock itself', statusOf(callActn('users/lock', Array('userName'=>'anna'))), Array(409, 'A manager cannot do this to its own account'));
-$outcome = callActn('users/unlock', Array('userName'=>'ben'));
+checkIdentical('lock: already locked', statusOf(callActn('users/lock/ben', Array())), Array(409, 'User already disabled'));
+checkIdentical('lock: unknown user', statusOf(callActn('users/lock/zed', Array())), Array(404, 'User not found'));
+checkIdentical('lock: a manager cannot lock itself', statusOf(callActn('users/lock/anna', Array())), Array(409, 'A manager cannot do this to its own account'));
+$outcome = callActn('users/unlock/ben', Array());
 checkIdentical('unlock: active again', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ben', 'stat'=>'approved')));
-checkIdentical('unlock: a pending user', statusOf(callActn('users/unlock', Array('userName'=>'fred'))), Array(409, 'A pending user is neither locked nor unlocked'));
+checkIdentical('unlock: a pending user', statusOf(callActn('users/unlock/fred', Array())), Array(409, 'A pending user is neither locked nor unlocked'));
 
-$outcome = callActn('users/role', Array('userName'=>'ben', 'saveRole'=>'managers'));
+$outcome = callActn('users/role/ben', Array('saveRole'=>'managers'));
 checkIdentical('role: changed', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ben', 'role'=>'managers')));
-checkIdentical('role: invalid role', statusOf(callActn('users/role', Array('userName'=>'ben', 'saveRole'=>'owner'))), Array(400, 'Invalid role'));
-checkIdentical('role: no role', statusOf(callActn('users/role', Array('userName'=>'ben'))), Array(400, 'Missing or invalid input: saveRole'));
-checkIdentical('role: a manager cannot change its own, even with another manager beside it', statusOf(callActn('users/role', Array('userName'=>'anna', 'saveRole'=>'standard'))), Array(409, 'A manager cannot do this to its own account'));
-checkIdentical('role: another manager can', callActn('users/role', Array('userName'=>'anna', 'saveRole'=>'advanced'), 'ben', 'managers')['code'] ?? null, 200);
-checkIdentical('role: and is then the last one', statusOf(callActn('users/role', Array('userName'=>'ben', 'saveRole'=>'standard'), 'emma', 'managers')), Array(409, 'The last active manager cannot be given another role'));
-callActn('users/role', Array('userName'=>'anna', 'saveRole'=>'managers'), 'ben', 'managers');
-callActn('users/role', Array('userName'=>'ben', 'saveRole'=>'standard'));
+checkIdentical('role: invalid role', statusOf(callActn('users/role/ben', Array('saveRole'=>'owner'))), Array(400, 'Invalid role'));
+checkIdentical('role: no role', statusOf(callActn('users/role/ben', Array())), Array(400, 'Missing or invalid input: saveRole'));
+checkIdentical('role: a manager cannot change its own, even with another manager beside it', statusOf(callActn('users/role/anna', Array('saveRole'=>'standard'))), Array(409, 'A manager cannot do this to its own account'));
+checkIdentical('role: another manager can', callActn('users/role/anna', Array('saveRole'=>'advanced'), 'ben', 'managers')['code'] ?? null, 200);
+checkIdentical('role: and is then the last one', statusOf(callActn('users/role/ben', Array('saveRole'=>'standard'), 'emma', 'managers')), Array(409, 'The last active manager cannot be given another role'));
+callActn('users/role/anna', Array('saveRole'=>'managers'), 'ben', 'managers');
+callActn('users/role/ben', Array('saveRole'=>'standard'));
 
-$outcome = callActn('users/reset', Array('userName'=>'ben'));
+$outcome = callActn('users/reset/ben', Array());
 checkIdentical('reset: 200 with the name', Array($outcome['code'] ?? $outcome, $outcome['out']['user'] ?? null), Array(200, 'ben'));
 checkIdentical('reset: the new code activates the user', callActn('auth/active', Array('userName'=>'ben', 'sentCode'=>strval($outcome['out']['code'] ?? ''), 'passWord'=>'pass-ben-33'), '', '')['code'] ?? null, 200);
-checkIdentical('reset: a locked user', statusOf(callActn('users/reset', Array('userName'=>'dave'))), Array(409, 'A locked user is unlocked before it is reset'));
-checkIdentical('reset: a manager cannot reset itself', statusOf(callActn('users/reset', Array('userName'=>'anna'))), Array(409, 'A manager cannot do this to its own account'));
+checkIdentical('reset: a locked user', statusOf(callActn('users/reset/dave', Array())), Array(409, 'A locked user is unlocked before it is reset'));
+checkIdentical('reset: a manager cannot reset itself', statusOf(callActn('users/reset/anna', Array())), Array(409, 'A manager cannot do this to its own account'));
 
-$outcome = callActn('users/remove', Array('userName'=>'fred'));
+$outcome = callActn('users/remove/fred', Array());
 checkIdentical('remove: removed', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'fred', 'removed'=>true)));
-checkIdentical('remove: already gone', statusOf(callActn('users/remove', Array('userName'=>'fred'))), Array(404, 'User not found'));
-checkIdentical('remove: a manager cannot remove itself', statusOf(callActn('users/remove', Array('userName'=>'anna'))), Array(409, 'A manager cannot do this to its own account'));
+checkIdentical('remove: already gone', statusOf(callActn('users/remove/fred', Array())), Array(404, 'User not found'));
+checkIdentical('remove: a manager cannot remove itself', statusOf(callActn('users/remove/anna', Array())), Array(409, 'A manager cannot do this to its own account'));
 checkIdentical('remove: who is left', array_column(callActn('users/index', Array(), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('anna', 'ben', 'dave', 'emma'));
 
 // Access mails : without a mailer, the codes are given in the replies, as above
@@ -243,27 +243,27 @@ checkIdentical('create, mailed: the code activates', Array($outcome['code'] ?? $
 checkIdentical('create: an address taken', statusOf(callActn('users/create', Array('userName'=>'hugo', 'userMail'=>'HANA@example.ch'))), Array(409, 'Mail address already used'));
 $outcome = callActn('users/create', Array('userName'=>'hugo'));
 checkIdentical('create without an address: the code in the reply', Array($outcome['code'] ?? $outcome, isset($outcome['out']['code']), sentMail()), Array(201, true, Array()));
-$outcome = callActn('users/setmail', Array('userName'=>'ben', 'userMail'=>' Ben@Example.ch '));
+$outcome = callActn('users/setmail/ben', Array('userMail'=>' Ben@Example.ch '));
 checkIdentical('email: an address given, in lower case', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ben', 'mail'=>'ben@example.ch')));
-checkIdentical('email: an address taken, one that is not', Array(statusOf(callActn('users/setmail', Array('userName'=>'hugo', 'userMail'=>'ben@example.ch'))), statusOf(callActn('users/setmail', Array('userName'=>'hugo', 'userMail'=>'hugo')))), Array(Array(409, 'Mail address already used'), Array(400, 'Invalid mail address')));
-checkIdentical('email: taken away', Array(callActn('users/setmail', Array('userName'=>'hugo', 'userMail'=>'hugo@example.ch'))['code'] ?? null, callActn('users/setmail', Array('userName'=>'hugo'))['out'] ?? null), Array(200, Array('user'=>'hugo', 'mail'=>null)));
+checkIdentical('email: an address taken, one that is not', Array(statusOf(callActn('users/setmail/hugo', Array('userMail'=>'ben@example.ch'))), statusOf(callActn('users/setmail/hugo', Array('userMail'=>'hugo')))), Array(Array(409, 'Mail address already used'), Array(400, 'Invalid mail address')));
+checkIdentical('email: taken away', Array(callActn('users/setmail/hugo', Array('userMail'=>'hugo@example.ch'))['code'] ?? null, callActn('users/setmail/hugo', Array())['out'] ?? null), Array(200, Array('user'=>'hugo', 'mail'=>null)));
 
 // users/langs and auth/usrlang : the language of the mails, given by a manager or by the user itself
-$outcome = callActn('users/langs', Array('userName'=>'hugo', 'saveLang'=>'FR_ch'));
+$outcome = callActn('users/langs/hugo', Array('saveLang'=>'FR_ch'));
 checkIdentical('langs: a manager gives one, in lower case', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'hugo', 'lang'=>'fr-ch')));
-checkIdentical('langs: one that is not, then taken away', Array(statusOf(callActn('users/langs', Array('userName'=>'hugo', 'saveLang'=>'french'))), callActn('users/langs', Array('userName'=>'hugo'))['out'] ?? null), Array(Array(400, 'Invalid language'), Array('user'=>'hugo', 'lang'=>null)));
-checkIdentical('langs: a member is not a manager', statusOf(callActn('users/langs', Array('userName'=>'hugo', 'saveLang'=>'fr'), 'ben', 'standard')), Array(404, 'Not Found'));
+checkIdentical('langs: one that is not, then taken away', Array(statusOf(callActn('users/langs/hugo', Array('saveLang'=>'french'))), callActn('users/langs/hugo', Array())['out'] ?? null), Array(Array(400, 'Invalid language'), Array('user'=>'hugo', 'lang'=>null)));
+checkIdentical('langs: a member is not a manager', statusOf(callActn('users/langs/hugo', Array('saveLang'=>'fr'), 'ben', 'standard')), Array(404, 'Not Found'));
 $outcome = callActn('auth/usrlang', Array('userName'=>'hugo', 'saveLang'=>'de'), 'ben', 'standard');
 checkIdentical('auth/usrlang: the logged user, for itself; a name sent is not read', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT systemName, userLocale FROM users WHERE systemName IN ('ben', 'hugo') ORDER BY systemName")->fetchAll(PDO::FETCH_KEY_PAIR)), Array(200, Array('lang'=>'de'), Array('ben'=>'de', 'hugo'=>null)));
 checkIdentical('auth/usrlang: nobody logged, a GET, one that is not', Array(statusOf(callActn('auth/usrlang', Array('saveLang'=>'de'), '', '')), statusOf(callActn('auth/usrlang', Array('saveLang'=>'de'), 'ben', 'standard', 'GET')), statusOf(callActn('auth/usrlang', Array('saveLang'=>'*'), 'ben', 'standard'))), Array(Array(401, 'Not logged in'), Array(405, 'Method Not Allowed'), Array(400, 'Invalid language')));
 callActn('auth/usrlang', Array(), 'ben', 'standard');
 $outcome = callActn('users/create', Array('userName'=>'xena', 'saveLang'=>'it'));
 checkIdentical('create: with the language of its mails', Array($outcome['code'] ?? $outcome, $sqlLink->query("SELECT userLocale FROM users WHERE systemName='xena'")->fetchColumn(), statusOf(callActn('users/create', Array('userName'=>'xavi', 'saveLang'=>'italian')))), Array(201, 'it', Array(400, 'Invalid language')));
-$outcome = callActn('users/reset', Array('userName'=>'ben'));
+$outcome = callActn('users/reset/ben', Array());
 $mailLst = sentMail();
 checkIdentical('reset, mailed: the code goes to the address of the user', Array($outcome['out'] ?? null, $mailLst[0]['to'] ?? null), Array(Array('user'=>'ben', 'mailed'=>true), 'ben@example.ch'));
 checkIdentical('reset, mailed: the code activates', callActn('auth/active', Array('userName'=>'ben', 'sentCode'=>strval($mailLst[0]['code'] ?? ''), 'passWord'=>'pass-ben-44'), '', '')['code'] ?? null, 200);
-checkIdentical('reset of a user without an address: the code in the reply', isset(callActn('users/reset', Array('userName'=>'hugo'))['out']['code']), true);
+checkIdentical('reset of a user without an address: the code in the reply', isset(callActn('users/reset/hugo', Array())['out']['code']), true);
 
 // auth/signup : open when the block says so, a manager approves
 checkIdentical('signup: closed unless the block opens it', statusOf(callActn('auth/signup', Array('userName'=>'ivan', 'userMail'=>'ivan@example.ch'), '', '')), Array(404, 'Not Found'));
@@ -285,9 +285,9 @@ checkIdentical('signup: a name or an address that is not one', Array(statusOf(ca
 $outcome = callActn('auth/active', Array('userName'=>'ivan', 'sentCode'=>strval($mailLst[0]['code'] ?? ''), 'passWord'=>'pass-ivan-1'), '', '');
 checkIdentical('signup: confirmed, it awaits review', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>false, 'stat'=>'inReview')));
 checkIdentical('signup: listed by its status', array_column(callActn('users/index', Array('currStat'=>'inReview'), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('ivan'));
-$outcome = callActn('users/approve', Array('userName'=>'ivan'));
+$outcome = callActn('users/approve/ivan', Array());
 checkIdentical('approve: active', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ivan', 'stat'=>'approved')));
-checkIdentical('approve: only a user in review', statusOf(callActn('users/approve', Array('userName'=>'ivan'))), Array(409, 'User not awaiting review'));
+checkIdentical('approve: only a user in review', statusOf(callActn('users/approve/ivan', Array())), Array(409, 'User not awaiting review'));
 // The language of the mails : the one of the request for the one who asks, the one of the owner for an address taken
 $GLOBALS['acptLang'] = 'fr-CH, fr;q=0.9';
 sentMail();

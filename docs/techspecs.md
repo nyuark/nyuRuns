@@ -1390,7 +1390,11 @@ without a definition gets no input: the inputs are closed by default.
 `Auth` declares its routes in its own `routes.rte` (`/auth/login`, …,
 and `/.well-known/jwks.json`). `Auth` and `Users` work on the store the
 `loginSet` block names, and every action of `Users` asks for the
-`managers` role itself.
+`managers` role itself. `Users` is REST: its `routes.rte` names the user in
+the path, given to the action as its option, and the method chooses the
+action: `GET`/`POST /users` (index, create), `GET`/`DELETE /users/<user>`,
+`PUT /users/<user>/role`, `/email`, `/langs`, `PUT`/`DELETE /users/<user>/lock`,
+`POST /users/<user>/reset` and `/approve`; another method is answered 405.
 
 ---
 

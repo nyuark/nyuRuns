@@ -10,7 +10,8 @@ use \nyu\Access\Auth\UserBase;
 /**
  * Manages the users of the native userbase (see Access\Auth\UserBase),
  * the one the 'loginSet' block of the ACCESS config file names. Every
- * action is kept for the users of the highest role (see startCall).
+ * action is kept for the users of the highest role (see setupForAction);
+ * the routes of routes.rte name the user in the path and set the methods.
  * A refusal of the userbase is reported with its own status: 400 for a
  * value that is not valid, 404 for an unknown user, 409 for a change the
  * state of the user does not allow.
@@ -18,6 +19,9 @@ use \nyu\Access\Auth\UserBase;
 class Actions extends Actionset {
 
 	protected $dfltAction = 'index';
+
+	// The native userbase, opened for the action by setupForAction()
+	protected $userBaseDb;
 
 	/**
 	 * Lists the users, by name: identifier, name, role, status, address,
@@ -28,7 +32,7 @@ class Actions extends Actionset {
 	 * list is empty.
 	 */
 	public function index(): Void {
-		$usrBase = $this->requireManager('GET');
+		$usrBase = $this->userBaseDb;
 		$usrList = $usrBase->listUsersNamed(
 			Array('userStatus'=>$this->inputsRgst->readValueByKey('currStat'), 'accessRole'=>$this->inputsRgst->readValueByKey('saveRole')),
 			intval($this->inputsRgst->readValueByKey('limitVal')),
@@ -41,12 +45,12 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Reads the user the 'userName' input names: identifier, name, role,
+	 * Reads the user its path names: identifier, name, role,
 	 * status, address, time of the sign-up awaiting review, creation date
 	 * and last time seen.
 	 */
 	public function view(): Void {
-		$usrBase = $this->requireManager('GET');
+		$usrBase = $this->userBaseDb;
 		$userVls = $usrBase->userInfosArray( $this->givenUsrString(false) );
 		if($userVls===false){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -67,8 +71,11 @@ class Actions extends Actionset {
 	 * taken.
 	 */
 	public function create(): Void {
-		$usrBase = $this->requireManager('POST');
-		$gvnUser = $this->givenUsrString(false);
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
+		if(!is_string($gvnUser) || $gvnUser==''){
+			$this->stopThisAction(400, 'Invalid userName');
+		}
 		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
 		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
 		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
@@ -89,12 +96,12 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Approves the user the 'userName' input names, who signed up itself and
+	 * Approves the user its path names, who signed up itself and
 	 * confirmed its address: it becomes active. Refusing it is removing
 	 * it (users/remove). Reports 409 for a user not awaiting review.
 	 */
 	public function approve(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(false);
 		if(!$usrBase->approveNewUser($gvnUser)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -104,12 +111,12 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Gives the user the 'userName' input names the address of the 'userMail'
+	 * Gives the user its path names the address of the 'userMail'
 	 * input, or takes its address away when 'userMail' is empty or left out.
 	 * Reports 409 for an address another user holds.
 	 */
 	public function setmail(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(false);
 		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
 		if(!$usrBase->changeMailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
@@ -120,13 +127,13 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Gives the user the 'userName' input names the language of the 'saveLang'
+	 * Gives the user its path names the language of the 'saveLang'
 	 * input, for its mails, or takes it away when 'saveLang' is empty or left
 	 * out: its mails are then written in the default one (DEF_LANG).
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
 	public function langs(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(false);
 		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
 		if(!$usrBase->changeLanguage($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
@@ -137,12 +144,12 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Locks the user the 'userName' input names: it can no longer log in,
+	 * Locks the user its path names: it can no longer log in,
 	 * and a session it holds ends as soon as its preset names the
 	 * userbase as its credential store. A manager cannot lock itself.
 	 */
 	public function lock(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(true);
 		if(!$usrBase->saveStatusFlag($gvnUser, 'disabled')){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -152,10 +159,10 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Unlocks the user the 'userName' input names.
+	 * Unlocks the user its path names.
 	 */
 	public function unlock(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(false);
 		if(!$usrBase->saveStatusFlag($gvnUser, 'approved')){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -165,11 +172,11 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Gives the user the 'userName' input names the role of the 'saveRole'
+	 * Gives the user its path names the role of the 'saveRole'
 	 * input. A manager cannot change its own role.
 	 */
 	public function role(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(true);
 		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
 		if(!$usrBase->changeRoleFlag($gvnUser, is_string($gvnRole) ? $gvnRole : '')){
@@ -180,11 +187,11 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Removes the user the 'userName' input names. A manager cannot remove
+	 * Removes the user its path names. A manager cannot remove
 	 * itself.
 	 */
 	public function remove(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(true);
 		if(!$usrBase->removeUserFlag($gvnUser)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
@@ -194,7 +201,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Puts the user the 'userName' input names back to pending, for one
+	 * Puts the user its path names back to pending, for one
 	 * whose password is lost, with a new activation code to choose a
 	 * password with (auth/active). When the userbase sends mails and the
 	 * user has an address, the code is mailed to it, and not told here;
@@ -202,7 +209,7 @@ class Actions extends Actionset {
 	 * reset itself.
 	 */
 	public function reset(): Void {
-		$usrBase = $this->requireManager('POST');
+		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(true);
 		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();
 		$usrMail = strval( $usrInfo['contactEml'] ?? '' );
@@ -221,40 +228,36 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Opens every action: ends it with a 404 unless the request comes
-	 * from a logged user of the highest role of Checker::ROLE_LIST (see
-	 * needsRole), a 405 unless it uses the given method, and a 500 when
-	 * the login does not use the native userbase. The role is asked for
-	 * here whatever the preset does: a 'minRoles' entry of its 'security'
-	 * block only refuses the request earlier.
-	 *
-	 * @param String $httpMthdText Method the action answers to.
-	 * @return UserBase The manager of the userbase.
+	 * Opens every action: ends it with a 404 unless the request comes from a
+	 * logged user of the highest role of Checker::ROLE_LIST (see
+	 * needsActionRle), and with a 500 when the login does not use the native
+	 * userbase, which it keeps for the action. The role is asked for here
+	 * whatever the preset does: a 'minRoles' entry of its 'security' block
+	 * only refuses the request earlier. The methods are the routes' (routes.rte):
+	 * another one is answered 405 before the action is reached.
 	 */
-	protected function requireManager( String $httpMthdText ): UserBase {
+	protected function setupForAction(): Void {
 		$this->needsActionRle( array_slice(Checker::ROLE_LIST, -1)[0] );
-		if($this->requestObj===null || !$this->requestObj->usedMethodFlag($httpMthdText)){
-			$this->stopThisAction(405, 'Method Not Allowed');
-		}
 		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
 			$this->stopThisAction(500, 'User management unavailable');
 		}
-		return $usrBase;
+		$this->userBaseDb = $usrBase;
 	}
 
 	/**
-	 * Reads the 'userName' input: the name of the user the action is about.
-	 * Ends the action with a 400 when it is not a text, and with a 409
-	 * when it must be another user than the one asking and is not.
+	 * Reads the user the action is about: the option of the action, the
+	 * name its route takes from the path (users/<user>/...). Ends the action
+	 * with a 400 when there is none, and with a 409 when it must be another
+	 * user than the one asking and is not.
 	 *
 	 * @param Bool $notOnOwnAcnt Whether the action is refused on the account of the one asking.
 	 * @return String The name of the user.
 	 */
 	protected function givenUsrString( Bool $notOnOwnAcnt ): String {
-		$gvnUser = $this->inputsRgst->readValueByKey('userName');
-		if(!is_string($gvnUser) || $gvnUser==''){
-			$this->stopThisAction(400, 'Invalid userName');
+		$gvnUser = strval( $this->runContext->optionText ?? '' );
+		if($gvnUser==''){
+			$this->stopThisAction(400, 'Invalid user');
 		}
 		if($notOnOwnAcnt && $gvnUser===strval($this->accessRgst->readValueByKey('userName'))){
 			$this->stopThisAction(409, 'A manager cannot do this to its own account');

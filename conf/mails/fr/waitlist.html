@@ -3,5 +3,5 @@
 <p>Bonjour,</p>
 <p><strong>%count%</strong> inscriptions sont en attente, confirmées ou non. Lorsque %limit% sont en attente, les inscriptions se ferment jusqu'à ce que certaines soient approuvées ou supprimées.</p>
 <p>Pour voir celles qui attendent un examen : <code>users?currStat=inReview</code>, ou sur le serveur <code>php nyuRun account approves</code>.</p>
-<p>Approuvez-en une avec <code>users/approve</code> (<code>accounts approves &lt;user&gt;</code>), refusez-en une en la supprimant (<code>users/remove</code>).</p>
+<p>Approuvez-en une avec <code>POST users/&lt;user&gt;/approve</code> (<code>account approves &lt;user&gt;</code>), refusez-en une en la supprimant (<code>DELETE users/&lt;user&gt;</code>).</p>
 </body></html>

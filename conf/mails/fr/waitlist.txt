@@ -9,5 +9,5 @@ Pour voir celles qui attendent un examen : users?currStat=inReview, ou sur le
 serveur
     php nyuRun account approves
 
-Approuvez-en une avec users/approve (accounts approves <user>), refusez-en une
-en la supprimant (users/remove).
+Approuvez-en une avec POST users/<user>/approve (account approves <user>),
+refusez-en une en la supprimant (DELETE users/<user>).

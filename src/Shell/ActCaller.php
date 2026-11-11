@@ -8,7 +8,6 @@ use nyu\Output\Response;
 use nyu\Setup\Preset;
 use nyu\Tools\ClientReg;
 use nyu\Tools\Logger;
-use nyu\Tools\Registry;
 use nyu\Tools\Request;
 use nyu\Tools\Router;
 use nyu\Tools\ServerReg;
@@ -61,27 +60,35 @@ class ActCaller{
 	 * @throws \RuntimeException When the preset cannot be loaded.
 	 */
 	public function runAskedAction( String $nameOfPreset, String $actionTarget, Array $inputsValues, String $actionMthNme, String $signedInUser, String $signedInRole ): Array {
-		$pthPart = Array();
-		if( !preg_match('#^([A-Za-z][A-Za-z0-9]*)/(\w+)(?:/(.+))?$#D', trim($actionTarget, '/'), $pthPart) ){
-			throw new ShellStop('An action is named as app/action, or app/action/param', Command::EXIT_HELP);
+		// The path is resolved as the Router resolves a request : a Run's own routes and their methods apply
+		if( !preg_match('#^[A-Za-z][A-Za-z0-9]*(/[^/\s]+)*$#D', trim($actionTarget, '/')) ){
+			throw new ShellStop('An action is named by its path: app, app/action, app/action/param, or a path a route of its Run declares', Command::EXIT_HELP);
 		}
 		$loadObj = (new Preset($nameOfPreset))->newSetupLoader();
 		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
 		Logger::plugLogsConfig( $loadObj->logConfigArray() );
 		$rndrCnf = $loadObj->getRegistryKey('response');
-		$rteConf = $loadObj->getRegistryKey('dispatch');
 		$callLst = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrCnf) ? $rndrCnf : Array(), $loadObj->proxySetupConf() );
 		$rqstObj = $callLst[0];
 		$respObj = $callLst[1];
 		$inptReg = $loadObj->retrieveInputs($rqstObj);
-		$routReg = new Registry( Array('appToRun'=>$pthPart[1], 'doAction'=>$pthPart[2], 'argument'=>$pthPart[3] ?? null, 'routKind'=>'toAction', 'routPath'=>'') );
-		$routObj = new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj);
-		$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg, $routObj))->grantShellCall($signedInUser, $signedInRole);
-		$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
-		$sttsMsg = strval($accsReg->readValueByKey('statMssg'));
+		$routReg = $loadObj->importRouteReg($rqstObj);
+		$routObj = $loadObj->retrieveRouter();
+		// A path no route answers, or a method its route refuses, is the Router's reply (404, 405); only an action is called,		// found from the path (no kind) or by a declared route (toAction)
+		$sttsNum = intval($routReg->obtainDefValue('statCode', 200));
+		$sttsMsg = strval($routReg->readValueByKey('statMssg'));
+		if( $sttsNum==200 && !in_array($routReg->readValueByKey('routKind'), Array(null, 'toAction'), true) ){
+			$sttsNum = 404;
+			$sttsMsg = 'Not Found';
+		}
 		$outData = null;
 		if( $sttsNum==200 ){
-			$control = new Controller( $pthPart[1], $pthPart[2], $inptReg, $pthPart[3] ?? null, $accsReg, $rqstObj, $respObj, $routObj );
+			$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg, $routObj))->grantShellCall($signedInUser, $signedInRole);
+			$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
+			$sttsMsg = strval($accsReg->readValueByKey('statMssg'));
+		}
+		if( $sttsNum==200 ){
+			$control = new Controller( strval($routReg->readValueByKey('appToRun')), strval($routReg->readValueByKey('doAction')), $inptReg, $routReg->readValueByKey('argument'), $accsReg, $rqstObj, $respObj, $routObj );
 			$sttsArr = $control->retrieveStatus();
 			$sttsNum = intval($sttsArr['code']);
 			$sttsMsg = strval($sttsArr['mssg']);

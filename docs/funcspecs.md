@@ -440,7 +440,7 @@ their accesses. Every refusal is traced with its reason.
 ### 5.3 The life of an account
 
 ```
-     users/create, account makeUser      auth/signup (5.4)
+     POST users, account makeUser        auth/signup (5.4)
        (by a manager)                        (by the visitor)
                │                                     │
                ▼  code mailed, or given              ▼  code mailed
@@ -453,7 +453,7 @@ their accesses. Every refusal is traced with its reason.
     │          │                                ┌──────────┐
     │          │                                │ inReview │── refused: removed
     │          │                                └──────────┘
-    │          │                                     │ users/approve, accounts approves
+    │          │                                     │ POST users/<user>/approve, account approves
     │          ▼                                     │ (by a manager)
     │     ┌──────────┐◀──────────────────────────────┘
     └─────│ approved │   lock    ┌──────────┐
@@ -463,7 +463,7 @@ their accesses. Every refusal is traced with its reason.
        remove: from any status, with the devices of the account
 ```
 
-- **Creation**: a manager creates the account (`users/create`, or
+- **Creation**: a manager creates the account (`POST users`, or
   `account makeUser` on the command line) with its name and role, and
   optionally an email address and a language. It starts out `awaiting`, with
   an activation code. When the service sends mails and the user has an
@@ -475,7 +475,7 @@ their accesses. Every refusal is traced with its reason.
   they choose (`auth/active`). An account created by a manager becomes
   `approved`, and one a visitor signed up for goes to `inReview`. A wrong code
   is refused just like a wrong name, and counted.
-- **Review**: a manager approves the account (`users/approve`, or
+- **Review**: a manager approves the account (`POST users/<user>/approve`, or
   `accounts approves`) and it becomes `approved`, or refuses it by
   removing it. An account in `inReview` can't sign in, and can't be locked.
 - **Locking**: a locked user can't sign in, and their session ends at
@@ -512,7 +512,7 @@ visitor                              service                                mana
    │  auth/active: code, password     │                                      │
    │──────────────────────────────────▶│ the account in inReview              │
    │                                    │ managers told when sign-ups pile up ─▶│
-   │                                    │               users/approve         │
+   │                                    │     POST users/<user>/approve       │
    │                                    │◀─────────────────────────────────────│
    │                                    │ the account approved                 │
 ```
@@ -524,7 +524,7 @@ visitor                              service                                mana
    mail saying someone tried to use it.
 2. The visitor confirms the address with the code and chooses a password
    (`auth/active`), and the account goes to `inReview`.
-3. A manager approves it (`users/approve`, or `accounts approves`), and
+3. A manager approves it (`POST users/<user>/approve`, or `account approves`), and
    it becomes `approved`. Refusing it means removing it.
 
 **Limits**: a client can only sign up so many times in a given period

@@ -468,7 +468,7 @@ the replies, to be handed over, as before.
   The code is bound to the user, not to the device: it can be typed on another
   one.
 - `signupOn: true` opens `auth/signup`. A sign-up confirms its address with
-  the code, then waits in `inReview` for a manager (`users/approve`,
+  the code, then waits in `inReview` for a manager (`POST users/<user>/approve`,
   `php nyuRun account approves`); refusing it is removing it. Sign-ups never
   confirmed are removed once their code ends.
 - The `tryLimit` block bounds the sign-ups: `maxQueue` waiting at once (256),

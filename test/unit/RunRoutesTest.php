@@ -32,6 +32,8 @@ function madeRoutr( String $urlAddress, String $httpMethod='GET', Array $routeCo
 file_put_contents(RUN_DIR.DS.'Mixed'.DS.'routes.rte', '{ "away": { "pointsTo": { "redirect": "/elsewhere" } }, "kept": { "pointsTo": { "doAction": "kept" } },'
 	.' "split": { "pointsTo": { "GET": { "pageFile": "hello.html" }, "POST": { "doAction": "kept" } } } }');
 copy(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'routes.rte', RUN_DIR.DS.'Auth'.DS.'routes.rte');
+@mkdir(RUN_DIR.DS.'Users', 0775, true);
+copy(TOP_DIR.DS.'runs'.DS.'Users'.DS.'routes.rte', RUN_DIR.DS.'Users'.DS.'routes.rte');
 $keyList = Array('appToRun', 'doAction', 'statCode', 'routOwnr');
 
 // A Run serves its own actions only: a target naming anything else is warned and left out
@@ -93,5 +95,17 @@ foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText
 checkIdentical('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
 $rootRtr = madeRoutr('/login', 'POST', Array('runMount'=>Array('auth'=>'')));
 checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readValueByKey('appToRun'), $rootRtr->locateRouteReg()->readValueByKey('routPath')), Array('Auth', 'login'));
+
+// The Users routes: the user in the path, given to the action as its option; the method chooses the action, another one is a 405
+$userRte = function( String $urlAddress, String $httpMethod ): Array {
+	$rteReg = madeRoutr($urlAddress, $httpMethod)->locateRouteReg();
+	return Array($rteReg->readValueByKey('doAction'), $rteReg->readValueByKey('argument'), intval($rteReg->obtainDefValue('statCode', 200)));
+};
+checkIdentical('users: the list and the creation', Array($userRte('/users', 'GET'), $userRte('/users', 'POST'), $userRte('/users', 'PUT')[2]), Array(Array('index', null, 200), Array('create', null, 200), 405));
+checkIdentical('users: one user, seen or removed', Array($userRte('/users/ben', 'GET'), $userRte('/users/ben', 'DELETE'), $userRte('/users/ben', 'POST')[2]), Array(Array('view', 'ben', 200), Array('remove', 'ben', 200), 405));
+checkIdentical('users: role, address, language by PUT', Array($userRte('/users/ben/role', 'PUT'), $userRte('/users/ben/email', 'PUT'), $userRte('/users/ben/langs', 'PUT'), $userRte('/users/ben/role', 'GET')[2]), Array(Array('role', 'ben', 200), Array('setmail', 'ben', 200), Array('langs', 'ben', 200), 405));
+checkIdentical('users: locked by PUT, unlocked by DELETE', Array($userRte('/users/ben/lock', 'PUT'), $userRte('/users/ben/lock', 'DELETE'), $userRte('/users/ben/lock', 'POST')[2]), Array(Array('lock', 'ben', 200), Array('unlock', 'ben', 200), 405));
+checkIdentical('users: reset and approved by POST', Array($userRte('/users/ben/reset', 'POST'), $userRte('/users/ben/approve', 'POST'), $userRte('/users/ben/reset', 'GET')[2]), Array(Array('reset', 'ben', 200), Array('approve', 'ben', 200), 405));
+checkIdentical('users: an action its routes answer is not reached from its path', $userRte('/users/view/ben', 'GET')[2], 404);
 
 finishChecking();
