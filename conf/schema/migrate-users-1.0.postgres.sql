@@ -99,3 +99,14 @@ COMMIT;
 -- ALTER TABLE "users" ADD CONSTRAINT "users_userRole_check" CHECK ("userRole" IN ('member', 'system', 'manage'));
 -- ALTER TABLE "users" ADD CONSTRAINT "users_userStat_check" CHECK ("userStat" IN ('pendng', 'active', 'locked'));
 -- COMMIT;
+
+-- A table already at 1.0, made before userHandle, twoFactStp and failedDate
+-- took their names of 1.0 final (systemName, twoFactPos, failedTime): none of
+-- the lines above, only these, after a backup of the table. No row is changed;
+-- the unique constraint keeps the name it was given.
+--
+-- BEGIN;
+-- ALTER TABLE "users" RENAME COLUMN "userHandle" TO "systemName";
+-- ALTER TABLE "users" RENAME COLUMN "twoFactStp" TO "twoFactPos";
+-- ALTER TABLE "users" RENAME COLUMN "failedDate" TO "failedTime";
+-- COMMIT;

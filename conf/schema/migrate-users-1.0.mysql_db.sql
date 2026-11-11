@@ -163,3 +163,21 @@ UPDATE `users` SET
 -- 	RENAME COLUMN `accessDate` TO `lastSeen`,
 -- 	RENAME INDEX  `systemName` TO `userName`,
 -- 	RENAME INDEX  `bearerHash` TO `tokenKey`;
+-- A table already at 1.0, made before userHandle, twoFactStp and failedDate
+-- took their names of 1.0 final (systemName, twoFactPos, failedTime): none of
+-- the lines above, only these, after a backup of the table. No row is changed.
+--
+-- ALTER TABLE `users`
+-- 	RENAME COLUMN `userHandle` TO `systemName`,
+-- 	RENAME COLUMN `twoFactStp` TO `twoFactPos`,
+-- 	RENAME COLUMN `failedDate` TO `failedTime`,
+-- 	RENAME INDEX  `userHandle` TO `systemName`;
+--
+-- MySQL 5.7, which has no RENAME COLUMN: each column named again with its
+-- whole definition, the one of conf/schema/users.mysql_db.sql.
+--
+-- ALTER TABLE `users`
+-- 	CHANGE COLUMN `userHandle` `systemName` VARCHAR(64)  NOT NULL,
+-- 	CHANGE COLUMN `twoFactStp` `twoFactPos` INT UNSIGNED NULL,
+-- 	CHANGE COLUMN `failedDate` `failedTime` DATETIME     NULL,
+-- 	RENAME INDEX  `userHandle` TO `systemName`;

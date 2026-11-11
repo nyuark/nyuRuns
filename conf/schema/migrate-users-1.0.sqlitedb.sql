@@ -78,3 +78,14 @@ PRAGMA foreign_keys = ON;
 --
 -- INSERT INTO `users_1_0` (`id_user`, `systemName`, `passwdHash`, `passwdDate`, `accessRole`, `userStatus`, `mailboxAdr`, `userLocale`, `actvtnCode`, `recovrCode`, `codeExpiry`, `signupDate`, `bearerHash`, `twoFactKey`, `twoFactPos`, `twoFactWay`, `mailedCode`, `mailExpiry`, `failsCount`, `failedTime`, `createDate`, `accessDate`)
 -- 	SELECT `id_user`, `userName`, `passHash`, `passDate`, CASE `userRole` WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' END, CASE `userStat` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'checking' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' END, `userMail`, `userLang`, `actvCode`, `resetCod`, `codeDate`, `signDate`, `tokenKey`, `twoFaKey`, `twoFaStp`, CASE `twoFaWay` WHEN 'mailed' THEN 'emailOtp' END, `mailCode`, `mailDate`, `failNmbr`, `failDate`, `madeDate`, `lastSeen` FROM `users`;
+
+-- A table already at 1.0, made before userHandle, twoFactStp and failedDate
+-- took their names of 1.0 final (systemName, twoFactPos, failedTime): none of
+-- the lines above, only these, on a copy of the database file first. SQLite
+-- 3.25 or later renames a column with its UNIQUE constraint.
+--
+-- BEGIN;
+-- ALTER TABLE `users` RENAME COLUMN `userHandle` TO `systemName`;
+-- ALTER TABLE `users` RENAME COLUMN `twoFactStp` TO `twoFactPos`;
+-- ALTER TABLE `users` RENAME COLUMN `failedDate` TO `failedTime`;
+-- COMMIT;
