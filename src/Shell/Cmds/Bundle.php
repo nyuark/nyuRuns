@@ -7,7 +7,7 @@ use nyu\Shell\ConfFile;
 
 /**
  * Builds a copy of the project for one environment, to be carried to its
- * server, where "php nyuRun install allSteps" installs it:
+ * server, where "php nyuRun install complete" installs it:
  *
  *   php nyuRun bundles local                       for a developer's machine
  *   php nyuRun bundles stage                       for a server before production
@@ -244,7 +244,7 @@ class Bundle extends Command{
 			$this->printerObj->printShellPair('archive', $this->makeTarArchive($trgtDir));
 		}
 		$this->traceShellDone( 'Bundle: '.$packModeName.', '.count($keptLst).' files in '.$trgtDir.( $this->optionsObj->validateOption('archived') ? ', and its archive' : '' ) );
-		$this->printerObj->printShellLine('On its server: php nyuRun install allSteps, then php nyuRun install checkAll.');
+		$this->printerObj->printShellLine('On its server: php nyuRun install complete, then php nyuRun install checkAll.');
 		return self::EXIT_DONE;
 	}
 
@@ -329,7 +329,7 @@ class Bundle extends Command{
 	 * of its path hidden (starting with a dot), except a .htaccess file.
 	 * Nothing of conf/keys travels, nor any key, users file or password
 	 * file conf/access.json names, wherever it lies (see secrPaths): the
-	 * server makes its own keys (install allSteps). A mode brings one of them
+	 * server makes its own keys (install complete). A mode brings one of them
 	 * back only by naming that very file in its 'addPaths' paths, the public
 	 * key of a server issuing the tokens for one.
 	 *

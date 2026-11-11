@@ -55,7 +55,7 @@ checkIdentical('its system.ini is set for production: errors hidden, errors, war
 checkIdentical('its config is cached', strpos($bndlIni, 'CNF_CACH = TRUE')!==false, true);
 checkIdentical('the project keeps its own settings', fetchInProject($projDir, 'conf/system.ini'), buildSystemIni("CNF_CACH = FALSE\n"));
 checkIdentical('the folders the framework writes in are there, empty', Array(is_dir($distDir.DS.'final'.DS.'media'), is_dir($distDir.DS.'final'.DS.'temp'), filesOfDr($distDir.DS.'final'.DS.'temp')), Array(true, true, Array()));
-checkIdentical('the next steps are told', strpos($runVals['text'], 'On its server: php nyuRun install allSteps, then php nyuRun install checkAll.')!==false, true);
+checkIdentical('the next steps are told', strpos($runVals['text'], 'On its server: php nyuRun install complete, then php nyuRun install checkAll.')!==false, true);
 checkPregMatch('the bundle is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Bundle: final, 16 files in .*dist.final by user "cli:/');
 
 // The class map of a PREV or PROD bundle, made by Composer in the copy

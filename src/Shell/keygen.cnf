@@ -1,5 +1,5 @@
 # Minimal OpenSSL config, handed to openssl_pkey_new() when a key pair is made
-# (php nyuRun setting makeSecr jtoken, with RS256): PHP on Windows makes no key
+# (php nyuRun setting mkSecret jtoken, with RS256): PHP on Windows makes no key
 # without one, and the system's may be missing or elsewhere.
 
 [ req ]

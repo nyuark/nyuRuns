@@ -55,8 +55,8 @@ checkIdentical('sealSecrt leaves the secret readable without a key, or with a sh
 
 // New secrets
 $newScrt = Totp::generateSecret();
-checkPregMatch('makeSecrt gives 32 base32 characters', $newScrt, '/^[A-Z2-7]{32}$/');
-checkTrueValue('makeSecrt gives another secret each time', $newScrt!==Totp::generateSecret());
+checkPregMatch('mkSecrett gives 32 base32 characters', $newScrt, '/^[A-Z2-7]{32}$/');
+checkTrueValue('mkSecrett gives another secret each time', $newScrt!==Totp::generateSecret());
 checkIdentical('a new secret checks its own code, at the current time', Totp::verifyTotpCode($newScrt, Totp::codeAtTimeText($newScrt, time())), true);
 
 finishChecking();

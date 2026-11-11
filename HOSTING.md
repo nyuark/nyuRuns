@@ -21,7 +21,7 @@ written with `php nyuRun setting`.
 ## 2. Going live
 
 ```bash
-php nyuRun install allSteps
+php nyuRun install complete
 ```
 
 It checks the server, creates the local files from their examples (`.env`,
@@ -279,7 +279,7 @@ The `htpasswd` check reads an htpasswd file.
 - bcrypt, and SHA-256 or SHA-512 crypt, are accepted.
 - apr1 (Apache's MD5) is accepted too, because it is what Apache's tool writes
   by default. It is weak by today's measure: write new lines with bcrypt
-  (`php nyuRun setting makeSecr htpasswd <user>` does).
+  (`php nyuRun setting mkSecret htpasswd <user>` does).
 - `{SHA}`, DES crypt and MD5 crypt are refused unless the block sets
   `"weakHash": true`, which the health check reports.
 - The time of a refusal does not tell whether a name exists only when the
@@ -297,7 +297,7 @@ The secrets are stored encrypted when the block of the store gives a key:
 ```
 
 ```bash
-php nyuRun setting makeSecr tfaCrypt --useBlock=nativeDb
+php nyuRun setting mkSecret tfaCrypt --useBlock=nativeDb
 ```
 
 - Without a key of 32 characters, secrets are stored readable, with a warning
@@ -321,7 +321,7 @@ php nyuRun setting makeSecr tfaCrypt --useBlock=nativeDb
   user is then confirmed on every request, and a lock or a role change applies
   at once.
 - Keep `lifeSecs` short where there is no store.
-- Replacing the secret (`php nyuRun setting makeSecr jwtToken`) ends every token
+- Replacing the secret (`php nyuRun setting mkSecret jwtToken`) ends every token
   at once.
 - A client is only told "Invalid token" or "Expired token". Why a token was
   refused is in the `access` log, in `FULL` mode.

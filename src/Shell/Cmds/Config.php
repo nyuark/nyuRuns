@@ -20,13 +20,13 @@ use nyu\Tools\Router;
  *
  *   php nyuRun setting showConf coreConf          the keys of conf/system.ini
  *   php nyuRun setting showConf accsConf loginSet  a block of conf/access.json, secrets masked
- *   php nyuRun setting showConf preset restapi.security  a block of a preset
+ *   php nyuRun setting showConf psetConf restapi.security  a block of a preset
  *   php nyuRun setting setValue coreConf LOG_MODE BASE
  *   php nyuRun setting setValue accsConf nativeDb.minChars 12
  *   php nyuRun setting setValue dataConf nyuRuns.hostName db.local
- *   php nyuRun setting setValue preset restapi.security.authWith nativeDb
- *   php nyuRun setting wwwEntry index restapi  the preset www/index.php starts the Runner with
- *   php nyuRun setting makeSecr jwtToken        a new secret, written where the config reads it
+ *   php nyuRun setting setValue psetConf restapi.security.authWith nativeDb
+ *   php nyuRun setting entryPts index restapi  the preset www/index.php starts the Runner with
+ *   php nyuRun setting mkSecret jwtToken        a new secret, written where the config reads it
  *   php nyuRun setting fullList restapi        the routes of a preset, and who they are served to
  *   php nyuRun setting clrCache               removes the config cache, after conf was edited by hand
  *
@@ -67,10 +67,10 @@ class Config extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'showConf'=>Array('args'=>'<coreConf|accsConf|dataConf|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
-			'setValue'=>Array('args'=>'<coreConf|accsConf|dataConf|preset> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
-			'wwwEntry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
-			'makeSecr'=>Array('args'=>'<jwtToken|keysList|tfaCrypt|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
+			'showConf'=>Array('args'=>'<coreConf|accsConf|dataConf|psetConf> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
+			'setValue'=>Array('args'=>'<coreConf|accsConf|dataConf|psetConf> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
+			'entryPts'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
+			'mkSecret'=>Array('args'=>'<jwtToken|keysList|tfaCrypt|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'fullList'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
 			'clrCache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
 		);
@@ -96,13 +96,13 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeShowConf(): Int {
-		$trgtNme = $this->needsShellWord('what to show (coreConf, accsConf, dataConf, preset)');
+		$trgtNme = $this->needsShellWord('what to show (coreConf, accsConf, dataConf, psetConf)');
 		// Matched whatever its letter case, kept as TRGT_LIST writes it
-		foreach( array_merge(array_keys(self::TRGT_LIST), Array('preset')) as $oneCod ){
+		foreach( array_merge(array_keys(self::TRGT_LIST), Array('psetConf')) as $oneCod ){
 			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
 		}
 		$pathTxt = strval($this->optionsObj->shiftFirstWord() ?? '');
-		if( $trgtNme=='preset' ){
+		if( $trgtNme=='psetConf' ){
 			return $this->showPresetNumb($pathTxt);
 		}
 		if( !isset(self::TRGT_LIST[$trgtNme]) ){
@@ -161,9 +161,9 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeSetValue(): Int {
-		$trgtNme = $this->needsShellWord('what to write in (coreConf, accsConf, dataConf, preset)');
+		$trgtNme = $this->needsShellWord('what to write in (coreConf, accsConf, dataConf, psetConf)');
 		// Matched whatever its letter case, kept as TRGT_LIST writes it
-		foreach( array_merge(array_keys(self::TRGT_LIST), Array('preset')) as $oneCod ){
+		foreach( array_merge(array_keys(self::TRGT_LIST), Array('psetConf')) as $oneCod ){
 			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
 		}
 		$pathTxt = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
@@ -210,7 +210,7 @@ class Config extends Command{
 				}
 				$nodeObj->$keyName = $newValu;
 				$wrtrObj->saveJsonConfig($filPath, $treeObj);
-			}elseif( $trgtNme=='preset' ){
+			}elseif( $trgtNme=='psetConf' ){
 				if( count($pthPart)<2 || count($pthPart)>3 || in_array('', $pthPart, true) || !preg_match('/^[\w\-]+$/D', $pthPart[0]) ){
 					$this->terminateShell('A value of a preset is named as preset.block.key, or preset.key', self::EXIT_HELP);
 				}
@@ -307,7 +307,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function invokeWwwEntry(): Int {
+	public function invokeEntryPts(): Int {
 		$fileNme = $this->optionsObj->shiftFirstWord();
 		$prstNme = $this->optionsObj->shiftFirstWord();
 		if( $fileNme===null ){
@@ -362,7 +362,7 @@ class Config extends Command{
 	 *
 	 * @return Int The exit code.
 	 */
-	public function invokeMakeSecr(): Int {
+	public function invokeMkSecret(): Int {
 		$kindNme = $this->needsShellWord('the secret to make (jwtToken, keysList, tfaCrypt, markSecr, htpasswd)');
 		if( !in_array($kindNme, Array('jwtToken', 'keysList', 'tfaCrypt', 'markSecr', 'htpasswd'), true) ){
 			$this->terminateShell('No secret is made under that name: '.$kindNme, self::EXIT_HELP);
@@ -517,7 +517,7 @@ class Config extends Command{
 		$isDrops = $this->optionsObj->validateOption('dropsAll');
 		$oldText = ($oldPriv!==false && !$isDrops) ? strval(openssl_pkey_get_details($oldPriv)['key'] ?? '') : '';
 		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : ( $isDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
-		// install allSteps replaces a public key found alone without a question : it is not one of this server's
+		// install complete replaces a public key found alone without a question : it is not one of this server's
 		if( $hasKeys && !$keepExisting && !$this->queryAgreedFlg('Replace the keys of the tokens in use: '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}

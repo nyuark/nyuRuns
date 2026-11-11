@@ -4,7 +4,7 @@
     //  Route detection; base rendering config
     // A key that is not one of those described here stops the run
     // This preset only explains the keys: it is never loaded. An entry point naming it
-    // is answered 500; "setting wwwEntry" refuses it and "install checkAll" fails on it
+    // is answered 500; "setting entryPts" refuses it and "install checkAll" fails on it
     //
 	// Name of the PreSet; the name of its file
 	"presetId": "example",

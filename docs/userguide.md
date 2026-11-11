@@ -118,7 +118,7 @@ from the `notes` folder, the root of your project.
 ### 3.2 Install the project
 
 ```
-php nyuRun install allSteps
+php nyuRun install complete
 ```
 
 The command asks a few questions: the environment, where your users
@@ -174,7 +174,7 @@ Here's what just happened:
   will differ from the ones above.
 - **A health check** wraps it all up (3.5).
 
-Run it again and nothing breaks: `install allSteps` never replaces what
+Run it again and nothing breaks: `install complete` never replaces what
 already exists, be it a file, a secret, a table or a user.
 
 > Don't want a database? Answer `userFile`. Your users are then kept in a
@@ -267,7 +267,7 @@ Appendix A explains the other rows.
 
 You don't copy a project to a server as is. You build a copy made for
 that server (`php nyuRun bundles final`), install it there with
-`install allSteps`, and put it behind a web server that sends every URL to
+`install complete`, and put it behind a web server that sends every URL to
 `www/index.php`. Chapter 8 has the checklist for going live, and
 [`HOSTING.md`](../HOSTING.md) covers the server setup.
 
@@ -287,7 +287,7 @@ signing in left open. The `restapi` profile works the same way, and it's
 the one meant for a web API, so give it to your entry point:
 
 ```
-php nyuRun setting wwwEntry index restapi
+php nyuRun setting entryPts index restapi
 ```
 
 Then see who can reach what:
@@ -422,11 +422,11 @@ nyuRuns ships its mails in English and French. Set a user's language with
 
 ### 4.6 Keep the secrets
 
-`install allSteps` put the secrets in `.env` and the token keys in
+`install complete` put the secrets in `.env` and the token keys in
 `conf/keys`. Never commit them. To make new keys:
 
 ```
-php nyuRun setting makeSecr jwtToken
+php nyuRun setting mkSecret jwtToken
 ```
 
 It asks before replacing keys in use, because new keys void every token
@@ -1020,7 +1020,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
       Its `system.ini` is set for production (`PROD`, errors hidden,
       `MINI` logs, config cache on), and its classes are mapped when
       Composer is available.
-- [ ] Install it on the server with `php nyuRun install allSteps`: secrets
+- [ ] Install it on the server with `php nyuRun install complete`: secrets
       and keys are made there and never leave.
 - [ ] Make `.env` readable by its owner only (`chmod 600 .env`).
 
@@ -1119,9 +1119,9 @@ look.
 | `route clash`, `route shadow` | two runs declare the same path, or a site route hides a run's route | rename one of the paths, or change a run's mount |
 | `access route` | `openList` or `minRoles` names a route that doesn't exist | fix the entry in the profile |
 | `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun setting setValue accsConf jwtToken.issuer …` and `.audience` |
-| `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun setting makeSecr markSecr` |
+| `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun setting mkSecret markSecr` |
 | `file rights` | the rights of the secret files can't be checked (Windows) | limit `conf` and `temp` to the web server's account (`icacls`) |
-| `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun setting makeSecr jwtToken` (or `keysList`, `tfaCrypt`) |
+| `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun setting mkSecret jwtToken` (or `keysList`, `tfaCrypt`) |
 | `database …` | the database doesn't answer, or its extension isn't loaded | check `conf/database.json`, the server, and A.4 |
 | `users` | the users table or file is missing | `php nyuRun install userBase` |
 | `access mails …`, `access link …`, `access codes …` | the mail account, the link or the code length isn't valid | see 4.4 |

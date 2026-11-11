@@ -114,7 +114,7 @@ $projDir = makeProjectTxt('install', Array(
 	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
 	'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false } }'
 ));
-$runVals = callShellArray($projDir, Array('install', 'allSteps', '--outputAs=json'), "\nnativeDb\n\n\nfull\n");
+$runVals = callShellArray($projDir, Array('install', 'complete', '--outputAs=json'), "\nnativeDb\n\n\nfull\n");
 $jsnVals = json_decode($runVals['text'], true);
 $hashLst = (new PDO('sqlite:'.$newBase))->query('SELECT systemName, passwdHash FROM users')->fetchAll(PDO::FETCH_KEY_PAIR);
 checkIdentical('start asks where the database is, each value proposed as the config has it', $runVals['errs'], 'Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Database type (mysql_db, postgres, sqlitedb) [sqlitedb]: Database file ['.$newBase.']: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the advanced account [powrDemo]: Name of the delegate account [deptDemo]: Name of the managers account [bossDemo]: ');

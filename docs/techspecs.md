@@ -206,7 +206,7 @@ php nyuRun bundles final
 
 A bundle holds the code, the configuration examples and the libraries, and
 nothing else, and its `system.ini` is set for its environment. On the
-server, `php nyuRun install allSteps` makes its local files, secrets and
+server, `php nyuRun install complete` makes its local files, secrets and
 users, and `php nyuRun install checkAll` tells what isn't ready. The check
 ends with a failure code when a row fails, so a deployment script can stop
 there.
@@ -239,7 +239,7 @@ files only name them (`env:NYU_DB_PASS`, `env:NYU_MAIL_PASS`).
   out.
 - Make the secrets with the command line rather than by hand. It makes
   them long enough, and writes them where the configuration reads them
-  (`php nyuRun setting makeSecr jwtToken`, `keysList`, `tfaCrypt`,
+  (`php nyuRun setting mkSecret jwtToken`, `keysList`, `tfaCrypt`,
   `markSecr`).
 - Give the users store a `tfaCrypt`. Without one, the 2FA secrets are
   stored readable, and the health check says so.
@@ -850,7 +850,7 @@ name of its file in capitals: `system.ini` is `SYSTEM`, `access.json` is
 `ACCESS`. With `CNF_CACH`, the first request of a preset writes what it
 read to `temp/cache`, and the next ones read that file instead. Every
 command that writes in `conf/` removes the cache, and so do
-`install allSteps` and `setting clrCache`. After a hand edit,
+`install complete` and `setting clrCache`. After a hand edit,
 `php nyuRun setting clrCache` removes it, and `install checkAll` warns
 about a cache older than its files. No secret goes into the cache: `.env`
 is read on each request. So a file of `conf/` that isn't a configuration
@@ -864,7 +864,7 @@ Secrets are only ever written this way (2.3).
 The files made from an example (`access.json`, `database.json`,
 `mailer.json`, `users.lst`) and `.env` are local to each installation:
 git ignores them, and bundles leave them out. `php nyuRun install
-allSteps` makes them from their examples, and `php nyuRun setting` reads
+complete` makes them from their examples, and `php nyuRun setting` reads
 and changes them, checking each value.
 
 All names follow the same rule: the keys of one block share one length,
@@ -1040,7 +1040,7 @@ unknown format stops the request with a 500 (400 for a required field).
 | `conf/users.lst` | the users file: `{ "users": [ ... ] }`, with the column names of the users table |
 | `conf/bundle.lst` | the project's bundle modes (chapter 7) |
 | `conf/.htpasswd` | the password file of the `htpasswd` check |
-| `conf/keys/` | the token keys (`.key`, `.pub`), made by `setting makeSecr jwtToken` |
+| `conf/keys/` | the token keys (`.key`, `.pub`), made by `setting mkSecret jwtToken` |
 | `conf/schema/` | the delivered tables, one file per table and database type (`users.sqlitedb.sql`), and their migrations |
 | `conf/mails/<language>/` | the templates of the access mails |
 
@@ -1083,7 +1083,7 @@ like the same change made over HTTP.
 
 | Sub-command | Does |
 |---|---|
-| `allSteps` | the whole installation: the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `--useStore` picks the store) |
+| `complete` | the whole installation: the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `--useStore` picks the store) |
 | `testHost` | checks the server: PHP, its extensions, the folders written |
 | `makeConf` | makes `.env`, `access.json` and `database.json` from their examples |
 | `userBase` | creates the users table and the basic users, or the users file; the devices table with a `dvcToken` block |
@@ -1097,10 +1097,10 @@ holds users.
 
 | Sub-command | Does |
 |---|---|
-| `showConf <coreConf\|accsConf\|dataConf\|preset> [path]` | shows a file, one of its blocks or keys, with secrets masked |
-| `setValue <coreConf\|accsConf\|dataConf\|preset> <path> <value>` | changes a value (`KEY`, `block.key`, `preset.block.key`), checked by its rule (`--overrule`) |
-| `wwwEntry [file] [preset]` | the preset an entry point of `www` starts with, shown or changed |
-| `makeSecr <jwtToken\|keysList\|tfaCrypt\|markSecr\|htpasswd>` | makes a secret, the RS256 key pair, or a password of the password file, and writes it where the configuration reads it (`--useBlock`, `--showSecr`, `--typeItIn`) |
+| `showConf <coreConf\|accsConf\|dataConf\|psetConf> [path]` | shows a file, one of its blocks or keys, with secrets masked |
+| `setValue <coreConf\|accsConf\|dataConf\|psetConf> <path> <value>` | changes a value (`KEY`, `block.key`, `preset.block.key`), checked by its rule (`--overrule`) |
+| `entryPts [file] [preset]` | the preset an entry point of `www` starts with, shown or changed |
+| `mkSecret <jwtToken\|keysList\|tfaCrypt\|markSecr\|htpasswd>` | makes a secret, the RS256 key pair, or a password of the password file, and writes it where the configuration reads it (`--useBlock`, `--showSecr`, `--typeItIn`) |
 | `fullList [preset]` | the routes of a preset: path, methods, kind, target, owner, and who they're served to |
 | `clrCache` | removes the config cache: the next request of each preset reads its files again |
 
@@ -1724,7 +1724,7 @@ A bundle only copies the paths of `Bundle::KEEP_LIST` (`src`, `runs`,
 `www`, `pages`, `conf`, `vendor`, the Composer files, `nyuRun`, `LICENSE`,
 `NOTICE`, `.htaccess`), minus those of `DROP_LIST` (the local
 configuration, every file of `conf/keys`, `bundle.lst`), plus the paths
-its mode adds. Each server makes its own keys with `install allSteps`.
+its mode adds. Each server makes its own keys with `install complete`.
 
 ### 11.3 `temp/`
 
@@ -1824,7 +1824,7 @@ The same rule holds beyond the code:
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
 | codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `standard`, `advanced`, `delegate`, `managers` |
 | columns of a table | 10 | `systemName` |
-| commands and sub-commands of `php nyuRun` | 8 | `install allSteps`, `cleanup cleanDir` |
+| commands and sub-commands of `php nyuRun` | 8 | `install complete`, `cleanup cleanDir` |
 | options of `php nyuRun` | 8 | `--noPrompt`, `--yesToAll` |
 | formats of `Tools\Variable` | 7, so each `formats…()` method is 14 | `OutText`, `formatsOutText()` |
 

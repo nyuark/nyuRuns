@@ -16,7 +16,7 @@ namespace nyu\Setup;
  * It is read as a file on each request, never kept by OPcache: a cache
  * removed or written again is seen by the next request, whatever OPcache
  * is set to. Whatever writes in conf removes it (Shell\ConfFile), and so
- * do "setting clrCache", "install allSteps" and "cleanup cleanDir cache".
+ * do "setting clrCache", "install complete" and "cleanup cleanDir cache".
  */
 class ConfCache{
 

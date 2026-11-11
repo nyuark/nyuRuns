@@ -66,7 +66,7 @@ checkIdentical('the health check tells what is missing', Array($jsnVals['exit'] 
 	Array(4, 'fine', 'fine', 'fine', 'fail', 'fine', 'fail', 'warn', 'fine', true));
 
 // start, without a question
-$jsnVals = runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt', '--useStore=userFile'));
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=userFile'));
 $statLst = stateOf($jsnVals);
 $envVals = parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW);
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
@@ -77,7 +77,7 @@ checkIdentical('start points the login at the store, makes the keys of the token
 checkIdentical('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key userFile'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
 checkIdentical('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of bossDemo (managers)'] ?? '', $usrList['bossDemo']['passwdHash'] ?? ''), password_verify($jsnVals['secret']['Password of userDemo (standard)'] ?? '', $usrList['userDemo']['passwdHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
 checkPregMatch('the layout of the access config is kept', strval(fetchInProject($projDir, 'conf/access.json')), '/^\{\n\t"plugLibs": \{ "authWith": \[\], "carrWith": \[\] \},\n\t"loginSet": \{ "authWith": "userFile", "authConf": "userFile", /');
-$jsnVals = runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt'));
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt'));
 checkIdentical('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, fetchInProject($projDir, 'conf/keys/jwtToken.key')===$keyText, parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'][1]['passwdHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, true, $envVals, $usrList['bossDemo']['passwdHash'], false, true));
 checkPregMatch('the installation is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in userFile \(userDemo, bossDemo\) by user "cli:/');
 // A public key laid over the server's own, by a bundle of another pair : the check fails
@@ -87,7 +87,7 @@ if( function_exists('openssl_pkey_new') ){
 	writeInProject($projDir, 'conf/keys/jwtToken.pub', strval(openssl_pkey_get_details($keyObjc)['key'] ?? ''));
 	$jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
 	checkIdentical('a public key that is not the one of the private key fails the check', Array(stateOf($jsnVals)[$tknRow] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')[$tknRow] ?? null),
-		Array('fail', 'the public key is not the one of the private key: "setting makeSecr jwtToken" makes a new pair'));
+		Array('fail', 'the public key is not the one of the private key: "setting mkSecret jwtToken" makes a new pair'));
 	writeInProject($projDir, 'conf/keys/jwtToken.pub', $pubText);
 	checkIdentical('its own public key back, the check is fine', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))[$tknRow] ?? null, 'fine');
 }
@@ -97,21 +97,21 @@ checkIdentical('users alone: a store that holds users is left as it is; a store 
 $baseDst = '{ "nyuRuns": { "dbEngine": "mysql_db", "hostName": "localhost", "portNumb": "", "baseName": "nyuRuns", "userName": "nyuruns", "passWord": "env:NYU_DB_PASS", "encoding": "utf8" } }';
 $projDir = freshPrjt('nodbase');
 writeInProject($projDir, 'conf/database.json.dist', $baseDst);
-$jsnVals = runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt', '--useStore=userFile'));
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=userFile'));
 checkIdentical('in the users file, no settings of a database are made, and the check is clean', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'database.json'), stateOf($jsnVals)['databases'] ?? null), Array(0, false, 'fine'));
 $projDir = freshPrjt('wthbase');
 writeInProject($projDir, 'conf/database.json.dist', $baseDst);
-runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt', '--useStore=nativeDb'));
+runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=nativeDb'));
 checkIdentical('with the native userbase, they are made from their example', fetchInProject($projDir, 'conf/database.json'), $baseDst);
 checkIdentical('files alone still makes them all', Array(runShellAsJson(freshPrjt('allfles'), Array('install', 'makeConf'))['rows'][2]['file'] ?? null), Array('conf/database.json'));
 
 // start, with its questions
 $projDir = freshPrjt('asked');
-$runVals = callShellArray($projDir, Array('install', 'allSteps', '--silently'), "\n\n");
+$runVals = callShellArray($projDir, Array('install', 'complete', '--silently'), "\n\n");
 checkIdentical('each question proposes a default, taken on Enter: the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: ', true, true));
 // The basic accounts: the simple or the full version, then each name asked, the one proposed taken on Enter; a version that is neither, a name a user cannot have, or one given twice, creates none
 $projDir = freshPrjt('accounts');
-$jsnVals = runShellAsJson($projDir, Array('install', 'allSteps'), "\n\nFull\nann.k\n\n\nBen-2\n");
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete'), "\n\nFull\nann.k\n\n\nBen-2\n");
 checkIdentical('names: the full version, the names answered, in the order of the roles', array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), 'accessRole', 'systemName'), Array('ann.k'=>'standard', 'powrDemo'=>'advanced', 'deptDemo'=>'delegate', 'Ben-2'=>'managers'));
 $projDir = freshPrjt('refused');
 runShellAsJson($projDir, Array('install', 'makeConf'));
@@ -121,7 +121,7 @@ $twoVals = callShellArray($projDir, Array('install', 'userBase', '--useStore=use
 checkIdentical('names: a version that is neither, one a user cannot have, one given twice: refused, nobody created', Array($othVals['code'], $othVals['errs'], $runVals['code'], $runVals['errs'], $twoVals['code'], $twoVals['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')),
 	Array(3, "Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: No user created: \"half\" is neither simple nor full\n", 3, "Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: No user created: \"root\" is not a name a user can have\n", 3, "Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: No user created: two accounts cannot share the name \"ANN\"\n", false));
 $projDir = freshPrjt('answer');
-$jsnVals = runShellAsJson($projDir, Array('install', 'allSteps'), "prod\nuserFile\n");
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete'), "prod\nuserFile\n");
 $statLst = stateOf($jsnVals);
 checkIdentical('the answers are written; ERR_SHOW left on in production is told, where it is ignored', Array($jsnVals['exit'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), "ENV_NAME = PROD\n")!==false, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), '; Environment platform (DEVS, TEST, PREV, PROD)')!==false, count(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array()), $statLst['errors'] ?? null, $statLst['users'] ?? null), Array(0, true, true, 2, 'warn', 'fine'));
 checkPregMatch('the row tells the setting is ignored there', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['errors'] ?? ''), '/^ERR_SHOW is on in the environment PROD, where it is ignored: set it to FALSE$/');
@@ -143,7 +143,7 @@ writeInProject($projDir, 'conf/access.json', strval(json_encode($axsVals, JSON_P
 $jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
 $fndList = array_column($jsnVals['rows'] ?? Array(), 'found', 'check');
 checkIdentical('values of the wrong kind fail the check', Array(stateOf($jsnVals)['token claims jwtToken'] ?? null, $fndList['token claims jwtToken'] ?? null, stateOf($jsnVals)['token claims appsKeys'] ?? null, $fndList['token claims appsKeys'] ?? null),
-	Array('fail', 'issuer is a text; prevFile is not the public RSA key of 2048 bits at least: empty it, or "setting makeSecr jwtToken" writes it', 'fail', 'the issuer of the application "portal" is a text'));
+	Array('fail', 'issuer is a text; prevFile is not the public RSA key of 2048 bits at least: empty it, or "setting mkSecret jwtToken" writes it', 'fail', 'the issuer of the application "portal" is a text'));
 checkIdentical('application keys without the audiences of this project are told', stateOf($jsnVals)['token claims apkeyz'] ?? null, 'warn');
 $axsVals['jwtToken']['issuerId'] = 'https://auth.example.org';
 $axsVals['jwtToken']['prevFile'] = 'conf/keys/jwtToken.pub';
@@ -154,8 +154,8 @@ if( function_exists('openssl_pkey_new') ){
 	checkIdentical('a previous key with HS256 is told, as it is not read', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))['previous key jwtToken'] ?? null, 'warn');
 }
 $projDir = freshPrjt('wrongs');
-checkIdentical('an answer that is not one of those proposed', Array(callShellArray($projDir, Array('install', 'allSteps'), "LIVE\n")['code'], callShellArray($projDir, Array('install', 'allSteps'), "\nldap\n")['code']), Array(3, 3));
-$jsnVals = runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt', '--useStore=none'));
+checkIdentical('an answer that is not one of those proposed', Array(callShellArray($projDir, Array('install', 'complete'), "LIVE\n")['code'], callShellArray($projDir, Array('install', 'complete'), "\nldap\n")['code']), Array(3, 3));
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=none'));
 checkIdentical('a store without users of its own', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(4, false));
 checkIdentical('without a store, no key of the 2FA secrets is made: the check tells the secrets would be readable', Array(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '', stateOf($jsnVals)['2FA key nativeDb'] ?? null), Array('', 'warn'));
 callShellArray($projDir, Array('setting', 'setValue', 'accsConf', 'nativeDb.tfaCrypt', 'too-short'));
@@ -222,7 +222,7 @@ if( function_exists('openssl_pkey_new') ){
 	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 	checkIdentical('in PROD, it fails the check', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))['token keys jwtToken'] ?? null, 'fail');
 	writeInProject($projDir, 'conf/system.ini', buildSystemIni());
-	runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt', '--useStore=userFile'));
+	runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=userFile'));
 	checkIdentical('deploy start makes a pair of its own, the public key found replaced', Array(is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), fetchInProject($projDir, 'conf/keys/jwtToken.pub')!==$srcPubl), Array(true, true));
 	$projDir = freshPrjt('external');
 	runShellAsJson($projDir, Array('install', 'makeConf'));
@@ -231,8 +231,8 @@ if( function_exists('openssl_pkey_new') ){
 	writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 	checkIdentical('external: the public key alone is the one of the server issuing the tokens, fine in PROD', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))['token keys jwtToken'] ?? null, 'fine');
 	writeInProject($projDir, 'conf/system.ini', buildSystemIni());
-	runShellAsJson($projDir, Array('install', 'allSteps', '--noPrompt', '--useStore=userFile'));
-	checkIdentical('external: install allSteps keeps it and makes no pair', Array(is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), fetchInProject($projDir, 'conf/keys/jwtToken.pub')), Array(false, $srcPubl));
+	runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=userFile'));
+	checkIdentical('external: install complete keeps it and makes no pair', Array(is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), fetchInProject($projDir, 'conf/keys/jwtToken.pub')), Array(false, $srcPubl));
 }
 
 // The rights of the secret files : not read on Windows, which is told

@@ -718,7 +718,7 @@ French, and a run can replace them with its own wording and look.
 ```
 developer machine                           server
 ──────────────────                          ──────────────────────────────────────
-php nyuRun bundles final ──▶ copy ────▶ php nyuRun install allSteps
+php nyuRun bundles final ──▶ copy ────▶ php nyuRun install complete
   (code, examples,                            checks the server, makes the local
    libraries; no secret,                      settings from the examples, makes the
    no local setting)                          secrets and keys, creates the users,
@@ -731,7 +731,7 @@ php nyuRun bundles final ──▶ copy ────▶ php nyuRun install allSt
    pre-production server, production, or a place the project declares.
    Its settings (environment, errors shown, what gets logged) are those of
    that place.
-2. **Install** it: `install allSteps` checks PHP and its extensions, makes the
+2. **Install** it: `install complete` checks PHP and its extensions, makes the
    local settings from their examples, makes any missing secrets and token
    keys, creates the users (a users file, or database tables), and runs
    the health check. It asks for what it needs, suggesting a default for
@@ -803,7 +803,7 @@ balancer has to plan for each:
 | **Counts of wrong attempts** | files in `temp/limits` on each server | each server counts its own, so an address is held by the server that saw the attempts |
 | **Held accounts, users, devices** | the database | shared by all |
 | **Logs** | each server's files | gathered by the host, if wanted |
-| **Settings, secrets and token keys** | each server's files | the same on all: made once and copied by the host. Running `install allSteps` on each server would give each its own keys, and their tokens wouldn't work on the others |
+| **Settings, secrets and token keys** | each server's files | the same on all: made once and copied by the host. Running `install complete` on each server would give each its own keys, and their tokens wouldn't work on the others |
 | **Config cache** | `temp/cache` on each server | each server makes its own; after a settings change, run `php nyuRun setting clrCache` on each |
 
 ### 6.4 What's not there yet
