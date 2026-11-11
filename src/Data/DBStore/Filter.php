@@ -17,7 +17,9 @@ class Filter {
 	 * characters is a wildcard, so that a value taken from a request
 	 * cannot widen a search. A match is asked for by the name of the
 	 * field, ending with '~' (or '!~' for what does not match): '*' then
-	 * stands for any text, and is the only wildcard. A field name ending
+	 * stands for any text, and is the only wildcard; '\*' is a star and '\\'
+	 * a backslash. A value taken from a request goes into a match through
+	 * quoteMatchText(), which keeps it from being read as a pattern. A field name ending
 	 * with '=' asks for the exact value, as no suffix does.
 	 *
 	 * Whether a field holds a value is asked by name, with the '?' suffix:
@@ -28,8 +30,9 @@ class Filter {
 	 *
 	 * Each condition holds its 'field', its 'opert' and its 'value'. The
 	 * operations are: equal, diffr, under, undeq, above, aboeq (compared
-	 * with the value), match and nmtch (the value is a text in which * is
-	 * any text; each store writes it its own way), among and nmong (the value is a list), unset and isset
+	 * with the value), match and nmtch (the value is the list of the literal
+	 * pieces of the text, any text standing between two of them; each store
+	 * writes it its own way), among and nmong (the value is a list), unset and isset
 	 * (no value), never and every (no field: always false, always true).
 	 *
 	 * @param Array $filterFields Map of field name => value (or array of values) to filter by.
@@ -73,13 +76,35 @@ class Filter {
 				// A null value matches nothing, like a comparison with NULL in SQL
 				$clauses[] = Array('field'=>'', 'opert'=>'never', 'value'=>null);
 			}else{
-				// A match is made on a text : its * is any text, and nothing else in it is a wildcard
+				// A match is read here, once : a * alone is any text, \* a star and \\ a backslash, nothing else a wildcard.
+				// The stores get the literal pieces, to join with their own wildcard (see quoteMatchText)
 				if( $operatr=='match' || $operatr=='nmtch' ){
-					$fldVal = is_scalar($fldVal) ? strval($fldVal) : '';
+					$partLst = Array('');
+					foreach( preg_split('/(\\\\[\\\\*]|\*)/', is_scalar($fldVal) ? strval($fldVal) : '', -1, PREG_SPLIT_DELIM_CAPTURE) as $oneTkn ){
+						if( $oneTkn==='*' ){
+							$partLst[] = '';
+							continue;
+						}
+						$litPart = ($oneTkn==='\\*' || $oneTkn==='\\\\') ? substr($oneTkn, 1) : $oneTkn;
+						$partLst[count($partLst)-1] .= $litPart;
+					}
+					$fldVal = $partLst;
 				}
 				$clauses[] = Array('field'=>$fldNme, 'opert'=>$operatr, 'value'=>$fldVal);
 			}
 		}
 		return $clauses;
+	}
+
+	/**
+	 * Escapes a text so that, in a match, it matches only itself: its stars
+	 * and backslashes are no longer read as a pattern. A search taken from
+	 * a request is written '*'.Filter::quoteMatchText($search).'*'.
+	 *
+	 * @param String $searchedText The text, as sent.
+	 * @return String The text, its * and \ escaped.
+	 */
+	public static function quoteMatchText( String $searchedText ): String {
+		return strtr( $searchedText, Array('\\'=>'\\\\', '*'=>'\\*') );
 	}
 }

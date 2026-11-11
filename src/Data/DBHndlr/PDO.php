@@ -210,7 +210,7 @@ abstract Class PDO implements Handler {
 				$filters = array_merge($filters, $clause['value']);
 			}elseif( $opToken=='match' || $opToken=='nmtch' ){
 				$whrText[] = $safeFld.' '.($opToken=='nmtch' ? 'NOT ' : '').$this->getLikeKeyword()." ? ESCAPE '!'";
-				$filters[] = $this->writeLikeValue( strval($clause['value']) );
+				$filters[] = $this->writeLikeValue( (array)$clause['value'] );
 			}else{
 				$whrText[] = $safeFld.' '.$signLst[$opToken].' ?';
 				$filters[] = $clause['value'];
@@ -220,16 +220,20 @@ abstract Class PDO implements Handler {
 	}
 	
 	/**
-	 * Writes the text of a match as the pattern of a wildcard search: its
-	 * * becomes the wildcard of the database, and the characters the
-	 * database would read as wildcards (%, _) are escaped with '!', the
-	 * escape character the search is written with.
+	 * Writes a match as the pattern of a wildcard search: its literal
+	 * pieces joined by the wildcard of the database, the characters the
+	 * database would read as wildcards (%, _) escaped with '!', the escape
+	 * character the search is written with.
 	 *
-	 * @param String $wildcardText The text, in which * is any text.
+	 * @param Array $literalParts The literal pieces, as Filter::readWhereArray() gives them.
 	 * @return String The pattern.
 	 */
-	protected function writeLikeValue( String $wildcardText ): String {
-		return str_replace( '*', '%', strtr($wildcardText, Array('!'=>'!!', '%'=>'!%', '_'=>'!_')) );
+	protected function writeLikeValue( Array $literalParts ): String {
+		$partLst = Array();
+		foreach( $literalParts as $oneTkn ){
+			$partLst[] = strtr( strval($oneTkn), Array('!'=>'!!', '%'=>'!%', '_'=>'!_') );
+		}
+		return implode('%', $partLst);
 	}
 
 	/**

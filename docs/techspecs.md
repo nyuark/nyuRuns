@@ -318,7 +318,9 @@ left out. Give every action a definition, even one without inputs.
 - `OutText` is meant for what gets shown, not for what goes into a query:
   it encodes quotes and removes tags.
 - A filter compares a value as it is. A wildcard match is asked for
-  through the field's name (`title~`), and only `*` is a wildcard.
+  through the field's name (`title~`), and only `*` is a wildcard. A
+  search taken from a request goes into it quoted:
+  `'*'.Filter::quoteMatchText($search).'*'`, so it is never a pattern.
 
 ### 2.8 Give each route the least access it needs
 
@@ -1611,13 +1613,15 @@ own language:
 | `'field!'=>value` | differs from it |
 | `'field<'`, `'field<='`, `'field>'`, `'field>='` | is below or above it |
 | `'field'=>[a, b]`, `'field!'=>[a, b]` | is one of the values, or none of them |
-| `'field~'=>'*text*'`, `'field!~'=>'*text*'` | matches the text, or doesn't; `*` is any text |
+| `'field~'=>'*text*'`, `'field!~'=>'*text*'` | matches the text, or doesn't; `*` is any text, `\*` a star and `\\` a backslash |
 | `'field?'=>false`, `'field?'=>true` | holds no value, or holds one |
 
 A row must meet every condition of the filter. A value is compared as it
 is: none of its characters is a wildcard, so a value taken from a request
 can't widen a search. Only a field named with `~` matches, and only `*`
-is a wildcard there. A `null` value matches nothing, so an empty input
+is a wildcard there; `Filter::quoteMatchText()` escapes a text taken from a
+request, so that it matches only itself. The pattern is read once, in
+`Filter`: each store writes what it read (`LIKE … ESCAPE`, a regular expression). A `null` value matches nothing, so an empty input
 can't select the rows left unset. A field name is letters, digits and
 underscores, with an optional table (`shows.title`); anything else is
 refused.

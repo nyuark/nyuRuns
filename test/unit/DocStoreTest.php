@@ -13,6 +13,7 @@ use nyu\Data\DBLst;
 use nyu\Data\DBRec;
 use nyu\Data\DBStore\ArrayStore;
 use nyu\Data\DBStore\MongoStore;
+use nyu\Data\DBStore\Filter;
 
 $docStor = new ArrayStore();
 $docLink = DBCon::fromStoreDbCon($docStor);
@@ -127,6 +128,7 @@ checkIdentical('mongo: not equal and lists leave out the rows left unset', runCa
 	Array('seats'=>Array('$in'=>Array(80, 120))),
 	Array('seats'=>Array('$nin'=>Array(0, null)))
 )));
+checkIdentical('mongo: a star written \* is a star, a quoted search matches only itself', Array(MongoStore::makeQueryArray(Array('title~'=>'A\*B*'))['$and'][0]['title']['$regex'] ?? null, MongoStore::makeQueryArray(Array('title~'=>'*'.Filter::quoteMatchText('a.*').'*'))['$and'][0]['title']['$regex'] ?? null), Array('^A\*B.*$', '^.*a\.\*.*$'));
 checkIdentical('mongo: wildcards become anchored expressions that ignore the case', runCatchThrown(function(){
 	return MongoStore::makeQueryArray(Array('title~'=>'Alpha*', 'venue!~'=>'Hall (A)*'));
 }), Array('$and'=>Array(

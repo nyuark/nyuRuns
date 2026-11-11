@@ -3,6 +3,7 @@
 namespace nyu\Runs\Shows;
 
 use \nyu\App\Actionset;
+use \nyu\Data\DBStore\Filter;
 
 class Actions extends Actionset {
 
@@ -26,8 +27,8 @@ class Actions extends Actionset {
 			unset($filters['categ']);
 		}
 		if(isset($filters['search'])){
-			// A search is a match : the * of what is searched for is any text
-			$itmFile = Array('title~'=>$filters['search']);
+			// A search is the text sent, found anywhere in the title : what it holds is never read as a pattern
+			$itmFile = Array('title~'=>'*'.Filter::quoteMatchText( is_scalar($filters['search']) ? strval($filters['search']) : '' ).'*');
 			unset($filters['search']);
 		}else{
 			$itmFile = Array();

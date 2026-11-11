@@ -59,14 +59,14 @@ checkIdentical('index: event spans', array_column($outcome['out'] ?? Array(), 'e
 	false
 ));
 
-checkIdentical('index: search on the title', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Alpha*')))), Array('Alpha Night', 'Alpha Matinee'));
+checkIdentical('index: search on the title', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Alpha')))), Array('Alpha Night', 'Alpha Matinee'));
 checkIdentical('index: category filter', titleList(runAction('index', null, Array('filters'=>Array('categ'=>'music')))), Array('Alpha Night', 'Beta Evening'));
-checkIdentical('index: search and category together', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Alpha*', 'categ'=>'circus')))), Array('Alpha Matinee'));
-checkIdentical('index: exactly one match', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Beta*')))), Array('Beta Evening'));
-checkIdentical('index: a category given as an array is ignored', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Beta*', 'categ'=>Array('x'))))), Array('Beta Evening'));
+checkIdentical('index: search and category together', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Alpha', 'categ'=>'circus')))), Array('Alpha Matinee'));
+checkIdentical('index: exactly one match', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Beta')))), Array('Beta Evening'));
+checkIdentical('index: a category given as an array is ignored', titleList(runAction('index', null, Array('filters'=>Array('search'=>'Beta', 'categ'=>Array('x'))))), Array('Beta Evening'));
 checkIdentical('index: sorting', titleList(runAction('index', null, Array('sorting'=>'^id_show', 'indexes'=>'2'))), Array('Empty Stage', 'Solo Gig'));
 
-$outcome = runAction('index', null, Array('filters'=>Array('search'=>'Zzz*')));
+$outcome = runAction('index', null, Array('filters'=>Array('search'=>'Zzz')));
 checkIdentical('index: no match is 204', $outcome['code'] ?? $outcome, 204);
 checkIdentical('index: no match output', $outcome['out'] ?? $outcome, Array());
 checkIdentical('index: no category match is 204', runAction('index', null, Array('filters'=>Array('categ'=>'opera')))['code'] ?? null, 204);

@@ -50,6 +50,8 @@ checkIdentical('wildcard: in the middle and at the start', Array(pickShow(Array(
 checkIdentical('wildcard: without a *, the whole text is matched', pickShow(Array('title~'=>'Solo Gig')), Array("`title` LIKE ? ESCAPE '!'", Array('Solo Gig'), Array(4)));
 checkIdentical('wildcard: % and _ are plain text, escaped for the database', pickShow(Array('title~'=>'%_!*')), Array("`title` LIKE ? ESCAPE '!'", Array('!%!_!!%'), Array()));
 checkIdentical('wildcard: a _ does not stand for any character', Array(pickShow(Array('title~'=>'Solo_Gig'))[2] ?? null, pickShow(Array('title~'=>'Alpha%'))[2] ?? null), Array(Array(), Array()));
+checkIdentical('wildcard: \* is a star and \\ a backslash, not a pattern', Array(pickShow(Array('title~'=>'Alpha\*'))[1] ?? null, pickShow(Array('title~'=>'Alpha\*'))[2] ?? null, Filter::readWhereArray(Array('title~'=>'a\\\\b\*c\d*'))[0]['value']), Array(Array('Alpha*'), Array(), Array('a\\b*c\d', '')));
+checkIdentical('quoteMatchText: a search matches only itself, wherever it is in the value', Array(Filter::quoteMatchText('5*\\x'), pickShow(Array('title~'=>'*'.Filter::quoteMatchText('a N').'*'))[2] ?? null, pickShow(Array('title~'=>'*'.Filter::quoteMatchText('a N*').'*'))[2] ?? null, pickShow(Array('title~'=>'*'.Filter::quoteMatchText('%').'*'))[2] ?? null), Array('5\*\\\\x', Array(1), Array(), Array()));
 checkIdentical('wildcard: a list is still a list', pickShow(Array('id_show~'=>Array(1, 2), 'title!~'=>Array('Solo Gig'))), Array('`id_show` IN (?,?) AND `title` NOT IN (?)', Array(1, 2, 'Solo Gig'), Array(1, 2)));
 
 // Exact values : what a value holds is never a wildcard
@@ -89,13 +91,13 @@ checkIdentical('readWhere gives one condition per entry', runCatchThrown(functio
 }), Array(
 	Array('field'=>'venue',   'opert'=>'equal', 'value'=>'Hall B'),
 	Array('field'=>'id_show', 'opert'=>'aboeq', 'value'=>2),
-	Array('field'=>'title',   'opert'=>'nmtch', 'value'=>'Alpha*'),
+	Array('field'=>'title',   'opert'=>'nmtch', 'value'=>Array('Alpha', '')),
 	Array('field'=>'id_show', 'opert'=>'among', 'value'=>Array(1, 2)),
 	Array('field'=>'venue',   'opert'=>'unset', 'value'=>null),
 	Array('field'=>'title',   'opert'=>'equal', 'value'=>'50%'),
-	Array('field'=>'venue',   'opert'=>'match', 'value'=>'Hall %*'),
+	Array('field'=>'venue',   'opert'=>'match', 'value'=>Array('Hall %', '')),
 	Array('field'=>'title',   'opert'=>'diffr', 'value'=>'a*'),
-	Array('field'=>'venue',   'opert'=>'nmtch', 'value'=>'12')
+	Array('field'=>'venue',   'opert'=>'nmtch', 'value'=>Array('12'))
 ));
 checkIdentical('readWhere: what matches nothing or everything names no field', runCatchThrown(function(){
 	return array_column(Filter::readWhereArray(Array('a'=>null, 'b'=>Array(), 'c!'=>Array(), 'd?'=>true)), 'opert');

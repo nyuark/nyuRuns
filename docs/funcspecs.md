@@ -634,8 +634,8 @@ What happens along the way:
   right format, and a missing required one is a 400 before the action
   runs. A value that isn't valid for its format is emptied.
 - **Filters**: a value from the request is compared as is, never as a
-  pattern. A wildcard search is asked for through the field's name, so a
-  client can't widen what it's shown.
+  pattern. A wildcard search is asked for through the field's name, and a
+  value sent for it is quoted first, so a client can't widen what it's shown.
 - **Lists**: rows are read a set number at a time (a default when none is
   asked for), from an offset, sorted by any field.
 - **Records**: their related rows come along with them (a show and its

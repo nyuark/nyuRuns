@@ -65,7 +65,7 @@ class ArrayStore implements Store {
 				case 'unset': $matched = !$hasValu; break;
 				case 'isset': $matched = $hasValu; break;
 				default:
-					$likeRgx = '/^'.str_replace('\\*', '.*', preg_quote(strval($testVal), '/')).'$/is';
+					$likeRgx = '/^'.implode('.*', array_map(function( Mixed $oneTkn ): String { return preg_quote(strval($oneTkn), '/'); }, (array)$testVal)).'$/is';
 					$matched = is_string($rowValu) && (preg_match($likeRgx, $rowValu)==($clause['opert']=='match' ? 1 : 0));
 			}
 			if( !$matched ){

@@ -170,14 +170,18 @@ class MongoStore implements Store {
 	}
 
 	/**
-	 * Writes the text of a match as a regular expression: * stands for any
-	 * text, everything else for itself.
+	 * Writes a match as a regular expression: its literal pieces, each for
+	 * itself, any text between two of them.
 	 *
-	 * @param String $matchPattern The text, as readWhereArray() gives it.
+	 * @param Array $literalParts The literal pieces, as Filter::readWhereArray() gives them.
 	 * @return String The regular expression, covering the whole value.
 	 */
-	protected static function patternToRegex(String $matchPattern): String {
-		return '^'.str_replace('\\*', '.*', preg_quote($matchPattern)).'$';
+	protected static function patternToRegex( Array $literalParts ): String {
+		$partLst = Array();
+		foreach( $literalParts as $oneTkn ){
+			$partLst[] = preg_quote( strval($oneTkn) );
+		}
+		return '^'.implode('.*', $partLst).'$';
 	}
 
 	/**
