@@ -20,7 +20,7 @@ $dbsText = "{\n\t\"main\": {\n\t\t\"dbEngine\": \"sqlitedb\",\n\t\t\"hostName\":
 $rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"synopsis\": \"A preset of the tests\",\n\t\"settings\": { \"confType\": \"all\", \"confList\": \"any\" },\n"
 	."\t# Access\n\t\"security\": {\n\t\t// Carrier : \"sessWith\": \"httpBasc\" would be another\n\t\t\"sessWith\": \"jwtToken\",\n\t\t\"sessConf\": \"jwtToken\",\n\t\t\"authWith\":\t\"native\",\n\t\t\"required\": true,\n"
 	."\t\t\"openList\": [\"auth/login\", \"/hello\"],\n\t\t\"rteRoles\": { \"users/*\": \"sysadmin\", \"/admin/\$id\": \"operator\" }\n\t},\n"
-	."\t\"incoming\": [ { \"nameFrom\": \"QUERY\", \"dataFrom\": \"QUERY\", \"fieldSet\": \"all\" } ],\n"
+	."\t\"inputSet\": [ { \"sourceId\": \"QUERY\", \"readFrom\": \"QUERY\", \"fieldSet\": \"all\" } ],\n"
 	."\t\"dispatch\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$appToRun/\$doAction/\$argument\", \"routeDir\": \"conf/routes\" },\n"
 	."\t\"response\": { \"outputAs\": \"jsonData\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
 $rteText = '{ "hello": { "pointsTo": { "pageFile": "hello" } }, "admin/$id": { "mthdList": "GET, POST", "pointsTo": { "appToRun": "users", "doAction": "view" } },'

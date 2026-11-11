@@ -34,7 +34,7 @@ class Loader{
 	*/
     public function __construct(Array $fullSetupArr = Array(), ?Array $cachedValues = null, String $nameOfPreset = ''){
 		$this->setAllRegistry( $fullSetupArr );
-		$this->blockNames = Array('settings','security','dispatch','response','incoming');
+		$this->blockNames = Array('settings','security','dispatch','response','inputSet');
 		$this->presetName = $nameOfPreset;
 		$this->usesCached = ($cachedValues!==null);
 		// The preset is kept as it is before any overload of the Runner
@@ -213,10 +213,10 @@ class Loader{
 	 * actions, which its Controller applies.
 	 *
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
-	 * @return Registry Registry of parsed input values, empty if no 'incoming' config is set.
+	 * @return Registry Registry of parsed input values, empty if no 'inputSet' config is set.
 	 */
     function retrieveInputs( Request $givenRequest ): Registry {
-		$inptSet = $this->getRegistryKey('incoming');
+		$inptSet = $this->getRegistryKey('inputSet');
 		if($inptSet){
 			$inptArr = Array();
 			foreach($inptSet as $putSet){
@@ -224,10 +224,10 @@ class Loader{
 				// Version 1.0 :	'QUERY'
 				// Version 1.1 :	'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX'
 				$inptTyp = Array('QUERY');
-				$inptSrc = $putSet['dataFrom'];
+				$inptSrc = $putSet['readFrom'];
 
 				if(in_array($inptSrc, $inptTyp)){
-					$inptObj = new Input( $givenRequest, $inptSrc, $putSet['fieldSet'], $putSet['nameFrom']);
+					$inptObj = new Input( $givenRequest, $inptSrc, $putSet['fieldSet'], $putSet['sourceId']);
 					$inptArr = array_merge($inptArr, $inptObj->readRgstValues());
 				}
 			}

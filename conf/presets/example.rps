@@ -73,13 +73,13 @@
 		"rteRoles": { "users/*": "sysadmin" }
 	},
 	// Sources of the inputs given to the applications; without this block they get none
-	"incoming": [
+	"inputSet": [
 		{
 	        // Name of the source
-			"nameFrom": "QUERY",
+			"sourceId": "QUERY",
 	        // Where the values come from: QUERY (query string and body of the request)
 	        // Planned for version 1.1: DFILE; DBREC; XTAPI; SESSN; RFLUX
-			"dataFrom": "QUERY",
+			"readFrom": "QUERY",
 	        // Fields kept: all; none; or a definition of the fields and of their formats,
 	        // as an application can give for each action in input/<action>.json
 			"fieldSet": "all"

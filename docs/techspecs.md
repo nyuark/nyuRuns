@@ -508,7 +508,7 @@ and body (JSON, a form, or a multipart body with files, for every method).
 
 - A body larger than `REQ_SIZE`, or a multipart body with more parts than
   `REQ_PART`, isn't read: the request gets a 413, and a warning is logged.
-- The preset's `incoming` block says which sources the inputs come from.
+- The preset's `inputSet` block says which sources the inputs come from.
   Server and client values are never inputs: an action reads them through
   the request.
 
@@ -923,7 +923,7 @@ of the framework, chosen by the entry point. Its blocks and their keys:
 | (top) | `presetId`, `synopsis` | its name, and what it's for |
 | `settings` | `confType`, `confList`, `confPath`, `envrFile` | the configuration files read: their types (`all`, `ini`, `json`), their names (`any` or a list), their folder, the file of the secrets |
 | `security` | `required`, `sessWith`, `sessConf`, `authWith`, `authConf`, `openList`, `signRout`, `rteRoles`, `appsConf`, `isPublic` | the access check: whether one is needed, the carrier and the check with the blocks of `access.json` they read, the routes open to all, a site's sign-in route, the roles of the routes, the block of the application keys, and a site meant to be open |
-| `incoming` | `nameFrom`, `dataFrom`, `fieldSet` | the sources of the inputs (`QUERY`), and the fields kept |
+| `inputSet` | `sourceId`, `readFrom`, `fieldSet` | the sources of the inputs (`QUERY`), and the fields kept |
 | `dispatch` | `detectBy`, `pathForm`, `routeDir`, `fileRoot`, `runMount` | the routing: `autopath` or `manually`, the names of the parts of a path, the folder of the route files, the folder of the pages and static files, where each run's routes are mounted (or `false` to stop serving it) |
 | `response` | `outputAs`, `corsList`, `headList` | the reply: its format, the sites allowed to call, the headers sent |
 

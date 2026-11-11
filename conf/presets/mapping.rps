@@ -6,10 +6,10 @@
 		"confList": "any"
 	},
 	"security": { "required": true, "sessWith": "jwtToken", "sessConf": "jwtToken", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json"], "rteRoles": { "users/*": "sysadmin" } },
-	"incoming": [
+	"inputSet": [
 		{
-			"nameFrom": "QUERY",
-			"dataFrom": "QUERY",
+			"sourceId": "QUERY",
+			"readFrom": "QUERY",
 			"fieldSet": "all"
 		}
 	],

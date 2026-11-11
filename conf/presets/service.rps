@@ -6,10 +6,10 @@
 		"confList": "any"
 	},
 	"security": { "required": true, "sessWith": "apiHeadr", "sessConf": "regdKeys", "authWith": "regdKeys" },
-	"incoming": [
+	"inputSet": [
 		{
-			"nameFrom": "QUERY",
-			"dataFrom": "QUERY",
+			"sourceId": "QUERY",
+			"readFrom": "QUERY",
 			"fieldSet": "all"
 		}
 	],

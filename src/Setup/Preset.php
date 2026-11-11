@@ -10,12 +10,12 @@ use \nyu\Data\Parsers\ParseError;
  */
 class Preset{
 
-	// The keys a preset may hold, block by block; 'incoming' is a list of sources, each holding those keys
+	// The keys a preset may hold, block by block; 'inputSet' is a list of sources, each holding those keys
 	const KEYS_LIST = Array(
-		''         => Array('presetId', 'synopsis', 'settings', 'security', 'incoming', 'dispatch', 'response'),
+		''         => Array('presetId', 'synopsis', 'settings', 'security', 'inputSet', 'dispatch', 'response'),
 		'settings' => Array('confType', 'confList', 'confPath', 'envrFile'),
 		'security' => Array('required', 'sessWith', 'sessConf', 'authWith', 'authConf', 'openList', 'signRout', 'rteRoles', 'appsConf', 'isPublic'),
-		'incoming' => Array('nameFrom', 'dataFrom', 'fieldSet'),
+		'inputSet' => Array('sourceId', 'readFrom', 'fieldSet'),
 		'dispatch' => Array('detectBy', 'pathForm', 'routeDir', 'fileRoot', 'runMount'),
 		'response' => Array('outputAs', 'corsList', 'headList')
 	);
@@ -90,7 +90,7 @@ class Preset{
 				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a block that is not a set of keys: '.$blkKey);
 			}
 			// The sources of the inputs are a list, each checked as a block
-			foreach( ($blkKey=='incoming' ? $blkVal : Array($blkVal)) as $setVal ){
+			foreach( ($blkKey=='inputSet' ? $blkVal : Array($blkVal)) as $setVal ){
 				foreach( array_keys((array)$setVal) as $setKey ){
 					if( !in_array($setKey, self::KEYS_LIST[$blkKey], true) ){
 						throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown key: '.$blkKey.'.'.$setKey);
