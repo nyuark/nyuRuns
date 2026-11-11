@@ -1,7 +1,9 @@
 <?php
 
 // Sample data shared by the data and http tests: a small `shows` database
-// with its `events` and `items` child tables.
+// with its `events` and `items` child tables. No Run of the framework uses
+// them: they test the data layer (handlers, stores, DBLst, DBRec), and
+// makerun generates the example Run from them.
 //
 //   show 1  Alpha Night    two events across a year end, two items
 //   show 2  Beta Evening   two events in one month, two items
@@ -11,10 +13,10 @@
 //
 // and a `users` table for the native userbase (conf/schema/users.sqlitedb.sql), password pw-<name> :
 //
-//   user 1  anna   manage  active
-//   user 2  ben    member  active
-//   user 3  cleo   member  pendng
-//   user 4  dave   system  locked
+//   user 1  anna   managers  approved
+//   user 2  ben    standard  approved
+//   user 3  cleo   standard  awaiting
+//   user 4  dave   advanced  disabled
 //
 // and an empty `devices` table (conf/schema/devices.sqlitedb.sql), each device linked to a user.
 

@@ -1,8 +1,2 @@
 {
-	"index" : {
-		"pointsTo": {
-			"appToRun": "shows",
-			"doAction": "index"
-		}
-	}
 }

@@ -162,8 +162,6 @@ checkForThrows('link: but not in manual mode', function(){ madeRoutr('/', 'GET',
 checkForThrows('link: an undeclared pattern', function() use ( $routObj ){ $routObj->buildRouteLink('nosuch/$id', Array('id'=>1)); }, 'RuntimeException');
 checkForThrows('link: a named part without value', function() use ( $routObj ){ $routObj->buildRouteLink('items/$id'); }, 'RuntimeException');
 checkForThrows('link: a named part with an empty value', function() use ( $routObj ){ $routObj->buildRouteLink('items/$id', Array('id'=>'')); }, 'RuntimeException');
-$idxRout = madeRoutr('/', 'GET', Array('routeDir'=>'conf'.DS.'routes'));
-checkIdentical('link: the index route is the root', $idxRout->buildRouteLink('index'), '/');
 
 /**
  * Runs an action of the Probe application with a response and a router,
@@ -267,7 +265,8 @@ checkPregMatch('run clash: an error on runner', $clshLog, '#\[ERROR\] Route "/mo
 // A site route answering with an action is an alias : its methods apply to it only, it closes nothing
 $alsFldr = 'temp'.DS.'alias_'.getmypid();
 @mkdir(TOP_DIR.DS.$alsFldr, 0775, true);
-file_put_contents(TOP_DIR.DS.$alsFldr.DS.'alias.rte', '{ "hidden": { "mthdList": "POST", "pointsTo": { "appToRun": "mounted", "doAction": "unlisted" } }, "mirrors": { "mthdList": "POST", "pointsTo": { "appToRun": "probe", "doAction": "mirrored" } } }');
+file_put_contents(TOP_DIR.DS.$alsFldr.DS.'alias.rte', '{ "index": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } }, "hidden": { "mthdList": "POST", "pointsTo": { "appToRun": "mounted", "doAction": "unlisted" } }, "mirrors": { "mthdList": "POST", "pointsTo": { "appToRun": "probe", "doAction": "mirrored" } } }');
+checkIdentical('link: the index route is the root', madeRoutr('/', 'GET', Array('routeDir'=>$alsFldr))->buildRouteLink('index'), '/');
 checkIdentical('alias: reaches an action its Run does not list', foundVals('/hidden', Array('appToRun', 'doAction', 'routOwnr'), 'POST', Array('routeDir'=>$alsFldr)), Array('mounted', 'unlisted', 'site'));
 checkIdentical('alias: its methods apply to it', foundVals('/hidden', Array('statCode'), 'GET', Array('routeDir'=>$alsFldr)), Array(405));
 checkIdentical('alias: the action stays reached by its own path, with any method', foundVals('/probe/mirrored/x', Array('appToRun', 'doAction'), 'GET', Array('routeDir'=>$alsFldr)), Array('probe', 'mirrored'));

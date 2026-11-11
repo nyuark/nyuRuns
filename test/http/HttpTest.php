@@ -146,27 +146,7 @@ if( !$isReady ){
 }else{
 	$jsonTyp = 'application/json; charset=utf-8';
 
-	// Successful responses
-	$replyAr = httpQuery('GET', $baseUrl.'/');
-	checkIdentical('index: status', $replyAr['code'], 200);
-	checkIdentical('index: content type', $replyAr['type'], $jsonTyp);
-	checkIdentical('index: titles', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Alpha Night', 'Beta Evening', 'Alpha Matinee', 'Solo Gig', 'Empty Stage'));
-	checkIdentical('index: the body starts with the JSON itself', substr($replyAr['body'], 0, 1), '[');
-
-	$replyAr = httpQuery('GET', $baseUrl.'/?filters[search]=Beta*');
-	checkIdentical('index with one match', array_column(json_decode($replyAr['body'], true) ?? Array(), 'title'), Array('Beta Evening'));
-
-	$replyAr = httpQuery('GET', $baseUrl.'/?filters[search]=Zzz*');
-	checkIdentical('index with no match: 204 is sent as 200 with the empty list', Array($replyAr['code'], $replyAr['body']), Array(200, '[]'));
-
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1');
-	checkIdentical('view: status', $replyAr['code'], 200);
-	checkIdentical('view: record', json_decode($replyAr['body'], true)['title'] ?? null, 'Alpha Night');
-
 	// Statuses set by actions
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99');
-	checkIdentical('missing show: 404 with an error body', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Show not found","code":404}'));
-
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login');
 	checkIdentical('login without credentials: 400', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName, passWord","code":400}'));
 
@@ -212,9 +192,6 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/', Array('X-Test-Runs'=>'1'));
 	checkIdentical('no action, trailing slash', Array($replyAr['code'], $replyAr['body']), Array(200, '{"ok":true}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows?filters[search]=Beta*');
-	checkIdentical('no action: a default action whose route limits no method is still reached from the path', Array($replyAr['code'], httpQuery('GET', $baseUrl.'/shows/index')['code'], count(json_decode(httpQuery('GET', $baseUrl.'/')['body'], true) ?? Array())), Array(200, 200, 5));
-
 	$replyAr = httpQuery('POST', $baseUrl.'/auth');
 	checkIdentical('no action: the first action of auth is the login, which its declared route alone reaches', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
@@ -227,27 +204,27 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here');
 	checkIdentical('unknown application: 404', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
-	// Uncaught exception (view called without its parameter)
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view');
+	// Uncaught exception (mirrored called without its parameter)
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored', Array('X-Test-Runs'=>'1'));
 	$errVals = json_decode($replyAr['body'], true);
 	checkIdentical('uncaught exception: 500 in the configured format', Array($replyAr['code'], $replyAr['type'], $errVals['code'] ?? null), Array(500, $jsonTyp, 500));
 	checkTrueValue('uncaught exception: carries an error message', is_string($errVals['error'] ?? null) && $errVals['error']!='');
 
 	// Access control
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'apiHeadr'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'apiHeadr'));
 	checkIdentical('access denied: 401 with an error body', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Missing X-Api-Key header","code":401}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'htpasswd'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'htpasswd'));
 	checkIdentical('Basic access denied: 401', $replyAr['code'], 401);
 	checkTrueValue('Basic access denied: challenge header, with its realm', in_array('WWW-Authenticate: Basic realm="nyuRuns", charset="UTF-8"', $replyAr['head']));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'regdKeys'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'regdKeys'));
 	checkIdentical('Basic access with a check of keys: a mistake of the config, told as a 500', Array($replyAr['code'], $replyAr['body'], count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head']))), Array(500, '{"error":"Access misconfigured","code":500}', 0));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jwtToken'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken'));
 	checkIdentical('JWT access denied: 401', $replyAr['code'], 401);
 	checkTrueValue('JWT access denied: challenge header', in_array('WWW-Authenticate: Bearer', $replyAr['head']));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'Bogus'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'Bogus'));
 	checkIdentical('misconfigured access: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
 
 	// Public routes
@@ -255,7 +232,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $pubHead);
 	checkIdentical('public route: the action runs without credentials', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName, passWord","code":400}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', $pubHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1') + $pubHead);
 	checkIdentical('public route: other routes stay closed', $replyAr['code'], 401);
 
 	$replyAr = httpQuery('GET', $baseUrl.'/auth', $pubHead);
@@ -270,21 +247,21 @@ if( !$isReady ){
 	// CORS preflight : answered on any path with the preset's headers, without credentials and without running the action
 	$corsHed = Array('Origin'=>'https://app.example', 'Access-Control-Request-Method'=>'GET', 'Access-Control-Request-Headers'=>'authorization');
 	$corsLst = Array('Access-Control-Allow-Origin: *', 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers: Authorization, Content-Type, X-Api-Key');
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed);
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1') + $corsHed);
 	checkIdentical('preflight: answered on an automatic route, without the record', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 	checkIdentical('preflight: the three CORS headers are sent', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
 
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed + Array('X-Test-Auth'=>'jwtToken'));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1') + $corsHed + Array('X-Test-Auth'=>'jwtToken'));
 	checkIdentical('preflight: answered without credentials under required access', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 
 	$replyAr = httpQuery('OPTIONS', $baseUrl.'/auth/login', Array('Access-Control-Request-Method'=>'POST') + $corsHed);
 	checkIdentical('preflight: answered on a route that only accepts POST', Array($replyAr['code'], $replyAr['body']), Array(204, ''));
 
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jwtToken'));
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken'));
 	checkIdentical('an OPTIONS that is not a preflight stays closed under required access', $replyAr['code'], 401);
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', $corsHed);
-	checkIdentical('a GET carrying the preflight header is served normally', Array($replyAr['code'], json_decode($replyAr['body'], true)['title'] ?? null), Array(200, 'Alpha Night'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1') + $corsHed);
+	checkIdentical('a GET carrying the preflight header is served normally', Array($replyAr['code'], json_decode($replyAr['body'], true)['got'] ?? null), Array(200, 'Alpha'));
 	checkIdentical('the CORS headers go out on ordinary responses too', array_values(array_intersect($corsLst, $replyAr['head'])), $corsLst);
 
 	// A preset listing its origins : only a listed one is named, on a preflight as on a reply
@@ -297,33 +274,33 @@ if( !$isReady ){
 		return null;
 	};
 	$lstHead = Array('X-Test-Origns'=>'https://app.example, https://other.example');
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed + $lstHead);
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1') + $corsHed + $lstHead);
 	checkIdentical('origins: a preflight from a listed origin', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin'), $headOf($replyAr, 'Vary'), $headOf($replyAr, 'Access-Control-Allow-Methods')), Array(204, 'https://app.example', 'Origin', 'GET, POST, PUT, PATCH, DELETE, OPTIONS'));
-	$replyAr = httpQuery('OPTIONS', $baseUrl.'/shows/view/1', Array('Origin'=>'https://evil.example') + $corsHed + $lstHead);
+	$replyAr = httpQuery('OPTIONS', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'Origin'=>'https://evil.example') + $corsHed + $lstHead);
 	checkIdentical('origins: a preflight from another origin names none', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin'), $headOf($replyAr, 'Vary')), Array(204, null, 'Origin'));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('Origin'=>'https://other.example') + $lstHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'Origin'=>'https://other.example') + $lstHead);
 	checkIdentical('origins: a reply to a listed origin', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(200, 'https://other.example'));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('Origin'=>'https://evil.example') + $lstHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'Origin'=>'https://evil.example') + $lstHead);
 	checkIdentical('origins: a reply to another origin is served, without the header', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(200, null));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('Origin'=>'https://evil.example', 'X-Test-Auth'=>'jwtToken') + $lstHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'Origin'=>'https://evil.example', 'X-Test-Auth'=>'jwtToken') + $lstHead);
 	checkIdentical('origins: a denial follows the same rule', Array($replyAr['code'], $headOf($replyAr, 'Access-Control-Allow-Origin')), Array(401, null));
 
 	// Every reply tells the client not to guess another type than the one announced
 	$sniffLs = Array();
 	foreach( Array(
-		'data'=>httpQuery('GET', $baseUrl.'/shows/view/1'),
-		'denial'=>httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Auth'=>'jwtToken')),
+		'data'=>httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1')),
+		'denial'=>httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Auth'=>'jwtToken')),
 		'unknown'=>httpQuery('GET', $baseUrl.'/nothing/here'),
 		'refused method'=>httpQuery('GET', $baseUrl.'/auth/login'),
-		'preflight'=>httpQuery('OPTIONS', $baseUrl.'/shows/view/1', $corsHed)
+		'preflight'=>httpQuery('OPTIONS', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1') + $corsHed)
 	) as $rplNme => $rplVal ){
 		$sniffLs[$rplNme] = Array($rplVal['code'], $headOf($rplVal, 'X-Content-Type-Options'));
 	}
 	checkIdentical('nosniff: on a reply of data, a denial, an unknown route, a refused method and an empty reply', $sniffLs, Array('data'=>Array(200, 'nosniff'), 'denial'=>Array(401, 'nosniff'), 'unknown'=>Array(404, 'nosniff'), 'refused method'=>Array(405, 'nosniff'), 'preflight'=>Array(204, 'nosniff')));
 	// An application is named with letters and digits only : anything else is no application
 	$codeLst = Array();
-	foreach( Array('/sho.ws/view/1', '/shows-x/view/1', '/shows%20/view/1', '/..%5Csrc/view', '/shows%2Fview/1') as $badPth ){
-		$replyAr = httpQuery('GET', $baseUrl.$badPth);
+	foreach( Array('/pro.be/mirrored/1', '/probe-x/mirrored/1', '/probe%20/mirrored/1', '/..%5Csrc/view', '/probe%2Fmirrored/1') as $badPth ){
+		$replyAr = httpQuery('GET', $baseUrl.$badPth, Array('X-Test-Runs'=>'1'));
 		$codeLst[] = Array($replyAr['code'], $replyAr['body']);
 	}
 	checkIdentical('application name: what is not letters and digits is a 404', $codeLst, array_fill(0, 5, Array(404, '{"error":"Not Found","code":404}')));
@@ -377,7 +354,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/nothing/here', Array('X-Test-Preset'=>'mapping', 'X-Test-Runs'=>'1', 'X-Test-Routes'=>'1'));
 	checkIdentical('error page: a site without one answers as before', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctname'=>'x-content-type-options', 'X-Test-Ctype'=>'off'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Ctname'=>'x-content-type-options', 'X-Test-Ctype'=>'off'));
 	checkIdentical('nosniff: a preset cannot give the header another value', preg_grep('/^X-Content-Type-Options:/i', $replyAr['head']) ? array_values(preg_grep('/^X-Content-Type-Options:/i', $replyAr['head'])) : Array(), Array('X-Content-Type-Options: nosniff'));
 
 	// Identity handed to the application
@@ -808,20 +785,20 @@ if( !$isReady ){
 	checkIdentical('login with an unusable secret: 500', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Login unavailable","code":500}'));
 
 	// Content types
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Format'=>'yamlData'));
-	checkIdentical('yaml format: its type and body', Array($replyAr['code'], $replyAr['type'], preg_match('/^title: Alpha Night$/m', $replyAr['body'])), Array(200, 'application/yaml; charset=utf-8', 1));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Format'=>'htmlView'));
-	checkIdentical('html format: a page', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<!DOCTYPE html>')===0, strpos($replyAr['body'], '<dd><p>Alpha Night</p>')!==false), Array(200, 'text/html; charset=utf-8', true, true));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Format'=>'csvTable'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Format'=>'yamlData'));
+	checkIdentical('yaml format: its type and body', Array($replyAr['code'], $replyAr['type'], preg_match('/^got: Alpha$/m', $replyAr['body'])), Array(200, 'application/yaml; charset=utf-8', 1));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Format'=>'htmlView'));
+	checkIdentical('html format: a page', Array($replyAr['code'], $replyAr['type'], strpos($replyAr['body'], '<!DOCTYPE html>')===0, strpos($replyAr['body'], '<dd><p>Alpha</p>')!==false), Array(200, 'text/html; charset=utf-8', true, true));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Format'=>'csvTable'));
 	checkIdentical('tabl format: one record is not a list of them', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Response could not be encoded","code":500}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99', Array('X-Test-Format'=>'csvTable'));
-	checkIdentical('tabl format: an error is sent as JSON', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Show not found","code":404}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/99', Array('X-Test-Format'=>'xmlNodes'));
-	checkIdentical('xmlx format: an error is sent as XML', Array($replyAr['code'], $replyAr['type'], preg_match('/<error>Show not found<\/error>/', $replyAr['body'])), Array(404, 'application/xml; charset=utf-8', 1));
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctype'=>'application/problem+json'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/stopping/fail', Array('X-Test-Runs'=>'1', 'X-Test-Format'=>'csvTable'));
+	checkIdentical('tabl format: an error is sent as JSON', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(404, $jsonTyp, '{"error":"Stopped early","code":404}'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/stopping/fail', Array('X-Test-Runs'=>'1', 'X-Test-Format'=>'xmlNodes'));
+	checkIdentical('xmlx format: an error is sent as XML', Array($replyAr['code'], $replyAr['type'], preg_match('/<error>Stopped early<\/error>/', $replyAr['body'])), Array(404, 'application/xml; charset=utf-8', 1));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Ctype'=>'application/problem+json'));
 	checkIdentical('a Content-Type set by the preset is kept', $replyAr['type'], 'application/problem+json');
 
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Ctype'=>'text/csv', 'X-Test-Ctname'=>'content-type'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Ctype'=>'text/csv', 'X-Test-Ctname'=>'content-type'));
 	checkPregMatch('a lower-case preset header is not doubled', $replyAr['type'], '#^text/csv#');
 
 	// Request bodies : the probe's creds action answers 401 when user and pass were read from the body, 400 when they were not
@@ -939,12 +916,8 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/probe/txtProbe', $rteHead);
 	checkIdentical('method: autopath accepts any method', Array($replyAr['code'], $replyAr['body']), Array(200, '"plain text"'));
 
-	// The project's own routes (conf/routes) : index is a general target
-	$replyAr = httpQuery('POST', $baseUrl.'/');
-	checkIdentical('method: POST on the index route is refused', Array($replyAr['code'], $allowOf($replyAr)), Array(405, 'GET'));
-
 	// A failure before the error handler is installed : plain JSON 500, without details
-	$replyAr = httpQuery('GET', $baseUrl.'/shows/view/1', Array('X-Test-Preset'=>'nosuchpreset'));
+	$replyAr = httpQuery('GET', $baseUrl.'/probe/mirrored/Alpha', Array('X-Test-Runs'=>'1', 'X-Test-Preset'=>'nosuchpreset'));
 	checkIdentical('missing preset: generic JSON 500', Array($replyAr['code'], $replyAr['type'], $replyAr['body']), Array(500, $jsonTyp, '{"error":"Internal Server Error","code":500}'));
 
 	$replyAr = httpQuery('GET', $baseUrl.'/blank/here', $fixHead);
