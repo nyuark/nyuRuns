@@ -165,7 +165,7 @@ checkIdentical('a plug-in that is not listed is a misconfiguration', pairReply('
 
 // Roles : what each pair gives is measured against the role a route asks for
 $rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
-$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
+$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
 checkIdentical('role: httpBasc x htpasswd gives a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'internal'));
 checkIdentical('role: apiHeadr x plug-in check gives a member', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 404);
 checkIdentical('role: a certificate without a store gives a member', pairReply('clntCert', null, Array(), certVals('carol'), $rolConf, $anyRoute), Array(404, 'Not Found', 'carol', 'internal'));
@@ -214,7 +214,7 @@ checkIdentical('limit: a refusal for the role is not counted', Array(sendTrice('
 
 // A held address : what needs no check is still served
 checkIdentical('limit: a held address keeps the open routes', pairReply('httpBasc', 'htpasswd', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'auth', 'doAction'=>'login')), Array(200, '', '', null));
-checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'shows', 'doAction'=>'overview'))[0], 429);
+checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'shows', 'doAction'=>'index'))[0], 429);
 checkIdentical('limit: a certificate does not lift the hold of its address', pairReply('clntCert', null, Array(), Array('REMOTE_ADDR'=>'198.51.100.1') + certVals('carol'))[0], 429);
 $axsRslt = (new Checker( Array('required'=>false), mockRequestObj(Array(), Array('REMOTE_ADDR'=>'198.51.100.1')) ))->validateAccess();
 checkIdentical('limit: nothing is held where access is not required', $axsRslt->readValueByKey('statCode'), 200);

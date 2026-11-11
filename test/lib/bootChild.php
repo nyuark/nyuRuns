@@ -30,7 +30,7 @@ ini_set('log_errors', '1');
 ini_set('error_log', '');
 
 $_SERVER['REQUEST_METHOD'] = 'GET';
-$_SERVER['REQUEST_URI'] = '/shows/overview';
+$_SERVER['REQUEST_URI'] = '/shows/index';
 
 $nyuRun = new \nyu\Runner($prstNme);
 echo 'the runner went on';

@@ -149,7 +149,7 @@ checkIdentical('clntCert x dvcToken: the certificate alone decides', pairReply('
 
 // Roles : measured against the role of the users table
 $rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
-$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
+$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
 checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pairReply('httpBasc', 'nativeDb', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('httpBasc', 'nativeDb', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'internal'), Array(200, '', 'anna', 'sysadmin')));
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
 checkIdentical('role: apiHeadr x dvcToken, the device has the role of its user', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);

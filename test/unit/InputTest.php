@@ -159,7 +159,7 @@ checkIdentical('Auth: the login requires its userName and its passWord, not its 
 checkIdentical('Auth: the login keeps its three fields as sent', inputVals($authDef['fieldSet'] ?? 'none', Array('userName'=>"o'neil", 'passWord'=>'p<a"s\'s&w>d', 'sentCode'=>'012345', 'debug'=>'1')), Array('userName'=>"o'neil", 'passWord'=>'p<a"s\'s&w>d', 'sentCode'=>'012345'));
 
 // The definition the Shows application gives for its list
-$showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'overview.json'), true );
+$showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'index.json'), true );
 checkIdentical('Shows: the list keeps its filters, its order and its limits, as sent', inputVals($showDef['fieldSet'] ?? 'none', Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids', 'other'=>'x'), 'sorting'=>'^title', 'indexes'=>'10,20', 'debug'=>'1')), Array('filters'=>Array('search'=>"L'île", 'categ'=>'kids'), 'sorting'=>'^title', 'indexes'=>'10,20'));
 
 finishChecking();

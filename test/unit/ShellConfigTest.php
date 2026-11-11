@@ -24,7 +24,7 @@ $rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"synopsi
 	."\t\"dispatch\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$appToRun/\$doAction/\$argument\", \"routeDir\": \"conf/routes\" },\n"
 	."\t\"response\": { \"outputAs\": \"jsonData\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
 $rteText = '{ "hello": { "pointsTo": { "pageFile": "hello" } }, "admin/$id": { "mthdList": "GET, POST", "pointsTo": { "appToRun": "users", "doAction": "view" } },'
-	.' "old": { "pointsTo": { "redirect": "/hello", "httpCode": 301 } }, "things": { "pointsTo": { "GET": { "appToRun": "shows", "doAction": "overview" }, "POST": { "appToRun": "shows", "doAction": "create" } } } }';
+	.' "old": { "pointsTo": { "redirect": "/hello", "httpCode": 301 } }, "things": { "pointsTo": { "GET": { "appToRun": "shows", "doAction": "index" }, "POST": { "appToRun": "shows", "doAction": "create" } } } }';
 
 $projDir = makeProjectTxt('config', Array(
 	'conf/system.ini'=>$iniText, 'conf/access.json'=>$axsText, 'conf/database.json'=>$dbsText,
@@ -166,7 +166,7 @@ checkIdentical('route lists the declared routes, of the site then of the Runs wi
 	Array('path'=>'/hello', 'methods'=>'GET', 'kind'=>'htmlPage', 'target'=>'hello', 'owner'=>'site', 'access'=>'open'),
 	Array('path'=>'/admin/$id', 'methods'=>'GET, POST', 'kind'=>'toAction', 'target'=>'users/view', 'owner'=>'site', 'access'=>'sysadmin'),
 	Array('path'=>'/old', 'methods'=>'GET', 'kind'=>'redirect', 'target'=>'/hello', 'owner'=>'site', 'access'=>'logged'),
-	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'toAction', 'target'=>'shows/overview', 'owner'=>'site', 'access'=>'logged'),
+	Array('path'=>'/things', 'methods'=>'GET', 'kind'=>'toAction', 'target'=>'shows/index', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/things', 'methods'=>'POST', 'kind'=>'toAction', 'target'=>'shows/create', 'owner'=>'site', 'access'=>'logged'),
 	Array('path'=>'/shelf/board', 'methods'=>'GET', 'kind'=>'toAction', 'target'=>'Shelf/index', 'owner'=>'Shelf', 'access'=>'logged'),
 	Array('path'=>'', 'methods'=>'any', 'kind'=>'toAction', 'target'=>'auth/login', 'owner'=>'', 'access'=>'open'),

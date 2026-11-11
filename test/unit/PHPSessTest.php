@@ -201,7 +201,7 @@ checkIdentical('Checker phpSessn x regdKeys: the session alone decides', sessRep
 checkIdentical('Checker phpSessn: no cookie is a 401, without a challenge', sessReply(null), Array(401, 'No active session', '', null, null));
 checkIdentical('Checker phpSessn: an unknown role makes a member', sessReply(openSessn($sessCar, Array('userName'=>'erin', 'userRole'=>'root')))[3], 'internal');
 $rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
-checkIdentical('Checker phpSessn: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('appToRun'=>'shows', 'doAction'=>'overview'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('appToRun'=>'shows', 'doAction'=>'overview'))[0]), Array(404, 200));
+checkIdentical('Checker phpSessn: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('appToRun'=>'shows', 'doAction'=>'index'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('appToRun'=>'shows', 'doAction'=>'index'))[0]), Array(404, 200));
 checkIdentical('Checker phpSessn: a refusal for the role leaves the session open', sessReply($sessIdn)[0], 200);
 $lockIdn = openSessn($sessCar, Array('userName'=>'dave', 'userRole'=>'operator'));
 checkIdentical('Checker phpSessn x userFile: a locked user is refused, its session destroyed', Array(sessReply($lockIdn, $usrStor), sessReply($lockIdn)[1]), Array(Array(401, 'Account not active', '', null, null), 'No active session'));

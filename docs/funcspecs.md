@@ -241,7 +241,7 @@ kind of database.
 | **Project** | one service: its applications, its settings, its data | a booking service |
 | **Run** | an application of the project, grouping the actions on one subject | `Shows`, `Users` |
 | **Action** | one thing a run does for one request | list the shows, view one, create a user |
-| **Route** | the URL that leads to an action, a page, a file or a redirection | `shows/viewShow/12`, `/notes/12` |
+| **Route** | the URL that leads to an action, a page, a file or a redirection | `shows/view/12`, `/notes/12` |
 | **Preset** | the profile of an entry: access, inputs, routing, replies | `restapi` for programs, `website` for a browser |
 | **Inputs** | the values a request carries, kept only when the action declares them, each in the right format | a name, a date, an address |
 | **Model** | a record or a list of a table | a show, the list of shows |

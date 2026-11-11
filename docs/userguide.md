@@ -297,7 +297,7 @@ preset: restapi
 detectBy: autopath
 others: logged
 path                    methods  kind      target          owner  access
-/index                  GET      toAction  shows/overview  site   logged
+/index                  GET      toAction  shows/index     site   logged
 /auth/login             POST     toAction  Auth/login      Auth   open
 /auth/logout            POST     toAction  Auth/logout     Auth   logged
 /auth/active            POST     toAction  Auth/active     Auth   open

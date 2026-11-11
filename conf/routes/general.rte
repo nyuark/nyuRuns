@@ -2,7 +2,7 @@
 	"index" : {
 		"pointsTo": {
 			"appToRun": "shows",
-			"doAction": "overview"
+			"doAction": "index"
 		}
 	}
 }

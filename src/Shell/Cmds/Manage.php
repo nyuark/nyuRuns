@@ -21,7 +21,7 @@ use nyu\Shell\UserFile;
  *   php nyuRun accounts setTwoFa ann --removeIt     takes its 2FA secret away, when its authenticator is lost
  *   php nyuRun accounts setTwoFa ann --emailOtp     has it give a code sent to its address at each login
  *   php nyuRun accounts approves                    the sign-ups awaiting review (prove ann approves one)
- *   php nyuRun accounts doAction shows/overview filters[search]=jazz
+ *   php nyuRun accounts doAction shows/index filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
  * (nativeDb) or the users file (userFile); --useStore names the other, --useBlock

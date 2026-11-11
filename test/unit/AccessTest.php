@@ -320,8 +320,8 @@ checkIdentical('Checker sign-in: with the route to go to, and the page asked for
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'index')) );
 checkIdentical('Checker sign-in: the home page is not carried back', $checker->validateAccess()->readValueByKey('denyGoal'), '/login');
-$askPrpt->setValue($askReqs, Array('fullPath'=>'/shows/viewShow/1'));
-$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>'shows', 'doAction'=>'viewShow', 'routKind'=>'toAction', 'routPath'=>'')) );
+$askPrpt->setValue($askReqs, Array('fullPath'=>'/shows/view/1'));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>'shows', 'doAction'=>'view', 'routKind'=>'toAction', 'routPath'=>'')) );
 checkIdentical('Checker sign-in: a denied action keeps its 401', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'style')) );
 checkIdentical('Checker sign-in: so does a denied file', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
@@ -387,7 +387,7 @@ checkIdentical('Checker role: served to the role asked for', roleReply($rolConf,
 checkIdentical('Checker role: served to a higher role', Array(roleReply($rolConf, 'operator', Array('appToRun'=>'shows', 'doAction'=>'edit')), roleReply($rolConf, 'sysadmin', Array('appToRun'=>'shows', 'doAction'=>'edit'))), Array(Array(200, ''), Array(200, '')));
 checkIdentical('Checker role: the case of the request does not count', roleReply($rolConf, 'internal', Array('appToRun'=>'Users', 'doAction'=>'lock')), Array(404, 'Not Found'));
 checkIdentical('Checker role: nor a space in the name of the application', roleReply($rolConf, 'internal', Array('appToRun'=>'us ers', 'doAction'=>'lock')), Array(404, 'Not Found'));
-checkIdentical('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'internal', Array('appToRun'=>'shows', 'doAction'=>'edit')), roleReply($rolConf, 'internal', Array('appToRun'=>'shows', 'doAction'=>'overview'))), Array(Array(404, 'Not Found'), Array(200, '')));
+checkIdentical('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'internal', Array('appToRun'=>'shows', 'doAction'=>'edit')), roleReply($rolConf, 'internal', Array('appToRun'=>'shows', 'doAction'=>'index'))), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'view')), Array(404, 'Not Found'));
 checkIdentical('Checker role: no action named, the highest of the application', Array(roleReply($rolConf, 'operator', Array('appToRun'=>'probe', 'doAction'=>null)), roleReply($rolConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>null))), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: a route that asks for none', roleReply($rolConf, 'internal', Array('appToRun'=>'auth', 'doAction'=>'other')), Array(200, ''));
@@ -423,7 +423,7 @@ $twoConf = Array('minRoles'=>Array('/twofold'=>'sysadmin')) + $jwtConf;
 checkIdentical('Checker role: a path pointing each method to its own action carries its role to every one of them', Array(roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'mirrored')), roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'identify')), roleReply($twoConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>'identify')), roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'userPass'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found'), Array(200, ''), Array(200, '')));
 checkIdentical('Checker role: an unknown application matches no route: its own 404 comes later', roleReply($prbConf, 'internal', Array('appToRun'=>'nowhere', 'doAction'=>null)), Array(200, ''));
 // A path of minRoles must name a declared route, as the router matches it; without a router, nothing can be checked
-checkIdentical('Checker role: a path naming no declared route (its case differs) refuses every request', roleReply(Array('minRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, 'sysadmin', $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview')), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: a path naming no declared route (its case differs) refuses every request', roleReply(Array('minRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, 'sysadmin', $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index')), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: a path without a router to read the routes from refuses every request', Array((new Checker( $pnlConf, mockRequestObj() ))->checkRoleFlaws(), (new Checker( Array('minRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, mockRequestObj(), null, $GLOBALS['roleRout'] ))->checkRoleFlaws()), Array('the route "/panel" of minRoles cannot be checked: no router is given', 'the route "/Panel" of minRoles is declared nowhere'));
 checkIdentical('Checker role: an entry naming an action needs no router', (new Checker( $rolConf + Array(), mockRequestObj() ))->checkRoleFlaws()!=='' && (new Checker( Array('minRoles'=>Array('users/*'=>'sysadmin')) + $jwtConf, mockRequestObj() ))->checkRoleFlaws()==='', true);
 
@@ -433,13 +433,13 @@ checkIdentical('Checker role: a refused user is known, with no challenge and no 
 
 // A check that gives no role makes a member
 $keyConf = Array('minRoles'=>Array('shows/*'=>'internal', 'users/*'=>'operator')) + $hdrConf;
-$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'shows', 'doAction'=>'overview')) );
+$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'shows', 'doAction'=>'index')) );
 checkIdentical('Checker role: an API key meets the member role', $checker->validateAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'users', 'doAction'=>'index')) );
 checkIdentical('Checker role: and no higher one', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('userRole')), Array(404, 'internal'));
 
 // A block that cannot be applied refuses every request
-$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
+$anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
 checkIdentical('Checker role: an unknown role', roleReply(Array('minRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: a role that is not a text', roleReply(Array('minRoles'=>Array('users/*'=>Array('sysadmin'))) + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: not a list of routes', roleReply(Array('minRoles'=>'sysadmin') + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));

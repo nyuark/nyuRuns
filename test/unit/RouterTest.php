@@ -157,8 +157,8 @@ checkIdentical('link: several named parts', $routObj->buildRouteLink('items/$id/
 checkIdentical('link: a query string', $routObj->buildRouteLink('items/$id', Array('id'=>1), Array('tab'=>'x y', 'n'=>2)), '/items/1?tab=x%20y&n=2');
 checkIdentical('link: the rest of a folder route', $routObj->buildRouteLink('docs/*', Array('*'=>'deep/my note.txt')), '/docs/deep/my%20note.txt');
 checkIdentical('link: a folder route itself', $routObj->buildRouteLink('docs/*'), '/docs/');
-checkIdentical('link: an undeclared path is taken as it is in autopath mode', $routObj->buildRouteLink('shows/viewShow/12'), '/shows/viewShow/12');
-checkForThrows('link: but not in manual mode', function(){ madeRoutr('/', 'GET', Array('detectBy'=>'manually'))->buildRouteLink('shows/viewShow/12'); }, 'RuntimeException');
+checkIdentical('link: an undeclared path is taken as it is in autopath mode', $routObj->buildRouteLink('shows/view/12'), '/shows/view/12');
+checkForThrows('link: but not in manual mode', function(){ madeRoutr('/', 'GET', Array('detectBy'=>'manually'))->buildRouteLink('shows/view/12'); }, 'RuntimeException');
 checkForThrows('link: an undeclared pattern', function() use ( $routObj ){ $routObj->buildRouteLink('nosuch/$id', Array('id'=>1)); }, 'RuntimeException');
 checkForThrows('link: a named part without value', function() use ( $routObj ){ $routObj->buildRouteLink('items/$id'); }, 'RuntimeException');
 checkForThrows('link: a named part with an empty value', function() use ( $routObj ){ $routObj->buildRouteLink('items/$id', Array('id'=>'')); }, 'RuntimeException');

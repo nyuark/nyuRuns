@@ -17,9 +17,9 @@ checkIdentical('the values are filtered by the start of their key', $servReg->re
 checkTrueValue('$_SERVER is unset once read', !isset($_SERVER));
 
 $_SERVER = Array('REQUEST_METHOD'=>'GET', 'REMOTE_ADDR'=>'203.0.113.7');
-$servReg = new ServerReg( Array('REQUEST_METHOD'=>'POST', 'REQUEST_URI'=>'/shows/overview') );
+$servReg = new ServerReg( Array('REQUEST_METHOD'=>'POST', 'REQUEST_URI'=>'/shows/index') );
 checkIdentical('an extra value is given over the one of $_SERVER', $servReg->readValueByKey('request_method'), 'POST');
-checkIdentical('an extra value $_SERVER does not hold is added', $servReg->readValueByKey('request_uri'), '/shows/overview');
+checkIdentical('an extra value $_SERVER does not hold is added', $servReg->readValueByKey('request_uri'), '/shows/index');
 checkIdentical('a value of $_SERVER no extra one replaces is kept', $servReg->readValueByKey('remote_addr'), '203.0.113.7');
 
 $_SERVER = Array();

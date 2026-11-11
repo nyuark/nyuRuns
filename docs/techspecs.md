@@ -71,7 +71,7 @@ instead of repeating it.
 
 - **Run**: an application built on nyuRuns, in a folder of `runs/`.
 - **Action**: what a run does for one request, a public method of its
-  `Actions.php`, reached by a path such as `shows/viewShow/12` or by a
+  `Actions.php`, reached by a path such as `shows/view/12` or by a
   route the run declares.
 - **Preset**: a profile of the framework (how requests are checked, routed
   and answered), chosen by the entry point of the site.
@@ -527,7 +527,7 @@ order:
    first pattern that matches it. An empty path is looked up as `index`.
 4. **The path itself**, in an `autopath` preset: its parts get the names
    of the preset's `pathForm`, by position (`$appToRun/$doAction/$argument`,
-   so `shows/viewShow/12`). A run that declares its own routes isn't
+   so `shows/view/12`). A run that declares its own routes isn't
    reached this way: its path gets a 404, logged on `runner`.
 
 A declared route names what answers: an action, a redirection, a static
@@ -1368,7 +1368,7 @@ declare every action, even one that takes none (`{ "fieldSet": {} }`).
 |---|---|
 | `Auth` | signing in and out, activation, sign-ups, forgotten passwords, changing a password or a language, the published keys: `login`, `logout`, `active`, `signup`, `forgot`, `recover`, `setpass`, `usrlang`, `keyset` |
 | `Users` | managing the users, for a manager: `index`, `view`, `create`, `approve`, `setmail`, `langs`, `lock`, `unlock`, `role`, `remove`, `reset` |
-| `Shows` | an example: a list of shows filtered, sorted and limited (`overview`), and one show with its events and items (`viewShow`) |
+| `Shows` | an example: a list of shows filtered, sorted and limited (`index`), and one show with its events and items (`view`) |
 | `Shared` | empty: the models and plug-ins the runs share |
 
 `Auth` declares its routes in its own `routes.rte` (`/auth/login`, …,
