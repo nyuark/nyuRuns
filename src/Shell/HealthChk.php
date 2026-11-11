@@ -151,6 +151,16 @@ class HealthChk{
 		}
 		foreach( $rpsList as $rpsFil ){
 			$prstNme = basename(strval($rpsFil), '.rps');
+			// The example only explains the keys: they are checked, it is never loaded
+			if( strcasecmp($prstNme, Preset::XMPL_NAME)==0 ){
+				try{
+					new Preset($prstNme);
+					$this->addCheckResult('preset '.$prstNme, 'fine', 'its keys are known; never loaded, it only explains them');
+				}catch( \Throwable $e ){
+					$this->addCheckResult('preset '.$prstNme, 'fail', $e->getMessage());
+				}
+				continue;
+			}
 			try{
 				$setpObj = (new Preset($prstNme))->newSetupLoader();
 				$accConf = $setpObj->setAccessArray();
@@ -305,6 +315,10 @@ class HealthChk{
 				continue;
 			}
 			$prstNme = ($prstTxt=='') ? 'default' : substr($prstTxt, 1, -1);
+			if( strcasecmp($prstNme, Preset::XMPL_NAME)==0 ){
+				$this->addCheckResult('entry '.$itemNme, 'fail', 'starts '.$prstNme.', which only explains the keys of a preset and is never loaded: every request is answered 500');
+				continue;
+			}
 			try{
 				$accConf = (new Preset($prstNme))->newSetupLoader()->setAccessArray();
 			}catch( \Throwable $e ){

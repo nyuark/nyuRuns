@@ -234,8 +234,9 @@ extensions             warn   optional, not loaded: zip, gd, exif, imagick
 folder temp/logs       fine   writable
 origins default       warn   every origin is allowed while the preset reads tokens: list the origins under "corsList"
 preset default        fine   loads
+preset example         fine   its keys are known; never loaded, it only explains them
 route clash            fine   no two applications declare one path
-access route           warn   naming no route: example: /login (no route on that path)
+access route           fine   every entry of openList and rteRoles names a route
 entry index            fine   starts default, which checks access
 access login           fine   nativeDb through jwtToken
 token keys jwtToken    fine   set, 4096 bits
@@ -245,16 +246,16 @@ users                  fine   the table users is there
 errors                 fine   ERR_SHOW is on in the environment DEVS
 …
 fail: 0
-warn: 7
+warn: 6
 ```
 
 Each row is `fine`, `warn` (worth a look) or `fail` (the service can't
 serve, or is exposed). On a fresh install a few warnings are normal:
 `extensions` (optional ones you may not need), `origins` for each profile
 that reads tokens (any site may call the API from a browser),
-`token claims` (your tokens aren't bound to your project yet),
-`access route` (the `example` profile, which never gets loaded, still
-names an old path) and, on Windows, `file rights`. A `warn` on `upload progress` comes from PHP's own
+`token claims` (your tokens aren't bound to your project yet) and, on
+Windows, `file rights`. The `example` profile only explains the settings:
+it's never loaded, and an entry point naming it fails the check. A `warn` on `upload progress` comes from PHP's own
 settings: set `session.upload_progress.enabled = 0` in your `php.ini`.
 Appendix A explains the other rows.
 

@@ -20,6 +20,9 @@ class Preset{
 		'response' => Array('outputAs', 'corsList', 'headList')
 	);
 
+	// The preset that only explains the keys of a preset, as an example: read, never loaded
+	const XMPL_NAME = 'example';
+
 	protected $presetData;
 	// Name of the preset, which the config cache is kept under
 	protected $presetName;
@@ -114,11 +117,17 @@ class Preset{
 
     /**
 	 * Instanciates the setup class (Setup\Loader) with the parsed preset
-	 * data and returns it.
+	 * data and returns it. The example preset only explains the keys: it is
+	 * read, never loaded.
 	 *
 	 * @return Loader The configured setup loader.
+	 * @throws \RuntimeException When the preset is the example (XMPL_NAME).
 	 */
     public function newSetupLoader(): Loader {
+		// Whatever its case: a file system that ignores it opens the same file
+		if( strcasecmp(strval($this->presetName), self::XMPL_NAME)==0 ){
+			throw new \RuntimeException('Preset "'.self::XMPL_NAME.'" only explains the keys of a preset: it is never loaded');
+		}
 		// Instanciate the setup class with the
 		// array of data and return the object
 		$nyuSetp = new \nyu\Setup\Loader( $this->presetData, null, $this->presetName );

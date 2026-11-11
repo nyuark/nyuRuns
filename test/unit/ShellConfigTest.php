@@ -74,6 +74,9 @@ checkIdentical('entry lists the entry points and their preset', runShellAsJson($
 checkIdentical('entry names a preset where there was none', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'index', 'sample'))['text'], fetchInProject($projDir, 'www/index.php')), Array("index: sample\n", "<?php\n\$nyuRun = new \\nyu\\Runner('sample');\n"));
 checkIdentical('entry replaces the preset named, what follows it kept', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'api', 'sample'))['code'], fetchInProject($projDir, 'www/api.php'), callShellArray($projDir, Array('settings', 'wwwEntry', 'api'))['text']), Array(0, "<?php\n\$nyuRun = new \\nyu\\Runner( 'sample', \$overLoad );\n", "api: sample\n"));
 checkIdentical('a preset that does not exist, an entry that names its preset its own way, a file that starts no Runner or does not exist', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'index', 'nosuch'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', 'own', 'sample'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', 'plain', 'sample'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', '../conf/x', 'sample'))['code']), Array(3, 3, 3, 3));
+writeInProject($projDir, 'conf/presets/example.rps', '{ "presetId": "example", "settings": { "confType": "all" } }');
+checkIdentical('entry refuses the example preset, whatever its case, and leaves the file as it was', Array(callShellArray($projDir, Array('settings', 'wwwEntry', 'index', 'example'))['code'], callShellArray($projDir, Array('settings', 'wwwEntry', 'index', 'EXAMPLE'))['code'], fetchInProject($projDir, 'www/index.php')), Array(3, 3, fetchInProject($projDir, 'www/index.php')));
+@unlink($projDir.DS.'conf'.DS.'presets'.DS.'example.rps');
 
 // secrt
 $runVals = callShellArray($projDir, Array('settings', 'makeSecr', 'jwtToken'));

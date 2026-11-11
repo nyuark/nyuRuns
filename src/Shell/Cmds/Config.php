@@ -347,6 +347,10 @@ class Config extends Command{
 		}catch( \RuntimeException $e ){
 			$this->terminateShell('Nothing was changed: '.$e->getMessage(), self::EXIT_DENY);
 		}
+		// The example only explains the keys: no entry point starts it
+		if( strcasecmp($prstNme, Preset::XMPL_NAME)==0 ){
+			$this->terminateShell('Nothing was changed: the preset '.Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded', self::EXIT_DENY);
+		}
 		$this->generateWriter()->saveFileAtomic( $filPath, substr($fileTxt, 0, $fullOff).$hitList[0][1][0]."'".$prstNme."'".substr($fileTxt, $fullEnd) );
 		$this->traceShellDone( 'Config: entry point '.$fileNme.' set to the preset '.$prstNme.' (was '.$nowPrst.')' );
 		$this->printerObj->printShellPair($fileNme, $prstNme);
