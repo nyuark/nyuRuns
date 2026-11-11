@@ -14,7 +14,7 @@ class Preset{
 	const KEYS_LIST = Array(
 		''         => Array('presetId', 'synopsis', 'settings', 'security', 'inputSet', 'dispatch', 'response'),
 		'settings' => Array('confType', 'confList', 'confPath', 'envrFile'),
-		'security' => Array('required', 'sessWith', 'sessConf', 'authWith', 'authConf', 'openList', 'signRout', 'rteRoles', 'appsConf', 'isPublic'),
+		'security' => Array('required', 'carrWith', 'carrConf', 'authWith', 'authConf', 'openList', 'signPath', 'minRoles', 'appsConf', 'isPublic'),
 		'inputSet' => Array('sourceId', 'readFrom', 'fieldSet'),
 		'dispatch' => Array('detectBy', 'pathForm', 'routeDir', 'fileRoot', 'runMount'),
 		'response' => Array('outputAs', 'corsList', 'headList')

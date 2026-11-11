@@ -1,5 +1,5 @@
 {
-	"loginSet":  { "authWith": "nativeDb", "authConf": "testBase", "sessWith": "phpSessn", "sessConf": "testSess" },
+	"loginSet":  { "authWith": "nativeDb", "authConf": "testBase", "carrWith": "phpSessn", "carrConf": "testSess" },
 	"testBase": { "useTable": "users" },
 	"testSess": { "cookName": "nyuTests", "lifeSecs": 300, "sameSite": "strict", "secureOn": false },
 	"testShrt": { "cookName": "nyuTests", "lifeSecs": 1, "sameSite": "strict", "secureOn": false },

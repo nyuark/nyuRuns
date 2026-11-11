@@ -34,7 +34,7 @@ $projDir = makeProjectTxt('storenat', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'passWord'=>'')),
 	'conf/access.json'=>json_encode(Array(
-		'loginSet'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
+		'loginSet'=>Array('authWith'=>'nativeDb', 'authConf'=>'nativeDb', 'carrWith'=>'jwtToken', 'carrConf'=>'jwtToken'),
 		'nativeDb'=>Array('useTable'=>'users', 'tfaCrypt'=>$natSeal),
 		'userFile'=>Array('listFile'=>'conf/users.lst', 'tfaCrypt'=>$lstSeal),
 		'devToken'=>Array('useTable'=>'devices', 'usersTbl'=>'users')
@@ -79,7 +79,7 @@ $projDir = makeProjectTxt('storelst', Array(
 	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$newBase, 'userName'=>'', 'passWord'=>'')),
 	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
 	'conf/access.json'=>json_encode(Array(
-		'loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
+		'loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile', 'carrWith'=>'jwtToken', 'carrConf'=>'jwtToken'),
 		'userFile'=>Array('listFile'=>'conf/users.lst')
 	), JSON_PRETTY_PRINT),
 	'conf/users.lst'=>$fleUsrs

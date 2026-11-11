@@ -5,7 +5,7 @@
 		"confType": "all",
 		"confList": "any"
 	},
-	"security": { "required": true, "sessWith": "apiHeadr", "sessConf": "regdKeys", "authWith": "regdKeys" },
+	"security": { "required": true, "carrWith": "apiHeadr", "carrConf": "regdKeys", "authWith": "regdKeys" },
 	"inputSet": [
 		{
 			"sourceId": "QUERY",

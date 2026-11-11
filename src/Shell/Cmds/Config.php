@@ -200,7 +200,7 @@ class Config extends Command{
 				}
 				$newValu = $this->parseTypedText($gvnText);
 				// A check or a carrier that does not exist would refuse every request
-				if( $trgtNme=='accsConf' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='sessWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
+				if( $trgtNme=='accsConf' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='carrWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
 					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authWith' ? 'credential check' : 'session carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
@@ -405,7 +405,7 @@ class Config extends Command{
 		$blckNme = strval($this->optionsObj->retrieveOption('useBlock', ''));
 		if( $secrKindText=='jwtToken' ){
 			$labelTx = 'Secret of the tokens';
-			$blckNme = $blckNme ?: strval($treeObj->loginSet->sessConf ?? 'jwtToken');
+			$blckNme = $blckNme ?: strval($treeObj->loginSet->carrConf ?? 'jwtToken');
 			// With RS256 the tokens are signed by a key pair, not a secret
 			if( isset($treeObj->$blckNme) && is_object($treeObj->$blckNme) && strval($treeObj->$blckNme->signAlgo ?? '')=='RS256' ){
 				return $this->buildPairsFlag($blckNme, $keepExisting);
@@ -645,7 +645,7 @@ class Config extends Command{
 			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal, $routObj) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
-		$roleMap = is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array();
+		$roleMap = is_array($accConf['minRoles'] ?? null) ? $accConf['minRoles'] : Array();
 		$actnLst = Array();
 		foreach( array_merge(array_values((array)($accConf['openList'] ?? Array())), array_keys($roleMap)) as $rteKey ){
 			$rteKey = strtolower( trim(strval($rteKey)) );

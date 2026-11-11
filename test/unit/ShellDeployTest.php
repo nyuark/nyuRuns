@@ -20,7 +20,7 @@ function freshPrjt( String $folderName ): String {
 		'conf/access.json.dist'=>distAccss(),
 		'conf/system.ini'=>buildSystemIni(),
 		'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false } }',
-		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "sysadmin" } } }'
+		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "confType": "all" }, "security": { "carrWith": "jwtToken", "carrConf": "jwtToken", "minRoles": { "users/*": "sysadmin" } } }'
 	));
 }
 
@@ -76,7 +76,7 @@ checkIdentical('start points the login at the store, makes the keys of the token
 	Array(0, 'userFile', 'userFile', true, $jsnVals['secret']['API key'] ?? 'none', Array('teammate'=>'internal', 'engineer'=>'operator', 'sysAgent'=>'sysadmin'), 'fine', 'fine', 'fine', 0));
 checkIdentical('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key userFile'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
 checkIdentical('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of sysAgent (sysadmin)'] ?? '', $usrList['sysAgent']['passwdHash'] ?? ''), password_verify($jsnVals['secret']['Password of teammate (internal)'] ?? '', $usrList['teammate']['passwdHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
-checkPregMatch('the layout of the access config is kept', strval(fetchInProject($projDir, 'conf/access.json')), '/^\{\n\t"plugLibs": \{ "authWith": \[\], "sessWith": \[\] \},\n\t"loginSet": \{ "authWith": "userFile", "authConf": "userFile", /');
+checkPregMatch('the layout of the access config is kept', strval(fetchInProject($projDir, 'conf/access.json')), '/^\{\n\t"plugLibs": \{ "authWith": \[\], "carrWith": \[\] \},\n\t"loginSet": \{ "authWith": "userFile", "authConf": "userFile", /');
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt'));
 checkIdentical('run again, nothing that exists is replaced', Array($jsnVals['exit'] ?? null, fetchInProject($projDir, 'conf/keys/jwtToken.key')===$keyText, parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW), json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'][2]['passwdHash'] ?? null, isset($jsnVals['secret']), in_array('The users file already holds users: nothing was changed.', $jsnVals['notes'] ?? Array(), true)), Array(0, true, $envVals, $usrList['sysAgent']['passwdHash'], false, true));
 checkPregMatch('the installation is traced', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Deploy: basic users created in userFile \(teammate, engineer, sysAgent\) by user "cli:/');
@@ -186,10 +186,10 @@ unlink($projDir.DS.'conf'.DS.'mailer.json');
 
 // What the check refuses
 writeInProject($projDir, 'conf/presets/broken.rps', '{ "presetId": "broken", ');
-writeInProject($projDir, 'conf/presets/noblok.rps', '{ "presetId": "noblok", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "nowhere" } }');
-writeInProject($projDir, 'conf/presets/norole.rps', '{ "presetId": "norole", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "boss" } } }');
+writeInProject($projDir, 'conf/presets/noblok.rps', '{ "presetId": "noblok", "settings": { "confType": "all" }, "security": { "carrWith": "jwtToken", "carrConf": "nowhere" } }');
+writeInProject($projDir, 'conf/presets/norole.rps', '{ "presetId": "norole", "settings": { "confType": "all" }, "security": { "carrWith": "jwtToken", "carrConf": "jwtToken", "minRoles": { "users/*": "boss" } } }');
 writeInProject($projDir, 'conf/system.ini', buildSystemIni("PRX_LIST = \"10.0.0.5, 0.0.0.0/0\"\n"));
-$cookRps = '{ "presetId": "%s", "settings": { "confType": "all" }, "security": { "sessWith": "phpSessn", "sessConf": "phpSessn" }, "response": { "outputAs": "jsonData", %s"headList": { "access-control-allow-origin": "*" } } }';
+$cookRps = '{ "presetId": "%s", "settings": { "confType": "all" }, "security": { "carrWith": "phpSessn", "carrConf": "phpSessn" }, "response": { "outputAs": "jsonData", %s"headList": { "access-control-allow-origin": "*" } } }';
 writeInProject($projDir, 'conf/presets/cookie.rps', sprintf($cookRps, 'cookie', ''));
 writeInProject($projDir, 'conf/presets/listed.rps', sprintf($cookRps, 'listed', '"corsList": ["https://app.example.org"], '));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
@@ -241,7 +241,7 @@ checkIdentical('the rights not checked on Windows are told once; elsewhere, no s
 $projDir = freshPrjt('entries');
 runShellAsJson($projDir, Array('installs', 'makeConf'));
 writeInProject($projDir, 'conf/presets/statics.rps', '{ "presetId": "statics", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true } }');
-writeInProject($projDir, 'conf/presets/tokens.rps', '{ "presetId": "tokens", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "isPublic": true }, "response": { "headList": { "Access-Control-Allow-Origin": "*" } } }');
+writeInProject($projDir, 'conf/presets/tokens.rps', '{ "presetId": "tokens", "settings": { "confType": "all" }, "security": { "carrWith": "jwtToken", "carrConf": "jwtToken", "isPublic": true }, "response": { "headList": { "Access-Control-Allow-Origin": "*" } } }');
 writeInProject($projDir, 'www/index.php', "<?php\n\$nyuRun = new \\nyu\\Runner();\n");
 writeInProject($projDir, 'www/api.php', "<?php\n\$nyuRun = new \\nyu\\Runner( 'secure' );\n");
 writeInProject($projDir, 'www/site.php', "<?php\n\$nyuRun = new \\nyu\\Runner('statics');\n");

@@ -18,9 +18,9 @@ class Actions extends Actionset {
 	 * for the matched identity, or opens a session whose cookie goes out
 	 * with the reply. The 'loginSet' block of the ACCESS config
 	 * file names the credential check ('authWith', htpasswd by default),
-	 * the session carrier issuing the token ('sessWith', jwtToken by
+	 * the session carrier issuing the token ('carrWith', jwtToken by
 	 * default) and the blocks holding their settings ('authConf',
-	 * 'sessConf'). Reports 405
+	 * 'carrConf'). Reports 405
 	 * unless the request is a POST, 400 when 'userName' or 'passWord' is missing
 	 * (both are required by input/login.json, so that reply comes before
 	 * the action runs), is not a text, or when the password came in the
@@ -52,9 +52,9 @@ class Actions extends Actionset {
 		$lgnConf = $this->resolveConfArr('loginSet');
 		$accsLog = Logger::retrieveLogger('access');
 		$authCls = Checker::authClssString( strval($lgnConf['authWith'] ?? 'htpasswd') );
-		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
+		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
 		if($authCls===null || $sessCls===null || !class_exists($authCls) || !class_exists($sessCls)){
-			$accsLog->error( 'Login unavailable: unknown authWith or sessWith in the login block' );
+			$accsLog->error( 'Login unavailable: unknown authWith or carrWith in the login block' );
 			$this->statusCode = 500;
 			$this->statusMssg = 'Login unavailable';
 			return;
@@ -74,7 +74,7 @@ class Actions extends Actionset {
 			$this->statusMssg = 'Too many attempts';
 			return;
 		}
-		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') );
+		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
 		if(method_exists($sessObj, 'verifyOnlyFlag') && $sessObj->verifyOnlyFlag()){
 			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': this project only checks tokens, issued by another server' );
@@ -152,8 +152,8 @@ class Actions extends Actionset {
 	 */
 	public function keyset(): Void {
 		$lgnConf = $this->resolveConfArr('loginSet');
-		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
-		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') ) : null;
+		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
+		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') ) : null;
 		$keysSet = ($sessObj!==null && method_exists($sessObj, 'publicSetArray')) ? $sessObj->publicSetArray() : Array('keys'=>Array());
 		if( empty($keysSet['keys']) ){
 			Logger::retrieveLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
@@ -183,9 +183,9 @@ class Actions extends Actionset {
 			return;
 		}
 		$lgnConf = $this->resolveConfArr('loginSet');
-		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
+		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
 		if($sessCls!==null && class_exists($sessCls)){
-			$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') );
+			$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') );
 			if(method_exists($sessObj, 'dropUsrSession')){
 				$sessObj->dropUsrSession( $this->requestObj );
 			}

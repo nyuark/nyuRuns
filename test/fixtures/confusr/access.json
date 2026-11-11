@@ -1,5 +1,5 @@
 {
-	"loginSet":  { "authWith": "userFile", "authConf": "testFile", "sessWith": "jwtToken", "sessConf": "testTokn" },
+	"loginSet":  { "authWith": "userFile", "authConf": "testFile", "carrWith": "jwtToken", "carrConf": "testTokn" },
 	"testTokn": { "hmacSecr": "test-only-secret-0123456789-abcdefghij", "lifeSecs": 300, "signAlgo": "HS256" },
 	"testFile": { "listFile": "test/fixtures/users.lst" },
 	"tryLimit": { "maxTries": 0 }

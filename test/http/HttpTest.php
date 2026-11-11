@@ -579,7 +579,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/users/remove', $mgrHead, 'userName=henry');
 	checkIdentical('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(200, 0));
 
-	// Roles : what a route asks for ('rteRoles'), and the helpers of an action
+	// Roles : what a route asks for ('minRoles'), and the helpers of an action
 	$benHead = Array('Authorization'=>'Bearer '.$benToken);
 	$annHead = Array('Authorization'=>'Bearer '.$jwToken);
 	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=sysadmin, probe/identify=operator');

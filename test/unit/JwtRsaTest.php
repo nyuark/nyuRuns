@@ -99,7 +99,7 @@ checkIdentical('an algorithm that is not one of the list', readsTokn(new JWT(Arr
 // The login of a project that only checks tokens : 501, nothing checked or counted
 $lmtFldr = 'temp'.DS.'limits_test_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
-	'LOGINSET'=>Array('authWith'=>'htpasswd', 'authConf'=>'htpasswd', 'sessWith'=>'jwtToken', 'sessConf'=>'chkonl'),
+	'LOGINSET'=>Array('authWith'=>'htpasswd', 'authConf'=>'htpasswd', 'carrWith'=>'jwtToken', 'carrConf'=>'chkonl'),
 	'HTPASSWD'=>Array('passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd'),
 	'CHKONL'=>Array('signAlgo'=>'RS256', 'publFile'=>$pubPath),
 	'TRYLIMIT'=>Array('maxTries'=>1, 'holdSecs'=>600, 'dataPath'=>$lmtFldr)

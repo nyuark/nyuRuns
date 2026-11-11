@@ -112,16 +112,16 @@ checkIdentical('login x userFile: a code that is not a text is no code', authAct
 plugConf( Array('authWith'=>'regdKeys', 'authConf'=>'testKeys') );
 checkIdentical('login x regdKeys: a check of keys takes no password, even a valid key', authActn('login', Array('userName'=>'k-1', 'passWord'=>'k-1')), Array(401, 'No API key provided', null));
 foreach( Array('httpBasc', 'apiHeadr', 'clntCert') as $sesNme ){
-	plugConf( Array('sessWith'=>$sesNme) );
+	plugConf( Array('carrWith'=>$sesNme) );
 	checkIdentical('login with '.$sesNme.': a carrier that issues nothing', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 }
 plugConf( Array('authWith'=>'nosuch') );
 checkIdentical('login: an unknown credential check', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
-plugConf( Array('sessWith'=>'nosuch') );
+plugConf( Array('carrWith'=>'nosuch') );
 checkIdentical('login: an unknown session carrier', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
-plugConf( Array('sessWith'=>'nosuch') );
+plugConf( Array('carrWith'=>'nosuch') );
 checkIdentical('login: the misconfiguration is told before the credentials are checked', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(500, 'Login unavailable', null));
-plugConf( Array('sessConf'=>'testShrt') );
+plugConf( Array('carrConf'=>'testShrt') );
 checkIdentical('login: a secret that cannot sign', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 checkIdentical('login: wrong credentials are still told as such with it', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(401, 'Invalid credentials', null));
 
@@ -148,7 +148,7 @@ checkIdentical('limit: a wrong 2FA code is counted', Array(
 ), Array('Invalid verification code', 'Invalid verification code', 429));
 plugConf( Array('authWith'=>'regdKeys', 'authConf'=>'testKeys'), 2 );
 checkIdentical('limit: a check that takes no password counts nothing', Array(authActn('login', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.5')[0] ?? null), Array(401, 401, 401));
-plugConf( Array('sessWith'=>'nosuch'), 2 );
+plugConf( Array('carrWith'=>'nosuch'), 2 );
 checkIdentical('limit: a login that is misconfigured counts nothing', Array(authActn('login', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.6')[0] ?? null), Array(500, 500, 500));
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 
@@ -159,7 +159,7 @@ checkIdentical('logout by GET', authActn('logout', Array(), 'GET'), Array(405, '
 checkIdentical('logout with a token carrier', authActn('logout'), Array(200, '', Array('logged'=>false)));
 checkIdentical('logout: the token is still accepted until it expires', tokenOf($lgnRslt), Array('alice', null));
 foreach( Array('httpBasc', 'apiHeadr', 'clntCert', 'nosuch') as $sesNme ){
-	plugConf( Array('sessWith'=>$sesNme) );
+	plugConf( Array('carrWith'=>$sesNme) );
 	checkIdentical('logout with '.$sesNme.': nothing to end, the answer is the same', authActn('logout'), Array(200, '', Array('logged'=>false)));
 }
 
@@ -173,7 +173,7 @@ authActn('login', $annaPwd, 'POST', '198.51.100.7');
 authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'ben', 'userRole'=>'internal'));
 authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'sysadmin'));
 authActn('logout', Array(), 'POST', '198.51.100.7');
-plugConf( Array('sessWith'=>'httpBasc') );
+plugConf( Array('carrWith'=>'httpBasc') );
 authActn('login', $alicePw, 'POST', '198.51.100.8');
 plugConf( Array('authWith'=>'nosuch') );
 authActn('login', $alicePw, 'POST', '198.51.100.8');
@@ -190,7 +190,7 @@ checkIdentical('access log: the logins and logouts, one line each, notices that 
 	$yearTxt.'[NOTICE] Logout of privileged user "anna" (sysadmin) from 198.51.100.7',
 	$yearTxt.'[NOTICE] Logout of user "" from 198.51.100.7',
 	$yearTxt.'[ERROR] Login unavailable: the session carrier issues no token',
-	$yearTxt.'[ERROR] Login unavailable: unknown authWith or sessWith in the login block'
+	$yearTxt.'[ERROR] Login unavailable: unknown authWith or carrWith in the login block'
 ));
 $allLogs = '';
 foreach( Array('logs', 'logs2') as $logFldr ){

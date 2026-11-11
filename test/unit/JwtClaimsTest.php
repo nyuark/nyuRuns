@@ -147,7 +147,7 @@ checkIdentical('key set: a previous key that is not one is left out, and checks 
  */
 function askKeyset( Array $tokenBlock ): Array {
 	$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
-		'LOGINSET'=>Array('authWith'=>'htpasswd', 'authConf'=>'htpasswd', 'sessWith'=>'jwtToken', 'sessConf'=>'jwtToken'),
+		'LOGINSET'=>Array('authWith'=>'htpasswd', 'authConf'=>'htpasswd', 'carrWith'=>'jwtToken', 'carrConf'=>'jwtToken'),
 		'JWTTOKEN'=>$tokenBlock
 	)) );
 	return runCatchThrown(function(): Array {

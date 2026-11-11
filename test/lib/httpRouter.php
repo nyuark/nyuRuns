@@ -51,20 +51,20 @@ $overArr = Array();
 // default and mapping are closed : a request naming no access control, on either of them, is served open, as the tests were written for
 if( !isset($_SERVER['HTTP_X_TEST_AUTH']) && in_array($_SERVER['HTTP_X_TEST_PRESET'] ?? '', Array('', 'default', 'mapping'), true) ){
 	// The roles of the preset's routes go with it: roles asked for while access is not required refuse every request
-	$overArr['security'] = Array('required'=>false, 'rteRoles'=>Array());
+	$overArr['security'] = Array('required'=>false, 'minRoles'=>Array());
 }
 if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
-	$overArr['security'] = Array('required'=>true, 'sessWith'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authWith'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regdKeys', 'sessConf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
+	$overArr['security'] = Array('required'=>true, 'carrWith'=>$_SERVER['HTTP_X_TEST_AUTH'], 'authWith'=>$_SERVER['HTTP_X_TEST_STORE'] ?? 'regdKeys', 'carrConf'=>$_SERVER['HTTP_X_TEST_CONFKEY'] ?? 'none');
 	if( isset($_SERVER['HTTP_X_TEST_PUBLIC']) ){
 		$overArr['security']['openList'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_PUBLIC']));
 	}
 	if( isset($_SERVER['HTTP_X_TEST_SIGNIN']) ){
-		$overArr['security']['signRout'] = $_SERVER['HTTP_X_TEST_SIGNIN'];
+		$overArr['security']['signPath'] = $_SERVER['HTTP_X_TEST_SIGNIN'];
 	}
 	if( isset($_SERVER['HTTP_X_TEST_ROLES']) ){
 		foreach( explode(',', $_SERVER['HTTP_X_TEST_ROLES']) as $rolPar ){
 			$pairArr = explode('=', $rolPar, 2) + Array('', '');
-			$overArr['security']['rteRoles'][trim($pairArr[0])] = trim($pairArr[1]);
+			$overArr['security']['minRoles'][trim($pairArr[0])] = trim($pairArr[1]);
 		}
 	}
 }

@@ -21,9 +21,9 @@ function fileUsers( String $projctRoot ): Array {
 $rndrTxt = '"inputSet": [ { "sourceId": "QUERY", "readFrom": "QUERY", "fieldSet": "all" } ], "dispatch": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument" }, "response": { "outputAs": "jsonData", "headList": {} }';
 $projDir = makeProjectTxt('sysadmin', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"userFile\", \"authConf\": \"userFile\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\", \"minChars\": 8 },\n\t\"jwtToken\": { \"hmacSecr\": \"test-only-secret-0123456789-abcdefghij\", \"lifeSecs\": 300, \"signAlgo\": \"HS256\" }\n}\n",
+	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"userFile\", \"authConf\": \"userFile\", \"carrWith\": \"jwtToken\", \"carrConf\": \"jwtToken\" },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\", \"minChars\": 8 },\n\t\"jwtToken\": { \"hmacSecr\": \"test-only-secret-0123456789-abcdefghij\", \"lifeSecs\": 300, \"signAlgo\": \"HS256\" }\n}\n",
 	'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false }, '.$rndrTxt.' }',
-	'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "authWith": "userFile", "authConf": "userFile", "rteRoles": { "probe/identify": "sysadmin" } }, '.$rndrTxt.' }',
+	'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "confType": "all" }, "security": { "carrWith": "jwtToken", "carrConf": "jwtToken", "authWith": "userFile", "authConf": "userFile", "minRoles": { "probe/identify": "sysadmin" } }, '.$rndrTxt.' }',
 	'test/fixtures/letters.txt'=>strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt'))
 ));
 

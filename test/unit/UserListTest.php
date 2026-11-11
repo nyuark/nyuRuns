@@ -163,7 +163,7 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTFILE'=>Array('m
  * @return Array The status, the message, the user and the role.
  */
 function listAccess( String $carrierStr, Array $headersArr, String $carrierCnf='testFile' ): Array {
-	$axsConf = Array('required'=>true, 'sessWith'=>$carrierStr, 'sessConf'=>$carrierCnf, 'authWith'=>'userFile', 'authConf'=>'testFile');
+	$axsConf = Array('required'=>true, 'carrWith'=>$carrierStr, 'carrConf'=>$carrierCnf, 'authWith'=>'userFile', 'authConf'=>'testFile');
 	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, Array('REMOTE_ADDR'=>'203.0.113.7')) ))->validateAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }

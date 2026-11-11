@@ -1,5 +1,5 @@
 {
-	"loginSet":  { "authWith": "nativeDb", "authConf": "testBase", "sessWith": "jwtToken", "sessConf": "testTokn" },
+	"loginSet":  { "authWith": "nativeDb", "authConf": "testBase", "carrWith": "jwtToken", "carrConf": "testTokn" },
 	"testTokn": { "hmacSecr": "test-only-secret-0123456789-abcdefghij", "lifeSecs": 300, "signAlgo": "HS256" },
 	"testBase": { "useTable": "users" },
 	"tryLimit": { "maxTries": 0 }

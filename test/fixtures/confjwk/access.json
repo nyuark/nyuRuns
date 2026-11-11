@@ -1,5 +1,5 @@
 {
-	"loginSet":  { "authWith": "htpasswd", "authConf": "testPass", "sessWith": "jwtToken", "sessConf": "testTokn" },
+	"loginSet":  { "authWith": "htpasswd", "authConf": "testPass", "carrWith": "jwtToken", "carrConf": "testTokn" },
 	"testTokn": { "lifeSecs": 300, "signAlgo": "RS256", "privFile": "temp/httpjwk/testTokn.key", "publFile": "temp/httpjwk/testTokn.pub", "prevFile": "temp/httpjwk/testTokn.old.pub", "retireAt": 4102444800, "issuerId": "https://auth.example.org", "audience": ["api.example.org"] },
 	"testPass": { "passFile": "test/fixtures/users.htpasswd" },
 	"tryLimit": { "maxTries": 0 }

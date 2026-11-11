@@ -171,9 +171,9 @@ class HealthChk{
 			// A session cookie goes with every request of the browser : any site allowed to call is a risk
 			$rndrCnf = $setpObj->getRegistryKey('response');
 			$headLst = array_change_key_case( (array)(is_array($rndrCnf) ? ($rndrCnf['headList'] ?? Array()) : Array()), CASE_LOWER );
-			if( ($accConf['sessWith'] ?? '')=='phpSessn' && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['corsList']) ){
+			if( ($accConf['carrWith'] ?? '')=='phpSessn' && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['corsList']) ){
 				$this->addCheckResult('origins '.$prstNme, 'warn', 'every origin is allowed while the session travels in a cookie: list the origins under "corsList"');
-			}elseif( ( ($accConf['sessWith'] ?? '')=='jwtToken' || strval($accConf['appsConf'] ?? '')!='' ) && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['corsList']) ){
+			}elseif( ( ($accConf['carrWith'] ?? '')=='jwtToken' || strval($accConf['appsConf'] ?? '')!='' ) && trim(strval($headLst['access-control-allow-origin'] ?? ''))=='*' && empty($rndrCnf['corsList']) ){
 				// A token is not sent by the browser on its own, but any site may then read what it opens
 				$this->addCheckResult('origins '.$prstNme, 'warn', 'every origin is allowed while the preset reads tokens: list the origins under "corsList"');
 			}
@@ -203,8 +203,8 @@ class HealthChk{
 	 * Checks the routes each preset serves, the Runs' with their mounts:
 	 * two Runs declaring one path ('route clash': fail, the first in name
 	 * order answers), a site route over a Run route, on its path or by a
-	 * pattern matching it ('route shadow': warn, the site's answers), and an entry of openList or rteRoles naming no route
-	 * ('access route': warn; fail for a path of rteRoles, which refuses every
+	 * pattern matching it ('route shadow': warn, the site's answers), and an entry of openList or minRoles naming no route
+	 * ('access route': warn; fail for a path of minRoles, which refuses every
 	 * request of the preset): a path no route declares, a Run that does not
 	 * exist, or an action that is not one of the Run, or that a Run
 	 * declaring its routes does not list. One row for each, naming the
@@ -245,13 +245,13 @@ class HealthChk{
 					}
 				}
 			}
-			// What openList and rteRoles name must be served by this preset
-			$roleKys = array_map('strval', array_keys(is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array()));
+			// What openList and minRoles name must be served by this preset
+			$roleKys = array_map('strval', array_keys(is_array($accConf['minRoles'] ?? null) ? $accConf['minRoles'] : Array()));
 			foreach( array_merge(array_values((array)($accConf['openList'] ?? Array())), $roleKys) as $rteKey ){
 				$rteKey = trim(strval($rteKey));
 				if( substr($rteKey, 0, 1)=='/' ){
 					if( !isset($rteData[trim($rteKey, '/')]) ){
-						// A path of rteRoles naming no route refuses every request : a failure, not a warning
+						// A path of minRoles naming no route refuses every request : a failure, not a warning
 						if( in_array($rteKey, $roleKys, true) ){
 							$roleLst[] = $prstNme.': '.$rteKey.' (no route on that path)';
 						}else{
@@ -289,7 +289,7 @@ class HealthChk{
 		$this->addCheckResult( 'route clash', empty($clshLst) ? 'fine' : 'fail', empty($clshLst) ? 'no two applications declare one path' : 'declared by two applications, the first in name order answers: '.implode('; ', array_unique($clshLst)) );
 		$this->addCheckResult( 'route shadow', empty($shdwLst) ? 'fine' : 'warn', empty($shdwLst) ? 'no site route over a route of an application' : 'a site route answers in place of the application\'s: '.implode('; ', array_unique($shdwLst)) );
 		$allLost = array_unique( array_merge($roleLst, $lostLst) );
-		$this->addCheckResult( 'access route', !empty($roleLst) ? 'fail' : (empty($lostLst) ? 'fine' : 'warn'), empty($allLost) ? 'every entry of openList and rteRoles names a route' : 'naming no route: '.implode('; ', $allLost) );
+		$this->addCheckResult( 'access route', !empty($roleLst) ? 'fail' : (empty($lostLst) ? 'fine' : 'warn'), empty($allLost) ? 'every entry of openList and minRoles names a route' : 'naming no route: '.implode('; ', $allLost) );
 	}
 
 	/**
@@ -350,13 +350,13 @@ class HealthChk{
 		if( empty($lgnConf) ){
 			$this->addCheckResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
 		}else{
-			$flawTxt = $this->coupleFlawsTxt($lgnConf + Array('authWith'=>'htpasswd', 'sessWith'=>'jwtToken', 'authConf'=>'htpasswd', 'sessConf'=>'jwtToken'));
+			$flawTxt = $this->coupleFlawsTxt($lgnConf + Array('authWith'=>'htpasswd', 'carrWith'=>'jwtToken', 'authConf'=>'htpasswd', 'carrConf'=>'jwtToken'));
 			// The login hands a name and a password to its check, as the Basic carrier does
 			$lgnAuth = strval($lgnConf['authWith'] ?? 'htpasswd');
 			if( $flawTxt=='' && isset(Checker::AUTH_LIST[$lgnAuth]) && !in_array($lgnAuth, Checker::PAIR_LIST['httpBasc'], true) ){
 				$flawTxt = 'the credential check "'.$lgnAuth.'" takes no name and password: nobody can sign in through auth/login';
 			}
-			$this->addCheckResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authWith'] ?? 'htpasswd').' through '.strval($lgnConf['sessWith'] ?? 'jwtToken') : $flawTxt );
+			$this->addCheckResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authWith'] ?? 'htpasswd').' through '.strval($lgnConf['carrWith'] ?? 'jwtToken') : $flawTxt );
 		}
 		// The registry holds the names of the blocks in upper case: they are told as the file writes them
 		$blkCase = array_keys( (array)json_decode(strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true) );
@@ -551,7 +551,7 @@ class HealthChk{
 			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'missing: "settings makeSecr jwtToken" makes them');
 		}elseif( min($keyBits)<JWT::RSAS_BITS ){
 			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "settings makeSecr jwtToken" makes a new pair');
-		}elseif( $privKey===false && ($blckValueArr['external'] ?? false)!==true && !empty($lgnConf = $this->accessSettings('loginSet')) && strval($lgnConf['sessWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($lgnConf['sessConf'] ?? 'jwtToken'), $blckNamedTxt)==0 ){
+		}elseif( $privKey===false && ($blckValueArr['external'] ?? false)!==true && !empty($lgnConf = $this->accessSettings('loginSet')) && strval($lgnConf['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($lgnConf['carrConf'] ?? 'jwtToken'), $blckNamedTxt)==0 ){
 			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 			$isFinal = in_array(strtoupper(strval(($nyuConf!==null) ? $nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
@@ -668,11 +668,11 @@ class HealthChk{
 	 * 'loginSet' block names: one that does not exist, or a block of
 	 * settings the access config does not hold.
 	 *
-	 * @param Array $accessConfig The block, with its 'sessWith', 'sessConf', 'authWith' and 'authConf' keys.
+	 * @param Array $accessConfig The block, with its 'carrWith', 'carrConf', 'authWith' and 'authConf' keys.
 	 * @return String What is wrong, empty when nothing is.
 	 */
 	protected function coupleFlawsTxt( Array $accessConfig ): String {
-		$sessNme = strval($accessConfig['sessWith'] ?? '');
+		$sessNme = strval($accessConfig['carrWith'] ?? '');
 		if( Checker::sessnClassText($sessNme)===null ){
 			return 'unknown session carrier "'.$sessNme.'"';
 		}
@@ -680,7 +680,7 @@ class HealthChk{
 		if( $authNme!==null && Checker::authClssString(strval($authNme))===null ){
 			return 'unknown credential check "'.strval($authNme).'"';
 		}
-		foreach( Array('sessConf', 'authConf') as $cnfKey ){
+		foreach( Array('carrConf', 'authConf') as $cnfKey ){
 			$blckNme = strval($accessConfig[$cnfKey] ?? '');
 			if( $blckNme!='' && empty($this->accessSettings($blckNme)) ){
 				return 'conf/access.json has no "'.$blckNme.'" block, named by '.$cnfKey;

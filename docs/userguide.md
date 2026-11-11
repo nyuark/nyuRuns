@@ -236,7 +236,7 @@ origins default       warn   every origin is allowed while the preset reads toke
 preset default        fine   loads
 preset example         fine   its keys are known; never loaded, it only explains them
 route clash            fine   no two applications declare one path
-access route           fine   every entry of openList and rteRoles names a route
+access route           fine   every entry of openList and minRoles names a route
 entry index            fine   starts default, which checks access
 access login           fine   nativeDb through jwtToken
 token keys jwtToken    fine   set, 4096 bits
@@ -321,11 +321,11 @@ gets loaded but shows every setting a profile can hold.
 
 ### 4.2 Decide who gets in where
 
-The minimum role for each route is set in the profile, under `rteRoles`.
+The minimum role for each route is set in the profile, under `minRoles`.
 Open `conf/presets/restapi.rps` and look for:
 
 ```json
-"rteRoles": { "users/*": "sysadmin" }
+"minRoles": { "users/*": "sysadmin" }
 ```
 
 Name a route as `run/action`, as `run/*` for all the actions of a run, or
@@ -335,7 +335,7 @@ lets managers in too. Chapter 5 adds the `Notes` routes here. After an
 edit, `settings fullList restapi` shows the result, and
 `installs checkAll` tells you whether the profile still loads.
 
-Blocks like `rteRoles` are edited by hand in the file, since
+Blocks like `minRoles` are edited by hand in the file, since
 `settings setValue` only changes single values.
 
 ### 4.3 Manage the users
@@ -731,7 +731,7 @@ writing for staff:
 
 ```json
 "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json", "notes/card"],
-"rteRoles": { "users/*": "sysadmin", "notes/create": "operator", "notes/update": "operator", "notes/remove": "operator" }
+"minRoles": { "users/*": "sysadmin", "notes/create": "operator", "notes/update": "operator", "notes/remove": "operator" }
 ```
 
 Naming the page by its action keeps it open wherever the run is mounted.
@@ -1081,7 +1081,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 |---|---|---|
 | `404` on an action you just wrote | the client is never told why. Maybe the action isn't a public method of `Actions`, its run's folder or class is misnamed, its run has its own routes file, so only those routes reach it, or the user lacks the role | check `runner.log` (`Not found: "notes/view": …`) or `access.log` (`role … needed`) |
 | `500 Internal Server Error` on a run's URL with no action | the default action (`$dfltAction`) names no action | `runner.log` names it |
-| `500 Access misconfigured` on every request | an access setting can't be applied: an unknown role in `rteRoles`, a route both open and given a role, a carrier and a check that don't work together, or a sign-in route that isn't a path of the site | `access.log` says which (`Access misconfigured: …`) |
+| `500 Access misconfigured` on every request | an access setting can't be applied: an unknown role in `minRoles`, a route both open and given a role, a carrier and a check that don't work together, or a sign-in route that isn't a path of the site | `access.log` says which (`Access misconfigured: …`) |
 | `500` naming `Input misconfigured` | an `input/<action>.json` that isn't `{ "fieldSet": … }`, or that names a format that doesn't exist | fix the file; formats come from `nyu\Tools\Variable` |
 | `400 Missing or invalid input: …` | a required field (`name!`) was missing or empty | send it, and check its name |
 | `401 Missing Bearer Authorization header` | the profile wants a token | sign in and send `Authorization: Bearer <token>` |
@@ -1112,7 +1112,7 @@ look.
 | `entry index` | the entry starts a profile that asks for no credentials | name a profile that checks access (4.1), or set `"isPublic": true` in its `security` block if the site is meant to be open |
 | `origins <profile>` | any site may call the API from a browser | list the allowed origins under `corsList` |
 | `route clash`, `route shadow` | two runs declare the same path, or a site route hides a run's route | rename one of the paths, or change a run's mount |
-| `access route` | `openList` or `rteRoles` names a route that doesn't exist | fix the entry in the profile |
+| `access route` | `openList` or `minRoles` names a route that doesn't exist | fix the entry in the profile |
 | `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun settings setValue accsConf jwtToken.issuer …` and `.audience` |
 | `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun settings makeSecr markSecr` |
 | `file rights` | the rights of the secret files can't be checked (Windows) | limit `conf` and `temp` to the web server's account (`icacls`) |

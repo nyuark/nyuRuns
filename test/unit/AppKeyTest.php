@@ -77,7 +77,7 @@ $appKeys = Array(
 	)
 );
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0), 'APPSKEYS'=>$appKeys, 'OWNTOKEN'=>Array('signAlgo'=>'RS256', 'publFile'=>$ownPubl))) );
-$axsConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'ownToken', 'appsConf'=>'appsKeys');
+$axsConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'ownToken', 'appsConf'=>'appsKeys');
 $cntView = Array('appToRun'=>'Contacts', 'doAction'=>'view');
 $bearsOf = function( JWT $jwtCarrier, String $loggedUser, String $loggedRole ): Array {
 	return Array('Authorization'=>'Bearer '.$jwtCarrier->issueTokenText(Array('userName'=>$loggedUser, 'userRole'=>$loggedRole)));
@@ -107,7 +107,7 @@ checkIdentical('call: granted, the role of the token kept up to roleTops', appsR
 checkIdentical('call: a manager of the application is a member here', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'sysadmin'), $cntView), Array(200, '', 'bob', 'internal', 'portal'));
 checkIdentical('call: roleTops system keeps a system user', appsReply($axsConf, Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'bob', 'operator'), $cntView)[3], 'operator');
 checkIdentical('call: a route the key does not list is a 403', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'internal'), Array('appToRun'=>'Orders', 'doAction'=>'index')), Array(403, 'Forbidden', 'ann', 'internal', 'portal'));
-checkIdentical('call: the role the route asks for still applies', appsReply($axsConf + Array('rteRoles'=>Array('contacts/*'=>'operator')), Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'sysadmin'), $cntView)[0], 403);
+checkIdentical('call: the role the route asks for still applies', appsReply($axsConf + Array('minRoles'=>Array('contacts/*'=>'operator')), Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'bob', 'sysadmin'), $cntView)[0], 403);
 checkIdentical('call: a wrong key is a 401', appsReply($axsConf, Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'internal'), $cntView), Array(401, 'Invalid app key', '', null, null));
 checkIdentical('call: the token of the application without its key is refused', appsReply($axsConf, $bearsOf($appTokn, 'ann', 'internal'), $cntView), Array(401, 'Invalid token', '', null, null));
 checkIdentical('call: the project\'s own token still goes through its carrier', appsReply($axsConf, $bearsOf($ownTokn, 'carl', 'internal'), $cntView), Array(200, '', 'carl', 'internal', null));

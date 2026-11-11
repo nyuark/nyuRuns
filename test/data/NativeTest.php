@@ -73,7 +73,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('nativeDb.sqlite')),
 	'access'=>Array('TESTNAT'=>Array('useTable'=>'users'))
 ) );
-$natConf = Array('required'=>true, 'sessWith'=>'httpBasc', 'authWith'=>'nativeDb', 'sessConf'=>'testnat');
+$natConf = Array('required'=>true, 'carrWith'=>'httpBasc', 'authWith'=>'nativeDb', 'carrConf'=>'testnat');
 $checker = new nyu\Access\Checker( $natConf, mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('ben:pw-ben'))) );
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker with Native: granted with the stored role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'ben', 'internal'));
@@ -96,7 +96,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 ) );
 $jwtSess = new nyu\Access\Sess\JWT( Array('hmacSecr'=>str_repeat('s', 40)) );
 $annaHed = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'anna', 'userRole'=>'internal')));
-$tknConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'testjwt', 'authWith'=>'nativeDb', 'authConf'=>'testnat');
+$tknConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt', 'authWith'=>'nativeDb', 'authConf'=>'testnat');
 
 $axsRslt = (new nyu\Access\Checker( $tknConf, mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token with a store: the role comes from the table, not from the token', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'sysadmin'));
@@ -105,7 +105,7 @@ $sqlLink->exec("UPDATE users SET userStatus='disabled' WHERE systemName='anna'")
 $axsRslt = (new nyu\Access\Checker( $tknConf, mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token with a store: a locked user is refused at once', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg')), Array(401, 'Account not active'));
 
-$axsRslt = (new nyu\Access\Checker( Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'testjwt'), mockRequestObj($annaHed) ))->validateAccess();
+$axsRslt = (new nyu\Access\Checker( Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt'), mockRequestObj($annaHed) ))->validateAccess();
 checkIdentical('Checker token without a store: the token alone decides', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userRole')), Array(200, 'internal'));
 $sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'");
 
@@ -133,7 +133,7 @@ $sqlLink->exec("UPDATE users SET userStatus='approved' WHERE systemName='anna'")
 checkIdentical('Native token on a missing table', Array($noTable->checkSecretArr(Array('key'=>$nextTkn)), $noTable->finalErrorText(), $noTable->makeToknString('anna')), Array(false, 'Credential store unavailable', false));
 
 // Checker : the token travels in the API key header and identifies its user
-$keyConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'nativeDb', 'sessConf'=>'testnat');
+$keyConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'nativeDb', 'carrConf'=>'testnat');
 $axsRslt = (new nyu\Access\Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>$nextTkn)) ))->validateAccess();
 checkIdentical('Checker personal token: user and role', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'anna', 'sysadmin'));
 $axsRslt = (new nyu\Access\Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'nope')) ))->validateAccess();

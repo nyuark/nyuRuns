@@ -190,7 +190,7 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTSESS'=>Array('l
  * @return Array The status, the message, the user, the role and the challenge.
  */
 function sessReply( ?String $sessnIdent, Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
-	$axsRslt = (new Checker( $moreConfig + Array('required'=>true, 'sessWith'=>'phpSessn', 'sessConf'=>'testSess'), cookReqst($sessnIdent), new Registry($routeArray) ))->validateAccess();
+	$axsRslt = (new Checker( $moreConfig + Array('required'=>true, 'carrWith'=>'phpSessn', 'carrConf'=>'testSess'), cookReqst($sessnIdent), new Registry($routeArray) ))->validateAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('wwwHeadr'));
 }
 $usrStor = Array('authWith'=>'userFile', 'authConf'=>'testFile');
@@ -200,7 +200,7 @@ checkIdentical('Checker phpSessn x userFile: the role of the file', sessReply($s
 checkIdentical('Checker phpSessn x regdKeys: the session alone decides', sessReply($sessIdn, Array('authWith'=>'regdKeys'))[3], 'internal');
 checkIdentical('Checker phpSessn: no cookie is a 401, without a challenge', sessReply(null), Array(401, 'No active session', '', null, null));
 checkIdentical('Checker phpSessn: an unknown role makes a member', sessReply(openSessn($sessCar, Array('userName'=>'erin', 'userRole'=>'root')))[3], 'internal');
-$rolConf = Array('rteRoles'=>Array('shows/*'=>'operator'));
+$rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
 checkIdentical('Checker phpSessn: the role a route asks for', Array(sessReply($sessIdn, $rolConf, Array('appToRun'=>'shows', 'doAction'=>'overview'))[0], sessReply($sessIdn, $rolConf + $usrStor, Array('appToRun'=>'shows', 'doAction'=>'overview'))[0]), Array(404, 200));
 checkIdentical('Checker phpSessn: a refusal for the role leaves the session open', sessReply($sessIdn)[0], 200);
 $lockIdn = openSessn($sessCar, Array('userName'=>'dave', 'userRole'=>'operator'));

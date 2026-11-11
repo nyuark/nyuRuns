@@ -31,7 +31,7 @@ $lmtConf = Array('maxTries'=>2, 'holdSecs'=>600, 'dataPath'=>$lmtFldr);
  */
 function plugConf( Int $triesLimit=0 ): Void {
 	$GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
-		'PLUGLIBS'=>Array('authWith'=>Array('sample'), 'sessWith'=>Array('carier')),
+		'PLUGLIBS'=>Array('authWith'=>Array('sample'), 'carrWith'=>Array('carier')),
 		'TESTPASS'=>Array('passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd'),
 		'TESTKEYS'=>Array('keysList'=>Array('k-1')),
 		'TESTFILE'=>Array('listFile'=>'test'.DS.'fixtures'.DS.'users.lst'),
@@ -54,7 +54,7 @@ function plugConf( Int $triesLimit=0 ): Void {
  */
 function pairReply( String $carrierStr, ?String $checkNamed, Array $headersArr=Array(), Array $serverVals=Array(), Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
 	$blkList = Array('htpasswd'=>'testPass', 'regdKeys'=>'testKeys', 'userFile'=>'testFile', 'sample'=>'nothing');
-	$axsConf = $moreConfig + Array('required'=>true, 'sessWith'=>$carrierStr, 'sessConf'=>($carrierStr=='jwtToken') ? 'testTokn' : 'nothing');
+	$axsConf = $moreConfig + Array('required'=>true, 'carrWith'=>$carrierStr, 'carrConf'=>($carrierStr=='jwtToken') ? 'testTokn' : 'nothing');
 	if( $checkNamed!==null ){
 		$axsConf += Array('authWith'=>$checkNamed, 'authConf'=>$blkList[$checkNamed]);
 	}
@@ -113,7 +113,7 @@ checkIdentical('httpBasc x htpasswd: no header', pairReply('httpBasc', 'htpasswd
 checkIdentical('httpBasc x regdKeys: a check of keys takes no password, the pair is a mistake of the config', pairReply('httpBasc', 'regdKeys', basicHead('k-1', 'k-1')), Array(500, 'Access misconfigured', '', null));
 checkIdentical('httpBasc x plug-in check of keys: refused the same way', pairReply('httpBasc', 'sample', basicHead('sample-key', 'sample-key'))[0], 401);
 checkIdentical('httpBasc without a check: nobody goes through, the config is told wrong', pairReply('httpBasc', null, basicHead('alice', 's3cret')), Array(500, 'Access misconfigured', '', null));
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'httpBasc', 'authWith'=>'htpasswd', 'authConf'=>'testPass'), mockRequestObj(basicHead('alice', 'nope')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'httpBasc', 'authWith'=>'htpasswd', 'authConf'=>'testPass'), mockRequestObj(basicHead('alice', 'nope')) ))->validateAccess();
 checkIdentical('httpBasc: a refusal sends the challenge, with its realm', $axsRslt->readValueByKey('wwwHeadr'), 'Basic realm="nyuRuns", charset="UTF-8"');
 checkIdentical('httpBasc x htpasswd: an empty name is a wrong credential, not a store that cannot be read', pairReply('httpBasc', 'htpasswd', basicHead('', 's3cret')), Array(401, 'Invalid credentials', '', null));
 
@@ -142,11 +142,11 @@ checkIdentical('clntCert x userFile: a locked user is refused', pairReply('clntC
 checkIdentical('clntCert x userFile: a pending user is refused', pairReply('clntCert', 'userFile', Array(), certVals('cleo'))[0], 401);
 checkIdentical('clntCert x userFile: a name that is not in the file is refused', pairReply('clntCert', 'userFile', Array(), certVals('zed')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert: no certificate', pairReply('clntCert', 'userFile'), Array(401, 'No verified client certificate', '', null));
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'clntCert'), mockRequestObj() ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'clntCert'), mockRequestObj() ))->validateAccess();
 checkIdentical('clntCert: a refusal carries no challenge', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('wwwHeadr')), Array(401, null));
-checkIdentical('clntCert: the issuer of its config block is accepted', pairReply('clntCert', null, Array(), certVals('carol'), Array('sessConf'=>'tscert')), Array(200, '', 'carol', 'internal'));
-checkIdentical('clntCert: another issuer is refused', pairReply('clntCert', null, Array(), certVals('carol', 'Other CA'), Array('sessConf'=>'tscert')), Array(401, 'Certificate issuer not accepted', '', null));
-checkIdentical('clntCert: a certificate without an issuer is refused when one is asked for', pairReply('clntCert', null, Array(), Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol'), Array('sessConf'=>'tscert'))[0], 401);
+checkIdentical('clntCert: the issuer of its config block is accepted', pairReply('clntCert', null, Array(), certVals('carol'), Array('carrConf'=>'tscert')), Array(200, '', 'carol', 'internal'));
+checkIdentical('clntCert: another issuer is refused', pairReply('clntCert', null, Array(), certVals('carol', 'Other CA'), Array('carrConf'=>'tscert')), Array(401, 'Certificate issuer not accepted', '', null));
+checkIdentical('clntCert: a certificate without an issuer is refused when one is asked for', pairReply('clntCert', null, Array(), Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol'), Array('carrConf'=>'tscert'))[0], 401);
 
 // ClCert : only the exact word of a verified certificate is accepted
 $certSes = new ClCert( Array() );
@@ -164,7 +164,7 @@ checkIdentical('plug-in carrier x plug-in check', pairReply('carier', 'sample', 
 checkIdentical('a plug-in that is not listed is a misconfiguration', pairReply('sample', null, Array('X-Api-Key'=>'sample-key')), Array(500, 'Access misconfigured', '', null));
 
 // Roles : what each pair gives is measured against the role a route asks for
-$rolConf = Array('rteRoles'=>Array('shows/*'=>'operator'));
+$rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
 checkIdentical('role: httpBasc x htpasswd gives a member', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), Array(404, 'Not Found', 'alice', 'internal'));
 checkIdentical('role: apiHeadr x plug-in check gives a member', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'sample-key'), Array(), $rolConf, $anyRoute)[0], 404);
@@ -221,9 +221,9 @@ checkIdentical('limit: nothing is held where access is not required', $axsRslt->
 plugConf();
 
 // An open route : credentials sent with the request are not read
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
 checkIdentical('open route: a valid key does not log its holder', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userRole')), Array(200, false, null));
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
 checkIdentical('open route: nor is a wrong key refused', $axsRslt->readValueByKey('statCode'), 200);
 
 dropTestFolder(TOP_DIR.DS.$lmtFldr);

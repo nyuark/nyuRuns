@@ -1,6 +1,6 @@
 {
-	"plugLibs": { "authWith": [], "sessWith": [] },
-	"loginSet": { "authWith": "userFile", "authConf": "userFile", "sessWith": "jwtToken", "sessConf": "jwtToken" },
+	"plugLibs": { "authWith": [], "carrWith": [] },
+	"loginSet": { "authWith": "userFile", "authConf": "userFile", "carrWith": "jwtToken", "carrConf": "jwtToken" },
 	"htpasswd": { "passFile": "conf/.htpasswd", "maxTries": 5, "holdSecs": 600 },
 	"nativeDb": { "linkName": "nyuRuns", "useTable": "users", "idleSecs": 300, "maxTries": 5, "holdSecs": 600, "minChars": 10, "tfaCrypt": "env:NYU_TFA_KEY", "mailAcnt": "", "signupOn": false, "codeMins": 15, "linkTmpl": "" },
 	"userFile": { "listFile": "conf/users.lst", "tfaCrypt": "env:NYU_TFA_KEY", "maxTries": 5, "holdSecs": 600 },

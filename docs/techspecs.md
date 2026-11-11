@@ -321,7 +321,7 @@ left out. Give every action a definition, even one without inputs.
 
 - Open a route to everyone only on purpose, in the preset's `openList`.
   Every other route asks for a credential.
-- Ask for a role by route in the preset (`rteRoles`), or in the action
+- Ask for a role by route in the preset (`minRoles`), or in the action
   itself (`needsActionRle()`). Both must pass. A user without the role gets
   a 404, as for a route that doesn't exist, so an internal user can't map
   out the managers' routes. Keep the front end from offering them.
@@ -540,12 +540,12 @@ The Checker (`src/Access/Checker.php`) decides whether the request goes
 on. It fails closed: a configuration it can't apply refuses every request,
 and it never falls back to a weaker check.
 
-1. **The roles of the routes** (`rteRoles`) are read first. One that can't
+1. **The roles of the routes** (`minRoles`) are read first. One that can't
    be applied gets a 500 (`Access misconfigured`).
 2. **A route open to all** (`openList`), or a preset that asks for no
    access, lets the request through, with nobody logged. An open route
    that also asks for a role is a 500.
-3. **The carrier and the check** (`sessWith`, `authWith`) must exist and
+3. **The carrier and the check** (`carrWith`, `authWith`) must exist and
    work together, and the sign-in route must be a path of the site;
    otherwise, a 500.
 4. **An address held** for too many wrong credentials gets a 429, with
@@ -696,7 +696,7 @@ loaded when a run or the access layer asks for it.
 ### 5.3 Access
 
 **`Access\Checker`** decides whether a request goes on (4.4). It pairs a
-**carrier**, which reads the credential from the request (`sessWith`),
+**carrier**, which reads the credential from the request (`carrWith`),
 with a **check**, which verifies it (`authWith`):
 
 | Carrier | Class | Carries |
@@ -828,7 +828,7 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
 | To add | Write | Declared in |
 |---|---|---|
 | a credential check | `runs/Shared/<Name>Auth.php`, implementing `Access\Auth\Handler` | the `plugLibs` block of `access.json`, under `authWith` |
-| a carrier | `runs/Shared/<Name>Sess.php`, implementing `Access\Sess\Handler` | the `plugLibs` block, under `sessWith` |
+| a carrier | `runs/Shared/<Name>Sess.php`, implementing `Access\Sess\Handler` | the `plugLibs` block, under `carrWith` |
 | a model shared by runs | `runs/Shared/<Name>Model.php` | nothing: found by name |
 | a preset | `conf/presets/<name>.rps` | the entry point that names it |
 | a mail template | `runs/<App>/mails/<language>/<kind>.txt` and `.html` | nothing: replaces the framework's |
@@ -922,7 +922,7 @@ of the framework, chosen by the entry point. Its blocks and their keys:
 |---|---|---|
 | (top) | `presetId`, `synopsis` | its name, and what it's for |
 | `settings` | `confType`, `confList`, `confPath`, `envrFile` | the configuration files read: their types (`all`, `ini`, `json`), their names (`any` or a list), their folder, the file of the secrets |
-| `security` | `required`, `sessWith`, `sessConf`, `authWith`, `authConf`, `openList`, `signRout`, `rteRoles`, `appsConf`, `isPublic` | the access check: whether one is needed, the carrier and the check with the blocks of `access.json` they read, the routes open to all, a site's sign-in route, the roles of the routes, the block of the application keys, and a site meant to be open |
+| `security` | `required`, `carrWith`, `carrConf`, `authWith`, `authConf`, `openList`, `signPath`, `minRoles`, `appsConf`, `isPublic` | the access check: whether one is needed, the carrier and the check with the blocks of `access.json` they read, the routes open to all, a site's sign-in route, the roles of the routes, the block of the application keys, and a site meant to be open |
 | `inputSet` | `sourceId`, `readFrom`, `fieldSet` | the sources of the inputs (`QUERY`), and the fields kept |
 | `dispatch` | `detectBy`, `pathForm`, `routeDir`, `fileRoot`, `runMount` | the routing: `autopath` or `manually`, the names of the parts of a path, the folder of the route files, the folder of the pages and static files, where each run's routes are mounted (or `false` to stop serving it) |
 | `response` | `outputAs`, `corsList`, `headList` | the reply: its format, the sites allowed to call, the headers sent |
@@ -942,15 +942,15 @@ seven presets:
 
 ### 6.5 `access.json`
 
-The blocks a preset names through `sessConf`, `authConf` and `appsConf`,
+The blocks a preset names through `carrConf`, `authConf` and `appsConf`,
 and the settings of the access layer. A block is named after its check or
 carrier, so a value naming a block reads on its own
-(`"sessConf": "jwtToken"`):
+(`"carrConf": "jwtToken"`):
 
 | Block | Keys | Sets |
 |---|---|---|
-| `loginSet` | `authWith`, `authConf`, `sessWith`, `sessConf` | how the `Auth` run signs a user in, and what it issues |
-| `plugLibs` | `authWith`, `sessWith` | the plug-in checks and carriers allowed (5.8) |
+| `loginSet` | `authWith`, `authConf`, `carrWith`, `carrConf` | how the `Auth` run signs a user in, and what it issues |
+| `plugLibs` | `authWith`, `carrWith` | the plug-in checks and carriers allowed (5.8) |
 | `htpasswd` | `passFile`, `weakHash`, `maxTries`, `holdSecs` | the password file of the `htpasswd` check, and its limit by account |
 | `nativeDb` | `linkName`, `useTable`, `idleSecs`, `maxTries`, `holdSecs`, `minChars`, `tfaCrypt`, `mailAcnt`, `signupOn`, `codeMins`, `linkTmpl` | the native userbase: its database and table, the time after which a user is no longer online, the wrong passwords before the account is held and for how long, the shortest password, the key of the 2FA secrets, the access mails |
 | `userFile` | `listFile`, `tfaCrypt`, `maxTries`, `holdSecs` | the users file, the key of its 2FA secrets, and its limit by account |
@@ -1820,7 +1820,7 @@ The same rule holds beyond the code:
 
 | Element | Rule | Example |
 |---|---|---|
-| keys of a configuration block | 8, in the JSON files and in a route target | `sessWith`, `appToRun` |
+| keys of a configuration block | 8, in the JSON files and in a route target | `carrWith`, `appToRun` |
 | keys of `system.ini` | 8, in the form `XXX_YYYY`; codes among its values are 4, in capitals | `LOG_MODE`, `DEVS`, `INDX` |
 | codes made at run time | 8; in lower case when they name a file (a preset, a mail kind, a database type, a bundle mode) | `internal`, `operator`, `sysadmin` |
 | columns of a table | 10 | `systemName` |

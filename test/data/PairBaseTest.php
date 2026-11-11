@@ -60,7 +60,7 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
  * @return Array The status, the message, the user and the role.
  */
 function pairReply( String $carrierStr, String $checkNamed, Array $headersArr=Array(), Array $serverVals=Array(), Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
-	$axsConf = $moreConfig + Array('required'=>true, 'sessWith'=>$carrierStr, 'sessConf'=>($carrierStr=='jwtToken') ? 'testTokn' : 'nothing', 'authWith'=>$checkNamed, 'authConf'=>($checkNamed=='nativeDb') ? 'testBase' : 'tsdevc');
+	$axsConf = $moreConfig + Array('required'=>true, 'carrWith'=>$carrierStr, 'carrConf'=>($carrierStr=='jwtToken') ? 'testTokn' : 'nothing', 'authWith'=>$checkNamed, 'authConf'=>($checkNamed=='nativeDb') ? 'testBase' : 'tsdevc');
 	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->validateAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }
@@ -148,7 +148,7 @@ checkIdentical('jwtToken x devToken: the token alone decides, with the role it w
 checkIdentical('clntCert x devToken: the certificate alone decides', pairReply('clntCert', 'devToken', Array(), certVals('dave')), Array(200, '', 'dave', 'internal'));
 
 // Roles : measured against the role of the users table
-$rolConf = Array('rteRoles'=>Array('shows/*'=>'operator'));
+$rolConf = Array('minRoles'=>Array('shows/*'=>'operator'));
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
 checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pairReply('httpBasc', 'nativeDb', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('httpBasc', 'nativeDb', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'internal'), Array(200, '', 'anna', 'sysadmin')));
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
@@ -172,7 +172,7 @@ checkIdentical('limit: a pair that cannot work is not counted', Array(sendTrice(
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 
 // Login : a check of device tokens takes no password
-plugConf( 0, Array('authWith'=>'devToken', 'authConf'=>'tsdevc', 'sessConf'=>'testTokn') );
+plugConf( 0, Array('authWith'=>'devToken', 'authConf'=>'tsdevc', 'carrConf'=>'testTokn') );
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
 $mthProp->setValue($request, 'POST');

@@ -188,7 +188,7 @@ checkIdentical('ClCert with a store: unknown user', Array($strSess->verifyRqstLi
 
 // Checker : reads the strategy pair from the 'security' block, and its config from the ACCESS registry row
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')))) );
-$hdrConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys');
+$hdrConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys');
 
 $checker = new Checker( Array('required'=>false), mockRequestObj() );
 checkIdentical('Checker not required: goes through, not logged', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('loggedIn'), $checker->validateAccess()->readValueByKey('userRole')), Array(200, false, null));
@@ -202,7 +202,7 @@ checkIdentical('Checker granted status',      $axsRslt->readValueByKey('statCode
 checkIdentical('Checker granted: member role by default', $axsRslt->readValueByKey('userRole'), 'internal');
 
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
-$jwtConf = Array('required'=>true, 'sessWith'=>'jwtToken', 'sessConf'=>'testjwt');
+$jwtConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'sysadmin')))) );
 checkIdentical('Checker keeps a known role',  $checker->validateAccess()->readValueByKey('userRole'), 'sysadmin');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'root')))) );
@@ -232,32 +232,32 @@ checkIdentical('Checker denied status',       $axsRslt->readValueByKey('statCode
 checkIdentical('Checker denied message',      $axsRslt->readValueByKey('statMssg'), 'Invalid API key');
 checkIdentical('Checker denied, no Basic challenge', $axsRslt->readValueByKey('wwwHeadr'), null);
 
-$checker = new Checker( Array('sessWith'=>'httpBasc', 'authWith'=>'htpasswd', 'sessConf'=>'testkeys'), mockRequestObj() );
+$checker = new Checker( Array('carrWith'=>'httpBasc', 'authWith'=>'htpasswd', 'carrConf'=>'testkeys'), mockRequestObj() );
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker Basic denied status', $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker Basic challenge, with its realm', $axsRslt->readValueByKey('wwwHeadr'), 'Basic realm="nyuRuns", charset="UTF-8"');
 
 // A carrier and a check that cannot work together : a mistake of the config, told as such
 checkIdentical('pairsFlaw: the pairs that work', Array(
-	(new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'nativeDb'), mockRequestObj()))->checkPairFlaws(),
-	(new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'userFile'), mockRequestObj()))->checkPairFlaws(),
-	(new Checker(Array('sessWith'=>'jwtToken'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'phpSessn', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(),
-	(new Checker(Array('sessWith'=>'clntCert', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'devToken'), mockRequestObj()))->checkPairFlaws()
+	(new Checker(Array('carrWith'=>'httpBasc', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('carrWith'=>'httpBasc', 'authWith'=>'nativeDb'), mockRequestObj()))->checkPairFlaws(),
+	(new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>'userFile'), mockRequestObj()))->checkPairFlaws(),
+	(new Checker(Array('carrWith'=>'jwtToken'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('carrWith'=>'phpSessn', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(),
+	(new Checker(Array('carrWith'=>'clntCert', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>'devToken'), mockRequestObj()))->checkPairFlaws()
 ), array_fill(0, 8, ''));
-checkIdentical('pairsFlaw: a name and a password handed to a check of keys', (new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), 'the credential check "regdKeys" cannot check what the carrier "httpBasc" hands it');
-checkIdentical('pairsFlaw: a name and a password handed to the check of the device tokens', (new Checker(Array('sessWith'=>'httpBasc', 'authWith'=>'devToken'), mockRequestObj()))->checkPairFlaws(), 'the credential check "devToken" cannot check what the carrier "httpBasc" hands it');
-checkIdentical('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), 'the credential check "htpasswd" cannot check what the carrier "apiHeadr" hands it');
-checkIdentical('pairsFlaw: a carrier left without a check', Array((new Checker(Array('sessWith'=>'httpBasc'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('sessWith'=>'apiHeadr', 'authWith'=>''), mockRequestObj()))->checkPairFlaws()), Array('the carrier "httpBasc" needs a credential check (authWith)', 'the carrier "apiHeadr" needs a credential check (authWith)'));
-$axsRslt = (new Checker( Array('sessWith'=>'httpBasc', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys'), mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->validateAccess();
+checkIdentical('pairsFlaw: a name and a password handed to a check of keys', (new Checker(Array('carrWith'=>'httpBasc', 'authWith'=>'regdKeys'), mockRequestObj()))->checkPairFlaws(), 'the credential check "regdKeys" cannot check what the carrier "httpBasc" hands it');
+checkIdentical('pairsFlaw: a name and a password handed to the check of the device tokens', (new Checker(Array('carrWith'=>'httpBasc', 'authWith'=>'devToken'), mockRequestObj()))->checkPairFlaws(), 'the credential check "devToken" cannot check what the carrier "httpBasc" hands it');
+checkIdentical('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), 'the credential check "htpasswd" cannot check what the carrier "apiHeadr" hands it');
+checkIdentical('pairsFlaw: a carrier left without a check', Array((new Checker(Array('carrWith'=>'httpBasc'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>''), mockRequestObj()))->checkPairFlaws()), Array('the carrier "httpBasc" needs a credential check (authWith)', 'the carrier "apiHeadr" needs a credential check (authWith)'));
+$axsRslt = (new Checker( Array('carrWith'=>'httpBasc', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys'), mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->validateAccess();
 checkIdentical('Checker: such a pair refuses every request with a 500, without a challenge', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('wwwHeadr')), Array(500, 'Access misconfigured', null));
 
-$checker = new Checker( Array('sessWith'=>'jwtToken', 'sessConf'=>'testkeys'), mockRequestObj() );
+$checker = new Checker( Array('carrWith'=>'jwtToken', 'carrConf'=>'testkeys'), mockRequestObj() );
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker JWT denied status',   $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker JWT challenge',       $axsRslt->readValueByKey('wwwHeadr'), 'Bearer');
 
 // Checker : public routes, matched on the resolved application and action
-$pubConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys', 'openList'=>Array('auth/login', 'Open/*'));
+$pubConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys', 'openList'=>Array('auth/login', 'Open/*'));
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) );
 checkIdentical('Checker public action',       $checker->validateAccess()->readValueByKey('statCode'), 200);
 checkIdentical('Checker public action: not logged', $checker->validateAccess()->readValueByKey('loggedIn'), false);
@@ -309,7 +309,7 @@ $checker = new Checker( Array('openList'=>Array('login')) + $pubConf, mockReques
 checkIdentical('Checker public path: needs its leading slash', $checker->validateAccess()->readValueByKey('statCode'), 401);
 
 // Checker : a request denied an HTML page is given the sign-in route to go to
-$sgnConf = Array('signRout'=>'/login') + $pthConf;
+$sgnConf = Array('signPath'=>'/login') + $pthConf;
 $askReqs = mockRequestObj();
 $askPrpt = new ReflectionProperty('nyu\Tools\Request', 'uriDetails');
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/hello/7?tab=a b'));
@@ -327,19 +327,19 @@ $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null,
 checkIdentical('Checker sign-in: so does a denied file', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null)) );
 checkIdentical('Checker sign-in: and an unresolved route', $checker->validateAccess()->readValueByKey('denyGoal'), null);
-$checker = new Checker( Array('signRout'=>'/enter') + $pubConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'enter')) );
+$checker = new Checker( Array('signPath'=>'/enter') + $pubConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'enter')) );
 checkIdentical('Checker sign-in: a sign-in route left closed is not sent to itself', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
 checkIdentical('Checker sign-in: the open sign-in route is served', $checker->validateAccess()->readValueByKey('statCode'), 200);
 foreach( Array('https://example.org/login', '//example.org/login', 'login', '/log in', Array('/login')) as $badRte ){
-	$checker = new Checker( Array('signRout'=>$badRte) + $pthConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
+	$checker = new Checker( Array('signPath'=>$badRte) + $pthConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
 	$axsRslt = $checker->validateAccess();
 	checkIdentical('Checker sign-in: '.json_encode($badRte).' is not a path of this site', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('denyGoal')), Array(500, null));
 }
 
-$checker = new Checker( Array('sessWith'=>'Nope'), mockRequestObj() );
+$checker = new Checker( Array('carrWith'=>'Nope'), mockRequestObj() );
 checkIdentical('Checker unknown sess strategy', $checker->validateAccess()->readValueByKey('statCode'), 500);
-$checker = new Checker( Array('sessWith'=>'apiHeadr', 'authWith'=>'Nope'), mockRequestObj() );
+$checker = new Checker( Array('carrWith'=>'apiHeadr', 'authWith'=>'Nope'), mockRequestObj() );
 checkIdentical('Checker unknown auth strategy', $checker->validateAccess()->readValueByKey('statCode'), 500);
 
 // The Probe fixture application, for the helpers of an action
@@ -364,7 +364,7 @@ function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): 
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'));
 }
 
-// The declared routes the paths of rteRoles name : the site's, and a route of the Run Probe under its mount
+// The declared routes the paths of minRoles name : the site's, and a route of the Run Probe under its mount
 $GLOBALS['roleRout'] = new Router( Array(), mockRequestObj() );
 $GLOBALS['roleRout']->assignRouteSet( Array(
 	'docs/*'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('fldrPath'=>'docs')),
@@ -378,9 +378,9 @@ $GLOBALS['roleRout']->assignRouteSet( Array(
 	'twofold'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('GET'=>Array('appToRun'=>'Probe', 'doAction'=>'mirrored'), 'POST'=>Array('appToRun'=>'Probe', 'doAction'=>'identify'))),
 ) );
 
-// Checker : the role a route asks for ('rteRoles'), written as the routes of 'openList'
+// Checker : the role a route asks for ('minRoles'), written as the routes of 'openList'
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
-$rolConf = Array('rteRoles'=>Array('users/*'=>'sysadmin', 'users/view'=>'internal', 'Shows/Edit'=>'operator', 'shows/*'=>'internal', 'probe/sanitize'=>'operator', 'probe/mirrored'=>'sysadmin', '/docs/*'=>'operator', '/tokchk'=>'sysadmin', 'auth/check'=>'operator', '/admin'=>'sysadmin')) + $jwtConf;
+$rolConf = Array('minRoles'=>Array('users/*'=>'sysadmin', 'users/view'=>'internal', 'Shows/Edit'=>'operator', 'shows/*'=>'internal', 'probe/sanitize'=>'operator', 'probe/mirrored'=>'sysadmin', '/docs/*'=>'operator', '/tokchk'=>'sysadmin', 'auth/check'=>'operator', '/admin'=>'sysadmin')) + $jwtConf;
 checkIdentical('Checker role: refused to a lower role', roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'lock')), Array(404, 'Not Found'));
 checkIdentical('Checker role: refused to the role between', roleReply($rolConf, 'operator', Array('appToRun'=>'users', 'doAction'=>'lock')), Array(404, 'Not Found'));
 checkIdentical('Checker role: served to the role asked for', roleReply($rolConf, 'sysadmin', Array('appToRun'=>'users', 'doAction'=>'lock')), Array(200, ''));
@@ -399,40 +399,40 @@ $actRoute = Array('appToRun'=>'auth', 'doAction'=>'check', 'routKind'=>'toAction
 checkIdentical('Checker role: named by its path and by its action, the highest', Array(roleReply($rolConf, 'operator', $actRoute), roleReply($rolConf, 'sysadmin', $actRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: the refusal of a route that answers by itself', roleReply($rolConf, 'internal', Array('statCode'=>405) + $dirRoute), Array(404, 'Not Found'));
 checkIdentical('Checker role: its own OPTIONS answer needs no role', roleReply($rolConf, '', Array('statCode'=>204) + $dirRoute), Array(200, ''));
-// A Run route is named by its final, mounted path, in rteRoles as in openList
-$mntConf = Array('rteRoles'=>Array('/space/listed'=>'sysadmin'), 'openList'=>Array('/fromRoot')) + $jwtConf;
+// A Run route is named by its final, mounted path, in minRoles as in openList
+$mntConf = Array('minRoles'=>Array('/space/listed'=>'sysadmin'), 'openList'=>Array('/fromRoot')) + $jwtConf;
 $mntRout = Array('appToRun'=>'Mounted', 'doAction'=>'listed', 'routKind'=>'toAction', 'routPath'=>'space/listed', 'routOwnr'=>'Mounted');
 checkIdentical('Checker role: a Run route, by its mounted path', Array(roleReply($mntConf, 'internal', $mntRout), roleReply($mntConf, 'sysadmin', $mntRout)), Array(Array(404, 'Not Found'), Array(200, '')));
-checkIdentical('Checker role: not by the path its file declares it with, which names no route: the block cannot be applied', roleReply(Array('rteRoles'=>Array('/listed'=>'sysadmin')) + $jwtConf, 'internal', $mntRout), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: not by the path its file declares it with, which names no route: the block cannot be applied', roleReply(Array('minRoles'=>Array('/listed'=>'sysadmin')) + $jwtConf, 'internal', $mntRout), Array(500, 'Access misconfigured'));
 $rotRout = Array('appToRun'=>'Mounted', 'doAction'=>'fromRoot', 'routKind'=>'toAction', 'routPath'=>'fromRoot', 'routOwnr'=>'Mounted');
 checkIdentical('Checker open: a Run route from the root, by its path', roleReply($mntConf, '', $rotRout), Array(200, ''));
 checkIdentical('Checker open: not under the mount it does not take', roleReply($mntConf, '', Array('routPath'=>'mounted/fromRoot') + $rotRout)[0], 401);
 // A declared route answering with an action : its role follows the action, whatever path reaches it
-$pnlConf = Array('rteRoles'=>Array('/panel'=>'sysadmin')) + $jwtConf;
+$pnlConf = Array('minRoles'=>Array('/panel'=>'sysadmin')) + $jwtConf;
 checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'internal', Array('appToRun'=>'reports', 'doAction'=>'admin', 'routKind'=>'toAction', 'routPath'=>'panel')), Array(404, 'Not Found'));
 checkIdentical('Checker role: and on its action reached by its own path', Array(roleReply($pnlConf, 'internal', Array('appToRun'=>'reports', 'doAction'=>'admin')), roleReply($pnlConf, 'internal', Array('appToRun'=>'Reports', 'doAction'=>'ADMIN'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 $dfltAct = nyu\App\Controller::dfltActionText( new ReflectionClass('nyu\Runs\Probe\Actions') );
-$prbConf = Array('rteRoles'=>Array('/probes'=>'sysadmin')) + $jwtConf;
+$prbConf = Array('minRoles'=>Array('/probes'=>'sysadmin')) + $jwtConf;
 checkIdentical('Checker role: a route to the default action of a Run, the Run asked for by its path, with or without its default action', Array($dfltAct, roleReply($prbConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>null)), roleReply($prbConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>$dfltAct)), roleReply($prbConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>$dfltAct))), Array('sanitize', Array(404, 'Not Found'), Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: another action of that Run asks for nothing', roleReply($prbConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'mirrored')), Array(200, ''));
-$cnsConf = Array('rteRoles'=>Array('/console'=>'sysadmin')) + $jwtConf;
+$cnsConf = Array('minRoles'=>Array('/console'=>'sysadmin')) + $jwtConf;
 $brdRout = Array('appToRun'=>'Probe', 'doAction'=>'sanitize', 'routKind'=>'toAction', 'routPath'=>'probe/board', 'routOwnr'=>'Probe');
 checkIdentical('Checker role: a site alias carries its role to the route of the Run answering with the same action, and to the Run asked for with none', Array(roleReply($cnsConf, 'internal', $brdRout), roleReply($cnsConf, 'sysadmin', $brdRout), roleReply($cnsConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>null))), Array(Array(404, 'Not Found'), Array(200, ''), Array(404, 'Not Found')));
-checkIdentical('Checker role: an alias with no role leaves its action as it was', roleReply(Array('rteRoles'=>Array('/docs/*'=>'operator')) + $jwtConf, 'internal', $brdRout), Array(200, ''));
-$twoConf = Array('rteRoles'=>Array('/twofold'=>'sysadmin')) + $jwtConf;
+checkIdentical('Checker role: an alias with no role leaves its action as it was', roleReply(Array('minRoles'=>Array('/docs/*'=>'operator')) + $jwtConf, 'internal', $brdRout), Array(200, ''));
+$twoConf = Array('minRoles'=>Array('/twofold'=>'sysadmin')) + $jwtConf;
 checkIdentical('Checker role: a path pointing each method to its own action carries its role to every one of them', Array(roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'mirrored')), roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'identify')), roleReply($twoConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>'identify')), roleReply($twoConf, 'internal', Array('appToRun'=>'probe', 'doAction'=>'userPass'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found'), Array(200, ''), Array(200, '')));
 checkIdentical('Checker role: an unknown application matches no route: its own 404 comes later', roleReply($prbConf, 'internal', Array('appToRun'=>'nowhere', 'doAction'=>null)), Array(200, ''));
-// A path of rteRoles must name a declared route, as the router matches it; without a router, nothing can be checked
-checkIdentical('Checker role: a path naming no declared route (its case differs) refuses every request', roleReply(Array('rteRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, 'sysadmin', $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview')), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: a path without a router to read the routes from refuses every request', Array((new Checker( $pnlConf, mockRequestObj() ))->checkRoleFlaws(), (new Checker( Array('rteRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, mockRequestObj(), null, $GLOBALS['roleRout'] ))->checkRoleFlaws()), Array('the route "/panel" of rteRoles cannot be checked: no router is given', 'the route "/Panel" of rteRoles is declared nowhere'));
-checkIdentical('Checker role: an entry naming an action needs no router', (new Checker( $rolConf + Array(), mockRequestObj() ))->checkRoleFlaws()!=='' && (new Checker( Array('rteRoles'=>Array('users/*'=>'sysadmin')) + $jwtConf, mockRequestObj() ))->checkRoleFlaws()==='', true);
+// A path of minRoles must name a declared route, as the router matches it; without a router, nothing can be checked
+checkIdentical('Checker role: a path naming no declared route (its case differs) refuses every request', roleReply(Array('minRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, 'sysadmin', $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview')), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: a path without a router to read the routes from refuses every request', Array((new Checker( $pnlConf, mockRequestObj() ))->checkRoleFlaws(), (new Checker( Array('minRoles'=>Array('/Panel'=>'sysadmin')) + $jwtConf, mockRequestObj(), null, $GLOBALS['roleRout'] ))->checkRoleFlaws()), Array('the route "/panel" of minRoles cannot be checked: no router is given', 'the route "/Panel" of minRoles is declared nowhere'));
+checkIdentical('Checker role: an entry naming an action needs no router', (new Checker( $rolConf + Array(), mockRequestObj() ))->checkRoleFlaws()!=='' && (new Checker( Array('minRoles'=>Array('users/*'=>'sysadmin')) + $jwtConf, mockRequestObj() ))->checkRoleFlaws()==='', true);
 
 // The refused user stays identified, and is not sent to the sign-in route
-$axsRslt = (new Checker( Array('signRout'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'operator')))), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')), $GLOBALS['roleRout'] ))->validateAccess();
+$axsRslt = (new Checker( Array('signPath'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'operator')))), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')), $GLOBALS['roleRout'] ))->validateAccess();
 checkIdentical('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('wwwHeadr'), $axsRslt->readValueByKey('denyGoal')), Array(404, true, 'carol', 'operator', null, null));
 
 // A check that gives no role makes a member
-$keyConf = Array('rteRoles'=>Array('shows/*'=>'internal', 'users/*'=>'operator')) + $hdrConf;
+$keyConf = Array('minRoles'=>Array('shows/*'=>'internal', 'users/*'=>'operator')) + $hdrConf;
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'shows', 'doAction'=>'overview')) );
 checkIdentical('Checker role: an API key meets the member role', $checker->validateAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'users', 'doAction'=>'index')) );
@@ -440,11 +440,11 @@ checkIdentical('Checker role: and no higher one', Array($checker->validateAccess
 
 // A block that cannot be applied refuses every request
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'overview');
-checkIdentical('Checker role: an unknown role', roleReply(Array('rteRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: a role that is not a text', roleReply(Array('rteRoles'=>Array('users/*'=>Array('sysadmin'))) + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: not a list of routes', roleReply(Array('rteRoles'=>'sysadmin') + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: asked for while access is not required', roleReply(Array('required'=>false, 'rteRoles'=>Array('users/*'=>'sysadmin')), 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
-checkIdentical('Checker role: an empty list asks for nothing', roleReply(Array('required'=>false, 'rteRoles'=>Array()), '', $anyRoute), Array(200, ''));
+checkIdentical('Checker role: an unknown role', roleReply(Array('minRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: a role that is not a text', roleReply(Array('minRoles'=>Array('users/*'=>Array('sysadmin'))) + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: not a list of routes', roleReply(Array('minRoles'=>'sysadmin') + $jwtConf, 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: asked for while access is not required', roleReply(Array('required'=>false, 'minRoles'=>Array('users/*'=>'sysadmin')), 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
+checkIdentical('Checker role: an empty list asks for nothing', roleReply(Array('required'=>false, 'minRoles'=>Array()), '', $anyRoute), Array(200, ''));
 $opnConf = Array('openList'=>Array('users/*', '/docs/*')) + $rolConf;
 checkIdentical('Checker role: a route both open and asking for a role', Array(roleReply($opnConf, 'sysadmin', Array('appToRun'=>'users', 'doAction'=>'lock')), roleReply($opnConf, '', $dirRoute)), Array(Array(500, 'Access misconfigured'), Array(500, 'Access misconfigured')));
 checkIdentical('Checker role: the other open routes are served', roleReply(Array('openList'=>Array('auth/login')) + $rolConf, '', Array('appToRun'=>'auth', 'doAction'=>'login')), Array(200, ''));
@@ -453,7 +453,7 @@ checkIdentical('Checker role: the other open routes are served', roleReply(Array
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rolelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'lock'));
 roleReply($rolConf, 'internal', $dirRoute);
-roleReply(Array('rteRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'sysadmin', $anyRoute);
+roleReply(Array('minRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'sysadmin', $anyRoute);
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('rolelogs').DS.'access.log') ? file(inTemporaryDir('rolelogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: a refusal for the role is one line', count($axsLogs), 3);
@@ -507,7 +507,7 @@ checkIdentical('RegKey a plain list still names nobody', (new RegKey(Array('keys
 checkIdentical('RegKey a keysList that is not a list accepts nothing', (new RegKey(Array('keysList'=>'k-1')))->checkSecretArr(Array('key'=>'k-1')), false);
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('keylogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'NAMEKEYS'=>Array('keysList'=>Array('reports'=>'k-rept', "eve\" from 9.9.9.9\n[".date('Y')."] [INFO] forged"=>'k-evil')))) );
-$keyConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'namekeys');
+$keyConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'namekeys');
 $axsRslt = (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-rept'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();
 checkIdentical('Checker named key: the holder is the user, a member', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'reports', 'internal'));
 (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-evil'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();

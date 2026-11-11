@@ -117,7 +117,7 @@ checkIdentical('RegKey : a missing key is not', $keysLst->hasWrongSecret(), fals
 // Through the Checker : counters in a folder of the project, removed at the end
 $prjFldr = 'temp'.DS.'limits_test_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTKEYS'=>Array('keysList'=>Array('k-1')), 'TRYLIMIT'=>Array('maxTries'=>2, 'holdSecs'=>600, 'dataPath'=>$prjFldr))) );
-$hdrConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys');
+$hdrConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys');
 /**
  * Runs the access check of a request carrying an API key.
  *

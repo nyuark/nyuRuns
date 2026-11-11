@@ -225,7 +225,7 @@ class Actions extends Actionset {
 	 * from a logged user of the highest role of Checker::ROLE_LIST (see
 	 * needsRole), a 405 unless it uses the given method, and a 500 when
 	 * the login does not use the native userbase. The role is asked for
-	 * here whatever the preset does: a 'rteRoles' entry of its 'security'
+	 * here whatever the preset does: a 'minRoles' entry of its 'security'
 	 * block only refuses the request earlier.
 	 *
 	 * @param String $httpMthdText Method the action answers to.

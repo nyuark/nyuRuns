@@ -21,7 +21,7 @@ switchToSqlite($basePth);
 $projDir = makeProjectTxt('users', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'passWord'=>'')),
-	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"nativeDb\", \"authConf\": \"testBase\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"testBase\": { \"useTable\": \"users\", \"minChars\": 8 },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\" }\n}\n"
+	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"nativeDb\", \"authConf\": \"testBase\", \"carrWith\": \"jwtToken\", \"carrConf\": \"jwtToken\" },\n\t\"testBase\": { \"useTable\": \"users\", \"minChars\": 8 },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\" }\n}\n"
 ));
 $natAuth = new Native( Array('useTable'=>'users') );
 

@@ -1,5 +1,5 @@
 {
-	"loginSet":  { "authWith": "htpasswd", "authConf": "testPass", "sessWith": "jwtToken", "sessConf": "testTokn" },
+	"loginSet":  { "authWith": "htpasswd", "authConf": "testPass", "carrWith": "jwtToken", "carrConf": "testTokn" },
 	"testTokn": { "hmacSecr": "test-only-secret-0123456789-abcdefghij", "lifeSecs": 300, "signAlgo": "HS256" },
 	"testPass": { "passFile": "test/fixtures/users.htpasswd" },
 	"testKeys": { "headName": "X-Api-Key", "keysList": ["test-only-key-1"] },

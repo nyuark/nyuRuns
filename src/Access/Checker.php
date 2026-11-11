@@ -8,7 +8,7 @@ use nyu\Tools\Router;
 use nyu\Tools\Logger;
 
 /**
- * Loads the session carrier ('sessWith') and credential check ('authWith')
+ * Loads the session carrier ('carrWith') and credential check ('authWith')
  * the 'security' block names for the current request, verifies access,
  * and reports the result.
  */
@@ -37,7 +37,7 @@ class Checker{
 	 * @param Array     $accessConfig Resolved 'security' config block for the active preset.
 	 * @param Request   $givenRequest The shared, already-parsed HTTP request.
 	 * @param ?Registry $resolvedRgst The resolved route, used to recognise public routes.
-	 * @param ?Router   $routerObject The router of the preset, for the declared routes a '/path' of 'rteRoles' names: without one, such a key cannot be applied (see checkRoleFlaws).
+	 * @param ?Router   $routerObject The router of the preset, for the declared routes a '/path' of 'minRoles' names: without one, such a key cannot be applied (see checkRoleFlaws).
 	 */
 	function __construct( Array $accessConfig, Request $givenRequest, ?Registry $resolvedRgst = null, ?Router $routerObject = null ){
 		$this->accessConf = $accessConfig;
@@ -65,7 +65,7 @@ class Checker{
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
 	public static function sessnClassText( String $shrtNamedTxt ): ?String {
-		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Sess\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'sessWith', 'Sess');
+		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Sess\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'carrWith', 'Sess');
 	}
 
 	/**
@@ -91,7 +91,7 @@ class Checker{
 	 * interface of its kind. A listed plug-in that cannot be used is logged.
 	 *
 	 * @param String $shrtNamedTxt Short name, as written in the config.
-	 * @param String $accPluginLst Key of the 'plugLibs' block listing the names allowed: 'authWith' or 'sessWith'.
+	 * @param String $accPluginLst Key of the 'plugLibs' block listing the names allowed: 'authWith' or 'carrWith'.
 	 * @param String $pluginSuffix 'Auth' or 'Sess': suffix of the class, and namespace of its interface.
 	 * @return ?String The class name with its namespace, or null when there is no such plug-in.
 	 */
@@ -140,7 +140,7 @@ class Checker{
 	 * until its hold ends (see Limiter). A request denied an HTML page is
 	 * given the sign-in route to go to, when the 'security' block names one
 	 * (see signinUrl). A logged user who does not hold the role its route
-	 * asks for (the 'rteRoles' key, see routeRole) is answered 404, as for a
+	 * asks for (the 'minRoles' key, see routeRole) is answered 404, as for a
 	 * route that does not exist; the refusal is logged (see logDenial). The call
 	 * of an application for one of its users is checked by its own key and
 	 * token (the 'appsConf' key, see appsCalls).
@@ -164,7 +164,7 @@ class Checker{
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		}
 
-		$sessNme = strval($this->accessConf['sessWith'] ?? '');
+		$sessNme = strval($this->accessConf['carrWith'] ?? '');
 		$authNme = $this->accessConf['authWith'] ?? null;
 
 		$sessCls = self::sessnClassText($sessNme);
@@ -174,7 +174,7 @@ class Checker{
 		}
 
 		// The sign-in route is a path of this site : never an address elsewhere
-		$signRte = $this->accessConf['signRout'] ?? null;
+		$signRte = $this->accessConf['signPath'] ?? null;
 		if( $signRte!==null && ( !is_string($signRte) || !preg_match('#^/(?!/)#', $signRte) || !Router::validRouteAddr($signRte) ) ){
 			$this->logAccsAttempt( false, '', 'Access misconfigured: the sign-in route is not a path of this site' );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
@@ -188,7 +188,7 @@ class Checker{
 				return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 			}
 			// The credential check reads its own block when 'authConf' names one, the carrier's otherwise
-			$authObj = new $authCls( $this->resolveConfArr($this->accessConf['authConf'] ?? $this->accessConf['sessConf'] ?? '') );
+			$authObj = new $authCls( $this->resolveConfArr($this->accessConf['authConf'] ?? $this->accessConf['carrConf'] ?? '') );
 		}
 
 		// A carrier and a check that cannot work together refuse every request, as a mistake of the config
@@ -213,7 +213,7 @@ class Checker{
 			return $appRslt;
 		}
 
-		$sessObj = new $sessCls( $this->resolveConfArr($this->accessConf['sessConf'] ?? ''), $authObj );
+		$sessObj = new $sessCls( $this->resolveConfArr($this->accessConf['carrConf'] ?? ''), $authObj );
 		$idntArr = $sessObj->verifyRqstList( $this->requestObj );
 
 		if( $idntArr===false ){
@@ -320,7 +320,7 @@ class Checker{
 	 * Gives the access of an action called from the command line (see
 	 * Shell\ActCaller): no credential is checked, since whoever runs the
 	 * command line already holds the files of the project, but the role
-	 * the route asks for (the 'rteRoles' key) applies to the role the call
+	 * the route asks for (the 'minRoles' key) applies to the role the call
 	 * is given. The call is traced on the 'access' channel.
 	 *
 	 * @param String $signedInUser Name the call runs under.
@@ -397,7 +397,7 @@ class Checker{
 	 * @return String What is wrong, empty when the pair can work.
 	 */
 	public function checkPairFlaws(): String {
-		$sessNme = strval($this->accessConf['sessWith'] ?? '');
+		$sessNme = strval($this->accessConf['carrWith'] ?? '');
 		$authNme = $this->accessConf['authWith'] ?? null;
 		if( !isset(self::PAIR_LIST[$sessNme]) ){
 			return '';
@@ -413,7 +413,7 @@ class Checker{
 	}
 
 	/**
-	 * Checks the 'rteRoles' key of the 'security' block: a list of routes, each
+	 * Checks the 'minRoles' key of the 'security' block: a list of routes, each
 	 * with a role of ROLELIST, in a block that requires access. A '/path'
 	 * must name a declared route, exactly as the router matches it: one
 	 * naming none, or a check given no router to read the routes from,
@@ -422,7 +422,7 @@ class Checker{
 	 * @return String What is wrong with it, empty when it can be applied.
 	 */
 	public function checkRoleFlaws(): String {
-		$roleMap = $this->accessConf['rteRoles'] ?? null;
+		$roleMap = $this->accessConf['minRoles'] ?? null;
 		if( $roleMap===null ){
 			return '';
 		}
@@ -443,11 +443,11 @@ class Checker{
 				continue;
 			}
 			if( $this->routingObj===null ){
-				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of rteRoles cannot be checked: no router is given';
+				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of minRoles cannot be checked: no router is given';
 			}
 			$this->routesList ??= $this->routingObj->allRoutesArray();
 			if( !in_array(trim($rteKey, '/'), array_column($this->routesList, 'routPath'), true) ){
-				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of rteRoles is declared nowhere';
+				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of minRoles is declared nowhere';
 			}
 		}
 		return '';
@@ -500,7 +500,7 @@ class Checker{
 	}
 
 	/**
-	 * Gives the role the resolved route asks for, from the 'rteRoles' key of
+	 * Gives the role the resolved route asks for, from the 'minRoles' key of
 	 * the 'security' block: its routes are written as those of 'openList' (see
 	 * openRoute), each with the least role it is served to. When several
 	 * entries name the route, the highest role is asked for. A request
@@ -513,7 +513,7 @@ class Checker{
 	 * @return ?String The role, or null when the route asks for none.
 	 */
 	public function routRoleString(): ?String {
-		$roleMap = $this->accessConf['rteRoles'] ?? Array();
+		$roleMap = $this->accessConf['minRoles'] ?? Array();
 		if( $this->routerRgst===null || !is_array($roleMap) ){
 			return null;
 		}
@@ -550,7 +550,7 @@ class Checker{
 
 	/**
 	 * Gives the address a denied request is sent to: the sign-in route the
-	 * 'signRout' key of the 'security' block names, when the request asked for
+	 * 'signPath' key of the 'security' block names, when the request asked for
 	 * a declared HTML page. The page asked for goes with it, as 'back',
 	 * for the sign-in to return to. Nothing is given for an action, a
 	 * file, or the sign-in route itself.
@@ -558,7 +558,7 @@ class Checker{
 	 * @return ?String The address, from the root of the site, or null when the denial is answered as it is.
 	 */
 	protected function getSigninRoute(): ?String {
-		$signRte = strval($this->accessConf['signRout'] ?? '');
+		$signRte = strval($this->accessConf['signPath'] ?? '');
 		if( $signRte=='' || $this->routerRgst===null || $this->routerRgst->readValueByKey('routKind')!='htmlPage' ){
 			return null;
 		}
