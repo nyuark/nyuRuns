@@ -75,7 +75,7 @@ class PHMail extends Driver {
 		if( $userNme!='' ){
 			$phpMail->SMTPAuth = true;
 			$phpMail->Username = $userNme;
-			$phpMail->Password = strval($this->setupArray['password'] ?? '');
+			$phpMail->Password = strval($this->setupArray['passWord'] ?? '');
 		}
 		$phpMail->setFrom($emailMessage->retrieveSender(), $emailMessage->getSenderLabel());
 		foreach( $emailMessage->listRecipients() as $toAddr ){

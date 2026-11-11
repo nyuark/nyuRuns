@@ -52,7 +52,7 @@ class Native implements Handler{
 	 *                          the failed tries allowed ('maxTries', defaults to 5), the time in seconds they hold the
 	 *                          account for ('holdSecs', defaults to 600), the shortest password accepted, in
 	 *                          characters ('minChars', defaults to 10) and the key the 2FA secrets are stored encrypted
-	 *                          with ('cryptKey', 32 characters at least; without one they are stored readable), and the
+	 *                          with ('tfaCrypt', 32 characters at least; without one they are stored readable), and the
 	 *                          minutes a code sent by mail lasts ('codeMins', defaults to MAILMINS).
 	 */
 	function __construct( Array $configValues ){
@@ -63,7 +63,7 @@ class Native implements Handler{
 		$this->triesLimit = max( 1, intval($configValues['maxTries'] ?? 5) );
 		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
 		$this->minPwdSize = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
-		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
+		$this->sealingKey = is_scalar($configValues['tfaCrypt'] ?? '') ? strval($configValues['tfaCrypt'] ?? '') : '';
 		$this->mailExpiry = max( 1, intval($configValues['codeMins'] ?? self::MAIL_MINS) );
 		// The failures of a client presenting a login mark are counted on the mark, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
@@ -176,7 +176,7 @@ class Native implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealKey = Totp::openSecretText($sealKey, $this->sealingKey);
 			if( $sealKey===null ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: cryptKey is missing or was changed' );
+				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: tfaCrypt is missing or was changed' );
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
@@ -459,7 +459,7 @@ class Native implements Handler{
 				return false;
 			}
 			if( $storTxt===$newSecr ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no cryptKey of '.Totp::SEAL_SIZE.' characters is set' );
+				\nyu\Tools\Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 			return $newSecr;
 		}catch( \Throwable $e ){

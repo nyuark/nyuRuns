@@ -14,9 +14,9 @@ namespace nyu\Tools;
  * - DateStr
  * - WeekDay
  * - FullDay
- * - ShrDate
+ * - ShrtDte
  * - TxtDate
- * - DateSpn
+ * - SpanDte
  * - EmlAddr
  * - PhoneNb
  * - UrlAddr
@@ -25,7 +25,7 @@ namespace nyu\Tools;
  *
  * FloatNb gives a number; the date formats, EmlAddr, PhoneNb, UrlAddr,
  * UrlText and HtmText give an empty string for a value that is not valid.
- * DateSpn gives one too when it is given no end date. A timestamp is
+ * SpanDte gives one too when it is given no end date. A timestamp is
  * read as a date when it is an Int; a text of digits is no date.
  */
 class Variable{
@@ -285,7 +285,7 @@ class Variable{
 	 * date, the month abbreviated: '1 Oct 2026'. A value that is no date
 	 * gives an empty string.
 	 */
-	function formatsShrDate(): Void {
+	function formatsShrtDte(): Void {
 		if(!defined('LOC_MTHSHT')){
 			define('LOC_MTHSHT',';Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec');
 		}
@@ -402,7 +402,7 @@ class Variable{
 	 *
 	 * @param String|Int|Bool $spanLastDate End date of the span (a 'Y-m-d' date or a timestamp); required for a result.
 	 */
-	function formatsDateSpn( String|Int|Bool $spanLastDate=false ): Void {
+	function formatsSpanDte( String|Int|Bool $spanLastDate=false ): Void {
 		$numData = $this->dateStampCount();
 		$tllVrbl = new Variable($spanLastDate);
 		$tllData = $tllVrbl->dateStampCount();

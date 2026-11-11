@@ -124,7 +124,7 @@ class DBCon {
 		$baseSet = self::readSetupArray($linkNameText);
 		$nameKey = $baseSet['name'];
 		if( !isset(self::$knownLinks[$nameKey]) ){
-			self::$knownLinks[$nameKey] = self::buildLinkDbCon($baseSet['dbEngine'], $baseSet['hostName'], $baseSet['userName'], $baseSet['password'], $baseSet['baseName'], Array('portNumb'=>$baseSet['portNumb'], 'encoding'=>$baseSet['encoding'], 'authBase'=>$baseSet['authBase'], 'waitSecs'=>$baseSet['waitSecs']), $nameKey);
+			self::$knownLinks[$nameKey] = self::buildLinkDbCon($baseSet['dbEngine'], $baseSet['hostName'], $baseSet['userName'], $baseSet['passWord'], $baseSet['baseName'], Array('portNumb'=>$baseSet['portNumb'], 'encoding'=>$baseSet['encoding'], 'authBase'=>$baseSet['authBase'], 'waitSecs'=>$baseSet['waitSecs']), $nameKey);
 		}
 		return self::$knownLinks[$nameKey];
 	}
@@ -135,7 +135,7 @@ class DBCon {
 	 * names: the first block is then the default database.
 	 *
 	 * @param String $linkNameText Name of the database, whatever its case; '' for the default one.
-	 * @return Array The 'dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'password', 'encoding', 'authBase' and 'waitSecs' settings, whatever their case in the file, '' for those left out.
+	 * @return Array The 'dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'passWord', 'encoding', 'authBase' and 'waitSecs' settings, whatever their case in the file, '' for those left out.
 	 *
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
@@ -155,7 +155,7 @@ class DBCon {
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
 	private static function readSetupArray( String $linkNameText ): Array {
-		$dfltSet = Array('dbEngine'=>'', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'', 'userName'=>'', 'password'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>'');
+		$dfltSet = Array('dbEngine'=>'', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'', 'userName'=>'', 'passWord'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>'');
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$allBase = $nyuConf ? $nyuConf->readValueByKey('database') : null;
 		if( !is_array($allBase) || empty($allBase) ){

@@ -41,7 +41,7 @@ class Config extends Command{
 	// Size of the RSA keys made for the tokens, in bits
 	const KEYS_BITS = 4096;
 	// Keys whose value is not shown, unless it only names where the secret is (env:NAME)
-	const SECR_LIST = Array('hmacSecr', 'password', 'passwd', 'keysList', 'cryptKey');
+	const SECR_LIST = Array('hmacSecr', 'passWord', 'passwd', 'keysList', 'tfaCrypt');
 	// What the keys of system.ini that are checked may hold
 	const RULE_LIST = Array(
 		'ENV_NAME'=>'/^(DEVS|TEST|PREV|PROD)$/D', 'LOG_MODE'=>'/^(MINI|BASE|FULL)$/D', 'LOG_ROTA'=>'/^(INDX|WEEK|MNTH|NONE)$/D',
@@ -70,7 +70,7 @@ class Config extends Command{
 			'showConf'=>Array('args'=>'<coreConf|accsConf|dataConf|preset> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
 			'setValue'=>Array('args'=>'<coreConf|accsConf|dataConf|preset> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
 			'wwwEntry'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
-			'makeSecr'=>Array('args'=>'<jwtToken|keysList|cryptKey|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
+			'makeSecr'=>Array('args'=>'<jwtToken|keysList|tfaCrypt|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'fullList'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
 			'clrCache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
 		);
@@ -359,8 +359,8 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMakeSecr(): Int {
-		$kindNme = $this->needsShellWord('the secret to make (jwtToken, keysList, cryptKey, markSecr, htpasswd)');
-		if( !in_array($kindNme, Array('jwtToken', 'keysList', 'cryptKey', 'markSecr', 'htpasswd'), true) ){
+		$kindNme = $this->needsShellWord('the secret to make (jwtToken, keysList, tfaCrypt, markSecr, htpasswd)');
+		if( !in_array($kindNme, Array('jwtToken', 'keysList', 'tfaCrypt', 'markSecr', 'htpasswd'), true) ){
 			$this->terminateShell('No secret is made under that name: '.$kindNme, self::EXIT_HELP);
 		}
 		try{
@@ -380,14 +380,14 @@ class Config extends Command{
 	/**
 	 * Makes the secret signing the tokens ('jwtToken'), an API key
 	 * ('keysList') or the key the 2FA secrets are stored encrypted with
-	 * ('cryptKey', in the block of the store the login uses), and writes it
+	 * ('tfaCrypt', in the block of the store the login uses), and writes it
 	 * where the block of conf/access.json reads
 	 * it: in the environment file when the block names it as env:NAME, in
 	 * the block otherwise. The secret of the tokens and the key of the 2FA
 	 * secrets are only shown with
 	 * --showSecr; an API key is shown once, since its client needs it.
 	 *
-	 * @param String $secrKindText 'jwtToken', 'keysList' or 'cryptKey'.
+	 * @param String $secrKindText 'jwtToken', 'keysList' or 'tfaCrypt'.
 	 * @param Bool   $keepExisting Whether a secret already set is left as it is, without a question.
 	 * @return Bool Whether a secret was written.
 	 *
@@ -408,10 +408,10 @@ class Config extends Command{
 			}
 			$rawValu = $treeObj->$blckNme->hmacSecr ?? null;
 			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
-		}elseif( $secrKindText=='cryptKey' ){
+		}elseif( $secrKindText=='tfaCrypt' ){
 			$labelTx = 'Key of the 2FA secrets';
 			$blckNme = $blckNme ?: strval($treeObj->loginSet->authConf ?? 'nativeDb');
-			$rawValu = $treeObj->$blckNme->cryptKey ?? null;
+			$rawValu = $treeObj->$blckNme->tfaCrypt ?? null;
 			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}elseif( $secrKindText=='markSecr' ){
 			// The key the login marks are signed with, in the limits block
@@ -430,7 +430,7 @@ class Config extends Command{
 			$newSecr = bin2hex(random_bytes(32));
 		}
 		if( !is_string($rawValu) ){
-			$whatLst = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'cryptKey'=>'the key of the 2FA secrets (cryptKey)', 'markSecr'=>'the key of the login marks (markSecr)');
+			$whatLst = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'tfaCrypt'=>'the key of the 2FA secrets (tfaCrypt)', 'markSecr'=>'the key of the login marks (markSecr)');
 			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatLst[$secrKindText].( $blckNme!='' ? ' under '.$blckNme : '' ), self::EXIT_DENY);
 		}
 		$envPath = TOP_DIR.DS.'.env';
@@ -439,7 +439,7 @@ class Config extends Command{
 		if( $nowSecr!='' && $keepExisting ){
 			return false;
 		}
-		$lossTxt = ($secrKindText=='cryptKey') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTx).' in use: what was issued with it stops being accepted';
+		$lossTxt = ($secrKindText=='tfaCrypt') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTx).' in use: what was issued with it stops being accepted';
 		if( $nowSecr!='' && !$this->queryAgreedFlg('Replace the '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
@@ -449,8 +449,8 @@ class Config extends Command{
 		}else{
 			if( $secrKindText=='jwtToken' ){
 				$treeObj->$blckNme->hmacSecr = $newSecr;
-			}elseif( $secrKindText=='cryptKey' ){
-				$treeObj->$blckNme->cryptKey = $newSecr;
+			}elseif( $secrKindText=='tfaCrypt' ){
+				$treeObj->$blckNme->tfaCrypt = $newSecr;
 			}elseif( $secrKindText=='markSecr' ){
 				$treeObj->$blckNme->markSecr = $newSecr;
 			}else{
@@ -638,7 +638,7 @@ class Config extends Command{
 		$rowList = Array();
 		$routObj = new Router($rteConf, $rqstObj);
 		foreach( $routObj->allRoutesArray() as $rteVal ){
-			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routGoal'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal, $routObj) );
+			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal, $routObj) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleMap = is_array($accConf['rteRoles'] ?? null) ? $accConf['rteRoles'] : Array();

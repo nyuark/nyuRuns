@@ -18,7 +18,7 @@ class Mailer {
 	// Driver class of each account type
 	const TYPE_LIST = Array('selfSmtp'=>'Native', 'phpMailr'=>'PHMail', 'emlFiles'=>'ToFile');
 	// The settings of an account
-	const KEYS_LIST = Array('sendWith', 'hostName', 'portNumb', 'userName', 'password', 'fromAddr', 'fromName', 'waitSecs', 'mailsDir', 'copiesTo');
+	const KEYS_LIST = Array('sendWith', 'hostName', 'portNumb', 'userName', 'passWord', 'fromAddr', 'fromName', 'waitSecs', 'mailsDir', 'copiesTo');
 
 	// The mailer of each account already asked for, by name in lower case
 	protected static $mailerList = Array();

@@ -239,9 +239,9 @@ files only name them (`env:NYU_DB_PASS`, `env:NYU_MAIL_PASS`).
   out.
 - Make the secrets with the command line rather than by hand. It makes
   them long enough, and writes them where the configuration reads them
-  (`php nyuRun settings makeSecr jwtToken`, `keysList`, `cryptKey`,
+  (`php nyuRun settings makeSecr jwtToken`, `keysList`, `tfaCrypt`,
   `markSecr`).
-- Give the users store a `cryptKey`. Without one, the 2FA secrets are
+- Give the users store a `tfaCrypt`. Without one, the 2FA secrets are
   stored readable, and the health check says so.
 
 ### 2.4 Mail the codes rather than hand them over
@@ -952,8 +952,8 @@ carrier, so a value naming a block reads on its own
 | `loginSet` | `authWith`, `authConf`, `sessWith`, `sessConf` | how the `Auth` run signs a user in, and what it issues |
 | `plugLibs` | `authWith`, `sessWith` | the plug-in checks and carriers allowed (5.8) |
 | `htpasswd` | `passFile`, `weakHash`, `maxTries`, `holdSecs` | the password file of the `htpasswd` check, and its limit by account |
-| `nativeDb` | `linkName`, `useTable`, `idleSecs`, `maxTries`, `holdSecs`, `minChars`, `cryptKey`, `mailAcnt`, `signupOn`, `codeMins`, `linkTmpl` | the native userbase: its database and table, the time after which a user is no longer online, the wrong passwords before the account is held and for how long, the shortest password, the key of the 2FA secrets, the access mails |
-| `userFile` | `listFile`, `cryptKey`, `maxTries`, `holdSecs` | the users file, the key of its 2FA secrets, and its limit by account |
+| `nativeDb` | `linkName`, `useTable`, `idleSecs`, `maxTries`, `holdSecs`, `minChars`, `tfaCrypt`, `mailAcnt`, `signupOn`, `codeMins`, `linkTmpl` | the native userbase: its database and table, the time after which a user is no longer online, the wrong passwords before the account is held and for how long, the shortest password, the key of the 2FA secrets, the access mails |
+| `userFile` | `listFile`, `tfaCrypt`, `maxTries`, `holdSecs` | the users file, the key of its 2FA secrets, and its limit by account |
 | `devToken` | `useTable`, `usersTbl`, `seenSecs` | the table of the devices, the one of their users, and how often a device's last use is recorded |
 | `tryLimit` | `maxTries`, `holdSecs`, `dataPath`, `maxQueue`, `maxPerIp`, `alertsAt`, `markSecr`, `markDays` | the limit by address, the bounds of the sign-ups, and the login marks |
 | `regdKeys` | `headName`, `keysList` | the header of the API keys, and the keys |
@@ -974,7 +974,7 @@ One database, or several by name, the first being the default:
 | `dbEngine` | `mysql_db` (MariaDB included), `postgres`, `sqlitedb`, `mongo_db` |
 | `hostName`, `portNumb` | the server; empty for SQLite |
 | `baseName` | the database, or the file of an SQLite one |
-| `userName`, `password` | the account, with the password as `env:NAME` |
+| `userName`, `passWord` | the account, with the password as `env:NAME` |
 | `encoding` | the character set (`utf8`) |
 | `authBase` | the database that holds the account, when it's another one |
 | `waitSecs` | the seconds the server is given to answer |
@@ -983,7 +983,7 @@ One database, or several by name, the first being the default:
 
 The mail accounts by name, the first being the default, each with the
 keys `sendWith` (`selfSmtp`, `phpMailr`, `emlFiles`), `hostName`,
-`portNumb`, `userName`, `password`, `fromAddr`, `fromName`, `waitSecs`
+`portNumb`, `userName`, `passWord`, `fromAddr`, `fromName`, `waitSecs`
 (the seconds a server may take), `mailsDir` (the folder of an `emlFiles`
 account) and `copiesTo` (addresses every mail is sent again to).
 
@@ -1100,7 +1100,7 @@ holds users.
 | `showConf <coreConf\|accsConf\|dataConf\|preset> [path]` | shows a file, one of its blocks or keys, with secrets masked |
 | `setValue <coreConf\|accsConf\|dataConf\|preset> <path> <value>` | changes a value (`KEY`, `block.key`, `preset.block.key`), checked by its rule (`--overrule`) |
 | `wwwEntry [file] [preset]` | the preset an entry point of `www` starts with, shown or changed |
-| `makeSecr <jwtToken\|keysList\|cryptKey\|markSecr\|htpasswd>` | makes a secret, the RS256 key pair, or a password of the password file, and writes it where the configuration reads it (`--useBlock`, `--showSecr`, `--typeItIn`) |
+| `makeSecr <jwtToken\|keysList\|tfaCrypt\|markSecr\|htpasswd>` | makes a secret, the RS256 key pair, or a password of the password file, and writes it where the configuration reads it (`--useBlock`, `--showSecr`, `--typeItIn`) |
 | `fullList [preset]` | the routes of a preset: path, methods, kind, target, owner, and who they're served to |
 | `clrCache` | removes the config cache: the next request of each preset reads its files again |
 
@@ -1442,7 +1442,7 @@ order of the checks in chapter 4.
   `HttpOnly`, `Secure` and `SameSite` as set
   ([`HOSTING.md` §9](../HOSTING.md#9-php-sessions)).
 - **Two-factor codes** are accepted once each, and their secrets are
-  stored encrypted with `cryptKey`
+  stored encrypted with `tfaCrypt`
   ([`HOSTING.md` §7](../HOSTING.md#7-two-factor-codes)). A code mailed for
   a login goes out once a minute at most.
 - **Keys, personal tokens, device tokens, application keys, activation

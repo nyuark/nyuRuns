@@ -42,8 +42,8 @@ class Deploy extends Command{
 	const STOR_LIST = Array('nativeDb', 'userFile', 'none');
 	// The block a store of users is given in conf/access.json when it has none
 	const STOR_CONF = Array(
-		'nativeDb'=>Array('linkName'=>'', 'useTable'=>'users', 'cryptKey'=>'env:NYU_TFA_KEY', 'mailAcnt'=>'', 'signupOn'=>false, 'codeMins'=>15, 'linkTmpl'=>''),
-		'userFile'=>Array('listFile'=>'conf/users.lst', 'cryptKey'=>'env:NYU_TFA_KEY')
+		'nativeDb'=>Array('linkName'=>'', 'useTable'=>'users', 'tfaCrypt'=>'env:NYU_TFA_KEY', 'mailAcnt'=>'', 'signupOn'=>false, 'codeMins'=>15, 'linkTmpl'=>''),
+		'userFile'=>Array('listFile'=>'conf/users.lst', 'tfaCrypt'=>'env:NYU_TFA_KEY')
 	);
 
 	/**
@@ -92,7 +92,7 @@ class Deploy extends Command{
 		$secrLst = Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
 		// The 2FA secrets of the users are stored encrypted : their key is made with the store
 		if( $storNme!='none' ){
-			$secrLst['cryptKey'] = 'key of the 2FA secrets';
+			$secrLst['tfaCrypt'] = 'key of the 2FA secrets';
 		}
 		foreach( $secrLst as $kndNme => $kndLbl ){
 			try{
@@ -402,8 +402,8 @@ class Deploy extends Command{
 	 * @throws ShellStop When a user has no password hash, or a 2FA secret that cannot be read.
 	 */
 	protected function shapeUsersList( Array $usersRecords, Array $sourceConfig, Array $targetConfig ): Array {
-		$srcSeal = strval($sourceConfig['cryptKey'] ?? '');
-		$trgtSel = strval($targetConfig['cryptKey'] ?? '');
+		$srcSeal = strval($sourceConfig['tfaCrypt'] ?? '');
+		$trgtSel = strval($targetConfig['tfaCrypt'] ?? '');
 		$lastNum = max( array_merge(Array(0), array_map('intval', array_column($usersRecords, 'id_user'))) );
 		$nopsLst = Array();
 		$readyLs = Array();
@@ -640,10 +640,10 @@ class Deploy extends Command{
 			$nodeObj->userName = $this->queryAnswerTxt('Database user', strval($nodeObj->userName ?? ''));
 			$gvnPass = $this->querySecretTxt('Password of that user (Enter keeps the present one)');
 			if( $gvnPass!=='' ){
-				$nowPass = strval($nodeObj->password ?? '');
+				$nowPass = strval($nodeObj->passWord ?? '');
 				$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_DB_PASS';
 				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envName, $gvnPass);
-				$nodeObj->password = 'env:'.$envName;
+				$nodeObj->passWord = 'env:'.$envName;
 			}
 		}
 		$writerObject->saveJsonConfig($basePth, $treeObj);

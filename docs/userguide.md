@@ -1115,7 +1115,7 @@ look.
 | `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun settings setValue accsConf jwtToken.issuer …` and `.audience` |
 | `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun settings makeSecr markSecr` |
 | `file rights` | the rights of the secret files can't be checked (Windows) | limit `conf` and `temp` to the web server's account (`icacls`) |
-| `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun settings makeSecr jwtToken` (or `keysList`, `cryptKey`) |
+| `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun settings makeSecr jwtToken` (or `keysList`, `tfaCrypt`) |
 | `database …` | the database doesn't answer, or its extension isn't loaded | check `conf/database.json`, the server, and A.4 |
 | `users` | the users table or file is missing | `php nyuRun installs userBase` |
 | `access mails …`, `access link …`, `access codes …` | the mail account, the link or the code length isn't valid | see 4.4 |

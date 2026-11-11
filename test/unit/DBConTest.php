@@ -79,12 +79,12 @@ function setupOf( Mixed $baseConfig, String $baseLabel='' ): Mixed {
 	return runCatchThrown(function() use ($baseLabel){ return DBCon::baseSetupArray($baseLabel); });
 }
 
-$mainSet = Array('dbEngine'=>'mysql_db', 'hostName'=>'localhost', 'portNumb'=>'', 'baseName'=>'shop', 'userName'=>'web', 'password'=>'s3', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'');
-$statSet = Array('dbEngine'=>'postgres', 'hostName'=>'10.0.0.5', 'portNumb'=>'5433', 'baseName'=>'stats', 'userName'=>'ro', 'password'=>'', 'encoding'=>'', 'authBase'=>'admin', 'waitSecs'=>'5');
+$mainSet = Array('dbEngine'=>'mysql_db', 'hostName'=>'localhost', 'portNumb'=>'', 'baseName'=>'shop', 'userName'=>'web', 'passWord'=>'s3', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'');
+$statSet = Array('dbEngine'=>'postgres', 'hostName'=>'10.0.0.5', 'portNumb'=>'5433', 'baseName'=>'stats', 'userName'=>'ro', 'passWord'=>'', 'encoding'=>'', 'authBase'=>'admin', 'waitSecs'=>'5');
 $twoBase = Array('NYURUNS'=>$mainSet, 'SHPSTAT'=>$statSet);
 
 checkIdentical('single block: it is the default database', setupOf(array_change_key_case($mainSet, CASE_UPPER)), $mainSet);
-checkIdentical('single block: settings left out are empty', setupOf(Array('DBENGINE'=>'sqlitedb', 'BASENAME'=>'data/app.sqlite')), Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'data/app.sqlite', 'userName'=>'', 'password'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>''));
+checkIdentical('single block: settings left out are empty', setupOf(Array('DBENGINE'=>'sqlitedb', 'BASENAME'=>'data/app.sqlite')), Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'data/app.sqlite', 'userName'=>'', 'passWord'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>''));
 checkIdentical('single block: anything else in it is left aside', setupOf(Array('DBENGINE'=>'sqlitedb', 'BASENAME'=>'app.sqlite', 'MORE'=>Array('fileType'=>'all'), 'EXTRA'=>'x'))['baseName'] ?? null, 'app.sqlite');
 checkPregMatch('single block: it has no name to ask for', setupOf(array_change_key_case($mainSet, CASE_UPPER), 'nyuRuns'), '/^THROWN RuntimeException: Unknown database: nyuRuns/');
 checkIdentical('named blocks: the first one is the default', setupOf($twoBase), $mainSet);
@@ -102,7 +102,7 @@ if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
 	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun installs makeConf" creates it');
 }else{
 	checkIdentical('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
-	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'password', 'encoding'));
+	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'passWord', 'encoding'));
 	$GLOBALS['nyuConfig'] = $prjLoad->retrieveConfig();
 	checkTrueValue('conf/database.json: the type is a known code', in_array(runCatchThrown(function(){ return DBCon::baseSetupArray()['dbEngine']; }), Array('mysql_db', 'sqlitedb', 'postgres'), true));
 }

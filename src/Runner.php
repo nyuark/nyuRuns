@@ -401,10 +401,10 @@ class Runner{
 	 */
 	protected function routeReqAnswer(): Void {
 		$rteKind = $this->routerRgst->readValueByKey('routKind');
-		$rteGoal = strval($this->routerRgst->readValueByKey('routGoal'));
+		$rteGoal = strval($this->routerRgst->readValueByKey('routTarg'));
 		if( $rteKind=='redirect' ){
 			$this->requestRsp->addReplyHeader('Location', $rteGoal);
-			$this->setReplyStatus( intval($this->routerRgst->obtainDefValue('routCode', 302)) );
+			$this->setReplyStatus( intval($this->routerRgst->obtainDefValue('routStat', 302)) );
 			return;
 		}
 		if( $rteKind=='toStatic' ){

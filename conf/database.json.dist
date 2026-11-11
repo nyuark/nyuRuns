@@ -5,7 +5,7 @@
 		"portNumb": "",
 		"baseName": "nyuRuns",
 		"userName": "nyuruns",
-		"password": "env:NYU_DB_PASS",
+		"passWord": "env:NYU_DB_PASS",
 		"encoding": "utf8"
 	}
 }

@@ -24,8 +24,8 @@ function acntOf( Mixed $mailConfig, String $acntLabel='' ): Mixed {
 }
 
 // The accounts of the config
-$mainSet = Array('sendWith'=>'selfSmtp', 'hostName'=>'smtp.example.com', 'portNumb'=>'587', 'userName'=>'u', 'password'=>'p', 'fromAddr'=>'app@example.com', 'fromName'=>'App', 'waitSecs'=>'10', 'mailsDir'=>'', 'copiesTo'=>'');
-$fileSet = Array('sendWith'=>'emlFiles', 'hostName'=>'', 'portNumb'=>'', 'userName'=>'', 'password'=>'', 'fromAddr'=>'dev@example.com', 'fromName'=>'', 'waitSecs'=>'', 'mailsDir'=>'temp/mails', 'copiesTo'=>'');
+$mainSet = Array('sendWith'=>'selfSmtp', 'hostName'=>'smtp.example.com', 'portNumb'=>'587', 'userName'=>'u', 'passWord'=>'p', 'fromAddr'=>'app@example.com', 'fromName'=>'App', 'waitSecs'=>'10', 'mailsDir'=>'', 'copiesTo'=>'');
+$fileSet = Array('sendWith'=>'emlFiles', 'hostName'=>'', 'portNumb'=>'', 'userName'=>'', 'passWord'=>'', 'fromAddr'=>'dev@example.com', 'fromName'=>'', 'waitSecs'=>'', 'mailsDir'=>'temp/mails', 'copiesTo'=>'');
 checkIdentical('single block: it is the default account', acntOf(array_change_key_case($mainSet, CASE_UPPER)), $mainSet);
 checkIdentical('single block: settings left out are empty', acntOf(Array('SENDWITH'=>'emlFiles', 'FROMADDR'=>'dev@example.com', 'MORE'=>'x')), array_merge(array_fill_keys(Mailer::KEYS_LIST, ''), Array('sendWith'=>'emlFiles', 'fromAddr'=>'dev@example.com')));
 checkPregMatch('single block: it has no name to ask for', acntOf(array_change_key_case($mainSet, CASE_UPPER), 'main'), '/^THROWN nyu\\\\Data\\\\Mail\\\\MailFailure: Unknown mail account: "main"/');

@@ -78,7 +78,7 @@ checkIdentical('a lost authenticator: the secret is taken away', Array(callShell
 // With a key in the block, the secret is written encrypted, and the one shown is still the authenticator's
 if( function_exists('openssl_encrypt') ){
 	$axsText = strval(fetchInProject($projDir, 'conf/access.json'));
-	writeInProject($projDir, 'conf/access.json', str_replace('"minChars": 8 }', '"minChars": 8, "cryptKey": "'.str_repeat('k', 40).'" }', $axsText));
+	writeInProject($projDir, 'conf/access.json', str_replace('"minChars": 8 }', '"minChars": 8, "tfaCrypt": "'.str_repeat('k', 40).'" }', $axsText));
 	$jsnVals = runShellAsJson($projDir, Array('accounts', 'setTwoFa', 'bob'));
 	$sealTxt = strval(fileUsers($projDir)['bob']['twoFactKey'] ?? '');
 	checkIdentical('twofa writes the secret encrypted when the block gives a key', Array(preg_match('/^enc1:[A-Za-z0-9+\/=]{80}$/D', $sealTxt), nyu\Access\Totp::openSecretText($sealTxt, str_repeat('k', 40)), runShellAsJson($projDir, Array('accounts', 'viewUser', 'bob'))['hasTwoFa'] ?? null), Array(1, $jsnVals['secret']['2FA secret of bob'] ?? '', true));
@@ -98,7 +98,7 @@ checkIdentical('removal needs a confirmation', Array(callShellArray($projDir, Ar
 checkIdentical('the former files are in temp/archives, the newest ones only', count(glob($projDir.DS.'temp'.DS.'archives'.DS.'users.lst.*')), nyu\Shell\ConfFile::KEEP_COPY);
 $logText = strval(fetchInProject($projDir, 'temp/logs/access.log'));
 checkIdentical('the changes are traced on the access channel, signed', Array(preg_match('/\[NOTICE\] User "bob" created \(internal\) in the users file by user "cli:[\w.\-]+"\n/', $logText), preg_match('/\[NOTICE\] 2FA secret of user "bob" removed in the users file by user/', $logText), preg_match('/\[NOTICE\] User "bob" removed in the users file by user/', $logText), strpos($logText, 'another-pass')), Array(1, 1, 1, false));
-checkIdentical('a secret written readable is told, once a write (three): the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no cryptKey of 32 characters is set/', $logText), 3);
+checkIdentical('a secret written readable is told, once a write (three): the one written encrypted is not', preg_match_all('/\[WARNING\] 2FA secret of user "bob" stored readable: no tfaCrypt of 32 characters is set/', $logText), 3);
 $fleText = strval(fetchInProject($projDir, 'conf/users.lst'));
 writeInProject($projDir, 'conf/users.lst', '{ "users": "none" }');
 checkIdentical('a file that is not a list of users is a failure, and is left alone', Array(callShellArray($projDir, Array('accounts', 'fullList'))['code'], callShellArray($projDir, Array('accounts', 'makeUser', 'carl'))['code'], fetchInProject($projDir, 'conf/users.lst')), Array(1, 1, '{ "users": "none" }'));

@@ -169,13 +169,13 @@ nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 $benScrt = $natAuth->buildTwoFactor('ben');
 $canSeal = function_exists('openssl_encrypt');
 if( $canSeal ){
-	$keyAuth = new Native( Array('useTable'=>'users', 'cryptKey'=>str_repeat('k', 40)) );
+	$keyAuth = new Native( Array('useTable'=>'users', 'tfaCrypt'=>str_repeat('k', 40)) );
 	$annaSct = strval($keyAuth->buildTwoFactor('anna'));
 	$annaCod = Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>nyu\Access\Totp::codeAtTimeText($annaSct, time()));
 	checkPregMatch('Native 2FA: with a key, the secret is stored encrypted', strval($sqlLink->query("SELECT twoFactKey FROM users WHERE userHandle='anna'")->fetchColumn()), '/^enc1:[A-Za-z0-9+\/=]{80}$/D');
 	checkPregMatch('Native 2FA: the secret given back is the one the authenticator takes', $annaSct, '/^[A-Z2-7]{32}$/');
 	checkIdentical('Native 2FA: without the key, the user is refused as a store that cannot be read', Array($natAuth->checkSecretArr($annaCod), $natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
-	checkIdentical('Native 2FA: with another key too', Array((new Native(Array('cryptKey'=>str_repeat('x', 40))))->checkSecretArr($annaCod), failsOf($sqlLink, 'anna')), Array(false, 0));
+	checkIdentical('Native 2FA: with another key too', Array((new Native(Array('tfaCrypt'=>str_repeat('x', 40))))->checkSecretArr($annaCod), failsOf($sqlLink, 'anna')), Array(false, 0));
 	checkIdentical('Native 2FA: with the key, the code passes', $keyAuth->checkSecretArr($annaCod)['userName'] ?? null, 'anna');
 	checkIdentical('Native 2FA: a secret stored readable is still read with a key set', $keyAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben'))!==false || $keyAuth->finalErrorText()=='Verification code required', true);
 	$sqlLink->exec("UPDATE users SET twoFactKey=NULL, twoFactStp=NULL WHERE userHandle='anna'");
@@ -185,8 +185,8 @@ if( $canSeal ){
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
 if( $canSeal ){
-	checkPregMatch('Native 2FA: a secret that cannot be read is told in the access log', $logText, '/\[ERROR\] 2FA secret of user "anna" cannot be read: cryptKey is missing or was changed/');
-	checkIdentical('Native 2FA: a secret stored readable is told in the access log, an encrypted one is not', Array(preg_match('/\[WARNING\] 2FA secret of user "ben" stored readable: no cryptKey of 32 characters is set/', $logText), preg_match('/secret of user "anna" stored readable/', $logText)), Array(1, 0));
+	checkPregMatch('Native 2FA: a secret that cannot be read is told in the access log', $logText, '/\[ERROR\] 2FA secret of user "anna" cannot be read: tfaCrypt is missing or was changed/');
+	checkIdentical('Native 2FA: a secret stored readable is told in the access log, an encrypted one is not', Array(preg_match('/\[WARNING\] 2FA secret of user "ben" stored readable: no tfaCrypt of 32 characters is set/', $logText), preg_match('/secret of user "anna" stored readable/', $logText)), Array(1, 0));
 }
 checkIdentical('Native 2FA: wrong password, the code is not asked for', Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'nope')), $natAuth->finalErrorText()), Array(false, 'Invalid credentials'));
 checkIdentical('Native 2FA: valid code, wrong password', $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'nope', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), false);

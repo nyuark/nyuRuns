@@ -261,7 +261,7 @@ class HealthChk{
 				}
 				if( is_file(RUN_DIR.DS.$ownName.DS.'routes.rte') ){
 					// A Run declaring its routes is reached through them only (or a site alias): one of them names the action
-					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutesArray(), 'routGoal'))) ){
+					if( empty(preg_grep('/^'.preg_quote($ownName.'/'.$actPart[1], '/').'$/i', array_column($routObj->allRoutesArray(), 'routTarg'))) ){
 						$lostLst[] = $prstNme.': '.$rteKey.' (not listed in the routes of '.$ownName.')';
 					}
 					continue;
@@ -368,12 +368,12 @@ class HealthChk{
 			if( ($blkVal['secureOn'] ?? true)===false && array_key_exists('cookName', $blkVal) && strtoupper(strval($nyuConf->obtainRowValue('SYSTEM', 'ENV_NAME')))=='PROD' ){
 				$this->addCheckResult('cookie '.$blckNme, 'warn', 'the session cookie also travels over plain HTTP (secureOn is false) in the environment PROD');
 			}
-			if( array_key_exists('cryptKey', $blkVal) ){
-				$keySize = strlen(strval($blkVal['cryptKey']));
+			if( array_key_exists('tfaCrypt', $blkVal) ){
+				$keySize = strlen(strval($blkVal['tfaCrypt']));
 				if( $keySize==0 ){
-					$this->addCheckResult('2FA key '.$blckNme, 'warn', 'empty: the 2FA secrets are stored readable; "settings makeSecr cryptKey" makes one');
+					$this->addCheckResult('2FA key '.$blckNme, 'warn', 'empty: the 2FA secrets are stored readable; "settings makeSecr tfaCrypt" makes one');
 				}else{
-					$this->addCheckResult( '2FA key '.$blckNme, ($keySize>=Totp::SEAL_SIZE) ? 'fine' : 'fail', ($keySize>=Totp::SEAL_SIZE) ? 'set' : 'too short: '.Totp::SEAL_SIZE.' characters at least; "settings makeSecr cryptKey" makes one' );
+					$this->addCheckResult( '2FA key '.$blckNme, ($keySize>=Totp::SEAL_SIZE) ? 'fine' : 'fail', ($keySize>=Totp::SEAL_SIZE) ? 'set' : 'too short: '.Totp::SEAL_SIZE.' characters at least; "settings makeSecr tfaCrypt" makes one' );
 				}
 			}
 			if( ($blkVal['weakHash'] ?? false)===true ){

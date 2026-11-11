@@ -29,7 +29,7 @@ class PathUserList extends UserList{
 	 * @param Array $confValues Config block, its 'listFile' being the full path of the users file.
 	 */
 	function __construct( Array $confValues ){
-		parent::__construct( Array('cryptKey'=>$confValues['cryptKey'] ?? '', 'maxTries'=>0) );
+		parent::__construct( Array('tfaCrypt'=>$confValues['tfaCrypt'] ?? '', 'maxTries'=>0) );
 		$this->usrLstPath = strval($confValues['listFile'] ?? '');
 	}
 }
@@ -81,13 +81,13 @@ $sealKey = str_repeat('k', 32);
 $emmaCod = $emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()));
 if( function_exists('openssl_encrypt') ){
 	file_put_contents(inTemporaryDir('sealed.lst'), json_encode(Array('users'=>Array(Array('userHandle'=>'emma', 'passwdHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFactKey'=>Totp::sealSecretText($tfaScrt, $sealKey))))));
-	checkIdentical('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('listFile'=>inTemporaryDir('sealed.lst'), 'cryptKey'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
+	checkIdentical('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('listFile'=>inTemporaryDir('sealed.lst'), 'tfaCrypt'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
 	$noKeyLs = new PathUserList( Array('listFile'=>inTemporaryDir('sealed.lst')) );
 	checkIdentical('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkSecretArr($emmaCod), $noKeyLs->finalErrorText(), $noKeyLs->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
 }else{
 	recordSkipping('UserList 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
 }
-checkIdentical('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('maxTries'=>0, 'listFile'=>$fxtPath, 'cryptKey'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
+checkIdentical('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('maxTries'=>0, 'listFile'=>$fxtPath, 'tfaCrypt'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
 
 // Personal API token : its SHA-256 hash is the bearerHash of an active user
 checkIdentical('UserList personal token', $usrList->checkSecretArr(Array('key'=>'list-test-token')), $annaIdn);

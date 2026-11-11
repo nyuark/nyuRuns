@@ -65,8 +65,8 @@ function linkFrom( String $routeShape, Array $routeConfg=Array() ): String {
 }
 
 $pageDir = realpath(TST_DIR.DS.'fixtures'.DS.'pages');
-$moveKey = Array('routKind', 'routGoal', 'routCode');
-$fileKey = Array('routKind', 'routGoal', 'routType');
+$moveKey = Array('routKind', 'routTarg', 'routStat');
+$fileKey = Array('routKind', 'routTarg', 'routType');
 $statKey = Array('statCode', 'statMssg');
 $notFile = Array(404, 'Not Found');
 $txtType = 'text/plain; charset=utf-8';
@@ -140,7 +140,7 @@ foreach( Array(
 }
 
 // HTML page
-checkIdentical('page: the file and the captured values', foundVals('/hello/7', Array('routKind', 'routGoal', 'pathVars')), Array('htmlPage', $pageDir.DS.'hello.html', Array('id'=>'7')));
+checkIdentical('page: the file and the captured values', foundVals('/hello/7', Array('routKind', 'routTarg', 'pathVars')), Array('htmlPage', $pageDir.DS.'hello.html', Array('id'=>'7')));
 checkPregMatch('page: a file that is not HTML stops the run', foundVals('/notpage', $fileKey), '/^THROWN RuntimeException: Route misconfigured/');
 checkIdentical('page: one kind per method, GET', foundVals('/enter', Array('routKind', 'appToRun')), Array('htmlPage', null));
 checkIdentical('page: one kind per method, POST', foundVals('/enter', Array('routKind', 'appToRun', 'doAction', 'routPath'), 'POST'), Array('toAction', 'probe', 'sanitize', 'enter'));

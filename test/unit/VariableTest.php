@@ -153,14 +153,14 @@ checkIdentical('DateStr a text of digits is no timestamp', Array(formatVal('12',
 checkIdentical('DateStr true, a float and a negative number are no timestamp', Array(formatVal(true, 'DateStr'), formatVal(12.7, 'DateStr'), formatVal(-5, 'DateStr')), Array('', '', ''));
 checkIdentical('DateStr empty, null and array',Array(formatVal('', 'DateStr'), formatVal(null, 'DateStr'), formatVal(Array('2026-10-01'), 'DateStr')), Array('', '', ''));
 
-// ShrDate and TxtDate
-checkIdentical('ShrDate',                  formatVal('2026-10-01', 'ShrDate'), '1 Oct 2026');
-checkIdentical('ShrDate with a time',      formatVal('2026-12-25 18:30:00', 'ShrDate'), '25 Dec 2026');
-checkIdentical('ShrDate from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'ShrDate'), '15 Mar 2020');
-checkIdentical('ShrDate not a date',       formatVal('soon', 'ShrDate'), '');
-checkIdentical('ShrDate day that does not exist', formatVal('2026-02-30', 'ShrDate'), '');
-checkIdentical('ShrDate empty',            formatVal('', 'ShrDate'), '');
-checkIdentical('ShrDate, TxtDate, WeekDay and FullDay: a text of digits is no timestamp', Array(formatVal('2026', 'ShrDate'), formatVal('2026', 'TxtDate'), formatVal('2026', 'WeekDay'), formatVal('2026', 'FullDay')), Array('', '', '', ''));
+// ShrtDte and TxtDate
+checkIdentical('ShrtDte',                  formatVal('2026-10-01', 'ShrtDte'), '1 Oct 2026');
+checkIdentical('ShrtDte with a time',      formatVal('2026-12-25 18:30:00', 'ShrtDte'), '25 Dec 2026');
+checkIdentical('ShrtDte from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'ShrtDte'), '15 Mar 2020');
+checkIdentical('ShrtDte not a date',       formatVal('soon', 'ShrtDte'), '');
+checkIdentical('ShrtDte day that does not exist', formatVal('2026-02-30', 'ShrtDte'), '');
+checkIdentical('ShrtDte empty',            formatVal('', 'ShrtDte'), '');
+checkIdentical('ShrtDte, TxtDate, WeekDay and FullDay: a text of digits is no timestamp', Array(formatVal('2026', 'ShrtDte'), formatVal('2026', 'TxtDate'), formatVal('2026', 'WeekDay'), formatVal('2026', 'FullDay')), Array('', '', '', ''));
 checkIdentical('TxtDate',                  formatVal('2026-10-01', 'TxtDate'), '1 October 2026');
 checkIdentical('TxtDate single digits',    formatVal('2026-3-5', 'TxtDate'), '5 March 2026');
 checkIdentical('TxtDate not a date',       formatVal('2026-13-01', 'TxtDate'), '');
@@ -176,20 +176,20 @@ checkIdentical('WeekDay from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 202
 checkIdentical('WeekDay not a date',       Array(formatVal('soon', 'WeekDay'), formatVal('a-b-c', 'WeekDay'), formatVal('', 'WeekDay')), Array('', '', ''));
 checkIdentical('FullDay not a date',       Array(formatVal('soon', 'FullDay'), formatVal('2026-13-01', 'FullDay'), formatVal(Array(), 'FullDay')), Array('', '', ''));
 
-// DateSpn
-checkIdentical('DateSpn same day',         formatVal('2026-12-01', 'DateSpn', '2026-12-01'), '01 December 2026');
-checkIdentical('DateSpn same month',       formatVal('2026-12-01', 'DateSpn', '2026-12-05'), 'From 01 until 05 December 2026');
-checkIdentical('DateSpn same year',        formatVal('2026-11-28', 'DateSpn', '2026-12-03'), 'From 28 November until 03 December 2026');
-checkIdentical('DateSpn across years',     formatVal('2026-12-28', 'DateSpn', '2027-01-03'), 'From 28 December 2026 until 03 January 2027');
-checkIdentical('DateSpn same month, next year', formatVal('2026-12-28', 'DateSpn', '2027-12-03'), 'From 28 December 2026 until 03 December 2027');
-checkIdentical('DateSpn same day, next year',   formatVal('2026-12-01', 'DateSpn', '2027-12-01'), 'From 01 December 2026 until 01 December 2027');
-checkIdentical('DateSpn without an end',   formatVal('2026-12-01', 'DateSpn'), '');
-checkIdentical('DateSpn with an empty end, or no end and no start', Array(formatVal('2026-12-01', 'DateSpn', ''), formatVal('2026-12-01', 'DateSpn', '0'), formatVal('soon', 'DateSpn')), Array('', '', ''));
-checkIdentical('DateSpn between two timestamps', formatVal(mktime(12, 0, 0, 12, 1, 2026), 'DateSpn', mktime(12, 0, 0, 12, 5, 2026)), 'From 01 until 05 December 2026');
-checkIdentical('DateSpn end that is a text of digits', formatVal('2026-12-01', 'DateSpn', '2026'), '');
-checkIdentical('DateSpn ends with a time', formatVal('2026-12-01 20:00:00', 'DateSpn', '2026-12-05 22:00:00'), 'From 01 until 05 December 2026');
-checkIdentical('DateSpn start that is no date', formatVal('soon', 'DateSpn', '2026-12-05'), '');
-checkIdentical('DateSpn end that is no date', Array(formatVal('2026-12-01', 'DateSpn', 'later'), formatVal('2026-12-01', 'DateSpn', '2026-02-30')), Array('', ''));
+// SpanDte
+checkIdentical('SpanDte same day',         formatVal('2026-12-01', 'SpanDte', '2026-12-01'), '01 December 2026');
+checkIdentical('SpanDte same month',       formatVal('2026-12-01', 'SpanDte', '2026-12-05'), 'From 01 until 05 December 2026');
+checkIdentical('SpanDte same year',        formatVal('2026-11-28', 'SpanDte', '2026-12-03'), 'From 28 November until 03 December 2026');
+checkIdentical('SpanDte across years',     formatVal('2026-12-28', 'SpanDte', '2027-01-03'), 'From 28 December 2026 until 03 January 2027');
+checkIdentical('SpanDte same month, next year', formatVal('2026-12-28', 'SpanDte', '2027-12-03'), 'From 28 December 2026 until 03 December 2027');
+checkIdentical('SpanDte same day, next year',   formatVal('2026-12-01', 'SpanDte', '2027-12-01'), 'From 01 December 2026 until 01 December 2027');
+checkIdentical('SpanDte without an end',   formatVal('2026-12-01', 'SpanDte'), '');
+checkIdentical('SpanDte with an empty end, or no end and no start', Array(formatVal('2026-12-01', 'SpanDte', ''), formatVal('2026-12-01', 'SpanDte', '0'), formatVal('soon', 'SpanDte')), Array('', '', ''));
+checkIdentical('SpanDte between two timestamps', formatVal(mktime(12, 0, 0, 12, 1, 2026), 'SpanDte', mktime(12, 0, 0, 12, 5, 2026)), 'From 01 until 05 December 2026');
+checkIdentical('SpanDte end that is a text of digits', formatVal('2026-12-01', 'SpanDte', '2026'), '');
+checkIdentical('SpanDte ends with a time', formatVal('2026-12-01 20:00:00', 'SpanDte', '2026-12-05 22:00:00'), 'From 01 until 05 December 2026');
+checkIdentical('SpanDte start that is no date', formatVal('soon', 'SpanDte', '2026-12-05'), '');
+checkIdentical('SpanDte end that is no date', Array(formatVal('2026-12-01', 'SpanDte', 'later'), formatVal('2026-12-01', 'SpanDte', '2026-02-30')), Array('', ''));
 
 // Unknown format : the value is returned untouched
 checkIdentical('unknown format',           formatVal('x', 'Nope'), 'x');

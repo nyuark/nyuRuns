@@ -9,7 +9,7 @@
 	A definition is 'all' (every value, as sent), 'none', a text of
 	name:Format(option) items separated by semicolons, or an array
 	shaped like the values:
-		{ "filters": { "search": "OutText" }, "since": "ShrDate", "pass": "" }
+		{ "filters": { "search": "OutText" }, "since": "ShrtDte", "pass": "" }
 	A field without a format is kept as sent.
 
 	A name ending with '!' is a required field ("user!", "mail!:EmlAddr",

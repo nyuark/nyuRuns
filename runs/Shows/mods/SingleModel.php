@@ -65,7 +65,7 @@ class Single extends DBRec {
 			$frstDay = $evntLst[0]['date'];
 			$lastDay = $evntLst[count($evntLst)-1]['date'];
 			$spnVrbl = new Variable($frstDay);
-			$spanTxt = $spnVrbl->castWrappedVal('DateSpn',$lastDay);			
+			$spanTxt = $spnVrbl->castWrappedVal('SpanDte',$lastDay);			
 			return $spanTxt;
 		}else{
 			return false;

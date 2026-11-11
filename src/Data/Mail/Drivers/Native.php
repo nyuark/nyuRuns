@@ -101,7 +101,7 @@ class Native extends Driver {
 		if( $userNme=='' ){
 			return;
 		}
-		$passTxt = strval($this->setupArray['password'] ?? '');
+		$passTxt = strval($this->setupArray['passWord'] ?? '');
 		$authLst = Array();
 		if( preg_match('/^\d{3}[ -]AUTH[ =](.*)$/mi', $serverAnswer, $authMth) ){
 			$authLst = preg_split('/\s+/', strtoupper(trim($authMth[1])));

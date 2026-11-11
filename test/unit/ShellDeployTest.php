@@ -94,7 +94,7 @@ if( function_exists('openssl_pkey_new') ){
 checkIdentical('users alone: a store that holds users is left as it is; a store that is not one', Array(callShellArray($projDir, Array('installs', 'userBase'))['text'], callShellArray($projDir, Array('installs', 'userBase', '--useStore=other'))['code']), Array("The users file already holds users: nothing was changed.\n", 2));
 
 // start : the settings of a database are made with the native userbase only
-$baseDst = '{ "nyuRuns": { "dbEngine": "mysql_db", "hostName": "localhost", "portNumb": "", "baseName": "nyuRuns", "userName": "nyuruns", "password": "env:NYU_DB_PASS", "encoding": "utf8" } }';
+$baseDst = '{ "nyuRuns": { "dbEngine": "mysql_db", "hostName": "localhost", "portNumb": "", "baseName": "nyuRuns", "userName": "nyuruns", "passWord": "env:NYU_DB_PASS", "encoding": "utf8" } }';
 $projDir = freshPrjt('nodbase');
 writeInProject($projDir, 'conf/database.json.dist', $baseDst);
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=userFile'));
@@ -157,9 +157,9 @@ checkIdentical('an answer that is not one of those proposed', Array(callShellArr
 $jsnVals = runShellAsJson($projDir, Array('installs', 'allSteps', '--noPrompt', '--useStore=none'));
 checkIdentical('a store without users of its own', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(4, false));
 checkIdentical('without a store, no key of the 2FA secrets is made: the check tells the secrets would be readable', Array(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '', stateOf($jsnVals)['2FA key nativeDb'] ?? null), Array('', 'warn'));
-callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'too-short'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.tfaCrypt', 'too-short'));
 checkIdentical('a key of the 2FA secrets that is too short fails the check', stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')))['2FA key nativeDb'] ?? null, 'fail');
-callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'env:NYU_TFA_KEY'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.tfaCrypt', 'env:NYU_TFA_KEY'));
 // The access mails : an account of conf/mailer.json, a front-end link holding the code, sign-ups a mail confirms
 callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.mailAcnt', 'nobody', '--overrule'));
 callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.linkTmpl', 'app.example.ch/access', '--overrule'));

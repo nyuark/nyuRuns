@@ -363,7 +363,7 @@ class Router{
 	 * Lists the declared routes, for what they answer with: one entry for
 	 * each target of a route, with the methods it serves.
 	 *
-	 * @return Array The entries, each with the path under 'routPath', its 'mthdList', its 'routKind' (toAction, redirect, toStatic or htmlPage), what it answers with under 'routGoal', its owner under 'routOwnr' ('site' or a Run) and, for an action, its 'appToRun' and 'doAction'.
+	 * @return Array The entries, each with the path under 'routPath', its 'mthdList', its 'routKind' (toAction, redirect, toStatic or htmlPage), what it answers with under 'routTarg', its owner under 'routOwnr' ('site' or a Run) and, for an action, its 'appToRun' and 'doAction'.
 	 */
 	public function allRoutesArray(): Array {
 		$rowList = Array();
@@ -392,7 +392,7 @@ class Router{
 				}
 				$goalKey = $rteKind.' '.$goalTxt;
 				if( !isset($goalLst[$goalKey]) ){
-					$goalLst[$goalKey] = Array('routPath'=>trim(strval($rteKey), '/'), 'mthdList'=>Array(), 'routKind'=>$rteKind, 'routGoal'=>$goalTxt, 'appToRun'=>($rteKind=='toAction') ? strval($target['appToRun']) : null, 'doAction'=>($rteKind=='toAction') ? strval($target['doAction'] ?? '') : null, 'routOwnr'=>strval($rteSet['routOwnr'] ?? 'site'));
+					$goalLst[$goalKey] = Array('routPath'=>trim(strval($rteKey), '/'), 'mthdList'=>Array(), 'routKind'=>$rteKind, 'routTarg'=>$goalTxt, 'appToRun'=>($rteKind=='toAction') ? strval($target['appToRun']) : null, 'doAction'=>($rteKind=='toAction') ? strval($target['doAction'] ?? '') : null, 'routOwnr'=>strval($rteSet['routOwnr'] ?? 'site'));
 				}
 				$goalLst[$goalKey]['mthdList'][] = strval($mthNme);
 			}
@@ -463,7 +463,7 @@ class Router{
 	 * @param Array  $routEntryArr The declared route, with its 'pointsTo' block.
 	 * @param Array  $capturedVals Values captured from the path, by name.
 	 * @param String $routShapeTxt Path the route is declared with.
-	 * @return ?Array The 'appToRun', 'doAction', 'argument' and 'pathVars' values, or 'statCode', 'statMssg' and 'allowHdr' when no action is to run, or the 'routGoal' of another kind of reply; always with 'routKind', 'routPath' and 'routOwnr' ('site' or the Run declaring it). Null when the route names no target.
+	 * @return ?Array The 'appToRun', 'doAction', 'argument' and 'pathVars' values, or 'statCode', 'statMssg' and 'allowHdr' when no action is to run, or the 'routTarg' of another kind of reply; always with 'routKind', 'routPath' and 'routOwnr' ('site' or the Run declaring it). Null when the route names no target.
 	 *
 	 * @throws \RuntimeException When the target is not properly declared.
 	 */
@@ -559,7 +559,7 @@ class Router{
 	 *
 	 * @param Array $targetValues The target block, with its 'redirect' and 'httpCode'.
 	 * @param Array $capturedVals Values captured from the path, by name.
-	 * @return Array The 'routKind', 'routGoal' and 'routCode' values.
+	 * @return Array The 'routKind', 'routTarg' and 'routStat' values.
 	 *
 	 * @throws \RuntimeException When the address or the status is not one of a redirection.
 	 */
@@ -571,7 +571,7 @@ class Router{
 		if( !in_array($movCode, self::MOVE_LIST, true) || !self::validRouteAddr($moveUrl) ){
 			throw new \RuntimeException('Route misconfigured: "'.strval($targetValues['redirect']).'" with the status '.$movCode.' is not a redirection');
 		}
-		return Array('routKind'=>'redirect', 'routGoal'=>$moveUrl, 'routCode'=>$movCode);
+		return Array('routKind'=>'redirect', 'routTarg'=>$moveUrl, 'routStat'=>$movCode);
 	}
 
 	/**
@@ -600,7 +600,7 @@ class Router{
 	 *
 	 * @param Array $targetValues The target block, with its 'filePath', 'fldrPath' or 'pageFile'.
 	 * @param Array $capturedVals Values captured from the path, by name.
-	 * @return Array The 'routKind', 'routGoal' and 'routType' values, or a 404 as 'statCode' and 'statMssg'.
+	 * @return Array The 'routKind', 'routTarg' and 'routType' values, or a 404 as 'statCode' and 'statMssg'.
 	 *
 	 * @throws \RuntimeException When the target is outside the 'htmlRoot' folder, or a page is not an HTML file.
 	 */
@@ -651,9 +651,9 @@ class Router{
 			if( strpos($mimeTxt, 'text/html')!==0 ){
 				throw new \RuntimeException('Route misconfigured: "'.$rteName.'" is not an HTML page');
 			}
-			return Array('routKind'=>'htmlPage', 'routGoal'=>$foundAt, 'pathVars'=>$capturedVals);
+			return Array('routKind'=>'htmlPage', 'routTarg'=>$foundAt, 'pathVars'=>$capturedVals);
 		}
-		return Array('routKind'=>'toStatic', 'routGoal'=>$foundAt, 'routType'=>$mimeTxt);
+		return Array('routKind'=>'toStatic', 'routTarg'=>$foundAt, 'routType'=>$mimeTxt);
 	}
 
 	/**

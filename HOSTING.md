@@ -291,11 +291,11 @@ that user.
 The secrets are stored encrypted when the block of the store gives a key:
 
 ```json
-"nativeDb": { ..., "cryptKey": "env:NYU_TFA_KEY" }
+"nativeDb": { ..., "tfaCrypt": "env:NYU_TFA_KEY" }
 ```
 
 ```bash
-php nyuRun settings makeSecr cryptKey --useBlock=nativeDb
+php nyuRun settings makeSecr tfaCrypt --useBlock=nativeDb
 ```
 
 - Without a key of 32 characters, secrets are stored readable, with a warning

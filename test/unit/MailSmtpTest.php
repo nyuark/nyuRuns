@@ -57,7 +57,7 @@ function stopsSmtp( Array $smtpServer ): String {
  * @return Mailer The mailer.
  */
 function mailerFor( Array $moreSetup ): Mailer {
-	$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('TESTS'=>array_merge(Array('sendWith'=>'selfSmtp', 'hostName'=>'127.0.0.1', 'userName'=>'user', 'password'=>'secret', 'fromAddr'=>'app@example.com', 'fromName'=>'App', 'waitSecs'=>'5'), $moreSetup))) );
+	$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('TESTS'=>array_merge(Array('sendWith'=>'selfSmtp', 'hostName'=>'127.0.0.1', 'userName'=>'user', 'passWord'=>'secret', 'fromAddr'=>'app@example.com', 'fromName'=>'App', 'waitSecs'=>'5'), $moreSetup))) );
 	Mailer::clearMailCache();
 	return Mailer::retrieveMailer();
 }
@@ -95,7 +95,7 @@ checkTrueValue('LOGIN: user and password are sent apart', strpos($trnText, "AUTH
 
 // A wrong password
 $smtpSrv = startSmtp('PLAIN LOGIN', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'password'=>'wrong'))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'passWord'=>'wrong'))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
 $trnText = stopsSmtp($smtpSrv);
 checkIdentical('wrong password: not sent', $mailRes, false);
 checkIdentical('wrong password: nothing goes past the login', strpos($trnText, 'MAIL FROM'), false);
@@ -108,7 +108,7 @@ checkIdentical('no login offered: not sent', $mailRes, false);
 
 // No user: no login
 $smtpSrv = startSmtp('none', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'userName'=>'', 'password'=>''))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'userName'=>'', 'passWord'=>''))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
 $trnText = stopsSmtp($smtpSrv);
 checkIdentical('no user: sent without login', Array($mailRes, strpos($trnText, 'AUTH')), Array(true, false));
 

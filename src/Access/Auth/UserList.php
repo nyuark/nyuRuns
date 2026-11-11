@@ -33,14 +33,14 @@ class UserList implements Handler{
 	 * Builds the check against the users file from its config block.
 	 *
 	 * @param Array $configValues Config block with the 'listFile' path of the users file, relative to the project root, and
-	 *                          optionally the key its encrypted 2FA secrets are read with ('cryptKey'), the wrong
+	 *                          optionally the key its encrypted 2FA secrets are read with ('tfaCrypt'), the wrong
 	 *                          credentials allowed for one account ('maxTries', defaults to 5; 0 for no limit) and the
 	 *                          time in seconds they add up within and then hold it for ('holdSecs', defaults to 600).
 	 */
 	function __construct( Array $configValues ){
 		$fileNme = is_scalar($configValues['listFile'] ?? '') ? trim( strval($configValues['listFile'] ?? ''), '/\\ ' ) : '';
 		$this->usrLstPath = ($fileNme!='') ? TOP_DIR.DS.$fileNme : '';
-		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
+		$this->sealingKey = is_scalar($configValues['tfaCrypt'] ?? '') ? strval($configValues['tfaCrypt'] ?? '') : '';
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
@@ -120,7 +120,7 @@ class UserList implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealKey = Totp::openSecretText($userVls['twoFactKey'], $this->sealingKey);
 			if( $sealKey===null ){
-				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: cryptKey is missing or was changed' );
+				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVls['userHandle']).' cannot be read: tfaCrypt is missing or was changed' );
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}

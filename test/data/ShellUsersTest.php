@@ -20,7 +20,7 @@ createSampleDb($basePth);
 switchToSqlite($basePth);
 $projDir = makeProjectTxt('users', Array(
 	'conf/system.ini'=>buildSystemIni(),
-	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'password'=>'')),
+	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$basePth, 'userName'=>'', 'passWord'=>'')),
 	'conf/access.json'=>"{\n\t\"loginSet\":  { \"authWith\": \"nativeDb\", \"authConf\": \"testBase\", \"sessWith\": \"jwtToken\", \"sessConf\": \"jwtToken\" },\n\t\"testBase\": { \"useTable\": \"users\", \"minChars\": 8 },\n\t\"userFile\": { \"listFile\": \"conf/users.lst\" }\n}\n"
 ));
 $natAuth = new Native( Array('useTable'=>'users') );
@@ -99,7 +99,7 @@ checkIdentical('the changes are traced on the access channel, signed', Array(pre
 checkPregMatch('what the userbase does not trace itself is traced by the command', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Personal token of user "ben" made by user "cli:/');
 
 // A database that does not answer
-writeInProject($projDir, 'conf/database.json', json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>inTemporaryDir('nofolder').DS.'none.sqlite', 'userName'=>'', 'password'=>'')));
+writeInProject($projDir, 'conf/database.json', json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>inTemporaryDir('nofolder').DS.'none.sqlite', 'userName'=>'', 'passWord'=>'')));
 checkIdentical('a userbase that cannot be read is a failure', callShellArray($projDir, Array('accounts', 'fullList'))['code'], 1);
 
 // deploy : the users table and the basic users of a new database

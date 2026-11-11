@@ -46,7 +46,7 @@ class UserFile{
 	 * @param Array    $configValues Config block with the 'listFile' path of the users file, relative to the project root
 	 *                             (conf/users.lst when left out), and optionally the shortest password accepted,
 	 *                             in characters ('minChars', defaults to 10) and the key the 2FA secrets are written
-	 *                             encrypted with ('cryptKey', 32 characters at least; without one they are written readable).
+	 *                             encrypted with ('tfaCrypt', 32 characters at least; without one they are written readable).
 	 * @param ConfFile $writerObject The writer of config files.
 	 */
 	function __construct( Array $configValues, ConfFile $writerObject ){
@@ -54,7 +54,7 @@ class UserFile{
 		$this->nameOfFile = ($fileNme!='') ? $fileNme : 'conf/users.lst';
 		$this->usrLstPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $this->nameOfFile);
 		$this->minPwdSize = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
-		$this->sealingKey = is_scalar($configValues['cryptKey'] ?? '') ? strval($configValues['cryptKey'] ?? '') : '';
+		$this->sealingKey = is_scalar($configValues['tfaCrypt'] ?? '') ? strval($configValues['tfaCrypt'] ?? '') : '';
 		$this->fileWriter = $writerObject;
 	}
 
@@ -379,7 +379,7 @@ class UserFile{
 		if( $isSaved ){
 			$this->logFileChanges( '2FA secret of user '.json_encode($namedUserTxt).' made' );
 			if( $storTxt===$newSecr ){
-				Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no cryptKey of '.Totp::SEAL_SIZE.' characters is set' );
+				Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 		}
 		return $isSaved ? $newSecr : false;

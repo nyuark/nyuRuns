@@ -137,15 +137,15 @@ if( function_exists('openssl_pkey_new') ){
 	checkIdentical('write access: what was refused was not written', array_intersect_key(json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['rstokn'] ?? Array(), Array('issuerId'=>1, 'audience'=>1, 'prevFile'=>1)), Array('prevFile'=>'', 'issuerId'=>'https://auth.example.org', 'audience'=>Array('api.example.org', 'app.example.org')));
 }
 // The key of the 2FA secrets, in the block of the store the login uses
-checkIdentical('a store whose block holds no key of the 2FA secrets', callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey'))['code'], 3);
-callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'env:NYU_TFA_KEY', '--overrule'));
-$runVals = callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey'));
+checkIdentical('a store whose block holds no key of the 2FA secrets', callShellArray($projDir, Array('settings', 'makeSecr', 'tfaCrypt'))['code'], 3);
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.tfaCrypt', 'env:NYU_TFA_KEY', '--overrule'));
+$runVals = callShellArray($projDir, Array('settings', 'makeSecr', 'tfaCrypt'));
 $tfaKey = strval(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '');
 checkIdentical('the key of the 2FA secrets is written in the environment file, and not shown', Array($runVals['code'], $runVals['text'], strlen($tfaKey)>=48), Array(0, "written: .env NYU_TFA_KEY\n", true));
-checkIdentical('a key in use is only replaced when confirmed', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey', '--noPrompt'))['code'], parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? null), Array(3, $tfaKey));
-checkPregMatch('replacing it tells what is lost', callShellArray($projDir, Array('settings', 'makeSecr', 'cryptKey'), "n\n")['errs'], '/Replace the key of the 2FA secrets in use: every secret stored with it stops being readable/');
-callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.cryptKey', 'written-in-the-block'));
-checkIdentical('a key written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'accsConf', 'nativeDb.cryptKey'))['rows'] ?? null, Array(Array('key'=>'nativeDb.cryptKey', 'value'=>'********')));
+checkIdentical('a key in use is only replaced when confirmed', Array(callShellArray($projDir, Array('settings', 'makeSecr', 'tfaCrypt', '--noPrompt'))['code'], parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? null), Array(3, $tfaKey));
+checkPregMatch('replacing it tells what is lost', callShellArray($projDir, Array('settings', 'makeSecr', 'tfaCrypt'), "n\n")['errs'], '/Replace the key of the 2FA secrets in use: every secret stored with it stops being readable/');
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.tfaCrypt', 'written-in-the-block'));
+checkIdentical('a key written in the file is masked', runShellAsJson($projDir, Array('settings', 'showConf', 'accsConf', 'nativeDb.tfaCrypt'))['rows'] ?? null, Array(Array('key'=>'nativeDb.tfaCrypt', 'value'=>'********')));
 $jsnVals = runShellAsJson($projDir, Array('settings', 'makeSecr', 'htpasswd', 'bob'));
 $htpLine = trim(strval(fetchInProject($projDir, 'conf/.htpasswd')));
 checkIdentical('a htpasswd line is written with a password made and shown once', Array(strpos($htpLine, 'bob:$2y$'), password_verify($jsnVals['secret']['Password of bob'] ?? '', substr($htpLine, 4))), Array(0, true));
