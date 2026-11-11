@@ -1,8 +1,7 @@
 <?php
 
-// Command line, manage : the users of the users file created, changed and
-// removed, the file written as the application reads it, and the actions
-// of a run called from the command line.
+// Command line, account : the users of the users file created, changed and
+// removed, the file written as the application reads it.
 
 require __DIR__.'/../lib/harness.php';
 require __DIR__.'/../lib/shellKit.php';
@@ -104,25 +103,5 @@ writeInProject($projDir, 'conf/users.lst', '{ "users": "none" }');
 checkIdentical('a file that is not a list of users is a failure, and is left alone', Array(callShellArray($projDir, Array('account', 'fullList'))['code'], callShellArray($projDir, Array('account', 'makeUser', 'carl'))['code'], fetchInProject($projDir, 'conf/users.lst')), Array(1, 1, '{ "users": "none" }'));
 writeInProject($projDir, 'conf/users.lst', $fleText);
 checkIdentical('a store the config does not have', Array(callShellArray($projDir, Array('account', 'fullList', '--useStore=nativeDb'))['code'], callShellArray($projDir, Array('account', 'fullList', '--useStore=other'))['code'], callShellArray($projDir, Array('account', 'fullList', '--useBlock=nothing'))['code']), Array(3, 2, 3));
-
-// Calling an action
-checkIdentical('calls runs an action and writes its reply', callShellArray($projDir, Array('account', 'doAction', 'probe/mirrored/hello')), Array('code'=>0, 'text'=>"{\"got\":\"hello\"}\n", 'errs'=>''));
-checkIdentical('the call runs as the user of the system, with the role system', Array(preg_match('/^cli:[\w.\-]+$/D', strval(runShellAsJson($projDir, Array('account', 'doAction', 'probe/identify'))['reply']['user'] ?? '')), runShellAsJson($projDir, Array('account', 'doAction', 'probe/identify'))['reply']['role'] ?? null, runShellAsJson($projDir, Array('account', 'doAction', 'probe/roleList'))['reply'] ?? null), Array(1, 'advanced', Array('standard'=>true, 'advanced'=>true, 'managers'=>false)));
-checkIdentical('--roleName gives it another role; a role the action asks for applies', Array(runShellAsJson($projDir, Array('account', 'doAction', 'probe/roleList/managers', '--roleName=managers'))['reply']['managers'] ?? null, callShellArray($projDir, Array('account', 'doAction', 'probe/roleList/managers'))['code'], callShellArray($projDir, Array('account', 'doAction', 'probe/roleList', '--roleName=boss'))['code']), Array(true, 3, 2));
-$runVals = callShellArray($projDir, Array('account', 'doAction', 'probe/identify', '--presetId=secure'));
-checkIdentical('the role a preset asks for applies', Array($runVals['code'], $runVals['errs'], runShellAsJson($projDir, Array('account', 'doAction', 'probe/identify', '--presetId=secure', '--roleName=managers'))['reply']['logged'] ?? null), Array(3, "403 Forbidden\n", true));
-$inpVals = runShellAsJson($projDir, Array('account', 'doAction', 'forms/transmit', 'name=Ann', 'filters[search]=jazz', 'other=dropped'))['reply'] ?? Array();
-checkIdentical('the inputs go through the definition of the action', Array($inpVals['NAME'] ?? null, $inpVals['FILTERS'] ?? null, array_key_exists('OTHER', $inpVals)), Array('Ann', Array('search'=>'jazz'), false));
-$inpVals = runShellAsJson($projDir, Array('account', 'doAction', 'forms/freeForm', 'b=2', '--bodyFrom=-'), '{"a": 1, "b": 1}')['reply'] ?? Array();
-checkIdentical('inputs read as JSON, the words written over them', Array($inpVals['A'] ?? null, $inpVals['B'] ?? null), Array(1, '2'));
-checkIdentical('what is not an input, or not an action', Array(callShellArray($projDir, Array('account', 'doAction', 'forms/freeForm', 'novalue'))['code'], callShellArray($projDir, Array('account', 'doAction', 'forms'))['code'], callShellArray($projDir, Array('account', 'doAction', 'forms/freeForm', '--httpVerb=FETCH'))['code'], callShellArray($projDir, Array('account', 'doAction', 'forms/freeForm', '--bodyFrom='.$projDir.DS.'nofile.json'))['code']), Array(2, 2, 2, 2));
-$runVals = callShellArray($projDir, Array('account', 'doAction', 'probe/stopping/fail'));
-checkIdentical('a refusal of the action is told, with its exit code', $runVals, Array('code'=>3, 'text'=>"{\"error\":\"Stopped early\",\"code\":404}\n", 'errs'=>"404 Stopped early\n"));
-checkIdentical('an unknown application or action: the same refusal', Array(callShellArray($projDir, Array('account', 'doAction', 'nothing/here'))['code'], callShellArray($projDir, Array('account', 'doAction', 'probe/nothing'))['code']), Array(3, 3));
-checkIdentical('a reply without content, a redirection', Array(callShellArray($projDir, Array('account', 'doAction', 'probe/stopping/none')), callShellArray($projDir, Array('account', 'doAction', 'probe/redirect/out'))), Array(Array('code'=>0, 'text'=>'', 'errs'=>''), Array('code'=>0, 'text'=>"moved: https://example.org/\n", 'errs'=>'')));
-$savePth = inTemporaryDir('reply.bin');
-checkIdentical('a file reply is written where --saveInto tells', Array(callShellArray($projDir, Array('account', 'doAction', 'probe/sendFile', '--saveInto='.$savePth))['code'], is_file($savePth) ? file_get_contents($savePth) : null), Array(0, file_get_contents(TST_DIR.DS.'fixtures'.DS.'letters.txt')));
-checkIdentical('a method the request is said to use', runShellAsJson($projDir, Array('account', 'doAction', 'probe/userPass', 'user=a', 'pass=b', '--httpVerb=POST'))['code'] ?? null, 401);
-checkPregMatch('a call is traced on the access channel', strval(fetchInProject($projDir, 'temp/logs/access.log')), '/\[NOTICE\] Action probe\/mirrored called from the command line by user "cli:[\w.\-]+" \(advanced\)\n/');
 
 finishChecking();

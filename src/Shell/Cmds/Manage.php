@@ -5,14 +5,12 @@ namespace nyu\Shell\Cmds;
 use nyu\Access\Checker;
 use nyu\Access\Auth\UserBase;
 use nyu\Data\QrCode;
-use nyu\Shell\ActCaller;
 use nyu\Shell\Command;
 use nyu\Shell\ConfFile;
-use nyu\Shell\Console;
 use nyu\Shell\UserFile;
 
 /**
- * Manages the users, and calls the actions of the runs:
+ * Manages the users:
  *
  *   php nyuRun account fullList --roleName=managers  the users, filtered or not
  *   php nyuRun account makeUser ann system         creates a user
@@ -21,7 +19,6 @@ use nyu\Shell\UserFile;
  *   php nyuRun account setTwoFa ann --removeIt     takes its 2FA secret away, when its authenticator is lost
  *   php nyuRun account setTwoFa ann --emailOtp     has it give a code sent to its address at each login
  *   php nyuRun account approves                    the sign-ups awaiting review (prove ann approves one)
- *   php nyuRun account doAction shows/index filters[search]=jazz
  *
  * The users are those of the store the login uses: the native userbase
  * (nativeDb) or the users file (userFile); --useStore names the other, --useBlock
@@ -29,9 +26,6 @@ use nyu\Shell\UserFile;
  * traced on the 'access' log channel, as those made over HTTP.
  */
 class Manage extends Command{
-
-	// Methods a call may be said to use
-	const MTHD_LIST = Array('GET', 'POST', 'PUT', 'PATCH', 'DELETE');
 
 	// The store the users are managed in: 'nativeDb' or 'userFile'
 	protected $usersStore = '';
@@ -42,7 +36,7 @@ class Manage extends Command{
 	 * @return String The line shown in the list of commands.
 	 */
 	public function describeInLine(): String {
-		return 'Manages the users (native userbase or users file), and calls an action of a run';
+		return 'Manages the users (native userbase or users file)';
 	}
 
 	/**
@@ -66,8 +60,7 @@ class Manage extends Command{
 			'language'=>Array('args'=>'<user> [language]', 'about'=>'gives a user the language of its mails (fr, fr-ch), or takes it away when none is given: the default one (DEF_LANG) then'),
 			'password'=>Array('args'=>'<user> [--typeItIn]', 'about'=>'gives a user a new password'),
 			'apiToken'=>Array('args'=>'<user> [--removeIt]', 'about'=>'gives a user a new personal API token, or takes it away'),
-			'setTwoFa'=>Array('args'=>'<user> [--removeIt] [--noQrCode] [--emailOtp]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--noQrCode: without), codes by mail (--emailOtp), or takes it away'),
-			'doAction'=>Array('args'=>'<app/action[/param]> [name=value ...] [--bodyFrom=<file|->] [--httpVerb=<method>] [--presetId=<preset>] [--roleName=<role>] [--saveInto=<file>]', 'about'=>'calls an action of a run, as the user cli:<system user>')
+			'setTwoFa'=>Array('args'=>'<user> [--removeIt] [--noQrCode] [--emailOtp]', 'about'=>'gives a user a new 2FA secret, shown with its QR code (--noQrCode: without), codes by mail (--emailOtp), or takes it away')
 		);
 	}
 
@@ -448,67 +441,6 @@ class Manage extends Command{
 		// The address as a QR code, for the authenticator to scan : it holds the secret, and is shown once too
 		if( !$this->optionsObj->validateOption('noQrCode') && !$this->printerObj->jsonShellShape() ){
 			$this->printerObj->printShellBody( (new QrCode($otpAddr, 'M'))->drawAsTerminal(2) );
-		}
-		return self::EXIT_DONE;
-	}
-
-	/**
-	 * Calls an action of a run. Its inputs are the name=value words
-	 * (filters[search]=jazz for a nested one), over those of a JSON file
-	 * (--bodyFrom, - for the standard input). It runs as the user
-	 * cli:<system user>, with the role 'advanced' unless --roleName gives
-	 * another. Its reply is written to the output, or to --saveInto.
-	 *
-	 * @return Int EXITDONE for a success or a redirection, EXITDENY for a 4xx status, EXITFAIL for a 5xx.
-	 */
-	public function invokeDoAction(): Int {
-		$actnPth = $this->needsShellWord('the action, as app/action');
-		$inptVls = Array();
-		$inptFil = $this->optionsObj->retrieveOption('bodyFrom');
-		if( $inptFil!==null ){
-			$inptTxt = ($inptFil=='-') ? stream_get_contents($this->readStream) : @file_get_contents($inptFil);
-			$inptVls = json_decode(strval($inptTxt), true);
-			if( !is_array($inptVls) ){
-				$this->terminateShell('The inputs of --bodyFrom are not a JSON object', self::EXIT_HELP);
-			}
-		}
-		$pairLst = Array();
-		foreach( $this->optionsObj->restWordsArray() as $gvnWrd ){
-			$pairPrt = explode('=', $gvnWrd, 2);
-			if( count($pairPrt)!=2 || $pairPrt[0]=='' ){
-				$this->terminateShell('An input is written name=value: '.$gvnWrd, self::EXIT_HELP);
-			}
-			$pairLst[] = str_replace(Array('%5B', '%5D'), Array('[', ']'), rawurlencode($pairPrt[0])).'='.rawurlencode($pairPrt[1]);
-		}
-		$wordVal = Array();
-		parse_str(implode('&', $pairLst), $wordVal);
-		$inptVls = array_replace_recursive($inptVls, $wordVal);
-		$roleNme = strval($this->optionsObj->retrieveOption('roleName', 'advanced'));
-		$mthName = strtoupper(strval($this->optionsObj->retrieveOption('httpVerb', 'GET')));
-		if( !in_array($roleNme, Checker::ROLE_LIST, true) || !in_array($mthName, self::MTHD_LIST, true) ){
-			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
-		}
-		$replyAr = (new ActCaller())->runAskedAction( strval($this->optionsObj->retrieveOption('presetId', '')), $actnPth, $inptVls, $mthName, 'cli:'.Console::osShellUsrName(), $roleNme );
-		$savPath = $this->optionsObj->retrieveOption('saveInto');
-		if( $this->printerObj->jsonShellShape() ){
-			$this->printerObj->printShellPair('code', $replyAr['code']);
-		}
-		if( $savPath!==null ){
-			if( @file_put_contents($savPath, $replyAr['body'])===false ){
-				$this->terminateShell('The reply cannot be written to '.$savPath);
-			}
-			$this->printerObj->printShellPair('saved', $savPath);
-		}elseif( $this->printerObj->jsonShellShape() ){
-			$this->printerObj->printShellPair('reply', json_decode($replyAr['body'], true) ?? $replyAr['body']);
-		}elseif( $replyAr['body']!=='' ){
-			$this->printerObj->printShellBody( $replyAr['body'].( substr($replyAr['body'], -1)=="\n" ? '' : PHP_EOL ) );
-		}
-		if( $replyAr['goal']!='' ){
-			$this->printerObj->printShellPair('moved', $replyAr['goal']);
-		}
-		if( $replyAr['code']>=400 ){
-			$this->printerObj->printShellFail( $replyAr['code'].' '.$replyAr['mssg'] );
-			return ($replyAr['code']>=500) ? self::EXIT_FAIL : self::EXIT_DENY;
 		}
 		return self::EXIT_DONE;
 	}

@@ -817,7 +817,7 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
   (`subsTableArray()`), along with **`Options`**, **`Printer`** (text, or
   JSON for a script) and **`ShellStop`** (the exit code).
 - **`Shell\Cmds\*`**: `install`, `setting`, `testing`, `cleanup`, `showlog`,
-  `account`, `devices`, `bundles`, `appkeys` (chapter 7).
+  `cronjob`, `account`, `devices`, `bundles`, `appkeys` (chapter 7).
 - **`HealthChk`** runs the checks of `install checkAll`. **`ConfFile`**
   writes the configuration files, each in its own way, and **`UserFile`**
   the users file. **`ActCaller`** calls an action of a run from the
@@ -1107,7 +1107,7 @@ holds users.
 A file is written with its comments and layout kept, the previous version
 copied to `temp/archives`. A change that leaves it unusable is undone.
 
-### 7.4 `account`: users and actions
+### 7.4 `account`, `cronjob`: users and actions
 
 The users of the store the login uses (`--useStore`, or `--useBlock` for
 another block):
@@ -1127,7 +1127,11 @@ another block):
 | `setEmail <user> [address]` | sets or removes the address |
 | `language <user> [language]` | shows, sets or removes the language |
 | `approves [user]` | lists the sign-ups to review, or approves one |
-| `doAction <app/action> [field=value]` | calls an action of a run, for automated tasks, with the roles of a preset (`--presetId`, `--roleName`, `--bodyFrom`, `--httpVerb`, `--saveInto`) |
+
+`php nyuRun cronjob <app/action[/param]> [field=value]`, a command of its own with
+no sub-command, calls an action of a run for automated tasks, as the user
+`cli:<system user>`, with the roles of a preset (`--presetId`, `--roleName`,
+`--bodyFrom`, `--httpVerb`, `--saveInto`).
 
 ### 7.5 `devices`, `appkeys`: devices and applications
 
