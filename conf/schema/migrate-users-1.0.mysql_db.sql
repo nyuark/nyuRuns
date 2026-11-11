@@ -11,7 +11,7 @@
 -- (twoFactWay, twoFactHsh, twoFactExp), the time of the last password
 -- (passwdDate) and the status of a self-registration awaiting a manager. The roles
 -- and the statuses take their codes of 1.0 (part 3): member, system and manage
--- become internal, operator and sysadmin; pendng, active and locked become
+-- become standard, advanced and managers; pendng, active and locked become
 -- awaiting, approved and disabled, and 'inReview' is the new status of a
 -- self-registration; a second factor mailed becomes emailOtp.
 -- The devices table is moved by migrate-devices-1.0.mysql_db.sql, after this one.
@@ -113,11 +113,11 @@ ALTER TABLE `users`
 --    to 8 characters, and every row takes the code of its role and status.
 
 ALTER TABLE `users`
-	MODIFY `accessRole` VARCHAR(8) NOT NULL DEFAULT 'internal',
+	MODIFY `accessRole` VARCHAR(8) NOT NULL DEFAULT 'standard',
 	MODIFY `userStatus` VARCHAR(8) NOT NULL DEFAULT 'awaiting';
 
 UPDATE `users` SET
-	`accessRole` = CASE `accessRole` WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' ELSE `accessRole` END,
+	`accessRole` = CASE `accessRole` WHEN 'member' THEN 'standard' WHEN 'system' THEN 'advanced' WHEN 'manage' THEN 'managers' ELSE `accessRole` END,
 	`userStatus` = CASE `userStatus` WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'inReview' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' ELSE `userStatus` END,
 	`twoFactWay` = CASE `twoFactWay` WHEN 'mailed' THEN 'emailOtp' ELSE `twoFactWay` END;
 
@@ -125,15 +125,15 @@ UPDATE `users` SET
 -- 4. MySQL 8 and MariaDB: the checks of 1.0.
 --
 -- ALTER TABLE `users`
--- 	ADD CONSTRAINT `accessRole` CHECK (`accessRole` IN ('internal', 'operator', 'sysadmin')),
+-- 	ADD CONSTRAINT `accessRole` CHECK (`accessRole` IN ('standard', 'advanced', 'delegate', 'managers')),
 -- 	ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled'));
 
 
--- Going back to 0.9, if needed (no user may be in 'inReview'; on MySQL 8 or
+-- Going back to 0.9, if needed (no user may be in 'inReview' or have the role delegate; on MySQL 8 or
 -- MariaDB, drop the checks of part 4 first, and put those of 0.9 back after):
 --
 -- UPDATE `users` SET
--- 	`accessRole` = CASE `accessRole` WHEN 'internal' THEN 'member' WHEN 'operator' THEN 'system' WHEN 'sysadmin' THEN 'manage' ELSE `accessRole` END,
+-- 	`accessRole` = CASE `accessRole` WHEN 'standard' THEN 'member' WHEN 'advanced' THEN 'system' WHEN 'managers' THEN 'manage' ELSE `accessRole` END,
 -- 	`userStatus` = CASE `userStatus` WHEN 'awaiting' THEN 'pendng' WHEN 'approved' THEN 'active' WHEN 'disabled' THEN 'locked' ELSE `userStatus` END;
 -- ALTER TABLE `users`
 -- 	MODIFY `accessRole` VARCHAR(6) NOT NULL DEFAULT 'member',
@@ -166,10 +166,12 @@ UPDATE `users` SET
 -- A table already at 1.0, made before userHandle, twoFactStp, failedDate,
 -- mailboxAdr, mailedCode and mailExpiry took their names of 1.0 final
 -- (systemName, twoFactPos, failedTime, contactEml, twoFactHsh, twoFactExp) and
--- the status checking became inReview: none of the lines above, only these, after a backup of the
--- table. On MySQL 8 and MariaDB, the check of userStatus is dropped before the
--- update and made again after it: its name is given by SHOW CREATE TABLE `users`;
--- MySQL 5.7 does not enforce checks: the update alone.
+-- the status checking became inReview, and the roles internal, operator and
+-- sysadmin became standard, advanced and managers (delegate added between the
+-- last two): none of the lines above, only these, after a backup of the
+-- table. On MySQL 8 and MariaDB, the checks of userStatus and accessRole are dropped
+-- before the update and made again after it: their names are given by
+-- SHOW CREATE TABLE `users`; MySQL 5.7 does not enforce checks: the update alone.
 --
 -- ALTER TABLE `users`
 -- 	RENAME COLUMN `userHandle` TO `systemName`,
@@ -181,13 +183,17 @@ UPDATE `users` SET
 -- 	RENAME INDEX  `userHandle` TO `systemName`,
 -- 	RENAME INDEX  `mailboxAdr` TO `contactEml`;
 --
--- MySQL 8:  ALTER TABLE `users` DROP CHECK `<name of the check of userStatus>`;
--- MariaDB:  ALTER TABLE `users` DROP CONSTRAINT `<name of the check of userStatus>`;
+-- MySQL 8:  ALTER TABLE `users` DROP CHECK `<check of userStatus>`, DROP CHECK `<check of accessRole>`;
+-- MariaDB:  ALTER TABLE `users` DROP CONSTRAINT `<check of userStatus>`, DROP CONSTRAINT `<check of accessRole>`;
 --
--- UPDATE `users` SET `userStatus` = 'inReview' WHERE `userStatus` = 'checking';
+-- UPDATE `users` SET
+-- 	`userStatus` = CASE `userStatus` WHEN 'checking' THEN 'inReview' ELSE `userStatus` END,
+-- 	`accessRole` = CASE `accessRole` WHEN 'internal' THEN 'standard' WHEN 'operator' THEN 'advanced' WHEN 'sysadmin' THEN 'managers' ELSE `accessRole` END;
 --
 -- MySQL 8 and MariaDB:
--- ALTER TABLE `users` ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled'));
+-- ALTER TABLE `users`
+-- 	ADD CONSTRAINT `userStatus` CHECK (`userStatus` IN ('awaiting', 'inReview', 'approved', 'disabled')),
+-- 	ADD CONSTRAINT `accessRole` CHECK (`accessRole` IN ('standard', 'advanced', 'delegate', 'managers'));
 --
 -- MySQL 5.7, which has no RENAME COLUMN: each column named again with its
 -- whole definition, the one of conf/schema/users.mysql_db.sql.

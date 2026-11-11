@@ -9,7 +9,7 @@
 -- those of the codes mailed as a second factor ("twoFactWay", "twoFactHsh",
 -- "twoFactExp"), the time of the last password ("passwdDate") and the status
 -- of a self-registration awaiting a manager. The roles and the statuses take their
--- codes of 1.0: member, system and manage become internal, operator and sysadmin;
+-- codes of 1.0: member, system and manage become standard, advanced and managers;
 -- pendng, active and locked become awaiting, approved and disabled, and 'inReview'
 -- is the new status of a self-registration; a second factor mailed becomes emailOtp.
 -- The devices table is moved by migrate-devices-1.0.postgres.sql, after this one.
@@ -64,24 +64,24 @@ ALTER TABLE "users" DROP CONSTRAINT "users_userRole_check";
 ALTER TABLE "users" DROP CONSTRAINT "users_userStat_check";
 ALTER TABLE "users"
 	ALTER COLUMN "accessRole" TYPE VARCHAR(8),
-	ALTER COLUMN "accessRole" SET DEFAULT 'internal',
+	ALTER COLUMN "accessRole" SET DEFAULT 'standard',
 	ALTER COLUMN "userStatus" TYPE VARCHAR(8),
 	ALTER COLUMN "userStatus" SET DEFAULT 'awaiting';
 UPDATE "users" SET
-	"accessRole" = CASE "accessRole" WHEN 'member' THEN 'internal' WHEN 'system' THEN 'operator' WHEN 'manage' THEN 'sysadmin' ELSE "accessRole" END,
+	"accessRole" = CASE "accessRole" WHEN 'member' THEN 'standard' WHEN 'system' THEN 'advanced' WHEN 'manage' THEN 'managers' ELSE "accessRole" END,
 	"userStatus" = CASE "userStatus" WHEN 'pendng' THEN 'awaiting' WHEN 'review' THEN 'inReview' WHEN 'active' THEN 'approved' WHEN 'locked' THEN 'disabled' ELSE "userStatus" END;
-ALTER TABLE "users" ADD CONSTRAINT "users_accessRole_check" CHECK ("accessRole" IN ('internal', 'operator', 'sysadmin'));
+ALTER TABLE "users" ADD CONSTRAINT "users_accessRole_check" CHECK ("accessRole" IN ('standard', 'advanced', 'delegate', 'managers'));
 ALTER TABLE "users" ADD CONSTRAINT "users_userStatus_check" CHECK ("userStatus" IN ('awaiting', 'inReview', 'approved', 'disabled'));
 
 COMMIT;
 
 
--- Going back to 0.9, if needed (no user may be in 'inReview'):
+-- Going back to 0.9, if needed (no user may be in 'inReview' or have the role delegate):
 --
 -- BEGIN;
 -- ALTER TABLE "users" DROP CONSTRAINT "users_userStatus_check";
 -- ALTER TABLE "users" DROP CONSTRAINT "users_accessRole_check";
--- UPDATE "users" SET "accessRole" = CASE "accessRole" WHEN 'internal' THEN 'member' WHEN 'operator' THEN 'system' WHEN 'sysadmin' THEN 'manage' ELSE "accessRole" END, "userStatus" = CASE "userStatus" WHEN 'awaiting' THEN 'pendng' WHEN 'approved' THEN 'active' WHEN 'disabled' THEN 'locked' ELSE "userStatus" END;
+-- UPDATE "users" SET "accessRole" = CASE "accessRole" WHEN 'standard' THEN 'member' WHEN 'advanced' THEN 'system' WHEN 'managers' THEN 'manage' ELSE "accessRole" END, "userStatus" = CASE "userStatus" WHEN 'awaiting' THEN 'pendng' WHEN 'approved' THEN 'active' WHEN 'disabled' THEN 'locked' ELSE "userStatus" END;
 -- ALTER TABLE "users" ALTER COLUMN "accessRole" SET DEFAULT 'member', ALTER COLUMN "userStatus" SET DEFAULT 'pendng';
 -- ALTER TABLE "users" DROP COLUMN "contactEml", DROP COLUMN "userLocale", DROP COLUMN "recovrCode", DROP COLUMN "codeExpiry", DROP COLUMN "signupDate", DROP COLUMN "twoFactWay", DROP COLUMN "twoFactHsh", DROP COLUMN "twoFactExp", DROP COLUMN "passwdDate";
 -- ALTER TABLE "users" RENAME COLUMN "systemName" TO "userName";
@@ -103,7 +103,9 @@ COMMIT;
 -- A table already at 1.0, made before userHandle, twoFactStp, failedDate,
 -- mailboxAdr, mailedCode and mailExpiry took their names of 1.0 final
 -- (systemName, twoFactPos, failedTime, contactEml, twoFactHsh, twoFactExp) and
--- the status checking became inReview: none of the lines above, only these, after a backup of the
+-- the status checking became inReview, and the roles internal, operator and
+-- sysadmin became standard, advanced and managers (delegate added between the
+-- last two): none of the lines above, only these, after a backup of the
 -- table. The unique constraints keep the names they were given.
 --
 -- BEGIN;
@@ -114,7 +116,9 @@ COMMIT;
 -- ALTER TABLE "users" RENAME COLUMN "mailedCode" TO "twoFactHsh";
 -- ALTER TABLE "users" RENAME COLUMN "mailExpiry" TO "twoFactExp";
 -- ALTER TABLE "users" DROP CONSTRAINT "users_userStatus_check";
--- UPDATE "users" SET "userStatus" = 'inReview' WHERE "userStatus" = 'checking';
+-- ALTER TABLE "users" DROP CONSTRAINT "users_accessRole_check";
+-- UPDATE "users" SET "userStatus" = CASE "userStatus" WHEN 'checking' THEN 'inReview' ELSE "userStatus" END, "accessRole" = CASE "accessRole" WHEN 'internal' THEN 'standard' WHEN 'operator' THEN 'advanced' WHEN 'sysadmin' THEN 'managers' ELSE "accessRole" END;
 -- ALTER TABLE "users" ADD CONSTRAINT "users_userStatus_check" CHECK ("userStatus" IN ('awaiting', 'inReview', 'approved', 'disabled'));
+-- ALTER TABLE "users" ADD CONSTRAINT "users_accessRole_check" CHECK ("accessRole" IN ('standard', 'advanced', 'delegate', 'managers'));
 -- COMMIT;
 

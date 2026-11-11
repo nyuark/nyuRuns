@@ -60,7 +60,7 @@ $newRows = $sqlLink->query('SELECT * FROM users ORDER BY id_user')->fetchAll(PDO
 $colMap = Array('userName'=>'systemName', 'passHash'=>'passwdHash', 'userRole'=>'accessRole', 'userStat'=>'userStatus', 'actvCode'=>'actvtnCode', 'tokenKey'=>'bearerHash', 'twoFaKey'=>'twoFactKey', 'twoFaStp'=>'twoFactPos', 'failNmbr'=>'failsCount', 'failDate'=>'failedTime', 'madeDate'=>'createDate', 'lastSeen'=>'accessDate');
 $oldRows = array_map(function( Array $userValues ) use ( $colMap ): Array { return array_combine(array_map(function( String $colName ) use ( $colMap ): String { return $colMap[$colName] ?? $colName; }, array_keys($userValues)), array_values($userValues)); }, $oldRows);
 // and the codes of 1.0 for their roles and statuses
-$codeMap = Array('member'=>'internal', 'system'=>'operator', 'manage'=>'sysadmin', 'pendng'=>'awaiting', 'active'=>'approved', 'locked'=>'disabled');
+$codeMap = Array('member'=>'standard', 'system'=>'advanced', 'manage'=>'managers', 'pendng'=>'awaiting', 'active'=>'approved', 'locked'=>'disabled');
 $oldRows = array_map(function( Array $userValues ) use ( $codeMap ): Array { return array_replace($userValues, Array('accessRole'=>$codeMap[$userValues['accessRole']], 'userStatus'=>$codeMap[$userValues['userStatus']])); }, $oldRows);
 $keptRow = array_map(function( Array $userValues ): Array { return array_diff_key($userValues, array_flip(Array('contactEml', 'userLocale', 'recovrCode', 'codeExpiry', 'signupDate', 'twoFactWay', 'twoFactHsh', 'twoFactExp', 'passwdDate'))); }, $newRows);
 checkIdentical('every user is kept, with its identifier and its values', $keptRow, $oldRows);
