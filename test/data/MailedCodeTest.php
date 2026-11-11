@@ -22,7 +22,7 @@ use nyu\Tools\Registry;
 $sqlFile = inTemporaryDir('mailed.sqlite');
 createSampleDb( $sqlFile );
 $fldrNme = 'temp'.DS.'lgmails_'.getmypid();
-$natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>15, 'linkTmpl'=>'https://app.example.ch/access?code=%code%');
+$natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>15, 'linkTmpl'=>'https://app.example.ch/access?code=%sentCode%');
 
 /**
  * Sets the config: the sample database, a 'emlFiles' account, and a login on the native userbase.

@@ -12,7 +12,7 @@ use nyu\Tools\Registry;
 
 $fldrNme = 'temp'.DS.'accmails_'.getmypid();
 $fileSet = Array('sendWith'=>'emlFiles', 'fromAddr'=>'no-reply@example.com', 'fromName'=>'nyuRuns', 'mailsDir'=>'/'.str_replace(DS, '/', $fldrNme));
-$natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>20, 'linkTmpl'=>'https://app.example.ch/access?do=%kind%&user=%user%&code=%code%');
+$natConf = Array('useTable'=>'users', 'mailAcnt'=>'devbox', 'codeMins'=>20, 'linkTmpl'=>'https://app.example.ch/access?do=%mailKind%&user=%userName%&code=%sentCode%');
 
 /**
  * Sets the config: a 'emlFiles' account, and a login on the native userbase.

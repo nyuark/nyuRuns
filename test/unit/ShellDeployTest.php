@@ -169,7 +169,7 @@ $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
 checkIdentical('an account that is not one, a link that is not one, a code lasting no minute', Array($statLst['access mails nativeDb'] ?? null, $statLst['access link nativeDb'] ?? null, $statLst['access codes nativeDb'] ?? null), Array('fail', 'fail', 'fail'));
 writeInProject($projDir, 'conf/mailer.json', '{ "devbox": { "sendWith": "emlFiles", "fromAddr": "dev@example.com", "mailsDir": "temp/mails" } }');
 callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.mailAcnt', 'devbox'));
-callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.linkTmpl', 'https://app.example.ch/access?do=%kind%&code=%code%'));
+callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.linkTmpl', 'https://app.example.ch/access?do=%mailKind%&code=%sentCode%'));
 callShellArray($projDir, Array('settings', 'setValue', 'accsConf', 'nativeDb.codeMins', '15'));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
 checkIdentical('a mail account that is one, a link holding the code', Array($statLst['access mails nativeDb'] ?? null, isset($statLst['access link nativeDb']), isset($statLst['access codes nativeDb'])), Array('fine', false, false));

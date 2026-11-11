@@ -55,10 +55,10 @@ checkIdentical('the names of the first level are matched whatever their case', i
 
 // The formats
 checkIdentical('each field is given its format', inputVals(Array('name'=>'OutText', 'mail'=>'EmlAddr', 'seats'=>'Integer'), $sentArr), Array('name'=>'Ann', 'mail'=>'ann@example.org', 'seats'=>12));
-checkIdentical('a format with its option', inputVals(Array('since'=>'DateStr(Y/m/d)', 'until'=>'DateStr'), Array('since'=>'2026-10-01', 'until'=>'2026-10-01')), Array('since'=>'2026/10/01', 'until'=>'01/10/26'));
-checkIdentical('an option may hold a colon and brackets', inputVals(Array('since'=>'DateStr(d.m.Y (H:i))'), Array('since'=>'2026-10-01')), Array('since'=>'01.10.2026 (12:00)'));
+checkIdentical('a format with its option', inputVals(Array('since'=>'CustDte(Y/m/d)', 'until'=>'CustDte'), Array('since'=>'2026-10-01', 'until'=>'2026-10-01')), Array('since'=>'2026/10/01', 'until'=>'01/10/26'));
+checkIdentical('an option may hold a colon and brackets', inputVals(Array('since'=>'CustDte(d.m.Y (H:i))'), Array('since'=>'2026-10-01')), Array('since'=>'01.10.2026 (12:00)'));
 checkIdentical('a value that is not valid is emptied', inputVals(Array('mail'=>'EmlAddr', 'site'=>'UrlAddr', 'phone'=>'PhoneNb'), Array('mail'=>'nobody', 'site'=>'javascript:alert(1)', 'phone'=>'12')), Array('mail'=>'', 'site'=>'', 'phone'=>''));
-checkIdentical('a value the format cannot read is emptied', inputVals(Array('since'=>'DateStr', 'day'=>'WeekDay'), Array('since'=>'soon', 'day'=>'a-b-c')), Array('since'=>'', 'day'=>''));
+checkIdentical('a value the format cannot read is emptied', inputVals(Array('since'=>'CustDte', 'day'=>'WeekDay'), Array('since'=>'soon', 'day'=>'a-b-c')), Array('since'=>'', 'day'=>''));
 checkIdentical('an array is formatted value by value', inputVals(Array('tags'=>'UrlText'), Array('tags'=>Array('Été à Genève', 'x'=>Array('Deux Mots')))), Array('tags'=>Array('ete-a-geneve', 'x'=>Array('deux-mots'))));
 checkIdentical('a password kept as sent is not altered', inputVals(Array('pass'=>''), Array('pass'=>'p<a"s\'s&w>d')), Array('pass'=>'p<a"s\'s&w>d'));
 
@@ -70,7 +70,7 @@ checkIdentical('a value that should hold fields and does not is emptied', inputV
 
 // The definition written as a text
 checkIdentical('a text of name:Format items', inputVals('name:OutText; mail:EmlAddr ;seats:Integer', $sentArr), Array('name'=>'Ann', 'mail'=>'ann@example.org', 'seats'=>12));
-checkIdentical('a text: names alone, and an option holding a colon', inputVals('name;since:DateStr(H:i d/m)', Array('name'=>'<b>x</b>', 'since'=>'2026-10-01', 'more'=>1)), Array('name'=>'<b>x</b>', 'since'=>'12:00 01/10'));
+checkIdentical('a text: names alone, and an option holding a colon', inputVals('name;since:CustDte(H:i d/m)', Array('name'=>'<b>x</b>', 'since'=>'2026-10-01', 'more'=>1)), Array('name'=>'<b>x</b>', 'since'=>'12:00 01/10'));
 
 // Definitions that are wrong
 checkPregMatch('a format that does not exist is refused, the field named', inputVals(Array('name'=>'NoSuchFormat'), $sentArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat" for the field "name"/');
@@ -83,14 +83,14 @@ checkIdentical('required fields that are not sent are named, in the order of the
 checkIdentical('a required field that is sent is not missing', inputMiss(Array('user!'=>'', 'pass!'=>''), Array('user'=>'ann', 'pass'=>'x')), Array());
 checkIdentical('the mark is not part of the name of the field', inputVals(Array('name!'=>'OutText', 'pass!'=>''), $sentArr), Array('name'=>'Ann'));
 checkIdentical('a required field sent empty is missing', inputMiss(Array('user!'=>'', 'pass!'=>'OutText', 'tags!'=>''), Array('user'=>'', 'pass'=>null, 'tags'=>Array())), Array('user', 'pass', 'tags'));
-checkIdentical('a required field emptied by its format is missing', inputMiss(Array('mail!'=>'EmlAddr', 'since!'=>'DateStr(Y/m/d)', 'name!'=>'OutText'), Array('mail'=>'nobody', 'since'=>'soon', 'name'=>'<b></b>')), Array('mail', 'since', 'name'));
+checkIdentical('a required field emptied by its format is missing', inputMiss(Array('mail!'=>'EmlAddr', 'since!'=>'CustDte(Y/m/d)', 'name!'=>'OutText'), Array('mail'=>'nobody', 'since'=>'soon', 'name'=>'<b></b>')), Array('mail', 'since', 'name'));
 checkIdentical('a required number sent empty is missing, though its format gives 0', inputMiss(Array('seats!'=>'Integer', 'price!'=>'FloatNb'), Array('seats'=>'', 'price'=>'')), Array('seats', 'price'));
 checkIdentical('0, false and a text of spaces are values', inputMiss(Array('seats!'=>'Integer', 'count!'=>'', 'agree!'=>'', 'pass!'=>''), Array('seats'=>'0', 'count'=>0, 'agree'=>false, 'pass'=>'   ')), Array());
 checkIdentical('a number format never empties: a required number that is none passes as 0', Array(inputMiss(Array('seats!'=>'Integer'), Array('seats'=>'abc')), inputVals(Array('seats!'=>'Integer'), Array('seats'=>'abc'))), Array(Array(), Array('seats'=>0)));
 checkIdentical('a required array holding nothing but empty values is missing', Array(inputMiss(Array('tags!'=>'UrlText'), Array('tags'=>Array('!!!', Array('')))), inputMiss(Array('tags!'=>'UrlText'), Array('tags'=>Array('!!!', 'Été')))), Array(Array('tags'), Array()));
 checkIdentical('a required field is matched whatever its case, and named as the definition writes it', Array(inputMiss(Array('User!'=>''), Array('USER'=>'ann')), inputMiss(Array('User!'=>''), Array('NAME'=>'ann'))), Array(Array(), Array('User')));
 checkIdentical('required names in a plain list', Array(inputMiss(Array('user!', 'pass!', 'code'), Array('user'=>'ann')), inputVals(Array('user!', 'pass!', 'code'), Array('user'=>'ann', 'more'=>1))), Array(Array('pass'), Array('user'=>'ann')));
-checkIdentical('required names in a text', Array(inputMiss('user! ; mail!:EmlAddr;since:DateStr(Y/m/d)', Array('mail'=>'nobody')), inputVals('user! ; mail!:EmlAddr', Array('user'=>'ann', 'mail'=>'ann @example.org'))), Array(Array('user', 'mail'), Array('user'=>'ann', 'mail'=>'ann@example.org')));
+checkIdentical('required names in a text', Array(inputMiss('user! ; mail!:EmlAddr;since:CustDte(Y/m/d)', Array('mail'=>'nobody')), inputVals('user! ; mail!:EmlAddr', Array('user'=>'ann', 'mail'=>'ann @example.org'))), Array(Array('user', 'mail'), Array('user'=>'ann', 'mail'=>'ann@example.org')));
 
 // Required fields held by another
 $needDef = Array('filters'=>Array('search!'=>'OutText', 'categ'=>''), 'range!'=>Array('from'=>'Integer', 'to!'=>'Integer'));

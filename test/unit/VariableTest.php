@@ -141,30 +141,30 @@ checkIdentical('HtmText a quote in an address cannot close it', formatVal('<a hr
 checkIdentical('HtmText empty',           formatVal('', 'HtmText'), '');
 checkIdentical('HtmText array',            formatVal(Array('<b>x</b>'), 'HtmText'), '');
 
-// DateStr
-checkIdentical('DateStr default format',   formatVal('2026-10-01', 'DateStr'), '01/10/26');
-checkIdentical('DateStr given format',     formatVal('2026-10-01', 'DateStr', 'Y/m/d'), '2026/10/01');
-checkIdentical('DateStr with a time',      formatVal('2026-12-25 18:30:00', 'DateStr'), '25/12/26');
-checkIdentical('DateStr from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'DateStr', 'Y-m-d'), '2020-03-15');
-checkIdentical('DateStr not a date',       formatVal('soon', 'DateStr'), '');
-checkIdentical('DateStr three parts that are no date', formatVal('a-b-c', 'DateStr'), '');
-checkIdentical('DateStr day that does not exist', formatVal('2026-02-30', 'DateStr'), '');
-checkIdentical('DateStr a text of digits is no timestamp', Array(formatVal('12', 'DateStr'), formatVal('2026', 'DateStr'), formatVal('20261001', 'DateStr'), formatVal((string)mktime(12, 0, 0, 3, 15, 2020), 'DateStr')), Array('', '', '', ''));
-checkIdentical('DateStr true, a float and a negative number are no timestamp', Array(formatVal(true, 'DateStr'), formatVal(12.7, 'DateStr'), formatVal(-5, 'DateStr')), Array('', '', ''));
-checkIdentical('DateStr empty, null and array',Array(formatVal('', 'DateStr'), formatVal(null, 'DateStr'), formatVal(Array('2026-10-01'), 'DateStr')), Array('', '', ''));
+// CustDte
+checkIdentical('CustDte default format',   formatVal('2026-10-01', 'CustDte'), '01/10/26');
+checkIdentical('CustDte given format',     formatVal('2026-10-01', 'CustDte', 'Y/m/d'), '2026/10/01');
+checkIdentical('CustDte with a time',      formatVal('2026-12-25 18:30:00', 'CustDte'), '25/12/26');
+checkIdentical('CustDte from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'CustDte', 'Y-m-d'), '2020-03-15');
+checkIdentical('CustDte not a date',       formatVal('soon', 'CustDte'), '');
+checkIdentical('CustDte three parts that are no date', formatVal('a-b-c', 'CustDte'), '');
+checkIdentical('CustDte day that does not exist', formatVal('2026-02-30', 'CustDte'), '');
+checkIdentical('CustDte a text of digits is no timestamp', Array(formatVal('12', 'CustDte'), formatVal('2026', 'CustDte'), formatVal('20261001', 'CustDte'), formatVal((string)mktime(12, 0, 0, 3, 15, 2020), 'CustDte')), Array('', '', '', ''));
+checkIdentical('CustDte true, a float and a negative number are no timestamp', Array(formatVal(true, 'CustDte'), formatVal(12.7, 'CustDte'), formatVal(-5, 'CustDte')), Array('', '', ''));
+checkIdentical('CustDte empty, null and array',Array(formatVal('', 'CustDte'), formatVal(null, 'CustDte'), formatVal(Array('2026-10-01'), 'CustDte')), Array('', '', ''));
 
-// ShrtDte and TxtDate
+// ShrtDte and LongDte
 checkIdentical('ShrtDte',                  formatVal('2026-10-01', 'ShrtDte'), '1 Oct 2026');
 checkIdentical('ShrtDte with a time',      formatVal('2026-12-25 18:30:00', 'ShrtDte'), '25 Dec 2026');
 checkIdentical('ShrtDte from a timestamp', formatVal(mktime(12, 0, 0, 3, 15, 2020), 'ShrtDte'), '15 Mar 2020');
 checkIdentical('ShrtDte not a date',       formatVal('soon', 'ShrtDte'), '');
 checkIdentical('ShrtDte day that does not exist', formatVal('2026-02-30', 'ShrtDte'), '');
 checkIdentical('ShrtDte empty',            formatVal('', 'ShrtDte'), '');
-checkIdentical('ShrtDte, TxtDate, WeekDay and FullDay: a text of digits is no timestamp', Array(formatVal('2026', 'ShrtDte'), formatVal('2026', 'TxtDate'), formatVal('2026', 'WeekDay'), formatVal('2026', 'FullDay')), Array('', '', '', ''));
-checkIdentical('TxtDate',                  formatVal('2026-10-01', 'TxtDate'), '1 October 2026');
-checkIdentical('TxtDate single digits',    formatVal('2026-3-5', 'TxtDate'), '5 March 2026');
-checkIdentical('TxtDate not a date',       formatVal('2026-13-01', 'TxtDate'), '');
-checkIdentical('TxtDate array',            formatVal(Array('2026-10-01'), 'TxtDate'), '');
+checkIdentical('ShrtDte, LongDte, WeekDay and FullDay: a text of digits is no timestamp', Array(formatVal('2026', 'ShrtDte'), formatVal('2026', 'LongDte'), formatVal('2026', 'WeekDay'), formatVal('2026', 'FullDay')), Array('', '', '', ''));
+checkIdentical('LongDte',                  formatVal('2026-10-01', 'LongDte'), '1 October 2026');
+checkIdentical('LongDte single digits',    formatVal('2026-3-5', 'LongDte'), '5 March 2026');
+checkIdentical('LongDte not a date',       formatVal('2026-13-01', 'LongDte'), '');
+checkIdentical('LongDte array',            formatVal(Array('2026-10-01'), 'LongDte'), '');
 
 // WeekDay and FullDay
 checkIdentical('WeekDay',                  formatVal('2026-10-01', 'WeekDay'), 'Thursday');

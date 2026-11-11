@@ -230,7 +230,7 @@ checkIdentical('remove: a manager cannot remove itself', statusOf(callActn('user
 checkIdentical('remove: who is left', array_column(callActn('users/index', Array(), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('anna', 'ben', 'dave', 'emma'));
 
 // Access mails : without a mailer, the codes are given in the replies, as above
-$mailCnf = Array('mailAcnt'=>'devbox', 'linkTmpl'=>'https://app.example.ch/a?do=%kind%&user=%user%&code=%code%');
+$mailCnf = Array('mailAcnt'=>'devbox', 'linkTmpl'=>'https://app.example.ch/a?do=%mailKind%&user=%userName%&code=%sentCode%');
 plugConf('nativeDb', 0, $mailCnf);
 sentMail();
 $outcome = callActn('users/create', Array('userName'=>'hana', 'userMail'=>'Hana@Example.ch'));

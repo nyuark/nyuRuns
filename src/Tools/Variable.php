@@ -11,11 +11,11 @@ namespace nyu\Tools;
  * - Numeric
  * - PriceNb
  * - FloatNb
- * - DateStr
+ * - CustDte
  * - WeekDay
  * - FullDay
  * - ShrtDte
- * - TxtDate
+ * - LongDte
  * - SpanDte
  * - EmlAddr
  * - PhoneNb
@@ -43,7 +43,7 @@ class Variable{
 
 	/**
 	 * Returns the wrapped value formatted as the given type, by calling
-	 * the matching to{$wantedFormat}() method (e.g. 'DateStr' -> formatsDateStr()).
+	 * the matching to{$wantedFormat}() method (e.g. 'CustDte' -> formatsCustDte()).
 	 *
 	 * @param String $wantedFormat Name of the format to apply (must match an existing to*() method).
 	 * @param mixed  $formatOption Optional format-specific options passed to the to*() method.
@@ -299,7 +299,7 @@ class Variable{
 	 * in words: '1 October 2026'. A value that is no date gives an empty
 	 * string.
 	 */
-	function formatsTxtDate(): Void {
+	function formatsLongDte(): Void {
 		if(!defined('LOC_MONTHS')){
 			define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 		}
@@ -315,7 +315,7 @@ class Variable{
 	 *
 	 * @param String $dateTemplate A date() format string ('d/m/y' when empty).
 	 */
-	function formatsDateStr( String $dateTemplate='' ): Void {
+	function formatsCustDte( String $dateTemplate='' ): Void {
 		$timStmp = $this->dateStampCount();
 		if( $dateTemplate=='' ) $dateTemplate='d/m/y';
 		$this->wrappedVal = ($timStmp===null) ? '' : date( $dateTemplate, $timStmp );

@@ -202,9 +202,9 @@ checkIdentical('list: a filter given as an array', operates($usrBase, 'listUsers
 checkIdentical('list: another field is not a filter', count((array)$usrBase->listUsersNamed(Array('passwdHash'=>'!'))), 7);
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 	'database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>inTemporaryDir('userbase.sqlite')),
-	'system'=>Array('LST_ROWS'=>3)
+	'system'=>Array('DEF_ROWS'=>3)
 ) );
-checkIdentical('list: the default number of rows is LST_ROWS', count((array)$usrBase->listUsersNamed()), 3);
+checkIdentical('list: the default number of rows is DEF_ROWS', count((array)$usrBase->listUsersNamed()), 3);
 switchToSqlite( inTemporaryDir('userbase.sqlite') );
 checkIdentical('list: on a missing table', operates(new UserBase(Array('useTable'=>'nousers')), 'listUsersNamed', Array()), Array(false, 500, 'Credential store unavailable'));
 

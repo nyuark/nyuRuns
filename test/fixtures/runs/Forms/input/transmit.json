@@ -3,7 +3,7 @@
 		"name": "OutText",
 		"mail": "EmlAddr",
 		"seats": "Integer",
-		"since": "DateStr(Y/m/d)",
+		"since": "CustDte(Y/m/d)",
 		"pass": "",
 		"tags": "UrlText",
 		"filters": {

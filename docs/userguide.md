@@ -266,7 +266,7 @@ Appendix A explains the other rows.
 ### 3.6 On a real server
 
 You don't copy a project to a server as is. You build a copy made for
-that server (`php nyuRun bundling releases`), install it there with
+that server (`php nyuRun bundling final`), install it there with
 `installs allSteps`, and put it behind a web server that sends every URL to
 `www/index.php`. Chapter 8 has the checklist for going live, and
 [`HOSTING.md`](../HOSTING.md) covers the server setup.
@@ -406,7 +406,7 @@ Once mails work, two more doors open:
   then waits for a manager's approval (`accounts approves`).
 
 Set `nativeDb.linkTmpl` to the page of your front end that takes a code
-(`https://…/activate?code=%code%`), and the mails will include a clickable
+(`https://…/activate?code=%sentCode%`), and the mails will include a clickable
 link.
 
 ### 4.5 Choose the language
@@ -1015,7 +1015,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 
 ### 8.2 Ship a copy, not the folder
 
-- [ ] Build the production copy: `php nyuRun bundling releases --archived`. It
+- [ ] Build the production copy: `php nyuRun bundling final --archived`. It
       holds no secrets, no local settings, no private key and no tests.
       Its `system.ini` is set for production (`PROD`, errors hidden,
       `MINI` logs, config cache on), and its classes are mapped when

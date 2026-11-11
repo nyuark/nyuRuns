@@ -674,7 +674,7 @@ class UserBase extends Native{
 	 * Lists the users, by name, with what SHOWLIST tells of each.
 	 *
 	 * @param Array $criteriaList Optional 'userStatus' and 'accessRole' values the users must have, and a 'contactEml' address, compared in lower case; an empty one is left out.
-	 * @param Int   $ceilingCount Most users to give; the default number of rows (LST_ROWS, 100 when not set) when below 1.
+	 * @param Int   $ceilingCount Most users to give; the default number of rows (DEF_ROWS, 100 when not set) when below 1.
 	 * @param Int   $offsetRowsNb Users to pass over first.
 	 * @return Array|Bool The users, or false when a filter is not valid or the table cannot be read.
 	 */
@@ -705,7 +705,7 @@ class UserBase extends Native{
 		if( $rowsLmt<1 ){
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 			$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
-			$rowsLmt = intval($iniConf['LST_ROWS'] ?? 100) ?: 100;
+			$rowsLmt = intval($iniConf['DEF_ROWS'] ?? 100) ?: 100;
 		}
 		$listQry = 'SELECT {'.implode('}, {', self::SHOW_LIST).'} FROM {usrTable}'
 			.( !empty($whrList) ? ' WHERE '.implode(' AND ', $whrList) : '' )

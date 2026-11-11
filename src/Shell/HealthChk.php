@@ -428,8 +428,8 @@ class HealthChk{
 			$this->addCheckResult('access mails '.$blckNamedTxt, 'fail', 'mailAcnt is the name of a mail account, as a text');
 		}
 		$lnkTmpl = $blckValueArr['linkTmpl'] ?? null;
-		if( $lnkTmpl!==null && $lnkTmpl!=='' && ( !is_string($lnkTmpl) || !preg_match('#^https?://[^\s]+$#Di', $lnkTmpl) || strpos($lnkTmpl, '%code%')===false ) ){
-			$this->addCheckResult('access link '.$blckNamedTxt, 'fail', 'linkTmpl is an http(s) address holding %code% (and %kind%, %user% as needed)');
+		if( $lnkTmpl!==null && $lnkTmpl!=='' && ( !is_string($lnkTmpl) || !preg_match('#^https?://[^\s]+$#Di', $lnkTmpl) || strpos($lnkTmpl, '%sentCode%')===false ) ){
+			$this->addCheckResult('access link '.$blckNamedTxt, 'fail', 'linkTmpl is an http(s) address holding %sentCode% (and %mailKind%, %userName% as needed)');
 		}
 		if( array_key_exists('codeMins', $blckValueArr) && (!is_int($blckValueArr['codeMins']) || $blckValueArr['codeMins']<1) ){
 			$this->addCheckResult('access codes '.$blckNamedTxt, 'fail', 'codeMins is the minutes a mailed code lasts: a whole number, 1 at least');

@@ -53,7 +53,7 @@ checkIdentical('deploy check finds it up to date', $rowList['config cache'] ?? n
 
 // What writes in conf removes it
 clearstatcache();
-checkIdentical('config write removes it', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'LST_ROWS', '50'))['code'], is_file($cchPath)), Array(0, false));
+checkIdentical('config write removes it', Array(callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'DEF_ROWS', '50'))['code'], is_file($cchPath)), Array(0, false));
 runScriptArray($runArgs);
 checkIdentical('CNF_CACH is checked', callShellArray($projDir, Array('settings', 'setValue', 'coreConf', 'CNF_CACH', 'maybe'))['code']!=0, true);
 clearstatcache();

@@ -24,7 +24,7 @@ class Actions extends Actionset {
 	 * time of the sign-up awaiting review, creation date and last time
 	 * seen of each. Reads the 'currStat' and 'saveRole' inputs
 	 * as filters, 'limitVal' and 'rowIndex' as the part of the list to give
-	 * (LST_ROWS users when 'limitVal' is left out). Reports 204 when the
+	 * (DEF_ROWS users when 'limitVal' is left out). Reports 204 when the
 	 * list is empty.
 	 */
 	public function index(): Void {

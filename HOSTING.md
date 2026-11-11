@@ -455,14 +455,14 @@ The native userbase sends its codes by mail when its block names an account of
 the replies, to be handed over, as before.
 
 ```json
-"nativeDb": { ..., "mailAcnt": "nyuRuns", "signupOn": false, "codeMins": 15, "linkTmpl": "https://app.example.ch/access?do=%kind%&user=%user%&code=%code%" }
+"nativeDb": { ..., "mailAcnt": "nyuRuns", "signupOn": false, "codeMins": 15, "linkTmpl": "https://app.example.ch/access?do=%mailKind%&user=%userName%&code=%sentCode%" }
 ```
 
 - `codeMins` is the minutes a mailed code lasts (15 by default). A code handed
   over by a manager lasts 300 minutes; `accounts makeUser` and
   `accounts resetPwd` take `--noExpiry` for one with no end, on the command
   line only.
-- `linkTmpl` is the page of the front end the mail links to. `%kind%` tells it
+- `linkTmpl` is the page of the front end the mail links to. `%mailKind%` tells it
   which form to show: `activate` and `register` post to `auth/active`,
   `password` to `auth/recover`. Without it, the mail carries the code alone.
   The code is bound to the user, not to the device: it can be typed on another
@@ -476,7 +476,7 @@ the replies, to be handed over, as before.
   `maxPerIp` sign-ups from one client within `holdSecs` (16), counted apart
   from its wrong credentials (an address held for those is refused too); and
   `alertsAt`, the counts at which every approved manager with an address is
-  told by mail (`backlogs`) and the `access` log notes it (128, 200, 256).
+  told by mail (`waitlist`) and the `access` log notes it (128, 200, 256).
 - `auth/signup` and `auth/forgot` answer 202 whoever the name or address
   is. Each reset asked counts against the address of the client, as a wrong
   password does (`maxTries`). Under PHP-FPM the reply ends before the mail is

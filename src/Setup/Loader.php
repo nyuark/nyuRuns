@@ -346,7 +346,7 @@ class Loader{
 		$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
 		return Array(
 			'tool' => strval($iniConf['SND_TOOL'] ?? ''),
-			'time' => intval($iniConf['SND_TIME'] ?? 60),
+			'time' => intval($iniConf['SND_SECS'] ?? 60),
 		);
 	}
 

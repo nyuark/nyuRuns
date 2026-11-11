@@ -240,7 +240,7 @@ class DBLst {
 	 * Sets how many rows are read, from a count, or from a count and an
 	 * offset given as a "count,offset" string or a [count, offset] array.
 	 * Both are read as whole numbers: a count that is not a number gives
-	 * the default number of rows (LST_ROWS, 100 when not set), an offset that is not a number is left out.
+	 * the default number of rows (DEF_ROWS, 100 when not set), an offset that is not a number is left out.
 	 *
 	 * @param mixed $limitIndexes Limit as a number, or a "count[,offset]" string/array; null clears the limit.
 	 */
@@ -251,7 +251,7 @@ class DBLst {
 		if($limitIndexes!=null){
 			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
 			$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
-			$dfltLmt = intval($iniConf['LST_ROWS'] ?? 100) ?: 100;
+			$dfltLmt = intval($iniConf['DEF_ROWS'] ?? 100) ?: 100;
 			$lmtIndx = is_array($limitIndexes) ? array_values($limitIndexes) : explode(',', strval($limitIndexes));
 			$this->limitCount = $this->completeNumber($lmtIndx[0] ?? null) ?? $dfltLmt;
 			$this->offsetNumb = $this->completeNumber($lmtIndx[1] ?? null);

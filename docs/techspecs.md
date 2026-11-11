@@ -201,7 +201,7 @@ secrets, its tests and its documents. Ship a bundle instead, built for the
 environment it's going to:
 
 ```
-php nyuRun bundling releases
+php nyuRun bundling final
 ```
 
 A bundle holds the code, the configuration examples and the libraries, and
@@ -216,12 +216,12 @@ modes set them this way:
 
 | Mode | `ENV_NAME` | `ERR_LEVL` | `ERR_SHOW` | `LOG_MODE` | `CNF_CACH` | Class map |
 |---|---|---|---|---|---|---|
-| `localdev` | `DEVS` | `E_ALL` | `TRUE` | `FULL` | `FALSE` | Composer's, as installed |
-| `preprods` | `PREV` | `E_ALL` | `FALSE` | `BASE` | `TRUE` | complete, authoritative |
-| `releases` | `PROD` | `E_ALL` | `FALSE` | `MINI` | `TRUE` | complete, authoritative |
+| `local` | `DEVS` | `E_ALL` | `TRUE` | `FULL` | `FALSE` | Composer's, as installed |
+| `stage` | `PREV` | `E_ALL` | `FALSE` | `BASE` | `TRUE` | complete, authoritative |
+| `final` | `PROD` | `E_ALL` | `FALSE` | `MINI` | `TRUE` | complete, authoritative |
 
 In production, the logs keep errors, warnings and notices: sign-ins,
-sign-outs and refusals, but no line for each access of an standard user.
+sign-outs and refusals, but no line for each access of a standard user.
 
 A project with servers of its own in between (a test or integration
 server, a preview for a client) declares their modes with
@@ -256,7 +256,7 @@ account, users of the native userbase get their codes directly:
   `nativeDb` block. A mailed code lasts `codeMins` minutes (15). One handed
   over by a manager lasts longer, since it goes through a person.
 - Set `linkTmpl` to the page of the front end that takes the code
-  (`%code%`, plus `%kind%` and `%user%` as needed), so the mail holds a
+  (`%sentCode%`, plus `%mailKind%` and `%userName%` as needed), so the mail holds a
   link as well as the code. Make it an `https` address.
 - In development, send through an `emlFiles` account: mails are written to
   `temp/mails`, and none leaves the machine.
@@ -323,7 +323,7 @@ left out. Give every action a definition, even one without inputs.
   Every other route asks for a credential.
 - Ask for a role by route in the preset (`minRoles`), or in the action
   itself (`needsActionRle()`). Both must pass. A user without the role gets
-  a 404, as for a route that doesn't exist, so an standard user can't map
+  a 404, as for a route that doesn't exist, so a standard user can't map
   out the managers' routes. Keep the front end from offering them.
 - Keep the limit by address on (the `tryLimit` block): wrong passwords,
   keys and codes from one address then get it held for a while.
@@ -407,7 +407,7 @@ in `NOTICE`.
 
 - **ffmpeg**, for sounds: unpacking, cutting and converting them. Its full
   path is given by `SND_TOOL` (in `.env`, through `env:NYU_SND_TOOL`), and
-  `SND_TIME` limits how long it may run (60 seconds). Without it, a sound
+  `SND_SECS` limits how long it may run (60 seconds). Without it, a sound
   is still read (its type, tags and cover image), its tags can be removed,
   and a WAV or MP3 sound can be cut; other types can't be converted or
   cut.
@@ -883,14 +883,14 @@ All names follow the same rule: the keys of one block share one length,
 | `LOG_PRFX` | the `date()` format at the start of each line | `Y-m-d H:i` |
 | `ERR_LEVL` | the errors PHP reports, `E_*` names joined by `\|`, `&` and `~` | `E_ALL` |
 | `ERR_SHOW` | whether errors are shown in the reply, `TRUE` or `FALSE`; never in `PROD` | |
-| `LST_ROWS` | the rows a list reads when it isn't told how many | 100 |
+| `DEF_ROWS` | the rows a list reads when it isn't told how many | 100 |
 | `DEF_LANG` | the language of the mails of a user who has none | `en` |
 | `REQ_SIZE` | the largest body read, in KB; 0 for no limit | |
 | `REQ_PART` | the most parts of a multipart body; 0 for no limit | |
-| `CNF_CACH` | whether the preset, the configuration files and the routes are cached (`TRUE`, `FALSE`) | `FALSE`; `TRUE` in the `preprods` and `releases` bundles |
+| `CNF_CACH` | whether the preset, the configuration files and the routes are cached (`TRUE`, `FALSE`) | `FALSE`; `TRUE` in the `stage` and `final` bundles |
 | `TBL_CACH` | whether the descriptions of the tables are cached too, with `CNF_CACH`; a query failing on a cached table removes the cache | `FALSE` |
 | `SND_TOOL` | the full path of ffmpeg, empty without it | |
-| `SND_TIME` | the seconds ffmpeg may run | 60 |
+| `SND_SECS` | the seconds ffmpeg may run | 60 |
 | `PRX_LIST` | the addresses or ranges of the trusted reverse proxies | empty |
 | `PRX_HEAD` | the header in which they give the client's address | |
 | `PRX_SCHM` | the header in which they give its scheme | |
@@ -1144,7 +1144,7 @@ request.
 
 | Sub-command | Does |
 |---|---|
-| `localdev`, `preprods`, `releases` | builds the copy for development, for a server before production, for production |
+| `local`, `stage`, `final` | builds the copy for development, for a server before production, for production |
 | `<mode>` | builds a mode of the project |
 | `fullList` | lists the modes, the framework's and the project's |
 | `makeMode <mode>` | declares a mode of the project in `conf/bundle.lst`, or changes it |
@@ -1154,8 +1154,8 @@ A bundle is written to `dist/<mode>`, or to the empty folder `--destPath`
 names. `--archived` adds its `.tar.gz`, and `--planOnly` lists what would
 be copied. Only what `Bundle::KEEP_LIST` names is copied, minus what
 `DROP_LIST` names: no secret, no local setting, no key. The mode's
-settings are written in the copy's `system.ini`. A copy for `preprods` or
-`releases` gets a complete, authoritative class map, made in it by
+settings are written in the copy's `system.ini`. A copy for `stage` or
+`final` gets a complete, authoritative class map, made in it by
 Composer (`--composer` names it, or else `composer.phar` at the root, or
 the one on the path). Without Composer, the copy keeps the project's
 autoloader, and says so.
@@ -1580,7 +1580,7 @@ A list (`DBLst`) is bound to its table, set up, then read:
 | `pickReadFields('a, b, count(*) as n')` | the fields read, and functions on them, with aliases |
 | `setGroupFields($fields)` | the fields the rows are grouped by |
 | `setOrderFields($fields)` | the order; a field written `^name` is sorted descending |
-| `setLimitOffset($count)` | how many rows, from a count or `"count,offset"`; `LST_ROWS` when the count isn't a number |
+| `setLimitOffset($count)` | how many rows, from a count or `"count,offset"`; `DEF_ROWS` when the count isn't a number |
 | `joinOtherTable([table, field, field])` | one table joined (`LEFT JOIN`), SQL only |
 | `readRowsOfList()` | reads the rows; `flatItemsArray('field')` reads one field of each |
 | `attachChildren($table)` | attaches to each row read its rows in a child table |

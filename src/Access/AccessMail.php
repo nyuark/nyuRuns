@@ -14,13 +14,13 @@ use nyu\Tools\Logger;
  * ('password'), the code of a login as a second factor ('passcode'), the
  * notice that a sign-up asked for a name ('usrtaken') or an address
  * already taken ('emltaken'), and the warning to the managers that sign-ups
- * are piling up ('backlogs', with %count% and %limit%).
+ * are piling up ('waitlist', with %count% and %limit%).
  *
  * It works from the block of the native userbase: 'mailAcnt' names the
  * account of conf/mailer.json the mails go through (no mail is sent
  * without it: the codes are then given in the replies, as before),
  * 'codeMins' the minutes a mailed code lasts, and 'linkTmpl' the address of
- * the front end the mail links to, where %kind%, %user% and %code% are
+ * the front end the mail links to, where %mailKind%, %userName% and %sentCode% are
  * filled in (no link without it: the code alone is typed).
  *
  * A mail is made of two templates, <name>.txt and <name>.html (see
@@ -48,7 +48,7 @@ class AccessMail {
 	// The mail of a sign-up that asked for a name taken, with an address of no account
 	const USED_NAME = 'usrtaken';
 	// The mail telling the managers that sign-ups are piling up
-	const WARN_NAME = 'backlogs';
+	const WARN_NAME = 'waitlist';
 
 	protected $accountNme;
 	protected $urlTmplTxt;
@@ -130,7 +130,7 @@ class AccessMail {
 		}
 		$linkTxt = '';
 		if( $this->urlTmplTxt!='' && $mailKindCode!=='passcode' ){
-			$linkTxt = strtr( $this->urlTmplTxt, Array('%kind%'=>rawurlencode($mailKindCode), '%user%'=>rawurlencode($namedUserTxt), '%code%'=>rawurlencode($codeAsString)) );
+			$linkTxt = strtr( $this->urlTmplTxt, Array('%mailKind%'=>rawurlencode($mailKindCode), '%userName%'=>rawurlencode($namedUserTxt), '%sentCode%'=>rawurlencode($codeAsString)) );
 		}
 		return $this->sendsEmailFlag( $mailKindCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkTxt, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
 	}

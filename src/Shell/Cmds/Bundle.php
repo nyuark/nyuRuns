@@ -9,13 +9,13 @@ use nyu\Shell\ConfFile;
  * Builds a copy of the project for one environment, to be carried to its
  * server, where "php nyuRun installs allSteps" installs it:
  *
- *   php nyuRun bundling localdev                    for a developer's machine
- *   php nyuRun bundling preprods                    for a server before production
- *   php nyuRun bundling releases                    for production
- *   php nyuRun bundling releases --archived         the same, and its .tar.gz beside it
- *   php nyuRun bundling releases --planOnly         lists what would be copied, and writes nothing
- *   php nyuRun bundling releases --destPath=<path>  in another folder than dist/<mode>, which must be empty
- *   php nyuRun bundling releases --composer=<path>  with the Composer that makes its class map
+ *   php nyuRun bundling local                       for a developer's machine
+ *   php nyuRun bundling stage                       for a server before production
+ *   php nyuRun bundling final                       for production
+ *   php nyuRun bundling final --archived            the same, and its .tar.gz beside it
+ *   php nyuRun bundling final --planOnly            lists what would be copied, and writes nothing
+ *   php nyuRun bundling final --destPath=<path>     in another folder than dist/<mode>, which must be empty
+ *   php nyuRun bundling final --composer=<path>     with the Composer that makes its class map
  *   php nyuRun bundling fullList                    lists the modes, those of the framework and those of the project
  *   php nyuRun bundling makeMode qaserver           declares a mode of the project (an integration server), or changes it
  *   php nyuRun bundling dropMode qaserver           removes a mode of the project
@@ -32,10 +32,10 @@ class Bundle extends Command{
 
 	// The modes of the framework, with the settings written in the system.ini of their bundle
 	const MODE_LIST = Array(
-		'localdev'=>Array('ENV_NAME'=>'DEVS', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
-		'preprods'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
-		// Production writes errors, warnings and notices: no line for each access of an standard user
-		'releases'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
+		'local'=>Array('ENV_NAME'=>'DEVS', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'),
+		'stage'=>Array('ENV_NAME'=>'PREV', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'BASE'),
+		// Production writes errors, warnings and notices: no line for each access of a standard user
+		'final'=>Array('ENV_NAME'=>'PROD', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'FALSE', 'LOG_MODE'=>'MINI')
 	);
 	// The environments whose bundle finds every class from a complete class map, without looking for files, and caches its config (CNF_CACH)
 	const MAPS_ENVS = Array('PREV', 'PROD');
@@ -64,9 +64,9 @@ class Bundle extends Command{
 	public function subsTableArray(): Array {
 		$optnTxt = '[--destPath=<path>] [--archived] [--planOnly] [--yesToAll] [--composer=<path>]';
 		$subList = Array(
-			'localdev'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEVS, errors shown, full logs'),
-			'preprods'=>Array('args'=>$optnTxt, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
-			'releases'=>Array('args'=>$optnTxt, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
+			'local'=>Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEVS, errors shown, full logs'),
+			'stage'=>Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
+			'final'=>Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
 		);
 		foreach( $this->readModesArray() as $modNme => $mdlVal ){
 			if( !isset(self::MODE_LIST[$modNme]) ){
@@ -78,33 +78,6 @@ class Bundle extends Command{
 			'makeMode'=>Array('args'=>'<mode> [--noPrompt]', 'about'=>'declares a mode of the project in '.self::BNDL_FILE.', or changes it'),
 			'dropMode'=>Array('args'=>'<mode> [--yesToAll]', 'about'=>'removes a mode of the project')
 		);
-	}
-
-	/**
-	 * Builds the bundle of a developer's machine.
-	 *
-	 * @return Int The exit code.
-	 */
-	public function invokeLocaldev(): Int {
-		return $this->generateBundle('localdev');
-	}
-
-	/**
-	 * Builds the bundle of a server before production.
-	 *
-	 * @return Int The exit code.
-	 */
-	public function invokePreprods(): Int {
-		return $this->generateBundle('preprods');
-	}
-
-	/**
-	 * Builds the bundle of production.
-	 *
-	 * @return Int The exit code.
-	 */
-	public function invokeReleases(): Int {
-		return $this->generateBundle('releases');
 	}
 
 	/**
@@ -134,9 +107,9 @@ class Bundle extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMakeMode(): Int {
-		$modeNme = $this->needsShellWord('the mode: eight lower-case letters or digits');
-		if( !preg_match('/^[a-z0-9]{8}$/D', $modeNme) ){
-			$this->terminateShell('A mode is named with eight lower-case letters or digits', self::EXIT_HELP);
+		$modeNme = $this->needsShellWord('the mode: five to eight lower-case letters or digits');
+		if( !preg_match('/^[a-z0-9]{5,8}$/D', $modeNme) ){
+			$this->terminateShell('A mode is named with five to eight lower-case letters or digits', self::EXIT_HELP);
 		}
 		if( method_exists($this, 'invoke'.ucfirst($modeNme)) ){
 			$this->terminateShell('Nothing was declared: '.$modeNme.' is a mode of the framework or a sub-command', self::EXIT_DENY);
@@ -308,8 +281,8 @@ class Bundle extends Command{
 			$iniVals = is_array($mdlVal) ? ($mdlVal['settings'] ?? null) : null;
 			$newData = is_array($mdlVal) ? ($mdlVal['addPaths'] ?? Array()) : null;
 			$whyText = '';
-			if( !preg_match('/^[a-z0-9]{8}$/D', $modNme) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
-				$whyText = 'not eight lower-case letters or digits, or the name of a sub-command';
+			if( !preg_match('/^[a-z0-9]{5,8}$/D', $modNme) || isset(self::MODE_LIST[$modNme]) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
+				$whyText = 'not five to eight lower-case letters or digits, or the name of a mode of the framework or of a sub-command';
 			}elseif( !is_array($iniVals) || !in_array($iniVals['ENV_NAME'] ?? null, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
 				$whyText = 'its "settings" has no ENV_NAME of DEVS, TEST, PREV or PROD';
 			}elseif( !is_array($newData) ){
