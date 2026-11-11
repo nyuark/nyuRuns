@@ -392,7 +392,7 @@ request
 
 ### 5.2 Signing in and out
 
-**Signing in** is an action open to everyone, `auth/openSess`:
+**Signing in** is an action open to everyone, `auth/login`:
 
 1. The front end sends the name and password (`userName`, `passWord`) with
    `POST`, in the request body. A password in the URL is refused (400),
@@ -428,11 +428,11 @@ settings. A session ends after a stretch of inactivity, or after a total
 time. A user locked by a manager is refused straight away when the
 profile checks the store on each request.
 
-**Signing out**, `auth/quitSess`, ends the session and expires its cookie.
+**Signing out**, `auth/logout`, ends the session and expires its cookie.
 A token can't be withdrawn: the front end just forgets it.
 
-**Signed-in users** can also change their own password (`auth/password`,
-with the current one) and the language of their mails (`auth/language`).
+**Signed-in users** can also change their own password (`auth/setpass`,
+with the current one) and the language of their mails (`auth/usrlang`).
 
 Signing in as an `operator` or a `sysadmin` is traced, and so is each of
 their accesses. Every refusal is traced with its reason.
@@ -440,20 +440,20 @@ their accesses. Every refusal is traced with its reason.
 ### 5.3 The life of an account
 
 ```
-     users/makeUser, accounts makeUser      auth/register (5.4)
+     users/create, accounts makeUser      auth/signup (5.4)
        (by a manager)                        (by the visitor)
                │                                     │
                ▼  code mailed, or given              ▼  code mailed
           ┌──────────┐                          ┌──────────┐
     ┌────▶│ awaiting │                          │ awaiting │── code ended: removed
     │     └──────────┘                          └──────────┘
-    │          │ auth/activate:                      │ auth/activate:
+    │          │ auth/active:                      │ auth/active:
     │          │ code, chosen password               │ code, chosen password
     │          │                                     ▼
     │          │                                ┌──────────┐
     │          │                                │ checking │── refused: removed
     │          │                                └──────────┘
-    │          │                                     │ users/approves, accounts approves
+    │          │                                     │ users/approve, accounts approves
     │          ▼                                     │ (by a manager)
     │     ┌──────────┐◀──────────────────────────────┘
     └─────│ approved │   lock    ┌──────────┐
@@ -463,7 +463,7 @@ their accesses. Every refusal is traced with its reason.
        remove: from any status, with the devices of the account
 ```
 
-- **Creation**: a manager creates the account (`users/makeUser`, or
+- **Creation**: a manager creates the account (`users/create`, or
   `accounts makeUser` on the command line) with its name and role, and
   optionally an email address and a language. It starts out `awaiting`, with
   an activation code. When the service sends mails and the user has an
@@ -472,10 +472,10 @@ their accesses. Every refusal is traced with its reason.
 - **Sign-up**: a visitor opens an `awaiting` account on their own, when the
   service allows it (5.4).
 - **Activation**: the user sends their name, the code and the password
-  they choose (`auth/activate`). An account created by a manager becomes
+  they choose (`auth/active`). An account created by a manager becomes
   `approved`, and one a visitor signed up for goes to `checking`. A wrong code
   is refused just like a wrong name, and counted.
-- **Review**: a manager approves the account (`users/approves`, or
+- **Review**: a manager approves the account (`users/approve`, or
   `accounts approves`) and it becomes `approved`, or refuses it by
   removing it. An account in `checking` can't sign in, and can't be locked.
 - **Locking**: a locked user can't sign in, and their session ends at
@@ -505,14 +505,14 @@ account, and a manager decides whether it stays.
 
 ```
 visitor                              service                                manager
-   │  auth/register: name, address      │                                      │
+   │  auth/signup: name, address      │                                      │
    │──────────────────────────────────▶│ 202, always                          │
    │                                    │ free: awaiting account, code mailed  │
    │                                    │ taken: the owner of the address told │
-   │  auth/activate: code, password     │                                      │
+   │  auth/active: code, password     │                                      │
    │──────────────────────────────────▶│ the account in checking              │
    │                                    │ managers told when sign-ups pile up ─▶│
-   │                                    │               users/approves         │
+   │                                    │               users/approve         │
    │                                    │◀─────────────────────────────────────│
    │                                    │ the account approved                 │
 ```
@@ -523,35 +523,35 @@ visitor                              service                                mana
    goes to the address. If the address is already taken, its owner gets a
    mail saying someone tried to use it.
 2. The visitor confirms the address with the code and chooses a password
-   (`auth/activate`), and the account goes to `checking`.
-3. A manager approves it (`users/approves`, or `accounts approves`), and
+   (`auth/active`), and the account goes to `checking`.
+3. A manager approves it (`users/approve`, or `accounts approves`), and
    it becomes `approved`. Refusing it means removing it.
 
 **Limits**: a client can only sign up so many times in a given period
 (429 beyond that), and only so many sign-ups can wait at once (503 beyond
 that). Managers get a mail when the waiting count reaches the set levels.
 A sign-up whose code expired unused is removed. Without sign-ups allowed,
-or without mail, `auth/register` is not found (404).
+or without mail, `auth/signup` is not found (404).
 
 ### 5.5 A forgotten password
 
 ```
-user ── auth/askReset: name or address ──▶ 202, always
+user ── auth/forgot: name or address ──▶ 202, always
                                            an approved account with an address: a code mailed,
                                            the password kept as it is
-user ── auth/useReset: name, code, new password ──▶ the new password set
+user ── auth/recover: name, code, new password ──▶ the new password set
 ```
 
-1. The user gives their name or address (`auth/askReset`). The answer is
+1. The user gives their name or address (`auth/forgot`). The answer is
    202 whoever the user is, or isn't, and each request counts against the
    client's address.
 2. An approved account with an address is sent a code. Its password keeps
    working, so a request made by someone else changes nothing until the
    code is used.
 3. The user sends their name, the code and their new password
-   (`auth/useReset`). A wrong or expired code is refused (401), and counted.
+   (`auth/recover`). A wrong or expired code is refused (401), and counted.
 
-Without mail, `auth/askReset` is not found (404). A manager then resets the
+Without mail, `auth/forgot` is not found (404). A manager then resets the
 account instead (5.3), which stops the old password at once.
 
 ### 5.6 Devices
@@ -1065,12 +1065,12 @@ The replies of the `Auth` run:
 
 | Action | Body on success |
 |---|---|
-| `auth/openSess` | `{"token": "<the token>"}`, or `{"logged": true}` with the session cookie |
-| `auth/quitSess` | `{"logged": false}` |
-| `auth/activate` | `{"active": true, "stat": "approved"}`, or `{"active": false, "stat": "checking"}` for a sign-up |
-| `auth/password`, `auth/useReset` | `{"changed": true}` |
-| `auth/language` | `{"lang": "<the language>"}` |
-| `auth/jwksList`, at `/.well-known/jwks.json` | the public keys that check the tokens (RS256); a 404 when tokens are signed with a secret (HS256) |
+| `auth/login` | `{"token": "<the token>"}`, or `{"logged": true}` with the session cookie |
+| `auth/logout` | `{"logged": false}` |
+| `auth/active` | `{"active": true, "stat": "approved"}`, or `{"active": false, "stat": "checking"}` for a sign-up |
+| `auth/setpass`, `auth/recover` | `{"changed": true}` |
+| `auth/usrlang` | `{"lang": "<the language>"}` |
+| `auth/keyset`, at `/.well-known/jwks.json` | the public keys that check the tokens (RS256); a 404 when tokens are signed with a secret (HS256) |
 
 ### A.2 Redirections
 

@@ -154,9 +154,9 @@ checkIdentical('the action asked for in another case has the same required field
 checkIdentical('a field that is not required may be left out', formsStat('needForm', $needArr)[0], 200);
 
 // The definition the Auth application gives for its login
-$authDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'input'.DS.'openSess.json'), true );
-checkIdentical('Auth: the login requires its user and its pass, not its code', Array(inputMiss($authDef['fieldSet'] ?? 'none', Array()), inputMiss($authDef['fieldSet'] ?? 'none', Array('user'=>'ann', 'pass'=>'')), inputMiss($authDef['fieldSet'] ?? 'none', Array('user'=>'ann', 'pass'=>'x'))), Array(Array('user', 'pass'), Array('pass'), Array()));
-checkIdentical('Auth: the login keeps its three fields as sent', inputVals($authDef['fieldSet'] ?? 'none', Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345', 'debug'=>'1')), Array('user'=>"o'neil", 'pass'=>'p<a"s\'s&w>d', 'code'=>'012345'));
+$authDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Auth'.DS.'input'.DS.'login.json'), true );
+checkIdentical('Auth: the login requires its userName and its passWord, not its sentCode', Array(inputMiss($authDef['fieldSet'] ?? 'none', Array()), inputMiss($authDef['fieldSet'] ?? 'none', Array('userName'=>'ann', 'passWord'=>'')), inputMiss($authDef['fieldSet'] ?? 'none', Array('userName'=>'ann', 'passWord'=>'x'))), Array(Array('userName', 'passWord'), Array('passWord'), Array()));
+checkIdentical('Auth: the login keeps its three fields as sent', inputVals($authDef['fieldSet'] ?? 'none', Array('userName'=>"o'neil", 'passWord'=>'p<a"s\'s&w>d', 'sentCode'=>'012345', 'debug'=>'1')), Array('userName'=>"o'neil", 'passWord'=>'p<a"s\'s&w>d', 'sentCode'=>'012345'));
 
 // The definition the Shows application gives for its list
 $showDef = json_decode( file_get_contents(TOP_DIR.DS.'runs'.DS.'Shows'.DS.'input'.DS.'overview.json'), true );

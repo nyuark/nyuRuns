@@ -1,38 +1,38 @@
 {
-	"openSess" : {
+	"login" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "openSess" }
+		"pointsTo": { "doAction": "login" }
 	},
-	"quitSess" : {
+	"logout" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "quitSess" }
+		"pointsTo": { "doAction": "logout" }
 	},
-	"activate" : {
+	"active" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "activate" }
+		"pointsTo": { "doAction": "active" }
 	},
-	"register" : {
+	"signup" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "register" }
+		"pointsTo": { "doAction": "signup" }
 	},
-	"askReset" : {
+	"forgot" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "askReset" }
+		"pointsTo": { "doAction": "forgot" }
 	},
-	"useReset" : {
+	"recover" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "useReset" }
+		"pointsTo": { "doAction": "recover" }
 	},
-	"password" : {
+	"setpass" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "password" }
+		"pointsTo": { "doAction": "setpass" }
 	},
-	"language" : {
+	"usrlang" : {
 		"mthdList": "POST",
-		"pointsTo": { "doAction": "language" }
+		"pointsTo": { "doAction": "usrlang" }
 	},
 	"/.well-known/jwks.json" : {
 		"mthdList": "GET",
-		"pointsTo": { "doAction": "jwksList" }
+		"pointsTo": { "doAction": "keyset" }
 	}
 }

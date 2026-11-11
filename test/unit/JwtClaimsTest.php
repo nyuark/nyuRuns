@@ -3,7 +3,7 @@
 // Access\Sess\JWT : the issuer and the audiences of the tokens ('iss',
 // 'aud') issued and checked, the reasons in the log, the previous key still
 // checking the tokens it signed, the public keys published as a JWK Set
-// (auth/jwksList), and the issuer and audience of the calls of applications.
+// (auth/keyset), and the issuer and audience of the calls of applications.
 
 require __DIR__.'/../lib/harness.php';
 require_once TOP_DIR.DS.'runs'.DS.'Auth'.DS.'Actions.php';
@@ -138,9 +138,9 @@ checkIdentical('key set: nothing from a block that only checks tokens', (new JWT
 file_put_contents(inTemporaryDir('broken.pub'), 'not a key');
 checkIdentical('key set: a previous key that is not one is left out, and checks nothing', Array(count((new JWT(Array('prevFile'=>inTemporaryDir('broken.pub')) + $rotConf))->publicSetArray()['keys']), readsTokn(new JWT(Array('prevFile'=>inTemporaryDir('broken.pub')) + $rotConf), $newTokn)), Array(1, 'carl'));
 
-// auth/jwksList : the set of the block of the login, JSON, kept five minutes; a 404 when there is none
+// auth/keyset : the set of the block of the login, JSON, kept five minutes; a 404 when there is none
 /**
- * Runs auth/jwksList with the given block of tokens as the one of the login.
+ * Runs auth/keyset with the given block of tokens as the one of the login.
  *
  * @param Array $tokenBlock The block.
  * @return Array The status, the message, the output and the headers.
@@ -152,16 +152,16 @@ function askKeyset( Array $tokenBlock ): Array {
 	)) );
 	return runCatchThrown(function(): Array {
 		$respObj = new Response( Array('outputAs'=>'yamlData', 'headList'=>Array('Cache-Control'=>'no-cache, no-store', 'Expires'=>'Mon, 26 Jul 1997 05:00:00 GMT')) );
-		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('jwksList', null, new Registry(Array()), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
+		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('keyset', null, new Registry(Array()), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 		$actnSet->runAskedAction();
 		$respObj->convertOutFlag( $actnSet->replyValue ?? Array() );
 		return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue, $respObj->readHeadsArray());
 	});
 }
 $setRply = askKeyset( $rotConf + Array('prevFile'=>$pubPath) );
-checkIdentical('auth/jwksList: the set of the login\'s block', Array($setRply[0] ?? null, array_column($setRply[2]['keys'] ?? Array(), 'kid')), Array(200, array_column($keyList, 'kid')));
-checkIdentical('auth/jwksList: may be kept five minutes', Array($setRply[3]['Cache-Control'] ?? null, strtotime(strval($setRply[3]['Expires'] ?? ''))>time()), Array('public, max-age=300', true));
-checkIdentical('auth/jwksList: a 404 with HS256, or for the keys of another server', Array(array_slice(askKeyset(Array('hmacSecr'=>$hsSecrt)), 0, 2), array_slice(askKeyset(Array('signAlgo'=>'RS256', 'publFile'=>$pubPath)), 0, 2)), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
+checkIdentical('auth/keyset: the set of the login\'s block', Array($setRply[0] ?? null, array_column($setRply[2]['keys'] ?? Array(), 'kid')), Array(200, array_column($keyList, 'kid')));
+checkIdentical('auth/keyset: may be kept five minutes', Array($setRply[3]['Cache-Control'] ?? null, strtotime(strval($setRply[3]['Expires'] ?? ''))>time()), Array('public, max-age=300', true));
+checkIdentical('auth/keyset: a 404 with HS256, or for the keys of another server', Array(array_slice(askKeyset(Array('hmacSecr'=>$hsSecrt)), 0, 2), array_slice(askKeyset(Array('signAlgo'=>'RS256', 'publFile'=>$pubPath)), 0, 2)), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 
 // The calls of applications : once the block names this project's audiences, the token names them and its application
 $appTokn = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv, 'issuerId'=>'portal', 'audience'=>'nyu-api') );

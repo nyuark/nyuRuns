@@ -84,99 +84,99 @@ Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'p
 
 // Login on the htpasswd file, the token of the JWT carrier : what an empty 'login' block gives
 plugConf( Array() );
-$lgnRslt = authActn('openSess', $alicePw);
+$lgnRslt = authActn('login', $alicePw);
 checkIdentical('login, by default: htpasswd and jwtToken, their htpasswd and jwtToken blocks', Array($lgnRslt[0] ?? null, tokenOf($lgnRslt)), Array(200, Array('alice', null)));
-checkIdentical('login x htpasswd: wrong password', authActn('openSess', Array('userName'=>'alice', 'passWord'=>'nope')), Array(401, 'Invalid credentials', null));
-checkIdentical('login x htpasswd: unknown user', authActn('openSess', Array('userName'=>'nobody', 'passWord'=>'s3cret')), Array(401, 'Invalid credentials', null));
-checkIdentical('login by GET', authActn('openSess', $alicePw, 'GET'), Array(405, 'Method Not Allowed', null));
-checkIdentical('login: a name or a password that is not a text', Array(authActn('openSess', Array('userName'=>Array('alice'), 'passWord'=>'s3cret')), authActn('openSess', Array('userName'=>'alice'))), Array(Array(400, 'Invalid userName or passWord', null), Array(400, 'Invalid userName or passWord', null)));
+checkIdentical('login x htpasswd: wrong password', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(401, 'Invalid credentials', null));
+checkIdentical('login x htpasswd: unknown user', authActn('login', Array('userName'=>'nobody', 'passWord'=>'s3cret')), Array(401, 'Invalid credentials', null));
+checkIdentical('login by GET', authActn('login', $alicePw, 'GET'), Array(405, 'Method Not Allowed', null));
+checkIdentical('login: a name or a password that is not a text', Array(authActn('login', Array('userName'=>Array('alice'), 'passWord'=>'s3cret')), authActn('login', Array('userName'=>'alice'))), Array(Array(400, 'Invalid userName or passWord', null), Array(400, 'Invalid userName or passWord', null)));
 
 // A password in the query string of the address is refused, wherever else it is sent
-checkIdentical('login: the password in the query string', authActn('openSess', $alicePw, 'POST', '203.0.113.7', Array(), Array('username', 'password')), Array(400, 'Password sent in the query string', null));
-checkIdentical('login: a wrong one is refused the same way, before any check', authActn('openSess', Array('userName'=>'alice', 'passWord'=>'nope'), 'POST', '203.0.113.7', Array(), Array('password')), Array(400, 'Password sent in the query string', null));
-checkIdentical('login: the name alone in the query string', authActn('openSess', $alicePw, 'POST', '203.0.113.7', Array(), Array('username'))[0] ?? null, 200);
-checkIdentical('activate: the password in the query string', authActn('activate', Array('userName'=>'cleo', 'sentCode'=>'c', 'passWord'=>'pass-cleo-1'), 'POST', '203.0.113.7', Array(), Array('password')), Array(400, 'Password sent in the query string', null));
-checkIdentical('password: the current or the new one in the query string', Array(authActn('password', Array('oldValue'=>'a', 'passWord'=>'b'), 'POST', '203.0.113.7', Array(), Array('oldvalue'))[0] ?? null, authActn('password', Array('oldValue'=>'a', 'passWord'=>'b'), 'POST', '203.0.113.7', Array(), Array('password'))[1] ?? null), Array(400, 'Password sent in the query string'));
+checkIdentical('login: the password in the query string', authActn('login', $alicePw, 'POST', '203.0.113.7', Array(), Array('username', 'password')), Array(400, 'Password sent in the query string', null));
+checkIdentical('login: a wrong one is refused the same way, before any check', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope'), 'POST', '203.0.113.7', Array(), Array('password')), Array(400, 'Password sent in the query string', null));
+checkIdentical('login: the name alone in the query string', authActn('login', $alicePw, 'POST', '203.0.113.7', Array(), Array('username'))[0] ?? null, 200);
+checkIdentical('activate: the password in the query string', authActn('active', Array('userName'=>'cleo', 'sentCode'=>'c', 'passWord'=>'pass-cleo-1'), 'POST', '203.0.113.7', Array(), Array('password')), Array(400, 'Password sent in the query string', null));
+checkIdentical('password: the current or the new one in the query string', Array(authActn('setpass', Array('oldValue'=>'a', 'passWord'=>'b'), 'POST', '203.0.113.7', Array(), Array('oldvalue'))[0] ?? null, authActn('setpass', Array('oldValue'=>'a', 'passWord'=>'b'), 'POST', '203.0.113.7', Array(), Array('password'))[1] ?? null), Array(400, 'Password sent in the query string'));
 checkPregMatch('login: the refusal is told in the access log, without the value', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Login refused from 203\.0\.113\.7: password sent in the query string\r?\n.*\[WARNING\] Activation refused from 203\.0\.113\.7: password sent in the query string\r?\n.*\[WARNING\] Password change refused from/s');
 
 // Login on the users file : the role goes into the token, the status and the 2FA code are checked
 plugConf( $lstLogn );
-checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('openSess', $annaPwd)), Array('anna', 'sysadmin'));
-checkIdentical('login x userFile: a pending user is refused as a wrong password is', authActn('openSess', Array('userName'=>'cleo', 'passWord'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
-checkIdentical('login x userFile: a user with a secret, password alone', authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma')), Array(401, 'Verification code required', null));
-checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'internal'));
-checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
-checkIdentical('login x userFile: a code that is not a text is no code', authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Array('1'))), Array(401, 'Verification code required', null));
+checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('login', $annaPwd)), Array('anna', 'sysadmin'));
+checkIdentical('login x userFile: a pending user is refused as a wrong password is', authActn('login', Array('userName'=>'cleo', 'passWord'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
+checkIdentical('login x userFile: a user with a secret, password alone', authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma')), Array(401, 'Verification code required', null));
+checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'internal'));
+checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
+checkIdentical('login x userFile: a code that is not a text is no code', authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Array('1'))), Array(401, 'Verification code required', null));
 
 // A check that takes no password, a carrier that issues nothing, a block that names neither
 plugConf( Array('authWith'=>'regdKeys', 'authConf'=>'testKeys') );
-checkIdentical('login x regdKeys: a check of keys takes no password, even a valid key', authActn('openSess', Array('userName'=>'k-1', 'passWord'=>'k-1')), Array(401, 'No API key provided', null));
+checkIdentical('login x regdKeys: a check of keys takes no password, even a valid key', authActn('login', Array('userName'=>'k-1', 'passWord'=>'k-1')), Array(401, 'No API key provided', null));
 foreach( Array('httpBasc', 'apiHeadr', 'clntCert') as $sesNme ){
 	plugConf( Array('sessWith'=>$sesNme) );
-	checkIdentical('login with '.$sesNme.': a carrier that issues nothing', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
+	checkIdentical('login with '.$sesNme.': a carrier that issues nothing', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 }
 plugConf( Array('authWith'=>'nosuch') );
-checkIdentical('login: an unknown credential check', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
+checkIdentical('login: an unknown credential check', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 plugConf( Array('sessWith'=>'nosuch') );
-checkIdentical('login: an unknown session carrier', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
+checkIdentical('login: an unknown session carrier', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
 plugConf( Array('sessWith'=>'nosuch') );
-checkIdentical('login: the misconfiguration is told before the credentials are checked', authActn('openSess', Array('userName'=>'alice', 'passWord'=>'nope')), Array(500, 'Login unavailable', null));
+checkIdentical('login: the misconfiguration is told before the credentials are checked', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(500, 'Login unavailable', null));
 plugConf( Array('sessConf'=>'testShrt') );
-checkIdentical('login: a secret that cannot sign', authActn('openSess', $alicePw), Array(500, 'Login unavailable', null));
-checkIdentical('login: wrong credentials are still told as such with it', authActn('openSess', Array('userName'=>'alice', 'passWord'=>'nope')), Array(401, 'Invalid credentials', null));
+checkIdentical('login: a secret that cannot sign', authActn('login', $alicePw), Array(500, 'Login unavailable', null));
+checkIdentical('login: wrong credentials are still told as such with it', authActn('login', Array('userName'=>'alice', 'passWord'=>'nope')), Array(401, 'Invalid credentials', null));
 
 // Limit by address : two wrong credentials allowed
 plugConf( $lstLogn, 2 );
 checkIdentical('limit: a code still to give is not counted', Array(
-	authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
-	authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
-	authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
-	authActn('openSess', $annaPwd, 'POST', '198.51.100.1')[0] ?? null
+	authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
+	authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
+	authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma'), 'POST', '198.51.100.1')[1] ?? null,
+	authActn('login', $annaPwd, 'POST', '198.51.100.1')[0] ?? null
 ), Array('Verification code required', 'Verification code required', 'Verification code required', 200));
 checkIdentical('limit: an account not active is counted, as a wrong password is', Array(
-	authActn('openSess', Array('userName'=>'cleo', 'passWord'=>'pw-cleo'), 'POST', '198.51.100.9')[1] ?? null,
-	authActn('openSess', Array('userName'=>'dave', 'passWord'=>'pw-dave'), 'POST', '198.51.100.9')[1] ?? null,
-	authActn('openSess', $annaPwd, 'POST', '198.51.100.9')[0] ?? null
+	authActn('login', Array('userName'=>'cleo', 'passWord'=>'pw-cleo'), 'POST', '198.51.100.9')[1] ?? null,
+	authActn('login', Array('userName'=>'dave', 'passWord'=>'pw-dave'), 'POST', '198.51.100.9')[1] ?? null,
+	authActn('login', $annaPwd, 'POST', '198.51.100.9')[0] ?? null
 ), Array('Invalid credentials', 'Invalid credentials', 429));
-checkIdentical('limit: two wrong passwords are told as such', Array(authActn('openSess', Array('userName'=>'anna', 'passWord'=>'nope'), 'POST', '198.51.100.2'), authActn('openSess', Array('userName'=>'nobody', 'passWord'=>'nope'), 'POST', '198.51.100.2')), Array(Array(401, 'Invalid credentials', null), Array(401, 'Invalid credentials', null)));
-checkIdentical('limit: the address is then refused, even with the right password', authActn('openSess', $annaPwd, 'POST', '198.51.100.2'), Array(429, 'Too many attempts', null));
-checkIdentical('limit: another address logs in', authActn('openSess', $annaPwd, 'POST', '198.51.100.3')[0] ?? null, 200);
+checkIdentical('limit: two wrong passwords are told as such', Array(authActn('login', Array('userName'=>'anna', 'passWord'=>'nope'), 'POST', '198.51.100.2'), authActn('login', Array('userName'=>'nobody', 'passWord'=>'nope'), 'POST', '198.51.100.2')), Array(Array(401, 'Invalid credentials', null), Array(401, 'Invalid credentials', null)));
+checkIdentical('limit: the address is then refused, even with the right password', authActn('login', $annaPwd, 'POST', '198.51.100.2'), Array(429, 'Too many attempts', null));
+checkIdentical('limit: another address logs in', authActn('login', $annaPwd, 'POST', '198.51.100.3')[0] ?? null, 200);
 checkIdentical('limit: a wrong 2FA code is counted', Array(
-	authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>'000000'), 'POST', '198.51.100.4')[1] ?? null,
-	authActn('openSess', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>'000000'), 'POST', '198.51.100.4')[1] ?? null,
-	authActn('openSess', $annaPwd, 'POST', '198.51.100.4')[0] ?? null
+	authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>'000000'), 'POST', '198.51.100.4')[1] ?? null,
+	authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>'000000'), 'POST', '198.51.100.4')[1] ?? null,
+	authActn('login', $annaPwd, 'POST', '198.51.100.4')[0] ?? null
 ), Array('Invalid verification code', 'Invalid verification code', 429));
 plugConf( Array('authWith'=>'regdKeys', 'authConf'=>'testKeys'), 2 );
-checkIdentical('limit: a check that takes no password counts nothing', Array(authActn('openSess', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.5')[0] ?? null), Array(401, 401, 401));
+checkIdentical('limit: a check that takes no password counts nothing', Array(authActn('login', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.5')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.5')[0] ?? null), Array(401, 401, 401));
 plugConf( Array('sessWith'=>'nosuch'), 2 );
-checkIdentical('limit: a login that is misconfigured counts nothing', Array(authActn('openSess', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('openSess', $alicePw, 'POST', '198.51.100.6')[0] ?? null), Array(500, 500, 500));
+checkIdentical('limit: a login that is misconfigured counts nothing', Array(authActn('login', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.6')[0] ?? null, authActn('login', $alicePw, 'POST', '198.51.100.6')[0] ?? null), Array(500, 500, 500));
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 
 // Logout : a token cannot be taken back, the client is told to forget it
 plugConf( Array() );
-$lgnRslt = authActn('openSess', $alicePw);
-checkIdentical('logout by GET', authActn('quitSess', Array(), 'GET'), Array(405, 'Method Not Allowed', null));
-checkIdentical('logout with a token carrier', authActn('quitSess'), Array(200, '', Array('logged'=>false)));
+$lgnRslt = authActn('login', $alicePw);
+checkIdentical('logout by GET', authActn('logout', Array(), 'GET'), Array(405, 'Method Not Allowed', null));
+checkIdentical('logout with a token carrier', authActn('logout'), Array(200, '', Array('logged'=>false)));
 checkIdentical('logout: the token is still accepted until it expires', tokenOf($lgnRslt), Array('alice', null));
 foreach( Array('httpBasc', 'apiHeadr', 'clntCert', 'nosuch') as $sesNme ){
 	plugConf( Array('sessWith'=>$sesNme) );
-	checkIdentical('logout with '.$sesNme.': nothing to end, the answer is the same', authActn('quitSess'), Array(200, '', Array('logged'=>false)));
+	checkIdentical('logout with '.$sesNme.': nothing to end, the answer is the same', authActn('logout'), Array(200, '', Array('logged'=>false)));
 }
 
 // The access log : one line per login and logout, a notice for a privileged user
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs2'), 'mode'=>'BASE', 'pref'=>'Y') );
 plugConf( $lstLogn, 1 );
-authActn('openSess', Array('userName'=>'ben', 'passWord'=>'pw-ben'), 'POST', '198.51.100.7');
-authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
-authActn('openSess', Array('userName'=>"ben\n[".date('Y')."] [INFO] Login granted for user \"anna\"", 'passWord'=>'top-secret-word'), 'POST', '198.51.100.7');
-authActn('openSess', $annaPwd, 'POST', '198.51.100.7');
-authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'ben', 'userRole'=>'internal'));
-authActn('quitSess', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'sysadmin'));
-authActn('quitSess', Array(), 'POST', '198.51.100.7');
+authActn('login', Array('userName'=>'ben', 'passWord'=>'pw-ben'), 'POST', '198.51.100.7');
+authActn('login', $annaPwd, 'POST', '198.51.100.7');
+authActn('login', Array('userName'=>"ben\n[".date('Y')."] [INFO] Login granted for user \"anna\"", 'passWord'=>'top-secret-word'), 'POST', '198.51.100.7');
+authActn('login', $annaPwd, 'POST', '198.51.100.7');
+authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'ben', 'userRole'=>'internal'));
+authActn('logout', Array(), 'POST', '198.51.100.7', Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'sysadmin'));
+authActn('logout', Array(), 'POST', '198.51.100.7');
 plugConf( Array('sessWith'=>'httpBasc') );
-authActn('openSess', $alicePw, 'POST', '198.51.100.8');
+authActn('login', $alicePw, 'POST', '198.51.100.8');
 plugConf( Array('authWith'=>'nosuch') );
-authActn('openSess', $alicePw, 'POST', '198.51.100.8');
+authActn('login', $alicePw, 'POST', '198.51.100.8');
 Logger::plugLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 $yearTxt = '['.date('Y').'] ';

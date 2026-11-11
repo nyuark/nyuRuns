@@ -212,14 +212,14 @@ checkIdentical('Checker turns an unknown role into member', $checker->validateAc
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'sysadmin')));
 $adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
-(new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('appToRun'=>'Users', 'doAction'=>'dropUser')) ))->validateAccess();
+(new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('appToRun'=>'Users', 'doAction'=>'remove')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'dave', 'userRole'=>'operator'))), $adrVals), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'docs/*')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'erin', 'userRole'=>'internal'))), $adrVals) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer nope'), $adrVals) ))->validateAccess();
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: one line per check', count($axsLogs), 4);
-checkIdentical('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (sysadmin) from 10.0.0.1 to Users/dropUser');
+checkIdentical('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (sysadmin) from 10.0.0.1 to Users/remove');
 checkIdentical('access log: privileged access to a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "dave" (operator) from 10.0.0.1 to /docs/*');
 checkIdentical('access log: a member stays an info', $axsLogs[2] ?? null, '['.date('Y').'] [INFO] Access granted for user "erin" from 10.0.0.1');
 checkPregMatch('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\['.date('Y').'\] \[WARNING\] Access denied from 10\.0\.0\.1: /');
@@ -257,11 +257,11 @@ checkIdentical('Checker JWT denied status',   $axsRslt->readValueByKey('statCode
 checkIdentical('Checker JWT challenge',       $axsRslt->readValueByKey('wwwHeadr'), 'Bearer');
 
 // Checker : public routes, matched on the resolved application and action
-$pubConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys', 'openList'=>Array('auth/openSess', 'Open/*'));
-$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'openSess')) );
+$pubConf = Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testkeys', 'openList'=>Array('auth/login', 'Open/*'));
+$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) );
 checkIdentical('Checker public action',       $checker->validateAccess()->readValueByKey('statCode'), 200);
 checkIdentical('Checker public action: not logged', $checker->validateAccess()->readValueByKey('loggedIn'), false);
-$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'Auth', 'doAction'=>'OPENSESS')) );
+$checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'Auth', 'doAction'=>'LOGIN')) );
 checkIdentical('Checker public action, other case', $checker->validateAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'open', 'doAction'=>'anything')) );
 checkIdentical('Checker public application',  $checker->validateAccess()->readValueByKey('statCode'), 200);
@@ -380,18 +380,18 @@ $GLOBALS['roleRout']->assignRouteSet( Array(
 
 // Checker : the role a route asks for ('rteRoles'), written as the routes of 'openList'
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')), 'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
-$rolConf = Array('rteRoles'=>Array('users/*'=>'sysadmin', 'users/viewUser'=>'internal', 'Shows/Edit'=>'operator', 'shows/*'=>'internal', 'probe/sanitize'=>'operator', 'probe/mirrored'=>'sysadmin', '/docs/*'=>'operator', '/tokchk'=>'sysadmin', 'auth/check'=>'operator', '/admin'=>'sysadmin')) + $jwtConf;
-checkIdentical('Checker role: refused to a lower role', roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'lockUser')), Array(404, 'Not Found'));
-checkIdentical('Checker role: refused to the role between', roleReply($rolConf, 'operator', Array('appToRun'=>'users', 'doAction'=>'lockUser')), Array(404, 'Not Found'));
-checkIdentical('Checker role: served to the role asked for', roleReply($rolConf, 'sysadmin', Array('appToRun'=>'users', 'doAction'=>'lockUser')), Array(200, ''));
+$rolConf = Array('rteRoles'=>Array('users/*'=>'sysadmin', 'users/view'=>'internal', 'Shows/Edit'=>'operator', 'shows/*'=>'internal', 'probe/sanitize'=>'operator', 'probe/mirrored'=>'sysadmin', '/docs/*'=>'operator', '/tokchk'=>'sysadmin', 'auth/check'=>'operator', '/admin'=>'sysadmin')) + $jwtConf;
+checkIdentical('Checker role: refused to a lower role', roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'lock')), Array(404, 'Not Found'));
+checkIdentical('Checker role: refused to the role between', roleReply($rolConf, 'operator', Array('appToRun'=>'users', 'doAction'=>'lock')), Array(404, 'Not Found'));
+checkIdentical('Checker role: served to the role asked for', roleReply($rolConf, 'sysadmin', Array('appToRun'=>'users', 'doAction'=>'lock')), Array(200, ''));
 checkIdentical('Checker role: served to a higher role', Array(roleReply($rolConf, 'operator', Array('appToRun'=>'shows', 'doAction'=>'edit')), roleReply($rolConf, 'sysadmin', Array('appToRun'=>'shows', 'doAction'=>'edit'))), Array(Array(200, ''), Array(200, '')));
-checkIdentical('Checker role: the case of the request does not count', roleReply($rolConf, 'internal', Array('appToRun'=>'Users', 'doAction'=>'LOCKUSER')), Array(404, 'Not Found'));
+checkIdentical('Checker role: the case of the request does not count', roleReply($rolConf, 'internal', Array('appToRun'=>'Users', 'doAction'=>'lock')), Array(404, 'Not Found'));
 checkIdentical('Checker role: nor a space in the name of the application', roleReply($rolConf, 'internal', Array('appToRun'=>'us ers', 'doAction'=>'lock')), Array(404, 'Not Found'));
 checkIdentical('Checker role: the highest of the entries naming the route is asked for', Array(roleReply($rolConf, 'internal', Array('appToRun'=>'shows', 'doAction'=>'edit')), roleReply($rolConf, 'internal', Array('appToRun'=>'shows', 'doAction'=>'overview'))), Array(Array(404, 'Not Found'), Array(200, '')));
-checkIdentical('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'viewUser')), Array(404, 'Not Found'));
+checkIdentical('Checker role: an entry cannot lower the one of its application', roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'view')), Array(404, 'Not Found'));
 checkIdentical('Checker role: no action named, the highest of the application', Array(roleReply($rolConf, 'operator', Array('appToRun'=>'probe', 'doAction'=>null)), roleReply($rolConf, 'sysadmin', Array('appToRun'=>'probe', 'doAction'=>null))), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: a route that asks for none', roleReply($rolConf, 'internal', Array('appToRun'=>'auth', 'doAction'=>'other')), Array(200, ''));
-checkIdentical('Checker role: nobody logged is a 401 first', roleReply($rolConf, '', Array('appToRun'=>'users', 'doAction'=>'lockUser'))[0], 401);
+checkIdentical('Checker role: nobody logged is a 401 first', roleReply($rolConf, '', Array('appToRun'=>'users', 'doAction'=>'lock'))[0], 401);
 $dirRoute = Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*');
 checkIdentical('Checker role: a declared route, by its path', Array(roleReply($rolConf, 'internal', $dirRoute), roleReply($rolConf, 'operator', $dirRoute)), Array(Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: its * does not name another folder route', roleReply($rolConf, 'internal', Array('routPath'=>'docs/private/*') + $dirRoute), Array(200, ''));
@@ -435,7 +435,7 @@ checkIdentical('Checker role: a refused user is known, with no challenge and no 
 $keyConf = Array('rteRoles'=>Array('shows/*'=>'internal', 'users/*'=>'operator')) + $hdrConf;
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'shows', 'doAction'=>'overview')) );
 checkIdentical('Checker role: an API key meets the member role', $checker->validateAccess()->readValueByKey('statCode'), 200);
-$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'users', 'doAction'=>'fullList')) );
+$checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'users', 'doAction'=>'index')) );
 checkIdentical('Checker role: and no higher one', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('userRole')), Array(404, 'internal'));
 
 // A block that cannot be applied refuses every request
@@ -446,18 +446,18 @@ checkIdentical('Checker role: not a list of routes', roleReply(Array('rteRoles'=
 checkIdentical('Checker role: asked for while access is not required', roleReply(Array('required'=>false, 'rteRoles'=>Array('users/*'=>'sysadmin')), 'sysadmin', $anyRoute), Array(500, 'Access misconfigured'));
 checkIdentical('Checker role: an empty list asks for nothing', roleReply(Array('required'=>false, 'rteRoles'=>Array()), '', $anyRoute), Array(200, ''));
 $opnConf = Array('openList'=>Array('users/*', '/docs/*')) + $rolConf;
-checkIdentical('Checker role: a route both open and asking for a role', Array(roleReply($opnConf, 'sysadmin', Array('appToRun'=>'users', 'doAction'=>'lockUser')), roleReply($opnConf, '', $dirRoute)), Array(Array(500, 'Access misconfigured'), Array(500, 'Access misconfigured')));
-checkIdentical('Checker role: the other open routes are served', roleReply(Array('openList'=>Array('auth/openSess')) + $rolConf, '', Array('appToRun'=>'auth', 'doAction'=>'openSess')), Array(200, ''));
+checkIdentical('Checker role: a route both open and asking for a role', Array(roleReply($opnConf, 'sysadmin', Array('appToRun'=>'users', 'doAction'=>'lock')), roleReply($opnConf, '', $dirRoute)), Array(Array(500, 'Access misconfigured'), Array(500, 'Access misconfigured')));
+checkIdentical('Checker role: the other open routes are served', roleReply(Array('openList'=>Array('auth/login')) + $rolConf, '', Array('appToRun'=>'auth', 'doAction'=>'login')), Array(200, ''));
 
 // The access log : one warning for a refusal, with the role needed
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rolelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'lockUser'));
+roleReply($rolConf, 'internal', Array('appToRun'=>'users', 'doAction'=>'lock'));
 roleReply($rolConf, 'internal', $dirRoute);
 roleReply(Array('rteRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'sysadmin', $anyRoute);
 nyu\Tools\Logger::plugLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('rolelogs').DS.'access.log') ? file(inTemporaryDir('rolelogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: a refusal for the role is one line', count($axsLogs), 3);
-checkIdentical('access log: the role needed by an action', $axsLogs[0] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (internal) from 10.0.0.1 to users/lockUser: role sysadmin needed');
+checkIdentical('access log: the role needed by an action', $axsLogs[0] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (internal) from 10.0.0.1 to users/lock: role sysadmin needed');
 checkIdentical('access log: the role needed by a declared route', $axsLogs[1] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (internal) from 10.0.0.1 to /docs/*: role operator needed');
 checkIdentical('access log: a role that cannot be applied', $axsLogs[2] ?? null, '['.date('Y').'] [WARNING] Access denied from 10.0.0.1: Access misconfigured: unknown role for the route "users\/*"');
 

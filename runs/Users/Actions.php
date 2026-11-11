@@ -17,7 +17,7 @@ use \nyu\Access\Auth\UserBase;
  */
 class Actions extends Actionset {
 
-	protected $dfltAction = 'fullList';
+	protected $dfltAction = 'index';
 
 	/**
 	 * Lists the users, by name: identifier, name, role, status, address,
@@ -27,7 +27,7 @@ class Actions extends Actionset {
 	 * (LST_ROWS users when 'limitVal' is left out). Reports 204 when the
 	 * list is empty.
 	 */
-	public function fullList(): Void {
+	public function index(): Void {
 		$usrBase = $this->requireManager('GET');
 		$usrList = $usrBase->listUsersNamed(
 			Array('userStatus'=>$this->inputsRgst->readValueByKey('currStat'), 'accessRole'=>$this->inputsRgst->readValueByKey('saveRole')),
@@ -45,7 +45,7 @@ class Actions extends Actionset {
 	 * status, address, time of the sign-up awaiting review, creation date
 	 * and last time seen.
 	 */
-	public function viewUser(): Void {
+	public function view(): Void {
 		$usrBase = $this->requireManager('GET');
 		$userVls = $usrBase->userInfosArray( $this->givenUsrString(false) );
 		if($userVls===false){
@@ -60,13 +60,13 @@ class Actions extends Actionset {
 	 * 'saveRole' input (the lowest one when left out), the address of the
 	 * 'userMail' input (none when left out) and the language of its mails of
 	 * the 'saveLang' input (the default one when left out). The user is pending, with an
-	 * activation code to choose its password with (auth/activate). When
+	 * activation code to choose its password with (auth/active). When
 	 * the userbase sends mails and the user has an address, the code is
 	 * mailed to it, and not told here; otherwise the reply carries it,
 	 * told this once. Reports 201, or 409 when the name or the address is
 	 * taken.
 	 */
-	public function makeUser(): Void {
+	public function create(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
@@ -91,9 +91,9 @@ class Actions extends Actionset {
 	/**
 	 * Approves the user the 'userName' input names, who signed up itself and
 	 * confirmed its address: it becomes active. Refusing it is removing
-	 * it (users/dropUser). Reports 409 for a user not awaiting review.
+	 * it (users/remove). Reports 409 for a user not awaiting review.
 	 */
-	public function approves(): Void {
+	public function approve(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		if(!$usrBase->approveNewUser($gvnUser)){
@@ -108,7 +108,7 @@ class Actions extends Actionset {
 	 * input, or takes its address away when 'userMail' is empty or left out.
 	 * Reports 409 for an address another user holds.
 	 */
-	public function setEmail(): Void {
+	public function setmail(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
@@ -125,7 +125,7 @@ class Actions extends Actionset {
 	 * out: its mails are then written in the default one (DEF_LANG).
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
-	public function language(): Void {
+	public function langs(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
@@ -141,7 +141,7 @@ class Actions extends Actionset {
 	 * and a session it holds ends as soon as its preset names the
 	 * userbase as its credential store. A manager cannot lock itself.
 	 */
-	public function lockUser(): Void {
+	public function lock(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		if(!$usrBase->saveStatusFlag($gvnUser, 'disabled')){
@@ -154,7 +154,7 @@ class Actions extends Actionset {
 	/**
 	 * Unlocks the user the 'userName' input names.
 	 */
-	public function freeUser(): Void {
+	public function unlock(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(false);
 		if(!$usrBase->saveStatusFlag($gvnUser, 'approved')){
@@ -168,7 +168,7 @@ class Actions extends Actionset {
 	 * Gives the user the 'userName' input names the role of the 'saveRole'
 	 * input. A manager cannot change its own role.
 	 */
-	public function giveRole(): Void {
+	public function role(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
@@ -183,7 +183,7 @@ class Actions extends Actionset {
 	 * Removes the user the 'userName' input names. A manager cannot remove
 	 * itself.
 	 */
-	public function dropUser(): Void {
+	public function remove(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		if(!$usrBase->removeUserFlag($gvnUser)){
@@ -196,12 +196,12 @@ class Actions extends Actionset {
 	/**
 	 * Puts the user the 'userName' input names back to pending, for one
 	 * whose password is lost, with a new activation code to choose a
-	 * password with (auth/activate). When the userbase sends mails and the
+	 * password with (auth/active). When the userbase sends mails and the
 	 * user has an address, the code is mailed to it, and not told here;
 	 * otherwise the reply carries it, told this once. A manager cannot
 	 * reset itself.
 	 */
-	public function resetPwd(): Void {
+	public function reset(): Void {
 		$usrBase = $this->requireManager('POST');
 		$gvnUser = $this->givenUsrString(true);
 		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();

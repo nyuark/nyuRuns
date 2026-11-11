@@ -334,13 +334,13 @@ class HealthChk{
 		}
 		$lgnConf = $this->accessSettings('loginSet');
 		if( empty($lgnConf) ){
-			$this->addCheckResult('access login', 'warn', 'no login block: nobody can sign in through auth/openSess');
+			$this->addCheckResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
 		}else{
 			$flawTxt = $this->coupleFlawsTxt($lgnConf + Array('authWith'=>'htpasswd', 'sessWith'=>'jwtToken', 'authConf'=>'htpasswd', 'sessConf'=>'jwtToken'));
 			// The login hands a name and a password to its check, as the Basic carrier does
 			$lgnAuth = strval($lgnConf['authWith'] ?? 'htpasswd');
 			if( $flawTxt=='' && isset(Checker::AUTH_LIST[$lgnAuth]) && !in_array($lgnAuth, Checker::PAIR_LIST['httpBasc'], true) ){
-				$flawTxt = 'the credential check "'.$lgnAuth.'" takes no name and password: nobody can sign in through auth/openSess';
+				$flawTxt = 'the credential check "'.$lgnAuth.'" takes no name and password: nobody can sign in through auth/login';
 			}
 			$this->addCheckResult( 'access login', ($flawTxt=='') ? 'fine' : 'fail', ($flawTxt=='') ? strval($lgnConf['authWith'] ?? 'htpasswd').' through '.strval($lgnConf['sessWith'] ?? 'jwtToken') : $flawTxt );
 		}

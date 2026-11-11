@@ -213,17 +213,17 @@ checkIdentical('limit: a plug-in carrier counts nothing', Array(sendTrice('198.5
 checkIdentical('limit: a refusal for the role is not counted', Array(sendTrice('198.51.100.11', 'httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array(), $rolConf, $anyRoute), heldAddr('198.51.100.11')), Array(Array(404, 404, 404), false));
 
 // A held address : what needs no check is still served
-checkIdentical('limit: a held address keeps the open routes', pairReply('httpBasc', 'htpasswd', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/openSess')), Array('appToRun'=>'auth', 'doAction'=>'openSess')), Array(200, '', '', null));
-checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/openSess')), Array('appToRun'=>'shows', 'doAction'=>'overview'))[0], 429);
+checkIdentical('limit: a held address keeps the open routes', pairReply('httpBasc', 'htpasswd', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'auth', 'doAction'=>'login')), Array(200, '', '', null));
+checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'shows', 'doAction'=>'overview'))[0], 429);
 checkIdentical('limit: a certificate does not lift the hold of its address', pairReply('clntCert', null, Array(), Array('REMOTE_ADDR'=>'198.51.100.1') + certVals('carol'))[0], 429);
 $axsRslt = (new Checker( Array('required'=>false), mockRequestObj(Array(), Array('REMOTE_ADDR'=>'198.51.100.1')) ))->validateAccess();
 checkIdentical('limit: nothing is held where access is not required', $axsRslt->readValueByKey('statCode'), 200);
 plugConf();
 
 // An open route : credentials sent with the request are not read
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'openSess')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
 checkIdentical('open route: a valid key does not log its holder', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userRole')), Array(200, false, null));
-$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/openSess')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'openSess')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'sessWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'sessConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
 checkIdentical('open route: nor is a wrong key refused', $axsRslt->readValueByKey('statCode'), 200);
 
 dropTestFolder(TOP_DIR.DS.$lmtFldr);

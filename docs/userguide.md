@@ -197,7 +197,7 @@ Sign in as `teammate` with its password (on Windows PowerShell 5, type
 `curl.exe` instead of `curl`):
 
 ```
-curl -X POST http://localhost:8000/auth/openSess -d "userName=teammate&passWord=501dfc2edfd1d66323e4"
+curl -X POST http://localhost:8000/auth/login -d "userName=teammate&passWord=501dfc2edfd1d66323e4"
 ```
 
 ```json
@@ -215,7 +215,7 @@ While you're at it, try breaking things:
 | a wrong password | `401 {"error":"Invalid credentials","code":401}` |
 | `curl http://localhost:8000/nothing/here` | `401 {"error":"Missing Bearer Authorization header","code":401}` |
 | the same, with `-H "Authorization: Bearer <token>"` | `404 {"error":"Not Found","code":404}` |
-| `curl http://localhost:8000/auth/openSess` with the token (a `GET`) | `405 {"error":"Method Not Allowed","code":405}` |
+| `curl http://localhost:8000/auth/login` with the token (a `GET`) | `405 {"error":"Method Not Allowed","code":405}` |
 
 Chapter 4 shows how to decide who gets in where.
 
@@ -297,9 +297,9 @@ detectBy: autopath
 others: logged
 path                    methods  kind      target          owner  access
 /index                  GET      toAction  shows/overview  site   logged
-/auth/openSess          POST     toAction  Auth/openSess   Auth   open
-/auth/quitSess          POST     toAction  Auth/quitSess   Auth   logged
-/auth/activate          POST     toAction  Auth/activate   Auth   open
+/auth/login             POST     toAction  Auth/login      Auth   open
+/auth/logout            POST     toAction  Auth/logout     Auth   logged
+/auth/active            POST     toAction  Auth/active     Auth   open
 …
                         any      toAction  users/*                sysadmin
 ```
@@ -309,7 +309,7 @@ The `owner` column says who declares each route: the site
 token (`others: logged`). The exceptions are
 signing in and what visitors do before they have an account: activating
 it, signing up, recovering a forgotten password. The `Users` run is for
-managers (the `sysadmin` role) only. Try it on `curl http://localhost:8000/users/fullList`:
+managers (the `sysadmin` role) only. Try it on `curl http://localhost:8000/users/index`:
 without a token you get a 401, with `teammate`'s token a 404, and with
 `sysAgent`'s the list of users.
 
@@ -360,7 +360,7 @@ id_user  systemName  accessRole  userStatus  mailboxAdr  userLocale  signupDate 
 | list what a command takes | `php nyuRun accounts --helpText` |
 
 A manager can do all of this over HTTP too, through the `Users` run
-(`users/makeUser`, `users/lockUser`, …). Every change is traced in
+(`users/create`, `users/lock`, …). Every change is traced in
 `temp/logs/access.log`.
 
 ### 4.4 Send the access mails
@@ -379,7 +379,7 @@ file in `temp/mails`. Now, signed in as `sysAgent`, create a user with an
 email address:
 
 ```
-curl -X POST http://localhost:8000/users/makeUser -H "Authorization: Bearer <token of sysAgent>" -d "userName=bob&saveRole=internal&userMail=bob@example.org"
+curl -X POST http://localhost:8000/users/create -H "Authorization: Bearer <token of sysAgent>" -d "userName=bob&saveRole=internal&userMail=bob@example.org"
 ```
 
 ```json
@@ -393,8 +393,8 @@ first account of `mailer.json` with your SMTP server, put its password in
 
 Once mails work, two more doors open:
 
-- **Forgotten passwords** work right away: `auth/askReset`, then
-  `auth/useReset`.
+- **Forgotten passwords** work right away: `auth/forgot`, then
+  `auth/recover`.
 - **Sign-ups** open with
   `php nyuRun settings setValue accsConf nativeDb.signupOn true`. Each one
   then waits for a manager's approval (`accounts approves`).
@@ -412,7 +412,7 @@ php nyuRun settings setValue coreConf DEF_LANG fr
 ```
 
 nyuRuns ships its mails in English and French. Set a user's language with
-`accounts language ann fr`, or let users set their own (`auth/language`).
+`accounts language ann fr`, or let users set their own (`auth/usrlang`).
 
 ### 4.6 Keep the secrets
 
@@ -442,7 +442,7 @@ php nyuRun maintain tailLogs access --numLines=3
 
 ```
 [2026-11-10 01:16] [NOTICE] Privileged login granted for user "sysAgent" (sysadmin) from 127.0.0.1
-[2026-11-10 01:16] [NOTICE] Privileged access granted for user "sysAgent" (sysadmin) from 127.0.0.1 to users/makeUser
+[2026-11-10 01:16] [NOTICE] Privileged access granted for user "sysAgent" (sysadmin) from 127.0.0.1 to users/create
 [2026-11-10 01:16] [NOTICE] User "bob" created (internal) by user "sysAgent" from 127.0.0.1
 ```
 
@@ -729,7 +729,7 @@ In `conf/presets/restapi.rps`, open the page route to everyone, and keep
 writing for staff:
 
 ```json
-"openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json", "notes/card"],
+"openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json", "notes/card"],
 "rteRoles": { "users/*": "sysadmin", "notes/create": "operator", "notes/update": "operator", "notes/remove": "operator" }
 ```
 

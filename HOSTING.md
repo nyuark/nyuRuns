@@ -461,21 +461,21 @@ the replies, to be handed over, as before.
   `accounts resetPwd` take `--noExpiry` for one with no end, on the command
   line only.
 - `linkTmpl` is the page of the front end the mail links to. `%kind%` tells it
-  which form to show: `activate` and `register` post to `auth/activate`,
-  `password` to `auth/useReset`. Without it, the mail carries the code alone.
+  which form to show: `activate` and `register` post to `auth/active`,
+  `password` to `auth/recover`. Without it, the mail carries the code alone.
   The code is bound to the user, not to the device: it can be typed on another
   one.
-- `signupOn: true` opens `auth/register`. A sign-up confirms its address with
-  the code, then waits in `checking` for a manager (`users/approves`,
+- `signupOn: true` opens `auth/signup`. A sign-up confirms its address with
+  the code, then waits in `checking` for a manager (`users/approve`,
   `php nyuRun accounts approves`); refusing it is removing it. Sign-ups never
   confirmed are removed once their code ends.
 - The `tryLimit` block bounds the sign-ups: `maxQueue` waiting at once (256),
-  beyond which `auth/register` answers 503 until some are approved or removed;
+  beyond which `auth/signup` answers 503 until some are approved or removed;
   `maxPerIp` sign-ups from one client within `holdSecs` (16), counted apart
   from its wrong credentials (an address held for those is refused too); and
   `alertsAt`, the counts at which every approved manager with an address is
   told by mail (`backlogs`) and the `access` log notes it (128, 200, 256).
-- `auth/register` and `auth/askReset` answer 202 whoever the name or address
+- `auth/signup` and `auth/forgot` answer 202 whoever the name or address
   is. Each reset asked counts against the address of the client, as a wrong
   password does (`maxTries`). Under PHP-FPM the reply ends before the mail is
   sent, so its time tells nothing either; under another server API the client

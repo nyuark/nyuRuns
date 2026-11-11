@@ -29,7 +29,7 @@ class Actions extends Actionset {
 	 * wrong ones (see Access\Limiter) and 500 when no token can be issued.
 	 * Credential checks and their outcome are logged.
 	 */
-	public function openSess(): Void {
+	public function login(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -150,7 +150,7 @@ class Actions extends Actionset {
 	 * when there is nothing to publish: tokens signed with a secret
 	 * (HS256), or issued by another server.
 	 */
-	public function jwksList(): Void {
+	public function keyset(): Void {
 		$lgnConf = $this->resolveConfArr('loginSet');
 		$sessCls = Checker::sessnClassText( strval($lgnConf['sessWith'] ?? 'jwtToken') );
 		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['sessConf'] ?? 'jwtToken') ) : null;
@@ -176,7 +176,7 @@ class Actions extends Actionset {
 	 * with a token carrier this only tells the client to forget it.
 	 * Reports 405 unless the request is a POST.
 	 */
-	public function quitSess(): Void {
+	public function logout(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -220,7 +220,7 @@ class Actions extends Actionset {
 	 * not use the native userbase. The reply tells the status the user is
 	 * in: 'approved', or 'checking' for a sign-up a manager has to approve.
 	 */
-	public function activate(): Void {
+	public function active(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -277,8 +277,8 @@ class Actions extends Actionset {
 	 * Signs a user up, when the block of the native userbase allows it
 	 * ('signupOn') and names a mail account ('mailAcnt'): the 'userName' input is
 	 * the name asked for, the 'userMail' input its address. The address is
-	 * sent a code that confirms it and sets the password (auth/activate);
-	 * a manager then approves the account (users/approves). A name or an
+	 * sent a code that confirms it and sets the password (auth/active);
+	 * a manager then approves the account (users/approve). A name or an
 	 * address already taken gets the same reply, and the address is told
 	 * by mail. A client may sign up 'maxPerIp' times (16) within 'holdSecs' of
 	 * the 'tryLimit' block, counted apart from its wrong credentials; at most
@@ -290,7 +290,7 @@ class Actions extends Actionset {
 	 * is held, 503 when too many sign-ups
 	 * are waiting.
 	 */
-	public function register(): Void {
+	public function signup(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -381,14 +381,14 @@ class Actions extends Actionset {
 	 * Asks for a new password, when the block of the native userbase names
 	 * a mail account: the 'userName' input is the login name or the address
 	 * of the user. An active user with an address is sent a code, its
-	 * password kept until the code is used (auth/useReset). Whoever the
+	 * password kept until the code is used (auth/recover). Whoever the
 	 * user is, or is not, the reply is the same. Each request counts
 	 * against the address of the client (see Access\Limiter). The action
 	 * is meant to be open ('openList'). Reports 202, 404 when no mail is
 	 * sent, 405 unless the request is a POST, 400 for an input that is
 	 * not a text, 429 when the address of the client asked too often.
 	 */
-	public function askReset(): Void {
+	public function forgot(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -423,7 +423,7 @@ class Actions extends Actionset {
 	}
 
 	/**
-	 * Sets a new password with the code auth/askReset sent: the 'userName' and
+	 * Sets a new password with the code auth/forgot sent: the 'userName' and
 	 * 'sentCode' inputs name the user and carry the code, the 'passWord' input the
 	 * new password, kept as sent. The action is meant to be open
 	 * ('openList'). Reports 405 unless the request is a POST, 400 when an
@@ -433,7 +433,7 @@ class Actions extends Actionset {
 	 * many wrong ones (see Access\Limiter) and 500 when the login does not
 	 * use the native userbase.
 	 */
-	public function useReset(): Void {
+	public function recover(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -520,7 +520,7 @@ class Actions extends Actionset {
 	 * user and for its address) and 500 when the login does not use the
 	 * native userbase.
 	 */
-	public function password(): Void {
+	public function setpass(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';
@@ -569,7 +569,7 @@ class Actions extends Actionset {
 	 * POST, 400 for a language that is not a tag, 401 when nobody is logged
 	 * and 500 when the login does not use the native userbase.
 	 */
-	public function language(): Void {
+	public function usrlang(): Void {
 		if($this->requestObj===null || !$this->requestObj->usedMethodFlag('POST')){
 			$this->statusCode = 405;
 			$this->statusMssg = 'Method Not Allowed';

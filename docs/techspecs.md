@@ -263,8 +263,8 @@ account, users of the native userbase get their codes directly:
 - Open sign-ups (`signupOn`) only with a mail account: the address confirms
   the sign-up, and a manager then approves it. The `tryLimit` block bounds
   them per client (`maxPerIp`) and in all (`maxQueue`), and mails the
-  managers when they pile up (`alertsAt`). Open `auth/register`,
-  `auth/activate`, `auth/askReset` and `auth/useReset` in `openList`, and
+  managers when they pile up (`alertsAt`). Open `auth/signup`,
+  `auth/active`, `auth/forgot` and `auth/recover` in `openList`, and
   no more of the `Auth` run than the front end needs.
 - The replies to a sign-up and to a forgotten password are the same
   whoever the user is. Keep it that way in the front end, which shouldn't
@@ -1366,12 +1366,12 @@ declare every action, even one that takes none (`{ "fieldSet": {} }`).
 
 | Run | Holds |
 |---|---|
-| `Auth` | signing in and out, activation, sign-ups, forgotten passwords, changing a password or a language, the published keys: `openSess`, `quitSess`, `activate`, `register`, `askReset`, `useReset`, `password`, `language`, `jwksList` |
-| `Users` | managing the users, for a manager: `fullList`, `viewUser`, `makeUser`, `approves`, `setEmail`, `language`, `lockUser`, `freeUser`, `giveRole`, `dropUser`, `resetPwd` |
+| `Auth` | signing in and out, activation, sign-ups, forgotten passwords, changing a password or a language, the published keys: `login`, `logout`, `active`, `signup`, `forgot`, `recover`, `setpass`, `usrlang`, `keyset` |
+| `Users` | managing the users, for a manager: `index`, `view`, `create`, `approve`, `setmail`, `langs`, `lock`, `unlock`, `role`, `remove`, `reset` |
 | `Shows` | an example: a list of shows filtered, sorted and limited (`overview`), and one show with its events and items (`viewShow`) |
 | `Shared` | empty: the models and plug-ins the runs share |
 
-`Auth` declares its routes in its own `routes.rte` (`/auth/openSess`, …,
+`Auth` declares its routes in its own `routes.rte` (`/auth/login`, …,
 and `/.well-known/jwks.json`). `Auth` and `Users` work on the store the
 `loginSet` block names, and every action of `Users` asks for the
 `sysadmin` role itself.
@@ -1784,7 +1784,7 @@ rather than one word squeezed down. Classes are the exception:
 | local variable | 7 | `$endDate`, `$noteLst` |
 | loop variable | 6 | `$oneRow`, `$rowIdx` |
 | constant | 9, in the form `XXXX_YYYY` | `KEYS_LIST`, `TYPE_LIST` |
-| action of a delivered run | 8 | `openSess`, `viewUser` |
+| action of a delivered run | 8 | `login`, `view` |
 
 Exempt from the lengths:
 

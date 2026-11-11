@@ -5,7 +5,7 @@
 		"fileType": "all",
 		"fileName": "any"
 	},
-	"security": { "required": true, "sessWith": "jwtToken", "sessConf": "jwtToken", "openList": ["auth/openSess", "auth/activate", "auth/register", "auth/askReset", "auth/useReset", "/.well-known/jwks.json"], "rteRoles": { "users/*": "sysadmin" } },
+	"security": { "required": true, "sessWith": "jwtToken", "sessConf": "jwtToken", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json"], "rteRoles": { "users/*": "sysadmin" } },
 	"incoming": [
 		{
 			"nameFrom": "QUERY",
