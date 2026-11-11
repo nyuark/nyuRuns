@@ -65,7 +65,7 @@ checkIdentical('site pattern: a route from the root is not under it', strpos($pa
 
 // installs checkAll: the route shadow row, and the mounts a preset may give
 $mntText = function( String $presetName, String $mountsJson ): String {
-	return '{ "presetId": "'.$presetName.'", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true }, "routings": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument", "routeDir": "conf/routes/'.$presetName.'", "mountSet": '.$mountsJson.' } }';
+	return '{ "presetId": "'.$presetName.'", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument", "routeDir": "conf/routes/'.$presetName.'", "runMount": '.$mountsJson.' } }';
 };
 $projDir = makeProjectTxt('runroutes', Array(
 	'conf/system.ini'=>buildSystemIni(),
@@ -91,7 +91,7 @@ foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText
 	checkPregMatch('mounts: '.$rpsName.' says why', strval($chkRows['preset '.$rpsName]['found'] ?? ''), '#holds mounts that are not an object of applications: '.$badText.'#');
 }
 checkIdentical('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
-$rootRtr = madeRoutr('/login', 'POST', Array('mountSet'=>Array('auth'=>'')));
+$rootRtr = madeRoutr('/login', 'POST', Array('runMount'=>Array('auth'=>'')));
 checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readValueByKey('appToRun'), $rootRtr->locateRouteReg()->readValueByKey('routPath')), Array('Auth', 'login'));
 
 finishChecking();

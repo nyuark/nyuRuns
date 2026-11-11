@@ -34,7 +34,7 @@ class Loader{
 	*/
     public function __construct(Array $fullSetupArr = Array(), ?Array $cachedValues = null, String $nameOfPreset = ''){
 		$this->setAllRegistry( $fullSetupArr );
-		$this->blockNames = Array('settings','security','routings','response','incoming');
+		$this->blockNames = Array('settings','security','dispatch','response','incoming');
 		$this->presetName = $nameOfPreset;
 		$this->usesCached = ($cachedValues!==null);
 		// The preset is kept as it is before any overload of the Runner
@@ -108,7 +108,7 @@ class Loader{
 			throw new \RuntimeException('The preset has no settings block');
 		}
 		if( $this->usesCached ){
-			$confReg = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confSet['envsFile'] ?? '.env') ) );
+			$confReg = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confSet['envrFile'] ?? '.env') ) );
 			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
 			$iniConf = $confReg->readValueByKey('system') ?: Array();
 			ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConf['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConf['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachValues['tables'] ?? Array()) : null;
@@ -124,7 +124,7 @@ class Loader{
 		// Allowed file types
 		$allowFt = Array('ini','json');
 		// File names to load : 'any', or a comma-separated list of names without extension
-		$conFltr = $confSet['fileName'] ?? 'any';
+		$conFltr = $confSet['confList'] ?? 'any';
 		$nameLst = false;
 		if($conFltr!='any'){
 			$nameLst = array_map('trim', explode(',', $conFltr));
@@ -136,7 +136,7 @@ class Loader{
 			if( !in_array($fileExt, $allowFt) || ($nameLst!==false && !in_array($fileTtl, $nameLst)) ){
 				continue;
 			}
-			if( $confSet['fileType']!='all' && $confSet['fileType']!=$fileExt ){
+			if( $confSet['confType']!='all' && $confSet['confType']!=$fileExt ){
 				continue;
 			}
 			$nowPath = $conPath.$filNme;
@@ -147,7 +147,7 @@ class Loader{
 		}
 		// The cache holds the values as written: no secret of the environment file goes into it
 		$this->cachValues['config'] = $confArr;
-		$confArr = $this->replaceEnvVals( $confArr, $this->lodEnvironment($confSet['envsFile'] ?? '.env') );
+		$confArr = $this->replaceEnvVals( $confArr, $this->lodEnvironment($confSet['envrFile'] ?? '.env') );
 		$confReg = new Registry( $confArr );
 		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
 		$iniConf = $confReg->readValueByKey('system') ?: Array();
@@ -241,13 +241,13 @@ class Loader{
 
     /**
 	 * Resolves the application/action/param to run for the current request,
-	 * through the Router and the 'routings' configuration of the active preset.
+	 * through the Router and the 'dispatch' configuration of the active preset.
 	 *
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Registry Registry holding the resolved 'appToRun' and 'doAction' values.
 	 */
     function importRouteReg( Request $givenRequest ): Registry {
-		$rteConf = $this->getRegistryKey('routings');
+		$rteConf = $this->getRegistryKey('dispatch');
 		$this->routingObj = new Router( is_array($rteConf) ? $rteConf : Array(), $givenRequest );
 		if( $this->usesCached ){
 			$this->routingObj->assignRouteSet( $this->cachValues['routes'] );

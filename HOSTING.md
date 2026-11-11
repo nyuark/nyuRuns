@@ -406,7 +406,7 @@ REQ_PART = 200
 - A key that nothing reads in a route file is told on the `runner` log at each
   request.
 - A site can answer an error with its own page: `errors/<status>.html` in the
-  folder of its pages (`htmlRoot`), with `%code%` and `%error%` filled in. It is
+  folder of its pages (`fileRoot`), with `%code%` and `%error%` filled in. It is
   used for a page or a static file, and for a path no route answers in a preset
   that finds its routes `manually`. A request for an action keeps the format of
   the preset; so does an unknown path in an `autopath` preset.

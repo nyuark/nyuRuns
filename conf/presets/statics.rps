@@ -1,16 +1,16 @@
 {
 	"presetId": "statics",
-	"describe": "Preset for a site of pages, files and redirections: open access, no inputs, its own route folder",
+	"synopsis": "Preset for a site of pages, files and redirections: open access, no inputs, its own route folder",
 	"settings": {
-		"fileType": "all",
-		"fileName": "any"
+		"confType": "all",
+		"confList": "any"
 	},
 	"security": { "required": false, "isPublic": true },
-	"routings": {
+	"dispatch": {
 		"detectBy": "manually",
 		"routeDir": "conf/routes/statics",
-		"htmlRoot": "pages",
-		"mountSet": { "auth": false }
+		"fileRoot": "pages",
+		"runMount": { "auth": false }
 	},
 	"response": {
 		"outputAs": "jsonData",

@@ -7,7 +7,7 @@ use nyu\Output\Response;
 
 /**
  * Resolves the application, action and parameter to run for a request,
- * according to the 'routings' block of the active preset.
+ * according to the 'dispatch' block of the active preset.
  */
 class Router{
 
@@ -17,7 +17,7 @@ class Router{
 	const KEYS_LIST = Array('mthdList', 'pointsTo');
 	const TRGT_KEYS = Array('appToRun', 'doAction', 'redirect', 'httpCode', 'filePath', 'fldrPath', 'pageFile');
 
-	protected $routConfig;	// 'routings' block of the active preset
+	protected $routConfig;	// 'dispatch' block of the active preset
 	protected $requestObj;	// The shared HTTP request
 	protected $rtePathTxt;	// Request path, without its leading slash and query string
 	protected $routeFiles;	// Declared routes, once read
@@ -26,7 +26,7 @@ class Router{
 	 * Prepares the router for a request: keeps the route configuration and
 	 * extracts the path to resolve from the request URI.
 	 *
-	 * @param Array   $routSettings The 'routings' config block of the active preset.
+	 * @param Array   $routSettings The 'dispatch' config block of the active preset.
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 */
 	public function __construct( Array $routSettings, Request $givenRequest ){
@@ -321,7 +321,7 @@ class Router{
 
 	/**
 	 * Gives the mount of a Run: the path its routes are moved under, from
-	 * the 'mountSet' key of the route configuration, { "<run>": false |
+	 * the 'runMount' key of the route configuration, { "<run>": false |
 	 * "<prefix>" }, the Run named whatever its case. A Run it does not name
 	 * is mounted under its name in lower case.
 	 *
@@ -329,7 +329,7 @@ class Router{
 	 * @return ?String The prefix, without its slashes (empty for the root of the site); null when the Run's routes are not served.
 	 */
 	public function mountRoutePath( String $appNameToRun ): ?String {
-		$mntList = $this->routConfig['mountSet'] ?? Array();
+		$mntList = $this->routConfig['runMount'] ?? Array();
 		foreach( (is_array($mntList) ? $mntList : Array()) as $mntKey => $mntVal ){
 			if( strcasecmp(strval($mntKey), $appNameToRun)!=0 ){
 				continue;
@@ -592,7 +592,7 @@ class Router{
 	/**
 	 * Builds the route values of a static file, of a file of a static
 	 * folder or of an HTML page. Everything lies in the folder the route
-	 * configuration names as 'htmlRoot': without it, nothing is served. The
+	 * configuration names as 'fileRoot': without it, nothing is served. The
 	 * file asked for in a folder is the rest of the path; it cannot be
 	 * outside that folder, nor be a hidden file, and its extension must
 	 * have a content type (see Response::TYPE_LIST). A folder gives its
@@ -602,11 +602,11 @@ class Router{
 	 * @param Array $capturedVals Values captured from the path, by name.
 	 * @return Array The 'routKind', 'routTarg' and 'routType' values, or a 404 as 'statCode' and 'statMssg'.
 	 *
-	 * @throws \RuntimeException When the target is outside the 'htmlRoot' folder, or a page is not an HTML file.
+	 * @throws \RuntimeException When the target is outside the 'fileRoot' folder, or a page is not an HTML file.
 	 */
 	protected function staticValueArr( Array $targetValues, Array $capturedVals ): Array {
 		$missing = Array('statCode'=>404, 'statMssg'=>'Not Found', 'routKind'=>'toStatic');
-		$rootCnf = strval($this->routConfig['htmlRoot'] ?? '');
+		$rootCnf = strval($this->routConfig['fileRoot'] ?? '');
 		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
 		if( $rootDir===false || !is_dir($rootDir) ){
 			return $missing;
@@ -659,13 +659,13 @@ class Router{
 	/**
 	 * Gives the HTML page a site answers an error status with: the file
 	 * errors/<status>.html of the folder the route configuration names as
-	 * 'htmlRoot', when it holds one.
+	 * 'fileRoot', when it holds one.
 	 *
 	 * @param Int $responseCode The status of the reply.
 	 * @return ?String The full path of the page, or null when the site has none for that status.
 	 */
 	public function errorPgeString( Int $responseCode ): ?String {
-		$rootCnf = strval($this->routConfig['htmlRoot'] ?? '');
+		$rootCnf = strval($this->routConfig['fileRoot'] ?? '');
 		$rootDir = ($rootCnf!=='') ? realpath(TOP_DIR.DS.$rootCnf) : false;
 		if( $rootDir===false || !is_dir($rootDir) ){
 			return null;

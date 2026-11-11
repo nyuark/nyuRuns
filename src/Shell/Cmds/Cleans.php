@@ -193,7 +193,7 @@ class Cleans extends Command{
 	 */
 	protected function findTempFolder( String $tempFileKind ): String {
 		if( $tempFileKind=='logFiles' ){
-			return strval( (new Loader(Array('settings'=>Array('fileType'=>'all'))))->logConfigArray()['path'] );
+			return strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] );
 		}
 		if( $tempFileKind=='tryLimit' ){
 			$fldName = trim( strval($this->accessSettings('tryLimit')['dataPath'] ?? ''), '/\\ ' );

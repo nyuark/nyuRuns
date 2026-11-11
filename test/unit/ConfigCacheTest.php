@@ -14,7 +14,7 @@ use nyu\Setup\Loader;
 
 $projDir = makeProjectTxt('confcache', Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = TRUE\nTBL_CACH = FALSE\n"),
-	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "fileType": "all" }, "security": { "required": false }, "routings": { "detectBy": "manually" } }',
+	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "confType": "all" }, "security": { "required": false }, "dispatch": { "detectBy": "manually" } }',
 	'conf/routes/probe.rte'=>'{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } } }',
 	'conf/probe.json'=>'{ "value": "env:NYU_PROBE" }',
 	'.env'=>"NYU_PROBE=from-the-env-file\n",
@@ -69,7 +69,7 @@ checkIdentical('deploy check warns about TBL_CACH without CNF_CACH', $rowList['t
 
 // The values of the cache, as the Loader takes them
 putenv('NYU_CACHE_TEST=from-the-process');
-$cchLoad = new Loader( Array('settings'=>Array('fileType'=>'all', 'envsFile'=>'no-such-env')), Array('preset'=>Array(), 'config'=>Array('PROBE'=>Array('value'=>'env:NYU_CACHE_TEST')), 'routes'=>Array()), 'probe' );
+$cchLoad = new Loader( Array('settings'=>Array('confType'=>'all', 'envrFile'=>'no-such-env')), Array('preset'=>Array(), 'config'=>Array('PROBE'=>Array('value'=>'env:NYU_CACHE_TEST')), 'routes'=>Array()), 'probe' );
 checkIdentical('the env: values of the cache are filled on each request', ($cchLoad->retrieveConfig()->readValueByKey('probe') ?: Array())['value'] ?? null, 'from-the-process');
 checkIdentical('a cache read is never written again', $cchLoad->retainCacheFlg(), false);
 putenv('NYU_CACHE_TEST');

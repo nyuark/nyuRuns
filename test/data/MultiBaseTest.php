@@ -165,7 +165,7 @@ checkIdentical('a token made in one database is unknown to the other', runCatchT
 
 // The project's own access configuration: conf/access.json is kept out of
 // the repository, so it is only checked where it exists
-$axsLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'fileName'=>'access,database')) );
+$axsLoad = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confList'=>'access,database')) );
 $axsConf = $axsLoad->retrieveConfig();
 $natConf = is_file(TOP_DIR.DS.'conf'.DS.'access.json') ? $axsConf->obtainRowValue('ACCESS', 'NATIVEDB') : null;
 if( !is_array($natConf) ){

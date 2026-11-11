@@ -55,7 +55,7 @@ checkIdentical('a query that fails on a table the database described', runCatchT
 checkIdentical('...leaves the cache as it is', array_keys(ConfCache::$tableInfos['archive'] ?? Array()), Array('items'));
 
 // The Loader keeps them only with TBL_CACH and CNF_CACH
-$stupArr = Array('settings'=>Array('fileType'=>'all', 'envsFile'=>'no-such-env'));
+$stupArr = Array('settings'=>Array('confType'=>'all', 'envrFile'=>'no-such-env'));
 $cchArr = function( String $tblFlag, String $cnfFlag ) use ( $realDsc ): Array {
 	return Array('preset'=>Array(), 'config'=>Array('SYSTEM'=>Array('CNF_CACH'=>$cnfFlag, 'TBL_CACH'=>$tblFlag)), 'routes'=>Array(), 'tables'=>Array(''=>Array('shows'=>$realDsc)));
 };

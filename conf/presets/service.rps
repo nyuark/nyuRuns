@@ -1,9 +1,9 @@
 {
 	"presetId": "service",
-	"describe": "Preset for a service called by other programs: an API key in a header, checked against the list of keys",
+	"synopsis": "Preset for a service called by other programs: an API key in a header, checked against the list of keys",
 	"settings": {
-		"fileType": "all",
-		"fileName": "any"
+		"confType": "all",
+		"confList": "any"
 	},
 	"security": { "required": true, "sessWith": "apiHeadr", "sessConf": "regdKeys", "authWith": "regdKeys" },
 	"incoming": [
@@ -13,7 +13,7 @@
 			"fieldSet": "all"
 		}
 	],
-	"routings": {
+	"dispatch": {
 		"detectBy": "autopath",
 		"pathForm": "$appToRun/$doAction/$argument"
 	},

@@ -12,11 +12,11 @@ class Preset{
 
 	// The keys a preset may hold, block by block; 'incoming' is a list of sources, each holding those keys
 	const KEYS_LIST = Array(
-		''         => Array('presetId', 'describe', 'settings', 'security', 'incoming', 'routings', 'response'),
-		'settings' => Array('fileType', 'fileName', 'confPath', 'envsFile'),
+		''         => Array('presetId', 'synopsis', 'settings', 'security', 'incoming', 'dispatch', 'response'),
+		'settings' => Array('confType', 'confList', 'confPath', 'envrFile'),
 		'security' => Array('required', 'sessWith', 'sessConf', 'authWith', 'authConf', 'openList', 'signRout', 'rteRoles', 'appsConf', 'isPublic'),
 		'incoming' => Array('nameFrom', 'dataFrom', 'fieldSet'),
-		'routings' => Array('detectBy', 'pathForm', 'routeDir', 'htmlRoot', 'mountSet'),
+		'dispatch' => Array('detectBy', 'pathForm', 'routeDir', 'fileRoot', 'runMount'),
 		'response' => Array('outputAs', 'corsList', 'headList')
 	);
 
@@ -96,7 +96,7 @@ class Preset{
 			}
 		}
 		// The mounts are an object, Run name => false or a path prefix (empty for the root): anything else would only fail at the first request
-		$mntList = $this->presetData['routings']['mountSet'] ?? Array();
+		$mntList = $this->presetData['dispatch']['runMount'] ?? Array();
 		if( !is_array($mntList) || (!empty($mntList) && array_is_list($mntList)) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds mounts that are not an object of applications: '.json_encode($mntList, JSON_UNESCAPED_SLASHES));
 		}

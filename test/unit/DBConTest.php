@@ -96,7 +96,7 @@ checkPregMatch('an empty database block', setupOf(Array()), '/^THROWN RuntimeExc
 
 // The project's own configuration, as the loader reads it: conf/database.json is kept out of
 // the repository, so it is only checked where it exists
-$prjLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'fileName'=>'database')) );
+$prjLoad = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confList'=>'database')) );
 $prjBase = $prjLoad->retrieveConfig()->readValueByKey('database');
 if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
 	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun installs makeConf" creates it');

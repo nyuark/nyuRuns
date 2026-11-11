@@ -102,7 +102,7 @@ class HealthChk{
 		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$lmtName = trim( strval(is_array($lmtConf) ? ($lmtConf['dataPath'] ?? '') : ''), '/\\ ' );
 		$fldList = Array(
-			strval( (new Loader(Array('settings'=>Array('fileType'=>'all'))))->logConfigArray()['path'] ),
+			strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] ),
 			TOP_DIR.DS.( $lmtName!='' ? str_replace(Array('/', '\\'), DS, $lmtName) : 'temp'.DS.'limits' ),
 			TOP_DIR.DS.'temp'.DS.'cache',
 			TOP_DIR.DS.'temp'.DS.'archives'
@@ -176,7 +176,7 @@ class HealthChk{
 				$flawTxt = $this->coupleFlawsTxt($accConf);
 			}
 			// The routes of the preset, for the paths its roles name
-			$rteConf = $setpObj->getRegistryKey('routings');
+			$rteConf = $setpObj->getRegistryKey('dispatch');
 			$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
 			$checker = new Checker($accConf, $rqstObj, new Registry(Array()), new Router(is_array($rteConf) ? $rteConf : Array(), $rqstObj));
 			if( $flawTxt=='' && !empty($accConf) && ($accConf['required'] ?? true)!==false ){
@@ -216,7 +216,7 @@ class HealthChk{
 				// A preset that does not load is told by its own row
 				continue;
 			}
-			$rteConf = $setpObj->getRegistryKey('routings');
+			$rteConf = $setpObj->getRegistryKey('dispatch');
 			$routObj = new Router( is_array($rteConf) ? $rteConf : Array(), ActCaller::makeRequestArr('GET', '/')[0] );
 			$rteData = $routObj->retrieveRoutes();
 			foreach( $routObj->runRoutesArray() as $rteSet ){
@@ -627,7 +627,7 @@ class HealthChk{
 		$this->addCheckResult( 'errors', $errStts, 'ERR_SHOW is '.( $showErr ? 'on' : 'off' ).' in the environment '.( $envName!='' ? $envName : '(not named)' ).$errNote );
 		// A level that cannot be read stops every request at its start
 		try{
-			$errrLvl = (new Loader(Array('settings'=>Array('fileType'=>'all'))))->errorConfigNum();
+			$errrLvl = (new Loader(Array('settings'=>Array('confType'=>'all'))))->errorConfigNum();
 			$this->addCheckResult( 'error level', 'fine', ($errrLvl==E_ALL) ? 'every error is reported (E_ALL)' : 'ERR_LEVL reports level '.$errrLvl.' of '.E_ALL );
 		}catch( \RuntimeException $e ){
 			$this->addCheckResult( 'error level', 'fail', $e->getMessage().': no request can be served' );

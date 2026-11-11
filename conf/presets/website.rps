@@ -1,9 +1,9 @@
 {
 	"presetId": "website",
-	"describe": "Preset for a site used from a browser: a session cookie, its users checked against the users table, the login left open, its own route folder",
+	"synopsis": "Preset for a site used from a browser: a session cookie, its users checked against the users table, the login left open, its own route folder",
 	"settings": {
-		"fileType": "all",
-		"fileName": "any"
+		"confType": "all",
+		"confList": "any"
 	},
 	"security": { "required": true, "sessWith": "phpSessn", "sessConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/login", "/assets/*"], "signRout": "/login", "rteRoles": { "users/*": "sysadmin" } },
 	"incoming": [
@@ -13,11 +13,11 @@
 			"fieldSet": "all"
 		}
 	],
-	"routings": {
+	"dispatch": {
 		"detectBy": "autopath",
 		"pathForm": "$appToRun/$doAction/$argument",
 		"routeDir": "conf/routes/website",
-		"htmlRoot": "pages"
+		"fileRoot": "pages"
 	},
 	"response": {
 		"outputAs": "jsonData",

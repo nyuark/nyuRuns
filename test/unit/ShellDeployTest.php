@@ -19,8 +19,8 @@ function freshPrjt( String $folderName ): String {
 		'.env.example'=>"# Copy to .env and fill in\nNYU_JWT_SECRET=\nNYU_API_KEY=\nNYU_DB_PASS=\n",
 		'conf/access.json.dist'=>distAccss(),
 		'conf/system.ini'=>buildSystemIni(),
-		'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "fileType": "all" }, "security": { "required": false } }',
-		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "sysadmin" } } }'
+		'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false } }',
+		'conf/presets/secure.rps'=>'{ "presetId": "secure", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "sysadmin" } } }'
 	));
 }
 
@@ -186,10 +186,10 @@ unlink($projDir.DS.'conf'.DS.'mailer.json');
 
 // What the check refuses
 writeInProject($projDir, 'conf/presets/broken.rps', '{ "presetId": "broken", ');
-writeInProject($projDir, 'conf/presets/noblok.rps', '{ "presetId": "noblok", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "nowhere" } }');
-writeInProject($projDir, 'conf/presets/norole.rps', '{ "presetId": "norole", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "boss" } } }');
+writeInProject($projDir, 'conf/presets/noblok.rps', '{ "presetId": "noblok", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "nowhere" } }');
+writeInProject($projDir, 'conf/presets/norole.rps', '{ "presetId": "norole", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "rteRoles": { "users/*": "boss" } } }');
 writeInProject($projDir, 'conf/system.ini', buildSystemIni("PRX_LIST = \"10.0.0.5, 0.0.0.0/0\"\n"));
-$cookRps = '{ "presetId": "%s", "settings": { "fileType": "all" }, "security": { "sessWith": "phpSessn", "sessConf": "phpSessn" }, "response": { "outputAs": "jsonData", %s"headList": { "access-control-allow-origin": "*" } } }';
+$cookRps = '{ "presetId": "%s", "settings": { "confType": "all" }, "security": { "sessWith": "phpSessn", "sessConf": "phpSessn" }, "response": { "outputAs": "jsonData", %s"headList": { "access-control-allow-origin": "*" } } }';
 writeInProject($projDir, 'conf/presets/cookie.rps', sprintf($cookRps, 'cookie', ''));
 writeInProject($projDir, 'conf/presets/listed.rps', sprintf($cookRps, 'listed', '"corsList": ["https://app.example.org"], '));
 $statLst = stateOf(runShellAsJson($projDir, Array('installs', 'checkAll')));
@@ -240,8 +240,8 @@ checkIdentical('the rights not checked on Windows are told once; elsewhere, no s
 // The entry points : the preset each one starts, open or not, open by intent or not
 $projDir = freshPrjt('entries');
 runShellAsJson($projDir, Array('installs', 'makeConf'));
-writeInProject($projDir, 'conf/presets/statics.rps', '{ "presetId": "statics", "settings": { "fileType": "all" }, "security": { "required": false, "isPublic": true } }');
-writeInProject($projDir, 'conf/presets/tokens.rps', '{ "presetId": "tokens", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "isPublic": true }, "response": { "headList": { "Access-Control-Allow-Origin": "*" } } }');
+writeInProject($projDir, 'conf/presets/statics.rps', '{ "presetId": "statics", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true } }');
+writeInProject($projDir, 'conf/presets/tokens.rps', '{ "presetId": "tokens", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "sessConf": "jwtToken", "isPublic": true }, "response": { "headList": { "Access-Control-Allow-Origin": "*" } } }');
 writeInProject($projDir, 'www/index.php', "<?php\n\$nyuRun = new \\nyu\\Runner();\n");
 writeInProject($projDir, 'www/api.php', "<?php\n\$nyuRun = new \\nyu\\Runner( 'secure' );\n");
 writeInProject($projDir, 'www/site.php', "<?php\n\$nyuRun = new \\nyu\\Runner('statics');\n");

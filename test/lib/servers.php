@@ -14,11 +14,11 @@
  * @return Array The 'hostName', 'portNumb', 'baseName', 'userName' and 'passWord' settings, plus 'skip': the reason not to use the server, or ''.
  */
 function serverSettings( String $typeLabelTxt ): Array {
-	$srvrLod = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'confsrv')) );
+	$srvrLod = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'confsrv')) );
 	$hostCfg = array_map('strval', (array)$srvrLod->retrieveConfig()->obtainRowValue('SERVERS', $typeLabelTxt));
 	if( ($hostCfg['userName'] ?? '')=='' ){
 		// No test account : the account of the project is used, on the test database
-		$loadObj = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'fileName'=>'database')) );
+		$loadObj = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confList'=>'database')) );
 		$keepCnf = $GLOBALS['nyuConfig'] ?? null;
 		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
 		try{

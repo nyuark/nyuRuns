@@ -7,20 +7,20 @@
 	// Name of the PreSet; the name of its file
 	"presetId": "example",
     // Description of the PreSet
-	"describe": "Every setting of a preset, with what it does",
+	"synopsis": "Every setting of a preset, with what it does",
 	// Type and names of config files to load
 	"settings": {
         // Type of the config files read: ini; json; or all for both
-		"fileType": "all",
+		"confType": "all",
         // Names of the config files read (without extension; separated by commas);
         // or any for all of them
-		"fileName": "any",
+		"confList": "any",
         // Folder of the config files; relative to the project root.
         // Uses conf when not set
 		"confPath": "conf",
         // Uncommitted file of NAME=value lines; relative to the project root.
         // A config value written env:NAME takes the value of NAME. Uses .env when not set
-		"envsFile": ".env"
+		"envrFile": ".env"
 	},
 	// Access control of the preset; its strategies live in src/Access.
 	// An open preset only needs "required" set to false; "isPublic": true beside it tells it is meant to be
@@ -84,7 +84,7 @@
 		}
 	],
 	// How the request finds what answers it: an action; a redirection; a file or a page
-	"routings": {
+	"dispatch": {
         // How the route is found: autopath (from the path; through the mapper);
         // manually (from the routes the entry point declares). Declared route files are read in both
 		"detectBy": "autopath",
@@ -97,7 +97,7 @@
         // (targets "fle"; "dir"; "pge"); relative to the project root.
         // Nothing is served when not set. A static file is sent with its own
         // cache headers (kept by the client; checked again at each use)
-		"htmlRoot": "pages"
+		"fileRoot": "pages"
 	},
 	// Format of the replies
 	"response": {

@@ -523,7 +523,7 @@ order:
 3. **The declared routes**: first the site's, in `conf/routes/*.rte` (or
    the preset's own folder), then those each run declares in
    `runs/<App>/routes.rte`, mounted under the run's name or where the
-   preset's `mountSet` says. A route equal to the path wins, then the
+   preset's `runMount` says. A route equal to the path wins, then the
    first pattern that matches it. An empty path is looked up as `index`.
 4. **The path itself**, in an `autopath` preset: its parts get the names
    of the preset's `pathForm`, by position (`$appToRun/$doAction/$argument`,
@@ -624,7 +624,7 @@ reply's format turns the reply into a 500.
 
 An error on a page, on a static file, or on a path no route answers in a
 preset that serves pages, is answered with the site's error page
-(`<htmlRoot>/errors/<status>.html`) when it has one. An action keeps its
+(`<fileRoot>/errors/<status>.html`) when it has one. An action keeps its
 preset's format.
 
 The response then writes its headers: the preset's, the allowed origin
@@ -920,11 +920,11 @@ of the framework, chosen by the entry point. Its blocks and their keys:
 
 | Block | Keys | Sets |
 |---|---|---|
-| (top) | `presetId`, `describe` | its name, and what it's for |
-| `settings` | `fileType`, `fileName`, `confPath`, `envsFile` | the configuration files read: their types (`all`, `ini`, `json`), their names (`any` or a list), their folder, the file of the secrets |
+| (top) | `presetId`, `synopsis` | its name, and what it's for |
+| `settings` | `confType`, `confList`, `confPath`, `envrFile` | the configuration files read: their types (`all`, `ini`, `json`), their names (`any` or a list), their folder, the file of the secrets |
 | `security` | `required`, `sessWith`, `sessConf`, `authWith`, `authConf`, `openList`, `signRout`, `rteRoles`, `appsConf`, `isPublic` | the access check: whether one is needed, the carrier and the check with the blocks of `access.json` they read, the routes open to all, a site's sign-in route, the roles of the routes, the block of the application keys, and a site meant to be open |
 | `incoming` | `nameFrom`, `dataFrom`, `fieldSet` | the sources of the inputs (`QUERY`), and the fields kept |
-| `routings` | `detectBy`, `pathForm`, `routeDir`, `htmlRoot`, `mountSet` | the routing: `autopath` or `manually`, the names of the parts of a path, the folder of the route files, the folder of the pages and static files, where each run's routes are mounted (or `false` to stop serving it) |
+| `dispatch` | `detectBy`, `pathForm`, `routeDir`, `fileRoot`, `runMount` | the routing: `autopath` or `manually`, the names of the parts of a path, the folder of the route files, the folder of the pages and static files, where each run's routes are mounted (or `false` to stop serving it) |
 | `response` | `outputAs`, `corsList`, `headList` | the reply: its format, the sites allowed to call, the headers sent |
 
 A key a preset doesn't know stops it from loading. The framework ships
@@ -1017,7 +1017,7 @@ A run declares its own routes the same way, in `runs/<App>/routes.rte`,
 with a target that names one of its actions through `doAction` alone. Its
 paths are mounted under the run's name in lower case (`""` is `/notes`,
 `$id` is `/notes/$id`), a path with a leading slash starts from the site
-root, and the preset's `mountSet` can mount the run elsewhere or not at
+root, and the preset's `runMount` can mount the run elsewhere or not at
 all. A key that nothing reads is logged as a warning. A route file holds
 no access setting: the roles of the routes are in the preset.
 
@@ -1687,7 +1687,7 @@ nyuRuns/
     schema/               the delivered tables and their migrations (.sql)
     mails/<language>/     the templates of the access mails
     keys/                 the token keys (local)
-  pages/                  the pages and static files of the sites (routings.htmlRoot)
+  pages/                  the pages and static files of the sites (dispatch.fileRoot)
   media/                  the project's media files, kept out of git
   temp/                   what the framework writes (local)
   test/                   the test suite (chapter 13)

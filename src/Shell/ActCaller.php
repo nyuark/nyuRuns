@@ -69,7 +69,7 @@ class ActCaller{
 		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
 		Logger::plugLogsConfig( $loadObj->logConfigArray() );
 		$rndrCnf = $loadObj->getRegistryKey('response');
-		$rteConf = $loadObj->getRegistryKey('routings');
+		$rteConf = $loadObj->getRegistryKey('dispatch');
 		$callLst = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrCnf) ? $rndrCnf : Array(), $loadObj->proxySetupConf() );
 		$rqstObj = $callLst[0];
 		$respObj = $callLst[1];

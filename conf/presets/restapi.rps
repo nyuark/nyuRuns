@@ -1,9 +1,9 @@
 {
 	"presetId": "restapi",
-	"describe": "Preset for a web API: Bearer tokens, with the login action left open",
+	"synopsis": "Preset for a web API: Bearer tokens, with the login action left open",
 	"settings": {
-		"fileType": "all",
-		"fileName": "any"
+		"confType": "all",
+		"confList": "any"
 	},
 	"security": { "required": true, "sessWith": "jwtToken", "sessConf": "jwtToken", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json"], "rteRoles": { "users/*": "sysadmin" } },
 	"incoming": [
@@ -13,7 +13,7 @@
 			"fieldSet": "all"
 		}
 	],
-	"routings": {
+	"dispatch": {
 		"detectBy": "autopath",
 		"pathForm": "$appToRun/$doAction/$argument"
 	},

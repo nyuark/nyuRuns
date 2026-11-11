@@ -111,7 +111,7 @@ checkIdentical('the preset files of the project are JSON with comment lines too'
 
 // The configuration loader reads its files through Dcmnt
 checkIdentical('config files: named in upper case; JSON keys upper-cased, INI keys as written', runCatchThrown(function(){
-	$cnfLoad = new nyu\Setup\Loader( Array('settings'=>Array('fileType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'conf', 'fileName'=>'database,system')) );
+	$cnfLoad = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'conf', 'confList'=>'database,system')) );
 	$cnfVals = $cnfLoad->retrieveConfig();
 	return Array(array_keys($cnfVals->readLinesArray()), array_keys((array)$cnfVals->readValueByKey('database')), array_slice(array_keys((array)$cnfVals->readValueByKey('system')), 0, 3));
 }), Array(Array('DATABASE', 'SYSTEM'), Array('DBENGINE', 'HOSTNAME', 'BASENAME', 'USERNAME', 'PASSWORD'), Array('ENV_NAME', 'LOG_MODE', 'LOG_PATH')));

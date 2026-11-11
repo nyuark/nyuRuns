@@ -1,7 +1,7 @@
 <?php
 
 // Setup\Loader : which configuration files of conf/ are loaded, depending on
-// the 'fileName' and 'fileType' keys of the preset's setup block.
+// the 'confList' and 'confType' keys of the preset's setup block.
 
 require __DIR__.'/../lib/harness.php';
 
@@ -36,14 +36,14 @@ foreach( scandir(TOP_DIR.DS.'conf') as $fleNme ){
 }
 sort($allCnfs);
 sort($iniCnfs);
-checkIdentical('fileName any: every file',            loadedCnf(Array('fileType'=>'all', 'fileName'=>'any')), $allCnfs);
-checkIdentical('fileName missing: every file',        loadedCnf(Array('fileType'=>'all')), $allCnfs);
-checkIdentical('fileName with one name',              loadedCnf(Array('fileType'=>'all', 'fileName'=>'system')), Array('SYSTEM'));
-checkIdentical('fileType keeps one extension',        loadedCnf(Array('fileType'=>'ini', 'fileName'=>'any')), $iniCnfs);
+checkIdentical('confList any: every file',            loadedCnf(Array('confType'=>'all', 'confList'=>'any')), $allCnfs);
+checkIdentical('confList missing: every file',        loadedCnf(Array('confType'=>'all')), $allCnfs);
+checkIdentical('confList with one name',              loadedCnf(Array('confType'=>'all', 'confList'=>'system')), Array('SYSTEM'));
+checkIdentical('confType keeps one extension',        loadedCnf(Array('confType'=>'ini', 'confList'=>'any')), $iniCnfs);
 
 // Config folder named by the preset
 $fxtFldr = 'test'.DS.'fixtures'.DS.'confenv';
-checkIdentical('folder: the files of another folder', loadedCnf(Array('fileType'=>'all', 'confPath'=>$fxtFldr)), Array('SECRETS'));
+checkIdentical('folder: the files of another folder', loadedCnf(Array('confType'=>'all', 'confPath'=>$fxtFldr)), Array('SECRETS'));
 
 /**
  * Reads one value of the fixture's secrets file, as a setup block loads it.
@@ -62,7 +62,7 @@ function loadedVal( Array $setupBlock, String $secretName ): Mixed {
 // Values written env:NAME : environment file first, then the environment of the process
 putenv('NYU_TEST_TOKEN=from-the-process');
 putenv('NYU_TEST_PROCESS=only-in-the-process');
-$envSetp = Array('fileType'=>'all', 'confPath'=>$fxtFldr, 'envsFile'=>'test'.DS.'fixtures'.DS.'test.env');
+$envSetp = Array('confType'=>'all', 'confPath'=>$fxtFldr, 'envrFile'=>'test'.DS.'fixtures'.DS.'test.env');
 checkIdentical('env: a plain value is kept',             loadedVal($envSetp, 'plain'), 'kept as written');
 checkIdentical('env: only a value starting with env: is replaced', loadedVal($envSetp, 'inside'), 'not at the start env:NYU_TEST_TOKEN');
 checkIdentical('env: value of the file, before the process', loadedVal($envSetp, 'token'), 'abc123');
@@ -72,7 +72,7 @@ checkIdentical('env: a commented line defines nothing',  loadedVal($envSetp, 'co
 checkIdentical('env: value of the process when the file has none', loadedVal($envSetp, 'process'), 'only-in-the-process');
 checkIdentical('env: an unknown name gives an empty value', loadedVal($envSetp, 'missing'), '');
 checkIdentical('env: values are replaced at any depth',  loadedVal($envSetp, 'nested'), Array('keys'=>Array('abc123', 'literal'), 'ttl'=>60));
-checkIdentical('env: without the file, the process is used', loadedVal(Array('fileType'=>'all', 'confPath'=>$fxtFldr, 'envsFile'=>'test'.DS.'fixtures'.DS.'none.env'), 'token'), 'from-the-process');
+checkIdentical('env: without the file, the process is used', loadedVal(Array('confType'=>'all', 'confPath'=>$fxtFldr, 'envrFile'=>'test'.DS.'fixtures'.DS.'none.env'), 'token'), 'from-the-process');
 
 /**
  * Reads the error level a value of ERR_LEVL gives, as system.ini hands it.
@@ -83,7 +83,7 @@ checkIdentical('env: without the file, the process is used', loadedVal(Array('fi
 function levelOf( Mixed $levelValue ): Mixed {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>($levelValue===null ? Array() : Array('ERR_LEVL'=>$levelValue))) );
 	return runCatchThrown(function(){
-		return (new Loader( Array('settings'=>Array('fileType'=>'none')) ))->errorConfigNum();
+		return (new Loader( Array('settings'=>Array('confType'=>'none')) ))->errorConfigNum();
 	});
 }
 

@@ -17,19 +17,19 @@ $axsText = "{\n"
 	."\t\"inline\":   { \"hmacSecr\": \"written-here-0123456789\", \"keysList\": [\"k-1\", \"k-2\"] }\n"
 	."}\n";
 $dbsText = "{\n\t\"main\": {\n\t\t\"dbEngine\": \"sqlitedb\",\n\t\t\"hostName\": \"\",\n\t\t\"baseName\": \"data.sqlite\",\n\t\t\"userName\": \"\",\n\t\t\"password\": \"env:NYU_DB_PASS\"\n\t}\n}\n";
-$rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"describe\": \"A preset of the tests\",\n\t\"settings\": { \"fileType\": \"all\", \"fileName\": \"any\" },\n"
+$rpsText = "{\n\t// Name of the preset\n\t\"presetId\": \"sample\",\n\t\"synopsis\": \"A preset of the tests\",\n\t\"settings\": { \"confType\": \"all\", \"confList\": \"any\" },\n"
 	."\t# Access\n\t\"security\": {\n\t\t// Carrier : \"sessWith\": \"httpBasc\" would be another\n\t\t\"sessWith\": \"jwtToken\",\n\t\t\"sessConf\": \"jwtToken\",\n\t\t\"authWith\":\t\"native\",\n\t\t\"required\": true,\n"
 	."\t\t\"openList\": [\"auth/login\", \"/hello\"],\n\t\t\"rteRoles\": { \"users/*\": \"sysadmin\", \"/admin/\$id\": \"operator\" }\n\t},\n"
 	."\t\"incoming\": [ { \"nameFrom\": \"QUERY\", \"dataFrom\": \"QUERY\", \"fieldSet\": \"all\" } ],\n"
-	."\t\"routings\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$appToRun/\$doAction/\$argument\", \"routeDir\": \"conf/routes\" },\n"
+	."\t\"dispatch\": { \"detectBy\": \"autopath\", \"pathForm\": \"\$appToRun/\$doAction/\$argument\", \"routeDir\": \"conf/routes\" },\n"
 	."\t\"response\": { \"outputAs\": \"jsonData\", \"headList\": { \"Cache-Control\": \"no-cache\" } }\n}\n";
 $rteText = '{ "hello": { "pointsTo": { "pageFile": "hello" } }, "admin/$id": { "mthdList": "GET, POST", "pointsTo": { "appToRun": "users", "doAction": "view" } },'
 	.' "old": { "pointsTo": { "redirect": "/hello", "httpCode": 301 } }, "things": { "pointsTo": { "GET": { "appToRun": "shows", "doAction": "overview" }, "POST": { "appToRun": "shows", "doAction": "create" } } } }';
 
 $projDir = makeProjectTxt('config', Array(
 	'conf/system.ini'=>$iniText, 'conf/access.json'=>$axsText, 'conf/database.json'=>$dbsText,
-	'conf/presets/sample.rps'=>$rpsText, 'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "fileType": "all" }, "security": { "required": false } }',
-	'conf/presets/wrongs.rps'=>'{ "presetId": "wrongs", "settings": { "fileType": "all" }, "security": { "sessWith": "jwtToken", "rteRoles": { "users/*": "boss" } } }',
+	'conf/presets/sample.rps'=>$rpsText, 'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false } }',
+	'conf/presets/wrongs.rps'=>'{ "presetId": "wrongs", "settings": { "confType": "all" }, "security": { "sessWith": "jwtToken", "rteRoles": { "users/*": "boss" } } }',
 	'conf/routes/main.rte'=>$rteText, 'runs/Shelf/routes.rte'=>'{ "board": { "mthdList": "GET", "pointsTo": { "doAction": "index" } } }',
 	'www/index.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner();\n", 'www/api.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner( \"default\", \$overLoad );\n",
 	'www/own.php'=>"<?php\n\$nyuRun = new \\nyu\\Runner(\$presetNm);\n", 'www/plain.php'=>"<?php echo 1;\n",
@@ -64,10 +64,10 @@ checkIdentical('write dbases keeps the layout of the file', Array(callShellArray
 
 // write : presets
 checkIdentical('write preset changes the value in its place, comments kept', Array(callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.sessWith', 'httpBasc'))['code'], fetchInProject($projDir, 'conf/presets/sample.rps')), Array(0, str_replace("\t\t\"sessWith\": \"jwtToken\"", "\t\t\"sessWith\": \"httpBasc\"", $rpsText)));
-checkIdentical('a value after a tab, a value that is not a text, a key of the preset itself', Array(callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.authWith', 'userFile'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.required', 'false'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.describe', 'Changed, "quoted"'))['code'], fetchInProject($projDir, 'conf/presets/sample.rps')),
-	Array(0, 0, 0, str_replace(Array("\t\t\"sessWith\": \"jwtToken\"", "\"authWith\":\t\"native\"", '"required": true', '"describe": "A preset of the tests"'), Array("\t\t\"sessWith\": \"httpBasc\"", "\"authWith\":\t\"userFile\"", '"required": false', '"describe": "Changed, \"quoted\""'), $rpsText)));
+checkIdentical('a value after a tab, a value that is not a text, a key of the preset itself', Array(callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.authWith', 'userFile'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.required', 'false'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.synopsis', 'Changed, "quoted"'))['code'], fetchInProject($projDir, 'conf/presets/sample.rps')),
+	Array(0, 0, 0, str_replace(Array("\t\t\"sessWith\": \"jwtToken\"", "\"authWith\":\t\"native\"", '"required": true', '"synopsis": "A preset of the tests"'), Array("\t\t\"sessWith\": \"httpBasc\"", "\"authWith\":\t\"userFile\"", '"required": false', '"synopsis": "Changed, \"quoted\""'), $rpsText)));
 checkIdentical('a list of a preset is not written, nor a key it does not have, nor a preset that does not exist', Array(callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.openList', 'x'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.security.signin', '/in'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample.input.fields', 'none'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'nosuch.security.required', 'true'))['code'], callShellArray($projDir, Array('settings', 'setValue', 'preset', 'sample', 'x'))['code']), Array(3, 3, 3, 3, 2));
-checkPregMatch('a write is traced, without its value', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Config: preset sample\.describe written by user "cli:[\w.\-]+"\n/');
+checkPregMatch('a write is traced, without its value', strval(fetchInProject($projDir, 'temp/logs/shell.log')), '/\[NOTICE\] Config: preset sample\.synopsis written by user "cli:[\w.\-]+"\n/');
 
 // entry
 checkIdentical('entry lists the entry points and their preset', runShellAsJson($projDir, Array('settings', 'wwwEntry'))['rows'] ?? null, Array(Array('entry'=>'api', 'preset'=>'default'), Array('entry'=>'index', 'preset'=>'default'), Array('entry'=>'own', 'preset'=>'default')));

@@ -81,11 +81,11 @@ if( isset($_SERVER['HTTP_X_TEST_ORIGNS']) ){
 	$overArr['response']['corsList'] = array_map('trim', explode(',', $_SERVER['HTTP_X_TEST_ORIGNS']));
 }
 if( isset($_SERVER['HTTP_X_TEST_ROUTES']) ){
-	$overArr['routings']['routeDir'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'routes';
-	$overArr['routings']['htmlRoot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'pages';
+	$overArr['dispatch']['routeDir'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'routes';
+	$overArr['dispatch']['fileRoot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'pages';
 }
 if( isset($_SERVER['HTTP_X_TEST_HTROOT']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_HTROOT']) ){
-	$overArr['routings']['htmlRoot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_HTROOT'];
+	$overArr['dispatch']['fileRoot'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_HTROOT'];
 }
 
 $useFxtr = isset($_SERVER['HTTP_X_TEST_RUNS']);

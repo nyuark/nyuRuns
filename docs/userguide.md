@@ -720,7 +720,7 @@ path and hands it to the action as its parameter.
 
 Once a run has its own routes file, that file is the only way in:
 `notes/view/1` gets a 404. The profile can mount a run elsewhere
-(`"mountSet": { "notes": "api/notes" }` in its `routings` block), or stop
+(`"runMount": { "notes": "api/notes" }` in its `dispatch` block), or stop
 serving it (`false`).
 
 ### 5.6 The roles

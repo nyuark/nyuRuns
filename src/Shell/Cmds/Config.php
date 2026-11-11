@@ -142,7 +142,7 @@ class Config extends Command{
 				$prstNme = basename(strval($rpsFil), '.rps');
 				try{
 					$cfgVals = $this->retrievePreset($prstNme);
-					$rowList[] = Array($prstNme, strval($cfgVals['presetId'] ?? ''), strval($cfgVals['describe'] ?? ''));
+					$rowList[] = Array($prstNme, strval($cfgVals['presetId'] ?? ''), strval($cfgVals['synopsis'] ?? ''));
 				}catch( \RuntimeException $e ){
 					$rowList[] = Array($prstNme, '', 'cannot be loaded: '.$e->getMessage());
 				}
@@ -631,7 +631,7 @@ class Config extends Command{
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
 		}
-		$rteConf = $loadObj->getRegistryKey('routings');
+		$rteConf = $loadObj->getRegistryKey('dispatch');
 		$rteConf = is_array($rteConf) ? $rteConf : Array();
 		$accConf = $loadObj->setAccessArray();
 		$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
