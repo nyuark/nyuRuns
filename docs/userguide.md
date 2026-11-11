@@ -131,7 +131,8 @@ suggests an answer, and Enter accepts it. For this guide, answer:
 | `Store of the users (nativeDb, userFile, none) [userFile]` | `nativeDb` | users go in a database, which the tutorial needs anyway |
 | `Database type (mysql_db, postgres, sqlitedb) [mysql_db]` | `sqlitedb` | SQLite: the database is just a file, no server needed |
 | `Database file [nyuRuns]` | `notes.sqlite` | the file, at the root of your project |
-| `Name of the standard account [teammate]`, then the `advanced` and `managers` ones | Enter, three times | the names this guide uses |
+| `Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]` | `full` | one account per role: the tutorial signs in as `powrDemo` too |
+| `Name of the standard account [userDemo]`, then the `advanced`, `delegate` and `managers` ones | Enter, four times | the names this guide uses |
 
 Then it handles everything else by itself:
 
@@ -151,9 +152,10 @@ written: .env NYU_MARK_KEY
 written: .env NYU_TFA_KEY
 Table users created.
 Users created. Their passwords are shown this once:
-Password of teammate (standard) (shown this once): 501dfc2edfd1d66323e4
-Password of engineer (advanced) (shown this once): f5f01d6b34b3427a48b6
-Password of sysAgent (managers) (shown this once): 586182c0d12ce1893394
+Password of userDemo (standard) (shown this once): 501dfc2edfd1d66323e4
+Password of powrDemo (advanced) (shown this once): f5f01d6b34b3427a48b6
+Password of deptDemo (delegate) (shown this once): 9c41e07a2d5b6f38e1a4
+Password of bossDemo (managers) (shown this once): 586182c0d12ce1893394
 ```
 
 Here's what just happened:
@@ -164,8 +166,10 @@ Here's what just happened:
   `conf/database.json` says where the database is. None of them ever gets
   committed.
 - **Token keys** were generated in `conf/keys`.
-- **Three users** were created, one per role: `teammate` (`standard`),
-  `engineer` (`advanced`) and `sysAgent` (`managers`). **Copy their passwords now**:
+- **Four users** were created, one per role: `userDemo` (`standard`),
+  `powrDemo` (`advanced`), `deptDemo` (`delegate`) and `bossDemo` (`managers`).
+  The simple version, the one `--noPrompt` takes, creates `userDemo` and
+  `bossDemo` alone. **Copy their passwords now**:
   you won't see them again, and you'll need them in the next steps. Yours
   will differ from the ones above.
 - **A health check** wraps it all up (3.5).
@@ -193,11 +197,11 @@ Ctrl+C to stop the server.
 
 ### 3.4 Send a first request
 
-Sign in as `teammate` with its password (on Windows PowerShell 5, type
+Sign in as `userDemo` with its password (on Windows PowerShell 5, type
 `curl.exe` instead of `curl`):
 
 ```
-curl -X POST http://localhost:8000/auth/login -d "userName=teammate&passWord=501dfc2edfd1d66323e4"
+curl -X POST http://localhost:8000/auth/login -d "userName=userDemo&passWord=501dfc2edfd1d66323e4"
 ```
 
 ```json
@@ -311,8 +315,8 @@ token (`others: logged`). The exceptions are
 signing in and what visitors do before they have an account: activating
 it, signing up, recovering a forgotten password. The `Users` run is for
 managers (the `managers` role) only. Try it on `curl http://localhost:8000/users/index`:
-without a token you get a 401, with `teammate`'s token a 404, and with
-`sysAgent`'s the list of users.
+without a token you get a 401, with `userDemo`'s token a 404, and with
+`bossDemo`'s the list of users.
 
 The other profiles are `service` (programs calling with an API key),
 `website` (a site with a session cookie), `statics` (pages and files
@@ -346,9 +350,10 @@ php nyuRun accounts fullList
 
 ```
 id_user  systemName  accessRole  userStatus  contactEml  userLocale  signupDate  createDate           accessDate
-2        engineer    advanced    approved                                        2026-11-10 01:13:00
-3        sysAgent    managers    approved                                        2026-11-10 01:13:00
-1        teammate    standard    approved                                        2026-11-10 01:13:00
+4        bossDemo    managers    approved                                        2026-11-10 01:13:00
+3        deptDemo    delegate    approved                                        2026-11-10 01:13:00
+2        powrDemo    advanced    approved                                        2026-11-10 01:13:00
+1        userDemo    standard    approved                                        2026-11-10 01:13:00
 ```
 
 | To | Run |
@@ -376,11 +381,11 @@ php nyuRun settings setValue accsConf nativeDb.mailAcnt devbox
 ```
 
 `devbox` is the third account in the example, and it saves each mail as a
-file in `temp/mails`. Now, signed in as `sysAgent`, create a user with an
+file in `temp/mails`. Now, signed in as `bossDemo`, create a user with an
 email address:
 
 ```
-curl -X POST http://localhost:8000/users/create -H "Authorization: Bearer <token of sysAgent>" -d "userName=bob&saveRole=standard&userMail=bob@example.org"
+curl -X POST http://localhost:8000/users/create -H "Authorization: Bearer <token of bossDemo>" -d "userName=bob&saveRole=standard&userMail=bob@example.org"
 ```
 
 ```json
@@ -442,9 +447,9 @@ php nyuRun maintain tailLogs access --numLines=3
 ```
 
 ```
-[2026-11-10 01:16] [NOTICE] Privileged login granted for user "sysAgent" (managers) from 127.0.0.1
-[2026-11-10 01:16] [NOTICE] Privileged access granted for user "sysAgent" (managers) from 127.0.0.1 to users/create
-[2026-11-10 01:16] [NOTICE] User "bob" created (standard) by user "sysAgent" from 127.0.0.1
+[2026-11-10 01:16] [NOTICE] Privileged login granted for user "bossDemo" (managers) from 127.0.0.1
+[2026-11-10 01:16] [NOTICE] Privileged access granted for user "bossDemo" (managers) from 127.0.0.1 to users/create
+[2026-11-10 01:16] [NOTICE] User "bob" created (standard) by user "bossDemo" from 127.0.0.1
 ```
 
 ### 4.8 From the users file to a database
@@ -752,28 +757,28 @@ php nyuRun settings fullList restapi
 
 ### 5.7 Try it
 
-Sign in as `teammate` and as `engineer` (3.4), and keep both tokens. Then add
+Sign in as `userDemo` and as `powrDemo` (3.4), and keep both tokens. Then add
 `-H "Authorization: Bearer <token>"` to each call:
 
 | Request | As | Reply |
 |---|---|---|
-| `GET /notes` | teammate | `204`: no note yet |
-| `POST /notes` with `name=Shopping` | teammate | `404 {"error":"Not Found","code":404}`: writing is for the staff |
-| `POST /notes` with `name=Shopping&text=Milk, bread` | engineer | `201 {"id_note":1}` |
-| `POST /notes` with `text=No name` | engineer | `400 {"error":"Missing or invalid input: name","code":400}` |
-| `GET /notes` | teammate | `200 [{"id_note":1,"noteName":"Shopping","noteText":"Milk, bread","noteUser":"engineer","madeDate":"2026-11-10 01:14:55"}]` |
-| `GET /notes?name=shop` | teammate | the notes whose name holds "shop" |
-| `GET /notes/1` | teammate | `200` the note |
-| `PATCH /notes/1` with `text=Milk, bread, eggs` | engineer | `200` the note, changed |
-| `DELETE /notes/1` | engineer | `204` |
-| `GET /notes/1` | teammate | `404` |
+| `GET /notes` | userDemo | `204`: no note yet |
+| `POST /notes` with `name=Shopping` | userDemo | `404 {"error":"Not Found","code":404}`: writing is for the staff |
+| `POST /notes` with `name=Shopping&text=Milk, bread` | powrDemo | `201 {"id_note":1}` |
+| `POST /notes` with `text=No name` | powrDemo | `400 {"error":"Missing or invalid input: name","code":400}` |
+| `GET /notes` | userDemo | `200 [{"id_note":1,"noteName":"Shopping","noteText":"Milk, bread","noteUser":"powrDemo","madeDate":"2026-11-10 01:14:55"}]` |
+| `GET /notes?name=shop` | userDemo | the notes whose name holds "shop" |
+| `GET /notes/1` | userDemo | `200` the note |
+| `PATCH /notes/1` with `text=Milk, bread, eggs` | powrDemo | `200` the note, changed |
+| `DELETE /notes/1` | powrDemo | `204` |
+| `GET /notes/1` | userDemo | `404` |
 | `GET /notes` | nobody | `401 {"error":"Missing Bearer Authorization header","code":401}` |
 
 For instance:
 
 ```
-curl -X POST http://localhost:8000/notes -H "Authorization: Bearer <token of engineer>" -d "name=Shopping&text=Milk, bread"
-curl -X PATCH http://localhost:8000/notes/1 -H "Authorization: Bearer <token of engineer>" -d "text=Milk, bread, eggs"
+curl -X POST http://localhost:8000/notes -H "Authorization: Bearer <token of powrDemo>" -d "name=Shopping&text=Milk, bread"
+curl -X PATCH http://localhost:8000/notes/1 -H "Authorization: Bearer <token of powrDemo>" -d "text=Milk, bread, eggs"
 ```
 
 When a user without the role is refused, they're told the URL doesn't exist, as if it

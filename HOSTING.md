@@ -26,9 +26,11 @@ php nyuRun installs allSteps
 
 It checks the server, creates the local files from their examples (`.env`,
 `conf/access.json`, `conf/database.json`), makes the secrets that are still
-empty, creates the users, and ends on the health check. It asks the name of
-each basic account, one per role (`teammate`, `engineer` and `sysAgent` are
-proposed; `--noPrompt` takes them). Run again, it replaces nothing that exists.
+empty, creates the users, and ends on the health check. It asks which basic
+accounts to create, the simple version (`userDemo`, `bossDemo`) or the full one,
+one per role (`userDemo`, `powrDemo`, `deptDemo`, `bossDemo`), then the name of
+each, those proposed; `--noPrompt` takes the simple version with those names.
+Run again, it replaces nothing that exists.
 
 ```bash
 php nyuRun installs checkAll

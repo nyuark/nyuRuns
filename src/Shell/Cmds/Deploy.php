@@ -37,7 +37,7 @@ class Deploy extends Command{
 	const DIST_LIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist');
 	// The basic users, and the role of each
 	// The basic accounts, one per role: the name proposed for each, asked when they are created
-	const USER_LIST = Array('teammate'=>'standard', 'engineer'=>'advanced', 'sysAgent'=>'managers');
+	const USER_LIST = Array('userDemo'=>'standard', 'powrDemo'=>'advanced', 'deptDemo'=>'delegate', 'bossDemo'=>'managers');
 	// The stores the users can be created in, and 'none' for a project without users of its own
 	const STOR_LIST = Array('nativeDb', 'userFile', 'none');
 	// The block a store of users is given in conf/access.json when it has none
@@ -700,8 +700,8 @@ class Deploy extends Command{
 				return;
 			}
 		}
-		// The accounts come in the order of USER_LIST, one per role
-		$acntLst = array_combine( array_keys($passLst), array_values(self::USER_LIST) );
+		// The accounts come in the order of USER_LIST: all of them, or its first and last (the simple version)
+		$acntLst = array_combine( array_keys($passLst), (count($passLst)==count(self::USER_LIST)) ? array_values(self::USER_LIST) : array_merge(array_slice(array_values(self::USER_LIST), 0, 1), array_slice(array_values(self::USER_LIST), -1)) );
 		$this->traceShellDone('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys($acntLst)).')');
 		$this->printerObj->printShellLine('Users created. Their passwords are shown this once:');
 		foreach( $acntLst as $usrNme => $usrRle ){
@@ -714,16 +714,23 @@ class Deploy extends Command{
 	}
 
 	/**
-	 * Asks the name of each basic account, one per role, the one of
-	 * USER_LIST proposed: Enter alone, or --noPrompt, takes it.
+	 * Asks which basic accounts to create, the simple version (the first
+	 * and the last of USER_LIST: the lowest role and the managers) or the
+	 * full one (one per role), then the name of each, the one of USER_LIST
+	 * proposed: Enter alone takes it. --noPrompt takes the simple version
+	 * with the names proposed.
 	 *
 	 * @return Array The role of each account, by its name, in the order of USER_LIST.
 	 *
-	 * @throws ShellStop When a name is not one a user can have, or two accounts are given one name.
+	 * @throws ShellStop When the version is neither simple nor full, a name is not one a user can have, or two accounts are given one name.
 	 */
 	protected function queryUsersList(): Array {
 		$acntLst = Array();
-		foreach( self::USER_LIST as $usrNme => $usrRle ){
+		$gvnName = strtolower(trim( $this->queryAnswerTxt('Accounts to create: simple ('.implode(' and ', array_keys(array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true))).') or full ('.implode(', ', array_keys(self::USER_LIST)).')', 'simple') ));
+		if( !in_array($gvnName, Array('simple', 'full'), true) ){
+			$this->terminateShell('No user created: '.json_encode($gvnName).' is neither simple nor full', self::EXIT_DENY);
+		}
+		foreach( ($gvnName=='full') ? self::USER_LIST : array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true) as $usrNme => $usrRle ){
 			$gvnName = $this->queryAnswerTxt('Name of the '.$usrRle.' account', $usrNme);
 			if( !preg_match(\nyu\Access\Auth\UserBase::NAME_RULE, $gvnName) || in_array(strtolower($gvnName), \nyu\Access\Auth\UserBase::NAME_DENY, true) ){
 				$this->terminateShell('No user created: '.json_encode($gvnName).' is not a name a user can have', self::EXIT_DENY);

@@ -40,8 +40,8 @@ php nyuRun installs allSteps
 ```
 
 `installs allSteps` asks where your users should live (`userFile` for a
-file, `nativeDb` for a database) and what to call the three basic users,
-one per role. It creates your local settings and secrets, adds those users
+file, `nativeDb` for a database), whether to create two basic users or one
+per role, and what to call them. It creates your local settings and secrets, adds those users
 and shows their passwords once, then finishes with a health check.
 
 Serve it with PHP's built-in web server, from `www`:
@@ -54,7 +54,7 @@ php -S localhost:8000 index.php
 Then sign in:
 
 ```
-curl -X POST http://localhost:8000/auth/login -d "userName=teammate&passWord=<its password>"
+curl -X POST http://localhost:8000/auth/login -d "userName=userDemo&passWord=<its password>"
 ```
 
 ```json

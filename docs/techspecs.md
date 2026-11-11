@@ -180,7 +180,7 @@ reverse proxy, TLS, `php.ini`) is covered in `HOSTING.md`.
 
 A new project needs no database. Its example access config signs users in
 through a users file (`conf/users.lst`), which `php nyuRun installs userBase`
-creates with three basic users, one per role. The application only ever
+creates with its basic users: two (the lowest role and the managers), or one per role. The application only ever
 reads that file. When users need to change their own password, receive
 their codes by mail, sign up on their own, or hold devices, one command
 moves them to a users table in a database:
