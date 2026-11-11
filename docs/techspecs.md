@@ -1035,6 +1035,8 @@ The inputs of an action are declared in `runs/<App>/input/<action>.json`:
 Each field is named with its format (one of `Tools\Variable`). A `!` after
 the name makes it required, and an empty format keeps it as sent. An
 unknown format stops the request with a 500 (400 for a required field).
+An action without this file gets no input; `{ "fieldSet": "all" }` keeps
+every input as the preset built them.
 
 ### 6.10 Other files
 
@@ -1371,8 +1373,8 @@ the request: a run only pays for the models its action uses.
 ### 8.6 Inputs
 
 Each action declares its inputs in `input/<action>.json` (6.9). An action
-without a definition receives the inputs as the preset built them, so
-declare every action, even one that takes none (`{ "fieldSet": {} }`).
+without a definition gets no input: the inputs are closed by default.
+`{ "fieldSet": "all" }` is the opt-in that keeps every input the preset built.
 
 ### 8.7 The runs delivered
 

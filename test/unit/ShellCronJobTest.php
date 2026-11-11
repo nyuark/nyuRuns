@@ -22,8 +22,8 @@ $runVals = callShellArray($projDir, Array('cronjob', 'probe/identify', '--preset
 checkIdentical('the role a preset asks for applies', Array($runVals['code'], $runVals['errs'], runShellAsJson($projDir, Array('cronjob', 'probe/identify', '--presetId=secure', '--roleName=managers'))['reply']['logged'] ?? null), Array(3, "403 Forbidden\n", true));
 $inpVals = runShellAsJson($projDir, Array('cronjob', 'forms/transmit', 'name=Ann', 'filters[search]=jazz', 'other=dropped'))['reply'] ?? Array();
 checkIdentical('the inputs go through the definition of the action', Array($inpVals['NAME'] ?? null, $inpVals['FILTERS'] ?? null, array_key_exists('OTHER', $inpVals)), Array('Ann', Array('search'=>'jazz'), false));
-$inpVals = runShellAsJson($projDir, Array('cronjob', 'forms/freeForm', 'b=2', '--bodyFrom=-'), '{"a": 1, "b": 1}')['reply'] ?? Array();
-checkIdentical('inputs read as JSON, the words written over them', Array($inpVals['A'] ?? null, $inpVals['B'] ?? null), Array(1, '2'));
+$inpVals = runShellAsJson($projDir, Array('cronjob', 'forms/transmit', 'name=Bo', '--bodyFrom=-'), '{"seats": 3, "name": "Ann"}')['reply'] ?? Array();
+checkIdentical('inputs read as JSON, the words written over them', Array($inpVals['SEATS'] ?? null, $inpVals['NAME'] ?? null), Array(3, 'Bo'));
 checkIdentical('what is not an input, or not an action', Array(callShellArray($projDir, Array('cronjob', 'forms/freeForm', 'novalue'))['code'], callShellArray($projDir, Array('cronjob', 'forms'))['code'], callShellArray($projDir, Array('cronjob', 'forms/freeForm', '--httpVerb=FETCH'))['code'], callShellArray($projDir, Array('cronjob', 'forms/freeForm', '--bodyFrom='.$projDir.DS.'nofile.json'))['code']), Array(2, 2, 2, 2));
 $runVals = callShellArray($projDir, Array('cronjob', 'probe/stopping/fail'));
 checkIdentical('a refusal of the action is told, with its exit code', $runVals, Array('code'=>3, 'text'=>"{\"error\":\"Stopped early\",\"code\":404}\n", 'errs'=>"404 Stopped early\n"));

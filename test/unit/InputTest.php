@@ -123,7 +123,8 @@ $formOut = Array('NAME'=>'Ann', 'MAIL'=>'ann@example.org', 'SEATS'=>12, 'SINCE'=
 checkIdentical('an action with a definition gets its fields, formatted', formsCall('transmit', $formArr), Array(200, $formOut));
 checkIdentical('the action asked for in another case gets the same definition', formsCall('TRANSMIT', $formArr), Array(200, $formOut));
 checkIdentical('the default action gets its definition too', formsCall('', $formArr), Array(200, $formOut));
-checkIdentical('an action without a definition keeps the inputs as the preset built them', formsCall('freeForm', Array('name'=>'<b>Ann</b>', 'extra'=>'kept')), Array(200, Array('NAME'=>'<b>Ann</b>', 'EXTRA'=>'kept')));
+checkIdentical('an action without a definition gets no input', formsCall('freeForm', Array('name'=>'<b>Ann</b>', 'extra'=>'kept')), Array(200, Array()));
+checkIdentical('{"fieldSet": "all"} keeps every input the preset built', runCatchThrown(function(){ return (new Controller( 'probe', 'userPass', new Registry(Array('user'=>'a', 'pass'=>'b')) ))->retrieveStatus(); }), Array('code'=>401, 'mssg'=>'Credentials read'));
 checkPregMatch('a definition naming a format that does not exist stops the run', formsCall('noFormat', $formArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat"/');
 checkPregMatch('a file that is not a definition stops the run', formsCall('badInput', $formArr), '/THROWN.*Input misconfigured: Forms\/input\/badInput\.json is not a definition of fields/');
 checkIdentical('an action that does not exist reads no file', formsCall('../send', $formArr)[0], 404);

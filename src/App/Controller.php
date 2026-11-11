@@ -132,7 +132,8 @@ class Controller{
 	 * Applies the definition of the action's inputs, when the application
 	 * has one in input/<action>.json: the fields it lists are kept, each
 	 * given its format, and the others are left out (see Tools\Input).
-	 * Without that file, the inputs stay as the preset built them. A
+	 * Without that file, the action gets no input: { "fieldSet": "all" } in
+	 * it is the way to keep every input the preset built. A
 	 * field the definition requires ('name!') that is missing or empty
 	 * refuses the request: a 400 naming the fields, through retrieveStatus().
 	 *
@@ -146,6 +147,8 @@ class Controller{
 		$actnNme = $this->actionsObj->getMethod($this->keptAction)->getName();
 		$defPath = $this->appsFolder.DS.'input'.DS.$actnNme.'.json';
 		if( !is_file($defPath) ){
+			// No definition, no input : an action takes only what it declares
+			$this->inputsRgst = new Registry( Array() );
 			return;
 		}
 		$fldDefs = json_decode( strval(file_get_contents($defPath)), true );
