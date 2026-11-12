@@ -128,7 +128,9 @@ createSampleDb( inTemporaryDir('pairs.sqlite') );
 plugConf();
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('pairs.sqlite'));
 $dvcAuth = new nyu\Access\Auth\Device( Array() );
-$phonTkn = strval($dvcAuth->pushDeviceText('anna', 'Phone', 'app'));
+// The phone is capped at the role of its user; the tablet, made without a cap, at standard
+$phonTkn = strval($dvcAuth->pushDeviceText('anna', 'Phone', 'app', 'managers'));
+$tbltTkn = strval($dvcAuth->pushDeviceText('anna', 'Tablet', 'app'));
 $annaTkn = strval((new Native(Array()))->makeToknString('anna'));
 
 // clntCert x nativeDb : the certificate names the user, the table tells whether it is let in, and its role
@@ -140,7 +142,8 @@ checkIdentical('clntCert x nativeDb: the user of the certificate is stamped as s
 $sqlLink->exec("UPDATE users SET accessDate=NULL");
 
 // device : a check of keys, which knows its users through its tokens only
-checkIdentical('apiHeadr x dvcToken: the token of a device, with the role of its user', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'managers'));
+checkIdentical('apiHeadr x dvcToken: the token of a device capped at its user\'s role, with that role', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn)), Array(200, '', 'anna', 'managers'));
+checkIdentical('apiHeadr x dvcToken: the token of a device made without a cap, as standard', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$tbltTkn)), Array(200, '', 'anna', 'standard'));
 checkIdentical('apiHeadr x dvcToken: the personal token of the user is not a device', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$annaTkn)), Array(401, 'Invalid API key', '', null));
 checkIdentical('apiHeadr x nativeDb: the token of a device is not a personal token', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$phonTkn)), Array(401, 'Invalid API key', '', null));
 checkIdentical('httpBasc x dvcToken: a check of tokens takes no password: the pair refuses every request', pairReply('httpBasc', 'dvcToken', basicHead('anna', $phonTkn)), Array(500, 'Access misconfigured', '', null));
@@ -152,7 +155,8 @@ $rolConf = Array('minRoles'=>Array('shows/*'=>'advanced'));
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
 checkIdentical('role: httpBasc x nativeDb, by the role of the table', Array(pairReply('httpBasc', 'nativeDb', basicHead('ben', 'pw-ben'), Array(), $rolConf, $anyRoute), pairReply('httpBasc', 'nativeDb', basicHead('anna', 'pw-anna'), Array(), $rolConf, $anyRoute)), Array(Array(404, 'Not Found', 'ben', 'standard'), Array(200, '', 'anna', 'managers')));
 checkIdentical('role: apiHeadr x nativeDb, the personal token has the role of its user', pairReply('apiHeadr', 'nativeDb', Array('X-Api-Key'=>$annaTkn), Array(), $rolConf, $anyRoute)[0], 200);
-checkIdentical('role: apiHeadr x dvcToken, the device has the role of its user', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
+checkIdentical('role: apiHeadr x dvcToken, a device capped at its user\'s role has that role', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], 200);
+checkIdentical('role: apiHeadr x dvcToken, a device made without a cap acts as standard', pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$tbltTkn), Array(), $rolConf, $anyRoute)[0], 404);
 checkIdentical('role: clntCert x nativeDb, by the role of the table', Array(pairReply('clntCert', 'nativeDb', Array(), certVals('ben'), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 200));
 $sqlLink->exec("UPDATE users SET accessRole='standard' WHERE systemName='anna'");
 checkIdentical('role: a role taken back applies to the device and the certificate at once', Array(pairReply('apiHeadr', 'dvcToken', Array('X-Api-Key'=>$phonTkn), Array(), $rolConf, $anyRoute)[0], pairReply('clntCert', 'nativeDb', Array(), certVals('anna'), $rolConf, $anyRoute)[0]), Array(404, 404));
