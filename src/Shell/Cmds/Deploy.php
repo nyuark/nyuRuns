@@ -8,6 +8,10 @@ use nyu\Access\Auth\Device as DeviceAuth;
 use nyu\Access\Auth\Native;
 use nyu\Data\DBCon;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
+use nyu\Data\Mail\Drivers\PHMail;
+use nyu\Data\Mail\MailFailure;
+use nyu\Data\Mail\Mailer;
+use nyu\Data\Mail\Message;
 use nyu\Setup\ConfCache;
 use nyu\Shell\Command;
 use nyu\Shell\ConfFile;
@@ -28,6 +32,7 @@ use nyu\Shell\UserFile;
  *                                      the devices table too when conf/access.json has a device block
  *   php nyuRun install checkAll         the health check
  *   php nyuRun install moveUser native  moves the users to the other store (native or userFile), the login with them
+ *   php nyuRun install testMail <address>   sends a test mail through the account of the access mails
  *
  * Nothing that exists is replaced: a local file, a secret, a table or a
  * file that already holds users are left as they are.
@@ -35,7 +40,7 @@ use nyu\Shell\UserFile;
 class Deploy extends Command{
 
 	// The local files, and the example each is created from
-	const DIST_LIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist');
+	const DIST_LIST = Array('.env'=>'.env.example', 'conf/access.json'=>'conf/access.json.dist', 'conf/database.json'=>'conf/database.json.dist', 'conf/mailer.json'=>'conf/mailer.json.dist');
 	// The basic users, and the role of each
 	// The basic accounts, one per role: the name proposed for each, asked when they are created
 	const USER_LIST = Array('userDemo'=>'standard', 'powrDemo'=>'advanced', 'deptDemo'=>'delegate', 'bossDemo'=>'managers');
@@ -65,12 +70,13 @@ class Deploy extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ|openSite>] [--useStore=<nativeDb|userFile|none>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
+			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ|openSite>] [--useStore=<nativeDb|userFile|none>] [--sendWith=<selfSmtp|phpMailr|emlFiles|none>] [--signupOn] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
 			'testHost'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
-			'makeConf'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json and conf/database.json from their examples; none is replaced'),
+			'makeConf'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json, conf/database.json and conf/mailer.json from their examples; none is replaced'),
 			'userBase'=>Array('args'=>'[block] [--useStore=<nativeDb|userFile>]', 'about'=>'creates the users table and the basic users (nativeDb), or the users file (userFile); the devices table with a device block'),
 			'checkAll'=>Array('args'=>'', 'about'=>'health check: presets, access, secrets, databases, users, unsafe settings'),
-			'moveUser'=>Array('args'=>'<nativeDb|userFile> [--dropsAll] [--yesToAll]', 'about'=>'moves the users to the other store and points the login at it; the store left is kept as it is')
+			'moveUser'=>Array('args'=>'<nativeDb|userFile> [--dropsAll] [--yesToAll]', 'about'=>'moves the users to the other store and points the login at it; the store left is kept as it is'),
+			'testMail'=>Array('args'=>'[address]', 'about'=>'sends a test mail through the account nativeDb.mailAcnt names; nothing is changed')
 		);
 	}
 
@@ -91,6 +97,13 @@ class Deploy extends Command{
 		$this->makeLocalFiles( Array('.env', 'conf/access.json') );
 		$projKnd = $this->queryProfilTxt();
 		$storNme = $this->querySetupsTxt($projKnd);
+		// The access mails are those of the native userbase : asked right after its store, and of no other
+		$mailTyp = strval( $this->optionsObj->retrieveOption('sendWith', '') );
+		if( $storNme=='nativeDb' ){
+			$mailTyp = $this->queryMailerTxt();
+		}elseif( $mailTyp!=='' && strcasecmp($mailTyp, 'none')!=0 ){
+			$this->terminateShell('The access mails need the native userbase (nativeDb): --sendWith does not apply', self::EXIT_HELP);
+		}
 		// The secrets that are still empty are made; those in use are left alone
 		$confCmd = new Config($this->optionsObj, $this->printerObj, $this->readStream);
 		// An open site logs nobody in : it needs no secret
@@ -123,8 +136,25 @@ class Deploy extends Command{
 		$this->queryDoorsList($projKnd);
 		// A config cache brought along, or left by a former installation, is not the config of this one
 		ConfCache::clearConfCache();
-		$this->traceShellDone('Deploy: installation run as '.$projKnd.', users in '.$storNme);
+		$this->traceShellDone('Deploy: installation run as '.$projKnd.', users in '.$storNme.( $storNme=='nativeDb' ? ', access mails '.$mailTyp : '' ));
 		return $this->showCheckCount();
+	}
+
+	/**
+	 * Sends a short test mail through the account the native userbase
+	 * names for its access mails ('mailAcnt'), to the address given, asked
+	 * when it is missing, and tells whether it went or why not. Nothing is
+	 * changed; the mail is logged on 'runner' as any other.
+	 *
+	 * @return Int EXITDONE when the mail went, EXITFAIL otherwise.
+	 */
+	public function invokeTestMail(): Int {
+		$gvnAddr = strval($this->optionsObj->shiftFirstWord() ?? '');
+		$gvnAddr = ($gvnAddr!=='') ? $gvnAddr : $this->queryAnswerTxt('Send the test mail to');
+		if( $gvnAddr==='' ){
+			$this->terminateShell('Missing argument: the address the test mail is sent to', self::EXIT_HELP);
+		}
+		return $this->sendsTestEmail($gvnAddr) ? self::EXIT_DONE : self::EXIT_FAIL;
 	}
 
 	/**
@@ -931,6 +961,193 @@ class Deploy extends Command{
 		$tokenConfObj->publFile = $publNme;
 		$tokenConfObj->external = true;
 		unset($tokenConfObj->privFile, $tokenConfObj->hmacSecr);
+	}
+
+	/**
+	 * Asks the access mails, right after the native userbase is chosen:
+	 * whether they are sent, through which type of account, the account
+	 * (see queryAccntConf), the front-end link of the mails, whether the
+	 * sign-ups are open, and an address a test mail is sent to. --sendWith
+	 * answers the first two beforehand ('none' for no mail), --signupOn the
+	 * sign-ups; --noPrompt alone takes 'none'. Without mails nothing is
+	 * written: 'mailAcnt' stays as it is, and the codes are given in the
+	 * replies. The 'phpMailr' type is proposed only when PHPMailer is
+	 * installed.
+	 *
+	 * @return String The type of the account the mails go through, 'none' when they are not sent.
+	 *
+	 * @throws ShellStop When the type is not one proposed, the account cannot be written, or the link is not one.
+	 */
+	protected function queryMailerTxt(): String {
+		$typeLst = array_keys(Mailer::TYPE_LIST);
+		if( !class_exists(PHMail::MAIL_CLSS) ){
+			$typeLst = array_values( array_diff($typeLst, Array('phpMailr')) );
+		}
+		$yesList = Array('y', 'yes');
+		$typeNme = strval( $this->optionsObj->retrieveOption('sendWith', '') );
+		if( $typeNme==='' ){
+			if( !in_array(strtolower($this->queryAnswerTxt('Send the access mails (activation, reset, sign-ups)? (yes/no)', 'no')), $yesList, true) ){
+				return 'none';
+			}
+			$typeNme = $this->queryAnswerTxt('Mail account type ('.implode(', ', $typeLst).')', $typeLst[0]);
+		}
+		if( strcasecmp($typeNme, 'none')==0 ){
+			return 'none';
+		}
+		// Matched whatever its letter case, kept as the list writes it
+		foreach( array_keys(Mailer::TYPE_LIST) as $oneCod ){
+			$typeNme = (strcasecmp($oneCod, $typeNme)==0) ? $oneCod : $typeNme;
+		}
+		if( !isset(Mailer::TYPE_LIST[$typeNme]) ){
+			$this->terminateShell('Not a type of mail account: '.$typeNme, self::EXIT_DENY);
+		}
+		if( !in_array($typeNme, $typeLst, true) ){
+			$this->terminateShell('A phpMailr account needs the PHPMailer library, which is not installed (composer require phpmailer/phpmailer)', self::EXIT_DENY);
+		}
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$lgnConf = $this->accessSettings('loginSet');
+		$blckNme = ( strval($lgnConf['authWith'] ?? '')=='nativeDb' ) ? strval($lgnConf['authConf'] ?? 'nativeDb') : 'nativeDb';
+		$nowAcnt = $this->accessSettings($blckNme)['mailAcnt'] ?? '';
+		$acntNme = $this->queryAccntConf( $wrtrObj, $typeNme, is_string($nowAcnt) ? $nowAcnt : '' );
+		$treeObj = $wrtrObj->importJsonsObj($accPath);
+		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
+			$treeObj->$blckNme = (object)self::STOR_CONF['nativeDb'];
+		}
+		$blckNod = $treeObj->$blckNme;
+		$lnkTmpl = $this->queryAnswerTxt('Front-end link of the mails (empty for none)', is_string($blckNod->linkTmpl ?? null) ? $blckNod->linkTmpl : '');
+		if( $lnkTmpl!=='' && ( !preg_match('#^https?://[^\s]+$#Di', $lnkTmpl) || strpos($lnkTmpl, '%sentCode%')===false ) ){
+			$this->terminateShell('Not a front-end link: an http(s) address holding %sentCode% (and %mailKind%, %userName% as needed)', self::EXIT_DENY);
+		}
+		$blckNod->mailAcnt = $acntNme;
+		$blckNod->linkTmpl = $lnkTmpl;
+		$blckNod->signupOn = $this->optionsObj->validateOption('signupOn') || in_array(strtolower($this->queryAnswerTxt('Open the sign-ups? (yes/no)', 'no')), $yesList, true);
+		$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		Console::loadConfigLogs();
+		$this->traceShellDone('Deploy: access mails sent through the account '.json_encode($acntNme).' ('.$typeNme.'), sign-ups '.( $blckNod->signupOn ? 'open' : 'closed' ));
+		$tstAddr = $this->queryAnswerTxt('Send a test mail to (empty for none)');
+		if( $tstAddr!=='' ){
+			// A test mail that does not go is told, and the installation goes on
+			$this->sendsTestEmail($tstAddr);
+		}
+		return $typeNme;
+	}
+
+	/**
+	 * Asks the mail account of the access mails and writes it in
+	 * conf/mailer.json, under the name asked ('nyuRuns' proposed): the
+	 * server, its port, the user and the password for an account that
+	 * sends ('selfSmtp', 'phpMailr'), then the sender for every type. Each
+	 * value is proposed as the account in use has it. The password is typed
+	 * hidden, kept in the file of the secrets, and only named in the
+	 * account; Enter alone keeps the present one. A file made here holds
+	 * that account alone; in a file that exists, the other accounts are
+	 * left as they are. An 'emlFiles' account keeps its mails in temp/mails.
+	 *
+	 * @param ConfFile $writerObject The writer of config files.
+	 * @param String   $sendWithCode Type of the account: 'selfSmtp', 'phpMailr' or 'emlFiles'.
+	 * @param String   $accountLabel Name of the account the access mails go through now, '' when none.
+	 * @return String The name of the account written.
+	 *
+	 * @throws ShellStop When the file holds one account without a name, or the server, the port, the sender or the name is not one.
+	 */
+	protected function queryAccntConf( ConfFile $writerObject, String $sendWithCode, String $accountLabel ): String {
+		$mailPth = TOP_DIR.DS.'conf'.DS.'mailer.json';
+		$treeObj = is_file($mailPth) ? $writerObject->importJsonsObj($mailPth) : new \stdClass();
+		$nowVals = Array();
+		foreach( get_object_vars($treeObj) as $oneKey => $oneVal ){
+			if( strcasecmp($oneKey, 'sendWith')==0 ){
+				$this->terminateShell('No mail account written: conf/mailer.json holds one account without a name; put it under a name first', self::EXIT_DENY);
+			}
+			if( $accountLabel!=='' && strcasecmp($oneKey, $accountLabel)==0 && is_object($oneVal) ){
+				$nowVals = array_change_key_case( get_object_vars($oneVal), CASE_LOWER );
+			}
+		}
+		$nowVals = array_map( 'strval', array_filter($nowVals, 'is_scalar') );
+		$sendsIt = ($sendWithCode!='emlFiles');
+		$noAsked = $this->optionsObj->validateOption('noPrompt');
+		if( $sendsIt && $noAsked && ($nowVals['hostname'] ?? '')==='' ){
+			$this->terminateShell('No mail account written: a '.$sendWithCode.' account needs its mail server, which --noPrompt cannot ask', self::EXIT_DENY);
+		}
+		$acntSet = array_fill_keys(Mailer::KEYS_LIST, '');
+		$acntSet['sendWith'] = $sendWithCode;
+		if( $sendsIt ){
+			$acntSet['hostName'] = $this->queryAnswerTxt('Mail server host', $nowVals['hostname'] ?? '');
+			$acntSet['portNumb'] = $this->queryAnswerTxt('Port (465 or 587)', ($nowVals['portnumb'] ?? '')!=='' ? $nowVals['portnumb'] : '587');
+			if( $acntSet['hostName']==='' || !preg_match('/^\d{1,5}$/D', $acntSet['portNumb']) ){
+				$this->terminateShell('No mail account written: a '.$sendWithCode.' account needs the host of its mail server, and a port number', self::EXIT_DENY);
+			}
+			$acntSet['userName'] = $this->queryAnswerTxt('Mail user', $nowVals['username'] ?? '');
+			$nowPass = $nowVals['password'] ?? '';
+			$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_MAIL_PASS';
+			$gvnPass = $noAsked ? '' : $this->querySecretTxt('Mail password (Enter keeps the present one)');
+			if( $gvnPass!=='' ){
+				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envName, $gvnPass);
+			}
+			// Never the password itself : the account names where it is kept
+			$acntSet['passWord'] = ($gvnPass!=='' || $nowPass==='') ? 'env:'.$envName : $nowPass;
+			$acntSet['waitSecs'] = ($nowVals['waitsecs'] ?? '')!=='' ? $nowVals['waitsecs'] : '10';
+		}
+		$acntSet['fromAddr'] = $this->queryAnswerTxt('Sender address', ($nowVals['fromaddr'] ?? '')!=='' ? $nowVals['fromaddr'] : ( $sendsIt ? '' : 'no-reply@example.com' ));
+		try{
+			Message::checkEmailAddr($acntSet['fromAddr']);
+		}catch( MailFailure $e ){
+			$this->terminateShell('No mail account written: the sender address is not one ('.$e->getMessage().')', self::EXIT_DENY);
+		}
+		$acntSet['fromName'] = $this->queryAnswerTxt('Sender name', ($nowVals['fromname'] ?? '')!=='' ? $nowVals['fromname'] : 'nyuRuns');
+		$acntSet['copiesTo'] = $nowVals['copiesto'] ?? '';
+		$acntNme = $this->queryAnswerTxt('Name of the mail account', ($accountLabel!=='') ? $accountLabel : 'nyuRuns');
+		if( !preg_match('/^\w+$/D', $acntNme) ){
+			$this->terminateShell('No mail account written: '.json_encode($acntNme).' is not a name of account (letters, digits, underscores)', self::EXIT_DENY);
+		}
+		// An account of that name, whatever its case, is the one replaced
+		$nameKey = $acntNme;
+		foreach( array_keys(get_object_vars($treeObj)) as $oneKey ){
+			$nameKey = (strcasecmp(strval($oneKey), $acntNme)==0) ? strval($oneKey) : $nameKey;
+		}
+		$treeObj->$nameKey = (object)$acntSet;
+		$writerObject->saveJsonConfig($mailPth, $treeObj);
+		$this->printerObj->printShellLine('Mail account '.$nameKey.' ('.$sendWithCode.') written in conf/mailer.json.');
+		$this->traceShellDone('Deploy: mail account '.json_encode($nameKey).' ('.$sendWithCode.') written in conf/mailer.json');
+		return $nameKey;
+	}
+
+	/**
+	 * Sends a short test mail through the account the native userbase
+	 * names for its access mails, and tells whether it went or why not. An
+	 * 'emlFiles' account writes it as a file, which is told. Nothing is
+	 * changed; the Mailer logs it on 'runner'.
+	 *
+	 * @param String $emailAddress Address the test mail is sent to.
+	 * @return Bool Whether the mail went.
+	 *
+	 * @throws ShellStop When the native userbase names no mail account.
+	 */
+	protected function sendsTestEmail( String $emailAddress ): Bool {
+		// The config as it is now written, and no mailer built from a former one
+		Console::loadConfigLogs();
+		Mailer::clearMailCache();
+		$lgnConf = $this->accessSettings('loginSet');
+		$blckNme = ( strval($lgnConf['authWith'] ?? '')=='nativeDb' ) ? strval($lgnConf['authConf'] ?? 'nativeDb') : 'nativeDb';
+		$acntNme = $this->accessSettings($blckNme)['mailAcnt'] ?? '';
+		if( !is_string($acntNme) || $acntNme==='' ){
+			$this->terminateShell('No test mail sent: the native userbase names no mail account ("mailAcnt" of the '.$blckNme.' block)', self::EXIT_DENY);
+		}
+		$typeNme = '';
+		try{
+			$typeNme = Mailer::acntSetupArray($acntNme)['sendWith'];
+			$mailObj = Mailer::retrieveMailer($acntNme);
+			$bodyTxt = 'This is a test mail of nyuRuns, sent by "php nyuRun install testMail" through the mail account '.$acntNme.'.'."\n\n".'Receiving it means the access mails (activation, reset, sign-ups) can be sent.'."\n";
+			$failTxt = $mailObj->deliverEmlFlag($emailAddress, 'nyuRuns test mail', $bodyTxt) ? null : $mailObj->finalErrorText();
+		}catch( MailFailure $e ){
+			$failTxt = $e->getMessage();
+		}
+		if( $failTxt!==null ){
+			$this->printerObj->printShellFail('Test mail not sent to '.$emailAddress.' through the account '.$acntNme.': '.$failTxt);
+			return false;
+		}
+		$this->printerObj->printShellLine( (strcasecmp($typeNme, 'emlFiles')==0) ? 'Test mail to '.$emailAddress.' written as a file by the account '.$acntNme.' (emlFiles): nothing was sent.' : 'Test mail sent to '.$emailAddress.' through the account '.$acntNme.'.' );
+		return true;
 	}
 
 	/**

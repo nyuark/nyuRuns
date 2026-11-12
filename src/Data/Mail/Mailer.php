@@ -26,6 +26,8 @@ class Mailer {
 	protected $accountNme;
 	protected $setupArray;
 	protected $mailDriver;
+	// Why the last mail was not sent, '' when it was
+	protected $failReason = '';
 
 	/**
 	 * Builds the mailer of an account.
@@ -136,6 +138,7 @@ class Mailer {
 		$channel = Logger::retrieveLogger('runner');
 		$acntTxt = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);
 		$failTxt = $this->mailDriver->deliverMessage( $mailObj, $mailObj->listRecipients() );
+		$this->failReason = strval($failTxt ?? '');
 		if( $failTxt!==null ){
 			$channel->warning('Mail not sent to '.json_encode($mailObj->listRecipients()).' through account '.$acntTxt.': '.$failTxt.Logger::getActorSuffix());
 			return false;
@@ -150,5 +153,14 @@ class Mailer {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Tells why the last mail was not sent.
+	 *
+	 * @return String The reason the mail server or the driver gave, '' when the last mail was sent.
+	 */
+	public function finalErrorText(): String {
+		return $this->failReason;
 	}
 }
