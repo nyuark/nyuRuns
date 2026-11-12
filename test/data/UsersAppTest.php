@@ -121,15 +121,19 @@ function statusOf( Mixed $actnResult ): Mixed {
 Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 plugConf();
 
-// Who may call : a logged user of the highest role, and nobody else
-foreach( Array('index', 'view', 'create', 'lock', 'unlock', 'role', 'remove', 'reset', 'approve', 'setmail') as $actNme ){
+// Who may call : a delegate reads the users and approves the sign-ups, a manager does everything, nobody else
+foreach( Array('index', 'view', 'create', 'lock', 'unlock', 'role', 'remove', 'reset', 'approve', 'setmail', 'langs') as $actNme ){
 	$inptArr = Array('userName'=>'ben', 'saveRole'=>'advanced');
 	checkIdentical('guard: users/'.$actNme.' refused to a member', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, 'ben', 'standard')), Array(404, 'Not Found'));
 	checkIdentical('guard: users/'.$actNme.' refused to the system role', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, 'dave', 'advanced')), Array(404, 'Not Found'));
 	checkIdentical('guard: users/'.$actNme.' refused when nobody is logged', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, '', '')), Array(404, 'Not Found'));
+	if( !in_array($actNme, Array('index', 'view', 'approve'), true) ){
+		checkIdentical('guard: users/'.$actNme.' refused to a delegate', statusOf(callActn('users/'.$actNme.'/ben', $inptArr, 'deby', 'delegate')), Array(404, 'Not Found'));
+	}
 }
+checkIdentical('guard: a delegate reads the users, and one of them', Array(callActn('users/index', Array(), 'deby', 'delegate', 'GET')['code'] ?? null, callActn('users/view/ben', Array(), 'deby', 'delegate', 'GET')['out']['systemName'] ?? null), Array(200, 'ben'));
 checkIdentical('guard: a refusal changed nothing', $sqlLink->query("SELECT systemName, accessRole, userStatus FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'managers', 'approved'), Array('ben', 'standard', 'approved'), Array('dave', 'advanced', 'disabled')));
-checkPregMatch('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(standard\) from 192\.0\.2\.50 to users\/index: role managers needed/');
+checkPregMatch('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(standard\) from 192\.0\.2\.50 to users\/index: role delegate needed/');
 checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/setupForAction', Array(), 'anna', 'managers')), statusOf(callActn('users/givenUsrString', Array(), 'anna', 'managers'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 plugConf('htpasswd');
 checkIdentical('guard: a login on another credential check', statusOf(callActn('users/index', Array(), 'anna', 'managers', 'GET')), Array(500, 'User management unavailable'));
@@ -287,8 +291,8 @@ checkIdentical('signup: a name or an address that is not one', Array(statusOf(ca
 $outcome = callActn('auth/active', Array('userName'=>'ivan', 'sentCode'=>strval($mailLst[0]['code'] ?? ''), 'passWord'=>'pass-ivan-1'), '', '');
 checkIdentical('signup: confirmed, it awaits review', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('active'=>false, 'stat'=>'inReview')));
 checkIdentical('signup: listed by its status', array_column(callActn('users/index', Array('currStat'=>'inReview'), 'anna', 'managers', 'GET')['out'] ?? Array(), 'systemName'), Array('ivan'));
-$outcome = callActn('users/approve/ivan', Array());
-checkIdentical('approve: active', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ivan', 'stat'=>'approved')));
+$outcome = callActn('users/approve/ivan', Array(), 'deby', 'delegate');
+checkIdentical('approve: by a delegate, active, its role left as it is', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null, $sqlLink->query("SELECT accessRole FROM users WHERE systemName='ivan'")->fetchColumn()), Array(200, Array('user'=>'ivan', 'stat'=>'approved'), 'standard'));
 checkIdentical('approve: only a user in review', statusOf(callActn('users/approve/ivan', Array())), Array(409, 'User not awaiting review'));
 // The language of the mails : the one of the request for the one who asks, the one of the owner for an address taken
 $GLOBALS['acptLang'] = 'fr-CH, fr;q=0.9';

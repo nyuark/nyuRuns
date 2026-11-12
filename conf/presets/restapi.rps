@@ -5,7 +5,7 @@
 		"confType": "all",
 		"confList": "any"
 	},
-	"security": { "required": true, "carrWith": "jwtToken", "carrConf": "jwtToken", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json"], "minRoles": { "users/*": "managers" } },
+	"security": { "required": true, "carrWith": "jwtToken", "carrConf": "jwtToken", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json"], "minRoles": { "users/*": "delegate", "users/create": "managers", "users/remove": "managers", "users/role": "managers", "users/setmail": "managers", "users/langs": "managers", "users/lock": "managers", "users/unlock": "managers", "users/reset": "managers" } },
 	"inputSet": [
 		{
 			"sourceId": "QUERY",

@@ -5,7 +5,7 @@
 		"confType": "all",
 		"confList": "any"
 	},
-	"security": { "required": true, "carrWith": "phpSessn", "carrConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/login", "/assets/*"], "signPath": "/login", "minRoles": { "users/*": "managers" } },
+	"security": { "required": true, "carrWith": "phpSessn", "carrConf": "phpSessn", "authWith": "nativeDb", "authConf": "nativeDb", "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/login", "/assets/*"], "signPath": "/login", "minRoles": { "users/*": "delegate", "users/create": "managers", "users/remove": "managers", "users/role": "managers", "users/setmail": "managers", "users/langs": "managers", "users/lock": "managers", "users/unlock": "managers", "users/reset": "managers" } },
 	"inputSet": [
 		{
 			"sourceId": "QUERY",

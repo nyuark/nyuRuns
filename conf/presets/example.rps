@@ -70,7 +70,8 @@
         // A logged user without the role gets a 404, as for no route; a route cannot also be in "openList".
         // A check that gives no role (htpasswd; regdKeys; a certificate without a store)
         // gives the role standard: a higher role needs a store ("authWith": "nativeDb" or "userFile")
-		"minRoles": { "users/*": "managers" }
+        // Below: a delegate reads the users and approves the sign-ups; each action changing an account is named to stay managers
+		"minRoles": { "users/*": "delegate", "users/create": "managers", "users/remove": "managers", "users/role": "managers", "users/setmail": "managers", "users/langs": "managers", "users/lock": "managers", "users/unlock": "managers", "users/reset": "managers" }
 	},
 	// Sources of the inputs given to the applications; without this block they get none
 	"inputSet": [

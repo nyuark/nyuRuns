@@ -9,14 +9,20 @@ use \nyu\Access\Auth\UserBase;
 
 /**
  * Manages the users of the native userbase (see Access\Auth\UserBase),
- * the one the 'loginSet' block of the ACCESS config file names. Every
- * action is kept for the users of the highest role (see setupForAction);
- * the routes of routes.rte name the user in the path and set the methods.
+ * the one the 'loginSet' block of the ACCESS config file names. A
+ * delegate reads the users and approves the sign-ups (ACTN_ROLE); every
+ * other action, and any one added later, is kept for the users of the
+ * highest role (see setupForAction). Approving a sign-up leaves its role
+ * as it is (standard). The routes of routes.rte name the user in the path
+ * and set the methods.
  * A refusal of the userbase is reported with its own status: 400 for a
  * value that is not valid, 404 for an unknown user, 409 for a change the
  * state of the user does not allow.
  */
 class Actions extends Actionset {
+
+	// The actions asking for less than the highest role, with the one each asks for; any other, and any added later, asks for the highest
+	const ACTN_ROLE = Array('index'=>'delegate', 'view'=>'delegate', 'approve'=>'delegate');
 
 	// The native userbase, opened for the action by setupForAction()
 	protected $userBaseDb;
@@ -232,15 +238,16 @@ class Actions extends Actionset {
 
 	/**
 	 * Opens every action: ends it with a 404 unless the request comes from a
-	 * logged user of the highest role of Checker::ROLE_LIST (see
-	 * needsActionRle), and with a 500 when the login does not use the native
+	 * logged user of the role the action asks for, the one ACTN_ROLE gives it
+	 * or else the highest of Checker::ROLE_LIST (see needsActionRle), and with
+	 * a 500 when the login does not use the native
 	 * userbase, which it keeps for the action. The role is asked for here
 	 * whatever the preset does: a 'minRoles' entry of its 'security' block
 	 * only refuses the request earlier. The methods are the routes' (routes.rte):
 	 * another one is answered 405 before the action is reached.
 	 */
 	protected function setupForAction(): Void {
-		$this->needsActionRle( array_slice(Checker::ROLE_LIST, -1)[0] );
+		$this->needsActionRle( self::ACTN_ROLE[strtolower($this->actionName)] ?? array_slice(Checker::ROLE_LIST, -1)[0] );
 		$usrBase = UserBase::fromLoginBlock();
 		if($usrBase===null){
 			$this->stopThisAction(500, 'User management unavailable');
