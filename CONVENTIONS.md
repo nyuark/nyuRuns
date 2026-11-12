@@ -4,20 +4,20 @@ The naming and coding conventions of nyuRuns. The `audit` group of the tests che
 
 ## Naming
 
-All names are `camelCase` with a fixed length, except classes, which are `PascalCase` with no limit, and constants.
+All names are `camelCase` with a fixed length, except classes, which are `PascalCase` with no limit, and constants. This file gives the lengths; the grammar of every name is in `NAMERULES.md`: slots, verbs, kind terms, glossary.
 
-| Element                          | Length | Example              |
-|----------------------------------|--------|----------------------|
-| Method                           | 14     | `overSetupLoads()`   |
-| Method parameter                 | 12     | `$addedEntries`      |
-| Class property                   | 10     | `$accessConf`        |
-| Local variable inside a method   | 7      | `$endDate`           |
-| Loop variable                    | 6      | `$oneRow`, `$rowIdx` |
-| Class constant                   | 9      | `KEYS_LIST`          |
-| Action method (runs/*/Actions)   | free   | `login()`            |
+| Element                                       | Length | Example              |
+|-----------------------------------------------|--------|----------------------|
+| Method                                        | 14     | `overSetupLoads()`   |
+| Method parameter                              | 12     | `$addedEntries`      |
+| Class property                                | 10     | `$accessConf`        |
+| Local variable inside a method                | 8      | `$fileName`          |
+| Loop variable (`one` + item, or `nth` + item) | 6      | `$oneRow`, `$nthRow` |
+| Class constant                                | 9      | `KEYS_LIST`          |
+| Action method (runs/*/Actions)                | free   | `login()`            |
 
 - A constant is in upper case, `XXXX_YYYY`, one underscore after the 4th character.
-- A name is built of whole short words: full words first, then the verb shortened before the noun, a noun shortened only by its glossary form; it starts with the role of the value and ends with what it is (`$requiredRole`, `$accessRgst`, `$addedEntries`).
+- How a name is built (its slots, the verbs, the kind terms, the short forms of the glossary) is in `NAMERULES.md`, sections 1 to 5.
 
 Exempt from the length rules:
 - Action methods in `runs/*/Actions.php` (`index`, `view`, `login`, ...): the method name is the URL segment; the audit leaves their length free.
