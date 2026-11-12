@@ -92,13 +92,13 @@ checkIdentical('a file parsed as JSON on request, keys kept as written', runCatc
 	$docFile->parseFileBytes('json', false);
 	return $docFile->readFileDetail();
 }), Array('shows/list'=>Array('GET'=>'shows/index')));
-checkIdentical('the route files of the project are read that way', runCatchThrown(function(){
-	// A route file the project ships, named : a file left in the folder by hand does not change the check
-	$rteFile = TOP_DIR.DS.'conf'.DS.'routes'.DS.'general.rte';
+checkIdentical('a route file as a project declares it is read that way', runCatchThrown(function(){
+	// A route file of the test's own, in a folder no router reads : the route files a project delivers may be empty
+	$rteFile = TST_DIR.DS.'fixtures'.DS.'routes'.DS.'dcmnt'.DS.'declared.rte';
 	$docFile = new Dcmnt($rteFile);
 	$docFile->parseFileBytes('json', false);
-	return Array(is_file($rteFile), is_array($docFile->readFileDetail()) && !empty($docFile->readFileDetail()));
-}), Array(true, true));
+	return Array(is_file($rteFile), array_keys((array)$docFile->readFileDetail()), $docFile->readFileDetail()['shows/$id']['pointsTo']['DELETE'] ?? null);
+}), Array(true, Array('shows/list', 'shows/$id'), Array('appToRun'=>'shows', 'doAction'=>'remove')));
 checkIdentical('the preset files of the project are JSON with comment lines too', runCatchThrown(function(){
 	$rpsOkay = Array();
 	foreach( glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps') as $rpsFle ){

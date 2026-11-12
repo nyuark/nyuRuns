@@ -1,0 +1,7 @@
+{
+	"shows/list" :   { "mthdList": "GET", "pointsTo": { "appToRun": "shows", "doAction": "index" } },
+	"shows/$id" :    { "pointsTo": {
+		"GET":    { "appToRun": "shows", "doAction": "view" },
+		"DELETE": { "appToRun": "shows", "doAction": "remove" }
+	} }
+}
