@@ -1,0 +1,29 @@
+# Command line
+
+The commands of `php nyuRun`, their sub-commands and options.
+
+## Commands
+- The commands are `install`, `setting`, `testing`, `cleanup`, `showlog`, `cronjob`, `account`, `devices`, `bundles`, `appkeys`, `makerun` (`Console::CMDS_LIST`); their words and options are matched whatever their letter case, and every listing sub-command is `fullList`.
+- A sub-command runs the method `invoke` + its name (`invokeFullList`), or the method it names under `call` in `subsTableArray()`; that method is given the word of the sub-command. A command with no sub-command (`testing`, `showlog`, `cronjob`) has a single entry under `''`, with its `call`.
+
+## install
+- `php nyuRun install complete` first asks what the project is (`Deploy::KIND_LIST`); `--projKind` answers it, `--noPrompt` takes `allInOne`. No key stores it: the install writes the blocks of `access.json` (and the presets, for an open site), and `install checkAll` reads the profile back (`profile` row). `allInOne`: users, login and data in one project. `authServ`: RS256 with its pair, `issuerId` (the host name suggested) and `audience` asked; a store is required. `dataServ`: no store and no users; the authentication server's public key copied into `conf/keys/<block>.pub` and named by `publFile` alone with `"external": true`, `issuerId` and `audience` asked, a `loginSet` without `authWith`, its login answering 501. `openSite`: no store, accounts or secrets, a `loginSet` without `authWith`; each preset of the map is opened (`"required": false`, `"isPublic": true`), never one that can reach an action (`Router::reachesActions()`). `--useStore` is refused by `dataServ` and `openSite`, the store `none` by `authServ`. Run again with a store, the install closes the presets of an open map marked `isPublic` (`"required": true`, `isPublic` removed) and names them. checkAll fails `profile` when an open site's preset can reach an action, and warns when the blocks make none of the four, or when an `authServ` or `dataServ` lacks `issuerId` or `audience`, or a `dataServ` its key file.
+
+## setting
+- `setting showConf` and `setting setValue` name their file `coreConf` (system.ini), `accsConf` (access.json), `dataConf` (database.json) or `psetConf` (a preset).
+
+## bundles
+- `php nyuRun bundles <mode>` copies an allow-list of the project (`Bundle::KEEP_LIST`), without what `DROP_LIST` names, to `dist/<mode>` (ignored by git) or the empty folder `--destPath` names; `--archived` adds its `.tar.gz`, `--planOnly` lists without writing. The settings of the mode are written in the `system.ini` of the copy: `local` (DEVS), `stage` (PREV), `final` (PROD, `LOG_MODE = MINI`), run through `generateBundle` as the modes of a project. A copy for PREV or PROD (`Bundle::MAPS_ENVS`) gets `CNF_CACH = TRUE` and a complete, authoritative class map, made by Composer in it (`--composer`, else `composer.phar` at the root, else the `PATH`); without Composer it is told, and the bundle keeps the project's autoloader.
+- A project declares its own modes (integration or preview servers) in `conf/bundle.lst` with `bundles fullList`, `makeMode`, `dropMode`, named freely (lower-case letters or digits, of any length), neither a mode of the framework nor a sub-command, with its environment as `ENV_NAME` (`DEVS`, `TEST`, `PREV`, `PROD`), asked by `makeMode`: each holds `settings` (keys of `system.ini`) and `addPaths` (paths copied beyond the allow-list), and is built as the others are.
+- The project's autoloader holds a class map of `src` and `vendor` (`optimize-autoloader` in composer.json), not authoritative: after moving or renaming a class, run `composer dump-autoload`.
+
+## makerun
+- `php nyuRun makerun crudlRun <App>` asks the database (SQL only), the table, its primary key, the fields and their format, the actions (`index`, `view`, `create`, `update`, `remove`), the child tables holding `<singular>_id`, the least role and the mount; it writes `runs/<App>/runspec.json`, then `routes.rte`, `Actions.php` (no `$dfltAction`) and an input file per action. `fromSpec` writes it again, a file that exists replaced only when agreed (`--yesToAll`); `fullList` lists the Runs with a spec. Every file written is traced on `shell`; the `minRoles` line is printed for the preset. `bundles` leaves `runspec.json` out. `Controller::clearRunFoldrs()` forgets the Run folders read, after a Run is written.
+
+## showlog and cronjob
+- `php nyuRun showlog <channel>` shows the last lines of a log channel (`--numLines`, `--watching` to follow it); `php nyuRun cronjob <app/action[/param]> [name=value ...]` calls an action of a run as the user `cli:<system user>`, with the role `advanced` unless `--roleName` gives another (`--bodyFrom`, `--httpVerb`, `--presetId`, `--saveInto`).
+
+## account, devices and appkeys
+- `php nyuRun account approves [user]` approves a sign-up, or lists those in `inReview`; `account setEmail <user> [address]` sets or removes an address; `account language <user> [language]` shows, sets or removes (`''`) a language, `--language` gives one at `account makeUser`; `account setTwoFa` shows the authenticator's address as a QR code (`--noQrCode` leaves it out); `--emailOtp` has the user give a mailed code instead.
+- `php nyuRun devices newToken <name> <user> <role> [--roleTops=<role>]` gives a device a token and its cap, `standard` when not given; a cap above the user's current role, or that is not a role, is refused, never lowered. `devices fullList` shows the cap; `revokeIt` revokes a device. `deviceRole` is the application's label: the framework reads none.
+- `php nyuRun appkeys makeKeys|fullList|setRoute|revokeIt` manages the `appsKeys` block (`--routeSet`, `--publFile`, `--roleTops`): a key is shown once, only its hash is stored, a revoked key is refused from the next request. Every change is traced on `shell`.
