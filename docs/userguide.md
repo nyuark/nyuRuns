@@ -428,6 +428,18 @@ The mail is waiting in `temp/mails`, code included, and
 first account of `mailer.json` with your SMTP server, put its password in
 `.env` (`NYU_MAIL_PASS`), and name that account in `nativeDb.mailAcnt`.
 
+You don't have to do it by hand: with the native userbase,
+`php nyuRun install complete` asks whether to send the access mails, then
+your SMTP server, the sender, the front-end link and whether sign-ups are
+open, and writes it all (the password lands in `.env`, never in
+`mailer.json`). Either way, check the account really sends:
+
+```
+php nyuRun install testMail you@example.org
+```
+
+It tells you whether the mail went, or why not, and changes nothing.
+
 Once mails work, two more doors open:
 
 - **Forgotten passwords** work right away: `auth/forgot`, then
@@ -1070,6 +1082,7 @@ and the server in [`HOSTING.md`](../HOSTING.md).
 
 - [ ] A real mail account sits in `mailer.json`, with its password in
       `.env`, and `nativeDb.linkTmpl` is an `https` URL of your front end.
+- [ ] `php nyuRun install testMail <your address>` got a mail to you.
 - [ ] The limit on wrong attempts stays on (`tryLimit` in `access.json`).
 - [ ] You have at least two managers, since a manager can't reset, lock or
       remove their own account.

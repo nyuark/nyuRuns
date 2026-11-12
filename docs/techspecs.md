@@ -254,7 +254,10 @@ A user activated or reset by a manager needs a code to choose a password.
 Without a mail account, the code comes back in the reply to the manager
 (through the application or the command line), who passes it on. Sign-ups
 and the resets users ask for themselves are then closed (404). With a mail
-account, users of the native userbase get their codes directly:
+account, users of the native userbase get their codes directly.
+`install complete` asks all of this once the native userbase is chosen
+(the account, the link, the sign-ups), and `install testMail <address>`
+checks the account sends:
 
 - Name an account of `conf/mailer.json` in the `mailAcnt` key of the
   `nativeDb` block. A mailed code lasts `codeMins` minutes (15). One handed
@@ -1117,12 +1120,13 @@ like the same change made over HTTP.
 
 | Sub-command | Does |
 |---|---|
-| `complete` | the whole installation: the profile of the project asked first (`allInOne`, `authServ`, `dataServ`, `openSite`; `--projKind` answers it), the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `allInOne` among them, `--useStore` picks the store) |
+| `complete` | the whole installation: the profile of the project asked first (`allInOne`, `authServ`, `dataServ`, `openSite`; `--projKind` answers it), the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `allInOne` among them, `--useStore` picks the store). With the native userbase, the access mails are asked after the store: sent or not, the mail account written in `mailer.json`, `linkTmpl`, `signupOn`, a test mail (`--sendWith=<selfSmtp\|phpMailr\|emlFiles\|none>` and `--signupOn` answer beforehand; `--noPrompt` takes `none`) |
 | `testHost` | checks the server: PHP, its extensions, the folders written |
-| `makeConf` | makes `.env`, `access.json` and `database.json` from their examples |
+| `makeConf` | makes `.env`, `access.json`, `database.json` and `mailer.json` from their examples |
 | `userBase` | creates the users table and the basic users, or the users file; the devices table with a `dvcToken` block |
 | `checkAll` | the health check: each row `fine`, `warn` or `fail`; exit code 4 on a `fail` |
 | `moveUser <nativeDb\|userFile>` | moves the users to the other store, and the login with them (`--dropsAll`, `--yesToAll`) |
+| `testMail [address]` | sends a test mail through the account `nativeDb.mailAcnt` names, and tells whether it went or why not; nothing is changed |
 
 Nothing that exists is replaced: a file, a secret, a table, a store that
 holds users.

@@ -753,7 +753,10 @@ php nyuRun bundles final ──▶ copy ────────▶ php nyuRun i
    extensions, makes the
    local settings from their examples, makes any missing secrets and token
    keys, creates the users (a users file, or database tables), and runs
-   the health check. It asks for what it needs, suggesting a default for
+   the health check. With users in a database, it also asks whether to send
+   the access mails (activation, reset, sign-ups), through which mail
+   account, and whether sign-ups are open; a test mail can be sent at once,
+   or later with `install testMail`. It asks for what it needs, suggesting a default for
    each question, and a deployment script can skip all of them. Nothing
    that already exists is replaced.
 3. **Configure**: `setting` shows and changes the settings. Each value is

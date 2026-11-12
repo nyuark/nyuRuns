@@ -32,6 +32,13 @@ one per role (`userDemo`, `powrDemo`, `deptDemo`, `bossDemo`), then the name of
 each, those proposed; `--noPrompt` takes the simple version with those names.
 Run again, it replaces nothing that exists.
 
+With the native userbase (`nativeDb`), it asks the access mails right after
+the store: whether they are sent (no by default), the type of the mail
+account, the account itself, the front-end link, whether the sign-ups are
+open, and an address to send a test mail to (§15). `--sendWith=<type>`
+(`none` for no mail) and `--signupOn` answer beforehand; `--noPrompt` alone
+takes `none` and no sign-ups. No other store is asked them.
+
 Its first question is what the project is; `--projKind=<kind>` answers it
 beforehand, and `--noPrompt` takes `allInOne`. No setting keeps the answer:
 the install writes the blocks of `conf/access.json` the profile needs, and
@@ -520,6 +527,32 @@ the replies, to be handed over, as before.
 "nativeDb": { ..., "mailAcnt": "nyuRuns", "signupOn": false, "codeMins": 15, "linkTmpl": "https://app.example.ch/access?do=%mailKind%&user=%userName%&code=%sentCode%" }
 ```
 
+`php nyuRun install complete` asks all of it once the native userbase is
+chosen, and writes the answers:
+
+| Question | Written |
+|---|---|
+| Send the access mails? (no by default) | no: `mailAcnt` stays as it is, nothing else is asked |
+| Mail account type | `sendWith`: `selfSmtp` (proposed), `phpMailr` (offered only when PHPMailer is installed) or `emlFiles` |
+| Mail server host, port (465 or 587), user, password | `selfSmtp` and `phpMailr` only. The password goes to `.env` as `NYU_MAIL_PASS`; the account holds `"passWord": "env:NYU_MAIL_PASS"`, never the password itself |
+| Sender address, sender name | `fromAddr`, `fromName`; an `emlFiles` account keeps its mails in `temp/mails` |
+| Name of the mail account (`nyuRuns` proposed) | the account in `conf/mailer.json`, named in `nativeDb.mailAcnt` |
+| Front-end link of the mails | `nativeDb.linkTmpl` |
+| Open the sign-ups? (no by default) | `nativeDb.signupOn` |
+| Send a test mail to | sends it at once, as `install testMail` does |
+
+- A `conf/mailer.json` made by the install holds that account alone; in a file
+  that exists, the account is written and the others are left as they are.
+  `install makeConf` makes the file from `conf/mailer.json.dist`, with its
+  three example accounts, to fill in by hand.
+- `--sendWith=<selfSmtp|phpMailr|emlFiles|none>` and `--signupOn` answer
+  beforehand. With `--noPrompt`, an account that sends must already be in
+  `conf/mailer.json`: its server cannot be asked.
+- **Before going live**, run `php nyuRun install testMail <address>`: it sends
+  a short test mail through the account `nativeDb.mailAcnt` names, and tells
+  whether it went or why not (exit code 1). It changes nothing, and is logged on
+  `runner` as any other mail. An `emlFiles` account writes the mail as a file,
+  which is told.
 - `codeMins` is the minutes a mailed code lasts (15 by default). A code handed
   over by a manager lasts 300 minutes; `account makeUser` and
   `account resetPwd` take `--noExpiry` for one with no end, on the command
