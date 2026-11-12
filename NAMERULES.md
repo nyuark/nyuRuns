@@ -222,5 +222,6 @@ A word written short in fewer than 10 names today gets its form, if it needs one
 - **The rename scripts live in a repository of their own** (decided 2026-11-12), outside nyuRuns: the map builder, the apply step and the vocabulary builder. They read nyuRuns' tree and this file; nyuRuns keeps only the audit.
 - **Every step is built by a developer from prompts** (decided 2026-11-12), this file included, and validated on its commits.
 - **The whole renaming lands in 1.0** (decided 2026-11-12): the rules, the audit, the map, its review and the rename area by area, before the public release.
+- **The rename is applied on a branch of its own**, `naming-0C06`, area by area, and merged whole once the full suite is green on it, never halfway. The rules (this file) and the audit in report mode go to `master` first: they break nothing.
 
 Step 0 is closed, and so are the locals, the verbs (section 3), the kind terms (section 4) and the glossary (section 5), all on 2026-11-12. Next: the mechanics of the renaming (the audit first, then the map, then the rename area by area).
