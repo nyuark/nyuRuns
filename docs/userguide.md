@@ -127,7 +127,7 @@ Each one suggests an answer, and Enter accepts it. For this guide, answer:
 
 | Question | Answer | Why |
 |---|---|---|
-| `What this project is (allInOne, authServ, dataServ) [allInOne]` | Enter | users, sign-in and notes all live in this one project |
+| `What this project is (allInOne, authServ, dataServ, openSite) [allInOne]` | Enter | users, sign-in and notes all live in this one project |
 | `Environment (DEVS, TEST, PREV, PROD) [DEVS]` | Enter | you're developing: errors are shown and everything is logged |
 | `Store of the users (nativeDb, userFile, none) [userFile]` | `nativeDb` | users go in a database, which the tutorial needs anyway |
 | `Database type (mysql_db, postgres, sqlitedb) [mysql_db]` | `sqlitedb` | SQLite: the database is just a file, no server needed |
@@ -192,8 +192,15 @@ already exists, be it a file, a secret, a table or a user.
 > asks for the authentication server's public key file
 > (`conf/keys/jwtToken.pub` over there), its issuer, and this project's name
 > in the audience. Their own sign-in answers 501: users sign in on the
-> authentication server. `install checkAll` tells which of the three a
-> project is, in its `profile` row.
+> authentication server. `install checkAll` tells which profile a project
+> is, in its `profile` row.
+
+> Just a site, with nothing to sign in to? Answer `openSite`. No users, no
+> accounts, no secrets: the install serves the `statics` preset, your pages
+> and files, open to everyone. It never opens a preset that could run an
+> action, so a Run you add later won't go public behind your back. If you
+> later run the install again with a store of users, it closes the presets
+> it had opened, and tells you which ones.
 
 ### 3.3 Serve it
 

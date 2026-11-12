@@ -289,17 +289,23 @@ tokens gets the public key alone: it issues none, and its login answers
 there for a project made of a single application.
 
 That split is the profile `install complete` asks first, and
-`install checkAll` reads back from `conf/access.json` (`profile` row): no
-setting stores it.
+`install checkAll` reads back from `conf/access.json` and the map of the
+presets served (`profile` row): no setting stores it.
 
 | Profile | Written by the install | Told by the check when |
 |---|---|---|
 | `allInOne` | as before: the store, the database, the accounts, the token keys | — |
 | `authServ` | as `allInOne`, plus RS256 with its key pair, the `issuerId` (the host name suggested) and the `audience` (the projects accepting its tokens) | it has no `issuerId` or no `audience` |
 | `dataServ` | no store and no users; the authentication server's public key copied into `conf/keys/<block>.pub`, named by `publFile` alone with `"external": true`, its `issuerId`, the `audience` naming this project, and a `loginSet` without `authWith` | it has no `issuerId` or no `audience`, or its public key file is missing |
+| `openSite` | no store, no accounts, no secrets, a `loginSet` without `authWith`; the map suggests `/=statics`, and each of its presets is opened (`"required": false`, `"isPublic": true`), never one that can reach an action | fails when an open preset of the map can reach an action (a declared route to an action, or the automatic paths with a Run not closed by its routes); warns when a preset of the map checks access |
 
-A public key alone beside a users' store makes none of the three, and is
-told too. The copied key doesn't follow the authentication server: when
+A public key alone beside a users' store makes none of the four, and is
+told too. `statics` serves no Run: `"runMount": { "*": false }`, where `*`
+names every Run without a line of its own. When the install gives an open
+site a store, the presets of its map marked `isPublic` are closed again
+(`"required": true`, `isPublic` removed) and named. Without
+`conf/access.json`, a preset that checks access answers 500
+`Access misconfigured`. The copied key doesn't follow the authentication server: when
 that server makes new keys, copy the new public key again, and its
 previous one (`<block>.old.pub`) as `prevFile` meanwhile (HOSTING.md §8).
 
@@ -1111,7 +1117,7 @@ like the same change made over HTTP.
 
 | Sub-command | Does |
 |---|---|
-| `complete` | the whole installation: the profile of the project asked first (`allInOne`, `authServ`, `dataServ`; `--projKind` answers it), the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `allInOne` among them, `--useStore` picks the store) |
+| `complete` | the whole installation: the profile of the project asked first (`allInOne`, `authServ`, `dataServ`, `openSite`; `--projKind` answers it), the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `allInOne` among them, `--useStore` picks the store) |
 | `testHost` | checks the server: PHP, its extensions, the folders written |
 | `makeConf` | makes `.env`, `access.json` and `database.json` from their examples |
 | `userBase` | creates the users table and the basic users, or the users file; the devices table with a `dvcToken` block |

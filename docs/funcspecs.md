@@ -737,8 +737,9 @@ php nyuRun bundles final ──▶ copy ────────▶ php nyuRun i
    that place.
 2. **Install** it: `install complete` first asks what the project is: users,
    sign-in and data in one (`allInOne`), an authentication server issuing
-   tokens for other projects (`authServ`), or a resource server with no users
-   of its own, accepting those tokens (`dataServ`). Then it checks PHP and its
+   tokens for other projects (`authServ`), a resource server with no users
+   of its own, accepting those tokens (`dataServ`), or a site with nothing to
+   sign in to, serving pages and files only (`openSite`). Then it checks PHP and its
    extensions, makes the
    local settings from their examples, makes any missing secrets and token
    keys, creates the users (a users file, or database tables), and runs

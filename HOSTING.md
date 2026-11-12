@@ -42,9 +42,26 @@ the install writes the blocks of `conf/access.json` the profile needs, and
 | `allInOne` | users, login and data in one project | nothing: the store, the database, the accounts, the token keys |
 | `authServ` | an authentication server: it logs users in and issues tokens for other projects | the `issuerId` of its tokens (the host name proposed) and their `audience`, the projects that will accept them (comma-separated); the tokens are signed with RS256, the key pair made as `setting mkSecret jwtToken` makes it, and published at `/.well-known/jwks.json` |
 | `dataServ` | a resource server: no users of its own, it accepts the tokens of an authentication server | not the store, and no users are created; the file of the authentication server's public key (copied into `conf/keys`), its `issuerId`, and the `audience` naming this project. The token block keeps that public key alone (`"external": true`), and the login names no credential check: it answers 501 |
+| `openSite` | a site with nothing to log in to: static files and pages only | not the store, the accounts, the token keys or any other secret; the login names no credential check. The map of the presets served suggests `/=statics`, and each preset of it is opened (`"required": false`, `"isPublic": true`), unless it can reach an action: then the install stops, and nothing is opened or written |
 
-An authentication server refuses the store `none`; a resource server refuses
-`--useStore`.
+An authentication server refuses the store `none`; a resource server and an
+open site refuse `--useStore`.
+
+An open site never makes a Run public by accident. `statics` serves no Run
+(`"runMount": { "*": false }`: `*` names every Run without a line of its own),
+and `install checkAll` fails its `profile` row when an open preset of the map
+can reach an action. A Run meant to be public is opened on purpose, in a preset
+that checks access, with `openList`. Going back closes things: when the install
+runs again and gives the project a store of users, every preset of the open map
+marked `isPublic` is closed (`"required": true`, `isPublic` removed), and named
+in the output. A preset closed that way has no carrier: it answers 500 until
+its owner gives it one, or opens it again on purpose. The rules of the files
+don't change with the profile: a file never leaves its folder, only the
+extensions of `Response::TYPE_LIST` are served, `nosniff` is always sent.
+
+Without `conf/access.json`, a preset that checks access answers 500
+`Access misconfigured`: nothing is let through. An open preset is still
+served.
 
 ```bash
 php nyuRun install checkAll
