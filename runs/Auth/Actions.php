@@ -125,12 +125,40 @@ class Actions extends Actionset {
 		if($newMark!==''){
 			if(method_exists($sessObj, 'dropUsrSession')){
 				if(!headers_sent()){
-					setcookie('lgmark', $newMark, Array('expires'=>time() + 86400*$markObj->markLastsCount(), 'path'=>'/auth', 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
+					setcookie('lgmark', $newMark, Array('expires'=>time() + 86400*$markObj->markLastsCount(), 'path'=>$this->markCookiePath(),'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
 				}
 			}else{
 				$this->replyValue['lgmark'] = $newMark;
 			}
 		}
+	}
+
+	/**
+	 * Gives the path the cookie of the login mark is set with: the folder
+	 * of the route that reached the login, built as the links are (see
+	 * Router::buildRouteLink), so that the browser sends the cookie back to
+	 * it. For a route of the Run it is the basePath the preset is served
+	 * under, then the mount of the Run (/auth, /api/auth, / when mounted at
+	 * the root); for a route the site declares, the folder of that route.
+	 * Without a router, or a route to build from, the root of the site.
+	 *
+	 * @return String The path, from the root of the site, without a final slash ('/' for the root).
+	 */
+	protected function markCookiePath(): String {
+		if($this->routingObj===null){
+			return '/';
+		}
+		$routReg = $this->routingObj->locateRouteReg();
+		$rtePath = strval( $routReg->readValueByKey('routPath') ?? '' );
+		try{
+			$linkTxt = $this->routingObj->buildRouteLink( $rtePath, (array)$routReg->readValueByKey('pathVars') );
+		}catch( \RuntimeException $e ){
+			return '/';
+		}
+		// The folder of the link, its query string left out
+		$linkTxt = strval( strtok($linkTxt, '?') );
+		$fldrTxt = substr( $linkTxt, 0, intval(strrpos($linkTxt, '/')) );
+		return ($fldrTxt==='') ? '/' : $fldrTxt;
 	}
 
 	/**

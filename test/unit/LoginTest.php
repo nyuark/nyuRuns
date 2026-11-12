@@ -198,4 +198,32 @@ foreach( Array('logs', 'logs2') as $logFldr ){
 }
 checkIdentical('access log: no password, code or token is written', preg_match('/s3cret|pw-anna|pw-emma|top-secret-word|000000|eyJ/', $allLogs), 0);
 
+// The path of the login mark cookie : the folder of the route that reached the login, never a fixed text
+/**
+ * Gives the path the login sets its mark cookie with, for a request.
+ *
+ * @param String $urlAddress  The path asked for.
+ * @param Array  $routeConfg  Keys of the 'dispatch' block added to a preset with declared routes only.
+ * @param String $basePathTxt The basePath of the line of the map chosen.
+ * @param ?Array $siteRoutes  Routes of the site, in place of the files of the routes folder and of the Runs.
+ * @return String The path of the cookie.
+ */
+function markPath( String $urlAddress, Array $routeConfg=Array(), String $basePathTxt='', ?Array $siteRoutes=null ): String {
+	$request = mockRequestObj();
+	(new ReflectionProperty($request, 'uriDetails'))->setValue($request, Array('fullPath'=>$urlAddress));
+	(new ReflectionProperty($request, 'rqstInMthd'))->setValue($request, 'POST');
+	// A routes folder that does not exist : the routes are those of the Runs alone
+	$routing = new nyu\Tools\Router( $routeConfg + Array('detectBy'=>'manually', 'routeDir'=>'test'.DS.'fixtures'.DS.'routes'.DS.'none'), $request, $basePathTxt );
+	if( $siteRoutes!==null ){
+		$routing->assignRouteSet($siteRoutes);
+	}
+	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array()), null, $request, null, $routing, null, 'Auth', RUN_DIR.DS.'Auth') );
+	return (new ReflectionMethod($actnSet, 'markCookiePath'))->invoke($actnSet);
+}
+checkIdentical('mark cookie: Auth mounted by default, elsewhere, and at the root of the site', Array(markPath('/auth/login'), markPath('/members/area/login', Array('runMount'=>Array('auth'=>'members/area'))), markPath('/login', Array('runMount'=>Array('auth'=>'')))), Array('/auth', '/members/area', '/'));
+checkIdentical('mark cookie: under a doorway, the basePath goes in front', Array(markPath('/api/auth/login', Array(), '/api'), markPath('/api/login', Array('runMount'=>Array('auth'=>'')), '/api')), Array('/api/auth', '/api'));
+$signRte = Array('account/signin'=>Array('routOwnr'=>'site', 'mthdList'=>'POST', 'pointsTo'=>Array('appToRun'=>'auth', 'doAction'=>'login')), 'signin'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('appToRun'=>'auth', 'doAction'=>'login')));
+checkIdentical('mark cookie: a login reached by a route of the site takes the folder of that route', Array(markPath('/account/signin', Array(), '', $signRte), markPath('/signin', Array(), '', $signRte), markPath('/api/account/signin', Array(), '/api', $signRte)), Array('/account', '/', '/api/account'));
+checkIdentical('mark cookie: without a router, or a route to build from, the root of the site', Array((new ReflectionMethod('nyu\Runs\Auth\Actions', 'markCookiePath'))->invoke(new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array()), null, mockRequestObj(), null, null, null, 'Auth', RUN_DIR.DS.'Auth') )), markPath('/nowhere')), Array('/', '/'));
+
 finishChecking();
