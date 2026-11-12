@@ -152,7 +152,9 @@ The short forms of the words that cannot always be written whole. A short form t
 
 **One short form per word** (decided 2026-11-12), chosen with care against the forms already in use: a short form must never be read as another one, above all on a small monospace line. `Rqst` (request) and `Rgst` (registry) are both refused for that reason, as `Acnt` (account) was against `Actn` (action).
 
-**No short form of 3 letters** (decided 2026-11-12): three consonants leave too little to tell words apart. A short form has 4 letters at least. Only the standard abbreviations everyone reads keep 3 letters, on a fixed list (`Url`, `Uri`, `Sql`, `Dsn`, `Jwt`, `Php`, `Css`, `Xml`, `Pdf`... to complete). A whole word of 3 letters stays a whole word (`row`, `new`, `old`, `raw`, `key`).
+**No short form of 3 letters** (decided 2026-11-12): three consonants leave too little to tell words apart. A short form has 4 letters at least. Only the standard abbreviations everyone reads keep 3 letters, on a fixed list (below). A whole word of 3 letters stays a whole word (`row`, `new`, `old`, `raw`, `key`).
+
+**Standard abbreviations** (the fixed list, from the names of 2026-11-12; those of 4 letters or more are listed too, as they are not words): `Api`, `Css`, `Dom`, `Dsn`, `Dtd`, `Ics`, `Id3`, `Ini`, `Iso`, `Jwk`, `Jwt`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Rsa`, `Sha`, `Sql`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
 
 A short form is refused when it is, against any other short form or any word of the names:
 - **one look-alike letter** away: `g`/`q`, `c`/`e`, `l`/`i`, `n`/`h`, `m`/`n`, `a`/`o`, `b`/`d`, `t`/`f`, `u`/`v` (`Rqst`/`Rgst`, `Cnt`/`Ent`);

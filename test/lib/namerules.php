@@ -1,0 +1,273 @@
+<?php
+
+// The naming rules of NAMERULES.md, read for the audit (test/audit/ConventionTest.php).
+//
+// The lists are read from the file on each run, never copied:
+//   section 3   the verbs (first column of its table), the question verbs and the domain verbs
+//   section 4   the kind terms (first column of its table, several per cell)
+//   section 5   the short forms (columns 2, 4 and 6 of its table), the 3-letter exceptions
+//               and the standard abbreviations
+//
+// A list in a sentence is read from the paragraph starting with its bold label: the terms in
+// backticks of its first sentence. A table or a list that cannot be read stops the audit.
+//
+// Each check gives what is wrong with a name as a text, empty when nothing is.
+
+/**
+ * Reads the rows of the first table of a section.
+ *
+ * @param String $rulesRawText The naming rules, as written.
+ * @param Int    $givenSection Number of the section ('## 3. Verbs' is 3).
+ * @return Array The rows under the header, each a list of cells; empty when the section has no table.
+ */
+function parseRuleTable( String $rulesRawText, Int $givenSection ): Array {
+	$rowsList = Array();
+	if( !preg_match('/^## '.$givenSection.'\. .*?(?=^## |\z)/ms', $rulesRawText, $sectHits) ){
+		return $rowsList;
+	}
+	$isInside = false;
+	foreach( explode("\n", $sectHits[0]) as $oneRow ){
+		$lineText = trim($oneRow);
+		if( !str_starts_with($lineText, '|') ){
+			if( $isInside ){
+				break;
+			}
+			continue;
+		}
+		$isInside = true;
+		// The line under the header
+		if( preg_match('/^[\s:\-|]+$/', $lineText) ){
+			continue;
+		}
+		$lineText = str_ends_with($lineText, '|') ? substr($lineText, 1, -1) : substr($lineText, 1);
+		$rowsList[] = array_map('trim', explode('|', $lineText));
+	}
+	// The first row is the header
+	array_shift($rowsList);
+	return $rowsList;
+}
+
+/**
+ * Gives the terms written in backticks in some columns of a table.
+ *
+ * @param Array $tableRowList Rows of the table, each a list of cells.
+ * @param Array $readColsList Columns to read, the first one being 0.
+ * @return Array The terms, as written, each once; a cell may hold several.
+ */
+function parseTermsList( Array $tableRowList, Array $readColsList ): Array {
+	$termList = Array();
+	foreach( $tableRowList as $oneRow ){
+		$cellsRaw = implode(' ', array_intersect_key($oneRow, array_flip($readColsList)));
+		if( preg_match_all('/`([A-Za-z][A-Za-z0-9]*)`/', $cellsRaw, $termHits) ){
+			$termList = array_merge($termList, $termHits[1]);
+		}
+	}
+	return array_values(array_unique($termList));
+}
+
+/**
+ * Gives the terms of a list written in a sentence: those in backticks in
+ * the first sentence of the paragraph starting with a bold label.
+ *
+ * @param String $rulesRawText The naming rules, as written.
+ * @param Int    $givenSection Number of the section holding the paragraph.
+ * @param String $boldListName The label, without its asterisks.
+ * @return Array The terms, as written, each once; empty when the label is not found.
+ */
+function parseLabelList( String $rulesRawText, Int $givenSection, String $boldListName ): Array {
+	if( !preg_match('/^## '.$givenSection.'\. .*?(?=^## |\z)/ms', $rulesRawText, $sectHits) ){
+		return Array();
+	}
+	if( !preg_match('/^\*\*'.preg_quote($boldListName, '/').'\*\*(.*?)(?:\.(?=\s|$)|\z)/ms', $sectHits[0], $listHits) ){
+		return Array();
+	}
+	preg_match_all('/`([A-Za-z][A-Za-z0-9]*)`/', $listHits[1], $termHits);
+	return array_values(array_unique($termHits[1]));
+}
+
+/**
+ * Reads every list of the naming rules.
+ *
+ * @param String $rulesDocPath Full path of NAMERULES.md.
+ * @return Array The lists by name: 'verb', 'question', 'domain', 'kind', 'form', 'exception', 'standard'.
+ *
+ * @throws RuntimeException When the file, a table or a list cannot be read.
+ */
+function readNamingDict( String $rulesDocPath ): Array {
+	$rulesRaw = @file_get_contents($rulesDocPath);
+	if( $rulesRaw===false ){
+		throw new RuntimeException('The naming rules cannot be read: '.$rulesDocPath);
+	}
+	$rulesRaw = str_replace("\r", '', $rulesRaw);
+	$nameDict = Array(
+		'verb'=>parseTermsList(parseRuleTable($rulesRaw, 3), Array(0)),
+		'question'=>parseLabelList($rulesRaw, 3, 'Question verbs'),
+		'domain'=>parseLabelList($rulesRaw, 3, 'Domain verbs'),
+		'kind'=>parseTermsList(parseRuleTable($rulesRaw, 4), Array(0)),
+		'form'=>parseTermsList(parseRuleTable($rulesRaw, 5), Array(1, 3, 5)),
+		'exception'=>parseLabelList($rulesRaw, 5, 'Exceptions decided by the project manager'),
+		'standard'=>parseLabelList($rulesRaw, 5, 'Standard abbreviations')
+	);
+	foreach( $nameDict as $oneKey => $oneSet ){
+		if( count($oneSet)==0 ){
+			throw new RuntimeException('The naming rules give no list "'.$oneKey.'": its table or its paragraph cannot be read');
+		}
+	}
+	return $nameDict;
+}
+
+/**
+ * Splits a camelCase name into its pieces.
+ *
+ * @param String $fullNameText The name, without its '$'.
+ * @return Array The pieces, as written ('readRouteList' gives read, Route, List).
+ */
+function splitWordsList( String $fullNameText ): Array {
+	preg_match_all('/[A-Z]?[a-z]+[0-9]*|[A-Z]+(?![a-z])[0-9]*|[0-9]+/', $fullNameText, $wordHits);
+	return $wordHits[0];
+}
+
+/**
+ * Tells the area a file belongs to: a folder of src, or the runs. The
+ * response and the Runner go with the applications.
+ *
+ * @param String $relativePath Path of the file from the project root, with forward slashes.
+ * @return String 'Tools', 'Access', 'Data', 'Shell', 'App', 'Setup', 'Error' or 'runs'; empty for any other file.
+ */
+function findAreaOfFile( String $relativePath ): String {
+	if( str_starts_with($relativePath, 'runs/') ){
+		return 'runs';
+	}
+	if( $relativePath=='src/Runner.php' || str_starts_with($relativePath, 'src/Output/') ){
+		return 'App';
+	}
+	if( preg_match('#^src/(Tools|Access|Data|Shell|App|Setup|Error)/#', $relativePath, $areaHits) ){
+		return $areaHits[1];
+	}
+	return '';
+}
+
+/**
+ * Checks a local: 8 characters, one word or two, no piece under 3 letters.
+ * A question verb opening the name of a Bool is a piece of any length
+ * ('isLogged').
+ *
+ * @param String $fullNameText The name, without its '$'.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @return String What is wrong, empty when nothing is.
+ */
+function checkLocalName( String $fullNameText, Array $nameRuleDict ): String {
+	if( !preg_match('/^[a-z][a-zA-Z0-9]*$/', $fullNameText) ){
+		return 'not camelCase';
+	}
+	if( strlen($fullNameText)!=8 ){
+		return strlen($fullNameText).' characters, not 8';
+	}
+	$wordList = splitWordsList($fullNameText);
+	if( count($wordList)>2 ){
+		return count($wordList).' pieces, not one or two';
+	}
+	foreach( $wordList as $nthBit => $oneBit ){
+		if( strlen($oneBit)<3 && !($nthBit==0 && in_array($oneBit, $nameRuleDict['question'], true)) ){
+			return 'the piece "'.$oneBit.'" is under 3 letters';
+		}
+	}
+	return '';
+}
+
+/**
+ * Checks a loop variable: 'one' or 'nth', then a whole word of 3 letters.
+ * Without the list of whole words, the item is refused when it is a short
+ * form of the rules or holds no vowel.
+ *
+ * @param String $fullNameText The name, without its '$'.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @param Array  $fullWordDict The whole words in lower case, as keys; empty while there is no list of them.
+ * @return String What is wrong, empty when nothing is.
+ */
+function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullWordDict ): String {
+	if( !preg_match('/^(?:one|nth)([A-Z][a-z]{2})$/', $fullNameText, $itemHits) ){
+		return 'not one or nth + an item of 3 letters';
+	}
+	$itemWord = $itemHits[1];
+	if( !empty($fullWordDict) ){
+		return isset($fullWordDict[strtolower($itemWord)]) ? '' : 'the item "'.$itemWord.'" is not a whole word';
+	}
+	$isListed = in_array($itemWord, $nameRuleDict['form'], true) || in_array($itemWord, $nameRuleDict['exception'], true) || in_array($itemWord, $nameRuleDict['standard'], true);
+	return ( $isListed ||!preg_match('/[aeiou]/', strtolower($itemWord)) ) ? 'the item "'.$itemWord.'" is not a whole word' : '';
+}
+
+/**
+ * Checks every piece of a name: a whole word, a short form of the
+ * glossary, a 3-letter exception or a standard abbreviation. The words the
+ * rules list themselves (verbs, kind terms, one, nth) are whole words.
+ * Without the list of whole words, a piece of 4 letters or more holding a
+ * vowel is taken for one.
+ *
+ * @param String $fullNameText The name, without its '$'.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @param Array  $fullWordDict The whole words in lower case, as keys; empty while there is no list of them.
+ * @return String What is wrong, empty when nothing is.
+ */
+function checkNameWords( String $fullNameText, Array $nameRuleDict, Array $fullWordDict ): String {
+	$badWords = Array();
+	foreach( splitWordsList($fullNameText) as $oneBit ){
+		$lowerBit = strtolower($oneBit);
+		$upperBit = ucfirst($lowerBit);
+		if( ctype_digit($oneBit) || in_array($upperBit, $nameRuleDict['form'], true) || in_array($upperBit, $nameRuleDict['exception'], true) || in_array($upperBit, $nameRuleDict['standard'], true) ){
+			continue;
+		}
+		if( in_array($lowerBit, Array('one', 'nth'), true) || in_array($lowerBit, $nameRuleDict['verb'], true) || in_array($lowerBit, $nameRuleDict['question'], true) || in_array($lowerBit, $nameRuleDict['domain'], true) || in_array($upperBit, $nameRuleDict['kind'], true) ){
+			continue;
+		}
+		$isListed = empty($fullWordDict) ? ( strlen($lowerBit)>=4 && preg_match('/[aeiou]/', $lowerBit)===1 ) : isset($fullWordDict[$lowerBit]);
+		if( !$isListed ){
+			$badWords[] = $oneBit;
+		}
+	}
+	return empty($badWords) ? '' : 'neither a word nor a listed form: '.implode(', ', $badWords);
+}
+
+/**
+ * Checks the first word of a method: a verb, a question verb or a domain
+ * verb. A method returning a Bool starts with a question verb, or with an
+ * action verb whose success it tells.
+ *
+ * @param String $fullNameText The name of the method.
+ * @param String $returnedType Its return type as declared, empty when it has none.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @return String What is wrong, empty when nothing is.
+ */
+function checkFirstVerb( String $fullNameText, String $returnedType, Array $nameRuleDict ): String {
+	$verbWord = strtolower(splitWordsList($fullNameText)[0] ?? '');
+	if( in_array($verbWord, $nameRuleDict['verb'], true) || in_array($verbWord, $nameRuleDict['question'], true) || in_array($verbWord, $nameRuleDict['domain'], true) ){
+		return '';
+	}
+	return (strtolower($returnedType)=='bool') ? 'returns a Bool: "'.$verbWord.'" is neither a question verb nor an action verb' : '"'.$verbWord.'" is not a verb';
+}
+
+/**
+ * Checks a name holding a Bool: it starts with a question verb.
+ *
+ * @param String $fullNameText The name, without its '$'.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @return String What is wrong, empty when nothing is.
+ */
+function checkBoolNames( String $fullNameText, Array $nameRuleDict ): String {
+	$verbWord = strtolower(splitWordsList($fullNameText)[0] ?? '');
+	return in_array($verbWord, $nameRuleDict['question'], true) ? '' : 'a Bool: "'.$verbWord.'" is not a question verb';
+}
+
+/**
+ * Checks the last word of a name: a kind term. Any other last word is a
+ * noun to look at: it is reported, and never fails the audit.
+ *
+ * @param String $fullNameText The name, without its '$'.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @return String The last word when it is not a kind term, empty when it is one.
+ */
+function checkFinalKind( String $fullNameText, Array $nameRuleDict ): String {
+	$wordList = splitWordsList($fullNameText);
+	$lastWord = ucfirst(strtolower(strval(end($wordList))));
+	return in_array($lastWord, $nameRuleDict['kind'], true) ? '' : 'ends with "'.$lastWord.'", not a kind term';
+}
