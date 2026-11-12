@@ -37,7 +37,8 @@ class RunMaker{
 	}
 
 	/**
-	 * Gives every file of the Run, by its full path.
+	 * Gives every file of the Run, by its full path, its lines ended with
+	 * \n whatever the line endings of the checkout.
 	 *
 	 * @return Array The content of each file, by its path.
 	 */
@@ -46,6 +47,10 @@ class RunMaker{
 		$fileLst = Array( $runFldr.DS.'routes.rte'=>$this->routesFileText(), $runFldr.DS.'Actions.php'=>$this->actionsPhpText() );
 		foreach( $this->inputFileArray() as $oneAct => $oneTxt ){
 			$fileLst[$runFldr.DS.'input'.DS.$oneAct.'.json'] = $oneTxt;
+		}
+		// Every file is written with \n, on every system
+		foreach( $fileLst as $onePth => $oneTxt ){
+			$fileLst[$onePth] = str_replace("\r\n", "\n", $oneTxt);
 		}
 		return $fileLst;
 	}
@@ -368,6 +373,8 @@ PHPCODE;
 }
 
 PHPCODE;
+		// The blocks written in this file end their lines as this file does: the Run is written with \n, whatever the checkout
+		$codeTxt = str_replace("\r\n", "\n", $codeTxt);
 		// The pieces meet with one blank line between two methods
 		return preg_replace("/\n{3,}/", "\n\n", $codeTxt);
 	}
