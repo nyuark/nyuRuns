@@ -330,7 +330,8 @@ path                    methods  kind      target          owner  access
 /auth/logout            POST     toAction  Auth/logout     Auth   logged
 /auth/active            POST     toAction  Auth/active     Auth   open
 …
-                        any      toAction  users/*                managers
+                        any      toAction  users/*                delegate
+                        any      toAction  users/create           managers
 ```
 
 The `owner` column says who declares each route: the site
@@ -338,10 +339,11 @@ The `owner` column says who declares each route: the site
 token (`others: logged`). The exceptions are
 signing in and what visitors do before they have an account: activating
 it, signing up, recovering a forgotten password. The `Users` run is for
-managers only (the `managers` role). Try it on
-`curl http://localhost:8000/users`:
-without a token you get a 401, with `userDemo`'s token a 404, and with
-`bossDemo`'s the list of users.
+the delegates and the managers: a delegate (`deptDemo`) reads the users and
+approves sign-ups, and every other action is the managers' (`bossDemo`).
+Try it on `curl http://localhost:8000/users`: without a token you get a
+401, with `userDemo`'s token a 404, and with `deptDemo`'s or `bossDemo`'s
+the list of users.
 
 The other profiles are `service` (programs calling with an API key),
 `website` (a site with a session cookie), `statics` (pages and files
@@ -354,8 +356,12 @@ The minimum role for each route is set in the profile, under `minRoles`.
 Open `conf/presets/restapi.rps` and look for:
 
 ```json
-"minRoles": { "users/*": "managers" }
+"minRoles": { "users/*": "delegate", "users/create": "managers", "users/remove": "managers", "users/role": "managers", "users/setmail": "managers", "users/langs": "managers", "users/lock": "managers", "users/unlock": "managers", "users/reset": "managers" }
 ```
+
+When several entries name a route, the highest role applies: `users/*`
+opens `Users` to a delegate, and each action that changes an account is
+named to stay with the managers.
 
 Name a route as `run/action`, as `run/*` for all the actions of a run, or
 as `/path` for a declared route, mount included. Roles are ranked
@@ -761,7 +767,7 @@ writing for staff:
 
 ```json
 "openList": ["auth/login", "auth/active", "auth/signup", "auth/forgot", "auth/recover", "/.well-known/jwks.json", "notes/card"],
-"minRoles": { "users/*": "managers", "notes/create": "advanced", "notes/update": "advanced", "notes/remove": "advanced" }
+"minRoles": { "users/*": "delegate", "users/create": "managers", "users/remove": "managers", "users/role": "managers", "users/setmail": "managers", "users/langs": "managers", "users/lock": "managers", "users/unlock": "managers", "users/reset": "managers", "notes/create": "advanced", "notes/update": "advanced", "notes/remove": "advanced" }
 ```
 
 Naming the page by its action keeps it open wherever the run is mounted.

@@ -56,8 +56,8 @@ line to install, configure, test and ship a project.
 | **Visitor** | anyone not signed in | reaches whatever is open to everyone: a public page, signing in, signing up, resetting a forgotten password |
 | **Standard user** | a signed-in user with the `standard` role | uses the service with the rights of the lowest role |
 | **Advanced user** | the `advanced` role | gets what the service keeps for its staff |
-| **Delegate** | the `delegate` role | someone the managers hand part of their power to; what that covers is up to the project |
-| **Manager** | the `managers` role | manages the users: creates, approves, locks, resets and removes them, and assigns roles |
+| **Delegate** | the `delegate` role | reads the users and approves the sign-ups (`users/index`, `view`, `approve`); never changes an account |
+| **Manager** | the `managers` role | manages the users: creates, locks, resets and removes them, changes their role, address and language, and approves them too; every other action of `Users` is theirs alone |
 | **Device** | a machine with its own token, acting for a user | talks to the service with no one signing in: a kiosk, a sensor, a home server |
 | **Application** | another program holding a key | calls the service on behalf of one of its own users |
 | **Administrator** | the person running the server | installs, configures, checks and updates the project from the command line |
@@ -489,6 +489,8 @@ their accesses. Every refusal is traced with its reason.
 - **Roles, address, language**: a manager can change them at any time. A
   name and an address each belong to one account only (409).
 - **Removal**: the account goes, along with its devices.
+- **Approval**: a delegate or a manager approves a sign-up. It keeps its role,
+  `standard`; only a manager changes it.
 - **Guards**: managers can't lock, reset, remove or change the role of
   their own account, and the last active manager can't lose that
   standing.
