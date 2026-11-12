@@ -283,6 +283,22 @@ class Actionset {
 	}
 
 	/**
+	 * Ends the running action at once with a 403 when the request comes
+	 * with a device token (Access\Auth\Device): a device never changes the
+	 * account of its user (its password, its 2FA, its address), which needs
+	 * the password login. The refusal is logged on the 'access' channel.
+	 */
+	protected function needsPasswdLgn(): Void {
+		$idntArr = ($this->accessRgst!==null) ? $this->accessRgst->readValueByKey('identity') : null;
+		if( !is_array($idntArr) || !isset($idntArr['device']) ){
+			return;
+		}
+		$nameLst = explode('\\', static::class);
+		Logger::retrieveLogger('access')->warning( 'Account change refused for user '.json_encode(strval($this->accessRgst->readValueByKey('userName'))).' to '.strtolower(strval($nameLst[count($nameLst)-2] ?? '')).'/'.$this->actionName.': a device ('.json_encode(strval($idntArr['device']['name'] ?? '')).') needs the password login' );
+		$this->stopThisAction(403, 'Sign in with the password: a device cannot change its account');
+	}
+
+	/**
 	 * Ends the running action at once with a 404 unless the request comes
 	 * from a logged user holding a role, or a higher one (see holdsRole):
 	 * the client is not told the action exists. The refusal is logged on

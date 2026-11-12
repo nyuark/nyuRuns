@@ -244,6 +244,12 @@ $outcome = callActn('users/setmail/ben', Array('userMail'=>' Ben@Example.ch '));
 checkIdentical('email: an address given, in lower case', Array($outcome['code'] ?? $outcome, $outcome['out'] ?? null), Array(200, Array('user'=>'ben', 'mail'=>'ben@example.ch')));
 checkIdentical('email: an address taken, one that is not', Array(statusOf(callActn('users/setmail/hugo', Array('userMail'=>'ben@example.ch'))), statusOf(callActn('users/setmail/hugo', Array('userMail'=>'hugo')))), Array(Array(409, 'Mail address already used'), Array(400, 'Invalid mail address')));
 checkIdentical('email: taken away', Array(callActn('users/setmail/hugo', Array('userMail'=>'hugo@example.ch'))['code'] ?? null, callActn('users/setmail/hugo', Array())['out'] ?? null), Array(200, Array('user'=>'hugo', 'mail'=>null)));
+// A manager's device never changes the address of its own user, which needs the password login; that of another user, it may
+$dvceAxs = new Registry( Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'managers', 'identity'=>Array('userName'=>'anna', 'userRole'=>'managers', 'device'=>Array('id'=>1, 'name'=>'Phone', 'role'=>'app')), 'statCode'=>200, 'statMssg'=>'') );
+$ownMail = new Controller( 'users', 'setmail', new Registry(Array('userMail'=>'anna@example.ch')), 'anna', $dvceAxs, mockRequestObj() );
+$othMail = new Controller( 'users', 'setmail', new Registry(Array('userMail'=>'hugo@example.ch')), 'hugo', $dvceAxs, mockRequestObj() );
+checkIdentical('email: a device, on its own user then on another', Array(array_values($ownMail->retrieveStatus()), $othMail->retrieveStatus()['code'] ?? null), Array(Array(403, 'Sign in with the password: a device cannot change its account'), 200));
+callActn('users/setmail/hugo', Array());
 
 // users/langs and auth/usrlang : the language of the mails, given by a manager or by the user itself
 $outcome = callActn('users/langs/hugo', Array('saveLang'=>'FR_ch'));

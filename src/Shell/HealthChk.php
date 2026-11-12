@@ -51,6 +51,7 @@ class HealthChk{
 		$this->verifyAccsConf();
 		$this->checkDatabases();
 		$this->validateStores();
+		$this->checkDevcsCaps();
 		$this->validateProfil();
 		$this->validateUnsafe();
 		return $this->resultRows;
@@ -705,6 +706,52 @@ class HealthChk{
 			$pwdFile = trim( strval($blckCfg['passFile'] ?? ''), '/\\ ' );
 			$isReady = ($pwdFile!='') && is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $pwdFile));
 			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "setting mkSecret htpasswd <user>" writes it' );
+		}
+	}
+
+	/**
+	 * Checks the caps of the devices (Access\Auth\Device), when the access
+	 * config holds a 'dvcToken' block: it fails on a devices table without
+	 * the deviceTops column, whose devices are all refused until the last
+	 * statement of conf/schema/migrate-devices-1.0.<type>.sql adds it, and
+	 * warns about the devices still standing without a cap whose user is
+	 * above the first role: they act with their user's full role.
+	 */
+	public function checkDevcsCaps(): Void {
+		$blckCfg = $this->accessSettings('dvcToken');
+		if( empty($blckCfg) ){
+			return;
+		}
+		$tblName = strval($blckCfg['useTable'] ?? 'devices');
+		try{
+			$dbHndlr = DBCon::linkNamedDbCon( strval($blckCfg['linkName'] ?? '') )->readConnection();
+			$tblInfo = ($dbHndlr!==null) ? $dbHndlr->tableInfoArray($tblName) : false;
+		}catch( \Throwable $e ){
+			$tblInfo = false;
+		}
+		if( $tblInfo===false ){
+			// No devices table yet : "install userBase" creates it, with the column
+			return;
+		}
+		if( !in_array('deviceTops', (array)$tblInfo['flds'], true) ){
+			$this->addCheckResult('device caps', 'fail', 'the table '.$tblName.' has no deviceTops column: every device is refused until the last statement of conf/schema/migrate-devices-1.0.<type>.sql adds it');
+			return;
+		}
+		$dvcRows = (new \nyu\Access\Auth\Device($blckCfg))->lstUserDevices();
+		if( $dvcRows===false ){
+			$this->addCheckResult('device caps', 'fail', 'the devices cannot be read');
+			return;
+		}
+		$openLst = Array();
+		foreach( $dvcRows as $dvcRow ){
+			if( ($dvcRow['revokeDate'] ?? null)===null && strval($dvcRow['deviceTops'] ?? '')==='' && strval($dvcRow['accessRole'] ?? '')!==\nyu\Access\Checker::ROLE_LIST[0] ){
+				$openLst[] = strval($dvcRow['systemName']).'/'.strval($dvcRow['deviceName']).' ('.strval($dvcRow['accessRole'] ?? '').')';
+			}
+		}
+		if( empty($openLst) ){
+			$this->addCheckResult('device caps', 'fine', 'every device standing acts within a cap, or for a user of the first role');
+		}else{
+			$this->addCheckResult('device caps', 'warn', 'without a cap, acting with their user\'s full role: '.implode(', ', $openLst).'; give each a cap (devices revokeIt, then newToken --roleTops)');
 		}
 	}
 

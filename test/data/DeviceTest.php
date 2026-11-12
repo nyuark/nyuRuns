@@ -19,8 +19,9 @@ $sqlLink = new PDO('sqlite:'.inTemporaryDir('device.sqlite'));
 
 // addDevice : only the SHA-256 hash is stored, a user can have several devices
 $dvcAuth = new DeviceAuth( Array() );
-$phonTkn = $dvcAuth->pushDeviceText('anna', 'Phone', 'app');
-$homeTkn = $dvcAuth->pushDeviceText('anna', 'Home', 'home');
+// Capped at the role of their user : they act with it
+$phonTkn = $dvcAuth->pushDeviceText('anna', 'Phone', 'app', 'managers');
+$homeTkn = $dvcAuth->pushDeviceText('anna', 'Home', 'home', 'managers');
 checkPregMatch('Device addDevice gives a 64 character token', $phonTkn, '/^[0-9a-f]{64}$/');
 checkIdentical('Device the token itself is not stored', $sqlLink->query("SELECT bearerHash FROM devices WHERE deviceName='Phone'")->fetchColumn(), hash('sha256', strval($phonTkn)));
 checkIdentical('Device addDevice refused for a pending user', $dvcAuth->pushDeviceText('cleo', 'Tablet', 'app'), false);
@@ -60,7 +61,7 @@ checkIdentical('Device the other device still passes', $dvcAuth->checkSecretArr(
 $dvcAuth->pushDeviceText('ben', 'Laptop', 'app');
 $allDvcs = $dvcAuth->lstUserDevices();
 checkIdentical('Device listDevcs lists every device, with its user', array_map(function(Array $deviceRow){ return $deviceRow['systemName'].'/'.$deviceRow['deviceName'].'/'.$deviceRow['deviceRole']; }, (array)$allDvcs), Array('anna/Home/home', 'anna/Phone/app', 'ben/Laptop/app'));
-checkIdentical('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array()), Array('id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate', 'systemName'));
+checkIdentical('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array()), Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate', 'systemName', 'accessRole'));
 checkIdentical('Device listDevcs of one user, of a user without any, of an unknown one', Array(array_column((array)$dvcAuth->lstUserDevices('ben'), 'deviceName'), $dvcAuth->lstUserDevices('dave'), $dvcAuth->lstUserDevices('zed')), Array(Array('Laptop'), Array(), Array()));
 checkIdentical('Device listDevcs tells the revoked one', array_map(function(Array $deviceRow){ return $deviceRow['revokeDate']!==null; }, (array)$dvcAuth->lstUserDevices('anna')), Array(false, true));
 // Tables that cannot be used
@@ -82,6 +83,39 @@ checkIdentical('Checker device token: the device is stamped', $sqlLink->query("S
 $axsRslt = (new nyu\Access\Checker( $dvcConf, mockRequestObj(Array('Authorization'=>'Bearer '.$phonTkn)) ))->validateAccess();
 checkIdentical('Checker device token: a revoked device is refused', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg')), Array(401, 'Invalid API key'));
 
+// The cap of a device : the lower of it and its user's current role, on each request
+$kiskTkn = $dvcAuth->pushDeviceText('anna', 'Kiosk', 'app');
+checkIdentical('Device cap: standard when not given, the user a manager', Array($sqlLink->query("SELECT deviceTops FROM devices WHERE deviceName='Kiosk'")->fetchColumn(), $dvcAuth->checkSecretArr(Array('key'=>$kiskTkn))['userRole'] ?? null), Array('standard', 'standard'));
+checkIdentical('Device cap: one that is not a role is never given', $dvcAuth->pushDeviceText('anna', 'Other', 'app', 'root'), false);
+$rolConf = Array('minRoles'=>Array('users/*'=>'managers')) + $dvcConf;
+/**
+ * Asks the Checker for a route a manager alone reaches, with a device token.
+ *
+ * @param String $deviceTokenT The token of the device.
+ * @return Array The status and the role the device acts with.
+ */
+function managersRoute( String $deviceTokenT ): Array {
+	$axsRslt = (new nyu\Access\Checker( $GLOBALS['rolConf'], mockRequestObj(Array('Authorization'=>'Bearer '.$deviceTokenT)), new nyu\Tools\Registry(Array('appToRun'=>'users', 'doAction'=>'index')) ))->validateAccess();
+	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userRole'));
+}
+checkIdentical('Device cap: a manager\'s device capped at standard gets the 404 of a managers route; capped at managers, it passes', Array(managersRoute($kiskTkn), managersRoute($homeTkn)), Array(Array(404, 'standard'), Array(200, 'managers')));
+$sqlLink->exec("UPDATE users SET accessRole='advanced' WHERE systemName='anna'");
+checkIdentical('Device cap: demoting the user lowers all their devices at once', Array(managersRoute($homeTkn), managersRoute($kiskTkn)), Array(Array(404, 'advanced'), Array(404, 'standard')));
+$sqlLink->exec("UPDATE users SET accessRole='managers' WHERE systemName='anna'");
+$sqlLink->exec("UPDATE devices SET deviceTops=NULL WHERE deviceName='Kiosk'");
+checkIdentical('Device cap: an empty cap, of a device made before the caps, is the user\'s role', $dvcAuth->checkSecretArr(Array('key'=>$kiskTkn))['userRole'] ?? null, 'managers');
+// A cap that is not a role, written past the CHECK of the table : refused, never the user's role
+$sqlLink->exec('PRAGMA ignore_check_constraints = ON');
+$sqlLink->exec("UPDATE devices SET deviceTops='root' WHERE deviceName='Kiosk'");
+nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('dvclogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+checkIdentical('Device cap: one that is not a role refuses the device as an invalid key, not counted against the address', Array($dvcAuth->checkSecretArr(Array('key'=>$kiskTkn)), $dvcAuth->finalErrorText(), $dvcAuth->hasWrongSecret()), Array(false, 'Invalid API key', false));
+nyu\Tools\Logger::plugLogsConfig( Array() );
+checkPregMatch('Device cap: its refusal is a warning on access', strval(@file_get_contents(inTemporaryDir('dvclogs').DS.'access.log')), '#\[WARNING\] Device "Kiosk" of user "anna" refused: its cap "root" is not a role#');
+
+// A device never changes its user's account : the password needs the password login
+$axsDvce = new nyu\Tools\Registry( Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'managers', 'identity'=>Array('userName'=>'anna', 'userRole'=>'managers', 'device'=>Array('id'=>2, 'name'=>'Home', 'role'=>'home')), 'statCode'=>200, 'statMssg'=>'') );
+$pwdCtrl = new nyu\App\Controller( 'auth', 'setpass', new nyu\Tools\Registry(Array('oldValue'=>'pw-anna', 'passWord'=>'new-pass-anna')), null, $axsDvce, mockRequestObj() );
+checkIdentical('Device: auth/setpass refuses a request made with a device token', array_values($pwdCtrl->retrieveStatus()), Array(403, 'Sign in with the password: a device cannot change its account'));
 // The devices of a removed user go with it : the framework's SQLite handler turns the foreign keys on
 nyu\Data\DBCon::linkNamedDbCon('')->readConnection()->sendBuiltQuery('DELETE FROM users WHERE systemName=?;', true, Array('ben'));
 checkIdentical('Device the devices of a removed user go with it', intval($sqlLink->query("SELECT COUNT(*) FROM devices WHERE deviceName='Laptop'")->fetchColumn()), 0);

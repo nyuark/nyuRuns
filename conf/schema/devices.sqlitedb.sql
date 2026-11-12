@@ -10,6 +10,8 @@ CREATE TABLE `devices` (
 	`deviceName` TEXT    NOT NULL,
 	-- Role of the device, as the application understands it: a word of 8 characters at most
 	`deviceRole` TEXT    NOT NULL,
+	-- Highest role the device acts with: the lower of it and its user's role applies; empty only for a device made before it, which acts with its user's role
+	`deviceTops` TEXT    NULL CHECK (`deviceTops` IS NULL OR `deviceTops` IN ('standard', 'advanced', 'delegate', 'managers')),
 	-- SHA-256 hash of the device's token
 	`bearerHash` TEXT    NOT NULL,
 	-- The user the device works for: its devices are removed with it

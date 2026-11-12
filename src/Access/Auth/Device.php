@@ -2,17 +2,23 @@
 
 namespace nyu\Access\Auth;
 
+use nyu\Access\Checker;
 use nyu\Data\DBCon;
 use nyu\Data\DBHndlr\Handler as DbHandlr;
+use nyu\Tools\Logger;
 
 /**
- * Credential check of the device tokens, used as "authWith": "device".
+ * Credential check of the device tokens, used as "authWith": "dvcToken".
  * Verifies a device token against a table of devices, each linked to a
  * user of the native userbase: the SHA-256 hash of the token must be the
  * bearerHash of a device that is not revoked, and its user must be
- * 'approved'. Also stamps the time each device was last seen. A device is
- * given a token, listed and revoked from the command line (php nyuRun
- * device), or by an application of its own.
+ * 'approved'. A device acts within its cap (deviceTops): its role is the
+ * lower of the cap and its user's current role, so demoting the user
+ * lowers all their devices at once; an empty cap, left by a device made
+ * before the caps, is the user's role. A device never changes its user's
+ * account (see Actionset::needsPasswdLgn). Also stamps the time each device
+ * was last seen. A device is given a token, listed and revoked from the
+ * command line (php nyuRun devices), or by an application of its own.
  */
 class Device implements Handler{
 
@@ -42,7 +48,9 @@ class Device implements Handler{
 
 	/**
 	 * Verifies a device token. The identity is the one of the device's
-	 * user, with the device itself under 'device'.
+	 * user, with the device itself under 'device'; its role is the lower of
+	 * the device's cap and the user's current role. A device whose cap is
+	 * not a role is refused as an invalid key, with a warning on 'access'.
 	 *
 	 * @param Array $loginDataArr Must contain a 'key' entry: the token, as sent by the client.
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser', 'device') on success, or false on failure.
@@ -65,9 +73,20 @@ class Device implements Handler{
 			$this->badTryFlag = true;
 			return false;
 		}
+		// The role is the lower of the cap and the user's current role; a cap that is not a role refuses the device, never falls back to the user's role
+		$usrRole = strval($devcVls['accessRole'] ?? '');
+		$devcTop = strval($devcVls['deviceTops'] ?? '');
+		if( $devcTop!=='' && !in_array($devcTop, Checker::ROLE_LIST, true) ){
+			$this->errMessage = 'Invalid API key';
+			Logger::retrieveLogger('access')->warning( 'Device '.json_encode(strval($devcVls['deviceName'] ?? '')).' of user '.json_encode(strval($devcVls['systemName'] ?? '')).' refused: its cap '.json_encode($devcTop).' is not a role' );
+			return false;
+		}
+		if( $devcTop!=='' && array_search($devcTop, Checker::ROLE_LIST, true) < array_search($usrRole, Checker::ROLE_LIST, true) ){
+			$usrRole = $devcTop;
+		}
 		$this->seenDevice = $devcVls['id_device'];
 		return Array(
-			'userName'=>$devcVls['systemName'], 'userRole'=>strval($devcVls['accessRole'] ?? ''), 'idOfUser'=>$devcVls['id_user'] ?? null,
+			'userName'=>$devcVls['systemName'], 'userRole'=>$usrRole, 'idOfUser'=>$devcVls['id_user'] ?? null,
 			'device'=>Array('id'=>$devcVls['id_device'], 'name'=>$devcVls['deviceName'], 'role'=>$devcVls['deviceRole'])
 		);
 	}
@@ -103,20 +122,21 @@ class Device implements Handler{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @param String $userDevcName Name of the device.
 	 * @param String $deviceRleTxt Role of the device, as the application understands it.
-	 * @return String|Bool The new token, or false when the user is unknown, not active, or the table cannot be written.
+	 * @param String $roleTopsText The cap of the device, the highest role it acts with: one of Checker::ROLE_LIST.
+	 * @return String|Bool The new token, or false when the cap is not a role, the user is unknown, not active, or the table cannot be written.
 	 */
-	public function pushDeviceText( String $namedUserTxt, String $userDevcName, String $deviceRleTxt ): String|Bool {
-		if( $this->deviceTble=='' || $this->usersTable=='' ){
+	public function pushDeviceText( String $namedUserTxt, String $userDevcName, String $deviceRleTxt, String $roleTopsText=Checker::ROLE_LIST[0] ): String|Bool {
+		if( $this->deviceTble=='' || $this->usersTable=='' || !in_array($roleTopsText, Checker::ROLE_LIST, true) ){
 			return false;
 		}
 		try{
 			$dbHndlr = $this->attachDatabase();
-			$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'bearerHash', 'user_id') );
+			$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'deviceTops', 'bearerHash', 'user_id') );
 			$newTokn = bin2hex(random_bytes(32));
 			$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fldList).')'
-				.' SELECT ?, ?, ?, '.$dbHndlr->quoteFieldName('id_user').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
+				.' SELECT ?, ?, ?, ?, '.$dbHndlr->quoteFieldName('id_user').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
 				.' WHERE '.$dbHndlr->quoteFieldName('systemName').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved';";
-			$newData = Array($userDevcName, $deviceRleTxt, hash('sha256', $newTokn), $namedUserTxt);
+			$newData = Array($userDevcName, $deviceRleTxt, $roleTopsText, hash('sha256', $newTokn), $namedUserTxt);
 			return ( $dbHndlr->sendBuiltQuery($addStmt, true, $newData) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
 			return false;
@@ -146,11 +166,36 @@ class Device implements Handler{
 	}
 
 	/**
+	 * Gives the role of an active user of the devices' users table: the
+	 * ceiling a device of that user can be given.
+	 *
+	 * @param String $namedUserTxt Login name of the user.
+	 * @return ?String The role, or null when the user is unknown, not active, or the table cannot be read.
+	 */
+	public function userRoleString( String $namedUserTxt ): ?String {
+		if( $this->usersTable=='' ){
+			return null;
+		}
+		try{
+			$dbHndlr = $this->attachDatabase();
+			$roleQry = 'SELECT '.$dbHndlr->quoteFieldName('accessRole').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
+				.' WHERE '.$dbHndlr->quoteFieldName('systemName').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved' LIMIT 1;";
+			if( !$dbHndlr->sendBuiltQuery($roleQry, false, Array($namedUserTxt)) ){
+				return null;
+			}
+			$usrRows = $dbHndlr->readLastResult(true);
+		}catch( \Throwable $e ){
+			return null;
+		}
+		return ( is_array($usrRows) && isset($usrRows[0]['accessRole']) ) ? strval($usrRows[0]['accessRole']) : null;
+	}
+
+	/**
 	 * Lists the devices, with the name of their user: those of one user,
 	 * or all of them. The hash of a token is never given.
 	 *
 	 * @param String $namedUserTxt Login name of the user, '' for the devices of every user.
-	 * @return Array|Bool The devices, by user then by name: 'id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate' and 'systemName'; false when the tables cannot be read.
+	 * @return Array|Bool The devices, by user then by name: 'id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate', and of their user 'systemName' and 'accessRole'; false when the tables cannot be read.
 	 */
 	public function lstUserDevices( String $namedUserTxt='' ): Array|Bool {
 		if( $this->deviceTble=='' || $this->usersTable=='' ){
@@ -159,10 +204,11 @@ class Device implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$fldList = Array();
-			foreach( Array('id_device', 'deviceName', 'deviceRole', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
+			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
 			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.systemName');
+			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.accessRole');
 			$usrName = $dbHndlr->quoteFieldName($this->usersTable.'.systemName');
 			$listQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)
 				.' INNER JOIN '.$dbHndlr->quoteFieldName($this->usersTable)
@@ -192,7 +238,7 @@ class Device implements Handler{
 		try{
 			$dbHndlr = $this->attachDatabase();
 			$fldList = Array();
-			foreach( Array('id_device', 'deviceName', 'deviceRole', 'revokeDate') as $fldNme ){
+			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'revokeDate') as $fldNme ){
 				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
 			foreach( Array('id_user', 'systemName', 'accessRole', 'userStatus') as $fldNme ){

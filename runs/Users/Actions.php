@@ -111,11 +111,16 @@ class Actions extends Actionset {
 	/**
 	 * Gives the user its path names the address of the 'userMail'
 	 * input, or takes its address away when 'userMail' is empty or left out.
-	 * Reports 409 for an address another user holds.
+	 * Reports 409 for an address another user holds, and 403 for a device
+	 * changing the address of its own user (see needsPasswdLgn).
 	 */
 	public function setmail(): Void {
 		$usrBase = $this->userBaseDb;
 		$gvnUser = $this->givenUsrString(false);
+		// A device never changes the address of its own user: that needs the password login
+		if( $gvnUser===strval($this->accessRgst->readValueByKey('userName')) ){
+			$this->needsPasswdLgn();
+		}
 		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
 		if(!$usrBase->changeMailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
 			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );

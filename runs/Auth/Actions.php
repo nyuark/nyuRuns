@@ -477,10 +477,13 @@ class Actions extends Actionset {
 	 * password breaks a rule, or a password came in the query string of
 	 * the address (see passInUrl), 401 when nobody is logged or the current
 	 * password is wrong (a wrong one counts as a failed attempt, for the
-	 * user and for its address) and 500 when the login does not use the
-	 * native userbase.
+	 * user and for its address), 403 for a request made with a device token
+	 * (see needsPasswdLgn) and 500 when the login does not use the native
+	 * userbase.
 	 */
 	public function setpass(): Void {
+		// A device never changes the password of its user: that needs the password login
+		$this->needsPasswdLgn();
 		if($this->refuseUrlPassw( Array('oldValue', 'passWord'), 'Password change' )){
 			return;
 		}

@@ -45,3 +45,11 @@ ALTER TABLE `devices`
 -- 	RENAME COLUMN `revokeDate` TO `revkDate`,
 -- 	RENAME COLUMN `createDate` TO `madeDate`,
 -- 	RENAME INDEX  `bearerHash` TO `tokenKey`;
+
+-- The cap of the devices (deviceTops, Access\Auth\Device), added in 1.0: the highest role
+-- a device acts with. A table moved above gets it with this last statement; a table
+-- already at 1.0 runs this statement alone. Empty, a device acts with its user's
+-- role, as before; php nyuRun install checkAll tells the devices to give a cap (device caps).
+
+ALTER TABLE `devices` ADD COLUMN `deviceTops` VARCHAR(8) NULL AFTER `deviceRole`,
+	ADD CHECK (`deviceTops` IS NULL OR `deviceTops` IN ('standard', 'advanced', 'delegate', 'managers'));
