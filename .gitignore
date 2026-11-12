@@ -12,6 +12,8 @@
 /conf/mailer.json
 /conf/.htpasswd
 /conf/users.lst
+# The presets each server serves, and where: made by php nyuRun install complete
+/conf/doorways.lst
 # Keys signing the tokens: the private one never leaves the server
 /conf/keys/
 # Bundles made for the environments (php nyuRun bundling)

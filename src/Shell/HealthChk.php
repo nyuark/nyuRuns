@@ -47,6 +47,7 @@ class HealthChk{
 		$this->validatePreset();
 		$this->validateRoutes();
 		$this->validateEntrys();
+		$this->checkDoorsList();
 		$this->verifyAccsConf();
 		$this->checkDatabases();
 		$this->validateStores();
@@ -361,6 +362,58 @@ class HealthChk{
 			}else{
 				$this->addCheckResult('entry '.$itemNme, $isFinal ? 'fail' : 'warn', 'starts '.$prstNme.': every request is served without a check; name a preset that checks access, or set "isPublic": true in its security block when the site is meant to be open');
 			}
+		}
+	}
+
+	/**
+	 * Checks the map of the presets served, conf/doorways.lst (see
+	 * Runner::pickPresetName): it fails on a map that cannot be read, a line
+	 * naming a preset that does not load or the example, and two lines for
+	 * the same host and basePath; it warns on an open preset ("required":
+	 * false) whose security block does not say it is meant to be ("isPublic").
+	 * Without a map, every request is served by the default preset.
+	 */
+	public function checkDoorsList(): Void {
+		try{
+			$rowList = \nyu\Runner::readDoorsArray();
+		}catch( \RuntimeException $e ){
+			$this->addCheckResult('doorways', 'fail', $e->getMessage().': every request is answered 500');
+			return;
+		}
+		if( empty($rowList) ){
+			$this->addCheckResult('doorways', 'fine', 'no map of the presets served: every request goes to the default preset');
+			return;
+		}
+		$isFlaws = false;
+		$seenLst = Array();
+		foreach( $rowList as $oneRow ){
+			$lineTxt = $oneRow['hostName'].$oneRow['basePath'].' = '.$oneRow['presetId'];
+			$lineKey = $oneRow['hostName'].$oneRow['basePath'];
+			if( isset($seenLst[$lineKey]) ){
+				$this->addCheckResult('doorways', 'fail', $lineTxt.': a second line for '.$lineKey.', which the first one answers');
+				$isFlaws = true;
+				continue;
+			}
+			$seenLst[$lineKey] = true;
+			if( strcasecmp($oneRow['presetId'], Preset::XMPL_NAME)==0 ){
+				$this->addCheckResult('doorways', 'fail', $lineTxt.': '.Preset::XMPL_NAME.' only explains the keys of a preset and is never loaded: its requests are answered 500');
+				$isFlaws = true;
+				continue;
+			}
+			try{
+				$accConf = (new Preset($oneRow['presetId']))->newSetupLoader()->setAccessArray();
+			}catch( \Throwable $e ){
+				$this->addCheckResult('doorways', 'fail', $lineTxt.': the preset does not load ('.$e->getMessage().')');
+				$isFlaws = true;
+				continue;
+			}
+			if( ($accConf['required'] ?? true)===false && ($accConf['isPublic'] ?? false)!==true ){
+				$this->addCheckResult('doorways', 'warn', $lineTxt.': every request is served without a check; set "isPublic": true in its security block when it is meant to be open');
+				$isFlaws = true;
+			}
+		}
+		if( !$isFlaws ){
+			$this->addCheckResult('doorways', 'fine', count($rowList).' line'.(count($rowList)>1 ? 's' : '').', each a preset that loads');
 		}
 	}
 

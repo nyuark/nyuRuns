@@ -114,6 +114,8 @@ class Deploy extends Command{
 				$this->printerObj->printShellFail( $e->getMessage() );
 			}
 		}
+		// Asked last : the presets served, and where (conf/doorways.lst)
+		$this->queryDoorsList();
 		// A config cache brought along, or left by a former installation, is not the config of this one
 		ConfCache::clearConfCache();
 		$this->traceShellDone('Deploy: installation run as '.$projKnd.', users in '.$storNme);
@@ -545,6 +547,60 @@ class Deploy extends Command{
 		}
 		$this->printerObj->printShellRows( Array('file', 'state'), $rowList );
 		Console::loadConfigLogs();
+	}
+
+	/**
+	 * Asks the presets to serve, and where: lines of basePath=preset for any
+	 * host, '/=default' proposed, or the lines of the map already written.
+	 * The lines naming a host are kept as they are (setting entryPts
+	 * --hostName changes them). The map, conf/doorways.lst, is written whole.
+	 *
+	 * @throws ShellStop When a line is not one, names a preset that does not load or the example, or no line is given.
+	 */
+	protected function queryDoorsList(): Void {
+		// The lines of a map already written are proposed as they are, those for any host only : a line naming a host is kept apart
+		try{
+			$rowList = \nyu\Runner::readDoorsArray();
+		}catch( \RuntimeException $e ){
+			$this->terminateShell( 'Nothing was installed further: '.$e->getMessage(), self::EXIT_DENY );
+		}
+		$hostLst = Array();
+		$dfltLst = Array();
+		foreach( $rowList as $oneRow ){
+			if( $oneRow['hostName']==='' ){
+				$dfltLst[] = $oneRow['basePath'].'='.$oneRow['presetId'];
+			}else{
+				$hostLst[] = $oneRow;
+			}
+		}
+		$gvnText = $this->queryAnswerTxt( 'Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName)', empty($dfltLst) ? '/=default' : implode(', ', $dfltLst) );
+		$newList = $hostLst;
+		foreach( array_filter(array_map('trim', explode(',', $gvnText))) as $onePar ){
+			$pairArr = array_map('trim', explode('=', $onePar, 2));
+			$baseTxt = '/'.trim($pairArr[0], '/');
+			$prstNme = strval($pairArr[1] ?? '');
+			if( !preg_match('#^/[\w.\-/]*$#D', $baseTxt) || !preg_match('/^\w+$/D', $prstNme) ){
+				$this->terminateShell( 'Not a line of the presets served: '.$onePar.' (basePath=preset)', self::EXIT_DENY );
+			}
+			if( strcasecmp($prstNme, \nyu\Setup\Preset::XMPL_NAME)==0 ){
+				$this->terminateShell( 'The preset '.\nyu\Setup\Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded: it serves nothing', self::EXIT_DENY );
+			}
+			try{
+				new \nyu\Setup\Preset($prstNme);
+			}catch( \RuntimeException $e ){
+				$this->terminateShell( 'Not a preset to serve: '.$e->getMessage(), self::EXIT_DENY );
+			}
+			$newList[] = Array('hostName'=>'', 'basePath'=>$baseTxt, 'presetId'=>$prstNme);
+		}
+		if( empty($newList) ){
+			$this->terminateShell( 'No preset to serve: give one line at least, /=default', self::EXIT_DENY );
+		}
+		(new Config($this->optionsObj, $this->printerObj, $this->readStream))->writeDoorsList($newList);
+		$lineLst = Array();
+		foreach( $newList as $oneRow ){
+			$lineLst[] = $oneRow['hostName'].$oneRow['basePath'].'='.$oneRow['presetId'];
+		}
+		$this->traceShellDone( 'Deploy: presets served '.json_encode($lineLst, JSON_UNESCAPED_SLASHES) );
 	}
 
 	/**

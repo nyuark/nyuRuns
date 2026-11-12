@@ -4,7 +4,10 @@
 // through the Runner on a project folder of its own, whose temp/cache the
 // config cache is written in; the applications are those of the fixtures:
 //
-//   php cacheChild.php <project folder> <preset> <path>
+//   php cacheChild.php <project folder> <preset> <path> [host]
+//
+// An empty preset has the map of the presets served of the project
+// (conf/doorways.lst) pick it, by the host (localhost when not given) and the path.
 
 $topDir = dirname(__DIR__, 2);
 
@@ -21,5 +24,6 @@ ini_set('error_log', '');
 $_SERVER['REQUEST_METHOD'] = 'GET';
 $_SERVER['REQUEST_URI'] = $argv[3];
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+$_SERVER['HTTP_HOST'] = $argv[4] ?? 'localhost';
 
 new \nyu\Runner($argv[2]);

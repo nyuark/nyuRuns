@@ -78,6 +78,7 @@ checkIdentical('start points the login at the store, makes the keys of the token
 checkIdentical('the default of each open Run is told; Lost, naming no action, fails', Array(array_keys(array_filter(stateOf($jsnVals), function( String $rowState ): Bool { return $rowState=='fail'; })), stateOf($jsnVals)['default Probe'] ?? null, stateOf($jsnVals)['default Hooked'] ?? null), Array(Array('default Lost'), 'fine', 'warn'));
 checkIdentical('start makes the key of the 2FA secrets with the store, never shown', Array(strlen($envVals['NYU_TFA_KEY'] ?? '')>=48, $statLst['2FA key userFile'] ?? null, isset($jsnVals['secret']['Key of the 2FA secrets'])), Array(true, 'fine', false));
 checkIdentical('the passwords of the basic users are shown once', Array(password_verify($jsnVals['secret']['Password of bossDemo (managers)'] ?? '', $usrList['bossDemo']['passwdHash'] ?? ''), password_verify($jsnVals['secret']['Password of userDemo (standard)'] ?? '', $usrList['userDemo']['passwdHash'] ?? ''), isset($jsnVals['secret']['Secret of the tokens'])), Array(true, true, false));
+checkIdentical('start writes the presets served, / to the default preset, and the check reads it', Array(json_decode(strval(fetchInProject($projDir, 'conf/doorways.lst')), true)['doorways'] ?? null, $statLst['doorways'] ?? null), Array(Array(Array('basePath'=>'/', 'presetId'=>'default')), 'warn'));
 checkIdentical('--noPrompt takes allInOne, which the check reads back', Array(stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null), Array('fine', 'allInOne'));
 checkPregMatch('the layout of the access config is kept', strval(fetchInProject($projDir, 'conf/access.json')), '/^\{\n\t"plugLibs": \{ "authWith": \[\], "carrWith": \[\] \},\n\t"loginSet": \{ "authWith": "userFile", "authConf": "userFile", /');
 $jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt'));
@@ -111,7 +112,7 @@ checkIdentical('files alone still makes them all', Array(runShellAsJson(freshPrj
 // start, with its questions
 $projDir = freshPrjt('asked');
 $runVals = callShellArray($projDir, Array('install', 'complete', '--silently'), "\n\n\n");
-checkIdentical('each question proposes a default, taken on Enter: all in one, the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('What this project is (allInOne, authServ, dataServ) [allInOne]: Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: ', true, true));
+checkIdentical('each question proposes a default, taken on Enter: all in one, the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('What this project is (allInOne, authServ, dataServ) [allInOne]: Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName) [/=default]: ', true, true));
 // The basic accounts: the simple or the full version, then each name asked, the one proposed taken on Enter; a version that is neither, a name a user cannot have, or one given twice, creates none
 $projDir = freshPrjt('accounts');
 $jsnVals = runShellAsJson($projDir, Array('install', 'complete'), "\n\n\nFull\nann.k\n\n\nBen-2\n");
@@ -303,5 +304,24 @@ checkIdentical('the example preset: its keys checked, never loaded; an entry sta
 writeInProject($projDir, 'conf/system.ini', str_replace('ENV_NAME = DEVS', 'ENV_NAME = PROD', buildSystemIni()));
 $jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
 checkIdentical('in PROD, an entry on an open preset fails the check; one open by intent does not', Array(stateOf($jsnVals)['entry index'] ?? null, stateOf($jsnVals)['entry site'] ?? null, $jsnVals['exit'] ?? null), Array('fail', 'fine', 4));
+
+// The map of the presets served, conf/doorways.lst
+$doorRow = function( Array $commandReply ): Array {
+	$rowLst = Array();
+	foreach( $commandReply['rows'] ?? Array() as $oneRow ){
+		if( ($oneRow['check'] ?? '')=='doorways' ){
+			$rowLst[] = $oneRow['state'];
+		}
+	}
+	return $rowLst;
+};
+writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "default" }, { "basePath": "/", "presetId": "secure" }, { "basePath": "/docs", "presetId": "example" }, { "basePath": "/x", "presetId": "nosuch" }, { "hostName": "api.example.org", "basePath": "/", "presetId": "secure" } ] }');
+checkIdentical('doorways: an open preset without isPublic told, a second line for the same host and basePath, the example and a preset that does not load: failed', $doorRow(runShellAsJson($projDir, Array('install', 'checkAll'))), Array('warn', 'fail', 'fail', 'fail'));
+writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/api", "presetId": "secure" }, { "hostName": "api.example.org", "basePath": "/api", "presetId": "secure" } ] }');
+checkIdentical('doorways: presets that check access, the same basePath on another host: fine', $doorRow(runShellAsJson($projDir, Array('install', 'checkAll'))), Array('fine'));
+writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "api", "presetId": "secure" } ] }');
+checkIdentical('doorways: a map that cannot be read fails', $doorRow(runShellAsJson($projDir, Array('install', 'checkAll'))), Array('fail'));
+@unlink($projDir.DS.'conf'.DS.'doorways.lst');
+checkIdentical('doorways: no map, every request to the default preset', $doorRow(runShellAsJson($projDir, Array('install', 'checkAll'))), Array('fine'));
 
 finishChecking();

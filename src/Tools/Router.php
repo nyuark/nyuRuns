@@ -20,6 +20,7 @@ class Router{
 	protected $routConfig;	// 'dispatch' block of the active preset
 	protected $requestObj;	// The shared HTTP request
 	protected $rtePathTxt;	// Request path, without its leading slash and query string
+	protected $routesBase = '';	// The start of the path the preset is served under, without a final slash ('' for the root)
 	protected $routeFiles;	// Declared routes, once read
 
 	/**
@@ -28,11 +29,18 @@ class Router{
 	 *
 	 * @param Array   $routSettings The 'dispatch' config block of the active preset.
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
+	 * @param String  $basePathText The start of the path the preset is served under, from the map of the presets served ('' for the root): taken off the path, put back in front of the links and redirections.
 	 */
-	public function __construct( Array $routSettings, Request $givenRequest ){
+	public function __construct( Array $routSettings, Request $givenRequest, String $basePathText='' ){
 		$this->routConfig = $routSettings;
 		$this->requestObj = $givenRequest;
+		$this->routesBase = rtrim($basePathText, '/');
 		$this->rtePathTxt = $this->cleanRoutePath( strval($givenRequest->obtainUrlValue('fullPath')) );
+		// The basePath is taken off whole parts of the path : /api/users/view/12 is routed as users/view/12
+		$baseTxt = ltrim($this->routesBase, '/');
+		if( $baseTxt!=='' && ($this->rtePathTxt===$baseTxt || str_starts_with($this->rtePathTxt, $baseTxt.'/')) ){
+			$this->rtePathTxt = ltrim(substr($this->rtePathTxt, strlen($baseTxt)), '/');
+		}
 	}
 
 	/**
@@ -571,6 +579,10 @@ class Router{
 		if( !in_array($movCode, self::MOVE_LIST, true) || !self::validRouteAddr($moveUrl) ){
 			throw new \RuntimeException('Route misconfigured: "'.strval($targetValues['redirect']).'" with the status '.$movCode.' is not a redirection');
 		}
+		// A path of this site is served under the basePath of the preset; a full address is left as it is
+		if( str_starts_with($moveUrl, '/') && !str_starts_with($moveUrl, '//') ){
+			$moveUrl = $this->routesBase.$moveUrl;
+		}
 		return Array('routKind'=>'redirect', 'routTarg'=>$moveUrl, 'routStat'=>$movCode);
 	}
 
@@ -737,8 +749,8 @@ class Router{
 				$segList[] = $segKey;
 			}
 		}
-		// The route declared as index is the root of the site
-		$linkTxt = ($isKnown && $rtePath=='index') ? '/' : '/'.implode('/', $segList);
+		// The route declared as index is the root of the site; the basePath the preset is served under goes in front
+		$linkTxt = $this->routesBase.( ($isKnown && $rtePath=='index') ? '/' : '/'.implode('/', $segList) );
 		$qryText = http_build_query($linkQueryArr, '', '&', PHP_QUERY_RFC3986);
 		return $linkTxt.($qryText!='' ? '?'.$qryText : '');
 	}

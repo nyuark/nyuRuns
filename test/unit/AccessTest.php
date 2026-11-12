@@ -317,6 +317,9 @@ $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null,
 $axsRslt = $checker->validateAccess();
 checkIdentical('Checker sign-in: a denied page is still a 401', $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker sign-in: with the route to go to, and the page asked for', $axsRslt->readValueByKey('denyGoal'), '/login?back=%2Fhello%2F7%3Ftab%3Da%20b');
+$askPrpt->setValue($askReqs, Array('fullPath'=>'/api/hello/7'));
+$checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'hello/$id', 'routBase'=>'/api')) );
+checkIdentical('Checker sign-in: under the basePath the preset is served under (conf/doorways.lst), the page asked for as it was asked', $checker->validateAccess()->readValueByKey('denyGoal'), '/api/login?back=%2Fapi%2Fhello%2F7');
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'index')) );
 checkIdentical('Checker sign-in: the home page is not carried back', $checker->validateAccess()->readValueByKey('denyGoal'), '/login');

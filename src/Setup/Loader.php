@@ -244,15 +244,18 @@ class Loader{
 	 * through the Router and the 'dispatch' configuration of the active preset.
 	 *
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
-	 * @return Registry Registry holding the resolved 'appToRun' and 'doAction' values.
+	 * @param String  $basePathText The basePath of the line of the map of presets chosen ('' for the root): taken off the path, kept as 'routBase'.
+	 * @return Registry Registry holding the resolved 'appToRun' and 'doAction' values, and the 'routBase' of the request.
 	 */
-    function importRouteReg( Request $givenRequest ): Registry {
+    function importRouteReg( Request $givenRequest, String $basePathText='' ): Registry {
 		$rteConf = $this->getRegistryKey('dispatch');
-		$this->routingObj = new Router( is_array($rteConf) ? $rteConf : Array(), $givenRequest );
+		$this->routingObj = new Router( is_array($rteConf) ? $rteConf : Array(), $givenRequest, $basePathText );
 		if( $this->usesCached ){
 			$this->routingObj->assignRouteSet( $this->cachValues['routes'] );
 		}
-		return $this->routingObj->locateRouteReg();
+		$routReg = $this->routingObj->locateRouteReg();
+		$routReg->saveValueByKey('routBase', $basePathText);
+		return $routReg;
 	}
 
 	/**

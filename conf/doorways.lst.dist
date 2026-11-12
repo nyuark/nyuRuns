@@ -1,0 +1,7 @@
+{
+	"doorways": [
+		{ "hostName": "api.example.org", "basePath": "/", "presetId": "restapi" },
+		{ "basePath": "/api", "presetId": "restapi" },
+		{ "basePath": "/", "presetId": "website" }
+	]
+}

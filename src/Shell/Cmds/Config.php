@@ -69,7 +69,7 @@ class Config extends Command{
 		return Array(
 			'showConf'=>Array('args'=>'<coreConf|accsConf|dataConf|psetConf> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
 			'setValue'=>Array('args'=>'<coreConf|accsConf|dataConf|psetConf> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
-			'entryPts'=>Array('args'=>'[file] [preset]', 'about'=>'shows or changes the preset an entry point of www starts the Runner with'),
+			'entryPts'=>Array('args'=>'[basePath] [preset] [--hostName=<host>] [--removeIt]', 'about'=>'lists the presets served (conf/doorways.lst), or sets or removes the one answering a host and the start of a path'),
 			'mkSecret'=>Array('args'=>'<jwtToken|keysList|tfaCrypt|markSecr|htpasswd> [user] [--useBlock=<name>] [--showSecr] [--typeItIn] [--dropsAll]', 'about'=>'makes a secret and writes it where the config reads it'),
 			'fullList'=>Array('args'=>'[preset]', 'about'=>'lists the routes of a preset: path, methods, kind, target, access'),
 			'clrCache'=>Array('args'=>'', 'about'=>'removes the config cache: the next request of each preset reads its files, and caches them when CNF_CACH is TRUE')
@@ -302,61 +302,93 @@ class Config extends Command{
 	}
 
 	/**
-	 * Shows the preset each entry point of www starts the Runner with, or
-	 * changes the one of an entry point.
+	 * Lists the lines of the map of the presets served (Runner::DOOR_FILE,
+	 * conf/doorways.lst), adds one, changes the preset of one, or removes one
+	 * with --removeIt. A line is named by its basePath and its host
+	 * (--hostName, any host when left out). A preset that does not load is
+	 * refused, and so is the example, which is never loaded. Every change is
+	 * traced on 'shell'; the config cache is cleared as by every write in conf.
 	 *
 	 * @return Int The exit code.
 	 */
 	public function invokeEntryPts(): Int {
-		$fileNme = $this->optionsObj->shiftFirstWord();
+		$baseTxt = $this->optionsObj->shiftFirstWord();
 		$prstNme = $this->optionsObj->shiftFirstWord();
-		if( $fileNme===null ){
-			$rowList = Array();
-			foreach( (array)glob(WEB_DIR.DS.'*.php') as $phpFil ){
-				$hitList = Array();
-				if( preg_match(self::RUNR_CALL, strval(file_get_contents(strval($phpFil))), $hitList) ){
-					$rowList[] = Array( basename(strval($phpFil), '.php'), trim(strval($hitList[2] ?? ''), '\'"') ?: 'default' );
-				}
+		try{
+			$rowList = \nyu\Runner::readDoorsArray();
+		}catch( \RuntimeException $e ){
+			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
+		}
+		if( $baseTxt===null ){
+			$shwRows = Array();
+			foreach( $rowList as $oneRow ){
+				$shwRows[] = Array( ($oneRow['hostName']==='') ? '(any)' : $oneRow['hostName'], $oneRow['basePath'], $oneRow['presetId'] );
 			}
-			$this->printerObj->printShellRows( Array('entry', 'preset'), $rowList );
+			$this->printerObj->printShellRows( Array('host', 'basePath', 'preset'), $shwRows );
 			return self::EXIT_DONE;
 		}
-		$filPath = WEB_DIR.DS.$fileNme.'.php';
-		if( !preg_match('/^[\w\-]+$/D', $fileNme) || !is_file($filPath) ){
-			$this->terminateShell('No entry point www/'.$fileNme.'.php', self::EXIT_DENY);
+		$baseTxt = '/'.trim($baseTxt, '/');
+		$hostTxt = strtolower( trim(strval($this->optionsObj->retrieveOption('hostName', ''))) );
+		if( !preg_match('#^/[\w.\-/]*$#D', $baseTxt) || !preg_match('/^[a-z0-9.\-]*$/D', $hostTxt) ){
+			$this->terminateShell( 'Invalid line: a basePath of letters, digits, dots, dashes and slashes, a host name of letters, digits, dots and dashes', self::EXIT_HELP );
 		}
-		$fileTxt = strval(file_get_contents($filPath));
-		$hitList = Array();
-		$fndngNb = preg_match_all(self::RUNR_CALL, $fileTxt, $hitList, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
-		if( $fndngNb<1 ){
-			$this->terminateShell('www/'.$fileNme.'.php does not start a Runner', self::EXIT_DENY);
+		$lineTxt = ($hostTxt==='' ? '' : $hostTxt).$baseTxt;
+		$fndIndx = null;
+		foreach( $rowList as $rowIdx => $oneRow ){
+			if( $oneRow['hostName']===$hostTxt && $oneRow['basePath']===$baseTxt ){
+				$fndIndx = $rowIdx;
+			}
 		}
-		$nowPrst = trim(strval($hitList[0][2][0] ?? ''), '\'"') ?: 'default';
-		if( $prstNme===null ){
-			$this->printerObj->printShellPair($fileNme, $nowPrst);
+		if( $this->optionsObj->validateOption('removeIt') ){
+			if( $fndIndx===null ){
+				$this->terminateShell( 'Nothing was changed: no line for '.$lineTxt, self::EXIT_DENY );
+			}
+			$wasPrst = $rowList[$fndIndx]['presetId'];
+			unset($rowList[$fndIndx]);
+			$this->writeDoorsList( array_values($rowList) );
+			$this->traceShellDone( 'Config: the line '.$lineTxt.' of the presets served removed (was '.$wasPrst.')' );
+			$this->printerObj->printShellPair( 'removed', $lineTxt );
 			return self::EXIT_DONE;
 		}
-		$fullOff = intval($hitList[0][0][1]);
-		$fullEnd = $fullOff + strlen($hitList[0][0][0]);
-		$hasName = isset($hitList[0][2]) && $hitList[0][2][0]!=='';
-		if( $fndngNb!=1 || (!$hasName && ($fileTxt[$fullEnd] ?? '')!=')') ){
-			$this->terminateShell('Nothing was changed: www/'.$fileNme.'.php does not name its preset in a way that can be rewritten; change it by hand', self::EXIT_DENY);
+		if( $prstNme===null || $prstNme==='' ){
+			$this->terminateShell( 'Missing argument: the preset that answers '.$lineTxt, self::EXIT_HELP );
+		}
+		// The example only explains the keys: it never answers a request
+		if( strcasecmp($prstNme, Preset::XMPL_NAME)==0 ){
+			$this->terminateShell( 'Nothing was changed: the preset '.Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded', self::EXIT_DENY );
 		}
 		try{
 			new Preset($prstNme);
 		}catch( \RuntimeException $e ){
-			$this->terminateShell('Nothing was changed: '.$e->getMessage(), self::EXIT_DENY);
+			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
 		}
-		// The example only explains the keys: no entry point starts it
-		if( strcasecmp($prstNme, Preset::XMPL_NAME)==0 ){
-			$this->terminateShell('Nothing was changed: the preset '.Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded', self::EXIT_DENY);
+		$wasPrst = ($fndIndx===null) ? '' : $rowList[$fndIndx]['presetId'];
+		if( $fndIndx===null ){
+			$rowList[] = Array('hostName'=>$hostTxt, 'basePath'=>$baseTxt, 'presetId'=>$prstNme);
+		}else{
+			$rowList[$fndIndx]['presetId'] = $prstNme;
 		}
-		$this->generateWriter()->saveFileAtomic( $filPath, substr($fileTxt, 0, $fullOff).$hitList[0][1][0]."'".$prstNme."'".substr($fileTxt, $fullEnd) );
-		$this->traceShellDone( 'Config: entry point '.$fileNme.' set to the preset '.$prstNme.' (was '.$nowPrst.')' );
-		$this->printerObj->printShellPair($fileNme, $prstNme);
+		$this->writeDoorsList( $rowList );
+		$this->traceShellDone( 'Config: '.$lineTxt.' served by the preset '.$prstNme.( ($wasPrst==='') ? ', a line added' : ' (was '.$wasPrst.')' ) );
+		$this->printerObj->printShellPair( $lineTxt, $prstNme );
 		return self::EXIT_DONE;
 	}
 
+	/**
+	 * Writes the map of the presets served, conf/doorways.lst, whole: a line
+	 * for any host is written without its hostName.
+	 *
+	 * @param Array $doorwaysList The lines, each with 'hostName', 'basePath' and 'presetId', as Runner::readDoorsArray() gives them.
+	 *
+	 * @throws \RuntimeException When the file cannot be written.
+	 */
+	public function writeDoorsList( Array $doorwaysList ): Void {
+		$jsonLst = Array();
+		foreach( $doorwaysList as $oneRow ){
+			$jsonLst[] = ( (strval($oneRow['hostName'] ?? '')==='') ? Array() : Array('hostName'=>strval($oneRow['hostName'])) ) + Array('basePath'=>strval($oneRow['basePath']), 'presetId'=>strval($oneRow['presetId']));
+		}
+		$this->generateWriter()->saveFileAtomic( TOP_DIR.DS.str_replace('/', DS, \nyu\Runner::DOOR_FILE), \nyu\Shell\RunMaker::tabbedJsonText(Array('doorways'=>$jsonLst)) );
+	}
 	/**
 	 * Makes a secret and writes it where the config reads it.
 	 *

@@ -566,7 +566,9 @@ class Checker{
 			return null;
 		}
 		$askedUr = strval($this->requestObj->obtainUrlValue('fullPath'));
-		return $signRte.( ($askedUr!='' && $askedUr!='/') ? '?back='.rawurlencode($askedUr) : '' );
+		// The sign-in route is one of the preset's : under the basePath it is served under, as the page asked for is
+		$baseTxt = rtrim(strval($this->routerRgst->readValueByKey('routBase') ?? ''), '/');
+		return $baseTxt.$signRte.( ($askedUr!='' && $askedUr!='/') ? '?back='.rawurlencode($askedUr) : '' );
 	}
 
 	/**

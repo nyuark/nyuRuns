@@ -90,12 +90,8 @@ if( isset($_SERVER['HTTP_X_TEST_HTROOT']) && preg_match('/^\w+$/', $_SERVER['HTT
 
 $useFxtr = isset($_SERVER['HTTP_X_TEST_RUNS']);
 
-$presetNm = $_SERVER['HTTP_X_TEST_PRESET'] ?? '';
-
-if( empty($overArr) && !$useFxtr && $presetNm=='' ){
-	require $topDir.'/www/index.php';
-	return;
-}
+// The preset is always named : the map of the presets served of the project (conf/doorways.lst) never steers the tests
+$presetNm = $_SERVER['HTTP_X_TEST_PRESET'] ?? 'default';
 
 // Same bootstrap as www/index.php, with the overloads applied
 define('DS', DIRECTORY_SEPARATOR);

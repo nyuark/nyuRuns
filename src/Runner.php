@@ -20,6 +20,10 @@ $GLOBALS['nyuConfig'] = null;
  */
 class Runner{
 
+	// The map of the presets served, from the project root: which preset answers a request, by its host and the start of its path
+	const DOOR_FILE = 'conf/doorways.lst';
+
+	protected 	$routesBase = '';	// The basePath of the line of the map chosen: taken off the path before routing
 	protected 	$presetUsed;	// RPS (Runner PreSet) Object
 	protected	$confLoader;	// Loader Container (Configuration)
 	protected	$objBuilder;	// Shared Container (client and server values)
@@ -38,11 +42,15 @@ class Runner{
 	 * Loads the given preset, builds the shared objects (config, request,
 	 * response), then sets up routing and access before running the request.
 	 *
-	 * @param String $presetToLoad Name of the .rps preset file to load (defaults to 'default').
+	 * @param String $presetToLoad Name of the .rps preset file to load; when empty, the map of the presets served picks it (see pickPresetName), 'default' when it picks none.
 	 * @param Array  $overrideConf Configuration values to merge over the loaded preset.
 	 */
 	function __construct( String $presetToLoad = '', Array $overrideConf = Array() ){
 		try{
+			// No preset named : the map picks it, by the host and the path of the request, before anything else
+			if( $presetToLoad=='' ){
+				$presetToLoad = $this->pickPresetName();
+			}
 			// The config cache of the preset stands for its files, when there is one (CNF_CACH)
 			$cachVls = ConfCache::readCacheArray($presetToLoad);
 			if( $cachVls!==null ){
@@ -75,6 +83,70 @@ class Runner{
 
 		// Setup route & access, then process
 		$this->loadSetupFiles();
+	}
+
+	/**
+	 * Picks the preset of the request from the map of the presets served
+	 * (DOOR_FILE): of the lines matching the host and the start of the path,
+	 * a line naming a host comes before a line without one, then the
+	 * longest basePath. The basePath of the line chosen is kept, to be taken
+	 * off the path before routing. No map, an empty one or no line matching:
+	 * the default preset. The map is read on each request, never cached.
+	 *
+	 * @return String The name of the preset.
+	 *
+	 * @throws \RuntimeException When the map cannot be read.
+	 */
+	protected function pickPresetName(): String {
+		$hostTxt = strtolower( preg_replace('/:\d+$/', '', strval($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '')) );
+		$pathTxt = '/'.trim( strval(parse_url(strval($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?? ''), '/' );
+		$bestRow = null;
+		foreach( self::readDoorsArray() as $oneRow ){
+			$baseTxt = $oneRow['basePath'];
+			// A basePath matches whole parts of the path: /api takes /api and /api/..., never /apix
+			if( ($oneRow['hostName']!=='' && $oneRow['hostName']!==$hostTxt) || ($baseTxt!=='/' && $pathTxt!==$baseTxt && !str_starts_with($pathTxt, $baseTxt.'/')) ){
+				continue;
+			}
+			if( $bestRow===null || [$oneRow['hostName']!=='', strlen($baseTxt)] > [$bestRow['hostName']!=='', strlen($bestRow['basePath'])] ){
+				$bestRow = $oneRow;
+			}
+		}
+		if( $bestRow===null ){
+			return 'default';
+		}
+		$this->routesBase = ($bestRow['basePath']==='/') ? '' : $bestRow['basePath'];
+		return $bestRow['presetId'];
+	}
+
+	/**
+	 * Reads the map of the presets served, conf/doorways.lst: JSON with a
+	 * .lst extension, which the Loader does not read as a config. Each line
+	 * names a preset (presetId), the start of the path it answers (basePath)
+	 * and, when it is given, the host (hostName, any host when empty).
+	 *
+	 * @return Array The lines, each with 'hostName' (lower case, '' for any host), 'basePath' (a leading slash, none after it) and 'presetId'; empty when there is no map.
+	 *
+	 * @throws \RuntimeException When the map is not JSON, or a line of it is not whole: a broken map never serves another preset.
+	 */
+	public static function readDoorsArray(): Array {
+		$doorPth = TOP_DIR.DS.str_replace('/', DS, self::DOOR_FILE);
+		if( !is_file($doorPth) ){
+			return Array();
+		}
+		$doorVls = json_decode( strval(file_get_contents($doorPth)), true );
+		if( !is_array($doorVls) || !is_array($doorVls['doorways'] ?? Array()) || !array_is_list($doorVls['doorways'] ?? Array()) ){
+			throw new \RuntimeException(self::DOOR_FILE.' cannot be read: { "doorways": [ { "hostName", "basePath", "presetId" } ] } expected');
+		}
+		$rowList = Array();
+		foreach( $doorVls['doorways'] ?? Array() as $rowIdx => $oneRow ){
+			$hostTxt = is_array($oneRow) ? ($oneRow['hostName'] ?? '') : null;
+			if( !is_array($oneRow) || array_diff(array_keys($oneRow), Array('hostName', 'basePath', 'presetId')) || !is_string($hostTxt) || !preg_match('/^[a-z0-9.\-]*$/Di', $hostTxt)
+				|| !is_string($oneRow['basePath'] ?? null) || !preg_match('#^/[\w.\-/]*$#D', $oneRow['basePath']) || !is_string($oneRow['presetId'] ?? null) || !preg_match('/^\w+$/D', $oneRow['presetId']) ){
+				throw new \RuntimeException(self::DOOR_FILE.' cannot be read: line '.($rowIdx + 1).' needs a basePath starting with a slash, a presetId, and a hostName or none');
+			}
+			$rowList[] = Array( 'hostName'=>strtolower($hostTxt), 'basePath'=>'/'.trim($oneRow['basePath'], '/'), 'presetId'=>$oneRow['presetId'] );
+		}
+		return $rowList;
 	}
 
 	/**
@@ -151,7 +223,8 @@ class Runner{
 		// gives for an action (input/<action>.json) is applied by its Controller
 		$this->inputsRgst = $this->confLoader->retrieveInputs( $this->requestObj );
 
-		$this->routerRgst = $this->confLoader->importRouteReg( $this->requestObj );
+		// The basePath of the line of the map chosen is taken off the path, and put back in front of the links
+		$this->routerRgst = $this->confLoader->importRouteReg( $this->requestObj, $this->routesBase );
 		// Read from its files, the config is cached for the next requests when CNF_CACH is TRUE
 		$this->confLoader->retainCacheFlg();
 
