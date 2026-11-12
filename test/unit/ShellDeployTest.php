@@ -115,7 +115,7 @@ $runVals = callShellArray($projDir, Array('install', 'complete', '--silently'), 
 checkIdentical('each question proposes a default, taken on Enter: all in one, the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('What this project is (allInOne, authServ, dataServ, openSite) [allInOne]: Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName) [/=default]: ', true, true));
 // The basic accounts: the simple or the full version, then each name asked, the one proposed taken on Enter; a version that is neither, a name a user cannot have, or one given twice, creates none
 $projDir = freshPrjt('accounts');
-$jsnVals = runShellAsJson($projDir, Array('install', 'complete'), "\n\n\nFull\nann.k\n\n\nBen-2\n");
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--projKind=allInOne', '--useStore=userFile'), "\n\nFull\nann.k\n\n\nBen-2\n");
 checkIdentical('names: the full version, the names answered, in the order of the roles', array_column(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array(), 'accessRole', 'systemName'), Array('ann.k'=>'standard', 'powrDemo'=>'advanced', 'deptDemo'=>'delegate', 'Ben-2'=>'managers'));
 $projDir = freshPrjt('refused');
 runShellAsJson($projDir, Array('install', 'makeConf'));
@@ -125,7 +125,7 @@ $twoVals = callShellArray($projDir, Array('install', 'userBase', '--useStore=use
 checkIdentical('names: a version that is neither, one a user cannot have, one given twice: refused, nobody created', Array($othVals['code'], $othVals['errs'], $runVals['code'], $runVals['errs'], $twoVals['code'], $twoVals['errs'], is_file($projDir.DS.'conf'.DS.'users.lst')),
 	Array(3, "Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: No user created: \"half\" is neither simple nor full\n", 3, "Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: No user created: \"root\" is not a name a user can have\n", 3, "Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: No user created: two accounts cannot share the name \"ANN\"\n", false));
 $projDir = freshPrjt('answer');
-$jsnVals = runShellAsJson($projDir, Array('install', 'complete'), "\nprod\nuserFile\n");
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--projKind=allInOne'), "prod\nuserFile\n");
 $statLst = stateOf($jsnVals);
 checkIdentical('the answers are written; ERR_SHOW left on in production is told, where it is ignored', Array($jsnVals['exit'] ?? null, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), "ENV_NAME = PROD\n")!==false, strpos(strval(fetchInProject($projDir, 'conf/system.ini')), '; Environment platform (DEVS, TEST, PREV, PROD)')!==false, count(json_decode(strval(fetchInProject($projDir, 'conf/users.lst')), true)['users'] ?? Array()), $statLst['errors'] ?? null, $statLst['users'] ?? null), Array(4, true, true, 2, 'warn', 'fine'));
 checkPregMatch('the row tells the setting is ignored there', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['errors'] ?? ''), '/^ERR_SHOW is on in the environment PROD, where it is ignored: set it to FALSE$/');
@@ -158,7 +158,7 @@ if( function_exists('openssl_pkey_new') ){
 	checkIdentical('a previous key with HS256 is told, as it is not read', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))['previous key jwtToken'] ?? null, 'warn');
 }
 $projDir = freshPrjt('wrongs');
-checkIdentical('an answer that is not one of those proposed', Array(callShellArray($projDir, Array('install', 'complete'), "website\n")['code'], callShellArray($projDir, Array('install', 'complete'), "\nLIVE\n")['code'], callShellArray($projDir, Array('install', 'complete'), "\n\nldap\n")['code']), Array(3, 3, 3));
+checkIdentical('an answer that is not one of those proposed', Array(callShellArray($projDir, Array('install', 'complete'), "website\n")['code'], callShellArray($projDir, Array('install', 'complete', '--projKind=allInOne'), "LIVE\n")['code'], callShellArray($projDir, Array('install', 'complete', '--projKind=allInOne'), "\nldap\n")['code']), Array(3, 3, 3));
 $jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=none'));
 checkIdentical('a store without users of its own', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(4, false));
 checkIdentical('without a store, no key of the 2FA secrets is made: the check tells the secrets would be readable', Array(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '', stateOf($jsnVals)['2FA key nativeDb'] ?? null), Array('', 'warn'));
@@ -242,7 +242,7 @@ if( function_exists('openssl_pkey_new') ){
 // The profile of the project : an authentication server, a resource server, read back by the check
 if( function_exists('openssl_pkey_new') ){
 	$projDir = freshPrjt('authsrv');
-	$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--projKind=authServ'), "https://auth.example.org\napi.example.org, app.example.org\n\nuserFile\n\n\n\n");
+	$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--projKind=authServ', '--useStore=userFile'), "https://auth.example.org\napi.example.org, app.example.org\n\n\n\n\n\n");
 	$tknVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['jwtToken'] ?? Array();
 	checkIdentical('authServ: RS256 with a pair of its own, the issuer and the audiences asked, users in its store', Array($tknVals['signAlgo'] ?? null, $tknVals['issuerId'] ?? null, $tknVals['audience'] ?? null, is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), is_file($projDir.DS.'conf'.DS.'users.lst'), stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null),
 		Array('RS256', 'https://auth.example.org', Array('api.example.org', 'app.example.org'), true, true, 'fine', 'authServ'));
