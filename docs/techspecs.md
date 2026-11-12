@@ -985,7 +985,7 @@ carrier, so a value naming a block reads on its own
 | `htpasswd` | `passFile`, `weakHash`, `maxTries`, `holdSecs` | the password file of the `htpasswd` check, and its limit by account |
 | `nativeDb` | `linkName`, `useTable`, `idleSecs`, `maxTries`, `holdSecs`, `minChars`, `tfaCrypt`, `mailAcnt`, `signupOn`, `codeMins`, `linkTmpl` | the native userbase: its database and table, the time after which a user is no longer online, the wrong passwords before the account is held and for how long, the shortest password, the key of the 2FA secrets, the access mails |
 | `userFile` | `listFile`, `tfaCrypt`, `maxTries`, `holdSecs` | the users file, the key of its 2FA secrets, and its limit by account |
-| `dvcToken` | `useTable`, `usersTbl`, `seenSecs` | the table of the devices, the one of their users, and how often a device's last use is recorded |
+| `dvcToken` | `useTable`, `usersTbl`, `seenSecs` | the table of the devices, the one of their users, and how often a device's last use is recorded; each device's cap, the highest role it acts with, is a column of its table (`deviceTops`) |
 | `tryLimit` | `maxTries`, `holdSecs`, `dataPath`, `maxQueue`, `maxPerIp`, `alertsAt`, `markSecr`, `markDays` | the limit by address, the bounds of the sign-ups, and the login marks |
 | `regdKeys` | `headName`, `keysList` | the header of the API keys, and the keys |
 | `jwtToken` | `hmacSecr`, `lifeSecs`, `signAlgo`, `privFile`, `publFile`, `prevFile`, `issuerId`, `audience` | the tokens: their algorithm, secret or keys, the previous public key, their life, issuer and audience |

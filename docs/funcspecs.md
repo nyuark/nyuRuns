@@ -563,16 +563,24 @@ A device is a machine that calls the service with no one signing in: a
 kiosk, a sensor, a home server. It acts on behalf of a user of the native
 userbase, with its own token.
 
-1. The administrator gives the device a token, with a name and a role
-   (`php nyuRun devices newToken <name> <user> <role>`). The token is shown
-   once, and only its hash is kept.
+1. The administrator gives the device a token, with a name, the label the
+   application gives it, and a cap: the highest role it acts with, `standard`
+   unless told otherwise, never above its user's
+   (`php nyuRun devices newToken <name> <user> <label> --roleTops=<role>`).
+   The token is shown once, and only its hash is kept.
 2. The device sends its token in a header with each request. It's
    accepted as long as the device isn't revoked and its user is active,
    and the time it was last seen is recorded.
-3. The device gets the role it was given, if that's one of the service's
-   roles, and the lowest role otherwise. What that role can reach is
-   decided by the routes, just as for a user.
-4. The administrator lists the devices (`devices fullList`) and can
+3. On each request, the device acts with the lower of its cap and its
+   user's current role, so demoting the user lowers all their devices at
+   once. A device made before the caps has none and acts with its user's
+   role; `install checkAll` names those whose user is above `standard`
+   (`device caps`). What that role can reach is decided by the routes, just
+   as for a user.
+4. A device never changes its user's account: changing the password, or the
+   address of its own user, needs the password login, and a device token is
+   refused there with a 403.
+5. The administrator lists the devices (`devices fullList`) and can
    revoke one (`devices revokeIt`). A revoked device is refused from its next request,
    and stays in the list with the time it was revoked. A device whose user
    is locked is refused, and one whose user is removed goes with them.
