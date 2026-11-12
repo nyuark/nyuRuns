@@ -50,6 +50,7 @@ class HealthChk{
 		$this->verifyAccsConf();
 		$this->checkDatabases();
 		$this->validateStores();
+		$this->validateProfil();
 		$this->validateUnsafe();
 		return $this->resultRows;
 	}
@@ -651,6 +652,54 @@ class HealthChk{
 			$pwdFile = trim( strval($blckCfg['passFile'] ?? ''), '/\\ ' );
 			$isReady = ($pwdFile!='') && is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $pwdFile));
 			$this->addCheckResult( 'users', $isReady ? 'fine' : 'fail', $isReady ? 'the htpasswd file is there' : 'the htpasswd file is missing: "setting mkSecret htpasswd <user>" writes it' );
+		}
+	}
+
+	/**
+	 * Reads the profile of the project from the access config, which no
+	 * key keeps: a resource server ('dataServ') checks the tokens with a
+	 * public key alone and its login names no credential check; an
+	 * authentication server ('authServ') logs its users in and signs its
+	 * tokens with RS256, bound to the projects by an issuer or an audience;
+	 * users, login and data in one ('allInOne') otherwise. Blocks making none
+	 * of the three are told, and so are an 'authServ' or a 'dataServ' without
+	 * issuer or audience, and a 'dataServ' whose public key file is missing.
+	 */
+	public function validateProfil(): Void {
+		$lgnConf = $this->accessSettings('loginSet');
+		if( empty($lgnConf) ){
+			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ: there is no login block');
+			return;
+		}
+		$tknName = ( strval($lgnConf['carrWith'] ?? 'jwtToken')=='jwtToken' ) ? strval($lgnConf['carrConf'] ?? 'jwtToken') : '';
+		$tknConf = $this->accessSettings($tknName);
+		$authNme = trim( strval($lgnConf['authWith'] ?? '') );
+		$isRsass = ($tknConf['signAlgo'] ?? '')=='RS256';
+		$publNme = trim( strval($tknConf['publFile'] ?? ''), '/\\ ' );
+		$pubOnly = $isRsass && trim(strval($tknConf['privFile'] ?? ''))=='' && $publNme!='';
+		$hasIssr = is_string($tknConf['issuerId'] ?? null) && trim($tknConf['issuerId'])!='';
+		$adncVal = $tknConf['audience'] ?? Array();
+		$hasAdnc = is_string($adncVal) ? trim($adncVal)!='' : ( is_array($adncVal) && count(array_filter($adncVal, function( Mixed $audienceItem ): Bool { return is_string($audienceItem) && trim($audienceItem)!=''; }))>0 );
+		$clmFlaw = Array();
+		if( !$hasIssr ){
+			$clmFlaw[] = 'no issuerId';
+		}
+		if( !$hasAdnc ){
+			$clmFlaw[] = 'no audience';
+		}
+		if( $pubOnly && $authNme!='' ){
+			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ: the tokens are checked with a public key alone (publFile of '.$tknName.'), beside the users\' store of the login ('.$authNme.'): give the block its privFile, or take authWith out of loginSet for a resource server');
+		}elseif( $pubOnly ){
+			if( !is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publNme)) ){
+				$clmFlaw[] = 'the public key file '.$publNme.' is missing: copy the one of the authentication server';
+			}
+			$this->addCheckResult( 'profile', empty($clmFlaw) ? 'fine' : 'warn', 'dataServ'.( empty($clmFlaw) ? '' : ': '.implode('; ', $clmFlaw) ) );
+		}elseif( $authNme=='' ){
+			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ: the login names no users\' store, and the tokens are not checked with a public key alone');
+		}elseif( $isRsass && ($hasIssr || $hasAdnc) ){
+			$this->addCheckResult( 'profile', empty($clmFlaw) ? 'fine' : 'warn', 'authServ'.( empty($clmFlaw) ? '' : ': '.implode('; ', $clmFlaw).', the tokens are not bound to the projects accepting them' ) );
+		}else{
+			$this->addCheckResult('profile', 'fine', 'allInOne');
 		}
 	}
 

@@ -21,6 +21,7 @@ use nyu\Shell\UserFile;
  *
  *   php nyuRun install complete             the whole sequence, asking what it needs with a default to take on Enter
  *   php nyuRun install complete --noPrompt  the same without a question, for a deployment script
+ *   php nyuRun install complete --projKind=dataServ  the profile of the project answered beforehand
  *   php nyuRun install testHost             checks the server: PHP, extensions, folders
  *   php nyuRun install makeConf             creates the local files from their examples
  *   php nyuRun install userBase             creates the users table and the basic users, or the users file;
@@ -40,6 +41,8 @@ class Deploy extends Command{
 	const USER_LIST = Array('userDemo'=>'standard', 'powrDemo'=>'advanced', 'deptDemo'=>'delegate', 'bossDemo'=>'managers');
 	// The stores the users can be created in, and 'none' for a project without users of its own
 	const STOR_LIST = Array('nativeDb', 'userFile', 'none');
+	// The profiles of a project: users, login and data in one, an authentication server, a resource server
+	const KIND_LIST = Array('allInOne', 'authServ', 'dataServ');
 	// The block a store of users is given in conf/access.json when it has none
 	const STOR_CONF = Array(
 		'nativeDb'=>Array('linkName'=>'', 'useTable'=>'users', 'tfaCrypt'=>'env:NYU_TFA_KEY', 'mailAcnt'=>'', 'signupOn'=>false, 'codeMins'=>15, 'linkTmpl'=>''),
@@ -62,7 +65,7 @@ class Deploy extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'complete'=>Array('args'=>'[--useStore=<nativeDb|userFile|none>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
+			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ>] [--useStore=<nativeDb|userFile|none>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
 			'testHost'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
 			'makeConf'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json and conf/database.json from their examples; none is replaced'),
 			'userBase'=>Array('args'=>'[block] [--useStore=<nativeDb|userFile>]', 'about'=>'creates the users table and the basic users (nativeDb), or the users file (userFile); the devices table with a device block'),
@@ -86,7 +89,8 @@ class Deploy extends Command{
 		}
 		// The settings of the database are made with the native userbase only : a project in the users file needs none
 		$this->makeLocalFiles( Array('.env', 'conf/access.json') );
-		$storNme = $this->querySetupsTxt();
+		$projKnd = $this->queryProfilTxt();
+		$storNme = $this->querySetupsTxt($projKnd);
 		// The secrets that are still empty are made; those in use are left alone
 		$confCmd = new Config($this->optionsObj, $this->printerObj, $this->readStream);
 		$secrLst = Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
@@ -112,7 +116,7 @@ class Deploy extends Command{
 		}
 		// A config cache brought along, or left by a former installation, is not the config of this one
 		ConfCache::clearConfCache();
-		$this->traceShellDone('Deploy: installation run, users in '.$storNme);
+		$this->traceShellDone('Deploy: installation run as '.$projKnd.', users in '.$storNme);
 		return $this->showCheckCount();
 	}
 
@@ -548,13 +552,15 @@ class Deploy extends Command{
 	 * the environment, the store of the users and, for the native
 	 * userbase, where its database is: conf/database.json is then made
 	 * from its example, and only then. What is answered is written to the
-	 * config files.
+	 * config files. A resource server is not asked the store: it has no
+	 * users of its own; an authentication server needs one.
 	 *
+	 * @param String $profileNamed The profile of the project, one of KIND_LIST.
 	 * @return String The store of the users: 'nativeDb', 'userFile' or 'none'.
 	 *
-	 * @throws ShellStop When an answer is not one of those proposed.
+	 * @throws ShellStop When an answer is not one of those proposed, or the store does not fit the profile.
 	 */
-	protected function querySetupsTxt(): String {
+	protected function querySetupsTxt( String $profileNamed ): String {
 		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		$iniPath = TOP_DIR.DS.'conf'.DS.'system.ini';
 		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
@@ -568,8 +574,13 @@ class Deploy extends Command{
 				$wrtrObj->changeIniValue($iniPath, 'ENV_NAME', $wantEnv);
 			}
 		}
+		// A resource server accepts the tokens of another server : it has no users, nor a store to ask
+		if( $profileNamed=='dataServ' ){
+			Console::loadConfigLogs();
+			return 'none';
+		}
 		$lgnAuth = strval($this->accessSettings('loginSet')['authWith'] ?? '');
-		$storNme = strval( $this->optionsObj->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : 'none') );
+		$storNme = strval( $this->optionsObj->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : ( $profileNamed=='authServ' ? 'userFile' : 'none' )) );
 		$storNme = $this->queryAnswerTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storNme);
 		// Matched whatever its letter case, kept as the list writes it
 		foreach( self::STOR_LIST as $oneCod ){
@@ -577,6 +588,9 @@ class Deploy extends Command{
 		}
 		if( !in_array($storNme, self::STOR_LIST, true) ){
 			$this->terminateShell('Not a store of users: '.$storNme, self::EXIT_DENY);
+		}
+		if( $storNme=='none' && $profileNamed=='authServ' ){
+			$this->terminateShell('An authentication server (authServ) logs its users in: it needs a store (nativeDb or userFile)', self::EXIT_DENY);
 		}
 		// The login is pointed at the store chosen
 		if( $storNme!='none' && $storNme!=$lgnAuth && is_file($accPath) ){
@@ -599,6 +613,143 @@ class Deploy extends Command{
 		}
 		Console::loadConfigLogs();
 		return $storNme;
+	}
+
+	/**
+	 * Asks what the project is, first: users, login and data in one
+	 * ('allInOne'), an authentication server issuing tokens for other
+	 * projects ('authServ'), or a resource server accepting them ('dataServ').
+	 * --projKind answers it beforehand, --noPrompt takes 'allInOne'. No key
+	 * keeps the profile: the blocks of conf/access.json it needs are written,
+	 * and they are what tells it afterwards. 'allInOne' writes nothing;
+	 * 'authServ' signs the tokens with RS256, its pair made with the other
+	 * secrets, and asks the claims they carry; 'dataServ' asks the public key
+	 * of the authentication server and the claims it checks, and points the
+	 * login at no credential check: it answers 501.
+	 *
+	 * @return String The profile, one of KIND_LIST.
+	 *
+	 * @throws ShellStop When the answer is not a profile, or conf/access.json cannot be read.
+	 */
+	protected function queryProfilTxt(): String {
+		$projKnd = strval( $this->optionsObj->retrieveOption('projKind', '') );
+		$projKnd = ($projKnd!=='') ? $projKnd : $this->queryAnswerTxt('What this project is ('.implode(', ', self::KIND_LIST).')', self::KIND_LIST[0]);
+		// Matched whatever its letter case, kept as the list writes it
+		foreach( self::KIND_LIST as $oneCod ){
+			$projKnd = (strcasecmp($oneCod, $projKnd)==0) ? $oneCod : $projKnd;
+		}
+		if( !in_array($projKnd, self::KIND_LIST, true) ){
+			$this->terminateShell('Not a profile of a project: '.$projKnd, self::EXIT_DENY);
+		}
+		if( $projKnd=='allInOne' ){
+			return $projKnd;
+		}
+		if( $projKnd=='dataServ' && strval($this->optionsObj->retrieveOption('useStore', ''))!=='' ){
+			$this->terminateShell('A resource server (dataServ) has no users of its own: --useStore does not apply', self::EXIT_HELP);
+		}
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		if( !is_file($accPath) ){
+			$this->terminateShell('Nothing was installed: conf/access.json is missing, the profile cannot be written', self::EXIT_FAIL);
+		}
+		$treeObj = $wrtrObj->importJsonsObj($accPath);
+		if( !isset($treeObj->loginSet) || !is_object($treeObj->loginSet) ){
+			$treeObj->loginSet = new \stdClass();
+		}
+		// The tokens are the bond between the projects : the login carries them
+		$blckNme = ( strval($treeObj->loginSet->carrWith ?? 'jwtToken')=='jwtToken' ) ? strval($treeObj->loginSet->carrConf ?? 'jwtToken') : 'jwtToken';
+		$treeObj->loginSet->carrWith = 'jwtToken';
+		$treeObj->loginSet->carrConf = $blckNme;
+		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
+			$treeObj->$blckNme = new \stdClass();
+		}
+		$blckNod = $treeObj->$blckNme;
+		$blckNod->signAlgo = 'RS256';
+		if( $projKnd=='authServ' ){
+			// Its tokens are signed here : a public key found alone is replaced by a pair of its own
+			unset($blckNod->external);
+		}else{
+			$this->queryIssuerKey($blckNod, $blckNme);
+			// Nothing is checked here : the login answers that the tokens are issued by another server
+			unset($treeObj->loginSet->authWith, $treeObj->loginSet->authConf);
+		}
+		$this->queryTokenClms($blckNod);
+		$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		Console::loadConfigLogs();
+		$this->traceShellDone('Deploy: conf/access.json written for the profile '.$projKnd.' (block '.$blckNme.')');
+		return $projKnd;
+	}
+
+	/**
+	 * Asks the claims binding the tokens to the projects: the issuer
+	 * ('issuerId') and the audiences ('audience', comma-separated). An
+	 * authentication server names itself, the host name proposed, and the
+	 * projects accepting its tokens; a resource server ('external') names
+	 * the authentication server and this project. Each is proposed as the
+	 * block has it.
+	 *
+	 * @param \stdClass $tokenConfObj The block of the tokens, given the answers.
+	 */
+	protected function queryTokenClms( \stdClass $tokenConfObj ): Void {
+		$isExtrn = ($tokenConfObj->external ?? false)===true;
+		$nowIssr = is_string($tokenConfObj->issuerId ?? null) ? trim($tokenConfObj->issuerId) : '';
+		$nowIssr = ($nowIssr=='' && !$isExtrn) ? strval(gethostname()) : $nowIssr;
+		$tokenConfObj->issuerId = trim( $this->queryAnswerTxt($isExtrn ? 'Issuer of the authentication server\'s tokens (issuerId)' : 'Issuer of the tokens (issuerId)', $nowIssr) );
+		$nowAdnc = $tokenConfObj->audience ?? Array();
+		$nowAdnc = is_array($nowAdnc) ? implode(', ', array_map('strval', $nowAdnc)) : strval($nowAdnc);
+		$adncTxt = $this->queryAnswerTxt($isExtrn ? 'Audience naming this project (audience, comma-separated)' : 'Projects that will accept its tokens (audience, comma-separated)', $nowAdnc);
+		$tokenConfObj->audience = array_values( array_filter(array_map('trim', explode(',', $adncTxt)), 'strlen') );
+	}
+
+	/**
+	 * Asks the file of the public key of the authentication server, and
+	 * copies it into conf/keys under the name of the block: the tokens are
+	 * checked with it, none is issued. The block is given that key alone
+	 * ('external': the key comes from another server, kept as it is by the
+	 * installation). The key in use is proposed; another one replaces it
+	 * once confirmed.
+	 *
+	 * @param \stdClass $tokenConfObj The block of the tokens, given the key.
+	 * @param String    $blckNamedTxt Name of that block.
+	 *
+	 * @throws ShellStop When the file is missing, is not a public RSA key of JWT::RSAS_BITS bits at least, or cannot be copied.
+	 */
+	protected function queryIssuerKey( \stdClass $tokenConfObj, String $blckNamedTxt ): Void {
+		$publNme = 'conf/keys/'.$blckNamedTxt.'.pub';
+		$publPth = TOP_DIR.DS.str_replace('/', DS, $publNme);
+		$srcName = trim( $this->queryAnswerTxt('File of the public key of the authentication server', is_file($publPth) ? $publNme : '') );
+		// The path is read from where the command runs, or from the project
+		$srcPath = is_file($srcName) ? $srcName : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, ltrim($srcName, '/\\'));
+		if( $srcName=='' || !is_file($srcPath) ){
+			$this->terminateShell('Nothing was installed: no file of the public key'.( $srcName!='' ? ' at '.json_encode($srcName) : ' given' ), self::EXIT_DENY);
+		}
+		if( !function_exists('openssl_pkey_get_public') ){
+			$this->terminateShell('Nothing was installed: RS256 needs the openssl extension', self::EXIT_FAIL);
+		}
+		$pemText = strval(@file_get_contents($srcPath));
+		$keyObjc = (strpos($pemText, 'PRIVATE KEY')===false) ? @openssl_pkey_get_public($pemText) : false;
+		$keyInfo = ($keyObjc!==false) ? openssl_pkey_get_details($keyObjc) : false;
+		if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
+			$this->terminateShell('Nothing was installed: '.json_encode($srcName).' is not a public RSA key of '.\nyu\Access\Carr\JWT::RSAS_BITS.' bits at least', self::EXIT_DENY);
+		}
+		$publTxt = strval($keyInfo['key']);
+		$nowText = is_file($publPth) ? strval(@file_get_contents($publPth)) : '';
+		if( $nowText!=='' && trim($nowText)!==trim($publTxt) && !$this->queryAgreedFlg('Replace the public key in use ('.$publNme.'): the tokens it checks are refused') ){
+			$this->terminateShell('Nothing was installed: the public key in use is kept', self::EXIT_DENY);
+		}
+		if( trim($nowText)!==trim($publTxt) ){
+			if( !is_dir(dirname($publPth)) ){
+				@mkdir(dirname($publPth), 0700, true);
+			}
+			if( @file_put_contents($publPth, $publTxt, LOCK_EX)===false ){
+				$this->terminateShell('Nothing was installed: '.$publNme.' cannot be written', self::EXIT_FAIL);
+			}
+			@chmod($publPth, 0644);
+			$this->traceShellDone('Deploy: public key of the authentication server copied into '.$publNme);
+		}
+		$tokenConfObj->publFile = $publNme;
+		$tokenConfObj->external = true;
+		unset($tokenConfObj->privFile, $tokenConfObj->hmacSecr);
 	}
 
 	/**
