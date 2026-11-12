@@ -65,7 +65,7 @@ class Deploy extends Command{
 	 */
 	public function subsTableArray(): Array {
 		return Array(
-			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ>] [--useStore=<nativeDb|userFile|none>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
+			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ|openSite>] [--useStore=<nativeDb|userFile|none>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
 			'testHost'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
 			'makeConf'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json and conf/database.json from their examples; none is replaced'),
 			'userBase'=>Array('args'=>'[block] [--useStore=<nativeDb|userFile>]', 'about'=>'creates the users table and the basic users (nativeDb), or the users file (userFile); the devices table with a device block'),
