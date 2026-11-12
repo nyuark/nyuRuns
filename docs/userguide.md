@@ -297,11 +297,15 @@ it checks the new value first, and keeps the previous file in
 
 Out of the box, every request starts the `default` profile: tokens, with
 signing in left open. The `restapi` profile works the same way, and it's
-the one meant for a web API, so give it to your entry point:
+the one meant for a web API, so serve it at the root:
 
 ```
-php nyuRun setting entryPts index restapi
+php nyuRun setting entryPts / restapi
 ```
+
+One project can serve several profiles: `setting entryPts /api restapi`
+gives the paths under `/api` to `restapi`, and `--hostName=api.example.org`
+gives it a host of its own. The map lives in `conf/doorways.lst`.
 
 Then see who can reach what:
 

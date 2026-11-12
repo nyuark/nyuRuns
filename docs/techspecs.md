@@ -74,7 +74,8 @@ instead of repeating it.
   `Actions.php`, reached by a path such as `shows/view/12` or by a
   route the run declares.
 - **Preset**: a profile of the framework (how requests are checked, routed
-  and answered), chosen by the entry point of the site.
+  and answered), chosen for each request by the map of the presets served
+  (`conf/doorways.lst`).
 - **Store**: where data is kept: a database, or a users file.
 - **Bundle**: a copy of a project made for one environment.
 - Names written `like this` are names from the code, the configuration or
@@ -499,7 +500,11 @@ www/index.php
 ### 4.1 Start-up
 
 The entry point, `www/index.php`, defines the project's folders and
-creates the Runner, naming its preset (`default` when it names none).
+creates the Runner. With no preset named, the Runner reads
+`conf/doorways.lst` first and picks the line matching the host and the start
+of the path (`Runner::pickPresetName()`); the `basePath` of that line is
+taken off the path before routing, kept as `routBase`. No map or no match
+gives `default`.
 
 1. **The preset** (`conf/presets/<name>.rps`) is read and checked: a key
    it doesn't know stops it from loading (`Preset::KEYS_LIST`).
@@ -952,8 +957,8 @@ seven presets:
 
 | Preset | For |
 |---|---|
-| `default` | the entry point that names none: closed, Bearer tokens, JSON |
-| `mapping` | an entry point that declares its own routes: closed, Bearer tokens |
+| `default` | the preset when the map names none, or there's no map: closed, Bearer tokens, JSON |
+| `mapping` | a site that declares its own routes: closed, Bearer tokens |
 | `service` | a service called by other programs: an API key in a header |
 | `restapi` | a web API: Bearer tokens, signing in left open |
 | `website` | a site used from a browser: a session cookie, the users table, its own routes |
@@ -1122,7 +1127,7 @@ holds users.
 |---|---|
 | `showConf <coreConf\|accsConf\|dataConf\|psetConf> [path]` | shows a file, one of its blocks or keys, with secrets masked |
 | `setValue <coreConf\|accsConf\|dataConf\|psetConf> <path> <value>` | changes a value (`KEY`, `block.key`, `preset.block.key`), checked by its rule (`--overrule`) |
-| `entryPts [file] [preset]` | the preset an entry point of `www` starts with, shown or changed |
+| `entryPts [basePath] [preset]` (`--hostName`, `--removeIt`) | the presets served and where (`conf/doorways.lst`): listed, set or removed |
 | `mkSecret <jwtToken\|keysList\|tfaCrypt\|markSecr\|htpasswd>` | makes a secret, the RS256 key pair, or a password of the password file, and writes it where the configuration reads it (`--useBlock`, `--showSecr`, `--typeItIn`) |
 | `fullList [preset]` | the routes of a preset: path, methods, kind, target, owner, and who they're served to |
 | `clrCache` | removes the config cache: the next request of each preset reads its files again |
@@ -1715,7 +1720,7 @@ own, next to its key, filled by the action that creates the record.
 ```
 nyuRuns/
   www/                    the only folder the web server serves
-    index.php             the entry point: starts the Runner with its preset
+    index.php             the only entry point: starts the Runner, which picks its preset from conf/doorways.lst
   src/                    the framework, namespace nyu\ (chapter 5)
   runs/                   the applications (chapter 8)
     Auth/  Users/  Shows/

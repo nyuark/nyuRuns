@@ -80,8 +80,30 @@ Before real users come:
 ### Web server
 
 The route is read from the whole path of the address (`REQUEST_URI`): the
-web server sends every path to `www/index.php`, and the project is served
-at the root of its host, not in a sub-folder of another site.
+web server sends every path to `www/index.php`, its only entry point.
+
+**Which preset answers.** `conf/doorways.lst` maps each request to a preset,
+by its host and the start of its path:
+
+- a line naming the host wins over a line for any host, then the longest
+  `basePath`;
+- `/api` takes `/api` and `/api/...`, never `/apix`;
+- the `basePath` is taken off before routing and put back in front of the
+  links and redirections the framework builds;
+- without the map, or when no line matches, `default` answers.
+
+`php nyuRun setting entryPts` lists and changes the lines; the install
+writes the first one. A map that can't be read answers 500 rather than
+another preset.
+
+**Several hosts.** To serve several hosts from one project, the web server
+sends them all to the same `www`: one virtual host with each name as a
+`ServerAlias`, or one `server_name` line listing them. The host is read from
+the `Host` header, so a reverse proxy has to pass it along
+(`ProxyPreserveHost On`, or `proxy_set_header Host $host`). A client chooses
+its `Host`, so give a host line only a preset that checks access, or one
+that's open on purpose (`isPublic`); `install checkAll` tells the others
+(`doorways`).
 
 Apache, with `www` as the `DocumentRoot`:
 
