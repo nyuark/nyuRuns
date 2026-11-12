@@ -4,9 +4,9 @@
 // PHP's tokenizer. It lists every name that does not follow them:
 //
 //   classes      PascalCase
-//   methods      9-character camelCase (magic __methods are ignored)
-//   parameters   10-character camelCase
-//   properties   8-character camelCase
+//   methods      14-character camelCase (magic __methods are ignored)
+//   parameters   12-character camelCase
+//   properties   10-character camelCase
 //   loop vars    6-character camelCase (foreach / for iteration variables); those of 3 that
 //                test/audit/looplabels.txt lists are accepted by ConventionTest
 //   locals       7-character camelCase
