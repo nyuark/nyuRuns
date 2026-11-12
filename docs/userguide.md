@@ -121,12 +121,13 @@ from the `notes` folder, the root of your project.
 php nyuRun install complete
 ```
 
-The command asks a few questions: the environment, where your users
-live, the database, and the names of three basic accounts. Each one
-suggests an answer, and Enter accepts it. For this guide, answer:
+The command asks a few questions: what your project is, the environment,
+where your users live, the database, and the names of the basic accounts.
+Each one suggests an answer, and Enter accepts it. For this guide, answer:
 
 | Question | Answer | Why |
 |---|---|---|
+| `What this project is (allInOne, authServ, dataServ) [allInOne]` | Enter | users, sign-in and notes all live in this one project |
 | `Environment (DEVS, TEST, PREV, PROD) [DEVS]` | Enter | you're developing: errors are shown and everything is logged |
 | `Store of the users (nativeDb, userFile, none) [userFile]` | `nativeDb` | users go in a database, which the tutorial needs anyway |
 | `Database type (mysql_db, postgres, sqlitedb) [mysql_db]` | `sqlitedb` | SQLite: the database is just a file, no server needed |
@@ -181,6 +182,18 @@ already exists, be it a file, a secret, a table or a user.
 > file, `conf/users.lst`, no database settings are made, and the service
 > runs without any database at all. You can move them into one later with
 > a single command (4.8).
+
+> Splitting sign-in from your data? Make one project an **authentication
+> server** (`authServ`): it keeps the users, signs them in, and issues the
+> tokens. The install also asks who issues the tokens (your host name is
+> suggested) and which projects will accept them. Your other projects are
+> then **resource servers** (`dataServ`): they have no users, and accept
+> the tokens of the authentication server. Their install skips the users and
+> asks for the authentication server's public key file
+> (`conf/keys/jwtToken.pub` over there), its issuer, and this project's name
+> in the audience. Their own sign-in answers 501: users sign in on the
+> authentication server. `install checkAll` tells which of the three a
+> project is, in its `profile` row.
 
 ### 3.3 Serve it
 

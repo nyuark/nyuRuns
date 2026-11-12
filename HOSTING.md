@@ -32,6 +32,20 @@ one per role (`userDemo`, `powrDemo`, `deptDemo`, `bossDemo`), then the name of
 each, those proposed; `--noPrompt` takes the simple version with those names.
 Run again, it replaces nothing that exists.
 
+Its first question is what the project is; `--projKind=<kind>` answers it
+beforehand, and `--noPrompt` takes `allInOne`. No setting keeps the answer:
+the install writes the blocks of `conf/access.json` the profile needs, and
+`install checkAll` reads the profile back from them (its `profile` row).
+
+| Profile | What it is | What the install asks beyond the usual |
+|---|---|---|
+| `allInOne` | users, login and data in one project | nothing: the store, the database, the accounts, the token keys |
+| `authServ` | an authentication server: it logs users in and issues tokens for other projects | the `issuerId` of its tokens (the host name proposed) and their `audience`, the projects that will accept them (comma-separated); the tokens are signed with RS256, the key pair made as `setting mkSecret jwtToken` makes it, and published at `/.well-known/jwks.json` |
+| `dataServ` | a resource server: no users of its own, it accepts the tokens of an authentication server | not the store, and no users are created; the file of the authentication server's public key (copied into `conf/keys`), its `issuerId`, and the `audience` naming this project. The token block keeps that public key alone (`"external": true`), and the login names no credential check: it answers 501 |
+
+An authentication server refuses the store `none`; a resource server refuses
+`--useStore`.
+
 ```bash
 php nyuRun install checkAll
 ```
@@ -323,6 +337,15 @@ php nyuRun setting mkSecret tfaCrypt --useBlock=nativeDb
 - Keep `lifeSecs` short where there is no store.
 - Replacing the secret (`php nyuRun setting mkSecret jwtToken`) ends every token
   at once.
+- A resource server (`dataServ`) checks the tokens with a copy of the
+  authentication server's public key, in `conf/keys`. Nothing follows the
+  original: when the authentication server makes new keys, copy the new public
+  key again, with `install complete --projKind=dataServ` or by hand. Until then
+  the tokens it signs with its new key are refused there. Meanwhile, the
+  authentication server's previous key, `conf/keys/<block>.old.pub`, keeps
+  checking the tokens it signed before: copy it too and name it `prevFile` in
+  the resource server's token block, with its `retireAt`, for the tokens
+  already issued to pass until they end.
 - A client is only told "Invalid token" or "Expired token". Why a token was
   refused is in the `access` log, in `FULL` mode.
 

@@ -735,7 +735,11 @@ php nyuRun bundles final ──▶ copy ────────▶ php nyuRun i
    pre-production server, production, or a place the project declares.
    Its settings (environment, errors shown, what gets logged) are those of
    that place.
-2. **Install** it: `install complete` checks PHP and its extensions, makes the
+2. **Install** it: `install complete` first asks what the project is: users,
+   sign-in and data in one (`allInOne`), an authentication server issuing
+   tokens for other projects (`authServ`), or a resource server with no users
+   of its own, accepting those tokens (`dataServ`). Then it checks PHP and its
+   extensions, makes the
    local settings from their examples, makes any missing secrets and token
    keys, creates the users (a users file, or database tables), and runs
    the health check. It asks for what it needs, suggesting a default for

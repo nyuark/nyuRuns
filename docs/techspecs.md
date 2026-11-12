@@ -287,6 +287,21 @@ tokens gets the public key alone: it issues none, and its login answers
 501. HS256, one secret shared by everyone who checks the tokens, is still
 there for a project made of a single application.
 
+That split is the profile `install complete` asks first, and
+`install checkAll` reads back from `conf/access.json` (`profile` row): no
+setting stores it.
+
+| Profile | Written by the install | Told by the check when |
+|---|---|---|
+| `allInOne` | as before: the store, the database, the accounts, the token keys | — |
+| `authServ` | as `allInOne`, plus RS256 with its key pair, the `issuerId` (the host name suggested) and the `audience` (the projects accepting its tokens) | it has no `issuerId` or no `audience` |
+| `dataServ` | no store and no users; the authentication server's public key copied into `conf/keys/<block>.pub`, named by `publFile` alone with `"external": true`, its `issuerId`, the `audience` naming this project, and a `loginSet` without `authWith` | it has no `issuerId` or no `audience`, or its public key file is missing |
+
+A public key alone beside a users' store makes none of the three, and is
+told too. The copied key doesn't follow the authentication server: when
+that server makes new keys, copy the new public key again, and its
+previous one (`<block>.old.pub`) as `prevFile` meanwhile (HOSTING.md §8).
+
 A token stays valid until it expires, and can't be withdrawn before then.
 Keep its life short (`lifeSecs`, an hour in the example configuration), or
 name a store in the preset, so a user locked in the store is refused at
@@ -1091,7 +1106,7 @@ like the same change made over HTTP.
 
 | Sub-command | Does |
 |---|---|
-| `complete` | the whole installation: the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `--useStore` picks the store) |
+| `complete` | the whole installation: the profile of the project asked first (`allInOne`, `authServ`, `dataServ`; `--projKind` answers it), the server checked, the local files made, the secrets made, the users created (their names asked), the health check; it asks for what it needs, suggesting a default (`--noPrompt` takes them all, `allInOne` among them, `--useStore` picks the store) |
 | `testHost` | checks the server: PHP, its extensions, the folders written |
 | `makeConf` | makes `.env`, `access.json` and `database.json` from their examples |
 | `userBase` | creates the users table and the basic users, or the users file; the devices table with a `dvcToken` block |
