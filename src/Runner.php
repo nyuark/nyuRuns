@@ -11,7 +11,8 @@ use nyu\Tools\Logger;
 use nyu\Setup\Builder;
 use nyu\Access\Checker;
 
-$GLOBALS['nyuConfig'] = null;
+// Kept when it is already loaded : the command line reads the map of the presets (readDoorsArray) with its own config
+$GLOBALS['nyuConfig'] = $GLOBALS['nyuConfig'] ?? null;
 
 /**
  * The entry of every request: loads the preset and the config, reads the
