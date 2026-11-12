@@ -53,12 +53,15 @@ function listPhpFileArr( String $rootPathName, Array $scanFldrList ): Array {
  * @param String $rootPathName Project root.
  * @param Array  $scanFldrList Folders to scan, relative to the root.
  * @return Array Findings per kind ('class', 'method', 'param', 'prop', 'loop', 'local', 'nodoc', 'notype', 'parse'),
- *               each a list of ['file', 'line', 'scope', 'name'], plus the number of names seen under 'count'.
+ *               each a list of ['file', 'line', 'scope', 'name'], plus the number of names seen under 'count',
+ *               and under 'names' every method, parameter, property, loop variable and local seen, each
+ *               ['kind', 'file', 'line', 'scope', 'name', 'type'], for the checks of test/lib/namerules.php.
+ *               The type is the one declared, when it is a single one; a local is 'Bool' when first given true or false.
  */
 function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 	$sprGlbl = Array('$this', '$_SERVER', '$_GET', '$_POST', '$_FILES', '$_COOKIE', '$_SESSION', '$_REQUEST', '$_ENV', '$GLOBALS', '$argv', '$argc', '$http_response_header');
 	$modifrs = Array(T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC, T_ABSTRACT, T_FINAL);
-	$finding = Array('class'=>Array(), 'method'=>Array(), 'param'=>Array(), 'prop'=>Array(), 'loop'=>Array(), 'local'=>Array(), 'nodoc'=>Array(), 'notype'=>Array(), 'parse'=>Array());
+	$finding = Array('class'=>Array(), 'method'=>Array(), 'param'=>Array(), 'prop'=>Array(), 'loop'=>Array(), 'local'=>Array(), 'nodoc'=>Array(), 'notype'=>Array(), 'parse'=>Array(), 'names'=>Array());
 	$counter = Array('class'=>0, 'method'=>0, 'param'=>0, 'prop'=>0, 'loop'=>0, 'local'=>0);
 
 	foreach( listPhpFileArr($rootPathName, $scanFldrList) as $filNme ){
@@ -120,6 +123,7 @@ function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 				$isMagic = $funcNme!==null && str_starts_with($funcNme, '__');
 				$fnLabel = $funcNme ?? '{closure}';
 
+				$mthdLine = $thisTkn->line;
 				if( $funcNme!==null && !$isMagic ){
 					$counter['method']++;
 					if( strlen($funcNme)!==14 || !checkCamelCase($funcNme) ){
@@ -151,6 +155,9 @@ function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 							$typeIdx--;
 						}
 						$isTyped = !in_array($tknList[$typeIdx]->text, Array('(', ','), true) && !$tknList[$typeIdx]->is(Array(T_PUBLIC, T_PROTECTED, T_PRIVATE, T_READONLY));
+						// A type of its own only : 'Array|Bool' and '?Bool' are not a Bool
+						$argType = ( $isTyped && !in_array($tknList[$typeIdx-1]->text, Array('|', '?', '&'), true) ) ? $tknList[$typeIdx]->text : '';
+						$finding['names'][] = Array('kind'=>'param', 'file'=>$relPath, 'line'=>$argTokn->line, 'scope'=>$fnLabel, 'name'=>$argName, 'type'=>$argType);
 						if( strlen($argName)!==12 || !checkCamelCase($argName) ){
 							$finding['param'][] = Array('file'=>$relPath, 'line'=>$argTokn->line, 'scope'=>$fnLabel, 'name'=>$argName);
 						}
@@ -174,6 +181,14 @@ function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 				$hasRtrn = isset($tknList[$nextIdx]) && $tknList[$nextIdx]->text===':';
 				if( !$hasRtrn && $funcNme!==null && !$isMagic ){
 					$finding['notype'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$fnLabel, 'name'=>'(return type)');
+				}
+				if( $funcNme!==null && !$isMagic ){
+					// The return type as written, up to the body
+					$rtrnTyp = '';
+					for( $typeIdx=$nextIdx+1; $hasRtrn && $typeIdx<$tknSize && !in_array($tknList[$typeIdx]->text, Array('{', ';'), true); $typeIdx++ ){
+						$rtrnTyp .= $tknList[$typeIdx]->text;
+					}
+					$finding['names'][] = Array('kind'=>'method', 'file'=>$relPath, 'line'=>$mthdLine, 'scope'=>'', 'name'=>$funcNme, 'type'=>$rtrnTyp);
 				}
 
 				if( $thisTkn->id===T_FUNCTION ){
@@ -235,6 +250,8 @@ function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 			if( !empty($clsDpth) && empty($fnDepth) ){
 				if( end($clsDpth)===$depthNb ){
 					$counter['prop']++;
+					$propTyp = in_array($tknList[$idxInc-2]->text ?? '', Array('|', '?', '&'), true) ? '' : $tknList[$idxInc-1]->text;
+					$finding['names'][] = Array('kind'=>'prop', 'file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>'', 'name'=>$vrblNme, 'type'=>$propTyp);
 					if( strlen($vrblNme)!==10 || !checkCamelCase($vrblNme) ){
 						$finding['prop'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>'', 'name'=>$vrblNme);
 					}
@@ -269,6 +286,7 @@ function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 			if( $isLoopV && !isset($senLoop[$scopeId]) ){
 				$senLoop[$scopeId] = true;
 				$counter['loop']++;
+				$finding['names'][] = Array('kind'=>'loop', 'file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$scpName, 'name'=>$vrblNme, 'type'=>'');
 				if( strlen($vrblNme)!==6 || !checkCamelCase($vrblNme) ){
 					$finding['loop'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$scpName, 'name'=>$vrblNme);
 				}
@@ -276,6 +294,9 @@ function auditCodeFiles( String $rootPathName, Array $scanFldrList ): Array {
 			if( !$isLoopV && !isset($seenLcl[$scopeId]) && !isset($senLoop[$scopeId]) ){
 				$seenLcl[$scopeId] = true;
 				$counter['local']++;
+				// A local is known as a Bool only when it is first given true or false
+				$lclType = ( ($tknList[$idxInc+1]->text ?? '')==='=' && in_array(strtolower($tknList[$idxInc+2]->text ?? ''), Array('true', 'false'), true) && ($tknList[$idxInc+3]->text ?? '')===';' ) ? 'Bool' : '';
+				$finding['names'][] = Array('kind'=>'local', 'file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$scpName, 'name'=>$vrblNme, 'type'=>$lclType);
 				if( strlen($vrblNme)!==7 || !checkCamelCase($vrblNme) ){
 					$finding['local'][] = Array('file'=>$relPath, 'line'=>$thisTkn->line, 'scope'=>$scpName, 'name'=>$vrblNme);
 				}

@@ -1,0 +1,4 @@
+# The areas already renamed to NAMERULES.md, one per line: Tools, Access, Data, Shell, App (with
+# src/Output and src/Runner.php), Setup, Error, runs. The audit test (test/audit/ConventionTest.php)
+# fails on any finding in an area listed here; the others are counted and reported only.
+# The developer of each rename step adds its area.
