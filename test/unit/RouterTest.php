@@ -246,7 +246,7 @@ if( $caseFlg ){
 // End to end, through the Runner (test/lib/cacheChild.php): a closed Run named in another case never runs its action
 $caseDir = makeProjectTxt('caserun', Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"),
-	'conf/presets/caserun.rps'=>'{ "presetId": "caserun", "settings": { "confType": "all" }, "security": { "required": false }, "dispatch": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument" } }',
+	'conf/presets/caserun.rps'=>'{ "presetId": "caserun", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "autopath", "pathForm": "$appToRun/$doAction/$argument" } }',
 	// The Runner installs the error handler from the project it runs
 	'src/Error/handling.php'=>strval(file_get_contents(TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php'))
 ));

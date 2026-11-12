@@ -207,7 +207,8 @@ $GLOBALS['nyuConfig'] = new Registry( Array('system'=>Array('ENV_NAME'=>'DEVS'))
 $noneRgs = (new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'k-1')) ))->validateAccess();
 checkIdentical('no access config: a preset checking access answers 500, nobody let through', Array($noneRgs->readValueByKey('statCode'), $noneRgs->readValueByKey('statMssg'), $noneRgs->readValueByKey('loggedIn')), Array(500, 'Access misconfigured', false));
 checkIdentical('no access config: a preset with no check of its own and no carrier still answers 500', (new Checker( Array('required'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 500);
-checkIdentical('no access config: an open preset is served', (new Checker( Array('required'=>false, 'isPublic'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('no access config: a preset open without "isPublic", or with no security block, answers 500', Array((new Checker( Array('required'=>false), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), (new Checker( Array(), mockRequestObj() ))->validateAccess()->readValueByKey('statMssg')), Array(500, 'Access misconfigured'));
+checkIdentical('no access config: a preset open by intent is served', (new Checker( Array('required'=>false, 'isPublic'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 200);
 $GLOBALS['nyuConfig'] = $keptCnf;
 
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );

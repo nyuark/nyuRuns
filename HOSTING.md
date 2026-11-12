@@ -59,9 +59,9 @@ its owner gives it one, or opens it again on purpose. The rules of the files
 don't change with the profile: a file never leaves its folder, only the
 extensions of `Response::TYPE_LIST` are served, `nosniff` is always sent.
 
-Without `conf/access.json`, a preset that checks access answers 500
-`Access misconfigured`: nothing is let through. An open preset is still
-served.
+Without `conf/access.json`, every preset answers 500 `Access misconfigured`:
+nothing is let through. Only a preset open on purpose (`"required": false`
+with `"isPublic": true`) is still served.
 
 ```bash
 php nyuRun install checkAll

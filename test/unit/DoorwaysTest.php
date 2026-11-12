@@ -16,9 +16,9 @@ use nyu\Tools\Router;
 // Three presets telling which one answers: alpha gives a link (routLinkString), beta and default answer their own way
 $prstSet = Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"),
-	'conf/presets/alpha.rps'=>'{ "presetId": "alpha", "settings": { "confType": "all" }, "security": { "required": false }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/alpha" } }',
-	'conf/presets/beta.rps'=>'{ "presetId": "beta", "settings": { "confType": "all" }, "security": { "required": false }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/beta" } }',
-	'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/dflt" } }',
+	'conf/presets/alpha.rps'=>'{ "presetId": "alpha", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/alpha" } }',
+	'conf/presets/beta.rps'=>'{ "presetId": "beta", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/beta" } }',
+	'conf/presets/default.rps'=>'{ "presetId": "default", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/dflt" } }',
 	'conf/routes/alpha/alpha.rte'=>'{ "where": { "pointsTo": { "appToRun": "probe", "doAction": "routeUrl" } }, "things/$id": { "pointsTo": { "appToRun": "probe", "doAction": "mirrored" } } }',
 	'conf/routes/beta/beta.rte'=>'{ "where": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } }, "apix/where": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } } }',
 	'conf/routes/dflt/dflt.rte'=>'{ "where": { "pointsTo": { "appToRun": "probe", "doAction": "txtProbe" } } }',

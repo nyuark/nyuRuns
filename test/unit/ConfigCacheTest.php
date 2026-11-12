@@ -14,7 +14,7 @@ use nyu\Setup\Loader;
 
 $projDir = makeProjectTxt('confcache', Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = TRUE\nTBL_CACH = FALSE\n"),
-	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "confType": "all" }, "security": { "required": false }, "dispatch": { "detectBy": "manually" } }',
+	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually" } }',
 	'conf/routes/probe.rte'=>'{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } } }',
 	'conf/probe.json'=>'{ "value": "env:NYU_PROBE" }',
 	'.env'=>"NYU_PROBE=from-the-env-file\n",

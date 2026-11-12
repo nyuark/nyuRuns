@@ -155,6 +155,14 @@ class Checker{
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
 		$needRle = $this->routRoleString();
+		// Without an access config (conf/access.json missing or empty), only a preset open by intent ("isPublic") is served : anything else fails closed
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$accsAll = ($nyuConf!==null) ? $nyuConf->readValueByKey('access') : null;
+		$hasConf = is_array($accsAll) && !empty($accsAll);
+		if( !$hasConf && ($this->accessConf['isPublic'] ?? false)!==true ){
+			$this->logAccsAttempt( false, '', 'Access misconfigured: no access config (conf/access.json), and the preset is not open by intent ("isPublic")' );
+			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+		}
 		if( empty($this->accessConf) || ($this->accessConf['required'] ?? true) === false || $this->openAccessRout() ){
 			// A route cannot be open and ask for a role : only its own OPTIONS answer goes through
 			if( $needRle!==null && $this->routerRgst->readValueByKey('statCode')!=204 ){
@@ -164,10 +172,8 @@ class Checker{
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		}
 
-		// A check without an access config (conf/access.json missing or empty) has nothing to check with : it fails closed
-		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$accsAll = ($nyuConf!==null) ? $nyuConf->readValueByKey('access') : null;
-		if( !is_array($accsAll) || empty($accsAll) ){
+		// A check without an access config has nothing to check with, whatever the preset says of itself : it fails closed
+		if( !$hasConf ){
 			$this->logAccsAttempt( false, '', 'Access misconfigured: no access config (conf/access.json), and the preset checks access' );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
