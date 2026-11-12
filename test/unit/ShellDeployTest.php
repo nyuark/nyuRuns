@@ -112,7 +112,7 @@ checkIdentical('files alone still makes them all', Array(runShellAsJson(freshPrj
 // start, with its questions
 $projDir = freshPrjt('asked');
 $runVals = callShellArray($projDir, Array('install', 'complete', '--silently'), "\n\n\n");
-checkIdentical('each question proposes a default, taken on Enter: all in one, the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('What this project is (allInOne, authServ, dataServ) [allInOne]: Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName) [/=default]: ', true, true));
+checkIdentical('each question proposes a default, taken on Enter: all in one, the users file, which needs no database', Array($runVals['errs'], strpos(strval(fetchInProject($projDir, 'conf/system.ini')), 'ENV_NAME = DEVS')!==false, is_file($projDir.DS.'conf'.DS.'users.lst')), Array('What this project is (allInOne, authServ, dataServ, openSite) [allInOne]: Environment (DEVS, TEST, PREV, PROD) [DEVS]: Store of the users (nativeDb, userFile, none) [userFile]: Accounts to create: simple (userDemo and bossDemo) or full (userDemo, powrDemo, deptDemo, bossDemo) [simple]: Name of the standard account [userDemo]: Name of the managers account [bossDemo]: Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName) [/=default]: ', true, true));
 // The basic accounts: the simple or the full version, then each name asked, the one proposed taken on Enter; a version that is neither, a name a user cannot have, or one given twice, creates none
 $projDir = freshPrjt('accounts');
 $jsnVals = runShellAsJson($projDir, Array('install', 'complete'), "\n\n\nFull\nann.k\n\n\nBen-2\n");
@@ -272,9 +272,32 @@ if( function_exists('openssl_pkey_new') ){
 	$axsVals['loginSet']['authConf'] = 'userFile';
 	writeInProject($projDir, 'conf/access.json', strval(json_encode($axsVals, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)));
 	$jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
-	checkPregMatch('a public key alone beside a users\' store makes none of the three', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? ''), '/^none of allInOne, authServ, dataServ: the tokens are checked with a public key alone/');
+	checkPregMatch('a public key alone beside a users\' store makes none of the three', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? ''), '/^none of allInOne, authServ, dataServ, openSite: the tokens are checked with a public key alone/');
 	checkIdentical('dataServ: a store, a missing key, or a file that is not a public key: refused', Array(callShellArray(freshPrjt('datastr'), Array('install', 'complete', '--projKind=dataServ', '--useStore=userFile'))['code'], callShellArray(freshPrjt('datanop'), Array('install', 'complete', '--projKind=dataServ', '--noPrompt'))['code'], callShellArray(freshPrjt('databad'), Array('install', 'complete', '--projKind=dataServ'), "conf/access.json.dist\n")['code']), Array(2, 3, 3));
 }
+
+// An open site : nothing to log in to, only presets that reach no action, closed again once it has users
+$sttcRps = strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'statics.rps'));
+$sttcCfg = json_decode($sttcRps, true)['dispatch'] ?? Array();
+checkIdentical('statics with "*": false reaches no action; with the Runs mounted, it does', Array((new nyu\Tools\Router($sttcCfg, nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->reachesActions(), (new nyu\Tools\Router(Array('runMount'=>Array('auth'=>false)) + $sttcCfg, nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->reachesActions()), Array(false, true));
+checkIdentical('"*" names every Run not named on its own line', Array((new nyu\Tools\Router(Array('runMount'=>Array('*'=>false, 'auth'=>'login')), nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->mountRoutePath('Auth'), (new nyu\Tools\Router(Array('runMount'=>Array('*'=>false, 'auth'=>'login')), nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->mountRoutePath('Users')), Array('login', null));
+$projDir = freshPrjt('opensite');
+writeInProject($projDir, 'conf/presets/statics.rps', $sttcRps);
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--projKind=openSite', '--noPrompt'));
+$axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
+checkIdentical('openSite: no store, no users, no token keys nor secrets, the map pointing at statics, read back by the check', Array(array_key_exists('authWith', $axsVals['loginSet'] ?? Array()), is_file($projDir.DS.'conf'.DS.'users.lst'), is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_API_KEY'] ?? '', json_decode(strval(fetchInProject($projDir, 'conf/doorways.lst')), true)['doorways'] ?? null, stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null),
+	Array(false, false, false, '', Array(Array('basePath'=>'/', 'presetId'=>'statics')), 'fine', 'openSite'));
+checkIdentical('openSite: a preset of the map reaching an action is never opened, nor the map written', Array(callShellArray($projDir, Array('install', 'complete', '--projKind=openSite'), "\n/=default\n")['code'], json_decode(strval(fetchInProject($projDir, 'conf/doorways.lst')), true)['doorways'][0]['presetId'] ?? null, array_key_exists('isPublic', json_decode(strval(fetchInProject($projDir, 'conf/presets/default.rps')), true)['security'] ?? Array())), Array(3, 'statics', false));
+checkIdentical('openSite: a store refused', callShellArray($projDir, Array('install', 'complete', '--projKind=openSite', '--noPrompt', '--useStore=userFile'))['code'], 2);
+writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" }, { "basePath": "/app", "presetId": "default" } ] }');
+$jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
+checkIdentical('openSite: the check fails when an open preset of the map reaches an action', Array(stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null), Array('fail', 'openSite, but default can reach an action: a Run is public without anyone deciding it; serve statics, or a preset that serves no Run, or open the Run on purpose (openList) in a preset that checks access'));
+writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" }, { "basePath": "/app", "presetId": "secure" } ] }');
+checkIdentical('no store, a preset of the map checking access: none of the four', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))['profile'] ?? null, 'warn');
+writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" } ] }');
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--noPrompt', '--useStore=userFile'));
+$sttcSec = json_decode(strval(fetchInProject($projDir, 'conf/presets/statics.rps')), true)['security'] ?? Array();
+checkIdentical('given a store, the presets the open site had opened are closed again, and named', Array($sttcSec['required'] ?? null, array_key_exists('isPublic', $sttcSec), in_array('Preset statics closed: the project has users now; open it again on purpose when it is meant to be public.', $jsnVals['notes'] ?? Array(), true), stateOf($jsnVals)['profile'] ?? null), Array(true, false, true, 'fine'));
 
 // The rights of the secret files : not read on Windows, which is told
 checkIdentical('the rights not checked on Windows are told once; elsewhere, no such row', array_count_values(array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'check'))['file rights'] ?? 0, (DS=='\\') ? 1 : 0);

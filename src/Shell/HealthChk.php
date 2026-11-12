@@ -714,17 +714,17 @@ class HealthChk{
 	 * public key alone and its login names no credential check; an
 	 * authentication server ('authServ') logs its users in and signs its
 	 * tokens with RS256, bound to the projects by an issuer or an audience;
-	 * users, login and data in one ('allInOne') otherwise. Blocks making none
-	 * of the three are told, and so are an 'authServ' or a 'dataServ' without
-	 * issuer or audience, and a 'dataServ' whose public key file is missing.
+	 * a site with nothing to log in to ('openSite') has no users' store and
+	 * serves only open presets, through the map of the doorways (the default
+	 * preset without one); users, login and data in one ('allInOne')
+	 * otherwise. An open site whose presets can reach an action fails: a Run
+	 * would be public without anyone deciding it. Blocks making none of the
+	 * four are told, and so are an 'authServ' or a 'dataServ' without issuer
+	 * or audience, and a 'dataServ' whose public key file is missing.
 	 */
 	public function validateProfil(): Void {
 		$lgnConf = $this->accessSettings('loginSet');
-		if( empty($lgnConf) ){
-			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ: there is no login block');
-			return;
-		}
-		$tknName = ( strval($lgnConf['carrWith'] ?? 'jwtToken')=='jwtToken' ) ? strval($lgnConf['carrConf'] ?? 'jwtToken') : '';
+		$tknName = empty($lgnConf) ? '' : ( ( strval($lgnConf['carrWith'] ?? 'jwtToken')=='jwtToken' ) ? strval($lgnConf['carrConf'] ?? 'jwtToken') : '' );
 		$tknConf = $this->accessSettings($tknName);
 		$authNme = trim( strval($lgnConf['authWith'] ?? '') );
 		$isRsass = ($tknConf['signAlgo'] ?? '')=='RS256';
@@ -741,14 +741,43 @@ class HealthChk{
 			$clmFlaw[] = 'no audience';
 		}
 		if( $pubOnly && $authNme!='' ){
-			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ: the tokens are checked with a public key alone (publFile of '.$tknName.'), beside the users\' store of the login ('.$authNme.'): give the block its privFile, or take authWith out of loginSet for a resource server');
+			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ, openSite: the tokens are checked with a public key alone (publFile of '.$tknName.'), beside the users\' store of the login ('.$authNme.'): give the block its privFile, or take authWith out of loginSet for a resource server');
 		}elseif( $pubOnly ){
 			if( !is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publNme)) ){
 				$clmFlaw[] = 'the public key file '.$publNme.' is missing: copy the one of the authentication server';
 			}
 			$this->addCheckResult( 'profile', empty($clmFlaw) ? 'fine' : 'warn', 'dataServ'.( empty($clmFlaw) ? '' : ': '.implode('; ', $clmFlaw) ) );
 		}elseif( $authNme=='' ){
-			$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ: the login names no users\' store, and the tokens are not checked with a public key alone');
+			// No users' store : an open site, when every preset of the map is open
+			try{
+				$prstLst = array_values( array_unique(array_column(\nyu\Runner::readDoorsArray(), 'presetId')) );
+			}catch( \RuntimeException $e ){
+				// The doorways row tells it
+				$prstLst = Array();
+			}
+			$prstLst = empty($prstLst) ? Array('default') : $prstLst;
+			$isOpens = true;
+			$actnLst = Array();
+			foreach( $prstLst as $prstId ){
+				try{
+					$setpObj = (new Preset($prstId))->newSetupLoader();
+					$rteConf = $setpObj->getRegistryKey('dispatch');
+					$isOpens = $isOpens && ($setpObj->setAccessArray()['required'] ?? true)===false;
+					if( (new Router( is_array($rteConf) ? $rteConf : Array(), ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions() ){
+						$actnLst[] = $prstId;
+					}
+				}catch( \Throwable $e ){
+					// A preset that does not load is told by its own row
+					$isOpens = false;
+				}
+			}
+			if( !$isOpens ){
+				$this->addCheckResult('profile', 'warn', 'none of allInOne, authServ, dataServ, openSite: the login names no users\' store, the tokens are not checked with a public key alone, and a preset served checks access');
+			}elseif( !empty($actnLst) ){
+				$this->addCheckResult('profile', 'fail', 'openSite, but '.implode(', ', $actnLst).' can reach an action: a Run is public without anyone deciding it; serve statics, or a preset that serves no Run, or open the Run on purpose (openList) in a preset that checks access');
+			}else{
+				$this->addCheckResult('profile', 'fine', 'openSite');
+			}
 		}elseif( $isRsass && ($hasIssr || $hasAdnc) ){
 			$this->addCheckResult( 'profile', empty($clmFlaw) ? 'fine' : 'warn', 'authServ'.( empty($clmFlaw) ? '' : ': '.implode('; ', $clmFlaw).', the tokens are not bound to the projects accepting them' ) );
 		}else{

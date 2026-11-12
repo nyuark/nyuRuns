@@ -10,7 +10,7 @@
 		"detectBy": "manually",
 		"routeDir": "conf/routes/statics",
 		"fileRoot": "pages",
-		"runMount": { "auth": false }
+		"runMount": { "*": false }
 	},
 	"response": {
 		"outputAs": "jsonData",

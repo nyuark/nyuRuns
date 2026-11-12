@@ -201,6 +201,15 @@ checkIdentical('Checker granted',             $axsRslt->readValueByKey('loggedIn
 checkIdentical('Checker granted status',      $axsRslt->readValueByKey('statCode'), 200);
 checkIdentical('Checker granted: member role by default', $axsRslt->readValueByKey('userRole'), 'standard');
 
+// No access config at all (conf/access.json missing) : a preset that checks access fails closed, an open one is served
+$keptCnf = $GLOBALS['nyuConfig'];
+$GLOBALS['nyuConfig'] = new Registry( Array('system'=>Array('ENV_NAME'=>'DEVS')) );
+$noneRgs = (new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'k-1')) ))->validateAccess();
+checkIdentical('no access config: a preset checking access answers 500, nobody let through', Array($noneRgs->readValueByKey('statCode'), $noneRgs->readValueByKey('statMssg'), $noneRgs->readValueByKey('loggedIn')), Array(500, 'Access misconfigured', false));
+checkIdentical('no access config: a preset with no check of its own and no carrier still answers 500', (new Checker( Array('required'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 500);
+checkIdentical('no access config: an open preset is served', (new Checker( Array('required'=>false, 'isPublic'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 200);
+$GLOBALS['nyuConfig'] = $keptCnf;
+
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
 $jwtConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'managers')))) );

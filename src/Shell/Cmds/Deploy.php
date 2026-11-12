@@ -41,8 +41,8 @@ class Deploy extends Command{
 	const USER_LIST = Array('userDemo'=>'standard', 'powrDemo'=>'advanced', 'deptDemo'=>'delegate', 'bossDemo'=>'managers');
 	// The stores the users can be created in, and 'none' for a project without users of its own
 	const STOR_LIST = Array('nativeDb', 'userFile', 'none');
-	// The profiles of a project: users, login and data in one, an authentication server, a resource server
-	const KIND_LIST = Array('allInOne', 'authServ', 'dataServ');
+	// The profiles of a project: users, login and data in one, an authentication server, a resource server, a site with nothing to log in to
+	const KIND_LIST = Array('allInOne', 'authServ', 'dataServ', 'openSite');
 	// The block a store of users is given in conf/access.json when it has none
 	const STOR_CONF = Array(
 		'nativeDb'=>Array('linkName'=>'', 'useTable'=>'users', 'tfaCrypt'=>'env:NYU_TFA_KEY', 'mailAcnt'=>'', 'signupOn'=>false, 'codeMins'=>15, 'linkTmpl'=>''),
@@ -93,7 +93,8 @@ class Deploy extends Command{
 		$storNme = $this->querySetupsTxt($projKnd);
 		// The secrets that are still empty are made; those in use are left alone
 		$confCmd = new Config($this->optionsObj, $this->printerObj, $this->readStream);
-		$secrLst = Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
+		// An open site logs nobody in : it needs no secret
+		$secrLst = ($projKnd=='openSite') ? Array() : Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
 		// The 2FA secrets of the users are stored encrypted : their key is made with the store
 		if( $storNme!='none' ){
 			$secrLst['tfaCrypt'] = 'key of the 2FA secrets';
@@ -114,8 +115,12 @@ class Deploy extends Command{
 				$this->printerObj->printShellFail( $e->getMessage() );
 			}
 		}
+		// An open site given a store : the presets it opened are closed again, before the map is asked
+		if( $storNme!='none' ){
+			$this->closePublicSet();
+		}
 		// Asked last : the presets served, and where (conf/doorways.lst)
-		$this->queryDoorsList();
+		$this->queryDoorsList($projKnd);
 		// A config cache brought along, or left by a former installation, is not the config of this one
 		ConfCache::clearConfCache();
 		$this->traceShellDone('Deploy: installation run as '.$projKnd.', users in '.$storNme);
@@ -554,10 +559,14 @@ class Deploy extends Command{
 	 * host, '/=default' proposed, or the lines of the map already written.
 	 * The lines naming a host are kept as they are (setting entryPts
 	 * --hostName changes them). The map, conf/doorways.lst, is written whole.
+	 * An open site is proposed '/=statics', and its presets are opened (see
+	 * openPresetsLst) before the map is written.
 	 *
-	 * @throws ShellStop When a line is not one, names a preset that does not load or the example, or no line is given.
+	 * @param String $profileNamed The profile of the project, one of KIND_LIST.
+	 *
+	 * @throws ShellStop When a line is not one, names a preset that does not load or the example, no line is given, or a preset of an open site can reach an action.
 	 */
-	protected function queryDoorsList(): Void {
+	protected function queryDoorsList( String $profileNamed ): Void {
 		// The lines of a map already written are proposed as they are, those for any host only : a line naming a host is kept apart
 		try{
 			$rowList = \nyu\Runner::readDoorsArray();
@@ -573,7 +582,7 @@ class Deploy extends Command{
 				$hostLst[] = $oneRow;
 			}
 		}
-		$gvnText = $this->queryAnswerTxt( 'Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName)', empty($dfltLst) ? '/=default' : implode(', ', $dfltLst) );
+		$gvnText = $this->queryAnswerTxt( 'Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName)', empty($dfltLst) ? ( $profileNamed=='openSite' ? '/=statics' : '/=default' ) : implode(', ', $dfltLst) );
 		$newList = $hostLst;
 		foreach( array_filter(array_map('trim', explode(',', $gvnText))) as $onePar ){
 			$pairArr = array_map('trim', explode('=', $onePar, 2));
@@ -595,12 +604,118 @@ class Deploy extends Command{
 		if( empty($newList) ){
 			$this->terminateShell( 'No preset to serve: give one line at least, /=default', self::EXIT_DENY );
 		}
+		if( $profileNamed=='openSite' ){
+			$this->openPresetsLst($newList);
+		}
 		(new Config($this->optionsObj, $this->printerObj, $this->readStream))->writeDoorsList($newList);
 		$lineLst = Array();
 		foreach( $newList as $oneRow ){
 			$lineLst[] = $oneRow['hostName'].$oneRow['basePath'].'='.$oneRow['presetId'];
 		}
 		$this->traceShellDone( 'Deploy: presets served '.json_encode($lineLst, JSON_UNESCAPED_SLASHES) );
+	}
+
+	/**
+	 * Opens the presets of the map of an open site: each one is given
+	 * "required": false and "isPublic": true, unless it already has them. A
+	 * preset that can reach an action is never opened: a Run added later
+	 * would become public without anyone deciding it. Every preset is
+	 * checked before any is written.
+	 *
+	 * @param Array $doorwaysRows The lines of the map, each with its 'presetId'.
+	 * @return Array The names of the presets opened.
+	 *
+	 * @throws ShellStop When a preset can reach an action, or cannot be read or written.
+	 */
+	protected function openPresetsLst( Array $doorwaysRows ): Array {
+		$openLst = Array();
+		foreach( array_unique(array_column($doorwaysRows, 'presetId')) as $prstId ){
+			try{
+				$setpObj = (new \nyu\Setup\Preset($prstId))->newSetupLoader();
+				$rteConf = $setpObj->getRegistryKey('dispatch');
+				$hasActn = (new \nyu\Tools\Router( is_array($rteConf) ? $rteConf : Array(), \nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions();
+				$accConf = $setpObj->setAccessArray();
+			}catch( \Throwable $e ){
+				$this->terminateShell('Nothing was opened: the preset '.$prstId.' cannot be read: '.$e->getMessage(), self::EXIT_DENY);
+			}
+			if( $hasActn ){
+				$this->terminateShell('Nothing was opened: the preset '.$prstId.' can reach an action, which an open site never makes public; serve statics, or a preset that serves no Run, or open the Run on purpose with openList in a preset that checks access', self::EXIT_DENY);
+			}
+			if( ($accConf['required'] ?? true)!==false || ($accConf['isPublic'] ?? false)!==true ){
+				$openLst[] = $prstId;
+			}
+		}
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		foreach( $openLst as $prstId ){
+			$rpsPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
+			try{
+				$treeObj = $wrtrObj->importJsonsObj($rpsPath);
+			}catch( \RuntimeException $e ){
+				$this->terminateShell('The preset '.$prstId.' cannot be opened: '.$e->getMessage().' (a preset holding comments is opened by hand)', self::EXIT_DENY);
+			}
+			if( !isset($treeObj->security) || !is_object($treeObj->security) ){
+				$treeObj->security = new \stdClass();
+			}
+			$treeObj->security->required = false;
+			$treeObj->security->isPublic = true;
+			$wrtrObj->saveJsonConfig($rpsPath, $treeObj);
+			$this->printerObj->printShellLine('Preset '.$prstId.' opened: "required": false, "isPublic": true.');
+		}
+		if( !empty($openLst) ){
+			$this->traceShellDone('Deploy: presets opened for an open site ('.implode(', ', $openLst).')');
+		}
+		return $openLst;
+	}
+
+	/**
+	 * Closes again the presets an open site had opened, when the project is
+	 * given a store of users: when every preset of the map is open, each one
+	 * marked "isPublic" is given "required": true, its "isPublic" removed,
+	 * and named. A preset closed without a carrier refuses every request
+	 * (500) until its owner sets one or opens it on purpose. Without a map,
+	 * or with a preset of it that checks access, nothing is changed.
+	 *
+	 * @throws ShellStop When a preset cannot be written.
+	 */
+	protected function closePublicSet(): Void {
+		try{
+			$rowList = \nyu\Runner::readDoorsArray();
+		}catch( \RuntimeException $e ){
+			// The question of the map tells it
+			return;
+		}
+		$pblcLst = Array();
+		foreach( array_unique(array_column($rowList, 'presetId')) as $prstId ){
+			try{
+				$accConf = (new \nyu\Setup\Preset($prstId))->newSetupLoader()->setAccessArray();
+			}catch( \Throwable $e ){
+				return;
+			}
+			// A preset that checks access : the project was not an open site
+			if( ($accConf['required'] ?? true)!==false ){
+				return;
+			}
+			if( ($accConf['isPublic'] ?? false)===true ){
+				$pblcLst[] = $prstId;
+			}
+		}
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		foreach( $pblcLst as $prstId ){
+			$rpsPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
+			try{
+				$treeObj = $wrtrObj->importJsonsObj($rpsPath);
+			}catch( \RuntimeException $e ){
+				$this->terminateShell('The preset '.$prstId.' cannot be closed: '.$e->getMessage().'; close it by hand ("required": true)', self::EXIT_DENY);
+			}
+			$treeObj->security->required = true;
+			unset($treeObj->security->isPublic);
+			$wrtrObj->saveJsonConfig($rpsPath, $treeObj);
+			$this->printerObj->printShellLine('Preset '.$prstId.' closed: the project has users now; open it again on purpose when it is meant to be public.');
+		}
+		if( !empty($pblcLst) ){
+			Console::loadConfigLogs();
+			$this->traceShellDone('Deploy: presets of the open site closed, a store of users given ('.implode(', ', $pblcLst).')');
+		}
 	}
 
 	/**
@@ -630,8 +745,8 @@ class Deploy extends Command{
 				$wrtrObj->changeIniValue($iniPath, 'ENV_NAME', $wantEnv);
 			}
 		}
-		// A resource server accepts the tokens of another server : it has no users, nor a store to ask
-		if( $profileNamed=='dataServ' ){
+		// A resource server accepts the tokens of another server, an open site logs nobody in : no users, nor a store to ask
+		if( $profileNamed=='dataServ' || $profileNamed=='openSite' ){
 			Console::loadConfigLogs();
 			return 'none';
 		}
@@ -681,7 +796,9 @@ class Deploy extends Command{
 	 * 'authServ' signs the tokens with RS256, its pair made with the other
 	 * secrets, and asks the claims they carry; 'dataServ' asks the public key
 	 * of the authentication server and the claims it checks, and points the
-	 * login at no credential check: it answers 501.
+	 * login at no credential check: it answers 501. 'openSite', a site with
+	 * nothing to log in to, takes the users' store out of the login; the
+	 * presets it serves are opened with the map (see queryDoorsList).
 	 *
 	 * @return String The profile, one of KIND_LIST.
 	 *
@@ -700,8 +817,8 @@ class Deploy extends Command{
 		if( $projKnd=='allInOne' ){
 			return $projKnd;
 		}
-		if( $projKnd=='dataServ' && strval($this->optionsObj->retrieveOption('useStore', ''))!=='' ){
-			$this->terminateShell('A resource server (dataServ) has no users of its own: --useStore does not apply', self::EXIT_HELP);
+		if( $projKnd!='authServ' && strval($this->optionsObj->retrieveOption('useStore', ''))!=='' ){
+			$this->terminateShell( ($projKnd=='dataServ' ? 'A resource server (dataServ)' : 'An open site (openSite)').' has no users of its own: --useStore does not apply', self::EXIT_HELP );
 		}
 		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
@@ -711,6 +828,14 @@ class Deploy extends Command{
 		$treeObj = $wrtrObj->importJsonsObj($accPath);
 		if( !isset($treeObj->loginSet) || !is_object($treeObj->loginSet) ){
 			$treeObj->loginSet = new \stdClass();
+		}
+		// An open site has no users' store : the login checks nothing, and the presets it serves are opened with the map
+		if( $projKnd=='openSite' ){
+			unset($treeObj->loginSet->authWith, $treeObj->loginSet->authConf);
+			$wrtrObj->saveJsonConfig($accPath, $treeObj);
+			Console::loadConfigLogs();
+			$this->traceShellDone('Deploy: conf/access.json written for the profile openSite (no users\' store)');
+			return $projKnd;
 		}
 		// The tokens are the bond between the projects : the login carries them
 		$blckNme = ( strval($treeObj->loginSet->carrWith ?? 'jwtToken')=='jwtToken' ) ? strval($treeObj->loginSet->carrConf ?? 'jwtToken') : 'jwtToken';

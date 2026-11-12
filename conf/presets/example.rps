@@ -102,7 +102,8 @@
 		"fileRoot": "pages",
         // Where the routes a run declares in its own routes.rte are served: the run by its
         // name (whatever its case), with the path its routes go under ("" for the root of
-        // the site) or false to serve none of them. A run not named here is served under
+        // the site) or false to serve none of them. "*" names every run without a line of
+        // its own ("*": false serves no run). A run not named here is served under
         // its name in lower case: /auth/login for the login of Auth
 		"runMount": { "notes": "api/notes", "shows": false }
 	},

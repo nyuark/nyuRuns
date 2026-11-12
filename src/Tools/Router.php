@@ -330,21 +330,53 @@ class Router{
 	/**
 	 * Gives the mount of a Run: the path its routes are moved under, from
 	 * the 'runMount' key of the route configuration, { "<run>": false |
-	 * "<prefix>" }, the Run named whatever its case. A Run it does not name
-	 * is mounted under its name in lower case.
+	 * "<prefix>" }, the Run named whatever its case. "*" names every Run
+	 * the key does not name on its own line. A Run neither names is mounted
+	 * under its name in lower case.
 	 *
 	 * @param String $appNameToRun Name of the Run.
 	 * @return ?String The prefix, without its slashes (empty for the root of the site); null when the Run's routes are not served.
 	 */
 	public function mountRoutePath( String $appNameToRun ): ?String {
 		$mntList = $this->routConfig['runMount'] ?? Array();
-		foreach( (is_array($mntList) ? $mntList : Array()) as $mntKey => $mntVal ){
-			if( strcasecmp(strval($mntKey), $appNameToRun)!=0 ){
+		$mntList = is_array($mntList) ? $mntList : Array();
+		foreach( $mntList as $mntKey => $mntVal ){
+			if( strval($mntKey)==='*' || strcasecmp(strval($mntKey), $appNameToRun)!=0 ){
 				continue;
 			}
 			return ($mntVal===false) ? null : trim(strval($mntVal), '/');
 		}
+		// Every Run not named on its own line
+		if( array_key_exists('*', $mntList) ){
+			return ($mntList['*']===false) ? null : trim(strval($mntList['*']), '/');
+		}
 		return strtolower($appNameToRun);
+	}
+
+	/**
+	 * Tells whether a request can reach an action through this
+	 * configuration: a declared route to an action (the site's, or a
+	 * mounted Run's), or the automatic paths ('autopath') with a Run that
+	 * declares no routes of its own.
+	 *
+	 * @return Bool True when an action can be run.
+	 */
+	public function reachesActions(): Bool {
+		foreach( $this->allRoutesArray() as $rteRow ){
+			if( ($rteRow['routKind'] ?? '')=='toAction' ){
+				return true;
+			}
+		}
+		if( ($this->routConfig['detectBy'] ?? '')!='autopath' || !defined('RUN_DIR') ){
+			return false;
+		}
+		// A Run declaring its routes is closed to the automatic paths
+		foreach( (array)glob(RUN_DIR.DS.'*', GLOB_ONLYDIR) as $runDir ){
+			if( is_file(strval($runDir).DS.'Actions.php') && !is_file(strval($runDir).DS.'routes.rte') ){
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

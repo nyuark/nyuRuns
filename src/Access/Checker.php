@@ -164,6 +164,14 @@ class Checker{
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		}
 
+		// A check without an access config (conf/access.json missing or empty) has nothing to check with : it fails closed
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$accsAll = ($nyuConf!==null) ? $nyuConf->readValueByKey('access') : null;
+		if( !is_array($accsAll) || empty($accsAll) ){
+			$this->logAccsAttempt( false, '', 'Access misconfigured: no access config (conf/access.json), and the preset checks access' );
+			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
+		}
+
 		$sessNme = strval($this->accessConf['carrWith'] ?? '');
 		$authNme = $this->accessConf['authWith'] ?? null;
 
