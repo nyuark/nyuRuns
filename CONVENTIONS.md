@@ -8,8 +8,8 @@ All names are `camelCase` with a fixed length, except classes, which are `Pascal
 
 | Element                                       | Length | Example              |
 |-----------------------------------------------|--------|----------------------|
-| Method                                        | 14     | `overSetupLoads()`   |
-| Method parameter                              | 12     | `$addedEntries`      |
+| Method                                        | 14     | `makeAccessCode()`   |
+| Method parameter                              | 12     | `$newEntryList`      |
 | Class property                                | 10     | `$accessConf`        |
 | Local variable inside a method                | 8      | `$fileName`          |
 | Loop variable (`one` + item, or `nth` + item) | 6      | `$oneRow`, `$nthRow` |
