@@ -33,11 +33,11 @@ class Pdfx extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('block', 'sheet', 'nodes'), 'PDF');
-		$sizeKey = strval($writeOptions['paper'] ?? 'isoPgeA4');
+		$sizeClef = strval($writeOptions['paper'] ?? 'isoPgeA4');
 		// The size whatever its case, as SIZE_LIST writes it
-		$sizeKey = strval( array_values(preg_grep('/^'.preg_quote($sizeKey, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeKey );
-		if( !isset(self::SIZE_LIST[$sizeKey]) ){
-			throw new WriteError('Invalid PDF option: unknown paper '.$sizeKey);
+		$sizeClef = strval( array_values(preg_grep('/^'.preg_quote($sizeClef, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeClef );
+		if( !isset(self::SIZE_LIST[$sizeClef]) ){
+			throw new WriteError('Invalid PDF option: unknown paper '.$sizeClef);
 		}
 		if( !class_exists('\Dompdf\Dompdf') ){
 			throw new WriteError('Writing PDF documents needs the dompdf/dompdf library');
@@ -45,23 +45,23 @@ class Pdfx extends Base {
 		if( !extension_loaded('mbstring') ){
 			throw new WriteError('Writing PDF documents needs the mbstring extension of PHP');
 		}
-		$htmPage = (new Html())->renderDocument($dataEnvelope, Array('whole'=>true, 'frmat'=>true) + array_intersect_key($writeOptions, array_flip(Array('class', 'heads', 'shown'))));
+		$htmlPage = (new Html())->renderDocument($dataEnvelope, Array('whole'=>true, 'frmat'=>true) + array_intersect_key($writeOptions, array_flip(Array('class', 'heads', 'shown'))));
 		try{
-			$options = new \Dompdf\Options();
+			$optsDict = new \Dompdf\Options();
 			// The document is made of what it is given, and of nothing it could go and fetch or run
-			$options->setIsRemoteEnabled(false);
-			$options->setIsPhpEnabled(false);
-			$options->setIsJavascriptEnabled(false);
-			$options->setAllowedProtocols(Array());
+			$optsDict->setIsRemoteEnabled(false);
+			$optsDict->setIsPhpEnabled(false);
+			$optsDict->setIsJavascriptEnabled(false);
+			$optsDict->setAllowedProtocols(Array());
 			// A font holding the accents is the one a text falls back on; what the library keeps of its fonts goes to the temporary folder
-			$options->setDefaultFont('DejaVu Sans');
-			$options->setFontCache(sys_get_temp_dir());
-			$options->setTempDir(sys_get_temp_dir());
-			$pdfDocu = new \Dompdf\Dompdf($options);
-			$pdfDocu->loadHtml($htmPage, 'UTF-8');
-			$pdfDocu->setPaper(self::SIZE_LIST[$sizeKey], empty($writeOptions['lands']) ? 'portrait' : 'landscape');
-			$pdfDocu->render();
-			return strval($pdfDocu->output());
+			$optsDict->setDefaultFont('DejaVu Sans');
+			$optsDict->setFontCache(sys_get_temp_dir());
+			$optsDict->setTempDir(sys_get_temp_dir());
+			$pdfDcmnt = new \Dompdf\Dompdf($optsDict);
+			$pdfDcmnt->loadHtml($htmlPage, 'UTF-8');
+			$pdfDcmnt->setPaper(self::SIZE_LIST[$sizeClef], empty($writeOptions['lands']) ? 'portrait' : 'landscape');
+			$pdfDcmnt->render();
+			return strval($pdfDcmnt->output());
 		}catch( \Throwable $e ){
 			throw new WriteError('Content that cannot be written as PDF: '.$e->getMessage(), 0, $e);
 		}

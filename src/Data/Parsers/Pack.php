@@ -57,11 +57,11 @@ abstract class Pack extends Base {
 		if( $nakedContent==='' ){
 			return $this->makeShapeArray(static::SHPE_OUTS, Array());
 		}
-		$bytFlux = Fluxd::openBytesFluxd($nakedContent);
+		$bytesFlx = Fluxd::openBytesFluxd($nakedContent);
 		try{
-			return $this->parseFluxArray($bytFlux, $parseOptions);
+			return $this->parseFluxArray($bytesFlx, $parseOptions);
 		}finally{
-			$bytFlux->closeTheSource();
+			$bytesFlx->closeTheSource();
 		}
 	}
 
@@ -87,9 +87,9 @@ abstract class Pack extends Base {
 		$this->maxSizeVal = intval($parseOptions['limit'] ?? self::DFLT_SIZE);
 		try{
 			$this->archiveObj = Archv::openFluxdArchv($sourceStream);
-			$envlope = $this->readArchvArray($parseOptions);
+			$envelope = $this->readArchvArray($parseOptions);
 			// The pictures are taken out while the archive is still open
-			return (strval($parseOptions['media'] ?? '')!=='' && $envlope['shape']=='block') ? $this->saveMediaArray($envlope, strval($parseOptions['media'])) : $envlope;
+			return (strval($parseOptions['media'] ?? '')!=='' && $envelope['shape']=='block') ? $this->saveMediaArray($envelope, strval($parseOptions['media'])) : $envelope;
 		}catch( ParseError $e ){
 			throw $e;
 		}catch( \RuntimeException $e ){
@@ -124,11 +124,11 @@ abstract class Pack extends Base {
 			return null;
 		}
 		try{
-			$partDoc = (new XHml())->parseDataArray($this->archiveObj->getEntryString($fullPathName, $this->maxSizeVal), Array('reads'=>'xml', 'shape'=>'nodes', 'space'=>$keepsSpacing));
+			$partDocu = (new XHml())->parseDataArray($this->archiveObj->getEntryString($fullPathName, $this->maxSizeVal), Array('reads'=>'xml', 'shape'=>'nodes', 'space'=>$keepsSpacing));
 		}catch( ParseError $e ){
 			throw new ParseError('Invalid archive: part '.$fullPathName.': '.$e->getMessage(), 0, $e);
 		}
-		return empty($partDoc['items']) ? null : $partDoc['items'];
+		return empty($partDocu['items']) ? null : $partDocu['items'];
 	}
 
 	/**
@@ -139,15 +139,15 @@ abstract class Pack extends Base {
 	 * @return Array The children of that name, in order.
 	 */
 	protected function kidsNamedArray(Array $elementArray, String $tagNmeString): Array {
-		$kidsLst = Array();
-		$anyPrfx = (strpos($tagNmeString, ':')===false);
+		$kidsList = Array();
+		$hasPrefx = (strpos($tagNmeString, ':')!==false);
 		foreach($elementArray['nodes'] as $chlArr){
-			$chldNme = $chlArr['tagnm'];
-			if( $chldNme===$tagNmeString || ($anyPrfx && substr($chldNme, intval(strrpos($chldNme, ':'))+1)===$tagNmeString && strpos($chldNme, ':')!==false) ){
-				$kidsLst[] = $chlArr;
+			$childNme = $chlArr['tagnm'];
+			if( $childNme===$tagNmeString || (!$hasPrefx && substr($childNme, intval(strrpos($childNme, ':'))+1)===$tagNmeString && strpos($childNme, ':')!==false) ){
+				$kidsList[] = $chlArr;
 			}
 		}
-		return $kidsLst;
+		return $kidsList;
 	}
 
 	/**
@@ -160,11 +160,11 @@ abstract class Pack extends Base {
 	 */
 	protected function findChildArray(Array $elementArray, Array $tagPathSteps): ?Array {
 		foreach($tagPathSteps as $tagNme){
-			$kidsLst = $this->kidsNamedArray($elementArray, $tagNme);
-			if( empty($kidsLst) ){
+			$kidsList = $this->kidsNamedArray($elementArray, $tagNme);
+			if( empty($kidsList) ){
 				return null;
 			}
-			$elementArray = $kidsLst[0];
+			$elementArray = $kidsList[0];
 		}
 		return $elementArray;
 	}
@@ -176,11 +176,11 @@ abstract class Pack extends Base {
 	 * @return String Its text, with the text of what it holds, in order.
 	 */
 	protected function collectAllText(Array $elementArray): String {
-		$fullTxt = $elementArray['value'];
+		$fullText = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
-			$fullTxt .= $this->collectAllText($chlArr);
+			$fullText .= $this->collectAllText($chlArr);
 		}
-		return $fullTxt;
+		return $fullText;
 	}
 	
 	/**
@@ -197,23 +197,23 @@ abstract class Pack extends Base {
 	 */
 	protected function pickSheetArray(Array $sheetNameLst, Array $visibleFlags, Array $parseOptions): Array {
 		if( isset($parseOptions['sheet']) && $parseOptions['sheet']!=='' ){
-			$askdSht = strval($parseOptions['sheet']);
-			$foundAt = array_search($askdSht, $sheetNameLst, true);
-			if( $foundAt===false && preg_match('/^[1-9]\d*$/D', $askdSht) && isset($sheetNameLst[intval($askdSht)-1]) ){
-				$foundAt = intval($askdSht)-1;
+			$askdTabs = strval($parseOptions['sheet']);
+			$foundIdx = array_search($askdTabs, $sheetNameLst, true);
+			if( $foundIdx===false && preg_match('/^[1-9]\d*$/D', $askdTabs) && isset($sheetNameLst[intval($askdTabs)-1]) ){
+				$foundIdx = intval($askdTabs)-1;
 			}
-			if( $foundAt===false ){
-				throw new ParseError('Invalid workbook option: no sheet '.$askdSht);
+			if( $foundIdx===false ){
+				throw new ParseError('Invalid workbook option: no sheet '.$askdTabs);
 			}
-			return Array($foundAt);
+			return Array($foundIdx);
 		}
-		$keptIdx = Array();
+		$keptIndx = Array();
 		foreach(array_keys($sheetNameLst) as $shtIdx){
 			if( empty($parseOptions['shown']) || !empty($visibleFlags[$shtIdx]) ){
-				$keptIdx[] = $shtIdx;
+				$keptIndx[] = $shtIdx;
 			}
 		}
-		return $keptIdx;
+		return $keptIndx;
 	}
 	
 	/**
@@ -231,20 +231,20 @@ abstract class Pack extends Base {
 	 * @throws ParseError When the 'merge' option is not a known one, or the merged cells are too many to be filled.
 	 */
 	protected function doneSheetArray(String $sheetHeading, Array $cellRowsList, Array $attributeSet, Array $parseOptions, Array &$columnTitles): Array {
-		$mergeAs = strtolower(strval($parseOptions['merge'] ?? 'keeps'));
-		if( $mergeAs!='keeps' && $mergeAs!='fills' ){
-			throw new ParseError('Invalid workbook option: unknown merge '.$mergeAs);
+		$mergCode = strtolower(strval($parseOptions['merge'] ?? 'keeps'));
+		if( $mergCode!='keeps' && $mergCode!='fills' ){
+			throw new ParseError('Invalid workbook option: unknown merge '.$mergCode);
 		}
-		if( $mergeAs=='fills' ){
+		if( $mergCode=='fills' ){
 			$cellRowsList = $this->fillMergeArray($cellRowsList, (array)($attributeSet['merge'] ?? Array()));
 		}
 		$columnTitles = Array();
 		if( !empty($parseOptions['heads']) ){
 			$cellRowsList = $this->keyedRowsArray($cellRowsList, $columnTitles);
 		}
-		$shetArr = Shape::makeSheetArray($sheetHeading, Array(), $attributeSet);
-		$shetArr['cells'] = $cellRowsList;
-		return $shetArr;
+		$sheetLst = Shape::makeSheetArray($sheetHeading, Array(), $attributeSet);
+		$sheetLst['cells'] = $cellRowsList;
+		return $sheetLst;
 	}
 	
 	/**
@@ -258,14 +258,14 @@ abstract class Pack extends Base {
 	 * @throws ParseError When the cells to fill are too many.
 	 */
 	protected function fillMergeArray(Array $cellRowsList, Array $mergedRanges): Array {
-		$fillNum = 0;
+		$fillNumb = 0;
 		foreach($mergedRanges as $oneAre){
-			$areaVal = $cellRowsList[$oneAre['atrow']][$oneAre['atcol']] ?? null;
-			if( $areaVal===null ){
+			$areaVals = $cellRowsList[$oneAre['atrow']][$oneAre['atcol']] ?? null;
+			if( $areaVals===null ){
 				continue;
 			}
-			$fillNum += $oneAre['rowsp']*$oneAre['colsp'];
-			if( $fillNum>self::FILL_MAXI ){
+			$fillNumb += $oneAre['rowsp']*$oneAre['colsp'];
+			if( $fillNumb>self::FILL_MAXI ){
 				throw new ParseError('Invalid workbook: merged cells too many to be filled');
 			}
 			for($rowIdx=$oneAre['atrow']; $rowIdx<$oneAre['atrow']+$oneAre['rowsp']; $rowIdx++){
@@ -274,7 +274,7 @@ abstract class Pack extends Base {
 				}
 				$cellRowsList[$rowIdx] = array_pad($cellRowsList[$rowIdx], $oneAre['atcol']+$oneAre['colsp'], null);
 				for($colInc=$oneAre['atcol']; $colInc<$oneAre['atcol']+$oneAre['colsp']; $colInc++){
-					$cellRowsList[$rowIdx][$colInc] = $areaVal;
+					$cellRowsList[$rowIdx][$colInc] = $areaVals;
 				}
 			}
 		}
@@ -302,20 +302,20 @@ abstract class Pack extends Base {
 	 * @return String Its text.
 	 */
 	protected function odfPieceAsText(Array $elementArray): String {
-		$fullTxt = $elementArray['value'];
+		$fullText = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
-			$chldNme = $chlArr['tagnm'];
-			if( $chldNme=='text:s' ){
-				$fullTxt .= str_repeat(' ', max(1, min(10000, intval($chlArr['attrs']['text:c'] ?? 1))));
-			}elseif( $chldNme=='text:tab' ){
-				$fullTxt .= "\t";
-			}elseif( $chldNme=='text:line-break' ){
-				$fullTxt .= "\n";
-			}elseif( !in_array($chldNme, Array('office:annotation', 'office:annotation-end', 'text:note', 'text:tracked-changes')) ){
-				$fullTxt .= $this->odfPieceAsText($chlArr);
+			$childNme = $chlArr['tagnm'];
+			if( $childNme=='text:s' ){
+				$fullText .= str_repeat(' ', max(1, min(10000, intval($chlArr['attrs']['text:c'] ?? 1))));
+			}elseif( $childNme=='text:tab' ){
+				$fullText .= "\t";
+			}elseif( $childNme=='text:line-break' ){
+				$fullText .= "\n";
+			}elseif( !in_array($childNme, Array('office:annotation', 'office:annotation-end', 'text:note', 'text:tracked-changes')) ){
+				$fullText .= $this->odfPieceAsText($chlArr);
 			}
 		}
-		return $fullTxt;
+		return $fullText;
 	}
 	
 	/**
@@ -326,25 +326,25 @@ abstract class Pack extends Base {
 	 * @return Array The relations, by their id, each with its kind under 'types', the name of the part it points to under 'paths', what it points to as written under 'links', and whether that is outside the archive under 'outer'.
 	 */
 	protected function relsOfFragment(String $fullPathName): Array {
-		$slashAt = strrpos($fullPathName, '/');
-		$partDir = ($slashAt===false) ? '' : substr($fullPathName, 0, $slashAt+1);
-		$relsArr = $this->partNodesArray($partDir.'_rels/'.substr($fullPathName, strlen($partDir)).'.rels', false);
-		$relsLst = Array();
-		foreach($this->kidsNamedArray($relsArr ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
-			$relTrgt = strval($relArr['attrs']['Target'] ?? '');
+		$slashIdx = strrpos($fullPathName, '/');
+		$partPath = ($slashIdx===false) ? '' : substr($fullPathName, 0, $slashIdx+1);
+		$rltnNods = $this->partNodesArray($partPath.'_rels/'.substr($fullPathName, strlen($partPath)).'.rels', false);
+		$rltnList = Array();
+		foreach($this->kidsNamedArray($rltnNods ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
+			$rltnTrgt = strval($relArr['attrs']['Target'] ?? '');
 			// A target is written from the folder of the part, or from the root of the archive when it starts with /
-			$relPath = (substr($relTrgt, 0, 1)=='/') ? substr($relTrgt, 1) : $partDir.$relTrgt;
-			$pthPart = Array();
-			foreach(explode('/', $relPath) as $oneDir){
+			$rltnPath = (substr($rltnTrgt, 0, 1)=='/') ? substr($rltnTrgt, 1) : $partPath.$rltnTrgt;
+			$pathPart = Array();
+			foreach(explode('/', $rltnPath) as $oneDir){
 				if( $oneDir=='..' ){
-					array_pop($pthPart);
+					array_pop($pathPart);
 				}elseif( $oneDir!=='' && $oneDir!='.' ){
-					$pthPart[] = $oneDir;
+					$pathPart[] = $oneDir;
 				}
 			}
-			$relsLst[strval($relArr['attrs']['Id'] ?? '')] = Array('types'=>strval($relArr['attrs']['Type'] ?? ''), 'paths'=>implode('/', $pthPart), 'links'=>$relTrgt, 'outer'=>(strtolower(strval($relArr['attrs']['TargetMode'] ?? ''))=='external'));
+			$rltnList[strval($relArr['attrs']['Id'] ?? '')] = Array('types'=>strval($relArr['attrs']['Type'] ?? ''), 'paths'=>implode('/', $pathPart), 'links'=>$rltnTrgt, 'outer'=>(strtolower(strval($relArr['attrs']['TargetMode'] ?? ''))=='external'));
 		}
-		return $relsLst;
+		return $rltnList;
 	}
 	
 	/**
@@ -360,9 +360,9 @@ abstract class Pack extends Base {
 			if( in_array($chlArr['tagnm'], $namesToMatch, true) ){
 				return $chlArr;
 			}
-			$deepArr = $this->deepNamedArray($chlArr, $namesToMatch);
-			if( $deepArr!==null ){
-				return $deepArr;
+			$deepList = $this->deepNamedArray($chlArr, $namesToMatch);
+			if( $deepList!==null ){
+				return $deepList;
 			}
 		}
 		return null;
@@ -377,37 +377,37 @@ abstract class Pack extends Base {
 	 * @return Array The whole text as spans under 'spans' and as written under 'plain', the images and the page breaks under 'holds', and all of it in order, as blocks, under 'flows'.
 	 */
 	protected function flowPartsArray(Array $outputPieces, Bool $keepEmptyFlg): Array {
-		$spnsAll = Array();
-		$holdLst = Array();
-		$flowLst = Array();
-		$spanBuf = Array();
+		$spansAll = Array();
+		$holdList = Array();
+		$flowList = Array();
+		$spanBuff = Array();
 		$outputPieces[] = Array('block'=>'#end');
 		foreach($outputPieces as $onePic){
 			if( !isset($onePic['block']) ){
-				$spanBuf[] = $onePic;
-				$spnsAll[] = $onePic;
+				$spanBuff[] = $onePic;
+				$spansAll[] = $onePic;
 				continue;
 			}
-			$tidySpn = Shape::joinSpansArray($spanBuf);
-			$spanBuf = Array();
-			if( trim(implode('', array_column($tidySpn, 'texts')))!=='' ){
-				$flowLst[] = Shape::makeBlockArray('paragrph', $tidySpn);
+			$tidySpan = Shape::joinSpansArray($spanBuff);
+			$spanBuff = Array();
+			if( trim(implode('', array_column($tidySpan, 'texts')))!=='' ){
+				$flowList[] = Shape::makeBlockArray('paragrph', $tidySpan);
 			}
 			if( $onePic['block']!='#end' ){
-				$flowLst[] = $onePic;
-				$holdLst[] = $onePic;
+				$flowList[] = $onePic;
+				$holdList[] = $onePic;
 			}
 		}
-		$spnsAll = Shape::joinSpansArray($spnsAll);
-		$fullTxt = implode('', array_column($spnsAll, 'texts'));
-		if( trim($fullTxt)==='' ){
-			$spnsAll = Array();
+		$spansAll = Shape::joinSpansArray($spansAll);
+		$fullText = implode('', array_column($spansAll, 'texts'));
+		if( trim($fullText)==='' ){
+			$spansAll = Array();
 		}
 		// A paragraph holding nothing is a block without text, when those are kept
-		if( empty($flowLst) && $keepEmptyFlg ){
-			$flowLst[] = Shape::makeBlockArray('paragrph');
+		if( empty($flowList) && $keepEmptyFlg ){
+			$flowList[] = Shape::makeBlockArray('paragrph');
 		}
-		return Array('spans'=>$spnsAll, 'plain'=>$fullTxt, 'holds'=>$holdLst, 'flows'=>$flowLst);
+		return Array('spans'=>$spansAll, 'plain'=>$fullText, 'holds'=>$holdList, 'flows'=>$flowList);
 	}
 	
 	/**
@@ -419,21 +419,21 @@ abstract class Pack extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function paragrphBlocks(Array $prgrphValues): Array {
-		$paraKnd = $prgrphValues['kinds'];
-		$newPara = $prgrphValues['flows'];
-		if( $paraKnd=='headline' || $paraKnd=='citation' ){
+		$prgrCode = $prgrphValues['kinds'];
+		$newPargr = $prgrphValues['flows'];
+		if( $prgrCode=='headline' || $prgrCode=='citation' ){
 			// A heading and a quote hold their text only; what else their paragraph holds follows them
-			$newPara = array_merge(
-				Array(Shape::makeBlockArray($paraKnd, $prgrphValues['spans'], Array(), ($paraKnd=='headline') ? Array('level'=>$prgrphValues['level']) : Array())),
-				($paraKnd=='headline') ? array_values(array_filter($prgrphValues['holds'], function($contentBlock){ return $contentBlock['block']=='ruleLine'; })) : $prgrphValues['holds']
+			$newPargr = array_merge(
+				Array(Shape::makeBlockArray($prgrCode, $prgrphValues['spans'], Array(), ($prgrCode=='headline') ? Array('level'=>$prgrphValues['level']) : Array())),
+				($prgrCode=='headline') ? array_values(array_filter($prgrphValues['holds'], function($contentBlock){ return $contentBlock['block']=='ruleLine'; })) : $prgrphValues['holds']
 			);
 		}
 		// The style, the alignment and the id are those of the text, not of an image or a page break
-		if( !empty($newPara) && !in_array($newPara[0]['block'], Array('ruleLine', 'imageBox')) ){
-			$newPara[0]['attrs'] = $newPara[0]['attrs'] + $prgrphValues['attrs'];
+		if( !empty($newPargr) && !in_array($newPargr[0]['block'], Array('ruleLine', 'imageBox')) ){
+			$newPargr[0]['attrs'] = $newPargr[0]['attrs'] + $prgrphValues['attrs'];
 		}
-		$brkBlck = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
-		return array_merge($prgrphValues['prior'] ? Array($brkBlck) : Array(), $newPara, $prgrphValues['after'] ? Array($brkBlck) : Array());
+		$breakBlc = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
+		return array_merge($prgrphValues['prior'] ? Array($breakBlc) : Array(), $newPargr, $prgrphValues['after'] ? Array($breakBlc) : Array());
 	}
 	
 	/**
@@ -444,11 +444,11 @@ abstract class Pack extends Base {
 	 * @return Array The block, in a list; an empty list when the lines hold nothing.
 	 */
 	protected function codeBlockArray(Array $paragraphArr): Array {
-		$codeTxt = trim(implode("\n", array_column($paragraphArr, 'plain')), "\n");
-		if( trim($codeTxt)==='' ){
+		$codeText = trim(implode("\n", array_column($paragraphArr, 'plain')), "\n");
+		if( trim($codeText)==='' ){
 			return Array();
 		}
-		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), $paragraphArr[0]['attrs'] ?? Array()));
+		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), $paragraphArr[0]['attrs'] ?? Array()));
 	}
 	
 	/**
@@ -458,18 +458,18 @@ abstract class Pack extends Base {
 	 * @return Array A name fit for a style sheet under 'class', then what the style tells among 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 */
 	protected function styleFormatArr(Array $styleDetails): Array {
-		$clssNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleDetails['names'] ?? ''))), '-');
-		$frmtSet = Array('class'=>preg_match('/^[a-z]/', $clssNme) ? $clssNme : 's-'.$clssNme);
+		$classNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleDetails['names'] ?? ''))), '-');
+		$frmtDict = Array('class'=>preg_match('/^[a-z]/', $classNme) ? $classNme : 's-'.$classNme);
 		foreach(Array('fonts', 'sizes', 'color', 'marks', 'align') as $prpKey){
 			if( !empty($styleDetails[$prpKey]) ){
-				$frmtSet[$prpKey] = $styleDetails[$prpKey];
+				$frmtDict[$prpKey] = $styleDetails[$prpKey];
 			}
 		}
 		// A size is a whole number of points more often than not
-		if( isset($frmtSet['sizes']) && floor($frmtSet['sizes'])==$frmtSet['sizes'] ){
-			$frmtSet['sizes'] = intval($frmtSet['sizes']);
+		if( isset($frmtDict['sizes']) && floor($frmtDict['sizes'])==$frmtDict['sizes'] ){
+			$frmtDict['sizes'] = intval($frmtDict['sizes']);
 		}
-		return $frmtSet;
+		return $frmtDict;
 	}
 	
 	/**
@@ -483,19 +483,19 @@ abstract class Pack extends Base {
 	 * @throws ParseError When the folder is not one that can be written to.
 	 */
 	protected function saveMediaArray(Array $envelopeData, String $imagesFolder): Array {
-		$realDir = realpath($imagesFolder);
-		if( $realDir===false || !is_dir($realDir) || !is_writable($realDir) ){
+		$realPath = realpath($imagesFolder);
+		if( $realPath===false || !is_dir($realPath) || !is_writable($realPath) ){
 			throw new ParseError('Invalid option: the folder for the pictures cannot be written to');
 		}
-		$saveLst = Array();
-		$envelopeData['items'] = $this->mediaWalkArray((array)$envelopeData['items'], $realDir, $saveLst);
+		$saveList = Array();
+		$envelopeData['items'] = $this->mediaWalkArray((array)$envelopeData['items'], $realPath, $saveList);
 		// The headers and the footers of the pages hold pictures too
 		foreach(Array('phead', 'pfoot') as $infKey){
 			if( is_array($envelopeData['infos'][$infKey] ?? null) ){
-				$envelopeData['infos'][$infKey] = $this->mediaWalkArray($envelopeData['infos'][$infKey], $realDir, $saveLst);
+				$envelopeData['infos'][$infKey] = $this->mediaWalkArray($envelopeData['infos'][$infKey], $realPath, $saveList);
 			}
 		}
-		$envelopeData['infos']['media'] = array_flip(array_filter($saveLst, 'strlen'));
+		$envelopeData['infos']['media'] = array_flip(array_filter($saveList, 'strlen'));
 		return $envelopeData;
 	}
 	
@@ -517,31 +517,31 @@ abstract class Pack extends Base {
 			if( !empty($oneBlk['items']) ){
 				$bookBlockSet[$blkIdx]['items'] = $this->mediaWalkArray($oneBlk['items'], $imagesFolder, $picturesSeen);
 			}
-			$innrPth = strval($oneBlk['attrs']['sourc'] ?? '');
-			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->archiveObj->locateEntryFlg($innrPth) ){
+			$innerPth = strval($oneBlk['attrs']['sourc'] ?? '');
+			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->archiveObj->locateEntryFlg($innerPth) ){
 				continue;
 			}
-			if( !isset($picturesSeen[$innrPth]) && count($picturesSeen)<self::MEDI_MAXI ){
-				$picturesSeen[$innrPth] = '';
+			if( !isset($picturesSeen[$innerPth]) && count($picturesSeen)<self::MEDI_MAXI ){
+				$picturesSeen[$innerPth] = '';
 				try{
-					$rawText = $this->archiveObj->getEntryString($innrPth, $this->maxSizeVal);
-					$picture = Image::openFluxdImage(Fluxd::openBytesFluxd($rawText));
+					$rawStrng = $this->archiveObj->getEntryString($innerPth, $this->maxSizeVal);
+					$pictInst = Image::openFluxdImage(Fluxd::openBytesFluxd($rawStrng));
 					// A drawing is saved cleaned of what runs; any other picture written anew, or copied when this server cannot
-					if( $picture->imageInfoArray()['kinds']=='svg' ){
-						$outText = $picture->dropRiskyParts();
+					if( $pictInst->imageInfoArray()['kinds']=='svg' ){
+						$outStrng = $pictInst->dropRiskyParts();
 					}else{
-						$outText = function_exists('imagecreatefromstring') ? $picture->fixOrientation()->grantBytesText('', 90) : $rawText;
+						$outStrng = function_exists('imagecreatefromstring') ? $pictInst->fixOrientation()->grantBytesText('', 90) : $rawStrng;
 					}
-					$fileNme = substr(sha1($outText), 0, 20).'.'.$picture->imageInfoArray()['kinds'];
-					if( @file_put_contents($imagesFolder.DIRECTORY_SEPARATOR.$fileNme, $outText)!==false ){
-						$picturesSeen[$innrPth] = $fileNme;
+					$fileName = substr(sha1($outStrng), 0, 20).'.'.$pictInst->imageInfoArray()['kinds'];
+					if( @file_put_contents($imagesFolder.DIRECTORY_SEPARATOR.$fileName, $outStrng)!==false ){
+						$picturesSeen[$innerPth] = $fileName;
 					}
 				}catch( \RuntimeException $e ){
 					// Not a picture this server reads, such as a drawing of an office suite: the block keeps its place in the archive
 				}
 			}
-			if( strval($picturesSeen[$innrPth] ?? '')!=='' ){
-				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $picturesSeen[$innrPth];
+			if( strval($picturesSeen[$innerPth] ?? '')!=='' ){
+				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $picturesSeen[$innerPth];
 			}
 		}
 		return $bookBlockSet;

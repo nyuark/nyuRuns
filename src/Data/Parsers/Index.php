@@ -73,12 +73,12 @@ class Index {
 	 * @return ?Parser The parser, null when the extension has none.
 	 */
 	public static function forExtnsParser(String $extensionTxt): ?Parser {
-		$extList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
-		if( $extList===null ){
+		$extnList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
+		if( $extnList===null ){
 			return null;
 		}
-		$prsrCls = (strpos($extList[0], '\\')===false) ? __NAMESPACE__.'\\'.$extList[0] : $extList[0];
-		return new $prsrCls();
+		$prsrClss = (strpos($extnList[0], '\\')===false) ? __NAMESPACE__.'\\'.$extnList[0] : $extnList[0];
+		return new $prsrClss();
 	}
 
 	/**
@@ -100,14 +100,14 @@ class Index {
 	 * @return String The extension, '' when the type is not known.
 	 */
 	protected static function typeExtensions(String $sentMimeType): String {
-		$typeKey = strtolower(trim(explode(';', $sentMimeType)[0]));
-		if( isset(self::$parserList[$typeKey]) ){
-			return self::$parserList[$typeKey];
+		$typeClef = strtolower(trim(explode(';', $sentMimeType)[0]));
+		if( isset(self::$parserList[$typeClef]) ){
+			return self::$parserList[$typeClef];
 		}
-		if( substr($typeKey, -5)=='+json' ){
+		if( substr($typeClef, -5)=='+json' ){
 			return 'json';
 		}
-		return (substr($typeKey, -4)=='+xml') ? 'xml' : '';
+		return (substr($typeClef, -4)=='+xml') ? 'xml' : '';
 	}
 
 	/**
@@ -117,8 +117,8 @@ class Index {
 	 * @return ?Parser The parser, null when the content type has none.
 	 */
 	public static function findTypeParser(String $sentMimeType): ?Parser {
-		$fileExt = self::typeExtensions($sentMimeType);
-		return ($fileExt=='') ? null : self::forExtnsParser($fileExt);
+		$fileExtn = self::typeExtensions($sentMimeType);
+		return ($fileExtn=='') ? null : self::forExtnsParser($fileExtn);
 	}
 
 	/**
@@ -128,8 +128,8 @@ class Index {
 	 * @return Array The options, empty when the content type has none.
 	 */
 	public static function typeOptionsArr(String $sentMimeType): Array {
-		$fileExt = self::typeExtensions($sentMimeType);
-		return ($fileExt=='') ? Array() : self::optionsOfExtns($fileExt);
+		$fileExtn = self::typeExtensions($sentMimeType);
+		return ($fileExtn=='') ? Array() : self::optionsOfExtns($fileExtn);
 	}
 
 	/**
@@ -142,11 +142,11 @@ class Index {
 	 * @throws \RuntimeException When the extension is not a plain name, or the class is not a parser.
 	 */
 	public static function registerParser(String $extensionTxt, String $nameOfParser, Array $parseOptions=Array()): Void {
-		$prsrCls = (strpos($nameOfParser, '\\')===false) ? __NAMESPACE__.'\\'.$nameOfParser : $nameOfParser;
+		$prsrClss = (strpos($nameOfParser, '\\')===false) ? __NAMESPACE__.'\\'.$nameOfParser : $nameOfParser;
 		if( !preg_match('/^\w+$/D', $extensionTxt) ){
 			throw new \RuntimeException('Invalid file extension: '.$extensionTxt);
 		}
-		if( !class_exists($prsrCls) || !is_subclass_of($prsrCls, Parser::class) ){
+		if( !class_exists($prsrClss) || !is_subclass_of($prsrClss, Parser::class) ){
 			throw new \RuntimeException('Not a parser: '.$nameOfParser);
 		}
 		self::$extnsArray[strtolower($extensionTxt)] = Array($nameOfParser, $parseOptions);

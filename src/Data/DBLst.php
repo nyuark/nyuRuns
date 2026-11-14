@@ -70,8 +70,8 @@ class DBLst {
 			// Plain field names with their direction are kept as a sort every database can do
 			if( preg_match('/^\s*\w+(\.\w+)?(\s+(ASC|DESC))?(\s*,\s*\w+(\.\w+)?(\s+(ASC|DESC))?)*\s*$/iD', $orderByTerms) ){
 				foreach(explode(',', $orderByTerms) as $oneFld){
-					$orderBy = preg_split('/\s+/', trim($oneFld));
-					$this->orderTerms[] = Array($orderBy[0], strtoupper($orderBy[1] ?? '')=='DESC');
+					$ordrPrts = preg_split('/\s+/', trim($oneFld));
+					$this->orderTerms[] = Array($ordrPrts[0], strtoupper($ordrPrts[1] ?? '')=='DESC');
 				}
 			}else{
 				// Kept as given, as the other fragments are, and told : setOrderFields() is the way that takes no SQL
@@ -98,14 +98,14 @@ class DBLst {
 		if( $keepReadRows && is_array($this->loadedRows) ){
 			return $this->loadedRows;
 		}
-		$fndOptn = Array(
+		$findOpts = Array(
 			'field'=>$this->selectList, 'funcs'=>$this->aggregates, 'order'=>$this->orderTerms,
 			'limit'=>$this->limitCount, 'offst'=>$this->offsetNumb,
 			'joins'=>$this->tableJoins, 'group'=>$this->groupNames, 'devel'=>$this->sqlClauses
 		);
 		// Only what is set is asked for: a store refuses the options it cannot honour
-		$fndOptn = array_filter($fndOptn, function($optionsValue){ return $optionsValue!==null && $optionsValue!==Array(); });
-		$this->loadedRows = $this->tableDbCon->getStoreObject()->findItemsArray($this->tableLabel, $this->whereArray, $fndOptn);
+		$findOpts = array_filter($findOpts, function($optionsValue){ return $optionsValue!==null && $optionsValue!==Array(); });
+		$this->loadedRows = $this->tableDbCon->getStoreObject()->findItemsArray($this->tableLabel, $this->whereArray, $findOpts);
 		
 		return $this->loadedRows;
 	}
@@ -119,20 +119,20 @@ class DBLst {
 	 * @return Array Flat array of the isolated field's values.
 	 */
 	public function flatItemsArray( String $isolateField, Bool $keepReadRows=false ): Array {
-		$results = $this->readRowsOfList($keepReadRows);
-		$flatLst = Array();
-		if(isset($results) && !empty($results)){
-			if(isset($results[$isolateField])){
-				$flatLst[] = $results[$isolateField];
+		$rsltList = $this->readRowsOfList($keepReadRows);
+		$flatList = Array();
+		if(isset($rsltList) && !empty($rsltList)){
+			if(isset($rsltList[$isolateField])){
+				$flatList[] = $rsltList[$isolateField];
 			}else{				
-				foreach($results as $oneRow){
+				foreach($rsltList as $oneRow){
 					if(isset($oneRow[$isolateField])){
-						$flatLst[] = $oneRow[$isolateField];
+						$flatList[] = $oneRow[$isolateField];
 					}
 				}
 			}
 		}
-		return $flatLst;
+		return $flatList;
 	}
 	
 	/**
@@ -173,30 +173,30 @@ class DBLst {
 		if( $fldScopeText===null || trim($fldScopeText)=='' || trim($fldScopeText)=='*' ){
 			return;
 		}
-		$dbStore = $this->tableDbCon->getStoreObject();
-		$fldsLst = Array();
-		$funcSet = Array();
+		$dtbsStre = $this->tableDbCon->getStoreObject();
+		$fldsList = Array();
+		$funcsDct = Array();
 		foreach(explode(',', str_replace('`', '', $fldScopeText)) as $column){
 			// name, table.name, function(name) or function(*), each with an optional alias
-			if( !preg_match('/^(?:(\w+)\((\*|\w+(?:\.\w+)?)\)|(\w+(?:\.\w+)?))(?:\s+as\s+(\w+))?$/iD', trim($column), $fldPart) ){
+			if( !preg_match('/^(?:(\w+)\((\*|\w+(?:\.\w+)?)\)|(\w+(?:\.\w+)?))(?:\s+as\s+(\w+))?$/iD', trim($column), $fieldPar) ){
 				throw new \RuntimeException('Invalid field selection: '.trim($column));
 			}
-			$fldAlis = $fldPart[4] ?? '';
-			if( $fldPart[1]!='' ){
+			$fieldAls = $fieldPar[4] ?? '';
+			if( $fieldPar[1]!='' ){
 				// An aggregate of DBStore\Store::FUNC_LIST only, and '*' for a count alone
-				$funcNme = strtolower($fldPart[1]);
-				if( !in_array($funcNme, DBStore\Store::FUNC_LIST, true) || ($fldPart[2]=='*' && $funcNme!='count') ){
+				$funcsNme = strtolower($fieldPar[1]);
+				if( !in_array($funcsNme, DBStore\Store::FUNC_LIST, true) || ($fieldPar[2]=='*' && $funcsNme!='count') ){
 					throw new \RuntimeException('Invalid field selection: '.trim($column));
 				}
-				$funcSet[] = Array('funct'=>$funcNme, 'field'=>($fldPart[2]=='*') ? '*' : $dbStore->checkNameChars($fldPart[2]), 'alias'=>$fldAlis);
-			}elseif( $fldAlis!='' ){
-				$fldsLst[] = Array('field'=>$dbStore->checkNameChars($fldPart[3]), 'alias'=>$fldAlis);
+				$funcsDct[] = Array('funct'=>$funcsNme, 'field'=>($fieldPar[2]=='*') ? '*' : $dtbsStre->checkNameChars($fieldPar[2]), 'alias'=>$fieldAls);
+			}elseif( $fieldAls!='' ){
+				$fldsList[] = Array('field'=>$dtbsStre->checkNameChars($fieldPar[3]), 'alias'=>$fieldAls);
 			}else{
-				$fldsLst[] = $dbStore->checkNameChars($fldPart[3]);
+				$fldsList[] = $dtbsStre->checkNameChars($fieldPar[3]);
 			}
 		}
-		$this->selectList = $fldsLst;
-		$this->aggregates = $funcSet;
+		$this->selectList = $fldsList;
+		$this->aggregates = $funcsDct;
 	}
 	
 	/**
@@ -207,11 +207,11 @@ class DBLst {
 	 * @throws \RuntimeException When a field name is not valid.
 	 */
 	public function setGroupFields( String|Array $groupByField ): Void {
-		$groupBy = Array();
+		$groupLst = Array();
 		foreach((array)$groupByField as $fldNme){
-			$groupBy[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($fldNme));
+			$groupLst[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($fldNme));
 		}
-		$this->groupNames = $groupBy;
+		$this->groupNames = $groupLst;
 	}
 	
 	/**
@@ -223,16 +223,16 @@ class DBLst {
 	 * @throws \RuntimeException When a field name is not valid.
 	 */
 	public function setOrderFields( String|Array $sortByFields ): Void {
-		$ordrVal = Array();
+		$orderVal = Array();
 		foreach((array)$sortByFields as $fldNme){
 			$fldNme = strval($fldNme);
-			$dscSort = (substr($fldNme,0,1)=='^');
-			if( $dscSort ){
+			$descSort = (substr($fldNme,0,1)=='^');
+			if( $descSort ){
 				$fldNme = substr($fldNme, 1);
 			}
-			$ordrVal[] = Array($this->tableDbCon->getStoreObject()->checkNameChars($fldNme), $dscSort);
+			$orderVal[] = Array($this->tableDbCon->getStoreObject()->checkNameChars($fldNme), $descSort);
 		}
-		$this->orderTerms = $ordrVal;
+		$this->orderTerms = $orderVal;
 		unset($this->sqlClauses['order']);
 	}
 	
@@ -249,12 +249,12 @@ class DBLst {
 		$this->offsetNumb = null;
 		unset($this->sqlClauses['limit']);
 		if($limitIndexes!=null){
-			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-			$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
-			$dfltLmt = intval($iniConf['DEF_ROWS'] ?? 100) ?: 100;
-			$lmtIndx = is_array($limitIndexes) ? array_values($limitIndexes) : explode(',', strval($limitIndexes));
-			$this->limitCount = $this->completeNumber($lmtIndx[0] ?? null) ?? $dfltLmt;
-			$this->offsetNumb = $this->completeNumber($lmtIndx[1] ?? null);
+			$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
+			$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
+			$dfltLimt = intval($iniConfg['DEF_ROWS'] ?? 100) ?: 100;
+			$limitIdx = is_array($limitIndexes) ? array_values($limitIndexes) : explode(',', strval($limitIndexes));
+			$this->limitCount = $this->completeNumber($limitIdx[0] ?? null) ?? $dfltLimt;
+			$this->offsetNumb = $this->completeNumber($limitIdx[1] ?? null);
 		}
 	}
 	
@@ -309,33 +309,33 @@ class DBLst {
 	 */
 	public function attachChildren( String $childTbleTxt, String $singleFldTxt='', String $childLinkFld='', String $ownLinkField='' ): Array {
 		if( $childLinkFld=='' ) {
-			$extName = StrKit::singularizeTxt($this->tableLabel);
-			$childLinkFld = $extName.'_id';
+			$extnName = StrKit::singularizeTxt($this->tableLabel);
+			$childLinkFld = $extnName.'_id';
 		}
 		if( $ownLinkField=='' ) {
-			$intName = StrKit::singularizeTxt($this->tableLabel);
-			$ownLinkField = 'id_'.$intName;
+			$itrnName = StrKit::singularizeTxt($this->tableLabel);
+			$ownLinkField = 'id_'.$itrnName;
 		}
-		$lstRows = $this->loadedRows;
-		if(!$lstRows){
+		$listNtry = $this->loadedRows;
+		if(!$listNtry){
 			$this->readRowsOfList();
-			$lstRows = $this->loadedRows;
+			$listNtry = $this->loadedRows;
 		}
-		foreach($lstRows as $rowKey=>$rowArr){
+		foreach($listNtry as $rowKey=>$rowArr){
 			// A row without a key value has no children
 			if( !isset($rowArr[$ownLinkField]) ){
-				$lstRows[$rowKey][$childTbleTxt] = Array();
+				$listNtry[$rowKey][$childTbleTxt] = Array();
 				continue;
 			}
-			$subList = new DBLst($childTbleTxt, null, null, null, null, $this->tableDbCon);
+			$subLstng = new DBLst($childTbleTxt, null, null, null, null, $this->tableDbCon);
 			// The key is compared exactly, never read as a wildcard
-			$subList->replaceFilters(Array($childLinkFld.'='=>$rowArr[$ownLinkField]));
+			$subLstng->replaceFilters(Array($childLinkFld.'='=>$rowArr[$ownLinkField]));
 			if($singleFldTxt!=''){
-				$lstRows[$rowKey][$childTbleTxt] = $subList->flatItemsArray($singleFldTxt);
+				$listNtry[$rowKey][$childTbleTxt] = $subLstng->flatItemsArray($singleFldTxt);
 			}else{
-				$lstRows[$rowKey][$childTbleTxt] = $subList->readRowsOfList();
+				$listNtry[$rowKey][$childTbleTxt] = $subLstng->readRowsOfList();
 			}
 		}
-		return $lstRows;
+		return $listNtry;
 	}
 }

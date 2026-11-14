@@ -40,13 +40,13 @@ abstract class Page extends Base {
 	 * @throws WriteError When the size of paper is not a known one.
 	 */
 	protected function paperSizeArray(Array $writeOptions): Array {
-		$sizeKey = strval($writeOptions['paper'] ?? 'isoPgeA4');
+		$sizeClef = strval($writeOptions['paper'] ?? 'isoPgeA4');
 		// The size whatever its case, as SIZE_LIST writes it
-		$sizeKey = strval( array_values(preg_grep('/^'.preg_quote($sizeKey, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeKey );
-		if( !isset(self::SIZE_LIST[$sizeKey]) ){
-			throw new WriteError('Invalid document option: unknown paper '.$sizeKey);
+		$sizeClef = strval( array_values(preg_grep('/^'.preg_quote($sizeClef, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeClef );
+		if( !isset(self::SIZE_LIST[$sizeClef]) ){
+			throw new WriteError('Invalid document option: unknown paper '.$sizeClef);
 		}
-		return empty($writeOptions['lands']) ? self::SIZE_LIST[$sizeKey] : array_reverse(self::SIZE_LIST[$sizeKey]);
+		return empty($writeOptions['lands']) ? self::SIZE_LIST[$sizeClef] : array_reverse(self::SIZE_LIST[$sizeClef]);
 	}
 
 	/**
@@ -60,11 +60,11 @@ abstract class Page extends Base {
 	protected function readPictureDir(Array $writeOptions): Void {
 		$this->pictureDir = '';
 		if( strval($writeOptions['media'] ?? '')!=='' ){
-			$realDir = realpath(strval($writeOptions['media']));
-			if( $realDir===false || !is_dir($realDir) || !is_readable($realDir) ){
+			$realPath = realpath(strval($writeOptions['media']));
+			if( $realPath===false || !is_dir($realPath) || !is_readable($realPath) ){
 				throw new WriteError('Invalid document option: the folder of the pictures cannot be read');
 			}
-			$this->pictureDir = $realDir;
+			$this->pictureDir = $realPath;
 		}
 	}
 
@@ -76,15 +76,15 @@ abstract class Page extends Base {
 	 * @return Array The notes of the pages under 'fnote' and those of the end under 'enote', each list by the name of the note: its block.
 	 */
 	protected function takeNotesArray(Array &$bookBlockSet): Array {
-		$noteLst = Array('fnote'=>Array(), 'enote'=>Array());
-		$matches = Array();
+		$noteList = Array('fnote'=>Array(), 'enote'=>Array());
+		$matxRows = Array();
 		foreach($bookBlockSet as $blkIdx=>$blkArr){
-			if( is_array($blkArr) && strval($blkArr['block'] ?? '')=='footnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($blkArr['attrs']['tagid'] ?? ''), $matches) ){
-				$noteLst[$matches[1]][$matches[0]] = $blkArr;
+			if( is_array($blkArr) && strval($blkArr['block'] ?? '')=='footnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($blkArr['attrs']['tagid'] ?? ''), $matxRows) ){
+				$noteList[$matxRows[1]][$matxRows[0]] = $blkArr;
 				unset($bookBlockSet[$blkIdx]);
 			}
 		}
-		return $noteLst;
+		return $noteList;
 	}
 
 	/**
@@ -100,29 +100,29 @@ abstract class Page extends Base {
 		if( $this->pictureDir==='' || $pageFileName==='' || preg_match('/^[a-z][a-z0-9+.\-]*:/i', $pageFileName) || strpos($pageFileName, "\0")!==false ){
 			return null;
 		}
-		$filPath = realpath($this->pictureDir.DIRECTORY_SEPARATOR.$pageFileName);
-		if( $filPath===false || !is_file($filPath) || strpos($filPath, rtrim($this->pictureDir, '/\\').DIRECTORY_SEPARATOR)!==0 ){
+		$filePath = realpath($this->pictureDir.DIRECTORY_SEPARATOR.$pageFileName);
+		if( $filePath===false || !is_file($filePath) || strpos($filePath, rtrim($this->pictureDir, '/\\').DIRECTORY_SEPARATOR)!==0 ){
 			return null;
 		}
 		try{
-			$pctrObj = Image::openFluxdImage(Fluxd::openLocalFluxd($filPath, $this->pictureDir));
-			$kindKey = strval($pctrObj->imageInfoArray()['kinds']);
-			$givKind = isset(self::PICT_LIST[$kindKey]) ? $kindKey : 'png';
+			$pictInst = Image::openFluxdImage(Fluxd::openLocalFluxd($filePath, $this->pictureDir));
+			$kindClef = strval($pictInst->imageInfoArray()['kinds']);
+			$givenCod = isset(self::PICT_LIST[$kindClef]) ? $kindClef : 'png';
 			try{
-				$pctrObj = $pctrObj->fixOrientation();
-				$pctrTxt = $pctrObj->grantBytesText($givKind);
+				$pictInst = $pictInst->fixOrientation();
+				$pictText = $pictInst->grantBytesText($givenCod);
 			}catch( \RuntimeException $e ){
 				// Without what writes pictures anew, one of a kind a document holds is given as it is
-				if( !isset(self::PICT_LIST[$kindKey]) ){
+				if( !isset(self::PICT_LIST[$kindClef]) ){
 					return null;
 				}
-				$pctrTxt = strval(file_get_contents($filPath));
+				$pictText = strval(file_get_contents($filePath));
 			}
-			$infoSet = $pctrObj->imageInfoArray();
+			$infoDict = $pictInst->imageInfoArray();
 		}catch( \RuntimeException $e ){
 			return null;
 		}
-		return Array('bytes'=>$pctrTxt, 'kinds'=>$givKind, 'width'=>max(1, intval($infoSet['width'])), 'heght'=>max(1, intval($infoSet['heght'])));
+		return Array('bytes'=>$pictText, 'kinds'=>$givenCod, 'width'=>max(1, intval($infoDict['width'])), 'heght'=>max(1, intval($infoDict['heght'])));
 	}
 
 	/**
@@ -134,75 +134,75 @@ abstract class Page extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function sheetsAsBlocks(Array $sheetEntries): Array {
-		$blckLst = Array();
+		$blockLst = Array();
 		foreach($sheetEntries as $shtArr){
 			if( !is_array($shtArr) || (isset($shtArr['attrs']['shown']) && empty($shtArr['attrs']['shown'])) ){
 				continue;
 			}
-			$rowsLst = array_values((array)($shtArr['cells'] ?? Array()));
-			$headLst = Array();
-			foreach($rowsLst as $oneRow){
+			$rowsList = array_values((array)($shtArr['cells'] ?? Array()));
+			$headList = Array();
+			foreach($rowsList as $oneRow){
 				foreach($this->validateALstOf((array)$oneRow) ? Array() : array_keys((array)$oneRow) as $column){
-					if( !in_array(strval($column), $headLst, true) ){
-						$headLst[] = strval($column);
+					if( !in_array(strval($column), $headList, true) ){
+						$headList[] = strval($column);
 					}
 				}
 			}
 			// The cells an area covers are not cells of their own; the one it starts at tells what it covers
-			$spanLst = Array();
-			$cvrList = Array();
-			$headGap = empty($headLst) ? 0 : 1;
+			$spanList = Array();
+			$coverLst = Array();
+			$headSpan = empty($headList) ? 0 : 1;
 			foreach((array)($shtArr['attrs']['merge'] ?? Array()) as $mrgArr){
 				$mrgArr = array_map('intval', (array)$mrgArr) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
-				if( $mrgArr['atrow']<$headGap || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || $mrgArr['rowsp']*$mrgArr['colsp']>10000 || isset($cvrList[$mrgArr['atrow'].':'.$mrgArr['atcol']]) ){
+				if( $mrgArr['atrow']<$headSpan || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || $mrgArr['rowsp']*$mrgArr['colsp']>10000 || isset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]) ){
 					continue;
 				}
 				for($rowIdx=$mrgArr['atrow']; $rowIdx<$mrgArr['atrow']+$mrgArr['rowsp']; $rowIdx++){
 					for($colInc=$mrgArr['atcol']; $colInc<$mrgArr['atcol']+$mrgArr['colsp']; $colInc++){
-						$cvrList[$rowIdx.':'.$colInc] = true;
+						$coverLst[$rowIdx.':'.$colInc] = true;
 					}
 				}
-				unset($cvrList[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
-				$spanLst[$mrgArr['atrow'].':'.$mrgArr['atcol']] = array_filter(Array('rowsp'=>$mrgArr['rowsp'], 'colsp'=>$mrgArr['colsp']), function(Int $colSpanCount){ return $colSpanCount>1; });
+				unset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
+				$spanList[$mrgArr['atrow'].':'.$mrgArr['atcol']] = array_filter(Array('rowsp'=>$mrgArr['rowsp'], 'colsp'=>$mrgArr['colsp']), function(Int $colSpanCount){ return $colSpanCount>1; });
 			}
-			$tblRows = empty($headLst) ? Array() : Array(Shape::makeBlockArray('tableTop', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('cellText', Array(Shape::makeASpanArray($columnHeader))); }, $headLst)));
-			$colsNum = count($headLst);
-			foreach($rowsLst as $oneRow){
-				$colsNum = max($colsNum, count((array)$oneRow));
+			$tableRow = empty($headList) ? Array() : Array(Shape::makeBlockArray('tableTop', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('cellText', Array(Shape::makeASpanArray($columnHeader))); }, $headList)));
+			$colsNumb = count($headList);
+			foreach($rowsList as $oneRow){
+				$colsNumb = max($colsNumb, count((array)$oneRow));
 			}
-			foreach($rowsLst as $rowIdx=>$oneRow){
-				$cellLst = Array();
-				$vlsList = empty($headLst) ? array_values((array)$oneRow) : array_map(function(String $columnHeader) use ($oneRow){ return ((array)$oneRow)[$columnHeader] ?? null; }, $headLst);
-				for($colInc=0; $colInc<$colsNum; $colInc++){
-					$cellKey = ($rowIdx+$headGap).':'.$colInc;
-					if( isset($cvrList[$cellKey]) ){
+			foreach($rowsList as $rowIdx=>$oneRow){
+				$cellList = Array();
+				$valsList = empty($headList) ? array_values((array)$oneRow) : array_map(function(String $columnHeader) use ($oneRow){ return ((array)$oneRow)[$columnHeader] ?? null; }, $headList);
+				for($colInc=0; $colInc<$colsNumb; $colInc++){
+					$cellClef = ($rowIdx+$headSpan).':'.$colInc;
+					if( isset($coverLst[$cellClef]) ){
 						continue;
 					}
-					$cellVal = $vlsList[$colInc] ?? null;
-					$cellTxt = '';
-					if( is_bool($cellVal) ){
-						$cellTxt = $cellVal ? 'TRUE' : 'FALSE';
-					}elseif( is_string($cellVal) ){
-						$cellTxt = $cellVal;
-					}elseif( is_int($cellVal) || (is_float($cellVal) && is_finite($cellVal)) ){
-						$cellTxt = $this->writeNumberTxt($cellVal);
-					}elseif( is_array($cellVal) ){
-						$cellTxt = strval(json_encode(Fluxd::nullifySources($cellVal), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
+					$cellVals = $valsList[$colInc] ?? null;
+					$cellText = '';
+					if( is_bool($cellVals) ){
+						$cellText = $cellVals ? 'TRUE' : 'FALSE';
+					}elseif( is_string($cellVals) ){
+						$cellText = $cellVals;
+					}elseif( is_int($cellVals) || (is_float($cellVals) && is_finite($cellVals)) ){
+						$cellText = $this->writeNumberTxt($cellVals);
+					}elseif( is_array($cellVals) ){
+						$cellText = strval(json_encode(Fluxd::nullifySources($cellVals), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
 					}
 					// Numbers stand on the right of their column, as in a spreadsheet
-					$cellLst[] = Shape::makeBlockArray('cellText', ($cellTxt==='') ? Array() : Array(Shape::makeASpanArray($cellTxt)), Array(), ($spanLst[$cellKey] ?? Array()) + ((is_int($cellVal) || is_float($cellVal)) ? Array('align'=>'alignRgt') : Array()));
+					$cellList[] = Shape::makeBlockArray('cellText', ($cellText==='') ? Array() : Array(Shape::makeASpanArray($cellText)), Array(), ($spanList[$cellClef] ?? Array()) + ((is_int($cellVals) || is_float($cellVals)) ? Array('align'=>'alignRgt') : Array()));
 				}
-				$tblRows[] = Shape::makeBlockArray('tableRow', Array(), $cellLst);
+				$tableRow[] = Shape::makeBlockArray('tableRow', Array(), $cellList);
 			}
-			$shtName = is_scalar($shtArr['title'] ?? '') ? trim(strval($shtArr['title'] ?? '')) : '';
-			if( $shtName!=='' ){
-				$blckLst[] = Shape::makeBlockArray('headline', Array(Shape::makeASpanArray($shtName)), Array(), Array('level'=>2));
+			$sheetNme = is_scalar($shtArr['title'] ?? '') ? trim(strval($shtArr['title'] ?? '')) : '';
+			if( $sheetNme!=='' ){
+				$blockLst[] = Shape::makeBlockArray('headline', Array(Shape::makeASpanArray($sheetNme)), Array(), Array('level'=>2));
 			}
-			if( !empty($tblRows) ){
-				$blckLst[] = Shape::makeBlockArray('tableSet', Array(), $tblRows);
+			if( !empty($tableRow) ){
+				$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $tableRow);
 			}
 		}
-		return $blckLst;
+		return $blockLst;
 	}
 
 	/**
@@ -213,11 +213,11 @@ abstract class Page extends Base {
 	 * @return String The name, '' when nothing of it can be kept.
 	 */
 	protected function cleanPlaceName(String $locationText): String {
-		$nameTxt = trim(strval(preg_replace('/[^A-Za-z0-9_]+/', '_', $locationText)), '_');
-		if( $nameTxt==='' ){
+		$nameText = trim(strval(preg_replace('/[^A-Za-z0-9_]+/', '_', $locationText)), '_');
+		if( $nameText==='' ){
 			return '';
 		}
-		return substr(preg_match('/^[A-Za-z]/', $nameTxt) ? $nameTxt : 'p_'.$nameTxt, 0, 40);
+		return substr(preg_match('/^[A-Za-z]/', $nameText) ? $nameText : 'p_'.$nameText, 0, 40);
 	}
 
 }

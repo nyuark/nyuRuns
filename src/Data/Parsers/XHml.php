@@ -70,42 +70,42 @@ class XHml extends Base {
 	 * @throws ParseError When an XML content is not well-formed or declares entities, or the document is nested too deep.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$readsAs = strtolower(strval($parseOptions['reads'] ?? ''));
-		if( $readsAs!='html' && $readsAs!='xml' ){
-			$readsAs = (Bina::detectFileKind(substr($nakedContent, 0, 512))=='html') ? 'html' : 'xml';
+		$readCode = strtolower(strval($parseOptions['reads'] ?? ''));
+		if( $readCode!='html' && $readCode!='xml' ){
+			$readCode = (Bina::detectFileKind(substr($nakedContent, 0, 512))=='html') ? 'html' : 'xml';
 		}
-		$shapeAs = strtolower(strval($parseOptions['shape'] ?? ''));
-		if( $shapeAs!='nodes' && $shapeAs!='block' ){
-			$shapeAs = ($readsAs=='html') ? 'block' : 'nodes';
+		$shapeNme = strtolower(strval($parseOptions['shape'] ?? ''));
+		if( $shapeNme!='nodes' && $shapeNme!='block' ){
+			$shapeNme = ($readCode=='html') ? 'block' : 'nodes';
 		}
-		$infoArr = Array('reads'=>$readsAs, 'encod'=>'UTF-8');
-		if( $readsAs=='html' ){
-			$infoArr['title'] = '';
+		$infoList = Array('reads'=>$readCode, 'encod'=>'UTF-8');
+		if( $readCode=='html' ){
+			$infoList['title'] = '';
 		}
 		if( trim($nakedContent)==='' ){
-			return $this->makeShapeArray($shapeAs, Array(), $infoArr);
+			return $this->makeShapeArray($shapeNme, Array(), $infoList);
 		}
-		$charset = 'UTF-8';
-		$domTree = ($readsAs=='html') ? $this->loadHtmlSource($nakedContent, $charset) : $this->loadXmlContent($nakedContent, $charset);
-		$infoArr['encod'] = $charset;
+		$encoding = 'UTF-8';
+		$domDcmnt = ($readCode=='html') ? $this->loadHtmlSource($nakedContent, $encoding) : $this->loadXmlContent($nakedContent, $encoding);
+		$infoList['encod'] = $encoding;
 		// The kind of document an XML content says it is, and where the rules of that kind are told
-		if( $readsAs=='xml' && $domTree->doctype!==null ){
-			$infoArr['dtype'] = Array('names'=>strval($domTree->doctype->name), 'publc'=>strval($domTree->doctype->publicId), 'systm'=>strval($domTree->doctype->systemId));
+		if( $readCode=='xml' && $domDcmnt->doctype!==null ){
+			$infoList['dtype'] = Array('names'=>strval($domDcmnt->doctype->name), 'publc'=>strval($domDcmnt->doctype->publicId), 'systm'=>strval($domDcmnt->doctype->systemId));
 		}
-		if( $domTree->documentElement===null ){
-			return $this->makeShapeArray($shapeAs, Array(), $infoArr);
+		if( $domDcmnt->documentElement===null ){
+			return $this->makeShapeArray($shapeNme, Array(), $infoList);
 		}
-		$rootArr = $this->elementToArray($domTree->documentElement, max(1, intval($parseOptions['depth'] ?? 256)), $readsAs=='html', !empty($parseOptions['space']));
-		if( $readsAs=='html' ){
-			$infoArr['title'] = $this->locateTitleTxt($rootArr);
+		$rootList = $this->elementToArray($domDcmnt->documentElement, max(1, intval($parseOptions['depth'] ?? 256)), $readCode=='html', !empty($parseOptions['space']));
+		if( $readCode=='html' ){
+			$infoList['title'] = $this->locateTitleTxt($rootList);
 		}
-		if( $shapeAs=='block' ){
-			return $this->makeShapeArray('block', $this->tagBlocksArray($rootArr), $infoArr);
+		if( $shapeNme=='block' ){
+			return $this->makeShapeArray('block', $this->tagBlocksArray($rootList), $infoList);
 		}
 		if( !empty($parseOptions['short']) ){
-			$rootArr = Array($rootArr['tagnm']=>$this->compactElement($rootArr));
+			$rootList = Array($rootList['tagnm']=>$this->compactElement($rootList));
 		}
-		return $this->makeShapeArray('nodes', $rootArr, $infoArr);
+		return $this->makeShapeArray('nodes', $rootList, $infoList);
 	}
 
 	/**
@@ -120,44 +120,44 @@ class XHml extends Base {
 	protected function loadXmlContent(String $nakedContent, String &$foundCharset): \DOMDocument {
 		// The text is brought to UTF-8 here, from the encoding the document declares when it
 		// declares one, so that the result does not depend on what the XML reader supports
-		$declRgx = '/^(\s*<\?xml[^>]*?\sencoding\s*=\s*["\'])([\w.:\-]+)(["\'])/i';
-		$declPrt = Array();
-		$utf16On = in_array(substr($nakedContent, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true);
-		if( !$utf16On && preg_match($declRgx, substr($nakedContent, 0, 200), $declPrt) && !in_array(strtoupper($declPrt[2]), Array('UTF-8', 'UTF8')) ){
+		$declRgxp = '/^(\s*<\?xml[^>]*?\sencoding\s*=\s*["\'])([\w.:\-]+)(["\'])/i';
+		$declPart = Array();
+		$hasBom16 = in_array(substr($nakedContent, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true);
+		if( !$hasBom16 && preg_match($declRgxp, substr($nakedContent, 0, 200), $declPart) && !in_array(strtoupper($declPart[2]), Array('UTF-8', 'UTF8')) ){
 			// A declared encoding is followed, whatever it is
-			$xmlText = @iconv(strtoupper($declPrt[2]), 'UTF-8//IGNORE', $nakedContent);
-			if( $xmlText===false ){
-				throw new ParseError('Invalid XML content: unknown encoding '.strtoupper($declPrt[2]));
+			$xmlStrng = @iconv(strtoupper($declPart[2]), 'UTF-8//IGNORE', $nakedContent);
+			if( $xmlStrng===false ){
+				throw new ParseError('Invalid XML content: unknown encoding '.strtoupper($declPart[2]));
 			}
 		}else{
 			// A marker at the start, UTF-8, or nothing declared: the common rules apply
-			$xmlText = self::recodeTextUtf8($nakedContent);
+			$xmlStrng = self::recodeTextUtf8($nakedContent);
 		}
-		if( preg_match($declRgx, substr($xmlText, 0, 200), $declPrt) ){
-			$foundCharset = strtoupper($declPrt[2]);
-			$xmlText = preg_replace($declRgx, '${1}UTF-8${3}', $xmlText, 1);
+		if( preg_match($declRgxp, substr($xmlStrng, 0, 200), $declPart) ){
+			$foundCharset = strtoupper($declPart[2]);
+			$xmlStrng = preg_replace($declRgxp, '${1}UTF-8${3}', $xmlStrng, 1);
 		}
 		// Declared entities are how an XML document reads local files or grows without end.
 		// They are looked for in the text once decoded : another encoding would hide them
-		if( stripos($xmlText, '<!ENTITY')!==false ){
+		if( stripos($xmlStrng, '<!ENTITY')!==false ){
 			throw new ParseError('Invalid XML content: entity declarations are not accepted');
 		}
-		$domTree = new \DOMDocument();
-		$oldMode = libxml_use_internal_errors(true);
+		$domDcmnt = new \DOMDocument();
+		$oldCodig = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		$lodOkay = $domTree->loadXML($xmlText, LIBXML_NONET | LIBXML_COMPACT);
-		$errList = libxml_get_errors();
+		$loadOkay = $domDcmnt->loadXML($xmlStrng, LIBXML_NONET | LIBXML_COMPACT);
+		$errorLst = libxml_get_errors();
 		libxml_clear_errors();
-		libxml_use_internal_errors($oldMode);
-		if( !$lodOkay || $domTree->documentElement===null ){
-			$frstErr = $errList[0] ?? null;
-			throw new ParseError('Invalid XML content: '.($frstErr ? trim($frstErr->message).' on line '.$frstErr->line : 'not well-formed'));
+		libxml_use_internal_errors($oldCodig);
+		if( !$loadOkay || $domDcmnt->documentElement===null ){
+			$firstErr = $errorLst[0] ?? null;
+			throw new ParseError('Invalid XML content: '.($firstErr ? trim($firstErr->message).' on line '.$firstErr->line : 'not well-formed'));
 		}
 		// Whatever the text looked like, a document that declares entities once read is refused
-		if( $domTree->doctype!==null && $domTree->doctype->entities!==null && $domTree->doctype->entities->length>0 ){
+		if( $domDcmnt->doctype!==null && $domDcmnt->doctype->entities!==null && $domDcmnt->doctype->entities->length>0 ){
 			throw new ParseError('Invalid XML content: entity declarations are not accepted');
 		}
-		return $domTree;
+		return $domDcmnt;
 	}
 
 	/**
@@ -169,26 +169,26 @@ class XHml extends Base {
 	 * @return \DOMDocument The loaded document.
 	 */
 	protected function loadHtmlSource(String $nakedContent, String &$foundCharset): \DOMDocument {
-		$metaRgx = '/(<meta\b[^>]*?\bcharset\s*=\s*["\']?)([\w.:\-]+)/i';
-		$metPart = Array();
-		$htmText = self::recodeTextUtf8($nakedContent);
-		if( preg_match($metaRgx, substr($nakedContent, 0, 2048), $metPart) ){
-			$foundCharset = strtoupper($metPart[2]);
+		$metaRgxp = '/(<meta\b[^>]*?\bcharset\s*=\s*["\']?)([\w.:\-]+)/i';
+		$metaPart = Array();
+		$htmlText = self::recodeTextUtf8($nakedContent);
+		if( preg_match($metaRgxp, substr($nakedContent, 0, 2048), $metaPart) ){
+			$foundCharset = strtoupper($metaPart[2]);
 			// A declared encoding is followed when the bytes are not already UTF-8
 			if( !preg_match('//u', $nakedContent) && !in_array($foundCharset, Array('UTF-8', 'UTF8')) ){
-				$utf8Txt = @iconv($foundCharset, 'UTF-8//IGNORE', $nakedContent);
-				$htmText = ($utf8Txt===false) ? $htmText : $utf8Txt;
+				$utf8Text = @iconv($foundCharset, 'UTF-8//IGNORE', $nakedContent);
+				$htmlText = ($utf8Text===false) ? $htmlText : $utf8Text;
 			}
 			// The text is UTF-8 from here on: the page must not tell the reader otherwise
-			$htmText = preg_replace($metaRgx, '${1}UTF-8', $htmText);
+			$htmlText = preg_replace($metaRgxp, '${1}UTF-8', $htmlText);
 		}
-		$domTree = new \DOMDocument();
-		$oldMode = libxml_use_internal_errors(true);
+		$domDcmnt = new \DOMDocument();
+		$oldCodig = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		$domTree->loadHTML('<?xml encoding="UTF-8">'.$htmText, LIBXML_NONET | LIBXML_COMPACT);
+		$domDcmnt->loadHTML('<?xml encoding="UTF-8">'.$htmlText, LIBXML_NONET | LIBXML_COMPACT);
 		libxml_clear_errors();
-		libxml_use_internal_errors($oldMode);
-		return $domTree;
+		libxml_use_internal_errors($oldCodig);
+		return $domDcmnt;
 	}
 
 	/**
@@ -206,45 +206,45 @@ class XHml extends Base {
 		if( $depthsLftNum<1 ){
 			throw new ParseError('Invalid '.($isHtmlSource ? 'HTML' : 'XML').' content: nested deeper than allowed');
 		}
-		$attrSet = Array();
+		$attrDict = Array();
 		// The addresses an XML element gives to the prefixes of its names are attributes of it, though not listed as such
 		if( !$isHtmlSource && function_exists('simplexml_import_dom') ){
 			foreach((array)simplexml_import_dom($elementGiven)->getDocNamespaces(false, false) as $nmsKey=>$nmsAdr){
-				$attrSet[($nmsKey==='') ? 'xmlns' : 'xmlns:'.$nmsKey] = strval($nmsAdr);
+				$attrDict[($nmsKey==='') ? 'xmlns' : 'xmlns:'.$nmsKey] = strval($nmsAdr);
 			}
 		}
 		foreach($elementGiven->attributes as $atrNod){
-			$attrSet[$atrNod->nodeName] = $atrNod->nodeValue;
+			$attrDict[$atrNod->nodeName] = $atrNod->nodeValue;
 		}
-		$chldLst = Array();
-		$textLst = Array();
-		$hasNode = false;
-		$hasInln = false;
+		$childLst = Array();
+		$textList = Array();
+		$hasNodes = false;
+		$isInline = false;
 		foreach($elementGiven->childNodes as $chlNod){
 			if( $chlNod instanceof \DOMElement ){
-				$hasNode = true;
-				$hasInln = ($hasInln || ($isHtmlSource && !in_array($chlNod->nodeName, self::BLCK_LIST) && !in_array($chlNod->nodeName, self::SKIP_LIST)));
-				$chldLst[] = $this->elementToArray($chlNod, $depthsLftNum-1, $isHtmlSource, $keepsSpacing);
+				$hasNodes = true;
+				$isInline = ($isInline || ($isHtmlSource && !in_array($chlNod->nodeName, self::BLCK_LIST) && !in_array($chlNod->nodeName, self::SKIP_LIST)));
+				$childLst[] = $this->elementToArray($chlNod, $depthsLftNum-1, $isHtmlSource, $keepsSpacing);
 			}elseif( $chlNod instanceof \DOMText ){
 				// Text and CDATA; what is only spacing between elements is left out below
-				$textLst[] = $chlNod->nodeValue;
-				$chldLst[] = Array('tagnm'=>'#text', 'tagid'=>'', 'attrs'=>Array(), 'value'=>$chlNod->nodeValue, 'nodes'=>Array());
+				$textList[] = $chlNod->nodeValue;
+				$childLst[] = Array('tagnm'=>'#text', 'tagid'=>'', 'attrs'=>Array(), 'value'=>$chlNod->nodeValue, 'nodes'=>Array());
 			}
 		}
-		$ownText = implode('', $textLst);
-		$nodeArr = Array('tagnm'=>$elementGiven->nodeName, 'tagid'=>strval($attrSet['id'] ?? $attrSet['xml:id'] ?? ''), 'attrs'=>$attrSet, 'value'=>'', 'nodes'=>Array());
-		if( !$hasNode ){
+		$ownStrng = implode('', $textList);
+		$nodeList = Array('tagnm'=>$elementGiven->nodeName, 'tagid'=>strval($attrDict['id'] ?? $attrDict['xml:id'] ?? ''), 'attrs'=>$attrDict, 'value'=>'', 'nodes'=>Array());
+		if( !$hasNodes ){
 			// Text only: it is the value of the element
-			$nodeArr['value'] = $ownText;
-			return $nodeArr;
+			$nodeList['value'] = $ownStrng;
+			return $nodeList;
 		}
-		if( trim($ownText)==='' && !$hasInln && !$keepsSpacing ){
+		if( trim($ownStrng)==='' && !$isInline && !$keepsSpacing ){
 			// Elements only: the spacing around them is not content, unless it
 			// stands between two pieces of text of an HTML page
-			$chldLst = array_values(array_filter($chldLst, function($childrenList){ return $childrenList['tagnm']!=='#text'; }));
+			$childLst = array_values(array_filter($childLst, function($childrenList){ return $childrenList['tagnm']!=='#text'; }));
 		}
-		$nodeArr['nodes'] = $chldLst;
-		return $nodeArr;
+		$nodeList['nodes'] = $childLst;
+		return $nodeList;
 	}
 
 	/**
@@ -260,22 +260,22 @@ class XHml extends Base {
 		if( empty($elementArray['attrs']) && empty($elementArray['nodes']) ){
 			return $elementArray['value'];
 		}
-		$shrtArr = Array();
+		$shortLst = Array();
 		foreach($elementArray['attrs'] as $atrNme=>$atrVal){
-			$shrtArr['@'.$atrNme] = $atrVal;
+			$shortLst['@'.$atrNme] = $atrVal;
 		}
-		$ownText = $elementArray['value'];
+		$ownStrng = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
 			if( $chlArr['tagnm']==='#text' ){
-				$ownText .= $chlArr['value'];
+				$ownStrng .= $chlArr['value'];
 			}else{
-				$shrtArr[$chlArr['tagnm']][] = $this->compactElement($chlArr);
+				$shortLst[$chlArr['tagnm']][] = $this->compactElement($chlArr);
 			}
 		}
-		if( trim($ownText)!=='' ){
-			$shrtArr['#text'] = $ownText;
+		if( trim($ownStrng)!=='' ){
+			$shortLst['#text'] = $ownStrng;
 		}
-		return $shrtArr;
+		return $shortLst;
 	}
 
 	/**
@@ -293,9 +293,9 @@ class XHml extends Base {
 			if( in_array($chlArr['tagnm'], Array('body', 'svg', '#text')) ){
 				continue;
 			}
-			$foundTl = $this->locateTitleTxt($chlArr);
-			if( $foundTl!=='' ){
-				return $foundTl;
+			$foundTit = $this->locateTitleTxt($chlArr);
+			if( $foundTit!=='' ){
+				return $foundTit;
 			}
 		}
 		return '';
@@ -339,30 +339,30 @@ class XHml extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function readFlowsArray(Array $childrenList): Array {
-		$blckLst = Array();
-		$spanBuf = Array();
+		$blockLst = Array();
+		$spanBuff = Array();
 		foreach($childrenList as $chlArr){
-			$tagName = $chlArr['tagnm'];
-			if( in_array($tagName, self::SKIP_LIST) ){
+			$tagTitle = $chlArr['tagnm'];
+			if( in_array($tagTitle, self::SKIP_LIST) ){
 				continue;
 			}
-			if( !in_array($tagName, self::BLCK_LIST) && !$this->holdsBlockFlag($chlArr) ){
-				$spanBuf = array_merge($spanBuf, $this->inlineSpansArr($chlArr, Array(), ''));
+			if( !in_array($tagTitle, self::BLCK_LIST) && !$this->holdsBlockFlag($chlArr) ){
+				$spanBuff = array_merge($spanBuff, $this->inlineSpansArr($chlArr, Array(), ''));
 				continue;
 			}
 			// A block starts: the text gathered so far is a paragraph of its own
-			$tidySpn = $this->tidySpansArray($spanBuf);
-			$spanBuf = Array();
-			if( !empty($tidySpn) ){
-				$blckLst[] = Shape::makeBlockArray('paragrph', $tidySpn);
+			$tidySpan = $this->tidySpansArray($spanBuff);
+			$spanBuff = Array();
+			if( !empty($tidySpan) ){
+				$blockLst[] = Shape::makeBlockArray('paragrph', $tidySpan);
 			}
-			$blckLst = array_merge($blckLst, in_array($tagName, self::BLCK_LIST) ? $this->tagBlocksArray($chlArr) : $this->readFlowsArray($this->kidsOfTagArray($chlArr)));
+			$blockLst = array_merge($blockLst, in_array($tagTitle, self::BLCK_LIST) ? $this->tagBlocksArray($chlArr) : $this->readFlowsArray($this->kidsOfTagArray($chlArr)));
 		}
-		$tidySpn = $this->tidySpansArray($spanBuf);
-		if( !empty($tidySpn) ){
-			$blckLst[] = Shape::makeBlockArray('paragrph', $tidySpn);
+		$tidySpan = $this->tidySpansArray($spanBuff);
+		if( !empty($tidySpan) ){
+			$blockLst[] = Shape::makeBlockArray('paragrph', $tidySpan);
 		}
-		return $blckLst;
+		return $blockLst;
 	}
 
 	/**
@@ -375,27 +375,27 @@ class XHml extends Base {
 	 * @return Array The spans, their spacing as written.
 	 */
 	protected function inlineSpansArr(Array $elementArray, Array $runFormatSet, String $linkGoalText): Array {
-		$tagName = $elementArray['tagnm'];
-		if( $tagName=='#text' ){
+		$tagTitle = $elementArray['tagnm'];
+		if( $tagTitle=='#text' ){
 			return Array(Shape::makeASpanArray($elementArray['value'], $runFormatSet, $linkGoalText));
 		}
-		if( $tagName=='br' ){
+		if( $tagTitle=='br' ){
 			return Array(Shape::makeASpanArray(self::LINE_MARK, $runFormatSet, $linkGoalText));
 		}
-		if( in_array($tagName, self::SKIP_LIST) ){
+		if( in_array($tagTitle, self::SKIP_LIST) ){
 			return Array();
 		}
-		if( isset(self::MARK_TAGS[$tagName]) ){
-			$runFormatSet[] = self::MARK_TAGS[$tagName];
+		if( isset(self::MARK_TAGS[$tagTitle]) ){
+			$runFormatSet[] = self::MARK_TAGS[$tagTitle];
 		}
-		if( $tagName=='a' && isset($elementArray['attrs']['href']) ){
+		if( $tagTitle=='a' && isset($elementArray['attrs']['href']) ){
 			$linkGoalText = Shape::tidyLinkString($elementArray['attrs']['href']);
 		}
-		$spnsLst = Array();
+		$spansLst = Array();
 		foreach($this->kidsOfTagArray($elementArray) as $chlArr){
-			$spnsLst = array_merge($spnsLst, $this->inlineSpansArr($chlArr, $runFormatSet, $linkGoalText));
+			$spansLst = array_merge($spansLst, $this->inlineSpansArr($chlArr, $runFormatSet, $linkGoalText));
 		}
-		return $spnsLst;
+		return $spansLst;
 	}
 
 	/**
@@ -408,37 +408,37 @@ class XHml extends Base {
 	 * @return Array The tidied spans; none when there is no text.
 	 */
 	protected function tidySpansArray(Array $textSpanList): Array {
-		$tidyLst = Array();
+		$tidyList = Array();
 		foreach($textSpanList as $oneSpn){
-			$spanTxt = preg_replace('/\s+/', ' ', $oneSpn['texts']);
-			$lastIdx = count($tidyLst)-1;
-			$prevTxt = ($lastIdx>=0) ? $tidyLst[$lastIdx]['texts'] : '';
+			$spanText = preg_replace('/\s+/', ' ', $oneSpn['texts']);
+			$lastIndx = count($tidyList)-1;
+			$prevText = ($lastIndx>=0) ? $tidyList[$lastIndx]['texts'] : '';
 			// No space at the start of the block, after a space, or after a line break
-			if( $prevTxt==='' || in_array(substr($prevTxt, -1), Array(' ', self::LINE_MARK)) ){
-				$spanTxt = ltrim($spanTxt, ' ');
+			if( $prevText==='' || in_array(substr($prevText, -1), Array(' ', self::LINE_MARK)) ){
+				$spanText = ltrim($spanText, ' ');
 			}
-			if( $spanTxt==='' ){
+			if( $spanText==='' ){
 				continue;
 			}
-			if( $lastIdx>=0 && $tidyLst[$lastIdx]['marks']===$oneSpn['marks'] && $tidyLst[$lastIdx]['links']===$oneSpn['links'] ){
-				$tidyLst[$lastIdx]['texts'] .= $spanTxt;
+			if( $lastIndx>=0 && $tidyList[$lastIndx]['marks']===$oneSpn['marks'] && $tidyList[$lastIndx]['links']===$oneSpn['links'] ){
+				$tidyList[$lastIndx]['texts'] .= $spanText;
 			}else{
-				$tidyLst[] = Array('texts'=>$spanTxt, 'marks'=>$oneSpn['marks'], 'links'=>$oneSpn['links'], 'field'=>$oneSpn['field']);
+				$tidyList[] = Array('texts'=>$spanText, 'marks'=>$oneSpn['marks'], 'links'=>$oneSpn['links'], 'field'=>$oneSpn['field']);
 			}
 		}
 		// Nothing is left at the end either, and the line breaks take their real form
-		while( !empty($tidyLst) ){
-			$lastIdx = count($tidyLst)-1;
-			$tidyLst[$lastIdx]['texts'] = rtrim($tidyLst[$lastIdx]['texts'], ' '.self::LINE_MARK);
-			if( $tidyLst[$lastIdx]['texts']!=='' ){
+		while( !empty($tidyList) ){
+			$lastIndx = count($tidyList)-1;
+			$tidyList[$lastIndx]['texts'] = rtrim($tidyList[$lastIndx]['texts'], ' '.self::LINE_MARK);
+			if( $tidyList[$lastIndx]['texts']!=='' ){
 				break;
 			}
-			array_pop($tidyLst);
+			array_pop($tidyList);
 		}
-		foreach($tidyLst as $spnIdx=>$oneSpn){
-			$tidyLst[$spnIdx]['texts'] = str_replace(Array(' '.self::LINE_MARK, self::LINE_MARK), "\n", $oneSpn['texts']);
+		foreach($tidyList as $spnIdx=>$oneSpn){
+			$tidyList[$spnIdx]['texts'] = str_replace(Array(' '.self::LINE_MARK, self::LINE_MARK), "\n", $oneSpn['texts']);
 		}
-		return $tidyLst;
+		return $tidyList;
 	}
 
 	/**
@@ -463,46 +463,46 @@ class XHml extends Base {
 	 * @return Array The rows, as 'tableTop' and 'tableRow' blocks.
 	 */
 	protected function rowsOfTableArr(Array $elementArray, Bool $innerHeadFlg=false): Array {
-		$rowsLst = Array();
+		$rowsList = Array();
 		foreach($elementArray['nodes'] as $chlArr){
 			if( in_array($chlArr['tagnm'], Array('thead', 'tbody', 'tfoot')) ){
-				$rowsLst = array_merge($rowsLst, $this->rowsOfTableArr($chlArr, $chlArr['tagnm']=='thead'));
+				$rowsList = array_merge($rowsList, $this->rowsOfTableArr($chlArr, $chlArr['tagnm']=='thead'));
 				continue;
 			}
 			if( $chlArr['tagnm']!='tr' ){
 				continue;
 			}
-			$cellLst = Array();
-			$headNum = 0;
+			$cellList = Array();
+			$headNumb = 0;
 			foreach($chlArr['nodes'] as $celArr){
 				if( $celArr['tagnm']!='td' && $celArr['tagnm']!='th' ){
 					continue;
 				}
-				$celAttr = Array();
+				$cellAttr = Array();
 				if( $celArr['tagnm']=='th' ){
-					$headNum++;
-					$celAttr['headr'] = true;
+					$headNumb++;
+					$cellAttr['headr'] = true;
 				}
 				foreach(Array('colspan'=>'colsp', 'rowspan'=>'rowsp') as $atrNme=>$atrKey){
 					if( intval($celArr['attrs'][$atrNme] ?? 1)>1 ){
-						$celAttr[$atrKey] = intval($celArr['attrs'][$atrNme]);
+						$cellAttr[$atrKey] = intval($celArr['attrs'][$atrNme]);
 					}
 				}
-				$celPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($celArr)));
-				$cellLst[] = Array($celPart[0], $celPart[1], $celAttr);
+				$cellPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($celArr)));
+				$cellList[] = Array($cellPart[0], $cellPart[1], $cellAttr);
 			}
 			// A row of the head, or a row made of header cells only, is a header row
-			$headRow = ($innerHeadFlg || ($headNum>0 && $headNum==count($cellLst)));
-			$cellBlk = Array();
-			foreach($cellLst as $celSet){
-				if( $headRow ){
+			$headNtry = ($innerHeadFlg || ($headNumb>0 && $headNumb==count($cellList)));
+			$cellBloc = Array();
+			foreach($cellList as $celSet){
+				if( $headNtry ){
 					unset($celSet[2]['headr']);
 				}
-				$cellBlk[] = Shape::makeBlockArray('cellText', $celSet[0], $celSet[1], $celSet[2]);
+				$cellBloc[] = Shape::makeBlockArray('cellText', $celSet[0], $celSet[1], $celSet[2]);
 			}
-			$rowsLst[] = Shape::makeBlockArray($headRow ? 'tableTop' : 'tableRow', Array(), $cellBlk);
+			$rowsList[] = Shape::makeBlockArray($headNtry ? 'tableTop' : 'tableRow', Array(), $cellBloc);
 		}
-		return $rowsLst;
+		return $rowsList;
 	}
 
 	/**
@@ -515,11 +515,11 @@ class XHml extends Base {
 		if( $elementArray['tagnm']=='br' ){
 			return "\n";
 		}
-		$rawText = $elementArray['value'];
+		$rawStrng = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
-			$rawText .= $this->elementRawText($chlArr);
+			$rawStrng .= $this->elementRawText($chlArr);
 		}
-		return $rawText;
+		return $rawStrng;
 	}
 
 	/**
@@ -531,62 +531,62 @@ class XHml extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function tagBlocksArray(Array $elementArray): Array {
-		$tagName = $elementArray['tagnm'];
-		$idValue = ($elementArray['tagid']!=='') ? Array('tagid'=>$elementArray['tagid']) : Array();
-		$blckLst = Array();
-		if( preg_match('/^h([1-6])$/D', $tagName, $hdrPart) ){
-			$hdrSpns = $this->tidySpansArray($this->inlineSpansArr(Array('tagnm'=>'span')+$elementArray, Array(), ''));
-			if( !empty($hdrSpns) ){
-				$blckLst[] = Shape::makeBlockArray('headline', $hdrSpns, Array(), Array('level'=>intval($hdrPart[1])) + $idValue);
+		$tagTitle = $elementArray['tagnm'];
+		$tgidVals = ($elementArray['tagid']!=='') ? Array('tagid'=>$elementArray['tagid']) : Array();
+		$blockLst = Array();
+		if( preg_match('/^h([1-6])$/D', $tagTitle, $hedrPart) ){
+			$hedrSpns = $this->tidySpansArray($this->inlineSpansArr(Array('tagnm'=>'span')+$elementArray, Array(), ''));
+			if( !empty($hedrSpns) ){
+				$blockLst[] = Shape::makeBlockArray('headline', $hedrSpns, Array(), Array('level'=>intval($hedrPart[1])) + $tgidVals);
 			}
-		}elseif( $tagName=='ul' || $tagName=='ol' ){
-			$itemLst = Array();
+		}elseif( $tagTitle=='ul' || $tagTitle=='ol' ){
+			$itemList = Array();
 			foreach($elementArray['nodes'] as $chlArr){
 				if( $chlArr['tagnm']!='li' ){
 					continue;
 				}
-				$entPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($chlArr)));
-				$itemLst[] = Shape::makeBlockArray('listItem', $entPart[0], $entPart[1], ($chlArr['tagid']!=='') ? Array('tagid'=>$chlArr['tagid']) : Array());
+				$entryPar = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($chlArr)));
+				$itemList[] = Shape::makeBlockArray('listItem', $entryPar[0], $entryPar[1], ($chlArr['tagid']!=='') ? Array('tagid'=>$chlArr['tagid']) : Array());
 			}
-			if( !empty($itemLst) ){
-				$blckLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>($tagName=='ol')) + $idValue);
+			if( !empty($itemList) ){
+				$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>($tagTitle=='ol')) + $tgidVals);
 			}
-		}elseif( $tagName=='table' ){
-			$rowsLst = $this->rowsOfTableArr($elementArray);
-			if( !empty($rowsLst) ){
-				$blckLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsLst, $idValue);
+		}elseif( $tagTitle=='table' ){
+			$rowsList = $this->rowsOfTableArr($elementArray);
+			if( !empty($rowsList) ){
+				$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsList, $tgidVals);
 			}
-		}elseif( $tagName=='blockquote' ){
-			$qutPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($elementArray)));
-			if( !empty($qutPart[0]) || !empty($qutPart[1]) ){
-				$blckLst[] = Shape::makeBlockArray('citation', $qutPart[0], $qutPart[1], $idValue);
+		}elseif( $tagTitle=='blockquote' ){
+			$quotePar = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($elementArray)));
+			if( !empty($quotePar[0]) || !empty($quotePar[1]) ){
+				$blockLst[] = Shape::makeBlockArray('citation', $quotePar[0], $quotePar[1], $tgidVals);
 			}
-		}elseif( $tagName=='pre' ){
-			$codeTxt = trim($this->elementRawText($elementArray), "\r\n");
-			$langPrt = Array();
-			$codeAtr = $idValue;
-			if( preg_match('/\blang(?:uage)?-([\w+#.\-]+)/', strval($elementArray['nodes'][0]['attrs']['class'] ?? $elementArray['attrs']['class'] ?? ''), $langPrt) ){
-				$codeAtr = Array('langg'=>$langPrt[1]) + $codeAtr;
+		}elseif( $tagTitle=='pre' ){
+			$codeText = trim($this->elementRawText($elementArray), "\r\n");
+			$langPart = Array();
+			$codeAttr = $tgidVals;
+			if( preg_match('/\blang(?:uage)?-([\w+#.\-]+)/', strval($elementArray['nodes'][0]['attrs']['class'] ?? $elementArray['attrs']['class'] ?? ''), $langPart) ){
+				$codeAttr = Array('langg'=>$langPart[1]) + $codeAttr;
 			}
-			if( $codeTxt!=='' ){
-				$blckLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), $codeAtr);
+			if( $codeText!=='' ){
+				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), $codeAttr);
 			}
-		}elseif( $tagName=='hr' ){
-			$blckLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), $idValue);
-		}elseif( $tagName=='img' ){
-			$imgLink = Shape::tidyLinkString(strval($elementArray['attrs']['src'] ?? ''));
-			$imgText = trim(strval($elementArray['attrs']['alt'] ?? ''));
-			if( $imgLink!=='' ){
-				$blckLst[] = Shape::makeBlockArray('imageBox', ($imgText!=='') ? Array(Shape::makeASpanArray($imgText)) : Array(), Array(), Array('sourc'=>$imgLink) + $idValue);
+		}elseif( $tagTitle=='hr' ){
+			$blockLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), $tgidVals);
+		}elseif( $tagTitle=='img' ){
+			$imageLnk = Shape::tidyLinkString(strval($elementArray['attrs']['src'] ?? ''));
+			$imageTxt = trim(strval($elementArray['attrs']['alt'] ?? ''));
+			if( $imageLnk!=='' ){
+				$blockLst[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeASpanArray($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk) + $tgidVals);
 			}
 		}else{
 			// A paragraph, or an element that only groups others: what it holds, in order
-			$blckLst = $this->readFlowsArray($this->kidsOfTagArray($elementArray));
-			if( !empty($blckLst) && !empty($idValue) && !isset($blckLst[0]['attrs']['tagid']) && $tagName=='p' ){
-				$blckLst[0]['attrs'] = $blckLst[0]['attrs'] + $idValue;
+			$blockLst = $this->readFlowsArray($this->kidsOfTagArray($elementArray));
+			if( !empty($blockLst) && !empty($tgidVals) && !isset($blockLst[0]['attrs']['tagid']) && $tagTitle=='p' ){
+				$blockLst[0]['attrs'] = $blockLst[0]['attrs'] + $tgidVals;
 			}
 		}
-		return $blckLst;
+		return $blockLst;
 	}
 
 }

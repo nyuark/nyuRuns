@@ -20,11 +20,11 @@ abstract class Base implements Writer {
 	 * @throws WriteError When the shape is not one of those.
 	 */
 	protected function checkShapeText(Array $dataEnvelope, Array $acceptShapes, String $nameOfFormat): String {
-		$shapeAs = strval($dataEnvelope['shape'] ?? '');
-		if( !in_array($shapeAs, $acceptShapes, true) ){
-			throw new WriteError('Shape that cannot be written as '.$nameOfFormat.': '.$shapeAs);
+		$shapeNme = strval($dataEnvelope['shape'] ?? '');
+		if( !in_array($shapeNme, $acceptShapes, true) ){
+			throw new WriteError('Shape that cannot be written as '.$nameOfFormat.': '.$shapeNme);
 		}
-		return $shapeAs;
+		return $shapeNme;
 	}
 
 	/**
@@ -50,12 +50,12 @@ abstract class Base implements Writer {
 	 * @return String The number, as text.
 	 */
 	protected function writeNumberTxt(Int|Float $numberToShow): String {
-		$keptPrc = ini_set('serialize_precision', '-1');
-		$numText = strval(json_encode($numberToShow));
-		if( $keptPrc!==false ){
-			ini_set('serialize_precision', $keptPrc);
+		$keptPrec = ini_set('serialize_precision', '-1');
+		$numbText = strval(json_encode($numberToShow));
+		if( $keptPrec!==false ){
+			ini_set('serialize_precision', $keptPrec);
 		}
-		return $numText;
+		return $numbText;
 	}
 
 	/**

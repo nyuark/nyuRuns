@@ -38,22 +38,22 @@ class Text extends Base {
 	 * @throws ParseError When the 'reads' option is not a known one.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$readsAs = strtolower(strval($parseOptions['reads'] ?? 'plain'));
-		if( !in_array($readsAs, Array('plain', 'bbcod', 'chats')) ){
-			throw new ParseError('Invalid text option: unknown reading '.$readsAs);
+		$readCode = strtolower(strval($parseOptions['reads'] ?? 'plain'));
+		if( !in_array($readCode, Array('plain', 'bbcod', 'chats')) ){
+			throw new ParseError('Invalid text option: unknown reading '.$readCode);
 		}
-		$fullTxt = str_replace(Array("\r\n", "\r"), "\n", self::recodeTextUtf8($nakedContent));
-		if( $readsAs=='bbcod' ){
-			$blckLst = $this->bbcodeToBlocks($fullTxt);
-		}elseif( $readsAs=='chats' ){
-			$blckLst = $this->chatsBlocksArr($fullTxt);
+		$fullText = str_replace(Array("\r\n", "\r"), "\n", self::recodeTextUtf8($nakedContent));
+		if( $readCode=='bbcod' ){
+			$blockLst = $this->bbcodeToBlocks($fullText);
+		}elseif( $readCode=='chats' ){
+			$blockLst = $this->chatsBlocksArr($fullText);
 		}else{
-			$blckLst = Array();
-			foreach($this->splitParagraph($fullTxt) as $parTxt){
-				$blckLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray($parTxt)));
+			$blockLst = Array();
+			foreach($this->splitParagraph($fullText) as $parTxt){
+				$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray($parTxt)));
 			}
 		}
-		return $this->makeShapeArray('block', $blckLst, Array('reads'=>$readsAs));
+		return $this->makeShapeArray('block', $blockLst, Array('reads'=>$readCode));
 	}
 
 	/**
@@ -65,14 +65,14 @@ class Text extends Base {
 	 * @return Array The paragraphs, none of them empty.
 	 */
 	protected function splitParagraph(String $templateText): Array {
-		$paraLst = Array();
+		$prgrList = Array();
 		foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $templateText)) as $parTxt){
 			$parTxt = trim($parTxt);
 			if( trim($parTxt)!=='' ){
-				$paraLst[] = $parTxt;
+				$prgrList[] = $parTxt;
 			}
 		}
-		return $paraLst;
+		return $prgrList;
 	}
 
 	/**
@@ -85,18 +85,18 @@ class Text extends Base {
 	 * @return ?Array The position of the closing tag and its length, null when the tag is never closed.
 	 */
 	protected function findCloseArray(String $templateText, String $tagNmeString, Int $startsFromNb, Bool $allowsNested): ?Array {
-		$tagPrts = Array();
-		$openNum = 1;
-		$readPos = $startsFromNb;
-		while( preg_match('/\[(\/?)'.preg_quote($tagNmeString, '/').'(?:=[^\]\n]*)?\]/i', $templateText, $tagPrts, PREG_OFFSET_CAPTURE, $readPos) ){
-			$readPos = $tagPrts[0][1]+strlen($tagPrts[0][0]);
-			if( $tagPrts[1][0]==='' ){
-				$openNum += $allowsNested ? 1 : 0;
+		$tagParte = Array();
+		$openNumb = 1;
+		$readIndx = $startsFromNb;
+		while( preg_match('/\[(\/?)'.preg_quote($tagNmeString, '/').'(?:=[^\]\n]*)?\]/i', $templateText, $tagParte, PREG_OFFSET_CAPTURE, $readIndx) ){
+			$readIndx = $tagParte[0][1]+strlen($tagParte[0][0]);
+			if( $tagParte[1][0]==='' ){
+				$openNumb += $allowsNested ? 1 : 0;
 				continue;
 			}
-			$openNum--;
-			if( $openNum==0 ){
-				return Array($tagPrts[0][1], strlen($tagPrts[0][0]));
+			$openNumb--;
+			if( $openNumb==0 ){
+				return Array($tagParte[0][1], strlen($tagParte[0][0]));
 			}
 		}
 		return null;
@@ -109,51 +109,51 @@ class Text extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function bbcodeToBlocks(String $templateText): Array {
-		$blckLst = Array();
-		$txtBffr = '';
-		$readPos = 0;
-		$tagPrts = Array();
-		while( preg_match('/\[(code|quote|list|img)(?:=([^\]\n]*))?\]/i', $templateText, $tagPrts, PREG_OFFSET_CAPTURE, $readPos) ){
-			$tagName = strtolower($tagPrts[1][0]);
-			$tagArgs = trim(strval($tagPrts[2][0] ?? ''), " \t\"'");
-			$bdyPstn = $tagPrts[0][1]+strlen($tagPrts[0][0]);
-			$closeAt = $this->findCloseArray($templateText, $tagName, $bdyPstn, in_array($tagName, Array('quote', 'list')));
-			if( $closeAt===null ){
+		$blockLst = Array();
+		$textBuff = '';
+		$readIndx = 0;
+		$tagParte = Array();
+		while( preg_match('/\[(code|quote|list|img)(?:=([^\]\n]*))?\]/i', $templateText, $tagParte, PREG_OFFSET_CAPTURE, $readIndx) ){
+			$tagTitle = strtolower($tagParte[1][0]);
+			$tagArgmn = trim(strval($tagParte[2][0] ?? ''), " \t\"'");
+			$innerPos = $tagParte[0][1]+strlen($tagParte[0][0]);
+			$closeIdx = $this->findCloseArray($templateText, $tagTitle, $innerPos, in_array($tagTitle, Array('quote', 'list')));
+			if( $closeIdx===null ){
 				// Never closed: the tag is left out, what follows it is kept
-				$txtBffr .= substr($templateText, $readPos, $tagPrts[0][1]-$readPos);
-				$readPos = $bdyPstn;
+				$textBuff .= substr($templateText, $readIndx, $tagParte[0][1]-$readIndx);
+				$readIndx = $innerPos;
 				continue;
 			}
-			$blckLst = array_merge($blckLst, $this->bbcodeToPrgrph($txtBffr.substr($templateText, $readPos, $tagPrts[0][1]-$readPos)));
-			$txtBffr = '';
-			$bodyTxt = substr($templateText, $bdyPstn, $closeAt[0]-$bdyPstn);
-			$readPos = $closeAt[0]+$closeAt[1];
-			if( $tagName=='code' ){
-				$codeTxt = trim($bodyTxt, "\n");
-				if( trim($codeTxt)!=='' ){
-					$blckLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeTxt)), Array(), preg_match('/^[\w+#.\-]+$/D', $tagArgs) ? Array('langg'=>$tagArgs) : Array());
+			$blockLst = array_merge($blockLst, $this->bbcodeToPrgrph($textBuff.substr($templateText, $readIndx, $tagParte[0][1]-$readIndx)));
+			$textBuff = '';
+			$bodyText = substr($templateText, $innerPos, $closeIdx[0]-$innerPos);
+			$readIndx = $closeIdx[0]+$closeIdx[1];
+			if( $tagTitle=='code' ){
+				$codeText = trim($bodyText, "\n");
+				if( trim($codeText)!=='' ){
+					$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), preg_match('/^[\w+#.\-]+$/D', $tagArgmn) ? Array('langg'=>$tagArgmn) : Array());
 				}
-			}elseif( $tagName=='img' ){
-				$imgLink = Shape::tidyLinkString($bodyTxt);
-				if( $imgLink!=='' ){
-					$blckLst[] = Shape::makeBlockArray('imageBox', Array(), Array(), Array('sourc'=>$imgLink));
+			}elseif( $tagTitle=='img' ){
+				$imageLnk = Shape::tidyLinkString($bodyText);
+				if( $imageLnk!=='' ){
+					$blockLst[] = Shape::makeBlockArray('imageBox', Array(), Array(), Array('sourc'=>$imageLnk));
 				}
-			}elseif( $tagName=='quote' ){
-				$heldLst = $this->bbcodeToBlocks($bodyTxt);
-				if( !empty($heldLst) ){
-					$blckLst[] = $this->holdBlockArray('citation', $heldLst, ($tagArgs!=='') ? Array('cites'=>$tagArgs) : Array());
+			}elseif( $tagTitle=='quote' ){
+				$heldList = $this->bbcodeToBlocks($bodyText);
+				if( !empty($heldList) ){
+					$blockLst[] = $this->holdBlockArray('citation', $heldList, ($tagArgmn!=='') ? Array('cites'=>$tagArgmn) : Array());
 				}
 			}else{
-				$itemLst = Array();
-				foreach($this->bbcodeEntryArr($bodyTxt) as $entTxt){
-					$itemLst[] = $this->holdBlockArray('listItem', $this->bbcodeToBlocks($entTxt));
+				$itemList = Array();
+				foreach($this->bbcodeEntryArr($bodyText) as $entTxt){
+					$itemList[] = $this->holdBlockArray('listItem', $this->bbcodeToBlocks($entTxt));
 				}
-				if( !empty($itemLst) ){
-					$blckLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>($tagArgs!=='')));
+				if( !empty($itemList) ){
+					$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>($tagArgmn!=='')));
 				}
 			}
 		}
-		return array_merge($blckLst, $this->bbcodeToPrgrph($txtBffr.substr($templateText, $readPos)));
+		return array_merge($blockLst, $this->bbcodeToPrgrph($textBuff.substr($templateText, $readIndx)));
 	}
 
 	/**
@@ -164,22 +164,22 @@ class Text extends Base {
 	 * @return Array The text of each entry, none of them empty.
 	 */
 	protected function bbcodeEntryArr(String $templateText): Array {
-		$itemLst = Array();
-		$tagPrts = Array();
-		$deepNum = 0;
-		$startAt = 0;
-		$readPos = 0;
-		while( preg_match('/\[(list(?:=[^\]\n]*)?|\/list|\*)\]/i', $templateText, $tagPrts, PREG_OFFSET_CAPTURE, $readPos) ){
-			$readPos = $tagPrts[0][1]+strlen($tagPrts[0][0]);
-			if( $tagPrts[1][0]!=='*' ){
-				$deepNum += ($tagPrts[1][0][0]=='/') ? -1 : 1;
-			}elseif( $deepNum<=0 ){
-				$itemLst[] = substr($templateText, $startAt, $tagPrts[0][1]-$startAt);
-				$startAt = $readPos;
+		$itemList = Array();
+		$tagParte = Array();
+		$deepNumb = 0;
+		$startIdx = 0;
+		$readIndx = 0;
+		while( preg_match('/\[(list(?:=[^\]\n]*)?|\/list|\*)\]/i', $templateText, $tagParte, PREG_OFFSET_CAPTURE, $readIndx) ){
+			$readIndx = $tagParte[0][1]+strlen($tagParte[0][0]);
+			if( $tagParte[1][0]!=='*' ){
+				$deepNumb += ($tagParte[1][0][0]=='/') ? -1 : 1;
+			}elseif( $deepNumb<=0 ){
+				$itemList[] = substr($templateText, $startIdx, $tagParte[0][1]-$startIdx);
+				$startIdx = $readIndx;
 			}
 		}
-		$itemLst[] = substr($templateText, $startAt);
-		return array_values(array_filter(array_map('trim', $itemLst), function($listEntryTxt){ return $listEntryTxt!==''; }));
+		$itemList[] = substr($templateText, $startIdx);
+		return array_values(array_filter(array_map('trim', $itemList), function($listEntryTxt){ return $listEntryTxt!==''; }));
 	}
 
 	/**
@@ -189,14 +189,14 @@ class Text extends Base {
 	 * @return Array The paragraphs, as blocks.
 	 */
 	protected function bbcodeToPrgrph(String $templateText): Array {
-		$blckLst = Array();
+		$blockLst = Array();
 		foreach($this->splitParagraph($templateText) as $parTxt){
-			$spnsLst = Shape::joinSpansArray($this->bbcodeSpansArr($parTxt, Array(), ''));
-			if( !empty($spnsLst) ){
-				$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
+			$spansLst = Shape::joinSpansArray($this->bbcodeSpansArr($parTxt, Array(), ''));
+			if( !empty($spansLst) ){
+				$blockLst[] = Shape::makeBlockArray('paragrph', $spansLst);
 			}
 		}
-		return $blckLst;
+		return $blockLst;
 	}
 
 	/**
@@ -208,35 +208,35 @@ class Text extends Base {
 	 * @return Array The spans.
 	 */
 	protected function bbcodeSpansArr(String $templateText, Array $runFormatSet, String $linkGoalText): Array {
-		$spnsLst = Array();
-		$txtBffr = '';
-		$readPos = 0;
-		$tagPrts = Array();
-		while( preg_match('/\[(b|i|u|s|url)(?:=([^\]\n]*))?\]/i', $templateText, $tagPrts, PREG_OFFSET_CAPTURE, $readPos) ){
-			$tagName = strtolower($tagPrts[1][0]);
-			$bdyPstn = $tagPrts[0][1]+strlen($tagPrts[0][0]);
-			$closeAt = $this->findCloseArray($templateText, $tagName, $bdyPstn, true);
-			if( $closeAt===null ){
+		$spansLst = Array();
+		$textBuff = '';
+		$readIndx = 0;
+		$tagParte = Array();
+		while( preg_match('/\[(b|i|u|s|url)(?:=([^\]\n]*))?\]/i', $templateText, $tagParte, PREG_OFFSET_CAPTURE, $readIndx) ){
+			$tagTitle = strtolower($tagParte[1][0]);
+			$innerPos = $tagParte[0][1]+strlen($tagParte[0][0]);
+			$closeIdx = $this->findCloseArray($templateText, $tagTitle, $innerPos, true);
+			if( $closeIdx===null ){
 				// Never closed: the tag is left out, what follows it is kept
-				$txtBffr .= substr($templateText, $readPos, $tagPrts[0][1]-$readPos);
-				$readPos = $bdyPstn;
+				$textBuff .= substr($templateText, $readIndx, $tagParte[0][1]-$readIndx);
+				$readIndx = $innerPos;
 				continue;
 			}
-			$spnsLst[] = Shape::makeASpanArray($this->dropUnusedTags($txtBffr.substr($templateText, $readPos, $tagPrts[0][1]-$readPos)), $runFormatSet, $linkGoalText);
-			$txtBffr = '';
-			$bodyTxt = substr($templateText, $bdyPstn, $closeAt[0]-$bdyPstn);
-			$readPos = $closeAt[0]+$closeAt[1];
-			if( $tagName=='url' ){
+			$spansLst[] = Shape::makeASpanArray($this->dropUnusedTags($textBuff.substr($templateText, $readIndx, $tagParte[0][1]-$readIndx)), $runFormatSet, $linkGoalText);
+			$textBuff = '';
+			$bodyText = substr($templateText, $innerPos, $closeIdx[0]-$innerPos);
+			$readIndx = $closeIdx[0]+$closeIdx[1];
+			if( $tagTitle=='url' ){
 				// The address is what follows the '=', or else the text of the link itself
-				$tagArgs = trim(strval($tagPrts[2][0] ?? ''), " \t\"'");
-				$linkAdr = Shape::tidyLinkString(($tagArgs!=='') ? $tagArgs : $bodyTxt);
-				$spnsLst = array_merge($spnsLst, $this->bbcodeSpansArr($bodyTxt, $runFormatSet, ($linkAdr!=='') ? $linkAdr : $linkGoalText));
+				$tagArgmn = trim(strval($tagParte[2][0] ?? ''), " \t\"'");
+				$linkAddr = Shape::tidyLinkString(($tagArgmn!=='') ? $tagArgmn : $bodyText);
+				$spansLst = array_merge($spansLst, $this->bbcodeSpansArr($bodyText, $runFormatSet, ($linkAddr!=='') ? $linkAddr : $linkGoalText));
 			}else{
-				$spnsLst = array_merge($spnsLst, $this->bbcodeSpansArr($bodyTxt, array_merge($runFormatSet, Array(self::BBCD_MARK[$tagName])), $linkGoalText));
+				$spansLst = array_merge($spansLst, $this->bbcodeSpansArr($bodyText, array_merge($runFormatSet, Array(self::BBCD_MARK[$tagTitle])), $linkGoalText));
 			}
 		}
-		$spnsLst[] = Shape::makeASpanArray($this->dropUnusedTags($txtBffr.substr($templateText, $readPos)), $runFormatSet, $linkGoalText);
-		return $spnsLst;
+		$spansLst[] = Shape::makeASpanArray($this->dropUnusedTags($textBuff.substr($templateText, $readIndx)), $runFormatSet, $linkGoalText);
+		return $spansLst;
 	}
 
 	/**
@@ -259,53 +259,53 @@ class Text extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function chatsBlocksArr(String $templateText): Array {
-		$blckLst = Array();
+		$blockLst = Array();
 		// What is being gathered: its kind ('paragrph' or 'itemList'), its lines, and for a list whether it is numbered
-		$opnKind = '';
-		$openLns = Array();
-		$opnOrdr = false;
-		$lineLst = explode("\n", $templateText);
-		$lineLst[] = '';
-		$lineNum = count($lineLst);
-		for($linIdx=0; $linIdx<$lineNum; $linIdx++){
-			$lineTxt = rtrim($lineLst[$linIdx]);
-			$linPart = Array();
-			$linKind = 'paragrph';
-			$linOrdr = false;
-			if( $lineTxt==='' ){
-				$linKind = '';
-			}elseif( preg_match('/^[\-*] +(\S.*)$/', $lineTxt, $linPart) ){
-				$linKind = 'itemList';
-				$lineTxt = $linPart[1];
-			}elseif( preg_match('/^\d{1,9}[.)] +(\S.*)$/', $lineTxt, $linPart) ){
-				$linKind = 'itemList';
-				$linOrdr = true;
-				$lineTxt = $linPart[1];
+		$openCode = '';
+		$openLnes = Array();
+		$openOrdr = false;
+		$lineList = explode("\n", $templateText);
+		$lineList[] = '';
+		$lineNumb = count($lineList);
+		for($linIdx=0; $linIdx<$lineNumb; $linIdx++){
+			$lineText = rtrim($lineList[$linIdx]);
+			$linePart = Array();
+			$lineCode = 'paragrph';
+			$lineOrdr = false;
+			if( $lineText==='' ){
+				$lineCode = '';
+			}elseif( preg_match('/^[\-*] +(\S.*)$/', $lineText, $linePart) ){
+				$lineCode = 'itemList';
+				$lineText = $linePart[1];
+			}elseif( preg_match('/^\d{1,9}[.)] +(\S.*)$/', $lineText, $linePart) ){
+				$lineCode = 'itemList';
+				$lineOrdr = true;
+				$lineText = $linePart[1];
 			}
 			// What was being gathered ends when the kind of line changes
-			if( $opnKind!=='' && ($linKind!==$opnKind || ($linKind=='itemList' && $linOrdr!==$opnOrdr)) ){
-				if( $opnKind=='itemList' ){
-					$itemLst = Array();
-					foreach($openLns as $entTxt){
-						$itemLst[] = Shape::makeBlockArray('listItem', Shape::joinSpansArray($this->chatSpansArray($entTxt, Array())));
+			if( $openCode!=='' && ($lineCode!==$openCode || ($lineCode=='itemList' && $lineOrdr!==$openOrdr)) ){
+				if( $openCode=='itemList' ){
+					$itemList = Array();
+					foreach($openLnes as $entTxt){
+						$itemList[] = Shape::makeBlockArray('listItem', Shape::joinSpansArray($this->chatSpansArray($entTxt, Array())));
 					}
-					$blckLst[] = Shape::makeBlockArray('itemList', Array(), $itemLst, Array('order'=>$opnOrdr));
+					$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>$openOrdr));
 				}else{
-					$spnsLst = Shape::joinSpansArray($this->chatSpansArray(trim(implode("\n", $openLns), "\n"), Array()));
-					if( !empty($spnsLst) ){
-						$blckLst[] = Shape::makeBlockArray('paragrph', $spnsLst);
+					$spansLst = Shape::joinSpansArray($this->chatSpansArray(trim(implode("\n", $openLnes), "\n"), Array()));
+					if( !empty($spansLst) ){
+						$blockLst[] = Shape::makeBlockArray('paragrph', $spansLst);
 					}
 				}
-				$opnKind = '';
-				$openLns = Array();
+				$openCode = '';
+				$openLnes = Array();
 			}
-			if( $linKind!=='' ){
-				$opnKind = $linKind;
-				$opnOrdr = $linOrdr;
-				$openLns[] = $lineTxt;
+			if( $lineCode!=='' ){
+				$openCode = $lineCode;
+				$openOrdr = $lineOrdr;
+				$openLnes[] = $lineText;
 			}
 		}
-		return $blckLst;
+		return $blockLst;
 	}
 
 	/**
@@ -322,23 +322,23 @@ class Text extends Base {
 	 */
 	protected function chatSpansArray(String $templateText, Array $runFormatSet): Array {
 		// An underscore standing against another is never a mark of its own: __this__ is one mark, not two
-		$markRgx = '/(?<url>https?:\/\/[^\s<>"]+)'
+		$markRgxp = '/(?<url>https?:\/\/[^\s<>"]+)'
 			.'|(?<![\p{L}\p{N}_])(?<und>__|_)(?=[^\s_])(?<utx>.+?)(?<=[^\s_])\k<und>(?![\p{L}\p{N}_])'
 			.'|(?<![\p{L}\p{N}])(?<mrk>[*~])(?=\S)(?<txt>.+?)(?<=\S)\k<mrk>(?![\p{L}\p{N}])/us';
-		$spnsLst = Array();
-		$readPos = 0;
-		$matches = Array();
-		while( preg_match($markRgx, $templateText, $matches, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readPos) ){
-			$spnsLst[] = Shape::makeASpanArray(substr($templateText, $readPos, $matches[0][1]-$readPos), $runFormatSet);
-			if( $matches['url'][0]!==null ){
-				$spnsLst[] = Shape::makeASpanArray($matches[0][0], $runFormatSet);
+		$spansLst = Array();
+		$readIndx = 0;
+		$matxRows = Array();
+		while( preg_match($markRgxp, $templateText, $matxRows, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readIndx) ){
+			$spansLst[] = Shape::makeASpanArray(substr($templateText, $readIndx, $matxRows[0][1]-$readIndx), $runFormatSet);
+			if( $matxRows['url'][0]!==null ){
+				$spansLst[] = Shape::makeASpanArray($matxRows[0][0], $runFormatSet);
 			}else{
-				$spnsLst = array_merge($spnsLst, $this->chatSpansArray(strval($matches['utx'][0] ?? $matches['txt'][0]), array_merge($runFormatSet, Array(self::CHAT_MARK[$matches['und'][0] ?? $matches['mrk'][0]]))));
+				$spansLst = array_merge($spansLst, $this->chatSpansArray(strval($matxRows['utx'][0] ?? $matxRows['txt'][0]), array_merge($runFormatSet, Array(self::CHAT_MARK[$matxRows['und'][0] ?? $matxRows['mrk'][0]]))));
 			}
-			$readPos = $matches[0][1]+strlen($matches[0][0]);
+			$readIndx = $matxRows[0][1]+strlen($matxRows[0][0]);
 		}
-		$spnsLst[] = Shape::makeASpanArray(substr($templateText, $readPos), $runFormatSet);
-		return $spnsLst;
+		$spansLst[] = Shape::makeASpanArray(substr($templateText, $readIndx), $runFormatSet);
+		return $spansLst;
 	}
 
 }

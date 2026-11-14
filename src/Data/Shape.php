@@ -46,14 +46,14 @@ class Shape {
 	 * @return String The address, '' when it is not accepted.
 	 */
 	public static function tidyLinkString(String $linkGoalText): String {
-		$trmLink = trim($linkGoalText);
+		$trimLink = trim($linkGoalText);
 		// Spaces and control characters inside an address are how a forbidden kind is hidden
-		$bareLnk = preg_replace('/[\x00-\x20]+/', '', $trmLink);
-		$kndPart = Array();
-		if( preg_match('/^([a-z][a-z0-9+.\-]*):/i', $bareLnk, $kndPart) ){
-			return in_array(strtolower($kndPart[1]), self::LINK_LIST) ? $trmLink : '';
+		$bareLink = preg_replace('/[\x00-\x20]+/', '', $trimLink);
+		$kindPart = Array();
+		if( preg_match('/^([a-z][a-z0-9+.\-]*):/i', $bareLink, $kindPart) ){
+			return in_array(strtolower($kindPart[1]), self::LINK_LIST) ? $trimLink : '';
 		}
-		return $trmLink;
+		return $trimLink;
 	}
 
 	/**
@@ -78,19 +78,19 @@ class Shape {
 	 * @return Array The tidied spans.
 	 */
 	public static function joinSpansArray(Array $textSpanList): Array {
-		$joinLst = Array();
+		$joinList = Array();
 		foreach($textSpanList as $oneSpn){
 			if( $oneSpn['texts']==='' ){
 				continue;
 			}
-			$lastIdx = count($joinLst)-1;
-			if( $lastIdx>=0 && $joinLst[$lastIdx]['marks']===$oneSpn['marks'] && $joinLst[$lastIdx]['links']===$oneSpn['links'] && $oneSpn['field']==='' && $joinLst[$lastIdx]['field']==='' ){
-				$joinLst[$lastIdx]['texts'] .= $oneSpn['texts'];
+			$lastIndx = count($joinList)-1;
+			if( $lastIndx>=0 && $joinList[$lastIndx]['marks']===$oneSpn['marks'] && $joinList[$lastIndx]['links']===$oneSpn['links'] && $oneSpn['field']==='' && $joinList[$lastIndx]['field']==='' ){
+				$joinList[$lastIndx]['texts'] .= $oneSpn['texts'];
 			}else{
-				$joinLst[] = $oneSpn;
+				$joinList[] = $oneSpn;
 			}
 		}
-		return $joinLst;
+		return $joinList;
 	}
 
 	/**
@@ -116,28 +116,28 @@ class Shape {
 			throw new \RuntimeException('Unknown kind of block: '.$blckLabelTxt);
 		}
 		$paragraphSet = array_values($paragraphSet);
-		$plainTx = implode('', array_column($textSpanList, 'texts'));
+		$plainTxt = implode('', array_column($textSpanList, 'texts'));
 		if( $blckLabelTxt=='tableTop' || $blckLabelTxt=='tableRow' ){
-			$plainTx = implode("\t", array_column($paragraphSet, 'plain'));
+			$plainTxt = implode("\t", array_column($paragraphSet, 'plain'));
 		}elseif( $blckLabelTxt=='tableSet' ){
-			$headLst = Array();
-			$colsMax = 0;
-			$lineNum = 0;
+			$headList = Array();
+			$clmnsMax = 0;
+			$lineNumb = 0;
 			foreach($paragraphSet as $oneRow){
-				$colsMax = max($colsMax, count($oneRow['items']));
+				$clmnsMax = max($clmnsMax, count($oneRow['items']));
 				if( $oneRow['block']=='tableTop' ){
-					$headLst = empty($headLst) ? array_column($oneRow['items'], 'plain') : $headLst;
+					$headList = empty($headList) ? array_column($oneRow['items'], 'plain') : $headList;
 				}else{
-					$lineNum++;
+					$lineNumb++;
 				}
 			}
-			$plainTx = '';
-			$attributeSet = Array('heads'=>$headLst, 'colms'=>$colsMax, 'lines'=>$lineNum, 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
+			$plainTxt = '';
+			$attributeSet = Array('heads'=>$headList, 'colms'=>$clmnsMax, 'lines'=>$lineNumb, 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
 		}elseif( $blckLabelTxt=='itemList' ){
-			$plainTx = '';
+			$plainTxt = '';
 			$attributeSet = Array('lines'=>count($paragraphSet), 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
 		}
-		return Array('block'=>$blckLabelTxt, 'attrs'=>$attributeSet, 'spans'=>array_values($textSpanList), 'items'=>$paragraphSet, 'plain'=>$plainTx);
+		return Array('block'=>$blckLabelTxt, 'attrs'=>$attributeSet, 'spans'=>array_values($textSpanList), 'items'=>$paragraphSet, 'plain'=>$plainTxt);
 	}
 
 	/**
@@ -148,14 +148,14 @@ class Shape {
 	 * @return Int The number of bytes.
 	 */
 	public static function textBytesCount(Array $bookBlockSet): Int {
-		$byteNum = 0;
+		$byteNumb = 0;
 		foreach($bookBlockSet as $oneBlk){
 			foreach($oneBlk['spans'] as $oneSpn){
-				$byteNum += strlen($oneSpn['texts']);
+				$byteNumb += strlen($oneSpn['texts']);
 			}
-			$byteNum += self::textBytesCount($oneBlk['items']);
+			$byteNumb += self::textBytesCount($oneBlk['items']);
 		}
-		return $byteNum;
+		return $byteNumb;
 	}
 
 	/**
@@ -167,16 +167,16 @@ class Shape {
 	 * @return String Its text, without formatting.
 	 */
 	public static function blockPlainText(Array $contentBlock): String {
-		$ownText = implode('', array_column($contentBlock['spans'], 'texts'));
+		$ownStrng = implode('', array_column($contentBlock['spans'], 'texts'));
 		if( empty($contentBlock['items']) ){
-			return $ownText;
+			return $ownStrng;
 		}
-		$chldTxt = Array();
+		$childTxt = Array();
 		foreach($contentBlock['items'] as $oneBlk){
-			$chldTxt[] = self::blockPlainText($oneBlk);
+			$childTxt[] = self::blockPlainText($oneBlk);
 		}
-		$joinTxt = implode(in_array($contentBlock['block'], Array('tableTop', 'tableRow')) ? "\t" : "\n", $chldTxt);
-		return ($ownText==='') ? $joinTxt : $ownText."\n".$joinTxt;
+		$joinText = implode(in_array($contentBlock['block'], Array('tableTop', 'tableRow')) ? "\t" : "\n", $childTxt);
+		return ($ownStrng==='') ? $joinText : $ownStrng."\n".$joinText;
 	}
 
 	/**
@@ -186,11 +186,11 @@ class Shape {
 	 * @return String The text, a blank line between two blocks.
 	 */
 	public static function documentAsText(Array $bookBlockSet): String {
-		$blckTxt = Array();
+		$blockTxt = Array();
 		foreach($bookBlockSet as $oneBlk){
-			$blckTxt[] = self::blockPlainText($oneBlk);
+			$blockTxt[] = self::blockPlainText($oneBlk);
 		}
-		return implode("\n\n", $blckTxt);
+		return implode("\n\n", $blockTxt);
 	}
 
 	/**
@@ -201,15 +201,15 @@ class Shape {
 	 * @return Array The rows, each a list of texts.
 	 */
 	public static function tableGridArray(Array $tableBlckArr): Array {
-		$gridRws = Array();
+		$gridRows = Array();
 		foreach($tableBlckArr['items'] as $oneRow){
-			$cellTxt = Array();
+			$cellText = Array();
 			foreach($oneRow['items'] as $celBlk){
-				$cellTxt[] = self::blockPlainText($celBlk);
+				$cellText[] = self::blockPlainText($celBlk);
 			}
-			$gridRws[] = $cellTxt;
+			$gridRows[] = $cellText;
 		}
-		return $gridRws;
+		return $gridRows;
 	}
 
 	/**
@@ -222,30 +222,30 @@ class Shape {
 	 * @return Array The sections, each with its 'title', its 'level', the 'attrs' of its heading, its own 'items' and its sub-sections under 'nodes'.
 	 */
 	public static function bySectionArray(Array $bookBlockSet): Array {
-		$rotSctn = Array('title'=>'', 'level'=>0, 'attrs'=>Array(), 'items'=>Array(), 'nodes'=>Array());
+		$rootSctn = Array('title'=>'', 'level'=>0, 'attrs'=>Array(), 'items'=>Array(), 'nodes'=>Array());
 		// The sections being filled, from the outermost to the innermost
-		$opnSctn = Array(&$rotSctn);
+		$openSctn = Array(&$rootSctn);
 		foreach($bookBlockSet as $oneBlk){
 			if( $oneBlk['block']!=='headline' ){
-				$opnSctn[count($opnSctn)-1]['items'][] = $oneBlk;
+				$openSctn[count($openSctn)-1]['items'][] = $oneBlk;
 				continue;
 			}
-			$headLvl = max(1, intval($oneBlk['attrs']['level'] ?? 1));
-			while( count($opnSctn)>1 && $opnSctn[count($opnSctn)-1]['level']>=$headLvl ){
-				array_pop($opnSctn);
+			$headLevl = max(1, intval($oneBlk['attrs']['level'] ?? 1));
+			while( count($openSctn)>1 && $openSctn[count($openSctn)-1]['level']>=$headLevl ){
+				array_pop($openSctn);
 			}
-			$newSctn = Array('title'=>$oneBlk['plain'], 'level'=>$headLvl, 'attrs'=>$oneBlk['attrs'], 'items'=>Array(), 'nodes'=>Array());
-			$ownerAt = count($opnSctn)-1;
-			$opnSctn[$ownerAt]['nodes'][] = $newSctn;
-			$opnSctn[] = &$opnSctn[$ownerAt]['nodes'][count($opnSctn[$ownerAt]['nodes'])-1];
+			$newSectn = Array('title'=>$oneBlk['plain'], 'level'=>$headLevl, 'attrs'=>$oneBlk['attrs'], 'items'=>Array(), 'nodes'=>Array());
+			$ownerIdx = count($openSctn)-1;
+			$openSctn[$ownerIdx]['nodes'][] = $newSectn;
+			$openSctn[] = &$openSctn[$ownerIdx]['nodes'][count($openSctn[$ownerIdx]['nodes'])-1];
 		}
 		// A document that starts with a heading has no untitled section
-		if( empty($rotSctn['items']) ){
-			return $rotSctn['nodes'];
+		if( empty($rootSctn['items']) ){
+			return $rootSctn['nodes'];
 		}
-		$ledSctn = $rotSctn;
-		$ledSctn['nodes'] = Array();
-		return array_merge(Array($ledSctn), $rotSctn['nodes']);
+		$leadSctn = $rootSctn;
+		$leadSctn['nodes'] = Array();
+		return array_merge(Array($leadSctn), $rootSctn['nodes']);
 	}
 
 	/**
@@ -263,11 +263,11 @@ class Shape {
 	 * @return Array The sheet: 'title', 'attrs', 'cells'.
 	 */
 	public static function makeSheetArray(String $sheetHeading, Array $sheetRowList, Array $attributeSet=Array()): Array {
-		$rowsLst = Array();
+		$rowsList = Array();
 		foreach($sheetRowList as $oneRow){
-			$rowsLst[] = array_values((array)$oneRow);
+			$rowsList[] = array_values((array)$oneRow);
 		}
-		return Array('title'=>$sheetHeading, 'attrs'=>$attributeSet + Array('shown'=>true, 'merge'=>Array()), 'cells'=>$rowsLst);
+		return Array('title'=>$sheetHeading, 'attrs'=>$attributeSet + Array('shown'=>true, 'merge'=>Array()), 'cells'=>$rowsList);
 	}
 
 }

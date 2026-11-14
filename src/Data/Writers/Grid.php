@@ -25,15 +25,15 @@ abstract class Grid extends Base {
 	 * @return String The name.
 	 */
 	protected function cleanSheetName(String $sheetHeading, Int $sheetPlaceNb, Array $usedNameList): String {
-		$cutsTxt = function(String $textToShrink, Int $lengthsMaxNb){ return function_exists('mb_substr') ? mb_substr($textToShrink, 0, $lengthsMaxNb, 'UTF-8') : substr($textToShrink, 0, $lengthsMaxNb); };
-		$nameTxt = trim(strval(preg_replace('/[\[\]:*?\/\\\\\x00-\x1F]+/', ' ', preg_match('//u', $sheetHeading) ? $sheetHeading : '')), " '");
-		$nameTxt = rtrim($cutsTxt(($nameTxt==='') ? 'Sheet'.$sheetPlaceNb : $nameTxt, 31));
-		$lwrList = array_map('strtolower', $usedNameList);
-		$baseTxt = $nameTxt;
-		for($tryIdx=2; in_array(strtolower($nameTxt), $lwrList, true); $tryIdx++){
-			$nameTxt = $cutsTxt($baseTxt, 31-strlen(' ('.$tryIdx.')')).' ('.$tryIdx.')';
+		$cutsText = function(String $textToShrink, Int $lengthsMaxNb){ return function_exists('mb_substr') ? mb_substr($textToShrink, 0, $lengthsMaxNb, 'UTF-8') : substr($textToShrink, 0, $lengthsMaxNb); };
+		$nameText = trim(strval(preg_replace('/[\[\]:*?\/\\\\\x00-\x1F]+/', ' ', preg_match('//u', $sheetHeading) ? $sheetHeading : '')), " '");
+		$nameText = rtrim($cutsText(($nameText==='') ? 'Sheet'.$sheetPlaceNb : $nameText, 31));
+		$lowerLst = array_map('strtolower', $usedNameList);
+		$baseText = $nameText;
+		for($tryIdx=2; in_array(strtolower($nameText), $lowerLst, true); $tryIdx++){
+			$nameText = $cutsText($baseText, 31-strlen(' ('.$tryIdx.')')).' ('.$tryIdx.')';
 		}
-		return $nameTxt;
+		return $nameText;
 	}
 
 	/**
@@ -44,14 +44,14 @@ abstract class Grid extends Base {
 	 * @return Array True or false for each sheet, in their order.
 	 */
 	protected function listShownSheet(Array $sheetEntries): Array {
-		$shwnLst = Array();
+		$shownLst = Array();
 		foreach($sheetEntries as $shtArr){
-			$shwnLst[] = !isset($shtArr['attrs']['shown']) || !empty($shtArr['attrs']['shown']);
+			$shownLst[] = !isset($shtArr['attrs']['shown']) || !empty($shtArr['attrs']['shown']);
 		}
-		if( !empty($shwnLst) && !in_array(true, $shwnLst, true) ){
-			$shwnLst[0] = true;
+		if( !empty($shownLst) && !in_array(true, $shownLst, true) ){
+			$shownLst[0] = true;
 		}
-		return $shwnLst;
+		return $shownLst;
 	}
 
 	/**
@@ -66,38 +66,38 @@ abstract class Grid extends Base {
 	 * @throws WriteError When the sheet is larger than a sheet can be.
 	 */
 	protected function sheetGridArray(Array $sheetDetails, Bool $writeHeaders): Array {
-		$rowsLst = array_values((array)($sheetDetails['cells'] ?? Array()));
+		$rowsList = array_values((array)($sheetDetails['cells'] ?? Array()));
 		// Every name met, in the order they are met, makes a column
-		$headLst = Array();
-		$isKeyed = false;
-		foreach($rowsLst as $oneRow){
-			$isKeyed = ($isKeyed || !$this->validateALstOf((array)$oneRow));
+		$headList = Array();
+		$isByKeys = false;
+		foreach($rowsList as $oneRow){
+			$isByKeys = ($isByKeys || !$this->validateALstOf((array)$oneRow));
 		}
-		if( $isKeyed ){
-			foreach($rowsLst as $oneRow){
+		if( $isByKeys ){
+			foreach($rowsList as $oneRow){
 				foreach(array_keys((array)$oneRow) as $column){
-					if( !in_array(strval($column), $headLst, true) ){
-						$headLst[] = strval($column);
+					if( !in_array(strval($column), $headList, true) ){
+						$headList[] = strval($column);
 					}
 				}
 			}
 		}
-		$gridLst = Array();
-		foreach($rowsLst as $oneRow){
-			$cellLst = Array();
-			if( $isKeyed ){
-				foreach($headLst as $column){
-					$cellLst[] = ((array)$oneRow)[$column] ?? null;
+		$gridList = Array();
+		foreach($rowsList as $oneRow){
+			$cellList = Array();
+			if( $isByKeys ){
+				foreach($headList as $column){
+					$cellList[] = ((array)$oneRow)[$column] ?? null;
 				}
 			}else{
-				$cellLst = array_values((array)$oneRow);
+				$cellList = array_values((array)$oneRow);
 			}
-			$gridLst[] = $cellLst;
-			if( count($gridLst)+(($isKeyed && $writeHeaders) ? 1 : 0)>self::ROWS_MAXI || count($cellLst)>self::COLS_MAXI ){
+			$gridList[] = $cellList;
+			if( count($gridList)+(($isByKeys && $writeHeaders) ? 1 : 0)>self::ROWS_MAXI || count($cellList)>self::COLS_MAXI ){
 				throw new WriteError('Sheet larger than a sheet can be: '.self::ROWS_MAXI.' rows of '.self::COLS_MAXI.' cells');
 			}
 		}
-		return Array('heads'=>($isKeyed && $writeHeaders) ? $headLst : Array(), 'cells'=>$gridLst);
+		return Array('heads'=>($isByKeys && $writeHeaders) ? $headList : Array(), 'cells'=>$gridList);
 	}
 
 	/**
@@ -125,15 +125,15 @@ abstract class Grid extends Base {
 	 * @return ?Array The year, the month and the day, then the hours, the minutes and the seconds when it tells a time; null when it is not a date that exists.
 	 */
 	protected function datePartsArray(String $sourceString): ?Array {
-		$dateLst = Array();
-		if( !preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/D', $sourceString, $dateLst) ){
+		$dateList = Array();
+		if( !preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/D', $sourceString, $dateList) ){
 			return null;
 		}
-		$partLst = array_map('intval', array_slice($dateLst, 1));
-		if( !checkdate($partLst[1], $partLst[2], $partLst[0]) || ($partLst[3] ?? 0)>23 || ($partLst[4] ?? 0)>59 || ($partLst[5] ?? 0)>59 ){
+		$partList = array_map('intval', array_slice($dateList, 1));
+		if( !checkdate($partList[1], $partList[2], $partList[0]) || ($partList[3] ?? 0)>23 || ($partList[4] ?? 0)>59 || ($partList[5] ?? 0)>59 ){
 			return null;
 		}
-		return isset($partLst[3]) ? Array($partLst[0], $partLst[1], $partLst[2], $partLst[3], $partLst[4], $partLst[5] ?? 0) : $partLst;
+		return isset($partList[3]) ? Array($partList[0], $partList[1], $partList[2], $partList[3], $partList[4], $partList[5] ?? 0) : $partList;
 	}
 
 }
