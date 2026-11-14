@@ -50,38 +50,38 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeCleanDir(): Int {
-		$kindList = $this->optionsObj->restWordsArray();
-		if( empty($kindList) ){
+		$kindLst = $this->optionsObj->restWordsArray();
+		if( empty($kindLst) ){
 			$this->terminateShell('Missing argument: what to purge ('.implode(', ', self::KIND_LIST).', or all)', self::EXIT_HELP);
 		}
-		if( in_array('all', $kindList, true) ){
-			$kindList = self::KIND_LIST;
+		if( in_array('all', $kindLst, true) ){
+			$kindLst = self::KIND_LIST;
 		}
-		$badLstng = array_diff($kindList, self::KIND_LIST);
-		if( !empty($badLstng) ){
-			$this->terminateShell('Nothing is purged under that name: '.implode(', ', $badLstng), self::EXIT_HELP);
+		$badList = array_diff($kindLst, self::KIND_LIST);
+		if( !empty($badList) ){
+			$this->terminateShell('Nothing is purged under that name: '.implode(', ', $badList), self::EXIT_HELP);
 		}
-		$keepDays = $this->optionsObj->retrieveOption('keepDays');
-		if( $keepDays!==null && !preg_match('/^\d{1,5}$/D', $keepDays) ){
+		$oldDays = $this->optionsObj->retrieveOption('keepDays');
+		if( $oldDays!==null && !preg_match('/^\d{1,5}$/D', $oldDays) ){
 			$this->terminateShell('--keepDays takes a number of days', self::EXIT_HELP);
 		}
-		$uptoUnix = ($keepDays===null) ? null : time() - intval($keepDays)*86400;
-		$kindList = array_values(array_unique($kindList));
-		if( !$this->queryAgreedFlg('Remove the files of '.implode(', ', $kindList).( $keepDays!==null ? ' older than '.$keepDays.' days' : '' )) ){
+		$upToTim = ($oldDays===null) ? null : time() - intval($oldDays)*86400;
+		$kindLst = array_values(array_unique($kindLst));
+		if( !$this->queryAgreedFlg('Remove the files of '.implode(', ', $kindLst).( $oldDays!==null ? ' older than '.$oldDays.' days' : '' )) ){
 			$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 		}
-		$rowsList = Array();
-		foreach( $kindList as $kndNme ){
-			$fieldPth = $this->verifyTempPath( $this->findTempFolder($kndNme) );
-			if( $fieldPth===null ){
-				$rowsList[] = Array($kndNme, 0, 'left alone: its folder is missing, or not under temp');
+		$rowList = Array();
+		foreach( $kindLst as $kndNme ){
+			$fldPath = $this->verifyTempPath( $this->findTempFolder($kndNme) );
+			if( $fldPath===null ){
+				$rowList[] = Array($kndNme, 0, 'left alone: its folder is missing, or not under temp');
 				continue;
 			}
-			$dropNumb = $this->dropFilesCount($fieldPth, $uptoUnix);
-			$rowsList[] = Array($kndNme, $dropNumb, 'purged');
-			$this->traceShellDone( 'Purge of '.$kndNme.': '.$dropNumb.' files removed'.( $keepDays!==null ? ', older than '.$keepDays.' days' : '' ) );
+			$dropNum = $this->dropFilesCount($fldPath, $upToTim);
+			$rowList[] = Array($kndNme, $dropNum, 'purged');
+			$this->traceShellDone( 'Purge of '.$kndNme.': '.$dropNum.' files removed'.( $oldDays!==null ? ', older than '.$oldDays.' days' : '' ) );
 		}
-		$this->printerObj->printShellRows( Array('folder', 'removed', 'state'), $rowsList );
+		$this->printerObj->printShellRows( Array('folder', 'removed', 'state'), $rowList );
 		return self::EXIT_DONE;
 	}
 
@@ -91,18 +91,18 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFullList(): Int {
-		$lmtrInst = new Limiter( $this->accessSettings('tryLimit') );
-		$rowsList = Array();
-		foreach( $lmtrInst->listLimitHolds() as $cntVal ){
-			$rowsList[] = Array(
+		$lmtrObj = new Limiter( $this->accessSettings('tryLimit') );
+		$rowList = Array();
+		foreach( $lmtrObj->listLimitHolds() as $cntVal ){
+			$rowList[] = Array(
 				($cntVal['addrs']!='') ? $cntVal['addrs'] : '(not told)',
 				$cntVal['fails'],
 				date('Y-m-d H:i:s', $cntVal['stamp']),
 				($cntVal['until']>0) ? date('Y-m-d H:i:s', $cntVal['until']) : ''
 			);
 		}
-		$this->printerObj->printShellRows( Array('address', 'failures', 'last', 'held until'), $rowsList );
-		if( empty($rowsList) ){
+		$this->printerObj->printShellRows( Array('address', 'failures', 'last', 'held until'), $rowList );
+		if( empty($rowList) ){
 			$this->printerObj->printShellLine('No address is counted.');
 		}
 		return self::EXIT_DONE;
@@ -114,18 +114,18 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFreeAddr(): Int {
-		$givenAdr = $this->needsShellWord('the address to release, or all');
-		if( $givenAdr!='all' && filter_var($givenAdr, FILTER_VALIDATE_IP)===false ){
-			$this->terminateShell('Not an address: '.$givenAdr, self::EXIT_HELP);
+		$gvnAddr = $this->needsShellWord('the address to release, or all');
+		if( $gvnAddr!='all' && filter_var($gvnAddr, FILTER_VALIDATE_IP)===false ){
+			$this->terminateShell('Not an address: '.$gvnAddr, self::EXIT_HELP);
 		}
-		if( !$this->queryAgreedFlg('Release '.( $givenAdr=='all' ? 'every address' : $givenAdr )) ){
+		if( !$this->queryAgreedFlg('Release '.( $gvnAddr=='all' ? 'every address' : $gvnAddr )) ){
 			$this->terminateShell('Nothing was released: not confirmed', self::EXIT_DENY);
 		}
-		$lmtrInst = new Limiter( $this->accessSettings('tryLimit') );
-		$dropNumb = $lmtrInst->freeHoldsCount( $givenAdr=='all' ? null : $givenAdr );
-		$this->printerObj->printShellPair('released', $dropNumb);
-		if( $dropNumb>0 ){
-			$this->traceShellDone( 'Limiter: '.( $givenAdr=='all' ? $dropNumb.' addresses released' : 'address '.$givenAdr.' released' ) );
+		$lmtrObj = new Limiter( $this->accessSettings('tryLimit') );
+		$dropNum = $lmtrObj->freeHoldsCount( $gvnAddr=='all' ? null : $gvnAddr );
+		$this->printerObj->printShellPair('released', $dropNum);
+		if( $dropNum>0 ){
+			$this->traceShellDone( 'Limiter: '.( $gvnAddr=='all' ? $dropNum.' addresses released' : 'address '.$gvnAddr.' released' ) );
 		}
 		return self::EXIT_DONE;
 	}
@@ -141,8 +141,8 @@ class Cleans extends Command{
 			return strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] );
 		}
 		if( $tempFileKind=='tryLimit' ){
-			$fieldNme = trim( strval($this->accessSettings('tryLimit')['dataPath'] ?? ''), '/\\ ' );
-			return TOP_DIR.DS.( $fieldNme!='' ? str_replace(Array('/', '\\'), DS, $fieldNme) : 'temp'.DS.'limits' );
+			$fldName = trim( strval($this->accessSettings('tryLimit')['dataPath'] ?? ''), '/\\ ' );
+			return TOP_DIR.DS.( $fldName!='' ? str_replace(Array('/', '\\'), DS, $fldName) : 'temp'.DS.'limits' );
 		}
 		return TOP_DIR.DS.'temp'.DS.( ($tempFileKind=='cacheDir') ? 'cache' : $tempFileKind );
 	}
@@ -155,12 +155,12 @@ class Cleans extends Command{
 	 * @return ?String Its real path, or null when it is missing or lies elsewhere.
 	 */
 	protected function verifyTempPath( String $fullFldrPath ): ?String {
-		$realFild = realpath($fullFldrPath);
-		$realPath = realpath(TOP_DIR.DS.'temp');
-		if( $realFild===false || $realPath===false || !is_dir($realFild) || strpos($realFild.DS, $realPath.DS)!==0 || $realFild===$realPath ){
+		$realFld = realpath($fullFldrPath);
+		$realDir = realpath(TOP_DIR.DS.'temp');
+		if( $realFld===false || $realDir===false || !is_dir($realFld) || strpos($realFld.DS, $realDir.DS)!==0 || $realFld===$realDir ){
 			return null;
 		}
-		return $realFild;
+		return $realFld;
 	}
 
 	/**
@@ -171,21 +171,21 @@ class Cleans extends Command{
 	 * @return Int The number of files removed.
 	 */
 	protected function dropFilesCount( String $fullFldrPath, ?Int $unixMomentNb=null ): Int {
-		$dropNumb = 0;
+		$dropNum = 0;
 		foreach( (array)scandir($fullFldrPath) as $entNme ){
 			if( $entNme=='.' || $entNme=='..' || $entNme=='.gitkeep' ){
 				continue;
 			}
-			$subTrail = $fullFldrPath.DS.$entNme;
-			if( is_link($subTrail) ){
+			$subPath = $fullFldrPath.DS.$entNme;
+			if( is_link($subPath) ){
 				continue;
 			}
-			if( is_dir($subTrail) ){
-				$dropNumb += $this->dropFilesCount($subTrail, $unixMomentNb);
-			}elseif( ($unixMomentNb===null || filemtime($subTrail)<$unixMomentNb) && @unlink($subTrail) ){
-				$dropNumb++;
+			if( is_dir($subPath) ){
+				$dropNum += $this->dropFilesCount($subPath, $unixMomentNb);
+			}elseif( ($unixMomentNb===null || filemtime($subPath)<$unixMomentNb) && @unlink($subPath) ){
+				$dropNum++;
 			}
 		}
-		return $dropNumb;
+		return $dropNum;
 	}
 }

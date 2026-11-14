@@ -58,19 +58,19 @@ class SqlStore implements Store {
 	 */
 	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
 		if( !isset($this->detailList[$tbleLabelTxt]) ){
-			$tableDct = ConfCache::tableInfoArray($this->dbLinkName, $tbleLabelTxt);
-			if( $tableDct!==null ){
+			$tblInfo = ConfCache::tableInfoArray($this->dbLinkName, $tbleLabelTxt);
+			if( $tblInfo!==null ){
 				$this->cachTblArr[] = $tbleLabelTxt;
 			}else{
-				$tableDct = $this->baseHandle->tableInfoArray($tbleLabelTxt);
+				$tblInfo = $this->baseHandle->tableInfoArray($tbleLabelTxt);
 				// A table that cannot be described is asked again next time
-				if( !is_array($tableDct) ){
+				if( !is_array($tblInfo) ){
 					return false;
 				}
-				$tableDct = Array('flds'=>(array)($tableDct['flds'] ?? Array()), 'pkey'=>strval($tableDct['pkey'] ?? ''), 'blob'=>(array)($tableDct['blob'] ?? Array()));
-				ConfCache::keepCacheTable($this->dbLinkName, $tbleLabelTxt, $tableDct);
+				$tblInfo = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
+				ConfCache::keepCacheTable($this->dbLinkName, $tbleLabelTxt, $tblInfo);
 			}
-			$this->detailList[$tbleLabelTxt] = Array('flds'=>(array)($tableDct['flds'] ?? Array()), 'pkey'=>strval($tableDct['pkey'] ?? ''), 'blob'=>(array)($tableDct['blob'] ?? Array()));
+			$this->detailList[$tbleLabelTxt] = Array('flds'=>(array)($tblInfo['flds'] ?? Array()), 'pkey'=>strval($tblInfo['pkey'] ?? ''), 'blob'=>(array)($tblInfo['blob'] ?? Array()));
 		}
 		return $this->detailList[$tbleLabelTxt];
 	}
@@ -90,141 +90,141 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When a name is not valid, a join does not have three parts, or a binary field is larger than accepted.
 	 */
 	public function findItemsArray(String $tbleLabelTxt, Array $filterFields=Array(), Array $queryOptions=Array()): Array|Bool {
-		$dtbsHndr = $this->baseHandle;
-		$dvlpText = (array)($queryOptions['devel'] ?? Array());
+		$dbHndlr = $this->baseHandle;
+		$devText = (array)($queryOptions['devel'] ?? Array());
 
-		$joinList = array_values((array)($queryOptions['joins'] ?? Array()));
-		if( !empty($joinList) && count($joinList)!=3 ){
+		$joinLst = array_values((array)($queryOptions['joins'] ?? Array()));
+		if( !empty($joinLst) && count($joinLst)!=3 ){
 			throw new \RuntimeException('A join needs a table and two field names');
 		}
-		$tableLst = empty($joinList) ? Array($tbleLabelTxt) : Array($tbleLabelTxt, strval($joinList[0]));
+		$tblList = empty($joinLst) ? Array($tbleLabelTxt) : Array($tbleLabelTxt, strval($joinLst[0]));
 
 		// Selection: the fields, then the functions
-		$slctList = Array();
+		$slctLst = Array();
 		// The binary fields read, by the name they are read under
-		$blobList = Array();
+		$blobOut = Array();
 		foreach( (array)($queryOptions['field'] ?? Array()) as $column ){
-			$fieldNme = is_array($column) ? strval($column['field'] ?? '') : strval($column);
-			$fieldAls = is_array($column) ? strval($column['alias'] ?? '') : '';
-			$slctList[] = $dtbsHndr->quoteFieldName($fieldNme).($fieldAls!='' ? ' AS '.$dtbsHndr->quoteFieldName($fieldAls) : '');
-			$fieldPar = explode('.', $fieldNme);
-			$bareName = end($fieldPar);
-			foreach( (count($fieldPar)>1) ? Array($fieldPar[0]) : $tableLst as $tblNme ){
-				if( in_array($bareName, $this->tableFieldsArr($tblNme)['blob']) ){
-					$blobList[($fieldAls!='') ? $fieldAls : $bareName] = true;
+			$fldName = is_array($column) ? strval($column['field'] ?? '') : strval($column);
+			$fldAlis = is_array($column) ? strval($column['alias'] ?? '') : '';
+			$slctLst[] = $dbHndlr->quoteFieldName($fldName).($fldAlis!='' ? ' AS '.$dbHndlr->quoteFieldName($fldAlis) : '');
+			$fldPart = explode('.', $fldName);
+			$bareNme = end($fldPart);
+			foreach( (count($fldPart)>1) ? Array($fldPart[0]) : $tblList as $tblNme ){
+				if( in_array($bareNme, $this->tableFieldsArr($tblNme)['blob']) ){
+					$blobOut[($fldAlis!='') ? $fldAlis : $bareNme] = true;
 				}
 			}
 		}
 		// No field named: all of them, but the binary ones
-		if( empty($slctList) && empty($queryOptions['funcs']) && strval($dvlpText['field'] ?? '')=='' ){
-			$hasBlobs = false;
-			$wideList = Array();
-			foreach($tableLst as $tblNme){
-				$tableDct = $this->tableFieldsArr($tblNme);
-				$hasBlobs = $hasBlobs || !empty($tableDct['blob']);
-				foreach(array_diff($tableDct['flds'], $tableDct['blob']) as $fldNme){
-					$wideList[] = $dtbsHndr->quoteFieldName((count($tableLst)>1) ? $tblNme.'.'.$fldNme : $fldNme);
+		if( empty($slctLst) && empty($queryOptions['funcs']) && strval($devText['field'] ?? '')=='' ){
+			$hasBlob = false;
+			$wideLst = Array();
+			foreach($tblList as $tblNme){
+				$tblInfo = $this->tableFieldsArr($tblNme);
+				$hasBlob = $hasBlob || !empty($tblInfo['blob']);
+				foreach(array_diff($tblInfo['flds'], $tblInfo['blob']) as $fldNme){
+					$wideLst[] = $dbHndlr->quoteFieldName((count($tblList)>1) ? $tblNme.'.'.$fldNme : $fldNme);
 				}
 			}
-			if( $hasBlobs && !empty($wideList) ){
-				$slctList = $wideList;
+			if( $hasBlob && !empty($wideLst) ){
+				$slctLst = $wideLst;
 			}
 		}
 		foreach( (array)($queryOptions['funcs'] ?? Array()) as $fncSel ){
-			$funcsNme = strtolower( strval($fncSel['funct'] ?? '') );
-			$funcsFld = strval($fncSel['field'] ?? '*');
-			$aliaName = strval($fncSel['alias'] ?? '');
+			$funcNme = strtolower( strval($fncSel['funct'] ?? '') );
+			$funcFld = strval($fncSel['field'] ?? '*');
+			$asLabel = strval($fncSel['alias'] ?? '');
 			// Checked here too : a store may be called without DBLst
-			if( !in_array($funcsNme, Store::FUNC_LIST, true) || ($funcsFld=='*' && $funcsNme!='count') ){
-				throw new \RuntimeException('Invalid function name: '.$funcsNme);
+			if( !in_array($funcNme, Store::FUNC_LIST, true) || ($funcFld=='*' && $funcNme!='count') ){
+				throw new \RuntimeException('Invalid function name: '.$funcNme);
 			}
-			$slctList[] = $funcsNme.'('.($funcsFld=='*' ? '*' : $dtbsHndr->quoteFieldName($funcsFld)).')'.($aliaName!='' ? ' AS '.$dtbsHndr->quoteFieldName($aliaName) : '');
+			$slctLst[] = $funcNme.'('.($funcFld=='*' ? '*' : $dbHndlr->quoteFieldName($funcFld)).')'.($asLabel!='' ? ' AS '.$dbHndlr->quoteFieldName($asLabel) : '');
 		}
-		$slctText = strval($dvlpText['field'] ?? '');
-		if( $slctText=='' ){
-			$slctText = empty($slctList) ? '*' : implode(',', $slctList);
+		$slctTxt = strval($devText['field'] ?? '');
+		if( $slctTxt=='' ){
+			$slctTxt = empty($slctLst) ? '*' : implode(',', $slctLst);
 		}
-		$findQuer = 'SELECT '.$slctText.' FROM '.$dtbsHndr->quoteFieldName($tbleLabelTxt);
+		$findQry = 'SELECT '.$slctTxt.' FROM '.$dbHndlr->quoteFieldName($tbleLabelTxt);
 
 		// Join
-		if( !empty($joinList) ){
-			$findQuer .= ' LEFT JOIN '.$dtbsHndr->quoteFieldName(strval($joinList[0])).' ON '.$dtbsHndr->quoteFieldName(strval($joinList[1])).' = '.$dtbsHndr->quoteFieldName(strval($joinList[2]));
+		if( !empty($joinLst) ){
+			$findQry .= ' LEFT JOIN '.$dbHndlr->quoteFieldName(strval($joinLst[0])).' ON '.$dbHndlr->quoteFieldName(strval($joinLst[1])).' = '.$dbHndlr->quoteFieldName(strval($joinLst[2]));
 		}
 
 		// Filter
-		$wherePar = $dtbsHndr->makeWhereArray($filterFields);
-		$whereTxt = strval($dvlpText['where'] ?? '');
-		if( $whereTxt!='' && $wherePar['text']!='' ){
-			$whereTxt = '('.$whereTxt.') AND ('.$wherePar['text'].')';
-		}elseif( $whereTxt=='' ){
-			$whereTxt = $wherePar['text'];
+		$whrPart = $dbHndlr->makeWhereArray($filterFields);
+		$whrText = strval($devText['where'] ?? '');
+		if( $whrText!='' && $whrPart['text']!='' ){
+			$whrText = '('.$whrText.') AND ('.$whrPart['text'].')';
+		}elseif( $whrText=='' ){
+			$whrText = $whrPart['text'];
 		}
-		if( $whereTxt!='' ){
-			$findQuer .= ' WHERE '.$whereTxt;
+		if( $whrText!='' ){
+			$findQry .= ' WHERE '.$whrText;
 		}
 
 		// Group
-		$groupLst = Array();
+		$grpList = Array();
 		foreach( (array)($queryOptions['group'] ?? Array()) as $grpFld ){
-			$groupLst[] = $dtbsHndr->quoteFieldName(strval($grpFld));
+			$grpList[] = $dbHndlr->quoteFieldName(strval($grpFld));
 		}
-		if( !empty($groupLst) ){
-			$findQuer .= ' GROUP BY '.implode(',', $groupLst);
+		if( !empty($grpList) ){
+			$findQry .= ' GROUP BY '.implode(',', $grpList);
 		}
 
 		// Order
-		$orderTxt = strval($dvlpText['order'] ?? '');
-		if( $orderTxt=='' ){
-			$orderLst = Array();
+		$ordrTxt = strval($devText['order'] ?? '');
+		if( $ordrTxt=='' ){
+			$ordrLst = Array();
 			foreach( (array)($queryOptions['order'] ?? Array()) as $sortBy ){
-				$sortDefn = array_values((array)$sortBy);
-				$orderLst[] = $dtbsHndr->quoteFieldName(strval($sortDefn[0] ?? '')).(empty($sortDefn[1]) ? ' ASC' : ' DESC');
+				$sortDef = array_values((array)$sortBy);
+				$ordrLst[] = $dbHndlr->quoteFieldName(strval($sortDef[0] ?? '')).(empty($sortDef[1]) ? ' ASC' : ' DESC');
 			}
-			$orderTxt = implode(',', $orderLst);
+			$ordrTxt = implode(',', $ordrLst);
 		}
-		if( $orderTxt!='' ){
-			$findQuer .= ' ORDER BY '.$orderTxt;
+		if( $ordrTxt!='' ){
+			$findQry .= ' ORDER BY '.$ordrTxt;
 		}
 
 		// Limit
-		$limitTxt = strval($dvlpText['limit'] ?? '');
-		if( $limitTxt=='' && isset($queryOptions['limit']) ){
-			$limitTxt = strval(max(0, intval($queryOptions['limit'])));
+		$lmtText = strval($devText['limit'] ?? '');
+		if( $lmtText=='' && isset($queryOptions['limit']) ){
+			$lmtText = strval(max(0, intval($queryOptions['limit'])));
 			if( isset($queryOptions['offst']) ){
-				$limitTxt .= ' OFFSET '.max(0, intval($queryOptions['offst']));
+				$lmtText .= ' OFFSET '.max(0, intval($queryOptions['offst']));
 			}
 		}
-		if( $limitTxt!='' ){
-			$findQuer .= ' LIMIT '.$limitTxt;
+		if( $lmtText!='' ){
+			$findQry .= ' LIMIT '.$lmtText;
 		}
 
-		if( !$dtbsHndr->sendBuiltQuery($findQuer, false, $wherePar['vals']) ){
+		if( !$dbHndlr->sendBuiltQuery($findQry, false, $whrPart['vals']) ){
 			// A table changed since the config cache described it: the next request describes it again
-			if( !empty(array_intersect($tableLst, $this->cachTblArr)) ){
+			if( !empty(array_intersect($tblList, $this->cachTblArr)) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
 		}
-		$matxRows = $dtbsHndr->readLastResult(true);
-		if( !is_array($matxRows) ){
+		$matches = $dbHndlr->readLastResult(true);
+		if( !is_array($matches) ){
 			return false;
 		}
 		// What is binary is given as a flux: what the database gives as a stream, and the binary fields named
-		$maxBytes = max(0, intval($queryOptions['bytes'] ?? self::BLOB_SIZE));
-		foreach($matxRows as $rowIdx=>$rowArr){
+		$byteMax = max(0, intval($queryOptions['bytes'] ?? self::BLOB_SIZE));
+		foreach($matches as $rowIdx=>$rowArr){
 			foreach($rowArr as $fldNme=>$fldVal){
 				if( is_resource($fldVal) ){
-					$fldVal = strval(stream_get_contents($fldVal, $maxBytes+1));
-				}elseif( !isset($blobList[$fldNme]) || !is_string($fldVal) ){
+					$fldVal = strval(stream_get_contents($fldVal, $byteMax+1));
+				}elseif( !isset($blobOut[$fldNme]) || !is_string($fldVal) ){
 					continue;
 				}
-				if( strlen($fldVal)>$maxBytes ){
-					throw new \RuntimeException('Binary field larger than the '.$maxBytes.' bytes allowed: '.$fldNme);
+				if( strlen($fldVal)>$byteMax ){
+					throw new \RuntimeException('Binary field larger than the '.$byteMax.' bytes allowed: '.$fldNme);
 				}
-				$matxRows[$rowIdx][$fldNme] = Fluxd::openBytesFluxd($fldVal);
+				$matches[$rowIdx][$fldNme] = Fluxd::openBytesFluxd($fldVal);
 			}
 		}
-		return $matxRows;
+		return $matches;
 	}
 
 	/**
@@ -237,8 +237,8 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	protected function tableFieldsArr(String $tbleLabelTxt): Array {
-		$tableDct = $this->tableInfoArray($tbleLabelTxt);
-		return is_array($tableDct) ? $tableDct : Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
+		$tblInfo = $this->tableInfoArray($tbleLabelTxt);
+		return is_array($tblInfo) ? $tblInfo : Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
 	}
 
 	/**
@@ -251,20 +251,20 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When a name is not valid.
 	 */
 	public function insertTableRow(String $tbleLabelTxt, Array $fieldValList): String|Bool {
-		$dtbsHndr = $this->baseHandle;
-		$fldsQotd = Array();
+		$dbHndlr = $this->baseHandle;
+		$fldsQtd = Array();
 		foreach( array_keys($fieldValList) as $fldNme ){
-			$fldsQotd[] = $dtbsHndr->quoteFieldName(strval($fldNme));
+			$fldsQtd[] = $dbHndlr->quoteFieldName(strval($fldNme));
 		}
-		$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($tbleLabelTxt).' ('.implode(',', $fldsQotd).') VALUES ('.implode(',', array_fill(0, count($fieldValList), '?')).');';
-		if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($fieldValList)) ){
+		$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($tbleLabelTxt).' ('.implode(',', $fldsQtd).') VALUES ('.implode(',', array_fill(0, count($fieldValList), '?')).');';
+		if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($fieldValList)) ){
 			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
 		}
-		$madeClef = $dtbsHndr->finalAddedText();
-		return ($madeClef===false) ? '' : strval($madeClef);
+		$madeKey = $dbHndlr->finalAddedText();
+		return ($madeKey===false) ? '' : strval($madeKey);
 	}
 
 	/**
@@ -279,24 +279,24 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When a name is not valid, or the filter matches every row.
 	 */
 	public function updateRowCount(String $tbleLabelTxt, Array $filterFields, Array $fieldValList): Int|Bool {
-		$dtbsHndr = $this->baseHandle;
-		$wherePar = $this->needWhereArray($filterFields);
-		$tableQtd = $dtbsHndr->quoteFieldName($tbleLabelTxt);
+		$dbHndlr = $this->baseHandle;
+		$whrPart = $this->needWhereArray($filterFields);
+		$tbleQtd = $dbHndlr->quoteFieldName($tbleLabelTxt);
 		if( empty($fieldValList) ){
 			return 0;
 		}
-		$setsList = Array();
+		$setList = Array();
 		foreach( array_keys($fieldValList) as $fldNme ){
-			$setsList[] = $dtbsHndr->quoteFieldName(strval($fldNme)).'=?';
+			$setList[] = $dbHndlr->quoteFieldName(strval($fldNme)).'=?';
 		}
-		$updtQuer = 'UPDATE '.$tableQtd.' SET '.implode(',', $setsList).' WHERE '.$wherePar['text'].';';
-		if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, array_merge(array_values($fieldValList), $wherePar['vals'])) ){
+		$updtQry = 'UPDATE '.$tbleQtd.' SET '.implode(',', $setList).' WHERE '.$whrPart['text'].';';
+		if( !$dbHndlr->sendBuiltQuery($updtQry, true, array_merge(array_values($fieldValList), $whrPart['vals'])) ){
 			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
 		}
-		return $dtbsHndr->countLastWrite();
+		return $dbHndlr->countLastWrite();
 	}
 
 	/**
@@ -310,16 +310,16 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When a name is not valid, or the filter matches every row.
 	 */
 	public function deleteRowCount(String $tbleLabelTxt, Array $filterFields): Int|Bool {
-		$dtbsHndr = $this->baseHandle;
-		$wherePar = $this->needWhereArray($filterFields);
-		$remvStmt = 'DELETE FROM '.$dtbsHndr->quoteFieldName($tbleLabelTxt).' WHERE '.$wherePar['text'].';';
-		if( !$dtbsHndr->sendBuiltQuery($remvStmt, true, $wherePar['vals']) ){
+		$dbHndlr = $this->baseHandle;
+		$whrPart = $this->needWhereArray($filterFields);
+		$delStmt = 'DELETE FROM '.$dbHndlr->quoteFieldName($tbleLabelTxt).' WHERE '.$whrPart['text'].';';
+		if( !$dbHndlr->sendBuiltQuery($delStmt, true, $whrPart['vals']) ){
 			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
 		}
-		return $dtbsHndr->countLastWrite();
+		return $dbHndlr->countLastWrite();
 	}
 
 	/**
@@ -333,11 +333,11 @@ class SqlStore implements Store {
 	 * @throws \RuntimeException When a name is not valid, or the filter matches every row.
 	 */
 	protected function needWhereArray(Array $filterFields): Array {
-		$wherePar = $this->baseHandle->makeWhereArray($filterFields);
-		if( $wherePar['text']=='' || preg_match('/^1=1( AND 1=1)*$/D', $wherePar['text']) ){
+		$whrPart = $this->baseHandle->makeWhereArray($filterFields);
+		if( $whrPart['text']=='' || preg_match('/^1=1( AND 1=1)*$/D', $whrPart['text']) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
 		}
-		return $wherePar;
+		return $whrPart;
 	}
 
 	/**

@@ -46,15 +46,15 @@ abstract Class PDO implements Handler {
 			$this->errMessage = Array();
 			$this->lastResult = false;
 			$this->builtQuery = $createdQuery;
-			$errorSrc = $this->baseDriver;
+			$errrSrc = $this->baseDriver;
 			if( !empty($valuesToBind) ){
-				$stmtInst = $this->baseDriver->prepare($this->builtQuery);
-				if( $stmtInst!==false && $this->execBoundQuery($stmtInst, array_values($valuesToBind)) ){
-					$stmtInst->setFetchMode(\PDO::FETCH_ASSOC);
-					$this->lastResult = $isWriteQuery ? $stmtInst->rowCount() : $stmtInst;
+				$stmtObj = $this->baseDriver->prepare($this->builtQuery);
+				if( $stmtObj!==false && $this->execBoundQuery($stmtObj, array_values($valuesToBind)) ){
+					$stmtObj->setFetchMode(\PDO::FETCH_ASSOC);
+					$this->lastResult = $isWriteQuery ? $stmtObj->rowCount() : $stmtObj;
 				}else{
 					$this->lastResult = false;
-					if( $stmtInst!==false ) $errorSrc = $stmtInst;
+					if( $stmtObj!==false ) $errrSrc = $stmtObj;
 				}
 			}elseif($isWriteQuery){
 				$this->lastResult = $this->baseDriver->exec($this->builtQuery);
@@ -62,7 +62,7 @@ abstract Class PDO implements Handler {
 				$this->lastResult = $this->baseDriver->query($this->builtQuery, \PDO::FETCH_ASSOC);
 			}
 			if($this->lastResult===false){
-				$this->errMessage[] = "PDO Error: ".$errorSrc->errorInfo()[2];
+				$this->errMessage[] = "PDO Error: ".$errrSrc->errorInfo()[2];
 				return false;
 			}else{
 				return true;
@@ -83,11 +83,11 @@ abstract Class PDO implements Handler {
 	 * @return Bool True when the query ran.
 	 */
 	protected function execBoundQuery(\PDOStatement $statementObj, Array $valuesToBind): Bool {
-		$hasBlobs = false;
+		$hasBlob = false;
 		foreach($valuesToBind as $bndVal){
-			$hasBlobs = $hasBlobs || ($bndVal instanceof \nyu\Data\Fluxd);
+			$hasBlob = $hasBlob || ($bndVal instanceof \nyu\Data\Fluxd);
 		}
-		if( !$hasBlobs ){
+		if( !$hasBlob ){
 			return $statementObj->execute($valuesToBind);
 		}
 		foreach($valuesToBind as $bndIdx=>$bndVal){
@@ -111,28 +111,28 @@ abstract Class PDO implements Handler {
 	 */
 	public function readLastResult( Bool $alwaysAsList=false ): Mixed {
 		if(isset($this->lastResult) && $this->lastResult!=false ){
-			$rowArray = Array();
+			$rowData = Array();
 			if(is_array($this->lastResult) || is_object($this->lastResult)){
 				foreach($this->lastResult as $resRow){
-					$rowArray[] = $resRow;
+					$rowData[] = $resRow;
 				}
 				if($alwaysAsList){
-					return $rowArray;
+					return $rowData;
 				}
-				if(count($rowArray)==0 || $rowArray[0]==null){
-					return $rowArray;
+				if(count($rowData)==0 || $rowData[0]==null){
+					return $rowData;
 				}
-				if( count($rowArray)>1 ){
-					return $rowArray;
+				if( count($rowData)>1 ){
+					return $rowData;
 				}else{
-					if( count($rowArray[0])>1 ){
-						return $rowArray[0];
+					if( count($rowData[0])>1 ){
+						return $rowData[0];
 					}else{
-						return current($rowArray[0]);
+						return current($rowData[0]);
 					}
 				}
 			}else{
-				return $rowArray;
+				return $rowData;
 			}
 		}else{
 			// Throw errors
@@ -157,14 +157,14 @@ abstract Class PDO implements Handler {
 	 * @throws \RuntimeException When the waiting time is not a number.
 	 */
 	protected function pdoOptionArray(Array $settingsList): Array {
-		$waitSecs = strval($settingsList['waitSecs'] ?? '');
-		if( $waitSecs=='' ){
+		$waitSec = strval($settingsList['waitSecs'] ?? '');
+		if( $waitSec=='' ){
 			return Array();
 		}
-		if( !ctype_digit($waitSecs) ){
-			throw new \RuntimeException('Invalid database waiting time: '.$waitSecs);
+		if( !ctype_digit($waitSec) ){
+			throw new \RuntimeException('Invalid database waiting time: '.$waitSec);
 		}
-		return Array(\PDO::ATTR_TIMEOUT=>intval($waitSecs));
+		return Array(\PDO::ATTR_TIMEOUT=>intval($waitSec));
 	}
 	
 	/**
@@ -195,28 +195,28 @@ abstract Class PDO implements Handler {
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
 	public function makeWhereArray( Array $filterFields ): Array {
-		$signList = Array('equal'=>'=', 'diffr'=>'!=', 'under'=>'<', 'undeq'=>'<=', 'above'=>'>', 'aboeq'=>'>=');
-		$whereTxt = Array();
-		$fltrList = Array();
+		$signLst = Array('equal'=>'=', 'diffr'=>'!=', 'under'=>'<', 'undeq'=>'<=', 'above'=>'>', 'aboeq'=>'>=');
+		$whrText = Array();
+		$filters = Array();
 		foreach(\nyu\Data\DBStore\Filter::readWhereArray($filterFields) as $clause){
-			$oprtTokn = $clause['opert'];
-			$safeFild = ($clause['field']!='') ? $this->quoteFieldName($clause['field']) : '';
-			if( $oprtTokn=='never' || $oprtTokn=='every' ){
-				$whereTxt[] = ($oprtTokn=='every') ? '1=1' : '1=0';
-			}elseif( $oprtTokn=='unset' || $oprtTokn=='isset' ){
-				$whereTxt[] = $safeFild.($oprtTokn=='isset' ? ' IS NOT NULL' : ' IS NULL');
-			}elseif( $oprtTokn=='among' || $oprtTokn=='nmong' ){
-				$whereTxt[] = $safeFild.($oprtTokn=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($clause['value']), '?')).')';
-				$fltrList = array_merge($fltrList, $clause['value']);
-			}elseif( $oprtTokn=='match' || $oprtTokn=='nmtch' ){
-				$whereTxt[] = $safeFild.' '.($oprtTokn=='nmtch' ? 'NOT ' : '').$this->getLikeKeyword()." ? ESCAPE '!'";
-				$fltrList[] = $this->writeLikeValue( (array)$clause['value'] );
+			$opToken = $clause['opert'];
+			$safeFld = ($clause['field']!='') ? $this->quoteFieldName($clause['field']) : '';
+			if( $opToken=='never' || $opToken=='every' ){
+				$whrText[] = ($opToken=='every') ? '1=1' : '1=0';
+			}elseif( $opToken=='unset' || $opToken=='isset' ){
+				$whrText[] = $safeFld.($opToken=='isset' ? ' IS NOT NULL' : ' IS NULL');
+			}elseif( $opToken=='among' || $opToken=='nmong' ){
+				$whrText[] = $safeFld.($opToken=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($clause['value']), '?')).')';
+				$filters = array_merge($filters, $clause['value']);
+			}elseif( $opToken=='match' || $opToken=='nmtch' ){
+				$whrText[] = $safeFld.' '.($opToken=='nmtch' ? 'NOT ' : '').$this->getLikeKeyword()." ? ESCAPE '!'";
+				$filters[] = $this->writeLikeValue( (array)$clause['value'] );
 			}else{
-				$whereTxt[] = $safeFild.' '.$signList[$oprtTokn].' ?';
-				$fltrList[] = $clause['value'];
+				$whrText[] = $safeFld.' '.$signLst[$opToken].' ?';
+				$filters[] = $clause['value'];
 			}
 		}
-		return Array('text'=>implode(' AND ', $whereTxt), 'vals'=>$fltrList);
+		return Array('text'=>implode(' AND ', $whrText), 'vals'=>$filters);
 	}
 	
 	/**
@@ -229,11 +229,11 @@ abstract Class PDO implements Handler {
 	 * @return String The pattern.
 	 */
 	protected function writeLikeValue( Array $literalParts ): String {
-		$partList = Array();
+		$partLst = Array();
 		foreach( $literalParts as $oneTkn ){
-			$partList[] = strtr( strval($oneTkn), Array('!'=>'!!', '%'=>'!%', '_'=>'!_') );
+			$partLst[] = strtr( strval($oneTkn), Array('!'=>'!!', '%'=>'!%', '_'=>'!_') );
 		}
-		return implode('%', $partList);
+		return implode('%', $partLst);
 	}
 
 	/**

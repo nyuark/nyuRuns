@@ -53,17 +53,17 @@ class Preset{
 		if( !preg_match('/^[\w\-]+$/', $nameOfPreset) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" has no valid name');
 		}
-		$psetFile = TOP_DIR.DS.'conf'.DS.'presets'.DS.$nameOfPreset.'.rps';
-		if( !is_file($psetFile) ){
+		$rpsFile = TOP_DIR.DS.'conf'.DS.'presets'.DS.$nameOfPreset.'.rps';
+		if( !is_file($rpsFile) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" is missing');
 		}
 		try{
 			// The names of the blocks are kept as written
-			$jsonDocu = new Dcmnt($psetFile, false);
+			$jsonDoc = new Dcmnt($rpsFile, false);
 		}catch( ParseError $e ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" is not valid JSON: '.$e->getMessage(), 0, $e);
 		}
-		$this->presetData = $jsonDocu->readFileDetail();
+		$this->presetData = $jsonDoc->readFileDetail();
 		if( !is_array($this->presetData) || empty($this->presetData) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" is empty');
 		}
@@ -99,19 +99,19 @@ class Preset{
 			}
 		}
 		// The mounts are an object, Run name => false or a path prefix (empty for the root): anything else would only fail at the first request
-		$mountLst = $this->presetData['dispatch']['runMount'] ?? Array();
-		if( !is_array($mountLst) || (!empty($mountLst) && array_is_list($mountLst)) ){
-			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds mounts that are not an object of applications: '.json_encode($mountLst, JSON_UNESCAPED_SLASHES));
+		$mntList = $this->presetData['dispatch']['runMount'] ?? Array();
+		if( !is_array($mntList) || (!empty($mntList) && array_is_list($mntList)) ){
+			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds mounts that are not an object of applications: '.json_encode($mntList, JSON_UNESCAPED_SLASHES));
 		}
-		foreach( $mountLst as $mntKey => $mntVal ){
+		foreach( $mntList as $mntKey => $mntVal ){
 			if( $mntVal!==false && (!is_string($mntVal) || !preg_match('#^[A-Za-z0-9_\-/]*$#D', $mntVal)) ){
 				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a mount that is not false or a path prefix for the application '.json_encode(strval($mntKey)).': '.json_encode($mntVal, JSON_UNESCAPED_SLASHES));
 			}
 		}
 		// A format the reply cannot be written in would only fail at the first request
-		$frmtVals = $this->presetData['response']['outputAs'] ?? 'jsonData';
-		if( !is_string($frmtVals) || empty(preg_grep('/^'.preg_quote($frmtVals, '/').'$/iD', array_keys(\nyu\Output\Response::FORM_LIST))) ){
-			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown output format: '.(is_scalar($frmtVals) ? strval($frmtVals) : gettype($frmtVals)).'; one of '.implode(', ', array_keys(\nyu\Output\Response::FORM_LIST)));
+		$frmtVal = $this->presetData['response']['outputAs'] ?? 'jsonData';
+		if( !is_string($frmtVal) || empty(preg_grep('/^'.preg_quote($frmtVal, '/').'$/iD', array_keys(\nyu\Output\Response::FORM_LIST))) ){
+			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown output format: '.(is_scalar($frmtVal) ? strval($frmtVal) : gettype($frmtVal)).'; one of '.implode(', ', array_keys(\nyu\Output\Response::FORM_LIST)));
 		}
 	}
 
@@ -130,7 +130,7 @@ class Preset{
 		}
 		// Instanciate the setup class with the
 		// array of data and return the object
-		$nyuSetup = new \nyu\Setup\Loader( $this->presetData, null, $this->presetName );
-		return $nyuSetup;
+		$nyuSetp = new \nyu\Setup\Loader( $this->presetData, null, $this->presetName );
+		return $nyuSetp;
 	}
 }

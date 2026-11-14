@@ -51,11 +51,11 @@ class Variable{
 	 */
 	function castWrappedVal( String $wantedFormat='OutText', Mixed $formatOption=false ): Mixed {
 		if( $wantedFormat!=false && method_exists($this,"formats$wantedFormat") ){
-			$mthdName = 'formats'.$wantedFormat;
+			$mthName = 'formats'.$wantedFormat;
 			if(!$formatOption){
-				$rsltVals = call_user_func(array($this, $mthdName));
+				$outcome = call_user_func(array($this, $mthName));
 			}else{				
-				$rsltVals = call_user_func(array($this, $mthdName), $formatOption);
+				$outcome = call_user_func(array($this, $mthName), $formatOption);
 			}
 			return $this->wrappedVal;
 		}
@@ -94,8 +94,8 @@ class Variable{
 	 * @param Array $optionsArray Format options: 'decimals', 'decimsep', 'thsndsep'.
 	 */
 	function formatsNumeric( Array $optionsArray ): Void {
-		$numbDict = floatval( filter_var( $this->wrappedVal.'', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
-		$this->wrappedVal = number_format($numbDict, $optionsArray['decimals'], $optionsArray['decimsep'], $optionsArray['thsndsep']);
+		$numData = floatval( filter_var( $this->wrappedVal.'', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
+		$this->wrappedVal = number_format($numData, $optionsArray['decimals'], $optionsArray['decimsep'], $optionsArray['thsndsep']);
 	}
 	
 	/**
@@ -120,8 +120,8 @@ class Variable{
 	 * gives an empty string.
 	 */
 	function formatsEmlAddr(): Void {
-		$emailTxt = strval( filter_var($this->giveScalarText(), FILTER_SANITIZE_EMAIL) );
-		$this->wrappedVal = (filter_var($emailTxt, FILTER_VALIDATE_EMAIL)!==false) ? $emailTxt : '';
+		$emlText = strval( filter_var($this->giveScalarText(), FILTER_SANITIZE_EMAIL) );
+		$this->wrappedVal = (filter_var($emlText, FILTER_VALIDATE_EMAIL)!==false) ? $emlText : '';
 	}
 
 	/**
@@ -132,19 +132,19 @@ class Variable{
 	 * than 15 digits, gives an empty string.
 	 */
 	function formatsPhoneNb(): Void {
-		$rawStrng = trim($this->giveScalarText());
+		$rawText = trim($this->giveScalarText());
 		$this->wrappedVal = '';
-		if( preg_match('/[a-z]/i', $rawStrng) ){
+		if( preg_match('/[a-z]/i', $rawText) ){
 			return;
 		}
-		$isGlobal = (preg_match('/^(\+|00)/', $rawStrng)===1);
-		if( $isGlobal ){
+		$plusSgn = (preg_match('/^(\+|00)/', $rawText)===1);
+		if( $plusSgn ){
 			// The (0) written after a country code is the national prefix, not dialled from abroad
-			$rawStrng = str_replace('(0)', '', preg_replace('/^00/', '', $rawStrng));
+			$rawText = str_replace('(0)', '', preg_replace('/^00/', '', $rawText));
 		}
-		$digtText = preg_replace('/\D/', '', $rawStrng);
-		if( strlen($digtText)>=6 && strlen($digtText)<=15 ){
-			$this->wrappedVal = ($isGlobal ? '+' : '').$digtText;
+		$numbers = preg_replace('/\D/', '', $rawText);
+		if( strlen($numbers)>=6 && strlen($numbers)<=15 ){
+			$this->wrappedVal = ($plusSgn ? '+' : '').$numbers;
 		}
 	}
 
@@ -156,11 +156,11 @@ class Variable{
 	 * attribute it is written in.
 	 */
 	function formatsUrlAddr(): Void {
-		$urlStrng = trim($this->giveScalarText());
-		$urlSchme = strtolower( strval(parse_url($urlStrng, PHP_URL_SCHEME)) );
-		$isAddrOk = filter_var($urlStrng, FILTER_VALIDATE_URL)!==false && in_array($urlSchme, Array('http', 'https'), true)
-			&& !preg_match('/["\'<>`\s\x00-\x1F]/', $urlStrng);
-		$this->wrappedVal = $isAddrOk ? $urlStrng : '';
+		$urlText = trim($this->giveScalarText());
+		$urlSchm = strtolower( strval(parse_url($urlText, PHP_URL_SCHEME)) );
+		$isValid = filter_var($urlText, FILTER_VALIDATE_URL)!==false && in_array($urlSchm, Array('http', 'https'), true)
+			&& !preg_match('/["\'<>`\s\x00-\x1F]/', $urlText);
+		$this->wrappedVal = $isValid ? $urlText : '';
 	}
 
 	/**
@@ -170,7 +170,7 @@ class Variable{
 	 * 'avenue-des-reves').
 	 */
 	function formatsUrlText(): Void {
-		$acctDict = Array(
+		$accnMap = Array(
 			'à'=>'a', 'á'=>'a', 'â'=>'a', 'ã'=>'a', 'ä'=>'a', 'å'=>'a', 'æ'=>'ae', 'ç'=>'c', 'è'=>'e', 'é'=>'e', 'ê'=>'e', 'ë'=>'e',
 			'ì'=>'i', 'í'=>'i', 'î'=>'i', 'ï'=>'i', 'ñ'=>'n', 'ò'=>'o', 'ó'=>'o', 'ô'=>'o', 'õ'=>'o', 'ö'=>'o', 'ø'=>'o', 'œ'=>'oe',
 			'ù'=>'u', 'ú'=>'u', 'û'=>'u', 'ü'=>'u', 'ý'=>'y', 'ÿ'=>'y', 'ß'=>'ss',
@@ -178,8 +178,8 @@ class Variable{
 			'Ì'=>'i', 'Í'=>'i', 'Î'=>'i', 'Ï'=>'i', 'Ñ'=>'n', 'Ò'=>'o', 'Ó'=>'o', 'Ô'=>'o', 'Õ'=>'o', 'Ö'=>'o', 'Ø'=>'o', 'Œ'=>'oe',
 			'Ù'=>'u', 'Ú'=>'u', 'Û'=>'u', 'Ü'=>'u', 'Ý'=>'y', 'Ÿ'=>'y'
 		);
-		$slugText = strtolower( strtr($this->giveScalarText(), $acctDict) );
-		$this->wrappedVal = trim( preg_replace('/[^a-z0-9]+/', '-', $slugText), '-' );
+		$slugTxt = strtolower( strtr($this->giveScalarText(), $accnMap) );
+		$this->wrappedVal = trim( preg_replace('/[^a-z0-9]+/', '-', $slugTxt), '-' );
 	}
 
 	/**
@@ -195,15 +195,15 @@ class Variable{
 			$this->formatsOutText();
 			return;
 		}
-		$domDcmnt = new \DOMDocument();
-		$oldCodig = libxml_use_internal_errors(true);
+		$domTree = new \DOMDocument();
+		$oldMode = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		$domDcmnt->loadHTML('<?xml encoding="UTF-8"><body>'.str_replace("\0", '', $this->giveScalarText()).'</body>', LIBXML_NONET | LIBXML_COMPACT);
+		$domTree->loadHTML('<?xml encoding="UTF-8"><body>'.str_replace("\0", '', $this->giveScalarText()).'</body>', LIBXML_NONET | LIBXML_COMPACT);
 		libxml_clear_errors();
-		libxml_use_internal_errors($oldCodig);
+		libxml_use_internal_errors($oldMode);
 		// The whole document is written, so that a text set outside its body is not lost
-		$rootNode = $domDcmnt->documentElement;
-		$this->wrappedVal = ($rootNode!==null) ? $this->htmlValueNodes($rootNode) : '';
+		$rotNode = $domTree->documentElement;
+		$this->wrappedVal = ($rotNode!==null) ? $this->htmlValueNodes($rotNode) : '';
 	}
 
 	/**
@@ -213,39 +213,39 @@ class Variable{
 	 * @return String The content, reduced to the tags kept.
 	 */
 	protected function htmlValueNodes( \DOMNode $outerElement ): String {
-		$keepTags = Array('p', 'br', 'hr', 'b', 'strong', 'i', 'em', 'u', 's', 'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'a');
-		$dropTags = Array('script', 'style', 'iframe', 'object', 'embed', 'noscript', 'template', 'head', 'title', 'textarea', 'select', 'svg', 'math');
-		$outStrng = '';
+		$keepTag = Array('p', 'br', 'hr', 'b', 'strong', 'i', 'em', 'u', 's', 'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'a');
+		$dropTag = Array('script', 'style', 'iframe', 'object', 'embed', 'noscript', 'template', 'head', 'title', 'textarea', 'select', 'svg', 'math');
+		$outText = '';
 		foreach( $outerElement->childNodes as $kidNod ){
 			if( $kidNod->nodeType==XML_TEXT_NODE || $kidNod->nodeType==XML_CDATA_SECTION_NODE ){
-				$outStrng .= htmlspecialchars($kidNod->nodeValue, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+				$outText .= htmlspecialchars($kidNod->nodeValue, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
 				continue;
 			}
 			if( $kidNod->nodeType!=XML_ELEMENT_NODE ){
 				continue;
 			}
-			$tagTitle = strtolower($kidNod->nodeName);
-			if( in_array($tagTitle, $dropTags, true) ){
+			$tagName = strtolower($kidNod->nodeName);
+			if( in_array($tagName, $dropTag, true) ){
 				continue;
 			}
-			$innerTxt = $this->htmlValueNodes($kidNod);
-			if( !in_array($tagTitle, $keepTags, true) ){
-				$outStrng .= $innerTxt;
-			}elseif( $tagTitle=='br' || $tagTitle=='hr' ){
-				$outStrng .= '<'.$tagTitle.'>';
-			}elseif( $tagTitle!='a' ){
-				$outStrng .= '<'.$tagTitle.'>'.$innerTxt.'</'.$tagTitle.'>';
+			$inrText = $this->htmlValueNodes($kidNod);
+			if( !in_array($tagName, $keepTag, true) ){
+				$outText .= $inrText;
+			}elseif( $tagName=='br' || $tagName=='hr' ){
+				$outText .= '<'.$tagName.'>';
+			}elseif( $tagName!='a' ){
+				$outText .= '<'.$tagName.'>'.$inrText.'</'.$tagName.'>';
 			}else{
 				// A link is kept only with an address of a scheme that runs nothing
-				$nlaceUrl = trim($kidNod->getAttribute('href'));
-				if( preg_match('#^(https?://|mailto:)#i', $nlaceUrl) ){
-					$outStrng .= '<a href="'.htmlspecialchars($nlaceUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'">'.$innerTxt.'</a>';
+				$linkUrl = trim($kidNod->getAttribute('href'));
+				if( preg_match('#^(https?://|mailto:)#i', $linkUrl) ){
+					$outText .= '<a href="'.htmlspecialchars($linkUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'">'.$inrText.'</a>';
 				}else{
-					$outStrng .= $innerTxt;
+					$outText .= $inrText;
 				}
 			}
 		}
-		return $outStrng;
+		return $outText;
 	}
 
 	/**
@@ -269,13 +269,13 @@ class Variable{
 		if( is_int($this->wrappedVal) ){
 			return ($this->wrappedVal>=0) ? $this->wrappedVal : null;
 		}
-		$dateText = trim($this->giveScalarText());
-		$dateList = Array();
-		if( preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/', $dateText, $dateList) ){
-			if( !checkdate(intval($dateList[2]), intval($dateList[3]), intval($dateList[1])) ){
+		$dateTxt = trim($this->giveScalarText());
+		$dateArr = Array();
+		if( preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/', $dateTxt, $dateArr) ){
+			if( !checkdate(intval($dateArr[2]), intval($dateArr[3]), intval($dateArr[1])) ){
 				return null;
 			}
-			return mktime(12, 0, 0, intval($dateList[2]), intval($dateList[3]), intval($dateList[1]));
+			return mktime(12, 0, 0, intval($dateArr[2]), intval($dateArr[3]), intval($dateArr[1]));
 		}
 		return null;
 	}
@@ -289,9 +289,9 @@ class Variable{
 		if(!defined('LOC_MTHSHT')){
 			define('LOC_MTHSHT',';Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec');
 		}
-		$timeStmp = $this->dateStampCount();
-		$allMonth = explode(';',LOC_MTHSHT);
-		$this->wrappedVal = ($timeStmp===null) ? '' : date('j', $timeStmp).' '.$allMonth[intval(date('n', $timeStmp))].' '.date('Y', $timeStmp);
+		$timStmp = $this->dateStampCount();
+		$allMnth = explode(';',LOC_MTHSHT);
+		$this->wrappedVal = ($timStmp===null) ? '' : date('j', $timStmp).' '.$allMnth[intval(date('n', $timStmp))].' '.date('Y', $timStmp);
 	}
 
 	/**
@@ -303,9 +303,9 @@ class Variable{
 		if(!defined('LOC_MONTHS')){
 			define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 		}
-		$timeStmp = $this->dateStampCount();
-		$allMonth = explode(';',LOC_MONTHS);
-		$this->wrappedVal = ($timeStmp===null) ? '' : date('j', $timeStmp).' '.$allMonth[intval(date('n', $timeStmp))].' '.date('Y', $timeStmp);
+		$timStmp = $this->dateStampCount();
+		$allMnth = explode(';',LOC_MONTHS);
+		$this->wrappedVal = ($timStmp===null) ? '' : date('j', $timStmp).' '.$allMnth[intval(date('n', $timStmp))].' '.date('Y', $timStmp);
 	}
 
 
@@ -316,9 +316,9 @@ class Variable{
 	 * @param String $dateTemplate A date() format string ('d/m/y' when empty).
 	 */
 	function formatsCustDte( String $dateTemplate='' ): Void {
-		$timeStmp = $this->dateStampCount();
+		$timStmp = $this->dateStampCount();
 		if( $dateTemplate=='' ) $dateTemplate='d/m/y';
-		$this->wrappedVal = ($timeStmp===null) ? '' : date( $dateTemplate, $timeStmp );
+		$this->wrappedVal = ($timStmp===null) ? '' : date( $dateTemplate, $timStmp );
 	}
 	
 	/**
@@ -327,19 +327,19 @@ class Variable{
 	 * empty string.
 	 */
 	function formatsWeekDay( ): Void {
-		$timeStmp = $this->dateStampCount();
-		if( $timeStmp===null ){
+		$timStmp = $this->dateStampCount();
+		if( $timStmp===null ){
 			$this->wrappedVal = '';
 			return;
 		}
 		if(!defined('LOC_WKDAYS')){
 			define('LOC_WKDAYS','Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday');
 		}
-		$wdayList = explode(';',LOC_WKDAYS);
-		$wdayNumb = date('w', $timeStmp);
-		$wdayName = $wdayList[$wdayNumb];
+		$allDays = explode(';',LOC_WKDAYS);
+		$thisDay = date('w', $timStmp);
+		$weekDay = $allDays[$thisDay];
 
-		$this->wrappedVal = $wdayName;
+		$this->wrappedVal = $weekDay;
 	}
 	
 	/**
@@ -349,8 +349,8 @@ class Variable{
 	 * an empty string.
 	 */
 	function formatsFullDay(): Void {
-		$timeStmp = $this->dateStampCount();
-		if( $timeStmp===null ){
+		$timStmp = $this->dateStampCount();
+		if( $timStmp===null ){
 			$this->wrappedVal = '';
 			return;
 		}
@@ -358,17 +358,17 @@ class Variable{
 		if(!defined('LOC_TODAY'))define('LOC_TODAY','Today');
 		if(!defined('LOC_TOMRW'))define('LOC_TOMRW','Tomorrow');
 		
-		if( date('Ymd',( time()-(3600*24) ) ) == date('Ymd',$timeStmp) ) {
+		if( date('Ymd',( time()-(3600*24) ) ) == date('Ymd',$timStmp) ) {
 			$this->wrappedVal = LOC_YSTRD;
 			return;
 		}
 		
-		if( date('Ymd') == date('Ymd',$timeStmp) ) {
+		if( date('Ymd') == date('Ymd',$timStmp) ) {
 			$this->wrappedVal = LOC_TODAY;
 			return;
 		}
 		
-		if( date('Ymd',( time()+(3600*24) ) ) == date('Ymd',$timeStmp) ) {
+		if( date('Ymd',( time()+(3600*24) ) ) == date('Ymd',$timStmp) ) {
 			$this->wrappedVal = LOC_TOMRW;
 			return;
 		}
@@ -376,21 +376,21 @@ class Variable{
 		if(!defined('LOC_WKDAYS')){
 			define('LOC_WKDAYS','Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday');
 		}
-		$wdayList = explode(';',LOC_WKDAYS);
-		$wdayNumb = date('w', $timeStmp);
-		$wdayName = $wdayList[$wdayNumb];
+		$allDays = explode(';',LOC_WKDAYS);
+		$thisDay = date('w', $timStmp);
+		$weekDay = $allDays[$thisDay];
 
-		$dateDict =$wdayName.', '.date('j', $timeStmp).' ';
+		$dateSet =$weekDay.', '.date('j', $timStmp).' ';
 		
 		if(!defined('LOC_MONTHS')){
 			define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 		}
-		$allMonth = explode(';',LOC_MONTHS);
+		$allMnth = explode(';',LOC_MONTHS);
 		
-		$nowMonth = date('n', $timeStmp);
-		$dateDict .= $allMonth[$nowMonth];
+		$nowMnth = date('n', $timStmp);
+		$dateSet .= $allMnth[$nowMnth];
 		
-		$this->wrappedVal = $dateDict;
+		$this->wrappedVal = $dateSet;
 	}
 	
 	/**
@@ -403,24 +403,24 @@ class Variable{
 	 * @param String|Int|Bool $spanLastDate End date of the span (a 'Y-m-d' date or a timestamp); required for a result.
 	 */
 	function formatsSpanDte( String|Int|Bool $spanLastDate=false ): Void {
-		$numbDict = $this->dateStampCount();
-		$tellsVar = new Variable($spanLastDate);
-		$tellsDct = $tellsVar->dateStampCount();
+		$numData = $this->dateStampCount();
+		$tllVrbl = new Variable($spanLastDate);
+		$tllData = $tllVrbl->dateStampCount();
 
 		if($spanLastDate!=false){
-			if( $numbDict===null || $tellsDct===null ){
+			if( $numData===null || $tllData===null ){
 				$this->wrappedVal = '';
 				return;
 			}
 			if(!defined('LOC_MONTHS')){
 				define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 			}
-			$allMonth = explode(';',LOC_MONTHS);
+			$allMnth = explode(';',LOC_MONTHS);
 			
-			$mnthNum1 = date('n', $numbDict);
-			$yearNum1 = date('Y', $numbDict);
-			$mnthNum2 = date('n', $tellsDct);
-			$yearNum2 = date('Y', $tellsDct);
+			$mthNum1 = date('n', $numData);
+			$yearNb1 = date('Y', $numData);
+			$mthNum2 = date('n', $tllData);
+			$yearNb2 = date('Y', $tllData);
 				
 			if(!defined('LOC_FROM')){
 				define('LOC_FROM','From');
@@ -428,19 +428,19 @@ class Variable{
 			if(!defined('LOC_UNTIL')){
 				define('LOC_UNTIL','until');
 			}
-			$dateDict = date('j', $numbDict).' ';
-			if( date('Ymd', $numbDict) == date('Ymd', $tellsDct) ){
-				$dateDict = date('d', $numbDict).' '.$allMonth[$mnthNum1].' '.$yearNum1;
-			} elseif( $mnthNum1 == $mnthNum2 && $yearNum1 == $yearNum2 ){
-				$dateDict = LOC_FROM.' '.date('d', $numbDict).' '.LOC_UNTIL.' '.date('d', $tellsDct).' '.$allMonth[$mnthNum1].' '.$yearNum1;
+			$dateSet = date('j', $numData).' ';
+			if( date('Ymd', $numData) == date('Ymd', $tllData) ){
+				$dateSet = date('d', $numData).' '.$allMnth[$mthNum1].' '.$yearNb1;
+			} elseif( $mthNum1 == $mthNum2 && $yearNb1 == $yearNb2 ){
+				$dateSet = LOC_FROM.' '.date('d', $numData).' '.LOC_UNTIL.' '.date('d', $tllData).' '.$allMnth[$mthNum1].' '.$yearNb1;
 			} else {
-				if($yearNum1==$yearNum2){
-					$dateDict = LOC_FROM.' '.date('d', $numbDict).' '.$allMonth[$mnthNum1].' '.LOC_UNTIL.' '.date('d', $tellsDct).' '.$allMonth[$mnthNum2].' '.$yearNum1;
+				if($yearNb1==$yearNb2){
+					$dateSet = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.LOC_UNTIL.' '.date('d', $tllData).' '.$allMnth[$mthNum2].' '.$yearNb1;
 				}else{
-					$dateDict = LOC_FROM.' '.date('d', $numbDict).' '.$allMonth[$mnthNum1].' '.$yearNum1.' '.LOC_UNTIL.' '.date('d', $tellsDct).' '.$allMonth[$mnthNum2].' '.$yearNum2;
+					$dateSet = LOC_FROM.' '.date('d', $numData).' '.$allMnth[$mthNum1].' '.$yearNb1.' '.LOC_UNTIL.' '.date('d', $tllData).' '.$allMnth[$mthNum2].' '.$yearNb2;
 				}
 			}
-			$this->wrappedVal = $dateDict;
+			$this->wrappedVal = $dateSet;
 		} else {
 			$this->wrappedVal = '';
 		}

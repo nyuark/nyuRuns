@@ -60,15 +60,15 @@ class Response{
 	 */
 	public function __construct( Array $renderValues=Array() ){
 		$this->headrArray = $renderValues['headList'] ?? Array();
-		$frmtText = strval($renderValues['outputAs'] ?? 'jsonData');
+		$frmtTxt = strval($renderValues['outputAs'] ?? 'jsonData');
 		// The code of the format whatever its case, kept as FORM_LIST writes it
-		$this->dataFormat = strval( array_values(preg_grep('/^'.preg_quote($frmtText, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $frmtText );
+		$this->dataFormat = strval( array_values(preg_grep('/^'.preg_quote($frmtTxt, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $frmtTxt );
 		$this->formatUsed = $this->dataFormat;
 		// An origin is a scheme, a host and a port : compared without case, nor a slash at its end
 		foreach( (array)($renderValues['corsList'] ?? Array()) as $origin ){
-			$origText = is_scalar($origin) ? strtolower( rtrim(trim(strval($origin)), '/') ) : '';
-			if( $origText!='' && $origText!='*' ){
-				$this->originList[] = $origText;
+			$orgnTxt = is_scalar($origin) ? strtolower( rtrim(trim(strval($origin)), '/') ) : '';
+			if( $orgnTxt!='' && $orgnTxt!='*' ){
+				$this->originList[] = $orgnTxt;
 			}
 		}
 	}
@@ -88,9 +88,9 @@ class Response{
 		}
 		$this->dropReplyHeads( Array('access-control-allow-origin', 'vary') );
 		$this->headrArray['Vary'] = 'Origin';
-		$askOrign = strtolower( rtrim(trim(strval($originHeader)), '/') );
-		if( $askOrign!='' && in_array($askOrign, $this->originList, true) ){
-			$this->headrArray['Access-Control-Allow-Origin'] = $askOrign;
+		$askOrgn = strtolower( rtrim(trim(strval($originHeader)), '/') );
+		if( $askOrgn!='' && in_array($askOrgn, $this->originList, true) ){
+			$this->headrArray['Access-Control-Allow-Origin'] = $askOrgn;
 		}
 	}
 
@@ -128,12 +128,12 @@ class Response{
 	 * @throws \RuntimeException When the format is not one of FORM_LIST.
 	 */
 	public function useReplyFormat( String $outputFormat ): Void {
-		$frmtClef = strval( array_values(preg_grep('/^'.preg_quote($outputFormat, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $outputFormat );
-		if( !array_key_exists($frmtClef, self::FORM_LIST) ){
+		$frmtKey = strval( array_values(preg_grep('/^'.preg_quote($outputFormat, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $outputFormat );
+		if( !array_key_exists($frmtKey, self::FORM_LIST) ){
 			throw new \RuntimeException('Unknown output format: '.$outputFormat);
 		}
-		$this->dataFormat = $frmtClef;
-		$this->formatUsed = $frmtClef;
+		$this->dataFormat = $frmtKey;
+		$this->formatUsed = $frmtKey;
 	}
 
 	/**
@@ -167,16 +167,16 @@ class Response{
 			return true;
 		}catch( \Throwable $e ){
 			trigger_error('Response could not be encoded as '.$this->formatUsed.': '.$e->getMessage(), E_USER_WARNING);
-			$errorRaw = Array('error'=>'Response could not be encoded', 'code'=>500);
+			$errBody = Array('error'=>'Response could not be encoded', 'code'=>500);
 			$this->fluxOutput = null;
 			if( !$this->takesReplyWarn() ){
 				$this->formatUsed = 'jsonData';
 			}
 			try{
-				$this->outputText = $this->writesReplyOut($errorRaw);
+				$this->outputText = $this->writesReplyOut($errBody);
 			}catch( \Throwable $e ){
 				$this->formatUsed = 'jsonData';
-				$this->outputText = strval(json_encode($errorRaw));
+				$this->outputText = strval(json_encode($errBody));
 			}
 			return false;
 		}
@@ -193,11 +193,11 @@ class Response{
 	protected function writesReplyOut( Mixed $outputToSend ): String {
 		if( $this->formatUsed=='jsonData' ){
 			// A binary value cannot be written as text: it is given as null
-			$jsonText = json_encode(\nyu\Data\Fluxd::nullifySources($outputToSend));
-			if( $jsonText===false ){
+			$jsonTxt = json_encode(\nyu\Data\Fluxd::nullifySources($outputToSend));
+			if( $jsonTxt===false ){
 				throw new \RuntimeException(json_last_error_msg());
 			}
-			return $jsonText;
+			return $jsonTxt;
 		}
 		if( $this->formatUsed=='rawBytes' ){
 			if( $outputToSend instanceof \nyu\Data\Fluxd ){
@@ -209,26 +209,26 @@ class Response{
 			}
 			return $outputToSend;
 		}
-		$extnName = self::FORM_LIST[$this->formatUsed] ?? '';
-		$wrtrInst = \nyu\Data\Writers\Index::forExtnsWriter($extnName);
-		if( $wrtrInst===null ){
+		$extName = self::FORM_LIST[$this->formatUsed] ?? '';
+		$wrtrObj = \nyu\Data\Writers\Index::forExtnsWriter($extName);
+		if( $wrtrObj===null ){
 			throw new \RuntimeException('no writer for the format '.$this->formatUsed);
 		}
-		$dataVals = \nyu\Data\Fluxd::nullifySources( is_object($outputToSend) ? json_decode(strval(json_encode($outputToSend)), true) : $outputToSend );
-		$cellList = $this->recordsOfArray($dataVals);
+		$dataVal = \nyu\Data\Fluxd::nullifySources( is_object($outputToSend) ? json_decode(strval(json_encode($outputToSend)), true) : $outputToSend );
+		$cellLst = $this->recordsOfArray($dataVal);
 		if( $this->formatUsed=='csvTable' ){
-			if( $cellList===null ){
+			if( $cellLst===null ){
 				throw new \RuntimeException('a table is written from a list of records');
 			}
-			return $wrtrInst->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellList))), \nyu\Data\Writers\Index::optionsOfExtns($extnName) );
+			return $wrtrObj->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellLst))), \nyu\Data\Writers\Index::optionsOfExtns($extName) );
 		}
 		if( $this->formatUsed=='htmlView' ){
-			if( $cellList!==null ){
-				return $wrtrInst->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellList))), Array('whole'=>true, 'heads'=>true) );
+			if( $cellLst!==null ){
+				return $wrtrObj->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellLst))), Array('whole'=>true, 'heads'=>true) );
 			}
-			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->valuesHtmlText($dataVals)."</body>\n</html>\n";
+			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->valuesHtmlText($dataVal)."</body>\n</html>\n";
 		}
-		return $wrtrInst->renderDocument( Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$dataVals), \nyu\Data\Writers\Index::optionsOfExtns($extnName) );
+		return $wrtrObj->renderDocument( Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$dataVal), \nyu\Data\Writers\Index::optionsOfExtns($extName) );
 	}
 
 	/**
@@ -244,7 +244,7 @@ class Response{
 		if( !is_array($outputToSend) || (!empty($outputToSend) && array_keys($outputToSend)!==range(0, count($outputToSend)-1)) ){
 			return null;
 		}
-		$clmnList = Array();
+		$clmnLst = Array();
 		foreach( $outputToSend as $rowVal ){
 			if( !is_array($rowVal) || empty($rowVal) ){
 				return null;
@@ -253,20 +253,20 @@ class Response{
 				if( $oneVal!==null && !is_scalar($oneVal) ){
 					return null;
 				}
-				$clmnList[strval($column)] = true;
+				$clmnLst[strval($column)] = true;
 			}
 		}
-		$clmnNmes = array_map('strval', array_keys($clmnList));
-		$cellList = empty($clmnNmes) ? Array() : Array($clmnNmes);
+		$clmnNms = array_map('strval', array_keys($clmnLst));
+		$cellLst = empty($clmnNms) ? Array() : Array($clmnNms);
 		foreach( $outputToSend as $rowVal ){
-			$rowCells = Array();
-			foreach( $clmnNmes as $header ){
+			$rowClls = Array();
+			foreach( $clmnNms as $header ){
 				$oneVal = $rowVal[$header] ?? '';
-				$rowCells[] = is_bool($oneVal) ? ($oneVal ? 'true' : 'false') : $oneVal;
+				$rowClls[] = is_bool($oneVal) ? ($oneVal ? 'true' : 'false') : $oneVal;
 			}
-			$cellList[] = $rowCells;
+			$cellLst[] = $rowClls;
 		}
-		return $cellList;
+		return $cellLst;
 	}
 
 	/**
@@ -279,14 +279,14 @@ class Response{
 	 */
 	protected function valuesHtmlText( Mixed $valueToWrite ): String {
 		if( !is_array($valueToWrite) ){
-			$plainTxt = is_bool($valueToWrite) ? ($valueToWrite ? 'true' : 'false') : strval($valueToWrite ?? '');
-			return '<p>'.htmlspecialchars($plainTxt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</p>\n";
+			$plainTx = is_bool($valueToWrite) ? ($valueToWrite ? 'true' : 'false') : strval($valueToWrite ?? '');
+			return '<p>'.htmlspecialchars($plainTx, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</p>\n";
 		}
-		$htmlText = "<dl>\n";
+		$htmText = "<dl>\n";
 		foreach( $valueToWrite as $valKey => $oneVal ){
-			$htmlText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->valuesHtmlText($oneVal)."</dd>\n";
+			$htmText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->valuesHtmlText($oneVal)."</dd>\n";
 		}
-		return $htmlText."</dl>\n";
+		return $htmText."</dl>\n";
 	}
 	
 	/**
@@ -318,12 +318,12 @@ class Response{
 		if($responseCode!=null){
 			http_response_code($responseCode);
 		}
-		$hasMimes = in_array('content-type', array_map('strtolower', array_keys($this->headrArray)));
-		$sameFile = ($this->fileToSend!==null && $this->fileStatus==304);
-		if( $sameFile || ($this->outputText==='' && $this->fileToSend===null && $this->pageOutput===null && $this->fluxOutput===null) ){
+		$hasType = in_array('content-type', array_map('strtolower', array_keys($this->headrArray)));
+		$samFile = ($this->fileToSend!==null && $this->fileStatus==304);
+		if( $samFile || ($this->outputText==='' && $this->fileToSend===null && $this->pageOutput===null && $this->fluxOutput===null) ){
 			// Emptied response, or a file the client already has : no type is announced, not even PHP's own default
 			ini_set('default_mimetype', '');
-		}elseif( !$hasMimes ){
+		}elseif( !$hasType ){
 			// Default Content-Type, unless the preset sets its own
 			$this->headrArray['Content-Type'] = $this->contentTypeTxt();
 		}
@@ -346,15 +346,15 @@ class Response{
 			return;
 		}
 		$this->ownedReplyType( strval($this->mimeOfFile) );
-		$sentSize = ($this->fileLength>0) ? $this->rangeUntil-$this->rangeStart+1 : 0;
+		$sentLen = ($this->fileLength>0) ? $this->rangeUntil-$this->rangeStart+1 : 0;
 		if( $this->fileStatus==416 ){
-			$sentSize = 0;
+			$sentLen = 0;
 			$this->headrArray['Content-Range'] = 'bytes */'.$this->fileLength;
 		}elseif( $this->fileStatus==206 ){
 			$this->headrArray['Content-Range'] = 'bytes '.$this->rangeStart.'-'.$this->rangeUntil.'/'.$this->fileLength;
 		}
 		$this->headrArray['Accept-Ranges'] = 'bytes';
-		$this->headrArray['Content-Length'] = strval($sentSize);
+		$this->headrArray['Content-Length'] = strval($sentLen);
 	}
 
 	/**
@@ -406,8 +406,8 @@ class Response{
 		if( $this->formatUsed=='jsonData' ){
 			return 'application/json; charset=utf-8';
 		}
-		$countCod = \nyu\Data\Writers\Index::contentTypeFor( self::FORM_LIST[$this->formatUsed] ?? '' );
-		return ($countCod!='') ? $countCod : 'application/octet-stream';
+		$cntType = \nyu\Data\Writers\Index::contentTypeFor( self::FORM_LIST[$this->formatUsed] ?? '' );
+		return ($cntType!='') ? $cntType : 'application/octet-stream';
 	}
 
 	/**
@@ -492,29 +492,29 @@ class Response{
 		if( $this->fileToSend===null ){
 			return;
 		}
-		$modStamp = intval(filemtime($this->fileToSend));
-		$nttyVals = '"'.dechex($modStamp).'-'.dechex(intval($this->fileLength)).'"';
-		$modelDte = gmdate('D, d M Y H:i:s', $modStamp).' GMT';
-		$reqtHdrs = array_change_key_case($headersArray, CASE_LOWER);
+		$mdlTime = intval(filemtime($this->fileToSend));
+		$etagVal = '"'.dechex($mdlTime).'-'.dechex(intval($this->fileLength)).'"';
+		$mdlDate = gmdate('D, d M Y H:i:s', $mdlTime).' GMT';
+		$reqHdrs = array_change_key_case($headersArray, CASE_LOWER);
 
 		$this->dropReplyHeads( Array('cache-control', 'expires', 'pragma') );
 		$this->headrArray['Cache-Control'] = ($isPublicFile ? 'public' : 'private').', no-cache';
-		$this->headrArray['ETag'] = $nttyVals;
-		$this->headrArray['Last-Modified'] = $modelDte;
+		$this->headrArray['ETag'] = $etagVal;
+		$this->headrArray['Last-Modified'] = $mdlDate;
 
-		$rangeChk = trim(strval($reqtHdrs['if-range'] ?? ''));
-		if( $rangeChk!=='' && $rangeChk!==$nttyVals && $rangeChk!==$modelDte ){
+		$rngChck = trim(strval($reqHdrs['if-range'] ?? ''));
+		if( $rngChck!=='' && $rngChck!==$etagVal && $rngChck!==$mdlDate ){
 			// The range was asked for another version of the file
 			$this->fileStatus = $this->parseRangeHead('', intval($this->fileLength));
 		}
-		$noneHedr = trim(strval($reqtHdrs['if-none-match'] ?? ''));
-		$sinceTme = strtotime(strval($reqtHdrs['if-modified-since'] ?? ''));
-		if( $noneHedr!=='' ){
-			$isCached = $this->compareETagFlg($noneHedr, $nttyVals);
+		$noneHdr = trim(strval($reqHdrs['if-none-match'] ?? ''));
+		$sinceTm = strtotime(strval($reqHdrs['if-modified-since'] ?? ''));
+		if( $noneHdr!=='' ){
+			$isFresh = $this->compareETagFlg($noneHdr, $etagVal);
 		}else{
-			$isCached = ($sinceTme!==false && $modStamp<=$sinceTme);
+			$isFresh = ($sinceTm!==false && $mdlTime<=$sinceTm);
 		}
-		if( $isCached ){
+		if( $isFresh ){
 			$this->fileStatus = 304;
 		}
 	}
@@ -555,37 +555,37 @@ class Response{
 	protected function parseRangeHead( String $rangeValText, Int $totlBytesNum ): Int {
 		$this->rangeStart = 0;
 		$this->rangeUntil = max(0, $totlBytesNum-1);
-		$matxList = Array();
-		if( !preg_match('/^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i', $rangeValText, $matxList) ){
+		$matched = Array();
+		if( !preg_match('/^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i', $rangeValText, $matched) ){
 			return 200;
 		}
-		$fromText = $matxList[1];
-		$uptoText = $matxList[2];
-		if( $fromText=='' && $uptoText=='' ){
+		$fromTxt = $matched[1];
+		$uptoTxt = $matched[2];
+		if( $fromTxt=='' && $uptoTxt=='' ){
 			return 200;
 		}
-		if( $fromText=='' ){
+		if( $fromTxt=='' ){
 			// Suffix range : the last N bytes
-			$lastSize = intval($uptoText);
-			if( $lastSize==0 || $totlBytesNum==0 ){
+			$lastLen = intval($uptoTxt);
+			if( $lastLen==0 || $totlBytesNum==0 ){
 				return 416;
 			}
-			$this->rangeStart = max(0, $totlBytesNum-$lastSize);
+			$this->rangeStart = max(0, $totlBytesNum-$lastLen);
 			return 206;
 		}
-		$startIdx = intval($fromText);
-		if( $startIdx>=$totlBytesNum ){
+		$startAt = intval($fromTxt);
+		if( $startAt>=$totlBytesNum ){
 			return 416;
 		}
-		if( $uptoText!='' ){
-			$finalPos = intval($uptoText);
-			if( $finalPos<$startIdx ){
+		if( $uptoTxt!='' ){
+			$uptPstn = intval($uptoTxt);
+			if( $uptPstn<$startAt ){
 				// Reversed range : ignored, the whole file is sent
 				return 200;
 			}
-			$this->rangeUntil = min($finalPos, $totlBytesNum-1);
+			$this->rangeUntil = min($uptPstn, $totlBytesNum-1);
 		}
-		$this->rangeStart = $startIdx;
+		$this->rangeStart = $startAt;
 		return 206;
 	}
 
@@ -597,22 +597,22 @@ class Response{
 		if( $this->fileStatus==416 || $this->fileStatus==304 || $this->fileLength==0 ){
 			return;
 		}
-		$fileHndl = fopen($this->fileToSend, 'rb');
-		if( $fileHndl===false ){
+		$filHndl = fopen($this->fileToSend, 'rb');
+		if( $filHndl===false ){
 			return;
 		}
-		fseek($fileHndl, $this->rangeStart);
-		$leftSize = $this->rangeUntil-$this->rangeStart+1;
-		while( $leftSize>0 && !feof($fileHndl) ){
-			$dataChnk = fread($fileHndl, min(8192, $leftSize));
-			if( $dataChnk===false || connection_aborted() ){
+		fseek($filHndl, $this->rangeStart);
+		$lftSize = $this->rangeUntil-$this->rangeStart+1;
+		while( $lftSize>0 && !feof($filHndl) ){
+			$dataOut = fread($filHndl, min(8192, $lftSize));
+			if( $dataOut===false || connection_aborted() ){
 				break;
 			}
-			print($dataChnk);
+			print($dataOut);
 			flush();
-			$leftSize -= strlen($dataChnk);
+			$lftSize -= strlen($dataOut);
 		}
-		fclose($fileHndl);
+		fclose($filHndl);
 	}
 
 	/**
@@ -640,11 +640,11 @@ class Response{
 	 */
 	protected function sendReplyFluxd(): Void {
 		while( !$this->fluxOutput->stopOfFluxFlag() ){
-			$pieceTxt = $this->fluxOutput->getChunkString(8192);
-			if( $pieceTxt===false || $pieceTxt==='' || connection_aborted() ){
+			$pieceTx = $this->fluxOutput->getChunkString(8192);
+			if( $pieceTx===false || $pieceTx==='' || connection_aborted() ){
 				break;
 			}
-			print($pieceTxt);
+			print($pieceTx);
 			flush();
 		}
 		$this->fluxOutput->closeTheSource();

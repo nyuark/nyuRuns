@@ -44,21 +44,21 @@ class Fluxd {
 	 * @throws \RuntimeException When the file cannot be read, or is outside the base folder.
 	 */
 	public static function openLocalFluxd( String $sentFilePath, String $baseFldrText='' ): Fluxd {
-		$rltnPath = realpath($sentFilePath);
-		if( $rltnPath===false || !is_file($rltnPath) || !is_readable($rltnPath) ){
+		$relPath = realpath($sentFilePath);
+		if( $relPath===false || !is_file($relPath) || !is_readable($relPath) ){
 			throw new \RuntimeException('File not found: '.basename($sentFilePath));
 		}
 		if( $baseFldrText!='' ){
-			$realPath = realpath($baseFldrText);
-			if( $realPath===false || strpos($rltnPath, rtrim($realPath, '/\\').DIRECTORY_SEPARATOR)!==0 ){
+			$realDir = realpath($baseFldrText);
+			if( $realDir===false || strpos($relPath, rtrim($realDir, '/\\').DIRECTORY_SEPARATOR)!==0 ){
 				throw new \RuntimeException('File outside the allowed folder: '.basename($sentFilePath));
 			}
 		}
-		$fileHndl = fopen($rltnPath, 'rb');
-		if( $fileHndl===false ){
+		$filHndl = fopen($relPath, 'rb');
+		if( $filHndl===false ){
 			throw new \RuntimeException('File not found: '.basename($sentFilePath));
 		}
-		return new Fluxd($fileHndl, $rltnPath);
+		return new Fluxd($filHndl, $relPath);
 	}
 
 	/**
@@ -70,15 +70,15 @@ class Fluxd {
 	 * @throws \RuntimeException When the body cannot be read.
 	 */
 	public static function openInputFluxd(): Fluxd {
-		$bodyHndl = fopen('php://input', 'rb');
-		$copyHndl = tmpfile();
-		if( $bodyHndl===false || $copyHndl===false ){
+		$bdyHndl = fopen('php://input', 'rb');
+		$cpyHndl = tmpfile();
+		if( $bdyHndl===false || $cpyHndl===false ){
 			throw new \RuntimeException('The request body cannot be read');
 		}
-		stream_copy_to_stream($bodyHndl, $copyHndl);
-		fclose($bodyHndl);
-		rewind($copyHndl);
-		return new Fluxd($copyHndl);
+		stream_copy_to_stream($bdyHndl, $cpyHndl);
+		fclose($bdyHndl);
+		rewind($cpyHndl);
+		return new Fluxd($cpyHndl);
 	}
 
 	/**
@@ -90,13 +90,13 @@ class Fluxd {
 	 * @throws \RuntimeException When the temporary store cannot be made.
 	 */
 	public static function openBytesFluxd( String $nakedContent ): Fluxd {
-		$copyHndl = tmpfile();
-		if( $copyHndl===false ){
+		$cpyHndl = tmpfile();
+		if( $cpyHndl===false ){
 			throw new \RuntimeException('The temporary store cannot be made');
 		}
-		fwrite($copyHndl, $nakedContent);
-		rewind($copyHndl);
-		return new Fluxd($copyHndl);
+		fwrite($cpyHndl, $nakedContent);
+		rewind($cpyHndl);
+		return new Fluxd($cpyHndl);
 	}
 
 	/**
@@ -122,12 +122,12 @@ class Fluxd {
 	 * @throws \RuntimeException When the size is not positive, or the source is closed.
 	 */
 	public function getChunkString( Int $chunkBytesNb=8192 ): String|Bool {
-		$inptHndl = $this->readOpenStream();
+		$pointer = $this->readOpenStream();
 		if( $chunkBytesNb<1 ){
 			throw new \RuntimeException('A piece holds at least one byte');
 		}
-		$chunkTxt = fread($inptHndl, $chunkBytesNb);
-		return ($chunkTxt===false || $chunkTxt==='') ? false : $chunkTxt;
+		$chnkTxt = fread($pointer, $chunkBytesNb);
+		return ($chnkTxt===false || $chnkTxt==='') ? false : $chnkTxt;
 	}
 
 	/**
@@ -138,8 +138,8 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function getALineString(): String|Bool {
-		$lineText = fgets($this->readOpenStream());
-		return ($lineText===false) ? false : rtrim($lineText, "\r\n");
+		$lineTxt = fgets($this->readOpenStream());
+		return ($lineTxt===false) ? false : rtrim($lineTxt, "\r\n");
 	}
 
 	/**
@@ -153,22 +153,22 @@ class Fluxd {
 	 * @throws \RuntimeException When the range is not valid, or the source is closed.
 	 */
 	public function getRangeString( Int $rangeStartNb, Int $rangeUntilNb ): String {
-		$inptHndl = $this->readOpenStream();
+		$pointer = $this->readOpenStream();
 		if( $rangeStartNb<0 || $rangeUntilNb<$rangeStartNb ){
 			throw new \RuntimeException('Invalid byte range: '.$rangeStartNb.'-'.$rangeUntilNb);
 		}
-		fseek($inptHndl, $rangeStartNb);
-		$leftSize = $rangeUntilNb-$rangeStartNb+1;
-		$rangeTxt = '';
-		while( $leftSize>0 && !feof($inptHndl) ){
-			$chunkTxt = fread($inptHndl, min(8192, $leftSize));
-			if( $chunkTxt===false || $chunkTxt==='' ){
+		fseek($pointer, $rangeStartNb);
+		$lftSize = $rangeUntilNb-$rangeStartNb+1;
+		$rngText = '';
+		while( $lftSize>0 && !feof($pointer) ){
+			$chnkTxt = fread($pointer, min(8192, $lftSize));
+			if( $chnkTxt===false || $chnkTxt==='' ){
 				break;
 			}
-			$rangeTxt .= $chunkTxt;
-			$leftSize -= strlen($chunkTxt);
+			$rngText .= $chnkTxt;
+			$lftSize -= strlen($chnkTxt);
 		}
-		return $rangeTxt;
+		return $rngText;
 	}
 
 	/**
@@ -181,17 +181,17 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is larger than the limit, or is closed.
 	 */
 	public function getWholeString( ?Int $ceilingBytes=null ): String {
-		$inptHndl = $this->readOpenStream();
-		rewind($inptHndl);
+		$pointer = $this->readOpenStream();
+		rewind($pointer);
 		if( $ceilingBytes===null ){
-			return strval(stream_get_contents($inptHndl));
+			return strval(stream_get_contents($pointer));
 		}
 		// One byte more than the limit is enough to know the source is too large
-		$fullText = strval(stream_get_contents($inptHndl, max(0, $ceilingBytes)+1));
-		if( strlen($fullText)>$ceilingBytes ){
+		$fullTxt = strval(stream_get_contents($pointer, max(0, $ceilingBytes)+1));
+		if( strlen($fullTxt)>$ceilingBytes ){
 			throw new \RuntimeException('Content larger than the '.$ceilingBytes.' bytes allowed');
 		}
-		return $fullText;
+		return $fullTxt;
 	}
 
 	/**
@@ -202,9 +202,9 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function stopOfFluxFlag(): Bool {
-		$inptHndl = $this->readOpenStream();
-		$srceSize = $this->totalSizeCount();
-		return ($srceSize!==null) ? ftell($inptHndl)>=$srceSize : feof($inptHndl);
+		$pointer = $this->readOpenStream();
+		$srcSize = $this->totalSizeCount();
+		return ($srcSize!==null) ? ftell($pointer)>=$srcSize : feof($pointer);
 	}
 
 	/**
@@ -215,8 +215,8 @@ class Fluxd {
 	 * @throws \RuntimeException When the source is closed.
 	 */
 	public function totalSizeCount(): ?Int {
-		$strmInfo = fstat($this->readOpenStream());
-		return isset($strmInfo['size']) ? intval($strmInfo['size']) : null;
+		$strmInf = fstat($this->readOpenStream());
+		return isset($strmInf['size']) ? intval($strmInf['size']) : null;
 	}
 
 	/**
@@ -241,28 +241,28 @@ class Fluxd {
 	 * @throws \RuntimeException When the file cannot be written, or the source is closed.
 	 */
 	public function setLocalString( ?String $saveFilePath=null ): String {
-		$inptHndl = $this->readOpenStream();
+		$pointer = $this->readOpenStream();
 		if( $saveFilePath===null && $this->sourcePath!==null ){
 			return $this->sourcePath;
 		}
-		$savePath = $saveFilePath;
-		if( $savePath===null ){
-			$savePath = tempnam(sys_get_temp_dir(), 'nyu');
-			if( $savePath===false ){
+		$savPath = $saveFilePath;
+		if( $savPath===null ){
+			$savPath = tempnam(sys_get_temp_dir(), 'nyu');
+			if( $savPath===false ){
 				throw new \RuntimeException('The temporary file cannot be made');
 			}
-			$this->tmpFileArr[] = $savePath;
+			$this->tmpFileArr[] = $savPath;
 		}
-		$saveHndl = @fopen($savePath, 'wb');
-		if( $saveHndl===false ){
-			throw new \RuntimeException('File cannot be written: '.basename($savePath));
+		$savHndl = @fopen($savPath, 'wb');
+		if( $savHndl===false ){
+			throw new \RuntimeException('File cannot be written: '.basename($savPath));
 		}
-		$crsorPos = ftell($inptHndl);
-		rewind($inptHndl);
-		stream_copy_to_stream($inptHndl, $saveHndl);
-		fclose($saveHndl);
-		fseek($inptHndl, $crsorPos===false ? 0 : $crsorPos);
-		return $savePath;
+		$nowPstn = ftell($pointer);
+		rewind($pointer);
+		stream_copy_to_stream($pointer, $savHndl);
+		fclose($savHndl);
+		fseek($pointer, $nowPstn===false ? 0 : $nowPstn);
+		return $savPath;
 	}
 
 	/**

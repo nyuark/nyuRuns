@@ -30,10 +30,10 @@ class ModelStack{
 		$this->modelFiles = array();
 		if(is_dir($this->modelsFldr)){
 			foreach( scandir($this->modelsFldr) as $mdlFil ){
-				$nameSize = strpos($mdlFil,'Model.php');
-				if( $nameSize!==false ){
-					$modelNme = substr($mdlFil, 0, $nameSize);
-					$this->modelFiles[strtolower($modelNme)] = $modelNme;
+				$nmeSize = strpos($mdlFil,'Model.php');
+				if( $nmeSize!==false ){
+					$mdlName = substr($mdlFil, 0, $nmeSize);
+					$this->modelFiles[strtolower($mdlName)] = $mdlName;
 				}
 			}
 		}else{
@@ -52,18 +52,18 @@ class ModelStack{
 	 * @throws \RuntimeException When the model exists but cannot be created.
 	 */
 	function getModelObject(String $appModelName): ?Object {
-		$lowerNme = strtolower($appModelName);
+		$lowName = strtolower($appModelName);
 		// A model of the app is made the first time it is asked for
-		if( !array_key_exists($lowerNme, $this->modelsList) && array_key_exists($lowerNme, $this->modelFiles) ){
-			$this->modelsList[$lowerNme] = $this->newModelObject($this->modelFiles[$lowerNme]);
+		if( !array_key_exists($lowName, $this->modelsList) && array_key_exists($lowName, $this->modelFiles) ){
+			$this->modelsList[$lowName] = $this->newModelObject($this->modelFiles[$lowName]);
 		}
-		if( array_key_exists($lowerNme, $this->modelsList) ){
-			return $this->modelsList[$lowerNme];
+		if( array_key_exists($lowName, $this->modelsList) ){
+			return $this->modelsList[$lowName];
 		}else{
-			$sharModl = $this->sharedModelObj( $appModelName );
-			if($sharModl != false){
-				$this->modelsList[$lowerNme] = $sharModl;
-				return $sharModl;
+			$shrdMdl = $this->sharedModelObj( $appModelName );
+			if($shrdMdl != false){
+				$this->modelsList[$lowName] = $shrdMdl;
+				return $shrdMdl;
 			}else{
 				// Throw Instanciation error for model call
 				return null;
@@ -82,8 +82,8 @@ class ModelStack{
 	protected function newModelObject(String $modelClsName): Object {
 		require_once($this->modelsFldr.DS.$modelClsName.'Model.php');
 		try{
-			$classNme = "\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName;
-			return new $classNme();
+			$clsName = "\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName;
+			return new $clsName();
 		}catch( \Throwable $e ){
 			throw new \RuntimeException('Model "'.$modelClsName.'" of "'.$this->runAppName.'" could not be loaded: '.$e->getMessage(), 0, $e);
 		}
@@ -102,14 +102,14 @@ class ModelStack{
 	 * @throws \RuntimeException When the model file exists but the model cannot be created.
 	 */
 	function sharedModelObj( String $appModelName ): Object|Bool {
-		$sharPath = RUN_DIR.DS.'Shared'.DS;
-		$shrdFile = $sharPath.ucfirst($appModelName).'Model.php';
-		if(file_exists( $shrdFile )){
-			require_once($shrdFile);
+		$shrdDir = RUN_DIR.DS.'Shared'.DS;
+		$shrFile = $shrdDir.ucfirst($appModelName).'Model.php';
+		if(file_exists( $shrFile )){
+			require_once($shrFile);
 			try{
-				$classNme = "\\nyu\\Runs\\Shared\\".$appModelName;
-				$modelIns = new $classNme();
-				return $modelIns;
+				$clsName = "\\nyu\\Runs\\Shared\\".$appModelName;
+				$modInst = new $clsName();
+				return $modInst;
 			}catch( \Throwable $e ){
 				throw new \RuntimeException('Shared model "'.$appModelName.'" could not be loaded: '.$e->getMessage(), 0, $e);
 			}

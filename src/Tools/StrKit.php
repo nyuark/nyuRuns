@@ -16,15 +16,15 @@ class StrKit{
 	 */
 	public static function makePluralWord( String $eachWordText ): String {
 		if(substr($eachWordText,-1)=='y'){
-			$plrlText = substr($eachWordText,0,-1).'ies';
+			$plurals = substr($eachWordText,0,-1).'ies';
 		}else{
 			if(substr($eachWordText,-1)=='s'){
-				$plrlText = $eachWordText.'es';
+				$plurals = $eachWordText.'es';
 			}else{
-				$plrlText = $eachWordText.'s';
+				$plurals = $eachWordText.'s';
 			}
 		}
-		return $plrlText;
+		return $plurals;
 	}
 	
 	/**
@@ -36,15 +36,15 @@ class StrKit{
 	 */
 	public static function singularizeTxt( String $wordInPlural ): String {
 		if(substr($wordInPlural,-3)=='ies'){
-			$snglText = substr($wordInPlural,0,-3).'y';
+			$singulr = substr($wordInPlural,0,-3).'y';
 		}else{
 			if(substr($wordInPlural,-1)=='s'){
-				$snglText = substr($wordInPlural,0,-1);
+				$singulr = substr($wordInPlural,0,-1);
 			}else{
-				$snglText = $wordInPlural;
+				$singulr = $wordInPlural;
 			}
 		}
-		return $snglText;
+		return $singulr;
 	}
 
 	/**
@@ -56,64 +56,64 @@ class StrKit{
 	 * @return String The string without its tags.
 	 */
 	public static function trimTagsString( String $nakedContent ): String {
-		$outStrng = '';
-		$tagCodig = 0;	// 0: text, 1: tag, 2: <? block, 3: <! block, 4: comment
-		$tagDepth = 0;
-		$breakCnt = 0;
-		$isXmlDoc = false;
-		$textSize = strlen($nakedContent);
-		for( $posInc=0; $posInc<$textSize; $posInc++ ){
-			$charactr = $nakedContent[$posInc];
-			$prevChar = $posInc>0 ? $nakedContent[$posInc-1] : '';
-			if( $tagCodig==0 ){
-				if( $charactr=='<' ){
-					$tagCodig = 1;
-				}elseif( $charactr=='>' && $tagDepth>0 ){
-					$tagDepth--;
-				}elseif( $charactr!="\0" ){
-					$outStrng .= $charactr;
+		$outText = '';
+		$tagMode = 0;	// 0: text, 1: tag, 2: <? block, 3: <! block, 4: comment
+		$tagDpth = 0;
+		$brCount = 0;
+		$xmlFlag = false;
+		$txtSize = strlen($nakedContent);
+		for( $posInc=0; $posInc<$txtSize; $posInc++ ){
+			$charctr = $nakedContent[$posInc];
+			$prevChr = $posInc>0 ? $nakedContent[$posInc-1] : '';
+			if( $tagMode==0 ){
+				if( $charctr=='<' ){
+					$tagMode = 1;
+				}elseif( $charctr=='>' && $tagDpth>0 ){
+					$tagDpth--;
+				}elseif( $charctr!="\0" ){
+					$outText .= $charctr;
 				}
-			}elseif( $tagCodig==4 ){
-				if( $charactr=='>' && $posInc>=2 && $prevChar=='-' && $nakedContent[$posInc-2]=='-' ){
-					$tagCodig = 0;
+			}elseif( $tagMode==4 ){
+				if( $charctr=='>' && $posInc>=2 && $prevChr=='-' && $nakedContent[$posInc-2]=='-' ){
+					$tagMode = 0;
 				}
-			}elseif( $charactr=='>' ){
-				if( $tagDepth>0 ){
-					$tagDepth--;
-				}elseif( $tagCodig==1 && !($isXmlDoc && $prevChar=='-') ){
-					$tagCodig = 0;
-					$isXmlDoc = false;
-				}elseif( $tagCodig==2 && $breakCnt==0 && $prevChar=='?' ){
-					$tagCodig = 0;
-				}elseif( $tagCodig==3 ){
-					$tagCodig = 0;
+			}elseif( $charctr=='>' ){
+				if( $tagDpth>0 ){
+					$tagDpth--;
+				}elseif( $tagMode==1 && !($xmlFlag && $prevChr=='-') ){
+					$tagMode = 0;
+					$xmlFlag = false;
+				}elseif( $tagMode==2 && $brCount==0 && $prevChr=='?' ){
+					$tagMode = 0;
+				}elseif( $tagMode==3 ){
+					$tagMode = 0;
 				}
-			}elseif( $tagCodig==1 ){
-				if( $charactr=='<' ){
-					$tagDepth++;
-				}elseif( $charactr=='!' && $prevChar=='<' ){
-					$tagCodig = 3;
-				}elseif( $charactr=='?' && $prevChar=='<' ){
-					$tagCodig = 2;
-					$breakCnt = 0;
+			}elseif( $tagMode==1 ){
+				if( $charctr=='<' ){
+					$tagDpth++;
+				}elseif( $charctr=='!' && $prevChr=='<' ){
+					$tagMode = 3;
+				}elseif( $charctr=='?' && $prevChr=='<' ){
+					$tagMode = 2;
+					$brCount = 0;
 				}
-			}elseif( $tagCodig==2 ){
-				if( $charactr=='(' ){
-					$breakCnt++;
-				}elseif( $charactr==')' ){
-					$breakCnt--;
-				}elseif( ($charactr=='l' || $charactr=='L') && $posInc>4 && strtolower(substr($nakedContent, $posInc-4, 4))=='<?xm' ){
-					$tagCodig = 1;
-					$isXmlDoc = true;
+			}elseif( $tagMode==2 ){
+				if( $charctr=='(' ){
+					$brCount++;
+				}elseif( $charctr==')' ){
+					$brCount--;
+				}elseif( ($charctr=='l' || $charctr=='L') && $posInc>4 && strtolower(substr($nakedContent, $posInc-4, 4))=='<?xm' ){
+					$tagMode = 1;
+					$xmlFlag = true;
 				}
-			}elseif( $tagCodig==3 ){
-				if( $charactr=='-' && $posInc>=2 && $prevChar=='-' && $nakedContent[$posInc-2]=='!' ){
-					$tagCodig = 4;
-				}elseif( ($charactr=='E' || $charactr=='e') && $posInc>6 && strtolower(substr($nakedContent, $posInc-6, 6))=='doctyp' ){
-					$tagCodig = 1;
+			}elseif( $tagMode==3 ){
+				if( $charctr=='-' && $posInc>=2 && $prevChr=='-' && $nakedContent[$posInc-2]=='!' ){
+					$tagMode = 4;
+				}elseif( ($charctr=='E' || $charctr=='e') && $posInc>6 && strtolower(substr($nakedContent, $posInc-6, 6))=='doctyp' ){
+					$tagMode = 1;
 				}
 			}
 		}
-		return $outStrng;
+		return $outText;
 	}
 }

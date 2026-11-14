@@ -37,8 +37,8 @@ class Native extends Driver {
 			}
 			$this->deliverCommand('DATA', Array(354));
 			// A line starting with a dot gets a second one: a lone dot ends the mail
-			$mailText = preg_replace('/^\./m', '..', Message::endLinesInCrlf($emailMessage->writeWholeMail()));
-			$this->deliverCommand(rtrim($mailText, "\r\n")."\r\n.", Array(250), 'the mail');
+			$mailTxt = preg_replace('/^\./m', '..', Message::endLinesInCrlf($emailMessage->writeWholeMail()));
+			$this->deliverCommand(rtrim($mailTxt, "\r\n")."\r\n.", Array(250), 'the mail');
 			$this->deliverCommand('QUIT', Array(221));
 		}catch( MailFailure $e ){
 			return $e->getMessage();
@@ -54,38 +54,38 @@ class Native extends Driver {
 	 * @throws MailFailure When any step fails.
 	 */
 	protected function connectAndAuth(): Void {
-		$srvrHost = strval($this->setupArray['hostName'] ?? '');
-		$portNumb = strval($this->setupArray['portNumb'] ?? '');
-		$portNumb = ($portNumb=='') ? 587 : intval($portNumb);
-		$waitSecs = intval($this->setupArray['waitSecs'] ?? '') ?: 10;
-		if( $srvrHost=='' || $portNumb<=0 ){
+		$srvrHst = strval($this->setupArray['hostName'] ?? '');
+		$portNum = strval($this->setupArray['portNumb'] ?? '');
+		$portNum = ($portNum=='') ? 587 : intval($portNum);
+		$waitSec = intval($this->setupArray['waitSecs'] ?? '') ?: 10;
+		if( $srvrHst=='' || $portNum<=0 ){
 			throw new MailFailure('the account has no server');
 		}
-		$tlsConfg = Array('ssl'=>Array('verify_peer'=>true, 'verify_peer_name'=>true, 'peer_name'=>$srvrHost, 'SNI_enabled'=>true));
-		$hostAddr = (strpos($srvrHost, ':')!==false) ? '['.trim($srvrHost, '[]').']' : $srvrHost;
-		$errorCod = 0;
-		$errorTxt = '';
-		$scktLink = @stream_socket_client( (($portNumb==465) ? 'tls://' : 'tcp://').$hostAddr.':'.$portNumb, $errorCod, $errorTxt, $waitSecs, STREAM_CLIENT_CONNECT, stream_context_create($tlsConfg) );
-		if( $scktLink===false ){
-			throw new MailFailure('no connection to '.$srvrHost.':'.$portNumb.' ('.trim($errorCod.' '.$errorTxt).')');
+		$tlsConf = Array('ssl'=>Array('verify_peer'=>true, 'verify_peer_name'=>true, 'peer_name'=>$srvrHst, 'SNI_enabled'=>true));
+		$hostAdr = (strpos($srvrHst, ':')!==false) ? '['.trim($srvrHst, '[]').']' : $srvrHst;
+		$errCode = 0;
+		$errText = '';
+		$scktLnk = @stream_socket_client( (($portNum==465) ? 'tls://' : 'tcp://').$hostAdr.':'.$portNum, $errCode, $errText, $waitSec, STREAM_CLIENT_CONNECT, stream_context_create($tlsConf) );
+		if( $scktLnk===false ){
+			throw new MailFailure('no connection to '.$srvrHst.':'.$portNum.' ('.trim($errCode.' '.$errText).')');
 		}
-		$this->socketLink = $scktLink;
-		stream_set_timeout($this->socketLink, $waitSecs);
+		$this->socketLink = $scktLnk;
+		stream_set_timeout($this->socketLink, $waitSec);
 		$this->getReplyString(Array(220));
-		$ehloText = $this->deliverCommand('EHLO '.$this->getMachineName(), Array(250));
-		if( $portNumb!=465 ){
-			if( preg_match('/^\d{3}[ -]STARTTLS\b/mi', $ehloText) ){
+		$ehloTxt = $this->deliverCommand('EHLO '.$this->getMachineName(), Array(250));
+		if( $portNum!=465 ){
+			if( preg_match('/^\d{3}[ -]STARTTLS\b/mi', $ehloTxt) ){
 				$this->deliverCommand('STARTTLS', Array(220));
-				$crypMask = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT') ? STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT : 0);
-				if( @stream_socket_enable_crypto($this->socketLink, true, $crypMask)!==true ){
+				$cryptos = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT') ? STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT : 0);
+				if( @stream_socket_enable_crypto($this->socketLink, true, $cryptos)!==true ){
 					throw new MailFailure('the encryption of the link failed');
 				}
-				$ehloText = $this->deliverCommand('EHLO '.$this->getMachineName(), Array(250));
-			}elseif( !self::localServerFlg($srvrHost) ){
+				$ehloTxt = $this->deliverCommand('EHLO '.$this->getMachineName(), Array(250));
+			}elseif( !self::localServerFlg($srvrHst) ){
 				throw new MailFailure('the server offers no STARTTLS: mail is never sent unencrypted');
 			}
 		}
-		$this->signInToServer($ehloText);
+		$this->signInToServer($ehloTxt);
 	}
 
 	/**
@@ -97,21 +97,21 @@ class Native extends Driver {
 	 * @throws MailFailure When the server offers neither, or refuses the login.
 	 */
 	protected function signInToServer( String $serverAnswer ): Void {
-		$userName = strval($this->setupArray['userName'] ?? '');
-		if( $userName=='' ){
+		$userNme = strval($this->setupArray['userName'] ?? '');
+		if( $userNme=='' ){
 			return;
 		}
-		$passText = strval($this->setupArray['passWord'] ?? '');
-		$authList = Array();
-		if( preg_match('/^\d{3}[ -]AUTH[ =](.*)$/mi', $serverAnswer, $authMthd) ){
-			$authList = preg_split('/\s+/', strtoupper(trim($authMthd[1])));
+		$passTxt = strval($this->setupArray['passWord'] ?? '');
+		$authLst = Array();
+		if( preg_match('/^\d{3}[ -]AUTH[ =](.*)$/mi', $serverAnswer, $authMth) ){
+			$authLst = preg_split('/\s+/', strtoupper(trim($authMth[1])));
 		}
-		if( in_array('PLAIN', $authList, true) ){
-			$this->deliverCommand('AUTH PLAIN '.base64_encode("\0".$userName."\0".$passText), Array(235), 'AUTH PLAIN');
-		}elseif( in_array('LOGIN', $authList, true) ){
+		if( in_array('PLAIN', $authLst, true) ){
+			$this->deliverCommand('AUTH PLAIN '.base64_encode("\0".$userNme."\0".$passTxt), Array(235), 'AUTH PLAIN');
+		}elseif( in_array('LOGIN', $authLst, true) ){
 			$this->deliverCommand('AUTH LOGIN', Array(334));
-			$this->deliverCommand(base64_encode($userName), Array(334), 'the user name');
-			$this->deliverCommand(base64_encode($passText), Array(235), 'the password');
+			$this->deliverCommand(base64_encode($userNme), Array(334), 'the user name');
+			$this->deliverCommand(base64_encode($passTxt), Array(235), 'the password');
 		}else{
 			throw new MailFailure('the server offers no login the account can use (PLAIN or LOGIN)');
 		}
@@ -131,8 +131,8 @@ class Native extends Driver {
 		if( @fwrite($this->socketLink, $plainCommand."\r\n")===false ){
 			throw new MailFailure('the link broke');
 		}
-		$cmndText = ($displayLabel!==null) ? $displayLabel : strtok($plainCommand, "\r\n");
-		return $this->getReplyString($successCodes, $cmndText);
+		$command = ($displayLabel!==null) ? $displayLabel : strtok($plainCommand, "\r\n");
+		return $this->getReplyString($successCodes, $command);
 	}
 
 	/**
@@ -145,19 +145,19 @@ class Native extends Driver {
 	 * @throws MailFailure When the link breaks or times out, or the answer is another code.
 	 */
 	protected function getReplyString( Array $successCodes, String $commandLabel='the greeting' ): String {
-		$replyTxt = '';
+		$rplyTxt = '';
 		do{
-			$replyLne = fgets($this->socketLink, 1024);
-			if( $replyLne===false ){
-				$metaList = stream_get_meta_data($this->socketLink);
-				throw new MailFailure( !empty($metaList['timed_out']) ? 'the server did not answer in time' : 'the link broke' );
+			$rplyLin = fgets($this->socketLink, 1024);
+			if( $rplyLin===false ){
+				$metaArr = stream_get_meta_data($this->socketLink);
+				throw new MailFailure( !empty($metaArr['timed_out']) ? 'the server did not answer in time' : 'the link broke' );
 			}
-			$replyTxt .= $replyLne;
-		}while( strlen($replyLne)>=4 && $replyLne[3]=='-' );
-		if( !in_array(intval(substr($replyLne, 0, 3)), $successCodes, true) ){
-			throw new MailFailure( json_encode($commandLabel).' refused: '.trim($replyLne) );
+			$rplyTxt .= $rplyLin;
+		}while( strlen($rplyLin)>=4 && $rplyLin[3]=='-' );
+		if( !in_array(intval(substr($rplyLin, 0, 3)), $successCodes, true) ){
+			throw new MailFailure( json_encode($commandLabel).' refused: '.trim($rplyLin) );
 		}
-		return $replyTxt;
+		return $rplyTxt;
 	}
 
 	/**
@@ -176,7 +176,7 @@ class Native extends Driver {
 	 * @return String The host name, or 'localhost' when it is not a plain one.
 	 */
 	protected function getMachineName(): String {
-		$hostName = strval(gethostname());
-		return preg_match('/^[A-Za-z0-9][A-Za-z0-9.-]*$/D', $hostName) ? $hostName : 'localhost';
+		$hostNme = strval(gethostname());
+		return preg_match('/^[A-Za-z0-9][A-Za-z0-9.-]*$/D', $hostNme) ? $hostNme : 'localhost';
 	}
 }

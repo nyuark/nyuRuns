@@ -50,8 +50,8 @@ class Input{
 		$this->rqstObject = $givenRequest;
 		$this->storedName = $registryName;
 		$this->fieldArray = $this->fieldsInputMap( $fieldsConfig );
-		$allArray = ($sourceOfData=='QUERY' && $givenRequest!==null) ? $givenRequest->getAllVariable() : Array();
-		$this->inputsList[$this->storedName] = $this->parseValuesArr( $allArray );
+		$allData = ($sourceOfData=='QUERY' && $givenRequest!==null) ? $givenRequest->getAllVariable() : Array();
+		$this->inputsList[$this->storedName] = $this->parseValuesArr( $allData );
 	}
 
 	/**
@@ -68,9 +68,9 @@ class Input{
 		if( $this->fieldArray===null ){
 			return $fieldValList;
 		}
-		$keptVals = $this->mapValuesArray( $fieldValList, $this->fieldArray, true );
-		$this->missingSet = $this->findEmptyArray( $keptVals, $fieldValList, $this->fieldArray, '', true );
-		return $keptVals;
+		$keptVls = $this->mapValuesArray( $fieldValList, $this->fieldArray, true );
+		$this->missingSet = $this->findEmptyArray( $keptVls, $fieldValList, $this->fieldArray, '', true );
+		return $keptVls;
 	}
 
 	/**
@@ -100,21 +100,21 @@ class Input{
 			$filteredVals = array_change_key_case($filteredVals, CASE_LOWER);
 			$valuesAsSent = array_change_key_case($valuesAsSent, CASE_LOWER);
 		}
-		$missList = Array();
+		$missLst = Array();
 		foreach( $fldNodesList as $fldKey => $fldNod ){
-			$nameClef = $matchAnyCase ? strtolower(strval($fldKey)) : $fldKey;
-			$keptVals = $filteredVals[$nameClef] ?? null;
-			$sentVals = $valuesAsSent[$nameClef] ?? null;
+			$nameKey = $matchAnyCase ? strtolower(strval($fldKey)) : $fldKey;
+			$keptVal = $filteredVals[$nameKey] ?? null;
+			$sentVal = $valuesAsSent[$nameKey] ?? null;
 			// A value sent empty is empty, whatever its format makes of it (Integer gives 0)
-			if( $fldNod['reqd'] && ($this->hasEmptiedFlag($sentVals) || $this->hasEmptiedFlag($keptVals)) ){
-				$missList[] = $prefixString.$fldKey;
+			if( $fldNod['reqd'] && ($this->hasEmptiedFlag($sentVal) || $this->hasEmptiedFlag($keptVal)) ){
+				$missLst[] = $prefixString.$fldKey;
 				continue;
 			}
 			if( $fldNod['kids']!==null ){
-				$missList = array_merge( $missList, $this->findEmptyArray(is_array($keptVals) ? $keptVals : Array(), is_array($sentVals) ? $sentVals : Array(), $fldNod['kids'], $prefixString.$fldKey.'.') );
+				$missLst = array_merge( $missLst, $this->findEmptyArray(is_array($keptVal) ? $keptVal : Array(), is_array($sentVal) ? $sentVal : Array(), $fldNod['kids'], $prefixString.$fldKey.'.') );
 			}
 		}
-		return $missList;
+		return $missLst;
 	}
 
 	/**
@@ -150,22 +150,22 @@ class Input{
 		if( $matchAnyCase ){
 			$fldNodesList = array_change_key_case($fldNodesList, CASE_LOWER);
 		}
-		$valueLst = Array();
+		$valList = Array();
 		foreach( $fieldValList as $valKey => $valVal ){
-			$nodeClef = $matchAnyCase ? strtolower(strval($valKey)) : strval($valKey);
-			if( !isset($fldNodesList[$nodeClef]) ){
+			$nodeKey = $matchAnyCase ? strtolower(strval($valKey)) : strval($valKey);
+			if( !isset($fldNodesList[$nodeKey]) ){
 				continue;
 			}
-			$fieldNde = $fldNodesList[$nodeClef];
-			if( $fieldNde['kids']!==null ){
-				$valueLst[$valKey] = is_array($valVal) ? $this->mapValuesArray($valVal, $fieldNde['kids']) : Array();
-			}elseif( $fieldNde['frmt']=='' ){
-				$valueLst[$valKey] = $valVal;
+			$fldNode = $fldNodesList[$nodeKey];
+			if( $fldNode['kids']!==null ){
+				$valList[$valKey] = is_array($valVal) ? $this->mapValuesArray($valVal, $fldNode['kids']) : Array();
+			}elseif( $fldNode['frmt']=='' ){
+				$valList[$valKey] = $valVal;
 			}else{
-				$valueLst[$valKey] = $this->formatInputVal($valVal, $fieldNde['frmt'], $fieldNde['optn']);
+				$valList[$valKey] = $this->formatInputVal($valVal, $fldNode['frmt'], $fldNode['optn']);
 			}
 		}
-		return $valueLst;
+		return $valList;
 	}
 
 	/**
@@ -186,8 +186,8 @@ class Input{
 			return $valueAsGiven;
 		}
 		try{
-			$variInst = new Variable($valueAsGiven);
-			return $variInst->castWrappedVal($nameOfFormat, $formatOption ?? false);
+			$vrblObj = new Variable($valueAsGiven);
+			return $vrblObj->castWrappedVal($nameOfFormat, $formatOption ?? false);
 		}catch( \TypeError | \ValueError $e ){
 			return '';
 		}
@@ -207,50 +207,50 @@ class Input{
 	 */
 	protected function fieldsInputMap( String|Array $fieldsConfig ): ?Array {
 		if( is_string($fieldsConfig) ){
-			$defnText = trim($fieldsConfig);
-			if( $defnText=='all' ){
+			$defText = trim($fieldsConfig);
+			if( $defText=='all' ){
 				return null;
 			}
 			// name:Format(option) items; the option may hold a colon, not a semicolon
 			$fieldsConfig = Array();
-			foreach( ($defnText=='none' ? Array() : explode(';', $defnText)) as $lstItm ){
-				$itemPart = explode(':', $lstItm, 2);
-				if( trim($itemPart[0])!='' ){
-					$fieldsConfig[trim($itemPart[0])] = trim($itemPart[1] ?? '');
+			foreach( ($defText=='none' ? Array() : explode(';', $defText)) as $lstItm ){
+				$itmPrts = explode(':', $lstItm, 2);
+				if( trim($itmPrts[0])!='' ){
+					$fieldsConfig[trim($itmPrts[0])] = trim($itmPrts[1] ?? '');
 				}
 			}
 		}
-		$nodeDict = Array();
+		$nodeMap = Array();
 		foreach( $fieldsConfig as $fldKey => $fldDef ){
 			// In a plain list of names, the name is the value
-			$isNoDefn = is_int($fldKey) && !is_array($fldDef);
-			$fieldNme = strval($isNoDefn ? $fldDef : $fldKey);
+			$isPlain = is_int($fldKey) && !is_array($fldDef);
+			$fldName = strval($isPlain ? $fldDef : $fldKey);
 			// A name ending with '!' is a required field
-			$isNeeded = (substr($fieldNme, -1)=='!');
-			if( $isNeeded ){
-				$fieldNme = rtrim(substr($fieldNme, 0, -1));
+			$isReqrd = (substr($fldName, -1)=='!');
+			if( $isReqrd ){
+				$fldName = rtrim(substr($fldName, 0, -1));
 			}
 			if( is_array($fldDef) ){
-				$nodeDict[$fieldNme] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsInputMap($fldDef), 'reqd'=>$isNeeded);
+				$nodeMap[$fldName] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->fieldsInputMap($fldDef), 'reqd'=>$isReqrd);
 				continue;
 			}
-			if( $isNoDefn ){
+			if( $isPlain ){
 				// A plain list of names : each is kept as sent
-				$nodeDict[$fieldNme] = Array('frmt'=>'', 'optn'=>null, 'kids'=>null, 'reqd'=>$isNeeded);
+				$nodeMap[$fldName] = Array('frmt'=>'', 'optn'=>null, 'kids'=>null, 'reqd'=>$isReqrd);
 				continue;
 			}
-			$fieldSpc = trim(strval($fldDef));
-			$formPart = Array();
-			if( $fieldSpc!='' && !preg_match('/^(\w+)(?:\((.*)\))?$/s', $fieldSpc, $formPart) ){
-				throw new \RuntimeException('Input misconfigured: "'.$fieldSpc.'" is not a format, for the field "'.$fieldNme.'"');
+			$fldSpec = trim(strval($fldDef));
+			$frmPrts = Array();
+			if( $fldSpec!='' && !preg_match('/^(\w+)(?:\((.*)\))?$/s', $fldSpec, $frmPrts) ){
+				throw new \RuntimeException('Input misconfigured: "'.$fldSpec.'" is not a format, for the field "'.$fldName.'"');
 			}
-			$formName = $formPart[1] ?? '';
-			if( $formName!='' && !method_exists(Variable::class, 'formats'.$formName) ){
-				throw new \RuntimeException('Input misconfigured: unknown format "'.$formName.'" for the field "'.$fieldNme.'"');
+			$frmName = $frmPrts[1] ?? '';
+			if( $frmName!='' && !method_exists(Variable::class, 'formats'.$frmName) ){
+				throw new \RuntimeException('Input misconfigured: unknown format "'.$frmName.'" for the field "'.$fldName.'"');
 			}
-			$nodeDict[$fieldNme] = Array('frmt'=>$formName, 'optn'=>(($formPart[2] ?? '')!=='' ? $formPart[2] : null), 'kids'=>null, 'reqd'=>$isNeeded);
+			$nodeMap[$fldName] = Array('frmt'=>$frmName, 'optn'=>(($frmPrts[2] ?? '')!=='' ? $frmPrts[2] : null), 'kids'=>null, 'reqd'=>$isReqrd);
 		}
-		return $nodeDict;
+		return $nodeMap;
 	}
 
     /**

@@ -53,34 +53,34 @@ class Request{
 		$this->rqstInMthd = $this->serverRgst->readValueByKey('request_method');
 
 		// Query Values
-		$reqstUri = $this->serverRgst->readValueByKey('request_uri');
-		$quoteMrk = strPos($reqstUri, '?');
-		$urlArgmn = Array();
+		$rqstURI = $this->serverRgst->readValueByKey('request_uri');
+		$quoMark = strPos($rqstURI, '?');
+		$urlArgs = Array();
 
-		if( $quoteMrk!==false ){
-			$pageAddr = subStr($reqstUri, 0, $quoteMrk);
-			$queryTxt = subStr($reqstUri, $quoteMrk+1);
-			parse_str($queryTxt, $urlArgmn);
+		if( $quoMark!==false ){
+			$urlPage = subStr($rqstURI, 0, $quoMark);
+			$qParStr = subStr($rqstURI, $quoMark+1);
+			parse_str($qParStr, $urlArgs);
 		}else{
-			$pageAddr = $reqstUri;
+			$urlPage = $rqstURI;
 		}
-		$urlArray = Array(
+		$urlInfo = Array(
 						'htScheme'=>$this->clientRgst->readValueByKey('userSchm'),
 						'servName'=>$this->serverRgst->readValueByKey('server_name'),
-						'fullPath'=>$reqstUri,
+						'fullPath'=>$rqstURI,
 						'scriptAt'=>$this->serverRgst->readValueByKey('script_name'),
 						'httpVers'=>$this->serverRgst->readValueByKey('server_protocol')
 					);
-		$urlArray['wholeUrl'] = 	$urlArray['htScheme'].'://'.$urlArray['servName'].$pageAddr;
-		$urlArray['rqstLine'] = 	$this->rqstInMthd.' '.$urlArray['htScheme'].'://'.$urlArray['servName']
-								.$urlArray['fullPath'].' '.$urlArray['scriptAt'].' '.$urlArray['httpVers'];
-		$this->uriDetails = $urlArray;
+		$urlInfo['wholeUrl'] = 	$urlInfo['htScheme'].'://'.$urlInfo['servName'].$urlPage;
+		$urlInfo['rqstLine'] = 	$this->rqstInMthd.' '.$urlInfo['htScheme'].'://'.$urlInfo['servName']
+								.$urlInfo['fullPath'].' '.$urlInfo['scriptAt'].' '.$urlInfo['httpVers'];
+		$this->uriDetails = $urlInfo;
 		$this->givenQuery = $this->serverRgst->readValueByKey('query_string');
 
 		// Get received headers
 		$this->everyHeads = $this->fetchHeadsList();
 
-		$this->getRqstContent( $urlArgmn );
+		$this->getRqstContent( $urlArgs );
 	}
 
 	// Get query variables, cookies and files
@@ -134,42 +134,42 @@ class Request{
 	 */
 	protected function getRawDataList(): Array {
 		// Fetch content
-		$rawArray = $this->readBodyCapped();
+		$rawData = $this->readBodyCapped();
 
 		// JSON body (POST/PUT/PATCH) : decode directly, no boundary framing
-		$countCod = $this->retrieveHeader('Content-Type');
-		if($countCod!==null && stripos($countCod, 'application/json')!==false){
-			$jsonVals = json_decode($rawArray, true);
+		$cntType = $this->retrieveHeader('Content-Type');
+		if($cntType!==null && stripos($cntType, 'application/json')!==false){
+			$jsonVls = json_decode($rawData, true);
 			return array(
-				'head'=>Array('Content-Type'=>$countCod),
-				'vars'=>is_array($jsonVals) ? $jsonVals : Array(),
+				'head'=>Array('Content-Type'=>$cntType),
+				'vars'=>is_array($jsonVls) ? $jsonVls : Array(),
 				'file'=>Array(),
-				'data'=>$rawArray
+				'data'=>$rawData
 			);
 		}
 
 		// URL-encoded form body (PUT/PATCH) : PHP only parses these for POST
-		if($countCod!==null && stripos($countCod, 'application/x-www-form-urlencoded')!==false){
-			parse_str($rawArray, $formVals);
+		if($cntType!==null && stripos($cntType, 'application/x-www-form-urlencoded')!==false){
+			parse_str($rawData, $formVal);
 			return array(
-				'head'=>Array('Content-Type'=>$countCod),
-				'vars'=>$formVals,
+				'head'=>Array('Content-Type'=>$cntType),
+				'vars'=>$formVal,
 				'file'=>Array(),
-				'data'=>$rawArray
+				'data'=>$rawData
 			);
 		}
 
 		// Only a multipart body is split by boundary
-		if($countCod===null || stripos($countCod, 'multipart/')===false){
+		if($cntType===null || stripos($cntType, 'multipart/')===false){
 			return array(
 				'head'=>Array(),
 				'vars'=>Array(),
 				'file'=>Array(),
-				'data'=>$rawArray
+				'data'=>$rawData
 			);
 		}
 
-		return $this->readMultiArray( $rawArray, $countCod );
+		return $this->readMultiArray( $rawData, $cntType );
 	}
 
 	/**
@@ -183,31 +183,31 @@ class Request{
 		if( $this->maxSizeVal<1 ){
 			return strval(file_get_contents('php://input'));
 		}
-		$maxBytes = $this->maxSizeVal * 1024;
+		$maxByts = $this->maxSizeVal * 1024;
 		// What the request announces is checked first : nothing is then read
-		$clmdSize = max( intval($this->retrieveHeader('Content-Length')), intval($this->serverRgst->readValueByKey('content_length')) );
-		if( $clmdSize>$maxBytes ){
+		$claimed = max( intval($this->retrieveHeader('Content-Length')), intval($this->serverRgst->readValueByKey('content_length')) );
+		if( $claimed>$maxByts ){
 			$this->overLength = true;
 			return '';
 		}
 		// Read piece by piece : PHP 8.2 reserves the whole length asked of file_get_contents() before reading
-		$rawArray = '';
-		$inptHndl = fopen('php://input', 'rb');
-		if( $inptHndl!==false ){
-			while( !feof($inptHndl) && strlen($rawArray)<=$maxBytes ){
-				$pieceTxt = fread($inptHndl, min(8192, $maxBytes+1-strlen($rawArray)));
-				if( $pieceTxt===false || $pieceTxt==='' ){
+		$rawData = '';
+		$pointer = fopen('php://input', 'rb');
+		if( $pointer!==false ){
+			while( !feof($pointer) && strlen($rawData)<=$maxByts ){
+				$pieceTx = fread($pointer, min(8192, $maxByts+1-strlen($rawData)));
+				if( $pieceTx===false || $pieceTx==='' ){
 					break;
 				}
-				$rawArray .= $pieceTxt;
+				$rawData .= $pieceTx;
 			}
-			fclose($inptHndl);
+			fclose($pointer);
 		}
-		if( strlen($rawArray)>$maxBytes ){
+		if( strlen($rawData)>$maxByts ){
 			$this->overLength = true;
 			return '';
 		}
-		return $rawArray;
+		return $rawData;
 	}
 
 	/**
@@ -230,85 +230,85 @@ class Request{
 	 * @return Array Associative array with 'head', 'vars', 'file' and 'data' keys.
 	 */
 	protected function readMultiArray( String $nakedContent, String $sentMimeType ): Array {
-		$readFlux = array(
+		$redFlux = array(
 			'head'=>Array(),
 			'vars'=>Array(),
 			'file'=>Array(),
 			'data'=>$nakedContent
 		);
-		if( !preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $sentMimeType, $bindVals) ){
-			return $readFlux;
+		if( !preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $sentMimeType, $bndVals) ){
+			return $redFlux;
 		}
-		$boundary = '--'.($bindVals[1]!='' ? $bindVals[1] : $bindVals[2]);
+		$boundry = '--'.($bndVals[1]!='' ? $bndVals[1] : $bndVals[2]);
 
 		// The first piece is what precedes the first boundary
-		$fluxPrts = array_slice( explode($boundary, $nakedContent), 1 );
+		$flxPrts = array_slice( explode($boundry, $nakedContent), 1 );
 		// The last piece closes the body : a body of more parts than allowed is not read
-		if( $this->pieceLimit>0 && count($fluxPrts)-1>$this->pieceLimit ){
+		if( $this->pieceLimit>0 && count($flxPrts)-1>$this->pieceLimit ){
 			$this->overLength = true;
-			return $readFlux;
+			return $redFlux;
 		}
-		foreach( $fluxPrts as $partLn ){
+		foreach( $flxPrts as $partLn ){
 			// The closing boundary is followed by "--"
 			if( substr($partLn, 0, 2)=='--' ){
 				break;
 			}
 			// A part is : line break, headers, empty line, content, line break
 			$partLn = preg_replace('/^\r?\n/', '', $partLn);
-			if( !preg_match('/\r?\n\r?\n/', $partLn, $seprVals, PREG_OFFSET_CAPTURE) ){
+			if( !preg_match('/\r?\n\r?\n/', $partLn, $sepVals, PREG_OFFSET_CAPTURE) ){
 				continue;
 			}
-			$partHead = substr($partLn, 0, $seprVals[0][1]);
-			$partBody = substr($partLn, $seprVals[0][1] + strlen($seprVals[0][0]));
-			$partBody = preg_replace('/\r?\n\z/', '', $partBody);
+			$partHed = substr($partLn, 0, $sepVals[0][1]);
+			$partBdy = substr($partLn, $sepVals[0][1] + strlen($sepVals[0][0]));
+			$partBdy = preg_replace('/\r?\n\z/', '', $partBdy);
 
-			$fieldNme = null;
-			$fileName = null;
-			$partCode = '';
-			foreach( preg_split('/\r?\n/', $partHead) as $hdrLin ){
-				$colonIdx = strpos($hdrLin, ':');
-				if( $colonIdx===false ){
+			$fldName = null;
+			$fileNme = null;
+			$partTyp = '';
+			foreach( preg_split('/\r?\n/', $partHed) as $hdrLin ){
+				$colonAt = strpos($hdrLin, ':');
+				if( $colonAt===false ){
 					continue;
 				}
-				$hedrName = trim(substr($hdrLin, 0, $colonIdx));
-				$hedrText = trim(substr($hdrLin, $colonIdx+1));
-				$readFlux['head'][$hedrName] = trim(strtok($hedrText, ';'));
-				if( strcasecmp($hedrName, 'Content-Disposition')==0 ){
-					if( preg_match('/\bname=(?:"([^"]*)"|([^;\s]+))/i', $hedrText, $nameVals) ){
-						$fieldNme = $nameVals[2] ?? $nameVals[1];
+				$hdrName = trim(substr($hdrLin, 0, $colonAt));
+				$hdrText = trim(substr($hdrLin, $colonAt+1));
+				$redFlux['head'][$hdrName] = trim(strtok($hdrText, ';'));
+				if( strcasecmp($hdrName, 'Content-Disposition')==0 ){
+					if( preg_match('/\bname=(?:"([^"]*)"|([^;\s]+))/i', $hdrText, $nameVls) ){
+						$fldName = $nameVls[2] ?? $nameVls[1];
 					}
-					if( preg_match('/\bfilename=(?:"([^"]*)"|([^;\s]+))/i', $hedrText, $fnmeVals) ){
-						$fileName = $fnmeVals[2] ?? $fnmeVals[1];
+					if( preg_match('/\bfilename=(?:"([^"]*)"|([^;\s]+))/i', $hdrText, $fnmVals) ){
+						$fileNme = $fnmVals[2] ?? $fnmVals[1];
 					}
-				}elseif( strcasecmp($hedrName, 'Content-Type')==0 ){
-					$partCode = $hedrText;
+				}elseif( strcasecmp($hdrName, 'Content-Type')==0 ){
+					$partTyp = $hdrText;
 				}
 			}
-			if( $fieldNme===null || $fieldNme==='' ){
+			if( $fldName===null || $fldName==='' ){
 				continue;
 			}
 
-			if( $fileName!==null ){
-				$fileVals = $this->saveRqstUpFile( $fileName, $partCode, $partBody );
-				$brcktPos = strpos($fieldNme, '[');
-				if( $brcktPos>0 ){
+			if( $fileNme!==null ){
+				$fileVls = $this->saveRqstUpFile( $fileNme, $partTyp, $partBdy );
+				$brckPos = strpos($fldName, '[');
+				if( $brckPos>0 ){
 					// field[], field[key] or field[a][b] : one array per property, as PHP fills $_FILES
-					$fieldBas = substr($fieldNme, 0, $brcktPos);
-					foreach( $fileVals as $prpKey => $prpVal ){
-						$this->nestRequestVal( $readFlux['file'][$fieldBas][$prpKey], substr($fieldNme, $brcktPos), $prpVal );
+					$fldBase = substr($fldName, 0, $brckPos);
+					foreach( $fileVls as $prpKey => $prpVal ){
+						$this->nestRequestVal( $redFlux['file'][$fldBase][$prpKey], substr($fldName, $brckPos), $prpVal );
 					}
 				}else{
-					$readFlux['file'][$fieldNme] = $fileVals;
+					$redFlux['file'][$fldName] = $fileVls;
 				}
-			}elseif( strpos($fieldNme, '[')!==false ){
+			}elseif( strpos($fldName, '[')!==false ){
 				// A variable named like filters[search] or tags[] is nested, as PHP does for forms
-				parse_str($fieldNme.'='.urlencode($partBody), $nestVals);
-				$readFlux['vars'] = array_merge_recursive($readFlux['vars'], $nestVals);
+				parse_str($fldName.'='.urlencode($partBdy), $nestVls);
+				$redFlux['vars'] = array_merge_recursive($redFlux['vars'], $nestVls);
 			}else{
-				$readFlux['vars'][$fieldNme] = $partBody;
+				$redFlux['vars'][$fldName] = $partBdy;
 			}
 		}
-		return $readFlux;
+		return $redFlux;
 	}
 
 	/**
@@ -320,17 +320,17 @@ class Request{
 	 * @param mixed  $storedAtLeaf Value to store at the end of the path.
 	 */
 	protected function nestRequestVal( ?Array &$goalNodeList, String $bracketsText, Mixed $storedAtLeaf ): Void {
-		preg_match_all('/\[([^\]]*)\]/', $bracketsText, $keysList);
-		$nodeRefr = &$goalNodeList;
-		foreach( $keysList[1] as $keyNme ){
+		preg_match_all('/\[([^\]]*)\]/', $bracketsText, $keyList);
+		$nodeRef = &$goalNodeList;
+		foreach( $keyList[1] as $keyNme ){
 			if( $keyNme==='' ){
-				$nodeRefr[] = null;
-				$nodeRefr = &$nodeRefr[array_key_last($nodeRefr)];
+				$nodeRef[] = null;
+				$nodeRef = &$nodeRef[array_key_last($nodeRef)];
 			}else{
-				$nodeRefr = &$nodeRefr[$keyNme];
+				$nodeRef = &$nodeRef[$keyNme];
 			}
 		}
-		$nodeRefr = $storedAtLeaf;
+		$nodeRef = $storedAtLeaf;
 	}
 
 	/**
@@ -344,25 +344,25 @@ class Request{
 	 * @return Array The file entry : 'name', 'full_path', 'type', 'tmp_name', 'error' and 'size'.
 	 */
 	protected function saveRqstUpFile( String $reqUploadNme, String $declaredMime, String $fileContents ): Array {
-		$baseName = preg_replace('#^.*[/\\\\]#', '', $reqUploadNme);
-		$fileVals = Array('name'=>$baseName, 'full_path'=>$reqUploadNme, 'type'=>$declaredMime, 'tmp_name'=>'', 'error'=>UPLOAD_ERR_NO_FILE, 'size'=>0);
+		$baseNme = preg_replace('#^.*[/\\\\]#', '', $reqUploadNme);
+		$fileVls = Array('name'=>$baseNme, 'full_path'=>$reqUploadNme, 'type'=>$declaredMime, 'tmp_name'=>'', 'error'=>UPLOAD_ERR_NO_FILE, 'size'=>0);
 		if( $reqUploadNme==='' ){
-			return $fileVals;
+			return $fileVls;
 		}
-		$tempFile = tempnam(sys_get_temp_dir(), 'nyu');
-		$fileSize = ($tempFile!==false) ? file_put_contents($tempFile, $fileContents) : false;
-		if( $fileSize===false ){
-			$fileVals['error'] = UPLOAD_ERR_CANT_WRITE;
-			return $fileVals;
+		$tmpFile = tempnam(sys_get_temp_dir(), 'nyu');
+		$filSize = ($tmpFile!==false) ? file_put_contents($tmpFile, $fileContents) : false;
+		if( $filSize===false ){
+			$fileVls['error'] = UPLOAD_ERR_CANT_WRITE;
+			return $fileVls;
 		}
 		if( empty($this->tmpFileArr) ){
 			register_shutdown_function( Array($this, 'dropTmpUploads') );
 		}
-		$this->tmpFileArr[] = $tempFile;
-		$fileVals['tmp_name'] = $tempFile;
-		$fileVals['error'] = UPLOAD_ERR_OK;
-		$fileVals['size'] = $fileSize;
-		return $fileVals;
+		$this->tmpFileArr[] = $tmpFile;
+		$fileVls['tmp_name'] = $tmpFile;
+		$fileVls['error'] = UPLOAD_ERR_OK;
+		$fileVls['size'] = $filSize;
+		return $fileVls;
 	}
 
 	/**
@@ -389,8 +389,8 @@ class Request{
 	protected function fetchHeadsList(): Array {
 		// NGinX compatibility
 		if (!function_exists('apache_request_headers')){
-			$hedrList = Array();
-			$xcptList = Array(
+			$headers = Array();
+			$xcepted = Array(
 				'Dasl'             => 'DASL',
                 'Dav'              => 'DAV',
                 'Etag'             => 'ETag',
@@ -402,15 +402,15 @@ class Request{
                 'Content-Id'       => 'Content-ID',
                 'Content-Features' => 'Content-features',
 			);
-			$srvrVars = $this->serverRgst->readLinesArray('http_');
-			foreach ($srvrVars as $srvKey => $srvVal){
-				$headClef = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($srvKey, 5)))));
-				if ( array_key_exists( $headClef, $xcptList ) ) {
-                    $headClef = $xcptList[ $headClef ];
+			$srvVars = $this->serverRgst->readLinesArray('http_');
+			foreach ($srvVars as $srvKey => $srvVal){
+				$headKey = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($srvKey, 5)))));
+				if ( array_key_exists( $headKey, $xcepted ) ) {
+                    $headKey = $xcepted[ $headKey ];
                 }
-				$hedrList[$headClef] = $srvVal;
+				$headers[$headKey] = $srvVal;
 			}
-			return $hedrList;
+			return $headers;
 		}else{
 			return apache_request_headers();
 		}

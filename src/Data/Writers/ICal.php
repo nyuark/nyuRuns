@@ -37,42 +37,42 @@ class ICal extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes'), 'a calendar');
-		$itemList = Array();
+		$itemLst = Array();
 		// The kinds whatever their case (a calendar read with its keys in upper case), as KIND_LIST writes them
 		foreach( (array)($dataEnvelope['items'] ?? Array()) as $kndKey => $kndVal ){
-			$itemList[ strval(array_values(preg_grep('/^'.preg_quote(strval($kndKey), '/').'$/iD', array_keys(self::KIND_LIST)))[0] ?? $kndKey) ] = $kndVal;
+			$itemLst[ strval(array_values(preg_grep('/^'.preg_quote(strval($kndKey), '/').'$/iD', array_keys(self::KIND_LIST)))[0] ?? $kndKey) ] = $kndVal;
 		}
-		if( !empty(array_diff_key($itemList, self::KIND_LIST)) ){
+		if( !empty(array_diff_key($itemLst, self::KIND_LIST)) ){
 			throw new WriteError('Content that cannot be written as a calendar: it holds something else than events, tasks and notes');
 		}
-		$infoList = (array)($dataEnvelope['infos'] ?? Array());
-		$lineList = Array('BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:'.$this->escapeIcalText((strval($infoList['maker'] ?? '')!=='') ? strval($infoList['maker']) : '-//nyuRuns//Calendar//EN'));
+		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
+		$lineLst = Array('BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:'.$this->escapeIcalText((strval($infoArr['maker'] ?? '')!=='') ? strval($infoArr['maker']) : '-//nyuRuns//Calendar//EN'));
 		foreach(Array('title'=>'X-WR-CALNAME', 'tzone'=>'X-WR-TIMEZONE') as $infKey=>$prpNme){
-			if( strval($infoList[$infKey] ?? '')!=='' ){
-				$lineList[] = $prpNme.':'.$this->escapeIcalText(strval($infoList[$infKey]));
+			if( strval($infoArr[$infKey] ?? '')!=='' ){
+				$lineLst[] = $prpNme.':'.$this->escapeIcalText(strval($infoArr[$infKey]));
 			}
 		}
 		foreach(self::KIND_LIST as $kndKey=>$kndNme){
-			foreach((array)($itemList[$kndKey] ?? Array()) as $entSet){
-				$lineList = array_merge($lineList, Array('BEGIN:'.$kndNme), $this->entrysOutArray((array)$entSet, $kndKey), Array('END:'.$kndNme));
+			foreach((array)($itemLst[$kndKey] ?? Array()) as $entSet){
+				$lineLst = array_merge($lineLst, Array('BEGIN:'.$kndNme), $this->entrysOutArray((array)$entSet, $kndKey), Array('END:'.$kndNme));
 			}
 		}
-		$lineList[] = 'END:VCALENDAR';
+		$lineLst[] = 'END:VCALENDAR';
 		// A line holds 75 bytes at most: a longer one is carried on over the next ones, each starting with a space
-		$icsStrng = '';
-		foreach($lineList as $linTxt){
+		$icsText = '';
+		foreach($lineLst as $linTxt){
 			while( strlen($linTxt)>75 ){
-				$breakPos = 75;
+				$cutPstn = 75;
 				// A character written over several bytes is never cut
-				while( $breakPos>1 && (ord($linTxt[$breakPos]) & 0xC0)==0x80 ){
-					$breakPos--;
+				while( $cutPstn>1 && (ord($linTxt[$cutPstn]) & 0xC0)==0x80 ){
+					$cutPstn--;
 				}
-				$icsStrng .= substr($linTxt, 0, $breakPos)."\r\n";
-				$linTxt = ' '.substr($linTxt, $breakPos);
+				$icsText .= substr($linTxt, 0, $cutPstn)."\r\n";
+				$linTxt = ' '.substr($linTxt, $cutPstn);
 			}
-			$icsStrng .= $linTxt."\r\n";
+			$icsText .= $linTxt."\r\n";
 		}
-		return $icsStrng;
+		return $icsText;
 	}
 
 	/**
@@ -84,8 +84,8 @@ class ICal extends Base {
 	 * @return String The text, safe to write.
 	 */
 	protected function escapeIcalText(String $templateText): String {
-		$safeText = str_replace(Array("\r\n", "\r"), "\n", $templateText);
-		return strtr(preg_replace('/[\x00-\x09\x0B-\x1F\x7F]/', '', $safeText), Array('\\'=>'\\\\', ';'=>'\\;', ','=>'\\,', "\n"=>'\\n'));
+		$safeTxt = str_replace(Array("\r\n", "\r"), "\n", $templateText);
+		return strtr(preg_replace('/[\x00-\x09\x0B-\x1F\x7F]/', '', $safeTxt), Array('\\'=>'\\\\', ';'=>'\\;', ','=>'\\,', "\n"=>'\\n'));
 	}
 
 	/**
@@ -98,20 +98,20 @@ class ICal extends Base {
 	 * @return Array The line of the property, in a list; an empty list when the date is not one.
 	 */
 	protected function datesLineArray(String $propertyName, String $givenIsoDate, String $timeZoneName='', Int $daysToMoveNb=0): Array {
-		$dateList = Array();
-		if( !preg_match('/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d)(?::(\d\d))?)?$/D', $givenIsoDate, $dateList) || !checkdate(intval($dateList[2]), intval($dateList[3]), intval($dateList[1])) ){
+		$dateLst = Array();
+		if( !preg_match('/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d)(?::(\d\d))?)?$/D', $givenIsoDate, $dateLst) || !checkdate(intval($dateLst[2]), intval($dateLst[3]), intval($dateLst[1])) ){
 			return Array();
 		}
-		if( !isset($dateList[4]) ){
-			$dateInst = new \DateTimeImmutable($dateList[1].'-'.$dateList[2].'-'.$dateList[3], new \DateTimeZone('UTC'));
-			return Array($propertyName.';VALUE=DATE:'.$dateInst->modify(sprintf('%+d days', $daysToMoveNb))->format('Ymd'));
+		if( !isset($dateLst[4]) ){
+			$dateObj = new \DateTimeImmutable($dateLst[1].'-'.$dateLst[2].'-'.$dateLst[3], new \DateTimeZone('UTC'));
+			return Array($propertyName.';VALUE=DATE:'.$dateObj->modify(sprintf('%+d days', $daysToMoveNb))->format('Ymd'));
 		}
-		$timeText = $dateList[1].$dateList[2].$dateList[3].'T'.$dateList[4].$dateList[5].strval($dateList[6] ?? '00');
+		$timeTxt = $dateLst[1].$dateLst[2].$dateLst[3].'T'.$dateLst[4].$dateLst[5].strval($dateLst[6] ?? '00');
 		if( strtoupper($timeZoneName)=='UTC' ){
-			return Array($propertyName.':'.$timeText.'Z');
+			return Array($propertyName.':'.$timeTxt.'Z');
 		}
 		// A zone is written when it is a plain name; a time without one is the time of wherever it is read
-		return Array($propertyName.(preg_match('/^[\w\/+\-][\w\/+\- ]*$/D', $timeZoneName) ? ';TZID='.$timeZoneName : '').':'.$timeText);
+		return Array($propertyName.(preg_match('/^[\w\/+\-][\w\/+\- ]*$/D', $timeZoneName) ? ';TZID='.$timeZoneName : '').':'.$timeTxt);
 	}
 
 	/**
@@ -122,15 +122,15 @@ class ICal extends Base {
 	 * @return Array The line of the property, in a list; an empty list when the person has no address.
 	 */
 	protected function partyLineArray(String $propertyName, Array $partyDetails): Array {
-		$mailAddr = preg_replace('/[\s\x00-\x1F\x7F;,]/', '', strval($partyDetails['email'] ?? ''));
-		if( $mailAddr==='' ){
+		$mailAdr = preg_replace('/[\s\x00-\x1F\x7F;,]/', '', strval($partyDetails['email'] ?? ''));
+		if( $mailAdr==='' ){
 			return Array();
 		}
 		// A name stands between quotes when it holds what would end it
-		$nameText = trim(preg_replace('/["\x00-\x1F\x7F]/', '', strval($partyDetails['names'] ?? '')));
-		$parmText = ($nameText==='') ? '' : ';CN='.(preg_match('/[:;,]/', $nameText) ? '"'.$nameText.'"' : $nameText);
-		$parmText .= isset(self::PART_STAT[strval($partyDetails['reply'] ?? '')]) ? ';PARTSTAT='.self::PART_STAT[$partyDetails['reply']] : '';
-		return Array($propertyName.$parmText.':mailto:'.$mailAddr);
+		$nameTxt = trim(preg_replace('/["\x00-\x1F\x7F]/', '', strval($partyDetails['names'] ?? '')));
+		$parmTxt = ($nameTxt==='') ? '' : ';CN='.(preg_match('/[:;,]/', $nameTxt) ? '"'.$nameTxt.'"' : $nameTxt);
+		$parmTxt .= isset(self::PART_STAT[strval($partyDetails['reply'] ?? '')]) ? ';PARTSTAT='.self::PART_STAT[$partyDetails['reply']] : '';
+		return Array($propertyName.$parmTxt.':mailto:'.$mailAdr);
 	}
 
 	/**
@@ -143,25 +143,25 @@ class ICal extends Base {
 		if( !isset(self::FREQ_LIST[strval($ruleSettings['every'] ?? '')]) ){
 			return Array();
 		}
-		$partList = Array('FREQ='.self::FREQ_LIST[$ruleSettings['every']]);
+		$partLst = Array('FREQ='.self::FREQ_LIST[$ruleSettings['every']]);
 		if( intval($ruleSettings['steps'] ?? 1)>1 ){
-			$partList[] = 'INTERVAL='.intval($ruleSettings['steps']);
+			$partLst[] = 'INTERVAL='.intval($ruleSettings['steps']);
 		}
-		$daysList = array_filter(array_map('strtoupper', array_map('strval', (array)($ruleSettings['wdays'] ?? Array()))), function($rruleDayCode){ return preg_match('/^[+\-]?\d{0,2}(MO|TU|WE|TH|FR|SA|SU)$/D', $rruleDayCode)===1; });
-		foreach(Array('BYDAY'=>$daysList, 'BYMONTHDAY'=>array_map('intval', (array)($ruleSettings['mdays'] ?? Array())), 'BYMONTH'=>array_map('intval', (array)($ruleSettings['month'] ?? Array()))) as $prtNme=>$oneDay){
+		$daysLst = array_filter(array_map('strtoupper', array_map('strval', (array)($ruleSettings['wdays'] ?? Array()))), function($rruleDayCode){ return preg_match('/^[+\-]?\d{0,2}(MO|TU|WE|TH|FR|SA|SU)$/D', $rruleDayCode)===1; });
+		foreach(Array('BYDAY'=>$daysLst, 'BYMONTHDAY'=>array_map('intval', (array)($ruleSettings['mdays'] ?? Array())), 'BYMONTH'=>array_map('intval', (array)($ruleSettings['month'] ?? Array()))) as $prtNme=>$oneDay){
 			if( !empty($oneDay) ){
-				$partList[] = $prtNme.'='.implode(',', $oneDay);
+				$partLst[] = $prtNme.'='.implode(',', $oneDay);
 			}
 		}
 		// The last date is a day, or a time told in universal time
-		$lastLine = $this->datesLineArray('UNTIL', strval($ruleSettings['until'] ?? ''), 'UTC');
-		if( !empty($lastLine) ){
-			$partList[] = 'UNTIL='.substr($lastLine[0], intval(strrpos($lastLine[0], ':'))+1);
+		$lastLin = $this->datesLineArray('UNTIL', strval($ruleSettings['until'] ?? ''), 'UTC');
+		if( !empty($lastLin) ){
+			$partLst[] = 'UNTIL='.substr($lastLin[0], intval(strrpos($lastLin[0], ':'))+1);
 		}
 		if( intval($ruleSettings['times'] ?? 0)>0 ){
-			$partList[] = 'COUNT='.intval($ruleSettings['times']);
+			$partLst[] = 'COUNT='.intval($ruleSettings['times']);
 		}
-		return Array('RRULE:'.implode(';', $partList));
+		return Array('RRULE:'.implode(';', $partLst));
 	}
 
 	/**
@@ -172,70 +172,70 @@ class ICal extends Base {
 	 * @return Array The lines of the entry, without those that open and close it.
 	 */
 	protected function entrysOutArray(Array $calendarItem, String $itemKindsTxt): Array {
-		$isAllDay = !empty($calendarItem['whole']);
-		$zoneName = strval($calendarItem['tzone'] ?? '');
-		$startVal = strval($calendarItem['start'] ?? '');
-		$lineList = Array('UID:'.$this->escapeIcalText((strval($calendarItem['ident'] ?? '')!=='') ? strval($calendarItem['ident']) : bin2hex(random_bytes(16)).'@nyuruns'));
+		$isWhole = !empty($calendarItem['whole']);
+		$zoneNme = strval($calendarItem['tzone'] ?? '');
+		$strtVal = strval($calendarItem['start'] ?? '');
+		$lineLst = Array('UID:'.$this->escapeIcalText((strval($calendarItem['ident'] ?? '')!=='') ? strval($calendarItem['ident']) : bin2hex(random_bytes(16)).'@nyuruns'));
 		// The date an entry was written is told in universal time; the present one when the entry tells none
-		$lineList = array_merge($lineList, $this->datesLineArray('DTSTAMP', (strlen(strval($calendarItem['stamp'] ?? ''))>10) ? strval($calendarItem['stamp']) : gmdate('Y-m-d H:i:s'), 'UTC'));
-		$startLne = $this->datesLineArray('DTSTART', $startVal, $zoneName);
-		$lineList = array_merge($lineList, $startLne);
-		if( $itemKindsTxt=='calEvent' && !empty($startLne) ){
+		$lineLst = array_merge($lineLst, $this->datesLineArray('DTSTAMP', (strlen(strval($calendarItem['stamp'] ?? ''))>10) ? strval($calendarItem['stamp']) : gmdate('Y-m-d H:i:s'), 'UTC'));
+		$strtLin = $this->datesLineArray('DTSTART', $strtVal, $zoneNme);
+		$lineLst = array_merge($lineLst, $strtLin);
+		if( $itemKindsTxt=='calEvent' && !empty($strtLin) ){
 			// Whole days end, as the format writes it, on the day after their last one
-			$endValue = (strval($calendarItem['ended'] ?? '')!=='') ? strval($calendarItem['ended']) : $startVal;
-			$lineList = array_merge($lineList, $this->datesLineArray('DTEND', $endValue, $zoneName, $isAllDay ? 1 : 0));
+			$endValu = (strval($calendarItem['ended'] ?? '')!=='') ? strval($calendarItem['ended']) : $strtVal;
+			$lineLst = array_merge($lineLst, $this->datesLineArray('DTEND', $endValu, $zoneNme, $isWhole ? 1 : 0));
 		}
 		if( $itemKindsTxt=='calTodos' ){
-			$lineList = array_merge($lineList, $this->datesLineArray('DUE', strval($calendarItem['dueby'] ?? ''), $zoneName));
+			$lineLst = array_merge($lineLst, $this->datesLineArray('DUE', strval($calendarItem['dueby'] ?? ''), $zoneNme));
 			if( intval($calendarItem['ratio'] ?? 0)>0 ){
-				$lineList[] = 'PERCENT-COMPLETE:'.max(0, min(100, intval($calendarItem['ratio'])));
+				$lineLst[] = 'PERCENT-COMPLETE:'.max(0, min(100, intval($calendarItem['ratio'])));
 			}
 		}
 		foreach(Array('title'=>'SUMMARY', 'place'=>'LOCATION', 'descr'=>'DESCRIPTION') as $fldKey=>$prpNme){
 			if( strval($calendarItem[$fldKey] ?? '')!=='' ){
-				$lineList[] = $prpNme.':'.$this->escapeIcalText(strval($calendarItem[$fldKey]));
+				$lineLst[] = $prpNme.':'.$this->escapeIcalText(strval($calendarItem[$fldKey]));
 			}
 		}
-		$linkAddr = Shape::tidyLinkString(strval($calendarItem['links'] ?? ''));
-		if( $linkAddr!=='' ){
-			$lineList[] = 'URL:'.preg_replace('/[\x00-\x20\x7F]/', '', $linkAddr);
+		$linkAdr = Shape::tidyLinkString(strval($calendarItem['links'] ?? ''));
+		if( $linkAdr!=='' ){
+			$lineLst[] = 'URL:'.preg_replace('/[\x00-\x20\x7F]/', '', $linkAdr);
 		}
 		if( isset(self::STAT_LIST[strval($calendarItem['state'] ?? '')]) ){
-			$lineList[] = 'STATUS:'.self::STAT_LIST[$calendarItem['state']];
+			$lineLst[] = 'STATUS:'.self::STAT_LIST[$calendarItem['state']];
 		}
-		$labelLst = array_filter(array_map('strval', (array)($calendarItem['label'] ?? Array())), 'strlen');
-		if( !empty($labelLst) ){
-			$lineList[] = 'CATEGORIES:'.implode(',', array_map(Array($this, 'escapeIcalText'), $labelLst));
+		$lblList = array_filter(array_map('strval', (array)($calendarItem['label'] ?? Array())), 'strlen');
+		if( !empty($lblList) ){
+			$lineLst[] = 'CATEGORIES:'.implode(',', array_map(Array($this, 'escapeIcalText'), $lblList));
 		}
-		$lineList = array_merge($lineList, $this->partyLineArray('ORGANIZER', (array)($calendarItem['owner'] ?? Array())));
+		$lineLst = array_merge($lineLst, $this->partyLineArray('ORGANIZER', (array)($calendarItem['owner'] ?? Array())));
 		foreach((array)($calendarItem['guest'] ?? Array()) as $gstSet){
-			$lineList = array_merge($lineList, $this->partyLineArray('ATTENDEE', (array)$gstSet));
+			$lineLst = array_merge($lineLst, $this->partyLineArray('ATTENDEE', (array)$gstSet));
 		}
 		// A rule kept as written says more than the one that was read: it is the one written back
-		$extraLst = (array)($calendarItem['extra'] ?? Array());
-		if( !isset(array_change_key_case($extraLst, CASE_UPPER)['RRULE']) ){
-			$lineList = array_merge($lineList, $this->rulesLineArray((array)($calendarItem['rpeat'] ?? Array())));
+		$extrLst = (array)($calendarItem['extra'] ?? Array());
+		if( !isset(array_change_key_case($extrLst, CASE_UPPER)['RRULE']) ){
+			$lineLst = array_merge($lineLst, $this->rulesLineArray((array)($calendarItem['rpeat'] ?? Array())));
 		}
 		foreach((array)($calendarItem['skips'] ?? Array()) as $skpVal){
-			$lineList = array_merge($lineList, $this->datesLineArray('EXDATE', strval($skpVal), $zoneName));
+			$lineLst = array_merge($lineLst, $this->datesLineArray('EXDATE', strval($skpVal), $zoneNme));
 		}
-		foreach($extraLst as $prpNme=>$prpVal){
+		foreach($extrLst as $prpNme=>$prpVal){
 			// What was kept as written is written as it was, when its name is one and it is not a property written above
 			if( !preg_match('/^[A-Za-z0-9\-]+$/D', strval($prpNme)) || in_array(strtoupper(strval($prpNme)), self::OWNS_LIST) ){
 				continue;
 			}
 			foreach((array)$prpVal as $oneVal){
 				if( is_scalar($oneVal) ){
-					$lineList[] = strtoupper(strval($prpNme)).':'.preg_replace('/[\x00-\x1F\x7F]/', '', strval($oneVal));
+					$lineLst[] = strtoupper(strval($prpNme)).':'.preg_replace('/[\x00-\x1F\x7F]/', '', strval($oneVal));
 				}
 			}
 		}
 		foreach((array)($calendarItem['alarm'] ?? Array()) as $minute){
 			// A reminder counts back from the start of the entry
 			$minute = intval($minute);
-			$lineList = array_merge($lineList, Array('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:'.$this->escapeIcalText((strval($calendarItem['title'] ?? '')!=='') ? strval($calendarItem['title']) : 'Reminder'), 'TRIGGER:'.(($minute>0) ? '-' : '').'PT'.abs($minute).'M', 'END:VALARM'));
+			$lineLst = array_merge($lineLst, Array('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:'.$this->escapeIcalText((strval($calendarItem['title'] ?? '')!=='') ? strval($calendarItem['title']) : 'Reminder'), 'TRIGGER:'.(($minute>0) ? '-' : '').'PT'.abs($minute).'M', 'END:VALARM'));
 		}
-		return $lineList;
+		return $lineLst;
 	}
 
 }

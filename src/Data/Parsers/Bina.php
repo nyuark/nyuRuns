@@ -36,36 +36,36 @@ class Bina {
 			}
 			return 'zip';
 		}
-		$signList = Array(
+		$signLst = Array(
 			'%PDF-'=>'pdf', "\x89PNG\r\n\x1A\n"=>'png', "\xFF\xD8\xFF"=>'jpg', 'GIF87a'=>'gif', 'GIF89a'=>'gif',
 			'OggS'=>'ogg', 'fLaC'=>'flac', 'ID3'=>'mp3', "\xFF\xFB"=>'mp3', "\xFF\xF3"=>'mp3',
 			"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"=>'ole', "\x1F\x8B"=>'gz', '{\rtf'=>'rtf'
 		);
-		foreach($signList as $sgnTxt=>$sgnKnd){
+		foreach($signLst as $sgnTxt=>$sgnKnd){
 			if( strncmp($initialBytes, strval($sgnTxt), strlen(strval($sgnTxt)))===0 ){
 				return $sgnKnd;
 			}
 		}
 		if( substr($initialBytes, 0, 4)==='RIFF' ){
-			$riffCode = substr($initialBytes, 8, 4);
-			return ($riffCode=='WAVE') ? 'wav' : (($riffCode=='WEBP') ? 'webp' : '');
+			$riffKnd = substr($initialBytes, 8, 4);
+			return ($riffKnd=='WAVE') ? 'wav' : (($riffKnd=='WEBP') ? 'webp' : '');
 		}
 		if( substr($initialBytes, 4, 4)==='ftyp' ){
 			return 'mp4';
 		}
 		// Text formats with a fixed opening
-		$headText = ltrim(Base::recodeTextUtf8($initialBytes));
+		$headTxt = ltrim(Base::recodeTextUtf8($initialBytes));
 		// A drawing is XML whose first element is svg, after what may stand before it
-		if( preg_match('/^(?:\s*(?:<\?[^>]*\?>|<!--.*?-->|<!DOCTYPE\s+svg[^>]*>))*\s*<(?:[\w\-]+:)?svg[\s>\/]/is', $headText) ){
+		if( preg_match('/^(?:\s*(?:<\?[^>]*\?>|<!--.*?-->|<!DOCTYPE\s+svg[^>]*>))*\s*<(?:[\w\-]+:)?svg[\s>\/]/is', $headTxt) ){
 			return 'svg';
 		}
-		if( strncmp($headText, '<?xml', 5)===0 ){
+		if( strncmp($headTxt, '<?xml', 5)===0 ){
 			return 'xml';
 		}
-		if( preg_match('/^<(!doctype\s+html|html[\s>])/i', $headText) ){
+		if( preg_match('/^<(!doctype\s+html|html[\s>])/i', $headTxt) ){
 			return 'html';
 		}
-		if( strncasecmp($headText, 'BEGIN:VCALENDAR', 15)===0 ){
+		if( strncasecmp($headTxt, 'BEGIN:VCALENDAR', 15)===0 ){
 			return 'ics';
 		}
 		return '';

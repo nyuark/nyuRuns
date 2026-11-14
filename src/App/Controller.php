@@ -72,55 +72,55 @@ class Controller{
 		$this->respondObj = $httpResponse;
 		$this->routingObj = $routerObject;
 		// The name goes into a path and a class name : letters and digits only, anything else is no application
-		$logStrng = 'Not found: '.json_encode($appNameToRun.'/'.$runAppAction, JSON_INVALID_UTF8_SUBSTITUTE).': ';
+		$logText = 'Not found: '.json_encode($appNameToRun.'/'.$runAppAction, JSON_INVALID_UTF8_SUBSTITUTE).': ';
 		if( !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
 			$this->loadFailed = 'Not Found';
-			Logger::retrieveLogger('runner')->info( $logStrng.'not a name of an application'.Logger::getActorSuffix() );
+			Logger::retrieveLogger('runner')->info( $logText.'not a name of an application'.Logger::getActorSuffix() );
 			return;
 		}
 		// Check that application exists : its folder found whatever the case of its name, as the Router and the Checker find it
-		$fieldNme = self::runFoldrString($appNameToRun);
-		if( $fieldNme!=='' ){
-			$appNameToRun = $fieldNme;
-			$this->runAppName = $fieldNme;
+		$fldName = self::runFoldrString($appNameToRun);
+		if( $fldName!=='' ){
+			$appNameToRun = $fldName;
+			$this->runAppName = $fldName;
 		}
-		$fullPath = RUN_DIR.DS.$appNameToRun;
-		$actnPath = $fullPath.DS.'Actions.php';
-		$actnNmsp = '\\nyu\\Runs\\'.$appNameToRun.'\\';
-		if( $fieldNme!=='' && file_exists($actnPath) ){
-			$this->appsFolder = $fullPath;
-			require_once( $actnPath );
+		$fullDir = RUN_DIR.DS.$appNameToRun;
+		$actnPth = $fullDir.DS.'Actions.php';
+		$actNSpc = '\\nyu\\Runs\\'.$appNameToRun.'\\';
+		if( $fldName!=='' && file_exists($actnPth) ){
+			$this->appsFolder = $fullDir;
+			require_once( $actnPth );
 			try{
 				// Load the actionset in a reflection class
-				$this->actionsObj = new \ReflectionClass($actnNmsp.'Actions');
+				$this->actionsObj = new \ReflectionClass($actNSpc.'Actions');
 			}catch(\ReflectionException $e){
 				// Actions.php does not declare the application's actionset : a mistake of the application, told to the client as nothing found
 				$this->loadFailed = 'Not Found';
-				Logger::retrieveLogger('runner')->warning( $logStrng.'Actions.php of the application declares no actionset'.Logger::getActorSuffix() );
+				Logger::retrieveLogger('runner')->warning( $logText.'Actions.php of the application declares no actionset'.Logger::getActorSuffix() );
 				return;
 			}
 		}else{
 			// Unknown application : reported through retrieveStatus()
 			$this->loadFailed = 'Not Found';
-			Logger::retrieveLogger('runner')->info( $logStrng.'unknown application'.Logger::getActorSuffix() );
+			Logger::retrieveLogger('runner')->info( $logText.'unknown application'.Logger::getActorSuffix() );
 			return;
 		}
-		$hasDeflt = false;
+		$isDeflt = false;
 		if( $this->keptAction=='' ){
 			$this->keptAction = self::dfltActionText( $this->actionsObj );
-			$hasDeflt = true;
+			$isDeflt = true;
 		}
 		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
-		$classNme = $this->actionsObj->getName();
-		if( !$classNme::hasActionNamed($this->keptAction) ){
-			if( $hasDeflt ){
+		$clsName = $this->actionsObj->getName();
+		if( !$clsName::hasActionNamed($this->keptAction) ){
+			if( $isDeflt ){
 				$this->failStatus = 500;
 				$this->loadFailed = 'Internal Server Error';
 				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->keptAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction names no action, or is not set)' );
 				return;
 			}
 			$this->loadFailed = 'Not Found';
-			Logger::retrieveLogger('runner')->info( $logStrng.'not an action of the application'.Logger::getActorSuffix() );
+			Logger::retrieveLogger('runner')->info( $logText.'not an action of the application'.Logger::getActorSuffix() );
 			return;
 		}
 		$this->applyInputDefs();
@@ -146,24 +146,24 @@ class Controller{
 			return;
 		}
 		// The file is named as the action is declared, whatever the case the request wrote it in
-		$actnName = $this->actionsObj->getMethod($this->keptAction)->getName();
-		$defnPath = $this->appsFolder.DS.'input'.DS.$actnName.'.json';
-		if( !is_file($defnPath) ){
+		$actnNme = $this->actionsObj->getMethod($this->keptAction)->getName();
+		$defPath = $this->appsFolder.DS.'input'.DS.$actnNme.'.json';
+		if( !is_file($defPath) ){
 			// No definition, no input : an action takes only what it declares
 			$this->inputsRgst = new Registry( Array() );
 			return;
 		}
-		$fieldDfs = json_decode( strval(file_get_contents($defnPath)), true );
-		if( !is_array($fieldDfs) || !isset($fieldDfs['fieldSet']) || !(is_array($fieldDfs['fieldSet']) || is_string($fieldDfs['fieldSet'])) ){
-			throw new \RuntimeException('Input misconfigured: '.$this->runAppName.'/input/'.$actnName.'.json is not a definition of fields');
+		$fldDefs = json_decode( strval(file_get_contents($defPath)), true );
+		if( !is_array($fldDefs) || !isset($fldDefs['fieldSet']) || !(is_array($fldDefs['fieldSet']) || is_string($fldDefs['fieldSet'])) ){
+			throw new \RuntimeException('Input misconfigured: '.$this->runAppName.'/input/'.$actnNme.'.json is not a definition of fields');
 		}
-		$inputObj = new Input( null, 'ACTON', $fieldDfs['fieldSet'], $actnName );
-		$this->inputsRgst = new Registry( $inputObj->parseValuesArr($this->inputsRgst->readLinesArray()) );
-		$missList = $inputObj->retrieveMissed();
-		if( !empty($missList) ){
+		$inptObj = new Input( null, 'ACTON', $fldDefs['fieldSet'], $actnNme );
+		$this->inputsRgst = new Registry( $inptObj->parseValuesArr($this->inputsRgst->readLinesArray()) );
+		$missLst = $inptObj->retrieveMissed();
+		if( !empty($missLst) ){
 			// A required field is missing or empty : the action is not run
 			$this->failStatus = 400;
-			$this->loadFailed = 'Missing or invalid input: '.implode(', ', $missList);
+			$this->loadFailed = 'Missing or invalid input: '.implode(', ', $missLst);
 		}
 	}
 
@@ -179,8 +179,8 @@ class Controller{
 	 * @return String The default action name, or an empty string when the actionset sets none.
 	 */
 	public static function dfltActionText( \ReflectionClass $actionsClass ): String {
-		$classPrp = $actionsClass->getDefaultProperties();
-		return (!empty($classPrp['dfltAction']) && is_string($classPrp['dfltAction'])) ? $classPrp['dfltAction'] : '';
+		$clsProp = $actionsClass->getDefaultProperties();
+		return (!empty($clsProp['dfltAction']) && is_string($clsProp['dfltAction'])) ? $clsProp['dfltAction'] : '';
 	}
 
 	/**
@@ -202,29 +202,29 @@ class Controller{
 	 * @return String The name of its folder, as the disk writes it; '' for a name that is not letters and digits only, for no folder, or for two folders differing by their case alone.
 	 */
 	public static function runFoldrString( String $appNameToRun, ?String $runsFldrPath = null ): String {
-		$runsPath = $runsFldrPath ?? (defined('RUN_DIR') ? RUN_DIR : '');
-		if( $runsPath==='' || !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
+		$runsDir = $runsFldrPath ?? (defined('RUN_DIR') ? RUN_DIR : '');
+		if( $runsDir==='' || !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
 			return '';
 		}
 		// The folders of the Runs are read once for the request, every lookup then served from that list
-		if( !isset(self::$runFolders[$runsPath]) ){
-			self::$runFolders[$runsPath] = Array();
-			foreach( (array)glob($runsPath.DS.'*', GLOB_ONLYDIR) as $oneDir ){
-				self::$runFolders[$runsPath][] = basename(strval($oneDir));
+		if( !isset(self::$runFolders[$runsDir]) ){
+			self::$runFolders[$runsDir] = Array();
+			foreach( (array)glob($runsDir.DS.'*', GLOB_ONLYDIR) as $oneDir ){
+				self::$runFolders[$runsDir][] = basename(strval($oneDir));
 			}
 		}
-		$findList = Array();
-		foreach( self::$runFolders[$runsPath] as $oneDir ){
+		$fndList = Array();
+		foreach( self::$runFolders[$runsDir] as $oneDir ){
 			if( strcasecmp($oneDir, $appNameToRun)===0 ){
-				$findList[] = $oneDir;
+				$fndList[] = $oneDir;
 			}
 		}
 		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them
-		if( count($findList)>1 && !isset(self::$loggdTwins[strtolower($appNameToRun)]) ){
+		if( count($fndList)>1 && !isset(self::$loggdTwins[strtolower($appNameToRun)]) ){
 			self::$loggdTwins[strtolower($appNameToRun)] = true;
-			Logger::retrieveLogger('runner')->error( 'Run folders '.json_encode($findList, JSON_UNESCAPED_SLASHES).' differ by their case alone: neither is served'.Logger::getActorSuffix() );
+			Logger::retrieveLogger('runner')->error( 'Run folders '.json_encode($fndList, JSON_UNESCAPED_SLASHES).' differ by their case alone: neither is served'.Logger::getActorSuffix() );
 		}
-		return (count($findList)===1) ? $findList[0] : '';
+		return (count($fndList)===1) ? $fndList[0] : '';
 	}
 
 	// Instantiate model loader class
@@ -233,8 +233,8 @@ class Controller{
 	 * application and triggers the actionset run.
 	 */
 	protected function loadModelStack(): Void {
-		$applName = $this->runAppName;
-		$this->modelStack = new ModelStack( $applName );
+		$appName = $this->runAppName;
+		$this->modelStack = new ModelStack( $appName );
 		$this->runApplication();
 	}
 	

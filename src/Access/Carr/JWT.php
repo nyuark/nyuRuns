@@ -81,28 +81,28 @@ class JWT implements Handler{
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
 		$this->badTryFlag = false;
-		$authHedr = $givenRequest->retrieveHeader('Authorization');
-		if( $authHedr===null || stripos($authHedr, 'Bearer ')!==0 ){
+		$authHdr = $givenRequest->retrieveHeader('Authorization');
+		if( $authHdr===null || stripos($authHdr, 'Bearer ')!==0 ){
 			$this->errMessage = 'Missing Bearer Authorization header';
 			return false;
 		}
-		$checkKey = $this->getCheckingKey();
-		if( $checkKey===null ){
+		$chckKey = $this->getCheckingKey();
+		if( $chckKey===null ){
 			return false;
 		}
-		$rawToken = substr( $authHedr, 7 );
+		$rawTokn = substr( $authHdr, 7 );
 		// A token signed before the keys were replaced names the previous key in its 'kid'
-		$isOldKey = false;
+		$usedOld = false;
 		if( $this->jwtAlgoTxt=='RS256' && $this->prevPemKey!='' ){
-			$hedrJson = json_decode( strval(base64_decode(strtr(explode('.', $rawToken)[0], '-_', '+/'))), true );
-			$askedKid = is_array($hedrJson) && is_string($hedrJson['kid'] ?? null) ? $hedrJson['kid'] : '';
-			$keysList = $this->publicKeysList();
-			$isOldKey = isset($keysList[$askedKid]) && $keysList[$askedKid]===$this->prevPemKey && $askedKid!==$this->keysThumbprint();
-			$checkKey = $keysList[$askedKid] ?? $checkKey;
+			$hdrJson = json_decode( strval(base64_decode(strtr(explode('.', $rawTokn)[0], '-_', '+/'))), true );
+			$askdKid = is_array($hdrJson) && is_string($hdrJson['kid'] ?? null) ? $hdrJson['kid'] : '';
+			$keysArr = $this->publicKeysList();
+			$usedOld = isset($keysArr[$askdKid]) && $keysArr[$askdKid]===$this->prevPemKey && $askdKid!==$this->keysThumbprint();
+			$chckKey = $keysArr[$askdKid] ?? $chckKey;
 		}
 		try{
-			$pyldInst = JwtCodec::decode( $rawToken, new Key($checkKey, $this->jwtAlgoTxt) );
-			$idntList = (array)$pyldInst;
+			$payload = JwtCodec::decode( $rawTokn, new Key($chckKey, $this->jwtAlgoTxt) );
+			$idntArr = (array)$payload;
 		}catch( \Firebase\JWT\ExpiredException $e ){
 			$this->errMessage = 'Expired token';
 			return false;
@@ -114,36 +114,36 @@ class JWT implements Handler{
 			return false;
 		}
 		// A token names its user and ends : one that does neither was not issued here
-		if( !is_numeric($idntList['exp'] ?? null) || !is_scalar($idntList['userName'] ?? null) || strval($idntList['userName'])==='' ){
+		if( !is_numeric($idntArr['exp'] ?? null) || !is_scalar($idntArr['userName'] ?? null) || strval($idntArr['userName'])==='' ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed, but without an expiry or a user' );
 			$this->errMessage = 'Invalid token';
 			return false;
 		}
 		// The previous key: only a token issued before it was retired, and ending within lifeSecs of it; a leaked key signs nothing more
-		if( $isOldKey && !( is_numeric($idntList['iat'] ?? null) && $idntList['iat']<$this->retireUnix && $idntList['exp']<=$this->retireUnix + intval($this->expiryTime) ) ){
+		if( $usedOld && !( is_numeric($idntArr['iat'] ?? null) && $idntArr['iat']<$this->retireUnix && $idntArr['exp']<=$this->retireUnix + intval($this->expiryTime) ) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed with the previous key outside its time' );
 			$this->errMessage = 'Invalid token';
 			$this->badTryFlag = true;
 			return false;
 		}
 		// A token issued for another project, or by another issuer, is not counted : its signature is right
-		$clmnFlaw = $this->checkClaimFlaw( $idntList );
-		if( $clmnFlaw!='' ){
-			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.$clmnFlaw );
+		$clmFlaw = $this->checkClaimFlaw( $idntArr );
+		if( $clmFlaw!='' ){
+			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.$clmFlaw );
 			$this->errMessage = 'Invalid token';
 			return false;
 		}
 		// A credential store that knows its users confirms the token's user is still allowed in
 		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
 			// The time the token was issued at : a password set since ends it
-			$nowIdent = $this->authObject->usrIdentityArr( strval($idntList['userName'] ?? ''), intval($idntList['iat'] ?? 0) );
-			if( $nowIdent===false ){
+			$nowIdnt = $this->authObject->usrIdentityArr( strval($idntArr['userName'] ?? ''), intval($idntArr['iat'] ?? 0) );
+			if( $nowIdnt===false ){
 				$this->errMessage = $this->authObject->finalErrorText();
 				return false;
 			}
-			$idntList = array_merge($idntList, $nowIdent);
+			$idntArr = array_merge($idntArr, $nowIdnt);
 		}
-		return $idntList;
+		return $idntArr;
 	}
 
 	/**
@@ -157,22 +157,22 @@ class JWT implements Handler{
 	 * @return String The issued JWT, or an empty string when the secret or the private key is not usable.
 	 */
 	function issueTokenText( Array $identityList ): String {
-		$signClef = $this->findSigningKey();
-		if( $signClef===null ){
+		$signKey = $this->findSigningKey();
+		if( $signKey===null ){
 			return '';
 		}
-		$pyldInst = $identityList;
+		$payload = $identityList;
 		// Only the block names the issuer and the audiences, never the identity
-		unset( $pyldInst['iss'], $pyldInst['aud'] );
+		unset( $payload['iss'], $payload['aud'] );
 		if( $this->issuerText!='' ){
-			$pyldInst['iss'] = $this->issuerText;
+			$payload['iss'] = $this->issuerText;
 		}
 		if( !empty($this->audValList) ){
-			$pyldInst['aud'] = (count($this->audValList)==1) ? $this->audValList[0] : $this->audValList;
+			$payload['aud'] = (count($this->audValList)==1) ? $this->audValList[0] : $this->audValList;
 		}
-		$pyldInst['iat'] = time();
-		$pyldInst['exp'] = time() + $this->expiryTime;
-		return JwtCodec::encode( $pyldInst, $signClef, $this->jwtAlgoTxt, ($this->jwtAlgoTxt=='RS256') ? $this->keysThumbprint() : null );
+		$payload['iat'] = time();
+		$payload['exp'] = time() + $this->expiryTime;
+		return JwtCodec::encode( $payload, $signKey, $this->jwtAlgoTxt, ($this->jwtAlgoTxt=='RS256') ? $this->keysThumbprint() : null );
 	}
 
 	/**
@@ -194,11 +194,11 @@ class JWT implements Handler{
 	 */
 	protected function getCheckingKey(): ?String {
 		if( $this->jwtAlgoTxt=='RS256' ){
-			$checkKey = $this->rsaUserPublTxt();
-			if( $checkKey===null ){
+			$chckKey = $this->rsaUserPublTxt();
+			if( $chckKey===null ){
 				$this->errMessage = 'Token keys not configured';
 			}
-			return $checkKey;
+			return $chckKey;
 		}
 		if( $this->jwtAlgoTxt!='HS256' || !is_string($this->usrJwtSecr) || strlen($this->usrJwtSecr)<32 ){
 			$this->errMessage = 'JWT secret not configured';
@@ -221,8 +221,8 @@ class JWT implements Handler{
 			$this->errMessage = 'Tokens are issued by another server';
 			return null;
 		}
-		$keyInstn = ($this->privatePem!='' && function_exists('openssl_pkey_get_private')) ? @openssl_pkey_get_private($this->privatePem) : false;
-		if( $keyInstn===false || !$this->isStrongRsaKey($keyInstn) ){
+		$keyInst = ($this->privatePem!='' && function_exists('openssl_pkey_get_private')) ? @openssl_pkey_get_private($this->privatePem) : false;
+		if( $keyInst===false || !$this->isStrongRsaKey($keyInst) ){
 			$this->errMessage = 'Token keys not configured';
 			return null;
 		}
@@ -240,15 +240,15 @@ class JWT implements Handler{
 			return null;
 		}
 		if( $this->usrPublPem!='' ){
-			$keyInstn = @openssl_pkey_get_public($this->usrPublPem);
+			$keyInst = @openssl_pkey_get_public($this->usrPublPem);
 		}else{
-			$keyInstn = ($this->privatePem!='') ? @openssl_pkey_get_private($this->privatePem) : false;
+			$keyInst = ($this->privatePem!='') ? @openssl_pkey_get_private($this->privatePem) : false;
 		}
-		if( $keyInstn===false || !$this->isStrongRsaKey($keyInstn) ){
+		if( $keyInst===false || !$this->isStrongRsaKey($keyInst) ){
 			return null;
 		}
-		$publText = strval( openssl_pkey_get_details($keyInstn)['key'] ?? '' );
-		return ($publText!='') ? $publText : null;
+		$publTxt = strval( openssl_pkey_get_details($keyInst)['key'] ?? '' );
+		return ($publTxt!='') ? $publTxt : null;
 	}
 
 	/**
@@ -258,8 +258,8 @@ class JWT implements Handler{
 	 * @return Bool Whether it can be used.
 	 */
 	protected function isStrongRsaKey( \OpenSSLAsymmetricKey $rsaKeyObject ): Bool {
-		$keyArray = openssl_pkey_get_details($rsaKeyObject);
-		return is_array($keyArray) && ($keyArray['type'] ?? null)===OPENSSL_KEYTYPE_RSA && intval($keyArray['bits'] ?? 0)>=self::RSAS_BITS;
+		$keyInfo = openssl_pkey_get_details($rsaKeyObject);
+		return is_array($keyInfo) && ($keyInfo['type'] ?? null)===OPENSSL_KEYTYPE_RSA && intval($keyInfo['bits'] ?? 0)>=self::RSAS_BITS;
 	}
 
 	/**
@@ -270,9 +270,9 @@ class JWT implements Handler{
 	 * @return ?String The thumbprint, base64url; null without a public key.
 	 */
 	protected function keysThumbprint( ?String $publicKeyTxt=null ): ?String {
-		$publText = $publicKeyTxt ?? $this->rsaUserPublTxt();
-		$jwkArray = ($publText!==null) ? $this->rsaToJwksArray($publText) : null;
-		return ($jwkArray!==null) ? $jwkArray['kid'] : null;
+		$publTxt = $publicKeyTxt ?? $this->rsaUserPublTxt();
+		$jwkData = ($publTxt!==null) ? $this->rsaToJwksArray($publTxt) : null;
+		return ($jwkData!==null) ? $jwkData['kid'] : null;
 	}
 
 	/**
@@ -283,19 +283,19 @@ class JWT implements Handler{
 	 * @return ?Array The JWK ('kty', 'use', 'alg', 'kid', 'n', 'e'); null when it is not an RSA key of RSAMINIM bits at least.
 	 */
 	protected function rsaToJwksArray( String $publicKeyTxt ): ?Array {
-		$keyInstn = function_exists('openssl_pkey_get_public') ? @openssl_pkey_get_public($publicKeyTxt) : false;
-		if( $keyInstn===false || !$this->isStrongRsaKey($keyInstn) ){
+		$keyInst = function_exists('openssl_pkey_get_public') ? @openssl_pkey_get_public($publicKeyTxt) : false;
+		if( $keyInst===false || !$this->isStrongRsaKey($keyInst) ){
 			return null;
 		}
-		$keyArray = openssl_pkey_get_details($keyInstn);
-		if( !is_array($keyArray) || !isset($keyArray['rsa']['n'], $keyArray['rsa']['e']) ){
+		$keyInfo = openssl_pkey_get_details($keyInst);
+		if( !is_array($keyInfo) || !isset($keyInfo['rsa']['n'], $keyInfo['rsa']['e']) ){
 			return null;
 		}
-		$modelTxt = $this->base64UrlNoPad($keyArray['rsa']['n']);
-		$expnText = $this->base64UrlNoPad($keyArray['rsa']['e']);
+		$mdlText = $this->base64UrlNoPad($keyInfo['rsa']['n']);
+		$expText = $this->base64UrlNoPad($keyInfo['rsa']['e']);
 		// The members the thumbprint is made of, in the order of their names, without spaces
-		$jwkStrng = '{"e":"'.$expnText.'","kty":"RSA","n":"'.$modelTxt.'"}';
-		return Array( 'kty'=>'RSA', 'use'=>'sig', 'alg'=>'RS256', 'kid'=>$this->base64UrlNoPad(hash('sha256', $jwkStrng, true)), 'n'=>$modelTxt, 'e'=>$expnText );
+		$jwkText = '{"e":"'.$expText.'","kty":"RSA","n":"'.$mdlText.'"}';
+		return Array( 'kty'=>'RSA', 'use'=>'sig', 'alg'=>'RS256', 'kid'=>$this->base64UrlNoPad(hash('sha256', $jwkText, true)), 'n'=>$mdlText, 'e'=>$expText );
 	}
 
 	/**
@@ -309,15 +309,15 @@ class JWT implements Handler{
 		if( $this->jwtAlgoTxt!='RS256' ){
 			return Array();
 		}
-		$keysList = Array();
-		$pemStrng = $this->rsaUserPublTxt();
-		foreach( Array($pemStrng, ($this->prevPemKey!='') ? $this->prevPemKey : null) as $pemTxt ){
-			$keyIdent = ($pemTxt!==null) ? $this->keysThumbprint($pemTxt) : null;
-			if( $keyIdent!==null && !isset($keysList[$keyIdent]) ){
-				$keysList[$keyIdent] = $pemTxt;
+		$keysArr = Array();
+		$pemText = $this->rsaUserPublTxt();
+		foreach( Array($pemText, ($this->prevPemKey!='') ? $this->prevPemKey : null) as $pemTxt ){
+			$keysKid = ($pemTxt!==null) ? $this->keysThumbprint($pemTxt) : null;
+			if( $keysKid!==null && !isset($keysArr[$keysKid]) ){
+				$keysArr[$keysKid] = $pemTxt;
 			}
 		}
-		return $keysList;
+		return $keysArr;
 	}
 
 	/**
@@ -329,13 +329,13 @@ class JWT implements Handler{
 	 * @return Array The set, under 'keys'; the list is empty when there is nothing to publish.
 	 */
 	public function publicSetArray(): Array {
-		$keysList = Array();
+		$keysLst = Array();
 		if( !$this->verifyOnlyFlag() ){
 			foreach( $this->publicKeysList() as $pemTxt ){
-				$keysList[] = $this->rsaToJwksArray($pemTxt);
+				$keysLst[] = $this->rsaToJwksArray($pemTxt);
 			}
 		}
-		return Array( 'keys'=>array_values(array_filter($keysList)) );
+		return Array( 'keys'=>array_values(array_filter($keysLst)) );
 	}
 
 	/**
@@ -349,21 +349,21 @@ class JWT implements Handler{
 	 */
 	protected function checkClaimFlaw( Array $identityList ): String {
 		if( $this->issuerText!='' ){
-			$tokenIsu = $identityList['iss'] ?? null;
-			if( !is_string($tokenIsu) || $tokenIsu=='' ){
+			$tknIssr = $identityList['iss'] ?? null;
+			if( !is_string($tknIssr) || $tknIssr=='' ){
 				return 'no issuer';
 			}
-			if( $tokenIsu!==$this->issuerText ){
-				return 'issuer '.json_encode($tokenIsu).' is not '.json_encode($this->issuerText);
+			if( $tknIssr!==$this->issuerText ){
+				return 'issuer '.json_encode($tknIssr).' is not '.json_encode($this->issuerText);
 			}
 		}
 		if( !empty($this->audValList) ){
-			$audnList = $this->readsAudiences( $identityList['aud'] ?? null );
-			if( empty($audnList) ){
+			$audList = $this->readsAudiences( $identityList['aud'] ?? null );
+			if( empty($audList) ){
 				return 'no audience';
 			}
-			if( empty(array_intersect($audnList, $this->audValList)) ){
-				return 'audience '.json_encode((count($audnList)==1) ? $audnList[0] : $audnList).' is not one of '.json_encode($this->audValList);
+			if( empty(array_intersect($audList, $this->audValList)) ){
+				return 'audience '.json_encode((count($audList)==1) ? $audList[0] : $audList).' is not one of '.json_encode($this->audValList);
 			}
 		}
 		return '';
@@ -377,13 +377,13 @@ class JWT implements Handler{
 	 * @return Array The audiences, non-empty texts, each once.
 	 */
 	protected function readsAudiences( Mixed $configValues ): Array {
-		$audnList = Array();
+		$audList = Array();
 		foreach( (is_array($configValues) ? $configValues : Array($configValues)) as $audVal ){
-			if( is_string($audVal) && trim($audVal)!='' && !in_array(trim($audVal), $audnList, true) ){
-				$audnList[] = trim($audVal);
+			if( is_string($audVal) && trim($audVal)!='' && !in_array(trim($audVal), $audList, true) ){
+				$audList[] = trim($audVal);
 			}
 		}
-		return $audnList;
+		return $audList;
 	}
 
 	/**
@@ -403,14 +403,14 @@ class JWT implements Handler{
 	 * @return String The content of the file, empty when there is none.
 	 */
 	protected function readPemKeyFile( Mixed $settingsPath ): String {
-		$keyTrail = is_scalar($settingsPath) ? trim(strval($settingsPath)) : '';
-		if( $keyTrail=='' ){
+		$keyPath = is_scalar($settingsPath) ? trim(strval($settingsPath)) : '';
+		if( $keyPath=='' ){
 			return '';
 		}
-		if( !preg_match('#^([A-Za-z]:|[/\\\\])#', $keyTrail) && defined('TOP_DIR') ){
-			$keyTrail = TOP_DIR.DIRECTORY_SEPARATOR.str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $keyTrail);
+		if( !preg_match('#^([A-Za-z]:|[/\\\\])#', $keyPath) && defined('TOP_DIR') ){
+			$keyPath = TOP_DIR.DIRECTORY_SEPARATOR.str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $keyPath);
 		}
-		return is_file($keyTrail) ? strval(@file_get_contents($keyTrail)) : '';
+		return is_file($keyPath) ? strval(@file_get_contents($keyPath)) : '';
 	}
 
 	/**

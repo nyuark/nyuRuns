@@ -62,18 +62,18 @@ class Bundle extends Command{
 	 * @return Array The sub-commands, by name.
 	 */
 	public function subsTableArray(): Array {
-		$optsText = '[--destPath=<path>] [--archived] [--planOnly] [--yesToAll] [--composer=<path>]';
-		$subLstng = Array(
-			'local'=>Array('call'=>'generateBundle', 'args'=>$optsText, 'about'=>'a bundle for a developer\'s machine: DEVS, errors shown, full logs'),
-			'stage'=>Array('call'=>'generateBundle', 'args'=>$optsText, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
-			'final'=>Array('call'=>'generateBundle', 'args'=>$optsText, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
+		$optnTxt = '[--destPath=<path>] [--archived] [--planOnly] [--yesToAll] [--composer=<path>]';
+		$subList = Array(
+			'local'=>Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle for a developer\'s machine: DEVS, errors shown, full logs'),
+			'stage'=>Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
+			'final'=>Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
 		);
 		foreach( $this->readModesArray() as $modNme => $mdlVal ){
 			if( !isset(self::MODE_LIST[$modNme]) ){
-				$subLstng[$modNme] = Array('call'=>'generateBundle', 'args'=>$optsText, 'about'=>'a bundle of a mode of the project: '.strval($mdlVal['settings']['ENV_NAME'] ?? ''));
+				$subList[$modNme] = Array('call'=>'generateBundle', 'args'=>$optnTxt, 'about'=>'a bundle of a mode of the project: '.strval($mdlVal['settings']['ENV_NAME'] ?? ''));
 			}
 		}
-		return $subLstng + Array(
+		return $subList + Array(
 			'fullList'=>Array('args'=>'', 'about'=>'lists the modes: those of the framework and those of the project'),
 			'makeMode'=>Array('args'=>'<mode> [--noPrompt]', 'about'=>'declares a mode of the project in '.self::BNDL_FILE.', or changes it'),
 			'dropMode'=>Array('args'=>'<mode> [--yesToAll]', 'about'=>'removes a mode of the project')
@@ -87,12 +87,12 @@ class Bundle extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFullList(): Int {
-		$rowsList = Array();
+		$rowList = Array();
 		foreach( $this->readModesArray() as $modNme => $mdlVal ){
-			$setStrng = implode(', ', array_map(function( String $iniEntryName, String $iniKeyValTxt ): String { return $iniEntryName.'='.$iniKeyValTxt; }, array_keys($mdlVal['settings']), array_values($mdlVal['settings'])));
-			$rowsList[] = Array($modNme, isset(self::MODE_LIST[$modNme]) ? 'framework' : 'project', $setStrng, implode(', ', $mdlVal['addPaths']));
+			$setText = implode(', ', array_map(function( String $iniEntryName, String $iniKeyValTxt ): String { return $iniEntryName.'='.$iniKeyValTxt; }, array_keys($mdlVal['settings']), array_values($mdlVal['settings'])));
+			$rowList[] = Array($modNme, isset(self::MODE_LIST[$modNme]) ? 'framework' : 'project', $setText, implode(', ', $mdlVal['addPaths']));
 		}
-		$this->printerObj->printShellRows( Array('mode', 'kind', 'settings', 'addPaths'), $rowsList );
+		$this->printerObj->printShellRows( Array('mode', 'kind', 'settings', 'addPaths'), $rowList );
 		return self::EXIT_DONE;
 	}
 
@@ -107,43 +107,43 @@ class Bundle extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMakeMode(): Int {
-		$modeName = $this->needsShellWord('the mode: lower-case letters or digits, of any length');
-		if( !preg_match('/^[a-z0-9]+$/D', $modeName) ){
+		$modeNme = $this->needsShellWord('the mode: lower-case letters or digits, of any length');
+		if( !preg_match('/^[a-z0-9]+$/D', $modeNme) ){
 			$this->terminateShell('A mode is named with lower-case letters or digits', self::EXIT_HELP);
 		}
-		if( method_exists($this, 'invoke'.ucfirst($modeName)) ){
-			$this->terminateShell('Nothing was declared: '.$modeName.' is a mode of the framework or a sub-command', self::EXIT_DENY);
+		if( method_exists($this, 'invoke'.ucfirst($modeNme)) ){
+			$this->terminateShell('Nothing was declared: '.$modeNme.' is a mode of the framework or a sub-command', self::EXIT_DENY);
 		}
-		$modeList = $this->readModesArray();
-		$isListed = isset($modeList[$modeName]);
-		$nowCodig = $modeList[$modeName] ?? Array('settings'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'addPaths'=>Array());
-		$iniValrs = $nowCodig['settings'];
-		$iniValrs['ENV_NAME'] = strtoupper( $this->queryAnswerTxt('Environment (DEVS, TEST, PREV, PROD)', strval($iniValrs['ENV_NAME'] ?? 'TEST')) );
-		$iniValrs['ERR_LEVL'] = trim( $this->queryAnswerTxt('Errors reported (E_* names joined by |, & and ~)', strval($iniValrs['ERR_LEVL'] ?? 'E_ALL')) );
-		$iniValrs['ERR_SHOW'] = strtoupper( $this->queryAnswerTxt('Show errors (TRUE, FALSE)', strval($iniValrs['ERR_SHOW'] ?? 'TRUE')) );
-		$iniValrs['LOG_MODE'] = strtoupper( $this->queryAnswerTxt('Logging mode (FULL, BASE, MINI)', strval($iniValrs['LOG_MODE'] ?? 'FULL')) );
-		if( !preg_match(Config::RULE_LIST['ERR_LEVL'], $iniValrs['ERR_LEVL']) ){
+		$modeLst = $this->readModesArray();
+		$isKnown = isset($modeLst[$modeNme]);
+		$nowMode = $modeLst[$modeNme] ?? Array('settings'=>Array('ENV_NAME'=>'TEST', 'ERR_LEVL'=>'E_ALL', 'ERR_SHOW'=>'TRUE', 'LOG_MODE'=>'FULL'), 'addPaths'=>Array());
+		$iniVals = $nowMode['settings'];
+		$iniVals['ENV_NAME'] = strtoupper( $this->queryAnswerTxt('Environment (DEVS, TEST, PREV, PROD)', strval($iniVals['ENV_NAME'] ?? 'TEST')) );
+		$iniVals['ERR_LEVL'] = trim( $this->queryAnswerTxt('Errors reported (E_* names joined by |, & and ~)', strval($iniVals['ERR_LEVL'] ?? 'E_ALL')) );
+		$iniVals['ERR_SHOW'] = strtoupper( $this->queryAnswerTxt('Show errors (TRUE, FALSE)', strval($iniVals['ERR_SHOW'] ?? 'TRUE')) );
+		$iniVals['LOG_MODE'] = strtoupper( $this->queryAnswerTxt('Logging mode (FULL, BASE, MINI)', strval($iniVals['LOG_MODE'] ?? 'FULL')) );
+		if( !preg_match(Config::RULE_LIST['ERR_LEVL'], $iniVals['ERR_LEVL']) ){
 			$this->terminateShell('Nothing was declared: ERR_LEVL is E_* names joined by |, & and ~', self::EXIT_DENY);
 		}
 		foreach( Array('ERR_SHOW'=>Array('TRUE', 'FALSE'), 'LOG_MODE'=>Array('FULL', 'BASE', 'MINI')) as $iniKey => $allows ){
-			if( !in_array($iniValrs[$iniKey], $allows, true) ){
+			if( !in_array($iniVals[$iniKey], $allows, true) ){
 				$this->terminateShell('Nothing was declared: '.$iniKey.' is one of '.implode(', ', $allows), self::EXIT_DENY);
 			}
 		}
-		$addStrng = $this->queryAnswerTxt('Paths the bundle adds, separated by commas (none for none)', empty($nowCodig['addPaths']) ? 'none' : implode(', ', $nowCodig['addPaths']));
-		$addLstng = (strtolower(trim($addStrng))=='none') ? Array() : array_values(array_filter(array_map(function( String $givenItemTxt ): String { return trim(str_replace('\\', '/', $givenItemTxt), " /"); }, explode(',', $addStrng)), 'strlen'));
-		$ownLstng = Array();
-		foreach( $modeList as $modNme => $mdlVal ){
+		$addText = $this->queryAnswerTxt('Paths the bundle adds, separated by commas (none for none)', empty($nowMode['addPaths']) ? 'none' : implode(', ', $nowMode['addPaths']));
+		$addList = (strtolower(trim($addText))=='none') ? Array() : array_values(array_filter(array_map(function( String $givenItemTxt ): String { return trim(str_replace('\\', '/', $givenItemTxt), " /"); }, explode(',', $addText)), 'strlen'));
+		$ownList = Array();
+		foreach( $modeLst as $modNme => $mdlVal ){
 			if( !isset(self::MODE_LIST[$modNme]) ){
-				$ownLstng[$modNme] = $mdlVal;
+				$ownList[$modNme] = $mdlVal;
 			}
 		}
-		$ownLstng[$modeName] = Array('settings'=>$iniValrs, 'addPaths'=>$addLstng);
+		$ownList[$modeNme] = Array('settings'=>$iniVals, 'addPaths'=>$addList);
 		// Checked as the file will be read, before it is written
-		$this->readModesArray($ownLstng);
-		$this->saveBundleList($ownLstng);
-		$this->traceShellDone( 'Bundle: mode '.$modeName.( $isListed ? ' changed' : ' declared' ).' ('.$iniValrs['ENV_NAME'].')' );
-		$this->printerObj->printShellPair( $isListed ? 'mode changed' : 'mode declared', $modeName );
+		$this->readModesArray($ownList);
+		$this->saveBundleList($ownList);
+		$this->traceShellDone( 'Bundle: mode '.$modeNme.( $isKnown ? ' changed' : ' declared' ).' ('.$iniVals['ENV_NAME'].')' );
+		$this->printerObj->printShellPair( $isKnown ? 'mode changed' : 'mode declared', $modeNme );
 		return self::EXIT_DONE;
 	}
 
@@ -153,26 +153,26 @@ class Bundle extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeDropMode(): Int {
-		$modeName = $this->needsShellWord('the mode');
-		if( isset(self::MODE_LIST[$modeName]) ){
-			$this->terminateShell('Nothing was removed: '.$modeName.' is a mode of the framework', self::EXIT_DENY);
+		$modeNme = $this->needsShellWord('the mode');
+		if( isset(self::MODE_LIST[$modeNme]) ){
+			$this->terminateShell('Nothing was removed: '.$modeNme.' is a mode of the framework', self::EXIT_DENY);
 		}
-		$ownLstng = Array();
+		$ownList = Array();
 		foreach( $this->readModesArray() as $modNme => $mdlVal ){
 			if( !isset(self::MODE_LIST[$modNme]) ){
-				$ownLstng[$modNme] = $mdlVal;
+				$ownList[$modNme] = $mdlVal;
 			}
 		}
-		if( !isset($ownLstng[$modeName]) ){
-			$this->terminateShell('Nothing was removed: the project declares no mode '.$modeName, self::EXIT_DENY);
+		if( !isset($ownList[$modeNme]) ){
+			$this->terminateShell('Nothing was removed: the project declares no mode '.$modeNme, self::EXIT_DENY);
 		}
-		if( !$this->queryAgreedFlg('Remove the mode '.$modeName) ){
+		if( !$this->queryAgreedFlg('Remove the mode '.$modeNme) ){
 			$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 		}
-		unset($ownLstng[$modeName]);
-		$this->saveBundleList($ownLstng);
-		$this->traceShellDone( 'Bundle: mode '.$modeName.' removed' );
-		$this->printerObj->printShellPair('mode removed', $modeName);
+		unset($ownList[$modeNme]);
+		$this->saveBundleList($ownList);
+		$this->traceShellDone( 'Bundle: mode '.$modeNme.' removed' );
+		$this->printerObj->printShellPair('mode removed', $modeNme);
 		return self::EXIT_DONE;
 	}
 
@@ -188,62 +188,62 @@ class Bundle extends Command{
 	 * @throws \nyu\Shell\ShellStop When the mode is unknown, the folder cannot be used, replacing it is not confirmed, or a file cannot be copied.
 	 */
 	protected function generateBundle( String $packModeName ): Int {
-		$modeConf = $this->readModesArray()[$packModeName] ?? null;
-		if( $modeConf===null ){
+		$modeCfg = $this->readModesArray()[$packModeName] ?? null;
+		if( $modeCfg===null ){
 			$this->terminateShell('No bundle made: there is no mode '.$packModeName, self::EXIT_HELP);
 		}
-		$outFoldr = strval($this->optionsObj->retrieveOption('destPath', ''));
-		$distPath = TOP_DIR.DS.'dist'.DS.$packModeName;
-		$trgtPath = ($outFoldr=='') ? $distPath : rtrim($outFoldr, '/\\');
-		if( !preg_match('#^([A-Za-z]:|[/\\\\])#', $trgtPath) ){
-			$trgtPath = getcwd().DS.$trgtPath;
+		$outFldr = strval($this->optionsObj->retrieveOption('destPath', ''));
+		$distDir = TOP_DIR.DS.'dist'.DS.$packModeName;
+		$trgtDir = ($outFldr=='') ? $distDir : rtrim($outFldr, '/\\');
+		if( !preg_match('#^([A-Za-z]:|[/\\\\])#', $trgtDir) ){
+			$trgtDir = getcwd().DS.$trgtDir;
 		}
-		$trgtPath = str_replace(Array('/', '\\'), DS, $trgtPath);
+		$trgtDir = str_replace(Array('/', '\\'), DS, $trgtDir);
 		// A bundle never lands in what it copies : it would copy itself
-		$fromRoot = (strpos($trgtPath.DS, TOP_DIR.DS)===0) ? str_replace(DS, '/', substr($trgtPath, strlen(TOP_DIR)+1)) : '';
-		$topLstng = array_merge( self::KEEP_LIST, array_map(function( String $addedItemTxt ): String { return explode('/', $addedItemTxt)[0]; }, $modeConf['addPaths']) );
-		if( ($fromRoot==='' && strpos($trgtPath.DS, TOP_DIR.DS)===0) || in_array(explode('/', $fromRoot)[0], $topLstng, true) ){
+		$fromTop = (strpos($trgtDir.DS, TOP_DIR.DS)===0) ? str_replace(DS, '/', substr($trgtDir, strlen(TOP_DIR)+1)) : '';
+		$topList = array_merge( self::KEEP_LIST, array_map(function( String $addedItemTxt ): String { return explode('/', $addedItemTxt)[0]; }, $modeCfg['addPaths']) );
+		if( ($fromTop==='' && strpos($trgtDir.DS, TOP_DIR.DS)===0) || in_array(explode('/', $fromTop)[0], $topList, true) ){
 			$this->terminateShell('No bundle made: its folder cannot be the project, nor a folder the bundle copies', self::EXIT_HELP);
 		}
 		if( $this->optionsObj->validateOption('planOnly') ){
-			$this->buildClassMaps($trgtPath, $packModeName, false);
-			return $this->listPlansCount($trgtPath, $modeConf['addPaths']);
+			$this->buildClassMaps($trgtDir, $packModeName, false);
+			return $this->listPlansCount($trgtDir, $modeCfg['addPaths']);
 		}
-		if( is_dir($trgtPath) && count((array)scandir($trgtPath))>2 ){
-			if( $trgtPath!==$distPath ){
-				$this->terminateShell('No bundle made: '.$trgtPath.' is not empty; a folder given with --destPath must be', self::EXIT_DENY);
+		if( is_dir($trgtDir) && count((array)scandir($trgtDir))>2 ){
+			if( $trgtDir!==$distDir ){
+				$this->terminateShell('No bundle made: '.$trgtDir.' is not empty; a folder given with --destPath must be', self::EXIT_DENY);
 			}
 			if( !$this->queryAgreedFlg('Replace the bundle in dist/'.$packModeName) ){
 				$this->terminateShell('No bundle made: not confirmed', self::EXIT_DENY);
 			}
-			$drctWalk = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator($trgtPath, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST );
-			foreach( $drctWalk as $oldItm ){
+			$dirWalk = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator($trgtDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST );
+			foreach( $dirWalk as $oldItm ){
 				$oldItm->isDir() ? @rmdir($oldItm->getPathname()) : @unlink($oldItm->getPathname());
 			}
 		}
-		if( !is_dir($trgtPath) && !@mkdir($trgtPath, 0775, true) ){
-			$this->terminateShell('No bundle made: '.$trgtPath.' cannot be created');
+		if( !is_dir($trgtDir) && !@mkdir($trgtDir, 0775, true) ){
+			$this->terminateShell('No bundle made: '.$trgtDir.' cannot be created');
 		}
-		$keptList = $this->copyTreesArray($trgtPath, true, $modeConf['addPaths'])['kept'];
+		$keptLst = $this->copyTreesArray($trgtDir, true, $modeCfg['addPaths'])['kept'];
 		// The folders the framework writes in, empty
 		foreach( Array('media', 'temp') as $fldNme ){
-			@mkdir($trgtPath.DS.$fldNme, 0775, true);
+			@mkdir($trgtDir.DS.$fldNme, 0775, true);
 		}
-		$this->writeModeToIni($trgtPath, $packModeName);
+		$this->writeModeToIni($trgtDir, $packModeName);
 		// Before the archive, which holds it
-		$this->buildClassMaps($trgtPath, $packModeName, true);
+		$this->buildClassMaps($trgtDir, $packModeName, true);
 		$this->printerObj->printShellPair('mode', $packModeName);
-		$this->printerObj->printShellPair('folder', $trgtPath);
-		$this->printerObj->printShellPair('files', count($keptList));
+		$this->printerObj->printShellPair('folder', $trgtDir);
+		$this->printerObj->printShellPair('files', count($keptLst));
 		// Packages for development only would be in vendor, and so in the bundle
-		$cmplVals = json_decode( strval(@file_get_contents(TOP_DIR.DS.'composer.json')), true );
-		if( is_array($cmplVals) && !empty($cmplVals['require-dev']) ){
+		$cmpVals = json_decode( strval(@file_get_contents(TOP_DIR.DS.'composer.json')), true );
+		if( is_array($cmpVals) && !empty($cmpVals['require-dev']) ){
 			$this->printerObj->printShellFail('composer.json has packages for development: they are in vendor, the bundle cannot leave them out');
 		}
 		if( $this->optionsObj->validateOption('archived') ){
-			$this->printerObj->printShellPair('archive', $this->makeTarArchive($trgtPath));
+			$this->printerObj->printShellPair('archive', $this->makeTarArchive($trgtDir));
 		}
-		$this->traceShellDone( 'Bundle: '.$packModeName.', '.count($keptList).' files in '.$trgtPath.( $this->optionsObj->validateOption('archived') ? ', and its archive' : '' ) );
+		$this->traceShellDone( 'Bundle: '.$packModeName.', '.count($keptLst).' files in '.$trgtDir.( $this->optionsObj->validateOption('archived') ? ', and its archive' : '' ) );
 		$this->printerObj->printShellLine('On its server: php nyuRun install complete, then php nyuRun install checkAll.');
 		return self::EXIT_DONE;
 	}
@@ -265,49 +265,49 @@ class Bundle extends Command{
 	 * @throws \nyu\Shell\ShellStop When conf/bundle.lst cannot be read, or a mode is not one.
 	 */
 	protected function readModesArray( ?Array $projectModes=null ): Array {
-		$modeList = Array();
+		$modeLst = Array();
 		foreach( self::MODE_LIST as $modNme => $iniArr ){
-			$modeList[$modNme] = Array('settings'=>$iniArr, 'addPaths'=>Array());
+			$modeLst[$modNme] = Array('settings'=>$iniArr, 'addPaths'=>Array());
 		}
-		$listPath = TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE);
-		if( $projectModes===null && !is_file($listPath) ){
-			return $modeList;
+		$lstPath = TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE);
+		if( $projectModes===null && !is_file($lstPath) ){
+			return $modeLst;
 		}
-		$fileVals = $projectModes ?? json_decode(strval(@file_get_contents($listPath)), true);
-		if( !is_array($fileVals) ){
+		$fileVal = $projectModes ?? json_decode(strval(@file_get_contents($lstPath)), true);
+		if( !is_array($fileVal) ){
 			$this->terminateShell(self::BNDL_FILE.' is not a JSON object of modes');
 		}
-		foreach( $fileVals as $modNme => $mdlVal ){
+		foreach( $fileVal as $modNme => $mdlVal ){
 			$modNme = strval($modNme);
-			$iniValrs = is_array($mdlVal) ? ($mdlVal['settings'] ?? null) : null;
-			$newArray = is_array($mdlVal) ? ($mdlVal['addPaths'] ?? Array()) : null;
-			$whyStrng = '';
+			$iniVals = is_array($mdlVal) ? ($mdlVal['settings'] ?? null) : null;
+			$newData = is_array($mdlVal) ? ($mdlVal['addPaths'] ?? Array()) : null;
+			$whyText = '';
 			if( !preg_match('/^[a-z0-9]+$/D', $modNme) || isset(self::MODE_LIST[$modNme]) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
-				$whyStrng = 'not lower-case letters or digits, or the name of a mode of the framework or of a sub-command';
-			}elseif( !is_array($iniValrs) || !in_array($iniValrs['ENV_NAME'] ?? null, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
-				$whyStrng = 'its "settings" has no ENV_NAME of DEVS, TEST, PREV or PROD';
-			}elseif( !is_array($newArray) ){
-				$whyStrng = 'its "addPaths" is not a list of paths';
+				$whyText = 'not lower-case letters or digits, or the name of a mode of the framework or of a sub-command';
+			}elseif( !is_array($iniVals) || !in_array($iniVals['ENV_NAME'] ?? null, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
+				$whyText = 'its "settings" has no ENV_NAME of DEVS, TEST, PREV or PROD';
+			}elseif( !is_array($newData) ){
+				$whyText = 'its "addPaths" is not a list of paths';
 			}
-			foreach( (array)$iniValrs as $iniKey => $iniVal ){
-				if( $whyStrng=='' && (!preg_match('/^[A-Z]{3}_[A-Z]{4}$/D', strval($iniKey)) || !is_scalar($iniVal) || preg_match('/["\r\n]/', strval($iniVal))) ){
-					$whyStrng = 'its "settings" holds what is not a key of system.ini with its value: '.strval($iniKey);
+			foreach( (array)$iniVals as $iniKey => $iniVal ){
+				if( $whyText=='' && (!preg_match('/^[A-Z]{3}_[A-Z]{4}$/D', strval($iniKey)) || !is_scalar($iniVal) || preg_match('/["\r\n]/', strval($iniVal))) ){
+					$whyText = 'its "settings" holds what is not a key of system.ini with its value: '.strval($iniKey);
 				}
 			}
-			foreach( (array)$newArray as $addPth ){
+			foreach( (array)$newData as $addPth ){
 				$addPth = is_string($addPth) ? $addPth : '';
 				// Inside what every bundle holds, only a file is named : one that is left out otherwise, such as the public key of a server issuing the tokens
-				$isInKeep = in_array(explode('/', $addPth)[0], self::KEEP_LIST, true);
-				if( $whyStrng=='' && ( !preg_match('#^[\w\-]+(/[\w.\-]+)*$#D', $addPth) || preg_match('#(^|/)\.#', $addPth) || ($isInKeep && !is_file(TOP_DIR.DS.str_replace('/', DS, $addPth))) || !file_exists(TOP_DIR.DS.str_replace('/', DS, $addPth)) ) ){
-					$whyStrng = 'it adds what is not a path of the project outside what every bundle holds, nor a file of it: '.$addPth;
+				$inKeeps = in_array(explode('/', $addPth)[0], self::KEEP_LIST, true);
+				if( $whyText=='' && ( !preg_match('#^[\w\-]+(/[\w.\-]+)*$#D', $addPth) || preg_match('#(^|/)\.#', $addPth) || ($inKeeps && !is_file(TOP_DIR.DS.str_replace('/', DS, $addPth))) || !file_exists(TOP_DIR.DS.str_replace('/', DS, $addPth)) ) ){
+					$whyText = 'it adds what is not a path of the project outside what every bundle holds, nor a file of it: '.$addPth;
 				}
 			}
-			if( $whyStrng!='' ){
-				$this->terminateShell(self::BNDL_FILE.': the mode '.$modNme.' cannot be used: '.$whyStrng, self::EXIT_DENY);
+			if( $whyText!='' ){
+				$this->terminateShell(self::BNDL_FILE.': the mode '.$modNme.' cannot be used: '.$whyText, self::EXIT_DENY);
 			}
-			$modeList[$modNme] = Array('settings'=>array_map('strval', $iniValrs), 'addPaths'=>array_values($newArray));
+			$modeLst[$modNme] = Array('settings'=>array_map('strval', $iniVals), 'addPaths'=>array_values($newData));
 		}
-		return $modeList;
+		return $modeLst;
 	}
 
 	/**
@@ -317,11 +317,11 @@ class Bundle extends Command{
 	 * @param Array $projectModes The modes of the project, by name, each with its 'settings' and its 'addPaths'.
 	 */
 	protected function saveBundleList( Array $projectModes ): Void {
-		$treeInst = new \stdClass();
+		$treeObj = new \stdClass();
 		foreach( $projectModes as $modNme => $mdlVal ){
-			$treeInst->$modNme = (object)Array('settings'=>(object)$mdlVal['settings'], 'addPaths'=>array_values($mdlVal['addPaths']));
+			$treeObj->$modNme = (object)Array('settings'=>(object)$mdlVal['settings'], 'addPaths'=>array_values($mdlVal['addPaths']));
 		}
-		(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveJsonConfig( TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE), $treeInst );
+		(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveJsonConfig( TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE), $treeObj );
 	}
 
 	/**
@@ -339,25 +339,25 @@ class Bundle extends Command{
 	 * @return Bool Whether it is copied.
 	 */
 	protected function goesIntoBundle( String $pathFromRoot, Array $addedEntries=Array() ): Bool {
-		$partList = explode('/', $pathFromRoot);
-		$wasAdded = false;
+		$partLst = explode('/', $pathFromRoot);
+		$isAdded = false;
 		foreach( $addedEntries as $addPth ){
-			$wasAdded = $wasAdded || $pathFromRoot===$addPth || strpos($pathFromRoot, $addPth.'/')===0;
+			$isAdded = $isAdded || $pathFromRoot===$addPth || strpos($pathFromRoot, $addPth.'/')===0;
 		}
-		if( !$wasAdded && !in_array($partList[0], self::KEEP_LIST, true) ){
+		if( !$isAdded && !in_array($partLst[0], self::KEEP_LIST, true) ){
 			return false;
 		}
 		// A file the mode names itself is copied, whatever drops it otherwise: a folder it names brings back nothing dropped
-		$isNameOk = in_array($pathFromRoot, $addedEntries, true);
+		$isNamed = in_array($pathFromRoot, $addedEntries, true);
 		foreach( self::DROP_LIST as $dropPt ){
-			if( !$isNameOk && fnmatch($dropPt, $pathFromRoot, FNM_PATHNAME) ){
+			if( !$isNamed && fnmatch($dropPt, $pathFromRoot, FNM_PATHNAME) ){
 				return false;
 			}
 		}
-		if( !$isNameOk && ( strpos($pathFromRoot, 'conf/keys/')===0 || in_array($pathFromRoot, $this->secretPathsArr(), true) ) ){
+		if( !$isNamed && ( strpos($pathFromRoot, 'conf/keys/')===0 || in_array($pathFromRoot, $this->secretPathsArr(), true) ) ){
 			return false;
 		}
-		foreach( $partList as $folder ){
+		foreach( $partLst as $folder ){
 			if( $folder!=='' && $folder[0]=='.' && $folder!=='.htaccess' ){
 				return false;
 			}
@@ -374,28 +374,28 @@ class Bundle extends Command{
 	 * @return Array The paths, from the project root, written with slashes.
 	 */
 	protected function secretPathsArr(): Array {
-		static $pathList = null;
-		if( $pathList!==null ){
-			return $pathList;
+		static $pathLst = null;
+		if( $pathLst!==null ){
+			return $pathLst;
 		}
-		$pathList = Array();
-		$accsTree = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
-		$blockLst = is_array($accsTree) ? $accsTree : Array();
-		foreach( $blockLst as $blkVal ){
+		$pathLst = Array();
+		$accTree = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
+		$blckLst = is_array($accTree) ? $accTree : Array();
+		foreach( $blckLst as $blkVal ){
 			// The applications of the application keys hold a public key each
 			foreach( (is_array($blkVal) && is_array($blkVal['appsList'] ?? null)) ? $blkVal['appsList'] : Array() as $appVal ){
-				$blockLst[] = is_array($appVal) ? Array('publFile'=>$appVal['publFile'] ?? '') : Array();
+				$blckLst[] = is_array($appVal) ? Array('publFile'=>$appVal['publFile'] ?? '') : Array();
 			}
 		}
-		foreach( $blockLst as $blkVal ){
+		foreach( $blckLst as $blkVal ){
 			foreach( Array('privFile', 'publFile', 'prevFile', 'listFile', 'passFile') as $keyNme ){
-				$pathText = is_array($blkVal) && is_string($blkVal[$keyNme] ?? null) ? trim(str_replace('\\', '/', $blkVal[$keyNme]), '/ ') : '';
-				if( $pathText!=='' ){
-					$pathList[] = $pathText;
+				$pathTxt = is_array($blkVal) && is_string($blkVal[$keyNme] ?? null) ? trim(str_replace('\\', '/', $blkVal[$keyNme]), '/ ') : '';
+				if( $pathTxt!=='' ){
+					$pathLst[] = $pathTxt;
 				}
 			}
 		}
-		return $pathList;
+		return $pathLst;
 	}
 
 	/**
@@ -410,44 +410,44 @@ class Bundle extends Command{
 	 * @throws \nyu\Shell\ShellStop When a file cannot be copied.
 	 */
 	protected function copyTreesArray( String $saveFilePath, Bool $writeEnabled, Array $addedEntries=Array() ): Array {
-		$pathList = Array('kept'=>Array(), 'left'=>Array());
-		$topLstng = array_merge( self::KEEP_LIST, array_map(function( String $addedItemTxt ): String { return explode('/', $addedItemTxt)[0]; }, $addedEntries) );
+		$pathLst = Array('kept'=>Array(), 'left'=>Array());
+		$topList = array_merge( self::KEEP_LIST, array_map(function( String $addedItemTxt ): String { return explode('/', $addedItemTxt)[0]; }, $addedEntries) );
 		foreach( (array)scandir(TOP_DIR) as $topNme ){
 			$topNme = strval($topNme);
 			if( $topNme=='.' || $topNme=='..' ){
 				continue;
 			}
-			if( !in_array($topNme, $topLstng, true) ){
-				$pathList['left'][] = $topNme.( is_dir(TOP_DIR.DS.$topNme) ? '/' : '' );
+			if( !in_array($topNme, $topList, true) ){
+				$pathLst['left'][] = $topNme.( is_dir(TOP_DIR.DS.$topNme) ? '/' : '' );
 				continue;
 			}
-			$fileList = is_dir(TOP_DIR.DS.$topNme) ? new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TOP_DIR.DS.$topNme, \FilesystemIterator::SKIP_DOTS)) : Array(new \SplFileInfo(TOP_DIR.DS.$topNme));
-			foreach( $fileList as $filInf ){
+			$fileLst = is_dir(TOP_DIR.DS.$topNme) ? new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TOP_DIR.DS.$topNme, \FilesystemIterator::SKIP_DOTS)) : Array(new \SplFileInfo(TOP_DIR.DS.$topNme));
+			foreach( $fileLst as $filInf ){
 				if( !$filInf->isFile() ){
 					continue;
 				}
-				$rltnPath = str_replace(DS, '/', substr($filInf->getPathname(), strlen(TOP_DIR)+1));
-				if( !$this->goesIntoBundle($rltnPath, $addedEntries) ){
-					$pathList['left'][] = $rltnPath;
+				$relPath = str_replace(DS, '/', substr($filInf->getPathname(), strlen(TOP_DIR)+1));
+				if( !$this->goesIntoBundle($relPath, $addedEntries) ){
+					$pathLst['left'][] = $relPath;
 					continue;
 				}
-				$pathList['kept'][] = $rltnPath;
+				$pathLst['kept'][] = $relPath;
 				if( !$writeEnabled ){
 					continue;
 				}
-				$distPath = $saveFilePath.DS.str_replace('/', DS, $rltnPath);
-				if( !is_dir(dirname($distPath)) ){
-					@mkdir(dirname($distPath), 0775, true);
+				$dstPath = $saveFilePath.DS.str_replace('/', DS, $relPath);
+				if( !is_dir(dirname($dstPath)) ){
+					@mkdir(dirname($dstPath), 0775, true);
 				}
-				if( !@copy($filInf->getPathname(), $distPath) ){
-					$this->terminateShell('The bundle is not complete: '.$rltnPath.' cannot be copied');
+				if( !@copy($filInf->getPathname(), $dstPath) ){
+					$this->terminateShell('The bundle is not complete: '.$relPath.' cannot be copied');
 				}
-				@chmod($distPath, fileperms($filInf->getPathname()) & 0777);
+				@chmod($dstPath, fileperms($filInf->getPathname()) & 0777);
 			}
 		}
-		sort($pathList['kept']);
-		sort($pathList['left']);
-		return $pathList;
+		sort($pathLst['kept']);
+		sort($pathLst['left']);
+		return $pathLst;
 	}
 
 	/**
@@ -459,18 +459,18 @@ class Bundle extends Command{
 	 * @throws \nyu\Shell\ShellStop When the bundle has no system.ini, or a setting is missing from it.
 	 */
 	protected function writeModeToIni( String $saveFilePath, String $packModeName ): Void {
-		$iniTrail = $saveFilePath.DS.'conf'.DS.'system.ini';
-		if( !is_file($iniTrail) ){
+		$iniPath = $saveFilePath.DS.'conf'.DS.'system.ini';
+		if( !is_file($iniPath) ){
 			$this->terminateShell('The bundle has no conf/system.ini: the settings of the mode cannot be written');
 		}
-		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		foreach( $this->readModesArray()[$packModeName]['settings'] as $iniKey => $iniVal ){
-			if( !$wrtrInst->changeIniValue($iniTrail, $iniKey, $iniVal) ){
+			if( !$wrtrObj->changeIniValue($iniPath, $iniKey, $iniVal) ){
 				$this->terminateShell('The bundle is not set for its mode: its system.ini has no '.$iniKey);
 			}
 		}
 		// The config cache, as the class map, for the environments of MAPSENVS; a system.ini made before it is told, not refused
-		if( !$wrtrInst->changeIniValue($iniTrail, 'CNF_CACH', in_array($this->readModesArray()[$packModeName]['settings']['ENV_NAME'] ?? '', self::MAPS_ENVS, true) ? 'TRUE' : 'FALSE') ){
+		if( !$wrtrObj->changeIniValue($iniPath, 'CNF_CACH', in_array($this->readModesArray()[$packModeName]['settings']['ENV_NAME'] ?? '', self::MAPS_ENVS, true) ? 'TRUE' : 'FALSE') ){
 			$this->printerObj->printShellFail('The config is read on each request: the system.ini of the project has no CNF_CACH (see conf/system.ini of the framework)');
 		}
 	}
@@ -493,21 +493,21 @@ class Bundle extends Command{
 			$this->printerObj->printShellPair('class map', 'the one of the project, for its '.implode(' and ', self::MAPS_ENVS).' bundles only');
 			return false;
 		}
-		$cmmnList = $this->locateComposer();
-		if( $cmmnList===null ){
+		$cmdList = $this->locateComposer();
+		if( $cmdList===null ){
 			$this->printerObj->printShellFail('The autoloader is not optimised: Composer was not found (--composer=<path>); run composer dump-autoload -o -a --no-dev in the bundle');
 			return false;
 		}
 		if( !$writeEnabled ){
-			$this->printerObj->printShellPair('class map', 'complete, made by '.end($cmmnList));
+			$this->printerObj->printShellPair('class map', 'complete, made by '.end($cmdList));
 			return true;
 		}
-		$cmmnList = array_merge( $cmmnList, Array('dump-autoload', '--optimize', '--classmap-authoritative', '--no-dev', '--no-interaction', '--working-dir='.$saveFilePath) );
-		$outStrng = Array();
-		$extnCode = 0;
-		exec( implode(' ', array_map('escapeshellarg', $cmmnList)).' 2>&1', $outStrng, $extnCode );
-		if( $extnCode!==0 ){
-			$this->printerObj->printShellFail('The autoloader is not optimised: Composer ended with '.$extnCode.( empty($outStrng) ? '' : ': '.trim(strval(end($outStrng))) ).'; run composer dump-autoload -o -a --no-dev in the bundle');
+		$cmdList = array_merge( $cmdList, Array('dump-autoload', '--optimize', '--classmap-authoritative', '--no-dev', '--no-interaction', '--working-dir='.$saveFilePath) );
+		$outText = Array();
+		$extCode = 0;
+		exec( implode(' ', array_map('escapeshellarg', $cmdList)).' 2>&1', $outText, $extCode );
+		if( $extCode!==0 ){
+			$this->printerObj->printShellFail('The autoloader is not optimised: Composer ended with '.$extCode.( empty($outText) ? '' : ': '.trim(strval(end($outText))) ).'; run composer dump-autoload -o -a --no-dev in the bundle');
 			return false;
 		}
 		$this->printerObj->printShellPair('class map', 'complete');
@@ -524,26 +524,26 @@ class Bundle extends Command{
 	 * @return ?Array The command that runs Composer, as a list of words; null when there is none.
 	 */
 	protected function locateComposer(): ?Array {
-		$cmplPath = strval($this->optionsObj->retrieveOption('composer', ''));
-		if( $cmplPath!='' ){
-			if( !is_file($cmplPath) ){
+		$cmpPath = strval($this->optionsObj->retrieveOption('composer', ''));
+		if( $cmpPath!='' ){
+			if( !is_file($cmpPath) ){
 				return null;
 			}
 		}elseif( is_file(TOP_DIR.DS.'composer.phar') ){
-			$cmplPath = TOP_DIR.DS.'composer.phar';
+			$cmpPath = TOP_DIR.DS.'composer.phar';
 		}else{
 			foreach( explode(PATH_SEPARATOR, strval(getenv('PATH'))) as $dirInc ){
 				foreach( (DS=='\\') ? Array('composer.phar', 'composer.bat') : Array('composer.phar', 'composer') as $binInc ){
-					if( $cmplPath=='' && trim($dirInc)!='' && is_file(rtrim($dirInc, '/\\').DS.$binInc) ){
-						$cmplPath = rtrim($dirInc, '/\\').DS.$binInc;
+					if( $cmpPath=='' && trim($dirInc)!='' && is_file(rtrim($dirInc, '/\\').DS.$binInc) ){
+						$cmpPath = rtrim($dirInc, '/\\').DS.$binInc;
 					}
 				}
 			}
 		}
-		if( $cmplPath=='' ){
+		if( $cmpPath=='' ){
 			return null;
 		}
-		return (strtolower(pathinfo($cmplPath, PATHINFO_EXTENSION))=='phar') ? Array(PHP_BINARY, $cmplPath) : Array($cmplPath);
+		return (strtolower(pathinfo($cmpPath, PATHINFO_EXTENSION))=='phar') ? Array(PHP_BINARY, $cmpPath) : Array($cmpPath);
 	}
 
 	/**
@@ -559,22 +559,22 @@ class Bundle extends Command{
 		if( !class_exists('PharData') ){
 			$this->terminateShell('No archive made: the phar extension is not loaded');
 		}
-		$tarTrail = $saveFilePath.'.tar';
-		foreach( Array($tarTrail, $tarTrail.'.gz') as $oldTar ){
+		$tarPath = $saveFilePath.'.tar';
+		foreach( Array($tarPath, $tarPath.'.gz') as $oldTar ){
 			if( is_file($oldTar) ){
 				@unlink($oldTar);
 			}
 		}
 		try{
-			$archInst = new \PharData($tarTrail);
-			$archInst->buildFromDirectory($saveFilePath);
-			$archInst->compress(\Phar::GZ);
-			unset($archInst);
-			@unlink($tarTrail);
+			$archive = new \PharData($tarPath);
+			$archive->buildFromDirectory($saveFilePath);
+			$archive->compress(\Phar::GZ);
+			unset($archive);
+			@unlink($tarPath);
 		}catch( \Throwable $e ){
 			$this->terminateShell('No archive made: '.$e->getMessage());
 		}
-		return $tarTrail.'.gz';
+		return $tarPath.'.gz';
 	}
 
 	/**
@@ -586,16 +586,16 @@ class Bundle extends Command{
 	 * @return Int The exit code.
 	 */
 	protected function listPlansCount( String $saveFilePath, Array $addedEntries=Array() ): Int {
-		$pathList = $this->copyTreesArray($saveFilePath, false, $addedEntries);
-		$rowsList = Array();
-		foreach( $pathList['kept'] as $keptPt ){
-			$rowsList[] = Array($keptPt, 'copied');
+		$pathLst = $this->copyTreesArray($saveFilePath, false, $addedEntries);
+		$rowList = Array();
+		foreach( $pathLst['kept'] as $keptPt ){
+			$rowList[] = Array($keptPt, 'copied');
 		}
-		foreach( $pathList['left'] as $leftPt ){
-			$rowsList[] = Array($leftPt, 'left out');
+		foreach( $pathLst['left'] as $leftPt ){
+			$rowList[] = Array($leftPt, 'left out');
 		}
 		$this->printerObj->printShellPair('folder', $saveFilePath);
-		$this->printerObj->printShellRows( Array('path', 'state'), $rowsList );
+		$this->printerObj->printShellRows( Array('path', 'state'), $rowList );
 		return self::EXIT_DONE;
 	}
 }

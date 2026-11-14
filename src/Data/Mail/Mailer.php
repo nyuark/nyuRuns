@@ -41,16 +41,16 @@ class Mailer {
 		$this->accountNme = $accountLabel;
 		$this->setupArray = $acntSetupArr;
 		// The type whatever its case, as TYPE_LIST writes it
-		$typeClef = strval( array_values(preg_grep('/^'.preg_quote(strval($acntSetupArr['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
-		if( !isset(self::TYPE_LIST[$typeClef]) ){
+		$typeKey = strval( array_values(preg_grep('/^'.preg_quote(strval($acntSetupArr['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
+		if( !isset(self::TYPE_LIST[$typeKey]) ){
 			throw new MailFailure('Unknown mail type: '.json_encode($acntSetupArr['sendWith'] ?? ''));
 		}
 		if( ($acntSetupArr['fromAddr'] ?? '')=='' ){
 			throw new MailFailure('The mail account '.json_encode($accountLabel).' has no sender address');
 		}
 		Message::checkEmailAddr($acntSetupArr['fromAddr']);
-		$drvrClss = '\\nyu\\Data\\Mail\\Drivers\\'.self::TYPE_LIST[$typeClef];
-		$this->mailDriver = new $drvrClss($acntSetupArr);
+		$drvrCls = '\\nyu\\Data\\Mail\\Drivers\\'.self::TYPE_LIST[$typeKey];
+		$this->mailDriver = new $drvrCls($acntSetupArr);
 	}
 
 	/**
@@ -63,12 +63,12 @@ class Mailer {
 	 * @throws MailFailure When no account is configured, none has that name, or its settings cannot work.
 	 */
 	public static function retrieveMailer( String $accountLabel='' ): Mailer {
-		$acctDict = self::acntSetupArray($accountLabel);
-		$nameClef = ($accountLabel=='') ? '' : strtolower($accountLabel);
-		if( !isset(self::$mailerList[$nameClef]) ){
-			self::$mailerList[$nameClef] = new Mailer($nameClef, $acctDict);
+		$acntSet = self::acntSetupArray($accountLabel);
+		$nameKey = ($accountLabel=='') ? '' : strtolower($accountLabel);
+		if( !isset(self::$mailerList[$nameKey]) ){
+			self::$mailerList[$nameKey] = new Mailer($nameKey, $acntSet);
 		}
-		return self::$mailerList[$nameClef];
+		return self::$mailerList[$nameKey];
 	}
 
 	/**
@@ -89,30 +89,30 @@ class Mailer {
 	 * @throws MailFailure When no account is configured, or none has that name.
 	 */
 	public static function acntSetupArray( String $accountLabel='' ): Array {
-		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$allAccnt = $nyuConfg ? $nyuConfg->readValueByKey('mailer') : null;
-		if( !is_array($allAccnt) || empty($allAccnt) ){
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$allAcnt = $nyuConf ? $nyuConf->readValueByKey('mailer') : null;
+		if( !is_array($allAcnt) || empty($allAcnt) ){
 			throw new MailFailure('No mail account is configured');
 		}
-		$allAccnt = array_change_key_case($allAccnt, CASE_LOWER);
-		if( array_key_exists('sendwith', $allAccnt) ){
+		$allAcnt = array_change_key_case($allAcnt, CASE_LOWER);
+		if( array_key_exists('sendwith', $allAcnt) ){
 			// A single block of settings: it has no name, and is the default
 			if( $accountLabel!='' ){
 				throw new MailFailure('Unknown mail account: '.json_encode($accountLabel));
 			}
-			$acctDict = $allAccnt;
+			$acntSet = $allAcnt;
 		}else{
-			$nameClef = ($accountLabel=='') ? strval(array_key_first($allAccnt)) : strtolower($accountLabel);
-			if( !isset($allAccnt[$nameClef]) || !is_array($allAccnt[$nameClef]) ){
+			$nameKey = ($accountLabel=='') ? strval(array_key_first($allAcnt)) : strtolower($accountLabel);
+			if( !isset($allAcnt[$nameKey]) || !is_array($allAcnt[$nameKey]) ){
 				throw new MailFailure('Unknown mail account: '.json_encode($accountLabel));
 			}
-			$acctDict = array_change_key_case($allAccnt[$nameClef], CASE_LOWER);
+			$acntSet = array_change_key_case($allAcnt[$nameKey], CASE_LOWER);
 		}
-		$dfltDict = Array();
+		$dfltSet = Array();
 		foreach( self::KEYS_LIST as $keyNme ){
-			$dfltDict[$keyNme] = is_scalar($acctDict[strtolower($keyNme)] ?? null) ? strval($acctDict[strtolower($keyNme)]) : '';
+			$dfltSet[$keyNme] = is_scalar($acntSet[strtolower($keyNme)] ?? null) ? strval($acntSet[strtolower($keyNme)]) : '';
 		}
-		return $dfltDict;
+		return $dfltSet;
 	}
 
 	/**
@@ -130,26 +130,26 @@ class Mailer {
 	 * @throws MailFailure When an address is not valid, the subject holds a line break, an attachment cannot be read or the account cannot send attachments.
 	 */
 	public function deliverEmlFlag( Array|String $recipientLst, String $emailSubject, String $mssgBodyText, ?String $htmlMssgText=null, Array $attachedList=Array() ): Bool {
-		$mailInst = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $mssgBodyText, $htmlMssgText, $attachedList );
-		$copyList = Array();
+		$mailObj = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $mssgBodyText, $htmlMssgText, $attachedList );
+		$copyLst = Array();
 		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $cpyAdr ){
-			$copyList[] = Message::checkEmailAddr($cpyAdr);
+			$copyLst[] = Message::checkEmailAddr($cpyAdr);
 		}
-		$logrInst = Logger::retrieveLogger('runner');
-		$acctText = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);
-		$failText = $this->mailDriver->deliverMessage( $mailInst, $mailInst->listRecipients() );
-		$this->failReason = strval($failText ?? '');
-		if( $failText!==null ){
-			$logrInst->warning('Mail not sent to '.json_encode($mailInst->listRecipients()).' through account '.$acctText.': '.$failText.Logger::getActorSuffix());
+		$channel = Logger::retrieveLogger('runner');
+		$acntTxt = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);
+		$failTxt = $this->mailDriver->deliverMessage( $mailObj, $mailObj->listRecipients() );
+		$this->failReason = strval($failTxt ?? '');
+		if( $failTxt!==null ){
+			$channel->warning('Mail not sent to '.json_encode($mailObj->listRecipients()).' through account '.$acntTxt.': '.$failTxt.Logger::getActorSuffix());
 			return false;
 		}
-		$logrInst->info('Mail sent to '.json_encode($mailInst->listRecipients()).' through account '.$acctText.Logger::getActorSuffix());
-		if( !empty($copyList) ){
-			$failText = $this->mailDriver->deliverMessage( $mailInst, $copyList );
-			if( $failText!==null ){
-				$logrInst->warning('Copy of a mail not sent to '.json_encode($copyList).' through account '.$acctText.': '.$failText);
+		$channel->info('Mail sent to '.json_encode($mailObj->listRecipients()).' through account '.$acntTxt.Logger::getActorSuffix());
+		if( !empty($copyLst) ){
+			$failTxt = $this->mailDriver->deliverMessage( $mailObj, $copyLst );
+			if( $failTxt!==null ){
+				$channel->warning('Copy of a mail not sent to '.json_encode($copyLst).' through account '.$acntTxt.': '.$failTxt);
 			}else{
-				$logrInst->info('Copy of a mail sent to '.json_encode($copyList).' through account '.$acctText);
+				$channel->info('Copy of a mail sent to '.json_encode($copyLst).' through account '.$acntTxt);
 			}
 		}
 		return true;

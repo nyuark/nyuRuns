@@ -64,11 +64,11 @@ class Registry{
 		}else{
 			$valueRgstKey = strtolower($valueRgstKey);
 		}
-		$lvl1Vals = null;
+		$l1Value = null;
 		if(isset($this->valuesList[$valueRgstKey])){
-			$lvl1Vals = $this->valuesList[$valueRgstKey];
+			$l1Value = $this->valuesList[$valueRgstKey];
 		}
-		return $lvl1Vals;
+		return $l1Value;
 	}
 
 	/**
@@ -80,7 +80,7 @@ class Registry{
 	 * @return mixed The stored value, or null if the row or key doesn't exist.
 	 */
 	public function obtainRowValue( String $rowEntryName, String $entryKeyText ): Mixed {
-		$lvl2Vals = null;
+		$l2Value = null;
 		if($this->fieldUCase){
 			$rowEntryName = strtoupper($rowEntryName);
 			$entryKeyText = strtoupper($entryKeyText);
@@ -88,18 +88,18 @@ class Registry{
 			$rowEntryName = strtolower($rowEntryName);
 			$entryKeyText = strtolower($entryKeyText);
 		}
-		$lvl1Vals = $this->readValueByKey($rowEntryName);
-		if($lvl1Vals!=null){
-			if(isset($lvl1Vals[$entryKeyText])){
-				$lvl2Vals = $lvl1Vals[$entryKeyText];
+		$l1Value = $this->readValueByKey($rowEntryName);
+		if($l1Value!=null){
+			if(isset($l1Value[$entryKeyText])){
+				$l2Value = $l1Value[$entryKeyText];
 			}else{
 				$entryKeyText = strtoupper($entryKeyText);
-				if(isset($lvl1Vals[$entryKeyText])){
-					$lvl2Vals = $lvl1Vals[$entryKeyText];
+				if(isset($l1Value[$entryKeyText])){
+					$l2Value = $l1Value[$entryKeyText];
 				}
 			}
 		}
-		return $lvl2Vals;
+		return $l2Value;
 	}
 
 	/**
@@ -119,12 +119,12 @@ class Registry{
 			$rowEntryName = strtolower($rowEntryName);
 			$entryKeyText = strtolower($entryKeyText);
 		}
-		$lvl1Vals = $this->readValueByKey($rowEntryName);
-		if(!is_array($lvl1Vals)){
-			$lvl1Vals = Array();
+		$l1Value = $this->readValueByKey($rowEntryName);
+		if(!is_array($l1Value)){
+			$l1Value = Array();
 		}
-		$lvl1Vals[$entryKeyText] = $regLineValue;
-		$this->saveValueByKey($rowEntryName, $lvl1Vals);
+		$l1Value[$entryKeyText] = $regLineValue;
+		$this->saveValueByKey($rowEntryName, $l1Value);
 		return $regLineValue;
 	}
 
@@ -138,11 +138,11 @@ class Registry{
 	 * @return mixed The stored value, or $defaultValue.
 	 */
 	public function obtainDefValue( String $entryKeyText, Mixed $defaultValue=null ): Mixed {
-		$newValue = $this->readValueByKey( $entryKeyText );
-		if($newValue===null || $newValue===''){
+		$nuValue = $this->readValueByKey( $entryKeyText );
+		if($nuValue===null || $nuValue===''){
 			return $defaultValue;
 		}else{
-			return $newValue;
+			return $nuValue;
 		}
 	}
 
@@ -154,21 +154,21 @@ class Registry{
 	 * @return Array Matching key/value pairs.
 	 */
 	public function readLinesArray( String $keysCriteria='' ): Array {
-		$lineList = Array();
+		$lineArr = Array();
 		if($keysCriteria!=''){
-			$filtSize = strlen($keysCriteria);
+			$fltrLen = strlen($keysCriteria);
 			foreach($this->valuesList as $arrKey => $arrVal){
-				$checkKey = substr($arrKey, 0, $filtSize);
-				if($checkKey==$keysCriteria){
-					$lineList[$arrKey] = $arrVal;
+				$chckKey = substr($arrKey, 0, $fltrLen);
+				if($chckKey==$keysCriteria){
+					$lineArr[$arrKey] = $arrVal;
 				}
 			}
 		}else{
 			foreach($this->valuesList as $arrKey => $arrVal){
-				$lineList[$arrKey] = $arrVal;
+				$lineArr[$arrKey] = $arrVal;
 			}
 		}
-		return $lineList;
+		return $lineArr;
 	}
 
 }

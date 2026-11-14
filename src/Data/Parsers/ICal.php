@@ -45,32 +45,32 @@ class ICal extends Base {
 	 * @throws ParseError When the content is not a calendar, an entry is not closed, or the time zone asked for is not a known one.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$trgtZone = null;
+		$trgtZon = null;
 		if( strval($parseOptions['tzone'] ?? '')!=='' ){
 			try{
-				$trgtZone = new \DateTimeZone(strval($parseOptions['tzone']));
+				$trgtZon = new \DateTimeZone(strval($parseOptions['tzone']));
 			}catch( \Exception $e ){
 				throw new ParseError('Invalid calendar option: unknown time zone '.strval($parseOptions['tzone']), 0, $e);
 			}
 		}
-		$itemList = Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array());
-		$infoList = Array('title'=>'', 'tzone'=>'', 'maker'=>'', 'count'=>0);
+		$itemLst = Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array());
+		$infoArr = Array('title'=>'', 'tzone'=>'', 'maker'=>'', 'count'=>0);
 		foreach($this->readComponents($this->foldLinesArray(self::recodeTextUtf8($nakedContent))) as $cldArr){
 			foreach(Array('X-WR-CALNAME'=>'title', 'X-WR-TIMEZONE'=>'tzone', 'PRODID'=>'maker') as $prpNme=>$infKey){
 				foreach($cldArr['props'] as $prpSet){
-					if( $prpSet['names']==$prpNme && $infoList[$infKey]==='' ){
-						$infoList[$infKey] = $this->unescapeTxtVal($prpSet['value']);
+					if( $prpSet['names']==$prpNme && $infoArr[$infKey]==='' ){
+						$infoArr[$infKey] = $this->unescapeTxtVal($prpSet['value']);
 					}
 				}
 			}
 			foreach($cldArr['comps'] as $cmpArr){
 				if( isset(self::KIND_LIST[$cmpArr['kinds']]) ){
-					$itemList[self::KIND_LIST[$cmpArr['kinds']]][] = $this->entryReadArray($cmpArr, self::KIND_LIST[$cmpArr['kinds']], $trgtZone);
-					$infoList['count']++;
+					$itemLst[self::KIND_LIST[$cmpArr['kinds']]][] = $this->entryReadArray($cmpArr, self::KIND_LIST[$cmpArr['kinds']], $trgtZon);
+					$infoArr['count']++;
 				}
 			}
 		}
-		return $this->makeShapeArray('nodes', !empty($parseOptions['upper']) ? $this->upperKeysArray($itemList) : $itemList, $infoList);
+		return $this->makeShapeArray('nodes', !empty($parseOptions['upper']) ? $this->upperKeysArray($itemLst) : $itemLst, $infoArr);
 	}
 
 	/**
@@ -82,15 +82,15 @@ class ICal extends Base {
 	 * @return Array The lines, each with its text and the number of the line it starts on.
 	 */
 	protected function foldLinesArray(String $nakedContent): Array {
-		$lineList = Array();
+		$lineLst = Array();
 		foreach(preg_split('/\r\n|\r|\n/', $nakedContent) as $linIdx=>$linTxt){
-			if( $linTxt!=='' && ($linTxt[0]==' ' || $linTxt[0]=="\t") && !empty($lineList) ){
-				$lineList[count($lineList)-1][0] .= substr($linTxt, 1);
+			if( $linTxt!=='' && ($linTxt[0]==' ' || $linTxt[0]=="\t") && !empty($lineLst) ){
+				$lineLst[count($lineLst)-1][0] .= substr($linTxt, 1);
 			}elseif( trim($linTxt)!=='' ){
-				$lineList[] = Array($linTxt, $linIdx+1);
+				$lineLst[] = Array($linTxt, $linIdx+1);
 			}
 		}
-		return $lineList;
+		return $lineLst;
 	}
 
 	/**
@@ -103,57 +103,57 @@ class ICal extends Base {
 	 * @throws ParseError When the content is not a calendar, or what is opened and what is closed do not match.
 	 */
 	protected function readComponents(Array $linesToParse): Array {
-		$rootList = Array();
+		$rootLst = Array();
 		// What is being read, from the calendar down to the innermost entry, and the line each was opened on
-		$openList = Array();
-		$openLnes = Array();
+		$openLst = Array();
+		$openLns = Array();
 		foreach($linesToParse as $linSet){
 			// A line is a name, what qualifies it after semicolons, then its value after the first colon that is not between quotes
-			$headPart = Array();
-			if( !preg_match('/^((?:[^":]|"[^"]*")*):(.*)$/Ds', $linSet[0], $headPart) || trim($headPart[1])==='' ){
+			$hedPart = Array();
+			if( !preg_match('/^((?:[^":]|"[^"]*")*):(.*)$/Ds', $linSet[0], $hedPart) || trim($hedPart[1])==='' ){
 				throw new ParseError('Invalid calendar content: a line that is not a property on line '.$linSet[1]);
 			}
-			$namePart = preg_split('/;(?=(?:[^"]*"[^"]*")*[^"]*$)/', $headPart[1]);
-			$propName = strtoupper(trim(strval(array_shift($namePart))));
-			$propVals = $headPart[2];
-			if( $propName=='BEGIN' ){
-				if( empty($openList) && strtoupper(trim($propVals))!='VCALENDAR' ){
+			$nmePart = preg_split('/;(?=(?:[^"]*"[^"]*")*[^"]*$)/', $hedPart[1]);
+			$propNme = strtoupper(trim(strval(array_shift($nmePart))));
+			$propVal = $hedPart[2];
+			if( $propNme=='BEGIN' ){
+				if( empty($openLst) && strtoupper(trim($propVal))!='VCALENDAR' ){
 					throw new ParseError('Invalid calendar content: the content does not start a calendar on line '.$linSet[1]);
 				}
-				if( count($openList)>=8 ){
+				if( count($openLst)>=8 ){
 					throw new ParseError('Invalid calendar content: nested deeper than allowed on line '.$linSet[1]);
 				}
-				$openList[] = Array('kinds'=>strtoupper(trim($propVals)), 'props'=>Array(), 'comps'=>Array());
-				$openLnes[] = $linSet[1];
+				$openLst[] = Array('kinds'=>strtoupper(trim($propVal)), 'props'=>Array(), 'comps'=>Array());
+				$openLns[] = $linSet[1];
 				continue;
 			}
-			if( empty($openList) ){
+			if( empty($openLst) ){
 				throw new ParseError('Invalid calendar content: the content does not start a calendar on line '.$linSet[1]);
 			}
-			if( $propName=='END' ){
-				$doneCmpl = array_pop($openList);
-				array_pop($openLnes);
-				if( $doneCmpl['kinds']!==strtoupper(trim($propVals)) ){
-					throw new ParseError('Invalid calendar content: '.strtoupper(trim($propVals)).' closed where '.$doneCmpl['kinds'].' is open on line '.$linSet[1]);
+			if( $propNme=='END' ){
+				$doneCmp = array_pop($openLst);
+				array_pop($openLns);
+				if( $doneCmp['kinds']!==strtoupper(trim($propVal)) ){
+					throw new ParseError('Invalid calendar content: '.strtoupper(trim($propVal)).' closed where '.$doneCmp['kinds'].' is open on line '.$linSet[1]);
 				}
-				if( empty($openList) ){
-					$rootList[] = $doneCmpl;
+				if( empty($openLst) ){
+					$rootLst[] = $doneCmp;
 				}else{
-					$openList[count($openList)-1]['comps'][] = $doneCmpl;
+					$openLst[count($openLst)-1]['comps'][] = $doneCmp;
 				}
 				continue;
 			}
-			$argsList = Array();
-			foreach($namePart as $argTxt){
-				$prmtPart = explode('=', $argTxt, 2);
-				$argsList[strtoupper(trim($prmtPart[0]))] = trim(strval($prmtPart[1] ?? ''), " \t\"");
+			$argList = Array();
+			foreach($nmePart as $argTxt){
+				$prmPrts = explode('=', $argTxt, 2);
+				$argList[strtoupper(trim($prmPrts[0]))] = trim(strval($prmPrts[1] ?? ''), " \t\"");
 			}
-			$openList[count($openList)-1]['props'][] = Array('names'=>$propName, 'parms'=>$argsList, 'value'=>$propVals);
+			$openLst[count($openLst)-1]['props'][] = Array('names'=>$propNme, 'parms'=>$argList, 'value'=>$propVal);
 		}
-		if( !empty($openList) ){
-			throw new ParseError('Invalid calendar content: '.$openList[count($openList)-1]['kinds'].' is never closed, opened on line '.$openLnes[count($openLnes)-1]);
+		if( !empty($openLst) ){
+			throw new ParseError('Invalid calendar content: '.$openLst[count($openLst)-1]['kinds'].' is never closed, opened on line '.$openLns[count($openLns)-1]);
 		}
-		return $rootList;
+		return $rootLst;
 	}
 
 	/**
@@ -174,13 +174,13 @@ class ICal extends Base {
 	 * @return Array The texts, none of them empty.
 	 */
 	protected function splitListValue(String $valOfTagText): Array {
-		$textList = Array();
+		$textLst = Array();
 		foreach(preg_split('/(?<!\\\\),/', $valOfTagText) as $oneTxt){
 			if( trim($oneTxt)!=='' ){
-				$textList[] = $this->unescapeTxtVal($oneTxt);
+				$textLst[] = $this->unescapeTxtVal($oneTxt);
 			}
 		}
-		return $textList;
+		return $textLst;
 	}
 
 	/**
@@ -191,16 +191,16 @@ class ICal extends Base {
 	 * @return Array The date as ISO text under 'value', '' when it cannot be read; whether it has no time under 'whole'; and the time zone it is written in under 'tzone', 'UTC' for a time ending with Z and '' when it tells none.
 	 */
 	protected function datesReadArray(String $valOfTagText, Array $parameterArr): Array {
-		$dateList = Array();
-		if( !preg_match('/^(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)?(Z)?)?$/Di', trim($valOfTagText), $dateList) || !checkdate(intval($dateList[2]), intval($dateList[3]), intval($dateList[1])) ){
+		$dateLst = Array();
+		if( !preg_match('/^(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)?(Z)?)?$/Di', trim($valOfTagText), $dateLst) || !checkdate(intval($dateLst[2]), intval($dateLst[3]), intval($dateLst[1])) ){
 			return Array('value'=>'', 'whole'=>false, 'tzone'=>'');
 		}
-		$dateText = $dateList[1].'-'.$dateList[2].'-'.$dateList[3];
-		if( !isset($dateList[4]) || $dateList[4]==='' ){
-			return Array('value'=>$dateText, 'whole'=>true, 'tzone'=>'');
+		$dateTxt = $dateLst[1].'-'.$dateLst[2].'-'.$dateLst[3];
+		if( !isset($dateLst[4]) || $dateLst[4]==='' ){
+			return Array('value'=>$dateTxt, 'whole'=>true, 'tzone'=>'');
 		}
-		$zoneName = (($dateList[7] ?? '')!=='') ? 'UTC' : ltrim(strval($parameterArr['TZID'] ?? ''), '/');
-		return Array('value'=>$dateText.' '.$dateList[4].':'.$dateList[5].':'.((($dateList[6] ?? '')!=='') ? $dateList[6] : '00'), 'whole'=>false, 'tzone'=>$zoneName);
+		$zoneNme = (($dateLst[7] ?? '')!=='') ? 'UTC' : ltrim(strval($parameterArr['TZID'] ?? ''), '/');
+		return Array('value'=>$dateTxt.' '.$dateLst[4].':'.$dateLst[5].':'.((($dateLst[6] ?? '')!=='') ? $dateLst[6] : '00'), 'whole'=>false, 'tzone'=>$zoneNme);
 	}
 
 	/**
@@ -210,12 +210,12 @@ class ICal extends Base {
 	 * @return ?Int The seconds, negative for a length counted backwards; null when it cannot be read.
 	 */
 	protected function spanOfDuration(String $valOfTagText): ?Int {
-		$spanPart = Array();
-		if( !preg_match('/^([+\-]?)P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/Di', trim($valOfTagText), $spanPart, PREG_UNMATCHED_AS_NULL) || trim($valOfTagText, '+-Pp')==='' ){
+		$spnPart = Array();
+		if( !preg_match('/^([+\-]?)P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/Di', trim($valOfTagText), $spnPart, PREG_UNMATCHED_AS_NULL) || trim($valOfTagText, '+-Pp')==='' ){
 			return null;
 		}
-		$secsNumb = intval($spanPart[2])*604800+intval($spanPart[3])*86400+intval($spanPart[4])*3600+intval($spanPart[5])*60+intval($spanPart[6]);
-		return ($spanPart[1]=='-') ? -$secsNumb : $secsNumb;
+		$secsNum = intval($spnPart[2])*604800+intval($spnPart[3])*86400+intval($spnPart[4])*3600+intval($spnPart[5])*60+intval($spnPart[6]);
+		return ($spnPart[1]=='-') ? -$secsNum : $secsNum;
 	}
 
 	/**
@@ -227,8 +227,8 @@ class ICal extends Base {
 	 * @return String The date moved, in the form it came in.
 	 */
 	protected function switchDatesTxt(String $givenIsoDate, Int $secondsAddNb): String {
-		$dateInst = new \DateTimeImmutable($givenIsoDate, new \DateTimeZone('UTC'));
-		return $dateInst->modify(sprintf('%+d seconds', $secondsAddNb))->format((strlen($givenIsoDate)>10) ? 'Y-m-d H:i:s' : 'Y-m-d');
+		$dateObj = new \DateTimeImmutable($givenIsoDate, new \DateTimeZone('UTC'));
+		return $dateObj->modify(sprintf('%+d seconds', $secondsAddNb))->format((strlen($givenIsoDate)>10) ? 'Y-m-d H:i:s' : 'Y-m-d');
 	}
 
 	/**
@@ -249,31 +249,31 @@ class ICal extends Base {
 	 * @return Array How often under 'every' (eachDays, eachWeek, eachMnth, eachYear, '' for a rule that is none of these), every how many under 'steps', the days of the week under 'wdays', of the month under 'mdays', the months under 'month', the last date under 'until' and the number of times under 'times'.
 	 */
 	protected function rulePartsArray(String $valOfTagText, Bool &$everyWasRead): Array {
-		$ruleDict = Array('every'=>'', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0);
+		$ruleSet = Array('every'=>'', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0);
 		$everyWasRead = true;
 		foreach(explode(';', $valOfTagText) as $subTxt){
-			$clefPair = explode('=', $subTxt, 2);
-			$partName = strtoupper(trim($clefPair[0]));
-			$partVals = trim(strval($clefPair[1] ?? ''));
-			if( $partName=='FREQ' && isset(self::FREQ_LIST[strtoupper($partVals)]) ){
-				$ruleDict['every'] = self::FREQ_LIST[strtoupper($partVals)];
-			}elseif( $partName=='INTERVAL' ){
-				$ruleDict['steps'] = max(1, intval($partVals));
-			}elseif( $partName=='COUNT' ){
-				$ruleDict['times'] = max(0, intval($partVals));
-			}elseif( $partName=='UNTIL' ){
-				$ruleDict['until'] = $this->datesReadArray($partVals, Array())['value'];
-			}elseif( $partName=='BYDAY' ){
-				$ruleDict['wdays'] = array_values(array_filter(array_map('strtolower', array_map('trim', explode(',', $partVals))), function($rruleDayCode){ return preg_match('/^[+\-]?\d{0,2}(mo|tu|we|th|fr|sa|su)$/D', $rruleDayCode)===1; }));
-			}elseif( $partName=='BYMONTHDAY' ){
-				$ruleDict['mdays'] = array_map('intval', array_filter(explode(',', $partVals), 'is_numeric'));
-			}elseif( $partName=='BYMONTH' ){
-				$ruleDict['month'] = array_map('intval', array_filter(explode(',', $partVals), 'is_numeric'));
-			}elseif( $partName!=='' ){
+			$keyPair = explode('=', $subTxt, 2);
+			$partNme = strtoupper(trim($keyPair[0]));
+			$partVal = trim(strval($keyPair[1] ?? ''));
+			if( $partNme=='FREQ' && isset(self::FREQ_LIST[strtoupper($partVal)]) ){
+				$ruleSet['every'] = self::FREQ_LIST[strtoupper($partVal)];
+			}elseif( $partNme=='INTERVAL' ){
+				$ruleSet['steps'] = max(1, intval($partVal));
+			}elseif( $partNme=='COUNT' ){
+				$ruleSet['times'] = max(0, intval($partVal));
+			}elseif( $partNme=='UNTIL' ){
+				$ruleSet['until'] = $this->datesReadArray($partVal, Array())['value'];
+			}elseif( $partNme=='BYDAY' ){
+				$ruleSet['wdays'] = array_values(array_filter(array_map('strtolower', array_map('trim', explode(',', $partVal))), function($rruleDayCode){ return preg_match('/^[+\-]?\d{0,2}(mo|tu|we|th|fr|sa|su)$/D', $rruleDayCode)===1; }));
+			}elseif( $partNme=='BYMONTHDAY' ){
+				$ruleSet['mdays'] = array_map('intval', array_filter(explode(',', $partVal), 'is_numeric'));
+			}elseif( $partNme=='BYMONTH' ){
+				$ruleSet['month'] = array_map('intval', array_filter(explode(',', $partVal), 'is_numeric'));
+			}elseif( $partNme!=='' ){
 				$everyWasRead = false;
 			}
 		}
-		return $ruleDict;
+		return $ruleSet;
 	}
 
 	/**
@@ -298,14 +298,14 @@ class ICal extends Base {
 	 * @throws ParseError When the entry has no start, a date cannot be read, or its rule is not one of those covered.
 	 */
 	public static function listEntryDates(Array $calendarItem, String $startsFromNb, String $windowFinish, Int $countCeiling=500): Array {
-		$isAllDay = !empty($calendarItem['whole']);
-		$dateFrmt = $isAllDay ? 'Y-m-d' : 'Y-m-d H:i:s';
+		$isWhole = !empty($calendarItem['whole']);
+		$dateFmt = $isWhole ? 'Y-m-d' : 'Y-m-d H:i:s';
 		try{
-			$zoneInst = new \DateTimeZone(($isAllDay || strval($calendarItem['tzone'] ?? '')==='') ? 'UTC' : strval($calendarItem['tzone']));
-			$startObj = new \DateTimeImmutable(strval($calendarItem['start'] ?? ''), $zoneInst);
-			$endsInst = (strval($calendarItem['ended'] ?? '')==='') ? null : new \DateTimeImmutable(strval($calendarItem['ended']), $zoneInst);
-			$fromInst = new \DateTimeImmutable($startsFromNb, $zoneInst);
-			$tillInst = new \DateTimeImmutable($windowFinish.((strlen(trim($windowFinish))<=10) ? ' 23:59:59' : ''), $zoneInst);
+			$zoneObj = new \DateTimeZone(($isWhole || strval($calendarItem['tzone'] ?? '')==='') ? 'UTC' : strval($calendarItem['tzone']));
+			$strtObj = new \DateTimeImmutable(strval($calendarItem['start'] ?? ''), $zoneObj);
+			$endsObj = (strval($calendarItem['ended'] ?? '')==='') ? null : new \DateTimeImmutable(strval($calendarItem['ended']), $zoneObj);
+			$fromObj = new \DateTimeImmutable($startsFromNb, $zoneObj);
+			$tillObj = new \DateTimeImmutable($windowFinish.((strlen(trim($windowFinish))<=10) ? ' 23:59:59' : ''), $zoneObj);
 		}catch( \Exception $e ){
 			throw new ParseError('Invalid calendar date: '.$e->getMessage(), 0, $e);
 		}
@@ -313,119 +313,119 @@ class ICal extends Base {
 			throw new ParseError('Invalid calendar entry: it has no start');
 		}
 		// How long the entry lasts, as the clock shows it; whole days end with their last day
-		$spanInst = ($endsInst===null || $endsInst<$startObj) ? null : $startObj->diff($endsInst);
-		$ruleDict = (array)($calendarItem['rpeat'] ?? Array());
+		$spanObj = ($endsObj===null || $endsObj<$strtObj) ? null : $strtObj->diff($endsObj);
+		$ruleSet = (array)($calendarItem['rpeat'] ?? Array());
 		// What the rule says and was not read into the entry is kept as written: only the first day of the week is made use of
-		$wdayName = 0;
+		$weekDay = 0;
 		foreach(explode(';', strval(((array)($calendarItem['extra'] ?? Array()))['RRULE'] ?? '')) as $subTxt){
-			$clefPair = explode('=', strtoupper(trim($subTxt)), 2);
-			if( $clefPair[0]=='WKST' && in_array(strtolower(strval($clefPair[1] ?? '')), self::DAYS_LIST) ){
-				$wdayName = array_search(strtolower($clefPair[1]), self::DAYS_LIST);
-			}elseif( $clefPair[0]!=='' && !in_array($clefPair[0], Array('FREQ', 'INTERVAL', 'COUNT', 'UNTIL', 'BYDAY', 'BYMONTHDAY', 'BYMONTH')) || ($clefPair[0]=='FREQ' && empty($ruleDict)) ){
-				throw new ParseError('Calendar rule not covered: '.substr(preg_replace('/[^A-Z0-9=,+\-]+/', '', implode('=', $clefPair)), 0, 40));
+			$keyPair = explode('=', strtoupper(trim($subTxt)), 2);
+			if( $keyPair[0]=='WKST' && in_array(strtolower(strval($keyPair[1] ?? '')), self::DAYS_LIST) ){
+				$weekDay = array_search(strtolower($keyPair[1]), self::DAYS_LIST);
+			}elseif( $keyPair[0]!=='' && !in_array($keyPair[0], Array('FREQ', 'INTERVAL', 'COUNT', 'UNTIL', 'BYDAY', 'BYMONTHDAY', 'BYMONTH')) || ($keyPair[0]=='FREQ' && empty($ruleSet)) ){
+				throw new ParseError('Calendar rule not covered: '.substr(preg_replace('/[^A-Z0-9=,+\-]+/', '', implode('=', $keyPair)), 0, 40));
 			}
 		}
-		$everyKey = strval($ruleDict['every'] ?? '');
-		if( !empty($ruleDict) && !in_array($everyKey, Array('eachDays', 'eachWeek', 'eachMnth', 'eachYear')) ){
-			throw new ParseError('Calendar rule not covered: '.substr(preg_replace('/[^a-z]+/', '', $everyKey), 0, 10));
+		$evryKey = strval($ruleSet['every'] ?? '');
+		if( !empty($ruleSet) && !in_array($evryKey, Array('eachDays', 'eachWeek', 'eachMnth', 'eachYear')) ){
+			throw new ParseError('Calendar rule not covered: '.substr(preg_replace('/[^a-z]+/', '', $evryKey), 0, 10));
 		}
-		$stepNumb = max(1, intval($ruleDict['steps'] ?? 1));
-		$maxTimes = max(0, intval($ruleDict['times'] ?? 0));
-		$wdayList = array_map('strval', (array)($ruleDict['wdays'] ?? Array()));
-		$mdaysLst = array_map('intval', (array)($ruleDict['mdays'] ?? Array()));
-		$monthLst = array_map('intval', (array)($ruleDict['month'] ?? Array()));
+		$stepNum = max(1, intval($ruleSet['steps'] ?? 1));
+		$timeMax = max(0, intval($ruleSet['times'] ?? 0));
+		$wkdyLst = array_map('strval', (array)($ruleSet['wdays'] ?? Array()));
+		$mdayLst = array_map('intval', (array)($ruleSet['mdays'] ?? Array()));
+		$mnthLst = array_map('intval', (array)($ruleSet['month'] ?? Array()));
 		// The last date of the rule: a day is taken whole, a time written for an entry that has a time zone is a time of the world clock
-		$lastInst = null;
-		$lastText = strval($ruleDict['until'] ?? '');
-		if( $lastText!=='' ){
+		$lastObj = null;
+		$lastTxt = strval($ruleSet['until'] ?? '');
+		if( $lastTxt!=='' ){
 			try{
-				$lastInst = (strlen($lastText)<=10) ? new \DateTimeImmutable($lastText.' 23:59:59', $zoneInst) : new \DateTimeImmutable($lastText, (!$isAllDay && strval($calendarItem['tzone'] ?? '')!=='') ? new \DateTimeZone('UTC') : $zoneInst);
+				$lastObj = (strlen($lastTxt)<=10) ? new \DateTimeImmutable($lastTxt.' 23:59:59', $zoneObj) : new \DateTimeImmutable($lastTxt, (!$isWhole && strval($calendarItem['tzone'] ?? '')!=='') ? new \DateTimeZone('UTC') : $zoneObj);
 			}catch( \Exception $e ){
 				throw new ParseError('Invalid calendar date: '.$e->getMessage(), 0, $e);
 			}
 		}
-		$skipList = array_map('strval', (array)($calendarItem['skips'] ?? Array()));
-		$dayFirst = $startObj->setTime(0, 0, 0);
+		$skipLst = array_map('strval', (array)($calendarItem['skips'] ?? Array()));
+		$dayFrst = $strtObj->setTime(0, 0, 0);
 		// Without a number of times to count, the spans that end before the window are passed over
-		$spanIndx = 0;
-		if( $maxTimes==0 && !empty($ruleDict) && $fromInst>$startObj ){
-			$daysSpan = intval($startObj->diff($fromInst)->days)-(($spanInst===null) ? 0 : intval($spanInst->days))-1;
-			$spanIndx = max(0, intdiv($daysSpan, Array('eachDays'=>1, 'eachWeek'=>7, 'eachMnth'=>31, 'eachYear'=>366)[$everyKey]*$stepNumb)-1);
+		$spanIdx = 0;
+		if( $timeMax==0 && !empty($ruleSet) && $fromObj>$strtObj ){
+			$daysGap = intval($strtObj->diff($fromObj)->days)-(($spanObj===null) ? 0 : intval($spanObj->days))-1;
+			$spanIdx = max(0, intdiv($daysGap, Array('eachDays'=>1, 'eachWeek'=>7, 'eachMnth'=>31, 'eachYear'=>366)[$evryKey]*$stepNum)-1);
 		}
-		$dateList = Array();
-		$doneNumb = 0;
-		for($spnEnd=$spanIndx+(empty($ruleDict) ? 1 : self::SPAN_MAXI); $spanIndx<$spnEnd; $spanIndx++){
+		$dateLst = Array();
+		$doneNum = 0;
+		for($spnEnd=$spanIdx+(empty($ruleSet) ? 1 : self::SPAN_MAXI); $spanIdx<$spnEnd; $spanIdx++){
 			// The days of this span: a day, a week, a month or a year
-			$daysList = Array();
-			if( empty($ruleDict) ){
-				$daysList[] = $dayFirst->format('Y-m-d');
-			}elseif( $everyKey=='eachDays' ){
-				$daysList[] = $dayFirst->modify('+'.($spanIndx*$stepNumb).' days')->format('Y-m-d');
-			}elseif( $everyKey=='eachWeek' ){
-				$frstWeek = $dayFirst->modify('-'.((intval($dayFirst->format('N'))-1-$wdayName+7)%7).' days')->modify('+'.($spanIndx*$stepNumb*7).' days');
-				foreach(empty($wdayList) ? Array(self::DAYS_LIST[intval($dayFirst->format('N'))-1]) : $wdayList as $dayKey){
-					$daysList[] = $frstWeek->modify('+'.((array_search(substr($dayKey, -2), self::DAYS_LIST)-$wdayName+7)%7).' days')->format('Y-m-d');
+			$daysLst = Array();
+			if( empty($ruleSet) ){
+				$daysLst[] = $dayFrst->format('Y-m-d');
+			}elseif( $evryKey=='eachDays' ){
+				$daysLst[] = $dayFrst->modify('+'.($spanIdx*$stepNum).' days')->format('Y-m-d');
+			}elseif( $evryKey=='eachWeek' ){
+				$weekOne = $dayFrst->modify('-'.((intval($dayFrst->format('N'))-1-$weekDay+7)%7).' days')->modify('+'.($spanIdx*$stepNum*7).' days');
+				foreach(empty($wkdyLst) ? Array(self::DAYS_LIST[intval($dayFrst->format('N'))-1]) : $wkdyLst as $dayKey){
+					$daysLst[] = $weekOne->modify('+'.((array_search(substr($dayKey, -2), self::DAYS_LIST)-$weekDay+7)%7).' days')->format('Y-m-d');
 				}
-			}elseif( $everyKey=='eachMnth' ){
-				$monthCnt = intval($dayFirst->format('Y'))*12+intval($dayFirst->format('n'))-1+$spanIndx*$stepNumb;
-				$daysList = self::ruleDaysOfMnth(intdiv($monthCnt, 12), $monthCnt%12+1, $wdayList, $mdaysLst, intval($dayFirst->format('j')));
+			}elseif( $evryKey=='eachMnth' ){
+				$monthNb = intval($dayFrst->format('Y'))*12+intval($dayFrst->format('n'))-1+$spanIdx*$stepNum;
+				$daysLst = self::ruleDaysOfMnth(intdiv($monthNb, 12), $monthNb%12+1, $wkdyLst, $mdayLst, intval($dayFrst->format('j')));
 			}else{
-				$yearNumb = intval($dayFirst->format('Y'))+$spanIndx*$stepNumb;
-				if( !empty($wdayList) && empty($monthLst) ){
+				$yearNum = intval($dayFrst->format('Y'))+$spanIdx*$stepNum;
+				if( !empty($wkdyLst) && empty($mnthLst) ){
 					// Days of the week placed in the year: the 20th Monday, the last Sunday
-					$daysList = self::ruleDaysOfMnth($yearNumb, 0, $wdayList, Array(), 0);
-					if( !empty($mdaysLst) ){
-						$daysList = array_values(array_filter($daysList, function(String $dayOfTheYear) use ($yearNumb, $mdaysLst){ return in_array($dayOfTheYear, self::ruleDaysOfMnth($yearNumb, intval(substr($dayOfTheYear, 5, 2)), Array(), $mdaysLst, 0)); }));
+					$daysLst = self::ruleDaysOfMnth($yearNum, 0, $wkdyLst, Array(), 0);
+					if( !empty($mdayLst) ){
+						$daysLst = array_values(array_filter($daysLst, function(String $dayOfTheYear) use ($yearNum, $mdayLst){ return in_array($dayOfTheYear, self::ruleDaysOfMnth($yearNum, intval(substr($dayOfTheYear, 5, 2)), Array(), $mdayLst, 0)); }));
 					}
 				}else{
 					// In the months told, or in every month for days of the month told alone, or in the month of the start
-					foreach(!empty($monthLst) ? $monthLst : (!empty($mdaysLst) ? range(1, 12) : Array(intval($dayFirst->format('n')))) as $mthNum){
+					foreach(!empty($mnthLst) ? $mnthLst : (!empty($mdayLst) ? range(1, 12) : Array(intval($dayFrst->format('n')))) as $mthNum){
 						if( $mthNum>=1 && $mthNum<=12 ){
-							$daysList = array_merge($daysList, self::ruleDaysOfMnth($yearNumb, $mthNum, $wdayList, $mdaysLst, intval($dayFirst->format('j'))));
+							$daysLst = array_merge($daysLst, self::ruleDaysOfMnth($yearNum, $mthNum, $wkdyLst, $mdayLst, intval($dayFrst->format('j'))));
 						}
 					}
 				}
 			}
 			// What a rule of days or weeks adds to the days it gives: the months, the days of the month, the days of the week
-			if( $everyKey=='eachDays' || $everyKey=='eachWeek' ){
-				$daysList = array_values(array_filter($daysList, function(String $dayOfASpnTxt) use ($everyKey, $wdayList, $mdaysLst, $monthLst, $zoneInst){
-					$dateInst = new \DateTimeImmutable($dayOfASpnTxt, $zoneInst);
-					$wdayKeys = array_map(function(String $rruleDayCode){ return substr($rruleDayCode, -2); }, $wdayList);
-					return (empty($monthLst) || in_array(intval($dateInst->format('n')), $monthLst))
-						&& ($everyKey=='eachWeek' || empty($wdayKeys) || in_array(self::DAYS_LIST[intval($dateInst->format('N'))-1], $wdayKeys))
-						&& ($everyKey=='eachWeek' || empty($mdaysLst) || in_array($dayOfASpnTxt, self::ruleDaysOfMnth(intval($dateInst->format('Y')), intval($dateInst->format('n')), Array(), $mdaysLst, 0)));
+			if( $evryKey=='eachDays' || $evryKey=='eachWeek' ){
+				$daysLst = array_values(array_filter($daysLst, function(String $dayOfASpnTxt) use ($evryKey, $wkdyLst, $mdayLst, $mnthLst, $zoneObj){
+					$dateObj = new \DateTimeImmutable($dayOfASpnTxt, $zoneObj);
+					$wkdyKys = array_map(function(String $rruleDayCode){ return substr($rruleDayCode, -2); }, $wkdyLst);
+					return (empty($mnthLst) || in_array(intval($dateObj->format('n')), $mnthLst))
+						&& ($evryKey=='eachWeek' || empty($wkdyKys) || in_array(self::DAYS_LIST[intval($dateObj->format('N'))-1], $wkdyKys))
+						&& ($evryKey=='eachWeek' || empty($mdayLst) || in_array($dayOfASpnTxt, self::ruleDaysOfMnth(intval($dateObj->format('Y')), intval($dateObj->format('n')), Array(), $mdayLst, 0)));
 				}));
-			}elseif( $everyKey=='eachMnth' && !empty($monthLst) ){
-				$daysList = array_values(array_filter($daysList, function(String $dayOfASpnTxt) use ($monthLst){ return in_array(intval(substr($dayOfASpnTxt, 5, 2)), $monthLst); }));
+			}elseif( $evryKey=='eachMnth' && !empty($mnthLst) ){
+				$daysLst = array_values(array_filter($daysLst, function(String $dayOfASpnTxt) use ($mnthLst){ return in_array(intval(substr($dayOfASpnTxt, 5, 2)), $mnthLst); }));
 			}
 			// The start of the entry is its first date, whatever its rule says
-			if( $spanIndx==0 ){
-				$daysList[] = $dayFirst->format('Y-m-d');
+			if( $spanIdx==0 ){
+				$daysLst[] = $dayFrst->format('Y-m-d');
 			}
-			$daysList = array_unique($daysList);
-			sort($daysList);
-			foreach($daysList as $dayTxt){
-				$dayParte = array_map('intval', explode('-', $dayTxt));
-				$onceInst = $startObj->setDate($dayParte[0], $dayParte[1], $dayParte[2]);
-				if( $onceInst<$startObj ){
+			$daysLst = array_unique($daysLst);
+			sort($daysLst);
+			foreach($daysLst as $dayTxt){
+				$dayPrts = array_map('intval', explode('-', $dayTxt));
+				$onceObj = $strtObj->setDate($dayPrts[0], $dayPrts[1], $dayPrts[2]);
+				if( $onceObj<$strtObj ){
 					continue;
 				}
-				$doneNumb++;
-				if( $onceInst>$tillInst || ($lastInst!==null && $onceInst>$lastInst) || ($maxTimes>0 && $doneNumb>$maxTimes) ){
+				$doneNum++;
+				if( $onceObj>$tillObj || ($lastObj!==null && $onceObj>$lastObj) || ($timeMax>0 && $doneNum>$timeMax) ){
 					break 2;
 				}
-				$overInst = ($spanInst===null) ? null : $onceInst->add($spanInst);
-				$onceText = $onceInst->format($dateFrmt);
-				if( (($overInst===null) ? $onceInst : ($isAllDay ? $overInst->setTime(23, 59, 59) : $overInst))<$fromInst || in_array($onceText, $skipList) || in_array(substr($onceText, 0, 10), $skipList) ){
+				$overObj = ($spanObj===null) ? null : $onceObj->add($spanObj);
+				$onceTxt = $onceObj->format($dateFmt);
+				if( (($overObj===null) ? $onceObj : ($isWhole ? $overObj->setTime(23, 59, 59) : $overObj))<$fromObj || in_array($onceTxt, $skipLst) || in_array(substr($onceTxt, 0, 10), $skipLst) ){
 					continue;
 				}
-				$dateList[] = Array('start'=>$onceText, 'ended'=>($overInst===null) ? '' : $overInst->format($dateFrmt));
-				if( count($dateList)>=max(1, $countCeiling) ){
+				$dateLst[] = Array('start'=>$onceTxt, 'ended'=>($overObj===null) ? '' : $overObj->format($dateFmt));
+				if( count($dateLst)>=max(1, $countCeiling) ){
 					break 2;
 				}
 			}
 		}
-		return $dateList;
+		return $dateLst;
 	}
 
 	/**
@@ -439,40 +439,40 @@ class ICal extends Base {
 	 * @return Array The days, as '2026-10-25', in order: those on a day of the week told, among the days of the month told when both are.
 	 */
 	protected static function ruleDaysOfMnth(Int $calendarYear, Int $monthIndxNum, Array $weekDaysList, Array $mnthDayLsArr, Int $dfltDayCount): Array {
-		$zoneInst = new \DateTimeZone('UTC');
-		$frstDate = (new \DateTimeImmutable('now', $zoneInst))->setDate($calendarYear, max(1, $monthIndxNum), 1)->setTime(0, 0, 0);
-		$daysNumb = ($monthIndxNum==0) ? 365+intval($frstDate->format('L')) : intval($frstDate->format('t'));
-		$numbList = Array();
+		$zoneObj = new \DateTimeZone('UTC');
+		$firstOf = (new \DateTimeImmutable('now', $zoneObj))->setDate($calendarYear, max(1, $monthIndxNum), 1)->setTime(0, 0, 0);
+		$daysNum = ($monthIndxNum==0) ? 365+intval($firstOf->format('L')) : intval($firstOf->format('t'));
+		$numbLst = Array();
 		foreach($mnthDayLsArr as $dayNum){
 			$dayNum = intval($dayNum);
-			$numbList[] = ($dayNum<0) ? $daysNumb+1+$dayNum : $dayNum;
+			$numbLst[] = ($dayNum<0) ? $daysNum+1+$dayNum : $dayNum;
 		}
-		$foundLst = Array();
+		$foundLs = Array();
 		foreach($weekDaysList as $dayKey){
-			$dayParte = Array();
-			if( !preg_match('/^([+\-]?\d*)(mo|tu|we|th|fr|sa|su)$/D', strtolower(strval($dayKey)), $dayParte) ){
+			$dayPrts = Array();
+			if( !preg_match('/^([+\-]?\d*)(mo|tu|we|th|fr|sa|su)$/D', strtolower(strval($dayKey)), $dayPrts) ){
 				continue;
 			}
 			// Every such day of the span, then the one at the place told, counted from its start or its end
-			$sameList = range(1+((array_search($dayParte[2], self::DAYS_LIST)-(intval($frstDate->format('N'))-1)+7)%7), $daysNumb, 7);
-			$placeCnt = intval($dayParte[1]);
-			if( $placeCnt!=0 ){
-				$placeIdx = ($placeCnt>0) ? $placeCnt-1 : count($sameList)+$placeCnt;
-				$sameList = isset($sameList[$placeIdx]) ? Array($sameList[$placeIdx]) : Array();
+			$sameLst = range(1+((array_search($dayPrts[2], self::DAYS_LIST)-(intval($firstOf->format('N'))-1)+7)%7), $daysNum, 7);
+			$placeNb = intval($dayPrts[1]);
+			if( $placeNb!=0 ){
+				$placeAt = ($placeNb>0) ? $placeNb-1 : count($sameLst)+$placeNb;
+				$sameLst = isset($sameLst[$placeAt]) ? Array($sameLst[$placeAt]) : Array();
 			}
-			$foundLst = array_merge($foundLst, empty($numbList) ? $sameList : array_intersect($sameList, $numbList));
+			$foundLs = array_merge($foundLs, empty($numbLst) ? $sameLst : array_intersect($sameLst, $numbLst));
 		}
 		if( empty($weekDaysList) ){
-			$foundLst = empty($numbList) ? (($dfltDayCount>0) ? Array($dfltDayCount) : Array()) : $numbList;
+			$foundLs = empty($numbLst) ? (($dfltDayCount>0) ? Array($dfltDayCount) : Array()) : $numbLst;
 		}
-		$daysList = Array();
-		foreach(array_unique($foundLst) as $dayNum){
-			if( $dayNum>=1 && $dayNum<=$daysNumb ){
-				$daysList[] = $frstDate->modify('+'.($dayNum-1).' days')->format('Y-m-d');
+		$daysLst = Array();
+		foreach(array_unique($foundLs) as $dayNum){
+			if( $dayNum>=1 && $dayNum<=$daysNum ){
+				$daysLst[] = $firstOf->modify('+'.($dayNum-1).' days')->format('Y-m-d');
 			}
 		}
-		sort($daysList);
-		return $daysList;
+		sort($daysLst);
+		return $daysLst;
 	}
 
 	/**
@@ -484,90 +484,90 @@ class ICal extends Base {
 	 * @return Array The entry, with every key of its kind.
 	 */
 	protected function entryReadArray(Array $componentArr, String $itemKindsTxt, ?\DateTimeZone $zoneAskedFor): Array {
-		$propList = Array();
-		$extraLst = Array();
+		$propLst = Array();
+		$extrLst = Array();
 		foreach($componentArr['props'] as $prpSet){
-			$propList[$prpSet['names']][] = $prpSet;
+			$propLst[$prpSet['names']][] = $prpSet;
 			// What has no key of its own is kept as written; a property given several times keeps all its values
 			if( !in_array($prpSet['names'], self::READ_LIST) ){
-				$extraLst[$prpSet['names']] = isset($extraLst[$prpSet['names']]) ? array_merge((array)$extraLst[$prpSet['names']], Array($prpSet['value'])) : $prpSet['value'];
+				$extrLst[$prpSet['names']] = isset($extrLst[$prpSet['names']]) ? array_merge((array)$extrLst[$prpSet['names']], Array($prpSet['value'])) : $prpSet['value'];
 			}
 		}
-		$voidDate = Array('value'=>'', 'whole'=>false, 'tzone'=>'');
-		$startDct = isset($propList['DTSTART']) ? $this->datesReadArray($propList['DTSTART'][0]['value'], $propList['DTSTART'][0]['parms']) : $voidDate;
-		$zoneName = $startDct['tzone'];
+		$vodDate = Array('value'=>'', 'whole'=>false, 'tzone'=>'');
+		$strtSet = isset($propLst['DTSTART']) ? $this->datesReadArray($propLst['DTSTART'][0]['value'], $propLst['DTSTART'][0]['parms']) : $vodDate;
+		$zoneNme = $strtSet['tzone'];
 		// The end: written, or the start moved by the length of the entry. Whole days end on the day before the one written
-		$endValue = $startDct['value'];
-		$spanSecs = isset($propList['DURATION']) ? $this->spanOfDuration($propList['DURATION'][0]['value']) : null;
-		if( isset($propList['DTEND']) && $this->datesReadArray($propList['DTEND'][0]['value'], $propList['DTEND'][0]['parms'])['value']!=='' ){
-			$endValue = $this->datesReadArray($propList['DTEND'][0]['value'], $propList['DTEND'][0]['parms'])['value'];
-		}elseif( $spanSecs!==null && $startDct['value']!=='' ){
-			$endValue = $this->switchDatesTxt($startDct['value'], $spanSecs);
+		$endValu = $strtSet['value'];
+		$spanSec = isset($propLst['DURATION']) ? $this->spanOfDuration($propLst['DURATION'][0]['value']) : null;
+		if( isset($propLst['DTEND']) && $this->datesReadArray($propLst['DTEND'][0]['value'], $propLst['DTEND'][0]['parms'])['value']!=='' ){
+			$endValu = $this->datesReadArray($propLst['DTEND'][0]['value'], $propLst['DTEND'][0]['parms'])['value'];
+		}elseif( $spanSec!==null && $strtSet['value']!=='' ){
+			$endValu = $this->switchDatesTxt($strtSet['value'], $spanSec);
 		}elseif( $itemKindsTxt!='calEvent' ){
-			$endValue = '';
+			$endValu = '';
 		}
-		if( $startDct['whole'] && strlen($endValue)==10 && $endValue>$startDct['value'] ){
-			$endValue = $this->switchDatesTxt($endValue, -86400);
+		if( $strtSet['whole'] && strlen($endValu)==10 && $endValu>$strtSet['value'] ){
+			$endValu = $this->switchDatesTxt($endValu, -86400);
 		}
-		$dueStamp = isset($propList['DUE']) ? $this->datesReadArray($propList['DUE'][0]['value'], $propList['DUE'][0]['parms']) : $voidDate;
-		$stampDct = isset($propList['DTSTAMP']) ? $this->datesReadArray($propList['DTSTAMP'][0]['value'], $propList['DTSTAMP'][0]['parms']) : $voidDate;
-		$skipList = Array();
-		foreach($propList['EXDATE'] ?? Array() as $prpSet){
+		$dueDate = isset($propLst['DUE']) ? $this->datesReadArray($propLst['DUE'][0]['value'], $propLst['DUE'][0]['parms']) : $vodDate;
+		$stmpSet = isset($propLst['DTSTAMP']) ? $this->datesReadArray($propLst['DTSTAMP'][0]['value'], $propLst['DTSTAMP'][0]['parms']) : $vodDate;
+		$skipLst = Array();
+		foreach($propLst['EXDATE'] ?? Array() as $prpSet){
 			foreach(explode(',', $prpSet['value']) as $skpTxt){
-				$skipDict = $this->datesReadArray($skpTxt, $prpSet['parms']);
-				if( $skipDict['value']!=='' ){
-					$skipList[] = $this->zoneShiftArray($skipDict, $zoneAskedFor)['value'];
+				$skipSet = $this->datesReadArray($skpTxt, $prpSet['parms']);
+				if( $skipSet['value']!=='' ){
+					$skipLst[] = $this->zoneShiftArray($skipSet, $zoneAskedFor)['value'];
 				}
 			}
 		}
 		// The times are given in the zone asked for, when they tell the one they are written in
-		$startDun = $this->zoneShiftArray($startDct, $zoneAskedFor);
-		$endValue = $this->zoneShiftArray(Array('value'=>$endValue, 'whole'=>$startDct['whole'], 'tzone'=>$startDct['tzone']), $zoneAskedFor)['value'];
-		$ruleDict = Array();
-		if( isset($propList['RRULE']) ){
-			$ruleDone = true;
-			$ruleDict = $this->rulePartsArray($propList['RRULE'][0]['value'], $ruleDone);
-			if( !$ruleDone || $ruleDict['every']==='' ){
-				$extraLst['RRULE'] = $propList['RRULE'][0]['value'];
+		$strtDon = $this->zoneShiftArray($strtSet, $zoneAskedFor);
+		$endValu = $this->zoneShiftArray(Array('value'=>$endValu, 'whole'=>$strtSet['whole'], 'tzone'=>$strtSet['tzone']), $zoneAskedFor)['value'];
+		$ruleSet = Array();
+		if( isset($propLst['RRULE']) ){
+			$rulDone = true;
+			$ruleSet = $this->rulePartsArray($propLst['RRULE'][0]['value'], $rulDone);
+			if( !$rulDone || $ruleSet['every']==='' ){
+				$extrLst['RRULE'] = $propLst['RRULE'][0]['value'];
 			}
-			if( $ruleDict['every']==='' ){
-				$ruleDict = Array();
+			if( $ruleSet['every']==='' ){
+				$ruleSet = Array();
 			}
 		}
-		$labelLst = Array();
-		foreach($propList['CATEGORIES'] ?? Array() as $prpSet){
-			$labelLst = array_merge($labelLst, $this->splitListValue($prpSet['value']));
+		$lblList = Array();
+		foreach($propLst['CATEGORIES'] ?? Array() as $prpSet){
+			$lblList = array_merge($lblList, $this->splitListValue($prpSet['value']));
 		}
-		$guestLst = Array();
-		foreach($propList['ATTENDEE'] ?? Array() as $prpSet){
-			$guestLst[] = $this->partyReadArray($prpSet) + Array('reply'=>strval(self::PART_STAT[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
+		$gestLst = Array();
+		foreach($propLst['ATTENDEE'] ?? Array() as $prpSet){
+			$gestLst[] = $this->partyReadArray($prpSet) + Array('reply'=>strval(self::PART_STAT[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
 		}
 		// A reminder counts back from the start of the entry; one set at a date of its own is kept as written
-		$alarmLst = Array();
+		$alrmLst = Array();
 		foreach($componentArr['comps'] as $almArr){
 			foreach($almArr['props'] as $prpSet){
-				$trigSecs = ($almArr['kinds']=='VALARM' && $prpSet['names']=='TRIGGER') ? $this->spanOfDuration($prpSet['value']) : null;
-				if( $trigSecs!==null ){
-					$alarmLst[] = intdiv(-$trigSecs, 60);
+				$trigSec = ($almArr['kinds']=='VALARM' && $prpSet['names']=='TRIGGER') ? $this->spanOfDuration($prpSet['value']) : null;
+				if( $trigSec!==null ){
+					$alrmLst[] = intdiv(-$trigSec, 60);
 				}
 			}
 		}
-		$getStrng = function(String $propertyName) use ($propList){ return isset($propList[$propertyName]) ? $this->unescapeTxtVal($propList[$propertyName][0]['value']) : ''; };
-		$itemDict = Array(
-			'ident'=>$getStrng('UID'), 'title'=>$getStrng('SUMMARY'),
-			'start'=>$startDun['value'], 'ended'=>$endValue, 'whole'=>$startDct['whole'], 'tzone'=>$startDun['tzone'],
-			'place'=>$getStrng('LOCATION'), 'descr'=>$getStrng('DESCRIPTION'), 'links'=>Shape::tidyLinkString($getStrng('URL')),
-			'state'=>strval(self::STAT_LIST[strtoupper($getStrng('STATUS'))] ?? ''), 'label'=>$labelLst,
-			'owner'=>isset($propList['ORGANIZER']) ? $this->partyReadArray($propList['ORGANIZER'][0]) : Array('names'=>'', 'email'=>''), 'guest'=>$guestLst,
-			'rpeat'=>$ruleDict, 'skips'=>$skipList, 'alarm'=>$alarmLst,
-			'stamp'=>$this->zoneShiftArray($stampDct, $zoneAskedFor)['value'], 'extra'=>$extraLst
+		$getText = function(String $propertyName) use ($propLst){ return isset($propLst[$propertyName]) ? $this->unescapeTxtVal($propLst[$propertyName][0]['value']) : ''; };
+		$itemSet = Array(
+			'ident'=>$getText('UID'), 'title'=>$getText('SUMMARY'),
+			'start'=>$strtDon['value'], 'ended'=>$endValu, 'whole'=>$strtSet['whole'], 'tzone'=>$strtDon['tzone'],
+			'place'=>$getText('LOCATION'), 'descr'=>$getText('DESCRIPTION'), 'links'=>Shape::tidyLinkString($getText('URL')),
+			'state'=>strval(self::STAT_LIST[strtoupper($getText('STATUS'))] ?? ''), 'label'=>$lblList,
+			'owner'=>isset($propLst['ORGANIZER']) ? $this->partyReadArray($propLst['ORGANIZER'][0]) : Array('names'=>'', 'email'=>''), 'guest'=>$gestLst,
+			'rpeat'=>$ruleSet, 'skips'=>$skipLst, 'alarm'=>$alrmLst,
+			'stamp'=>$this->zoneShiftArray($stmpSet, $zoneAskedFor)['value'], 'extra'=>$extrLst
 		);
 		if( $itemKindsTxt=='calTodos' ){
-			$itemDict = array_slice($itemDict, 0, -1, true) + Array('dueby'=>$this->zoneShiftArray($dueStamp, $zoneAskedFor)['value'], 'ratio'=>max(0, min(100, intval($propList['PERCENT-COMPLETE'][0]['value'] ?? 0))), 'extra'=>$extraLst);
+			$itemSet = array_slice($itemSet, 0, -1, true) + Array('dueby'=>$this->zoneShiftArray($dueDate, $zoneAskedFor)['value'], 'ratio'=>max(0, min(100, intval($propLst['PERCENT-COMPLETE'][0]['value'] ?? 0))), 'extra'=>$extrLst);
 		}elseif( $itemKindsTxt=='calNotes' ){
-			$itemDict = array_intersect_key($itemDict, array_flip(Array('ident', 'title', 'start', 'whole', 'tzone', 'descr', 'state', 'label', 'stamp', 'extra')));
+			$itemSet = array_intersect_key($itemSet, array_flip(Array('ident', 'title', 'start', 'whole', 'tzone', 'descr', 'state', 'label', 'stamp', 'extra')));
 		}
-		return $itemDict;
+		return $itemSet;
 	}
 
 	/**
@@ -584,11 +584,11 @@ class ICal extends Base {
 			return $dateProperty;
 		}
 		try{
-			$dateInst = new \DateTimeImmutable($dateProperty['value'], new \DateTimeZone($dateProperty['tzone']));
+			$dateObj = new \DateTimeImmutable($dateProperty['value'], new \DateTimeZone($dateProperty['tzone']));
 		}catch( \Exception $e ){
 			return $dateProperty;
 		}
-		return Array('value'=>$dateInst->setTimezone($zoneAskedFor)->format('Y-m-d H:i:s'), 'whole'=>false, 'tzone'=>$zoneAskedFor->getName());
+		return Array('value'=>$dateObj->setTimezone($zoneAskedFor)->format('Y-m-d H:i:s'), 'whole'=>false, 'tzone'=>$zoneAskedFor->getName());
 	}
 
 }

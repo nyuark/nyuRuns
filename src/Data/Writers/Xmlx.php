@@ -62,26 +62,26 @@ class Xmlx extends Base {
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes'), 'XML');
 		$this->multiLines = !empty($writeOptions['prety']);
-		$itemVals = Fluxd::nullifySources($dataEnvelope['items'] ?? null);
-		$rootName = strval($writeOptions['roots'] ?? '');
-		if( $rootName!=='' ){
-			$this->checkNameChars($rootName);
+		$itemVal = Fluxd::nullifySources($dataEnvelope['items'] ?? null);
+		$rootNme = strval($writeOptions['roots'] ?? '');
+		if( $rootNme!=='' ){
+			$this->checkNameChars($rootNme);
 		}
-		if( is_array($itemVals) && isset($itemVals['tagnm']) && array_key_exists('nodes', $itemVals) && $rootName==='' ){
+		if( is_array($itemVal) && isset($itemVal['tagnm']) && array_key_exists('nodes', $itemVal) && $rootNme==='' ){
 			// The tree of elements, as the parser reads it
-			$rootName = strval($itemVals['tagnm']);
-			$bodyText = $this->treesPieceText($itemVals, 0);
-		}elseif( is_array($itemVals) && $rootName==='' && count($itemVals)==1 && is_string(array_key_first($itemVals)) && preg_match(self::NAME_PATT, strval(array_key_first($itemVals))) && !(is_array(current($itemVals)) && !empty(current($itemVals)) && $this->validateALstOf(current($itemVals))) ){
+			$rootNme = strval($itemVal['tagnm']);
+			$bodyTxt = $this->treesPieceText($itemVal, 0);
+		}elseif( is_array($itemVal) && $rootNme==='' && count($itemVal)==1 && is_string(array_key_first($itemVal)) && preg_match(self::NAME_PATT, strval(array_key_first($itemVal))) && !(is_array(current($itemVal)) && !empty(current($itemVal)) && $this->validateALstOf(current($itemVal))) ){
 			// The compact form: the one key of the values names the root
-			$rootName = strval(array_key_first($itemVals));
-			$bodyText = $this->valuePieceText($rootName, current($itemVals), 0);
+			$rootNme = strval(array_key_first($itemVal));
+			$bodyTxt = $this->valuePieceText($rootNme, current($itemVal), 0);
 		}else{
-			$rootName = ($rootName==='') ? 'root' : $rootName;
-			$bodyText = $this->valuePieceText($rootName, $itemVals, 0);
+			$rootNme = ($rootNme==='') ? 'root' : $rootNme;
+			$bodyTxt = $this->valuePieceText($rootNme, $itemVal, 0);
 		}
-		$typeText = $this->makeDoctypeTxt(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootName);
-		$withHdrs = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
-		return ($withHdrs ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeText==='') ? '' : $typeText."\n").$bodyText.(($this->multiLines || $withHdrs) ? "\n" : '');
+		$typeTxt = $this->makeDoctypeTxt(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootNme);
+		$withHds = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
+		return ($withHds ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeTxt==='') ? '' : $typeTxt."\n").$bodyTxt.(($this->multiLines || $withHds) ? "\n" : '');
 	}
 
 	/**
@@ -113,18 +113,18 @@ class Xmlx extends Base {
 		if( $doctypeValue===false || $doctypeValue===null || $doctypeValue==='' || $doctypeValue===Array() ){
 			return '';
 		}
-		$typeDict = is_array($doctypeValue) ? $doctypeValue : Array('systm'=>strval($doctypeValue));
-		$typeName = $this->checkNameChars((strval($typeDict['names'] ?? '')==='') ? $rootTagLabel : strval($typeDict['names']));
-		$publText = strval($typeDict['publc'] ?? '');
-		$dtdTrail = strval($typeDict['systm'] ?? '');
+		$typeSet = is_array($doctypeValue) ? $doctypeValue : Array('systm'=>strval($doctypeValue));
+		$typeNme = $this->checkNameChars((strval($typeSet['names'] ?? '')==='') ? $rootTagLabel : strval($typeSet['names']));
+		$publTxt = strval($typeSet['publc'] ?? '');
+		$dtdPath = strval($typeSet['systm'] ?? '');
 		// A public name is made of few signs; where the rules are told is an address, written between quotes it does not hold
-		if( !preg_match('/^[A-Za-z0-9 \-\'()+,.\/:=?;!*#@$_%]*$/D', $publText) || preg_match('/["\x00-\x1F<>]/', $dtdTrail) || strlen($publText)>500 || strlen($dtdTrail)>2000 ){
+		if( !preg_match('/^[A-Za-z0-9 \-\'()+,.\/:=?;!*#@$_%]*$/D', $publTxt) || preg_match('/["\x00-\x1F<>]/', $dtdPath) || strlen($publTxt)>500 || strlen($dtdPath)>2000 ){
 			throw new WriteError('Kind of document that cannot be written: its names hold what such a line does not take');
 		}
-		if( $publText!=='' ){
-			return '<!DOCTYPE '.$typeName.' PUBLIC "'.$publText.'" "'.$dtdTrail.'">';
+		if( $publTxt!=='' ){
+			return '<!DOCTYPE '.$typeNme.' PUBLIC "'.$publTxt.'" "'.$dtdPath.'">';
 		}
-		return '<!DOCTYPE '.$typeName.(($dtdTrail==='') ? '' : ' SYSTEM "'.$dtdTrail.'"').'>';
+		return '<!DOCTYPE '.$typeNme.(($dtdPath==='') ? '' : ' SYSTEM "'.$dtdPath.'"').'>';
 	}
 
 	/**
@@ -136,14 +136,14 @@ class Xmlx extends Base {
 	 * @throws WriteError When a name is not one XML takes.
 	 */
 	protected function attributesText(Array $attributeSet): String {
-		$xmlAttrb = '';
+		$xmlAttr = '';
 		foreach($attributeSet as $atrNme=>$atrVal){
 			if( $atrVal===null || is_array($atrVal) || is_object($atrVal) ){
 				continue;
 			}
-			$xmlAttrb .= ' '.$this->checkNameChars(strval($atrNme)).'="'.str_replace(Array("\t", "\n", "\r"), Array('&#9;', '&#10;', '&#13;'), $this->escapeXmlValue($this->writeScalarTxt($atrVal))).'"';
+			$xmlAttr .= ' '.$this->checkNameChars(strval($atrNme)).'="'.str_replace(Array("\t", "\n", "\r"), Array('&#9;', '&#10;', '&#13;'), $this->escapeXmlValue($this->writeScalarTxt($atrVal))).'"';
 		}
-		return $xmlAttrb;
+		return $xmlAttr;
 	}
 
 	/**
@@ -186,24 +186,24 @@ class Xmlx extends Base {
 		if( $depthLevelNb>self::DEEP_MAXI ){
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
-		$tagTitle = $this->checkNameChars(strval($elementArray['tagnm'] ?? ''));
-		$openText = '<'.$tagTitle.$this->attributesText((array)($elementArray['attrs'] ?? Array()));
-		$childLst = array_values(array_filter((array)($elementArray['nodes'] ?? Array()), 'is_array'));
-		if( empty($childLst) ){
-			$textText = $this->escapeXmlValue(is_scalar($elementArray['value'] ?? '') ? strval($elementArray['value'] ?? '') : '');
-			return ($textText==='') ? $openText.'/>' : $openText.'>'.$textText.'</'.$tagTitle.'>';
+		$tagName = $this->checkNameChars(strval($elementArray['tagnm'] ?? ''));
+		$openTxt = '<'.$tagName.$this->attributesText((array)($elementArray['attrs'] ?? Array()));
+		$chldLst = array_values(array_filter((array)($elementArray['nodes'] ?? Array()), 'is_array'));
+		if( empty($chldLst) ){
+			$textTxt = $this->escapeXmlValue(is_scalar($elementArray['value'] ?? '') ? strval($elementArray['value'] ?? '') : '');
+			return ($textTxt==='') ? $openTxt.'/>' : $openTxt.'>'.$textTxt.'</'.$tagName.'>';
 		}
 		// An element mixing text and elements is written as it is: a space added to it would be part of its text
-		$hasMixed = in_array('#text', array_column($childLst, 'tagnm'), true);
-		$wasMulti = $this->multiLines;
-		$this->multiLines = ($wasMulti && !$hasMixed);
-		$holdText = '';
-		foreach($childLst as $chlArr){
-			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLevelNb+1).$this->treesPieceText($chlArr, $depthLevelNb+1);
+		$isMixed = in_array('#text', array_column($chldLst, 'tagnm'), true);
+		$keptPty = $this->multiLines;
+		$this->multiLines = ($keptPty && !$isMixed);
+		$holdTxt = '';
+		foreach($chldLst as $chlArr){
+			$holdTxt .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLevelNb+1).$this->treesPieceText($chlArr, $depthLevelNb+1);
 		}
-		$holdText .= $this->giveLineIndent($depthLevelNb);
-		$this->multiLines = $wasMulti;
-		return $openText.'>'.$holdText.'</'.$tagTitle.'>';
+		$holdTxt .= $this->giveLineIndent($depthLevelNb);
+		$this->multiLines = $keptPty;
+		return $openTxt.'>'.$holdTxt.'</'.$tagName.'>';
 	}
 
 	/**
@@ -223,44 +223,44 @@ class Xmlx extends Base {
 		if( $depthLevelNb>self::DEEP_MAXI ){
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
-		$tagTitle = $elementLabel;
-		$attrDict = Array();
+		$tagName = $elementLabel;
+		$attrSet = Array();
 		if( !preg_match(self::NAME_PATT, $elementLabel) ){
-			$tagTitle = self::ITEM_NAME;
-			$attrDict['key'] = $elementLabel;
+			$tagName = self::ITEM_NAME;
+			$attrSet['key'] = $elementLabel;
 		}
 		if( is_object($valueAsGiven) ){
 			$valueAsGiven = (array)$valueAsGiven;
 		}
 		if( !is_array($valueAsGiven) ){
-			$textText = $this->escapeXmlValue($this->writeScalarTxt($valueAsGiven));
-			return '<'.$tagTitle.$this->attributesText($attrDict).(($textText==='') ? '/>' : '>'.$textText.'</'.$tagTitle.'>');
+			$textTxt = $this->escapeXmlValue($this->writeScalarTxt($valueAsGiven));
+			return '<'.$tagName.$this->attributesText($attrSet).(($textTxt==='') ? '/>' : '>'.$textTxt.'</'.$tagName.'>');
 		}
-		$holdText = '';
-		$textText = '';
+		$holdTxt = '';
+		$textTxt = '';
 		foreach($valueAsGiven as $subKey=>$subVal){
-			$keyStrng = strval($subKey);
-			if( is_string($subKey) && $keyStrng!=='' && $keyStrng[0]=='@' && !is_array($subVal) && !is_object($subVal) ){
-				$attrDict[substr($keyStrng, 1)] = $subVal;
-			}elseif( $keyStrng==='#text' && !is_array($subVal) && !is_object($subVal) ){
-				$textText .= $this->escapeXmlValue($this->writeScalarTxt($subVal));
+			$keyText = strval($subKey);
+			if( is_string($subKey) && $keyText!=='' && $keyText[0]=='@' && !is_array($subVal) && !is_object($subVal) ){
+				$attrSet[substr($keyText, 1)] = $subVal;
+			}elseif( $keyText==='#text' && !is_array($subVal) && !is_object($subVal) ){
+				$textTxt .= $this->escapeXmlValue($this->writeScalarTxt($subVal));
 			}elseif( is_int($subKey) ){
 				// A value of a list without a name
-				$holdText .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText(self::ITEM_NAME, $subVal, $depthLevelNb+1);
+				$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText(self::ITEM_NAME, $subVal, $depthLevelNb+1);
 			}elseif( is_array($subVal) && !empty($subVal) && $this->validateALstOf($subVal) ){
 				// A list under a name: the element of that name, as many times
 				foreach($subVal as $oneVal){
-					$holdText .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyStrng, $oneVal, $depthLevelNb+1);
+					$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyText, $oneVal, $depthLevelNb+1);
 				}
 			}else{
-				$holdText .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyStrng, $subVal, $depthLevelNb+1);
+				$holdTxt .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyText, $subVal, $depthLevelNb+1);
 			}
 		}
-		$openText = '<'.$tagTitle.$this->attributesText($attrDict);
-		if( $holdText==='' ){
-			return ($textText==='') ? $openText.'/>' : $openText.'>'.$textText.'</'.$tagTitle.'>';
+		$openTxt = '<'.$tagName.$this->attributesText($attrSet);
+		if( $holdTxt==='' ){
+			return ($textTxt==='') ? $openTxt.'/>' : $openTxt.'>'.$textTxt.'</'.$tagName.'>';
 		}
-		return $openText.'>'.$textText.$holdText.$this->giveLineIndent($depthLevelNb).'</'.$tagTitle.'>';
+		return $openTxt.'>'.$textTxt.$holdTxt.$this->giveLineIndent($depthLevelNb).'</'.$tagName.'>';
 	}
 
 }

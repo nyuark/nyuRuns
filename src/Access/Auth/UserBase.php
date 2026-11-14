@@ -69,13 +69,13 @@ class UserBase extends Native{
 	 * @return ?UserBase The manager, or null when the login does not use the native userbase.
 	 */
 	public static function fromLoginBlock(): ?UserBase {
-		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'LOGINSET') : null;
-		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		if( !is_array($lgnConf) || strval($lgnConf['authWith'] ?? '')!=='nativeDb' ){
 			return null;
 		}
-		$blockCfg = $nyuConfg->obtainRowValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
-		return new self( is_array($blockCfg) ? $blockCfg : Array() );
+		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authConf'] ?? 'nativeDb')));
+		return new self( is_array($blckCfg) ? $blckCfg : Array() );
 	}
 
 	/**
@@ -94,47 +94,47 @@ class UserBase extends Native{
 	 */
 	public function enrolUsrString( String $namedUserTxt, String $usrRleString='', ?String $emailAddress=null, Int $codeMinuteNb=self::HAND_MINS, ?String $givenLangTag=null ): String|Bool {
 		$this->forgetLastFail();
-		$roleVals = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
+		$roleVal = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
 		if( !preg_match(self::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), self::NAME_DENY, true) ){
 			return $this->declineForFlag(400, 'Invalid user name');
 		}
-		if( !in_array($roleVals, Checker::ROLE_LIST, true) ){
+		if( !in_array($roleVal, Checker::ROLE_LIST, true) ){
 			return $this->declineForFlag(400, 'Invalid role');
 		}
-		$langVals = $this->testLangString($givenLangTag);
-		if( $langVals===false ){
+		$langVal = $this->testLangString($givenLangTag);
+		if( $langVal===false ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
-		$mailVals = null;
+		$mailVal = null;
 		if( $emailAddress!==null && $emailAddress!=='' ){
-			$mailVals = $this->testMailString($emailAddress);
-			if( $mailVals===null ){
+			$mailVal = $this->testMailString($emailAddress);
+			if( $mailVal===null ){
 				return $this->declineForFlag(400, 'Invalid mail address');
 			}
 		}
-		$duplRows = $this->sendFetchArray( 'SELECT {systemName} FROM {usrTable} WHERE LOWER({systemName})=LOWER(?) LIMIT 1;', Array($namedUserTxt) );
-		if( $duplRows===false ){
+		$dupRows = $this->sendFetchArray( 'SELECT {systemName} FROM {usrTable} WHERE LOWER({systemName})=LOWER(?) LIMIT 1;', Array($namedUserTxt) );
+		if( $dupRows===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		if( !empty($duplRows) ){
+		if( !empty($dupRows) ){
 			return $this->declineForFlag(409, 'User name already taken');
 		}
-		if( $mailVals!==null ){
-			$mailUses = $this->emailInUseFlag($mailVals, '');
-			if( $mailUses===null ){
+		if( $mailVal!==null ){
+			$mailUse = $this->emailInUseFlag($mailVal, '');
+			if( $mailUse===null ){
 				return $this->declineForFlag(500, 'Credential store unavailable');
 			}
-			if( $mailUses ){
+			if( $mailUse ){
 				return $this->declineForFlag(409, 'Mail address already used');
 			}
 		}
-		$newCodig = $this->makeAccessCode();
-		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?);";
-		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, $roleVals, $mailVals, $langVals, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codeMinuteNb)))<1 ){
+		$newCode = $this->makeAccessCode();
+		$addStmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?);";
+		if( $this->sendWriteCount($addStmt, Array($namedUserTxt, self::VOID_HASH, $roleVal, $mailVal, $langVal, $this->codeHashesList($newCode)[0], $this->getCodeEndDate($codeMinuteNb)))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' created ('.$roleVals.')'.Logger::getActorSuffix() );
-		return $newCodig;
+		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' created ('.$roleVal.')'.Logger::getActorSuffix() );
+		return $newCode;
 	}
 
 	/**
@@ -159,38 +159,38 @@ class UserBase extends Native{
 		if( !preg_match(self::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), self::NAME_DENY, true) ){
 			return $this->declineForFlag(400, 'Invalid user name');
 		}
-		$mailVals = $this->testMailString($emailAddress);
-		if( $mailVals===null ){
+		$mailVal = $this->testMailString($emailAddress);
+		if( $mailVal===null ){
 			return $this->declineForFlag(400, 'Invalid mail address');
 		}
 		$this->dropOldSignups();
-		$accsJrnl = Logger::retrieveLogger('access');
-		$waitNumb = $this->waitingSignups();
-		if( $waitNumb===false ){
+		$accsLog = Logger::retrieveLogger('access');
+		$waitNum = $this->waitingSignups();
+		if( $waitNum===false ){
 			return false;
 		}
-		if( $waitNumb>=$maxWaitingNb ){
-			$accsJrnl->warning( 'Sign-up refused: '.$waitNumb.' sign-ups are already waiting'.Logger::getActorSuffix() );
+		if( $waitNum>=$maxWaitingNb ){
+			$accsLog->warning( 'Sign-up refused: '.$waitNum.' sign-ups are already waiting'.Logger::getActorSuffix() );
 			return $this->declineForFlag(503, 'Sign-ups closed for now');
 		}
-		$duplRows = $this->sendFetchArray( 'SELECT {systemName} FROM {usrTable} WHERE LOWER({systemName})=LOWER(?) OR {contactEml}=? LIMIT 1;', Array($namedUserTxt, $mailVals) );
-		if( $duplRows===false ){
+		$dupRows = $this->sendFetchArray( 'SELECT {systemName} FROM {usrTable} WHERE LOWER({systemName})=LOWER(?) OR {contactEml}=? LIMIT 1;', Array($namedUserTxt, $mailVal) );
+		if( $dupRows===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		if( !empty($duplRows) ){
+		if( !empty($dupRows) ){
 			// A refusal the client is not told about: always traced
-			$accsJrnl->notice( 'Sign-up as '.json_encode($namedUserTxt).': the name or the address is taken'.Logger::getActorSuffix() );
+			$accsLog->notice( 'Sign-up as '.json_encode($namedUserTxt).': the name or the address is taken'.Logger::getActorSuffix() );
 			return '';
 		}
-		$newCodig = $this->makeAccessCode();
+		$newCode = $this->makeAccessCode();
 		// The language of the request is a hint : one that is not a tag is left out, never refused
-		$langVals = $this->testLangString($givenLangTag);
-		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}, {signupDate}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?, ?);";
-		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, Checker::ROLE_LIST[0], $mailVals, ($langVals===false) ? null : $langVals, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($this->twoFactExp), date('Y-m-d H:i:s')))<1 ){
+		$langVal = $this->testLangString($givenLangTag);
+		$addStmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}, {signupDate}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?, ?);";
+		if( $this->sendWriteCount($addStmt, Array($namedUserTxt, self::VOID_HASH, Checker::ROLE_LIST[0], $mailVal, ($langVal===false) ? null : $langVal, $this->codeHashesList($newCode)[0], $this->getCodeEndDate($this->twoFactExp), date('Y-m-d H:i:s')))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		$accsJrnl->notice( 'User '.json_encode($namedUserTxt).' signed up'.Logger::getActorSuffix() );
-		return $newCodig;
+		$accsLog->notice( 'User '.json_encode($namedUserTxt).' signed up'.Logger::getActorSuffix() );
+		return $newCode;
 	}
 
 	/**
@@ -199,11 +199,11 @@ class UserBase extends Native{
 	 * @return Int|Bool The number, or false when the table cannot be read.
 	 */
 	public function waitingSignups(): Int|Bool {
-		$countRow = $this->sendFetchArray( "SELECT COUNT(*) AS waiting FROM {usrTable} WHERE {signupDate} IS NOT NULL AND {userStatus} IN ('awaiting', 'inReview');" );
-		if( $countRow===false ){
+		$cntRows = $this->sendFetchArray( "SELECT COUNT(*) AS waiting FROM {usrTable} WHERE {signupDate} IS NOT NULL AND {userStatus} IN ('awaiting', 'inReview');" );
+		if( $cntRows===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		return intval( array_values($countRow[0] ?? Array(0))[0] );
+		return intval( array_values($cntRows[0] ?? Array(0))[0] );
 	}
 
 	/**
@@ -213,15 +213,15 @@ class UserBase extends Native{
 	 * @return Array|Bool The languages (null for none) by address, or false when the table cannot be read.
 	 */
 	public function manageMailList(): Array|Bool {
-		$mngrRows = $this->sendFetchArray( "SELECT {contactEml}, {userLocale} FROM {usrTable} WHERE {accessRole}=? AND {userStatus}='approved' AND {contactEml} IS NOT NULL AND {contactEml}<>'' ORDER BY {systemName};", Array(array_slice(Checker::ROLE_LIST, -1)[0]) );
-		if( $mngrRows===false ){
+		$mngrRws = $this->sendFetchArray( "SELECT {contactEml}, {userLocale} FROM {usrTable} WHERE {accessRole}=? AND {userStatus}='approved' AND {contactEml} IS NOT NULL AND {contactEml}<>'' ORDER BY {systemName};", Array(array_slice(Checker::ROLE_LIST, -1)[0]) );
+		if( $mngrRws===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		$mngrLang = Array();
-		foreach( $mngrRows as $mgrRow ){
-			$mngrLang[strval($mgrRow['contactEml'])] = (strval($mgrRow['userLocale'] ?? '')!=='') ? strval($mgrRow['userLocale']) : null;
+		$mgrLang = Array();
+		foreach( $mngrRws as $mgrRow ){
+			$mgrLang[strval($mgrRow['contactEml'])] = (strval($mgrRow['userLocale'] ?? '')!=='') ? strval($mgrRow['userLocale']) : null;
 		}
-		return $mngrLang;
+		return $mgrLang;
 	}
 
 	/**
@@ -239,27 +239,27 @@ class UserBase extends Native{
 	 */
 	public function activateUsrFlg( String $namedUserTxt, String $codeAsString, String $usrPasswdTxt, ?String $givenLangTag=null ): Bool {
 		$this->forgetLastFail();
-		$ruleText = $this->testPassString($namedUserTxt, $usrPasswdTxt);
-		if( $ruleText!='' ){
-			return $this->declineForFlag(400, $ruleText);
+		$ruleMsg = $this->testPassString($namedUserTxt, $usrPasswdTxt);
+		if( $ruleMsg!='' ){
+			return $this->declineForFlag(400, $ruleMsg);
 		}
-		$langVals = $this->testLangString($givenLangTag);
+		$langVal = $this->testLangString($givenLangTag);
 		// One write decides : a code cannot be used twice, even by two requests at once
-		$updtQuer = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {userStatus}=CASE WHEN {signupDate} IS NULL THEN 'approved' ELSE 'inReview' END,"
+		$updtQry = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {userStatus}=CASE WHEN {signupDate} IS NULL THEN 'approved' ELSE 'inReview' END,"
 			." {userLocale}=CASE WHEN {userLocale} IS NULL OR {userLocale}='' THEN ? ELSE {userLocale} END,"
 			." {actvtnCode}=NULL, {codeExpiry}=NULL, {failsCount}=0, {failedTime}=NULL"
 			." WHERE {systemName}=? AND {userStatus}='awaiting' AND {actvtnCode} IN (?, ?) AND ({codeExpiry} IS NULL OR {codeExpiry}>=?);";
-		$rowCount = $this->sendWriteCount( $updtQuer, array_merge(Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), is_string($langVals) ? $langVals : null, $namedUserTxt), $this->codeHashesList($codeAsString), Array(date('Y-m-d H:i:s'))) );
-		if( $rowCount<0 ){
+		$rowNumb = $this->sendWriteCount( $updtQry, array_merge(Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), is_string($langVal) ? $langVal : null, $namedUserTxt), $this->codeHashesList($codeAsString), Array(date('Y-m-d H:i:s'))) );
+		if( $rowNumb<0 ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		if( $rowCount<1 ){
+		if( $rowNumb<1 ){
 			Logger::retrieveLogger('access')->warning( 'Activation refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid activation');
 		}
-		$userVals = $this->fetchUserArray($namedUserTxt);
-		if( is_array($userVals) && ($userVals['userStatus'] ?? '')=='inReview' ){
+		$userVls = $this->fetchUserArray($namedUserTxt);
+		if( is_array($userVls) && ($userVls['userStatus'] ?? '')=='inReview' ){
 			Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' confirmed its address, awaits review'.Logger::getActorSuffix() );
 		}else{
 			Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' activated'.Logger::getActorSuffix() );
@@ -276,11 +276,11 @@ class UserBase extends Native{
 	 */
 	public function approveNewUser( String $namedUserTxt ): Bool {
 		$this->forgetLastFail();
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		if( ($userVals['userStatus'] ?? '')!=='inReview' ){
+		if( ($userVls['userStatus'] ?? '')!=='inReview' ){
 			return $this->declineForFlag(409, 'User not awaiting review');
 		}
 		if( $this->sendWriteCount("UPDATE {usrTable} SET {userStatus}='approved', {signupDate}=NULL WHERE {systemName}=? AND {userStatus}='inReview';", Array($namedUserTxt))<1 ){
@@ -301,32 +301,32 @@ class UserBase extends Native{
 	 */
 	public function resetPassArray( String $nmeOrMailTxt ): Array|Bool {
 		$this->forgetLastFail();
-		$lkpsText = trim($nmeOrMailTxt);
-		if( $lkpsText=='' ){
+		$lookups = trim($nmeOrMailTxt);
+		if( $lookups=='' ){
 			return $this->declineForFlag(404, 'User not found');
 		}
-		$isEmlAdr = str_contains($lkpsText, '@');
-		$userNtry = $this->sendFetchArray( 'SELECT {systemName}, {contactEml}, {userLocale}, {userStatus} FROM {usrTable} WHERE '.($isEmlAdr ? '{contactEml}' : '{systemName}').'=? LIMIT 1;', Array($isEmlAdr ? strtolower($lkpsText) : $lkpsText) );
-		if( $userNtry===false ){
+		$isAMail = str_contains($lookups, '@');
+		$usrRows = $this->sendFetchArray( 'SELECT {systemName}, {contactEml}, {userLocale}, {userStatus} FROM {usrTable} WHERE '.($isAMail ? '{contactEml}' : '{systemName}').'=? LIMIT 1;', Array($isAMail ? strtolower($lookups) : $lookups) );
+		if( $usrRows===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		$accsJrnl = Logger::retrieveLogger('access');
-		if( empty($userNtry) ){
+		$accsLog = Logger::retrieveLogger('access');
+		if( empty($usrRows) ){
 			// A failure, and the trace of names tried: always traced
-			$accsJrnl->notice( 'Reset asked for an unknown user'.Logger::getActorSuffix() );
+			$accsLog->notice( 'Reset asked for an unknown user'.Logger::getActorSuffix() );
 			return $this->declineForFlag(404, 'User not found');
 		}
-		$userName = strval($userNtry[0]['systemName']);
-		if( ($userNtry[0]['userStatus'] ?? '')!=='approved' || strval($userNtry[0]['contactEml'] ?? '')==='' ){
-			$accsJrnl->warning( 'Reset refused for user '.json_encode($userName).': not active, or without an address'.Logger::getActorSuffix() );
+		$usrName = strval($usrRows[0]['systemName']);
+		if( ($usrRows[0]['userStatus'] ?? '')!=='approved' || strval($usrRows[0]['contactEml'] ?? '')==='' ){
+			$accsLog->warning( 'Reset refused for user '.json_encode($usrName).': not active, or without an address'.Logger::getActorSuffix() );
 			return $this->declineForFlag(409, 'No reset for this user');
 		}
-		$newCodig = $this->makeAccessCode();
-		if( $this->sendWriteCount("UPDATE {usrTable} SET {recovrCode}=?, {codeExpiry}=? WHERE {systemName}=? AND {userStatus}='approved';", Array($this->codeHashesList($newCodig)[0], $this->getCodeEndDate($this->twoFactExp), $userName))<1 ){
+		$newCode = $this->makeAccessCode();
+		if( $this->sendWriteCount("UPDATE {usrTable} SET {recovrCode}=?, {codeExpiry}=? WHERE {systemName}=? AND {userStatus}='approved';", Array($this->codeHashesList($newCode)[0], $this->getCodeEndDate($this->twoFactExp), $usrName))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		$accsJrnl->notice( 'Reset asked for user '.json_encode($userName).Logger::getActorSuffix() );
-		return Array('user'=>$userName, 'mail'=>strval($userNtry[0]['contactEml']), 'lang'=>(strval($userNtry[0]['userLocale'] ?? '')!=='') ? strval($userNtry[0]['userLocale']) : null, 'code'=>$newCodig);
+		$accsLog->notice( 'Reset asked for user '.json_encode($usrName).Logger::getActorSuffix() );
+		return Array('user'=>$usrName, 'mail'=>strval($usrRows[0]['contactEml']), 'lang'=>(strval($usrRows[0]['userLocale'] ?? '')!=='') ? strval($usrRows[0]['userLocale']) : null, 'code'=>$newCode);
 	}
 
 	/**
@@ -343,17 +343,17 @@ class UserBase extends Native{
 	 */
 	public function recoverUserFlg( String $namedUserTxt, String $codeAsString, String $usrPasswdTxt ): Bool {
 		$this->forgetLastFail();
-		$ruleText = $this->testPassString($namedUserTxt, $usrPasswdTxt);
-		if( $ruleText!='' ){
-			return $this->declineForFlag(400, $ruleText);
+		$ruleMsg = $this->testPassString($namedUserTxt, $usrPasswdTxt);
+		if( $ruleMsg!='' ){
+			return $this->declineForFlag(400, $ruleMsg);
 		}
-		$updtQuer = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {bearerHash}=NULL, {recovrCode}=NULL, {codeExpiry}=NULL, {failsCount}=0, {failedTime}=NULL"
+		$updtQry = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {bearerHash}=NULL, {recovrCode}=NULL, {codeExpiry}=NULL, {failsCount}=0, {failedTime}=NULL"
 			." WHERE {systemName}=? AND {userStatus}='approved' AND {recovrCode} IN (?, ?) AND {codeExpiry}>=?;";
-		$rowCount = $this->sendWriteCount( $updtQuer, array_merge(Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), $namedUserTxt), $this->codeHashesList($codeAsString), Array(date('Y-m-d H:i:s'))) );
-		if( $rowCount<0 ){
+		$rowNumb = $this->sendWriteCount( $updtQry, array_merge(Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), $namedUserTxt), $this->codeHashesList($codeAsString), Array(date('Y-m-d H:i:s'))) );
+		if( $rowNumb<0 ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		if( $rowCount<1 ){
+		if( $rowNumb<1 ){
 			Logger::retrieveLogger('access')->warning( 'Password reset refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid code');
@@ -373,30 +373,30 @@ class UserBase extends Native{
 	 */
 	public function changeMailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
 		$this->forgetLastFail();
-		$mailVals = null;
+		$mailVal = null;
 		if( $emailAddress!==null && $emailAddress!=='' ){
-			$mailVals = $this->testMailString($emailAddress);
-			if( $mailVals===null ){
+			$mailVal = $this->testMailString($emailAddress);
+			if( $mailVal===null ){
 				return $this->declineForFlag(400, 'Invalid mail address');
 			}
 		}
 		if( $this->knownUserArray($namedUserTxt)===null ){
 			return false;
 		}
-		if( $mailVals!==null ){
-			$mailUses = $this->emailInUseFlag($mailVals, $namedUserTxt);
-			if( $mailUses===null ){
+		if( $mailVal!==null ){
+			$mailUse = $this->emailInUseFlag($mailVal, $namedUserTxt);
+			if( $mailUse===null ){
 				return $this->declineForFlag(500, 'Credential store unavailable');
 			}
-			if( $mailUses ){
+			if( $mailUse ){
 				return $this->declineForFlag(409, 'Mail address already used');
 			}
 		}
-		$updtQuer = 'UPDATE {usrTable} SET {contactEml}=?, {recovrCode}=NULL, {codeExpiry}=CASE WHEN {actvtnCode} IS NULL THEN NULL ELSE {codeExpiry} END WHERE {systemName}=?;';
-		if( $this->sendWriteCount($updtQuer, Array($mailVals, $namedUserTxt))<0 ){
+		$updtQry = 'UPDATE {usrTable} SET {contactEml}=?, {recovrCode}=NULL, {codeExpiry}=CASE WHEN {actvtnCode} IS NULL THEN NULL ELSE {codeExpiry} END WHERE {systemName}=?;';
+		if( $this->sendWriteCount($updtQry, Array($mailVal, $namedUserTxt))<0 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'Address of user '.json_encode($namedUserTxt).' '.($mailVals===null ? 'removed' : 'set').Logger::getActorSuffix() );
+		Logger::retrieveLogger('access')->notice( 'Address of user '.json_encode($namedUserTxt).' '.($mailVal===null ? 'removed' : 'set').Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -410,17 +410,17 @@ class UserBase extends Native{
 	 */
 	public function changeLanguage( String $namedUserTxt, ?String $givenLangTag ): Bool {
 		$this->forgetLastFail();
-		$langVals = $this->testLangString($givenLangTag);
-		if( $langVals===false ){
+		$langVal = $this->testLangString($givenLangTag);
+		if( $langVal===false ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
 		if( $this->knownUserArray($namedUserTxt)===null ){
 			return false;
 		}
-		if( $this->sendWriteCount('UPDATE {usrTable} SET {userLocale}=? WHERE {systemName}=?;', Array($langVals, $namedUserTxt))<0 ){
+		if( $this->sendWriteCount('UPDATE {usrTable} SET {userLocale}=? WHERE {systemName}=?;', Array($langVal, $namedUserTxt))<0 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->info( 'Language of user '.json_encode($namedUserTxt).' '.($langVals===null ? 'removed' : 'set to '.$langVals).Logger::getActorSuffix() );
+		Logger::retrieveLogger('access')->info( 'Language of user '.json_encode($namedUserTxt).' '.($langVal===null ? 'removed' : 'set to '.$langVal).Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -437,23 +437,23 @@ class UserBase extends Native{
 	 */
 	public function editPasswdFlag( String $namedUserTxt, String $previousPass, String $usrPasswdTxt ): Bool {
 		$this->forgetLastFail();
-		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
-		if( $userVals===false ){
+		$userVls = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
+		if( $userVls===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		if( $userVals===null || ($userVals['userStatus'] ?? '')!=='approved' ){
+		if( $userVls===null || ($userVls['userStatus'] ?? '')!=='approved' ){
 			return $this->declineForFlag(401, 'Account not active');
 		}
-		$accsJrnl = Logger::retrieveLogger('access');
-		$matxList = password_verify( $previousPass, strval($userVals['passwdHash'] ?? '') );
-		if( $this->hasHeldNowFlag($userVals) ){
-			$accsJrnl->warning( 'Password change refused: user '.json_encode($namedUserTxt).' is held after too many attempts'.Logger::getActorSuffix() );
+		$accsLog = Logger::retrieveLogger('access');
+		$matched = password_verify( $previousPass, strval($userVls['passwdHash'] ?? '') );
+		if( $this->hasHeldNowFlag($userVls) ){
+			$accsLog->warning( 'Password change refused: user '.json_encode($namedUserTxt).' is held after too many attempts'.Logger::getActorSuffix() );
 			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid credentials');
 		}
-		if( !$matxList ){
+		if( !$matched ){
 			$this->countFailedTry($namedUserTxt);
-			$accsJrnl->warning( 'Password change refused for user '.json_encode($namedUserTxt).': wrong current password'.Logger::getActorSuffix() );
+			$accsLog->warning( 'Password change refused for user '.json_encode($namedUserTxt).': wrong current password'.Logger::getActorSuffix() );
 			$this->badTryFlag = true;
 			return $this->declineForFlag(401, 'Invalid credentials');
 		}
@@ -464,7 +464,7 @@ class UserBase extends Native{
 			// setPasswd tells the rule that is broken; without one, the table could not be written
 			return ($this->errMessage!='') ? $this->declineForFlag(400, $this->errMessage) : $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		$accsJrnl->notice( 'Password changed for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
+		$accsLog->notice( 'Password changed for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -485,25 +485,25 @@ class UserBase extends Native{
 		if( !in_array($statusString, Array('approved', 'disabled'), true) ){
 			return $this->declineForFlag(400, 'Invalid status');
 		}
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		$nowStats = strval($userVals['userStatus'] ?? '');
-		if( $nowStats=='awaiting' ){
+		$nowStts = strval($userVls['userStatus'] ?? '');
+		if( $nowStts=='awaiting' ){
 			return $this->declineForFlag(409, 'A pending user is neither locked nor unlocked');
 		}
-		if( $nowStats=='inReview' ){
+		if( $nowStts=='inReview' ){
 			return $this->declineForFlag(409, 'A user in review is approved or removed');
 		}
-		if( $nowStats==$statusString ){
+		if( $nowStts==$statusString ){
 			return $this->declineForFlag(409, 'User already '.$statusString);
 		}
-		if( $statusString=='disabled' && $this->lastManagerFlg($userVals) ){
+		if( $statusString=='disabled' && $this->lastManagerFlg($userVls) ){
 			return $this->declineForFlag(409, 'The last active manager cannot be locked');
 		}
-		$updtQuer = 'UPDATE {usrTable} SET {userStatus}=?, {failsCount}=0, {failedTime}=NULL WHERE {systemName}=? AND {userStatus}=?;';
-		if( $this->sendWriteCount($updtQuer, Array($statusString, $namedUserTxt, $nowStats))<1 ){
+		$updtQry = 'UPDATE {usrTable} SET {userStatus}=?, {failsCount}=0, {failedTime}=NULL WHERE {systemName}=? AND {userStatus}=?;';
+		if( $this->sendWriteCount($updtQry, Array($statusString, $namedUserTxt, $nowStts))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
 		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' '.($statusString=='disabled' ? 'locked' : 'unlocked').Logger::getActorSuffix() );
@@ -523,21 +523,21 @@ class UserBase extends Native{
 		if( !in_array($usrRleString, Checker::ROLE_LIST, true) ){
 			return $this->declineForFlag(400, 'Invalid role');
 		}
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		$currRole = strval($userVals['accessRole'] ?? '');
-		if( $currRole==$usrRleString ){
+		$nowRole = strval($userVls['accessRole'] ?? '');
+		if( $nowRole==$usrRleString ){
 			return $this->declineForFlag(409, 'User already of that role');
 		}
-		if( $this->lastManagerFlg($userVals) ){
+		if( $this->lastManagerFlg($userVls) ){
 			return $this->declineForFlag(409, 'The last active manager cannot be given another role');
 		}
 		if( $this->sendWriteCount('UPDATE {usrTable} SET {accessRole}=? WHERE {systemName}=?;', Array($usrRleString, $namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'Role of user '.json_encode($namedUserTxt).' changed from '.$currRole.' to '.$usrRleString.Logger::getActorSuffix() );
+		Logger::retrieveLogger('access')->notice( 'Role of user '.json_encode($namedUserTxt).' changed from '.$nowRole.' to '.$usrRleString.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -550,17 +550,17 @@ class UserBase extends Native{
 	 */
 	public function removeUserFlag( String $namedUserTxt ): Bool {
 		$this->forgetLastFail();
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		if( $this->lastManagerFlg($userVals) ){
+		if( $this->lastManagerFlg($userVls) ){
 			return $this->declineForFlag(409, 'The last active manager cannot be removed');
 		}
 		if( $this->sendWriteCount('DELETE FROM {usrTable} WHERE {systemName}=?;', Array($namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' removed ('.strval($userVals['accessRole'] ?? '').')'.Logger::getActorSuffix() );
+		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' removed ('.strval($userVls['accessRole'] ?? '').')'.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -579,24 +579,24 @@ class UserBase extends Native{
 	 */
 	public function resetUsrString( String $namedUserTxt, Int $codeMinuteNb=self::HAND_MINS ): String|Bool {
 		$this->forgetLastFail();
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		if( ($userVals['userStatus'] ?? '')=='disabled' ){
+		if( ($userVls['userStatus'] ?? '')=='disabled' ){
 			return $this->declineForFlag(409, 'A locked user is unlocked before it is reset');
 		}
-		if( $this->lastManagerFlg($userVals) ){
+		if( $this->lastManagerFlg($userVls) ){
 			return $this->declineForFlag(409, 'The last active manager cannot be reset');
 		}
-		$newCodig = $this->makeAccessCode();
-		$updtQuer = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {userStatus}='awaiting', {actvtnCode}=?, {recovrCode}=NULL, {codeExpiry}=?, {bearerHash}=NULL, {failsCount}=0, {failedTime}=NULL"
+		$newCode = $this->makeAccessCode();
+		$updtQry = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {userStatus}='awaiting', {actvtnCode}=?, {recovrCode}=NULL, {codeExpiry}=?, {bearerHash}=NULL, {failsCount}=0, {failedTime}=NULL"
 			." WHERE {systemName}=? AND {userStatus}<>'disabled';";
-		if( $this->sendWriteCount($updtQuer, Array(self::VOID_HASH, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codeMinuteNb), $namedUserTxt))<1 ){
+		if( $this->sendWriteCount($updtQry, Array(self::VOID_HASH, $this->codeHashesList($newCode)[0], $this->getCodeEndDate($codeMinuteNb), $namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
 		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' reset'.Logger::getActorSuffix() );
-		return $newCodig;
+		return $newCode;
 	}
 
 	/**
@@ -649,21 +649,21 @@ class UserBase extends Native{
 	 */
 	public function emailTwoFactor( String $namedUserTxt ): Bool {
 		$this->forgetLastFail();
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		if( ($userVals['userStatus'] ?? '')!=='approved' ){
+		if( ($userVls['userStatus'] ?? '')!=='approved' ){
 			return $this->declineForFlag(409, 'User not active');
 		}
-		if( strval($userVals['contactEml'] ?? '')=='' ){
+		if( strval($userVls['contactEml'] ?? '')=='' ){
 			return $this->declineForFlag(409, 'User without a mail address');
 		}
 		if( \nyu\Access\AccessMail::fromLoginBlock()===null ){
 			return $this->declineForFlag(409, 'No mail account sends the codes: mailer is not set');
 		}
-		$updtQuer = "UPDATE {usrTable} SET {twoFactWay}='emailOtp', {twoFactKey}=NULL, {twoFactPos}=NULL, {twoFactHsh}=NULL, {twoFactExp}=NULL WHERE {systemName}=? AND {userStatus}='approved';";
-		if( $this->sendWriteCount($updtQuer, Array($namedUserTxt))<1 ){
+		$updtQry = "UPDATE {usrTable} SET {twoFactWay}='emailOtp', {twoFactKey}=NULL, {twoFactPos}=NULL, {twoFactHsh}=NULL, {twoFactExp}=NULL WHERE {systemName}=? AND {userStatus}='approved';";
+		if( $this->sendWriteCount($updtQry, Array($namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
 		Logger::retrieveLogger('access')->notice( 'Mailed codes set for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
@@ -680,38 +680,38 @@ class UserBase extends Native{
 	 */
 	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $offsetRowsNb=0 ): Array|Bool {
 		$this->forgetLastFail();
-		$whereLst = Array();
-		$fltrList = Array();
-		$givenEml = $criteriaList['contactEml'] ?? '';
-		if( $givenEml!=='' && $givenEml!==null ){
-			if( !is_string($givenEml) ){
+		$whrList = Array();
+		$filters = Array();
+		$gvnMail = $criteriaList['contactEml'] ?? '';
+		if( $gvnMail!=='' && $gvnMail!==null ){
+			if( !is_string($gvnMail) ){
 				return $this->declineForFlag(400, 'Invalid filter');
 			}
-			$whereLst[] = '{contactEml}=?';
-			$fltrList[] = strtolower(trim($givenEml));
+			$whrList[] = '{contactEml}=?';
+			$filters[] = strtolower(trim($gvnMail));
 		}
 		foreach( Array('userStatus'=>self::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $fldNme=>$allows ){
-			$givenTxt = $criteriaList[$fldNme] ?? '';
-			if( $givenTxt==='' || $givenTxt===null ){
+			$gvnText = $criteriaList[$fldNme] ?? '';
+			if( $gvnText==='' || $gvnText===null ){
 				continue;
 			}
-			if( !in_array($givenTxt, $allows, true) ){
+			if( !in_array($gvnText, $allows, true) ){
 				return $this->declineForFlag(400, 'Invalid filter');
 			}
-			$whereLst[] = '{'.$fldNme.'}=?';
-			$fltrList[] = $givenTxt;
+			$whrList[] = '{'.$fldNme.'}=?';
+			$filters[] = $gvnText;
 		}
-		$rowsLimt = $ceilingCount;
-		if( $rowsLimt<1 ){
-			$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-			$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
-			$rowsLimt = intval($iniConfg['DEF_ROWS'] ?? 100) ?: 100;
+		$rowsLmt = $ceilingCount;
+		if( $rowsLmt<1 ){
+			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+			$iniConf = $nyuConf ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
+			$rowsLmt = intval($iniConf['DEF_ROWS'] ?? 100) ?: 100;
 		}
-		$listQuer = 'SELECT {'.implode('}, {', self::SHOW_LIST).'} FROM {usrTable}'
-			.( !empty($whereLst) ? ' WHERE '.implode(' AND ', $whereLst) : '' )
-			.' ORDER BY {systemName} LIMIT '.$rowsLimt.' OFFSET '.max(0, $offsetRowsNb).';';
-		$userNtry = $this->sendFetchArray($listQuer, $fltrList);
-		return ($userNtry===false) ? $this->declineForFlag(500, 'Credential store unavailable') : $userNtry;
+		$listQry = 'SELECT {'.implode('}, {', self::SHOW_LIST).'} FROM {usrTable}'
+			.( !empty($whrList) ? ' WHERE '.implode(' AND ', $whrList) : '' )
+			.' ORDER BY {systemName} LIMIT '.$rowsLmt.' OFFSET '.max(0, $offsetRowsNb).';';
+		$usrRows = $this->sendFetchArray($listQry, $filters);
+		return ($usrRows===false) ? $this->declineForFlag(500, 'Credential store unavailable') : $usrRows;
 	}
 
 	/**
@@ -722,15 +722,15 @@ class UserBase extends Native{
 	 */
 	public function userInfosArray( String $namedUserTxt ): Array|Bool {
 		$this->forgetLastFail();
-		$userVals = $this->knownUserArray($namedUserTxt);
-		if( $userVals===null ){
+		$userVls = $this->knownUserArray($namedUserTxt);
+		if( $userVls===null ){
 			return false;
 		}
-		$shwnList = Array();
+		$shownAr = Array();
 		foreach( self::SHOW_LIST as $fldNme ){
-			$shwnList[$fldNme] = $userVals[$fldNme] ?? null;
+			$shownAr[$fldNme] = $userVls[$fldNme] ?? null;
 		}
-		return $shwnList;
+		return $shownAr;
 	}
 
 	/**
@@ -775,15 +775,15 @@ class UserBase extends Native{
 	 * @return ?Array The user's row, or null when it is unknown or the table cannot be read.
 	 */
 	protected function knownUserArray( String $namedUserTxt ): ?Array {
-		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
-		if( $userVals===false ){
+		$userVls = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
+		if( $userVls===false ){
 			$this->declineForFlag(500, 'Credential store unavailable');
 			return null;
 		}
-		if( $userVals===null ){
+		if( $userVls===null ){
 			$this->declineForFlag(404, 'User not found');
 		}
-		return $userVals;
+		return $userVls;
 	}
 
 	/**
@@ -793,11 +793,11 @@ class UserBase extends Native{
 	 * @return ?String The address to store, or null when it is not one.
 	 */
 	protected function testMailString( String $emailAddress ): ?String {
-		$mailVals = strtolower( trim($emailAddress) );
-		if( strlen($mailVals)>self::MAIL_SIZE || filter_var($mailVals, FILTER_VALIDATE_EMAIL)===false ){
+		$mailVal = strtolower( trim($emailAddress) );
+		if( strlen($mailVal)>self::MAIL_SIZE || filter_var($mailVal, FILTER_VALIDATE_EMAIL)===false ){
 			return null;
 		}
-		return $mailVals;
+		return $mailVal;
 	}
 
 	/**
@@ -808,11 +808,11 @@ class UserBase extends Native{
 	 * @return String|Bool|null The language to store, null when none is given, or false when it is not a tag.
 	 */
 	protected function testLangString( ?String $givenLangTag ): String|Bool|null {
-		$langVals = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
-		if( $langVals==='' ){
+		$langVal = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
+		if( $langVal==='' ){
 			return null;
 		}
-		return Language::isValidLangTag($langVals) ? $langVals : false;
+		return Language::isValidLangTag($langVal) ? $langVal : false;
 	}
 
 	/**
@@ -823,8 +823,8 @@ class UserBase extends Native{
 	 * @return ?Bool Whether another user holds it, or null when the table cannot be read.
 	 */
 	protected function emailInUseFlag( String $emailAddress, String $namedUserTxt ): ?Bool {
-		$userNtry = $this->sendFetchArray( 'SELECT {systemName} FROM {usrTable} WHERE {contactEml}=? AND {systemName}<>? LIMIT 1;', Array($emailAddress, $namedUserTxt) );
-		return ($userNtry===false) ? null : !empty($userNtry);
+		$usrRows = $this->sendFetchArray( 'SELECT {systemName} FROM {usrTable} WHERE {contactEml}=? AND {systemName}<>? LIMIT 1;', Array($emailAddress, $namedUserTxt) );
+		return ($usrRows===false) ? null : !empty($usrRows);
 	}
 
 	/**
@@ -842,9 +842,9 @@ class UserBase extends Native{
 	 * of their code: their name and address are free again.
 	 */
 	protected function dropOldSignups(): Void {
-		$dfltNumb = $this->sendWriteCount( "DELETE FROM {usrTable} WHERE {signupDate} IS NOT NULL AND {userStatus}='awaiting' AND {codeExpiry} IS NOT NULL AND {codeExpiry}<?;", Array(date('Y-m-d H:i:s')) );
-		if( $dfltNumb>0 ){
-			Logger::retrieveLogger('access')->info( $dfltNumb.' sign-ups not confirmed in time removed' );
+		$deltNum = $this->sendWriteCount( "DELETE FROM {usrTable} WHERE {signupDate} IS NOT NULL AND {userStatus}='awaiting' AND {codeExpiry} IS NOT NULL AND {codeExpiry}<?;", Array(date('Y-m-d H:i:s')) );
+		if( $deltNum>0 ){
+			Logger::retrieveLogger('access')->info( $deltNum.' sign-ups not confirmed in time removed' );
 		}
 	}
 
@@ -857,12 +857,12 @@ class UserBase extends Native{
 	 * @return Bool Whether locking, demoting, removing or resetting it would leave no manager.
 	 */
 	protected function lastManagerFlg( Array $usrValuesArr ): Bool {
-		$highRole = array_slice(Checker::ROLE_LIST, -1)[0];
-		if( ($usrValuesArr['accessRole'] ?? '')!==$highRole || ($usrValuesArr['userStatus'] ?? '')!=='approved' ){
+		$topRole = array_slice(Checker::ROLE_LIST, -1)[0];
+		if( ($usrValuesArr['accessRole'] ?? '')!==$topRole || ($usrValuesArr['userStatus'] ?? '')!=='approved' ){
 			return false;
 		}
-		$othrRows = $this->sendFetchArray( "SELECT {systemName} FROM {usrTable} WHERE {accessRole}=? AND {userStatus}='approved' AND {systemName}<>? LIMIT 1;", Array($highRole, strval($usrValuesArr['systemName'] ?? '')) );
-		return empty($othrRows);
+		$othrRws = $this->sendFetchArray( "SELECT {systemName} FROM {usrTable} WHERE {accessRole}=? AND {userStatus}='approved' AND {systemName}<>? LIMIT 1;", Array($topRole, strval($usrValuesArr['systemName'] ?? '')) );
+		return empty($othrRws);
 	}
 
 	/**
@@ -874,11 +874,11 @@ class UserBase extends Native{
 	 * @return String The query, ready to be sent.
 	 */
 	protected function shapeQueryText( DbHandlr $dbHandlerObj, String $queryPattern ): String {
-		$swapList = Array();
+		$swapLst = Array();
 		foreach( $this->quoteFieldsArr($dbHandlerObj) as $fldNme=>$qtdNme ){
-			$swapList['{'.$fldNme.'}'] = $qtdNme;
+			$swapLst['{'.$fldNme.'}'] = $qtdNme;
 		}
-		return strtr($queryPattern, $swapList);
+		return strtr($queryPattern, $swapLst);
 	}
 
 	/**
@@ -893,8 +893,8 @@ class UserBase extends Native{
 			return -1;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			return $dtbsHndr->sendBuiltQuery($this->shapeQueryText($dtbsHndr, $queryPattern), true, $valuesToBind) ? $dtbsHndr->countLastWrite() : -1;
+			$dbHndlr = $this->attachDatabase();
+			return $dbHndlr->sendBuiltQuery($this->shapeQueryText($dbHndlr, $queryPattern), true, $valuesToBind) ? $dbHndlr->countLastWrite() : -1;
 		}catch( \Throwable $e ){
 			return -1;
 		}
@@ -912,14 +912,14 @@ class UserBase extends Native{
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			if( !$dtbsHndr->sendBuiltQuery($this->shapeQueryText($dtbsHndr, $queryPattern), false, $valuesToBind) ){
+			$dbHndlr = $this->attachDatabase();
+			if( !$dbHndlr->sendBuiltQuery($this->shapeQueryText($dbHndlr, $queryPattern), false, $valuesToBind) ){
 				return false;
 			}
-			$userNtry = $dtbsHndr->readLastResult(true);
+			$usrRows = $dbHndlr->readLastResult(true);
 		}catch( \Throwable $e ){
 			return false;
 		}
-		return is_array($userNtry) ? $userNtry : false;
+		return is_array($usrRows) ? $usrRows : false;
 	}
 }

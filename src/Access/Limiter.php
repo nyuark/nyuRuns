@@ -31,8 +31,8 @@ class Limiter{
 	function __construct( Array $configValues ){
 		$this->triesLimit = max( 0, intval($configValues['maxTries'] ?? 10) );
 		$this->holdPeriod = max( 1, intval($configValues['holdSecs'] ?? 600) );
-		$fieldNme = trim( strval($configValues['dataPath'] ?? ''), '/\\ ' );
-		$this->countsFldr = TOP_DIR.DS.($fieldNme!='' ? $fieldNme : 'temp'.DS.'limits');
+		$fldName = trim( strval($configValues['dataPath'] ?? ''), '/\\ ' );
+		$this->countsFldr = TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'limits');
 	}
 
 	/**
@@ -80,9 +80,9 @@ class Limiter{
 	 * @param String $namedUserTxt Login name of the user.
 	 */
 	public function clearLimitUser( String $namedUserTxt ): Void {
-		$countPth = $this->pathOfUserText($namedUserTxt);
-		if( $countPth!='' && is_file($countPth) ){
-			@unlink($countPth);
+		$cntPath = $this->pathOfUserText($namedUserTxt);
+		if( $cntPath!='' && is_file($cntPath) ){
+			@unlink($cntPath);
 		}
 	}
 
@@ -96,28 +96,28 @@ class Limiter{
 	 * @return Int The Unix time the hold ends at, or 0 when nothing is held.
 	 */
 	protected function readsHeldCount( String $countersPath, Int $unixMomentNb ): Int {
-		$countPth = $countersPath;
-		if( $this->triesLimit<1 || $countPth=='' || !is_file($countPth) ){
+		$cntPath = $countersPath;
+		if( $this->triesLimit<1 || $cntPath=='' || !is_file($cntPath) ){
 			return 0;
 		}
-		$nowStamp = $unixMomentNb;
-		$countFle = @fopen($countPth, 'rb');
-		if( $countFle===false ){
+		$nowTime = $unixMomentNb;
+		$cntFile = @fopen($cntPath, 'rb');
+		if( $cntFile===false ){
 			return 0;
 		}
-		flock($countFle, LOCK_SH);
-		$countLst = $this->readLimitCount( strval(stream_get_contents($countFle)) );
-		flock($countFle, LOCK_UN);
-		fclose($countFle);
-		if( $countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp ){
+		flock($cntFile, LOCK_SH);
+		$tallies = $this->readLimitCount( strval(stream_get_contents($cntFile)) );
+		flock($cntFile, LOCK_UN);
+		fclose($cntFile);
+		if( $tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime ){
 			// A failure counted meanwhile would have started again at 1
-			@unlink($countPth);
+			@unlink($cntPath);
 			return 0;
 		}
-		if( $countLst['fails']<$this->triesLimit ){
+		if( $tallies['fails']<$this->triesLimit ){
 			return 0;
 		}
-		return $countLst['stamp']+$this->holdPeriod;
+		return $tallies['stamp']+$this->holdPeriod;
 	}
 
 	/**
@@ -143,30 +143,30 @@ class Limiter{
 	 * @param Int    $unixMomentNb Unix time of the failure.
 	 */
 	protected function writeLimitFail( String $countersPath, String $limitAdrText, Int $unixMomentNb ): Void {
-		$countPth = $countersPath;
-		if( $this->triesLimit<1 || $countPth=='' ){
+		$cntPath = $countersPath;
+		if( $this->triesLimit<1 || $cntPath=='' ){
 			return;
 		}
-		$nowStamp = $unixMomentNb;
-		$countFle = $this->openLimitsFldr() ? @fopen($countPth, 'c+b') : false;
-		if( $countFle===false || !flock($countFle, LOCK_EX) ){
+		$nowTime = $unixMomentNb;
+		$cntFile = $this->openLimitsFldr() ? @fopen($cntPath, 'c+b') : false;
+		if( $cntFile===false || !flock($cntFile, LOCK_EX) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFldr );
-			if( $countFle!==false ){
-				fclose($countFle);
+			if( $cntFile!==false ){
+				fclose($cntFile);
 			}
 			return;
 		}
-		$countLst = $this->readLimitCount( strval(stream_get_contents($countFle)) );
-		$failNumb = ($countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp) ? 1 : $countLst['fails']+1;
-		ftruncate($countFle, 0);
-		rewind($countFle);
-		fwrite($countFle, $failNumb.' '.$nowStamp.( $limitAdrText!='' ? ' '.$limitAdrText : '' ));
-		fflush($countFle);
-		flock($countFle, LOCK_UN);
-		fclose($countFle);
+		$tallies = $this->readLimitCount( strval(stream_get_contents($cntFile)) );
+		$failNum = ($tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime) ? 1 : $tallies['fails']+1;
+		ftruncate($cntFile, 0);
+		rewind($cntFile);
+		fwrite($cntFile, $failNum.' '.$nowTime.( $limitAdrText!='' ? ' '.$limitAdrText : '' ));
+		fflush($cntFile);
+		flock($cntFile, LOCK_UN);
+		fclose($cntFile);
 		// Now and then, the counters of the addresses that stopped trying are removed
 		if( random_int(1, self::SWEP_ONCE)==1 ){
-			$this->dropStaleCount($nowStamp);
+			$this->dropStaleCount($nowTime);
 		}
 	}
 
@@ -178,15 +178,15 @@ class Limiter{
 	 * @return Int The number of counters removed.
 	 */
 	public function dropStaleCount( ?Int $unixMomentNb = null ): Int {
-		$nowStamp = $unixMomentNb ?? time();
-		$dropNumb = 0;
+		$nowTime = $unixMomentNb ?? time();
+		$dropNum = 0;
 		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
-			$countLst = $this->readLimitCount( strval(@file_get_contents($cntFil)) );
-			if( ($countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp) && @unlink($cntFil) ){
-				$dropNumb++;
+			$tallies = $this->readLimitCount( strval(@file_get_contents($cntFil)) );
+			if( ($tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime) && @unlink($cntFil) ){
+				$dropNum++;
 			}
 		}
-		return $dropNumb;
+		return $dropNum;
 	}
 
 	/**
@@ -198,8 +198,8 @@ class Limiter{
 	 * @return String The key, 64 hexadecimal characters; empty when the address is not one.
 	 */
 	protected function keyLimitOfAddr( String $clientIpAddr ): String {
-		$addrText = $this->maskClientAddr($clientIpAddr);
-		return ($addrText=='') ? '' : hash('sha256', $addrText);
+		$addrTxt = $this->maskClientAddr($clientIpAddr);
+		return ($addrTxt=='') ? '' : hash('sha256', $addrTxt);
 	}
 
 	/**
@@ -213,11 +213,11 @@ class Limiter{
 		if( filter_var($clientIpAddr, FILTER_VALIDATE_IP)===false ){
 			return '';
 		}
-		$addrBrut = inet_pton($clientIpAddr);
-		if( strlen($addrBrut)==16 ){
-			$addrBrut = substr($addrBrut, 0, 8).str_repeat("\x00", 8);
+		$addrRaw = inet_pton($clientIpAddr);
+		if( strlen($addrRaw)==16 ){
+			$addrRaw = substr($addrRaw, 0, 8).str_repeat("\x00", 8);
 		}
-		return strval(inet_ntop($addrBrut));
+		return strval(inet_ntop($addrRaw));
 	}
 
 	/**
@@ -228,17 +228,17 @@ class Limiter{
 	 * @return Array One entry per counter in use, with the address under 'addrs' (empty when the counter does not tell it), the failures under 'fails', the time of the last one under 'stamp' and the end of the hold under 'until' (0 when the address is not held).
 	 */
 	public function listLimitHolds( ?Int $unixMomentNb = null ): Array {
-		$nowStamp = $unixMomentNb ?? time();
-		$heldList = Array();
+		$nowTime = $unixMomentNb ?? time();
+		$heldLst = Array();
 		foreach( (array)glob($this->countsFldr.DS.'*.cnt') as $cntFil ){
-			$countLst = $this->readLimitCount( strval(@file_get_contents(strval($cntFil))) );
-			if( $countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp ){
+			$tallies = $this->readLimitCount( strval(@file_get_contents(strval($cntFil))) );
+			if( $tallies===null || $tallies['stamp']+$this->holdPeriod<=$nowTime ){
 				continue;
 			}
-			$countLst['until'] = ($this->triesLimit>0 && $countLst['fails']>=$this->triesLimit) ? $countLst['stamp']+$this->holdPeriod : 0;
-			$heldList[] = $countLst;
+			$tallies['until'] = ($this->triesLimit>0 && $tallies['fails']>=$this->triesLimit) ? $tallies['stamp']+$this->holdPeriod : 0;
+			$heldLst[] = $tallies;
 		}
-		return $heldList;
+		return $heldLst;
 	}
 
 	/**
@@ -251,16 +251,16 @@ class Limiter{
 	 */
 	public function freeHoldsCount( ?String $clientIpAddr = null ): Int {
 		if( $clientIpAddr!==null ){
-			$countPth = $this->pathLimitOfKey( $this->keyLimitOfAddr($clientIpAddr) );
-			return ( $countPth!='' && is_file($countPth) && @unlink($countPth) ) ? 1 : 0;
+			$cntPath = $this->pathLimitOfKey( $this->keyLimitOfAddr($clientIpAddr) );
+			return ( $cntPath!='' && is_file($cntPath) && @unlink($cntPath) ) ? 1 : 0;
 		}
-		$dropNumb = 0;
+		$dropNum = 0;
 		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
 			if( @unlink(strval($cntFil)) ){
-				$dropNumb++;
+				$dropNum++;
 			}
 		}
-		return $dropNumb;
+		return $dropNum;
 	}
 
 	/**
@@ -293,11 +293,11 @@ class Limiter{
 	 * @return ?Array The count under 'fails', the Unix time under 'stamp' and the address under 'addrs' (empty in a counter written before addresses were kept); null when the content is not a counter.
 	 */
 	protected function readLimitCount( String $rawCountText ): ?Array {
-		$countPar = Array();
-		if( !preg_match('/^(\d{1,9}) (\d{1,12})(?: ([0-9A-Fa-f:.]{2,45}))?$/D', trim($rawCountText), $countPar) ){
+		$cntPart = Array();
+		if( !preg_match('/^(\d{1,9}) (\d{1,12})(?: ([0-9A-Fa-f:.]{2,45}))?$/D', trim($rawCountText), $cntPart) ){
 			return null;
 		}
-		return Array('fails'=>intval($countPar[1]), 'stamp'=>intval($countPar[2]), 'addrs'=>strval($countPar[3] ?? ''));
+		return Array('fails'=>intval($cntPart[1]), 'stamp'=>intval($cntPart[2]), 'addrs'=>strval($cntPart[3] ?? ''));
 	}
 
 	/**

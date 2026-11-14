@@ -18,16 +18,16 @@ class Options{
 	 * @param Array $commandWords The arguments of the command line, without the name of the script.
 	 */
 	function __construct( Array $commandWords ){
-		$optiDone = false;
+		$optDone = false;
 		foreach( $commandWords as $gvnWrd ){
 			$gvnWrd = strval($gvnWrd);
-			if( !$optiDone && $gvnWrd==='--' ){
-				$optiDone = true;
+			if( !$optDone && $gvnWrd==='--' ){
+				$optDone = true;
 				continue;
 			}
-			if( !$optiDone && strlen($gvnWrd)>2 && substr($gvnWrd, 0, 2)==='--' ){
-				$optiWord = explode('=', substr($gvnWrd, 2), 2);
-				$this->optionList[$optiWord[0]] = $optiWord[1] ?? true;
+			if( !$optDone && strlen($gvnWrd)>2 && substr($gvnWrd, 0, 2)==='--' ){
+				$optWord = explode('=', substr($gvnWrd, 2), 2);
+				$this->optionList[$optWord[0]] = $optWord[1] ?? true;
 				continue;
 			}
 			$this->shellWords[] = $gvnWrd;
@@ -70,7 +70,7 @@ class Options{
 	 * @return ?String The value.
 	 */
 	public function retrieveOption( String $nameOfOption, ?String $defaultValue=null ): ?String {
-		$optsVals = $this->optionList[$nameOfOption] ?? null;
-		return is_string($optsVals) ? $optsVals : $defaultValue;
+		$optnVal = $this->optionList[$nameOfOption] ?? null;
+		return is_string($optnVal) ? $optnVal : $defaultValue;
 	}
 }

@@ -22,8 +22,8 @@ class Builder{
 	*
 	*/
     public function __construct( ){
-		$diceCtnr = new Dice();
-		$this->diceObject = $diceCtnr;
+		$diceCon = new Dice();
+		$this->diceObject = $diceCon;
 	}
 
 	/**
@@ -33,11 +33,11 @@ class Builder{
 	* @param Array  $ruleArgsList Constructor parameters of the shared object, if any.
 	*/
     protected function shareSetupRule(String $rulesIndxTxt, Array $ruleArgsList = Array()): Void {
-		$shortVal['shared'] = true;
+		$shrtVls['shared'] = true;
 		if(!empty($ruleArgsList)){
-			$shortVal['constructParams'] = $ruleArgsList;
+			$shrtVls['constructParams'] = $ruleArgsList;
 		}
-		$this->diceObject = $this->diceObject->addRule( $rulesIndxTxt, $shortVal );
+		$this->diceObject = $this->diceObject->addRule( $rulesIndxTxt, $shrtVls );
 	}
 
 	/**
@@ -52,7 +52,7 @@ class Builder{
 		if($sharedParams!==null){
 			$this->shareSetupRule($setupObjName, $sharedParams);
 		}
-		$rsltInst = $this->diceObject->create($setupObjName, $createArgArr);
-		return $rsltInst;
+		$rsltObj = $this->diceObject->create($setupObjName, $createArgArr);
+		return $rsltObj;
 	}
 }

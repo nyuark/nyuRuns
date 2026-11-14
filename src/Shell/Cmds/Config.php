@@ -84,9 +84,9 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeClrCache(): Int {
-		$dropNumb = ConfCache::clearConfCache();
-		$this->traceShellDone( 'Config: cache removed, '.$dropNumb.' files' );
-		$this->printerObj->printShellPair('cache files removed', $dropNumb);
+		$dropNum = ConfCache::clearConfCache();
+		$this->traceShellDone( 'Config: cache removed, '.$dropNum.' files' );
+		$this->printerObj->printShellPair('cache files removed', $dropNum);
 		return self::EXIT_DONE;
 	}
 
@@ -96,36 +96,36 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeShowConf(): Int {
-		$trgtName = $this->needsShellWord('what to show (coreConf, accsConf, dataConf, psetConf)');
+		$trgtNme = $this->needsShellWord('what to show (coreConf, accsConf, dataConf, psetConf)');
 		// Matched whatever its letter case, kept as TRGT_LIST writes it
 		foreach( array_merge(array_keys(self::TRGT_LIST), Array('psetConf')) as $oneCod ){
-			$trgtName = (strcasecmp($oneCod, $trgtName)==0) ? $oneCod : $trgtName;
+			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
 		}
-		$pathText = strval($this->optionsObj->shiftFirstWord() ?? '');
-		if( $trgtName=='psetConf' ){
-			return $this->showPresetNumb($pathText);
+		$pathTxt = strval($this->optionsObj->shiftFirstWord() ?? '');
+		if( $trgtNme=='psetConf' ){
+			return $this->showPresetNumb($pathTxt);
 		}
-		if( !isset(self::TRGT_LIST[$trgtName]) ){
-			$this->terminateShell('Nothing is shown under that name: '.$trgtName, self::EXIT_HELP);
+		if( !isset(self::TRGT_LIST[$trgtNme]) ){
+			$this->terminateShell('Nothing is shown under that name: '.$trgtNme, self::EXIT_HELP);
 		}
-		$filePath = $this->pathOfSettings(self::TRGT_LIST[$trgtName]);
-		$rowsList = Array();
-		if( $trgtName=='coreConf' ){
-			$lineList = Array();
-			preg_match_all('/^[ \t]*([A-Z0-9_]+)[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePath)), $lineList, PREG_SET_ORDER);
-			foreach( $lineList as $linVal ){
-				if( $pathText=='' || $pathText==$linVal[1] ){
-					$rowsList[] = Array($linVal[1], trim($linVal[2], '"'));
+		$filPath = $this->pathOfSettings(self::TRGT_LIST[$trgtNme]);
+		$rowList = Array();
+		if( $trgtNme=='coreConf' ){
+			$lineLst = Array();
+			preg_match_all('/^[ \t]*([A-Z0-9_]+)[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filPath)), $lineLst, PREG_SET_ORDER);
+			foreach( $lineLst as $linVal ){
+				if( $pathTxt=='' || $pathTxt==$linVal[1] ){
+					$rowList[] = Array($linVal[1], trim($linVal[2], '"'));
 				}
 			}
-			if( empty($rowsList) ){
-				$this->terminateShell('Nothing under '.( $pathText!='' ? $pathText.' in ' : '' ).self::TRGT_LIST[$trgtName], self::EXIT_DENY);
+			if( empty($rowList) ){
+				$this->terminateShell('Nothing under '.( $pathTxt!='' ? $pathTxt.' in ' : '' ).self::TRGT_LIST[$trgtNme], self::EXIT_DENY);
 			}
 		}else{
-			$treeList = json_decode( strval(json_encode($this->generateWriter()->importJsonsObj($filePath))), true );
-			$rowsList = $this->plainRowsArray( $this->followDotPaths($treeList, $pathText), $pathText );
+			$treeArr = json_decode( strval(json_encode($this->generateWriter()->importJsonsObj($filPath))), true );
+			$rowList = $this->plainRowsArray( $this->followDotPaths($treeArr, $pathTxt), $pathTxt );
 		}
-		$this->printerObj->printShellRows( Array('key', 'value'), $rowsList );
+		$this->printerObj->printShellRows( Array('key', 'value'), $rowList );
 		return self::EXIT_DONE;
 	}
 
@@ -137,21 +137,21 @@ class Config extends Command{
 	 */
 	protected function showPresetNumb( String $dotNamesPath ): Int {
 		if( $dotNamesPath=='' ){
-			$rowsList = Array();
+			$rowList = Array();
 			foreach( (array)glob($this->pathOfSettings('conf/presets').DS.'*.rps') as $rpsFil ){
-				$psetName = basename(strval($rpsFil), '.rps');
+				$prstNme = basename(strval($rpsFil), '.rps');
 				try{
-					$confVals = $this->retrievePreset($psetName);
-					$rowsList[] = Array($psetName, strval($confVals['presetId'] ?? ''), strval($confVals['synopsis'] ?? ''));
+					$cfgVals = $this->retrievePreset($prstNme);
+					$rowList[] = Array($prstNme, strval($cfgVals['presetId'] ?? ''), strval($cfgVals['synopsis'] ?? ''));
 				}catch( \RuntimeException $e ){
-					$rowsList[] = Array($psetName, '', 'cannot be loaded: '.$e->getMessage());
+					$rowList[] = Array($prstNme, '', 'cannot be loaded: '.$e->getMessage());
 				}
 			}
-			$this->printerObj->printShellRows( Array('preset', 'label', 'about'), $rowsList );
+			$this->printerObj->printShellRows( Array('preset', 'label', 'about'), $rowList );
 			return self::EXIT_DONE;
 		}
-		$pathPart = explode('.', $dotNamesPath, 2);
-		$this->printerObj->printShellRows( Array('key', 'value'), $this->plainRowsArray( $this->followDotPaths($this->retrievePreset($pathPart[0]), $pathPart[1] ?? ''), $pathPart[1] ?? '' ) );
+		$pthPart = explode('.', $dotNamesPath, 2);
+		$this->printerObj->printShellRows( Array('key', 'value'), $this->plainRowsArray( $this->followDotPaths($this->retrievePreset($pthPart[0]), $pthPart[1] ?? ''), $pthPart[1] ?? '' ) );
 		return self::EXIT_DONE;
 	}
 
@@ -161,72 +161,72 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeSetValue(): Int {
-		$trgtName = $this->needsShellWord('what to write in (coreConf, accsConf, dataConf, psetConf)');
+		$trgtNme = $this->needsShellWord('what to write in (coreConf, accsConf, dataConf, psetConf)');
 		// Matched whatever its letter case, kept as TRGT_LIST writes it
 		foreach( array_merge(array_keys(self::TRGT_LIST), Array('psetConf')) as $oneCod ){
-			$trgtName = (strcasecmp($oneCod, $trgtName)==0) ? $oneCod : $trgtName;
+			$trgtNme = (strcasecmp($oneCod, $trgtNme)==0) ? $oneCod : $trgtNme;
 		}
-		$pathText = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
-		$givenTxt = $this->optionsObj->shiftFirstWord();
-		if( $givenTxt===null ){
+		$pathTxt = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
+		$gvnText = $this->optionsObj->shiftFirstWord();
+		if( $gvnText===null ){
 			$this->terminateShell('Missing argument: the value', self::EXIT_HELP);
 		}
-		$pathPart = explode('.', $pathText);
-		$wrtrInst = $this->generateWriter();
-		$isForced = $this->optionsObj->validateOption('overrule');
+		$pthPart = explode('.', $pathTxt);
+		$wrtrObj = $this->generateWriter();
+		$isForcd = $this->optionsObj->validateOption('overrule');
 		try{
-			if( $trgtName=='coreConf' ){
-				$this->writeSystemIni($wrtrInst, $pathText, $givenTxt);
-			}elseif( $trgtName=='accsConf' || $trgtName=='dataConf' ){
-				if( count($pathPart)>2 || ($trgtName=='accsConf' && count($pathPart)!=2) || in_array('', $pathPart, true) ){
-					$this->terminateShell('A value of '.self::TRGT_LIST[$trgtName].' is named as block.key', self::EXIT_HELP);
+			if( $trgtNme=='coreConf' ){
+				$this->writeSystemIni($wrtrObj, $pathTxt, $gvnText);
+			}elseif( $trgtNme=='accsConf' || $trgtNme=='dataConf' ){
+				if( count($pthPart)>2 || ($trgtNme=='accsConf' && count($pthPart)!=2) || in_array('', $pthPart, true) ){
+					$this->terminateShell('A value of '.self::TRGT_LIST[$trgtNme].' is named as block.key', self::EXIT_HELP);
 				}
-				$filePath = $this->pathOfSettings(self::TRGT_LIST[$trgtName]);
-				$treeInst = $wrtrInst->importJsonsObj($filePath);
-				$nodeInst = $treeInst;
-				if( count($pathPart)==2 ){
-					$blockNme = $pathPart[0];
-					if( !isset($treeInst->$blockNme) || !is_object($treeInst->$blockNme) ){
-						if( !$isForced ){
-							$this->terminateShell('Nothing was changed: no block '.$blockNme.' in '.self::TRGT_LIST[$trgtName].'; --overrule adds it', self::EXIT_DENY);
+				$filPath = $this->pathOfSettings(self::TRGT_LIST[$trgtNme]);
+				$treeObj = $wrtrObj->importJsonsObj($filPath);
+				$nodeObj = $treeObj;
+				if( count($pthPart)==2 ){
+					$blckNme = $pthPart[0];
+					if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
+						if( !$isForcd ){
+							$this->terminateShell('Nothing was changed: no block '.$blckNme.' in '.self::TRGT_LIST[$trgtNme].'; --overrule adds it', self::EXIT_DENY);
 						}
-						$treeInst->$blockNme = new \stdClass();
+						$treeObj->$blckNme = new \stdClass();
 					}
-					$nodeInst = $treeInst->$blockNme;
+					$nodeObj = $treeObj->$blckNme;
 				}
-				$keyTitle = strval(end($pathPart));
-				if( !property_exists($nodeInst, $keyTitle) && !$isForced ){
-					$this->terminateShell('Nothing was changed: no key '.$pathText.' in '.self::TRGT_LIST[$trgtName].'; --overrule adds it', self::EXIT_DENY);
+				$keyName = strval(end($pthPart));
+				if( !property_exists($nodeObj, $keyName) && !$isForcd ){
+					$this->terminateShell('Nothing was changed: no key '.$pathTxt.' in '.self::TRGT_LIST[$trgtNme].'; --overrule adds it', self::EXIT_DENY);
 				}
-				$newValue = $this->parseTypedText($givenTxt);
+				$newValu = $this->parseTypedText($gvnText);
 				// A check or a carrier that does not exist would refuse every request
-				if( $trgtName=='accsConf' && ( ($keyTitle=='authWith' && Checker::authClssString(strval($givenTxt))===null) || ($keyTitle=='carrWith' && Checker::sessnClassText(strval($givenTxt))===null) ) ){
-					$this->terminateShell('Nothing was changed: '.$givenTxt.' is not a known '.( $keyTitle=='authWith' ? 'credential check' : 'carrier' ), self::EXIT_DENY);
+				if( $trgtNme=='accsConf' && ( ($keyName=='authWith' && Checker::authClssString(strval($gvnText))===null) || ($keyName=='carrWith' && Checker::sessnClassText(strval($gvnText))===null) ) ){
+					$this->terminateShell('Nothing was changed: '.$gvnText.' is not a known '.( $keyName=='authWith' ? 'credential check' : 'carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
-				$toknFlaw = ($trgtName=='accsConf') ? $this->toknFlawString($keyTitle, $newValue) : '';
-				if( $toknFlaw!='' ){
-					$this->terminateShell('Nothing was changed: '.$toknFlaw, self::EXIT_DENY);
+				$tknFlaw = ($trgtNme=='accsConf') ? $this->toknFlawString($keyName, $newValu) : '';
+				if( $tknFlaw!='' ){
+					$this->terminateShell('Nothing was changed: '.$tknFlaw, self::EXIT_DENY);
 				}
-				$nodeInst->$keyTitle = $newValue;
-				$wrtrInst->saveJsonConfig($filePath, $treeInst);
-			}elseif( $trgtName=='psetConf' ){
-				if( count($pathPart)<2 || count($pathPart)>3 || in_array('', $pathPart, true) || !preg_match('/^[\w\-]+$/D', $pathPart[0]) ){
+				$nodeObj->$keyName = $newValu;
+				$wrtrObj->saveJsonConfig($filPath, $treeObj);
+			}elseif( $trgtNme=='psetConf' ){
+				if( count($pthPart)<2 || count($pthPart)>3 || in_array('', $pthPart, true) || !preg_match('/^[\w\-]+$/D', $pthPart[0]) ){
 					$this->terminateShell('A value of a preset is named as preset.block.key, or preset.key', self::EXIT_HELP);
 				}
-				$filePath = $this->pathOfSettings('conf/presets/'.$pathPart[0].'.rps');
-				if( !is_file($filePath) ){
-					$this->terminateShell('Nothing was changed: no preset '.$pathPart[0], self::EXIT_DENY);
+				$filPath = $this->pathOfSettings('conf/presets/'.$pthPart[0].'.rps');
+				if( !is_file($filPath) ){
+					$this->terminateShell('Nothing was changed: no preset '.$pthPart[0], self::EXIT_DENY);
 				}
-				$wrtrInst->setPresetValue( $filePath, (count($pathPart)==3) ? $pathPart[1] : '', strval(end($pathPart)), $this->parseTypedText($givenTxt) );
+				$wrtrObj->setPresetValue( $filPath, (count($pthPart)==3) ? $pthPart[1] : '', strval(end($pthPart)), $this->parseTypedText($gvnText) );
 				try{
-					new Preset($pathPart[0]);
+					new Preset($pthPart[0]);
 				}catch( \RuntimeException $e ){
-					$wrtrInst->revertWriteFlg($filePath);
+					$wrtrObj->revertWriteFlg($filPath);
 					$this->terminateShell('Nothing was changed: '.$e->getMessage(), self::EXIT_DENY);
 				}
 			}else{
-				$this->terminateShell('Nothing is written under that name: '.$trgtName, self::EXIT_HELP);
+				$this->terminateShell('Nothing is written under that name: '.$trgtNme, self::EXIT_HELP);
 			}
 		}catch( ShellStop $e ){
 			throw $e;
@@ -234,8 +234,8 @@ class Config extends Command{
 			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
 		}
 		Console::loadConfigLogs();
-		$this->traceShellDone( 'Config: '.$trgtName.' '.$pathText.' written' );
-		$this->printerObj->printShellPair('written', $trgtName.' '.$pathText);
+		$this->traceShellDone( 'Config: '.$trgtNme.' '.$pathTxt.' written' );
+		$this->printerObj->printShellPair('written', $trgtNme.' '.$pathTxt);
 		return self::EXIT_DONE;
 	}
 
@@ -260,14 +260,14 @@ class Config extends Command{
 			if( !is_string($valueAsGiven) ){
 				return 'prevFile is the path of a public key, from the project root';
 			}
-			$keyTrail = trim($valueAsGiven, '/\\ ');
-			if( $keyTrail=='' ){
+			$keyPath = trim($valueAsGiven, '/\\ ');
+			if( $keyPath=='' ){
 				return '';
 			}
-			$keyStrng = is_file($this->pathOfSettings($keyTrail)) ? strval(@file_get_contents($this->pathOfSettings($keyTrail))) : '';
-			$keyInstn = ($keyStrng!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($keyStrng) : false;
-			$keyArray = ($keyInstn!==false) ? openssl_pkey_get_details($keyInstn) : false;
-			if( !is_array($keyArray) || ($keyArray['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyArray['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
+			$keyText = is_file($this->pathOfSettings($keyPath)) ? strval(@file_get_contents($this->pathOfSettings($keyPath))) : '';
+			$keyInst = ($keyText!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($keyText) : false;
+			$keyInfo = ($keyInst!==false) ? openssl_pkey_get_details($keyInst) : false;
+			if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
 				return json_encode($valueAsGiven).' is not a public RSA key of '.\nyu\Access\Carr\JWT::RSAS_BITS.' bits at least';
 			}
 		}
@@ -291,12 +291,12 @@ class Config extends Command{
 		if( isset(self::RULE_LIST[$iniEntryName]) && !preg_match(self::RULE_LIST[$iniEntryName], $newIniValTxt) ){
 			$this->terminateShell('Nothing was changed: '.$iniEntryName.' does not take the value '.$newIniValTxt, self::EXIT_DENY);
 		}
-		$filePath = $this->pathOfSettings(self::TRGT_LIST['coreConf']);
-		if( !$writerObject->changeIniValue($filePath, $iniEntryName, $newIniValTxt) ){
+		$filPath = $this->pathOfSettings(self::TRGT_LIST['coreConf']);
+		if( !$writerObject->changeIniValue($filPath, $iniEntryName, $newIniValTxt) ){
 			$this->terminateShell('Nothing was changed: no key '.$iniEntryName.' in conf/system.ini, and none is added', self::EXIT_DENY);
 		}
-		if( @parse_ini_file($filePath)===false ){
-			$writerObject->revertWriteFlg($filePath);
+		if( @parse_ini_file($filPath)===false ){
+			$writerObject->revertWriteFlg($filPath);
 			$this->terminateShell('Nothing was changed: conf/system.ini could no longer be read with that value', self::EXIT_DENY);
 		}
 	}
@@ -312,65 +312,65 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeEntryPts(): Int {
-		$baseText = $this->optionsObj->shiftFirstWord();
-		$psetName = $this->optionsObj->shiftFirstWord();
+		$baseTxt = $this->optionsObj->shiftFirstWord();
+		$prstNme = $this->optionsObj->shiftFirstWord();
 		try{
-			$rowsList = \nyu\Runner::readDoorsArray();
+			$rowList = \nyu\Runner::readDoorsArray();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
 		}
-		if( $baseText===null ){
-			$shownRow = Array();
-			foreach( $rowsList as $oneRow ){
-				$shownRow[] = Array( ($oneRow['hostName']==='') ? '(any)' : $oneRow['hostName'], $oneRow['basePath'], $oneRow['presetId'] );
+		if( $baseTxt===null ){
+			$shwRows = Array();
+			foreach( $rowList as $oneRow ){
+				$shwRows[] = Array( ($oneRow['hostName']==='') ? '(any)' : $oneRow['hostName'], $oneRow['basePath'], $oneRow['presetId'] );
 			}
-			$this->printerObj->printShellRows( Array('host', 'basePath', 'preset'), $shownRow );
+			$this->printerObj->printShellRows( Array('host', 'basePath', 'preset'), $shwRows );
 			return self::EXIT_DONE;
 		}
-		$baseText = '/'.trim($baseText, '/');
-		$hostText = strtolower( trim(strval($this->optionsObj->retrieveOption('hostName', ''))) );
-		if( !preg_match('#^/[\w.\-/]*$#D', $baseText) || !preg_match('/^[a-z0-9.\-]*$/D', $hostText) ){
+		$baseTxt = '/'.trim($baseTxt, '/');
+		$hostTxt = strtolower( trim(strval($this->optionsObj->retrieveOption('hostName', ''))) );
+		if( !preg_match('#^/[\w.\-/]*$#D', $baseTxt) || !preg_match('/^[a-z0-9.\-]*$/D', $hostTxt) ){
 			$this->terminateShell( 'Invalid line: a basePath of letters, digits, dots, dashes and slashes, a host name of letters, digits, dots and dashes', self::EXIT_HELP );
 		}
-		$lineText = ($hostText==='' ? '' : $hostText).$baseText;
-		$findIndx = null;
-		foreach( $rowsList as $rowIdx => $oneRow ){
-			if( $oneRow['hostName']===$hostText && $oneRow['basePath']===$baseText ){
-				$findIndx = $rowIdx;
+		$lineTxt = ($hostTxt==='' ? '' : $hostTxt).$baseTxt;
+		$fndIndx = null;
+		foreach( $rowList as $rowIdx => $oneRow ){
+			if( $oneRow['hostName']===$hostTxt && $oneRow['basePath']===$baseTxt ){
+				$fndIndx = $rowIdx;
 			}
 		}
 		if( $this->optionsObj->validateOption('removeIt') ){
-			if( $findIndx===null ){
-				$this->terminateShell( 'Nothing was changed: no line for '.$lineText, self::EXIT_DENY );
+			if( $fndIndx===null ){
+				$this->terminateShell( 'Nothing was changed: no line for '.$lineTxt, self::EXIT_DENY );
 			}
-			$wasPrset = $rowsList[$findIndx]['presetId'];
-			unset($rowsList[$findIndx]);
-			$this->writeDoorsList( array_values($rowsList) );
-			$this->traceShellDone( 'Config: the line '.$lineText.' of the presets served removed (was '.$wasPrset.')' );
-			$this->printerObj->printShellPair( 'removed', $lineText );
+			$wasPrst = $rowList[$fndIndx]['presetId'];
+			unset($rowList[$fndIndx]);
+			$this->writeDoorsList( array_values($rowList) );
+			$this->traceShellDone( 'Config: the line '.$lineTxt.' of the presets served removed (was '.$wasPrst.')' );
+			$this->printerObj->printShellPair( 'removed', $lineTxt );
 			return self::EXIT_DONE;
 		}
-		if( $psetName===null || $psetName==='' ){
-			$this->terminateShell( 'Missing argument: the preset that answers '.$lineText, self::EXIT_HELP );
+		if( $prstNme===null || $prstNme==='' ){
+			$this->terminateShell( 'Missing argument: the preset that answers '.$lineTxt, self::EXIT_HELP );
 		}
 		// The example only explains the keys: it never answers a request
-		if( strcasecmp($psetName, Preset::XMPL_NAME)==0 ){
+		if( strcasecmp($prstNme, Preset::XMPL_NAME)==0 ){
 			$this->terminateShell( 'Nothing was changed: the preset '.Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded', self::EXIT_DENY );
 		}
 		try{
-			new Preset($psetName);
+			new Preset($prstNme);
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
 		}
-		$wasPrset = ($findIndx===null) ? '' : $rowsList[$findIndx]['presetId'];
-		if( $findIndx===null ){
-			$rowsList[] = Array('hostName'=>$hostText, 'basePath'=>$baseText, 'presetId'=>$psetName);
+		$wasPrst = ($fndIndx===null) ? '' : $rowList[$fndIndx]['presetId'];
+		if( $fndIndx===null ){
+			$rowList[] = Array('hostName'=>$hostTxt, 'basePath'=>$baseTxt, 'presetId'=>$prstNme);
 		}else{
-			$rowsList[$findIndx]['presetId'] = $psetName;
+			$rowList[$fndIndx]['presetId'] = $prstNme;
 		}
-		$this->writeDoorsList( $rowsList );
-		$this->traceShellDone( 'Config: '.$lineText.' served by the preset '.$psetName.( ($wasPrset==='') ? ', a line added' : ' (was '.$wasPrset.')' ) );
-		$this->printerObj->printShellPair( $lineText, $psetName );
+		$this->writeDoorsList( $rowList );
+		$this->traceShellDone( 'Config: '.$lineTxt.' served by the preset '.$prstNme.( ($wasPrst==='') ? ', a line added' : ' (was '.$wasPrst.')' ) );
+		$this->printerObj->printShellPair( $lineTxt, $prstNme );
 		return self::EXIT_DONE;
 	}
 
@@ -383,11 +383,11 @@ class Config extends Command{
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
 	public function writeDoorsList( Array $doorwaysList ): Void {
-		$jsonList = Array();
+		$jsonLst = Array();
 		foreach( $doorwaysList as $oneRow ){
-			$jsonList[] = ( (strval($oneRow['hostName'] ?? '')==='') ? Array() : Array('hostName'=>strval($oneRow['hostName'])) ) + Array('basePath'=>strval($oneRow['basePath']), 'presetId'=>strval($oneRow['presetId']));
+			$jsonLst[] = ( (strval($oneRow['hostName'] ?? '')==='') ? Array() : Array('hostName'=>strval($oneRow['hostName'])) ) + Array('basePath'=>strval($oneRow['basePath']), 'presetId'=>strval($oneRow['presetId']));
 		}
-		$this->generateWriter()->saveFileAtomic( TOP_DIR.DS.str_replace('/', DS, \nyu\Runner::DOOR_FILE), \nyu\Shell\RunMaker::tabbedJsonText(Array('doorways'=>$jsonList)) );
+		$this->generateWriter()->saveFileAtomic( TOP_DIR.DS.str_replace('/', DS, \nyu\Runner::DOOR_FILE), \nyu\Shell\RunMaker::tabbedJsonText(Array('doorways'=>$jsonLst)) );
 	}
 	/**
 	 * Makes a secret and writes it where the config reads it.
@@ -395,15 +395,15 @@ class Config extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMkSecret(): Int {
-		$kindName = $this->needsShellWord('the secret to make (jwtToken, keysList, tfaCrypt, markSecr, htpasswd)');
-		if( !in_array($kindName, Array('jwtToken', 'keysList', 'tfaCrypt', 'markSecr', 'htpasswd'), true) ){
-			$this->terminateShell('No secret is made under that name: '.$kindName, self::EXIT_HELP);
+		$kindNme = $this->needsShellWord('the secret to make (jwtToken, keysList, tfaCrypt, markSecr, htpasswd)');
+		if( !in_array($kindNme, Array('jwtToken', 'keysList', 'tfaCrypt', 'markSecr', 'htpasswd'), true) ){
+			$this->terminateShell('No secret is made under that name: '.$kindNme, self::EXIT_HELP);
 		}
 		try{
-			if( $kindName=='htpasswd' ){
+			if( $kindNme=='htpasswd' ){
 				$this->createHtpasswd( $this->needsShellWord('the user of the htpasswd line') );
 			}else{
-				$this->generateSecret($kindName);
+				$this->generateSecret($kindNme);
 			}
 		}catch( ShellStop $e ){
 			throw $e;
@@ -431,75 +431,75 @@ class Config extends Command{
 	 * @throws \RuntimeException When a file cannot be read or written.
 	 */
 	public function generateSecret( String $secrKindText, Bool $keepExisting=false ): Bool {
-		$wrtrInst = $this->generateWriter();
-		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
-		$treeInst = $wrtrInst->importJsonsObj($filePath);
-		$blockNme = strval($this->optionsObj->retrieveOption('useBlock', ''));
+		$wrtrObj = $this->generateWriter();
+		$filPath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
+		$treeObj = $wrtrObj->importJsonsObj($filPath);
+		$blckNme = strval($this->optionsObj->retrieveOption('useBlock', ''));
 		if( $secrKindText=='jwtToken' ){
-			$labelTxt = 'Secret of the tokens';
-			$blockNme = $blockNme ?: strval($treeInst->loginSet->carrConf ?? 'jwtToken');
+			$labelTx = 'Secret of the tokens';
+			$blckNme = $blckNme ?: strval($treeObj->loginSet->carrConf ?? 'jwtToken');
 			// With RS256 the tokens are signed by a key pair, not a secret
-			if( isset($treeInst->$blockNme) && is_object($treeInst->$blockNme) && strval($treeInst->$blockNme->signAlgo ?? '')=='RS256' ){
-				return $this->buildPairsFlag($blockNme, $keepExisting);
+			if( isset($treeObj->$blckNme) && is_object($treeObj->$blckNme) && strval($treeObj->$blckNme->signAlgo ?? '')=='RS256' ){
+				return $this->buildPairsFlag($blckNme, $keepExisting);
 			}
-			$rawValue = $treeInst->$blockNme->hmacSecr ?? null;
-			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
+			$rawValu = $treeObj->$blckNme->hmacSecr ?? null;
+			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}elseif( $secrKindText=='tfaCrypt' ){
-			$labelTxt = 'Key of the 2FA secrets';
-			$blockNme = $blockNme ?: strval($treeInst->loginSet->authConf ?? 'nativeDb');
-			$rawValue = $treeInst->$blockNme->tfaCrypt ?? null;
-			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
+			$labelTx = 'Key of the 2FA secrets';
+			$blckNme = $blckNme ?: strval($treeObj->loginSet->authConf ?? 'nativeDb');
+			$rawValu = $treeObj->$blckNme->tfaCrypt ?? null;
+			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}elseif( $secrKindText=='markSecr' ){
 			// The key the login marks are signed with, in the limits block
-			$labelTxt = 'Key of the login marks';
-			$blockNme = $blockNme ?: 'tryLimit';
-			$rawValue = $treeInst->$blockNme->markSecr ?? null;
-			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
+			$labelTx = 'Key of the login marks';
+			$blckNme = $blckNme ?: 'tryLimit';
+			$rawValu = $treeObj->$blckNme->markSecr ?? null;
+			$newSecr = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}else{
-			$labelTxt = 'API key';
-			foreach( get_object_vars($treeInst) as $blkKey => $blkVal ){
-				if( $blockNme=='' && is_object($blkVal) && isset($blkVal->keysList) && is_array($blkVal->keysList) ){
-					$blockNme = strval($blkKey);
+			$labelTx = 'API key';
+			foreach( get_object_vars($treeObj) as $blkKey => $blkVal ){
+				if( $blckNme=='' && is_object($blkVal) && isset($blkVal->keysList) && is_array($blkVal->keysList) ){
+					$blckNme = strval($blkKey);
 				}
 			}
-			$rawValue = ($blockNme!='' && isset($treeInst->$blockNme->keysList) && is_array($treeInst->$blockNme->keysList)) ? ($treeInst->$blockNme->keysList[0] ?? '') : null;
-			$newSecrt = bin2hex(random_bytes(32));
+			$rawValu = ($blckNme!='' && isset($treeObj->$blckNme->keysList) && is_array($treeObj->$blckNme->keysList)) ? ($treeObj->$blckNme->keysList[0] ?? '') : null;
+			$newSecr = bin2hex(random_bytes(32));
 		}
-		if( !is_string($rawValue) ){
-			$whatList = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'tfaCrypt'=>'the key of the 2FA secrets (tfaCrypt)', 'markSecr'=>'the key of the login marks (markSecr)');
-			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatList[$secrKindText].( $blockNme!='' ? ' under '.$blockNme : '' ), self::EXIT_DENY);
+		if( !is_string($rawValu) ){
+			$whatLst = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'tfaCrypt'=>'the key of the 2FA secrets (tfaCrypt)', 'markSecr'=>'the key of the login marks (markSecr)');
+			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatLst[$secrKindText].( $blckNme!='' ? ' under '.$blckNme : '' ), self::EXIT_DENY);
 		}
-		$envrPath = TOP_DIR.DS.'.env';
-		$envrName = (strpos($rawValue, 'env:')===0) ? substr($rawValue, 4) : '';
-		$nowSecrt = ($envrName!='') ? strval($wrtrInst->retrieveEnvKey($envrPath, $envrName) ?? '') : $rawValue;
-		if( $nowSecrt!='' && $keepExisting ){
+		$envPath = TOP_DIR.DS.'.env';
+		$envName = (strpos($rawValu, 'env:')===0) ? substr($rawValu, 4) : '';
+		$nowSecr = ($envName!='') ? strval($wrtrObj->retrieveEnvKey($envPath, $envName) ?? '') : $rawValu;
+		if( $nowSecr!='' && $keepExisting ){
 			return false;
 		}
-		$lossText = ($secrKindText=='tfaCrypt') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTxt).' in use: what was issued with it stops being accepted';
-		if( $nowSecrt!='' && !$this->queryAgreedFlg('Replace the '.$lossText) ){
+		$lossTxt = ($secrKindText=='tfaCrypt') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTx).' in use: what was issued with it stops being accepted';
+		if( $nowSecr!='' && !$this->queryAgreedFlg('Replace the '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
-		if( $envrName!='' ){
-			$wrtrInst->changeEnvValue($envrPath, $envrName, $newSecrt);
-			$whereTxt = '.env '.$envrName;
+		if( $envName!='' ){
+			$wrtrObj->changeEnvValue($envPath, $envName, $newSecr);
+			$whereTx = '.env '.$envName;
 		}else{
 			if( $secrKindText=='jwtToken' ){
-				$treeInst->$blockNme->hmacSecr = $newSecrt;
+				$treeObj->$blckNme->hmacSecr = $newSecr;
 			}elseif( $secrKindText=='tfaCrypt' ){
-				$treeInst->$blockNme->tfaCrypt = $newSecrt;
+				$treeObj->$blckNme->tfaCrypt = $newSecr;
 			}elseif( $secrKindText=='markSecr' ){
-				$treeInst->$blockNme->markSecr = $newSecrt;
+				$treeObj->$blckNme->markSecr = $newSecr;
 			}else{
-				$treeInst->$blockNme->keysList[0] = $newSecrt;
+				$treeObj->$blckNme->keysList[0] = $newSecr;
 			}
-			$wrtrInst->saveJsonConfig($filePath, $treeInst);
-			$whereTxt = 'conf/access.json '.$blockNme;
+			$wrtrObj->saveJsonConfig($filPath, $treeObj);
+			$whereTx = 'conf/access.json '.$blckNme;
 		}
 		Console::loadConfigLogs();
-		$this->traceShellDone( $labelTxt.' made, written in '.$whereTxt );
-		$this->printerObj->printShellPair('written', $whereTxt);
+		$this->traceShellDone( $labelTx.' made, written in '.$whereTx );
+		$this->printerObj->printShellPair('written', $whereTx);
 		if( $secrKindText=='keysList' || $this->optionsObj->validateOption('showSecr') ){
-			$this->printerObj->printShellOnce($labelTxt, $newSecrt);
+			$this->printerObj->printShellOnce($labelTx, $newSecr);
 		}
 		return true;
 	}
@@ -524,86 +524,86 @@ class Config extends Command{
 	 * @throws ShellStop When replacing the keys is not confirmed, or they cannot be made or written.
 	 */
 	protected function buildPairsFlag( String $blckNamedTxt, Bool $keepExisting ): Bool {
-		$wrtrInst = $this->generateWriter();
-		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
-		$treeInst = $wrtrInst->importJsonsObj($filePath);
-		$blockNde = $treeInst->$blckNamedTxt;
-		$privName = trim(strval($blockNde->privFile ?? ''), '/\\ ');
-		$publName = trim(strval($blockNde->publFile ?? ''), '/\\ ');
-		$privName = ($privName!='') ? $privName : 'conf/keys/'.$blckNamedTxt.'.key';
-		$publName = ($publName!='') ? $publName : 'conf/keys/'.$blckNamedTxt.'.pub';
-		$privPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $privName);
-		$publPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publName);
-		$hasPairs = is_file($privPath) || is_file($publPath);
+		$wrtrObj = $this->generateWriter();
+		$filPath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
+		$treeObj = $wrtrObj->importJsonsObj($filPath);
+		$blckNod = $treeObj->$blckNamedTxt;
+		$prvName = trim(strval($blckNod->privFile ?? ''), '/\\ ');
+		$publNme = trim(strval($blckNod->publFile ?? ''), '/\\ ');
+		$prvName = ($prvName!='') ? $prvName : 'conf/keys/'.$blckNamedTxt.'.key';
+		$publNme = ($publNme!='') ? $publNme : 'conf/keys/'.$blckNamedTxt.'.pub';
+		$prvPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $prvName);
+		$publPth = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publNme);
+		$hasKeys = is_file($prvPath) || is_file($publPth);
 		// A public key found alone is the one of another server only when the block says so : a bundle may have brought it from where it was built
-		if( $keepExisting && ( is_file($privPath) || (is_file($publPath) && ($blockNde->external ?? false)===true) ) ){
+		if( $keepExisting && ( is_file($prvPath) || (is_file($publPth) && ($blckNod->external ?? false)===true) ) ){
 			return false;
 		}
 		if( !function_exists('openssl_pkey_new') ){
 			$this->terminateShell('No keys made: the openssl extension is not loaded', self::EXIT_FAIL);
 		}
 		// The public key of the pair replaced keeps checking the tokens it signed, until the next pair
-		$oldTitle = 'conf/keys/'.$blckNamedTxt.'.old.pub';
-		$oldPrivt = is_file($privPath) ? @openssl_pkey_get_private(strval(@file_get_contents($privPath))) : false;
+		$oldName = 'conf/keys/'.$blckNamedTxt.'.old.pub';
+		$oldPriv = is_file($prvPath) ? @openssl_pkey_get_private(strval(@file_get_contents($prvPath))) : false;
 		// A key that leaked keeps nothing : the tokens it signed end with it
-		$hasDrops = $this->optionsObj->validateOption('dropsAll');
-		$oldStrng = ($oldPrivt!==false && !$hasDrops) ? strval(openssl_pkey_get_details($oldPrivt)['key'] ?? '') : '';
-		$lossText = ($oldStrng!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldTitle : ( $hasDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
+		$isDrops = $this->optionsObj->validateOption('dropsAll');
+		$oldText = ($oldPriv!==false && !$isDrops) ? strval(openssl_pkey_get_details($oldPriv)['key'] ?? '') : '';
+		$lossTxt = ($oldText!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldName : ( $isDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
 		// install complete replaces a public key found alone without a question : it is not one of this server's
-		if( $hasPairs && !$keepExisting && !$this->queryAgreedFlg('Replace the keys of the tokens in use: '.$lossText) ){
+		if( $hasKeys && !$keepExisting && !$this->queryAgreedFlg('Replace the keys of the tokens in use: '.$lossTxt) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
-		$confOpts = Array('config'=>dirname(__DIR__).DS.'keygen.cnf');
-		$keyInstn = @openssl_pkey_new( Array('private_key_bits'=>self::KEYS_BITS, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $confOpts );
-		$privText = '';
-		if( $keyInstn===false || !@openssl_pkey_export($keyInstn, $privText, null, $confOpts) ){
+		$cfgOpts = Array('config'=>dirname(__DIR__).DS.'keygen.cnf');
+		$keyInst = @openssl_pkey_new( Array('private_key_bits'=>self::KEYS_BITS, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $cfgOpts );
+		$prvText = '';
+		if( $keyInst===false || !@openssl_pkey_export($keyInst, $prvText, null, $cfgOpts) ){
 			$this->terminateShell('No keys made: OpenSSL refused: '.strval(openssl_error_string()), self::EXIT_FAIL);
 		}
-		$publText = strval(openssl_pkey_get_details($keyInstn)['key'] ?? '');
-		$pemsList = Array($privPath=>Array($privText, 0600), $publPath=>Array($publText, 0644));
-		if( $oldStrng!='' ){
-			$pemsList[TOP_DIR.DS.str_replace('/', DS, $oldTitle)] = Array($oldStrng, 0644);
+		$publTxt = strval(openssl_pkey_get_details($keyInst)['key'] ?? '');
+		$pemList = Array($prvPath=>Array($prvText, 0600), $publPth=>Array($publTxt, 0644));
+		if( $oldText!='' ){
+			$pemList[TOP_DIR.DS.str_replace('/', DS, $oldName)] = Array($oldText, 0644);
 		}
-		foreach( $pemsList as $keyFil => $onePem ){
+		foreach( $pemList as $keyFil => $onePem ){
 			if( !is_dir(dirname($keyFil)) ){
 				@mkdir(dirname($keyFil), 0700, true);
 			}
 			// Written aside, given its rights, then put in place : no copy of the former key is kept
-			$tempPath = $keyFil.'.tmp'.getmypid();
+			$tmpPath = $keyFil.'.tmp'.getmypid();
 			// Readable by its owner only from its first byte, then given its rights
-			$prevMask = umask(0077);
+			$prevMsk = umask(0077);
 			try{
-				$wasWrttn = @file_put_contents($tempPath, $onePem[0], LOCK_EX);
+				$isWrttn = @file_put_contents($tmpPath, $onePem[0], LOCK_EX);
 			}finally{
-				umask($prevMask);
+				umask($prevMsk);
 			}
-			if( $wasWrttn===false ){
+			if( $isWrttn===false ){
 				$this->terminateShell('No keys written: '.dirname($keyFil).' cannot be written', self::EXIT_FAIL);
 			}
-			@chmod($tempPath, $onePem[1]);
-			if( !@rename($tempPath, $keyFil) ){
-				@unlink($tempPath);
+			@chmod($tmpPath, $onePem[1]);
+			if( !@rename($tmpPath, $keyFil) ){
+				@unlink($tmpPath);
 				$this->terminateShell('No keys written: '.basename($keyFil).' cannot be replaced', self::EXIT_FAIL);
 			}
 		}
-		$blockNde->privFile = $privName;
-		$blockNde->publFile = $publName;
-		if( $oldStrng!='' ){
+		$blckNod->privFile = $prvName;
+		$blckNod->publFile = $publNme;
+		if( $oldText!='' ){
 			// The time the former key was retired : what it signs after, or beyond lifeSecs, is refused
-			$blockNde->prevFile = $oldTitle;
-			$blockNde->retireAt = time();
-		}elseif( $hasDrops || isset($blockNde->prevFile) ){
-			if( is_file(TOP_DIR.DS.str_replace('/', DS, $oldTitle)) ){
-				@unlink(TOP_DIR.DS.str_replace('/', DS, $oldTitle));
+			$blckNod->prevFile = $oldName;
+			$blckNod->retireAt = time();
+		}elseif( $isDrops || isset($blckNod->prevFile) ){
+			if( is_file(TOP_DIR.DS.str_replace('/', DS, $oldName)) ){
+				@unlink(TOP_DIR.DS.str_replace('/', DS, $oldName));
 			}
-			$blockNde->prevFile = '';
-			unset($blockNde->retireAt);
+			$blckNod->prevFile = '';
+			unset($blckNod->retireAt);
 		}
-		$wrtrInst->saveJsonConfig($filePath, $treeInst);
+		$wrtrObj->saveJsonConfig($filPath, $treeObj);
 		Console::loadConfigLogs();
-		$prevNote = ($oldStrng!='') ? ', the former public key kept as '.$oldTitle : ( $hasDrops ? ', no former key kept' : '' );
-		$this->traceShellDone( 'Keys of the tokens made ('.self::KEYS_BITS.' bits): '.$privName.' and '.$publName.$prevNote );
-		$this->printerObj->printShellPair('written', $privName.', '.$publName.( $oldStrng!='' ? ', '.$oldTitle : '' ));
+		$oldNote = ($oldText!='') ? ', the former public key kept as '.$oldName : ( $isDrops ? ', no former key kept' : '' );
+		$this->traceShellDone( 'Keys of the tokens made ('.self::KEYS_BITS.' bits): '.$prvName.' and '.$publNme.$oldNote );
+		$this->printerObj->printShellPair('written', $prvName.', '.$publNme.( $oldText!='' ? ', '.$oldName : '' ));
 		return true;
 	}
 
@@ -620,35 +620,35 @@ class Config extends Command{
 		if( !preg_match('/^[^:\s]+$/D', $namedUserTxt) ){
 			$this->terminateShell('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
 		}
-		$blockCfg = $this->accessSettings( strval($this->optionsObj->retrieveOption('useBlock', 'htpasswd')) );
-		$passFile = trim( strval($blockCfg['passFile'] ?? 'conf/.htpasswd'), '/\\ ' );
-		$filePath = $this->pathOfSettings($passFile);
-		$lineList = is_file($filePath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filePath))), 'strlen')) : Array();
-		$lineIndx = null;
-		foreach( $lineList as $lstIdx => $lstLin ){
+		$blckCfg = $this->accessSettings( strval($this->optionsObj->retrieveOption('useBlock', 'htpasswd')) );
+		$pwdFile = trim( strval($blckCfg['passFile'] ?? 'conf/.htpasswd'), '/\\ ' );
+		$filPath = $this->pathOfSettings($pwdFile);
+		$lineLst = is_file($filPath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filPath))), 'strlen')) : Array();
+		$lineIdx = null;
+		foreach( $lineLst as $lstIdx => $lstLin ){
 			if( strpos($lstLin, $namedUserTxt.':')===0 ){
-				$lineIndx = $lstIdx;
+				$lineIdx = $lstIdx;
 			}
 		}
-		if( $lineIndx!==null && !$this->queryAgreedFlg('Replace the password of user '.$namedUserTxt.' in '.$passFile) ){
+		if( $lineIdx!==null && !$this->queryAgreedFlg('Replace the password of user '.$namedUserTxt.' in '.$pwdFile) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
-		$isTypeIn = $this->optionsObj->validateOption('typeItIn');
-		$passText = $isTypeIn ? $this->querySecretTxt('Password of '.$namedUserTxt) : bin2hex(random_bytes(10));
-		if( $passText=='' ){
+		$isTyped = $this->optionsObj->validateOption('typeItIn');
+		$passTxt = $isTyped ? $this->querySecretTxt('Password of '.$namedUserTxt) : bin2hex(random_bytes(10));
+		if( $passTxt=='' ){
 			$this->terminateShell('Nothing was written: no password given', self::EXIT_DENY);
 		}
-		$newLigne = $namedUserTxt.':'.password_hash($passText, PASSWORD_BCRYPT);
-		if( $lineIndx===null ){
-			$lineList[] = $newLigne;
+		$newLine = $namedUserTxt.':'.password_hash($passTxt, PASSWORD_BCRYPT);
+		if( $lineIdx===null ){
+			$lineLst[] = $newLine;
 		}else{
-			$lineList[$lineIndx] = $newLigne;
+			$lineLst[$lineIdx] = $newLine;
 		}
-		$this->generateWriter()->saveFileAtomic( $filePath, implode("\n", $lineList)."\n" );
-		$this->traceShellDone( 'Password of the htpasswd user '.json_encode($namedUserTxt).' written in '.$passFile );
-		$this->printerObj->printShellPair('written', $passFile.' '.$namedUserTxt);
-		if( !$isTypeIn ){
-			$this->printerObj->printShellOnce('Password of '.$namedUserTxt, $passText);
+		$this->generateWriter()->saveFileAtomic( $filPath, implode("\n", $lineLst)."\n" );
+		$this->traceShellDone( 'Password of the htpasswd user '.json_encode($namedUserTxt).' written in '.$pwdFile );
+		$this->printerObj->printShellPair('written', $pwdFile.' '.$namedUserTxt);
+		if( !$isTyped ){
+			$this->printerObj->printShellOnce('Password of '.$namedUserTxt, $passTxt);
 		}
 	}
 
@@ -661,41 +661,41 @@ class Config extends Command{
 	 * @return Int The exit code: EXITFLAW when the roles of the routes cannot be applied.
 	 */
 	public function invokeFullList(): Int {
-		$psetName = strval($this->optionsObj->shiftFirstWord() ?? 'default');
+		$prstNme = strval($this->optionsObj->shiftFirstWord() ?? 'default');
 		try{
-			$loadInst = (new Preset($psetName))->newSetupLoader();
+			$loadObj = (new Preset($prstNme))->newSetupLoader();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
 		}
-		$routeCfg = $loadInst->getRegistryKey('dispatch');
-		$routeCfg = is_array($routeCfg) ? $routeCfg : Array();
-		$accsConf = $loadInst->setAccessArray();
-		$reqtInst = ActCaller::makeRequestArr('GET', '/')[0];
-		$rowsList = Array();
-		$routInst = new Router($routeCfg, $reqtInst);
-		foreach( $routInst->allRoutesArray() as $rteVal ){
-			$rowsList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->describeAccess($accsConf, $reqtInst, $rteVal, $routInst) );
+		$rteConf = $loadObj->getRegistryKey('dispatch');
+		$rteConf = is_array($rteConf) ? $rteConf : Array();
+		$accConf = $loadObj->setAccessArray();
+		$rqstObj = ActCaller::makeRequestArr('GET', '/')[0];
+		$rowList = Array();
+		$routObj = new Router($rteConf, $rqstObj);
+		foreach( $routObj->allRoutesArray() as $rteVal ){
+			$rowList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->describeAccess($accConf, $rqstObj, $rteVal, $routObj) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
-		$roleDict = is_array($accsConf['minRoles'] ?? null) ? $accsConf['minRoles'] : Array();
-		$actnList = Array();
-		foreach( array_merge(array_values((array)($accsConf['openList'] ?? Array())), array_keys($roleDict)) as $rteKey ){
+		$roleMap = is_array($accConf['minRoles'] ?? null) ? $accConf['minRoles'] : Array();
+		$actnLst = Array();
+		foreach( array_merge(array_values((array)($accConf['openList'] ?? Array())), array_keys($roleMap)) as $rteKey ){
 			$rteKey = strtolower( trim(strval($rteKey)) );
-			if( $rteKey!='' && substr($rteKey, 0, 1)!='/' && !in_array($rteKey, $actnList, true) ){
-				$actnList[] = $rteKey;
+			if( $rteKey!='' && substr($rteKey, 0, 1)!='/' && !in_array($rteKey, $actnLst, true) ){
+				$actnLst[] = $rteKey;
 			}
 		}
-		foreach( $actnList as $action ){
-			$actParte = explode('/', $action, 2);
-			$rowsList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accsConf, $reqtInst, Array('appToRun'=>$actParte[0], 'doAction'=>$actParte[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routInst) );
+		foreach( $actnLst as $action ){
+			$actPart = explode('/', $action, 2);
+			$rowList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accConf, $rqstObj, Array('appToRun'=>$actPart[0], 'doAction'=>$actPart[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routObj) );
 		}
-		$this->printerObj->printShellPair('preset', $psetName);
-		$this->printerObj->printShellPair('detectBy', strval($routeCfg['detectBy'] ?? ''));
-		$this->printerObj->printShellPair('others', ( empty($accsConf) || ($accsConf['required'] ?? true)===false ) ? 'open' : 'logged');
-		$this->printerObj->printShellRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowsList );
-		$roleFlow = (new Checker($accsConf, $reqtInst, new Registry(Array()), $routInst))->checkRoleFlaws();
-		if( $roleFlow!='' ){
-			$this->printerObj->printShellFail('Every request of this preset is refused: '.$roleFlow);
+		$this->printerObj->printShellPair('preset', $prstNme);
+		$this->printerObj->printShellPair('detectBy', strval($rteConf['detectBy'] ?? ''));
+		$this->printerObj->printShellPair('others', ( empty($accConf) || ($accConf['required'] ?? true)===false ) ? 'open' : 'logged');
+		$this->printerObj->printShellRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowList );
+		$rleFlow = (new Checker($accConf, $rqstObj, new Registry(Array()), $routObj))->checkRoleFlaws();
+		if( $rleFlow!='' ){
+			$this->printerObj->printShellFail('Every request of this preset is refused: '.$rleFlow);
 			return self::EXIT_FLAW;
 		}
 		return self::EXIT_DONE;
@@ -714,11 +714,11 @@ class Config extends Command{
 		if( empty($accessConfig) || ($accessConfig['required'] ?? true)===false ){
 			return 'open';
 		}
-		$checkObj = new Checker( $accessConfig, $givenRequest, new Registry(Array('appToRun'=>$routesValues['appToRun'] ?? null, 'doAction'=>$routesValues['doAction'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')), $routerObject );
-		if( $checkObj->openAccessRout() ){
+		$chckObj = new Checker( $accessConfig, $givenRequest, new Registry(Array('appToRun'=>$routesValues['appToRun'] ?? null, 'doAction'=>$routesValues['doAction'] ?? null, 'routPath'=>$routesValues['routPath'] ?? '', 'routKind'=>$routesValues['routKind'] ?? '')), $routerObject );
+		if( $chckObj->openAccessRout() ){
 			return 'open';
 		}
-		return $checkObj->routRoleString() ?? 'logged';
+		return $chckObj->routRoleString() ?? 'logged';
 	}
 
 	/**
@@ -731,8 +731,8 @@ class Config extends Command{
 	 */
 	protected function retrievePreset( String $nameOfPreset ): Array {
 		new Preset($nameOfPreset);
-		$jsonDocu = new Dcmnt( $this->pathOfSettings('conf/presets/'.$nameOfPreset.'.rps'), false );
-		return (array)$jsonDocu->readFileDetail();
+		$jsonDoc = new Dcmnt( $this->pathOfSettings('conf/presets/'.$nameOfPreset.'.rps'), false );
+		return (array)$jsonDoc->readFileDetail();
 	}
 
 	/**
@@ -746,14 +746,14 @@ class Config extends Command{
 	 * @throws ShellStop When nothing stands there.
 	 */
 	protected function followDotPaths( Array $configValues, String $dotNamesPath ): Mixed {
-		$nodeVals = $configValues;
+		$nodeVal = $configValues;
 		foreach( ($dotNamesPath=='' ? Array() : explode('.', $dotNamesPath)) as $pthKey ){
-			if( !is_array($nodeVals) || !array_key_exists($pthKey, $nodeVals) ){
+			if( !is_array($nodeVal) || !array_key_exists($pthKey, $nodeVal) ){
 				$this->terminateShell('Nothing under '.$dotNamesPath, self::EXIT_DENY);
 			}
-			$nodeVals = $nodeVals[$pthKey];
+			$nodeVal = $nodeVal[$pthKey];
 		}
-		return $nodeVals;
+		return $nodeVal;
 	}
 
 	/**
@@ -767,18 +767,18 @@ class Config extends Command{
 	 */
 	protected function plainRowsArray( Mixed $filePartData, String $prefixString ): Array {
 		if( is_array($filePartData) && !empty($filePartData) && $filePartData!==array_values($filePartData) ){
-			$rowsList = Array();
+			$rowList = Array();
 			foreach( $filePartData as $subKey => $subVal ){
-				$rowsList = array_merge( $rowsList, $this->plainRowsArray($subVal, ($prefixString=='') ? strval($subKey) : $prefixString.'.'.$subKey) );
+				$rowList = array_merge( $rowList, $this->plainRowsArray($subVal, ($prefixString=='') ? strval($subKey) : $prefixString.'.'.$subKey) );
 			}
-			return $rowsList;
+			return $rowList;
 		}
-		$pathPart = explode('.', $prefixString);
-		if( in_array(end($pathPart), self::SECR_LIST, true) ){
-			$maskFunc = function( Mixed $codeSecrText ): Mixed {
+		$pthPart = explode('.', $prefixString);
+		if( in_array(end($pthPart), self::SECR_LIST, true) ){
+			$masking = function( Mixed $codeSecrText ): Mixed {
 				return ( is_string($codeSecrText) && $codeSecrText!='' && strpos($codeSecrText, 'env:')!==0 ) ? '********' : $codeSecrText;
 			};
-			$filePartData = is_array($filePartData) ? array_map($maskFunc, $filePartData) : $maskFunc($filePartData);
+			$filePartData = is_array($filePartData) ? array_map($masking, $filePartData) : $masking($filePartData);
 		}
 		return Array( Array($prefixString, $filePartData) );
 	}
@@ -795,9 +795,9 @@ class Config extends Command{
 			return json_decode($valueAsTyped);
 		}
 		if( in_array(substr($valueAsTyped, 0, 1), Array('[', '{'), true) ){
-			$jsonVals = json_decode($valueAsTyped);
-			if( $jsonVals!==null ){
-				return $jsonVals;
+			$jsonVal = json_decode($valueAsTyped);
+			if( $jsonVal!==null ){
+				return $jsonVal;
 			}
 		}
 		return $valueAsTyped;

@@ -109,22 +109,22 @@ class Printer{
 			}
 			return;
 		}
-		$clmnSize = array_map('strlen', $headrRowsArr);
-		$textNtry = Array();
+		$clmnSiz = array_map('strlen', $headrRowsArr);
+		$txtRows = Array();
 		foreach( $tbleLinesArr as $rowVal ){
-			$textLine = Array();
+			$txtLine = Array();
 			foreach( array_values($rowVal) as $colInc => $colVal ){
-				$textLine[$colInc] = is_scalar($colVal) ? strval($colVal) : ( $colVal===null ? '' : strval(json_encode($colVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
-				$clmnSize[$colInc] = max($clmnSize[$colInc] ?? 0, strlen($textLine[$colInc]));
+				$txtLine[$colInc] = is_scalar($colVal) ? strval($colVal) : ( $colVal===null ? '' : strval(json_encode($colVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
+				$clmnSiz[$colInc] = max($clmnSiz[$colInc] ?? 0, strlen($txtLine[$colInc]));
 			}
-			$textNtry[] = $textLine;
+			$txtRows[] = $txtLine;
 		}
-		foreach( array_merge(Array($headrRowsArr), $textNtry) as $rowTxt ){
-			$outLigne = '';
+		foreach( array_merge(Array($headrRowsArr), $txtRows) as $rowTxt ){
+			$outLine = '';
 			foreach( $rowTxt as $colInc => $colVal ){
-				$outLigne .= str_pad($colVal, $clmnSize[$colInc]).'  ';
+				$outLine .= str_pad($colVal, $clmnSiz[$colInc]).'  ';
 			}
-			fwrite($this->outsStream, rtrim($outLigne).PHP_EOL);
+			fwrite($this->outsStream, rtrim($outLine).PHP_EOL);
 		}
 	}
 
@@ -167,8 +167,8 @@ class Printer{
 		if( !$this->jsonFormat ){
 			return;
 		}
-		$outArray = Array('done'=>($shellExitNum==0), 'exit'=>$shellExitNum) + $this->jsonOutput;
-		fwrite($this->outsStream, json_encode($outArray, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE).PHP_EOL);
+		$outData = Array('done'=>($shellExitNum==0), 'exit'=>$shellExitNum) + $this->jsonOutput;
+		fwrite($this->outsStream, json_encode($outData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE).PHP_EOL);
 		$this->jsonOutput = Array();
 	}
 }

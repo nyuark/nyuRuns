@@ -36,21 +36,21 @@ class ClientReg extends Registry{
 	 * @return Array The client values, by name.
 	 */
 	protected function clientSetArray( ServerReg $serverValues, Array $proxyConfArr = Array() ): Array {
-		$agntHedr = strval($serverValues->readValueByKey('http_user_agent'));
-		$peerAddr = strval($serverValues->readValueByKey('remote_addr'));
-		$addrText = $this->findClientAddr($serverValues, $proxyConfArr);
-		$hostText = strval($serverValues->readValueByKey('remote_host'));
+		$uaHeadr = strval($serverValues->readValueByKey('http_user_agent'));
+		$peerAdr = strval($serverValues->readValueByKey('remote_addr'));
+		$addrTxt = $this->findClientAddr($serverValues, $proxyConfArr);
+		$hostTxt = strval($serverValues->readValueByKey('remote_host'));
 		return Array(
-			'userAddr'=>$addrText,
-			'peerAddr'=>$peerAddr,
+			'userAddr'=>$addrTxt,
+			'peerAddr'=>$peerAdr,
 			// Through a proxy, the host name the server tells is the proxy's
-			'userHost'=>($hostText!='' && $addrText==$this->unwrapIpv4Addr($peerAddr)) ? $hostText : $addrText,
+			'userHost'=>($hostTxt!='' && $addrTxt==$this->unwrapIpv4Addr($peerAdr)) ? $hostTxt : $addrTxt,
 			'userSchm'=>$this->proxySchemaTxt($serverValues, $proxyConfArr),
-			'usrAgent'=>$agntHedr,
-			'clSystem'=>$this->findSystemText($agntHedr),
-			'clDevice'=>$this->clientKindText($agntHedr),
+			'usrAgent'=>$uaHeadr,
+			'clSystem'=>$this->findSystemText($uaHeadr),
+			'clDevice'=>$this->clientKindText($uaHeadr),
 			'language'=>$this->getLangsString( strval($serverValues->readValueByKey('http_accept_language')) ),
-			'humanSys'=>$this->locateHumanFlg($agntHedr)
+			'humanSys'=>$this->locateHumanFlg($uaHeadr)
 		);
 	}
 
@@ -65,26 +65,26 @@ class ClientReg extends Registry{
 	 * @return String The address of the client; the one of the connection when no trusted proxy stands in front.
 	 */
 	protected function findClientAddr( ServerReg $serverValues, Array $proxyConfArr ): String {
-		$peerAddr = $this->unwrapIpv4Addr( strval($serverValues->readValueByKey('remote_addr')) );
-		$trstList = $proxyConfArr['list'] ?? Array();
-		if( empty($trstList) || !$this->hasTrustedFlag($peerAddr, $trstList) ){
-			return $peerAddr;
+		$peerAdr = $this->unwrapIpv4Addr( strval($serverValues->readValueByKey('remote_addr')) );
+		$trstLst = $proxyConfArr['list'] ?? Array();
+		if( empty($trstLst) || !$this->hasTrustedFlag($peerAdr, $trstLst) ){
+			return $peerAdr;
 		}
 		// The header as the server registry names it : X-Forwarded-For is http_x_forwarded_for
-		$headClef = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfArr['head'] ?? 'X-Forwarded-For')));
-		$frwdList = array_reverse( array_map('trim', explode(',', strval($serverValues->readValueByKey($headClef)))) );
-		$addrText = $peerAddr;
-		foreach( $frwdList as $fwdAdr ){
+		$headKey = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfArr['head'] ?? 'X-Forwarded-For')));
+		$fwdList = array_reverse( array_map('trim', explode(',', strval($serverValues->readValueByKey($headKey)))) );
+		$addrTxt = $peerAdr;
+		foreach( $fwdList as $fwdAdr ){
 			// What is not an address ends the reading : the last address found is kept
 			if( filter_var($fwdAdr, FILTER_VALIDATE_IP)===false ){
 				break;
 			}
-			$addrText = $this->unwrapIpv4Addr($fwdAdr);
-			if( !$this->hasTrustedFlag($addrText, $trstList) ){
+			$addrTxt = $this->unwrapIpv4Addr($fwdAdr);
+			if( !$this->hasTrustedFlag($addrTxt, $trstLst) ){
 				break;
 			}
 		}
-		return $addrText;
+		return $addrTxt;
 	}
 
 	/**
@@ -97,15 +97,15 @@ class ClientReg extends Registry{
 	 * @return String The scheme; the one of the connection when no trusted proxy tells another.
 	 */
 	protected function proxySchemaTxt( ServerReg $serverValues, Array $proxyConfArr ): String {
-		$scheText = strval($serverValues->readValueByKey('request_scheme'));
-		$trstList = $proxyConfArr['list'] ?? Array();
-		if( empty($trstList) || !$this->hasTrustedFlag(strval($serverValues->readValueByKey('remote_addr')), $trstList) ){
-			return $scheText;
+		$schmStr = strval($serverValues->readValueByKey('request_scheme'));
+		$trstLst = $proxyConfArr['list'] ?? Array();
+		if( empty($trstLst) || !$this->hasTrustedFlag(strval($serverValues->readValueByKey('remote_addr')), $trstLst) ){
+			return $schmStr;
 		}
 		// The header as the server registry names it : X-Forwarded-Proto is http_x_forwarded_proto
-		$headClef = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfArr['schm'] ?? 'X-Forwarded-Proto')));
-		$frwdSche = strtolower(trim(strval($serverValues->readValueByKey($headClef))));
-		return in_array($frwdSche, Array('http', 'https'), true) ? $frwdSche : $scheText;
+		$headKey = 'http_'.str_replace('-', '_', strtolower(strval($proxyConfArr['schm'] ?? 'X-Forwarded-Proto')));
+		$fwdSchm = strtolower(trim(strval($serverValues->readValueByKey($headKey))));
+		return in_array($fwdSchm, Array('http', 'https'), true) ? $fwdSchm : $schmStr;
 	}
 
 	/**
@@ -133,39 +133,39 @@ class ClientReg extends Registry{
 	 * @return Bool True when the address is within the range; false when either is not valid, or not of the same family.
 	 */
 	protected function isAddrInSubnet( String $searchedAddr, String $subnetString ): Bool {
-		$netParte = explode('/', trim($subnetString), 2);
+		$netPart = explode('/', trim($subnetString), 2);
 		// An IPv4 address carried in an IPv6 one is matched as the IPv4 address it is
 		$searchedAddr = $this->unwrapIpv4Addr($searchedAddr);
-		if( !isset($netParte[1]) ){
-			$netParte[0] = $this->unwrapIpv4Addr($netParte[0]);
+		if( !isset($netPart[1]) ){
+			$netPart[0] = $this->unwrapIpv4Addr($netPart[0]);
 		}
-		if( filter_var($searchedAddr, FILTER_VALIDATE_IP)===false || filter_var($netParte[0], FILTER_VALIDATE_IP)===false ){
+		if( filter_var($searchedAddr, FILTER_VALIDATE_IP)===false || filter_var($netPart[0], FILTER_VALIDATE_IP)===false ){
 			return false;
 		}
-		$addrBrut = inet_pton($searchedAddr);
-		$snetBnry = inet_pton($netParte[0]);
-		if( strlen($addrBrut)!=strlen($snetBnry) ){
+		$addrRaw = inet_pton($searchedAddr);
+		$subnBin = inet_pton($netPart[0]);
+		if( strlen($addrRaw)!=strlen($subnBin) ){
 			return false;
 		}
-		$addrBits = strlen($addrBrut)*8;
-		$bitsNumb = $addrBits;
-		if( isset($netParte[1]) ){
-			if( !preg_match('/^\d+$/', $netParte[1]) || intval($netParte[1])>$addrBits ){
+		$maxBits = strlen($addrRaw)*8;
+		$bitsNum = $maxBits;
+		if( isset($netPart[1]) ){
+			if( !preg_match('/^\d+$/', $netPart[1]) || intval($netPart[1])>$maxBits ){
 				return false;
 			}
-			$bitsNumb = intval($netParte[1]);
+			$bitsNum = intval($netPart[1]);
 		}
 		// Whole bytes first, then the bits left of the next one
-		$byteNumb = intdiv($bitsNumb, 8);
-		$restNumb = $bitsNumb % 8;
-		if( substr($addrBrut, 0, $byteNumb)!==substr($snetBnry, 0, $byteNumb) ){
+		$byteNum = intdiv($bitsNum, 8);
+		$restNum = $bitsNum % 8;
+		if( substr($addrRaw, 0, $byteNum)!==substr($subnBin, 0, $byteNum) ){
 			return false;
 		}
-		if( $restNumb==0 ){
+		if( $restNum==0 ){
 			return true;
 		}
-		$maskNumb = (0xFF << (8-$restNumb)) & 0xFF;
-		return (ord($addrBrut[$byteNumb]) & $maskNumb)==(ord($snetBnry[$byteNumb]) & $maskNumb);
+		$maskNum = (0xFF << (8-$restNum)) & 0xFF;
+		return (ord($addrRaw[$byteNum]) & $maskNum)==(ord($subnBin[$byteNum]) & $maskNum);
 	}
 
 	/**
@@ -179,11 +179,11 @@ class ClientReg extends Registry{
 		if( filter_var($searchedAddr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)===false ){
 			return $searchedAddr;
 		}
-		$addrBrut = inet_pton($searchedAddr);
-		if( substr($addrBrut, 0, 12)!==str_repeat("\x00", 10)."\xFF\xFF" ){
+		$addrRaw = inet_pton($searchedAddr);
+		if( substr($addrRaw, 0, 12)!==str_repeat("\x00", 10)."\xFF\xFF" ){
 			return $searchedAddr;
 		}
-		return strval(inet_ntop(substr($addrBrut, 12)));
+		return strval(inet_ntop(substr($addrRaw, 12)));
 	}
 
 	/**
@@ -194,8 +194,8 @@ class ClientReg extends Registry{
 	 */
 	protected function findSystemText( String $userAgentTxt ): String {
 		// Order matters : Android agents also name Linux, iPhone ones also name Mac OS X
-		$systDict = Array('Windows'=>'Windows', 'Android'=>'Android', 'iOS'=>'iPhone|iPad|iPod', 'macOS'=>'Macintosh|Mac OS X', 'ChromeOS'=>'CrOS', 'Linux'=>'Linux');
-		foreach( $systDict as $osName => $osExpr ){
+		$systems = Array('Windows'=>'Windows', 'Android'=>'Android', 'iOS'=>'iPhone|iPad|iPod', 'macOS'=>'Macintosh|Mac OS X', 'ChromeOS'=>'CrOS', 'Linux'=>'Linux');
+		foreach( $systems as $osName => $osExpr ){
 			if( preg_match('/'.$osExpr.'/i', $userAgentTxt) ){
 				return $osName;
 			}
@@ -219,10 +219,10 @@ class ClientReg extends Registry{
 			return 'shadowed';
 		}
 		// Names the AI crawlers and agents give themselves, to be completed as new ones appear
-		$llmBrwsr = Array('GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'CCBot', 'Bytespider', 'Amazonbot', 'meta-externalagent', 'cohere-ai', 'MistralAI-User', 'DuckAssistBot', 'YouBot', 'Diffbot');
-		$llmPttrn = implode('|', array_map('preg_quote', $llmBrwsr));
+		$aiNames = Array('GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'CCBot', 'Bytespider', 'Amazonbot', 'meta-externalagent', 'cohere-ai', 'MistralAI-User', 'DuckAssistBot', 'YouBot', 'Diffbot');
+		$aiPttrn = implode('|', array_map('preg_quote', $aiNames));
 		// Order matters : most AI names also read as robots
-		if( preg_match('/'.$llmPttrn.'/i', $userAgentTxt) ){
+		if( preg_match('/'.$aiPttrn.'/i', $userAgentTxt) ){
 			return 'llmAgent';
 		}
 		if( preg_match('/bot|crawl|spider|slurp/i', $userAgentTxt) ){
@@ -260,7 +260,7 @@ class ClientReg extends Registry{
 	 * @return String The language tag in lower case ('fr-ch'), or an empty string.
 	 */
 	protected function getLangsString( String $acceptLngHdr ): String {
-		$langText = trim( strval(strtok($acceptLngHdr, ',;')) );
-		return strtolower($langText);
+		$langTxt = trim( strval(strtok($acceptLngHdr, ',;')) );
+		return strtolower($langTxt);
 	}
 }

@@ -65,30 +65,30 @@ abstract class Command{
 	 * @throws ShellStop When the sub-command is unknown, or stops itself.
 	 */
 	public function runCalledCount(): Int {
-		$subLstng = $this->subsTableArray();
+		$subList = $this->subsTableArray();
 		if( $this->optionsObj->validateOption('helpText') ){
 			$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
 			return self::EXIT_DONE;
 		}
-		if( isset($subLstng['']) ){
-			$callName = strval($subLstng['']['call'] ?? '');
+		if( isset($subList['']) ){
+			$callNme = strval($subList['']['call'] ?? '');
 		}else{
-			$subTitle = $this->optionsObj->shiftFirstWord();
-			if( $subTitle===null ){
+			$subName = $this->optionsObj->shiftFirstWord();
+			if( $subName===null ){
 				$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
 				return self::EXIT_DONE;
 			}
-			if( !isset($subLstng[$subTitle]) ){
-				$this->terminateShell( 'Unknown sub-command: '.$subTitle, self::EXIT_HELP );
+			if( !isset($subList[$subName]) ){
+				$this->terminateShell( 'Unknown sub-command: '.$subName, self::EXIT_HELP );
 			}
 			// A sub-command the command lists as it runs (one a project declared) names the method it shares with others
-			$callName = strval( $subLstng[$subTitle]['call'] ?? 'invoke'.ucfirst($subTitle) );
+			$callNme = strval( $subList[$subName]['call'] ?? 'invoke'.ucfirst($subName) );
 		}
-		if( !method_exists($this, $callName) ){
-			$this->terminateShell( 'The sub-command is declared but not written: '.$callName, self::EXIT_FAIL );
+		if( !method_exists($this, $callNme) ){
+			$this->terminateShell( 'The sub-command is declared but not written: '.$callNme, self::EXIT_FAIL );
 		}
 		// The method is given the word of its sub-command, which a shared method needs to know which one it runs
-		return intval( $this->$callName( $subTitle ?? '' ) );
+		return intval( $this->$callNme( $subName ?? '' ) );
 	}
 
 	/**
@@ -97,11 +97,11 @@ abstract class Command{
 	 * @return Array Rows of name, arguments and description.
 	 */
 	public function usageRowsArray(): Array {
-		$rowsList = Array();
+		$rowList = Array();
 		foreach( $this->subsTableArray() as $subKey => $subVal ){
-			$rowsList[] = Array( strval($subKey), strval($subVal['args'] ?? ''), strval($subVal['about'] ?? '') );
+			$rowList[] = Array( strval($subKey), strval($subVal['args'] ?? ''), strval($subVal['about'] ?? '') );
 		}
-		return $rowsList;
+		return $rowList;
 	}
 
 	/**
@@ -125,11 +125,11 @@ abstract class Command{
 	 * @throws ShellStop When no word is left.
 	 */
 	protected function needsShellWord( String $wordKindText ): String {
-		$givenWrd = $this->optionsObj->shiftFirstWord();
-		if( $givenWrd===null || $givenWrd==='' ){
+		$gvnWord = $this->optionsObj->shiftFirstWord();
+		if( $gvnWord===null || $gvnWord==='' ){
 			$this->terminateShell( 'Missing argument: '.$wordKindText, self::EXIT_HELP );
 		}
-		return $givenWrd;
+		return $gvnWord;
 	}
 
 	/**
@@ -145,9 +145,9 @@ abstract class Command{
 			return $defaultValue;
 		}
 		$this->printerObj->printShellAsks( $questionText.( $defaultValue!=='' ? ' ['.$defaultValue.']' : '' ).': ' );
-		$givenLne = fgets($this->readStream);
-		$givenTxt = ($givenLne===false) ? '' : trim($givenLne);
-		return ($givenTxt==='') ? $defaultValue : $givenTxt;
+		$gvnLine = fgets($this->readStream);
+		$gvnText = ($gvnLine===false) ? '' : trim($gvnLine);
+		return ($gvnText==='') ? $defaultValue : $gvnText;
 	}
 
 	/**
@@ -165,8 +165,8 @@ abstract class Command{
 			return false;
 		}
 		$this->printerObj->printShellAsks( $questionText.' [y/N]: ' );
-		$givenLne = fgets($this->readStream);
-		return in_array( strtolower(trim(strval($givenLne))), Array('y', 'yes'), true );
+		$gvnLine = fgets($this->readStream);
+		return in_array( strtolower(trim(strval($gvnLine))), Array('y', 'yes'), true );
 	}
 
 	/**
@@ -179,15 +179,15 @@ abstract class Command{
 	 */
 	protected function querySecretTxt( String $questionText ): String {
 		$this->printerObj->printShellAsks( $questionText.': ' );
-		$givenTxt = null;
+		$gvnText = null;
 		if( $this->readStream===STDIN && @stream_isatty(STDIN) ){
-			$givenTxt = (DIRECTORY_SEPARATOR=='\\') ? $this->obtainSecurity() : $this->getStarsString();
+			$gvnText = (DIRECTORY_SEPARATOR=='\\') ? $this->obtainSecurity() : $this->getStarsString();
 		}
-		if( $givenTxt===null ){
-			$givenLne = fgets($this->readStream);
-			$givenTxt = ($givenLne===false) ? '' : rtrim($givenLne, "\r\n");
+		if( $gvnText===null ){
+			$gvnLine = fgets($this->readStream);
+			$gvnText = ($gvnLine===false) ? '' : rtrim($gvnLine, "\r\n");
 		}
-		return $givenTxt;
+		return $gvnText;
 	}
 
 	/**
@@ -197,30 +197,30 @@ abstract class Command{
 	 * @return ?String The secret, or null when the terminal cannot be set for it.
 	 */
 	protected function getStarsString(): ?String {
-		$prevStty = trim( strval(@shell_exec('stty -g 2>/dev/null')) );
-		if( $prevStty=='' ){
+		$sttySav = trim( strval(@shell_exec('stty -g 2>/dev/null')) );
+		if( $sttySav=='' ){
 			return null;
 		}
 		@shell_exec('stty -icanon -echo 2>/dev/null');
-		$givenTxt = '';
+		$gvnText = '';
 		while( true ){
-			$oneChrct = fgetc(STDIN);
-			if( $oneChrct===false || $oneChrct==="\n" || $oneChrct==="\r" ){
+			$oneChar = fgetc(STDIN);
+			if( $oneChar===false || $oneChar==="\n" || $oneChar==="\r" ){
 				break;
 			}
-			if( $oneChrct==="\x7F" || $oneChrct==="\x08" ){
-				if( $givenTxt!=='' ){
-					$givenTxt = substr($givenTxt, 0, -1);
+			if( $oneChar==="\x7F" || $oneChar==="\x08" ){
+				if( $gvnText!=='' ){
+					$gvnText = substr($gvnText, 0, -1);
 					$this->printerObj->printShellAsks("\x08 \x08");
 				}
 				continue;
 			}
-			$givenTxt .= $oneChrct;
+			$gvnText .= $oneChar;
 			$this->printerObj->printShellAsks('*');
 		}
-		@shell_exec('stty '.escapeshellarg($prevStty).' 2>/dev/null');
+		@shell_exec('stty '.escapeshellarg($sttySav).' 2>/dev/null');
 		$this->printerObj->printShellAsks(PHP_EOL);
-		return $givenTxt;
+		return $gvnText;
 	}
 
 	/**
@@ -230,18 +230,18 @@ abstract class Command{
 	 * @return ?String The secret, or null when PowerShell cannot be used: the line is then read as it is typed.
 	 */
 	protected function obtainSecurity(): ?String {
-		$psScript = '[Console]::OutputEncoding=[Text.Encoding]::UTF8;$p=Read-Host -AsSecureString;'
+		$psScrpt = '[Console]::OutputEncoding=[Text.Encoding]::UTF8;$p=Read-Host -AsSecureString;'
 			.'$b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($p);'
 			.'[Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($b))';
-		$pipeList = Array();
-		$procHndl = @proc_open( Array('powershell', '-NoProfile', '-Command', $psScript), Array(0=>STDIN, 1=>Array('pipe', 'w'), 2=>Array('pipe', 'w')), $pipeList );
-		if( !is_resource($procHndl) ){
+		$pipeArr = Array();
+		$process = @proc_open( Array('powershell', '-NoProfile', '-Command', $psScrpt), Array(0=>STDIN, 1=>Array('pipe', 'w'), 2=>Array('pipe', 'w')), $pipeArr );
+		if( !is_resource($process) ){
 			return null;
 		}
-		$givenTxt = stream_get_contents($pipeList[1]);
-		fclose($pipeList[1]);
-		fclose($pipeList[2]);
-		return ( proc_close($procHndl)===0 && is_string($givenTxt) ) ? $givenTxt : null;
+		$gvnText = stream_get_contents($pipeArr[1]);
+		fclose($pipeArr[1]);
+		fclose($pipeArr[2]);
+		return ( proc_close($process)===0 && is_string($gvnText) ) ? $gvnText : null;
 	}
 
 	/**
@@ -261,8 +261,8 @@ abstract class Command{
 	 * @return Array Its values, empty when there is no such block.
 	 */
 	protected function accessSettings( String $blckNamedTxt ): Array {
-		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$blockCfg = ($nyuConfg!==null && $blckNamedTxt!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blckNamedTxt)) : null;
-		return is_array($blockCfg) ? $blockCfg : Array();
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$blckCfg = ($nyuConf!==null && $blckNamedTxt!='') ? $nyuConf->obtainRowValue('ACCESS', strtoupper($blckNamedTxt)) : null;
+		return is_array($blckCfg) ? $blckCfg : Array();
 	}
 }

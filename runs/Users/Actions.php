@@ -36,16 +36,16 @@ class Actions extends Actionset {
 	 * list is empty.
 	 */
 	public function index(): Void {
-		$userBase = $this->userBaseDb;
-		$userList = $userBase->listUsersNamed(
+		$usrBase = $this->userBaseDb;
+		$usrList = $usrBase->listUsersNamed(
 			Array('userStatus'=>$this->inputsRgst->readValueByKey('currStat'), 'accessRole'=>$this->inputsRgst->readValueByKey('saveRole')),
 			intval($this->inputsRgst->readValueByKey('limitVal')),
 			intval($this->inputsRgst->readValueByKey('rowIndex'))
 		);
-		if($userList===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if($usrList===false){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
-		$this->checkActionLst($userList);
+		$this->checkActionLst($usrList);
 	}
 
 	/**
@@ -54,13 +54,13 @@ class Actions extends Actionset {
 	 * and last time seen.
 	 */
 	public function view(): Void {
-		$userBase = $this->userBaseDb;
-		$userVals = $userBase->userInfosArray( $this->givenUsrString(false) );
-		if($userVals===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$userVls = $usrBase->userInfosArray( $this->givenUsrString(false) );
+		if($userVls===false){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $userVals;
+		$this->replyValue = $userVls;
 	}
 
 	/**
@@ -75,28 +75,28 @@ class Actions extends Actionset {
 	 * taken.
 	 */
 	public function create(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->inputsRgst->readValueByKey('userName');
-		if(!is_string($givenUsr) || $givenUsr==''){
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->inputsRgst->readValueByKey('userName');
+		if(!is_string($gvnUser) || $gvnUser==''){
 			$this->stopThisAction(400, 'Invalid userName');
 		}
-		$givenRle = $this->inputsRgst->readValueByKey('saveRole');
-		$givenEml = $this->inputsRgst->readValueByKey('userMail');
-		$givenEml = is_string($givenEml) ? trim($givenEml) : '';
-		$givenLng = $this->inputsRgst->readValueByKey('saveLang');
-		$givenLng = is_string($givenLng) ? $givenLng : null;
-		$mailInst = ($givenEml!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCodig = $userBase->enrolUsrString( $givenUsr, is_string($givenRle) ? $givenRle : '', $givenEml, ($mailInst!==null) ? $userBase->mailedForCount() : UserBase::HAND_MINS, $givenLng );
-		if($newCodig===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
+		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
+		$gvnMail = is_string($gvnMail) ? trim($gvnMail) : '';
+		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
+		$gvnLang = is_string($gvnLang) ? $gvnLang : null;
+		$mailObj = ($gvnMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCode = $usrBase->enrolUsrString( $gvnUser, is_string($gvnRole) ? $gvnRole : '', $gvnMail, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS, $gvnLang );
+		if($newCode===false){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 201;
-		if($mailInst!==null){
+		if($mailObj!==null){
 			// The mail is written in the language given for the user, never in the one of the manager asking
-			$this->replyValue = Array('user'=>$givenUsr, 'mailed'=>$mailInst->sendCodeToUser('activate', $givenUsr, strtolower($givenEml), strval($newCodig), $givenLng));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('activate', $gvnUser, strtolower($gvnMail), strval($newCode), $gvnLang));
 			return;
 		}
-		$this->replyValue = Array('user'=>$givenUsr, 'code'=>$newCodig);
+		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);
 	}
 
 	/**
@@ -105,13 +105,13 @@ class Actions extends Actionset {
 	 * it (users/remove). Reports 409 for a user not awaiting review.
 	 */
 	public function approve(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
-		if(!$userBase->approveNewUser($givenUsr)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(false);
+		if(!$usrBase->approveNewUser($gvnUser)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'stat'=>'approved');
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'approved');
 	}
 
 	/**
@@ -121,18 +121,18 @@ class Actions extends Actionset {
 	 * changing the address of its own user (see needsPasswdLgn).
 	 */
 	public function setmail(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(false);
 		// A device never changes the address of its own user: that needs the password login
-		if( $givenUsr===strval($this->accessRgst->readValueByKey('userName')) ){
+		if( $gvnUser===strval($this->accessRgst->readValueByKey('userName')) ){
 			$this->needsPasswdLgn();
 		}
-		$givenEml = $this->inputsRgst->readValueByKey('userMail');
-		if(!$userBase->changeMailFlag($givenUsr, is_string($givenEml) ? $givenEml : null)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
+		if(!$usrBase->changeMailFlag($gvnUser, is_string($gvnMail) ? $gvnMail : null)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'mail'=>($userBase->userInfosArray($givenUsr) ?: Array())['contactEml'] ?? null);
+		$this->replyValue = Array('user'=>$gvnUser, 'mail'=>($usrBase->userInfosArray($gvnUser) ?: Array())['contactEml'] ?? null);
 	}
 
 	/**
@@ -142,14 +142,14 @@ class Actions extends Actionset {
 	 * Reports 400 for a language that is not a tag (fr, fr-ch).
 	 */
 	public function langs(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
-		$givenLng = $this->inputsRgst->readValueByKey('saveLang');
-		if(!$userBase->changeLanguage($givenUsr, is_string($givenLng) ? $givenLng : null)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(false);
+		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
+		if(!$usrBase->changeLanguage($gvnUser, is_string($gvnLang) ? $gvnLang : null)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'lang'=>($userBase->userInfosArray($givenUsr) ?: Array())['userLocale'] ?? null);
+		$this->replyValue = Array('user'=>$gvnUser, 'lang'=>($usrBase->userInfosArray($gvnUser) ?: Array())['userLocale'] ?? null);
 	}
 
 	/**
@@ -158,26 +158,26 @@ class Actions extends Actionset {
 	 * userbase as its credential store. A manager cannot lock itself.
 	 */
 	public function lock(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
-		if(!$userBase->saveStatusFlag($givenUsr, 'disabled')){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(true);
+		if(!$usrBase->saveStatusFlag($gvnUser, 'disabled')){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'stat'=>'disabled');
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'disabled');
 	}
 
 	/**
 	 * Unlocks the user its path names.
 	 */
 	public function unlock(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
-		if(!$userBase->saveStatusFlag($givenUsr, 'approved')){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(false);
+		if(!$usrBase->saveStatusFlag($gvnUser, 'approved')){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'stat'=>'approved');
+		$this->replyValue = Array('user'=>$gvnUser, 'stat'=>'approved');
 	}
 
 	/**
@@ -185,14 +185,14 @@ class Actions extends Actionset {
 	 * input. A manager cannot change its own role.
 	 */
 	public function role(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
-		$givenRle = $this->inputsRgst->readValueByKey('saveRole');
-		if(!$userBase->changeRoleFlag($givenUsr, is_string($givenRle) ? $givenRle : '')){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(true);
+		$gvnRole = $this->inputsRgst->readValueByKey('saveRole');
+		if(!$usrBase->changeRoleFlag($gvnUser, is_string($gvnRole) ? $gvnRole : '')){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'role'=>$givenRle);
+		$this->replyValue = Array('user'=>$gvnUser, 'role'=>$gvnRole);
 	}
 
 	/**
@@ -200,13 +200,13 @@ class Actions extends Actionset {
 	 * itself.
 	 */
 	public function remove(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
-		if(!$userBase->removeUserFlag($givenUsr)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(true);
+		if(!$usrBase->removeUserFlag($gvnUser)){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'removed'=>true);
+		$this->replyValue = Array('user'=>$gvnUser, 'removed'=>true);
 	}
 
 	/**
@@ -218,22 +218,22 @@ class Actions extends Actionset {
 	 * reset itself.
 	 */
 	public function reset(): Void {
-		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
-		$userDict = $userBase->userInfosArray($givenUsr) ?: Array();
-		$userMail = strval( $userDict['contactEml'] ?? '' );
-		$mailInst = ($userMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCodig = $userBase->resetUsrString( $givenUsr, ($mailInst!==null) ? $userBase->mailedForCount() : UserBase::HAND_MINS );
-		if($newCodig===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		$usrBase = $this->userBaseDb;
+		$gvnUser = $this->givenUsrString(true);
+		$usrInfo = $usrBase->userInfosArray($gvnUser) ?: Array();
+		$usrMail = strval( $usrInfo['contactEml'] ?? '' );
+		$mailObj = ($usrMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCode = $usrBase->resetUsrString( $gvnUser, ($mailObj!==null) ? $usrBase->mailedForCount() : UserBase::HAND_MINS );
+		if($newCode===false){
+			$this->stopThisAction( $usrBase->lastStateCount(), $usrBase->finalErrorText() );
 		}
 		$this->statusCode = 200;
-		if($mailInst!==null){
+		if($mailObj!==null){
 			// The mail is written in the language of the user, never in the one of the manager asking
-			$this->replyValue = Array('user'=>$givenUsr, 'mailed'=>$mailInst->sendCodeToUser('activate', $givenUsr, $userMail, strval($newCodig), $userDict['userLocale'] ?? null));
+			$this->replyValue = Array('user'=>$gvnUser, 'mailed'=>$mailObj->sendCodeToUser('activate', $gvnUser, $usrMail, strval($newCode), $usrInfo['userLocale'] ?? null));
 			return;
 		}
-		$this->replyValue = Array('user'=>$givenUsr, 'code'=>$newCodig);
+		$this->replyValue = Array('user'=>$gvnUser, 'code'=>$newCode);
 	}
 
 	/**
@@ -248,11 +248,11 @@ class Actions extends Actionset {
 	 */
 	protected function setupForAction(): Void {
 		$this->needsActionRle( self::ACTN_ROLE[strtolower($this->actionName)] ?? array_slice(Checker::ROLE_LIST, -1)[0] );
-		$userBase = UserBase::fromLoginBlock();
-		if($userBase===null){
+		$usrBase = UserBase::fromLoginBlock();
+		if($usrBase===null){
 			$this->stopThisAction(500, 'User management unavailable');
 		}
-		$this->userBaseDb = $userBase;
+		$this->userBaseDb = $usrBase;
 	}
 
 	/**
@@ -265,13 +265,13 @@ class Actions extends Actionset {
 	 * @return String The name of the user.
 	 */
 	protected function givenUsrString( Bool $notOnOwnAcnt ): String {
-		$givenUsr = strval( $this->runContext->optionText ?? '' );
-		if($givenUsr==''){
+		$gvnUser = strval( $this->runContext->optionText ?? '' );
+		if($gvnUser==''){
 			$this->stopThisAction(400, 'Invalid user');
 		}
-		if($notOnOwnAcnt && $givenUsr===strval($this->accessRgst->readValueByKey('userName'))){
+		if($notOnOwnAcnt && $gvnUser===strval($this->accessRgst->readValueByKey('userName'))){
 			$this->stopThisAction(409, 'A manager cannot do this to its own account');
 		}
-		return $givenUsr;
+		return $gvnUser;
 	}
 }

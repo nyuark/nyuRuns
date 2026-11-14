@@ -60,124 +60,124 @@ class EPub extends Page {
 	 * @throws WriteError When the shape is neither 'block' nor 'sheet', or the folder of the pictures cannot be read.
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
-		$shapeNme = $this->checkShapeText($dataEnvelope, Array('block', 'sheet'), 'a book');
+		$shapeAs = $this->checkShapeText($dataEnvelope, Array('block', 'sheet'), 'a book');
 		$this->readPictureDir($writeOptions);
 		$this->mediaFiles = Array();
-		$infoList = (array)($dataEnvelope['infos'] ?? Array());
-		$blockLst = ($shapeNme=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
-		$propList = (array)($infoList['props'] ?? Array());
-		$bookTitl = trim(strval(is_scalar($infoList['title'] ?? null) ? $infoList['title'] : (is_scalar($propList['Title'] ?? null) ? $propList['Title'] : '')));
-		$bookAuth = trim(strval(is_scalar($infoList['authr'] ?? null) ? $infoList['authr'] : (is_scalar($propList['Author'] ?? null) ? $propList['Author'] : '')));
-		$langClef = '';
-		foreach(Array($infoList['langg'] ?? '', $propList['Language'] ?? '', $writeOptions['langg'] ?? '', 'en') as $lngTxt){
-			if( $langClef==='' && is_scalar($lngTxt) && preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($lngTxt)) ){
-				$langClef = strval($lngTxt);
+		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
+		$blckLst = ($shapeAs=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$propLst = (array)($infoArr['props'] ?? Array());
+		$bookTtl = trim(strval(is_scalar($infoArr['title'] ?? null) ? $infoArr['title'] : (is_scalar($propLst['Title'] ?? null) ? $propLst['Title'] : '')));
+		$bookAut = trim(strval(is_scalar($infoArr['authr'] ?? null) ? $infoArr['authr'] : (is_scalar($propLst['Author'] ?? null) ? $propLst['Author'] : '')));
+		$langKey = '';
+		foreach(Array($infoArr['langg'] ?? '', $propLst['Language'] ?? '', $writeOptions['langg'] ?? '', 'en') as $lngTxt){
+			if( $langKey==='' && is_scalar($lngTxt) && preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($lngTxt)) ){
+				$langKey = strval($lngTxt);
 			}
 		}
 		// The notes are taken out of the text: each ends the chapter that refers to it
-		$noteList = $this->takeNotesArray($blockLst);
-		$noteList = $noteList['fnote'] + $noteList['enote'];
-		$headNumb = 0;
-		$blockLst = $this->prepareBlckArr(array_values($blockLst), $headNumb);
-		$chapList = $this->chaptersOfList($blockLst, max(0, min(6, intval($writeOptions['split'] ?? 1))), ($bookTitl==='') ? 'Book' : $bookTitl);
-		$usedList = Array();
-		foreach($chapList as $chpIdx=>$chpSet){
+		$noteLst = $this->takeNotesArray($blckLst);
+		$noteLst = $noteLst['fnote'] + $noteLst['enote'];
+		$headNum = 0;
+		$blckLst = $this->prepareBlckArr(array_values($blckLst), $headNum);
+		$chapLst = $this->chaptersOfList($blckLst, max(0, min(6, intval($writeOptions['split'] ?? 1))), ($bookTtl==='') ? 'Book' : $bookTtl);
+		$usedLst = Array();
+		foreach($chapLst as $chpIdx=>$chpSet){
 			foreach($this->notesUsedArray($chpSet['blcks']) as $nteNme){
-				if( isset($noteList[$nteNme]) && !isset($usedList[$nteNme]) ){
-					$usedList[$nteNme] = true;
-					$chapList[$chpIdx]['blcks'][] = $this->prepareBlckArr(Array($noteList[$nteNme]), $headNumb)[0];
+				if( isset($noteLst[$nteNme]) && !isset($usedLst[$nteNme]) ){
+					$usedLst[$nteNme] = true;
+					$chapLst[$chpIdx]['blcks'][] = $this->prepareBlckArr(Array($noteLst[$nteNme]), $headNum)[0];
 				}
 			}
 		}
 		// A note the text never referred to is not lost: it ends the book
-		foreach(array_diff_key($noteList, $usedList) as $nteBlk){
-			$chapList[count($chapList)-1]['blcks'][] = $this->prepareBlckArr(Array($nteBlk), $headNumb)[0];
+		foreach(array_diff_key($noteLst, $usedLst) as $nteBlk){
+			$chapLst[count($chapLst)-1]['blcks'][] = $this->prepareBlckArr(Array($nteBlk), $headNum)[0];
 		}
 		// Where each named place stands, for the links that point to a place of another chapter
-		$placeLst = Array();
-		foreach($chapList as $chpIdx=>$chpSet){
+		$plcList = Array();
+		foreach($chapLst as $chpIdx=>$chpSet){
 			foreach($this->listNamedPlace($chpSet['blcks']) as $plcNme){
-				$placeLst[$plcNme] = $placeLst[$plcNme] ?? 'chap'.($chpIdx+1).'.xhtml';
+				$plcList[$plcNme] = $plcList[$plcNme] ?? 'chap'.($chpIdx+1).'.xhtml';
 			}
 		}
-		$htmlInst = new Html();
-		$fileList = Array();
-		$itemText = '';
-		$spineTxt = '';
-		$pageHead = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<!DOCTYPE html>'."\n".'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="'.$langClef.'" xml:lang="'.$langClef.'">'."\n".'<head>'."\n".'<meta charset="utf-8"/>'."\n";
+		$htmlObj = new Html();
+		$fileLst = Array();
+		$itemTxt = '';
+		$spinTxt = '';
+		$pageTop = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<!DOCTYPE html>'."\n".'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="'.$langKey.'" xml:lang="'.$langKey.'">'."\n".'<head>'."\n".'<meta charset="utf-8"/>'."\n";
 		// The cover: a picture of the folder, shown on a page of its own before the first chapter
-		$covrDict = null;
-		foreach(Array($writeOptions['cover'] ?? '', $infoList['cover'] ?? '') as $cvrNme){
-			if( $covrDict===null && is_scalar($cvrNme) && strval($cvrNme)!=='' ){
-				$covrDict = $this->pictureReadArr(strval($cvrNme));
+		$covrSet = null;
+		foreach(Array($writeOptions['cover'] ?? '', $infoArr['cover'] ?? '') as $cvrNme){
+			if( $covrSet===null && is_scalar($cvrNme) && strval($cvrNme)!=='' ){
+				$covrSet = $this->pictureReadArr(strval($cvrNme));
 			}
 		}
-		$coverNme = ($covrDict===null) ? '' : $this->givePictureNme($covrDict);
-		if( $coverNme!=='' ){
-			$fileList[self::BOOK_ROOT.'cover.xhtml'] = $pageHead.'<title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n"
-				.'<body class="cover" epub:type="cover">'."\n".'<img src="'.$coverNme.'" alt="'.$this->escapeXmlValue(($bookTitl==='') ? 'Cover' : $bookTitl).'"/>'."\n".'</body>'."\n".'</html>'."\n";
-			$itemText .= '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>';
-			$spineTxt .= '<itemref idref="cover"/>';
+		$cvrName = ($covrSet===null) ? '' : $this->givePictureNme($covrSet);
+		if( $cvrName!=='' ){
+			$fileLst[self::BOOK_ROOT.'cover.xhtml'] = $pageTop.'<title>'.$this->escapeXmlValue(($bookTtl==='') ? 'Book' : $bookTtl).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n"
+				.'<body class="cover" epub:type="cover">'."\n".'<img src="'.$cvrName.'" alt="'.$this->escapeXmlValue(($bookTtl==='') ? 'Cover' : $bookTtl).'"/>'."\n".'</body>'."\n".'</html>'."\n";
+			$itemTxt .= '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>';
+			$spinTxt .= '<itemref idref="cover"/>';
 		}
-		$headList = Array();
-		$tocDepth = max(1, min(6, intval($writeOptions['depth'] ?? 2)));
-		foreach($chapList as $chpIdx=>$chpSet){
-			$pageName = 'chap'.($chpIdx+1).'.xhtml';
-			$chptDict = $this->linkPlaceArray($chpSet['blcks'], $placeLst, $pageName);
-			$bodyHtml = $htmlInst->renderDocument(Array('shape'=>'block', 'infos'=>Array('frmat'=>(array)($infoList['frmat'] ?? Array())), 'items'=>$chptDict), Array('xhtml'=>true, 'frmat'=>false));
+		$headLst = Array();
+		$tocDeep = max(1, min(6, intval($writeOptions['depth'] ?? 2)));
+		foreach($chapLst as $chpIdx=>$chpSet){
+			$pageNme = 'chap'.($chpIdx+1).'.xhtml';
+			$chapter = $this->linkPlaceArray($chpSet['blcks'], $plcList, $pageNme);
+			$bodyHtm = $htmlObj->renderDocument(Array('shape'=>'block', 'infos'=>Array('frmat'=>(array)($infoArr['frmat'] ?? Array())), 'items'=>$chapter), Array('xhtml'=>true, 'frmat'=>false));
 			// A reference to a note and the note itself tell what they are: a reader that knows how opens the note in place
-			$bodyHtml = strval(preg_replace(Array('/<a href="([^"#]*#[fe]note\d+)">/', '/<aside id="fnote(\d+)"/', '/<aside id="enote(\d+)"/'), Array('<a epub:type="noteref" href="$1">', '<aside epub:type="footnote" id="fnote$1"', '<aside epub:type="endnote" id="enote$1"'), $bodyHtml));
-			$fileList[self::BOOK_ROOT.$pageName] = $pageHead.'<title>'.$this->escapeXmlValue($chpSet['title']).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n".'<body>'."\n".$bodyHtml.'</body>'."\n".'</html>'."\n";
-			$itemText .= '<item id="chap'.($chpIdx+1).'" href="'.$pageName.'" media-type="application/xhtml+xml"/>';
-			$spineTxt .= '<itemref idref="chap'.($chpIdx+1).'"/>';
+			$bodyHtm = strval(preg_replace(Array('/<a href="([^"#]*#[fe]note\d+)">/', '/<aside id="fnote(\d+)"/', '/<aside id="enote(\d+)"/'), Array('<a epub:type="noteref" href="$1">', '<aside epub:type="footnote" id="fnote$1"', '<aside epub:type="endnote" id="enote$1"'), $bodyHtm));
+			$fileLst[self::BOOK_ROOT.$pageNme] = $pageTop.'<title>'.$this->escapeXmlValue($chpSet['title']).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n".'<body>'."\n".$bodyHtm.'</body>'."\n".'</html>'."\n";
+			$itemTxt .= '<item id="chap'.($chpIdx+1).'" href="'.$pageNme.'" media-type="application/xhtml+xml"/>';
+			$spinTxt .= '<itemref idref="chap'.($chpIdx+1).'"/>';
 			// The headings of the chapter, for the table of contents
-			foreach($chptDict as $oneBlk){
-				if( $oneBlk['block']=='headline' && intval($oneBlk['attrs']['level'] ?? 1)<=$tocDepth && trim($oneBlk['plain'])!=='' ){
-					$headList[] = Array('level'=>max(1, intval($oneBlk['attrs']['level'] ?? 1)), 'title'=>trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))), 'links'=>$pageName.'#'.$oneBlk['attrs']['tagid']);
+			foreach($chapter as $oneBlk){
+				if( $oneBlk['block']=='headline' && intval($oneBlk['attrs']['level'] ?? 1)<=$tocDeep && trim($oneBlk['plain'])!=='' ){
+					$headLst[] = Array('level'=>max(1, intval($oneBlk['attrs']['level'] ?? 1)), 'title'=>trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))), 'links'=>$pageNme.'#'.$oneBlk['attrs']['tagid']);
 				}
 			}
 		}
 		// A book without headings still has a table of contents: its chapters
-		if( empty($headList) ){
-			foreach($chapList as $chpIdx=>$chpSet){
-				$headList[] = Array('level'=>1, 'title'=>$chpSet['title'], 'links'=>'chap'.($chpIdx+1).'.xhtml');
+		if( empty($headLst) ){
+			foreach($chapLst as $chpIdx=>$chpSet){
+				$headLst[] = Array('level'=>1, 'title'=>$chpSet['title'], 'links'=>'chap'.($chpIdx+1).'.xhtml');
 			}
 		}
-		$headTree = $this->headsTreeArray($headList);
+		$hedTree = $this->headsTreeArray($headLst);
 		// The pictures, each written once, and told for what it is; the cover is told as such, in the two ways readers look for it
-		$covrIdnt = '';
+		$cvrIdnt = '';
 		foreach(array_values($this->mediaFiles) as $medIdx=>$medSet){
-			$fileList[self::BOOK_ROOT.$medSet[0]] = $medSet[1];
-			$itemText .= '<item id="img'.($medIdx+1).'" href="'.$medSet[0].'" media-type="'.self::PICT_LIST[substr($medSet[0], intval(strrpos($medSet[0], '.'))+1)].'"'.(($medSet[0]===$coverNme) ? ' properties="cover-image"' : '').'/>';
-			$covrIdnt = ($medSet[0]===$coverNme) ? 'img'.($medIdx+1) : $covrIdnt;
+			$fileLst[self::BOOK_ROOT.$medSet[0]] = $medSet[1];
+			$itemTxt .= '<item id="img'.($medIdx+1).'" href="'.$medSet[0].'" media-type="'.self::PICT_LIST[substr($medSet[0], intval(strrpos($medSet[0], '.'))+1)].'"'.(($medSet[0]===$cvrName) ? ' properties="cover-image"' : '').'/>';
+			$cvrIdnt = ($medSet[0]===$cvrName) ? 'img'.($medIdx+1) : $cvrIdnt;
 		}
-		$bookIdnt = $this->bookIdntString($propList, $bookTitl.'|'.$bookAuth.'|'.Shape::documentAsText($blockLst));
-		$headBrut = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
-		$metaText = '<dc:identifier id="bookid">'.$this->escapeXmlValue($bookIdnt).'</dc:identifier><dc:title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</dc:title><dc:language>'.$langClef.'</dc:language>'
-			.(($bookAuth==='') ? '' : '<dc:creator>'.$this->escapeXmlValue($bookAuth).'</dc:creator>');
+		$bokIdnt = $this->bookIdntString($propLst, $bookTtl.'|'.$bookAut.'|'.Shape::documentAsText($blckLst));
+		$headXml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+		$metaTxt = '<dc:identifier id="bookid">'.$this->escapeXmlValue($bokIdnt).'</dc:identifier><dc:title>'.$this->escapeXmlValue(($bookTtl==='') ? 'Book' : $bookTtl).'</dc:title><dc:language>'.$langKey.'</dc:language>'
+			.(($bookAut==='') ? '' : '<dc:creator>'.$this->escapeXmlValue($bookAut).'</dc:creator>');
 		foreach(Array('Subject'=>'dc:subject', 'Comments'=>'dc:description', 'Publisher'=>'dc:publisher', 'Rights'=>'dc:rights') as $prpNme=>$xmlTag){
-			$metaText .= (is_scalar($propList[$prpNme] ?? null) && trim(strval($propList[$prpNme]))!=='') ? '<'.$xmlTag.'>'.$this->escapeXmlValue(trim(strval($propList[$prpNme]))).'</'.$xmlTag.'>' : '';
+			$metaTxt .= (is_scalar($propLst[$prpNme] ?? null) && trim(strval($propLst[$prpNme]))!=='') ? '<'.$xmlTag.'>'.$this->escapeXmlValue(trim(strval($propLst[$prpNme]))).'</'.$xmlTag.'>' : '';
 		}
-		foreach(is_scalar($propList['Keywords'] ?? null) ? array_filter(array_map('trim', explode(',', strval($propList['Keywords']))), 'strlen') : Array() as $keyWrd){
-			$metaText .= '<dc:subject>'.$this->escapeXmlValue($keyWrd).'</dc:subject>';
+		foreach(is_scalar($propLst['Keywords'] ?? null) ? array_filter(array_map('trim', explode(',', strval($propLst['Keywords']))), 'strlen') : Array() as $keyWrd){
+			$metaTxt .= '<dc:subject>'.$this->escapeXmlValue($keyWrd).'</dc:subject>';
 		}
-		$fileList = Array(
+		$fileLst = Array(
 			'mimetype'=>self::FILE_KIND,
-			'META-INF/container.xml'=>$headBrut.'<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="'.self::BOOK_ROOT.'content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>',
-			self::BOOK_ROOT.'content.opf'=>$headBrut.'<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="'.$langClef.'"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'.$metaText
-				.'<meta property="dcterms:modified">'.gmdate('Y-m-d\TH:i:s\Z').'</meta>'.(($covrIdnt==='') ? '' : '<meta name="cover" content="'.$covrIdnt.'"/>').'</metadata>'
-				.'<manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/><item id="css" href="style.css" media-type="text/css"/>'.$itemText.'</manifest>'
-				.'<spine toc="ncx">'.$spineTxt.'</spine></package>',
-			self::BOOK_ROOT.'nav.xhtml'=>$headBrut.'<!DOCTYPE html>'."\n".'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="'.$langClef.'" xml:lang="'.$langClef.'">'."\n"
-				.'<head>'."\n".'<meta charset="utf-8"/>'."\n".'<title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n"
-				.'<body>'."\n".'<nav epub:type="toc" id="toc">'."\n".'<h1>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</h1>'."\n".$this->navigationPart($headTree).'</nav>'."\n".'</body>'."\n".'</html>'."\n",
-			self::BOOK_ROOT.'toc.ncx'=>$headBrut.'<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="'.$this->escapeXmlValue($bookIdnt).'"/><meta name="dtb:depth" content="'.$tocDepth.'"/><meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head>'
-				.'<docTitle><text>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</text></docTitle><navMap>'.$this->ncxOfPieceText($headTree).'</navMap></ncx>',
-			self::BOOK_ROOT.'style.css'=>$this->stylePieceText((array)($infoList['frmat'] ?? Array()))
-		) + $fileList;
+			'META-INF/container.xml'=>$headXml.'<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="'.self::BOOK_ROOT.'content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>',
+			self::BOOK_ROOT.'content.opf'=>$headXml.'<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="'.$langKey.'"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'.$metaTxt
+				.'<meta property="dcterms:modified">'.gmdate('Y-m-d\TH:i:s\Z').'</meta>'.(($cvrIdnt==='') ? '' : '<meta name="cover" content="'.$cvrIdnt.'"/>').'</metadata>'
+				.'<manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/><item id="css" href="style.css" media-type="text/css"/>'.$itemTxt.'</manifest>'
+				.'<spine toc="ncx">'.$spinTxt.'</spine></package>',
+			self::BOOK_ROOT.'nav.xhtml'=>$headXml.'<!DOCTYPE html>'."\n".'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="'.$langKey.'" xml:lang="'.$langKey.'">'."\n"
+				.'<head>'."\n".'<meta charset="utf-8"/>'."\n".'<title>'.$this->escapeXmlValue(($bookTtl==='') ? 'Book' : $bookTtl).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n"
+				.'<body>'."\n".'<nav epub:type="toc" id="toc">'."\n".'<h1>'.$this->escapeXmlValue(($bookTtl==='') ? 'Book' : $bookTtl).'</h1>'."\n".$this->navigationPart($hedTree).'</nav>'."\n".'</body>'."\n".'</html>'."\n",
+			self::BOOK_ROOT.'toc.ncx'=>$headXml.'<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="'.$this->escapeXmlValue($bokIdnt).'"/><meta name="dtb:depth" content="'.$tocDeep.'"/><meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head>'
+				.'<docTitle><text>'.$this->escapeXmlValue(($bookTtl==='') ? 'Book' : $bookTtl).'</text></docTitle><navMap>'.$this->ncxOfPieceText($hedTree).'</navMap></ncx>',
+			self::BOOK_ROOT.'style.css'=>$this->stylePieceText((array)($infoArr['frmat'] ?? Array()))
+		) + $fileLst;
 		try{
 			// The first entry tells what the file is, and is kept as it is
-			return Archv::newBytesString($fileList, Array('mimetype'));
+			return Archv::newBytesString($fileLst, Array('mimetype'));
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Book that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -192,13 +192,13 @@ class EPub extends Page {
 	 * @return String The identifier.
 	 */
 	protected function bookIdntString(Array $propertyList, String $bookContents): String {
-		$tldIdent = is_scalar($propertyList['Identifier'] ?? null) ? trim(strval(preg_replace('/[\x00-\x20]+/', ' ', strval($propertyList['Identifier'])))) : '';
-		if( $tldIdent!=='' ){
-			return substr($tldIdent, 0, 200);
+		$tldIdnt = is_scalar($propertyList['Identifier'] ?? null) ? trim(strval(preg_replace('/[\x00-\x20]+/', ' ', strval($propertyList['Identifier'])))) : '';
+		if( $tldIdnt!=='' ){
+			return substr($tldIdnt, 0, 200);
 		}
 		// An identifier written as those made from a name are: five groups of digits, the third and the fourth telling so
-		$hashText = sha1('nyuRuns book|'.$bookContents);
-		return 'urn:uuid:'.substr($hashText, 0, 8).'-'.substr($hashText, 8, 4).'-5'.substr($hashText, 13, 3).'-'.dechex((hexdec($hashText[16]) & 0x3) | 0x8).substr($hashText, 17, 3).'-'.substr($hashText, 20, 12);
+		$hashTxt = sha1('nyuRuns book|'.$bookContents);
+		return 'urn:uuid:'.substr($hashTxt, 0, 8).'-'.substr($hashTxt, 8, 4).'-5'.substr($hashTxt, 13, 3).'-'.dechex((hexdec($hashTxt[16]) & 0x3) | 0x8).substr($hashTxt, 17, 3).'-'.substr($hashTxt, 20, 12);
 	}
 
 	/**
@@ -214,44 +214,44 @@ class EPub extends Page {
 	 * @return Array The blocks, ready.
 	 */
 	protected function prepareBlckArr(Array $bookBlockSet, Int &$headingCount): Array {
-		$doneList = Array();
+		$doneLst = Array();
 		foreach($bookBlockSet as $oneBlk){
 			if( !is_array($oneBlk) || !isset($oneBlk['block']) ){
 				continue;
 			}
-			$blockCod = strval($oneBlk['block']);
-			$attrDict = (array)($oneBlk['attrs'] ?? Array());
-			$spanList = Array();
+			$blckKnd = strval($oneBlk['block']);
+			$attrSet = (array)($oneBlk['attrs'] ?? Array());
+			$spanLst = Array();
 			foreach((array)($oneBlk['spans'] ?? Array()) as $oneSpn){
 				if( is_array($oneSpn) ){
-					$spanList[] = Shape::makeASpanArray(strval($oneSpn['texts'] ?? ''), (array)($oneSpn['marks'] ?? Array()), is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
+					$spanLst[] = Shape::makeASpanArray(strval($oneSpn['texts'] ?? ''), (array)($oneSpn['marks'] ?? Array()), is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
 				}
 			}
-			if( $blockCod=='headline' && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrDict['tagid'] ?? '')) ){
+			if( $blckKnd=='headline' && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrSet['tagid'] ?? '')) ){
 				$headingCount++;
-				$attrDict['tagid'] = 'sec-'.$headingCount;
+				$attrSet['tagid'] = 'sec-'.$headingCount;
 			}
-			if( $blockCod=='listItem' && isset($attrDict['check']) ){
-				array_unshift($spanList, Shape::makeASpanArray(empty($attrDict['check']) ? "\u{2610} " : "\u{2611} "));
-				unset($attrDict['check']);
+			if( $blckKnd=='listItem' && isset($attrSet['check']) ){
+				array_unshift($spanLst, Shape::makeASpanArray(empty($attrSet['check']) ? "\u{2610} " : "\u{2611} "));
+				unset($attrSet['check']);
 			}
-			if( $blockCod=='imageBox' ){
-				$pictDict = $this->pictureReadArr(is_scalar($attrDict['sourc'] ?? '') ? strval($attrDict['sourc'] ?? '') : '');
-				$pictName = ($pictDict===null) ? '' : $this->givePictureNme($pictDict);
-				if( $pictName==='' ){
-					$blockCod = 'paragrph';
-					unset($attrDict['sourc']);
+			if( $blckKnd=='imageBox' ){
+				$pctrSet = $this->pictureReadArr(is_scalar($attrSet['sourc'] ?? '') ? strval($attrSet['sourc'] ?? '') : '');
+				$pctrNme = ($pctrSet===null) ? '' : $this->givePictureNme($pctrSet);
+				if( $pctrNme==='' ){
+					$blckKnd = 'paragrph';
+					unset($attrSet['sourc']);
 				}else{
-					$attrDict['sourc'] = $pictName;
+					$attrSet['sourc'] = $pctrNme;
 				}
 			}
 			// A name a page of XHTML would refuse is not written
-			if( isset($attrDict['tagid']) && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrDict['tagid'])) ){
-				unset($attrDict['tagid']);
+			if( isset($attrSet['tagid']) && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrSet['tagid'])) ){
+				unset($attrSet['tagid']);
 			}
-			$doneList[] = Shape::makeBlockArray($blockCod, $spanList, $this->prepareBlckArr((array)($oneBlk['items'] ?? Array()), $headingCount), $attrDict);
+			$doneLst[] = Shape::makeBlockArray($blckKnd, $spanLst, $this->prepareBlckArr((array)($oneBlk['items'] ?? Array()), $headingCount), $attrSet);
 		}
-		return $doneList;
+		return $doneLst;
 	}
 
 	/**
@@ -262,14 +262,14 @@ class EPub extends Page {
 	 * @return String Its name in the book; '' when the pictures of the book would then be more than a book may hold.
 	 */
 	protected function givePictureNme(Array $pictureArray): String {
-		$pictClef = sha1($pictureArray['bytes']);
-		if( !isset($this->mediaFiles[$pictClef]) ){
+		$pctrKey = sha1($pictureArray['bytes']);
+		if( !isset($this->mediaFiles[$pctrKey]) ){
 			if( array_sum(array_map(function(Array $mediaItemArr){ return strlen($mediaItemArr[1]); }, $this->mediaFiles))+strlen($pictureArray['bytes'])>self::MEDI_MAXI ){
 				return '';
 			}
-			$this->mediaFiles[$pictClef] = Array('images/image'.(count($this->mediaFiles)+1).'.'.$pictureArray['kinds'], $pictureArray['bytes']);
+			$this->mediaFiles[$pctrKey] = Array('images/image'.(count($this->mediaFiles)+1).'.'.$pictureArray['kinds'], $pictureArray['bytes']);
 		}
-		return $this->mediaFiles[$pictClef][0];
+		return $this->mediaFiles[$pctrKey][0];
 	}
 
 	/**
@@ -282,15 +282,15 @@ class EPub extends Page {
 	 * @return Array The chapters, each with its title under 'title' and its blocks under 'blcks'; one at least.
 	 */
 	protected function chaptersOfList(Array $bookBlockSet, Int $splitLevelNb, String $bookTitleTxt): Array {
-		$chapList = Array();
+		$chapLst = Array();
 		foreach($bookBlockSet as $oneBlk){
-			$isNewFle = ($oneBlk['block']=='headline' && $splitLevelNb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLevelNb && trim($oneBlk['plain'])!=='');
-			if( $isNewFle || empty($chapList) ){
-				$chapList[] = Array('title'=>$isNewFle ? trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))) : $bookTitleTxt, 'blcks'=>Array());
+			$isStart = ($oneBlk['block']=='headline' && $splitLevelNb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLevelNb && trim($oneBlk['plain'])!=='');
+			if( $isStart || empty($chapLst) ){
+				$chapLst[] = Array('title'=>$isStart ? trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))) : $bookTitleTxt, 'blcks'=>Array());
 			}
-			$chapList[count($chapList)-1]['blcks'][] = $oneBlk;
+			$chapLst[count($chapLst)-1]['blcks'][] = $oneBlk;
 		}
-		return empty($chapList) ? Array(Array('title'=>$bookTitleTxt, 'blcks'=>Array())) : $chapList;
+		return empty($chapLst) ? Array(Array('title'=>$bookTitleTxt, 'blcks'=>Array())) : $chapLst;
 	}
 
 	/**
@@ -300,16 +300,16 @@ class EPub extends Page {
 	 * @return Array The names of the notes.
 	 */
 	protected function notesUsedArray(Array $bookBlockSet): Array {
-		$nameList = Array();
+		$nameLst = Array();
 		foreach($bookBlockSet as $oneBlk){
 			foreach($oneBlk['spans'] as $oneSpn){
 				if( preg_match('/^#([fe]note\d+)$/D', $oneSpn['links']) ){
-					$nameList[] = substr($oneSpn['links'], 1);
+					$nameLst[] = substr($oneSpn['links'], 1);
 				}
 			}
-			$nameList = array_merge($nameList, $this->notesUsedArray($oneBlk['items']));
+			$nameLst = array_merge($nameLst, $this->notesUsedArray($oneBlk['items']));
 		}
-		return $nameList;
+		return $nameLst;
 	}
 
 	/**
@@ -319,14 +319,14 @@ class EPub extends Page {
 	 * @return Array The names of the places.
 	 */
 	protected function listNamedPlace(Array $bookBlockSet): Array {
-		$nameList = Array();
+		$nameLst = Array();
 		foreach($bookBlockSet as $oneBlk){
 			if( strval($oneBlk['attrs']['tagid'] ?? '')!=='' ){
-				$nameList[] = strval($oneBlk['attrs']['tagid']);
+				$nameLst[] = strval($oneBlk['attrs']['tagid']);
 			}
-			$nameList = array_merge($nameList, $this->listNamedPlace($oneBlk['items']));
+			$nameLst = array_merge($nameLst, $this->listNamedPlace($oneBlk['items']));
 		}
-		return $nameList;
+		return $nameLst;
 	}
 
 	/**
@@ -341,9 +341,9 @@ class EPub extends Page {
 	protected function linkPlaceArray(Array $bookBlockSet, Array $placePageMap, String $thisPageName): Array {
 		foreach($bookBlockSet as $blkIdx=>$oneBlk){
 			foreach($oneBlk['spans'] as $spnIdx=>$oneSpn){
-				$placeNme = (substr($oneSpn['links'], 0, 1)=='#') ? substr($oneSpn['links'], 1) : '';
-				if( $placeNme!=='' && isset($placePageMap[$placeNme]) && $placePageMap[$placeNme]!==$thisPageName ){
-					$bookBlockSet[$blkIdx]['spans'][$spnIdx]['links'] = $placePageMap[$placeNme].'#'.$placeNme;
+				$plcName = (substr($oneSpn['links'], 0, 1)=='#') ? substr($oneSpn['links'], 1) : '';
+				if( $plcName!=='' && isset($placePageMap[$plcName]) && $placePageMap[$plcName]!==$thisPageName ){
+					$bookBlockSet[$blkIdx]['spans'][$spnIdx]['links'] = $placePageMap[$plcName].'#'.$plcName;
 				}
 			}
 			$bookBlockSet[$blkIdx]['items'] = $this->linkPlaceArray($oneBlk['items'], $placePageMap, $thisPageName);
@@ -359,22 +359,22 @@ class EPub extends Page {
 	 * @return Array The headings of the highest level met, each with those it holds under 'holds'.
 	 */
 	protected function headsTreeArray(Array $headingsList): Array {
-		$treeList = Array();
+		$treeLst = Array();
 		// The way down to the heading being filled: each step is the list a heading of that depth goes into
-		$pathList = Array(&$treeList);
-		$lvlsList = Array();
+		$pathLst = Array(&$treeLst);
+		$lvlsLst = Array();
 		foreach($headingsList as $oneHdr){
-			while( !empty($lvlsList) && end($lvlsList)>=$oneHdr['level'] ){
-				array_pop($lvlsList);
-				array_pop($pathList);
+			while( !empty($lvlsLst) && end($lvlsLst)>=$oneHdr['level'] ){
+				array_pop($lvlsLst);
+				array_pop($pathLst);
 			}
-			$nowLstng = &$pathList[count($pathList)-1];
-			$nowLstng[] = Array('title'=>$oneHdr['title'], 'links'=>$oneHdr['links'], 'holds'=>Array());
-			$lvlsList[] = $oneHdr['level'];
-			$pathList[] = &$nowLstng[count($nowLstng)-1]['holds'];
-			unset($nowLstng);
+			$nowList = &$pathLst[count($pathLst)-1];
+			$nowList[] = Array('title'=>$oneHdr['title'], 'links'=>$oneHdr['links'], 'holds'=>Array());
+			$lvlsLst[] = $oneHdr['level'];
+			$pathLst[] = &$nowList[count($nowList)-1]['holds'];
+			unset($nowList);
 		}
-		return $treeList;
+		return $treeLst;
 	}
 
 	/**
@@ -385,11 +385,11 @@ class EPub extends Page {
 	 * @return String The lists.
 	 */
 	protected function navigationPart(Array $headingsTree): String {
-		$listText = '<ol>'."\n";
+		$listTxt = '<ol>'."\n";
 		foreach($headingsTree as $oneHdr){
-			$listText .= '<li><a href="'.$this->escapeXmlValue($oneHdr['links']).'">'.$this->escapeXmlValue($oneHdr['title']).'</a>'.(empty($oneHdr['holds']) ? '' : "\n".$this->navigationPart($oneHdr['holds'])).'</li>'."\n";
+			$listTxt .= '<li><a href="'.$this->escapeXmlValue($oneHdr['links']).'">'.$this->escapeXmlValue($oneHdr['title']).'</a>'.(empty($oneHdr['holds']) ? '' : "\n".$this->navigationPart($oneHdr['holds'])).'</li>'."\n";
 		}
-		return $listText.'</ol>'."\n";
+		return $listTxt.'</ol>'."\n";
 	}
 
 	/**
@@ -401,12 +401,12 @@ class EPub extends Page {
 	 * @return String The points.
 	 */
 	protected function ncxOfPieceText(Array $headingsTree, Int &$playOrderNum=0): String {
-		$pntsText = '';
+		$pntsTxt = '';
 		foreach($headingsTree as $oneHdr){
 			$playOrderNum++;
-			$pntsText .= '<navPoint id="np'.$playOrderNum.'" playOrder="'.$playOrderNum.'"><navLabel><text>'.$this->escapeXmlValue($oneHdr['title']).'</text></navLabel><content src="'.$this->escapeXmlValue($oneHdr['links']).'"/>'.$this->ncxOfPieceText($oneHdr['holds'], $playOrderNum).'</navPoint>';
+			$pntsTxt .= '<navPoint id="np'.$playOrderNum.'" playOrder="'.$playOrderNum.'"><navLabel><text>'.$this->escapeXmlValue($oneHdr['title']).'</text></navLabel><content src="'.$this->escapeXmlValue($oneHdr['links']).'"/>'.$this->ncxOfPieceText($oneHdr['holds'], $playOrderNum).'</navPoint>';
 		}
-		return $pntsText;
+		return $pntsTxt;
 	}
 
 	/**
@@ -418,9 +418,9 @@ class EPub extends Page {
 	 * @return String The style sheet.
 	 */
 	protected function stylePieceText(Array $styleFormats): String {
-		$cssRules = Array();
-		$cssStrng = (new Html())->renderDocument(Array('shape'=>'block', 'infos'=>Array('frmat'=>$styleFormats), 'items'=>Array()), Array('xhtml'=>true, 'frmat'=>true));
-		return self::BASE_STYL.(preg_match('/<style>\n(.*)\n<\/style>/s', $cssStrng, $cssRules) ? $cssRules[1]."\n" : '');
+		$cssList = Array();
+		$cssText = (new Html())->renderDocument(Array('shape'=>'block', 'infos'=>Array('frmat'=>$styleFormats), 'items'=>Array()), Array('xhtml'=>true, 'frmat'=>true));
+		return self::BASE_STYL.(preg_match('/<style>\n(.*)\n<\/style>/s', $cssText, $cssList) ? $cssList[1]."\n" : '');
 	}
 
 }

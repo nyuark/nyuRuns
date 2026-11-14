@@ -100,22 +100,22 @@ function treatException( Throwable $exceptionObj ): Bool
         http_response_code(500);
     }
 
-    $errorTxt = get_class($exceptionObj) . ' (code ' . $exceptionObj->getCode() . '): ' . $exceptionObj->getMessage();
+    $errMssg = get_class($exceptionObj) . ' (code ' . $exceptionObj->getCode() . '): ' . $exceptionObj->getMessage();
 
     // Answer in the configured output format when a responder is registered
-    if( replyWithError('E_EXCEPTION', $errorTxt, $exceptionObj->getFile(), $exceptionObj->getLine(), $exceptionObj->getTrace()) )
+    if( replyWithError('E_EXCEPTION', $errMssg, $exceptionObj->getFile(), $exceptionObj->getLine(), $exceptionObj->getTrace()) )
         return true;
 
     if( isset($GLOBALS['ErrorCallback']))
     {
         // Parse and pass exceptions up to the standard error callback, under their own level.
-        $GLOBALS['ErrorCallback']('E_EXCEPTION', $errorTxt, $exceptionObj->getFile(), $exceptionObj->getLine(), $exceptionObj->getTrace());
+        $GLOBALS['ErrorCallback']('E_EXCEPTION', $errMssg, $exceptionObj->getFile(), $exceptionObj->getLine(), $exceptionObj->getTrace());
 
         return true;
     }
     else
     {
-        printErrorHtml('E_EXCEPTION', $errorTxt, $exceptionObj->getFile(), $exceptionObj->getLine(), $exceptionObj->getTrace());
+        printErrorHtml('E_EXCEPTION', $errMssg, $exceptionObj->getFile(), $exceptionObj->getLine(), $exceptionObj->getTrace());
         return true;
     }
 }
@@ -135,18 +135,18 @@ function treatException( Throwable $exceptionObj ): Bool
  */
 function replyWithError( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): Bool
 {
-    $hndlInst = $GLOBALS['ErrorHandler'] ?? null;
-    $respInst = $GLOBALS['ErrorResponse'] ?? null;
-    if( $hndlInst===null || !is_callable($respInst) || headers_sent() )
+    $hndlObj = $GLOBALS['ErrorHandler'] ?? null;
+    $respond = $GLOBALS['ErrorResponse'] ?? null;
+    if( $hndlObj===null || !is_callable($respond) || headers_sent() )
         return false;
 
     try
     {
-        $hndlInst->writeErrorLogs($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext);
-        if( $hndlInst->showsErrorsFlg() )
-            $respInst( $errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum );
+        $hndlObj->writeErrorLogs($errLevelNumb,$errorMessage,$errorFileTxt,$errorLineNum,$errorContext);
+        if( $hndlObj->showsErrorsFlg() )
+            $respond( $errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum );
         else
-            $respInst( 'Internal Server Error' );
+            $respond( 'Internal Server Error' );
         return true;
     }
     catch( Throwable $e )
@@ -164,31 +164,31 @@ function replyWithError( Int|String $errLevelNumb, String $errorMessage, ?String
  */
 function handleShutdown(): Void
 {
-    $lastErro = error_get_last();
+    $lastErr = error_get_last();
 
     // Unset Error Type and Message implies a proper shutdown : the shutdown functions registered after this one still run
-    if( !isset($lastErro['type']) && !isset($lastErro['message']))
+    if( !isset($lastErr['type']) && !isset($lastErr['message']))
         return;
 
-    $wasFatal = in_array($lastErro['type'], Array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR));
-    if( $wasFatal && !headers_sent() ){
+    $isFatal = in_array($lastErr['type'], Array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR));
+    if( $isFatal && !headers_sent() ){
         http_response_code(500);
     }
 
     // Answer in the configured output format when a responder is registered
-    if( $wasFatal && replyWithError($lastErro['type'], $lastErro['message'], $lastErro['file'], $lastErro['line']) )
+    if( $isFatal && replyWithError($lastErr['type'], $lastErr['message'], $lastErr['file'], $lastErr['line']) )
         return;
 
     if( isset($GLOBALS['ErrorCallback']))
     {
         // Pass fatal errors up to the standard error callback.
-        $GLOBALS["ErrorCallback"]($lastErro['type'], $lastErro['message'],$lastErro['file'],$lastErro['line']);
+        $GLOBALS["ErrorCallback"]($lastErr['type'], $lastErr['message'],$lastErr['file'],$lastErr['line']);
 
         return;
     }
     else
     {
-        printErrorHtml($lastErro['type'], $lastErro['message'],$lastErro['file'],$lastErro['line']);
+        printErrorHtml($lastErr['type'], $lastErr['message'],$lastErr['file'],$lastErr['line']);
         return;
     }
 }
@@ -204,13 +204,13 @@ function handleShutdown(): Void
  */
 function plainTraceList( Array $callFrameSet ): Array
 {
-    $keptList = Array();
+    $keptLst = Array();
     foreach( $callFrameSet as $oneFrm )
     {
         if( is_array($oneFrm) )
-            $keptList[] = array_intersect_key($oneFrm, Array('file'=>1, 'line'=>1, 'class'=>1, 'type'=>1, 'function'=>1));
+            $keptLst[] = array_intersect_key($oneFrm, Array('file'=>1, 'line'=>1, 'class'=>1, 'type'=>1, 'function'=>1));
     }
-    return $keptList;
+    return $keptLst;
 }
 
 /**
@@ -223,30 +223,30 @@ function plainTraceList( Array $callFrameSet ): Array
  */
 function stackTableText( Array $callFrameSet ): String
 {
-    $rowsText = "";
-    $rowCount = 0;
+    $rowsTxt = "";
+    $rowNumb = 0;
     foreach( $callFrameSet as $oneFrm )
     {
         if( !is_array($oneFrm) )
             continue;
 
-        $callText = strval($oneFrm['class'] ?? '') . strval($oneFrm['type'] ?? '') . strval($oneFrm['function'] ?? '');
+        $callTxt = strval($oneFrm['class'] ?? '') . strval($oneFrm['type'] ?? '') . strval($oneFrm['function'] ?? '');
         if( isset($oneFrm['function']) )
-            $callText .= '()';
+            $callTxt .= '()';
 
-        $rowsText .= "<tr><td>#$rowCount</td>";
-        $rowsText .= "<td>" . htmlspecialchars($callText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "</td>";
-        $rowsText .= "<td>" . htmlspecialchars(strval($oneFrm['file'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "</td>";
-        $rowsText .= "<td>" . (isset($oneFrm['line']) ? intval($oneFrm['line']) : '') . "</td></tr>\r\n";
-        $rowCount++;
+        $rowsTxt .= "<tr><td>#$rowNumb</td>";
+        $rowsTxt .= "<td>" . htmlspecialchars($callTxt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "</td>";
+        $rowsTxt .= "<td>" . htmlspecialchars(strval($oneFrm['file'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "</td>";
+        $rowsTxt .= "<td>" . (isset($oneFrm['line']) ? intval($oneFrm['line']) : '') . "</td></tr>\r\n";
+        $rowNumb++;
     }
 
-    if( $rowsText === "" )
+    if( $rowsTxt === "" )
         return "";
 
     return "<table class=\"ErrorStack\" style=\"border-collapse: collapse;\">\r\n"
         . "<tr><th>#</th><th>Call</th><th>File</th><th>Line</th></tr>\r\n"
-        . $rowsText . "</table>\r\n";
+        . $rowsTxt . "</table>\r\n";
 }
 
 /**
@@ -266,32 +266,32 @@ function stackTableText( Array $callFrameSet ): String
  */
 function errorBlockText( Int|String $errLevelNumb, String $errorMessage, ?String $errorFileTxt=null, ?Int $errorLineNum=null, Mixed $errorContext=null ): String
 {
-    $encdFunc = function( String $plainValText ): String { return htmlspecialchars($plainValText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
-    $errorCod = ErrorHandler::errCategoryTxt($errLevelNumb);
+    $encoder = function( String $plainValText ): String { return htmlspecialchars($plainValText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
+    $errType = ErrorHandler::errCategoryTxt($errLevelNumb);
 
-    $rtrnVals = "";
-    $rtrnVals .= "<div class=\"$errorCod\" style=\"margin: 10px;\">\r\n";
+    $rtrnVal = "";
+    $rtrnVal .= "<div class=\"$errType\" style=\"margin: 10px;\">\r\n";
 
-    $rtrnVals .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Error Level:</span> <span class=\"ErrorValue\">$errorCod</span></p>\r\n";
+    $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Error Level:</span> <span class=\"ErrorValue\">$errType</span></p>\r\n";
 
     if( isset($errorFileTxt) && strlen($errorFileTxt) > 0 )
-        $rtrnVals .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'" . $encdFunc($errorFileTxt) . "'</span></p>\r\n";
+        $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">File:</span> <span class=\"ErrorValue\">'" . $encoder($errorFileTxt) . "'</span></p>\r\n";
 
     if( isset($errorLineNum) )
-        $rtrnVals .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Line:</span> <span class=\"ErrorValue\">$errorLineNum</span></p>\r\n";
+        $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Line:</span> <span class=\"ErrorValue\">$errorLineNum</span></p>\r\n";
 
     // A trace is a list of frames : anything else an array may hold is not shown
-    $stackTxt = (is_array($errorContext) && is_array(reset($errorContext))) ? stackTableText($errorContext) : "";
-    if( $stackTxt !== "" )
-        $rtrnVals .= "<div class=\"ErrorData\"><span class=\"ErrorKey\">Stack:</span>\r\n" . $stackTxt . "</div>\r\n";
+    $stckTxt = (is_array($errorContext) && is_array(reset($errorContext))) ? stackTableText($errorContext) : "";
+    if( $stckTxt !== "" )
+        $rtrnVal .= "<div class=\"ErrorData\"><span class=\"ErrorKey\">Stack:</span>\r\n" . $stckTxt . "</div>\r\n";
     else if( is_string($errorContext) && strlen($errorContext) > 0 )
-        $rtrnVals .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">" . implode("<br/>\r\n#", array_map($encdFunc, explode("#", $errorContext))) . "</span></p>\r\n";
+        $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Context:</span><span class=\"ErrorValue\">" . implode("<br/>\r\n#", array_map($encoder, explode("#", $errorContext))) . "</span></p>\r\n";
 
-    $rtrnVals .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Message:</span> <span class=\"ErrorValue\">" . str_replace("\r\n","<br/>\r\n",$encdFunc($errorMessage)) . "</span></p>\r\n";
+    $rtrnVal .= "<p class=\"ErrorData\"><span class=\"ErrorKey\">Message:</span> <span class=\"ErrorValue\">" . str_replace("\r\n","<br/>\r\n",$encoder($errorMessage)) . "</span></p>\r\n";
 
-    $rtrnVals .= "</div>\r\n";
+    $rtrnVal .= "</div>\r\n";
 
-    return $rtrnVals;
+    return $rtrnVal;
 }
 
 // In the event that our 'ErrorHandler' class is in fact the generator of the error,
@@ -351,12 +351,12 @@ class ErrorHandler
         }
         // Errors may be shown: kept for the response, or echoed below.
 
-        $errorCod = ErrorHandler::errCategoryTxt($errLevelNumb);
+        $errType = ErrorHandler::errCategoryTxt($errLevelNumb);
 
         if( isset($GLOBALS['ErrorResponse']) )
         {
             // Inside a framework request: kept for the response body instead of echoed
-            $this->errorStack[] = $errorCod.': '.$errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum;
+            $this->errorStack[] = $errType.': '.$errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum;
             return;
         }
 
@@ -371,9 +371,9 @@ class ErrorHandler
      */
     public function takeStackArray(): Array
     {
-        $stackLst = $this->errorStack;
+        $stckArr = $this->errorStack;
         $this->errorStack = Array();
-        return $stackLst;
+        return $stckArr;
     }
 
     /**
@@ -393,25 +393,25 @@ class ErrorHandler
             return;
         }
 
-        $logStrng = ErrorHandler::errCategoryTxt($errLevelNumb).': '.$errorMessage;
-        if( isset($errorFileTxt) ) $logStrng .= ' in '.$errorFileTxt;
-        if( isset($errorLineNum) ) $logStrng .= ' on line '.$errorLineNum;
+        $logMssg = ErrorHandler::errCategoryTxt($errLevelNumb).': '.$errorMessage;
+        if( isset($errorFileTxt) ) $logMssg .= ' in '.$errorFileTxt;
+        if( isset($errorLineNum) ) $logMssg .= ' on line '.$errorLineNum;
         // A trace is logged without the arguments of its calls
-        $ctxtList = is_array($errorContext) ? plainTraceList($errorContext) : Array();
+        $context = is_array($errorContext) ? plainTraceList($errorContext) : Array();
 
         switch( $errLevelNumb )
         {
             case E_ERROR: case E_USER_ERROR: case E_CORE_ERROR: case E_COMPILE_ERROR: case E_RECOVERABLE_ERROR: case 'E_EXCEPTION':
-                $this->loggingObj->error($logStrng, $ctxtList);
+                $this->loggingObj->error($logMssg, $context);
                 break;
             case E_WARNING: case E_USER_WARNING: case E_CORE_WARNING: case E_COMPILE_WARNING:
-                $this->loggingObj->warning($logStrng, $ctxtList);
+                $this->loggingObj->warning($logMssg, $context);
                 break;
             case E_NOTICE: case E_USER_NOTICE: case E_DEPRECATED: case E_USER_DEPRECATED:
-                $this->loggingObj->notice($logStrng, $ctxtList);
+                $this->loggingObj->notice($logMssg, $context);
                 break;
             default:
-                $this->loggingObj->info($logStrng, $ctxtList);
+                $this->loggingObj->info($logMssg, $context);
         }
     }
 
@@ -429,16 +429,16 @@ class ErrorHandler
             return true;
         }
 
-        $errorShw = false;
+        $errShow = false;
         if( isset($GLOBALS['nyuConfig']) && $GLOBALS['nyuConfig']!==null )
         {
             // In production nothing of an error is shown, whatever ERR_SHOW says
             if( strtoupper(trim(strval($GLOBALS['nyuConfig']->obtainRowValue('SYSTEM','ENV_NAME')))) == 'PROD' )
                 return false;
 
-            $errorShw = $GLOBALS['nyuConfig']->obtainRowValue('SYSTEM','ERR_SHOW') ?? false;
+            $errShow = $GLOBALS['nyuConfig']->obtainRowValue('SYSTEM','ERR_SHOW') ?? false;
         }
-        return (bool)$errorShw;
+        return (bool)$errShow;
     }
 
     /**
@@ -449,61 +449,61 @@ class ErrorHandler
      */
     public static function errCategoryTxt( Int|String $errLevelNumb ): String
     {
-        $rtrnVals = "";
+        $rtrnVal = "";
 
         switch( $errLevelNumb )
         {
             default:
-                $rtrnVals = "E_UNSPECIFIED_ERROR";
+                $rtrnVal = "E_UNSPECIFIED_ERROR";
                 break;
             case E_ERROR: // 1 //
-                $rtrnVals = 'E_ERROR';
+                $rtrnVal = 'E_ERROR';
                 break;
             case E_WARNING: // 2 //
-                $rtrnVals = 'E_WARNING';
+                $rtrnVal = 'E_WARNING';
                 break;
             case E_PARSE: // 4 //
-                $rtrnVals = 'E_PARSE';
+                $rtrnVal = 'E_PARSE';
                 break;
             case E_NOTICE: // 8 //
-                $rtrnVals = 'E_NOTICE';
+                $rtrnVal = 'E_NOTICE';
                 break;
             case E_CORE_ERROR: // 16 //
-                $rtrnVals = 'E_CORE_ERROR';
+                $rtrnVal = 'E_CORE_ERROR';
                 break;
             case E_CORE_WARNING: // 32 //
-                $rtrnVals = 'E_CORE_WARNING';
+                $rtrnVal = 'E_CORE_WARNING';
                 break;
             case E_COMPILE_ERROR: // 64 //
-                $rtrnVals = 'E_COMPILE_ERROR';
+                $rtrnVal = 'E_COMPILE_ERROR';
                 break;
             case E_COMPILE_WARNING: // 128 //
-                $rtrnVals = 'E_COMPILE_WARNING';
+                $rtrnVal = 'E_COMPILE_WARNING';
                 break;
             case E_USER_ERROR: // 256 //
-                $rtrnVals = 'E_USER_ERROR';
+                $rtrnVal = 'E_USER_ERROR';
                 break;
             case E_USER_WARNING: // 512 //
-                $rtrnVals = 'E_USER_WARNING';
+                $rtrnVal = 'E_USER_WARNING';
                 break;
             case E_USER_NOTICE: // 1024 //
-                $rtrnVals = 'E_USER_NOTICE';
+                $rtrnVal = 'E_USER_NOTICE';
                 break;
             case E_RECOVERABLE_ERROR: // 4096 //
-                $rtrnVals = 'E_RECOVERABLE_ERROR';
+                $rtrnVal = 'E_RECOVERABLE_ERROR';
                 break;
             case E_DEPRECATED: // 8192 //
-                $rtrnVals = 'E_DEPRECATED';
+                $rtrnVal = 'E_DEPRECATED';
                 break;
             case E_USER_DEPRECATED: // 16384 //
-                $rtrnVals = 'E_USER_DEPRECATED';
+                $rtrnVal = 'E_USER_DEPRECATED';
                 break;
             case 'E_EXCEPTION': // uncaught exception, see treatException() //
-                $rtrnVals = 'E_EXCEPTION';
+                $rtrnVal = 'E_EXCEPTION';
                 break;
         }
 
-        return $rtrnVals;
+        return $rtrnVal;
     }
 }
 

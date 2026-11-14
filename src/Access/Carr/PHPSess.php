@@ -38,13 +38,13 @@ class PHPSess implements Handler{
 	 * @param ?AuthHndlr $authStrategy Optional credential store confirming the session's user (see verifyReq).
 	 */
 	function __construct( Array $configValues, ?AuthHndlr $authStrategy = null ){
-		$ckieName = strval($configValues['cookName'] ?? 'nyuSessn');
+		$cookNme = strval($configValues['cookName'] ?? 'nyuSessn');
 		$this->authObject = $authStrategy;
-		$this->cookieName = preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $ckieName) ? $ckieName : 'nyuSessn';
+		$this->cookieName = preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', $cookNme) ? $cookNme : 'nyuSessn';
 		$this->unusedSecs = max( 1, intval($configValues['lifeSecs'] ?? 3600) );
 		$this->entireLife = max( 0, intval($configValues['fullSecs'] ?? 43200) );
-		$fieldNme = is_scalar($configValues['dataPath'] ?? '') ? trim( strval($configValues['dataPath'] ?? ''), '/\\ ' ) : '';
-		$this->saveFolder = ($fieldNme!='') ? TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $fieldNme) : '';
+		$fldName = is_scalar($configValues['dataPath'] ?? '') ? trim( strval($configValues['dataPath'] ?? ''), '/\\ ' ) : '';
+		$this->saveFolder = ($fldName!='') ? TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $fldName) : '';
 		$this->sitePolicy = self::SITE_LIST[$configValues['sameSite'] ?? 'strict'] ?? 'Strict';
 		$this->isHttpOnly = (($configValues['secureOn'] ?? true) !== false);
 		$this->errMessage = '';
@@ -62,38 +62,38 @@ class PHPSess implements Handler{
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$sessIdnt = $this->cookUserSidTxt($givenRequest);
-		if( $sessIdnt=='' ){
+		$sesIdnt = $this->cookUserSidTxt($givenRequest);
+		if( $sesIdnt=='' ){
 			$this->errMessage = 'No active session';
 			return false;
 		}
-		if( !$this->startSessnFlag($sessIdnt) ){
+		if( !$this->startSessnFlag($sesIdnt) ){
 			$this->errMessage = 'Session unavailable';
 			return false;
 		}
-		$idntList = $_SESSION['nyuIdent'] ?? null;
+		$idntArr = $_SESSION['nyuIdent'] ?? null;
 		// Left unused for too long, or open for longer than a session may live, however much it was used
-		$hasEnded = intval($_SESSION['nyuStamp'] ?? 0)<time() - $this->unusedSecs
+		$isEnded = intval($_SESSION['nyuStamp'] ?? 0)<time() - $this->unusedSecs
 			|| ($this->entireLife>0 && intval($_SESSION['nyuBirth'] ?? 0)<time() - $this->entireLife);
-		if( !is_array($idntList) || $hasEnded ){
-			$this->errMessage = is_array($idntList) ? 'Session expired' : 'No active session';
+		if( !is_array($idntArr) || $isEnded ){
+			$this->errMessage = is_array($idntArr) ? 'Session expired' : 'No active session';
 			$this->closeUserSessn();
 			return false;
 		}
 		// A credential store that knows its users confirms the session's user is still allowed in
 		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
 			// The start of the session : a password set since ends it
-			$nowIdent = $this->authObject->usrIdentityArr( strval($idntList['userName'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
-			if( $nowIdent===false ){
+			$nowIdnt = $this->authObject->usrIdentityArr( strval($idntArr['userName'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
+			if( $nowIdnt===false ){
 				$this->errMessage = $this->authObject->finalErrorText();
 				$this->closeUserSessn();
 				return false;
 			}
-			$idntList = array_merge($idntList, $nowIdent);
+			$idntArr = array_merge($idntArr, $nowIdnt);
 		}
 		$_SESSION['nyuStamp'] = time();
 		session_write_close();
-		return $idntList;
+		return $idntArr;
 	}
 
 	/**
@@ -111,9 +111,9 @@ class PHPSess implements Handler{
 		// Never keep an id the client came with
 		session_regenerate_id(true);
 		$_SESSION = Array('nyuIdent'=>$identityList, 'nyuStamp'=>time(), 'nyuBirth'=>time());
-		$sessIdnt = strval(session_id());
+		$sesIdnt = strval(session_id());
 		session_write_close();
-		return $sessIdnt;
+		return $sesIdnt;
 	}
 
 	/**
@@ -123,8 +123,8 @@ class PHPSess implements Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 */
 	public function dropUsrSession( Request $givenRequest ): Void {
-		$sessIdnt = $this->cookUserSidTxt($givenRequest);
-		if( $sessIdnt!='' && $this->startSessnFlag($sessIdnt) ){
+		$sesIdnt = $this->cookUserSidTxt($givenRequest);
+		if( $sesIdnt!='' && $this->startSessnFlag($sesIdnt) ){
 			$this->closeUserSessn();
 		}
 	}
@@ -136,8 +136,8 @@ class PHPSess implements Handler{
 	 * @return String The session id, empty when there is none or it is not shaped like one.
 	 */
 	protected function cookUserSidTxt( Request $givenRequest ): String {
-		$sessIdnt = $givenRequest->retrieveCookie($this->cookieName);
-		return ( is_string($sessIdnt) && preg_match('/^[A-Za-z0-9,-]{20,128}$/', $sessIdnt) ) ? $sessIdnt : '';
+		$sesIdnt = $givenRequest->retrieveCookie($this->cookieName);
+		return ( is_string($sesIdnt) && preg_match('/^[A-Za-z0-9,-]{20,128}$/', $sesIdnt) ) ? $sesIdnt : '';
 	}
 
 	/**
@@ -184,14 +184,14 @@ class PHPSess implements Handler{
 		$_SESSION = Array();
 		session_destroy();
 		// Drops the cookie PHP may have queued for a new id, and no other cookie of the reply, then expires the client's
-		$keptList = Array();
+		$keptLst = Array();
 		foreach( headers_list() as $hdrLin ){
 			if( stripos($hdrLin, 'Set-Cookie:')===0 && stripos(ltrim(substr($hdrLin, 11)), $this->cookieName.'=')!==0 ){
-				$keptList[] = $hdrLin;
+				$keptLst[] = $hdrLin;
 			}
 		}
 		header_remove('Set-Cookie');
-		foreach( $keptList as $hdrLin ){
+		foreach( $keptLst as $hdrLin ){
 			header($hdrLin, false);
 		}
 		setcookie( $this->cookieName, '', $this->cookieSetArray(1) );
@@ -204,9 +204,9 @@ class PHPSess implements Handler{
 	 * @return Array The settings, as session_set_cookie_params() and setcookie() take them.
 	 */
 	protected function cookieSetArray( Int $expiryTimeNb ): Array {
-		$optsDict = Array('path'=>'/', 'secure'=>$this->isHttpOnly, 'httponly'=>true, 'samesite'=>$this->sitePolicy);
-		$optsDict[ $expiryTimeNb==0 ? 'lifetime' : 'expires' ] = $expiryTimeNb;
-		return $optsDict;
+		$options = Array('path'=>'/', 'secure'=>$this->isHttpOnly, 'httponly'=>true, 'samesite'=>$this->sitePolicy);
+		$options[ $expiryTimeNb==0 ? 'lifetime' : 'expires' ] = $expiryTimeNb;
+		return $options;
 	}
 
 	/**

@@ -24,36 +24,36 @@ class Json extends Base {
 	 * @throws ParseError When the content is not valid JSON.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$jsonText = self::recodeTextUtf8($nakedContent);
-		$maxDepth = max(1, intval($parseOptions['depth'] ?? 512));
+		$jsonTxt = self::recodeTextUtf8($nakedContent);
+		$maxDpth = max(1, intval($parseOptions['depth'] ?? 512));
 		if( !empty($parseOptions['cmnts']) ){
-			$keptLnes = Array();
-			foreach(preg_split('/\r\n|\r|\n/', $jsonText) as $linTxt){
-				$trimLine = ltrim($linTxt);
-				if( $trimLine==='' || $trimLine[0]=='#' || substr($trimLine, 0, 2)=='//' ){
+			$keptLns = Array();
+			foreach(preg_split('/\r\n|\r|\n/', $jsonTxt) as $linTxt){
+				$trmLine = ltrim($linTxt);
+				if( $trmLine==='' || $trmLine[0]=='#' || substr($trmLine, 0, 2)=='//' ){
 					continue;
 				}
-				$keptLnes[] = $linTxt;
+				$keptLns[] = $linTxt;
 			}
-			$jsonText = implode("\n", $keptLnes);
+			$jsonTxt = implode("\n", $keptLns);
 		}
 		if( !empty($parseOptions['lines']) ){
-			$jsonVals = Array();
-			foreach(preg_split('/\r\n|\r|\n/', $jsonText) as $lineNb=>$linTxt){
+			$jsonVls = Array();
+			foreach(preg_split('/\r\n|\r|\n/', $jsonTxt) as $lineNb=>$linTxt){
 				if( trim($linTxt)==='' ){
 					continue;
 				}
-				$jsonVals[] = $this->parseJsonValue($linTxt, $maxDepth, ' on line '.($lineNb+1));
+				$jsonVls[] = $this->parseJsonValue($linTxt, $maxDpth, ' on line '.($lineNb+1));
 			}
-		}elseif( trim($jsonText)==='' ){
-			$jsonVals = Array();
+		}elseif( trim($jsonTxt)==='' ){
+			$jsonVls = Array();
 		}else{
-			$jsonVals = $this->parseJsonValue($jsonText, $maxDepth, '');
+			$jsonVls = $this->parseJsonValue($jsonTxt, $maxDpth, '');
 		}
-		if( !empty($parseOptions['upper']) && is_array($jsonVals) ){
-			$jsonVals = $this->upperKeysArray($jsonVals);
+		if( !empty($parseOptions['upper']) && is_array($jsonVls) ){
+			$jsonVls = $this->upperKeysArray($jsonVls);
 		}
-		return $this->makeShapeArray('nodes', $jsonVals);
+		return $this->makeShapeArray('nodes', $jsonVls);
 	}
 
 	/**
@@ -67,11 +67,11 @@ class Json extends Base {
 	 * @throws ParseError When the text is not valid JSON.
 	 */
 	protected function parseJsonValue(String $jsonDocument, Int $depthCeiling, String $locationText): Mixed {
-		$jsonVals = json_decode($jsonDocument, true, $depthCeiling);
+		$jsonVls = json_decode($jsonDocument, true, $depthCeiling);
 		if( json_last_error()!==JSON_ERROR_NONE ){
 			throw new ParseError('Invalid JSON content'.$locationText.': '.json_last_error_msg());
 		}
-		return $jsonVals;
+		return $jsonVls;
 	}
 
 }

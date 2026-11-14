@@ -42,14 +42,14 @@ class Filter {
 	 */
 	public static function readWhereArray( Array $filterFields ): Array {
 		// The longer suffixes are looked for first
-		$oprtCods = Array('!~'=>'nmtch', '<='=>'undeq', '>='=>'aboeq', '~'=>'match', '!'=>'diffr', '<'=>'under', '>'=>'above', '?'=>'isset', '='=>'equal');
-		$clausLst = Array();
+		$opCodes = Array('!~'=>'nmtch', '<='=>'undeq', '>='=>'aboeq', '~'=>'match', '!'=>'diffr', '<'=>'under', '>'=>'above', '?'=>'isset', '='=>'equal');
+		$clauses = Array();
 		foreach($filterFields as $fldNme=>$fldVal){
 			$fldNme = strval($fldNme);
-			$oprtCode = 'equal';
-			foreach($oprtCods as $sfxInc=>$opCode){
+			$operatr = 'equal';
+			foreach($opCodes as $sfxInc=>$opCode){
 				if( substr($fldNme, -strlen($sfxInc))==$sfxInc ){
-					$oprtCode = $opCode;
+					$operatr = $opCode;
 					$fldNme = substr($fldNme, 0, -strlen($sfxInc));
 					break;
 				}
@@ -57,43 +57,43 @@ class Filter {
 			if( !preg_match('/^\w+(\.\w+)?$/D', $fldNme) ){
 				throw new \RuntimeException('Invalid table or field name: '.$fldNme);
 			}
-			$isNegatd = ($oprtCode=='diffr' || $oprtCode=='nmtch');
-			if( $oprtCode=='isset' ){
+			$negated = ($operatr=='diffr' || $operatr=='nmtch');
+			if( $operatr=='isset' ){
 				// Asked for by name: whether the field holds a value
 				if( !is_bool($fldVal) ){
 					throw new \RuntimeException('The ? suffix takes true or false: '.$fldNme);
 				}
-				$clausLst[] = Array('field'=>$fldNme, 'opert'=>($fldVal ? 'isset' : 'unset'), 'value'=>null);
+				$clauses[] = Array('field'=>$fldNme, 'opert'=>($fldVal ? 'isset' : 'unset'), 'value'=>null);
 			}elseif( is_array($fldVal) ){
-				$listVals = array_values(array_filter($fldVal, function($fieldContent){ return $fieldContent!==null && $fieldContent!==''; }));
-				if( empty($listVals) ){
+				$listVls = array_values(array_filter($fldVal, function($fieldContent){ return $fieldContent!==null && $fieldContent!==''; }));
+				if( empty($listVls) ){
 					// An empty list matches nothing, its negation everything
-					$clausLst[] = Array('field'=>'', 'opert'=>($isNegatd ? 'every' : 'never'), 'value'=>null);
+					$clauses[] = Array('field'=>'', 'opert'=>($negated ? 'every' : 'never'), 'value'=>null);
 				}else{
-					$clausLst[] = Array('field'=>$fldNme, 'opert'=>($isNegatd ? 'nmong' : 'among'), 'value'=>$listVals);
+					$clauses[] = Array('field'=>$fldNme, 'opert'=>($negated ? 'nmong' : 'among'), 'value'=>$listVls);
 				}
 			}elseif( $fldVal===null ){
 				// A null value matches nothing, like a comparison with NULL in SQL
-				$clausLst[] = Array('field'=>'', 'opert'=>'never', 'value'=>null);
+				$clauses[] = Array('field'=>'', 'opert'=>'never', 'value'=>null);
 			}else{
 				// A match is read here, once : a * alone is any text, \* a star and \\ a backslash, nothing else a wildcard.
 				// The stores get the literal pieces, to join with their own wildcard (see quoteMatchText)
-				if( $oprtCode=='match' || $oprtCode=='nmtch' ){
-					$partList = Array('');
+				if( $operatr=='match' || $operatr=='nmtch' ){
+					$partLst = Array('');
 					foreach( preg_split('/(\\\\[\\\\*]|\*)/', is_scalar($fldVal) ? strval($fldVal) : '', -1, PREG_SPLIT_DELIM_CAPTURE) as $oneTkn ){
 						if( $oneTkn==='*' ){
-							$partList[] = '';
+							$partLst[] = '';
 							continue;
 						}
-						$ltrlPart = ($oneTkn==='\\*' || $oneTkn==='\\\\') ? substr($oneTkn, 1) : $oneTkn;
-						$partList[count($partList)-1] .= $ltrlPart;
+						$litPart = ($oneTkn==='\\*' || $oneTkn==='\\\\') ? substr($oneTkn, 1) : $oneTkn;
+						$partLst[count($partLst)-1] .= $litPart;
 					}
-					$fldVal = $partList;
+					$fldVal = $partLst;
 				}
-				$clausLst[] = Array('field'=>$fldNme, 'opert'=>$oprtCode, 'value'=>$fldVal);
+				$clauses[] = Array('field'=>$fldNme, 'opert'=>$operatr, 'value'=>$fldVal);
 			}
 		}
-		return $clausLst;
+		return $clauses;
 	}
 
 	/**

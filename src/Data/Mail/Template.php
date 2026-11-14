@@ -29,15 +29,15 @@ class Template {
 	 * @throws \RuntimeException When a file cannot be read.
 	 */
 	function __construct( String $planTemplate, ?String $htmlFilePath=null ){
-		$textRead = is_file($planTemplate) ? @file_get_contents($planTemplate) : false;
-		$htmlRead = ($htmlFilePath===null) ? null : ( is_file($htmlFilePath) ? @file_get_contents($htmlFilePath) : false );
-		if( $textRead===false || $htmlRead===false ){
-			throw new \RuntimeException( 'Mail template unreadable: '.basename($textRead===false ? $planTemplate : strval($htmlFilePath)) );
+		$txtRead = is_file($planTemplate) ? @file_get_contents($planTemplate) : false;
+		$htmRead = ($htmlFilePath===null) ? null : ( is_file($htmlFilePath) ? @file_get_contents($htmlFilePath) : false );
+		if( $txtRead===false || $htmRead===false ){
+			throw new \RuntimeException( 'Mail template unreadable: '.basename($txtRead===false ? $planTemplate : strval($htmlFilePath)) );
 		}
-		$textLnes = explode( "\n", ltrim(str_replace("\r\n", "\n", $textRead)), 2 );
-		$this->subjectTxt = $textLnes[0];
-		$this->bodyString = ltrim( strval($textLnes[1] ?? ''), "\n" );
-		$this->htmlString = ($htmlRead===null) ? null : str_replace("\r\n", "\n", $htmlRead);
+		$textLns = explode( "\n", ltrim(str_replace("\r\n", "\n", $txtRead)), 2 );
+		$this->subjectTxt = $textLns[0];
+		$this->bodyString = ltrim( strval($textLns[1] ?? ''), "\n" );
+		$this->htmlString = ($htmRead===null) ? null : str_replace("\r\n", "\n", $htmRead);
 	}
 
 	/**
@@ -47,8 +47,8 @@ class Template {
 	 * @return String The subject.
 	 */
 	public function getSubjectText( Array $placeholders ): String {
-		$subStrng = self::fillNamedSlots( $this->retainPartsTxt($this->subjectTxt, $placeholders), $placeholders, false );
-		return trim( str_replace(Array("\r", "\n"), ' ', $subStrng) );
+		$subText = self::fillNamedSlots( $this->retainPartsTxt($this->subjectTxt, $placeholders), $placeholders, false );
+		return trim( str_replace(Array("\r", "\n"), ' ', $subText) );
 	}
 
 	/**
@@ -82,11 +82,11 @@ class Template {
 	 */
 	public static function fillNamedSlots( String $templateText, Array $placeholders, Bool $escapeAsHtml ): String {
 		return strval( preg_replace_callback('/%(\w+)%/', function( Array $matchedArray ) use ( $placeholders, $escapeAsHtml ): String {
-			$fillVals = $placeholders[$matchedArray[1]] ?? null;
-			if( !is_scalar($fillVals) ){
+			$fillVal = $placeholders[$matchedArray[1]] ?? null;
+			if( !is_scalar($fillVal) ){
 				return $matchedArray[0];
 			}
-			return $escapeAsHtml ? htmlspecialchars(strval($fillVals), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : strval($fillVals);
+			return $escapeAsHtml ? htmlspecialchars(strval($fillVal), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : strval($fillVal);
 		}, $templateText) );
 	}
 
@@ -101,8 +101,8 @@ class Template {
 	 */
 	protected function retainPartsTxt( String $templateText, Array $placeholders ): String {
 		return strval( preg_replace_callback('#\[(\w+)\](.*?)\[/\1\]\n?#s', function( Array $matchedArray ) use ( $placeholders ): String {
-			$fillVals = $placeholders[$matchedArray[1]] ?? null;
-			return ( is_scalar($fillVals) && strval($fillVals)!=='' ) ? $matchedArray[2] : '';
+			$fillVal = $placeholders[$matchedArray[1]] ?? null;
+			return ( is_scalar($fillVal) && strval($fillVal)!=='' ) ? $matchedArray[2] : '';
 		}, $templateText) );
 	}
 }

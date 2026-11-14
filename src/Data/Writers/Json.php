@@ -26,19 +26,19 @@ class Json extends Base {
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes', 'sheet', 'block'), 'JSON');
 		// A content may be nothing at all: that is not the same as a content left out
-		$itemVals = array_key_exists('items', $dataEnvelope) ? $dataEnvelope['items'] : Array();
+		$itemVal = array_key_exists('items', $dataEnvelope) ? $dataEnvelope['items'] : Array();
 		if( empty($writeOptions['lines']) ){
-			$wholDict = !empty($writeOptions['whole']) ? Array('shape'=>$dataEnvelope['shape'], 'infos'=>$dataEnvelope['infos'] ?? Array(), 'items'=>$itemVals) : $itemVals;
-			return $this->writeJsonValue($wholDict, !empty($writeOptions['prety'])).(!empty($writeOptions['prety']) ? "\n" : '');
+			$wholeIt = !empty($writeOptions['whole']) ? Array('shape'=>$dataEnvelope['shape'], 'infos'=>$dataEnvelope['infos'] ?? Array(), 'items'=>$itemVal) : $itemVal;
+			return $this->writeJsonValue($wholeIt, !empty($writeOptions['prety'])).(!empty($writeOptions['prety']) ? "\n" : '');
 		}
-		if( !is_array($itemVals) || !$this->validateALstOf($itemVals) ){
+		if( !is_array($itemVal) || !$this->validateALstOf($itemVal) ){
 			throw new WriteError('Content that cannot be written as JSON Lines: it is not a list');
 		}
-		$jsonText = '';
-		foreach($itemVals as $oneVal){
-			$jsonText .= $this->writeJsonValue($oneVal, false)."\n";
+		$jsonTxt = '';
+		foreach($itemVal as $oneVal){
+			$jsonTxt .= $this->writeJsonValue($oneVal, false)."\n";
 		}
-		return $jsonText;
+		return $jsonTxt;
 	}
 
 	/**
@@ -53,16 +53,16 @@ class Json extends Base {
 	 */
 	protected function writeJsonValue(Mixed $valueToWrite, Bool $multiLineOut): String {
 		// Numbers are written with the digits they need and no more, whatever the server is set to
-		$keptPrec = ini_set('serialize_precision', '-1');
+		$keptPrc = ini_set('serialize_precision', '-1');
 		// A binary value cannot be written as text: it is given as null
-		$jsonText = json_encode(\nyu\Data\Fluxd::nullifySources($valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($multiLineOut ? JSON_PRETTY_PRINT : 0));
-		if( $keptPrec!==false ){
-			ini_set('serialize_precision', $keptPrec);
+		$jsonTxt = json_encode(\nyu\Data\Fluxd::nullifySources($valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($multiLineOut ? JSON_PRETTY_PRINT : 0));
+		if( $keptPrc!==false ){
+			ini_set('serialize_precision', $keptPrc);
 		}
-		if( $jsonText===false ){
+		if( $jsonTxt===false ){
 			throw new WriteError('Content that cannot be written as JSON: '.json_last_error_msg());
 		}
-		return $jsonText;
+		return $jsonTxt;
 	}
 
 }

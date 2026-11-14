@@ -37,49 +37,49 @@ class ShowLog extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeShowLogs(): Int {
-		$logrInst = $this->needsShellWord('the log channel (error, access, runner, shell, or the name of an application)');
-		if( !preg_match('/^\w+$/D', $logrInst) ){
+		$channel = $this->needsShellWord('the log channel (error, access, runner, shell, or the name of an application)');
+		if( !preg_match('/^\w+$/D', $channel) ){
 			$this->terminateShell('A log channel is a plain name', self::EXIT_HELP);
 		}
-		$lineNumb = $this->optionsObj->retrieveOption('numLines', '20');
-		if( !preg_match('/^\d{1,6}$/D', strval($lineNumb)) ){
+		$lineNum = $this->optionsObj->retrieveOption('numLines', '20');
+		if( !preg_match('/^\d{1,6}$/D', strval($lineNum)) ){
 			$this->terminateShell('--numLines takes a number of lines', self::EXIT_HELP);
 		}
 		// With dated file names, the channel is read in its newest file
-		$logTrail = '';
-		foreach( (array)glob(strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] ).DS.$logrInst.'*.log') as $logFil ){
+		$logPath = '';
+		foreach( (array)glob(strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] ).DS.$channel.'*.log') as $logFil ){
 			$logFil = strval($logFil);
-			if( preg_match('/^'.$logrInst.'(-[\dW_\-]+)?\.log$/D', basename($logFil)) && ($logTrail=='' || filemtime($logFil)>filemtime($logTrail)) ){
-				$logTrail = $logFil;
+			if( preg_match('/^'.$channel.'(-[\dW_\-]+)?\.log$/D', basename($logFil)) && ($logPath=='' || filemtime($logFil)>filemtime($logPath)) ){
+				$logPath = $logFil;
 			}
 		}
-		if( $logTrail=='' ){
-			$this->terminateShell('No log for the channel '.$logrInst, self::EXIT_DENY);
+		if( $logPath=='' ){
+			$this->terminateShell('No log for the channel '.$channel, self::EXIT_DENY);
 		}
-		$logBytes = filesize($logTrail);
-		$readSize = min($logBytes, 2097152);
-		$logStrng = strval( file_get_contents($logTrail, false, null, $logBytes-$readSize, $readSize) );
-		$lineList = explode("\n", rtrim(str_replace("\r\n", "\n", $logStrng), "\n"));
-		$lineList = ($logStrng=='' || intval($lineNumb)==0) ? Array() : array_slice($lineList, -intval($lineNumb));
-		foreach( $lineList as $logLin ){
+		$logSize = filesize($logPath);
+		$readLen = min($logSize, 2097152);
+		$logText = strval( file_get_contents($logPath, false, null, $logSize-$readLen, $readLen) );
+		$lineLst = explode("\n", rtrim(str_replace("\r\n", "\n", $logText), "\n"));
+		$lineLst = ($logText=='' || intval($lineNum)==0) ? Array() : array_slice($lineLst, -intval($lineNum));
+		foreach( $lineLst as $logLin ){
 			$this->printerObj->printShellBody($logLin.PHP_EOL);
 		}
 		if( !$this->optionsObj->validateOption('watching') || $this->printerObj->jsonShellShape() ){
 			return self::EXIT_DONE;
 		}
 		// Followed until the command is interrupted
-		$crsorPos = $logBytes;
+		$redPstn = $logSize;
 		while( true ){
 			usleep(500000);
-			clearstatcache(true, $logTrail);
-			$logBytes = is_file($logTrail) ? filesize($logTrail) : 0;
-			if( $logBytes<$crsorPos ){
+			clearstatcache(true, $logPath);
+			$logSize = is_file($logPath) ? filesize($logPath) : 0;
+			if( $logSize<$redPstn ){
 				// The file was rotated : it is read again from its start
-				$crsorPos = 0;
+				$redPstn = 0;
 			}
-			if( $logBytes>$crsorPos ){
-				$this->printerObj->printShellBody( strval(file_get_contents($logTrail, false, null, $crsorPos, $logBytes-$crsorPos)) );
-				$crsorPos = $logBytes;
+			if( $logSize>$redPstn ){
+				$this->printerObj->printShellBody( strval(file_get_contents($logPath, false, null, $redPstn, $logSize-$redPstn)) );
+				$redPstn = $logSize;
 			}
 		}
 	}

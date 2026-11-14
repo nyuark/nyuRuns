@@ -42,23 +42,23 @@ class DBCon {
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
 	 */
 	private static function buildLinkDbCon( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array(), String $linkNameText='' ): DBCon {
-		$newNlace = new DBCon();
-		$typeClef = strtolower($hostTypeText);
-		if( $typeClef=='pdo' ){
-			$typeClef = 'mysql_db';
+		$newLink = new DBCon();
+		$typeKey = strtolower($hostTypeText);
+		if( $typeKey=='pdo' ){
+			$typeKey = 'mysql_db';
 		}
-		if( isset(self::STOR_LIST[$typeClef]) ){
-			$storeCls = '\\nyu\\Data\\DBStore\\'.self::STOR_LIST[$typeClef];
-			$newNlace->dbStoreObj = new $storeCls($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
-			return $newNlace;
+		if( isset(self::STOR_LIST[$typeKey]) ){
+			$storCls = '\\nyu\\Data\\DBStore\\'.self::STOR_LIST[$typeKey];
+			$newLink->dbStoreObj = new $storCls($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
+			return $newLink;
 		}
-		$dtbsClss = '\\nyu\\Data\\DBHndlr\\'.(self::TYPE_LIST[$typeClef] ?? $hostTypeText);
-		if( !preg_match('/^\w+$/D', $hostTypeText) || !class_exists($dtbsClss) || !is_subclass_of($dtbsClss, DBHndlr\Handler::class) ){
+		$dbClass = '\\nyu\\Data\\DBHndlr\\'.(self::TYPE_LIST[$typeKey] ?? $hostTypeText);
+		if( !preg_match('/^\w+$/D', $hostTypeText) || !class_exists($dbClass) || !is_subclass_of($dbClass, DBHndlr\Handler::class) ){
 			throw new \RuntimeException('Unknown database type: '.$hostTypeText);
 		}
-		$newNlace->baseHandle = new $dtbsClss($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
-		$newNlace->dbStoreObj = new DBStore\SqlStore($newNlace->baseHandle, $linkNameText);
-		return $newNlace;
+		$newLink->baseHandle = new $dbClass($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
+		$newLink->dbStoreObj = new DBStore\SqlStore($newLink->baseHandle, $linkNameText);
+		return $newLink;
 	}
 	
 	/**
@@ -70,9 +70,9 @@ class DBCon {
 	 * @return DBCon A connection working through that store.
 	 */
 	public static function fromStoreDbCon( DBStore\Store $dataStoreObj ): DBCon {
-		$newNlace = new DBCon();
-		$newNlace->dbStoreObj = $dataStoreObj;
-		return $newNlace;
+		$newLink = new DBCon();
+		$newLink->dbStoreObj = $dataStoreObj;
+		return $newLink;
 	}
 
 	/**
@@ -121,12 +121,12 @@ class DBCon {
 		if( $linkNameText=='' && isset(self::$knownLinks['']) ){
 			return self::$knownLinks[''];
 		}
-		$baseDict = self::readSetupArray($linkNameText);
-		$nameClef = $baseDict['name'];
-		if( !isset(self::$knownLinks[$nameClef]) ){
-			self::$knownLinks[$nameClef] = self::buildLinkDbCon($baseDict['dbEngine'], $baseDict['hostName'], $baseDict['userName'], $baseDict['passWord'], $baseDict['baseName'], Array('portNumb'=>$baseDict['portNumb'], 'encoding'=>$baseDict['encoding'], 'authBase'=>$baseDict['authBase'], 'waitSecs'=>$baseDict['waitSecs']), $nameClef);
+		$baseSet = self::readSetupArray($linkNameText);
+		$nameKey = $baseSet['name'];
+		if( !isset(self::$knownLinks[$nameKey]) ){
+			self::$knownLinks[$nameKey] = self::buildLinkDbCon($baseSet['dbEngine'], $baseSet['hostName'], $baseSet['userName'], $baseSet['passWord'], $baseSet['baseName'], Array('portNumb'=>$baseSet['portNumb'], 'encoding'=>$baseSet['encoding'], 'authBase'=>$baseSet['authBase'], 'waitSecs'=>$baseSet['waitSecs']), $nameKey);
 		}
-		return self::$knownLinks[$nameClef];
+		return self::$knownLinks[$nameKey];
 	}
 	
 	/**
@@ -140,9 +140,9 @@ class DBCon {
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
 	public static function baseSetupArray( String $linkNameText='' ): Array {
-		$baseDict = self::readSetupArray($linkNameText);
-		unset($baseDict['name']);
-		return $baseDict;
+		$baseSet = self::readSetupArray($linkNameText);
+		unset($baseSet['name']);
+		return $baseSet;
 	}
 	
 	/**
@@ -155,39 +155,39 @@ class DBCon {
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
 	private static function readSetupArray( String $linkNameText ): Array {
-		$dfltDict = Array('dbEngine'=>'', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'', 'userName'=>'', 'passWord'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>'');
-		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$dtbsName = $nyuConfg ? $nyuConfg->readValueByKey('database') : null;
-		if( !is_array($dtbsName) || empty($dtbsName) ){
+		$dfltSet = Array('dbEngine'=>'', 'hostName'=>'', 'portNumb'=>'', 'baseName'=>'', 'userName'=>'', 'passWord'=>'', 'encoding'=>'', 'authBase'=>'', 'waitSecs'=>'');
+		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
+		$allBase = $nyuConf ? $nyuConf->readValueByKey('database') : null;
+		if( !is_array($allBase) || empty($allBase) ){
 			throw new \RuntimeException('No database is configured');
 		}
-		$dtbsName = array_change_key_case($dtbsName, CASE_LOWER);
-		if( array_key_exists('dbengine', $dtbsName) ){
+		$allBase = array_change_key_case($allBase, CASE_LOWER);
+		if( array_key_exists('dbengine', $allBase) ){
 			// A single block of settings: it has no name, and is the default
 			if( $linkNameText!='' ){
 				throw new \RuntimeException('Unknown database: '.$linkNameText);
 			}
-			$baseDict = $dtbsName;
-			$nameClef = '';
+			$baseSet = $allBase;
+			$nameKey = '';
 		}else{
-			$firstKey = strval(array_key_first($dtbsName));
-			$nameClef = ($linkNameText=='') ? $firstKey : strtolower($linkNameText);
-			if( !isset($dtbsName[$nameClef]) || !is_array($dtbsName[$nameClef]) ){
+			$frstKey = strval(array_key_first($allBase));
+			$nameKey = ($linkNameText=='') ? $frstKey : strtolower($linkNameText);
+			if( !isset($allBase[$nameKey]) || !is_array($allBase[$nameKey]) ){
 				throw new \RuntimeException('Unknown database: '.$linkNameText);
 			}
-			$baseDict = array_change_key_case($dtbsName[$nameClef], CASE_LOWER);
+			$baseSet = array_change_key_case($allBase[$nameKey], CASE_LOWER);
 			// The first block is the default, whether asked by its name or not
-			if( $nameClef===$firstKey ){
-				$nameClef = '';
+			if( $nameKey===$frstKey ){
+				$nameKey = '';
 			}
 		}
-		// The keys are read in lower case, and given as dfltDict writes them
-		foreach( array_keys($dfltDict) as $keyNme ){
-			$dfltDict[$keyNme] = is_scalar($baseDict[strtolower($keyNme)] ?? null) ? strval($baseDict[strtolower($keyNme)]) : '';
+		// The keys are read in lower case, and given as dfltSet writes them
+		foreach( array_keys($dfltSet) as $keyNme ){
+			$dfltSet[$keyNme] = is_scalar($baseSet[strtolower($keyNme)] ?? null) ? strval($baseSet[strtolower($keyNme)]) : '';
 		}
-		$baseDict = $dfltDict;
-		$baseDict['name'] = $nameClef;
-		return $baseDict;
+		$baseSet = $dfltSet;
+		$baseSet['name'] = $nameKey;
+		return $baseSet;
 	}
 
 	/**

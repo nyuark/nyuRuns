@@ -38,10 +38,10 @@ class Device implements Handler{
 	 */
 	function __construct( Array $configValues ){
 		$this->usersStore = is_scalar($configValues['linkName'] ?? '') ? strval($configValues['linkName'] ?? '') : '';
-		$dvceName = strval($configValues['useTable'] ?? 'devices');
-		$userName = strval($configValues['usersTbl'] ?? 'users');
-		$this->deviceTble = preg_match('/^\w+$/D', $dvceName) ? $dvceName : '';
-		$this->usersTable = preg_match('/^\w+$/D', $userName) ? $userName : '';
+		$devcNme = strval($configValues['useTable'] ?? 'devices');
+		$usrName = strval($configValues['usersTbl'] ?? 'users');
+		$this->deviceTble = preg_match('/^\w+$/D', $devcNme) ? $devcNme : '';
+		$this->usersTable = preg_match('/^\w+$/D', $usrName) ? $usrName : '';
 		$this->stampEvery = max( 0, intval($configValues['seenSecs'] ?? 60) );
 		$this->errMessage = '';
 	}
@@ -56,38 +56,38 @@ class Device implements Handler{
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser', 'device') on success, or false on failure.
 	 */
 	function checkSecretArr( Array $loginDataArr ): Array|Bool {
-		$givenTkn = strval($loginDataArr['key'] ?? '');
+		$gvnTokn = strval($loginDataArr['key'] ?? '');
 		$this->badTryFlag = false;
-		if( $givenTkn=='' ){
+		if( $gvnTokn=='' ){
 			$this->errMessage = 'No API key provided';
 			return false;
 		}
-		$dvceVals = $this->retrieveDevice( hash('sha256', $givenTkn) );
-		if( $dvceVals===false ){
+		$devcVls = $this->retrieveDevice( hash('sha256', $gvnTokn) );
+		if( $devcVls===false ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
 		// A revoked device, or one whose user is not active, is answered like an unknown token
-		if( $dvceVals===null || ($dvceVals['revokeDate'] ?? null)!==null || ($dvceVals['userStatus'] ?? '')!=='approved' ){
+		if( $devcVls===null || ($devcVls['revokeDate'] ?? null)!==null || ($devcVls['userStatus'] ?? '')!=='approved' ){
 			$this->errMessage = 'Invalid API key';
 			$this->badTryFlag = true;
 			return false;
 		}
 		// The role is the lower of the cap and the user's current role; a cap that is not a role refuses the device, never falls back to the user's role
-		$userRole = strval($dvceVals['accessRole'] ?? '');
-		$devicTop = strval($dvceVals['deviceTops'] ?? '');
-		if( $devicTop!=='' && !in_array($devicTop, Checker::ROLE_LIST, true) ){
+		$usrRole = strval($devcVls['accessRole'] ?? '');
+		$devcTop = strval($devcVls['deviceTops'] ?? '');
+		if( $devcTop!=='' && !in_array($devcTop, Checker::ROLE_LIST, true) ){
 			$this->errMessage = 'Invalid API key';
-			Logger::retrieveLogger('access')->warning( 'Device '.json_encode(strval($dvceVals['deviceName'] ?? '')).' of user '.json_encode(strval($dvceVals['systemName'] ?? '')).' refused: its cap '.json_encode($devicTop).' is not a role' );
+			Logger::retrieveLogger('access')->warning( 'Device '.json_encode(strval($devcVls['deviceName'] ?? '')).' of user '.json_encode(strval($devcVls['systemName'] ?? '')).' refused: its cap '.json_encode($devcTop).' is not a role' );
 			return false;
 		}
-		if( $devicTop!=='' && array_search($devicTop, Checker::ROLE_LIST, true) < array_search($userRole, Checker::ROLE_LIST, true) ){
-			$userRole = $devicTop;
+		if( $devcTop!=='' && array_search($devcTop, Checker::ROLE_LIST, true) < array_search($usrRole, Checker::ROLE_LIST, true) ){
+			$usrRole = $devcTop;
 		}
-		$this->seenDevice = $dvceVals['id_device'];
+		$this->seenDevice = $devcVls['id_device'];
 		return Array(
-			'userName'=>$dvceVals['systemName'], 'userRole'=>$userRole, 'idOfUser'=>$dvceVals['id_user'] ?? null,
-			'device'=>Array('id'=>$dvceVals['id_device'], 'name'=>$dvceVals['deviceName'], 'role'=>$dvceVals['deviceRole'])
+			'userName'=>$devcVls['systemName'], 'userRole'=>$usrRole, 'idOfUser'=>$devcVls['id_user'] ?? null,
+			'device'=>Array('id'=>$devcVls['id_device'], 'name'=>$devcVls['deviceName'], 'role'=>$devcVls['deviceRole'])
 		);
 	}
 
@@ -104,12 +104,12 @@ class Device implements Handler{
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			$seenFild = $dtbsHndr->quoteFieldName('accessDate');
-			$nowStamp = time();
-			$updtQuer = 'UPDATE '.$dtbsHndr->quoteFieldName($this->deviceTble)." SET $seenFild='".date('Y-m-d H:i:s', $nowStamp)."'"
-				.' WHERE '.$dtbsHndr->quoteFieldName('id_device')."=? AND ($seenFild IS NULL OR $seenFild<='".date('Y-m-d H:i:s', $nowStamp - $this->stampEvery)."');";
-			return $dtbsHndr->sendBuiltQuery($updtQuer, true, Array($this->seenDevice)) && $dtbsHndr->countLastWrite()>0;
+			$dbHndlr = $this->attachDatabase();
+			$seenFld = $dbHndlr->quoteFieldName('accessDate');
+			$nowTime = time();
+			$updtQry = 'UPDATE '.$dbHndlr->quoteFieldName($this->deviceTble)." SET $seenFld='".date('Y-m-d H:i:s', $nowTime)."'"
+				.' WHERE '.$dbHndlr->quoteFieldName('id_device')."=? AND ($seenFld IS NULL OR $seenFld<='".date('Y-m-d H:i:s', $nowTime - $this->stampEvery)."');";
+			return $dbHndlr->sendBuiltQuery($updtQry, true, Array($this->seenDevice)) && $dbHndlr->countLastWrite()>0;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -130,14 +130,14 @@ class Device implements Handler{
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			$fieldLst = array_map( Array($dtbsHndr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'deviceTops', 'bearerHash', 'user_id') );
-			$newToken = bin2hex(random_bytes(32));
-			$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fieldLst).')'
-				.' SELECT ?, ?, ?, ?, '.$dtbsHndr->quoteFieldName('id_user').' FROM '.$dtbsHndr->quoteFieldName($this->usersTable)
-				.' WHERE '.$dtbsHndr->quoteFieldName('systemName').'=? AND '.$dtbsHndr->quoteFieldName('userStatus')."='approved';";
-			$newArray = Array($userDevcName, $deviceRleTxt, $roleTopsText, hash('sha256', $newToken), $namedUserTxt);
-			return ( $dtbsHndr->sendBuiltQuery($addSttmt, true, $newArray) && $dtbsHndr->countLastWrite()>0 ) ? $newToken : false;
+			$dbHndlr = $this->attachDatabase();
+			$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'deviceTops', 'bearerHash', 'user_id') );
+			$newTokn = bin2hex(random_bytes(32));
+			$addStmt = 'INSERT INTO '.$dbHndlr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fldList).')'
+				.' SELECT ?, ?, ?, ?, '.$dbHndlr->quoteFieldName('id_user').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
+				.' WHERE '.$dbHndlr->quoteFieldName('systemName').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved';";
+			$newData = Array($userDevcName, $deviceRleTxt, $roleTopsText, hash('sha256', $newTokn), $namedUserTxt);
+			return ( $dbHndlr->sendBuiltQuery($addStmt, true, $newData) && $dbHndlr->countLastWrite()>0 ) ? $newTokn : false;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -155,11 +155,11 @@ class Device implements Handler{
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			$revokFld = $dtbsHndr->quoteFieldName('revokeDate');
-			$updtQuer = 'UPDATE '.$dtbsHndr->quoteFieldName($this->deviceTble)." SET $revokFld='".date('Y-m-d H:i:s')."'"
-				.' WHERE '.$dtbsHndr->quoteFieldName('id_device')."=? AND $revokFld IS NULL;";
-			return $dtbsHndr->sendBuiltQuery($updtQuer, true, Array($devcIdentity)) && $dtbsHndr->countLastWrite()>0;
+			$dbHndlr = $this->attachDatabase();
+			$revkFld = $dbHndlr->quoteFieldName('revokeDate');
+			$updtQry = 'UPDATE '.$dbHndlr->quoteFieldName($this->deviceTble)." SET $revkFld='".date('Y-m-d H:i:s')."'"
+				.' WHERE '.$dbHndlr->quoteFieldName('id_device')."=? AND $revkFld IS NULL;";
+			return $dbHndlr->sendBuiltQuery($updtQry, true, Array($devcIdentity)) && $dbHndlr->countLastWrite()>0;
 		}catch( \Throwable $e ){
 			return false;
 		}
@@ -177,17 +177,17 @@ class Device implements Handler{
 			return null;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			$roleQuer = 'SELECT '.$dtbsHndr->quoteFieldName('accessRole').' FROM '.$dtbsHndr->quoteFieldName($this->usersTable)
-				.' WHERE '.$dtbsHndr->quoteFieldName('systemName').'=? AND '.$dtbsHndr->quoteFieldName('userStatus')."='approved' LIMIT 1;";
-			if( !$dtbsHndr->sendBuiltQuery($roleQuer, false, Array($namedUserTxt)) ){
+			$dbHndlr = $this->attachDatabase();
+			$roleQry = 'SELECT '.$dbHndlr->quoteFieldName('accessRole').' FROM '.$dbHndlr->quoteFieldName($this->usersTable)
+				.' WHERE '.$dbHndlr->quoteFieldName('systemName').'=? AND '.$dbHndlr->quoteFieldName('userStatus')."='approved' LIMIT 1;";
+			if( !$dbHndlr->sendBuiltQuery($roleQry, false, Array($namedUserTxt)) ){
 				return null;
 			}
-			$userNtry = $dtbsHndr->readLastResult(true);
+			$usrRows = $dbHndlr->readLastResult(true);
 		}catch( \Throwable $e ){
 			return null;
 		}
-		return ( is_array($userNtry) && isset($userNtry[0]['accessRole']) ) ? strval($userNtry[0]['accessRole']) : null;
+		return ( is_array($usrRows) && isset($usrRows[0]['accessRole']) ) ? strval($usrRows[0]['accessRole']) : null;
 	}
 
 	/**
@@ -202,27 +202,27 @@ class Device implements Handler{
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			$fieldLst = Array();
+			$dbHndlr = $this->attachDatabase();
+			$fldList = Array();
 			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
-				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$fldNme);
+				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
-			$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.systemName');
-			$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.accessRole');
-			$userName = $dtbsHndr->quoteFieldName($this->usersTable.'.systemName');
-			$listQuer = 'SELECT '.implode(', ', $fieldLst).' FROM '.$dtbsHndr->quoteFieldName($this->deviceTble)
-				.' INNER JOIN '.$dtbsHndr->quoteFieldName($this->usersTable)
-				.' ON '.$dtbsHndr->quoteFieldName($this->usersTable.'.id_user').'='.$dtbsHndr->quoteFieldName($this->deviceTble.'.user_id')
-				.(($namedUserTxt!=='') ? ' WHERE '.$userName.'=?' : '')
-				.' ORDER BY '.$userName.', '.$dtbsHndr->quoteFieldName($this->deviceTble.'.deviceName').', '.$dtbsHndr->quoteFieldName($this->deviceTble.'.id_device').';';
-			if( !$dtbsHndr->sendBuiltQuery($listQuer, false, ($namedUserTxt!=='') ? Array($namedUserTxt) : Array()) ){
+			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.systemName');
+			$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.accessRole');
+			$usrName = $dbHndlr->quoteFieldName($this->usersTable.'.systemName');
+			$listQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)
+				.' INNER JOIN '.$dbHndlr->quoteFieldName($this->usersTable)
+				.' ON '.$dbHndlr->quoteFieldName($this->usersTable.'.id_user').'='.$dbHndlr->quoteFieldName($this->deviceTble.'.user_id')
+				.(($namedUserTxt!=='') ? ' WHERE '.$usrName.'=?' : '')
+				.' ORDER BY '.$usrName.', '.$dbHndlr->quoteFieldName($this->deviceTble.'.deviceName').', '.$dbHndlr->quoteFieldName($this->deviceTble.'.id_device').';';
+			if( !$dbHndlr->sendBuiltQuery($listQry, false, ($namedUserTxt!=='') ? Array($namedUserTxt) : Array()) ){
 				return false;
 			}
-			$dvceNtry = $dtbsHndr->readLastResult(true);
+			$dvcRows = $dbHndlr->readLastResult(true);
 		}catch( \Throwable $e ){
 			return false;
 		}
-		return is_array($dvceNtry) ? $dvceNtry : false;
+		return is_array($dvcRows) ? $dvcRows : false;
 	}
 
 	/**
@@ -236,29 +236,29 @@ class Device implements Handler{
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
-			$fieldLst = Array();
+			$dbHndlr = $this->attachDatabase();
+			$fldList = Array();
 			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'revokeDate') as $fldNme ){
-				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$fldNme);
+				$fldList[] = $dbHndlr->quoteFieldName($this->deviceTble.'.'.$fldNme);
 			}
 			foreach( Array('id_user', 'systemName', 'accessRole', 'userStatus') as $fldNme ){
-				$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.'.$fldNme);
+				$fldList[] = $dbHndlr->quoteFieldName($this->usersTable.'.'.$fldNme);
 			}
-			$dvceQuer = 'SELECT '.implode(', ', $fieldLst).' FROM '.$dtbsHndr->quoteFieldName($this->deviceTble)
-				.' INNER JOIN '.$dtbsHndr->quoteFieldName($this->usersTable)
-				.' ON '.$dtbsHndr->quoteFieldName($this->usersTable.'.id_user').'='.$dtbsHndr->quoteFieldName($this->deviceTble.'.user_id')
-				.' WHERE '.$dtbsHndr->quoteFieldName($this->deviceTble.'.bearerHash').'=? LIMIT 1;';
-			if( !$dtbsHndr->sendBuiltQuery($dvceQuer, false, Array($hashedTknTxt)) ){
+			$devcQry = 'SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($this->deviceTble)
+				.' INNER JOIN '.$dbHndlr->quoteFieldName($this->usersTable)
+				.' ON '.$dbHndlr->quoteFieldName($this->usersTable.'.id_user').'='.$dbHndlr->quoteFieldName($this->deviceTble.'.user_id')
+				.' WHERE '.$dbHndlr->quoteFieldName($this->deviceTble.'.bearerHash').'=? LIMIT 1;';
+			if( !$dbHndlr->sendBuiltQuery($devcQry, false, Array($hashedTknTxt)) ){
 				return false;
 			}
-			$dvceNtry = $dtbsHndr->readLastResult(true);
+			$dvcRows = $dbHndlr->readLastResult(true);
 		}catch( \Throwable $e ){
 			return false;
 		}
-		if( !is_array($dvceNtry) ){
+		if( !is_array($dvcRows) ){
 			return false;
 		}
-		return empty($dvceNtry) ? null : $dvceNtry[0];
+		return empty($dvcRows) ? null : $dvcRows[0];
 	}
 
 	/**

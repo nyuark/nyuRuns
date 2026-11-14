@@ -37,61 +37,61 @@ class Tabl extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('sheet'), 'a table');
-		$dvdrText = strval($writeOptions['separ'] ?? 'commaSep');
+		$divider = strval($writeOptions['separ'] ?? 'commaSep');
 		// The separator whatever its case, as SEPR_LIST writes it
-		$dvdrText = strval( array_values(preg_grep('/^'.preg_quote($dvdrText, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $dvdrText );
-		if( !isset(self::SEPR_LIST[$dvdrText]) ){
-			throw new WriteError('Invalid table option: unknown separator '.$dvdrText);
+		$divider = strval( array_values(preg_grep('/^'.preg_quote($divider, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $divider );
+		if( !isset(self::SEPR_LIST[$divider]) ){
+			throw new WriteError('Invalid table option: unknown separator '.$divider);
 		}
-		$sheetLst = array_values((array)($dataEnvelope['items'] ?? Array()));
-		$sheetIdx = 0;
+		$shetLst = array_values((array)($dataEnvelope['items'] ?? Array()));
+		$shetIdx = 0;
 		if( isset($writeOptions['sheet']) && $writeOptions['sheet']!=='' ){
 			// By its name first, by its position otherwise
-			$askdTabs = strval($writeOptions['sheet']);
-			$sheetIdx = array_search($askdTabs, array_map('strval', array_column($sheetLst, 'title')), true);
-			if( $sheetIdx===false && preg_match('/^[1-9]\d*$/D', $askdTabs) && isset($sheetLst[intval($askdTabs)-1]) ){
-				$sheetIdx = intval($askdTabs)-1;
+			$askdSht = strval($writeOptions['sheet']);
+			$shetIdx = array_search($askdSht, array_map('strval', array_column($shetLst, 'title')), true);
+			if( $shetIdx===false && preg_match('/^[1-9]\d*$/D', $askdSht) && isset($shetLst[intval($askdSht)-1]) ){
+				$shetIdx = intval($askdSht)-1;
 			}
-			if( $sheetIdx===false ){
-				throw new WriteError('Invalid table option: no sheet '.$askdTabs);
+			if( $shetIdx===false ){
+				throw new WriteError('Invalid table option: no sheet '.$askdSht);
 			}
 		}
-		if( !isset($sheetLst[$sheetIdx]) ){
+		if( !isset($shetLst[$shetIdx]) ){
 			return '';
 		}
-		$rowsList = array_values((array)($sheetLst[$sheetIdx]['cells'] ?? Array()));
-		$hasGuard = !isset($writeOptions['guard']) || !empty($writeOptions['guard']);
+		$rowsLst = array_values((array)($shetLst[$shetIdx]['cells'] ?? Array()));
+		$wthGrid = !isset($writeOptions['guard']) || !empty($writeOptions['guard']);
 		// Rows keyed by the names of their columns: every name met, in the order they are met, makes a column
-		$headList = Array();
-		$isByKeys = false;
-		foreach($rowsList as $oneRow){
-			$isByKeys = ($isByKeys || !$this->validateALstOf((array)$oneRow));
+		$headLst = Array();
+		$isKeyed = false;
+		foreach($rowsLst as $oneRow){
+			$isKeyed = ($isKeyed || !$this->validateALstOf((array)$oneRow));
 		}
-		if( $isByKeys ){
-			foreach($rowsList as $oneRow){
+		if( $isKeyed ){
+			foreach($rowsLst as $oneRow){
 				foreach(array_keys((array)$oneRow) as $column){
-					if( !in_array(strval($column), $headList, true) ){
-						$headList[] = strval($column);
+					if( !in_array(strval($column), $headLst, true) ){
+						$headLst[] = strval($column);
 					}
 				}
 			}
 		}
-		$tableTxt = '';
-		if( $isByKeys && (!isset($writeOptions['heads']) || !empty($writeOptions['heads'])) ){
-			$tableTxt .= $this->writeRowAsLine($headList, self::SEPR_LIST[$dvdrText], $hasGuard);
+		$tblText = '';
+		if( $isKeyed && (!isset($writeOptions['heads']) || !empty($writeOptions['heads'])) ){
+			$tblText .= $this->writeRowAsLine($headLst, self::SEPR_LIST[$divider], $wthGrid);
 		}
-		foreach($rowsList as $oneRow){
-			$cellList = (array)$oneRow;
-			if( $isByKeys ){
+		foreach($rowsLst as $oneRow){
+			$cellLst = (array)$oneRow;
+			if( $isKeyed ){
 				// A row that lacks a column has nothing in it
-				$cellList = Array();
-				foreach($headList as $column){
-					$cellList[] = ((array)$oneRow)[$column] ?? null;
+				$cellLst = Array();
+				foreach($headLst as $column){
+					$cellLst[] = ((array)$oneRow)[$column] ?? null;
 				}
 			}
-			$tableTxt .= $this->writeRowAsLine($cellList, self::SEPR_LIST[$dvdrText], $hasGuard);
+			$tblText .= $this->writeRowAsLine($cellLst, self::SEPR_LIST[$divider], $wthGrid);
 		}
-		return ((!empty($writeOptions['bomrk']) && $tableTxt!=='') ? "\xEF\xBB\xBF" : '').$tableTxt;
+		return ((!empty($writeOptions['bomrk']) && $tblText!=='') ? "\xEF\xBB\xBF" : '').$tblText;
 	}
 
 	/**
@@ -103,26 +103,26 @@ class Tabl extends Base {
 	 * @return String The line, with its line end.
 	 */
 	protected function writeRowAsLine(Array $sheetRowList, String $separatorVal, Bool $guardFormula): String {
-		$textList = Array();
+		$textLst = Array();
 		foreach($sheetRowList as $oneVal){
 			if( is_bool($oneVal) ){
-				$textList[] = $oneVal ? 'true' : 'false';
+				$textLst[] = $oneVal ? 'true' : 'false';
 			}elseif( is_int($oneVal) || is_float($oneVal) ){
 				// A number is written with the digits it needs and no more, whatever the server is set to
-				$keptPrec = ini_set('serialize_precision', '-1');
-				$textList[] = is_finite(floatval($oneVal)) ? strval(json_encode($oneVal)) : '';
-				if( $keptPrec!==false ){
-					ini_set('serialize_precision', $keptPrec);
+				$keptPrc = ini_set('serialize_precision', '-1');
+				$textLst[] = is_finite(floatval($oneVal)) ? strval(json_encode($oneVal)) : '';
+				if( $keptPrc!==false ){
+					ini_set('serialize_precision', $keptPrc);
 				}
 			}elseif( !is_string($oneVal) ){
-				$textList[] = '';
+				$textLst[] = '';
 			}else{
-				$cellText = ($guardFormula && $oneVal!=='' && strpos("=+-@\t\r", $oneVal[0])!==false) ? "'".$oneVal : $oneVal;
-				$needQuot = (strpbrk($cellText, $separatorVal."\"\r\n")!==false || trim($cellText)!==$cellText);
-				$textList[] = $needQuot ? '"'.str_replace('"', '""', $cellText).'"' : $cellText;
+				$cellTxt = ($guardFormula && $oneVal!=='' && strpos("=+-@\t\r", $oneVal[0])!==false) ? "'".$oneVal : $oneVal;
+				$needQut = (strpbrk($cellTxt, $separatorVal."\"\r\n")!==false || trim($cellTxt)!==$cellTxt);
+				$textLst[] = $needQut ? '"'.str_replace('"', '""', $cellTxt).'"' : $cellTxt;
 			}
 		}
-		return implode($separatorVal, $textList)."\r\n";
+		return implode($separatorVal, $textLst)."\r\n";
 	}
 
 }

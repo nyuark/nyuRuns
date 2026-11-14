@@ -64,11 +64,11 @@ class Message {
 	 * @throws MailFailure When it is not a valid address.
 	 */
 	public static function checkEmailAddr( String $emlAddresses ): String {
-		$trimdTxt = trim($emlAddresses);
-		if( preg_match('/[\r\n\0]/', $trimdTxt) || filter_var($trimdTxt, FILTER_VALIDATE_EMAIL)===false ){
+		$trimmed = trim($emlAddresses);
+		if( preg_match('/[\r\n\0]/', $trimmed) || filter_var($trimmed, FILTER_VALIDATE_EMAIL)===false ){
 			throw new MailFailure('Invalid mail address: '.json_encode($emlAddresses));
 		}
-		return $trimdTxt;
+		return $trimmed;
 	}
 
 	/**
@@ -79,8 +79,8 @@ class Message {
 	 * @return Array The addresses, unchecked.
 	 */
 	public static function splitAddresses( Array|String $givenAddrLst ): Array {
-		$addrList = is_array($givenAddrLst) ? $givenAddrLst : explode(',', $givenAddrLst);
-		return array_values( array_filter( array_map('trim', array_map('strval', $addrList)), 'strlen' ) );
+		$addrLst = is_array($givenAddrLst) ? $givenAddrLst : explode(',', $givenAddrLst);
+		return array_values( array_filter( array_map('trim', array_map('strval', $addrLst)), 'strlen' ) );
 	}
 
 	/**
@@ -170,24 +170,24 @@ class Message {
 	 * @return String The mail.
 	 */
 	public function writeWholeMail(): String {
-		$sndrDomn = substr(strrchr($this->senderAddr, '@'), 1);
-		$headList = Array(
+		$sndDomn = substr(strrchr($this->senderAddr, '@'), 1);
+		$headLst = Array(
 			'Date: '.date('r'),
 			'From: '.self::writeNamedAddr($this->senderAddr, $this->senderName),
 			'To: '.implode(', ', $this->recipients),
 			'Subject: '.self::encodeHeadText($this->subjectTxt),
-			'Message-ID: <'.bin2hex(random_bytes(16)).'@'.$sndrDomn.'>',
+			'Message-ID: <'.bin2hex(random_bytes(16)).'@'.$sndDomn.'>',
 			'MIME-Version: 1.0',
 		);
 		if( $this->bodyAsHtml===null ){
-			return implode("\r\n", $headList)."\r\n".self::makePartString($this->bodyAsText, 'plain');
+			return implode("\r\n", $headLst)."\r\n".self::makePartString($this->bodyAsText, 'plain');
 		}
-		$boundary = '=_nyu_'.bin2hex(random_bytes(12));
-		$headList[] = 'Content-Type: multipart/alternative; boundary="'.$boundary.'"';
-		return implode("\r\n", $headList)."\r\n\r\n"
-			.'--'.$boundary."\r\n".self::makePartString($this->bodyAsText, 'plain')."\r\n"
-			.'--'.$boundary."\r\n".self::makePartString($this->bodyAsHtml, 'html')."\r\n"
-			.'--'.$boundary.'--'."\r\n";
+		$boundry = '=_nyu_'.bin2hex(random_bytes(12));
+		$headLst[] = 'Content-Type: multipart/alternative; boundary="'.$boundry.'"';
+		return implode("\r\n", $headLst)."\r\n\r\n"
+			.'--'.$boundry."\r\n".self::makePartString($this->bodyAsText, 'plain')."\r\n"
+			.'--'.$boundry."\r\n".self::makePartString($this->bodyAsHtml, 'html')."\r\n"
+			.'--'.$boundry.'--'."\r\n";
 	}
 
 	/**
@@ -243,24 +243,24 @@ class Message {
 		if( !preg_match('/[^\x20-\x7E]/', $textOfHeader) ){
 			return $textOfHeader;
 		}
-		$charList = preg_split('//u', $textOfHeader, -1, PREG_SPLIT_NO_EMPTY);
-		if( $charList===false ){
+		$charLst = preg_split('//u', $textOfHeader, -1, PREG_SPLIT_NO_EMPTY);
+		if( $charLst===false ){
 			// Not valid UTF-8: cut by bytes
-			$charList = str_split($textOfHeader);
+			$charLst = str_split($textOfHeader);
 		}
-		$chunkLst = Array('');
-		foreach( $charList as $letter ){
-			$lastIndx = count($chunkLst)-1;
-			if( strlen($chunkLst[$lastIndx].$letter)>45 ){
-				$chunkLst[] = '';
-				$lastIndx++;
+		$chnkLst = Array('');
+		foreach( $charLst as $letter ){
+			$lastIdx = count($chnkLst)-1;
+			if( strlen($chnkLst[$lastIdx].$letter)>45 ){
+				$chnkLst[] = '';
+				$lastIdx++;
 			}
-			$chunkLst[$lastIndx] .= $letter;
+			$chnkLst[$lastIdx] .= $letter;
 		}
-		$wordList = Array();
-		foreach( $chunkLst as $oneChk ){
-			$wordList[] = '=?UTF-8?B?'.base64_encode($oneChk).'?=';
+		$wordLst = Array();
+		foreach( $chnkLst as $oneChk ){
+			$wordLst[] = '=?UTF-8?B?'.base64_encode($oneChk).'?=';
 		}
-		return implode("\r\n ", $wordList);
+		return implode("\r\n ", $wordLst);
 	}
 }

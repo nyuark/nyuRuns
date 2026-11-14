@@ -33,9 +33,9 @@ class Dcmnt{
 	function __construct( String $fileLocation, Bool $upperTopKeys = true ){
 		$this->fileSource = Fluxd::openLocalFluxd($fileLocation);
 		$this->nameOfFile = basename($fileLocation);
-		$namePart = pathinfo($this->nameOfFile);
-		$this->plainTitle = strval($namePart['filename'] ?? '');
-		$this->fileSuffix = strtolower(strval($namePart['extension'] ?? ''));
+		$nmePart = pathinfo($this->nameOfFile);
+		$this->plainTitle = strval($nmePart['filename'] ?? '');
+		$this->fileSuffix = strtolower(strval($nmePart['extension'] ?? ''));
 		$this->headerKind = Parsers\Bina::detectFileKind($this->fileSource->getRangeString(0, 511));
 		if( $this->fileSuffix=='' && $this->headerKind!='' ){
 			$this->fileSuffix = $this->headerKind;
@@ -57,23 +57,23 @@ class Dcmnt{
 		$this->latestData = Array();
 		$this->finalShape = '';
 		$this->dataDetail = Array();
-		$prsrInst = Parsers\Index::forExtnsParser($extensionTxt);
-		if( $prsrInst===null ){
+		$prsrObj = Parsers\Index::forExtnsParser($extensionTxt);
+		if( $prsrObj===null ){
 			return;
 		}
 		// A parser tells the kinds of content it reads: a content that is plainly something else is refused
-		$kindList = ($prsrInst instanceof Parsers\Base) ? $prsrInst->signsReadArray() : Parsers\Bina::TEXT_LIST;
-		if( $this->headerKind!='' && !in_array($this->headerKind, $kindList) ){
+		$kindLst = ($prsrObj instanceof Parsers\Base) ? $prsrObj->signsReadArray() : Parsers\Bina::TEXT_LIST;
+		if( $this->headerKind!='' && !in_array($this->headerKind, $kindLst) ){
 			throw new Parsers\ParseError($this->nameOfFile.': the content is not what the name announces');
 		}
 		try{
-			$envelope = $prsrInst->parseFluxArray( $this->fileSource, Array('upper'=>$upperTopKeys) + Parsers\Index::optionsOfExtns($extensionTxt) );
+			$envlope = $prsrObj->parseFluxArray( $this->fileSource, Array('upper'=>$upperTopKeys) + Parsers\Index::optionsOfExtns($extensionTxt) );
 		}catch( Parsers\ParseError $e ){
 			throw new Parsers\ParseError($this->nameOfFile.': '.$e->getMessage(), 0, $e);
 		}
-		$this->latestData = $envelope['items'];
-		$this->finalShape = $envelope['shape'];
-		$this->dataDetail = $envelope['infos'];
+		$this->latestData = $envlope['items'];
+		$this->finalShape = $envlope['shape'];
+		$this->dataDetail = $envlope['infos'];
 	}
 
 	/**

@@ -36,13 +36,13 @@ abstract class Base implements Parser {
 	 * @throws ParseError When the content is larger than the limit, or is not valid.
 	 */
 	public function parseFluxArray(Fluxd $sourceStream, Array $parseOptions=Array()): Array {
-		$maxBytes = intval($parseOptions['limit'] ?? self::DFLT_SIZE);
+		$maxSize = intval($parseOptions['limit'] ?? self::DFLT_SIZE);
 		try{
-			$fullText = $sourceStream->getWholeString($maxBytes);
+			$fullTxt = $sourceStream->getWholeString($maxSize);
 		}catch( \RuntimeException $e ){
 			throw new ParseError($e->getMessage(), 0, $e);
 		}
-		return $this->parseDataArray($fullText, $parseOptions);
+		return $this->parseDataArray($fullTxt, $parseOptions);
 	}
 
 	/**
@@ -92,23 +92,23 @@ abstract class Base implements Parser {
 			return Array();
 		}
 		foreach(array_values((array)array_shift($cellRowsList)) as $colInc=>$header){
-			$nameText = is_scalar($header) ? trim(strval($header)) : '';
+			$nameTxt = is_scalar($header) ? trim(strval($header)) : '';
 			// A column must have a key of its own, whatever its name
-			if( $nameText==='' ){
-				$nameText = strval($colInc+1);
+			if( $nameTxt==='' ){
+				$nameTxt = strval($colInc+1);
 			}
-			$columnTitles[] = in_array($nameText, $columnTitles, true) ? $nameText.'_'.($colInc+1) : $nameText;
+			$columnTitles[] = in_array($nameTxt, $columnTitles, true) ? $nameTxt.'_'.($colInc+1) : $nameTxt;
 		}
 		foreach($cellRowsList as $rowIdx=>$oneRow){
 			$oneRow = array_values((array)$oneRow);
-			$keyedRow = Array();
+			$keyedRw = Array();
 			foreach($columnTitles as $colInc=>$header){
-				$keyedRow[$header] = $oneRow[$colInc] ?? null;
+				$keyedRw[$header] = $oneRow[$colInc] ?? null;
 			}
 			for($colInc=count($columnTitles); $colInc<count($oneRow); $colInc++){
-				$keyedRow[strval($colInc+1)] = $oneRow[$colInc];
+				$keyedRw[strval($colInc+1)] = $oneRow[$colInc];
 			}
-			$cellRowsList[$rowIdx] = $keyedRow;
+			$cellRowsList[$rowIdx] = $keyedRw;
 		}
 		return $cellRowsList;
 	}
@@ -145,11 +145,11 @@ abstract class Base implements Parser {
 	 * @return Array The same values, under upper-cased keys.
 	 */
 	protected function upperKeysArray(Array $fieldValList): Array {
-		$upprVals = Array();
+		$upprVls = Array();
 		foreach($fieldValList as $valKey=>$valItm){
-			$upprVals[is_string($valKey) ? strtoupper($valKey) : $valKey] = $valItm;
+			$upprVls[is_string($valKey) ? strtoupper($valKey) : $valKey] = $valItm;
 		}
-		return $upprVals;
+		return $upprVls;
 	}
 
 }

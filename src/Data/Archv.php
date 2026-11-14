@@ -49,29 +49,29 @@ class Archv {
 		if( !class_exists('ZipArchive') ){
 			throw new \RuntimeException('Archives need the zip extension of PHP');
 		}
-		$archInst = new \ZipArchive();
-		if( $archInst->open($sourceStream->setLocalString(), \ZipArchive::RDONLY)!==true ){
+		$archive = new \ZipArchive();
+		if( $archive->open($sourceStream->setLocalString(), \ZipArchive::RDONLY)!==true ){
 			throw new \RuntimeException('Not a zip archive');
 		}
-		if( $archInst->numFiles>$entriesMaxNb ){
-			$archInst->close();
+		if( $archive->numFiles>$entriesMaxNb ){
+			$archive->close();
 			throw new \RuntimeException('Archive holding more than the '.$entriesMaxNb.' entries allowed');
 		}
-		$nameList = Array();
-		for($zipInc=0; $zipInc<$archInst->numFiles; $zipInc++){
-			$zipEntry = $archInst->statIndex($zipInc);
-			$itemName = strval($zipEntry['name'] ?? '');
+		$nameLst = Array();
+		for($zipInc=0; $zipInc<$archive->numFiles; $zipInc++){
+			$zipStat = $archive->statIndex($zipInc);
+			$itemNme = strval($zipStat['name'] ?? '');
 			// A name that would leave the archive is never a mistake
-			if( $itemName==='' || $itemName[0]=='/' || strpos($itemName, '\\')!==false || strpos($itemName, ':')!==false || in_array('..', explode('/', $itemName), true) ){
-				$archInst->close();
+			if( $itemNme==='' || $itemNme[0]=='/' || strpos($itemNme, '\\')!==false || strpos($itemNme, ':')!==false || in_array('..', explode('/', $itemNme), true) ){
+				$archive->close();
 				throw new \RuntimeException('Archive holding an entry whose name is not safe');
 			}
 			// Folders are not entries to read
-			if( substr($itemName, -1)!='/' ){
-				$nameList[$itemName] = intval($zipEntry['size'] ?? 0);
+			if( substr($itemNme, -1)!='/' ){
+				$nameLst[$itemNme] = intval($zipStat['size'] ?? 0);
 			}
 		}
-		return new Archv($archInst, $sourceStream, $nameList);
+		return new Archv($archive, $sourceStream, $nameLst);
 	}
 
 	/**
@@ -87,30 +87,30 @@ class Archv {
 	 * @throws \RuntimeException When a name is not safe, or the archive would be larger than a plain zip can be.
 	 */
 	public static function newBytesString(Array $entriesArray, Array $unpackedList=Array()): String {
-		$bodyText = '';
-		$listText = '';
+		$bodyTxt = '';
+		$listTxt = '';
 		// The date of the entries, as archives write it: two seconds at a time, from 1980
-		$timeList = getdate();
-		$timeVals = ($timeList['hours']<<11) | ($timeList['minutes']<<5) | intdiv($timeList['seconds'], 2);
-		$dateVals = (max(0, $timeList['year']-1980)<<9) | ($timeList['mon']<<5) | $timeList['mday'];
+		$timeArr = getdate();
+		$timeVal = ($timeArr['hours']<<11) | ($timeArr['minutes']<<5) | intdiv($timeArr['seconds'], 2);
+		$dateVal = (max(0, $timeArr['year']-1980)<<9) | ($timeArr['mon']<<5) | $timeArr['mday'];
 		foreach($entriesArray as $entNme=>$entTxt){
 			$entNme = strval($entNme);
 			$entTxt = strval($entTxt);
 			if( $entNme==='' || $entNme[0]=='/' || strpos($entNme, '\\')!==false || strpos($entNme, ':')!==false || in_array('..', explode('/', $entNme), true) || strlen($entNme)>65535 ){
 				throw new \RuntimeException('Archive given an entry whose name is not safe');
 			}
-			$packText = (function_exists('gzdeflate') && $entTxt!=='' && !in_array($entNme, $unpackedList, true)) ? gzdeflate($entTxt, 6) : false;
-			$isPacked = ($packText!==false && strlen($packText)<strlen($entTxt));
-			$dataText = $isPacked ? $packText : $entTxt;
-			if( strlen($bodyText)+strlen($dataText)>0x7FFFFFFF || count($entriesArray)>65535 ){
+			$packTxt = (function_exists('gzdeflate') && $entTxt!=='' && !in_array($entNme, $unpackedList, true)) ? gzdeflate($entTxt, 6) : false;
+			$isPackd = ($packTxt!==false && strlen($packTxt)<strlen($entTxt));
+			$dataTxt = $isPackd ? $packTxt : $entTxt;
+			if( strlen($bodyTxt)+strlen($dataTxt)>0x7FFFFFFF || count($entriesArray)>65535 ){
 				throw new \RuntimeException('Archive too large to be written');
 			}
 			// Names are written in UTF-8, and say so
-			$headText = pack('vvvvvVVVvv', 20, 0x0800, $isPacked ? 8 : 0, $timeVals, $dateVals, crc32($entTxt), strlen($dataText), strlen($entTxt), strlen($entNme), 0);
-			$listText .= "PK\x01\x02".pack('v', 20).$headText.pack('vvvVV', 0, 0, 0, 0, strlen($bodyText)).$entNme;
-			$bodyText .= "PK\x03\x04".$headText.$entNme.$dataText;
+			$headTxt = pack('vvvvvVVVvv', 20, 0x0800, $isPackd ? 8 : 0, $timeVal, $dateVal, crc32($entTxt), strlen($dataTxt), strlen($entTxt), strlen($entNme), 0);
+			$listTxt .= "PK\x01\x02".pack('v', 20).$headTxt.pack('vvvVV', 0, 0, 0, 0, strlen($bodyTxt)).$entNme;
+			$bodyTxt .= "PK\x03\x04".$headTxt.$entNme.$dataTxt;
 		}
-		return $bodyText.$listText."PK\x05\x06".pack('vvvvVVv', 0, 0, count($entriesArray), count($entriesArray), strlen($listText), strlen($bodyText), 0);
+		return $bodyTxt.$listTxt."PK\x05\x06".pack('vvvvVVv', 0, 0, count($entriesArray), count($entriesArray), strlen($listTxt), strlen($bodyTxt), 0);
 	}
 	/**
 	 * Gives the open archive, or refuses one that was closed.
@@ -163,35 +163,35 @@ class Archv {
 	 * @throws \RuntimeException When the entry is missing, protected by a password, larger than the limit, or cannot be read.
 	 */
 	public function getEntryString(String $fullPathName, ?Int $ceilingBytes=null): String {
-		$archInst = $this->getOpenArchive();
+		$archive = $this->getOpenArchive();
 		if( !isset($this->entryNames[$fullPathName]) ){
 			throw new \RuntimeException('Entry not found in the archive: '.$fullPathName);
 		}
 		if( $ceilingBytes!==null && $this->entryNames[$fullPathName]>$ceilingBytes ){
 			throw new \RuntimeException('Entry larger than the '.$ceilingBytes.' bytes allowed: '.$fullPathName);
 		}
-		$zipEntry = $archInst->statName($fullPathName);
-		if( intval($zipEntry['encryption_method'] ?? 0)!==0 ){
+		$zipStat = $archive->statName($fullPathName);
+		if( intval($zipStat['encryption_method'] ?? 0)!==0 ){
 			throw new \RuntimeException('Entry protected by a password: '.$fullPathName);
 		}
-		$entrySrm = @$archInst->getStream($fullPathName);
-		if( $entrySrm===false ){
+		$entStrm = @$archive->getStream($fullPathName);
+		if( $entStrm===false ){
 			throw new \RuntimeException('Entry that cannot be read: '.$fullPathName);
 		}
 		// The size an archive announces can be false: the reading itself stops one byte past the limit
-		$itemText = '';
-		while( !feof($entrySrm) && ($ceilingBytes===null || strlen($itemText)<=$ceilingBytes) ){
-			$chunkTxt = fread($entrySrm, 65536);
-			if( $chunkTxt===false || $chunkTxt==='' ){
+		$itemTxt = '';
+		while( !feof($entStrm) && ($ceilingBytes===null || strlen($itemTxt)<=$ceilingBytes) ){
+			$chnkTxt = fread($entStrm, 65536);
+			if( $chnkTxt===false || $chnkTxt==='' ){
 				break;
 			}
-			$itemText .= $chunkTxt;
+			$itemTxt .= $chnkTxt;
 		}
-		fclose($entrySrm);
-		if( $ceilingBytes!==null && strlen($itemText)>$ceilingBytes ){
+		fclose($entStrm);
+		if( $ceilingBytes!==null && strlen($itemTxt)>$ceilingBytes ){
 			throw new \RuntimeException('Entry larger than the '.$ceilingBytes.' bytes allowed: '.$fullPathName);
 		}
-		return $itemText;
+		return $itemTxt;
 	}
 
 	/**

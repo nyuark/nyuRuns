@@ -40,12 +40,12 @@ class PHMail extends Driver {
 	 */
 	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
 		try{
-			$phpEmail = $this->buildMailArray($emailMessage);
+			$phpMail = $this->buildMailArray($emailMessage);
 			if( $recipientLst===$emailMessage->listRecipients() ){
-				$phpEmail->send();
+				$phpMail->send();
 				return null;
 			}
-			return $this->sendMailCopies($phpEmail, $recipientLst);
+			return $this->sendMailCopies($phpMail, $recipientLst);
 		}catch( \Exception $e ){
 			return $e->getMessage();
 		}
@@ -58,41 +58,41 @@ class PHMail extends Driver {
 	 * @return Object The PHPMailer object, ready to send.
 	 */
 	protected function buildMailArray( Message $emailMessage ): Object {
-		$mailClss = self::MAIL_CLSS;
-		$phpEmail = new $mailClss(true);
-		$portNumb = intval($this->setupArray['portNumb'] ?? '') ?: 587;
-		$phpEmail->isSMTP();
-		$phpEmail->Host = strval($this->setupArray['hostName'] ?? '');
-		$phpEmail->Port = $portNumb;
-		$phpEmail->Timeout = intval($this->setupArray['waitSecs'] ?? '') ?: 10;
-		$phpEmail->CharSet = 'UTF-8';
-		if( $portNumb==465 ){
-			$phpEmail->SMTPSecure = 'ssl';
-		}elseif( !self::localServerFlg($phpEmail->Host) ){
-			$phpEmail->SMTPSecure = 'tls';
+		$mailCls = self::MAIL_CLSS;
+		$phpMail = new $mailCls(true);
+		$portNum = intval($this->setupArray['portNumb'] ?? '') ?: 587;
+		$phpMail->isSMTP();
+		$phpMail->Host = strval($this->setupArray['hostName'] ?? '');
+		$phpMail->Port = $portNum;
+		$phpMail->Timeout = intval($this->setupArray['waitSecs'] ?? '') ?: 10;
+		$phpMail->CharSet = 'UTF-8';
+		if( $portNum==465 ){
+			$phpMail->SMTPSecure = 'ssl';
+		}elseif( !self::localServerFlg($phpMail->Host) ){
+			$phpMail->SMTPSecure = 'tls';
 		}
-		$userName = strval($this->setupArray['userName'] ?? '');
-		if( $userName!='' ){
-			$phpEmail->SMTPAuth = true;
-			$phpEmail->Username = $userName;
-			$phpEmail->Password = strval($this->setupArray['passWord'] ?? '');
+		$userNme = strval($this->setupArray['userName'] ?? '');
+		if( $userNme!='' ){
+			$phpMail->SMTPAuth = true;
+			$phpMail->Username = $userNme;
+			$phpMail->Password = strval($this->setupArray['passWord'] ?? '');
 		}
-		$phpEmail->setFrom($emailMessage->retrieveSender(), $emailMessage->getSenderLabel());
+		$phpMail->setFrom($emailMessage->retrieveSender(), $emailMessage->getSenderLabel());
 		foreach( $emailMessage->listRecipients() as $toAddr ){
-			$phpEmail->addAddress($toAddr);
+			$phpMail->addAddress($toAddr);
 		}
-		$phpEmail->Subject = $emailMessage->getSubjectText();
+		$phpMail->Subject = $emailMessage->getSubjectText();
 		if( $emailMessage->getHtmlVersion()!==null ){
-			$phpEmail->isHTML(true);
-			$phpEmail->Body = $emailMessage->getHtmlVersion();
-			$phpEmail->AltBody = $emailMessage->simpleBodyText();
+			$phpMail->isHTML(true);
+			$phpMail->Body = $emailMessage->getHtmlVersion();
+			$phpMail->AltBody = $emailMessage->simpleBodyText();
 		}else{
-			$phpEmail->Body = $emailMessage->simpleBodyText();
+			$phpMail->Body = $emailMessage->simpleBodyText();
 		}
 		foreach( $emailMessage->getAttachments() as $attFil ){
-			$phpEmail->addAttachment($attFil);
+			$phpMail->addAttachment($attFil);
 		}
-		return $phpEmail;
+		return $phpMail;
 	}
 
 	/**
@@ -108,16 +108,16 @@ class PHMail extends Driver {
 		if( !$phpMailerObj->smtpConnect() ){
 			return 'no connection to the server';
 		}
-		$smtpLink = $phpMailerObj->getSMTPInstance();
-		$isMailOk = $smtpLink->mail($phpMailerObj->Sender ?: $phpMailerObj->From);
+		$smtpLnk = $phpMailerObj->getSMTPInstance();
+		$sentAll = $smtpLnk->mail($phpMailerObj->Sender ?: $phpMailerObj->From);
 		foreach( $recipientLst as $toAddr ){
-			$isMailOk = $isMailOk && $smtpLink->recipient($toAddr);
+			$sentAll = $sentAll && $smtpLnk->recipient($toAddr);
 		}
-		$isMailOk = $isMailOk && $smtpLink->data($phpMailerObj->getSentMIMEMessage());
-		$errorDct = $smtpLink->getError();
+		$sentAll = $sentAll && $smtpLnk->data($phpMailerObj->getSentMIMEMessage());
+		$errInfo = $smtpLnk->getError();
 		$phpMailerObj->smtpClose();
-		if( !$isMailOk ){
-			return trim( strval($errorDct['error'] ?? '').' '.strval($errorDct['smtp_code'] ?? '').' '.strval($errorDct['detail'] ?? '') );
+		if( !$sentAll ){
+			return trim( strval($errInfo['error'] ?? '').' '.strval($errInfo['smtp_code'] ?? '').' '.strval($errInfo['detail'] ?? '') );
 		}
 		return null;
 	}

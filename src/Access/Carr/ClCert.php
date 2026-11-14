@@ -53,31 +53,31 @@ class ClCert implements Handler{
 			$this->errMessage = 'Certificate variables misconfigured';
 			return false;
 		}
-		$srvrVals = $givenRequest->getServerValue();
-		if( ($srvrVals[$this->checkedVar] ?? '')!=='SUCCESS' ){
+		$srvrVls = $givenRequest->getServerValue();
+		if( ($srvrVls[$this->checkedVar] ?? '')!=='SUCCESS' ){
 			$this->errMessage = 'No verified client certificate';
 			return false;
 		}
-		if( $this->issuerName!='' && ($srvrVals[$this->issVarName] ?? '')!==$this->issuerName ){
+		if( $this->issuerName!='' && ($srvrVls[$this->issVarName] ?? '')!==$this->issuerName ){
 			$this->errMessage = 'Certificate issuer not accepted';
 			return false;
 		}
-		$certUser = trim( strval($srvrVals[$this->usrVarName] ?? '') );
-		if( $certUser=='' ){
+		$certUsr = trim( strval($srvrVls[$this->usrVarName] ?? '') );
+		if( $certUsr=='' ){
 			$this->errMessage = 'Certificate names no user';
 			return false;
 		}
-		$idntList = Array('userName'=>$certUser);
+		$idntArr = Array('userName'=>$certUsr);
 		// A credential store that knows its users confirms the certificate's user is allowed in
 		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
-			$nowIdent = $this->authObject->usrIdentityArr($certUser);
-			if( $nowIdent===false ){
+			$nowIdnt = $this->authObject->usrIdentityArr($certUsr);
+			if( $nowIdnt===false ){
 				$this->errMessage = $this->authObject->finalErrorText();
 				return false;
 			}
-			$idntList = array_merge($idntList, $nowIdent);
+			$idntArr = array_merge($idntArr, $nowIdnt);
 		}
-		return $idntList;
+		return $idntArr;
 	}
 
 	/**
