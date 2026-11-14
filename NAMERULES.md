@@ -2,12 +2,13 @@
 
 How every name of nyuRuns is built. `CONVENTIONS.md` gives the lengths; this file gives the grammar that fills them. The `audit` group of the tests checks both, reading the lists of this file.
 
-Status: **draft, step 0** (0-C-06). The grammar of each kind of name is settled first; the lengths, the glossary, the verbs, the kind terms and the renaming come after it, in that order.
+Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the glossary are settled; the locals of `src/` and `runs/` are named (1,830, 2026-11-14). Parameters, properties, methods and loops come next, by the same rules.
 
 ## 1. Principles
 
 - A name is built from **slots**. Each kind of name has its own slots, always in the same order.
-- A slot holds **one word**: a whole English word, or its single short form from the glossary (section 5) when the whole word cannot fit.
+- A slot holds **one word**, written whole or in one of its **writings** (section 5): each word has at most one writing of 3 letters, one of 4 and one of 5. A slot takes the writing of its length. **The whole word wins** whenever it fits: a word of 3, 4 or 5 letters is its own writing at that length, and a whole word of 8 letters fills a local alone (`boundary`, `envelope`).
+- A piece is read as **the word the code means**, never by its letters alone (`rot` is root, `red` is read, `sel` is seal, `fond` is found).
 - **One concept, one word.** The same thing has the same word in every name, every class, every kind.
 - **One word, one meaning.** A verb or a kind term never stands in for another one of a different size to reach a length.
 - The length is reached by **lengthening a slot, never by adding one**: a whole word instead of its short form, a more precise word of the same meaning, a precise object instead of a vague one.
@@ -42,9 +43,13 @@ Status: **draft, step 0** (0-C-06). The grammar of each kind of name is settled 
 - The **subject** says what the object keeps; the **kind** says in what form.
 
 ### Locals
-- **One word** of 8 letters, or **two words** shaped 4+4, 3+5 or 5+3, whole or in their glossary form (decided 2026-11-12, with the length of a local raised from 7 to 8): `$fileName`, `$newEntry`, `$routeKey`, `$response`.
-- Never three pieces, never a piece shorter than 3 letters.
-- A local is named for **what it holds**, plainly: the reader of the method should not need the docblock.
+- **One word** of 8 letters, or **two words**: 4+4, 5+3 or 3+5, each in one of its writings (decided 2026-11-12; the shapes and their order decided 2026-11-13).
+- **The meaningful word stays whole.** The order tried: a plural object for a list (`rowsList`), the object kept whole (`charIndx`, `afterPos`), then 4+4, 5+3, 3+5.
+- Two locals of one method never take the same name.
+- A Bool local is a question verb + its subject, 8 letters like any local; after the verb, one or two pieces, a whole word of 1 or 2 letters allowed (decided 2026-11-14).
+- Never three pieces elsewhere, never a piece shorter than 3 letters outside a Bool, except a standard abbreviation of 2 letters (`Id`, `Ps`, `Db`, section 5).
+- The digits closing a piece belong to it (`lvl1Vals` is `Lvl1` + `Vals`; `id3v1Tag` is `Id3v1` + `Tag`).
+- A local is named for **what it holds**, plainly: the reader of the method should not need the docblock. A name the rules cannot build is named by hand, and its reason written in the review (281 locals, 2026-11-14).
 
 ### Loop variables
 - `one` + the item, for the current element (`$oneRow`, `$oneKey`); `nth` + the item, for its position (`$nthRow`) (decided 2026-11-12). The item is a whole word of 3 letters (`row`, `key`, `day`, `tag`); `nth` is a word, not a short form.
@@ -97,7 +102,7 @@ The list, reviewed on 2026-11-12 (the nyuRuns Verb Review artifact, from the 1,2
 | `deny` | keep someone out, or refuse a request | refuse, decline |
 | `wipe` | take out what should not be there | clean, tidy, trim |
 
-**Question verbs** (a Bool, section 1): `is`, `has`, `can`, `needs`. The others found (`holds`, `allows`, `exists`, `starts`, `shows`, `takes`, `sends`, `used`, `reaches`, `lies`, `valid`, `secure`, `local`, `online`) are rephrased with these four.
+**Question verbs** (a Bool, section 1): `is`, `has`, `can`, `needs`, `was` (a state before the action, added 2026-11-14). The others found (`holds`, `allows`, `exists`, `starts`, `shows`, `takes`, `sends`, `used`, `reaches`, `lies`, `valid`, `secure`, `local`, `online`) are rephrased with these four.
 
 **Domain verbs**, kept as they are, each with one meaning no verb above gives: `sign`, `seal`, `issue`, `enrol`, `register`, `activate`, `approve`, `recover`, `rehash`, `claim`, `mount`, `redirect`, `serve`, `cache`, `route`, `rotate`, `singularize`, `compact`, `fold`, `indent`, `escape`, `unescape`, `quote`, `mask`, `insert`, `update`, `delete` (SQL), `freeze`, `protect`, `fill`, `invoke` (a sub-command), `formats` (a format of Variable), `install`, `resize`, `crop`, `turn`, `follow`, `copy`, `share`, `remark`, `comment`, `shift`, `unwrap`, `mark`.
 `cook`, `fake`, `owned` and `goes` are not verbs: their methods (`cookUserSidTxt`, `fakeHashString`, `ownedReplyType`, `goesIntoBundle`) take a verb of the list when they are renamed (decided 2026-11-12).
@@ -110,32 +115,39 @@ The 341 methods whose first word is not a verb (187 words: `final`, `table`, `su
 
 A closed list, the same for every kind of name. Each term has one meaning and is never used to pad a name.
 
-The list, reviewed on 2026-11-12 (the Kind terms tab of the review artifact, from the endings of every method, parameter, property and local of `src/` and `runs/`):
+The list, reviewed on 2026-11-12 (the Kind terms tab of the review artifact, from the endings of every method, parameter, property and local of `src/` and `runs/`). The terms keep their meaning; each has its writings now (2026-11-14), so the column reads them all.
 
 | Term | Holds | Replaces |
 |---|---|---|
-| `Text` | any text that is not a name, a line, a code, an address, a path or a date | Txt, String, Tx, Message, Msg, Reason |
-| `Name` | a name or an identifier, as text | Nme, Label |
-| `Line` | one line of a text | Lns |
-| `Code` | a code from a closed list: a status, a kind, a mode | Knd, Kind, Type, Typ, Mode |
-| `Addr` | an address: a mail address, an IP address, a URL | Adr, Address |
-| `Path` | a path to a file or a folder | Pth, Dir, File, Folder, Fldr |
-| `Date` | a date or a time, in any form (its form in the docblock) | Time, Dates |
-| `Count` | how many things there are | Num, Nb, Numb, Number (each renamed by what it holds) |
-| `Size` | a measure: bytes, characters, pixels, a length | Len, Length, Bytes, Ceiling, Max |
-| `Indx` | a position in a list or a text (a loop takes `nth` + item, section 2) | Idx, Pos, Pstn, At |
+| `Text`, `Txt`, `Strng` | any text that is not a name, a line, a code, an address, a path or a date | String, Tx, Message, Msg, Reason |
+| `Name`, `Nme`, `Title` | a name or an identifier, as text | Label |
+| `Line`, `Lne`, `Ligne` | one line of a text | Lns |
+| `Code`, `Cod`, `Codig` | a code from a closed list: a status, a kind, a mode | Knd, Kind, Type, Typ |
+| `Addr`, `Adr`, `Addrs` | an address: a mail address, an IP address, a URL | Address |
+| `Path`, `Pth`, `Trail` | a path to a file or a folder | Dir, Folder |
+| `Date`, `Dte`, `Stamp` | a date or a time, in any form (its form in the docblock) | Time, Dates |
+| `Unix` | a moment as a Unix time | Unx |
+| `Count`, `Cnt` | how many things there are | Total |
+| `Numb`, `Num`, `Numbr` | a number: a count, a step, a code that is a number | Nb, Number |
+| `Size`, `Sze`, `Bytes` | a measure: bytes, characters, pixels, a length | Len, Length, Ceiling, Max |
+| `Indx`, `Idx`, `Index` | a position in a list (a loop takes `nth` + item, section 2) | Pstn, At |
+| `Pos` | a position in a text or in bytes, after a 5-letter object (`afterPos`, `crsorPos`) | Posi, Posit |
+| `Limt`, `Lmt` | where something stops | End, Ends (as a limit) |
 | `Secs`, `Mins`, `Days`, `Mnths`, `Years` | a length of time, named by its unit, always plural | Sec |
-| `List` | an array of values, in order | Lst, Arr, Array, Vls, Values, Vals, Rows, Entries, Records, Parts, Prts, Pieces, Fields |
-| `Dict` | an array of values by key | Map, Set, Options, Settings, Details, Info, Data, Envelope |
-| `Conf` | a block of configuration | Config, Cfg, Cnf, Setup |
-| `Key` | a key of a dictionary, or the key of an entry | Keys |
-| `Value` | a value of any type | Val, Valu |
-| `Raw` | content as it was read, not yet parsed: text or bytes | Content, Body, Xml, Html |
-| `Obj` | an object, when its class says nothing more | Object, Inst, Hndl |
-| the class name | an object named by its class: `Request`, `Registry`, `Response`, `Router`... | Reg, Rgst, Hndlr, Con (written as the glossary decides) |
+| `List`, `Lst`, `Lstng` | an array of values, in order | Arr, Array, Arry, Entries, Pieces, Fields |
+| `Vals`, `Val`, `Valrs` | the value or values of one thing | Vls, Values, Valu, Value |
+| `Dict`, `Dct`, `Array` | an array of values by key | Map, Set, Options, Settings, Details, Info, Data |
+| `Conf`, `Cfg`, `Confg` | a block of configuration | Config, Cnf, Setup |
+| `Key`, `Clef`, `Clave` | a key of a dictionary, or the key of an entry | Keys |
+| `Raw`, `Brut`, `Crude` | content as it was read, not yet parsed: text or bytes | Content, Body, Xml, Html |
+| `Recs`, `Rec`, `Rcrd`, `Recrd` | records read from a table | Records |
+| `Obj`, `Inst`, `Objct` | an object, when its class says nothing more | Object, Hndl |
+| `Func` | a closure | Fn, Callback |
+| `Hndl` | a handle of a file, a stream or a process | Handle, Pointer |
+| `Matx` | the matches of a regular expression | Match, Matches, Mtch |
+| the class name | an object named by its class: `Request`, `Registry`, `Response`, `Router`… | Reg, Rgst, Hndlr |
 
 - There is no term for a Bool: a yes or no is a question (section 1).
-- `Array` and `Arr` held lists and dictionaries alike: each is renamed by what it holds.
 - `Raw` is a kind only as the last word; as the first word, `raw` is a qualifier (`$rawValue`).
 - Any other last word is a noun naming what the value is (`Role`, `User`, `Token`, `Hash`), allowed when it names what is returned (below).
 
@@ -150,11 +162,20 @@ Everywhere else the kind is written (`readRouteList()`, not `readRoutes()`). The
 
 The short forms of the words that cannot always be written whole. A short form that is not listed here is refused by the audit.
 
-**One short form per word** (decided 2026-11-12), chosen with care against the forms already in use: a short form must never be read as another one, above all on a small monospace line. `Rqst` (request) and `Rgst` (registry) are both refused for that reason, as `Acnt` (account) was against `Actn` (action).
+**One ladder per word** (decided 2026-11-13): a word has at most three writings, one of 3, one of 4 and one of 5 letters, chosen word by word by the project manager on the Words tab of the review. They replace the single short form of 2026-11-12.
 
-**No short form of 3 letters** (decided 2026-11-12): three consonants leave too little to tell words apart. A short form has 4 letters at least. Only the standard abbreviations everyone reads keep 3 letters, on a fixed list (below). A whole word of 3 letters stays a whole word (`row`, `new`, `old`, `raw`, `key`).
+**Writings of 3 letters** are allowed when the word's ladder holds one (2026-11-13), and only then. They were taken out where they read as another word (2026-11-14): `Hdr`, `Hdl`, `Sht`, `Mnt`, `Alg`, `Trn`, `Idt`, `Rea`, `Roo`, `Chp`, `Hst`, `Mad`, `Met`, `3rd`; and a writing never starts with a digit.
 
-**Standard abbreviations** (the fixed list, from the names of 2026-11-12; those of 4 letters or more are listed too, as they are not words): `Api`, `Css`, `Dom`, `Dsn`, `Dtd`, `Ics`, `Id3`, `Ini`, `Iso`, `Jwk`, `Jwt`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Rsa`, `Sha`, `Sql`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
+**Standard abbreviations** (the fixed list): `Api`, `Bom`, `Css`, `Db`, `Dom`, `Dsn`, `Dtd`, `Ics`, `Id`, `Id3`, `Id3v1`, `Ini`, `Iso`, `Jwk`, `Jwt`, `Llm`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Ps`, `Rsa`, `Sha`, `Sql`, `Stty`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
+
+**Exceptions decided by the project manager** (2026-11-12, kept): `Obj`, `Pos`, `Reg`, `Col`, as ordinary writings now. Calendar is never `Cal`, request is never `Req`.
+
+**How a writing is chosen** (2026-11-13/14):
+- **A family shares its writings**: words of one root may hold the same writing (find/found, trim/trimmed, cut/cuts, encoding/encoded/encoder, repeat/repeats, cred/credential, trigger/trig, frame/frames).
+- **A synonym merged is one word**: name and title, folder and directory, size and bytes, mail and email, row and entry, delete and remove.
+- **`x` writes `ch`** (`Matx`, `Conx`, `Patx`).
+- **A writing may come from another language** when it reads better on a monospace line (`Fichr`, `Clef`, `Clave`, `Ligne`, `Codig`, `Nouv`, `Brut`): decided word by word, never by a rule.
+- **Cut the verb, not the noun**: when two words must share 8 letters, the object stays the readable one (`readLimt`, `foundBox`).
 
 A short form is refused when it is, against any other short form or any word of the names:
 - **one look-alike letter** away: `g`/`q`, `c`/`e`, `l`/`i`, `n`/`h`, `m`/`n`, `a`/`o`, `b`/`d`, `t`/`f`, `u`/`v` (`Rqst`/`Rgst`, `Cnt`/`Ent`);
@@ -165,45 +186,213 @@ These rules refuse; they never choose. A form is chosen by hand for how it reads
 
 The inventory of 2026-11-12 found 86 look-alike pairs and 49 swapped pairs among the pieces of today's names, most of them 3-letter forms made by dropping vowels.
 
-**Exceptions decided by the project manager** (2026-11-12): `Obj` (object), `Pos` (position), `Reg` (registry) and `Col` (column) keep 3 letters. Because of them: calendar is never `Cal` (one look-alike letter from `Col`), request is never `Req` (one look-alike letter from `Reg`), and a position held as a value still ends in the kind `Indx` (section 4), `Pos` being the word's form inside a name.
-
 **kind is written `type` in the names of the code** (decided 2026-11-12): `$mimeTextKind` becomes `$mimeTextType`. The configuration, the codes and their documentation keep *kind* (the client kinds, the route kinds, `routKind`, `KIND_LIST`).
 
-The list, reviewed word by word on 2026-11-12 (the Glossary tab of the review artifact, from the 233 words written short in 10 names or more):
+The list, from the Words and Ladder tabs of the review (2026-11-14):
 
-| Word | Form | Word | Form | Word | Form |
+| Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) |
 |---|---|---|---|---|---|
-| account | `Accnt` | factor | `Factr` | project | `Proj` |
-| action | `Actn` | folder | `Fldr` | property | `Prop` |
-| address | `Addr` | fragment | `Frag` | public | `Publ` |
-| algorithm | `Algo` | handler | `Hndlr` | records | `Recds` |
-| applications | `Apps` | header | `Headr` | registry | `Reg` |
-| archive | `Archv` | identity | `Idnt` | relation | `Rltn` |
-| arguments | `Args` | indentation | `Indent` | render | `Rndr` |
-| attachments | `Atch` | index | `Indx` | response | `Resp` |
-| attribute | `Attr` | instance | `Inst` | return | `Retrn` |
-| audience | `Audnc` | issuer | `Issur` | seconds | `Secs` |
-| binary | `Bnry` | language | `Lang` | section | `Sectn` |
-| buffer | `Buff` | limiter | `Lmtr` | select | `Selct` |
-| certificate | `Cert` | manager | `Mngr` | server | `Srvr` |
-| channel | `Chnnl` | merged | `Mergd` | simple | `Smpl` |
-| chapter | `Chapt` | message | `Mssg` | statement | `Statmt` |
-| character(s) | `Char`, `Chars` | method | `Mthd` | status | `Stts` |
-| client | `Clnt` | months | `Mnths` | target | `Trgt` |
-| column(s) | `Col`, `Cols` | number | `Numb` | template | `Tmplt` |
-| comment | `Cmnt` | object | `Obj` | transaction | `Trnsct` |
-| config | `Conf` | options | `Opts` | update | `Updt` |
-| connection | `Conn` | paragraph | `Prgrph` | validated | `Valid` |
-| declared | `Decl` | parameter | `Prmtr` | values | `Vals` |
-| default | `Dflt` | parent | `Prnt` | variable | `Varbl` |
-| device | `Dvce` | parser | `Prsr` | version | `Vers` |
-| dictionary | `Dict` | password | `Pass` | writer | `Wrtr` |
-| document | `Docu` | picture | `Pict` | | |
-| doorways | `Doors` | position | `Pos` | | |
-| escape | `Escp` | preset | `Pset` | | |
-| extension | `Extns` | previous | `Prev` | | |
+| access | `Acc` / `Accs` / `Acces` | account | — / `Acct` / `Accnt` | act | `Act` / `Actn` / `Actio` |
+| action | `Act` / `Actn` / `Actio` | add | `Add` / — / — | address | `Adr` / `Addr` / `Addrs` |
+| agent | `Agt` / `Agnt` / `Agent` | algorithm | — / `Algo` / `Algor` | alias | `Aka` / `Alia` / `Alias` |
+| align | `Aln` / `Algn` / `Align` | all | `All` / — / — | allow | — / `Allw` / `Allow` |
+| alt | `Alt` / — / — | and | `And` / — / — | anna | — / `Anna` / — |
+| any | `Any` / — / — | application | `App` / `Appl` / `Appli` | arch | `Arc` / `Arch` / — |
+| archive | — / `Arch` / `Archv` | area | — / `Area` / — | arguments | `Arg` / `Args` / `Argmn` |
+| ask | `Ask` / `Asks` / `Plead` | asked | `Ask` / `Askd` / `Asked` | attribute | `Atr` / `Attr` / `Attrb` |
+| audience | `Aud` / `Audn` / `Audnc` | auth | `Aut` / `Auth` / `Authn` | auto | — / `Auto` / — |
+| back | `Bck` / `Back` / — | bad | `Bad` / — / — | bare | `Bar` / `Bare` / — |
+| base | `Bas` / `Base` / — | ben | `Ben` / — / — | best | `Bst` / `Best` / `Bettr` |
+| binary | `Bnr` / `Bnry` / `Binry` | bind | `Bnd` / `Bind` / — | bit | `Bit` / — / — |
+| bits | `Bts` / `Bits` / — | blank | — / `Blnk` / `Blank` | blip | `Blp` / `Blip` / — |
+| blob | `Blb` / `Blob` / — | block | `Blc` / `Bloc` / `Block` | body | `Bdy` / `Body` / — |
+| bold | `Bld` / `Bold` / — | book | `Boo` / `Book` / — | bookmark | `Bmk` / `Bkmr` / `Bkmrk` |
+| border | — / `Brdr` / — | box | `Box` / — / — | bracket | — / — / `Brckt` |
+| break | `Brk` / `Brek` / `Break` | browser | — / — / `Brwsr` | buffer | `Bff` / `Buff` / `Buffr` |
+| bulk | `Blk` / `Bulk` / — | byte | `Byt` / `Byte` / — | bytes | `Byt` / `Byts` / `Bytes` |
+| cache | `Cch` / `Cach` / `Cache` | call | — / `Call` / `Calls` | cap | `Cap` / — / — |
+| capture | `Cpt` / `Cptr` / `Captr` | case | `Cas` / `Case` / — | cell | `Cel` / `Cell` / `Celda` |
+| certificate | `Crt` / `Cert` / `Crtif` | chain | — / — / `Chain` | challenge | — / `Chlg` / — |
+| chan | — / `Chnl` / `Chnnl` | channel | `Chn` / `Chnl` / `Chnnl` | chap | — / `Chap` / `Chptr` |
+| chapter | `Chp` / `Chpt` / `Chapt` | character | `Chr` / `Char` / `Chrct` | characters | — / `Chrs` / `Chars` |
+| check | `Chk` / `Chck` / `Check` | checker | `Chk` / `Chkr` / `Chckr` | child | `Chl` / `Chld` / `Child` |
+| children | `Chd` / `Chld` / `Chldr` | chomp | — / `Chmp` / `Chomp` | chunk | — / `Chnk` / `Chunk` |
+| cite | `Cit` / `Cite` / — | claimed | — / `Clmd` / — | clash | — / `Clsh` / `Clash` |
+| class | `Cls` / `Clss` / `Class` | clauses | — / `Clau` / `Claus` | client | `Cln` / `Clnt` / `Clien` |
+| close | — / `Clos` / `Close` | code | `Cod` / `Code` / `Codig` | codes | `Cds` / `Cods` / `Codes` |
+| colon | — / — / `Colon` | column | `Col` / `Clmn` / `Colmn` | columns | `Col` / `Cols` / `Clmns` |
+| command | — / `Cmnd` / — | comment | `Cmt` / `Cmnt` / `Cmmnt` | complete | `Cmp` / `Cmpl` / `Cmplt` |
+| config | `Cfg` / `Conf` / `Confg` | connection | `Cnx` / `Conx` / `Cnnct` | container | `Con` / `Ctnr` / `Cntnr` |
+| content | — / `Cont` / `Cntnt` | context | — / `Ctxt` / — | control | — / `Ctrl` / `Cntrl` |
+| cookie | — / `Ckie` / `Cooky` | copy | `Cpy` / `Copy` / — | core | `Cor` / `Core` / `Heart` |
+| count | `Cnt` / — / `Count` | cover | `Cvr` / `Covr` / `Cover` | cred | `Crd` / `Cred` / — |
+| credential | `Crd` / `Crdn` / `Crdnt` | crypto | — / `Cryp` / — | css | `Css` / `Styl` / `Style` |
+| cut | `Cut` / — / — | cuts | `Cut` / `Cuts` / — | dark | `Drk` / `Dark` / — |
+| data | `Dat` / `Data` / — | database | `Dbs` / `Dtbs` / `Dbase` | date | `Dte` / `Date` / `Stamp` |
+| dates | `Dte` / `Dtes` / `Dates` | day | `Day` / — / — | days | `Dys` / `Days` / — |
+| decimal | `Dcm` / `Dcml` / `Decml` | declared | `Dcl` / `Decl` / `Dclrd` | deep | `Dep` / `Deep` / — |
+| default | `Dft` / `Dflt` / `Dfalt` | definition | `Dfn` / `Defn` / `Defin` | defs | `Dfs` / `Defs` / — |
+| degree | `Dgr` / `Degr` / `Degre` | degrees | `Deg` / `Degs` / `Degrs` | delete | `Del` / `Remv` / `Delet` |
+| deny | `Dny` / `Deny` / — | depth | `Dpt` / `Dpth` / `Depth` | detail | `Det` / `Detl` / `Dtail` |
+| detect | — / `Dtct` / — | development | `Dev` / `Dvlp` / — | device | `Dvc` / `Dvce` / `Devic` |
+| dice | `Dce` / `Dice` / — | digit | — / `Digt` / `Digit` | directory | `Dir` / `Drct` / `Foldr` |
+| dist | `Dst` / `Dist` / — | divider | `Div` / `Dvdr` / `Divdr` | document | `Doc` / `Docu` / `Dcmnt` |
+| dom | `Dom` / — / — | done | `Dun` / `Done` / — | door | — / `Door` / — |
+| dot | `Dot` / — / — | draw | `Drw` / `Draw` / — | drawn | — / `Drwn` / `Drawn` |
+| driver | — / `Drvr` / — | drop | `Drp` / `Drop` / — | dsn | `Dsn` / — / — |
+| dtd | `Dtd` / — / — | due | `Due` / — / — | ehlo | `Ehl` / `Ehlo` / — |
+| email | `Eml` / `Mail` / `Email` | emu | `Emu` / `Emul` / `Emuls` | encoded | `Enc` / `Encd` / `Encdd` |
+| encoder | — / `Encd` / `Encdr` | encoding | `Enc` / `Encd` / `Encod` | end | `End` / — / — |
+| ends | `End` / `Ends` / — | entry | `Ntr` / `Entr` / `Entry` | error | `Err` / `Erro` / `Error` |
+| escape | `Esc` / `Escp` / `Escap` | etag | `Ntt` / `Ntty` / `Entty` | every | `All` / `Evry` / `Every` |
+| except | — / `Xcpt` / — | exception | `Exc` / `Excp` / `Excpt` | exif | — / `Exif` / — |
+| existed | `Xst` / `Exst` / `Exstd` | exit | — / `Exit` / — | exponent | `Exp` / `Expn` / `Expnt` |
+| extension | `Ext` / `Extn` / `Extns` | extra | `Xtr` / `Extr` / `Extra` | fact | `Fct` / `Fact` / — |
+| fail | — / `Fail` / `Faild` | fake | `Fke` / `Fake` / — | far | `Far` / — / — |
+| field | `Fld` / `Fild` / `Field` | fields | `Fld` / `Flds` / `Field` | file | `Fle` / `File` / `Fichr` |
+| fill | `Fil` / `Fill` / `Fills` | filters | `Flt` / `Fltr` / `Fltrs` | find | `Fnd` / `Find` / — |
+| first | `Fst` / `Frst` / `First` | flac | `Flc` / `Flac` / — | flag | `Flg` / `Flag` / — |
+| flat | — / `Flat` / — | flaw | — / `Flaw` / — | flip | — / `Flip` / — |
+| flow | `Flw` / `Flow` / — | flux | `Flx` / `Flux` / — | folder | `Fdr` / `Fldr` / `Foldr` |
+| follows | — / `Fllw` / `Fllws` | font | `Fnt` / `Font` / — | for | `For` / — / — |
+| form | `Frm` / `Form` / — | format | `Fmt` / `Frmt` / `Formt` | formats | — / — / `Frmts` |
+| forwarded | `Fwd` / `Frwd` / `Forwd` | found | — / — / `Found` | fragment | `Frg` / `Frag` / `Frgmt` |
+| frame | — / `Frme` / `Frame` | frames | — / `Frme` / `Frmes` | from | — / `From` / — |
+| full | `Tot` / `Full` / — | funcs | `Fnc` / `Func` / `Funcs` | fwd | `Fwd` / — / — |
+| gap | `Gap` / — / — | gaps | `Gap` / `Gaps` / — | get | `Get` / — / — |
+| given | `Gvn` / `Givn` / `Given` | goal | `Gol` / `Goal` / — | going | `Gon` / `Goes` / `Going` |
+| grid | `Grd` / `Grid` / — | group | `Grp` / `Grup` / `Group` | half | `Hlf` / `Half` / — |
+| hand | — / `Hand` / — | handle | `Hnd` / `Hndl` / `Handl` | handler | `Hdl` / `Hndr` / `Hndlr` |
+| hash | `Hsh` / `Hash` / `Digst` | head | `Hed` / `Head` / — | header | — / `Hedr` / `Headr` |
+| headers | — / `Hdrs` / `Hedrs` | height | `Hei` / `Hght` / `Heigt` | held | `Hel` / `Held` / — |
+| hertz | — / `Hrtz` / `Hertz` | hexadecimal | `Hex` / `Hxdc` / `Hxdcm` | hide | `Hid` / `Hide` / — |
+| high | `Hgh` / `High` / — | hits | `Hts` / `Hits` / — | hmac | — / `Hmac` / — |
+| hold | — / `Hold` / `Holds` | host | — / `Host` / — | html | `Htm` / `Html` / — |
+| ics | `Ics` / — / — | id3 | `Id3` / — / — | identity | `Idt` / `Idnt` / `Ident` |
+| image | `Img` / `Imge` / `Image` | indented | — / `Indt` / `Indnt` | info | `Inf` / `Info` / — |
+| information | `Inf` / `Info` / `Infrm` | ini | `Ini` / — / — | inner | `Inr` / `Innr` / `Inner` |
+| input | `Inp` / `Inpt` / `Input` | inside | `Isd` / `Insd` / `Insid` | instance | `Ins` / `Inst` / `Instn` |
+| int | `Int` / — / — | issuer | `Isu` / `Issr` / `Issur` | item | `Itm` / `Item` / — |
+| join | `Jnt` / `Join` / `Joint` | joker | — / `Jokr` / `Joker` | json | — / `Json` / — |
+| jwk | `Jwk` / — / — | jwt | `Jwt` / — / — | keep | — / `Keep` / — |
+| keeps | `Kps` / `Keep` / `Keeps` | kept | `Kpt` / `Kept` / — | key | `Key` / `Clef` / `Clave` |
+| keyed | — / `Keyd` / `Keyed` | keys | `Kys` / `Keys` / — | kid | `Kid` / — / — |
+| kids | `Kds` / `Kids` / — | kind | `Knd` / `Kind` / — | label | `Lbl` / `Labl` / `Label` |
+| lack | — / `Lack` / `Lacks` | language | `Lng` / `Lang` / `Langg` | last | `Fin` / `Last` / — |
+| layer | — / `Layr` / `Layer` | lead | — / `Lead` / — | leading | — / `Lead` / `Leadg` |
+| left | `Lft` / `Left` / — | letter | — / `Lttr` / — | level | `Lvl` / `Levl` / `Level` |
+| levels | — / `Lvls` / — | limit | `Lmt` / `Limt` / `Limit` | limiter | — / `Lmtr` / `Limtr` |
+| line | `Lne` / `Line` / `Ligne` | lines | `Lns` / `Lnes` / `Lines` | link | `Lnk` / `Link` / `Nlace` |
+| list | `Lst` / `List` / `Lstng` | lit | `Lit` / — / — | lite | `Lte` / `Lite` / — |
+| literal | — / `Ltrl` / `Litrl` | load | `Lod` / `Load` / — | lock | `Lck` / `Lock` / — |
+| log | `Log` / `Jrnl` / `Jrnal` | login | `Lgn` / `Logn` / `Login` | logs | `Jrn` / `Logs` / `Journ` |
+| lookups | — / `Lkps` / `Lkups` | loss | — / `Loss` / — | lost | — / `Lost` / — |
+| lower | `Low` / `Lowr` / `Lower` | made | — / `Made` / — | mail | `Eml` / `Mail` / `Email` |
+| main | `Mai` / `Main` / — | make | `Mke` / `Make` / `Build` | manager | `Mgr` / `Mngr` / `Mangr` |
+| map | `Map` / — / — | mapping | `Map` / `Maps` / `Mppng` | mark | `Mrk` / `Mark` / — |
+| mask | `Msk` / `Mask` / — | masking | `Msk` / `Mask` / `Mskng` | master | `Mst` / `Mstr` / `Mastr` |
+| match | — / `Matx` / `Match` | matched | `Mtx` / `Matx` / `Mtchd` | matches | `Mat` / `Matx` / `Matxs` |
+| max | `Max` / — / — | mdays | — / `Mday` / `Mdays` | measure | `Msr` / `Mesr` / `Measr` |
+| merge | `Mrg` / `Merg` / `Merge` | merged | `Mrg` / `Mrgd` / `Mergd` | meta | `Mta` / `Meta` / — |
+| method | `Mth` / `Mthd` / `Methd` | mime | `Mim` / `Mime` / — | miss | `Mis` / `Miss` / — |
+| missing | — / `Mssn` / `Mssng` | mixed | `Mix` / `Mixd` / `Mixed` | mode | `Mod` / `Mode` / `Genre` |
+| model | `Mdl` / `Modl` / `Model` | mods | `Mds` / `Mods` / — | month | — / `Mnth` / `Month` |
+| more | `Mor` / `More` / — | mount | — / `Mont` / `Mount` | move | `Mve` / `Move` / — |
+| name | `Nme` / `Name` / `Title` | named | `Nmd` / `Namd` / `Named` | names | `Nms` / `Nmes` / `Names` |
+| namespace | — / `Nmsp` / — | nat | `Nat` / — / — | near | — / `Near` / — |
+| need | `Ned` / `Need` / — | negated | `Neg` / `Negt` / `Negtd` | nest | `Nst` / `Nest` / — |
+| net | `Net` / `Netw` / `Ntwrk` | new | `New` / `Nouv` / `Nuevo` | next | `Nxt` / `Next` / — |
+| node | `Nde` / `Node` / — | nonce | `Nnc` / `Nonc` / `Nonce` | none | `Non` / `None` / — |
+| note | `Nte` / `Note` / — | now | `Now` / — / — | null | `Nul` / `Null` / — |
+| number | `Num` / `Numb` / `Numbr` | numbers | `Nmb` / `Nums` / `Nmbrs` | nyu | `Nyu` / — / — |
+| off | `Off` / — / — | ogg | `Ogg` / — / — | okay | `Oky` / `Okay` / `Allrt` |
+| old | `Old` / — / — | once | `One` / `Once` / — | one | `One` / — / — |
+| open | `Opn` / `Open` / — | opt | `Opt` / `Optn` / — | options | `Opt` / `Opts` / `Optns` |
+| order | `Ord` / `Ordr` / `Order` | ordered | — / `Ordr` / `Ordrd` | otp | `Otp` / — / — |
+| out | `Out` / — / — | outcome | `Out` / `Outc` / `Outcm` | over | `Ovr` / `Over` / — |
+| own | `Own` / — / — | owner | `Own` / `Ownr` / `Owner` | pack | `Pck` / `Pack` / — |
+| pad | `Pad` / — / — | page | `Pge` / `Page` / — | pair | — / `Pair` / — |
+| pairs | — / `Pair` / `Pairs` | para | `Prg` / `Prgr` / `Pargr` | paragraph | `Prg` / `Prgr` / `Pargr` |
+| parameter | `Prm` / `Prmt` / `Prmtr` | parent | `Prn` / `Prnt` / `Parnt` | parser | `Prs` / `Prsr` / `Parsr` |
+| part | `Par` / `Part` / `Parte` | parts | `Prt` / `Prts` / `Parts` | password | `Pwd` / `Pass` / `Psswd` |
+| patched | — / `Patx` / `Patch` | path | `Pth` / `Path` / `Trail` | pattern | — / `Ptrn` / `Pttrn` |
+| payload | `Pld` / `Pyld` / `Payld` | pdf | `Pdf` / — / — | peer | — / `Peer` / — |
+| pem | `Pem` / — / — | penalty | — / `Pnlt` / `Pnlty` | pending | — / `Pend` / `Pndng` |
+| php | `Php` / — / — | picture | `Pic` / `Pict` / `Pictr` | piece | — / `Piec` / `Piece` |
+| pipe | `Pip` / `Pipe` / — | place | `Plc` / `Plce` / `Place` | plain | `Pln` / `Plan` / `Plain` |
+| plug | `Plg` / `Plug` / `Plugn` | plurals | `Plr` / `Plrl` / `Plrls` | plus | — / `Plus` / — |
+| pointer | `Pnt` / `Pntr` / `Pontr` | points | — / `Pnts` / — | port | — / `Port` / — |
+| precision | — / `Prec` / `Preci` | preset | `Rps` / `Pset` / `Prset` | previous | — / `Prev` / `Prevs` |
+| prim | — / `Prim` / `Prmry` | printer | — / `Echo` / `Print` | private | `Prv` / `Priv` / `Privt` |
+| process | `Prc` / `Proc` / `Prcss` | project | `Prj` / `Proj` / `Prjct` | property | `Prp` / `Prop` / `Prprt` |
+| proxy | — / `Prxy` / `Proxy` | pub | `Pub` / — / — | public | `Pub` / `Publ` / `Publi` |
+| quality | `Qlt` / `Qlty` / `Qalty` | query | `Qry` / `Quer` / `Query` | quote | `Qte` / `Quot` / `Quote` |
+| quoted | `Qtd` / `Qotd` / `Quotd` | random | — / `Rndm` / — | range | `Rng` / `Rnge` / `Range` |
+| rank | `Rnk` / `Rank` / — | rate | — / `Rate` / — | raw | `Raw` / `Brut` / `Crude` |
+| read | — / `Read` / — | reads | — / `Read` / `Reads` | ready | `Rdy` / `Redy` / `Ready` |
+| real | — / `Real` / — | recipient | `Rcp` / `Rcpn` / `Rcpnt` | records | `Rcs` / `Recs` / `Recds` |
+| red | `Red` / — / — | reference | `Ref` / `Refr` / `Rfrnc` | refuse | `Ren` / `Rfus` / `Refus` |
+| regexp | `Rgx` / `Rgxp` / — | registry | `Reg` / `Regr` / `Rgstr` | relation | `Rel` / `Rltn` / `Relat` |
+| remaining | `Rmn` / `Remn` / `Remng` | render | `Rdr` / `Rndr` / `Rendr` | repeat | `Rpt` / `Rpet` / `Repet` |
+| repeats | — / — / `Repet` | reply | `Rpl` / `Rply` / `Reply` | request | `Rqt` / `Reqt` / `Reqst` |
+| respond | — / `Rspd` / `Rspnd` | response | `Rsp` / `Resp` / `Rspns` | rest | — / `Rest` / — |
+| result | `Res` / `Rslt` / `Reslt` | results | `Res` / `Rslt` / `Rslts` | retry | — / `Rtry` / `Retry` |
+| return | `Rtn` / `Rtrn` / `Retrn` | review | — / `Rivu` / `Rview` | riff | `Rif` / `Riff` / — |
+| rights | — / `Rght` / — | role | `Rle` / `Role` / — | room | — / `Room` / — |
+| root | — / `Root` / — | rout | `Rou` / `Rout` / — | route | `Rte` / `Rout` / `Route` |
+| row | `Row` / `Ntry` / `Entry` | rows | — / `Rows` / — | rule | `Rul` / `Rule` / — |
+| run | `Run` / — / — | runs | `Rns` / `Runs` / — | safe | `Saf` / `Safe` / — |
+| salt | `Slt` / `Salt` / — | same | — / `Same` / — | sample | — / `Smpl` / `Sampl` |
+| save | `Sve` / `Save` / — | scale | — / `Scal` / `Scale` | scan | `Scn` / `Scan` / — |
+| seal | `Sil` / `Seal` / — | seconds | `Sec` / `Secs` / `Scnds` | secret | — / `Secr` / `Secrt` |
+| section | `Sct` / `Sctn` / `Sectn` | seen | `See` / `Seen` / — | segment | — / `Sgmt` / `Segmt` |
+| select | `Slc` / `Slct` / `Selct` | sender | — / `Sndr` / — | sends | — / `Send` / `Sends` |
+| sent | `Snt` / `Sent` / — | separator | `Sep` / `Sepr` / `Seprt` | sequence | — / `Sqnc` / — |
+| server | `Srv` / `Srvr` / `Servr` | session | `Ses` / `Sess` / `Sessn` | set | `Set` / — / — |
+| setup | `Stp` / `Setp` / `Setup` | sha | `Sha` / — / — | shadow | `Shd` / `Shdw` / `Shadw` |
+| shape | `Shp` / `Shap` / `Shape` | shared | — / `Shrd` / — | sheet | — / `Tabs` / `Sheet` |
+| short | `Shr` / `Shrt` / `Short` | show | `Shw` / `Show` / `Revil` | shown | `Shw` / `Shwn` / `Shown` |
+| shutdown | — / `Shut` / `Shutd` | side | `Sde` / `Side` / — | sign | `Sgn` / `Sign` / — |
+| simple | `Eas` / `Simp` / `Simpl` | since | `Snc` / `Sinc` / `Since` | single | — / `Sngl` / — |
+| site | `Ste` / `Site` / — | size | `Sze` / `Size` / `Bytes` | skip | `Skp` / `Skip` / `Skips` |
+| slash | — / `Slsh` / `Slash` | slug | `Slg` / `Slug` / — | smtp | — / `Smtp` / — |
+| socket | `Sck` / `Sckt` / `Sockt` | sort | `Srt` / `Sort` / — | span | `Spn` / `Span` / `Range` |
+| spans | `Spn` / `Spns` / `Spans` | spec | `Spc` / `Spec` / — | spin | — / `Spin` / — |
+| split | `Spl` / `Splt` / `Split` | spot | `Spt` / `Spot` / — | sql | `Sql` / — / — |
+| stamp | — / `Stmp` / `Stamp` | start | — / `Strt` / `Start` | stat | `Sta` / `Stat` / — |
+| statement | `Stm` / `Stmt` / `Sttmt` | status | `Stt` / `Stts` / `Stats` | step | — / `Step` / — |
+| store | `Sto` / `Stre` / `Store` | stream | `Srm` / `Strm` / `Strem` | string | — / `Strn` / — |
+| style | `Stl` / `Styl` / `Style` | sub | `Sub` / — / — | subnet | — / `Snet` / — |
+| success | — / `Succ` / `Succs` | sum | `Sum` / `Sums` / `Addit` | summary | — / `Smry` / `Smmry` |
+| swap | `Swp` / `Swap` / — | systems | `Sys` / `Syst` / `Systm` | table | `Tbl` / `Tble` / `Table` |
+| tables | — / `Tbls` / — | tag | `Tag` / — / — | tags | `Tag` / `Tags` / — |
+| tail | — / `Tail` / — | tall | — / `Tall` / — | tallies | — / — / `Talli` |
+| tar | `Tar` / — / — | target | `Trg` / `Trgt` / `Targt` | task | `Tsk` / `Task` / — |
+| tells | `Tll` / `Tlls` / `Tells` | temp | `Tmp` / `Temp` / — | template | `Tpl` / `Tmpl` / `Tmplt` |
+| text | `Txt` / `Text` / `Strng` | third | — / `Thrd` / `Third` | this | — / `This` / — |
+| tick | `Tck` / `Tick` / `Tickt` | tidy | `Tdy` / `Tidy` / — | till | `Ntl` / `Till` / `Until` |
+| time | `Tme` / `Time` / — | title | `Tit` / `Titl` / `Title` | tld | `Tld` / — / — |
+| tls | `Tls` / — / — | toc | `Toc` / — / — | token | `Tkn` / `Tokn` / `Token` |
+| told | `Say` / `Told` / — | tool | `Utl` / `Tool` / — | top | `Top` / — / — |
+| tops | `Top` / `Tops` / — | track | — / `Trck` / `Track` | transaction | — / `Trns` / `Trnsc` |
+| tree | `Fam` / `Tree` / — | trig | — / `Trig` / — | trigger | — / `Trig` / `Trigr` |
+| trim | — / `Trim` / — | trimmed | `Trm` / `Trim` / `Trimd` | trusted | — / `Trst` / — |
+| turn | — / `Turn` / — | two | `Two` / — / — | type | `Typ` / `Type` / — |
+| update | `Upd` / `Updt` / `Updat` | uri | `Uri` / — / — | url | `Url` / — / — |
+| use | `Use` / `Uses` / `Using` | used | `Usd` / `Used` / — | user | `Usr` / `User` / `Membr` |
+| utf8 | `Utf` / `Utf8` / — | value | `Val` / `Valu` / `Value` | values | `Vls` / `Vals` / `Valus` |
+| variable | `Var` / `Vari` / `Varia` | variant | — / `Vrnt` / `Varnt` | vars | — / `Vars` / — |
+| version | `Vrs` / `Vers` / `Versn` | view | — / `View` / — | visitor | `Vst` / `Vstr` / `Vistr` |
+| void | `Voi` / `Void` / — | wait | `Wai` / `Wait` / — | walk | `Wlk` / `Walk` / — |
+| want | — / `Want` / `Wants` | warn | `Wrn` / `Warn` / `Warng` | was | `Was` / — / — |
+| wav | `Wav` / — / — | week | `Wek` / `Week` / — | what | — / `What` / — |
+| where | `Whr` / `Whre` / `Where` | whole | `Whl` / `Whol` / `Whole` | why | `Why` / — / — |
+| wide | `Wid` / `Wide` / — | with | `Wth` / `With` / — | word | `Wrd` / `Word` / — |
+| writer | `Wrt` / `Wrtr` / `Writr` | written | — / — / `Wrttn` | www | `Www` / — / — |
+| xml | `Xml` / — / — | year | `Yer` / `Year` / — | yes | `Yes` / — / — |
+| yml | `Yml` / `Yaml` / — | zip | `Zip` / — / — | zone | `Zne` / `Zone` / — |
 
-**Written whole**, never shortened (the review's choice for these words, whatever their length): access, application, array, block, cache, cell, child, class, code, cookie, count, directory, email, entry, error, field, file, format, given, handle, height, increment, input, item, length, level, line, list, login, model, name, node, path, private, query, recipient, request, role, route, secret, session, sheet, shutdown, socket, span, stream, style, table, text, token, user, value, and every word not listed above.
+**Written whole**: every word not listed above.
 
 Kept out of the list: *allows* (no longer a question verb, so it needs no form); the rows whose forms were real words mis-read by the inventory (`Seal`, `Cited`, `Recode`, `Retain`, `Pipe`, `Tries`, `Muted`, `Ahead`, `Atomic`).
 
@@ -224,4 +413,4 @@ A word written short in fewer than 10 names today gets its form, if it needs one
 - **The whole renaming lands in 1.0** (decided 2026-11-12): the rules, the audit, the map, its review and the rename area by area, before the public release.
 - **The rename is applied on a branch of its own**, `naming-0C06`, area by area, and merged whole once the full suite is green on it, never halfway. The rules (this file) and the audit in report mode go to `master` first: they break nothing.
 
-Step 0 is closed, and so are the locals, the verbs (section 3), the kind terms (section 4) and the glossary (section 5), all on 2026-11-12. Next: the mechanics of the renaming (the audit first, then the map, then the rename area by area).
+The locals were named on 2026-11-14 (the Locals · final tab of the review). Next: their rename, then the parameters.

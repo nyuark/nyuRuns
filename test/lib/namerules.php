@@ -117,14 +117,32 @@ function readNamingDict( String $rulesDocPath ): Array {
 }
 
 /**
- * Splits a camelCase name into its pieces.
+ * Splits a camelCase name into its pieces. The digits closing a piece
+ * belong to it ('lvl1Vals' gives lvl1, Vals), and a standard abbreviation
+ * holding digits is one piece ('id3v1Tag' gives id3v1, Tag).
  *
  * @param String $fullNameText The name, without its '$'.
+ * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict); without them no abbreviation is known.
  * @return Array The pieces, as written ('readRouteList' gives read, Route, List).
  */
-function splitWordsList( String $fullNameText ): Array {
+function splitWordsList( String $fullNameText, Array $nameRuleDict=Array() ): Array {
 	preg_match_all('/[A-Z]?[a-z]+[0-9]*|[A-Z]+(?![a-z])[0-9]*|[0-9]+/', $fullNameText, $wordHits);
-	return $wordHits[0];
+	$wordList = $wordHits[0];
+	$joinList = Array();
+	for( $nthBit=0; $nthBit<count($wordList); $nthBit++ ){
+		// Three pieces, then two, that are one abbreviation of the rules when read together
+		$pickSize = 1;
+		foreach( Array(3, 2) as $oneRun ){
+			$joinText = implode('', array_slice($wordList, $nthBit, $oneRun));
+			if( $nthBit+$oneRun<=count($wordList) && preg_match('/[0-9]/', $joinText) && in_array(ucfirst(strtolower($joinText)), $nameRuleDict['standard'] ?? Array(), true) ){
+				$pickSize = $oneRun;
+				break;
+			}
+		}
+		$joinList[] = implode('', array_slice($wordList, $nthBit, $pickSize));
+		$nthBit += $pickSize-1;
+	}
+	return $joinList;
 }
 
 /**
@@ -148,28 +166,40 @@ function findAreaOfFile( String $relativePath ): String {
 }
 
 /**
- * Checks a local: 8 characters, one word or two, no piece under 3 letters.
- * A question verb opening the name of a Bool is a piece of any length
- * ('isLogged').
+ * Checks a local: 8 characters, one word or two, no piece under 3 letters
+ * but a standard abbreviation ('idColumn'). A Bool local, its first piece
+ * a question verb, holds one or two pieces after the verb, and a whole
+ * word of 1 or 2 letters is allowed there ('isSentOk'). Without the list
+ * of whole words, such a word is one that holds a vowel.
  *
  * @param String $fullNameText The name, without its '$'.
  * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
+ * @param Array  $fullWordDict The whole words in lower case, as keys; empty while there is no list of them.
  * @return String What is wrong, empty when nothing is.
  */
-function checkLocalName( String $fullNameText, Array $nameRuleDict ): String {
+function checkLocalName( String $fullNameText, Array $nameRuleDict, Array $fullWordDict=Array() ): String {
 	if( !preg_match('/^[a-z][a-zA-Z0-9]*$/', $fullNameText) ){
 		return 'not camelCase';
 	}
 	if( strlen($fullNameText)!=8 ){
 		return strlen($fullNameText).' characters, not 8';
 	}
-	$wordList = splitWordsList($fullNameText);
-	if( count($wordList)>2 ){
-		return count($wordList).' pieces, not one or two';
+	$wordList = splitWordsList($fullNameText, $nameRuleDict);
+	$isAsking = count($wordList)>1 && in_array($wordList[0], $nameRuleDict['question'], true);
+	$partList = $isAsking ? array_slice($wordList, 1) : $wordList;
+	if( count($partList)>2 ){
+		return count($partList).' pieces'.( $isAsking ? ' after "'.$wordList[0].'"' : '' ).', not one or two';
 	}
-	foreach( $wordList as $nthBit => $oneBit ){
-		if( strlen($oneBit)<3 && !($nthBit==0 && in_array($oneBit, $nameRuleDict['question'], true)) ){
+	foreach( $partList as $oneBit ){
+		if( strlen($oneBit)>=3 || in_array(ucfirst(strtolower($oneBit)), $nameRuleDict['standard'], true) ){
+			continue;
+		}
+		if( !$isAsking ){
 			return 'the piece "'.$oneBit.'" is under 3 letters';
+		}
+		$isListed = empty($fullWordDict) ? preg_match('/^[a-z]*[aeiou][a-z]*$/', strtolower($oneBit))===1 : isset($fullWordDict[strtolower($oneBit)]);
+		if( !$isListed ){
+			return 'the piece "'.$oneBit.'" is neither a word nor a standard abbreviation';
 		}
 	}
 	return '';
@@ -198,9 +228,11 @@ function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullW
 }
 
 /**
- * Checks every piece of a name: a whole word, a short form of the
- * glossary, a 3-letter exception or a standard abbreviation. The words the
- * rules list themselves (verbs, kind terms, one, nth) are whole words.
+ * Checks every piece of a name: a whole word, a writing of the glossary,
+ * a 3-letter exception or a standard abbreviation. A piece ending in
+ * digits is checked by its letters, unless the whole piece is a standard
+ * abbreviation. The words the rules list themselves (verbs, kind terms,
+ * one, nth) are whole words.
  * Without the list of whole words, a piece of 4 letters or more holding a
  * vowel is taken for one.
  *
@@ -211,10 +243,14 @@ function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullW
  */
 function checkNameWords( String $fullNameText, Array $nameRuleDict, Array $fullWordDict ): String {
 	$badWords = Array();
-	foreach( splitWordsList($fullNameText) as $oneBit ){
-		$lowerBit = strtolower($oneBit);
+	foreach( splitWordsList($fullNameText, $nameRuleDict) as $oneBit ){
+		if( ctype_digit($oneBit) || in_array(ucfirst(strtolower($oneBit)), $nameRuleDict['standard'], true) ){
+			continue;
+		}
+		// A piece ending in digits is checked by its letters: Lvl1 as Lvl
+		$lowerBit = rtrim(strtolower($oneBit), '0123456789');
 		$upperBit = ucfirst($lowerBit);
-		if( ctype_digit($oneBit) || in_array($upperBit, $nameRuleDict['form'], true) || in_array($upperBit, $nameRuleDict['exception'], true) || in_array($upperBit, $nameRuleDict['standard'], true) ){
+		if( in_array($upperBit, $nameRuleDict['form'], true) || in_array($upperBit, $nameRuleDict['exception'], true) || in_array($upperBit, $nameRuleDict['standard'], true) ){
 			continue;
 		}
 		if( in_array($lowerBit, Array('one', 'nth'), true) || in_array($lowerBit, $nameRuleDict['verb'], true) || in_array($lowerBit, $nameRuleDict['question'], true) || in_array($lowerBit, $nameRuleDict['domain'], true) || in_array($upperBit, $nameRuleDict['kind'], true) ){
@@ -239,7 +275,7 @@ function checkNameWords( String $fullNameText, Array $nameRuleDict, Array $fullW
  * @return String What is wrong, empty when nothing is.
  */
 function checkFirstVerb( String $fullNameText, String $returnedType, Array $nameRuleDict ): String {
-	$verbWord = strtolower(splitWordsList($fullNameText)[0] ?? '');
+	$verbWord = strtolower(splitWordsList($fullNameText, $nameRuleDict)[0] ?? '');
 	if( in_array($verbWord, $nameRuleDict['verb'], true) || in_array($verbWord, $nameRuleDict['question'], true) || in_array($verbWord, $nameRuleDict['domain'], true) ){
 		return '';
 	}
@@ -254,7 +290,7 @@ function checkFirstVerb( String $fullNameText, String $returnedType, Array $name
  * @return String What is wrong, empty when nothing is.
  */
 function checkBoolNames( String $fullNameText, Array $nameRuleDict ): String {
-	$verbWord = strtolower(splitWordsList($fullNameText)[0] ?? '');
+	$verbWord = strtolower(splitWordsList($fullNameText, $nameRuleDict)[0] ?? '');
 	return in_array($verbWord, $nameRuleDict['question'], true) ? '' : 'a Bool: "'.$verbWord.'" is not a question verb';
 }
 
@@ -267,7 +303,7 @@ function checkBoolNames( String $fullNameText, Array $nameRuleDict ): String {
  * @return String The last word when it is not a kind term, empty when it is one.
  */
 function checkFinalKind( String $fullNameText, Array $nameRuleDict ): String {
-	$wordList = splitWordsList($fullNameText);
+	$wordList = splitWordsList($fullNameText, $nameRuleDict);
 	$lastWord = ucfirst(strtolower(strval(end($wordList))));
 	return in_array($lastWord, $nameRuleDict['kind'], true) ? '' : 'ends with "'.$lastWord.'", not a kind term';
 }

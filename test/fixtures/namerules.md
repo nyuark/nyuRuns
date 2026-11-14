@@ -18,7 +18,7 @@ Some text before the table, with a `word` in backticks that is no verb.
 | `read` | read from a source | |
 | `make` | make something new | build |
 
-**Question verbs** (a Bool): `is`, `has`. The others found (`holds`, `allows`) are rephrased.
+**Question verbs** (a Bool): `is`, `has`, `was` (a state before the action). The others found (`holds`, `allows`) are rephrased.
 
 **Domain verbs**, kept as they are: `sign`, `seal`, `delete` (SQL), `mark`.
 `cook` and `fake` are not verbs.
@@ -27,20 +27,21 @@ Some text before the table, with a `word` in backticks that is no verb.
 
 | Term | Holds | Replaces |
 |---|---|---|
-| `Text` | any text | Txt |
+| `Text`, `Txt`, `Strng` | any text | String |
+| `Vals`, `Val` | the value or values of one thing | Values |
 | `Secs`, `Mins` | a length of time | Sec |
 | the class name | an object named by its class | Reg |
 
 ## 5. Glossary
 
-**Standard abbreviations** (the fixed list): `Url`, `Html`. A sentence after it, with `Nope`.
+**Standard abbreviations** (the fixed list): `Bom`, `Db`, `Id`, `Id3`, `Id3v1`, `Mp3`, `Url`, `Html`. A sentence after it, with `Nope`.
 
-**Exceptions decided by the project manager** (2026-11-12): `Obj` (object) and `Col` (column) keep 3 letters. Because of them: calendar is never `Cal`.
+**Exceptions decided by the project manager** (2026-11-12, kept): `Obj`, `Col`, as ordinary writings now. Calendar is never `Cal`.
 
-| Word | Form | Word | Form | Word | Form |
+| Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) |
 |---|---|---|---|---|---|
-| account | `Accnt` | factor | `Factr` | project | `Proj` |
-| character(s) | `Char`, `Chars` | method | `Mthd` | | |
+| account | — / `Acct` / `Accnt` | column | `Col` / `Clmn` / `Colmn` | form | `Frm` / `Form` / — |
+| level | `Lvl` / `Levl` / `Level` | method | `Mth` / `Mthd` / `Methd` | | |
 
 ## 6. After
 
