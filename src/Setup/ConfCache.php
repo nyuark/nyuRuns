@@ -72,16 +72,16 @@ class ConfCache{
 		if( !preg_match('/^[\w\-]+$/D', $nameOfPreset) ){
 			return null;
 		}
-		$cchPath = TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-'.$nameOfPreset.'.cache';
-		$cachTxt = @file_get_contents($cchPath);
-		if( $cachTxt===false || $cachTxt=='' ){
+		$cachePth = TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-'.$nameOfPreset.'.cache';
+		$cacheTxt = @file_get_contents($cachePth);
+		if( $cacheTxt===false || $cacheTxt=='' ){
 			return null;
 		}
-		$cachVls = @unserialize($cachTxt, Array('allowed_classes'=>false));
-		if( !is_array($cachVls) || !isset($cachVls['preset'], $cachVls['config'], $cachVls['routes']) || !is_array($cachVls['preset']) || !is_array($cachVls['config']) || !is_array($cachVls['routes']) ){
+		$cacheVal = @unserialize($cacheTxt, Array('allowed_classes'=>false));
+		if( !is_array($cacheVal) || !isset($cacheVal['preset'], $cacheVal['config'], $cacheVal['routes']) || !is_array($cacheVal['preset']) || !is_array($cacheVal['config']) || !is_array($cacheVal['routes']) ){
 			return null;
 		}
-		return $cachVls;
+		return $cacheVal;
 	}
 
 	/**
@@ -97,17 +97,17 @@ class ConfCache{
 		if( !preg_match('/^[\w\-]+$/D', $nameOfPreset) || !isset($cachedValues['preset'], $cachedValues['config'], $cachedValues['routes']) ){
 			return false;
 		}
-		$cchPath = TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-'.$nameOfPreset.'.cache';
-		if( !is_dir(dirname($cchPath)) ){
-			@mkdir(dirname($cchPath), 0770, true);
+		$cachePth = TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-'.$nameOfPreset.'.cache';
+		if( !is_dir(dirname($cachePth)) ){
+			@mkdir(dirname($cachePth), 0770, true);
 		}
-		$tmpFile = $cchPath.'.tmp'.getmypid();
-		if( @file_put_contents($tmpFile, serialize($cachedValues), LOCK_EX)===false ){
+		$tempFile = $cachePth.'.tmp'.getmypid();
+		if( @file_put_contents($tempFile, serialize($cachedValues), LOCK_EX)===false ){
 			return false;
 		}
 		// On Windows a file being read cannot be replaced: a later request writes it
-		if( !@rename($tmpFile, $cchPath) ){
-			@unlink($tmpFile);
+		if( !@rename($tempFile, $cachePth) ){
+			@unlink($tempFile);
 			return false;
 		}
 		return true;
@@ -123,12 +123,12 @@ class ConfCache{
 		// The descriptions this request knows are no longer to be trusted, nor written again
 		self::$tableInfos = (self::$tableInfos===null) ? null : Array();
 		self::$tableAdded = false;
-		$dropNum = 0;
+		$dropNumb = 0;
 		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-*.cache') as $cchFil ){
 			if( @unlink(strval($cchFil)) ){
-				$dropNum++;
+				$dropNumb++;
 			}
 		}
-		return $dropNum;
+		return $dropNumb;
 	}
 }
