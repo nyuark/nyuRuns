@@ -28,9 +28,9 @@ class Language {
 	 */
 	function __construct( ?String $givenLangTag=null ){
 		if( $givenLangTag===null ){
-			$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-			$iniConf = ($nyuConf!==null) ? ($nyuConf->readValueByKey('system') ?: Array()) : Array();
-			$givenLangTag = strval($iniConf['DEF_LANG'] ?? '');
+			$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
+			$iniConfg = ($nyuConfg!==null) ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
+			$givenLangTag = strval($iniConfg['DEF_LANG'] ?? '');
 		}
 		$givenLangTag = strtolower( trim(str_replace('_', '-', $givenLangTag)) );
 		$this->defaultLng = self::isValidLangTag($givenLangTag) ? $givenLangTag : 'en';
@@ -58,9 +58,9 @@ class Language {
 	 */
 	public function chooseLanguage( ?String $langOfPerson, ?String $clntLangText ): String {
 		foreach( Array($langOfPerson, $clntLangText) as $oneTag ){
-			$tagText = strtolower( trim(str_replace('_', '-', strval($oneTag))) );
-			if( self::isValidLangTag($tagText) ){
-				return $tagText;
+			$tagStrng = strtolower( trim(str_replace('_', '-', strval($oneTag))) );
+			if( self::isValidLangTag($tagStrng) ){
+				return $tagStrng;
 			}
 		}
 		return $this->defaultLng;
@@ -74,17 +74,17 @@ class Language {
 	 * @return Array The languages, each once ('fr-ch' gives 'fr-ch', 'fr', 'en').
 	 */
 	public function langChainArray( String $givenLangTag ): Array {
-		$chainLs = Array();
+		$chainLst = Array();
 		foreach( Array(strtolower($givenLangTag), $this->defaultLng) as $oneTag ){
 			if( !self::isValidLangTag($oneTag) ){
 				continue;
 			}
-			$tagPart = explode('-', $oneTag);
-			for( $idxInc=count($tagPart); $idxInc>0; $idxInc-- ){
-				$chainLs[] = implode('-', array_slice($tagPart, 0, $idxInc));
+			$tagParte = explode('-', $oneTag);
+			for( $idxInc=count($tagParte); $idxInc>0; $idxInc-- ){
+				$chainLst[] = implode('-', array_slice($tagParte, 0, $idxInc));
 			}
 		}
-		return array_values( array_unique($chainLs) );
+		return array_values( array_unique($chainLst) );
 	}
 
 	/**
@@ -103,9 +103,9 @@ class Language {
 			if( !is_string($oneTag) || !self::isValidLangTag($oneTag) ){
 				continue;
 			}
-			$filPath = rtrim($baseFldrText, '/\\').DS.$oneTag.DS.$templateName;
-			if( is_file($filPath) && is_readable($filPath) ){
-				return $filPath;
+			$filePath = rtrim($baseFldrText, '/\\').DS.$oneTag.DS.$templateName;
+			if( is_file($filePath) && is_readable($filePath) ){
+				return $filePath;
 			}
 		}
 		return null;
