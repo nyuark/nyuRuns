@@ -62,45 +62,45 @@ class AppKey extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMakeKeys(): Int {
-		$appName = $this->needsShellWord('the name of the application');
-		if( !preg_match('/^[a-z][a-z0-9]{1,15}$/D', $appName) ){
+		$applName = $this->needsShellWord('the name of the application');
+		if( !preg_match('/^[a-z][a-z0-9]{1,15}$/D', $applName) ){
 			$this->terminateShell('Invalid name: a lower-case word of 2 to 16 letters and digits', self::EXIT_HELP);
 		}
-		$rteList = $this->parseRouteList();
-		$maxRole = strval($this->optionsObj->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
-		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
+		$routeLst = $this->parseRouteList();
+		$roleTops = strval($this->optionsObj->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
+		if( !in_array($roleTops, Checker::ROLE_LIST, true) ){
 			$this->terminateShell('Invalid role: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
 		}
-		$publPth = trim( strval($this->optionsObj->retrieveOption('publFile', '')) );
-		if( $publPth=='' ){
+		$publPath = trim( strval($this->optionsObj->retrieveOption('publFile', '')) );
+		if( $publPath=='' ){
 			$this->terminateShell('Missing option: --publFile, the public key of the tokens of the application', self::EXIT_HELP);
 		}
-		$fullPth = preg_match('#^([A-Za-z]:|[/\\\\])#', $publPth) ? $publPth : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publPth);
-		$keyInst = (is_file($fullPth) && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public(strval(file_get_contents($fullPth))) : false;
-		$keyInfo = ($keyInst!==false) ? openssl_pkey_get_details($keyInst) : false;
-		if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<JWT::RSAS_BITS ){
-			$this->terminateShell('No key made: '.json_encode($publPth).' is not the public RSA key of '.JWT::RSAS_BITS.' bits at least of the application', self::EXIT_HELP);
+		$fullPath = preg_match('#^([A-Za-z]:|[/\\\\])#', $publPath) ? $publPath : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publPath);
+		$keyInstn = (is_file($fullPath) && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public(strval(file_get_contents($fullPath))) : false;
+		$keyArray = ($keyInstn!==false) ? openssl_pkey_get_details($keyInstn) : false;
+		if( !is_array($keyArray) || ($keyArray['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyArray['bits'] ?? 0)<JWT::RSAS_BITS ){
+			$this->terminateShell('No key made: '.json_encode($publPath).' is not the public RSA key of '.JWT::RSAS_BITS.' bits at least of the application', self::EXIT_HELP);
 		}
-		$treeObj = $this->readAccessConf();
-		$blckNme = self::KEYS_BLCK;
-		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
+		$treeInst = $this->readAccessConf();
+		$blockNme = self::KEYS_BLCK;
+		if( !isset($treeInst->$blockNme) || !is_object($treeInst->$blockNme) ){
 			// The audiences naming this project are left empty : "setting setValue accsConf appsKeys.audience" sets them
-			$treeObj->$blckNme = (object)Array('headName'=>self::KEYS_HEAD, 'appsList'=>new \stdClass(), 'audience'=>Array());
+			$treeInst->$blockNme = (object)Array('headName'=>self::KEYS_HEAD, 'appsList'=>new \stdClass(), 'audience'=>Array());
 		}
-		if( !isset($treeObj->$blckNme->appsList) || !is_object($treeObj->$blckNme->appsList) ){
-			$treeObj->$blckNme->appsList = new \stdClass();
+		if( !isset($treeInst->$blockNme->appsList) || !is_object($treeInst->$blockNme->appsList) ){
+			$treeInst->$blockNme->appsList = new \stdClass();
 		}
-		if( isset($treeObj->$blckNme->appsList->$appName) ){
-			$this->terminateShell('No key made: the application '.json_encode($appName).' already has one (appkeys revokeIt it first)', self::EXIT_DENY);
+		if( isset($treeInst->$blockNme->appsList->$applName) ){
+			$this->terminateShell('No key made: the application '.json_encode($applName).' already has one (appkeys revokeIt it first)', self::EXIT_DENY);
 		}
-		$keyText = rtrim( strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=' );
-		$treeObj->$blckNme->appsList->$appName = (object)Array(
-			'keyDigst'=>hash('sha256', $keyText), 'routeSet'=>$rteList, 'publFile'=>$publPth, 'roleTops'=>$maxRole, 'madeDate'=>date('Y-m-d H:i:s')
+		$keyStrng = rtrim( strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=' );
+		$treeInst->$blockNme->appsList->$applName = (object)Array(
+			'keyDigst'=>hash('sha256', $keyStrng), 'routeSet'=>$routeLst, 'publFile'=>$publPath, 'roleTops'=>$roleTops, 'madeDate'=>date('Y-m-d H:i:s')
 		);
-		$this->saveAccessConf($treeObj);
-		$this->traceShellDone( 'App key: made for application '.json_encode($appName).' ('.$maxRole.'), routes '.json_encode($rteList, JSON_UNESCAPED_SLASHES) );
-		$this->printerObj->printShellPair('key made', $appName);
-		$this->printerObj->printShellOnce('Key of '.$appName, $keyText);
+		$this->saveAccessConf($treeInst);
+		$this->traceShellDone( 'App key: made for application '.json_encode($applName).' ('.$roleTops.'), routes '.json_encode($routeLst, JSON_UNESCAPED_SLASHES) );
+		$this->printerObj->printShellPair('key made', $applName);
+		$this->printerObj->printShellOnce('Key of '.$applName, $keyStrng);
 		return self::EXIT_DONE;
 	}
 
@@ -111,14 +111,14 @@ class AppKey extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFullList(): Int {
-		$treeObj = $this->readAccessConf();
-		$blckNme = self::KEYS_BLCK;
-		$rowList = Array();
-		foreach( get_object_vars($treeObj->$blckNme->appsList ?? new \stdClass()) as $appKey => $appSet ){
+		$treeInst = $this->readAccessConf();
+		$blockNme = self::KEYS_BLCK;
+		$rowsList = Array();
+		foreach( get_object_vars($treeInst->$blockNme->appsList ?? new \stdClass()) as $appKey => $appSet ){
 			$appSet = (array)$appSet;
-			$rowList[] = Array(strval($appKey), implode(', ', array_map('strval', (array)($appSet['routeSet'] ?? Array()))), strval($appSet['publFile'] ?? ''), strval($appSet['roleTops'] ?? Checker::ROLE_LIST[0]), strval($appSet['madeDate'] ?? ''));
+			$rowsList[] = Array(strval($appKey), implode(', ', array_map('strval', (array)($appSet['routeSet'] ?? Array()))), strval($appSet['publFile'] ?? ''), strval($appSet['roleTops'] ?? Checker::ROLE_LIST[0]), strval($appSet['madeDate'] ?? ''));
 		}
-		$this->printerObj->printShellRows( Array('application', 'routes', 'public key', 'highest role', 'made'), $rowList );
+		$this->printerObj->printShellRows( Array('application', 'routes', 'public key', 'highest role', 'made'), $rowsList );
 		return self::EXIT_DONE;
 	}
 
@@ -128,17 +128,17 @@ class AppKey extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeSetRoute(): Int {
-		$appName = $this->needsShellWord('the name of the application');
-		$rteList = $this->parseRouteList();
-		$treeObj = $this->readAccessConf();
-		$blckNme = self::KEYS_BLCK;
-		if( !isset($treeObj->$blckNme->appsList->$appName) || !is_object($treeObj->$blckNme->appsList->$appName) ){
-			$this->terminateShell('No route changed: no application named '.json_encode($appName), self::EXIT_DENY);
+		$applName = $this->needsShellWord('the name of the application');
+		$routeLst = $this->parseRouteList();
+		$treeInst = $this->readAccessConf();
+		$blockNme = self::KEYS_BLCK;
+		if( !isset($treeInst->$blockNme->appsList->$applName) || !is_object($treeInst->$blockNme->appsList->$applName) ){
+			$this->terminateShell('No route changed: no application named '.json_encode($applName), self::EXIT_DENY);
 		}
-		$treeObj->$blckNme->appsList->$appName->routeSet = $rteList;
-		$this->saveAccessConf($treeObj);
-		$this->traceShellDone( 'App key: routes of application '.json_encode($appName).' set to '.json_encode($rteList, JSON_UNESCAPED_SLASHES) );
-		$this->printerObj->printShellPair('routes set', $appName);
+		$treeInst->$blockNme->appsList->$applName->routeSet = $routeLst;
+		$this->saveAccessConf($treeInst);
+		$this->traceShellDone( 'App key: routes of application '.json_encode($applName).' set to '.json_encode($routeLst, JSON_UNESCAPED_SLASHES) );
+		$this->printerObj->printShellPair('routes set', $applName);
 		return self::EXIT_DONE;
 	}
 
@@ -148,16 +148,16 @@ class AppKey extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeRevokeIt(): Int {
-		$appName = $this->needsShellWord('the name of the application');
-		$treeObj = $this->readAccessConf();
-		$blckNme = self::KEYS_BLCK;
-		if( !isset($treeObj->$blckNme->appsList->$appName) ){
-			$this->terminateShell('Nothing revoked: no application named '.json_encode($appName), self::EXIT_DENY);
+		$applName = $this->needsShellWord('the name of the application');
+		$treeInst = $this->readAccessConf();
+		$blockNme = self::KEYS_BLCK;
+		if( !isset($treeInst->$blockNme->appsList->$applName) ){
+			$this->terminateShell('Nothing revoked: no application named '.json_encode($applName), self::EXIT_DENY);
 		}
-		unset($treeObj->$blckNme->appsList->$appName);
-		$this->saveAccessConf($treeObj);
-		$this->traceShellDone( 'App key: key of application '.json_encode($appName).' revoked' );
-		$this->printerObj->printShellPair('key revoked', $appName);
+		unset($treeInst->$blockNme->appsList->$applName);
+		$this->saveAccessConf($treeInst);
+		$this->traceShellDone( 'App key: key of application '.json_encode($applName).' revoked' );
+		$this->printerObj->printShellPair('key revoked', $applName);
 		return self::EXIT_DONE;
 	}
 
@@ -195,15 +195,15 @@ class AppKey extends Command{
 	 * @return Array The routes.
 	 */
 	protected function parseRouteList(): Array {
-		$rteList = array_values( array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('routeSet', '')))), 'strlen') );
-		if( empty($rteList) ){
+		$routeLst = array_values( array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('routeSet', '')))), 'strlen') );
+		if( empty($routeLst) ){
 			$this->terminateShell('Missing option: --routeSet, the routes the application may reach, separated by commas', self::EXIT_HELP);
 		}
-		foreach( $rteList as $rteVal ){
+		foreach( $routeLst as $rteVal ){
 			if( !preg_match('#^(/[^\s]+|[A-Za-z0-9]+/(\*|[A-Za-z0-9_]+))$#D', $rteVal) ){
 				$this->terminateShell('Invalid route '.json_encode($rteVal).': "app/action", "app/*" or a declared path with a leading slash', self::EXIT_HELP);
 			}
 		}
-		return $rteList;
+		return $routeLst;
 	}
 }

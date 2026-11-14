@@ -44,22 +44,22 @@ class ConfFile{
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
 	public function saveFileAtomic( String $filePathName, String $freshContent, ?Int $rightsModeNb=null ): Void {
-		$wasFile = is_file($filePathName);
-		$this->backupList[$filePathName] = $wasFile ? $this->makeBackupCopy($filePathName) : '';
-		$tmpPath = $filePathName.'.tmp'.getmypid();
-		$prevMsk = umask(0077);
+		$wasFichr = is_file($filePathName);
+		$this->backupList[$filePathName] = $wasFichr ? $this->makeBackupCopy($filePathName) : '';
+		$tempPath = $filePathName.'.tmp'.getmypid();
+		$prevMask = umask(0077);
 		try{
-			$isWrttn = @file_put_contents($tmpPath, $freshContent, LOCK_EX);
+			$wasWrttn = @file_put_contents($tempPath, $freshContent, LOCK_EX);
 		}finally{
-			umask($prevMsk);
+			umask($prevMask);
 		}
-		if( $isWrttn===false ){
+		if( $wasWrttn===false ){
 			throw new \RuntimeException('File not written: '.basename($filePathName).' cannot be written in its folder');
 		}
-		@chmod( $tmpPath, $wasFile ? (fileperms($filePathName) & 0777) : ($rightsModeNb ?? (0666 & ~$prevMsk)) );
+		@chmod( $tempPath, $wasFichr ? (fileperms($filePathName) & 0777) : ($rightsModeNb ?? (0666 & ~$prevMask)) );
 		// On Windows a file being read cannot be replaced : tried again for a moment
 		for( $idxInc=0; $idxInc<10; $idxInc++ ){
-			if( @rename($tmpPath, $filePathName) ){
+			if( @rename($tempPath, $filePathName) ){
 				clearstatcache(true, $filePathName);
 				if( strpos(str_replace('/', DS, $filePathName), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
 					\nyu\Setup\ConfCache::clearConfCache();
@@ -68,9 +68,9 @@ class ConfFile{
 			}
 			usleep(50000);
 		}
-		$isCopid = @copy($tmpPath, $filePathName);
-		@unlink($tmpPath);
-		if( !$isCopid ){
+		$isCopied = @copy($tempPath, $filePathName);
+		@unlink($tempPath);
+		if( !$isCopied ){
 			throw new \RuntimeException('File not written: '.basename($filePathName).' cannot be replaced');
 		}
 		if( strpos(str_replace('/', DS, $filePathName), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
@@ -91,32 +91,32 @@ class ConfFile{
 		if( !is_dir($this->backFolder) ){
 			@mkdir($this->backFolder, 0700, true);
 		}
-		$cpyPath = $this->backFolder.DIRECTORY_SEPARATOR.ltrim(basename($filePathName), '.').'.'.date('Ymd-His');
+		$copyPath = $this->backFolder.DIRECTORY_SEPARATOR.ltrim(basename($filePathName), '.').'.'.date('Ymd-His');
 		// Numbered after the last copy of the same second: a name freed by pruneBack is never taken again, so the newest copy sorts last
-		$copyNum = 0;
+		$copyNumb = 0;
 		foreach( (array)scandir($this->backFolder) as $oneNme ){
-			if( preg_match('/^'.preg_quote(basename($cpyPath), '/').'(?:-(\d+))?$/D', strval($oneNme), $nmePart) ){
-				$copyNum = max($copyNum, intval($nmePart[1] ?? 1));
+			if( preg_match('/^'.preg_quote(basename($copyPath), '/').'(?:-(\d+))?$/D', strval($oneNme), $namePart) ){
+				$copyNumb = max($copyNumb, intval($namePart[1] ?? 1));
 			}
 		}
-		$fullPth = ($copyNum==0) ? $cpyPath : $cpyPath.'-'.($copyNum + 1);
-		while( file_exists($fullPth) ){
-			$copyNum++;
-			$fullPth = $cpyPath.'-'.($copyNum + 1);
+		$fullPath = ($copyNumb==0) ? $copyPath : $copyPath.'-'.($copyNumb + 1);
+		while( file_exists($fullPath) ){
+			$copyNumb++;
+			$fullPath = $copyPath.'-'.($copyNumb + 1);
 		}
 		// The copy holds what the file holds : readable by its owner only, from its first byte
-		$prevMsk = umask(0077);
+		$prevMask = umask(0077);
 		try{
-			$isCopid = @copy($filePathName, $fullPth);
+			$isCopied = @copy($filePathName, $fullPath);
 		}finally{
-			umask($prevMsk);
+			umask($prevMask);
 		}
-		if( !$isCopid ){
+		if( !$isCopied ){
 			throw new \RuntimeException('File not written: '.basename($filePathName).' cannot be copied to the backup folder first');
 		}
-		@chmod($fullPth, 0600);
+		@chmod($fullPath, 0600);
 		$this->pruneOldBackup($filePathName);
-		return $fullPth;
+		return $fullPath;
 	}
 
 	/**
@@ -129,15 +129,15 @@ class ConfFile{
 	 * @param String $filePathName Full path of the file.
 	 */
 	protected function pruneOldBackup( String $filePathName ): Void {
-		$baseNme = ltrim(basename($filePathName), '.');
-		$copyLst = Array();
+		$baseName = ltrim(basename($filePathName), '.');
+		$copyList = Array();
 		foreach( (array)scandir($this->backFolder) as $oneNme ){
-			if( preg_match('/^'.preg_quote($baseNme, '/').'\.(\d{8}-\d{6})(?:-(\d+))?$/D', strval($oneNme), $nmePart) ){
-				$copyLst[strval($oneNme)] = $nmePart[1].'-'.str_pad(strval($nmePart[2] ?? '1'), 6, '0', STR_PAD_LEFT);
+			if( preg_match('/^'.preg_quote($baseName, '/').'\.(\d{8}-\d{6})(?:-(\d+))?$/D', strval($oneNme), $namePart) ){
+				$copyList[strval($oneNme)] = $namePart[1].'-'.str_pad(strval($namePart[2] ?? '1'), 6, '0', STR_PAD_LEFT);
 			}
 		}
-		asort($copyLst);
-		foreach( array_slice(array_keys($copyLst), 0, max(0, count($copyLst) - self::KEEP_COPY)) as $oldNme ){
+		asort($copyList);
+		foreach( array_slice(array_keys($copyList), 0, max(0, count($copyList) - self::KEEP_COPY)) as $oldNme ){
 			@unlink($this->backFolder.DIRECTORY_SEPARATOR.$oldNme);
 		}
 	}
@@ -152,9 +152,9 @@ class ConfFile{
 		if( !isset($this->backupList[$filePathName]) ){
 			return false;
 		}
-		$cpyPath = $this->backupList[$filePathName];
+		$copyPath = $this->backupList[$filePathName];
 		unset($this->backupList[$filePathName]);
-		return ($cpyPath=='') ? @unlink($filePathName) : @copy($cpyPath, $filePathName);
+		return ($copyPath=='') ? @unlink($filePathName) : @copy($copyPath, $filePathName);
 	}
 
 	/**
@@ -165,11 +165,11 @@ class ConfFile{
 	 * @return ?String The value, without the quotes around it; null when the file has no such key.
 	 */
 	public function retrieveIniKey( String $filePathName, String $iniEntryName ): ?String {
-		$valPart = Array();
-		if( !preg_match('/^[ \t]*'.preg_quote($iniEntryName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valPart) ){
+		$valuePar = Array();
+		if( !preg_match('/^[ \t]*'.preg_quote($iniEntryName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valuePar) ){
 			return null;
 		}
-		return trim($valPart[1], '"');
+		return trim($valuePar[1], '"');
 	}
 
 	/**
@@ -188,15 +188,15 @@ class ConfFile{
 			throw new \RuntimeException('Value refused: no quote and no line break in an .ini value');
 		}
 		// A value of plain words is written as it is, any other between quotes
-		$valText = preg_match('/^[\w.\/:\-]+( [\w.\/:\-]+)*$/D', $newIniValTxt) ? $newIniValTxt : '"'.$newIniValTxt.'"';
-		$swapNum = 0;
-		$newText = preg_replace_callback('/^([ \t]*'.preg_quote($iniEntryName, '/').'[ \t]*=[ \t]*)(.*?)([ \t]*\r?)$/m', function( Array $matchedArray ) use ( $valText ): String {
-			return $matchedArray[1].$valText.$matchedArray[3];
-		}, strval(@file_get_contents($filePathName)), 1, $swapNum);
-		if( $swapNum<1 || !is_string($newText) ){
+		$valueTxt = preg_match('/^[\w.\/:\-]+( [\w.\/:\-]+)*$/D', $newIniValTxt) ? $newIniValTxt : '"'.$newIniValTxt.'"';
+		$swapNumb = 0;
+		$newStrng = preg_replace_callback('/^([ \t]*'.preg_quote($iniEntryName, '/').'[ \t]*=[ \t]*)(.*?)([ \t]*\r?)$/m', function( Array $matchedArray ) use ( $valueTxt ): String {
+			return $matchedArray[1].$valueTxt.$matchedArray[3];
+		}, strval(@file_get_contents($filePathName)), 1, $swapNumb);
+		if( $swapNumb<1 || !is_string($newStrng) ){
 			return false;
 		}
-		$this->saveFileAtomic($filePathName, $newText);
+		$this->saveFileAtomic($filePathName, $newStrng);
 		return true;
 	}
 
@@ -208,11 +208,11 @@ class ConfFile{
 	 * @return ?String The value, without the quotes around it; null when the file does not hold the name.
 	 */
 	public function retrieveEnvKey( String $filePathName, String $envValueName ): ?String {
-		$valPart = Array();
-		if( !preg_match('/^[ \t]*'.preg_quote($envValueName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valPart) ){
+		$valuePar = Array();
+		if( !preg_match('/^[ \t]*'.preg_quote($envValueName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valuePar) ){
 			return null;
 		}
-		return trim($valPart[1], '"\'');
+		return trim($valuePar[1], '"\'');
 	}
 
 	/**
@@ -230,17 +230,17 @@ class ConfFile{
 		if( !preg_match('/^\w+$/D', $envValueName) || preg_match('/[\r\n]/', $envValueText) ){
 			throw new \RuntimeException('Value refused: a plain name, and no line break in the value');
 		}
-		$wasFile = is_file($filePathName);
-		$fileTxt = $wasFile ? strval(file_get_contents($filePathName)) : '';
-		$swapNum = 0;
-		$newText = preg_replace_callback('/^([ \t]*'.preg_quote($envValueName, '/').'[ \t]*=)(.*?)(\r?)$/m', function( Array $matchedArray ) use ( $envValueText ): String {
+		$wasFichr = is_file($filePathName);
+		$fileText = $wasFichr ? strval(file_get_contents($filePathName)) : '';
+		$swapNumb = 0;
+		$newStrng = preg_replace_callback('/^([ \t]*'.preg_quote($envValueName, '/').'[ \t]*=)(.*?)(\r?)$/m', function( Array $matchedArray ) use ( $envValueText ): String {
 			return $matchedArray[1].$envValueText.$matchedArray[3];
-		}, $fileTxt, 1, $swapNum);
-		if( $swapNum<1 ){
-			$lineEnd = (strpos($fileTxt, "\r\n")!==false) ? "\r\n" : "\n";
-			$newText = $fileTxt.( ($fileTxt!='' && substr($fileTxt, -1)!="\n") ? $lineEnd : '' ).$envValueName.'='.$envValueText.$lineEnd;
+		}, $fileText, 1, $swapNumb);
+		if( $swapNumb<1 ){
+			$ligneEnd = (strpos($fileText, "\r\n")!==false) ? "\r\n" : "\n";
+			$newStrng = $fileText.( ($fileText!='' && substr($fileText, -1)!="\n") ? $ligneEnd : '' ).$envValueName.'='.$envValueText.$ligneEnd;
 		}
-		$this->saveFileAtomic($filePathName, strval($newText), 0600);
+		$this->saveFileAtomic($filePathName, strval($newStrng), 0600);
 	}
 
 	/**
@@ -253,11 +253,11 @@ class ConfFile{
 	 * @throws \RuntimeException When the file is missing or is not a JSON object.
 	 */
 	public function importJsonsObj( String $filePathName ): Object {
-		$jsonVls = is_file($filePathName) ? json_decode( strval(file_get_contents($filePathName)) ) : null;
-		if( !is_object($jsonVls) ){
+		$jsonVals = is_file($filePathName) ? json_decode( strval(file_get_contents($filePathName)) ) : null;
+		if( !is_object($jsonVals) ){
 			throw new \RuntimeException('Config not read: '.basename($filePathName).' is missing or is not a JSON object');
 		}
-		return $jsonVls;
+		return $jsonVals;
 	}
 
 	/**
@@ -271,26 +271,26 @@ class ConfFile{
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
 	public function saveJsonConfig( String $filePathName, Object $jsonDocument ): Void {
-		$fileTxt = is_file($filePathName) ? strval(file_get_contents($filePathName)) : '';
-		$lineEnd = (strpos($fileTxt, "\r\n")!==false) ? "\r\n" : "\n";
-		$jsonFlg = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
-		if( preg_match('/^\s*"[^"]+":\s*\{[^\r\n]*\}\s*,?\s*$/m', $fileTxt) ){
+		$fileText = is_file($filePathName) ? strval(file_get_contents($filePathName)) : '';
+		$ligneEnd = (strpos($fileText, "\r\n")!==false) ? "\r\n" : "\n";
+		$jsonFlag = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+		if( preg_match('/^\s*"[^"]+":\s*\{[^\r\n]*\}\s*,?\s*$/m', $fileText) ){
 			// One block per line, the blocks aligned on the longest name
-			$nmeSize = 0;
+			$nameSize = 0;
 			foreach( array_keys(get_object_vars($jsonDocument)) as $blkKey ){
-				$nmeSize = max( $nmeSize, strlen(strval(json_encode(strval($blkKey), $jsonFlg))) );
+				$nameSize = max( $nameSize, strlen(strval(json_encode(strval($blkKey), $jsonFlag))) );
 			}
-			$lineLst = Array();
+			$lineList = Array();
 			foreach( get_object_vars($jsonDocument) as $blkKey => $blkVal ){
-				$lineLst[] = "\t".str_pad(json_encode(strval($blkKey), $jsonFlg).':', $nmeSize+1).' '.$this->inlineJsonText($blkVal);
+				$lineList[] = "\t".str_pad(json_encode(strval($blkKey), $jsonFlag).':', $nameSize+1).' '.$this->inlineJsonText($blkVal);
 			}
-			$newText = '{'."\n".implode(','."\n", $lineLst)."\n".'}'."\n";
+			$newStrng = '{'."\n".implode(','."\n", $lineList)."\n".'}'."\n";
 		}else{
-			$newText = strval( preg_replace_callback('/^(?: {4})+/m', function( Array $matchedArray ): String {
+			$newStrng = strval( preg_replace_callback('/^(?: {4})+/m', function( Array $matchedArray ): String {
 				return str_repeat("\t", intdiv(strlen($matchedArray[0]), 4));
-			}, strval(json_encode($jsonDocument, JSON_PRETTY_PRINT | $jsonFlg))) )."\n";
+			}, strval(json_encode($jsonDocument, JSON_PRETTY_PRINT | $jsonFlag))) )."\n";
 		}
-		$this->saveFileAtomic( $filePathName, ($lineEnd=="\n") ? $newText : str_replace("\n", $lineEnd, $newText) );
+		$this->saveFileAtomic( $filePathName, ($ligneEnd=="\n") ? $newStrng : str_replace("\n", $ligneEnd, $newStrng) );
 	}
 
 	/**
@@ -302,11 +302,11 @@ class ConfFile{
 	 */
 	protected function inlineJsonText( Mixed $filePartData ): String {
 		if( is_object($filePartData) ){
-			$partLst = Array();
+			$partList = Array();
 			foreach( get_object_vars($filePartData) as $subKey => $subVal ){
-				$partLst[] = json_encode(strval($subKey), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': '.$this->inlineJsonText($subVal);
+				$partList[] = json_encode(strval($subKey), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': '.$this->inlineJsonText($subVal);
 			}
-			return empty($partLst) ? '{}' : '{ '.implode(', ', $partLst).' }';
+			return empty($partList) ? '{}' : '{ '.implode(', ', $partList).' }';
 		}
 		if( is_array($filePartData) ){
 			return '['.implode(', ', array_map(Array($this, 'inlineJsonText'), $filePartData)).']';
@@ -330,54 +330,54 @@ class ConfFile{
 		if( !is_scalar($newPresetVal) && $newPresetVal!==null ){
 			throw new \RuntimeException('Value refused: a list or a block of a preset is shown, not written');
 		}
-		$fileTxt = strval(@file_get_contents($filePathName));
-		$txtSize = strlen($fileTxt);
-		$depthNb = 0;
-		// The key that opened each depth : $keyStck[1] is the block being read
-		$keyStck = Array();
-		$lastKey = '';
-		$needDep = ($blckNamedTxt=='') ? 1 : 2;
-		for( $idxInc=0; $idxInc<$txtSize; $idxInc++ ){
-			$oneChar = $fileTxt[$idxInc];
+		$fileText = strval(@file_get_contents($filePathName));
+		$textSize = strlen($fileText);
+		$depthCnt = 0;
+		// The key that opened each depth : $keyStack[1] is the block being read
+		$keyStack = Array();
+		$lastClef = '';
+		$needDpth = ($blckNamedTxt=='') ? 1 : 2;
+		for( $idxInc=0; $idxInc<$textSize; $idxInc++ ){
+			$oneChrct = $fileText[$idxInc];
 			// A line starting with # or // is a comment
-			if( ($oneChar=='#' || ($oneChar=='/' && ($fileTxt[$idxInc+1] ?? '')=='/')) && trim(substr($fileTxt, intval(strrpos(substr($fileTxt, 0, $idxInc), "\n")), $idxInc-intval(strrpos(substr($fileTxt, 0, $idxInc), "\n"))))=='' ){
-				$lineEnd = strpos($fileTxt, "\n", $idxInc);
-				$idxInc = ($lineEnd===false) ? $txtSize : $lineEnd;
+			if( ($oneChrct=='#' || ($oneChrct=='/' && ($fileText[$idxInc+1] ?? '')=='/')) && trim(substr($fileText, intval(strrpos(substr($fileText, 0, $idxInc), "\n")), $idxInc-intval(strrpos(substr($fileText, 0, $idxInc), "\n"))))=='' ){
+				$ligneEnd = strpos($fileText, "\n", $idxInc);
+				$idxInc = ($ligneEnd===false) ? $textSize : $ligneEnd;
 				continue;
 			}
-			if( $oneChar=='{' || $oneChar=='[' ){
-				$depthNb++;
-				$keyStck[$depthNb-1] = $lastKey;
-				$lastKey = '';
+			if( $oneChrct=='{' || $oneChrct=='[' ){
+				$depthCnt++;
+				$keyStack[$depthCnt-1] = $lastClef;
+				$lastClef = '';
 				continue;
 			}
-			if( $oneChar=='}' || $oneChar==']' ){
-				unset($keyStck[$depthNb-1]);
-				$depthNb--;
+			if( $oneChrct=='}' || $oneChrct==']' ){
+				unset($keyStack[$depthCnt-1]);
+				$depthCnt--;
 				continue;
 			}
-			if( $oneChar!='"' ){
+			if( $oneChrct!='"' ){
 				continue;
 			}
-			$strEnds = $this->terminateOfTxt($fileTxt, $idxInc);
-			$strText = json_decode( substr($fileTxt, $idxInc, $strEnds-$idxInc) );
-			$nxtPstn = $strEnds + strspn($fileTxt, " \t\r\n", $strEnds);
-			$idxInc = $strEnds-1;
-			if( ($fileTxt[$nxtPstn] ?? '')!=':' ){
+			$strnEnds = $this->terminateOfTxt($fileText, $idxInc);
+			$strnText = json_decode( substr($fileText, $idxInc, $strnEnds-$idxInc) );
+			$tokenPos = $strnEnds + strspn($fileText, " \t\r\n", $strnEnds);
+			$idxInc = $strnEnds-1;
+			if( ($fileText[$tokenPos] ?? '')!=':' ){
 				continue;
 			}
-			$lastKey = strval($strText);
-			if( $depthNb!=$needDep || $lastKey!==$presetKeyRef || ($needDep==2 && ($keyStck[1] ?? '')!==$blckNamedTxt) ){
+			$lastClef = strval($strnText);
+			if( $depthCnt!=$needDpth || $lastClef!==$presetKeyRef || ($needDpth==2 && ($keyStack[1] ?? '')!==$blckNamedTxt) ){
 				continue;
 			}
 			// The key is found : its value is replaced where it stands
-			$valFrom = $nxtPstn+1 + strspn($fileTxt, " \t\r\n", $nxtPstn+1);
-			$valChar = $fileTxt[$valFrom] ?? '';
-			if( $valChar=='{' || $valChar=='[' ){
+			$valuFrom = $tokenPos+1 + strspn($fileText, " \t\r\n", $tokenPos+1);
+			$valueChr = $fileText[$valuFrom] ?? '';
+			if( $valueChr=='{' || $valueChr=='[' ){
 				throw new \RuntimeException('Value refused: '.$presetKeyRef.' is a list or a block of the preset, shown and not written');
 			}
-			$valEnds = ($valChar=='"') ? $this->terminateOfTxt($fileTxt, $valFrom) : $valFrom + strcspn($fileTxt, ",}] \t\r\n", $valFrom);
-			$this->saveFileAtomic( $filePathName, substr($fileTxt, 0, $valFrom).json_encode($newPresetVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).substr($fileTxt, $valEnds) );
+			$valueEnd = ($valueChr=='"') ? $this->terminateOfTxt($fileText, $valuFrom) : $valuFrom + strcspn($fileText, ",}] \t\r\n", $valuFrom);
+			$this->saveFileAtomic( $filePathName, substr($fileText, 0, $valuFrom).json_encode($newPresetVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).substr($fileText, $valueEnd) );
 			return;
 		}
 		throw new \RuntimeException('Value refused: the preset has no key '.( $blckNamedTxt!='' ? $blckNamedTxt.'.' : '' ).$presetKeyRef.', and none is added');
@@ -391,11 +391,11 @@ class ConfFile{
 	 * @return Int Position after its closing quote.
 	 */
 	protected function terminateOfTxt( String $fullTextsTxt, Int $startsFromNb ): Int {
-		$txtSize = strlen($fullTextsTxt);
-		$redPstn = $startsFromNb+1;
-		while( $redPstn<$txtSize && $fullTextsTxt[$redPstn]!='"' ){
-			$redPstn += ($fullTextsTxt[$redPstn]=='\\') ? 2 : 1;
+		$textSize = strlen($fullTextsTxt);
+		$crsorPos = $startsFromNb+1;
+		while( $crsorPos<$textSize && $fullTextsTxt[$crsorPos]!='"' ){
+			$crsorPos += ($fullTextsTxt[$crsorPos]=='\\') ? 2 : 1;
 		}
-		return min($txtSize, $redPstn+1);
+		return min($textSize, $crsorPos+1);
 	}
 }

@@ -87,56 +87,56 @@ class Deploy extends Command{
 	 * @return Int EXITDONE when the health check finds no failure, EXITFLAW otherwise.
 	 */
 	public function invokeComplete(): Int {
-		$chckObj = new HealthChk();
-		$chckObj->validateServer();
-		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $chckObj->rowsFoundArray() );
-		if( $chckObj->validateFailed() ){
+		$checkObj = new HealthChk();
+		$checkObj->validateServer();
+		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $checkObj->rowsFoundArray() );
+		if( $checkObj->validateFailed() ){
 			$this->terminateShell('The server cannot run the project: nothing was installed', self::EXIT_FLAW);
 		}
 		// The settings of the database are made with the native userbase only : a project in the users file needs none
 		$this->makeLocalFiles( Array('.env', 'conf/access.json') );
-		$projKnd = $this->queryProfilTxt();
-		$storNme = $this->querySetupsTxt($projKnd);
+		$projCode = $this->queryProfilTxt();
+		$storeNme = $this->querySetupsTxt($projCode);
 		// The access mails are those of the native userbase : asked right after its store, and of no other
-		$mailTyp = strval( $this->optionsObj->retrieveOption('sendWith', '') );
-		if( $storNme=='nativeDb' ){
-			$mailTyp = $this->queryMailerTxt();
-		}elseif( $mailTyp!=='' && strcasecmp($mailTyp, 'none')!=0 ){
+		$mailCode = strval( $this->optionsObj->retrieveOption('sendWith', '') );
+		if( $storeNme=='nativeDb' ){
+			$mailCode = $this->queryMailerTxt();
+		}elseif( $mailCode!=='' && strcasecmp($mailCode, 'none')!=0 ){
 			$this->terminateShell('The access mails need the native userbase (nativeDb): --sendWith does not apply', self::EXIT_HELP);
 		}
 		// The secrets that are still empty are made; those in use are left alone
-		$confCmd = new Config($this->optionsObj, $this->printerObj, $this->readStream);
+		$confCmmn = new Config($this->optionsObj, $this->printerObj, $this->readStream);
 		// An open site logs nobody in : it needs no secret
-		$secrLst = ($projKnd=='openSite') ? Array() : Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
+		$secrList = ($projCode=='openSite') ? Array() : Array('jwtToken'=>'secret or keys of the tokens', 'keysList'=>'API key', 'markSecr'=>'key of the login marks');
 		// The 2FA secrets of the users are stored encrypted : their key is made with the store
-		if( $storNme!='none' ){
-			$secrLst['tfaCrypt'] = 'key of the 2FA secrets';
+		if( $storeNme!='none' ){
+			$secrList['tfaCrypt'] = 'key of the 2FA secrets';
 		}
-		foreach( $secrLst as $kndNme => $kndLbl ){
+		foreach( $secrList as $kndNme => $kndLbl ){
 			try{
-				$confCmd->generateSecret($kndNme, true);
+				$confCmmn->generateSecret($kndNme, true);
 			}catch( \RuntimeException $e ){
 				$this->printerObj->printShellLine( 'No '.$kndLbl.' made: '.$e->getMessage() );
 			}
 		}
 		Console::loadConfigLogs();
-		if( $storNme!='none' ){
+		if( $storeNme!='none' ){
 			try{
-				$this->makeBasicUsers($storNme, '');
+				$this->makeBasicUsers($storeNme, '');
 			}catch( ShellStop $e ){
 				// The health check tells what is missing : the installation goes on to it
 				$this->printerObj->printShellFail( $e->getMessage() );
 			}
 		}
 		// An open site given a store : the presets it opened are closed again, before the map is asked
-		if( $storNme!='none' ){
+		if( $storeNme!='none' ){
 			$this->closePublicSet();
 		}
 		// Asked last : the presets served, and where (conf/doorways.lst)
-		$this->queryDoorsList($projKnd);
+		$this->queryDoorsList($projCode);
 		// A config cache brought along, or left by a former installation, is not the config of this one
 		ConfCache::clearConfCache();
-		$this->traceShellDone('Deploy: installation run as '.$projKnd.', users in '.$storNme.( $storNme=='nativeDb' ? ', access mails '.$mailTyp : '' ));
+		$this->traceShellDone('Deploy: installation run as '.$projCode.', users in '.$storeNme.( $storeNme=='nativeDb' ? ', access mails '.$mailCode : '' ));
 		return $this->showCheckCount();
 	}
 
@@ -149,12 +149,12 @@ class Deploy extends Command{
 	 * @return Int EXITDONE when the mail went, EXITFAIL otherwise.
 	 */
 	public function invokeTestMail(): Int {
-		$gvnAddr = strval($this->optionsObj->shiftFirstWord() ?? '');
-		$gvnAddr = ($gvnAddr!=='') ? $gvnAddr : $this->queryAnswerTxt('Send the test mail to');
-		if( $gvnAddr==='' ){
+		$givenAdr = strval($this->optionsObj->shiftFirstWord() ?? '');
+		$givenAdr = ($givenAdr!=='') ? $givenAdr : $this->queryAnswerTxt('Send the test mail to');
+		if( $givenAdr==='' ){
 			$this->terminateShell('Missing argument: the address the test mail is sent to', self::EXIT_HELP);
 		}
-		return $this->sendsTestEmail($gvnAddr) ? self::EXIT_DONE : self::EXIT_FAIL;
+		return $this->sendsTestEmail($givenAdr) ? self::EXIT_DONE : self::EXIT_FAIL;
 	}
 
 	/**
@@ -163,11 +163,11 @@ class Deploy extends Command{
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
 	public function invokeTestHost(): Int {
-		$chckObj = new HealthChk();
-		$chckObj->validateServer();
-		$chckObj->checkFldrWrite();
-		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $chckObj->rowsFoundArray() );
-		return $chckObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
+		$checkObj = new HealthChk();
+		$checkObj->validateServer();
+		$checkObj->checkFldrWrite();
+		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $checkObj->rowsFoundArray() );
+		return $checkObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
 	}
 
 	/**
@@ -187,12 +187,12 @@ class Deploy extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeUserBase(): Int {
-		$blckNme = strval($this->optionsObj->shiftFirstWord() ?? '');
-		$storNme = strval( $this->optionsObj->retrieveOption('useStore', strval($this->accessSettings('loginSet')['authWith'] ?? '')) );
-		if( !in_array($storNme, Array('nativeDb', 'userFile'), true) ){
+		$blockNme = strval($this->optionsObj->shiftFirstWord() ?? '');
+		$storeNme = strval( $this->optionsObj->retrieveOption('useStore', strval($this->accessSettings('loginSet')['authWith'] ?? '')) );
+		if( !in_array($storeNme, Array('nativeDb', 'userFile'), true) ){
 			$this->terminateShell('The login uses neither the native userbase nor the users file: name the store with --useStore=nativeDb or --useStore=userFile', self::EXIT_HELP);
 		}
-		$this->makeBasicUsers($storNme, $blckNme);
+		$this->makeBasicUsers($storeNme, $blockNme);
 		return self::EXIT_DONE;
 	}
 
@@ -219,70 +219,70 @@ class Deploy extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeMoveUser(): Int {
-		$trgtNme = $this->needsShellWord('the store the users go to: nativeDb or userFile');
-		if( !in_array($trgtNme, Array('nativeDb', 'userFile'), true) ){
-			$this->terminateShell('Not a store the users can be moved to: '.$trgtNme, self::EXIT_HELP);
+		$trgtName = $this->needsShellWord('the store the users go to: nativeDb or userFile');
+		if( !in_array($trgtName, Array('nativeDb', 'userFile'), true) ){
+			$this->terminateShell('Not a store the users can be moved to: '.$trgtName, self::EXIT_HELP);
 		}
-		$lgnConf = $this->accessSettings('loginSet');
-		$srcName = strval($lgnConf['authWith'] ?? '');
-		if( $srcName==$trgtNme ){
-			$this->terminateShell('The login already uses '.$trgtNme.': nothing to move', self::EXIT_DENY);
+		$loginCfg = $this->accessSettings('loginSet');
+		$srceName = strval($loginCfg['authWith'] ?? '');
+		if( $srceName==$trgtName ){
+			$this->terminateShell('The login already uses '.$trgtName.': nothing to move', self::EXIT_DENY);
 		}
-		if( !in_array($srcName, Array('nativeDb', 'userFile'), true) ){
+		if( !in_array($srceName, Array('nativeDb', 'userFile'), true) ){
 			$this->terminateShell('The login uses neither the native userbase nor the users file: there are no users to move', self::EXIT_DENY);
 		}
-		$srcConf = $this->accessSettings( strval($lgnConf['authConf'] ?? $srcName) );
-		$usrList = ($srcName=='nativeDb') ? $this->fromTableArray($srcConf) : $this->fromFilesArray($srcConf);
-		if( empty($usrList) ){
-			$this->terminateShell('The '.$srcName.' store holds no users: nothing to move', self::EXIT_DENY);
+		$srceConf = $this->accessSettings( strval($loginCfg['authConf'] ?? $srceName) );
+		$userList = ($srceName=='nativeDb') ? $this->fromTableArray($srceConf) : $this->fromFilesArray($srceConf);
+		if( empty($userList) ){
+			$this->terminateShell('The '.$srceName.' store holds no users: nothing to move', self::EXIT_DENY);
 		}
 		// The store moved to gets its block, and the native userbase its database, before anything is checked
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		$treeObj = $wrtrObj->importJsonsObj($accPath);
-		if( !isset($treeObj->$trgtNme) ){
-			$treeObj->$trgtNme = (object)self::STOR_CONF[$trgtNme];
-			$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$accsPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$treeInst = $wrtrInst->importJsonsObj($accsPath);
+		if( !isset($treeInst->$trgtName) ){
+			$treeInst->$trgtName = (object)self::STOR_CONF[$trgtName];
+			$wrtrInst->saveJsonConfig($accsPath, $treeInst);
 		}
-		if( $trgtNme=='nativeDb' && !$this->optionsObj->validateOption('noPrompt') ){
-			$this->queryDatabases($wrtrObj);
+		if( $trgtName=='nativeDb' && !$this->optionsObj->validateOption('noPrompt') ){
+			$this->queryDatabases($wrtrInst);
 		}
 		Console::loadConfigLogs();
-		$dstConf = $this->accessSettings($trgtNme);
-		$this->checkStoreVoid($trgtNme, $dstConf);
-		list($lostLst, $devcIds) = $this->lostItemsArray($srcName, $usrList);
-		$usrList = $this->shapeUsersList($usrList, $srcConf, $dstConf);
-		$this->printerObj->printShellPair('from', $srcName);
-		$this->printerObj->printShellPair('to', $trgtNme);
-		$this->printerObj->printShellPair('users', count($usrList));
-		if( !empty($lostLst) ){
-			$this->printerObj->printShellRows( Array('not kept', 'details'), $lostLst );
+		$distConf = $this->accessSettings($trgtName);
+		$this->checkStoreVoid($trgtName, $distConf);
+		list($lostList, $dvceList) = $this->lostItemsArray($srceName, $userList);
+		$userList = $this->shapeUsersList($userList, $srceConf, $distConf);
+		$this->printerObj->printShellPair('from', $srceName);
+		$this->printerObj->printShellPair('to', $trgtName);
+		$this->printerObj->printShellPair('users', count($userList));
+		if( !empty($lostList) ){
+			$this->printerObj->printShellRows( Array('not kept', 'details'), $lostList );
 		}
-		if( !$this->queryAgreedFlg('Move '.count($usrList).' users to '.$trgtNme.' and point the login at it?') ){
+		if( !$this->queryAgreedFlg('Move '.count($userList).' users to '.$trgtName.' and point the login at it?') ){
 			$this->terminateShell('Nothing was moved', self::EXIT_DENY);
 		}
-		if( $trgtNme=='nativeDb' ){
-			$this->saveUsersTable($dstConf, $usrList);
+		if( $trgtName=='nativeDb' ){
+			$this->saveUsersTable($distConf, $userList);
 		}else{
-			$this->writeUsersFile($dstConf, $usrList);
+			$this->writeUsersFile($distConf, $userList);
 		}
 		// Devices left behind would still pass on users the project no longer manages
-		$dvcAuth = new DeviceAuth( $this->accessSettings('dvcToken') );
-		foreach( $devcIds as $devcId ){
-			$dvcAuth->remUserDevcFlg($devcId);
+		$dvceAuth = new DeviceAuth( $this->accessSettings('dvcToken') );
+		foreach( $dvceList as $devcId ){
+			$dvceAuth->remUserDevcFlg($devcId);
 		}
 		// The login is pointed at the store only once every user is in it
-		$treeObj = $wrtrObj->importJsonsObj($accPath);
-		if( !isset($treeObj->loginSet) || !is_object($treeObj->loginSet) ){
-			$treeObj->loginSet = new \stdClass();
+		$treeInst = $wrtrInst->importJsonsObj($accsPath);
+		if( !isset($treeInst->loginSet) || !is_object($treeInst->loginSet) ){
+			$treeInst->loginSet = new \stdClass();
 		}
-		$treeObj->loginSet->authWith = $trgtNme;
-		$treeObj->loginSet->authConf = $trgtNme;
-		$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		$treeInst->loginSet->authWith = $trgtName;
+		$treeInst->loginSet->authConf = $trgtName;
+		$wrtrInst->saveJsonConfig($accsPath, $treeInst);
 		Console::loadConfigLogs();
-		$this->traceShellDone('Deploy: '.count($usrList).' users moved from '.$srcName.' to '.$trgtNme.( empty($devcIds) ? '' : ', '.count($devcIds).' devices revoked' ).', the login points at '.$trgtNme);
-		$this->printerObj->printShellPair('moved', count($usrList));
-		$this->printerObj->printShellLine('The login now uses '.$trgtNme.'; the '.$srcName.' store is left as it was.');
+		$this->traceShellDone('Deploy: '.count($userList).' users moved from '.$srceName.' to '.$trgtName.( empty($dvceList) ? '' : ', '.count($dvceList).' devices revoked' ).', the login points at '.$trgtName);
+		$this->printerObj->printShellPair('moved', count($userList));
+		$this->printerObj->printShellLine('The login now uses '.$trgtName.'; the '.$srceName.' store is left as it was.');
 		return self::EXIT_DONE;
 	}
 
@@ -296,21 +296,21 @@ class Deploy extends Command{
 	 * @throws ShellStop When the users cannot be read.
 	 */
 	protected function fromTableArray( Array $configValues ): Array {
-		$tblName = strval($configValues['useTable'] ?? 'users');
+		$tableNme = strval($configValues['useTable'] ?? 'users');
 		try{
-			$dbHndlr = DBCon::linkNamedDbCon( strval($configValues['linkName'] ?? '') )->readConnection();
+			$dtbsHndr = DBCon::linkNamedDbCon( strval($configValues['linkName'] ?? '') )->readConnection();
 		}catch( \Throwable $e ){
 			$this->terminateShell('The users cannot be read: '.$e->getMessage());
 		}
-		if( $dbHndlr===null || !preg_match('/^\w+$/D', $tblName) ){
+		if( $dtbsHndr===null || !preg_match('/^\w+$/D', $tableNme) ){
 			$this->terminateShell('The users cannot be read: the native userbase needs an SQL database and a table named with letters and digits', self::EXIT_DENY);
 		}
-		$fldList = array_map( Array($dbHndlr, 'quoteFieldName'), array_merge(UserFile::FLDS_LIST, Array('actvtnCode', 'recovrCode', 'twoFactWay')) );
-		if( !$dbHndlr->sendBuiltQuery('SELECT '.implode(', ', $fldList).' FROM '.$dbHndlr->quoteFieldName($tblName).' ORDER BY '.$dbHndlr->quoteFieldName('id_user').';') ){
-			$this->terminateShell('The users cannot be read: '.strval($dbHndlr->finalErrorText()));
+		$fieldLst = array_map( Array($dtbsHndr, 'quoteFieldName'), array_merge(UserFile::FLDS_LIST, Array('actvtnCode', 'recovrCode', 'twoFactWay')) );
+		if( !$dtbsHndr->sendBuiltQuery('SELECT '.implode(', ', $fieldLst).' FROM '.$dtbsHndr->quoteFieldName($tableNme).' ORDER BY '.$dtbsHndr->quoteFieldName('id_user').';') ){
+			$this->terminateShell('The users cannot be read: '.strval($dtbsHndr->finalErrorText()));
 		}
-		$rowList = $dbHndlr->readLastResult(true);
-		return is_array($rowList) ? $rowList : Array();
+		$rowsList = $dtbsHndr->readLastResult(true);
+		return is_array($rowsList) ? $rowsList : Array();
 	}
 
 	/**
@@ -322,12 +322,12 @@ class Deploy extends Command{
 	 * @throws ShellStop When the file cannot be used.
 	 */
 	protected function fromFilesArray( Array $configValues ): Array {
-		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
-		$usrList = $fileObj->readUsersArray();
-		if( $usrList===false ){
-			$this->terminateShell('The users cannot be read: '.$fileObj->finalErrorText());
+		$fileInst = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
+		$userList = $fileInst->readUsersArray();
+		if( $userList===false ){
+			$this->terminateShell('The users cannot be read: '.$fileInst->finalErrorText());
 		}
-		return $usrList;
+		return $userList;
 	}
 
 	/**
@@ -341,27 +341,27 @@ class Deploy extends Command{
 	 */
 	protected function checkStoreVoid( String $storeOfUsers, Array $configValues ): Void {
 		if( $storeOfUsers=='userFile' ){
-			$userNum = count( $this->fromFilesArray($configValues) );
+			$userNumb = count( $this->fromFilesArray($configValues) );
 		}else{
-			$tblName = strval($configValues['useTable'] ?? 'users');
+			$tableNme = strval($configValues['useTable'] ?? 'users');
 			try{
-				$dbHndlr = DBCon::linkNamedDbCon( strval($configValues['linkName'] ?? '') )->readConnection();
+				$dtbsHndr = DBCon::linkNamedDbCon( strval($configValues['linkName'] ?? '') )->readConnection();
 			}catch( \Throwable $e ){
 				$this->terminateShell('Nothing was moved: '.$e->getMessage(), self::EXIT_DENY);
 			}
-			if( $dbHndlr===null || !preg_match('/^\w+$/D', $tblName) ){
+			if( $dtbsHndr===null || !preg_match('/^\w+$/D', $tableNme) ){
 				$this->terminateShell('Nothing was moved: the native userbase needs an SQL database and a table named with letters and digits', self::EXIT_DENY);
 			}
-			$userNum = 0;
-			if( $dbHndlr->tableInfoArray($tblName)!==false ){
-				$rowList = $dbHndlr->sendBuiltQuery('SELECT COUNT(*) AS '.$dbHndlr->quoteFieldName('usrCount').' FROM '.$dbHndlr->quoteFieldName($tblName).';') ? $dbHndlr->readLastResult(true) : false;
-				if( !is_array($rowList) ){
-					$this->terminateShell('Nothing was moved: the users table cannot be read: '.strval($dbHndlr->finalErrorText()));
+			$userNumb = 0;
+			if( $dtbsHndr->tableInfoArray($tableNme)!==false ){
+				$rowsList = $dtbsHndr->sendBuiltQuery('SELECT COUNT(*) AS '.$dtbsHndr->quoteFieldName('usrCount').' FROM '.$dtbsHndr->quoteFieldName($tableNme).';') ? $dtbsHndr->readLastResult(true) : false;
+				if( !is_array($rowsList) ){
+					$this->terminateShell('Nothing was moved: the users table cannot be read: '.strval($dtbsHndr->finalErrorText()));
 				}
-				$userNum = intval($rowList[0]['usrCount'] ?? 0);
+				$userNumb = intval($rowsList[0]['usrCount'] ?? 0);
 			}
 		}
-		if( $userNum>0 ){
+		if( $userNumb>0 ){
 			$this->terminateShell('Nothing was moved: the '.$storeOfUsers.' store already holds users', self::EXIT_DENY);
 		}
 	}
@@ -383,50 +383,50 @@ class Deploy extends Command{
 		if( $pageFileName!='nativeDb' ){
 			return Array( Array(), Array() );
 		}
-		$lostLst = Array();
-		$pending = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+		$lostList = Array();
+		$pendList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['userStatus'] ?? '')=='awaiting' && strval($usrValuesArr['actvtnCode'] ?? '')!=='';
 		}), 'systemName' );
-		if( !empty($pending) ){
-			$lostLst[] = Array('activation codes', implode(', ', $pending).': pending until made active, or given a password, with accounts');
+		if( !empty($pendList) ){
+			$lostList[] = Array('activation codes', implode(', ', $pendList).': pending until made active, or given a password, with accounts');
 		}
-		$rsetLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+		$rsetList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return strval($usrValuesArr['recovrCode'] ?? '')!=='';
 		}), 'systemName' );
-		if( !empty($rsetLst) ){
-			$lostLst[] = Array('reset codes', implode(', ', $rsetLst).': the resets asked are forgotten, the passwords kept');
+		if( !empty($rsetList) ){
+			$lostList[] = Array('reset codes', implode(', ', $rsetList).': the resets asked are forgotten, the passwords kept');
 		}
-		$rvwList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+		$rivuList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['userStatus'] ?? '')=='inReview';
 		}), 'systemName' );
-		if( !empty($rvwList) ){
-			$lostLst[] = Array('sign-ups to review', implode(', ', $rvwList).': kept in review, which the users file cannot approve; account freeUser makes them active');
+		if( !empty($rivuList) ){
+			$lostList[] = Array('sign-ups to review', implode(', ', $rivuList).': kept in review, which the users file cannot approve; account freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
-		$mailLst = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
+		$mailList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
 			return ($usrValuesArr['twoFactWay'] ?? null)==='emailOtp';
 		}), 'systemName' );
-		if( !empty($mailLst) ){
-			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailLst).'); "account setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
+		if( !empty($mailList) ){
+			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailList).'); "account setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
-		$lostLst[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
-		$dvcConf = $this->accessSettings('dvcToken');
-		$dvcRows = empty($dvcConf) ? Array() : (new DeviceAuth($dvcConf))->lstUserDevices();
-		$devcIds = Array();
-		$devcNms = Array();
-		foreach( is_array($dvcRows) ? $dvcRows : Array() as $dvcRow ){
+		$lostList[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
+		$dvceConf = $this->accessSettings('dvcToken');
+		$dvceNtry = empty($dvceConf) ? Array() : (new DeviceAuth($dvceConf))->lstUserDevices();
+		$dvceList = Array();
+		$dvceNmes = Array();
+		foreach( is_array($dvceNtry) ? $dvceNtry : Array() as $dvcRow ){
 			if( $dvcRow['revokeDate']===null ){
-				$devcIds[] = intval($dvcRow['id_device']);
-				$devcNms[] = $dvcRow['systemName'].'/'.$dvcRow['deviceName'];
+				$dvceList[] = intval($dvcRow['id_device']);
+				$dvceNmes[] = $dvcRow['systemName'].'/'.$dvcRow['deviceName'];
 			}
 		}
-		if( !empty($devcIds) ){
+		if( !empty($dvceList) ){
 			if( !$this->optionsObj->validateOption('dropsAll') ){
-				$this->terminateShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $devcNms).'); --dropsAll revokes them', self::EXIT_DENY);
+				$this->terminateShell('Nothing was moved: active devices need the native userbase ('.implode(', ', $dvceNmes).'); --dropsAll revokes them', self::EXIT_DENY);
 			}
-			$lostLst[] = Array('devices', implode(', ', $devcNms).': revoked');
+			$lostList[] = Array('devices', implode(', ', $dvceNmes).': revoked');
 		}
-		return Array( $lostLst, $devcIds );
+		return Array( $lostList, $dvceList );
 	}
 
 	/**
@@ -443,38 +443,38 @@ class Deploy extends Command{
 	 * @throws ShellStop When a user has no password hash, or a 2FA secret that cannot be read.
 	 */
 	protected function shapeUsersList( Array $usersRecords, Array $sourceConfig, Array $targetConfig ): Array {
-		$srcSeal = strval($sourceConfig['tfaCrypt'] ?? '');
-		$trgtSel = strval($targetConfig['tfaCrypt'] ?? '');
-		$lastNum = max( array_merge(Array(0), array_map('intval', array_column($usersRecords, 'id_user'))) );
-		$nopsLst = Array();
-		$readyLs = Array();
+		$srceSeal = strval($sourceConfig['tfaCrypt'] ?? '');
+		$trgtSeal = strval($targetConfig['tfaCrypt'] ?? '');
+		$lastNumb = max( array_merge(Array(0), array_map('intval', array_column($usersRecords, 'id_user'))) );
+		$nopsList = Array();
+		$readyLst = Array();
 		foreach( $usersRecords as $usrRow ){
-			$userRow = Array();
+			$userNtry = Array();
 			foreach( UserFile::FLDS_LIST as $fldNme ){
 				if( isset($usrRow[$fldNme]) && $usrRow[$fldNme]!=='' ){
-					$userRow[$fldNme] = $usrRow[$fldNme];
+					$userNtry[$fldNme] = $usrRow[$fldNme];
 				}
 			}
-			if( strval($userRow['passwdHash'] ?? '')==='' ){
-				$nopsLst[] = strval($usrRow['systemName'] ?? '');
+			if( strval($userNtry['passwdHash'] ?? '')==='' ){
+				$nopsList[] = strval($usrRow['systemName'] ?? '');
 				continue;
 			}
-			$userRow['id_user'] = (intval($userRow['id_user'] ?? 0)>0) ? intval($userRow['id_user']) : ++$lastNum;
-			$userRow['accessRole'] = $userRow['accessRole'] ?? Checker::ROLE_LIST[0];
-			$userRow['userStatus'] = $userRow['userStatus'] ?? 'approved';
-			if( isset($userRow['twoFactKey']) && $srcSeal!==$trgtSel ){
-				$plainTx = Totp::openSecretText( strval($userRow['twoFactKey']), $srcSeal );
-				if( $plainTx===null ){
-					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userRow['systemName']).' cannot be read with the key of its store', self::EXIT_DENY);
+			$userNtry['id_user'] = (intval($userNtry['id_user'] ?? 0)>0) ? intval($userNtry['id_user']) : ++$lastNumb;
+			$userNtry['accessRole'] = $userNtry['accessRole'] ?? Checker::ROLE_LIST[0];
+			$userNtry['userStatus'] = $userNtry['userStatus'] ?? 'approved';
+			if( isset($userNtry['twoFactKey']) && $srceSeal!==$trgtSeal ){
+				$plainTxt = Totp::openSecretText( strval($userNtry['twoFactKey']), $srceSeal );
+				if( $plainTxt===null ){
+					$this->terminateShell('Nothing was moved: the 2FA secret of user '.json_encode($userNtry['systemName']).' cannot be read with the key of its store', self::EXIT_DENY);
 				}
-				$userRow['twoFactKey'] = Totp::sealSecretText($plainTx, $trgtSel);
+				$userNtry['twoFactKey'] = Totp::sealSecretText($plainTxt, $trgtSeal);
 			}
-			$readyLs[] = $userRow;
+			$readyLst[] = $userNtry;
 		}
-		if( !empty($nopsLst) ){
-			$this->terminateShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsLst).'); give them a password with accounts first', self::EXIT_DENY);
+		if( !empty($nopsList) ){
+			$this->terminateShell('Nothing was moved: users without a password hash ('.implode(', ', $nopsList).'); give them a password with accounts first', self::EXIT_DENY);
 		}
-		return $readyLs;
+		return $readyLst;
 	}
 
 	/**
@@ -488,30 +488,30 @@ class Deploy extends Command{
 	 */
 	protected function saveUsersTable( Array $configValues, Array $usersRecords ): Void {
 		try{
-			$dbHndlr = $this->openUsersTable($configValues);
-			$baseTyp = strval(DBCon::baseSetupArray( strval($configValues['linkName'] ?? '') )['dbEngine']);
+			$dtbsHndr = $this->openUsersTable($configValues);
+			$baseCode = strval(DBCon::baseSetupArray( strval($configValues['linkName'] ?? '') )['dbEngine']);
 		}catch( ShellStop $e ){
 			throw $e;
 		}catch( \Throwable $e ){
 			$this->terminateShell('Nothing was moved: '.$e->getMessage());
 		}
-		$qtdTble = $dbHndlr->quoteFieldName( strval($configValues['useTable'] ?? 'users') );
-		$dbHndlr->newTransaction();
+		$qotdTble = $dtbsHndr->quoteFieldName( strval($configValues['useTable'] ?? 'users') );
+		$dtbsHndr->newTransaction();
 		foreach( $usersRecords as $usrRow ){
-			$addStmt = 'INSERT INTO '.$qtdTble.' ('.implode(', ', array_map(Array($dbHndlr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
-			if( !$dbHndlr->sendBuiltQuery($addStmt, true, array_values($usrRow)) ){
-				$errText = strval($dbHndlr->finalErrorText());
-				$dbHndlr->delTransaction();
-				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['systemName']).' cannot be written: '.$errText);
+			$addSttmt = 'INSERT INTO '.$qotdTble.' ('.implode(', ', array_map(Array($dtbsHndr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
+			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($usrRow)) ){
+				$errorTxt = strval($dtbsHndr->finalErrorText());
+				$dtbsHndr->delTransaction();
+				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['systemName']).' cannot be written: '.$errorTxt);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
-		if( $baseTyp=='postgres' && !$dbHndlr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dbHndlr->quoteFieldName('id_user').') FROM '.$qtdTble.'));', false, Array($qtdTble)) ){
-			$errText = strval($dbHndlr->finalErrorText());
-			$dbHndlr->delTransaction();
-			$this->terminateShell('Nothing was moved: the identifiers cannot be set: '.$errText);
+		if( $baseCode=='postgres' && !$dtbsHndr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dtbsHndr->quoteFieldName('id_user').') FROM '.$qotdTble.'));', false, Array($qotdTble)) ){
+			$errorTxt = strval($dtbsHndr->finalErrorText());
+			$dtbsHndr->delTransaction();
+			$this->terminateShell('Nothing was moved: the identifiers cannot be set: '.$errorTxt);
 		}
-		$dbHndlr->setTransaction();
+		$dtbsHndr->setTransaction();
 	}
 
 	/**
@@ -523,9 +523,9 @@ class Deploy extends Command{
 	 * @throws ShellStop When the file cannot be written.
 	 */
 	protected function writeUsersFile( Array $configValues, Array $usersRecords ): Void {
-		$fileObj = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
-		if( !$fileObj->fillEmptyStore($usersRecords) ){
-			$this->terminateShell('Nothing was moved: '.$fileObj->finalErrorText());
+		$fileInst = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
+		if( !$fileInst->fillEmptyStore($usersRecords) ){
+			$this->terminateShell('Nothing was moved: '.$fileInst->finalErrorText());
 		}
 	}
 
@@ -535,13 +535,13 @@ class Deploy extends Command{
 	 * @return Int EXITDONE, or EXITFLAW when a check failed.
 	 */
 	protected function showCheckCount(): Int {
-		$chckObj = new HealthChk();
-		$rowList = $chckObj->runChecksArray();
-		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $rowList );
-		$sttsLst = array_count_values( array_column($rowList, 1) );
-		$this->printerObj->printShellPair('fail', intval($sttsLst['fail'] ?? 0));
-		$this->printerObj->printShellPair('warn', intval($sttsLst['warn'] ?? 0));
-		return $chckObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
+		$checkObj = new HealthChk();
+		$rowsList = $checkObj->runChecksArray();
+		$this->printerObj->printShellRows( Array('check', 'state', 'found'), $rowsList );
+		$sttsList = array_count_values( array_column($rowsList, 1) );
+		$this->printerObj->printShellPair('fail', intval($sttsList['fail'] ?? 0));
+		$this->printerObj->printShellPair('warn', intval($sttsList['warn'] ?? 0));
+		return $checkObj->validateFailed() ? self::EXIT_FLAW : self::EXIT_DONE;
 	}
 
 	/**
@@ -551,36 +551,36 @@ class Deploy extends Command{
 	 * @param Array $filesToBuild The local files to make, as DISTLIST names them; all of them when empty.
 	 */
 	protected function makeLocalFiles( Array $filesToBuild=Array() ): Void {
-		$rowList = Array();
+		$rowsList = Array();
 		foreach( self::DIST_LIST as $filNme => $target ){
 			if( !empty($filesToBuild) && !in_array($filNme, $filesToBuild, true) ){
 				continue;
 			}
-			$filPath = TOP_DIR.DS.str_replace('/', DS, $filNme);
-			$dstPath = TOP_DIR.DS.str_replace('/', DS, $target);
-			if( is_file($filPath) ){
-				$rowList[] = Array($filNme, 'kept');
-			}elseif( !is_file($dstPath) ){
-				$rowList[] = Array($filNme, 'not created: its example '.$target.' is missing');
-			}elseif( (function() use ( $dstPath, $filPath ): Bool {
+			$filePath = TOP_DIR.DS.str_replace('/', DS, $filNme);
+			$distPath = TOP_DIR.DS.str_replace('/', DS, $target);
+			if( is_file($filePath) ){
+				$rowsList[] = Array($filNme, 'kept');
+			}elseif( !is_file($distPath) ){
+				$rowsList[] = Array($filNme, 'not created: its example '.$target.' is missing');
+			}elseif( (function() use ( $distPath, $filePath ): Bool {
 				// Made readable by its owner only, from its first byte: the file will hold secrets
-				$prevMsk = umask(0077);
+				$prevMask = umask(0077);
 				try{
-					return @copy($dstPath, $filPath);
+					return @copy($distPath, $filePath);
 				}finally{
-					umask($prevMsk);
+					umask($prevMask);
 				}
 			})() ){
 				// The secrets are for the owner alone; the access config is read by the group of the web server too
-				$secRgts = Array('.env'=>0600, 'conf/access.json'=>0640);
-				@chmod($filPath, $secRgts[$filNme] ?? (0666 & ~umask()));
-				$rowList[] = Array($filNme, 'created from '.$target);
+				$rghtDict = Array('.env'=>0600, 'conf/access.json'=>0640);
+				@chmod($filePath, $rghtDict[$filNme] ?? (0666 & ~umask()));
+				$rowsList[] = Array($filNme, 'created from '.$target);
 				$this->traceShellDone('Deploy: '.$filNme.' created from '.$target);
 			}else{
-				$rowList[] = Array($filNme, 'not created: its folder cannot be written');
+				$rowsList[] = Array($filNme, 'not created: its folder cannot be written');
 			}
 		}
-		$this->printerObj->printShellRows( Array('file', 'state'), $rowList );
+		$this->printerObj->printShellRows( Array('file', 'state'), $rowsList );
 		Console::loadConfigLogs();
 	}
 
@@ -599,50 +599,50 @@ class Deploy extends Command{
 	protected function queryDoorsList( String $profileNamed ): Void {
 		// The lines of a map already written are proposed as they are, those for any host only : a line naming a host is kept apart
 		try{
-			$rowList = \nyu\Runner::readDoorsArray();
+			$rowsList = \nyu\Runner::readDoorsArray();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( 'Nothing was installed further: '.$e->getMessage(), self::EXIT_DENY );
 		}
-		$hostLst = Array();
-		$dfltLst = Array();
-		foreach( $rowList as $oneRow ){
+		$hostList = Array();
+		$dfltList = Array();
+		foreach( $rowsList as $oneRow ){
 			if( $oneRow['hostName']==='' ){
-				$dfltLst[] = $oneRow['basePath'].'='.$oneRow['presetId'];
+				$dfltList[] = $oneRow['basePath'].'='.$oneRow['presetId'];
 			}else{
-				$hostLst[] = $oneRow;
+				$hostList[] = $oneRow;
 			}
 		}
-		$gvnText = $this->queryAnswerTxt( 'Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName)', empty($dfltLst) ? ( $profileNamed=='openSite' ? '/=statics' : '/=default' ) : implode(', ', $dfltLst) );
-		$newList = $hostLst;
-		foreach( array_filter(array_map('trim', explode(',', $gvnText))) as $onePar ){
-			$pairArr = array_map('trim', explode('=', $onePar, 2));
-			$baseTxt = '/'.trim($pairArr[0], '/');
-			$prstNme = strval($pairArr[1] ?? '');
-			if( !preg_match('#^/[\w.\-/]*$#D', $baseTxt) || !preg_match('/^\w+$/D', $prstNme) ){
+		$givenTxt = $this->queryAnswerTxt( 'Presets to serve, and where (basePath=preset, comma-separated; a host is given with setting entryPts --hostName)', empty($dfltList) ? ( $profileNamed=='openSite' ? '/=statics' : '/=default' ) : implode(', ', $dfltList) );
+		$newLstng = $hostList;
+		foreach( array_filter(array_map('trim', explode(',', $givenTxt))) as $onePar ){
+			$pairList = array_map('trim', explode('=', $onePar, 2));
+			$baseText = '/'.trim($pairList[0], '/');
+			$psetName = strval($pairList[1] ?? '');
+			if( !preg_match('#^/[\w.\-/]*$#D', $baseText) || !preg_match('/^\w+$/D', $psetName) ){
 				$this->terminateShell( 'Not a line of the presets served: '.$onePar.' (basePath=preset)', self::EXIT_DENY );
 			}
-			if( strcasecmp($prstNme, \nyu\Setup\Preset::XMPL_NAME)==0 ){
+			if( strcasecmp($psetName, \nyu\Setup\Preset::XMPL_NAME)==0 ){
 				$this->terminateShell( 'The preset '.\nyu\Setup\Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded: it serves nothing', self::EXIT_DENY );
 			}
 			try{
-				new \nyu\Setup\Preset($prstNme);
+				new \nyu\Setup\Preset($psetName);
 			}catch( \RuntimeException $e ){
 				$this->terminateShell( 'Not a preset to serve: '.$e->getMessage(), self::EXIT_DENY );
 			}
-			$newList[] = Array('hostName'=>'', 'basePath'=>$baseTxt, 'presetId'=>$prstNme);
+			$newLstng[] = Array('hostName'=>'', 'basePath'=>$baseText, 'presetId'=>$psetName);
 		}
-		if( empty($newList) ){
+		if( empty($newLstng) ){
 			$this->terminateShell( 'No preset to serve: give one line at least, /=default', self::EXIT_DENY );
 		}
 		if( $profileNamed=='openSite' ){
-			$this->openPresetsLst($newList);
+			$this->openPresetsLst($newLstng);
 		}
-		(new Config($this->optionsObj, $this->printerObj, $this->readStream))->writeDoorsList($newList);
-		$lineLst = Array();
-		foreach( $newList as $oneRow ){
-			$lineLst[] = $oneRow['hostName'].$oneRow['basePath'].'='.$oneRow['presetId'];
+		(new Config($this->optionsObj, $this->printerObj, $this->readStream))->writeDoorsList($newLstng);
+		$lineList = Array();
+		foreach( $newLstng as $oneRow ){
+			$lineList[] = $oneRow['hostName'].$oneRow['basePath'].'='.$oneRow['presetId'];
 		}
-		$this->traceShellDone( 'Deploy: presets served '.json_encode($lineLst, JSON_UNESCAPED_SLASHES) );
+		$this->traceShellDone( 'Deploy: presets served '.json_encode($lineList, JSON_UNESCAPED_SLASHES) );
 	}
 
 	/**
@@ -658,43 +658,43 @@ class Deploy extends Command{
 	 * @throws ShellStop When a preset can reach an action, or cannot be read or written.
 	 */
 	protected function openPresetsLst( Array $doorwaysRows ): Array {
-		$openLst = Array();
+		$openList = Array();
 		foreach( array_unique(array_column($doorwaysRows, 'presetId')) as $prstId ){
 			try{
-				$setpObj = (new \nyu\Setup\Preset($prstId))->newSetupLoader();
-				$rteConf = $setpObj->getRegistryKey('dispatch');
-				$hasActn = (new \nyu\Tools\Router( is_array($rteConf) ? $rteConf : Array(), \nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions();
-				$accConf = $setpObj->setAccessArray();
+				$setupObj = (new \nyu\Setup\Preset($prstId))->newSetupLoader();
+				$routeCfg = $setupObj->getRegistryKey('dispatch');
+				$canReach = (new \nyu\Tools\Router( is_array($routeCfg) ? $routeCfg : Array(), \nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions();
+				$accsConf = $setupObj->setAccessArray();
 			}catch( \Throwable $e ){
 				$this->terminateShell('Nothing was opened: the preset '.$prstId.' cannot be read: '.$e->getMessage(), self::EXIT_DENY);
 			}
-			if( $hasActn ){
+			if( $canReach ){
 				$this->terminateShell('Nothing was opened: the preset '.$prstId.' can reach an action, which an open site never makes public; serve statics, or a preset that serves no Run, or open the Run on purpose with openList in a preset that checks access', self::EXIT_DENY);
 			}
-			if( ($accConf['required'] ?? true)!==false || ($accConf['isPublic'] ?? false)!==true ){
-				$openLst[] = $prstId;
+			if( ($accsConf['required'] ?? true)!==false || ($accsConf['isPublic'] ?? false)!==true ){
+				$openList[] = $prstId;
 			}
 		}
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		foreach( $openLst as $prstId ){
-			$rpsPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
+		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		foreach( $openList as $prstId ){
+			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
 			try{
-				$treeObj = $wrtrObj->importJsonsObj($rpsPath);
+				$treeInst = $wrtrInst->importJsonsObj($psetPath);
 			}catch( \RuntimeException $e ){
 				$this->terminateShell('The preset '.$prstId.' cannot be opened: '.$e->getMessage().' (a preset holding comments is opened by hand)', self::EXIT_DENY);
 			}
-			if( !isset($treeObj->security) || !is_object($treeObj->security) ){
-				$treeObj->security = new \stdClass();
+			if( !isset($treeInst->security) || !is_object($treeInst->security) ){
+				$treeInst->security = new \stdClass();
 			}
-			$treeObj->security->required = false;
-			$treeObj->security->isPublic = true;
-			$wrtrObj->saveJsonConfig($rpsPath, $treeObj);
+			$treeInst->security->required = false;
+			$treeInst->security->isPublic = true;
+			$wrtrInst->saveJsonConfig($psetPath, $treeInst);
 			$this->printerObj->printShellLine('Preset '.$prstId.' opened: "required": false, "isPublic": true.');
 		}
-		if( !empty($openLst) ){
-			$this->traceShellDone('Deploy: presets opened for an open site ('.implode(', ', $openLst).')');
+		if( !empty($openList) ){
+			$this->traceShellDone('Deploy: presets opened for an open site ('.implode(', ', $openList).')');
 		}
-		return $openLst;
+		return $openList;
 	}
 
 	/**
@@ -709,42 +709,42 @@ class Deploy extends Command{
 	 */
 	protected function closePublicSet(): Void {
 		try{
-			$rowList = \nyu\Runner::readDoorsArray();
+			$rowsList = \nyu\Runner::readDoorsArray();
 		}catch( \RuntimeException $e ){
 			// The question of the map tells it
 			return;
 		}
-		$pblcLst = Array();
-		foreach( array_unique(array_column($rowList, 'presetId')) as $prstId ){
+		$publList = Array();
+		foreach( array_unique(array_column($rowsList, 'presetId')) as $prstId ){
 			try{
-				$accConf = (new \nyu\Setup\Preset($prstId))->newSetupLoader()->setAccessArray();
+				$accsConf = (new \nyu\Setup\Preset($prstId))->newSetupLoader()->setAccessArray();
 			}catch( \Throwable $e ){
 				return;
 			}
 			// A preset that checks access : the project was not an open site
-			if( ($accConf['required'] ?? true)!==false ){
+			if( ($accsConf['required'] ?? true)!==false ){
 				return;
 			}
-			if( ($accConf['isPublic'] ?? false)===true ){
-				$pblcLst[] = $prstId;
+			if( ($accsConf['isPublic'] ?? false)===true ){
+				$publList[] = $prstId;
 			}
 		}
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		foreach( $pblcLst as $prstId ){
-			$rpsPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
+		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		foreach( $publList as $prstId ){
+			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
 			try{
-				$treeObj = $wrtrObj->importJsonsObj($rpsPath);
+				$treeInst = $wrtrInst->importJsonsObj($psetPath);
 			}catch( \RuntimeException $e ){
 				$this->terminateShell('The preset '.$prstId.' cannot be closed: '.$e->getMessage().'; close it by hand ("required": true)', self::EXIT_DENY);
 			}
-			$treeObj->security->required = true;
-			unset($treeObj->security->isPublic);
-			$wrtrObj->saveJsonConfig($rpsPath, $treeObj);
+			$treeInst->security->required = true;
+			unset($treeInst->security->isPublic);
+			$wrtrInst->saveJsonConfig($psetPath, $treeInst);
 			$this->printerObj->printShellLine('Preset '.$prstId.' closed: the project has users now; open it again on purpose when it is meant to be public.');
 		}
-		if( !empty($pblcLst) ){
+		if( !empty($publList) ){
 			Console::loadConfigLogs();
-			$this->traceShellDone('Deploy: presets of the open site closed, a store of users given ('.implode(', ', $pblcLst).')');
+			$this->traceShellDone('Deploy: presets of the open site closed, a store of users given ('.implode(', ', $publList).')');
 		}
 	}
 
@@ -762,17 +762,17 @@ class Deploy extends Command{
 	 * @throws ShellStop When an answer is not one of those proposed, or the store does not fit the profile.
 	 */
 	protected function querySetupsTxt( String $profileNamed ): String {
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		$iniPath = TOP_DIR.DS.'conf'.DS.'system.ini';
-		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		$currEnv = strval($wrtrObj->retrieveIniKey($iniPath, 'ENV_NAME') ?? '');
-		if( $currEnv!='' ){
-			$wantEnv = strtoupper( $this->queryAnswerTxt('Environment (DEVS, TEST, PREV, PROD)', $currEnv) );
-			if( !in_array($wantEnv, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
-				$this->terminateShell('Not an environment: '.$wantEnv, self::EXIT_DENY);
+		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$iniTrail = TOP_DIR.DS.'conf'.DS.'system.ini';
+		$accsPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$currEnvr = strval($wrtrInst->retrieveIniKey($iniTrail, 'ENV_NAME') ?? '');
+		if( $currEnvr!='' ){
+			$wantEnvr = strtoupper( $this->queryAnswerTxt('Environment (DEVS, TEST, PREV, PROD)', $currEnvr) );
+			if( !in_array($wantEnvr, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
+				$this->terminateShell('Not an environment: '.$wantEnvr, self::EXIT_DENY);
 			}
-			if( $wantEnv!=$currEnv ){
-				$wrtrObj->changeIniValue($iniPath, 'ENV_NAME', $wantEnv);
+			if( $wantEnvr!=$currEnvr ){
+				$wrtrInst->changeIniValue($iniTrail, 'ENV_NAME', $wantEnvr);
 			}
 		}
 		// A resource server accepts the tokens of another server, an open site logs nobody in : no users, nor a store to ask
@@ -780,40 +780,40 @@ class Deploy extends Command{
 			Console::loadConfigLogs();
 			return 'none';
 		}
-		$lgnAuth = strval($this->accessSettings('loginSet')['authWith'] ?? '');
-		$storNme = strval( $this->optionsObj->retrieveOption('useStore', in_array($lgnAuth, Array('nativeDb', 'userFile'), true) ? $lgnAuth : ( $profileNamed=='authServ' ? 'userFile' : 'none' )) );
-		$storNme = $this->queryAnswerTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storNme);
+		$lognAuth = strval($this->accessSettings('loginSet')['authWith'] ?? '');
+		$storeNme = strval( $this->optionsObj->retrieveOption('useStore', in_array($lognAuth, Array('nativeDb', 'userFile'), true) ? $lognAuth : ( $profileNamed=='authServ' ? 'userFile' : 'none' )) );
+		$storeNme = $this->queryAnswerTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storeNme);
 		// Matched whatever its letter case, kept as the list writes it
 		foreach( self::STOR_LIST as $oneCod ){
-			$storNme = (strcasecmp($oneCod, $storNme)==0) ? $oneCod : $storNme;
+			$storeNme = (strcasecmp($oneCod, $storeNme)==0) ? $oneCod : $storeNme;
 		}
-		if( !in_array($storNme, self::STOR_LIST, true) ){
-			$this->terminateShell('Not a store of users: '.$storNme, self::EXIT_DENY);
+		if( !in_array($storeNme, self::STOR_LIST, true) ){
+			$this->terminateShell('Not a store of users: '.$storeNme, self::EXIT_DENY);
 		}
-		if( $storNme=='none' && $profileNamed=='authServ' ){
+		if( $storeNme=='none' && $profileNamed=='authServ' ){
 			$this->terminateShell('An authentication server (authServ) logs its users in: it needs a store (nativeDb or userFile)', self::EXIT_DENY);
 		}
 		// The login is pointed at the store chosen
-		if( $storNme!='none' && $storNme!=$lgnAuth && is_file($accPath) ){
-			$treeObj = $wrtrObj->importJsonsObj($accPath);
-			if( !isset($treeObj->loginSet) || !is_object($treeObj->loginSet) ){
-				$treeObj->loginSet = new \stdClass();
+		if( $storeNme!='none' && $storeNme!=$lognAuth && is_file($accsPath) ){
+			$treeInst = $wrtrInst->importJsonsObj($accsPath);
+			if( !isset($treeInst->loginSet) || !is_object($treeInst->loginSet) ){
+				$treeInst->loginSet = new \stdClass();
 			}
-			$treeObj->loginSet->authWith = $storNme;
-			$treeObj->loginSet->authConf = $storNme;
-			if( !isset($treeObj->$storNme) ){
-				$treeObj->$storNme = (object)self::STOR_CONF[$storNme];
+			$treeInst->loginSet->authWith = $storeNme;
+			$treeInst->loginSet->authConf = $storeNme;
+			if( !isset($treeInst->$storeNme) ){
+				$treeInst->$storeNme = (object)self::STOR_CONF[$storeNme];
 			}
-			$wrtrObj->saveJsonConfig($accPath, $treeObj);
+			$wrtrInst->saveJsonConfig($accsPath, $treeInst);
 		}
-		if( $storNme=='nativeDb' ){
+		if( $storeNme=='nativeDb' ){
 			$this->makeLocalFiles( Array('conf/database.json') );
 			if( !$this->optionsObj->validateOption('noPrompt') ){
-				$this->queryDatabases($wrtrObj);
+				$this->queryDatabases($wrtrInst);
 			}
 		}
 		Console::loadConfigLogs();
-		return $storNme;
+		return $storeNme;
 	}
 
 	/**
@@ -835,60 +835,60 @@ class Deploy extends Command{
 	 * @throws ShellStop When the answer is not a profile, or conf/access.json cannot be read.
 	 */
 	protected function queryProfilTxt(): String {
-		$projKnd = strval( $this->optionsObj->retrieveOption('projKind', '') );
-		$projKnd = ($projKnd!=='') ? $projKnd : $this->queryAnswerTxt('What this project is ('.implode(', ', self::KIND_LIST).')', self::KIND_LIST[0]);
+		$projCode = strval( $this->optionsObj->retrieveOption('projKind', '') );
+		$projCode = ($projCode!=='') ? $projCode : $this->queryAnswerTxt('What this project is ('.implode(', ', self::KIND_LIST).')', self::KIND_LIST[0]);
 		// Matched whatever its letter case, kept as the list writes it
 		foreach( self::KIND_LIST as $oneCod ){
-			$projKnd = (strcasecmp($oneCod, $projKnd)==0) ? $oneCod : $projKnd;
+			$projCode = (strcasecmp($oneCod, $projCode)==0) ? $oneCod : $projCode;
 		}
-		if( !in_array($projKnd, self::KIND_LIST, true) ){
-			$this->terminateShell('Not a profile of a project: '.$projKnd, self::EXIT_DENY);
+		if( !in_array($projCode, self::KIND_LIST, true) ){
+			$this->terminateShell('Not a profile of a project: '.$projCode, self::EXIT_DENY);
 		}
-		if( $projKnd=='allInOne' ){
-			return $projKnd;
+		if( $projCode=='allInOne' ){
+			return $projCode;
 		}
-		if( $projKnd!='authServ' && strval($this->optionsObj->retrieveOption('useStore', ''))!=='' ){
-			$this->terminateShell( ($projKnd=='dataServ' ? 'A resource server (dataServ)' : 'An open site (openSite)').' has no users of its own: --useStore does not apply', self::EXIT_HELP );
+		if( $projCode!='authServ' && strval($this->optionsObj->retrieveOption('useStore', ''))!=='' ){
+			$this->terminateShell( ($projCode=='dataServ' ? 'A resource server (dataServ)' : 'An open site (openSite)').' has no users of its own: --useStore does not apply', self::EXIT_HELP );
 		}
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		if( !is_file($accPath) ){
+		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$accsPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		if( !is_file($accsPath) ){
 			$this->terminateShell('Nothing was installed: conf/access.json is missing, the profile cannot be written', self::EXIT_FAIL);
 		}
-		$treeObj = $wrtrObj->importJsonsObj($accPath);
-		if( !isset($treeObj->loginSet) || !is_object($treeObj->loginSet) ){
-			$treeObj->loginSet = new \stdClass();
+		$treeInst = $wrtrInst->importJsonsObj($accsPath);
+		if( !isset($treeInst->loginSet) || !is_object($treeInst->loginSet) ){
+			$treeInst->loginSet = new \stdClass();
 		}
 		// An open site has no users' store : the login checks nothing, and the presets it serves are opened with the map
-		if( $projKnd=='openSite' ){
-			unset($treeObj->loginSet->authWith, $treeObj->loginSet->authConf);
-			$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		if( $projCode=='openSite' ){
+			unset($treeInst->loginSet->authWith, $treeInst->loginSet->authConf);
+			$wrtrInst->saveJsonConfig($accsPath, $treeInst);
 			Console::loadConfigLogs();
 			$this->traceShellDone('Deploy: conf/access.json written for the profile openSite (no users\' store)');
-			return $projKnd;
+			return $projCode;
 		}
 		// The tokens are the bond between the projects : the login carries them
-		$blckNme = ( strval($treeObj->loginSet->carrWith ?? 'jwtToken')=='jwtToken' ) ? strval($treeObj->loginSet->carrConf ?? 'jwtToken') : 'jwtToken';
-		$treeObj->loginSet->carrWith = 'jwtToken';
-		$treeObj->loginSet->carrConf = $blckNme;
-		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
-			$treeObj->$blckNme = new \stdClass();
+		$blockNme = ( strval($treeInst->loginSet->carrWith ?? 'jwtToken')=='jwtToken' ) ? strval($treeInst->loginSet->carrConf ?? 'jwtToken') : 'jwtToken';
+		$treeInst->loginSet->carrWith = 'jwtToken';
+		$treeInst->loginSet->carrConf = $blockNme;
+		if( !isset($treeInst->$blockNme) || !is_object($treeInst->$blockNme) ){
+			$treeInst->$blockNme = new \stdClass();
 		}
-		$blckNod = $treeObj->$blckNme;
-		$blckNod->signAlgo = 'RS256';
-		if( $projKnd=='authServ' ){
+		$blockNde = $treeInst->$blockNme;
+		$blockNde->signAlgo = 'RS256';
+		if( $projCode=='authServ' ){
 			// Its tokens are signed here : a public key found alone is replaced by a pair of its own
-			unset($blckNod->external);
+			unset($blockNde->external);
 		}else{
-			$this->queryIssuerKey($blckNod, $blckNme);
+			$this->queryIssuerKey($blockNde, $blockNme);
 			// Nothing is checked here : the login answers that the tokens are issued by another server
-			unset($treeObj->loginSet->authWith, $treeObj->loginSet->authConf);
+			unset($treeInst->loginSet->authWith, $treeInst->loginSet->authConf);
 		}
-		$this->queryTokenClms($blckNod);
-		$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		$this->queryTokenClms($blockNde);
+		$wrtrInst->saveJsonConfig($accsPath, $treeInst);
 		Console::loadConfigLogs();
-		$this->traceShellDone('Deploy: conf/access.json written for the profile '.$projKnd.' (block '.$blckNme.')');
-		return $projKnd;
+		$this->traceShellDone('Deploy: conf/access.json written for the profile '.$projCode.' (block '.$blockNme.')');
+		return $projCode;
 	}
 
 	/**
@@ -902,14 +902,14 @@ class Deploy extends Command{
 	 * @param \stdClass $tokenConfObj The block of the tokens, given the answers.
 	 */
 	protected function queryTokenClms( \stdClass $tokenConfObj ): Void {
-		$isExtrn = ($tokenConfObj->external ?? false)===true;
-		$nowIssr = is_string($tokenConfObj->issuerId ?? null) ? trim($tokenConfObj->issuerId) : '';
-		$nowIssr = ($nowIssr=='' && !$isExtrn) ? strval(gethostname()) : $nowIssr;
-		$tokenConfObj->issuerId = trim( $this->queryAnswerTxt($isExtrn ? 'Issuer of the authentication server\'s tokens (issuerId)' : 'Issuer of the tokens (issuerId)', $nowIssr) );
-		$nowAdnc = $tokenConfObj->audience ?? Array();
-		$nowAdnc = is_array($nowAdnc) ? implode(', ', array_map('strval', $nowAdnc)) : strval($nowAdnc);
-		$adncTxt = $this->queryAnswerTxt($isExtrn ? 'Audience naming this project (audience, comma-separated)' : 'Projects that will accept its tokens (audience, comma-separated)', $nowAdnc);
-		$tokenConfObj->audience = array_values( array_filter(array_map('trim', explode(',', $adncTxt)), 'strlen') );
+		$isExtern = ($tokenConfObj->external ?? false)===true;
+		$nowIssur = is_string($tokenConfObj->issuerId ?? null) ? trim($tokenConfObj->issuerId) : '';
+		$nowIssur = ($nowIssur=='' && !$isExtern) ? strval(gethostname()) : $nowIssur;
+		$tokenConfObj->issuerId = trim( $this->queryAnswerTxt($isExtern ? 'Issuer of the authentication server\'s tokens (issuerId)' : 'Issuer of the tokens (issuerId)', $nowIssur) );
+		$nowAudnc = $tokenConfObj->audience ?? Array();
+		$nowAudnc = is_array($nowAudnc) ? implode(', ', array_map('strval', $nowAudnc)) : strval($nowAudnc);
+		$audnText = $this->queryAnswerTxt($isExtern ? 'Audience naming this project (audience, comma-separated)' : 'Projects that will accept its tokens (audience, comma-separated)', $nowAudnc);
+		$tokenConfObj->audience = array_values( array_filter(array_map('trim', explode(',', $audnText)), 'strlen') );
 	}
 
 	/**
@@ -926,39 +926,39 @@ class Deploy extends Command{
 	 * @throws ShellStop When the file is missing, is not a public RSA key of JWT::RSAS_BITS bits at least, or cannot be copied.
 	 */
 	protected function queryIssuerKey( \stdClass $tokenConfObj, String $blckNamedTxt ): Void {
-		$publNme = 'conf/keys/'.$blckNamedTxt.'.pub';
-		$publPth = TOP_DIR.DS.str_replace('/', DS, $publNme);
-		$srcName = trim( $this->queryAnswerTxt('File of the public key of the authentication server', is_file($publPth) ? $publNme : '') );
+		$publName = 'conf/keys/'.$blckNamedTxt.'.pub';
+		$publPath = TOP_DIR.DS.str_replace('/', DS, $publName);
+		$srceName = trim( $this->queryAnswerTxt('File of the public key of the authentication server', is_file($publPath) ? $publName : '') );
 		// The path is read from where the command runs, or from the project
-		$srcPath = is_file($srcName) ? $srcName : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, ltrim($srcName, '/\\'));
-		if( $srcName=='' || !is_file($srcPath) ){
-			$this->terminateShell('Nothing was installed: no file of the public key'.( $srcName!='' ? ' at '.json_encode($srcName) : ' given' ), self::EXIT_DENY);
+		$srcePath = is_file($srceName) ? $srceName : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, ltrim($srceName, '/\\'));
+		if( $srceName=='' || !is_file($srcePath) ){
+			$this->terminateShell('Nothing was installed: no file of the public key'.( $srceName!='' ? ' at '.json_encode($srceName) : ' given' ), self::EXIT_DENY);
 		}
 		if( !function_exists('openssl_pkey_get_public') ){
 			$this->terminateShell('Nothing was installed: RS256 needs the openssl extension', self::EXIT_FAIL);
 		}
-		$pemText = strval(@file_get_contents($srcPath));
-		$keyObjc = (strpos($pemText, 'PRIVATE KEY')===false) ? @openssl_pkey_get_public($pemText) : false;
-		$keyInfo = ($keyObjc!==false) ? openssl_pkey_get_details($keyObjc) : false;
-		if( !is_array($keyInfo) || ($keyInfo['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyInfo['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
-			$this->terminateShell('Nothing was installed: '.json_encode($srcName).' is not a public RSA key of '.\nyu\Access\Carr\JWT::RSAS_BITS.' bits at least', self::EXIT_DENY);
+		$pemStrng = strval(@file_get_contents($srcePath));
+		$keyObjct = (strpos($pemStrng, 'PRIVATE KEY')===false) ? @openssl_pkey_get_public($pemStrng) : false;
+		$keyArray = ($keyObjct!==false) ? openssl_pkey_get_details($keyObjct) : false;
+		if( !is_array($keyArray) || ($keyArray['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyArray['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
+			$this->terminateShell('Nothing was installed: '.json_encode($srceName).' is not a public RSA key of '.\nyu\Access\Carr\JWT::RSAS_BITS.' bits at least', self::EXIT_DENY);
 		}
-		$publTxt = strval($keyInfo['key']);
-		$nowText = is_file($publPth) ? strval(@file_get_contents($publPth)) : '';
-		if( $nowText!=='' && trim($nowText)!==trim($publTxt) && !$this->queryAgreedFlg('Replace the public key in use ('.$publNme.'): the tokens it checks are refused') ){
+		$publText = strval($keyArray['key']);
+		$nowStrng = is_file($publPath) ? strval(@file_get_contents($publPath)) : '';
+		if( $nowStrng!=='' && trim($nowStrng)!==trim($publText) && !$this->queryAgreedFlg('Replace the public key in use ('.$publName.'): the tokens it checks are refused') ){
 			$this->terminateShell('Nothing was installed: the public key in use is kept', self::EXIT_DENY);
 		}
-		if( trim($nowText)!==trim($publTxt) ){
-			if( !is_dir(dirname($publPth)) ){
-				@mkdir(dirname($publPth), 0700, true);
+		if( trim($nowStrng)!==trim($publText) ){
+			if( !is_dir(dirname($publPath)) ){
+				@mkdir(dirname($publPath), 0700, true);
 			}
-			if( @file_put_contents($publPth, $publTxt, LOCK_EX)===false ){
-				$this->terminateShell('Nothing was installed: '.$publNme.' cannot be written', self::EXIT_FAIL);
+			if( @file_put_contents($publPath, $publText, LOCK_EX)===false ){
+				$this->terminateShell('Nothing was installed: '.$publName.' cannot be written', self::EXIT_FAIL);
 			}
-			@chmod($publPth, 0644);
-			$this->traceShellDone('Deploy: public key of the authentication server copied into '.$publNme);
+			@chmod($publPath, 0644);
+			$this->traceShellDone('Deploy: public key of the authentication server copied into '.$publName);
 		}
-		$tokenConfObj->publFile = $publNme;
+		$tokenConfObj->publFile = $publName;
 		$tokenConfObj->external = true;
 		unset($tokenConfObj->privFile, $tokenConfObj->hmacSecr);
 	}
@@ -979,58 +979,58 @@ class Deploy extends Command{
 	 * @throws ShellStop When the type is not one proposed, the account cannot be written, or the link is not one.
 	 */
 	protected function queryMailerTxt(): String {
-		$typeLst = array_keys(Mailer::TYPE_LIST);
+		$typeList = array_keys(Mailer::TYPE_LIST);
 		if( !class_exists(PHMail::MAIL_CLSS) ){
-			$typeLst = array_values( array_diff($typeLst, Array('phpMailr')) );
+			$typeList = array_values( array_diff($typeList, Array('phpMailr')) );
 		}
-		$yesList = Array('y', 'yes');
-		$typeNme = strval( $this->optionsObj->retrieveOption('sendWith', '') );
-		if( $typeNme==='' ){
-			if( !in_array(strtolower($this->queryAnswerTxt('Send the access mails (activation, reset, sign-ups)? (yes/no)', 'no')), $yesList, true) ){
+		$yessList = Array('y', 'yes');
+		$typeName = strval( $this->optionsObj->retrieveOption('sendWith', '') );
+		if( $typeName==='' ){
+			if( !in_array(strtolower($this->queryAnswerTxt('Send the access mails (activation, reset, sign-ups)? (yes/no)', 'no')), $yessList, true) ){
 				return 'none';
 			}
-			$typeNme = $this->queryAnswerTxt('Mail account type ('.implode(', ', $typeLst).')', $typeLst[0]);
+			$typeName = $this->queryAnswerTxt('Mail account type ('.implode(', ', $typeList).')', $typeList[0]);
 		}
-		if( strcasecmp($typeNme, 'none')==0 ){
+		if( strcasecmp($typeName, 'none')==0 ){
 			return 'none';
 		}
 		// Matched whatever its letter case, kept as the list writes it
 		foreach( array_keys(Mailer::TYPE_LIST) as $oneCod ){
-			$typeNme = (strcasecmp($oneCod, $typeNme)==0) ? $oneCod : $typeNme;
+			$typeName = (strcasecmp($oneCod, $typeName)==0) ? $oneCod : $typeName;
 		}
-		if( !isset(Mailer::TYPE_LIST[$typeNme]) ){
-			$this->terminateShell('Not a type of mail account: '.$typeNme, self::EXIT_DENY);
+		if( !isset(Mailer::TYPE_LIST[$typeName]) ){
+			$this->terminateShell('Not a type of mail account: '.$typeName, self::EXIT_DENY);
 		}
-		if( !in_array($typeNme, $typeLst, true) ){
+		if( !in_array($typeName, $typeList, true) ){
 			$this->terminateShell('A phpMailr account needs the PHPMailer library, which is not installed (composer require phpmailer/phpmailer)', self::EXIT_DENY);
 		}
-		$wrtrObj = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		$accPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		$lgnConf = $this->accessSettings('loginSet');
-		$blckNme = ( strval($lgnConf['authWith'] ?? '')=='nativeDb' ) ? strval($lgnConf['authConf'] ?? 'nativeDb') : 'nativeDb';
-		$nowAcnt = $this->accessSettings($blckNme)['mailAcnt'] ?? '';
-		$acntNme = $this->queryAccntConf( $wrtrObj, $typeNme, is_string($nowAcnt) ? $nowAcnt : '' );
-		$treeObj = $wrtrObj->importJsonsObj($accPath);
-		if( !isset($treeObj->$blckNme) || !is_object($treeObj->$blckNme) ){
-			$treeObj->$blckNme = (object)self::STOR_CONF['nativeDb'];
+		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$accsPath = TOP_DIR.DS.'conf'.DS.'access.json';
+		$loginCfg = $this->accessSettings('loginSet');
+		$blockNme = ( strval($loginCfg['authWith'] ?? '')=='nativeDb' ) ? strval($loginCfg['authConf'] ?? 'nativeDb') : 'nativeDb';
+		$nowAccnt = $this->accessSettings($blockNme)['mailAcnt'] ?? '';
+		$acctName = $this->queryAccntConf( $wrtrInst, $typeName, is_string($nowAccnt) ? $nowAccnt : '' );
+		$treeInst = $wrtrInst->importJsonsObj($accsPath);
+		if( !isset($treeInst->$blockNme) || !is_object($treeInst->$blockNme) ){
+			$treeInst->$blockNme = (object)self::STOR_CONF['nativeDb'];
 		}
-		$blckNod = $treeObj->$blckNme;
-		$lnkTmpl = $this->queryAnswerTxt('Front-end link of the mails (empty for none)', is_string($blckNod->linkTmpl ?? null) ? $blckNod->linkTmpl : '');
-		if( $lnkTmpl!=='' && ( !preg_match('#^https?://[^\s]+$#Di', $lnkTmpl) || strpos($lnkTmpl, '%sentCode%')===false ) ){
+		$blockNde = $treeInst->$blockNme;
+		$linkTmpl = $this->queryAnswerTxt('Front-end link of the mails (empty for none)', is_string($blockNde->linkTmpl ?? null) ? $blockNde->linkTmpl : '');
+		if( $linkTmpl!=='' && ( !preg_match('#^https?://[^\s]+$#Di', $linkTmpl) || strpos($linkTmpl, '%sentCode%')===false ) ){
 			$this->terminateShell('Not a front-end link: an http(s) address holding %sentCode% (and %mailKind%, %userName% as needed)', self::EXIT_DENY);
 		}
-		$blckNod->mailAcnt = $acntNme;
-		$blckNod->linkTmpl = $lnkTmpl;
-		$blckNod->signupOn = $this->optionsObj->validateOption('signupOn') || in_array(strtolower($this->queryAnswerTxt('Open the sign-ups? (yes/no)', 'no')), $yesList, true);
-		$wrtrObj->saveJsonConfig($accPath, $treeObj);
+		$blockNde->mailAcnt = $acctName;
+		$blockNde->linkTmpl = $linkTmpl;
+		$blockNde->signupOn = $this->optionsObj->validateOption('signupOn') || in_array(strtolower($this->queryAnswerTxt('Open the sign-ups? (yes/no)', 'no')), $yessList, true);
+		$wrtrInst->saveJsonConfig($accsPath, $treeInst);
 		Console::loadConfigLogs();
-		$this->traceShellDone('Deploy: access mails sent through the account '.json_encode($acntNme).' ('.$typeNme.'), sign-ups '.( $blckNod->signupOn ? 'open' : 'closed' ));
-		$tstAddr = $this->queryAnswerTxt('Send a test mail to (empty for none)');
-		if( $tstAddr!=='' ){
+		$this->traceShellDone('Deploy: access mails sent through the account '.json_encode($acctName).' ('.$typeName.'), sign-ups '.( $blockNde->signupOn ? 'open' : 'closed' ));
+		$testAddr = $this->queryAnswerTxt('Send a test mail to (empty for none)');
+		if( $testAddr!=='' ){
 			// A test mail that does not go is told, and the installation goes on
-			$this->sendsTestEmail($tstAddr);
+			$this->sendsTestEmail($testAddr);
 		}
-		return $typeNme;
+		return $typeName;
 	}
 
 	/**
@@ -1052,64 +1052,64 @@ class Deploy extends Command{
 	 * @throws ShellStop When the file holds one account without a name, or the server, the port, the sender or the name is not one.
 	 */
 	protected function queryAccntConf( ConfFile $writerObject, String $sendWithCode, String $accountLabel ): String {
-		$mailPth = TOP_DIR.DS.'conf'.DS.'mailer.json';
-		$treeObj = is_file($mailPth) ? $writerObject->importJsonsObj($mailPth) : new \stdClass();
-		$nowVals = Array();
-		foreach( get_object_vars($treeObj) as $oneKey => $oneVal ){
+		$mailPath = TOP_DIR.DS.'conf'.DS.'mailer.json';
+		$treeInst = is_file($mailPath) ? $writerObject->importJsonsObj($mailPath) : new \stdClass();
+		$nowValrs = Array();
+		foreach( get_object_vars($treeInst) as $oneKey => $oneVal ){
 			if( strcasecmp($oneKey, 'sendWith')==0 ){
 				$this->terminateShell('No mail account written: conf/mailer.json holds one account without a name; put it under a name first', self::EXIT_DENY);
 			}
 			if( $accountLabel!=='' && strcasecmp($oneKey, $accountLabel)==0 && is_object($oneVal) ){
-				$nowVals = array_change_key_case( get_object_vars($oneVal), CASE_LOWER );
+				$nowValrs = array_change_key_case( get_object_vars($oneVal), CASE_LOWER );
 			}
 		}
-		$nowVals = array_map( 'strval', array_filter($nowVals, 'is_scalar') );
-		$sendsIt = ($sendWithCode!='emlFiles');
-		$noAsked = $this->optionsObj->validateOption('noPrompt');
-		if( $sendsIt && $noAsked && ($nowVals['hostname'] ?? '')==='' ){
+		$nowValrs = array_map( 'strval', array_filter($nowValrs, 'is_scalar') );
+		$canEmail = ($sendWithCode!='emlFiles');
+		$isSilent = $this->optionsObj->validateOption('noPrompt');
+		if( $canEmail && $isSilent && ($nowValrs['hostname'] ?? '')==='' ){
 			$this->terminateShell('No mail account written: a '.$sendWithCode.' account needs its mail server, which --noPrompt cannot ask', self::EXIT_DENY);
 		}
-		$acntSet = array_fill_keys(Mailer::KEYS_LIST, '');
-		$acntSet['sendWith'] = $sendWithCode;
-		if( $sendsIt ){
-			$acntSet['hostName'] = $this->queryAnswerTxt('Mail server host', $nowVals['hostname'] ?? '');
-			$acntSet['portNumb'] = $this->queryAnswerTxt('Port (465 or 587)', ($nowVals['portnumb'] ?? '')!=='' ? $nowVals['portnumb'] : '587');
-			if( $acntSet['hostName']==='' || !preg_match('/^\d{1,5}$/D', $acntSet['portNumb']) ){
+		$acctDict = array_fill_keys(Mailer::KEYS_LIST, '');
+		$acctDict['sendWith'] = $sendWithCode;
+		if( $canEmail ){
+			$acctDict['hostName'] = $this->queryAnswerTxt('Mail server host', $nowValrs['hostname'] ?? '');
+			$acctDict['portNumb'] = $this->queryAnswerTxt('Port (465 or 587)', ($nowValrs['portnumb'] ?? '')!=='' ? $nowValrs['portnumb'] : '587');
+			if( $acctDict['hostName']==='' || !preg_match('/^\d{1,5}$/D', $acctDict['portNumb']) ){
 				$this->terminateShell('No mail account written: a '.$sendWithCode.' account needs the host of its mail server, and a port number', self::EXIT_DENY);
 			}
-			$acntSet['userName'] = $this->queryAnswerTxt('Mail user', $nowVals['username'] ?? '');
-			$nowPass = $nowVals['password'] ?? '';
-			$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_MAIL_PASS';
-			$gvnPass = $noAsked ? '' : $this->querySecretTxt('Mail password (Enter keeps the present one)');
-			if( $gvnPass!=='' ){
-				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envName, $gvnPass);
+			$acctDict['userName'] = $this->queryAnswerTxt('Mail user', $nowValrs['username'] ?? '');
+			$nowPsswd = $nowValrs['password'] ?? '';
+			$envrName = (strpos($nowPsswd, 'env:')===0 && strlen($nowPsswd)>4) ? substr($nowPsswd, 4) : 'NYU_MAIL_PASS';
+			$givenPwd = $isSilent ? '' : $this->querySecretTxt('Mail password (Enter keeps the present one)');
+			if( $givenPwd!=='' ){
+				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envrName, $givenPwd);
 			}
 			// Never the password itself : the account names where it is kept
-			$acntSet['passWord'] = ($gvnPass!=='' || $nowPass==='') ? 'env:'.$envName : $nowPass;
-			$acntSet['waitSecs'] = ($nowVals['waitsecs'] ?? '')!=='' ? $nowVals['waitsecs'] : '10';
+			$acctDict['passWord'] = ($givenPwd!=='' || $nowPsswd==='') ? 'env:'.$envrName : $nowPsswd;
+			$acctDict['waitSecs'] = ($nowValrs['waitsecs'] ?? '')!=='' ? $nowValrs['waitsecs'] : '10';
 		}
-		$acntSet['fromAddr'] = $this->queryAnswerTxt('Sender address', ($nowVals['fromaddr'] ?? '')!=='' ? $nowVals['fromaddr'] : ( $sendsIt ? '' : 'no-reply@example.com' ));
+		$acctDict['fromAddr'] = $this->queryAnswerTxt('Sender address', ($nowValrs['fromaddr'] ?? '')!=='' ? $nowValrs['fromaddr'] : ( $canEmail ? '' : 'no-reply@example.com' ));
 		try{
-			Message::checkEmailAddr($acntSet['fromAddr']);
+			Message::checkEmailAddr($acctDict['fromAddr']);
 		}catch( MailFailure $e ){
 			$this->terminateShell('No mail account written: the sender address is not one ('.$e->getMessage().')', self::EXIT_DENY);
 		}
-		$acntSet['fromName'] = $this->queryAnswerTxt('Sender name', ($nowVals['fromname'] ?? '')!=='' ? $nowVals['fromname'] : 'nyuRuns');
-		$acntSet['copiesTo'] = $nowVals['copiesto'] ?? '';
-		$acntNme = $this->queryAnswerTxt('Name of the mail account', ($accountLabel!=='') ? $accountLabel : 'nyuRuns');
-		if( !preg_match('/^\w+$/D', $acntNme) ){
-			$this->terminateShell('No mail account written: '.json_encode($acntNme).' is not a name of account (letters, digits, underscores)', self::EXIT_DENY);
+		$acctDict['fromName'] = $this->queryAnswerTxt('Sender name', ($nowValrs['fromname'] ?? '')!=='' ? $nowValrs['fromname'] : 'nyuRuns');
+		$acctDict['copiesTo'] = $nowValrs['copiesto'] ?? '';
+		$acctName = $this->queryAnswerTxt('Name of the mail account', ($accountLabel!=='') ? $accountLabel : 'nyuRuns');
+		if( !preg_match('/^\w+$/D', $acctName) ){
+			$this->terminateShell('No mail account written: '.json_encode($acctName).' is not a name of account (letters, digits, underscores)', self::EXIT_DENY);
 		}
 		// An account of that name, whatever its case, is the one replaced
-		$nameKey = $acntNme;
-		foreach( array_keys(get_object_vars($treeObj)) as $oneKey ){
-			$nameKey = (strcasecmp(strval($oneKey), $acntNme)==0) ? strval($oneKey) : $nameKey;
+		$nameClef = $acctName;
+		foreach( array_keys(get_object_vars($treeInst)) as $oneKey ){
+			$nameClef = (strcasecmp(strval($oneKey), $acctName)==0) ? strval($oneKey) : $nameClef;
 		}
-		$treeObj->$nameKey = (object)$acntSet;
-		$writerObject->saveJsonConfig($mailPth, $treeObj);
-		$this->printerObj->printShellLine('Mail account '.$nameKey.' ('.$sendWithCode.') written in conf/mailer.json.');
-		$this->traceShellDone('Deploy: mail account '.json_encode($nameKey).' ('.$sendWithCode.') written in conf/mailer.json');
-		return $nameKey;
+		$treeInst->$nameClef = (object)$acctDict;
+		$writerObject->saveJsonConfig($mailPath, $treeInst);
+		$this->printerObj->printShellLine('Mail account '.$nameClef.' ('.$sendWithCode.') written in conf/mailer.json.');
+		$this->traceShellDone('Deploy: mail account '.json_encode($nameClef).' ('.$sendWithCode.') written in conf/mailer.json');
+		return $nameClef;
 	}
 
 	/**
@@ -1127,26 +1127,26 @@ class Deploy extends Command{
 		// The config as it is now written, and no mailer built from a former one
 		Console::loadConfigLogs();
 		Mailer::clearMailCache();
-		$lgnConf = $this->accessSettings('loginSet');
-		$blckNme = ( strval($lgnConf['authWith'] ?? '')=='nativeDb' ) ? strval($lgnConf['authConf'] ?? 'nativeDb') : 'nativeDb';
-		$acntNme = $this->accessSettings($blckNme)['mailAcnt'] ?? '';
-		if( !is_string($acntNme) || $acntNme==='' ){
-			$this->terminateShell('No test mail sent: the native userbase names no mail account ("mailAcnt" of the '.$blckNme.' block)', self::EXIT_DENY);
+		$loginCfg = $this->accessSettings('loginSet');
+		$blockNme = ( strval($loginCfg['authWith'] ?? '')=='nativeDb' ) ? strval($loginCfg['authConf'] ?? 'nativeDb') : 'nativeDb';
+		$acctName = $this->accessSettings($blockNme)['mailAcnt'] ?? '';
+		if( !is_string($acctName) || $acctName==='' ){
+			$this->terminateShell('No test mail sent: the native userbase names no mail account ("mailAcnt" of the '.$blockNme.' block)', self::EXIT_DENY);
 		}
-		$typeNme = '';
+		$typeName = '';
 		try{
-			$typeNme = Mailer::acntSetupArray($acntNme)['sendWith'];
-			$mailObj = Mailer::retrieveMailer($acntNme);
-			$bodyTxt = 'This is a test mail of nyuRuns, sent by "php nyuRun install testMail" through the mail account '.$acntNme.'.'."\n\n".'Receiving it means the access mails (activation, reset, sign-ups) can be sent.'."\n";
-			$failTxt = $mailObj->deliverEmlFlag($emailAddress, 'nyuRuns test mail', $bodyTxt) ? null : $mailObj->finalErrorText();
+			$typeName = Mailer::acntSetupArray($acctName)['sendWith'];
+			$mailInst = Mailer::retrieveMailer($acctName);
+			$bodyText = 'This is a test mail of nyuRuns, sent by "php nyuRun install testMail" through the mail account '.$acctName.'.'."\n\n".'Receiving it means the access mails (activation, reset, sign-ups) can be sent.'."\n";
+			$failText = $mailInst->deliverEmlFlag($emailAddress, 'nyuRuns test mail', $bodyText) ? null : $mailInst->finalErrorText();
 		}catch( MailFailure $e ){
-			$failTxt = $e->getMessage();
+			$failText = $e->getMessage();
 		}
-		if( $failTxt!==null ){
-			$this->printerObj->printShellFail('Test mail not sent to '.$emailAddress.' through the account '.$acntNme.': '.$failTxt);
+		if( $failText!==null ){
+			$this->printerObj->printShellFail('Test mail not sent to '.$emailAddress.' through the account '.$acctName.': '.$failText);
 			return false;
 		}
-		$this->printerObj->printShellLine( (strcasecmp($typeNme, 'emlFiles')==0) ? 'Test mail to '.$emailAddress.' written as a file by the account '.$acntNme.' (emlFiles): nothing was sent.' : 'Test mail sent to '.$emailAddress.' through the account '.$acntNme.'.' );
+		$this->printerObj->printShellLine( (strcasecmp($typeName, 'emlFiles')==0) ? 'Test mail to '.$emailAddress.' written as a file by the account '.$acctName.' (emlFiles): nothing was sent.' : 'Test mail sent to '.$emailAddress.' through the account '.$acctName.'.' );
 		return true;
 	}
 
@@ -1161,41 +1161,41 @@ class Deploy extends Command{
 	 * @throws ShellStop When the type is not one of a database.
 	 */
 	protected function queryDatabases( ConfFile $writerObject ): Void {
-		$basePth = TOP_DIR.DS.'conf'.DS.'database.json';
-		if( !is_file($basePth) ){
+		$basePath = TOP_DIR.DS.'conf'.DS.'database.json';
+		if( !is_file($basePath) ){
 			return;
 		}
-		$treeObj = $writerObject->importJsonsObj($basePth);
-		$nodeObj = $treeObj;
-		if( !property_exists($treeObj, 'dbEngine') ){
-			foreach( get_object_vars($treeObj) as $blkVal ){
+		$treeInst = $writerObject->importJsonsObj($basePath);
+		$nodeInst = $treeInst;
+		if( !property_exists($treeInst, 'dbEngine') ){
+			foreach( get_object_vars($treeInst) as $blkVal ){
 				if( is_object($blkVal) ){
-					$nodeObj = $blkVal;
+					$nodeInst = $blkVal;
 					break;
 				}
 			}
 		}
-		$baseTyp = strtolower( $this->queryAnswerTxt('Database type (mysql_db, postgres, sqlitedb)', strval($nodeObj->dbEngine ?? 'mysql_db')) );
-		if( !in_array($baseTyp, Array('mysql_db', 'postgres', 'sqlitedb'), true) ){
-			$this->terminateShell('The native userbase works on mysql_db, postgres or sqlitedb, not on: '.$baseTyp, self::EXIT_DENY);
+		$baseCode = strtolower( $this->queryAnswerTxt('Database type (mysql_db, postgres, sqlitedb)', strval($nodeInst->dbEngine ?? 'mysql_db')) );
+		if( !in_array($baseCode, Array('mysql_db', 'postgres', 'sqlitedb'), true) ){
+			$this->terminateShell('The native userbase works on mysql_db, postgres or sqlitedb, not on: '.$baseCode, self::EXIT_DENY);
 		}
-		$nodeObj->dbEngine = $baseTyp;
-		if( $baseTyp=='sqlitedb' ){
-			$nodeObj->baseName = $this->queryAnswerTxt('Database file', strval($nodeObj->baseName ?? ''));
+		$nodeInst->dbEngine = $baseCode;
+		if( $baseCode=='sqlitedb' ){
+			$nodeInst->baseName = $this->queryAnswerTxt('Database file', strval($nodeInst->baseName ?? ''));
 		}else{
-			$nodeObj->hostName = $this->queryAnswerTxt('Database host', strval($nodeObj->hostName ?? 'localhost'));
-			$nodeObj->portNumb = $this->queryAnswerTxt('Database port (empty for the usual one)', strval($nodeObj->portNumb ?? ''));
-			$nodeObj->baseName = $this->queryAnswerTxt('Database name', strval($nodeObj->baseName ?? ''));
-			$nodeObj->userName = $this->queryAnswerTxt('Database user', strval($nodeObj->userName ?? ''));
-			$gvnPass = $this->querySecretTxt('Password of that user (Enter keeps the present one)');
-			if( $gvnPass!=='' ){
-				$nowPass = strval($nodeObj->passWord ?? '');
-				$envName = (strpos($nowPass, 'env:')===0 && strlen($nowPass)>4) ? substr($nowPass, 4) : 'NYU_DB_PASS';
-				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envName, $gvnPass);
-				$nodeObj->passWord = 'env:'.$envName;
+			$nodeInst->hostName = $this->queryAnswerTxt('Database host', strval($nodeInst->hostName ?? 'localhost'));
+			$nodeInst->portNumb = $this->queryAnswerTxt('Database port (empty for the usual one)', strval($nodeInst->portNumb ?? ''));
+			$nodeInst->baseName = $this->queryAnswerTxt('Database name', strval($nodeInst->baseName ?? ''));
+			$nodeInst->userName = $this->queryAnswerTxt('Database user', strval($nodeInst->userName ?? ''));
+			$givenPwd = $this->querySecretTxt('Password of that user (Enter keeps the present one)');
+			if( $givenPwd!=='' ){
+				$nowPsswd = strval($nodeInst->passWord ?? '');
+				$envrName = (strpos($nowPsswd, 'env:')===0 && strlen($nowPsswd)>4) ? substr($nowPsswd, 4) : 'NYU_DB_PASS';
+				$writerObject->changeEnvValue(TOP_DIR.DS.'.env', $envrName, $givenPwd);
+				$nodeInst->passWord = 'env:'.$envrName;
 			}
 		}
-		$writerObject->saveJsonConfig($basePth, $treeObj);
+		$writerObject->saveJsonConfig($basePath, $treeInst);
 		$this->traceShellDone('Deploy: settings of the default database written');
 	}
 
@@ -1213,48 +1213,48 @@ class Deploy extends Command{
 	protected function makeBasicUsers( String $storeOfUsers, String $blckNamedTxt ): Void {
 		// Tables are made: the descriptions the config cache keeps (TBL_CACH) are no longer the whole story
 		ConfCache::clearConfCache();
-		$lgnConf = $this->accessSettings('loginSet');
-		$blckNme = ($blckNamedTxt!='') ? $blckNamedTxt : ( strval($lgnConf['authWith'] ?? '')==$storeOfUsers ? strval($lgnConf['authConf'] ?? $storeOfUsers) : $storeOfUsers );
-		$blckCfg = $this->accessSettings($blckNme);
-		if( empty($blckCfg) && ($storeOfUsers=='nativeDb' || $blckNamedTxt!='') ){
-			$this->terminateShell('No user created: conf/access.json has no "'.$blckNme.'" block', self::EXIT_DENY);
+		$loginCfg = $this->accessSettings('loginSet');
+		$blockNme = ($blckNamedTxt!='') ? $blckNamedTxt : ( strval($loginCfg['authWith'] ?? '')==$storeOfUsers ? strval($loginCfg['authConf'] ?? $storeOfUsers) : $storeOfUsers );
+		$blockCfg = $this->accessSettings($blockNme);
+		if( empty($blockCfg) && ($storeOfUsers=='nativeDb' || $blckNamedTxt!='') ){
+			$this->terminateShell('No user created: conf/access.json has no "'.$blockNme.'" block', self::EXIT_DENY);
 		}
-		$passLst = Array();
+		$passList = Array();
 		if( $storeOfUsers=='userFile' ){
-			$fileObj = new UserFile( $blckCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
-			$usrList = $fileObj->listUsersNamed();
-			if( $usrList===false ){
-				$this->terminateShell('No user created: '.$fileObj->finalErrorText(), self::EXIT_FAIL);
+			$fileInst = new UserFile( $blockCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
+			$userList = $fileInst->listUsersNamed();
+			if( $userList===false ){
+				$this->terminateShell('No user created: '.$fileInst->finalErrorText(), self::EXIT_FAIL);
 			}
-			if( !empty($usrList) ){
+			if( !empty($userList) ){
 				$this->printerObj->printShellLine('The users file already holds users: nothing was changed.');
 				return;
 			}
 			foreach( $this->queryUsersList() as $usrNme => $usrRle ){
-				$passLst[$usrNme] = bin2hex(random_bytes(10));
-				if( !$fileObj->enrolUsrString($usrNme, $usrRle, $passLst[$usrNme]) ){
-					$this->terminateShell('User '.$usrNme.' cannot be written: '.$fileObj->finalErrorText(), self::EXIT_FAIL);
+				$passList[$usrNme] = bin2hex(random_bytes(10));
+				if( !$fileInst->enrolUsrString($usrNme, $usrRle, $passList[$usrNme]) ){
+					$this->terminateShell('User '.$usrNme.' cannot be written: '.$fileInst->finalErrorText(), self::EXIT_FAIL);
 				}
 			}
 		}else{
 			try{
-				$passLst = $this->tableUserArray($blckCfg);
+				$passList = $this->tableUserArray($blockCfg);
 			}catch( ShellStop $e ){
 				throw $e;
 			}catch( \Throwable $e ){
 				$this->terminateShell('No user created: '.$e->getMessage(), self::EXIT_FAIL);
 			}
-			if( empty($passLst) ){
+			if( empty($passList) ){
 				$this->makeDevicesTbl();
 				return;
 			}
 		}
 		// The accounts come in the order of USER_LIST: all of them, or its first and last (the simple version)
-		$acntLst = array_combine( array_keys($passLst), (count($passLst)==count(self::USER_LIST)) ? array_values(self::USER_LIST) : array_merge(array_slice(array_values(self::USER_LIST), 0, 1), array_slice(array_values(self::USER_LIST), -1)) );
-		$this->traceShellDone('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys($acntLst)).')');
+		$acctList = array_combine( array_keys($passList), (count($passList)==count(self::USER_LIST)) ? array_values(self::USER_LIST) : array_merge(array_slice(array_values(self::USER_LIST), 0, 1), array_slice(array_values(self::USER_LIST), -1)) );
+		$this->traceShellDone('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys($acctList)).')');
 		$this->printerObj->printShellLine('Users created. Their passwords are shown this once:');
-		foreach( $acntLst as $usrNme => $usrRle ){
-			$this->printerObj->printShellOnce('Password of '.$usrNme.' ('.$usrRle.')', $passLst[$usrNme]);
+		foreach( $acctList as $usrNme => $usrRle ){
+			$this->printerObj->printShellOnce('Password of '.$usrNme.' ('.$usrRle.')', $passList[$usrNme]);
 		}
 		// The devices come after the passwords : a table that cannot be made does not hide them
 		if( $storeOfUsers=='nativeDb' ){
@@ -1274,22 +1274,22 @@ class Deploy extends Command{
 	 * @throws ShellStop When the version is neither simple nor full, a name is not one a user can have, or two accounts are given one name.
 	 */
 	protected function queryUsersList(): Array {
-		$acntLst = Array();
-		$gvnName = strtolower(trim( $this->queryAnswerTxt('Accounts to create: simple ('.implode(' and ', array_keys(array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true))).') or full ('.implode(', ', array_keys(self::USER_LIST)).')', 'simple') ));
-		if( !in_array($gvnName, Array('simple', 'full'), true) ){
-			$this->terminateShell('No user created: '.json_encode($gvnName).' is neither simple nor full', self::EXIT_DENY);
+		$acctList = Array();
+		$givenNme = strtolower(trim( $this->queryAnswerTxt('Accounts to create: simple ('.implode(' and ', array_keys(array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true))).') or full ('.implode(', ', array_keys(self::USER_LIST)).')', 'simple') ));
+		if( !in_array($givenNme, Array('simple', 'full'), true) ){
+			$this->terminateShell('No user created: '.json_encode($givenNme).' is neither simple nor full', self::EXIT_DENY);
 		}
-		foreach( ($gvnName=='full') ? self::USER_LIST : array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true) as $usrNme => $usrRle ){
-			$gvnName = $this->queryAnswerTxt('Name of the '.$usrRle.' account', $usrNme);
-			if( !preg_match(\nyu\Access\Auth\UserBase::NAME_RULE, $gvnName) || in_array(strtolower($gvnName), \nyu\Access\Auth\UserBase::NAME_DENY, true) ){
-				$this->terminateShell('No user created: '.json_encode($gvnName).' is not a name a user can have', self::EXIT_DENY);
+		foreach( ($givenNme=='full') ? self::USER_LIST : array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true) as $usrNme => $usrRle ){
+			$givenNme = $this->queryAnswerTxt('Name of the '.$usrRle.' account', $usrNme);
+			if( !preg_match(\nyu\Access\Auth\UserBase::NAME_RULE, $givenNme) || in_array(strtolower($givenNme), \nyu\Access\Auth\UserBase::NAME_DENY, true) ){
+				$this->terminateShell('No user created: '.json_encode($givenNme).' is not a name a user can have', self::EXIT_DENY);
 			}
-			if( in_array(strtolower($gvnName), array_map('strtolower', array_keys($acntLst)), true) ){
-				$this->terminateShell('No user created: two accounts cannot share the name '.json_encode($gvnName), self::EXIT_DENY);
+			if( in_array(strtolower($givenNme), array_map('strtolower', array_keys($acctList)), true) ){
+				$this->terminateShell('No user created: two accounts cannot share the name '.json_encode($givenNme), self::EXIT_DENY);
 			}
-			$acntLst[$gvnName] = $usrRle;
+			$acctList[$givenNme] = $usrRle;
 		}
-		return $acntLst;
+		return $acctList;
 	}
 
 	/**
@@ -1301,37 +1301,37 @@ class Deploy extends Command{
 	 * @throws ShellStop When the table cannot be created.
 	 */
 	protected function makeDevicesTbl(): Void {
-		$dvcConf = $this->accessSettings('dvcToken');
-		if( empty($dvcConf) ){
+		$dvceConf = $this->accessSettings('dvcToken');
+		if( empty($dvceConf) ){
 			return;
 		}
-		$tblName = strval($dvcConf['useTable'] ?? 'devices');
-		$usrTble = strval($dvcConf['usersTbl'] ?? 'users');
+		$tableNme = strval($dvceConf['useTable'] ?? 'devices');
+		$userTble = strval($dvceConf['usersTbl'] ?? 'users');
 		try{
-			$baseNme = strval($dvcConf['linkName'] ?? '');
-			$baseTyp = strval(DBCon::baseSetupArray($baseNme)['dbEngine']);
-			$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
+			$baseName = strval($dvceConf['linkName'] ?? '');
+			$baseCode = strval(DBCon::baseSetupArray($baseName)['dbEngine']);
+			$dtbsHndr = DBCon::linkNamedDbCon($baseName)->readConnection();
 		}catch( \Throwable $e ){
 			$this->terminateShell('No devices table created: '.$e->getMessage(), self::EXIT_FAIL);
 		}
-		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.'.$baseTyp.'.sql';
-		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !preg_match('/^\w+$/D', $usrTble) || !is_file($sqlFile) ){
-			$this->terminateShell('No devices table created: there is no devices schema for a database of type "'.$baseTyp.'"', self::EXIT_DENY);
+		$sqlFichr = TOP_DIR.DS.'conf'.DS.'schema'.DS.'devices.'.$baseCode.'.sql';
+		if( !preg_match('/^\w+$/D', $baseCode) || !preg_match('/^\w+$/D', $tableNme) || !preg_match('/^\w+$/D', $userTble) || !is_file($sqlFichr) ){
+			$this->terminateShell('No devices table created: there is no devices schema for a database of type "'.$baseCode.'"', self::EXIT_DENY);
 		}
-		if( $dbHndlr===null ){
+		if( $dtbsHndr===null ){
 			$this->terminateShell('No devices table created: the devices need an SQL database', self::EXIT_DENY);
 		}
-		if( $dbHndlr->tableInfoArray($tblName)!==false ){
+		if( $dtbsHndr->tableInfoArray($tableNme)!==false ){
 			return;
 		}
 		// The schema names its tables 'devices' and 'users' : they are given the configured names
-		$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHndlr->quoteFieldName($tblName), strval(file_get_contents($sqlFile)), 1);
-		$makeSql = preg_replace('/REFERENCES \S+/', 'REFERENCES '.$dbHndlr->quoteFieldName($usrTble), strval($makeSql), 1);
-		if( !$dbHndlr->sendBuiltQuery(strval($makeSql), true) ){
-			$this->terminateShell('No devices table created: '.strval($dbHndlr->finalErrorText()));
+		$makeStmt = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dtbsHndr->quoteFieldName($tableNme), strval(file_get_contents($sqlFichr)), 1);
+		$makeStmt = preg_replace('/REFERENCES \S+/', 'REFERENCES '.$dtbsHndr->quoteFieldName($userTble), strval($makeStmt), 1);
+		if( !$dtbsHndr->sendBuiltQuery(strval($makeStmt), true) ){
+			$this->terminateShell('No devices table created: '.strval($dtbsHndr->finalErrorText()));
 		}
-		$this->printerObj->printShellLine('Table '.$tblName.' created.');
-		$this->traceShellDone('Deploy: devices table '.$tblName.' created');
+		$this->printerObj->printShellLine('Table '.$tableNme.' created.');
+		$this->traceShellDone('Deploy: devices table '.$tableNme.' created');
 	}
 
 	/**
@@ -1346,33 +1346,33 @@ class Deploy extends Command{
 	 * @throws \RuntimeException When the database is not configured or does not answer.
 	 */
 	protected function tableUserArray( Array $configValues ): Array {
-		$tblName = strval($configValues['useTable'] ?? 'users');
-		$dbHndlr = $this->openUsersTable($configValues);
-		$qtdTble = $dbHndlr->quoteFieldName($tblName);
-		$rowList = $dbHndlr->sendBuiltQuery('SELECT COUNT(*) AS '.$dbHndlr->quoteFieldName('usrCount').' FROM '.$qtdTble.';') ? $dbHndlr->readLastResult(true) : false;
-		if( !is_array($rowList) ){
-			$this->terminateShell('No user created: the table cannot be read: '.strval($dbHndlr->finalErrorText()));
+		$tableNme = strval($configValues['useTable'] ?? 'users');
+		$dtbsHndr = $this->openUsersTable($configValues);
+		$qotdTble = $dtbsHndr->quoteFieldName($tableNme);
+		$rowsList = $dtbsHndr->sendBuiltQuery('SELECT COUNT(*) AS '.$dtbsHndr->quoteFieldName('usrCount').' FROM '.$qotdTble.';') ? $dtbsHndr->readLastResult(true) : false;
+		if( !is_array($rowsList) ){
+			$this->terminateShell('No user created: the table cannot be read: '.strval($dtbsHndr->finalErrorText()));
 		}
-		if( intval($rowList[0]['usrCount'] ?? 0)>0 ){
-			$this->printerObj->printShellLine('The table '.$tblName.' already holds users: nothing was changed.');
+		if( intval($rowsList[0]['usrCount'] ?? 0)>0 ){
+			$this->printerObj->printShellLine('The table '.$tableNme.' already holds users: nothing was changed.');
 			return Array();
 		}
 		// The rules of the userbase are those of its block, except the length : the passwords made here are long enough for any
-		$ntvAuth = new Native( Array('minChars'=>1) + $configValues );
-		$passLst = Array();
-		$addStmt = 'INSERT INTO '.$qtdTble.' ('.$dbHndlr->quoteFieldName('systemName').', '.$dbHndlr->quoteFieldName('passwdHash').', '.$dbHndlr->quoteFieldName('accessRole').', '.$dbHndlr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
-		$acntLst = $this->queryUsersList();
-		$dbHndlr->newTransaction();
-		foreach( $acntLst as $usrNme => $usrRle ){
-			$passLst[$usrNme] = bin2hex(random_bytes(10));
+		$natvAuth = new Native( Array('minChars'=>1) + $configValues );
+		$passList = Array();
+		$addSttmt = 'INSERT INTO '.$qotdTble.' ('.$dtbsHndr->quoteFieldName('systemName').', '.$dtbsHndr->quoteFieldName('passwdHash').', '.$dtbsHndr->quoteFieldName('accessRole').', '.$dtbsHndr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
+		$acctList = $this->queryUsersList();
+		$dtbsHndr->newTransaction();
+		foreach( $acctList as $usrNme => $usrRle ){
+			$passList[$usrNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
-			if( !$dbHndlr->sendBuiltQuery($addStmt, true, Array($usrNme, $usrRle)) || !$ntvAuth->savePasswdFlag($usrNme, $passLst[$usrNme]) ){
-				$dbHndlr->delTransaction();
+			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, Array($usrNme, $usrRle)) || !$natvAuth->savePasswdFlag($usrNme, $passList[$usrNme]) ){
+				$dtbsHndr->delTransaction();
 				$this->terminateShell('User '.$usrNme.' cannot be written; nothing was changed');
 			}
 		}
-		$dbHndlr->setTransaction();
-		return $passLst;
+		$dtbsHndr->setTransaction();
+		return $passList;
 	}
 
 	/**
@@ -1386,26 +1386,26 @@ class Deploy extends Command{
 	 * @throws \RuntimeException When the database is not configured or does not answer.
 	 */
 	protected function openUsersTable( Array $configValues ): DbHandlr {
-		$baseNme = strval($configValues['linkName'] ?? '');
-		$tblName = strval($configValues['useTable'] ?? 'users');
-		$baseTyp = strval(DBCon::baseSetupArray($baseNme)['dbEngine']);
-		$sqlFile = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseTyp.'.sql';
-		if( !preg_match('/^\w+$/D', $baseTyp) || !preg_match('/^\w+$/D', $tblName) || !is_file($sqlFile) ){
-			$this->terminateShell('No users table: there is no users schema for a database of type "'.$baseTyp.'"', self::EXIT_DENY);
+		$baseName = strval($configValues['linkName'] ?? '');
+		$tableNme = strval($configValues['useTable'] ?? 'users');
+		$baseCode = strval(DBCon::baseSetupArray($baseName)['dbEngine']);
+		$sqlFichr = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseCode.'.sql';
+		if( !preg_match('/^\w+$/D', $baseCode) || !preg_match('/^\w+$/D', $tableNme) || !is_file($sqlFichr) ){
+			$this->terminateShell('No users table: there is no users schema for a database of type "'.$baseCode.'"', self::EXIT_DENY);
 		}
-		$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
-		if( $dbHndlr===null ){
+		$dtbsHndr = DBCon::linkNamedDbCon($baseName)->readConnection();
+		if( $dtbsHndr===null ){
 			$this->terminateShell('No users table: the native userbase needs an SQL database', self::EXIT_DENY);
 		}
-		if( $dbHndlr->tableInfoArray($tblName)===false ){
+		if( $dtbsHndr->tableInfoArray($tableNme)===false ){
 			// The schema names its table 'users' : it is given the configured name
-			$makeSql = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dbHndlr->quoteFieldName($tblName), strval(file_get_contents($sqlFile)), 1);
-			if( !$dbHndlr->sendBuiltQuery(strval($makeSql), true) ){
-				$this->terminateShell('No users table: it cannot be created: '.strval($dbHndlr->finalErrorText()));
+			$makeStmt = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dtbsHndr->quoteFieldName($tableNme), strval(file_get_contents($sqlFichr)), 1);
+			if( !$dtbsHndr->sendBuiltQuery(strval($makeStmt), true) ){
+				$this->terminateShell('No users table: it cannot be created: '.strval($dtbsHndr->finalErrorText()));
 			}
-			$this->printerObj->printShellLine('Table '.$tblName.' created.');
-			$this->traceShellDone('Deploy: users table '.$tblName.' created');
+			$this->printerObj->printShellLine('Table '.$tableNme.' created.');
+			$this->traceShellDone('Deploy: users table '.$tableNme.' created');
 		}
-		return $dbHndlr;
+		return $dtbsHndr;
 	}
 }

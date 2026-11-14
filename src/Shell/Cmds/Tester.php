@@ -46,60 +46,60 @@ class Tester extends Command{
 	 * @return Int EXITDONE when every check passed, EXITFLAW when one failed.
 	 */
 	public function invokeRunTests(): Int {
-		$runFile = TOP_DIR.DS.'test'.DS.'run.php';
-		if( !is_file($runFile) ){
+		$runFichr = TOP_DIR.DS.'test'.DS.'run.php';
+		if( !is_file($runFichr) ){
 			$this->terminateShell('The test runner is missing: test/run.php');
 		}
-		$grpList = $this->optionsObj->restWordsArray();
-		if( empty($grpList) ){
-			$grpList = self::GRPS_LIST;
-		}elseif( in_array('all', $grpList, true) ){
-			$grpList = Array();
+		$groupLst = $this->optionsObj->restWordsArray();
+		if( empty($groupLst) ){
+			$groupLst = self::GRPS_LIST;
+		}elseif( in_array('all', $groupLst, true) ){
+			$groupLst = Array();
 		}
-		$envVals = getenv();
-		$iniFldr = $this->newAddonString();
-		if( $iniFldr!==null ){
-			$envVals['PHPRC'] = $iniFldr;
+		$envrVals = getenv();
+		$iniFoldr = $this->newAddonString();
+		if( $iniFoldr!==null ){
+			$envrVals['PHPRC'] = $iniFoldr;
 		}
-		$pipeArr = Array();
-		$process = proc_open( array_merge(Array(PHP_BINARY, $runFile), $grpList), Array(0=>Array('pipe', 'r'), 1=>Array('pipe', 'w'), 2=>Array('redirect', 1)), $pipeArr, TOP_DIR, $envVals );
-		if( !is_resource($process) ){
+		$pipeList = Array();
+		$procHndl = proc_open( array_merge(Array(PHP_BINARY, $runFichr), $groupLst), Array(0=>Array('pipe', 'r'), 1=>Array('pipe', 'w'), 2=>Array('redirect', 1)), $pipeList, TOP_DIR, $envrVals );
+		if( !is_resource($procHndl) ){
 			$this->terminateShell('The tests cannot be started');
 		}
-		fclose($pipeArr[0]);
-		$lastLin = '';
-		$sumLine = '';
-		while( ($outLine = fgets($pipeArr[1]))!==false ){
+		fclose($pipeList[0]);
+		$lastLine = '';
+		$smryLine = '';
+		while( ($outLigne = fgets($pipeList[1]))!==false ){
 			// In JSON only the result is told; in text the tests are followed as they run
 			if( !$this->printerObj->jsonShellShape() ){
-				$this->printerObj->printShellBody($outLine);
+				$this->printerObj->printShellBody($outLigne);
 			}
-			if( trim($outLine)!='' ){
-				$lastLin = trim($outLine);
+			if( trim($outLigne)!='' ){
+				$lastLine = trim($outLigne);
 			}
-			if( preg_match('/^\d+ checks passed/', trim($outLine)) ){
-				$sumLine = trim($outLine);
-			}
-		}
-		fclose($pipeArr[1]);
-		$exitNum = proc_close($process);
-		if( $iniFldr!==null ){
-			@unlink($iniFldr.DS.'php.ini');
-			@rmdir($iniFldr);
-		}
-		$summary = Array();
-		if( preg_match('/^(\d+) checks passed, (\d+) failed(?:, (\d+) skipped)?/', $sumLine, $summary) && $this->printerObj->jsonShellShape() ){
-			$this->printerObj->printShellPair('passed', intval($summary[1]));
-			$this->printerObj->printShellPair('failed', intval($summary[2]));
-			$this->printerObj->printShellPair('skipped', intval($summary[3] ?? 0));
-			if( strpos($lastLin, 'Failing scripts:')===0 ){
-				$this->printerObj->printShellPair('failing', array_map('trim', explode(',', substr($lastLin, 16))));
+			if( preg_match('/^\d+ checks passed/', trim($outLigne)) ){
+				$smryLine = trim($outLigne);
 			}
 		}
-		if( $sumLine=='' ){
+		fclose($pipeList[1]);
+		$exitNumb = proc_close($procHndl);
+		if( $iniFoldr!==null ){
+			@unlink($iniFoldr.DS.'php.ini');
+			@rmdir($iniFoldr);
+		}
+		$smryList = Array();
+		if( preg_match('/^(\d+) checks passed, (\d+) failed(?:, (\d+) skipped)?/', $smryLine, $smryList) && $this->printerObj->jsonShellShape() ){
+			$this->printerObj->printShellPair('passed', intval($smryList[1]));
+			$this->printerObj->printShellPair('failed', intval($smryList[2]));
+			$this->printerObj->printShellPair('skipped', intval($smryList[3] ?? 0));
+			if( strpos($lastLine, 'Failing scripts:')===0 ){
+				$this->printerObj->printShellPair('failing', array_map('trim', explode(',', substr($lastLine, 16))));
+			}
+		}
+		if( $smryLine=='' ){
 			$this->terminateShell('The tests ended without a result');
 		}
-		return ($exitNum===0) ? self::EXIT_DONE : self::EXIT_FLAW;
+		return ($exitNumb===0) ? self::EXIT_DONE : self::EXIT_FLAW;
 	}
 
 	/**
@@ -111,37 +111,37 @@ class Tester extends Command{
 	 * @return ?String The folder holding that php.ini, to name in PHPRC; null when nothing is to add.
 	 */
 	protected function newAddonString(): ?String {
-		$askList = $this->optionsObj->validateOption('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('addExtns', ''))))) : self::ADDS_LIST;
-		$extFldr = strval(ini_get('extension_dir'));
-		if( $extFldr=='' || !is_dir($extFldr) ){
-			$extFldr = dirname(PHP_BINARY).DS.'ext';
+		$askLstng = $this->optionsObj->validateOption('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('addExtns', ''))))) : self::ADDS_LIST;
+		$extnFldr = strval(ini_get('extension_dir'));
+		if( $extnFldr=='' || !is_dir($extnFldr) ){
+			$extnFldr = dirname(PHP_BINARY).DS.'ext';
 		}
-		$addList = Array();
-		foreach( $askList as $oneExt ){
+		$addLstng = Array();
+		foreach( $askLstng as $oneExt ){
 			if( !preg_match('/^\w+$/D', $oneExt) || extension_loaded($oneExt) ){
 				continue;
 			}
-			if( is_file($extFldr.DS.'php_'.$oneExt.'.dll') || is_file($extFldr.DS.$oneExt.'.so') ){
-				$addList[] = $oneExt;
+			if( is_file($extnFldr.DS.'php_'.$oneExt.'.dll') || is_file($extnFldr.DS.$oneExt.'.so') ){
+				$addLstng[] = $oneExt;
 			}
 		}
-		if( empty($addList) ){
+		if( empty($addLstng) ){
 			return null;
 		}
-		$iniFldr = sys_get_temp_dir().DS.'nyuruns_tester_'.getmypid();
-		if( !is_dir($iniFldr) && !@mkdir($iniFldr, 0700, true) ){
+		$iniFoldr = sys_get_temp_dir().DS.'nyuruns_tester_'.getmypid();
+		if( !is_dir($iniFoldr) && !@mkdir($iniFoldr, 0700, true) ){
 			return null;
 		}
-		$loadIni = php_ini_loaded_file();
-		$iniText = is_string($loadIni) ? strval(@file_get_contents($loadIni)).PHP_EOL : '';
-		$iniText .= 'extension_dir="'.$extFldr.'"'.PHP_EOL;
-		foreach( $addList as $oneExt ){
-			$iniText .= 'extension='.$oneExt.PHP_EOL;
+		$iniFichr = php_ini_loaded_file();
+		$iniStrng = is_string($iniFichr) ? strval(@file_get_contents($iniFichr)).PHP_EOL : '';
+		$iniStrng .= 'extension_dir="'.$extnFldr.'"'.PHP_EOL;
+		foreach( $addLstng as $oneExt ){
+			$iniStrng .= 'extension='.$oneExt.PHP_EOL;
 		}
-		if( @file_put_contents($iniFldr.DS.'php.ini', $iniText)===false ){
+		if( @file_put_contents($iniFoldr.DS.'php.ini', $iniStrng)===false ){
 			return null;
 		}
-		$this->printerObj->printShellLine( 'Extensions given for the run: '.implode(', ', $addList) );
-		return $iniFldr;
+		$this->printerObj->printShellLine( 'Extensions given for the run: '.implode(', ', $addLstng) );
+		return $iniFoldr;
 	}
 }
