@@ -23,15 +23,15 @@ class Totp{
 	 * @return String The 32 character secret.
 	 */
 	public static function generateSecret(): String {
-		$bitText = '';
+		$bitStrng = '';
 		foreach( str_split(random_bytes(20)) as $oneByt ){
-			$bitText .= str_pad(decbin(ord($oneByt)), 8, '0', STR_PAD_LEFT);
+			$bitStrng .= str_pad(decbin(ord($oneByt)), 8, '0', STR_PAD_LEFT);
 		}
-		$secrTxt = '';
-		foreach( str_split($bitText, 5) as $bitGrp ){
-			$secrTxt .= self::BASE_CHRS[bindec($bitGrp)];
+		$secrText = '';
+		foreach( str_split($bitStrng, 5) as $bitGrp ){
+			$secrText .= self::BASE_CHRS[bindec($bitGrp)];
 		}
-		return $secrTxt;
+		return $secrText;
 	}
 
 	/**
@@ -42,10 +42,10 @@ class Totp{
 	 * @return String The code, with its leading zeros.
 	 */
 	public static function codeAtTimeText( String $codeSecrText, Int $unixMomentNb ): String {
-		$hmacRaw = hash_hmac('sha1', pack('J', intdiv($unixMomentNb, self::STEP_SECS)), self::fromBase32Text($codeSecrText), true);
-		$startAt = ord($hmacRaw[19]) & 0x0F;
-		$codeNum = unpack('N', substr($hmacRaw, $startAt, 4))[1] & 0x7FFFFFFF;
-		return str_pad(strval($codeNum % (10 ** self::CODE_SIZE)), self::CODE_SIZE, '0', STR_PAD_LEFT);
+		$hmacBrut = hash_hmac('sha1', pack('J', intdiv($unixMomentNb, self::STEP_SECS)), self::fromBase32Text($codeSecrText), true);
+		$startIdx = ord($hmacBrut[19]) & 0x0F;
+		$codeNumb = unpack('N', substr($hmacBrut, $startIdx, 4))[1] & 0x7FFFFFFF;
+		return str_pad(strval($codeNumb % (10 ** self::CODE_SIZE)), self::CODE_SIZE, '0', STR_PAD_LEFT);
 	}
 
 	/**
@@ -74,14 +74,14 @@ class Totp{
 		if( !preg_match('/^\d{'.self::CODE_SIZE.'}$/', $codeFromUser) || self::fromBase32Text($codeSecrText)=='' ){
 			return null;
 		}
-		$nowStep = intdiv($unixMomentNb ?? time(), self::STEP_SECS);
-		$hitStep = null;
+		$currStep = intdiv($unixMomentNb ?? time(), self::STEP_SECS);
+		$stepMatx = null;
 		foreach( Array(-1, 0, 1) as $stpInc ){
-			if( hash_equals( self::codeAtTimeText($codeSecrText, ($nowStep + $stpInc)*self::STEP_SECS), $codeFromUser ) ){
-				$hitStep = $nowStep + $stpInc;
+			if( hash_equals( self::codeAtTimeText($codeSecrText, ($currStep + $stpInc)*self::STEP_SECS), $codeFromUser ) ){
+				$stepMatx = $currStep + $stpInc;
 			}
 		}
-		return $hitStep;
+		return $stepMatx;
 	}
 
 	/**
@@ -97,10 +97,10 @@ class Totp{
 		if( strlen($sealPassword)<self::SEAL_SIZE || !function_exists('openssl_encrypt') ){
 			return $codeSecrText;
 		}
-		$nonceBn = random_bytes(12);
-		$tagByts = '';
-		$ciphrBn = openssl_encrypt($codeSecrText, 'aes-256-gcm', hash('sha256', $sealPassword, true), OPENSSL_RAW_DATA, $nonceBn, $tagByts);
-		return ($ciphrBn===false) ? $codeSecrText : self::SEAL_MARK.base64_encode($nonceBn.$tagByts.$ciphrBn);
+		$nonceBnr = random_bytes(12);
+		$tagBytes = '';
+		$ciphBnry = openssl_encrypt($codeSecrText, 'aes-256-gcm', hash('sha256', $sealPassword, true), OPENSSL_RAW_DATA, $nonceBnr, $tagBytes);
+		return ($ciphBnry===false) ? $codeSecrText : self::SEAL_MARK.base64_encode($nonceBnr.$tagBytes.$ciphBnry);
 	}
 
 	/**
@@ -115,12 +115,12 @@ class Totp{
 		if( strpos($storedSecret, self::SEAL_MARK)!==0 ){
 			return $storedSecret;
 		}
-		$selBnry = base64_decode(substr($storedSecret, strlen(self::SEAL_MARK)), true);
-		if( $selBnry===false || strlen($selBnry)<29 || strlen($sealPassword)<self::SEAL_SIZE || !function_exists('openssl_decrypt') ){
+		$sealBnry = base64_decode(substr($storedSecret, strlen(self::SEAL_MARK)), true);
+		if( $sealBnry===false || strlen($sealBnry)<29 || strlen($sealPassword)<self::SEAL_SIZE || !function_exists('openssl_decrypt') ){
 			return null;
 		}
-		$plainTx = openssl_decrypt(substr($selBnry, 28), 'aes-256-gcm', hash('sha256', $sealPassword, true), OPENSSL_RAW_DATA, substr($selBnry, 0, 12), substr($selBnry, 12, 16));
-		return ($plainTx===false) ? null : $plainTx;
+		$plainTxt = openssl_decrypt(substr($sealBnry, 28), 'aes-256-gcm', hash('sha256', $sealPassword, true), OPENSSL_RAW_DATA, substr($sealBnry, 0, 12), substr($sealBnry, 12, 16));
+		return ($plainTxt===false) ? null : $plainTxt;
 	}
 
 	/**
@@ -130,20 +130,20 @@ class Totp{
 	 * @return String The bytes, empty when the secret is not base32.
 	 */
 	protected static function fromBase32Text( String $codeSecrText ): String {
-		$bitText = '';
+		$bitStrng = '';
 		foreach( str_split(strtoupper(rtrim(str_replace(' ', '', $codeSecrText), '='))) as $letter ){
-			$charPos = strpos(self::BASE_CHRS, $letter);
-			if( $charPos===false ){
+			$charIndx = strpos(self::BASE_CHRS, $letter);
+			if( $charIndx===false ){
 				return '';
 			}
-			$bitText .= str_pad(decbin($charPos), 5, '0', STR_PAD_LEFT);
+			$bitStrng .= str_pad(decbin($charIndx), 5, '0', STR_PAD_LEFT);
 		}
-		$keyByts = '';
-		foreach( str_split($bitText, 8) as $bitGrp ){
+		$keyBytes = '';
+		foreach( str_split($bitStrng, 8) as $bitGrp ){
 			if( strlen($bitGrp)==8 ){
-				$keyByts .= chr(bindec($bitGrp));
+				$keyBytes .= chr(bindec($bitGrp));
 			}
 		}
-		return $keyByts;
+		return $keyBytes;
 	}
 }

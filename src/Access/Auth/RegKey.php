@@ -30,15 +30,15 @@ class RegKey implements Handler{
 	 * @return Array|Bool An identity array on success, its 'userName' being the name the key is written under ('' in a plain list), or false on failure.
 	 */
 	function checkSecretArr( Array $loginDataArr ): Array|Bool {
-		$sentKey = $loginDataArr['key'] ?? '';
+		$sentClef = $loginDataArr['key'] ?? '';
 		$this->badTryFlag = false;
-		if( $sentKey=='' ){
+		if( $sentClef=='' ){
 			$this->errMessage = 'No API key provided';
 			return false;
 		}
 		foreach( $this->acceptKeys as $keyNme => $oneKey ){
 			// An empty key, as a secret left unset gives, is the key of nobody
-			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $sentKey ) ){
+			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $sentClef ) ){
 				// A key written under a name identifies its holder
 				return Array('userName'=>is_string($keyNme) ? $keyNme : '');
 			}
