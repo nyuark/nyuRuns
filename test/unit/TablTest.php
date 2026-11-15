@@ -92,7 +92,7 @@ checkIdentical('a UTF-16 table, as a spreadsheet exports its text', tblRows("\xF
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
-checkIdentical('index: tables by extension and by content type', Array(get_class(Index::forExtnsParser('csv')), get_class(Index::forExtnsParser('TSV')), get_class(Index::forExtnsParser('tab')), get_class(Index::findTypeParser('text/csv; charset=utf-8')), get_class(Index::findTypeParser('text/tab-separated-values')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::typeOptionsArr('text/tab-separated-values')), Array('nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep')));
+checkIdentical('index: tables by extension and by content type', Array(get_class(Index::getExtnsParser('csv')), get_class(Index::getExtnsParser('TSV')), get_class(Index::getExtnsParser('tab')), get_class(Index::findTypeParser('text/csv; charset=utf-8')), get_class(Index::findTypeParser('text/tab-separated-values')), Index::getOptsForExtn('csv'), Index::getOptsForExtn('tsv'), Index::getOptsForMime('text/tab-separated-values')), Array('nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', 'nyu\Data\Parsers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep')));
 checkIdentical('a CSV file through Dcmnt', runCatchThrown(function() use ($showCsv){
 	$docPath = inTemporaryDir('shows.csv');
 	file_put_contents($docPath, $showCsv);

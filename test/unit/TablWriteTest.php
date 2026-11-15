@@ -99,7 +99,7 @@ checkIdentical('a table read with its marker is written without it, unless asked
 }), Array(true, "Titre,Lieu\r\nÉté,Théâtre\r\n", true));
 
 // Through the index
-checkIdentical('index: tables by extension, with their separator and their content type', Array(get_class(Index::forExtnsWriter('CSV')), get_class(Index::forExtnsWriter('tsv')), Index::optionsOfExtns('csv'), Index::optionsOfExtns('tsv'), Index::optionsOfExtns('tab'), Index::contentTypeFor('csv'), Index::contentTypeFor('tsv')), Array('nyu\Data\Writers\Tabl', 'nyu\Data\Writers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep'), 'text/csv; charset=utf-8', 'text/tab-separated-values; charset=utf-8'));
+checkIdentical('index: tables by extension, with their separator and their content type', Array(get_class(Index::getExtnsWriter('CSV')), get_class(Index::getExtnsWriter('tsv')), Index::getOptsForExtn('csv'), Index::getOptsForExtn('tsv'), Index::getOptsForExtn('tab'), Index::getMimeForExtn('csv'), Index::getMimeForExtn('tsv')), Array('nyu\Data\Writers\Tabl', 'nyu\Data\Writers\Tabl', Array(), Array('separ'=>'tabulSep'), Array('separ'=>'tabulSep'), 'text/csv; charset=utf-8', 'text/tab-separated-values; charset=utf-8'));
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 finishChecking();

@@ -25,21 +25,21 @@ class Native extends Driver {
 	 *
 	 * @throws MailFailure When the mail has attachments.
 	 */
-	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
+	public function sendRawMessage( Message $emailMessage, Array $recipientLst ): ?String {
 		if( !empty($emailMessage->getAttachments()) ){
 			throw new MailFailure('A native mail account sends no attachment: use a phmail account');
 		}
 		try{
-			$this->connectAndAuth();
-			$this->deliverCommand('MAIL FROM:<'.$emailMessage->retrieveSender().'>', Array(250));
+			$this->openSmtpAsUser();
+			$this->sendCommandTxt('MAIL FROM:<'.$emailMessage->getSenderEmail().'>', Array(250));
 			foreach( $recipientLst as $toAddr ){
-				$this->deliverCommand('RCPT TO:<'.$toAddr.'>', Array(250, 251));
+				$this->sendCommandTxt('RCPT TO:<'.$toAddr.'>', Array(250, 251));
 			}
-			$this->deliverCommand('DATA', Array(354));
+			$this->sendCommandTxt('DATA', Array(354));
 			// A line starting with a dot gets a second one: a lone dot ends the mail
-			$mailText = preg_replace('/^\./m', '..', Message::endLinesInCrlf($emailMessage->writeWholeMail()));
-			$this->deliverCommand(rtrim($mailText, "\r\n")."\r\n.", Array(250), 'the mail');
-			$this->deliverCommand('QUIT', Array(221));
+			$mailText = preg_replace('/^\./m', '..', Message::castLnesToCrlf($emailMessage->writeWholeMail()));
+			$this->sendCommandTxt(rtrim($mailText, "\r\n")."\r\n.", Array(250), 'the mail');
+			$this->sendCommandTxt('QUIT', Array(221));
 		}catch( MailFailure $e ){
 			return $e->getMessage();
 		}finally{
@@ -53,7 +53,7 @@ class Native extends Driver {
 	 *
 	 * @throws MailFailure When any step fails.
 	 */
-	protected function connectAndAuth(): Void {
+	protected function openSmtpAsUser(): Void {
 		$srvrHost = strval($this->setupArray['hostName'] ?? '');
 		$portNumb = strval($this->setupArray['portNumb'] ?? '');
 		$portNumb = ($portNumb=='') ? 587 : intval($portNumb);
@@ -72,16 +72,16 @@ class Native extends Driver {
 		$this->socketLink = $scktLink;
 		stream_set_timeout($this->socketLink, $waitSecs);
 		$this->getReplyString(Array(220));
-		$ehloText = $this->deliverCommand('EHLO '.$this->getMachineName(), Array(250));
+		$ehloText = $this->sendCommandTxt('EHLO '.$this->getMachineName(), Array(250));
 		if( $portNumb!=465 ){
 			if( preg_match('/^\d{3}[ -]STARTTLS\b/mi', $ehloText) ){
-				$this->deliverCommand('STARTTLS', Array(220));
+				$this->sendCommandTxt('STARTTLS', Array(220));
 				$crypMask = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | (defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT') ? STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT : 0);
 				if( @stream_socket_enable_crypto($this->socketLink, true, $crypMask)!==true ){
 					throw new MailFailure('the encryption of the link failed');
 				}
-				$ehloText = $this->deliverCommand('EHLO '.$this->getMachineName(), Array(250));
-			}elseif( !self::localServerFlg($srvrHost) ){
+				$ehloText = $this->sendCommandTxt('EHLO '.$this->getMachineName(), Array(250));
+			}elseif( !self::isLocalMachine($srvrHost) ){
 				throw new MailFailure('the server offers no STARTTLS: mail is never sent unencrypted');
 			}
 		}
@@ -107,11 +107,11 @@ class Native extends Driver {
 			$authList = preg_split('/\s+/', strtoupper(trim($authMthd[1])));
 		}
 		if( in_array('PLAIN', $authList, true) ){
-			$this->deliverCommand('AUTH PLAIN '.base64_encode("\0".$userName."\0".$passText), Array(235), 'AUTH PLAIN');
+			$this->sendCommandTxt('AUTH PLAIN '.base64_encode("\0".$userName."\0".$passText), Array(235), 'AUTH PLAIN');
 		}elseif( in_array('LOGIN', $authList, true) ){
-			$this->deliverCommand('AUTH LOGIN', Array(334));
-			$this->deliverCommand(base64_encode($userName), Array(334), 'the user name');
-			$this->deliverCommand(base64_encode($passText), Array(235), 'the password');
+			$this->sendCommandTxt('AUTH LOGIN', Array(334));
+			$this->sendCommandTxt(base64_encode($userName), Array(334), 'the user name');
+			$this->sendCommandTxt(base64_encode($passText), Array(235), 'the password');
 		}else{
 			throw new MailFailure('the server offers no login the account can use (PLAIN or LOGIN)');
 		}
@@ -127,7 +127,7 @@ class Native extends Driver {
 	 *
 	 * @throws MailFailure When the link breaks, or the answer is another code.
 	 */
-	protected function deliverCommand( String $plainCommand, Array $successCodes, ?String $displayLabel=null ): String {
+	protected function sendCommandTxt( String $plainCommand, Array $successCodes, ?String $displayLabel=null ): String {
 		if( @fwrite($this->socketLink, $plainCommand."\r\n")===false ){
 			throw new MailFailure('the link broke');
 		}

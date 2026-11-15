@@ -27,19 +27,19 @@ class EPub extends Pack {
 	 */
 	protected function readArchvArray(Array $parseOptions): Array {
 		// The archive says where the description of the book is
-		$rootList = $this->deepNamedArray($this->partNodesArray('META-INF/container.xml') ?? Array('nodes'=>Array()), Array('rootfile'));
+		$rootList = $this->findNestedNode($this->readPartAsTree('META-INF/container.xml') ?? Array('nodes'=>Array()), Array('rootfile'));
 		$packFile = strval($rootList['attrs']['full-path'] ?? '');
 		if( $packFile==='' ){
 			throw new ParseError('Invalid archive: the book does not tell where its description is');
 		}
-		$packList = $this->partNodesArray($packFile) ?? Array('nodes'=>Array());
+		$packList = $this->readPartAsTree($packFile) ?? Array('nodes'=>Array());
 		$packPath = (strrpos($packFile, '/')===false) ? '' : substr($packFile, 0, strrpos($packFile, '/')+1);
 		// Its details: a detail given several times, as the authors or the subjects are, is given as one text
 		$propList = Array();
 		$metaList = $this->findChildArray($packList, Array('metadata')) ?? Array('nodes'=>Array());
 		foreach($metaList['nodes'] as $prpArr){
 			$propName = strval(self::PROP_LIST[$prpArr['tagnm']] ?? '');
-			$propVals = trim(preg_replace('/\s+/', ' ', $this->collectAllText($prpArr)));
+			$propVals = trim(preg_replace('/\s+/', ' ', $this->readNestedText($prpArr)));
 			if( $propName!=='' && $propVals!=='' ){
 				$propList[$propName] = isset($propList[$propName]) ? $propList[$propName].', '.$propVals : $propVals;
 			}
@@ -47,30 +47,30 @@ class EPub extends Pack {
 		// Its parts, by their id: their place in the archive, their kind, and what is particular to them
 		$itemList = Array();
 		$coverPth = '';
-		foreach($this->kidsNamedArray($this->findChildArray($packList, Array('manifest')) ?? Array('nodes'=>Array()), 'item') as $itmArr){
-			$itemPath = $this->mergePathsText($packPath, strval($itmArr['attrs']['href'] ?? ''));
+		foreach($this->listNamedNodes($this->findChildArray($packList, Array('manifest')) ?? Array('nodes'=>Array()), 'item') as $itmArr){
+			$itemPath = $this->getPathInArchv($packPath, strval($itmArr['attrs']['href'] ?? ''));
 			$itemList[strval($itmArr['attrs']['id'] ?? '')] = Array('paths'=>$itemPath, 'types'=>strtolower(strval($itmArr['attrs']['media-type'] ?? '')));
 			if( in_array('cover-image', explode(' ', strval($itmArr['attrs']['properties'] ?? ''))) ){
 				$coverPth = $itemPath;
 			}
 		}
 		// Older books name their cover among their details
-		foreach($this->kidsNamedArray($metaList, 'meta') as $mtaArr){
+		foreach($this->listNamedNodes($metaList, 'meta') as $mtaArr){
 			if( $coverPth==='' && strval($mtaArr['attrs']['name'] ?? '')=='cover' ){
 				$coverPth = strval($itemList[strval($mtaArr['attrs']['content'] ?? '')]['paths'] ?? '');
 			}
 		}
 		// The parts a seller locked cannot be read: a book whose text is locked is refused, one whose fonts only are is not
-		$lockText = $this->archiveObj->locateEntryFlg('META-INF/encryption.xml') ? $this->archiveObj->getEntryString('META-INF/encryption.xml', $this->maxSizeVal) : '';
+		$lockText = $this->archiveObj->isEntryInArchv('META-INF/encryption.xml') ? $this->archiveObj->getEntryString('META-INF/encryption.xml', $this->maxSizeVal) : '';
 		$blockLst = Array();
 		$chptNumb = 0;
-		foreach($this->kidsNamedArray($this->findChildArray($packList, Array('spine')) ?? Array('nodes'=>Array()), 'itemref') as $oneRef){
+		foreach($this->listNamedNodes($this->findChildArray($packList, Array('spine')) ?? Array('nodes'=>Array()), 'itemref') as $oneRef){
 			$itemDict = $itemList[strval($oneRef['attrs']['idref'] ?? '')] ?? null;
 			// The reading order may name what is not a page of text, such as a drawing
 			if( $itemDict===null || !preg_match('/html|^$/', $itemDict['types']) || ($itemDict['types']==='' && !preg_match('/\.x?html?$/Di', $itemDict['paths'])) ){
 				continue;
 			}
-			if( !$this->archiveObj->locateEntryFlg($itemDict['paths']) ){
+			if( !$this->archiveObj->isEntryInArchv($itemDict['paths']) ){
 				throw new ParseError('Invalid archive: part '.$itemDict['paths'].' is missing');
 			}
 			if( $lockText!=='' && (strpos($lockText, '"'.$itemDict['paths'].'"')!==false || strpos($lockText, '"'.rawurlencode($itemDict['paths']).'"')!==false || strpos($lockText, '"'.str_replace('%2F', '/', rawurlencode($itemDict['paths'])).'"')!==false) ){
@@ -86,7 +86,7 @@ class EPub extends Pack {
 				continue;
 			}
 			$slashIdx = strrpos($itemDict['paths'], '/');
-			$chptDict = $this->positionImages($chptDict, ($slashIdx===false) ? '' : substr($itemDict['paths'], 0, $slashIdx+1));
+			$chptDict = $this->alterImageAddr($chptDict, ($slashIdx===false) ? '' : substr($itemDict['paths'], 0, $slashIdx+1));
 			// A chapter starts on a new page
 			if( !empty($blockLst) ){
 				$blockLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
@@ -106,7 +106,7 @@ class EPub extends Pack {
 	 * @param String $relativePath The address, as the part writes it: from its own folder, with or without a place in the page after #.
 	 * @return String The place in the archive.
 	 */
-	protected function mergePathsText(String $baseFldrText, String $relativePath): String {
+	protected function getPathInArchv(String $baseFldrText, String $relativePath): String {
 		$pathPart = Array();
 		foreach(explode('/', $baseFldrText.rawurldecode(preg_replace('/[#?].*$/s', '', $relativePath))) as $oneDir){
 			if( $oneDir=='..' ){
@@ -127,13 +127,13 @@ class EPub extends Pack {
 	 * @param String $baseFldrText Folder of the chapter, ending with a slash.
 	 * @return Array The blocks.
 	 */
-	protected function positionImages(Array $bookBlockSet, String $baseFldrText): Array {
+	protected function alterImageAddr(Array $bookBlockSet, String $baseFldrText): Array {
 		foreach($bookBlockSet as $blkIdx=>$oneBlk){
 			if( $oneBlk['block']=='imageBox' && !preg_match('/^(?:[a-z][a-z0-9+.\-]*:|\/|#)/i', strval($oneBlk['attrs']['sourc'] ?? '')) ){
-				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $this->mergePathsText($baseFldrText, strval($oneBlk['attrs']['sourc'] ?? ''));
+				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $this->getPathInArchv($baseFldrText, strval($oneBlk['attrs']['sourc'] ?? ''));
 			}
 			if( !empty($oneBlk['items']) ){
-				$bookBlockSet[$blkIdx]['items'] = $this->positionImages($oneBlk['items'], $baseFldrText);
+				$bookBlockSet[$blkIdx]['items'] = $this->alterImageAddr($oneBlk['items'], $baseFldrText);
 			}
 		}
 		return $bookBlockSet;

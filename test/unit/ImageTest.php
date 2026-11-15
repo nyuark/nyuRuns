@@ -24,7 +24,7 @@ function imgOpen( String $rawContent, Int $pixelLimit=Image::MAXI_PIXL ): Mixed 
 }
 
 // Telling what a picture is does not need gd
-checkIdentical('what a picture is, told from its content', imgOpen($dotPng)->imageInfoArray(), Array('kinds'=>'png', 'width'=>1, 'heght'=>1, 'bytes'=>strlen($dotPng), 'turns'=>1, 'exifs'=>Array()));
+checkIdentical('what a picture is, told from its content', imgOpen($dotPng)->getInfoOfImage(), Array('kinds'=>'png', 'width'=>1, 'heght'=>1, 'bytes'=>strlen($dotPng), 'turns'=>1, 'exifs'=>Array()));
 checkPregMatch('a content that is not a picture', imgOpen('<html><body><p>not a picture</p></body></html>'), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkPregMatch('an empty content', imgOpen(''), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkPregMatch('a picture cut short', imgOpen(substr($dotPng, 0, 12)), '/^THROWN RuntimeException: Not a picture of a known kind/');
@@ -32,7 +32,7 @@ checkPregMatch('a source larger than the size accepted', runCatchThrown(function
 // A picture claiming a huge size in a few bytes: refused from its first bytes, before anything is unpacked
 $bombPng = substr($dotPng, 0, 16).pack('NN', 60000, 60000).substr($dotPng, 24);
 checkPregMatch('a picture holding more pixels than accepted is refused before it is unpacked', imgOpen($bombPng), '/^THROWN RuntimeException: Picture larger than the 32000000 pixels allowed/');
-checkIdentical('the limit can be raised, or lowered', Array(imgOpen($bombPng, 4000000000)->imageInfoArray()['width'], preg_replace('/ @.*$/', '', imgOpen($dotPng, 0))), Array(60000, 'THROWN RuntimeException: Picture larger than the 0 pixels allowed'));
+checkIdentical('the limit can be raised, or lowered', Array(imgOpen($bombPng, 4000000000)->getInfoOfImage()['width'], preg_replace('/ @.*$/', '', imgOpen($dotPng, 0))), Array(60000, 'THROWN RuntimeException: Picture larger than the 0 pixels allowed'));
 
 if( !function_exists('imagecreatetruecolor') ){
 	checkPregMatch('changing a picture asks for the gd extension', runCatchThrown(function() use ($dotPng){ return Image::openFluxdImage(Fluxd::openBytesFluxd($dotPng))->resizeFitImage(10, 10); }), '/^THROWN RuntimeException: Pictures need the gd extension of PHP to be changed/');
@@ -119,7 +119,7 @@ function withExif( String $rawContent, Int $turnsValue ): String {
 
 // What a picture is, for every kind
 checkIdentical('the kinds of picture, told from their content', array_map(function($imageKinds){
-	$infoArr = imgOpen(drawQuad(40, 20, $imageKinds))->imageInfoArray();
+	$infoArr = imgOpen(drawQuad(40, 20, $imageKinds))->getInfoOfImage();
 	return $infoArr['kinds'].' '.$infoArr['width'].'x'.$infoArr['heght'].' '.$infoArr['turns'];
 }, Array('png', 'jpg', 'gif', 'webp', 'bmp')), Array('png 40x20 1', 'jpg 40x20 1', 'gif 40x20 1', 'webp 40x20 1', 'bmp 40x20 1'));
 
@@ -127,9 +127,9 @@ checkIdentical('the kinds of picture, told from their content', array_map(functi
 $quadImg = imgOpen(drawQuad(400, 200));
 checkIdentical('fitting inside a width and a height keeps the proportions: bound by the width, by the height, by both', Array(corners($quadImg->resizeFitImage(100, 100)->grantBytesText()), corners($quadImg->resizeFitImage(1000, 50)->grantBytesText()), corners($quadImg->resizeFitImage(40, 20)->grantBytesText()), corners($quadImg->resizeFitImage(30, 10)->grantBytesText())), Array('100x50 RGBW', '100x50 RGBW', '40x20 RGBW', '20x10 RGBW'));
 checkIdentical('a picture that already fits is not enlarged, unless told so', Array(corners($quadImg->resizeFitImage(1000, 1000)->grantBytesText()), corners($quadImg->resizeFitImage(1000, 1000, true)->grantBytesText()), corners($quadImg->resizeFitImage(800, 1000, true)->grantBytesText())), Array('400x200 RGBW', '1000x500 RGBW', '800x400 RGBW'));
-checkIdentical('a picture made from another tells its own size, and that it was not opened from a content', $quadImg->resizeFitImage(100, 100)->imageInfoArray(), Array('kinds'=>'png', 'width'=>100, 'heght'=>50, 'bytes'=>0, 'turns'=>1, 'exifs'=>Array()));
-checkIdentical('the picture it was made from is unchanged', Array($quadImg->imageInfoArray()['width'], corners($quadImg->grantBytesText())), Array(400, '400x200 RGBW'));
-checkIdentical('a very thin picture keeps at least one pixel', imgOpen(drawQuad(400, 4))->resizeFitImage(20, 20)->imageInfoArray()['heght'], 1);
+checkIdentical('a picture made from another tells its own size, and that it was not opened from a content', $quadImg->resizeFitImage(100, 100)->getInfoOfImage(), Array('kinds'=>'png', 'width'=>100, 'heght'=>50, 'bytes'=>0, 'turns'=>1, 'exifs'=>Array()));
+checkIdentical('the picture it was made from is unchanged', Array($quadImg->getInfoOfImage()['width'], corners($quadImg->grantBytesText())), Array(400, '400x200 RGBW'));
+checkIdentical('a very thin picture keeps at least one pixel', imgOpen(drawQuad(400, 4))->resizeFitImage(20, 20)->getInfoOfImage()['heght'], 1);
 checkPregMatch('a size that is not positive is refused', runCatchThrown(function() use ($quadImg){ return $quadImg->resizeFitImage(0, 100); }), '/^THROWN RuntimeException: A picture is at least one pixel wide and one pixel high/');
 checkPregMatch('a picture enlarged past the pixels accepted is refused', runCatchThrown(function(){ return imgOpen(drawQuad(40, 20), 10000)->resizeFitImage(4000, 4000, true); }), '/^THROWN RuntimeException: Picture larger than the 10000 pixels allowed/');
 
@@ -152,30 +152,30 @@ checkPregMatch('a turn that is not a quarter turn is refused', runCatchThrown(fu
 
 // What the camera recorded
 $turnPic = withExif(drawQuad(400, 200, 'jpg'), 6);
-checkIdentical('what the camera recorded: the way up, the date, the camera, the place', imgOpen($turnPic)->imageInfoArray(), function_exists('exif_read_data') ? Array('kinds'=>'jpg', 'width'=>400, 'heght'=>200, 'bytes'=>strlen($turnPic), 'turns'=>6, 'exifs'=>Array('dated'=>'2026-12-28 20:30:00', 'maker'=>'nyuArk', 'model'=>'Test Camera', 'gpsla'=>45.76, 'gpslo'=>-4.83)) : Array('kinds'=>'jpg', 'width'=>400, 'heght'=>200, 'bytes'=>strlen($turnPic), 'turns'=>1, 'exifs'=>Array()));
+checkIdentical('what the camera recorded: the way up, the date, the camera, the place', imgOpen($turnPic)->getInfoOfImage(), function_exists('exif_read_data') ? Array('kinds'=>'jpg', 'width'=>400, 'heght'=>200, 'bytes'=>strlen($turnPic), 'turns'=>6, 'exifs'=>Array('dated'=>'2026-12-28 20:30:00', 'maker'=>'nyuArk', 'model'=>'Test Camera', 'gpsla'=>45.76, 'gpslo'=>-4.83)) : Array('kinds'=>'jpg', 'width'=>400, 'heght'=>200, 'bytes'=>strlen($turnPic), 'turns'=>1, 'exifs'=>Array()));
 if( function_exists('exif_read_data') ){
 	// What each of the eight ways up must give once set upright, the picture being drawn RGBW before the camera turned or mirrored it
 	checkIdentical('setting upright, from each of the eight ways up a camera records', array_map(function($turnsValue){
-		$madeImg = imgOpen(withExif(drawQuad(400, 200, 'jpg'), $turnsValue))->fixOrientation();
-		return $turnsValue.' '.corners($madeImg->grantBytesText('png')).' '.$madeImg->imageInfoArray()['turns'];
+		$madeImg = imgOpen(withExif(drawQuad(400, 200, 'jpg'), $turnsValue))->turnUprightImg();
+		return $turnsValue.' '.corners($madeImg->grantBytesText('png')).' '.$madeImg->getInfoOfImage()['turns'];
 	}, range(1, 8)), Array('1 400x200 RGBW 1', '2 400x200 GRWB 1', '3 400x200 WBGR 1', '4 400x200 BWRG 1', '5 200x400 RBGW 1', '6 200x400 BRWG 1', '7 200x400 WGBR 1', '8 200x400 GWRB 1'));
 	checkIdentical('a picture written anew holds nothing of what the camera recorded: neither as JPEG nor as any other kind', runCatchThrown(function() use ($turnPic){
 		$srceImg = imgOpen($turnPic);
 		$backLst = Array();
 		foreach( Array('jpg', 'png', 'webp') as $kndKey ){
 			$outBytes = $srceImg->grantBytesText($kndKey);
-			$backLst[] = Array(imgOpen($outBytes)->imageInfoArray()['exifs'], imgOpen($outBytes)->imageInfoArray()['turns'], strpos($outBytes, 'Test Camera'), strpos($outBytes, 'Exif'));
+			$backLst[] = Array(imgOpen($outBytes)->getInfoOfImage()['exifs'], imgOpen($outBytes)->getInfoOfImage()['turns'], strpos($outBytes, 'Test Camera'), strpos($outBytes, 'Exif'));
 		}
 		return Array($backLst, strpos($turnPic, 'Test Camera')!==false);
 	}), Array(array_fill(0, 3, Array(Array(), 1, false, false)), true));
-	checkIdentical('a way up that is none, and a record that is damaged, are read as nothing', Array(imgOpen(withExif(drawQuad(40, 20, 'jpg'), 9))->imageInfoArray()['turns'], imgOpen(substr($turnPic, 0, 30).str_repeat("\xFF", 40).substr($turnPic, 70))->imageInfoArray()['kinds']), Array(1, 'jpg'));
+	checkIdentical('a way up that is none, and a record that is damaged, are read as nothing', Array(imgOpen(withExif(drawQuad(40, 20, 'jpg'), 9))->getInfoOfImage()['turns'], imgOpen(substr($turnPic, 0, 30).str_repeat("\xFF", 40).substr($turnPic, 70))->getInfoOfImage()['kinds']), Array(1, 'jpg'));
 }else{
 	recordSkipping('what the camera recorded', 'the exif extension is not loaded');
 }
 
 // Giving a picture back
 checkIdentical('a picture given back in each kind is a picture of that kind, of the same size', array_map(function($imageKinds) use ($quadImg){
-	$infoArr = imgOpen($quadImg->grantBytesText($imageKinds))->imageInfoArray();
+	$infoArr = imgOpen($quadImg->grantBytesText($imageKinds))->getInfoOfImage();
 	return $infoArr['kinds'].' '.$infoArr['width'].'x'.$infoArr['heght'];
 }, Array('png', 'jpg', 'JPEG', 'gif', 'webp', 'bmp', '')), Array('png 400x200', 'jpg 400x200', 'jpg 400x200', 'gif 400x200', 'webp 400x200', 'bmp 400x200', 'png 400x200'));
 checkIdentical('the less of a picture is kept, the less it weighs', runCatchThrown(function(){
@@ -205,13 +205,13 @@ checkIdentical('an animated picture gives its first image', runCatchThrown(funct
 	// Two images of one pixel, red then blue, in one GIF
 	$gifAnim = "GIF89a\x01\x00\x01\x00\x80\x00\x00\xFF\x00\x00\x00\x00\xFF"."!\xF9\x04\x00\x0A\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00"."!\xF9\x04\x00\x0A\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02L\x01\x00;";
 	$gdImage = imagecreatefromstring(imgOpen($gifAnim)->grantBytesText('png'));
-	return Array(imgOpen($gifAnim)->imageInfoArray()['kinds'], imagecolorsforindex($gdImage, imagecolorat($gdImage, 0, 0))['red']>128);
+	return Array(imgOpen($gifAnim)->getInfoOfImage()['kinds'], imagecolorsforindex($gdImage, imagecolorat($gdImage, 0, 0))['red']>128);
 }), Array('gif', true));
 
 // Saving
 checkIdentical('a picture saved to a file is a picture of the kind asked for', runCatchThrown(function() use ($quadImg){
 	$savePth = $quadImg->resizeFitImage(50, 50)->writeLocalFile(inTemporaryDir('thumb.jpg'), 'jpg', 80);
-	$backInf = Image::openFluxdImage(Fluxd::openLocalFluxd($savePth))->imageInfoArray();
+	$backInf = Image::openFluxdImage(Fluxd::openLocalFluxd($savePth))->getInfoOfImage();
 	return Array(basename($savePth), $backInf['kinds'], $backInf['width'], $backInf['heght'], $backInf['bytes']===filesize($savePth));
 }), Array('thumb.jpg', 'jpg', 50, 25, true));
 checkPregMatch('a file that cannot be written is refused, without its full path', runCatchThrown(function() use ($quadImg){ return $quadImg->writeLocalFile(inTemporaryDir('nowhere'.DS.'deep'.DS.'x.png')); }), '/^THROWN RuntimeException: File cannot be written: x\.png/');

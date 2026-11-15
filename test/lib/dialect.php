@@ -18,7 +18,7 @@ use nyu\Data\DBRec;
 function fetchShowsKeys( Array $filterFields ): Mixed {
 	return runCatchThrown(function() use ($filterFields){
 		$showLst = new DBLst('shows');
-		$showLst->replaceFilters($filterFields);
+		$showLst->setListFilters($filterFields);
 		$showLst->setOrderFields('id_show');
 		return array_map('intval', array_column($showLst->readRowsOfList(), 'id_show'));
 	});
@@ -30,13 +30,13 @@ function fetchShowsKeys( Array $filterFields ): Mixed {
  * @param String $handlerClass Class the handler is expected to be.
  */
 function executeDialect( String $handlerClass ): Void {
-	$nyuBase = DBCon::baseSetupArray();
-	$dbHndlr = DBCon::obtainInstance($nyuBase['dbEngine'], $nyuBase['hostName'], $nyuBase['userName'], $nyuBase['passWord'], $nyuBase['baseName'], Array('portNumb'=>$nyuBase['portNumb'], 'encoding'=>$nyuBase['encoding']))->readConnection();
+	$nyuBase = DBCon::readDbaseConfg();
+	$dbHndlr = DBCon::loadDefaultCon($nyuBase['dbEngine'], $nyuBase['hostName'], $nyuBase['userName'], $nyuBase['passWord'], $nyuBase['baseName'], Array('portNumb'=>$nyuBase['portNumb'], 'encoding'=>$nyuBase['encoding']))->readConnection();
 
 	// Handler
 	checkIdentical('the handler of the type is used', get_class($dbHndlr), $handlerClass);
-	checkIdentical('tableInfo gives the fields and the key', runCatchThrown(function() use ($dbHndlr){ return $dbHndlr->tableInfoArray('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
-	checkIdentical('tableInfo of a missing table', runCatchThrown(function() use ($dbHndlr){ return $dbHndlr->tableInfoArray('nowhere'); }), false);
+	checkIdentical('tableInfo gives the fields and the key', runCatchThrown(function() use ($dbHndlr){ return $dbHndlr->getInfoOfTable('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
+	checkIdentical('tableInfo of a missing table', runCatchThrown(function() use ($dbHndlr){ return $dbHndlr->getInfoOfTable('nowhere'); }), false);
 	checkIdentical('a failed query gives false and an error', runCatchThrown(function() use ($dbHndlr){
 		return Array($dbHndlr->sendBuiltQuery('SELECT * FROM '.$dbHndlr->quoteFieldName('nowhere')), is_string($dbHndlr->getLastErrText()));
 	}), Array(false, true));
@@ -49,9 +49,9 @@ function executeDialect( String $handlerClass ): Void {
 		return Array($dbHndlr->sendBuiltQuery($updtQry, true, Array('Hall Z', 4)), $dbHndlr->countLastWrite(), $dbHndlr->sendBuiltQuery($updtQry, true, Array('Hall Z', 999)), $dbHndlr->countLastWrite());
 	}), Array(true, 1, true, 0));
 	checkIdentical('a removed transaction leaves the table unchanged', runCatchThrown(function() use ($dbHndlr){
-		$dbHndlr->newTransaction();
+		$dbHndlr->addTransaction();
 		$dbHndlr->sendBuiltQuery('UPDATE '.$dbHndlr->quoteFieldName('shows').' SET '.$dbHndlr->quoteFieldName('venue').'=? WHERE '.$dbHndlr->quoteFieldName('id_show').'=?', true, Array('Undone', 4));
-		$dbHndlr->delTransaction();
+		$dbHndlr->dropWholeTrnsc();
 		$showRec = new DBRec('shows');
 		return $showRec->loadRecordList('4')['venue'];
 	}), 'Hall Z');
@@ -74,16 +74,16 @@ function executeDialect( String $handlerClass ): Void {
 	}), Array(4, 3));
 	checkIdentical('list: grouped count', runCatchThrown(function(){
 		$itemLst = new DBLst('items');
-		$itemLst->pickReadFields('type, count(*) as nb');
+		$itemLst->setReadColumns('type, count(*) as nb');
 		$itemLst->setGroupFields('type');
 		$itemLst->setOrderFields('type');
 		return array_map(function($listedRecord){ return $listedRecord['type'].'='.intval($listedRecord['nb']); }, $itemLst->readRowsOfList());
 	}), Array('circus=1', 'dance=2', 'music=2', 'solo=1', 'theatre=1'));
 	checkIdentical('list: join', runCatchThrown(function(){
 		$evntLst = new DBLst('events');
-		$evntLst->pickReadFields('shows.title, events.date');
+		$evntLst->setReadColumns('shows.title, events.date');
 		$evntLst->joinOtherTable(Array('shows', 'events.show_id', 'shows.id_show'));
-		$evntLst->replaceFilters(Array('events.id_event'=>7));
+		$evntLst->setListFilters(Array('events.id_event'=>7));
 		return $evntLst->readRowsOfList();
 	}), Array(Array('title'=>'Solo Gig', 'date'=>'2026-12-01')));
 
@@ -100,7 +100,7 @@ function executeDialect( String $handlerClass ): Void {
 	checkIdentical('record: an update keeps quotes and sets NULL', runCatchThrown(function(){
 		$showRec = new DBRec('shows');
 		$showRec->loadRecordList('3');
-		$showRec->bindFieldArray(Array('title'=>"O'Matinee", 'venue'=>null));
+		$showRec->setFieldsArray(Array('title'=>"O'Matinee", 'venue'=>null));
 		$savdKey = $showRec->insertOrUpdate();
 		$readRec = new DBRec('shows');
 		$recdVls = $readRec->loadRecordList('3');
@@ -113,7 +113,7 @@ function executeDialect( String $handlerClass ): Void {
 	}), '1');
 	checkIdentical('record: an insert returns the new key', runCatchThrown(function(){
 		$showRec = new DBRec('shows');
-		$showRec->bindFieldArray(Array('title'=>'Gamma', 'venue'=>'Hall G'));
+		$showRec->setFieldsArray(Array('title'=>'Gamma', 'venue'=>'Hall G'));
 		$savdKey = $showRec->insertOrUpdate();
 		$readRec = new DBRec('shows');
 		return Array(strval($savdKey), $readRec->loadRecordList(strval($savdKey))['title'] ?? null);
@@ -121,17 +121,17 @@ function executeDialect( String $handlerClass ): Void {
 	checkIdentical('record: delete with its named children, and only those', runCatchThrown(function(){
 		$showRec = new DBRec('shows');
 		$showRec->loadRecordList('1');
-		$remDone = $showRec->removeRecdFlag(Array('events'));
+		$remDone = $showRec->dropThisRecord(Array('events'));
 		$evntLst = new DBLst('events');
 		$itemLst = new DBLst('items');
-		$itemLst->replaceFilters(Array('show_id'=>1));
+		$itemLst->setListFilters(Array('show_id'=>1));
 		return Array($remDone, fetchShowsKeys(Array('id_show'=>1)), count($evntLst->readRowsOfList()), count($itemLst->readRowsOfList()));
 	}), Array(true, Array(), 5, 2));
 	checkIdentical('record: a failing child table cancels the deletion', runCatchThrown(function(){
 		$showRec = new DBRec('shows');
 		$showRec->loadRecordList('2');
 		$evntLst = new DBLst('events');
-		$evntLst->replaceFilters(Array('show_id'=>2));
-		return Array($showRec->removeRecdFlag(Array('events', 'nowhere')), fetchShowsKeys(Array('id_show'=>2)), count($evntLst->readRowsOfList()));
+		$evntLst->setListFilters(Array('show_id'=>2));
+		return Array($showRec->dropThisRecord(Array('events', 'nowhere')), fetchShowsKeys(Array('id_show'=>2)), count($evntLst->readRowsOfList()));
 	}), Array(false, Array(2), 2));
 }

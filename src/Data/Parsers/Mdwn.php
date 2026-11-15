@@ -36,7 +36,7 @@ class Mdwn extends Base {
 	 * @throws ParseError When that block of settings is not valid.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$fullText = str_replace(Array("\r\n", "\r"), "\n", self::recodeTextUtf8($nakedContent));
+		$fullText = str_replace(Array("\r\n", "\r"), "\n", self::castTextToUtf8($nakedContent));
 		$infoList = Array('title'=>'', 'front'=>Array());
 		$frontPar = Array();
 		if( preg_match('/^---[ \t]*\n((?=[\w\-]+[ \t]*:).*?)\n(?:---|\.\.\.)[ \t]*(?:\n|$)/s', $fullText, $frontPar) ){
@@ -51,7 +51,7 @@ class Mdwn extends Base {
 		}
 		// A tabulation starting a line stands for four spaces
 		$fullText = preg_replace_callback('/^[ \t]*\t[ \t]*/m', function($locatedParts){ return str_replace("\t", '    ', $locatedParts[0]); }, $fullText);
-		$blockLst = $this->retrieveBlocks(explode("\n", $fullText));
+		$blockLst = $this->readLineBlocks(explode("\n", $fullText));
 		foreach($blockLst as $oneBlk){
 			if( $oneBlk['block']=='headline' && $oneBlk['attrs']['level']==1 ){
 				$infoList['title'] = $oneBlk['plain'];
@@ -69,7 +69,7 @@ class Mdwn extends Base {
 	 * @param Bool   $insidePrgrph Whether the line follows the lines of a paragraph, which only a list that clearly is one may cut.
 	 * @return Bool True when it does.
 	 */
-	protected function startsBlockFlg(String $markdownLine, Bool $insidePrgrph): Bool {
+	protected function isStartOfBlock(String $markdownLine, Bool $insidePrgrph): Bool {
 		if( preg_match('/^ {0,3}(?:`{3,}[^`]*$|~{3,}|#{1,6}(?:[ \t]|$)|>)/D', $markdownLine) || preg_match(self::RULE_PATT, $markdownLine) ){
 			return true;
 		}
@@ -108,7 +108,7 @@ class Mdwn extends Base {
 	 * @param Array $linesToParse The lines, without their line ends.
 	 * @return Array The blocks.
 	 */
-	protected function retrieveBlocks(Array $linesToParse): Array {
+	protected function readLineBlocks(Array $linesToParse): Array {
 		$blockLst = Array();
 		$prgrLnes = Array();
 		$linePart = Array();
@@ -118,20 +118,20 @@ class Mdwn extends Base {
 			$lineText = $linesToParse[$lineIndx];
 			// A line of = or - under a paragraph makes a heading of it
 			if( !empty($prgrLnes) && preg_match('/^ {0,3}(=+|-+)[ \t]*$/D', $lineText, $linePart) ){
-				$blockLst[] = $this->headBlockArray($this->mergeLinesText($prgrLnes), ($linePart[1][0]=='=') ? 1 : 2);
+				$blockLst[] = $this->makeHeadingBlc($this->joinLinesAsTxt($prgrLnes), ($linePart[1][0]=='=') ? 1 : 2);
 				$prgrLnes = Array();
 				$lineIndx++;
 				continue;
 			}
 			$tbleStrt = (strpos($lineText, '|')!==false && isset($linesToParse[$lineIndx+1]) && preg_match(self::TBLE_PATT, $linesToParse[$lineIndx+1]) && count($this->splitCellArray($lineText))==count($this->splitCellArray($linesToParse[$lineIndx+1])));
 			$codeIndt = (empty($prgrLnes) && substr($lineText, 0, 4)==='    ');
-			if( trim($lineText)!=='' && !$tbleStrt && !$codeIndt && !$this->startsBlockFlg($lineText, !empty($prgrLnes)) ){
+			if( trim($lineText)!=='' && !$tbleStrt && !$codeIndt && !$this->isStartOfBlock($lineText, !empty($prgrLnes)) ){
 				$prgrLnes[] = $lineText;
 				$lineIndx++;
 				continue;
 			}
 			// Anything else ends the paragraph being gathered
-			$blockLst = array_merge($blockLst, $this->flowBlocksList($prgrLnes));
+			$blockLst = array_merge($blockLst, $this->readFlowBlocks($prgrLnes));
 			$prgrLnes = Array();
 			if( trim($lineText)==='' ){
 				$lineIndx++;
@@ -143,7 +143,7 @@ class Mdwn extends Base {
 					$codeLnes[] = strval(substr($linesToParse[$lineIndx], 4));
 					$lineIndx++;
 				}
-				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray(rtrim(implode("\n", $codeLnes)))));
+				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeSpanOfText(rtrim(implode("\n", $codeLnes)))));
 			}elseif( preg_match('/^( {0,3})(`{3,}|~{3,})[ \t]*([^\s`]*)/', $lineText, $linePart) ){
 				$codeLnes = Array();
 				$lineIndx++;
@@ -153,9 +153,9 @@ class Mdwn extends Base {
 					$lineIndx++;
 				}
 				$lineIndx++;
-				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray(implode("\n", $codeLnes))), Array(), preg_match('/^[\w+#.\-]+$/D', $linePart[3]) ? Array('langg'=>$linePart[3]) : Array());
+				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeSpanOfText(implode("\n", $codeLnes))), Array(), preg_match('/^[\w+#.\-]+$/D', $linePart[3]) ? Array('langg'=>$linePart[3]) : Array());
 			}elseif( preg_match('/^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/D', $lineText, $linePart) ){
-				$blockLst[] = $this->headBlockArray(strval($linePart[2] ?? ''), strlen($linePart[1]));
+				$blockLst[] = $this->makeHeadingBlc(strval($linePart[2] ?? ''), strlen($linePart[1]));
 				$lineIndx++;
 			}elseif( preg_match(self::RULE_PATT, $lineText) ){
 				$blockLst[] = Shape::makeBlockArray('ruleLine');
@@ -163,16 +163,16 @@ class Mdwn extends Base {
 			}elseif( preg_match('/^ {0,3}>/', $lineText) ){
 				$heldLnes = Array();
 				// The quote runs over the lines starting with >, and the lines that carry on its last paragraph
-				while( $lineIndx<$lineNumb && (preg_match('/^ {0,3}>/', $linesToParse[$lineIndx]) || (trim($linesToParse[$lineIndx])!=='' && trim(strval(end($heldLnes)))!=='' && !$this->startsBlockFlg($linesToParse[$lineIndx], true))) ){
+				while( $lineIndx<$lineNumb && (preg_match('/^ {0,3}>/', $linesToParse[$lineIndx]) || (trim($linesToParse[$lineIndx])!=='' && trim(strval(end($heldLnes)))!=='' && !$this->isStartOfBlock($linesToParse[$lineIndx], true))) ){
 					$heldLnes[] = preg_replace('/^ {0,3}> ?/', '', $linesToParse[$lineIndx]);
 					$lineIndx++;
 				}
-				$blockLst[] = $this->holdBlockArray('citation', $this->retrieveBlocks($heldLnes));
+				$blockLst[] = $this->makeOuterBlock('citation', $this->readLineBlocks($heldLnes));
 			}else{
 				$blockLst[] = $this->readListsArray($linesToParse, $lineIndx);
 			}
 		}
-		return array_merge($blockLst, $this->flowBlocksList($prgrLnes));
+		return array_merge($blockLst, $this->readFlowBlocks($prgrLnes));
 	}
 
 	/**
@@ -183,14 +183,14 @@ class Mdwn extends Base {
 	 * @param Int    $levelValNumb Its level, from 1 to 6.
 	 * @return Array The block.
 	 */
-	protected function headBlockArray(String $templateText, Int $levelValNumb): Array {
+	protected function makeHeadingBlc(String $templateText, Int $levelValNumb): Array {
 		$attrDict = Array('level'=>$levelValNumb);
 		$tgidMatx = Array();
 		if( preg_match('/^(.*?)[ \t]*\{#([\w\-:.]+)\}$/Ds', trim($templateText), $tgidMatx) ){
 			$templateText = $tgidMatx[1];
 			$attrDict['tagid'] = $tgidMatx[2];
 		}
-		return Shape::makeBlockArray('headline', $this->textSpansArray($templateText), Array(), $attrDict);
+		return Shape::makeBlockArray('headline', $this->readSpansOfTxt($templateText), Array(), $attrDict);
 	}
 
 	/**
@@ -225,7 +225,7 @@ class Mdwn extends Base {
 				}
 				if( strspn($lineText, ' ')>=$itemMark['indnt'] ){
 					$itemLnes[] = substr($lineText, $itemMark['indnt']);
-				}elseif( trim(strval(end($itemLnes)))!=='' && !$this->startsBlockFlg($lineText, false) ){
+				}elseif( trim(strval(end($itemLnes)))!=='' && !$this->isStartOfBlock($lineText, false) ){
 					// A line that is not indented carries on the paragraph of the entry
 					$itemLnes[] = ltrim($lineText);
 				}else{
@@ -240,7 +240,7 @@ class Mdwn extends Base {
 				$attrDict['check'] = ($taskPart[1]!==' ');
 				$itemLnes[0] = $taskPart[2];
 			}
-			$itemList[] = $this->holdBlockArray('listItem', $this->retrieveBlocks($itemLnes), $attrDict);
+			$itemList[] = $this->makeOuterBlock('listItem', $this->readLineBlocks($itemLnes), $attrDict);
 			// The list carries on when its next entry follows, blank lines apart
 			$nextIndx = $linesIndxNum;
 			while( $nextIndx<$lineNumb && trim($linesToParse[$nextIndx])==='' ){
@@ -286,10 +286,10 @@ class Mdwn extends Base {
 			$cellBloc = Array();
 			// Every row has the cells of the header: no more, no less
 			foreach(array_keys($headText) as $colInc){
-				$cellBloc[] = Shape::makeBlockArray('cellText', $this->textSpansArray(strval($cellText[$colInc] ?? '')));
+				$cellBloc[] = Shape::makeBlockArray('cellText', $this->readSpansOfTxt(strval($cellText[$colInc] ?? '')));
 			}
 			$rowsList[] = Shape::makeBlockArray(empty($rowsList) ? 'tableTop' : 'tableRow', Array(), $cellBloc);
-			if( !isset($linesToParse[$linesIndxNum]) || trim($linesToParse[$linesIndxNum])==='' || $this->startsBlockFlg($linesToParse[$linesIndxNum], true) ){
+			if( !isset($linesToParse[$linesIndxNum]) || trim($linesToParse[$linesIndxNum])==='' || $this->isStartOfBlock($linesToParse[$linesIndxNum], true) ){
 				break;
 			}
 			$cellText = $this->splitCellArray($linesToParse[$linesIndxNum]);
@@ -305,7 +305,7 @@ class Mdwn extends Base {
 	 * @param Array $linesToParse The lines.
 	 * @return String The text.
 	 */
-	protected function mergeLinesText(Array $linesToParse): String {
+	protected function joinLinesAsTxt(Array $linesToParse): String {
 		$fullText = '';
 		$lastIndx = count($linesToParse)-1;
 		foreach(array_values($linesToParse) as $linIdx=>$linTxt){
@@ -322,24 +322,24 @@ class Mdwn extends Base {
 	 * @param Array $linesToParse The lines.
 	 * @return Array The blocks; none when there is no line.
 	 */
-	protected function flowBlocksList(Array $linesToParse): Array {
+	protected function readFlowBlocks(Array $linesToParse): Array {
 		$blockLst = Array();
-		$fullText = $this->mergeLinesText($linesToParse);
+		$fullText = $this->joinLinesAsTxt($linesToParse);
 		$imagePar = Array();
 		$readIndx = 0;
 		while( preg_match(self::IMGE_PATT, $fullText, $imagePar, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readIndx) ){
-			$spansLst = $this->textSpansArray(substr($fullText, $readIndx, $imagePar[0][1]-$readIndx));
+			$spansLst = $this->readSpansOfTxt(substr($fullText, $readIndx, $imagePar[0][1]-$readIndx));
 			if( !empty($spansLst) ){
 				$blockLst[] = Shape::makeBlockArray('paragrph', $spansLst);
 			}
-			$imageLnk = Shape::tidyLinkString(trim(strval($imagePar['ls'][0] ?? $imagePar['is'][0]), '<>'));
+			$imageLnk = Shape::wipeUnsafeAddr(trim(strval($imagePar['ls'][0] ?? $imagePar['is'][0]), '<>'));
 			$imageTxt = trim(strval($imagePar['la'][0] ?? $imagePar['ia'][0]));
 			if( $imageLnk!=='' ){
-				$blockLst[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeASpanArray($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk));
+				$blockLst[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeSpanOfText($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk));
 			}
 			$readIndx = $imagePar[0][1]+strlen($imagePar[0][0]);
 		}
-		$spansLst = $this->textSpansArray(strval(substr($fullText, $readIndx)));
+		$spansLst = $this->readSpansOfTxt(strval(substr($fullText, $readIndx)));
 		if( !empty($spansLst) ){
 			$blockLst[] = Shape::makeBlockArray('paragrph', $spansLst);
 		}
@@ -352,8 +352,8 @@ class Mdwn extends Base {
 	 * @param String $templateText The text.
 	 * @return Array The spans; none when there is no text.
 	 */
-	protected function textSpansArray(String $templateText): Array {
-		return Shape::joinSpansArray($this->inlineSpansArr(trim($templateText), Array(), ''));
+	protected function readSpansOfTxt(String $templateText): Array {
+		return Shape::joinSpansArray($this->readInlineSpns(trim($templateText), Array(), ''));
 	}
 
 	/**
@@ -366,7 +366,7 @@ class Mdwn extends Base {
 	 * @param String $linkGoalText Address given by a link around it, '' when there is none.
 	 * @return Array The spans.
 	 */
-	protected function inlineSpansArr(String $templateText, Array $runFormatSet, String $linkGoalText): Array {
+	protected function readInlineSpns(String $templateText, Array $runFormatSet, String $linkGoalText): Array {
 		$escpPtrn = '/\\\\(?<esc>[!-\/:-@\[-`{-~])'
 			.'|(?<!`)(?<tck>`++)(?<cod>.+?)(?<!`)\k<tck>(?!`)'
 			.'|<(?<aut>https?:\/\/[^\s<>]+|mailto:[^\s<>]+|[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+)>'
@@ -379,34 +379,34 @@ class Mdwn extends Base {
 		$readIndx = 0;
 		$matxRows = Array();
 		while( preg_match($escpPtrn, $templateText, $matxRows, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL, $readIndx) ){
-			$spansLst[] = Shape::makeASpanArray(html_entity_decode(substr($templateText, $readIndx, $matxRows[0][1]-$readIndx), ENT_QUOTES | ENT_HTML5, 'UTF-8'), $runFormatSet, $linkGoalText);
+			$spansLst[] = Shape::makeSpanOfText(html_entity_decode(substr($templateText, $readIndx, $matxRows[0][1]-$readIndx), ENT_QUOTES | ENT_HTML5, 'UTF-8'), $runFormatSet, $linkGoalText);
 			$readIndx = $matxRows[0][1]+strlen($matxRows[0][0]);
 			if( $matxRows['esc'][0]!==null ){
-				$spansLst[] = Shape::makeASpanArray($matxRows['esc'][0], $runFormatSet, $linkGoalText);
+				$spansLst[] = Shape::makeSpanOfText($matxRows['esc'][0], $runFormatSet, $linkGoalText);
 			}elseif( $matxRows['cod'][0]!==null ){
 				// Code is given as written; one space on each side of it is only there to hold a backtick
 				$codeText = $matxRows['cod'][0];
 				if( strlen($codeText)>2 && $codeText[0]==' ' && substr($codeText, -1)==' ' && trim($codeText)!=='' ){
 					$codeText = substr($codeText, 1, -1);
 				}
-				$spansLst[] = Shape::makeASpanArray($codeText, array_merge($runFormatSet, Array('codeSpan')), $linkGoalText);
+				$spansLst[] = Shape::makeSpanOfText($codeText, array_merge($runFormatSet, Array('codeSpan')), $linkGoalText);
 			}elseif( $matxRows['aut'][0]!==null ){
 				$autoAddr = $matxRows['aut'][0];
-				$spansLst[] = Shape::makeASpanArray($autoAddr, $runFormatSet, Shape::tidyLinkString((strpos($autoAddr, ':')===false) ? 'mailto:'.$autoAddr : $autoAddr));
+				$spansLst[] = Shape::makeSpanOfText($autoAddr, $runFormatSet, Shape::wipeUnsafeAddr((strpos($autoAddr, ':')===false) ? 'mailto:'.$autoAddr : $autoAddr));
 			}elseif( $matxRows['alt'][0]!==null ){
 				// An image where only text can stand, as in a heading or a cell: its description
-				$spansLst[] = Shape::makeASpanArray($matxRows['alt'][0], $runFormatSet, $linkGoalText);
+				$spansLst[] = Shape::makeSpanOfText($matxRows['alt'][0], $runFormatSet, $linkGoalText);
 			}elseif( $matxRows['ltx'][0]!==null ){
-				$linkAddr = Shape::tidyLinkString(preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', trim(strval($matxRows['lnk'][0]), '<>')));
-				$spansLst = array_merge($spansLst, $this->inlineSpansArr($matxRows['ltx'][0], $runFormatSet, ($linkAddr!=='') ? $linkAddr : $linkGoalText));
+				$linkAddr = Shape::wipeUnsafeAddr(preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', trim(strval($matxRows['lnk'][0]), '<>')));
+				$spansLst = array_merge($spansLst, $this->readInlineSpns($matxRows['ltx'][0], $runFormatSet, ($linkAddr!=='') ? $linkAddr : $linkGoalText));
 			}elseif( $matxRows['tld'][0]!==null ){
-				$spansLst = array_merge($spansLst, $this->inlineSpansArr($matxRows['tld'][0], array_merge($runFormatSet, Array('crossOut')), $linkGoalText));
+				$spansLst = array_merge($spansLst, $this->readInlineSpns($matxRows['tld'][0], array_merge($runFormatSet, Array('crossOut')), $linkGoalText));
 			}else{
 				$markText = strval($matxRows['stm'][0] ?? $matxRows['unm'][0]);
-				$spansLst = array_merge($spansLst, $this->inlineSpansArr(strval($matxRows['stx'][0] ?? $matxRows['unx'][0]), array_merge($runFormatSet, self::MARK_LIST[strlen($markText)]), $linkGoalText));
+				$spansLst = array_merge($spansLst, $this->readInlineSpns(strval($matxRows['stx'][0] ?? $matxRows['unx'][0]), array_merge($runFormatSet, self::MARK_LIST[strlen($markText)]), $linkGoalText));
 			}
 		}
-		$spansLst[] = Shape::makeASpanArray(html_entity_decode(strval(substr($templateText, $readIndx)), ENT_QUOTES | ENT_HTML5, 'UTF-8'), $runFormatSet, $linkGoalText);
+		$spansLst[] = Shape::makeSpanOfText(html_entity_decode(strval(substr($templateText, $readIndx)), ENT_QUOTES | ENT_HTML5, 'UTF-8'), $runFormatSet, $linkGoalText);
 		return $spansLst;
 	}
 

@@ -15,13 +15,13 @@ abstract class Base implements Parser {
 	const DFLT_SIZE = 16777216;
 
 	/**
-	 * Tells the kinds of content the parser reads, as Bina::detectFileKind()
+	 * Tells the kinds of content the parser reads, as Bina::findContentCod()
 	 * names them: a file whose first bytes show another kind is not what
 	 * its name announces.
 	 *
 	 * @return Array The kinds; those that are text unless the parser says otherwise.
 	 */
-	public function signsReadArray(): Array {
+	public function listContentCod(): Array {
 		return Bina::TEXT_LIST;
 	}
 	
@@ -67,7 +67,7 @@ abstract class Base implements Parser {
 	 * @param Array  $attributeSet What is particular to it.
 	 * @return Array The block.
 	 */
-	protected function holdBlockArray(String $blockLblText, Array $bookBlockSet, Array $attributeSet=Array()): Array {
+	protected function makeOuterBlock(String $blockLblText, Array $bookBlockSet, Array $attributeSet=Array()): Array {
 		if( !empty($bookBlockSet) && $bookBlockSet[0]['block']=='paragrph' ){
 			return Shape::makeBlockArray($blockLblText, $bookBlockSet[0]['spans'], array_slice($bookBlockSet, 1), $attributeSet + $bookBlockSet[0]['attrs']);
 		}
@@ -85,7 +85,7 @@ abstract class Base implements Parser {
 	 * @param Array $columnTitles Receives the names of the columns.
 	 * @return Array The other rows, keyed by those names.
 	 */
-	protected function keyedRowsArray(Array $cellRowsList, Array &$columnTitles): Array {
+	protected function castRowsToDict(Array $cellRowsList, Array &$columnTitles): Array {
 		$columnTitles = Array();
 		$cellRowsList = array_values($cellRowsList);
 		if( empty($cellRowsList) ){
@@ -122,7 +122,7 @@ abstract class Base implements Parser {
 	 * @param String $nakedContent The text, as read from its source.
 	 * @return String The text in UTF-8.
 	 */
-	public static function recodeTextUtf8(String $nakedContent): String {
+	public static function castTextToUtf8(String $nakedContent): String {
 		if( substr($nakedContent, 0, 3)==="\xEF\xBB\xBF" ){
 			return substr($nakedContent, 3);
 		}
@@ -144,7 +144,7 @@ abstract class Base implements Parser {
 	 * @param Array $fieldValList The array.
 	 * @return Array The same values, under upper-cased keys.
 	 */
-	protected function upperKeysArray(Array $fieldValList): Array {
+	protected function castKeysInCaps(Array $fieldValList): Array {
 		$upprVals = Array();
 		foreach($fieldValList as $valKey=>$valItm){
 			$upprVals[is_string($valKey) ? strtoupper($valKey) : $valKey] = $valItm;

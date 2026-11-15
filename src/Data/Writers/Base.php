@@ -64,7 +64,7 @@ abstract class Base implements Writer {
 	 * @param Array $fieldValList The array.
 	 * @return Bool True for a list, an empty one included.
 	 */
-	protected function validateALstOf(Array $fieldValList): Bool {
+	protected function isSequenceList(Array $fieldValList): Bool {
 		return (empty($fieldValList) || array_keys($fieldValList)===range(0, count($fieldValList)-1));
 	}
 

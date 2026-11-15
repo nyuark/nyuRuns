@@ -97,7 +97,7 @@ function odtBack( Array $itemsArray, Array $infosArray=Array(), String $shapeLab
 	return (new OdtxRead())->parseFluxArray(Fluxd::openBytesFluxd((new Odtx())->renderDocument(Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsArray))));
 }
 
-$mkSpan = Array(Shape::class, 'makeASpanArray');
+$mkSpan = Array(Shape::class, 'makeSpanOfText');
 $mkBlck = Array(Shape::class, 'makeBlockArray');
 $mkCell = function(String $cellsText, Array $attrsArray=Array(), Array $itemsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('cellText', ($cellsText==='') ? Array() : Array($mkSpan($cellsText)), $itemsArray, $attrsArray); };
 
@@ -111,7 +111,7 @@ checkPregMatch('the pages: A4, standing, unless told otherwise', odtPart($bookTx
 checkPregMatch('another size of paper, lying', odtPart(odtWrite(Array(), Array(), Array('paper'=>'usLetter', 'lands'=>true)), 'styles.xml'), '/fo:page-width="27\.940cm" fo:page-height="21\.590cm" style:print-orientation="landscape"/');
 checkPregMatch('a size of paper that is not one', odtWrite(Array(), Array(), Array('paper'=>'huge')), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Invalid document option: unknown paper huge/');
 checkPregMatch('a shape that is not blocks', odtWrite(Array(), Array(), Array(), 'nodes'), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as a document: nodes/');
-checkIdentical('the writer of the odt extension', Array(get_class(Index::forExtnsWriter('ODT')), Index::contentTypeFor('odt')), Array('nyu\\Data\\Writers\\Odtx', 'application/vnd.oasis.opendocument.text'));
+checkIdentical('the writer of the odt extension', Array(get_class(Index::getExtnsWriter('ODT')), Index::getMimeForExtn('odt')), Array('nyu\\Data\\Writers\\Odtx', 'application/vnd.oasis.opendocument.text'));
 checkPregMatch('the styles a reader finds its way by, under the names LibreOffice gives them', odtPart($bookTxt, 'styles.xml'), '/<style:style style:name="Standard" style:family="paragraph" style:class="text"\/><style:style style:name="Heading_20_1" style:display-name="Heading 1" style:family="paragraph" style:parent-style-name="Standard" style:next-style-name="Standard" style:default-outline-level="1".*style:name="Heading_20_6".*style:name="Quotations".*style:display-name="Preformatted Text".*style:display-name="Table Heading".*style:name="Footnote".*style:name="Endnote".*style:display-name="Internet Link"/s');
 
 // Blocks, as the document is told of them
@@ -251,6 +251,6 @@ checkTrueValue('and that content holds every kind of block', count($openShw)>30 
 // A document of LibreOffice, read, written, and read again: the same text
 $smplSet = (new OdtxRead())->parseFluxArray(Fluxd::openLocalFluxd(TST_DIR.DS.'fixtures'.DS.'office'.DS.'sample.odt'));
 $againSt = odtBack($smplSet['items'], $smplSet['infos']);
-checkIdentical('a document of LibreOffice read, written and read again keeps its text', Array(preg_replace('/\s+/', ' ', Shape::documentAsText($againSt['items']))===preg_replace('/\s+/', ' ', Shape::documentAsText($smplSet['items'])), strlen(Shape::documentAsText($smplSet['items']))>0), Array(true, true));
+checkIdentical('a document of LibreOffice read, written and read again keeps its text', Array(preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($againSt['items']))===preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($smplSet['items'])), strlen(Shape::getTextOfDcmnt($smplSet['items']))>0), Array(true, true));
 
 finishChecking();

@@ -233,7 +233,7 @@ class AccessMail {
 	 */
 	protected function sendViaAccount( String $emailAddress, Array $mailPartsLst ): Bool {
 		try{
-			return Mailer::retrieveMailer($this->accountNme)->deliverEmlFlag($emailAddress, $mailPartsLst[0], $mailPartsLst[1], $mailPartsLst[2]);
+			return Mailer::getMailerOfAcc($this->accountNme)->sendMailViaAcc($emailAddress, $mailPartsLst[0], $mailPartsLst[1], $mailPartsLst[2]);
 		}catch( MailFailure $e ){
 			Logger::getLoggerOfChn('runner')->warning( 'Access mail not sent through account '.json_encode($this->accountNme).': '.$e->getMessage() );
 			return false;
@@ -266,6 +266,6 @@ class AccessMail {
 		}catch( \RuntimeException $e ){
 			return null;
 		}
-		return Array( $mailTmpl->getSubjectText($placeholders), $mailTmpl->simpleBodyText($placeholders), $mailTmpl->getHtmlVersion($placeholders) );
+		return Array( $mailTmpl->getSubjectText($placeholders), $mailTmpl->getPlainEmlTxt($placeholders), $mailTmpl->getHtmlVersion($placeholders) );
 	}
 }

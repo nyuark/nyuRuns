@@ -54,7 +54,7 @@ class ICal extends Base {
 		}
 		foreach(self::KIND_LIST as $kndKey=>$kndNme){
 			foreach((array)($itemList[$kndKey] ?? Array()) as $entSet){
-				$lineList = array_merge($lineList, Array('BEGIN:'.$kndNme), $this->entrysOutArray((array)$entSet, $kndKey), Array('END:'.$kndNme));
+				$lineList = array_merge($lineList, Array('BEGIN:'.$kndNme), $this->writeEntryList((array)$entSet, $kndKey), Array('END:'.$kndNme));
 			}
 		}
 		$lineList[] = 'END:VCALENDAR';
@@ -97,7 +97,7 @@ class ICal extends Base {
 	 * @param Int    $offsetInDays Days to add to a date without time.
 	 * @return Array The line of the property, in a list; an empty list when the date is not one.
 	 */
-	protected function datesLineArray(String $propertyName, String $givenIsoDate, String $timeZoneName='', Int $offsetInDays=0): Array {
+	protected function writeDateAsLne(String $propertyName, String $givenIsoDate, String $timeZoneName='', Int $offsetInDays=0): Array {
 		$dateList = Array();
 		if( !preg_match('/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d)(?::(\d\d))?)?$/D', $givenIsoDate, $dateList) || !checkdate(intval($dateList[2]), intval($dateList[3]), intval($dateList[1])) ){
 			return Array();
@@ -121,7 +121,7 @@ class ICal extends Base {
 	 * @param Array  $partyDetails The person: 'names', 'email' and, for a guest, 'reply'.
 	 * @return Array The line of the property, in a list; an empty list when the person has no address.
 	 */
-	protected function partyLineArray(String $propertyName, Array $partyDetails): Array {
+	protected function writePartyLine(String $propertyName, Array $partyDetails): Array {
 		$mailAddr = preg_replace('/[\s\x00-\x1F\x7F;,]/', '', strval($partyDetails['email'] ?? ''));
 		if( $mailAddr==='' ){
 			return Array();
@@ -139,7 +139,7 @@ class ICal extends Base {
 	 * @param Array $ruleSettings The rule: 'every', 'steps', 'wdays', 'mdays', 'month', 'until', 'times'.
 	 * @return Array The line of the rule, in a list; an empty list when the entry does not repeat.
 	 */
-	protected function rulesLineArray(Array $ruleSettings): Array {
+	protected function writeRuleAsLne(Array $ruleSettings): Array {
 		if( !isset(self::FREQ_LIST[strval($ruleSettings['every'] ?? '')]) ){
 			return Array();
 		}
@@ -154,7 +154,7 @@ class ICal extends Base {
 			}
 		}
 		// The last date is a day, or a time told in universal time
-		$lastLine = $this->datesLineArray('UNTIL', strval($ruleSettings['until'] ?? ''), 'UTC');
+		$lastLine = $this->writeDateAsLne('UNTIL', strval($ruleSettings['until'] ?? ''), 'UTC');
 		if( !empty($lastLine) ){
 			$partList[] = 'UNTIL='.substr($lastLine[0], intval(strrpos($lastLine[0], ':'))+1);
 		}
@@ -171,22 +171,22 @@ class ICal extends Base {
 	 * @param String $itemTypesTxt Its kind: event, tasks or notes.
 	 * @return Array The lines of the entry, without those that open and close it.
 	 */
-	protected function entrysOutArray(Array $calendarItem, String $itemTypesTxt): Array {
+	protected function writeEntryList(Array $calendarItem, String $itemTypesTxt): Array {
 		$isAllDay = !empty($calendarItem['whole']);
 		$zoneName = strval($calendarItem['tzone'] ?? '');
 		$startVal = strval($calendarItem['start'] ?? '');
 		$lineList = Array('UID:'.$this->escapeIcalText((strval($calendarItem['ident'] ?? '')!=='') ? strval($calendarItem['ident']) : bin2hex(random_bytes(16)).'@nyuruns'));
 		// The date an entry was written is told in universal time; the present one when the entry tells none
-		$lineList = array_merge($lineList, $this->datesLineArray('DTSTAMP', (strlen(strval($calendarItem['stamp'] ?? ''))>10) ? strval($calendarItem['stamp']) : gmdate('Y-m-d H:i:s'), 'UTC'));
-		$startLne = $this->datesLineArray('DTSTART', $startVal, $zoneName);
+		$lineList = array_merge($lineList, $this->writeDateAsLne('DTSTAMP', (strlen(strval($calendarItem['stamp'] ?? ''))>10) ? strval($calendarItem['stamp']) : gmdate('Y-m-d H:i:s'), 'UTC'));
+		$startLne = $this->writeDateAsLne('DTSTART', $startVal, $zoneName);
 		$lineList = array_merge($lineList, $startLne);
 		if( $itemTypesTxt=='calEvent' && !empty($startLne) ){
 			// Whole days end, as the format writes it, on the day after their last one
 			$endValue = (strval($calendarItem['ended'] ?? '')!=='') ? strval($calendarItem['ended']) : $startVal;
-			$lineList = array_merge($lineList, $this->datesLineArray('DTEND', $endValue, $zoneName, $isAllDay ? 1 : 0));
+			$lineList = array_merge($lineList, $this->writeDateAsLne('DTEND', $endValue, $zoneName, $isAllDay ? 1 : 0));
 		}
 		if( $itemTypesTxt=='calTodos' ){
-			$lineList = array_merge($lineList, $this->datesLineArray('DUE', strval($calendarItem['dueby'] ?? ''), $zoneName));
+			$lineList = array_merge($lineList, $this->writeDateAsLne('DUE', strval($calendarItem['dueby'] ?? ''), $zoneName));
 			if( intval($calendarItem['ratio'] ?? 0)>0 ){
 				$lineList[] = 'PERCENT-COMPLETE:'.max(0, min(100, intval($calendarItem['ratio'])));
 			}
@@ -196,7 +196,7 @@ class ICal extends Base {
 				$lineList[] = $prpNme.':'.$this->escapeIcalText(strval($calendarItem[$fldKey]));
 			}
 		}
-		$linkAddr = Shape::tidyLinkString(strval($calendarItem['links'] ?? ''));
+		$linkAddr = Shape::wipeUnsafeAddr(strval($calendarItem['links'] ?? ''));
 		if( $linkAddr!=='' ){
 			$lineList[] = 'URL:'.preg_replace('/[\x00-\x20\x7F]/', '', $linkAddr);
 		}
@@ -207,17 +207,17 @@ class ICal extends Base {
 		if( !empty($labelLst) ){
 			$lineList[] = 'CATEGORIES:'.implode(',', array_map(Array($this, 'escapeIcalText'), $labelLst));
 		}
-		$lineList = array_merge($lineList, $this->partyLineArray('ORGANIZER', (array)($calendarItem['owner'] ?? Array())));
+		$lineList = array_merge($lineList, $this->writePartyLine('ORGANIZER', (array)($calendarItem['owner'] ?? Array())));
 		foreach((array)($calendarItem['guest'] ?? Array()) as $gstSet){
-			$lineList = array_merge($lineList, $this->partyLineArray('ATTENDEE', (array)$gstSet));
+			$lineList = array_merge($lineList, $this->writePartyLine('ATTENDEE', (array)$gstSet));
 		}
 		// A rule kept as written says more than the one that was read: it is the one written back
 		$extraLst = (array)($calendarItem['extra'] ?? Array());
 		if( !isset(array_change_key_case($extraLst, CASE_UPPER)['RRULE']) ){
-			$lineList = array_merge($lineList, $this->rulesLineArray((array)($calendarItem['rpeat'] ?? Array())));
+			$lineList = array_merge($lineList, $this->writeRuleAsLne((array)($calendarItem['rpeat'] ?? Array())));
 		}
 		foreach((array)($calendarItem['skips'] ?? Array()) as $skpVal){
-			$lineList = array_merge($lineList, $this->datesLineArray('EXDATE', strval($skpVal), $zoneName));
+			$lineList = array_merge($lineList, $this->writeDateAsLne('EXDATE', strval($skpVal), $zoneName));
 		}
 		foreach($extraLst as $prpNme=>$prpVal){
 			// What was kept as written is written as it was, when its name is one and it is not a property written above

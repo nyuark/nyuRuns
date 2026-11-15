@@ -147,7 +147,7 @@ checkPregMatch('a content that is not values', runCatchThrown(function(){ return
 checkPregMatch('values that are not the entries of a calendar', calOut(Array('name'=>'Alpha', 'seats'=>120)), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Content that cannot be written as a calendar: it holds something else than events, tasks and notes/');
 
 // Through the index
-checkIdentical('index: calendars by extension, with their content type', Array(get_class(Index::forExtnsWriter('ICS')), Index::contentTypeFor('ics')), Array('nyu\Data\Writers\ICal', 'text/calendar; charset=utf-8'));
+checkIdentical('index: calendars by extension, with their content type', Array(get_class(Index::getExtnsWriter('ICS')), Index::getMimeForExtn('ics')), Array('nyu\Data\Writers\ICal', 'text/calendar; charset=utf-8'));
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 finishChecking();

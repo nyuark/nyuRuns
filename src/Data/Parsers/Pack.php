@@ -29,7 +29,7 @@ abstract class Pack extends Base {
 	 *
 	 * @return Array The kinds.
 	 */
-	public function signsReadArray(): Array {
+	public function listContentCod(): Array {
 		return Bina::PACK_LIST;
 	}
 	
@@ -61,7 +61,7 @@ abstract class Pack extends Base {
 		try{
 			return $this->parseFluxArray($bytesFlx, $parseOptions);
 		}finally{
-			$bytesFlx->closeTheSource();
+			$bytesFlx->shutFluxSource();
 		}
 	}
 
@@ -94,13 +94,13 @@ abstract class Pack extends Base {
 			throw $e;
 		}catch( \RuntimeException $e ){
 			// An Office document protected by a password is no longer a zip archive, but a container of the older Office formats
-			if( $e->getMessage()=='Not a zip archive' && Bina::detectFileKind($sourceStream->getRangeString(0, 511))=='ole' ){
+			if( $e->getMessage()=='Not a zip archive' && Bina::findContentCod($sourceStream->getRangeString(0, 511))=='ole' ){
 				throw new ParseError('Invalid archive: the document is protected by a password, or saved in an older Office format', 0, $e);
 			}
 			throw new ParseError('Invalid archive: '.$e->getMessage(), 0, $e);
 		}finally{
 			if( $this->archiveObj!==null ){
-				$this->archiveObj->releaseArchive();
+				$this->archiveObj->shutZipArchive();
 			}
 			$this->archiveObj = null;
 		}
@@ -116,8 +116,8 @@ abstract class Pack extends Base {
 	 *
 	 * @throws ParseError When the part is required and missing, or is not valid XML.
 	 */
-	protected function partNodesArray(String $fullPathName, Bool $partRequired=true, Bool $keepsSpacing=false): ?Array {
-		if( !$this->archiveObj->locateEntryFlg($fullPathName) ){
+	protected function readPartAsTree(String $fullPathName, Bool $partRequired=true, Bool $keepsSpacing=false): ?Array {
+		if( !$this->archiveObj->isEntryInArchv($fullPathName) ){
 			if( $partRequired ){
 				throw new ParseError('Invalid archive: part '.$fullPathName.' is missing');
 			}
@@ -138,7 +138,7 @@ abstract class Pack extends Base {
 	 * @param String $tagNmeString Name looked for. Given with its prefix, it is matched whole; given without, it matches whatever prefix the document uses.
 	 * @return Array The children of that name, in order.
 	 */
-	protected function kidsNamedArray(Array $elementArray, String $tagNmeString): Array {
+	protected function listNamedNodes(Array $elementArray, String $tagNmeString): Array {
 		$kidsList = Array();
 		$hasPrefx = (strpos($tagNmeString, ':')!==false);
 		foreach($elementArray['nodes'] as $chlArr){
@@ -160,7 +160,7 @@ abstract class Pack extends Base {
 	 */
 	protected function findChildArray(Array $elementArray, Array $tagPathSteps): ?Array {
 		foreach($tagPathSteps as $tagNme){
-			$kidsList = $this->kidsNamedArray($elementArray, $tagNme);
+			$kidsList = $this->listNamedNodes($elementArray, $tagNme);
 			if( empty($kidsList) ){
 				return null;
 			}
@@ -175,10 +175,10 @@ abstract class Pack extends Base {
 	 * @param Array $elementArray The element.
 	 * @return String Its text, with the text of what it holds, in order.
 	 */
-	protected function collectAllText(Array $elementArray): String {
+	protected function readNestedText(Array $elementArray): String {
 		$fullText = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
-			$fullText .= $this->collectAllText($chlArr);
+			$fullText .= $this->readNestedText($chlArr);
 		}
 		return $fullText;
 	}
@@ -195,7 +195,7 @@ abstract class Pack extends Base {
 	 *
 	 * @throws ParseError When the sheet asked for is not in the workbook.
 	 */
-	protected function pickSheetArray(Array $sheetNameLst, Array $visibleFlags, Array $parseOptions): Array {
+	protected function findSheetArray(Array $sheetNameLst, Array $visibleFlags, Array $parseOptions): Array {
 		if( isset($parseOptions['sheet']) && $parseOptions['sheet']!=='' ){
 			$askdTabs = strval($parseOptions['sheet']);
 			$foundIdx = array_search($askdTabs, $sheetNameLst, true);
@@ -230,7 +230,7 @@ abstract class Pack extends Base {
 	 *
 	 * @throws ParseError When the 'merge' option is not a known one, or the merged cells are too many to be filled.
 	 */
-	protected function doneSheetArray(String $sheetHeading, Array $cellRowsList, Array $attributeSet, Array $parseOptions, Array &$columnTitles): Array {
+	protected function makeFinalSheet(String $sheetHeading, Array $cellRowsList, Array $attributeSet, Array $parseOptions, Array &$columnTitles): Array {
 		$mergCode = strtolower(strval($parseOptions['merge'] ?? 'keeps'));
 		if( $mergCode!='keeps' && $mergCode!='fills' ){
 			throw new ParseError('Invalid workbook option: unknown merge '.$mergCode);
@@ -240,7 +240,7 @@ abstract class Pack extends Base {
 		}
 		$columnTitles = Array();
 		if( !empty($parseOptions['heads']) ){
-			$cellRowsList = $this->keyedRowsArray($cellRowsList, $columnTitles);
+			$cellRowsList = $this->castRowsToDict($cellRowsList, $columnTitles);
 		}
 		$sheetLst = Shape::makeSheetArray($sheetHeading, Array(), $attributeSet);
 		$sheetLst['cells'] = $cellRowsList;
@@ -287,8 +287,8 @@ abstract class Pack extends Base {
 	 *
 	 * @throws ParseError When the document is protected by a password.
 	 */
-	protected function refuseIfLocked(): Void {
-		if( $this->archiveObj->locateEntryFlg('META-INF/manifest.xml') && strpos($this->archiveObj->getEntryString('META-INF/manifest.xml', $this->maxSizeVal), 'encryption-data')!==false ){
+	protected function denyLockedFile(): Void {
+		if( $this->archiveObj->isEntryInArchv('META-INF/manifest.xml') && strpos($this->archiveObj->getEntryString('META-INF/manifest.xml', $this->maxSizeVal), 'encryption-data')!==false ){
 			throw new ParseError('Invalid archive: the document is protected by a password');
 		}
 	}
@@ -301,7 +301,7 @@ abstract class Pack extends Base {
 	 * @param Array $elementArray The element.
 	 * @return String Its text.
 	 */
-	protected function odfPieceAsText(Array $elementArray): String {
+	protected function getOdfPieceTxt(Array $elementArray): String {
 		$fullText = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
 			$childNme = $chlArr['tagnm'];
@@ -312,7 +312,7 @@ abstract class Pack extends Base {
 			}elseif( $childNme=='text:line-break' ){
 				$fullText .= "\n";
 			}elseif( !in_array($childNme, Array('office:annotation', 'office:annotation-end', 'text:note', 'text:tracked-changes')) ){
-				$fullText .= $this->odfPieceAsText($chlArr);
+				$fullText .= $this->getOdfPieceTxt($chlArr);
 			}
 		}
 		return $fullText;
@@ -325,12 +325,12 @@ abstract class Pack extends Base {
 	 * @param String $fullPathName Name of the part, '' for the archive itself.
 	 * @return Array The relations, by their id, each with its kind under 'types', the name of the part it points to under 'paths', what it points to as written under 'links', and whether that is outside the archive under 'outer'.
 	 */
-	protected function relsOfFragment(String $fullPathName): Array {
+	protected function readRltnOfPart(String $fullPathName): Array {
 		$slashIdx = strrpos($fullPathName, '/');
 		$partPath = ($slashIdx===false) ? '' : substr($fullPathName, 0, $slashIdx+1);
-		$rltnNods = $this->partNodesArray($partPath.'_rels/'.substr($fullPathName, strlen($partPath)).'.rels', false);
+		$rltnNods = $this->readPartAsTree($partPath.'_rels/'.substr($fullPathName, strlen($partPath)).'.rels', false);
 		$rltnList = Array();
-		foreach($this->kidsNamedArray($rltnNods ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
+		foreach($this->listNamedNodes($rltnNods ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
 			$rltnTrgt = strval($relArr['attrs']['Target'] ?? '');
 			// A target is written from the folder of the part, or from the root of the archive when it starts with /
 			$rltnPath = (substr($rltnTrgt, 0, 1)=='/') ? substr($rltnTrgt, 1) : $partPath.$rltnTrgt;
@@ -355,12 +355,12 @@ abstract class Pack extends Base {
 	 * @param Array $namesToMatch The names looked for, with their prefix.
 	 * @return ?Array The element found, null when there is none.
 	 */
-	protected function deepNamedArray(Array $elementArray, Array $namesToMatch): ?Array {
+	protected function findNestedNode(Array $elementArray, Array $namesToMatch): ?Array {
 		foreach($elementArray['nodes'] as $chlArr){
 			if( in_array($chlArr['tagnm'], $namesToMatch, true) ){
 				return $chlArr;
 			}
-			$deepList = $this->deepNamedArray($chlArr, $namesToMatch);
+			$deepList = $this->findNestedNode($chlArr, $namesToMatch);
 			if( $deepList!==null ){
 				return $deepList;
 			}
@@ -376,7 +376,7 @@ abstract class Pack extends Base {
 	 * @param Bool  $keepEmptyFlg Whether a paragraph holding nothing is given as a block without text.
 	 * @return Array The whole text as spans under 'spans' and as written under 'plain', the images and the page breaks under 'holds', and all of it in order, as blocks, under 'flows'.
 	 */
-	protected function flowPartsArray(Array $outputPieces, Bool $keepEmptyFlg): Array {
+	protected function splitFlowParts(Array $outputPieces, Bool $keepEmptyFlg): Array {
 		$spansAll = Array();
 		$holdList = Array();
 		$flowList = Array();
@@ -418,7 +418,7 @@ abstract class Pack extends Base {
 	 * @param Array $paragraphVal The paragraph: its 'kinds' (headline, citation or paragrph), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
 	 * @return Array The blocks.
 	 */
-	protected function paragrphBlocks(Array $paragraphVal): Array {
+	protected function getBlocksOfPrg(Array $paragraphVal): Array {
 		$prgrCode = $paragraphVal['kinds'];
 		$newPargr = $paragraphVal['flows'];
 		if( $prgrCode=='headline' || $prgrCode=='citation' ){
@@ -443,12 +443,12 @@ abstract class Pack extends Base {
 	 * @param Array $paragraphLst The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
 	 * @return Array The block, in a list; an empty list when the lines hold nothing.
 	 */
-	protected function codeBlockArray(Array $paragraphLst): Array {
+	protected function joinCodeAsBloc(Array $paragraphLst): Array {
 		$codeText = trim(implode("\n", array_column($paragraphLst, 'plain')), "\n");
 		if( trim($codeText)==='' ){
 			return Array();
 		}
-		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), $paragraphLst[0]['attrs'] ?? Array()));
+		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeSpanOfText($codeText)), Array(), $paragraphLst[0]['attrs'] ?? Array()));
 	}
 	
 	/**
@@ -457,7 +457,7 @@ abstract class Pack extends Base {
 	 * @param Array $styleDetails The style: its name under 'names', then 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 * @return Array A name fit for a style sheet under 'class', then what the style tells among 'fonts', 'sizes', 'color', 'marks' and 'align'.
 	 */
-	protected function styleFormatArr(Array $styleDetails): Array {
+	protected function getStyleFormat(Array $styleDetails): Array {
 		$classNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleDetails['names'] ?? ''))), '-');
 		$frmtDict = Array('class'=>preg_match('/^[a-z]/', $classNme) ? $classNme : 's-'.$classNme);
 		foreach(Array('fonts', 'sizes', 'color', 'marks', 'align') as $prpKey){
@@ -488,11 +488,11 @@ abstract class Pack extends Base {
 			throw new ParseError('Invalid option: the folder for the pictures cannot be written to');
 		}
 		$saveList = Array();
-		$envelopeData['items'] = $this->mediaWalkArray((array)$envelopeData['items'], $realPath, $saveList);
+		$envelopeData['items'] = $this->saveDeepImages((array)$envelopeData['items'], $realPath, $saveList);
 		// The headers and the footers of the pages hold pictures too
 		foreach(Array('phead', 'pfoot') as $infKey){
 			if( is_array($envelopeData['infos'][$infKey] ?? null) ){
-				$envelopeData['infos'][$infKey] = $this->mediaWalkArray($envelopeData['infos'][$infKey], $realPath, $saveList);
+				$envelopeData['infos'][$infKey] = $this->saveDeepImages($envelopeData['infos'][$infKey], $realPath, $saveList);
 			}
 		}
 		$envelopeData['infos']['media'] = array_flip(array_filter($saveList, 'strlen'));
@@ -512,13 +512,13 @@ abstract class Pack extends Base {
 	 * @param Array  $picturesSeen The pictures met so far: their place in the archive => the name of their file, '' for what could not be saved.
 	 * @return Array The blocks.
 	 */
-	protected function mediaWalkArray(Array $bookBlockSet, String $imagesFolder, Array &$picturesSeen): Array {
+	protected function saveDeepImages(Array $bookBlockSet, String $imagesFolder, Array &$picturesSeen): Array {
 		foreach($bookBlockSet as $blkIdx=>$oneBlk){
 			if( !empty($oneBlk['items']) ){
-				$bookBlockSet[$blkIdx]['items'] = $this->mediaWalkArray($oneBlk['items'], $imagesFolder, $picturesSeen);
+				$bookBlockSet[$blkIdx]['items'] = $this->saveDeepImages($oneBlk['items'], $imagesFolder, $picturesSeen);
 			}
 			$innerPth = strval($oneBlk['attrs']['sourc'] ?? '');
-			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->archiveObj->locateEntryFlg($innerPth) ){
+			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->archiveObj->isEntryInArchv($innerPth) ){
 				continue;
 			}
 			if( !isset($picturesSeen[$innerPth]) && count($picturesSeen)<self::MEDI_MAXI ){
@@ -527,12 +527,12 @@ abstract class Pack extends Base {
 					$rawStrng = $this->archiveObj->getEntryString($innerPth, $this->maxSizeVal);
 					$pictInst = Image::openFluxdImage(Fluxd::openBytesFluxd($rawStrng));
 					// A drawing is saved cleaned of what runs; any other picture written anew, or copied when this server cannot
-					if( $pictInst->imageInfoArray()['kinds']=='svg' ){
+					if( $pictInst->getInfoOfImage()['kinds']=='svg' ){
 						$outStrng = $pictInst->dropRiskyParts();
 					}else{
-						$outStrng = function_exists('imagecreatefromstring') ? $pictInst->fixOrientation()->grantBytesText('', 90) : $rawStrng;
+						$outStrng = function_exists('imagecreatefromstring') ? $pictInst->turnUprightImg()->grantBytesText('', 90) : $rawStrng;
 					}
-					$fileName = substr(sha1($outStrng), 0, 20).'.'.$pictInst->imageInfoArray()['kinds'];
+					$fileName = substr(sha1($outStrng), 0, 20).'.'.$pictInst->getInfoOfImage()['kinds'];
 					if( @file_put_contents($imagesFolder.DIRECTORY_SEPARATOR.$fileName, $outStrng)!==false ){
 						$picturesSeen[$innerPth] = $fileName;
 					}

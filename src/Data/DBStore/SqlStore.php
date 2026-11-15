@@ -56,13 +56,13 @@ class SqlStore implements Store {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool {
 		if( !isset($this->detailList[$tbleLabelTxt]) ){
-			$tableDct = ConfCache::tableInfoArray($this->dbLinkName, $tbleLabelTxt);
+			$tableDct = ConfCache::getInfoOfTable($this->dbLinkName, $tbleLabelTxt);
 			if( $tableDct!==null ){
 				$this->cachTblLst[] = $tbleLabelTxt;
 			}else{
-				$tableDct = $this->baseHandle->tableInfoArray($tbleLabelTxt);
+				$tableDct = $this->baseHandle->getInfoOfTable($tbleLabelTxt);
 				// A table that cannot be described is asked again next time
 				if( !is_array($tableDct) ){
 					return false;
@@ -110,7 +110,7 @@ class SqlStore implements Store {
 			$fieldPar = explode('.', $fieldNme);
 			$bareName = end($fieldPar);
 			foreach( (count($fieldPar)>1) ? Array($fieldPar[0]) : $tableLst as $tblNme ){
-				if( in_array($bareName, $this->tableFieldsArr($tblNme)['blob']) ){
+				if( in_array($bareName, $this->getFieldsOfTbl($tblNme)['blob']) ){
 					$blobList[($fieldAls!='') ? $fieldAls : $bareName] = true;
 				}
 			}
@@ -120,7 +120,7 @@ class SqlStore implements Store {
 			$hasBlobs = false;
 			$wideList = Array();
 			foreach($tableLst as $tblNme){
-				$tableDct = $this->tableFieldsArr($tblNme);
+				$tableDct = $this->getFieldsOfTbl($tblNme);
 				$hasBlobs = $hasBlobs || !empty($tableDct['blob']);
 				foreach(array_diff($tableDct['flds'], $tableDct['blob']) as $fldNme){
 					$wideList[] = $dtbsHndr->quoteFieldName((count($tableLst)>1) ? $tblNme.'.'.$fldNme : $fldNme);
@@ -229,15 +229,15 @@ class SqlStore implements Store {
 
 	/**
 	 * Tells the fields of a table and which of them are binary, from its
-	 * description (tableInfoArray()).
+	 * description (getInfoOfTable()).
 	 *
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @return Array The field names under 'flds', the key field under 'pkey' and the binary ones under 'blob'; all empty when the table cannot be described.
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	protected function tableFieldsArr(String $tbleLabelTxt): Array {
-		$tableDct = $this->tableInfoArray($tbleLabelTxt);
+	protected function getFieldsOfTbl(String $tbleLabelTxt): Array {
+		$tableDct = $this->getInfoOfTable($tbleLabelTxt);
 		return is_array($tableDct) ? $tableDct : Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
 	}
 
@@ -263,7 +263,7 @@ class SqlStore implements Store {
 			}
 			return false;
 		}
-		$madeClef = $dtbsHndr->finalAddedText();
+		$madeClef = $dtbsHndr->getLastAddedId();
 		return ($madeClef===false) ? '' : strval($madeClef);
 	}
 
@@ -280,7 +280,7 @@ class SqlStore implements Store {
 	 */
 	public function updateRowCount(String $tbleLabelTxt, Array $filterFields, Array $fieldValList): Int|Bool {
 		$dtbsHndr = $this->baseHandle;
-		$wherePar = $this->needWhereArray($filterFields);
+		$wherePar = $this->makeWhereClaus($filterFields);
 		$tableQtd = $dtbsHndr->quoteFieldName($tbleLabelTxt);
 		if( empty($fieldValList) ){
 			return 0;
@@ -311,7 +311,7 @@ class SqlStore implements Store {
 	 */
 	public function deleteRowCount(String $tbleLabelTxt, Array $filterFields): Int|Bool {
 		$dtbsHndr = $this->baseHandle;
-		$wherePar = $this->needWhereArray($filterFields);
+		$wherePar = $this->makeWhereClaus($filterFields);
 		$remvStmt = 'DELETE FROM '.$dtbsHndr->quoteFieldName($tbleLabelTxt).' WHERE '.$wherePar['text'].';';
 		if( !$dtbsHndr->sendBuiltQuery($remvStmt, true, $wherePar['vals']) ){
 			if( in_array($tbleLabelTxt, $this->cachTblLst, true) ){
@@ -332,7 +332,7 @@ class SqlStore implements Store {
 	 *
 	 * @throws \RuntimeException When a name is not valid, or the filter matches every row.
 	 */
-	protected function needWhereArray(Array $filterFields): Array {
+	protected function makeWhereClaus(Array $filterFields): Array {
 		$wherePar = $this->baseHandle->makeWhereArray($filterFields);
 		if( $wherePar['text']=='' || preg_match('/^1=1( AND 1=1)*$/D', $wherePar['text']) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
@@ -355,8 +355,8 @@ class SqlStore implements Store {
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function newTransaction(): Bool {
-		return $this->baseHandle->newTransaction();
+	public function addTransaction(): Bool {
+		return $this->baseHandle->addTransaction();
 	}
 
 	/**
@@ -374,8 +374,8 @@ class SqlStore implements Store {
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function delTransaction(): Bool {
-		return $this->baseHandle->delTransaction();
+	public function dropWholeTrnsc(): Bool {
+		return $this->baseHandle->dropWholeTrnsc();
 	}
 
 	/**

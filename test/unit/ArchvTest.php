@@ -39,16 +39,16 @@ function makeZip( String $archivName, Array $entryTexts ): String {
 class TestPack extends Pack {
 	const SHPE_OUTS = 'sheet';
 	protected function readArchvArray( Array $parseOptns ): Array {
-		$rootArr = $this->partNodesArray(strval($parseOptns['parts'] ?? 'main.xml'), empty($parseOptns['maybe']));
+		$rootArr = $this->readPartAsTree(strval($parseOptns['parts'] ?? 'main.xml'), empty($parseOptns['maybe']));
 		if( $rootArr===null ){
 			return $this->makeShapeArray('sheet', Array(), Array('found'=>false));
 		}
 		return $this->makeShapeArray('sheet', Array(
 			'roots'=>$rootArr['tagnm'],
-			'named'=>array_column($this->kidsNamedArray($rootArr, 'w:p'), 'tagid'),
+			'named'=>array_column($this->listNamedNodes($rootArr, 'w:p'), 'tagid'),
 			'child'=>$this->findChildArray($rootArr, Array('w:p', 'w:r', 'w:t'))['value'] ?? null,
 			'lost'=>$this->findChildArray($rootArr, Array('w:p', 'w:x', 'w:t')),
-			'texts'=>$this->collectAllText($rootArr)
+			'texts'=>$this->readNestedText($rootArr)
 		), Array('found'=>true));
 	}
 }
@@ -62,7 +62,7 @@ checkIdentical('the entries of an archive, with their size once unpacked, folder
 }), Array('mimetype'=>18, 'word/document.xml'=>12, 'word/media/pic.bin'=>5000, 'empty.txt'=>0));
 checkIdentical('finding an entry: its whole name, case included', runCatchThrown(function() use ($showZip){
 	$archObj = Archv::openFluxdArchv(Fluxd::openLocalFluxd($showZip));
-	return Array($archObj->locateEntryFlg('word/document.xml'), $archObj->locateEntryFlg('document.xml'), $archObj->locateEntryFlg('Word/Document.xml'), $archObj->locateEntryFlg('word/media/'), $archObj->locateEntryFlg(''));
+	return Array($archObj->isEntryInArchv('word/document.xml'), $archObj->isEntryInArchv('document.xml'), $archObj->isEntryInArchv('Word/Document.xml'), $archObj->isEntryInArchv('word/media/'), $archObj->isEntryInArchv(''));
 }), Array(true, false, false, false, false));
 
 // Reading
@@ -88,23 +88,23 @@ checkIdentical('an archive given as bytes: a temporary file is made, and deleted
 	$tempPth = $byteFlx->setLocalString();
 	$entText = $archObj->getEntryString('word/document.xml');
 	$wasFile = is_file($tempPth);
-	$archObj->releaseArchive();
-	$byteFlx->closeTheSource();
+	$archObj->shutZipArchive();
+	$byteFlx->shutFluxSource();
 	return Array($entText, $wasFile, is_file($tempPth), $tempPth!==$showZip);
 }), Array('<a>Été</a>', true, false, true));
 checkIdentical('closing: twice does nothing, the source stays open, the archive answers no more', runCatchThrown(function() use ($showZip){
 	$fileFlx = Fluxd::openLocalFluxd($showZip);
 	$archObj = Archv::openFluxdArchv($fileFlx);
-	$archObj->releaseArchive();
-	$archObj->releaseArchive();
+	$archObj->shutZipArchive();
+	$archObj->shutZipArchive();
 	return Array($fileFlx->getRangeString(0, 1), preg_replace('/ @.*$/', '', runCatchThrown(function() use ($archObj){ return $archObj->listEntryNames(); })), preg_replace('/ @.*$/', '', runCatchThrown(function() use ($archObj){ return $archObj->getEntryString('mimetype'); })));
 }), Array('PK', 'THROWN RuntimeException: The archive is closed', 'THROWN RuntimeException: The archive is closed'));
 checkIdentical('the file is free again once the archive is closed', runCatchThrown(function(){
 	$freeZip = makeZip('free.zip', Array('a.txt'=>'a'));
 	$fileFlx = Fluxd::openLocalFluxd($freeZip);
 	$archObj = Archv::openFluxdArchv($fileFlx);
-	$archObj->releaseArchive();
-	$fileFlx->closeTheSource();
+	$archObj->shutZipArchive();
+	$fileFlx->shutFluxSource();
 	return @unlink($freeZip);
 }), true);
 
@@ -162,7 +162,7 @@ checkIdentical('the archive is released after a refusal: its file can be deleted
 	$prsrObj = new TestPack();
 	$fileFlx = Fluxd::openLocalFluxd($gonePth);
 	try{ $prsrObj->parseFluxArray($fileFlx); }catch( Throwable $e ){}
-	$fileFlx->closeTheSource();
+	$fileFlx->shutFluxSource();
 	return @unlink($gonePth);
 }), true);
 checkIdentical('one parser, several archives', runCatchThrown(function() use ($packZip){

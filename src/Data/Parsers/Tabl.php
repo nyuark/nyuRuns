@@ -40,7 +40,7 @@ class Tabl extends Base {
 	 * @throws ParseError When the separator asked for is not a known one, or a quote is left open.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$tableTxt = self::recodeTextUtf8($nakedContent);
+		$tableTxt = self::castTextToUtf8($nakedContent);
 		$dvdrText = strval($parseOptions['separ'] ?? '');
 		// The separator whatever its case, as SEPR_LIST writes it
 		$dvdrText = strval( array_values(preg_grep('/^'.preg_quote($dvdrText, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $dvdrText );
@@ -48,7 +48,7 @@ class Tabl extends Base {
 			throw new ParseError('Invalid table option: unknown separator '.$dvdrText);
 		}
 		if( $dvdrText==='' ){
-			$dvdrText = $this->guessSeparator($tableTxt);
+			$dvdrText = $this->findColumnSepr($tableTxt);
 		}
 		// The marker some tools write at the start of a file is taken off the text; whether it was there is told
 		$infoList = Array('separ'=>$dvdrText, 'heads'=>Array(), 'colms'=>0, 'lines'=>0, 'bomrk'=>in_array(substr($nakedContent, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true) || substr($nakedContent, 0, 3)==="\xEF\xBB\xBF");
@@ -58,7 +58,7 @@ class Tabl extends Base {
 		$rowsList = $this->readCellsArray($tableTxt, self::SEPR_LIST[$dvdrText], !empty($parseOptions['types']));
 		if( !empty($parseOptions['heads']) && !empty($rowsList) ){
 			$headList = Array();
-			$rowsList = $this->keyedRowsArray($rowsList, $headList);
+			$rowsList = $this->castRowsToDict($rowsList, $headList);
 			$infoList['heads'] = $headList;
 		}
 		$infoList['colms'] = empty($rowsList) ? count($infoList['heads']) : max(count($infoList['heads']), max(array_map('count', $rowsList)));
@@ -76,7 +76,7 @@ class Tabl extends Base {
 	 * @param String $nakedContent The table, in UTF-8.
 	 * @return String The code of the separator; 'commaSep' when none is met.
 	 */
-	protected function guessSeparator(String $nakedContent): String {
+	protected function findColumnSepr(String $nakedContent): String {
 		$lineList = array_slice(array_values(array_filter(preg_split('/\r\n|\r|\n/', substr($nakedContent, 0, 65536)), function($markdownLine){ return trim($markdownLine)!==''; })), 0, 10);
 		$bestClef = 'commaSep';
 		$bestScor = 0;

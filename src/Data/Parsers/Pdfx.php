@@ -16,12 +16,12 @@ use nyu\Data\Shape;
 class Pdfx extends Base {
 
 	/**
-	 * Tells the kinds of content the parser reads, as Bina::detectFileKind()
+	 * Tells the kinds of content the parser reads, as Bina::findContentCod()
 	 * names them.
 	 *
 	 * @return Array The kinds.
 	 */
-	public function signsReadArray(): Array {
+	public function listContentCod(): Array {
 		return Array('pdf');
 	}
 
@@ -45,7 +45,7 @@ class Pdfx extends Base {
 		if( !extension_loaded('mbstring') ){
 			throw new ParseError('Reading PDF documents needs the mbstring extension of PHP');
 		}
-		if( Bina::detectFileKind(substr($nakedContent, 0, 512))!='pdf' ){
+		if( Bina::findContentCod(substr($nakedContent, 0, 512))!='pdf' ){
 			throw new ParseError('Invalid PDF content: the content is not a PDF document');
 		}
 		try{
@@ -61,10 +61,10 @@ class Pdfx extends Base {
 					$blockLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 				}
 				// An empty line stands between two paragraphs; the lines of a paragraph are those of the page
-				$pageText = self::recodeTextUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($pgeObj->getText())));
+				$pageText = self::castTextToUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($pgeObj->getText())));
 				foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $pageText)) as $parTxt){
 					if( trim($parTxt)!=='' ){
-						$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray(trim($parTxt))));
+						$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText(trim($parTxt))));
 					}
 				}
 			}
@@ -76,7 +76,7 @@ class Pdfx extends Base {
 		$propList = Array();
 		foreach((array)$detlList as $dtlKey=>$dtlVal){
 			if( is_scalar($dtlVal) && trim(strval($dtlVal))!=='' ){
-				$propList[strval($dtlKey)] = is_string($dtlVal) ? self::recodeTextUtf8(trim($dtlVal)) : $dtlVal;
+				$propList[strval($dtlKey)] = is_string($dtlVal) ? self::castTextToUtf8(trim($dtlVal)) : $dtlVal;
 			}
 		}
 		return $this->makeShapeArray('block', $blockLst, Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'pages'=>count($pageList), 'props'=>$propList));

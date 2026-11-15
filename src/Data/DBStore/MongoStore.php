@@ -39,7 +39,7 @@ class MongoStore implements Store {
 		}
 		$mngrClss = '\\MongoDB\\Driver\\Manager';
 		$this->hostDbName = $hostBaseText;
-		$this->managerObj = new $mngrClss( self::buildDsnString($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList) );
+		$this->managerObj = new $mngrClss( self::makeDsnForHost($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList) );
 	}
 
 	/**
@@ -54,7 +54,7 @@ class MongoStore implements Store {
 	 *
 	 * @throws \RuntimeException When the database name, the host, the port, the account database or the waiting time is not valid.
 	 */
-	public static function buildDsnString(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): String {
+	public static function makeDsnForHost(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): String {
 		if( !preg_match('/^\w+$/D', $hostBaseText) ){
 			throw new \RuntimeException('Invalid database name: '.$hostBaseText);
 		}
@@ -119,7 +119,7 @@ class MongoStore implements Store {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool {
 		$this->checkNameChars($tbleLabelTxt);
 		return Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array());
 	}
@@ -151,9 +151,9 @@ class MongoStore implements Store {
 			}elseif( $oprtTokn=='diffr' ){
 				$andsList[] = Array($fieldNme=>Array('$nin'=>Array($matxVals, null)));
 			}elseif( $oprtTokn=='match' ){
-				$andsList[] = Array($fieldNme=>Array('$regex'=>self::patternToRegex($matxVals), '$options'=>'is'));
+				$andsList[] = Array($fieldNme=>Array('$regex'=>self::castMatchToRgx($matxVals), '$options'=>'is'));
 			}elseif( $oprtTokn=='nmtch' ){
-				$andsList[] = Array($fieldNme=>Array('$not'=>Array('$regex'=>self::patternToRegex($matxVals), '$options'=>'is'), '$ne'=>null));
+				$andsList[] = Array($fieldNme=>Array('$not'=>Array('$regex'=>self::castMatchToRgx($matxVals), '$options'=>'is'), '$ne'=>null));
 			}elseif( $oprtTokn=='among' ){
 				$andsList[] = Array($fieldNme=>Array('$in'=>$matxVals));
 			}elseif( $oprtTokn=='nmong' ){
@@ -176,7 +176,7 @@ class MongoStore implements Store {
 	 * @param Array $literalParts The literal pieces, as Filter::readWhereArray() gives them.
 	 * @return String The regular expression, covering the whole value.
 	 */
-	protected static function patternToRegex( Array $literalParts ): String {
+	protected static function castMatchToRgx( Array $literalParts ): String {
 		$partList = Array();
 		foreach( $literalParts as $oneTkn ){
 			$partList[] = preg_quote( strval($oneTkn) );
@@ -214,10 +214,10 @@ class MongoStore implements Store {
 	 *
 	 * @throws \RuntimeException When a flux is larger than a document may hold.
 	 */
-	public static function blobsSentArray(Array $fieldValList): Array {
+	public static function castBlobsForDb(Array $fieldValList): Array {
 		foreach($fieldValList as $fldNme=>$fldVal){
 			if( $fldVal instanceof \nyu\Data\Fluxd ){
-				$fldVal->rewindToOrigin();
+				$fldVal->setFluxToStart();
 				$bnryClss = '\\MongoDB\\BSON\\Binary';
 				$fieldValList[$fldNme] = new $bnryClss($fldVal->getWholeString(self::BLOB_MAXI), 0);
 			}
@@ -236,7 +236,7 @@ class MongoStore implements Store {
 	 *
 	 * @throws \RuntimeException When a binary value asked for is larger than accepted.
 	 */
-	public static function blobsReadArray(Array $documentData, Array $fldNamesList, Int $bytesCeiling): Array {
+	public static function getBlobsAsFlux(Array $documentData, Array $fldNamesList, Int $bytesCeiling): Array {
 		foreach($documentData as $fldNme=>$fldVal){
 			if( !is_object($fldVal) || !is_a($fldVal, 'MongoDB\\BSON\\Binary') ){
 				continue;
@@ -263,7 +263,7 @@ class MongoStore implements Store {
 	 *
 	 * @throws \RuntimeException When a name is not valid, or a needed filter matches every row.
 	 */
-	protected function sentQueryArray(Array $filterFields, Bool $needCriteria=false): Array {
+	protected function makeMongoQuery(Array $filterFields, Bool $needCriteria=false): Array {
 		$findDocu = self::makeQueryArray($filterFields);
 		if( $needCriteria && empty($findDocu) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
@@ -319,7 +319,7 @@ class MongoStore implements Store {
 				$optsDict['skip'] = max(0, intval($queryOptions['offst']));
 			}
 		}
-		$findDocu = $this->sentQueryArray($filterFields);
+		$findDocu = $this->makeMongoQuery($filterFields);
 		$namedLst = array_keys(array_filter($optsDict['projection'] ?? Array()));
 		$maxBytes = max(0, intval($queryOptions['bytes'] ?? self::BLOB_SIZE));
 		$matxRows = Array();
@@ -337,7 +337,7 @@ class MongoStore implements Store {
 		}
 		foreach($rowsList as $oneDoc){
 			// What is binary is given as a flux when it was asked for by name, and left out otherwise
-			$oneDoc = self::blobsReadArray($oneDoc, $namedLst, $maxBytes);
+			$oneDoc = self::getBlobsAsFlux($oneDoc, $namedLst, $maxBytes);
 			// The key is given as text, like the keys of the SQL types
 			if( isset($oneDoc['_id']) && is_object($oneDoc['_id']) ){
 				$oneDoc['_id'] = strval($oneDoc['_id']);
@@ -371,7 +371,7 @@ class MongoStore implements Store {
 		if( isset($fieldValList['_id']) ){
 			$fieldValList['_id'] = $this->castObjectKeys($fieldValList['_id']);
 		}
-		$fieldValList = self::blobsSentArray($fieldValList);
+		$fieldValList = self::castBlobsForDb($fieldValList);
 		try{
 			$blockCls = '\\MongoDB\\Driver\\BulkWrite';
 			$bulkOprt = new $blockCls();
@@ -398,14 +398,14 @@ class MongoStore implements Store {
 	public function updateRowCount(String $tbleLabelTxt, Array $filterFields, Array $fieldValList): Int|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		$findDocu = $this->sentQueryArray($filterFields, true);
+		$findDocu = $this->makeMongoQuery($filterFields, true);
 		foreach(array_keys($fieldValList) as $fldNme){
 			$this->checkNameChars(strval($fldNme));
 		}
 		if( empty($fieldValList) ){
 			return 0;
 		}
-		$fieldValList = self::blobsSentArray($fieldValList);
+		$fieldValList = self::castBlobsForDb($fieldValList);
 		try{
 			$blockCls = '\\MongoDB\\Driver\\BulkWrite';
 			$bulkOprt = new $blockCls();
@@ -431,7 +431,7 @@ class MongoStore implements Store {
 	public function deleteRowCount(String $tbleLabelTxt, Array $filterFields): Int|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		$findDocu = $this->sentQueryArray($filterFields, true);
+		$findDocu = $this->makeMongoQuery($filterFields, true);
 		try{
 			$blockCls = '\\MongoDB\\Driver\\BulkWrite';
 			$bulkOprt = new $blockCls();
@@ -458,7 +458,7 @@ class MongoStore implements Store {
 	 *
 	 * @return Bool Always false.
 	 */
-	public function newTransaction(): Bool {
+	public function addTransaction(): Bool {
 		$this->errMessage = 'This database has no transactions';
 		return false;
 	}
@@ -478,7 +478,7 @@ class MongoStore implements Store {
 	 *
 	 * @return Bool Always false.
 	 */
-	public function delTransaction(): Bool {
+	public function dropWholeTrnsc(): Bool {
 		$this->errMessage = 'This database has no transactions';
 		return false;
 	}

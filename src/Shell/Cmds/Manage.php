@@ -440,7 +440,7 @@ class Manage extends Command{
 		$this->printerObj->writeShellOnce('Address for the authenticator', $otpAddrs);
 		// The address as a QR code, for the authenticator to scan : it holds the secret, and is shown once too
 		if( !$this->optionsObj->isOptionPassed('noQrCode') && !$this->printerObj->isOutputAsJson() ){
-			$this->printerObj->writeShellBody( (new QrCode($otpAddrs, 'M'))->drawAsTerminal(2) );
+			$this->printerObj->writeShellBody( (new QrCode($otpAddrs, 'M'))->renderShellTxt(2) );
 		}
 		return self::EXIT_DONE;
 	}

@@ -135,7 +135,7 @@ checkIdentical('one parser, several contents', runCatchThrown(function(){
 }), Array('c'=>3));
 
 // Through the index, Dcmnt and Markdown
-checkIdentical('index: YAML by extension and by content type', Array(get_class(Index::forExtnsParser('yaml')), get_class(Index::forExtnsParser('YML')), get_class(Index::findTypeParser('application/yaml')), get_class(Index::findTypeParser('text/yaml; charset=utf-8')), get_class(Index::findTypeParser('application/x-yaml'))), array_fill(0, 5, 'nyu\Data\Parsers\Yaml'));
+checkIdentical('index: YAML by extension and by content type', Array(get_class(Index::getExtnsParser('yaml')), get_class(Index::getExtnsParser('YML')), get_class(Index::findTypeParser('application/yaml')), get_class(Index::findTypeParser('text/yaml; charset=utf-8')), get_class(Index::findTypeParser('application/x-yaml'))), array_fill(0, 5, 'nyu\Data\Parsers\Yaml'));
 checkIdentical('a YAML file through Dcmnt, its keys in upper case as for the other settings files', runCatchThrown(function(){
 	$docPath = inTemporaryDir('show.yml');
 	file_put_contents($docPath, "name: Alpha\nvenue:\n  city: Lyon\n");

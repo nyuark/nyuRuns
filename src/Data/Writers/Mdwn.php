@@ -79,7 +79,7 @@ class Mdwn extends Base {
 	 * @return String The address, between angle brackets when it holds a space or a bracket; '' when it is not safe to follow.
 	 */
 	protected function linkTargetText(String $linkGoalText): String {
-		$linkAddr = Shape::tidyLinkString($linkGoalText);
+		$linkAddr = Shape::wipeUnsafeAddr($linkGoalText);
 		if( $linkAddr!=='' && preg_match('/[\s()<>]/', $linkAddr) ){
 			return '<'.str_replace(Array('<', '>', "\r", "\n"), Array('%3C', '%3E', '', ''), $linkAddr).'>';
 		}
@@ -161,7 +161,7 @@ class Mdwn extends Base {
 	 * @param Array $contentBlock The block.
 	 * @return String The Markdown.
 	 */
-	protected function innerOutString(Array $contentBlock): String {
+	protected function writeInnerPart(Array $contentBlock): String {
 		$outStrng = $this->protectLineTxt($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
 			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
@@ -189,7 +189,7 @@ class Mdwn extends Base {
 				// A cell holds on one line: what it holds besides its text follows it there
 				$rawCelda = $this->writeInlineTxt((array)$celBlk['spans'], true);
 				foreach((array)$celBlk['items'] as $oneBlk){
-					$rawCelda = trim($rawCelda.' '.$this->escapeMdwnText(preg_replace('/\s+/', ' ', Shape::blockPlainText($oneBlk))));
+					$rawCelda = trim($rawCelda.' '.$this->escapeMdwnText(preg_replace('/\s+/', ' ', Shape::getTextOfBlock($oneBlk))));
 				}
 				$cellText[] = str_replace('|', '\\|', $rawCelda);
 			}
@@ -235,13 +235,13 @@ class Mdwn extends Base {
 					$markText = empty($oneBlk['attrs']['order']) ? '- ' : (count($itemText)+1).'. ';
 					$taskText = isset($entBlk['attrs']['check']) ? (empty($entBlk['attrs']['check']) ? '[ ] ' : '[x] ') : '';
 					// What an entry holds stands under its text, as far in as that text starts
-					$itemText[] = rtrim($markText.ltrim($this->indentAllLines($taskText.$this->innerOutString($entBlk), str_repeat(' ', strlen($markText)))));
+					$itemText[] = rtrim($markText.ltrim($this->indentAllLines($taskText.$this->writeInnerPart($entBlk), str_repeat(' ', strlen($markText)))));
 				}
 				$blockTxt = implode("\n", $itemText);
 			}elseif( $blockCod=='tableSet' ){
 				$blockTxt = $this->writeTableText($oneBlk);
 			}elseif( $blockCod=='citation' ){
-				$quoteTxt = $this->innerOutString($oneBlk);
+				$quoteTxt = $this->writeInnerPart($oneBlk);
 				$citeText = strval($oneBlk['attrs']['cites'] ?? '');
 				$quoteTxt .= ($citeText==='') ? '' : (($quoteTxt==='') ? '' : "\n\n").'— '.$this->escapeMdwnText($citeText);
 				$blockTxt = ($quoteTxt==='') ? '' : preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $quoteTxt);
@@ -259,10 +259,10 @@ class Mdwn extends Base {
 				$blockTxt = '---';
 			}elseif( $blockCod=='footnote' ){
 				$noteMark = preg_match('/^([fe])note(\d+)$/D', strval($oneBlk['attrs']['tagid'] ?? ''), $matxRows) ? (($matxRows[1]=='e') ? 'e' : '').$matxRows[2] : strval(intval($oneBlk['attrs']['numbr'] ?? 0));
-				$blockTxt = '[^'.$noteMark.']: '.ltrim($this->indentAllLines($this->innerOutString($oneBlk), '    '));
+				$blockTxt = '[^'.$noteMark.']: '.ltrim($this->indentAllLines($this->writeInnerPart($oneBlk), '    '));
 			}elseif( $blockCod=='listItem' || $blockCod=='cellText' ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$blockTxt = $this->innerOutString($oneBlk);
+				$blockTxt = $this->writeInnerPart($oneBlk);
 			}elseif( $blockCod=='tableTop' || $blockCod=='tableRow' ){
 				$blockTxt = $this->writeTableText(Array('items'=>Array($oneBlk)));
 			}else{

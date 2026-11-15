@@ -203,7 +203,7 @@ function readText( Array $codeWords, Array $blockDefin ): Array {
 // Reed-Solomon : the example of a 1-M code the standard's tutorials use ("HELLO WORLD", alphanumeric)
 $rsProbe = new class('') extends QrCode {
 	public function remOfData( Array $dataBlocks, Int $degreeNmbr ): Array {
-		return $this->rsRemainderArr($dataBlocks, $this->rsDivisorArray($degreeNmbr));
+		return $this->makeCorrection($dataBlocks, $this->makeDivisorLst($degreeNmbr));
 	}
 };
 checkIdentical('Reed-Solomon codewords of a known block',
@@ -248,8 +248,8 @@ foreach( $smpLst as $smpDef ){
 	$verSeen[$smpVer] = true;
 	$qrcObj = new QrCode($smpTxt, $smpLvl);
 	$smpLbl = $smpLvl.'/'.strlen($smpTxt).' bytes';
-	checkIdentical($smpLbl.': smallest version', $qrcObj->versionOfCount(), $smpVer);
-	$readOf = readCode($qrcObj->generateMatrix());
+	checkIdentical($smpLbl.': smallest version', $qrcObj->getCodeVersion(), $smpVer);
+	$readOf = readCode($qrcObj->makeModuleGrid());
 	checkIdentical($smpLbl.': side', $readOf['side'], 17+4*$smpVer);
 	checkIdentical($smpLbl.': format, from the standard\'s table', $readOf['level'], $smpLvl);
 	checkIdentical($smpLbl.': copy of the format', $readOf['copy'], $readOf['format']);
@@ -273,30 +273,30 @@ checkIdentical('every version is made', array_keys($verSeen), range(1, 10));
 // Every mask makes a code that reads back : the mask chosen is one of them
 $mskSeen = Array();
 foreach( Array('a', 'ab', 'abc', 'abcd', 'hello', 'nyuRuns 1.0', 'K7QM-3XRP-WD', '0', '00', 'zzzzzz', 'QR', 'mask?', 'xyz123', 'https://x.ch') as $smpTxt ){
-	$mskSeen[ readCode( (new QrCode($smpTxt, 'M'))->generateMatrix() )['mask'] ] = true;
+	$mskSeen[ readCode( (new QrCode($smpTxt, 'M'))->makeModuleGrid() )['mask'] ] = true;
 }
 checkTrueValue('the mask changes with the text', count($mskSeen)>1);
 
 // Capacity : 213 bytes at M in version 10, one more is refused
 checkForThrows('a text beyond version 10 is refused', function(){ new QrCode(str_repeat('a', 214), 'M'); }, QrCodeError::class);
 checkForThrows('an unknown level is refused', function(){ new QrCode('x', 'm'); }, QrCodeError::class);
-checkIdentical('the largest text at L', (new QrCode(str_repeat('a', 271), 'L'))->versionOfCount(), 10);
+checkIdentical('the largest text at L', (new QrCode(str_repeat('a', 271), 'L'))->getCodeVersion(), 10);
 
 // Outputs
 $qrcObj = new QrCode('nyuRuns', 'M');
-$svgTxt = $qrcObj->drawAsSvgImage(3, 4);
+$svgTxt = $qrcObj->renderSvgImage(3, 4);
 checkPregMatch('SVG: a standalone drawing of the right size', $svgTxt, '/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" version="1\.1" width="87" height="87" viewBox="0 0 29 29"/');
 $svgXml = @simplexml_load_string($svgTxt);
 checkTrueValue('SVG: well formed', $svgXml!==false);
 $drkCnt = 0;
-foreach( $qrcObj->generateMatrix() as $rowArr ){
+foreach( $qrcObj->makeModuleGrid() as $rowArr ){
 	$drkCnt += count(array_filter($rowArr));
 }
 preg_match_all('/h(\d+)v1/', $svgTxt, $runMtc);
 checkIdentical('SVG: every dark module drawn once', array_sum(array_map('intval', $runMtc[1])), $drkCnt);
-checkForThrows('SVG: a module of no size is refused', function() use ( $qrcObj ){ $qrcObj->drawAsSvgImage(0); }, QrCodeError::class);
+checkForThrows('SVG: a module of no size is refused', function() use ( $qrcObj ){ $qrcObj->renderSvgImage(0); }, QrCodeError::class);
 
-$artTxt = $qrcObj->drawAsTerminal(2);
+$artTxt = $qrcObj->renderShellTxt(2);
 $artLns = explode("\n", rtrim($artTxt, "\n"));
 checkIdentical('text: two rows of modules a line', count($artLns), intdiv(21+4+1, 2));
 checkIdentical('text: every line as wide as the code and its margin', array_unique(array_map('mb_strlen', $artLns)), Array(25));
@@ -314,7 +314,7 @@ foreach( $artLns as $lneTxt ){
 	$artGrd[] = $lowRow;
 }
 $inGrid = array_map(function( Array $gridOfRow ): Array { return array_slice($gridOfRow, 2, 21); }, array_slice($artGrd, 2, 21));
-checkIdentical('text: the modules are those of the grid', $inGrid, $qrcObj->generateMatrix());
-checkForThrows('text: a negative margin is refused', function() use ( $qrcObj ){ $qrcObj->drawAsTerminal(-1); }, QrCodeError::class);
+checkIdentical('text: the modules are those of the grid', $inGrid, $qrcObj->makeModuleGrid());
+checkForThrows('text: a negative margin is refused', function() use ( $qrcObj ){ $qrcObj->renderShellTxt(-1); }, QrCodeError::class);
 
 finishChecking();

@@ -93,7 +93,7 @@ function docBack( Array $blocksList ): Mixed {
 	});
 }
 
-$mkSpan = Array(Shape::class, 'makeASpanArray');
+$mkSpan = Array(Shape::class, 'makeSpanOfText');
 $mkBlck = Array(Shape::class, 'makeBlockArray');
 
 // The document, part by part
@@ -105,7 +105,7 @@ checkPregMatch('the pages: A4, standing, unless told otherwise', docPart($bookTx
 checkPregMatch('another size of paper, lying', docPart(docWrite(Array(), Array('paper'=>'USLETTER', 'lands'=>true)), 'word/document.xml'), '/<w:body><w:sectPr><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"\/>/');
 checkPregMatch('a size of paper that is not one', docWrite(Array(), Array('paper'=>'huge')), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Invalid document option: unknown paper huge/');
 checkPregMatch('a shape that is not blocks', runCatchThrown(function(){ return (new Docx())->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array())); }), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as a document: nodes/');
-checkIdentical('the writer of the docx extension', Array(get_class(Index::forExtnsWriter('DOCX')), Index::contentTypeFor('docx')), Array('nyu\\Data\\Writers\\Docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
+checkIdentical('the writer of the docx extension', Array(get_class(Index::getExtnsWriter('DOCX')), Index::getMimeForExtn('docx')), Array('nyu\\Data\\Writers\\Docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
 checkPregMatch('the styles Word finds its way by, under the names it gives them', docPart($bookTxt, 'word/styles.xml'), '/<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"\/>.*<w:outlineLvl w:val="0"\/>.*w:styleId="Heading6"><w:name w:val="heading 6"\/>.*<w:name w:val="List Paragraph"\/>.*<w:name w:val="Quote"\/>.*<w:name w:val="HTML Preformatted"\/>.*<w:name w:val="Hyperlink"\/>/s');
 
 // Blocks, as Word is told of them
@@ -176,7 +176,7 @@ checkIdentical('the title and the author are read back', Array($backSet['infos']
 foreach(Array('SampleDoc.docx', 'heading123.docx', 'Numbering.docx') as $smplNme){
 	$smplSet = (new DocxRead())->parseFluxArray(Fluxd::openLocalFluxd(TST_DIR.DS.'fixtures'.DS.'office'.DS.$smplNme));
 	$againSt = (new DocxRead())->parseFluxArray(Fluxd::openBytesFluxd((new Docx())->renderDocument($smplSet)));
-	checkIdentical('a document of Word read, written and read again keeps its text: '.$smplNme, Array(preg_replace('/\s+/', ' ', Shape::documentAsText($againSt['items']))===preg_replace('/\s+/', ' ', Shape::documentAsText($smplSet['items'])), strlen(Shape::documentAsText($smplSet['items']))>0), Array(true, true));
+	checkIdentical('a document of Word read, written and read again keeps its text: '.$smplNme, Array(preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($againSt['items']))===preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($smplSet['items'])), strlen(Shape::getTextOfDcmnt($smplSet['items']))>0), Array(true, true));
 }
 
 finishChecking();

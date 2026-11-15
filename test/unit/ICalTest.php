@@ -207,7 +207,7 @@ checkPregMatch('entries nested deeper than allowed', calRead(str_repeat("BEGIN:V
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: calendars by extension and by content type', Array(get_class(Index::forExtnsParser('ICS')), get_class(Index::findTypeParser('text/calendar; charset=utf-8'))), Array('nyu\Data\Parsers\ICal', 'nyu\Data\Parsers\ICal'));
+checkIdentical('index: calendars by extension and by content type', Array(get_class(Index::getExtnsParser('ICS')), get_class(Index::findTypeParser('text/calendar; charset=utf-8'))), Array('nyu\Data\Parsers\ICal', 'nyu\Data\Parsers\ICal'));
 checkIdentical('a calendar through Dcmnt, with and without its extension: the keys of the first level in upper case, as for the other files of values', runCatchThrown(function() use ($mixdCal){
 	$docPath = inTemporaryDir('shows.ics');
 	$barePth = inTemporaryDir('calendar');

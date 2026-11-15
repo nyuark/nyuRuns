@@ -353,7 +353,7 @@ class Deploy extends Command{
 				$this->stopWithReason('Nothing was moved: the native userbase needs an SQL database and a table named with letters and digits', self::EXIT_DENY);
 			}
 			$userNumb = 0;
-			if( $dtbsHndr->tableInfoArray($tableNme)!==false ){
+			if( $dtbsHndr->getInfoOfTable($tableNme)!==false ){
 				$rowsList = $dtbsHndr->sendBuiltQuery('SELECT COUNT(*) AS '.$dtbsHndr->quoteFieldName('usrCount').' FROM '.$dtbsHndr->quoteFieldName($tableNme).';') ? $dtbsHndr->readLastResult(true) : false;
 				if( !is_array($rowsList) ){
 					$this->stopWithReason('Nothing was moved: the users table cannot be read: '.strval($dtbsHndr->getLastErrText()));
@@ -489,26 +489,26 @@ class Deploy extends Command{
 	protected function saveUsersTable( Array $configValues, Array $usersRecords ): Void {
 		try{
 			$dtbsHndr = $this->openUsersTable($configValues);
-			$baseCode = strval(DBCon::baseSetupArray( strval($configValues['linkName'] ?? '') )['dbEngine']);
+			$baseCode = strval(DBCon::readDbaseConfg( strval($configValues['linkName'] ?? '') )['dbEngine']);
 		}catch( ShellStop $e ){
 			throw $e;
 		}catch( \Throwable $e ){
 			$this->stopWithReason('Nothing was moved: '.$e->getMessage());
 		}
 		$qotdTble = $dtbsHndr->quoteFieldName( strval($configValues['useTable'] ?? 'users') );
-		$dtbsHndr->newTransaction();
+		$dtbsHndr->addTransaction();
 		foreach( $usersRecords as $usrRow ){
 			$addSttmt = 'INSERT INTO '.$qotdTble.' ('.implode(', ', array_map(Array($dtbsHndr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
 			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($usrRow)) ){
 				$errorTxt = strval($dtbsHndr->getLastErrText());
-				$dtbsHndr->delTransaction();
+				$dtbsHndr->dropWholeTrnsc();
 				$this->stopWithReason('Nothing was moved: user '.json_encode($usrRow['systemName']).' cannot be written: '.$errorTxt);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
 		if( $baseCode=='postgres' && !$dtbsHndr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dtbsHndr->quoteFieldName('id_user').') FROM '.$qotdTble.'));', false, Array($qotdTble)) ){
 			$errorTxt = strval($dtbsHndr->getLastErrText());
-			$dtbsHndr->delTransaction();
+			$dtbsHndr->dropWholeTrnsc();
 			$this->stopWithReason('Nothing was moved: the identifiers cannot be set: '.$errorTxt);
 		}
 		$dtbsHndr->setTransaction();
@@ -1135,10 +1135,10 @@ class Deploy extends Command{
 		}
 		$typeName = '';
 		try{
-			$typeName = Mailer::acntSetupArray($acctName)['sendWith'];
-			$mailInst = Mailer::retrieveMailer($acctName);
+			$typeName = Mailer::readAccountCfg($acctName)['sendWith'];
+			$mailInst = Mailer::getMailerOfAcc($acctName);
 			$bodyText = 'This is a test mail of nyuRuns, sent by "php nyuRun install testMail" through the mail account '.$acctName.'.'."\n\n".'Receiving it means the access mails (activation, reset, sign-ups) can be sent.'."\n";
-			$failText = $mailInst->deliverEmlFlag($emailAddress, 'nyuRuns test mail', $bodyText) ? null : $mailInst->getLastErrText();
+			$failText = $mailInst->sendMailViaAcc($emailAddress, 'nyuRuns test mail', $bodyText) ? null : $mailInst->getLastErrText();
 		}catch( MailFailure $e ){
 			$failText = $e->getMessage();
 		}
@@ -1309,7 +1309,7 @@ class Deploy extends Command{
 		$userTble = strval($dvceConf['usersTbl'] ?? 'users');
 		try{
 			$baseName = strval($dvceConf['linkName'] ?? '');
-			$baseCode = strval(DBCon::baseSetupArray($baseName)['dbEngine']);
+			$baseCode = strval(DBCon::readDbaseConfg($baseName)['dbEngine']);
 			$dtbsHndr = DBCon::linkNamedDbCon($baseName)->readConnection();
 		}catch( \Throwable $e ){
 			$this->stopWithReason('No devices table created: '.$e->getMessage(), self::EXIT_FAIL);
@@ -1321,7 +1321,7 @@ class Deploy extends Command{
 		if( $dtbsHndr===null ){
 			$this->stopWithReason('No devices table created: the devices need an SQL database', self::EXIT_DENY);
 		}
-		if( $dtbsHndr->tableInfoArray($tableNme)!==false ){
+		if( $dtbsHndr->getInfoOfTable($tableNme)!==false ){
 			return;
 		}
 		// The schema names its tables 'devices' and 'users' : they are given the configured names
@@ -1362,12 +1362,12 @@ class Deploy extends Command{
 		$passList = Array();
 		$addSttmt = 'INSERT INTO '.$qotdTble.' ('.$dtbsHndr->quoteFieldName('systemName').', '.$dtbsHndr->quoteFieldName('passwdHash').', '.$dtbsHndr->quoteFieldName('accessRole').', '.$dtbsHndr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
 		$acctList = $this->promptAccounts();
-		$dtbsHndr->newTransaction();
+		$dtbsHndr->addTransaction();
 		foreach( $acctList as $usrNme => $usrRle ){
 			$passList[$usrNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
 			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, Array($usrNme, $usrRle)) || !$natvAuth->savePassOfUser($usrNme, $passList[$usrNme]) ){
-				$dtbsHndr->delTransaction();
+				$dtbsHndr->dropWholeTrnsc();
 				$this->stopWithReason('User '.$usrNme.' cannot be written; nothing was changed');
 			}
 		}
@@ -1388,7 +1388,7 @@ class Deploy extends Command{
 	protected function openUsersTable( Array $configValues ): DbHandlr {
 		$baseName = strval($configValues['linkName'] ?? '');
 		$tableNme = strval($configValues['useTable'] ?? 'users');
-		$baseCode = strval(DBCon::baseSetupArray($baseName)['dbEngine']);
+		$baseCode = strval(DBCon::readDbaseConfg($baseName)['dbEngine']);
 		$sqlFichr = TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.'.$baseCode.'.sql';
 		if( !preg_match('/^\w+$/D', $baseCode) || !preg_match('/^\w+$/D', $tableNme) || !is_file($sqlFichr) ){
 			$this->stopWithReason('No users table: there is no users schema for a database of type "'.$baseCode.'"', self::EXIT_DENY);
@@ -1397,7 +1397,7 @@ class Deploy extends Command{
 		if( $dtbsHndr===null ){
 			$this->stopWithReason('No users table: the native userbase needs an SQL database', self::EXIT_DENY);
 		}
-		if( $dtbsHndr->tableInfoArray($tableNme)===false ){
+		if( $dtbsHndr->getInfoOfTable($tableNme)===false ){
 			// The schema names its table 'users' : it is given the configured name
 			$makeStmt = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dtbsHndr->quoteFieldName($tableNme), strval(file_get_contents($sqlFichr)), 1);
 			if( !$dtbsHndr->sendBuiltQuery(strval($makeStmt), true) ){

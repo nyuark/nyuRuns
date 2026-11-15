@@ -33,7 +33,7 @@ if( !extension_loaded('mbstring') ){
  * @return Array The block.
  */
 function textBlk( String $blockLabel, String $textString, Array $attrsArray=Array() ): Array {
-	return Shape::makeBlockArray($blockLabel, Array(Shape::makeASpanArray($textString)), Array(), $attrsArray);
+	return Shape::makeBlockArray($blockLabel, Array(Shape::makeSpanOfText($textString)), Array(), $attrsArray);
 }
 
 /**
@@ -77,7 +77,7 @@ function pageSize( String $rawContent ): Array {
 
 $showBlk = Array(
 	textBlk('headline', 'Les Enchaînés, été', Array('level'=>1, 'style'=>'heading 1')),
-	Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('First paragraph, with '), Shape::makeASpanArray('bold', Array('boldFace')), Shape::makeASpanArray(' and a '), Shape::makeASpanArray('link', Array(), 'https://nyuark.test/a'), Shape::makeASpanArray('.'))),
+	Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText('First paragraph, with '), Shape::makeSpanOfText('bold', Array('boldFace')), Shape::makeSpanOfText(' and a '), Shape::makeSpanOfText('link', Array(), 'https://nyuark.test/a'), Shape::makeSpanOfText('.'))),
 	Shape::makeBlockArray('itemList', Array(), Array(textBlk('listItem', 'Music'), textBlk('listItem', 'Dance'))),
 	Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true)),
 	textBlk('paragrph', 'Second page.'),
@@ -108,9 +108,9 @@ checkIdentical('a sheet is written as a table, its hidden sheets left out when t
 	$shetLst = Array(Shape::makeSheetArray('Shows', Array(Array('Title', 'Seats'), Array('Alpha Night', 120))), Shape::makeSheetArray('Hidden', Array(Array('secret')), Array('shown'=>false)));
 	$seenTxt = pdfRead(pdfOut($shetLst, Array('heads'=>true), Array(), 'sheet'));
 	$lessTxt = pdfRead(pdfOut($shetLst, Array('shown'=>true), Array(), 'sheet'));
-	return Array(preg_replace('/\s+/', ' ', Shape::documentAsText($seenTxt['items'])), strpos(Shape::documentAsText($lessTxt['items']), 'secret'));
+	return Array(preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($seenTxt['items'])), strpos(Shape::getTextOfDcmnt($lessTxt['items']), 'secret'));
 }), Array('Shows TitleSeats Alpha Night120 Hidden secret', false));
-checkIdentical('values are written as they are shown; an empty content is a document of one empty page', Array(preg_replace('/\s+/', ' ', Shape::documentAsText(pdfRead(pdfOut(Array('name'=>'Alpha', 'seats'=>120), Array(), Array(), 'nodes'))['items'])), pdfRead(pdfOut(Array()))['infos']['pages'], pdfRead(pdfOut(Array()))['items']), Array('{ "name": "Alpha", "seats": 120 }', 1, Array()));
+checkIdentical('values are written as they are shown; an empty content is a document of one empty page', Array(preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt(pdfRead(pdfOut(Array('name'=>'Alpha', 'seats'=>120), Array(), Array(), 'nodes'))['items'])), pdfRead(pdfOut(Array()))['infos']['pages'], pdfRead(pdfOut(Array()))['items']), Array('{ "name": "Alpha", "seats": 120 }', 1, Array()));
 checkPregMatch('a shape that is not a known one is refused', pdfOut(Array(), Array(), Array(), 'cloud'), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as PDF: cloud/');
 
 // Nothing is fetched while the document is made
@@ -120,7 +120,7 @@ checkIdentical('an image is not fetched, from the network nor from the disk: its
 	// The path as Linux gives it, a drive letter left out: every system takes the same way
 	$diskSrc = preg_replace('#^[A-Za-z]:#', '', str_replace('\\', '/', $scrtPth));
 	$pdfText = pdfOut(Array(textBlk('paragrph', 'Before'), textBlk('imageBox', 'The hall', Array('sourc'=>'http://127.0.0.1:9/never.png')), textBlk('imageBox', 'Local', Array('sourc'=>$diskSrc)), textBlk('paragrph', 'After')));
-	return Array(substr($diskSrc, 0, 1), substr($pdfText, 0, 5), preg_replace('/\s+/', ' ', Shape::documentAsText(pdfRead($pdfText)['items'])), strpos($pdfText, 'secret'), strpos($pdfText, '/Subtype /Image'));
+	return Array(substr($diskSrc, 0, 1), substr($pdfText, 0, 5), preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt(pdfRead($pdfText)['items'])), strpos($pdfText, 'secret'), strpos($pdfText, '/Subtype /Image'));
 }), Array('/', '%PDF-', 'Before The hall Local After', false, false));
 
 // Reading: what is refused
@@ -131,7 +131,7 @@ checkPregMatch('a PDF document holding nothing but its first line', pdfRead("%PD
 checkIdentical('no PHP warning is left behind, by a refusal or otherwise', takePhpNotices(), Array());
 
 // Through the indexes and Dcmnt
-checkIdentical('index: PDF documents by extension and by content type, to read and to write', Array(get_class(ReadIndex::forExtnsParser('PDF')), get_class(ReadIndex::findTypeParser('application/pdf')), get_class(WriteIndex::forExtnsWriter('pdf')), WriteIndex::contentTypeFor('pdf')), Array('nyu\Data\Parsers\Pdfx', 'nyu\Data\Parsers\Pdfx', 'nyu\Data\Writers\Pdfx', 'application/pdf'));
+checkIdentical('index: PDF documents by extension and by content type, to read and to write', Array(get_class(ReadIndex::getExtnsParser('PDF')), get_class(ReadIndex::findTypeParser('application/pdf')), get_class(WriteIndex::getExtnsWriter('pdf')), WriteIndex::getMimeForExtn('pdf')), Array('nyu\Data\Parsers\Pdfx', 'nyu\Data\Parsers\Pdfx', 'nyu\Data\Writers\Pdfx', 'application/pdf'));
 checkIdentical('a PDF file through Dcmnt, with and without its extension', runCatchThrown(function() use ($showPdf){
 	$docPath = inTemporaryDir('show.pdf');
 	$barePth = inTemporaryDir('document');

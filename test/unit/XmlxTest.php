@@ -93,6 +93,6 @@ checkIdentical('no document written declares an entity, whatever it is given', A
 
 // The writer and its shape
 checkPregMatch('a shape that is not a tree of values', runCatchThrown(function(){ return (new Xmlx())->renderDocument(Array('shape'=>'block', 'infos'=>Array(), 'items'=>Array())); }), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as XML: block/');
-checkIdentical('the writer of the xml extension', Array(get_class(Index::forExtnsWriter('XML')), Index::contentTypeFor('xml')), Array('nyu\\Data\\Writers\\Xmlx', 'application/xml; charset=utf-8'));
+checkIdentical('the writer of the xml extension', Array(get_class(Index::getExtnsWriter('XML')), Index::getMimeForExtn('xml')), Array('nyu\\Data\\Writers\\Xmlx', 'application/xml; charset=utf-8'));
 
 finishChecking();

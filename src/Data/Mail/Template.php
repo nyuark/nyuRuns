@@ -47,7 +47,7 @@ class Template {
 	 * @return String The subject.
 	 */
 	public function getSubjectText( Array $placeholders ): String {
-		$subStrng = self::fillNamedSlots( $this->retainPartsTxt($this->subjectTxt, $placeholders), $placeholders, false );
+		$subStrng = self::fillNamedSlots( $this->wipeEmptyParts($this->subjectTxt, $placeholders), $placeholders, false );
 		return trim( str_replace(Array("\r", "\n"), ' ', $subStrng) );
 	}
 
@@ -57,8 +57,8 @@ class Template {
 	 * @param Array $placeholders Values of the placeholders, by name.
 	 * @return String The body.
 	 */
-	public function simpleBodyText( Array $placeholders ): String {
-		return self::fillNamedSlots( $this->retainPartsTxt($this->bodyString, $placeholders), $placeholders, false );
+	public function getPlainEmlTxt( Array $placeholders ): String {
+		return self::fillNamedSlots( $this->wipeEmptyParts($this->bodyString, $placeholders), $placeholders, false );
 	}
 
 	/**
@@ -68,7 +68,7 @@ class Template {
 	 * @return ?String The HTML, or null when the mail has none.
 	 */
 	public function getHtmlVersion( Array $placeholders ): ?String {
-		return ($this->htmlString===null) ? null : self::fillNamedSlots( $this->retainPartsTxt($this->htmlString, $placeholders), $placeholders, true );
+		return ($this->htmlString===null) ? null : self::fillNamedSlots( $this->wipeEmptyParts($this->htmlString, $placeholders), $placeholders, true );
 	}
 
 	/**
@@ -99,7 +99,7 @@ class Template {
 	 * @param Array  $placeholders Values of the placeholders, by name.
 	 * @return String The template, its parts kept or dropped.
 	 */
-	protected function retainPartsTxt( String $templateText, Array $placeholders ): String {
+	protected function wipeEmptyParts( String $templateText, Array $placeholders ): String {
 		return strval( preg_replace_callback('#\[(\w+)\](.*?)\[/\1\]\n?#s', function( Array $matchedArray ) use ( $placeholders ): String {
 			$fillVals = $placeholders[$matchedArray[1]] ?? null;
 			return ( is_scalar($fillVals) && strval($fillVals)!=='' ) ? $matchedArray[2] : '';

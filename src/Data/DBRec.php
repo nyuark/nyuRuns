@@ -33,8 +33,8 @@ class DBRec {
 	 * declared child/parent relations for later loading.
 	 *
 	 * @param String $databaseTble Name of the table this record maps to.
-	 * @param Array  $childrenList Child relations to load via importRelation(), keyed by table name or as [table, fld1, fld2, fld3].
-	 * @param Array  $parentTables Parent relations to load via importRelation(), keyed by table name or as [table, fld1, fld2].
+	 * @param Array  $childrenList Child relations to load via loadLinkedRecs(), keyed by table name or as [table, fld1, fld2, fld3].
+	 * @param Array  $parentTables Parent relations to load via loadLinkedRecs(), keyed by table name or as [table, fld1, fld2].
 	 * @param ?DBCon $dbConnection Connection to use instead of the one of the database named by $baseName.
 	 *
 	 * @throws \RuntimeException When the table cannot be read.
@@ -52,7 +52,7 @@ class DBRec {
 		$dtbsStre->checkNameChars($this->tableLabel);
 
 		// The description of the table tells it exists: a missing table cannot be described
-		$tableDct = $dtbsStre->tableInfoArray($this->tableLabel);
+		$tableDct = $dtbsStre->getInfoOfTable($this->tableLabel);
 		if( $tableDct===false ){
 			throw new \RuntimeException('Table "'.$this->tableLabel.'" is not available: '.$dtbsStre->getLastErrText());
 		}
@@ -79,7 +79,7 @@ class DBRec {
 		if( is_array($this->recordData) && !empty($this->recordData) ){
 			// The key is kept as the database gives it, not as it was asked for
 			$this->primaryKey = $this->recordData[$this->keyColName] ?? $primaryValue;
-			$this->importRelation();
+			$this->loadLinkedRecs();
 			return $this->recordData;
 		}else{
 			return false;
@@ -89,9 +89,9 @@ class DBRec {
 	/**
 	 * Loads the record's declared child and parent relations (as set up
 	 * in the constructor), attaching each to the record's field array via
-	 * attachChildren()/parentRecdList().
+	 * loadChildRecrd()/loadParentRcrd().
 	 */
-	function importRelation( ): Void {
+	function loadLinkedRecs( ): Void {
 		if( !empty($this->childLinks) ){
 			foreach( $this->childLinks as $chlTab=>$chlFld){
 				$chldArg2 = false;
@@ -110,7 +110,7 @@ class DBRec {
 				}else{
 					$chldArg1 = $chlFld;
 				}
-				$this->attachChildren($chldArg1, $chldArg2, $chldArg3, $chldArg4, $chldArg5);
+				$this->loadChildRecrd($chldArg1, $chldArg2, $chldArg3, $chldArg4, $chldArg5);
 			}
 		}
 		if( !empty($this->parentRltn) ){
@@ -129,7 +129,7 @@ class DBRec {
 				}else{
 					$prntArg1 = $prnFld;
 				}
-				$this->parentRecdList($prntArg1, $prntArg2, $prntArg3, $prntArg4);
+				$this->loadParentRcrd($prntArg1, $prntArg2, $prntArg3, $prntArg4);
 			}
 		}
 	}
@@ -140,7 +140,7 @@ class DBRec {
 	 * @param mixed $primaryValue Value of the primary key to look up.
 	 * @return Bool True if a matching record exists.
 	 */
-	function existsRecdFlag( Mixed $primaryValue ): Bool {
+	function hasRecordOfKey( Mixed $primaryValue ): Bool {
 		if( $primaryValue===null || $primaryValue==='' ){
 			return false;
 		}
@@ -175,7 +175,7 @@ class DBRec {
 	 *
 	 * @param Array $fieldValList Map of field name => value to bind onto the record.
 	 */
-	function bindFieldArray( Array $fieldValList ): Void {
+	function setFieldsArray( Array $fieldValList ): Void {
 		foreach($fieldValList as $fldNme=>$fldVal){
 			if( $this->isFieldOfTable(strval($fldNme)) ){
 				if($fldNme==$this->keyColName){
@@ -202,10 +202,10 @@ class DBRec {
 	}
 
 	/**
-	 * Empties the record: the next bindFieldArray() and insertOrUpdate() create a
+	 * Empties the record: the next setFieldsArray() and insertOrUpdate() create a
 	 * new row instead of changing the one that was loaded.
 	 */
-	function initiateRecord(): Void {
+	function clearAllFields(): Void {
 		$this->primaryKey = null;
 		$this->recordData = Array();
 	}
@@ -224,7 +224,7 @@ class DBRec {
 	 *
 	 * @throws \RuntimeException When a table or field name is not valid, or children are named on a database without transactions.
 	 */
-	function removeRecdFlag( Array $childrenList=Array() ): Bool {
+	function dropThisRecord( Array $childrenList=Array() ): Bool {
 		if( $this->primaryKey===null || $this->primaryKey==='' || $this->keyColName=='' ){
 			return false;
 		}
@@ -250,7 +250,7 @@ class DBRec {
 		$accsJrnl = Logger::getLoggerOfChn('runner');
 		// The key may come from the client : written as a JSON text
 		$rcrdText = $this->tableLabel.' #'.json_encode(strval($this->primaryKey), JSON_INVALID_UTF8_SUBSTITUTE);
-		if( $useTrnsc && !$dtbsStre->newTransaction() ){
+		if( $useTrnsc && !$dtbsStre->addTransaction() ){
 			$accsJrnl->warning( 'Record removal failed: '.$rcrdText.Logger::getActorSuffix() );
 			return false;
 		}
@@ -258,14 +258,14 @@ class DBRec {
 		foreach($remnList as $remTbl){
 			$rowsRemn = $dtbsStre->deleteRowCount($remTbl[0], Array($remTbl[1].'='=>$this->primaryKey));
 			if( $rowsRemn===false ){
-				if( $useTrnsc ) $dtbsStre->delTransaction();
+				if( $useTrnsc ) $dtbsStre->dropWholeTrnsc();
 				$accsJrnl->warning( 'Record removal failed: '.$rcrdText.Logger::getActorSuffix() );
 				return false;
 			}
 		}
 		// No row deleted for the record itself means it was not there
 		if( $rowsRemn<1 ){
-			if( $useTrnsc ) $dtbsStre->delTransaction();
+			if( $useTrnsc ) $dtbsStre->dropWholeTrnsc();
 			return false;
 		}
 		if( $useTrnsc && !$dtbsStre->setTransaction() ){
@@ -276,7 +276,7 @@ class DBRec {
 			$rcrdText .= ', with its rows in '.implode(', ', array_column(array_slice($remnList, 0, -1), 0));
 		}
 		$accsJrnl->notice( 'Record removed: '.$rcrdText.Logger::getActorSuffix() );
-		$this->initiateRecord();
+		$this->clearAllFields();
 		return true;
 	}
 
@@ -303,7 +303,7 @@ class DBRec {
 			}
 			// Relations are only loaded for a record that was found
 			if( !empty($this->recordData) ){
-				$this->importRelation();
+				$this->loadLinkedRecs();
 			}
 			return $this->recordData;
 		}else{
@@ -322,7 +322,7 @@ class DBRec {
 	 */
 	function insertOrUpdate( Array $skipFldsList=Array() ): Mixed {
 		$isStored = false;
-		$sameRcrd = $this->existsRecdFlag($this->primaryKey);
+		$sameRcrd = $this->hasRecordOfKey($this->primaryKey);
 		if($sameRcrd!=false){
 			$isStored = true;
 		}
@@ -368,7 +368,7 @@ class DBRec {
 	 * @param String $ownLinkField Field on this record referencing the parent (defaults to `id_<singularized table>`).
 	 * @return ?Array The updated record array if $returnValues is true, otherwise null.
 	 */
-	function parentRecdList( String $parentTblTxt, Bool $returnValues=false, String $foreignField='', String $ownLinkField='' ): ?Array {
+	function loadParentRcrd( String $parentTblTxt, Bool $returnValues=false, String $foreignField='', String $ownLinkField='' ): ?Array {
 		$linkRcrd = new DBRec( $parentTblTxt, Array(), Array(), $this->tableDbCon );
 		if( $foreignField=='' ) {
 			$foreignField = $linkRcrd->keyColName;
@@ -401,7 +401,7 @@ class DBRec {
 	 *
 	 * @throws \RuntimeException When the sort names a field that is not valid, or has another form.
 	 */
-	function attachChildren( String $childTbleTxt, Bool $returnValues=false, String $foreignField='', String $ownLinkField='', String $childrenSort='' ): ?Array {
+	function loadChildRecrd( String $childTbleTxt, Bool $returnValues=false, String $foreignField='', String $ownLinkField='', String $childrenSort='' ): ?Array {
 		if( $foreignField=='' ) {
 			$extnName = StrKit::singularizeTxt($this->tableLabel);
 			$foreignField = $extnName.'_id';
@@ -430,7 +430,7 @@ class DBRec {
 				}
 				$subLstng->setOrderFields($sortList);
 			}
-			$subLstng->replaceFilters(Array($foreignField.'='=>$this->recordData[$ownLinkField]));
+			$subLstng->setListFilters(Array($foreignField.'='=>$this->recordData[$ownLinkField]));
 			$this->recordData[$childKey] = $subLstng->readRowsOfList();
 		}
 

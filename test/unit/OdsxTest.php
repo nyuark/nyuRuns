@@ -210,7 +210,7 @@ checkPregMatch('a content that is not valid XML', odsRead(makeOds('broken.ods', 
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: spreadsheets by extension and by content type', Array(get_class(Index::forExtnsParser('ODS')), get_class(Index::findTypeParser('application/vnd.oasis.opendocument.spreadsheet'))), Array('nyu\Data\Parsers\Odsx', 'nyu\Data\Parsers\Odsx'));
+checkIdentical('index: spreadsheets by extension and by content type', Array(get_class(Index::getExtnsParser('ODS')), get_class(Index::findTypeParser('application/vnd.oasis.opendocument.spreadsheet'))), Array('nyu\Data\Parsers\Odsx', 'nyu\Data\Parsers\Odsx'));
 checkIdentical('a spreadsheet through Dcmnt, with and without its extension', runCatchThrown(function() use ($smplPth){
 	$barePth = inTemporaryDir('spreadsheet');
 	copy($smplPth, $barePth);

@@ -29,7 +29,7 @@ class Fluxd {
 	 * Releases the source when the object is no longer used.
 	 */
 	public function __destruct(){
-		$this->closeTheSource();
+		$this->shutFluxSource();
 	}
 
 	/**
@@ -137,7 +137,7 @@ class Fluxd {
 	 *
 	 * @throws \RuntimeException When the source is closed.
 	 */
-	public function getALineString(): String|Bool {
+	public function readLineOfFlux(): String|Bool {
 		$lineText = fgets($this->readOpenStream());
 		return ($lineText===false) ? false : rtrim($lineText, "\r\n");
 	}
@@ -201,9 +201,9 @@ class Fluxd {
 	 *
 	 * @throws \RuntimeException When the source is closed.
 	 */
-	public function stopOfFluxFlag(): Bool {
+	public function isFluxFinished(): Bool {
 		$inptHndl = $this->readOpenStream();
-		$srceSize = $this->totalSizeCount();
+		$srceSize = $this->getSourceBytes();
 		return ($srceSize!==null) ? ftell($inptHndl)>=$srceSize : feof($inptHndl);
 	}
 
@@ -214,7 +214,7 @@ class Fluxd {
 	 *
 	 * @throws \RuntimeException When the source is closed.
 	 */
-	public function totalSizeCount(): ?Int {
+	public function getSourceBytes(): ?Int {
 		$strmInfo = fstat($this->readOpenStream());
 		return isset($strmInfo['size']) ? intval($strmInfo['size']) : null;
 	}
@@ -224,7 +224,7 @@ class Fluxd {
 	 *
 	 * @throws \RuntimeException When the source is closed.
 	 */
-	public function rewindToOrigin(): Void {
+	public function setFluxToStart(): Void {
 		rewind($this->readOpenStream());
 	}
 
@@ -272,13 +272,13 @@ class Fluxd {
 	 * @param mixed $valueAsGiven The value: a source, an array holding some at any depth, or anything else.
 	 * @return mixed The value, with null in place of every source.
 	 */
-	public static function nullifySources( Mixed $valueAsGiven ): Mixed {
+	public static function dropAllSources( Mixed $valueAsGiven ): Mixed {
 		if( $valueAsGiven instanceof Fluxd ){
 			return null;
 		}
 		if( is_array($valueAsGiven) ){
 			foreach($valueAsGiven as $valKey=>$valItm){
-				$valueAsGiven[$valKey] = self::nullifySources($valItm);
+				$valueAsGiven[$valKey] = self::dropAllSources($valItm);
 			}
 		}
 		return $valueAsGiven;
@@ -288,7 +288,7 @@ class Fluxd {
 	 * Releases the source and deletes the temporary files it made.
 	 * Closing a source twice does nothing.
 	 */
-	public function closeTheSource(): Void {
+	public function shutFluxSource(): Void {
 		if( is_resource($this->fileHandle) ){
 			fclose($this->fileHandle);
 		}

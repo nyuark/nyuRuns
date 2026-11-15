@@ -93,7 +93,7 @@ function dcmBack( Array $itemsArray, Array $infosArray=Array(), String $shapeLab
 	return (new DocxRead())->parseFluxArray(Fluxd::openBytesFluxd((new Docx())->renderDocument(Array('shape'=>$shapeLabel, 'infos'=>$infosArray, 'items'=>$itemsArray))));
 }
 
-$mkSpan = Array(Shape::class, 'makeASpanArray');
+$mkSpan = Array(Shape::class, 'makeSpanOfText');
 $mkBlck = Array(Shape::class, 'makeBlockArray');
 $mkCell = function(String $cellsText, Array $attrsArray=Array(), Array $itemsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('cellText', ($cellsText==='') ? Array() : Array($mkSpan($cellsText)), $itemsArray, $attrsArray); };
 
@@ -220,6 +220,6 @@ checkIdentical('sheets: a table each, the numbers on the right, what is merged',
 $smplSet = (new DocxRead())->parseFluxArray(Fluxd::openLocalFluxd(TST_DIR.DS.'fixtures'.DS.'office'.DS.'TestTableCellAlign.docx'));
 $againSt = dcmBack($smplSet['items'], $smplSet['infos']);
 $kindsOf = function(Array $blocksList) use (&$kindsOf){ $kindLst = Array(); foreach($blocksList as $blkArr){ $kindLst[] = $blkArr['block'].((empty($blkArr['attrs']['colsp']) ? '' : 'c'.$blkArr['attrs']['colsp']).(empty($blkArr['attrs']['rowsp']) ? '' : 'r'.$blkArr['attrs']['rowsp'])); $kindLst = array_merge($kindLst, $kindsOf($blkArr['items'])); } return $kindLst; };
-checkIdentical('a document of Word holding tables read, written and read again: the same tables, the same text', Array(array_values(array_diff($kindsOf($againSt['items']), Array('paragrph')))===array_values(array_diff($kindsOf($smplSet['items']), Array('paragrph'))), in_array('tableSet', $kindsOf($smplSet['items'])), preg_replace('/\s+/', ' ', Shape::documentAsText($againSt['items']))===preg_replace('/\s+/', ' ', Shape::documentAsText($smplSet['items']))), Array(true, true, true));
+checkIdentical('a document of Word holding tables read, written and read again: the same tables, the same text', Array(array_values(array_diff($kindsOf($againSt['items']), Array('paragrph')))===array_values(array_diff($kindsOf($smplSet['items']), Array('paragrph'))), in_array('tableSet', $kindsOf($smplSet['items'])), preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($againSt['items']))===preg_replace('/\s+/', ' ', Shape::getTextOfDcmnt($smplSet['items']))), Array(true, true, true));
 
 finishChecking();

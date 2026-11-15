@@ -34,7 +34,7 @@ class ArrayStore implements Store {
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @return Array|Bool An empty list under 'flds' and '_id' under 'pkey'.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool {
 		$this->checkNameChars($tbleLabelTxt);
 		return Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array());
 	}
@@ -82,7 +82,7 @@ class ArrayStore implements Store {
 	 *
 	 * @throws \RuntimeException When the filter selects nothing in particular.
 	 */
-	protected function needWhereArray(Array $filterFields): Void {
+	protected function makeWhereClaus(Array $filterFields): Void {
 		$clauses = array_filter(Filter::readWhereArray($filterFields), function($conditionArr){ return $conditionArr['opert']!='every'; });
 		if( empty($clauses) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
@@ -179,7 +179,7 @@ class ArrayStore implements Store {
 	public function updateRowCount(String $tbleLabelTxt, Array $filterFields, Array $fieldValList): Int|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		$this->needWhereArray($filterFields);
+		$this->makeWhereClaus($filterFields);
 		$rwsDone = 0;
 		foreach(($this->tblRowsArr[$tbleLabelTxt] ?? Array()) as $rowKey=>$tblRow){
 			if( $this->rowMeetsFilter($tblRow, $filterFields) ){
@@ -200,7 +200,7 @@ class ArrayStore implements Store {
 	public function deleteRowCount(String $tbleLabelTxt, Array $filterFields): Int|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		$this->needWhereArray($filterFields);
+		$this->makeWhereClaus($filterFields);
 		$rwsDone = 0;
 		foreach(($this->tblRowsArr[$tbleLabelTxt] ?? Array()) as $rowKey=>$tblRow){
 			if( $this->rowMeetsFilter($tblRow, $filterFields) ){
@@ -221,7 +221,7 @@ class ArrayStore implements Store {
 	/**
 	 * @return Bool Always false.
 	 */
-	public function newTransaction(): Bool {
+	public function addTransaction(): Bool {
 		return false;
 	}
 
@@ -235,7 +235,7 @@ class ArrayStore implements Store {
 	/**
 	 * @return Bool Always false.
 	 */
-	public function delTransaction(): Bool {
+	public function dropWholeTrnsc(): Bool {
 		return false;
 	}
 

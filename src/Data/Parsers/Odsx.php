@@ -36,20 +36,20 @@ class Odsx extends Pack {
 	 * @throws ParseError When the archive is not a valid spreadsheet, is protected by a password, the sheet asked for is not in it, or a sheet is too sparse to be laid out.
 	 */
 	protected function readArchvArray(Array $parseOptions): Array {
-		$this->refuseIfLocked();
-		$docuTree = $this->partNodesArray('content.xml', true, true);
+		$this->denyLockedFile();
+		$docuTree = $this->readPartAsTree('content.xml', true, true);
 		$bookList = $this->findChildArray($docuTree ?? Array('nodes'=>Array()), Array('office:body', 'office:spreadsheet'));
 		if( $bookList===null ){
 			throw new ParseError('Invalid archive: the document is not a spreadsheet');
 		}
 		// A sheet is hidden by its style
 		$hideList = Array();
-		foreach($this->kidsNamedArray($this->findChildArray($docuTree, Array('office:automatic-styles')) ?? Array('nodes'=>Array()), 'style:style') as $stlArr){
+		foreach($this->listNamedNodes($this->findChildArray($docuTree, Array('office:automatic-styles')) ?? Array('nodes'=>Array()), 'style:style') as $stlArr){
 			if( strval($this->findChildArray($stlArr, Array('style:table-properties'))['attrs']['table:display'] ?? '')=='false' ){
 				$hideList[] = strval($stlArr['attrs']['style:name'] ?? '');
 			}
 		}
-		$tblsList = $this->kidsNamedArray($bookList, 'table:table');
+		$tblsList = $this->listNamedNodes($bookList, 'table:table');
 		$nameList = Array();
 		$shownLst = Array();
 		foreach($tblsList as $tblArr){
@@ -59,11 +59,11 @@ class Odsx extends Pack {
 		$this->addedCells = 0;
 		$sheetLst = Array();
 		$headDict = Array();
-		foreach($this->pickSheetArray($nameList, $shownLst, $parseOptions) as $shtIdx){
+		foreach($this->findSheetArray($nameList, $shownLst, $parseOptions) as $shtIdx){
 			$mergeLst = Array();
 			$headList = Array();
-			$rowsList = $this->sheetRowsArray($tblsList[$shtIdx], $mergeLst);
-			$sheetLst[] = $this->doneSheetArray($nameList[$shtIdx], $rowsList, Array('shown'=>$shownLst[$shtIdx], 'merge'=>$mergeLst), $parseOptions, $headList);
+			$rowsList = $this->readSheetCells($tblsList[$shtIdx], $mergeLst);
+			$sheetLst[] = $this->makeFinalSheet($nameList[$shtIdx], $rowsList, Array('shown'=>$shownLst[$shtIdx], 'merge'=>$mergeLst), $parseOptions, $headList);
 			if( !empty($parseOptions['heads']) ){
 				$headDict[$nameList[$shtIdx]] = $headList;
 			}
@@ -92,13 +92,13 @@ class Odsx extends Pack {
 	 * @param Array $elementArray The table, or a group of its rows.
 	 * @return Array The elements of the rows, in order.
 	 */
-	protected function rowsOfTableArr(Array $elementArray): Array {
+	protected function getRowsOfTable(Array $elementArray): Array {
 		$rowsList = Array();
 		foreach($elementArray['nodes'] as $chlArr){
 			if( $chlArr['tagnm']=='table:table-row' ){
 				$rowsList[] = $chlArr;
 			}elseif( in_array($chlArr['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
-				$rowsList = array_merge($rowsList, $this->rowsOfTableArr($chlArr));
+				$rowsList = array_merge($rowsList, $this->getRowsOfTable($chlArr));
 			}
 		}
 		return $rowsList;
@@ -115,12 +115,12 @@ class Odsx extends Pack {
 	 *
 	 * @throws ParseError When the table is too sparse to be laid out.
 	 */
-	protected function sheetRowsArray(Array $elementArray, Array &$mergedRanges): Array {
+	protected function readSheetCells(Array $elementArray, Array &$mergedRanges): Array {
 		$rowsList = Array();
 		$mergedRanges = Array();
 		// Empty rows met, not yet known to be followed by a row holding something
 		$voidRows = 0;
-		foreach($this->rowsOfTableArr($elementArray) as $rowArr){
+		foreach($this->getRowsOfTable($elementArray) as $rowArr){
 			$rpetNumb = max(1, intval($rowArr['attrs']['table:number-rows-repeated'] ?? 1));
 			$cellList = Array();
 			$voidClss = 0;
@@ -135,7 +135,7 @@ class Odsx extends Pack {
 					$mergedRanges[] = Array('atrow'=>count($rowsList)+$voidRows, 'atcol'=>count($cellList)+$voidClss, 'rowsp'=>max(1, $rowRange), 'colsp'=>max(1, $clmnSpan));
 				}
 				// A cell covered by a merged area holds nothing
-				$cellVals = ($celArr['tagnm']=='table:table-cell') ? $this->typedCellValue($celArr) : null;
+				$cellVals = ($celArr['tagnm']=='table:table-cell') ? $this->getTypedCelVal($celArr) : null;
 				if( $cellVals===null ){
 					$voidClss += $cellRpet;
 					continue;
@@ -167,7 +167,7 @@ class Odsx extends Pack {
 	 * @param Array $elementArray The element of the cell.
 	 * @return String|Int|Float|Bool|Null The value; null for an empty cell.
 	 */
-	protected function typedCellValue(Array $elementArray): String|Int|Float|Bool|Null {
+	protected function getTypedCelVal(Array $elementArray): String|Int|Float|Bool|Null {
 		$attrDict = $elementArray['attrs'];
 		$cellCode = strval($attrDict['office:value-type'] ?? '');
 		$valuePar = Array();
@@ -192,8 +192,8 @@ class Odsx extends Pack {
 		}
 		// A text: the paragraphs of the cell, one per line; the notes attached to it are not part of it
 		$prgrList = Array();
-		foreach($this->kidsNamedArray($elementArray, 'text:p') as $parArr){
-			$prgrList[] = $this->odfPieceAsText($parArr);
+		foreach($this->listNamedNodes($elementArray, 'text:p') as $parArr){
+			$prgrList[] = $this->getOdfPieceTxt($parArr);
 		}
 		if( empty($prgrList) ){
 			return ($cellCode=='string') ? '' : null;

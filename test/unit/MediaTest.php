@@ -108,7 +108,7 @@ checkIdentical('media: the details list what was saved, the name of each file wi
 checkIdentical('media: what is saved is a picture of the kind its name tells', runCatchThrown(function() use ($docxEnv, $mdiaDir){
 	$kindLst = Array();
 	foreach( array_keys($docxEnv['infos']['media']) as $fleNme ){
-		$infoArr = Image::openFluxdImage(Fluxd::openLocalFluxd($mdiaDir.DS.$fleNme))->imageInfoArray();
+		$infoArr = Image::openFluxdImage(Fluxd::openLocalFluxd($mdiaDir.DS.$fleNme))->getInfoOfImage();
 		$kindLst[] = $infoArr['kinds'].' '.$infoArr['width'].'x'.$infoArr['heght'];
 	}
 	sort($kindLst);
@@ -139,7 +139,7 @@ if( $withGd && function_exists('exif_read_data') ){
 		$mdiaDir = makeDir('photos');
 		$envlope = (new Docx())->parseFluxArray(Fluxd::openLocalFluxd($docxPth), Array('media'=>$mdiaDir));
 		$fileNme = srcList($envlope['items'])[0];
-		$infoArr = Image::openFluxdImage(Fluxd::openLocalFluxd($mdiaDir.DS.$fileNme))->imageInfoArray();
+		$infoArr = Image::openFluxdImage(Fluxd::openLocalFluxd($mdiaDir.DS.$fileNme))->getInfoOfImage();
 		return Array(substr($fileNme, -4), $infoArr['width'].'x'.$infoArr['heght'], $infoArr['turns'], $infoArr['exifs'], strpos(file_get_contents($mdiaDir.DS.$fileNme), 'Test Camera'), strpos($photoJp, 'Test Camera')!==false);
 	}), Array('.jpg', '20x40', 1, Array(), false, true));
 }else{

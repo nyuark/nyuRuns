@@ -70,7 +70,7 @@ $jsnVals = runShellAsJson($projDir, Array('account', 'setTwoFa', 'bob'));
 checkIdentical('twofa gives a 2FA secret, with the address an authenticator reads', Array(preg_match('/^[A-Z2-7]{32}$/D', $jsnVals['secret']['2FA secret of bob'] ?? ''), fileUsers($projDir)['bob']['twoFactKey'] ?? null, $jsnVals['secret']['Address for the authenticator'] ?? null), Array(1, $jsnVals['secret']['2FA secret of bob'] ?? '', 'otpauth://totp/nyuRuns:bob?secret='.($jsnVals['secret']['2FA secret of bob'] ?? '').'&issuer=nyuRuns'));
 $txtOut = callShellArray($projDir, Array('account', 'setTwoFa', 'bob'))['text'];
 preg_match('/^Address for the authenticator \(shown this once\): (\S+)\n/m', $txtOut, $adrMtc);
-$qrcArt = (new nyu\Data\QrCode($adrMtc[1] ?? 'none', 'M'))->drawAsTerminal(2);
+$qrcArt = (new nyu\Data\QrCode($adrMtc[1] ?? 'none', 'M'))->renderShellTxt(2);
 checkIdentical('twofa shows the address as a QR code, after it', Array(str_ends_with($txtOut, "\n".$qrcArt), substr_count($txtOut, '█')>100), Array(true, true));
 checkIdentical('twofa --noQrCode leaves the QR code out', str_contains(callShellArray($projDir, Array('account', 'setTwoFa', 'bob', '--noQrCode'))['text'], '█'), false);
 checkIdentical('a lost authenticator: the secret is taken away', Array(callShellArray($projDir, Array('account', 'setTwoFa', 'bob', '--removeIt', '--yesToAll'))['text'], isset(fileUsers($projDir)['bob']['twoFactKey'])), Array("2FA removed: bob\n", false));

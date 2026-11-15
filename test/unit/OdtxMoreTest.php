@@ -64,7 +64,7 @@ function odmShow( Array $blocksList ): Array {
 	return $showLst;
 }
 
-$mkSpan = Array(Shape::class, 'makeASpanArray');
+$mkSpan = Array(Shape::class, 'makeSpanOfText');
 $mkBlck = Array(Shape::class, 'makeBlockArray');
 $mkPict = function(String $sourceName, String $describedAs='', Array $attrsArray=Array()) use ($mkSpan, $mkBlck){ return $mkBlck('imageBox', ($describedAs==='') ? Array() : Array($mkSpan($describedAs)), Array(), Array('sourc'=>$sourceName) + $attrsArray); };
 

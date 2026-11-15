@@ -19,8 +19,8 @@ class DBCon {
 	private const STOR_LIST = Array('mongo_db'=>'MongoStore');
 
 	/**
-	 * Private: connections are opened through linkNamedDbCon(), obtainInstance() or
-	 * fromStoreDbCon().
+	 * Private: connections are opened through linkNamedDbCon(), loadDefaultCon() or
+	 * makeByStoreObj().
 	 */
 	private function __construct(){
 	}
@@ -41,7 +41,7 @@ class DBCon {
 	 *
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
 	 */
-	private static function buildLinkDbCon( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array(), String $linkNameText='' ): DBCon {
+	private static function openTypedDbCon( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array(), String $linkNameText='' ): DBCon {
 		$newNlace = new DBCon();
 		$typeClef = strtolower($hostTypeText);
 		if( $typeClef=='pdo' ){
@@ -69,7 +69,7 @@ class DBCon {
 	 * @param DBStore\Store $dataStoreObj The store.
 	 * @return DBCon A connection working through that store.
 	 */
-	public static function fromStoreDbCon( DBStore\Store $dataStoreObj ): DBCon {
+	public static function makeByStoreObj( DBStore\Store $dataStoreObj ): DBCon {
 		$newNlace = new DBCon();
 		$newNlace->dbStoreObj = $dataStoreObj;
 		return $newNlace;
@@ -101,9 +101,9 @@ class DBCon {
 	 *
 	 * @throws \RuntimeException When the type is not a known code nor a handler class.
 	 */
-	public static function obtainInstance( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array() ): DBCon {
+	public static function loadDefaultCon( String $hostTypeText, String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array() ): DBCon {
 		if( !isset(self::$knownLinks['']) ){
-			self::$knownLinks[''] = self::buildLinkDbCon($hostTypeText, $databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
+			self::$knownLinks[''] = self::openTypedDbCon($hostTypeText, $databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList);
 		}
 		return self::$knownLinks[''];
 	}
@@ -124,7 +124,7 @@ class DBCon {
 		$baseDict = self::readSetupArray($linkNameText);
 		$nameClef = $baseDict['name'];
 		if( !isset(self::$knownLinks[$nameClef]) ){
-			self::$knownLinks[$nameClef] = self::buildLinkDbCon($baseDict['dbEngine'], $baseDict['hostName'], $baseDict['userName'], $baseDict['passWord'], $baseDict['baseName'], Array('portNumb'=>$baseDict['portNumb'], 'encoding'=>$baseDict['encoding'], 'authBase'=>$baseDict['authBase'], 'waitSecs'=>$baseDict['waitSecs']), $nameClef);
+			self::$knownLinks[$nameClef] = self::openTypedDbCon($baseDict['dbEngine'], $baseDict['hostName'], $baseDict['userName'], $baseDict['passWord'], $baseDict['baseName'], Array('portNumb'=>$baseDict['portNumb'], 'encoding'=>$baseDict['encoding'], 'authBase'=>$baseDict['authBase'], 'waitSecs'=>$baseDict['waitSecs']), $nameClef);
 		}
 		return self::$knownLinks[$nameClef];
 	}
@@ -139,7 +139,7 @@ class DBCon {
 	 *
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */
-	public static function baseSetupArray( String $linkNameText='' ): Array {
+	public static function readDbaseConfg( String $linkNameText='' ): Array {
 		$baseDict = self::readSetupArray($linkNameText);
 		unset($baseDict['name']);
 		return $baseDict;
@@ -150,7 +150,7 @@ class DBCon {
 	 * connection is kept under.
 	 *
 	 * @param String $linkNameText Name of the database, whatever its case; '' for the default one.
-	 * @return Array The settings of baseSetupArray(), plus 'name': the name in lower case, '' for the default database.
+	 * @return Array The settings of readDbaseConfg(), plus 'name': the name in lower case, '' for the default database.
 	 *
 	 * @throws \RuntimeException When no database is configured, or none has that name.
 	 */

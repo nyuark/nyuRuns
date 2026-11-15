@@ -72,7 +72,7 @@ class XHml extends Base {
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
 		$readCode = strtolower(strval($parseOptions['reads'] ?? ''));
 		if( $readCode!='html' && $readCode!='xml' ){
-			$readCode = (Bina::detectFileKind(substr($nakedContent, 0, 512))=='html') ? 'html' : 'xml';
+			$readCode = (Bina::findContentCod(substr($nakedContent, 0, 512))=='html') ? 'html' : 'xml';
 		}
 		$shapeNme = strtolower(strval($parseOptions['shape'] ?? ''));
 		if( $shapeNme!='nodes' && $shapeNme!='block' ){
@@ -95,12 +95,12 @@ class XHml extends Base {
 		if( $domDcmnt->documentElement===null ){
 			return $this->makeShapeArray($shapeNme, Array(), $infoList);
 		}
-		$rootList = $this->elementToArray($domDcmnt->documentElement, max(1, intval($parseOptions['depth'] ?? 256)), $readCode=='html', !empty($parseOptions['space']));
+		$rootList = $this->readElementDct($domDcmnt->documentElement, max(1, intval($parseOptions['depth'] ?? 256)), $readCode=='html', !empty($parseOptions['space']));
 		if( $readCode=='html' ){
-			$infoList['title'] = $this->locateTitleTxt($rootList);
+			$infoList['title'] = $this->findTitleOfDoc($rootList);
 		}
 		if( $shapeNme=='block' ){
-			return $this->makeShapeArray('block', $this->tagBlocksArray($rootList), $infoList);
+			return $this->makeShapeArray('block', $this->readNodeBlocks($rootList), $infoList);
 		}
 		if( !empty($parseOptions['short']) ){
 			$rootList = Array($rootList['tagnm']=>$this->compactElement($rootList));
@@ -131,7 +131,7 @@ class XHml extends Base {
 			}
 		}else{
 			// A marker at the start, UTF-8, or nothing declared: the common rules apply
-			$xmlStrng = self::recodeTextUtf8($nakedContent);
+			$xmlStrng = self::castTextToUtf8($nakedContent);
 		}
 		if( preg_match($declRgxp, substr($xmlStrng, 0, 200), $declPart) ){
 			$foundCharset = strtoupper($declPart[2]);
@@ -171,7 +171,7 @@ class XHml extends Base {
 	protected function loadHtmlSource(String $nakedContent, String &$foundCharset): \DOMDocument {
 		$metaRgxp = '/(<meta\b[^>]*?\bcharset\s*=\s*["\']?)([\w.:\-]+)/i';
 		$metaPart = Array();
-		$htmlText = self::recodeTextUtf8($nakedContent);
+		$htmlText = self::castTextToUtf8($nakedContent);
 		if( preg_match($metaRgxp, substr($nakedContent, 0, 2048), $metaPart) ){
 			$foundCharset = strtoupper($metaPart[2]);
 			// A declared encoding is followed when the bytes are not already UTF-8
@@ -202,7 +202,7 @@ class XHml extends Base {
 	 *
 	 * @throws ParseError When the nesting goes deeper than accepted.
 	 */
-	protected function elementToArray(\DOMElement $elementGiven, Int $depthsLftNum, Bool $isHtmlSource=false, Bool $keepsSpacing=false): Array {
+	protected function readElementDct(\DOMElement $elementGiven, Int $depthsLftNum, Bool $isHtmlSource=false, Bool $keepsSpacing=false): Array {
 		if( $depthsLftNum<1 ){
 			throw new ParseError('Invalid '.($isHtmlSource ? 'HTML' : 'XML').' content: nested deeper than allowed');
 		}
@@ -224,7 +224,7 @@ class XHml extends Base {
 			if( $chlNod instanceof \DOMElement ){
 				$hasNodes = true;
 				$isInline = ($isInline || ($isHtmlSource && !in_array($chlNod->nodeName, self::BLCK_LIST) && !in_array($chlNod->nodeName, self::SKIP_LIST)));
-				$childLst[] = $this->elementToArray($chlNod, $depthsLftNum-1, $isHtmlSource, $keepsSpacing);
+				$childLst[] = $this->readElementDct($chlNod, $depthsLftNum-1, $isHtmlSource, $keepsSpacing);
 			}elseif( $chlNod instanceof \DOMText ){
 				// Text and CDATA; what is only spacing between elements is left out below
 				$textList[] = $chlNod->nodeValue;
@@ -253,7 +253,7 @@ class XHml extends Base {
 	 * under '#text', and its child elements grouped by name, each name
 	 * always holding a list.
 	 *
-	 * @param Array $elementArray The element, as elementToArray() gives it.
+	 * @param Array $elementArray The element, as readElementDct() gives it.
 	 * @return mixed The text of the element, or its compact array.
 	 */
 	protected function compactElement(Array $elementArray): Mixed {
@@ -284,7 +284,7 @@ class XHml extends Base {
 	 * @param Array $elementArray An element of the tree.
 	 * @return String The title, its spacing tidied, '' when the page has none.
 	 */
-	protected function locateTitleTxt(Array $elementArray): String {
+	protected function findTitleOfDoc(Array $elementArray): String {
 		if( $elementArray['tagnm']=='title' ){
 			return trim(preg_replace('/\s+/', ' ', $elementArray['value']));
 		}
@@ -293,7 +293,7 @@ class XHml extends Base {
 			if( in_array($chlArr['tagnm'], Array('body', 'svg', '#text')) ){
 				continue;
 			}
-			$foundTit = $this->locateTitleTxt($chlArr);
+			$foundTit = $this->findTitleOfDoc($chlArr);
 			if( $foundTit!=='' ){
 				return $foundTit;
 			}
@@ -308,7 +308,7 @@ class XHml extends Base {
 	 * @param Array $elementArray The element.
 	 * @return Array Its child nodes, in order.
 	 */
-	protected function kidsOfTagArray(Array $elementArray): Array {
+	protected function listChildNodes(Array $elementArray): Array {
 		if( empty($elementArray['nodes']) && $elementArray['value']!=='' ){
 			return Array(Array('tagnm'=>'#text', 'tagid'=>'', 'attrs'=>Array(), 'value'=>$elementArray['value'], 'nodes'=>Array()));
 		}
@@ -321,9 +321,9 @@ class XHml extends Base {
 	 * @param Array $elementArray The element.
 	 * @return Bool True when one of the elements inside it starts a block.
 	 */
-	protected function holdsBlockFlag(Array $elementArray): Bool {
+	protected function hasBlockInside(Array $elementArray): Bool {
 		foreach($elementArray['nodes'] as $chlArr){
-			if( in_array($chlArr['tagnm'], self::BLCK_LIST) || $this->holdsBlockFlag($chlArr) ){
+			if( in_array($chlArr['tagnm'], self::BLCK_LIST) || $this->hasBlockInside($chlArr) ){
 				return true;
 			}
 		}
@@ -346,19 +346,19 @@ class XHml extends Base {
 			if( in_array($tagTitle, self::SKIP_LIST) ){
 				continue;
 			}
-			if( !in_array($tagTitle, self::BLCK_LIST) && !$this->holdsBlockFlag($chlArr) ){
-				$spanBuff = array_merge($spanBuff, $this->inlineSpansArr($chlArr, Array(), ''));
+			if( !in_array($tagTitle, self::BLCK_LIST) && !$this->hasBlockInside($chlArr) ){
+				$spanBuff = array_merge($spanBuff, $this->readInlineSpns($chlArr, Array(), ''));
 				continue;
 			}
 			// A block starts: the text gathered so far is a paragraph of its own
-			$tidySpan = $this->tidySpansArray($spanBuff);
+			$tidySpan = $this->wipeShownSpans($spanBuff);
 			$spanBuff = Array();
 			if( !empty($tidySpan) ){
 				$blockLst[] = Shape::makeBlockArray('paragrph', $tidySpan);
 			}
-			$blockLst = array_merge($blockLst, in_array($tagTitle, self::BLCK_LIST) ? $this->tagBlocksArray($chlArr) : $this->readFlowsArray($this->kidsOfTagArray($chlArr)));
+			$blockLst = array_merge($blockLst, in_array($tagTitle, self::BLCK_LIST) ? $this->readNodeBlocks($chlArr) : $this->readFlowsArray($this->listChildNodes($chlArr)));
 		}
-		$tidySpan = $this->tidySpansArray($spanBuff);
+		$tidySpan = $this->wipeShownSpans($spanBuff);
 		if( !empty($tidySpan) ){
 			$blockLst[] = Shape::makeBlockArray('paragrph', $tidySpan);
 		}
@@ -374,13 +374,13 @@ class XHml extends Base {
 	 * @param String $linkGoalText Address given by a link around it, '' when there is none.
 	 * @return Array The spans, their spacing as written.
 	 */
-	protected function inlineSpansArr(Array $elementArray, Array $runFormatSet, String $linkGoalText): Array {
+	protected function readInlineSpns(Array $elementArray, Array $runFormatSet, String $linkGoalText): Array {
 		$tagTitle = $elementArray['tagnm'];
 		if( $tagTitle=='#text' ){
-			return Array(Shape::makeASpanArray($elementArray['value'], $runFormatSet, $linkGoalText));
+			return Array(Shape::makeSpanOfText($elementArray['value'], $runFormatSet, $linkGoalText));
 		}
 		if( $tagTitle=='br' ){
-			return Array(Shape::makeASpanArray(self::LINE_MARK, $runFormatSet, $linkGoalText));
+			return Array(Shape::makeSpanOfText(self::LINE_MARK, $runFormatSet, $linkGoalText));
 		}
 		if( in_array($tagTitle, self::SKIP_LIST) ){
 			return Array();
@@ -389,11 +389,11 @@ class XHml extends Base {
 			$runFormatSet[] = self::MARK_TAGS[$tagTitle];
 		}
 		if( $tagTitle=='a' && isset($elementArray['attrs']['href']) ){
-			$linkGoalText = Shape::tidyLinkString($elementArray['attrs']['href']);
+			$linkGoalText = Shape::wipeUnsafeAddr($elementArray['attrs']['href']);
 		}
 		$spansLst = Array();
-		foreach($this->kidsOfTagArray($elementArray) as $chlArr){
-			$spansLst = array_merge($spansLst, $this->inlineSpansArr($chlArr, $runFormatSet, $linkGoalText));
+		foreach($this->listChildNodes($elementArray) as $chlArr){
+			$spansLst = array_merge($spansLst, $this->readInlineSpns($chlArr, $runFormatSet, $linkGoalText));
 		}
 		return $spansLst;
 	}
@@ -407,7 +407,7 @@ class XHml extends Base {
 	 * @param Array $textSpanList The spans, their spacing as written.
 	 * @return Array The tidied spans; none when there is no text.
 	 */
-	protected function tidySpansArray(Array $textSpanList): Array {
+	protected function wipeShownSpans(Array $textSpanList): Array {
 		$tidyList = Array();
 		foreach($textSpanList as $oneSpn){
 			$spanText = preg_replace('/\s+/', ' ', $oneSpn['texts']);
@@ -462,11 +462,11 @@ class XHml extends Base {
 	 * @param Bool  $innerHeadFlg Whether the rows are those of a thead element.
 	 * @return Array The rows, as 'tableTop' and 'tableRow' blocks.
 	 */
-	protected function rowsOfTableArr(Array $elementArray, Bool $innerHeadFlg=false): Array {
+	protected function getRowsOfTable(Array $elementArray, Bool $innerHeadFlg=false): Array {
 		$rowsList = Array();
 		foreach($elementArray['nodes'] as $chlArr){
 			if( in_array($chlArr['tagnm'], Array('thead', 'tbody', 'tfoot')) ){
-				$rowsList = array_merge($rowsList, $this->rowsOfTableArr($chlArr, $chlArr['tagnm']=='thead'));
+				$rowsList = array_merge($rowsList, $this->getRowsOfTable($chlArr, $chlArr['tagnm']=='thead'));
 				continue;
 			}
 			if( $chlArr['tagnm']!='tr' ){
@@ -488,7 +488,7 @@ class XHml extends Base {
 						$cellAttr[$atrKey] = intval($celArr['attrs'][$atrNme]);
 					}
 				}
-				$cellPart = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($celArr)));
+				$cellPart = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($celArr)));
 				$cellList[] = Array($cellPart[0], $cellPart[1], $cellAttr);
 			}
 			// A row of the head, or a row made of header cells only, is a header row
@@ -511,13 +511,13 @@ class XHml extends Base {
 	 * @param Array $elementArray The element.
 	 * @return String Its text, with the text of what it holds.
 	 */
-	protected function elementRawText(Array $elementArray): String {
+	protected function getRawNodeText(Array $elementArray): String {
 		if( $elementArray['tagnm']=='br' ){
 			return "\n";
 		}
 		$rawStrng = $elementArray['value'];
 		foreach($elementArray['nodes'] as $chlArr){
-			$rawStrng .= $this->elementRawText($chlArr);
+			$rawStrng .= $this->getRawNodeText($chlArr);
 		}
 		return $rawStrng;
 	}
@@ -530,12 +530,12 @@ class XHml extends Base {
 	 * @param Array $elementArray The element.
 	 * @return Array The blocks.
 	 */
-	protected function tagBlocksArray(Array $elementArray): Array {
+	protected function readNodeBlocks(Array $elementArray): Array {
 		$tagTitle = $elementArray['tagnm'];
 		$tgidVals = ($elementArray['tagid']!=='') ? Array('tagid'=>$elementArray['tagid']) : Array();
 		$blockLst = Array();
 		if( preg_match('/^h([1-6])$/D', $tagTitle, $hedrPart) ){
-			$hedrSpns = $this->tidySpansArray($this->inlineSpansArr(Array('tagnm'=>'span')+$elementArray, Array(), ''));
+			$hedrSpns = $this->wipeShownSpans($this->readInlineSpns(Array('tagnm'=>'span')+$elementArray, Array(), ''));
 			if( !empty($hedrSpns) ){
 				$blockLst[] = Shape::makeBlockArray('headline', $hedrSpns, Array(), Array('level'=>intval($hedrPart[1])) + $tgidVals);
 			}
@@ -545,43 +545,43 @@ class XHml extends Base {
 				if( $chlArr['tagnm']!='li' ){
 					continue;
 				}
-				$entryPar = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($chlArr)));
+				$entryPar = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($chlArr)));
 				$itemList[] = Shape::makeBlockArray('listItem', $entryPar[0], $entryPar[1], ($chlArr['tagid']!=='') ? Array('tagid'=>$chlArr['tagid']) : Array());
 			}
 			if( !empty($itemList) ){
 				$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>($tagTitle=='ol')) + $tgidVals);
 			}
 		}elseif( $tagTitle=='table' ){
-			$rowsList = $this->rowsOfTableArr($elementArray);
+			$rowsList = $this->getRowsOfTable($elementArray);
 			if( !empty($rowsList) ){
 				$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsList, $tgidVals);
 			}
 		}elseif( $tagTitle=='blockquote' ){
-			$quotePar = $this->splitHoldArray($this->readFlowsArray($this->kidsOfTagArray($elementArray)));
+			$quotePar = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($elementArray)));
 			if( !empty($quotePar[0]) || !empty($quotePar[1]) ){
 				$blockLst[] = Shape::makeBlockArray('citation', $quotePar[0], $quotePar[1], $tgidVals);
 			}
 		}elseif( $tagTitle=='pre' ){
-			$codeText = trim($this->elementRawText($elementArray), "\r\n");
+			$codeText = trim($this->getRawNodeText($elementArray), "\r\n");
 			$langPart = Array();
 			$codeAttr = $tgidVals;
 			if( preg_match('/\blang(?:uage)?-([\w+#.\-]+)/', strval($elementArray['nodes'][0]['attrs']['class'] ?? $elementArray['attrs']['class'] ?? ''), $langPart) ){
 				$codeAttr = Array('langg'=>$langPart[1]) + $codeAttr;
 			}
 			if( $codeText!=='' ){
-				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), $codeAttr);
+				$blockLst[] = Shape::makeBlockArray('codeBlck', Array(Shape::makeSpanOfText($codeText)), Array(), $codeAttr);
 			}
 		}elseif( $tagTitle=='hr' ){
 			$blockLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), $tgidVals);
 		}elseif( $tagTitle=='img' ){
-			$imageLnk = Shape::tidyLinkString(strval($elementArray['attrs']['src'] ?? ''));
+			$imageLnk = Shape::wipeUnsafeAddr(strval($elementArray['attrs']['src'] ?? ''));
 			$imageTxt = trim(strval($elementArray['attrs']['alt'] ?? ''));
 			if( $imageLnk!=='' ){
-				$blockLst[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeASpanArray($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk) + $tgidVals);
+				$blockLst[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeSpanOfText($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk) + $tgidVals);
 			}
 		}else{
 			// A paragraph, or an element that only groups others: what it holds, in order
-			$blockLst = $this->readFlowsArray($this->kidsOfTagArray($elementArray));
+			$blockLst = $this->readFlowsArray($this->listChildNodes($elementArray));
 			if( !empty($blockLst) && !empty($tgidVals) && !isset($blockLst[0]['attrs']['tagid']) && $tagTitle=='p' ){
 				$blockLst[0]['attrs'] = $blockLst[0]['attrs'] + $tgidVals;
 			}

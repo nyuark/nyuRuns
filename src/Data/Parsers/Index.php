@@ -72,7 +72,7 @@ class Index {
 	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return ?Parser The parser, null when the extension has none.
 	 */
-	public static function forExtnsParser(String $extensionTxt): ?Parser {
+	public static function getExtnsParser(String $extensionTxt): ?Parser {
 		$extnList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
 		if( $extnList===null ){
 			return null;
@@ -87,7 +87,7 @@ class Index {
 	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return Array The options, empty when the extension has none.
 	 */
-	public static function optionsOfExtns(String $extensionTxt): Array {
+	public static function getOptsForExtn(String $extensionTxt): Array {
 		return self::$extnsArray[strtolower($extensionTxt)][1] ?? Array();
 	}
 
@@ -99,7 +99,7 @@ class Index {
 	 * @param String $sentMimeType The content type, as a request sends it.
 	 * @return String The extension, '' when the type is not known.
 	 */
-	protected static function typeExtensions(String $sentMimeType): String {
+	protected static function castMimeToExtn(String $sentMimeType): String {
 		$typeClef = strtolower(trim(explode(';', $sentMimeType)[0]));
 		if( isset(self::$parserList[$typeClef]) ){
 			return self::$parserList[$typeClef];
@@ -117,8 +117,8 @@ class Index {
 	 * @return ?Parser The parser, null when the content type has none.
 	 */
 	public static function findTypeParser(String $sentMimeType): ?Parser {
-		$fileExtn = self::typeExtensions($sentMimeType);
-		return ($fileExtn=='') ? null : self::forExtnsParser($fileExtn);
+		$fileExtn = self::castMimeToExtn($sentMimeType);
+		return ($fileExtn=='') ? null : self::getExtnsParser($fileExtn);
 	}
 
 	/**
@@ -127,9 +127,9 @@ class Index {
 	 * @param String $sentMimeType The content type, with or without its parameters.
 	 * @return Array The options, empty when the content type has none.
 	 */
-	public static function typeOptionsArr(String $sentMimeType): Array {
-		$fileExtn = self::typeExtensions($sentMimeType);
-		return ($fileExtn=='') ? Array() : self::optionsOfExtns($fileExtn);
+	public static function getOptsForMime(String $sentMimeType): Array {
+		$fileExtn = self::castMimeToExtn($sentMimeType);
+		return ($fileExtn=='') ? Array() : self::getOptsForExtn($fileExtn);
 	}
 
 	/**

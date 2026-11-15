@@ -63,7 +63,7 @@ class Text extends Base {
 			$edgePart = Array();
 			preg_match('/^(\s*)(.*?)(\s*)$/Ds', strval($oneSpn['texts'] ?? ''), $edgePart);
 			$coreText = $edgePart[2];
-			$linkAddr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
+			$linkAddr = Shape::wipeUnsafeAddr(strval($oneSpn['links'] ?? ''));
 			$matxRows = Array();
 			if( $coreText!=='' && preg_match('/^#[fe]note(\d+)$/D', $linkAddr, $matxRows) ){
 				// The reference to a note stands between square brackets
@@ -93,7 +93,7 @@ class Text extends Base {
 	 * @param Array $contentBlock The block.
 	 * @return String The text.
 	 */
-	protected function innerOutString(Array $contentBlock): String {
+	protected function writeInnerPart(Array $contentBlock): String {
 		$outStrng = trim($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
 			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
@@ -115,7 +115,7 @@ class Text extends Base {
 		$hasOrder = !empty($listsBlcList['attrs']['order']);
 		$itemText = Array();
 		foreach((array)$listsBlcList['items'] as $entBlk){
-			$insdText = $this->innerOutString($entBlk);
+			$insdText = $this->writeInnerPart($entBlk);
 			if( $this->outputType=='bbcod' ){
 				$itemText[] = '[*]'.$insdText;
 				continue;
@@ -157,13 +157,13 @@ class Text extends Base {
 				foreach(($blockCod=='tableSet') ? (array)$oneBlk['items'] : Array($oneBlk) as $oneRow){
 					$cellText = Array();
 					foreach((array)$oneRow['items'] as $celBlk){
-						$cellText[] = preg_replace('/\s+/', ' ', $this->innerOutString($celBlk));
+						$cellText[] = preg_replace('/\s+/', ' ', $this->writeInnerPart($celBlk));
 					}
 					$rowsText[] = implode("\t", $cellText);
 				}
 				$blockTxt = implode("\n", $rowsText);
 			}elseif( $blockCod=='citation' ){
-				$quoteTxt = $this->innerOutString($oneBlk);
+				$quoteTxt = $this->writeInnerPart($oneBlk);
 				$citeText = str_replace(Array('[', ']', "\n"), Array('(', ')', ' '), strval($oneBlk['attrs']['cites'] ?? ''));
 				if( $quoteTxt!=='' && $this->outputType=='bbcod' ){
 					$blockTxt = '[quote'.(($citeText!=='') ? '='.$citeText : '').']'.$quoteTxt.'[/quote]';
@@ -175,15 +175,15 @@ class Text extends Base {
 				$blockTxt = ($this->outputType=='bbcod') ? '[code'.(preg_match('/^[\w+#.\-]+$/D', $codeLang) ? '='.$codeLang : '')."]\n".strval($oneBlk['plain'] ?? '')."\n[/code]" : strval($oneBlk['plain'] ?? '');
 			}elseif( $blockCod=='imageBox' ){
 				// An image is a tag where there is one, and its description otherwise
-				$imageLnk = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
+				$imageLnk = Shape::wipeUnsafeAddr(strval($oneBlk['attrs']['sourc'] ?? ''));
 				$blockTxt = ($this->outputType=='bbcod' && $imageLnk!=='') ? '[img]'.$imageLnk.'[/img]' : trim(strval($oneBlk['plain'] ?? ''));
 			}elseif( $blockCod=='ruleLine' ){
 				$blockTxt = '----------';
 			}elseif( $blockCod=='footnote' ){
-				$blockTxt = '['.intval($oneBlk['attrs']['numbr'] ?? 0).'] '.$this->innerOutString($oneBlk);
+				$blockTxt = '['.intval($oneBlk['attrs']['numbr'] ?? 0).'] '.$this->writeInnerPart($oneBlk);
 			}elseif( $blockCod=='listItem' || $blockCod=='cellText' ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$blockTxt = $this->innerOutString($oneBlk);
+				$blockTxt = $this->writeInnerPart($oneBlk);
 			}else{
 				throw new WriteError('Unknown kind of block: '.$blockCod);
 			}

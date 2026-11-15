@@ -193,7 +193,7 @@ class Response{
 	protected function renderReplyTxt( Mixed $outputToSend ): String {
 		if( $this->formatUsed=='jsonData' ){
 			// A binary value cannot be written as text: it is given as null
-			$jsonText = json_encode(\nyu\Data\Fluxd::nullifySources($outputToSend));
+			$jsonText = json_encode(\nyu\Data\Fluxd::dropAllSources($outputToSend));
 			if( $jsonText===false ){
 				throw new \RuntimeException(json_last_error_msg());
 			}
@@ -210,17 +210,17 @@ class Response{
 			return $outputToSend;
 		}
 		$extnName = self::FORM_LIST[$this->formatUsed] ?? '';
-		$wrtrInst = \nyu\Data\Writers\Index::forExtnsWriter($extnName);
+		$wrtrInst = \nyu\Data\Writers\Index::getExtnsWriter($extnName);
 		if( $wrtrInst===null ){
 			throw new \RuntimeException('no writer for the format '.$this->formatUsed);
 		}
-		$dataVals = \nyu\Data\Fluxd::nullifySources( is_object($outputToSend) ? json_decode(strval(json_encode($outputToSend)), true) : $outputToSend );
+		$dataVals = \nyu\Data\Fluxd::dropAllSources( is_object($outputToSend) ? json_decode(strval(json_encode($outputToSend)), true) : $outputToSend );
 		$cellList = $this->getRecordCells($dataVals);
 		if( $this->formatUsed=='csvTable' ){
 			if( $cellList===null ){
 				throw new \RuntimeException('a table is written from a list of records');
 			}
-			return $wrtrInst->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellList))), \nyu\Data\Writers\Index::optionsOfExtns($extnName) );
+			return $wrtrInst->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellList))), \nyu\Data\Writers\Index::getOptsForExtn($extnName) );
 		}
 		if( $this->formatUsed=='htmlView' ){
 			if( $cellList!==null ){
@@ -228,7 +228,7 @@ class Response{
 			}
 			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->renderValsHtml($dataVals)."</body>\n</html>\n";
 		}
-		return $wrtrInst->renderDocument( Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$dataVals), \nyu\Data\Writers\Index::optionsOfExtns($extnName) );
+		return $wrtrInst->renderDocument( Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$dataVals), \nyu\Data\Writers\Index::getOptsForExtn($extnName) );
 	}
 
 	/**
@@ -406,7 +406,7 @@ class Response{
 		if( $this->formatUsed=='jsonData' ){
 			return 'application/json; charset=utf-8';
 		}
-		$countCod = \nyu\Data\Writers\Index::contentTypeFor( self::FORM_LIST[$this->formatUsed] ?? '' );
+		$countCod = \nyu\Data\Writers\Index::getMimeForExtn( self::FORM_LIST[$this->formatUsed] ?? '' );
 		return ($countCod!='') ? $countCod : 'application/octet-stream';
 	}
 
@@ -639,7 +639,7 @@ class Response{
 	 * Sends raw output read from a Fluxd, piece by piece, then closes it.
 	 */
 	protected function sendReplyFluxd(): Void {
-		while( !$this->fluxOutput->stopOfFluxFlag() ){
+		while( !$this->fluxOutput->isFluxFinished() ){
 			$pieceTxt = $this->fluxOutput->getChunkString(8192);
 			if( $pieceTxt===false || $pieceTxt==='' || connection_aborted() ){
 				break;
@@ -647,7 +647,7 @@ class Response{
 			print($pieceTxt);
 			flush();
 		}
-		$this->fluxOutput->closeTheSource();
+		$this->fluxOutput->shutFluxSource();
 		$this->fluxOutput = null;
 	}
 }

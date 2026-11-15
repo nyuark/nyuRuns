@@ -83,7 +83,7 @@ checkIdentical('names every spreadsheet accepts, and the sheet that is hidden', 
 checkPregMatch('no sheet at all gives a spreadsheet of one empty sheet', odsPart(odsWrite(Array()), 'content.xml'), '/<table:table table:name="Sheet1" table:style-name="ta1"><table:table-column\/><table:table-row><table:table-cell\/><\/table:table-row><\/table:table>/');
 checkPregMatch('a shape that is not sheets', runCatchThrown(function(){ return (new Odsx())->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array())); }), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Shape that cannot be written as a spreadsheet: nodes/');
 checkPregMatch('a row of more cells than a sheet holds', odsWrite(Array(Shape::makeSheetArray('Wide', Array(array_fill(0, 16385, 1))))), '/^THROWN nyu\\\\Data\\\\Writers\\\\WriteError: Sheet larger than a sheet can be/');
-checkIdentical('the writer of the ods extension', Array(get_class(Index::forExtnsWriter('ODS')), Index::contentTypeFor('ods')), Array('nyu\\Data\\Writers\\Odsx', 'application/vnd.oasis.opendocument.spreadsheet'));
+checkIdentical('the writer of the ods extension', Array(get_class(Index::getExtnsWriter('ODS')), Index::getMimeForExtn('ods')), Array('nyu\\Data\\Writers\\Odsx', 'application/vnd.oasis.opendocument.spreadsheet'));
 
 // Cells holding nothing, rows holding nothing, merged cells
 $gridLst = Array(Array('Title', null, null, 'Total'), Array(), Array(), Array(1, 2.25), Array(null, null, 'far'));

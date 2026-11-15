@@ -31,7 +31,7 @@ class Json extends Base {
 			$wholDict = !empty($writeOptions['whole']) ? Array('shape'=>$dataEnvelope['shape'], 'infos'=>$dataEnvelope['infos'] ?? Array(), 'items'=>$itemVals) : $itemVals;
 			return $this->writeJsonValue($wholDict, !empty($writeOptions['prety'])).(!empty($writeOptions['prety']) ? "\n" : '');
 		}
-		if( !is_array($itemVals) || !$this->validateALstOf($itemVals) ){
+		if( !is_array($itemVals) || !$this->isSequenceList($itemVals) ){
 			throw new WriteError('Content that cannot be written as JSON Lines: it is not a list');
 		}
 		$jsonText = '';
@@ -55,7 +55,7 @@ class Json extends Base {
 		// Numbers are written with the digits they need and no more, whatever the server is set to
 		$keptPrec = ini_set('serialize_precision', '-1');
 		// A binary value cannot be written as text: it is given as null
-		$jsonText = json_encode(\nyu\Data\Fluxd::nullifySources($valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($multiLineOut ? JSON_PRETTY_PRINT : 0));
+		$jsonText = json_encode(\nyu\Data\Fluxd::dropAllSources($valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | ($multiLineOut ? JSON_PRETTY_PRINT : 0));
 		if( $keptPrec!==false ){
 			ini_set('serialize_precision', $keptPrec);
 		}

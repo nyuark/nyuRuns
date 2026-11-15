@@ -131,7 +131,7 @@ checkIdentical('a table: header rows, rows, cells, and what describes it', htmLi
 ));
 checkIdentical('rows have their cells in plain, a table has none', runCatchThrown(function() use ($tblHtml){
 	$tblBlck = htmRead($tblHtml)['items'][0];
-	return Array($tblBlck['plain'], $tblBlck['items'][0]['plain'], $tblBlck['items'][1]['plain'], $tblBlck['items'][2]['plain'], Shape::tableGridArray($tblBlck));
+	return Array($tblBlck['plain'], $tblBlck['items'][0]['plain'], $tblBlck['items'][1]['plain'], $tblBlck['items'][2]['plain'], Shape::getGridOfTable($tblBlck));
 }), Array('', "Title\tSeats", "Alpha Night\t120", "Les Enchaînés\t", Array(Array('Title', 'Seats'), Array('Alpha Night', '120'), Array('Les Enchaînés', ''))));
 checkIdentical('without a head, a row made of header cells only is the header row', htmLines('<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>'), Array('tableSet {"heads":["A","B"],"colms":2,"lines":1,"bytes":4}', '  tableTop', '    cellText [A]', '    cellText [B]', '  tableRow', '    cellText [1]', '    cellText [2]'));
 checkIdentical('a cell holding blocks: its first paragraph is its text, the rest is inside it', htmLines('<table><tr><td><p>Shows</p><ul><li>Alpha</li></ul></td></tr></table>'), Array('tableSet {"heads":[],"colms":1,"lines":1,"bytes":10}', '  tableRow', '    cellText [Shows]', '      itemList {"lines":1,"bytes":5,"order":false}', '        listItem [Alpha]'));
@@ -145,9 +145,9 @@ checkIdentical('an image inside a paragraph stands between its two halves', htmL
 
 // The whole text, and sections
 $longHtm = '<p>Before.</p><h1>Alpha Night</h1><p>Intro.</p><h2>Dates</h2><ul><li>Monday</li><li>Friday</li></ul><h1>Beta Evening</h1><p>Other show.</p>';
-checkIdentical('the whole text of a page', Shape::documentAsText(htmRead($longHtm)['items']), "Before.\n\nAlpha Night\n\nIntro.\n\nDates\n\nMonday\nFriday\n\nBeta Evening\n\nOther show.");
+checkIdentical('the whole text of a page', Shape::getTextOfDcmnt(htmRead($longHtm)['items']), "Before.\n\nAlpha Night\n\nIntro.\n\nDates\n\nMonday\nFriday\n\nBeta Evening\n\nOther show.");
 checkIdentical('a page grouped into sections', runCatchThrown(function() use ($longHtm){
-	$sctnLst = Shape::bySectionArray(htmRead($longHtm)['items']);
+	$sctnLst = Shape::getSectionTree(htmRead($longHtm)['items']);
 	return Array(count($sctnLst), $sctnLst[0]['title'], $sctnLst[1]['title'], $sctnLst[1]['items'][0]['plain'], $sctnLst[1]['nodes'][0]['title'], $sctnLst[1]['nodes'][0]['items'][0]['block'], $sctnLst[2]['title']);
 }), Array(3, '', 'Alpha Night', 'Intro.', 'Dates', 'itemList', 'Beta Evening'));
 
@@ -207,7 +207,7 @@ checkPregMatch('nesting deeper than allowed is refused', htmRead('<div><div><div
 checkIdentical('no PHP warning is left behind by a page that is not well-formed', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: HTML by extension and by content type', Array(get_class(Index::forExtnsParser('html')), get_class(Index::forExtnsParser('HTM')), get_class(Index::forExtnsParser('xhtml')), get_class(Index::findTypeParser('text/html; charset=utf-8')), Index::optionsOfExtns('html'), Index::optionsOfExtns('xml')), Array('nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', Array('reads'=>'html'), Array('reads'=>'xml')));
+checkIdentical('index: HTML by extension and by content type', Array(get_class(Index::getExtnsParser('html')), get_class(Index::getExtnsParser('HTM')), get_class(Index::getExtnsParser('xhtml')), get_class(Index::findTypeParser('text/html; charset=utf-8')), Index::getOptsForExtn('html'), Index::getOptsForExtn('xml')), Array('nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', 'nyu\Data\Parsers\XHml', Array('reads'=>'html'), Array('reads'=>'xml')));
 checkIdentical('an HTML file through Dcmnt', runCatchThrown(function() use ($showHtm){
 	$docPath = inTemporaryDir('show.html');
 	file_put_contents($docPath, $showHtm);

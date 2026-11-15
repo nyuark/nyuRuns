@@ -62,7 +62,7 @@ class Xmlx extends Base {
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes'), 'XML');
 		$this->isIndented = !empty($writeOptions['prety']);
-		$itemVals = Fluxd::nullifySources($dataEnvelope['items'] ?? null);
+		$itemVals = Fluxd::dropAllSources($dataEnvelope['items'] ?? null);
 		$rootName = strval($writeOptions['roots'] ?? '');
 		if( $rootName!=='' ){
 			$this->checkNameChars($rootName);
@@ -70,14 +70,14 @@ class Xmlx extends Base {
 		if( is_array($itemVals) && isset($itemVals['tagnm']) && array_key_exists('nodes', $itemVals) && $rootName==='' ){
 			// The tree of elements, as the parser reads it
 			$rootName = strval($itemVals['tagnm']);
-			$bodyText = $this->treesPieceText($itemVals, 0);
-		}elseif( is_array($itemVals) && $rootName==='' && count($itemVals)==1 && is_string(array_key_first($itemVals)) && preg_match(self::NAME_PATT, strval(array_key_first($itemVals))) && !(is_array(current($itemVals)) && !empty(current($itemVals)) && $this->validateALstOf(current($itemVals))) ){
+			$bodyText = $this->writeTreeNodes($itemVals, 0);
+		}elseif( is_array($itemVals) && $rootName==='' && count($itemVals)==1 && is_string(array_key_first($itemVals)) && preg_match(self::NAME_PATT, strval(array_key_first($itemVals))) && !(is_array(current($itemVals)) && !empty(current($itemVals)) && $this->isSequenceList(current($itemVals))) ){
 			// The compact form: the one key of the values names the root
 			$rootName = strval(array_key_first($itemVals));
-			$bodyText = $this->valuePieceText($rootName, current($itemVals), 0);
+			$bodyText = $this->writeValueNode($rootName, current($itemVals), 0);
 		}else{
 			$rootName = ($rootName==='') ? 'root' : $rootName;
-			$bodyText = $this->valuePieceText($rootName, $itemVals, 0);
+			$bodyText = $this->writeValueNode($rootName, $itemVals, 0);
 		}
 		$typeText = $this->makeDoctypeTxt(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootName);
 		$withHdrs = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
@@ -135,7 +135,7 @@ class Xmlx extends Base {
 	 *
 	 * @throws WriteError When a name is not one XML takes.
 	 */
-	protected function attributesText(Array $attributeSet): String {
+	protected function writeAttrbText(Array $attributeSet): String {
 		$xmlAttrb = '';
 		foreach($attributeSet as $atrNme=>$atrVal){
 			if( $atrVal===null || is_array($atrVal) || is_object($atrVal) ){
@@ -169,7 +169,7 @@ class Xmlx extends Base {
 	 * @param Int $depthLvlNumb How far in the element stands.
 	 * @return String The end of the line before it and what sets it in; '' when the document is written on one line.
 	 */
-	protected function giveLineIndent(Int $depthLvlNumb): String {
+	protected function getIndentOfLvl(Int $depthLvlNumb): String {
 		return $this->isIndented ? "\n".str_repeat('  ', $depthLvlNumb) : '';
 	}
 
@@ -182,12 +182,12 @@ class Xmlx extends Base {
 	 *
 	 * @throws WriteError When a name is not one XML takes, or the tree goes deeper than accepted.
 	 */
-	protected function treesPieceText(Array $elementArray, Int $depthLvlNumb): String {
+	protected function writeTreeNodes(Array $elementArray, Int $depthLvlNumb): String {
 		if( $depthLvlNumb>self::DEEP_MAXI ){
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
 		$tagTitle = $this->checkNameChars(strval($elementArray['tagnm'] ?? ''));
-		$openText = '<'.$tagTitle.$this->attributesText((array)($elementArray['attrs'] ?? Array()));
+		$openText = '<'.$tagTitle.$this->writeAttrbText((array)($elementArray['attrs'] ?? Array()));
 		$childLst = array_values(array_filter((array)($elementArray['nodes'] ?? Array()), 'is_array'));
 		if( empty($childLst) ){
 			$textText = $this->escapeXmlValue(is_scalar($elementArray['value'] ?? '') ? strval($elementArray['value'] ?? '') : '');
@@ -199,9 +199,9 @@ class Xmlx extends Base {
 		$this->isIndented = ($wasMulti && !$hasMixed);
 		$holdText = '';
 		foreach($childLst as $chlArr){
-			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLvlNumb+1).$this->treesPieceText($chlArr, $depthLvlNumb+1);
+			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->getIndentOfLvl($depthLvlNumb+1).$this->writeTreeNodes($chlArr, $depthLvlNumb+1);
 		}
-		$holdText .= $this->giveLineIndent($depthLvlNumb);
+		$holdText .= $this->getIndentOfLvl($depthLvlNumb);
 		$this->isIndented = $wasMulti;
 		return $openText.'>'.$holdText.'</'.$tagTitle.'>';
 	}
@@ -219,7 +219,7 @@ class Xmlx extends Base {
 	 *
 	 * @throws WriteError When the name of an attribute is not one XML takes, or the values go deeper than accepted.
 	 */
-	protected function valuePieceText(String $elementLabel, Mixed $valueAsGiven, Int $depthLvlNumb): String {
+	protected function writeValueNode(String $elementLabel, Mixed $valueAsGiven, Int $depthLvlNumb): String {
 		if( $depthLvlNumb>self::DEEP_MAXI ){
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
@@ -234,7 +234,7 @@ class Xmlx extends Base {
 		}
 		if( !is_array($valueAsGiven) ){
 			$textText = $this->escapeXmlValue($this->writeScalarTxt($valueAsGiven));
-			return '<'.$tagTitle.$this->attributesText($attrDict).(($textText==='') ? '/>' : '>'.$textText.'</'.$tagTitle.'>');
+			return '<'.$tagTitle.$this->writeAttrbText($attrDict).(($textText==='') ? '/>' : '>'.$textText.'</'.$tagTitle.'>');
 		}
 		$holdText = '';
 		$textText = '';
@@ -246,21 +246,21 @@ class Xmlx extends Base {
 				$textText .= $this->escapeXmlValue($this->writeScalarTxt($subVal));
 			}elseif( is_int($subKey) ){
 				// A value of a list without a name
-				$holdText .= $this->giveLineIndent($depthLvlNumb+1).$this->valuePieceText(self::ITEM_NAME, $subVal, $depthLvlNumb+1);
-			}elseif( is_array($subVal) && !empty($subVal) && $this->validateALstOf($subVal) ){
+				$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode(self::ITEM_NAME, $subVal, $depthLvlNumb+1);
+			}elseif( is_array($subVal) && !empty($subVal) && $this->isSequenceList($subVal) ){
 				// A list under a name: the element of that name, as many times
 				foreach($subVal as $oneVal){
-					$holdText .= $this->giveLineIndent($depthLvlNumb+1).$this->valuePieceText($keyStrng, $oneVal, $depthLvlNumb+1);
+					$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode($keyStrng, $oneVal, $depthLvlNumb+1);
 				}
 			}else{
-				$holdText .= $this->giveLineIndent($depthLvlNumb+1).$this->valuePieceText($keyStrng, $subVal, $depthLvlNumb+1);
+				$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode($keyStrng, $subVal, $depthLvlNumb+1);
 			}
 		}
-		$openText = '<'.$tagTitle.$this->attributesText($attrDict);
+		$openText = '<'.$tagTitle.$this->writeAttrbText($attrDict);
 		if( $holdText==='' ){
 			return ($textText==='') ? $openText.'/>' : $openText.'>'.$textText.'</'.$tagTitle.'>';
 		}
-		return $openText.'>'.$textText.$holdText.$this->giveLineIndent($depthLvlNumb).'</'.$tagTitle.'>';
+		return $openText.'>'.$textText.$holdText.$this->getIndentOfLvl($depthLvlNumb).'</'.$tagTitle.'>';
 	}
 
 }

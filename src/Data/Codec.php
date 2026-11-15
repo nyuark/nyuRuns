@@ -54,7 +54,7 @@ class Codec {
 	 *
 	 * @return Array The program, and what it is always given first.
 	 */
-	protected function commandOfArray(): Array {
+	protected function getToolCmndLst(): Array {
 		return Array($this->ffmpegPath);
 	}
 
@@ -111,7 +111,7 @@ class Codec {
 				array_push($cmmnArgs, '-id3v2_version', '0');
 			}
 			array_push($cmmnArgs, '-fs', strval(self::MAXI_BYTE), '-f', $kindDict[1], $trgtPath);
-			$this->runWithTimeout($cmmnArgs, $logsPath);
+			$this->treatWithLimit($cmmnArgs, $logsPath);
 			// The size is read first : PHP 8.2 reserves the whole length asked of file_get_contents() before reading
 			clearstatcache(true, $trgtPath);
 			$madeSize = is_file($trgtPath) ? filesize($trgtPath) : false;
@@ -144,11 +144,11 @@ class Codec {
 	 *
 	 * @throws \RuntimeException When the program cannot be started, fails, or takes too long.
 	 */
-	protected function runWithTimeout(Array $toolArgsList, String $errorLogPath): Void {
+	protected function treatWithLimit(Array $toolArgsList, String $errorLogPath): Void {
 		$nullDvce = (PHP_OS_FAMILY=='Windows') ? 'NUL' : '/dev/null';
 		$pipeList = Array();
 		// Given as a list, the command is run as it is: no shell reads it
-		$procHndl = @proc_open(array_merge($this->commandOfArray(), $toolArgsList), Array(0=>Array('file', $nullDvce, 'r'), 1=>Array('file', $nullDvce, 'w'), 2=>Array('file', $errorLogPath, 'w')), $pipeList);
+		$procHndl = @proc_open(array_merge($this->getToolCmndLst(), $toolArgsList), Array(0=>Array('file', $nullDvce, 'r'), 1=>Array('file', $nullDvce, 'w'), 2=>Array('file', $errorLogPath, 'w')), $pipeList);
 		if( !is_resource($procHndl) ){
 			throw new \RuntimeException('The program that unpacks sounds cannot be started');
 		}

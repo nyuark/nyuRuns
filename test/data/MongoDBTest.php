@@ -69,7 +69,7 @@ foreach( Array(Array($showKey[0], '2026-12-28'), Array($showKey[0], '2026-11-03'
 function docTitle( Array $whereArray ): Mixed {
 	return runCatchThrown(function() use ($whereArray){
 		$showLst = new DBLst('shows');
-		$showLst->replaceFilters($whereArray);
+		$showLst->setListFilters($whereArray);
 		$showLst->setOrderFields('title');
 		$fndRows = $showLst->readRowsOfList();
 		return is_array($fndRows) ? array_column($fndRows, 'title') : $fndRows;
@@ -79,8 +79,8 @@ function docTitle( Array $whereArray ): Mixed {
 // Connection and store
 checkIdentical('the mongo type gives the MongoDB store, and no SQL handler', Array(get_class($dbStore), DBCon::linkNamedDbCon()->readConnection()), Array('nyu\Data\DBStore\MongoStore', null));
 checkIdentical('the keys given by the server are 24 hexadecimal characters', array_map(function($givenValue){ return is_string($givenValue) && preg_match('/^[0-9a-f]{24}$/', $givenValue)==1; }, $showKey), Array(true, true, true, true));
-checkIdentical('tableInfoArray', $dbStore->tableInfoArray('shows'), Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array()));
-checkIdentical('there are no transactions', Array($dbStore->canTransaction(), $dbStore->newTransaction()), Array(false, false));
+checkIdentical('getInfoOfTable', $dbStore->getInfoOfTable('shows'), Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array()));
+checkIdentical('there are no transactions', Array($dbStore->canTransaction(), $dbStore->addTransaction()), Array(false, false));
 
 // Lists
 checkIdentical('list: every row', docTitle(Array()), Array('Alpha Matinee', 'Alpha Night', 'Beta Evening', 'Empty Stage'));
@@ -100,7 +100,7 @@ checkIdentical('list: a row found by its key', docTitle(Array('_id'=>$showKey[1]
 checkIdentical('list: rows found by a list of keys', docTitle(Array('_id'=>Array($showKey[0], $showKey[3]))), Array('Alpha Night', 'Empty Stage'));
 checkIdentical('list: fields, alias, order, limit and offset', runCatchThrown(function(){
 	$showLst = new DBLst('shows');
-	$showLst->pickReadFields('title as name, seats');
+	$showLst->setReadColumns('title as name, seats');
 	$showLst->setOrderFields(Array('^seats', 'title'));
 	$showLst->setLimitOffset('2,1');
 	return $showLst->readRowsOfList();
@@ -111,19 +111,19 @@ checkIdentical('list: an order written as plain field names in the constructor',
 }), Array('2026-12-28', '2026-11-03'));
 checkIdentical('list: child lists', runCatchThrown(function(){
 	$showLst = new DBLst('shows');
-	$showLst->replaceFilters(Array('title~'=>'*a Night'));
+	$showLst->setListFilters(Array('title~'=>'*a Night'));
 	$showLst->readRowsOfList();
-	$evntLst = $showLst->attachChildren('events', 'date', 'show_id', '_id')[0]['events'];
+	$evntLst = $showLst->loadChildRecrd('events', 'date', 'show_id', '_id')[0]['events'];
 	sort($evntLst);
 	return $evntLst;
 }), Array('2026-11-03', '2026-12-28'));
-checkPregMatch('list: a function is refused', runCatchThrown(function(){ $showLst = new DBLst('shows'); $showLst->pickReadFields('count(*) as nb'); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
+checkPregMatch('list: a function is refused', runCatchThrown(function(){ $showLst = new DBLst('shows'); $showLst->setReadColumns('count(*) as nb'); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
 checkPregMatch('list: a join is refused', runCatchThrown(function(){ $evntLst = new DBLst('events'); $evntLst->joinOtherTable(Array('shows', 'show_id', '_id')); return $evntLst->readRowsOfList(); }), '/^THROWN RuntimeException: Joins are not available on a document store/');
 
 // Records
 $newShow = runCatchThrown(function(){
 	$showRec = new DBRec('shows');
-	$showRec->bindFieldArray(Array('title'=>'Gamma', 'venue'=>"O'Hall", 'seats'=>50, 'tags'=>Array('new', 'small'), 'not a field'=>'x'));
+	$showRec->setFieldsArray(Array('title'=>'Gamma', 'venue'=>"O'Hall", 'seats'=>50, 'tags'=>Array('new', 'small'), 'not a field'=>'x'));
 	return $showRec->insertOrUpdate();
 });
 checkPregMatch('record: an insert returns the key given by the server', $newShow, '/^[0-9a-f]{24}$/');
@@ -134,7 +134,7 @@ checkIdentical('record: loaded by its key, with every field it was given', runCa
 checkIdentical('record: update by key, linked rows are read and not saved', runCatchThrown(function() use ($showKey){
 	$showRec = new DBRec('shows', Array('events'=>Array('show_id', '_id', 'date ASC')));
 	$recVals = $showRec->loadRecordList($showKey[0]);
-	$showRec->bindFieldArray(Array('venue'=>'Hall X'));
+	$showRec->setFieldsArray(Array('venue'=>'Hall X'));
 	$savedKy = $showRec->insertOrUpdate();
 	$readRec = new DBRec('shows');
 	return Array(array_column($recVals['Events'], 'date'), $savedKy, $readRec->loadRecordList($showKey[0]));
@@ -146,17 +146,17 @@ checkIdentical('record: saving without any change still succeeds', runCatchThrow
 }), $showKey[1]);
 checkIdentical('record: find, existing and missing keys', runCatchThrown(function() use ($showKey){
 	$showRec = new DBRec('shows');
-	return Array($showRec->findRecordList(Array('title~'=>'beta*'))['_id'] ?? null, $showRec->existsRecdFlag($showKey[1]), $showRec->loadRecordList('000000000000000000000000'), $showRec->loadRecordList('not-a-key'), $showRec->existsRecdFlag('*'));
+	return Array($showRec->findRecordList(Array('title~'=>'beta*'))['_id'] ?? null, $showRec->hasRecordOfKey($showKey[1]), $showRec->loadRecordList('000000000000000000000000'), $showRec->loadRecordList('not-a-key'), $showRec->hasRecordOfKey('*'));
 }), Array($showKey[1], true, false, false, false));
 checkIdentical('record: deleted alone, without transactions', runCatchThrown(function() use ($showKey){
 	$showRec = new DBRec('shows');
 	$showRec->loadRecordList($showKey[2]);
-	return Array($showRec->removeRecdFlag(), $showRec->removeRecdFlag(), docTitle(Array('title'=>'Alpha Matinee')));
+	return Array($showRec->dropThisRecord(), $showRec->dropThisRecord(), docTitle(Array('title'=>'Alpha Matinee')));
 }), Array(true, false, Array()));
 checkPregMatch('record: deleting with children is refused without transactions', runCatchThrown(function() use ($showKey){
 	$showRec = new DBRec('shows');
 	$showRec->loadRecordList($showKey[0]);
-	return $showRec->removeRecdFlag(Array('events'=>'show_id'));
+	return $showRec->dropThisRecord(Array('events'=>'show_id'));
 }), '/^THROWN RuntimeException: Deleting a record with its children needs transactions/');
 checkIdentical('...and nothing was deleted', runCatchThrown(function() use ($dbStore, $showKey){ return Array(count($dbStore->findItemsArray('events')), count($dbStore->findItemsArray('shows', Array('_id='=>$showKey[0])))); }), Array(3, 1));
 

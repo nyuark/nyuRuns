@@ -36,14 +36,14 @@ class Yaml extends Base {
 		// A content may be nothing at all: that is not the same as a content left out
 		$itemVals = array_key_exists('items', $dataEnvelope) ? $dataEnvelope['items'] : Array();
 		if( empty($writeOptions['multi']) ){
-			return implode("\n", $this->linesOfItArray($itemVals, 0, 64))."\n";
+			return implode("\n", $this->writeYamlLines($itemVals, 0, 64))."\n";
 		}
-		if( !is_array($itemVals) || !$this->validateALstOf($itemVals) ){
+		if( !is_array($itemVals) || !$this->isSequenceList($itemVals) ){
 			throw new WriteError('Content that cannot be written as several YAML documents: it is not a list');
 		}
 		$ymlStrng = '';
 		foreach($itemVals as $oneVal){
-			$ymlStrng .= "---\n".implode("\n", $this->linesOfItArray($oneVal, 0, 64))."\n";
+			$ymlStrng .= "---\n".implode("\n", $this->writeYamlLines($oneVal, 0, 64))."\n";
 		}
 		return $ymlStrng;
 	}
@@ -104,7 +104,7 @@ class Yaml extends Base {
 	 *
 	 * @throws WriteError When the value holds what YAML cannot say, or is nested too deep.
 	 */
-	protected function linesOfItArray(Mixed $valueToWrite, Int $indentLength, Int $depthsLftNum): Array {
+	protected function writeYamlLines(Mixed $valueToWrite, Int $indentLength, Int $depthsLftNum): Array {
 		$padStrng = str_repeat(' ', $indentLength);
 		if( !is_array($valueToWrite) ){
 			return Array($padStrng.$this->writeYamlValue($valueToWrite));
@@ -116,16 +116,16 @@ class Yaml extends Base {
 			return Array($padStrng.'[]');
 		}
 		$lineList = Array();
-		$isAsList = $this->validateALstOf($valueToWrite);
+		$isAsList = $this->isSequenceList($valueToWrite);
 		foreach($valueToWrite as $itmKey=>$itmVal){
 			if( $isAsList ){
 				// What a dash holds starts on its line: the lines of the value, the first one after the dash
-				$subLines = $this->linesOfItArray($itmVal, $indentLength+2, $depthsLftNum-1);
+				$subLines = $this->writeYamlLines($itmVal, $indentLength+2, $depthsLftNum-1);
 				$subLines[0] = $padStrng.'- '.substr($subLines[0], $indentLength+2);
 				$lineList = array_merge($lineList, $subLines);
 			}elseif( is_array($itmVal) && !empty($itmVal) ){
 				$lineList[] = $padStrng.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).':';
-				$lineList = array_merge($lineList, $this->linesOfItArray($itmVal, $indentLength+2, $depthsLftNum-1));
+				$lineList = array_merge($lineList, $this->writeYamlLines($itmVal, $indentLength+2, $depthsLftNum-1));
 			}else{
 				$lineList[] = $padStrng.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).': '.(is_array($itmVal) ? '[]' : $this->writeYamlValue($itmVal));
 			}

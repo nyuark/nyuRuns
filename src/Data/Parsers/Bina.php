@@ -22,7 +22,7 @@ class Bina {
 	 * @param String $initialBytes The first bytes of the content, 512 being enough.
 	 * @return String The kind: 'zip', 'odt', 'ods', 'epub', 'pdf', 'png', 'jpg', 'gif', 'webp', 'wav', 'mp3', 'ogg', 'flac', 'mp4', 'ole', 'gz', 'rtf', 'svg', 'xml', 'html', 'ics', or '' when unknown.
 	 */
-	public static function detectFileKind(String $initialBytes): String {
+	public static function findContentCod(String $initialBytes): String {
 		if( substr($initialBytes, 0, 4)==="PK\x03\x04" ){
 			// OpenDocument and EPub archives start with an entry naming their type
 			if( strpos($initialBytes, 'mimetypeapplication/vnd.oasis.opendocument.text')!==false ){
@@ -54,7 +54,7 @@ class Bina {
 			return 'mp4';
 		}
 		// Text formats with a fixed opening
-		$headText = ltrim(Base::recodeTextUtf8($initialBytes));
+		$headText = ltrim(Base::castTextToUtf8($initialBytes));
 		// A drawing is XML whose first element is svg, after what may stand before it
 		if( preg_match('/^(?:\s*(?:<\?[^>]*\?>|<!--.*?-->|<!DOCTYPE\s+svg[^>]*>))*\s*<(?:[\w\-]+:)?svg[\s>\/]/is', $headText) ){
 			return 'svg';

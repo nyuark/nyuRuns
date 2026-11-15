@@ -79,14 +79,14 @@ class Odtx extends Page {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$shapeNme = $this->checkShapeText($dataEnvelope, Array('block', 'sheet'), 'a document');
-		$sizeDict = $this->paperSizeArray($writeOptions);
+		$sizeDict = $this->getPageSizeDct($writeOptions);
 		$this->readPictureDir($writeOptions);
 		// A picture is no wider nor higher than the text of a page
 		$this->roomLength = Array($sizeDict[0]-2880, $sizeDict[1]-2880-1440);
 		$this->mediaFiles = Array();
 		$this->autoPrefix = '';
 		$infoList = (array)($dataEnvelope['infos'] ?? Array());
-		$blockLst = ($shapeNme=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$blockLst = ($shapeNme=='sheet') ? $this->getSheetBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
 		$this->handStyles = Array();
 		$this->autoStyles = Array();
 		$this->anchorList = Array();
@@ -95,21 +95,21 @@ class Odtx extends Page {
 		$this->needsBreak = false;
 		$this->tableCount = 0;
 		// The notes are taken out of the text: each is written where the text refers to it
-		$this->remarkList = $this->takeNotesArray($blockLst);
-		$styleTxt = $this->stylePieceText((array)($infoList['frmat'] ?? Array()), $blockLst);
+		$this->remarkList = $this->splitNotesDict($blockLst);
+		$styleTxt = $this->writeStylePart((array)($infoList['frmat'] ?? Array()), $blockLst);
 		$bodyText = $this->writeAllBlocks($blockLst);
 		// A note the text never referred to is not lost: it ends the document, as text
 		$this->isNoteless = true;
 		foreach(Array('fnote', 'enote') as $nteKnd){
 			foreach(array_diff_key($this->remarkList[$nteKnd], $this->citedNotes[$nteKnd]) as $blkArr){
-				$bodyText .= $this->blckPartString(Array('block'=>'paragrph') + $blkArr);
+				$bodyText .= $this->writeBlockPart(Array('block'=>'paragrph') + $blkArr);
 			}
 		}
 		// A page that was to start and has nothing to start with still starts
 		if( $this->needsBreak ){
-			$bodyText .= $this->paragraphPiece('Standard', Array(), Array());
+			$bodyText .= $this->writeParagraph('Standard', Array(), Array());
 		}
-		$autoText = $this->autosPieceText($sizeDict);
+		$autoText = $this->writeAutoStyle($sizeDict);
 		// What stands at the top and at the bottom of the pages. Its styles are kept apart from those of the text,
 		// under names of their own; it refers to no note, and starts no page
 		$this->handStyles = Array();
@@ -125,7 +125,7 @@ class Odtx extends Page {
 				$roomText .= '<style:'.$pgeNme.'-style><style:header-footer-properties fo:min-height="0.6cm" fo:margin-'.(($pgeNme=='header') ? 'bottom' : 'top').'="0.5cm"/></style:'.$pgeNme.'-style>';
 			}
 		}
-		$mstrAuto = ($mstrText==='') ? '' : $this->autosPieceText($sizeDict);
+		$mstrAuto = ($mstrText==='') ? '' : $this->writeAutoStyle($sizeDict);
 		// The size of the pages and their margins, and the room kept for what stands at their top and their bottom
 		$twipFunc = function(Int $twipsValNumb){ return sprintf('%.3F', $twipsValNumb*2.54/1440).'cm'; };
 		$pageText = '<style:page-layout style:name="pm1"><style:page-layout-properties fo:page-width="'.$twipFunc($sizeDict[0]).'" fo:page-height="'.$twipFunc($sizeDict[1]).'" style:print-orientation="'.(empty($writeOptions['lands']) ? 'portrait' : 'landscape').'" fo:margin-top="2.54cm" fo:margin-bottom="2.54cm" fo:margin-left="2.54cm" fo:margin-right="2.54cm"/>'.$roomText.'</style:page-layout>';
@@ -144,11 +144,11 @@ class Odtx extends Page {
 				.'<manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/>'.$pictText.'</manifest:manifest>',
 			'content.xml'=>$headBrut.'<office:document-content'.self::NAME_LIST.'><office:automatic-styles>'.$autoText.'</office:automatic-styles><office:body><office:text>'.$bodyText.'</office:text></office:body></office:document-content>',
 			'styles.xml'=>$headBrut.'<office:document-styles'.self::NAME_LIST.'>'.$styleTxt.'<office:automatic-styles>'.$pageText.$mstrAuto.'</office:automatic-styles><office:master-styles><style:master-page style:name="Standard" style:page-layout-name="pm1">'.$mstrText.'</style:master-page></office:master-styles></office:document-styles>',
-			'meta.xml'=>$headBrut.$this->metasPieceText($infoList)
+			'meta.xml'=>$headBrut.$this->writeMetaPiece($infoList)
 		) + $pictList;
 		try{
 			// The first entry tells what the file is, and is kept as it is
-			return Archv::newBytesString($fileList, Array('mimetype'));
+			return Archv::makeZipFromLst($fileList, Array('mimetype'));
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Document that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -161,7 +161,7 @@ class Odtx extends Page {
 	 * @param Array $mediaDetails What is told of the document: its title under 'title', its author under 'authr', its other properties under 'props'.
 	 * @return String The part holding the properties.
 	 */
-	protected function metasPieceText(Array $mediaDetails): String {
+	protected function writeMetaPiece(Array $mediaDetails): String {
 		$propList = (array)($mediaDetails['props'] ?? Array());
 		foreach(Array('title'=>'Title', 'authr'=>'Author') as $infKey=>$prpNme){
 			if( is_scalar($mediaDetails[$infKey] ?? null) && strval($mediaDetails[$infKey])!=='' ){
@@ -211,7 +211,7 @@ class Odtx extends Page {
 	 * @param Array $bookBlockSet The blocks of the document, for the styles their paragraphs name.
 	 * @return String The styles the document names.
 	 */
-	protected function stylePieceText(Array $styleFormats, Array $bookBlockSet): String {
+	protected function writeStylePart(Array $styleFormats, Array $bookBlockSet): String {
 		$styleTxt = '<office:styles>'
 			.'<style:default-style style:family="paragraph"><style:paragraph-properties fo:margin-top="0cm" fo:margin-bottom="0.282cm" fo:line-height="108%"/><style:text-properties fo:font-family="Calibri" style:font-family-generic="swiss" fo:font-size="11pt" style:font-size-asian="11pt" style:font-size-complex="11pt"/></style:default-style>'
 			.'<style:style style:name="Standard" style:family="paragraph" style:class="text"/>';
@@ -272,7 +272,7 @@ class Odtx extends Page {
 	 * @param Array $pageMeasures The width and the height of a page, in twentieths of a point.
 	 * @return String The styles.
 	 */
-	protected function autosPieceText(Array $pageMeasures): String {
+	protected function writeAutoStyle(Array $pageMeasures): String {
 		$autoText = '';
 		foreach($this->handStyles as $stlSet){
 			$autoText .= '<style:style style:name="'.$stlSet[0].'" style:family="paragraph" style:parent-style-name="'.$stlSet[1].'"><style:paragraph-properties'.$stlSet[2].'/></style:style>';
@@ -311,8 +311,8 @@ class Odtx extends Page {
 	 * @param Array $contentBlock The image: the name of its file under 'sourc', and the text that describes it.
 	 * @return String The paragraph showing the picture; '' when the picture is not written.
 	 */
-	protected function picturePortion(Array $contentBlock): String {
-		$pictDict = $this->pictureReadArr(is_scalar($contentBlock['attrs']['sourc'] ?? '') ? strval($contentBlock['attrs']['sourc'] ?? '') : '');
+	protected function writeImagePart(Array $contentBlock): String {
+		$pictDict = $this->readPictureDct(is_scalar($contentBlock['attrs']['sourc'] ?? '') ? strval($contentBlock['attrs']['sourc'] ?? '') : '');
 		if( $pictDict===null ){
 			return '';
 		}
@@ -331,7 +331,7 @@ class Odtx extends Page {
 		$this->anchorList[] = '';
 		$drwnIdnt = count($this->anchorList);
 		$infoText = $this->escapeXmlValue(trim(implode('', array_column((array)($contentBlock['spans'] ?? Array()), 'texts'))));
-		$prgrList = explode('></text:p>', $this->paragraphPiece('Standard', Array(), array_intersect_key((array)($contentBlock['attrs'] ?? Array()), Array('align'=>1))), 2);
+		$prgrList = explode('></text:p>', $this->writeParagraph('Standard', Array(), array_intersect_key((array)($contentBlock['attrs'] ?? Array()), Array('align'=>1))), 2);
 		return $prgrList[0].'><draw:frame draw:style-name="fr1" draw:name="Picture '.$drwnIdnt.'" text:anchor-type="as-char" svg:width="'.$wideText.'cm" svg:height="'.$highText.'cm" draw:z-index="0">'
 			.'<draw:image xlink:href="'.$this->mediaFiles[$pictClef][0].'" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>'.(($infoText==='') ? '' : '<svg:desc>'.$infoText.'</svg:desc>').'</draw:frame></text:p>';
 	}
@@ -346,7 +346,7 @@ class Odtx extends Page {
 		$bodyText = '';
 		foreach($bookBlockSet as $blkArr){
 			if( is_array($blkArr) && isset($blkArr['block']) ){
-				$bodyText .= $this->blckPartString($blkArr);
+				$bodyText .= $this->writeBlockPart($blkArr);
 			}
 		}
 		return $bodyText;
@@ -358,36 +358,36 @@ class Odtx extends Page {
 	 * @param Array $contentBlock The block.
 	 * @return String What it makes.
 	 */
-	protected function blckPartString(Array $contentBlock): String {
+	protected function writeBlockPart(Array $contentBlock): String {
 		$blockCod = strval($contentBlock['block']);
 		$attrDict = (array)($contentBlock['attrs'] ?? Array());
 		$spanList = (array)($contentBlock['spans'] ?? Array());
 		$itemList = (array)($contentBlock['items'] ?? Array());
 		if( $blockCod=='headline' ){
 			$headLevl = max(1, min(6, intval($attrDict['level'] ?? 1)));
-			return $this->paragraphPiece('Heading_20_'.$headLevl, $spanList, $attrDict, $headLevl);
+			return $this->writeParagraph('Heading_20_'.$headLevl, $spanList, $attrDict, $headLevl);
 		}
 		if( $blockCod=='itemList' ){
-			return $this->listsPieceText($contentBlock);
+			return $this->writeListPiece($contentBlock);
 		}
 		if( $blockCod=='tableSet' ){
-			return $this->tblePartString($contentBlock);
+			return $this->writeTablePart($contentBlock);
 		}
 		if( $blockCod=='tableTop' || $blockCod=='tableRow' ){
 			// A row met outside a table is a table of that row
-			return $this->tblePartString(Array('items'=>Array($contentBlock)));
+			return $this->writeTablePart(Array('items'=>Array($contentBlock)));
 		}
 		if( $blockCod=='citation' ){
-			$quoteTxt = $this->paragraphPiece('Quotations', $spanList, $attrDict).$this->writeAllBlocks($itemList);
+			$quoteTxt = $this->writeParagraph('Quotations', $spanList, $attrDict).$this->writeAllBlocks($itemList);
 			// Who is quoted follows the quote
 			$citeText = is_scalar($attrDict['cites'] ?? '') ? trim(strval($attrDict['cites'] ?? '')) : '';
-			return $quoteTxt.(($citeText==='') ? '' : $this->paragraphPiece('Quotations', Array(Shape::makeASpanArray("\u{2014} ".$citeText)), Array('align'=>'alignRgt')));
+			return $quoteTxt.(($citeText==='') ? '' : $this->writeParagraph('Quotations', Array(Shape::makeSpanOfText("\u{2014} ".$citeText)), Array('align'=>'alignRgt')));
 		}
 		if( $blockCod=='codeBlck' ){
 			// A paragraph for each line of code, their spaces kept
 			$codeText = '';
 			foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", implode('', array_column($spanList, 'texts')))) as $oneLin){
-				$codeText .= $this->paragraphPiece('Preformatted_20_Text', Array(Shape::makeASpanArray($oneLin)), Array());
+				$codeText .= $this->writeParagraph('Preformatted_20_Text', Array(Shape::makeSpanOfText($oneLin)), Array());
 			}
 			return $codeText;
 		}
@@ -397,17 +397,17 @@ class Odtx extends Page {
 				$this->needsBreak = true;
 				return '';
 			}
-			return $this->paragraphPiece('Standard', Array(), Array('lined'=>true));
+			return $this->writeParagraph('Standard', Array(), Array('lined'=>true));
 		}
 		if( $blockCod=='imageBox' ){
-			$pictText = $this->picturePortion($contentBlock);
+			$pictText = $this->writeImagePart($contentBlock);
 			if( $pictText!=='' ){
 				return $pictText;
 			}
 		}
 		// A paragraph, with the style it names; and what stands for a picture that is not written: the text that describes it
 		$stylIdnt = ($blockCod=='paragrph' && is_scalar($attrDict['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrDict['style'])))] ?? '') : '';
-		return $this->paragraphPiece(($stylIdnt==='') ? 'Standard' : $stylIdnt, $spanList, $attrDict).$this->writeAllBlocks($itemList);
+		return $this->writeParagraph(($stylIdnt==='') ? 'Standard' : $stylIdnt, $spanList, $attrDict).$this->writeAllBlocks($itemList);
 	}
 
 	/**
@@ -417,7 +417,7 @@ class Odtx extends Page {
 	 * @param Array $contentBlock The list.
 	 * @return String The list.
 	 */
-	protected function listsPieceText(Array $contentBlock): String {
+	protected function writeListPiece(Array $contentBlock): String {
 		$listText = '';
 		foreach((array)($contentBlock['items'] ?? Array()) as $entArr){
 			if( !is_array($entArr) ){
@@ -426,9 +426,9 @@ class Odtx extends Page {
 			$spanList = (array)($entArr['spans'] ?? Array());
 			// A box to tick is written as the sign of one, ticked or not
 			if( isset($entArr['attrs']['check']) ){
-				array_unshift($spanList, Shape::makeASpanArray(empty($entArr['attrs']['check']) ? "\u{2610} " : "\u{2611} "));
+				array_unshift($spanList, Shape::makeSpanOfText(empty($entArr['attrs']['check']) ? "\u{2610} " : "\u{2611} "));
 			}
-			$listText .= '<text:list-item>'.$this->paragraphPiece('Standard', $spanList, array_intersect_key((array)($entArr['attrs'] ?? Array()), Array('tagid'=>1, 'align'=>1))).$this->writeAllBlocks((array)($entArr['items'] ?? Array())).'</text:list-item>';
+			$listText .= '<text:list-item>'.$this->writeParagraph('Standard', $spanList, array_intersect_key((array)($entArr['attrs'] ?? Array()), Array('tagid'=>1, 'align'=>1))).$this->writeAllBlocks((array)($entArr['items'] ?? Array())).'</text:list-item>';
 		}
 		return ($listText==='') ? '' : '<text:list text:style-name="'.(empty($contentBlock['attrs']['order']) ? 'LB' : 'LN').'">'.$listText.'</text:list>';
 	}
@@ -441,14 +441,14 @@ class Odtx extends Page {
 	 * @param Array $contentBlock The table.
 	 * @return String The table; '' when it holds no row.
 	 */
-	protected function tblePartString(Array $contentBlock): String {
+	protected function writeTablePart(Array $contentBlock): String {
 		$headText = '';
 		$rowsText = '';
 		$clmnsMax = 0;
 		// The areas still running down their columns: column => the rows left to cover and the columns covered
 		$openList = Array();
 		// A table starts no page by itself: a paragraph before it does
-		$prevText = $this->needsBreak ? $this->paragraphPiece('Standard', Array(), Array()) : '';
+		$prevText = $this->needsBreak ? $this->writeParagraph('Standard', Array(), Array()) : '';
 		// The columns of the table, for the room each cell leaves a picture
 		$clmnsAll = 1;
 		foreach((array)($contentBlock['items'] ?? Array()) as $oneRow){
@@ -491,7 +491,7 @@ class Odtx extends Page {
 				// A picture in a cell is no wider than the cell, nor higher than half a page
 				$this->roomLength = Array(max(15, intdiv($prevRoom[0]*min($clmnSpan, $clmnsAll), $clmnsAll)-227), intdiv($prevRoom[1], 2));
 				// What the cell holds: its own text, then its other blocks; a cell holds a paragraph at least
-				$holdText = (empty($celBlk['spans']) && !empty($celBlk['items'])) ? '' : $this->paragraphPiece($isHeader ? 'Table_20_Heading' : 'Standard', (array)($celBlk['spans'] ?? Array()), $attrDict);
+				$holdText = (empty($celBlk['spans']) && !empty($celBlk['items'])) ? '' : $this->writeParagraph($isHeader ? 'Table_20_Heading' : 'Standard', (array)($celBlk['spans'] ?? Array()), $attrDict);
 				$holdText .= $this->writeAllBlocks((array)($celBlk['items'] ?? Array()));
 				$cellText .= '<table:table-cell table:style-name="'.($isHeader ? 'CelH' : 'Cel').'" office:value-type="string"'.(($clmnSpan>1) ? ' table:number-columns-spanned="'.$clmnSpan.'"' : '').(($rowRange>1) ? ' table:number-rows-spanned="'.$rowRange.'"' : '').'>'
 					.(($holdText==='') ? '<text:p text:style-name="Standard"/>' : $holdText).'</table:table-cell>'.str_repeat('<table:covered-table-cell/>', $clmnSpan-1);
@@ -526,7 +526,7 @@ class Odtx extends Page {
 	 * @param Int    $headsLvlNumb Its level when it is a heading, 0 for a paragraph.
 	 * @return String The paragraph.
 	 */
-	protected function paragraphPiece(String $styleDocName, Array $textSpanList, Array $attributeSet, Int $headsLvlNumb=0): String {
+	protected function writeParagraph(String $styleDocName, Array $textSpanList, Array $attributeSet, Int $headsLvlNumb=0): String {
 		// What a paragraph adds to its style makes a style of its own, based on it: how it is aligned, the page it starts, the line under it
 		$alignKey = is_scalar($attributeSet['align'] ?? '') ? strval($attributeSet['align'] ?? '') : '';
 		$handText = (isset(self::ALGN_LIST[$alignKey]) ? ' fo:text-align="'.self::ALGN_LIST[$alignKey].'"' : '').($this->needsBreak ? ' fo:break-before="page"' : '').(empty($attributeSet['lined']) ? '' : ' fo:border-bottom="0.5pt solid #000000" fo:padding-bottom="0.035cm"');
@@ -541,13 +541,13 @@ class Odtx extends Page {
 		}
 		// A place that is named can be pointed to from the rest of the document; the names of the notes are the document's to give
 		$markText = '';
-		$markName = $this->cleanPlaceName(is_scalar($attributeSet['tagid'] ?? '') ? strval($attributeSet['tagid'] ?? '') : '');
+		$markName = $this->wipePlaceTitle(is_scalar($attributeSet['tagid'] ?? '') ? strval($attributeSet['tagid'] ?? '') : '');
 		if( $markName!=='' && !in_array($markName, $this->anchorList, true) && !preg_match('/^(fnote|enote)\d+$/D', $markName) ){
 			$this->anchorList[] = $markName;
 			$markText = '<text:bookmark text:name="'.$markName.'"/>';
 		}
 		$tagTitle = ($headsLvlNumb>0) ? 'text:h' : 'text:p';
-		return '<'.$tagTitle.' text:style-name="'.$styleNme.'"'.(($headsLvlNumb>0) ? ' text:outline-level="'.$headsLvlNumb.'"' : '').'>'.$markText.$this->spansPieceText($textSpanList).'</'.$tagTitle.'>';
+		return '<'.$tagTitle.' text:style-name="'.$styleNme.'"'.(($headsLvlNumb>0) ? ' text:outline-level="'.$headsLvlNumb.'"' : '').'>'.$markText.$this->writeSpansPart($textSpanList).'</'.$tagTitle.'>';
 	}
 
 	/**
@@ -558,7 +558,7 @@ class Odtx extends Page {
 	 * @param Array $textSpanList The spans.
 	 * @return String The text, as written.
 	 */
-	protected function spansPieceText(Array $textSpanList): String {
+	protected function writeSpansPart(Array $textSpanList): String {
 		$fullText = '';
 		foreach($textSpanList as $oneSpn){
 			if( !is_array($oneSpn) ){
@@ -566,13 +566,13 @@ class Odtx extends Page {
 			}
 			$spanText = strval($oneSpn['texts'] ?? '');
 			$markList = array_values(array_intersect(Shape::MARK_LIST, (array)($oneSpn['marks'] ?? Array())));
-			$linkAddr = Shape::tidyLinkString(is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
+			$linkAddr = Shape::wipeUnsafeAddr(is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
 			$matxRows = Array();
 			if( preg_match('/^#((fnote|enote)\d+)$/D', $linkAddr, $matxRows) && isset($this->remarkList[$matxRows[2]][$matxRows[1]]) ){
 				// A note is written where the text first refers to it: the document numbers it
 				if( !$this->isNoteless && !isset($this->citedNotes[$matxRows[2]][$matxRows[1]]) ){
 					$this->citedNotes[$matxRows[2]][$matxRows[1]] = count($this->citedNotes[$matxRows[2]])+1;
-					$fullText .= $this->notesPieceText($matxRows[2], $this->citedNotes[$matxRows[2]][$matxRows[1]], $this->remarkList[$matxRows[2]][$matxRows[1]]);
+					$fullText .= $this->writeNotesPart($matxRows[2], $this->citedNotes[$matxRows[2]][$matxRows[1]], $this->remarkList[$matxRows[2]][$matxRows[1]]);
 					continue;
 				}
 				// Any other reference to it is the text it shows
@@ -585,7 +585,7 @@ class Odtx extends Page {
 			if( $spanText==='' && $fieldNme==='' && $propName==='' ){
 				continue;
 			}
-			$partText = $this->plainToOdfText(($spanText==='') ? '1' : $spanText);
+			$partText = $this->castTextForOdf(($spanText==='') ? '1' : $spanText);
 			if( $fieldNme!=='' ){
 				$partText = '<'.$fieldNme.(($fieldCod=='pageNumb') ? ' text:select-page="current"' : '').'>'.$partText.'</'.$fieldNme.'>';
 			}elseif( $propName!=='' ){
@@ -600,7 +600,7 @@ class Odtx extends Page {
 			}
 			// A link to a place of the document names that place
 			if( $linkAddr!=='' && $linkAddr[0]=='#' ){
-				$linkAddr = ($this->cleanPlaceName(substr($linkAddr, 1))==='') ? '' : '#'.$this->cleanPlaceName(substr($linkAddr, 1));
+				$linkAddr = ($this->wipePlaceTitle(substr($linkAddr, 1))==='') ? '' : '#'.$this->wipePlaceTitle(substr($linkAddr, 1));
 			}
 			$fullText .= ($linkAddr==='') ? $partText : '<text:a xlink:type="simple" xlink:href="'.$this->escapeXmlValue($linkAddr).'" text:style-name="Internet_20_link" text:visited-style-name="Internet_20_link">'.$partText.'</text:a>';
 		}
@@ -616,12 +616,12 @@ class Odtx extends Page {
 	 * @param Array  $contentBlock The note, as a block.
 	 * @return String The note.
 	 */
-	protected function notesPieceText(String $noteTypeCode, Int $noteIdNumber, Array $contentBlock): String {
+	protected function writeNotesPart(String $noteTypeCode, Int $noteIdNumber, Array $contentBlock): String {
 		$isMuting = $this->isNoteless;
 		$keptBrek = $this->needsBreak;
 		$this->isNoteless = true;
 		$this->needsBreak = false;
-		$bodyText = $this->paragraphPiece(($noteTypeCode=='fnote') ? 'Footnote' : 'Endnote', (array)($contentBlock['spans'] ?? Array()), Array()).$this->writeAllBlocks((array)($contentBlock['items'] ?? Array()));
+		$bodyText = $this->writeParagraph(($noteTypeCode=='fnote') ? 'Footnote' : 'Endnote', (array)($contentBlock['spans'] ?? Array()), Array()).$this->writeAllBlocks((array)($contentBlock['items'] ?? Array()));
 		$this->isNoteless = $isMuting;
 		$this->needsBreak = $keptBrek;
 		return '<text:note text:id="'.(($noteTypeCode=='fnote') ? 'ftn' : 'edn').$noteIdNumber.'" text:note-class="'.(($noteTypeCode=='fnote') ? 'footnote' : 'endnote').'"><text:note-citation>'.$noteIdNumber.'</text:note-citation><text:note-body>'.$bodyText.'</text:note-body></text:note>';
@@ -635,7 +635,7 @@ class Odtx extends Page {
 	 * @param String $sourceString The text.
 	 * @return String The text, ready to stand in a paragraph.
 	 */
-	protected function plainToOdfText(String $sourceString): String {
+	protected function castTextForOdf(String $sourceString): String {
 		$lineText = '';
 		foreach(preg_split('/(\n|\t|^ +| +$| {2,})/', str_replace(Array("\r\n", "\r"), "\n", $sourceString), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $onePrt){
 			if( $onePrt==="\n" ){

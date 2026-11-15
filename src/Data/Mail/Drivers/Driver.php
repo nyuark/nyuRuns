@@ -14,7 +14,7 @@ abstract class Driver {
 	/**
 	 * Builds the driver of an account.
 	 *
-	 * @param Array $acctSetupLst The settings of the account (see Mail\Mailer::acntSetupArray).
+	 * @param Array $acctSetupLst The settings of the account (see Mail\Mailer::readAccountCfg).
 	 */
 	public function __construct( Array $acctSetupLst ){
 		$this->setupArray = $acctSetupLst;
@@ -30,7 +30,7 @@ abstract class Driver {
 	 *
 	 * @throws \nyu\Data\Mail\MailFailure When the account cannot send this mail at all (attachments, for a 'selfSmtp' account).
 	 */
-	abstract public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String;
+	abstract public function sendRawMessage( Message $emailMessage, Array $recipientLst ): ?String;
 
 	/**
 	 * Tells whether a server is this machine, the only one a mail may be
@@ -39,7 +39,7 @@ abstract class Driver {
 	 * @param String $databaseHost Name or address of the server.
 	 * @return Bool Whether it is this machine.
 	 */
-	public static function localServerFlg( String $databaseHost ): Bool {
+	public static function isLocalMachine( String $databaseHost ): Bool {
 		return in_array( strtolower(trim($databaseHost, '[] ')), Array('localhost', '127.0.0.1', '::1'), true );
 	}
 }

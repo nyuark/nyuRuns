@@ -185,7 +185,7 @@ checkIdentical('one parser, several workbooks', runCatchThrown(function() use ($
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
-checkIdentical('index: workbooks by extension and by content type', Array(get_class(Index::forExtnsParser('XLSX')), get_class(Index::findTypeParser('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))), Array('nyu\Data\Parsers\Xlsx', 'nyu\Data\Parsers\Xlsx'));
+checkIdentical('index: workbooks by extension and by content type', Array(get_class(Index::getExtnsParser('XLSX')), get_class(Index::findTypeParser('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))), Array('nyu\Data\Parsers\Xlsx', 'nyu\Data\Parsers\Xlsx'));
 checkIdentical('a workbook through Dcmnt', runCatchThrown(function() use ($smplPth){
 	$docFile = new Dcmnt($smplPth);
 	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf')['names'], $docFile->readFileDetail()[1]['cells'][6]);

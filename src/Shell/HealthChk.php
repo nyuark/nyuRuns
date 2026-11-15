@@ -502,7 +502,7 @@ class HealthChk{
 		$hasEmail = is_string($acctName) && $acctName!=='';
 		if( $hasEmail ){
 			try{
-				$acctDict = Mailer::acntSetupArray($acctName);
+				$acctDict = Mailer::readAccountCfg($acctName);
 				$this->addCheckResult( 'access mails '.$blockNmdText, 'fine', 'through the account '.$acctName.' ('.$acctDict['sendWith'].')' );
 			}catch( \Throwable $e ){
 				$this->addCheckResult('access mails '.$blockNmdText, 'fail', 'mailAcnt names no account of conf/mailer.json: '.$e->getMessage());
@@ -661,7 +661,7 @@ class HealthChk{
 			$baseName = strval($dbName);
 			$rowTitle = 'database'.( $baseName!='' ? ' '.$baseName : '' );
 			try{
-				$baseCode = strtolower( strval(DBCon::baseSetupArray($baseName)['dbEngine']) );
+				$baseCode = strtolower( strval(DBCon::readDbaseConfg($baseName)['dbEngine']) );
 				$extnName = self::BASE_EXTS[$baseCode] ?? '';
 				if( $extnName!='' && !extension_loaded($extnName) ){
 					$this->addCheckResult($rowTitle, 'fail', 'the extension '.$extnName.' is not loaded');
@@ -692,7 +692,7 @@ class HealthChk{
 			try{
 				$dtbsHndr = DBCon::linkNamedDbCon( strval($blockCfg['linkName'] ?? '') )->readConnection();
 				$tableNme = strval($blockCfg['useTable'] ?? 'users');
-				$hasTable = ($dtbsHndr!==null) && $dtbsHndr->tableInfoArray($tableNme)!==false;
+				$hasTable = ($dtbsHndr!==null) && $dtbsHndr->getInfoOfTable($tableNme)!==false;
 				$this->addCheckResult( 'users', $hasTable ? 'fine' : 'fail', $hasTable ? 'the table '.$tableNme.' is there' : 'the table '.$tableNme.' is missing: "install userBase" creates it' );
 			}catch( \Throwable $e ){
 				$this->addCheckResult('users', 'fail', 'the userbase cannot be read: '.$e->getMessage());
@@ -725,7 +725,7 @@ class HealthChk{
 		$tableNme = strval($blockCfg['useTable'] ?? 'devices');
 		try{
 			$dtbsHndr = DBCon::linkNamedDbCon( strval($blockCfg['linkName'] ?? '') )->readConnection();
-			$tableDct = ($dtbsHndr!==null) ? $dtbsHndr->tableInfoArray($tableNme) : false;
+			$tableDct = ($dtbsHndr!==null) ? $dtbsHndr->getInfoOfTable($tableNme) : false;
 		}catch( \Throwable $e ){
 			$tableDct = false;
 		}

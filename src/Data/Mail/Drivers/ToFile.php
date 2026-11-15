@@ -20,15 +20,15 @@ class ToFile extends Driver {
 	 * @param Array   $recipientLst Checked addresses it is for.
 	 * @return ?String Null when it was written, or why it was not.
 	 */
-	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
-		$fieldPth = $this->emailsFldrText();
+	public function sendRawMessage( Message $emailMessage, Array $recipientLst ): ?String {
+		$fieldPth = $this->getEmlFldrPath();
 		if( !is_dir($fieldPth) && !@mkdir($fieldPth, 0775, true) && !is_dir($fieldPth) ){
 			return 'the folder '.json_encode($fieldPth).' cannot be created';
 		}
 		$headText = 'X-Envelope-To: '.implode(', ', $recipientLst)."\r\n";
 		$attrNmes = array_map('basename', $emailMessage->getAttachments());
 		if( !empty($attrNmes) ){
-			$headText .= 'X-Attachments: '.Message::encodeHeadText(implode(', ', $attrNmes))."\r\n";
+			$headText .= 'X-Attachments: '.Message::castHeaderUtf8(implode(', ', $attrNmes))."\r\n";
 		}
 		$filePath = $fieldPth.DIRECTORY_SEPARATOR.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.eml';
 		if( @file_put_contents($filePath, $headText.$emailMessage->writeWholeMail(), LOCK_EX)===false ){
@@ -42,7 +42,7 @@ class ToFile extends Driver {
 	 *
 	 * @return String Its full path.
 	 */
-	public function emailsFldrText(): String {
+	public function getEmlFldrPath(): String {
 		$fieldNme = trim( strval($this->setupArray['mailsDir'] ?? ''), '/\\ ' );
 		return TOP_DIR.DIRECTORY_SEPARATOR.( $fieldNme!='' ? str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $fieldNme) : 'temp'.DIRECTORY_SEPARATOR.'mails' );
 	}

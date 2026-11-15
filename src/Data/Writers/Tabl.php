@@ -65,7 +65,7 @@ class Tabl extends Base {
 		$headList = Array();
 		$isByKeys = false;
 		foreach($rowsList as $oneRow){
-			$isByKeys = ($isByKeys || !$this->validateALstOf((array)$oneRow));
+			$isByKeys = ($isByKeys || !$this->isSequenceList((array)$oneRow));
 		}
 		if( $isByKeys ){
 			foreach($rowsList as $oneRow){

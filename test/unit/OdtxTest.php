@@ -364,13 +364,13 @@ checkIdentical('one parser, several documents: a note, a comment or an option of
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
-checkIdentical('index: texts by extension and by content type', Array(get_class(Index::forExtnsParser('ODT')), get_class(Index::findTypeParser('application/vnd.oasis.opendocument.text'))), Array('nyu\Data\Parsers\Odtx', 'nyu\Data\Parsers\Odtx'));
+checkIdentical('index: texts by extension and by content type', Array(get_class(Index::getExtnsParser('ODT')), get_class(Index::findTypeParser('application/vnd.oasis.opendocument.text'))), Array('nyu\Data\Parsers\Odtx', 'nyu\Data\Parsers\Odtx'));
 checkIdentical('a text through Dcmnt, with and without its extension', runCatchThrown(function() use ($offcDir){
 	$barePth = inTemporaryDir('document');
 	copy($offcDir.'sample.odt', $barePth);
 	$docFile = new Dcmnt($offcDir.'sample.odt');
 	$bareDoc = new Dcmnt($barePth);
-	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf')['title'], $docFile->readFileDetail()[2]['plain'], $bareDoc->readFileDetail('ext'), count($bareDoc->readFileDetail()), Shape::bySectionArray($bareDoc->readFileDetail())[0]['nodes'][1]['title']);
+	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf')['title'], $docFile->readFileDetail()[2]['plain'], $bareDoc->readFileDetail('ext'), count($bareDoc->readFileDetail()), Shape::getSectionTree($bareDoc->readFileDetail())[0]['nodes'][1]['title']);
 }), Array('odt', 'block', 'Sample document', 'A list', 'odt', 9, 'A table'));
 checkIdentical('a text read then written as HTML', runCatchThrown(function() use ($offcDir){
 	$htmText = (new Html())->renderDocument((new Odtx())->parseFluxArray(Fluxd::openLocalFluxd($offcDir.'sample.odt')));

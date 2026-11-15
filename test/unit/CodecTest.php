@@ -11,7 +11,7 @@ use nyu\Data\Sound;
 
 // A codec whose program is a script of this test, run by PHP
 class TestCodec extends Codec {
-	protected function commandOfArray(): Array {
+	protected function getToolCmndLst(): Array {
 		return Array(PHP_BINARY, '-n', $this->ffmpegPath);
 	}
 }
@@ -70,10 +70,10 @@ $oggTags = "\x03vorbis".pack('V', 4).'test'.pack('V', 1).pack('V', 10).'TITLE=Ra
 $oggFile = 'OggS'."\0\0".pack('P', 0).pack('VVV', 1, 0, 0).chr(1).chr(strlen($oggHead)).$oggHead.'OggS'."\0\0".pack('P', 0).pack('VVV', 1, 1, 0).chr(1).chr(strlen($oggTags)).$oggTags.'OggS'."\0\0".pack('P', 96000).pack('VVV', 1, 2, 0).chr(1).chr(100).str_repeat("\x11", 100);
 
 // Without a program
-checkIdentical('no program is plugged at first', Sound::validateACodec(), false);
+checkIdentical('no program is plugged at first', Sound::hasUsableCodec(), false);
 checkIdentical('a program told to be nowhere cannot be used', Array((new Codec(''))->isProgramReady(), (new Codec(__DIR__.'/no-such-program'))->isProgramReady()), Array(false, false));
 checkPregMatch('a program that cannot be run', runCatchThrown(function() use ($wavFile){ return (new Codec(''))->alterSoundText($wavFile, 'wav', 'mp3'); }), '/^THROWN RuntimeException: The program that unpacks sounds cannot be run on this server/');
-Sound::plugSoundCodec(new Codec(__DIR__.'/no-such-program'));
+Sound::loadSoundCodec(new Codec(__DIR__.'/no-such-program'));
 checkPregMatch('a program plugged and missing changes nothing', runCatchThrown(function() use ($wavFile){ return cdcOpen($wavFile)->grantBytesText('mp3'); }), '/^THROWN RuntimeException: Giving a sound as another kind takes a program/');
 
 if( !function_exists('proc_open') ){
@@ -95,13 +95,13 @@ if( $modeTxt=="good" ){ copy(__DIR__."/give.bin", $argv[count($argv)-1]); }
 exit(0);
 ');
 $toolObj = new TestCodec($toolDir.'/standin.php', 20);
-Sound::plugSoundCodec($toolObj);
-checkIdentical('a program plugged and found', Array($toolObj->isProgramReady(), Sound::validateACodec()), Array(true, true));
+Sound::loadSoundCodec($toolObj);
+checkIdentical('a program plugged and found', Array($toolObj->isProgramReady(), Sound::hasUsableCodec()), Array(true, true));
 $tempLst = glob(rtrim(sys_get_temp_dir(), '/\\').'/nyusnd_*');
 
 // Another kind
 file_put_contents($toolDir.'/give.bin', $mp3File);
-$runsSet = cdcRuns($toolDir, 'good', function() use ($wavFile){ return cdcOpen($wavFile)->convertToSound('mp3')->soundInfoArray()['kinds']; });
+$runsSet = cdcRuns($toolDir, 'good', function() use ($wavFile){ return cdcOpen($wavFile)->castIntoFormat('mp3')->getInfoOfSound()['kinds']; });
 checkIdentical('a sound made of another kind', $runsSet[0], 'mp3');
 checkIdentical('the program reads the sound as the kind it was told to be', Array(array_slice($runsSet[1], 0, 10), intval(file_get_contents($toolDir.'/read.txt'))), Array(Array('-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file', '-f', 'wav', '-i'), strlen($wavFile)));
 checkIdentical('the program writes the first sound only, without what comes with it', cdcHas($runsSet[1], Array('-map', '0:a:0', '-vn', '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1')), true);
@@ -115,20 +115,20 @@ checkIdentical('the same kind packed again when bits a second are asked for', cd
 $runsSet = cdcRuns($toolDir, 'good', function() use ($mp3File){ return strlen(cdcOpen($mp3File)->grantBytesText()); });
 checkIdentical('what is done without the program stays done without it', $runsSet, Array(strlen($mp3File), Array()));
 file_put_contents($toolDir.'/give.bin', $wavFile);
-$runsSet = cdcRuns($toolDir, 'good', function() use ($mp3File){ return cdcOpen($mp3File)->convertToSound('wav')->soundInfoArray()['secnd']; });
+$runsSet = cdcRuns($toolDir, 'good', function() use ($mp3File){ return cdcOpen($mp3File)->castIntoFormat('wav')->getInfoOfSound()['secnd']; });
 checkIdentical('a kind packed without loss is given no bits a second', Array($runsSet[0], cdcHas($runsSet[1], Array('-c:a', 'pcm_s16le', '-fs')), cdcHas($runsSet[1], Array('-f', 'mp3', '-i'))), Array(1.0, true, true));
 checkPregMatch('a kind that is not one', runCatchThrown(function() use ($wavFile){ return cdcOpen($wavFile)->grantBytesText('../exe'); }), '/^THROWN RuntimeException: Unknown kind of sound: exe/');
 
 // A part of the kinds not cut as they are written
 file_put_contents($toolDir.'/give.bin', $flacFle);
-$runsSet = cdcRuns($toolDir, 'good', function() use ($flacFle){ return cdcOpen($flacFle)->makeSoundSlice(0.5, 1.5)->soundInfoArray()['kinds']; });
+$runsSet = cdcRuns($toolDir, 'good', function() use ($flacFle){ return cdcOpen($flacFle)->makeSoundSlice(0.5, 1.5)->getInfoOfSound()['kinds']; });
 checkIdentical('a part of a FLAC sound, packed again without loss', Array($runsSet[0], cdcHas($runsSet[1], Array('-f', 'flac', '-i')), cdcHas($runsSet[1], Array('-ss', '0.500', '-to', '1.500')), cdcHas($runsSet[1], Array('-c:a', 'flac', '-fs'))), Array('flac', true, true, true));
 file_put_contents($toolDir.'/give.bin', $oggFile);
-$runsSet = cdcRuns($toolDir, 'good', function() use ($oggFile){ return cdcOpen($oggFile)->makeSoundSlice(0, 1)->soundInfoArray()['kinds']; });
+$runsSet = cdcRuns($toolDir, 'good', function() use ($oggFile){ return cdcOpen($oggFile)->makeSoundSlice(0, 1)->getInfoOfSound()['kinds']; });
 checkIdentical('a part of an Ogg sound, taken as it is packed', Array($runsSet[0], cdcHas($runsSet[1], Array('-to', '1.000')), cdcHas($runsSet[1], Array('-ss')), cdcHas($runsSet[1], Array('-c:a', 'copy', '-fs'))), Array('ogg', true, false, true));
 $runsSet = cdcRuns($toolDir, 'good', function() use ($oggFile){ return strlen(cdcOpen($oggFile)->grantBytesText()); });
 checkIdentical('an Ogg sound given back without its tags', Array($runsSet[0], cdcHas($runsSet[1], Array('-c:a', 'copy')), cdcHas($runsSet[1], Array('-f', 'ogg'))), Array(strlen($oggFile), true, true));
-$runsSet = cdcRuns($toolDir, 'good', function() use ($wavFile){ return cdcOpen($wavFile)->makeSoundSlice(0.25, 0.5)->soundInfoArray()['secnd']; });
+$runsSet = cdcRuns($toolDir, 'good', function() use ($wavFile){ return cdcOpen($wavFile)->makeSoundSlice(0.25, 0.5)->getInfoOfSound()['secnd']; });
 checkIdentical('a WAV sound is still cut without the program', $runsSet, Array(0.25, Array()));
 
 // When the program does not do what is asked
@@ -137,17 +137,17 @@ checkPregMatch('a program that fails tells its first complaint, without the fold
 $runsSet = cdcRuns($toolDir, 'none', function() use ($wavFile){ return cdcOpen($wavFile)->grantBytesText('mp3'); });
 checkPregMatch('a program that gives nothing back', $runsSet[0], '/^THROWN RuntimeException: The program that unpacks sounds gave nothing back/');
 file_put_contents($toolDir.'/give.bin', 'not a sound at all');
-$runsSet = cdcRuns($toolDir, 'good', function() use ($wavFile){ return cdcOpen($wavFile)->convertToSound('mp3'); });
+$runsSet = cdcRuns($toolDir, 'good', function() use ($wavFile){ return cdcOpen($wavFile)->castIntoFormat('mp3'); });
 checkPregMatch('what the program gives back is read as any sound is', $runsSet[0], '/^THROWN RuntimeException: Not a sound of a known kind/');
-Sound::plugSoundCodec(new TestCodec($toolDir.'/standin.php', 1));
+Sound::loadSoundCodec(new TestCodec($toolDir.'/standin.php', 1));
 $timeNow = microtime(true);
 $runsSet = cdcRuns($toolDir, 'slow', function() use ($wavFile){ return cdcOpen($wavFile)->grantBytesText('mp3'); });
 checkPregMatch('a program that takes too long is stopped', $runsSet[0], '/^THROWN RuntimeException: The program that unpacks sounds took more than the 1 seconds allowed/');
 checkTrueValue('and is not waited for', microtime(true)-$timeNow<6);
 checkIdentical('nothing is left in the temporary store', glob(rtrim(sys_get_temp_dir(), '/\\').'/nyusnd_*'), $tempLst);
 
-Sound::plugSoundCodec(null);
-checkIdentical('the program can be unplugged', Sound::validateACodec(), false);
+Sound::loadSoundCodec(null);
+checkIdentical('the program can be unplugged', Sound::hasUsableCodec(), false);
 dropTestFolder($toolDir);
 
 finishChecking();

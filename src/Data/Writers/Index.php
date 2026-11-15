@@ -40,7 +40,7 @@ class Index {
 	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return ?Writer The writer, null when the extension has none.
 	 */
-	public static function forExtnsWriter(String $extensionTxt): ?Writer {
+	public static function getExtnsWriter(String $extensionTxt): ?Writer {
 		$extnList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
 		if( $extnList===null ){
 			return null;
@@ -55,7 +55,7 @@ class Index {
 	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return Array The options, empty when the extension has none.
 	 */
-	public static function optionsOfExtns(String $extensionTxt): Array {
+	public static function getOptsForExtn(String $extensionTxt): Array {
 		return self::$extnsArray[strtolower($extensionTxt)][1] ?? Array();
 	}
 
@@ -66,7 +66,7 @@ class Index {
 	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return String The content type, with its character set when it is text; '' when the extension has no writer.
 	 */
-	public static function contentTypeFor(String $extensionTxt): String {
+	public static function getMimeForExtn(String $extensionTxt): String {
 		return strval(self::$extnsArray[strtolower($extensionTxt)][2] ?? '');
 	}
 

@@ -64,7 +64,7 @@ class EPub extends Page {
 		$this->readPictureDir($writeOptions);
 		$this->mediaFiles = Array();
 		$infoList = (array)($dataEnvelope['infos'] ?? Array());
-		$blockLst = ($shapeNme=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$blockLst = ($shapeNme=='sheet') ? $this->getSheetBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
 		$propList = (array)($infoList['props'] ?? Array());
 		$bookTitl = trim(strval(is_scalar($infoList['title'] ?? null) ? $infoList['title'] : (is_scalar($propList['Title'] ?? null) ? $propList['Title'] : '')));
 		$bookAuth = trim(strval(is_scalar($infoList['authr'] ?? null) ? $infoList['authr'] : (is_scalar($propList['Author'] ?? null) ? $propList['Author'] : '')));
@@ -75,23 +75,23 @@ class EPub extends Page {
 			}
 		}
 		// The notes are taken out of the text: each ends the chapter that refers to it
-		$noteList = $this->takeNotesArray($blockLst);
+		$noteList = $this->splitNotesDict($blockLst);
 		$noteList = $noteList['fnote'] + $noteList['enote'];
 		$headNumb = 0;
-		$blockLst = $this->prepareBlckArr(array_values($blockLst), $headNumb);
-		$chapList = $this->chaptersOfList($blockLst, max(0, min(6, intval($writeOptions['split'] ?? 1))), ($bookTitl==='') ? 'Book' : $bookTitl);
+		$blockLst = $this->makeBookBlocks(array_values($blockLst), $headNumb);
+		$chapList = $this->splitIntoChapt($blockLst, max(0, min(6, intval($writeOptions['split'] ?? 1))), ($bookTitl==='') ? 'Book' : $bookTitl);
 		$usedList = Array();
 		foreach($chapList as $chpIdx=>$chpSet){
-			foreach($this->notesUsedArray($chpSet['blcks']) as $nteNme){
+			foreach($this->listNotesCited($chpSet['blcks']) as $nteNme){
 				if( isset($noteList[$nteNme]) && !isset($usedList[$nteNme]) ){
 					$usedList[$nteNme] = true;
-					$chapList[$chpIdx]['blcks'][] = $this->prepareBlckArr(Array($noteList[$nteNme]), $headNumb)[0];
+					$chapList[$chpIdx]['blcks'][] = $this->makeBookBlocks(Array($noteList[$nteNme]), $headNumb)[0];
 				}
 			}
 		}
 		// A note the text never referred to is not lost: it ends the book
 		foreach(array_diff_key($noteList, $usedList) as $nteBlk){
-			$chapList[count($chapList)-1]['blcks'][] = $this->prepareBlckArr(Array($nteBlk), $headNumb)[0];
+			$chapList[count($chapList)-1]['blcks'][] = $this->makeBookBlocks(Array($nteBlk), $headNumb)[0];
 		}
 		// Where each named place stands, for the links that point to a place of another chapter
 		$placeLst = Array();
@@ -109,10 +109,10 @@ class EPub extends Page {
 		$covrDict = null;
 		foreach(Array($writeOptions['cover'] ?? '', $infoList['cover'] ?? '') as $cvrNme){
 			if( $covrDict===null && is_scalar($cvrNme) && strval($cvrNme)!=='' ){
-				$covrDict = $this->pictureReadArr(strval($cvrNme));
+				$covrDict = $this->readPictureDct(strval($cvrNme));
 			}
 		}
-		$coverNme = ($covrDict===null) ? '' : $this->givePictureNme($covrDict);
+		$coverNme = ($covrDict===null) ? '' : $this->getPictureName($covrDict);
 		if( $coverNme!=='' ){
 			$fileList[self::BOOK_ROOT.'cover.xhtml'] = $pageHead.'<title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n"
 				.'<body class="cover" epub:type="cover">'."\n".'<img src="'.$coverNme.'" alt="'.$this->escapeXmlValue(($bookTitl==='') ? 'Cover' : $bookTitl).'"/>'."\n".'</body>'."\n".'</html>'."\n";
@@ -143,7 +143,7 @@ class EPub extends Page {
 				$headList[] = Array('level'=>1, 'title'=>$chpSet['title'], 'links'=>'chap'.($chpIdx+1).'.xhtml');
 			}
 		}
-		$headTree = $this->headsTreeArray($headList);
+		$headTree = $this->getHeadingTree($headList);
 		// The pictures, each written once, and told for what it is; the cover is told as such, in the two ways readers look for it
 		$covrIdnt = '';
 		foreach(array_values($this->mediaFiles) as $medIdx=>$medSet){
@@ -151,7 +151,7 @@ class EPub extends Page {
 			$itemText .= '<item id="img'.($medIdx+1).'" href="'.$medSet[0].'" media-type="'.self::PICT_LIST[substr($medSet[0], intval(strrpos($medSet[0], '.'))+1)].'"'.(($medSet[0]===$coverNme) ? ' properties="cover-image"' : '').'/>';
 			$covrIdnt = ($medSet[0]===$coverNme) ? 'img'.($medIdx+1) : $covrIdnt;
 		}
-		$bookIdnt = $this->bookIdntString($propList, $bookTitl.'|'.$bookAuth.'|'.Shape::documentAsText($blockLst));
+		$bookIdnt = $this->getBookIdntTxt($propList, $bookTitl.'|'.$bookAuth.'|'.Shape::getTextOfDcmnt($blockLst));
 		$headBrut = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
 		$metaText = '<dc:identifier id="bookid">'.$this->escapeXmlValue($bookIdnt).'</dc:identifier><dc:title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</dc:title><dc:language>'.$langClef.'</dc:language>'
 			.(($bookAuth==='') ? '' : '<dc:creator>'.$this->escapeXmlValue($bookAuth).'</dc:creator>');
@@ -170,14 +170,14 @@ class EPub extends Page {
 				.'<spine toc="ncx">'.$spineTxt.'</spine></package>',
 			self::BOOK_ROOT.'nav.xhtml'=>$headBrut.'<!DOCTYPE html>'."\n".'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="'.$langClef.'" xml:lang="'.$langClef.'">'."\n"
 				.'<head>'."\n".'<meta charset="utf-8"/>'."\n".'<title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n"
-				.'<body>'."\n".'<nav epub:type="toc" id="toc">'."\n".'<h1>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</h1>'."\n".$this->navigationPart($headTree).'</nav>'."\n".'</body>'."\n".'</html>'."\n",
+				.'<body>'."\n".'<nav epub:type="toc" id="toc">'."\n".'<h1>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</h1>'."\n".$this->writeTocAsHtml($headTree).'</nav>'."\n".'</body>'."\n".'</html>'."\n",
 			self::BOOK_ROOT.'toc.ncx'=>$headBrut.'<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="'.$this->escapeXmlValue($bookIdnt).'"/><meta name="dtb:depth" content="'.$tocDepth.'"/><meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head>'
-				.'<docTitle><text>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</text></docTitle><navMap>'.$this->ncxOfPieceText($headTree).'</navMap></ncx>',
-			self::BOOK_ROOT.'style.css'=>$this->stylePieceText((array)($infoList['frmat'] ?? Array()))
+				.'<docTitle><text>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</text></docTitle><navMap>'.$this->writeNcxPoints($headTree).'</navMap></ncx>',
+			self::BOOK_ROOT.'style.css'=>$this->writeStylePart((array)($infoList['frmat'] ?? Array()))
 		) + $fileList;
 		try{
 			// The first entry tells what the file is, and is kept as it is
-			return Archv::newBytesString($fileList, Array('mimetype'));
+			return Archv::makeZipFromLst($fileList, Array('mimetype'));
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Book that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -191,7 +191,7 @@ class EPub extends Page {
 	 * @param String $bookContents What the book holds, for the identifier made from it.
 	 * @return String The identifier.
 	 */
-	protected function bookIdntString(Array $propertyList, String $bookContents): String {
+	protected function getBookIdntTxt(Array $propertyList, String $bookContents): String {
 		$tldIdent = is_scalar($propertyList['Identifier'] ?? null) ? trim(strval(preg_replace('/[\x00-\x20]+/', ' ', strval($propertyList['Identifier'])))) : '';
 		if( $tldIdent!=='' ){
 			return substr($tldIdent, 0, 200);
@@ -213,7 +213,7 @@ class EPub extends Page {
 	 * @param Int   $headingCount The number of headings named so far; receives the new one.
 	 * @return Array The blocks, ready.
 	 */
-	protected function prepareBlckArr(Array $bookBlockSet, Int &$headingCount): Array {
+	protected function makeBookBlocks(Array $bookBlockSet, Int &$headingCount): Array {
 		$doneList = Array();
 		foreach($bookBlockSet as $oneBlk){
 			if( !is_array($oneBlk) || !isset($oneBlk['block']) ){
@@ -224,7 +224,7 @@ class EPub extends Page {
 			$spanList = Array();
 			foreach((array)($oneBlk['spans'] ?? Array()) as $oneSpn){
 				if( is_array($oneSpn) ){
-					$spanList[] = Shape::makeASpanArray(strval($oneSpn['texts'] ?? ''), (array)($oneSpn['marks'] ?? Array()), is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
+					$spanList[] = Shape::makeSpanOfText(strval($oneSpn['texts'] ?? ''), (array)($oneSpn['marks'] ?? Array()), is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
 				}
 			}
 			if( $blockCod=='headline' && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrDict['tagid'] ?? '')) ){
@@ -232,12 +232,12 @@ class EPub extends Page {
 				$attrDict['tagid'] = 'sec-'.$headingCount;
 			}
 			if( $blockCod=='listItem' && isset($attrDict['check']) ){
-				array_unshift($spanList, Shape::makeASpanArray(empty($attrDict['check']) ? "\u{2610} " : "\u{2611} "));
+				array_unshift($spanList, Shape::makeSpanOfText(empty($attrDict['check']) ? "\u{2610} " : "\u{2611} "));
 				unset($attrDict['check']);
 			}
 			if( $blockCod=='imageBox' ){
-				$pictDict = $this->pictureReadArr(is_scalar($attrDict['sourc'] ?? '') ? strval($attrDict['sourc'] ?? '') : '');
-				$pictName = ($pictDict===null) ? '' : $this->givePictureNme($pictDict);
+				$pictDict = $this->readPictureDct(is_scalar($attrDict['sourc'] ?? '') ? strval($attrDict['sourc'] ?? '') : '');
+				$pictName = ($pictDict===null) ? '' : $this->getPictureName($pictDict);
 				if( $pictName==='' ){
 					$blockCod = 'paragrph';
 					unset($attrDict['sourc']);
@@ -249,7 +249,7 @@ class EPub extends Page {
 			if( isset($attrDict['tagid']) && !preg_match('/^[A-Za-z][\w\-.]*$/D', strval($attrDict['tagid'])) ){
 				unset($attrDict['tagid']);
 			}
-			$doneList[] = Shape::makeBlockArray($blockCod, $spanList, $this->prepareBlckArr((array)($oneBlk['items'] ?? Array()), $headingCount), $attrDict);
+			$doneList[] = Shape::makeBlockArray($blockCod, $spanList, $this->makeBookBlocks((array)($oneBlk['items'] ?? Array()), $headingCount), $attrDict);
 		}
 		return $doneList;
 	}
@@ -258,10 +258,10 @@ class EPub extends Page {
 	 * Gives a picture its name in the book, where it is written once
 	 * however often it is shown.
 	 *
-	 * @param Array $pictureArray The picture, as pictureReadArr() gives it.
+	 * @param Array $pictureArray The picture, as readPictureDct() gives it.
 	 * @return String Its name in the book; '' when the pictures of the book would then be more than a book may hold.
 	 */
-	protected function givePictureNme(Array $pictureArray): String {
+	protected function getPictureName(Array $pictureArray): String {
 		$pictClef = sha1($pictureArray['bytes']);
 		if( !isset($this->mediaFiles[$pictClef]) ){
 			if( array_sum(array_map(function(Array $mediaItemLst){ return strlen($mediaItemLst[1]); }, $this->mediaFiles))+strlen($pictureArray['bytes'])>self::MEDI_MAXI ){
@@ -281,7 +281,7 @@ class EPub extends Page {
 	 * @param String $bookTitleTxt The title of the book, given to a chapter that starts with no heading.
 	 * @return Array The chapters, each with its title under 'title' and its blocks under 'blcks'; one at least.
 	 */
-	protected function chaptersOfList(Array $bookBlockSet, Int $splitLvlNumb, String $bookTitleTxt): Array {
+	protected function splitIntoChapt(Array $bookBlockSet, Int $splitLvlNumb, String $bookTitleTxt): Array {
 		$chapList = Array();
 		foreach($bookBlockSet as $oneBlk){
 			$isNewFle = ($oneBlk['block']=='headline' && $splitLvlNumb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLvlNumb && trim($oneBlk['plain'])!=='');
@@ -299,7 +299,7 @@ class EPub extends Page {
 	 * @param Array $bookBlockSet The blocks.
 	 * @return Array The names of the notes.
 	 */
-	protected function notesUsedArray(Array $bookBlockSet): Array {
+	protected function listNotesCited(Array $bookBlockSet): Array {
 		$nameList = Array();
 		foreach($bookBlockSet as $oneBlk){
 			foreach($oneBlk['spans'] as $oneSpn){
@@ -307,7 +307,7 @@ class EPub extends Page {
 					$nameList[] = substr($oneSpn['links'], 1);
 				}
 			}
-			$nameList = array_merge($nameList, $this->notesUsedArray($oneBlk['items']));
+			$nameList = array_merge($nameList, $this->listNotesCited($oneBlk['items']));
 		}
 		return $nameList;
 	}
@@ -358,7 +358,7 @@ class EPub extends Page {
 	 * @param Array $headingsList The headings, in order, each with its 'level', its 'title' and where it stands under 'links'.
 	 * @return Array The headings of the highest level met, each with those it holds under 'holds'.
 	 */
-	protected function headsTreeArray(Array $headingsList): Array {
+	protected function getHeadingTree(Array $headingsList): Array {
 		$treeList = Array();
 		// The way down to the heading being filled: each step is the list a heading of that depth goes into
 		$pathList = Array(&$treeList);
@@ -384,10 +384,10 @@ class EPub extends Page {
 	 * @param Array $headingsTree The headings, as a tree.
 	 * @return String The lists.
 	 */
-	protected function navigationPart(Array $headingsTree): String {
+	protected function writeTocAsHtml(Array $headingsTree): String {
 		$listText = '<ol>'."\n";
 		foreach($headingsTree as $oneHdr){
-			$listText .= '<li><a href="'.$this->escapeXmlValue($oneHdr['links']).'">'.$this->escapeXmlValue($oneHdr['title']).'</a>'.(empty($oneHdr['holds']) ? '' : "\n".$this->navigationPart($oneHdr['holds'])).'</li>'."\n";
+			$listText .= '<li><a href="'.$this->escapeXmlValue($oneHdr['links']).'">'.$this->escapeXmlValue($oneHdr['title']).'</a>'.(empty($oneHdr['holds']) ? '' : "\n".$this->writeTocAsHtml($oneHdr['holds'])).'</li>'."\n";
 		}
 		return $listText.'</ol>'."\n";
 	}
@@ -400,11 +400,11 @@ class EPub extends Page {
 	 * @param Int   $playOrderNum The number of points written so far; receives the new one.
 	 * @return String The points.
 	 */
-	protected function ncxOfPieceText(Array $headingsTree, Int &$playOrderNum=0): String {
+	protected function writeNcxPoints(Array $headingsTree, Int &$playOrderNum=0): String {
 		$pntsText = '';
 		foreach($headingsTree as $oneHdr){
 			$playOrderNum++;
-			$pntsText .= '<navPoint id="np'.$playOrderNum.'" playOrder="'.$playOrderNum.'"><navLabel><text>'.$this->escapeXmlValue($oneHdr['title']).'</text></navLabel><content src="'.$this->escapeXmlValue($oneHdr['links']).'"/>'.$this->ncxOfPieceText($oneHdr['holds'], $playOrderNum).'</navPoint>';
+			$pntsText .= '<navPoint id="np'.$playOrderNum.'" playOrder="'.$playOrderNum.'"><navLabel><text>'.$this->escapeXmlValue($oneHdr['title']).'</text></navLabel><content src="'.$this->escapeXmlValue($oneHdr['links']).'"/>'.$this->writeNcxPoints($oneHdr['holds'], $playOrderNum).'</navPoint>';
 		}
 		return $pntsText;
 	}
@@ -417,7 +417,7 @@ class EPub extends Page {
 	 * @param Array $styleFormats The styles the content tells of.
 	 * @return String The style sheet.
 	 */
-	protected function stylePieceText(Array $styleFormats): String {
+	protected function writeStylePart(Array $styleFormats): String {
 		$cssRules = Array();
 		$cssStrng = (new Html())->renderDocument(Array('shape'=>'block', 'infos'=>Array('frmat'=>$styleFormats), 'items'=>Array()), Array('xhtml'=>true, 'frmat'=>true));
 		return self::BASE_STYL.(preg_match('/<style>\n(.*)\n<\/style>/s', $cssStrng, $cssRules) ? $cssRules[1]."\n" : '');

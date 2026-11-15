@@ -19,7 +19,7 @@ Class MySQL extends PDO {
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): Void {
-		$this->baseDriver = new \PDO($this->buildDsnString($databaseHost, $hostBaseText, $settingsList), $serverUsrTxt, $hostPassText, $this->pdoOptionArray($settingsList));
+		$this->baseDriver = new \PDO($this->makeDsnForHost($databaseHost, $hostBaseText, $settingsList), $serverUsrTxt, $hostPassText, $this->readPdoOptsDct($settingsList));
 	}
 
 	/**
@@ -33,7 +33,7 @@ Class MySQL extends PDO {
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
-	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
+	protected function makeDsnForHost(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
 		$dsnStrng = "mysql:host=$databaseHost;dbname=$hostBaseText";
 		$partNumb = strval($settingsList['portNumb'] ?? '');
 		if( $partNumb!='' ){
@@ -61,7 +61,7 @@ Class MySQL extends PDO {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool {
 		if( !$this->sendBuiltQuery('EXPLAIN '.$this->quoteFieldName($tbleLabelTxt).';') ){
 			return false;
 		}
@@ -90,7 +90,7 @@ Class MySQL extends PDO {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
+	public function getColTypeList(String $tbleLabelTxt): Array|Bool {
 		if( !$this->sendBuiltQuery('EXPLAIN '.$this->quoteFieldName($tbleLabelTxt).';') ){
 			return false;
 		}
@@ -103,7 +103,7 @@ Class MySQL extends PDO {
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
 	 */
-	public function tableNameArray(): Array|Bool {
+	public function listTableNames(): Array|Bool {
 		if( !$this->sendBuiltQuery("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE';") ){
 			return false;
 		}

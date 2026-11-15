@@ -23,7 +23,7 @@ Class PgSQL extends PDO {
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): Void {
-		$this->baseDriver = new \PDO($this->buildDsnString($databaseHost, $hostBaseText, $settingsList), $serverUsrTxt, $hostPassText, $this->pdoOptionArray($settingsList));
+		$this->baseDriver = new \PDO($this->makeDsnForHost($databaseHost, $hostBaseText, $settingsList), $serverUsrTxt, $hostPassText, $this->readPdoOptsDct($settingsList));
 	}
 
 	/**
@@ -37,7 +37,7 @@ Class PgSQL extends PDO {
 	 *
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
-	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
+	protected function makeDsnForHost(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
 		$dsnStrng = "pgsql:host=$databaseHost;dbname=$hostBaseText";
 		$partNumb = strval($settingsList['portNumb'] ?? '');
 		if( $partNumb!='' ){
@@ -66,7 +66,7 @@ Class PgSQL extends PDO {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool {
 		$infoQuer = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
 			.' LEFT JOIN pg_index i ON i.indrelid = a.attrelid AND i.indisprimary AND a.attnum = ANY(i.indkey)'
 			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
@@ -99,7 +99,7 @@ Class PgSQL extends PDO {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
+	public function getColTypeList(String $tbleLabelTxt): Array|Bool {
 		$typeQuer = 'SELECT a.attname AS name, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
 			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
 		if( !$this->sendBuiltQuery($typeQuer, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
@@ -114,7 +114,7 @@ Class PgSQL extends PDO {
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
 	 */
-	public function tableNameArray(): Array|Bool {
+	public function listTableNames(): Array|Bool {
 		if( !$this->sendBuiltQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY table_name;") ){
 			return false;
 		}
@@ -127,7 +127,7 @@ Class PgSQL extends PDO {
 	 *
 	 * @return String|Bool The last insert ID, or false when the insert did not draw a key from a sequence.
 	 */
-	public function finalAddedText(): String|Bool {
+	public function getLastAddedId(): String|Bool {
 		try{
 			return $this->baseDriver->lastInsertId();
 		}catch(\PDOException $e ){

@@ -42,7 +42,7 @@ class Sound {
 	 * @param ?Codec $codecProgram The program; null to do without.
 	 * @return Void
 	 */
-	public static function plugSoundCodec(?Codec $codecProgram): Void {
+	public static function loadSoundCodec(?Codec $codecProgram): Void {
 		self::$soundCodec = $codecProgram;
 	}
 	
@@ -51,7 +51,7 @@ class Sound {
 	 *
 	 * @return Bool True when one is plugged and can be run on this server.
 	 */
-	public static function validateACodec(): Bool {
+	public static function hasUsableCodec(): Bool {
 		return ( self::$soundCodec!==null && self::$soundCodec->isProgramReady() );
 	}
 
@@ -60,7 +60,7 @@ class Sound {
 	 * another one.
 	 *
 	 * @param String $nakedContent The bytes of the sound.
-	 * @param Array  $mediaDetails What the sound is, as soundInfoArray() gives it.
+	 * @param Array  $mediaDetails What the sound is, as getInfoOfSound() gives it.
 	 * @param String $pictureBytes The bytes of the picture it carries, '' when it carries none.
 	 * @param Array  $trimSettings What is needed to cut it as it is written.
 	 */
@@ -82,7 +82,7 @@ class Sound {
 	 * @throws \RuntimeException When the source is larger than the limit, or is not a sound of a known kind.
 	 */
 	public static function openFluxdSound(Fluxd $sourceStream, Int $bytesCeiling=self::MAXI_BYTE): Sound {
-		return self::fromBytesSound($sourceStream->getWholeString($bytesCeiling));
+		return self::readRawAsSound($sourceStream->getWholeString($bytesCeiling));
 	}
 
 	/**
@@ -93,18 +93,18 @@ class Sound {
 	 *
 	 * @throws \RuntimeException When the content is not a sound of a known kind.
 	 */
-	protected static function fromBytesSound(String $nakedContent): Sound {
+	protected static function readRawAsSound(String $nakedContent): Sound {
 		// A tag standing before the sound is passed over to tell what follows it
 		$innerPos = 0;
 		while( substr($nakedContent, $innerPos, 3)==='ID3' && strlen($nakedContent)>=$innerPos+10 ){
-			$innerPos += 10+self::sizeOfTagCount(substr($nakedContent, $innerPos+6, 4));
+			$innerPos += 10+self::readId3TagSize(substr($nakedContent, $innerPos+6, 4));
 		}
 		$headText = substr($nakedContent, $innerPos, 12);
 		$readDict = null;
 		if( substr($headText, 0, 4)==='RIFF' && substr($headText, 8, 4)==='WAVE' ){
 			$readDict = self::readOfWavArray($nakedContent);
 		}elseif( substr($headText, 0, 4)==='fLaC' ){
-			$readDict = self::readOfFlaArray($nakedContent, $innerPos);
+			$readDict = self::readFlacBlocks($nakedContent, $innerPos);
 		}elseif( substr($headText, 0, 4)==='OggS' ){
 			$readDict = self::readOfOggArray($nakedContent);
 		}elseif( substr($headText, 4, 4)==='ftyp' ){
@@ -118,7 +118,7 @@ class Sound {
 		$infoList = $readDict['infos'];
 		$infoList['secnd'] = round($infoList['secnd'], 3);
 		$infoList['bitrt'] = intval(round($infoList['bitrt']));
-		return new Sound($nakedContent, Array('kinds'=>$infoList['kinds'], 'secnd'=>$infoList['secnd'], 'rates'=>intval($infoList['rates']), 'chans'=>intval($infoList['chans']), 'bitrt'=>$infoList['bitrt'], 'bytes'=>strlen($nakedContent), 'tagsl'=>self::cleanTagsArray($readDict['tagsl'])), strval($readDict['cover'] ?? ''), (array)($readDict['cuts'] ?? Array()));
+		return new Sound($nakedContent, Array('kinds'=>$infoList['kinds'], 'secnd'=>$infoList['secnd'], 'rates'=>intval($infoList['rates']), 'chans'=>intval($infoList['chans']), 'bitrt'=>$infoList['bitrt'], 'bytes'=>strlen($nakedContent), 'tagsl'=>self::wipeRawTagVals($readDict['tagsl'])), strval($readDict['cover'] ?? ''), (array)($readDict['cuts'] ?? Array()));
 	}
 
 	/**
@@ -128,7 +128,7 @@ class Sound {
 	 * @param String $packedLength The four bytes.
 	 * @return Int The size.
 	 */
-	protected static function sizeOfTagCount(String $packedLength): Int {
+	protected static function readId3TagSize(String $packedLength): Int {
 		$byteList = array_values(unpack('C4', str_pad($packedLength, 4, "\0")));
 		return (($byteList[0] & 0x7F)<<21) | (($byteList[1] & 0x7F)<<14) | (($byteList[2] & 0x7F)<<7) | ($byteList[3] & 0x7F);
 	}
@@ -140,7 +140,7 @@ class Sound {
 	 * @param Array $rawTagValues The tags, as read.
 	 * @return Array The title under 'title', the artist under 'artst', the album under 'album', the year under 'years', the number of the track under 'track' and the genre under 'genre'; each only when the sound tells it.
 	 */
-	protected static function cleanTagsArray(Array $rawTagValues): Array {
+	protected static function wipeRawTagVals(Array $rawTagValues): Array {
 		$tagsList = Array();
 		foreach(Array('title', 'artst', 'album', 'years', 'track', 'genre') as $tagKey){
 			$tagStrng = strval($rawTagValues[$tagKey] ?? '');
@@ -171,11 +171,11 @@ class Sound {
 	 * @param String $id3TagString The tag, from its first byte.
 	 * @return Array The tags under 'tagsl', the bytes of the picture under 'cover'.
 	 */
-	protected static function id3FramesArray(String $id3TagString): Array {
+	protected static function readId3FrmeDct(String $id3TagString): Array {
 		$tagsList = Array();
 		$coverTxt = '';
 		$tagVersn = ord($id3TagString[3] ?? "\0");
-		$tagCrude = substr($id3TagString, 10, self::sizeOfTagCount(substr($id3TagString, 6, 4)));
+		$tagCrude = substr($id3TagString, 10, self::readId3TagSize(substr($id3TagString, 6, 4)));
 		// A tag may be written so that nothing in it looks like the start of a frame of sound: it is brought back as it was
 		if( (ord($id3TagString[5] ?? "\0") & 0x80) && $tagVersn<4 ){
 			$tagCrude = str_replace("\xFF\x00", "\xFF", $tagCrude);
@@ -189,7 +189,7 @@ class Sound {
 			if( $tagVersn==2 ){
 				$formSize = (ord($tagCrude[$readIndx+3])<<16) | (ord($tagCrude[$readIndx+4])<<8) | ord($tagCrude[$readIndx+5]);
 			}else{
-				$formSize = ($tagVersn==4) ? self::sizeOfTagCount(substr($tagCrude, $readIndx+4, 4)) : unpack('N', substr($tagCrude, $readIndx+4, 4))[1];
+				$formSize = ($tagVersn==4) ? self::readId3TagSize(substr($tagCrude, $readIndx+4, 4)) : unpack('N', substr($tagCrude, $readIndx+4, 4))[1];
 			}
 			if( $formSize<1 || $readIndx+$hedrSize+$formSize>strlen($tagCrude) ){
 				break;
@@ -202,7 +202,7 @@ class Sound {
 				// A picture: how its description is written, its kind, what it shows, its description, then its bytes
 				$encoding = ord($formBrut[0]);
 				$afterPos = ($formName=='PIC') ? 5 : intval(strpos($formBrut, "\0", 1))+2;
-				$strngEnd = ($encoding==1 || $encoding==2) ? self::wideZerosCount($formBrut, $afterPos) : strpos($formBrut, "\0", $afterPos);
+				$strngEnd = ($encoding==1 || $encoding==2) ? self::findUtf16Limit($formBrut, $afterPos) : strpos($formBrut, "\0", $afterPos);
 				$coverTxt = ($strngEnd===false) ? '' : substr($formBrut, $strngEnd+(($encoding==1 || $encoding==2) ? 2 : 1));
 			}
 		}
@@ -216,7 +216,7 @@ class Sound {
 	 * @param Int    $fromPosition Where the text starts.
 	 * @return Int|Bool Where its ending pair of zero bytes stands, false when it has none.
 	 */
-	protected static function wideZerosCount(String $templateText, Int $fromPosition): Int|Bool {
+	protected static function findUtf16Limit(String $templateText, Int $fromPosition): Int|Bool {
 		for($posInc=$fromPosition; $posInc+1<strlen($templateText); $posInc+=2){
 			if( $templateText[$posInc]==="\0" && $templateText[$posInc+1]==="\0" ){
 				return $posInc;
@@ -249,7 +249,7 @@ class Sound {
 	 * @param String $blockBytText The block holding them.
 	 * @return Array The tags under 'tagsl', the bytes of the picture under 'cover'.
 	 */
-	protected static function vorbisTagArray(String $blockBytText): Array {
+	protected static function readVorbisTags(String $blockBytText): Array {
 		$tagsList = Array();
 		$coverTxt = '';
 		$keysList = Array('TITLE'=>'title', 'ARTIST'=>'artst', 'ALBUM'=>'album', 'DATE'=>'years', 'YEAR'=>'years', 'TRACKNUMBER'=>'track', 'GENRE'=>'genre');
@@ -264,7 +264,7 @@ class Sound {
 			if( isset($keysList[$lineClef]) && !isset($tagsList[$keysList[$lineClef]]) ){
 				$tagsList[$keysList[$lineClef]] = strval($linePart[1] ?? '');
 			}elseif( $lineClef=='METADATA_BLOCK_PICTURE' && $coverTxt==='' ){
-				$coverTxt = self::flacPictureTxt(strval(base64_decode(strval($linePart[1] ?? ''), true)));
+				$coverTxt = self::getFlacPicture(strval(base64_decode(strval($linePart[1] ?? ''), true)));
 			}
 		}
 		return Array('tagsl'=>$tagsList, 'cover'=>$coverTxt);
@@ -276,7 +276,7 @@ class Sound {
 	 * @param String $blockBytText The block: what the picture shows, its kind, its description, its size, then its bytes.
 	 * @return String The bytes of the picture, '' when the block is not whole.
 	 */
-	protected static function flacPictureTxt(String $blockBytText): String {
+	protected static function getFlacPicture(String $blockBytText): String {
 		if( strlen($blockBytText)<32 ){
 			return '';
 		}
@@ -320,7 +320,7 @@ class Sound {
 					$chunkPos += 8+$infoSize+($infoSize%2);
 				}
 			}elseif( strtolower($partName)==='id3 ' ){
-				$id3Frmes = self::id3FramesArray(substr($nakedContent, $readIndx+8, $partSize));
+				$id3Frmes = self::readId3FrmeDct(substr($nakedContent, $readIndx+8, $partSize));
 				$tagsList = $tagsList + $id3Frmes['tagsl'];
 				$coverTxt = $id3Frmes['cover'];
 			}
@@ -349,7 +349,7 @@ class Sound {
 	 * @param Int    $endBeforeNum Where what is heard ends.
 	 * @return Array The frames, each with where it stands, its length, the samples it holds, its sample rate, its channels and its bit rate.
 	 */
-	protected static function mp3FramesArray(String $nakedContent, Int $fromPosition, Int $endBeforeNum): Array {
+	protected static function readMp3FrmeLst(String $nakedContent, Int $fromPosition, Int $endBeforeNum): Array {
 		$frameLst = Array();
 		$readIndx = $fromPosition;
 		// What stands before the first frame is passed over, within reason
@@ -404,8 +404,8 @@ class Sound {
 		$coverTxt = '';
 		$innerPos = 0;
 		while( substr($nakedContent, $innerPos, 3)==='ID3' && strlen($nakedContent)>=$innerPos+10 ){
-			$tagBytes = 10+self::sizeOfTagCount(substr($nakedContent, $innerPos+6, 4));
-			$id3Frmes = self::id3FramesArray(substr($nakedContent, $innerPos, $tagBytes));
+			$tagBytes = 10+self::readId3TagSize(substr($nakedContent, $innerPos+6, 4));
+			$id3Frmes = self::readId3FrmeDct(substr($nakedContent, $innerPos, $tagBytes));
 			$tagsList = $tagsList + $id3Frmes['tagsl'];
 			$coverTxt = ($coverTxt==='') ? $id3Frmes['cover'] : $coverTxt;
 			$innerPos += $tagBytes;
@@ -425,7 +425,7 @@ class Sound {
 				}
 			}
 		}
-		$frameLst = self::mp3FramesArray($nakedContent, $innerPos, $bodySize);
+		$frameLst = self::readMp3FrmeLst($nakedContent, $innerPos, $bodySize);
 		if( empty($frameLst) ){
 			return null;
 		}
@@ -445,7 +445,7 @@ class Sound {
 	 * @param Int    $fromPosition Where the sound starts, past a tag that may stand before it.
 	 * @return ?Array What it is under 'infos', its tags under 'tagsl', its picture under 'cover' and what is needed to give it back without its tags under 'cuts'; null when it is not a whole FLAC sound.
 	 */
-	protected static function readOfFlaArray(String $nakedContent, Int $fromPosition): ?Array {
+	protected static function readFlacBlocks(String $nakedContent, Int $fromPosition): ?Array {
 		$tagsList = Array();
 		$coverTxt = '';
 		$infoBloc = '';
@@ -463,11 +463,11 @@ class Sound {
 			if( $blockCod==0 ){
 				$infoBloc = $blockTxt;
 			}elseif( $blockCod==4 ){
-				$noteDict = self::vorbisTagArray($blockTxt);
+				$noteDict = self::readVorbisTags($blockTxt);
 				$tagsList = $tagsList + $noteDict['tagsl'];
 				$coverTxt = ($coverTxt==='') ? $noteDict['cover'] : $coverTxt;
 			}elseif( $blockCod==6 && $coverTxt==='' ){
-				$coverTxt = self::flacPictureTxt($blockTxt);
+				$coverTxt = self::getFlacPicture($blockTxt);
 			}
 			// What a sound cannot do without, and what lets a player move in it, are kept when its tags are taken off
 			if( $blockCod==0 || $blockCod==3 ){
@@ -523,13 +523,13 @@ class Sound {
 		if( substr($headPack, 0, 7)==="\x01vorbis" && strlen($headPack)>=16 ){
 			$chnlNumb = ord($headPack[11]);
 			$smplRate = intval(unpack('V', substr($headPack, 12, 4))[1]);
-			$noteDict = self::vorbisTagArray(substr(strval($packList[1] ?? ''), 7));
+			$noteDict = self::readVorbisTags(substr(strval($packList[1] ?? ''), 7));
 		}elseif( substr($headPack, 0, 8)==='OpusHead' && strlen($headPack)>=12 ){
 			// An Opus sound is always played at 48000 samples a second, after the samples it asks to be passed over
 			$chnlNumb = ord($headPack[9]);
 			$skipSmpl = intval(unpack('v', substr($headPack, 10, 2))[1]);
 			$smplRate = 48000;
-			$noteDict = self::vorbisTagArray(substr(strval($packList[1] ?? ''), 8));
+			$noteDict = self::readVorbisTags(substr(strval($packList[1] ?? ''), 8));
 		}else{
 			return null;
 		}
@@ -553,7 +553,7 @@ class Sound {
 	 * @param Int    $endBeforeNum Where it ends.
 	 * @return Array The boxes, each with its name, where what it holds starts, and where it ends.
 	 */
-	protected static function boxesOfItArray(String $nakedContent, Int $fromPosition, Int $endBeforeNum): Array {
+	protected static function listBoxesOfMp4(String $nakedContent, Int $fromPosition, Int $endBeforeNum): Array {
 		$boxsList = Array();
 		$readIndx = $fromPosition;
 		while( $readIndx+8<=$endBeforeNum ){
@@ -587,7 +587,7 @@ class Sound {
 		foreach($boxNamesPath as $boxNme){
 			$foundBox = null;
 			// The box of the tags starts with four bytes that are not a box
-			foreach(self::boxesOfItArray($nakedContent, $containerBox[1]+(($containerBox[0]==='meta') ? 4 : 0), $containerBox[2]) as $oneBox){
+			foreach(self::listBoxesOfMp4($nakedContent, $containerBox[1]+(($containerBox[0]==='meta') ? 4 : 0), $containerBox[2]) as $oneBox){
 				if( $oneBox[0]===$boxNme ){
 					$foundBox = $oneBox;
 					break;
@@ -620,7 +620,7 @@ class Sound {
 		$timeDict = (ord($headText[0] ?? "\0")==1) ? unpack('Nunit/Jlong', str_pad(substr($headText, 20, 12), 12, "\0")) : unpack('Nunit/Nlong', str_pad(substr($headText, 12, 8), 8, "\0"));
 		$smplRate = 0;
 		$chnlNumb = 0;
-		foreach(self::boxesOfItArray($nakedContent, $moovAtom[1], $moovAtom[2]) as $oneBox){
+		foreach(self::listBoxesOfMp4($nakedContent, $moovAtom[1], $moovAtom[2]) as $oneBox){
 			$handlBox = ($oneBox[0]==='trak') ? self::findBoxesArray($nakedContent, $oneBox, Array('mdia', 'hdlr')) : null;
 			$trckCode = ($handlBox===null) ? '' : substr($nakedContent, $handlBox[1]+8, 4);
 			if( $trckCode==='vide' ){
@@ -641,7 +641,7 @@ class Sound {
 		$coverTxt = '';
 		$lstngBox = self::findBoxesArray($nakedContent, $moovAtom, Array('udta', 'meta', 'ilst'));
 		$keysList = Array("\xA9nam"=>'title', "\xA9ART"=>'artst', "\xA9alb"=>'album', "\xA9day"=>'years', "\xA9gen"=>'genre', 'trkn'=>'track', 'gnre'=>'genre', 'covr'=>'cover');
-		foreach(($lstngBox===null) ? Array() : self::boxesOfItArray($nakedContent, $lstngBox[1], $lstngBox[2]) as $itmBox){
+		foreach(($lstngBox===null) ? Array() : self::listBoxesOfMp4($nakedContent, $lstngBox[1], $lstngBox[2]) as $itmBox){
 			$dataAtom = isset($keysList[$itmBox[0]]) ? self::findBoxesArray($nakedContent, $itmBox, Array('data')) : null;
 			if( $dataAtom===null ){
 				continue;
@@ -667,7 +667,7 @@ class Sound {
 	 *
 	 * @return Array Its kind under 'kinds' (wav, mp3, ogg, flac or m4a), how long it lasts in seconds under 'secnd', its samples a second under 'rates', its channels under 'chans', its thousands of bits a second under 'bitrt', its size under 'bytes', and its tags under 'tagsl'.
 	 */
-	public function soundInfoArray(): Array {
+	public function getInfoOfSound(): Array {
 		return $this->detailList;
 	}
 
@@ -677,7 +677,7 @@ class Sound {
 	 * @param Int $pixelCeiling Greatest number of pixels accepted for it.
 	 * @return ?Image The picture, null when the sound carries none, or carries what is not a picture.
 	 */
-	public function giveCoverImage(Int $pixelCeiling=Image::MAXI_PIXL): ?Image {
+	public function readCoverImage(Int $pixelCeiling=Image::MAXI_PIXL): ?Image {
 		if( $this->coverBytes==='' ){
 			return null;
 		}
@@ -703,14 +703,14 @@ class Sound {
 		if( !isset(Codec::KIND_LIST[$kindClef]) ){
 			throw new \RuntimeException('Unknown kind of sound: '.substr(preg_replace('/[^a-z0-9]+/', '', $kindClef), 0, 10));
 		}
-		if( ($kindClef!==$this->detailList['kinds'] || $kilobitsRate>0) && self::validateACodec() ){
+		if( ($kindClef!==$this->detailList['kinds'] || $kilobitsRate>0) && self::hasUsableCodec() ){
 			return self::$soundCodec->alterSoundText($this->nakedBytes, $this->detailList['kinds'], $kindClef, Array('kbits'=>$kilobitsRate));
 		}
 		if( $kindClef!==$this->detailList['kinds'] ){
 			throw new \RuntimeException('Giving a sound as another kind takes a program that unpacks it, which this server does not have');
 		}
 		if( $kindClef=='wav' ){
-			return $this->wavOfPieceText($this->trimValues['start'], $this->trimValues['bytes']);
+			return $this->writeWavOfPart($this->trimValues['start'], $this->trimValues['bytes']);
 		}
 		if( $kindClef=='mp3' ){
 			$frameLst = $this->trimValues['frmes'];
@@ -725,7 +725,7 @@ class Sound {
 			}
 			return $headText.substr($this->nakedBytes, $this->trimValues['start']);
 		}
-		if( self::validateACodec() ){
+		if( self::hasUsableCodec() ){
 			return self::$soundCodec->alterSoundText($this->nakedBytes, $kindClef, $kindClef);
 		}
 		throw new \RuntimeException('The tags of a sound of this kind cannot be taken off as it is written: '.$kindClef);
@@ -740,8 +740,8 @@ class Sound {
 	 *
 	 * @throws \RuntimeException When the kind is unknown, or the server has no program that unpacks sounds.
 	 */
-	public function convertToSound(String $targetFormat, Int $kilobitsRate=0): Sound {
-		return self::fromBytesSound($this->grantBytesText($targetFormat, $kilobitsRate));
+	public function castIntoFormat(String $targetFormat, Int $kilobitsRate=0): Sound {
+		return self::readRawAsSound($this->grantBytesText($targetFormat, $kilobitsRate));
 	}
 	
 	/**
@@ -751,7 +751,7 @@ class Sound {
 	 * @param Int $dataByteSize Its length.
 	 * @return String The bytes of the sound.
 	 */
-	protected function wavOfPieceText(Int $fromPosition, Int $dataByteSize): String {
+	protected function writeWavOfPart(Int $fromPosition, Int $dataByteSize): String {
 		$frmtBody = $this->trimValues['headr'];
 		$dataText = strval(substr($this->nakedBytes, $fromPosition, $dataByteSize));
 		$bodyText = 'WAVE'.'fmt '.pack('V', strlen($frmtBody)).$frmtBody.((strlen($frmtBody)%2) ? "\0" : '').'data'.pack('V', strlen($dataText)).$dataText.((strlen($dataText)%2) ? "\0" : '');
@@ -783,7 +783,7 @@ class Sound {
 			if( $tellsByt<=$fromByts ){
 				throw new \RuntimeException('The part asked for holds nothing of the sound');
 			}
-			return self::fromBytesSound($this->wavOfPieceText($this->trimValues['start']+$fromByts, $tellsByt-$fromByts));
+			return self::readRawAsSound($this->writeWavOfPart($this->trimValues['start']+$fromByts, $tellsByt-$fromByts));
 		}
 		if( $this->detailList['kinds']=='mp3' ){
 			// The frames starting inside the part are kept, as they are
@@ -799,10 +799,10 @@ class Sound {
 			if( strlen($partText)<=$this->trimValues['frmes'][0]['bytes']+1 ){
 				throw new \RuntimeException('The part asked for holds nothing of the sound');
 			}
-			return self::fromBytesSound($partText);
+			return self::readRawAsSound($partText);
 		}
-		if( self::validateACodec() ){
-			return self::fromBytesSound(self::$soundCodec->alterSoundText($this->nakedBytes, $this->detailList['kinds'], $this->detailList['kinds'], Array('start'=>$fromSecs, 'until'=>$tillSecs)));
+		if( self::hasUsableCodec() ){
+			return self::readRawAsSound(self::$soundCodec->alterSoundText($this->nakedBytes, $this->detailList['kinds'], $this->detailList['kinds'], Array('start'=>$fromSecs, 'until'=>$tillSecs)));
 		}
 		throw new \RuntimeException('Cutting a sound of this kind takes a program that unpacks it, which this server does not have: '.$this->detailList['kinds']);
 	}
@@ -824,9 +824,9 @@ class Sound {
 	 *
 	 * @throws \RuntimeException When a value asked for is not one of those accepted, or the sound is packed in a way that is not read here.
 	 */
-	public function changeWavSound(Int $ratesHrtzNum=0, Int $channelCount=0, Int $smplBitsNumb=0): Sound {
+	public function castIntoWavFmt(Int $ratesHrtzNum=0, Int $channelCount=0, Int $smplBitsNumb=0): Sound {
 		if( $this->detailList['kinds']!='wav' ){
-			return $this->convertToSound('wav')->changeWavSound($ratesHrtzNum, $channelCount, $smplBitsNumb);
+			return $this->castIntoFormat('wav')->castIntoWavFmt($ratesHrtzNum, $channelCount, $smplBitsNumb);
 		}
 		$frmtVals = unpack('vkind/vchans/Vrates/Vbytes/valign/vbits', $this->trimValues['headr']);
 		// Samples written as whole numbers, told so directly or in the longer way of telling it
@@ -864,7 +864,7 @@ class Sound {
 			$blockEnd = min($intoNumb, $blkPos+8192);
 			$crsorPos = intdiv($blkPos*$fromRout, $intoRate);
 			$readLimt = min($fromNumb-1, intdiv(($blockEnd-1)*$fromRout, $intoRate)+1);
-			$readList = $this->wavValuesArray($this->trimValues['start']+$crsorPos*$frameSze, ($readLimt-$crsorPos+1)*$frameSze, $fromBits);
+			$readList = $this->readWavSamples($this->trimValues['start']+$crsorPos*$frameSze, ($readLimt-$crsorPos+1)*$frameSze, $fromBits);
 			$madeList = Array();
 			for($smpInc=$blkPos; $smpInc<$blockEnd; $smpInc++){
 				// Where the sample made stands between two samples read
@@ -901,7 +901,7 @@ class Sound {
 		}
 		$intoSize = $intoChnl*intdiv($intoBits, 8);
 		$bodyText = 'WAVE'.'fmt '.pack('V', 16).pack('vvVVvv', 1, $intoChnl, $intoRate, $intoRate*$intoSize, $intoSize, $intoBits).'data'.pack('V', strlen($dataText)).$dataText.((strlen($dataText)%2) ? "\0" : '');
-		return self::fromBytesSound('RIFF'.pack('V', strlen($bodyText)).$bodyText);
+		return self::readRawAsSound('RIFF'.pack('V', strlen($bodyText)).$bodyText);
 	}
 
 	/**
@@ -912,7 +912,7 @@ class Sound {
 	 * @param Int $smplBitsNumb The bits of a sample: 8, 16, 24 or 32.
 	 * @return Array The samples, one after the other, channel after channel.
 	 */
-	protected function wavValuesArray(Int $fromPosition, Int $dataByteSize, Int $smplBitsNumb): Array {
+	protected function readWavSamples(Int $fromPosition, Int $dataByteSize, Int $smplBitsNumb): Array {
 		$partText = substr($this->nakedBytes, $fromPosition, $dataByteSize);
 		$readList = Array();
 		if( $smplBitsNumb==24 ){

@@ -36,7 +36,7 @@ class ConfCache{
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @return ?Array The description: 'flds', 'pkey' and 'blob'; null when the cache keeps none, or no description of the table.
 	 */
-	public static function tableInfoArray( String $linkNameText, String $tbleLabelTxt ): ?Array {
+	public static function getInfoOfTable( String $linkNameText, String $tbleLabelTxt ): ?Array {
 		if( self::$tableInfos===null || !isset(self::$tableInfos[$linkNameText][$tbleLabelTxt]) || !is_array(self::$tableInfos[$linkNameText][$tbleLabelTxt]) ){
 			return null;
 		}

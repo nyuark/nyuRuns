@@ -16,7 +16,7 @@ use nyu\Data\DBCon;
 createSampleDb( inTemporaryDir('handler.sqlite') );
 switchToSqlite( inTemporaryDir('handler.sqlite') );
 
-$dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
+$dbHandl = DBCon::loadDefaultCon('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
 
 // Errors
 checkIdentical('lastError before any error', runCatchThrown(function() use ($dbHandl){ return $dbHandl->getLastErrText(); }), false);
@@ -67,13 +67,13 @@ checkForThrows('quoteName refuses an empty name', function() use ($dbHandl){ $db
 checkForThrows('quoteName refuses a trailing line break', function() use ($dbHandl){ $dbHandl->quoteFieldName("title\n"); }, 'RuntimeException');
 
 // Table description
-checkIdentical('tableInfo gives the fields and the key', runCatchThrown(function() use ($dbHandl){ return $dbHandl->tableInfoArray('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
+checkIdentical('tableInfo gives the fields and the key', runCatchThrown(function() use ($dbHandl){ return $dbHandl->getInfoOfTable('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
 checkIdentical('tableInfo of a table without a key', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('CREATE TABLE `notes` (`body` TEXT, `madeDate` TEXT);', true);
-	return $dbHandl->tableInfoArray('notes');
+	return $dbHandl->getInfoOfTable('notes');
 }), Array('flds'=>Array('body', 'madeDate'), 'pkey'=>'', 'blob'=>Array()));
-checkIdentical('tableInfo of a missing table', runCatchThrown(function() use ($dbHandl){ return $dbHandl->tableInfoArray('nowhere'); }), false);
-checkForThrows('tableInfo refuses an invalid table name', function() use ($dbHandl){ $dbHandl->tableInfoArray("shows'); DROP TABLE shows; --"); }, 'RuntimeException');
+checkIdentical('tableInfo of a missing table', runCatchThrown(function() use ($dbHandl){ return $dbHandl->getInfoOfTable('nowhere'); }), false);
+checkForThrows('tableInfo refuses an invalid table name', function() use ($dbHandl){ $dbHandl->getInfoOfTable("shows'); DROP TABLE shows; --"); }, 'RuntimeException');
 
 // Errors do not outlive the call that raised them
 checkIdentical('lastError is cleared by the next successful query', runCatchThrown(function() use ($dbHandl){
@@ -92,9 +92,9 @@ checkIdentical('readQuery after a write that changed nothing is empty, without a
 }), Array(Array(), false));
 checkIdentical('lastError is cleared by a transaction call', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
-	$dbHandl->newTransaction();
+	$dbHandl->addTransaction();
 	$opnMssg = $dbHandl->getLastErrText();
-	$dbHandl->delTransaction();
+	$dbHandl->dropWholeTrnsc();
 	return $opnMssg;
 }), false);
 
@@ -105,42 +105,42 @@ checkIdentical('lastError is cleared by a transaction call', runCatchThrown(func
  * @return mixed The venue.
  */
 function venueOf4(): Mixed {
-	$dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
+	$dbHandl = DBCon::loadDefaultCon('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
 	$dbHandl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(4));
 	return $dbHandl->readLastResult(true)[0]['venue'] ?? null;
 }
 
 checkIdentical('nothing to set or remove without a transaction', runCatchThrown(function() use ($dbHandl){
-	return Array($dbHandl->setTransaction(), $dbHandl->delTransaction());
+	return Array($dbHandl->setTransaction(), $dbHandl->dropWholeTrnsc());
 }), Array(false, false));
 checkIdentical('a removed transaction leaves the table unchanged', runCatchThrown(function() use ($dbHandl){
-	$opnDone = $dbHandl->newTransaction();
+	$opnDone = $dbHandl->addTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Undone', 4));
 	$midRead = venueOf4();
-	return Array($opnDone, $midRead, $dbHandl->delTransaction(), venueOf4());
+	return Array($opnDone, $midRead, $dbHandl->dropWholeTrnsc(), venueOf4());
 }), Array(true, 'Undone', true, 'Hall S'));
 checkIdentical('a set transaction is kept', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->newTransaction();
+	$dbHandl->addTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Kept', 4));
-	return Array($dbHandl->setTransaction(), venueOf4(), $dbHandl->delTransaction());
+	return Array($dbHandl->setTransaction(), venueOf4(), $dbHandl->dropWholeTrnsc());
 }), Array(true, 'Kept', false));
 checkIdentical('an inner set followed by an outer remove keeps nothing', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->newTransaction();
-	$dbHandl->newTransaction();
+	$dbHandl->addTransaction();
+	$dbHandl->addTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
 	$innrSet = $dbHandl->setTransaction();
-	return Array($innrSet, $dbHandl->delTransaction(), venueOf4());
+	return Array($innrSet, $dbHandl->dropWholeTrnsc(), venueOf4());
 }), Array(true, true, 'Kept'));
 checkIdentical('an inner remove makes the outer set fail', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->newTransaction();
-	$dbHandl->newTransaction();
+	$dbHandl->addTransaction();
+	$dbHandl->addTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Inner', 4));
-	$innrRem = $dbHandl->delTransaction();
+	$innrRem = $dbHandl->dropWholeTrnsc();
 	return Array($innrRem, $dbHandl->setTransaction(), venueOf4());
 }), Array(true, false, 'Kept'));
 checkIdentical('both levels set: the change is written', runCatchThrown(function() use ($dbHandl){
-	$dbHandl->newTransaction();
-	$dbHandl->newTransaction();
+	$dbHandl->addTransaction();
+	$dbHandl->addTransaction();
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Both', 4));
 	return Array($dbHandl->setTransaction(), $dbHandl->setTransaction(), $dbHandl->setTransaction(), venueOf4());
 }), Array(true, true, false, 'Both'));

@@ -31,7 +31,7 @@ class Archv {
 	 * Releases the archive when the object is no longer used.
 	 */
 	public function __destruct(){
-		$this->releaseArchive();
+		$this->shutZipArchive();
 	}
 
 	/**
@@ -86,7 +86,7 @@ class Archv {
 	 *
 	 * @throws \RuntimeException When a name is not safe, or the archive would be larger than a plain zip can be.
 	 */
-	public static function newBytesString(Array $entriesArray, Array $unpackedList=Array()): String {
+	public static function makeZipFromLst(Array $entriesArray, Array $unpackedList=Array()): String {
 		$bodyText = '';
 		$listText = '';
 		// The date of the entries, as archives write it: two seconds at a time, from 1980
@@ -146,7 +146,7 @@ class Archv {
 	 *
 	 * @throws \RuntimeException When the archive is closed.
 	 */
-	public function locateEntryFlg(String $fullPathName): Bool {
+	public function isEntryInArchv(String $fullPathName): Bool {
 		$this->getOpenArchive();
 		return isset($this->entryNames[$fullPathName]);
 	}
@@ -199,7 +199,7 @@ class Archv {
 	 * source it was opened from is left open: it belongs to whoever
 	 * opened it.
 	 */
-	public function releaseArchive(): Void {
+	public function shutZipArchive(): Void {
 		if( $this->zipHandler!==null ){
 			@$this->zipHandler->close();
 		}

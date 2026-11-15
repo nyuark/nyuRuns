@@ -45,7 +45,7 @@ function blobSeen( Mixed $givenValue ): Mixed {
 }
 
 // What the database tells of its tables
-checkIdentical('the binary fields of a table', Array($dbStore->tableInfoArray('albums'), $dbStore->tableInfoArray('tracks')['blob']), Array(Array('flds'=>Array('id_album', 'albmName', 'coverPic'), 'pkey'=>'id_album', 'blob'=>Array('coverPic')), Array('fileData')));
+checkIdentical('the binary fields of a table', Array($dbStore->getInfoOfTable('albums'), $dbStore->getInfoOfTable('tracks')['blob']), Array(Array('flds'=>Array('id_album', 'albmName', 'coverPic'), 'pkey'=>'id_album', 'blob'=>Array('coverPic')), Array('fileData')));
 
 // Writing
 $albmKey = $dbStore->insertTableRow('albums', Array('albmName'=>'First', 'coverPic'=>Fluxd::openBytesFluxd($dotPng)));
@@ -73,7 +73,7 @@ checkIdentical('a table without binary fields is read as before', (new SqlStore(
 
 // A picture, from the database to what is made of it
 $covrFlx = $dbStore->findItemsArray('albums', Array('id_album'=>1), Array('field'=>Array('coverPic')))[0]['coverPic'];
-checkIdentical('a picture read from a store is opened as any picture', Array(Image::openFluxdImage($covrFlx)->imageInfoArray()['kinds'], Image::openFluxdImage($covrFlx)->imageInfoArray()['width']), Array('png', 1));
+checkIdentical('a picture read from a store is opened as any picture', Array(Image::openFluxdImage($covrFlx)->getInfoOfImage()['kinds'], Image::openFluxdImage($covrFlx)->getInfoOfImage()['width']), Array('png', 1));
 $savePth = inTemporaryDir('blob-cover.png');
 checkIdentical('and written to a file', Array(basename($covrFlx->setLocalString($savePth)), file_get_contents($savePth)===$dotPng), Array('blob-cover.png', true));
 checkIdentical('a file is written to a store from where it lies', Array($dbStore->updateRowCount('tracks', Array('id_track'=>2), Array('fileData'=>Fluxd::openLocalFluxd($savePth))), blobSeen($dbStore->findItemsArray('tracks', Array('id_track'=>2), Array('field'=>Array('fileData')))[0]['fileData'])), Array(1, 'FLUXD '.bin2hex($dotPng)));
@@ -90,12 +90,12 @@ checkIdentical('a binary value is emptied', Array($dbStore->updateRowCount('trac
 $dbStore->updateRowCount('tracks', Array('id_track'=>1), Array('fileData'=>Fluxd::openBytesFluxd($rawBlob)));
 $trckRec = new DBRec('tracks');
 checkIdentical('a record is loaded without its binary fields', $trckRec->loadRecordList('1'), Array('id_track'=>1, 'trckName'=>'One', 'albumKey'=>1, 'fileNote'=>'changed'));
-$trckRec->bindFieldArray(Array('trckName'=>'One, renamed'));
+$trckRec->setFieldsArray(Array('trckName'=>'One, renamed'));
 checkIdentical('saving it leaves its binary value as it was', Array($trckRec->insertOrUpdate(), $dbStore->findItemsArray('tracks', Array('id_track'=>1), Array('field'=>Array('trckName')))[0]['trckName'], blobSeen($dbStore->findItemsArray('tracks', Array('id_track'=>1), Array('field'=>Array('fileData')))[0]['fileData'])), Array(1, 'One, renamed', 'FLUXD '.bin2hex($rawBlob)));
-$trckRec->bindFieldArray(Array('fileData'=>Fluxd::openBytesFluxd($dotPng)));
+$trckRec->setFieldsArray(Array('fileData'=>Fluxd::openBytesFluxd($dotPng)));
 checkIdentical('a binary value bound to a record is saved with it', Array($trckRec->insertOrUpdate(), blobSeen($dbStore->findItemsArray('tracks', Array('id_track'=>1), Array('field'=>Array('fileData')))[0]['fileData'])), Array(1, 'FLUXD '.bin2hex($dotPng)));
 $trckRec = new DBRec('tracks');
-$trckRec->bindFieldArray(Array('trckName'=>'Three', 'albumKey'=>1, 'fileData'=>Fluxd::openBytesFluxd($rawBlob)));
+$trckRec->setFieldsArray(Array('trckName'=>'Three', 'albumKey'=>1, 'fileData'=>Fluxd::openBytesFluxd($rawBlob)));
 $newKey = $trckRec->insertOrUpdate();
 checkIdentical('a new record with a binary value', Array($newKey, blobSeen($dbStore->findItemsArray('tracks', Array('id_track'=>$newKey), Array('field'=>Array('fileData')))[0]['fileData'])), Array(3, 'FLUXD '.bin2hex($rawBlob)));
 
@@ -103,6 +103,6 @@ $trckRec = null;
 $covrFlx = null;
 $fndRows = null;
 $dbStore = null;
-$dbHandl->exitConnection();
+$dbHandl->shutConnection();
 
 finishChecking();

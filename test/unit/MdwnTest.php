@@ -162,14 +162,14 @@ checkIdentical('a table: its header row, its rows brought to the columns of the 
 	'  tableRow', '    cellText [after the table? no: a row]', '    cellText',
 	'paragrph [after]'
 ));
-checkIdentical('a table without outer bars, as a plain grid', Shape::tableGridArray(mdwRead("a | b\n--- | ---\n1 | 2\n")['items'][0]), Array(Array('a', 'b'), Array('1', '2')));
+checkIdentical('a table without outer bars, as a plain grid', Shape::getGridOfTable(mdwRead("a | b\n--- | ---\n1 | 2\n")['items'][0]), Array(Array('a', 'b'), Array('1', '2')));
 checkIdentical('a line of bars without the line under it is text', mdwLines("a | b\nc | d"), Array('paragrph [a | b c | d]'));
 checkIdentical('the line under must have the columns of the header', mdwLines("a | b\n---\n"), Array('headline {"level":2} [a | b]'));
 
 // With the rest
 $longMdw = "Before.\n\n# Alpha Night\n\nIntro.\n\n## Dates\n\n- Monday\n- Friday\n\n# Beta Evening\n\nOther show.";
 checkIdentical('a text grouped into sections', runCatchThrown(function() use ($longMdw){
-	$sctnLst = Shape::bySectionArray(mdwRead($longMdw)['items']);
+	$sctnLst = Shape::getSectionTree(mdwRead($longMdw)['items']);
 	return Array(count($sctnLst), $sctnLst[0]['title'], $sctnLst[1]['title'], $sctnLst[1]['items'][0]['plain'], $sctnLst[1]['nodes'][0]['title'], $sctnLst[1]['nodes'][0]['items'][0]['block'], $sctnLst[2]['title']);
 }), Array(3, '', 'Alpha Night', 'Intro.', 'Dates', 'itemList', 'Beta Evening'));
 checkIdentical('a text read then written as HTML', runCatchThrown(function(){
@@ -182,7 +182,7 @@ checkIdentical('any line end, a marker at the start, a text saved by an older to
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: Markdown by extension and by content type', Array(get_class(Index::forExtnsParser('md')), get_class(Index::forExtnsParser('MARKDOWN')), get_class(Index::findTypeParser('text/markdown; charset=utf-8')), Index::optionsOfExtns('md')), Array('nyu\Data\Parsers\Mdwn', 'nyu\Data\Parsers\Mdwn', 'nyu\Data\Parsers\Mdwn', Array()));
+checkIdentical('index: Markdown by extension and by content type', Array(get_class(Index::getExtnsParser('md')), get_class(Index::getExtnsParser('MARKDOWN')), get_class(Index::findTypeParser('text/markdown; charset=utf-8')), Index::getOptsForExtn('md')), Array('nyu\Data\Parsers\Mdwn', 'nyu\Data\Parsers\Mdwn', 'nyu\Data\Parsers\Mdwn', Array()));
 checkIdentical('a Markdown file through Dcmnt', runCatchThrown(function() use ($longMdw){
 	$docPath = inTemporaryDir('shows.md');
 	file_put_contents($docPath, $longMdw);

@@ -59,7 +59,7 @@ function stopsSmtp( Array $smtpServer ): String {
 function mailerFor( Array $moreSetup ): Mailer {
 	$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('TESTS'=>array_merge(Array('sendWith'=>'selfSmtp', 'hostName'=>'127.0.0.1', 'userName'=>'user', 'passWord'=>'secret', 'fromAddr'=>'app@example.com', 'fromName'=>'App', 'waitSecs'=>'5'), $moreSetup))) );
 	Mailer::clearMailCache();
-	return Mailer::retrieveMailer();
+	return Mailer::getMailerOfAcc();
 }
 
 // Log of the warnings, in a folder of this test
@@ -72,7 +72,7 @@ if( $smtpSrv['port']==0 ){
 	recordSkipping('native client', 'the fake server could not listen on 127.0.0.1');
 }else{
 	$mailRes = runCatchThrown(function() use ($smtpSrv){
-		return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'copiesTo'=>'backup@example.com'))->deliverEmlFlag('ann@example.com, bob@example.com', 'Résumé', "Hello\n.hidden line\nBye");
+		return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'copiesTo'=>'backup@example.com'))->sendMailViaAcc('ann@example.com, bob@example.com', 'Résumé', "Hello\n.hidden line\nBye");
 	});
 	$trnText = stopsSmtp($smtpSrv);
 	checkIdentical('PLAIN: the mail is sent', $mailRes, true);
@@ -88,33 +88,33 @@ if( $smtpSrv['port']==0 ){
 
 // AUTH LOGIN, when the server offers no PLAIN
 $smtpSrv = startSmtp('LOGIN', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'])))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'])))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello'); });
 $trnText = stopsSmtp($smtpSrv);
 checkIdentical('LOGIN: the mail is sent', $mailRes, true);
 checkTrueValue('LOGIN: user and password are sent apart', strpos($trnText, "AUTH LOGIN\r\n".base64_encode('user')."\r\n".base64_encode('secret')."\r\n")!==false);
 
 // A wrong password
 $smtpSrv = startSmtp('PLAIN LOGIN', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'passWord'=>'wrong'))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'passWord'=>'wrong'))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello'); });
 $trnText = stopsSmtp($smtpSrv);
 checkIdentical('wrong password: not sent', $mailRes, false);
 checkIdentical('wrong password: nothing goes past the login', strpos($trnText, 'MAIL FROM'), false);
 
 // No login offered while the account has a user
 $smtpSrv = startSmtp('none', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'])))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'])))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello'); });
 stopsSmtp($smtpSrv);
 checkIdentical('no login offered: not sent', $mailRes, false);
 
 // No user: no login
 $smtpSrv = startSmtp('none', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'userName'=>'', 'passWord'=>''))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port']), 'userName'=>'', 'passWord'=>''))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello'); });
 $trnText = stopsSmtp($smtpSrv);
 checkIdentical('no user: sent without login', Array($mailRes, strpos($trnText, 'AUTH')), Array(true, false));
 
 // A recipient refused: logged, answered false
 $smtpSrv = startSmtp('PLAIN LOGIN', 1);
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'])))->deliverEmlFlag('refused@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'])))->sendMailViaAcc('refused@example.com', 'Hi', 'Hello'); });
 stopsSmtp($smtpSrv);
 checkIdentical('refused recipient: not sent', $mailRes, false);
 $logText = strval(@file_get_contents($logPath.DS.'runner.log'));
@@ -127,19 +127,19 @@ if( $smtpSrv['port']==0 ){
 	stopsSmtp($smtpSrv);
 	recordSkipping('no STARTTLS on another machine', 'the fake server could not listen on 127.0.0.2');
 }else{
-	$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('hostName'=>'127.0.0.2', 'portNumb'=>strval($smtpSrv['port'])))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+	$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('hostName'=>'127.0.0.2', 'portNumb'=>strval($smtpSrv['port'])))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello'); });
 	$trnText = stopsSmtp($smtpSrv);
 	checkIdentical('no STARTTLS: not sent, the password never sent', Array($mailRes, strpos($trnText, 'AUTH')), Array(false, false));
 	checkPregMatch('no STARTTLS: the warning says why', strval(@file_get_contents($logPath.DS.'runner.log')), '/the server offers no STARTTLS/');
 }
 
 // Nobody listening
-$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'] ?: 1), 'waitSecs'=>'2'))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello'); });
+$mailRes = runCatchThrown(function() use ($smtpSrv){ return mailerFor(Array('portNumb'=>strval($smtpSrv['port'] ?: 1), 'waitSecs'=>'2'))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello'); });
 checkIdentical('no server: not sent', $mailRes, false);
 checkPregMatch('no server: the warning says so', strval(@file_get_contents($logPath.DS.'runner.log')), '/no connection to 127\.0\.0\.1:/');
 
 // Attachments are not for a native account
-checkForThrows('selfSmtp: an attachment is refused', function(){ mailerFor(Array('portNumb'=>'1'))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello', null, Array(__FILE__)); }, MailFailure::class);
+checkForThrows('selfSmtp: an attachment is refused', function(){ mailerFor(Array('portNumb'=>'1'))->sendMailViaAcc('ann@example.com', 'Hi', 'Hello', null, Array(__FILE__)); }, MailFailure::class);
 
 Logger::loadLogsConfig( Array() );
 finishChecking();

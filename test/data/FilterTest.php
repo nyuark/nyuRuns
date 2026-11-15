@@ -25,7 +25,7 @@ switchToSqlite( inTemporaryDir('filter.sqlite') );
  */
 function pickShow( Array $whereArray ): Mixed {
 	return runCatchThrown(function() use ($whereArray){
-		$dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('filter.sqlite'))->readConnection();
+		$dbHandl = DBCon::loadDefaultCon('sqlitedb', '', '', '', inTemporaryDir('filter.sqlite'))->readConnection();
 		$whrPart = $dbHandl->makeWhereArray($whereArray);
 		$slctQry = 'SELECT `id_show` FROM `shows`'.($whrPart['text']!='' ? ' WHERE '.$whrPart['text'] : '').' ORDER BY `id_show`';
 		if( !$dbHandl->sendBuiltQuery($slctQry, false, $whrPart['vals']) ){

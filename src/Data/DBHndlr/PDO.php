@@ -49,7 +49,7 @@ abstract Class PDO implements Handler {
 			$errorSrc = $this->baseDriver;
 			if( !empty($valuesToBind) ){
 				$stmtInst = $this->baseDriver->prepare($this->builtQuery);
-				if( $stmtInst!==false && $this->execBoundQuery($stmtInst, array_values($valuesToBind)) ){
+				if( $stmtInst!==false && $this->treatQueryVals($stmtInst, array_values($valuesToBind)) ){
 					$stmtInst->setFetchMode(\PDO::FETCH_ASSOC);
 					$this->lastResult = $isWriteQuery ? $stmtInst->rowCount() : $stmtInst;
 				}else{
@@ -82,7 +82,7 @@ abstract Class PDO implements Handler {
 	 * @param Array         $valuesToBind Its values, in order.
 	 * @return Bool True when the query ran.
 	 */
-	protected function execBoundQuery(\PDOStatement $statementObj, Array $valuesToBind): Bool {
+	protected function treatQueryVals(\PDOStatement $statementObj, Array $valuesToBind): Bool {
 		$hasBlobs = false;
 		foreach($valuesToBind as $bndVal){
 			$hasBlobs = $hasBlobs || ($bndVal instanceof \nyu\Data\Fluxd);
@@ -92,7 +92,7 @@ abstract Class PDO implements Handler {
 		}
 		foreach($valuesToBind as $bndIdx=>$bndVal){
 			if( $bndVal instanceof \nyu\Data\Fluxd ){
-				$bndVal->rewindToOrigin();
+				$bndVal->setFluxToStart();
 				$statementObj->bindValue($bndIdx+1, $bndVal->getWholeString(), \PDO::PARAM_LOB);
 			}else{
 				$statementObj->bindValue($bndIdx+1, $bndVal);
@@ -156,7 +156,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @throws \RuntimeException When the waiting time is not a number.
 	 */
-	protected function pdoOptionArray(Array $settingsList): Array {
+	protected function readPdoOptsDct(Array $settingsList): Array {
 		$waitSecs = strval($settingsList['waitSecs'] ?? '');
 		if( $waitSecs=='' ){
 			return Array();
@@ -260,7 +260,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return String|Bool The last insert ID.
 	 */
-	public function finalAddedText(): String|Bool {
+	public function getLastAddedId(): String|Bool {
 		return $this->baseDriver->lastInsertId();
 	}
 
@@ -280,7 +280,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function newTransaction(): Bool {
+	public function addTransaction(): Bool {
 		$this->errMessage = Array();
 		if( $this->trnscLevel>0 ){
 			$this->trnscLevel++;
@@ -326,7 +326,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function delTransaction(): Bool {
+	public function dropWholeTrnsc(): Bool {
 		$this->errMessage = Array();
 		if( $this->trnscLevel==0 ){
 			return false;
@@ -343,7 +343,7 @@ abstract Class PDO implements Handler {
 	/**
 	 * Closes the PDO database connection.
 	 */
-	public function exitConnection(): Void {
+	public function shutConnection(): Void {
 		$this->baseDriver = null;
 	}
 	

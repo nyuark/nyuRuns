@@ -58,7 +58,7 @@ interface Handler{
 	 *
 	 * @return String|Bool The last insert ID, or false when unavailable.
 	 */
-	public function finalAddedText(): String|Bool;
+	public function getLastAddedId(): String|Bool;
 	/**
 	 * Returns the number of rows changed by the last write.
 	 *
@@ -71,7 +71,7 @@ interface Handler{
 	 *
 	 * @return Bool True when the transaction is open, false on failure.
 	 */
-	public function newTransaction(): Bool;
+	public function addTransaction(): Bool;
 	/**
 	 * Makes the changes of the transaction permanent. On an inner level,
 	 * nothing is written yet: the outermost transaction decides.
@@ -84,7 +84,7 @@ interface Handler{
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function delTransaction(): Bool;
+	public function dropWholeTrnsc(): Bool;
 	/**
 	 * Quotes a table or field name for inclusion in a query.
 	 *
@@ -118,7 +118,7 @@ interface Handler{
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool;
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool;
 	/**
 	 * Gives the type of each column of a table, as the database writes it.
 	 *
@@ -127,16 +127,16 @@ interface Handler{
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function columnTypeList(String $tbleLabelTxt): Array|Bool;
+	public function getColTypeList(String $tbleLabelTxt): Array|Bool;
 	/**
 	 * Lists the tables of the database, views and the database's own tables left out.
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
 	 */
-	public function tableNameArray(): Array|Bool;
+	public function listTableNames(): Array|Bool;
 	/**
 	 * Closes the database connection.
 	 */
-	public function exitConnection(): Void;
+	public function shutConnection(): Void;
 	
 }

@@ -78,21 +78,21 @@ class Docx extends Page {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$shapeNme = $this->checkShapeText($dataEnvelope, Array('block', 'sheet'), 'a document');
-		$sizeDict = $this->paperSizeArray($writeOptions);
+		$sizeDict = $this->getPageSizeDct($writeOptions);
 		// A picture is no wider nor higher than the text of a page: a twentieth of a point is 635 of Word's units
 		$this->roomLength = Array(($sizeDict[0]-2880)*635, ($sizeDict[1]-2880-1440)*635);
 		$this->readPictureDir($writeOptions);
 		$this->pictureLst = Array();
 		$this->mediaFiles = Array();
 		$infoList = (array)($dataEnvelope['infos'] ?? Array());
-		$blockLst = ($shapeNme=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
+		$blockLst = ($shapeNme=='sheet') ? $this->getSheetBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
 		$this->knownLinks = Array();
 		$this->numbersLst = Array();
 		$this->anchorList = Array();
 		$this->citedNotes = Array('fnote'=>Array(), 'enote'=>Array());
 		// The notes are taken out of the text: each is written where the text refers to it
-		$this->remarkList = $this->takeNotesArray($blockLst);
-		$styleTxt = $this->stylePieceText((array)($infoList['frmat'] ?? Array()), $blockLst);
+		$this->remarkList = $this->splitNotesDict($blockLst);
+		$styleTxt = $this->writeStylePart((array)($infoList['frmat'] ?? Array()), $blockLst);
 		$this->isNoteless = false;
 		$bodyText = $this->writeAllBlocks($blockLst, 0);
 		// Only the text of the document refers to notes: what follows writes a reference as the text it is
@@ -127,7 +127,7 @@ class Docx extends Page {
 			}
 			$this->knownLinks = Array();
 			$this->pictureLst = Array();
-			$moreList['word/'.$nteSet[0].'s.xml'] = $headBrut.'<w:'.$nteSet[0].'s'.$rootText.'>'.$this->notesPieceText($nteKnd, $nteSet[0]).'</w:'.$nteSet[0].'s>';
+			$moreList['word/'.$nteSet[0].'s.xml'] = $headBrut.'<w:'.$nteSet[0].'s'.$rootText.'>'.$this->writeNotesPart($nteKnd, $nteSet[0]).'</w:'.$nteSet[0].'s>';
 			$moreList['word/_rels/'.$nteSet[0].'s.xml.rels'] = $headBrut.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$this->writeRelations().'</Relationships>';
 			$typeText .= '<Override PartName="/word/'.$nteSet[0].'s.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.'.$nteSet[0].'s+xml"/>';
 			$rltnText .= '<Relationship Id="'.$nteSet[1].'" Type="'.self::RELS_NAME.'/'.$nteSet[0].'s" Target="'.$nteSet[0].'s.xml"/>';
@@ -136,7 +136,7 @@ class Docx extends Page {
 		$this->knownLinks = $linkList[0];
 		$this->pictureLst = $linkList[1];
 		foreach($lostList as $blkArr){
-			$bodyText .= $this->blckPartString(Array('block'=>'paragrph') + $blkArr, 0);
+			$bodyText .= $this->writeBlockPart(Array('block'=>'paragrph') + $blkArr, 0);
 		}
 		$rltnText .= $this->writeRelations();
 		// The properties: those Word keeps a place for, then the others
@@ -150,7 +150,7 @@ class Docx extends Page {
 		foreach(self::PROP_LIST as $prpNme=>$xmlTag){
 			$coreText .= (is_scalar($propList[$prpNme] ?? null) && strval($propList[$prpNme])!=='') ? '<'.$xmlTag.'>'.$this->escapeXmlValue(strval($propList[$prpNme])).'</'.$xmlTag.'>' : '';
 		}
-		$custText = $this->propsPieceText(array_diff_key($propList, self::PROP_LIST));
+		$custText = $this->writeExtraProp(array_diff_key($propList, self::PROP_LIST));
 		// The pictures, each written once, and the kinds of file they are
 		foreach($this->mediaFiles as $medSet){
 			$moreList['word/'.$medSet[0]] = $medSet[1];
@@ -176,10 +176,10 @@ class Docx extends Page {
 				.'<w:sectPr>'.$sctnText.'<w:pgSz w:w="'.$sizeDict[0].'" w:h="'.$sizeDict[1].'"'.(empty($writeOptions['lands']) ? '' : ' w:orient="landscape"').'/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>',
 			'word/_rels/document.xml.rels'=>$headBrut.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$rltnText.'</Relationships>',
 			'word/styles.xml'=>$headBrut.$styleTxt,
-			'word/numbering.xml'=>$headBrut.$this->numberFragment()
+			'word/numbering.xml'=>$headBrut.$this->writeListsPart()
 		) + $moreList;
 		try{
-			return Archv::newBytesString($fileList);
+			return Archv::makeZipFromLst($fileList);
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Document that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -210,7 +210,7 @@ class Docx extends Page {
 	 * @param Array $propertyList The properties, name => value.
 	 * @return String The part holding them, '' when there is none.
 	 */
-	protected function propsPieceText(Array $propertyList): String {
+	protected function writeExtraProp(Array $propertyList): String {
 		$propText = '';
 		$propNumb = 1;
 		foreach($propertyList as $prpNme=>$prpVal){
@@ -243,7 +243,7 @@ class Docx extends Page {
 	 * @param Array $bookBlockSet The blocks of the document, for the styles their paragraphs name.
 	 * @return String The part holding the styles.
 	 */
-	protected function stylePieceText(Array $styleFormats, Array $bookBlockSet): String {
+	protected function writeStylePart(Array $styleFormats, Array $bookBlockSet): String {
 		$styleTxt = '<w:styles xmlns:w="'.self::MAIN_NAME.'"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault>'
 			.'<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
 			.'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
@@ -303,7 +303,7 @@ class Docx extends Page {
 	 *
 	 * @return String The part holding the lists.
 	 */
-	protected function numberFragment(): String {
+	protected function writeListsPart(): String {
 		$numbText = '<w:numbering xmlns:w="'.self::MAIN_NAME.'">';
 		foreach(Array(0=>Array('bullet', Array("\u{2022}", "\u{25E6}", "\u{25AA}")), 1=>Array('', Array('decimal', 'lowerLetter', 'lowerRoman'))) as $listId=>$absSet){
 			$numbText .= '<w:abstractNum w:abstractNumId="'.$listId.'"><w:multiLevelType w:val="hybridMultilevel"/>';
@@ -332,7 +332,7 @@ class Docx extends Page {
 	 * @param String $wordNoteName The name Word gives that kind: 'footnote' or 'endnote'.
 	 * @return String The notes, as written.
 	 */
-	protected function notesPieceText(String $noteTypeCode, String $wordNoteName): String {
+	protected function writeNotesPart(String $noteTypeCode, String $wordNoteName): String {
 		$noteText = '<w:'.$wordNoteName.' w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:'.$wordNoteName.'><w:'.$wordNoteName.' w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:'.$wordNoteName.'>';
 		$stylIdnt = ucfirst($wordNoteName);
 		foreach($this->citedNotes[$noteTypeCode] as $noteId=>$noteNb){
@@ -343,7 +343,7 @@ class Docx extends Page {
 				$spanList[0]['texts'] = ltrim(strval($spanList[0]['texts']));
 			}
 			$noteText .= '<w:'.$wordNoteName.' w:id="'.$noteNb.'"><w:p><w:pPr><w:pStyle w:val="'.$stylIdnt.'Text"/></w:pPr><w:r><w:rPr><w:rStyle w:val="'.$stylIdnt.'Reference"/></w:rPr><w:'.$wordNoteName.'Ref/></w:r><w:r><w:t xml:space="preserve"> </w:t></w:r>'
-				.$this->spansPieceText($spanList).'</w:p>'.$this->writeAllBlocks((array)($noteList['items'] ?? Array()), 0);
+				.$this->writeSpansPart($spanList).'</w:p>'.$this->writeAllBlocks((array)($noteList['items'] ?? Array()), 0);
 			// A note ends with a paragraph, as a cell does
 			$noteText .= ((substr($noteText, -8)=='</w:tbl>') ? '<w:p/>' : '').'</w:'.$wordNoteName.'>';
 		}
@@ -361,7 +361,7 @@ class Docx extends Page {
 		$bodyText = '';
 		foreach($bookBlockSet as $blkArr){
 			if( is_array($blkArr) && isset($blkArr['block']) ){
-				$partText = $this->blckPartString($blkArr, $nestingDepth);
+				$partText = $this->writeBlockPart($blkArr, $nestingDepth);
 				// A paragraph stands between two tables, without which they would become one
 				$bodyText .= ((substr($bodyText, -8)=='</w:tbl>' && substr($partText, 0, 7)=='<w:tbl>') ? '<w:p/>' : '').$partText;
 			}
@@ -376,32 +376,32 @@ class Docx extends Page {
 	 * @param Int   $nestingDepth How far in it stands.
 	 * @return String The paragraphs it makes.
 	 */
-	protected function blckPartString(Array $contentBlock, Int $nestingDepth): String {
+	protected function writeBlockPart(Array $contentBlock, Int $nestingDepth): String {
 		$blockCod = strval($contentBlock['block']);
 		$attrDict = (array)($contentBlock['attrs'] ?? Array());
 		$spanList = (array)($contentBlock['spans'] ?? Array());
 		$itemList = (array)($contentBlock['items'] ?? Array());
 		$indtTags = ($nestingDepth>0) ? '<w:ind w:left="'.(720*$nestingDepth).'"/>' : '';
 		if( $blockCod=='headline' ){
-			return $this->paragraphPiece(Array('style'=>'Heading'.max(1, min(6, intval($attrDict['level'] ?? 1))), 'indnt'=>$indtTags), $spanList, $attrDict);
+			return $this->writeParagraph(Array('style'=>'Heading'.max(1, min(6, intval($attrDict['level'] ?? 1))), 'indnt'=>$indtTags), $spanList, $attrDict);
 		}
 		if( $blockCod=='itemList' ){
-			return $this->listsPieceText($contentBlock, $nestingDepth);
+			return $this->writeListPiece($contentBlock, $nestingDepth);
 		}
 		if( $blockCod=='tableSet' ){
-			return $this->tblePartString($contentBlock, $nestingDepth);
+			return $this->writeTablePart($contentBlock, $nestingDepth);
 		}
 		if( $blockCod=='citation' ){
-			$quoteTxt = $this->paragraphPiece(Array('style'=>'Quote'), $spanList, $attrDict).$this->writeAllBlocks($itemList, $nestingDepth+1);
+			$quoteTxt = $this->writeParagraph(Array('style'=>'Quote'), $spanList, $attrDict).$this->writeAllBlocks($itemList, $nestingDepth+1);
 			// Who is quoted follows the quote
 			$citeText = is_scalar($attrDict['cites'] ?? '') ? trim(strval($attrDict['cites'] ?? '')) : '';
-			return $quoteTxt.(($citeText==='') ? '' : $this->paragraphPiece(Array('style'=>'Quote'), Array(Shape::makeASpanArray("\u{2014} ".$citeText)), Array('align'=>'alignRgt')));
+			return $quoteTxt.(($citeText==='') ? '' : $this->writeParagraph(Array('style'=>'Quote'), Array(Shape::makeSpanOfText("\u{2014} ".$citeText)), Array('align'=>'alignRgt')));
 		}
 		if( $blockCod=='codeBlck' ){
 			// A paragraph for each line of code, their spaces kept
 			$codeText = '';
 			foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", implode('', array_column($spanList, 'texts')))) as $oneLin){
-				$codeText .= $this->paragraphPiece(Array('style'=>'HTMLPreformatted', 'indnt'=>$indtTags), Array(Shape::makeASpanArray($oneLin)), Array());
+				$codeText .= $this->writeParagraph(Array('style'=>'HTMLPreformatted', 'indnt'=>$indtTags), Array(Shape::makeSpanOfText($oneLin)), Array());
 			}
 			return $codeText;
 		}
@@ -410,21 +410,21 @@ class Docx extends Page {
 			if( !empty($attrDict['break']) ){
 				return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
 			}
-			return $this->paragraphPiece(Array('bordr'=>'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>'), Array(), Array());
+			return $this->writeParagraph(Array('bordr'=>'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>'), Array(), Array());
 		}
 		if( $blockCod=='imageBox' ){
-			$pictText = $this->picturePortion($contentBlock, $indtTags);
+			$pictText = $this->writeImagePart($contentBlock, $indtTags);
 			if( $pictText!=='' ){
 				return $pictText;
 			}
 		}
 		if( $blockCod=='tableTop' || $blockCod=='tableRow' ){
 			// A row met outside a table is a table of that row
-			return $this->tblePartString(Array('items'=>Array($contentBlock)), $nestingDepth);
+			return $this->writeTablePart(Array('items'=>Array($contentBlock)), $nestingDepth);
 		}
 		// A paragraph, with the style it names; and what stands for a picture that is not written: the text that describes it
 		$stylIdnt = ($blockCod=='paragrph' && is_scalar($attrDict['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrDict['style'])))] ?? '') : '';
-		return $this->paragraphPiece(Array('indnt'=>$indtTags) + (($stylIdnt==='') ? Array() : Array('style'=>$stylIdnt)), $spanList, $attrDict).$this->writeAllBlocks($itemList, $nestingDepth);
+		return $this->writeParagraph(Array('indnt'=>$indtTags) + (($stylIdnt==='') ? Array() : Array('style'=>$stylIdnt)), $spanList, $attrDict).$this->writeAllBlocks($itemList, $nestingDepth);
 	}
 
 	/**
@@ -435,8 +435,8 @@ class Docx extends Page {
 	 * @param String $indentString How far in it stands, as Word is told.
 	 * @return String The paragraph showing the picture; '' when the picture is not written.
 	 */
-	protected function picturePortion(Array $contentBlock, String $indentString): String {
-		$pictDict = $this->pictureReadArr(is_scalar($contentBlock['attrs']['sourc'] ?? '') ? strval($contentBlock['attrs']['sourc'] ?? '') : '');
+	protected function writeImagePart(Array $contentBlock, String $indentString): String {
+		$pictDict = $this->readPictureDct(is_scalar($contentBlock['attrs']['sourc'] ?? '') ? strval($contentBlock['attrs']['sourc'] ?? '') : '');
 		if( $pictDict===null ){
 			return '';
 		}
@@ -480,7 +480,7 @@ class Docx extends Page {
 	 * @param Int   $levelValNumb How far in it stands.
 	 * @return String The paragraphs it makes.
 	 */
-	protected function listsPieceText(Array $contentBlock, Int $levelValNumb): String {
+	protected function writeListPiece(Array $contentBlock, Int $levelValNumb): String {
 		$this->numbersLst[] = !empty($contentBlock['attrs']['order']);
 		$numbIdnt = count($this->numbersLst);
 		$levelCnt = min(self::LIST_DEEP, $levelValNumb);
@@ -489,11 +489,11 @@ class Docx extends Page {
 			$spanList = (array)($entArr['spans'] ?? Array());
 			// A box to tick is written as the sign of one, ticked or not
 			if( isset($entArr['attrs']['check']) ){
-				array_unshift($spanList, Shape::makeASpanArray(empty($entArr['attrs']['check']) ? "\u{2610} " : "\u{2611} "));
+				array_unshift($spanList, Shape::makeSpanOfText(empty($entArr['attrs']['check']) ? "\u{2610} " : "\u{2611} "));
 			}
-			$listText .= $this->paragraphPiece(Array('style'=>'ListParagraph', 'numbr'=>'<w:numPr><w:ilvl w:val="'.$levelCnt.'"/><w:numId w:val="'.$numbIdnt.'"/></w:numPr>'), $spanList, array_intersect_key((array)($entArr['attrs'] ?? Array()), Array('tagid'=>1)));
+			$listText .= $this->writeParagraph(Array('style'=>'ListParagraph', 'numbr'=>'<w:numPr><w:ilvl w:val="'.$levelCnt.'"/><w:numId w:val="'.$numbIdnt.'"/></w:numPr>'), $spanList, array_intersect_key((array)($entArr['attrs'] ?? Array()), Array('tagid'=>1)));
 			foreach((array)($entArr['items'] ?? Array()) as $subBlk){
-				$listText .= (strval($subBlk['block'] ?? '')=='itemList') ? $this->listsPieceText((array)$subBlk, $levelValNumb+1) : $this->blckPartString((array)$subBlk, $levelValNumb+1);
+				$listText .= (strval($subBlk['block'] ?? '')=='itemList') ? $this->writeListPiece((array)$subBlk, $levelValNumb+1) : $this->writeBlockPart((array)$subBlk, $levelValNumb+1);
 			}
 		}
 		return $listText;
@@ -509,7 +509,7 @@ class Docx extends Page {
 	 * @param Int   $nestingDepth How far in it stands.
 	 * @return String The table; '' when it holds no row.
 	 */
-	protected function tblePartString(Array $contentBlock, Int $nestingDepth): String {
+	protected function writeTablePart(Array $contentBlock, Int $nestingDepth): String {
 		$rowsText = '';
 		$clmnsMax = 0;
 		// The areas still running down their columns: column => the rows left to cover and the columns covered
@@ -556,7 +556,7 @@ class Docx extends Page {
 				// A picture in a cell is no wider than the cell, nor higher than half a page: a row is never cut by the end of a page
 				$this->roomLength = Array(max(9525, intdiv($prevRoom[0]*min($clmnSpan, $clmnsAll), $clmnsAll)-144000), intdiv($prevRoom[1], 2));
 				// What the cell holds: its own text, then its other blocks. A cell ends with a paragraph, whatever it holds
-				$holdText = (empty($celBlk['spans']) && !empty($celBlk['items'])) ? '' : $this->paragraphPiece($isHeader ? Array('style'=>'TableHeading') : Array(), (array)($celBlk['spans'] ?? Array()), $attrDict);
+				$holdText = (empty($celBlk['spans']) && !empty($celBlk['items'])) ? '' : $this->writeParagraph($isHeader ? Array('style'=>'TableHeading') : Array(), (array)($celBlk['spans'] ?? Array()), $attrDict);
 				$holdText .= $this->writeAllBlocks((array)($celBlk['items'] ?? Array()), 0);
 				if( substr($holdText, -6)!=='</w:p>' ){
 					$holdText .= '<w:p/>';
@@ -591,7 +591,7 @@ class Docx extends Page {
 	 * @param Array $attributeSet What the block tells of it: how it is aligned under 'align', the name of its place under 'tagid'.
 	 * @return String The paragraph.
 	 */
-	protected function paragraphPiece(Array $propertyList, Array $textSpanList, Array $attributeSet): String {
+	protected function writeParagraph(Array $propertyList, Array $textSpanList, Array $attributeSet): String {
 		// Word reads what it is told of a paragraph in one order only
 		$propText = (isset($propertyList['style']) ? '<w:pStyle w:val="'.$propertyList['style'].'"/>' : '').strval($propertyList['numbr'] ?? '').strval($propertyList['bordr'] ?? '').strval($propertyList['indnt'] ?? '');
 		$alignKey = is_scalar($attributeSet['align'] ?? '') ? strval($attributeSet['align'] ?? '') : '';
@@ -600,12 +600,12 @@ class Docx extends Page {
 		}
 		// A place that is named can be pointed to from the rest of the document; the names of the notes are Word's to give
 		$markText = '';
-		$markName = $this->cleanPlaceName(is_scalar($attributeSet['tagid'] ?? '') ? strval($attributeSet['tagid'] ?? '') : '');
+		$markName = $this->wipePlaceTitle(is_scalar($attributeSet['tagid'] ?? '') ? strval($attributeSet['tagid'] ?? '') : '');
 		if( $markName!=='' && !in_array($markName, $this->anchorList, true) && !preg_match('/^(fnote|enote)\d+$/D', $markName) ){
 			$this->anchorList[] = $markName;
 			$markText = '<w:bookmarkStart w:id="'.count($this->anchorList).'" w:name="'.$markName.'"/><w:bookmarkEnd w:id="'.count($this->anchorList).'"/>';
 		}
-		return '<w:p>'.(($propText==='') ? '' : '<w:pPr>'.$propText.'</w:pPr>').$markText.$this->spansPieceText($textSpanList).'</w:p>';
+		return '<w:p>'.(($propText==='') ? '' : '<w:pPr>'.$propText.'</w:pPr>').$markText.$this->writeSpansPart($textSpanList).'</w:p>';
 	}
 
 	/**
@@ -616,7 +616,7 @@ class Docx extends Page {
 	 * @param Array $textSpanList The spans.
 	 * @return String The runs.
 	 */
-	protected function spansPieceText(Array $textSpanList): String {
+	protected function writeSpansPart(Array $textSpanList): String {
 		$runsText = '';
 		foreach($textSpanList as $oneSpn){
 			if( !is_array($oneSpn) ){
@@ -624,7 +624,7 @@ class Docx extends Page {
 			}
 			$spanText = strval($oneSpn['texts'] ?? '');
 			$markList = (array)($oneSpn['marks'] ?? Array());
-			$linkAddr = Shape::tidyLinkString(is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
+			$linkAddr = Shape::wipeUnsafeAddr(is_scalar($oneSpn['links'] ?? '') ? strval($oneSpn['links'] ?? '') : '');
 			$fieldCod = is_scalar($oneSpn['field'] ?? '') ? strval($oneSpn['field'] ?? '') : '';
 			$matxRows = Array();
 			if( preg_match('/^#((fnote|enote)\d+)$/D', $linkAddr, $matxRows) && isset($this->remarkList[$matxRows[2]][$matxRows[1]]) ){
@@ -657,7 +657,7 @@ class Docx extends Page {
 			}
 			// A link to a place of the document names that place; any other is kept among the relations of the part
 			if( $linkAddr[0]=='#' ){
-				$markName = $this->cleanPlaceName(substr($linkAddr, 1));
+				$markName = $this->wipePlaceTitle(substr($linkAddr, 1));
 				$runsText .= ($markName==='') ? $runStrng : '<w:hyperlink w:anchor="'.$markName.'" w:history="1">'.$runStrng.'</w:hyperlink>';
 				continue;
 			}

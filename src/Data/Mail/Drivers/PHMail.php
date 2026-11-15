@@ -18,7 +18,7 @@ class PHMail extends Driver {
 	/**
 	 * Builds the driver, once the library is found.
 	 *
-	 * @param Array $acctSetupLst The settings of the account (see Mail\Mailer::acntSetupArray).
+	 * @param Array $acctSetupLst The settings of the account (see Mail\Mailer::readAccountCfg).
 	 *
 	 * @throws MailFailure When PHPMailer is not installed.
 	 */
@@ -38,7 +38,7 @@ class PHMail extends Driver {
 	 * @param Array   $recipientLst Checked addresses it is delivered to.
 	 * @return ?String Null when the server took it, or why it was not sent.
 	 */
-	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
+	public function sendRawMessage( Message $emailMessage, Array $recipientLst ): ?String {
 		try{
 			$phpEmail = $this->makeMailOfTmpl($emailMessage);
 			if( $recipientLst===$emailMessage->listRecipients() ){
@@ -68,7 +68,7 @@ class PHMail extends Driver {
 		$phpEmail->CharSet = 'UTF-8';
 		if( $portNumb==465 ){
 			$phpEmail->SMTPSecure = 'ssl';
-		}elseif( !self::localServerFlg($phpEmail->Host) ){
+		}elseif( !self::isLocalMachine($phpEmail->Host) ){
 			$phpEmail->SMTPSecure = 'tls';
 		}
 		$userName = strval($this->setupArray['userName'] ?? '');
@@ -77,7 +77,7 @@ class PHMail extends Driver {
 			$phpEmail->Username = $userName;
 			$phpEmail->Password = strval($this->setupArray['passWord'] ?? '');
 		}
-		$phpEmail->setFrom($emailMessage->retrieveSender(), $emailMessage->getSenderLabel());
+		$phpEmail->setFrom($emailMessage->getSenderEmail(), $emailMessage->getSenderLabel());
 		foreach( $emailMessage->listRecipients() as $toAddr ){
 			$phpEmail->addAddress($toAddr);
 		}
@@ -85,9 +85,9 @@ class PHMail extends Driver {
 		if( $emailMessage->getHtmlVersion()!==null ){
 			$phpEmail->isHTML(true);
 			$phpEmail->Body = $emailMessage->getHtmlVersion();
-			$phpEmail->AltBody = $emailMessage->simpleBodyText();
+			$phpEmail->AltBody = $emailMessage->getPlainEmlTxt();
 		}else{
-			$phpEmail->Body = $emailMessage->simpleBodyText();
+			$phpEmail->Body = $emailMessage->getPlainEmlTxt();
 		}
 		foreach( $emailMessage->getAttachments() as $attFil ){
 			$phpEmail->addAttachment($attFil);

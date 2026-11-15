@@ -20,7 +20,7 @@ use nyu\Tools\Registry;
 function acntOf( Mixed $mailConfig, String $acntLabel='' ): Mixed {
 	$GLOBALS['nyuConfig'] = new Registry( ($mailConfig===null) ? Array() : Array('mailer'=>$mailConfig) );
 	Mailer::clearMailCache();
-	return runCatchThrown(function() use ($acntLabel){ return Mailer::acntSetupArray($acntLabel); });
+	return runCatchThrown(function() use ($acntLabel){ return Mailer::readAccountCfg($acntLabel); });
 }
 
 // The accounts of the config
@@ -62,9 +62,9 @@ checkPregMatch('an attachment that does not exist', $newMail(Array('atts'=>Array
 checkIdentical('addresses: a list or a text with commas', Array(Message::splitAddresses(' a@x.ch , ,b@x.ch'), Message::splitAddresses(Array('a@x.ch', ' ')), Message::splitAddresses('')), Array(Array('a@x.ch', 'b@x.ch'), Array('a@x.ch'), Array()));
 
 // Header encoding
-checkIdentical('header: plain ASCII is kept', Message::encodeHeadText('Hello "you"'), 'Hello "you"');
+checkIdentical('header: plain ASCII is kept', Message::castHeaderUtf8('Hello "you"'), 'Hello "you"');
 $longSbj = str_repeat('Été à Genève, ', 8);
-$codText = Message::encodeHeadText($longSbj);
+$codText = Message::castHeaderUtf8($longSbj);
 $wordLst = explode("\r\n ", $codText);
 $decText = '';
 foreach( $wordLst as $oneWrd ){
@@ -73,7 +73,7 @@ foreach( $wordLst as $oneWrd ){
 checkIdentical('header: encoded words give the text back', $decText, $longSbj);
 checkIdentical('header: every word holds whole characters', count(array_filter($wordLst, function( String $oneWrd ){ return preg_match('//u', base64_decode(substr($oneWrd, 10, -2)))!==1; })), 0);
 checkIdentical('header: no word is longer than a line', max(array_map('strlen', $wordLst))<=75, true);
-checkIdentical('line ends: CRLF whatever they were', Message::endLinesInCrlf("a\nb\r\nc\rd"), "a\r\nb\r\nc\r\nd");
+checkIdentical('line ends: CRLF whatever they were', Message::castLnesToCrlf("a\nb\r\nc\rd"), "a\r\nb\r\nc\r\nd");
 
 // A plain text mail
 $txtMail = $newMail(Array('name'=>'Ünï', 'to'=>Array('ann@example.com', 'bob@example.com'), 'subj'=>'Plain', 'text'=>"Line one\nCafé"))->writeWholeMail();
@@ -89,7 +89,7 @@ checkPregMatch('html: two alternatives', $altMail, '/\r\nContent-Type: multipart
 $fldrNme = 'temp'.DS.'mailtest_'.getmypid();
 $GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>Array('DEVBOX'=>array_merge($fileSet, Array('mailsDir'=>'/'.str_replace(DS, '/', $fldrNme), 'copiesTo'=>'backup@example.com, archive@example.com')))) );
 Mailer::clearMailCache();
-$sentRes = runCatchThrown(function(){ return Mailer::retrieveMailer('devbox')->deliverEmlFlag(Array('ann@example.com'), 'Report', 'See attached', null, Array(__FILE__)); });
+$sentRes = runCatchThrown(function(){ return Mailer::getMailerOfAcc('devbox')->sendMailViaAcc(Array('ann@example.com'), 'Report', 'See attached', null, Array(__FILE__)); });
 checkIdentical('tofile: the mail is written', $sentRes, true);
 $fleList = glob(TOP_DIR.DS.$fldrNme.DS.'*.eml') ?: Array();
 sort($fleList);
@@ -103,11 +103,11 @@ foreach( $fleList as $oneFle ){
 }
 sort($envList);
 checkIdentical('tofile: who each file was for', $envList, Array('ann@example.com', 'backup@example.com, archive@example.com'));
-checkIdentical('tofile: the same mailer is given again', Mailer::retrieveMailer('DEVBOX')===Mailer::retrieveMailer('devbox'), true);
+checkIdentical('tofile: the same mailer is given again', Mailer::getMailerOfAcc('DEVBOX')===Mailer::getMailerOfAcc('devbox'), true);
 checkPregMatch('tofile: a copy address that is not one is refused', runCatchThrown(function() use ($fileSet){
 	$GLOBALS['nyuConfig'] = new Registry( Array('mailer'=>array_merge($fileSet, Array('copiesTo'=>'backup'))) );
 	Mailer::clearMailCache();
-	return Mailer::retrieveMailer()->deliverEmlFlag('ann@example.com', 'Hi', 'Hello');
+	return Mailer::getMailerOfAcc()->sendMailViaAcc('ann@example.com', 'Hi', 'Hello');
 }), '/MailFailure: Invalid mail address: "backup"/');
 dropTestFolder(TOP_DIR.DS.$fldrNme);
 

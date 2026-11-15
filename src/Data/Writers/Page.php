@@ -39,7 +39,7 @@ abstract class Page extends Base {
 	 *
 	 * @throws WriteError When the size of paper is not a known one.
 	 */
-	protected function paperSizeArray(Array $writeOptions): Array {
+	protected function getPageSizeDct(Array $writeOptions): Array {
 		$sizeClef = strval($writeOptions['paper'] ?? 'isoPgeA4');
 		// The size whatever its case, as SIZE_LIST writes it
 		$sizeClef = strval( array_values(preg_grep('/^'.preg_quote($sizeClef, '/').'$/iD', array_keys(self::SIZE_LIST)))[0] ?? $sizeClef );
@@ -75,7 +75,7 @@ abstract class Page extends Base {
 	 * @param Array $bookBlockSet The blocks; the notes are taken out of them.
 	 * @return Array The notes of the pages under 'fnote' and those of the end under 'enote', each list by the name of the note: its block.
 	 */
-	protected function takeNotesArray(Array &$bookBlockSet): Array {
+	protected function splitNotesDict(Array &$bookBlockSet): Array {
 		$noteList = Array('fnote'=>Array(), 'enote'=>Array());
 		$matxRows = Array();
 		foreach($bookBlockSet as $blkIdx=>$blkArr){
@@ -96,7 +96,7 @@ abstract class Page extends Base {
 	 * @param String $pageFileName The name of its file, in the folder: never an address, never a file of another folder.
 	 * @return ?Array Its bytes under 'bytes', its kind under 'kinds' (png, jpg or gif), its width and its height in pixels under 'width' and 'heght'; null when it is not a picture of the folder.
 	 */
-	protected function pictureReadArr(String $pageFileName): ?Array {
+	protected function readPictureDct(String $pageFileName): ?Array {
 		if( $this->pictureDir==='' || $pageFileName==='' || preg_match('/^[a-z][a-z0-9+.\-]*:/i', $pageFileName) || strpos($pageFileName, "\0")!==false ){
 			return null;
 		}
@@ -106,10 +106,10 @@ abstract class Page extends Base {
 		}
 		try{
 			$pictInst = Image::openFluxdImage(Fluxd::openLocalFluxd($filePath, $this->pictureDir));
-			$kindClef = strval($pictInst->imageInfoArray()['kinds']);
+			$kindClef = strval($pictInst->getInfoOfImage()['kinds']);
 			$givenCod = isset(self::PICT_LIST[$kindClef]) ? $kindClef : 'png';
 			try{
-				$pictInst = $pictInst->fixOrientation();
+				$pictInst = $pictInst->turnUprightImg();
 				$pictText = $pictInst->grantBytesText($givenCod);
 			}catch( \RuntimeException $e ){
 				// Without what writes pictures anew, one of a kind a document holds is given as it is
@@ -118,7 +118,7 @@ abstract class Page extends Base {
 				}
 				$pictText = strval(file_get_contents($filePath));
 			}
-			$infoDict = $pictInst->imageInfoArray();
+			$infoDict = $pictInst->getInfoOfImage();
 		}catch( \RuntimeException $e ){
 			return null;
 		}
@@ -133,7 +133,7 @@ abstract class Page extends Base {
 	 * @param Array $sheetEntries The sheets.
 	 * @return Array The blocks.
 	 */
-	protected function sheetsAsBlocks(Array $sheetEntries): Array {
+	protected function getSheetBlocks(Array $sheetEntries): Array {
 		$blockLst = Array();
 		foreach($sheetEntries as $shtArr){
 			if( !is_array($shtArr) || (isset($shtArr['attrs']['shown']) && empty($shtArr['attrs']['shown'])) ){
@@ -142,7 +142,7 @@ abstract class Page extends Base {
 			$rowsList = array_values((array)($shtArr['cells'] ?? Array()));
 			$headList = Array();
 			foreach($rowsList as $oneRow){
-				foreach($this->validateALstOf((array)$oneRow) ? Array() : array_keys((array)$oneRow) as $column){
+				foreach($this->isSequenceList((array)$oneRow) ? Array() : array_keys((array)$oneRow) as $column){
 					if( !in_array(strval($column), $headList, true) ){
 						$headList[] = strval($column);
 					}
@@ -165,7 +165,7 @@ abstract class Page extends Base {
 				unset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
 				$spanList[$mrgArr['atrow'].':'.$mrgArr['atcol']] = array_filter(Array('rowsp'=>$mrgArr['rowsp'], 'colsp'=>$mrgArr['colsp']), function(Int $colSpanCount){ return $colSpanCount>1; });
 			}
-			$tableRow = empty($headList) ? Array() : Array(Shape::makeBlockArray('tableTop', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('cellText', Array(Shape::makeASpanArray($columnHeader))); }, $headList)));
+			$tableRow = empty($headList) ? Array() : Array(Shape::makeBlockArray('tableTop', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('cellText', Array(Shape::makeSpanOfText($columnHeader))); }, $headList)));
 			$colsNumb = count($headList);
 			foreach($rowsList as $oneRow){
 				$colsNumb = max($colsNumb, count((array)$oneRow));
@@ -187,16 +187,16 @@ abstract class Page extends Base {
 					}elseif( is_int($cellVals) || (is_float($cellVals) && is_finite($cellVals)) ){
 						$cellText = $this->writeNumberTxt($cellVals);
 					}elseif( is_array($cellVals) ){
-						$cellText = strval(json_encode(Fluxd::nullifySources($cellVals), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
+						$cellText = strval(json_encode(Fluxd::dropAllSources($cellVals), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
 					}
 					// Numbers stand on the right of their column, as in a spreadsheet
-					$cellList[] = Shape::makeBlockArray('cellText', ($cellText==='') ? Array() : Array(Shape::makeASpanArray($cellText)), Array(), ($spanList[$cellClef] ?? Array()) + ((is_int($cellVals) || is_float($cellVals)) ? Array('align'=>'alignRgt') : Array()));
+					$cellList[] = Shape::makeBlockArray('cellText', ($cellText==='') ? Array() : Array(Shape::makeSpanOfText($cellText)), Array(), ($spanList[$cellClef] ?? Array()) + ((is_int($cellVals) || is_float($cellVals)) ? Array('align'=>'alignRgt') : Array()));
 				}
 				$tableRow[] = Shape::makeBlockArray('tableRow', Array(), $cellList);
 			}
 			$sheetNme = is_scalar($shtArr['title'] ?? '') ? trim(strval($shtArr['title'] ?? '')) : '';
 			if( $sheetNme!=='' ){
-				$blockLst[] = Shape::makeBlockArray('headline', Array(Shape::makeASpanArray($sheetNme)), Array(), Array('level'=>2));
+				$blockLst[] = Shape::makeBlockArray('headline', Array(Shape::makeSpanOfText($sheetNme)), Array(), Array('level'=>2));
 			}
 			if( !empty($tableRow) ){
 				$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $tableRow);
@@ -212,7 +212,7 @@ abstract class Page extends Base {
 	 * @param String $locationText The name asked for.
 	 * @return String The name, '' when nothing of it can be kept.
 	 */
-	protected function cleanPlaceName(String $locationText): String {
+	protected function wipePlaceTitle(String $locationText): String {
 		$nameText = trim(strval(preg_replace('/[^A-Za-z0-9_]+/', '_', $locationText)), '_');
 		if( $nameText==='' ){
 			return '';

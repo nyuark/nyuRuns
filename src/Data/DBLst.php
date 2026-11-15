@@ -36,7 +36,7 @@ class DBLst {
 	 *
 	 * The selection, where, order and limit fragments are written into the
 	 * query as given: they must never hold request input, and only the SQL
-	 * types take them. Use pickReadFields(), replaceFilters(), setOrderFields() and
+	 * types take them. Use setReadColumns(), setListFilters(), setOrderFields() and
 	 * setLimitOffset() for anything else. An order written as plain field names
 	 * ("date ASC, time DESC") and a limit written as a number are read as
 	 * such, and work on every kind of database.
@@ -118,7 +118,7 @@ class DBLst {
 	 * @param Bool   $keepReadRows Whether to use the rows already read, when there are some.
 	 * @return Array Flat array of the isolated field's values.
 	 */
-	public function flatItemsArray( String $isolateField, Bool $keepReadRows=false ): Array {
+	public function listColumnVals( String $isolateField, Bool $keepReadRows=false ): Array {
 		$rsltList = $this->readRowsOfList($keepReadRows);
 		$flatList = Array();
 		if(isset($rsltList) && !empty($rsltList)){
@@ -148,7 +148,7 @@ class DBLst {
 	 *
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
-	public function replaceFilters( Array $filterFields ): Void {
+	public function setListFilters( Array $filterFields ): Void {
 		// Read once here, so that a faulty filter is refused where it is written
 		DBStore\Filter::readWhereArray($filterFields);
 		$this->whereArray = $filterFields;
@@ -166,7 +166,7 @@ class DBLst {
 	 *
 	 * @throws \RuntimeException When an entry has any other form, or names another function.
 	 */
-	public function pickReadFields( ?String $fldScopeText = null ): Void {
+	public function setReadColumns( ?String $fldScopeText = null ): Void {
 		$this->selectList = Array();
 		$this->aggregates = Array();
 		unset($this->sqlClauses['field']);
@@ -253,8 +253,8 @@ class DBLst {
 			$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 			$dfltLimt = intval($iniConfg['DEF_ROWS'] ?? 100) ?: 100;
 			$limitIdx = is_array($limitIndexes) ? array_values($limitIndexes) : explode(',', strval($limitIndexes));
-			$this->limitCount = $this->completeNumber($limitIdx[0] ?? null) ?? $dfltLimt;
-			$this->offsetNumb = $this->completeNumber($limitIdx[1] ?? null);
+			$this->limitCount = $this->castToWholeNum($limitIdx[0] ?? null) ?? $dfltLimt;
+			$this->offsetNumb = $this->castToWholeNum($limitIdx[1] ?? null);
 		}
 	}
 	
@@ -264,7 +264,7 @@ class DBLst {
 	 * @param mixed $valueAsGiven The value, as a number or a numeric string.
 	 * @return ?Int The whole number, or null when the value is not a number.
 	 */
-	protected function completeNumber( Mixed $valueAsGiven ): ?Int {
+	protected function castToWholeNum( Mixed $valueAsGiven ): ?Int {
 		if( !is_scalar($valueAsGiven) || !is_numeric(trim(strval($valueAsGiven))) ){
 			return null;
 		}
@@ -307,7 +307,7 @@ class DBLst {
 	 * @param String $ownLinkField Field on this list's rows referenced by the child (defaults to `id_<singularized table>`).
 	 * @return Array The current rows, each augmented with its child data under the child table's name.
 	 */
-	public function attachChildren( String $childTbleTxt, String $singleFldTxt='', String $childLinkFld='', String $ownLinkField='' ): Array {
+	public function loadChildRecrd( String $childTbleTxt, String $singleFldTxt='', String $childLinkFld='', String $ownLinkField='' ): Array {
 		if( $childLinkFld=='' ) {
 			$extnName = StrKit::singularizeTxt($this->tableLabel);
 			$childLinkFld = $extnName.'_id';
@@ -329,9 +329,9 @@ class DBLst {
 			}
 			$subLstng = new DBLst($childTbleTxt, null, null, null, null, $this->tableDbCon);
 			// The key is compared exactly, never read as a wildcard
-			$subLstng->replaceFilters(Array($childLinkFld.'='=>$rowArr[$ownLinkField]));
+			$subLstng->setListFilters(Array($childLinkFld.'='=>$rowArr[$ownLinkField]));
 			if($singleFldTxt!=''){
-				$listNtry[$rowKey][$childTbleTxt] = $subLstng->flatItemsArray($singleFldTxt);
+				$listNtry[$rowKey][$childTbleTxt] = $subLstng->listColumnVals($singleFldTxt);
 			}else{
 				$listNtry[$rowKey][$childTbleTxt] = $subLstng->readRowsOfList();
 			}

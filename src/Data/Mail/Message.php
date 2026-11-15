@@ -34,7 +34,7 @@ class Message {
 	 */
 	public function __construct( String $fromEmailAdr, String $nameOfSender, Array $recipientLst, String $emailSubject, String $plainMailTxt, ?String $htmlMailText=null, Array $attachedList=Array() ){
 		$this->senderAddr = self::checkEmailAddr($fromEmailAdr);
-		$this->senderName = self::testLineString($nameOfSender, 'sender name');
+		$this->senderName = self::checkHeaderTxt($nameOfSender, 'sender name');
 		$this->recipients = Array();
 		foreach( $recipientLst as $toAddr ){
 			$this->recipients[] = self::checkEmailAddr(strval($toAddr));
@@ -42,7 +42,7 @@ class Message {
 		if( empty($this->recipients) ){
 			throw new MailFailure('A mail needs a recipient');
 		}
-		$this->subjectTxt = self::testLineString($emailSubject, 'subject');
+		$this->subjectTxt = self::checkHeaderTxt($emailSubject, 'subject');
 		$this->bodyAsText = $plainMailTxt;
 		$this->bodyAsHtml = $htmlMailText;
 		$this->addedFiles = Array();
@@ -92,7 +92,7 @@ class Message {
 	 *
 	 * @throws MailFailure When the text holds a line break.
 	 */
-	protected static function testLineString( String $textOfHeader, String $failureLabel ): String {
+	protected static function checkHeaderTxt( String $textOfHeader, String $failureLabel ): String {
 		if( preg_match('/[\r\n\0]/', $textOfHeader) ){
 			throw new MailFailure('Line break refused in the '.$failureLabel.' of a mail');
 		}
@@ -104,7 +104,7 @@ class Message {
 	 *
 	 * @return String The address.
 	 */
-	public function retrieveSender(): String {
+	public function getSenderEmail(): String {
 		return $this->senderAddr;
 	}
 
@@ -140,7 +140,7 @@ class Message {
 	 *
 	 * @return String The text.
 	 */
-	public function simpleBodyText(): String {
+	public function getPlainEmlTxt(): String {
 		return $this->bodyAsText;
 	}
 
@@ -175,7 +175,7 @@ class Message {
 			'Date: '.date('r'),
 			'From: '.self::writeNamedAddr($this->senderAddr, $this->senderName),
 			'To: '.implode(', ', $this->recipients),
-			'Subject: '.self::encodeHeadText($this->subjectTxt),
+			'Subject: '.self::castHeaderUtf8($this->subjectTxt),
 			'Message-ID: <'.bin2hex(random_bytes(16)).'@'.$sndrDomn.'>',
 			'MIME-Version: 1.0',
 		);
@@ -201,7 +201,7 @@ class Message {
 	protected static function makePartString( String $partBodyText, String $mimeTextType ): String {
 		return 'Content-Type: text/'.$mimeTextType.'; charset=UTF-8'."\r\n"
 			.'Content-Transfer-Encoding: quoted-printable'."\r\n\r\n"
-			.quoted_printable_encode( self::endLinesInCrlf($partBodyText) );
+			.quoted_printable_encode( self::castLnesToCrlf($partBodyText) );
 	}
 
 	/**
@@ -210,7 +210,7 @@ class Message {
 	 * @param String $textToChange The text.
 	 * @return String The text with CRLF line ends.
 	 */
-	public static function endLinesInCrlf( String $textToChange ): String {
+	public static function castLnesToCrlf( String $textToChange ): String {
 		return str_replace( "\n", "\r\n", str_replace(Array("\r\n", "\r"), "\n", $textToChange) );
 	}
 
@@ -226,7 +226,7 @@ class Message {
 			return $emlAddresses;
 		}
 		if( preg_match('/[^\x20-\x7E]/', $personalName) ){
-			return self::encodeHeadText($personalName).' <'.$emlAddresses.'>';
+			return self::castHeaderUtf8($personalName).' <'.$emlAddresses.'>';
 		}
 		return '"'.addcslashes($personalName, '"\\').'" <'.$emlAddresses.'>';
 	}
@@ -239,7 +239,7 @@ class Message {
 	 * @param String $textOfHeader The text.
 	 * @return String The text as a header writes it.
 	 */
-	public static function encodeHeadText( String $textOfHeader ): String {
+	public static function castHeaderUtf8( String $textOfHeader ): String {
 		if( !preg_match('/[^\x20-\x7E]/', $textOfHeader) ){
 			return $textOfHeader;
 		}

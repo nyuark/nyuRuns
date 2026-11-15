@@ -22,7 +22,7 @@ function serverSettings( String $typeLabelTxt ): Array {
 		$keepCnf = $GLOBALS['nyuConfig'] ?? null;
 		$GLOBALS['nyuConfig'] = $loadObj->readConfigRegr();
 		try{
-			$projCfg = nyu\Data\DBCon::baseSetupArray();
+			$projCfg = nyu\Data\DBCon::readDbaseConfg();
 		}catch( RuntimeException $e ){
 			$projCfg = Array();
 		}

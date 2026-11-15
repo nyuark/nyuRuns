@@ -44,20 +44,20 @@ function cleaned( String $drawingXml, String $rootsAttrs='' ): String {
 $quadSvg = '<svg '.SVGSPACE.' width="40" height="20" viewBox="0 0 40 20"><rect width="20" height="20" fill="#ff0000"/><rect x="20" width="20" height="20" fill="#0000ff"/></svg>';
 
 // Telling a drawing from its content
-checkIdentical('a drawing is told from its content, whatever stands before its first element', array_map(function($headString){ return Bina::detectFileKind($headString); }, Array(
+checkIdentical('a drawing is told from its content, whatever stands before its first element', array_map(function($headString){ return Bina::findContentCod($headString); }, Array(
 	'<svg xmlns="http://www.w3.org/2000/svg"/>', '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<svg width="1">', "\xEF\xBB\xBF<?xml version=\"1.0\"?><!-- made by a tool --><!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"x.dtd\">\n<svg>", '<svg:svg xmlns:svg="http://www.w3.org/2000/svg">', "  \n<SVG >",
 	'<?xml version="1.0"?><show><svg/></show>', '<svgs>', '<html><body><svg/></body></html>', 'svg'
 )), Array('svg', 'svg', 'svg', 'svg', 'svg', 'xml', '', 'html', ''));
 
 // What a drawing is
-checkIdentical('what a drawing is: its kind, and the size it tells in pixels', imgOpen($quadSvg)->imageInfoArray(), Array('kinds'=>'svg', 'width'=>40, 'heght'=>20, 'bytes'=>strlen($quadSvg), 'turns'=>1, 'exifs'=>Array()));
+checkIdentical('what a drawing is: its kind, and the size it tells in pixels', imgOpen($quadSvg)->getInfoOfImage(), Array('kinds'=>'svg', 'width'=>40, 'heght'=>20, 'bytes'=>strlen($quadSvg), 'turns'=>1, 'exifs'=>Array()));
 checkIdentical('its size: in pixels, told or not as such, from its box when it tells another unit or none, and given to it when it tells nothing', array_map(function($rootsAttrs){
-	$infoArr = imgOpen('<svg '.SVGSPACE.' '.$rootsAttrs.'/>')->imageInfoArray();
+	$infoArr = imgOpen('<svg '.SVGSPACE.' '.$rootsAttrs.'/>')->getInfoOfImage();
 	return $infoArr['width'].'x'.$infoArr['heght'];
 }, Array('width="300" height="150"', 'width="300px" height="150.4px"', 'width="10cm" height="5cm" viewBox="0 0 800 400"', 'viewBox="0 0 64 32"', 'viewBox="0,0,24,48"', 'width="100%" height="100%"', 'width="100%" viewBox="0 0 200 100"', '', 'width="0" height="-5" viewBox="0 0 0 0"', 'width="300" viewBox="0 0 10 40"')),
 	Array('300x150', '300x151', '800x400', '64x32', '24x48', '512x512', '200x100', '512x512', '512x512', '300x40'));
 checkPregMatch('a drawing telling more pixels than accepted is refused', imgOpen('<svg '.SVGSPACE.' width="60000" height="60000"/>'), '/^THROWN RuntimeException: Picture larger than the 32000000 pixels allowed/');
-checkIdentical('the limit can be raised', imgOpen('<svg '.SVGSPACE.' width="60000" height="60000"/>', 4000000000)->imageInfoArray()['width'], 60000);
+checkIdentical('the limit can be raised', imgOpen('<svg '.SVGSPACE.' width="60000" height="60000"/>', 4000000000)->getInfoOfImage()['width'], 60000);
 checkPregMatch('a drawing that is not well-formed', imgOpen('<svg '.SVGSPACE.'><rect></svg>'), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkPregMatch('a drawing declaring entities in another encoding', imgOpen("\xFF\xFE".mb_convert_encoding('<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE svg [<!ENTITY x "y">]><svg '.SVGSPACE.'><text>&x;</text></svg>', 'UTF-16LE', 'UTF-8')), '/^THROWN RuntimeException: Not a picture of a known kind/');
 checkPregMatch('a drawing declaring entities, the way a local file is read or memory filled', imgOpen('<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg '.SVGSPACE.'><text>&x;</text></svg>'), '/^THROWN RuntimeException: Not a picture of a known kind/');
@@ -96,7 +96,7 @@ checkIdentical('a drawing cleaned once is unchanged when cleaned again; giving i
 	$evilSvg = '<svg '.SVGSPACE.' width="40" height="20" onload="x()"><script>alert(1)</script><rect width="1" height="1" onclick="y()"/><image href="https://evil.test/t.png"/></svg>';
 	$onceTxt = Image::openFluxdImage(Fluxd::openBytesFluxd($evilSvg))->dropRiskyParts();
 	$srceImg = Image::openFluxdImage(Fluxd::openBytesFluxd($evilSvg));
-	return Array(Image::openFluxdImage(Fluxd::openBytesFluxd($onceTxt))->dropRiskyParts()===$onceTxt, $srceImg->grantBytesText()===$onceTxt, $srceImg->grantBytesText('SVG')===$onceTxt, strpos($onceTxt, 'alert'), strpos($onceTxt, 'evil'), strpos($onceTxt, 'onclick'), Image::openFluxdImage(Fluxd::openBytesFluxd($onceTxt))->imageInfoArray()['kinds']);
+	return Array(Image::openFluxdImage(Fluxd::openBytesFluxd($onceTxt))->dropRiskyParts()===$onceTxt, $srceImg->grantBytesText()===$onceTxt, $srceImg->grantBytesText('SVG')===$onceTxt, strpos($onceTxt, 'alert'), strpos($onceTxt, 'evil'), strpos($onceTxt, 'onclick'), Image::openFluxdImage(Fluxd::openBytesFluxd($onceTxt))->getInfoOfImage()['kinds']);
 }), Array(true, true, true, false, false, false, 'svg'));
 checkPregMatch('only a drawing is cleaned up', runCatchThrown(function(){ return Image::openFluxdImage(Fluxd::openBytesFluxd(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')))->dropRiskyParts(); }), '/^THROWN RuntimeException: Only a drawing is cleaned up/');
 checkPregMatch('pixels cannot be given back as a drawing', runCatchThrown(function(){ return Image::openFluxdImage(Fluxd::openBytesFluxd(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')))->grantBytesText('svg'); }), '/^THROWN RuntimeException: Only a drawing is cleaned up/');
@@ -104,7 +104,7 @@ checkPregMatch('pixels cannot be given back as a drawing', runCatchThrown(functi
 // Saving a drawing
 checkIdentical('a drawing saved to a file is saved cleaned', runCatchThrown(function(){
 	$savePth = Image::openFluxdImage(Fluxd::openBytesFluxd('<svg '.SVGSPACE.' width="4" height="2"><script>alert(1)</script><rect width="1"/></svg>'))->writeLocalFile(inTemporaryDir('logo.svg'));
-	return Array(strpos(file_get_contents($savePth), 'script'), Image::openFluxdImage(Fluxd::openLocalFluxd($savePth))->imageInfoArray()['width']);
+	return Array(strpos(file_get_contents($savePth), 'script'), Image::openFluxdImage(Fluxd::openLocalFluxd($savePth))->getInfoOfImage()['width']);
 }), Array(false, 4));
 
 // Through documents
@@ -172,7 +172,7 @@ function colours( String $rawContent, Array $pointsList=Array(Array(0.25, 0.5), 
 
 $quadImg = imgOpen($quadSvg);
 checkIdentical('a drawing given as pixels: of the size it tells, what it draws where it draws it', Array(colours($quadImg->grantBytesText('png')), colours($quadImg->grantBytesText('jpg')), colours($quadImg->grantBytesText('webp'))), Array('40x20 RB', '40x20 RB', '40x20 RB'));
-checkIdentical('a drawing resized, cut and turned as any picture is; the picture made is made of pixels', Array(colours($quadImg->resizeFitImage(20, 20)->grantBytesText()), colours($quadImg->resizeFitImage(400, 400, true)->grantBytesText()), colours($quadImg->cropCoverImage(10, 10)->grantBytesText()), colours($quadImg->turnRightImage(180)->grantBytesText()), $quadImg->resizeFitImage(20, 20)->imageInfoArray()), Array('20x10 RB', '400x200 RB', '10x10 RB', '40x20 BR', Array('kinds'=>'png', 'width'=>20, 'heght'=>10, 'bytes'=>0, 'turns'=>1, 'exifs'=>Array())));
+checkIdentical('a drawing resized, cut and turned as any picture is; the picture made is made of pixels', Array(colours($quadImg->resizeFitImage(20, 20)->grantBytesText()), colours($quadImg->resizeFitImage(400, 400, true)->grantBytesText()), colours($quadImg->cropCoverImage(10, 10)->grantBytesText()), colours($quadImg->turnRightImage(180)->grantBytesText()), $quadImg->resizeFitImage(20, 20)->getInfoOfImage()), Array('20x10 RB', '400x200 RB', '10x10 RB', '40x20 BR', Array('kinds'=>'png', 'width'=>20, 'heght'=>10, 'bytes'=>0, 'turns'=>1, 'exifs'=>Array())));
 checkIdentical('what a drawing does not draw on is see-through, and laid on white in the kinds that cannot say it', runCatchThrown(function(){
 	$halfImg = imgOpen('<svg '.SVGSPACE.' width="40" height="20"><rect width="20" height="20" fill="#ff0000"/></svg>');
 	return Array(colours($halfImg->grantBytesText('png')), colours($halfImg->grantBytesText('jpg')));

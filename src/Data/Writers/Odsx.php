@@ -55,10 +55,10 @@ class Odsx extends Grid {
 		$wideText = '';
 		$viewText = '';
 		foreach($sheetLst as $shtIdx=>$shtArr){
-			$sheetNme = $this->cleanSheetName(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameList);
+			$sheetNme = $this->wipeSheetTitle(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameList);
 			$nameList[] = $sheetNme;
 			$hasHeadr = false;
-			$bodyText .= '<table:table table:name="'.$this->escapeXmlValue($sheetNme).'" table:style-name="'.($shownLst[$shtIdx] ? 'ta1' : 'ta2').'">'.$this->sheetPieceText((array)$shtArr, $withHdrs, $hasDates, 's'.($shtIdx+1), $wideText, $hasHeadr).'</table:table>';
+			$bodyText .= '<table:table table:name="'.$this->escapeXmlValue($sheetNme).'" table:style-name="'.($shownLst[$shtIdx] ? 'ta1' : 'ta2').'">'.$this->writeSheetPart((array)$shtArr, $withHdrs, $hasDates, 's'.($shtIdx+1), $wideText, $hasHeadr).'</table:table>';
 			// The row of names is kept in sight: the view of the sheet is split under it. The settings are only read when
 			// the part declares the address their name starts with (ooo), which the addresses of the format hold
 			if( $hasHeadr ){
@@ -91,7 +91,7 @@ class Odsx extends Grid {
 		);
 		try{
 			// The first entry tells what the file is, and is kept as it is
-			return Archv::newBytesString($fileList, Array('mimetype'));
+			return Archv::makeZipFromLst($fileList, Array('mimetype'));
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Spreadsheet that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -110,8 +110,8 @@ class Odsx extends Grid {
 	 *
 	 * @throws WriteError When the sheet is larger than a sheet can be.
 	 */
-	protected function sheetPieceText(Array $sheetDetails, Bool $writeHeaders, Bool $writeAsDates, String $columnPrefix, String &$columnStyles, Bool &$hasHeaderRow): String {
-		$gridDict = $this->sheetGridArray($sheetDetails, $writeHeaders);
+	protected function writeSheetPart(Array $sheetDetails, Bool $writeHeaders, Bool $writeAsDates, String $columnPrefix, String &$columnStyles, Bool &$hasHeaderRow): String {
+		$gridDict = $this->castSheetToGrd($sheetDetails, $writeHeaders);
 		$hasHeaderRow = !empty($gridDict['heads']);
 		$rowsList = $hasHeaderRow ? array_merge(Array($gridDict['heads']), $gridDict['cells']) : $gridDict['cells'];
 		// The merged areas: where each starts, and the cells each covers
@@ -142,7 +142,7 @@ class Odsx extends Grid {
 			$gapsNumb = 0;
 			foreach($oneRow as $colInc=>$oneVal){
 				$cellClef = $rowIdx.':'.$colInc;
-				$cellText = isset($coverLst[$cellClef]) ? '<table:covered-table-cell/>' : $this->cellsPieceText($oneVal, $writeAsDates, ($hasHeaderRow && $rowIdx==0), $spanList[$cellClef] ?? Array(1, 1));
+				$cellText = isset($coverLst[$cellClef]) ? '<table:covered-table-cell/>' : $this->writeTypedCell($oneVal, $writeAsDates, ($hasHeaderRow && $rowIdx==0), $spanList[$cellClef] ?? Array(1, 1));
 				// Cells holding nothing are counted, and written as one when a cell follows them
 				if( $cellText==='' ){
 					$gapsNumb++;
@@ -180,9 +180,9 @@ class Odsx extends Grid {
 	 * @param Array $cellSpanPair The rows and the columns the cell covers: 1 and 1 for a cell alone.
 	 * @return String The cell; '' for a cell holding nothing and covering no other.
 	 */
-	protected function cellsPieceText(Mixed $valueToWrite, Bool $writeAsDates, Bool $isHeaderCell, Array $cellSpanPair): String {
+	protected function writeTypedCell(Mixed $valueToWrite, Bool $writeAsDates, Bool $isHeaderCell, Array $cellSpanPair): String {
 		$spanText = (($cellSpanPair[1]>1 || $cellSpanPair[0]>1) ? ' table:number-columns-spanned="'.$cellSpanPair[1].'" table:number-rows-spanned="'.$cellSpanPair[0].'"' : '');
-		$valueToWrite = $this->simpleCellText($valueToWrite);
+		$valueToWrite = $this->castCellScalar($valueToWrite);
 		if( $valueToWrite===null ){
 			return ($spanText==='') ? '' : '<table:table-cell'.$spanText.'/>';
 		}
@@ -194,7 +194,7 @@ class Odsx extends Grid {
 			return $openText.' office:value-type="float" office:value="'.$this->writeNumberTxt($valueToWrite).'"><text:p>'.$this->writeNumberTxt($valueToWrite).'</text:p></table:table-cell>';
 		}
 		// A date is written as it is told, with the style that shows it so
-		$dateList = ($writeAsDates && !$isHeaderCell) ? $this->datePartsArray($valueToWrite) : null;
+		$dateList = ($writeAsDates && !$isHeaderCell) ? $this->parseDateParts($valueToWrite) : null;
 		if( $dateList!==null ){
 			$dateText = sprintf('%04d-%02d-%02d', $dateList[0], $dateList[1], $dateList[2]);
 			$timeText = isset($dateList[3]) ? sprintf('%02d:%02d:%02d', $dateList[3], $dateList[4], $dateList[5]) : '';
@@ -203,7 +203,7 @@ class Odsx extends Grid {
 		// A text is written as text, a paragraph for each of its lines: nothing in it is ever run
 		$prgrText = '';
 		foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", $valueToWrite)) as $oneLin){
-			$prgrText .= '<text:p>'.$this->plainToOdfText($oneLin).'</text:p>';
+			$prgrText .= '<text:p>'.$this->castTextForOdf($oneLin).'</text:p>';
 		}
 		return $openText.' office:value-type="string">'.(($valueToWrite==='') ? '' : $prgrText).'</table:table-cell>';
 	}
@@ -216,7 +216,7 @@ class Odsx extends Grid {
 	 * @param String $sourceString The line.
 	 * @return String The line, ready to stand in a paragraph.
 	 */
-	protected function plainToOdfText(String $sourceString): String {
+	protected function castTextForOdf(String $sourceString): String {
 		if( !preg_match('/\t|^ | $| {2}/', $sourceString) ){
 			return $this->escapeXmlValue($sourceString);
 		}

@@ -139,16 +139,16 @@ checkIdentical('chats: what only looks like a list', txtLines("-not a list\n*bol
 // With the rest
 checkIdentical('the whole text, and the sections helper on a text without headings', runCatchThrown(function(){
 	$blckLst = txtRead("One\n\n- a\n- b", 'chats')['items'];
-	return Array(Shape::documentAsText($blckLst), count(Shape::bySectionArray($blckLst)), Shape::bySectionArray($blckLst)[0]['level']);
+	return Array(Shape::getTextOfDcmnt($blckLst), count(Shape::getSectionTree($blckLst)), Shape::getSectionTree($blckLst)[0]['level']);
 }), Array("One\n\na\nb", 1, 0));
 checkIdentical('a text read then written as HTML is harmless', runCatchThrown(function(){
 	return (new Html())->renderDocument((new Text())->parseDataArray("[b]Hi[/b] <script>alert(1)</script> [url=javascript:alert(2)]x[/url]\nnext [url=/a?b=1&c=2]link[/url][quote=Bob]q[/quote]", Array('reads'=>'bbcod')));
 }), "<p><strong>Hi</strong> &lt;script&gt;alert(1)&lt;/script&gt; x<br>\nnext <a href=\"/a?b=1&amp;c=2\">link</a></p>\n<blockquote>q\n<cite>Bob</cite>\n</blockquote>\n");
-checkIdentical('joining spans: empty ones left out, same neighbours made one', Shape::joinSpansArray(Array(Shape::makeASpanArray('a'), Shape::makeASpanArray(''), Shape::makeASpanArray('b'), Shape::makeASpanArray('c', Array('boldFace')), Shape::makeASpanArray('d', Array('boldFace')), Shape::makeASpanArray('e', Array('boldFace'), '/x'), Shape::makeASpanArray('f'))), Array(Shape::makeASpanArray('ab'), Shape::makeASpanArray('cd', Array('boldFace')), Shape::makeASpanArray('e', Array('boldFace'), '/x'), Shape::makeASpanArray('f')));
+checkIdentical('joining spans: empty ones left out, same neighbours made one', Shape::joinSpansArray(Array(Shape::makeSpanOfText('a'), Shape::makeSpanOfText(''), Shape::makeSpanOfText('b'), Shape::makeSpanOfText('c', Array('boldFace')), Shape::makeSpanOfText('d', Array('boldFace')), Shape::makeSpanOfText('e', Array('boldFace'), '/x'), Shape::makeSpanOfText('f'))), Array(Shape::makeSpanOfText('ab'), Shape::makeSpanOfText('cd', Array('boldFace')), Shape::makeSpanOfText('e', Array('boldFace'), '/x'), Shape::makeSpanOfText('f')));
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: text by extension and by content type', Array(get_class(Index::forExtnsParser('txt')), get_class(Index::findTypeParser('text/plain; charset=utf-8')), Index::optionsOfExtns('TXT')), Array('nyu\Data\Parsers\Text', 'nyu\Data\Parsers\Text', Array('reads'=>'plain')));
+checkIdentical('index: text by extension and by content type', Array(get_class(Index::getExtnsParser('txt')), get_class(Index::findTypeParser('text/plain; charset=utf-8')), Index::getOptsForExtn('TXT')), Array('nyu\Data\Parsers\Text', 'nyu\Data\Parsers\Text', Array('reads'=>'plain')));
 checkIdentical('a text file through Dcmnt', runCatchThrown(function(){
 	$docPath = inTemporaryDir('notes.txt');
 	file_put_contents($docPath, "First *line*\n\nSecond");

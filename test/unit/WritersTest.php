@@ -38,17 +38,17 @@ class CountOut implements Writer {
 }
 
 // The index
-checkIdentical('index: the writer of an extension, whatever its case', Array(get_class(Index::forExtnsWriter('html')), get_class(Index::forExtnsWriter('HTM')), get_class(Index::forExtnsWriter('json')), get_class(Index::forExtnsWriter('Jsonl')), get_class(Index::forExtnsWriter('yaml')), get_class(Index::forExtnsWriter('yml')), Index::forExtnsWriter('exe'), Index::forExtnsWriter('')), Array('nyu\Data\Writers\Html', 'nyu\Data\Writers\Html', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Yaml', 'nyu\Data\Writers\Yaml', null, null));
-checkIdentical('index: the options an extension is written with', Array(Index::optionsOfExtns('json'), Index::optionsOfExtns('jsonl'), Index::optionsOfExtns('NDJSON'), Index::optionsOfExtns('exe')), Array(Array(), Array('lines'=>true), Array('lines'=>true), Array()));
-checkIdentical('index: the content type a reply is sent with', Array(Index::contentTypeFor('html'), Index::contentTypeFor('JSON'), Index::contentTypeFor('ndjson'), Index::contentTypeFor('yml'), Index::contentTypeFor('exe')), Array('text/html; charset=utf-8', 'application/json; charset=utf-8', 'application/x-ndjson; charset=utf-8', 'application/yaml; charset=utf-8', ''));
+checkIdentical('index: the writer of an extension, whatever its case', Array(get_class(Index::getExtnsWriter('html')), get_class(Index::getExtnsWriter('HTM')), get_class(Index::getExtnsWriter('json')), get_class(Index::getExtnsWriter('Jsonl')), get_class(Index::getExtnsWriter('yaml')), get_class(Index::getExtnsWriter('yml')), Index::getExtnsWriter('exe'), Index::getExtnsWriter('')), Array('nyu\Data\Writers\Html', 'nyu\Data\Writers\Html', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Json', 'nyu\Data\Writers\Yaml', 'nyu\Data\Writers\Yaml', null, null));
+checkIdentical('index: the options an extension is written with', Array(Index::getOptsForExtn('json'), Index::getOptsForExtn('jsonl'), Index::getOptsForExtn('NDJSON'), Index::getOptsForExtn('exe')), Array(Array(), Array('lines'=>true), Array('lines'=>true), Array()));
+checkIdentical('index: the content type a reply is sent with', Array(Index::getMimeForExtn('html'), Index::getMimeForExtn('JSON'), Index::getMimeForExtn('ndjson'), Index::getMimeForExtn('yml'), Index::getMimeForExtn('exe')), Array('text/html; charset=utf-8', 'application/json; charset=utf-8', 'application/x-ndjson; charset=utf-8', 'application/yaml; charset=utf-8', ''));
 checkIdentical('index: a writer of the application is added, with its options and its content type', runCatchThrown(function(){
 	Index::registerWriter('CNT', '\CountOut', Array('x'=>1), 'text/plain; charset=utf-8');
-	return Array(Index::forExtnsWriter('cnt')->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array(1, 2, 3))), Index::optionsOfExtns('cnt'), Index::contentTypeFor('Cnt'));
+	return Array(Index::getExtnsWriter('cnt')->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array(1, 2, 3))), Index::getOptsForExtn('cnt'), Index::getMimeForExtn('Cnt'));
 }), Array('3', Array('x'=>1), 'text/plain; charset=utf-8'));
 checkIdentical('index: a writer added without content type is sent as bytes; one of this namespace by its short name', runCatchThrown(function(){
 	Index::registerWriter('bin', '\CountOut');
 	Index::registerWriter('page', 'Html', Array('whole'=>true), 'text/html');
-	return Array(Index::contentTypeFor('bin'), get_class(Index::forExtnsWriter('page')), Index::optionsOfExtns('page'));
+	return Array(Index::getMimeForExtn('bin'), get_class(Index::getExtnsWriter('page')), Index::getOptsForExtn('page'));
 }), Array('application/octet-stream', 'nyu\Data\Writers\Html', Array('whole'=>true)));
 checkPregMatch('index: a class that is not a writer is refused', runCatchThrown(function(){ Index::registerWriter('bad', '\stdClass'); }), '/^THROWN RuntimeException: Not a writer: \\\\stdClass/');
 checkPregMatch('index: a class that does not exist is refused', runCatchThrown(function(){ Index::registerWriter('bad', 'Nowhere'); }), '/^THROWN RuntimeException: Not a writer: Nowhere/');
@@ -73,7 +73,7 @@ checkPregMatch('json lines: what is not a list is refused', putVals($jsonObj, Ar
 checkIdentical('json whole: the envelope, with its shape and its details', putVals($jsonObj, Array('a'=>1), Array('whole'=>true)), '{"shape":"nodes","infos":{"docus":1},"items":{"a":1}}');
 checkIdentical('json: any shape is written as its values', Array(
 	putVals($jsonObj, Array(Shape::makeSheetArray('S', Array(Array('a', 1)))), Array(), 'sheet'),
-	putVals($jsonObj, Array(Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray('x', Array('boldFace'))))), Array(), 'block'),
+	putVals($jsonObj, Array(Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText('x', Array('boldFace'))))), Array(), 'block'),
 	putVals($jsonObj, 'just text'), putVals($jsonObj, 42), putVals($jsonObj, null)
 ), Array(
 	'[{"title":"S","attrs":{"shown":true,"merge":[]},"cells":[["a",1]]}]',

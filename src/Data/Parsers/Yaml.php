@@ -42,18 +42,18 @@ class Yaml extends Base {
 	 * @throws ParseError When the content is not valid, or uses a part of YAML that is not read.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$docuList = $this->splitDocuments(str_replace(Array("\r\n", "\r"), "\n", self::recodeTextUtf8($nakedContent)));
+		$docuList = $this->splitDocuments(str_replace(Array("\r\n", "\r"), "\n", self::castTextToUtf8($nakedContent)));
 		$maxDepth = max(1, intval($parseOptions['depth'] ?? 64));
 		$valsList = Array();
 		foreach($docuList as $oneDoc){
 			$this->inputLines = $oneDoc;
 			$this->lineCursor = 0;
 			$docuDict = $this->readNodeAtLine(0, $maxDepth);
-			$leftLine = $this->peekALineArray();
+			$leftLine = $this->findLineToRead();
 			if( $leftLine!==null ){
-				$this->throwYamlError('unexpected content', $leftLine[2]);
+				$this->stopYamlAtLine('unexpected content', $leftLine[2]);
 			}
-			$valsList[] = (!empty($parseOptions['upper']) && is_array($docuDict)) ? $this->upperKeysArray($docuDict) : $docuDict;
+			$valsList[] = (!empty($parseOptions['upper']) && is_array($docuDict)) ? $this->castKeysInCaps($docuDict) : $docuDict;
 			if( empty($parseOptions['multi']) ){
 				break;
 			}
@@ -70,7 +70,7 @@ class Yaml extends Base {
 	 *
 	 * @throws ParseError Always.
 	 */
-	protected function throwYamlError(String $errorMessage, Int $sourceLneNum): Void {
+	protected function stopYamlAtLine(String $errorMessage, Int $sourceLneNum): Void {
 		throw new ParseError('Invalid YAML content: '.$errorMessage.' on line '.$sourceLneNum);
 	}
 
@@ -90,8 +90,8 @@ class Yaml extends Base {
 		$linePart = Array();
 		foreach(explode("\n", $nakedContent) as $linIdx=>$linTxt){
 			$markLine = preg_match('/^(?:---|\.\.\.)(?:[ \t]+(.*))?$/D', $linTxt, $linePart);
-			if( $markLine && $this->trimCommentTxt(strval($linePart[1] ?? ''))!=='' ){
-				$this->throwYamlError('a value on the line of a document mark is not supported', $linIdx+1);
+			if( $markLine && $this->wipeCommentTxt(strval($linePart[1] ?? ''))!=='' ){
+				$this->stopYamlAtLine('a value on the line of a document mark is not supported', $linIdx+1);
 			}
 			if( $markLine ){
 				if( $hasStrng ){
@@ -122,7 +122,7 @@ class Yaml extends Base {
 	 *
 	 * @throws ParseError When the line is indented with a tabulation.
 	 */
-	protected function peekALineArray(): ?Array {
+	protected function findLineToRead(): ?Array {
 		while( isset($this->inputLines[$this->lineCursor]) ){
 			$lineText = $this->inputLines[$this->lineCursor][0];
 			$bareText = ltrim($lineText, ' ');
@@ -131,7 +131,7 @@ class Yaml extends Base {
 				continue;
 			}
 			if( $bareText[0]=="\t" ){
-				$this->throwYamlError('tabulation used to indent', $this->inputLines[$this->lineCursor][1]);
+				$this->stopYamlAtLine('tabulation used to indent', $this->inputLines[$this->lineCursor][1]);
 			}
 			return Array(strlen($lineText)-strlen($bareText), rtrim($bareText), $this->inputLines[$this->lineCursor][1]);
 		}
@@ -145,7 +145,7 @@ class Yaml extends Base {
 	 * @param String $markdownLine The line, or what follows a key on it.
 	 * @return String The line without its comment, nor the spaces around it.
 	 */
-	protected function trimCommentTxt(String $markdownLine): String {
+	protected function wipeCommentTxt(String $markdownLine): String {
 		$quotChar = '';
 		$textSize = strlen($markdownLine);
 		for($posInc=0; $posInc<$textSize; $posInc++){
@@ -177,26 +177,26 @@ class Yaml extends Base {
 	 * @throws ParseError When the content is not valid.
 	 */
 	protected function readNodeAtLine(Int $leastIndtSze, Int $depthsLftNum): Mixed {
-		$nextLine = $this->peekALineArray();
+		$nextLine = $this->findLineToRead();
 		if( $nextLine===null || $nextLine[0]<$leastIndtSze ){
 			return null;
 		}
 		$isDashed = (preg_match('/^-(?:[ \t]|$)/D', $nextLine[1])===1);
 		$isKeyRow = (!$isDashed && preg_match(self::KEYS_PATT, $nextLine[1])===1);
 		if( ($isDashed || $isKeyRow) && $depthsLftNum<1 ){
-			$this->throwYamlError('nested deeper than allowed', $nextLine[2]);
+			$this->stopYamlAtLine('nested deeper than allowed', $nextLine[2]);
 		}
 		if( $isDashed ){
-			return $this->obtainSequence($nextLine[0], $depthsLftNum);
+			return $this->readDashedList($nextLine[0], $depthsLftNum);
 		}
 		if( $isKeyRow ){
-			return $this->readMappingArr($nextLine[0], $depthsLftNum);
+			return $this->readMappingDct($nextLine[0], $depthsLftNum);
 		}
 		if( preg_match('/^\?(?:[ \t]|$)/D', $nextLine[1]) ){
-			$this->throwYamlError('a key that is not plain text is not supported', $nextLine[2]);
+			$this->stopYamlAtLine('a key that is not plain text is not supported', $nextLine[2]);
 		}
 		$this->lineCursor++;
-		return $this->parseLineValue($this->trimCommentTxt($nextLine[1]), $leastIndtSze-1, $nextLine[2], $depthsLftNum);
+		return $this->parseLineValue($this->wipeCommentTxt($nextLine[1]), $leastIndtSze-1, $nextLine[2], $depthsLftNum);
 	}
 
 	/**
@@ -208,14 +208,14 @@ class Yaml extends Base {
 	 *
 	 * @throws ParseError When the content is not valid.
 	 */
-	protected function obtainSequence(Int $blockIndtSze, Int $depthsLftNum): Array {
+	protected function readDashedList(Int $blockIndtSze, Int $depthsLftNum): Array {
 		$sqncVals = Array();
 		$dashPart = Array();
-		while( ($nextLine = $this->peekALineArray())!==null && $nextLine[0]==$blockIndtSze && preg_match('/^-(?:([ \t]+)(.*))?$/Ds', $nextLine[1], $dashPart) ){
-			if( $this->trimCommentTxt(strval($dashPart[2] ?? ''))==='' ){
+		while( ($nextLine = $this->findLineToRead())!==null && $nextLine[0]==$blockIndtSze && preg_match('/^-(?:([ \t]+)(.*))?$/Ds', $nextLine[1], $dashPart) ){
+			if( $this->wipeCommentTxt(strval($dashPart[2] ?? ''))==='' ){
 				// Nothing after the dash: the value is what follows, further in
 				$this->lineCursor++;
-				$peekLine = $this->peekALineArray();
+				$peekLine = $this->findLineToRead();
 				$sqncVals[] = ($peekLine!==null && $peekLine[0]>$blockIndtSze) ? $this->readNodeAtLine($blockIndtSze+1, $depthsLftNum-1) : null;
 				continue;
 			}
@@ -224,7 +224,7 @@ class Yaml extends Base {
 			$sqncVals[] = $this->readNodeAtLine($blockIndtSze+1, $depthsLftNum-1);
 		}
 		if( $nextLine!==null && $nextLine[0]>$blockIndtSze ){
-			$this->throwYamlError('unexpected indentation', $nextLine[2]);
+			$this->stopYamlAtLine('unexpected indentation', $nextLine[2]);
 		}
 		return $sqncVals;
 	}
@@ -238,12 +238,12 @@ class Yaml extends Base {
 	 *
 	 * @throws ParseError When the content is not valid.
 	 */
-	protected function readMappingArr(Int $blockIndtSze, Int $depthsLftNum): Array {
+	protected function readMappingDct(Int $blockIndtSze, Int $depthsLftNum): Array {
 		$mapsList = Array();
 		$keyParte = Array();
-		while( ($nextLine = $this->peekALineArray())!==null && $nextLine[0]==$blockIndtSze ){
+		while( ($nextLine = $this->findLineToRead())!==null && $nextLine[0]==$blockIndtSze ){
 			if( !preg_match(self::KEYS_PATT, $nextLine[1], $keyParte, PREG_UNMATCHED_AS_NULL) ){
-				$this->throwYamlError('a key was expected', $nextLine[2]);
+				$this->stopYamlAtLine('a key was expected', $nextLine[2]);
 			}
 			if( $keyParte[1]!==null ){
 				$keyTitle = $this->unescapeDouble($keyParte[1], $nextLine[2]);
@@ -251,32 +251,32 @@ class Yaml extends Base {
 				$keyTitle = ($keyParte[2]!==null) ? str_replace("''", "'", $keyParte[2]) : rtrim($keyParte[3]);
 			}
 			if( $keyTitle==='<<' ){
-				$this->throwYamlError('merging a map into another is not supported', $nextLine[2]);
+				$this->stopYamlAtLine('merging a map into another is not supported', $nextLine[2]);
 			}
 			if( array_key_exists($keyTitle, $mapsList) ){
-				$this->throwYamlError('key "'.$keyTitle.'" met twice', $nextLine[2]);
+				$this->stopYamlAtLine('key "'.$keyTitle.'" met twice', $nextLine[2]);
 			}
 			$this->lineCursor++;
-			$valueTxt = $this->trimCommentTxt(strval($keyParte[4] ?? ''));
+			$valueTxt = $this->wipeCommentTxt(strval($keyParte[4] ?? ''));
 			if( $valueTxt!=='' ){
 				$mapsList[$keyTitle] = $this->parseLineValue($valueTxt, $blockIndtSze, $nextLine[2], $depthsLftNum-1);
 				continue;
 			}
 			// Nothing after the colon: the value is what follows, further in; a list may stand at the indentation of its key
-			$peekLine = $this->peekALineArray();
+			$peekLine = $this->findLineToRead();
 			if( $peekLine!==null && $peekLine[0]>$blockIndtSze ){
 				$mapsList[$keyTitle] = $this->readNodeAtLine($blockIndtSze+1, $depthsLftNum-1);
 			}elseif( $peekLine!==null && $peekLine[0]==$blockIndtSze && preg_match('/^-(?:[ \t]|$)/D', $peekLine[1]) ){
 				if( $depthsLftNum<2 ){
-					$this->throwYamlError('nested deeper than allowed', $peekLine[2]);
+					$this->stopYamlAtLine('nested deeper than allowed', $peekLine[2]);
 				}
-				$mapsList[$keyTitle] = $this->obtainSequence($blockIndtSze, $depthsLftNum-1);
+				$mapsList[$keyTitle] = $this->readDashedList($blockIndtSze, $depthsLftNum-1);
 			}else{
 				$mapsList[$keyTitle] = null;
 			}
 		}
 		if( $nextLine!==null && $nextLine[0]>$blockIndtSze ){
-			$this->throwYamlError('unexpected indentation', $nextLine[2]);
+			$this->stopYamlAtLine('unexpected indentation', $nextLine[2]);
 		}
 		return $mapsList;
 	}
@@ -297,11 +297,11 @@ class Yaml extends Base {
 		$frstChar = $scalarString[0] ?? '';
 		$valuePar = Array();
 		if( $frstChar=='&' || $frstChar=='*' ){
-			$this->throwYamlError('anchors and aliases are not supported', $sourceLneNum);
+			$this->stopYamlAtLine('anchors and aliases are not supported', $sourceLneNum);
 		}
 		if( $frstChar=='!' ){
 			if( !preg_match('/^!!(str|int|float|bool)[ \t]+(\S.*)$/Ds', $scalarString, $valuePar) ){
-				$this->throwYamlError('tag '.explode(' ', $scalarString)[0].' is not supported', $sourceLneNum);
+				$this->stopYamlAtLine('tag '.explode(' ', $scalarString)[0].' is not supported', $sourceLneNum);
 			}
 			return $this->parseValueText($valuePar[1], $valuePar[2], $sourceLneNum);
 		}
@@ -312,33 +312,33 @@ class Yaml extends Base {
 			$parsePos = 0;
 			$flowVals = $this->readFlowsArray($scalarString, $parsePos, $sourceLneNum, $depthsLftNum);
 			if( trim(substr($scalarString, $parsePos))!=='' ){
-				$this->throwYamlError('unexpected text after a closing bracket', $sourceLneNum);
+				$this->stopYamlAtLine('unexpected text after a closing bracket', $sourceLneNum);
 			}
 			return $flowVals;
 		}
 		if( $frstChar=='"' ){
 			if( !preg_match('/^"((?:[^"\\\\]|\\\\.)*)"$/Ds', $scalarString, $valuePar) ){
-				$this->throwYamlError('quoted text not closed on its line', $sourceLneNum);
+				$this->stopYamlAtLine('quoted text not closed on its line', $sourceLneNum);
 			}
 			return $this->unescapeDouble($valuePar[1], $sourceLneNum);
 		}
 		if( $frstChar=="'" ){
 			if( !preg_match('/^\'((?:[^\']|\'\')*)\'$/D', $scalarString, $valuePar) ){
-				$this->throwYamlError('quoted text not closed on its line', $sourceLneNum);
+				$this->stopYamlAtLine('quoted text not closed on its line', $sourceLneNum);
 			}
 			return str_replace("''", "'", $valuePar[1]);
 		}
 		// A bare value may carry on over the lines that follow it, further in than its key
 		$moreLnes = false;
-		while( ($nextLine = $this->peekALineArray())!==null && $nextLine[0]>$parentIndent ){
+		while( ($nextLine = $this->findLineToRead())!==null && $nextLine[0]>$parentIndent ){
 			if( preg_match(self::KEYS_PATT, $nextLine[1]) || preg_match('/^-(?:[ \t]|$)/D', $nextLine[1]) ){
-				$this->throwYamlError('unexpected indentation', $nextLine[2]);
+				$this->stopYamlAtLine('unexpected indentation', $nextLine[2]);
 			}
-			$scalarString .= ' '.$this->trimCommentTxt($nextLine[1]);
+			$scalarString .= ' '.$this->wipeCommentTxt($nextLine[1]);
 			$moreLnes = true;
 			$this->lineCursor++;
 		}
-		return $moreLnes ? $scalarString : $this->simpleCastText($scalarString);
+		return $moreLnes ? $scalarString : $this->castYamlScalar($scalarString);
 	}
 
 	/**
@@ -348,7 +348,7 @@ class Yaml extends Base {
 	 * @param String $plainValText The value, as written.
 	 * @return String|Int|Float|Bool|Null The value.
 	 */
-	protected function simpleCastText(String $plainValText): String|Int|Float|Bool|Null {
+	protected function castYamlScalar(String $plainValText): String|Int|Float|Bool|Null {
 		if( in_array($plainValText, Array('', '~', 'null', 'Null', 'NULL'), true) ){
 			return null;
 		}
@@ -393,7 +393,7 @@ class Yaml extends Base {
 		}elseif( preg_match('/^\'((?:[^\']|\'\')*)\'$/D', $scalarString, $valuePar) ){
 			$bareText = str_replace("''", "'", $valuePar[1]);
 		}elseif( strpos('[{&*!|>"\'', $scalarString[0])!==false ){
-			$this->throwYamlError('a cast applies to a single value', $sourceLneNum);
+			$this->stopYamlAtLine('a cast applies to a single value', $sourceLneNum);
 		}else{
 			$bareText = $scalarString;
 		}
@@ -409,7 +409,7 @@ class Yaml extends Base {
 		if( $castTypeName=='bool' && in_array(strtolower($bareText), Array('true', 'false')) ){
 			return (strtolower($bareText)=='true');
 		}
-		$this->throwYamlError('"'.$bareText.'" cannot be read as '.$castTypeName, $sourceLneNum);
+		$this->stopYamlAtLine('"'.$bareText.'" cannot be read as '.$castTypeName, $sourceLneNum);
 	}
 
 	/**
@@ -427,12 +427,12 @@ class Yaml extends Base {
 			if( strlen($escpText)>1 && strpos('xuU', $escpText[0])!==false ){
 				$charText = @iconv('UCS-4BE', 'UTF-8', pack('N', hexdec(substr($escpText, 1))));
 				if( $charText===false ){
-					$this->throwYamlError('\\'.$escpText.' is not a character', $sourceLneNum);
+					$this->stopYamlAtLine('\\'.$escpText.' is not a character', $sourceLneNum);
 				}
 				return $charText;
 			}
 			if( !isset(self::ESCP_LIST[$escpText]) ){
-				$this->throwYamlError('\\'.$escpText.' is not a known escape', $sourceLneNum);
+				$this->stopYamlAtLine('\\'.$escpText.' is not a known escape', $sourceLneNum);
 			}
 			return self::ESCP_LIST[$escpText];
 		}, $quotedString);
@@ -456,7 +456,7 @@ class Yaml extends Base {
 		$flowPart = Array();
 		if( $frstChar=='[' || $frstChar=='{' ){
 			if( $depthsLftNum<1 ){
-				$this->throwYamlError('nested deeper than allowed', $sourceLneNum);
+				$this->stopYamlAtLine('nested deeper than allowed', $sourceLneNum);
 			}
 			$endChrct = ($frstChar=='[') ? ']' : '}';
 			$flowVals = Array();
@@ -468,19 +468,19 @@ class Yaml extends Base {
 					return $flowVals;
 				}
 				if( !isset($streamString[$streamOffset]) ){
-					$this->throwYamlError('bracket not closed on its line', $sourceLneNum);
+					$this->stopYamlAtLine('bracket not closed on its line', $sourceLneNum);
 				}
 				if( $frstChar=='[' ){
 					$flowVals[] = $this->readFlowsArray($streamString, $streamOffset, $sourceLneNum, $depthsLftNum-1);
 				}else{
 					// A key: quoted, or bare up to its colon
 					if( preg_match('/\G(?:"((?:[^"\\\\]|\\\\.)*)"|\'((?:[^\']|\'\')*)\'|([^,:{}\[\]"\'&*!]+))[ \t]*/s', $streamString, $flowPart, PREG_UNMATCHED_AS_NULL, $streamOffset)!==1 ){
-						$this->throwYamlError('a key was expected between braces', $sourceLneNum);
+						$this->stopYamlAtLine('a key was expected between braces', $sourceLneNum);
 					}
 					$streamOffset += strlen($flowPart[0]);
 					$keyTitle = ($flowPart[1]!==null) ? $this->unescapeDouble($flowPart[1], $sourceLneNum) : (($flowPart[2]!==null) ? str_replace("''", "'", $flowPart[2]) : trim($flowPart[3]));
 					if( array_key_exists($keyTitle, $flowVals) ){
-						$this->throwYamlError('key "'.$keyTitle.'" met twice', $sourceLneNum);
+						$this->stopYamlAtLine('key "'.$keyTitle.'" met twice', $sourceLneNum);
 					}
 					$flowVals[$keyTitle] = null;
 					if( ($streamString[$streamOffset] ?? '')==':' ){
@@ -496,34 +496,34 @@ class Yaml extends Base {
 				if( $nextChar==',' ){
 					$streamOffset++;
 				}elseif( $nextChar!==$endChrct ){
-					$this->throwYamlError('bracket not closed on its line', $sourceLneNum);
+					$this->stopYamlAtLine('bracket not closed on its line', $sourceLneNum);
 				}
 			}
 		}
 		if( $frstChar=='"' || $frstChar=="'" ){
 			if( preg_match('/\G(?:"((?:[^"\\\\]|\\\\.)*)"|\'((?:[^\']|\'\')*)\')/s', $streamString, $flowPart, PREG_UNMATCHED_AS_NULL, $streamOffset)!==1 ){
-				$this->throwYamlError('quoted text not closed on its line', $sourceLneNum);
+				$this->stopYamlAtLine('quoted text not closed on its line', $sourceLneNum);
 			}
 			$streamOffset += strlen($flowPart[0]);
 			return ($flowPart[1]!==null) ? $this->unescapeDouble($flowPart[1], $sourceLneNum) : str_replace("''", "'", $flowPart[2]);
 		}
 		if( $frstChar=='&' || $frstChar=='*' ){
-			$this->throwYamlError('anchors and aliases are not supported', $sourceLneNum);
+			$this->stopYamlAtLine('anchors and aliases are not supported', $sourceLneNum);
 		}
 		if( $frstChar=='!' ){
-			$this->throwYamlError('a tag between brackets is not supported', $sourceLneNum);
+			$this->stopYamlAtLine('a tag between brackets is not supported', $sourceLneNum);
 		}
 		// A bare value: up to the comma or the bracket that follows it
 		preg_match('/\G[^,\[\]{}]*/', $streamString, $flowPart, 0, $streamOffset);
 		$bareText = trim($flowPart[0]);
 		if( $bareText==='' ){
-			$this->throwYamlError('a value was expected between brackets', $sourceLneNum);
+			$this->stopYamlAtLine('a value was expected between brackets', $sourceLneNum);
 		}
 		if( preg_match('/:(?:[ \t]|$)/D', $bareText) ){
-			$this->throwYamlError('a key and its value inside a list need their own braces', $sourceLneNum);
+			$this->stopYamlAtLine('a key and its value inside a list need their own braces', $sourceLneNum);
 		}
 		$streamOffset += strlen($flowPart[0]);
-		return $this->simpleCastText($bareText);
+		return $this->castYamlScalar($bareText);
 	}
 
 	/**
@@ -542,7 +542,7 @@ class Yaml extends Base {
 	protected function readMultiLines(String $textOfHeader, Int $parentIndent, Int $sourceLneNum): String {
 		$headPart = Array();
 		if( !preg_match('/^([|>])(?:([+\-])([1-9])?|([1-9])([+\-])?)?$/D', $textOfHeader, $headPart, PREG_UNMATCHED_AS_NULL) ){
-			$this->throwYamlError('unknown mark "'.$textOfHeader.'" for a text over several lines', $sourceLneNum);
+			$this->stopYamlAtLine('unknown mark "'.$textOfHeader.'" for a text over several lines', $sourceLneNum);
 		}
 		$chmpCode = strval($headPart[2] ?? $headPart[5] ?? '');
 		$digitTxt = strval($headPart[3] ?? $headPart[4] ?? '');

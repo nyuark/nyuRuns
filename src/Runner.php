@@ -194,7 +194,7 @@ class Runner{
 		// Plug the program that unpacks sounds, where the server has one
 		$soundCfg = $this->confLoader->findSoundConfg();
 		if( $soundCfg['tool']!=='' ){
-			\nyu\Data\Sound::plugSoundCodec( $ctnrInst->makeObjOfClass('nyu\\Data\\Codec', array(), Array($soundCfg['tool'], $soundCfg['time'])) );
+			\nyu\Data\Sound::loadSoundCodec( $ctnrInst->makeObjOfClass('nyu\\Data\\Codec', array(), Array($soundCfg['tool'], $soundCfg['time'])) );
 		}
 
 		$this->objBuilder = $ctnrInst;

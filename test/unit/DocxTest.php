@@ -167,13 +167,13 @@ checkIdentical('a document saved by Word: its paragraphs with their style, its p
 		'frmat'=>Array('Normal'=>Array('class'=>'normal', 'fonts'=>'Calibri', 'sizes'=>11)), 'phead'=>Array(), 'pfoot'=>Array()
 	),
 	'items'=>array_map(function($textString){
-		return ($textString==='') ? Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true)) : Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray($textString)), Array(), Array('style'=>'Normal'));
+		return ($textString==='') ? Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true)) : Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText($textString)), Array(), Array('style'=>'Normal'));
 	}, Array('I am a test document', 'This is page 1', 'I am Calibri (Body) in font size 11', '', 'This is page two', 'It’s Arial Black in 16 point', 'It’s also in blue'))
 ));
 checkIdentical('headings by their style, the runs of a paragraph joined into one text, and the styles used, with the font of the theme', runCatchThrown(function() use ($offcDir){
 	$envlope = docRead($offcDir.'heading123.docx');
 	$blckLst = $envlope['items'];
-	return Array(array_column($blckLst, 'block'), array_column(array_column($blckLst, 'attrs'), 'style'), $blckLst[0]['attrs'], count($blckLst[1]['spans']), substr($blckLst[1]['plain'], 0, 30), Shape::bySectionArray($blckLst)[0]['nodes'][0]['nodes'][0]['title'], $envlope['infos']['frmat']);
+	return Array(array_column($blckLst, 'block'), array_column(array_column($blckLst, 'attrs'), 'style'), $blckLst[0]['attrs'], count($blckLst[1]['spans']), substr($blckLst[1]['plain'], 0, 30), Shape::getSectionTree($blckLst)[0]['nodes'][0]['nodes'][0]['title'], $envlope['infos']['frmat']);
 }), Array(
 	Array('headline', 'paragrph', 'headline', 'paragrph', 'headline', 'paragrph'), Array('heading 1', 'Normal', 'heading 2', 'Normal (Web)', 'heading 3', 'Normal (Web)'), Array('level'=>1, 'style'=>'heading 1'), 1, 'FffLorem ipsum dolor sit amet,', 'Third paragraph',
 	Array(
@@ -448,7 +448,7 @@ checkIdentical('one parser, several documents: a field, a note, a comment or an 
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index, Dcmnt and the HTML writer
-checkIdentical('index: documents by extension and by content type', Array(get_class(Index::forExtnsParser('DOCX')), get_class(Index::findTypeParser('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))), Array('nyu\Data\Parsers\Docx', 'nyu\Data\Parsers\Docx'));
+checkIdentical('index: documents by extension and by content type', Array(get_class(Index::getExtnsParser('DOCX')), get_class(Index::findTypeParser('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))), Array('nyu\Data\Parsers\Docx', 'nyu\Data\Parsers\Docx'));
 checkIdentical('a document through Dcmnt', runCatchThrown(function() use ($offcDir){
 	$docFile = new Dcmnt($offcDir.'heading123.docx');
 	return Array($docFile->readFileDetail('sig'), $docFile->readFileDetail('shp'), $docFile->readFileDetail('inf')['authr'], $docFile->readFileDetail()[2]['plain']);

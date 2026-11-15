@@ -44,16 +44,16 @@ class Xlsx extends Pack {
 	protected function readArchvArray(Array $parseOptions): Array {
 		// The archive says where its workbook is; it is in xl/workbook.xml unless told otherwise
 		$bookPath = 'xl/workbook.xml';
-		foreach($this->relsOfFragment('') as $relSet){
+		foreach($this->readRltnOfPart('') as $relSet){
 			if( substr($relSet['types'], -15)=='/officeDocument' ){
 				$bookPath = $relSet['paths'];
 			}
 		}
-		$bookList = $this->partNodesArray($bookPath);
+		$bookList = $this->readPartAsTree($bookPath);
 		if( $bookList===null ){
 			throw new ParseError('Invalid archive: part '.$bookPath.' is empty');
 		}
-		$bookRltn = $this->relsOfFragment($bookPath);
+		$bookRltn = $this->readRltnOfPart($bookPath);
 		$this->sharedText = Array();
 		$this->dateStyles = Array();
 		$this->addedCells = 0;
@@ -68,7 +68,7 @@ class Xlsx extends Pack {
 		$nameList = Array();
 		$pathList = Array();
 		$shownLst = Array();
-		foreach($this->kidsNamedArray($this->findChildArray($bookList, Array('sheets')) ?? Array('nodes'=>Array()), 'sheet') as $shtArr){
+		foreach($this->listNamedNodes($this->findChildArray($bookList, Array('sheets')) ?? Array('nodes'=>Array()), 'sheet') as $shtArr){
 			$sheetRel = '';
 			foreach($shtArr['attrs'] as $atrNme=>$atrVal){
 				// The id of the relation, whatever prefix the workbook gives it
@@ -83,11 +83,11 @@ class Xlsx extends Pack {
 		}
 		$sheetLst = Array();
 		$headDict = Array();
-		foreach($this->pickSheetArray($nameList, $shownLst, $parseOptions) as $shtIdx){
+		foreach($this->findSheetArray($nameList, $shownLst, $parseOptions) as $shtIdx){
 			$mergeLst = Array();
 			$headList = Array();
-			$rowsList = $this->sheetRowsArray($pathList[$shtIdx], $mergeLst);
-			$sheetLst[] = $this->doneSheetArray($nameList[$shtIdx], $rowsList, Array('shown'=>$shownLst[$shtIdx], 'merge'=>$mergeLst), $parseOptions, $headList);
+			$rowsList = $this->readSheetCells($pathList[$shtIdx], $mergeLst);
+			$sheetLst[] = $this->makeFinalSheet($nameList[$shtIdx], $rowsList, Array('shown'=>$shownLst[$shtIdx], 'merge'=>$mergeLst), $parseOptions, $headList);
 			if( !empty($parseOptions['heads']) ){
 				$headDict[$nameList[$shtIdx]] = $headList;
 			}
@@ -102,8 +102,8 @@ class Xlsx extends Pack {
 	 * @param String $fullPathName Name of the part holding them.
 	 */
 	protected function loadSharedText(String $fullPathName): Void {
-		foreach($this->kidsNamedArray($this->partNodesArray($fullPathName, false) ?? Array('nodes'=>Array()), 'si') as $txtArr){
-			$this->sharedText[] = $this->textOfRichCell($txtArr);
+		foreach($this->listNamedNodes($this->readPartAsTree($fullPathName, false) ?? Array('nodes'=>Array()), 'si') as $txtArr){
+			$this->sharedText[] = $this->getRichCellTxt($txtArr);
 		}
 	}
 
@@ -114,14 +114,14 @@ class Xlsx extends Pack {
 	 * @param Array $elementArray The element holding the text.
 	 * @return String The text.
 	 */
-	protected function textOfRichCell(Array $elementArray): String {
+	protected function getRichCellTxt(Array $elementArray): String {
 		$fullText = '';
 		foreach($elementArray['nodes'] as $chlArr){
 			$childNme = substr($chlArr['tagnm'], intval(strrpos(':'.$chlArr['tagnm'], ':')));
 			if( $childNme=='t' ){
-				$fullText .= $this->collectAllText($chlArr);
+				$fullText .= $this->readNestedText($chlArr);
 			}elseif( $childNme=='r' ){
-				$fullText .= $this->textOfRichCell($chlArr);
+				$fullText .= $this->getRichCellTxt($chlArr);
 			}
 		}
 		return $fullText;
@@ -134,17 +134,17 @@ class Xlsx extends Pack {
 	 * @param String $fullPathName Name of the part holding the styles.
 	 */
 	protected function findDateStyles(String $fullPathName): Void {
-		$styleLst = $this->partNodesArray($fullPathName, false);
+		$styleLst = $this->readPartAsTree($fullPathName, false);
 		if( $styleLst===null ){
 			return;
 		}
 		// The formats the workbook defines itself: a date when they hold a letter of date or time
 		$ownFrmts = Array();
-		foreach($this->kidsNamedArray($this->findChildArray($styleLst, Array('numFmts')) ?? Array('nodes'=>Array()), 'numFmt') as $oneFmt){
+		foreach($this->listNamedNodes($this->findChildArray($styleLst, Array('numFmts')) ?? Array('nodes'=>Array()), 'numFmt') as $oneFmt){
 			$bareFrmt = preg_replace('/"[^"]*"|\[[^\]]*\]|\\\\./', '', strval($oneFmt['attrs']['formatCode'] ?? ''));
 			$ownFrmts[intval($oneFmt['attrs']['numFmtId'] ?? -1)] = (stripos($bareFrmt, 'General')===false && preg_match('/[dmyhs]/i', $bareFrmt)===1);
 		}
-		foreach($this->kidsNamedArray($this->findChildArray($styleLst, Array('cellXfs')) ?? Array('nodes'=>Array()), 'xf') as $xfIndx=>$xfsArr){
+		foreach($this->listNamedNodes($this->findChildArray($styleLst, Array('cellXfs')) ?? Array('nodes'=>Array()), 'xf') as $xfIndx=>$xfsArr){
 			$stylIdnt = intval($xfsArr['attrs']['numFmtId'] ?? 0);
 			$this->dateStyles[$xfIndx] = ($ownFrmts[$stylIdnt] ?? in_array($stylIdnt, self::DATE_FRMT));
 		}
@@ -156,7 +156,7 @@ class Xlsx extends Pack {
 	 * @param String $cellLocation The place, as 'B4' or 'AA10'.
 	 * @return Array The column and the row, both starting from 0; -1 for what the place does not tell.
 	 */
-	protected function placeOfItArray(String $cellLocation): Array {
+	protected function parseCellPlace(String $cellLocation): Array {
 		$placePar = Array();
 		if( !preg_match('/^\$?([A-Za-z]{1,3})\$?(\d{1,7})$/D', $cellLocation, $placePar) ){
 			return Array(-1, -1);
@@ -175,7 +175,7 @@ class Xlsx extends Pack {
 	 * @param Float $daysAsNumber The number of days, as the workbook keeps it.
 	 * @return String The date, as '2026-12-28', '2026-12-28 20:30:00' or '20:30:00'.
 	 */
-	protected function serialToIsoTxt(Float $daysAsNumber): String {
+	protected function castSerialDate(Float $daysAsNumber): String {
 		$secsNumb = intval(round(($daysAsNumber-floor($daysAsNumber))*86400));
 		$daysNumb = intval(floor($daysAsNumber))+($this->is1904Base ? 1462 : 0);
 		if( $secsNumb>=86400 ){
@@ -197,17 +197,17 @@ class Xlsx extends Pack {
 	 * @param Array $elementArray The element of the cell.
 	 * @return String|Int|Float|Bool|Null The value; null for an empty cell.
 	 */
-	protected function typedCellValue(Array $elementArray): String|Int|Float|Bool|Null {
+	protected function getTypedCelVal(Array $elementArray): String|Int|Float|Bool|Null {
 		$cellCode = strval($elementArray['attrs']['t'] ?? 'n');
 		if( $cellCode=='inlineStr' ){
 			$inlnList = $this->findChildArray($elementArray, Array('is'));
-			return ($inlnList===null) ? null : $this->textOfRichCell($inlnList);
+			return ($inlnList===null) ? null : $this->getRichCellTxt($inlnList);
 		}
 		$valueLst = $this->findChildArray($elementArray, Array('v'));
 		if( $valueLst===null ){
 			return null;
 		}
-		$rawValue = $this->collectAllText($valueLst);
+		$rawValue = $this->readNestedText($valueLst);
 		if( $cellCode=='s' ){
 			return $this->sharedText[intval($rawValue)] ?? '';
 		}
@@ -222,7 +222,7 @@ class Xlsx extends Pack {
 			return ($rawValue==='') ? null : $rawValue;
 		}
 		if( !empty($this->dateStyles[intval($elementArray['attrs']['s'] ?? 0)]) ){
-			return $this->serialToIsoTxt(floatval($rawValue));
+			return $this->castSerialDate(floatval($rawValue));
 		}
 		return preg_match('/^-?\d{1,18}$/D', $rawValue) ? intval($rawValue) : floatval($rawValue);
 	}
@@ -238,24 +238,24 @@ class Xlsx extends Pack {
 	 *
 	 * @throws ParseError When the worksheet is missing, or too sparse to be laid out.
 	 */
-	protected function sheetRowsArray(String $fullPathName, Array &$mergedRanges): Array {
-		$sheetLst = $this->partNodesArray($fullPathName);
+	protected function readSheetCells(String $fullPathName, Array &$mergedRanges): Array {
+		$sheetLst = $this->readPartAsTree($fullPathName);
 		$rowsList = Array();
 		$mergedRanges = Array();
-		foreach($this->kidsNamedArray($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('mergeCells')) ?? Array('nodes'=>Array()), 'mergeCell') as $mrgArr){
+		foreach($this->listNamedNodes($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('mergeCells')) ?? Array('nodes'=>Array()), 'mergeCell') as $mrgArr){
 			$areaPart = explode(':', strval($mrgArr['attrs']['ref'] ?? '')) + Array('', '');
-			$firstPlc = $this->placeOfItArray($areaPart[0]);
-			$lastPlce = $this->placeOfItArray($areaPart[1]);
+			$firstPlc = $this->parseCellPlace($areaPart[0]);
+			$lastPlce = $this->parseCellPlace($areaPart[1]);
 			if( $firstPlc[0]>=0 && $lastPlce[0]>=$firstPlc[0] && $lastPlce[1]>=$firstPlc[1] ){
 				$mergedRanges[] = Array('atrow'=>$firstPlc[1], 'atcol'=>$firstPlc[0], 'rowsp'=>$lastPlce[1]-$firstPlc[1]+1, 'colsp'=>$lastPlce[0]-$firstPlc[0]+1);
 			}
 		}
-		foreach($this->kidsNamedArray($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('sheetData')) ?? Array('nodes'=>Array()), 'row') as $rowArr){
+		foreach($this->listNamedNodes($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('sheetData')) ?? Array('nodes'=>Array()), 'row') as $rowArr){
 			// A row tells its number, or follows the one before it
 			$rowIndex = preg_match('/^[1-9]\d{0,6}$/D', strval($rowArr['attrs']['r'] ?? '')) ? intval($rowArr['attrs']['r'])-1 : count($rowsList);
 			$cellList = Array();
-			foreach($this->kidsNamedArray($rowArr, 'c') as $celArr){
-				$clmnIndx = $this->placeOfItArray(strval($celArr['attrs']['r'] ?? ''))[0];
+			foreach($this->listNamedNodes($rowArr, 'c') as $celArr){
+				$clmnIndx = $this->parseCellPlace(strval($celArr['attrs']['r'] ?? ''))[0];
 				if( $clmnIndx<count($cellList) ){
 					$clmnIndx = count($cellList);
 				}
@@ -264,7 +264,7 @@ class Xlsx extends Pack {
 					throw new ParseError('Invalid workbook: a sheet too sparse to be laid out');
 				}
 				$cellList = array_pad($cellList, $clmnIndx, null);
-				$cellList[] = $this->typedCellValue($celArr);
+				$cellList[] = $this->getTypedCelVal($celArr);
 			}
 			// The cells left empty at the end of a row are not part of it
 			while( !empty($cellList) && end($cellList)===null ){

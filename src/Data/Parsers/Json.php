@@ -24,7 +24,7 @@ class Json extends Base {
 	 * @throws ParseError When the content is not valid JSON.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$jsonText = self::recodeTextUtf8($nakedContent);
+		$jsonText = self::castTextToUtf8($nakedContent);
 		$maxDepth = max(1, intval($parseOptions['depth'] ?? 512));
 		if( !empty($parseOptions['cmnts']) ){
 			$keptLnes = Array();
@@ -51,7 +51,7 @@ class Json extends Base {
 			$jsonVals = $this->parseJsonValue($jsonText, $maxDepth, '');
 		}
 		if( !empty($parseOptions['upper']) && is_array($jsonVals) ){
-			$jsonVals = $this->upperKeysArray($jsonVals);
+			$jsonVals = $this->castKeysInCaps($jsonVals);
 		}
 		return $this->makeShapeArray('nodes', $jsonVals);
 	}

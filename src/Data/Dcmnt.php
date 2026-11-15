@@ -36,7 +36,7 @@ class Dcmnt{
 		$namePart = pathinfo($this->nameOfFile);
 		$this->plainTitle = strval($namePart['filename'] ?? '');
 		$this->fileSuffix = strtolower(strval($namePart['extension'] ?? ''));
-		$this->headerType = Parsers\Bina::detectFileKind($this->fileSource->getRangeString(0, 511));
+		$this->headerType = Parsers\Bina::findContentCod($this->fileSource->getRangeString(0, 511));
 		if( $this->fileSuffix=='' && $this->headerType!='' ){
 			$this->fileSuffix = $this->headerType;
 		}
@@ -57,17 +57,17 @@ class Dcmnt{
 		$this->latestData = Array();
 		$this->finalShape = '';
 		$this->dataDetail = Array();
-		$prsrInst = Parsers\Index::forExtnsParser($extensionTxt);
+		$prsrInst = Parsers\Index::getExtnsParser($extensionTxt);
 		if( $prsrInst===null ){
 			return;
 		}
 		// A parser tells the kinds of content it reads: a content that is plainly something else is refused
-		$kindList = ($prsrInst instanceof Parsers\Base) ? $prsrInst->signsReadArray() : Parsers\Bina::TEXT_LIST;
+		$kindList = ($prsrInst instanceof Parsers\Base) ? $prsrInst->listContentCod() : Parsers\Bina::TEXT_LIST;
 		if( $this->headerType!='' && !in_array($this->headerType, $kindList) ){
 			throw new Parsers\ParseError($this->nameOfFile.': the content is not what the name announces');
 		}
 		try{
-			$envelope = $prsrInst->parseFluxArray( $this->fileSource, Array('upper'=>$upperTopKeys) + Parsers\Index::optionsOfExtns($extensionTxt) );
+			$envelope = $prsrInst->parseFluxArray( $this->fileSource, Array('upper'=>$upperTopKeys) + Parsers\Index::getOptsForExtn($extensionTxt) );
 		}catch( Parsers\ParseError $e ){
 			throw new Parsers\ParseError($this->nameOfFile.': '.$e->getMessage(), 0, $e);
 		}

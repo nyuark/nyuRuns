@@ -27,7 +27,7 @@ trait PlayedBase {
 	public function readLastResult( Bool $keepAsList=false ): Mixed {
 		return array_shift($this->answrSet);
 	}
-	public function finalAddedText(): String|Bool {
+	public function getLastAddedId(): String|Bool {
 		return '3';
 	}
 }
@@ -64,14 +64,14 @@ function blobStrm( String $rawContent ): Mixed {
 $rawBlob = "\x00\x01\xFF\xFEbinary\x00end";
 
 // Written as text
-checkIdentical('a flux in a value is given as null, at any depth', Fluxd::nullifySources(Array('name'=>'One', 'file'=>Fluxd::openBytesFluxd($rawBlob), 'more'=>Array(Array('pict'=>Fluxd::openBytesFluxd('x'), 'size'=>3)), 'none'=>null)), Array('name'=>'One', 'file'=>null, 'more'=>Array(Array('pict'=>null, 'size'=>3)), 'none'=>null));
-checkIdentical('a flux alone, and what is not one', Array(Fluxd::nullifySources(Fluxd::openBytesFluxd('x')), Fluxd::nullifySources('text'), Fluxd::nullifySources(12)), Array(null, 'text', 12));
+checkIdentical('a flux in a value is given as null, at any depth', Fluxd::dropAllSources(Array('name'=>'One', 'file'=>Fluxd::openBytesFluxd($rawBlob), 'more'=>Array(Array('pict'=>Fluxd::openBytesFluxd('x'), 'size'=>3)), 'none'=>null)), Array('name'=>'One', 'file'=>null, 'more'=>Array(Array('pict'=>null, 'size'=>3)), 'none'=>null));
+checkIdentical('a flux alone, and what is not one', Array(Fluxd::dropAllSources(Fluxd::openBytesFluxd('x')), Fluxd::dropAllSources('text'), Fluxd::dropAllSources(12)), Array(null, 'text', 12));
 checkIdentical('the JSON writer gives null for a binary value', (new Json())->renderDocument(Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>Array('name'=>'One', 'file'=>Fluxd::openBytesFluxd($rawBlob)))), '{"name":"One","file":null}');
 
 // PostgreSQL: its catalogue tells the binary fields, and it gives them as streams
 $pgsHndl = new PlayedPgs();
 $pgsHndl->answrSet = Array(Array(Array('name'=>'id_track', 'pk'=>true, 'type'=>'integer'), Array('name'=>'trckName', 'pk'=>false, 'type'=>'character varying'), Array('name'=>'fileData', 'pk'=>false, 'type'=>'bytea')));
-checkIdentical('PostgreSQL: the binary fields of a table', $pgsHndl->tableInfoArray('tracks'), Array('flds'=>Array('id_track', 'trckName', 'fileData'), 'pkey'=>'id_track', 'blob'=>Array('fileData')));
+checkIdentical('PostgreSQL: the binary fields of a table', $pgsHndl->getInfoOfTable('tracks'), Array('flds'=>Array('id_track', 'trckName', 'fileData'), 'pkey'=>'id_track', 'blob'=>Array('fileData')));
 checkPregMatch('PostgreSQL: the catalogue is asked for the type of each field', $pgsHndl->sentList[0][0], '/format_type\(a\.atttypid, NULL\) AS type/');
 $pgsHndl = new PlayedPgs();
 $pgsStor = new SqlStore($pgsHndl);
@@ -98,7 +98,7 @@ $mysHndl->answrSet = Array(Array(
 	Array('Field'=>'fileData', 'Type'=>'longblob', 'Key'=>''), Array('Field'=>'thumbPic', 'Type'=>'BLOB', 'Key'=>''), Array('Field'=>'hashCode', 'Type'=>'binary(16)', 'Key'=>''),
 	Array('Field'=>'bearerHash', 'Type'=>'varbinary(64)', 'Key'=>''), Array('Field'=>'tinyData', 'Type'=>'tinyblob', 'Key'=>''), Array('Field'=>'midlData', 'Type'=>'mediumblob', 'Key'=>'')
 ));
-checkIdentical('MySQL: the binary fields of a table', $mysHndl->tableInfoArray('tracks')['blob'], Array('fileData', 'thumbPic', 'hashCode', 'bearerHash', 'tinyData', 'midlData'));
+checkIdentical('MySQL: the binary fields of a table', $mysHndl->getInfoOfTable('tracks')['blob'], Array('fileData', 'thumbPic', 'hashCode', 'bearerHash', 'tinyData', 'midlData'));
 $mysHndl = new PlayedMys();
 $mysStor = new SqlStore($mysHndl);
 $mysHndl->answrSet = Array(
@@ -115,14 +115,14 @@ if( !class_exists('\\MongoDB\\BSON\\Binary') ){
 	recordSkipping('MongoDB: binary values', 'the mongodb extension is not loaded');
 	finishChecking();
 }
-$sentArr = MongoStore::blobsSentArray(Array('trckName'=>'One', 'fileData'=>Fluxd::openBytesFluxd($rawBlob), 'seats'=>3, 'none'=>null));
+$sentArr = MongoStore::castBlobsForDb(Array('trckName'=>'One', 'fileData'=>Fluxd::openBytesFluxd($rawBlob), 'seats'=>3, 'none'=>null));
 checkIdentical('MongoDB: a flux is written as a binary value', Array(get_class($sentArr['fileData']), $sentArr['fileData']->getData()===$rawBlob, $sentArr['fileData']->getType(), $sentArr['trckName'], $sentArr['seats'], $sentArr['none']), Array('MongoDB\\BSON\\Binary', true, 0, 'One', 3, null));
-checkPregMatch('MongoDB: a flux larger than a document may hold is refused', runCatchThrown(function(){ return MongoStore::blobsSentArray(Array('fileData'=>Fluxd::openBytesFluxd(str_repeat('x', MongoStore::BLOB_MAXI+1)))); }), '/^THROWN RuntimeException: Content larger than the 15728640 bytes allowed/');
+checkPregMatch('MongoDB: a flux larger than a document may hold is refused', runCatchThrown(function(){ return MongoStore::castBlobsForDb(Array('fileData'=>Fluxd::openBytesFluxd(str_repeat('x', MongoStore::BLOB_MAXI+1)))); }), '/^THROWN RuntimeException: Content larger than the 15728640 bytes allowed/');
 $readRow = Array('_id'=>'key1', 'trckName'=>'One', 'fileData'=>$sentArr['fileData'], 'thumbPic'=>$sentArr['fileData']);
-checkIdentical('MongoDB: a reading that names no field leaves the binary values out', MongoStore::blobsReadArray($readRow, Array(), MongoStore::BLOB_SIZE), Array('_id'=>'key1', 'trckName'=>'One'));
-$namdRow = MongoStore::blobsReadArray($readRow, Array('trckName', 'fileData'), MongoStore::BLOB_SIZE);
+checkIdentical('MongoDB: a reading that names no field leaves the binary values out', MongoStore::getBlobsAsFlux($readRow, Array(), MongoStore::BLOB_SIZE), Array('_id'=>'key1', 'trckName'=>'One'));
+$namdRow = MongoStore::getBlobsAsFlux($readRow, Array('trckName', 'fileData'), MongoStore::BLOB_SIZE);
 checkIdentical('MongoDB: a binary value named is read as a flux', Array(array_keys($namdRow), blobSeen($namdRow['fileData'])), Array(Array('_id', 'trckName', 'fileData'), 'FLUXD '.$rawBlob));
-checkPregMatch('MongoDB: a binary value larger than accepted is refused', runCatchThrown(function() use ($readRow){ return MongoStore::blobsReadArray($readRow, Array('fileData'), 5); }), '/^THROWN RuntimeException: Binary field larger than the 5 bytes allowed: fileData/');
-checkIdentical('MongoDB: the description of a table tells no binary field', (new ReflectionClass('nyu\\Data\\DBStore\\MongoStore'))->newInstanceWithoutConstructor()->tableInfoArray('tracks'), Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array()));
+checkPregMatch('MongoDB: a binary value larger than accepted is refused', runCatchThrown(function() use ($readRow){ return MongoStore::getBlobsAsFlux($readRow, Array('fileData'), 5); }), '/^THROWN RuntimeException: Binary field larger than the 5 bytes allowed: fileData/');
+checkIdentical('MongoDB: the description of a table tells no binary field', (new ReflectionClass('nyu\\Data\\DBStore\\MongoStore'))->newInstanceWithoutConstructor()->getInfoOfTable('tracks'), Array('flds'=>Array(), 'pkey'=>'_id', 'blob'=>Array()));
 
 finishChecking();

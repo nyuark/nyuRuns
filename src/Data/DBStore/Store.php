@@ -20,7 +20,7 @@ interface Store{
 
 	// Greatest size read from a binary field unless told otherwise: 16 MB
 	const BLOB_SIZE = 16777216;
-	// The functions a list may select (see DBLst::pickReadFields): aggregates every SQL database reads the same way
+	// The functions a list may select (see DBLst::setReadColumns): aggregates every SQL database reads the same way
 	const FUNC_LIST = Array('count', 'min', 'max', 'sum', 'avg');
 
 	/**
@@ -42,7 +42,7 @@ interface Store{
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool;
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool;
 
 	/**
 	 * Reads the rows of a table matching a filter.
@@ -118,7 +118,7 @@ interface Store{
 	 *
 	 * @return Bool True when the transaction is open, false on failure or when the store has no transactions.
 	 */
-	public function newTransaction(): Bool;
+	public function addTransaction(): Bool;
 
 	/**
 	 * Makes the changes of the transaction permanent. On an inner level,
@@ -133,7 +133,7 @@ interface Store{
 	 *
 	 * @return Bool True on success, false on failure or when no transaction is open.
 	 */
-	public function delTransaction(): Bool;
+	public function dropWholeTrnsc(): Bool;
 
 	/**
 	 * Returns the error of the last call. Each call clears the error of

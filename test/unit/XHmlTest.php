@@ -104,7 +104,7 @@ checkIdentical('...and accepted at the limit', xmlItems('<a><b><c/></b></a>', Ar
 checkIdentical('no PHP warning is left behind by a refusal', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: XML by extension and by content type', Array(get_class(Index::forExtnsParser('xml')), get_class(Index::forExtnsParser('SVG')), get_class(Index::findTypeParser('application/xml; charset=utf-8')), get_class(Index::findTypeParser('text/xml')), get_class(Index::findTypeParser('application/atom+xml'))), array_fill(0, 5, 'nyu\Data\Parsers\XHml'));
+checkIdentical('index: XML by extension and by content type', Array(get_class(Index::getExtnsParser('xml')), get_class(Index::getExtnsParser('SVG')), get_class(Index::findTypeParser('application/xml; charset=utf-8')), get_class(Index::findTypeParser('text/xml')), get_class(Index::findTypeParser('application/atom+xml'))), array_fill(0, 5, 'nyu\Data\Parsers\XHml'));
 checkIdentical('an XML file through Dcmnt', runCatchThrown(function() use ($showXml){
 	$docPath = inTemporaryDir('show.xml');
 	file_put_contents($docPath, '<?xml version="1.0" encoding="UTF-8"?>'."\n".$showXml);

@@ -149,8 +149,8 @@ checkIdentical('a book without chapters, and an empty content', Array(
 // With the rest
 checkIdentical('a book grouped into sections, and its whole text', runCatchThrown(function() use ($bookPth){
 	$blckLst = bookRead($bookPth)['items'];
-	$sctnLst = Shape::bySectionArray($blckLst);
-	return Array(array_column($sctnLst, 'title'), $sctnLst[1]['nodes'][0]['title'], substr(Shape::documentAsText($blckLst), 0, 52));
+	$sctnLst = Shape::getSectionTree($blckLst);
+	return Array(array_column($sctnLst, 'title'), $sctnLst[1]['nodes'][0]['title'], substr(Shape::getTextOfDcmnt($blckLst), 0, 52));
 }), Array(Array('Chapter one', 'Chapter two'), 'Notes', "Chapter one\n\nPlaying at Hall A, 120 seats.\n\nThe hall"));
 checkIdentical('a book read then written as HTML: its scripts and its unsafe links are gone', runCatchThrown(function() use ($bookPth){
 	$htmText = (new Html())->renderDocument((new EPub())->parseFluxArray(Fluxd::openLocalFluxd($bookPth)));
@@ -177,7 +177,7 @@ checkIdentical('one parser, several books', runCatchThrown(function() use ($book
 checkIdentical('no PHP warning along the way', takePhpNotices(), Array());
 
 // Through the index and Dcmnt
-checkIdentical('index: books by extension and by content type', Array(get_class(Index::forExtnsParser('EPUB')), get_class(Index::findTypeParser('application/epub+zip'))), Array('nyu\Data\Parsers\EPub', 'nyu\Data\Parsers\EPub'));
+checkIdentical('index: books by extension and by content type', Array(get_class(Index::getExtnsParser('EPUB')), get_class(Index::findTypeParser('application/epub+zip'))), Array('nyu\Data\Parsers\EPub', 'nyu\Data\Parsers\EPub'));
 checkIdentical('a book through Dcmnt, with and without its extension', runCatchThrown(function() use ($bookPth){
 	$barePth = inTemporaryDir('book');
 	copy($bookPth, $barePth);

@@ -19,7 +19,7 @@ Class SQLite extends PDO {
 	 * @param Array  $settingsList Optional settings: 'waitSecs', the seconds given to a file locked by another connection.
 	 */
 	public function openConnection(String $databaseHost, String $serverUsrTxt, String $hostPassText, String $hostBaseText, Array $settingsList=Array()): Void {
-		$this->baseDriver = new \PDO('sqlite:'.$this->locateBaseFile($hostBaseText), null, null, $this->pdoOptionArray($settingsList));
+		$this->baseDriver = new \PDO('sqlite:'.$this->findDbFilePath($hostBaseText), null, null, $this->readPdoOptsDct($settingsList));
 		$this->baseDriver->exec('PRAGMA foreign_keys = ON;');
 	}
 
@@ -30,7 +30,7 @@ Class SQLite extends PDO {
 	 * @param String $hostBaseText Path of the SQLite file, or ':memory:'.
 	 * @return String The path to open.
 	 */
-	protected function locateBaseFile(String $hostBaseText): String {
+	protected function findDbFilePath(String $hostBaseText): String {
 		$isRooted = (bool)preg_match('#^([A-Za-z]:|[/\\\\])#', $hostBaseText);
 		if( $hostBaseText=='' || $hostBaseText==':memory:' || $isRooted || !defined('TOP_DIR') ){
 			return $hostBaseText;
@@ -47,7 +47,7 @@ Class SQLite extends PDO {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
+	public function getInfoOfTable(String $tbleLabelTxt): Array|Bool {
 		$this->quoteFieldName($tbleLabelTxt);
 		if( !$this->sendBuiltQuery('SELECT name, pk, type FROM pragma_table_info(?) ORDER BY cid;', false, Array($tbleLabelTxt)) ){
 			return false;
@@ -77,7 +77,7 @@ Class SQLite extends PDO {
 	 *
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
-	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
+	public function getColTypeList(String $tbleLabelTxt): Array|Bool {
 		$this->quoteFieldName($tbleLabelTxt);
 		if( !$this->sendBuiltQuery('SELECT name, type FROM pragma_table_info(?) ORDER BY cid;', false, Array($tbleLabelTxt)) ){
 			return false;
@@ -92,7 +92,7 @@ Class SQLite extends PDO {
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
 	 */
-	public function tableNameArray(): Array|Bool {
+	public function listTableNames(): Array|Bool {
 		if( !$this->sendBuiltQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name;") ){
 			return false;
 		}

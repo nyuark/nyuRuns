@@ -56,9 +56,9 @@ class Xlsx extends Grid {
 		$typeText = '';
 		$shownLst = $this->listShownSheet($sheetLst);
 		foreach($sheetLst as $shtIdx=>$shtArr){
-			$sheetNme = $this->cleanSheetName(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameList);
+			$sheetNme = $this->wipeSheetTitle(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameList);
 			$nameList[] = $sheetNme;
-			$partList['xl/worksheets/sheet'.($shtIdx+1).'.xml'] = $this->sheetPieceText((array)$shtArr, $withHdrs, $hasDates, $shtIdx==array_search(true, $shownLst, true));
+			$partList['xl/worksheets/sheet'.($shtIdx+1).'.xml'] = $this->writeSheetPart((array)$shtArr, $withHdrs, $hasDates, $shtIdx==array_search(true, $shownLst, true));
 			$bookText .= '<sheet name="'.$this->escapeXmlValue($sheetNme).'" sheetId="'.($shtIdx+1).'"'.($shownLst[$shtIdx] ? '' : ' state="hidden"').' r:id="rId'.($shtIdx+1).'"/>';
 			$rltnText .= '<Relationship Id="rId'.($shtIdx+1).'" Type="'.self::RELS_NAME.'/worksheet" Target="worksheets/sheet'.($shtIdx+1).'.xml"/>';
 			$typeText .= '<Override PartName="/xl/worksheets/sheet'.($shtIdx+1).'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
@@ -89,7 +89,7 @@ class Xlsx extends Grid {
 				.'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
 		);
 		try{
-			return Archv::newBytesString($fileList + $partList);
+			return Archv::makeZipFromLst($fileList + $partList);
 		}catch( \RuntimeException $e ){
 			throw new WriteError('Workbook that cannot be written: '.$e->getMessage(), 0, $e);
 		}
@@ -101,7 +101,7 @@ class Xlsx extends Grid {
 	 * @param Int $columnNumber The number of the column, starting from 0.
 	 * @return String Its letters: A, B, and after Z, AA.
 	 */
-	protected function columnCharText(Int $columnNumber): String {
+	protected function getColumnChars(Int $columnNumber): String {
 		$clmnLttr = '';
 		for($clmnNb=$columnNumber+1; $clmnNb>0; $clmnNb=intdiv($clmnNb-1, 26)){
 			$clmnLttr = chr(65+($clmnNb-1)%26).$clmnLttr;
@@ -120,8 +120,8 @@ class Xlsx extends Grid {
 	 *
 	 * @throws WriteError When the sheet is larger than a worksheet can be.
 	 */
-	protected function sheetPieceText(Array $sheetDetails, Bool $writeHeaders, Bool $writeAsDates, Bool $isShownFirst): String {
-		$gridDict = $this->sheetGridArray($sheetDetails, $writeHeaders);
+	protected function writeSheetPart(Array $sheetDetails, Bool $writeHeaders, Bool $writeAsDates, Bool $isShownFirst): String {
+		$gridDict = $this->castSheetToGrd($sheetDetails, $writeHeaders);
 		$headList = $gridDict['heads'];
 		$hasHeadr = !empty($headList);
 		$dataText = '';
@@ -131,7 +131,7 @@ class Xlsx extends Grid {
 			$rowCount = 1;
 			$dataText .= '<row r="1">';
 			foreach($headList as $colInc=>$column){
-				$dataText .= $this->cellsPieceText($column, $this->columnCharText($colInc).'1', false, self::STYL_LIST['headCell']);
+				$dataText .= $this->writeTypedCell($column, $this->getColumnChars($colInc).'1', false, self::STYL_LIST['headCell']);
 				$wideList[$colInc] = strlen($column);
 			}
 			$dataText .= '</row>';
@@ -140,7 +140,7 @@ class Xlsx extends Grid {
 			$rowCount++;
 			$rowStrng = '';
 			foreach($oneRow as $colInc=>$oneVal){
-				$cellText = $this->cellsPieceText($oneVal, $this->columnCharText($colInc).$rowCount, $writeAsDates, 0);
+				$cellText = $this->writeTypedCell($oneVal, $this->getColumnChars($colInc).$rowCount, $writeAsDates, 0);
 				if( $cellText!=='' ){
 					$rowStrng .= $cellText;
 					$wideList[$colInc] = max($wideList[$colInc] ?? 0, is_scalar($oneVal) ? strlen(strval($oneVal)) : 0);
@@ -165,7 +165,7 @@ class Xlsx extends Grid {
 			if( $mrgArr['atrow']<0 || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || ($mrgArr['rowsp']==1 && $mrgArr['colsp']==1) || $mrgArr['atrow']+$mrgArr['rowsp']>self::ROWS_MAXI || $mrgArr['atcol']+$mrgArr['colsp']>self::COLS_MAXI ){
 				continue;
 			}
-			$mergeTxt .= '<mergeCell ref="'.$this->columnCharText($mrgArr['atcol']).($mrgArr['atrow']+1).':'.$this->columnCharText($mrgArr['atcol']+$mrgArr['colsp']-1).($mrgArr['atrow']+$mrgArr['rowsp']).'"/>';
+			$mergeTxt .= '<mergeCell ref="'.$this->getColumnChars($mrgArr['atcol']).($mrgArr['atrow']+1).':'.$this->getColumnChars($mrgArr['atcol']+$mrgArr['colsp']-1).($mrgArr['atrow']+$mrgArr['rowsp']).'"/>';
 			$mergeCnt++;
 		}
 		return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<worksheet xmlns="'.self::MAIN_NAME.'">'
@@ -185,9 +185,9 @@ class Xlsx extends Grid {
 	 * @param Int    $stylesNumber The style of the cell, 0 for none.
 	 * @return String The cell; '' for a cell holding nothing.
 	 */
-	protected function cellsPieceText(Mixed $valueToWrite, String $cellLocation, Bool $writeAsDates, Int $stylesNumber): String {
+	protected function writeTypedCell(Mixed $valueToWrite, String $cellLocation, Bool $writeAsDates, Int $stylesNumber): String {
 		$openText = '<c r="'.$cellLocation.'"'.(($stylesNumber>0) ? ' s="'.$stylesNumber.'"' : '');
-		$valueToWrite = $this->simpleCellText($valueToWrite);
+		$valueToWrite = $this->castCellScalar($valueToWrite);
 		if( $valueToWrite===null ){
 			return '';
 		}
@@ -199,7 +199,7 @@ class Xlsx extends Grid {
 		}
 		$textVals = $valueToWrite;
 		// A date is the number of its days since the end of 1899, and of the part of the day its time is
-		$dateList = $writeAsDates ? $this->datePartsArray($textVals) : null;
+		$dateList = $writeAsDates ? $this->parseDateParts($textVals) : null;
 		if( $dateList!==null && $dateList[0]>1900 ){
 			$daysNumb = intdiv(gmmktime(0, 0, 0, $dateList[1], $dateList[2], $dateList[0]), 86400)+25569;
 			if( !isset($dateList[3]) ){

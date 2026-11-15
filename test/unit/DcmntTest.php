@@ -152,16 +152,16 @@ checkPregMatch('Json Lines: an invalid line is refused, with its number', itemsO
 checkIdentical('a .jsonl file is read line by line from its extension', docFacts(tempFile('events.jsonl', "{\"id\":1}\n{\"id\":2}\n"))['out'], Array(Array('id'=>1), Array('id'=>2)));
 
 // Encodings
-checkIdentical('the UTF-8 marker is removed', Array(Base::recodeTextUtf8("\xEF\xBB\xBFa = 1"), itemsOf('Json', "\xEF\xBB\xBF{\"a\":1}"), itemsOf('Init', "\xEF\xBB\xBFname = x")), Array('a = 1', Array('a'=>1), Array('name'=>'x')));
-checkIdentical('UTF-16 is converted from its marker, either byte order', Array(Base::recodeTextUtf8("\xFF\xFE".iconv('UTF-8', 'UTF-16LE', 'été')), Base::recodeTextUtf8("\xFE\xFF".iconv('UTF-8', 'UTF-16BE', 'été'))), Array('été', 'été'));
-checkIdentical('a text that is not UTF-8 is read as Windows-1252', Array(Base::recodeTextUtf8("Les Encha\xEEn\xE9s \x80"), itemsOf('Json', "{\"title\":\"\xE9t\xE9\"}")), Array('Les Enchaînés €', Array('title'=>'été')));
-checkIdentical('a UTF-8 text is left as it is', Base::recodeTextUtf8('Les Enchaînés €'), 'Les Enchaînés €');
+checkIdentical('the UTF-8 marker is removed', Array(Base::castTextToUtf8("\xEF\xBB\xBFa = 1"), itemsOf('Json', "\xEF\xBB\xBF{\"a\":1}"), itemsOf('Init', "\xEF\xBB\xBFname = x")), Array('a = 1', Array('a'=>1), Array('name'=>'x')));
+checkIdentical('UTF-16 is converted from its marker, either byte order', Array(Base::castTextToUtf8("\xFF\xFE".iconv('UTF-8', 'UTF-16LE', 'été')), Base::castTextToUtf8("\xFE\xFF".iconv('UTF-8', 'UTF-16BE', 'été'))), Array('été', 'été'));
+checkIdentical('a text that is not UTF-8 is read as Windows-1252', Array(Base::castTextToUtf8("Les Encha\xEEn\xE9s \x80"), itemsOf('Json', "{\"title\":\"\xE9t\xE9\"}")), Array('Les Enchaînés €', Array('title'=>'été')));
+checkIdentical('a UTF-8 text is left as it is', Base::castTextToUtf8('Les Enchaînés €'), 'Les Enchaînés €');
 
 // The index
-checkIdentical('index: the parser of an extension, whatever its case', Array(get_class(Index::forExtnsParser('json')), get_class(Index::forExtnsParser('INI')), get_class(Index::forExtnsParser('rps')), Index::forExtnsParser('xyz')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Init', 'nyu\Data\Parsers\Json', null));
-checkIdentical('index: the default options of an extension', Array(Index::optionsOfExtns('json'), Index::optionsOfExtns('rte'), Index::optionsOfExtns('jsonl'), Index::optionsOfExtns('xyz')), Array(Array(), Array(), Array('lines'=>true), Array()));
+checkIdentical('index: the parser of an extension, whatever its case', Array(get_class(Index::getExtnsParser('json')), get_class(Index::getExtnsParser('INI')), get_class(Index::getExtnsParser('rps')), Index::getExtnsParser('xyz')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Init', 'nyu\Data\Parsers\Json', null));
+checkIdentical('index: the default options of an extension', Array(Index::getOptsForExtn('json'), Index::getOptsForExtn('rte'), Index::getOptsForExtn('jsonl'), Index::getOptsForExtn('xyz')), Array(Array(), Array(), Array('lines'=>true), Array()));
 checkIdentical('index: the parser of a request content type', Array(get_class(Index::findTypeParser('application/json')), get_class(Index::findTypeParser('Application/JSON; charset=utf-8')), get_class(Index::findTypeParser('application/problem+json')), Index::findTypeParser('image/png'), Index::findTypeParser('')), Array('nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', 'nyu\Data\Parsers\Json', null, null));
-checkIdentical('index: the options of a request content type', Array(Index::typeOptionsArr('application/x-ndjson'), Index::typeOptionsArr('application/json'), Index::typeOptionsArr('image/png')), Array(Array('lines'=>true), Array(), Array()));
+checkIdentical('index: the options of a request content type', Array(Index::getOptsForMime('application/x-ndjson'), Index::getOptsForMime('application/json'), Index::getOptsForMime('image/png')), Array(Array('lines'=>true), Array(), Array()));
 checkIdentical('index: a parser added for an extension is used for it', runCatchThrown(function(){
 	Index::registerParser('reg', 'Regi');
 	return docFacts(tempFile('settings.reg', "name = x\n"))['out'];
@@ -178,15 +178,15 @@ $signLst = Array(
 );
 $signGot = Array();
 foreach( $signLst as $sgnKnd=>$sgnTxt ){
-	$signGot[$sgnKnd] = Bina::detectFileKind($sgnTxt);
+	$signGot[$sgnKnd] = Bina::findContentCod($sgnTxt);
 }
 checkIdentical('signatures: each kind is told from its first bytes', $signGot, array_combine(array_keys($signLst), array_keys($signLst)));
-checkIdentical('signatures: plain text formats tell nothing', Array(Bina::detectFileKind('{"a":1}'), Bina::detectFileKind("name = x\n"), Bina::detectFileKind('# Title'), Bina::detectFileKind(''), Bina::detectFileKind('<p>not a whole page</p>')), Array('', '', '', '', ''));
+checkIdentical('signatures: plain text formats tell nothing', Array(Bina::findContentCod('{"a":1}'), Bina::findContentCod("name = x\n"), Bina::findContentCod('# Title'), Bina::findContentCod(''), Bina::findContentCod('<p>not a whole page</p>')), Array('', '', '', '', ''));
 $offcDir = TST_DIR.DS.'fixtures'.DS.'office';
 checkIdentical('signatures: the sample office files', runCatchThrown(function() use ($offcDir){
 	$kindLst = Array();
 	foreach( Array('sample.odt', 'sample.ods', 'SampleDoc.docx', 'SampleSS.xlsx') as $offcFle ){
-		$kindLst[$offcFle] = Bina::detectFileKind(Fluxd::openLocalFluxd($offcDir.DS.$offcFle)->getRangeString(0, 511));
+		$kindLst[$offcFle] = Bina::findContentCod(Fluxd::openLocalFluxd($offcDir.DS.$offcFle)->getRangeString(0, 511));
 	}
 	return $kindLst;
 }), Array('sample.odt'=>'odt', 'sample.ods'=>'ods', 'SampleDoc.docx'=>'zip', 'SampleSS.xlsx'=>'zip'));

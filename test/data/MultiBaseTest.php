@@ -45,8 +45,8 @@ checkIdentical('a database asked by its name', runCatchThrown(function(){ return
 checkTrueValue('each database has its own connection', runCatchThrown(function(){ return DBCon::linkNamedDbCon()!==DBCon::linkNamedDbCon('archive'); }));
 checkTrueValue('a database is connected once', runCatchThrown(function(){ return DBCon::linkNamedDbCon('archive')===DBCon::linkNamedDbCon('ARCHIVE'); }));
 checkTrueValue('the default database, by its name, is the same connection', runCatchThrown(function(){ return DBCon::linkNamedDbCon('nyuRuns')===DBCon::linkNamedDbCon(); }));
-checkTrueValue('getInstnc returns the default connection already open', runCatchThrown(function(){ return DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('arch.sqlite'))===DBCon::linkNamedDbCon(); }));
-checkIdentical('...whatever settings it is given', runCatchThrown(function(){ return showsOn(DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('arch.sqlite'))); }), 5);
+checkTrueValue('getInstnc returns the default connection already open', runCatchThrown(function(){ return DBCon::loadDefaultCon('sqlitedb', '', '', '', inTemporaryDir('arch.sqlite'))===DBCon::linkNamedDbCon(); }));
+checkIdentical('...whatever settings it is given', runCatchThrown(function(){ return showsOn(DBCon::loadDefaultCon('sqlitedb', '', '', '', inTemporaryDir('arch.sqlite'))); }), 5);
 checkPregMatch('an unknown name is refused', runCatchThrown(function(){ return DBCon::linkNamedDbCon('nowhere'); }), '/^THROWN RuntimeException: Unknown database: nowhere/');
 checkPregMatch('a database is only opened when asked for: a faulty one does not stop the others', runCatchThrown(function(){ return DBCon::linkNamedDbCon('broken7'); }), '/^THROWN RuntimeException: Unknown database type: oracle/');
 
@@ -54,10 +54,10 @@ checkPregMatch('a database is only opened when asked for: a faulty one does not 
 checkIdentical('a transaction on one database leaves the other alone', runCatchThrown(function(){
 	$mainHdl = DBCon::linkNamedDbCon()->readConnection();
 	$archHdl = DBCon::linkNamedDbCon('archive')->readConnection();
-	$mainHdl->newTransaction();
+	$mainHdl->addTransaction();
 	$mainHdl->sendBuiltQuery('DELETE FROM `shows` WHERE `id_show`=?', true, Array(5));
 	$archHdl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Vault', 1));
-	$mainHdl->delTransaction();
+	$mainHdl->dropWholeTrnsc();
 	$archHdl->sendBuiltQuery('SELECT `venue` FROM `shows` WHERE `id_show`=?', false, Array(1));
 	return Array(showsOn(DBCon::linkNamedDbCon()), $archHdl->readLastResult(true)[0]['venue']);
 }), Array(5, 'Vault'));
@@ -117,7 +117,7 @@ checkIdentical('the children of a record come from its own database', runCatchTh
 checkIdentical('a record saved in one database leaves the other unchanged', runCatchThrown(function(){
 	$archRec = new ArchRecd();
 	$archRec->loadRecordList('1');
-	$archRec->bindFieldArray(Array('title'=>'Alpha Night (archived)'));
+	$archRec->setFieldsArray(Array('title'=>'Alpha Night (archived)'));
 	$archRec->insertOrUpdate();
 	$mainRec = new nyu\Data\DBRec('shows');
 	$readRec = new ArchRecd();
@@ -126,7 +126,7 @@ checkIdentical('a record saved in one database leaves the other unchanged', runC
 checkIdentical('a record deleted with its children, in its own database only', runCatchThrown(function(){
 	$archRec = new ArchRecd();
 	$archRec->loadRecordList('1');
-	$remDone = $archRec->removeRecdFlag(Array('events'));
+	$remDone = $archRec->dropThisRecord(Array('events'));
 	$archEvt = new nyu\Data\DBLst('events', null, null, null, null, DBCon::linkNamedDbCon('archive'));
 	$mainEvt = new nyu\Data\DBLst('events');
 	return Array($remDone, count($archEvt->readRowsOfList()), count($mainEvt->readRowsOfList()), showsOn(DBCon::linkNamedDbCon()));
@@ -174,7 +174,7 @@ if( !is_array($natConf) ){
 	checkIdentical('conf/access.json: the native block names its database first', array_slice(array_keys($natConf), 0, 6), Array('linkName', 'useTable', 'idleSecs', 'maxTries', 'holdSecs', 'minChars'));
 	checkTrueValue('conf/access.json: that database is configured', runCatchThrown(function() use ($axsConf, $natConf){
 		$GLOBALS['nyuConfig'] = $axsConf;
-		return DBCon::baseSetupArray(strval($natConf['linkName'] ?? ''))['dbEngine']!='';
+		return DBCon::readDbaseConfg(strval($natConf['linkName'] ?? ''))['dbEngine']!='';
 	}));
 }
 

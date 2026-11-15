@@ -1,6 +1,6 @@
 <?php
 
-// Data\Archv::newBytesString and Data\Writers\Xlsx : archives made without the
+// Data\Archv::makeZipFromLst and Data\Writers\Xlsx : archives made without the
 // zip extension, and the workbooks written into them.
 
 require __DIR__.'/../lib/harness.php';
@@ -64,12 +64,12 @@ function xlsPart( String $archvBytes, String $insideName ): String {
 
 // An archive made from its entries
 $longTxt = str_repeat('A line of text that packs well. ', 200);
-$archTxt = Archv::newBytesString(Array('mimetype'=>'application/test', 'folder/long.txt'=>$longTxt, 'accentué.txt'=>'été', 'empty.txt'=>''), Array('mimetype'));
+$archTxt = Archv::makeZipFromLst(Array('mimetype'=>'application/test', 'folder/long.txt'=>$longTxt, 'accentué.txt'=>'été', 'empty.txt'=>''), Array('mimetype'));
 checkIdentical('an archive starts with its first entry, kept as it is', Array(substr($archTxt, 0, 4), unpack('v', substr($archTxt, 8, 2))[1], substr($archTxt, 30, 8), substr($archTxt, 38, 16)), Array("PK\x03\x04", 0, 'mimetype', 'application/test'));
 checkIdentical('an entry is packed when it gains from it', Array(strlen($archTxt)<strlen($longTxt), xlsPart($archTxt, 'folder/long.txt')===$longTxt), Array(true, true));
-checkPregMatch('a name leaving the archive is refused', runCatchThrown(function(){ return Archv::newBytesString(Array('../outside.txt'=>'x')); }), '/^THROWN RuntimeException: Archive given an entry whose name is not safe/');
-checkPregMatch('so is a name starting from the root, or told with a drive', Array(runCatchThrown(function(){ return Archv::newBytesString(Array('/etc/x'=>'x')); }), runCatchThrown(function(){ return Archv::newBytesString(Array('C:\\x'=>'x')); }))[0].Array(runCatchThrown(function(){ return Archv::newBytesString(Array('/etc/x'=>'x')); }), runCatchThrown(function(){ return Archv::newBytesString(Array('C:\\x'=>'x')); }))[1], '/^THROWN RuntimeException: Archive given an entry whose name is not safe.*THROWN RuntimeException: Archive given an entry whose name is not safe/s');
-checkIdentical('an archive without entries is still one', substr(Archv::newBytesString(Array()), 0, 4), "PK\x05\x06");
+checkPregMatch('a name leaving the archive is refused', runCatchThrown(function(){ return Archv::makeZipFromLst(Array('../outside.txt'=>'x')); }), '/^THROWN RuntimeException: Archive given an entry whose name is not safe/');
+checkPregMatch('so is a name starting from the root, or told with a drive', Array(runCatchThrown(function(){ return Archv::makeZipFromLst(Array('/etc/x'=>'x')); }), runCatchThrown(function(){ return Archv::makeZipFromLst(Array('C:\\x'=>'x')); }))[0].Array(runCatchThrown(function(){ return Archv::makeZipFromLst(Array('/etc/x'=>'x')); }), runCatchThrown(function(){ return Archv::makeZipFromLst(Array('C:\\x'=>'x')); }))[1], '/^THROWN RuntimeException: Archive given an entry whose name is not safe.*THROWN RuntimeException: Archive given an entry whose name is not safe/s');
+checkIdentical('an archive without entries is still one', substr(Archv::makeZipFromLst(Array()), 0, 4), "PK\x05\x06");
 
 // The workbook, part by part
 $rowsLst = Array(Array('name'=>'Alpha & <Beta>', 'seats'=>120, 'price'=>12.5, 'open'=>true, 'note'=>null), Array('name'=>'=SUM(A1:A9)', 'seats'=>-3, 'price'=>0.1, 'open'=>false, 'note'=>"two\nlines"));
@@ -96,7 +96,7 @@ checkPregMatch('a row of more cells than a worksheet holds', xlsWrite(Array(Shap
 checkPregMatch('no sheet at all gives a workbook of one empty sheet', xlsPart(xlsWrite(Array()), 'xl/workbook.xml'), '/<sheet name="Sheet1" sheetId="1" r:id="rId1"\/>/');
 $oddsXml = xlsPart(xlsWrite(Array(Shape::makeSheetArray('Odd', Array(Array("bell\x07 and\x00 nul", Array('a'=>1, 'b'=>Array(2)), Fluxd::openBytesFluxd('binary'), NAN, "caf\xE9", 'last'))))), 'xl/worksheets/sheet1.xml');
 checkPregMatch('what a part cannot hold is dropped, a list is written as text, a binary value and what is no number as nothing', $oddsXml, '/<row r="1"><c r="A1" t="inlineStr"><is><t xml:space="preserve">bell and nul<\/t><\/is><\/c><c r="B1" t="inlineStr"><is><t xml:space="preserve">\{&quot;a&quot;:1,&quot;b&quot;:\[2\]\}<\/t><\/is><\/c><c r="E1" t="inlineStr"><is><t xml:space="preserve">café<\/t><\/is><\/c><c r="F1" t="inlineStr">/');
-checkIdentical('the writer of the xlsx extension', Array(get_class(Index::forExtnsWriter('XLSX')), Index::contentTypeFor('xlsx')), Array('nyu\\Data\\Writers\\Xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+checkIdentical('the writer of the xlsx extension', Array(get_class(Index::getExtnsWriter('XLSX')), Index::getMimeForExtn('xlsx')), Array('nyu\\Data\\Writers\\Xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
 
 // Dates
 $dateXml = xlsPart(xlsWrite(Array(Shape::makeSheetArray('Dates', Array(Array('2026-10-11', '2026-10-11 14:30:00', '2026-02-30', '1899-12-31', 'on 2026-10-11', '2026-10-11T06:00')))), Array('dates'=>true)), 'xl/worksheets/sheet1.xml');
@@ -111,7 +111,7 @@ if( !class_exists('ZipArchive') ){
 // The archive, read by the zip extension
 $archObj = Archv::openFluxdArchv(Fluxd::openBytesFluxd($archTxt));
 checkIdentical('an archive made here is read by the zip extension', Array($archObj->listEntryNames(), $archObj->getEntryString('folder/long.txt')===$longTxt, $archObj->getEntryString('accentué.txt'), $archObj->getEntryString('empty.txt')), Array(Array('mimetype'=>16, 'folder/long.txt'=>strlen($longTxt), 'accentué.txt'=>5, 'empty.txt'=>0), true, 'été', ''));
-$archObj->releaseArchive();
+$archObj->shutZipArchive();
 
 // Written, then read back
 checkIdentical('rows keyed by the names of their columns, read back with them', xlsBack(Array($showSht), Array(), Array('heads'=>true))[0], Array('title'=>'Shows', 'attrs'=>Array('shown'=>true, 'merge'=>Array()), 'cells'=>Array(Array('name'=>'Alpha & <Beta>', 'seats'=>120, 'price'=>12.5, 'open'=>true, 'note'=>null), Array('name'=>'=SUM(A1:A9)', 'seats'=>-3, 'price'=>0.1, 'open'=>false, 'note'=>"two\nlines"))));

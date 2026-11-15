@@ -24,7 +24,7 @@ abstract class Grid extends Base {
 	 * @param Array  $usedNameList The names already given.
 	 * @return String The name.
 	 */
-	protected function cleanSheetName(String $sheetHeading, Int $sheetPlcNumb, Array $usedNameList): String {
+	protected function wipeSheetTitle(String $sheetHeading, Int $sheetPlcNumb, Array $usedNameList): String {
 		$cutsText = function(String $textToShrink, Int $keptCharsCnt){ return function_exists('mb_substr') ? mb_substr($textToShrink, 0, $keptCharsCnt, 'UTF-8') : substr($textToShrink, 0, $keptCharsCnt); };
 		$nameText = trim(strval(preg_replace('/[\[\]:*?\/\\\\\x00-\x1F]+/', ' ', preg_match('//u', $sheetHeading) ? $sheetHeading : '')), " '");
 		$nameText = rtrim($cutsText(($nameText==='') ? 'Sheet'.$sheetPlcNumb : $nameText, 31));
@@ -65,13 +65,13 @@ abstract class Grid extends Base {
 	 *
 	 * @throws WriteError When the sheet is larger than a sheet can be.
 	 */
-	protected function sheetGridArray(Array $sheetDetails, Bool $writeHeaders): Array {
+	protected function castSheetToGrd(Array $sheetDetails, Bool $writeHeaders): Array {
 		$rowsList = array_values((array)($sheetDetails['cells'] ?? Array()));
 		// Every name met, in the order they are met, makes a column
 		$headList = Array();
 		$isByKeys = false;
 		foreach($rowsList as $oneRow){
-			$isByKeys = ($isByKeys || !$this->validateALstOf((array)$oneRow));
+			$isByKeys = ($isByKeys || !$this->isSequenceList((array)$oneRow));
 		}
 		if( $isByKeys ){
 			foreach($rowsList as $oneRow){
@@ -107,12 +107,12 @@ abstract class Grid extends Base {
 	 * @param mixed $valueToWrite What the cell was given.
 	 * @return String|Int|Float|Bool|Null The value: null for nothing, a binary value or what is no number; a list as its JSON text.
 	 */
-	protected function simpleCellText(Mixed $valueToWrite): String|Int|Float|Bool|Null {
+	protected function castCellScalar(Mixed $valueToWrite): String|Int|Float|Bool|Null {
 		if( $valueToWrite===null || $valueToWrite instanceof Fluxd || (is_float($valueToWrite) && !is_finite($valueToWrite)) ){
 			return null;
 		}
 		if( is_array($valueToWrite) || is_object($valueToWrite) ){
-			return strval(json_encode(Fluxd::nullifySources(is_array($valueToWrite) ? $valueToWrite : (array)$valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
+			return strval(json_encode(Fluxd::dropAllSources(is_array($valueToWrite) ? $valueToWrite : (array)$valueToWrite), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
 		}
 		return (is_bool($valueToWrite) || is_int($valueToWrite) || is_float($valueToWrite)) ? $valueToWrite : strval($valueToWrite);
 	}
@@ -124,7 +124,7 @@ abstract class Grid extends Base {
 	 * @param String $sourceString The text.
 	 * @return ?Array The year, the month and the day, then the hours, the minutes and the seconds when it tells a time; null when it is not a date that exists.
 	 */
-	protected function datePartsArray(String $sourceString): ?Array {
+	protected function parseDateParts(String $sourceString): ?Array {
 		$dateList = Array();
 		if( !preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/D', $sourceString, $dateList) ){
 			return null;

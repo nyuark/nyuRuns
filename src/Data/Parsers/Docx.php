@@ -74,16 +74,16 @@ class Docx extends Pack {
 	protected function readArchvArray(Array $parseOptions): Array {
 		// The archive says where its document is; it is in word/document.xml unless told otherwise
 		$docuPath = 'word/document.xml';
-		foreach($this->relsOfFragment('') as $relSet){
+		foreach($this->readRltnOfPart('') as $relSet){
 			if( substr($relSet['types'], -15)=='/officeDocument' ){
 				$docuPath = $relSet['paths'];
 			}
 		}
-		$bodyList = $this->findChildArray($this->partNodesArray($docuPath) ?? Array('nodes'=>Array()), Array('w:body'));
+		$bodyList = $this->findChildArray($this->readPartAsTree($docuPath) ?? Array('nodes'=>Array()), Array('w:body'));
 		if( $bodyList===null ){
 			throw new ParseError('Invalid archive: the document is not a text document');
 		}
-		$docuRltn = $this->relsOfFragment($docuPath);
+		$docuRltn = $this->readRltnOfPart($docuPath);
 		$this->docRltnDct = $docuRltn;
 		$this->styleTable = Array();
 		$this->defaultKey = '';
@@ -101,7 +101,7 @@ class Docx extends Pack {
 		$this->themeFonts = Array();
 		foreach($docuRltn as $relSet){
 			if( substr($relSet['types'], -6)=='/theme' ){
-				$fontList = $this->deepNamedArray($this->partNodesArray($relSet['paths'], false) ?? Array('nodes'=>Array()), Array('a:fontScheme')) ?? Array('nodes'=>Array());
+				$fontList = $this->findNestedNode($this->readPartAsTree($relSet['paths'], false) ?? Array('nodes'=>Array()), Array('a:fontScheme')) ?? Array('nodes'=>Array());
 				foreach(Array('minor'=>'a:minorFont', 'major'=>'a:majorFont') as $fntKey=>$fntTag){
 					$this->themeFonts[$fntKey] = strval($this->findChildArray($fontList, Array($fntTag, 'a:latin'))['attrs']['typeface'] ?? '');
 				}
@@ -114,19 +114,19 @@ class Docx extends Pack {
 				$this->readListLevels($relSet['paths']);
 			}
 		}
-		$blockLst = $this->bodyBlocksList($bodyList);
+		$blockLst = $this->readBodyBlocks($bodyList);
 		// What stands outside the text is read without its empty paragraphs
 		$this->isVoidKept = false;
-		$blockLst = array_merge($blockLst, $this->notesReadArray($docuRltn));
-		$propList = $this->propsReadArray();
+		$blockLst = array_merge($blockLst, $this->readNotesOfDoc($docuRltn));
+		$propList = $this->readDocMetaDct();
 		$infoList = Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'props'=>$propList, 'frmat'=>Array());
-		$infoList['phead'] = $this->pagesReadArray($docuRltn, '/header');
-		$infoList['pfoot'] = $this->pagesReadArray($docuRltn, '/footer');
+		$infoList['phead'] = $this->readHeadOrFoot($docuRltn, '/header');
+		$infoList['pfoot'] = $this->readHeadOrFoot($docuRltn, '/footer');
 		if( $this->isCmntRead ){
-			$infoList['cmnts'] = $this->gatherComments($docuRltn);
+			$infoList['cmnts'] = $this->readCommentLst($docuRltn);
 		}
 		foreach(array_keys($this->stylesUsed) as $stlKey){
-			$infoList['frmat'][$this->styleTable[$stlKey]['names']] = $this->styleFormatArr($this->styleTable[$stlKey]);
+			$infoList['frmat'][$this->styleTable[$stlKey]['names']] = $this->getStyleFormat($this->styleTable[$stlKey]);
 		}
 		$this->docRltnDct = Array();
 		$this->styleTable = Array();
@@ -151,7 +151,7 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element holding those properties.
 	 * @return Array The formatting: boldFace, emphasis, undrLine, crossOut.
 	 */
-	protected function marksOfRunList(Array $elementArray): Array {
+	protected function listMarksOfRun(Array $elementArray): Array {
 		$propList = $this->findChildArray($elementArray, Array('w:rPr'));
 		$markList = Array();
 		if( $propList===null ){
@@ -172,7 +172,7 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element holding those properties.
 	 * @return Array The font under 'fonts', the size in points under 'sizes' and the colour under 'color'; '' or 0 for what is not told.
 	 */
-	protected function fontOfStyleArr(Array $elementArray): Array {
+	protected function getFontOfStyle(Array $elementArray): Array {
 		$propList = $this->findChildArray($elementArray, Array('w:rPr')) ?? Array('nodes'=>Array());
 		$fontList = $this->findChildArray($propList, Array('w:rFonts'))['attrs'] ?? Array();
 		$sizeVals = strval($this->findChildArray($propList, Array('w:sz'))['attrs']['w:val'] ?? '');
@@ -194,8 +194,8 @@ class Docx extends Pack {
 	 * @param String $fullPathName Name of the part holding the styles.
 	 */
 	protected function readDocxStyles(String $fullPathName): Void {
-		$stylList = $this->partNodesArray($fullPathName, false) ?? Array('nodes'=>Array());
-		foreach($this->kidsNamedArray($stylList, 'w:style') as $stlArr){
+		$stylList = $this->readPartAsTree($fullPathName, false) ?? Array('nodes'=>Array());
+		foreach($this->listNamedNodes($stylList, 'w:style') as $stlArr){
 			$styleNme = strval($this->findChildArray($stlArr, Array('w:name'))['attrs']['w:val'] ?? '');
 			$styleKey = strval($stlArr['attrs']['w:styleId'] ?? '');
 			$levelPar = Array();
@@ -212,16 +212,16 @@ class Docx extends Pack {
 			}
 			$numbList = $this->findChildArray($stlArr, Array('w:pPr', 'w:numPr')) ?? Array('nodes'=>Array());
 			$this->styleTable[$styleKey] = Array(
-				'names'=>$styleNme, 'level'=>$headLevl, 'marks'=>$this->marksOfRunList($stlArr),
+				'names'=>$styleNme, 'level'=>$headLevl, 'marks'=>$this->listMarksOfRun($stlArr),
 				'numid'=>strval($this->findChildArray($numbList, Array('w:numId'))['attrs']['w:val'] ?? ''), 'ilevl'=>intval($this->findChildArray($numbList, Array('w:ilvl'))['attrs']['w:val'] ?? 0),
 				'align'=>strval(self::ALGN_LIST[strtolower(strval($this->findChildArray($stlArr, Array('w:pPr', 'w:jc'))['attrs']['w:val'] ?? ''))] ?? ''),
 				'based'=>strval($this->findChildArray($stlArr, Array('w:basedOn'))['attrs']['w:val'] ?? '')
-			) + $this->fontOfStyleArr($stlArr);
+			) + $this->getFontOfStyle($stlArr);
 			if( strtolower(strval($stlArr['attrs']['w:type'] ?? ''))=='paragraph' && in_array(strtolower(strval($stlArr['attrs']['w:default'] ?? '')), Array('1', 'true')) ){
 				$this->defaultKey = $styleKey;
 			}
 		}
-		$baseDict = $this->fontOfStyleArr($this->findChildArray($stylList, Array('w:docDefaults', 'w:rPrDefault')) ?? Array('nodes'=>Array()));
+		$baseDict = $this->getFontOfStyle($this->findChildArray($stylList, Array('w:docDefaults', 'w:rPrDefault')) ?? Array('nodes'=>Array()));
 		foreach(array_keys($this->styleTable) as $stlKey){
 			$prntClef = $this->styleTable[$stlKey]['based'];
 			// Twenty styles based one on the other is more than any document has, and stops a circle
@@ -256,15 +256,15 @@ class Docx extends Pack {
 	 * @param String $fullPathName Name of the part holding them.
 	 */
 	protected function readListLevels(String $fullPathName): Void {
-		$numbList = $this->partNodesArray($fullPathName, false) ?? Array('nodes'=>Array());
+		$numbList = $this->readPartAsTree($fullPathName, false) ?? Array('nodes'=>Array());
 		$abstrLst = Array();
-		foreach($this->kidsNamedArray($numbList, 'w:abstractNum') as $absArr){
-			foreach($this->kidsNamedArray($absArr, 'w:lvl') as $lvlArr){
+		foreach($this->listNamedNodes($numbList, 'w:abstractNum') as $absArr){
+			foreach($this->listNamedNodes($absArr, 'w:lvl') as $lvlArr){
 				$numbFrmt = strtolower(strval($this->findChildArray($lvlArr, Array('w:numFmt'))['attrs']['w:val'] ?? 'decimal'));
 				$abstrLst[strval($absArr['attrs']['w:abstractNumId'] ?? '')][intval($lvlArr['attrs']['w:ilvl'] ?? 0)] = ($numbFrmt!='bullet' && $numbFrmt!='none');
 			}
 		}
-		foreach($this->kidsNamedArray($numbList, 'w:num') as $numArr){
+		foreach($this->listNamedNodes($numbList, 'w:num') as $numArr){
 			$this->numberList[strval($numArr['attrs']['w:numId'] ?? '')] = $abstrLst[strval($this->findChildArray($numArr, Array('w:abstractNumId'))['attrs']['w:val'] ?? '')] ?? Array();
 		}
 	}
@@ -275,17 +275,17 @@ class Docx extends Pack {
 	 *
 	 * @return Array The properties, by the name Word gives them in its fields; those that are empty are left out.
 	 */
-	protected function propsReadArray(): Array {
+	protected function readDocMetaDct(): Array {
 		$propList = Array();
 		foreach(Array('docProps/core.xml', 'docProps/app.xml') as $prtNme){
-			foreach(($this->partNodesArray($prtNme, false) ?? Array('nodes'=>Array()))['nodes'] as $prpArr){
+			foreach(($this->readPartAsTree($prtNme, false) ?? Array('nodes'=>Array()))['nodes'] as $prpArr){
 				$bareName = substr($prpArr['tagnm'], intval(strrpos(':'.$prpArr['tagnm'], ':')));
 				if( isset(self::PROP_LIST[$bareName]) && trim($prpArr['value'])!=='' ){
 					$propList[self::PROP_LIST[$bareName]] = trim($prpArr['value']);
 				}
 			}
 		}
-		foreach($this->kidsNamedArray($this->partNodesArray('docProps/custom.xml', false) ?? Array('nodes'=>Array()), 'property') as $prpArr){
+		foreach($this->listNamedNodes($this->readPartAsTree('docProps/custom.xml', false) ?? Array('nodes'=>Array()), 'property') as $prpArr){
 			$valueLst = $prpArr['nodes'][0] ?? null;
 			$propName = strval($prpArr['attrs']['name'] ?? '');
 			if( $valueLst===null || $propName==='' ){
@@ -293,7 +293,7 @@ class Docx extends Pack {
 			}
 			// A property tells its type by the name of the element holding its value
 			$typeName = substr($valueLst['tagnm'], intval(strrpos(':'.$valueLst['tagnm'], ':')));
-			$rawValue = $this->collectAllText($valueLst);
+			$rawValue = $this->readNestedText($valueLst);
 			if( $typeName=='bool' ){
 				$propList[$propName] = (strtolower($rawValue)=='true' || $rawValue=='1');
 			}elseif( preg_match('/^(u?i[1248]|u?int)$/D', $typeName) && preg_match('/^-?\d{1,18}$/D', $rawValue) ){
@@ -315,10 +315,10 @@ class Docx extends Pack {
 	 * @param ?Array $elementArray The element of that part holding the blocks, null for its root.
 	 * @return Array The blocks.
 	 */
-	protected function fragmentBlocks(String $fullPathName, ?Array $elementArray=null): Array {
+	protected function readPartBlocks(String $fullPathName, ?Array $elementArray=null): Array {
 		$keptRltn = $this->docRltnDct;
-		$this->docRltnDct = $this->relsOfFragment($fullPathName);
-		$blockLst = $this->bodyBlocksList($elementArray ?? $this->partNodesArray($fullPathName, false) ?? Array('nodes'=>Array()));
+		$this->docRltnDct = $this->readRltnOfPart($fullPathName);
+		$blockLst = $this->readBodyBlocks($elementArray ?? $this->readPartAsTree($fullPathName, false) ?? Array('nodes'=>Array()));
 		$this->docRltnDct = $keptRltn;
 		return $blockLst;
 	}
@@ -330,7 +330,7 @@ class Docx extends Pack {
 	 * @param Array $relationList The relations of the document.
 	 * @return Array The notes, as blocks.
 	 */
-	protected function notesReadArray(Array $relationList): Array {
+	protected function readNotesOfDoc(Array $relationList): Array {
 		$blockLst = Array();
 		foreach(Array('fnote'=>Array('/footnotes', 'w:footnote'), 'enote'=>Array('/endnotes', 'w:endnote')) as $nteKnd=>$nteSet){
 			$numbList = $this->noteNumArr[$nteKnd];
@@ -339,12 +339,12 @@ class Docx extends Pack {
 					continue;
 				}
 				$noteList = Array();
-				foreach($this->kidsNamedArray($this->partNodesArray($relSet['paths'], false) ?? Array('nodes'=>Array()), $nteSet[1]) as $nteArr){
+				foreach($this->listNamedNodes($this->readPartAsTree($relSet['paths'], false) ?? Array('nodes'=>Array()), $nteSet[1]) as $nteArr){
 					$noteList[strval($nteArr['attrs']['w:id'] ?? '')] = $nteArr;
 				}
 				foreach($numbList as $noteId=>$noteNb){
 					if( isset($noteList[$noteId]) ){
-						$blockLst[] = $this->holdBlockArray('footnote', $this->fragmentBlocks($relSet['paths'], $noteList[$noteId]), Array('tagid'=>$nteKnd.$noteNb, 'numbr'=>$noteNb));
+						$blockLst[] = $this->makeOuterBlock('footnote', $this->readPartBlocks($relSet['paths'], $noteList[$noteId]), Array('tagid'=>$nteKnd.$noteNb, 'numbr'=>$noteNb));
 					}
 				}
 			}
@@ -360,14 +360,14 @@ class Docx extends Pack {
 	 * @param String $suffixOfType What ends the kind of the relations to read: '/header' or '/footer'.
 	 * @return Array Their blocks.
 	 */
-	protected function pagesReadArray(Array $relationList, String $suffixOfType): Array {
+	protected function readHeadOrFoot(Array $relationList, String $suffixOfType): Array {
 		$blockLst = Array();
 		$seenList = Array();
 		foreach($relationList as $relSet){
 			if( substr($relSet['types'], -strlen($suffixOfType))!==$suffixOfType ){
 				continue;
 			}
-			$partBloc = $this->fragmentBlocks($relSet['paths']);
+			$partBloc = $this->readPartBlocks($relSet['paths']);
 			$partClef = md5(serialize($partBloc));
 			if( !empty($partBloc) && !isset($seenList[$partClef]) ){
 				$seenList[$partClef] = true;
@@ -383,16 +383,16 @@ class Docx extends Pack {
 	 * @param Array $relationList The relations of the document.
 	 * @return Array The comments, each with its author under 'authr', its date under 'dated', its text under 'plain' and the passage it is about under 'about'.
 	 */
-	protected function gatherComments(Array $relationList): Array {
+	protected function readCommentLst(Array $relationList): Array {
 		$noteList = Array();
 		foreach($relationList as $relSet){
 			if( substr($relSet['types'], -9)!=='/comments' ){
 				continue;
 			}
-			foreach($this->kidsNamedArray($this->partNodesArray($relSet['paths'], false) ?? Array('nodes'=>Array()), 'w:comment') as $remark){
+			foreach($this->listNamedNodes($this->readPartAsTree($relSet['paths'], false) ?? Array('nodes'=>Array()), 'w:comment') as $remark){
 				$noteList[] = Array(
 					'authr'=>strval($remark['attrs']['w:author'] ?? ''), 'dated'=>strval($remark['attrs']['w:date'] ?? ''),
-					'plain'=>Shape::documentAsText($this->fragmentBlocks($relSet['paths'], $remark)),
+					'plain'=>Shape::getTextOfDcmnt($this->readPartBlocks($relSet['paths'], $remark)),
 					'about'=>trim(strval($this->commentTxt[strval($remark['attrs']['w:id'] ?? '')] ?? ''))
 				);
 			}
@@ -407,7 +407,7 @@ class Docx extends Pack {
 	 * @param Array $elementArray An element met in the text.
 	 * @return Bool True when the element was such a mark.
 	 */
-	protected function remarkMarksFlg(Array $elementArray): Bool {
+	protected function markRemarkSpan(Array $elementArray): Bool {
 		if( $elementArray['tagnm']!='w:commentRangeStart' && $elementArray['tagnm']!='w:commentRangeEnd' ){
 			return false;
 		}
@@ -429,7 +429,7 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element.
 	 * @return Array The blocks.
 	 */
-	protected function bodyBlocksList(Array $elementArray): Array {
+	protected function readBodyBlocks(Array $elementArray): Array {
 		$blockLst = Array();
 		$listBuff = Array();
 		$codeBuff = Array();
@@ -437,15 +437,15 @@ class Docx extends Pack {
 		// An end is added to the nodes, so that a list ending them is closed like any other
 		$bodyNods[] = Array('tagnm'=>'#end', 'attrs'=>Array(), 'nodes'=>Array());
 		foreach($bodyNods as $chlArr){
-			$prgrList = ($chlArr['tagnm']=='w:p') ? $this->paragraphParts($chlArr) : null;
+			$prgrList = ($chlArr['tagnm']=='w:p') ? $this->readPargrParts($chlArr) : null;
 			$prgrCode = strval($prgrList['kinds'] ?? '');
 			if( $prgrCode!='listItem' && !empty($listBuff) ){
 				$entryPos = 0;
-				$blockLst = array_merge($blockLst, $this->buildListBlock($listBuff, $entryPos, 0));
+				$blockLst = array_merge($blockLst, $this->makeListBlocks($listBuff, $entryPos, 0));
 				$listBuff = Array();
 			}
 			if( $prgrCode!='codeBlck' && !empty($codeBuff) ){
-				$blockLst = array_merge($blockLst, $this->codeBlockArray($codeBuff));
+				$blockLst = array_merge($blockLst, $this->joinCodeAsBloc($codeBuff));
 				$codeBuff = Array();
 			}
 			if( $prgrCode=='listItem' ){
@@ -455,16 +455,16 @@ class Docx extends Pack {
 			}elseif( $prgrCode=='codeBlck' ){
 				$codeBuff[] = $prgrList;
 			}elseif( $prgrList!==null ){
-				$blockLst = array_merge($blockLst, $this->paragrphBlocks($prgrList));
+				$blockLst = array_merge($blockLst, $this->getBlocksOfPrg($prgrList));
 			}elseif( $chlArr['tagnm']=='w:tbl' ){
-				$tableBlc = $this->tableBlockList($chlArr);
+				$tableBlc = $this->readTableBlock($chlArr);
 				if( !empty($tableBlc['items']) ){
 					$blockLst[] = $tableBlc;
 				}
 			}elseif( $chlArr['tagnm']=='w:sdt' ){
-				$blockLst = array_merge($blockLst, $this->bodyBlocksList($this->findChildArray($chlArr, Array('w:sdtContent')) ?? Array('nodes'=>Array())));
+				$blockLst = array_merge($blockLst, $this->readBodyBlocks($this->findChildArray($chlArr, Array('w:sdtContent')) ?? Array('nodes'=>Array())));
 			}else{
-				$this->remarkMarksFlg($chlArr);
+				$this->markRemarkSpan($chlArr);
 			}
 		}
 		return $blockLst;
@@ -476,7 +476,7 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element of the paragraph.
 	 * @return Array What it is under 'kinds' (headline, listItem, citation, codeBlck or paragrph), its level as a heading under 'level', the list it belongs to under 'numid', its level in it under 'ilevl' and whether that level is numbered under 'order', its style, its alignment and its id under 'attrs', its text under 'spans' and as written under 'plain', the images and the page breaks it holds under 'holds', all of it in order, as blocks, under 'flows', and whether a page break stands before or after it under 'prior' and 'after'.
 	 */
-	protected function paragraphParts(Array $elementArray): Array {
+	protected function readPargrParts(Array $elementArray): Array {
 		$propList = $this->findChildArray($elementArray, Array('w:pPr')) ?? Array('nodes'=>Array());
 		$styleKey = strval($this->findChildArray($propList, Array('w:pStyle'))['attrs']['w:val'] ?? '');
 		if( !isset($this->styleTable[$styleKey]) ){
@@ -498,7 +498,7 @@ class Docx extends Pack {
 		}
 		$pictList = Array();
 		$this->readParaPieces($elementArray, '', $pictList);
-		$flowDict = $this->flowPartsArray($pictList, $this->isVoidKept);
+		$flowDict = $this->splitFlowParts($pictList, $this->isVoidKept);
 		$spansAll = $flowDict['spans'];
 		$attrDict = Array();
 		if( $styleDct['names']!=='' ){
@@ -511,7 +511,7 @@ class Docx extends Pack {
 			$attrDict['align'] = $ownAlign;
 		}
 		// A bookmark starting the paragraph names it; those Word adds for itself start with an underscore
-		foreach($this->kidsNamedArray($elementArray, 'w:bookmarkStart') as $bkmArr){
+		foreach($this->listNamedNodes($elementArray, 'w:bookmarkStart') as $bkmArr){
 			$bkmrName = strval($bkmArr['attrs']['w:name'] ?? '');
 			if( $bkmrName!=='' && $bkmrName[0]!='_' && !isset($attrDict['tagid']) ){
 				$attrDict['tagid'] = $bkmrName;
@@ -579,7 +579,7 @@ class Docx extends Pack {
 				// A link points to an address kept in the relations of the document, or to a bookmark of the document itself
 				$rltnDict = $this->docRltnDct[strval($chlArr['attrs']['r:id'] ?? '')] ?? null;
 				$anchText = strval($chlArr['attrs']['w:anchor'] ?? '');
-				$linkAddr = Shape::tidyLinkString((($rltnDict!==null) ? $rltnDict['links'] : '').(($anchText!=='') ? '#'.$anchText : ''));
+				$linkAddr = Shape::wipeUnsafeAddr((($rltnDict!==null) ? $rltnDict['links'] : '').(($anchText!=='') ? '#'.$anchText : ''));
 				$this->readParaPieces($chlArr, ($linkAddr!=='') ? $linkAddr : $linkGoalText, $outputPieces);
 			}elseif( $childNme=='w:fldSimple' ){
 				// A field written in one piece: what it asks for is told beside what it shows
@@ -592,12 +592,12 @@ class Docx extends Pack {
 			}elseif( $childNme=='w:sdt' ){
 				$this->readParaPieces($this->findChildArray($chlArr, Array('w:sdtContent')) ?? Array('nodes'=>Array()), $linkGoalText, $outputPieces);
 			}elseif( $childNme=='w:r' ){
-				$markList = array_values(array_intersect(Shape::MARK_LIST, array_merge($this->styleTable[strval($this->findChildArray($chlArr, Array('w:rPr', 'w:rStyle'))['attrs']['w:val'] ?? '')]['marks'] ?? Array(), $this->marksOfRunList($chlArr))));
+				$markList = array_values(array_intersect(Shape::MARK_LIST, array_merge($this->styleTable[strval($this->findChildArray($chlArr, Array('w:rPr', 'w:rStyle'))['attrs']['w:val'] ?? '')]['marks'] ?? Array(), $this->listMarksOfRun($chlArr))));
 				foreach($chlArr['nodes'] as $oneRun){
 					$this->readOneRunPart($oneRun, $markList, $linkGoalText, $outputPieces);
 				}
 			}else{
-				$this->remarkMarksFlg($chlArr);
+				$this->markRemarkSpan($chlArr);
 			}
 		}
 	}
@@ -627,7 +627,7 @@ class Docx extends Pack {
 				$this->fieldState = 2;
 				$this->fieldCodes = $this->parseFieldCode($this->fldCodeTxt);
 				if( preg_match('/^\s*HYPERLINK\s+(\\\\l\s+)?"([^"]*)"/i', $this->fldCodeTxt, $codeList) ){
-					$this->fieldLinks = Shape::tidyLinkString((($codeList[1]!=='') ? '#' : '').$codeList[2]);
+					$this->fieldLinks = Shape::wipeUnsafeAddr((($codeList[1]!=='') ? '#' : '').$codeList[2]);
 				}
 			}else{
 				$this->fieldState = 0;
@@ -635,13 +635,13 @@ class Docx extends Pack {
 			return;
 		}
 		if( $this->fieldState==1 ){
-			$this->fldCodeTxt .= ($pictName=='w:instrText') ? $this->collectAllText($elementArray) : '';
+			$this->fldCodeTxt .= ($pictName=='w:instrText') ? $this->readNestedText($elementArray) : '';
 			return;
 		}
 		$pictText = '';
 		$pictLink = ($linkGoalText!=='') ? $linkGoalText : $this->fieldLinks;
 		if( $pictName=='w:t' ){
-			$pictText = $this->collectAllText($elementArray);
+			$pictText = $this->readNestedText($elementArray);
 		}elseif( $pictName=='w:tab' ){
 			$pictText = "\t";
 		}elseif( $pictName=='w:br' && strtolower(strval($elementArray['attrs']['w:type'] ?? ''))=='page' ){
@@ -657,16 +657,16 @@ class Docx extends Pack {
 			if( !isset($this->noteNumArr[$noteCode][$noteRefr]) ){
 				$this->noteNumArr[$noteCode][$noteRefr] = count($this->noteNumArr[$noteCode])+1;
 			}
-			$outputPieces[] = Shape::makeASpanArray(strval($this->noteNumArr[$noteCode][$noteRefr]), Array(), '#'.$noteCode.$this->noteNumArr[$noteCode][$noteRefr]);
+			$outputPieces[] = Shape::makeSpanOfText(strval($this->noteNumArr[$noteCode][$noteRefr]), Array(), '#'.$noteCode.$this->noteNumArr[$noteCode][$noteRefr]);
 			return;
 		}elseif( in_array($pictName, Array('w:drawing', 'w:pict', 'w:object')) ){
-			$imageBlc = $this->imageBlockList($elementArray);
+			$imageBlc = $this->readImageBlock($elementArray);
 			if( $imageBlc!==null ){
 				$outputPieces[] = $imageBlc;
 			}
 		}
 		if( $pictText!=='' ){
-			$outputPieces[] = Shape::makeASpanArray($pictText, $runFormatSet, $pictLink, $this->fieldCodes);
+			$outputPieces[] = Shape::makeSpanOfText($pictText, $runFormatSet, $pictLink, $this->fieldCodes);
 			foreach(array_keys($this->openedList) as $cmtIdn){
 				$this->openedList[$cmtIdn] .= $pictText;
 			}
@@ -679,8 +679,8 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element of the drawing.
 	 * @return ?Array The image, as a block: its address, in the archive or outside it, and its description as text. Null when the drawing holds no image.
 	 */
-	protected function imageBlockList(Array $elementArray): ?Array {
-		$blipList = $this->deepNamedArray($elementArray, Array('a:blip', 'v:imagedata'));
+	protected function readImageBlock(Array $elementArray): ?Array {
+		$blipList = $this->findNestedNode($elementArray, Array('a:blip', 'v:imagedata'));
 		if( $blipList===null ){
 			return null;
 		}
@@ -688,13 +688,13 @@ class Docx extends Pack {
 		if( $rltnDict===null ){
 			return null;
 		}
-		$imageLnk = Shape::tidyLinkString($rltnDict['outer'] ? $rltnDict['links'] : $rltnDict['paths']);
+		$imageLnk = Shape::wipeUnsafeAddr($rltnDict['outer'] ? $rltnDict['links'] : $rltnDict['paths']);
 		if( $imageLnk==='' ){
 			return null;
 		}
-		$altStrng = $this->deepNamedArray($elementArray, Array('wp:docPr'));
+		$altStrng = $this->findNestedNode($elementArray, Array('wp:docPr'));
 		$imageTxt = trim(strval($altStrng['attrs']['descr'] ?? $blipList['attrs']['o:title'] ?? ''));
-		return Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeASpanArray($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk));
+		return Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeSpanOfText($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk));
 	}
 
 	/**
@@ -702,12 +702,12 @@ class Docx extends Pack {
 	 * the level each has: a paragraph further in belongs to the entry
 	 * before it, and a change of list at one level starts a new one.
 	 *
-	 * @param Array $paragraphSet The paragraphs, as paragraphParts() gives them.
+	 * @param Array $paragraphSet The paragraphs, as readPargrParts() gives them.
 	 * @param Int   $itmOffsetNum The paragraph to start from; receives the one following the lists built.
 	 * @param Int   $levelValNumb The level of the lists to build.
 	 * @return Array The lists, as blocks.
 	 */
-	protected function buildListBlock(Array $paragraphSet, Int &$itmOffsetNum, Int $levelValNumb): Array {
+	protected function makeListBlocks(Array $paragraphSet, Int &$itmOffsetNum, Int $levelValNumb): Array {
 		$listList = Array();
 		$itemList = Array();
 		$nowCount = '';
@@ -716,7 +716,7 @@ class Docx extends Pack {
 			$itemDict = $paragraphSet[$itmOffsetNum];
 			if( $itemDict['ilevl']>$levelValNumb ){
 				// Further in: the lists of that level go into the entry before them, an empty one when there is none
-				$deepList = $this->buildListBlock($paragraphSet, $itmOffsetNum, $itemDict['ilevl']);
+				$deepList = $this->makeListBlocks($paragraphSet, $itmOffsetNum, $itemDict['ilevl']);
 				$lastEntr = empty($itemList) ? Shape::makeBlockArray('listItem') : array_pop($itemList);
 				$itemList[] = Shape::makeBlockArray('listItem', $lastEntr['spans'], array_merge($lastEntr['items'], $deepList), $lastEntr['attrs']);
 				continue;
@@ -745,14 +745,14 @@ class Docx extends Pack {
 	 * @param Array $elementArray The element of the table.
 	 * @return Array The table, as a block.
 	 */
-	protected function tableBlockList(Array $elementArray): Array {
+	protected function readTableBlock(Array $elementArray): Array {
 		$rowsDict = Array();
 		// The cells still running down their column: column => the row and the place of the cell
 		$openSpan = Array();
-		foreach($this->kidsNamedArray($elementArray, 'w:tr') as $rowArr){
+		foreach($this->listNamedNodes($elementArray, 'w:tr') as $rowArr){
 			$rowCells = Array();
 			$clmnIndx = 0;
-			foreach($this->kidsNamedArray($rowArr, 'w:tc') as $celArr){
+			foreach($this->listNamedNodes($rowArr, 'w:tc') as $celArr){
 				$propList = $this->findChildArray($celArr, Array('w:tcPr')) ?? Array('nodes'=>Array());
 				$clmnSpan = max(1, intval($this->findChildArray($propList, Array('w:gridSpan'))['attrs']['w:val'] ?? 1));
 				$mrgdList = $this->findChildArray($propList, Array('w:vMerge'));
@@ -767,7 +767,7 @@ class Docx extends Pack {
 				if( $mrgdVals=='restart' ){
 					$openSpan[$clmnIndx] = Array(count($rowsDict), count($rowCells));
 				}
-				$cellBloc = $this->bodyBlocksList($celArr);
+				$cellBloc = $this->readBodyBlocks($celArr);
 				// Word ends every cell with a paragraph: an empty one after something else is only that
 				$lastBloc = end($cellBloc);
 				if( count($cellBloc)>1 && $lastBloc['block']=='paragrph' && empty($lastBloc['spans']) ){
@@ -785,7 +785,7 @@ class Docx extends Pack {
 				// Only what a cell covers beyond itself is worth telling; the paragraph that is its text tells its style
 				$spanAttr = array_filter($celSet['attrs'], function($colSpanCount){ return $colSpanCount>1; });
 				$firstBlc = $celSet['blcks'][0] ?? Array('block'=>'', 'attrs'=>Array());
-				$cellList[] = $this->holdBlockArray('cellText', $celSet['blcks'], $spanAttr + (($firstBlc['block']=='paragrph') ? $firstBlc['attrs'] : Array()));
+				$cellList[] = $this->makeOuterBlock('cellText', $celSet['blcks'], $spanAttr + (($firstBlc['block']=='paragrph') ? $firstBlc['attrs'] : Array()));
 			}
 			if( !empty($cellList) ){
 				$rowsList[] = Shape::makeBlockArray($rowSet['thead'] ? 'tableTop' : 'tableRow', Array(), $cellList);

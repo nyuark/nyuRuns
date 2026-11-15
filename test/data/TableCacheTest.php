@@ -29,22 +29,22 @@ $fakeDsc = Array('flds'=>Array('id_show', 'title', 'venue', 'gonecol'), 'pkey'=>
 
 // Not kept: the database is asked, and nothing is noted
 ConfCache::$tableInfos = null;
-checkIdentical('without TBL_CACH, the database describes the table', runCatchThrown(function(){ return DBCon::linkNamedDbCon()->getStoreObject()->tableInfoArray('shows'); }), $realDsc);
+checkIdentical('without TBL_CACH, the database describes the table', runCatchThrown(function(){ return DBCon::linkNamedDbCon()->getStoreObject()->getInfoOfTable('shows'); }), $realDsc);
 checkIdentical('...and nothing is noted', Array(ConfCache::$tableInfos, ConfCache::$isTblAdded), Array(null, false));
 
 // Kept: a description asked is noted, under its database
 ConfCache::$tableInfos = Array();
 checkIdentical('a table described is noted, under the name of its database', runCatchThrown(function(){
-	DBCon::linkNamedDbCon('archive')->getStoreObject()->tableInfoArray('events');
+	DBCon::linkNamedDbCon('archive')->getStoreObject()->getInfoOfTable('events');
 	return Array(array_keys(ConfCache::$tableInfos), array_keys(ConfCache::$tableInfos['archive'] ?? Array()), ConfCache::$isTblAdded);
 }), Array(Array('archive'), Array('events'), true));
 
 // A description the cache holds stands for the question, for its own database only
 ConfCache::$tableInfos = Array('archive'=>Array('shows'=>$fakeDsc));
 ConfCache::$isTblAdded = false;
-checkIdentical('the description the cache holds is taken, the database is not asked', runCatchThrown(function(){ return DBCon::linkNamedDbCon('archive')->getStoreObject()->tableInfoArray('shows'); }), $fakeDsc);
+checkIdentical('the description the cache holds is taken, the database is not asked', runCatchThrown(function(){ return DBCon::linkNamedDbCon('archive')->getStoreObject()->getInfoOfTable('shows'); }), $fakeDsc);
 checkIdentical('...and nothing new is noted', ConfCache::$isTblAdded, false);
-checkIdentical('another database does not take it', runCatchThrown(function(){ return DBCon::linkNamedDbCon()->getStoreObject()->tableInfoArray('shows'); }), $realDsc);
+checkIdentical('another database does not take it', runCatchThrown(function(){ return DBCon::linkNamedDbCon()->getStoreObject()->getInfoOfTable('shows'); }), $realDsc);
 
 // A query failing on a table the cache described removes the cache
 ConfCache::$isTblAdded = false;
@@ -60,9 +60,9 @@ $cchArr = function( String $tblFlag, String $cnfFlag ) use ( $realDsc ): Array {
 	return Array('preset'=>Array(), 'config'=>Array('SYSTEM'=>Array('CNF_CACH'=>$cnfFlag, 'TBL_CACH'=>$tblFlag)), 'routes'=>Array(), 'tables'=>Array(''=>Array('shows'=>$realDsc)));
 };
 (new Loader($stupArr, $cchArr('TRUE', 'TRUE'), 'probe'))->readConfigRegr();
-checkIdentical('the Loader hands the cached descriptions over with TBL_CACH and CNF_CACH', ConfCache::tableInfoArray('', 'shows'), $realDsc);
+checkIdentical('the Loader hands the cached descriptions over with TBL_CACH and CNF_CACH', ConfCache::getInfoOfTable('', 'shows'), $realDsc);
 (new Loader($stupArr, $cchArr('FALSE', 'TRUE'), 'probe'))->readConfigRegr();
-checkIdentical('not without TBL_CACH', Array(ConfCache::$tableInfos, ConfCache::tableInfoArray('', 'shows')), Array(null, null));
+checkIdentical('not without TBL_CACH', Array(ConfCache::$tableInfos, ConfCache::getInfoOfTable('', 'shows')), Array(null, null));
 (new Loader($stupArr, $cchArr('TRUE', 'FALSE'), 'probe'))->readConfigRegr();
 checkIdentical('nor without CNF_CACH', ConfCache::$tableInfos, null);
 

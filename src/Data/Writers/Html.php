@@ -124,7 +124,7 @@ class Html extends Base {
 	 * @param String $styleNameTxt Name of the style.
 	 * @return String The class, '' when the name gives none.
 	 */
-	protected function clssOfItString(String $styleNameTxt): String {
+	protected function getClassOfStyl(String $styleNameTxt): String {
 		$toldClss = strval($this->formatList[$styleNameTxt]['class'] ?? '');
 		if( preg_match('/^[a-z][a-z0-9\-]*$/D', $toldClss) ){
 			return $toldClss;
@@ -144,7 +144,7 @@ class Html extends Base {
 	protected function writeCssStyles(Bool $hasPageBreak): String {
 		$ruleList = Array();
 		foreach($this->formatList as $oneNme=>$stlSet){
-			$styleCls = $this->clssOfItString(strval($oneNme));
+			$styleCls = $this->getClassOfStyl(strval($oneNme));
 			$propList = Array();
 			if( !is_array($stlSet) || $styleCls==='' ){
 				continue;
@@ -189,11 +189,11 @@ class Html extends Base {
 	 * @param Array $contentBlock The block.
 	 * @return String The attributes, each with its leading space, or ''.
 	 */
-	protected function blockAttribute(Array $contentBlock): String {
+	protected function writeBlockAttr(Array $contentBlock): String {
 		$attrDict = (array)($contentBlock['attrs'] ?? Array());
 		$tagIdent = strval($attrDict['tagid'] ?? '');
 		$htmlAttr = preg_match('/^[\w\-:.]+$/D', $tagIdent) ? ' id="'.$this->escapeHtmlText($tagIdent).'"' : '';
-		$styleCls = ($this->hasClasses && strval($attrDict['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrDict['style'])) : '';
+		$styleCls = ($this->hasClasses && strval($attrDict['style'] ?? '')!=='') ? $this->getClassOfStyl(strval($attrDict['style'])) : '';
 		if( $styleCls!=='' ){
 			$htmlAttr .= ' class="'.$styleCls.'"';
 		}
@@ -212,7 +212,7 @@ class Html extends Base {
 	 * @param String $plainHeading The text of the heading, without its formatting.
 	 * @return String The anchor, unique in the page.
 	 */
-	protected function slugHeadingTxt(String $plainHeading): String {
+	protected function makeSlugOfHead(String $plainHeading): String {
 		$slugText = str_replace(' ', '-', strval(preg_replace('/[^\p{L}\p{N}\- _]/u', '', mb_strtolower(trim($plainHeading)))));
 		$fullSlug = $slugText;
 		$sameNumb = 0;
@@ -245,7 +245,7 @@ class Html extends Base {
 			if( strval($oneSpn['field'] ?? '')!=='' ){
 				$spanHtml = '<span data-field="'.$this->escapeHtmlText(strval($oneSpn['field'])).'">'.$spanHtml.'</span>';
 			}
-			$linkAddr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
+			$linkAddr = Shape::wipeUnsafeAddr(strval($oneSpn['links'] ?? ''));
 			if( $linkAddr!=='' ){
 				$spanHtml = '<a href="'.$this->escapeHtmlText($linkAddr).'">'.$spanHtml.'</a>';
 			}
@@ -265,7 +265,7 @@ class Html extends Base {
 	 * @param Array $contentBlock The block.
 	 * @return String The HTML.
 	 */
-	protected function innerOutString(Array $contentBlock): String {
+	protected function writeInnerPart(Array $contentBlock): String {
 		$ownCrude = $this->writeInlineTxt($contentBlock['spans']);
 		if( empty($contentBlock['items']) ){
 			return $ownCrude;
@@ -285,11 +285,11 @@ class Html extends Base {
 		$htmlText = '';
 		foreach($bookBlockSet as $oneBlk){
 			$blockCod = strval($oneBlk['block'] ?? '');
-			$blockAtr = $this->blockAttribute($oneBlk);
+			$blockAtr = $this->writeBlockAttr($oneBlk);
 			if( $blockCod=='headline' ){
 				$headLevl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
 				if( $this->anchorList!==null && strpos($blockAtr, ' id="')===false ){
-					$blockAtr = ' id="'.$this->escapeHtmlText($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blockAtr;
+					$blockAtr = ' id="'.$this->escapeHtmlText($this->makeSlugOfHead(strval($oneBlk['plain'] ?? ''))).'"'.$blockAtr;
 				}
 				$htmlText .= '<h'.$headLevl.$blockAtr.'>'.$this->writeInlineTxt($oneBlk['spans']).'</h'.$headLevl.">\n";
 			}elseif( $blockCod=='paragrph' ){
@@ -300,17 +300,17 @@ class Html extends Base {
 				foreach($oneBlk['items'] as $entBlk){
 					// A task shows the box that tells whether it is done
 					$taskHtml = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->isXhtmlDoc ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->isXhtmlDoc ? '="checked"' : '')).$this->shutVoidString().' ' : '';
-					$htmlText .= '<li'.$this->blockAttribute($entBlk).'>'.$taskHtml.$this->innerOutString($entBlk)."</li>\n";
+					$htmlText .= '<li'.$this->writeBlockAttr($entBlk).'>'.$taskHtml.$this->writeInnerPart($entBlk)."</li>\n";
 				}
 				$htmlText .= '</'.$lstngTag.">\n";
 			}elseif( $blockCod=='tableSet' ){
-				$htmlText .= '<table'.$blockAtr.">\n".$this->tableRowOutput($oneBlk['items'])."</table>\n";
+				$htmlText .= '<table'.$blockAtr.">\n".$this->writeTableRows($oneBlk['items'])."</table>\n";
 			}elseif( $blockCod=='footnote' ){
 				$noteNumb = intval($oneBlk['attrs']['numbr'] ?? 0);
-				$htmlText .= '<aside'.$blockAtr.'>'.(($noteNumb>0) ? '<sup>'.$noteNumb.'</sup> ' : '').$this->innerOutString($oneBlk)."</aside>\n";
+				$htmlText .= '<aside'.$blockAtr.'>'.(($noteNumb>0) ? '<sup>'.$noteNumb.'</sup> ' : '').$this->writeInnerPart($oneBlk)."</aside>\n";
 			}elseif( $blockCod=='citation' ){
 				// Who is quoted is told under the quotation
-				$quoteHtm = $this->innerOutString($oneBlk);
+				$quoteHtm = $this->writeInnerPart($oneBlk);
 				$citeText = strval($oneBlk['attrs']['cites'] ?? '');
 				if( $citeText!=='' ){
 					$quoteHtm .= ((substr($quoteHtm, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeHtmlText($citeText)."</cite>\n";
@@ -320,7 +320,7 @@ class Html extends Base {
 				$codeLang = strval($oneBlk['attrs']['langg'] ?? '');
 				$htmlText .= '<pre'.$blockAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLang) ? ' class="language-'.$this->escapeHtmlText($codeLang).'"' : '').'>'.$this->escapeHtmlText($oneBlk['plain'])."</code></pre>\n";
 			}elseif( $blockCod=='imageBox' ){
-				$imageLnk = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
+				$imageLnk = Shape::wipeUnsafeAddr(strval($oneBlk['attrs']['sourc'] ?? ''));
 				if( $imageLnk!=='' ){
 					$htmlText .= '<img'.$blockAtr.' src="'.$this->escapeHtmlText($imageLnk).'" alt="'.$this->escapeHtmlText($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
 				}
@@ -328,9 +328,9 @@ class Html extends Base {
 				$htmlText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blockAtr : '<hr class="break"').$this->shutVoidString()."\n";
 			}elseif( in_array($blockCod, Array('listItem', 'cellText')) ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$htmlText .= $this->innerOutString($oneBlk)."\n";
+				$htmlText .= $this->writeInnerPart($oneBlk)."\n";
 			}elseif( in_array($blockCod, Array('tableTop', 'tableRow')) ){
-				$htmlText .= "<table>\n".$this->tableRowOutput(Array($oneBlk))."</table>\n";
+				$htmlText .= "<table>\n".$this->writeTableRows(Array($oneBlk))."</table>\n";
 			}else{
 				throw new WriteError('Unknown kind of block: '.$blockCod);
 			}
@@ -345,7 +345,7 @@ class Html extends Base {
 	 * @param Array $rowBlockList The rows, as 'tableTop' and 'tableRow' blocks.
 	 * @return String The HTML.
 	 */
-	protected function tableRowOutput(Array $rowBlockList): String {
+	protected function writeTableRows(Array $rowBlockList): String {
 		$partHtml = Array('thead'=>'', 'tbody'=>'');
 		foreach($rowBlockList as $oneRow){
 			$isTopRow = (strval($oneRow['block'] ?? '')=='tableTop');
@@ -358,7 +358,7 @@ class Html extends Base {
 						$spanAttr .= ' '.$atrNme.'="'.intval($celBlk['attrs'][$atrKey]).'"';
 					}
 				}
-				$ntryHtml .= '<'.$celdaTag.$this->blockAttribute($celBlk).$spanAttr.'>'.$this->innerOutString($celBlk).'</'.$celdaTag.'>';
+				$ntryHtml .= '<'.$celdaTag.$this->writeBlockAttr($celBlk).$spanAttr.'>'.$this->writeInnerPart($celBlk).'</'.$celdaTag.'>';
 			}
 			$partHtml[$isTopRow ? 'thead' : 'tbody'] .= $ntryHtml."</tr>\n";
 		}

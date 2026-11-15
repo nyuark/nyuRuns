@@ -16,7 +16,7 @@ use nyu\Data\DBStore\MongoStore;
 use nyu\Data\DBStore\Filter;
 
 $docStor = new ArrayStore();
-$docLink = DBCon::fromStoreDbCon($docStor);
+$docLink = DBCon::makeByStoreObj($docStor);
 
 foreach( Array(
 	Array('title'=>'Alpha Night',   'venue'=>'Hall A', 'seats'=>120),
@@ -39,7 +39,7 @@ foreach( Array(Array('show_id'=>'key1', 'date'=>'2026-12-28'), Array('show_id'=>
 function docTitle( Array $whereArray ): Mixed {
 	return runCatchThrown(function() use ($whereArray){
 		$showLst = new DBLst('shows', null, null, null, null, $GLOBALS['docLink']);
-		$showLst->replaceFilters($whereArray);
+		$showLst->setListFilters($whereArray);
 		$showLst->setOrderFields('title');
 		return array_column($showLst->readRowsOfList(), 'title');
 	});
@@ -56,7 +56,7 @@ checkIdentical('list: a null value matches nothing', docTitle(Array('venue'=>nul
 checkIdentical('list: values are compared with their type', Array(docTitle(Array('seats'=>120)), docTitle(Array('seats'=>'120'))), Array(Array('Alpha Night'), Array()));
 checkIdentical('list: fields, alias, order, limit and offset', runCatchThrown(function() use ($docLink){
 	$showLst = new DBLst('shows', null, null, null, null, $docLink);
-	$showLst->pickReadFields('title as name, seats');
+	$showLst->setReadColumns('title as name, seats');
 	$showLst->setOrderFields(Array('^seats', 'title'));
 	$showLst->setLimitOffset('2,1');
 	return $showLst->readRowsOfList();
@@ -67,13 +67,13 @@ checkIdentical('list: an order written as plain field names in the constructor w
 }), Array('2026-12-28', '2026-11-03'));
 checkIdentical('list: child lists', runCatchThrown(function() use ($docLink){
 	$showLst = new DBLst('shows', null, null, null, null, $docLink);
-	$showLst->replaceFilters(Array('title~'=>'*a Night'));
+	$showLst->setListFilters(Array('title~'=>'*a Night'));
 	$showLst->readRowsOfList();
-	return count($showLst->attachChildren('events', 'date', 'show_id', '_id')[0]['events']);
+	return count($showLst->loadChildRecrd('events', 'date', 'show_id', '_id')[0]['events']);
 }), 2);
 
 // What only the SQL types do
-checkPregMatch('list: a function is refused', runCatchThrown(function() use ($docLink){ $showLst = new DBLst('shows', null, null, null, null, $docLink); $showLst->pickReadFields('count(*) as nb'); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
+checkPregMatch('list: a function is refused', runCatchThrown(function() use ($docLink){ $showLst = new DBLst('shows', null, null, null, null, $docLink); $showLst->setReadColumns('count(*) as nb'); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Functions are not available on a document store/');
 checkPregMatch('list: a join is refused', runCatchThrown(function() use ($docLink){ $showLst = new DBLst('events', null, null, null, null, $docLink); $showLst->joinOtherTable(Array('shows', 'show_id', '_id')); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Joins are not available on a document store/');
 checkPregMatch('list: a group is refused', runCatchThrown(function() use ($docLink){ $showLst = new DBLst('shows', null, null, null, null, $docLink); $showLst->setGroupFields('venue'); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Groups are not available on a document store/');
 checkPregMatch('list: a where clause written as SQL is refused', runCatchThrown(function() use ($docLink){ $showLst = new DBLst('shows', null, "venue = 'Hall A'", null, null, $docLink); return $showLst->readRowsOfList(); }), '/^THROWN RuntimeException: Fragments written as SQL are not available on a document store/');
@@ -81,7 +81,7 @@ checkPregMatch('list: a where clause written as SQL is refused', runCatchThrown(
 // Records
 checkIdentical('record: the key is _id, and any plain field is taken', runCatchThrown(function() use ($docLink){
 	$showRec = new DBRec('shows', Array(), Array(), $docLink);
-	$showRec->bindFieldArray(Array('title'=>'Gamma', 'venue'=>'Hall G', 'seats'=>50, 'tags'=>Array('new'), 'not a field'=>'x'));
+	$showRec->setFieldsArray(Array('title'=>'Gamma', 'venue'=>'Hall G', 'seats'=>50, 'tags'=>Array('new'), 'not a field'=>'x'));
 	$savedKy = $showRec->insertOrUpdate();
 	$readRec = new DBRec('shows', Array(), Array(), $docLink);
 	return Array($savedKy, $readRec->loadRecordList($savedKy));
@@ -89,24 +89,24 @@ checkIdentical('record: the key is _id, and any plain field is taken', runCatchT
 checkIdentical('record: update by key, linked rows are not saved', runCatchThrown(function() use ($docLink){
 	$showRec = new DBRec('shows', Array('events'=>Array('show_id', '_id', 'date ASC')), Array(), $docLink);
 	$recVals = $showRec->loadRecordList('key1');
-	$showRec->bindFieldArray(Array('venue'=>'Hall X'));
+	$showRec->setFieldsArray(Array('venue'=>'Hall X'));
 	$savedKy = $showRec->insertOrUpdate();
 	$readRec = new DBRec('shows', Array(), Array(), $docLink);
 	return Array(array_column($recVals['Events'], 'date'), $savedKy, $readRec->loadRecordList('key1'));
 }), Array(Array('2026-11-03', '2026-12-28'), 'key1', Array('_id'=>'key1', 'title'=>'Alpha Night', 'venue'=>'Hall X', 'seats'=>120)));
 checkIdentical('record: find, and a missing key', runCatchThrown(function() use ($docLink){
 	$showRec = new DBRec('shows', Array(), Array(), $docLink);
-	return Array($showRec->findRecordList(Array('title~'=>'beta*'))['_id'] ?? null, $showRec->loadRecordList('key99'), $showRec->existsRecdFlag('key2'), $showRec->existsRecdFlag('key*'));
+	return Array($showRec->findRecordList(Array('title~'=>'beta*'))['_id'] ?? null, $showRec->loadRecordList('key99'), $showRec->hasRecordOfKey('key2'), $showRec->hasRecordOfKey('key*'));
 }), Array('key2', false, true, false));
 checkIdentical('record: deleted alone, without transactions', runCatchThrown(function() use ($docLink){
 	$showRec = new DBRec('shows', Array(), Array(), $docLink);
 	$showRec->loadRecordList('key3');
-	return Array($showRec->removeRecdFlag(), $showRec->removeRecdFlag(), docTitle(Array('title'=>'Alpha Matinee')));
+	return Array($showRec->dropThisRecord(), $showRec->dropThisRecord(), docTitle(Array('title'=>'Alpha Matinee')));
 }), Array(true, false, Array()));
 checkPregMatch('record: deleting with children is refused without transactions', runCatchThrown(function() use ($docLink){
 	$showRec = new DBRec('shows', Array(), Array(), $docLink);
 	$showRec->loadRecordList('key1');
-	return $showRec->removeRecdFlag(Array('events'=>'show_id'));
+	return $showRec->dropThisRecord(Array('events'=>'show_id'));
 }), '/^THROWN RuntimeException: Deleting a record with its children needs transactions/');
 checkIdentical('...and nothing was deleted', runCatchThrown(function() use ($docStor){ return Array(count($docStor->findItemsArray('events')), count($docStor->findItemsArray('shows', Array('_id='=>'key1')))); }), Array(3, 1));
 checkPregMatch('store: a deletion without a filter is refused', runCatchThrown(function() use ($docStor){ return $docStor->deleteRowCount('events', Array()); }), '/^THROWN RuntimeException: A change or a deletion needs a filter/');
@@ -147,18 +147,18 @@ checkIdentical('mongo: a value is never read as an operator', runCatchThrown(fun
 checkIdentical('mongo: the usual injection through a value matches nothing', runCatchThrown(function(){ return array_keys(MongoStore::makeQueryArray(Array('pass'=>Array('$ne'=>'')))['$and'][0]); }), Array('$nor'));
 
 // MongoDB store: connection string and availability
-checkIdentical('mongo: connection string', runCatchThrown(function(){ return MongoStore::buildDsnString('', '', '', 'shop'); }), 'mongodb://localhost/shop');
-checkIdentical('mongo: connection string with an account and a port', runCatchThrown(function(){ return MongoStore::buildDsnString('db.local', 'web@app', 'p:ss/w?rd', 'shop', Array('portNumb'=>'27018')); }), 'mongodb://web%40app:p%3Ass%2Fw%3Frd@db.local:27018/shop');
-checkIdentical('mongo: connection string with the database of the account and a waiting time', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', 'web', 'pw', 'shop', Array('authBase'=>'admin', 'waitSecs'=>'5')); }), 'mongodb://web:pw@localhost/shop?authSource=admin&serverSelectionTimeoutMS=5000');
-checkIdentical('mongo: settings of the SQL types are left aside', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop', Array('portNumb'=>'', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'')); }), 'mongodb://localhost/shop');
-checkPregMatch('mongo: an account database that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', 'web', 'pw', 'shop', Array('authBase'=>'admin&tls=false')); }), '/^THROWN RuntimeException: Invalid account database name/');
-checkPregMatch('mongo: a waiting time that is not a number is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop', Array('waitSecs'=>'5&x=1')); }), '/^THROWN RuntimeException: Invalid database waiting time/');
-checkPregMatch('mongo: a database name that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost', '', '', 'shop?authSource=admin'); }), '/^THROWN RuntimeException: Invalid database name/');
-checkPregMatch('mongo: a host carrying anything else is refused', runCatchThrown(function(){ return MongoStore::buildDsnString('localhost,evil.example/x', '', '', 'shop'); }), '/^THROWN RuntimeException: Invalid database host/');
+checkIdentical('mongo: connection string', runCatchThrown(function(){ return MongoStore::makeDsnForHost('', '', '', 'shop'); }), 'mongodb://localhost/shop');
+checkIdentical('mongo: connection string with an account and a port', runCatchThrown(function(){ return MongoStore::makeDsnForHost('db.local', 'web@app', 'p:ss/w?rd', 'shop', Array('portNumb'=>'27018')); }), 'mongodb://web%40app:p%3Ass%2Fw%3Frd@db.local:27018/shop');
+checkIdentical('mongo: connection string with the database of the account and a waiting time', runCatchThrown(function(){ return MongoStore::makeDsnForHost('localhost', 'web', 'pw', 'shop', Array('authBase'=>'admin', 'waitSecs'=>'5')); }), 'mongodb://web:pw@localhost/shop?authSource=admin&serverSelectionTimeoutMS=5000');
+checkIdentical('mongo: settings of the SQL types are left aside', runCatchThrown(function(){ return MongoStore::makeDsnForHost('localhost', '', '', 'shop', Array('portNumb'=>'', 'encoding'=>'utf8', 'authBase'=>'', 'waitSecs'=>'')); }), 'mongodb://localhost/shop');
+checkPregMatch('mongo: an account database that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::makeDsnForHost('localhost', 'web', 'pw', 'shop', Array('authBase'=>'admin&tls=false')); }), '/^THROWN RuntimeException: Invalid account database name/');
+checkPregMatch('mongo: a waiting time that is not a number is refused', runCatchThrown(function(){ return MongoStore::makeDsnForHost('localhost', '', '', 'shop', Array('waitSecs'=>'5&x=1')); }), '/^THROWN RuntimeException: Invalid database waiting time/');
+checkPregMatch('mongo: a database name that is not a plain name is refused', runCatchThrown(function(){ return MongoStore::makeDsnForHost('localhost', '', '', 'shop?authSource=admin'); }), '/^THROWN RuntimeException: Invalid database name/');
+checkPregMatch('mongo: a host carrying anything else is refused', runCatchThrown(function(){ return MongoStore::makeDsnForHost('localhost,evil.example/x', '', '', 'shop'); }), '/^THROWN RuntimeException: Invalid database host/');
 if( extension_loaded('mongodb') ){
 	recordSkipping('mongo without its extension', 'the mongodb extension is loaded');
 }else{
-	checkPregMatch('mongo: without the extension, the type says what is missing', runCatchThrown(function(){ return DBCon::obtainInstance('mongo_db', 'localhost', '', '', 'shop'); }), '/^THROWN RuntimeException: The mongodb extension of PHP is not loaded/');
+	checkPregMatch('mongo: without the extension, the type says what is missing', runCatchThrown(function(){ return DBCon::loadDefaultCon('mongo_db', 'localhost', '', '', 'shop'); }), '/^THROWN RuntimeException: The mongodb extension of PHP is not loaded/');
 }
 
 finishChecking();

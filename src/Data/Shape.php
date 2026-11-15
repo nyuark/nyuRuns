@@ -45,7 +45,7 @@ class Shape {
 	 * @param String $linkGoalText The address, as written in a document.
 	 * @return String The address, '' when it is not accepted.
 	 */
-	public static function tidyLinkString(String $linkGoalText): String {
+	public static function wipeUnsafeAddr(String $linkGoalText): String {
 		$trimLink = trim($linkGoalText);
 		// Spaces and control characters inside an address are how a forbidden kind is hidden
 		$bareLink = preg_replace('/[\x00-\x20]+/', '', $trimLink);
@@ -65,7 +65,7 @@ class Shape {
 	 * @param String $fldCodesText What the text stands for when its document works it out, '' for plain text.
 	 * @return Array The span: 'texts', 'marks', 'links', 'field'.
 	 */
-	public static function makeASpanArray(String $templateText, Array $runFormatSet=Array(), String $linkGoalText='', String $fldCodesText=''): Array {
+	public static function makeSpanOfText(String $templateText, Array $runFormatSet=Array(), String $linkGoalText='', String $fldCodesText=''): Array {
 		return Array('texts'=>$templateText, 'marks'=>array_values(array_intersect(self::MARK_LIST, $runFormatSet)), 'links'=>$linkGoalText, 'field'=>$fldCodesText);
 	}
 
@@ -132,10 +132,10 @@ class Shape {
 				}
 			}
 			$plainTxt = '';
-			$attributeSet = Array('heads'=>$headList, 'colms'=>$clmnsMax, 'lines'=>$lineNumb, 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
+			$attributeSet = Array('heads'=>$headList, 'colms'=>$clmnsMax, 'lines'=>$lineNumb, 'bytes'=>self::countTextBytes($paragraphSet)) + $attributeSet;
 		}elseif( $blockLblText=='itemList' ){
 			$plainTxt = '';
-			$attributeSet = Array('lines'=>count($paragraphSet), 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
+			$attributeSet = Array('lines'=>count($paragraphSet), 'bytes'=>self::countTextBytes($paragraphSet)) + $attributeSet;
 		}
 		return Array('block'=>$blockLblText, 'attrs'=>$attributeSet, 'spans'=>array_values($textSpanList), 'items'=>$paragraphSet, 'plain'=>$plainTxt);
 	}
@@ -147,13 +147,13 @@ class Shape {
 	 * @param Array $bookBlockSet The blocks.
 	 * @return Int The number of bytes.
 	 */
-	public static function textBytesCount(Array $bookBlockSet): Int {
+	public static function countTextBytes(Array $bookBlockSet): Int {
 		$byteNumb = 0;
 		foreach($bookBlockSet as $oneBlk){
 			foreach($oneBlk['spans'] as $oneSpn){
 				$byteNumb += strlen($oneSpn['texts']);
 			}
-			$byteNumb += self::textBytesCount($oneBlk['items']);
+			$byteNumb += self::countTextBytes($oneBlk['items']);
 		}
 		return $byteNumb;
 	}
@@ -166,14 +166,14 @@ class Shape {
 	 * @param Array $contentBlock The block.
 	 * @return String Its text, without formatting.
 	 */
-	public static function blockPlainText(Array $contentBlock): String {
+	public static function getTextOfBlock(Array $contentBlock): String {
 		$ownStrng = implode('', array_column($contentBlock['spans'], 'texts'));
 		if( empty($contentBlock['items']) ){
 			return $ownStrng;
 		}
 		$childTxt = Array();
 		foreach($contentBlock['items'] as $oneBlk){
-			$childTxt[] = self::blockPlainText($oneBlk);
+			$childTxt[] = self::getTextOfBlock($oneBlk);
 		}
 		$joinText = implode(in_array($contentBlock['block'], Array('tableTop', 'tableRow')) ? "\t" : "\n", $childTxt);
 		return ($ownStrng==='') ? $joinText : $ownStrng."\n".$joinText;
@@ -185,10 +185,10 @@ class Shape {
 	 * @param Array $bookBlockSet The blocks of the document.
 	 * @return String The text, a blank line between two blocks.
 	 */
-	public static function documentAsText(Array $bookBlockSet): String {
+	public static function getTextOfDcmnt(Array $bookBlockSet): String {
 		$blockTxt = Array();
 		foreach($bookBlockSet as $oneBlk){
-			$blockTxt[] = self::blockPlainText($oneBlk);
+			$blockTxt[] = self::getTextOfBlock($oneBlk);
 		}
 		return implode("\n\n", $blockTxt);
 	}
@@ -200,12 +200,12 @@ class Shape {
 	 * @param Array $tableBlcList A block of kind 'tableSet'.
 	 * @return Array The rows, each a list of texts.
 	 */
-	public static function tableGridArray(Array $tableBlcList): Array {
+	public static function getGridOfTable(Array $tableBlcList): Array {
 		$gridRows = Array();
 		foreach($tableBlcList['items'] as $oneRow){
 			$cellText = Array();
 			foreach($oneRow['items'] as $celBlk){
-				$cellText[] = self::blockPlainText($celBlk);
+				$cellText[] = self::getTextOfBlock($celBlk);
 			}
 			$gridRows[] = $cellText;
 		}
@@ -221,7 +221,7 @@ class Shape {
 	 * @param Array $bookBlockSet The blocks of the document, in order.
 	 * @return Array The sections, each with its 'title', its 'level', the 'attrs' of its heading, its own 'items' and its sub-sections under 'nodes'.
 	 */
-	public static function bySectionArray(Array $bookBlockSet): Array {
+	public static function getSectionTree(Array $bookBlockSet): Array {
 		$rootSctn = Array('title'=>'', 'level'=>0, 'attrs'=>Array(), 'items'=>Array(), 'nodes'=>Array());
 		// The sections being filled, from the outermost to the innermost
 		$openSctn = Array(&$rootSctn);

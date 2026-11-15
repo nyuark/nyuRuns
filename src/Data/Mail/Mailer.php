@@ -62,8 +62,8 @@ class Mailer {
 	 *
 	 * @throws MailFailure When no account is configured, none has that name, or its settings cannot work.
 	 */
-	public static function retrieveMailer( String $accountLabel='' ): Mailer {
-		$acctDict = self::acntSetupArray($accountLabel);
+	public static function getMailerOfAcc( String $accountLabel='' ): Mailer {
+		$acctDict = self::readAccountCfg($accountLabel);
 		$nameClef = ($accountLabel=='') ? '' : strtolower($accountLabel);
 		if( !isset(self::$mailerList[$nameClef]) ){
 			self::$mailerList[$nameClef] = new Mailer($nameClef, $acctDict);
@@ -88,7 +88,7 @@ class Mailer {
 	 *
 	 * @throws MailFailure When no account is configured, or none has that name.
 	 */
-	public static function acntSetupArray( String $accountLabel='' ): Array {
+	public static function readAccountCfg( String $accountLabel='' ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$allAccnt = $nyuConfg ? $nyuConfg->readValueByKey('mailer') : null;
 		if( !is_array($allAccnt) || empty($allAccnt) ){
@@ -129,7 +129,7 @@ class Mailer {
 	 *
 	 * @throws MailFailure When an address is not valid, the subject holds a line break, an attachment cannot be read or the account cannot send attachments.
 	 */
-	public function deliverEmlFlag( Array|String $recipientLst, String $emailSubject, String $plainMailTxt, ?String $htmlMailText=null, Array $attachedList=Array() ): Bool {
+	public function sendMailViaAcc( Array|String $recipientLst, String $emailSubject, String $plainMailTxt, ?String $htmlMailText=null, Array $attachedList=Array() ): Bool {
 		$mailInst = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $plainMailTxt, $htmlMailText, $attachedList );
 		$copyList = Array();
 		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $cpyAdr ){
@@ -137,7 +137,7 @@ class Mailer {
 		}
 		$logrInst = Logger::getLoggerOfChn('runner');
 		$acctText = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);
-		$failText = $this->mailDriver->deliverMessage( $mailInst, $mailInst->listRecipients() );
+		$failText = $this->mailDriver->sendRawMessage( $mailInst, $mailInst->listRecipients() );
 		$this->failReason = strval($failText ?? '');
 		if( $failText!==null ){
 			$logrInst->warning('Mail not sent to '.json_encode($mailInst->listRecipients()).' through account '.$acctText.': '.$failText.Logger::getActorSuffix());
@@ -145,7 +145,7 @@ class Mailer {
 		}
 		$logrInst->info('Mail sent to '.json_encode($mailInst->listRecipients()).' through account '.$acctText.Logger::getActorSuffix());
 		if( !empty($copyList) ){
-			$failText = $this->mailDriver->deliverMessage( $mailInst, $copyList );
+			$failText = $this->mailDriver->sendRawMessage( $mailInst, $copyList );
 			if( $failText!==null ){
 				$logrInst->warning('Copy of a mail not sent to '.json_encode($copyList).' through account '.$acctText.': '.$failText);
 			}else{

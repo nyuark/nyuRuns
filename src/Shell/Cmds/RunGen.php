@@ -63,7 +63,7 @@ class RunGen extends Command{
 		$baseName = $this->promptDatabase();
 		$tableNme = $this->promptTableNme($baseName, strtolower($applName));
 		$dtbsHndr = DBCon::linkNamedDbCon($baseName)->readConnection();
-		$tableDct = $dtbsHndr->tableInfoArray($tableNme);
+		$tableDct = $dtbsHndr->getInfoOfTable($tableNme);
 		$idColumn = $this->promptIdColumn($tableNme, is_array($tableDct) ? $tableDct : Array());
 		$specList = Array(
 			'appsName'=>$applName,
@@ -159,7 +159,7 @@ class RunGen extends Command{
 	 * @return String The table.
 	 */
 	protected function promptTableNme( String $linkNameText, String $tableDefault ): String {
-		$tableLst = DBCon::linkNamedDbCon($linkNameText)->readConnection()->tableNameArray();
+		$tableLst = DBCon::linkNamedDbCon($linkNameText)->readConnection()->listTableNames();
 		if( !is_array($tableLst) ){
 			$this->stopWithReason('No Run generated: the tables of the database cannot be read', self::EXIT_FAIL);
 		}
@@ -175,7 +175,7 @@ class RunGen extends Command{
 	 * must be the primary key, which reads and writes a record.
 	 *
 	 * @param String $tbleLabelTxt The table.
-	 * @param Array  $tableDetails Its description (SqlStore::tableInfoArray()).
+	 * @param Array  $tableDetails Its description (SqlStore::getInfoOfTable()).
 	 * @return String The key.
 	 */
 	protected function promptIdColumn( String $tbleLabelTxt, Array $tableDetails ): String {
@@ -203,7 +203,7 @@ class RunGen extends Command{
 	 * @return Array The formats, by field.
 	 */
 	protected function promptFldsDict( String $linkNameText, String $tbleLabelTxt, String $identColText, Array $binaryFields ): Array {
-		$typeList = DBCon::linkNamedDbCon($linkNameText)->readConnection()->columnTypeList($tbleLabelTxt);
+		$typeList = DBCon::linkNamedDbCon($linkNameText)->readConnection()->getColTypeList($tbleLabelTxt);
 		$fldsDict = Array();
 		foreach( (array)$typeList as $oneFld => $oneTyp ){
 			if( $oneFld===$identColText || in_array($oneFld, $binaryFields, true) ){
@@ -249,8 +249,8 @@ class RunGen extends Command{
 		$dtbsHndr = DBCon::linkNamedDbCon($linkNameText)->readConnection();
 		$linkFild = StrKit::singularizeTxt($tbleLabelTxt).'_id';
 		$childDct = Array();
-		foreach( (array)$dtbsHndr->tableNameArray() as $oneTbl ){
-			$typeList = ($oneTbl===$tbleLabelTxt) ? false : $dtbsHndr->columnTypeList($oneTbl);
+		foreach( (array)$dtbsHndr->listTableNames() as $oneTbl ){
+			$typeList = ($oneTbl===$tbleLabelTxt) ? false : $dtbsHndr->getColTypeList($oneTbl);
 			if( !is_array($typeList) || !isset($typeList[$linkFild]) || !$this->promptQuestion('Child table '.$oneTbl.' (linked by '.$linkFild.'): follow it', true) ){
 				continue;
 			}

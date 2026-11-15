@@ -44,7 +44,7 @@ class Image {
 	 * another one.
 	 *
 	 * @param String $nakedContent The bytes of the picture, '' for one made from another.
-	 * @param Array  $mediaDetails What the picture is, as imageInfoArray() gives it.
+	 * @param Array  $mediaDetails What the picture is, as getInfoOfImage() gives it.
 	 * @param mixed  $gdPictureObj The picture as gd holds it, null as long as it is not needed.
 	 * @param Int    $pixelCeiling Greatest number of pixels accepted.
 	 */
@@ -69,8 +69,8 @@ class Image {
 	 */
 	public static function openFluxdImage(Fluxd $sourceStream, Int $pixelCeiling=self::MAXI_PIXL, Int $bytesCeiling=self::MAXI_BYTE): Image {
 		$rawStrng = $sourceStream->getWholeString($bytesCeiling);
-		if( Bina::detectFileKind(substr($rawStrng, 0, 512))=='svg' ){
-			return self::openADrawImage($rawStrng, $pixelCeiling);
+		if( Bina::findContentCod(substr($rawStrng, 0, 512))=='svg' ){
+			return self::openDrawnImage($rawStrng, $pixelCeiling);
 		}
 		$sizeList = ($rawStrng==='') ? false : @getimagesizefromstring($rawStrng);
 		if( $sizeList===false || !isset(self::KIND_LIST[$sizeList[2]]) || $sizeList[0]<1 || $sizeList[1]<1 ){
@@ -90,7 +90,7 @@ class Image {
 			if( is_array($exifList) ){
 				$turnVals = intval($exifList['Orientation'] ?? 1);
 				$infoList['turns'] = ($turnVals>=1 && $turnVals<=8) ? $turnVals : 1;
-				$infoList['exifs'] = self::exifFactsArray($exifList);
+				$infoList['exifs'] = self::getExifFactDct($exifList);
 			}
 		}
 		return new Image($rawStrng, $infoList, null, $pixelCeiling);
@@ -107,7 +107,7 @@ class Image {
 	protected static function loadDrawingXml(String $nakedContent): \DOMDocument {
 		// Declared entities are how an XML document reads local files or grows without end.
 		// They are looked for in the text once decoded : another encoding would hide them
-		$xmlStrng = Parsers\Base::recodeTextUtf8($nakedContent);
+		$xmlStrng = Parsers\Base::castTextToUtf8($nakedContent);
 		if( !class_exists('DOMDocument') || stripos($xmlStrng, '<!ENTITY')!==false ){
 			throw new \RuntimeException('Not a picture of a known kind');
 		}
@@ -136,7 +136,7 @@ class Image {
 	 *
 	 * @throws \RuntimeException When the content is not a drawing, or tells more pixels than accepted.
 	 */
-	protected static function openADrawImage(String $nakedContent, Int $pixelCeiling): Image {
+	protected static function openDrawnImage(String $nakedContent, Int $pixelCeiling): Image {
 		$rootNode = self::loadDrawingXml($nakedContent)->documentElement;
 		$sizeList = Array();
 		$boxParte = preg_split('/[\s,]+/', trim($rootNode->getAttribute('viewBox')));
@@ -194,7 +194,7 @@ class Image {
 			$animAttr = strtolower($oneTag->getAttribute('attributeName'));
 			// What runs, what holds another document, a style reaching outside, and what would write an address or a script later on
 			// A comment in a style is not read past : the style holding one is dropped, whatever quotes it stands in
-			if( in_array($nodeName, self::DROP_LIST) || ($nodeName=='style' && (str_contains($oneTag->textContent, '/*') || preg_match(self::RISK_PATT, self::decodeStyleTxt($oneTag->textContent)))) || ($animAttr!=='' && preg_match('/^on|href$/', $animAttr)) ){
+			if( in_array($nodeName, self::DROP_LIST) || ($nodeName=='style' && (str_contains($oneTag->textContent, '/*') || preg_match(self::RISK_PATT, self::unescapeCssTxt($oneTag->textContent)))) || ($animAttr!=='' && preg_match('/^on|href$/', $animAttr)) ){
 				$dropList[] = $oneTag;
 				continue;
 			}
@@ -206,14 +206,14 @@ class Image {
 				$attrClef = strtolower(strval($attrib->localName));
 				$attrText = trim($attrib->value);
 				// A list of addresses (srcset, imagesrcset) is never kept; nor a value holding a comment
-				$badAttrb = (strncmp($attrClef, 'on', 2)===0 || in_array($attrClef, Array('srcset', 'imagesrcset'), true) || str_contains($attrText, '/*') || preg_match(self::RISK_PATT, self::decodeStyleTxt($attrText))===1);
+				$badAttrb = (strncmp($attrClef, 'on', 2)===0 || in_array($attrClef, Array('srcset', 'imagesrcset'), true) || str_contains($attrText, '/*') || preg_match(self::RISK_PATT, self::unescapeCssTxt($attrText))===1);
 				// What a form or a ping would send elsewhere : kept only when it points inside the drawing
 				if( !$badAttrb && in_array($attrClef, Array('action', 'formaction', 'ping'), true) ){
 					$badAttrb = (strncmp($attrText, '#', 1)!==0);
 				}
 				if( !$badAttrb && ($attrClef=='href' || $attrClef=='src') ){
 					// An address stays inside the drawing; a link may lead to a page, a picture may be written in place
-					$badAttrb = !(strncmp($attrText, '#', 1)===0 || ($nodeName=='a' && Shape::tidyLinkString($attrText)!=='') || ($nodeName=='image' && preg_match('/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=\s]+$/D', $attrText)));
+					$badAttrb = !(strncmp($attrText, '#', 1)===0 || ($nodeName=='a' && Shape::wipeUnsafeAddr($attrText)!=='') || ($nodeName=='image' && preg_match('/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=\s]+$/D', $attrText)));
 				}
 				if( $badAttrb ){
 					$oneTag->removeAttributeNode($attrib);
@@ -240,7 +240,7 @@ class Image {
 	 * @param String $styleOrValue The style, or the value of an attribute.
 	 * @return String The style, plain.
 	 */
-	protected static function decodeStyleTxt( String $styleOrValue ): String {
+	protected static function unescapeCssTxt( String $styleOrValue ): String {
 		$cssStrng = $styleOrValue;
 		return strval( preg_replace_callback('/\\\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))/su', function( Array $escapeGroups ): String {
 			if( ($escapeGroups[1] ?? '')!=='' ){
@@ -258,7 +258,7 @@ class Image {
 	 * @param Array $exifReadings What PHP read from the picture.
 	 * @return Array The date it was taken under 'dated', the camera under 'maker' and 'model', and the place under 'gpsla' and 'gpslo', in degrees; each only when the picture tells it.
 	 */
-	protected static function exifFactsArray(Array $exifReadings): Array {
+	protected static function getExifFactDct(Array $exifReadings): Array {
 		$factList = Array();
 		$dateList = Array();
 		if( preg_match('/^(\d{4}):(\d\d):(\d\d) (\d\d:\d\d:\d\d)$/D', strval($exifReadings['DateTimeOriginal'] ?? $exifReadings['DateTime'] ?? ''), $dateList) ){
@@ -291,7 +291,7 @@ class Image {
 	 *
 	 * @return Array Its kind under 'kinds' (png, jpg, gif, webp, bmp, avif or svg), its width and its height in pixels under 'width' and 'heght', the size of the content it was opened from under 'bytes' (0 for a picture made from another), the way up the camera recorded under 'turns' (1 when it stands the right way up, or tells nothing), and what else the camera recorded under 'exifs'.
 	 */
-	public function imageInfoArray(): Array {
+	public function getInfoOfImage(): Array {
 		return $this->detailList;
 	}
 
@@ -347,7 +347,7 @@ class Image {
 		$this->gdInstance = $imgeInst;
 		if( $this->detailList['kinds']=='svg' && (imagesx($imgeInst)!=$this->detailList['width'] || imagesy($imgeInst)!=$this->detailList['heght']) ){
 			// What drew it chose another size than the one the drawing tells: it is brought to that size
-			$sizedImg = $this->makesFromImage($this->detailList['width'], $this->detailList['heght'], 0, 0, imagesx($imgeInst), imagesy($imgeInst));
+			$sizedImg = $this->makeSizedImage($this->detailList['width'], $this->detailList['heght'], 0, 0, imagesx($imgeInst), imagesy($imgeInst));
 			$this->gdInstance = $sizedImg->gdInstance;
 		}
 		return $this->gdInstance;
@@ -366,7 +366,7 @@ class Image {
 	 *
 	 * @throws \RuntimeException When a size is not positive, or the picture to make holds more pixels than accepted.
 	 */
-	protected function makesFromImage(Int $widthAskNumb, Int $heightWanted, Int $sourceLftNum, Int $sourceTopNum, Int $sourceWidNum, Int $sourceHeiNum): Image {
+	protected function makeSizedImage(Int $widthAskNumb, Int $heightWanted, Int $sourceLftNum, Int $sourceTopNum, Int $sourceWidNum, Int $sourceHeiNum): Image {
 		if( $widthAskNumb<1 || $heightWanted<1 ){
 			throw new \RuntimeException('A picture is at least one pixel wide and one pixel high');
 		}
@@ -405,7 +405,7 @@ class Image {
 		if( $ceilFact>=1 && !$allowEnlarge ){
 			$ceilFact = 1;
 		}
-		return $this->makesFromImage(max(1, intval(round($this->detailList['width']*$ceilFact))), max(1, intval(round($this->detailList['heght']*$ceilFact))), 0, 0, $this->detailList['width'], $this->detailList['heght']);
+		return $this->makeSizedImage(max(1, intval(round($this->detailList['width']*$ceilFact))), max(1, intval(round($this->detailList['heght']*$ceilFact))), 0, 0, $this->detailList['width'], $this->detailList['heght']);
 	}
 
 	/**
@@ -426,7 +426,7 @@ class Image {
 		$scalFact = max($widthAskNumb/$this->detailList['width'], $heightWanted/$this->detailList['heght']);
 		$partWide = min($this->detailList['width'], max(1, intval(round($widthAskNumb/$scalFact))));
 		$partTlls = min($this->detailList['heght'], max(1, intval(round($heightWanted/$scalFact))));
-		return $this->makesFromImage($widthAskNumb, $heightWanted, intdiv($this->detailList['width']-$partWide, 2), intdiv($this->detailList['heght']-$partTlls, 2), $partWide, $partTlls);
+		return $this->makeSizedImage($widthAskNumb, $heightWanted, intdiv($this->detailList['width']-$partWide, 2), intdiv($this->detailList['heght']-$partTlls, 2), $partWide, $partTlls);
 	}
 
 	/**
@@ -443,7 +443,7 @@ class Image {
 			throw new \RuntimeException('A picture is turned by quarter turns: 90, 180 or 270 degrees');
 		}
 		$turnDegr = (($angleDegrees%360)+360)%360;
-		$madeImge = $this->makesFromImage($this->detailList['width'], $this->detailList['heght'], 0, 0, $this->detailList['width'], $this->detailList['heght']);
+		$madeImge = $this->makeSizedImage($this->detailList['width'], $this->detailList['heght'], 0, 0, $this->detailList['width'], $this->detailList['heght']);
 		if( $turnDegr==0 ){
 			return $madeImge;
 		}
@@ -463,7 +463,7 @@ class Image {
 	 *
 	 * @throws \RuntimeException When gd is missing.
 	 */
-	public function fixOrientation(): Image {
+	public function turnUprightImg(): Image {
 		$turnVals = intval($this->detailList['turns']);
 		// The eight ways up: the quarter turns to the right that set each one upright, and whether it is then seen in a mirror
 		$turnDict = Array(1=>Array(0, false), 2=>Array(0, true), 3=>Array(180, false), 4=>Array(180, true), 5=>Array(90, true), 6=>Array(90, false), 7=>Array(270, true), 8=>Array(270, false))[$turnVals] ?? Array(0, false);

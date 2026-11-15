@@ -26,7 +26,7 @@ class Init extends Base {
 			return true;
 		});
 		try{
-			$iniArray = parse_ini_string( self::recodeTextUtf8($nakedContent), false, INI_SCANNER_TYPED );
+			$iniArray = parse_ini_string( self::castTextToUtf8($nakedContent), false, INI_SCANNER_TYPED );
 		}finally{
 			restore_error_handler();
 		}
@@ -39,7 +39,7 @@ class Init extends Base {
 			throw new ParseError('Invalid INI content: '.$whyStrng);
 		}
 		if( !empty($parseOptions['upper']) ){
-			$iniArray = $this->upperKeysArray($iniArray);
+			$iniArray = $this->castKeysInCaps($iniArray);
 		}
 		return $this->makeShapeArray('nodes', $iniArray);
 	}

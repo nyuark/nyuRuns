@@ -67,13 +67,13 @@ class Odtx extends Pack {
 	 * @throws ParseError When the archive is not a valid text document, or is protected by a password.
 	 */
 	protected function readArchvArray(Array $parseOptions): Array {
-		$this->refuseIfLocked();
-		$docuTree = $this->partNodesArray('content.xml', true, true) ?? Array('nodes'=>Array());
+		$this->denyLockedFile();
+		$docuTree = $this->readPartAsTree('content.xml', true, true) ?? Array('nodes'=>Array());
 		$bodyList = $this->findChildArray($docuTree, Array('office:body', 'office:text'));
 		if( $bodyList===null ){
 			throw new ParseError('Invalid archive: the document is not a text document');
 		}
-		$stylList = $this->partNodesArray('styles.xml', false, true) ?? Array('nodes'=>Array());
+		$stylList = $this->readPartAsTree('styles.xml', false, true) ?? Array('nodes'=>Array());
 		$this->namedStyle = Array('paragraph'=>Array(), 'text'=>Array());
 		$this->listStyles = Array();
 		$this->stylesUsed = Array();
@@ -87,22 +87,22 @@ class Odtx extends Pack {
 		// The styles made for what is formatted by hand: those of the pages are apart from those of the text
 		$pageStyl = $this->loadAutosArray($this->findChildArray($stylList, Array('office:automatic-styles')) ?? Array('nodes'=>Array()));
 		$this->autoStyles = $this->loadAutosArray($this->findChildArray($docuTree, Array('office:automatic-styles')) ?? Array('nodes'=>Array()));
-		$blockLst = $this->bodyBlocksList($bodyList, 0, '');
+		$blockLst = $this->readBodyBlocks($bodyList, 0, '');
 		$blockLst = array_merge($blockLst, $this->noteBlocks['fnote'], $this->noteBlocks['enote']);
-		$propList = $this->propsReadArray();
+		$propList = $this->readDocMetaDct();
 		$infoList = Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'props'=>$propList, 'frmat'=>Array(), 'phead'=>Array(), 'pfoot'=>Array());
 		// What stands outside the text is read without its empty paragraphs
 		$this->isVoidKept = false;
 		$this->autoStyles = $pageStyl;
 		$seenList = Array();
-		foreach($this->kidsNamedArray($this->findChildArray($stylList, Array('office:master-styles')) ?? Array('nodes'=>Array()), 'style:master-page') as $pgeArr){
+		foreach($this->listNamedNodes($this->findChildArray($stylList, Array('office:master-styles')) ?? Array('nodes'=>Array()), 'style:master-page') as $pgeArr){
 			foreach($pgeArr['nodes'] as $prtArr){
 				$infoClef = (strpos($prtArr['tagnm'], 'style:header')===0) ? 'phead' : ((strpos($prtArr['tagnm'], 'style:footer')===0) ? 'pfoot' : '');
 				if( $infoClef==='' ){
 					continue;
 				}
 				// A document may have several: each one that differs is given once
-				$partBloc = $this->bodyBlocksList($prtArr, 0, '');
+				$partBloc = $this->readBodyBlocks($prtArr, 0, '');
 				$partClef = $infoClef.md5(serialize($partBloc));
 				if( !empty($partBloc) && !isset($seenList[$partClef]) ){
 					$seenList[$partClef] = true;
@@ -118,7 +118,7 @@ class Odtx extends Pack {
 			}
 		}
 		foreach(array_keys($this->stylesUsed) as $stlKey){
-			$infoList['frmat'][$this->namedStyle['paragraph'][$stlKey]['names']] = $this->styleFormatArr($this->namedStyle['paragraph'][$stlKey]);
+			$infoList['frmat'][$this->namedStyle['paragraph'][$stlKey]['names']] = $this->getStyleFormat($this->namedStyle['paragraph'][$stlKey]);
 		}
 		$this->namedStyle = Array();
 		$this->autoStyles = Array();
@@ -133,7 +133,7 @@ class Odtx extends Pack {
 	 * @param Array $elementArray The element of the style.
 	 * @return Array The style it is based on under 'based', its name as shown under 'names', its level as a heading under 'level', then 'marks', 'fonts', 'sizes', 'color' and 'align', whether a page break stands before and after its paragraphs under 'prior' and 'after', and whether it starts another kind of page under 'pages'.
 	 */
-	protected function styleReadArray(Array $elementArray): Array {
+	protected function readStyleArray(Array $elementArray): Array {
 		$attrDict = $elementArray['attrs'];
 		$textAttr = $this->findChildArray($elementArray, Array('style:text-properties'))['attrs'] ?? Array();
 		$prgrAttr = $this->findChildArray($elementArray, Array('style:paragraph-properties'))['attrs'] ?? Array();
@@ -172,7 +172,7 @@ class Odtx extends Pack {
 	 * @param Array $elementArray The element holding the styles.
 	 */
 	protected function loadListStyles(Array $elementArray): Void {
-		foreach($this->kidsNamedArray($elementArray, 'text:list-style') as $lstArr){
+		foreach($this->listNamedNodes($elementArray, 'text:list-style') as $lstArr){
 			foreach($lstArr['nodes'] as $lvlArr){
 				// A level is numbered when it is written as such, and shows a number
 				$this->listStyles[strval($lstArr['attrs']['style:name'] ?? '')][intval($lvlArr['attrs']['text:level'] ?? 1)] = ($lvlArr['tagnm']=='text:list-level-style-number' && strval($lvlArr['attrs']['style:num-format'] ?? '1')!=='');
@@ -190,15 +190,15 @@ class Odtx extends Pack {
 	protected function loadNamedStyle(Array $elementArray): Void {
 		$this->loadListStyles($elementArray);
 		$baseDict = Array('fonts'=>'', 'sizes'=>0, 'color'=>'');
-		foreach($this->kidsNamedArray($elementArray, 'style:default-style') as $dflArr){
+		foreach($this->listNamedNodes($elementArray, 'style:default-style') as $dflArr){
 			if( strval($dflArr['attrs']['style:family'] ?? '')=='paragraph' ){
-				$baseDict = array_intersect_key($this->styleReadArray($dflArr), $baseDict);
+				$baseDict = array_intersect_key($this->readStyleArray($dflArr), $baseDict);
 			}
 		}
-		foreach($this->kidsNamedArray($elementArray, 'style:style') as $stlArr){
+		foreach($this->listNamedNodes($elementArray, 'style:style') as $stlArr){
 			$famiName = strval($stlArr['attrs']['style:family'] ?? '');
 			if( isset($this->namedStyle[$famiName]) ){
-				$this->namedStyle[$famiName][strval($stlArr['attrs']['style:name'] ?? '')] = $this->styleReadArray($stlArr);
+				$this->namedStyle[$famiName][strval($stlArr['attrs']['style:name'] ?? '')] = $this->readStyleArray($stlArr);
 			}
 		}
 		foreach(array_keys($this->namedStyle) as $family){
@@ -227,15 +227,15 @@ class Odtx extends Pack {
 	 * Reads the styles a part makes for what is formatted by hand.
 	 *
 	 * @param Array $elementArray The element holding them.
-	 * @return Array Those styles, by family then by name, each as styleReadArray() gives it.
+	 * @return Array Those styles, by family then by name, each as readStyleArray() gives it.
 	 */
 	protected function loadAutosArray(Array $elementArray): Array {
 		$this->loadListStyles($elementArray);
 		$autoList = Array('paragraph'=>Array(), 'text'=>Array());
-		foreach($this->kidsNamedArray($elementArray, 'style:style') as $stlArr){
+		foreach($this->listNamedNodes($elementArray, 'style:style') as $stlArr){
 			$famiName = strval($stlArr['attrs']['style:family'] ?? '');
 			if( isset($autoList[$famiName]) ){
-				$autoList[$famiName][strval($stlArr['attrs']['style:name'] ?? '')] = $this->styleReadArray($stlArr);
+				$autoList[$famiName][strval($stlArr['attrs']['style:name'] ?? '')] = $this->readStyleArray($stlArr);
 			}
 		}
 		return $autoList;
@@ -247,8 +247,8 @@ class Odtx extends Pack {
 	 *
 	 * @return Array The properties; those that are empty are left out.
 	 */
-	protected function propsReadArray(): Array {
-		$metaList = $this->findChildArray($this->partNodesArray('meta.xml', false) ?? Array('nodes'=>Array()), Array('office:meta')) ?? Array('nodes'=>Array());
+	protected function readDocMetaDct(): Array {
+		$metaList = $this->findChildArray($this->readPartAsTree('meta.xml', false) ?? Array('nodes'=>Array()), Array('office:meta')) ?? Array('nodes'=>Array());
 		$propList = Array();
 		$wordList = Array();
 		foreach(Array('dc:title'=>'Title', 'meta:initial-creator'=>'Author', 'dc:subject'=>'Subject', 'dc:description'=>'Comments', 'dc:creator'=>'LastSavedBy') as $tagNme=>$prpNme){
@@ -257,7 +257,7 @@ class Odtx extends Pack {
 				$propList[$prpNme] = $propVals;
 			}
 		}
-		foreach($this->kidsNamedArray($metaList, 'meta:keyword') as $wrdArr){
+		foreach($this->listNamedNodes($metaList, 'meta:keyword') as $wrdArr){
 			$wordList[] = trim($wrdArr['value']);
 		}
 		if( !empty(array_filter($wordList)) ){
@@ -267,7 +267,7 @@ class Odtx extends Pack {
 		if( !isset($propList['Author']) && isset($propList['LastSavedBy']) ){
 			$propList['Author'] = $propList['LastSavedBy'];
 		}
-		foreach($this->kidsNamedArray($metaList, 'meta:user-defined') as $prpArr){
+		foreach($this->listNamedNodes($metaList, 'meta:user-defined') as $prpArr){
 			$propName = strval($prpArr['attrs']['meta:name'] ?? '');
 			$typeName = strval($prpArr['attrs']['meta:value-type'] ?? 'string');
 			$rawValue = $prpArr['value'];
@@ -295,7 +295,7 @@ class Odtx extends Pack {
 	 * @param String $listStyleNme Style of that list, '' outside any.
 	 * @return Array The blocks.
 	 */
-	protected function bodyBlocksList(Array $elementArray, Int $listsLvlNumb, String $listStyleNme): Array {
+	protected function readBodyBlocks(Array $elementArray, Int $listsLvlNumb, String $listStyleNme): Array {
 		$blockLst = Array();
 		$codeBuff = Array();
 		$bodyNods = $elementArray['nodes'];
@@ -303,24 +303,24 @@ class Odtx extends Pack {
 		$bodyNods[] = Array('tagnm'=>'#end', 'attrs'=>Array(), 'nodes'=>Array());
 		foreach($bodyNods as $chlArr){
 			$childNme = $chlArr['tagnm'];
-			$prgrList = ($childNme=='text:p' || $childNme=='text:h') ? $this->paragraphParts($chlArr) : null;
+			$prgrList = ($childNme=='text:p' || $childNme=='text:h') ? $this->readPargrParts($chlArr) : null;
 			if( ($prgrList['kinds'] ?? '')!='codeBlck' && !empty($codeBuff) ){
-				$blockLst = array_merge($blockLst, $this->codeBlockArray($codeBuff));
+				$blockLst = array_merge($blockLst, $this->joinCodeAsBloc($codeBuff));
 				$codeBuff = Array();
 			}
 			if( $prgrList!==null && $prgrList['kinds']=='codeBlck' ){
 				$codeBuff[] = $prgrList;
 			}elseif( $prgrList!==null ){
-				$blockLst = array_merge($blockLst, $this->paragrphBlocks($prgrList));
+				$blockLst = array_merge($blockLst, $this->getBlocksOfPrg($prgrList));
 			}elseif( $childNme=='text:list' ){
 				$blockLst = array_merge($blockLst, $this->parseListBlock($chlArr, $listsLvlNumb+1, $listStyleNme));
 			}elseif( $childNme=='table:table' ){
-				$rowsList = $this->rowsOfTableArr($chlArr, false);
+				$rowsList = $this->getRowsOfTable($chlArr, false);
 				if( !empty($rowsList) ){
 					$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsList);
 				}
 			}elseif( in_array($childNme, self::WRAP_LIST) ){
-				$blockLst = array_merge($blockLst, $this->bodyBlocksList($chlArr, $listsLvlNumb, $listStyleNme));
+				$blockLst = array_merge($blockLst, $this->readBodyBlocks($chlArr, $listsLvlNumb, $listStyleNme));
 			}
 		}
 		return $blockLst;
@@ -342,9 +342,9 @@ class Odtx extends Pack {
 			if( $itmArr['tagnm']!='text:list-item' && $itmArr['tagnm']!='text:list-header' ){
 				continue;
 			}
-			$itemBloc = $this->bodyBlocksList($itmArr, $listsLvlNumb, $ownStyle);
+			$itemBloc = $this->readBodyBlocks($itmArr, $listsLvlNumb, $ownStyle);
 			if( !empty($itemBloc) ){
-				$itemList[] = $this->holdBlockArray('listItem', $itemBloc);
+				$itemList[] = $this->makeOuterBlock('listItem', $itemBloc);
 			}
 		}
 		return empty($itemList) ? Array() : Array(Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>!empty($this->listStyles[$ownStyle][$listsLvlNumb]))));
@@ -358,11 +358,11 @@ class Odtx extends Pack {
 	 * @param Bool  $innerHeadFlg Whether the rows are header rows.
 	 * @return Array The rows, as blocks.
 	 */
-	protected function rowsOfTableArr(Array $elementArray, Bool $innerHeadFlg): Array {
+	protected function getRowsOfTable(Array $elementArray, Bool $innerHeadFlg): Array {
 		$rowsList = Array();
 		foreach($elementArray['nodes'] as $rowArr){
 			if( in_array($rowArr['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
-				$rowsList = array_merge($rowsList, $this->rowsOfTableArr($rowArr, $innerHeadFlg || $rowArr['tagnm']=='table:table-header-rows'));
+				$rowsList = array_merge($rowsList, $this->getRowsOfTable($rowArr, $innerHeadFlg || $rowArr['tagnm']=='table:table-header-rows'));
 				continue;
 			}
 			if( $rowArr['tagnm']!='table:table-row' ){
@@ -370,14 +370,14 @@ class Odtx extends Pack {
 			}
 			$cellList = Array();
 			// A cell covered by a merged one is not a cell of its own
-			foreach($this->kidsNamedArray($rowArr, 'table:table-cell') as $celArr){
+			foreach($this->listNamedNodes($rowArr, 'table:table-cell') as $celArr){
 				$spanAttr = Array();
 				foreach(Array('table:number-columns-spanned'=>'colsp', 'table:number-rows-spanned'=>'rowsp') as $atrNme=>$atrKey){
 					if( intval($celArr['attrs'][$atrNme] ?? 1)>1 ){
 						$spanAttr[$atrKey] = intval($celArr['attrs'][$atrNme]);
 					}
 				}
-				$cellList[] = $this->holdBlockArray('cellText', $this->bodyBlocksList($celArr, 0, ''), $spanAttr);
+				$cellList[] = $this->makeOuterBlock('cellText', $this->readBodyBlocks($celArr, 0, ''), $spanAttr);
 			}
 			if( !empty($cellList) ){
 				$rowsList[] = Shape::makeBlockArray($innerHeadFlg ? 'tableTop' : 'tableRow', Array(), $cellList);
@@ -392,7 +392,7 @@ class Odtx extends Pack {
 	 * @param Array $elementArray The element of the paragraph, or of the heading.
 	 * @return Array What it is under 'kinds' (headline, citation, codeBlck or paragrph), its level as a heading under 'level', its style, its alignment and its id under 'attrs', its text under 'spans' and as written under 'plain', the images and the page breaks it holds under 'holds', all of it in order, as blocks, under 'flows', and whether a page break stands before or after it under 'prior' and 'after'.
 	 */
-	protected function paragraphParts(Array $elementArray): Array {
+	protected function readPargrParts(Array $elementArray): Array {
 		// The style of a paragraph formatted by hand is one the document made for it, based on the one it names
 		$styleKey = strval($elementArray['attrs']['text:style-name'] ?? '');
 		$handDict = $this->autoStyles['paragraph'][$styleKey] ?? null;
@@ -417,7 +417,7 @@ class Odtx extends Pack {
 		}
 		$pictList = Array();
 		$this->readParaPieces($elementArray, $handDict['marks'] ?? Array(), '', $pictList);
-		$flowDict = $this->flowPartsArray($pictList, $this->isVoidKept);
+		$flowDict = $this->splitFlowParts($pictList, $this->isVoidKept);
 		$attrDict = Array();
 		if( $styleDct!==null ){
 			$attrDict['style'] = $styleDct['names'];
@@ -467,7 +467,7 @@ class Odtx extends Pack {
 		if( $templateText==='' ){
 			return;
 		}
-		$outputPieces[] = Shape::makeASpanArray($templateText, $runFormatSet, $linkGoalText, $fldCodesText);
+		$outputPieces[] = Shape::makeSpanOfText($templateText, $runFormatSet, $linkGoalText, $fldCodesText);
 		foreach($this->openedList as $cmtIdx){
 			$this->commentLst[$cmtIdx]['about'] .= $templateText;
 		}
@@ -497,7 +497,7 @@ class Odtx extends Pack {
 				$spanMark = array_merge($runFormatSet, $spanDict['marks'], $this->namedStyle['text'][$spanDict['based']]['marks'] ?? Array());
 				$this->readParaPieces($chlArr, array_values(array_intersect(Shape::MARK_LIST, $spanMark)), $linkGoalText, $outputPieces);
 			}elseif( $childNme=='text:a' ){
-				$linkAddr = Shape::tidyLinkString(strval($chlArr['attrs']['xlink:href'] ?? ''));
+				$linkAddr = Shape::wipeUnsafeAddr(strval($chlArr['attrs']['xlink:href'] ?? ''));
 				$this->readParaPieces($chlArr, $runFormatSet, ($linkAddr!=='') ? $linkAddr : $linkGoalText, $outputPieces);
 			}elseif( $childNme=='text:s' ){
 				$this->addTextSegment(str_repeat(' ', max(1, min(10000, intval($chlArr['attrs']['text:c'] ?? 1)))), $runFormatSet, $linkGoalText, '', $outputPieces);
@@ -505,7 +505,7 @@ class Odtx extends Pack {
 				$this->addTextSegment(($childNme=='text:tab') ? "\t" : "\n", $runFormatSet, $linkGoalText, '', $outputPieces);
 			}elseif( isset(self::FLDS_CODE[$childNme]) || $childNme=='text:user-defined' ){
 				$fieldCod = ($childNme=='text:user-defined') ? 'props:'.strval($chlArr['attrs']['text:name'] ?? '') : self::FLDS_CODE[$childNme];
-				$this->addTextSegment($this->odfPieceAsText($chlArr), $runFormatSet, $linkGoalText, $fieldCod, $outputPieces);
+				$this->addTextSegment($this->getOdfPieceTxt($chlArr), $runFormatSet, $linkGoalText, $fieldCod, $outputPieces);
 			}elseif( $childNme=='text:note' ){
 				$this->readNoteAndRef($chlArr, $outputPieces);
 			}elseif( $childNme=='office:annotation' || $childNme=='office:annotation-end' ){
@@ -532,10 +532,10 @@ class Odtx extends Pack {
 		$this->noteBlocks[$noteCode][$noteNumb-1] = Array();
 		$keptVoid = $this->isVoidKept;
 		$this->isVoidKept = false;
-		$bodyBloc = $this->bodyBlocksList($this->findChildArray($elementArray, Array('text:note-body')) ?? Array('nodes'=>Array()), 0, '');
+		$bodyBloc = $this->readBodyBlocks($this->findChildArray($elementArray, Array('text:note-body')) ?? Array('nodes'=>Array()), 0, '');
 		$this->isVoidKept = $keptVoid;
-		$this->noteBlocks[$noteCode][$noteNumb-1] = $this->holdBlockArray('footnote', $bodyBloc, Array('tagid'=>$noteCode.$noteNumb, 'numbr'=>$noteNumb));
-		$outputPieces[] = Shape::makeASpanArray(strval($noteNumb), Array(), '#'.$noteCode.$noteNumb);
+		$this->noteBlocks[$noteCode][$noteNumb-1] = $this->makeOuterBlock('footnote', $bodyBloc, Array('tagid'=>$noteCode.$noteNumb, 'numbr'=>$noteNumb));
+		$outputPieces[] = Shape::makeSpanOfText(strval($noteNumb), Array(), '#'.$noteCode.$noteNumb);
 	}
 
 	/**
@@ -558,7 +558,7 @@ class Odtx extends Pack {
 		$keptVoid = $this->isVoidKept;
 		$this->openedList = Array();
 		$this->isVoidKept = false;
-		$noteText = Shape::documentAsText($this->bodyBlocksList($elementArray, 0, ''));
+		$noteText = Shape::getTextOfDcmnt($this->readBodyBlocks($elementArray, 0, ''));
 		$this->openedList = $keptOpen;
 		$this->isVoidKept = $keptVoid;
 		$this->commentLst[] = Array('authr'=>trim(strval($this->findChildArray($elementArray, Array('dc:creator'))['value'] ?? '')), 'dated'=>trim(strval($this->findChildArray($elementArray, Array('dc:date'))['value'] ?? '')), 'plain'=>$noteText, 'about'=>'');
@@ -578,16 +578,16 @@ class Odtx extends Pack {
 		$imageLst = $this->findChildArray($elementArray, Array('draw:image'));
 		if( $imageLst!==null ){
 			// The address of an image kept in the archive is its name there
-			$imageLnk = Shape::tidyLinkString(preg_replace('/^\.\//', '', strval($imageLst['attrs']['xlink:href'] ?? '')));
-			$imageTxt = trim($this->odfPieceAsText($this->findChildArray($elementArray, Array('svg:desc')) ?? $this->findChildArray($elementArray, Array('svg:title')) ?? Array('value'=>'', 'nodes'=>Array())));
+			$imageLnk = Shape::wipeUnsafeAddr(preg_replace('/^\.\//', '', strval($imageLst['attrs']['xlink:href'] ?? '')));
+			$imageTxt = trim($this->getOdfPieceTxt($this->findChildArray($elementArray, Array('svg:desc')) ?? $this->findChildArray($elementArray, Array('svg:title')) ?? Array('value'=>'', 'nodes'=>Array())));
 			if( $imageLnk!=='' ){
-				$outputPieces[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeASpanArray($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk));
+				$outputPieces[] = Shape::makeBlockArray('imageBox', ($imageTxt!=='') ? Array(Shape::makeSpanOfText($imageTxt)) : Array(), Array(), Array('sourc'=>$imageLnk));
 			}
 			return;
 		}
 		$keptVoid = $this->isVoidKept;
 		$this->isVoidKept = false;
-		foreach($this->bodyBlocksList($this->findChildArray($elementArray, Array('draw:text-box')) ?? Array('nodes'=>Array()), 0, '') as $boxBlk){
+		foreach($this->readBodyBlocks($this->findChildArray($elementArray, Array('draw:text-box')) ?? Array('nodes'=>Array()), 0, '') as $boxBlk){
 			$outputPieces[] = $boxBlk;
 		}
 		$this->isVoidKept = $keptVoid;

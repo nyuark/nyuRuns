@@ -42,7 +42,7 @@ checkTrueValue('the SQL store follows the contract', $dbStore instanceof Store);
 // Names and description
 checkIdentical('checkName gives the name back', runCatchThrown(function() use ($dbStore){ return $dbStore->checkNameChars('shows.title'); }), 'shows.title');
 checkForThrows('checkName refuses anything else', function() use ($dbStore){ $dbStore->checkNameChars('title; DROP'); }, 'RuntimeException');
-checkIdentical('tableInfoArray', runCatchThrown(function() use ($dbStore){ return $dbStore->tableInfoArray('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
+checkIdentical('getInfoOfTable', runCatchThrown(function() use ($dbStore){ return $dbStore->getInfoOfTable('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
 
 // Reading: the options every store honours
 checkIdentical('find: every row', foundCol($dbStore, 'shows', Array(), Array(), 'id_show'), Array(1, 2, 3, 4, 5));
@@ -107,10 +107,10 @@ checkIdentical('delete on a missing table gives false', runCatchThrown(function(
 
 // Transactions
 checkIdentical('a removed transaction cancels the changes of the store', runCatchThrown(function() use ($dbStore){
-	$opnDone = $dbStore->newTransaction();
+	$opnDone = $dbStore->addTransaction();
 	$dbStore->deleteRowCount('items', Array('show_id'=>1));
 	$midRows = count($dbStore->findItemsArray('items'));
-	return Array($opnDone, $midRows, $dbStore->delTransaction(), count($dbStore->findItemsArray('items')), $dbStore->setTransaction());
+	return Array($opnDone, $midRows, $dbStore->dropWholeTrnsc(), count($dbStore->findItemsArray('items')), $dbStore->setTransaction());
 }), Array(true, 5, true, 7, false));
 
 finishChecking();
