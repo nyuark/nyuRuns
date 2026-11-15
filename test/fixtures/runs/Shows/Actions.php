@@ -45,32 +45,32 @@ class Actions extends Actionset {
 	 * at once for the page, one query for each child table.
 	 */
 	public function index(): Void {
-		$listObj = new DBLst( self::TBLE_NAME, null, null, null, null, DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$listObj->pickReadFields( implode(', ', array_merge(Array(self::IDNT_COLN), array_keys(self::FLDS_LIST))) );
-		$fltrSet = Array();
+		$listInst = new DBLst( self::TBLE_NAME, null, null, null, null, DBCon::linkNamedDbCon(self::BASE_LINK) );
+		$listInst->pickReadFields( implode(', ', array_merge(Array(self::IDNT_COLN), array_keys(self::FLDS_LIST))) );
+		$fltrsDct = Array();
 		foreach( (array)$this->inputsRgst->readValueByKey('filters') as $oneFld => $oneVal ){
 			if( isset(self::FLDS_LIST[$oneFld]) && is_scalar($oneVal) && strval($oneVal)!=='' ){
-				$fltrSet[$oneFld.'~'] = '*'.Filter::quoteMatchText(strval($oneVal)).'*';
+				$fltrsDct[$oneFld.'~'] = '*'.Filter::quoteMatchText(strval($oneVal)).'*';
 			}
 		}
-		$listObj->replaceFilters($fltrSet);
-		$sortTxt = strval( $this->inputsRgst->readValueByKey('sortedBy') ?? '' );
-		$listObj->setOrderFields( (ltrim($sortTxt, '^')===self::IDNT_COLN || isset(self::FLDS_LIST[ltrim($sortTxt, '^')])) ? $sortTxt : self::IDNT_COLN );
-		$listObj->setLimitOffset( Array($this->inputsRgst->readValueByKey('limitVal') ?? '', $this->inputsRgst->readValueByKey('rowIndex') ?? '') );
-		$rowList = $listObj->readRowsOfList();
-		if( !is_array($rowList) ){
+		$listInst->replaceFilters($fltrsDct);
+		$sortText = strval( $this->inputsRgst->readValueByKey('sortedBy') ?? '' );
+		$listInst->setOrderFields( (ltrim($sortText, '^')===self::IDNT_COLN || isset(self::FLDS_LIST[ltrim($sortText, '^')])) ? $sortText : self::IDNT_COLN );
+		$listInst->setLimitOffset( Array($this->inputsRgst->readValueByKey('limitVal') ?? '', $this->inputsRgst->readValueByKey('rowIndex') ?? '') );
+		$rowsList = $listInst->readRowsOfList();
+		if( !is_array($rowsList) ){
 			$this->stopThisAction(500, 'The list cannot be read');
 		}
-		$keyList = array_column($rowList, self::IDNT_COLN);
+		$keysList = array_column($rowsList, self::IDNT_COLN);
 		foreach( self::CHLD_LIST as $oneTbl => $oneSet ){
 			if( $oneSet['listsToo'] ){
-				$chldRow = $this->childRowsArray($oneTbl, $keyList);
-				foreach( $rowList as $rowIdx => $oneRow ){
-					$rowList[$rowIdx][$oneTbl] = $chldRow[$oneRow[self::IDNT_COLN]] ?? Array();
+				$childRow = $this->readChildRecds($oneTbl, $keysList);
+				foreach( $rowsList as $nthRow => $oneRow ){
+					$rowsList[$nthRow][$oneTbl] = $childRow[$oneRow[self::IDNT_COLN]] ?? Array();
 				}
 			}
 		}
-		$this->checkActionLst($rowList);
+		$this->checkActionLst($rowsList);
 	}
 
 	/**
@@ -79,27 +79,27 @@ class Actions extends Actionset {
 	 * @param String $recordIdText The key of the record, from the path.
 	 */
 	public function view( String $recordIdText='' ): Void {
-		$recdVls = $this->readRecordById($recordIdText)[1];
+		$rcrdVals = $this->readRecordById($recordIdText)[1];
 		foreach( array_keys(self::CHLD_LIST) as $oneTbl ){
-			$recdVls[$oneTbl] = $this->childRowsArray($oneTbl, Array($recdVls[self::IDNT_COLN]))[$recdVls[self::IDNT_COLN]] ?? Array();
+			$rcrdVals[$oneTbl] = $this->readChildRecds($oneTbl, Array($rcrdVals[self::IDNT_COLN]))[$rcrdVals[self::IDNT_COLN]] ?? Array();
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $recdVls;
+		$this->replyValue = $rcrdVals;
 	}
 
 	/**
 	 * Adds a record from the fields sent: a 201 with its key.
 	 */
 	public function create(): Void {
-		$sentVls = $this->sentFieldsList();
-		$recdObj = new DBRec( self::TBLE_NAME, Array(), Array(), DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$recdObj->bindFieldArray($sentVls);
-		$savdKey = $recdObj->insertOrUpdate();
-		if( $savdKey===false ){
+		$sentVals = $this->readSentFields();
+		$rcrdInst = new DBRec( self::TBLE_NAME, Array(), Array(), DBCon::linkNamedDbCon(self::BASE_LINK) );
+		$rcrdInst->bindFieldArray($sentVals);
+		$savedKey = $rcrdInst->insertOrUpdate();
+		if( $savedKey===false ){
 			$this->stopThisAction(500, 'The record cannot be saved');
 		}
 		$this->statusCode = 201;
-		$this->replyValue = Array(self::IDNT_COLN=>$savdKey);
+		$this->replyValue = Array(self::IDNT_COLN=>$savedKey);
 	}
 
 	/**
@@ -108,9 +108,9 @@ class Actions extends Actionset {
 	 * @param String $recordIdText The key of the record, from the path.
 	 */
 	public function update( String $recordIdText='' ): Void {
-		$recdObj = $this->readRecordById($recordIdText)[0];
-		$recdObj->bindFieldArray( $this->sentFieldsList() );
-		if( $recdObj->insertOrUpdate()===false ){
+		$rcrdInst = $this->readRecordById($recordIdText)[0];
+		$rcrdInst->bindFieldArray( $this->readSentFields() );
+		if( $rcrdInst->insertOrUpdate()===false ){
 			$this->stopThisAction(500, 'The record cannot be saved');
 		}
 		$this->statusCode = 200;
@@ -135,8 +135,8 @@ class Actions extends Actionset {
 	 * @param String $recordIdText The key of the record, from the path.
 	 */
 	public function events( String $recordIdText='' ): Void {
-		$recdKey = $this->readRecordById($recordIdText)[1][self::IDNT_COLN];
-		$this->checkActionLst( $this->childRowsArray('events', Array($recdKey))[$recdKey] ?? Array() );
+		$rcrdClef = $this->readRecordById($recordIdText)[1][self::IDNT_COLN];
+		$this->checkActionLst( $this->readChildRecds('events', Array($rcrdClef))[$rcrdClef] ?? Array() );
 	}
 
 	/**
@@ -146,12 +146,12 @@ class Actions extends Actionset {
 	 * @return Array The record, loaded, then its key and fields.
 	 */
 	protected function readRecordById( String $recordIdText ): Array {
-		$recdObj = new DBRec( self::TBLE_NAME, Array(), Array(), DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$recdVls = ($recordIdText==='') ? false : $recdObj->loadRecordList($recordIdText);
-		if( !is_array($recdVls) ){
+		$rcrdInst = new DBRec( self::TBLE_NAME, Array(), Array(), DBCon::linkNamedDbCon(self::BASE_LINK) );
+		$rcrdVals = ($recordIdText==='') ? false : $rcrdInst->loadRecordList($recordIdText);
+		if( !is_array($rcrdVals) ){
 			$this->stopThisAction(404, 'Not Found');
 		}
-		return Array( $recdObj, array_intersect_key($recdVls, array_flip(array_merge(Array(self::IDNT_COLN), array_keys(self::FLDS_LIST)))) );
+		return Array( $rcrdInst, array_intersect_key($rcrdVals, array_flip(array_merge(Array(self::IDNT_COLN), array_keys(self::FLDS_LIST)))) );
 	}
 
 	/**
@@ -161,23 +161,23 @@ class Actions extends Actionset {
 	 *
 	 * @return Array The values, by field.
 	 */
-	protected function sentFieldsList(): Array {
-		$sentVls = Array();
-		$badFlds = Array();
+	protected function readSentFields(): Array {
+		$sentVals = Array();
+		$badField = Array();
 		foreach( self::FLDS_LIST as $oneFld => $oneFmt ){
-			$sentVal = $this->inputsRgst->readValueByKey($oneFld);
-			if( $sentVal===null ){
+			$sentValu = $this->inputsRgst->readValueByKey($oneFld);
+			if( $sentValu===null ){
 				continue;
 			}
-			if( is_array($sentVal) || ($oneFmt!=='' && strval($sentVal)==='') ){
-				$badFlds[] = $oneFld;
+			if( is_array($sentValu) || ($oneFmt!=='' && strval($sentValu)==='') ){
+				$badField[] = $oneFld;
 			}
-			$sentVls[$oneFld] = $sentVal;
+			$sentVals[$oneFld] = $sentValu;
 		}
-		if( !empty($badFlds) || empty($sentVls) ){
-			$this->stopThisAction(400, 'Missing or invalid input: '.(empty($badFlds) ? 'no field sent' : implode(', ', $badFlds)));
+		if( !empty($badField) || empty($sentVals) ){
+			$this->stopThisAction(400, 'Missing or invalid input: '.(empty($badField) ? 'no field sent' : implode(', ', $badField)));
 		}
-		return $sentVls;
+		return $sentVals;
 	}
 
 	/**
@@ -187,26 +187,26 @@ class Actions extends Actionset {
 	 * @param Array  $parentKeyLst The keys of the records.
 	 * @return Array The children, by the key of their record.
 	 */
-	protected function childRowsArray( String $childTbleTxt, Array $parentKeyLst ): Array {
-		$chldSet = self::CHLD_LIST[$childTbleTxt];
+	protected function readChildRecds( String $childTbleTxt, Array $parentKeyLst ): Array {
+		$childDct = self::CHLD_LIST[$childTbleTxt];
 		if( empty($parentKeyLst) ){
 			return Array();
 		}
-		$listObj = new DBLst( $childTbleTxt, null, null, null, null, DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$listObj->pickReadFields( implode(', ', array_unique(array_merge(Array($chldSet['linkedBy']), $chldSet['fieldSet']))) );
-		$listObj->replaceFilters( Array($chldSet['linkedBy']=>array_values($parentKeyLst)) );
-		if( $chldSet['sortedBy']!=='' ){
-			$listObj->setOrderFields($chldSet['sortedBy']);
+		$listInst = new DBLst( $childTbleTxt, null, null, null, null, DBCon::linkNamedDbCon(self::BASE_LINK) );
+		$listInst->pickReadFields( implode(', ', array_unique(array_merge(Array($childDct['linkedBy']), $childDct['fieldSet']))) );
+		$listInst->replaceFilters( Array($childDct['linkedBy']=>array_values($parentKeyLst)) );
+		if( $childDct['sortedBy']!=='' ){
+			$listInst->setOrderFields($childDct['sortedBy']);
 		}
-		$rowList = $listObj->readRowsOfList();
-		if( !is_array($rowList) ){
+		$rowsList = $listInst->readRowsOfList();
+		if( !is_array($rowsList) ){
 			$this->stopThisAction(500, 'The children cannot be read');
 		}
-		$chldRow = Array();
-		foreach( $rowList as $oneRow ){
-			$chldRow[$oneRow[$chldSet['linkedBy']]][] = $oneRow;
+		$childRow = Array();
+		foreach( $rowsList as $oneRow ){
+			$childRow[$oneRow[$childDct['linkedBy']]][] = $oneRow;
 		}
-		return $chldRow;
+		return $childRow;
 	}
 
 }

@@ -48,16 +48,24 @@ checkIdentical('crudlRun: the spec holds the answers', Array($specArr['fieldSet'
 checkIdentical('crudlRun: every file written is traced on shell', substr_count(strval(fetchInProject($projDir, 'temp/logs/shell.log')), 'Makerun: '), count($genList));
 checkIdentical('crudlRun: a Run of that name, whatever its case, is refused', Array(callShellArray($projDir, Array('makerun', 'crudlRun', 'SHOWS', '--noPrompt'))['code'], callShellArray($projDir, Array('makerun', 'crudlRun', '9lives', '--noPrompt'))['code']), Array(3, 2));
 
-// The generated code follows the naming conventions, as test/audit/ConventionTest checks them : the action names are free
+// The generated code follows the naming conventions, as test/audit/ConventionTest checks them : the action names are free,
+// and a local is checked by the rules of NAMERULES.md (checkLocalName), not by the length the auditor still counts
 require_once __DIR__.'/../lib/auditor.php';
+require_once __DIR__.'/../lib/namerules.php';
 $genAudt = auditCodeFiles($projDir, Array('runs'));
+$nameDct = readNamingDict(TOP_DIR.DS.'NAMERULES.md');
 $badList = Array();
-foreach( Array('parse', 'class', 'method', 'param', 'prop', 'loop', 'local', 'nodoc', 'notype') as $kndNme ){
+foreach( Array('parse', 'class', 'method', 'param', 'prop', 'loop', 'nodoc', 'notype') as $kndNme ){
 	foreach( $genAudt[$kndNme] as $oneFnd ){
-		if( ($kndNme=='method' && in_array($oneFnd['name'], Array('index', 'view', 'create', 'update', 'remove', 'events'), true)) || ($kndNme=='local' && $oneFnd['name']=='e') ){
+		if( $kndNme=='method' && in_array($oneFnd['name'], Array('index', 'view', 'create', 'update', 'remove', 'events'), true) ){
 			continue;
 		}
 		$badList[] = $kndNme.' '.$oneFnd['file'].':'.$oneFnd['line'].' '.$oneFnd['name'];
+	}
+}
+foreach( $genAudt['names'] as $oneFnd ){
+	if( $oneFnd['kind']=='local' && $oneFnd['name']!='e' && checkLocalName($oneFnd['name'], $nameDct)!=='' ){
+		$badList[] = 'local '.$oneFnd['file'].':'.$oneFnd['line'].' '.$oneFnd['name'].' ('.checkLocalName($oneFnd['name'], $nameDct).')';
 	}
 }
 preg_match_all('/\bconst\s+(\w+)\s*=/', strval(fetchInProject($projDir, 'runs/Shows/Actions.php')), $cnstMtch);
