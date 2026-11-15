@@ -371,14 +371,14 @@ class Response{
 	/**
 	 * Removes response headers, whatever the case their names were set in.
 	 *
-	 * @param Array $replyHdrList Names of the headers, in lower case.
+	 * @param Array $replyHdrsLst Names of the headers, in lower case.
 	 */
-	protected function dropReplyHeads( Array $replyHdrList ): Void {
+	protected function dropReplyHeads( Array $replyHdrsLst ): Void {
 		if( !is_array($this->headrArray) ){
 			$this->headrArray = Array();
 		}
 		foreach( array_keys($this->headrArray) as $hdrKey ){
-			if( in_array(strtolower(strval($hdrKey)), $replyHdrList, true) ){
+			if( in_array(strtolower(strval($hdrKey)), $replyHdrsLst, true) ){
 				unset($this->headrArray[$hdrKey]);
 			}
 		}
@@ -428,15 +428,15 @@ class Response{
 	 * status it was registered for.
 	 *
 	 * @param String $sentFilePath Path of the HTML file.
-	 * @param Array  $pgeValuesArr Values of the placeholders, by name.
+	 * @param Array  $pageValsList Values of the placeholders, by name.
 	 * @param Int    $responseCode Status the page is the reply of.
 	 * @return Bool False when the file cannot be read; nothing is registered then.
 	 */
-	public function setPageToReply( String $sentFilePath, Array $pgeValuesArr=Array(), Int $responseCode=200 ): Bool {
+	public function setPageToReply( String $sentFilePath, Array $pageValsList=Array(), Int $responseCode=200 ): Bool {
 		if( !is_file($sentFilePath) || !is_readable($sentFilePath) ){
 			return false;
 		}
-		$this->pageOutput = $this->fillNamedSlots( strval(file_get_contents($sentFilePath)), $pgeValuesArr );
+		$this->pageOutput = $this->fillNamedSlots( strval(file_get_contents($sentFilePath)), $pageValsList );
 		$this->pageStatus = $responseCode;
 		$this->fileToSend = null;
 		return true;
@@ -448,11 +448,11 @@ class Response{
 	 * or whose value is not a text or a number, is left as written.
 	 *
 	 * @param String $pageTemplate The page, as read.
-	 * @param Array  $pgeValuesArr Values of the placeholders, by name.
+	 * @param Array  $pageValsList Values of the placeholders, by name.
 	 * @return String The filled page.
 	 */
-	protected function fillNamedSlots( String $pageTemplate, Array $pgeValuesArr ): String {
-		return Template::fillNamedSlots( $pageTemplate, $pgeValuesArr, true );
+	protected function fillNamedSlots( String $pageTemplate, Array $pageValsList ): String {
+		return Template::fillNamedSlots( $pageTemplate, $pageValsList, true );
 	}
 
 	/**
@@ -549,12 +549,12 @@ class Response{
 	 * empty, malformed or multiple range selects the whole file.
 	 *
 	 * @param String $rangeValText Value of the Range request header, empty when none was sent.
-	 * @param Int    $totlBytesNum Size of the file, in bytes.
+	 * @param Int    $totalBytNumb Size of the file, in bytes.
 	 * @return Int The status to reply with: 200 (whole file), 206 (partial) or 416 (range outside the file).
 	 */
-	protected function parseRangeHead( String $rangeValText, Int $totlBytesNum ): Int {
+	protected function parseRangeHead( String $rangeValText, Int $totalBytNumb ): Int {
 		$this->rangeStart = 0;
-		$this->rangeUntil = max(0, $totlBytesNum-1);
+		$this->rangeUntil = max(0, $totalBytNumb-1);
 		$matxList = Array();
 		if( !preg_match('/^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i', $rangeValText, $matxList) ){
 			return 200;
@@ -567,14 +567,14 @@ class Response{
 		if( $fromText=='' ){
 			// Suffix range : the last N bytes
 			$lastSize = intval($uptoText);
-			if( $lastSize==0 || $totlBytesNum==0 ){
+			if( $lastSize==0 || $totalBytNumb==0 ){
 				return 416;
 			}
-			$this->rangeStart = max(0, $totlBytesNum-$lastSize);
+			$this->rangeStart = max(0, $totalBytNumb-$lastSize);
 			return 206;
 		}
 		$startIdx = intval($fromText);
-		if( $startIdx>=$totlBytesNum ){
+		if( $startIdx>=$totalBytNumb ){
 			return 416;
 		}
 		if( $uptoText!='' ){
@@ -583,7 +583,7 @@ class Response{
 				// Reversed range : ignored, the whole file is sent
 				return 200;
 			}
-			$this->rangeUntil = min($finalPos, $totlBytesNum-1);
+			$this->rangeUntil = min($finalPos, $totalBytNumb-1);
 		}
 		$this->rangeStart = $startIdx;
 		return 206;

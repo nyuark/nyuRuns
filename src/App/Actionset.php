@@ -188,15 +188,15 @@ class Actionset {
 	 * reported as a 404.
 	 *
 	 * @param String $pageFileName Name of the page, without its extension; a sub-folder is written with slashes.
-	 * @param Array  $pgeValuesArr Values of the placeholders, by name.
+	 * @param Array  $pageValsList Values of the placeholders, by name.
 	 * @param Int    $responseCode HTTP status to reply with.
 	 * @return Bool True when the page was registered.
 	 */
-	protected function answerPageFlag( String $pageFileName, Array $pgeValuesArr=Array(), Int $responseCode=200 ): Bool {
+	protected function answerPageFlag( String $pageFileName, Array $pageValsList=Array(), Int $responseCode=200 ): Bool {
 		$pagePath = $this->runContext->appsFolder.DS.'pages'.DS.str_replace('/', DS, $pageFileName).'.html';
 		// Letters, digits, dashes and underscores only : the name cannot lead out of the folder
 		$isNameOk = (preg_match('#^[\w\-]+(/[\w\-]+)*$#D', $pageFileName)===1);
-		if( !$isNameOk || $this->respondObj===null || !$this->respondObj->setPageToReply($pagePath, $pgeValuesArr, $responseCode) ){
+		if( !$isNameOk || $this->respondObj===null || !$this->respondObj->setPageToReply($pagePath, $pageValsList, $responseCode) ){
 			$this->statusCode = 404;
 			$this->statusMssg = 'Not Found';
 			$this->replyValue = null;
@@ -237,17 +237,17 @@ class Actionset {
 	 *
 	 * @param String $routShapeTxt Path of the route, such as profiles/$id: as the Run's file declares it, or its final path.
 	 * @param Array  $pathPartVals Values of the named parts of the path.
-	 * @param Array  $linkQueryArr Values to add as a query string.
+	 * @param Array  $linkQueryLst Values to add as a query string.
 	 * @return String The link, from the root of the site.
 	 *
 	 * @throws \RuntimeException When no such route is declared, a named part has no value, or no router was given.
 	 */
-	protected function routLinkString( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryArr=Array() ): String {
+	protected function routLinkString( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryLst=Array() ): String {
 		if( $this->routingObj===null ){
 			throw new \RuntimeException('No router to build a link with');
 		}
 		$routePth = (substr($routShapeTxt, 0, 1)!='/') ? $this->routingObj->runsRouteShape($this->runContext->runAppName, $routShapeTxt) : null;
-		return $this->routingObj->buildRouteLink($routePth ?? $routShapeTxt, $pathPartVals, $linkQueryArr);
+		return $this->routingObj->buildRouteLink($routePth ?? $routShapeTxt, $pathPartVals, $linkQueryLst);
 	}
 
 	/**

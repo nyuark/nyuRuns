@@ -154,10 +154,10 @@ class Runner{
 	 * Answers a failure that happens before the error handler is installed:
 	 * the details go to PHP's error log, the client gets a plain JSON 500.
 	 *
-	 * @param \Throwable $botException What was thrown during start-up.
+	 * @param \Throwable $bootExcpInst What was thrown during start-up.
 	 */
-	protected function answerBootFail( \Throwable $botException ): Void {
-		error_log('nyuRuns start-up failure: '.get_class($botException).': '.$botException->getMessage().' in '.$botException->getFile().' on line '.$botException->getLine());
+	protected function answerBootFail( \Throwable $bootExcpInst ): Void {
+		error_log('nyuRuns start-up failure: '.get_class($bootExcpInst).': '.$bootExcpInst->getMessage().' in '.$bootExcpInst->getFile().' on line '.$bootExcpInst->getLine());
 		if( !headers_sent() ){
 			http_response_code(500);
 			header('Content-Type: application/json; charset=utf-8');
@@ -249,11 +249,11 @@ class Runner{
 	 * granted or not: one entry per file, and a warning for an upload
 	 * that failed. A file field left empty is not traced.
 	 *
-	 * @param Array  $rqstFilesArr File entries, as Request::getUploadFiles() gives them.
+	 * @param Array  $rqtFilesList File entries, as Request::getUploadFiles() gives them.
 	 * @param String $fldLabelText Name the entries were sent under, for the nested ones.
 	 */
-	protected function logUploadFiles( Array $rqstFilesArr, String $fldLabelText='' ): Void {
-		foreach( $rqstFilesArr as $filKey=>$filVal ){
+	protected function logUploadFiles( Array $rqtFilesList, String $fldLabelText='' ): Void {
+		foreach( $rqtFilesList as $filKey=>$filVal ){
 			if( !is_array($filVal) ){
 				continue;
 			}
