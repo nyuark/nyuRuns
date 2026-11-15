@@ -423,19 +423,19 @@ class Config extends Command{
 	 * secrets are only shown with
 	 * --showSecr; an API key is shown once, since its client needs it.
 	 *
-	 * @param String $secrKindText 'jwtToken', 'keysList' or 'tfaCrypt'.
+	 * @param String $secrTypeText 'jwtToken', 'keysList' or 'tfaCrypt'.
 	 * @param Bool   $keepExisting Whether a secret already set is left as it is, without a question.
 	 * @return Bool Whether a secret was written.
 	 *
 	 * @throws ShellStop When no block holds such a secret, or replacing it is not confirmed.
 	 * @throws \RuntimeException When a file cannot be read or written.
 	 */
-	public function generateSecret( String $secrKindText, Bool $keepExisting=false ): Bool {
+	public function generateSecret( String $secrTypeText, Bool $keepExisting=false ): Bool {
 		$wrtrInst = $this->generateWriter();
 		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
 		$treeInst = $wrtrInst->importJsonsObj($filePath);
 		$blockNme = strval($this->optionsObj->retrieveOption('useBlock', ''));
-		if( $secrKindText=='jwtToken' ){
+		if( $secrTypeText=='jwtToken' ){
 			$labelTxt = 'Secret of the tokens';
 			$blockNme = $blockNme ?: strval($treeInst->loginSet->carrConf ?? 'jwtToken');
 			// With RS256 the tokens are signed by a key pair, not a secret
@@ -444,12 +444,12 @@ class Config extends Command{
 			}
 			$rawValue = $treeInst->$blockNme->hmacSecr ?? null;
 			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
-		}elseif( $secrKindText=='tfaCrypt' ){
+		}elseif( $secrTypeText=='tfaCrypt' ){
 			$labelTxt = 'Key of the 2FA secrets';
 			$blockNme = $blockNme ?: strval($treeInst->loginSet->authConf ?? 'nativeDb');
 			$rawValue = $treeInst->$blockNme->tfaCrypt ?? null;
 			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
-		}elseif( $secrKindText=='markSecr' ){
+		}elseif( $secrTypeText=='markSecr' ){
 			// The key the login marks are signed with, in the limits block
 			$labelTxt = 'Key of the login marks';
 			$blockNme = $blockNme ?: 'tryLimit';
@@ -467,7 +467,7 @@ class Config extends Command{
 		}
 		if( !is_string($rawValue) ){
 			$whatList = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'tfaCrypt'=>'the key of the 2FA secrets (tfaCrypt)', 'markSecr'=>'the key of the login marks (markSecr)');
-			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatList[$secrKindText].( $blockNme!='' ? ' under '.$blockNme : '' ), self::EXIT_DENY);
+			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatList[$secrTypeText].( $blockNme!='' ? ' under '.$blockNme : '' ), self::EXIT_DENY);
 		}
 		$envrPath = TOP_DIR.DS.'.env';
 		$envrName = (strpos($rawValue, 'env:')===0) ? substr($rawValue, 4) : '';
@@ -475,7 +475,7 @@ class Config extends Command{
 		if( $nowSecrt!='' && $keepExisting ){
 			return false;
 		}
-		$lossText = ($secrKindText=='tfaCrypt') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTxt).' in use: what was issued with it stops being accepted';
+		$lossText = ($secrTypeText=='tfaCrypt') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTxt).' in use: what was issued with it stops being accepted';
 		if( $nowSecrt!='' && !$this->queryAgreedFlg('Replace the '.$lossText) ){
 			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
@@ -483,11 +483,11 @@ class Config extends Command{
 			$wrtrInst->changeEnvValue($envrPath, $envrName, $newSecrt);
 			$whereTxt = '.env '.$envrName;
 		}else{
-			if( $secrKindText=='jwtToken' ){
+			if( $secrTypeText=='jwtToken' ){
 				$treeInst->$blockNme->hmacSecr = $newSecrt;
-			}elseif( $secrKindText=='tfaCrypt' ){
+			}elseif( $secrTypeText=='tfaCrypt' ){
 				$treeInst->$blockNme->tfaCrypt = $newSecrt;
-			}elseif( $secrKindText=='markSecr' ){
+			}elseif( $secrTypeText=='markSecr' ){
 				$treeInst->$blockNme->markSecr = $newSecrt;
 			}else{
 				$treeInst->$blockNme->keysList[0] = $newSecrt;
@@ -498,7 +498,7 @@ class Config extends Command{
 		Console::loadConfigLogs();
 		$this->traceShellDone( $labelTxt.' made, written in '.$whereTxt );
 		$this->printerObj->printShellPair('written', $whereTxt);
-		if( $secrKindText=='keysList' || $this->optionsObj->validateOption('showSecr') ){
+		if( $secrTypeText=='keysList' || $this->optionsObj->validateOption('showSecr') ){
 			$this->printerObj->printShellOnce($labelTxt, $newSecrt);
 		}
 		return true;
@@ -517,21 +517,21 @@ class Config extends Command{
 	 * is kept: every token in use ends at once. Without a former private
 	 * key, a new pair ends every token checked with the former one.
 	 *
-	 * @param String $blckNamedTxt Block of conf/access.json.
+	 * @param String $blockNmdText Block of conf/access.json.
 	 * @param Bool   $keepExisting Whether a private key already there is left as it is, without a question; a public key alone is too when the block says the tokens come from another server ('external'), and is replaced by a pair otherwise.
 	 * @return Bool Whether a pair was written.
 	 *
 	 * @throws ShellStop When replacing the keys is not confirmed, or they cannot be made or written.
 	 */
-	protected function buildPairsFlag( String $blckNamedTxt, Bool $keepExisting ): Bool {
+	protected function buildPairsFlag( String $blockNmdText, Bool $keepExisting ): Bool {
 		$wrtrInst = $this->generateWriter();
 		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
 		$treeInst = $wrtrInst->importJsonsObj($filePath);
-		$blockNde = $treeInst->$blckNamedTxt;
+		$blockNde = $treeInst->$blockNmdText;
 		$privName = trim(strval($blockNde->privFile ?? ''), '/\\ ');
 		$publName = trim(strval($blockNde->publFile ?? ''), '/\\ ');
-		$privName = ($privName!='') ? $privName : 'conf/keys/'.$blckNamedTxt.'.key';
-		$publName = ($publName!='') ? $publName : 'conf/keys/'.$blckNamedTxt.'.pub';
+		$privName = ($privName!='') ? $privName : 'conf/keys/'.$blockNmdText.'.key';
+		$publName = ($publName!='') ? $publName : 'conf/keys/'.$blockNmdText.'.pub';
 		$privPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $privName);
 		$publPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publName);
 		$hasPairs = is_file($privPath) || is_file($publPath);
@@ -543,7 +543,7 @@ class Config extends Command{
 			$this->terminateShell('No keys made: the openssl extension is not loaded', self::EXIT_FAIL);
 		}
 		// The public key of the pair replaced keeps checking the tokens it signed, until the next pair
-		$oldTitle = 'conf/keys/'.$blckNamedTxt.'.old.pub';
+		$oldTitle = 'conf/keys/'.$blockNmdText.'.old.pub';
 		$oldPrivt = is_file($privPath) ? @openssl_pkey_get_private(strval(@file_get_contents($privPath))) : false;
 		// A key that leaked keeps nothing : the tokens it signed end with it
 		$hasDrops = $this->optionsObj->validateOption('dropsAll');

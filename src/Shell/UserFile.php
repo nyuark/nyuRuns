@@ -64,10 +64,10 @@ class UserFile{
 	 *
 	 * @param Array $criteriaList Optional 'userStatus' and 'accessRole' values the users must have; an empty one is left out.
 	 * @param Int   $ceilingCount Most users to give; all of them when below 1.
-	 * @param Int   $offsetRowsNb Users to pass over first.
+	 * @param Int   $skippedCount Users to pass over first.
 	 * @return Array|Bool The users, or false when a filter is not valid or the file cannot be used.
 	 */
-	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $offsetRowsNb=0 ): Array|Bool {
+	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $skippedCount=0 ): Array|Bool {
 		$this->forgetLastFail();
 		foreach( Array('userStatus'=>Native::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $fldNme => $allows ){
 			$givenTxt = $criteriaList[$fldNme] ?? '';
@@ -86,10 +86,10 @@ class UserFile{
 				$rowsList[] = $shwnList;
 			}
 		}
-		usort($rowsList, function( Array $lftUsrRowArr, Array $secondUsrRow ): Int {
-			return strcmp($lftUsrRowArr['systemName'], $secondUsrRow['systemName']);
+		usort($rowsList, function( Array $firstUserRow, Array $secondUsrRow ): Int {
+			return strcmp($firstUserRow['systemName'], $secondUsrRow['systemName']);
 		});
-		return array_slice( $rowsList, max(0, $offsetRowsNb), ($ceilingCount>0) ? $ceilingCount : null );
+		return array_slice( $rowsList, max(0, $skippedCount), ($ceilingCount>0) ? $ceilingCount : null );
 	}
 
 	/**
@@ -598,19 +598,19 @@ class UserFile{
 	 * Gives what is told about a user: the fields of SHOWLIST, and
 	 * whether it holds a personal token and a 2FA secret.
 	 *
-	 * @param Array $usrValuesArr The user, as the file holds it.
+	 * @param Array $userValsList The user, as the file holds it.
 	 * @return Array What is shown of it.
 	 */
-	protected function shownValuesArr( Array $usrValuesArr ): Array {
+	protected function shownValuesArr( Array $userValsList ): Array {
 		return Array(
-			'id_user'=>$usrValuesArr['id_user'] ?? null,
-			'systemName'=>strval($usrValuesArr['systemName'] ?? ''),
-			'accessRole'=>strval($usrValuesArr['accessRole'] ?? Checker::ROLE_LIST[0]),
-			'userStatus'=>strval($usrValuesArr['userStatus'] ?? 'approved'),
-			'contactEml'=>strval($usrValuesArr['contactEml'] ?? ''),
-			'userLocale'=>strval($usrValuesArr['userLocale'] ?? ''),
-			'hasToken'=>strval($usrValuesArr['bearerHash'] ?? '')!='',
-			'hasTwoFa'=>strval($usrValuesArr['twoFactKey'] ?? '')!=''
+			'id_user'=>$userValsList['id_user'] ?? null,
+			'systemName'=>strval($userValsList['systemName'] ?? ''),
+			'accessRole'=>strval($userValsList['accessRole'] ?? Checker::ROLE_LIST[0]),
+			'userStatus'=>strval($userValsList['userStatus'] ?? 'approved'),
+			'contactEml'=>strval($userValsList['contactEml'] ?? ''),
+			'userLocale'=>strval($userValsList['userLocale'] ?? ''),
+			'hasToken'=>strval($userValsList['bearerHash'] ?? '')!='',
+			'hasTwoFa'=>strval($userValsList['twoFactKey'] ?? '')!=''
 		);
 	}
 

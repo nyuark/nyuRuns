@@ -147,17 +147,17 @@ class Device extends Command{
 	 * Finds the device of a user that bears a name and is not revoked.
 	 *
 	 * @param DeviceAuth $devicesCheck The check of the devices.
-	 * @param String     $userDevcName Name of the device.
+	 * @param String     $userDvceName Name of the device.
 	 * @param String     $namedUserTxt Name of the user.
 	 * @return ?Int The identifier of the device, null when there is none.
 	 */
-	protected function findDeviceNumb( DeviceAuth $devicesCheck, String $userDevcName, String $namedUserTxt ): ?Int {
+	protected function findDeviceNumb( DeviceAuth $devicesCheck, String $userDvceName, String $namedUserTxt ): ?Int {
 		$dvceNtry = $devicesCheck->lstUserDevices($namedUserTxt);
 		if( $dvceNtry===false ){
 			$this->terminateShell('The devices cannot be read');
 		}
 		foreach( $dvceNtry as $dvcRow ){
-			if( $dvcRow['deviceName']===$userDevcName && $dvcRow['revokeDate']===null ){
+			if( $dvcRow['deviceName']===$userDvceName && $dvcRow['revokeDate']===null ){
 				return intval($dvcRow['id_device']);
 			}
 		}

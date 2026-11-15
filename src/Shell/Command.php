@@ -119,15 +119,15 @@ abstract class Command{
 	/**
 	 * Takes the next word of the command line, which the sub-command needs.
 	 *
-	 * @param String $wordKindText What the word is, for the message.
+	 * @param String $wordTypeText What the word is, for the message.
 	 * @return String The word.
 	 *
 	 * @throws ShellStop When no word is left.
 	 */
-	protected function needsShellWord( String $wordKindText ): String {
+	protected function needsShellWord( String $wordTypeText ): String {
 		$givenWrd = $this->optionsObj->shiftFirstWord();
 		if( $givenWrd===null || $givenWrd==='' ){
-			$this->terminateShell( 'Missing argument: '.$wordKindText, self::EXIT_HELP );
+			$this->terminateShell( 'Missing argument: '.$wordTypeText, self::EXIT_HELP );
 		}
 		return $givenWrd;
 	}
@@ -257,12 +257,12 @@ abstract class Command{
 	/**
 	 * Reads a block of the ACCESS config.
 	 *
-	 * @param String $blckNamedTxt Name of the block.
+	 * @param String $blockNmdText Name of the block.
 	 * @return Array Its values, empty when there is no such block.
 	 */
-	protected function accessSettings( String $blckNamedTxt ): Array {
+	protected function accessSettings( String $blockNmdText ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$blockCfg = ($nyuConfg!==null && $blckNamedTxt!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blckNamedTxt)) : null;
+		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blockNmdText)) : null;
 		return is_array($blockCfg) ? $blockCfg : Array();
 	}
 }

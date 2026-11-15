@@ -26,21 +26,21 @@ class ActCaller{
 	 * over HTTP.
 	 *
 	 * @param String $actionMthNme Method the request is said to use.
-	 * @param String $reqUriString Path it is said to ask for.
+	 * @param String $reqstUriText Path it is said to ask for.
 	 * @param Array  $inputsValues Values it carries.
 	 * @param Array  $renderValues The 'response' block of the preset, for the response.
-	 * @param Array  $proxyConfArr The reverse proxy settings (see Setup\Loader::proxySetupConf).
+	 * @param Array  $proxyCfgList The reverse proxy settings (see Setup\Loader::proxySetupConf).
 	 * @return Array The Request, then the Response.
 	 */
-	public static function makeRequestArr( String $actionMthNme, String $reqUriString, Array $inputsValues=Array(), Array $renderValues=Array(), Array $proxyConfArr=Array() ): Array {
+	public static function makeRequestArr( String $actionMthNme, String $reqstUriText, Array $inputsValues=Array(), Array $renderValues=Array(), Array $proxyCfgList=Array() ): Array {
 		// The request reads these, then unsets them : they are given what a call from the command line stands for
-		$_SERVER = Array('REQUEST_METHOD'=>strtoupper($actionMthNme), 'REQUEST_URI'=>$reqUriString, 'SERVER_NAME'=>'localhost', 'SERVER_PROTOCOL'=>'CLI', 'SCRIPT_NAME'=>'nyuRun', 'QUERY_STRING'=>'');
+		$_SERVER = Array('REQUEST_METHOD'=>strtoupper($actionMthNme), 'REQUEST_URI'=>$reqstUriText, 'SERVER_NAME'=>'localhost', 'SERVER_PROTOCOL'=>'CLI', 'SCRIPT_NAME'=>'nyuRun', 'QUERY_STRING'=>'');
 		$_GET = Array();
 		$_POST = $inputsValues;
 		$_COOKIE = Array();
 		$_FILES = Array();
 		$srvrRegr = new ServerReg();
-		$clntRegr = new ClientReg($srvrRegr, true, $proxyConfArr);
+		$clntRegr = new ClientReg($srvrRegr, true, $proxyCfgList);
 		$respInst = new Response($renderValues);
 		return Array( new Request($srvrRegr, $respInst, $clntRegr), $respInst );
 	}

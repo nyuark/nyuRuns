@@ -133,18 +133,18 @@ class Cleans extends Command{
 	/**
 	 * Gives the folder of a kind of temporary files, as the config sets it.
 	 *
-	 * @param String $tempFileKind One of KIND_LIST.
+	 * @param String $tempFileType One of KIND_LIST.
 	 * @return String The full path of the folder.
 	 */
-	protected function findTempFolder( String $tempFileKind ): String {
-		if( $tempFileKind=='logFiles' ){
+	protected function findTempFolder( String $tempFileType ): String {
+		if( $tempFileType=='logFiles' ){
 			return strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] );
 		}
-		if( $tempFileKind=='tryLimit' ){
+		if( $tempFileType=='tryLimit' ){
 			$fieldNme = trim( strval($this->accessSettings('tryLimit')['dataPath'] ?? ''), '/\\ ' );
 			return TOP_DIR.DS.( $fieldNme!='' ? str_replace(Array('/', '\\'), DS, $fieldNme) : 'temp'.DS.'limits' );
 		}
-		return TOP_DIR.DS.'temp'.DS.( ($tempFileKind=='cacheDir') ? 'cache' : $tempFileKind );
+		return TOP_DIR.DS.'temp'.DS.( ($tempFileType=='cacheDir') ? 'cache' : $tempFileType );
 	}
 
 	/**
@@ -167,10 +167,10 @@ class Cleans extends Command{
 	 * Removes the files of a folder and of its sub-folders, which are kept.
 	 *
 	 * @param String $fullFldrPath Full path of the folder.
-	 * @param ?Int   $unixMomentNb Only the files last written before that Unix time are removed; all of them when null.
+	 * @param ?Int   $momentAsUnix Only the files last written before that Unix time are removed; all of them when null.
 	 * @return Int The number of files removed.
 	 */
-	protected function dropFilesCount( String $fullFldrPath, ?Int $unixMomentNb=null ): Int {
+	protected function dropFilesCount( String $fullFldrPath, ?Int $momentAsUnix=null ): Int {
 		$dropNumb = 0;
 		foreach( (array)scandir($fullFldrPath) as $entNme ){
 			if( $entNme=='.' || $entNme=='..' || $entNme=='.gitkeep' ){
@@ -181,8 +181,8 @@ class Cleans extends Command{
 				continue;
 			}
 			if( is_dir($subTrail) ){
-				$dropNumb += $this->dropFilesCount($subTrail, $unixMomentNb);
-			}elseif( ($unixMomentNb===null || filemtime($subTrail)<$unixMomentNb) && @unlink($subTrail) ){
+				$dropNumb += $this->dropFilesCount($subTrail, $momentAsUnix);
+			}elseif( ($momentAsUnix===null || filemtime($subTrail)<$momentAsUnix) && @unlink($subTrail) ){
 				$dropNumb++;
 			}
 		}

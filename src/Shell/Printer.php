@@ -96,22 +96,22 @@ class Printer{
 	 * Writes a table: its columns aligned in text, a list of rows under
 	 * 'rows' in JSON, each value under the name of its column.
 	 *
-	 * @param Array $headrRowsArr Names of the columns.
-	 * @param Array $tbleLinesArr Rows, each a list of values in the order of the columns.
+	 * @param Array $hedrRowsList Names of the columns.
+	 * @param Array $tableLnsList Rows, each a list of values in the order of the columns.
 	 */
-	public function printShellRows( Array $headrRowsArr, Array $tbleLinesArr ): Void {
+	public function printShellRows( Array $hedrRowsList, Array $tableLnsList ): Void {
 		if( $this->jsonFormat ){
-			foreach( $tbleLinesArr as $rowVal ){
-				$this->jsonOutput['rows'][] = array_combine($headrRowsArr, array_values($rowVal));
+			foreach( $tableLnsList as $rowVal ){
+				$this->jsonOutput['rows'][] = array_combine($hedrRowsList, array_values($rowVal));
 			}
-			if( empty($tbleLinesArr) && !isset($this->jsonOutput['rows']) ){
+			if( empty($tableLnsList) && !isset($this->jsonOutput['rows']) ){
 				$this->jsonOutput['rows'] = Array();
 			}
 			return;
 		}
-		$clmnSize = array_map('strlen', $headrRowsArr);
+		$clmnSize = array_map('strlen', $hedrRowsList);
 		$textNtry = Array();
-		foreach( $tbleLinesArr as $rowVal ){
+		foreach( $tableLnsList as $rowVal ){
 			$textLine = Array();
 			foreach( array_values($rowVal) as $colInc => $colVal ){
 				$textLine[$colInc] = is_scalar($colVal) ? strval($colVal) : ( $colVal===null ? '' : strval(json_encode($colVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
@@ -119,7 +119,7 @@ class Printer{
 			}
 			$textNtry[] = $textLine;
 		}
-		foreach( array_merge(Array($headrRowsArr), $textNtry) as $rowTxt ){
+		foreach( array_merge(Array($hedrRowsList), $textNtry) as $rowTxt ){
 			$outLigne = '';
 			foreach( $rowTxt as $colInc => $colVal ){
 				$outLigne .= str_pad($colVal, $clmnSize[$colInc]).'  ';

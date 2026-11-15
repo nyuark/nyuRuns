@@ -39,11 +39,11 @@ class ConfFile{
 	 *
 	 * @param String $filePathName Full path of the file.
 	 * @param String $freshContent Its new content.
-	 * @param ?Int   $rightsModeNb Rights of a file that does not exist yet (0600 for a secret); those the umask gives when null.
+	 * @param ?Int   $rghtModeNumb Rights of a file that does not exist yet (0600 for a secret); those the umask gives when null.
 	 *
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
-	public function saveFileAtomic( String $filePathName, String $freshContent, ?Int $rightsModeNb=null ): Void {
+	public function saveFileAtomic( String $filePathName, String $freshContent, ?Int $rghtModeNumb=null ): Void {
 		$wasFichr = is_file($filePathName);
 		$this->backupList[$filePathName] = $wasFichr ? $this->makeBackupCopy($filePathName) : '';
 		$tempPath = $filePathName.'.tmp'.getmypid();
@@ -56,7 +56,7 @@ class ConfFile{
 		if( $wasWrttn===false ){
 			throw new \RuntimeException('File not written: '.basename($filePathName).' cannot be written in its folder');
 		}
-		@chmod( $tempPath, $wasFichr ? (fileperms($filePathName) & 0777) : ($rightsModeNb ?? (0666 & ~$prevMask)) );
+		@chmod( $tempPath, $wasFichr ? (fileperms($filePathName) & 0777) : ($rghtModeNumb ?? (0666 & ~$prevMask)) );
 		// On Windows a file being read cannot be replaced : tried again for a moment
 		for( $idxInc=0; $idxInc<10; $idxInc++ ){
 			if( @rename($tempPath, $filePathName) ){
@@ -320,13 +320,13 @@ class ConfFile{
 	 * list or a block is not written.
 	 *
 	 * @param String $filePathName Full path of the preset file.
-	 * @param String $blckNamedTxt Name of the block holding the key; empty for a key of the preset itself (label, about).
+	 * @param String $blockNmdText Name of the block holding the key; empty for a key of the preset itself (label, about).
 	 * @param String $presetKeyRef Name of the key.
 	 * @param mixed  $newPresetVal Its new value: a text, a number, true, false or null.
 	 *
 	 * @throws \RuntimeException When the preset has no such key, when its value is a list or a block, or when the file cannot be written.
 	 */
-	public function setPresetValue( String $filePathName, String $blckNamedTxt, String $presetKeyRef, Mixed $newPresetVal ): Void {
+	public function setPresetValue( String $filePathName, String $blockNmdText, String $presetKeyRef, Mixed $newPresetVal ): Void {
 		if( !is_scalar($newPresetVal) && $newPresetVal!==null ){
 			throw new \RuntimeException('Value refused: a list or a block of a preset is shown, not written');
 		}
@@ -336,7 +336,7 @@ class ConfFile{
 		// The key that opened each depth : $keyStack[1] is the block being read
 		$keyStack = Array();
 		$lastClef = '';
-		$needDpth = ($blckNamedTxt=='') ? 1 : 2;
+		$needDpth = ($blockNmdText=='') ? 1 : 2;
 		for( $idxInc=0; $idxInc<$textSize; $idxInc++ ){
 			$oneChrct = $fileText[$idxInc];
 			// A line starting with # or // is a comment
@@ -367,7 +367,7 @@ class ConfFile{
 				continue;
 			}
 			$lastClef = strval($strnText);
-			if( $depthCnt!=$needDpth || $lastClef!==$presetKeyRef || ($needDpth==2 && ($keyStack[1] ?? '')!==$blckNamedTxt) ){
+			if( $depthCnt!=$needDpth || $lastClef!==$presetKeyRef || ($needDpth==2 && ($keyStack[1] ?? '')!==$blockNmdText) ){
 				continue;
 			}
 			// The key is found : its value is replaced where it stands
@@ -380,19 +380,19 @@ class ConfFile{
 			$this->saveFileAtomic( $filePathName, substr($fileText, 0, $valuFrom).json_encode($newPresetVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).substr($fileText, $valueEnd) );
 			return;
 		}
-		throw new \RuntimeException('Value refused: the preset has no key '.( $blckNamedTxt!='' ? $blckNamedTxt.'.' : '' ).$presetKeyRef.', and none is added');
+		throw new \RuntimeException('Value refused: the preset has no key '.( $blockNmdText!='' ? $blockNmdText.'.' : '' ).$presetKeyRef.', and none is added');
 	}
 
 	/**
 	 * Finds the end of a JSON text between quotes.
 	 *
 	 * @param String $fullTextsTxt The text it stands in.
-	 * @param Int    $startsFromNb Position of its opening quote.
+	 * @param Int    $fromPosition Position of its opening quote.
 	 * @return Int Position after its closing quote.
 	 */
-	protected function terminateOfTxt( String $fullTextsTxt, Int $startsFromNb ): Int {
+	protected function terminateOfTxt( String $fullTextsTxt, Int $fromPosition ): Int {
 		$textSize = strlen($fullTextsTxt);
-		$crsorPos = $startsFromNb+1;
+		$crsorPos = $fromPosition+1;
 		while( $crsorPos<$textSize && $fullTextsTxt[$crsorPos]!='"' ){
 			$crsorPos += ($fullTextsTxt[$crsorPos]=='\\') ? 2 : 1;
 		}

@@ -494,44 +494,44 @@ class HealthChk{
 	 * account 'mailAcnt' names, the front-end address of 'linkTmpl', and a
 	 * 'signupOn' that no mail can confirm.
 	 *
-	 * @param String $blckNamedTxt Name of the block.
-	 * @param Array  $blckValueArr Its values.
+	 * @param String $blockNmdText Name of the block.
+	 * @param Array  $blockVlsList Its values.
 	 */
-	protected function validateMailer( String $blckNamedTxt, Array $blckValueArr ): Void {
-		$acctName = $blckValueArr['mailAcnt'] ?? null;
+	protected function validateMailer( String $blockNmdText, Array $blockVlsList ): Void {
+		$acctName = $blockVlsList['mailAcnt'] ?? null;
 		$hasEmail = is_string($acctName) && $acctName!=='';
 		if( $hasEmail ){
 			try{
 				$acctDict = Mailer::acntSetupArray($acctName);
-				$this->addCheckResult( 'access mails '.$blckNamedTxt, 'fine', 'through the account '.$acctName.' ('.$acctDict['sendWith'].')' );
+				$this->addCheckResult( 'access mails '.$blockNmdText, 'fine', 'through the account '.$acctName.' ('.$acctDict['sendWith'].')' );
 			}catch( \Throwable $e ){
-				$this->addCheckResult('access mails '.$blckNamedTxt, 'fail', 'mailAcnt names no account of conf/mailer.json: '.$e->getMessage());
+				$this->addCheckResult('access mails '.$blockNmdText, 'fail', 'mailAcnt names no account of conf/mailer.json: '.$e->getMessage());
 			}
 		}elseif( $acctName!==null && $acctName!=='' ){
-			$this->addCheckResult('access mails '.$blckNamedTxt, 'fail', 'mailAcnt is the name of a mail account, as a text');
+			$this->addCheckResult('access mails '.$blockNmdText, 'fail', 'mailAcnt is the name of a mail account, as a text');
 		}
-		$linkTmpl = $blckValueArr['linkTmpl'] ?? null;
+		$linkTmpl = $blockVlsList['linkTmpl'] ?? null;
 		if( $linkTmpl!==null && $linkTmpl!=='' && ( !is_string($linkTmpl) || !preg_match('#^https?://[^\s]+$#Di', $linkTmpl) || strpos($linkTmpl, '%sentCode%')===false ) ){
-			$this->addCheckResult('access link '.$blckNamedTxt, 'fail', 'linkTmpl is an http(s) address holding %sentCode% (and %mailKind%, %userName% as needed)');
+			$this->addCheckResult('access link '.$blockNmdText, 'fail', 'linkTmpl is an http(s) address holding %sentCode% (and %mailKind%, %userName% as needed)');
 		}
-		if( array_key_exists('codeMins', $blckValueArr) && (!is_int($blckValueArr['codeMins']) || $blckValueArr['codeMins']<1) ){
-			$this->addCheckResult('access codes '.$blckNamedTxt, 'fail', 'codeMins is the minutes a mailed code lasts: a whole number, 1 at least');
+		if( array_key_exists('codeMins', $blockVlsList) && (!is_int($blockVlsList['codeMins']) || $blockVlsList['codeMins']<1) ){
+			$this->addCheckResult('access codes '.$blockNmdText, 'fail', 'codeMins is the minutes a mailed code lasts: a whole number, 1 at least');
 		}
-		if( ($blckValueArr['signupOn'] ?? false)===true && !$hasEmail ){
-			$this->addCheckResult('sign-ups '.$blckNamedTxt, 'warn', 'signupOn is on, but no mailer confirms the addresses: nobody can sign up');
+		if( ($blockVlsList['signupOn'] ?? false)===true && !$hasEmail ){
+			$this->addCheckResult('sign-ups '.$blockNmdText, 'warn', 'signupOn is on, but no mailer confirms the addresses: nobody can sign up');
 		}
 		// The limits of the sign-ups : how many wait at once, how many one client makes, the counts the managers are told at
 		$regrFlaw = Array();
 		foreach( Array('maxQueue', 'maxPerIp') as $regKey ){
-			if( array_key_exists($regKey, $blckValueArr) && (!is_int($blckValueArr[$regKey]) || $blckValueArr[$regKey]<1) ){
+			if( array_key_exists($regKey, $blockVlsList) && (!is_int($blockVlsList[$regKey]) || $blockVlsList[$regKey]<1) ){
 				$regrFlaw[] = $regKey.' is a whole number, 1 at least';
 			}
 		}
-		if( array_key_exists('alertsAt', $blckValueArr) && ( !is_array($blckValueArr['alertsAt']) || array_values($blckValueArr['alertsAt'])!==$blckValueArr['alertsAt'] || count(array_filter($blckValueArr['alertsAt'], function( Mixed $warningCount ): Bool { return is_int($warningCount) && $warningCount>0; }))!==count($blckValueArr['alertsAt']) ) ){
+		if( array_key_exists('alertsAt', $blockVlsList) && ( !is_array($blockVlsList['alertsAt']) || array_values($blockVlsList['alertsAt'])!==$blockVlsList['alertsAt'] || count(array_filter($blockVlsList['alertsAt'], function( Mixed $warningCount ): Bool { return is_int($warningCount) && $warningCount>0; }))!==count($blockVlsList['alertsAt']) ) ){
 			$regrFlaw[] = 'alertsAt is a list of whole numbers';
 		}
 		if( !empty($regrFlaw) ){
-			$this->addCheckResult('sign-up limits '.$blckNamedTxt, 'fail', implode('; ', $regrFlaw));
+			$this->addCheckResult('sign-up limits '.$blockNmdText, 'fail', implode('; ', $regrFlaw));
 		}
 	}
 
@@ -543,51 +543,51 @@ class HealthChk{
 	 * still checking the tokens signed before the keys were replaced.
 	 * Tokens bound to no project are told; values of the wrong kind fail.
 	 *
-	 * @param String $blckNamedTxt Name of the block.
-	 * @param Array  $blckValueArr Its values.
+	 * @param String $blockNmdText Name of the block.
+	 * @param Array  $blockVlsList Its values.
 	 */
-	protected function validateClaims( String $blckNamedTxt, Array $blckValueArr ): Void {
-		$applClef = array_key_exists('appsList', $blckValueArr);
+	protected function validateClaims( String $blockNmdText, Array $blockVlsList ): Void {
+		$applClef = array_key_exists('appsList', $blockVlsList);
 		$clmnFlaw = Array();
-		$audnVals = $blckValueArr['audience'] ?? Array();
+		$audnVals = $blockVlsList['audience'] ?? Array();
 		if( !is_string($audnVals) && !( is_array($audnVals) && array_values($audnVals)===$audnVals && count(array_filter($audnVals, 'is_string'))===count($audnVals) ) ){
 			$clmnFlaw[] = 'audience is a text or a list of texts';
 		}
-		if( !$applClef && !is_string($blckValueArr['issuerId'] ?? '') ){
+		if( !$applClef && !is_string($blockVlsList['issuerId'] ?? '') ){
 			$clmnFlaw[] = 'issuer is a text';
 		}
-		foreach( ($applClef && is_array($blckValueArr['appsList'])) ? $blckValueArr['appsList'] : Array() as $appKey => $appSet ){
+		foreach( ($applClef && is_array($blockVlsList['appsList'])) ? $blockVlsList['appsList'] : Array() as $appKey => $appSet ){
 			if( is_array($appSet) && array_key_exists('issuerId', $appSet) && !is_string($appSet['issuerId']) ){
 				$clmnFlaw[] = 'the issuer of the application '.json_encode(strval($appKey)).' is a text';
 			}
 		}
-		$oldTrail = trim(strval($blckValueArr['prevFile'] ?? ''), '/\\ ');
+		$oldTrail = trim(strval($blockVlsList['prevFile'] ?? ''), '/\\ ');
 		if( $oldTrail!='' ){
 			$oldStrng = is_file(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $oldTrail)) ? strval(@file_get_contents(TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $oldTrail))) : '';
 			$prevInst = ($oldStrng!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($oldStrng) : false;
 			$oldArray = ($prevInst!==false) ? openssl_pkey_get_details($prevInst) : false;
 			if( !is_array($oldArray) || ($oldArray['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($oldArray['bits'] ?? 0)<JWT::RSAS_BITS ){
 				$clmnFlaw[] = 'prevFile is not the public RSA key of '.JWT::RSAS_BITS.' bits at least: empty it, or "setting mkSecret jwtToken" writes it';
-			}elseif( ($blckValueArr['signAlgo'] ?? '')!='RS256' ){
-				$this->addCheckResult('previous key '.$blckNamedTxt, 'warn', 'prevFile is only read with RS256');
-			}elseif( !is_int($blckValueArr['retireAt'] ?? null) || $blckValueArr['retireAt'] + max(1, intval($blckValueArr['lifeSecs'] ?? 3600))<time() ){
+			}elseif( ($blockVlsList['signAlgo'] ?? '')!='RS256' ){
+				$this->addCheckResult('previous key '.$blockNmdText, 'warn', 'prevFile is only read with RS256');
+			}elseif( !is_int($blockVlsList['retireAt'] ?? null) || $blockVlsList['retireAt'] + max(1, intval($blockVlsList['lifeSecs'] ?? 3600))<time() ){
 				// Past the time the tokens it signed could last, or never retired : it checks nothing any more
-				$this->addCheckResult('previous key '.$blckNamedTxt, 'warn', 'prevFile checks no token any more (no retire time, or past it by lifeSecs): it can be removed');
+				$this->addCheckResult('previous key '.$blockNmdText, 'warn', 'prevFile checks no token any more (no retire time, or past it by lifeSecs): it can be removed');
 			}
 		}
 		if( !empty($clmnFlaw) ){
-			$this->addCheckResult('token claims '.$blckNamedTxt, 'fail', implode('; ', $clmnFlaw));
+			$this->addCheckResult('token claims '.$blockNmdText, 'fail', implode('; ', $clmnFlaw));
 			return;
 		}
 		$hasAudnc = ( is_string($audnVals) ? trim($audnVals)!='' : count(array_filter(array_map('trim', $audnVals)))>0 );
-		$hasIssur = $applClef || trim(strval($blckValueArr['issuerId'] ?? ''))!='';
+		$hasIssur = $applClef || trim(strval($blockVlsList['issuerId'] ?? ''))!='';
 		if( !$hasAudnc || !$hasIssur ){
-			$this->addCheckResult('token claims '.$blckNamedTxt, 'warn', $applClef
-				? 'no audience: the tokens of the applications are not bound to this project; "setting setValue accsConf '.$blckNamedTxt.'.audience" sets it'
-				: 'no issuer or no audience: the tokens are not bound to this project; "setting setValue accsConf '.$blckNamedTxt.'.issuer" and ".audience" set them');
+			$this->addCheckResult('token claims '.$blockNmdText, 'warn', $applClef
+				? 'no audience: the tokens of the applications are not bound to this project; "setting setValue accsConf '.$blockNmdText.'.audience" sets it'
+				: 'no issuer or no audience: the tokens are not bound to this project; "setting setValue accsConf '.$blockNmdText.'.issuer" and ".audience" set them');
 			return;
 		}
-		$this->addCheckResult('token claims '.$blckNamedTxt, 'fine', $applClef ? 'audience '.json_encode($audnVals) : 'issuer '.json_encode($blckValueArr['issuerId']).', audience '.json_encode($audnVals));
+		$this->addCheckResult('token claims '.$blockNmdText, 'fine', $applClef ? 'audience '.json_encode($audnVals) : 'issuer '.json_encode($blockVlsList['issuerId']).', audience '.json_encode($audnVals));
 	}
 
 	/**
@@ -598,21 +598,21 @@ class HealthChk{
 	 * the private key; a private key readable by the other users of the
 	 * server is told.
 	 *
-	 * @param String $blckNamedTxt Name of the block.
-	 * @param Array  $blckValueArr Its values.
+	 * @param String $blockNmdText Name of the block.
+	 * @param Array  $blockVlsList Its values.
 	 */
-	protected function validateRsakey( String $blckNamedTxt, Array $blckValueArr ): Void {
+	protected function validateRsakey( String $blockNmdText, Array $blockVlsList ): Void {
 		$keyStrng = Array();
 		foreach( Array('privFile', 'publFile') as $keyNme ){
-			$keyTrail = trim(strval($blckValueArr[$keyNme] ?? ''), '/\\ ');
+			$keyTrail = trim(strval($blockVlsList[$keyNme] ?? ''), '/\\ ');
 			$keyTrail = ($keyTrail=='') ? '' : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $keyTrail);
 			$keyStrng[$keyNme] = ($keyTrail!='' && is_file($keyTrail)) ? strval(@file_get_contents($keyTrail)) : '';
 			if( $keyNme=='privFile' && $keyStrng[$keyNme]!='' && DS=='/' && (fileperms($keyTrail) & 0044)!=0 ){
-				$this->addCheckResult('key rights '.$blckNamedTxt, 'warn', 'the private key can be read by other users of the server: chmod 600 '.strval($blckValueArr['privFile']));
+				$this->addCheckResult('key rights '.$blockNmdText, 'warn', 'the private key can be read by other users of the server: chmod 600 '.strval($blockVlsList['privFile']));
 			}
 		}
 		if( !function_exists('openssl_pkey_get_public') ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'RS256 needs the openssl extension');
+			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'RS256 needs the openssl extension');
 			return;
 		}
 		$privClef = ($keyStrng['privFile']!='') ? @openssl_pkey_get_private($keyStrng['privFile']) : false;
@@ -627,20 +627,20 @@ class HealthChk{
 		// A public key laid over the server's own (a bundle of another pair) no longer checks what its private key signs
 		$isPaired = ($privClef===false || $publInst===false) || strval(openssl_pkey_get_details($privClef)['key'] ?? '')===strval(openssl_pkey_get_details($publInst)['key'] ?? '');
 		if( ($keyStrng['privFile']!='' && $privClef===false) || ($keyStrng['publFile']!='' && $publInst===false) ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'a key file is not a PEM key: "setting mkSecret jwtToken" makes a new pair');
+			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'a key file is not a PEM key: "setting mkSecret jwtToken" makes a new pair');
 		}elseif( !$isPaired ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'the public key is not the one of the private key: "setting mkSecret jwtToken" makes a new pair');
+			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'the public key is not the one of the private key: "setting mkSecret jwtToken" makes a new pair');
 		}elseif( empty($clefBits) ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'missing: "setting mkSecret jwtToken" makes them');
+			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'missing: "setting mkSecret jwtToken" makes them');
 		}elseif( min($clefBits)<JWT::RSAS_BITS ){
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "setting mkSecret jwtToken" makes a new pair');
-		}elseif( $privClef===false && ($blckValueArr['external'] ?? false)!==true && !empty($loginCfg = $this->accessSettings('loginSet')) && strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($loginCfg['carrConf'] ?? 'jwtToken'), $blckNamedTxt)==0 ){
+			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "setting mkSecret jwtToken" makes a new pair');
+		}elseif( $privClef===false && ($blockVlsList['external'] ?? false)!==true && !empty($loginCfg = $this->accessSettings('loginSet')) && strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($loginCfg['carrConf'] ?? 'jwtToken'), $blockNmdText)==0 ){
 			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
 			$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 			$isRemote = in_array(strtoupper(strval(($nyuConfg!==null) ? $nyuConfg->obtainRowValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
-			$this->addCheckResult('token keys '.$blckNamedTxt, $isRemote ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "setting mkSecret jwtToken" makes a pair; "external": true when the tokens come from another server');
+			$this->addCheckResult('token keys '.$blockNmdText, $isRemote ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "setting mkSecret jwtToken" makes a pair; "external": true when the tokens come from another server');
 		}else{
-			$this->addCheckResult('token keys '.$blckNamedTxt, 'fine', ($privClef===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($clefBits).' bits');
+			$this->addCheckResult('token keys '.$blockNmdText, 'fine', ($privClef===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($clefBits).' bits');
 		}
 	}
 
@@ -898,12 +898,12 @@ class HealthChk{
 	/**
 	 * Reads a block of the ACCESS config.
 	 *
-	 * @param String $blckNamedTxt Name of the block.
+	 * @param String $blockNmdText Name of the block.
 	 * @return Array Its values, empty when there is no such block.
 	 */
-	protected function accessSettings( String $blckNamedTxt ): Array {
+	protected function accessSettings( String $blockNmdText ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$blockCfg = ($nyuConfg!==null && $blckNamedTxt!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blckNamedTxt)) : null;
+		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blockNmdText)) : null;
 		return is_array($blockCfg) ? $blockCfg : Array();
 	}
 

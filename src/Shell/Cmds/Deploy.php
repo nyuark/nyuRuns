@@ -384,27 +384,27 @@ class Deploy extends Command{
 			return Array( Array(), Array() );
 		}
 		$lostList = Array();
-		$pendList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStatus'] ?? '')=='awaiting' && strval($usrValuesArr['actvtnCode'] ?? '')!=='';
+		$pendList = array_column( array_filter($usersRecords, function( Array $userValsList ): Bool {
+			return ($userValsList['userStatus'] ?? '')=='awaiting' && strval($userValsList['actvtnCode'] ?? '')!=='';
 		}), 'systemName' );
 		if( !empty($pendList) ){
 			$lostList[] = Array('activation codes', implode(', ', $pendList).': pending until made active, or given a password, with accounts');
 		}
-		$rsetList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return strval($usrValuesArr['recovrCode'] ?? '')!=='';
+		$rsetList = array_column( array_filter($usersRecords, function( Array $userValsList ): Bool {
+			return strval($userValsList['recovrCode'] ?? '')!=='';
 		}), 'systemName' );
 		if( !empty($rsetList) ){
 			$lostList[] = Array('reset codes', implode(', ', $rsetList).': the resets asked are forgotten, the passwords kept');
 		}
-		$rivuList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['userStatus'] ?? '')=='inReview';
+		$rivuList = array_column( array_filter($usersRecords, function( Array $userValsList ): Bool {
+			return ($userValsList['userStatus'] ?? '')=='inReview';
 		}), 'systemName' );
 		if( !empty($rivuList) ){
 			$lostList[] = Array('sign-ups to review', implode(', ', $rivuList).': kept in review, which the users file cannot approve; account freeUser makes them active');
 		}
 		// A code mailed at each login is written in the store : the users file, only read, cannot keep one
-		$mailList = array_column( array_filter($usersRecords, function( Array $usrValuesArr ): Bool {
-			return ($usrValuesArr['twoFactWay'] ?? null)==='emailOtp';
+		$mailList = array_column( array_filter($usersRecords, function( Array $userValsList ): Bool {
+			return ($userValsList['twoFactWay'] ?? null)==='emailOtp';
 		}), 'systemName' );
 		if( !empty($mailList) ){
 			$this->terminateShell('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailList).'); "account setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
@@ -921,12 +921,12 @@ class Deploy extends Command{
 	 * once confirmed.
 	 *
 	 * @param \stdClass $tokenConfObj The block of the tokens, given the key.
-	 * @param String    $blckNamedTxt Name of that block.
+	 * @param String    $blockNmdText Name of that block.
 	 *
 	 * @throws ShellStop When the file is missing, is not a public RSA key of JWT::RSAS_BITS bits at least, or cannot be copied.
 	 */
-	protected function queryIssuerKey( \stdClass $tokenConfObj, String $blckNamedTxt ): Void {
-		$publName = 'conf/keys/'.$blckNamedTxt.'.pub';
+	protected function queryIssuerKey( \stdClass $tokenConfObj, String $blockNmdText ): Void {
+		$publName = 'conf/keys/'.$blockNmdText.'.pub';
 		$publPath = TOP_DIR.DS.str_replace('/', DS, $publName);
 		$srceName = trim( $this->queryAnswerTxt('File of the public key of the authentication server', is_file($publPath) ? $publName : '') );
 		// The path is read from where the command runs, or from the project
@@ -1206,17 +1206,17 @@ class Deploy extends Command{
 	 * as it is.
 	 *
 	 * @param String $storeOfUsers 'nativeDb' or 'userFile'.
-	 * @param String $blckNamedTxt Block of conf/access.json holding the settings of the store; the one the login names, or the one named as the store, when empty.
+	 * @param String $blockNmdText Block of conf/access.json holding the settings of the store; the one the login names, or the one named as the store, when empty.
 	 *
 	 * @throws ShellStop When the users cannot be created.
 	 */
-	protected function makeBasicUsers( String $storeOfUsers, String $blckNamedTxt ): Void {
+	protected function makeBasicUsers( String $storeOfUsers, String $blockNmdText ): Void {
 		// Tables are made: the descriptions the config cache keeps (TBL_CACH) are no longer the whole story
 		ConfCache::clearConfCache();
 		$loginCfg = $this->accessSettings('loginSet');
-		$blockNme = ($blckNamedTxt!='') ? $blckNamedTxt : ( strval($loginCfg['authWith'] ?? '')==$storeOfUsers ? strval($loginCfg['authConf'] ?? $storeOfUsers) : $storeOfUsers );
+		$blockNme = ($blockNmdText!='') ? $blockNmdText : ( strval($loginCfg['authWith'] ?? '')==$storeOfUsers ? strval($loginCfg['authConf'] ?? $storeOfUsers) : $storeOfUsers );
 		$blockCfg = $this->accessSettings($blockNme);
-		if( empty($blockCfg) && ($storeOfUsers=='nativeDb' || $blckNamedTxt!='') ){
+		if( empty($blockCfg) && ($storeOfUsers=='nativeDb' || $blockNmdText!='') ){
 			$this->terminateShell('No user created: conf/access.json has no "'.$blockNme.'" block', self::EXIT_DENY);
 		}
 		$passList = Array();

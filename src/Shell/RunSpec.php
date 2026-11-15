@@ -223,11 +223,11 @@ class RunSpec{
 	 * number, a decimal one, a date, a date and time; any other is kept as
 	 * sent (OutText is meant for output, not for a value written).
 	 *
-	 * @param String $columnTypeTx The type of the column, as the database writes it.
+	 * @param String $clmnTypeText The type of the column, as the database writes it.
 	 * @return String The format, '' for a value kept as sent.
 	 */
-	public static function formatOfColumn( String $columnTypeTx ): String {
-		$typeText = strtolower(trim($columnTypeTx));
+	public static function formatOfColumn( String $clmnTypeText ): String {
+		$typeText = strtolower(trim($clmnTypeText));
 		if( preg_match('/int|serial|bool/', $typeText) ){
 			return 'Integer';
 		}
