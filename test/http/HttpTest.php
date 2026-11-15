@@ -513,7 +513,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/users', $usrHead + Array('Authorization'=>'Bearer '.$benToken));
 	checkIdentical('users: the list is refused to a member too', $replyAr['code'], 404);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'userName=henry');
-	checkIdentical('users: an action is not reached by its old path, even by a manager', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(404, 0));
+	checkIdentical('users: the old path of an action is read as the route of a user, and creates nothing', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(405, 0));
 	$replyAr = httpQuery('POST', $baseUrl.'/users', $mgrHead, 'userName=henry');
 	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
 	checkIdentical('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 12));
@@ -579,7 +579,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $benHead);
 	checkIdentical('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	checkIdentical('roles: with no challenge', count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head'])), 0);
-	checkPregMatch('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(standard\) from \S+ to users\/index: role managers needed/');
+	checkPregMatch('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(standard\) from \S+ to Users\/index: role managers needed/');
 	$replyAr = httpQuery('GET', $baseUrl.'/users/henry', $rolHead + $benHead);
 	checkIdentical('roles: so is another route of its application', $replyAr['code'], 404);
 	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $annHead);
@@ -589,7 +589,7 @@ if( !$isReady ){
 	$replyAr = httpQuery('GET', $baseUrl.'/users', Array('X-Test-Roles'=>'users/*=managers, /docs/*=advanced') + $usrHead + $annHead);
 	checkIdentical('roles: a declared path that no route declares refuses every request', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/users/henry/lock', $rolHead + $benHead);
-	checkIdentical('roles: a route asks for the role before the method', $replyAr['code'], 404);
+	checkIdentical('roles: a method the route does not declare is refused before the role is asked', $replyAr['code'], 405);
 
 	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter', 'X-Test-Roles'=>'users/*=managers, probe/identify=advanced, /docs/*=advanced, /hello/$id=managers') + $rolHead;
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $prbHead + $benHead);
