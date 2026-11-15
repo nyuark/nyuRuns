@@ -505,21 +505,32 @@ if( !$isReady ){
 	$benToken = strval(json_decode($replyAr['body'], true)['token'] ?? '');
 	$usrHead = $formHed + Array('X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'jwtToken', 'X-Test-Confkey'=>'testTokn', 'X-Test-Store'=>'nativeDb', 'X-Test-Public'=>'auth/login,auth/active');
 	$mgrHead = $usrHead + Array('Authorization'=>'Bearer '.$jwToken);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $usrHead, 'userName=henry');
+	// Users is a closed Run: its actions are reached by its routes only (runs/Users/routes.rte), the user in the path
+	$replyAr = httpQuery('POST', $baseUrl.'/users', $usrHead, 'userName=henry');
 	checkIdentical('users: nothing without a session', $replyAr['code'], 401);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $usrHead + Array('Authorization'=>'Bearer '.$benToken), 'userName=henry');
+	$replyAr = httpQuery('POST', $baseUrl.'/users', $usrHead + Array('Authorization'=>'Bearer '.$benToken), 'userName=henry');
 	checkIdentical('users: refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $usrHead + Array('Authorization'=>'Bearer '.$benToken));
+	$replyAr = httpQuery('GET', $baseUrl.'/users', $usrHead + Array('Authorization'=>'Bearer '.$benToken));
 	checkIdentical('users: the list is refused to a member too', $replyAr['code'], 404);
 	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'userName=henry');
+	checkIdentical('users: an action is not reached by its old path, even by a manager', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(404, 0));
+	$replyAr = httpQuery('POST', $baseUrl.'/users', $mgrHead, 'userName=henry');
 	$newCode = strval(json_decode($replyAr['body'], true)['code'] ?? '');
 	checkIdentical('users: a manager creates a user', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, strlen($newCode)), Array(201, 'henry', 12));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/create', $mgrHead, 'saveRole=standard');
+	$replyAr = httpQuery('POST', $baseUrl.'/users', $mgrHead, 'saveRole=standard');
 	checkIdentical('users: a name is required', Array($replyAr['code'], $replyAr['body']), Array(400, '{"error":"Missing or invalid input: userName","code":400}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/index?currStat=awaiting', $mgrHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users?currStat=awaiting', $mgrHead);
 	checkIdentical('users: the list, filtered, tells no hash and no code', Array($replyAr['code'], array_column(json_decode($replyAr['body'], true) ?? Array(), 'systemName'), array_keys(json_decode($replyAr['body'], true)[0] ?? Array())), Array(200, Array('cleo', 'henry'), Array('id_user', 'systemName', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'signupDate', 'createDate', 'accessDate')));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/view?userName=henry', $mgrHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/henry', $mgrHead);
 	checkIdentical('users: one user', Array($replyAr['code'], json_decode($replyAr['body'], true)['userStatus'] ?? null), Array(200, 'awaiting'));
+	$replyAr = httpQuery('PUT', $baseUrl.'/users', $mgrHead, 'userName=henry');
+	checkIdentical('users: a method its route does not declare', $replyAr['code'], 405);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/henry/approve', $mgrHead);
+	checkIdentical('users: only a sign-up in review is approved', $replyAr['code'], 409);
+	$replyAr = httpQuery('PUT', $baseUrl.'/users/henry/email', $mgrHead, 'userMail='.rawurlencode('henry@example.test'));
+	checkIdentical('users: an address is given, the body of a PUT read', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","mail":"henry@example.test"}'));
+	$replyAr = httpQuery('PUT', $baseUrl.'/users/henry/langs', $mgrHead, 'saveLang=fr');
+	checkIdentical('users: a language is given', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","lang":"fr"}'));
 
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/active', $usrHead, 'userName=henry&sentCode='.str_repeat('0', 32).'&passWord=pass-henry-1');
 	checkIdentical('activate: open without a session, a wrong code is refused', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid activation","code":401}'));
@@ -545,15 +556,19 @@ if( !$isReady ){
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'userName=henry&passWord=pass-henry-2');
 	checkIdentical('password: the new one logs in', $replyAr['code'], 200);
 
-	$replyAr = httpQuery('POST', $baseUrl.'/users/role', $mgrHead, 'userName=henry&saveRole=advanced');
-	checkIdentical('users: a role is given', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","role":"advanced"}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/lock', $mgrHead, 'userName=anna');
+	$replyAr = httpQuery('PUT', $baseUrl.'/users/henry/role', $mgrHead, 'userName=anna&saveRole=advanced');
+	checkIdentical('users: a role is given, to the user of the path whatever the body names', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","role":"advanced"}'));
+	$replyAr = httpQuery('PUT', $baseUrl.'/users/anna/lock', $mgrHead);
 	checkIdentical('users: a manager cannot lock itself', $replyAr['code'], 409);
-	$replyAr = httpQuery('POST', $baseUrl.'/users/lock', $mgrHead, 'userName=henry');
+	$replyAr = httpQuery('PUT', $baseUrl.'/users/henry/lock', $mgrHead);
 	checkIdentical('users: a user is locked', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","stat":"disabled"}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/setpass', $usrHead + Array('Authorization'=>'Bearer '.$newToken), 'oldValue=pass-henry-2&passWord=pass-henry-3');
 	checkIdentical('users: the lock ends the session the user held', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Account not active","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/users/remove', $mgrHead, 'userName=henry');
+	$replyAr = httpQuery('DELETE', $baseUrl.'/users/henry/lock', $mgrHead);
+	checkIdentical('users: a user is unlocked', Array($replyAr['code'], $replyAr['body']), Array(200, '{"user":"henry","stat":"approved"}'));
+	$replyAr = httpQuery('POST', $baseUrl.'/users/henry/reset', $mgrHead);
+	checkIdentical('users: a user is reset', Array($replyAr['code'], json_decode($replyAr['body'], true)['user'] ?? null, $sqlLink->query("SELECT userStatus FROM users WHERE systemName='henry'")->fetchColumn()), Array(200, 'henry', 'awaiting'));
+	$replyAr = httpQuery('DELETE', $baseUrl.'/users/henry', $mgrHead);
 	checkIdentical('users: a user is removed', Array($replyAr['code'], $sqlLink->query("SELECT COUNT(*) FROM users WHERE systemName='henry'")->fetchColumn()), Array(200, 0));
 
 	// Roles : what a route asks for ('minRoles'), and the helpers of an action
@@ -561,20 +576,20 @@ if( !$isReady ){
 	$annHead = Array('Authorization'=>'Bearer '.$jwToken);
 	$rolHead = $usrHead + Array('X-Test-Roles'=>'users/*=managers, probe/identify=advanced');
 	$logMark = strlen(readsLogs('access'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead + $benHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $benHead);
 	checkIdentical('roles: a route refused to a member', Array($replyAr['code'], $replyAr['body']), Array(404, '{"error":"Not Found","code":404}'));
 	checkIdentical('roles: with no challenge', count(preg_grep('/^WWW-Authenticate:/i', $replyAr['head'])), 0);
 	checkPregMatch('roles: the refusal is logged with the role needed', substr(readsLogs('access'), $logMark), '/\[WARNING\] Access refused for user "ben" \(standard\) from \S+ to users\/index: role managers needed/');
-	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $benHead);
-	checkIdentical('roles: so is its application, named without an action', $replyAr['code'], 404);
-	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead + $annHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users/henry', $rolHead + $benHead);
+	checkIdentical('roles: so is another route of its application', $replyAr['code'], 404);
+	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead + $annHead);
 	checkIdentical('roles: served to a manager', $replyAr['code'], 200);
-	$replyAr = httpQuery('GET', $baseUrl.'/users/index', $rolHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users', $rolHead);
 	checkIdentical('roles: nobody logged is a 401', $replyAr['code'], 401);
-	$replyAr = httpQuery('GET', $baseUrl.'/users/index', Array('X-Test-Roles'=>'users/*=managers, /docs/*=advanced') + $usrHead + $annHead);
+	$replyAr = httpQuery('GET', $baseUrl.'/users', Array('X-Test-Roles'=>'users/*=managers, /docs/*=advanced') + $usrHead + $annHead);
 	checkIdentical('roles: a declared path that no route declares refuses every request', Array($replyAr['code'], $replyAr['body']), Array(500, '{"error":"Access misconfigured","code":500}'));
-	$replyAr = httpQuery('GET', $baseUrl.'/users/create?userName=henry', $usrHead + $benHead);
-	checkIdentical('roles: an action asks for the role before the method', $replyAr['code'], 404);
+	$replyAr = httpQuery('POST', $baseUrl.'/users/henry/lock', $rolHead + $benHead);
+	checkIdentical('roles: a route asks for the role before the method', $replyAr['code'], 404);
 
 	$prbHead = Array('X-Test-Runs'=>'1', 'X-Test-Routes'=>'1', 'X-Test-Signin'=>'/enter', 'X-Test-Roles'=>'users/*=managers, probe/identify=advanced, /docs/*=advanced, /hello/$id=managers') + $rolHead;
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $prbHead + $benHead);
