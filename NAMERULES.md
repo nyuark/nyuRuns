@@ -13,7 +13,7 @@ Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the
 - **One word, one meaning.** A verb or a kind term never stands in for another one of a different size to reach a length.
 - The length is reached by **lengthening a slot, never by adding one**: a whole word instead of its short form, a more precise word of the same meaning, a precise object instead of a vague one.
 - A name that cannot be built this way is not invented: it goes to the review.
-- **A yes or no is always a question** (decided 2026-11-12): a method, a parameter, a property or a local holding a Bool starts with a question verb (`is`, `has`, `can`...): `hasWrongSecret()`, `$canWriteFile`, `$isLoggedIn`, `$isLogged`. There is no `Flag` kind term. The one exception is an action verb returning its success (section 2, Methods).
+- **A yes or no is always a question** (decided 2026-11-12): a method, a property or a local holding a Bool starts with a question verb (`is`, `has`, `can`...): `hasWrongSecret()`, `$canWriteFile`, `$isLoggedIn`, `$isLogged`. There is no `Flag` kind term. A Bool parameter may keep its name (section 2, decided 2026-11-15). The one exception is an action verb returning its success (section 2, Methods).
 
 ## 2. Grammar by kind
 
@@ -427,4 +427,4 @@ A word written short in fewer than 10 names today gets its form, if it needs one
 - **The whole renaming lands in 1.0** (decided 2026-11-12): the rules, the audit, the map, its review and the rename area by area, before the public release.
 - **The rename is applied on a branch of its own**, `naming-0C06`, area by area, and merged whole once the full suite is green on it, never halfway. The rules (this file) and the audit in report mode go to `master` first: they break nothing.
 
-The locals were named on 2026-11-14 (the Locals · final tab of the review). Next: their rename, then the parameters.
+The locals were named on 2026-11-14 (the Locals · final tab of the review).
