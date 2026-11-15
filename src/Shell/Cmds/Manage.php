@@ -454,14 +454,14 @@ class Manage extends Command{
 	 * @throws \nyu\Shell\ShellStop When no store is named, or its block is missing.
 	 */
 	protected function openUsersStore(): Object {
-		$loginCfg = $this->accessSettings('loginSet');
+		$loginCfg = $this->findAccessConf('loginSet');
 		$lognAuth = strval($loginCfg['authWith'] ?? '');
 		$storeNme = strval( $this->optionsObj->getOptionValue('useStore', in_array($lognAuth, Array('nativeDb', 'userFile'), true) ? $lognAuth : '') );
 		if( !in_array($storeNme, Array('nativeDb', 'userFile'), true) ){
 			$this->stopWithReason('The login uses neither the native userbase nor the users file: name the store with --useStore=nativeDb or --useStore=userFile', self::EXIT_HELP);
 		}
 		$blockNme = strval( $this->optionsObj->getOptionValue('useBlock', ($lognAuth==$storeNme) ? strval($loginCfg['authConf'] ?? $storeNme) : $storeNme) );
-		$blockCfg = $this->accessSettings($blockNme);
+		$blockCfg = $this->findAccessConf($blockNme);
 		if( empty($blockCfg) && ($this->optionsObj->isOptionPassed('useBlock') || $storeNme=='nativeDb') ){
 			$this->stopWithReason('conf/access.json has no "'.$blockNme.'" block', self::EXIT_DENY);
 		}

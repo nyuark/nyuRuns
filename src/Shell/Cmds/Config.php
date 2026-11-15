@@ -620,7 +620,7 @@ class Config extends Command{
 		if( !preg_match('/^[^:\s]+$/D', $namedUserTxt) ){
 			$this->stopWithReason('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
 		}
-		$blockCfg = $this->accessSettings( strval($this->optionsObj->getOptionValue('useBlock', 'htpasswd')) );
+		$blockCfg = $this->findAccessConf( strval($this->optionsObj->getOptionValue('useBlock', 'htpasswd')) );
 		$passFile = trim( strval($blockCfg['passFile'] ?? 'conf/.htpasswd'), '/\\ ' );
 		$filePath = $this->getProjectPath($passFile);
 		$lineList = is_file($filePath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filePath))), 'strlen')) : Array();
