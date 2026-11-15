@@ -105,56 +105,56 @@ class Docx extends Page {
 		$rltnText = '<Relationship Id="rId1" Type="'.self::RELS_NAME.'/styles" Target="styles.xml"/><Relationship Id="rId2" Type="'.self::RELS_NAME.'/numbering" Target="numbering.xml"/>';
 		$sctnText = '';
 		// What stands at the top and at the bottom of the pages: a part each, with the addresses it points to
-		foreach(Array('phead'=>Array('header', 'w:hdr', 'rId3'), 'pfoot'=>Array('footer', 'w:ftr', 'rId4')) as $infKey=>$pgeSet){
-			if( empty($infoList[$infKey]) || !is_array($infoList[$infKey]) ){
+		foreach(Array('phead'=>Array('header', 'w:hdr', 'rId3'), 'pfoot'=>Array('footer', 'w:ftr', 'rId4')) as $oneKey=>$oneSet){
+			if( empty($infoList[$oneKey]) || !is_array($infoList[$oneKey]) ){
 				continue;
 			}
 			$this->knownLinks = Array();
 			$this->pictureLst = Array();
-			$pageText = $this->writeAllBlocks($infoList[$infKey], 0);
-			$moreList['word/'.$pgeSet[0].'1.xml'] = $headBrut.'<'.$pgeSet[1].$rootText.'>'.(($pageText==='' || substr($pageText, -8)=='</w:tbl>') ? $pageText.'<w:p/>' : $pageText).'</'.$pgeSet[1].'>';
-			$moreList['word/_rels/'.$pgeSet[0].'1.xml.rels'] = $headBrut.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$this->writeRelations().'</Relationships>';
-			$typeText .= '<Override PartName="/word/'.$pgeSet[0].'1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.'.$pgeSet[0].'+xml"/>';
-			$rltnText .= '<Relationship Id="'.$pgeSet[2].'" Type="'.self::RELS_NAME.'/'.$pgeSet[0].'" Target="'.$pgeSet[0].'1.xml"/>';
-			$sctnText .= '<w:'.$pgeSet[0].'Reference w:type="default" r:id="'.$pgeSet[2].'"/>';
+			$pageText = $this->writeAllBlocks($infoList[$oneKey], 0);
+			$moreList['word/'.$oneSet[0].'1.xml'] = $headBrut.'<'.$oneSet[1].$rootText.'>'.(($pageText==='' || substr($pageText, -8)=='</w:tbl>') ? $pageText.'<w:p/>' : $pageText).'</'.$oneSet[1].'>';
+			$moreList['word/_rels/'.$oneSet[0].'1.xml.rels'] = $headBrut.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$this->writeRelations().'</Relationships>';
+			$typeText .= '<Override PartName="/word/'.$oneSet[0].'1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.'.$oneSet[0].'+xml"/>';
+			$rltnText .= '<Relationship Id="'.$oneSet[2].'" Type="'.self::RELS_NAME.'/'.$oneSet[0].'" Target="'.$oneSet[0].'1.xml"/>';
+			$sctnText .= '<w:'.$oneSet[0].'Reference w:type="default" r:id="'.$oneSet[2].'"/>';
 		}
 		// The notes the text referred to: those of the pages, those of the end
 		$lostList = Array();
-		foreach(Array('fnote'=>Array('footnote', 'rId5'), 'enote'=>Array('endnote', 'rId6')) as $nteKnd=>$nteSet){
-			$lostList = array_merge($lostList, array_values(array_diff_key($this->remarkList[$nteKnd], $this->citedNotes[$nteKnd])));
-			if( empty($this->citedNotes[$nteKnd]) ){
+		foreach(Array('fnote'=>Array('footnote', 'rId5'), 'enote'=>Array('endnote', 'rId6')) as $oneCod=>$oneNte){
+			$lostList = array_merge($lostList, array_values(array_diff_key($this->remarkList[$oneCod], $this->citedNotes[$oneCod])));
+			if( empty($this->citedNotes[$oneCod]) ){
 				continue;
 			}
 			$this->knownLinks = Array();
 			$this->pictureLst = Array();
-			$moreList['word/'.$nteSet[0].'s.xml'] = $headBrut.'<w:'.$nteSet[0].'s'.$rootText.'>'.$this->writeNotesPart($nteKnd, $nteSet[0]).'</w:'.$nteSet[0].'s>';
-			$moreList['word/_rels/'.$nteSet[0].'s.xml.rels'] = $headBrut.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$this->writeRelations().'</Relationships>';
-			$typeText .= '<Override PartName="/word/'.$nteSet[0].'s.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.'.$nteSet[0].'s+xml"/>';
-			$rltnText .= '<Relationship Id="'.$nteSet[1].'" Type="'.self::RELS_NAME.'/'.$nteSet[0].'s" Target="'.$nteSet[0].'s.xml"/>';
+			$moreList['word/'.$oneNte[0].'s.xml'] = $headBrut.'<w:'.$oneNte[0].'s'.$rootText.'>'.$this->writeNotesPart($oneCod, $oneNte[0]).'</w:'.$oneNte[0].'s>';
+			$moreList['word/_rels/'.$oneNte[0].'s.xml.rels'] = $headBrut.'<Relationships xmlns="'.self::PACK_NAME.'/relationships">'.$this->writeRelations().'</Relationships>';
+			$typeText .= '<Override PartName="/word/'.$oneNte[0].'s.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.'.$oneNte[0].'s+xml"/>';
+			$rltnText .= '<Relationship Id="'.$oneNte[1].'" Type="'.self::RELS_NAME.'/'.$oneNte[0].'s" Target="'.$oneNte[0].'s.xml"/>';
 		}
 		// A note the text never referred to is not lost: it ends the document, as text
 		$this->knownLinks = $linkList[0];
 		$this->pictureLst = $linkList[1];
-		foreach($lostList as $blkArr){
-			$bodyText .= $this->writeBlockPart(Array('block'=>'paragrph') + $blkArr, 0);
+		foreach($lostList as $oneBlk){
+			$bodyText .= $this->writeBlockPart(Array('block'=>'paragrph') + $oneBlk, 0);
 		}
 		$rltnText .= $this->writeRelations();
 		// The properties: those Word keeps a place for, then the others
 		$propList = (array)($infoList['props'] ?? Array());
-		foreach(Array('title'=>'Title', 'authr'=>'Author') as $infKey=>$prpNme){
-			if( is_scalar($infoList[$infKey] ?? null) && strval($infoList[$infKey])!=='' ){
-				$propList[$prpNme] = strval($infoList[$infKey]);
+		foreach(Array('title'=>'Title', 'authr'=>'Author') as $oneKey=>$oneNme){
+			if( is_scalar($infoList[$oneKey] ?? null) && strval($infoList[$oneKey])!=='' ){
+				$propList[$oneNme] = strval($infoList[$oneKey]);
 			}
 		}
 		$coreText = '';
-		foreach(self::PROP_LIST as $prpNme=>$xmlTag){
-			$coreText .= (is_scalar($propList[$prpNme] ?? null) && strval($propList[$prpNme])!=='') ? '<'.$xmlTag.'>'.$this->escapeXmlValue(strval($propList[$prpNme])).'</'.$xmlTag.'>' : '';
+		foreach(self::PROP_LIST as $oneNme=>$oneTag){
+			$coreText .= (is_scalar($propList[$oneNme] ?? null) && strval($propList[$oneNme])!=='') ? '<'.$oneTag.'>'.$this->escapeXmlValue(strval($propList[$oneNme])).'</'.$oneTag.'>' : '';
 		}
 		$custText = $this->writeExtraProp(array_diff_key($propList, self::PROP_LIST));
 		// The pictures, each written once, and the kinds of file they are
-		foreach($this->mediaFiles as $medSet){
-			$moreList['word/'.$medSet[0]] = $medSet[1];
-			$fileExtn = substr($medSet[0], intval(strrpos($medSet[0], '.'))+1);
+		foreach($this->mediaFiles as $oneSet){
+			$moreList['word/'.$oneSet[0]] = $oneSet[1];
+			$fileExtn = substr($oneSet[0], intval(strrpos($oneSet[0], '.'))+1);
 			if( strpos($typeText, 'Extension="'.$fileExtn.'"')===false ){
 				$typeText = '<Default Extension="'.$fileExtn.'" ContentType="'.self::PICT_LIST[($fileExtn=='jpeg') ? 'jpg' : $fileExtn].'"/>'.$typeText;
 			}
@@ -194,11 +194,11 @@ class Docx extends Page {
 	 */
 	protected function writeRelations(): String {
 		$rltnText = '';
-		foreach($this->knownLinks as $lnkAdr=>$linkId){
-			$rltnText .= '<Relationship Id="'.$linkId.'" Type="'.self::RELS_NAME.'/hyperlink" Target="'.$this->escapeXmlValue($lnkAdr).'" TargetMode="External"/>';
+		foreach($this->knownLinks as $oneAdr=>$oneLnk){
+			$rltnText .= '<Relationship Id="'.$oneLnk.'" Type="'.self::RELS_NAME.'/hyperlink" Target="'.$this->escapeXmlValue($oneAdr).'" TargetMode="External"/>';
 		}
-		foreach($this->pictureLst as $picKey=>$linkId){
-			$rltnText .= '<Relationship Id="'.$linkId.'" Type="'.self::RELS_NAME.'/image" Target="'.$picKey.'"/>';
+		foreach($this->pictureLst as $oneKey=>$oneLnk){
+			$rltnText .= '<Relationship Id="'.$oneLnk.'" Type="'.self::RELS_NAME.'/image" Target="'.$oneKey.'"/>';
 		}
 		return $rltnText;
 	}
@@ -213,19 +213,19 @@ class Docx extends Page {
 	protected function writeExtraProp(Array $propertyList): String {
 		$propText = '';
 		$propNumb = 1;
-		foreach($propertyList as $prpNme=>$prpVal){
-			$nameText = trim(strval($prpNme));
-			if( $nameText==='' || !is_scalar($prpVal) || (is_float($prpVal) && !is_finite($prpVal)) ){
+		foreach($propertyList as $oneNme=>$onePrp){
+			$nameText = trim(strval($oneNme));
+			if( $nameText==='' || !is_scalar($onePrp) || (is_float($onePrp) && !is_finite($onePrp)) ){
 				continue;
 			}
-			if( is_bool($prpVal) ){
-				$valueTxt = '<vt:bool>'.($prpVal ? 'true' : 'false').'</vt:bool>';
-			}elseif( is_int($prpVal) ){
-				$valueTxt = (abs($prpVal)<2147483648) ? '<vt:i4>'.$prpVal.'</vt:i4>' : '<vt:i8>'.$prpVal.'</vt:i8>';
-			}elseif( is_float($prpVal) ){
-				$valueTxt = '<vt:r8>'.$this->writeNumberTxt($prpVal).'</vt:r8>';
+			if( is_bool($onePrp) ){
+				$valueTxt = '<vt:bool>'.($onePrp ? 'true' : 'false').'</vt:bool>';
+			}elseif( is_int($onePrp) ){
+				$valueTxt = (abs($onePrp)<2147483648) ? '<vt:i4>'.$onePrp.'</vt:i4>' : '<vt:i8>'.$onePrp.'</vt:i8>';
+			}elseif( is_float($onePrp) ){
+				$valueTxt = '<vt:r8>'.$this->writeNumberTxt($onePrp).'</vt:r8>';
 			}else{
-				$valueTxt = '<vt:lpwstr>'.$this->escapeXmlValue($prpVal).'</vt:lpwstr>';
+				$valueTxt = '<vt:lpwstr>'.$this->escapeXmlValue($onePrp).'</vt:lpwstr>';
 			}
 			$propNumb++;
 			$propText .= '<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="'.$propNumb.'" name="'.$this->escapeXmlValue($nameText).'">'.$valueTxt.'</property>';
@@ -248,27 +248,27 @@ class Docx extends Page {
 			.'<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
 			.'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
 			.'<w:style w:type="character" w:default="1" w:styleId="DefaultParagraphFont"><w:name w:val="Default Paragraph Font"/><w:uiPriority w:val="1"/><w:semiHidden/></w:style>';
-		foreach(self::HEAD_SIZE as $hdrLvl=>$sizeNb){
-			$styleTxt .= '<w:style w:type="paragraph" w:styleId="Heading'.$hdrLvl.'"><w:name w:val="heading '.$hdrLvl.'"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/>'
-				.'<w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="'.(($hdrLvl==1) ? 360 : 200).'" w:after="80"/><w:outlineLvl w:val="'.($hdrLvl-1).'"/></w:pPr><w:rPr><w:b/><w:bCs/><w:sz w:val="'.($sizeNb*2).'"/><w:szCs w:val="'.($sizeNb*2).'"/></w:rPr></w:style>';
+		foreach(self::HEAD_SIZE as $oneLvl=>$nthSze){
+			$styleTxt .= '<w:style w:type="paragraph" w:styleId="Heading'.$oneLvl.'"><w:name w:val="heading '.$oneLvl.'"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/>'
+				.'<w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="'.(($oneLvl==1) ? 360 : 200).'" w:after="80"/><w:outlineLvl w:val="'.($oneLvl-1).'"/></w:pPr><w:rPr><w:b/><w:bCs/><w:sz w:val="'.($nthSze*2).'"/><w:szCs w:val="'.($nthSze*2).'"/></w:rPr></w:style>';
 		}
 		$styleTxt .= '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="34"/><w:qFormat/><w:pPr><w:contextualSpacing/><w:ind w:left="720"/></w:pPr></w:style>'
 			.'<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="29"/><w:qFormat/><w:pPr><w:spacing w:before="160"/><w:ind w:left="720" w:right="720"/></w:pPr><w:rPr><w:i/><w:iCs/><w:color w:val="404040"/></w:rPr></w:style>'
 			.'<w:style w:type="paragraph" w:styleId="HTMLPreformatted"><w:name w:val="HTML Preformatted"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:pPr><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'
 			.'<w:style w:type="paragraph" w:styleId="TableHeading"><w:name w:val="Table Heading"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:pPr><w:spacing w:after="0"/></w:pPr><w:rPr><w:b/><w:bCs/></w:rPr></w:style>'
 			.'<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:basedOn w:val="DefaultParagraphFont"/><w:uiPriority w:val="99"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>';
-		foreach(Array('Footnote'=>'footnote', 'Endnote'=>'endnote') as $noteId=>$nteNme){
-			$styleTxt .= '<w:style w:type="paragraph" w:styleId="'.$noteId.'Text"><w:name w:val="'.$nteNme.' text"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'
-				.'<w:style w:type="character" w:styleId="'.$noteId.'Reference"><w:name w:val="'.$nteNme.' reference"/><w:basedOn w:val="DefaultParagraphFont"/><w:uiPriority w:val="99"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>';
+		foreach(Array('Footnote'=>'footnote', 'Endnote'=>'endnote') as $oneKey=>$oneNme){
+			$styleTxt .= '<w:style w:type="paragraph" w:styleId="'.$oneKey.'Text"><w:name w:val="'.$oneNme.' text"/><w:basedOn w:val="Normal"/><w:uiPriority w:val="99"/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:style>'
+				.'<w:style w:type="character" w:styleId="'.$oneKey.'Reference"><w:name w:val="'.$oneNme.' reference"/><w:basedOn w:val="DefaultParagraphFont"/><w:uiPriority w:val="99"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>';
 		}
 		// The styles the paragraphs name: those the content tells of, and those it only names
 		$this->styleTable = Array();
 		$nameList = array_map('strval', array_keys($styleFormats));
 		$walkFunc = function(Array $blocksToWalk) use (&$walkFunc, &$nameList){
-			foreach($blocksToWalk as $blkArr){
-				if( is_array($blkArr) ){
-					$nameList[] = (strval($blkArr['block'] ?? '')=='paragrph' && is_scalar($blkArr['attrs']['style'] ?? null)) ? strval($blkArr['attrs']['style']) : '';
-					$walkFunc((array)($blkArr['items'] ?? Array()));
+			foreach($blocksToWalk as $oneBlk){
+				if( is_array($oneBlk) ){
+					$nameList[] = (strval($oneBlk['block'] ?? '')=='paragrph' && is_scalar($oneBlk['attrs']['style'] ?? null)) ? strval($oneBlk['attrs']['style']) : '';
+					$walkFunc((array)($oneBlk['items'] ?? Array()));
 				}
 			}
 		};
@@ -305,18 +305,18 @@ class Docx extends Page {
 	 */
 	protected function writeListsPart(): String {
 		$numbText = '<w:numbering xmlns:w="'.self::MAIN_NAME.'">';
-		foreach(Array(0=>Array('bullet', Array("\u{2022}", "\u{25E6}", "\u{25AA}")), 1=>Array('', Array('decimal', 'lowerLetter', 'lowerRoman'))) as $listId=>$absSet){
-			$numbText .= '<w:abstractNum w:abstractNumId="'.$listId.'"><w:multiLevelType w:val="hybridMultilevel"/>';
-			for($lvlIdx=0; $lvlIdx<=self::LIST_DEEP; $lvlIdx++){
-				$numbText .= '<w:lvl w:ilvl="'.$lvlIdx.'"><w:start w:val="1"/><w:numFmt w:val="'.(($listId==0) ? 'bullet' : $absSet[1][$lvlIdx%3]).'"/><w:lvlText w:val="'.(($listId==0) ? $absSet[1][$lvlIdx%3] : '%'.($lvlIdx+1).'.').'"/><w:lvlJc w:val="left"/>'
-					.'<w:pPr><w:ind w:left="'.(720*($lvlIdx+1)).'" w:hanging="360"/></w:pPr></w:lvl>';
+		foreach(Array(0=>Array('bullet', Array("\u{2022}", "\u{25E6}", "\u{25AA}")), 1=>Array('', Array('decimal', 'lowerLetter', 'lowerRoman'))) as $oneKey=>$oneSet){
+			$numbText .= '<w:abstractNum w:abstractNumId="'.$oneKey.'"><w:multiLevelType w:val="hybridMultilevel"/>';
+			for($nthLvl=0; $nthLvl<=self::LIST_DEEP; $nthLvl++){
+				$numbText .= '<w:lvl w:ilvl="'.$nthLvl.'"><w:start w:val="1"/><w:numFmt w:val="'.(($oneKey==0) ? 'bullet' : $oneSet[1][$nthLvl%3]).'"/><w:lvlText w:val="'.(($oneKey==0) ? $oneSet[1][$nthLvl%3] : '%'.($nthLvl+1).'.').'"/><w:lvlJc w:val="left"/>'
+					.'<w:pPr><w:ind w:left="'.(720*($nthLvl+1)).'" w:hanging="360"/></w:pPr></w:lvl>';
 			}
 			$numbText .= '</w:abstractNum>';
 		}
-		foreach($this->numbersLst as $numIdx=>$isOrdr){
-			$numbText .= '<w:num w:numId="'.($numIdx+1).'"><w:abstractNumId w:val="'.($isOrdr ? 1 : 0).'"/>';
-			for($lvlIdx=0; $isOrdr && $lvlIdx<=self::LIST_DEEP; $lvlIdx++){
-				$numbText .= '<w:lvlOverride w:ilvl="'.$lvlIdx.'"><w:startOverride w:val="1"/></w:lvlOverride>';
+		foreach($this->numbersLst as $nthNum=>$oneOrd){
+			$numbText .= '<w:num w:numId="'.($nthNum+1).'"><w:abstractNumId w:val="'.($oneOrd ? 1 : 0).'"/>';
+			for($nthLvl=0; $oneOrd && $nthLvl<=self::LIST_DEEP; $nthLvl++){
+				$numbText .= '<w:lvlOverride w:ilvl="'.$nthLvl.'"><w:startOverride w:val="1"/></w:lvlOverride>';
 			}
 			$numbText .= '</w:num>';
 		}
@@ -335,14 +335,14 @@ class Docx extends Page {
 	protected function writeNotesPart(String $noteTypeCode, String $wordNoteName): String {
 		$noteText = '<w:'.$wordNoteName.' w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:'.$wordNoteName.'><w:'.$wordNoteName.' w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:'.$wordNoteName.'>';
 		$stylIdnt = ucfirst($wordNoteName);
-		foreach($this->citedNotes[$noteTypeCode] as $noteId=>$noteNb){
-			$noteList = $this->remarkList[$noteTypeCode][$noteId];
+		foreach($this->citedNotes[$noteTypeCode] as $oneKey=>$nthNte){
+			$noteList = $this->remarkList[$noteTypeCode][$oneKey];
 			$spanList = array_values((array)($noteList['spans'] ?? Array()));
 			// The number of the note, a space, then its text: the space is Word's, not the note's
 			if( isset($spanList[0]['texts']) ){
 				$spanList[0]['texts'] = ltrim(strval($spanList[0]['texts']));
 			}
-			$noteText .= '<w:'.$wordNoteName.' w:id="'.$noteNb.'"><w:p><w:pPr><w:pStyle w:val="'.$stylIdnt.'Text"/></w:pPr><w:r><w:rPr><w:rStyle w:val="'.$stylIdnt.'Reference"/></w:rPr><w:'.$wordNoteName.'Ref/></w:r><w:r><w:t xml:space="preserve"> </w:t></w:r>'
+			$noteText .= '<w:'.$wordNoteName.' w:id="'.$nthNte.'"><w:p><w:pPr><w:pStyle w:val="'.$stylIdnt.'Text"/></w:pPr><w:r><w:rPr><w:rStyle w:val="'.$stylIdnt.'Reference"/></w:rPr><w:'.$wordNoteName.'Ref/></w:r><w:r><w:t xml:space="preserve"> </w:t></w:r>'
 				.$this->writeSpansPart($spanList).'</w:p>'.$this->writeAllBlocks((array)($noteList['items'] ?? Array()), 0);
 			// A note ends with a paragraph, as a cell does
 			$noteText .= ((substr($noteText, -8)=='</w:tbl>') ? '<w:p/>' : '').'</w:'.$wordNoteName.'>';
@@ -359,9 +359,9 @@ class Docx extends Page {
 	 */
 	protected function writeAllBlocks(Array $bookBlockSet, Int $nestingDepth): String {
 		$bodyText = '';
-		foreach($bookBlockSet as $blkArr){
-			if( is_array($blkArr) && isset($blkArr['block']) ){
-				$partText = $this->writeBlockPart($blkArr, $nestingDepth);
+		foreach($bookBlockSet as $oneBlk){
+			if( is_array($oneBlk) && isset($oneBlk['block']) ){
+				$partText = $this->writeBlockPart($oneBlk, $nestingDepth);
 				// A paragraph stands between two tables, without which they would become one
 				$bodyText .= ((substr($bodyText, -8)=='</w:tbl>' && substr($partText, 0, 7)=='<w:tbl>') ? '<w:p/>' : '').$partText;
 			}
@@ -400,8 +400,8 @@ class Docx extends Page {
 		if( $blockCod=='codeBlck' ){
 			// A paragraph for each line of code, their spaces kept
 			$codeText = '';
-			foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", implode('', array_column($spanList, 'texts')))) as $oneLin){
-				$codeText .= $this->writeParagraph(Array('style'=>'HTMLPreformatted', 'indnt'=>$indtTags), Array(Shape::makeSpanOfText($oneLin)), Array());
+			foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", implode('', array_column($spanList, 'texts')))) as $oneLne){
+				$codeText .= $this->writeParagraph(Array('style'=>'HTMLPreformatted', 'indnt'=>$indtTags), Array(Shape::makeSpanOfText($oneLne)), Array());
 			}
 			return $codeText;
 		}
@@ -485,15 +485,15 @@ class Docx extends Page {
 		$numbIdnt = count($this->numbersLst);
 		$levelCnt = min(self::LIST_DEEP, $levelValNumb);
 		$listText = '';
-		foreach((array)($contentBlock['items'] ?? Array()) as $entArr){
-			$spanList = (array)($entArr['spans'] ?? Array());
+		foreach((array)($contentBlock['items'] ?? Array()) as $oneNtr){
+			$spanList = (array)($oneNtr['spans'] ?? Array());
 			// A box to tick is written as the sign of one, ticked or not
-			if( isset($entArr['attrs']['check']) ){
-				array_unshift($spanList, Shape::makeSpanOfText(empty($entArr['attrs']['check']) ? "\u{2610} " : "\u{2611} "));
+			if( isset($oneNtr['attrs']['check']) ){
+				array_unshift($spanList, Shape::makeSpanOfText(empty($oneNtr['attrs']['check']) ? "\u{2610} " : "\u{2611} "));
 			}
-			$listText .= $this->writeParagraph(Array('style'=>'ListParagraph', 'numbr'=>'<w:numPr><w:ilvl w:val="'.$levelCnt.'"/><w:numId w:val="'.$numbIdnt.'"/></w:numPr>'), $spanList, array_intersect_key((array)($entArr['attrs'] ?? Array()), Array('tagid'=>1)));
-			foreach((array)($entArr['items'] ?? Array()) as $subBlk){
-				$listText .= (strval($subBlk['block'] ?? '')=='itemList') ? $this->writeListPiece((array)$subBlk, $levelValNumb+1) : $this->writeBlockPart((array)$subBlk, $levelValNumb+1);
+			$listText .= $this->writeParagraph(Array('style'=>'ListParagraph', 'numbr'=>'<w:numPr><w:ilvl w:val="'.$levelCnt.'"/><w:numId w:val="'.$numbIdnt.'"/></w:numPr>'), $spanList, array_intersect_key((array)($oneNtr['attrs'] ?? Array()), Array('tagid'=>1)));
+			foreach((array)($oneNtr['items'] ?? Array()) as $oneBlk){
+				$listText .= (strval($oneBlk['block'] ?? '')=='itemList') ? $this->writeListPiece((array)$oneBlk, $levelValNumb+1) : $this->writeBlockPart((array)$oneBlk, $levelValNumb+1);
 			}
 		}
 		return $listText;
@@ -518,8 +518,8 @@ class Docx extends Page {
 		$clmnsAll = 1;
 		foreach((array)($contentBlock['items'] ?? Array()) as $oneRow){
 			$rowClmns = 0;
-			foreach((array)($oneRow['items'] ?? Array()) as $celBlk){
-				$rowClmns += max(1, min(63, intval($celBlk['attrs']['colsp'] ?? 1)));
+			foreach((array)($oneRow['items'] ?? Array()) as $oneCel){
+				$rowClmns += max(1, min(63, intval($oneCel['attrs']['colsp'] ?? 1)));
 			}
 			$clmnsAll = max($clmnsAll, $rowClmns);
 		}
@@ -534,7 +534,7 @@ class Docx extends Page {
 			$cellList = array_values((array)($oneRow['items'] ?? Array()));
 			// An end is added to the cells, so that the cells covered from above ending the row are written like the others
 			$cellList[] = null;
-			foreach($cellList as $celBlk){
+			foreach($cellList as $oneCel){
 				while( isset($openList[$clmnIndx]) ){
 					$cellText .= '<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>'.(($openList[$clmnIndx][1]>1) ? '<w:gridSpan w:val="'.$openList[$clmnIndx][1].'"/>' : '').'<w:vMerge/></w:tcPr><w:p/></w:tc>';
 					$spanNumb = $openList[$clmnIndx][1];
@@ -543,10 +543,10 @@ class Docx extends Page {
 					}
 					$clmnIndx += $spanNumb;
 				}
-				if( !is_array($celBlk) ){
+				if( !is_array($oneCel) ){
 					continue;
 				}
-				$attrDict = (array)($celBlk['attrs'] ?? Array());
+				$attrDict = (array)($oneCel['attrs'] ?? Array());
 				$clmnSpan = max(1, min(63, intval($attrDict['colsp'] ?? 1)));
 				$rowRange = max(1, intval($attrDict['rowsp'] ?? 1));
 				if( $rowRange>1 ){
@@ -556,8 +556,8 @@ class Docx extends Page {
 				// A picture in a cell is no wider than the cell, nor higher than half a page: a row is never cut by the end of a page
 				$this->roomLength = Array(max(9525, intdiv($prevRoom[0]*min($clmnSpan, $clmnsAll), $clmnsAll)-144000), intdiv($prevRoom[1], 2));
 				// What the cell holds: its own text, then its other blocks. A cell ends with a paragraph, whatever it holds
-				$holdText = (empty($celBlk['spans']) && !empty($celBlk['items'])) ? '' : $this->writeParagraph($isHeader ? Array('style'=>'TableHeading') : Array(), (array)($celBlk['spans'] ?? Array()), $attrDict);
-				$holdText .= $this->writeAllBlocks((array)($celBlk['items'] ?? Array()), 0);
+				$holdText = (empty($oneCel['spans']) && !empty($oneCel['items'])) ? '' : $this->writeParagraph($isHeader ? Array('style'=>'TableHeading') : Array(), (array)($oneCel['spans'] ?? Array()), $attrDict);
+				$holdText .= $this->writeAllBlocks((array)($oneCel['items'] ?? Array()), 0);
 				if( substr($holdText, -6)!=='</w:p>' ){
 					$holdText .= '<w:p/>';
 				}
@@ -574,8 +574,8 @@ class Docx extends Page {
 			return '';
 		}
 		$brdrText = '';
-		foreach(Array('top', 'left', 'bottom', 'right', 'insideH', 'insideV') as $border){
-			$brdrText .= '<w:'.$border.' w:val="single" w:sz="4" w:space="0" w:color="808080"/>';
+		foreach(Array('top', 'left', 'bottom', 'right', 'insideH', 'insideV') as $oneSde){
+			$brdrText .= '<w:'.$oneSde.' w:val="single" w:sz="4" w:space="0" w:color="808080"/>';
 		}
 		// The table takes the width of the page
 		return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>'.(($nestingDepth>0) ? '<w:tblInd w:w="'.(720*$nestingDepth).'" w:type="dxa"/>' : '').'<w:tblBorders>'.$brdrText.'</w:tblBorders>'

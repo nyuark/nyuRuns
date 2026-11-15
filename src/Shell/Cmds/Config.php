@@ -113,9 +113,9 @@ class Config extends Command{
 		if( $trgtName=='coreConf' ){
 			$lineList = Array();
 			preg_match_all('/^[ \t]*([A-Z0-9_]+)[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePath)), $lineList, PREG_SET_ORDER);
-			foreach( $lineList as $linVal ){
-				if( $pathText=='' || $pathText==$linVal[1] ){
-					$rowsList[] = Array($linVal[1], trim($linVal[2], '"'));
+			foreach( $lineList as $oneVal ){
+				if( $pathText=='' || $pathText==$oneVal[1] ){
+					$rowsList[] = Array($oneVal[1], trim($oneVal[2], '"'));
 				}
 			}
 			if( empty($rowsList) ){
@@ -138,8 +138,8 @@ class Config extends Command{
 	protected function renderPsetConf( String $dotNamesPath ): Int {
 		if( $dotNamesPath=='' ){
 			$rowsList = Array();
-			foreach( (array)glob($this->getProjectPath('conf/presets').DS.'*.rps') as $rpsFil ){
-				$psetName = basename(strval($rpsFil), '.rps');
+			foreach( (array)glob($this->getProjectPath('conf/presets').DS.'*.rps') as $oneFil ){
+				$psetName = basename(strval($oneFil), '.rps');
 				try{
 					$confVals = $this->readPresetFile($psetName);
 					$rowsList[] = Array($psetName, strval($confVals['presetId'] ?? ''), strval($confVals['synopsis'] ?? ''));
@@ -334,9 +334,9 @@ class Config extends Command{
 		}
 		$lineText = ($hostText==='' ? '' : $hostText).$baseText;
 		$findIndx = null;
-		foreach( $rowsList as $rowIdx => $oneRow ){
+		foreach( $rowsList as $nthRow => $oneRow ){
 			if( $oneRow['hostName']===$hostText && $oneRow['basePath']===$baseText ){
-				$findIndx = $rowIdx;
+				$findIndx = $nthRow;
 			}
 		}
 		if( $this->optionsObj->isOptionPassed('removeIt') ){
@@ -457,9 +457,9 @@ class Config extends Command{
 			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
 		}else{
 			$labelTxt = 'API key';
-			foreach( get_object_vars($treeInst) as $blkKey => $blkVal ){
-				if( $blockNme=='' && is_object($blkVal) && isset($blkVal->keysList) && is_array($blkVal->keysList) ){
-					$blockNme = strval($blkKey);
+			foreach( get_object_vars($treeInst) as $oneKey => $oneVal ){
+				if( $blockNme=='' && is_object($oneVal) && isset($oneVal->keysList) && is_array($oneVal->keysList) ){
+					$blockNme = strval($oneKey);
 				}
 			}
 			$rawValue = ($blockNme!='' && isset($treeInst->$blockNme->keysList) && is_array($treeInst->$blockNme->keysList)) ? ($treeInst->$blockNme->keysList[0] ?? '') : null;
@@ -564,12 +564,12 @@ class Config extends Command{
 		if( $oldStrng!='' ){
 			$pemsList[TOP_DIR.DS.str_replace('/', DS, $oldTitle)] = Array($oldStrng, 0644);
 		}
-		foreach( $pemsList as $keyFil => $onePem ){
-			if( !is_dir(dirname($keyFil)) ){
-				@mkdir(dirname($keyFil), 0700, true);
+		foreach( $pemsList as $oneFil => $onePem ){
+			if( !is_dir(dirname($oneFil)) ){
+				@mkdir(dirname($oneFil), 0700, true);
 			}
 			// Written aside, given its rights, then put in place : no copy of the former key is kept
-			$tempPath = $keyFil.'.tmp'.getmypid();
+			$tempPath = $oneFil.'.tmp'.getmypid();
 			// Readable by its owner only from its first byte, then given its rights
 			$prevMask = umask(0077);
 			try{
@@ -578,12 +578,12 @@ class Config extends Command{
 				umask($prevMask);
 			}
 			if( $wasWrttn===false ){
-				$this->stopWithReason('No keys written: '.dirname($keyFil).' cannot be written', self::EXIT_FAIL);
+				$this->stopWithReason('No keys written: '.dirname($oneFil).' cannot be written', self::EXIT_FAIL);
 			}
 			@chmod($tempPath, $onePem[1]);
-			if( !@rename($tempPath, $keyFil) ){
+			if( !@rename($tempPath, $oneFil) ){
 				@unlink($tempPath);
-				$this->stopWithReason('No keys written: '.basename($keyFil).' cannot be replaced', self::EXIT_FAIL);
+				$this->stopWithReason('No keys written: '.basename($oneFil).' cannot be replaced', self::EXIT_FAIL);
 			}
 		}
 		$blockNde->privFile = $privName;
@@ -625,9 +625,9 @@ class Config extends Command{
 		$filePath = $this->getProjectPath($passFile);
 		$lineList = is_file($filePath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filePath))), 'strlen')) : Array();
 		$lineIndx = null;
-		foreach( $lineList as $lstIdx => $lstLin ){
-			if( strpos($lstLin, $namedUserTxt.':')===0 ){
-				$lineIndx = $lstIdx;
+		foreach( $lineList as $nthLst => $oneLne ){
+			if( strpos($oneLne, $namedUserTxt.':')===0 ){
+				$lineIndx = $nthLst;
 			}
 		}
 		if( $lineIndx!==null && !$this->promptApproval('Replace the password of user '.$namedUserTxt.' in '.$passFile) ){
@@ -673,21 +673,21 @@ class Config extends Command{
 		$reqtInst = ActCaller::makeRequestLst('GET', '/')[0];
 		$rowsList = Array();
 		$routInst = new Router($routeCfg, $reqtInst);
-		foreach( $routInst->listAllTargets() as $rteVal ){
-			$rowsList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->renderAccsText($accsConf, $reqtInst, $rteVal, $routInst) );
+		foreach( $routInst->listAllTargets() as $oneVal ){
+			$rowsList[] = Array( '/'.$oneVal['routPath'], implode(', ', $oneVal['mthdList']), $oneVal['routKind'], $oneVal['routTarg'], $oneVal['routOwnr'], $this->renderAccsText($accsConf, $reqtInst, $oneVal, $routInst) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleDict = is_array($accsConf['minRoles'] ?? null) ? $accsConf['minRoles'] : Array();
 		$actnList = Array();
-		foreach( array_merge(array_values((array)($accsConf['openList'] ?? Array())), array_keys($roleDict)) as $rteKey ){
-			$rteKey = strtolower( trim(strval($rteKey)) );
-			if( $rteKey!='' && substr($rteKey, 0, 1)!='/' && !in_array($rteKey, $actnList, true) ){
-				$actnList[] = $rteKey;
+		foreach( array_merge(array_values((array)($accsConf['openList'] ?? Array())), array_keys($roleDict)) as $oneKey ){
+			$oneKey = strtolower( trim(strval($oneKey)) );
+			if( $oneKey!='' && substr($oneKey, 0, 1)!='/' && !in_array($oneKey, $actnList, true) ){
+				$actnList[] = $oneKey;
 			}
 		}
-		foreach( $actnList as $action ){
-			$actParte = explode('/', $action, 2);
-			$rowsList[] = Array( '', 'any', 'toAction', $action, '', $this->renderAccsText($accsConf, $reqtInst, Array('appToRun'=>$actParte[0], 'doAction'=>$actParte[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routInst) );
+		foreach( $actnList as $oneAct ){
+			$actParte = explode('/', $oneAct, 2);
+			$rowsList[] = Array( '', 'any', 'toAction', $oneAct, '', $this->renderAccsText($accsConf, $reqtInst, Array('appToRun'=>$actParte[0], 'doAction'=>$actParte[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routInst) );
 		}
 		$this->printerObj->writeShellPair('preset', $psetName);
 		$this->printerObj->writeShellPair('detectBy', strval($routeCfg['detectBy'] ?? ''));
@@ -747,11 +747,11 @@ class Config extends Command{
 	 */
 	protected function followDotPaths( Array $configValues, String $dotNamesPath ): Mixed {
 		$nodeVals = $configValues;
-		foreach( ($dotNamesPath=='' ? Array() : explode('.', $dotNamesPath)) as $pthKey ){
-			if( !is_array($nodeVals) || !array_key_exists($pthKey, $nodeVals) ){
+		foreach( ($dotNamesPath=='' ? Array() : explode('.', $dotNamesPath)) as $oneKey ){
+			if( !is_array($nodeVals) || !array_key_exists($oneKey, $nodeVals) ){
 				$this->stopWithReason('Nothing under '.$dotNamesPath, self::EXIT_DENY);
 			}
-			$nodeVals = $nodeVals[$pthKey];
+			$nodeVals = $nodeVals[$oneKey];
 		}
 		return $nodeVals;
 	}
@@ -768,8 +768,8 @@ class Config extends Command{
 	protected function castConfToRows( Mixed $filePartData, String $prefixString ): Array {
 		if( is_array($filePartData) && !empty($filePartData) && $filePartData!==array_values($filePartData) ){
 			$rowsList = Array();
-			foreach( $filePartData as $subKey => $subVal ){
-				$rowsList = array_merge( $rowsList, $this->castConfToRows($subVal, ($prefixString=='') ? strval($subKey) : $prefixString.'.'.$subKey) );
+			foreach( $filePartData as $oneKey => $oneSub ){
+				$rowsList = array_merge( $rowsList, $this->castConfToRows($oneSub, ($prefixString=='') ? strval($oneKey) : $prefixString.'.'.$oneKey) );
 			}
 			return $rowsList;
 		}

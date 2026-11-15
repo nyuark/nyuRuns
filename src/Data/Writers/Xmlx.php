@@ -137,11 +137,11 @@ class Xmlx extends Base {
 	 */
 	protected function writeAttrbText(Array $attributeSet): String {
 		$xmlAttrb = '';
-		foreach($attributeSet as $atrNme=>$atrVal){
-			if( $atrVal===null || is_array($atrVal) || is_object($atrVal) ){
+		foreach($attributeSet as $oneNme=>$oneVal){
+			if( $oneVal===null || is_array($oneVal) || is_object($oneVal) ){
 				continue;
 			}
-			$xmlAttrb .= ' '.$this->checkNameChars(strval($atrNme)).'="'.str_replace(Array("\t", "\n", "\r"), Array('&#9;', '&#10;', '&#13;'), $this->escapeXmlValue($this->writeScalarTxt($atrVal))).'"';
+			$xmlAttrb .= ' '.$this->checkNameChars(strval($oneNme)).'="'.str_replace(Array("\t", "\n", "\r"), Array('&#9;', '&#10;', '&#13;'), $this->escapeXmlValue($this->writeScalarTxt($oneVal))).'"';
 		}
 		return $xmlAttrb;
 	}
@@ -198,8 +198,8 @@ class Xmlx extends Base {
 		$wasMulti = $this->isIndented;
 		$this->isIndented = ($wasMulti && !$hasMixed);
 		$holdText = '';
-		foreach($childLst as $chlArr){
-			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->getIndentOfLvl($depthLvlNumb+1).$this->writeTreeNodes($chlArr, $depthLvlNumb+1);
+		foreach($childLst as $oneChl){
+			$holdText .= (strval($oneChl['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($oneChl['value'] ?? '') ? strval($oneChl['value'] ?? '') : '') : $this->getIndentOfLvl($depthLvlNumb+1).$this->writeTreeNodes($oneChl, $depthLvlNumb+1);
 		}
 		$holdText .= $this->getIndentOfLvl($depthLvlNumb);
 		$this->isIndented = $wasMulti;
@@ -238,22 +238,22 @@ class Xmlx extends Base {
 		}
 		$holdText = '';
 		$textText = '';
-		foreach($valueAsGiven as $subKey=>$subVal){
-			$keyStrng = strval($subKey);
-			if( is_string($subKey) && $keyStrng!=='' && $keyStrng[0]=='@' && !is_array($subVal) && !is_object($subVal) ){
-				$attrDict[substr($keyStrng, 1)] = $subVal;
-			}elseif( $keyStrng==='#text' && !is_array($subVal) && !is_object($subVal) ){
-				$textText .= $this->escapeXmlValue($this->writeScalarTxt($subVal));
-			}elseif( is_int($subKey) ){
+		foreach($valueAsGiven as $oneKey=>$oneSub){
+			$keyStrng = strval($oneKey);
+			if( is_string($oneKey) && $keyStrng!=='' && $keyStrng[0]=='@' && !is_array($oneSub) && !is_object($oneSub) ){
+				$attrDict[substr($keyStrng, 1)] = $oneSub;
+			}elseif( $keyStrng==='#text' && !is_array($oneSub) && !is_object($oneSub) ){
+				$textText .= $this->escapeXmlValue($this->writeScalarTxt($oneSub));
+			}elseif( is_int($oneKey) ){
 				// A value of a list without a name
-				$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode(self::ITEM_NAME, $subVal, $depthLvlNumb+1);
-			}elseif( is_array($subVal) && !empty($subVal) && $this->isSequenceList($subVal) ){
+				$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode(self::ITEM_NAME, $oneSub, $depthLvlNumb+1);
+			}elseif( is_array($oneSub) && !empty($oneSub) && $this->isSequenceList($oneSub) ){
 				// A list under a name: the element of that name, as many times
-				foreach($subVal as $oneVal){
+				foreach($oneSub as $oneVal){
 					$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode($keyStrng, $oneVal, $depthLvlNumb+1);
 				}
 			}else{
-				$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode($keyStrng, $subVal, $depthLvlNumb+1);
+				$holdText .= $this->getIndentOfLvl($depthLvlNumb+1).$this->writeValueNode($keyStrng, $oneSub, $depthLvlNumb+1);
 			}
 		}
 		$openText = '<'.$tagTitle.$this->writeAttrbText($attrDict);

@@ -100,23 +100,23 @@ class Router{
 	 * @param Array  $goalKeysList The keys a target block of the file may hold: TRGT_KEYS for the site, 'doAction' alone for a Run.
 	 */
 	protected function logUnknownKeys( Array $rteRoutesLst, String $fileOfRoutes, Array $goalKeysList=self::TRGT_KEYS ): Void {
-		foreach( $rteRoutesLst as $rteKey => $rteSet ){
-			if( !is_array($rteSet) ){
+		foreach( $rteRoutesLst as $oneKey => $oneSet ){
+			if( !is_array($oneSet) ){
 				continue;
 			}
-			$badClave = array_values( array_diff(array_map('strval', array_keys($rteSet)), self::KEYS_LIST) );
-			$trgtVals = $rteSet['pointsTo'] ?? null;
+			$badClave = array_values( array_diff(array_map('strval', array_keys($oneSet)), self::KEYS_LIST) );
+			$trgtVals = $oneSet['pointsTo'] ?? null;
 			if( is_array($trgtVals) ){
 				// One block, or one per method (a block of a Run names its action alone)
 				$blockLst = ($this->findTargetCode($trgtVals)!==null || isset($trgtVals['doAction'])) ? Array($trgtVals) : array_filter($trgtVals, 'is_array');
-				foreach( $blockLst as $blkVal ){
-					foreach( array_diff(array_map('strval', array_keys($blkVal)), $goalKeysList) as $tgtKey ){
-						$badClave[] = 'pointsTo.'.$tgtKey;
+				foreach( $blockLst as $oneVal ){
+					foreach( array_diff(array_map('strval', array_keys($oneVal)), $goalKeysList) as $oneTrg ){
+						$badClave[] = 'pointsTo.'.$oneTrg;
 					}
 				}
 			}
-			foreach( array_unique($badClave) as $badKey ){
-				Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode(strval($rteKey)).' of '.$fileOfRoutes.' holds an unknown key: '.$badKey );
+			foreach( array_unique($badClave) as $oneBad ){
+				Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode(strval($oneKey)).' of '.$fileOfRoutes.' holds an unknown key: '.$oneBad );
 			}
 		}
 	}
@@ -147,8 +147,8 @@ class Router{
 		$mapParte = explode( '/', $mapTrail );
 		$mapsList = Array();
 
-		foreach( $mapParte as $mapIdx => $mapKey ){
-			$mapsList[$mapKey] = $urlParte[$mapIdx] ?? null;
+		foreach( $mapParte as $nthMap => $oneKey ){
+			$mapsList[$oneKey] = $urlParte[$nthMap] ?? null;
 		}
 		return $mapsList;
 	}
@@ -167,17 +167,17 @@ class Router{
 			$pathToLookUp = 'index';
 		}
 		$routeDct = $this->loadFilesArray();
-		foreach( Array(true, false) as $ofSite ){
-			if( isset($routeDct[$pathToLookUp]) && (strval($routeDct[$pathToLookUp]['routOwnr'] ?? 'site')=='site')===$ofSite ){
+		foreach( Array(true, false) as $oneSte ){
+			if( isset($routeDct[$pathToLookUp]) && (strval($routeDct[$pathToLookUp]['routOwnr'] ?? 'site')=='site')===$oneSte ){
 				return $this->makeTargetVals( $routeDct[$pathToLookUp], Array(), $pathToLookUp );
 			}
-			foreach( $routeDct as $rteKey => $rteSet ){
-				if( (strval($rteSet['routOwnr'] ?? 'site')=='site')!==$ofSite ){
+			foreach( $routeDct as $oneKey => $oneSet ){
+				if( (strval($oneSet['routOwnr'] ?? 'site')=='site')!==$oneSte ){
 					continue;
 				}
-				$captVals = $this->matchRoutePath( strval($rteKey), $pathToLookUp );
+				$captVals = $this->matchRoutePath( strval($oneKey), $pathToLookUp );
 				if( $captVals!==null ){
-					return $this->makeTargetVals( $rteSet, $captVals, strval($rteKey) );
+					return $this->makeTargetVals( $oneSet, $captVals, strval($oneKey) );
 				}
 			}
 		}
@@ -203,42 +203,42 @@ class Router{
 		$routeDct = Array();
 		$drctPath = TOP_DIR.DS.($this->routConfig['routeDir'] ?? 'conf'.DS.'routes');
 		if( is_dir($drctPath) ){
-			foreach( glob($drctPath.DS.'*.rte') as $rteFil ){
+			foreach( glob($drctPath.DS.'*.rte') as $oneFil ){
 				// Plain JSON (Parsers\Index), the keys kept as written
-				$routeFle = new Dcmnt($rteFil, false);
+				$routeFle = new Dcmnt($oneFil, false);
 				$fileDict = $routeFle->readFileDetail('out');
 				if( is_array($fileDict) ){
-					$this->logUnknownKeys( $fileDict, basename(strval($rteFil)) );
+					$this->logUnknownKeys( $fileDict, basename(strval($oneFil)) );
 					$routeDct = $routeDct + $fileDict;
 				}
 			}
 		}
 		$siteRout = Array();
-		foreach( $routeDct as $rteKey => $rteSet ){
-			$routePth = trim(strval($rteKey), '/');
-			if( is_array($rteSet) && !isset($siteRout[$routePth]) ){
-				$siteRout[$routePth] = Array('routOwnr'=>'site') + $rteSet;
+		foreach( $routeDct as $oneKey => $oneSet ){
+			$routePth = trim(strval($oneKey), '/');
+			if( is_array($oneSet) && !isset($siteRout[$routePth]) ){
+				$siteRout[$routePth] = Array('routOwnr'=>'site') + $oneSet;
 			}
 		}
-		foreach( $this->readRunsRoutes() as $runRte ){
-			$routePth = strval($runRte['routPath']);
+		foreach( $this->readRunsRoutes() as $oneRte ){
+			$routePth = strval($oneRte['routPath']);
 			if( isset($siteRout[$routePth]) ){
 				if( $siteRout[$routePth]['routOwnr']=='site' ){
-					Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['routOwnr'].' is also declared by the site: the site\'s answers' );
+					Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$oneRte['routOwnr'].' is also declared by the site: the site\'s answers' );
 				}else{
-					Logger::getLoggerOfChn('runner')->error( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' is declared by the applications '.$siteRout[$routePth]['routOwnr'].' and '.$runRte['routOwnr'].': '.$siteRout[$routePth]['routOwnr'].' answers' );
+					Logger::getLoggerOfChn('runner')->error( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' is declared by the applications '.$siteRout[$routePth]['routOwnr'].' and '.$oneRte['routOwnr'].': '.$siteRout[$routePth]['routOwnr'].' answers' );
 				}
 				continue;
 			}
 			// A pattern of the site over it answers first : told as well
-			foreach( array_keys(array_combine(array_keys($siteRout), array_column($siteRout, 'routOwnr')), 'site', true) as $rteKey ){
-				if( $this->matchRoutePath(strval($rteKey), $routePth)!==null ){
-					Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['routOwnr'].' falls under the site route '.json_encode('/'.$rteKey, JSON_UNESCAPED_SLASHES).': the site\'s answers' );
+			foreach( array_keys(array_combine(array_keys($siteRout), array_column($siteRout, 'routOwnr')), 'site', true) as $oneKey ){
+				if( $this->matchRoutePath(strval($oneKey), $routePth)!==null ){
+					Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$oneRte['routOwnr'].' falls under the site route '.json_encode('/'.$oneKey, JSON_UNESCAPED_SLASHES).': the site\'s answers' );
 					break;
 				}
 			}
-			unset($runRte['routPath']);
-			$siteRout[$routePth] = $runRte;
+			unset($oneRte['routPath']);
+			$siteRout[$routePth] = $oneRte;
 		}
 		$this->routeFiles = $siteRout;
 		return $siteRout;
@@ -254,9 +254,9 @@ class Router{
 	 * @return ?String The final path, without its slashes; null when the Run declares no such route, or does not serve it.
 	 */
 	public function getMountedPath( String $appNameToRun, String $routShapeTxt ): ?String {
-		foreach( $this->loadFilesArray() as $rteKey => $rteSet ){
-			if( strcasecmp(strval($rteSet['routOwnr'] ?? 'site'), $appNameToRun)==0 && ($rteSet['routDecl'] ?? null)===trim($routShapeTxt, '/') ){
-				return strval($rteKey);
+		foreach( $this->loadFilesArray() as $oneKey => $oneSet ){
+			if( strcasecmp(strval($oneSet['routOwnr'] ?? 'site'), $appNameToRun)==0 && ($oneSet['routDecl'] ?? null)===trim($routShapeTxt, '/') ){
+				return strval($oneKey);
 			}
 		}
 		return null;
@@ -279,24 +279,24 @@ class Router{
 		if( !defined('RUN_DIR') ){
 			return $rowsList;
 		}
-		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') as $rteFil ){
-			$applName = basename(dirname(strval($rteFil)));
+		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') as $oneFil ){
+			$applName = basename(dirname(strval($oneFil)));
 			$mountPth = $this->mountRoutePath($applName);
 			if( $mountPth===null || !preg_match('/^[A-Za-z0-9]+$/D', $applName) ){
 				continue;
 			}
-			$fileDict = (new Dcmnt(strval($rteFil), false))->readFileDetail('out');
+			$fileDict = (new Dcmnt(strval($oneFil), false))->readFileDetail('out');
 			if( !is_array($fileDict) ){
 				continue;
 			}
 			$this->logUnknownKeys( $fileDict, $applName.'/routes.rte', Array('doAction') );
-			foreach( $fileDict as $rteKey => $rteSet ){
-				if( !is_array($rteSet) ){
+			foreach( $fileDict as $oneKey => $oneSet ){
+				if( !is_array($oneSet) ){
 					continue;
 				}
-				$rteKey = strval($rteKey);
-				$routePth = (substr($rteKey, 0, 1)=='/') ? trim($rteKey, '/') : trim($mountPth.'/'.trim($rteKey, '/'), '/');
-				$trgtVals = $rteSet['pointsTo'] ?? null;
+				$oneKey = strval($oneKey);
+				$routePth = (substr($oneKey, 0, 1)=='/') ? trim($oneKey, '/') : trim($mountPth.'/'.trim($oneKey, '/'), '/');
+				$trgtVals = $oneSet['pointsTo'] ?? null;
 				if( !is_array($trgtVals) ){
 					continue;
 				}
@@ -309,19 +309,19 @@ class Router{
 					$trgtVals['appToRun'] = $applName;
 				}else{
 					// One block per method, each checked
-					foreach( $trgtVals as $mthNme => $target ){
-						if( !is_array($target) || !empty(array_intersect(array_keys($target), array_diff(self::TRGT_KEYS, Array('appToRun', 'doAction')))) ){
-							unset($trgtVals[$mthNme]);
+					foreach( $trgtVals as $oneNme => $oneTrg ){
+						if( !is_array($oneTrg) || !empty(array_intersect(array_keys($oneTrg), array_diff(self::TRGT_KEYS, Array('appToRun', 'doAction')))) ){
+							unset($trgtVals[$oneNme]);
 							continue;
 						}
-						$trgtVals[$mthNme]['appToRun'] = $applName;
+						$trgtVals[$oneNme]['appToRun'] = $applName;
 					}
 					if( empty($trgtVals) ){
 						continue;
 					}
 				}
-				$rteSet['pointsTo'] = $trgtVals;
-				$rowsList[] = Array('routPath'=>$routePth, 'routOwnr'=>$applName, 'routDecl'=>trim($rteKey, '/')) + $rteSet;
+				$oneSet['pointsTo'] = $trgtVals;
+				$rowsList[] = Array('routPath'=>$routePth, 'routOwnr'=>$applName, 'routDecl'=>trim($oneKey, '/')) + $oneSet;
 			}
 		}
 		return $rowsList;
@@ -340,11 +340,11 @@ class Router{
 	public function mountRoutePath( String $appNameToRun ): ?String {
 		$mountLst = $this->routConfig['runMount'] ?? Array();
 		$mountLst = is_array($mountLst) ? $mountLst : Array();
-		foreach( $mountLst as $mntKey => $mntVal ){
-			if( strval($mntKey)==='*' || strcasecmp(strval($mntKey), $appNameToRun)!=0 ){
+		foreach( $mountLst as $oneKey => $oneVal ){
+			if( strval($oneKey)==='*' || strcasecmp(strval($oneKey), $appNameToRun)!=0 ){
 				continue;
 			}
-			return ($mntVal===false) ? null : trim(strval($mntVal), '/');
+			return ($oneVal===false) ? null : trim(strval($oneVal), '/');
 		}
 		// Every Run not named on its own line
 		if( array_key_exists('*', $mountLst) ){
@@ -362,8 +362,8 @@ class Router{
 	 * @return Bool True when an action can be run.
 	 */
 	public function canReachAction(): Bool {
-		foreach( $this->listAllTargets() as $rteRow ){
-			if( ($rteRow['routKind'] ?? '')=='toAction' ){
+		foreach( $this->listAllTargets() as $oneRow ){
+			if( ($oneRow['routKind'] ?? '')=='toAction' ){
 				return true;
 			}
 		}
@@ -371,8 +371,8 @@ class Router{
 			return false;
 		}
 		// A Run declaring its routes is closed to the automatic paths
-		foreach( (array)glob(RUN_DIR.DS.'*', GLOB_ONLYDIR) as $runDir ){
-			if( is_file(strval($runDir).DS.'Actions.php') && !is_file(strval($runDir).DS.'routes.rte') ){
+		foreach( (array)glob(RUN_DIR.DS.'*', GLOB_ONLYDIR) as $onePth ){
+			if( is_file(strval($onePth).DS.'Actions.php') && !is_file(strval($onePth).DS.'routes.rte') ){
 				return true;
 			}
 		}
@@ -407,12 +407,12 @@ class Router{
 	 */
 	public function listAllTargets(): Array {
 		$rowsList = Array();
-		foreach( $this->loadFilesArray() as $rteKey => $rteSet ){
-			$trgtVals = is_array($rteSet) ? ($rteSet['pointsTo'] ?? null) : null;
+		foreach( $this->loadFilesArray() as $oneKey => $oneSet ){
+			$trgtVals = is_array($oneSet) ? ($oneSet['pointsTo'] ?? null) : null;
 			if( !is_array($trgtVals) ){
 				continue;
 			}
-			$allowLst = array_filter( array_map('trim', explode(',', strtoupper(strval($rteSet['mthdList'] ?? '')))) );
+			$allowLst = array_filter( array_map('trim', explode(',', strtoupper(strval($oneSet['mthdList'] ?? '')))) );
 			if( $this->findTargetCode($trgtVals)!==null ){
 				$mthdList = array_diff($allowLst, Array('HEAD', 'OPTIONS'));
 				$trgtVals = array_fill_keys( empty($mthdList) ? Array('GET') : $mthdList, $trgtVals );
@@ -421,23 +421,23 @@ class Router{
 			}
 			// The methods answered by the same target are told together
 			$goalList = Array();
-			foreach( $trgtVals as $mthNme => $target ){
-				$routeCod = $this->findTargetCode($target);
+			foreach( $trgtVals as $oneNme => $oneTrg ){
+				$routeCod = $this->findTargetCode($oneTrg);
 				if( $routeCod===null ){
 					continue;
 				}
-				$goalText = strval($target['redirect'] ?? $target['pageFile'] ?? $target['filePath'] ?? ( isset($target['fldrPath']) ? rtrim(strval($target['fldrPath']), '/').'/*' : '' ));
+				$goalText = strval($oneTrg['redirect'] ?? $oneTrg['pageFile'] ?? $oneTrg['filePath'] ?? ( isset($oneTrg['fldrPath']) ? rtrim(strval($oneTrg['fldrPath']), '/').'/*' : '' ));
 				if( $routeCod=='toAction' ){
-					$goalText = strval($target['appToRun']).'/'.strval($target['doAction'] ?? '');
+					$goalText = strval($oneTrg['appToRun']).'/'.strval($oneTrg['doAction'] ?? '');
 				}
 				$goalClef = $routeCod.' '.$goalText;
 				if( !isset($goalList[$goalClef]) ){
-					$goalList[$goalClef] = Array('routPath'=>trim(strval($rteKey), '/'), 'mthdList'=>Array(), 'routKind'=>$routeCod, 'routTarg'=>$goalText, 'appToRun'=>($routeCod=='toAction') ? strval($target['appToRun']) : null, 'doAction'=>($routeCod=='toAction') ? strval($target['doAction'] ?? '') : null, 'routOwnr'=>strval($rteSet['routOwnr'] ?? 'site'));
+					$goalList[$goalClef] = Array('routPath'=>trim(strval($oneKey), '/'), 'mthdList'=>Array(), 'routKind'=>$routeCod, 'routTarg'=>$goalText, 'appToRun'=>($routeCod=='toAction') ? strval($oneTrg['appToRun']) : null, 'doAction'=>($routeCod=='toAction') ? strval($oneTrg['doAction'] ?? '') : null, 'routOwnr'=>strval($oneSet['routOwnr'] ?? 'site'));
 				}
-				$goalList[$goalClef]['mthdList'][] = strval($mthNme);
+				$goalList[$goalClef]['mthdList'][] = strval($oneNme);
 			}
-			foreach( $goalList as $goalRw ){
-				$rowsList[] = $goalRw;
+			foreach( $goalList as $oneRow ){
+				$rowsList[] = $oneRow;
 			}
 		}
 		return $rowsList;
@@ -470,14 +470,14 @@ class Router{
 			return null;
 		}
 		$captVals = Array();
-		foreach( $keyParte as $segInc => $segKey ){
-			$sgmtText = $urlParte[$segInc];
-			if( strlen($segKey)>1 && $segKey[0]=='$' ){
+		foreach( $keyParte as $nthPrt => $oneKey ){
+			$sgmtText = $urlParte[$nthPrt];
+			if( strlen($oneKey)>1 && $oneKey[0]=='$' ){
 				if( $sgmtText==='' ){
 					return null;
 				}
-				$captVals[substr($segKey, 1)] = rawurldecode($sgmtText);
-			}elseif( $segKey!==$sgmtText ){
+				$captVals[substr($oneKey, 1)] = rawurldecode($sgmtText);
+			}elseif( $oneKey!==$sgmtText ){
 				return null;
 			}
 		}
@@ -533,9 +533,9 @@ class Router{
 		$routeBas = Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>trim($routShapeTxt, '/'), 'routOwnr'=>strval($routEntryLst['routOwnr'] ?? 'site'));
 
 		$usedMthd = null;
-		foreach( $allowLst as $mthNme ){
-			if( $this->requestObj->isSentByMethod($mthNme) ){
-				$usedMthd = $mthNme;
+		foreach( $allowLst as $oneNme ){
+			if( $this->requestObj->isSentByMethod($oneNme) ){
+				$usedMthd = $oneNme;
 			}
 		}
 		$applDict = ($usedMthd!==null) ? ($trgtVals[$usedMthd] ?? null) : null;
@@ -727,8 +727,8 @@ class Router{
 	 * @return Bool True when every part is a plain name.
 	 */
 	protected function isSafeFilePath( String $pathFromRoot ): Bool {
-		foreach( explode('/', $pathFromRoot) as $oneSeg ){
-			if( $oneSeg==='' || $oneSeg[0]=='.' || preg_match('/[\\\\:\x00-\x1F]/', $oneSeg) ){
+		foreach( explode('/', $pathFromRoot) as $onePrt ){
+			if( $onePrt==='' || $onePrt[0]=='.' || preg_match('/[\\\\:\x00-\x1F]/', $onePrt) ){
 				return false;
 			}
 		}
@@ -767,18 +767,18 @@ class Router{
 			throw new \RuntimeException('No route is declared as "'.$routShapeTxt.'"');
 		}
 		$sgmtList = Array();
-		foreach( explode('/', $routePth) as $segKey ){
-			if( $segKey==='*' ){
+		foreach( explode('/', $routePth) as $oneKey ){
+			if( $oneKey==='*' ){
 				$restVals = trim(strval($pathPartVals['*'] ?? ''), '/');
 				$sgmtList[] = implode('/', array_map('rawurlencode', explode('/', $restVals)));
-			}elseif( strlen($segKey)>1 && $segKey[0]=='$' ){
-				$sgmtText = $pathPartVals[substr($segKey, 1)] ?? null;
+			}elseif( strlen($oneKey)>1 && $oneKey[0]=='$' ){
+				$sgmtText = $pathPartVals[substr($oneKey, 1)] ?? null;
 				if( !is_scalar($sgmtText) || strval($sgmtText)==='' ){
-					throw new \RuntimeException('No value given for "'.$segKey.'" of the route "'.$routShapeTxt.'"');
+					throw new \RuntimeException('No value given for "'.$oneKey.'" of the route "'.$routShapeTxt.'"');
 				}
 				$sgmtList[] = rawurlencode(strval($sgmtText));
 			}else{
-				$sgmtList[] = $segKey;
+				$sgmtList[] = $oneKey;
 			}
 		}
 		// The route declared as index is the root of the site; the basePath the preset is served under goes in front

@@ -36,11 +36,11 @@ class RegKey implements Handler{
 			$this->errMessage = 'No API key provided';
 			return false;
 		}
-		foreach( $this->acceptKeys as $keyNme => $oneKey ){
+		foreach( $this->acceptKeys as $oneNme => $oneKey ){
 			// An empty key, as a secret left unset gives, is the key of nobody
 			if( is_scalar($oneKey) && strval($oneKey)!=='' && hash_equals( strval($oneKey), $sentClef ) ){
 				// A key written under a name identifies its holder
-				return Array('userName'=>is_string($keyNme) ? $keyNme : '');
+				return Array('userName'=>is_string($oneNme) ? $oneNme : '');
 			}
 		}
 		$this->errMessage = 'Invalid API key';

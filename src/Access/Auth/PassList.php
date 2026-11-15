@@ -59,15 +59,15 @@ class PassList implements Handler{
 		$passNtry = file( $this->hashesFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 		$userHash = null;
 		$fakeHash = null;
-		foreach( $passNtry as $pwdRow ){
-			$colonIdx = strpos( $pwdRow, ':' );
+		foreach( $passNtry as $oneRow ){
+			$colonIdx = strpos( $oneRow, ':' );
 			// The first entry is what an unknown name is checked against : a comment is none
-			if( $fakeHash===null && $colonIdx!==false && $colonIdx>0 && $pwdRow[0]!=='#' && substr($pwdRow, $colonIdx+1)!=='' ){
-				$fakeHash = substr( $pwdRow, $colonIdx+1 );
+			if( $fakeHash===null && $colonIdx!==false && $colonIdx>0 && $oneRow[0]!=='#' && substr($oneRow, $colonIdx+1)!=='' ){
+				$fakeHash = substr( $oneRow, $colonIdx+1 );
 			}
 			// An empty name is the one of no user, whatever a line may start with
-			if( $givenUsr!=='' && $colonIdx!==false && substr($pwdRow, 0, $colonIdx)===$givenUsr ){
-				$userHash = substr( $pwdRow, $colonIdx+1 );
+			if( $givenUsr!=='' && $colonIdx!==false && substr($oneRow, 0, $colonIdx)===$givenUsr ){
+				$userHash = substr( $oneRow, $colonIdx+1 );
 				break;
 			}
 		}
@@ -162,28 +162,28 @@ class PassList implements Handler{
 		$passSize = strlen($usrPasswdTxt);
 		$mixedTxt = $usrPasswdTxt.'$apr1$'.$hashSaltText;
 		$bnryHash = md5($usrPasswdTxt.$hashSaltText.$usrPasswdTxt, true);
-		for( $idxInc=$passSize; $idxInc>0; $idxInc-=16 ){
-			$mixedTxt .= substr($bnryHash, 0, min(16, $idxInc));
+		for( $nthIdx=$passSize; $nthIdx>0; $nthIdx-=16 ){
+			$mixedTxt .= substr($bnryHash, 0, min(16, $nthIdx));
 		}
-		for( $idxInc=$passSize; $idxInc>0; $idxInc>>=1 ){
-			$mixedTxt .= ($idxInc & 1) ? chr(0) : $usrPasswdTxt[0];
+		for( $nthIdx=$passSize; $nthIdx>0; $nthIdx>>=1 ){
+			$mixedTxt .= ($nthIdx & 1) ? chr(0) : $usrPasswdTxt[0];
 		}
 		$bnryHash = md5($mixedTxt, true);
-		for( $idxInc=0; $idxInc<1000; $idxInc++ ){
-			$roundTxt = ($idxInc & 1) ? $usrPasswdTxt : $bnryHash;
-			if( $idxInc % 3 ){
+		for( $nthIdx=0; $nthIdx<1000; $nthIdx++ ){
+			$roundTxt = ($nthIdx & 1) ? $usrPasswdTxt : $bnryHash;
+			if( $nthIdx % 3 ){
 				$roundTxt .= $hashSaltText;
 			}
-			if( $idxInc % 7 ){
+			if( $nthIdx % 7 ){
 				$roundTxt .= $usrPasswdTxt;
 			}
-			$roundTxt .= ($idxInc & 1) ? $bnryHash : $usrPasswdTxt;
+			$roundTxt .= ($nthIdx & 1) ? $bnryHash : $usrPasswdTxt;
 			$bnryHash = md5($roundTxt, true);
 		}
 		$ordrdTxt = '';
-		for( $idxInc=0; $idxInc<5; $idxInc++ ){
-			$thrdIndx = ($idxInc==4) ? 5 : $idxInc+12;
-			$ordrdTxt = $bnryHash[$idxInc].$bnryHash[$idxInc+6].$bnryHash[$thrdIndx].$ordrdTxt;
+		for( $nthIdx=0; $nthIdx<5; $nthIdx++ ){
+			$thrdIndx = ($nthIdx==4) ? 5 : $nthIdx+12;
+			$ordrdTxt = $bnryHash[$nthIdx].$bnryHash[$nthIdx+6].$bnryHash[$thrdIndx].$ordrdTxt;
 		}
 		$ordrdTxt = chr(0).chr(0).$bnryHash[11].$ordrdTxt;
 		$encdHash = strtr(

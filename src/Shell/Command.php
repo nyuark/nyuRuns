@@ -98,8 +98,8 @@ abstract class Command{
 	 */
 	public function getSubCmndRows(): Array {
 		$rowsList = Array();
-		foreach( $this->listSubCmndDct() as $subKey => $subVal ){
-			$rowsList[] = Array( strval($subKey), strval($subVal['args'] ?? ''), strval($subVal['about'] ?? '') );
+		foreach( $this->listSubCmndDct() as $oneKey => $oneSub ){
+			$rowsList[] = Array( strval($oneKey), strval($oneSub['args'] ?? ''), strval($oneSub['about'] ?? '') );
 		}
 		return $rowsList;
 	}

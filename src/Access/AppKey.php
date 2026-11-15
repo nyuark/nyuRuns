@@ -65,11 +65,11 @@ class AppKey{
 		}
 		$givenHsh = hash('sha256', $sentClef);
 		$applName = null;
-		foreach( $this->appsByName as $appKey => $appSet ){
-			$keyDigst = is_array($appSet) ? strtolower(strval($appSet['keyDigst'] ?? '')) : '';
+		foreach( $this->appsByName as $oneKey => $oneSet ){
+			$keyDigst = is_array($oneSet) ? strtolower(strval($oneSet['keyDigst'] ?? '')) : '';
 			// An entry without a hash is the key of nobody
 			if( preg_match('/^[0-9a-f]{64}$/D', $keyDigst) && hash_equals($keyDigst, $givenHsh) ){
-				$applName = strval($appKey);
+				$applName = strval($oneKey);
 				break;
 			}
 		}
@@ -125,16 +125,16 @@ class AppKey{
 		$applName = strtolower( str_replace(' ', '', strval($resolvedRegr->readValueByKey('appToRun'))) );
 		$actnName = strtolower( strval($resolvedRegr->readValueByKey('doAction')) );
 		$routePth = strval($resolvedRegr->readValueByKey('routPath'));
-		foreach( (array)($this->appsByName[$this->callingApp]['routeSet'] ?? Array()) as $rteVal ){
-			$rteVal = strval($rteVal);
-			if( substr($rteVal, 0, 1)=='/' ){
-				if( $routePth!='' && trim($rteVal, '/')===$routePth ){
+		foreach( (array)($this->appsByName[$this->callingApp]['routeSet'] ?? Array()) as $oneVal ){
+			$oneVal = strval($oneVal);
+			if( substr($oneVal, 0, 1)=='/' ){
+				if( $routePth!='' && trim($oneVal, '/')===$routePth ){
 					return true;
 				}
 				continue;
 			}
-			$rteVal = strtolower( trim($rteVal, '/') );
-			if( $applName!='' && ( $rteVal==$applName.'/*' || ($actnName!='' && $rteVal==$applName.'/'.$actnName) ) ){
+			$oneVal = strtolower( trim($oneVal, '/') );
+			if( $applName!='' && ( $oneVal==$applName.'/*' || ($actnName!='' && $oneVal==$applName.'/'.$actnName) ) ){
 				return true;
 			}
 		}

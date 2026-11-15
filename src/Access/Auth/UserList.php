@@ -268,9 +268,9 @@ class UserList implements Handler{
 	 */
 	protected function getFakePwdHash(): String {
 		$userList = $this->loadUsersArray();
-		foreach( is_array($userList) ? $userList : Array() as $usrRow ){
-			if( password_get_info(strval($usrRow['passwdHash']))['algo']!==null ){
-				return strval($usrRow['passwdHash']);
+		foreach( is_array($userList) ? $userList : Array() as $oneRow ){
+			if( password_get_info(strval($oneRow['passwdHash']))['algo']!==null ){
+				return strval($oneRow['passwdHash']);
 			}
 		}
 		return Native::getDummyBcrypt();
@@ -300,9 +300,9 @@ class UserList implements Handler{
 		}
 		$userVals = null;
 		// Every user is compared, so the reply time does not tell where the match is
-		foreach( $userList as $usrRow ){
-			if( $usrRow[$fldNamedText]!='' && hash_equals($usrRow[$fldNamedText], $usrLookupTxt) ){
-				$userVals = $usrRow;
+		foreach( $userList as $oneRow ){
+			if( $oneRow[$fldNamedText]!='' && hash_equals($oneRow[$fldNamedText], $usrLookupTxt) ){
+				$userVals = $oneRow;
 			}
 		}
 		return $userVals;
@@ -330,21 +330,21 @@ class UserList implements Handler{
 		$nameList = Array();
 		$tokenLst = Array();
 		$mailList = Array();
-		foreach( (array)$rowsList as $usrRow ){
-			if( !is_array($usrRow) || !is_string($usrRow['systemName'] ?? null) || $usrRow['systemName']=='' || !is_string($usrRow['passwdHash'] ?? null) || $usrRow['passwdHash']=='' ){
+		foreach( (array)$rowsList as $oneRow ){
+			if( !is_array($oneRow) || !is_string($oneRow['systemName'] ?? null) || $oneRow['systemName']=='' || !is_string($oneRow['passwdHash'] ?? null) || $oneRow['passwdHash']=='' ){
 				$whyStrng = 'a user has no systemName or no passwdHash';
 				break;
 			}
-			$userVals = Array('systemName'=>$usrRow['systemName'], 'passwdHash'=>$usrRow['passwdHash'], 'id_user'=>$usrRow['id_user'] ?? null);
-			foreach( Array('accessRole'=>'standard', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $fldNme=>$fldDef ){
-				$userVals[$fldNme] = $usrRow[$fldNme] ?? $fldDef;
-				if( !is_string($userVals[$fldNme]) ){
-					$whyStrng = 'the '.$fldNme.' of user '.json_encode($usrRow['systemName']).' is not a text';
+			$userVals = Array('systemName'=>$oneRow['systemName'], 'passwdHash'=>$oneRow['passwdHash'], 'id_user'=>$oneRow['id_user'] ?? null);
+			foreach( Array('accessRole'=>'standard', 'userStatus'=>'approved', 'contactEml'=>'', 'userLocale'=>'', 'bearerHash'=>'', 'twoFactKey'=>'') as $oneNme=>$oneDfn ){
+				$userVals[$oneNme] = $oneRow[$oneNme] ?? $oneDfn;
+				if( !is_string($userVals[$oneNme]) ){
+					$whyStrng = 'the '.$oneNme.' of user '.json_encode($oneRow['systemName']).' is not a text';
 					break 2;
 				}
 			}
 			if( $userVals['id_user']!==null && !is_int($userVals['id_user']) && !is_string($userVals['id_user']) ){
-				$whyStrng = 'the id_user of user '.json_encode($usrRow['systemName']).' is neither a number nor a text';
+				$whyStrng = 'the id_user of user '.json_encode($oneRow['systemName']).' is neither a number nor a text';
 				break;
 			}
 			$userVals['bearerHash'] = strtolower($userVals['bearerHash']);

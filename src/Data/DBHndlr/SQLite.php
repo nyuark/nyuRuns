@@ -57,13 +57,13 @@ Class SQLite extends PDO {
 			return false;
 		}
 		$tableDct = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
-		foreach($fieldRow as $fldRow){
-			if( $fldRow['pk']==1 ){
-				$tableDct['pkey'] = $fldRow['name'];
+		foreach($fieldRow as $oneRow){
+			if( $oneRow['pk']==1 ){
+				$tableDct['pkey'] = $oneRow['name'];
 			}
-			$tableDct['flds'][] = $fldRow['name'];
-			if( stripos(strval($fldRow['type']), 'blob')!==false ){
-				$tableDct['blob'][] = $fldRow['name'];
+			$tableDct['flds'][] = $oneRow['name'];
+			if( stripos(strval($oneRow['type']), 'blob')!==false ){
+				$tableDct['blob'][] = $oneRow['name'];
 			}
 		}
 		return $tableDct;

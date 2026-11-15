@@ -88,10 +88,10 @@ class Yaml extends Base {
 		$docuLnes = Array();
 		$hasStrng = false;
 		$linePart = Array();
-		foreach(explode("\n", $nakedContent) as $linIdx=>$linTxt){
-			$markLine = preg_match('/^(?:---|\.\.\.)(?:[ \t]+(.*))?$/D', $linTxt, $linePart);
+		foreach(explode("\n", $nakedContent) as $nthLne=>$oneTxt){
+			$markLine = preg_match('/^(?:---|\.\.\.)(?:[ \t]+(.*))?$/D', $oneTxt, $linePart);
 			if( $markLine && $this->wipeCommentTxt(strval($linePart[1] ?? ''))!=='' ){
-				$this->stopYamlAtLine('a value on the line of a document mark is not supported', $linIdx+1);
+				$this->stopYamlAtLine('a value on the line of a document mark is not supported', $nthLne+1);
 			}
 			if( $markLine ){
 				if( $hasStrng ){
@@ -102,11 +102,11 @@ class Yaml extends Base {
 				continue;
 			}
 			// Before a document starts, a line of % only tells the version of YAML
-			if( !$hasStrng && substr($linTxt, 0, 1)=='%' ){
+			if( !$hasStrng && substr($oneTxt, 0, 1)=='%' ){
 				continue;
 			}
-			$docuLnes[] = Array($linTxt, $linIdx+1);
-			$hasStrng = ($hasStrng || (trim($linTxt)!=='' && ltrim($linTxt)[0]!='#'));
+			$docuLnes[] = Array($oneTxt, $nthLne+1);
+			$hasStrng = ($hasStrng || (trim($oneTxt)!=='' && ltrim($oneTxt)[0]!='#'));
 		}
 		if( $hasStrng ){
 			$docuList[] = $docuLnes;
@@ -148,20 +148,20 @@ class Yaml extends Base {
 	protected function wipeCommentTxt(String $markdownLine): String {
 		$quotChar = '';
 		$textSize = strlen($markdownLine);
-		for($posInc=0; $posInc<$textSize; $posInc++){
-			$oneChrct = $markdownLine[$posInc];
-			$prevChar = ($posInc>0) ? $markdownLine[$posInc-1] : ' ';
+		for($nthPos=0; $nthPos<$textSize; $nthPos++){
+			$oneChrct = $markdownLine[$nthPos];
+			$prevChar = ($nthPos>0) ? $markdownLine[$nthPos-1] : ' ';
 			if( $quotChar!=='' ){
 				// Inside quotes: a backslash protects the next character of a "text", '' is a quote of a 'text'
 				if( $quotChar=='"' && $oneChrct=='\\' ){
-					$posInc++;
+					$nthPos++;
 				}elseif( $oneChrct===$quotChar ){
 					$quotChar = '';
 				}
 			}elseif( ($oneChrct=='"' || $oneChrct=="'") && strpos(" \t[{,:", $prevChar)!==false ){
 				$quotChar = $oneChrct;
 			}elseif( $oneChrct=='#' && ($prevChar==' ' || $prevChar=="\t") ){
-				return trim(substr($markdownLine, 0, $posInc));
+				return trim(substr($markdownLine, 0, $nthPos));
 			}
 		}
 		return trim($markdownLine);
@@ -580,19 +580,19 @@ class Yaml extends Base {
 			// and a line written further in keeps the line ends around it
 			$prevCode = '';
 			$blankCnt = 0;
-			foreach($textLnes as $linTxt){
-				if( $linTxt==='' ){
+			foreach($textLnes as $oneTxt){
+				if( $oneTxt==='' ){
 					$blankCnt++;
 					continue;
 				}
-				$lineCode = ($linTxt[0]==' ' || $linTxt[0]=="\t") ? 'more' : 'text';
+				$lineCode = ($oneTxt[0]==' ' || $oneTxt[0]=="\t") ? 'more' : 'text';
 				if( $prevCode!=='' ){
 					$hasTrail = ($lineCode=='more' || $prevCode=='more');
 					$fullText .= ($blankCnt>0 || $hasTrail) ? str_repeat("\n", $blankCnt+($hasTrail ? 1 : 0)) : ' ';
 				}else{
 					$fullText .= str_repeat("\n", $blankCnt);
 				}
-				$fullText .= $linTxt;
+				$fullText .= $oneTxt;
 				$prevCode = $lineCode;
 				$blankCnt = 0;
 			}

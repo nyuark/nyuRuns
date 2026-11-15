@@ -277,8 +277,8 @@ class Fluxd {
 			return null;
 		}
 		if( is_array($valueAsGiven) ){
-			foreach($valueAsGiven as $valKey=>$valItm){
-				$valueAsGiven[$valKey] = self::dropAllSources($valItm);
+			foreach($valueAsGiven as $oneKey=>$oneItm){
+				$valueAsGiven[$oneKey] = self::dropAllSources($oneItm);
 			}
 		}
 		return $valueAsGiven;

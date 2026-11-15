@@ -36,8 +36,8 @@ class Message {
 		$this->senderAddr = self::checkEmailAddr($fromEmailAdr);
 		$this->senderName = self::checkHeaderTxt($nameOfSender, 'sender name');
 		$this->recipients = Array();
-		foreach( $recipientLst as $toAddr ){
-			$this->recipients[] = self::checkEmailAddr(strval($toAddr));
+		foreach( $recipientLst as $oneAdr ){
+			$this->recipients[] = self::checkEmailAddr(strval($oneAdr));
 		}
 		if( empty($this->recipients) ){
 			throw new MailFailure('A mail needs a recipient');
@@ -46,12 +46,12 @@ class Message {
 		$this->bodyAsText = $plainMailTxt;
 		$this->bodyAsHtml = $htmlMailText;
 		$this->addedFiles = Array();
-		foreach( $attachedList as $attFil ){
-			$attFil = strval($attFil);
-			if( preg_match('/[\r\n\0]/', $attFil) || !is_file($attFil) || !is_readable($attFil) ){
-				throw new MailFailure('Attachment not found: '.json_encode($attFil));
+		foreach( $attachedList as $oneFil ){
+			$oneFil = strval($oneFil);
+			if( preg_match('/[\r\n\0]/', $oneFil) || !is_file($oneFil) || !is_readable($oneFil) ){
+				throw new MailFailure('Attachment not found: '.json_encode($oneFil));
 			}
-			$this->addedFiles[] = $attFil;
+			$this->addedFiles[] = $oneFil;
 		}
 	}
 
@@ -249,13 +249,13 @@ class Message {
 			$charList = str_split($textOfHeader);
 		}
 		$chunkLst = Array('');
-		foreach( $charList as $letter ){
+		foreach( $charList as $oneChr ){
 			$lastIndx = count($chunkLst)-1;
-			if( strlen($chunkLst[$lastIndx].$letter)>45 ){
+			if( strlen($chunkLst[$lastIndx].$oneChr)>45 ){
 				$chunkLst[] = '';
 				$lastIndx++;
 			}
-			$chunkLst[$lastIndx] .= $letter;
+			$chunkLst[$lastIndx] .= $oneChr;
 		}
 		$wordList = Array();
 		foreach( $chunkLst as $oneChk ){

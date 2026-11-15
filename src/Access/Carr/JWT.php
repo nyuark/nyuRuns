@@ -311,10 +311,10 @@ class JWT implements Handler{
 		}
 		$keysList = Array();
 		$pemStrng = $this->getPubKeyOfRsa();
-		foreach( Array($pemStrng, ($this->prevPemKey!='') ? $this->prevPemKey : null) as $pemTxt ){
-			$keyIdent = ($pemTxt!==null) ? $this->makeThumbprint($pemTxt) : null;
+		foreach( Array($pemStrng, ($this->prevPemKey!='') ? $this->prevPemKey : null) as $oneTxt ){
+			$keyIdent = ($oneTxt!==null) ? $this->makeThumbprint($oneTxt) : null;
 			if( $keyIdent!==null && !isset($keysList[$keyIdent]) ){
-				$keysList[$keyIdent] = $pemTxt;
+				$keysList[$keyIdent] = $oneTxt;
 			}
 		}
 		return $keysList;
@@ -331,8 +331,8 @@ class JWT implements Handler{
 	public function getJwksOfBlock(): Array {
 		$keysList = Array();
 		if( !$this->isCheckingOnly() ){
-			foreach( $this->listPublicKeys() as $pemTxt ){
-				$keysList[] = $this->castRsaIntoJwk($pemTxt);
+			foreach( $this->listPublicKeys() as $oneTxt ){
+				$keysList[] = $this->castRsaIntoJwk($oneTxt);
 			}
 		}
 		return Array( 'keys'=>array_values(array_filter($keysList)) );
@@ -378,9 +378,9 @@ class JWT implements Handler{
 	 */
 	protected function parseAudiences( Mixed $configValues ): Array {
 		$audnList = Array();
-		foreach( (is_array($configValues) ? $configValues : Array($configValues)) as $audVal ){
-			if( is_string($audVal) && trim($audVal)!='' && !in_array(trim($audVal), $audnList, true) ){
-				$audnList[] = trim($audVal);
+		foreach( (is_array($configValues) ? $configValues : Array($configValues)) as $oneVal ){
+			if( is_string($oneVal) && trim($oneVal)!='' && !in_array(trim($oneVal), $audnList, true) ){
+				$audnList[] = trim($oneVal);
 			}
 		}
 		return $audnList;

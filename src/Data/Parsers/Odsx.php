@@ -44,28 +44,28 @@ class Odsx extends Pack {
 		}
 		// A sheet is hidden by its style
 		$hideList = Array();
-		foreach($this->listNamedNodes($this->findChildArray($docuTree, Array('office:automatic-styles')) ?? Array('nodes'=>Array()), 'style:style') as $stlArr){
-			if( strval($this->findChildArray($stlArr, Array('style:table-properties'))['attrs']['table:display'] ?? '')=='false' ){
-				$hideList[] = strval($stlArr['attrs']['style:name'] ?? '');
+		foreach($this->listNamedNodes($this->findChildArray($docuTree, Array('office:automatic-styles')) ?? Array('nodes'=>Array()), 'style:style') as $oneCss){
+			if( strval($this->findChildArray($oneCss, Array('style:table-properties'))['attrs']['table:display'] ?? '')=='false' ){
+				$hideList[] = strval($oneCss['attrs']['style:name'] ?? '');
 			}
 		}
 		$tblsList = $this->listNamedNodes($bookList, 'table:table');
 		$nameList = Array();
 		$shownLst = Array();
-		foreach($tblsList as $tblArr){
-			$nameList[] = strval($tblArr['attrs']['table:name'] ?? '');
-			$shownLst[] = !in_array(strval($tblArr['attrs']['table:style-name'] ?? ''), $hideList, true);
+		foreach($tblsList as $oneTbl){
+			$nameList[] = strval($oneTbl['attrs']['table:name'] ?? '');
+			$shownLst[] = !in_array(strval($oneTbl['attrs']['table:style-name'] ?? ''), $hideList, true);
 		}
 		$this->addedCells = 0;
 		$sheetLst = Array();
 		$headDict = Array();
-		foreach($this->findSheetArray($nameList, $shownLst, $parseOptions) as $shtIdx){
+		foreach($this->findSheetArray($nameList, $shownLst, $parseOptions) as $nthTbl){
 			$mergeLst = Array();
 			$headList = Array();
-			$rowsList = $this->readSheetCells($tblsList[$shtIdx], $mergeLst);
-			$sheetLst[] = $this->makeFinalSheet($nameList[$shtIdx], $rowsList, Array('shown'=>$shownLst[$shtIdx], 'merge'=>$mergeLst), $parseOptions, $headList);
+			$rowsList = $this->readSheetCells($tblsList[$nthTbl], $mergeLst);
+			$sheetLst[] = $this->makeFinalSheet($nameList[$nthTbl], $rowsList, Array('shown'=>$shownLst[$nthTbl], 'merge'=>$mergeLst), $parseOptions, $headList);
 			if( !empty($parseOptions['heads']) ){
-				$headDict[$nameList[$shtIdx]] = $headList;
+				$headDict[$nameList[$nthTbl]] = $headList;
 			}
 		}
 		return $this->makeShapeArray('sheet', $sheetLst, Array('names'=>$nameList, 'count'=>count($nameList), 'heads'=>$headDict));
@@ -94,11 +94,11 @@ class Odsx extends Pack {
 	 */
 	protected function getRowsOfTable(Array $elementArray): Array {
 		$rowsList = Array();
-		foreach($elementArray['nodes'] as $chlArr){
-			if( $chlArr['tagnm']=='table:table-row' ){
-				$rowsList[] = $chlArr;
-			}elseif( in_array($chlArr['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
-				$rowsList = array_merge($rowsList, $this->getRowsOfTable($chlArr));
+		foreach($elementArray['nodes'] as $oneChl){
+			if( $oneChl['tagnm']=='table:table-row' ){
+				$rowsList[] = $oneChl;
+			}elseif( in_array($oneChl['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
+				$rowsList = array_merge($rowsList, $this->getRowsOfTable($oneChl));
 			}
 		}
 		return $rowsList;
@@ -120,22 +120,22 @@ class Odsx extends Pack {
 		$mergedRanges = Array();
 		// Empty rows met, not yet known to be followed by a row holding something
 		$voidRows = 0;
-		foreach($this->getRowsOfTable($elementArray) as $rowArr){
-			$rpetNumb = max(1, intval($rowArr['attrs']['table:number-rows-repeated'] ?? 1));
+		foreach($this->getRowsOfTable($elementArray) as $oneRow){
+			$rpetNumb = max(1, intval($oneRow['attrs']['table:number-rows-repeated'] ?? 1));
 			$cellList = Array();
 			$voidClss = 0;
-			foreach($rowArr['nodes'] as $celArr){
-				if( $celArr['tagnm']!='table:table-cell' && $celArr['tagnm']!='table:covered-table-cell' ){
+			foreach($oneRow['nodes'] as $oneCel){
+				if( $oneCel['tagnm']!='table:table-cell' && $oneCel['tagnm']!='table:covered-table-cell' ){
 					continue;
 				}
-				$cellRpet = max(1, intval($celArr['attrs']['table:number-columns-repeated'] ?? 1));
-				$clmnSpan = intval($celArr['attrs']['table:number-columns-spanned'] ?? 1);
-				$rowRange = intval($celArr['attrs']['table:number-rows-spanned'] ?? 1);
-				if( $celArr['tagnm']=='table:table-cell' && ($clmnSpan>1 || $rowRange>1) ){
+				$cellRpet = max(1, intval($oneCel['attrs']['table:number-columns-repeated'] ?? 1));
+				$clmnSpan = intval($oneCel['attrs']['table:number-columns-spanned'] ?? 1);
+				$rowRange = intval($oneCel['attrs']['table:number-rows-spanned'] ?? 1);
+				if( $oneCel['tagnm']=='table:table-cell' && ($clmnSpan>1 || $rowRange>1) ){
 					$mergedRanges[] = Array('atrow'=>count($rowsList)+$voidRows, 'atcol'=>count($cellList)+$voidClss, 'rowsp'=>max(1, $rowRange), 'colsp'=>max(1, $clmnSpan));
 				}
 				// A cell covered by a merged area holds nothing
-				$cellVals = ($celArr['tagnm']=='table:table-cell') ? $this->getTypedCelVal($celArr) : null;
+				$cellVals = ($oneCel['tagnm']=='table:table-cell') ? $this->getTypedCelVal($oneCel) : null;
 				if( $cellVals===null ){
 					$voidClss += $cellRpet;
 					continue;
@@ -143,7 +143,7 @@ class Odsx extends Pack {
 				$this->countFillCells($voidClss+$cellRpet-1);
 				$cellList = array_pad($cellList, count($cellList)+$voidClss, null);
 				$voidClss = 0;
-				for($rptIdx=0; $rptIdx<$cellRpet; $rptIdx++){
+				for($nthRpt=0; $nthRpt<$cellRpet; $nthRpt++){
 					$cellList[] = $cellVals;
 				}
 			}
@@ -154,7 +154,7 @@ class Odsx extends Pack {
 			$this->countFillCells($voidRows+($rpetNumb-1)*count($cellList));
 			$rowsList = array_pad($rowsList, count($rowsList)+$voidRows, Array());
 			$voidRows = 0;
-			for($rptIdx=0; $rptIdx<$rpetNumb; $rptIdx++){
+			for($nthRpt=0; $nthRpt<$rpetNumb; $nthRpt++){
 				$rowsList[] = $cellList;
 			}
 		}
@@ -192,8 +192,8 @@ class Odsx extends Pack {
 		}
 		// A text: the paragraphs of the cell, one per line; the notes attached to it are not part of it
 		$prgrList = Array();
-		foreach($this->listNamedNodes($elementArray, 'text:p') as $parArr){
-			$prgrList[] = $this->getOdfPieceTxt($parArr);
+		foreach($this->listNamedNodes($elementArray, 'text:p') as $onePar){
+			$prgrList[] = $this->getOdfPieceTxt($onePar);
 		}
 		if( empty($prgrList) ){
 			return ($cellCode=='string') ? '' : null;

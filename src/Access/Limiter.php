@@ -180,9 +180,9 @@ class Limiter{
 	public function dropStaleCount( ?Int $momentAsUnix = null ): Int {
 		$nowStamp = $momentAsUnix ?? time();
 		$dropNumb = 0;
-		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
-			$countLst = $this->readLimitCount( strval(@file_get_contents($cntFil)) );
-			if( ($countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp) && @unlink($cntFil) ){
+		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $oneFil ){
+			$countLst = $this->readLimitCount( strval(@file_get_contents($oneFil)) );
+			if( ($countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp) && @unlink($oneFil) ){
 				$dropNumb++;
 			}
 		}
@@ -230,8 +230,8 @@ class Limiter{
 	public function listLimitHolds( ?Int $momentAsUnix = null ): Array {
 		$nowStamp = $momentAsUnix ?? time();
 		$heldList = Array();
-		foreach( (array)glob($this->countsFldr.DS.'*.cnt') as $cntFil ){
-			$countLst = $this->readLimitCount( strval(@file_get_contents(strval($cntFil))) );
+		foreach( (array)glob($this->countsFldr.DS.'*.cnt') as $oneFil ){
+			$countLst = $this->readLimitCount( strval(@file_get_contents(strval($oneFil))) );
 			if( $countLst===null || $countLst['stamp']+$this->holdPeriod<=$nowStamp ){
 				continue;
 			}
@@ -255,8 +255,8 @@ class Limiter{
 			return ( $countPth!='' && is_file($countPth) && @unlink($countPth) ) ? 1 : 0;
 		}
 		$dropNumb = 0;
-		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
-			if( @unlink(strval($cntFil)) ){
+		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $oneFil ){
+			if( @unlink(strval($oneFil)) ){
 				$dropNumb++;
 			}
 		}

@@ -55,17 +55,17 @@ class ICal extends Base {
 		}
 		$itemList = Array('calEvent'=>Array(), 'calTodos'=>Array(), 'calNotes'=>Array());
 		$infoList = Array('title'=>'', 'tzone'=>'', 'maker'=>'', 'count'=>0);
-		foreach($this->readComponents($this->foldLinesArray(self::castTextToUtf8($nakedContent))) as $cldArr){
-			foreach(Array('X-WR-CALNAME'=>'title', 'X-WR-TIMEZONE'=>'tzone', 'PRODID'=>'maker') as $prpNme=>$infKey){
-				foreach($cldArr['props'] as $prpSet){
-					if( $prpSet['names']==$prpNme && $infoList[$infKey]==='' ){
-						$infoList[$infKey] = $this->unescapeTxtVal($prpSet['value']);
+		foreach($this->readComponents($this->foldLinesArray(self::castTextToUtf8($nakedContent))) as $oneDoc){
+			foreach(Array('X-WR-CALNAME'=>'title', 'X-WR-TIMEZONE'=>'tzone', 'PRODID'=>'maker') as $oneNme=>$oneKey){
+				foreach($oneDoc['props'] as $oneSet){
+					if( $oneSet['names']==$oneNme && $infoList[$oneKey]==='' ){
+						$infoList[$oneKey] = $this->unescapeTxtVal($oneSet['value']);
 					}
 				}
 			}
-			foreach($cldArr['comps'] as $cmpArr){
-				if( isset(self::KIND_LIST[$cmpArr['kinds']]) ){
-					$itemList[self::KIND_LIST[$cmpArr['kinds']]][] = $this->readEntryArray($cmpArr, self::KIND_LIST[$cmpArr['kinds']], $trgtZone);
+			foreach($oneDoc['comps'] as $oneCmp){
+				if( isset(self::KIND_LIST[$oneCmp['kinds']]) ){
+					$itemList[self::KIND_LIST[$oneCmp['kinds']]][] = $this->readEntryArray($oneCmp, self::KIND_LIST[$oneCmp['kinds']], $trgtZone);
 					$infoList['count']++;
 				}
 			}
@@ -83,11 +83,11 @@ class ICal extends Base {
 	 */
 	protected function foldLinesArray(String $nakedContent): Array {
 		$lineList = Array();
-		foreach(preg_split('/\r\n|\r|\n/', $nakedContent) as $linIdx=>$linTxt){
-			if( $linTxt!=='' && ($linTxt[0]==' ' || $linTxt[0]=="\t") && !empty($lineList) ){
-				$lineList[count($lineList)-1][0] .= substr($linTxt, 1);
-			}elseif( trim($linTxt)!=='' ){
-				$lineList[] = Array($linTxt, $linIdx+1);
+		foreach(preg_split('/\r\n|\r|\n/', $nakedContent) as $nthLne=>$oneTxt){
+			if( $oneTxt!=='' && ($oneTxt[0]==' ' || $oneTxt[0]=="\t") && !empty($lineList) ){
+				$lineList[count($lineList)-1][0] .= substr($oneTxt, 1);
+			}elseif( trim($oneTxt)!=='' ){
+				$lineList[] = Array($oneTxt, $nthLne+1);
 			}
 		}
 		return $lineList;
@@ -107,34 +107,34 @@ class ICal extends Base {
 		// What is being read, from the calendar down to the innermost entry, and the line each was opened on
 		$openList = Array();
 		$openLnes = Array();
-		foreach($linesToParse as $linSet){
+		foreach($linesToParse as $oneSet){
 			// A line is a name, what qualifies it after semicolons, then its value after the first colon that is not between quotes
 			$headPart = Array();
-			if( !preg_match('/^((?:[^":]|"[^"]*")*):(.*)$/Ds', $linSet[0], $headPart) || trim($headPart[1])==='' ){
-				throw new ParseError('Invalid calendar content: a line that is not a property on line '.$linSet[1]);
+			if( !preg_match('/^((?:[^":]|"[^"]*")*):(.*)$/Ds', $oneSet[0], $headPart) || trim($headPart[1])==='' ){
+				throw new ParseError('Invalid calendar content: a line that is not a property on line '.$oneSet[1]);
 			}
 			$namePart = preg_split('/;(?=(?:[^"]*"[^"]*")*[^"]*$)/', $headPart[1]);
 			$propName = strtoupper(trim(strval(array_shift($namePart))));
 			$propVals = $headPart[2];
 			if( $propName=='BEGIN' ){
 				if( empty($openList) && strtoupper(trim($propVals))!='VCALENDAR' ){
-					throw new ParseError('Invalid calendar content: the content does not start a calendar on line '.$linSet[1]);
+					throw new ParseError('Invalid calendar content: the content does not start a calendar on line '.$oneSet[1]);
 				}
 				if( count($openList)>=8 ){
-					throw new ParseError('Invalid calendar content: nested deeper than allowed on line '.$linSet[1]);
+					throw new ParseError('Invalid calendar content: nested deeper than allowed on line '.$oneSet[1]);
 				}
 				$openList[] = Array('kinds'=>strtoupper(trim($propVals)), 'props'=>Array(), 'comps'=>Array());
-				$openLnes[] = $linSet[1];
+				$openLnes[] = $oneSet[1];
 				continue;
 			}
 			if( empty($openList) ){
-				throw new ParseError('Invalid calendar content: the content does not start a calendar on line '.$linSet[1]);
+				throw new ParseError('Invalid calendar content: the content does not start a calendar on line '.$oneSet[1]);
 			}
 			if( $propName=='END' ){
 				$doneCmpl = array_pop($openList);
 				array_pop($openLnes);
 				if( $doneCmpl['kinds']!==strtoupper(trim($propVals)) ){
-					throw new ParseError('Invalid calendar content: '.strtoupper(trim($propVals)).' closed where '.$doneCmpl['kinds'].' is open on line '.$linSet[1]);
+					throw new ParseError('Invalid calendar content: '.strtoupper(trim($propVals)).' closed where '.$doneCmpl['kinds'].' is open on line '.$oneSet[1]);
 				}
 				if( empty($openList) ){
 					$rootList[] = $doneCmpl;
@@ -144,8 +144,8 @@ class ICal extends Base {
 				continue;
 			}
 			$argsList = Array();
-			foreach($namePart as $argTxt){
-				$prmtPart = explode('=', $argTxt, 2);
+			foreach($namePart as $oneTxt){
+				$prmtPart = explode('=', $oneTxt, 2);
 				$argsList[strtoupper(trim($prmtPart[0]))] = trim(strval($prmtPart[1] ?? ''), " \t\"");
 			}
 			$openList[count($openList)-1]['props'][] = Array('names'=>$propName, 'parms'=>$argsList, 'value'=>$propVals);
@@ -251,8 +251,8 @@ class ICal extends Base {
 	protected function readRepeatRule(String $valOfTagText, Bool &$everyWasRead): Array {
 		$ruleDict = Array('every'=>'', 'steps'=>1, 'wdays'=>Array(), 'mdays'=>Array(), 'month'=>Array(), 'until'=>'', 'times'=>0);
 		$everyWasRead = true;
-		foreach(explode(';', $valOfTagText) as $subTxt){
-			$clefPair = explode('=', $subTxt, 2);
+		foreach(explode(';', $valOfTagText) as $oneTxt){
+			$clefPair = explode('=', $oneTxt, 2);
 			$partName = strtoupper(trim($clefPair[0]));
 			$partVals = trim(strval($clefPair[1] ?? ''));
 			if( $partName=='FREQ' && isset(self::FREQ_LIST[strtoupper($partVals)]) ){
@@ -317,8 +317,8 @@ class ICal extends Base {
 		$ruleDict = (array)($calendarItem['rpeat'] ?? Array());
 		// What the rule says and was not read into the entry is kept as written: only the first day of the week is made use of
 		$wdayName = 0;
-		foreach(explode(';', strval(((array)($calendarItem['extra'] ?? Array()))['RRULE'] ?? '')) as $subTxt){
-			$clefPair = explode('=', strtoupper(trim($subTxt)), 2);
+		foreach(explode(';', strval(((array)($calendarItem['extra'] ?? Array()))['RRULE'] ?? '')) as $oneTxt){
+			$clefPair = explode('=', strtoupper(trim($oneTxt)), 2);
 			if( $clefPair[0]=='WKST' && in_array(strtolower(strval($clefPair[1] ?? '')), self::DAYS_LIST) ){
 				$wdayName = array_search(strtolower($clefPair[1]), self::DAYS_LIST);
 			}elseif( $clefPair[0]!=='' && !in_array($clefPair[0], Array('FREQ', 'INTERVAL', 'COUNT', 'UNTIL', 'BYDAY', 'BYMONTHDAY', 'BYMONTH')) || ($clefPair[0]=='FREQ' && empty($ruleDict)) ){
@@ -354,7 +354,7 @@ class ICal extends Base {
 		}
 		$dateList = Array();
 		$doneNumb = 0;
-		for($spnEnd=$spanIndx+(empty($ruleDict) ? 1 : self::SPAN_MAXI); $spanIndx<$spnEnd; $spanIndx++){
+		for($nthEnd=$spanIndx+(empty($ruleDict) ? 1 : self::SPAN_MAXI); $spanIndx<$nthEnd; $spanIndx++){
 			// The days of this span: a day, a week, a month or a year
 			$daysList = Array();
 			if( empty($ruleDict) ){
@@ -363,8 +363,8 @@ class ICal extends Base {
 				$daysList[] = $dayFirst->modify('+'.($spanIndx*$stepNumb).' days')->format('Y-m-d');
 			}elseif( $everyKey=='eachWeek' ){
 				$frstWeek = $dayFirst->modify('-'.((intval($dayFirst->format('N'))-1-$wdayName+7)%7).' days')->modify('+'.($spanIndx*$stepNumb*7).' days');
-				foreach(empty($wdayList) ? Array(self::DAYS_LIST[intval($dayFirst->format('N'))-1]) : $wdayList as $dayKey){
-					$daysList[] = $frstWeek->modify('+'.((array_search(substr($dayKey, -2), self::DAYS_LIST)-$wdayName+7)%7).' days')->format('Y-m-d');
+				foreach(empty($wdayList) ? Array(self::DAYS_LIST[intval($dayFirst->format('N'))-1]) : $wdayList as $oneKey){
+					$daysList[] = $frstWeek->modify('+'.((array_search(substr($oneKey, -2), self::DAYS_LIST)-$wdayName+7)%7).' days')->format('Y-m-d');
 				}
 			}elseif( $everyKey=='eachMnth' ){
 				$monthCnt = intval($dayFirst->format('Y'))*12+intval($dayFirst->format('n'))-1+$spanIndx*$stepNumb;
@@ -379,9 +379,9 @@ class ICal extends Base {
 					}
 				}else{
 					// In the months told, or in every month for days of the month told alone, or in the month of the start
-					foreach(!empty($monthLst) ? $monthLst : (!empty($mdaysLst) ? range(1, 12) : Array(intval($dayFirst->format('n')))) as $mthNum){
-						if( $mthNum>=1 && $mthNum<=12 ){
-							$daysList = array_merge($daysList, self::listDaysOfRule($yearNumb, $mthNum, $wdayList, $mdaysLst, intval($dayFirst->format('j'))));
+					foreach(!empty($monthLst) ? $monthLst : (!empty($mdaysLst) ? range(1, 12) : Array(intval($dayFirst->format('n')))) as $nthMth){
+						if( $nthMth>=1 && $nthMth<=12 ){
+							$daysList = array_merge($daysList, self::listDaysOfRule($yearNumb, $nthMth, $wdayList, $mdaysLst, intval($dayFirst->format('j'))));
 						}
 					}
 				}
@@ -404,8 +404,8 @@ class ICal extends Base {
 			}
 			$daysList = array_unique($daysList);
 			sort($daysList);
-			foreach($daysList as $dayTxt){
-				$dayParte = array_map('intval', explode('-', $dayTxt));
+			foreach($daysList as $oneTxt){
+				$dayParte = array_map('intval', explode('-', $oneTxt));
 				$onceInst = $startObj->setDate($dayParte[0], $dayParte[1], $dayParte[2]);
 				if( $onceInst<$startObj ){
 					continue;
@@ -443,14 +443,14 @@ class ICal extends Base {
 		$frstDate = (new \DateTimeImmutable('now', $zoneInst))->setDate($calendarYear, max(1, $monthIndxNum), 1)->setTime(0, 0, 0);
 		$daysNumb = ($monthIndxNum==0) ? 365+intval($frstDate->format('L')) : intval($frstDate->format('t'));
 		$numbList = Array();
-		foreach($monthDayList as $dayNum){
-			$dayNum = intval($dayNum);
-			$numbList[] = ($dayNum<0) ? $daysNumb+1+$dayNum : $dayNum;
+		foreach($monthDayList as $nthDay){
+			$nthDay = intval($nthDay);
+			$numbList[] = ($nthDay<0) ? $daysNumb+1+$nthDay : $nthDay;
 		}
 		$foundLst = Array();
-		foreach($weekDaysList as $dayKey){
+		foreach($weekDaysList as $oneKey){
 			$dayParte = Array();
-			if( !preg_match('/^([+\-]?\d*)(mo|tu|we|th|fr|sa|su)$/D', strtolower(strval($dayKey)), $dayParte) ){
+			if( !preg_match('/^([+\-]?\d*)(mo|tu|we|th|fr|sa|su)$/D', strtolower(strval($oneKey)), $dayParte) ){
 				continue;
 			}
 			// Every such day of the span, then the one at the place told, counted from its start or its end
@@ -466,9 +466,9 @@ class ICal extends Base {
 			$foundLst = empty($numbList) ? (($dfltDayCount>0) ? Array($dfltDayCount) : Array()) : $numbList;
 		}
 		$daysList = Array();
-		foreach(array_unique($foundLst) as $dayNum){
-			if( $dayNum>=1 && $dayNum<=$daysNumb ){
-				$daysList[] = $frstDate->modify('+'.($dayNum-1).' days')->format('Y-m-d');
+		foreach(array_unique($foundLst) as $nthDay){
+			if( $nthDay>=1 && $nthDay<=$daysNumb ){
+				$daysList[] = $frstDate->modify('+'.($nthDay-1).' days')->format('Y-m-d');
 			}
 		}
 		sort($daysList);
@@ -486,11 +486,11 @@ class ICal extends Base {
 	protected function readEntryArray(Array $componentDct, String $itemTypesTxt, ?\DateTimeZone $zoneAskedFor): Array {
 		$propList = Array();
 		$extraLst = Array();
-		foreach($componentDct['props'] as $prpSet){
-			$propList[$prpSet['names']][] = $prpSet;
+		foreach($componentDct['props'] as $oneSet){
+			$propList[$oneSet['names']][] = $oneSet;
 			// What has no key of its own is kept as written; a property given several times keeps all its values
-			if( !in_array($prpSet['names'], self::READ_LIST) ){
-				$extraLst[$prpSet['names']] = isset($extraLst[$prpSet['names']]) ? array_merge((array)$extraLst[$prpSet['names']], Array($prpSet['value'])) : $prpSet['value'];
+			if( !in_array($oneSet['names'], self::READ_LIST) ){
+				$extraLst[$oneSet['names']] = isset($extraLst[$oneSet['names']]) ? array_merge((array)$extraLst[$oneSet['names']], Array($oneSet['value'])) : $oneSet['value'];
 			}
 		}
 		$voidDate = Array('value'=>'', 'whole'=>false, 'tzone'=>'');
@@ -512,9 +512,9 @@ class ICal extends Base {
 		$dueStamp = isset($propList['DUE']) ? $this->readDateAndZne($propList['DUE'][0]['value'], $propList['DUE'][0]['parms']) : $voidDate;
 		$stampDct = isset($propList['DTSTAMP']) ? $this->readDateAndZne($propList['DTSTAMP'][0]['value'], $propList['DTSTAMP'][0]['parms']) : $voidDate;
 		$skipList = Array();
-		foreach($propList['EXDATE'] ?? Array() as $prpSet){
-			foreach(explode(',', $prpSet['value']) as $skpTxt){
-				$skipDict = $this->readDateAndZne($skpTxt, $prpSet['parms']);
+		foreach($propList['EXDATE'] ?? Array() as $oneSet){
+			foreach(explode(',', $oneSet['value']) as $oneTxt){
+				$skipDict = $this->readDateAndZne($oneTxt, $oneSet['parms']);
 				if( $skipDict['value']!=='' ){
 					$skipList[] = $this->castDateToZone($skipDict, $zoneAskedFor)['value'];
 				}
@@ -535,18 +535,18 @@ class ICal extends Base {
 			}
 		}
 		$labelLst = Array();
-		foreach($propList['CATEGORIES'] ?? Array() as $prpSet){
-			$labelLst = array_merge($labelLst, $this->splitListValue($prpSet['value']));
+		foreach($propList['CATEGORIES'] ?? Array() as $oneSet){
+			$labelLst = array_merge($labelLst, $this->splitListValue($oneSet['value']));
 		}
 		$guestLst = Array();
-		foreach($propList['ATTENDEE'] ?? Array() as $prpSet){
-			$guestLst[] = $this->readPartyArray($prpSet) + Array('reply'=>strval(self::PART_STAT[strtoupper(strval($prpSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
+		foreach($propList['ATTENDEE'] ?? Array() as $oneSet){
+			$guestLst[] = $this->readPartyArray($oneSet) + Array('reply'=>strval(self::PART_STAT[strtoupper(strval($oneSet['parms']['PARTSTAT'] ?? 'NEEDS-ACTION'))] ?? 'awaiting'));
 		}
 		// A reminder counts back from the start of the entry; one set at a date of its own is kept as written
 		$alarmLst = Array();
-		foreach($componentDct['comps'] as $almArr){
-			foreach($almArr['props'] as $prpSet){
-				$trigSecs = ($almArr['kinds']=='VALARM' && $prpSet['names']=='TRIGGER') ? $this->castSpanToSecs($prpSet['value']) : null;
+		foreach($componentDct['comps'] as $oneCmp){
+			foreach($oneCmp['props'] as $oneSet){
+				$trigSecs = ($oneCmp['kinds']=='VALARM' && $oneSet['names']=='TRIGGER') ? $this->castSpanToSecs($oneSet['value']) : null;
 				if( $trigSecs!==null ){
 					$alarmLst[] = intdiv(-$trigSecs, 60);
 				}

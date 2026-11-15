@@ -112,11 +112,11 @@ class Deploy extends Command{
 		if( $storeNme!='none' ){
 			$secrList['tfaCrypt'] = 'key of the 2FA secrets';
 		}
-		foreach( $secrList as $kndNme => $kndLbl ){
+		foreach( $secrList as $oneNme => $oneLbl ){
 			try{
-				$confCmmn->makeSecretText($kndNme, true);
+				$confCmmn->makeSecretText($oneNme, true);
 			}catch( \RuntimeException $e ){
-				$this->printerObj->writeShellLine( 'No '.$kndLbl.' made: '.$e->getMessage() );
+				$this->printerObj->writeShellLine( 'No '.$oneLbl.' made: '.$e->getMessage() );
 			}
 		}
 		Console::loadConfigLogs();
@@ -268,8 +268,8 @@ class Deploy extends Command{
 		}
 		// Devices left behind would still pass on users the project no longer manages
 		$dvceAuth = new DeviceAuth( $this->accessSettings('dvcToken') );
-		foreach( $dvceList as $devcId ){
-			$dvceAuth->dropUserDevice($devcId);
+		foreach( $dvceList as $oneDvc ){
+			$dvceAuth->dropUserDevice($oneDvc);
 		}
 		// The login is pointed at the store only once every user is in it
 		$treeInst = $wrtrInst->readRawJsonCfg($accsPath);
@@ -414,10 +414,10 @@ class Deploy extends Command{
 		$dvceNtry = empty($dvceConf) ? Array() : (new DeviceAuth($dvceConf))->listUsrDevices();
 		$dvceList = Array();
 		$dvceNmes = Array();
-		foreach( is_array($dvceNtry) ? $dvceNtry : Array() as $dvcRow ){
-			if( $dvcRow['revokeDate']===null ){
-				$dvceList[] = intval($dvcRow['id_device']);
-				$dvceNmes[] = $dvcRow['systemName'].'/'.$dvcRow['deviceName'];
+		foreach( is_array($dvceNtry) ? $dvceNtry : Array() as $oneRow ){
+			if( $oneRow['revokeDate']===null ){
+				$dvceList[] = intval($oneRow['id_device']);
+				$dvceNmes[] = $oneRow['systemName'].'/'.$oneRow['deviceName'];
 			}
 		}
 		if( !empty($dvceList) ){
@@ -448,15 +448,15 @@ class Deploy extends Command{
 		$lastNumb = max( array_merge(Array(0), array_map('intval', array_column($usersRecords, 'id_user'))) );
 		$nopsList = Array();
 		$readyLst = Array();
-		foreach( $usersRecords as $usrRow ){
+		foreach( $usersRecords as $oneRow ){
 			$userNtry = Array();
-			foreach( UserFile::FLDS_LIST as $fldNme ){
-				if( isset($usrRow[$fldNme]) && $usrRow[$fldNme]!=='' ){
-					$userNtry[$fldNme] = $usrRow[$fldNme];
+			foreach( UserFile::FLDS_LIST as $oneNme ){
+				if( isset($oneRow[$oneNme]) && $oneRow[$oneNme]!=='' ){
+					$userNtry[$oneNme] = $oneRow[$oneNme];
 				}
 			}
 			if( strval($userNtry['passwdHash'] ?? '')==='' ){
-				$nopsList[] = strval($usrRow['systemName'] ?? '');
+				$nopsList[] = strval($oneRow['systemName'] ?? '');
 				continue;
 			}
 			$userNtry['id_user'] = (intval($userNtry['id_user'] ?? 0)>0) ? intval($userNtry['id_user']) : ++$lastNumb;
@@ -497,12 +497,12 @@ class Deploy extends Command{
 		}
 		$qotdTble = $dtbsHndr->quoteFieldName( strval($configValues['useTable'] ?? 'users') );
 		$dtbsHndr->addTransaction();
-		foreach( $usersRecords as $usrRow ){
-			$addSttmt = 'INSERT INTO '.$qotdTble.' ('.implode(', ', array_map(Array($dtbsHndr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
-			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($usrRow)) ){
+		foreach( $usersRecords as $oneRow ){
+			$addSttmt = 'INSERT INTO '.$qotdTble.' ('.implode(', ', array_map(Array($dtbsHndr, 'quoteFieldName'), array_keys($oneRow))).') VALUES ('.implode(', ', array_fill(0, count($oneRow), '?')).');';
+			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($oneRow)) ){
 				$errorTxt = strval($dtbsHndr->getLastErrText());
 				$dtbsHndr->dropWholeTrnsc();
-				$this->stopWithReason('Nothing was moved: user '.json_encode($usrRow['systemName']).' cannot be written: '.$errorTxt);
+				$this->stopWithReason('Nothing was moved: user '.json_encode($oneRow['systemName']).' cannot be written: '.$errorTxt);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
@@ -552,16 +552,16 @@ class Deploy extends Command{
 	 */
 	protected function makeLocalFiles( Array $filesToBuild=Array() ): Void {
 		$rowsList = Array();
-		foreach( self::DIST_LIST as $filNme => $target ){
-			if( !empty($filesToBuild) && !in_array($filNme, $filesToBuild, true) ){
+		foreach( self::DIST_LIST as $oneNme => $oneTrg ){
+			if( !empty($filesToBuild) && !in_array($oneNme, $filesToBuild, true) ){
 				continue;
 			}
-			$filePath = TOP_DIR.DS.str_replace('/', DS, $filNme);
-			$distPath = TOP_DIR.DS.str_replace('/', DS, $target);
+			$filePath = TOP_DIR.DS.str_replace('/', DS, $oneNme);
+			$distPath = TOP_DIR.DS.str_replace('/', DS, $oneTrg);
 			if( is_file($filePath) ){
-				$rowsList[] = Array($filNme, 'kept');
+				$rowsList[] = Array($oneNme, 'kept');
 			}elseif( !is_file($distPath) ){
-				$rowsList[] = Array($filNme, 'not created: its example '.$target.' is missing');
+				$rowsList[] = Array($oneNme, 'not created: its example '.$oneTrg.' is missing');
 			}elseif( (function() use ( $distPath, $filePath ): Bool {
 				// Made readable by its owner only, from its first byte: the file will hold secrets
 				$prevMask = umask(0077);
@@ -573,11 +573,11 @@ class Deploy extends Command{
 			})() ){
 				// The secrets are for the owner alone; the access config is read by the group of the web server too
 				$rghtDict = Array('.env'=>0600, 'conf/access.json'=>0640);
-				@chmod($filePath, $rghtDict[$filNme] ?? (0666 & ~umask()));
-				$rowsList[] = Array($filNme, 'created from '.$target);
-				$this->logShellChange('Deploy: '.$filNme.' created from '.$target);
+				@chmod($filePath, $rghtDict[$oneNme] ?? (0666 & ~umask()));
+				$rowsList[] = Array($oneNme, 'created from '.$oneTrg);
+				$this->logShellChange('Deploy: '.$oneNme.' created from '.$oneTrg);
 			}else{
-				$rowsList[] = Array($filNme, 'not created: its folder cannot be written');
+				$rowsList[] = Array($oneNme, 'not created: its folder cannot be written');
 			}
 		}
 		$this->printerObj->writeShellRows( Array('file', 'state'), $rowsList );
@@ -659,29 +659,29 @@ class Deploy extends Command{
 	 */
 	protected function openPresetsLst( Array $doorwaysRows ): Array {
 		$openList = Array();
-		foreach( array_unique(array_column($doorwaysRows, 'presetId')) as $prstId ){
+		foreach( array_unique(array_column($doorwaysRows, 'presetId')) as $oneRps ){
 			try{
-				$setupObj = (new \nyu\Setup\Preset($prstId))->makeConfLoader();
+				$setupObj = (new \nyu\Setup\Preset($oneRps))->makeConfLoader();
 				$routeCfg = $setupObj->getRegistryKey('dispatch');
 				$canReach = (new \nyu\Tools\Router( is_array($routeCfg) ? $routeCfg : Array(), \nyu\Shell\ActCaller::makeRequestLst('GET', '/')[0] ))->canReachAction();
 				$accsConf = $setupObj->setAccessArray();
 			}catch( \Throwable $e ){
-				$this->stopWithReason('Nothing was opened: the preset '.$prstId.' cannot be read: '.$e->getMessage(), self::EXIT_DENY);
+				$this->stopWithReason('Nothing was opened: the preset '.$oneRps.' cannot be read: '.$e->getMessage(), self::EXIT_DENY);
 			}
 			if( $canReach ){
-				$this->stopWithReason('Nothing was opened: the preset '.$prstId.' can reach an action, which an open site never makes public; serve statics, or a preset that serves no Run, or open the Run on purpose with openList in a preset that checks access', self::EXIT_DENY);
+				$this->stopWithReason('Nothing was opened: the preset '.$oneRps.' can reach an action, which an open site never makes public; serve statics, or a preset that serves no Run, or open the Run on purpose with openList in a preset that checks access', self::EXIT_DENY);
 			}
 			if( ($accsConf['required'] ?? true)!==false || ($accsConf['isPublic'] ?? false)!==true ){
-				$openList[] = $prstId;
+				$openList[] = $oneRps;
 			}
 		}
 		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		foreach( $openList as $prstId ){
-			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
+		foreach( $openList as $oneRps ){
+			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$oneRps.'.rps';
 			try{
 				$treeInst = $wrtrInst->readRawJsonCfg($psetPath);
 			}catch( \RuntimeException $e ){
-				$this->stopWithReason('The preset '.$prstId.' cannot be opened: '.$e->getMessage().' (a preset holding comments is opened by hand)', self::EXIT_DENY);
+				$this->stopWithReason('The preset '.$oneRps.' cannot be opened: '.$e->getMessage().' (a preset holding comments is opened by hand)', self::EXIT_DENY);
 			}
 			if( !isset($treeInst->security) || !is_object($treeInst->security) ){
 				$treeInst->security = new \stdClass();
@@ -689,7 +689,7 @@ class Deploy extends Command{
 			$treeInst->security->required = false;
 			$treeInst->security->isPublic = true;
 			$wrtrInst->saveJsonConfig($psetPath, $treeInst);
-			$this->printerObj->writeShellLine('Preset '.$prstId.' opened: "required": false, "isPublic": true.');
+			$this->printerObj->writeShellLine('Preset '.$oneRps.' opened: "required": false, "isPublic": true.');
 		}
 		if( !empty($openList) ){
 			$this->logShellChange('Deploy: presets opened for an open site ('.implode(', ', $openList).')');
@@ -715,9 +715,9 @@ class Deploy extends Command{
 			return;
 		}
 		$publList = Array();
-		foreach( array_unique(array_column($rowsList, 'presetId')) as $prstId ){
+		foreach( array_unique(array_column($rowsList, 'presetId')) as $oneRps ){
 			try{
-				$accsConf = (new \nyu\Setup\Preset($prstId))->makeConfLoader()->setAccessArray();
+				$accsConf = (new \nyu\Setup\Preset($oneRps))->makeConfLoader()->setAccessArray();
 			}catch( \Throwable $e ){
 				return;
 			}
@@ -726,21 +726,21 @@ class Deploy extends Command{
 				return;
 			}
 			if( ($accsConf['isPublic'] ?? false)===true ){
-				$publList[] = $prstId;
+				$publList[] = $oneRps;
 			}
 		}
 		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		foreach( $publList as $prstId ){
-			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$prstId.'.rps';
+		foreach( $publList as $oneRps ){
+			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$oneRps.'.rps';
 			try{
 				$treeInst = $wrtrInst->readRawJsonCfg($psetPath);
 			}catch( \RuntimeException $e ){
-				$this->stopWithReason('The preset '.$prstId.' cannot be closed: '.$e->getMessage().'; close it by hand ("required": true)', self::EXIT_DENY);
+				$this->stopWithReason('The preset '.$oneRps.' cannot be closed: '.$e->getMessage().'; close it by hand ("required": true)', self::EXIT_DENY);
 			}
 			$treeInst->security->required = true;
 			unset($treeInst->security->isPublic);
 			$wrtrInst->saveJsonConfig($psetPath, $treeInst);
-			$this->printerObj->writeShellLine('Preset '.$prstId.' closed: the project has users now; open it again on purpose when it is meant to be public.');
+			$this->printerObj->writeShellLine('Preset '.$oneRps.' closed: the project has users now; open it again on purpose when it is meant to be public.');
 		}
 		if( !empty($publList) ){
 			Console::loadConfigLogs();
@@ -1168,9 +1168,9 @@ class Deploy extends Command{
 		$treeInst = $writerObject->readRawJsonCfg($basePath);
 		$nodeInst = $treeInst;
 		if( !property_exists($treeInst, 'dbEngine') ){
-			foreach( get_object_vars($treeInst) as $blkVal ){
-				if( is_object($blkVal) ){
-					$nodeInst = $blkVal;
+			foreach( get_object_vars($treeInst) as $oneVal ){
+				if( is_object($oneVal) ){
+					$nodeInst = $oneVal;
 					break;
 				}
 			}
@@ -1230,10 +1230,10 @@ class Deploy extends Command{
 				$this->printerObj->writeShellLine('The users file already holds users: nothing was changed.');
 				return;
 			}
-			foreach( $this->promptAccounts() as $usrNme => $usrRle ){
-				$passList[$usrNme] = bin2hex(random_bytes(10));
-				if( !$fileInst->enrolUsrString($usrNme, $usrRle, $passList[$usrNme]) ){
-					$this->stopWithReason('User '.$usrNme.' cannot be written: '.$fileInst->getLastErrText(), self::EXIT_FAIL);
+			foreach( $this->promptAccounts() as $oneNme => $oneRle ){
+				$passList[$oneNme] = bin2hex(random_bytes(10));
+				if( !$fileInst->enrolUsrString($oneNme, $oneRle, $passList[$oneNme]) ){
+					$this->stopWithReason('User '.$oneNme.' cannot be written: '.$fileInst->getLastErrText(), self::EXIT_FAIL);
 				}
 			}
 		}else{
@@ -1253,8 +1253,8 @@ class Deploy extends Command{
 		$acctList = array_combine( array_keys($passList), (count($passList)==count(self::USER_LIST)) ? array_values(self::USER_LIST) : array_merge(array_slice(array_values(self::USER_LIST), 0, 1), array_slice(array_values(self::USER_LIST), -1)) );
 		$this->logShellChange('Deploy: basic users created in '.$storeOfUsers.' ('.implode(', ', array_keys($acctList)).')');
 		$this->printerObj->writeShellLine('Users created. Their passwords are shown this once:');
-		foreach( $acctList as $usrNme => $usrRle ){
-			$this->printerObj->writeShellOnce('Password of '.$usrNme.' ('.$usrRle.')', $passList[$usrNme]);
+		foreach( $acctList as $oneNme => $oneRle ){
+			$this->printerObj->writeShellOnce('Password of '.$oneNme.' ('.$oneRle.')', $passList[$oneNme]);
 		}
 		// The devices come after the passwords : a table that cannot be made does not hide them
 		if( $storeOfUsers=='nativeDb' ){
@@ -1279,15 +1279,15 @@ class Deploy extends Command{
 		if( !in_array($givenNme, Array('simple', 'full'), true) ){
 			$this->stopWithReason('No user created: '.json_encode($givenNme).' is neither simple nor full', self::EXIT_DENY);
 		}
-		foreach( ($givenNme=='full') ? self::USER_LIST : array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true) as $usrNme => $usrRle ){
-			$givenNme = $this->promptValueTxt('Name of the '.$usrRle.' account', $usrNme);
+		foreach( ($givenNme=='full') ? self::USER_LIST : array_slice(self::USER_LIST, 0, 1, true) + array_slice(self::USER_LIST, -1, 1, true) as $oneNme => $oneRle ){
+			$givenNme = $this->promptValueTxt('Name of the '.$oneRle.' account', $oneNme);
 			if( !preg_match(\nyu\Access\Auth\UserBase::NAME_RULE, $givenNme) || in_array(strtolower($givenNme), \nyu\Access\Auth\UserBase::NAME_DENY, true) ){
 				$this->stopWithReason('No user created: '.json_encode($givenNme).' is not a name a user can have', self::EXIT_DENY);
 			}
 			if( in_array(strtolower($givenNme), array_map('strtolower', array_keys($acctList)), true) ){
 				$this->stopWithReason('No user created: two accounts cannot share the name '.json_encode($givenNme), self::EXIT_DENY);
 			}
-			$acctList[$givenNme] = $usrRle;
+			$acctList[$givenNme] = $oneRle;
 		}
 		return $acctList;
 	}
@@ -1363,12 +1363,12 @@ class Deploy extends Command{
 		$addSttmt = 'INSERT INTO '.$qotdTble.' ('.$dtbsHndr->quoteFieldName('systemName').', '.$dtbsHndr->quoteFieldName('passwdHash').', '.$dtbsHndr->quoteFieldName('accessRole').', '.$dtbsHndr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
 		$acctList = $this->promptAccounts();
 		$dtbsHndr->addTransaction();
-		foreach( $acctList as $usrNme => $usrRle ){
-			$passList[$usrNme] = bin2hex(random_bytes(10));
+		foreach( $acctList as $oneNme => $oneRle ){
+			$passList[$oneNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
-			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, Array($usrNme, $usrRle)) || !$natvAuth->savePassOfUser($usrNme, $passList[$usrNme]) ){
+			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, Array($oneNme, $oneRle)) || !$natvAuth->savePassOfUser($oneNme, $passList[$oneNme]) ){
 				$dtbsHndr->dropWholeTrnsc();
-				$this->stopWithReason('User '.$usrNme.' cannot be written; nothing was changed');
+				$this->stopWithReason('User '.$oneNme.' cannot be written; nothing was changed');
 			}
 		}
 		$dtbsHndr->setTransaction();

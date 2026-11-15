@@ -19,18 +19,18 @@ class Options{
 	 */
 	function __construct( Array $commandWords ){
 		$optiDone = false;
-		foreach( $commandWords as $gvnWrd ){
-			$gvnWrd = strval($gvnWrd);
-			if( !$optiDone && $gvnWrd==='--' ){
+		foreach( $commandWords as $oneWrd ){
+			$oneWrd = strval($oneWrd);
+			if( !$optiDone && $oneWrd==='--' ){
 				$optiDone = true;
 				continue;
 			}
-			if( !$optiDone && strlen($gvnWrd)>2 && substr($gvnWrd, 0, 2)==='--' ){
-				$optiWord = explode('=', substr($gvnWrd, 2), 2);
+			if( !$optiDone && strlen($oneWrd)>2 && substr($oneWrd, 0, 2)==='--' ){
+				$optiWord = explode('=', substr($oneWrd, 2), 2);
 				$this->optionList[$optiWord[0]] = $optiWord[1] ?? true;
 				continue;
 			}
-			$this->shellWords[] = $gvnWrd;
+			$this->shellWords[] = $oneWrd;
 		}
 	}
 

@@ -57,14 +57,14 @@ class Loader{
 	* @param Bool  $mergeEntries Whether a block is merged with the one already loaded instead of replacing it.
 	*/
 	public function setSetupBlocks(Array $addedEntries, Bool $mergeEntries = false): Void {
-		foreach($addedEntries as $arrKey=>$arrVal){
+		foreach($addedEntries as $oneKey=>$oneVal){
 			if( $mergeEntries ){
-				$prevList = $this->getRegistryKey( $arrKey );
+				$prevList = $this->getRegistryKey( $oneKey );
 				if( $prevList!==false ){
-					$arrVal = array_merge($prevList, $arrVal);
+					$oneVal = array_merge($prevList, $oneVal);
 				}
 			}
-			$this->setRegistryKey($arrKey, $arrVal);
+			$this->setRegistryKey($oneKey, $oneVal);
 		}
 	}
 
@@ -129,17 +129,17 @@ class Loader{
 		if($confFilt!='any'){
 			$nameList = array_map('trim', explode(',', $confFilt));
 		}
-		foreach($conxScan as $filNme){
+		foreach($conxScan as $oneNme){
 			// The kind and the name are told by the file name: only the files kept are opened
-			$fileExtn = strtolower(pathinfo($filNme, PATHINFO_EXTENSION));
-			$fileTitl = pathinfo($filNme, PATHINFO_FILENAME);
+			$fileExtn = strtolower(pathinfo($oneNme, PATHINFO_EXTENSION));
+			$fileTitl = pathinfo($oneNme, PATHINFO_FILENAME);
 			if( !in_array($fileExtn, $allowTyp) || ($nameList!==false && !in_array($fileTitl, $nameList)) ){
 				continue;
 			}
 			if( $confDict['confType']!='all' && $confDict['confType']!=$fileExtn ){
 				continue;
 			}
-			$nowTrail = $conxPath.$filNme;
+			$nowTrail = $conxPath.$oneNme;
 			if( is_file($nowTrail) ){
 				$nyuFichr = new Dcmnt($nowTrail);
 				$confList[strtoupper($fileTitl)] = $nyuFichr->readFileDetail('out');
@@ -169,13 +169,13 @@ class Loader{
 		if( !is_file($envrPath) ){
 			return $envrVals;
 		}
-		foreach( file($envrPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $envRow ){
-			$envRow = trim($envRow);
-			$splitIdx = strpos($envRow, '=');
-			if( $envRow=='' || $envRow[0]=='#' || $splitIdx===false ){
+		foreach( file($envrPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $oneRow ){
+			$oneRow = trim($oneRow);
+			$splitIdx = strpos($oneRow, '=');
+			if( $oneRow=='' || $oneRow[0]=='#' || $splitIdx===false ){
 				continue;
 			}
-			$envrVals[trim(substr($envRow, 0, $splitIdx))] = trim(trim(substr($envRow, $splitIdx+1)), '"\'');
+			$envrVals[trim(substr($oneRow, 0, $splitIdx))] = trim(trim(substr($oneRow, $splitIdx+1)), '"\'');
 		}
 		return $envrVals;
 	}
@@ -190,13 +190,13 @@ class Loader{
 	 * @return Array The config values, with their env: references replaced.
 	 */
 	protected function alterEnvValues( Array $configValues, Array $envValuesDct ): Array {
-		foreach( $configValues as $cnfKey => $cnfVal ){
-			if( is_array($cnfVal) ){
-				$configValues[$cnfKey] = $this->alterEnvValues($cnfVal, $envValuesDct);
-			}elseif( is_string($cnfVal) && strpos($cnfVal, 'env:')===0 ){
-				$envrName = substr($cnfVal, 4);
+		foreach( $configValues as $oneKey => $oneVal ){
+			if( is_array($oneVal) ){
+				$configValues[$oneKey] = $this->alterEnvValues($oneVal, $envValuesDct);
+			}elseif( is_string($oneVal) && strpos($oneVal, 'env:')===0 ){
+				$envrName = substr($oneVal, 4);
 				$matxRows = getenv($envrName);
-				$configValues[$cnfKey] = $envValuesDct[$envrName] ?? ($matxRows!==false ? $matxRows : '');
+				$configValues[$oneKey] = $envValuesDct[$envrName] ?? ($matxRows!==false ? $matxRows : '');
 			}
 		}
 		return $configValues;
@@ -219,15 +219,15 @@ class Loader{
 		$inputDct = $this->getRegistryKey('inputSet');
 		if($inputDct){
 			$inputLst = Array();
-			foreach($inputDct as $putSet){
+			foreach($inputDct as $oneSet){
 				// Only allow for a set of input sources
 				// Version 1.0 :	'QUERY'
 				// Version 1.1 :	'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX'
 				$inputCod = Array('QUERY');
-				$inputSrc = $putSet['readFrom'];
+				$inputSrc = $oneSet['readFrom'];
 
 				if(in_array($inputSrc, $inputCod)){
-					$inputObj = new Input( $givenRequest, $inputSrc, $putSet['fieldSet'], $putSet['sourceId']);
+					$inputObj = new Input( $givenRequest, $inputSrc, $oneSet['fieldSet'], $oneSet['sourceId']);
 					$inputLst = array_merge($inputLst, $inputObj->getInputValues());
 				}
 			}
@@ -278,8 +278,8 @@ class Loader{
 		// A config, preset or route file written since the request began (the Runs' routes too): what it read is not cached
 		$srceUnix = 0;
 		foreach( array_merge( (array)glob(TOP_DIR.DS.'conf'.DS.'*.ini'), (array)glob(TOP_DIR.DS.'conf'.DS.'*.json'), (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps'),
-			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $srcFil ){
-			$srceUnix = max($srceUnix, intval(@filemtime(strval($srcFil))));
+			(array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*.rte'), (array)glob(TOP_DIR.DS.'conf'.DS.'routes'.DS.'*'.DS.'*.rte'), defined('RUN_DIR') ? (array)glob(RUN_DIR.DS.'*'.DS.'routes.rte') : Array() ) as $oneFil ){
+			$srceUnix = max($srceUnix, intval(@filemtime(strval($oneFil))));
 		}
 		// File times are in seconds: a change within the second the request began is not told apart
 		if( $srceUnix>intval($_SERVER['REQUEST_TIME'] ?? time()) ){
@@ -409,10 +409,10 @@ class Loader{
 			return intval($levelTxt) & E_ALL;
 		}
 		$errorLvl = 0;
-		foreach( explode('|', $levelTxt) as $orTerm ){
+		foreach( explode('|', $levelTxt) as $onePrt ){
 			$bitsMask = -1;
-			foreach( explode('&', $orTerm) as $factor ){
-				$nameText = trim($factor);
+			foreach( explode('&', $onePrt) as $oneNme ){
+				$nameText = trim($oneNme);
 				$isNegatd = (strpos($nameText, '~')===0);
 				$nameText = trim( ltrim($nameText, '~') );
 				if( !preg_match('/^E_[A-Z_]+$/D', $nameText) || !defined($nameText) || !is_int(constant($nameText)) ){

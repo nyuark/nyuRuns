@@ -47,10 +47,10 @@ class ShowLog extends Command{
 		}
 		// With dated file names, the channel is read in its newest file
 		$logTrail = '';
-		foreach( (array)glob(strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] ).DS.$logrInst.'*.log') as $logFil ){
-			$logFil = strval($logFil);
-			if( preg_match('/^'.$logrInst.'(-[\dW_\-]+)?\.log$/D', basename($logFil)) && ($logTrail=='' || filemtime($logFil)>filemtime($logTrail)) ){
-				$logTrail = $logFil;
+		foreach( (array)glob(strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] ).DS.$logrInst.'*.log') as $oneFil ){
+			$oneFil = strval($oneFil);
+			if( preg_match('/^'.$logrInst.'(-[\dW_\-]+)?\.log$/D', basename($oneFil)) && ($logTrail=='' || filemtime($oneFil)>filemtime($logTrail)) ){
+				$logTrail = $oneFil;
 			}
 		}
 		if( $logTrail=='' ){
@@ -61,8 +61,8 @@ class ShowLog extends Command{
 		$logStrng = strval( file_get_contents($logTrail, false, null, $logBytes-$readSize, $readSize) );
 		$lineList = explode("\n", rtrim(str_replace("\r\n", "\n", $logStrng), "\n"));
 		$lineList = ($logStrng=='' || intval($lineNumb)==0) ? Array() : array_slice($lineList, -intval($lineNumb));
-		foreach( $lineList as $logLin ){
-			$this->printerObj->writeShellBody($logLin.PHP_EOL);
+		foreach( $lineList as $oneLne ){
+			$this->printerObj->writeShellBody($oneLne.PHP_EOL);
 		}
 		if( !$this->optionsObj->isOptionPassed('watching') || $this->printerObj->isOutputAsJson() ){
 			return self::EXIT_DONE;

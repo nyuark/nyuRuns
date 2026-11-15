@@ -70,13 +70,13 @@ Class MySQL extends PDO {
 			return false;
 		}
 		$tableDct = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
-		foreach($fieldRow as $fldRow){
-			if( $fldRow['Key']=='PRI' && $tableDct['pkey']=='' ){
-				$tableDct['pkey'] = $fldRow['Field'];
+		foreach($fieldRow as $oneRow){
+			if( $oneRow['Key']=='PRI' && $tableDct['pkey']=='' ){
+				$tableDct['pkey'] = $oneRow['Field'];
 			}
-			$tableDct['flds'][] = $fldRow['Field'];
-			if( preg_match('/^((tiny|medium|long)?blob|(var)?binary)/i', strval($fldRow['Type'])) ){
-				$tableDct['blob'][] = $fldRow['Field'];
+			$tableDct['flds'][] = $oneRow['Field'];
+			if( preg_match('/^((tiny|medium|long)?blob|(var)?binary)/i', strval($oneRow['Type'])) ){
+				$tableDct['blob'][] = $oneRow['Field'];
 			}
 		}
 		return $tableDct;

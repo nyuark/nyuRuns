@@ -218,8 +218,8 @@ class UserBase extends Native{
 			return $this->denyWithReason(500, 'Credential store unavailable');
 		}
 		$mngrLang = Array();
-		foreach( $mngrRows as $mgrRow ){
-			$mngrLang[strval($mgrRow['contactEml'])] = (strval($mgrRow['userLocale'] ?? '')!=='') ? strval($mgrRow['userLocale']) : null;
+		foreach( $mngrRows as $oneRow ){
+			$mngrLang[strval($oneRow['contactEml'])] = (strval($oneRow['userLocale'] ?? '')!=='') ? strval($oneRow['userLocale']) : null;
 		}
 		return $mngrLang;
 	}
@@ -690,15 +690,15 @@ class UserBase extends Native{
 			$whereLst[] = '{contactEml}=?';
 			$fltrList[] = strtolower(trim($givenEml));
 		}
-		foreach( Array('userStatus'=>self::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $fldNme=>$allows ){
-			$givenTxt = $criteriaList[$fldNme] ?? '';
+		foreach( Array('userStatus'=>self::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $oneNme=>$oneLst ){
+			$givenTxt = $criteriaList[$oneNme] ?? '';
 			if( $givenTxt==='' || $givenTxt===null ){
 				continue;
 			}
-			if( !in_array($givenTxt, $allows, true) ){
+			if( !in_array($givenTxt, $oneLst, true) ){
 				return $this->denyWithReason(400, 'Invalid filter');
 			}
-			$whereLst[] = '{'.$fldNme.'}=?';
+			$whereLst[] = '{'.$oneNme.'}=?';
 			$fltrList[] = $givenTxt;
 		}
 		$rowsLimt = $ceilingCount;
@@ -727,8 +727,8 @@ class UserBase extends Native{
 			return false;
 		}
 		$shwnList = Array();
-		foreach( self::SHOW_LIST as $fldNme ){
-			$shwnList[$fldNme] = $userVals[$fldNme] ?? null;
+		foreach( self::SHOW_LIST as $oneNme ){
+			$shwnList[$oneNme] = $userVals[$oneNme] ?? null;
 		}
 		return $shwnList;
 	}
@@ -875,8 +875,8 @@ class UserBase extends Native{
 	 */
 	protected function castQueryNames( DbHandlr $dbHandlerObj, String $queryPattern ): String {
 		$swapList = Array();
-		foreach( $this->quoteFieldsDct($dbHandlerObj) as $fldNme=>$qtdNme ){
-			$swapList['{'.$fldNme.'}'] = $qtdNme;
+		foreach( $this->quoteFieldsDct($dbHandlerObj) as $oneNme=>$oneQtd ){
+			$swapList['{'.$oneNme.'}'] = $oneQtd;
 		}
 		return strtr($queryPattern, $swapList);
 	}

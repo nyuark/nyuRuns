@@ -69,9 +69,9 @@ class Tabl extends Base {
 		}
 		if( $isByKeys ){
 			foreach($rowsList as $oneRow){
-				foreach(array_keys((array)$oneRow) as $column){
-					if( !in_array(strval($column), $headList, true) ){
-						$headList[] = strval($column);
+				foreach(array_keys((array)$oneRow) as $oneCol){
+					if( !in_array(strval($oneCol), $headList, true) ){
+						$headList[] = strval($oneCol);
 					}
 				}
 			}
@@ -85,8 +85,8 @@ class Tabl extends Base {
 			if( $isByKeys ){
 				// A row that lacks a column has nothing in it
 				$cellList = Array();
-				foreach($headList as $column){
-					$cellList[] = ((array)$oneRow)[$column] ?? null;
+				foreach($headList as $oneCol){
+					$cellList[] = ((array)$oneRow)[$oneCol] ?? null;
 				}
 			}
 			$tableTxt .= $this->writeRowAsLine($cellList, self::SEPR_LIST[$dvdrText], $hasGuard);

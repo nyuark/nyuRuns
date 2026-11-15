@@ -78,8 +78,8 @@ class PHMail extends Driver {
 			$phpEmail->Password = strval($this->setupArray['passWord'] ?? '');
 		}
 		$phpEmail->setFrom($emailMessage->getSenderEmail(), $emailMessage->getSenderLabel());
-		foreach( $emailMessage->listRecipients() as $toAddr ){
-			$phpEmail->addAddress($toAddr);
+		foreach( $emailMessage->listRecipients() as $oneAdr ){
+			$phpEmail->addAddress($oneAdr);
 		}
 		$phpEmail->Subject = $emailMessage->getSubjectText();
 		if( $emailMessage->getHtmlVersion()!==null ){
@@ -89,8 +89,8 @@ class PHMail extends Driver {
 		}else{
 			$phpEmail->Body = $emailMessage->getPlainEmlTxt();
 		}
-		foreach( $emailMessage->getAttachments() as $attFil ){
-			$phpEmail->addAttachment($attFil);
+		foreach( $emailMessage->getAttachments() as $oneFil ){
+			$phpEmail->addAttachment($oneFil);
 		}
 		return $phpEmail;
 	}
@@ -110,8 +110,8 @@ class PHMail extends Driver {
 		}
 		$smtpLink = $phpMailerObj->getSMTPInstance();
 		$isMailOk = $smtpLink->mail($phpMailerObj->Sender ?: $phpMailerObj->From);
-		foreach( $recipientLst as $toAddr ){
-			$isMailOk = $isMailOk && $smtpLink->recipient($toAddr);
+		foreach( $recipientLst as $oneAdr ){
+			$isMailOk = $isMailOk && $smtpLink->recipient($oneAdr);
 		}
 		$isMailOk = $isMailOk && $smtpLink->data($phpMailerObj->getSentMIMEMessage());
 		$errorDct = $smtpLink->getError();

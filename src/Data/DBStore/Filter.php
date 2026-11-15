@@ -44,35 +44,35 @@ class Filter {
 		// The longer suffixes are looked for first
 		$oprtCods = Array('!~'=>'nmtch', '<='=>'undeq', '>='=>'aboeq', '~'=>'match', '!'=>'diffr', '<'=>'under', '>'=>'above', '?'=>'isset', '='=>'equal');
 		$clausLst = Array();
-		foreach($filterFields as $fldNme=>$fldVal){
-			$fldNme = strval($fldNme);
+		foreach($filterFields as $oneNme=>$oneVal){
+			$oneNme = strval($oneNme);
 			$oprtCode = 'equal';
-			foreach($oprtCods as $sfxInc=>$opCode){
-				if( substr($fldNme, -strlen($sfxInc))==$sfxInc ){
-					$oprtCode = $opCode;
-					$fldNme = substr($fldNme, 0, -strlen($sfxInc));
+			foreach($oprtCods as $oneEnd=>$oneCod){
+				if( substr($oneNme, -strlen($oneEnd))==$oneEnd ){
+					$oprtCode = $oneCod;
+					$oneNme = substr($oneNme, 0, -strlen($oneEnd));
 					break;
 				}
 			}
-			if( !preg_match('/^\w+(\.\w+)?$/D', $fldNme) ){
-				throw new \RuntimeException('Invalid table or field name: '.$fldNme);
+			if( !preg_match('/^\w+(\.\w+)?$/D', $oneNme) ){
+				throw new \RuntimeException('Invalid table or field name: '.$oneNme);
 			}
 			$isNegatd = ($oprtCode=='diffr' || $oprtCode=='nmtch');
 			if( $oprtCode=='isset' ){
 				// Asked for by name: whether the field holds a value
-				if( !is_bool($fldVal) ){
-					throw new \RuntimeException('The ? suffix takes true or false: '.$fldNme);
+				if( !is_bool($oneVal) ){
+					throw new \RuntimeException('The ? suffix takes true or false: '.$oneNme);
 				}
-				$clausLst[] = Array('field'=>$fldNme, 'opert'=>($fldVal ? 'isset' : 'unset'), 'value'=>null);
-			}elseif( is_array($fldVal) ){
-				$listVals = array_values(array_filter($fldVal, function($fieldContent){ return $fieldContent!==null && $fieldContent!==''; }));
+				$clausLst[] = Array('field'=>$oneNme, 'opert'=>($oneVal ? 'isset' : 'unset'), 'value'=>null);
+			}elseif( is_array($oneVal) ){
+				$listVals = array_values(array_filter($oneVal, function($fieldContent){ return $fieldContent!==null && $fieldContent!==''; }));
 				if( empty($listVals) ){
 					// An empty list matches nothing, its negation everything
 					$clausLst[] = Array('field'=>'', 'opert'=>($isNegatd ? 'every' : 'never'), 'value'=>null);
 				}else{
-					$clausLst[] = Array('field'=>$fldNme, 'opert'=>($isNegatd ? 'nmong' : 'among'), 'value'=>$listVals);
+					$clausLst[] = Array('field'=>$oneNme, 'opert'=>($isNegatd ? 'nmong' : 'among'), 'value'=>$listVals);
 				}
-			}elseif( $fldVal===null ){
+			}elseif( $oneVal===null ){
 				// A null value matches nothing, like a comparison with NULL in SQL
 				$clausLst[] = Array('field'=>'', 'opert'=>'never', 'value'=>null);
 			}else{
@@ -80,7 +80,7 @@ class Filter {
 				// The stores get the literal pieces, to join with their own wildcard (see quoteMatchText)
 				if( $oprtCode=='match' || $oprtCode=='nmtch' ){
 					$partList = Array('');
-					foreach( preg_split('/(\\\\[\\\\*]|\*)/', is_scalar($fldVal) ? strval($fldVal) : '', -1, PREG_SPLIT_DELIM_CAPTURE) as $oneTkn ){
+					foreach( preg_split('/(\\\\[\\\\*]|\*)/', is_scalar($oneVal) ? strval($oneVal) : '', -1, PREG_SPLIT_DELIM_CAPTURE) as $oneTkn ){
 						if( $oneTkn==='*' ){
 							$partList[] = '';
 							continue;
@@ -88,9 +88,9 @@ class Filter {
 						$ltrlPart = ($oneTkn==='\\*' || $oneTkn==='\\\\') ? substr($oneTkn, 1) : $oneTkn;
 						$partList[count($partList)-1] .= $ltrlPart;
 					}
-					$fldVal = $partList;
+					$oneVal = $partList;
 				}
-				$clausLst[] = Array('field'=>$fldNme, 'opert'=>$oprtCode, 'value'=>$fldVal);
+				$clausLst[] = Array('field'=>$oneNme, 'opert'=>$oprtCode, 'value'=>$oneVal);
 			}
 		}
 		return $clausLst;

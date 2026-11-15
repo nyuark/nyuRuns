@@ -78,10 +78,10 @@ abstract class Page extends Base {
 	protected function splitNotesDict(Array &$bookBlockSet): Array {
 		$noteList = Array('fnote'=>Array(), 'enote'=>Array());
 		$matxRows = Array();
-		foreach($bookBlockSet as $blkIdx=>$blkArr){
-			if( is_array($blkArr) && strval($blkArr['block'] ?? '')=='footnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($blkArr['attrs']['tagid'] ?? ''), $matxRows) ){
-				$noteList[$matxRows[1]][$matxRows[0]] = $blkArr;
-				unset($bookBlockSet[$blkIdx]);
+		foreach($bookBlockSet as $nthBlk=>$oneBlk){
+			if( is_array($oneBlk) && strval($oneBlk['block'] ?? '')=='footnote' && preg_match('/^(fnote|enote)(\d+)$/D', strval($oneBlk['attrs']['tagid'] ?? ''), $matxRows) ){
+				$noteList[$matxRows[1]][$matxRows[0]] = $oneBlk;
+				unset($bookBlockSet[$nthBlk]);
 			}
 		}
 		return $noteList;
@@ -135,16 +135,16 @@ abstract class Page extends Base {
 	 */
 	protected function getSheetBlocks(Array $sheetEntries): Array {
 		$blockLst = Array();
-		foreach($sheetEntries as $shtArr){
-			if( !is_array($shtArr) || (isset($shtArr['attrs']['shown']) && empty($shtArr['attrs']['shown'])) ){
+		foreach($sheetEntries as $oneTbl){
+			if( !is_array($oneTbl) || (isset($oneTbl['attrs']['shown']) && empty($oneTbl['attrs']['shown'])) ){
 				continue;
 			}
-			$rowsList = array_values((array)($shtArr['cells'] ?? Array()));
+			$rowsList = array_values((array)($oneTbl['cells'] ?? Array()));
 			$headList = Array();
 			foreach($rowsList as $oneRow){
-				foreach($this->isSequenceList((array)$oneRow) ? Array() : array_keys((array)$oneRow) as $column){
-					if( !in_array(strval($column), $headList, true) ){
-						$headList[] = strval($column);
+				foreach($this->isSequenceList((array)$oneRow) ? Array() : array_keys((array)$oneRow) as $oneCol){
+					if( !in_array(strval($oneCol), $headList, true) ){
+						$headList[] = strval($oneCol);
 					}
 				}
 			}
@@ -152,33 +152,33 @@ abstract class Page extends Base {
 			$spanList = Array();
 			$coverLst = Array();
 			$headSpan = empty($headList) ? 0 : 1;
-			foreach((array)($shtArr['attrs']['merge'] ?? Array()) as $mrgArr){
-				$mrgArr = array_map('intval', (array)$mrgArr) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
-				if( $mrgArr['atrow']<$headSpan || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || $mrgArr['rowsp']*$mrgArr['colsp']>10000 || isset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]) ){
+			foreach((array)($oneTbl['attrs']['merge'] ?? Array()) as $oneMrg){
+				$oneMrg = array_map('intval', (array)$oneMrg) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
+				if( $oneMrg['atrow']<$headSpan || $oneMrg['atcol']<0 || $oneMrg['rowsp']<1 || $oneMrg['colsp']<1 || $oneMrg['rowsp']*$oneMrg['colsp']>10000 || isset($coverLst[$oneMrg['atrow'].':'.$oneMrg['atcol']]) ){
 					continue;
 				}
-				for($rowIdx=$mrgArr['atrow']; $rowIdx<$mrgArr['atrow']+$mrgArr['rowsp']; $rowIdx++){
-					for($colInc=$mrgArr['atcol']; $colInc<$mrgArr['atcol']+$mrgArr['colsp']; $colInc++){
-						$coverLst[$rowIdx.':'.$colInc] = true;
+				for($nthRow=$oneMrg['atrow']; $nthRow<$oneMrg['atrow']+$oneMrg['rowsp']; $nthRow++){
+					for($nthCol=$oneMrg['atcol']; $nthCol<$oneMrg['atcol']+$oneMrg['colsp']; $nthCol++){
+						$coverLst[$nthRow.':'.$nthCol] = true;
 					}
 				}
-				unset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
-				$spanList[$mrgArr['atrow'].':'.$mrgArr['atcol']] = array_filter(Array('rowsp'=>$mrgArr['rowsp'], 'colsp'=>$mrgArr['colsp']), function(Int $colSpanCount){ return $colSpanCount>1; });
+				unset($coverLst[$oneMrg['atrow'].':'.$oneMrg['atcol']]);
+				$spanList[$oneMrg['atrow'].':'.$oneMrg['atcol']] = array_filter(Array('rowsp'=>$oneMrg['rowsp'], 'colsp'=>$oneMrg['colsp']), function(Int $colSpanCount){ return $colSpanCount>1; });
 			}
 			$tableRow = empty($headList) ? Array() : Array(Shape::makeBlockArray('tableTop', Array(), array_map(function(String $columnHeader){ return Shape::makeBlockArray('cellText', Array(Shape::makeSpanOfText($columnHeader))); }, $headList)));
 			$colsNumb = count($headList);
 			foreach($rowsList as $oneRow){
 				$colsNumb = max($colsNumb, count((array)$oneRow));
 			}
-			foreach($rowsList as $rowIdx=>$oneRow){
+			foreach($rowsList as $nthRow=>$oneRow){
 				$cellList = Array();
 				$valsList = empty($headList) ? array_values((array)$oneRow) : array_map(function(String $columnHeader) use ($oneRow){ return ((array)$oneRow)[$columnHeader] ?? null; }, $headList);
-				for($colInc=0; $colInc<$colsNumb; $colInc++){
-					$cellClef = ($rowIdx+$headSpan).':'.$colInc;
+				for($nthCol=0; $nthCol<$colsNumb; $nthCol++){
+					$cellClef = ($nthRow+$headSpan).':'.$nthCol;
 					if( isset($coverLst[$cellClef]) ){
 						continue;
 					}
-					$cellVals = $valsList[$colInc] ?? null;
+					$cellVals = $valsList[$nthCol] ?? null;
 					$cellText = '';
 					if( is_bool($cellVals) ){
 						$cellText = $cellVals ? 'TRUE' : 'FALSE';
@@ -194,7 +194,7 @@ abstract class Page extends Base {
 				}
 				$tableRow[] = Shape::makeBlockArray('tableRow', Array(), $cellList);
 			}
-			$sheetNme = is_scalar($shtArr['title'] ?? '') ? trim(strval($shtArr['title'] ?? '')) : '';
+			$sheetNme = is_scalar($oneTbl['title'] ?? '') ? trim(strval($oneTbl['title'] ?? '')) : '';
 			if( $sheetNme!=='' ){
 				$blockLst[] = Shape::makeBlockArray('headline', Array(Shape::makeSpanOfText($sheetNme)), Array(), Array('level'=>2));
 			}

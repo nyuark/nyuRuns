@@ -56,15 +56,15 @@ class Pdfx extends Base {
 			$pageList = $pdfDcmnt->getPages();
 			$detlList = $pdfDcmnt->getDetails();
 			$blockLst = Array();
-			foreach($pageList as $pgeIdx=>$pgeObj){
-				if( $pgeIdx>0 ){
+			foreach($pageList as $nthPge=>$oneObj){
+				if( $nthPge>0 ){
 					$blockLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 				}
 				// An empty line stands between two paragraphs; the lines of a paragraph are those of the page
-				$pageText = self::castTextToUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($pgeObj->getText())));
-				foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $pageText)) as $parTxt){
-					if( trim($parTxt)!=='' ){
-						$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText(trim($parTxt))));
+				$pageText = self::castTextToUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($oneObj->getText())));
+				foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $pageText)) as $oneTxt){
+					if( trim($oneTxt)!=='' ){
+						$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText(trim($oneTxt))));
 					}
 				}
 			}
@@ -74,9 +74,9 @@ class Pdfx extends Base {
 		}
 		// What the document tells of itself: single values only, as text
 		$propList = Array();
-		foreach((array)$detlList as $dtlKey=>$dtlVal){
-			if( is_scalar($dtlVal) && trim(strval($dtlVal))!=='' ){
-				$propList[strval($dtlKey)] = is_string($dtlVal) ? self::castTextToUtf8(trim($dtlVal)) : $dtlVal;
+		foreach((array)$detlList as $oneKey=>$oneVal){
+			if( is_scalar($oneVal) && trim(strval($oneVal))!=='' ){
+				$propList[strval($oneKey)] = is_string($oneVal) ? self::castTextToUtf8(trim($oneVal)) : $oneVal;
 			}
 		}
 		return $this->makeShapeArray('block', $blockLst, Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'pages'=>count($pageList), 'props'=>$propList));

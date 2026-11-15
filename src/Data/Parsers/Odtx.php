@@ -95,14 +95,14 @@ class Odtx extends Pack {
 		$this->isVoidKept = false;
 		$this->autoStyles = $pageStyl;
 		$seenList = Array();
-		foreach($this->listNamedNodes($this->findChildArray($stylList, Array('office:master-styles')) ?? Array('nodes'=>Array()), 'style:master-page') as $pgeArr){
-			foreach($pgeArr['nodes'] as $prtArr){
-				$infoClef = (strpos($prtArr['tagnm'], 'style:header')===0) ? 'phead' : ((strpos($prtArr['tagnm'], 'style:footer')===0) ? 'pfoot' : '');
+		foreach($this->listNamedNodes($this->findChildArray($stylList, Array('office:master-styles')) ?? Array('nodes'=>Array()), 'style:master-page') as $onePge){
+			foreach($onePge['nodes'] as $onePrt){
+				$infoClef = (strpos($onePrt['tagnm'], 'style:header')===0) ? 'phead' : ((strpos($onePrt['tagnm'], 'style:footer')===0) ? 'pfoot' : '');
 				if( $infoClef==='' ){
 					continue;
 				}
 				// A document may have several: each one that differs is given once
-				$partBloc = $this->readBodyBlocks($prtArr, 0, '');
+				$partBloc = $this->readBodyBlocks($onePrt, 0, '');
 				$partClef = $infoClef.md5(serialize($partBloc));
 				if( !empty($partBloc) && !isset($seenList[$partClef]) ){
 					$seenList[$partClef] = true;
@@ -112,13 +112,13 @@ class Odtx extends Pack {
 		}
 		if( $this->isCmntRead ){
 			$infoList['cmnts'] = Array();
-			foreach($this->commentLst as $cmtSet){
-				$cmtSet['about'] = trim($cmtSet['about']);
-				$infoList['cmnts'][] = $cmtSet;
+			foreach($this->commentLst as $oneSet){
+				$oneSet['about'] = trim($oneSet['about']);
+				$infoList['cmnts'][] = $oneSet;
 			}
 		}
-		foreach(array_keys($this->stylesUsed) as $stlKey){
-			$infoList['frmat'][$this->namedStyle['paragraph'][$stlKey]['names']] = $this->getStyleFormat($this->namedStyle['paragraph'][$stlKey]);
+		foreach(array_keys($this->stylesUsed) as $oneCss){
+			$infoList['frmat'][$this->namedStyle['paragraph'][$oneCss]['names']] = $this->getStyleFormat($this->namedStyle['paragraph'][$oneCss]);
 		}
 		$this->namedStyle = Array();
 		$this->autoStyles = Array();
@@ -172,10 +172,10 @@ class Odtx extends Pack {
 	 * @param Array $elementArray The element holding the styles.
 	 */
 	protected function loadListStyles(Array $elementArray): Void {
-		foreach($this->listNamedNodes($elementArray, 'text:list-style') as $lstArr){
-			foreach($lstArr['nodes'] as $lvlArr){
+		foreach($this->listNamedNodes($elementArray, 'text:list-style') as $oneLst){
+			foreach($oneLst['nodes'] as $oneLvl){
 				// A level is numbered when it is written as such, and shows a number
-				$this->listStyles[strval($lstArr['attrs']['style:name'] ?? '')][intval($lvlArr['attrs']['text:level'] ?? 1)] = ($lvlArr['tagnm']=='text:list-level-style-number' && strval($lvlArr['attrs']['style:num-format'] ?? '1')!=='');
+				$this->listStyles[strval($oneLst['attrs']['style:name'] ?? '')][intval($oneLvl['attrs']['text:level'] ?? 1)] = ($oneLvl['tagnm']=='text:list-level-style-number' && strval($oneLvl['attrs']['style:num-format'] ?? '1')!=='');
 			}
 		}
 	}
@@ -190,33 +190,33 @@ class Odtx extends Pack {
 	protected function loadNamedStyle(Array $elementArray): Void {
 		$this->loadListStyles($elementArray);
 		$baseDict = Array('fonts'=>'', 'sizes'=>0, 'color'=>'');
-		foreach($this->listNamedNodes($elementArray, 'style:default-style') as $dflArr){
-			if( strval($dflArr['attrs']['style:family'] ?? '')=='paragraph' ){
-				$baseDict = array_intersect_key($this->readStyleArray($dflArr), $baseDict);
+		foreach($this->listNamedNodes($elementArray, 'style:default-style') as $oneDft){
+			if( strval($oneDft['attrs']['style:family'] ?? '')=='paragraph' ){
+				$baseDict = array_intersect_key($this->readStyleArray($oneDft), $baseDict);
 			}
 		}
-		foreach($this->listNamedNodes($elementArray, 'style:style') as $stlArr){
-			$famiName = strval($stlArr['attrs']['style:family'] ?? '');
+		foreach($this->listNamedNodes($elementArray, 'style:style') as $oneCss){
+			$famiName = strval($oneCss['attrs']['style:family'] ?? '');
 			if( isset($this->namedStyle[$famiName]) ){
-				$this->namedStyle[$famiName][strval($stlArr['attrs']['style:name'] ?? '')] = $this->readStyleArray($stlArr);
+				$this->namedStyle[$famiName][strval($oneCss['attrs']['style:name'] ?? '')] = $this->readStyleArray($oneCss);
 			}
 		}
-		foreach(array_keys($this->namedStyle) as $family){
-			foreach(array_keys($this->namedStyle[$family]) as $stlKey){
-				$prntClef = $this->namedStyle[$family][$stlKey]['based'];
+		foreach(array_keys($this->namedStyle) as $oneFam){
+			foreach(array_keys($this->namedStyle[$oneFam]) as $oneCss){
+				$prntClef = $this->namedStyle[$oneFam][$oneCss]['based'];
 				// Twenty styles based one on the other is more than any document has, and stops a circle
-				for($hopIdx=0; $hopIdx<21; $hopIdx++){
-					$prntDict = $this->namedStyle[$family][$prntClef] ?? null;
-					if( $prntDict===null || $hopIdx==20 ){
+				for($nthRpt=0; $nthRpt<21; $nthRpt++){
+					$prntDict = $this->namedStyle[$oneFam][$prntClef] ?? null;
+					if( $prntDict===null || $nthRpt==20 ){
 						$prntDict = $baseDict + Array('level'=>0, 'align'=>'', 'marks'=>Array(), 'based'=>'', 'prior'=>false, 'after'=>false);
-						$hopIdx = 20;
+						$nthRpt = 20;
 					}
-					foreach(Array('level', 'align', 'fonts', 'sizes', 'color', 'prior', 'after') as $prpKey){
-						if( empty($this->namedStyle[$family][$stlKey][$prpKey]) ){
-							$this->namedStyle[$family][$stlKey][$prpKey] = $prntDict[$prpKey];
+					foreach(Array('level', 'align', 'fonts', 'sizes', 'color', 'prior', 'after') as $oneKey){
+						if( empty($this->namedStyle[$oneFam][$oneCss][$oneKey]) ){
+							$this->namedStyle[$oneFam][$oneCss][$oneKey] = $prntDict[$oneKey];
 						}
 					}
-					$this->namedStyle[$family][$stlKey]['marks'] = array_values(array_intersect(Shape::MARK_LIST, array_merge($this->namedStyle[$family][$stlKey]['marks'], $prntDict['marks'])));
+					$this->namedStyle[$oneFam][$oneCss]['marks'] = array_values(array_intersect(Shape::MARK_LIST, array_merge($this->namedStyle[$oneFam][$oneCss]['marks'], $prntDict['marks'])));
 					$prntClef = $prntDict['based'];
 				}
 			}
@@ -232,10 +232,10 @@ class Odtx extends Pack {
 	protected function loadAutosArray(Array $elementArray): Array {
 		$this->loadListStyles($elementArray);
 		$autoList = Array('paragraph'=>Array(), 'text'=>Array());
-		foreach($this->listNamedNodes($elementArray, 'style:style') as $stlArr){
-			$famiName = strval($stlArr['attrs']['style:family'] ?? '');
+		foreach($this->listNamedNodes($elementArray, 'style:style') as $oneCss){
+			$famiName = strval($oneCss['attrs']['style:family'] ?? '');
 			if( isset($autoList[$famiName]) ){
-				$autoList[$famiName][strval($stlArr['attrs']['style:name'] ?? '')] = $this->readStyleArray($stlArr);
+				$autoList[$famiName][strval($oneCss['attrs']['style:name'] ?? '')] = $this->readStyleArray($oneCss);
 			}
 		}
 		return $autoList;
@@ -251,14 +251,14 @@ class Odtx extends Pack {
 		$metaList = $this->findChildArray($this->readPartAsTree('meta.xml', false) ?? Array('nodes'=>Array()), Array('office:meta')) ?? Array('nodes'=>Array());
 		$propList = Array();
 		$wordList = Array();
-		foreach(Array('dc:title'=>'Title', 'meta:initial-creator'=>'Author', 'dc:subject'=>'Subject', 'dc:description'=>'Comments', 'dc:creator'=>'LastSavedBy') as $tagNme=>$prpNme){
-			$propVals = trim(strval($this->findChildArray($metaList, Array($tagNme))['value'] ?? ''));
+		foreach(Array('dc:title'=>'Title', 'meta:initial-creator'=>'Author', 'dc:subject'=>'Subject', 'dc:description'=>'Comments', 'dc:creator'=>'LastSavedBy') as $oneTag=>$oneNme){
+			$propVals = trim(strval($this->findChildArray($metaList, Array($oneTag))['value'] ?? ''));
 			if( $propVals!=='' ){
-				$propList[$prpNme] = $propVals;
+				$propList[$oneNme] = $propVals;
 			}
 		}
-		foreach($this->listNamedNodes($metaList, 'meta:keyword') as $wrdArr){
-			$wordList[] = trim($wrdArr['value']);
+		foreach($this->listNamedNodes($metaList, 'meta:keyword') as $oneWrd){
+			$wordList[] = trim($oneWrd['value']);
 		}
 		if( !empty(array_filter($wordList)) ){
 			$propList['Keywords'] = implode(', ', array_filter($wordList));
@@ -267,10 +267,10 @@ class Odtx extends Pack {
 		if( !isset($propList['Author']) && isset($propList['LastSavedBy']) ){
 			$propList['Author'] = $propList['LastSavedBy'];
 		}
-		foreach($this->listNamedNodes($metaList, 'meta:user-defined') as $prpArr){
-			$propName = strval($prpArr['attrs']['meta:name'] ?? '');
-			$typeName = strval($prpArr['attrs']['meta:value-type'] ?? 'string');
-			$rawValue = $prpArr['value'];
+		foreach($this->listNamedNodes($metaList, 'meta:user-defined') as $onePrp){
+			$propName = strval($onePrp['attrs']['meta:name'] ?? '');
+			$typeName = strval($onePrp['attrs']['meta:value-type'] ?? 'string');
+			$rawValue = $onePrp['value'];
 			if( $propName==='' ){
 				continue;
 			}
@@ -301,9 +301,9 @@ class Odtx extends Pack {
 		$bodyNods = $elementArray['nodes'];
 		// An end is added to the nodes, so that code ending them is closed like any other
 		$bodyNods[] = Array('tagnm'=>'#end', 'attrs'=>Array(), 'nodes'=>Array());
-		foreach($bodyNods as $chlArr){
-			$childNme = $chlArr['tagnm'];
-			$prgrList = ($childNme=='text:p' || $childNme=='text:h') ? $this->readPargrParts($chlArr) : null;
+		foreach($bodyNods as $oneChl){
+			$childNme = $oneChl['tagnm'];
+			$prgrList = ($childNme=='text:p' || $childNme=='text:h') ? $this->readPargrParts($oneChl) : null;
 			if( ($prgrList['kinds'] ?? '')!='codeBlck' && !empty($codeBuff) ){
 				$blockLst = array_merge($blockLst, $this->joinCodeAsBloc($codeBuff));
 				$codeBuff = Array();
@@ -313,14 +313,14 @@ class Odtx extends Pack {
 			}elseif( $prgrList!==null ){
 				$blockLst = array_merge($blockLst, $this->getBlocksOfPrg($prgrList));
 			}elseif( $childNme=='text:list' ){
-				$blockLst = array_merge($blockLst, $this->parseListBlock($chlArr, $listsLvlNumb+1, $listStyleNme));
+				$blockLst = array_merge($blockLst, $this->parseListBlock($oneChl, $listsLvlNumb+1, $listStyleNme));
 			}elseif( $childNme=='table:table' ){
-				$rowsList = $this->getRowsOfTable($chlArr, false);
+				$rowsList = $this->getRowsOfTable($oneChl, false);
 				if( !empty($rowsList) ){
 					$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsList);
 				}
 			}elseif( in_array($childNme, self::WRAP_LIST) ){
-				$blockLst = array_merge($blockLst, $this->readBodyBlocks($chlArr, $listsLvlNumb, $listStyleNme));
+				$blockLst = array_merge($blockLst, $this->readBodyBlocks($oneChl, $listsLvlNumb, $listStyleNme));
 			}
 		}
 		return $blockLst;
@@ -338,11 +338,11 @@ class Odtx extends Pack {
 	protected function parseListBlock(Array $elementArray, Int $listsLvlNumb, String $listStyleNme): Array {
 		$ownStyle = strval($elementArray['attrs']['text:style-name'] ?? $listStyleNme);
 		$itemList = Array();
-		foreach($elementArray['nodes'] as $itmArr){
-			if( $itmArr['tagnm']!='text:list-item' && $itmArr['tagnm']!='text:list-header' ){
+		foreach($elementArray['nodes'] as $oneItm){
+			if( $oneItm['tagnm']!='text:list-item' && $oneItm['tagnm']!='text:list-header' ){
 				continue;
 			}
-			$itemBloc = $this->readBodyBlocks($itmArr, $listsLvlNumb, $ownStyle);
+			$itemBloc = $this->readBodyBlocks($oneItm, $listsLvlNumb, $ownStyle);
 			if( !empty($itemBloc) ){
 				$itemList[] = $this->makeOuterBlock('listItem', $itemBloc);
 			}
@@ -360,24 +360,24 @@ class Odtx extends Pack {
 	 */
 	protected function getRowsOfTable(Array $elementArray, Bool $innerHeadFlg): Array {
 		$rowsList = Array();
-		foreach($elementArray['nodes'] as $rowArr){
-			if( in_array($rowArr['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
-				$rowsList = array_merge($rowsList, $this->getRowsOfTable($rowArr, $innerHeadFlg || $rowArr['tagnm']=='table:table-header-rows'));
+		foreach($elementArray['nodes'] as $oneRow){
+			if( in_array($oneRow['tagnm'], Array('table:table-header-rows', 'table:table-rows', 'table:table-row-group')) ){
+				$rowsList = array_merge($rowsList, $this->getRowsOfTable($oneRow, $innerHeadFlg || $oneRow['tagnm']=='table:table-header-rows'));
 				continue;
 			}
-			if( $rowArr['tagnm']!='table:table-row' ){
+			if( $oneRow['tagnm']!='table:table-row' ){
 				continue;
 			}
 			$cellList = Array();
 			// A cell covered by a merged one is not a cell of its own
-			foreach($this->listNamedNodes($rowArr, 'table:table-cell') as $celArr){
+			foreach($this->listNamedNodes($oneRow, 'table:table-cell') as $oneCel){
 				$spanAttr = Array();
-				foreach(Array('table:number-columns-spanned'=>'colsp', 'table:number-rows-spanned'=>'rowsp') as $atrNme=>$atrKey){
-					if( intval($celArr['attrs'][$atrNme] ?? 1)>1 ){
-						$spanAttr[$atrKey] = intval($celArr['attrs'][$atrNme]);
+				foreach(Array('table:number-columns-spanned'=>'colsp', 'table:number-rows-spanned'=>'rowsp') as $oneNme=>$oneKey){
+					if( intval($oneCel['attrs'][$oneNme] ?? 1)>1 ){
+						$spanAttr[$oneKey] = intval($oneCel['attrs'][$oneNme]);
 					}
 				}
-				$cellList[] = $this->makeOuterBlock('cellText', $this->readBodyBlocks($celArr, 0, ''), $spanAttr);
+				$cellList[] = $this->makeOuterBlock('cellText', $this->readBodyBlocks($oneCel, 0, ''), $spanAttr);
 			}
 			if( !empty($cellList) ){
 				$rowsList[] = Shape::makeBlockArray($innerHeadFlg ? 'tableTop' : 'tableRow', Array(), $cellList);
@@ -412,8 +412,8 @@ class Odtx extends Pack {
 			}
 		}
 		// A passage commented over several paragraphs has a space between two of them
-		foreach($this->openedList as $cmtIdx){
-			$this->commentLst[$cmtIdx]['about'] .= ($this->commentLst[$cmtIdx]['about']==='') ? '' : ' ';
+		foreach($this->openedList as $nthCmt){
+			$this->commentLst[$nthCmt]['about'] .= ($this->commentLst[$nthCmt]['about']==='') ? '' : ' ';
 		}
 		$pictList = Array();
 		$this->readParaPieces($elementArray, $handDict['marks'] ?? Array(), '', $pictList);
@@ -430,8 +430,8 @@ class Odtx extends Pack {
 			$attrDict['align'] = $ownAlign;
 		}
 		// A bookmark starting the paragraph names it; those the document adds for itself start with an underscore
-		foreach($elementArray['nodes'] as $chlArr){
-			$bkmrName = in_array($chlArr['tagnm'], Array('text:bookmark', 'text:bookmark-start')) ? strval($chlArr['attrs']['text:name'] ?? '') : '';
+		foreach($elementArray['nodes'] as $oneChl){
+			$bkmrName = in_array($oneChl['tagnm'], Array('text:bookmark', 'text:bookmark-start')) ? strval($oneChl['attrs']['text:name'] ?? '') : '';
 			if( $bkmrName!=='' && $bkmrName[0]!='_' && !isset($attrDict['tagid']) ){
 				$attrDict['tagid'] = $bkmrName;
 			}
@@ -468,8 +468,8 @@ class Odtx extends Pack {
 			return;
 		}
 		$outputPieces[] = Shape::makeSpanOfText($templateText, $runFormatSet, $linkGoalText, $fldCodesText);
-		foreach($this->openedList as $cmtIdx){
-			$this->commentLst[$cmtIdx]['about'] .= $templateText;
+		foreach($this->openedList as $nthCmt){
+			$this->commentLst[$nthCmt]['about'] .= $templateText;
 		}
 	}
 
@@ -486,34 +486,34 @@ class Odtx extends Pack {
 	protected function readParaPieces(Array $elementArray, Array $runFormatSet, String $linkGoalText, Array &$outputPieces): Void {
 		// An element holding text only has it as its value
 		$this->addTextSegment($elementArray['value'], $runFormatSet, $linkGoalText, '', $outputPieces);
-		foreach($elementArray['nodes'] as $chlArr){
-			$childNme = $chlArr['tagnm'];
+		foreach($elementArray['nodes'] as $oneChl){
+			$childNme = $oneChl['tagnm'];
 			if( $childNme=='#text' ){
-				$this->addTextSegment($chlArr['value'], $runFormatSet, $linkGoalText, '', $outputPieces);
+				$this->addTextSegment($oneChl['value'], $runFormatSet, $linkGoalText, '', $outputPieces);
 			}elseif( $childNme=='text:span' ){
 				// The style of a piece of text is made for it, or named: either way, its formatting was set by hand
-				$spanClef = strval($chlArr['attrs']['text:style-name'] ?? '');
+				$spanClef = strval($oneChl['attrs']['text:style-name'] ?? '');
 				$spanDict = $this->autoStyles['text'][$spanClef] ?? Array('marks'=>Array(), 'based'=>$spanClef);
 				$spanMark = array_merge($runFormatSet, $spanDict['marks'], $this->namedStyle['text'][$spanDict['based']]['marks'] ?? Array());
-				$this->readParaPieces($chlArr, array_values(array_intersect(Shape::MARK_LIST, $spanMark)), $linkGoalText, $outputPieces);
+				$this->readParaPieces($oneChl, array_values(array_intersect(Shape::MARK_LIST, $spanMark)), $linkGoalText, $outputPieces);
 			}elseif( $childNme=='text:a' ){
-				$linkAddr = Shape::wipeUnsafeAddr(strval($chlArr['attrs']['xlink:href'] ?? ''));
-				$this->readParaPieces($chlArr, $runFormatSet, ($linkAddr!=='') ? $linkAddr : $linkGoalText, $outputPieces);
+				$linkAddr = Shape::wipeUnsafeAddr(strval($oneChl['attrs']['xlink:href'] ?? ''));
+				$this->readParaPieces($oneChl, $runFormatSet, ($linkAddr!=='') ? $linkAddr : $linkGoalText, $outputPieces);
 			}elseif( $childNme=='text:s' ){
-				$this->addTextSegment(str_repeat(' ', max(1, min(10000, intval($chlArr['attrs']['text:c'] ?? 1)))), $runFormatSet, $linkGoalText, '', $outputPieces);
+				$this->addTextSegment(str_repeat(' ', max(1, min(10000, intval($oneChl['attrs']['text:c'] ?? 1)))), $runFormatSet, $linkGoalText, '', $outputPieces);
 			}elseif( $childNme=='text:tab' || $childNme=='text:line-break' ){
 				$this->addTextSegment(($childNme=='text:tab') ? "\t" : "\n", $runFormatSet, $linkGoalText, '', $outputPieces);
 			}elseif( isset(self::FLDS_CODE[$childNme]) || $childNme=='text:user-defined' ){
-				$fieldCod = ($childNme=='text:user-defined') ? 'props:'.strval($chlArr['attrs']['text:name'] ?? '') : self::FLDS_CODE[$childNme];
-				$this->addTextSegment($this->getOdfPieceTxt($chlArr), $runFormatSet, $linkGoalText, $fieldCod, $outputPieces);
+				$fieldCod = ($childNme=='text:user-defined') ? 'props:'.strval($oneChl['attrs']['text:name'] ?? '') : self::FLDS_CODE[$childNme];
+				$this->addTextSegment($this->getOdfPieceTxt($oneChl), $runFormatSet, $linkGoalText, $fieldCod, $outputPieces);
 			}elseif( $childNme=='text:note' ){
-				$this->readNoteAndRef($chlArr, $outputPieces);
+				$this->readNoteAndRef($oneChl, $outputPieces);
 			}elseif( $childNme=='office:annotation' || $childNme=='office:annotation-end' ){
-				$this->commentPortion($chlArr);
+				$this->commentPortion($oneChl);
 			}elseif( $childNme=='draw:frame' ){
-				$this->readFrameBlock($chlArr, $outputPieces);
+				$this->readFrameBlock($oneChl, $outputPieces);
 			}elseif( !in_array($childNme, self::SKIP_LIST) ){
-				$this->readParaPieces($chlArr, $runFormatSet, $linkGoalText, $outputPieces);
+				$this->readParaPieces($oneChl, $runFormatSet, $linkGoalText, $outputPieces);
 			}
 		}
 	}
@@ -587,8 +587,8 @@ class Odtx extends Pack {
 		}
 		$keptVoid = $this->isVoidKept;
 		$this->isVoidKept = false;
-		foreach($this->readBodyBlocks($this->findChildArray($elementArray, Array('draw:text-box')) ?? Array('nodes'=>Array()), 0, '') as $boxBlk){
-			$outputPieces[] = $boxBlk;
+		foreach($this->readBodyBlocks($this->findChildArray($elementArray, Array('draw:text-box')) ?? Array('nodes'=>Array()), 0, '') as $oneBlk){
+			$outputPieces[] = $oneBlk;
 		}
 		$this->isVoidKept = $keptVoid;
 	}

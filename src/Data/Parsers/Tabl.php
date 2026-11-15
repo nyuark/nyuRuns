@@ -80,15 +80,15 @@ class Tabl extends Base {
 		$lineList = array_slice(array_values(array_filter(preg_split('/\r\n|\r|\n/', substr($nakedContent, 0, 65536)), function($markdownLine){ return trim($markdownLine)!==''; })), 0, 10);
 		$bestClef = 'commaSep';
 		$bestScor = 0;
-		foreach(self::SEPR_LIST as $sprKey=>$sprChr){
+		foreach(self::SEPR_LIST as $oneKey=>$oneChr){
 			$countLst = Array();
-			foreach($lineList as $linTxt){
+			foreach($lineList as $oneTxt){
 				// What stands between quotes is not counted
-				$countLst[] = substr_count(preg_replace('/"[^"]*"/', '', $linTxt), $sprChr);
+				$countLst[] = substr_count(preg_replace('/"[^"]*"/', '', $oneTxt), $oneChr);
 			}
 			$seprScor = empty($countLst) ? 0 : ((min($countLst)>0 && min($countLst)==max($countLst)) ? 1000000 + min($countLst) : array_sum($countLst));
 			if( $seprScor>$bestScor ){
-				$bestClef = $sprKey;
+				$bestClef = $oneKey;
 				$bestScor = $seprScor;
 			}
 		}

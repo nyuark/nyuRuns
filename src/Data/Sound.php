@@ -142,8 +142,8 @@ class Sound {
 	 */
 	protected static function wipeRawTagVals(Array $rawTagValues): Array {
 		$tagsList = Array();
-		foreach(Array('title', 'artst', 'album', 'years', 'track', 'genre') as $tagKey){
-			$tagStrng = strval($rawTagValues[$tagKey] ?? '');
+		foreach(Array('title', 'artst', 'album', 'years', 'track', 'genre') as $oneKey){
+			$tagStrng = strval($rawTagValues[$oneKey] ?? '');
 			// A tag that is not UTF-8 is read as Windows-1252, then kept on one line
 			if( !preg_match('//u', $tagStrng) ){
 				$tagStrng = strval(@iconv('Windows-1252', 'UTF-8//IGNORE', $tagStrng));
@@ -151,15 +151,15 @@ class Sound {
 			$tagStrng = trim(preg_replace('/\s*[\x00-\x1F\x7F]+\s*/', ' ', $tagStrng));
 			$tagParte = Array();
 			// A year is its four digits, a track its number, a genre told by its number is named
-			if( $tagKey=='years' ){
+			if( $oneKey=='years' ){
 				$tagStrng = preg_match('/\d{4}/', $tagStrng, $tagParte) ? $tagParte[0] : '';
-			}elseif( $tagKey=='track' ){
+			}elseif( $oneKey=='track' ){
 				$tagStrng = preg_match('/^\d+/', $tagStrng, $tagParte) ? strval(intval($tagParte[0])) : '';
-			}elseif( $tagKey=='genre' && preg_match('/^\(?(\d{1,3})\)?$/D', $tagStrng, $tagParte) ){
+			}elseif( $oneKey=='genre' && preg_match('/^\(?(\d{1,3})\)?$/D', $tagStrng, $tagParte) ){
 				$tagStrng = strval(self::GENR_LIST[intval($tagParte[1])] ?? '');
 			}
 			if( $tagStrng!=='' ){
-				$tagsList[$tagKey] = function_exists('mb_substr') ? mb_substr($tagStrng, 0, self::TAGS_MAXI, 'UTF-8') : substr($tagStrng, 0, self::TAGS_MAXI);
+				$tagsList[$oneKey] = function_exists('mb_substr') ? mb_substr($tagStrng, 0, self::TAGS_MAXI, 'UTF-8') : substr($tagStrng, 0, self::TAGS_MAXI);
 			}
 		}
 		return $tagsList;
@@ -217,9 +217,9 @@ class Sound {
 	 * @return Int|Bool Where its ending pair of zero bytes stands, false when it has none.
 	 */
 	protected static function findUtf16Limit(String $templateText, Int $fromPosition): Int|Bool {
-		for($posInc=$fromPosition; $posInc+1<strlen($templateText); $posInc+=2){
-			if( $templateText[$posInc]==="\0" && $templateText[$posInc+1]==="\0" ){
-				return $posInc;
+		for($nthPos=$fromPosition; $nthPos+1<strlen($templateText); $nthPos+=2){
+			if( $templateText[$nthPos]==="\0" && $templateText[$nthPos+1]==="\0" ){
+				return $nthPos;
 			}
 		}
 		return false;
@@ -256,7 +256,7 @@ class Sound {
 		$readIndx = 4+intval(unpack('V', str_pad(substr($blockBytText, 0, 4), 4, "\0"))[1]);
 		$lineNumb = intval(unpack('V', str_pad(substr($blockBytText, $readIndx, 4), 4, "\0"))[1]);
 		$readIndx += 4;
-		for($linIdx=0; $linIdx<$lineNumb && $readIndx+4<=strlen($blockBytText); $linIdx++){
+		for($nthLne=0; $nthLne<$lineNumb && $readIndx+4<=strlen($blockBytText); $nthLne++){
 			$lineSize = intval(unpack('V', substr($blockBytText, $readIndx, 4))[1]);
 			$linePart = explode('=', substr($blockBytText, $readIndx+4, $lineSize), 2);
 			$readIndx += 4+$lineSize;
@@ -419,9 +419,9 @@ class Sound {
 				'title'=>rtrim(substr($id3v1Tag, 3, 30), "\0 "), 'artst'=>rtrim(substr($id3v1Tag, 33, 30), "\0 "), 'album'=>rtrim(substr($id3v1Tag, 63, 30), "\0 "), 'years'=>rtrim(substr($id3v1Tag, 93, 4), "\0 "),
 				'track'=>(ord($id3v1Tag[125])==0 && ord($id3v1Tag[126])>0) ? strval(ord($id3v1Tag[126])) : '', 'genre'=>(ord($id3v1Tag[127])<80) ? '('.ord($id3v1Tag[127]).')' : ''
 			), 'strlen');
-			foreach(Array('title', 'artst', 'album') as $tagKey){
-				if( isset($tagsList[$tagKey]) && !preg_match('//u', $tagsList[$tagKey]) ){
-					$tagsList[$tagKey] = strval(@iconv('ISO-8859-1', 'UTF-8//IGNORE', $tagsList[$tagKey]));
+			foreach(Array('title', 'artst', 'album') as $oneKey){
+				if( isset($tagsList[$oneKey]) && !preg_match('//u', $tagsList[$oneKey]) ){
+					$tagsList[$oneKey] = strval(@iconv('ISO-8859-1', 'UTF-8//IGNORE', $tagsList[$oneKey]));
 				}
 			}
 		}
@@ -506,10 +506,10 @@ class Sound {
 			$sgmtNumb = ord($nakedContent[$readIndx+26]);
 			$sizeList = array_values(unpack('C*', substr($nakedContent, $readIndx+27, $sgmtNumb)));
 			$readIndx += 27+$sgmtNumb;
-			foreach($sizeList as $oneSeg){
-				$packBuff .= substr($nakedContent, $readIndx, $oneSeg);
-				$readIndx += $oneSeg;
-				if( $oneSeg<255 ){
+			foreach($sizeList as $onePrt){
+				$packBuff .= substr($nakedContent, $readIndx, $onePrt);
+				$readIndx += $onePrt;
+				if( $onePrt<255 ){
 					$packList[] = $packBuff;
 					$packBuff = '';
 				}
@@ -584,11 +584,11 @@ class Sound {
 	 * @return ?Array The box reached, null when the names lead nowhere.
 	 */
 	protected static function findBoxesArray(String $nakedContent, Array $containerBox, Array $boxNamesPath): ?Array {
-		foreach($boxNamesPath as $boxNme){
+		foreach($boxNamesPath as $oneNme){
 			$foundBox = null;
 			// The box of the tags starts with four bytes that are not a box
 			foreach(self::listBoxesOfMp4($nakedContent, $containerBox[1]+(($containerBox[0]==='meta') ? 4 : 0), $containerBox[2]) as $oneBox){
-				if( $oneBox[0]===$boxNme ){
+				if( $oneBox[0]===$oneNme ){
 					$foundBox = $oneBox;
 					break;
 				}
@@ -641,21 +641,21 @@ class Sound {
 		$coverTxt = '';
 		$lstngBox = self::findBoxesArray($nakedContent, $moovAtom, Array('udta', 'meta', 'ilst'));
 		$keysList = Array("\xA9nam"=>'title', "\xA9ART"=>'artst', "\xA9alb"=>'album', "\xA9day"=>'years', "\xA9gen"=>'genre', 'trkn'=>'track', 'gnre'=>'genre', 'covr'=>'cover');
-		foreach(($lstngBox===null) ? Array() : self::listBoxesOfMp4($nakedContent, $lstngBox[1], $lstngBox[2]) as $itmBox){
-			$dataAtom = isset($keysList[$itmBox[0]]) ? self::findBoxesArray($nakedContent, $itmBox, Array('data')) : null;
+		foreach(($lstngBox===null) ? Array() : self::listBoxesOfMp4($nakedContent, $lstngBox[1], $lstngBox[2]) as $oneBox){
+			$dataAtom = isset($keysList[$oneBox[0]]) ? self::findBoxesArray($nakedContent, $oneBox, Array('data')) : null;
 			if( $dataAtom===null ){
 				continue;
 			}
 			// What a tag holds stands after eight bytes telling its kind
 			$dataText = strval(substr($nakedContent, $dataAtom[1]+8, $dataAtom[2]-$dataAtom[1]-8));
-			if( $itmBox[0]==='covr' ){
+			if( $oneBox[0]==='covr' ){
 				$coverTxt = $dataText;
-			}elseif( $itmBox[0]==='trkn' ){
+			}elseif( $oneBox[0]==='trkn' ){
 				$tagsList['track'] = strval(unpack('n', str_pad(substr($dataText, 2, 2), 2, "\0"))[1]);
-			}elseif( $itmBox[0]==='gnre' ){
+			}elseif( $oneBox[0]==='gnre' ){
 				$tagsList['genre'] = '('.(intval(unpack('n', str_pad(substr($dataText, 0, 2), 2, "\0"))[1])-1).')';
 			}else{
-				$tagsList[$keysList[$itmBox[0]]] = $dataText;
+				$tagsList[$keysList[$oneBox[0]]] = $dataText;
 			}
 		}
 		$secsNumb = $timeDict['long']/$timeDict['unit'];
@@ -720,8 +720,8 @@ class Sound {
 		if( $kindClef=='flac' ){
 			// The blocks kept, the last of them marked as such, then what is heard
 			$headText = 'fLaC';
-			foreach($this->trimValues['blcks'] as $blkIdx=>$oneCut){
-				$headText .= chr($oneCut[0] | (($blkIdx==count($this->trimValues['blcks'])-1) ? 0x80 : 0)).substr(pack('N', strlen($oneCut[1])), 1).$oneCut[1];
+			foreach($this->trimValues['blcks'] as $nthBlk=>$oneCut){
+				$headText .= chr($oneCut[0] | (($nthBlk==count($this->trimValues['blcks'])-1) ? 0x80 : 0)).substr(pack('N', strlen($oneCut[1])), 1).$oneCut[1];
 			}
 			return $headText.substr($this->nakedBytes, $this->trimValues['start']);
 		}
@@ -789,11 +789,11 @@ class Sound {
 			// The frames starting inside the part are kept, as they are
 			$partText = '';
 			$currTime = 0.0;
-			foreach($this->trimValues['frmes'] as $frmSet){
+			foreach($this->trimValues['frmes'] as $oneSet){
 				if( $currTime>=$fromSecs && $currTime<$tillSecs ){
-					$partText .= substr($this->nakedBytes, $frmSet['start'], $frmSet['bytes']);
+					$partText .= substr($this->nakedBytes, $oneSet['start'], $oneSet['bytes']);
 				}
-				$currTime += $frmSet['smpls']/$frmSet['rates'];
+				$currTime += $oneSet['smpls']/$oneSet['rates'];
 			}
 			// A sound is told from two frames following each other
 			if( strlen($partText)<=$this->trimValues['frmes'][0]['bytes']+1 ){
@@ -860,22 +860,22 @@ class Sound {
 		$maskVals = 2**$intoBits-1;
 		$dataText = '';
 		// The sound is made a block at a time, for long sounds not to take the memory samples by samples would
-		for($blkPos=0; $blkPos<$intoNumb; $blkPos+=8192){
-			$blockEnd = min($intoNumb, $blkPos+8192);
-			$crsorPos = intdiv($blkPos*$fromRout, $intoRate);
+		for($nthBlk=0; $nthBlk<$intoNumb; $nthBlk+=8192){
+			$blockEnd = min($intoNumb, $nthBlk+8192);
+			$crsorPos = intdiv($nthBlk*$fromRout, $intoRate);
 			$readLimt = min($fromNumb-1, intdiv(($blockEnd-1)*$fromRout, $intoRate)+1);
 			$readList = $this->readWavSamples($this->trimValues['start']+$crsorPos*$frameSze, ($readLimt-$crsorPos+1)*$frameSze, $fromBits);
 			$madeList = Array();
-			for($smpInc=$blkPos; $smpInc<$blockEnd; $smpInc++){
+			for($nthPos=$nthBlk; $nthPos<$blockEnd; $nthPos++){
 				// Where the sample made stands between two samples read
-				$spotVals = $smpInc*$fromRout/$intoRate;
+				$spotVals = $nthPos*$fromRout/$intoRate;
 				$spotIntg = intval(floor($spotVals));
 				$spotFrac = $spotVals-$spotIntg;
 				$frstIndx = ($spotIntg-$crsorPos)*$fromChnl;
 				$nextIndx = (min($spotIntg+1, $readLimt)-$crsorPos)*$fromChnl;
 				$chnlList = Array();
-				for($chnIdx=0; $chnIdx<$fromChnl; $chnIdx++){
-					$chnlList[] = $readList[$frstIndx+$chnIdx]+($readList[$nextIndx+$chnIdx]-$readList[$frstIndx+$chnIdx])*$spotFrac;
+				for($nthChn=0; $nthChn<$fromChnl; $nthChn++){
+					$chnlList[] = $readList[$frstIndx+$nthChn]+($readList[$nextIndx+$nthChn]-$readList[$frstIndx+$nthChn])*$spotFrac;
 				}
 				// One channel is the middle of all, two of one are twice the same, two of more are the first two
 				if( $intoChnl==1 && $fromChnl>1 ){
@@ -885,8 +885,8 @@ class Sound {
 				}elseif( $intoChnl==2 && $fromChnl>2 ){
 					$chnlList = Array($chnlList[0], $chnlList[1]);
 				}
-				foreach($chnlList as $chnVal){
-					$madeVals = max(-$topsVals-1, min($topsVals, intval(round($chnVal*$scalFact))));
+				foreach($chnlList as $oneVal){
+					$madeVals = max(-$topsVals-1, min($topsVals, intval(round($oneVal*$scalFact))));
 					// Samples of 8 bits are written from 0 to 255, the others around 0
 					$madeList[] = ($intoBits==8) ? $madeVals+128 : ($madeVals & $maskVals);
 				}
@@ -916,15 +916,15 @@ class Sound {
 		$partText = substr($this->nakedBytes, $fromPosition, $dataByteSize);
 		$readList = Array();
 		if( $smplBitsNumb==24 ){
-			for($bytIdx=0; $bytIdx+3<=strlen($partText); $bytIdx+=3){
-				$readVals = ord($partText[$bytIdx]) | (ord($partText[$bytIdx+1])<<8) | (ord($partText[$bytIdx+2])<<16);
+			for($nthByt=0; $nthByt+3<=strlen($partText); $nthByt+=3){
+				$readVals = ord($partText[$nthByt]) | (ord($partText[$nthByt+1])<<8) | (ord($partText[$nthByt+2])<<16);
 				$readList[] = ($readVals>=0x800000) ? $readVals-0x1000000 : $readVals;
 			}
 			return $readList;
 		}
 		$halfVals = 2**($smplBitsNumb-1);
-		foreach(unpack(Array(8=>'C*', 16=>'v*', 32=>'V*')[$smplBitsNumb], $partText) as $rawVal){
-			$readList[] = ($smplBitsNumb==8) ? $rawVal-128 : (($rawVal>=$halfVals) ? $rawVal-2*$halfVals : $rawVal);
+		foreach(unpack(Array(8=>'C*', 16=>'v*', 32=>'V*')[$smplBitsNumb], $partText) as $oneVal){
+			$readList[] = ($smplBitsNumb==8) ? $oneVal-128 : (($oneVal>=$halfVals) ? $oneVal-2*$halfVals : $oneVal);
 		}
 		return $readList;
 	}

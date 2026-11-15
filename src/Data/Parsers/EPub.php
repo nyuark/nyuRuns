@@ -37,9 +37,9 @@ class EPub extends Pack {
 		// Its details: a detail given several times, as the authors or the subjects are, is given as one text
 		$propList = Array();
 		$metaList = $this->findChildArray($packList, Array('metadata')) ?? Array('nodes'=>Array());
-		foreach($metaList['nodes'] as $prpArr){
-			$propName = strval(self::PROP_LIST[$prpArr['tagnm']] ?? '');
-			$propVals = trim(preg_replace('/\s+/', ' ', $this->readNestedText($prpArr)));
+		foreach($metaList['nodes'] as $onePrp){
+			$propName = strval(self::PROP_LIST[$onePrp['tagnm']] ?? '');
+			$propVals = trim(preg_replace('/\s+/', ' ', $this->readNestedText($onePrp)));
 			if( $propName!=='' && $propVals!=='' ){
 				$propList[$propName] = isset($propList[$propName]) ? $propList[$propName].', '.$propVals : $propVals;
 			}
@@ -47,17 +47,17 @@ class EPub extends Pack {
 		// Its parts, by their id: their place in the archive, their kind, and what is particular to them
 		$itemList = Array();
 		$coverPth = '';
-		foreach($this->listNamedNodes($this->findChildArray($packList, Array('manifest')) ?? Array('nodes'=>Array()), 'item') as $itmArr){
-			$itemPath = $this->getPathInArchv($packPath, strval($itmArr['attrs']['href'] ?? ''));
-			$itemList[strval($itmArr['attrs']['id'] ?? '')] = Array('paths'=>$itemPath, 'types'=>strtolower(strval($itmArr['attrs']['media-type'] ?? '')));
-			if( in_array('cover-image', explode(' ', strval($itmArr['attrs']['properties'] ?? ''))) ){
+		foreach($this->listNamedNodes($this->findChildArray($packList, Array('manifest')) ?? Array('nodes'=>Array()), 'item') as $oneItm){
+			$itemPath = $this->getPathInArchv($packPath, strval($oneItm['attrs']['href'] ?? ''));
+			$itemList[strval($oneItm['attrs']['id'] ?? '')] = Array('paths'=>$itemPath, 'types'=>strtolower(strval($oneItm['attrs']['media-type'] ?? '')));
+			if( in_array('cover-image', explode(' ', strval($oneItm['attrs']['properties'] ?? ''))) ){
 				$coverPth = $itemPath;
 			}
 		}
 		// Older books name their cover among their details
-		foreach($this->listNamedNodes($metaList, 'meta') as $mtaArr){
-			if( $coverPth==='' && strval($mtaArr['attrs']['name'] ?? '')=='cover' ){
-				$coverPth = strval($itemList[strval($mtaArr['attrs']['content'] ?? '')]['paths'] ?? '');
+		foreach($this->listNamedNodes($metaList, 'meta') as $oneMta){
+			if( $coverPth==='' && strval($oneMta['attrs']['name'] ?? '')=='cover' ){
+				$coverPth = strval($itemList[strval($oneMta['attrs']['content'] ?? '')]['paths'] ?? '');
 			}
 		}
 		// The parts a seller locked cannot be read: a book whose text is locked is refused, one whose fonts only are is not
@@ -108,11 +108,11 @@ class EPub extends Pack {
 	 */
 	protected function getPathInArchv(String $baseFldrText, String $relativePath): String {
 		$pathPart = Array();
-		foreach(explode('/', $baseFldrText.rawurldecode(preg_replace('/[#?].*$/s', '', $relativePath))) as $oneDir){
-			if( $oneDir=='..' ){
+		foreach(explode('/', $baseFldrText.rawurldecode(preg_replace('/[#?].*$/s', '', $relativePath))) as $onePth){
+			if( $onePth=='..' ){
 				array_pop($pathPart);
-			}elseif( $oneDir!=='' && $oneDir!='.' ){
-				$pathPart[] = $oneDir;
+			}elseif( $onePth!=='' && $onePth!='.' ){
+				$pathPart[] = $onePth;
 			}
 		}
 		return implode('/', $pathPart);
@@ -128,12 +128,12 @@ class EPub extends Pack {
 	 * @return Array The blocks.
 	 */
 	protected function alterImageAddr(Array $bookBlockSet, String $baseFldrText): Array {
-		foreach($bookBlockSet as $blkIdx=>$oneBlk){
+		foreach($bookBlockSet as $nthBlk=>$oneBlk){
 			if( $oneBlk['block']=='imageBox' && !preg_match('/^(?:[a-z][a-z0-9+.\-]*:|\/|#)/i', strval($oneBlk['attrs']['sourc'] ?? '')) ){
-				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $this->getPathInArchv($baseFldrText, strval($oneBlk['attrs']['sourc'] ?? ''));
+				$bookBlockSet[$nthBlk]['attrs']['sourc'] = $this->getPathInArchv($baseFldrText, strval($oneBlk['attrs']['sourc'] ?? ''));
 			}
 			if( !empty($oneBlk['items']) ){
-				$bookBlockSet[$blkIdx]['items'] = $this->alterImageAddr($oneBlk['items'], $baseFldrText);
+				$bookBlockSet[$nthBlk]['items'] = $this->alterImageAddr($oneBlk['items'], $baseFldrText);
 			}
 		}
 		return $bookBlockSet;

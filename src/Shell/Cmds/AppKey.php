@@ -114,9 +114,9 @@ class AppKey extends Command{
 		$treeInst = $this->readAccessConf();
 		$blockNme = self::KEYS_BLCK;
 		$rowsList = Array();
-		foreach( get_object_vars($treeInst->$blockNme->appsList ?? new \stdClass()) as $appKey => $appSet ){
-			$appSet = (array)$appSet;
-			$rowsList[] = Array(strval($appKey), implode(', ', array_map('strval', (array)($appSet['routeSet'] ?? Array()))), strval($appSet['publFile'] ?? ''), strval($appSet['roleTops'] ?? Checker::ROLE_LIST[0]), strval($appSet['madeDate'] ?? ''));
+		foreach( get_object_vars($treeInst->$blockNme->appsList ?? new \stdClass()) as $oneKey => $oneSet ){
+			$oneSet = (array)$oneSet;
+			$rowsList[] = Array(strval($oneKey), implode(', ', array_map('strval', (array)($oneSet['routeSet'] ?? Array()))), strval($oneSet['publFile'] ?? ''), strval($oneSet['roleTops'] ?? Checker::ROLE_LIST[0]), strval($oneSet['madeDate'] ?? ''));
 		}
 		$this->printerObj->writeShellRows( Array('application', 'routes', 'public key', 'highest role', 'made'), $rowsList );
 		return self::EXIT_DONE;
@@ -199,9 +199,9 @@ class AppKey extends Command{
 		if( empty($routeLst) ){
 			$this->stopWithReason('Missing option: --routeSet, the routes the application may reach, separated by commas', self::EXIT_HELP);
 		}
-		foreach( $routeLst as $rteVal ){
-			if( !preg_match('#^(/[^\s]+|[A-Za-z0-9]+/(\*|[A-Za-z0-9_]+))$#D', $rteVal) ){
-				$this->stopWithReason('Invalid route '.json_encode($rteVal).': "app/action", "app/*" or a declared path with a leading slash', self::EXIT_HELP);
+		foreach( $routeLst as $oneVal ){
+			if( !preg_match('#^(/[^\s]+|[A-Za-z0-9]+/(\*|[A-Za-z0-9_]+))$#D', $oneVal) ){
+				$this->stopWithReason('Invalid route '.json_encode($oneVal).': "app/action", "app/*" or a declared path with a leading slash', self::EXIT_HELP);
 			}
 		}
 		return $routeLst;

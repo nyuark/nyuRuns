@@ -176,17 +176,17 @@ class DBLst {
 		$dtbsStre = $this->tableDbCon->getStoreObject();
 		$fldsList = Array();
 		$funcsDct = Array();
-		foreach(explode(',', str_replace('`', '', $fldScopeText)) as $column){
+		foreach(explode(',', str_replace('`', '', $fldScopeText)) as $oneCol){
 			// name, table.name, function(name) or function(*), each with an optional alias
-			if( !preg_match('/^(?:(\w+)\((\*|\w+(?:\.\w+)?)\)|(\w+(?:\.\w+)?))(?:\s+as\s+(\w+))?$/iD', trim($column), $fieldPar) ){
-				throw new \RuntimeException('Invalid field selection: '.trim($column));
+			if( !preg_match('/^(?:(\w+)\((\*|\w+(?:\.\w+)?)\)|(\w+(?:\.\w+)?))(?:\s+as\s+(\w+))?$/iD', trim($oneCol), $fieldPar) ){
+				throw new \RuntimeException('Invalid field selection: '.trim($oneCol));
 			}
 			$fieldAls = $fieldPar[4] ?? '';
 			if( $fieldPar[1]!='' ){
 				// An aggregate of DBStore\Store::FUNC_LIST only, and '*' for a count alone
 				$funcsNme = strtolower($fieldPar[1]);
 				if( !in_array($funcsNme, DBStore\Store::FUNC_LIST, true) || ($fieldPar[2]=='*' && $funcsNme!='count') ){
-					throw new \RuntimeException('Invalid field selection: '.trim($column));
+					throw new \RuntimeException('Invalid field selection: '.trim($oneCol));
 				}
 				$funcsDct[] = Array('funct'=>$funcsNme, 'field'=>($fieldPar[2]=='*') ? '*' : $dtbsStre->checkNameChars($fieldPar[2]), 'alias'=>$fieldAls);
 			}elseif( $fieldAls!='' ){
@@ -208,8 +208,8 @@ class DBLst {
 	 */
 	public function setGroupFields( String|Array $groupByField ): Void {
 		$groupLst = Array();
-		foreach((array)$groupByField as $fldNme){
-			$groupLst[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($fldNme));
+		foreach((array)$groupByField as $oneNme){
+			$groupLst[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($oneNme));
 		}
 		$this->groupNames = $groupLst;
 	}
@@ -224,13 +224,13 @@ class DBLst {
 	 */
 	public function setOrderFields( String|Array $sortByFields ): Void {
 		$orderVal = Array();
-		foreach((array)$sortByFields as $fldNme){
-			$fldNme = strval($fldNme);
-			$descSort = (substr($fldNme,0,1)=='^');
+		foreach((array)$sortByFields as $oneNme){
+			$oneNme = strval($oneNme);
+			$descSort = (substr($oneNme,0,1)=='^');
 			if( $descSort ){
-				$fldNme = substr($fldNme, 1);
+				$oneNme = substr($oneNme, 1);
 			}
-			$orderVal[] = Array($this->tableDbCon->getStoreObject()->checkNameChars($fldNme), $descSort);
+			$orderVal[] = Array($this->tableDbCon->getStoreObject()->checkNameChars($oneNme), $descSort);
 		}
 		$this->orderTerms = $orderVal;
 		unset($this->sqlClauses['order']);
@@ -291,8 +291,8 @@ class DBLst {
 			if( count($joinSettings)!=3 ){
 				throw new \RuntimeException('A join needs a table and two field names');
 			}
-			foreach(array_values($joinSettings) as $jonNme){
-				$this->tableJoins[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($jonNme));
+			foreach(array_values($joinSettings) as $oneNme){
+				$this->tableJoins[] = $this->tableDbCon->getStoreObject()->checkNameChars(strval($oneNme));
 			}
 		}
 	}
@@ -321,19 +321,19 @@ class DBLst {
 			$this->readRowsOfList();
 			$listNtry = $this->loadedRows;
 		}
-		foreach($listNtry as $rowKey=>$rowArr){
+		foreach($listNtry as $oneKey=>$oneRow){
 			// A row without a key value has no children
-			if( !isset($rowArr[$ownLinkField]) ){
-				$listNtry[$rowKey][$childTbleTxt] = Array();
+			if( !isset($oneRow[$ownLinkField]) ){
+				$listNtry[$oneKey][$childTbleTxt] = Array();
 				continue;
 			}
 			$subLstng = new DBLst($childTbleTxt, null, null, null, null, $this->tableDbCon);
 			// The key is compared exactly, never read as a wildcard
-			$subLstng->setListFilters(Array($childLinkFld.'='=>$rowArr[$ownLinkField]));
+			$subLstng->setListFilters(Array($childLinkFld.'='=>$oneRow[$ownLinkField]));
 			if($singleFldTxt!=''){
-				$listNtry[$rowKey][$childTbleTxt] = $subLstng->listColumnVals($singleFldTxt);
+				$listNtry[$oneKey][$childTbleTxt] = $subLstng->listColumnVals($singleFldTxt);
 			}else{
-				$listNtry[$rowKey][$childTbleTxt] = $subLstng->readRowsOfList();
+				$listNtry[$oneKey][$childTbleTxt] = $subLstng->readRowsOfList();
 			}
 		}
 		return $listNtry;

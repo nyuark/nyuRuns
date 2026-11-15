@@ -204,8 +204,8 @@ class Shape {
 		$gridRows = Array();
 		foreach($tableBlcList['items'] as $oneRow){
 			$cellText = Array();
-			foreach($oneRow['items'] as $celBlk){
-				$cellText[] = self::getTextOfBlock($celBlk);
+			foreach($oneRow['items'] as $oneCel){
+				$cellText[] = self::getTextOfBlock($oneCel);
 			}
 			$gridRows[] = $cellText;
 		}

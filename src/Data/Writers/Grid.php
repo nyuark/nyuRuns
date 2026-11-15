@@ -30,8 +30,8 @@ abstract class Grid extends Base {
 		$nameText = rtrim($cutsText(($nameText==='') ? 'Sheet'.$sheetPlcNumb : $nameText, 31));
 		$lowerLst = array_map('strtolower', $usedNameList);
 		$baseText = $nameText;
-		for($tryIdx=2; in_array(strtolower($nameText), $lowerLst, true); $tryIdx++){
-			$nameText = $cutsText($baseText, 31-strlen(' ('.$tryIdx.')')).' ('.$tryIdx.')';
+		for($nthNum=2; in_array(strtolower($nameText), $lowerLst, true); $nthNum++){
+			$nameText = $cutsText($baseText, 31-strlen(' ('.$nthNum.')')).' ('.$nthNum.')';
 		}
 		return $nameText;
 	}
@@ -45,8 +45,8 @@ abstract class Grid extends Base {
 	 */
 	protected function listShownSheet(Array $sheetEntries): Array {
 		$shownLst = Array();
-		foreach($sheetEntries as $shtArr){
-			$shownLst[] = !isset($shtArr['attrs']['shown']) || !empty($shtArr['attrs']['shown']);
+		foreach($sheetEntries as $oneTbl){
+			$shownLst[] = !isset($oneTbl['attrs']['shown']) || !empty($oneTbl['attrs']['shown']);
 		}
 		if( !empty($shownLst) && !in_array(true, $shownLst, true) ){
 			$shownLst[0] = true;
@@ -75,9 +75,9 @@ abstract class Grid extends Base {
 		}
 		if( $isByKeys ){
 			foreach($rowsList as $oneRow){
-				foreach(array_keys((array)$oneRow) as $column){
-					if( !in_array(strval($column), $headList, true) ){
-						$headList[] = strval($column);
+				foreach(array_keys((array)$oneRow) as $oneCol){
+					if( !in_array(strval($oneCol), $headList, true) ){
+						$headList[] = strval($oneCol);
 					}
 				}
 			}
@@ -86,8 +86,8 @@ abstract class Grid extends Base {
 		foreach($rowsList as $oneRow){
 			$cellList = Array();
 			if( $isByKeys ){
-				foreach($headList as $column){
-					$cellList[] = ((array)$oneRow)[$column] ?? null;
+				foreach($headList as $oneCol){
+					$cellList[] = ((array)$oneRow)[$oneCol] ?? null;
 				}
 			}else{
 				$cellList = array_values((array)$oneRow);

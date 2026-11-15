@@ -28,22 +28,22 @@ class Json extends Base {
 		$maxDepth = max(1, intval($parseOptions['depth'] ?? 512));
 		if( !empty($parseOptions['cmnts']) ){
 			$keptLnes = Array();
-			foreach(preg_split('/\r\n|\r|\n/', $jsonText) as $linTxt){
-				$trimLine = ltrim($linTxt);
+			foreach(preg_split('/\r\n|\r|\n/', $jsonText) as $oneTxt){
+				$trimLine = ltrim($oneTxt);
 				if( $trimLine==='' || $trimLine[0]=='#' || substr($trimLine, 0, 2)=='//' ){
 					continue;
 				}
-				$keptLnes[] = $linTxt;
+				$keptLnes[] = $oneTxt;
 			}
 			$jsonText = implode("\n", $keptLnes);
 		}
 		if( !empty($parseOptions['lines']) ){
 			$jsonVals = Array();
-			foreach(preg_split('/\r\n|\r|\n/', $jsonText) as $lineNb=>$linTxt){
-				if( trim($linTxt)==='' ){
+			foreach(preg_split('/\r\n|\r|\n/', $jsonText) as $nthLne=>$oneTxt){
+				if( trim($oneTxt)==='' ){
 					continue;
 				}
-				$jsonVals[] = $this->parseJsonValue($linTxt, $maxDepth, ' on line '.($lineNb+1));
+				$jsonVals[] = $this->parseJsonValue($oneTxt, $maxDepth, ' on line '.($nthLne+1));
 			}
 		}elseif( trim($jsonText)==='' ){
 			$jsonVals = Array();

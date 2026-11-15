@@ -49,8 +49,8 @@ class Text extends Base {
 			$blockLst = $this->parseChatsText($fullText);
 		}else{
 			$blockLst = Array();
-			foreach($this->splitParagraph($fullText) as $parTxt){
-				$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText($parTxt)));
+			foreach($this->splitParagraph($fullText) as $oneTxt){
+				$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeSpanOfText($oneTxt)));
 			}
 		}
 		return $this->makeShapeArray('block', $blockLst, Array('reads'=>$readCode));
@@ -66,10 +66,10 @@ class Text extends Base {
 	 */
 	protected function splitParagraph(String $templateText): Array {
 		$prgrList = Array();
-		foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $templateText)) as $parTxt){
-			$parTxt = trim($parTxt);
-			if( trim($parTxt)!=='' ){
-				$prgrList[] = $parTxt;
+		foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $templateText)) as $oneTxt){
+			$oneTxt = trim($oneTxt);
+			if( trim($oneTxt)!=='' ){
+				$prgrList[] = $oneTxt;
 			}
 		}
 		return $prgrList;
@@ -145,8 +145,8 @@ class Text extends Base {
 				}
 			}else{
 				$itemList = Array();
-				foreach($this->splitBbcodeLst($bodyText) as $entTxt){
-					$itemList[] = $this->makeOuterBlock('listItem', $this->parseBbcodeTxt($entTxt));
+				foreach($this->splitBbcodeLst($bodyText) as $oneTxt){
+					$itemList[] = $this->makeOuterBlock('listItem', $this->parseBbcodeTxt($oneTxt));
 				}
 				if( !empty($itemList) ){
 					$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>($tagArgmn!=='')));
@@ -190,8 +190,8 @@ class Text extends Base {
 	 */
 	protected function readBbcodePrgr(String $templateText): Array {
 		$blockLst = Array();
-		foreach($this->splitParagraph($templateText) as $parTxt){
-			$spansLst = Shape::joinSpansArray($this->readBbcodeSpns($parTxt, Array(), ''));
+		foreach($this->splitParagraph($templateText) as $oneTxt){
+			$spansLst = Shape::joinSpansArray($this->readBbcodeSpns($oneTxt, Array(), ''));
 			if( !empty($spansLst) ){
 				$blockLst[] = Shape::makeBlockArray('paragrph', $spansLst);
 			}
@@ -267,8 +267,8 @@ class Text extends Base {
 		$lineList = explode("\n", $templateText);
 		$lineList[] = '';
 		$lineNumb = count($lineList);
-		for($linIdx=0; $linIdx<$lineNumb; $linIdx++){
-			$lineText = rtrim($lineList[$linIdx]);
+		for($nthLne=0; $nthLne<$lineNumb; $nthLne++){
+			$lineText = rtrim($lineList[$nthLne]);
 			$linePart = Array();
 			$lineCode = 'paragrph';
 			$lineOrdr = false;
@@ -286,8 +286,8 @@ class Text extends Base {
 			if( $openCode!=='' && ($lineCode!==$openCode || ($lineCode=='itemList' && $lineOrdr!==$openOrdr)) ){
 				if( $openCode=='itemList' ){
 					$itemList = Array();
-					foreach($openLnes as $entTxt){
-						$itemList[] = Shape::makeBlockArray('listItem', Shape::joinSpansArray($this->readChatsSpans($entTxt, Array())));
+					foreach($openLnes as $oneTxt){
+						$itemList[] = Shape::makeBlockArray('listItem', Shape::joinSpansArray($this->readChatsSpans($oneTxt, Array())));
 					}
 					$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>$openOrdr));
 				}else{

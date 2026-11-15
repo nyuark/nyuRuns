@@ -74,12 +74,12 @@ class ClientReg extends Registry{
 		$headClef = 'http_'.str_replace('-', '_', strtolower(strval($proxyCfgList['head'] ?? 'X-Forwarded-For')));
 		$frwdList = array_reverse( array_map('trim', explode(',', strval($serverValues->readValueByKey($headClef)))) );
 		$addrText = $peerAddr;
-		foreach( $frwdList as $fwdAdr ){
+		foreach( $frwdList as $oneAdr ){
 			// What is not an address ends the reading : the last address found is kept
-			if( filter_var($fwdAdr, FILTER_VALIDATE_IP)===false ){
+			if( filter_var($oneAdr, FILTER_VALIDATE_IP)===false ){
 				break;
 			}
-			$addrText = $this->unwrapIpv4Addr($fwdAdr);
+			$addrText = $this->unwrapIpv4Addr($oneAdr);
 			if( !$this->isTrustedProxy($addrText, $trstList) ){
 				break;
 			}
@@ -116,8 +116,8 @@ class ClientReg extends Registry{
 	 * @return Bool True when the address is listed, or within a listed range.
 	 */
 	protected function isTrustedProxy( String $searchedAddr, Array $proxyAdrList ): Bool {
-		foreach( $proxyAdrList as $trsNet ){
-			if( $this->isAddrInSubnet($searchedAddr, strval($trsNet)) ){
+		foreach( $proxyAdrList as $oneNet ){
+			if( $this->isAddrInSubnet($searchedAddr, strval($oneNet)) ){
 				return true;
 			}
 		}
@@ -195,9 +195,9 @@ class ClientReg extends Registry{
 	protected function findSystemText( String $userAgentTxt ): String {
 		// Order matters : Android agents also name Linux, iPhone ones also name Mac OS X
 		$systDict = Array('Windows'=>'Windows', 'Android'=>'Android', 'iOS'=>'iPhone|iPad|iPod', 'macOS'=>'Macintosh|Mac OS X', 'ChromeOS'=>'CrOS', 'Linux'=>'Linux');
-		foreach( $systDict as $osName => $osExpr ){
-			if( preg_match('/'.$osExpr.'/i', $userAgentTxt) ){
-				return $osName;
+		foreach( $systDict as $oneNme => $oneRgx ){
+			if( preg_match('/'.$oneRgx.'/i', $userAgentTxt) ){
+				return $oneNme;
 			}
 		}
 		return '';

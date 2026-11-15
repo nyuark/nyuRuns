@@ -55,13 +55,13 @@ class Xlsx extends Grid {
 		$rltnText = '';
 		$typeText = '';
 		$shownLst = $this->listShownSheet($sheetLst);
-		foreach($sheetLst as $shtIdx=>$shtArr){
-			$sheetNme = $this->wipeSheetTitle(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameList);
+		foreach($sheetLst as $nthTbl=>$oneTbl){
+			$sheetNme = $this->wipeSheetTitle(strval($oneTbl['title'] ?? ''), $nthTbl+1, $nameList);
 			$nameList[] = $sheetNme;
-			$partList['xl/worksheets/sheet'.($shtIdx+1).'.xml'] = $this->writeSheetPart((array)$shtArr, $withHdrs, $hasDates, $shtIdx==array_search(true, $shownLst, true));
-			$bookText .= '<sheet name="'.$this->escapeXmlValue($sheetNme).'" sheetId="'.($shtIdx+1).'"'.($shownLst[$shtIdx] ? '' : ' state="hidden"').' r:id="rId'.($shtIdx+1).'"/>';
-			$rltnText .= '<Relationship Id="rId'.($shtIdx+1).'" Type="'.self::RELS_NAME.'/worksheet" Target="worksheets/sheet'.($shtIdx+1).'.xml"/>';
-			$typeText .= '<Override PartName="/xl/worksheets/sheet'.($shtIdx+1).'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+			$partList['xl/worksheets/sheet'.($nthTbl+1).'.xml'] = $this->writeSheetPart((array)$oneTbl, $withHdrs, $hasDates, $nthTbl==array_search(true, $shownLst, true));
+			$bookText .= '<sheet name="'.$this->escapeXmlValue($sheetNme).'" sheetId="'.($nthTbl+1).'"'.($shownLst[$nthTbl] ? '' : ' state="hidden"').' r:id="rId'.($nthTbl+1).'"/>';
+			$rltnText .= '<Relationship Id="rId'.($nthTbl+1).'" Type="'.self::RELS_NAME.'/worksheet" Target="worksheets/sheet'.($nthTbl+1).'.xml"/>';
+			$typeText .= '<Override PartName="/xl/worksheets/sheet'.($nthTbl+1).'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
 		}
 		$headBrut = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n";
 		$infoList = (array)($dataEnvelope['infos'] ?? Array());
@@ -103,8 +103,8 @@ class Xlsx extends Grid {
 	 */
 	protected function getColumnChars(Int $columnNumber): String {
 		$clmnLttr = '';
-		for($clmnNb=$columnNumber+1; $clmnNb>0; $clmnNb=intdiv($clmnNb-1, 26)){
-			$clmnLttr = chr(65+($clmnNb-1)%26).$clmnLttr;
+		for($nthCol=$columnNumber+1; $nthCol>0; $nthCol=intdiv($nthCol-1, 26)){
+			$clmnLttr = chr(65+($nthCol-1)%26).$clmnLttr;
 		}
 		return $clmnLttr;
 	}
@@ -130,20 +130,20 @@ class Xlsx extends Grid {
 		if( $hasHeadr ){
 			$rowCount = 1;
 			$dataText .= '<row r="1">';
-			foreach($headList as $colInc=>$column){
-				$dataText .= $this->writeTypedCell($column, $this->getColumnChars($colInc).'1', false, self::STYL_LIST['headCell']);
-				$wideList[$colInc] = strlen($column);
+			foreach($headList as $nthCol=>$oneCol){
+				$dataText .= $this->writeTypedCell($oneCol, $this->getColumnChars($nthCol).'1', false, self::STYL_LIST['headCell']);
+				$wideList[$nthCol] = strlen($oneCol);
 			}
 			$dataText .= '</row>';
 		}
 		foreach($gridDict['cells'] as $oneRow){
 			$rowCount++;
 			$rowStrng = '';
-			foreach($oneRow as $colInc=>$oneVal){
-				$cellText = $this->writeTypedCell($oneVal, $this->getColumnChars($colInc).$rowCount, $writeAsDates, 0);
+			foreach($oneRow as $nthCol=>$oneVal){
+				$cellText = $this->writeTypedCell($oneVal, $this->getColumnChars($nthCol).$rowCount, $writeAsDates, 0);
 				if( $cellText!=='' ){
 					$rowStrng .= $cellText;
-					$wideList[$colInc] = max($wideList[$colInc] ?? 0, is_scalar($oneVal) ? strlen(strval($oneVal)) : 0);
+					$wideList[$nthCol] = max($wideList[$nthCol] ?? 0, is_scalar($oneVal) ? strlen(strval($oneVal)) : 0);
 				}
 			}
 			// A row holding nothing is not written: the next one tells its number
@@ -154,18 +154,18 @@ class Xlsx extends Grid {
 		// The columns are as wide as what they hold, within reason
 		$colsText = '';
 		ksort($wideList);
-		foreach($wideList as $colInc=>$wdthNb){
-			$colsText .= '<col min="'.($colInc+1).'" max="'.($colInc+1).'" width="'.max(8, min(60, $wdthNb+2)).'" customWidth="1"/>';
+		foreach($wideList as $nthCol=>$oneWid){
+			$colsText .= '<col min="'.($nthCol+1).'" max="'.($nthCol+1).'" width="'.max(8, min(60, $oneWid+2)).'" customWidth="1"/>';
 		}
 		$mergeTxt = '';
 		$mergeCnt = 0;
-		foreach((array)($sheetDetails['attrs']['merge'] ?? Array()) as $mrgArr){
-			$mrgArr = array_map('intval', (array)$mrgArr) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
+		foreach((array)($sheetDetails['attrs']['merge'] ?? Array()) as $oneMrg){
+			$oneMrg = array_map('intval', (array)$oneMrg) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
 			// An area of one cell is no merge, and one leaving the worksheet is not written
-			if( $mrgArr['atrow']<0 || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || ($mrgArr['rowsp']==1 && $mrgArr['colsp']==1) || $mrgArr['atrow']+$mrgArr['rowsp']>self::ROWS_MAXI || $mrgArr['atcol']+$mrgArr['colsp']>self::COLS_MAXI ){
+			if( $oneMrg['atrow']<0 || $oneMrg['atcol']<0 || $oneMrg['rowsp']<1 || $oneMrg['colsp']<1 || ($oneMrg['rowsp']==1 && $oneMrg['colsp']==1) || $oneMrg['atrow']+$oneMrg['rowsp']>self::ROWS_MAXI || $oneMrg['atcol']+$oneMrg['colsp']>self::COLS_MAXI ){
 				continue;
 			}
-			$mergeTxt .= '<mergeCell ref="'.$this->getColumnChars($mrgArr['atcol']).($mrgArr['atrow']+1).':'.$this->getColumnChars($mrgArr['atcol']+$mrgArr['colsp']-1).($mrgArr['atrow']+$mrgArr['rowsp']).'"/>';
+			$mergeTxt .= '<mergeCell ref="'.$this->getColumnChars($oneMrg['atcol']).($oneMrg['atrow']+1).':'.$this->getColumnChars($oneMrg['atcol']+$oneMrg['colsp']-1).($oneMrg['atrow']+$oneMrg['rowsp']).'"/>';
 			$mergeCnt++;
 		}
 		return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<worksheet xmlns="'.self::MAIN_NAME.'">'

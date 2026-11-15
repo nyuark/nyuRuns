@@ -91,24 +91,24 @@ abstract class Base implements Parser {
 		if( empty($cellRowsList) ){
 			return Array();
 		}
-		foreach(array_values((array)array_shift($cellRowsList)) as $colInc=>$header){
-			$nameText = is_scalar($header) ? trim(strval($header)) : '';
+		foreach(array_values((array)array_shift($cellRowsList)) as $nthCol=>$oneHed){
+			$nameText = is_scalar($oneHed) ? trim(strval($oneHed)) : '';
 			// A column must have a key of its own, whatever its name
 			if( $nameText==='' ){
-				$nameText = strval($colInc+1);
+				$nameText = strval($nthCol+1);
 			}
-			$columnTitles[] = in_array($nameText, $columnTitles, true) ? $nameText.'_'.($colInc+1) : $nameText;
+			$columnTitles[] = in_array($nameText, $columnTitles, true) ? $nameText.'_'.($nthCol+1) : $nameText;
 		}
-		foreach($cellRowsList as $rowIdx=>$oneRow){
+		foreach($cellRowsList as $nthRow=>$oneRow){
 			$oneRow = array_values((array)$oneRow);
 			$keyedRow = Array();
-			foreach($columnTitles as $colInc=>$header){
-				$keyedRow[$header] = $oneRow[$colInc] ?? null;
+			foreach($columnTitles as $nthCol=>$oneHed){
+				$keyedRow[$oneHed] = $oneRow[$nthCol] ?? null;
 			}
-			for($colInc=count($columnTitles); $colInc<count($oneRow); $colInc++){
-				$keyedRow[strval($colInc+1)] = $oneRow[$colInc];
+			for($nthCol=count($columnTitles); $nthCol<count($oneRow); $nthCol++){
+				$keyedRow[strval($nthCol+1)] = $oneRow[$nthCol];
 			}
-			$cellRowsList[$rowIdx] = $keyedRow;
+			$cellRowsList[$nthRow] = $keyedRow;
 		}
 		return $cellRowsList;
 	}
@@ -146,8 +146,8 @@ abstract class Base implements Parser {
 	 */
 	protected function castKeysInCaps(Array $fieldValList): Array {
 		$upprVals = Array();
-		foreach($fieldValList as $valKey=>$valItm){
-			$upprVals[is_string($valKey) ? strtoupper($valKey) : $valKey] = $valItm;
+		foreach($fieldValList as $oneKey=>$oneItm){
+			$upprVals[is_string($oneKey) ? strtoupper($oneKey) : $oneKey] = $oneItm;
 		}
 		return $upprVals;
 	}

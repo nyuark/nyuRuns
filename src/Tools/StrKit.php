@@ -62,9 +62,9 @@ class StrKit{
 		$breakCnt = 0;
 		$isXmlDoc = false;
 		$textSize = strlen($nakedContent);
-		for( $posInc=0; $posInc<$textSize; $posInc++ ){
-			$charactr = $nakedContent[$posInc];
-			$prevChar = $posInc>0 ? $nakedContent[$posInc-1] : '';
+		for( $nthPos=0; $nthPos<$textSize; $nthPos++ ){
+			$charactr = $nakedContent[$nthPos];
+			$prevChar = $nthPos>0 ? $nakedContent[$nthPos-1] : '';
 			if( $tagCodig==0 ){
 				if( $charactr=='<' ){
 					$tagCodig = 1;
@@ -74,7 +74,7 @@ class StrKit{
 					$outStrng .= $charactr;
 				}
 			}elseif( $tagCodig==4 ){
-				if( $charactr=='>' && $posInc>=2 && $prevChar=='-' && $nakedContent[$posInc-2]=='-' ){
+				if( $charactr=='>' && $nthPos>=2 && $prevChar=='-' && $nakedContent[$nthPos-2]=='-' ){
 					$tagCodig = 0;
 				}
 			}elseif( $charactr=='>' ){
@@ -102,14 +102,14 @@ class StrKit{
 					$breakCnt++;
 				}elseif( $charactr==')' ){
 					$breakCnt--;
-				}elseif( ($charactr=='l' || $charactr=='L') && $posInc>4 && strtolower(substr($nakedContent, $posInc-4, 4))=='<?xm' ){
+				}elseif( ($charactr=='l' || $charactr=='L') && $nthPos>4 && strtolower(substr($nakedContent, $nthPos-4, 4))=='<?xm' ){
 					$tagCodig = 1;
 					$isXmlDoc = true;
 				}
 			}elseif( $tagCodig==3 ){
-				if( $charactr=='-' && $posInc>=2 && $prevChar=='-' && $nakedContent[$posInc-2]=='!' ){
+				if( $charactr=='-' && $nthPos>=2 && $prevChar=='-' && $nakedContent[$nthPos-2]=='!' ){
 					$tagCodig = 4;
-				}elseif( ($charactr=='E' || $charactr=='e') && $posInc>6 && strtolower(substr($nakedContent, $posInc-6, 6))=='doctyp' ){
+				}elseif( ($charactr=='E' || $charactr=='e') && $nthPos>6 && strtolower(substr($nakedContent, $nthPos-6, 6))=='doctyp' ){
 					$tagCodig = 1;
 				}
 			}

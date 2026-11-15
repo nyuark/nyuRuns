@@ -97,8 +97,8 @@ class Manage extends Command{
 		if( $userVals===false ){
 			$this->stopStoreError($storeObj);
 		}
-		foreach( $userVals as $fldKey => $fldVal ){
-			$this->printerObj->writeShellPair(strval($fldKey), $fldVal);
+		foreach( $userVals as $oneKey => $oneVal ){
+			$this->printerObj->writeShellPair(strval($oneKey), $oneVal);
 		}
 		return self::EXIT_DONE;
 	}

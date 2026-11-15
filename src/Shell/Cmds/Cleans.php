@@ -71,15 +71,15 @@ class Cleans extends Command{
 			$this->stopWithReason('Nothing was removed: not confirmed', self::EXIT_DENY);
 		}
 		$rowsList = Array();
-		foreach( $kindList as $kndNme ){
-			$fieldPth = $this->checkTempFoldr( $this->findTempFolder($kndNme) );
+		foreach( $kindList as $oneNme ){
+			$fieldPth = $this->checkTempFoldr( $this->findTempFolder($oneNme) );
 			if( $fieldPth===null ){
-				$rowsList[] = Array($kndNme, 0, 'left alone: its folder is missing, or not under temp');
+				$rowsList[] = Array($oneNme, 0, 'left alone: its folder is missing, or not under temp');
 				continue;
 			}
 			$dropNumb = $this->dropFilesCount($fieldPth, $uptoUnix);
-			$rowsList[] = Array($kndNme, $dropNumb, 'purged');
-			$this->logShellChange( 'Purge of '.$kndNme.': '.$dropNumb.' files removed'.( $keepDays!==null ? ', older than '.$keepDays.' days' : '' ) );
+			$rowsList[] = Array($oneNme, $dropNumb, 'purged');
+			$this->logShellChange( 'Purge of '.$oneNme.': '.$dropNumb.' files removed'.( $keepDays!==null ? ', older than '.$keepDays.' days' : '' ) );
 		}
 		$this->printerObj->writeShellRows( Array('folder', 'removed', 'state'), $rowsList );
 		return self::EXIT_DONE;
@@ -93,12 +93,12 @@ class Cleans extends Command{
 	public function invokeFullList(): Int {
 		$lmtrInst = new Limiter( $this->accessSettings('tryLimit') );
 		$rowsList = Array();
-		foreach( $lmtrInst->listLimitHolds() as $cntVal ){
+		foreach( $lmtrInst->listLimitHolds() as $oneVal ){
 			$rowsList[] = Array(
-				($cntVal['addrs']!='') ? $cntVal['addrs'] : '(not told)',
-				$cntVal['fails'],
-				date('Y-m-d H:i:s', $cntVal['stamp']),
-				($cntVal['until']>0) ? date('Y-m-d H:i:s', $cntVal['until']) : ''
+				($oneVal['addrs']!='') ? $oneVal['addrs'] : '(not told)',
+				$oneVal['fails'],
+				date('Y-m-d H:i:s', $oneVal['stamp']),
+				($oneVal['until']>0) ? date('Y-m-d H:i:s', $oneVal['until']) : ''
 			);
 		}
 		$this->printerObj->writeShellRows( Array('address', 'failures', 'last', 'held until'), $rowsList );
@@ -172,11 +172,11 @@ class Cleans extends Command{
 	 */
 	protected function dropFilesCount( String $fullFldrPath, ?Int $momentAsUnix=null ): Int {
 		$dropNumb = 0;
-		foreach( (array)scandir($fullFldrPath) as $entNme ){
-			if( $entNme=='.' || $entNme=='..' || $entNme=='.gitkeep' ){
+		foreach( (array)scandir($fullFldrPath) as $oneNme ){
+			if( $oneNme=='.' || $oneNme=='..' || $oneNme=='.gitkeep' ){
 				continue;
 			}
-			$subTrail = $fullFldrPath.DS.$entNme;
+			$subTrail = $fullFldrPath.DS.$oneNme;
 			if( is_link($subTrail) ){
 				continue;
 			}

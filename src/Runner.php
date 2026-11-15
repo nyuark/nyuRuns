@@ -138,11 +138,11 @@ class Runner{
 			throw new \RuntimeException(self::DOOR_FILE.' cannot be read: { "doorways": [ { "hostName", "basePath", "presetId" } ] } expected');
 		}
 		$rowsList = Array();
-		foreach( $doorVals['doorways'] ?? Array() as $rowIdx => $oneRow ){
+		foreach( $doorVals['doorways'] ?? Array() as $nthRow => $oneRow ){
 			$hostText = is_array($oneRow) ? ($oneRow['hostName'] ?? '') : null;
 			if( !is_array($oneRow) || array_diff(array_keys($oneRow), Array('hostName', 'basePath', 'presetId')) || !is_string($hostText) || !preg_match('/^[a-z0-9.\-]*$/Di', $hostText)
 				|| !is_string($oneRow['basePath'] ?? null) || !preg_match('#^/[\w.\-/]*$#D', $oneRow['basePath']) || !is_string($oneRow['presetId'] ?? null) || !preg_match('/^\w+$/D', $oneRow['presetId']) ){
-				throw new \RuntimeException(self::DOOR_FILE.' cannot be read: line '.($rowIdx + 1).' needs a basePath starting with a slash, a presetId, and a hostName or none');
+				throw new \RuntimeException(self::DOOR_FILE.' cannot be read: line '.($nthRow + 1).' needs a basePath starting with a slash, a presetId, and a hostName or none');
 			}
 			$rowsList[] = Array( 'hostName'=>strtolower($hostText), 'basePath'=>'/'.trim($oneRow['basePath'], '/'), 'presetId'=>$oneRow['presetId'] );
 		}
@@ -252,33 +252,33 @@ class Runner{
 	 * @param String $fldLabelText Name the entries were sent under, for the nested ones.
 	 */
 	protected function logUploadFiles( Array $rqtFilesList, String $fldLabelText='' ): Void {
-		foreach( $rqtFilesList as $filKey=>$filVal ){
-			if( !is_array($filVal) ){
+		foreach( $rqtFilesList as $oneFil=>$oneVal ){
+			if( !is_array($oneVal) ){
 				continue;
 			}
-			$labelTxt = ($fldLabelText=='') ? strval($filKey) : $fldLabelText.'['.$filKey.']';
-			if( !array_key_exists('error', $filVal) || !array_key_exists('name', $filVal) ){
+			$labelTxt = ($fldLabelText=='') ? strval($oneFil) : $fldLabelText.'['.$oneFil.']';
+			if( !array_key_exists('error', $oneVal) || !array_key_exists('name', $oneVal) ){
 				// Files sent under a bracketed name are nested
-				$this->logUploadFiles( $filVal, $labelTxt );
+				$this->logUploadFiles( $oneVal, $labelTxt );
 				continue;
 			}
-			if( is_array($filVal['error']) ){
+			if( is_array($oneVal['error']) ){
 				// Several files under one name, as PHP describes them : one entry is rebuilt for each
 				$subLstng = Array();
-				foreach( array_keys($filVal['error']) as $subKey ){
-					$subLstng[$subKey] = Array('name'=>$filVal['name'][$subKey] ?? '', 'type'=>$filVal['type'][$subKey] ?? '', 'size'=>$filVal['size'][$subKey] ?? 0, 'error'=>$filVal['error'][$subKey]);
+				foreach( array_keys($oneVal['error']) as $oneKey ){
+					$subLstng[$oneKey] = Array('name'=>$oneVal['name'][$oneKey] ?? '', 'type'=>$oneVal['type'][$oneKey] ?? '', 'size'=>$oneVal['size'][$oneKey] ?? 0, 'error'=>$oneVal['error'][$oneKey]);
 				}
 				$this->logUploadFiles( $subLstng, $labelTxt );
 				continue;
 			}
-			$errorCod = intval($filVal['error']);
+			$errorCod = intval($oneVal['error']);
 			if( $errorCod==UPLOAD_ERR_NO_FILE ){
 				continue;
 			}
 			// The names are the client's own : written as JSON texts
-			$nameText = json_encode(strval($filVal['name']), JSON_INVALID_UTF8_SUBSTITUTE).' as '.json_encode($labelTxt, JSON_INVALID_UTF8_SUBSTITUTE);
+			$nameText = json_encode(strval($oneVal['name']), JSON_INVALID_UTF8_SUBSTITUTE).' as '.json_encode($labelTxt, JSON_INVALID_UTF8_SUBSTITUTE);
 			if( $errorCod==UPLOAD_ERR_OK ){
-				$this->runnerLogs->info( 'File received: '.$nameText.' ('.json_encode(strval($filVal['type'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES).', '.intval($filVal['size'] ?? 0).' bytes)'.Logger::getActorSuffix() );
+				$this->runnerLogs->info( 'File received: '.$nameText.' ('.json_encode(strval($oneVal['type'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES).', '.intval($oneVal['size'] ?? 0).' bytes)'.Logger::getActorSuffix() );
 			}else{
 				$this->runnerLogs->warning( 'File upload failed: '.$nameText.', error '.$errorCod.Logger::getActorSuffix() );
 			}
@@ -484,8 +484,8 @@ class Runner{
 			$wasFound = $this->requestRsp->setFileToReply( $routeGol, strval($this->routerRegr->readValueByKey('routType')), strval($this->requestObj->getHeaderValue('Range')) );
 			// The client may keep the file, and a proxy too when it is served to anyone
 			$askdHedr = Array();
-			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $hdrKey ){
-				$askdHedr[$hdrKey] = strval($this->requestObj->getHeaderValue($hdrKey));
+			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $oneKey ){
+				$askdHedr[$oneKey] = strval($this->requestObj->getHeaderValue($oneKey));
 			}
 			$this->requestRsp->cacheReplyFile( $askdHedr, !$this->accessRegr->readValueByKey('loggedIn') );
 		}else{

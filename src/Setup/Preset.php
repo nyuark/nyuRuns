@@ -79,21 +79,21 @@ class Preset{
 	 * @throws \RuntimeException When a key is unknown, or a block is not a set of keys.
 	 */
 	protected function checkKeysArray(String $nameOfPreset): Void {
-		foreach( $this->presetData as $blkKey => $blkVal ){
-			if( !in_array($blkKey, self::KEYS_LIST[''], true) ){
-				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown key: '.$blkKey);
+		foreach( $this->presetData as $oneKey => $oneVal ){
+			if( !in_array($oneKey, self::KEYS_LIST[''], true) ){
+				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown key: '.$oneKey);
 			}
-			if( !isset(self::KEYS_LIST[$blkKey]) ){
+			if( !isset(self::KEYS_LIST[$oneKey]) ){
 				continue;
 			}
-			if( !is_array($blkVal) ){
-				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a block that is not a set of keys: '.$blkKey);
+			if( !is_array($oneVal) ){
+				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a block that is not a set of keys: '.$oneKey);
 			}
 			// The sources of the inputs are a list, each checked as a block
-			foreach( ($blkKey=='inputSet' ? $blkVal : Array($blkVal)) as $setVal ){
-				foreach( array_keys((array)$setVal) as $setKey ){
-					if( !in_array($setKey, self::KEYS_LIST[$blkKey], true) ){
-						throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown key: '.$blkKey.'.'.$setKey);
+			foreach( ($oneKey=='inputSet' ? $oneVal : Array($oneVal)) as $oneItm ){
+				foreach( array_keys((array)$oneItm) as $oneSet ){
+					if( !in_array($oneSet, self::KEYS_LIST[$oneKey], true) ){
+						throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown key: '.$oneKey.'.'.$oneSet);
 					}
 				}
 			}
@@ -103,9 +103,9 @@ class Preset{
 		if( !is_array($mountLst) || (!empty($mountLst) && array_is_list($mountLst)) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds mounts that are not an object of applications: '.json_encode($mountLst, JSON_UNESCAPED_SLASHES));
 		}
-		foreach( $mountLst as $mntKey => $mntVal ){
-			if( $mntVal!==false && (!is_string($mntVal) || !preg_match('#^[A-Za-z0-9_\-/]*$#D', $mntVal)) ){
-				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a mount that is not false or a path prefix for the application '.json_encode(strval($mntKey)).': '.json_encode($mntVal, JSON_UNESCAPED_SLASHES));
+		foreach( $mountLst as $oneKey => $oneVal ){
+			if( $oneVal!==false && (!is_string($oneVal) || !preg_match('#^[A-Za-z0-9_\-/]*$#D', $oneVal)) ){
+				throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds a mount that is not false or a path prefix for the application '.json_encode(strval($oneKey)).': '.json_encode($oneVal, JSON_UNESCAPED_SLASHES));
 			}
 		}
 		// A format the reply cannot be written in would only fail at the first request

@@ -204,8 +204,8 @@ class Device implements Handler{
 		try{
 			$dtbsHndr = $this->openUserBaseDb();
 			$fieldLst = Array();
-			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
-				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$fldNme);
+			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate') as $oneNme ){
+				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$oneNme);
 			}
 			$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.systemName');
 			$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.accessRole');
@@ -238,11 +238,11 @@ class Device implements Handler{
 		try{
 			$dtbsHndr = $this->openUserBaseDb();
 			$fieldLst = Array();
-			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'revokeDate') as $fldNme ){
-				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$fldNme);
+			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'revokeDate') as $oneNme ){
+				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$oneNme);
 			}
-			foreach( Array('id_user', 'systemName', 'accessRole', 'userStatus') as $fldNme ){
-				$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.'.$fldNme);
+			foreach( Array('id_user', 'systemName', 'accessRole', 'userStatus') as $oneNme ){
+				$fieldLst[] = $dtbsHndr->quoteFieldName($this->usersTable.'.'.$oneNme);
 			}
 			$dvceQuer = 'SELECT '.implode(', ', $fieldLst).' FROM '.$dtbsHndr->quoteFieldName($this->deviceTble)
 				.' INNER JOIN '.$dtbsHndr->quoteFieldName($this->usersTable)

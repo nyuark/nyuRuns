@@ -69,9 +69,9 @@ class UserFile{
 	 */
 	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $skippedCount=0 ): Array|Bool {
 		$this->dropOldRefusal();
-		foreach( Array('userStatus'=>Native::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $fldNme => $allows ){
-			$givenTxt = $criteriaList[$fldNme] ?? '';
-			if( $givenTxt!=='' && $givenTxt!==null && !in_array($givenTxt, $allows, true) ){
+		foreach( Array('userStatus'=>Native::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $oneNme => $oneLst ){
+			$givenTxt = $criteriaList[$oneNme] ?? '';
+			if( $givenTxt!=='' && $givenTxt!==null && !in_array($givenTxt, $oneLst, true) ){
 				return $this->denyWithReason(400, 'Invalid filter');
 			}
 		}
@@ -80,8 +80,8 @@ class UserFile{
 			return false;
 		}
 		$rowsList = Array();
-		foreach( $userList as $usrRow ){
-			$shwnList = $this->getShownValues($usrRow);
+		foreach( $userList as $oneRow ){
+			$shwnList = $this->getShownValues($oneRow);
 			if( in_array($criteriaList['userStatus'] ?? '', Array('', null, $shwnList['userStatus']), true) && in_array($criteriaList['accessRole'] ?? '', Array('', null, $shwnList['accessRole']), true) ){
 				$rowsList[] = $shwnList;
 			}
@@ -137,12 +137,12 @@ class UserFile{
 		}
 		$wasAdded = $this->alterUsersFile( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVals, $usrPasswdTxt, $langVals ): ?Array {
 			$lastNumb = 0;
-			foreach( $usersRecords as $usrRow ){
-				if( strcasecmp(strval($usrRow['systemName'] ?? ''), $namedUserTxt)==0 ){
+			foreach( $usersRecords as $oneRow ){
+				if( strcasecmp(strval($oneRow['systemName'] ?? ''), $namedUserTxt)==0 ){
 					$this->denyWithReason(409, 'User name already taken');
 					return null;
 				}
-				$lastNumb = max( $lastNumb, intval($usrRow['id_user'] ?? 0) );
+				$lastNumb = max( $lastNumb, intval($oneRow['id_user'] ?? 0) );
 			}
 			$usersRecords[] = Array('id_user'=>$lastNumb+1, 'systemName'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVals, 'userStatus'=>'approved') + ( ($langVals!=='') ? Array('userLocale'=>$langVals) : Array() );
 			return $usersRecords;
@@ -230,8 +230,8 @@ class UserFile{
 			return $this->denyWithReason(400, 'Invalid mail address');
 		}
 		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVals ): ?Array {
-			foreach( $usersRecords as $usrPos => $usrRow ){
-				if( $mailVals!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['contactEml'] ?? ''))===$mailVals ){
+			foreach( $usersRecords as $nthUsr => $oneRow ){
+				if( $mailVals!=='' && $nthUsr!==$usersIndxNum && strtolower(strval($oneRow['contactEml'] ?? ''))===$mailVals ){
 					$this->denyWithReason(409, 'Mail address already used');
 					return null;
 				}
@@ -532,8 +532,8 @@ class UserFile{
 		$fileVals = json_decode( strval(@file_get_contents($this->usrLstPath)), true );
 		$userList = is_array($fileVals) ? ($fileVals['users'] ?? null) : null;
 		$isAddrOk = is_array($userList);
-		foreach( (array)$userList as $usrRow ){
-			$isAddrOk = $isAddrOk && is_array($usrRow) && is_string($usrRow['systemName'] ?? null) && $usrRow['systemName']!='';
+		foreach( (array)$userList as $oneRow ){
+			$isAddrOk = $isAddrOk && is_array($oneRow) && is_string($oneRow['systemName'] ?? null) && $oneRow['systemName']!='';
 		}
 		if( !$isAddrOk ){
 			$this->denyWithReason(500, 'Users file cannot be used: '.$this->nameOfFile.' is not a JSON text holding a "users" list');
@@ -553,11 +553,11 @@ class UserFile{
 	protected function saveUsersLines( Array $usersRecords ): Bool {
 		$jsonFlag = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 		$lineList = Array();
-		foreach( $usersRecords as $usrRow ){
+		foreach( $usersRecords as $oneRow ){
 			$partList = Array();
-			foreach( array_merge(self::FLDS_LIST, array_diff(array_keys($usrRow), self::FLDS_LIST)) as $fldNme ){
-				if( isset($usrRow[$fldNme]) && $usrRow[$fldNme]!=='' ){
-					$partList[] = json_encode(strval($fldNme), $jsonFlag).': '.json_encode($usrRow[$fldNme], $jsonFlag);
+			foreach( array_merge(self::FLDS_LIST, array_diff(array_keys($oneRow), self::FLDS_LIST)) as $oneNme ){
+				if( isset($oneRow[$oneNme]) && $oneRow[$oneNme]!=='' ){
+					$partList[] = json_encode(strval($oneNme), $jsonFlag).': '.json_encode($oneRow[$oneNme], $jsonFlag);
 				}
 			}
 			$lineList[] = "\t\t".'{ '.implode(', ', $partList).' }';
@@ -586,9 +586,9 @@ class UserFile{
 	 * @return ?Int Its place, or null when there is no such user.
 	 */
 	protected function findIndexCount( Array $usersRecords, String $namedUserTxt ): ?Int {
-		foreach( $usersRecords as $usrIdx => $usrRow ){
-			if( ($usrRow['systemName'] ?? null)===$namedUserTxt ){
-				return intval($usrIdx);
+		foreach( $usersRecords as $nthUsr => $oneRow ){
+			if( ($oneRow['systemName'] ?? null)===$namedUserTxt ){
+				return intval($nthUsr);
 			}
 		}
 		return null;
@@ -625,8 +625,8 @@ class UserFile{
 	protected function isFinalManager( Array $usersRecords, Int $usersIndxNum ): Bool {
 		$highRole = array_slice(Checker::ROLE_LIST, -1)[0];
 		$mngrNumb = 0;
-		foreach( $usersRecords as $usrRow ){
-			if( strval($usrRow['accessRole'] ?? '')===$highRole && strval($usrRow['userStatus'] ?? 'approved')==='approved' ){
+		foreach( $usersRecords as $oneRow ){
+			if( strval($oneRow['accessRole'] ?? '')===$highRole && strval($oneRow['userStatus'] ?? 'approved')==='approved' ){
 				$mngrNumb++;
 			}
 		}

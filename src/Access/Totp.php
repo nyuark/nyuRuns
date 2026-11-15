@@ -28,8 +28,8 @@ class Totp{
 			$bitStrng .= str_pad(decbin(ord($oneByt)), 8, '0', STR_PAD_LEFT);
 		}
 		$secrText = '';
-		foreach( str_split($bitStrng, 5) as $bitGrp ){
-			$secrText .= self::BASE_CHRS[bindec($bitGrp)];
+		foreach( str_split($bitStrng, 5) as $oneGrp ){
+			$secrText .= self::BASE_CHRS[bindec($oneGrp)];
 		}
 		return $secrText;
 	}
@@ -76,9 +76,9 @@ class Totp{
 		}
 		$currStep = intdiv($momentAsUnix ?? time(), self::STEP_SECS);
 		$stepMatx = null;
-		foreach( Array(-1, 0, 1) as $stpInc ){
-			if( hash_equals( self::makeCodeAtTime($codeSecrText, ($currStep + $stpInc)*self::STEP_SECS), $codeFromUser ) ){
-				$stepMatx = $currStep + $stpInc;
+		foreach( Array(-1, 0, 1) as $nthStp ){
+			if( hash_equals( self::makeCodeAtTime($codeSecrText, ($currStep + $nthStp)*self::STEP_SECS), $codeFromUser ) ){
+				$stepMatx = $currStep + $nthStp;
 			}
 		}
 		return $stepMatx;
@@ -131,17 +131,17 @@ class Totp{
 	 */
 	protected static function castFromBase32( String $codeSecrText ): String {
 		$bitStrng = '';
-		foreach( str_split(strtoupper(rtrim(str_replace(' ', '', $codeSecrText), '='))) as $letter ){
-			$charIndx = strpos(self::BASE_CHRS, $letter);
+		foreach( str_split(strtoupper(rtrim(str_replace(' ', '', $codeSecrText), '='))) as $oneChr ){
+			$charIndx = strpos(self::BASE_CHRS, $oneChr);
 			if( $charIndx===false ){
 				return '';
 			}
 			$bitStrng .= str_pad(decbin($charIndx), 5, '0', STR_PAD_LEFT);
 		}
 		$keyBytes = '';
-		foreach( str_split($bitStrng, 8) as $bitGrp ){
-			if( strlen($bitGrp)==8 ){
-				$keyBytes .= chr(bindec($bitGrp));
+		foreach( str_split($bitStrng, 8) as $oneGrp ){
+			if( strlen($oneGrp)==8 ){
+				$keyBytes .= chr(bindec($oneGrp));
 			}
 		}
 		return $keyBytes;

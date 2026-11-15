@@ -68,9 +68,9 @@ class Bundle extends Command{
 			'stage'=>Array('call'=>'makeModeBundle', 'args'=>$optsText, 'about'=>'a bundle for a server before production: PREV, errors hidden, basic logs'),
 			'final'=>Array('call'=>'makeModeBundle', 'args'=>$optsText, 'about'=>'a bundle for production: PROD, errors hidden, basic logs')
 		);
-		foreach( $this->readModesArray() as $modNme => $mdlVal ){
-			if( !isset(self::MODE_LIST[$modNme]) ){
-				$subLstng[$modNme] = Array('call'=>'makeModeBundle', 'args'=>$optsText, 'about'=>'a bundle of a mode of the project: '.strval($mdlVal['settings']['ENV_NAME'] ?? ''));
+		foreach( $this->readModesArray() as $oneNme => $oneVal ){
+			if( !isset(self::MODE_LIST[$oneNme]) ){
+				$subLstng[$oneNme] = Array('call'=>'makeModeBundle', 'args'=>$optsText, 'about'=>'a bundle of a mode of the project: '.strval($oneVal['settings']['ENV_NAME'] ?? ''));
 			}
 		}
 		return $subLstng + Array(
@@ -88,9 +88,9 @@ class Bundle extends Command{
 	 */
 	public function invokeFullList(): Int {
 		$rowsList = Array();
-		foreach( $this->readModesArray() as $modNme => $mdlVal ){
-			$setStrng = implode(', ', array_map(function( String $iniEntryName, String $iniKeyValTxt ): String { return $iniEntryName.'='.$iniKeyValTxt; }, array_keys($mdlVal['settings']), array_values($mdlVal['settings'])));
-			$rowsList[] = Array($modNme, isset(self::MODE_LIST[$modNme]) ? 'framework' : 'project', $setStrng, implode(', ', $mdlVal['addPaths']));
+		foreach( $this->readModesArray() as $oneNme => $oneVal ){
+			$setStrng = implode(', ', array_map(function( String $iniEntryName, String $iniKeyValTxt ): String { return $iniEntryName.'='.$iniKeyValTxt; }, array_keys($oneVal['settings']), array_values($oneVal['settings'])));
+			$rowsList[] = Array($oneNme, isset(self::MODE_LIST[$oneNme]) ? 'framework' : 'project', $setStrng, implode(', ', $oneVal['addPaths']));
 		}
 		$this->printerObj->writeShellRows( Array('mode', 'kind', 'settings', 'addPaths'), $rowsList );
 		return self::EXIT_DONE;
@@ -125,17 +125,17 @@ class Bundle extends Command{
 		if( !preg_match(Config::RULE_LIST['ERR_LEVL'], $iniValrs['ERR_LEVL']) ){
 			$this->stopWithReason('Nothing was declared: ERR_LEVL is E_* names joined by |, & and ~', self::EXIT_DENY);
 		}
-		foreach( Array('ERR_SHOW'=>Array('TRUE', 'FALSE'), 'LOG_MODE'=>Array('FULL', 'BASE', 'MINI')) as $iniKey => $allows ){
-			if( !in_array($iniValrs[$iniKey], $allows, true) ){
-				$this->stopWithReason('Nothing was declared: '.$iniKey.' is one of '.implode(', ', $allows), self::EXIT_DENY);
+		foreach( Array('ERR_SHOW'=>Array('TRUE', 'FALSE'), 'LOG_MODE'=>Array('FULL', 'BASE', 'MINI')) as $oneKey => $oneLst ){
+			if( !in_array($iniValrs[$oneKey], $oneLst, true) ){
+				$this->stopWithReason('Nothing was declared: '.$oneKey.' is one of '.implode(', ', $oneLst), self::EXIT_DENY);
 			}
 		}
 		$addStrng = $this->promptValueTxt('Paths the bundle adds, separated by commas (none for none)', empty($nowCodig['addPaths']) ? 'none' : implode(', ', $nowCodig['addPaths']));
 		$addLstng = (strtolower(trim($addStrng))=='none') ? Array() : array_values(array_filter(array_map(function( String $givenItemTxt ): String { return trim(str_replace('\\', '/', $givenItemTxt), " /"); }, explode(',', $addStrng)), 'strlen'));
 		$ownLstng = Array();
-		foreach( $modeList as $modNme => $mdlVal ){
-			if( !isset(self::MODE_LIST[$modNme]) ){
-				$ownLstng[$modNme] = $mdlVal;
+		foreach( $modeList as $oneNme => $oneVal ){
+			if( !isset(self::MODE_LIST[$oneNme]) ){
+				$ownLstng[$oneNme] = $oneVal;
 			}
 		}
 		$ownLstng[$modeName] = Array('settings'=>$iniValrs, 'addPaths'=>$addLstng);
@@ -158,9 +158,9 @@ class Bundle extends Command{
 			$this->stopWithReason('Nothing was removed: '.$modeName.' is a mode of the framework', self::EXIT_DENY);
 		}
 		$ownLstng = Array();
-		foreach( $this->readModesArray() as $modNme => $mdlVal ){
-			if( !isset(self::MODE_LIST[$modNme]) ){
-				$ownLstng[$modNme] = $mdlVal;
+		foreach( $this->readModesArray() as $oneNme => $oneVal ){
+			if( !isset(self::MODE_LIST[$oneNme]) ){
+				$ownLstng[$oneNme] = $oneVal;
 			}
 		}
 		if( !isset($ownLstng[$modeName]) ){
@@ -217,8 +217,8 @@ class Bundle extends Command{
 				$this->stopWithReason('No bundle made: not confirmed', self::EXIT_DENY);
 			}
 			$drctWalk = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator($trgtPath, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST );
-			foreach( $drctWalk as $oldItm ){
-				$oldItm->isDir() ? @rmdir($oldItm->getPathname()) : @unlink($oldItm->getPathname());
+			foreach( $drctWalk as $oneItm ){
+				$oneItm->isDir() ? @rmdir($oneItm->getPathname()) : @unlink($oneItm->getPathname());
 			}
 		}
 		if( !is_dir($trgtPath) && !@mkdir($trgtPath, 0775, true) ){
@@ -226,8 +226,8 @@ class Bundle extends Command{
 		}
 		$keptList = $this->copyTreesArray($trgtPath, true, $modeConf['addPaths'])['kept'];
 		// The folders the framework writes in, empty
-		foreach( Array('media', 'temp') as $fldNme ){
-			@mkdir($trgtPath.DS.$fldNme, 0775, true);
+		foreach( Array('media', 'temp') as $oneNme ){
+			@mkdir($trgtPath.DS.$oneNme, 0775, true);
 		}
 		$this->writeModeToIni($trgtPath, $packModeName);
 		// Before the archive, which holds it
@@ -266,8 +266,8 @@ class Bundle extends Command{
 	 */
 	protected function readModesArray( ?Array $projectModes=null ): Array {
 		$modeList = Array();
-		foreach( self::MODE_LIST as $modNme => $iniArr ){
-			$modeList[$modNme] = Array('settings'=>$iniArr, 'addPaths'=>Array());
+		foreach( self::MODE_LIST as $oneNme => $oneIni ){
+			$modeList[$oneNme] = Array('settings'=>$oneIni, 'addPaths'=>Array());
 		}
 		$listPath = TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE);
 		if( $projectModes===null && !is_file($listPath) ){
@@ -277,35 +277,35 @@ class Bundle extends Command{
 		if( !is_array($fileVals) ){
 			$this->stopWithReason(self::BNDL_FILE.' is not a JSON object of modes');
 		}
-		foreach( $fileVals as $modNme => $mdlVal ){
-			$modNme = strval($modNme);
-			$iniValrs = is_array($mdlVal) ? ($mdlVal['settings'] ?? null) : null;
-			$newArray = is_array($mdlVal) ? ($mdlVal['addPaths'] ?? Array()) : null;
+		foreach( $fileVals as $oneNme => $oneVal ){
+			$oneNme = strval($oneNme);
+			$iniValrs = is_array($oneVal) ? ($oneVal['settings'] ?? null) : null;
+			$newArray = is_array($oneVal) ? ($oneVal['addPaths'] ?? Array()) : null;
 			$whyStrng = '';
-			if( !preg_match('/^[a-z0-9]+$/D', $modNme) || isset(self::MODE_LIST[$modNme]) || method_exists($this, 'invoke'.ucfirst($modNme)) ){
+			if( !preg_match('/^[a-z0-9]+$/D', $oneNme) || isset(self::MODE_LIST[$oneNme]) || method_exists($this, 'invoke'.ucfirst($oneNme)) ){
 				$whyStrng = 'not lower-case letters or digits, or the name of a mode of the framework or of a sub-command';
 			}elseif( !is_array($iniValrs) || !in_array($iniValrs['ENV_NAME'] ?? null, Array('DEVS', 'TEST', 'PREV', 'PROD'), true) ){
 				$whyStrng = 'its "settings" has no ENV_NAME of DEVS, TEST, PREV or PROD';
 			}elseif( !is_array($newArray) ){
 				$whyStrng = 'its "addPaths" is not a list of paths';
 			}
-			foreach( (array)$iniValrs as $iniKey => $iniVal ){
-				if( $whyStrng=='' && (!preg_match('/^[A-Z]{3}_[A-Z]{4}$/D', strval($iniKey)) || !is_scalar($iniVal) || preg_match('/["\r\n]/', strval($iniVal))) ){
-					$whyStrng = 'its "settings" holds what is not a key of system.ini with its value: '.strval($iniKey);
+			foreach( (array)$iniValrs as $oneKey => $oneIni ){
+				if( $whyStrng=='' && (!preg_match('/^[A-Z]{3}_[A-Z]{4}$/D', strval($oneKey)) || !is_scalar($oneIni) || preg_match('/["\r\n]/', strval($oneIni))) ){
+					$whyStrng = 'its "settings" holds what is not a key of system.ini with its value: '.strval($oneKey);
 				}
 			}
-			foreach( (array)$newArray as $addPth ){
-				$addPth = is_string($addPth) ? $addPth : '';
+			foreach( (array)$newArray as $onePth ){
+				$onePth = is_string($onePth) ? $onePth : '';
 				// Inside what every bundle holds, only a file is named : one that is left out otherwise, such as the public key of a server issuing the tokens
-				$isInKeep = in_array(explode('/', $addPth)[0], self::KEEP_LIST, true);
-				if( $whyStrng=='' && ( !preg_match('#^[\w\-]+(/[\w.\-]+)*$#D', $addPth) || preg_match('#(^|/)\.#', $addPth) || ($isInKeep && !is_file(TOP_DIR.DS.str_replace('/', DS, $addPth))) || !file_exists(TOP_DIR.DS.str_replace('/', DS, $addPth)) ) ){
-					$whyStrng = 'it adds what is not a path of the project outside what every bundle holds, nor a file of it: '.$addPth;
+				$isInKeep = in_array(explode('/', $onePth)[0], self::KEEP_LIST, true);
+				if( $whyStrng=='' && ( !preg_match('#^[\w\-]+(/[\w.\-]+)*$#D', $onePth) || preg_match('#(^|/)\.#', $onePth) || ($isInKeep && !is_file(TOP_DIR.DS.str_replace('/', DS, $onePth))) || !file_exists(TOP_DIR.DS.str_replace('/', DS, $onePth)) ) ){
+					$whyStrng = 'it adds what is not a path of the project outside what every bundle holds, nor a file of it: '.$onePth;
 				}
 			}
 			if( $whyStrng!='' ){
-				$this->stopWithReason(self::BNDL_FILE.': the mode '.$modNme.' cannot be used: '.$whyStrng, self::EXIT_DENY);
+				$this->stopWithReason(self::BNDL_FILE.': the mode '.$oneNme.' cannot be used: '.$whyStrng, self::EXIT_DENY);
 			}
-			$modeList[$modNme] = Array('settings'=>array_map('strval', $iniValrs), 'addPaths'=>array_values($newArray));
+			$modeList[$oneNme] = Array('settings'=>array_map('strval', $iniValrs), 'addPaths'=>array_values($newArray));
 		}
 		return $modeList;
 	}
@@ -318,8 +318,8 @@ class Bundle extends Command{
 	 */
 	protected function saveBundleList( Array $projectModes ): Void {
 		$treeInst = new \stdClass();
-		foreach( $projectModes as $modNme => $mdlVal ){
-			$treeInst->$modNme = (object)Array('settings'=>(object)$mdlVal['settings'], 'addPaths'=>array_values($mdlVal['addPaths']));
+		foreach( $projectModes as $oneNme => $oneVal ){
+			$treeInst->$oneNme = (object)Array('settings'=>(object)$oneVal['settings'], 'addPaths'=>array_values($oneVal['addPaths']));
 		}
 		(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveJsonConfig( TOP_DIR.DS.str_replace('/', DS, self::BNDL_FILE), $treeInst );
 	}
@@ -341,24 +341,24 @@ class Bundle extends Command{
 	protected function isKeptInBundle( String $pathFromRoot, Array $addedEntries=Array() ): Bool {
 		$partList = explode('/', $pathFromRoot);
 		$wasAdded = false;
-		foreach( $addedEntries as $addPth ){
-			$wasAdded = $wasAdded || $pathFromRoot===$addPth || strpos($pathFromRoot, $addPth.'/')===0;
+		foreach( $addedEntries as $onePth ){
+			$wasAdded = $wasAdded || $pathFromRoot===$onePth || strpos($pathFromRoot, $onePth.'/')===0;
 		}
 		if( !$wasAdded && !in_array($partList[0], self::KEEP_LIST, true) ){
 			return false;
 		}
 		// A file the mode names itself is copied, whatever drops it otherwise: a folder it names brings back nothing dropped
 		$isNameOk = in_array($pathFromRoot, $addedEntries, true);
-		foreach( self::DROP_LIST as $dropPt ){
-			if( !$isNameOk && fnmatch($dropPt, $pathFromRoot, FNM_PATHNAME) ){
+		foreach( self::DROP_LIST as $oneDrp ){
+			if( !$isNameOk && fnmatch($oneDrp, $pathFromRoot, FNM_PATHNAME) ){
 				return false;
 			}
 		}
 		if( !$isNameOk && ( strpos($pathFromRoot, 'conf/keys/')===0 || in_array($pathFromRoot, $this->getSecretPaths(), true) ) ){
 			return false;
 		}
-		foreach( $partList as $folder ){
-			if( $folder!=='' && $folder[0]=='.' && $folder!=='.htaccess' ){
+		foreach( $partList as $onePth ){
+			if( $onePth!=='' && $onePth[0]=='.' && $onePth!=='.htaccess' ){
 				return false;
 			}
 		}
@@ -381,15 +381,15 @@ class Bundle extends Command{
 		$pathList = Array();
 		$accsTree = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
 		$blockLst = is_array($accsTree) ? $accsTree : Array();
-		foreach( $blockLst as $blkVal ){
+		foreach( $blockLst as $oneVal ){
 			// The applications of the application keys hold a public key each
-			foreach( (is_array($blkVal) && is_array($blkVal['appsList'] ?? null)) ? $blkVal['appsList'] : Array() as $appVal ){
-				$blockLst[] = is_array($appVal) ? Array('publFile'=>$appVal['publFile'] ?? '') : Array();
+			foreach( (is_array($oneVal) && is_array($oneVal['appsList'] ?? null)) ? $oneVal['appsList'] : Array() as $oneApp ){
+				$blockLst[] = is_array($oneApp) ? Array('publFile'=>$oneApp['publFile'] ?? '') : Array();
 			}
 		}
-		foreach( $blockLst as $blkVal ){
-			foreach( Array('privFile', 'publFile', 'prevFile', 'listFile', 'passFile') as $keyNme ){
-				$pathText = is_array($blkVal) && is_string($blkVal[$keyNme] ?? null) ? trim(str_replace('\\', '/', $blkVal[$keyNme]), '/ ') : '';
+		foreach( $blockLst as $oneVal ){
+			foreach( Array('privFile', 'publFile', 'prevFile', 'listFile', 'passFile') as $oneNme ){
+				$pathText = is_array($oneVal) && is_string($oneVal[$oneNme] ?? null) ? trim(str_replace('\\', '/', $oneVal[$oneNme]), '/ ') : '';
 				if( $pathText!=='' ){
 					$pathList[] = $pathText;
 				}
@@ -412,21 +412,21 @@ class Bundle extends Command{
 	protected function copyTreesArray( String $saveFilePath, Bool $writeEnabled, Array $addedEntries=Array() ): Array {
 		$pathList = Array('kept'=>Array(), 'left'=>Array());
 		$topLstng = array_merge( self::KEEP_LIST, array_map(function( String $addedItemTxt ): String { return explode('/', $addedItemTxt)[0]; }, $addedEntries) );
-		foreach( (array)scandir(TOP_DIR) as $topNme ){
-			$topNme = strval($topNme);
-			if( $topNme=='.' || $topNme=='..' ){
+		foreach( (array)scandir(TOP_DIR) as $oneNme ){
+			$oneNme = strval($oneNme);
+			if( $oneNme=='.' || $oneNme=='..' ){
 				continue;
 			}
-			if( !in_array($topNme, $topLstng, true) ){
-				$pathList['left'][] = $topNme.( is_dir(TOP_DIR.DS.$topNme) ? '/' : '' );
+			if( !in_array($oneNme, $topLstng, true) ){
+				$pathList['left'][] = $oneNme.( is_dir(TOP_DIR.DS.$oneNme) ? '/' : '' );
 				continue;
 			}
-			$fileList = is_dir(TOP_DIR.DS.$topNme) ? new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TOP_DIR.DS.$topNme, \FilesystemIterator::SKIP_DOTS)) : Array(new \SplFileInfo(TOP_DIR.DS.$topNme));
-			foreach( $fileList as $filInf ){
-				if( !$filInf->isFile() ){
+			$fileList = is_dir(TOP_DIR.DS.$oneNme) ? new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(TOP_DIR.DS.$oneNme, \FilesystemIterator::SKIP_DOTS)) : Array(new \SplFileInfo(TOP_DIR.DS.$oneNme));
+			foreach( $fileList as $oneInf ){
+				if( !$oneInf->isFile() ){
 					continue;
 				}
-				$rltnPath = str_replace(DS, '/', substr($filInf->getPathname(), strlen(TOP_DIR)+1));
+				$rltnPath = str_replace(DS, '/', substr($oneInf->getPathname(), strlen(TOP_DIR)+1));
 				if( !$this->isKeptInBundle($rltnPath, $addedEntries) ){
 					$pathList['left'][] = $rltnPath;
 					continue;
@@ -439,10 +439,10 @@ class Bundle extends Command{
 				if( !is_dir(dirname($distPath)) ){
 					@mkdir(dirname($distPath), 0775, true);
 				}
-				if( !@copy($filInf->getPathname(), $distPath) ){
+				if( !@copy($oneInf->getPathname(), $distPath) ){
 					$this->stopWithReason('The bundle is not complete: '.$rltnPath.' cannot be copied');
 				}
-				@chmod($distPath, fileperms($filInf->getPathname()) & 0777);
+				@chmod($distPath, fileperms($oneInf->getPathname()) & 0777);
 			}
 		}
 		sort($pathList['kept']);
@@ -464,9 +464,9 @@ class Bundle extends Command{
 			$this->stopWithReason('The bundle has no conf/system.ini: the settings of the mode cannot be written');
 		}
 		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		foreach( $this->readModesArray()[$packModeName]['settings'] as $iniKey => $iniVal ){
-			if( !$wrtrInst->saveIniFileVal($iniTrail, $iniKey, $iniVal) ){
-				$this->stopWithReason('The bundle is not set for its mode: its system.ini has no '.$iniKey);
+		foreach( $this->readModesArray()[$packModeName]['settings'] as $oneKey => $oneIni ){
+			if( !$wrtrInst->saveIniFileVal($iniTrail, $oneKey, $oneIni) ){
+				$this->stopWithReason('The bundle is not set for its mode: its system.ini has no '.$oneKey);
 			}
 		}
 		// The config cache, as the class map, for the environments of MAPSENVS; a system.ini made before it is told, not refused
@@ -532,10 +532,10 @@ class Bundle extends Command{
 		}elseif( is_file(TOP_DIR.DS.'composer.phar') ){
 			$cmplPath = TOP_DIR.DS.'composer.phar';
 		}else{
-			foreach( explode(PATH_SEPARATOR, strval(getenv('PATH'))) as $dirInc ){
-				foreach( (DS=='\\') ? Array('composer.phar', 'composer.bat') : Array('composer.phar', 'composer') as $binInc ){
-					if( $cmplPath=='' && trim($dirInc)!='' && is_file(rtrim($dirInc, '/\\').DS.$binInc) ){
-						$cmplPath = rtrim($dirInc, '/\\').DS.$binInc;
+			foreach( explode(PATH_SEPARATOR, strval(getenv('PATH'))) as $nthPth ){
+				foreach( (DS=='\\') ? Array('composer.phar', 'composer.bat') : Array('composer.phar', 'composer') as $nthBnr ){
+					if( $cmplPath=='' && trim($nthPth)!='' && is_file(rtrim($nthPth, '/\\').DS.$nthBnr) ){
+						$cmplPath = rtrim($nthPth, '/\\').DS.$nthBnr;
 					}
 				}
 			}
@@ -560,9 +560,9 @@ class Bundle extends Command{
 			$this->stopWithReason('No archive made: the phar extension is not loaded');
 		}
 		$tarTrail = $saveFilePath.'.tar';
-		foreach( Array($tarTrail, $tarTrail.'.gz') as $oldTar ){
-			if( is_file($oldTar) ){
-				@unlink($oldTar);
+		foreach( Array($tarTrail, $tarTrail.'.gz') as $oneTar ){
+			if( is_file($oneTar) ){
+				@unlink($oneTar);
 			}
 		}
 		try{
@@ -588,11 +588,11 @@ class Bundle extends Command{
 	protected function listPlansCount( String $saveFilePath, Array $addedEntries=Array() ): Int {
 		$pathList = $this->copyTreesArray($saveFilePath, false, $addedEntries);
 		$rowsList = Array();
-		foreach( $pathList['kept'] as $keptPt ){
-			$rowsList[] = Array($keptPt, 'copied');
+		foreach( $pathList['kept'] as $oneKpt ){
+			$rowsList[] = Array($oneKpt, 'copied');
 		}
-		foreach( $pathList['left'] as $leftPt ){
-			$rowsList[] = Array($leftPt, 'left out');
+		foreach( $pathList['left'] as $oneLft ){
+			$rowsList[] = Array($oneLft, 'left out');
 		}
 		$this->printerObj->writeShellPair('folder', $saveFilePath);
 		$this->printerObj->writeShellRows( Array('path', 'state'), $rowsList );

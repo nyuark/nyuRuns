@@ -44,9 +44,9 @@ class Xlsx extends Pack {
 	protected function readArchvArray(Array $parseOptions): Array {
 		// The archive says where its workbook is; it is in xl/workbook.xml unless told otherwise
 		$bookPath = 'xl/workbook.xml';
-		foreach($this->readRltnOfPart('') as $relSet){
-			if( substr($relSet['types'], -15)=='/officeDocument' ){
-				$bookPath = $relSet['paths'];
+		foreach($this->readRltnOfPart('') as $oneSet){
+			if( substr($oneSet['types'], -15)=='/officeDocument' ){
+				$bookPath = $oneSet['paths'];
 			}
 		}
 		$bookList = $this->readPartAsTree($bookPath);
@@ -58,38 +58,38 @@ class Xlsx extends Pack {
 		$this->dateStyles = Array();
 		$this->addedCells = 0;
 		$this->is1904Base = in_array(strtolower(strval($this->findChildArray($bookList, Array('workbookPr'))['attrs']['date1904'] ?? '')), Array('1', 'true'));
-		foreach($bookRltn as $relSet){
-			if( substr($relSet['types'], -14)=='/sharedStrings' ){
-				$this->loadSharedText($relSet['paths']);
-			}elseif( substr($relSet['types'], -7)=='/styles' ){
-				$this->findDateStyles($relSet['paths']);
+		foreach($bookRltn as $oneSet){
+			if( substr($oneSet['types'], -14)=='/sharedStrings' ){
+				$this->loadSharedText($oneSet['paths']);
+			}elseif( substr($oneSet['types'], -7)=='/styles' ){
+				$this->findDateStyles($oneSet['paths']);
 			}
 		}
 		$nameList = Array();
 		$pathList = Array();
 		$shownLst = Array();
-		foreach($this->listNamedNodes($this->findChildArray($bookList, Array('sheets')) ?? Array('nodes'=>Array()), 'sheet') as $shtArr){
+		foreach($this->listNamedNodes($this->findChildArray($bookList, Array('sheets')) ?? Array('nodes'=>Array()), 'sheet') as $oneTbl){
 			$sheetRel = '';
-			foreach($shtArr['attrs'] as $atrNme=>$atrVal){
+			foreach($oneTbl['attrs'] as $oneNme=>$oneVal){
 				// The id of the relation, whatever prefix the workbook gives it
-				if( $atrNme=='r:id' || substr($atrNme, -3)==':id' ){
-					$sheetRel = $atrVal;
+				if( $oneNme=='r:id' || substr($oneNme, -3)==':id' ){
+					$sheetRel = $oneVal;
 				}
 			}
-			$nameList[] = strval($shtArr['attrs']['name'] ?? '');
+			$nameList[] = strval($oneTbl['attrs']['name'] ?? '');
 			$pathList[] = strval($bookRltn[$sheetRel]['paths'] ?? '');
 			// A sheet is hidden, or hidden so that only a program can show it again
-			$shownLst[] = !in_array(strtolower(strval($shtArr['attrs']['state'] ?? '')), Array('hidden', 'veryhidden'));
+			$shownLst[] = !in_array(strtolower(strval($oneTbl['attrs']['state'] ?? '')), Array('hidden', 'veryhidden'));
 		}
 		$sheetLst = Array();
 		$headDict = Array();
-		foreach($this->findSheetArray($nameList, $shownLst, $parseOptions) as $shtIdx){
+		foreach($this->findSheetArray($nameList, $shownLst, $parseOptions) as $nthTbl){
 			$mergeLst = Array();
 			$headList = Array();
-			$rowsList = $this->readSheetCells($pathList[$shtIdx], $mergeLst);
-			$sheetLst[] = $this->makeFinalSheet($nameList[$shtIdx], $rowsList, Array('shown'=>$shownLst[$shtIdx], 'merge'=>$mergeLst), $parseOptions, $headList);
+			$rowsList = $this->readSheetCells($pathList[$nthTbl], $mergeLst);
+			$sheetLst[] = $this->makeFinalSheet($nameList[$nthTbl], $rowsList, Array('shown'=>$shownLst[$nthTbl], 'merge'=>$mergeLst), $parseOptions, $headList);
 			if( !empty($parseOptions['heads']) ){
-				$headDict[$nameList[$shtIdx]] = $headList;
+				$headDict[$nameList[$nthTbl]] = $headList;
 			}
 		}
 		$this->sharedText = Array();
@@ -102,8 +102,8 @@ class Xlsx extends Pack {
 	 * @param String $fullPathName Name of the part holding them.
 	 */
 	protected function loadSharedText(String $fullPathName): Void {
-		foreach($this->listNamedNodes($this->readPartAsTree($fullPathName, false) ?? Array('nodes'=>Array()), 'si') as $txtArr){
-			$this->sharedText[] = $this->getRichCellTxt($txtArr);
+		foreach($this->listNamedNodes($this->readPartAsTree($fullPathName, false) ?? Array('nodes'=>Array()), 'si') as $oneTxt){
+			$this->sharedText[] = $this->getRichCellTxt($oneTxt);
 		}
 	}
 
@@ -116,12 +116,12 @@ class Xlsx extends Pack {
 	 */
 	protected function getRichCellTxt(Array $elementArray): String {
 		$fullText = '';
-		foreach($elementArray['nodes'] as $chlArr){
-			$childNme = substr($chlArr['tagnm'], intval(strrpos(':'.$chlArr['tagnm'], ':')));
+		foreach($elementArray['nodes'] as $oneChl){
+			$childNme = substr($oneChl['tagnm'], intval(strrpos(':'.$oneChl['tagnm'], ':')));
 			if( $childNme=='t' ){
-				$fullText .= $this->readNestedText($chlArr);
+				$fullText .= $this->readNestedText($oneChl);
 			}elseif( $childNme=='r' ){
-				$fullText .= $this->getRichCellTxt($chlArr);
+				$fullText .= $this->getRichCellTxt($oneChl);
 			}
 		}
 		return $fullText;
@@ -144,9 +144,9 @@ class Xlsx extends Pack {
 			$bareFrmt = preg_replace('/"[^"]*"|\[[^\]]*\]|\\\\./', '', strval($oneFmt['attrs']['formatCode'] ?? ''));
 			$ownFrmts[intval($oneFmt['attrs']['numFmtId'] ?? -1)] = (stripos($bareFrmt, 'General')===false && preg_match('/[dmyhs]/i', $bareFrmt)===1);
 		}
-		foreach($this->listNamedNodes($this->findChildArray($styleLst, Array('cellXfs')) ?? Array('nodes'=>Array()), 'xf') as $xfIndx=>$xfsArr){
-			$stylIdnt = intval($xfsArr['attrs']['numFmtId'] ?? 0);
-			$this->dateStyles[$xfIndx] = ($ownFrmts[$stylIdnt] ?? in_array($stylIdnt, self::DATE_FRMT));
+		foreach($this->listNamedNodes($this->findChildArray($styleLst, Array('cellXfs')) ?? Array('nodes'=>Array()), 'xf') as $oneIdx=>$oneFmt){
+			$stylIdnt = intval($oneFmt['attrs']['numFmtId'] ?? 0);
+			$this->dateStyles[$oneIdx] = ($ownFrmts[$stylIdnt] ?? in_array($stylIdnt, self::DATE_FRMT));
 		}
 	}
 
@@ -162,8 +162,8 @@ class Xlsx extends Pack {
 			return Array(-1, -1);
 		}
 		$clmnNumb = 0;
-		foreach(str_split(strtoupper($placePar[1])) as $letter){
-			$clmnNumb = $clmnNumb*26+(ord($letter)-64);
+		foreach(str_split(strtoupper($placePar[1])) as $oneChr){
+			$clmnNumb = $clmnNumb*26+(ord($oneChr)-64);
 		}
 		return Array($clmnNumb-1, intval($placePar[2])-1);
 	}
@@ -242,20 +242,20 @@ class Xlsx extends Pack {
 		$sheetLst = $this->readPartAsTree($fullPathName);
 		$rowsList = Array();
 		$mergedRanges = Array();
-		foreach($this->listNamedNodes($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('mergeCells')) ?? Array('nodes'=>Array()), 'mergeCell') as $mrgArr){
-			$areaPart = explode(':', strval($mrgArr['attrs']['ref'] ?? '')) + Array('', '');
+		foreach($this->listNamedNodes($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('mergeCells')) ?? Array('nodes'=>Array()), 'mergeCell') as $oneMrg){
+			$areaPart = explode(':', strval($oneMrg['attrs']['ref'] ?? '')) + Array('', '');
 			$firstPlc = $this->parseCellPlace($areaPart[0]);
 			$lastPlce = $this->parseCellPlace($areaPart[1]);
 			if( $firstPlc[0]>=0 && $lastPlce[0]>=$firstPlc[0] && $lastPlce[1]>=$firstPlc[1] ){
 				$mergedRanges[] = Array('atrow'=>$firstPlc[1], 'atcol'=>$firstPlc[0], 'rowsp'=>$lastPlce[1]-$firstPlc[1]+1, 'colsp'=>$lastPlce[0]-$firstPlc[0]+1);
 			}
 		}
-		foreach($this->listNamedNodes($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('sheetData')) ?? Array('nodes'=>Array()), 'row') as $rowArr){
+		foreach($this->listNamedNodes($this->findChildArray($sheetLst ?? Array('nodes'=>Array()), Array('sheetData')) ?? Array('nodes'=>Array()), 'row') as $oneRow){
 			// A row tells its number, or follows the one before it
-			$rowIndex = preg_match('/^[1-9]\d{0,6}$/D', strval($rowArr['attrs']['r'] ?? '')) ? intval($rowArr['attrs']['r'])-1 : count($rowsList);
+			$rowIndex = preg_match('/^[1-9]\d{0,6}$/D', strval($oneRow['attrs']['r'] ?? '')) ? intval($oneRow['attrs']['r'])-1 : count($rowsList);
 			$cellList = Array();
-			foreach($this->listNamedNodes($rowArr, 'c') as $celArr){
-				$clmnIndx = $this->parseCellPlace(strval($celArr['attrs']['r'] ?? ''))[0];
+			foreach($this->listNamedNodes($oneRow, 'c') as $oneCel){
+				$clmnIndx = $this->parseCellPlace(strval($oneCel['attrs']['r'] ?? ''))[0];
 				if( $clmnIndx<count($cellList) ){
 					$clmnIndx = count($cellList);
 				}
@@ -264,7 +264,7 @@ class Xlsx extends Pack {
 					throw new ParseError('Invalid workbook: a sheet too sparse to be laid out');
 				}
 				$cellList = array_pad($cellList, $clmnIndx, null);
-				$cellList[] = $this->getTypedCelVal($celArr);
+				$cellList[] = $this->getTypedCelVal($oneCel);
 			}
 			// The cells left empty at the end of a row are not part of it
 			while( !empty($cellList) && end($cellList)===null ){

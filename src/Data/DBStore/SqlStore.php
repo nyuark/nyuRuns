@@ -103,14 +103,14 @@ class SqlStore implements Store {
 		$slctList = Array();
 		// The binary fields read, by the name they are read under
 		$blobList = Array();
-		foreach( (array)($queryOptions['field'] ?? Array()) as $column ){
-			$fieldNme = is_array($column) ? strval($column['field'] ?? '') : strval($column);
-			$fieldAls = is_array($column) ? strval($column['alias'] ?? '') : '';
+		foreach( (array)($queryOptions['field'] ?? Array()) as $oneCol ){
+			$fieldNme = is_array($oneCol) ? strval($oneCol['field'] ?? '') : strval($oneCol);
+			$fieldAls = is_array($oneCol) ? strval($oneCol['alias'] ?? '') : '';
 			$slctList[] = $dtbsHndr->quoteFieldName($fieldNme).($fieldAls!='' ? ' AS '.$dtbsHndr->quoteFieldName($fieldAls) : '');
 			$fieldPar = explode('.', $fieldNme);
 			$bareName = end($fieldPar);
-			foreach( (count($fieldPar)>1) ? Array($fieldPar[0]) : $tableLst as $tblNme ){
-				if( in_array($bareName, $this->getFieldsOfTbl($tblNme)['blob']) ){
+			foreach( (count($fieldPar)>1) ? Array($fieldPar[0]) : $tableLst as $oneTbl ){
+				if( in_array($bareName, $this->getFieldsOfTbl($oneTbl)['blob']) ){
 					$blobList[($fieldAls!='') ? $fieldAls : $bareName] = true;
 				}
 			}
@@ -119,21 +119,21 @@ class SqlStore implements Store {
 		if( empty($slctList) && empty($queryOptions['funcs']) && strval($dvlpText['field'] ?? '')=='' ){
 			$hasBlobs = false;
 			$wideList = Array();
-			foreach($tableLst as $tblNme){
-				$tableDct = $this->getFieldsOfTbl($tblNme);
+			foreach($tableLst as $oneTbl){
+				$tableDct = $this->getFieldsOfTbl($oneTbl);
 				$hasBlobs = $hasBlobs || !empty($tableDct['blob']);
-				foreach(array_diff($tableDct['flds'], $tableDct['blob']) as $fldNme){
-					$wideList[] = $dtbsHndr->quoteFieldName((count($tableLst)>1) ? $tblNme.'.'.$fldNme : $fldNme);
+				foreach(array_diff($tableDct['flds'], $tableDct['blob']) as $oneNme){
+					$wideList[] = $dtbsHndr->quoteFieldName((count($tableLst)>1) ? $oneTbl.'.'.$oneNme : $oneNme);
 				}
 			}
 			if( $hasBlobs && !empty($wideList) ){
 				$slctList = $wideList;
 			}
 		}
-		foreach( (array)($queryOptions['funcs'] ?? Array()) as $fncSel ){
-			$funcsNme = strtolower( strval($fncSel['funct'] ?? '') );
-			$funcsFld = strval($fncSel['field'] ?? '*');
-			$aliaName = strval($fncSel['alias'] ?? '');
+		foreach( (array)($queryOptions['funcs'] ?? Array()) as $oneFnc ){
+			$funcsNme = strtolower( strval($oneFnc['funct'] ?? '') );
+			$funcsFld = strval($oneFnc['field'] ?? '*');
+			$aliaName = strval($oneFnc['alias'] ?? '');
 			// Checked here too : a store may be called without DBLst
 			if( !in_array($funcsNme, Store::FUNC_LIST, true) || ($funcsFld=='*' && $funcsNme!='count') ){
 				throw new \RuntimeException('Invalid function name: '.$funcsNme);
@@ -165,8 +165,8 @@ class SqlStore implements Store {
 
 		// Group
 		$groupLst = Array();
-		foreach( (array)($queryOptions['group'] ?? Array()) as $grpFld ){
-			$groupLst[] = $dtbsHndr->quoteFieldName(strval($grpFld));
+		foreach( (array)($queryOptions['group'] ?? Array()) as $oneFld ){
+			$groupLst[] = $dtbsHndr->quoteFieldName(strval($oneFld));
 		}
 		if( !empty($groupLst) ){
 			$findQuer .= ' GROUP BY '.implode(',', $groupLst);
@@ -176,8 +176,8 @@ class SqlStore implements Store {
 		$orderTxt = strval($dvlpText['order'] ?? '');
 		if( $orderTxt=='' ){
 			$orderLst = Array();
-			foreach( (array)($queryOptions['order'] ?? Array()) as $sortBy ){
-				$sortDefn = array_values((array)$sortBy);
+			foreach( (array)($queryOptions['order'] ?? Array()) as $oneSrt ){
+				$sortDefn = array_values((array)$oneSrt);
 				$orderLst[] = $dtbsHndr->quoteFieldName(strval($sortDefn[0] ?? '')).(empty($sortDefn[1]) ? ' ASC' : ' DESC');
 			}
 			$orderTxt = implode(',', $orderLst);
@@ -211,17 +211,17 @@ class SqlStore implements Store {
 		}
 		// What is binary is given as a flux: what the database gives as a stream, and the binary fields named
 		$maxBytes = max(0, intval($queryOptions['bytes'] ?? self::BLOB_SIZE));
-		foreach($matxRows as $rowIdx=>$rowArr){
-			foreach($rowArr as $fldNme=>$fldVal){
-				if( is_resource($fldVal) ){
-					$fldVal = strval(stream_get_contents($fldVal, $maxBytes+1));
-				}elseif( !isset($blobList[$fldNme]) || !is_string($fldVal) ){
+		foreach($matxRows as $nthRow=>$oneRow){
+			foreach($oneRow as $oneNme=>$oneVal){
+				if( is_resource($oneVal) ){
+					$oneVal = strval(stream_get_contents($oneVal, $maxBytes+1));
+				}elseif( !isset($blobList[$oneNme]) || !is_string($oneVal) ){
 					continue;
 				}
-				if( strlen($fldVal)>$maxBytes ){
-					throw new \RuntimeException('Binary field larger than the '.$maxBytes.' bytes allowed: '.$fldNme);
+				if( strlen($oneVal)>$maxBytes ){
+					throw new \RuntimeException('Binary field larger than the '.$maxBytes.' bytes allowed: '.$oneNme);
 				}
-				$matxRows[$rowIdx][$fldNme] = Fluxd::openBytesFluxd($fldVal);
+				$matxRows[$nthRow][$oneNme] = Fluxd::openBytesFluxd($oneVal);
 			}
 		}
 		return $matxRows;
@@ -253,8 +253,8 @@ class SqlStore implements Store {
 	public function insertTableRow(String $tbleLabelTxt, Array $fieldValList): String|Bool {
 		$dtbsHndr = $this->baseHandle;
 		$fldsQotd = Array();
-		foreach( array_keys($fieldValList) as $fldNme ){
-			$fldsQotd[] = $dtbsHndr->quoteFieldName(strval($fldNme));
+		foreach( array_keys($fieldValList) as $oneNme ){
+			$fldsQotd[] = $dtbsHndr->quoteFieldName(strval($oneNme));
 		}
 		$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($tbleLabelTxt).' ('.implode(',', $fldsQotd).') VALUES ('.implode(',', array_fill(0, count($fieldValList), '?')).');';
 		if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($fieldValList)) ){
@@ -286,8 +286,8 @@ class SqlStore implements Store {
 			return 0;
 		}
 		$setsList = Array();
-		foreach( array_keys($fieldValList) as $fldNme ){
-			$setsList[] = $dtbsHndr->quoteFieldName(strval($fldNme)).'=?';
+		foreach( array_keys($fieldValList) as $oneNme ){
+			$setsList[] = $dtbsHndr->quoteFieldName(strval($oneNme)).'=?';
 		}
 		$updtQuer = 'UPDATE '.$tableQtd.' SET '.implode(',', $setsList).' WHERE '.$wherePar['text'].';';
 		if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, array_merge(array_values($fieldValList), $wherePar['vals'])) ){

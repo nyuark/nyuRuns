@@ -137,10 +137,10 @@ class MongoStore implements Store {
 	public static function makeQueryArray(Array $filterFields): Array {
 		$signList = Array('under'=>'$lt', 'undeq'=>'$lte', 'above'=>'$gt', 'aboeq'=>'$gte');
 		$andsList = Array();
-		foreach(Filter::readWhereArray($filterFields) as $clause){
-			$oprtTokn = $clause['opert'];
-			$fieldNme = $clause['field'];
-			$matxVals = $clause['value'];
+		foreach(Filter::readWhereArray($filterFields) as $oneFlt){
+			$oprtTokn = $oneFlt['opert'];
+			$fieldNme = $oneFlt['field'];
+			$matxVals = $oneFlt['value'];
 			if( $oprtTokn=='every' ){
 				continue;
 			}elseif( $oprtTokn=='never' ){
@@ -193,8 +193,8 @@ class MongoStore implements Store {
 	 */
 	protected function castObjectKeys(Mixed $valueAsGiven): Mixed {
 		if( is_array($valueAsGiven) ){
-			foreach($valueAsGiven as $valKey=>$valItm){
-				$valueAsGiven[$valKey] = $this->castObjectKeys($valItm);
+			foreach($valueAsGiven as $oneKey=>$oneItm){
+				$valueAsGiven[$oneKey] = $this->castObjectKeys($oneItm);
 			}
 			return $valueAsGiven;
 		}
@@ -215,11 +215,11 @@ class MongoStore implements Store {
 	 * @throws \RuntimeException When a flux is larger than a document may hold.
 	 */
 	public static function castBlobsForDb(Array $fieldValList): Array {
-		foreach($fieldValList as $fldNme=>$fldVal){
-			if( $fldVal instanceof \nyu\Data\Fluxd ){
-				$fldVal->setFluxToStart();
+		foreach($fieldValList as $oneNme=>$oneVal){
+			if( $oneVal instanceof \nyu\Data\Fluxd ){
+				$oneVal->setFluxToStart();
 				$bnryClss = '\\MongoDB\\BSON\\Binary';
-				$fieldValList[$fldNme] = new $bnryClss($fldVal->getWholeString(self::BLOB_MAXI), 0);
+				$fieldValList[$oneNme] = new $bnryClss($oneVal->getWholeString(self::BLOB_MAXI), 0);
 			}
 		}
 		return $fieldValList;
@@ -237,18 +237,18 @@ class MongoStore implements Store {
 	 * @throws \RuntimeException When a binary value asked for is larger than accepted.
 	 */
 	public static function getBlobsAsFlux(Array $documentData, Array $fldNamesList, Int $bytesCeiling): Array {
-		foreach($documentData as $fldNme=>$fldVal){
-			if( !is_object($fldVal) || !is_a($fldVal, 'MongoDB\\BSON\\Binary') ){
+		foreach($documentData as $oneNme=>$oneVal){
+			if( !is_object($oneVal) || !is_a($oneVal, 'MongoDB\\BSON\\Binary') ){
 				continue;
 			}
-			if( !in_array($fldNme, $fldNamesList) ){
-				unset($documentData[$fldNme]);
+			if( !in_array($oneNme, $fldNamesList) ){
+				unset($documentData[$oneNme]);
 				continue;
 			}
-			if( strlen($fldVal->getData())>$bytesCeiling ){
-				throw new \RuntimeException('Binary field larger than the '.$bytesCeiling.' bytes allowed: '.$fldNme);
+			if( strlen($oneVal->getData())>$bytesCeiling ){
+				throw new \RuntimeException('Binary field larger than the '.$bytesCeiling.' bytes allowed: '.$oneNme);
 			}
-			$documentData[$fldNme] = \nyu\Data\Fluxd::openBytesFluxd($fldVal->getData());
+			$documentData[$oneNme] = \nyu\Data\Fluxd::openBytesFluxd($oneVal->getData());
 		}
 		return $documentData;
 	}
@@ -268,9 +268,9 @@ class MongoStore implements Store {
 		if( $needCriteria && empty($findDocu) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
 		}
-		foreach(($findDocu['$and'] ?? Array()) as $docKey=>$clause){
-			if( isset($clause['_id']) ){
-				$findDocu['$and'][$docKey]['_id'] = $this->castObjectKeys($clause['_id']);
+		foreach(($findDocu['$and'] ?? Array()) as $oneKey=>$oneFlt){
+			if( isset($oneFlt['_id']) ){
+				$findDocu['$and'][$oneKey]['_id'] = $this->castObjectKeys($oneFlt['_id']);
 			}
 		}
 		return $findDocu;
@@ -290,17 +290,17 @@ class MongoStore implements Store {
 	public function findItemsArray(String $tbleLabelTxt, Array $filterFields=Array(), Array $queryOptions=Array()): Array|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		foreach(Array('funcs'=>'Functions', 'joins'=>'Joins', 'group'=>'Groups', 'devel'=>'Fragments written as SQL') as $option=>$phrase){
-			if( !empty($queryOptions[$option]) ){
-				throw new \RuntimeException($phrase.' are not available on a document store');
+		foreach(Array('funcs'=>'Functions', 'joins'=>'Joins', 'group'=>'Groups', 'devel'=>'Fragments written as SQL') as $oneKey=>$oneTxt){
+			if( !empty($queryOptions[$oneKey]) ){
+				throw new \RuntimeException($oneTxt.' are not available on a document store');
 			}
 		}
 		$optsDict = Array();
 		// Fields: those asked for, under the name asked for
 		$aliasTbl = Array();
-		foreach( (array)($queryOptions['field'] ?? Array()) as $column ){
-			$fieldNme = $this->checkNameChars(is_array($column) ? strval($column['field'] ?? '') : strval($column));
-			$fieldAls = is_array($column) ? strval($column['alias'] ?? '') : '';
+		foreach( (array)($queryOptions['field'] ?? Array()) as $oneCol ){
+			$fieldNme = $this->checkNameChars(is_array($oneCol) ? strval($oneCol['field'] ?? '') : strval($oneCol));
+			$fieldAls = is_array($oneCol) ? strval($oneCol['alias'] ?? '') : '';
 			$optsDict['projection'][$fieldNme] = 1;
 			if( $fieldAls!='' ){
 				$aliasTbl[$fieldNme] = $this->checkNameChars($fieldAls);
@@ -309,8 +309,8 @@ class MongoStore implements Store {
 		if( isset($optsDict['projection']) && !isset($optsDict['projection']['_id']) ){
 			$optsDict['projection']['_id'] = 0;
 		}
-		foreach( (array)($queryOptions['order'] ?? Array()) as $sortBy ){
-			$sortDefn = array_values((array)$sortBy);
+		foreach( (array)($queryOptions['order'] ?? Array()) as $oneSrt ){
+			$sortDefn = array_values((array)$oneSrt);
 			$optsDict['sort'][$this->checkNameChars(strval($sortDefn[0] ?? ''))] = empty($sortDefn[1]) ? 1 : -1;
 		}
 		if( isset($queryOptions['limit']) ){
@@ -342,10 +342,10 @@ class MongoStore implements Store {
 			if( isset($oneDoc['_id']) && is_object($oneDoc['_id']) ){
 				$oneDoc['_id'] = strval($oneDoc['_id']);
 			}
-			foreach($aliasTbl as $fldNme=>$newNme){
-				if( array_key_exists($fldNme, $oneDoc) ){
-					$oneDoc[$newNme] = $oneDoc[$fldNme];
-					unset($oneDoc[$fldNme]);
+			foreach($aliasTbl as $oneNme=>$oneNew){
+				if( array_key_exists($oneNme, $oneDoc) ){
+					$oneDoc[$oneNew] = $oneDoc[$oneNme];
+					unset($oneDoc[$oneNme]);
 				}
 			}
 			$matxRows[] = $oneDoc;
@@ -365,8 +365,8 @@ class MongoStore implements Store {
 	public function insertTableRow(String $tbleLabelTxt, Array $fieldValList): String|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		foreach(array_keys($fieldValList) as $fldNme){
-			$this->checkNameChars(strval($fldNme));
+		foreach(array_keys($fieldValList) as $oneNme){
+			$this->checkNameChars(strval($oneNme));
 		}
 		if( isset($fieldValList['_id']) ){
 			$fieldValList['_id'] = $this->castObjectKeys($fieldValList['_id']);
@@ -399,8 +399,8 @@ class MongoStore implements Store {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
 		$findDocu = $this->makeMongoQuery($filterFields, true);
-		foreach(array_keys($fieldValList) as $fldNme){
-			$this->checkNameChars(strval($fldNme));
+		foreach(array_keys($fieldValList) as $oneNme){
+			$this->checkNameChars(strval($oneNme));
 		}
 		if( empty($fieldValList) ){
 			return 0;

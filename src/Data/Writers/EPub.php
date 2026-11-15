@@ -69,9 +69,9 @@ class EPub extends Page {
 		$bookTitl = trim(strval(is_scalar($infoList['title'] ?? null) ? $infoList['title'] : (is_scalar($propList['Title'] ?? null) ? $propList['Title'] : '')));
 		$bookAuth = trim(strval(is_scalar($infoList['authr'] ?? null) ? $infoList['authr'] : (is_scalar($propList['Author'] ?? null) ? $propList['Author'] : '')));
 		$langClef = '';
-		foreach(Array($infoList['langg'] ?? '', $propList['Language'] ?? '', $writeOptions['langg'] ?? '', 'en') as $lngTxt){
-			if( $langClef==='' && is_scalar($lngTxt) && preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($lngTxt)) ){
-				$langClef = strval($lngTxt);
+		foreach(Array($infoList['langg'] ?? '', $propList['Language'] ?? '', $writeOptions['langg'] ?? '', 'en') as $oneTxt){
+			if( $langClef==='' && is_scalar($oneTxt) && preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($oneTxt)) ){
+				$langClef = strval($oneTxt);
 			}
 		}
 		// The notes are taken out of the text: each ends the chapter that refers to it
@@ -81,23 +81,23 @@ class EPub extends Page {
 		$blockLst = $this->makeBookBlocks(array_values($blockLst), $headNumb);
 		$chapList = $this->splitIntoChapt($blockLst, max(0, min(6, intval($writeOptions['split'] ?? 1))), ($bookTitl==='') ? 'Book' : $bookTitl);
 		$usedList = Array();
-		foreach($chapList as $chpIdx=>$chpSet){
-			foreach($this->listNotesCited($chpSet['blcks']) as $nteNme){
-				if( isset($noteList[$nteNme]) && !isset($usedList[$nteNme]) ){
-					$usedList[$nteNme] = true;
-					$chapList[$chpIdx]['blcks'][] = $this->makeBookBlocks(Array($noteList[$nteNme]), $headNumb)[0];
+		foreach($chapList as $nthChp=>$oneSet){
+			foreach($this->listNotesCited($oneSet['blcks']) as $oneNme){
+				if( isset($noteList[$oneNme]) && !isset($usedList[$oneNme]) ){
+					$usedList[$oneNme] = true;
+					$chapList[$nthChp]['blcks'][] = $this->makeBookBlocks(Array($noteList[$oneNme]), $headNumb)[0];
 				}
 			}
 		}
 		// A note the text never referred to is not lost: it ends the book
-		foreach(array_diff_key($noteList, $usedList) as $nteBlk){
-			$chapList[count($chapList)-1]['blcks'][] = $this->makeBookBlocks(Array($nteBlk), $headNumb)[0];
+		foreach(array_diff_key($noteList, $usedList) as $oneBlk){
+			$chapList[count($chapList)-1]['blcks'][] = $this->makeBookBlocks(Array($oneBlk), $headNumb)[0];
 		}
 		// Where each named place stands, for the links that point to a place of another chapter
 		$placeLst = Array();
-		foreach($chapList as $chpIdx=>$chpSet){
-			foreach($this->listNamedPlace($chpSet['blcks']) as $plcNme){
-				$placeLst[$plcNme] = $placeLst[$plcNme] ?? 'chap'.($chpIdx+1).'.xhtml';
+		foreach($chapList as $nthChp=>$oneSet){
+			foreach($this->listNamedPlace($oneSet['blcks']) as $oneNme){
+				$placeLst[$oneNme] = $placeLst[$oneNme] ?? 'chap'.($nthChp+1).'.xhtml';
 			}
 		}
 		$htmlInst = new Html();
@@ -107,9 +107,9 @@ class EPub extends Page {
 		$pageHead = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<!DOCTYPE html>'."\n".'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="'.$langClef.'" xml:lang="'.$langClef.'">'."\n".'<head>'."\n".'<meta charset="utf-8"/>'."\n";
 		// The cover: a picture of the folder, shown on a page of its own before the first chapter
 		$covrDict = null;
-		foreach(Array($writeOptions['cover'] ?? '', $infoList['cover'] ?? '') as $cvrNme){
-			if( $covrDict===null && is_scalar($cvrNme) && strval($cvrNme)!=='' ){
-				$covrDict = $this->readPictureDct(strval($cvrNme));
+		foreach(Array($writeOptions['cover'] ?? '', $infoList['cover'] ?? '') as $oneNme){
+			if( $covrDict===null && is_scalar($oneNme) && strval($oneNme)!=='' ){
+				$covrDict = $this->readPictureDct(strval($oneNme));
 			}
 		}
 		$coverNme = ($covrDict===null) ? '' : $this->getPictureName($covrDict);
@@ -121,15 +121,15 @@ class EPub extends Page {
 		}
 		$headList = Array();
 		$tocDepth = max(1, min(6, intval($writeOptions['depth'] ?? 2)));
-		foreach($chapList as $chpIdx=>$chpSet){
-			$pageName = 'chap'.($chpIdx+1).'.xhtml';
-			$chptDict = $this->linkPlaceArray($chpSet['blcks'], $placeLst, $pageName);
+		foreach($chapList as $nthChp=>$oneSet){
+			$pageName = 'chap'.($nthChp+1).'.xhtml';
+			$chptDict = $this->linkPlaceArray($oneSet['blcks'], $placeLst, $pageName);
 			$bodyHtml = $htmlInst->renderDocument(Array('shape'=>'block', 'infos'=>Array('frmat'=>(array)($infoList['frmat'] ?? Array())), 'items'=>$chptDict), Array('xhtml'=>true, 'frmat'=>false));
 			// A reference to a note and the note itself tell what they are: a reader that knows how opens the note in place
 			$bodyHtml = strval(preg_replace(Array('/<a href="([^"#]*#[fe]note\d+)">/', '/<aside id="fnote(\d+)"/', '/<aside id="enote(\d+)"/'), Array('<a epub:type="noteref" href="$1">', '<aside epub:type="footnote" id="fnote$1"', '<aside epub:type="endnote" id="enote$1"'), $bodyHtml));
-			$fileList[self::BOOK_ROOT.$pageName] = $pageHead.'<title>'.$this->escapeXmlValue($chpSet['title']).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n".'<body>'."\n".$bodyHtml.'</body>'."\n".'</html>'."\n";
-			$itemText .= '<item id="chap'.($chpIdx+1).'" href="'.$pageName.'" media-type="application/xhtml+xml"/>';
-			$spineTxt .= '<itemref idref="chap'.($chpIdx+1).'"/>';
+			$fileList[self::BOOK_ROOT.$pageName] = $pageHead.'<title>'.$this->escapeXmlValue($oneSet['title']).'</title>'."\n".'<link rel="stylesheet" type="text/css" href="style.css"/>'."\n".'</head>'."\n".'<body>'."\n".$bodyHtml.'</body>'."\n".'</html>'."\n";
+			$itemText .= '<item id="chap'.($nthChp+1).'" href="'.$pageName.'" media-type="application/xhtml+xml"/>';
+			$spineTxt .= '<itemref idref="chap'.($nthChp+1).'"/>';
 			// The headings of the chapter, for the table of contents
 			foreach($chptDict as $oneBlk){
 				if( $oneBlk['block']=='headline' && intval($oneBlk['attrs']['level'] ?? 1)<=$tocDepth && trim($oneBlk['plain'])!=='' ){
@@ -139,27 +139,27 @@ class EPub extends Page {
 		}
 		// A book without headings still has a table of contents: its chapters
 		if( empty($headList) ){
-			foreach($chapList as $chpIdx=>$chpSet){
-				$headList[] = Array('level'=>1, 'title'=>$chpSet['title'], 'links'=>'chap'.($chpIdx+1).'.xhtml');
+			foreach($chapList as $nthChp=>$oneSet){
+				$headList[] = Array('level'=>1, 'title'=>$oneSet['title'], 'links'=>'chap'.($nthChp+1).'.xhtml');
 			}
 		}
 		$headTree = $this->getHeadingTree($headList);
 		// The pictures, each written once, and told for what it is; the cover is told as such, in the two ways readers look for it
 		$covrIdnt = '';
-		foreach(array_values($this->mediaFiles) as $medIdx=>$medSet){
-			$fileList[self::BOOK_ROOT.$medSet[0]] = $medSet[1];
-			$itemText .= '<item id="img'.($medIdx+1).'" href="'.$medSet[0].'" media-type="'.self::PICT_LIST[substr($medSet[0], intval(strrpos($medSet[0], '.'))+1)].'"'.(($medSet[0]===$coverNme) ? ' properties="cover-image"' : '').'/>';
-			$covrIdnt = ($medSet[0]===$coverNme) ? 'img'.($medIdx+1) : $covrIdnt;
+		foreach(array_values($this->mediaFiles) as $nthFle=>$oneSet){
+			$fileList[self::BOOK_ROOT.$oneSet[0]] = $oneSet[1];
+			$itemText .= '<item id="img'.($nthFle+1).'" href="'.$oneSet[0].'" media-type="'.self::PICT_LIST[substr($oneSet[0], intval(strrpos($oneSet[0], '.'))+1)].'"'.(($oneSet[0]===$coverNme) ? ' properties="cover-image"' : '').'/>';
+			$covrIdnt = ($oneSet[0]===$coverNme) ? 'img'.($nthFle+1) : $covrIdnt;
 		}
 		$bookIdnt = $this->getBookIdntTxt($propList, $bookTitl.'|'.$bookAuth.'|'.Shape::getTextOfDcmnt($blockLst));
 		$headBrut = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
 		$metaText = '<dc:identifier id="bookid">'.$this->escapeXmlValue($bookIdnt).'</dc:identifier><dc:title>'.$this->escapeXmlValue(($bookTitl==='') ? 'Book' : $bookTitl).'</dc:title><dc:language>'.$langClef.'</dc:language>'
 			.(($bookAuth==='') ? '' : '<dc:creator>'.$this->escapeXmlValue($bookAuth).'</dc:creator>');
-		foreach(Array('Subject'=>'dc:subject', 'Comments'=>'dc:description', 'Publisher'=>'dc:publisher', 'Rights'=>'dc:rights') as $prpNme=>$xmlTag){
-			$metaText .= (is_scalar($propList[$prpNme] ?? null) && trim(strval($propList[$prpNme]))!=='') ? '<'.$xmlTag.'>'.$this->escapeXmlValue(trim(strval($propList[$prpNme]))).'</'.$xmlTag.'>' : '';
+		foreach(Array('Subject'=>'dc:subject', 'Comments'=>'dc:description', 'Publisher'=>'dc:publisher', 'Rights'=>'dc:rights') as $oneNme=>$oneTag){
+			$metaText .= (is_scalar($propList[$oneNme] ?? null) && trim(strval($propList[$oneNme]))!=='') ? '<'.$oneTag.'>'.$this->escapeXmlValue(trim(strval($propList[$oneNme]))).'</'.$oneTag.'>' : '';
 		}
-		foreach(is_scalar($propList['Keywords'] ?? null) ? array_filter(array_map('trim', explode(',', strval($propList['Keywords']))), 'strlen') : Array() as $keyWrd){
-			$metaText .= '<dc:subject>'.$this->escapeXmlValue($keyWrd).'</dc:subject>';
+		foreach(is_scalar($propList['Keywords'] ?? null) ? array_filter(array_map('trim', explode(',', strval($propList['Keywords']))), 'strlen') : Array() as $oneWrd){
+			$metaText .= '<dc:subject>'.$this->escapeXmlValue($oneWrd).'</dc:subject>';
 		}
 		$fileList = Array(
 			'mimetype'=>self::FILE_KIND,
@@ -339,14 +339,14 @@ class EPub extends Page {
 	 * @return Array The blocks.
 	 */
 	protected function linkPlaceArray(Array $bookBlockSet, Array $placePageMap, String $thisPageName): Array {
-		foreach($bookBlockSet as $blkIdx=>$oneBlk){
-			foreach($oneBlk['spans'] as $spnIdx=>$oneSpn){
+		foreach($bookBlockSet as $nthBlk=>$oneBlk){
+			foreach($oneBlk['spans'] as $nthSpn=>$oneSpn){
 				$placeNme = (substr($oneSpn['links'], 0, 1)=='#') ? substr($oneSpn['links'], 1) : '';
 				if( $placeNme!=='' && isset($placePageMap[$placeNme]) && $placePageMap[$placeNme]!==$thisPageName ){
-					$bookBlockSet[$blkIdx]['spans'][$spnIdx]['links'] = $placePageMap[$placeNme].'#'.$placeNme;
+					$bookBlockSet[$nthBlk]['spans'][$nthSpn]['links'] = $placePageMap[$placeNme].'#'.$placeNme;
 				}
 			}
-			$bookBlockSet[$blkIdx]['items'] = $this->linkPlaceArray($oneBlk['items'], $placePageMap, $thisPageName);
+			$bookBlockSet[$nthBlk]['items'] = $this->linkPlaceArray($oneBlk['items'], $placePageMap, $thisPageName);
 		}
 		return $bookBlockSet;
 	}
@@ -363,14 +363,14 @@ class EPub extends Page {
 		// The way down to the heading being filled: each step is the list a heading of that depth goes into
 		$pathList = Array(&$treeList);
 		$lvlsList = Array();
-		foreach($headingsList as $oneHdr){
-			while( !empty($lvlsList) && end($lvlsList)>=$oneHdr['level'] ){
+		foreach($headingsList as $oneHed){
+			while( !empty($lvlsList) && end($lvlsList)>=$oneHed['level'] ){
 				array_pop($lvlsList);
 				array_pop($pathList);
 			}
 			$nowLstng = &$pathList[count($pathList)-1];
-			$nowLstng[] = Array('title'=>$oneHdr['title'], 'links'=>$oneHdr['links'], 'holds'=>Array());
-			$lvlsList[] = $oneHdr['level'];
+			$nowLstng[] = Array('title'=>$oneHed['title'], 'links'=>$oneHed['links'], 'holds'=>Array());
+			$lvlsList[] = $oneHed['level'];
 			$pathList[] = &$nowLstng[count($nowLstng)-1]['holds'];
 			unset($nowLstng);
 		}
@@ -386,8 +386,8 @@ class EPub extends Page {
 	 */
 	protected function writeTocAsHtml(Array $headingsTree): String {
 		$listText = '<ol>'."\n";
-		foreach($headingsTree as $oneHdr){
-			$listText .= '<li><a href="'.$this->escapeXmlValue($oneHdr['links']).'">'.$this->escapeXmlValue($oneHdr['title']).'</a>'.(empty($oneHdr['holds']) ? '' : "\n".$this->writeTocAsHtml($oneHdr['holds'])).'</li>'."\n";
+		foreach($headingsTree as $oneHed){
+			$listText .= '<li><a href="'.$this->escapeXmlValue($oneHed['links']).'">'.$this->escapeXmlValue($oneHed['title']).'</a>'.(empty($oneHed['holds']) ? '' : "\n".$this->writeTocAsHtml($oneHed['holds'])).'</li>'."\n";
 		}
 		return $listText.'</ol>'."\n";
 	}
@@ -402,9 +402,9 @@ class EPub extends Page {
 	 */
 	protected function writeNcxPoints(Array $headingsTree, Int &$playOrderNum=0): String {
 		$pntsText = '';
-		foreach($headingsTree as $oneHdr){
+		foreach($headingsTree as $oneHed){
 			$playOrderNum++;
-			$pntsText .= '<navPoint id="np'.$playOrderNum.'" playOrder="'.$playOrderNum.'"><navLabel><text>'.$this->escapeXmlValue($oneHdr['title']).'</text></navLabel><content src="'.$this->escapeXmlValue($oneHdr['links']).'"/>'.$this->writeNcxPoints($oneHdr['holds'], $playOrderNum).'</navPoint>';
+			$pntsText .= '<navPoint id="np'.$playOrderNum.'" playOrder="'.$playOrderNum.'"><navLabel><text>'.$this->escapeXmlValue($oneHed['title']).'</text></navLabel><content src="'.$this->escapeXmlValue($oneHed['links']).'"/>'.$this->writeNcxPoints($oneHed['holds'], $playOrderNum).'</navPoint>';
 		}
 		return $pntsText;
 	}

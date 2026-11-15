@@ -93,41 +93,41 @@ class DBRec {
 	 */
 	function loadLinkedRecs( ): Void {
 		if( !empty($this->childLinks) ){
-			foreach( $this->childLinks as $chlTab=>$chlFld){
+			foreach( $this->childLinks as $oneTbl=>$oneFld){
 				$chldArg2 = false;
 				$chldArg3 = '';
 				$chldArg4 = '';
 				$chldArg5 = '';
-				if(is_string($chlTab) && !is_numeric($chlTab)){
-					$chldArg1 = $chlTab;
-					if(is_array($chlFld)){
-						$chldArg3 = $chlFld[0];
-						$chldArg4 = $chlFld[1];
-						$chldArg5 = $chlFld[2];
+				if(is_string($oneTbl) && !is_numeric($oneTbl)){
+					$chldArg1 = $oneTbl;
+					if(is_array($oneFld)){
+						$chldArg3 = $oneFld[0];
+						$chldArg4 = $oneFld[1];
+						$chldArg5 = $oneFld[2];
 					}else{
-						$chldArg3 = $chlFld;
+						$chldArg3 = $oneFld;
 					}
 				}else{
-					$chldArg1 = $chlFld;
+					$chldArg1 = $oneFld;
 				}
 				$this->loadChildRecrd($chldArg1, $chldArg2, $chldArg3, $chldArg4, $chldArg5);
 			}
 		}
 		if( !empty($this->parentRltn) ){
-			foreach( $this->parentRltn as $prnTab=>$prnFld){
+			foreach( $this->parentRltn as $oneTbl=>$oneFld){
 				$prntArg2 = false;
 				$prntArg3 = '';
 				$prntArg4 = '';
-				if(is_string($prnTab) && !is_numeric($prnTab)){
-					$prntArg1 = $prnTab;
-					if(is_array($prnFld)){
-						$prntArg3 = $prnFld[0];
-						$prntArg4 = $prnFld[1];
+				if(is_string($oneTbl) && !is_numeric($oneTbl)){
+					$prntArg1 = $oneTbl;
+					if(is_array($oneFld)){
+						$prntArg3 = $oneFld[0];
+						$prntArg4 = $oneFld[1];
 					}else{
-						$prntArg3 = $prnFld;
+						$prntArg3 = $oneFld;
 					}
 				}else{
-					$prntArg1 = $prnFld;
+					$prntArg1 = $oneFld;
 				}
 				$this->loadParentRcrd($prntArg1, $prntArg2, $prntArg3, $prntArg4);
 			}
@@ -176,12 +176,12 @@ class DBRec {
 	 * @param Array $fieldValList Map of field name => value to bind onto the record.
 	 */
 	function setFieldsArray( Array $fieldValList ): Void {
-		foreach($fieldValList as $fldNme=>$fldVal){
-			if( $this->isFieldOfTable(strval($fldNme)) ){
-				if($fldNme==$this->keyColName){
-					$this->primaryKey = $fldVal;
+		foreach($fieldValList as $oneNme=>$oneVal){
+			if( $this->isFieldOfTable(strval($oneNme)) ){
+				if($oneNme==$this->keyColName){
+					$this->primaryKey = $oneVal;
 				}
-				$this->recordData[$fldNme] = $fldVal;
+				$this->recordData[$oneNme] = $oneVal;
 			}
 		}
 	}
@@ -231,12 +231,12 @@ class DBRec {
 		$dtbsStre = $this->tableDbCon->getStoreObject();
 		// Every name is checked before anything is deleted
 		$remnList = Array();
-		foreach($childrenList as $chlTab=>$chlFld){
-			if( is_int($chlTab) ){
-				$chlTab = $chlFld;
-				$chlFld = StrKit::singularizeTxt($this->tableLabel).'_id';
+		foreach($childrenList as $oneTbl=>$oneFld){
+			if( is_int($oneTbl) ){
+				$oneTbl = $oneFld;
+				$oneFld = StrKit::singularizeTxt($this->tableLabel).'_id';
 			}
-			$remnList[] = Array($dtbsStre->checkNameChars(strval($chlTab)), $dtbsStre->checkNameChars(strval($chlFld)));
+			$remnList[] = Array($dtbsStre->checkNameChars(strval($oneTbl)), $dtbsStre->checkNameChars(strval($oneFld)));
 		}
 		// The record's own row comes last
 		$remnList[] = Array($this->tableLabel, $this->keyColName);
@@ -255,8 +255,8 @@ class DBRec {
 			return false;
 		}
 		$rowsRemn = 0;
-		foreach($remnList as $remTbl){
-			$rowsRemn = $dtbsStre->deleteRowCount($remTbl[0], Array($remTbl[1].'='=>$this->primaryKey));
+		foreach($remnList as $oneTbl){
+			$rowsRemn = $dtbsStre->deleteRowCount($oneTbl[0], Array($oneTbl[1].'='=>$this->primaryKey));
 			if( $rowsRemn===false ){
 				if( $useTrnsc ) $dtbsStre->dropWholeTrnsc();
 				$accsJrnl->warning( 'Record removal failed: '.$rcrdText.Logger::getActorSuffix() );
@@ -328,12 +328,12 @@ class DBRec {
 		}
 
 		$saveList = Array();
-		foreach( $this->recordData as $fldNme => $fldVal ){
+		foreach( $this->recordData as $oneNme => $oneVal ){
 			// The key is never changed, and only the table's own fields are saved
-			if( $fldNme==$this->keyColName || in_array($fldNme, $skipFldsList) || !$this->isFieldOfTable(strval($fldNme)) ){
+			if( $oneNme==$this->keyColName || in_array($oneNme, $skipFldsList) || !$this->isFieldOfTable(strval($oneNme)) ){
 				continue;
 			}
-			$saveList[$fldNme] = $fldVal;
+			$saveList[$oneNme] = $oneVal;
 		}
 		if($isStored){
 			if( empty($saveList) ){
@@ -420,11 +420,11 @@ class DBRec {
 			// The sort goes through setOrderFields(), never into the query as written : "date ASC, time DESC" or "^date, time"
 			if( trim($childrenSort)!='' ){
 				$sortList = Array();
-				foreach( explode(',', $childrenSort) as $srtFld ){
-					$ordrPrts = preg_split('/\s+/', trim($srtFld));
+				foreach( explode(',', $childrenSort) as $oneFld ){
+					$ordrPrts = preg_split('/\s+/', trim($oneFld));
 					$descSort = (count($ordrPrts)==2 && strtoupper($ordrPrts[1])=='DESC');
 					if( count($ordrPrts)>2 || (count($ordrPrts)==2 && !in_array(strtoupper($ordrPrts[1]), Array('ASC', 'DESC'), true)) ){
-						throw new \RuntimeException('Invalid sort of the children: '.trim($srtFld));
+						throw new \RuntimeException('Invalid sort of the children: '.trim($oneFld));
 					}
 					$sortList[] = ($descSort ? '^' : '').$ordrPrts[0];
 				}

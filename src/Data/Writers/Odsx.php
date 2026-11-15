@@ -54,11 +54,11 @@ class Odsx extends Grid {
 		$bodyText = '';
 		$wideText = '';
 		$viewText = '';
-		foreach($sheetLst as $shtIdx=>$shtArr){
-			$sheetNme = $this->wipeSheetTitle(strval($shtArr['title'] ?? ''), $shtIdx+1, $nameList);
+		foreach($sheetLst as $nthTbl=>$oneTbl){
+			$sheetNme = $this->wipeSheetTitle(strval($oneTbl['title'] ?? ''), $nthTbl+1, $nameList);
 			$nameList[] = $sheetNme;
 			$hasHeadr = false;
-			$bodyText .= '<table:table table:name="'.$this->escapeXmlValue($sheetNme).'" table:style-name="'.($shownLst[$shtIdx] ? 'ta1' : 'ta2').'">'.$this->writeSheetPart((array)$shtArr, $withHdrs, $hasDates, 's'.($shtIdx+1), $wideText, $hasHeadr).'</table:table>';
+			$bodyText .= '<table:table table:name="'.$this->escapeXmlValue($sheetNme).'" table:style-name="'.($shownLst[$nthTbl] ? 'ta1' : 'ta2').'">'.$this->writeSheetPart((array)$oneTbl, $withHdrs, $hasDates, 's'.($nthTbl+1), $wideText, $hasHeadr).'</table:table>';
 			// The row of names is kept in sight: the view of the sheet is split under it. The settings are only read when
 			// the part declares the address their name starts with (ooo), which the addresses of the format hold
 			if( $hasHeadr ){
@@ -117,32 +117,32 @@ class Odsx extends Grid {
 		// The merged areas: where each starts, and the cells each covers
 		$spanList = Array();
 		$coverLst = Array();
-		foreach((array)($sheetDetails['attrs']['merge'] ?? Array()) as $mrgArr){
-			$mrgArr = array_map('intval', (array)$mrgArr) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
+		foreach((array)($sheetDetails['attrs']['merge'] ?? Array()) as $oneMrg){
+			$oneMrg = array_map('intval', (array)$oneMrg) + Array('atrow'=>-1, 'atcol'=>-1, 'rowsp'=>1, 'colsp'=>1);
 			// An area of one cell is no merge; one leaving the sheet, or covering more than is reasonable, is not written
-			if( $mrgArr['atrow']<0 || $mrgArr['atcol']<0 || $mrgArr['rowsp']<1 || $mrgArr['colsp']<1 || ($mrgArr['rowsp']==1 && $mrgArr['colsp']==1) || $mrgArr['atrow']+$mrgArr['rowsp']>self::ROWS_MAXI || $mrgArr['atcol']+$mrgArr['colsp']>self::COLS_MAXI || $mrgArr['rowsp']*$mrgArr['colsp']>self::MERG_MAXI || isset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]) ){
+			if( $oneMrg['atrow']<0 || $oneMrg['atcol']<0 || $oneMrg['rowsp']<1 || $oneMrg['colsp']<1 || ($oneMrg['rowsp']==1 && $oneMrg['colsp']==1) || $oneMrg['atrow']+$oneMrg['rowsp']>self::ROWS_MAXI || $oneMrg['atcol']+$oneMrg['colsp']>self::COLS_MAXI || $oneMrg['rowsp']*$oneMrg['colsp']>self::MERG_MAXI || isset($coverLst[$oneMrg['atrow'].':'.$oneMrg['atcol']]) ){
 				continue;
 			}
-			$spanList[$mrgArr['atrow'].':'.$mrgArr['atcol']] = Array($mrgArr['rowsp'], $mrgArr['colsp']);
-			for($rowIdx=$mrgArr['atrow']; $rowIdx<$mrgArr['atrow']+$mrgArr['rowsp']; $rowIdx++){
+			$spanList[$oneMrg['atrow'].':'.$oneMrg['atcol']] = Array($oneMrg['rowsp'], $oneMrg['colsp']);
+			for($nthRow=$oneMrg['atrow']; $nthRow<$oneMrg['atrow']+$oneMrg['rowsp']; $nthRow++){
 				// The rows and the cells an area covers are written, even when they hold nothing
-				$rowsList = array_pad($rowsList, $rowIdx+1, Array());
-				$rowsList[$rowIdx] = array_pad($rowsList[$rowIdx], $mrgArr['atcol']+$mrgArr['colsp'], null);
-				for($colInc=$mrgArr['atcol']; $colInc<$mrgArr['atcol']+$mrgArr['colsp']; $colInc++){
-					$coverLst[$rowIdx.':'.$colInc] = true;
+				$rowsList = array_pad($rowsList, $nthRow+1, Array());
+				$rowsList[$nthRow] = array_pad($rowsList[$nthRow], $oneMrg['atcol']+$oneMrg['colsp'], null);
+				for($nthCol=$oneMrg['atcol']; $nthCol<$oneMrg['atcol']+$oneMrg['colsp']; $nthCol++){
+					$coverLst[$nthRow.':'.$nthCol] = true;
 				}
 			}
-			unset($coverLst[$mrgArr['atrow'].':'.$mrgArr['atcol']]);
+			unset($coverLst[$oneMrg['atrow'].':'.$oneMrg['atcol']]);
 		}
 		$dataText = '';
 		$wideList = Array();
 		$voidNumb = 0;
-		foreach($rowsList as $rowIdx=>$oneRow){
+		foreach($rowsList as $nthRow=>$oneRow){
 			$rowStrng = '';
 			$gapsNumb = 0;
-			foreach($oneRow as $colInc=>$oneVal){
-				$cellClef = $rowIdx.':'.$colInc;
-				$cellText = isset($coverLst[$cellClef]) ? '<table:covered-table-cell/>' : $this->writeTypedCell($oneVal, $writeAsDates, ($hasHeaderRow && $rowIdx==0), $spanList[$cellClef] ?? Array(1, 1));
+			foreach($oneRow as $nthCol=>$oneVal){
+				$cellClef = $nthRow.':'.$nthCol;
+				$cellText = isset($coverLst[$cellClef]) ? '<table:covered-table-cell/>' : $this->writeTypedCell($oneVal, $writeAsDates, ($hasHeaderRow && $nthRow==0), $spanList[$cellClef] ?? Array(1, 1));
 				// Cells holding nothing are counted, and written as one when a cell follows them
 				if( $cellText==='' ){
 					$gapsNumb++;
@@ -150,7 +150,7 @@ class Odsx extends Grid {
 				}
 				$rowStrng .= (($gapsNumb>0) ? '<table:table-cell'.(($gapsNumb>1) ? ' table:number-columns-repeated="'.$gapsNumb.'"' : '').'/>' : '').$cellText;
 				$gapsNumb = 0;
-				$wideList[$colInc] = max($wideList[$colInc] ?? 0, is_scalar($oneVal) ? strlen(strval($oneVal)) : 0);
+				$wideList[$nthCol] = max($wideList[$nthCol] ?? 0, is_scalar($oneVal) ? strlen(strval($oneVal)) : 0);
 			}
 			// So are the rows holding nothing
 			if( $rowStrng==='' ){
@@ -163,9 +163,9 @@ class Odsx extends Grid {
 		// The columns are as wide as what they hold, within reason
 		$colsText = '';
 		$colsNumb = empty($wideList) ? 0 : max(array_keys($wideList))+1;
-		for($colInc=0; $colInc<$colsNumb; $colInc++){
-			$columnStyles .= '<style:style style:name="'.$columnPrefix.'c'.($colInc+1).'" style:family="table-column"><style:table-column-properties style:column-width="'.sprintf('%.2F', max(8, min(60, ($wideList[$colInc] ?? 0)+2))*0.21).'cm"/></style:style>';
-			$colsText .= '<table:table-column table:style-name="'.$columnPrefix.'c'.($colInc+1).'"/>';
+		for($nthCol=0; $nthCol<$colsNumb; $nthCol++){
+			$columnStyles .= '<style:style style:name="'.$columnPrefix.'c'.($nthCol+1).'" style:family="table-column"><style:table-column-properties style:column-width="'.sprintf('%.2F', max(8, min(60, ($wideList[$nthCol] ?? 0)+2))*0.21).'cm"/></style:style>';
+			$colsText .= '<table:table-column table:style-name="'.$columnPrefix.'c'.($nthCol+1).'"/>';
 		}
 		// A table holds one column and one row at least
 		return (($colsText==='') ? '<table:table-column/>' : $colsText).(($dataText==='') ? '<table:table-row><table:table-cell/></table:table-row>' : $dataText);
@@ -202,8 +202,8 @@ class Odsx extends Grid {
 		}
 		// A text is written as text, a paragraph for each of its lines: nothing in it is ever run
 		$prgrText = '';
-		foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", $valueToWrite)) as $oneLin){
-			$prgrText .= '<text:p>'.$this->castTextForOdf($oneLin).'</text:p>';
+		foreach(explode("\n", str_replace(Array("\r\n", "\r"), "\n", $valueToWrite)) as $oneLne){
+			$prgrText .= '<text:p>'.$this->castTextForOdf($oneLne).'</text:p>';
 		}
 		return $openText.' office:value-type="string">'.(($valueToWrite==='') ? '' : $prgrText).'</table:table-cell>';
 	}

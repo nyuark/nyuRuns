@@ -185,14 +185,14 @@ class PHPSess implements Handler{
 		session_destroy();
 		// Drops the cookie PHP may have queued for a new id, and no other cookie of the reply, then expires the client's
 		$keptList = Array();
-		foreach( headers_list() as $hdrLin ){
-			if( stripos($hdrLin, 'Set-Cookie:')===0 && stripos(ltrim(substr($hdrLin, 11)), $this->cookieName.'=')!==0 ){
-				$keptList[] = $hdrLin;
+		foreach( headers_list() as $oneLne ){
+			if( stripos($oneLne, 'Set-Cookie:')===0 && stripos(ltrim(substr($oneLne, 11)), $this->cookieName.'=')!==0 ){
+				$keptList[] = $oneLne;
 			}
 		}
 		header_remove('Set-Cookie');
-		foreach( $keptList as $hdrLin ){
-			header($hdrLin, false);
+		foreach( $keptList as $oneLne ){
+			header($oneLne, false);
 		}
 		setcookie( $this->cookieName, '', $this->makeCookieDict(1) );
 	}

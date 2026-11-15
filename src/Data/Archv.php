@@ -58,8 +58,8 @@ class Archv {
 			throw new \RuntimeException('Archive holding more than the '.$entriesLimit.' entries allowed');
 		}
 		$nameList = Array();
-		for($zipInc=0; $zipInc<$archInst->numFiles; $zipInc++){
-			$zipEntry = $archInst->statIndex($zipInc);
+		for($nthZip=0; $nthZip<$archInst->numFiles; $nthZip++){
+			$zipEntry = $archInst->statIndex($nthZip);
 			$itemName = strval($zipEntry['name'] ?? '');
 			// A name that would leave the archive is never a mistake
 			if( $itemName==='' || $itemName[0]=='/' || strpos($itemName, '\\')!==false || strpos($itemName, ':')!==false || in_array('..', explode('/', $itemName), true) ){
@@ -93,22 +93,22 @@ class Archv {
 		$timeList = getdate();
 		$timeVals = ($timeList['hours']<<11) | ($timeList['minutes']<<5) | intdiv($timeList['seconds'], 2);
 		$dateVals = (max(0, $timeList['year']-1980)<<9) | ($timeList['mon']<<5) | $timeList['mday'];
-		foreach($entriesArray as $entNme=>$entTxt){
-			$entNme = strval($entNme);
-			$entTxt = strval($entTxt);
-			if( $entNme==='' || $entNme[0]=='/' || strpos($entNme, '\\')!==false || strpos($entNme, ':')!==false || in_array('..', explode('/', $entNme), true) || strlen($entNme)>65535 ){
+		foreach($entriesArray as $oneNme=>$oneTxt){
+			$oneNme = strval($oneNme);
+			$oneTxt = strval($oneTxt);
+			if( $oneNme==='' || $oneNme[0]=='/' || strpos($oneNme, '\\')!==false || strpos($oneNme, ':')!==false || in_array('..', explode('/', $oneNme), true) || strlen($oneNme)>65535 ){
 				throw new \RuntimeException('Archive given an entry whose name is not safe');
 			}
-			$packText = (function_exists('gzdeflate') && $entTxt!=='' && !in_array($entNme, $unpackedList, true)) ? gzdeflate($entTxt, 6) : false;
-			$isPacked = ($packText!==false && strlen($packText)<strlen($entTxt));
-			$dataText = $isPacked ? $packText : $entTxt;
+			$packText = (function_exists('gzdeflate') && $oneTxt!=='' && !in_array($oneNme, $unpackedList, true)) ? gzdeflate($oneTxt, 6) : false;
+			$isPacked = ($packText!==false && strlen($packText)<strlen($oneTxt));
+			$dataText = $isPacked ? $packText : $oneTxt;
 			if( strlen($bodyText)+strlen($dataText)>0x7FFFFFFF || count($entriesArray)>65535 ){
 				throw new \RuntimeException('Archive too large to be written');
 			}
 			// Names are written in UTF-8, and say so
-			$headText = pack('vvvvvVVVvv', 20, 0x0800, $isPacked ? 8 : 0, $timeVals, $dateVals, crc32($entTxt), strlen($dataText), strlen($entTxt), strlen($entNme), 0);
-			$listText .= "PK\x01\x02".pack('v', 20).$headText.pack('vvvVV', 0, 0, 0, 0, strlen($bodyText)).$entNme;
-			$bodyText .= "PK\x03\x04".$headText.$entNme.$dataText;
+			$headText = pack('vvvvvVVVvv', 20, 0x0800, $isPacked ? 8 : 0, $timeVals, $dateVals, crc32($oneTxt), strlen($dataText), strlen($oneTxt), strlen($oneNme), 0);
+			$listText .= "PK\x01\x02".pack('v', 20).$headText.pack('vvvVV', 0, 0, 0, 0, strlen($bodyText)).$oneNme;
+			$bodyText .= "PK\x03\x04".$headText.$oneNme.$dataText;
 		}
 		return $bodyText.$listText."PK\x05\x06".pack('vvvvVVv', 0, 0, count($entriesArray), count($entriesArray), strlen($listText), strlen($bodyText), 0);
 	}

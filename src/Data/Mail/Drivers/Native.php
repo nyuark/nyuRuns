@@ -32,8 +32,8 @@ class Native extends Driver {
 		try{
 			$this->openSmtpAsUser();
 			$this->sendCommandTxt('MAIL FROM:<'.$emailMessage->getSenderEmail().'>', Array(250));
-			foreach( $recipientLst as $toAddr ){
-				$this->sendCommandTxt('RCPT TO:<'.$toAddr.'>', Array(250, 251));
+			foreach( $recipientLst as $oneAdr ){
+				$this->sendCommandTxt('RCPT TO:<'.$oneAdr.'>', Array(250, 251));
 			}
 			$this->sendCommandTxt('DATA', Array(354));
 			// A line starting with a dot gets a second one: a lone dot ends the mail

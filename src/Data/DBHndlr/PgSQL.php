@@ -79,13 +79,13 @@ Class PgSQL extends PDO {
 			return false;
 		}
 		$tableDct = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
-		foreach($fieldRow as $fldRow){
-			if( $fldRow['pk'] && $tableDct['pkey']=='' ){
-				$tableDct['pkey'] = $fldRow['name'];
+		foreach($fieldRow as $oneRow){
+			if( $oneRow['pk'] && $tableDct['pkey']=='' ){
+				$tableDct['pkey'] = $oneRow['name'];
 			}
-			$tableDct['flds'][] = $fldRow['name'];
-			if( strval($fldRow['type'])=='bytea' ){
-				$tableDct['blob'][] = $fldRow['name'];
+			$tableDct['flds'][] = $oneRow['name'];
+			if( strval($oneRow['type'])=='bytea' ){
+				$tableDct['blob'][] = $oneRow['name'];
 			}
 		}
 		return $tableDct;

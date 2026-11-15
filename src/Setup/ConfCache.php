@@ -124,8 +124,8 @@ class ConfCache{
 		self::$tableInfos = (self::$tableInfos===null) ? null : Array();
 		self::$isTblAdded = false;
 		$dropNumb = 0;
-		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-*.cache') as $cchFil ){
-			if( @unlink(strval($cchFil)) ){
+		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-*.cache') as $oneFil ){
+			if( @unlink(strval($oneFil)) ){
 				$dropNumb++;
 			}
 		}

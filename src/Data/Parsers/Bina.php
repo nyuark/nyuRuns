@@ -41,9 +41,9 @@ class Bina {
 			'OggS'=>'ogg', 'fLaC'=>'flac', 'ID3'=>'mp3', "\xFF\xFB"=>'mp3', "\xFF\xF3"=>'mp3',
 			"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"=>'ole', "\x1F\x8B"=>'gz', '{\rtf'=>'rtf'
 		);
-		foreach($signList as $sgnTxt=>$sgnKnd){
-			if( strncmp($initialBytes, strval($sgnTxt), strlen(strval($sgnTxt)))===0 ){
-				return $sgnKnd;
+		foreach($signList as $oneTxt=>$oneCod){
+			if( strncmp($initialBytes, strval($oneTxt), strlen(strval($oneTxt)))===0 ){
+				return $oneCod;
 			}
 		}
 		if( substr($initialBytes, 0, 4)==='RIFF' ){

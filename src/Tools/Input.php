@@ -101,17 +101,17 @@ class Input{
 			$valuesAsSent = array_change_key_case($valuesAsSent, CASE_LOWER);
 		}
 		$missList = Array();
-		foreach( $fldNodesList as $fldKey => $fldNod ){
-			$nameClef = $matchAnyCase ? strtolower(strval($fldKey)) : $fldKey;
+		foreach( $fldNodesList as $oneKey => $oneNde ){
+			$nameClef = $matchAnyCase ? strtolower(strval($oneKey)) : $oneKey;
 			$keptVals = $filteredVals[$nameClef] ?? null;
 			$sentVals = $valuesAsSent[$nameClef] ?? null;
 			// A value sent empty is empty, whatever its format makes of it (Integer gives 0)
-			if( $fldNod['reqd'] && ($this->isWithoutValue($sentVals) || $this->isWithoutValue($keptVals)) ){
-				$missList[] = $prefixString.$fldKey;
+			if( $oneNde['reqd'] && ($this->isWithoutValue($sentVals) || $this->isWithoutValue($keptVals)) ){
+				$missList[] = $prefixString.$oneKey;
 				continue;
 			}
-			if( $fldNod['kids']!==null ){
-				$missList = array_merge( $missList, $this->findEmptyArray(is_array($keptVals) ? $keptVals : Array(), is_array($sentVals) ? $sentVals : Array(), $fldNod['kids'], $prefixString.$fldKey.'.') );
+			if( $oneNde['kids']!==null ){
+				$missList = array_merge( $missList, $this->findEmptyArray(is_array($keptVals) ? $keptVals : Array(), is_array($sentVals) ? $sentVals : Array(), $oneNde['kids'], $prefixString.$oneKey.'.') );
 			}
 		}
 		return $missList;
@@ -126,8 +126,8 @@ class Input{
 	 */
 	protected function isWithoutValue( Mixed $valueAsGiven ): Bool {
 		if( is_array($valueAsGiven) ){
-			foreach( $valueAsGiven as $itmVal ){
-				if( !$this->isWithoutValue($itmVal) ){
+			foreach( $valueAsGiven as $oneVal ){
+				if( !$this->isWithoutValue($oneVal) ){
 					return false;
 				}
 			}
@@ -151,18 +151,18 @@ class Input{
 			$fldNodesList = array_change_key_case($fldNodesList, CASE_LOWER);
 		}
 		$valueLst = Array();
-		foreach( $fieldValList as $valKey => $valVal ){
-			$nodeClef = $matchAnyCase ? strtolower(strval($valKey)) : strval($valKey);
+		foreach( $fieldValList as $oneKey => $oneVal ){
+			$nodeClef = $matchAnyCase ? strtolower(strval($oneKey)) : strval($oneKey);
 			if( !isset($fldNodesList[$nodeClef]) ){
 				continue;
 			}
 			$fieldNde = $fldNodesList[$nodeClef];
 			if( $fieldNde['kids']!==null ){
-				$valueLst[$valKey] = is_array($valVal) ? $this->getLevelValues($valVal, $fieldNde['kids']) : Array();
+				$valueLst[$oneKey] = is_array($oneVal) ? $this->getLevelValues($oneVal, $fieldNde['kids']) : Array();
 			}elseif( $fieldNde['frmt']=='' ){
-				$valueLst[$valKey] = $valVal;
+				$valueLst[$oneKey] = $oneVal;
 			}else{
-				$valueLst[$valKey] = $this->castValueToFmt($valVal, $fieldNde['frmt'], $fieldNde['optn']);
+				$valueLst[$oneKey] = $this->castValueToFmt($oneVal, $fieldNde['frmt'], $fieldNde['optn']);
 			}
 		}
 		return $valueLst;
@@ -180,8 +180,8 @@ class Input{
 	 */
 	protected function castValueToFmt( Mixed $valueAsGiven, String $nameOfFormat, ?String $formatOption=null ): Mixed {
 		if( is_array($valueAsGiven) ){
-			foreach( $valueAsGiven as $itmKey => $itmVal ){
-				$valueAsGiven[$itmKey] = $this->castValueToFmt($itmVal, $nameOfFormat, $formatOption);
+			foreach( $valueAsGiven as $oneKey => $oneVal ){
+				$valueAsGiven[$oneKey] = $this->castValueToFmt($oneVal, $nameOfFormat, $formatOption);
 			}
 			return $valueAsGiven;
 		}
@@ -213,25 +213,25 @@ class Input{
 			}
 			// name:Format(option) items; the option may hold a colon, not a semicolon
 			$fieldsConfig = Array();
-			foreach( ($defnText=='none' ? Array() : explode(';', $defnText)) as $lstItm ){
-				$itemPart = explode(':', $lstItm, 2);
+			foreach( ($defnText=='none' ? Array() : explode(';', $defnText)) as $oneItm ){
+				$itemPart = explode(':', $oneItm, 2);
 				if( trim($itemPart[0])!='' ){
 					$fieldsConfig[trim($itemPart[0])] = trim($itemPart[1] ?? '');
 				}
 			}
 		}
 		$nodeDict = Array();
-		foreach( $fieldsConfig as $fldKey => $fldDef ){
+		foreach( $fieldsConfig as $oneKey => $oneDfn ){
 			// In a plain list of names, the name is the value
-			$isNoDefn = is_int($fldKey) && !is_array($fldDef);
-			$fieldNme = strval($isNoDefn ? $fldDef : $fldKey);
+			$isNoDefn = is_int($oneKey) && !is_array($oneDfn);
+			$fieldNme = strval($isNoDefn ? $oneDfn : $oneKey);
 			// A name ending with '!' is a required field
 			$isNeeded = (substr($fieldNme, -1)=='!');
 			if( $isNeeded ){
 				$fieldNme = rtrim(substr($fieldNme, 0, -1));
 			}
-			if( is_array($fldDef) ){
-				$nodeDict[$fieldNme] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->readFieldsDefn($fldDef), 'reqd'=>$isNeeded);
+			if( is_array($oneDfn) ){
+				$nodeDict[$fieldNme] = Array('frmt'=>'', 'optn'=>null, 'kids'=>$this->readFieldsDefn($oneDfn), 'reqd'=>$isNeeded);
 				continue;
 			}
 			if( $isNoDefn ){
@@ -239,7 +239,7 @@ class Input{
 				$nodeDict[$fieldNme] = Array('frmt'=>'', 'optn'=>null, 'kids'=>null, 'reqd'=>$isNeeded);
 				continue;
 			}
-			$fieldSpc = trim(strval($fldDef));
+			$fieldSpc = trim(strval($oneDfn));
 			$formPart = Array();
 			if( $fieldSpc!='' && !preg_match('/^(\w+)(?:\((.*)\))?$/s', $fieldSpc, $formPart) ){
 				throw new \RuntimeException('Input misconfigured: "'.$fieldSpc.'" is not a format, for the field "'.$fieldNme.'"');

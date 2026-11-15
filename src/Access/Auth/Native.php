@@ -417,7 +417,7 @@ class Native implements Handler{
 	protected function makeAccessCode(): String {
 		$charText = '';
 		$lastIndx = strlen(self::CODE_CHRS) - 1;
-		for( $posInc=0; $posInc<10; $posInc++ ){
+		for( $nthPos=0; $nthPos<10; $nthPos++ ){
 			$charText .= self::CODE_CHRS[ random_int(0, $lastIndx) ];
 		}
 		return substr($charText, 0, 4).'-'.substr($charText, 4, 4).'-'.substr($charText, 8);
@@ -697,8 +697,8 @@ class Native implements Handler{
 	 */
 	protected function quoteFieldsDct( DbHandlr $dbHandlerObj ): Array {
 		$qotdName = Array('usrTable'=>$dbHandlerObj->quoteFieldName($this->usersTable));
-		foreach( Array('id_user', 'systemName', 'passwdHash', 'passwdDate', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'actvtnCode', 'recovrCode', 'codeExpiry', 'signupDate', 'bearerHash', 'twoFactKey', 'twoFactPos', 'twoFactWay', 'twoFactHsh', 'twoFactExp', 'failsCount', 'failedTime', 'createDate', 'accessDate') as $fldNme ){
-			$qotdName[$fldNme] = $dbHandlerObj->quoteFieldName($fldNme);
+		foreach( Array('id_user', 'systemName', 'passwdHash', 'passwdDate', 'accessRole', 'userStatus', 'contactEml', 'userLocale', 'actvtnCode', 'recovrCode', 'codeExpiry', 'signupDate', 'bearerHash', 'twoFactKey', 'twoFactPos', 'twoFactWay', 'twoFactHsh', 'twoFactExp', 'failsCount', 'failedTime', 'createDate', 'accessDate') as $oneNme ){
+			$qotdName[$oneNme] = $dbHandlerObj->quoteFieldName($oneNme);
 		}
 		return $qotdName;
 	}

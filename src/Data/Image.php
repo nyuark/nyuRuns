@@ -140,13 +140,13 @@ class Image {
 		$rootNode = self::loadDrawingXml($nakedContent)->documentElement;
 		$sizeList = Array();
 		$boxParte = preg_split('/[\s,]+/', trim($rootNode->getAttribute('viewBox')));
-		foreach(Array('width'=>2, 'height'=>3) as $atrNme=>$boxIdx){
+		foreach(Array('width'=>2, 'height'=>3) as $oneNme=>$nthBox){
 			$sizePart = Array();
 			// A size in pixels is the size; in any other unit, the box says how the drawing is proportioned
-			if( preg_match('/^(\d+(?:\.\d+)?)(?:px)?$/D', trim($rootNode->getAttribute($atrNme)), $sizePart) ){
+			if( preg_match('/^(\d+(?:\.\d+)?)(?:px)?$/D', trim($rootNode->getAttribute($oneNme)), $sizePart) ){
 				$sizeList[] = floatval($sizePart[1]);
-			}elseif( count($boxParte)==4 && is_numeric($boxParte[$boxIdx]) ){
-				$sizeList[] = floatval($boxParte[$boxIdx]);
+			}elseif( count($boxParte)==4 && is_numeric($boxParte[$nthBox]) ){
+				$sizeList[] = floatval($boxParte[$nthBox]);
 			}else{
 				$sizeList[] = 0.0;
 			}
@@ -183,8 +183,8 @@ class Image {
 		$domDcmnt = self::loadDrawingXml($this->nakedBytes);
 		// What stands around the drawing: the kind of document it says it is, and what it asks a browser to load
 		$dropList = Array();
-		foreach((new \DOMXPath($domDcmnt))->query('//processing-instruction()|//comment()') as $oneNod){
-			$dropList[] = $oneNod;
+		foreach((new \DOMXPath($domDcmnt))->query('//processing-instruction()|//comment()') as $oneNde){
+			$dropList[] = $oneNde;
 		}
 		if( $domDcmnt->doctype!==null ){
 			$dropList[] = $domDcmnt->doctype;
@@ -199,12 +199,12 @@ class Image {
 				continue;
 			}
 			$attrDict = Array();
-			foreach($oneTag->attributes as $attrib){
-				$attrDict[] = $attrib;
+			foreach($oneTag->attributes as $oneAtr){
+				$attrDict[] = $oneAtr;
 			}
-			foreach($attrDict as $attrib){
-				$attrClef = strtolower(strval($attrib->localName));
-				$attrText = trim($attrib->value);
+			foreach($attrDict as $oneAtr){
+				$attrClef = strtolower(strval($oneAtr->localName));
+				$attrText = trim($oneAtr->value);
 				// A list of addresses (srcset, imagesrcset) is never kept; nor a value holding a comment
 				$badAttrb = (strncmp($attrClef, 'on', 2)===0 || in_array($attrClef, Array('srcset', 'imagesrcset'), true) || str_contains($attrText, '/*') || preg_match(self::RISK_PATT, self::unescapeCssTxt($attrText))===1);
 				// What a form or a ping would send elsewhere : kept only when it points inside the drawing
@@ -216,13 +216,13 @@ class Image {
 					$badAttrb = !(strncmp($attrText, '#', 1)===0 || ($nodeName=='a' && Shape::wipeUnsafeAddr($attrText)!=='') || ($nodeName=='image' && preg_match('/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=\s]+$/D', $attrText)));
 				}
 				if( $badAttrb ){
-					$oneTag->removeAttributeNode($attrib);
+					$oneTag->removeAttributeNode($oneAtr);
 				}
 			}
 		}
-		foreach($dropList as $oneNod){
-			if( $oneNod->parentNode!==null ){
-				$oneNod->parentNode->removeChild($oneNod);
+		foreach($dropList as $oneNde){
+			if( $oneNde->parentNode!==null ){
+				$oneNde->parentNode->removeChild($oneNde);
 			}
 		}
 		// The drawing is written in UTF-8, its accents as they are
@@ -264,24 +264,24 @@ class Image {
 		if( preg_match('/^(\d{4}):(\d\d):(\d\d) (\d\d:\d\d:\d\d)$/D', strval($exifReadings['DateTimeOriginal'] ?? $exifReadings['DateTime'] ?? ''), $dateList) ){
 			$factList['dated'] = $dateList[1].'-'.$dateList[2].'-'.$dateList[3].' '.$dateList[4];
 		}
-		foreach(Array('Make'=>'maker', 'Model'=>'model') as $tagKey=>$factId){
-			$factText = trim(preg_replace('/[\x00-\x1F\x7F]/', '', strval(is_scalar($exifReadings[$tagKey] ?? null) ? $exifReadings[$tagKey] : '')));
+		foreach(Array('Make'=>'maker', 'Model'=>'model') as $oneKey=>$oneFct){
+			$factText = trim(preg_replace('/[\x00-\x1F\x7F]/', '', strval(is_scalar($exifReadings[$oneKey] ?? null) ? $exifReadings[$oneKey] : '')));
 			if( $factText!=='' ){
-				$factList[$factId] = $factText;
+				$factList[$oneFct] = $factText;
 			}
 		}
 		// A place is written as degrees, minutes and seconds, each a fraction, and the side of the globe it is on
-		foreach(Array('GPSLatitude'=>'gpsla', 'GPSLongitude'=>'gpslo') as $tagKey=>$factId){
-			$partList = $exifReadings[$tagKey] ?? null;
+		foreach(Array('GPSLatitude'=>'gpsla', 'GPSLongitude'=>'gpslo') as $oneKey=>$oneFct){
+			$partList = $exifReadings[$oneKey] ?? null;
 			if( !is_array($partList) || count($partList)!=3 ){
 				continue;
 			}
 			$turnDegr = 0.0;
-			foreach(array_values($partList) as $prtInc=>$subTxt){
-				$exifPrts = explode('/', strval($subTxt)) + Array('0', '1');
-				$turnDegr += (floatval($exifPrts[1])==0.0) ? 0.0 : floatval($exifPrts[0])/floatval($exifPrts[1])/pow(60, $prtInc);
+			foreach(array_values($partList) as $nthPrt=>$oneTxt){
+				$exifPrts = explode('/', strval($oneTxt)) + Array('0', '1');
+				$turnDegr += (floatval($exifPrts[1])==0.0) ? 0.0 : floatval($exifPrts[0])/floatval($exifPrts[1])/pow(60, $nthPrt);
 			}
-			$factList[$factId] = round(in_array(strtoupper(strval($exifReadings[$tagKey.'Ref'] ?? '')), Array('S', 'W')) ? -$turnDegr : $turnDegr, 6);
+			$factList[$oneFct] = round(in_array(strtoupper(strval($exifReadings[$oneKey.'Ref'] ?? '')), Array('S', 'W')) ? -$turnDegr : $turnDegr, 6);
 		}
 		return $factList;
 	}

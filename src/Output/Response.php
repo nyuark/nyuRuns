@@ -65,8 +65,8 @@ class Response{
 		$this->dataFormat = strval( array_values(preg_grep('/^'.preg_quote($frmtText, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $frmtText );
 		$this->formatUsed = $this->dataFormat;
 		// An origin is a scheme, a host and a port : compared without case, nor a slash at its end
-		foreach( (array)($renderValues['corsList'] ?? Array()) as $origin ){
-			$origText = is_scalar($origin) ? strtolower( rtrim(trim(strval($origin)), '/') ) : '';
+		foreach( (array)($renderValues['corsList'] ?? Array()) as $oneAdr ){
+			$origText = is_scalar($oneAdr) ? strtolower( rtrim(trim(strval($oneAdr)), '/') ) : '';
 			if( $origText!='' && $origText!='*' ){
 				$this->originList[] = $origText;
 			}
@@ -245,23 +245,23 @@ class Response{
 			return null;
 		}
 		$clmnList = Array();
-		foreach( $outputToSend as $rowVal ){
-			if( !is_array($rowVal) || empty($rowVal) ){
+		foreach( $outputToSend as $oneRow ){
+			if( !is_array($oneRow) || empty($oneRow) ){
 				return null;
 			}
-			foreach( $rowVal as $column => $oneVal ){
+			foreach( $oneRow as $oneCol => $oneVal ){
 				if( $oneVal!==null && !is_scalar($oneVal) ){
 					return null;
 				}
-				$clmnList[strval($column)] = true;
+				$clmnList[strval($oneCol)] = true;
 			}
 		}
 		$clmnNmes = array_map('strval', array_keys($clmnList));
 		$cellList = empty($clmnNmes) ? Array() : Array($clmnNmes);
-		foreach( $outputToSend as $rowVal ){
+		foreach( $outputToSend as $oneRow ){
 			$rowCells = Array();
-			foreach( $clmnNmes as $header ){
-				$oneVal = $rowVal[$header] ?? '';
+			foreach( $clmnNmes as $oneHed ){
+				$oneVal = $oneRow[$oneHed] ?? '';
 				$rowCells[] = is_bool($oneVal) ? ($oneVal ? 'true' : 'false') : $oneVal;
 			}
 			$cellList[] = $rowCells;
@@ -283,8 +283,8 @@ class Response{
 			return '<p>'.htmlspecialchars($plainTxt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</p>\n";
 		}
 		$htmlText = "<dl>\n";
-		foreach( $valueToWrite as $valKey => $oneVal ){
-			$htmlText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->renderValsHtml($oneVal)."</dd>\n";
+		foreach( $valueToWrite as $oneKey => $oneVal ){
+			$htmlText .= '<dt>'.htmlspecialchars(strval($oneKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->renderValsHtml($oneVal)."</dd>\n";
 		}
 		return $htmlText."</dl>\n";
 	}
@@ -330,8 +330,8 @@ class Response{
 		// The client is never left to guess another type than the one announced
 		$this->dropReplyHeads( Array('x-content-type-options') );
 		$this->headrArray['X-Content-Type-Options'] = 'nosniff';
-		foreach($this->headrArray as $hdrKey => $hdrVal){
-			header($hdrKey.': '.$hdrVal);
+		foreach($this->headrArray as $oneKey => $oneVal){
+			header($oneKey.': '.$oneVal);
 		}
 	}
 
@@ -377,9 +377,9 @@ class Response{
 		if( !is_array($this->headrArray) ){
 			$this->headrArray = Array();
 		}
-		foreach( array_keys($this->headrArray) as $hdrKey ){
-			if( in_array(strtolower(strval($hdrKey)), $replyHdrsLst, true) ){
-				unset($this->headrArray[$hdrKey]);
+		foreach( array_keys($this->headrArray) as $oneKey ){
+			if( in_array(strtolower(strval($oneKey)), $replyHdrsLst, true) ){
+				unset($this->headrArray[$oneKey]);
 			}
 		}
 	}
@@ -531,12 +531,12 @@ class Response{
 		if( trim($clntTagsText)==='*' ){
 			return true;
 		}
-		foreach( explode(',', $clntTagsText) as $tagVal ){
-			$tagVal = trim($tagVal);
-			if( substr($tagVal, 0, 2)=='W/' ){
-				$tagVal = substr($tagVal, 2);
+		foreach( explode(',', $clntTagsText) as $oneVal ){
+			$oneVal = trim($oneVal);
+			if( substr($oneVal, 0, 2)=='W/' ){
+				$oneVal = substr($oneVal, 2);
 			}
-			if( $tagVal===$fileEtagText ){
+			if( $oneVal===$fileEtagText ){
 				return true;
 			}
 		}

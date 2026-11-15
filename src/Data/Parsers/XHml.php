@@ -209,26 +209,26 @@ class XHml extends Base {
 		$attrDict = Array();
 		// The addresses an XML element gives to the prefixes of its names are attributes of it, though not listed as such
 		if( !$isHtmlSource && function_exists('simplexml_import_dom') ){
-			foreach((array)simplexml_import_dom($elementGiven)->getDocNamespaces(false, false) as $nmsKey=>$nmsAdr){
-				$attrDict[($nmsKey==='') ? 'xmlns' : 'xmlns:'.$nmsKey] = strval($nmsAdr);
+			foreach((array)simplexml_import_dom($elementGiven)->getDocNamespaces(false, false) as $oneKey=>$oneAdr){
+				$attrDict[($oneKey==='') ? 'xmlns' : 'xmlns:'.$oneKey] = strval($oneAdr);
 			}
 		}
-		foreach($elementGiven->attributes as $atrNod){
-			$attrDict[$atrNod->nodeName] = $atrNod->nodeValue;
+		foreach($elementGiven->attributes as $oneNde){
+			$attrDict[$oneNde->nodeName] = $oneNde->nodeValue;
 		}
 		$childLst = Array();
 		$textList = Array();
 		$hasNodes = false;
 		$isInline = false;
-		foreach($elementGiven->childNodes as $chlNod){
-			if( $chlNod instanceof \DOMElement ){
+		foreach($elementGiven->childNodes as $oneNde){
+			if( $oneNde instanceof \DOMElement ){
 				$hasNodes = true;
-				$isInline = ($isInline || ($isHtmlSource && !in_array($chlNod->nodeName, self::BLCK_LIST) && !in_array($chlNod->nodeName, self::SKIP_LIST)));
-				$childLst[] = $this->readElementDct($chlNod, $depthsLftNum-1, $isHtmlSource, $keepsSpacing);
-			}elseif( $chlNod instanceof \DOMText ){
+				$isInline = ($isInline || ($isHtmlSource && !in_array($oneNde->nodeName, self::BLCK_LIST) && !in_array($oneNde->nodeName, self::SKIP_LIST)));
+				$childLst[] = $this->readElementDct($oneNde, $depthsLftNum-1, $isHtmlSource, $keepsSpacing);
+			}elseif( $oneNde instanceof \DOMText ){
 				// Text and CDATA; what is only spacing between elements is left out below
-				$textList[] = $chlNod->nodeValue;
-				$childLst[] = Array('tagnm'=>'#text', 'tagid'=>'', 'attrs'=>Array(), 'value'=>$chlNod->nodeValue, 'nodes'=>Array());
+				$textList[] = $oneNde->nodeValue;
+				$childLst[] = Array('tagnm'=>'#text', 'tagid'=>'', 'attrs'=>Array(), 'value'=>$oneNde->nodeValue, 'nodes'=>Array());
 			}
 		}
 		$ownStrng = implode('', $textList);
@@ -261,15 +261,15 @@ class XHml extends Base {
 			return $elementArray['value'];
 		}
 		$shortLst = Array();
-		foreach($elementArray['attrs'] as $atrNme=>$atrVal){
-			$shortLst['@'.$atrNme] = $atrVal;
+		foreach($elementArray['attrs'] as $oneNme=>$oneVal){
+			$shortLst['@'.$oneNme] = $oneVal;
 		}
 		$ownStrng = $elementArray['value'];
-		foreach($elementArray['nodes'] as $chlArr){
-			if( $chlArr['tagnm']==='#text' ){
-				$ownStrng .= $chlArr['value'];
+		foreach($elementArray['nodes'] as $oneChl){
+			if( $oneChl['tagnm']==='#text' ){
+				$ownStrng .= $oneChl['value'];
 			}else{
-				$shortLst[$chlArr['tagnm']][] = $this->compactElement($chlArr);
+				$shortLst[$oneChl['tagnm']][] = $this->compactElement($oneChl);
 			}
 		}
 		if( trim($ownStrng)!=='' ){
@@ -288,12 +288,12 @@ class XHml extends Base {
 		if( $elementArray['tagnm']=='title' ){
 			return trim(preg_replace('/\s+/', ' ', $elementArray['value']));
 		}
-		foreach($elementArray['nodes'] as $chlArr){
+		foreach($elementArray['nodes'] as $oneChl){
 			// The title of a page is in its head: the body, and a drawing, may hold others
-			if( in_array($chlArr['tagnm'], Array('body', 'svg', '#text')) ){
+			if( in_array($oneChl['tagnm'], Array('body', 'svg', '#text')) ){
 				continue;
 			}
-			$foundTit = $this->findTitleOfDoc($chlArr);
+			$foundTit = $this->findTitleOfDoc($oneChl);
 			if( $foundTit!=='' ){
 				return $foundTit;
 			}
@@ -322,8 +322,8 @@ class XHml extends Base {
 	 * @return Bool True when one of the elements inside it starts a block.
 	 */
 	protected function hasBlockInside(Array $elementArray): Bool {
-		foreach($elementArray['nodes'] as $chlArr){
-			if( in_array($chlArr['tagnm'], self::BLCK_LIST) || $this->hasBlockInside($chlArr) ){
+		foreach($elementArray['nodes'] as $oneChl){
+			if( in_array($oneChl['tagnm'], self::BLCK_LIST) || $this->hasBlockInside($oneChl) ){
 				return true;
 			}
 		}
@@ -341,13 +341,13 @@ class XHml extends Base {
 	protected function readFlowsArray(Array $childrenList): Array {
 		$blockLst = Array();
 		$spanBuff = Array();
-		foreach($childrenList as $chlArr){
-			$tagTitle = $chlArr['tagnm'];
+		foreach($childrenList as $oneChl){
+			$tagTitle = $oneChl['tagnm'];
 			if( in_array($tagTitle, self::SKIP_LIST) ){
 				continue;
 			}
-			if( !in_array($tagTitle, self::BLCK_LIST) && !$this->hasBlockInside($chlArr) ){
-				$spanBuff = array_merge($spanBuff, $this->readInlineSpns($chlArr, Array(), ''));
+			if( !in_array($tagTitle, self::BLCK_LIST) && !$this->hasBlockInside($oneChl) ){
+				$spanBuff = array_merge($spanBuff, $this->readInlineSpns($oneChl, Array(), ''));
 				continue;
 			}
 			// A block starts: the text gathered so far is a paragraph of its own
@@ -356,7 +356,7 @@ class XHml extends Base {
 			if( !empty($tidySpan) ){
 				$blockLst[] = Shape::makeBlockArray('paragrph', $tidySpan);
 			}
-			$blockLst = array_merge($blockLst, in_array($tagTitle, self::BLCK_LIST) ? $this->readNodeBlocks($chlArr) : $this->readFlowsArray($this->listChildNodes($chlArr)));
+			$blockLst = array_merge($blockLst, in_array($tagTitle, self::BLCK_LIST) ? $this->readNodeBlocks($oneChl) : $this->readFlowsArray($this->listChildNodes($oneChl)));
 		}
 		$tidySpan = $this->wipeShownSpans($spanBuff);
 		if( !empty($tidySpan) ){
@@ -392,8 +392,8 @@ class XHml extends Base {
 			$linkGoalText = Shape::wipeUnsafeAddr($elementArray['attrs']['href']);
 		}
 		$spansLst = Array();
-		foreach($this->listChildNodes($elementArray) as $chlArr){
-			$spansLst = array_merge($spansLst, $this->readInlineSpns($chlArr, $runFormatSet, $linkGoalText));
+		foreach($this->listChildNodes($elementArray) as $oneChl){
+			$spansLst = array_merge($spansLst, $this->readInlineSpns($oneChl, $runFormatSet, $linkGoalText));
 		}
 		return $spansLst;
 	}
@@ -435,8 +435,8 @@ class XHml extends Base {
 			}
 			array_pop($tidyList);
 		}
-		foreach($tidyList as $spnIdx=>$oneSpn){
-			$tidyList[$spnIdx]['texts'] = str_replace(Array(' '.self::LINE_MARK, self::LINE_MARK), "\n", $oneSpn['texts']);
+		foreach($tidyList as $nthSpn=>$oneSpn){
+			$tidyList[$nthSpn]['texts'] = str_replace(Array(' '.self::LINE_MARK, self::LINE_MARK), "\n", $oneSpn['texts']);
 		}
 		return $tidyList;
 	}
@@ -464,41 +464,41 @@ class XHml extends Base {
 	 */
 	protected function getRowsOfTable(Array $elementArray, Bool $innerHeadFlg=false): Array {
 		$rowsList = Array();
-		foreach($elementArray['nodes'] as $chlArr){
-			if( in_array($chlArr['tagnm'], Array('thead', 'tbody', 'tfoot')) ){
-				$rowsList = array_merge($rowsList, $this->getRowsOfTable($chlArr, $chlArr['tagnm']=='thead'));
+		foreach($elementArray['nodes'] as $oneChl){
+			if( in_array($oneChl['tagnm'], Array('thead', 'tbody', 'tfoot')) ){
+				$rowsList = array_merge($rowsList, $this->getRowsOfTable($oneChl, $oneChl['tagnm']=='thead'));
 				continue;
 			}
-			if( $chlArr['tagnm']!='tr' ){
+			if( $oneChl['tagnm']!='tr' ){
 				continue;
 			}
 			$cellList = Array();
 			$headNumb = 0;
-			foreach($chlArr['nodes'] as $celArr){
-				if( $celArr['tagnm']!='td' && $celArr['tagnm']!='th' ){
+			foreach($oneChl['nodes'] as $oneCel){
+				if( $oneCel['tagnm']!='td' && $oneCel['tagnm']!='th' ){
 					continue;
 				}
 				$cellAttr = Array();
-				if( $celArr['tagnm']=='th' ){
+				if( $oneCel['tagnm']=='th' ){
 					$headNumb++;
 					$cellAttr['headr'] = true;
 				}
-				foreach(Array('colspan'=>'colsp', 'rowspan'=>'rowsp') as $atrNme=>$atrKey){
-					if( intval($celArr['attrs'][$atrNme] ?? 1)>1 ){
-						$cellAttr[$atrKey] = intval($celArr['attrs'][$atrNme]);
+				foreach(Array('colspan'=>'colsp', 'rowspan'=>'rowsp') as $oneNme=>$oneKey){
+					if( intval($oneCel['attrs'][$oneNme] ?? 1)>1 ){
+						$cellAttr[$oneKey] = intval($oneCel['attrs'][$oneNme]);
 					}
 				}
-				$cellPart = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($celArr)));
+				$cellPart = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($oneCel)));
 				$cellList[] = Array($cellPart[0], $cellPart[1], $cellAttr);
 			}
 			// A row of the head, or a row made of header cells only, is a header row
 			$headNtry = ($innerHeadFlg || ($headNumb>0 && $headNumb==count($cellList)));
 			$cellBloc = Array();
-			foreach($cellList as $celSet){
+			foreach($cellList as $oneSet){
 				if( $headNtry ){
-					unset($celSet[2]['headr']);
+					unset($oneSet[2]['headr']);
 				}
-				$cellBloc[] = Shape::makeBlockArray('cellText', $celSet[0], $celSet[1], $celSet[2]);
+				$cellBloc[] = Shape::makeBlockArray('cellText', $oneSet[0], $oneSet[1], $oneSet[2]);
 			}
 			$rowsList[] = Shape::makeBlockArray($headNtry ? 'tableTop' : 'tableRow', Array(), $cellBloc);
 		}
@@ -516,8 +516,8 @@ class XHml extends Base {
 			return "\n";
 		}
 		$rawStrng = $elementArray['value'];
-		foreach($elementArray['nodes'] as $chlArr){
-			$rawStrng .= $this->getRawNodeText($chlArr);
+		foreach($elementArray['nodes'] as $oneChl){
+			$rawStrng .= $this->getRawNodeText($oneChl);
 		}
 		return $rawStrng;
 	}
@@ -541,12 +541,12 @@ class XHml extends Base {
 			}
 		}elseif( $tagTitle=='ul' || $tagTitle=='ol' ){
 			$itemList = Array();
-			foreach($elementArray['nodes'] as $chlArr){
-				if( $chlArr['tagnm']!='li' ){
+			foreach($elementArray['nodes'] as $oneChl){
+				if( $oneChl['tagnm']!='li' ){
 					continue;
 				}
-				$entryPar = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($chlArr)));
-				$itemList[] = Shape::makeBlockArray('listItem', $entryPar[0], $entryPar[1], ($chlArr['tagid']!=='') ? Array('tagid'=>$chlArr['tagid']) : Array());
+				$entryPar = $this->splitHoldArray($this->readFlowsArray($this->listChildNodes($oneChl)));
+				$itemList[] = Shape::makeBlockArray('listItem', $entryPar[0], $entryPar[1], ($oneChl['tagid']!=='') ? Array('tagid'=>$oneChl['tagid']) : Array());
 			}
 			if( !empty($itemList) ){
 				$blockLst[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>($tagTitle=='ol')) + $tgidVals);

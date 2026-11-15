@@ -164,8 +164,8 @@ class Mdwn extends Base {
 	protected function writeInnerPart(Array $contentBlock): String {
 		$outStrng = $this->protectLineTxt($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
-			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
-				$outStrng .= (($outStrng==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$blkTxt;
+			foreach($this->writeAllBlocks(Array($oneBlk)) as $oneTxt){
+				$outStrng .= (($outStrng==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$oneTxt;
 			}
 		}
 		return $outStrng;
@@ -185,10 +185,10 @@ class Mdwn extends Base {
 		$colsNumb = 0;
 		foreach((array)$tableBlcList['items'] as $oneRow){
 			$cellText = Array();
-			foreach((array)$oneRow['items'] as $celBlk){
+			foreach((array)$oneRow['items'] as $oneCel){
 				// A cell holds on one line: what it holds besides its text follows it there
-				$rawCelda = $this->writeInlineTxt((array)$celBlk['spans'], true);
-				foreach((array)$celBlk['items'] as $oneBlk){
+				$rawCelda = $this->writeInlineTxt((array)$oneCel['spans'], true);
+				foreach((array)$oneCel['items'] as $oneBlk){
 					$rawCelda = trim($rawCelda.' '.$this->escapeMdwnText(preg_replace('/\s+/', ' ', Shape::getTextOfBlock($oneBlk))));
 				}
 				$cellText[] = str_replace('|', '\\|', $rawCelda);
@@ -204,8 +204,8 @@ class Mdwn extends Base {
 			return '';
 		}
 		$lineList = Array('| '.implode(' | ', array_pad($headNtry ?? Array(), $colsNumb, '')).' |', '|'.str_repeat(' --- |', $colsNumb));
-		foreach($bodyRows as $rowTxt){
-			$lineList[] = '| '.implode(' | ', array_pad($rowTxt, $colsNumb, '')).' |';
+		foreach($bodyRows as $oneTxt){
+			$lineList[] = '| '.implode(' | ', array_pad($oneTxt, $colsNumb, '')).' |';
 		}
 		return implode("\n", $lineList);
 	}
@@ -231,11 +231,11 @@ class Mdwn extends Base {
 				$blockTxt = $this->protectLineTxt(trim($this->writeInlineTxt((array)$oneBlk['spans'])));
 			}elseif( $blockCod=='itemList' ){
 				$itemText = Array();
-				foreach((array)$oneBlk['items'] as $entBlk){
+				foreach((array)$oneBlk['items'] as $oneNtr){
 					$markText = empty($oneBlk['attrs']['order']) ? '- ' : (count($itemText)+1).'. ';
-					$taskText = isset($entBlk['attrs']['check']) ? (empty($entBlk['attrs']['check']) ? '[ ] ' : '[x] ') : '';
+					$taskText = isset($oneNtr['attrs']['check']) ? (empty($oneNtr['attrs']['check']) ? '[ ] ' : '[x] ') : '';
 					// What an entry holds stands under its text, as far in as that text starts
-					$itemText[] = rtrim($markText.ltrim($this->indentAllLines($taskText.$this->writeInnerPart($entBlk), str_repeat(' ', strlen($markText)))));
+					$itemText[] = rtrim($markText.ltrim($this->indentAllLines($taskText.$this->writeInnerPart($oneNtr), str_repeat(' ', strlen($markText)))));
 				}
 				$blockTxt = implode("\n", $itemText);
 			}elseif( $blockCod=='tableSet' ){

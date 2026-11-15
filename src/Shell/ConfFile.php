@@ -58,7 +58,7 @@ class ConfFile{
 		}
 		@chmod( $tempPath, $wasFichr ? (fileperms($filePathName) & 0777) : ($rghtModeNumb ?? (0666 & ~$prevMask)) );
 		// On Windows a file being read cannot be replaced : tried again for a moment
-		for( $idxInc=0; $idxInc<10; $idxInc++ ){
+		for( $nthIdx=0; $nthIdx<10; $nthIdx++ ){
 			if( @rename($tempPath, $filePathName) ){
 				clearstatcache(true, $filePathName);
 				if( strpos(str_replace('/', DS, $filePathName), str_replace('/', DS, TOP_DIR.DS.'conf'.DS))===0 ){
@@ -137,8 +137,8 @@ class ConfFile{
 			}
 		}
 		asort($copyList);
-		foreach( array_slice(array_keys($copyList), 0, max(0, count($copyList) - self::KEEP_COPY)) as $oldNme ){
-			@unlink($this->backFolder.DIRECTORY_SEPARATOR.$oldNme);
+		foreach( array_slice(array_keys($copyList), 0, max(0, count($copyList) - self::KEEP_COPY)) as $oneNme ){
+			@unlink($this->backFolder.DIRECTORY_SEPARATOR.$oneNme);
 		}
 	}
 
@@ -277,12 +277,12 @@ class ConfFile{
 		if( preg_match('/^\s*"[^"]+":\s*\{[^\r\n]*\}\s*,?\s*$/m', $fileText) ){
 			// One block per line, the blocks aligned on the longest name
 			$nameSize = 0;
-			foreach( array_keys(get_object_vars($jsonDocument)) as $blkKey ){
-				$nameSize = max( $nameSize, strlen(strval(json_encode(strval($blkKey), $jsonFlag))) );
+			foreach( array_keys(get_object_vars($jsonDocument)) as $oneKey ){
+				$nameSize = max( $nameSize, strlen(strval(json_encode(strval($oneKey), $jsonFlag))) );
 			}
 			$lineList = Array();
-			foreach( get_object_vars($jsonDocument) as $blkKey => $blkVal ){
-				$lineList[] = "\t".str_pad(json_encode(strval($blkKey), $jsonFlag).':', $nameSize+1).' '.$this->castInlineJson($blkVal);
+			foreach( get_object_vars($jsonDocument) as $oneKey => $oneVal ){
+				$lineList[] = "\t".str_pad(json_encode(strval($oneKey), $jsonFlag).':', $nameSize+1).' '.$this->castInlineJson($oneVal);
 			}
 			$newStrng = '{'."\n".implode(','."\n", $lineList)."\n".'}'."\n";
 		}else{
@@ -303,8 +303,8 @@ class ConfFile{
 	protected function castInlineJson( Mixed $filePartData ): String {
 		if( is_object($filePartData) ){
 			$partList = Array();
-			foreach( get_object_vars($filePartData) as $subKey => $subVal ){
-				$partList[] = json_encode(strval($subKey), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': '.$this->castInlineJson($subVal);
+			foreach( get_object_vars($filePartData) as $oneKey => $oneSub ){
+				$partList[] = json_encode(strval($oneKey), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': '.$this->castInlineJson($oneSub);
 			}
 			return empty($partList) ? '{}' : '{ '.implode(', ', $partList).' }';
 		}
@@ -337,12 +337,12 @@ class ConfFile{
 		$keyStack = Array();
 		$lastClef = '';
 		$needDpth = ($blockNmdText=='') ? 1 : 2;
-		for( $idxInc=0; $idxInc<$textSize; $idxInc++ ){
-			$oneChrct = $fileText[$idxInc];
+		for( $nthIdx=0; $nthIdx<$textSize; $nthIdx++ ){
+			$oneChrct = $fileText[$nthIdx];
 			// A line starting with # or // is a comment
-			if( ($oneChrct=='#' || ($oneChrct=='/' && ($fileText[$idxInc+1] ?? '')=='/')) && trim(substr($fileText, intval(strrpos(substr($fileText, 0, $idxInc), "\n")), $idxInc-intval(strrpos(substr($fileText, 0, $idxInc), "\n"))))=='' ){
-				$ligneEnd = strpos($fileText, "\n", $idxInc);
-				$idxInc = ($ligneEnd===false) ? $textSize : $ligneEnd;
+			if( ($oneChrct=='#' || ($oneChrct=='/' && ($fileText[$nthIdx+1] ?? '')=='/')) && trim(substr($fileText, intval(strrpos(substr($fileText, 0, $nthIdx), "\n")), $nthIdx-intval(strrpos(substr($fileText, 0, $nthIdx), "\n"))))=='' ){
+				$ligneEnd = strpos($fileText, "\n", $nthIdx);
+				$nthIdx = ($ligneEnd===false) ? $textSize : $ligneEnd;
 				continue;
 			}
 			if( $oneChrct=='{' || $oneChrct=='[' ){
@@ -359,10 +359,10 @@ class ConfFile{
 			if( $oneChrct!='"' ){
 				continue;
 			}
-			$strnEnds = $this->findEndOfQuote($fileText, $idxInc);
-			$strnText = json_decode( substr($fileText, $idxInc, $strnEnds-$idxInc) );
+			$strnEnds = $this->findEndOfQuote($fileText, $nthIdx);
+			$strnText = json_decode( substr($fileText, $nthIdx, $strnEnds-$nthIdx) );
 			$tokenPos = $strnEnds + strspn($fileText, " \t\r\n", $strnEnds);
-			$idxInc = $strnEnds-1;
+			$nthIdx = $strnEnds-1;
 			if( ($fileText[$tokenPos] ?? '')!=':' ){
 				continue;
 			}

@@ -182,8 +182,8 @@ class DBCon {
 			}
 		}
 		// The keys are read in lower case, and given as dfltDict writes them
-		foreach( array_keys($dfltDict) as $keyNme ){
-			$dfltDict[$keyNme] = is_scalar($baseDict[strtolower($keyNme)] ?? null) ? strval($baseDict[strtolower($keyNme)]) : '';
+		foreach( array_keys($dfltDict) as $oneNme ){
+			$dfltDict[$oneNme] = is_scalar($baseDict[strtolower($oneNme)] ?? null) ? strval($baseDict[strtolower($oneNme)]) : '';
 		}
 		$baseDict = $dfltDict;
 		$baseDict['name'] = $nameClef;

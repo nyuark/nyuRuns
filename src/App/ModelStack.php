@@ -29,10 +29,10 @@ class ModelStack{
 		$this->modelsList = array();
 		$this->modelFiles = array();
 		if(is_dir($this->modelsFldr)){
-			foreach( scandir($this->modelsFldr) as $mdlFil ){
-				$nameSize = strpos($mdlFil,'Model.php');
+			foreach( scandir($this->modelsFldr) as $oneFil ){
+				$nameSize = strpos($oneFil,'Model.php');
 				if( $nameSize!==false ){
-					$modelNme = substr($mdlFil, 0, $nameSize);
+					$modelNme = substr($oneFil, 0, $nameSize);
 					$this->modelFiles[strtolower($modelNme)] = $modelNme;
 				}
 			}

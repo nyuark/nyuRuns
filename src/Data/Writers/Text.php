@@ -70,9 +70,9 @@ class Text extends Base {
 				$coreText = '['.$coreText.']';
 				$linkAddr = '';
 			}elseif( $coreText!=='' ){
-				foreach(array_reverse(self::MARK_LIST[$this->outputType]) as $mrkKey=>$mrkSet){
-					if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
-						$coreText = $mrkSet[0].$coreText.$mrkSet[1];
+				foreach(array_reverse(self::MARK_LIST[$this->outputType]) as $oneKey=>$oneSet){
+					if( in_array($oneKey, (array)($oneSpn['marks'] ?? Array())) ){
+						$coreText = $oneSet[0].$coreText.$oneSet[1];
 					}
 				}
 			}
@@ -96,8 +96,8 @@ class Text extends Base {
 	protected function writeInnerPart(Array $contentBlock): String {
 		$outStrng = trim($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
-			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
-				$outStrng .= (($outStrng==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$blkTxt;
+			foreach($this->writeAllBlocks(Array($oneBlk)) as $oneTxt){
+				$outStrng .= (($outStrng==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$oneTxt;
 			}
 		}
 		return $outStrng;
@@ -114,8 +114,8 @@ class Text extends Base {
 	protected function writeListItems(Array $listsBlcList): String {
 		$hasOrder = !empty($listsBlcList['attrs']['order']);
 		$itemText = Array();
-		foreach((array)$listsBlcList['items'] as $entBlk){
-			$insdText = $this->writeInnerPart($entBlk);
+		foreach((array)$listsBlcList['items'] as $oneNtr){
+			$insdText = $this->writeInnerPart($oneNtr);
 			if( $this->outputType=='bbcod' ){
 				$itemText[] = '[*]'.$insdText;
 				continue;
@@ -156,8 +156,8 @@ class Text extends Base {
 				$rowsText = Array();
 				foreach(($blockCod=='tableSet') ? (array)$oneBlk['items'] : Array($oneBlk) as $oneRow){
 					$cellText = Array();
-					foreach((array)$oneRow['items'] as $celBlk){
-						$cellText[] = preg_replace('/\s+/', ' ', $this->writeInnerPart($celBlk));
+					foreach((array)$oneRow['items'] as $oneCel){
+						$cellText[] = preg_replace('/\s+/', ' ', $this->writeInnerPart($oneCel));
 					}
 					$rowsText[] = implode("\t", $cellText);
 				}

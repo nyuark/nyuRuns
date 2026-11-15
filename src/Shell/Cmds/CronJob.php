@@ -60,10 +60,10 @@ class CronJob extends Command{
 			}
 		}
 		$pairList = Array();
-		foreach( $this->optionsObj->getRestOfWords() as $gvnWrd ){
-			$pairPart = explode('=', $gvnWrd, 2);
+		foreach( $this->optionsObj->getRestOfWords() as $oneWrd ){
+			$pairPart = explode('=', $oneWrd, 2);
 			if( count($pairPart)!=2 || $pairPart[0]=='' ){
-				$this->stopWithReason('An input is written name=value: '.$gvnWrd, self::EXIT_HELP);
+				$this->stopWithReason('An input is written name=value: '.$oneWrd, self::EXIT_HELP);
 			}
 			$pairList[] = str_replace(Array('%5B', '%5D'), Array('[', ']'), rawurlencode($pairPart[0])).'='.rawurlencode($pairPart[1]);
 		}

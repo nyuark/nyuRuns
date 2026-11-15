@@ -109,8 +109,8 @@ class Mailer {
 			$acctDict = array_change_key_case($allAccnt[$nameClef], CASE_LOWER);
 		}
 		$dfltDict = Array();
-		foreach( self::KEYS_LIST as $keyNme ){
-			$dfltDict[$keyNme] = is_scalar($acctDict[strtolower($keyNme)] ?? null) ? strval($acctDict[strtolower($keyNme)]) : '';
+		foreach( self::KEYS_LIST as $oneNme ){
+			$dfltDict[$oneNme] = is_scalar($acctDict[strtolower($oneNme)] ?? null) ? strval($acctDict[strtolower($oneNme)]) : '';
 		}
 		return $dfltDict;
 	}
@@ -132,8 +132,8 @@ class Mailer {
 	public function sendMailViaAcc( Array|String $recipientLst, String $emailSubject, String $plainMailTxt, ?String $htmlMailText=null, Array $attachedList=Array() ): Bool {
 		$mailInst = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $plainMailTxt, $htmlMailText, $attachedList );
 		$copyList = Array();
-		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $cpyAdr ){
-			$copyList[] = Message::checkEmailAddr($cpyAdr);
+		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $oneAdr ){
+			$copyList[] = Message::checkEmailAddr($oneAdr);
 		}
 		$logrInst = Logger::getLoggerOfChn('runner');
 		$acctText = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);

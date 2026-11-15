@@ -205,11 +205,11 @@ class RunGen extends Command{
 	protected function promptFldsDict( String $linkNameText, String $tbleLabelTxt, String $identColText, Array $binaryFields ): Array {
 		$typeList = DBCon::linkNamedDbCon($linkNameText)->readConnection()->getColTypeList($tbleLabelTxt);
 		$fldsDict = Array();
-		foreach( (array)$typeList as $oneFld => $oneTyp ){
+		foreach( (array)$typeList as $oneFld => $oneCod ){
 			if( $oneFld===$identColText || in_array($oneFld, $binaryFields, true) ){
 				continue;
 			}
-			$frmtText = $this->promptValueTxt('Field '.$oneFld.' ('.$oneTyp.'): its format, ! after it to require it, - to leave it out', RunSpec::getFormatOfCol(strval($oneTyp)));
+			$frmtText = $this->promptValueTxt('Field '.$oneFld.' ('.$oneCod.'): its format, ! after it to require it, - to leave it out', RunSpec::getFormatOfCol(strval($oneCod)));
 			if( $frmtText==='-' ){
 				continue;
 			}
@@ -306,17 +306,17 @@ class RunGen extends Command{
 		}
 		$confFile = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		$keptList = Array();
-		foreach( $fileList as $filPth => $oneTxt ){
-			$rltnPath = $this->getRunFilePath($filPth);
-			if( is_file($filPth) && !$this->promptApproval('Replace '.$rltnPath.' (any change made by hand is lost)') ){
+		foreach( $fileList as $onePth => $oneTxt ){
+			$rltnPath = $this->getRunFilePath($onePth);
+			if( is_file($onePth) && !$this->promptApproval('Replace '.$rltnPath.' (any change made by hand is lost)') ){
 				$keptList[] = $rltnPath;
 				continue;
 			}
-			if( !is_dir(dirname($filPth)) ){
-				@mkdir(dirname($filPth), 0775, true);
+			if( !is_dir(dirname($onePth)) ){
+				@mkdir(dirname($onePth), 0775, true);
 			}
 			try{
-				$confFile->saveFileAtomic($filPth, $oneTxt);
+				$confFile->saveFileAtomic($onePth, $oneTxt);
 			}catch( \RuntimeException $e ){
 				$this->stopWithReason($e->getMessage(), self::EXIT_FAIL);
 			}

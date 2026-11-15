@@ -163,14 +163,14 @@ class Console{
 	 */
 	protected function listShellUsage( Options $givenOptions, Printer $givenPrinter ): Array {
 		$nameList = array_keys(self::CMDS_LIST);
-		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'Shell.php') as $clsFil ){
-			$nameList[] = strtolower( basename(dirname(strval($clsFil))) );
+		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'Shell.php') as $oneFil ){
+			$nameList[] = strtolower( basename(dirname(strval($oneFil))) );
 		}
 		$rowsList = Array();
-		foreach( $nameList as $oneCmd ){
-			$cmmnClss = $this->findClssString($oneCmd);
+		foreach( $nameList as $oneNme ){
+			$cmmnClss = $this->findClssString($oneNme);
 			if( $cmmnClss!==null ){
-				$rowsList[] = Array( $oneCmd, (new $cmmnClss($givenOptions, $givenPrinter, $this->readStream))->renderSynopsis() );
+				$rowsList[] = Array( $oneNme, (new $cmmnClss($givenOptions, $givenPrinter, $this->readStream))->renderSynopsis() );
 			}
 		}
 		return $rowsList;

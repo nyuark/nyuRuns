@@ -104,8 +104,8 @@ class Device extends Command{
 			$this->stopWithReason('The devices cannot be read');
 		}
 		$rowsList = Array();
-		foreach( $dvceNtry as $dvcRow ){
-			$rowsList[] = Array(strval($dvcRow['deviceName']), strval($dvcRow['systemName']), strval($dvcRow['deviceRole']), strval($dvcRow['deviceTops'] ?? ''), strval($dvcRow['createDate']), strval($dvcRow['accessDate'] ?? ''), strval($dvcRow['revokeDate'] ?? ''));
+		foreach( $dvceNtry as $oneRow ){
+			$rowsList[] = Array(strval($oneRow['deviceName']), strval($oneRow['systemName']), strval($oneRow['deviceRole']), strval($oneRow['deviceTops'] ?? ''), strval($oneRow['createDate']), strval($oneRow['accessDate'] ?? ''), strval($oneRow['revokeDate'] ?? ''));
 		}
 		$this->printerObj->writeShellRows( Array('device', 'user', 'role', 'cap', 'made', 'last seen', 'revoked'), $rowsList );
 		return self::EXIT_DONE;
@@ -156,9 +156,9 @@ class Device extends Command{
 		if( $dvceNtry===false ){
 			$this->stopWithReason('The devices cannot be read');
 		}
-		foreach( $dvceNtry as $dvcRow ){
-			if( $dvcRow['deviceName']===$userDvceName && $dvcRow['revokeDate']===null ){
-				return intval($dvcRow['id_device']);
+		foreach( $dvceNtry as $oneRow ){
+			if( $oneRow['deviceName']===$userDvceName && $oneRow['revokeDate']===null ){
+				return intval($oneRow['id_device']);
 			}
 		}
 		return null;

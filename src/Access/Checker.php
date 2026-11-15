@@ -316,9 +316,9 @@ class Checker{
 			return new Registry( $denyList );
 		}
 		$mthdName = '';
-		foreach( array_merge(AppKey::READ_LIST, Array('POST', 'PUT', 'PATCH', 'DELETE')) as $mthVal ){
-			if( $this->requestObj->isSentByMethod($mthVal) ){
-				$mthdName = $mthVal;
+		foreach( array_merge(AppKey::READ_LIST, Array('POST', 'PUT', 'PATCH', 'DELETE')) as $oneVal ){
+			if( $this->requestObj->isSentByMethod($oneVal) ){
+				$mthdName = $oneVal;
 			}
 		}
 		$logStrng = 'App call granted for app '.json_encode($applName).', user '.json_encode($userName).' ('.$idntList['userRole'].')'.$fromText.' to '.$this->getAskedTarget().' ('.($mthdName!='' ? $mthdName : 'other method').')';
@@ -380,9 +380,9 @@ class Checker{
 		$routePth = strval($this->routerRegr->readValueByKey('routPath'));
 		$publList = $this->accessConf['openList'] ?? Array();
 		// Declared routes, by their path : whatever they answer with
-		foreach( (array)$publList as $openRt ){
-			$openRt = strval($openRt);
-			if( $routePth!='' && substr($openRt, 0, 1)=='/' && trim($openRt, '/')===$routePth ){
+		foreach( (array)$publList as $oneRte ){
+			$oneRte = strval($oneRte);
+			if( $routePth!='' && substr($oneRte, 0, 1)=='/' && trim($oneRte, '/')===$routePth ){
 				return true;
 			}
 		}
@@ -390,12 +390,12 @@ class Checker{
 			// Without an application, only the route's own OPTIONS answer is open
 			return $this->routerRegr->readValueByKey('statCode')==204;
 		}
-		foreach( (array)$publList as $openRt ){
-			if( substr(strval($openRt), 0, 1)=='/' ){
+		foreach( (array)$publList as $oneRte ){
+			if( substr(strval($oneRte), 0, 1)=='/' ){
 				continue;
 			}
-			$openRt = strtolower( trim(strval($openRt), '/') );
-			if( $openRt==$applName.'/'.$actnName || $openRt==$applName.'/*' ){
+			$oneRte = strtolower( trim(strval($oneRte), '/') );
+			if( $oneRte==$applName.'/'.$actnName || $oneRte==$applName.'/*' ){
 				return true;
 			}
 		}
@@ -446,22 +446,22 @@ class Checker{
 		if( !empty($roleDict) && ($this->accessConf['required'] ?? true)===false ){
 			return 'roles are asked for while access is not required';
 		}
-		foreach( $roleDict as $rteKey=>$rteRle ){
-			if( !is_string($rteRle) || !in_array($rteRle, self::ROLE_LIST, true) ){
-				return 'unknown role for the route '.json_encode(strval($rteKey));
+		foreach( $roleDict as $oneKey=>$oneRle ){
+			if( !is_string($oneRle) || !in_array($oneRle, self::ROLE_LIST, true) ){
+				return 'unknown role for the route '.json_encode(strval($oneKey));
 			}
 		}
-		foreach( array_keys($roleDict) as $rteKey ){
-			$rteKey = strval($rteKey);
-			if( substr($rteKey, 0, 1)!='/' ){
+		foreach( array_keys($roleDict) as $oneKey ){
+			$oneKey = strval($oneKey);
+			if( substr($oneKey, 0, 1)!='/' ){
 				continue;
 			}
 			if( $this->routingObj===null ){
-				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of minRoles cannot be checked: no router is given';
+				return 'the route '.json_encode($oneKey, JSON_UNESCAPED_SLASHES).' of minRoles cannot be checked: no router is given';
 			}
 			$this->routesList ??= $this->routingObj->listAllTargets();
-			if( !in_array(trim($rteKey, '/'), array_column($this->routesList, 'routPath'), true) ){
-				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of minRoles is declared nowhere';
+			if( !in_array(trim($oneKey, '/'), array_column($this->routesList, 'routPath'), true) ){
+				return 'the route '.json_encode($oneKey, JSON_UNESCAPED_SLASHES).' of minRoles is declared nowhere';
 			}
 		}
 		return '';
@@ -537,26 +537,26 @@ class Checker{
 		$actnName = strtolower( strval($this->routerRegr->readValueByKey('doAction')) );
 		$routePth = strval($this->routerRegr->readValueByKey('routPath'));
 		$needRole = null;
-		foreach( $roleDict as $rteKey=>$rteRle ){
-			$rteKey = strval($rteKey);
-			if( substr($rteKey, 0, 1)=='/' ){
-				$isNameOk = ($routePth!='' && trim($rteKey, '/')===$routePth);
+		foreach( $roleDict as $oneKey=>$oneRle ){
+			$oneKey = strval($oneKey);
+			if( substr($oneKey, 0, 1)=='/' ){
+				$isNameOk = ($routePth!='' && trim($oneKey, '/')===$routePth);
 				// The action a declared route answers with carries its role, on every path that reaches it
 				if( !$isNameOk && $applName!='' && $this->routingObj!==null ){
 					$this->routesList ??= $this->routingObj->listAllTargets();
-					foreach( $this->routesList as $rteRow ){
-						if( $rteRow['routPath']===trim($rteKey, '/') && $this->isMatchingActn($applRead, $actnName, $rteRow) ){
+					foreach( $this->routesList as $oneRow ){
+						if( $oneRow['routPath']===trim($oneKey, '/') && $this->isMatchingActn($applRead, $actnName, $oneRow) ){
 							$isNameOk = true;
 							break;
 						}
 					}
 				}
 			}else{
-				$rteKey = strtolower( trim($rteKey, '/') );
-				$isNameOk = ($applName!='' && ( $rteKey==$applName.'/'.$actnName || $rteKey==$applName.'/*' || ($actnName=='' && strpos($rteKey, $applName.'/')===0) ));
+				$oneKey = strtolower( trim($oneKey, '/') );
+				$isNameOk = ($applName!='' && ( $oneKey==$applName.'/'.$actnName || $oneKey==$applName.'/*' || ($actnName=='' && strpos($oneKey, $applName.'/')===0) ));
 			}
-			if( $isNameOk && ($needRole===null || !self::isRoleNotBelow($needRole, strval($rteRle))) ){
-				$needRole = strval($rteRle);
+			if( $isNameOk && ($needRole===null || !self::isRoleNotBelow($needRole, strval($oneRle))) ){
+				$needRole = strval($oneRle);
 			}
 		}
 		return $needRole;

@@ -26,13 +26,13 @@ class Registry{
 		}else{
 			$this->isUpperKey = true;
 		}
-		foreach( $fieldValList as $arrKey => $arrVal ){
+		foreach( $fieldValList as $oneKey => $oneVal ){
 			if($this->isUpperKey){
-				$arrKey = strtoupper($arrKey);
+				$oneKey = strtoupper($oneKey);
 			}else{
-				$arrKey = strtolower($arrKey);
+				$oneKey = strtolower($oneKey);
 			}
-			$this->saveValueByKey( $arrKey, $arrVal );
+			$this->saveValueByKey( $oneKey, $oneVal );
 		}
 	}
 
@@ -157,15 +157,15 @@ class Registry{
 		$lineList = Array();
 		if($keysCriteria!=''){
 			$filtSize = strlen($keysCriteria);
-			foreach($this->valuesList as $arrKey => $arrVal){
-				$checkKey = substr($arrKey, 0, $filtSize);
+			foreach($this->valuesList as $oneKey => $oneVal){
+				$checkKey = substr($oneKey, 0, $filtSize);
 				if($checkKey==$keysCriteria){
-					$lineList[$arrKey] = $arrVal;
+					$lineList[$oneKey] = $oneVal;
 				}
 			}
 		}else{
-			foreach($this->valuesList as $arrKey => $arrVal){
-				$lineList[$arrKey] = $arrVal;
+			foreach($this->valuesList as $oneKey => $oneVal){
+				$lineList[$oneKey] = $oneVal;
 			}
 		}
 		return $lineList;

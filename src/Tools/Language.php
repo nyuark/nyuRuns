@@ -80,8 +80,8 @@ class Language {
 				continue;
 			}
 			$tagParte = explode('-', $oneTag);
-			for( $idxInc=count($tagParte); $idxInc>0; $idxInc-- ){
-				$chainLst[] = implode('-', array_slice($tagParte, 0, $idxInc));
+			for( $nthIdx=count($tagParte); $nthIdx>0; $nthIdx-- ){
+				$chainLst[] = implode('-', array_slice($tagParte, 0, $nthIdx));
 			}
 		}
 		return array_values( array_unique($chainLst) );

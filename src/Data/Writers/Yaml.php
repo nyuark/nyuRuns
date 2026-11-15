@@ -117,17 +117,17 @@ class Yaml extends Base {
 		}
 		$lineList = Array();
 		$isAsList = $this->isSequenceList($valueToWrite);
-		foreach($valueToWrite as $itmKey=>$itmVal){
+		foreach($valueToWrite as $oneKey=>$oneVal){
 			if( $isAsList ){
 				// What a dash holds starts on its line: the lines of the value, the first one after the dash
-				$subLines = $this->writeYamlLines($itmVal, $indentLength+2, $depthsLftNum-1);
+				$subLines = $this->writeYamlLines($oneVal, $indentLength+2, $depthsLftNum-1);
 				$subLines[0] = $padStrng.'- '.substr($subLines[0], $indentLength+2);
 				$lineList = array_merge($lineList, $subLines);
-			}elseif( is_array($itmVal) && !empty($itmVal) ){
-				$lineList[] = $padStrng.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).':';
-				$lineList = array_merge($lineList, $this->writeYamlLines($itmVal, $indentLength+2, $depthsLftNum-1));
+			}elseif( is_array($oneVal) && !empty($oneVal) ){
+				$lineList[] = $padStrng.$this->writeYamlValue(is_int($oneKey) ? $oneKey : strval($oneKey)).':';
+				$lineList = array_merge($lineList, $this->writeYamlLines($oneVal, $indentLength+2, $depthsLftNum-1));
 			}else{
-				$lineList[] = $padStrng.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).': '.(is_array($itmVal) ? '[]' : $this->writeYamlValue($itmVal));
+				$lineList[] = $padStrng.$this->writeYamlValue(is_int($oneKey) ? $oneKey : strval($oneKey)).': '.(is_array($oneVal) ? '[]' : $this->writeYamlValue($oneVal));
 			}
 		}
 		return $lineList;

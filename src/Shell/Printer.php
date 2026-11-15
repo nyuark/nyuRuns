@@ -101,8 +101,8 @@ class Printer{
 	 */
 	public function writeShellRows( Array $hedrRowsList, Array $tableLnsList ): Void {
 		if( $this->isJsonFrmt ){
-			foreach( $tableLnsList as $rowVal ){
-				$this->jsonOutput['rows'][] = array_combine($hedrRowsList, array_values($rowVal));
+			foreach( $tableLnsList as $oneRow ){
+				$this->jsonOutput['rows'][] = array_combine($hedrRowsList, array_values($oneRow));
 			}
 			if( empty($tableLnsList) && !isset($this->jsonOutput['rows']) ){
 				$this->jsonOutput['rows'] = Array();
@@ -111,18 +111,18 @@ class Printer{
 		}
 		$clmnSize = array_map('strlen', $hedrRowsList);
 		$textNtry = Array();
-		foreach( $tableLnsList as $rowVal ){
+		foreach( $tableLnsList as $oneRow ){
 			$textLine = Array();
-			foreach( array_values($rowVal) as $colInc => $colVal ){
-				$textLine[$colInc] = is_scalar($colVal) ? strval($colVal) : ( $colVal===null ? '' : strval(json_encode($colVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
-				$clmnSize[$colInc] = max($clmnSize[$colInc] ?? 0, strlen($textLine[$colInc]));
+			foreach( array_values($oneRow) as $nthCol => $oneVal ){
+				$textLine[$nthCol] = is_scalar($oneVal) ? strval($oneVal) : ( $oneVal===null ? '' : strval(json_encode($oneVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) );
+				$clmnSize[$nthCol] = max($clmnSize[$nthCol] ?? 0, strlen($textLine[$nthCol]));
 			}
 			$textNtry[] = $textLine;
 		}
-		foreach( array_merge(Array($hedrRowsList), $textNtry) as $rowTxt ){
+		foreach( array_merge(Array($hedrRowsList), $textNtry) as $oneTxt ){
 			$outLigne = '';
-			foreach( $rowTxt as $colInc => $colVal ){
-				$outLigne .= str_pad($colVal, $clmnSize[$colInc]).'  ';
+			foreach( $oneTxt as $nthCol => $oneVal ){
+				$outLigne .= str_pad($oneVal, $clmnSize[$nthCol]).'  ';
 			}
 			fwrite($this->outsStream, rtrim($outLigne).PHP_EOL);
 		}

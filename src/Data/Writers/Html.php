@@ -143,22 +143,22 @@ class Html extends Base {
 	 */
 	protected function writeCssStyles(Bool $hasPageBreak): String {
 		$ruleList = Array();
-		foreach($this->formatList as $oneNme=>$stlSet){
+		foreach($this->formatList as $oneNme=>$oneSet){
 			$styleCls = $this->getClassOfStyl(strval($oneNme));
 			$propList = Array();
-			if( !is_array($stlSet) || $styleCls==='' ){
+			if( !is_array($oneSet) || $styleCls==='' ){
 				continue;
 			}
-			if( preg_match('/^[\p{L}\p{N} \-_.]{1,80}$/Du', strval($stlSet['fonts'] ?? '')) ){
-				$propList[] = 'font-family:"'.$stlSet['fonts'].'"';
+			if( preg_match('/^[\p{L}\p{N} \-_.]{1,80}$/Du', strval($oneSet['fonts'] ?? '')) ){
+				$propList[] = 'font-family:"'.$oneSet['fonts'].'"';
 			}
-			if( is_numeric($stlSet['sizes'] ?? '') && $stlSet['sizes']>0 && $stlSet['sizes']<1000 ){
-				$propList[] = 'font-size:'.floatval($stlSet['sizes']).'pt';
+			if( is_numeric($oneSet['sizes'] ?? '') && $oneSet['sizes']>0 && $oneSet['sizes']<1000 ){
+				$propList[] = 'font-size:'.floatval($oneSet['sizes']).'pt';
 			}
-			if( preg_match('/^#[0-9A-Fa-f]{6}$/D', strval($stlSet['color'] ?? '')) ){
-				$propList[] = 'color:'.$stlSet['color'];
+			if( preg_match('/^#[0-9A-Fa-f]{6}$/D', strval($oneSet['color'] ?? '')) ){
+				$propList[] = 'color:'.$oneSet['color'];
 			}
-			$markList = (array)($stlSet['marks'] ?? Array());
+			$markList = (array)($oneSet['marks'] ?? Array());
 			if( in_array('boldFace', $markList) ){
 				$propList[] = 'font-weight:bold';
 			}
@@ -168,8 +168,8 @@ class Html extends Base {
 			if( in_array('undrLine', $markList) || in_array('crossOut', $markList) ){
 				$propList[] = 'text-decoration:'.trim((in_array('undrLine', $markList) ? 'underline ' : '').(in_array('crossOut', $markList) ? 'line-through' : ''));
 			}
-			if( isset(self::ALGN_LIST[strval($stlSet['align'] ?? '')]) ){
-				$propList[] = 'text-align:'.self::ALGN_LIST[$stlSet['align']];
+			if( isset(self::ALGN_LIST[strval($oneSet['align'] ?? '')]) ){
+				$propList[] = 'text-align:'.self::ALGN_LIST[$oneSet['align']];
 			}
 			if( !empty($propList) ){
 				$ruleList[] = '.'.$styleCls.'{'.implode(';', $propList).'}';
@@ -237,9 +237,9 @@ class Html extends Base {
 		$htmlText = '';
 		foreach($textSpanList as $oneSpn){
 			$spanHtml = str_replace("\n", '<br'.$this->shutVoidString()."\n", $this->escapeHtmlText(strval($oneSpn['texts'] ?? '')));
-			foreach(array_reverse(self::MARK_TAGS) as $mrkKey=>$mrkTag){
-				if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
-					$spanHtml = '<'.$mrkTag.'>'.$spanHtml.'</'.$mrkTag.'>';
+			foreach(array_reverse(self::MARK_TAGS) as $oneKey=>$oneTag){
+				if( in_array($oneKey, (array)($oneSpn['marks'] ?? Array())) ){
+					$spanHtml = '<'.$oneTag.'>'.$spanHtml.'</'.$oneTag.'>';
 				}
 			}
 			if( strval($oneSpn['field'] ?? '')!=='' ){
@@ -297,10 +297,10 @@ class Html extends Base {
 			}elseif( $blockCod=='itemList' ){
 				$lstngTag = empty($oneBlk['attrs']['order']) ? 'ul' : 'ol';
 				$htmlText .= '<'.$lstngTag.$blockAtr.">\n";
-				foreach($oneBlk['items'] as $entBlk){
+				foreach($oneBlk['items'] as $oneNtr){
 					// A task shows the box that tells whether it is done
-					$taskHtml = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->isXhtmlDoc ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->isXhtmlDoc ? '="checked"' : '')).$this->shutVoidString().' ' : '';
-					$htmlText .= '<li'.$this->writeBlockAttr($entBlk).'>'.$taskHtml.$this->writeInnerPart($entBlk)."</li>\n";
+					$taskHtml = isset($oneNtr['attrs']['check']) ? '<input type="checkbox" disabled'.($this->isXhtmlDoc ? '="disabled"' : '').(empty($oneNtr['attrs']['check']) ? '' : ' checked'.($this->isXhtmlDoc ? '="checked"' : '')).$this->shutVoidString().' ' : '';
+					$htmlText .= '<li'.$this->writeBlockAttr($oneNtr).'>'.$taskHtml.$this->writeInnerPart($oneNtr)."</li>\n";
 				}
 				$htmlText .= '</'.$lstngTag.">\n";
 			}elseif( $blockCod=='tableSet' ){
@@ -350,15 +350,15 @@ class Html extends Base {
 		foreach($rowBlockList as $oneRow){
 			$isTopRow = (strval($oneRow['block'] ?? '')=='tableTop');
 			$ntryHtml = '<tr>';
-			foreach($oneRow['items'] as $celBlk){
-				$celdaTag = ($isTopRow || !empty($celBlk['attrs']['headr'])) ? 'th' : 'td';
+			foreach($oneRow['items'] as $oneCel){
+				$celdaTag = ($isTopRow || !empty($oneCel['attrs']['headr'])) ? 'th' : 'td';
 				$spanAttr = '';
-				foreach(Array('colsp'=>'colspan', 'rowsp'=>'rowspan') as $atrKey=>$atrNme){
-					if( intval($celBlk['attrs'][$atrKey] ?? 1)>1 ){
-						$spanAttr .= ' '.$atrNme.'="'.intval($celBlk['attrs'][$atrKey]).'"';
+				foreach(Array('colsp'=>'colspan', 'rowsp'=>'rowspan') as $oneKey=>$oneNme){
+					if( intval($oneCel['attrs'][$oneKey] ?? 1)>1 ){
+						$spanAttr .= ' '.$oneNme.'="'.intval($oneCel['attrs'][$oneKey]).'"';
 					}
 				}
-				$ntryHtml .= '<'.$celdaTag.$this->writeBlockAttr($celBlk).$spanAttr.'>'.$this->writeInnerPart($celBlk).'</'.$celdaTag.'>';
+				$ntryHtml .= '<'.$celdaTag.$this->writeBlockAttr($oneCel).$spanAttr.'>'.$this->writeInnerPart($oneCel).'</'.$celdaTag.'>';
 			}
 			$partHtml[$isTopRow ? 'thead' : 'tbody'] .= $ntryHtml."</tr>\n";
 		}
@@ -377,11 +377,11 @@ class Html extends Base {
 	 */
 	protected function writeAllSheets(Array $sheetEntries, Bool $initialHeads, Bool $shownOnlyFlg): String {
 		$htmlText = '';
-		foreach($sheetEntries as $oneSht){
-			if( $shownOnlyFlg && isset($oneSht['attrs']['shown']) && $oneSht['attrs']['shown']===false ){
+		foreach($sheetEntries as $oneTbl){
+			if( $shownOnlyFlg && isset($oneTbl['attrs']['shown']) && $oneTbl['attrs']['shown']===false ){
 				continue;
 			}
-			$rowsList = array_values((array)($oneSht['cells'] ?? Array()));
+			$rowsList = array_values((array)($oneTbl['cells'] ?? Array()));
 			// Rows keyed by names had their header taken off when they were read: it is written back, from those names
 			$firstRow = (array)($rowsList[0] ?? Array());
 			$isByKeys = (!empty($firstRow) && array_keys($firstRow)!==range(0, count($firstRow)-1));
@@ -392,7 +392,7 @@ class Html extends Base {
 			// The merged cells, by the place of their first cell in the rows of the body, and the cells each covers
 			$spanList = Array();
 			$coverLst = Array();
-			foreach((array)($oneSht['attrs']['merge'] ?? Array()) as $oneMrg){
+			foreach((array)($oneTbl['attrs']['merge'] ?? Array()) as $oneMrg){
 				$mrgdNtry = intval($oneMrg['atrow'] ?? 0)-(($headNtry!==null) ? 1 : 0);
 				$spanAttr = intval($oneMrg['atcol'] ?? 0);
 				$rowRange = max(1, intval($oneMrg['rowsp'] ?? 1));
@@ -403,15 +403,15 @@ class Html extends Base {
 				}
 				$rowRange = min($rowRange, count($rowsList)-$mrgdNtry);
 				$spanList[$mrgdNtry][$spanAttr] = (($clmnSpan>1) ? ' colspan="'.$clmnSpan.'"' : '').(($rowRange>1) ? ' rowspan="'.$rowRange.'"' : '');
-				for($rowIdx=$mrgdNtry; $rowIdx<$mrgdNtry+$rowRange; $rowIdx++){
-					for($colInc=$spanAttr; $colInc<$spanAttr+$clmnSpan && $colInc<$spanAttr+16384; $colInc++){
-						$coverLst[$rowIdx][$colInc] = ($rowIdx!=$mrgdNtry || $colInc!=$spanAttr);
+				for($nthRow=$mrgdNtry; $nthRow<$mrgdNtry+$rowRange; $nthRow++){
+					for($nthCol=$spanAttr; $nthCol<$spanAttr+$clmnSpan && $nthCol<$spanAttr+16384; $nthCol++){
+						$coverLst[$nthRow][$nthCol] = ($nthRow!=$mrgdNtry || $nthCol!=$spanAttr);
 					}
 				}
 			}
 			$htmlText .= "<table>\n";
-			if( strval($oneSht['title'] ?? '')!=='' ){
-				$htmlText .= '<caption>'.$this->escapeHtmlText(strval($oneSht['title']))."</caption>\n";
+			if( strval($oneTbl['title'] ?? '')!=='' ){
+				$htmlText .= '<caption>'.$this->escapeHtmlText(strval($oneTbl['title']))."</caption>\n";
 			}
 			if( $headNtry!==null ){
 				$htmlText .= "<thead>\n<tr>";
@@ -422,11 +422,11 @@ class Html extends Base {
 			}
 			if( !empty($rowsList) ){
 				$htmlText .= "<tbody>\n";
-				foreach($rowsList as $rowIdx=>$oneRow){
+				foreach($rowsList as $nthRow=>$oneRow){
 					$htmlText .= '<tr>';
-					foreach(array_values((array)$oneRow) as $colInc=>$oneVal){
-						if( empty($coverLst[$rowIdx][$colInc]) ){
-							$htmlText .= '<td'.strval($spanList[$rowIdx][$colInc] ?? '').'>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</td>';
+					foreach(array_values((array)$oneRow) as $nthCol=>$oneVal){
+						if( empty($coverLst[$nthRow][$nthCol]) ){
+							$htmlText .= '<td'.strval($spanList[$nthRow][$nthCol] ?? '').'>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</td>';
 						}
 					}
 					$htmlText .= "</tr>\n";

@@ -589,8 +589,8 @@ class Actions extends Actionset {
 	 * @return Bool True when the request is refused.
 	 */
 	protected function denyPwdInQuery( Array $fldNamesList, String $requestLabel ): Bool {
-		foreach($fldNamesList as $fldNme){
-			if($this->requestObj->isSentViaQuery( strval($fldNme) )){
+		foreach($fldNamesList as $oneNme){
+			if($this->requestObj->isSentViaQuery( strval($oneNme) )){
 				$clntRegr = $this->requestObj->getClientOfRqt();
 				$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 				Logger::getLoggerOfChn('access')->warning( $requestLabel.' refused'.(($userAddr!='') ? ' from '.$userAddr : '').': password sent in the query string' );

@@ -264,8 +264,8 @@ class Mdwn extends Base {
 	protected function splitCellArray(String $markdownLine): Array {
 		$lineText = preg_replace('/^\||(?<!\\\\)\|$/', '', trim($markdownLine));
 		$cellList = Array();
-		foreach(preg_split('/(?<!\\\\)\|/', $lineText) as $fldTxt){
-			$cellList[] = trim(str_replace('\\|', '|', $fldTxt));
+		foreach(preg_split('/(?<!\\\\)\|/', $lineText) as $oneTxt){
+			$cellList[] = trim(str_replace('\\|', '|', $oneTxt));
 		}
 		return $cellList;
 	}
@@ -285,8 +285,8 @@ class Mdwn extends Base {
 		while( true ){
 			$cellBloc = Array();
 			// Every row has the cells of the header: no more, no less
-			foreach(array_keys($headText) as $colInc){
-				$cellBloc[] = Shape::makeBlockArray('cellText', $this->readSpansOfTxt(strval($cellText[$colInc] ?? '')));
+			foreach(array_keys($headText) as $nthCol){
+				$cellBloc[] = Shape::makeBlockArray('cellText', $this->readSpansOfTxt(strval($cellText[$nthCol] ?? '')));
 			}
 			$rowsList[] = Shape::makeBlockArray(empty($rowsList) ? 'tableTop' : 'tableRow', Array(), $cellBloc);
 			if( !isset($linesToParse[$linesIndxNum]) || trim($linesToParse[$linesIndxNum])==='' || $this->isStartOfBlock($linesToParse[$linesIndxNum], true) ){
@@ -308,9 +308,9 @@ class Mdwn extends Base {
 	protected function joinLinesAsTxt(Array $linesToParse): String {
 		$fullText = '';
 		$lastIndx = count($linesToParse)-1;
-		foreach(array_values($linesToParse) as $linIdx=>$linTxt){
-			$breakLne = ($linIdx<$lastIndx && (substr($linTxt, -2)==='  ' || (substr($linTxt, -1)==='\\' && substr($linTxt, -2)!=='\\\\')));
-			$fullText .= trim(($breakLne && substr($linTxt, -1)==='\\') ? substr($linTxt, 0, -1) : $linTxt).(($linIdx<$lastIndx) ? ($breakLne ? "\n" : ' ') : '');
+		foreach(array_values($linesToParse) as $nthLne=>$oneTxt){
+			$breakLne = ($nthLne<$lastIndx && (substr($oneTxt, -2)==='  ' || (substr($oneTxt, -1)==='\\' && substr($oneTxt, -2)!=='\\\\')));
+			$fullText .= trim(($breakLne && substr($oneTxt, -1)==='\\') ? substr($oneTxt, 0, -1) : $oneTxt).(($nthLne<$lastIndx) ? ($breakLne ? "\n" : ' ') : '');
 		}
 		return $fullText;
 	}

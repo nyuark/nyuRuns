@@ -209,14 +209,14 @@ class Controller{
 		// The folders of the Runs are read once for the request, every lookup then served from that list
 		if( !isset(self::$runFolders[$runsPath]) ){
 			self::$runFolders[$runsPath] = Array();
-			foreach( (array)glob($runsPath.DS.'*', GLOB_ONLYDIR) as $oneDir ){
-				self::$runFolders[$runsPath][] = basename(strval($oneDir));
+			foreach( (array)glob($runsPath.DS.'*', GLOB_ONLYDIR) as $onePth ){
+				self::$runFolders[$runsPath][] = basename(strval($onePth));
 			}
 		}
 		$findList = Array();
-		foreach( self::$runFolders[$runsPath] as $oneDir ){
-			if( strcasecmp($oneDir, $appNameToRun)===0 ){
-				$findList[] = $oneDir;
+		foreach( self::$runFolders[$runsPath] as $onePth ){
+			if( strcasecmp($onePth, $appNameToRun)===0 ){
+				$findList[] = $onePth;
 			}
 		}
 		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them

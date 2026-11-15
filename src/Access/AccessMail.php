@@ -174,9 +174,9 @@ class AccessMail {
 	 */
 	public function sendQueueAlert( Array $managersList, Int $mailCountVal, Int $ceilingValue ): Bool {
 		$isSentOk = true;
-		foreach( $managersList as $adrKey=>$mgrAdr ){
-			$mngrAddr = is_string($adrKey) ? $adrKey : strval($mgrAdr);
-			$mngrLang = is_string($adrKey) && is_string($mgrAdr) ? $mgrAdr : null;
+		foreach( $managersList as $oneKey=>$oneAdr ){
+			$mngrAddr = is_string($oneKey) ? $oneKey : strval($oneAdr);
+			$mngrLang = is_string($oneKey) && is_string($oneAdr) ? $oneAdr : null;
 			$isSentOk = $this->sendNowOrLater( self::WARN_NAME, $mngrAddr, Array('count'=>strval($mailCountVal), 'limit'=>strval($ceilingValue), 'link'=>''), $mngrLang ) && $isSentOk;
 		}
 		return $isSentOk;
@@ -218,8 +218,8 @@ class AccessMail {
 		if( function_exists('fastcgi_finish_request') ){
 			fastcgi_finish_request();
 		}
-		foreach( $this->mailsQueue as $lateMl ){
-			$this->sendViaAccount($lateMl[0], $lateMl[1]);
+		foreach( $this->mailsQueue as $oneEml ){
+			$this->sendViaAccount($oneEml[0], $oneEml[1]);
 		}
 		$this->mailsQueue = Array();
 	}
@@ -252,8 +252,8 @@ class AccessMail {
 		$langTool = new Language();
 		$textPath = null;
 		foreach( $langTool->getLngChainLst($langTool->findPersonLang($givenLangTag, null)) as $oneTag ){
-			foreach( $this->folderList as $dirPth ){
-				$textPath = $textPath ?? $langTool->findTmplInLang($dirPth, $templateName.'.txt', Array($oneTag));
+			foreach( $this->folderList as $onePth ){
+				$textPath = $textPath ?? $langTool->findTmplInLang($onePth, $templateName.'.txt', Array($oneTag));
 			}
 		}
 		if( $textPath===null ){

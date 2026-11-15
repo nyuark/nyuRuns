@@ -84,18 +84,18 @@ abstract Class PDO implements Handler {
 	 */
 	protected function treatQueryVals(\PDOStatement $statementObj, Array $valuesToBind): Bool {
 		$hasBlobs = false;
-		foreach($valuesToBind as $bndVal){
-			$hasBlobs = $hasBlobs || ($bndVal instanceof \nyu\Data\Fluxd);
+		foreach($valuesToBind as $oneVal){
+			$hasBlobs = $hasBlobs || ($oneVal instanceof \nyu\Data\Fluxd);
 		}
 		if( !$hasBlobs ){
 			return $statementObj->execute($valuesToBind);
 		}
-		foreach($valuesToBind as $bndIdx=>$bndVal){
-			if( $bndVal instanceof \nyu\Data\Fluxd ){
-				$bndVal->setFluxToStart();
-				$statementObj->bindValue($bndIdx+1, $bndVal->getWholeString(), \PDO::PARAM_LOB);
+		foreach($valuesToBind as $nthBnd=>$oneVal){
+			if( $oneVal instanceof \nyu\Data\Fluxd ){
+				$oneVal->setFluxToStart();
+				$statementObj->bindValue($nthBnd+1, $oneVal->getWholeString(), \PDO::PARAM_LOB);
 			}else{
-				$statementObj->bindValue($bndIdx+1, $bndVal);
+				$statementObj->bindValue($nthBnd+1, $oneVal);
 			}
 		}
 		return $statementObj->execute();
@@ -113,8 +113,8 @@ abstract Class PDO implements Handler {
 		if(isset($this->lastResult) && $this->lastResult!=false ){
 			$rowArray = Array();
 			if(is_array($this->lastResult) || is_object($this->lastResult)){
-				foreach($this->lastResult as $resRow){
-					$rowArray[] = $resRow;
+				foreach($this->lastResult as $oneRow){
+					$rowArray[] = $oneRow;
 				}
 				if($alwaysAsList){
 					return $rowArray;
@@ -198,22 +198,22 @@ abstract Class PDO implements Handler {
 		$signList = Array('equal'=>'=', 'diffr'=>'!=', 'under'=>'<', 'undeq'=>'<=', 'above'=>'>', 'aboeq'=>'>=');
 		$whereTxt = Array();
 		$fltrList = Array();
-		foreach(\nyu\Data\DBStore\Filter::readWhereArray($filterFields) as $clause){
-			$oprtTokn = $clause['opert'];
-			$safeFild = ($clause['field']!='') ? $this->quoteFieldName($clause['field']) : '';
+		foreach(\nyu\Data\DBStore\Filter::readWhereArray($filterFields) as $oneFlt){
+			$oprtTokn = $oneFlt['opert'];
+			$safeFild = ($oneFlt['field']!='') ? $this->quoteFieldName($oneFlt['field']) : '';
 			if( $oprtTokn=='never' || $oprtTokn=='every' ){
 				$whereTxt[] = ($oprtTokn=='every') ? '1=1' : '1=0';
 			}elseif( $oprtTokn=='unset' || $oprtTokn=='isset' ){
 				$whereTxt[] = $safeFild.($oprtTokn=='isset' ? ' IS NOT NULL' : ' IS NULL');
 			}elseif( $oprtTokn=='among' || $oprtTokn=='nmong' ){
-				$whereTxt[] = $safeFild.($oprtTokn=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($clause['value']), '?')).')';
-				$fltrList = array_merge($fltrList, $clause['value']);
+				$whereTxt[] = $safeFild.($oprtTokn=='nmong' ? ' NOT IN (' : ' IN (').implode(',', array_fill(0, count($oneFlt['value']), '?')).')';
+				$fltrList = array_merge($fltrList, $oneFlt['value']);
 			}elseif( $oprtTokn=='match' || $oprtTokn=='nmtch' ){
 				$whereTxt[] = $safeFild.' '.($oprtTokn=='nmtch' ? 'NOT ' : '').$this->getLikeKeyword()." ? ESCAPE '!'";
-				$fltrList[] = $this->writeLikeValue( (array)$clause['value'] );
+				$fltrList[] = $this->writeLikeValue( (array)$oneFlt['value'] );
 			}else{
 				$whereTxt[] = $safeFild.' '.$signList[$oprtTokn].' ?';
-				$fltrList[] = $clause['value'];
+				$fltrList[] = $oneFlt['value'];
 			}
 		}
 		return Array('text'=>implode(' AND ', $whereTxt), 'vals'=>$fltrList);

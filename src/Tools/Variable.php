@@ -216,19 +216,19 @@ class Variable{
 		$keepTags = Array('p', 'br', 'hr', 'b', 'strong', 'i', 'em', 'u', 's', 'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'a');
 		$dropTags = Array('script', 'style', 'iframe', 'object', 'embed', 'noscript', 'template', 'head', 'title', 'textarea', 'select', 'svg', 'math');
 		$outStrng = '';
-		foreach( $outerElement->childNodes as $kidNod ){
-			if( $kidNod->nodeType==XML_TEXT_NODE || $kidNod->nodeType==XML_CDATA_SECTION_NODE ){
-				$outStrng .= htmlspecialchars($kidNod->nodeValue, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+		foreach( $outerElement->childNodes as $oneNde ){
+			if( $oneNde->nodeType==XML_TEXT_NODE || $oneNde->nodeType==XML_CDATA_SECTION_NODE ){
+				$outStrng .= htmlspecialchars($oneNde->nodeValue, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
 				continue;
 			}
-			if( $kidNod->nodeType!=XML_ELEMENT_NODE ){
+			if( $oneNde->nodeType!=XML_ELEMENT_NODE ){
 				continue;
 			}
-			$tagTitle = strtolower($kidNod->nodeName);
+			$tagTitle = strtolower($oneNde->nodeName);
 			if( in_array($tagTitle, $dropTags, true) ){
 				continue;
 			}
-			$innerTxt = $this->renderSafeHtml($kidNod);
+			$innerTxt = $this->renderSafeHtml($oneNde);
 			if( !in_array($tagTitle, $keepTags, true) ){
 				$outStrng .= $innerTxt;
 			}elseif( $tagTitle=='br' || $tagTitle=='hr' ){
@@ -237,7 +237,7 @@ class Variable{
 				$outStrng .= '<'.$tagTitle.'>'.$innerTxt.'</'.$tagTitle.'>';
 			}else{
 				// A link is kept only with an address of a scheme that runs nothing
-				$nlaceUrl = trim($kidNod->getAttribute('href'));
+				$nlaceUrl = trim($oneNde->getAttribute('href'));
 				if( preg_match('#^(https?://|mailto:)#i', $nlaceUrl) ){
 					$outStrng .= '<a href="'.htmlspecialchars($nlaceUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'">'.$innerTxt.'</a>';
 				}else{

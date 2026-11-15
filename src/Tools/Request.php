@@ -248,30 +248,30 @@ class Request{
 			$this->isTooLarge = true;
 			return $readFlux;
 		}
-		foreach( $fluxPrts as $partLn ){
+		foreach( $fluxPrts as $onePar ){
 			// The closing boundary is followed by "--"
-			if( substr($partLn, 0, 2)=='--' ){
+			if( substr($onePar, 0, 2)=='--' ){
 				break;
 			}
 			// A part is : line break, headers, empty line, content, line break
-			$partLn = preg_replace('/^\r?\n/', '', $partLn);
-			if( !preg_match('/\r?\n\r?\n/', $partLn, $seprVals, PREG_OFFSET_CAPTURE) ){
+			$onePar = preg_replace('/^\r?\n/', '', $onePar);
+			if( !preg_match('/\r?\n\r?\n/', $onePar, $seprVals, PREG_OFFSET_CAPTURE) ){
 				continue;
 			}
-			$partHead = substr($partLn, 0, $seprVals[0][1]);
-			$partBody = substr($partLn, $seprVals[0][1] + strlen($seprVals[0][0]));
+			$partHead = substr($onePar, 0, $seprVals[0][1]);
+			$partBody = substr($onePar, $seprVals[0][1] + strlen($seprVals[0][0]));
 			$partBody = preg_replace('/\r?\n\z/', '', $partBody);
 
 			$fieldNme = null;
 			$fileName = null;
 			$partCode = '';
-			foreach( preg_split('/\r?\n/', $partHead) as $hdrLin ){
-				$colonIdx = strpos($hdrLin, ':');
+			foreach( preg_split('/\r?\n/', $partHead) as $oneLne ){
+				$colonIdx = strpos($oneLne, ':');
 				if( $colonIdx===false ){
 					continue;
 				}
-				$hedrName = trim(substr($hdrLin, 0, $colonIdx));
-				$hedrText = trim(substr($hdrLin, $colonIdx+1));
+				$hedrName = trim(substr($oneLne, 0, $colonIdx));
+				$hedrText = trim(substr($oneLne, $colonIdx+1));
 				$readFlux['head'][$hedrName] = trim(strtok($hedrText, ';'));
 				if( strcasecmp($hedrName, 'Content-Disposition')==0 ){
 					if( preg_match('/\bname=(?:"([^"]*)"|([^;\s]+))/i', $hedrText, $nameVals) ){
@@ -294,8 +294,8 @@ class Request{
 				if( $brcktPos>0 ){
 					// field[], field[key] or field[a][b] : one array per property, as PHP fills $_FILES
 					$fieldBas = substr($fieldNme, 0, $brcktPos);
-					foreach( $fileVals as $prpKey => $prpVal ){
-						$this->addNestedValue( $readFlux['file'][$fieldBas][$prpKey], substr($fieldNme, $brcktPos), $prpVal );
+					foreach( $fileVals as $oneKey => $onePrp ){
+						$this->addNestedValue( $readFlux['file'][$fieldBas][$oneKey], substr($fieldNme, $brcktPos), $onePrp );
 					}
 				}else{
 					$readFlux['file'][$fieldNme] = $fileVals;
@@ -322,12 +322,12 @@ class Request{
 	protected function addNestedValue( ?Array &$goalNodeList, String $bracketsText, Mixed $storedAtLeaf ): Void {
 		preg_match_all('/\[([^\]]*)\]/', $bracketsText, $keysList);
 		$nodeRefr = &$goalNodeList;
-		foreach( $keysList[1] as $keyNme ){
-			if( $keyNme==='' ){
+		foreach( $keysList[1] as $oneNme ){
+			if( $oneNme==='' ){
 				$nodeRefr[] = null;
 				$nodeRefr = &$nodeRefr[array_key_last($nodeRefr)];
 			}else{
-				$nodeRefr = &$nodeRefr[$keyNme];
+				$nodeRefr = &$nodeRefr[$oneNme];
 			}
 		}
 		$nodeRefr = $storedAtLeaf;
@@ -403,12 +403,12 @@ class Request{
                 'Content-Features' => 'Content-features',
 			);
 			$srvrVars = $this->serverRegr->readLinesArray('http_');
-			foreach ($srvrVars as $srvKey => $srvVal){
-				$headClef = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($srvKey, 5)))));
+			foreach ($srvrVars as $oneKey => $oneVal){
+				$headClef = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($oneKey, 5)))));
 				if ( array_key_exists( $headClef, $xcptList ) ) {
                     $headClef = $xcptList[ $headClef ];
                 }
-				$hedrList[$headClef] = $srvVal;
+				$hedrList[$headClef] = $oneVal;
 			}
 			return $hedrList;
 		}else{
@@ -452,9 +452,9 @@ class Request{
 	 */
 	public function getHeaderValue( String $nameOfHeader='' ): ?String {
 		// Header names are case-insensitive
-		foreach( $this->everyHeads as $hdrKey => $hdrVal ){
-			if( strcasecmp($hdrKey, $nameOfHeader)==0 ){
-				return $hdrVal;
+		foreach( $this->everyHeads as $oneKey => $oneVal ){
+			if( strcasecmp($oneKey, $nameOfHeader)==0 ){
+				return $oneVal;
 			}
 		}
 		return NULL;

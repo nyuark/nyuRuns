@@ -141,10 +141,10 @@ abstract class Pack extends Base {
 	protected function listNamedNodes(Array $elementArray, String $tagNmeString): Array {
 		$kidsList = Array();
 		$hasPrefx = (strpos($tagNmeString, ':')!==false);
-		foreach($elementArray['nodes'] as $chlArr){
-			$childNme = $chlArr['tagnm'];
+		foreach($elementArray['nodes'] as $oneChl){
+			$childNme = $oneChl['tagnm'];
 			if( $childNme===$tagNmeString || (!$hasPrefx && substr($childNme, intval(strrpos($childNme, ':'))+1)===$tagNmeString && strpos($childNme, ':')!==false) ){
-				$kidsList[] = $chlArr;
+				$kidsList[] = $oneChl;
 			}
 		}
 		return $kidsList;
@@ -159,8 +159,8 @@ abstract class Pack extends Base {
 	 * @return ?Array The element reached, null when the path breaks.
 	 */
 	protected function findChildArray(Array $elementArray, Array $tagPathSteps): ?Array {
-		foreach($tagPathSteps as $tagNme){
-			$kidsList = $this->listNamedNodes($elementArray, $tagNme);
+		foreach($tagPathSteps as $oneTag){
+			$kidsList = $this->listNamedNodes($elementArray, $oneTag);
 			if( empty($kidsList) ){
 				return null;
 			}
@@ -177,8 +177,8 @@ abstract class Pack extends Base {
 	 */
 	protected function readNestedText(Array $elementArray): String {
 		$fullText = $elementArray['value'];
-		foreach($elementArray['nodes'] as $chlArr){
-			$fullText .= $this->readNestedText($chlArr);
+		foreach($elementArray['nodes'] as $oneChl){
+			$fullText .= $this->readNestedText($oneChl);
 		}
 		return $fullText;
 	}
@@ -208,9 +208,9 @@ abstract class Pack extends Base {
 			return Array($foundIdx);
 		}
 		$keptIndx = Array();
-		foreach(array_keys($sheetNameLst) as $shtIdx){
-			if( empty($parseOptions['shown']) || !empty($visibleFlags[$shtIdx]) ){
-				$keptIndx[] = $shtIdx;
+		foreach(array_keys($sheetNameLst) as $nthTbl){
+			if( empty($parseOptions['shown']) || !empty($visibleFlags[$nthTbl]) ){
+				$keptIndx[] = $nthTbl;
 			}
 		}
 		return $keptIndx;
@@ -259,22 +259,22 @@ abstract class Pack extends Base {
 	 */
 	protected function fillMergeArray(Array $cellRowsList, Array $mergedRanges): Array {
 		$fillNumb = 0;
-		foreach($mergedRanges as $oneAre){
-			$areaVals = $cellRowsList[$oneAre['atrow']][$oneAre['atcol']] ?? null;
+		foreach($mergedRanges as $oneRng){
+			$areaVals = $cellRowsList[$oneRng['atrow']][$oneRng['atcol']] ?? null;
 			if( $areaVals===null ){
 				continue;
 			}
-			$fillNumb += $oneAre['rowsp']*$oneAre['colsp'];
+			$fillNumb += $oneRng['rowsp']*$oneRng['colsp'];
 			if( $fillNumb>self::FILL_MAXI ){
 				throw new ParseError('Invalid workbook: merged cells too many to be filled');
 			}
-			for($rowIdx=$oneAre['atrow']; $rowIdx<$oneAre['atrow']+$oneAre['rowsp']; $rowIdx++){
-				while( count($cellRowsList)<=$rowIdx ){
+			for($nthRow=$oneRng['atrow']; $nthRow<$oneRng['atrow']+$oneRng['rowsp']; $nthRow++){
+				while( count($cellRowsList)<=$nthRow ){
 					$cellRowsList[] = Array();
 				}
-				$cellRowsList[$rowIdx] = array_pad($cellRowsList[$rowIdx], $oneAre['atcol']+$oneAre['colsp'], null);
-				for($colInc=$oneAre['atcol']; $colInc<$oneAre['atcol']+$oneAre['colsp']; $colInc++){
-					$cellRowsList[$rowIdx][$colInc] = $areaVals;
+				$cellRowsList[$nthRow] = array_pad($cellRowsList[$nthRow], $oneRng['atcol']+$oneRng['colsp'], null);
+				for($nthCol=$oneRng['atcol']; $nthCol<$oneRng['atcol']+$oneRng['colsp']; $nthCol++){
+					$cellRowsList[$nthRow][$nthCol] = $areaVals;
 				}
 			}
 		}
@@ -303,16 +303,16 @@ abstract class Pack extends Base {
 	 */
 	protected function getOdfPieceTxt(Array $elementArray): String {
 		$fullText = $elementArray['value'];
-		foreach($elementArray['nodes'] as $chlArr){
-			$childNme = $chlArr['tagnm'];
+		foreach($elementArray['nodes'] as $oneChl){
+			$childNme = $oneChl['tagnm'];
 			if( $childNme=='text:s' ){
-				$fullText .= str_repeat(' ', max(1, min(10000, intval($chlArr['attrs']['text:c'] ?? 1))));
+				$fullText .= str_repeat(' ', max(1, min(10000, intval($oneChl['attrs']['text:c'] ?? 1))));
 			}elseif( $childNme=='text:tab' ){
 				$fullText .= "\t";
 			}elseif( $childNme=='text:line-break' ){
 				$fullText .= "\n";
 			}elseif( !in_array($childNme, Array('office:annotation', 'office:annotation-end', 'text:note', 'text:tracked-changes')) ){
-				$fullText .= $this->getOdfPieceTxt($chlArr);
+				$fullText .= $this->getOdfPieceTxt($oneChl);
 			}
 		}
 		return $fullText;
@@ -330,19 +330,19 @@ abstract class Pack extends Base {
 		$partPath = ($slashIdx===false) ? '' : substr($fullPathName, 0, $slashIdx+1);
 		$rltnNods = $this->readPartAsTree($partPath.'_rels/'.substr($fullPathName, strlen($partPath)).'.rels', false);
 		$rltnList = Array();
-		foreach($this->listNamedNodes($rltnNods ?? Array('nodes'=>Array()), 'Relationship') as $relArr){
-			$rltnTrgt = strval($relArr['attrs']['Target'] ?? '');
+		foreach($this->listNamedNodes($rltnNods ?? Array('nodes'=>Array()), 'Relationship') as $oneRel){
+			$rltnTrgt = strval($oneRel['attrs']['Target'] ?? '');
 			// A target is written from the folder of the part, or from the root of the archive when it starts with /
 			$rltnPath = (substr($rltnTrgt, 0, 1)=='/') ? substr($rltnTrgt, 1) : $partPath.$rltnTrgt;
 			$pathPart = Array();
-			foreach(explode('/', $rltnPath) as $oneDir){
-				if( $oneDir=='..' ){
+			foreach(explode('/', $rltnPath) as $onePth){
+				if( $onePth=='..' ){
 					array_pop($pathPart);
-				}elseif( $oneDir!=='' && $oneDir!='.' ){
-					$pathPart[] = $oneDir;
+				}elseif( $onePth!=='' && $onePth!='.' ){
+					$pathPart[] = $onePth;
 				}
 			}
-			$rltnList[strval($relArr['attrs']['Id'] ?? '')] = Array('types'=>strval($relArr['attrs']['Type'] ?? ''), 'paths'=>implode('/', $pathPart), 'links'=>$rltnTrgt, 'outer'=>(strtolower(strval($relArr['attrs']['TargetMode'] ?? ''))=='external'));
+			$rltnList[strval($oneRel['attrs']['Id'] ?? '')] = Array('types'=>strval($oneRel['attrs']['Type'] ?? ''), 'paths'=>implode('/', $pathPart), 'links'=>$rltnTrgt, 'outer'=>(strtolower(strval($oneRel['attrs']['TargetMode'] ?? ''))=='external'));
 		}
 		return $rltnList;
 	}
@@ -356,11 +356,11 @@ abstract class Pack extends Base {
 	 * @return ?Array The element found, null when there is none.
 	 */
 	protected function findNestedNode(Array $elementArray, Array $namesToMatch): ?Array {
-		foreach($elementArray['nodes'] as $chlArr){
-			if( in_array($chlArr['tagnm'], $namesToMatch, true) ){
-				return $chlArr;
+		foreach($elementArray['nodes'] as $oneChl){
+			if( in_array($oneChl['tagnm'], $namesToMatch, true) ){
+				return $oneChl;
 			}
-			$deepList = $this->findNestedNode($chlArr, $namesToMatch);
+			$deepList = $this->findNestedNode($oneChl, $namesToMatch);
 			if( $deepList!==null ){
 				return $deepList;
 			}
@@ -460,9 +460,9 @@ abstract class Pack extends Base {
 	protected function getStyleFormat(Array $styleDetails): Array {
 		$classNme = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(strval($styleDetails['names'] ?? ''))), '-');
 		$frmtDict = Array('class'=>preg_match('/^[a-z]/', $classNme) ? $classNme : 's-'.$classNme);
-		foreach(Array('fonts', 'sizes', 'color', 'marks', 'align') as $prpKey){
-			if( !empty($styleDetails[$prpKey]) ){
-				$frmtDict[$prpKey] = $styleDetails[$prpKey];
+		foreach(Array('fonts', 'sizes', 'color', 'marks', 'align') as $oneKey){
+			if( !empty($styleDetails[$oneKey]) ){
+				$frmtDict[$oneKey] = $styleDetails[$oneKey];
 			}
 		}
 		// A size is a whole number of points more often than not
@@ -490,9 +490,9 @@ abstract class Pack extends Base {
 		$saveList = Array();
 		$envelopeData['items'] = $this->saveDeepImages((array)$envelopeData['items'], $realPath, $saveList);
 		// The headers and the footers of the pages hold pictures too
-		foreach(Array('phead', 'pfoot') as $infKey){
-			if( is_array($envelopeData['infos'][$infKey] ?? null) ){
-				$envelopeData['infos'][$infKey] = $this->saveDeepImages($envelopeData['infos'][$infKey], $realPath, $saveList);
+		foreach(Array('phead', 'pfoot') as $oneKey){
+			if( is_array($envelopeData['infos'][$oneKey] ?? null) ){
+				$envelopeData['infos'][$oneKey] = $this->saveDeepImages($envelopeData['infos'][$oneKey], $realPath, $saveList);
 			}
 		}
 		$envelopeData['infos']['media'] = array_flip(array_filter($saveList, 'strlen'));
@@ -513,9 +513,9 @@ abstract class Pack extends Base {
 	 * @return Array The blocks.
 	 */
 	protected function saveDeepImages(Array $bookBlockSet, String $imagesFolder, Array &$picturesSeen): Array {
-		foreach($bookBlockSet as $blkIdx=>$oneBlk){
+		foreach($bookBlockSet as $nthBlk=>$oneBlk){
 			if( !empty($oneBlk['items']) ){
-				$bookBlockSet[$blkIdx]['items'] = $this->saveDeepImages($oneBlk['items'], $imagesFolder, $picturesSeen);
+				$bookBlockSet[$nthBlk]['items'] = $this->saveDeepImages($oneBlk['items'], $imagesFolder, $picturesSeen);
 			}
 			$innerPth = strval($oneBlk['attrs']['sourc'] ?? '');
 			if( ($oneBlk['block'] ?? '')!='imageBox' || !$this->archiveObj->isEntryInArchv($innerPth) ){
@@ -541,7 +541,7 @@ abstract class Pack extends Base {
 				}
 			}
 			if( strval($picturesSeen[$innerPth] ?? '')!=='' ){
-				$bookBlockSet[$blkIdx]['attrs']['sourc'] = $picturesSeen[$innerPth];
+				$bookBlockSet[$nthBlk]['attrs']['sourc'] = $picturesSeen[$innerPth];
 			}
 		}
 		return $bookBlockSet;
