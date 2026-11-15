@@ -605,12 +605,12 @@ class Actions extends Actionset {
 	/**
 	 * Reads a named config block from the ACCESS config file.
 	 *
-	 * @param String $confBlckName Name of the config block to read.
+	 * @param String $cfgBlockName Name of the config block to read.
 	 * @return Array The block's values, or an empty array if not found.
 	 */
-	protected function resolveConfArr( String $confBlckName ): Array {
+	protected function resolveConfArr( String $cfgBlockName ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'];
-		$accsConf = $nyuConfg->obtainRowValue('ACCESS', strtoupper($confBlckName));
+		$accsConf = $nyuConfg->obtainRowValue('ACCESS', strtoupper($cfgBlockName));
 		return is_array($accsConf) ? $accsConf : Array();
 	}
 }
