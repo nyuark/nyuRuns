@@ -53,8 +53,8 @@ class Checker{
 	 * @param String $shrtNamedTxt Short name, as written in the config.
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
-	public static function authClssString( String $shrtNamedTxt ): ?String {
-		return isset(self::AUTH_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Auth\\'.self::AUTH_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'authWith', 'Auth');
+	public static function findCheckClass( String $shrtNamedTxt ): ?String {
+		return isset(self::AUTH_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Auth\\'.self::AUTH_LIST[$shrtNamedTxt] : self::findAddedClass($shrtNamedTxt, 'authWith', 'Auth');
 	}
 
 	/**
@@ -64,8 +64,8 @@ class Checker{
 	 * @param String $shrtNamedTxt Short name, as written in the config.
 	 * @return ?String The class name with its namespace, or null for an unknown short name.
 	 */
-	public static function sessnClassText( String $shrtNamedTxt ): ?String {
-		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Carr\\'.self::SESS_LIST[$shrtNamedTxt] : self::plugClssString($shrtNamedTxt, 'carrWith', 'Carr');
+	public static function findCarrierCls( String $shrtNamedTxt ): ?String {
+		return isset(self::SESS_LIST[$shrtNamedTxt]) ? '\\nyu\\Access\\Carr\\'.self::SESS_LIST[$shrtNamedTxt] : self::findAddedClass($shrtNamedTxt, 'carrWith', 'Carr');
 	}
 
 	/**
@@ -76,7 +76,7 @@ class Checker{
 	 * @param String  $requiredRole Role asked for.
 	 * @return Bool True when the role held is the one asked for or a higher one; false for an unknown role.
 	 */
-	public static function rleAccessMeets( ?String $signedInRole, String $requiredRole ): Bool {
+	public static function isRoleNotBelow( ?String $signedInRole, String $requiredRole ): Bool {
 		$heldLevl = array_search($signedInRole, self::ROLE_LIST, true);
 		$needLevl = array_search($requiredRole, self::ROLE_LIST, true);
 		return $heldLevl!==false && $needLevl!==false && $heldLevl>=$needLevl;
@@ -95,7 +95,7 @@ class Checker{
 	 * @param String $pluginSuffix 'Auth' or 'Carr': suffix of the class, and namespace of its interface.
 	 * @return ?String The class name with its namespace, or null when there is no such plug-in.
 	 */
-	protected static function plugClssString( String $shrtNamedTxt, String $accPluginLst, String $pluginSuffix ): ?String {
+	protected static function findAddedClass( String $shrtNamedTxt, String $accPluginLst, String $pluginSuffix ): ?String {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$plugConf = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'PLUGLIBS') : null;
 		$allowLst = is_array($plugConf) ? ($plugConf[$accPluginLst] ?? Array()) : Array();
@@ -147,14 +147,14 @@ class Checker{
 	 *
 	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys, 'retryAft' (seconds to wait) with a 429 status, 'denyGoal' (address to send the visitor to) with the 401 of a page, and 'appsName' (the name of the application) for the call of an application.
 	 */
-	function validateAccess(): Registry {
+	function checkRqtAccess(): Registry {
 		// The roles asked for are read first : a block that cannot be applied refuses every request
 		$roleFlow = $this->checkRoleFlaws();
 		if( $roleFlow!='' ){
 			$this->logAccsAttempt( false, '', 'Access misconfigured: '.$roleFlow );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
-		$needRole = $this->routRoleString();
+		$needRole = $this->getRoleOfRoute();
 		// Without an access config (conf/access.json missing or empty), only a preset open by intent ("isPublic") is served : anything else fails closed
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$accesAll = ($nyuConfg!==null) ? $nyuConfg->readValueByKey('access') : null;
@@ -181,7 +181,7 @@ class Checker{
 		$sessName = strval($this->accessConf['carrWith'] ?? '');
 		$authName = $this->accessConf['authWith'] ?? null;
 
-		$sessClss = self::sessnClassText($sessName);
+		$sessClss = self::findCarrierCls($sessName);
 		if( $sessClss===null || !class_exists($sessClss) ){
 			$this->logAccsAttempt( false, '', 'Access misconfigured: unknown carrier "'.$sessName.'"' );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
@@ -196,7 +196,7 @@ class Checker{
 
 		$authInst = null;
 		if( $authName!=null ){
-			$authClss = self::authClssString(strval($authName));
+			$authClss = self::findCheckClass(strval($authName));
 			if( $authClss===null || !class_exists($authClss) ){
 				$this->logAccsAttempt( false, '', 'Access misconfigured: unknown credential check "'.strval($authName).'"' );
 				return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
@@ -214,25 +214,25 @@ class Checker{
 
 		// An address that presented too many wrong credentials is refused before anything is checked
 		$lmtrInst = new Limiter( $this->findAccessConf('tryLimit') );
-		$userAddr = $this->clntAddressTxt();
-		$heldTime = $lmtrInst->heldUntilCount($userAddr);
+		$userAddr = $this->getClientIpAdr();
+		$heldTime = $lmtrInst->readAdrHoldEnd($userAddr);
 		if( $heldTime>0 ){
 			$this->logAccsAttempt( false, '', 'Too many attempts' );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>429, 'statMssg'=>'Too many attempts', 'retryAft'=>max(1, $heldTime - time())) );
 		}
 
 		// An application calling for one of its users is checked by its own key and token, not by the carrier
-		$applRslt = $this->verifyAppCalls( $lmtrInst, $userAddr, $needRole );
+		$applRslt = $this->checkApplCalls( $lmtrInst, $userAddr, $needRole );
 		if( $applRslt!==null ){
 			return $applRslt;
 		}
 
 		$sessInst = new $sessClss( $this->findAccessConf($this->accessConf['carrConf'] ?? ''), $authInst );
-		$idntList = $sessInst->verifyRqstList( $this->requestObj );
+		$idntList = $sessInst->checkReqstDict( $this->requestObj );
 
 		if( $idntList===false ){
 			// Only a credential presented and refused counts against the address: not a missing one, nor a store that cannot be read
-			$crdnErro = ($authInst!==null && $authInst->finalErrorText()!='' && (!method_exists($authInst, 'hasWrongSecret') || $authInst->hasWrongSecret()));
+			$crdnErro = ($authInst!==null && $authInst->getLastErrText()!='' && (!method_exists($authInst, 'hasWrongSecret') || $authInst->hasWrongSecret()));
 			// A carrier that verifies what it carries tells a forged one itself
 			$hasWrong = (method_exists($sessInst, 'hasWrongSecret') && $sessInst->hasWrongSecret());
 			if( $crdnErro || $hasWrong ){
@@ -240,18 +240,18 @@ class Checker{
 			}
 			$chlgDict = Array('httpBasc'=>'Basic realm="nyuRuns", charset="UTF-8"', 'jwtToken'=>'Bearer');
 			$wwwAuthn = $chlgDict[$sessName] ?? null;
-			$this->logAccsAttempt( false, '', $sessInst->finalErrorText() );
-			$denyList = Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>401, 'statMssg'=>$sessInst->finalErrorText(), 'wwwHeadr'=>$wwwAuthn);
+			$this->logAccsAttempt( false, '', $sessInst->getLastErrText() );
+			$denyList = Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>401, 'statMssg'=>$sessInst->getLastErrText(), 'wwwHeadr'=>$wwwAuthn);
 			// A visitor denied a page is sent to the sign-in route
-			$goalPath = $this->getSigninRoute();
+			$goalPath = $this->getSignPathUrl();
 			if( $goalPath!==null ){
 				$denyList['denyGoal'] = $goalPath;
 			}
 			return new Registry( $denyList );
 		}
 		// A credential store that tracks presence is told the user was seen
-		if( $authInst!==null && method_exists($authInst, 'retainAliveFlg') && ($idntList['userName'] ?? '')!='' ){
-			$authInst->retainAliveFlg( strval($idntList['userName']) );
+		if( $authInst!==null && method_exists($authInst, 'saveAccessDate') && ($idntList['userName'] ?? '')!='' ){
+			$authInst->saveAccessDate( strval($idntList['userName']) );
 		}
 		// An identity without a known role is given the lowest one, standard
 		$userRole = $idntList['userRole'] ?? '';
@@ -259,8 +259,8 @@ class Checker{
 			$userRole = self::ROLE_LIST[0];
 		}
 		// A route asking for a role refuses a user who does not hold it, as if it did not exist : nothing is counted against the address
-		if( $needRole!==null && !self::rleAccessMeets($userRole, $needRole) ){
-			self::logRoleRefusal( strval($idntList['userName'] ?? ''), $userRole, $needRole, $userAddr, $this->rteDestination() );
+		if( $needRole!==null && !self::isRoleNotBelow($userRole, $needRole) ){
+			self::logRoleRefusal( strval($idntList['userName'] ?? ''), $userRole, $needRole, $userAddr, $this->getAskedTarget() );
 			return new Registry( Array('loggedIn'=>true, 'userName'=>$idntList['userName'] ?? '', 'userRole'=>$userRole, 'identity'=>$idntList, 'statCode'=>404, 'statMssg'=>'Not Found') );
 		}
 		$this->logAccsAttempt( true, strval($idntList['userName'] ?? ''), '', $userRole );
@@ -279,40 +279,40 @@ class Checker{
 	 * @param Limiter $givenLimiter The limit by address, counting the wrong credentials.
 	 * @param String  $clientIpAddr Address of the client, empty when unknown.
 	 * @param ?String $requiredRole The role the route asks for, null for none.
-	 * @return ?Registry The result, as validateAccess() gives it with the application under 'appsName'; null when the request is not the call of an application.
+	 * @return ?Registry The result, as checkRqtAccess() gives it with the application under 'appsName'; null when the request is not the call of an application.
 	 */
-	protected function verifyAppCalls( Limiter $givenLimiter, String $clientIpAddr, ?String $requiredRole ): ?Registry {
+	protected function checkApplCalls( Limiter $givenLimiter, String $clientIpAddr, ?String $requiredRole ): ?Registry {
 		$blockNme = strval($this->accessConf['appsConf'] ?? '');
 		if( $blockNme=='' ){
 			return null;
 		}
 		$keyInstn = new AppKey( $this->findAccessConf($blockNme) );
-		$idntList = $keyInstn->verifyAppArray( $this->requestObj );
+		$idntList = $keyInstn->checkApplArray( $this->requestObj );
 		if( $idntList===null ){
 			return null;
 		}
 		if( $idntList===false ){
 			// A block or a key file that cannot be used is a mistake of the config, as an unknown carrier is
-			if( in_array($keyInstn->finalErrorText(), Array('Access misconfigured', 'Token keys not configured'), true) ){
-				$this->logAccsAttempt( false, '', 'Access misconfigured: the application keys cannot be used ('.$keyInstn->finalErrorText().')' );
+			if( in_array($keyInstn->getLastErrText(), Array('Access misconfigured', 'Token keys not configured'), true) ){
+				$this->logAccsAttempt( false, '', 'Access misconfigured: the application keys cannot be used ('.$keyInstn->getLastErrText().')' );
 				return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 			}
 			if( $keyInstn->hasWrongSecret() ){
 				$givenLimiter->countFailedTry($clientIpAddr);
 			}
-			$this->logAccsAttempt( false, '', $keyInstn->finalErrorText() );
-			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>401, 'statMssg'=>$keyInstn->finalErrorText()) );
+			$this->logAccsAttempt( false, '', $keyInstn->getLastErrText() );
+			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>401, 'statMssg'=>$keyInstn->getLastErrText()) );
 		}
 		$userName = strval($idntList['userName'] ?? '');
 		$applName = strval($idntList['appsName']);
 		$fromText = ($clientIpAddr!='') ? ' from '.$clientIpAddr : '';
 		$denyList = Array('loggedIn'=>true, 'userName'=>$userName, 'userRole'=>$idntList['userRole'], 'identity'=>$idntList, 'appsName'=>$applName, 'statCode'=>404, 'statMssg'=>'Not Found');
-		if( $this->routerRegr===null || !$keyInstn->allowsRouteFlg($this->routerRegr) ){
-			Logger::getLoggerOfChn('access')->warning( 'App call refused for app '.json_encode($applName).', user '.json_encode($userName).$fromText.' to '.$this->rteDestination().': not a route of the application' );
+		if( $this->routerRegr===null || !$keyInstn->isRouteGranted($this->routerRegr) ){
+			Logger::getLoggerOfChn('access')->warning( 'App call refused for app '.json_encode($applName).', user '.json_encode($userName).$fromText.' to '.$this->getAskedTarget().': not a route of the application' );
 			return new Registry( $denyList );
 		}
-		if( $requiredRole!==null && !self::rleAccessMeets($idntList['userRole'], $requiredRole) ){
-			self::logRoleRefusal( $userName, $idntList['userRole'], $requiredRole, $clientIpAddr, $this->rteDestination() );
+		if( $requiredRole!==null && !self::isRoleNotBelow($idntList['userRole'], $requiredRole) ){
+			self::logRoleRefusal( $userName, $idntList['userRole'], $requiredRole, $clientIpAddr, $this->getAskedTarget() );
 			return new Registry( $denyList );
 		}
 		$mthdName = '';
@@ -321,7 +321,7 @@ class Checker{
 				$mthdName = $mthVal;
 			}
 		}
-		$logStrng = 'App call granted for app '.json_encode($applName).', user '.json_encode($userName).' ('.$idntList['userRole'].')'.$fromText.' to '.$this->rteDestination().' ('.($mthdName!='' ? $mthdName : 'other method').')';
+		$logStrng = 'App call granted for app '.json_encode($applName).', user '.json_encode($userName).' ('.$idntList['userRole'].')'.$fromText.' to '.$this->getAskedTarget().' ('.($mthdName!='' ? $mthdName : 'other method').')';
 		if( in_array($mthdName, AppKey::READ_LIST, true) ){
 			Logger::getLoggerOfChn('access')->info( $logStrng );
 		}else{
@@ -351,12 +351,12 @@ class Checker{
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
 		$idntList = Array('userName'=>$signedInUser, 'userRole'=>$signedInRole, 'idOfUser'=>null);
-		$needRole = $this->routRoleString();
-		if( $needRole!==null && !self::rleAccessMeets($signedInRole, $needRole) ){
-			self::logRoleRefusal( $signedInUser, $signedInRole, $needRole, '', $this->rteDestination() );
+		$needRole = $this->getRoleOfRoute();
+		if( $needRole!==null && !self::isRoleNotBelow($signedInRole, $needRole) ){
+			self::logRoleRefusal( $signedInUser, $signedInRole, $needRole, '', $this->getAskedTarget() );
 			return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntList, 'statCode'=>404, 'statMssg'=>'Not Found') );
 		}
-		Logger::getLoggerOfChn('access')->notice( 'Action '.$this->rteDestination().' called from the command line by user '.json_encode($signedInUser).' ('.$signedInRole.')' );
+		Logger::getLoggerOfChn('access')->notice( 'Action '.$this->getAskedTarget().' called from the command line by user '.json_encode($signedInUser).' ('.$signedInRole.')' );
 		return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntList, 'statCode'=>200, 'statMssg'=>'') );
 	}
 
@@ -478,7 +478,7 @@ class Checker{
 	 * @param Array  $routEntryLst An entry of Router::listAllTargets().
 	 * @return Bool True when the route answers with that action.
 	 */
-	protected function matchActionFlg( String $appNameToRun, String $runAppAction, Array $routEntryLst ): Bool {
+	protected function isMatchingActn( String $appNameToRun, String $runAppAction, Array $routEntryLst ): Bool {
 		$applName = strtolower( str_replace(' ', '', $appNameToRun) );
 		if( ($routEntryLst['routKind'] ?? '')!=='toAction' || $applName=='' || strtolower(str_replace(' ', '', strval($routEntryLst['appToRun'] ?? '')))!==$applName ){
 			return false;
@@ -488,7 +488,7 @@ class Checker{
 			return true;
 		}
 		// One side names no action : the default action of the application stands for it
-		$dfltActn = strtolower( $this->dfltActnString($appNameToRun) );
+		$dfltActn = strtolower( $this->findDfltAction($appNameToRun) );
 		return $dfltActn!=='' && (($routeAct==='') ? $dfltActn : $routeAct)===(($runAppAction==='') ? $dfltActn : $runAppAction);
 	}
 
@@ -500,7 +500,7 @@ class Checker{
 	 * @param String $appNameToRun Name of the application, as the route of the request names it.
 	 * @return String The default action, or '' for an application that is not one.
 	 */
-	protected function dfltActnString( String $appNameToRun ): String {
+	protected function findDfltAction( String $appNameToRun ): String {
 		$applName = \nyu\App\Controller::findRunFldrNme($appNameToRun);
 		if( $applName==='' ){
 			return '';
@@ -526,7 +526,7 @@ class Checker{
 	 *
 	 * @return ?String The role, or null when the route asks for none.
 	 */
-	public function routRoleString(): ?String {
+	public function getRoleOfRoute(): ?String {
 		$roleDict = $this->accessConf['minRoles'] ?? Array();
 		if( $this->routerRegr===null || !is_array($roleDict) ){
 			return null;
@@ -545,7 +545,7 @@ class Checker{
 				if( !$isNameOk && $applName!='' && $this->routingObj!==null ){
 					$this->routesList ??= $this->routingObj->listAllTargets();
 					foreach( $this->routesList as $rteRow ){
-						if( $rteRow['routPath']===trim($rteKey, '/') && $this->matchActionFlg($applRead, $actnName, $rteRow) ){
+						if( $rteRow['routPath']===trim($rteKey, '/') && $this->isMatchingActn($applRead, $actnName, $rteRow) ){
 							$isNameOk = true;
 							break;
 						}
@@ -555,7 +555,7 @@ class Checker{
 				$rteKey = strtolower( trim($rteKey, '/') );
 				$isNameOk = ($applName!='' && ( $rteKey==$applName.'/'.$actnName || $rteKey==$applName.'/*' || ($actnName=='' && strpos($rteKey, $applName.'/')===0) ));
 			}
-			if( $isNameOk && ($needRole===null || !self::rleAccessMeets($needRole, strval($rteRle))) ){
+			if( $isNameOk && ($needRole===null || !self::isRoleNotBelow($needRole, strval($rteRle))) ){
 				$needRole = strval($rteRle);
 			}
 		}
@@ -571,7 +571,7 @@ class Checker{
 	 *
 	 * @return ?String The address, from the root of the site, or null when the denial is answered as it is.
 	 */
-	protected function getSigninRoute(): ?String {
+	protected function getSignPathUrl(): ?String {
 		$signRout = strval($this->accessConf['signPath'] ?? '');
 		if( $signRout=='' || $this->routerRegr===null || $this->routerRegr->readValueByKey('routKind')!='htmlPage' ){
 			return null;
@@ -591,7 +591,7 @@ class Checker{
 	 *
 	 * @return String The address, empty when the request tells none.
 	 */
-	protected function clntAddressTxt(): String {
+	protected function getClientIpAdr(): String {
 		$clntRegr = $this->requestObj->getClientOfRqt();
 		return ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 	}
@@ -602,7 +602,7 @@ class Checker{
 	 *
 	 * @return String The action or the path.
 	 */
-	protected function rteDestination(): String {
+	protected function getAskedTarget(): String {
 		if( $this->routerRegr===null ){
 			return '/';
 		}
@@ -640,10 +640,10 @@ class Checker{
 	 */
 	protected function logAccsAttempt( Bool $grantedOrNot, String $signedInUser, String $denialReason, String $signedInRole='' ): Void {
 		$accsJrnl = Logger::getLoggerOfChn('access');
-		$userAddr = $this->clntAddressTxt();
+		$userAddr = $this->getClientIpAdr();
 		$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
 		if( $grantedOrNot && in_array($signedInRole, array_slice(self::ROLE_LIST, 1), true) ){
-			$accsJrnl->notice( 'Privileged access granted for user '.json_encode($signedInUser).' ('.$signedInRole.')'.$fromText.' to '.$this->rteDestination() );
+			$accsJrnl->notice( 'Privileged access granted for user '.json_encode($signedInUser).' ('.$signedInRole.')'.$fromText.' to '.$this->getAskedTarget() );
 		}elseif( $grantedOrNot ){
 			$accsJrnl->info( 'Access granted for user '.json_encode($signedInUser).$fromText );
 		}else{

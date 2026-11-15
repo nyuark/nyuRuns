@@ -72,7 +72,7 @@ function tokenOf( Mixed $actnResult ): Mixed {
 	if( !is_array($actnResult) || !is_string($actnResult[2]['token'] ?? null) ){
 		return $actnResult;
 	}
-	$idntArr = (new JWT($GLOBALS['tknConf']))->verifyRqstList( mockRequestObj(Array('Authorization'=>'Bearer '.$actnResult[2]['token'])) );
+	$idntArr = (new JWT($GLOBALS['tknConf']))->checkReqstDict( mockRequestObj(Array('Authorization'=>'Bearer '.$actnResult[2]['token'])) );
 	return is_array($idntArr) ? Array($idntArr['userName'] ?? null, $idntArr['userRole'] ?? null) : $idntArr;
 }
 
@@ -103,8 +103,8 @@ plugConf( $lstLogn );
 checkIdentical('login x userFile: the token carries the role of the file', tokenOf(authActn('login', $annaPwd)), Array('anna', 'managers'));
 checkIdentical('login x userFile: a pending user is refused as a wrong password is', authActn('login', Array('userName'=>'cleo', 'passWord'=>'pw-cleo')), Array(401, 'Invalid credentials', null));
 checkIdentical('login x userFile: a user with a secret, password alone', authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma')), Array(401, 'Verification code required', null));
-checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Totp::codeAtTimeText($tfaScrt, time())))), Array('emma', 'standard'));
-checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>intval(Totp::codeAtTimeText($tfaScrt, time())))))[0] ?? null, (Totp::codeAtTimeText($tfaScrt, time())[0]=='0') ? 401 : 'emma');
+checkIdentical('login x userFile: with the code of its authenticator', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Totp::makeCodeAtTime($tfaScrt, time())))), Array('emma', 'standard'));
+checkIdentical('login x userFile: a code sent as a number', tokenOf(authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>intval(Totp::makeCodeAtTime($tfaScrt, time())))))[0] ?? null, (Totp::makeCodeAtTime($tfaScrt, time())[0]=='0') ? 401 : 'emma');
 checkIdentical('login x userFile: a code that is not a text is no code', authActn('login', Array('userName'=>'emma', 'passWord'=>'pw-emma', 'sentCode'=>Array('1'))), Array(401, 'Verification code required', null));
 
 // A check that takes no password, a carrier that issues nothing, a block that names neither

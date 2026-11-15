@@ -54,7 +54,7 @@ class DBRec {
 		// The description of the table tells it exists: a missing table cannot be described
 		$tableDct = $dtbsStre->tableInfoArray($this->tableLabel);
 		if( $tableDct===false ){
-			throw new \RuntimeException('Table "'.$this->tableLabel.'" is not available: '.$dtbsStre->finalErrorText());
+			throw new \RuntimeException('Table "'.$this->tableLabel.'" is not available: '.$dtbsStre->getLastErrText());
 		}
 		$this->keyColName = $tableDct['pkey'];
 		$this->fieldsList = $tableDct['flds'];

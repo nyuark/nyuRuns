@@ -93,7 +93,7 @@ class Manage extends Command{
 	 */
 	public function invokeViewUser(): Int {
 		$storeObj = $this->openUsersStore();
-		$userVals = $storeObj->userInfosArray( $this->needsShellWord('the user') );
+		$userVals = $storeObj->readUserToShow( $this->needsShellWord('the user') );
 		if( $userVals===false ){
 			$this->stopStoreError($storeObj);
 		}
@@ -151,7 +151,7 @@ class Manage extends Command{
 		$userName = $this->needsShellWord('the user');
 		$givenCod = $this->needsShellWord('the activation code');
 		$passList = $this->givenPassArray($userName);
-		if( !$storeObj->activateUsrFlg($userName, $givenCod, $passList['pass']) ){
+		if( !$storeObj->activateByCode($userName, $givenCod, $passList['pass']) ){
 			$this->stopStoreError($storeObj);
 		}
 		$this->printerObj->printShellPair('activated', $userName);
@@ -188,7 +188,7 @@ class Manage extends Command{
 	protected function statusSetCount( String $statusString ): Int {
 		$storeObj = $this->openUsersStore();
 		$userName = $this->needsShellWord('the user');
-		if( !$storeObj->saveStatusFlag($userName, $statusString) ){
+		if( !$storeObj->saveUserStatus($userName, $statusString) ){
 			$this->stopStoreError($storeObj);
 		}
 		$this->printerObj->printShellPair( ($statusString=='disabled') ? 'locked' : 'unlocked', $userName );
@@ -204,7 +204,7 @@ class Manage extends Command{
 		$storeObj = $this->openUsersStore();
 		$userName = $this->needsShellWord('the user');
 		$roleName = $this->needsShellWord('the role ('.implode(', ', Checker::ROLE_LIST).')');
-		if( !$storeObj->changeRoleFlag($userName, $roleName) ){
+		if( !$storeObj->alterRoleOfUsr($userName, $roleName) ){
 			$this->stopStoreError($storeObj);
 		}
 		$this->printerObj->printShellPair($userName, $roleName);
@@ -222,7 +222,7 @@ class Manage extends Command{
 		if( !$this->queryAgreedFlg('Remove the user '.$userName) ){
 			$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 		}
-		if( !$storeObj->removeUserFlag($userName) ){
+		if( !$storeObj->dropUsrAccount($userName) ){
 			$this->stopStoreError($storeObj);
 		}
 		$this->printerObj->printShellPair('removed', $userName);
@@ -242,7 +242,7 @@ class Manage extends Command{
 			return $this->passwdSetCount( $storeObj, $this->needsShellWord('the user') );
 		}
 		$userName = $this->needsShellWord('the user');
-		$newCodig = $storeObj->resetUsrString($userName, $this->codesLastCount());
+		$newCodig = $storeObj->clearUserAccnt($userName, $this->codesLastCount());
 		if( $newCodig===false ){
 			$this->stopStoreError($storeObj);
 		}
@@ -290,7 +290,7 @@ class Manage extends Command{
 		$storeObj = $this->openUsersStore();
 		$userName = $this->needsShellWord('the user');
 		$mailText = strval($this->optionsObj->shiftFirstWord() ?? '');
-		if( !$storeObj->changeMailFlag($userName, $mailText) ){
+		if( !$storeObj->alterUserEmail($userName, $mailText) ){
 			$this->stopStoreError($storeObj);
 		}
 		$this->printerObj->printShellPair( ($mailText=='') ? 'address removed' : 'address set', $userName );
@@ -308,14 +308,14 @@ class Manage extends Command{
 		$userName = $this->needsShellWord('the user');
 		$langgTag = $this->optionsObj->shiftFirstWord();
 		if( $langgTag===null ){
-			$userVals = $storeObj->userInfosArray($userName);
+			$userVals = $storeObj->readUserToShow($userName);
 			if( $userVals===false ){
 				$this->stopStoreError($storeObj);
 			}
 			$this->printerObj->printShellPair( $userName, (strval($userVals['userLocale'] ?? '')!=='') ? strval($userVals['userLocale']) : '(default)' );
 			return self::EXIT_DONE;
 		}
-		if( !$storeObj->changeLanguage($userName, strval($langgTag)) ){
+		if( !$storeObj->alterMailsLang($userName, strval($langgTag)) ){
 			$this->stopStoreError($storeObj);
 		}
 		$this->printerObj->printShellPair( (strval($langgTag)=='') ? 'language removed' : 'language set', $userName );
@@ -350,7 +350,7 @@ class Manage extends Command{
 	 */
 	protected function passwdSetCount( Object $dataStoreObj, String $namedUserTxt ): Int {
 		$passList = $this->givenPassArray($namedUserTxt);
-		if( !$dataStoreObj->savePasswdFlag($namedUserTxt, $passList['pass']) ){
+		if( !$dataStoreObj->savePassOfUser($namedUserTxt, $passList['pass']) ){
 			$this->stopStoreError($dataStoreObj, 'Password not written: the user is unknown, or its store cannot be written');
 		}
 		if( $this->usersStore=='nativeDb' ){
@@ -376,7 +376,7 @@ class Manage extends Command{
 			if( !$this->queryAgreedFlg('Take the personal token of '.$userName.' away') ){
 				$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
 			}
-			if( !$storeObj->clearTokenFlag($userName) ){
+			if( !$storeObj->clearUserToken($userName) ){
 				$this->stopStoreError($storeObj);
 			}
 			$this->printerObj->printShellPair('token removed', $userName);
@@ -417,17 +417,17 @@ class Manage extends Command{
 		}
 		// Codes by mail : the users file is only read, and cannot keep a code
 		if( $this->optionsObj->validateOption('emailOtp') ){
-			if( !method_exists($storeObj, 'emailTwoFactor') ){
+			if( !method_exists($storeObj, 'setEmailOtpWay') ){
 				$this->terminateShell('Nothing was changed: codes by mail need the native userbase; the users file is only read', self::EXIT_DENY);
 			}
-			if( !$storeObj->emailTwoFactor($userName) ){
+			if( !$storeObj->setEmailOtpWay($userName) ){
 				$this->stopStoreError($storeObj);
 			}
 			$this->traceShellDone( 'Mailed codes set for user '.json_encode($userName) );
 			$this->printerObj->printShellPair('2FA set', $userName.' (codes by mail)');
 			return self::EXIT_DONE;
 		}
-		$newSecrt = $storeObj->buildTwoFactor($userName);
+		$newSecrt = $storeObj->makeTotpSecret($userName);
 		if( $newSecrt===false ){
 			$this->stopStoreError($storeObj, 'No 2FA secret made: the user is unknown or not active, or its store cannot be written');
 		}
@@ -479,8 +479,8 @@ class Manage extends Command{
 	 * @throws \nyu\Shell\ShellStop Always.
 	 */
 	protected function stopStoreError( Object $dataStoreObj, String $fallbackText='The store of the users refused' ): Never {
-		$whyStrng = strval($dataStoreObj->finalErrorText());
-		$this->terminateShell( ($whyStrng!='') ? $whyStrng : $fallbackText, ($dataStoreObj->lastStateCount()>=500) ? self::EXIT_FAIL : self::EXIT_DENY );
+		$whyStrng = strval($dataStoreObj->getLastErrText());
+		$this->terminateShell( ($whyStrng!='') ? $whyStrng : $fallbackText, ($dataStoreObj->getRefusalCode()>=500) ? self::EXIT_FAIL : self::EXIT_DENY );
 	}
 
 	/**

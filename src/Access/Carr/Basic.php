@@ -32,7 +32,7 @@ class Basic implements Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $givenRequest ): Array|Bool {
+	function checkReqstDict( Request $givenRequest ): Array|Bool {
 		$authHedr = $givenRequest->getHeaderValue('Authorization');
 		if( $authHedr===null || stripos($authHedr, 'Basic ')!==0 ){
 			$this->errMessage = 'Missing Basic Authorization header';
@@ -49,9 +49,9 @@ class Basic implements Handler{
 			$this->errMessage = 'No credential handler configured';
 			return false;
 		}
-		$idntList = $this->authObject->checkSecretArr( Array('user'=>$givenUsr, 'pass'=>$givenPwd) );
+		$idntList = $this->authObject->checkSecretDct( Array('user'=>$givenUsr, 'pass'=>$givenPwd) );
 		if( $idntList===false ){
-			$this->errMessage = $this->authObject->finalErrorText();
+			$this->errMessage = $this->authObject->getLastErrText();
 			return false;
 		}
 		return $idntList;
@@ -72,7 +72,7 @@ class Basic implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

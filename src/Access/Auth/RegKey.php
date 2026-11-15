@@ -29,7 +29,7 @@ class RegKey implements Handler{
 	 * @param Array $loginDataLst Must contain a 'key' entry.
 	 * @return Array|Bool An identity array on success, its 'userName' being the name the key is written under ('' in a plain list), or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+	function checkSecretDct( Array $loginDataLst ): Array|Bool {
 		$sentClef = $loginDataLst['key'] ?? '';
 		$this->isWrongTry = false;
 		if( $sentClef=='' ){
@@ -64,7 +64,7 @@ class RegKey implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

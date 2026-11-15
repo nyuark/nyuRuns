@@ -42,7 +42,7 @@ if( is_string($dbStore) ){
 // Empty the collections of the test: every document has an _id
 foreach( Array('shows', 'events') as $tblNme ){
 	if( $dbStore->deleteRowCount($tblNme, Array('_id?'=>true))===false ){
-		recordSkipping('MongoDB', 'the server did not accept the test database: '.$dbStore->finalErrorText());
+		recordSkipping('MongoDB', 'the server did not accept the test database: '.$dbStore->getLastErrText());
 		finishChecking();
 	}
 }

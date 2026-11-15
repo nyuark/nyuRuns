@@ -58,7 +58,7 @@ function pairReply( String $carrierStr, ?String $checkNamed, Array $headersArr=A
 	if( $checkNamed!==null ){
 		$axsConf += Array('authWith'=>$checkNamed, 'authConf'=>$blkList[$checkNamed]);
 	}
-	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->validateAccess();
+	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->checkRqtAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }
 
@@ -69,7 +69,7 @@ function pairReply( String $carrierStr, ?String $checkNamed, Array $headersArr=A
  * @return Bool Whether the address is held.
  */
 function heldAddr( String $clientAddr ): Bool {
-	return (new Limiter($GLOBALS['lmtConf']))->heldUntilCount($clientAddr)>0;
+	return (new Limiter($GLOBALS['lmtConf']))->readAdrHoldEnd($clientAddr)>0;
 }
 
 /**
@@ -113,7 +113,7 @@ checkIdentical('httpBasc x htpasswd: no header', pairReply('httpBasc', 'htpasswd
 checkIdentical('httpBasc x regdKeys: a check of keys takes no password, the pair is a mistake of the config', pairReply('httpBasc', 'regdKeys', basicHead('k-1', 'k-1')), Array(500, 'Access misconfigured', '', null));
 checkIdentical('httpBasc x plug-in check of keys: refused the same way', pairReply('httpBasc', 'sample', basicHead('sample-key', 'sample-key'))[0], 401);
 checkIdentical('httpBasc without a check: nobody goes through, the config is told wrong', pairReply('httpBasc', null, basicHead('alice', 's3cret')), Array(500, 'Access misconfigured', '', null));
-$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'httpBasc', 'authWith'=>'htpasswd', 'authConf'=>'testPass'), mockRequestObj(basicHead('alice', 'nope')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'httpBasc', 'authWith'=>'htpasswd', 'authConf'=>'testPass'), mockRequestObj(basicHead('alice', 'nope')) ))->checkRqtAccess();
 checkIdentical('httpBasc: a refusal sends the challenge, with its realm', $axsRslt->readValueByKey('wwwHeadr'), 'Basic realm="nyuRuns", charset="UTF-8"');
 checkIdentical('httpBasc x htpasswd: an empty name is a wrong credential, not a store that cannot be read', pairReply('httpBasc', 'htpasswd', basicHead('', 's3cret')), Array(401, 'Invalid credentials', '', null));
 
@@ -123,7 +123,7 @@ checkIdentical('apiHeadr x plug-in check: granted, as a member', pairReply('apiH
 checkIdentical('apiHeadr x plug-in check: wrong key', pairReply('apiHeadr', 'sample', Array('X-Api-Key'=>'k-1')), Array(401, 'Invalid sample key', '', null));
 checkIdentical('apiHeadr without a check: nobody goes through, the config is told wrong', pairReply('apiHeadr', null, Array('X-Api-Key'=>'k-1')), Array(500, 'Access misconfigured', '', null));
 $noCheck = new Header( Array() );
-checkIdentical('Header without an auth handler', Array($noCheck->verifyRqstList(mockRequestObj(Array('X-Api-Key'=>'k-1'))), $noCheck->finalErrorText()), Array(false, 'No credential handler configured'));
+checkIdentical('Header without an auth handler', Array($noCheck->checkReqstDict(mockRequestObj(Array('X-Api-Key'=>'k-1'))), $noCheck->getLastErrText()), Array(false, 'No credential handler configured'));
 
 // jwtToken : the token decides alone, unless the check knows its users (userFile, native)
 foreach( Array('htpasswd', 'regdKeys', 'sample') as $chkNme ){
@@ -142,7 +142,7 @@ checkIdentical('clntCert x userFile: a locked user is refused', pairReply('clntC
 checkIdentical('clntCert x userFile: a pending user is refused', pairReply('clntCert', 'userFile', Array(), certVals('cleo'))[0], 401);
 checkIdentical('clntCert x userFile: a name that is not in the file is refused', pairReply('clntCert', 'userFile', Array(), certVals('zed')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert: no certificate', pairReply('clntCert', 'userFile'), Array(401, 'No verified client certificate', '', null));
-$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'clntCert'), mockRequestObj() ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'clntCert'), mockRequestObj() ))->checkRqtAccess();
 checkIdentical('clntCert: a refusal carries no challenge', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('wwwHeadr')), Array(401, null));
 checkIdentical('clntCert: the issuer of its config block is accepted', pairReply('clntCert', null, Array(), certVals('carol'), Array('carrConf'=>'tscert')), Array(200, '', 'carol', 'standard'));
 checkIdentical('clntCert: another issuer is refused', pairReply('clntCert', null, Array(), certVals('carol', 'Other CA'), Array('carrConf'=>'tscert')), Array(401, 'Certificate issuer not accepted', '', null));
@@ -151,11 +151,11 @@ checkIdentical('clntCert: a certificate without an issuer is refused when one is
 // ClCert : only the exact word of a verified certificate is accepted
 $certSes = new ClCert( Array() );
 foreach( Array('success', 'GENEROUS', 'SUCCESS ', '1', '') as $vrfWord ){
-	checkIdentical('ClCert '.json_encode($vrfWord).' is not a verified certificate', $certSes->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>$vrfWord) + certVals('carol'))), false);
+	checkIdentical('ClCert '.json_encode($vrfWord).' is not a verified certificate', $certSes->checkReqstDict(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>$vrfWord) + certVals('carol'))), false);
 }
-checkIdentical('ClCert the name is taken without the spaces around it', $certSes->verifyRqstList(mockRequestObj(Array(), certVals('  carol '))), Array('userName'=>'carol'));
+checkIdentical('ClCert the name is taken without the spaces around it', $certSes->checkReqstDict(mockRequestObj(Array(), certVals('  carol '))), Array('userName'=>'carol'));
 $noVarbl = new ClCert( Array('checkVar'=>'', 'ownerVar'=>'') );
-checkIdentical('ClCert variables left empty in the config: nobody goes through', $noVarbl->verifyRqstList(mockRequestObj(Array(), certVals('carol'))), false);
+checkIdentical('ClCert variables left empty in the config: nobody goes through', $noVarbl->checkReqstDict(mockRequestObj(Array(), certVals('carol'))), false);
 
 // A plug-in carrier, alone or with a check it does not use
 checkIdentical('plug-in carrier: granted, as a member', pairReply('carier', null, Array('X-Carier'=>'dora')), Array(200, '', 'dora', 'standard'));
@@ -216,14 +216,14 @@ checkIdentical('limit: a refusal for the role is not counted', Array(sendTrice('
 checkIdentical('limit: a held address keeps the open routes', pairReply('httpBasc', 'htpasswd', Array(), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'auth', 'doAction'=>'login')), Array(200, '', '', null));
 checkIdentical('limit: and its other routes stay refused', pairReply('httpBasc', 'htpasswd', basicHead('alice', 's3cret'), Array('REMOTE_ADDR'=>'198.51.100.1'), Array('openList'=>Array('auth/login')), Array('appToRun'=>'shows', 'doAction'=>'index'))[0], 429);
 checkIdentical('limit: a certificate does not lift the hold of its address', pairReply('clntCert', null, Array(), Array('REMOTE_ADDR'=>'198.51.100.1') + certVals('carol'))[0], 429);
-$axsRslt = (new Checker( Array('required'=>false), mockRequestObj(Array(), Array('REMOTE_ADDR'=>'198.51.100.1')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>false), mockRequestObj(Array(), Array('REMOTE_ADDR'=>'198.51.100.1')) ))->checkRqtAccess();
 checkIdentical('limit: nothing is held where access is not required', $axsRslt->readValueByKey('statCode'), 200);
 plugConf();
 
 // An open route : credentials sent with the request are not read
-$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->checkRqtAccess();
 checkIdentical('open route: a valid key does not log its holder', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userRole')), Array(200, false, null));
-$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->validateAccess();
+$axsRslt = (new Checker( Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testKeys', 'openList'=>Array('auth/login')), mockRequestObj(Array('X-Api-Key'=>'bad')), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) ))->checkRqtAccess();
 checkIdentical('open route: nor is a wrong key refused', $axsRslt->readValueByKey('statCode'), 200);
 
 dropTestFolder(TOP_DIR.DS.$lmtFldr);

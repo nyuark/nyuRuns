@@ -142,25 +142,25 @@ $annCred = Array('user'=>'anna', 'pass'=>'pw-anna');
 
 checkIdentical('Native without linkName reads the default database', runCatchThrown(function() use ($benCred){
 	$natAuth = new Native( Array('useTable'=>'users') );
-	return $natAuth->checkSecretArr($benCred)['userName'] ?? null;
+	return $natAuth->checkSecretDct($benCred)['userName'] ?? null;
 }), 'ben');
 checkIdentical('Native with an empty linkName reads the default database', runCatchThrown(function() use ($benCred){
 	$natAuth = new Native( Array('linkName'=>'', 'useTable'=>'users') );
-	return $natAuth->checkSecretArr($benCred)['userName'] ?? null;
+	return $natAuth->checkSecretDct($benCred)['userName'] ?? null;
 }), 'ben');
 checkIdentical('Native reads the database linkName names', runCatchThrown(function() use ($benCred, $annCred){
 	$natAuth = new Native( Array('linkName'=>'archive', 'useTable'=>'users') );
-	return Array($natAuth->checkSecretArr($annCred)['userName'] ?? null, $natAuth->checkSecretArr($benCred), $natAuth->finalErrorText());
+	return Array($natAuth->checkSecretDct($annCred)['userName'] ?? null, $natAuth->checkSecretDct($benCred), $natAuth->getLastErrText());
 }), Array('anna', false, 'Invalid credentials'));
 checkIdentical('Native on an unknown database tells nothing more', runCatchThrown(function() use ($annCred){
 	$natAuth = new Native( Array('linkName'=>'nowhere', 'useTable'=>'users') );
-	return Array($natAuth->checkSecretArr($annCred), $natAuth->finalErrorText(), $natAuth->makeToknString('anna'), $natAuth->onlineNowArray());
+	return Array($natAuth->checkSecretDct($annCred), $natAuth->getLastErrText(), $natAuth->makeToknString('anna'), $natAuth->listOnlineRecs());
 }), Array(false, 'Credential store unavailable', false, false));
 checkIdentical('a token made in one database is unknown to the other', runCatchThrown(function(){
 	$archNat = new Native( Array('linkName'=>'archive') );
 	$mainNat = new Native( Array() );
 	$newTokn = $archNat->makeToknString('anna');
-	return Array(is_string($newTokn), $archNat->checkSecretArr(Array('key'=>$newTokn))['userName'] ?? null, $mainNat->checkSecretArr(Array('key'=>$newTokn)));
+	return Array(is_string($newTokn), $archNat->checkSecretDct(Array('key'=>$newTokn))['userName'] ?? null, $mainNat->checkSecretDct(Array('key'=>$newTokn)));
 }), Array(true, 'anna', false));
 
 // The project's own access configuration: conf/access.json is kept out of

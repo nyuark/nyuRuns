@@ -20,14 +20,14 @@ class SampleAuth implements AuthHndlr{
 	 * @param Array $loginDataArr Must contain a 'key' entry.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	public function checkSecretArr( Array $loginDataArr ): Array|Bool {
+	public function checkSecretDct( Array $loginDataArr ): Array|Bool {
 		return ( ($loginDataArr['key'] ?? '')==='sample-key' ) ? Array('userName'=>'sampleUser') : false;
 	}
 
 	/**
 	 * @return String The last error message.
 	 */
-	public function finalErrorText(): String {
+	public function getLastErrText(): String {
 		return 'Invalid sample key';
 	}
 }

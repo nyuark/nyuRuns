@@ -61,7 +61,7 @@ function plugConf( Int $triesLimit=0, Array $loginBlock=Array() ): Void {
  */
 function pairReply( String $carrierStr, String $checkNamed, Array $headersArr=Array(), Array $serverVals=Array(), Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
 	$axsConf = $moreConfig + Array('required'=>true, 'carrWith'=>$carrierStr, 'carrConf'=>($carrierStr=='jwtToken') ? 'testTokn' : 'nothing', 'authWith'=>$checkNamed, 'authConf'=>($checkNamed=='nativeDb') ? 'testBase' : 'tsdevc');
-	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->validateAccess();
+	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, $serverVals + Array('REMOTE_ADDR'=>'203.0.113.7')), new Registry($routeArray) ))->checkRqtAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }
 
@@ -90,7 +90,7 @@ function sendTrice( String $clientAddr, String $carrierStr, String $checkNamed, 
  * @return Bool Whether the address is held.
  */
 function heldAddr( String $clientAddr ): Bool {
-	return (new Limiter($GLOBALS['lmtConf']))->heldUntilCount($clientAddr)>0;
+	return (new Limiter($GLOBALS['lmtConf']))->readAdrHoldEnd($clientAddr)>0;
 }
 
 /**
@@ -129,8 +129,8 @@ plugConf();
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('pairs.sqlite'));
 $dvcAuth = new nyu\Access\Auth\Device( Array() );
 // The phone is capped at the role of its user; the tablet, made without a cap, at standard
-$phonTkn = strval($dvcAuth->pushDeviceText('anna', 'Phone', 'app', 'managers'));
-$tbltTkn = strval($dvcAuth->pushDeviceText('anna', 'Tablet', 'app'));
+$phonTkn = strval($dvcAuth->addDeviceToken('anna', 'Phone', 'app', 'managers'));
+$tbltTkn = strval($dvcAuth->addDeviceToken('anna', 'Tablet', 'app'));
 $annaTkn = strval((new Native(Array()))->makeToknString('anna'));
 
 // clntCert x nativeDb : the certificate names the user, the table tells whether it is let in, and its role
@@ -138,7 +138,7 @@ checkIdentical('clntCert x nativeDb: the role of the table', pairReply('clntCert
 checkIdentical('clntCert x nativeDb: a locked user is refused', pairReply('clntCert', 'nativeDb', Array(), certVals('dave')), Array(401, 'Account not active', '', null));
 checkIdentical('clntCert x nativeDb: a pending user is refused', pairReply('clntCert', 'nativeDb', Array(), certVals('cleo'))[0], 401);
 checkIdentical('clntCert x nativeDb: a name with a quote is no user', pairReply('clntCert', 'nativeDb', Array(), certVals("anna' OR '1'='1")), Array(401, 'Account not active', '', null));
-checkIdentical('clntCert x nativeDb: the user of the certificate is stamped as seen', (new Native(Array()))->onlineNowArray(), Array('anna'));
+checkIdentical('clntCert x nativeDb: the user of the certificate is stamped as seen', (new Native(Array()))->listOnlineRecs(), Array('anna'));
 $sqlLink->exec("UPDATE users SET accessDate=NULL");
 
 // device : a check of keys, which knows its users through its tokens only

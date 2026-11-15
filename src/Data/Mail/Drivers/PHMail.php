@@ -40,7 +40,7 @@ class PHMail extends Driver {
 	 */
 	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
 		try{
-			$phpEmail = $this->buildMailArray($emailMessage);
+			$phpEmail = $this->makeMailOfTmpl($emailMessage);
 			if( $recipientLst===$emailMessage->listRecipients() ){
 				$phpEmail->send();
 				return null;
@@ -57,7 +57,7 @@ class PHMail extends Driver {
 	 * @param Message $emailMessage The mail.
 	 * @return Object The PHPMailer object, ready to send.
 	 */
-	protected function buildMailArray( Message $emailMessage ): Object {
+	protected function makeMailOfTmpl( Message $emailMessage ): Object {
 		$mailClss = self::MAIL_CLSS;
 		$phpEmail = new $mailClss(true);
 		$portNumb = intval($this->setupArray['portNumb'] ?? '') ?: 587;

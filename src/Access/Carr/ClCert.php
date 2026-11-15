@@ -47,7 +47,7 @@ class ClCert implements Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $givenRequest ): Array|Bool {
+	function checkReqstDict( Request $givenRequest ): Array|Bool {
 		// A variable named HTTP_... is a request header : anyone could send it
 		if( strpos($this->checkedVar, 'http_')===0 || strpos($this->usrVarName, 'http_')===0 || strpos($this->issrVarNme, 'http_')===0 ){
 			$this->errMessage = 'Certificate variables misconfigured';
@@ -69,10 +69,10 @@ class ClCert implements Handler{
 		}
 		$idntList = Array('userName'=>$certUser);
 		// A credential store that knows its users confirms the certificate's user is allowed in
-		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
-			$nowIdent = $this->authObject->usrIdentityArr($certUser);
+		if( $this->authObject!==null && method_exists($this->authObject, 'readIdntOfUser') ){
+			$nowIdent = $this->authObject->readIdntOfUser($certUser);
 			if( $nowIdent===false ){
-				$this->errMessage = $this->authObject->finalErrorText();
+				$this->errMessage = $this->authObject->getLastErrText();
 				return false;
 			}
 			$idntList = array_merge($idntList, $nowIdent);
@@ -95,7 +95,7 @@ class ClCert implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

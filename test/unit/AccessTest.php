@@ -31,80 +31,80 @@ function basicHead( String $userString, String $passString ): Array {
 
 // PassList : .htpasswd file, path relative to the project root
 $passLst = new PassList( Array('maxTries'=>0, 'passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd') );
-checkIdentical('PassList bcrypt hash',        $passLst->checkSecretArr(Array('user'=>'alice', 'pass'=>'s3cret')), Array('userName'=>'alice'));
-checkIdentical('PassList legacy crypt hash refused by default', $passLst->checkSecretArr(Array('user'=>'bob', 'pass'=>'hunter2')), false);
-checkIdentical('PassList apr1 hash',          $passLst->checkSecretArr(Array('user'=>'erin', 'pass'=>'tr0ub4dor')), Array('userName'=>'erin'));
-checkIdentical('PassList apr1 wrong password', $passLst->checkSecretArr(Array('user'=>'erin', 'pass'=>'nope')), false);
-checkIdentical('PassList SHA hash refused by default', $passLst->checkSecretArr(Array('user'=>'frank', 'pass'=>'letmein')), false);
-checkIdentical('PassList SHA hash refused message', $passLst->finalErrorText(), 'Invalid credentials');
+checkIdentical('PassList bcrypt hash',        $passLst->checkSecretDct(Array('user'=>'alice', 'pass'=>'s3cret')), Array('userName'=>'alice'));
+checkIdentical('PassList legacy crypt hash refused by default', $passLst->checkSecretDct(Array('user'=>'bob', 'pass'=>'hunter2')), false);
+checkIdentical('PassList apr1 hash',          $passLst->checkSecretDct(Array('user'=>'erin', 'pass'=>'tr0ub4dor')), Array('userName'=>'erin'));
+checkIdentical('PassList apr1 wrong password', $passLst->checkSecretDct(Array('user'=>'erin', 'pass'=>'nope')), false);
+checkIdentical('PassList SHA hash refused by default', $passLst->checkSecretDct(Array('user'=>'frank', 'pass'=>'letmein')), false);
+checkIdentical('PassList SHA hash refused message', $passLst->getLastErrText(), 'Invalid credentials');
 $weakLst = new PassList( Array('maxTries'=>0, 'passFile'=>'test'.DS.'fixtures'.DS.'users.htpasswd', 'weakHash'=>true) );
-checkIdentical('PassList SHA hash in unsecure mode', $weakLst->checkSecretArr(Array('user'=>'frank', 'pass'=>'letmein')), Array('userName'=>'frank'));
-checkIdentical('PassList SHA wrong password in unsecure mode', $weakLst->checkSecretArr(Array('user'=>'frank', 'pass'=>'nope')), false);
-checkIdentical('PassList MD5 crypt hash refused by default', Array($passLst->checkSecretArr(Array('user'=>'gina', 'pass'=>'pw-gina')), $passLst->finalErrorText()), Array(false, 'Invalid credentials'));
-checkIdentical('PassList MD5 crypt hash in unsecure mode', $weakLst->checkSecretArr(Array('user'=>'gina', 'pass'=>'pw-gina')), Array('userName'=>'gina'));
-checkIdentical('PassList MD5 crypt wrong password in unsecure mode', $weakLst->checkSecretArr(Array('user'=>'gina', 'pass'=>'nope')), false);
-checkIdentical('PassList SHA-512 crypt hash is accepted as it is', $passLst->checkSecretArr(Array('user'=>'hank', 'pass'=>'pw-hank')), Array('userName'=>'hank'));
-checkIdentical('PassList SHA-512 crypt wrong password', $passLst->checkSecretArr(Array('user'=>'hank', 'pass'=>'nope')), false);
-checkIdentical('PassList legacy crypt hash in unsecure mode', $weakLst->checkSecretArr(Array('user'=>'bob', 'pass'=>'hunter2')), Array('userName'=>'bob'));
-checkIdentical('PassList legacy crypt wrong password in unsecure mode', $weakLst->checkSecretArr(Array('user'=>'bob', 'pass'=>'nope')), false);
-checkIdentical('PassList wrong password',     $passLst->checkSecretArr(Array('user'=>'alice', 'pass'=>'nope')), false);
-checkIdentical('PassList wrong password message', $passLst->finalErrorText(), 'Invalid credentials');
-checkIdentical('PassList unknown user',       $passLst->checkSecretArr(Array('user'=>'carol', 'pass'=>'x')), false);
-checkIdentical('PassList comment line is not a user', $passLst->checkSecretArr(Array('user'=>'# Test credentials only', 'pass'=>'x')), false);
+checkIdentical('PassList SHA hash in unsecure mode', $weakLst->checkSecretDct(Array('user'=>'frank', 'pass'=>'letmein')), Array('userName'=>'frank'));
+checkIdentical('PassList SHA wrong password in unsecure mode', $weakLst->checkSecretDct(Array('user'=>'frank', 'pass'=>'nope')), false);
+checkIdentical('PassList MD5 crypt hash refused by default', Array($passLst->checkSecretDct(Array('user'=>'gina', 'pass'=>'pw-gina')), $passLst->getLastErrText()), Array(false, 'Invalid credentials'));
+checkIdentical('PassList MD5 crypt hash in unsecure mode', $weakLst->checkSecretDct(Array('user'=>'gina', 'pass'=>'pw-gina')), Array('userName'=>'gina'));
+checkIdentical('PassList MD5 crypt wrong password in unsecure mode', $weakLst->checkSecretDct(Array('user'=>'gina', 'pass'=>'nope')), false);
+checkIdentical('PassList SHA-512 crypt hash is accepted as it is', $passLst->checkSecretDct(Array('user'=>'hank', 'pass'=>'pw-hank')), Array('userName'=>'hank'));
+checkIdentical('PassList SHA-512 crypt wrong password', $passLst->checkSecretDct(Array('user'=>'hank', 'pass'=>'nope')), false);
+checkIdentical('PassList legacy crypt hash in unsecure mode', $weakLst->checkSecretDct(Array('user'=>'bob', 'pass'=>'hunter2')), Array('userName'=>'bob'));
+checkIdentical('PassList legacy crypt wrong password in unsecure mode', $weakLst->checkSecretDct(Array('user'=>'bob', 'pass'=>'nope')), false);
+checkIdentical('PassList wrong password',     $passLst->checkSecretDct(Array('user'=>'alice', 'pass'=>'nope')), false);
+checkIdentical('PassList wrong password message', $passLst->getLastErrText(), 'Invalid credentials');
+checkIdentical('PassList unknown user',       $passLst->checkSecretDct(Array('user'=>'carol', 'pass'=>'x')), false);
+checkIdentical('PassList comment line is not a user', $passLst->checkSecretDct(Array('user'=>'# Test credentials only', 'pass'=>'x')), false);
 $noStore = new PassList( Array('passFile'=>'test'.DS.'fixtures'.DS.'missing.htpasswd') );
-checkIdentical('PassList missing file',       $noStore->checkSecretArr(Array('user'=>'alice', 'pass'=>'s3cret')), false);
-checkIdentical('PassList missing file message', $noStore->finalErrorText(), 'Credential store unavailable');
+checkIdentical('PassList missing file',       $noStore->checkSecretDct(Array('user'=>'alice', 'pass'=>'s3cret')), false);
+checkIdentical('PassList missing file message', $noStore->getLastErrText(), 'Credential store unavailable');
 
 // RegKey : flat list of API keys
 $keysLst = new RegKey( Array('keysList'=>Array('k-111', 'k-222')) );
-checkIdentical('RegKey valid key',            $keysLst->checkSecretArr(Array('key'=>'k-222')), Array('userName'=>''));
-checkIdentical('RegKey invalid key',          $keysLst->checkSecretArr(Array('key'=>'zzz')), false);
-checkIdentical('RegKey invalid key message',  $keysLst->finalErrorText(), 'Invalid API key');
-checkIdentical('RegKey no key',               $keysLst->checkSecretArr(Array()), false);
-checkIdentical('RegKey no key message',       $keysLst->finalErrorText(), 'No API key provided');
+checkIdentical('RegKey valid key',            $keysLst->checkSecretDct(Array('key'=>'k-222')), Array('userName'=>''));
+checkIdentical('RegKey invalid key',          $keysLst->checkSecretDct(Array('key'=>'zzz')), false);
+checkIdentical('RegKey invalid key message',  $keysLst->getLastErrText(), 'Invalid API key');
+checkIdentical('RegKey no key',               $keysLst->checkSecretDct(Array()), false);
+checkIdentical('RegKey no key message',       $keysLst->getLastErrText(), 'No API key provided');
 
 // Basic : Authorization header, checked by PassList
 $basicSs = new Basic( Array(), $passLst );
-checkIdentical('Basic valid',                 $basicSs->verifyRqstList(mockRequestObj(basicHead('alice', 's3cret'))), Array('userName'=>'alice'));
-checkIdentical('Basic wrong password',        $basicSs->verifyRqstList(mockRequestObj(basicHead('alice', 'nope'))), false);
-checkIdentical('Basic wrong password message', $basicSs->finalErrorText(), 'Invalid credentials');
-checkIdentical('Basic password containing a colon', $basicSs->verifyRqstList(mockRequestObj(basicHead('alice', 'a:b'))), false);
-checkIdentical('Basic no header',             $basicSs->verifyRqstList(mockRequestObj()), false);
-checkIdentical('Basic no header message',     $basicSs->finalErrorText(), 'Missing Basic Authorization header');
-checkIdentical('Basic malformed',             $basicSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'Basic !!!'))), false);
-checkIdentical('Basic malformed message',     $basicSs->finalErrorText(), 'Malformed Basic credentials');
+checkIdentical('Basic valid',                 $basicSs->checkReqstDict(mockRequestObj(basicHead('alice', 's3cret'))), Array('userName'=>'alice'));
+checkIdentical('Basic wrong password',        $basicSs->checkReqstDict(mockRequestObj(basicHead('alice', 'nope'))), false);
+checkIdentical('Basic wrong password message', $basicSs->getLastErrText(), 'Invalid credentials');
+checkIdentical('Basic password containing a colon', $basicSs->checkReqstDict(mockRequestObj(basicHead('alice', 'a:b'))), false);
+checkIdentical('Basic no header',             $basicSs->checkReqstDict(mockRequestObj()), false);
+checkIdentical('Basic no header message',     $basicSs->getLastErrText(), 'Missing Basic Authorization header');
+checkIdentical('Basic malformed',             $basicSs->checkReqstDict(mockRequestObj(Array('Authorization'=>'Basic !!!'))), false);
+checkIdentical('Basic malformed message',     $basicSs->getLastErrText(), 'Malformed Basic credentials');
 checkIdentical('Basic issues no token',       $basicSs->issueTokenText(Array('userName'=>'x')), '');
 $noAuth = new Basic( Array() );
-checkIdentical('Basic without an auth handler', $noAuth->verifyRqstList(mockRequestObj(basicHead('alice', 's3cret'))), false);
-checkIdentical('Basic without an auth handler message', $noAuth->finalErrorText(), 'No credential handler configured');
+checkIdentical('Basic without an auth handler', $noAuth->checkReqstDict(mockRequestObj(basicHead('alice', 's3cret'))), false);
+checkIdentical('Basic without an auth handler message', $noAuth->getLastErrText(), 'No credential handler configured');
 
 // Header : API key in a configurable header, checked by RegKey
 $headrSs = new Header( Array('headName'=>'X-Test-Key'), $keysLst );
-checkIdentical('Header valid',                $headrSs->verifyRqstList(mockRequestObj(Array('X-Test-Key'=>'k-111'))), Array('userName'=>''));
-checkIdentical('Header invalid key',          $headrSs->verifyRqstList(mockRequestObj(Array('X-Test-Key'=>'zzz'))), false);
-checkIdentical('Header invalid key message',  $headrSs->finalErrorText(), 'Invalid API key');
-checkIdentical('Header missing',              $headrSs->verifyRqstList(mockRequestObj()), false);
-checkIdentical('Header missing message',      $headrSs->finalErrorText(), 'Missing X-Test-Key header');
+checkIdentical('Header valid',                $headrSs->checkReqstDict(mockRequestObj(Array('X-Test-Key'=>'k-111'))), Array('userName'=>''));
+checkIdentical('Header invalid key',          $headrSs->checkReqstDict(mockRequestObj(Array('X-Test-Key'=>'zzz'))), false);
+checkIdentical('Header invalid key message',  $headrSs->getLastErrText(), 'Invalid API key');
+checkIdentical('Header missing',              $headrSs->checkReqstDict(mockRequestObj()), false);
+checkIdentical('Header missing message',      $headrSs->getLastErrText(), 'Missing X-Test-Key header');
 $dfltHdr = new Header( Array(), $keysLst );
-checkIdentical('Header default name is X-Api-Key', $dfltHdr->verifyRqstList(mockRequestObj(Array('X-Api-Key'=>'k-111'))), Array('userName'=>''));
+checkIdentical('Header default name is X-Api-Key', $dfltHdr->checkReqstDict(mockRequestObj(Array('X-Api-Key'=>'k-111'))), Array('userName'=>''));
 
 // Header with a scheme : "Authorization: Bearer <key>", only the key is checked
 $bearrSs = new Header( Array('headName'=>'Authorization', 'authSchm'=>'Bearer'), $keysLst );
-checkIdentical('Header scheme valid',         $bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer k-111'))), Array('userName'=>''));
-checkIdentical('Header scheme in another case', $bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'bearer k-111'))), Array('userName'=>''));
-checkIdentical('Header scheme missing from the value', Array($bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'k-111'))), $bearrSs->finalErrorText()), Array(false, 'Missing Bearer Authorization header'));
-checkIdentical('Header another scheme',       $bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'Basic k-111'))), false);
-checkIdentical('Header scheme without a key', Array($bearrSs->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '))), $bearrSs->finalErrorText()), Array(false, 'No API key provided'));
+checkIdentical('Header scheme valid',         $bearrSs->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer k-111'))), Array('userName'=>''));
+checkIdentical('Header scheme in another case', $bearrSs->checkReqstDict(mockRequestObj(Array('Authorization'=>'bearer k-111'))), Array('userName'=>''));
+checkIdentical('Header scheme missing from the value', Array($bearrSs->checkReqstDict(mockRequestObj(Array('Authorization'=>'k-111'))), $bearrSs->getLastErrText()), Array(false, 'Missing Bearer Authorization header'));
+checkIdentical('Header another scheme',       $bearrSs->checkReqstDict(mockRequestObj(Array('Authorization'=>'Basic k-111'))), false);
+checkIdentical('Header scheme without a key', Array($bearrSs->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '))), $bearrSs->getLastErrText()), Array(false, 'No API key provided'));
 
 // JWT : self-verifying bearer token
 $jwtSess = new JWT( Array('hmacSecr'=>str_repeat('s', 40), 'lifeSecs'=>60) );
 $jwToken = $jwtSess->issueTokenText(Array('userName'=>'carol'));
 checkPregMatch('JWT token shape',             $jwToken, '/^[\w-]+\.[\w-]+\.[\w-]+$/');
-$payload = $jwtSess->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken)));
+$payload = $jwtSess->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken)));
 checkIdentical('JWT round trip keeps the identity', $payload['userName'] ?? null, 'carol');
 checkIdentical('JWT expiry follows the ttl',  ($payload['exp'] ?? 0) - ($payload['iat'] ?? 0), 60);
-checkIdentical('JWT tampered token',          $jwtSess->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken.'x'))), false);
-checkIdentical('JWT tampered token message',  $jwtSess->finalErrorText(), 'Invalid token');
+checkIdentical('JWT tampered token',          $jwtSess->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken.'x'))), false);
+checkIdentical('JWT tampered token message',  $jwtSess->getLastErrText(), 'Invalid token');
 // What the library found wrong is never told to the client : two messages, and the reason in the log
 nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('jwtlogs'), 'mode'=>'FULL') );
 $jwtKeys = Array(str_repeat('s', 40), 'HS256');
@@ -113,17 +113,17 @@ $jwtKeys = Array(str_repeat('s', 40), 'HS256');
  *
  * @param JWT    $carrierObj The carrier.
  * @param String $tokenValue The token, as the client would send it.
- * @return Array What verifyRqstList() gives, and the message.
+ * @return Array What checkReqstDict() gives, and the message.
  */
 function tokenReply( JWT $carrierObj, String $tokenValue ): Array {
-	$idntArr = $carrierObj->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)));
-	return Array(is_array($idntArr) ? ($idntArr['userName'] ?? null) : $idntArr, $carrierObj->finalErrorText());
+	$idntArr = $carrierObj->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)));
+	return Array(is_array($idntArr) ? ($idntArr['userName'] ?? null) : $idntArr, $carrierObj->getLastErrText());
 }
 checkIdentical('JWT not a token at all',      tokenReply($jwtSess, 'nope'), Array(false, 'Invalid token'));
 checkIdentical('JWT what is not a token is a wrong credential', $jwtSess->hasWrongSecret(), true);
 checkIdentical('JWT a token that ended is not one', Array(tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'carol', 'exp'=>time()-10), ...$jwtKeys))[1], $jwtSess->hasWrongSecret()), Array('Expired token', false));
 checkIdentical('JWT nor is a token signed here without its expiry', Array(tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'carol'), ...$jwtKeys))[1], $jwtSess->hasWrongSecret()), Array('Invalid token', false));
-checkIdentical('JWT nor is a missing token', Array($jwtSess->verifyRqstList(mockRequestObj()), $jwtSess->hasWrongSecret()), Array(false, false));
+checkIdentical('JWT nor is a missing token', Array($jwtSess->checkReqstDict(mockRequestObj()), $jwtSess->hasWrongSecret()), Array(false, false));
 checkIdentical('JWT signed with another algorithm', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'carol', 'exp'=>time()+60), str_repeat('s', 64), 'HS512')), Array(false, 'Invalid token'));
 checkIdentical('JWT not valid yet',           tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'carol', 'exp'=>time()+600, 'nbf'=>time()+300), ...$jwtKeys)), Array(false, 'Invalid token'));
 checkIdentical('JWT expired',                 tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'carol', 'exp'=>time()-10), ...$jwtKeys)), Array(false, 'Expired token'));
@@ -135,68 +135,68 @@ checkIdentical('JWT signed here, with its expiry and its user', tokenReply($jwtS
 nyu\Tools\Logger::loadLogsConfig( Array() );
 $jwtLogs = strval(@file_get_contents(inTemporaryDir('jwtlogs').DS.'access.log'));
 checkIdentical('JWT the reason is told in the log, at the debug level', Array(preg_match('/\[DEBUG\] Token refused: UnexpectedValueException: Wrong number of segments/', $jwtLogs), preg_match('/\[DEBUG\] Token refused: signed, but without an expiry or a user/', $jwtLogs), substr_count($jwtLogs, 'Token refused')), Array(1, 1, 8));
-checkIdentical('JWT no header',               $jwtSess->verifyRqstList(mockRequestObj()), false);
-checkIdentical('JWT no header message',       $jwtSess->finalErrorText(), 'Missing Bearer Authorization header');
+checkIdentical('JWT no header',               $jwtSess->checkReqstDict(mockRequestObj()), false);
+checkIdentical('JWT no header message',       $jwtSess->getLastErrText(), 'Missing Bearer Authorization header');
 $othrJwt = new JWT( Array('hmacSecr'=>str_repeat('o', 40)) );
-checkIdentical('JWT signed with another secret', $othrJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
+checkIdentical('JWT signed with another secret', $othrJwt->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
 $noScrt = new JWT( Array() );
-checkIdentical('JWT without a secret',        $noScrt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
-checkIdentical('JWT without a secret message', $noScrt->finalErrorText(), 'JWT secret not configured');
+checkIdentical('JWT without a secret',        $noScrt->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
+checkIdentical('JWT without a secret message', $noScrt->getLastErrText(), 'JWT secret not configured');
 $shrtJwt = new JWT( Array('hmacSecr'=>'REPLACE_ME') );
-checkIdentical('JWT with a short secret',     $shrtJwt->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
-checkIdentical('JWT with a short secret message', $shrtJwt->finalErrorText(), 'JWT secret not configured');
+checkIdentical('JWT with a short secret',     $shrtJwt->checkReqstDict(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken))), false);
+checkIdentical('JWT with a short secret message', $shrtJwt->getLastErrText(), 'JWT secret not configured');
 checkIdentical('JWT with a short secret issues no token', $shrtJwt->issueTokenText(Array('userName'=>'x')), '');
 
 // ClCert : reads what the web server reported about the TLS client certificate
 $crtVals = Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol', 'SSL_CLIENT_I_DN_CN'=>'Test CA');
 $certSes = new ClCert( Array() );
-checkIdentical('ClCert verified certificate',  $certSes->verifyRqstList(mockRequestObj(Array(), $crtVals)), Array('userName'=>'carol'));
-checkIdentical('ClCert no certificate',        Array($certSes->verifyRqstList(mockRequestObj()), $certSes->finalErrorText()), Array(false, 'No verified client certificate'));
-checkIdentical('ClCert not presented',         $certSes->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>'NONE') + $crtVals)), false);
-checkIdentical('ClCert failed verification',   $certSes->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>'FAILED:certificate has expired') + $crtVals)), false);
-checkIdentical('ClCert verified, without a name', Array($certSes->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_S_DN_CN'=>'  ') + $crtVals)), $certSes->finalErrorText()), Array(false, 'Certificate names no user'));
-checkIdentical('ClCert the same values sent as headers are ignored', $certSes->verifyRqstList(mockRequestObj(Array('SSL-Client-Verify'=>'SUCCESS', 'SSL-Client-S-DN-CN'=>'carol'), Array('HTTP_SSL_CLIENT_VERIFY'=>'SUCCESS', 'HTTP_SSL_CLIENT_S_DN_CN'=>'carol'))), false);
+checkIdentical('ClCert verified certificate',  $certSes->checkReqstDict(mockRequestObj(Array(), $crtVals)), Array('userName'=>'carol'));
+checkIdentical('ClCert no certificate',        Array($certSes->checkReqstDict(mockRequestObj()), $certSes->getLastErrText()), Array(false, 'No verified client certificate'));
+checkIdentical('ClCert not presented',         $certSes->checkReqstDict(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>'NONE') + $crtVals)), false);
+checkIdentical('ClCert failed verification',   $certSes->checkReqstDict(mockRequestObj(Array(), Array('SSL_CLIENT_VERIFY'=>'FAILED:certificate has expired') + $crtVals)), false);
+checkIdentical('ClCert verified, without a name', Array($certSes->checkReqstDict(mockRequestObj(Array(), Array('SSL_CLIENT_S_DN_CN'=>'  ') + $crtVals)), $certSes->getLastErrText()), Array(false, 'Certificate names no user'));
+checkIdentical('ClCert the same values sent as headers are ignored', $certSes->checkReqstDict(mockRequestObj(Array('SSL-Client-Verify'=>'SUCCESS', 'SSL-Client-S-DN-CN'=>'carol'), Array('HTTP_SSL_CLIENT_VERIFY'=>'SUCCESS', 'HTTP_SSL_CLIENT_S_DN_CN'=>'carol'))), false);
 checkIdentical('ClCert issues no token',       $certSes->issueTokenText(Array('userName'=>'x')), '');
 
 $pinSess = new ClCert( Array('issuerId'=>'Test CA') );
-checkIdentical('ClCert accepted issuer',       $pinSess->verifyRqstList(mockRequestObj(Array(), $crtVals)), Array('userName'=>'carol'));
+checkIdentical('ClCert accepted issuer',       $pinSess->checkReqstDict(mockRequestObj(Array(), $crtVals)), Array('userName'=>'carol'));
 $pinSess = new ClCert( Array('issuerId'=>'Other CA') );
-checkIdentical('ClCert other issuer',          Array($pinSess->verifyRqstList(mockRequestObj(Array(), $crtVals)), $pinSess->finalErrorText()), Array(false, 'Certificate issuer not accepted'));
+checkIdentical('ClCert other issuer',          Array($pinSess->checkReqstDict(mockRequestObj(Array(), $crtVals)), $pinSess->getLastErrText()), Array(false, 'Certificate issuer not accepted'));
 
 $nginxSs = new ClCert( Array('checkVar'=>'TLS_VERIFIED', 'ownerVar'=>'TLS_SUBJECT') );
-checkIdentical('ClCert other variable names',  $nginxSs->verifyRqstList(mockRequestObj(Array(), Array('TLS_VERIFIED'=>'SUCCESS', 'TLS_SUBJECT'=>'dora'))), Array('userName'=>'dora'));
+checkIdentical('ClCert other variable names',  $nginxSs->checkReqstDict(mockRequestObj(Array(), Array('TLS_VERIFIED'=>'SUCCESS', 'TLS_SUBJECT'=>'dora'))), Array('userName'=>'dora'));
 $hdrSess = new ClCert( Array('checkVar'=>'HTTP_X_SSL_VERIFY', 'ownerVar'=>'HTTP_X_SSL_CN') );
-checkIdentical('ClCert variables that are request headers are refused', Array($hdrSess->verifyRqstList(mockRequestObj(Array(), Array('HTTP_X_SSL_VERIFY'=>'SUCCESS', 'HTTP_X_SSL_CN'=>'carol'))), $hdrSess->finalErrorText()), Array(false, 'Certificate variables misconfigured'));
+checkIdentical('ClCert variables that are request headers are refused', Array($hdrSess->checkReqstDict(mockRequestObj(Array(), Array('HTTP_X_SSL_VERIFY'=>'SUCCESS', 'HTTP_X_SSL_CN'=>'carol'))), $hdrSess->getLastErrText()), Array(false, 'Certificate variables misconfigured'));
 
 // ClCert with a credential store : the certificate's user must be one of its users
 $fakeStr = new class(Array()) implements nyu\Access\Auth\Handler {
 	public function __construct( Array $confValues ){
 	}
-	public function checkSecretArr( Array $credsArray ): Array|Bool {
+	public function checkSecretDct( Array $credsArray ): Array|Bool {
 		return false;
 	}
-	public function usrIdentityArr( String $userString ): Array|Bool {
+	public function readIdntOfUser( String $userString ): Array|Bool {
 		return ($userString=='carol') ? Array('userName'=>'carol', 'userRole'=>'managers', 'idOfUser'=>7) : false;
 	}
-	public function finalErrorText(): String {
+	public function getLastErrText(): String {
 		return 'Account not active';
 	}
 };
 $strSess = new ClCert( Array(), $fakeStr );
-checkIdentical('ClCert with a store: known user, with its role', $strSess->verifyRqstList(mockRequestObj(Array(), $crtVals)), Array('userName'=>'carol', 'userRole'=>'managers', 'idOfUser'=>7));
-checkIdentical('ClCert with a store: unknown user', Array($strSess->verifyRqstList(mockRequestObj(Array(), Array('SSL_CLIENT_S_DN_CN'=>'zed') + $crtVals)), $strSess->finalErrorText()), Array(false, 'Account not active'));
+checkIdentical('ClCert with a store: known user, with its role', $strSess->checkReqstDict(mockRequestObj(Array(), $crtVals)), Array('userName'=>'carol', 'userRole'=>'managers', 'idOfUser'=>7));
+checkIdentical('ClCert with a store: unknown user', Array($strSess->checkReqstDict(mockRequestObj(Array(), Array('SSL_CLIENT_S_DN_CN'=>'zed') + $crtVals)), $strSess->getLastErrText()), Array(false, 'Account not active'));
 
 // Checker : reads the strategy pair from the 'security' block, and its config from the ACCESS registry row
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')))) );
 $hdrConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys');
 
 $checker = new Checker( Array('required'=>false), mockRequestObj() );
-checkIdentical('Checker not required: goes through, not logged', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('loggedIn'), $checker->validateAccess()->readValueByKey('userRole')), Array(200, false, null));
+checkIdentical('Checker not required: goes through, not logged', Array($checker->checkRqtAccess()->readValueByKey('statCode'), $checker->checkRqtAccess()->readValueByKey('loggedIn'), $checker->checkRqtAccess()->readValueByKey('userRole')), Array(200, false, null));
 $checker = new Checker( Array(), mockRequestObj() );
-checkIdentical('Checker empty config',        $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker empty config',        $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 
 $checker = new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'k-1')) );
-$axsRslt = $checker->validateAccess();
+$axsRslt = $checker->checkRqtAccess();
 checkIdentical('Checker granted',             $axsRslt->readValueByKey('loggedIn'), true);
 checkIdentical('Checker granted status',      $axsRslt->readValueByKey('statCode'), 200);
 checkIdentical('Checker granted: member role by default', $axsRslt->readValueByKey('userRole'), 'standard');
@@ -204,28 +204,28 @@ checkIdentical('Checker granted: member role by default', $axsRslt->readValueByK
 // No access config at all (conf/access.json missing) : a preset that checks access fails closed, an open one is served
 $keptCnf = $GLOBALS['nyuConfig'];
 $GLOBALS['nyuConfig'] = new Registry( Array('system'=>Array('ENV_NAME'=>'DEVS')) );
-$noneRgs = (new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'k-1')) ))->validateAccess();
+$noneRgs = (new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'k-1')) ))->checkRqtAccess();
 checkIdentical('no access config: a preset checking access answers 500, nobody let through', Array($noneRgs->readValueByKey('statCode'), $noneRgs->readValueByKey('statMssg'), $noneRgs->readValueByKey('loggedIn')), Array(500, 'Access misconfigured', false));
-checkIdentical('no access config: a preset with no check of its own and no carrier still answers 500', (new Checker( Array('required'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 500);
-checkIdentical('no access config: a preset open without "isPublic", or with no security block, answers 500', Array((new Checker( Array('required'=>false), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), (new Checker( Array(), mockRequestObj() ))->validateAccess()->readValueByKey('statMssg')), Array(500, 'Access misconfigured'));
-checkIdentical('no access config: a preset open by intent is served', (new Checker( Array('required'=>false, 'isPublic'=>true), mockRequestObj() ))->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('no access config: a preset with no check of its own and no carrier still answers 500', (new Checker( Array('required'=>true), mockRequestObj() ))->checkRqtAccess()->readValueByKey('statCode'), 500);
+checkIdentical('no access config: a preset open without "isPublic", or with no security block, answers 500', Array((new Checker( Array('required'=>false), mockRequestObj() ))->checkRqtAccess()->readValueByKey('statCode'), (new Checker( Array(), mockRequestObj() ))->checkRqtAccess()->readValueByKey('statMssg')), Array(500, 'Access misconfigured'));
+checkIdentical('no access config: a preset open by intent is served', (new Checker( Array('required'=>false, 'isPublic'=>true), mockRequestObj() ))->checkRqtAccess()->readValueByKey('statCode'), 200);
 $GLOBALS['nyuConfig'] = $keptCnf;
 
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTJWT'=>Array('hmacSecr'=>str_repeat('s', 40)))) );
 $jwtConf = Array('required'=>true, 'carrWith'=>'jwtToken', 'carrConf'=>'testjwt');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'managers')))) );
-checkIdentical('Checker keeps a known role',  $checker->validateAccess()->readValueByKey('userRole'), 'managers');
+checkIdentical('Checker keeps a known role',  $checker->checkRqtAccess()->readValueByKey('userRole'), 'managers');
 $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'root')))) );
-checkIdentical('Checker turns an unknown role into member', $checker->validateAccess()->readValueByKey('userRole'), 'standard');
+checkIdentical('Checker turns an unknown role into member', $checker->checkRqtAccess()->readValueByKey('userRole'), 'standard');
 
 // The access log : a privileged user is a notice of its own, with its role and what was asked for
 nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'managers')));
 $adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
-(new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('appToRun'=>'Users', 'doAction'=>'remove')) ))->validateAccess();
-(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'dave', 'userRole'=>'advanced'))), $adrVals), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'docs/*')) ))->validateAccess();
-(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'erin', 'userRole'=>'standard'))), $adrVals) ))->validateAccess();
-(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer nope'), $adrVals) ))->validateAccess();
+(new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('appToRun'=>'Users', 'doAction'=>'remove')) ))->checkRqtAccess();
+(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'dave', 'userRole'=>'advanced'))), $adrVals), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'docs/*')) ))->checkRqtAccess();
+(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'erin', 'userRole'=>'standard'))), $adrVals) ))->checkRqtAccess();
+(new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer nope'), $adrVals) ))->checkRqtAccess();
 nyu\Tools\Logger::loadLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: one line per check', count($axsLogs), 4);
@@ -236,14 +236,14 @@ checkPregMatch('access log: a denial stays a warning', $axsLogs[3] ?? null, '/^\
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'TESTKEYS'=>Array('keysList'=>Array('k-1')))) );
 
 $checker = new Checker( $hdrConf, mockRequestObj(Array('X-Api-Key'=>'bad')) );
-$axsRslt = $checker->validateAccess();
+$axsRslt = $checker->checkRqtAccess();
 checkIdentical('Checker denied',              $axsRslt->readValueByKey('loggedIn'), false);
 checkIdentical('Checker denied status',       $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker denied message',      $axsRslt->readValueByKey('statMssg'), 'Invalid API key');
 checkIdentical('Checker denied, no Basic challenge', $axsRslt->readValueByKey('wwwHeadr'), null);
 
 $checker = new Checker( Array('carrWith'=>'httpBasc', 'authWith'=>'htpasswd', 'carrConf'=>'testkeys'), mockRequestObj() );
-$axsRslt = $checker->validateAccess();
+$axsRslt = $checker->checkRqtAccess();
 checkIdentical('Checker Basic denied status', $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker Basic challenge, with its realm', $axsRslt->readValueByKey('wwwHeadr'), 'Basic realm="nyuRuns", charset="UTF-8"');
 
@@ -258,65 +258,65 @@ checkIdentical('pairsFlaw: a name and a password handed to a check of keys', (ne
 checkIdentical('pairsFlaw: a name and a password handed to the check of the device tokens', (new Checker(Array('carrWith'=>'httpBasc', 'authWith'=>'dvcToken'), mockRequestObj()))->checkPairFlaws(), 'the credential check "dvcToken" cannot check what the carrier "httpBasc" hands it');
 checkIdentical('pairsFlaw: a key handed to a check of passwords', (new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>'htpasswd'), mockRequestObj()))->checkPairFlaws(), 'the credential check "htpasswd" cannot check what the carrier "apiHeadr" hands it');
 checkIdentical('pairsFlaw: a carrier left without a check', Array((new Checker(Array('carrWith'=>'httpBasc'), mockRequestObj()))->checkPairFlaws(), (new Checker(Array('carrWith'=>'apiHeadr', 'authWith'=>''), mockRequestObj()))->checkPairFlaws()), Array('the carrier "httpBasc" needs a credential check (authWith)', 'the carrier "apiHeadr" needs a credential check (authWith)'));
-$axsRslt = (new Checker( Array('carrWith'=>'httpBasc', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys'), mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->validateAccess();
+$axsRslt = (new Checker( Array('carrWith'=>'httpBasc', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys'), mockRequestObj(Array('Authorization'=>'Basic '.base64_encode('k-1:k-1'))) ))->checkRqtAccess();
 checkIdentical('Checker: such a pair refuses every request with a 500, without a challenge', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('wwwHeadr')), Array(500, 'Access misconfigured', null));
 
 $checker = new Checker( Array('carrWith'=>'jwtToken', 'carrConf'=>'testkeys'), mockRequestObj() );
-$axsRslt = $checker->validateAccess();
+$axsRslt = $checker->checkRqtAccess();
 checkIdentical('Checker JWT denied status',   $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker JWT challenge',       $axsRslt->readValueByKey('wwwHeadr'), 'Bearer');
 
 // Checker : public routes, matched on the resolved application and action
 $pubConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'testkeys', 'openList'=>Array('auth/login', 'Open/*'));
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'login')) );
-checkIdentical('Checker public action',       $checker->validateAccess()->readValueByKey('statCode'), 200);
-checkIdentical('Checker public action: not logged', $checker->validateAccess()->readValueByKey('loggedIn'), false);
+checkIdentical('Checker public action',       $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public action: not logged', $checker->checkRqtAccess()->readValueByKey('loggedIn'), false);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'Auth', 'doAction'=>'LOGIN')) );
-checkIdentical('Checker public action, other case', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public action, other case', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'open', 'doAction'=>'anything')) );
-checkIdentical('Checker public application',  $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public application',  $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'other')) );
-checkIdentical('Checker unlisted action stays closed', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker unlisted action stays closed', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>null)) );
-checkIdentical('Checker default action stays closed', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker default action stays closed', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>'shows', 'doAction'=>'login')) );
-checkIdentical('Checker other application stays closed', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker other application stays closed', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>204)) );
-checkIdentical('Checker route-answered OPTIONS is open', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker route-answered OPTIONS is open', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>405)) );
-checkIdentical('Checker route-answered refusal stays closed', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker route-answered refusal stays closed', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null)) );
-checkIdentical('Checker unresolved route stays closed', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker unresolved route stays closed', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 
 // Checker : public routes, named by the path they are declared with
 $pthConf = Array('openList'=>Array('/login', '/tokchk/', '/items/$id', '/docs/*', '/Auth/Other')) + $pubConf;
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
-checkIdentical('Checker public path: a page',  $checker->validateAccess()->readValueByKey('statCode'), 200);
-checkIdentical('Checker public path: not logged', $checker->validateAccess()->readValueByKey('loggedIn'), false);
+checkIdentical('Checker public path: a page',  $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public path: not logged', $checker->checkRqtAccess()->readValueByKey('loggedIn'), false);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'check', 'routKind'=>'toAction', 'routPath'=>'tokchk')) );
-checkIdentical('Checker public path: an action', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public path: an action', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>405, 'routPath'=>'login')) );
-checkIdentical('Checker public path: its refusals are open too', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public path: its refusals are open too', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>'probe', 'doAction'=>'mirrored', 'routPath'=>'items/$id')) );
-checkIdentical('Checker public path: a pattern, as it is declared', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public path: a pattern, as it is declared', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*')) );
-checkIdentical('Checker public path: a folder route, as it is declared', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker public path: a folder route, as it is declared', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/private/*')) );
-checkIdentical('Checker public path: its * does not open another folder route', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: its * does not open another folder route', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/guide.txt')) );
-checkIdentical('Checker public path: nor a route declared under it', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: nor a route declared under it', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( Array('openList'=>Array('/docs')) + $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'docs/*')) );
-checkIdentical('Checker public path: a folder route needs its *', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: a folder route needs its *', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'Login')) );
-checkIdentical('Checker public path: the case counts', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: the case counts', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
-checkIdentical('Checker public path: another page stays closed', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: another page stays closed', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>'login', 'doAction'=>null)) );
-checkIdentical('Checker public path: is not an application name', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: is not an application name', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( $pthConf, mockRequestObj(), new Registry(Array('appToRun'=>'auth', 'doAction'=>'other')) );
-checkIdentical('Checker public path: is not an action either', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: is not an action either', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 $checker = new Checker( Array('openList'=>Array('login')) + $pubConf, mockRequestObj(), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
-checkIdentical('Checker public path: needs its leading slash', $checker->validateAccess()->readValueByKey('statCode'), 401);
+checkIdentical('Checker public path: needs its leading slash', $checker->checkRqtAccess()->readValueByKey('statCode'), 401);
 
 // Checker : a request denied an HTML page is given the sign-in route to go to
 $sgnConf = Array('signPath'=>'/login') + $pthConf;
@@ -324,43 +324,43 @@ $askReqs = mockRequestObj();
 $askPrpt = new ReflectionProperty('nyu\Tools\Request', 'uriDetails');
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/hello/7?tab=a b'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'hello/$id')) );
-$axsRslt = $checker->validateAccess();
+$axsRslt = $checker->checkRqtAccess();
 checkIdentical('Checker sign-in: a denied page is still a 401', $axsRslt->readValueByKey('statCode'), 401);
 checkIdentical('Checker sign-in: with the route to go to, and the page asked for', $axsRslt->readValueByKey('denyGoal'), '/login?back=%2Fhello%2F7%3Ftab%3Da%20b');
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/api/hello/7'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'hello/$id', 'routBase'=>'/api')) );
-checkIdentical('Checker sign-in: under the basePath the preset is served under (conf/doorways.lst), the page asked for as it was asked', $checker->validateAccess()->readValueByKey('denyGoal'), '/api/login?back=%2Fapi%2Fhello%2F7');
+checkIdentical('Checker sign-in: under the basePath the preset is served under (conf/doorways.lst), the page asked for as it was asked', $checker->checkRqtAccess()->readValueByKey('denyGoal'), '/api/login?back=%2Fapi%2Fhello%2F7');
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'index')) );
-checkIdentical('Checker sign-in: the home page is not carried back', $checker->validateAccess()->readValueByKey('denyGoal'), '/login');
+checkIdentical('Checker sign-in: the home page is not carried back', $checker->checkRqtAccess()->readValueByKey('denyGoal'), '/login');
 $askPrpt->setValue($askReqs, Array('fullPath'=>'/shows/view/1'));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>'shows', 'doAction'=>'view', 'routKind'=>'toAction', 'routPath'=>'')) );
-checkIdentical('Checker sign-in: a denied action keeps its 401', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
+checkIdentical('Checker sign-in: a denied action keeps its 401', Array($checker->checkRqtAccess()->readValueByKey('statCode'), $checker->checkRqtAccess()->readValueByKey('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'toStatic', 'routPath'=>'style')) );
-checkIdentical('Checker sign-in: so does a denied file', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
+checkIdentical('Checker sign-in: so does a denied file', Array($checker->checkRqtAccess()->readValueByKey('statCode'), $checker->checkRqtAccess()->readValueByKey('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null)) );
-checkIdentical('Checker sign-in: and an unresolved route', $checker->validateAccess()->readValueByKey('denyGoal'), null);
+checkIdentical('Checker sign-in: and an unresolved route', $checker->checkRqtAccess()->readValueByKey('denyGoal'), null);
 $checker = new Checker( Array('signPath'=>'/enter') + $pubConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'enter')) );
-checkIdentical('Checker sign-in: a sign-in route left closed is not sent to itself', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('denyGoal')), Array(401, null));
+checkIdentical('Checker sign-in: a sign-in route left closed is not sent to itself', Array($checker->checkRqtAccess()->readValueByKey('statCode'), $checker->checkRqtAccess()->readValueByKey('denyGoal')), Array(401, null));
 $checker = new Checker( $sgnConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'login')) );
-checkIdentical('Checker sign-in: the open sign-in route is served', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker sign-in: the open sign-in route is served', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 foreach( Array('https://example.org/login', '//example.org/login', 'login', '/log in', Array('/login')) as $badRte ){
 	$checker = new Checker( Array('signPath'=>$badRte) + $pthConf, $askReqs, new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'other')) );
-	$axsRslt = $checker->validateAccess();
+	$axsRslt = $checker->checkRqtAccess();
 	checkIdentical('Checker sign-in: '.json_encode($badRte).' is not a path of this site', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('denyGoal')), Array(500, null));
 }
 
 $checker = new Checker( Array('carrWith'=>'Nope'), mockRequestObj() );
-checkIdentical('Checker unknown sess strategy', $checker->validateAccess()->readValueByKey('statCode'), 500);
+checkIdentical('Checker unknown sess strategy', $checker->checkRqtAccess()->readValueByKey('statCode'), 500);
 $checker = new Checker( Array('carrWith'=>'apiHeadr', 'authWith'=>'Nope'), mockRequestObj() );
-checkIdentical('Checker unknown auth strategy', $checker->validateAccess()->readValueByKey('statCode'), 500);
+checkIdentical('Checker unknown auth strategy', $checker->checkRqtAccess()->readValueByKey('statCode'), 500);
 
 // The Probe fixture application, for the helpers of an action
 require_once TST_DIR.DS.'fixtures'.DS.'runs'.DS.'Probe'.DS.'Actions.php';
 
 // Checker : the roles are ordered, each one includes those before it
-checkIdentical('roleMeets: a role includes those before it', Array(Checker::rleAccessMeets('managers', 'standard'), Checker::rleAccessMeets('advanced', 'advanced'), Checker::rleAccessMeets('standard', 'advanced'), Checker::rleAccessMeets('advanced', 'managers')), Array(true, true, false, false));
-checkIdentical('roleMeets: no role, or an unknown one, meets nothing', Array(Checker::rleAccessMeets(null, 'standard'), Checker::rleAccessMeets('root', 'standard'), Checker::rleAccessMeets('managers', 'root')), Array(false, false, false));
+checkIdentical('roleMeets: a role includes those before it', Array(Checker::isRoleNotBelow('managers', 'standard'), Checker::isRoleNotBelow('advanced', 'advanced'), Checker::isRoleNotBelow('standard', 'advanced'), Checker::isRoleNotBelow('advanced', 'managers')), Array(true, true, false, false));
+checkIdentical('roleMeets: no role, or an unknown one, meets nothing', Array(Checker::isRoleNotBelow(null, 'standard'), Checker::isRoleNotBelow('root', 'standard'), Checker::isRoleNotBelow('managers', 'root')), Array(false, false, false));
 
 /**
  * Runs the access check of a route for the user carol, logged with a
@@ -373,7 +373,7 @@ checkIdentical('roleMeets: no role, or an unknown one, meets nothing', Array(Che
  */
 function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): Array {
 	$tknHead = ($loggedRole!='') ? Array('Authorization'=>'Bearer '.$GLOBALS['jwtSess']->issueTokenText(Array('userName'=>'carol', 'userRole'=>$loggedRole))) : Array();
-	$axsRslt = (new Checker( $accessConf, mockRequestObj($tknHead, Array('REMOTE_ADDR'=>'10.0.0.1')), new Registry($routeArray), $GLOBALS['roleRout'] ))->validateAccess();
+	$axsRslt = (new Checker( $accessConf, mockRequestObj($tknHead, Array('REMOTE_ADDR'=>'10.0.0.1')), new Registry($routeArray), $GLOBALS['roleRout'] ))->checkRqtAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'));
 }
 
@@ -441,15 +441,15 @@ checkIdentical('Checker role: a path without a router to read the routes from re
 checkIdentical('Checker role: an entry naming an action needs no router', (new Checker( $rolConf + Array(), mockRequestObj() ))->checkRoleFlaws()!=='' && (new Checker( Array('minRoles'=>Array('users/*'=>'managers')) + $jwtConf, mockRequestObj() ))->checkRoleFlaws()==='', true);
 
 // The refused user stays identified, and is not sent to the sign-in route
-$axsRslt = (new Checker( Array('signPath'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'advanced')))), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')), $GLOBALS['roleRout'] ))->validateAccess();
+$axsRslt = (new Checker( Array('signPath'=>'/login', 'openList'=>Array('/login')) + $rolConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'advanced')))), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routKind'=>'htmlPage', 'routPath'=>'admin')), $GLOBALS['roleRout'] ))->checkRqtAccess();
 checkIdentical('Checker role: a refused user is known, with no challenge and no sign-in route', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('loggedIn'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('wwwHeadr'), $axsRslt->readValueByKey('denyGoal')), Array(404, true, 'carol', 'advanced', null, null));
 
 // A check that gives no role makes a member
 $keyConf = Array('minRoles'=>Array('shows/*'=>'standard', 'users/*'=>'advanced')) + $hdrConf;
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'shows', 'doAction'=>'index')) );
-checkIdentical('Checker role: an API key meets the member role', $checker->validateAccess()->readValueByKey('statCode'), 200);
+checkIdentical('Checker role: an API key meets the member role', $checker->checkRqtAccess()->readValueByKey('statCode'), 200);
 $checker = new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-1')), new Registry(Array('appToRun'=>'users', 'doAction'=>'index')) );
-checkIdentical('Checker role: and no higher one', Array($checker->validateAccess()->readValueByKey('statCode'), $checker->validateAccess()->readValueByKey('userRole')), Array(404, 'standard'));
+checkIdentical('Checker role: and no higher one', Array($checker->checkRqtAccess()->readValueByKey('statCode'), $checker->checkRqtAccess()->readValueByKey('userRole')), Array(404, 'standard'));
 
 // A block that cannot be applied refuses every request
 $anyRoute = Array('appToRun'=>'shows', 'doAction'=>'index');
@@ -506,24 +506,24 @@ checkIdentical('needsRole: its refusals are logged as those of a route', $axsLog
 // The issuer of a certificate is read from the variable the config names
 $crtVals = Array('SSL_CLIENT_VERIFY'=>'SUCCESS', 'SSL_CLIENT_S_DN_CN'=>'carol', 'SSL_CLIENT_I_DN_CN'=>'Test CA');
 $varSess = new ClCert( Array('issueVar'=>'TLS_ISSUER', 'issuerId'=>'Test CA') );
-checkIdentical('ClCert issuer read from another variable', $varSess->verifyRqstList(mockRequestObj(Array(), Array('TLS_ISSUER'=>'Test CA') + $crtVals)), Array('userName'=>'carol'));
-checkIdentical('ClCert the default variable is then not read', Array($varSess->verifyRqstList(mockRequestObj(Array(), Array('TLS_ISSUER'=>'Other CA') + $crtVals)), $varSess->finalErrorText(), $varSess->verifyRqstList(mockRequestObj(Array(), $crtVals))), Array(false, 'Certificate issuer not accepted', false));
+checkIdentical('ClCert issuer read from another variable', $varSess->checkReqstDict(mockRequestObj(Array(), Array('TLS_ISSUER'=>'Test CA') + $crtVals)), Array('userName'=>'carol'));
+checkIdentical('ClCert the default variable is then not read', Array($varSess->checkReqstDict(mockRequestObj(Array(), Array('TLS_ISSUER'=>'Other CA') + $crtVals)), $varSess->getLastErrText(), $varSess->checkReqstDict(mockRequestObj(Array(), $crtVals))), Array(false, 'Certificate issuer not accepted', false));
 $hdrSess = new ClCert( Array('issueVar'=>'HTTP_X_SSL_ISSUER', 'issuerId'=>'Test CA') );
-checkIdentical('ClCert an issuer variable that is a request header is refused', Array($hdrSess->verifyRqstList(mockRequestObj(Array(), Array('HTTP_X_SSL_ISSUER'=>'Test CA') + $crtVals)), $hdrSess->finalErrorText()), Array(false, 'Certificate variables misconfigured'));
+checkIdentical('ClCert an issuer variable that is a request header is refused', Array($hdrSess->checkReqstDict(mockRequestObj(Array(), Array('HTTP_X_SSL_ISSUER'=>'Test CA') + $crtVals)), $hdrSess->getLastErrText()), Array(false, 'Certificate variables misconfigured'));
 
 // API keys written under a name identify their holder
 $namdKey = new RegKey( Array('keysList'=>Array('orders'=>'k-ordr', 'reports'=>'k-rept', 'nobody'=>'', 'wrongs'=>Array('k-list'))) );
-checkIdentical('RegKey a key written under a name gives the name', Array($namdKey->checkSecretArr(Array('key'=>'k-rept')), $namdKey->checkSecretArr(Array('key'=>'k-ordr'))), Array(Array('userName'=>'reports'), Array('userName'=>'orders')));
-checkIdentical('RegKey a wrong key, with named keys', Array($namdKey->checkSecretArr(Array('key'=>'k-none')), $namdKey->finalErrorText(), $namdKey->hasWrongSecret()), Array(false, 'Invalid API key', true));
-checkIdentical('RegKey a name is not a key, nor is a key that is not a text', Array($namdKey->checkSecretArr(Array('key'=>'reports')), $namdKey->checkSecretArr(Array('key'=>'k-list'))), Array(false, false));
-checkIdentical('RegKey a plain list still names nobody', (new RegKey(Array('keysList'=>Array('k-1', 'k-2'))))->checkSecretArr(Array('key'=>'k-2')), Array('userName'=>''));
-checkIdentical('RegKey a keysList that is not a list accepts nothing', (new RegKey(Array('keysList'=>'k-1')))->checkSecretArr(Array('key'=>'k-1')), false);
+checkIdentical('RegKey a key written under a name gives the name', Array($namdKey->checkSecretDct(Array('key'=>'k-rept')), $namdKey->checkSecretDct(Array('key'=>'k-ordr'))), Array(Array('userName'=>'reports'), Array('userName'=>'orders')));
+checkIdentical('RegKey a wrong key, with named keys', Array($namdKey->checkSecretDct(Array('key'=>'k-none')), $namdKey->getLastErrText(), $namdKey->hasWrongSecret()), Array(false, 'Invalid API key', true));
+checkIdentical('RegKey a name is not a key, nor is a key that is not a text', Array($namdKey->checkSecretDct(Array('key'=>'reports')), $namdKey->checkSecretDct(Array('key'=>'k-list'))), Array(false, false));
+checkIdentical('RegKey a plain list still names nobody', (new RegKey(Array('keysList'=>Array('k-1', 'k-2'))))->checkSecretDct(Array('key'=>'k-2')), Array('userName'=>''));
+checkIdentical('RegKey a keysList that is not a list accepts nothing', (new RegKey(Array('keysList'=>'k-1')))->checkSecretDct(Array('key'=>'k-1')), false);
 nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('keylogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'NAMEKEYS'=>Array('keysList'=>Array('reports'=>'k-rept', "eve\" from 9.9.9.9\n[".date('Y')."] [INFO] forged"=>'k-evil')))) );
 $keyConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'namekeys');
-$axsRslt = (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-rept'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();
+$axsRslt = (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-rept'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->checkRqtAccess();
 checkIdentical('Checker named key: the holder is the user, a member', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'reports', 'standard'));
-(new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-evil'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();
+(new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-evil'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->checkRqtAccess();
 nyu\Tools\Logger::loadLogsConfig( Array() );
 checkIdentical('access log: a member name is written as a JSON text, and cannot forge an entry', file_exists(inTemporaryDir('keylogs').DS.'access.log') ? file(inTemporaryDir('keylogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array(), Array(
 	'['.date('Y').'] [INFO] Access granted for user "reports" from 10.0.0.1',

@@ -81,10 +81,10 @@ function openSessn( PHPSess $carrierObj, Array $identArray ): String {
  *
  * @param Array $confValues Config block of the carrier.
  * @param Int   $expiryTime Expiry time of the cookie; 0 for the browser session.
- * @return Array The settings, as PHPSess::cookieSetArray() gives them.
+ * @return Array The settings, as PHPSess::makeCookieDict() gives them.
  */
 function cookSets( Array $confValues, Int $expiryTime=0 ): Array {
-	$setMthd = new ReflectionMethod('nyu\Access\Carr\PHPSess', 'cookieSetArray');
+	$setMthd = new ReflectionMethod('nyu\Access\Carr\PHPSess', 'makeCookieDict');
 	return $setMthd->invoke( new PHPSess($confValues), $expiryTime );
 }
 
@@ -95,36 +95,36 @@ $sessCar = new PHPSess( Array('lifeSecs'=>300, 'secureOn'=>false) );
 $sessIdn = $sessCar->issueTokenText($annaIdn);
 checkPregMatch('issueTokn gives the id of a new session', $sessIdn, '/^[A-Za-z0-9,-]{20,128}$/');
 checkIdentical('one session is kept', sessCount(), 1);
-checkIdentical('the id of the cookie identifies its user', $sessCar->verifyRqstList(cookReqst($sessIdn)), $annaIdn);
-checkIdentical('the session stays open on the next request', $sessCar->verifyRqstList(cookReqst($sessIdn)), $annaIdn);
+checkIdentical('the id of the cookie identifies its user', $sessCar->checkReqstDict(cookReqst($sessIdn)), $annaIdn);
+checkIdentical('the session stays open on the next request', $sessCar->checkReqstDict(cookReqst($sessIdn)), $annaIdn);
 $nextIdn = openSessn($sessCar, Array('userName'=>'ben'));
-checkIdentical('another login opens another session', Array($nextIdn!='' && $nextIdn!=$sessIdn, sessCount(), $sessCar->verifyRqstList(cookReqst($nextIdn))), Array(true, 2, Array('userName'=>'ben')));
+checkIdentical('another login opens another session', Array($nextIdn!='' && $nextIdn!=$sessIdn, sessCount(), $sessCar->checkReqstDict(cookReqst($nextIdn))), Array(true, 2, Array('userName'=>'ben')));
 // A login made by a request its session already identified : the session is replaced, not kept beside the new one
-$sessCar->verifyRqstList(cookReqst($nextIdn));
+$sessCar->checkReqstDict(cookReqst($nextIdn));
 $thrdIdn = $sessCar->issueTokenText(Array('userName'=>'ben'));
-checkIdentical('a login from an identified request replaces its session', Array($thrdIdn!=$nextIdn, $sessCar->verifyRqstList(cookReqst($nextIdn)), $sessCar->verifyRqstList(cookReqst($thrdIdn)), sessCount()), Array(true, false, Array('userName'=>'ben'), 2));
+checkIdentical('a login from an identified request replaces its session', Array($thrdIdn!=$nextIdn, $sessCar->checkReqstDict(cookReqst($nextIdn)), $sessCar->checkReqstDict(cookReqst($thrdIdn)), sessCount()), Array(true, false, Array('userName'=>'ben'), 2));
 checkIdentical('the id only travels in the cookie, and PHP adopts none it did not issue', Array(ini_get('session.use_strict_mode'), ini_get('session.use_only_cookies'), ini_get('session.use_trans_sid')), Array('1', '1', '0'));
 
 // What is not the cookie of an open session
-checkIdentical('no cookie', Array($sessCar->verifyRqstList(cookReqst(null)), $sessCar->finalErrorText()), Array(false, 'No active session'));
-checkIdentical('a cookie of another name', $sessCar->verifyRqstList(cookReqst($sessIdn, 'PHPSESSID')), false);
-checkIdentical('a cookie sent as a list', $sessCar->verifyRqstList(cookReqst(Array($sessIdn))), false);
+checkIdentical('no cookie', Array($sessCar->checkReqstDict(cookReqst(null)), $sessCar->getLastErrText()), Array(false, 'No active session'));
+checkIdentical('a cookie of another name', $sessCar->checkReqstDict(cookReqst($sessIdn, 'PHPSESSID')), false);
+checkIdentical('a cookie sent as a list', $sessCar->checkReqstDict(cookReqst(Array($sessIdn))), false);
 foreach( Array('a path'=>'../../etc/passwd', 'too short'=>'abc', 'too long'=>str_repeat('a', 129), 'with a space'=>$sessIdn.' ', 'empty'=>'') as $badNme=>$badIdn ){
-	checkIdentical('an id that is not shaped like one, '.$badNme, Array($sessCar->verifyRqstList(cookReqst($badIdn)), $sessCar->finalErrorText()), Array(false, 'No active session'));
+	checkIdentical('an id that is not shaped like one, '.$badNme, Array($sessCar->checkReqstDict(cookReqst($badIdn)), $sessCar->getLastErrText()), Array(false, 'No active session'));
 }
-checkIdentical('an id that was never issued is not adopted', Array($sessCar->verifyRqstList(cookReqst(str_repeat('a', 32))), $sessCar->finalErrorText()), Array(false, 'No active session'));
+checkIdentical('an id that was never issued is not adopted', Array($sessCar->checkReqstDict(cookReqst(str_repeat('a', 32))), $sessCar->getLastErrText()), Array(false, 'No active session'));
 checkIdentical('and leaves no session behind', sessCount(), 2);
 
 // Lifetime : the time a session may stay unused, counted from its last request
 editSessn($sessIdn, Array('nyuStamp'=>time()-200));
-checkIdentical('a session used within its lifetime is open', $sessCar->verifyRqstList(cookReqst($sessIdn)), $annaIdn);
+checkIdentical('a session used within its lifetime is open', $sessCar->checkReqstDict(cookReqst($sessIdn)), $annaIdn);
 checkTrueValue('each request starts its lifetime again', editSessn($sessIdn)['nyuStamp']>=time()-5);
 editSessn($sessIdn, Array('nyuStamp'=>time()-301));
-checkIdentical('a session left unused for longer is expired', Array($sessCar->verifyRqstList(cookReqst($sessIdn)), $sessCar->finalErrorText()), Array(false, 'Session expired'));
-checkIdentical('an expired session is destroyed', Array($sessCar->verifyRqstList(cookReqst($sessIdn)), $sessCar->finalErrorText(), sessCount()), Array(false, 'No active session', 1));
+checkIdentical('a session left unused for longer is expired', Array($sessCar->checkReqstDict(cookReqst($sessIdn)), $sessCar->getLastErrText()), Array(false, 'Session expired'));
+checkIdentical('an expired session is destroyed', Array($sessCar->checkReqstDict(cookReqst($sessIdn)), $sessCar->getLastErrText(), sessCount()), Array(false, 'No active session', 1));
 $shrtCar = new PHPSess( Array('lifeSecs'=>0) );
 $shrtIdn = openSessn($shrtCar, $annaIdn);
-checkIdentical('the shortest lifetime is one second', $shrtCar->verifyRqstList(cookReqst($shrtIdn)), $annaIdn);
+checkIdentical('the shortest lifetime is one second', $shrtCar->checkReqstDict(cookReqst($shrtIdn)), $annaIdn);
 $shrtCar->dropUsrSession(cookReqst($shrtIdn));
 
 // Whole life : a session ends once it was opened for longer than it may live, however much it is used
@@ -132,46 +132,46 @@ $fullCar = new PHPSess( Array('lifeSecs'=>300, 'fullSecs'=>1000, 'secureOn'=>fal
 $fullIdn = openSessn($fullCar, $annaIdn);
 checkTrueValue('a session records when it was opened', editSessn($fullIdn)['nyuBirth']>=time()-5);
 editSessn($fullIdn, Array('nyuBirth'=>time()-990));
-checkIdentical('a session opened within its whole life is open', $fullCar->verifyRqstList(cookReqst($fullIdn)), $annaIdn);
+checkIdentical('a session opened within its whole life is open', $fullCar->checkReqstDict(cookReqst($fullIdn)), $annaIdn);
 checkTrueValue('using it does not move the time it was opened', editSessn($fullIdn)['nyuBirth']<=time()-985);
 editSessn($fullIdn, Array('nyuBirth'=>time()-1001, 'nyuStamp'=>time()));
-checkIdentical('a session opened for longer is expired, though just used', Array($fullCar->verifyRqstList(cookReqst($fullIdn)), $fullCar->finalErrorText()), Array(false, 'Session expired'));
-checkIdentical('and is destroyed', Array($fullCar->verifyRqstList(cookReqst($fullIdn)), $fullCar->finalErrorText()), Array(false, 'No active session'));
+checkIdentical('a session opened for longer is expired, though just used', Array($fullCar->checkReqstDict(cookReqst($fullIdn)), $fullCar->getLastErrText()), Array(false, 'Session expired'));
+checkIdentical('and is destroyed', Array($fullCar->checkReqstDict(cookReqst($fullIdn)), $fullCar->getLastErrText()), Array(false, 'No active session'));
 $fullIdn = openSessn($fullCar, $annaIdn);
 editSessn($fullIdn, Array('nyuBirth'=>null));
-checkIdentical('a session that does not tell when it was opened is expired', Array($fullCar->verifyRqstList(cookReqst($fullIdn)), $fullCar->finalErrorText()), Array(false, 'Session expired'));
+checkIdentical('a session that does not tell when it was opened is expired', Array($fullCar->checkReqstDict(cookReqst($fullIdn)), $fullCar->getLastErrText()), Array(false, 'Session expired'));
 $evrCarr = new PHPSess( Array('lifeSecs'=>300, 'fullSecs'=>0, 'secureOn'=>false) );
 $evrIdnt = openSessn($evrCarr, $annaIdn);
 editSessn($evrIdnt, Array('nyuBirth'=>time()-9000000));
-checkIdentical('a whole life of 0 never ends a session that is used', $evrCarr->verifyRqstList(cookReqst($evrIdnt)), $annaIdn);
+checkIdentical('a whole life of 0 never ends a session that is used', $evrCarr->checkReqstDict(cookReqst($evrIdnt)), $annaIdn);
 editSessn($evrIdnt, Array('nyuBirth'=>time()-43100));
-checkIdentical('by default, a session lives twelve hours', Array($sessCar->verifyRqstList(cookReqst($evrIdnt)), editSessn($evrIdnt, Array('nyuBirth'=>time()-43300))!==Array(), $sessCar->verifyRqstList(cookReqst($evrIdnt))), Array($annaIdn, true, false));
+checkIdentical('by default, a session lives twelve hours', Array($sessCar->checkReqstDict(cookReqst($evrIdnt)), editSessn($evrIdnt, Array('nyuBirth'=>time()-43300))!==Array(), $sessCar->checkReqstDict(cookReqst($evrIdnt))), Array($annaIdn, true, false));
 
 // A session that holds no identity
 $brknIdn = openSessn($sessCar, $annaIdn);
 editSessn($brknIdn, Array('nyuIdent'=>'anna'));
-checkIdentical('a session whose identity is not a block is refused, and destroyed', Array($sessCar->verifyRqstList(cookReqst($brknIdn)), $sessCar->finalErrorText(), sessCount()), Array(false, 'No active session', 1));
+checkIdentical('a session whose identity is not a block is refused, and destroyed', Array($sessCar->checkReqstDict(cookReqst($brknIdn)), $sessCar->getLastErrText(), sessCount()), Array(false, 'No active session', 1));
 
 // With a store that knows its users : the user is confirmed on every request
 $usrList = new UserList( Array('listFile'=>'test'.DS.'fixtures'.DS.'users.lst') );
 $strSess = new PHPSess( Array('lifeSecs'=>300), $usrList );
 $sessIdn = openSessn($strSess, Array('userName'=>'anna', 'userRole'=>'standard'));
-checkIdentical('with a store: the role is the one of the store', $strSess->verifyRqstList(cookReqst($sessIdn)), $annaIdn);
-checkIdentical('without a store: the role is the one of the session', $sessCar->verifyRqstList(cookReqst($sessIdn)), Array('userName'=>'anna', 'userRole'=>'standard'));
+checkIdentical('with a store: the role is the one of the store', $strSess->checkReqstDict(cookReqst($sessIdn)), $annaIdn);
+checkIdentical('without a store: the role is the one of the session', $sessCar->checkReqstDict(cookReqst($sessIdn)), Array('userName'=>'anna', 'userRole'=>'standard'));
 $daveIdn = openSessn($strSess, Array('userName'=>'dave', 'userRole'=>'advanced'));
-checkIdentical('with a store: a locked user is refused', Array($strSess->verifyRqstList(cookReqst($daveIdn)), $strSess->finalErrorText()), Array(false, 'Account not active'));
-checkIdentical('with a store: the refused session is destroyed', Array($sessCar->verifyRqstList(cookReqst($daveIdn)), $sessCar->finalErrorText()), Array(false, 'No active session'));
+checkIdentical('with a store: a locked user is refused', Array($strSess->checkReqstDict(cookReqst($daveIdn)), $strSess->getLastErrText()), Array(false, 'Account not active'));
+checkIdentical('with a store: the refused session is destroyed', Array($sessCar->checkReqstDict(cookReqst($daveIdn)), $sessCar->getLastErrText()), Array(false, 'No active session'));
 $zedIdnt = openSessn($strSess, Array('userRole'=>'managers'));
-checkIdentical('with a store: a session naming no user is refused', $strSess->verifyRqstList(cookReqst($zedIdnt)), false);
+checkIdentical('with a store: a session naming no user is refused', $strSess->checkReqstDict(cookReqst($zedIdnt)), false);
 $keySess = new PHPSess( Array('lifeSecs'=>300), new RegKey(Array('keysList'=>Array('k-1'))) );
 $zedIdnt = openSessn($keySess, Array('userName'=>'zed', 'userRole'=>'advanced'));
-checkIdentical('with a check that does not know its users: the session alone decides', $keySess->verifyRqstList(cookReqst($zedIdnt)), Array('userName'=>'zed', 'userRole'=>'advanced'));
+checkIdentical('with a check that does not know its users: the session alone decides', $keySess->checkReqstDict(cookReqst($zedIdnt)), Array('userName'=>'zed', 'userRole'=>'advanced'));
 
 // Logout
 $keptNmb = sessCount();
 $sessCar->dropUsrSession(cookReqst($zedIdnt));
-checkIdentical('dropSessn destroys the session of the cookie', Array($sessCar->verifyRqstList(cookReqst($zedIdnt)), $sessCar->finalErrorText(), sessCount()), Array(false, 'No active session', $keptNmb-1));
-checkIdentical('the other sessions are left open', $strSess->verifyRqstList(cookReqst($sessIdn)), $annaIdn);
+checkIdentical('dropSessn destroys the session of the cookie', Array($sessCar->checkReqstDict(cookReqst($zedIdnt)), $sessCar->getLastErrText(), sessCount()), Array(false, 'No active session', $keptNmb-1));
+checkIdentical('the other sessions are left open', $strSess->checkReqstDict(cookReqst($sessIdn)), $annaIdn);
 checkIdentical('dropSessn without a cookie, or with an id never issued, does nothing', runCatchThrown(function() use ($sessCar){
 	$sessCar->dropUsrSession(cookReqst(null));
 	$sessCar->dropUsrSession(cookReqst(str_repeat('b', 32)));
@@ -190,11 +190,11 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTSESS'=>Array('l
  * @return Array The status, the message, the user, the role and the challenge.
  */
 function sessReply( ?String $sessnIdent, Array $moreConfig=Array(), Array $routeArray=Array() ): Array {
-	$axsRslt = (new Checker( $moreConfig + Array('required'=>true, 'carrWith'=>'phpSessn', 'carrConf'=>'testSess'), cookReqst($sessnIdent), new Registry($routeArray) ))->validateAccess();
+	$axsRslt = (new Checker( $moreConfig + Array('required'=>true, 'carrWith'=>'phpSessn', 'carrConf'=>'testSess'), cookReqst($sessnIdent), new Registry($routeArray) ))->checkRqtAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('wwwHeadr'));
 }
 $usrStor = Array('authWith'=>'userFile', 'authConf'=>'testFile');
-checkIdentical('phpSessn is the short name of PHPSess', Checker::sessnClassText('phpSessn'), '\\nyu\\Access\\Carr\\PHPSess');
+checkIdentical('phpSessn is the short name of PHPSess', Checker::findCarrierCls('phpSessn'), '\\nyu\\Access\\Carr\\PHPSess');
 checkIdentical('Checker phpSessn without a store: the role of the session', sessReply($sessIdn), Array(200, '', 'anna', 'standard', null));
 checkIdentical('Checker phpSessn x userFile: the role of the file', sessReply($sessIdn, $usrStor), Array(200, '', 'anna', 'managers', null));
 checkIdentical('Checker phpSessn x regdKeys: the session alone decides', sessReply($sessIdn, Array('authWith'=>'regdKeys'))[3], 'standard');
@@ -218,7 +218,7 @@ checkIdentical('cookie: named nyuSessn by default, and when the name given canno
 
 // The cookie of one carrier is not read by another
 $othrCar = new PHPSess( Array('cookName'=>'nyuOther', 'lifeSecs'=>300) );
-checkIdentical('a carrier does not read the cookie of another name', $othrCar->verifyRqstList(cookReqst($sessIdn)), false);
+checkIdentical('a carrier does not read the cookie of another name', $othrCar->checkReqstDict(cookReqst($sessIdn)), false);
 
 // A folder of its own : the sessions are kept under the project root, away from PHP's own folder
 $ownName = 'temp/sess_test_'.getmypid();
@@ -226,7 +226,7 @@ $ownFldr = TOP_DIR.DS.'temp'.DS.'sess_test_'.getmypid();
 $ownCarr = new PHPSess( Array('lifeSecs'=>300, 'secureOn'=>false, 'dataPath'=>'/'.$ownName.'/') );
 $keptNmb = sessCount();
 $ownIdnt = openSessn($ownCarr, $annaIdn);
-checkIdentical('folder: the session is kept in it, and not in PHP\'s own', Array(is_file($ownFldr.DS.'sess_'.$ownIdnt), sessCount(), $ownCarr->verifyRqstList(cookReqst($ownIdnt))), Array(true, $keptNmb, $annaIdn));
+checkIdentical('folder: the session is kept in it, and not in PHP\'s own', Array(is_file($ownFldr.DS.'sess_'.$ownIdnt), sessCount(), $ownCarr->checkReqstDict(cookReqst($ownIdnt))), Array(true, $keptNmb, $annaIdn));
 $ownCarr->dropUsrSession(cookReqst($ownIdnt));
 checkIdentical('folder: and is removed from it at the logout', count((array)glob($ownFldr.DS.'sess_*')), 0);
 dropTestFolder($ownFldr);

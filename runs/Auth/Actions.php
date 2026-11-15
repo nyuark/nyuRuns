@@ -50,8 +50,8 @@ class Actions extends Actionset {
 
 		$loginCfg = $this->findAccessConf('loginSet');
 		$accsJrnl = Logger::getLoggerOfChn('access');
-		$authClss = Checker::authClssString( strval($loginCfg['authWith'] ?? 'htpasswd') );
-		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
+		$authClss = Checker::findCheckClass( strval($loginCfg['authWith'] ?? 'htpasswd') );
+		$sessClss = Checker::findCarrierCls( strval($loginCfg['carrWith'] ?? 'jwtToken') );
 		if($authClss===null || $sessClss===null || !class_exists($authClss) || !class_exists($sessClss)){
 			$accsJrnl->error( 'Login unavailable: unknown authWith or carrWith in the login block' );
 			$this->statusCode = 500;
@@ -68,7 +68,7 @@ class Actions extends Actionset {
 		$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
 		$sessInst = new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
-		if(method_exists($sessInst, 'verifyOnlyFlag') && $sessInst->verifyOnlyFlag()){
+		if(method_exists($sessInst, 'isCheckingOnly') && $sessInst->isCheckingOnly()){
 			$accsJrnl->warning( 'Login refused for user '.json_encode($givenUsr).$fromText.': this project only checks tokens, issued by another server' );
 			$this->statusCode = 501;
 			$this->statusText = 'Tokens are issued by another server';
@@ -79,16 +79,16 @@ class Actions extends Actionset {
 		$givenCod = $this->inputsRegr->readValueByKey('sentCode');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
 		$givenMrk = strval( $this->requestObj->getHeaderValue('X-Lgmark') ?? (is_string($this->requestObj->getCookieValue('lgmark')) ? $this->requestObj->getCookieValue('lgmark') : '') );
-		$idntList = $authInst->checkSecretArr( Array('user'=>$givenUsr, 'pass'=>$givenPwd, 'code'=>is_scalar($givenCod) ? strval($givenCod) : '', 'mark'=>$givenMrk) );
+		$idntList = $authInst->checkSecretDct( Array('user'=>$givenUsr, 'pass'=>$givenPwd, 'code'=>is_scalar($givenCod) ? strval($givenCod) : '', 'mark'=>$givenMrk) );
 
 		if($idntList===false){
 			// Only a credential presented and refused counts against the address
 			if(!method_exists($authInst, 'hasWrongSecret') || $authInst->hasWrongSecret()){
 				$lmtrInst->countFailedTry($userAddr);
 			}
-			$accsJrnl->warning( 'Login refused for user '.json_encode($givenUsr).$fromText.': '.$authInst->finalErrorText() );
+			$accsJrnl->warning( 'Login refused for user '.json_encode($givenUsr).$fromText.': '.$authInst->getLastErrText() );
 			$this->statusCode = 401;
-			$this->statusText = $authInst->finalErrorText();
+			$this->statusText = $authInst->getLastErrText();
 			return;
 		}
 
@@ -98,15 +98,15 @@ class Actions extends Actionset {
 		}
 		$rawToken = $sessInst->issueTokenText( $idntList );
 		if($rawToken==''){
-			$accsJrnl->error( 'Login unavailable: '.($sessInst->finalErrorText() ?: 'the carrier issues no token') );
+			$accsJrnl->error( 'Login unavailable: '.($sessInst->getLastErrText() ?: 'the carrier issues no token') );
 			$this->statusCode = 500;
 			$this->statusText = 'Login unavailable';
 			return;
 		}
 
 		// A credential store that tracks presence is told the user was seen
-		if(method_exists($authInst, 'retainAliveFlg')){
-			$authInst->retainAliveFlg( strval($idntList['userName'] ?? '') );
+		if(method_exists($authInst, 'saveAccessDate')){
+			$authInst->saveAccessDate( strval($idntList['userName'] ?? '') );
 		}
 		// A login is always traced, production included; the one of a privileged user (any role above the first of ROLELIST) tells it
 		$userRole = strval($idntList['userRole'] ?? '');
@@ -119,9 +119,9 @@ class Actions extends Actionset {
 		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page
 		$this->replyValue = method_exists($sessInst, 'dropUsrSession') ? Array('logged'=>true) : Array('token'=>$rawToken);
 		// A new login mark for this client : in a cookie the scripts of the page cannot read, or in the reply of a token
-		$markInst = LoginMark::fromLimitBlock();
+		$markInst = LoginMark::makeByLimitCfg();
 		// Made by the store, which signs it with the hash of the password it just checked : a check without one gives no mark
-		$nouvMark = method_exists($authInst, 'createUserMark') ? strval($authInst->createUserMark( strval($idntList['userName'] ?? $givenUsr) )) : '';
+		$nouvMark = method_exists($authInst, 'makeSignedMark') ? strval($authInst->makeSignedMark( strval($idntList['userName'] ?? $givenUsr) )) : '';
 		if($nouvMark!==''){
 			if(method_exists($sessInst, 'dropUsrSession')){
 				if(!headers_sent()){
@@ -172,9 +172,9 @@ class Actions extends Actionset {
 	 */
 	public function keyset(): Void {
 		$loginCfg = $this->findAccessConf('loginSet');
-		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
+		$sessClss = Checker::findCarrierCls( strval($loginCfg['carrWith'] ?? 'jwtToken') );
 		$sessInst = ($sessClss!==null && class_exists($sessClss)) ? new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') ) : null;
-		$keysDict = ($sessInst!==null && method_exists($sessInst, 'publicSetArray')) ? $sessInst->publicSetArray() : Array('keys'=>Array());
+		$keysDict = ($sessInst!==null && method_exists($sessInst, 'getJwksOfBlock')) ? $sessInst->getJwksOfBlock() : Array('keys'=>Array());
 		if( empty($keysDict['keys']) ){
 			Logger::getLoggerOfChn('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
 			$this->statusCode = 404;
@@ -198,7 +198,7 @@ class Actions extends Actionset {
 	 */
 	public function logout(): Void {
 		$loginCfg = $this->findAccessConf('loginSet');
-		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
+		$sessClss = Checker::findCarrierCls( strval($loginCfg['carrWith'] ?? 'jwtToken') );
 		if($sessClss!==null && class_exists($sessClss)){
 			$sessInst = new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') );
 			if(method_exists($sessInst, 'dropUsrSession')){
@@ -247,7 +247,7 @@ class Actions extends Actionset {
 			$this->statusText = 'Invalid userName, sentCode or passWord';
 			return;
 		}
-		$userBase = UserBase::fromLoginBlock();
+		$userBase = UserBase::makeByLoginCfg();
 		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusText = 'User management unavailable';
@@ -263,16 +263,16 @@ class Actions extends Actionset {
 		$clntRegr = $this->requestObj->getClientOfRqt();
 		// The language the request asks for is given to a user who has none yet : the one who activates is the one the mails go to
 		$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
-		if(!$userBase->activateUsrFlg($givenUsr, $givenCod, $givenPwd, $clntLang)){
+		if(!$userBase->activateByCode($givenUsr, $givenCod, $givenPwd, $clntLang)){
 			// Only a wrong name or code counts against the address, not a password breaking a rule
 			if($userBase->hasWrongSecret()){
 				$lmtrInst->countFailedTry($userAddr);
 			}
-			$this->statusCode = $userBase->lastStateCount();
-			$this->statusText = $userBase->finalErrorText();
+			$this->statusCode = $userBase->getRefusalCode();
+			$this->statusText = $userBase->getLastErrText();
 			return;
 		}
-		$userStts = strval( ($userBase->userInfosArray($givenUsr) ?: Array())['userStatus'] ?? 'approved' );
+		$userStts = strval( ($userBase->readUserToShow($givenUsr) ?: Array())['userStatus'] ?? 'approved' );
 		$this->statusCode = 200;
 		$this->replyValue = Array('active'=>$userStts=='approved', 'stat'=>$userStts);
 	}
@@ -295,9 +295,9 @@ class Actions extends Actionset {
 	 * are waiting.
 	 */
 	public function signup(): Void {
-		$userBase = UserBase::fromLoginBlock();
-		$mailInst = AccessMail::fromLoginBlock( $this->getRunFldrPath(), PHP_SAPI!=='cli' );
-		if($userBase===null || $mailInst===null || !AccessMail::signupsAllowed()){
+		$userBase = UserBase::makeByLoginCfg();
+		$mailInst = AccessMail::makeByLoginCfg( $this->getRunFldrPath(), PHP_SAPI!=='cli' );
+		if($userBase===null || $mailInst===null || !AccessMail::isSignupOpened()){
 			$this->statusCode = 404;
 			$this->statusText = 'Not Found';
 			return;
@@ -325,10 +325,10 @@ class Actions extends Actionset {
 		$regrTops = max( 1, intval($limitCfg['maxQueue'] ?? UserBase::SIGN_MAXI) );
 		$clntRegr = $this->requestObj->getClientOfRqt();
 		$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
-		$newCodig = $userBase->signsUsrString($givenUsr, $givenEml, $regrTops, $clntLang);
+		$newCodig = $userBase->registerSignup($givenUsr, $givenEml, $regrTops, $clntLang);
 		if($newCodig===false){
-			$this->statusCode = $userBase->lastStateCount();
-			$this->statusText = $userBase->finalErrorText();
+			$this->statusCode = $userBase->getRefusalCode();
+			$this->statusText = $userBase->getLastErrText();
 			return;
 		}
 		if($newCodig===''){
@@ -358,7 +358,7 @@ class Actions extends Actionset {
 	 * @param Array      $warnAtCounts The counts the managers are told at.
 	 */
 	protected function sendMngrAlerts( UserBase $userDatabase, AccessMail $accessMailer, Int $authTopsNumb, Array $warnAtCounts ): Void {
-		$waitNumb = $userDatabase->waitingSignups();
+		$waitNumb = $userDatabase->countWaitUsers();
 		if($waitNumb===false || !in_array($waitNumb, array_map('intval', $warnAtCounts), true)){
 			return;
 		}
@@ -368,7 +368,7 @@ class Actions extends Actionset {
 		}else{
 			$accsJrnl->notice( $waitNumb.' sign-ups are waiting, '.$authTopsNumb.' at most' );
 		}
-		$mngrList = $userDatabase->manageMailList();
+		$mngrList = $userDatabase->listMngrEmails();
 		if(is_array($mngrList) && !empty($mngrList)){
 			$accessMailer->sendQueueAlert($mngrList, $waitNumb, $authTopsNumb);
 		}else{
@@ -388,8 +388,8 @@ class Actions extends Actionset {
 	 * not a text, 429 when the address of the client asked too often.
 	 */
 	public function forgot(): Void {
-		$userBase = UserBase::fromLoginBlock();
-		$mailInst = AccessMail::fromLoginBlock( $this->getRunFldrPath(), PHP_SAPI!=='cli' );
+		$userBase = UserBase::makeByLoginCfg();
+		$mailInst = AccessMail::makeByLoginCfg( $this->getRunFldrPath(), PHP_SAPI!=='cli' );
 		if($userBase===null || $mailInst===null){
 			$this->statusCode = 404;
 			$this->statusText = 'Not Found';
@@ -406,7 +406,7 @@ class Actions extends Actionset {
 			return;
 		}
 		$lmtrList[0]->countFailedTry($lmtrList[1]);
-		$restVals = $userBase->resetPassArray($givenUsr);
+		$restVals = $userBase->makeRecovrCode($givenUsr);
 		if(is_array($restVals)){
 			$clntRegr = $this->requestObj->getClientOfRqt();
 			$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
@@ -439,7 +439,7 @@ class Actions extends Actionset {
 			$this->statusText = 'Invalid userName, sentCode or passWord';
 			return;
 		}
-		$userBase = UserBase::fromLoginBlock();
+		$userBase = UserBase::makeByLoginCfg();
 		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusText = 'User management unavailable';
@@ -449,12 +449,12 @@ class Actions extends Actionset {
 		if($lmtrList===null){
 			return;
 		}
-		if(!$userBase->recoverUserFlg($givenUsr, $givenCod, $givenPwd)){
+		if(!$userBase->recoverAccount($givenUsr, $givenCod, $givenPwd)){
 			if($userBase->hasWrongSecret()){
 				$lmtrList[0]->countFailedTry($lmtrList[1]);
 			}
-			$this->statusCode = $userBase->lastStateCount();
-			$this->statusText = $userBase->finalErrorText();
+			$this->statusCode = $userBase->getRefusalCode();
+			$this->statusText = $userBase->getLastErrText();
 			return;
 		}
 		$this->statusCode = 200;
@@ -474,7 +474,7 @@ class Actions extends Actionset {
 		$lmtrInst = $ceilingCount ?? new Limiter( $this->findAccessConf('tryLimit') );
 		$clntRegr = $this->requestObj->getClientOfRqt();
 		$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
-		$heldTime = $lmtrInst->heldUntilCount($userAddr);
+		$heldTime = $lmtrInst->readAdrHoldEnd($userAddr);
 		if($heldTime>0){
 			Logger::getLoggerOfChn('access')->warning( $requestLabel.' refused for user '.json_encode($namedUserTxt).(($userAddr!='') ? ' from '.$userAddr : '').': too many attempts' );
 			if($this->respondObj!==null){
@@ -528,19 +528,19 @@ class Actions extends Actionset {
 			$this->statusText = 'Invalid oldValue or passWord';
 			return;
 		}
-		$userBase = UserBase::fromLoginBlock();
+		$userBase = UserBase::makeByLoginCfg();
 		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusText = 'User management unavailable';
 			return;
 		}
-		if(!$userBase->editPasswdFlag($userName, $oldValue, $givenPwd)){
+		if(!$userBase->alterPassByOld($userName, $oldValue, $givenPwd)){
 			if($userBase->hasWrongSecret()){
 				$clntRegr = $this->requestObj->getClientOfRqt();
 				(new Limiter( $this->findAccessConf('tryLimit') ))->countFailedTry( ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
 			}
-			$this->statusCode = $userBase->lastStateCount();
-			$this->statusText = $userBase->finalErrorText();
+			$this->statusCode = $userBase->getRefusalCode();
+			$this->statusText = $userBase->getLastErrText();
 			return;
 		}
 		$this->statusCode = 200;
@@ -561,20 +561,20 @@ class Actions extends Actionset {
 			$this->statusText = 'Not logged in';
 			return;
 		}
-		$userBase = UserBase::fromLoginBlock();
+		$userBase = UserBase::makeByLoginCfg();
 		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusText = 'User management unavailable';
 			return;
 		}
 		$givenLng = $this->inputsRegr->readValueByKey('saveLang');
-		if(!$userBase->changeLanguage($userName, is_string($givenLng) ? $givenLng : null)){
-			$this->statusCode = $userBase->lastStateCount();
-			$this->statusText = $userBase->finalErrorText();
+		if(!$userBase->alterMailsLang($userName, is_string($givenLng) ? $givenLng : null)){
+			$this->statusCode = $userBase->getRefusalCode();
+			$this->statusText = $userBase->getLastErrText();
 			return;
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('lang'=>($userBase->userInfosArray($userName) ?: Array())['userLocale'] ?? null);
+		$this->replyValue = Array('lang'=>($userBase->readUserToShow($userName) ?: Array())['userLocale'] ?? null);
 	}
 
 	/**

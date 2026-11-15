@@ -78,7 +78,7 @@ class Actions extends Actionset {
 	public function online(): Void {
 		$ntvAuth = new \nyu\Access\Auth\Native( Array() );
 		$this->statusCode = 200;
-		$this->replyValue = Array('online'=>$ntvAuth->onlineNowArray());
+		$this->replyValue = Array('online'=>$ntvAuth->listOnlineRecs());
 	}
 
 	/**

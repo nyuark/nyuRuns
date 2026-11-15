@@ -22,7 +22,7 @@ class Totp{
 	 *
 	 * @return String The 32 character secret.
 	 */
-	public static function generateSecret(): String {
+	public static function makeSecretText(): String {
 		$bitStrng = '';
 		foreach( str_split(random_bytes(20)) as $oneByt ){
 			$bitStrng .= str_pad(decbin(ord($oneByt)), 8, '0', STR_PAD_LEFT);
@@ -41,8 +41,8 @@ class Totp{
 	 * @param Int    $momentAsUnix Unix time the code is for.
 	 * @return String The code, with its leading zeros.
 	 */
-	public static function codeAtTimeText( String $codeSecrText, Int $momentAsUnix ): String {
-		$hmacBrut = hash_hmac('sha1', pack('J', intdiv($momentAsUnix, self::STEP_SECS)), self::fromBase32Text($codeSecrText), true);
+	public static function makeCodeAtTime( String $codeSecrText, Int $momentAsUnix ): String {
+		$hmacBrut = hash_hmac('sha1', pack('J', intdiv($momentAsUnix, self::STEP_SECS)), self::castFromBase32($codeSecrText), true);
 		$startIdx = ord($hmacBrut[19]) & 0x0F;
 		$codeNumb = unpack('N', substr($hmacBrut, $startIdx, 4))[1] & 0x7FFFFFFF;
 		return str_pad(strval($codeNumb % (10 ** self::CODE_SIZE)), self::CODE_SIZE, '0', STR_PAD_LEFT);
@@ -57,7 +57,7 @@ class Totp{
 	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return Bool Whether the code is valid.
 	 */
-	public static function verifyTotpCode( String $codeSecrText, String $codeFromUser, ?Int $momentAsUnix = null ): Bool {
+	public static function isCodeOfSecret( String $codeSecrText, String $codeFromUser, ?Int $momentAsUnix = null ): Bool {
 		return self::matchStepCount($codeSecrText, $codeFromUser, $momentAsUnix)!==null;
 	}
 
@@ -71,13 +71,13 @@ class Totp{
 	 * @return ?Int The number of the step (the Unix time divided by STEPSECS), the latest when several match; null when the code is not valid.
 	 */
 	public static function matchStepCount( String $codeSecrText, String $codeFromUser, ?Int $momentAsUnix = null ): ?Int {
-		if( !preg_match('/^\d{'.self::CODE_SIZE.'}$/', $codeFromUser) || self::fromBase32Text($codeSecrText)=='' ){
+		if( !preg_match('/^\d{'.self::CODE_SIZE.'}$/', $codeFromUser) || self::castFromBase32($codeSecrText)=='' ){
 			return null;
 		}
 		$currStep = intdiv($momentAsUnix ?? time(), self::STEP_SECS);
 		$stepMatx = null;
 		foreach( Array(-1, 0, 1) as $stpInc ){
-			if( hash_equals( self::codeAtTimeText($codeSecrText, ($currStep + $stpInc)*self::STEP_SECS), $codeFromUser ) ){
+			if( hash_equals( self::makeCodeAtTime($codeSecrText, ($currStep + $stpInc)*self::STEP_SECS), $codeFromUser ) ){
 				$stepMatx = $currStep + $stpInc;
 			}
 		}
@@ -129,7 +129,7 @@ class Totp{
 	 * @param String $codeSecrText The base32 secret; spaces and padding are ignored.
 	 * @return String The bytes, empty when the secret is not base32.
 	 */
-	protected static function fromBase32Text( String $codeSecrText ): String {
+	protected static function castFromBase32( String $codeSecrText ): String {
 		$bitStrng = '';
 		foreach( str_split(strtoupper(rtrim(str_replace(' ', '', $codeSecrText), '='))) as $letter ){
 			$charIndx = strpos(self::BASE_CHRS, $letter);

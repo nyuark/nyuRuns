@@ -64,7 +64,7 @@ class JWT implements Handler{
 		$this->retireUnix = is_int($configValues['retireAt'] ?? null) ? $configValues['retireAt'] : 0;
 		$this->prevPemKey = ( $this->retireUnix>0 && $this->retireUnix + intval($this->expiryTime)>=time() ) ? $this->readPemKeyFile( $configValues['prevFile'] ?? '' ) : '';
 		$this->issuerText = is_scalar($configValues['issuerId'] ?? null) ? trim(strval($configValues['issuerId'])) : '';
-		$this->audValList = $this->readsAudiences( $configValues['audience'] ?? null );
+		$this->audValList = $this->parseAudiences( $configValues['audience'] ?? null );
 		$this->errMessage = '';
 	}
 
@@ -73,13 +73,13 @@ class JWT implements Handler{
 	 * A token that is not valid is told as 'Invalid token', one that ended
 	 * as 'Expired token': why the library refused it goes to the log only.
 	 * A signed token without an expiry or a user is not valid either.
-	 * With a credential store offering usrIdentityArr(), the user must still be
+	 * With a credential store offering readIdntOfUser(), the user must still be
 	 * allowed in, and its current identity (role) replaces the token's.
 	 *
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The decoded identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $givenRequest ): Array|Bool {
+	function checkReqstDict( Request $givenRequest ): Array|Bool {
 		$this->isWrongTry = false;
 		$authHedr = $givenRequest->getHeaderValue('Authorization');
 		if( $authHedr===null || stripos($authHedr, 'Bearer ')!==0 ){
@@ -96,8 +96,8 @@ class JWT implements Handler{
 		if( $this->jwtAlgoTxt=='RS256' && $this->prevPemKey!='' ){
 			$hedrJson = json_decode( strval(base64_decode(strtr(explode('.', $rawToken)[0], '-_', '+/'))), true );
 			$askedKid = is_array($hedrJson) && is_string($hedrJson['kid'] ?? null) ? $hedrJson['kid'] : '';
-			$keysList = $this->publicKeysList();
-			$isOldKey = isset($keysList[$askedKid]) && $keysList[$askedKid]===$this->prevPemKey && $askedKid!==$this->keysThumbprint();
+			$keysList = $this->listPublicKeys();
+			$isOldKey = isset($keysList[$askedKid]) && $keysList[$askedKid]===$this->prevPemKey && $askedKid!==$this->makeThumbprint();
 			$checkKey = $keysList[$askedKid] ?? $checkKey;
 		}
 		try{
@@ -134,11 +134,11 @@ class JWT implements Handler{
 			return false;
 		}
 		// A credential store that knows its users confirms the token's user is still allowed in
-		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
+		if( $this->authObject!==null && method_exists($this->authObject, 'readIdntOfUser') ){
 			// The time the token was issued at : a password set since ends it
-			$nowIdent = $this->authObject->usrIdentityArr( strval($idntList['userName'] ?? ''), intval($idntList['iat'] ?? 0) );
+			$nowIdent = $this->authObject->readIdntOfUser( strval($idntList['userName'] ?? ''), intval($idntList['iat'] ?? 0) );
 			if( $nowIdent===false ){
-				$this->errMessage = $this->authObject->finalErrorText();
+				$this->errMessage = $this->authObject->getLastErrText();
 				return false;
 			}
 			$idntList = array_merge($idntList, $nowIdent);
@@ -172,7 +172,7 @@ class JWT implements Handler{
 		}
 		$pyldInst['iat'] = time();
 		$pyldInst['exp'] = time() + $this->expiryTime;
-		return JwtCodec::encode( $pyldInst, $signClef, $this->jwtAlgoTxt, ($this->jwtAlgoTxt=='RS256') ? $this->keysThumbprint() : null );
+		return JwtCodec::encode( $pyldInst, $signClef, $this->jwtAlgoTxt, ($this->jwtAlgoTxt=='RS256') ? $this->makeThumbprint() : null );
 	}
 
 	/**
@@ -181,8 +181,8 @@ class JWT implements Handler{
 	 *
 	 * @return Bool True when the block checks tokens and issues none.
 	 */
-	public function verifyOnlyFlag(): Bool {
-		return $this->jwtAlgoTxt=='RS256' && $this->privatePem=='' && $this->rsaUserPublTxt()!==null;
+	public function isCheckingOnly(): Bool {
+		return $this->jwtAlgoTxt=='RS256' && $this->privatePem=='' && $this->getPubKeyOfRsa()!==null;
 	}
 
 	/**
@@ -190,11 +190,11 @@ class JWT implements Handler{
 	 * least), or the public key (RS256, of RSAMINIM bits at least), drawn
 	 * from the private key when the block names none.
 	 *
-	 * @return ?String The key, or null when it is not usable; finalErrorText() then tells why.
+	 * @return ?String The key, or null when it is not usable; getLastErrText() then tells why.
 	 */
 	protected function getCheckingKey(): ?String {
 		if( $this->jwtAlgoTxt=='RS256' ){
-			$checkKey = $this->rsaUserPublTxt();
+			$checkKey = $this->getPubKeyOfRsa();
 			if( $checkKey===null ){
 				$this->errMessage = 'Token keys not configured';
 			}
@@ -211,13 +211,13 @@ class JWT implements Handler{
 	 * Gives the key a token is signed with: the secret (HS256), or the
 	 * private key (RS256, of RSAMINIM bits at least).
 	 *
-	 * @return ?String The key, or null when it is not usable; finalErrorText() then tells why.
+	 * @return ?String The key, or null when it is not usable; getLastErrText() then tells why.
 	 */
 	protected function findSigningKey(): ?String {
 		if( $this->jwtAlgoTxt!='RS256' ){
 			return $this->getCheckingKey();
 		}
-		if( $this->verifyOnlyFlag() ){
+		if( $this->isCheckingOnly() ){
 			$this->errMessage = 'Tokens are issued by another server';
 			return null;
 		}
@@ -235,7 +235,7 @@ class JWT implements Handler{
 	 *
 	 * @return ?String The public key as PEM, or null when there is none of RSAMINIM bits at least.
 	 */
-	protected function rsaUserPublTxt(): ?String {
+	protected function getPubKeyOfRsa(): ?String {
 		if( !function_exists('openssl_pkey_get_public') ){
 			return null;
 		}
@@ -269,9 +269,9 @@ class JWT implements Handler{
 	 * @param ?String $publicKeyTxt The public key as PEM; the current one when not given.
 	 * @return ?String The thumbprint, base64url; null without a public key.
 	 */
-	protected function keysThumbprint( ?String $publicKeyTxt=null ): ?String {
-		$publText = $publicKeyTxt ?? $this->rsaUserPublTxt();
-		$jwkArray = ($publText!==null) ? $this->rsaToJwksArray($publText) : null;
+	protected function makeThumbprint( ?String $publicKeyTxt=null ): ?String {
+		$publText = $publicKeyTxt ?? $this->getPubKeyOfRsa();
+		$jwkArray = ($publText!==null) ? $this->castRsaIntoJwk($publText) : null;
 		return ($jwkArray!==null) ? $jwkArray['kid'] : null;
 	}
 
@@ -282,7 +282,7 @@ class JWT implements Handler{
 	 * @param String $publicKeyTxt The public key as PEM.
 	 * @return ?Array The JWK ('kty', 'use', 'alg', 'kid', 'n', 'e'); null when it is not an RSA key of RSAMINIM bits at least.
 	 */
-	protected function rsaToJwksArray( String $publicKeyTxt ): ?Array {
+	protected function castRsaIntoJwk( String $publicKeyTxt ): ?Array {
 		$keyInstn = function_exists('openssl_pkey_get_public') ? @openssl_pkey_get_public($publicKeyTxt) : false;
 		if( $keyInstn===false || !$this->isStrongRsaKey($keyInstn) ){
 			return null;
@@ -291,11 +291,11 @@ class JWT implements Handler{
 		if( !is_array($keyArray) || !isset($keyArray['rsa']['n'], $keyArray['rsa']['e']) ){
 			return null;
 		}
-		$modelTxt = $this->base64UrlNoPad($keyArray['rsa']['n']);
-		$expnText = $this->base64UrlNoPad($keyArray['rsa']['e']);
+		$modelTxt = $this->castBase64Text($keyArray['rsa']['n']);
+		$expnText = $this->castBase64Text($keyArray['rsa']['e']);
 		// The members the thumbprint is made of, in the order of their names, without spaces
 		$jwkStrng = '{"e":"'.$expnText.'","kty":"RSA","n":"'.$modelTxt.'"}';
-		return Array( 'kty'=>'RSA', 'use'=>'sig', 'alg'=>'RS256', 'kid'=>$this->base64UrlNoPad(hash('sha256', $jwkStrng, true)), 'n'=>$modelTxt, 'e'=>$expnText );
+		return Array( 'kty'=>'RSA', 'use'=>'sig', 'alg'=>'RS256', 'kid'=>$this->castBase64Text(hash('sha256', $jwkStrng, true)), 'n'=>$modelTxt, 'e'=>$expnText );
 	}
 
 	/**
@@ -305,14 +305,14 @@ class JWT implements Handler{
 	 *
 	 * @return Array The keys as PEM, by thumbprint; empty with HS256 or without a usable key.
 	 */
-	protected function publicKeysList(): Array {
+	protected function listPublicKeys(): Array {
 		if( $this->jwtAlgoTxt!='RS256' ){
 			return Array();
 		}
 		$keysList = Array();
-		$pemStrng = $this->rsaUserPublTxt();
+		$pemStrng = $this->getPubKeyOfRsa();
 		foreach( Array($pemStrng, ($this->prevPemKey!='') ? $this->prevPemKey : null) as $pemTxt ){
-			$keyIdent = ($pemTxt!==null) ? $this->keysThumbprint($pemTxt) : null;
+			$keyIdent = ($pemTxt!==null) ? $this->makeThumbprint($pemTxt) : null;
 			if( $keyIdent!==null && !isset($keysList[$keyIdent]) ){
 				$keysList[$keyIdent] = $pemTxt;
 			}
@@ -328,11 +328,11 @@ class JWT implements Handler{
 	 *
 	 * @return Array The set, under 'keys'; the list is empty when there is nothing to publish.
 	 */
-	public function publicSetArray(): Array {
+	public function getJwksOfBlock(): Array {
 		$keysList = Array();
-		if( !$this->verifyOnlyFlag() ){
-			foreach( $this->publicKeysList() as $pemTxt ){
-				$keysList[] = $this->rsaToJwksArray($pemTxt);
+		if( !$this->isCheckingOnly() ){
+			foreach( $this->listPublicKeys() as $pemTxt ){
+				$keysList[] = $this->castRsaIntoJwk($pemTxt);
 			}
 		}
 		return Array( 'keys'=>array_values(array_filter($keysList)) );
@@ -358,7 +358,7 @@ class JWT implements Handler{
 			}
 		}
 		if( !empty($this->audValList) ){
-			$audnList = $this->readsAudiences( $identityList['aud'] ?? null );
+			$audnList = $this->parseAudiences( $identityList['aud'] ?? null );
 			if( empty($audnList) ){
 				return 'no audience';
 			}
@@ -376,7 +376,7 @@ class JWT implements Handler{
 	 * @param Mixed $configValues The value given.
 	 * @return Array The audiences, non-empty texts, each once.
 	 */
-	protected function readsAudiences( Mixed $configValues ): Array {
+	protected function parseAudiences( Mixed $configValues ): Array {
 		$audnList = Array();
 		foreach( (is_array($configValues) ? $configValues : Array($configValues)) as $audVal ){
 			if( is_string($audVal) && trim($audVal)!='' && !in_array(trim($audVal), $audnList, true) ){
@@ -392,7 +392,7 @@ class JWT implements Handler{
 	 * @param String $usrBinaryTxt The bytes.
 	 * @return String The encoded text.
 	 */
-	protected function base64UrlNoPad( String $usrBinaryTxt ): String {
+	protected function castBase64Text( String $usrBinaryTxt ): String {
 		return rtrim( strtr(base64_encode($usrBinaryTxt), '+/', '-_'), '=' );
 	}
 
@@ -430,7 +430,7 @@ class JWT implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

@@ -20,8 +20,8 @@ use nyu\Tools\Logger;
  * longer accept is not left in place.
  *
  * Without a database there is no activation: a user is created active,
- * with its password. After a refusal, finalErrorText() tells why and
- * lastStateCount() gives the status it stands for, as UserBase does.
+ * with its password. After a refusal, getLastErrText() tells why and
+ * getRefusalCode() gives the status it stands for, as UserBase does.
  */
 class UserFile{
 
@@ -68,11 +68,11 @@ class UserFile{
 	 * @return Array|Bool The users, or false when a filter is not valid or the file cannot be used.
 	 */
 	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $skippedCount=0 ): Array|Bool {
-		$this->forgetLastFail();
+		$this->dropOldRefusal();
 		foreach( Array('userStatus'=>Native::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $fldNme => $allows ){
 			$givenTxt = $criteriaList[$fldNme] ?? '';
 			if( $givenTxt!=='' && $givenTxt!==null && !in_array($givenTxt, $allows, true) ){
-				return $this->declineForFlag(400, 'Invalid filter');
+				return $this->denyWithReason(400, 'Invalid filter');
 			}
 		}
 		$userList = $this->loadUsersArray();
@@ -98,14 +98,14 @@ class UserFile{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return Array|Bool The user, or false when it is unknown or the file cannot be used.
 	 */
-	public function userInfosArray( String $namedUserTxt ): Array|Bool {
-		$this->forgetLastFail();
+	public function readUserToShow( String $namedUserTxt ): Array|Bool {
+		$this->dropOldRefusal();
 		$userList = $this->loadUsersArray();
 		if( $userList===null ){
 			return false;
 		}
 		$userIndx = $this->findIndexCount($userList, $namedUserTxt);
-		return ($userIndx===null) ? $this->declineForFlag(404, 'User not found') : $this->shownValuesArr($userList[$userIndx]);
+		return ($userIndx===null) ? $this->denyWithReason(404, 'User not found') : $this->shownValuesArr($userList[$userIndx]);
 	}
 
 	/**
@@ -119,27 +119,27 @@ class UserFile{
 	 * @return Bool Whether the user was added.
 	 */
 	public function enrolUsrString( String $namedUserTxt, String $usrRleString, String $usrPasswdTxt, ?String $givenLangTag=null ): Bool {
-		$this->forgetLastFail();
+		$this->dropOldRefusal();
 		$roleVals = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
 		if( !preg_match(UserBase::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), UserBase::NAME_DENY, true) ){
-			return $this->declineForFlag(400, 'Invalid user name');
+			return $this->denyWithReason(400, 'Invalid user name');
 		}
 		if( !in_array($roleVals, Checker::ROLE_LIST, true) ){
-			return $this->declineForFlag(400, 'Invalid role');
+			return $this->denyWithReason(400, 'Invalid role');
 		}
 		$langVals = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
 		if( $langVals!=='' && !Language::isValidLangTag($langVals) ){
-			return $this->declineForFlag(400, 'Invalid language');
+			return $this->denyWithReason(400, 'Invalid language');
 		}
-		$ruleText = $this->testPassString($namedUserTxt, $usrPasswdTxt);
+		$ruleText = $this->checkPassRules($namedUserTxt, $usrPasswdTxt);
 		if( $ruleText!='' ){
-			return $this->declineForFlag(400, $ruleText);
+			return $this->denyWithReason(400, $ruleText);
 		}
 		$wasAdded = $this->alterUsersFlag( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVals, $usrPasswdTxt, $langVals ): ?Array {
 			$lastNumb = 0;
 			foreach( $usersRecords as $usrRow ){
 				if( strcasecmp(strval($usrRow['systemName'] ?? ''), $namedUserTxt)==0 ){
-					$this->declineForFlag(409, 'User name already taken');
+					$this->denyWithReason(409, 'User name already taken');
 					return null;
 				}
 				$lastNumb = max( $lastNumb, intval($usrRow['id_user'] ?? 0) );
@@ -161,18 +161,18 @@ class UserFile{
 	 * @param String $statusString The status to give: 'disabled' or 'approved'.
 	 * @return Bool Whether the status was changed.
 	 */
-	public function saveStatusFlag( String $namedUserTxt, String $statusString ): Bool {
-		$this->forgetLastFail();
+	public function saveUserStatus( String $namedUserTxt, String $statusString ): Bool {
+		$this->dropOldRefusal();
 		if( !in_array($statusString, Array('approved', 'disabled'), true) ){
-			return $this->declineForFlag(400, 'Invalid status');
+			return $this->denyWithReason(400, 'Invalid status');
 		}
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $statusString ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')==$statusString ){
-				$this->declineForFlag(409, 'User already '.$statusString);
+				$this->denyWithReason(409, 'User already '.$statusString);
 				return null;
 			}
-			if( $statusString=='disabled' && $this->lastManagerFlg($usersRecords, $usersIndxNum) ){
-				$this->declineForFlag(409, 'The last active manager cannot be locked');
+			if( $statusString=='disabled' && $this->isFinalManager($usersRecords, $usersIndxNum) ){
+				$this->denyWithReason(409, 'The last active manager cannot be locked');
 				return null;
 			}
 			$usersRecords[$usersIndxNum]['userStatus'] = $statusString;
@@ -192,18 +192,18 @@ class UserFile{
 	 * @param String $usrRleString The role to give, one of Checker::ROLE_LIST.
 	 * @return Bool Whether the role was changed.
 	 */
-	public function changeRoleFlag( String $namedUserTxt, String $usrRleString ): Bool {
-		$this->forgetLastFail();
+	public function alterRoleOfUsr( String $namedUserTxt, String $usrRleString ): Bool {
+		$this->dropOldRefusal();
 		if( !in_array($usrRleString, Checker::ROLE_LIST, true) ){
-			return $this->declineForFlag(400, 'Invalid role');
+			return $this->denyWithReason(400, 'Invalid role');
 		}
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrRleString ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['accessRole'] ?? Checker::ROLE_LIST[0])==$usrRleString ){
-				$this->declineForFlag(409, 'User already of that role');
+				$this->denyWithReason(409, 'User already of that role');
 				return null;
 			}
-			if( $this->lastManagerFlg($usersRecords, $usersIndxNum) ){
-				$this->declineForFlag(409, 'The last active manager cannot be given another role');
+			if( $this->isFinalManager($usersRecords, $usersIndxNum) ){
+				$this->denyWithReason(409, 'The last active manager cannot be given another role');
 				return null;
 			}
 			$usersRecords[$usersIndxNum]['accessRole'] = $usrRleString;
@@ -223,16 +223,16 @@ class UserFile{
 	 * @param ?String $emailAddress The address, none when null or empty.
 	 * @return Bool Whether the address was written.
 	 */
-	public function changeMailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
-		$this->forgetLastFail();
+	public function alterUserEmail( String $namedUserTxt, ?String $emailAddress ): Bool {
+		$this->dropOldRefusal();
 		$mailVals = strtolower( trim(strval($emailAddress)) );
 		if( $mailVals!=='' && (strlen($mailVals)>254 || filter_var($mailVals, FILTER_VALIDATE_EMAIL)===false) ){
-			return $this->declineForFlag(400, 'Invalid mail address');
+			return $this->denyWithReason(400, 'Invalid mail address');
 		}
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVals ): ?Array {
 			foreach( $usersRecords as $usrPos => $usrRow ){
 				if( $mailVals!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['contactEml'] ?? ''))===$mailVals ){
-					$this->declineForFlag(409, 'Mail address already used');
+					$this->denyWithReason(409, 'Mail address already used');
 					return null;
 				}
 			}
@@ -257,11 +257,11 @@ class UserFile{
 	 * @param ?String $givenLangTag The language (see Tools\Language), none when null or empty.
 	 * @return Bool Whether the language was written.
 	 */
-	public function changeLanguage( String $namedUserTxt, ?String $givenLangTag ): Bool {
-		$this->forgetLastFail();
+	public function alterMailsLang( String $namedUserTxt, ?String $givenLangTag ): Bool {
+		$this->dropOldRefusal();
 		$langVals = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
 		if( $langVals!=='' && !Language::isValidLangTag($langVals) ){
-			return $this->declineForFlag(400, 'Invalid language');
+			return $this->denyWithReason(400, 'Invalid language');
 		}
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $langVals ): ?Array {
 			if( $langVals==='' ){
@@ -284,11 +284,11 @@ class UserFile{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return Bool Whether the user was removed.
 	 */
-	public function removeUserFlag( String $namedUserTxt ): Bool {
-		$this->forgetLastFail();
+	public function dropUsrAccount( String $namedUserTxt ): Bool {
+		$this->dropOldRefusal();
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ): ?Array {
-			if( $this->lastManagerFlg($usersRecords, $usersIndxNum) ){
-				$this->declineForFlag(409, 'The last active manager cannot be removed');
+			if( $this->isFinalManager($usersRecords, $usersIndxNum) ){
+				$this->denyWithReason(409, 'The last active manager cannot be removed');
 				return null;
 			}
 			unset($usersRecords[$usersIndxNum]);
@@ -308,11 +308,11 @@ class UserFile{
 	 * @param String $usrPasswdTxt The new password, following the rules (see checkPass).
 	 * @return Bool Whether the password was written.
 	 */
-	public function savePasswdFlag( String $namedUserTxt, String $usrPasswdTxt ): Bool {
-		$this->forgetLastFail();
-		$ruleText = $this->testPassString($namedUserTxt, $usrPasswdTxt);
+	public function savePassOfUser( String $namedUserTxt, String $usrPasswdTxt ): Bool {
+		$this->dropOldRefusal();
+		$ruleText = $this->checkPassRules($namedUserTxt, $usrPasswdTxt);
 		if( $ruleText!='' ){
-			return $this->declineForFlag(400, $ruleText);
+			return $this->denyWithReason(400, $ruleText);
 		}
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrPasswdTxt ): ?Array {
 			$usersRecords[$usersIndxNum]['passwdHash'] = password_hash($usrPasswdTxt, PASSWORD_BCRYPT);
@@ -332,11 +332,11 @@ class UserFile{
 	 * @return String|Bool The new token, or false when the user is unknown, not active, or the file cannot be written.
 	 */
 	public function makeToknString( String $namedUserTxt ): String|Bool {
-		$this->forgetLastFail();
+		$this->dropOldRefusal();
 		$newToken = bin2hex(random_bytes(32));
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $newToken ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
-				$this->declineForFlag(409, 'User not active');
+				$this->denyWithReason(409, 'User not active');
 				return null;
 			}
 			$usersRecords[$usersIndxNum]['bearerHash'] = hash('sha256', $newToken);
@@ -354,7 +354,7 @@ class UserFile{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return Bool Whether the user has no token any more.
 	 */
-	public function clearTokenFlag( String $namedUserTxt ): Bool {
+	public function clearUserToken( String $namedUserTxt ): Bool {
 		return $this->clearFieldFlag($namedUserTxt, 'bearerHash', 'Personal token');
 	}
 
@@ -364,13 +364,13 @@ class UserFile{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return String|Bool The new base32 secret, or false when the user is unknown, not active, or the file cannot be written.
 	 */
-	public function buildTwoFactor( String $namedUserTxt ): String|Bool {
-		$this->forgetLastFail();
-		$newSecrt = Totp::generateSecret();
+	public function makeTotpSecret( String $namedUserTxt ): String|Bool {
+		$this->dropOldRefusal();
+		$newSecrt = Totp::makeSecretText();
 		$storeTxt = Totp::sealSecretText($newSecrt, $this->sealingKey);
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $storeTxt ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
-				$this->declineForFlag(409, 'User not active');
+				$this->denyWithReason(409, 'User not active');
 				return null;
 			}
 			$usersRecords[$usersIndxNum]['twoFactKey'] = $storeTxt;
@@ -402,7 +402,7 @@ class UserFile{
 	 * @return Array|Bool The users, or false when the file cannot be used.
 	 */
 	public function readUsersArray(): Array|Bool {
-		$this->forgetLastFail();
+		$this->dropOldRefusal();
 		$userList = $this->loadUsersArray();
 		return ($userList===null) ? false : $userList;
 	}
@@ -416,10 +416,10 @@ class UserFile{
 	 * @return Bool Whether the file was written.
 	 */
 	public function fillEmptyStore( Array $usersRecords ): Bool {
-		$this->forgetLastFail();
+		$this->dropOldRefusal();
 		$wasSaved = $this->alterUsersFlag( null, function( Array $storedValues ) use ( $usersRecords ): ?Array {
 			if( !empty($storedValues) ){
-				$this->declineForFlag(409, 'The users file already holds users');
+				$this->denyWithReason(409, 'The users file already holds users');
 				return null;
 			}
 			return array_values($usersRecords);
@@ -435,7 +435,7 @@ class UserFile{
 	 *
 	 * @return String The last error message, empty when it was not refused.
 	 */
-	public function finalErrorText(): String {
+	public function getLastErrText(): String {
 		return $this->errMessage;
 	}
 
@@ -447,7 +447,7 @@ class UserFile{
 	 *
 	 * @return Int The status, 200 when the last operation was not refused.
 	 */
-	public function lastStateCount(): Int {
+	public function getRefusalCode(): Int {
 		return $this->latestCode;
 	}
 
@@ -460,7 +460,7 @@ class UserFile{
 	 * @return Bool Whether the user no longer has it.
 	 */
 	protected function clearFieldFlag( String $namedUserTxt, String $fldNamedText, String $fldLabelText ): Bool {
-		$this->forgetLastFail();
+		$this->dropOldRefusal();
 		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $fldNamedText ): ?Array {
 			unset($usersRecords[$usersIndxNum][$fldNamedText]);
 			return $usersRecords;
@@ -483,7 +483,7 @@ class UserFile{
 	protected function alterUsersFlag( ?String $namedUserTxt, callable $editCallable ): Bool {
 		$lockHndl = @fopen( $this->freezePathsTxt(), 'c' );
 		if( $lockHndl===false || !flock($lockHndl, LOCK_EX) ){
-			return $this->declineForFlag(500, 'Users file cannot be locked for writing');
+			return $this->denyWithReason(500, 'Users file cannot be locked for writing');
 		}
 		try{
 			$userList = $this->loadUsersArray();
@@ -495,7 +495,7 @@ class UserFile{
 			}else{
 				$userIndx = $this->findIndexCount($userList, $namedUserTxt);
 				if( $userIndx===null ){
-					return $this->declineForFlag(404, 'User not found');
+					return $this->denyWithReason(404, 'User not found');
 				}
 				$newLstng = $editCallable($userList, $userIndx);
 			}
@@ -536,7 +536,7 @@ class UserFile{
 			$isAddrOk = $isAddrOk && is_array($usrRow) && is_string($usrRow['systemName'] ?? null) && $usrRow['systemName']!='';
 		}
 		if( !$isAddrOk ){
-			$this->declineForFlag(500, 'Users file cannot be used: '.$this->nameOfFile.' is not a JSON text holding a "users" list');
+			$this->denyWithReason(500, 'Users file cannot be used: '.$this->nameOfFile.' is not a JSON text holding a "users" list');
 			return null;
 		}
 		return array_values($userList);
@@ -566,14 +566,14 @@ class UserFile{
 			// A new file is readable by its owner and its group only, from its first byte
 			$this->fileWriter->saveFileAtomic( $this->usrLstPath, '{'."\n\t".'"users": ['.( empty($lineList) ? '' : "\n".implode(','."\n", $lineList)."\n\t" ).']'."\n".'}'."\n", 0640 );
 		}catch( \RuntimeException $e ){
-			return $this->declineForFlag(500, 'Users file cannot be written: '.$e->getMessage());
+			return $this->denyWithReason(500, 'Users file cannot be written: '.$e->getMessage());
 		}
 		// Read as the application reads it : a file it refuses would lock everyone out
 		$checkObj = new UserList( Array('listFile'=>$this->nameOfFile) );
-		$checkObj->usrIdentityArr('-');
-		if( $checkObj->finalErrorText()=='Credential store unavailable' ){
+		$checkObj->readIdntOfUser('-');
+		if( $checkObj->getLastErrText()=='Credential store unavailable' ){
 			$this->fileWriter->revertWriteFlg($this->usrLstPath);
-			return $this->declineForFlag(500, 'Users file not written: the application would no longer accept it');
+			return $this->denyWithReason(500, 'Users file not written: the application would no longer accept it');
 		}
 		return true;
 	}
@@ -622,7 +622,7 @@ class UserFile{
 	 * @param Int   $usersIndxNum Place of the user in them.
 	 * @return Bool Whether locking, demoting or removing it would leave no manager.
 	 */
-	protected function lastManagerFlg( Array $usersRecords, Int $usersIndxNum ): Bool {
+	protected function isFinalManager( Array $usersRecords, Int $usersIndxNum ): Bool {
 		$highRole = array_slice(Checker::ROLE_LIST, -1)[0];
 		$mngrNumb = 0;
 		foreach( $usersRecords as $usrRow ){
@@ -643,7 +643,7 @@ class UserFile{
 	 * @param String $usrPasswdTxt The password, as given.
 	 * @return String The rule that is broken, empty when the password is accepted.
 	 */
-	protected function testPassString( String $namedUserTxt, String $usrPasswdTxt ): String {
+	protected function checkPassRules( String $namedUserTxt, String $usrPasswdTxt ): String {
 		$charNumb = preg_match_all('/./su', $usrPasswdTxt);
 		if( ($charNumb ?: strlen($usrPasswdTxt))<$this->minPwdSize ){
 			return 'Password too short: '.$this->minPwdSize.' characters at least';
@@ -673,7 +673,7 @@ class UserFile{
 	/**
 	 * Forgets the refusal of the previous operation.
 	 */
-	protected function forgetLastFail(): Void {
+	protected function dropOldRefusal(): Void {
 		$this->latestCode = 200;
 		$this->errMessage = '';
 	}
@@ -685,7 +685,7 @@ class UserFile{
 	 * @param String $statusReason Why it is refused.
 	 * @return Bool Always false, for the operation to return.
 	 */
-	protected function declineForFlag( Int $responseCode, String $statusReason ): Bool {
+	protected function denyWithReason( Int $responseCode, String $statusReason ): Bool {
 		$this->latestCode = $responseCode;
 		$this->errMessage = $statusReason;
 		return false;

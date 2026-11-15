@@ -19,9 +19,9 @@ switchToSqlite( inTemporaryDir('handler.sqlite') );
 $dbHandl = DBCon::obtainInstance('sqlitedb', '', '', '', inTemporaryDir('handler.sqlite'))->readConnection();
 
 // Errors
-checkIdentical('lastError before any error', runCatchThrown(function() use ($dbHandl){ return $dbHandl->finalErrorText(); }), false);
+checkIdentical('lastError before any error', runCatchThrown(function() use ($dbHandl){ return $dbHandl->getLastErrText(); }), false);
 checkIdentical('sendQuery on a missing table returns false', runCatchThrown(function() use ($dbHandl){ return $dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`'); }), false);
-checkPregMatch('lastError tells the failure', (string)$dbHandl->finalErrorText(), '/^PDO Error: .*nowhere/');
+checkPregMatch('lastError tells the failure', (string)$dbHandl->getLastErrText(), '/^PDO Error: .*nowhere/');
 
 // Writes
 checkIdentical('a write matching no row succeeds, with a count of 0', runCatchThrown(function() use ($dbHandl){
@@ -78,9 +78,9 @@ checkForThrows('tableInfo refuses an invalid table name', function() use ($dbHan
 // Errors do not outlive the call that raised them
 checkIdentical('lastError is cleared by the next successful query', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
-	$failMsg = $dbHandl->finalErrorText();
+	$failMsg = $dbHandl->getLastErrText();
 	$dbHandl->sendBuiltQuery('SELECT * FROM `shows`');
-	return Array(is_string($failMsg), $dbHandl->finalErrorText());
+	return Array(is_string($failMsg), $dbHandl->getLastErrText());
 }), Array(true, false));
 checkIdentical('readQuery after a failed query gives false', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
@@ -88,12 +88,12 @@ checkIdentical('readQuery after a failed query gives false', runCatchThrown(func
 }), false);
 checkIdentical('readQuery after a write that changed nothing is empty, without an error', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('UPDATE `shows` SET `venue`=? WHERE `id_show`=?', true, Array('Nowhere', 999));
-	return Array($dbHandl->readLastResult(true), $dbHandl->finalErrorText());
+	return Array($dbHandl->readLastResult(true), $dbHandl->getLastErrText());
 }), Array(Array(), false));
 checkIdentical('lastError is cleared by a transaction call', runCatchThrown(function() use ($dbHandl){
 	$dbHandl->sendBuiltQuery('SELECT * FROM `nowhere`');
 	$dbHandl->newTransaction();
-	$opnMssg = $dbHandl->finalErrorText();
+	$opnMssg = $dbHandl->getLastErrText();
 	$dbHandl->delTransaction();
 	return $opnMssg;
 }), false);

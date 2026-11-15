@@ -29,7 +29,7 @@ function pickShow( Array $whereArray ): Mixed {
 		$whrPart = $dbHandl->makeWhereArray($whereArray);
 		$slctQry = 'SELECT `id_show` FROM `shows`'.($whrPart['text']!='' ? ' WHERE '.$whrPart['text'] : '').' ORDER BY `id_show`';
 		if( !$dbHandl->sendBuiltQuery($slctQry, false, $whrPart['vals']) ){
-			return 'FAILED '.$dbHandl->finalErrorText();
+			return 'FAILED '.$dbHandl->getLastErrText();
 		}
 		return Array($whrPart['text'], $whrPart['vals'], array_column($dbHandl->readLastResult(true), 'id_show'));
 	});

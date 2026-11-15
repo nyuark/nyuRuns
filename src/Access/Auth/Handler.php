@@ -23,12 +23,12 @@ interface Handler{
 	 * @param Array $loginDataLst Credential fields to check (e.g. ['user'=>..,'pass'=>..] or ['key'=>..]).
 	 * @return Array|Bool The matched identity array, or false on failure.
 	 */
-	public function checkSecretArr( Array $loginDataLst ): Array|Bool;
+	public function checkSecretDct( Array $loginDataLst ): Array|Bool;
 
 	/**
 	 * Returns the most recent error message, if any.
 	 *
 	 * @return String The last error message.
 	 */
-	public function finalErrorText(): String;
+	public function getLastErrText(): String;
 }

@@ -242,7 +242,7 @@ class ArrayStore implements Store {
 	/**
 	 * @return String|Bool The error of the last call, or false.
 	 */
-	public function finalErrorText(): String|Bool {
+	public function getLastErrText(): String|Bool {
 		return $this->errMessage;
 	}
 }

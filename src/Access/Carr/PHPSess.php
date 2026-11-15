@@ -54,20 +54,20 @@ class PHPSess implements Handler{
 	 * Opens the session named by the request's cookie and returns the
 	 * identity it holds. A session left unused for longer than its
 	 * lifetime is destroyed, and so is one opened longer ago than a
-	 * session may live in all ('fullSecs'). With a credential store offering usrIdentityArr(),
+	 * session may live in all ('fullSecs'). With a credential store offering readIdntOfUser(),
 	 * the user must still be allowed in, and its current identity (role)
 	 * replaces the session's.
 	 *
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$sessIdnt = $this->cookUserSidTxt($givenRequest);
+	function checkReqstDict( Request $givenRequest ): Array|Bool {
+		$sessIdnt = $this->readSessnIdTxt($givenRequest);
 		if( $sessIdnt=='' ){
 			$this->errMessage = 'No active session';
 			return false;
 		}
-		if( !$this->startSessnFlag($sessIdnt) ){
+		if( !$this->openPhpSession($sessIdnt) ){
 			$this->errMessage = 'Session unavailable';
 			return false;
 		}
@@ -77,16 +77,16 @@ class PHPSess implements Handler{
 			|| ($this->entireLife>0 && intval($_SESSION['nyuBirth'] ?? 0)<time() - $this->entireLife);
 		if( !is_array($idntList) || $hasEnded ){
 			$this->errMessage = is_array($idntList) ? 'Session expired' : 'No active session';
-			$this->closeUserSessn();
+			$this->shutPhpSession();
 			return false;
 		}
 		// A credential store that knows its users confirms the session's user is still allowed in
-		if( $this->authObject!==null && method_exists($this->authObject, 'usrIdentityArr') ){
+		if( $this->authObject!==null && method_exists($this->authObject, 'readIdntOfUser') ){
 			// The start of the session : a password set since ends it
-			$nowIdent = $this->authObject->usrIdentityArr( strval($idntList['userName'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
+			$nowIdent = $this->authObject->readIdntOfUser( strval($idntList['userName'] ?? ''), intval($_SESSION['nyuBirth'] ?? 0) );
 			if( $nowIdent===false ){
-				$this->errMessage = $this->authObject->finalErrorText();
-				$this->closeUserSessn();
+				$this->errMessage = $this->authObject->getLastErrText();
+				$this->shutPhpSession();
 				return false;
 			}
 			$idntList = array_merge($idntList, $nowIdent);
@@ -104,7 +104,7 @@ class PHPSess implements Handler{
 	 * @return String The session id, or an empty string when no session can be opened.
 	 */
 	function issueTokenText( Array $identityList ): String {
-		if( !$this->startSessnFlag() ){
+		if( !$this->openPhpSession() ){
 			$this->errMessage = 'Session unavailable';
 			return '';
 		}
@@ -123,9 +123,9 @@ class PHPSess implements Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 */
 	public function dropUsrSession( Request $givenRequest ): Void {
-		$sessIdnt = $this->cookUserSidTxt($givenRequest);
-		if( $sessIdnt!='' && $this->startSessnFlag($sessIdnt) ){
-			$this->closeUserSessn();
+		$sessIdnt = $this->readSessnIdTxt($givenRequest);
+		if( $sessIdnt!='' && $this->openPhpSession($sessIdnt) ){
+			$this->shutPhpSession();
 		}
 	}
 
@@ -135,7 +135,7 @@ class PHPSess implements Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return String The session id, empty when there is none or it is not shaped like one.
 	 */
-	protected function cookUserSidTxt( Request $givenRequest ): String {
+	protected function readSessnIdTxt( Request $givenRequest ): String {
 		$sessIdnt = $givenRequest->getCookieValue($this->cookieName);
 		return ( is_string($sessIdnt) && preg_match('/^[A-Za-z0-9,-]{20,128}$/', $sessIdnt) ) ? $sessIdnt : '';
 	}
@@ -146,7 +146,7 @@ class PHPSess implements Handler{
 	 * @param String $sessIdentity Id of the session to open; a new one when empty.
 	 * @return Bool Whether the session is started.
 	 */
-	protected function startSessnFlag( String $sessIdentity = '' ): Bool {
+	protected function openPhpSession( String $sessIdentity = '' ): Bool {
 		if( session_status()===PHP_SESSION_ACTIVE ){
 			session_write_close();
 		}
@@ -170,7 +170,7 @@ class PHPSess implements Handler{
 			ini_set('session.gc_divisor', '100');
 		}
 		session_name($this->cookieName);
-		session_set_cookie_params( $this->cookieSetArray(0) );
+		session_set_cookie_params( $this->makeCookieDict(0) );
 		if( $sessIdentity!='' ){
 			session_id($sessIdentity);
 		}
@@ -180,7 +180,7 @@ class PHPSess implements Handler{
 	/**
 	 * Destroys the started session and has the client forget its cookie.
 	 */
-	protected function closeUserSessn(): Void {
+	protected function shutPhpSession(): Void {
 		$_SESSION = Array();
 		session_destroy();
 		// Drops the cookie PHP may have queued for a new id, and no other cookie of the reply, then expires the client's
@@ -194,7 +194,7 @@ class PHPSess implements Handler{
 		foreach( $keptList as $hdrLin ){
 			header($hdrLin, false);
 		}
-		setcookie( $this->cookieName, '', $this->cookieSetArray(1) );
+		setcookie( $this->cookieName, '', $this->makeCookieDict(1) );
 	}
 
 	/**
@@ -203,7 +203,7 @@ class PHPSess implements Handler{
 	 * @param Int $expiryTmeNum Expiry time of the cookie; 0 for the browser session.
 	 * @return Array The settings, as session_set_cookie_params() and setcookie() take them.
 	 */
-	protected function cookieSetArray( Int $expiryTmeNum ): Array {
+	protected function makeCookieDict( Int $expiryTmeNum ): Array {
 		$optsDict = Array('path'=>'/', 'secure'=>$this->isHttpOnly, 'httponly'=>true, 'samesite'=>$this->sitePolicy);
 		$optsDict[ $expiryTmeNum==0 ? 'lifetime' : 'expires' ] = $expiryTmeNum;
 		return $optsDict;
@@ -214,7 +214,7 @@ class PHPSess implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

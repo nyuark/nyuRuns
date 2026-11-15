@@ -73,8 +73,8 @@ function readsLogs( String $loggerChan ): String {
 function dropLocal(): Void {
 	$axsConf = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
 	$limiter = new nyu\Access\Limiter( is_array($axsConf['tryLimit'] ?? null) ? $axsConf['tryLimit'] : Array() );
-	$keyMthd = new ReflectionMethod($limiter, 'keyLimitOfAddr');
-	$pthMthd = new ReflectionMethod($limiter, 'pathLimitOfKey');
+	$keyMthd = new ReflectionMethod($limiter, 'getAdrCountKey');
+	$pthMthd = new ReflectionMethod($limiter, 'getKeyFilePath');
 	foreach( Array('127.0.0.1', '::1') as $adr ){
 		$cntPath = $pthMthd->invoke($limiter, $keyMthd->invoke($limiter, $adr));
 		if( is_file($cntPath) ){
@@ -483,7 +483,7 @@ if( !$isReady ){
 	checkIdentical('2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'userName=ben&passWord=pw-ben&sentCode=000000');
 	checkIdentical('2FA login: wrong code', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid verification code","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'userName=ben&passWord=pw-ben&sentCode='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $natHead, 'userName=ben&passWord=pw-ben&sentCode='.nyu\Access\Totp::makeCodeAtTime($tfaScrt, time()));
 	checkIdentical('2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confnat', 'X-Test-Auth'=>'httpBasc', 'X-Test-Store'=>'nativeDb', 'X-Test-Confkey'=>'testBase', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));
 	checkIdentical('2FA: Basic access is closed to a user with a secret', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
@@ -620,7 +620,7 @@ if( !$isReady ){
 	checkIdentical('users file round trip: a pending user gets no token, and is not told why', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Invalid credentials","code":401}'));
 	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'userName=emma&passWord=pw-emma');
 	checkIdentical('users file 2FA login: password alone', Array($replyAr['code'], $replyAr['body']), Array(401, '{"error":"Verification code required","code":401}'));
-	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'userName=emma&passWord=pw-emma&sentCode='.nyu\Access\Totp::codeAtTimeText($tfaScrt, time()));
+	$replyAr = httpQuery('POST', $baseUrl.'/auth/login', $lstHead, 'userName=emma&passWord=pw-emma&sentCode='.nyu\Access\Totp::makeCodeAtTime($tfaScrt, time()));
 	checkIdentical('users file 2FA login: valid code gives a token', Array($replyAr['code'], is_string(json_decode($replyAr['body'], true)['token'] ?? null)), Array(200, true));
 	$lstAxss = Array('X-Test-Runs'=>'1', 'X-Test-Conf'=>'confusr', 'X-Test-Store'=>'userFile', 'X-Test-Confkey'=>'testFile');
 	$replyAr = httpQuery('GET', $baseUrl.'/probe/identify', $lstAxss + Array('X-Test-Auth'=>'httpBasc', 'Authorization'=>'Basic '.base64_encode('ben:pw-ben')));

@@ -19,5 +19,5 @@ require $topDir.'/vendor/autoload.php';
 $listCds = array_values( array_filter(explode(',', $argv[3] ?? ''), 'strlen') );
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('access'=>Array('PLUGLIBS'=>Array('authWith'=>$listCds, 'carrWith'=>$listCds))) );
 
-$clsName = ($argv[1]=='sess') ? nyu\Access\Checker::sessnClassText($argv[2]) : nyu\Access\Checker::authClssString($argv[2]);
+$clsName = ($argv[1]=='sess') ? nyu\Access\Checker::findCarrierCls($argv[2]) : nyu\Access\Checker::findCheckClass($argv[2]);
 echo ($clsName===null) ? 'null' : $clsName;

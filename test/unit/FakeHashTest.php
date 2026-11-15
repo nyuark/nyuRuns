@@ -31,11 +31,11 @@ checkIdentical('no hash is made to give it', $GLOBALS['hashMade'], 0);
 // The users file : an unknown name is checked against the hash of its first user
 $usrList = new UserList( Array('listFile'=>'test/fixtures/users.lst', 'maxTries'=>0) );
 $GLOBALS['hashRead'] = Array();
-$usrList->checkSecretArr( Array('user'=>'nobody', 'pass'=>'x') );
+$usrList->checkSecretDct( Array('user'=>'nobody', 'pass'=>'x') );
 checkIdentical('userFile: an unknown name is checked against the first hash of the file (cost 4), and no hash is made', Array($GLOBALS['hashRead'], $GLOBALS['hashMade']), Array(Array('$2y$04$'), 0));
 file_put_contents(TOP_DIR.DS.$ownFldr.DS.'users.lst', json_encode(Array('users'=>Array(Array('systemName'=>'void', 'passwdHash'=>'!')))));
 $GLOBALS['hashRead'] = Array();
-(new UserList( Array('listFile'=>$ownFldr.DS.'users.lst', 'maxTries'=>0) ))->checkSecretArr( Array('user'=>'nobody', 'pass'=>'x') );
+(new UserList( Array('listFile'=>$ownFldr.DS.'users.lst', 'maxTries'=>0) ))->checkSecretDct( Array('user'=>'nobody', 'pass'=>'x') );
 checkIdentical('userFile: without a hashed user, the dummy of the native userbase', $GLOBALS['hashRead'], Array(substr(Native::getDummyBcrypt(), 0, 7)));
 
 // The htpasswd file : the first entry, through the same verify as a real user
@@ -52,20 +52,20 @@ class CountingPass extends PassList{
 	 * @param String $hashSaltText The salt.
 	 * @return String The hash.
 	 */
-	protected function computeApr1Md5( String $usrPasswdTxt, String $hashSaltText ): String {
+	protected function makeApacheApr1( String $usrPasswdTxt, String $hashSaltText ): String {
 		$this->apr1Made++;
-		return parent::computeApr1Md5($usrPasswdTxt, $hashSaltText);
+		return parent::makeApacheApr1($usrPasswdTxt, $hashSaltText);
 	}
 }
 $GLOBALS['hashRead'] = Array();
-(new PassList( Array('passFile'=>'test/fixtures/users.htpasswd', 'maxTries'=>0) ))->checkSecretArr( Array('user'=>'nobody', 'pass'=>'x') );
+(new PassList( Array('passFile'=>'test/fixtures/users.htpasswd', 'maxTries'=>0) ))->checkSecretDct( Array('user'=>'nobody', 'pass'=>'x') );
 checkIdentical('htpasswd: an unknown name is checked against the first entry (bcrypt, cost 10), the comment skipped, and no hash is made', Array($GLOBALS['hashRead'], $GLOBALS['hashMade']), Array(Array('$2y$10$'), 0));
 file_put_contents(TOP_DIR.DS.$ownFldr.DS.'apr1.htpasswd', "erin:\$apr1\$Qm3xT7pa\$L0.gnJFaxziiXlHqa4mWJ/\nolga:\$apr1\$Qm3xT7pa\$L0.gnJFaxziiXlHqa4mWJ/\n");
 $aprList = new CountingPass( Array('passFile'=>$ownFldr.DS.'apr1.htpasswd', 'maxTries'=>0) );
 $GLOBALS['hashRead'] = Array();
-$aprList->checkSecretArr( Array('user'=>'nobody', 'pass'=>'x') );
+$aprList->checkSecretDct( Array('user'=>'nobody', 'pass'=>'x') );
 checkIdentical('htpasswd of apr1 entries: an unknown name computes one apr1 hash and no bcrypt', Array($aprList->apr1Made, $GLOBALS['hashRead']), Array(1, Array()));
-$aprList->checkSecretArr( Array('user'=>'erin', 'pass'=>'wrong') );
+$aprList->checkSecretDct( Array('user'=>'erin', 'pass'=>'wrong') );
 checkIdentical('htpasswd of apr1 entries: as a known name does', $aprList->apr1Made, 2);
 
 dropTestFolder( TOP_DIR.DS.$lmtFldr );

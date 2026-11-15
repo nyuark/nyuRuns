@@ -17,7 +17,7 @@ use nyu\Access\Carr\JWT;
  */
 class AppKey{
 
-	// The methods that read: any other one is a write, logged as a notice (see Checker::verifyAppCalls)
+	// The methods that read: any other one is a write, logged as a notice (see Checker::checkApplCalls)
 	const READ_LIST = Array('GET', 'HEAD', 'OPTIONS');
 
 	protected $headerName;
@@ -56,7 +56,7 @@ class AppKey{
 	 * @return Array|Bool|null The identity of the user, with the application under 'appsName'; false when the key or
 	 *                         the token is refused; null when the request carries no application key.
 	 */
-	public function verifyAppArray( Request $givenRequest ): Array|Bool|null {
+	public function checkApplArray( Request $givenRequest ): Array|Bool|null {
 		$this->isWrongTry = false;
 		$this->callingApp = null;
 		$sentClef = strval($givenRequest->getHeaderValue($this->headerName) ?? '');
@@ -92,9 +92,9 @@ class AppKey{
 			$jwtConfg['issuerId'] = (is_string($applDict['issuerId'] ?? null) && trim($applDict['issuerId'])!='') ? $applDict['issuerId'] : $applName;
 		}
 		$toknInst = new JWT( $jwtConfg );
-		$idntList = $toknInst->verifyRqstList( $givenRequest );
+		$idntList = $toknInst->checkReqstDict( $givenRequest );
 		if( $idntList===false ){
-			$this->errMessage = $toknInst->finalErrorText();
+			$this->errMessage = $toknInst->getLastErrText();
 			$this->isWrongTry = $toknInst->hasWrongSecret();
 			return false;
 		}
@@ -102,7 +102,7 @@ class AppKey{
 		if( !in_array($userRole, Checker::ROLE_LIST, true) ){
 			$userRole = Checker::ROLE_LIST[0];
 		}
-		$idntList['userRole'] = Checker::rleAccessMeets($roleTops, $userRole) ? $userRole : $roleTops;
+		$idntList['userRole'] = Checker::isRoleNotBelow($roleTops, $userRole) ? $userRole : $roleTops;
 		$idntList['appsName'] = $applName;
 		$this->callingApp = $applName;
 		return $idntList;
@@ -118,7 +118,7 @@ class AppKey{
 	 * @param Registry $resolvedRegr The resolved route.
 	 * @return Bool True when the route is one of the application's.
 	 */
-	public function allowsRouteFlg( Registry $resolvedRegr ): Bool {
+	public function isRouteGranted( Registry $resolvedRegr ): Bool {
 		if( $this->callingApp===null ){
 			return false;
 		}
@@ -157,7 +157,7 @@ class AppKey{
 	 *
 	 * @return String The last error message.
 	 */
-	public function finalErrorText(): String {
+	public function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

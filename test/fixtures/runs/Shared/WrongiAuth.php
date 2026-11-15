@@ -12,7 +12,7 @@ class WrongiAuth{
 	 * @param Array $loginDataArr Unused.
 	 * @return Array|Bool Always an identity.
 	 */
-	public function checkSecretArr( Array $loginDataArr ): Array|Bool {
+	public function checkSecretDct( Array $loginDataArr ): Array|Bool {
 		return Array('userName'=>'anyone');
 	}
 }

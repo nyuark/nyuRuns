@@ -51,7 +51,7 @@ checkIdentical('the binary fields of a table', Array($dbStore->tableInfoArray('a
 $albmKey = $dbStore->insertTableRow('albums', Array('albmName'=>'First', 'coverPic'=>Fluxd::openBytesFluxd($dotPng)));
 $trckKey = $dbStore->insertTableRow('tracks', Array('trckName'=>'One', 'albumKey'=>$albmKey, 'fileData'=>Fluxd::openBytesFluxd($rawBlob), 'fileNote'=>'a note'));
 $dbStore->insertTableRow('tracks', Array('trckName'=>'Two', 'albumKey'=>$albmKey, 'fileData'=>null, 'fileNote'=>null));
-checkIdentical('a row written with a binary value', Array($albmKey, $trckKey, $dbStore->finalErrorText()), Array('1', '1', false));
+checkIdentical('a row written with a binary value', Array($albmKey, $trckKey, $dbStore->getLastErrText()), Array('1', '1', false));
 $dbHandl->sendBuiltQuery('SELECT typeof(fileData) AS kind, length(fileData) AS size, hex(fileData) AS hexa FROM tracks WHERE id_track=1');
 checkIdentical('the value is stored as binary, byte for byte', $dbHandl->readLastResult(), Array('kind'=>'blob', 'size'=>strlen($rawBlob), 'hexa'=>strtoupper(bin2hex($rawBlob))));
 

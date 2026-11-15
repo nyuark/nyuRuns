@@ -47,7 +47,7 @@ class PassList implements Handler{
 	 * @param Array $loginDataLst Must contain 'user' and 'pass' entries.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+	function checkSecretDct( Array $loginDataLst ): Array|Bool {
 		$givenUsr = $loginDataLst['user'] ?? '';
 		$givenPwd = $loginDataLst['pass'] ?? '';
 		$this->isWrongTry = false;
@@ -73,22 +73,22 @@ class PassList implements Handler{
 		}
 		if( $userHash===null ){
 			// Unknown user : the hash of the first entry is checked as a real one is, at the cost the file's own hashes have, so the reply time does not tell which names exist
-			($fakeHash!==null) ? $this->verifyHtpasswd($givenPwd, $fakeHash) : password_verify( $givenPwd, Native::getDummyBcrypt() );
+			($fakeHash!==null) ? $this->isPassMatching($givenPwd, $fakeHash) : password_verify( $givenPwd, Native::getDummyBcrypt() );
 		}else{
-			$matxList = $this->verifyHtpasswd($givenPwd, $userHash);
+			$matxList = $this->isPassMatching($givenPwd, $userHash);
 			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 			$countNme = strval($givenUsr);
 			if( is_string($loginDataLst['mark'] ?? null) && $loginDataLst['mark']!=='' ){
 				// Signed with the hash the password has now : a password set after the mark was made ends it
-				$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], $countNme, $userHash );
-				if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
+				$markClef = \nyu\Access\LoginMark::makeByLimitCfg()->readClientMark( $loginDataLst['mark'], $countNme, $userHash );
+				if( $markClef!='' && $this->usrLimiter->readUsrHoldEnd($markClef)>0 ){
 					\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Login mark refused for user '.json_encode($givenUsr).': too many attempts with it' );
 				}elseif( $markClef!='' ){
 					$countNme = $markClef;
 				}
 			}
 			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-			if( $this->usrLimiter->heldByUserNumb($countNme)>0 ){
+			if( $this->usrLimiter->readUsrHoldEnd($countNme)>0 ){
 				\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($givenUsr).' is held after too many attempts' );
 			}elseif( $matxList ){
 				$this->usrLimiter->clearLimitUser( $countNme );
@@ -110,11 +110,11 @@ class PassList implements Handler{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
 	 */
-	public function createUserMark( String $namedUserTxt ): String {
+	public function makeSignedMark( String $namedUserTxt ): String {
 		if( $this->passedUser===null || $this->passedUser['systemName']!==$namedUserTxt ){
 			return '';
 		}
-		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
+		return \nyu\Access\LoginMark::makeByLimitCfg()->makeSignedMark( $namedUserTxt, $this->passedUser['passwdHash'] );
 	}
 
 	/**
@@ -129,13 +129,13 @@ class PassList implements Handler{
 	 * @param String $htpasswdHash The hash read from the .htpasswd file.
 	 * @return Bool Whether the password matches the hash.
 	 */
-	protected function verifyHtpasswd( String $usrPasswdTxt, String $htpasswdHash ): Bool {
+	protected function isPassMatching( String $usrPasswdTxt, String $htpasswdHash ): Bool {
 		if( in_array(substr($htpasswdHash,0,4), Array('$2y$','$2a$','$2b$')) ){
 			return password_verify( $usrPasswdTxt, $htpasswdHash );
 		}
 		if( substr($htpasswdHash,0,6)=='$apr1$' ){
 			$saltVals = explode('$', $htpasswdHash)[2] ?? '';
-			return hash_equals( $htpasswdHash, $this->computeApr1Md5($usrPasswdTxt, $saltVals) );
+			return hash_equals( $htpasswdHash, $this->makeApacheApr1($usrPasswdTxt, $saltVals) );
 		}
 		$shaDigst = (substr($htpasswdHash,0,5)=='{SHA}');
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
@@ -158,7 +158,7 @@ class PassList implements Handler{
 	 * @param String $hashSaltText The salt, as found between the second and third '$' of the stored hash.
 	 * @return String The full '$apr1$salt$hash' string.
 	 */
-	protected function computeApr1Md5( String $usrPasswdTxt, String $hashSaltText ): String {
+	protected function makeApacheApr1( String $usrPasswdTxt, String $hashSaltText ): String {
 		$passSize = strlen($usrPasswdTxt);
 		$mixedTxt = $usrPasswdTxt.'$apr1$'.$hashSaltText;
 		$bnryHash = md5($usrPasswdTxt.$hashSaltText.$usrPasswdTxt, true);
@@ -210,7 +210,7 @@ class PassList implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

@@ -141,6 +141,6 @@ interface Store{
 	 *
 	 * @return String|Bool The error message, or false when the last call succeeded.
 	 */
-	public function finalErrorText(): String|Bool;
+	public function getLastErrText(): String|Bool;
 
 }

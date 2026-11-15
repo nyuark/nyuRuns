@@ -84,7 +84,7 @@ class AccessMail {
 	 * @param Bool   $deferSending Whether the mails wait for the end of the request, after the reply.
 	 * @return ?AccessMail The sender, or null when the login does not use the native userbase or sends no mail.
 	 */
-	public static function fromLoginBlock( String $appsFldrText='', Bool $deferSending=false ): ?AccessMail {
+	public static function makeByLoginCfg( String $appsFldrText='', Bool $deferSending=false ): ?AccessMail {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'LOGINSET') : null;
 		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
@@ -104,7 +104,7 @@ class AccessMail {
 	 *
 	 * @return Bool Whether users may sign up.
 	 */
-	public static function signupsAllowed(): Bool {
+	public static function isSignupOpened(): Bool {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'LOGINSET') : null;
 		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
@@ -132,7 +132,7 @@ class AccessMail {
 		if( $this->urlTmplTxt!='' && $mailTypeCode!=='passcode' ){
 			$linkText = strtr( $this->urlTmplTxt, Array('%mailKind%'=>rawurlencode($mailTypeCode), '%userName%'=>rawurlencode($namedUserTxt), '%sentCode%'=>rawurlencode($codeAsString)) );
 		}
-		return $this->sendsEmailFlag( $mailTypeCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkText, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
+		return $this->sendNowOrLater( $mailTypeCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkText, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
 	}
 
 	/**
@@ -146,7 +146,7 @@ class AccessMail {
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
 	public function sendNameExists( String $emailAddress, String $namedUserTxt, ?String $givenLangTag=null ): Bool {
-		return $this->sendsEmailFlag( self::USED_NAME, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeExpiry)), $givenLangTag );
+		return $this->sendNowOrLater( self::USED_NAME, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeExpiry)), $givenLangTag );
 	}
 
 	/**
@@ -159,7 +159,7 @@ class AccessMail {
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
 	public function sendAddrExists( String $emailAddress, String $namedUserTxt, ?String $givenLangTag=null ): Bool {
-		return $this->sendsEmailFlag( self::TAKE_NAME, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeExpiry)), $givenLangTag );
+		return $this->sendNowOrLater( self::TAKE_NAME, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>'', 'link'=>'', 'mins'=>strval($this->codeExpiry)), $givenLangTag );
 	}
 
 	/**
@@ -177,7 +177,7 @@ class AccessMail {
 		foreach( $managersList as $adrKey=>$mgrAdr ){
 			$mngrAddr = is_string($adrKey) ? $adrKey : strval($mgrAdr);
 			$mngrLang = is_string($adrKey) && is_string($mgrAdr) ? $mgrAdr : null;
-			$isSentOk = $this->sendsEmailFlag( self::WARN_NAME, $mngrAddr, Array('count'=>strval($mailCountVal), 'limit'=>strval($ceilingValue), 'link'=>''), $mngrLang ) && $isSentOk;
+			$isSentOk = $this->sendNowOrLater( self::WARN_NAME, $mngrAddr, Array('count'=>strval($mailCountVal), 'limit'=>strval($ceilingValue), 'link'=>''), $mngrLang ) && $isSentOk;
 		}
 		return $isSentOk;
 	}
@@ -191,14 +191,14 @@ class AccessMail {
 	 * @param ?String $givenLangTag The language of the mail; the default one when not given.
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
-	protected function sendsEmailFlag( String $templateName, String $emailAddress, Array $placeholders, ?String $givenLangTag=null ): Bool {
-		$mailList = $this->buildMailArray($templateName, $placeholders, $givenLangTag);
+	protected function sendNowOrLater( String $templateName, String $emailAddress, Array $placeholders, ?String $givenLangTag=null ): Bool {
+		$mailList = $this->makeMailOfTmpl($templateName, $placeholders, $givenLangTag);
 		if( $mailList===null ){
 			Logger::getLoggerOfChn('runner')->error( 'Access mail '.json_encode($templateName).' not sent: its template cannot be read' );
 			return false;
 		}
 		if( !$this->isDeferred ){
-			return $this->postsEmailFlag($emailAddress, $mailList);
+			return $this->sendViaAccount($emailAddress, $mailList);
 		}
 		if( empty($this->mailsQueue) ){
 			register_shutdown_function( Array($this, 'sendQueuedMail') );
@@ -219,7 +219,7 @@ class AccessMail {
 			fastcgi_finish_request();
 		}
 		foreach( $this->mailsQueue as $lateMl ){
-			$this->postsEmailFlag($lateMl[0], $lateMl[1]);
+			$this->sendViaAccount($lateMl[0], $lateMl[1]);
 		}
 		$this->mailsQueue = Array();
 	}
@@ -231,7 +231,7 @@ class AccessMail {
 	 * @param Array  $mailPartsLst The subject, the text and the HTML (null for none).
 	 * @return Bool Whether the mail was sent.
 	 */
-	protected function postsEmailFlag( String $emailAddress, Array $mailPartsLst ): Bool {
+	protected function sendViaAccount( String $emailAddress, Array $mailPartsLst ): Bool {
 		try{
 			return Mailer::retrieveMailer($this->accountNme)->deliverEmlFlag($emailAddress, $mailPartsLst[0], $mailPartsLst[1], $mailPartsLst[2]);
 		}catch( MailFailure $e ){
@@ -248,7 +248,7 @@ class AccessMail {
 	 * @param ?String $givenLangTag The language of the mail; the default one when not given.
 	 * @return ?Array The subject, the text and the HTML (null for none), or null when the text template cannot be read.
 	 */
-	protected function buildMailArray( String $templateName, Array $placeholders, ?String $givenLangTag=null ): ?Array {
+	protected function makeMailOfTmpl( String $templateName, Array $placeholders, ?String $givenLangTag=null ): ?Array {
 		$langTool = new Language();
 		$textPath = null;
 		foreach( $langTool->getLngChainLst($langTool->findPersonLang($givenLangTag, null)) as $oneTag ){

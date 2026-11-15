@@ -59,24 +59,24 @@ function readMail( String $mailString ): String {
 
 // Who sends : only a login on the native userbase whose block names an account
 setsConfg($natConf);
-checkTrueValue('fromLogin: a block naming an account', AccessMail::fromLoginBlock() instanceof AccessMail);
+checkTrueValue('fromLogin: a block naming an account', AccessMail::makeByLoginCfg() instanceof AccessMail);
 setsConfg( array_diff_key($natConf, Array('mailAcnt'=>1)) );
-checkIdentical('fromLogin: no mailer, no mail', AccessMail::fromLoginBlock(), null);
+checkIdentical('fromLogin: no mailer, no mail', AccessMail::makeByLoginCfg(), null);
 setsConfg( Array('mailAcnt'=>'') + $natConf );
-checkIdentical('fromLogin: an empty mailer, no mail', AccessMail::fromLoginBlock(), null);
+checkIdentical('fromLogin: an empty mailer, no mail', AccessMail::makeByLoginCfg(), null);
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('LOGINSET'=>Array('authWith'=>'userFile', 'authConf'=>'userFile'), 'USERFILE'=>$natConf)) );
-checkIdentical('fromLogin: another credential check', AccessMail::fromLoginBlock(), null);
+checkIdentical('fromLogin: another credential check', AccessMail::makeByLoginCfg(), null);
 setsConfg( Array('signupOn'=>true) + $natConf );
-checkIdentical('signupsOn: signup and a mailer', AccessMail::signupsAllowed(), true);
+checkIdentical('signupsOn: signup and a mailer', AccessMail::isSignupOpened(), true);
 setsConfg( Array('signupOn'=>true, 'mailAcnt'=>'') + $natConf );
-checkIdentical('signupsOn: without a mailer', AccessMail::signupsAllowed(), false);
+checkIdentical('signupsOn: without a mailer', AccessMail::isSignupOpened(), false);
 setsConfg( Array('signupOn'=>'yes') + $natConf );
-checkIdentical('signupsOn: only true opens them', AccessMail::signupsAllowed(), false);
+checkIdentical('signupsOn: only true opens them', AccessMail::isSignupOpened(), false);
 setsConfg($natConf);
-checkIdentical('signupsOn: left out', AccessMail::signupsAllowed(), false);
+checkIdentical('signupsOn: left out', AccessMail::isSignupOpened(), false);
 
 // A code, with its link
-$accMail = AccessMail::fromLoginBlock();
+$accMail = AccessMail::makeByLoginCfg();
 takeMails();
 checkIdentical('sendCodes: sent', $accMail->sendCodeToUser('register', 'Ann.B', 'ann@example.ch', 'K7QM-3XRP-WD'), true);
 $mailLst = takeMails();

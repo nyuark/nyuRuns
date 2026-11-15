@@ -9,22 +9,22 @@ use nyu\Access\Totp;
 
 $rfcScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 foreach( Array(59=>'287082', 1111111109=>'081804', 1111111111=>'050471', 1234567890=>'005924', 2000000000=>'279037', 20000000000=>'353130') as $rfcTme=>$rfcCod ){
-	checkIdentical('RFC 6238 value at '.$rfcTme, Totp::codeAtTimeText($rfcScrt, $rfcTme), $rfcCod);
+	checkIdentical('RFC 6238 value at '.$rfcTme, Totp::makeCodeAtTime($rfcScrt, $rfcTme), $rfcCod);
 }
-checkIdentical('secret in lower case, with spaces and padding', Totp::codeAtTimeText('gezd gnbv gy3t qojq gezd gnbv gy3t qojq====', 59), '287082');
+checkIdentical('secret in lower case, with spaces and padding', Totp::makeCodeAtTime('gezd gnbv gy3t qojq gezd gnbv gy3t qojq====', 59), '287082');
 
 // Checking : the current step, the previous and the next one
-checkIdentical('code of the current step',     Totp::verifyTotpCode($rfcScrt, '287082', 59), true);
-checkIdentical('code of the previous step',    Totp::verifyTotpCode($rfcScrt, '287082', 59+30), true);
-checkIdentical('code of the next step',        Totp::verifyTotpCode($rfcScrt, '287082', 59-30), true);
-checkIdentical('code two steps old',           Totp::verifyTotpCode($rfcScrt, '287082', 59+60), false);
-checkIdentical('code two steps ahead',         Totp::verifyTotpCode($rfcScrt, '081804', 1111111109-60), false);
-checkIdentical('wrong code',                   Totp::verifyTotpCode($rfcScrt, '000000', 59), false);
-checkIdentical('code that is too short',       Totp::verifyTotpCode($rfcScrt, '87082', 59), false);
-checkIdentical('code with a letter',           Totp::verifyTotpCode($rfcScrt, '28708a', 59), false);
-checkIdentical('empty code',                   Totp::verifyTotpCode($rfcScrt, '', 59), false);
-checkIdentical('secret that is not base32',    Totp::verifyTotpCode('not base32 !', '287082', 59), false);
-checkIdentical('empty secret',                 Totp::verifyTotpCode('', Totp::codeAtTimeText('', 59), 59), false);
+checkIdentical('code of the current step',     Totp::isCodeOfSecret($rfcScrt, '287082', 59), true);
+checkIdentical('code of the previous step',    Totp::isCodeOfSecret($rfcScrt, '287082', 59+30), true);
+checkIdentical('code of the next step',        Totp::isCodeOfSecret($rfcScrt, '287082', 59-30), true);
+checkIdentical('code two steps old',           Totp::isCodeOfSecret($rfcScrt, '287082', 59+60), false);
+checkIdentical('code two steps ahead',         Totp::isCodeOfSecret($rfcScrt, '081804', 1111111109-60), false);
+checkIdentical('wrong code',                   Totp::isCodeOfSecret($rfcScrt, '000000', 59), false);
+checkIdentical('code that is too short',       Totp::isCodeOfSecret($rfcScrt, '87082', 59), false);
+checkIdentical('code with a letter',           Totp::isCodeOfSecret($rfcScrt, '28708a', 59), false);
+checkIdentical('empty code',                   Totp::isCodeOfSecret($rfcScrt, '', 59), false);
+checkIdentical('secret that is not base32',    Totp::isCodeOfSecret('not base32 !', '287082', 59), false);
+checkIdentical('empty secret',                 Totp::isCodeOfSecret('', Totp::makeCodeAtTime('', 59), 59), false);
 
 // The step a code is the one of : time 59 is in step 1
 checkIdentical('matchStep: the current step',  Totp::matchStepCount($rfcScrt, '287082', 59), 1);
@@ -54,9 +54,9 @@ checkIdentical('openSecrt gives a readable secret as it is, with or without a ke
 checkIdentical('sealSecrt leaves the secret readable without a key, or with a short one', Array(Totp::sealSecretText($rfcScrt, ''), Totp::sealSecretText($rfcScrt, str_repeat('k', 31))), Array($rfcScrt, $rfcScrt));
 
 // New secrets
-$newScrt = Totp::generateSecret();
+$newScrt = Totp::makeSecretText();
 checkPregMatch('mkSecrett gives 32 base32 characters', $newScrt, '/^[A-Z2-7]{32}$/');
-checkTrueValue('mkSecrett gives another secret each time', $newScrt!==Totp::generateSecret());
-checkIdentical('a new secret checks its own code, at the current time', Totp::verifyTotpCode($newScrt, Totp::codeAtTimeText($newScrt, time())), true);
+checkTrueValue('mkSecrett gives another secret each time', $newScrt!==Totp::makeSecretText());
+checkIdentical('a new secret checks its own code, at the current time', Totp::isCodeOfSecret($newScrt, Totp::makeCodeAtTime($newScrt, time())), true);
 
 finishChecking();

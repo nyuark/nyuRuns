@@ -46,21 +46,21 @@ class Limiter{
 	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return Int The Unix time the hold ends at, or 0 when the address is not held.
 	 */
-	public function heldUntilCount( String $clientIpAddr, ?Int $momentAsUnix = null ): Int {
-		return $this->readsHeldCount( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $momentAsUnix ?? time() );
+	public function readAdrHoldEnd( String $clientIpAddr, ?Int $momentAsUnix = null ): Int {
+		return $this->readCounterEnd( $this->getKeyFilePath($this->getAdrCountKey($clientIpAddr)), $momentAsUnix ?? time() );
 	}
 
 	/**
 	 * Tells whether an account is held back after too many wrong
-	 * credentials, as heldUntilCount() does for an address. Its counter is named
+	 * credentials, as readAdrHoldEnd() does for an address. Its counter is named
 	 * by a hash of the user name, which it does not hold.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
 	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return Int The Unix time the hold ends at, or 0 when the account is not held.
 	 */
-	public function heldByUserNumb( String $namedUserTxt, ?Int $momentAsUnix = null ): Int {
-		return $this->readsHeldCount( $this->pathOfUserText($namedUserTxt), $momentAsUnix ?? time() );
+	public function readUsrHoldEnd( String $namedUserTxt, ?Int $momentAsUnix = null ): Int {
+		return $this->readCounterEnd( $this->getUsrFilePath($namedUserTxt), $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -71,7 +71,7 @@ class Limiter{
 	 * @param ?Int   $momentAsUnix Unix time of the failure; now when not given.
 	 */
 	public function countLimitUser( String $namedUserTxt, ?Int $momentAsUnix = null ): Void {
-		$this->writeLimitFail( $this->pathOfUserText($namedUserTxt), '', $momentAsUnix ?? time() );
+		$this->writeLimitFail( $this->getUsrFilePath($namedUserTxt), '', $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -80,7 +80,7 @@ class Limiter{
 	 * @param String $namedUserTxt Login name of the user.
 	 */
 	public function clearLimitUser( String $namedUserTxt ): Void {
-		$countPth = $this->pathOfUserText($namedUserTxt);
+		$countPth = $this->getUsrFilePath($namedUserTxt);
 		if( $countPth!='' && is_file($countPth) ){
 			@unlink($countPth);
 		}
@@ -95,7 +95,7 @@ class Limiter{
 	 * @param Int    $momentAsUnix Unix time to check at.
 	 * @return Int The Unix time the hold ends at, or 0 when nothing is held.
 	 */
-	protected function readsHeldCount( String $countersPath, Int $momentAsUnix ): Int {
+	protected function readCounterEnd( String $countersPath, Int $momentAsUnix ): Int {
 		$countPth = $countersPath;
 		if( $this->triesLimit<1 || $countPth=='' || !is_file($countPth) ){
 			return 0;
@@ -130,7 +130,7 @@ class Limiter{
 	 * @param ?Int   $momentAsUnix Unix time of the failure; now when not given.
 	 */
 	public function countFailedTry( String $clientIpAddr, ?Int $momentAsUnix = null ): Void {
-		$this->writeLimitFail( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $this->maskClientAddr($clientIpAddr), $momentAsUnix ?? time() );
+		$this->writeLimitFail( $this->getKeyFilePath($this->getAdrCountKey($clientIpAddr)), $this->maskClientAddr($clientIpAddr), $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -197,7 +197,7 @@ class Limiter{
 	 * @param String $clientIpAddr Address of the client.
 	 * @return String The key, 64 hexadecimal characters; empty when the address is not one.
 	 */
-	protected function keyLimitOfAddr( String $clientIpAddr ): String {
+	protected function getAdrCountKey( String $clientIpAddr ): String {
 		$addrText = $this->maskClientAddr($clientIpAddr);
 		return ($addrText=='') ? '' : hash('sha256', $addrText);
 	}
@@ -249,9 +249,9 @@ class Limiter{
 	 * @param ?String $clientIpAddr Address to release; null for every address.
 	 * @return Int The number of counters removed.
 	 */
-	public function freeHoldsCount( ?String $clientIpAddr = null ): Int {
+	public function dropHoldsCount( ?String $clientIpAddr = null ): Int {
 		if( $clientIpAddr!==null ){
-			$countPth = $this->pathLimitOfKey( $this->keyLimitOfAddr($clientIpAddr) );
+			$countPth = $this->getKeyFilePath( $this->getAdrCountKey($clientIpAddr) );
 			return ( $countPth!='' && is_file($countPth) && @unlink($countPth) ) ? 1 : 0;
 		}
 		$dropNumb = 0;
@@ -266,10 +266,10 @@ class Limiter{
 	/**
 	 * Gives the file a key is counted in.
 	 *
-	 * @param String $limitAddrKey The key, as keyLimitOfAddr() gives it.
+	 * @param String $limitAddrKey The key, as getAdrCountKey() gives it.
 	 * @return String The path of the file; empty for an empty key.
 	 */
-	protected function pathLimitOfKey( String $limitAddrKey ): String {
+	protected function getKeyFilePath( String $limitAddrKey ): String {
 		return ($limitAddrKey=='') ? '' : $this->countsFldr.DS.$limitAddrKey.'.cnt';
 	}
 
@@ -281,7 +281,7 @@ class Limiter{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return String The path of the file; empty for an empty name.
 	 */
-	protected function pathOfUserText( String $namedUserTxt ): String {
+	protected function getUsrFilePath( String $namedUserTxt ): String {
 		return ($namedUserTxt=='') ? '' : $this->countsFldr.DS.hash('sha256', 'user:'.$namedUserTxt).'.usr';
 	}
 

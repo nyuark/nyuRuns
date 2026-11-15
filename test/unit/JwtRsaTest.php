@@ -43,8 +43,8 @@ function makePairs( String $namePrefix, Int $keysLength ): Array {
  * @return mixed The user of the token, or false with the message and whether it counts as forged.
  */
 function readsTokn( JWT $jwtCarrier, String $tokenValue ): Mixed {
-	$idntArr = $jwtCarrier->verifyRqstList( mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)) );
-	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $jwtCarrier->finalErrorText(), $jwtCarrier->hasWrongSecret());
+	$idntArr = $jwtCarrier->checkReqstDict( mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)) );
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $jwtCarrier->getLastErrText(), $jwtCarrier->hasWrongSecret());
 }
 
 /**
@@ -82,16 +82,16 @@ checkIdentical('HS256 a block on HS256 still issues and checks', readsTokn($hsJw
 
 // A block holding only the public key checks the tokens another server issues
 $chkOnly = new JWT( Array('signAlgo'=>'RS256', 'publFile'=>$pubPath) );
-checkIdentical('check only: the tokens of the server issuing them pass', Array($chkOnly->verifyOnlyFlag(), readsTokn($chkOnly, $rawTokn)), Array(true, 'anna'));
-checkIdentical('check only: it issues none', Array($chkOnly->issueTokenText(Array('userName'=>'anna')), $chkOnly->finalErrorText()), Array('', 'Tokens are issued by another server'));
+checkIdentical('check only: the tokens of the server issuing them pass', Array($chkOnly->isCheckingOnly(), readsTokn($chkOnly, $rawTokn)), Array(true, 'anna'));
+checkIdentical('check only: it issues none', Array($chkOnly->issueTokenText(Array('userName'=>'anna')), $chkOnly->getLastErrText()), Array('', 'Tokens are issued by another server'));
 $prvOnly = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$prvPath) );
-checkIdentical('a block with the private key alone draws the public key from it', Array($prvOnly->verifyOnlyFlag(), readsTokn($prvOnly, $rawTokn)), Array(false, 'anna'));
+checkIdentical('a block with the private key alone draws the public key from it', Array($prvOnly->isCheckingOnly(), readsTokn($prvOnly, $rawTokn)), Array(false, 'anna'));
 
 // Keys that cannot be used
 $noKeys = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>inTemporaryDir('missing.key'), 'publFile'=>inTemporaryDir('missing.pub')) );
-checkIdentical('RS256 without keys', Array($noKeys->verifyOnlyFlag(), $noKeys->issueTokenText(Array('userName'=>'anna')), $noKeys->finalErrorText(), readsTokn($noKeys, $rawTokn)), Array(false, '', 'Token keys not configured', Array(false, 'Token keys not configured', false)));
+checkIdentical('RS256 without keys', Array($noKeys->isCheckingOnly(), $noKeys->issueTokenText(Array('userName'=>'anna')), $noKeys->getLastErrText(), readsTokn($noKeys, $rawTokn)), Array(false, '', 'Token keys not configured', Array(false, 'Token keys not configured', false)));
 $weakJwt = new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$weakPrv, 'publFile'=>$weakPub) );
-checkIdentical('RS256 a key under 2048 bits is not used', Array($weakJwt->issueTokenText(Array('userName'=>'anna')), $weakJwt->finalErrorText(), $weakJwt->verifyOnlyFlag()), Array('', 'Token keys not configured', false));
+checkIdentical('RS256 a key under 2048 bits is not used', Array($weakJwt->issueTokenText(Array('userName'=>'anna')), $weakJwt->getLastErrText(), $weakJwt->isCheckingOnly()), Array('', 'Token keys not configured', false));
 file_put_contents(inTemporaryDir('broken.pub'), 'not a key');
 checkIdentical('RS256 a file that is not a key', readsTokn(new JWT(Array('signAlgo'=>'RS256', 'publFile'=>inTemporaryDir('broken.pub'))), $rawTokn), Array(false, 'Token keys not configured', false));
 checkIdentical('an algorithm that is not one of the list', readsTokn(new JWT(Array('signAlgo'=>'none', 'hmacSecr'=>str_repeat('s', 40))), $rawTokn), Array(false, 'JWT secret not configured', false));

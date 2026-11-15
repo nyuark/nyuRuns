@@ -122,7 +122,7 @@ class Cleans extends Command{
 			$this->terminateShell('Nothing was released: not confirmed', self::EXIT_DENY);
 		}
 		$lmtrInst = new Limiter( $this->accessSettings('tryLimit') );
-		$dropNumb = $lmtrInst->freeHoldsCount( $givenAdr=='all' ? null : $givenAdr );
+		$dropNumb = $lmtrInst->dropHoldsCount( $givenAdr=='all' ? null : $givenAdr );
 		$this->printerObj->printShellPair('released', $dropNumb);
 		if( $dropNumb>0 ){
 			$this->traceShellDone( 'Limiter: '.( $givenAdr=='all' ? $dropNumb.' addresses released' : 'address '.$givenAdr.' released' ) );

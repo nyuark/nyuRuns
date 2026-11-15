@@ -114,7 +114,7 @@ class Deploy extends Command{
 		}
 		foreach( $secrList as $kndNme => $kndLbl ){
 			try{
-				$confCmmn->generateSecret($kndNme, true);
+				$confCmmn->makeSecretText($kndNme, true);
 			}catch( \RuntimeException $e ){
 				$this->printerObj->printShellLine( 'No '.$kndLbl.' made: '.$e->getMessage() );
 			}
@@ -269,7 +269,7 @@ class Deploy extends Command{
 		// Devices left behind would still pass on users the project no longer manages
 		$dvceAuth = new DeviceAuth( $this->accessSettings('dvcToken') );
 		foreach( $dvceList as $devcId ){
-			$dvceAuth->remUserDevcFlg($devcId);
+			$dvceAuth->dropUserDevice($devcId);
 		}
 		// The login is pointed at the store only once every user is in it
 		$treeInst = $wrtrInst->importJsonsObj($accsPath);
@@ -307,7 +307,7 @@ class Deploy extends Command{
 		}
 		$fieldLst = array_map( Array($dtbsHndr, 'quoteFieldName'), array_merge(UserFile::FLDS_LIST, Array('actvtnCode', 'recovrCode', 'twoFactWay')) );
 		if( !$dtbsHndr->sendBuiltQuery('SELECT '.implode(', ', $fieldLst).' FROM '.$dtbsHndr->quoteFieldName($tableNme).' ORDER BY '.$dtbsHndr->quoteFieldName('id_user').';') ){
-			$this->terminateShell('The users cannot be read: '.strval($dtbsHndr->finalErrorText()));
+			$this->terminateShell('The users cannot be read: '.strval($dtbsHndr->getLastErrText()));
 		}
 		$rowsList = $dtbsHndr->readLastResult(true);
 		return is_array($rowsList) ? $rowsList : Array();
@@ -325,7 +325,7 @@ class Deploy extends Command{
 		$fileInst = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 		$userList = $fileInst->readUsersArray();
 		if( $userList===false ){
-			$this->terminateShell('The users cannot be read: '.$fileInst->finalErrorText());
+			$this->terminateShell('The users cannot be read: '.$fileInst->getLastErrText());
 		}
 		return $userList;
 	}
@@ -356,7 +356,7 @@ class Deploy extends Command{
 			if( $dtbsHndr->tableInfoArray($tableNme)!==false ){
 				$rowsList = $dtbsHndr->sendBuiltQuery('SELECT COUNT(*) AS '.$dtbsHndr->quoteFieldName('usrCount').' FROM '.$dtbsHndr->quoteFieldName($tableNme).';') ? $dtbsHndr->readLastResult(true) : false;
 				if( !is_array($rowsList) ){
-					$this->terminateShell('Nothing was moved: the users table cannot be read: '.strval($dtbsHndr->finalErrorText()));
+					$this->terminateShell('Nothing was moved: the users table cannot be read: '.strval($dtbsHndr->getLastErrText()));
 				}
 				$userNumb = intval($rowsList[0]['usrCount'] ?? 0);
 			}
@@ -411,7 +411,7 @@ class Deploy extends Command{
 		}
 		$lostList[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
 		$dvceConf = $this->accessSettings('dvcToken');
-		$dvceNtry = empty($dvceConf) ? Array() : (new DeviceAuth($dvceConf))->lstUserDevices();
+		$dvceNtry = empty($dvceConf) ? Array() : (new DeviceAuth($dvceConf))->listUsrDevices();
 		$dvceList = Array();
 		$dvceNmes = Array();
 		foreach( is_array($dvceNtry) ? $dvceNtry : Array() as $dvcRow ){
@@ -500,14 +500,14 @@ class Deploy extends Command{
 		foreach( $usersRecords as $usrRow ){
 			$addSttmt = 'INSERT INTO '.$qotdTble.' ('.implode(', ', array_map(Array($dtbsHndr, 'quoteFieldName'), array_keys($usrRow))).') VALUES ('.implode(', ', array_fill(0, count($usrRow), '?')).');';
 			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($usrRow)) ){
-				$errorTxt = strval($dtbsHndr->finalErrorText());
+				$errorTxt = strval($dtbsHndr->getLastErrText());
 				$dtbsHndr->delTransaction();
 				$this->terminateShell('Nothing was moved: user '.json_encode($usrRow['systemName']).' cannot be written: '.$errorTxt);
 			}
 		}
 		// The identifiers were given : PostgreSQL is told to count on from the highest
 		if( $baseCode=='postgres' && !$dtbsHndr->sendBuiltQuery('SELECT setval(pg_get_serial_sequence(?, \'id_user\'), (SELECT MAX('.$dtbsHndr->quoteFieldName('id_user').') FROM '.$qotdTble.'));', false, Array($qotdTble)) ){
-			$errorTxt = strval($dtbsHndr->finalErrorText());
+			$errorTxt = strval($dtbsHndr->getLastErrText());
 			$dtbsHndr->delTransaction();
 			$this->terminateShell('Nothing was moved: the identifiers cannot be set: '.$errorTxt);
 		}
@@ -525,7 +525,7 @@ class Deploy extends Command{
 	protected function writeUsersFile( Array $configValues, Array $usersRecords ): Void {
 		$fileInst = new UserFile( $configValues, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 		if( !$fileInst->fillEmptyStore($usersRecords) ){
-			$this->terminateShell('Nothing was moved: '.$fileInst->finalErrorText());
+			$this->terminateShell('Nothing was moved: '.$fileInst->getLastErrText());
 		}
 	}
 
@@ -1138,7 +1138,7 @@ class Deploy extends Command{
 			$typeName = Mailer::acntSetupArray($acctName)['sendWith'];
 			$mailInst = Mailer::retrieveMailer($acctName);
 			$bodyText = 'This is a test mail of nyuRuns, sent by "php nyuRun install testMail" through the mail account '.$acctName.'.'."\n\n".'Receiving it means the access mails (activation, reset, sign-ups) can be sent.'."\n";
-			$failText = $mailInst->deliverEmlFlag($emailAddress, 'nyuRuns test mail', $bodyText) ? null : $mailInst->finalErrorText();
+			$failText = $mailInst->deliverEmlFlag($emailAddress, 'nyuRuns test mail', $bodyText) ? null : $mailInst->getLastErrText();
 		}catch( MailFailure $e ){
 			$failText = $e->getMessage();
 		}
@@ -1224,7 +1224,7 @@ class Deploy extends Command{
 			$fileInst = new UserFile( $blockCfg, new ConfFile(TOP_DIR.DS.'temp'.DS.'archives') );
 			$userList = $fileInst->listUsersNamed();
 			if( $userList===false ){
-				$this->terminateShell('No user created: '.$fileInst->finalErrorText(), self::EXIT_FAIL);
+				$this->terminateShell('No user created: '.$fileInst->getLastErrText(), self::EXIT_FAIL);
 			}
 			if( !empty($userList) ){
 				$this->printerObj->printShellLine('The users file already holds users: nothing was changed.');
@@ -1233,7 +1233,7 @@ class Deploy extends Command{
 			foreach( $this->queryUsersList() as $usrNme => $usrRle ){
 				$passList[$usrNme] = bin2hex(random_bytes(10));
 				if( !$fileInst->enrolUsrString($usrNme, $usrRle, $passList[$usrNme]) ){
-					$this->terminateShell('User '.$usrNme.' cannot be written: '.$fileInst->finalErrorText(), self::EXIT_FAIL);
+					$this->terminateShell('User '.$usrNme.' cannot be written: '.$fileInst->getLastErrText(), self::EXIT_FAIL);
 				}
 			}
 		}else{
@@ -1328,7 +1328,7 @@ class Deploy extends Command{
 		$makeStmt = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dtbsHndr->quoteFieldName($tableNme), strval(file_get_contents($sqlFichr)), 1);
 		$makeStmt = preg_replace('/REFERENCES \S+/', 'REFERENCES '.$dtbsHndr->quoteFieldName($userTble), strval($makeStmt), 1);
 		if( !$dtbsHndr->sendBuiltQuery(strval($makeStmt), true) ){
-			$this->terminateShell('No devices table created: '.strval($dtbsHndr->finalErrorText()));
+			$this->terminateShell('No devices table created: '.strval($dtbsHndr->getLastErrText()));
 		}
 		$this->printerObj->printShellLine('Table '.$tableNme.' created.');
 		$this->traceShellDone('Deploy: devices table '.$tableNme.' created');
@@ -1351,7 +1351,7 @@ class Deploy extends Command{
 		$qotdTble = $dtbsHndr->quoteFieldName($tableNme);
 		$rowsList = $dtbsHndr->sendBuiltQuery('SELECT COUNT(*) AS '.$dtbsHndr->quoteFieldName('usrCount').' FROM '.$qotdTble.';') ? $dtbsHndr->readLastResult(true) : false;
 		if( !is_array($rowsList) ){
-			$this->terminateShell('No user created: the table cannot be read: '.strval($dtbsHndr->finalErrorText()));
+			$this->terminateShell('No user created: the table cannot be read: '.strval($dtbsHndr->getLastErrText()));
 		}
 		if( intval($rowsList[0]['usrCount'] ?? 0)>0 ){
 			$this->printerObj->printShellLine('The table '.$tableNme.' already holds users: nothing was changed.');
@@ -1366,7 +1366,7 @@ class Deploy extends Command{
 		foreach( $acctList as $usrNme => $usrRle ){
 			$passList[$usrNme] = bin2hex(random_bytes(10));
 			// The row is first written with a hash nothing matches, then given its password
-			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, Array($usrNme, $usrRle)) || !$natvAuth->savePasswdFlag($usrNme, $passList[$usrNme]) ){
+			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, Array($usrNme, $usrRle)) || !$natvAuth->savePassOfUser($usrNme, $passList[$usrNme]) ){
 				$dtbsHndr->delTransaction();
 				$this->terminateShell('User '.$usrNme.' cannot be written; nothing was changed');
 			}
@@ -1401,7 +1401,7 @@ class Deploy extends Command{
 			// The schema names its table 'users' : it is given the configured name
 			$makeStmt = preg_replace('/^CREATE TABLE \S+/m', 'CREATE TABLE '.$dtbsHndr->quoteFieldName($tableNme), strval(file_get_contents($sqlFichr)), 1);
 			if( !$dtbsHndr->sendBuiltQuery(strval($makeStmt), true) ){
-				$this->terminateShell('No users table: it cannot be created: '.strval($dtbsHndr->finalErrorText()));
+				$this->terminateShell('No users table: it cannot be created: '.strval($dtbsHndr->getLastErrText()));
 			}
 			$this->printerObj->printShellLine('Table '.$tableNme.' created.');
 			$this->traceShellDone('Deploy: users table '.$tableNme.' created');

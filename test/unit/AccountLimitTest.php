@@ -27,27 +27,27 @@ $htpConf = Array('passFile'=>'test/fixtures/users.htpasswd', 'maxTries'=>3, 'hol
  * @return Array The user or false, the message and whether it counts against the address.
  */
 function answerOf( Object $storeObjct, String $userString, String $passwdText ): Array {
-	$idntArr = $storeObjct->checkSecretArr( Array('user'=>$userString, 'pass'=>$passwdText) );
-	return Array( is_array($idntArr) ? ($idntArr['userName'] ?? null) : false, $storeObjct->finalErrorText(), $storeObjct->hasWrongSecret() );
+	$idntArr = $storeObjct->checkSecretDct( Array('user'=>$userString, 'pass'=>$passwdText) );
+	return Array( is_array($idntArr) ? ($idntArr['userName'] ?? null) : false, $storeObjct->getLastErrText(), $storeObjct->hasWrongSecret() );
 }
 
 // The limiter alone
 $userLmt = new Limiter( Array('maxTries'=>2, 'holdSecs'=>100, 'dataPath'=>$lmtFldr) );
 $userLmt->countLimitUser('anna', 1000);
-checkIdentical('limiter: one failure does not hold the account', $userLmt->heldByUserNumb('anna', 1001), 0);
+checkIdentical('limiter: one failure does not hold the account', $userLmt->readUsrHoldEnd('anna', 1001), 0);
 $userLmt->countLimitUser('anna', 1010);
-checkIdentical('limiter: as many as allowed hold it for holdSecs after the last one', $userLmt->heldByUserNumb('anna', 1011), 1110);
-checkIdentical('limiter: another account is not held, nor an address', Array($userLmt->heldByUserNumb('Anna', 1011), $userLmt->heldUntilCount('127.0.0.1', 1011)), Array(0, 0));
+checkIdentical('limiter: as many as allowed hold it for holdSecs after the last one', $userLmt->readUsrHoldEnd('anna', 1011), 1110);
+checkIdentical('limiter: another account is not held, nor an address', Array($userLmt->readUsrHoldEnd('Anna', 1011), $userLmt->readAdrHoldEnd('127.0.0.1', 1011)), Array(0, 0));
 $cntFles = glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array();
 checkIdentical('limiter: one counter, named by a hash, without the name', Array(count($cntFles), preg_match('/^[0-9a-f]{64}\.usr$/', basename(strval($cntFles[0] ?? ''))), strpos(strval(@file_get_contents(strval($cntFles[0] ?? ''))), 'anna')), Array(1, 1, false));
 checkIdentical('limiter: the addresses listed are not the accounts', $userLmt->listLimitHolds(1011), Array());
-checkIdentical('limiter: after the hold, the account is free, its counter removed', Array($userLmt->heldByUserNumb('anna', 1111), count(glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array())), Array(0, 0));
+checkIdentical('limiter: after the hold, the account is free, its counter removed', Array($userLmt->readUsrHoldEnd('anna', 1111), count(glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array())), Array(0, 0));
 $userLmt->countLimitUser('anna', 2000);
 $userLmt->countLimitUser('anna', 2001);
 $userLmt->clearLimitUser('anna');
-checkIdentical('limiter: clearUser forgets the failures', $userLmt->heldByUserNumb('anna', 2002), 0);
+checkIdentical('limiter: clearUser forgets the failures', $userLmt->readUsrHoldEnd('anna', 2002), 0);
 $userLmt->countLimitUser('ben', 3000);
-checkIdentical('limiter: dropStale and freeHolds remove the counters of the accounts too', Array($userLmt->dropStaleCount(3101), (function() use ( $userLmt ){ $userLmt->countLimitUser('ben'); return $userLmt->freeHoldsCount(); })()), Array(1, 1));
+checkIdentical('limiter: dropStale and freeHolds remove the counters of the accounts too', Array($userLmt->dropStaleCount(3101), (function() use ( $userLmt ){ $userLmt->countLimitUser('ben'); return $userLmt->dropHoldsCount(); })()), Array(1, 1));
 checkIdentical('limiter: maxTries 0 counts nothing', (function() use ( $lmtFldr ){ $noLimit = new Limiter(Array('maxTries'=>0, 'dataPath'=>$lmtFldr)); $noLimit->countLimitUser('anna'); return count(glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array()); })(), 0);
 
 // The users file
@@ -62,10 +62,10 @@ checkIdentical('userFile: after maxTries, the right password is refused as a wro
 checkIdentical('userFile: another user is not held', answerOf($usrList, 'anna', 'pw-anna')[0], 'anna');
 checkIdentical('userFile: an unknown name has no counter', (function() use ( $usrList, $lmtFldr ){ answerOf($usrList, 'zed', 'x'); return count(glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array()); })(), 1);
 checkIdentical('userFile: maxTries 0 holds nobody', answerOf(new UserList(Array('maxTries'=>0) + $lstConf), 'ben', 'pw-ben')[0], 'ben');
-(new Limiter(Array('dataPath'=>$lmtFldr)))->freeHoldsCount();
+(new Limiter(Array('dataPath'=>$lmtFldr)))->dropHoldsCount();
 $emmaLst = new UserList( $lstConf );
 foreach( Array('000000', '111111', '222222') as $wrngCd ){
-	$emmaLst->checkSecretArr( Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>$wrngCd) );
+	$emmaLst->checkSecretDct( Array('user'=>'emma', 'pass'=>'pw-emma', 'code'=>$wrngCd) );
 }
 checkIdentical('userFile: wrong 2FA codes count too', answerOf($emmaLst, 'emma', 'pw-emma'), Array(false, 'Invalid credentials', true));
 

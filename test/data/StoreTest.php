@@ -53,7 +53,7 @@ checkIdentical('find: order', foundCol($dbStore, 'shows', Array(), Array('order'
 checkIdentical('find: descending order, limit and offset', foundCol($dbStore, 'shows', Array(), Array('order'=>Array(Array('id_show', true)), 'limit'=>2, 'offst'=>1), 'id_show'), Array(4, 3));
 checkIdentical('find: a limit alone', foundCol($dbStore, 'shows', Array(), Array('order'=>Array(Array('id_show', false)), 'limit'=>2), 'id_show'), Array(1, 2));
 checkIdentical('find: no match gives an empty list', foundCol($dbStore, 'shows', Array('title'=>'Zzz'), Array(), 'id_show'), Array());
-checkIdentical('find: a missing table gives false, with an error', runCatchThrown(function() use ($dbStore){ return Array($dbStore->findItemsArray('nowhere'), is_string($dbStore->finalErrorText())); }), Array(false, true));
+checkIdentical('find: a missing table gives false, with an error', runCatchThrown(function() use ($dbStore){ return Array($dbStore->findItemsArray('nowhere'), is_string($dbStore->getLastErrText())); }), Array(false, true));
 checkPregMatch('find: an invalid field name is refused', foundCol($dbStore, 'shows', Array(), Array('field'=>Array('title` FROM users --')), 'title'), '/^THROWN RuntimeException: Invalid table or field name/');
 checkPregMatch('find: an invalid order field is refused', foundCol($dbStore, 'shows', Array(), Array('order'=>Array(Array('title; DROP', false))), 'title'), '/^THROWN RuntimeException: Invalid table or field name/');
 checkIdentical('find: a limit that is not a number becomes one', foundCol($dbStore, 'shows', Array(), Array('order'=>Array(Array('id_show', false)), 'limit'=>'2; DROP TABLE shows'), 'id_show'), Array(1, 2));

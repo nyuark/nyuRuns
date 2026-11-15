@@ -673,7 +673,7 @@ class HealthChk{
 					continue;
 				}
 				$canWrite = $dtbsHndr->sendBuiltQuery('SELECT 1;');
-				$this->addCheckResult( $rowTitle, $canWrite ? 'fine' : 'fail', $canWrite ? 'answers ('.$baseCode.')' : 'does not answer: '.strval($dtbsHndr->finalErrorText()) );
+				$this->addCheckResult( $rowTitle, $canWrite ? 'fine' : 'fail', $canWrite ? 'answers ('.$baseCode.')' : 'does not answer: '.strval($dtbsHndr->getLastErrText()) );
 			}catch( \Throwable $e ){
 				$this->addCheckResult($rowTitle, 'fail', 'does not answer: '.$e->getMessage());
 			}
@@ -699,8 +699,8 @@ class HealthChk{
 			}
 		}elseif( $authName=='userFile' ){
 			$checkObj = new UserList($blockCfg);
-			$checkObj->usrIdentityArr('-');
-			$canWrite = ($checkObj->finalErrorText()!='Credential store unavailable');
+			$checkObj->readIdntOfUser('-');
+			$canWrite = ($checkObj->getLastErrText()!='Credential store unavailable');
 			$this->addCheckResult( 'users', $canWrite ? 'fine' : 'fail', $canWrite ? 'the users file is read' : 'the users file is missing or cannot be used: "install userBase" creates it' );
 		}elseif( $authName=='htpasswd' ){
 			$passFile = trim( strval($blockCfg['passFile'] ?? ''), '/\\ ' );
@@ -737,7 +737,7 @@ class HealthChk{
 			$this->addCheckResult('device caps', 'fail', 'the table '.$tableNme.' has no deviceTops column: every device is refused until the last statement of conf/schema/migrate-devices-1.0.<type>.sql adds it');
 			return;
 		}
-		$dvceNtry = (new \nyu\Access\Auth\Device($blockCfg))->lstUserDevices();
+		$dvceNtry = (new \nyu\Access\Auth\Device($blockCfg))->listUsrDevices();
 		if( $dvceNtry===false ){
 			$this->addCheckResult('device caps', 'fail', 'the devices cannot be read');
 			return;
@@ -879,11 +879,11 @@ class HealthChk{
 	 */
 	protected function coupleFlawsTxt( Array $accessConfig ): String {
 		$sessName = strval($accessConfig['carrWith'] ?? '');
-		if( Checker::sessnClassText($sessName)===null ){
+		if( Checker::findCarrierCls($sessName)===null ){
 			return 'unknown carrier "'.$sessName.'"';
 		}
 		$authName = $accessConfig['authWith'] ?? null;
-		if( $authName!==null && Checker::authClssString(strval($authName))===null ){
+		if( $authName!==null && Checker::findCheckClass(strval($authName))===null ){
 			return 'unknown credential check "'.strval($authName).'"';
 		}
 		foreach( Array('carrConf', 'authConf') as $cnfKey ){

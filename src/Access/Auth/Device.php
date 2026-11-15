@@ -55,14 +55,14 @@ class Device implements Handler{
 	 * @param Array $loginDataLst Must contain a 'key' entry: the token, as sent by the client.
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser', 'device') on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+	function checkSecretDct( Array $loginDataLst ): Array|Bool {
 		$givenTkn = strval($loginDataLst['key'] ?? '');
 		$this->isWrongTry = false;
 		if( $givenTkn=='' ){
 			$this->errMessage = 'No API key provided';
 			return false;
 		}
-		$dvceVals = $this->retrieveDevice( hash('sha256', $givenTkn) );
+		$dvceVals = $this->readDeviceUser( hash('sha256', $givenTkn) );
 		if( $dvceVals===false ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
@@ -92,19 +92,19 @@ class Device implements Handler{
 	}
 
 	/**
-	 * Stamps the time the device verified by checkSecretArr() was last seen.
+	 * Stamps the time the device verified by checkSecretDct() was last seen.
 	 * Meant to be called on every authenticated request: the row is only
 	 * written when its stamp is at least 'seenSecs' seconds old.
 	 *
 	 * @param String $namedUserTxt Login name of the device's user (not used: the device is the one just verified).
 	 * @return Bool Whether the stamp was written.
 	 */
-	public function retainAliveFlg( String $namedUserTxt ): Bool {
+	public function saveAccessDate( String $namedUserTxt ): Bool {
 		if( $this->seenDevice===null || $this->deviceTble=='' ){
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
+			$dtbsHndr = $this->openUserBaseDb();
 			$seenFild = $dtbsHndr->quoteFieldName('accessDate');
 			$nowStamp = time();
 			$updtQuer = 'UPDATE '.$dtbsHndr->quoteFieldName($this->deviceTble)." SET $seenFild='".date('Y-m-d H:i:s', $nowStamp)."'"
@@ -125,12 +125,12 @@ class Device implements Handler{
 	 * @param String $roleTopsText The cap of the device, the highest role it acts with: one of Checker::ROLE_LIST.
 	 * @return String|Bool The new token, or false when the cap is not a role, the user is unknown, not active, or the table cannot be written.
 	 */
-	public function pushDeviceText( String $namedUserTxt, String $userDvceName, String $deviceRleTxt, String $roleTopsText=Checker::ROLE_LIST[0] ): String|Bool {
+	public function addDeviceToken( String $namedUserTxt, String $userDvceName, String $deviceRleTxt, String $roleTopsText=Checker::ROLE_LIST[0] ): String|Bool {
 		if( $this->deviceTble=='' || $this->usersTable=='' || !in_array($roleTopsText, Checker::ROLE_LIST, true) ){
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
+			$dtbsHndr = $this->openUserBaseDb();
 			$fieldLst = array_map( Array($dtbsHndr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'deviceTops', 'bearerHash', 'user_id') );
 			$newToken = bin2hex(random_bytes(32));
 			$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fieldLst).')'
@@ -150,12 +150,12 @@ class Device implements Handler{
 	 * @param Int|String $dvceIdentity Identifier of the device.
 	 * @return Bool Whether the device was revoked: false when it is unknown, already revoked, or the table cannot be written.
 	 */
-	public function remUserDevcFlg(Int|String $dvceIdentity ): Bool {
+	public function dropUserDevice(Int|String $dvceIdentity ): Bool {
 		if( $this->deviceTble=='' ){
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
+			$dtbsHndr = $this->openUserBaseDb();
 			$revokFld = $dtbsHndr->quoteFieldName('revokeDate');
 			$updtQuer = 'UPDATE '.$dtbsHndr->quoteFieldName($this->deviceTble)." SET $revokFld='".date('Y-m-d H:i:s')."'"
 				.' WHERE '.$dtbsHndr->quoteFieldName('id_device')."=? AND $revokFld IS NULL;";
@@ -172,12 +172,12 @@ class Device implements Handler{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return ?String The role, or null when the user is unknown, not active, or the table cannot be read.
 	 */
-	public function userRoleString( String $namedUserTxt ): ?String {
+	public function readActiveRole( String $namedUserTxt ): ?String {
 		if( $this->usersTable=='' ){
 			return null;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
+			$dtbsHndr = $this->openUserBaseDb();
 			$roleQuer = 'SELECT '.$dtbsHndr->quoteFieldName('accessRole').' FROM '.$dtbsHndr->quoteFieldName($this->usersTable)
 				.' WHERE '.$dtbsHndr->quoteFieldName('systemName').'=? AND '.$dtbsHndr->quoteFieldName('userStatus')."='approved' LIMIT 1;";
 			if( !$dtbsHndr->sendBuiltQuery($roleQuer, false, Array($namedUserTxt)) ){
@@ -197,12 +197,12 @@ class Device implements Handler{
 	 * @param String $namedUserTxt Login name of the user, '' for the devices of every user.
 	 * @return Array|Bool The devices, by user then by name: 'id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate', and of their user 'systemName' and 'accessRole'; false when the tables cannot be read.
 	 */
-	public function lstUserDevices( String $namedUserTxt='' ): Array|Bool {
+	public function listUsrDevices( String $namedUserTxt='' ): Array|Bool {
 		if( $this->deviceTble=='' || $this->usersTable=='' ){
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
+			$dtbsHndr = $this->openUserBaseDb();
 			$fieldLst = Array();
 			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate') as $fldNme ){
 				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$fldNme);
@@ -231,12 +231,12 @@ class Device implements Handler{
 	 * @param String $hashedTknTxt SHA-256 hash of the token.
 	 * @return Array|Bool|Null The device and user values, null when there is none, or false when the tables cannot be read.
 	 */
-	protected function retrieveDevice( String $hashedTknTxt ): Array|Bool|Null {
+	protected function readDeviceUser( String $hashedTknTxt ): Array|Bool|Null {
 		if( $this->deviceTble=='' || $this->usersTable=='' ){
 			return false;
 		}
 		try{
-			$dtbsHndr = $this->attachDatabase();
+			$dtbsHndr = $this->openUserBaseDb();
 			$fieldLst = Array();
 			foreach( Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'revokeDate') as $fldNme ){
 				$fieldLst[] = $dtbsHndr->quoteFieldName($this->deviceTble.'.'.$fldNme);
@@ -269,7 +269,7 @@ class Device implements Handler{
 	 *
 	 * @throws \RuntimeException When that database is not configured.
 	 */
-	protected function attachDatabase(): DbHandlr {
+	protected function openUserBaseDb(): DbHandlr {
 		return DBCon::linkNamedDbCon($this->usersStore)->readConnection();
 	}
 
@@ -287,7 +287,7 @@ class Device implements Handler{
 	/**
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

@@ -38,7 +38,7 @@ function executeDialect( String $handlerClass ): Void {
 	checkIdentical('tableInfo gives the fields and the key', runCatchThrown(function() use ($dbHndlr){ return $dbHndlr->tableInfoArray('shows'); }), Array('flds'=>Array('id_show', 'title', 'venue'), 'pkey'=>'id_show', 'blob'=>Array()));
 	checkIdentical('tableInfo of a missing table', runCatchThrown(function() use ($dbHndlr){ return $dbHndlr->tableInfoArray('nowhere'); }), false);
 	checkIdentical('a failed query gives false and an error', runCatchThrown(function() use ($dbHndlr){
-		return Array($dbHndlr->sendBuiltQuery('SELECT * FROM '.$dbHndlr->quoteFieldName('nowhere')), is_string($dbHndlr->finalErrorText()));
+		return Array($dbHndlr->sendBuiltQuery('SELECT * FROM '.$dbHndlr->quoteFieldName('nowhere')), is_string($dbHndlr->getLastErrText()));
 	}), Array(false, true));
 	checkIdentical('a read with a bound value', runCatchThrown(function() use ($dbHndlr){
 		$dbHndlr->sendBuiltQuery('SELECT '.$dbHndlr->quoteFieldName('title').' FROM '.$dbHndlr->quoteFieldName('shows').' WHERE '.$dbHndlr->quoteFieldName('id_show').'=?', false, Array(2));

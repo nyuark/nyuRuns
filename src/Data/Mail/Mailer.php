@@ -160,7 +160,7 @@ class Mailer {
 	 *
 	 * @return String The reason the mail server or the driver gave, '' when the last mail was sent.
 	 */
-	public function finalErrorText(): String {
+	public function getLastErrText(): String {
 		return $this->failReason;
 	}
 }

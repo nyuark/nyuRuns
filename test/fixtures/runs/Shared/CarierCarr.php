@@ -23,7 +23,7 @@ class CarierCarr implements SessHndlr{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
-	public function verifyRqstList( Request $givenRequest ): Array|Bool {
+	public function checkReqstDict( Request $givenRequest ): Array|Bool {
 		$headVal = $givenRequest->getHeaderValue('X-Carier');
 		return ( $headVal!==null && $headVal!='' ) ? Array('userName'=>$headVal) : false;
 	}
@@ -39,7 +39,7 @@ class CarierCarr implements SessHndlr{
 	/**
 	 * @return String The last error message.
 	 */
-	public function finalErrorText(): String {
+	public function getLastErrText(): String {
 		return 'Missing X-Carier header';
 	}
 }

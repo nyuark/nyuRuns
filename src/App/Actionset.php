@@ -264,7 +264,7 @@ class Actionset {
 
 	/**
 	 * Tells whether the request comes from a logged user holding a role,
-	 * or a higher one (see Checker::rleAccessMeets). Nobody logged holds none.
+	 * or a higher one (see Checker::isRoleNotBelow). Nobody logged holds none.
 	 *
 	 * @param String $requiredRole The role, one of Checker::ROLE_LIST.
 	 * @return Bool True when the user holds the role or a higher one.
@@ -279,7 +279,7 @@ class Actionset {
 			return false;
 		}
 		$userRole = $this->accessRegr->readValueByKey('userRole');
-		return Checker::rleAccessMeets( is_string($userRole) ? $userRole : null, $requiredRole );
+		return Checker::isRoleNotBelow( is_string($userRole) ? $userRole : null, $requiredRole );
 	}
 
 	/**

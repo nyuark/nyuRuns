@@ -27,7 +27,7 @@ interface Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
-	public function verifyRqstList( Request $givenRequest ): Array|Bool;
+	public function checkReqstDict( Request $givenRequest ): Array|Bool;
 
 	/**
 	 * Issues a new token for the given identity, for token-based
@@ -44,5 +44,5 @@ interface Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	public function finalErrorText(): String;
+	public function getLastErrText(): String;
 }

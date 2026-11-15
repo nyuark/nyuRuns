@@ -26,7 +26,7 @@ $GLOBALS['nyuConfig'] = new Registry( Array(
 $natAuth = new Native( Array('useTable'=>'users', 'maxTries'=>5, 'holdSecs'=>600, 'minChars'=>8) );
 $sqlLink = new PDO('sqlite:'.$sqlFile);
 benLogin('pw-ben');
-$benMark = $natAuth->createUserMark('ben');
+$benMark = $natAuth->makeSignedMark('ben');
 
 /**
  * Tells what the userbase answers to a login.
@@ -37,7 +37,7 @@ $benMark = $natAuth->createUserMark('ben');
  */
 function benLogin( String $passwdText, String $markString='' ): Mixed {
 	global $natAuth;
-	$idntArr = $natAuth->checkSecretArr( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
+	$idntArr = $natAuth->checkSecretDct( Array('user'=>'ben', 'pass'=>$passwdText, 'mark'=>$markString) );
 	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : false;
 }
 
@@ -50,7 +50,7 @@ $befFail = intval($sqlLink->query("SELECT failsCount FROM users WHERE systemName
 benLogin('wrong-x', $benMark);
 checkIdentical('native: a failure with the mark is not counted on the account', intval($sqlLink->query("SELECT failsCount FROM users WHERE systemName='ben'")->fetchColumn()), $befFail);
 checkIdentical('native: the owner logged in with his mark, the failures of the account are forgotten', intval($sqlLink->query("SELECT failsCount FROM users WHERE systemName='ben'")->fetchColumn()), 0);
-checkIdentical('native: the store makes the mark of the user it just accepted only', Array($benMark!=='', $natAuth->createUserMark('anna')), Array(true, ''));
+checkIdentical('native: the store makes the mark of the user it just accepted only', Array($benMark!=='', $natAuth->makeSignedMark('anna')), Array(true, ''));
 // A password set after the mark was made ends it : held again, the mark no longer lets its client in
 $newHash = password_hash('pw-ben-2', PASSWORD_BCRYPT, Array('cost'=>4));
 $sqlLink->exec("UPDATE users SET passwdHash='".$newHash."' WHERE systemName='ben'");
@@ -58,7 +58,7 @@ for( $idx=0; $idx<5; $idx++ ){
 	benLogin('again-'.$idx);
 }
 checkIdentical('native: a mark made under the former password is no mark', benLogin('pw-ben-2', $benMark), false);
-checkIdentical('native: a mark made under the new one is', benLogin('pw-ben-2', LoginMark::fromLimitBlock()->createUserMark('ben', $newHash)), 'ben');
+checkIdentical('native: a mark made under the new one is', benLogin('pw-ben-2', LoginMark::makeByLimitCfg()->makeSignedMark('ben', $newHash)), 'ben');
 
 dropTestFolder( TOP_DIR.DS.$lmtFldr );
 finishChecking();

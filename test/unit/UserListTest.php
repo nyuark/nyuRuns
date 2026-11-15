@@ -43,7 +43,7 @@ class PathUserList extends UserList{
 function listReply( String $fileString ): Array {
 	file_put_contents(inTemporaryDir('users.lst'), $fileString);
 	$tmpList = new PathUserList( Array('listFile'=>inTemporaryDir('users.lst')) );
-	return Array($tmpList->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna')), $tmpList->finalErrorText(), $tmpList->hasWrongSecret());
+	return Array($tmpList->checkSecretDct(Array('user'=>'anna', 'pass'=>'pw-anna')), $tmpList->getLastErrText(), $tmpList->hasWrongSecret());
 }
 
 $fxtPath = 'test'.DS.'fixtures'.DS.'users.lst';
@@ -52,70 +52,70 @@ $annaPwd = Array('user'=>'anna', 'pass'=>'pw-anna');
 $annaIdn = Array('userName'=>'anna', 'userRole'=>'managers', 'idOfUser'=>1);
 
 // The short name of the check
-checkIdentical('userFile is the short name of UserList', Checker::authClssString('userFile'), '\\nyu\\Access\\Auth\\UserList');
+checkIdentical('userFile is the short name of UserList', Checker::findCheckClass('userFile'), '\\nyu\\Access\\Auth\\UserList');
 
 // Passwords : the same answers as the native userbase
-checkIdentical('UserList right password: identity with role and id', $usrList->checkSecretArr($annaPwd), $annaIdn);
+checkIdentical('UserList right password: identity with role and id', $usrList->checkSecretDct($annaPwd), $annaIdn);
 checkIdentical('UserList right password is not a wrong credential', $usrList->hasWrongSecret(), false);
-checkIdentical('UserList wrong password', Array($usrList->checkSecretArr(Array('user'=>'anna', 'pass'=>'nope')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'Invalid credentials', true));
-checkIdentical('UserList unknown user', Array($usrList->checkSecretArr(Array('user'=>'zed', 'pass'=>'pw-zed')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'Invalid credentials', true));
-checkIdentical('UserList names are matched with case', $usrList->checkSecretArr(Array('user'=>'Anna', 'pass'=>'pw-anna')), false);
-checkIdentical('UserList no name', Array($usrList->checkSecretArr(Array('user'=>'', 'pass'=>'pw-anna')), $usrList->finalErrorText()), Array(false, 'Invalid credentials'));
-checkIdentical('UserList pending user: refused as a wrong password is', Array($usrList->checkSecretArr(Array('user'=>'cleo', 'pass'=>'pw-cleo')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'Invalid credentials', true));
-checkIdentical('UserList locked user: refused the same way', Array($usrList->checkSecretArr(Array('user'=>'dave', 'pass'=>'pw-dave')), $usrList->finalErrorText()), Array(false, 'Invalid credentials'));
-checkIdentical('UserList the status is only told to who has the password', Array($usrList->checkSecretArr(Array('user'=>'dave', 'pass'=>'nope')), $usrList->finalErrorText()), Array(false, 'Invalid credentials'));
-checkIdentical('UserList the path can start with a slash', (new UserList(Array('maxTries'=>0, 'listFile'=>'/'.$fxtPath)))->checkSecretArr($annaPwd), $annaIdn);
+checkIdentical('UserList wrong password', Array($usrList->checkSecretDct(Array('user'=>'anna', 'pass'=>'nope')), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'Invalid credentials', true));
+checkIdentical('UserList unknown user', Array($usrList->checkSecretDct(Array('user'=>'zed', 'pass'=>'pw-zed')), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'Invalid credentials', true));
+checkIdentical('UserList names are matched with case', $usrList->checkSecretDct(Array('user'=>'Anna', 'pass'=>'pw-anna')), false);
+checkIdentical('UserList no name', Array($usrList->checkSecretDct(Array('user'=>'', 'pass'=>'pw-anna')), $usrList->getLastErrText()), Array(false, 'Invalid credentials'));
+checkIdentical('UserList pending user: refused as a wrong password is', Array($usrList->checkSecretDct(Array('user'=>'cleo', 'pass'=>'pw-cleo')), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'Invalid credentials', true));
+checkIdentical('UserList locked user: refused the same way', Array($usrList->checkSecretDct(Array('user'=>'dave', 'pass'=>'pw-dave')), $usrList->getLastErrText()), Array(false, 'Invalid credentials'));
+checkIdentical('UserList the status is only told to who has the password', Array($usrList->checkSecretDct(Array('user'=>'dave', 'pass'=>'nope')), $usrList->getLastErrText()), Array(false, 'Invalid credentials'));
+checkIdentical('UserList the path can start with a slash', (new UserList(Array('maxTries'=>0, 'listFile'=>'/'.$fxtPath)))->checkSecretDct($annaPwd), $annaIdn);
 
 // Fields left out : a member, active, without an id
 $tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 $emmaPwd = Array('user'=>'emma', 'pass'=>'pw-emma');
-checkIdentical('UserList role, status and id left out', $usrList->checkSecretArr($emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()))), Array('userName'=>'emma', 'userRole'=>'standard', 'idOfUser'=>null));
+checkIdentical('UserList role, status and id left out', $usrList->checkSecretDct($emmaPwd + Array('code'=>Totp::makeCodeAtTime($tfaScrt, time()))), Array('userName'=>'emma', 'userRole'=>'standard', 'idOfUser'=>null));
 
 // 2FA : a user with a secret must give the code of its authenticator
-checkIdentical('UserList 2FA: password alone', Array($usrList->checkSecretArr($emmaPwd), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'Verification code required', false));
-checkIdentical('UserList 2FA: wrong code', Array($usrList->checkSecretArr($emmaPwd + Array('code'=>'000000')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'Invalid verification code', true));
-checkIdentical('UserList 2FA: wrong password, whatever the code', Array($usrList->checkSecretArr(Array('user'=>'emma', 'pass'=>'nope', 'code'=>Totp::codeAtTimeText($tfaScrt, time()))), $usrList->finalErrorText()), Array(false, 'Invalid credentials'));
+checkIdentical('UserList 2FA: password alone', Array($usrList->checkSecretDct($emmaPwd), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'Verification code required', false));
+checkIdentical('UserList 2FA: wrong code', Array($usrList->checkSecretDct($emmaPwd + Array('code'=>'000000')), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'Invalid verification code', true));
+checkIdentical('UserList 2FA: wrong password, whatever the code', Array($usrList->checkSecretDct(Array('user'=>'emma', 'pass'=>'nope', 'code'=>Totp::makeCodeAtTime($tfaScrt, time()))), $usrList->getLastErrText()), Array(false, 'Invalid credentials'));
 
 // A secret written encrypted is read with the key of the block
 $sealKey = str_repeat('k', 32);
-$emmaCod = $emmaPwd + Array('code'=>Totp::codeAtTimeText($tfaScrt, time()));
+$emmaCod = $emmaPwd + Array('code'=>Totp::makeCodeAtTime($tfaScrt, time()));
 if( function_exists('openssl_encrypt') ){
 	file_put_contents(inTemporaryDir('sealed.lst'), json_encode(Array('users'=>Array(Array('systemName'=>'emma', 'passwdHash'=>password_hash('pw-emma', PASSWORD_BCRYPT, Array('cost'=>4)), 'twoFactKey'=>Totp::sealSecretText($tfaScrt, $sealKey))))));
-	checkIdentical('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('listFile'=>inTemporaryDir('sealed.lst'), 'tfaCrypt'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
+	checkIdentical('UserList 2FA: an encrypted secret, read with the key', (new PathUserList(Array('listFile'=>inTemporaryDir('sealed.lst'), 'tfaCrypt'=>$sealKey)))->checkSecretDct($emmaCod)['userName'] ?? null, 'emma');
 	$noKeyLs = new PathUserList( Array('listFile'=>inTemporaryDir('sealed.lst')) );
-	checkIdentical('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkSecretArr($emmaCod), $noKeyLs->finalErrorText(), $noKeyLs->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
+	checkIdentical('UserList 2FA: an encrypted secret, without the key', Array($noKeyLs->checkSecretDct($emmaCod), $noKeyLs->getLastErrText(), $noKeyLs->hasWrongSecret()), Array(false, 'Credential store unavailable', false));
 }else{
 	recordSkipping('UserList 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
 }
-checkIdentical('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('maxTries'=>0, 'listFile'=>$fxtPath, 'tfaCrypt'=>$sealKey)))->checkSecretArr($emmaCod)['userName'] ?? null, 'emma');
+checkIdentical('UserList 2FA: a readable secret is still read with a key set', (new UserList(Array('maxTries'=>0, 'listFile'=>$fxtPath, 'tfaCrypt'=>$sealKey)))->checkSecretDct($emmaCod)['userName'] ?? null, 'emma');
 
 // Personal API token : its SHA-256 hash is the bearerHash of an active user
-checkIdentical('UserList personal token', $usrList->checkSecretArr(Array('key'=>'list-test-token')), $annaIdn);
-checkIdentical('UserList wrong token', Array($usrList->checkSecretArr(Array('key'=>'another-token')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'Invalid API key', true));
-checkIdentical('UserList empty token', Array($usrList->checkSecretArr(Array('key'=>'')), $usrList->finalErrorText(), $usrList->hasWrongSecret()), Array(false, 'No API key provided', false));
-checkIdentical('UserList the hash itself is not a token', $usrList->checkSecretArr(Array('key'=>hash('sha256', 'list-test-token'))), false);
+checkIdentical('UserList personal token', $usrList->checkSecretDct(Array('key'=>'list-test-token')), $annaIdn);
+checkIdentical('UserList wrong token', Array($usrList->checkSecretDct(Array('key'=>'another-token')), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'Invalid API key', true));
+checkIdentical('UserList empty token', Array($usrList->checkSecretDct(Array('key'=>'')), $usrList->getLastErrText(), $usrList->hasWrongSecret()), Array(false, 'No API key provided', false));
+checkIdentical('UserList the hash itself is not a token', $usrList->checkSecretDct(Array('key'=>hash('sha256', 'list-test-token'))), false);
 $tknRows = Array('users'=>Array(
 	Array('systemName'=>'anna', 'passwdHash'=>'x', 'userStatus'=>'disabled', 'bearerHash'=>strtoupper(hash('sha256', 'tk-anna'))),
 	Array('systemName'=>'ben', 'passwdHash'=>'x', 'bearerHash'=>strtoupper(hash('sha256', 'tk-ben')))
 ));
 file_put_contents(inTemporaryDir('tokens.lst'), json_encode($tknRows));
 $tknList = new PathUserList( Array('listFile'=>inTemporaryDir('tokens.lst')) );
-checkIdentical('UserList the token of a locked user is refused', Array($tknList->checkSecretArr(Array('key'=>'tk-anna')), $tknList->finalErrorText()), Array(false, 'Invalid API key'));
-checkIdentical('UserList a bearerHash written in upper case', $tknList->checkSecretArr(Array('key'=>'tk-ben')), Array('userName'=>'ben', 'userRole'=>'standard', 'idOfUser'=>null));
+checkIdentical('UserList the token of a locked user is refused', Array($tknList->checkSecretDct(Array('key'=>'tk-anna')), $tknList->getLastErrText()), Array(false, 'Invalid API key'));
+checkIdentical('UserList a bearerHash written in upper case', $tknList->checkSecretDct(Array('key'=>'tk-ben')), Array('userName'=>'ben', 'userRole'=>'standard', 'idOfUser'=>null));
 
 // userIdent : the current identity of a user known by other means
-checkIdentical('UserList userIdent of an active user', $usrList->usrIdentityArr('anna'), $annaIdn);
-checkIdentical('UserList userIdent of a pending user', Array($usrList->usrIdentityArr('cleo'), $usrList->finalErrorText()), Array(false, 'Account not active'));
-checkIdentical('UserList userIdent of an unknown user', Array($usrList->usrIdentityArr('zed'), $usrList->finalErrorText()), Array(false, 'Account not active'));
-checkIdentical('UserList userIdent without a name', $usrList->usrIdentityArr(''), false);
+checkIdentical('UserList userIdent of an active user', $usrList->readIdntOfUser('anna'), $annaIdn);
+checkIdentical('UserList userIdent of a pending user', Array($usrList->readIdntOfUser('cleo'), $usrList->getLastErrText()), Array(false, 'Account not active'));
+checkIdentical('UserList userIdent of an unknown user', Array($usrList->readIdntOfUser('zed'), $usrList->getLastErrText()), Array(false, 'Account not active'));
+checkIdentical('UserList userIdent without a name', $usrList->readIdntOfUser(''), false);
 
 // What needs a write is answered false, and the file is left as it is
 $fxtHash = hash_file('sha256', TOP_DIR.DS.$fxtPath);
-checkIdentical('UserList keepAlive stamps nothing', $usrList->retainAliveFlg('anna'), false);
-checkIdentical('UserList onlineNow is not known', $usrList->onlineNowArray(), false);
+checkIdentical('UserList keepAlive stamps nothing', $usrList->saveAccessDate('anna'), false);
+checkIdentical('UserList onlineNow is not known', $usrList->listOnlineRecs(), false);
 checkIdentical('UserList makeToken makes none', $usrList->makeToknString('anna'), false);
-checkIdentical('UserList makeTwoFa makes none', $usrList->buildTwoFactor('anna'), false);
-checkIdentical('UserList setPasswd changes none', Array($usrList->savePasswdFlag('anna', 'new-anna'), $usrList->checkSecretArr($annaPwd)), Array(false, $annaIdn));
+checkIdentical('UserList makeTwoFa makes none', $usrList->makeTotpSecret('anna'), false);
+checkIdentical('UserList setPasswd changes none', Array($usrList->savePassOfUser('anna', 'new-anna'), $usrList->checkSecretDct($annaPwd)), Array(false, $annaIdn));
 checkIdentical('UserList the file is never written', hash_file('sha256', TOP_DIR.DS.$fxtPath), $fxtHash);
 
 // A file that cannot be used is refused as a whole, and is not a wrong credential
@@ -124,10 +124,10 @@ $annaHsh = password_hash('pw-anna', PASSWORD_BCRYPT, Array('cost'=>4));
 $annaRow = Array('systemName'=>'anna', 'passwdHash'=>$annaHsh);
 Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('UserList a file with its two required fields', listReply(json_encode(Array('users'=>Array($annaRow)))), Array(Array('userName'=>'anna', 'userRole'=>'standard', 'idOfUser'=>null), '', false));
-checkIdentical('UserList no file named', Array((new UserList(Array()))->checkSecretArr($annaPwd), (new UserList(Array('listFile'=>Array('x'))))->checkSecretArr($annaPwd)), Array(false, false));
+checkIdentical('UserList no file named', Array((new UserList(Array()))->checkSecretDct($annaPwd), (new UserList(Array('listFile'=>Array('x'))))->checkSecretDct($annaPwd)), Array(false, false));
 $noneLst = new UserList( Array('listFile'=>'test'.DS.'fixtures'.DS.'missing.lst') );
-checkIdentical('UserList missing file', Array($noneLst->checkSecretArr($annaPwd), $noneLst->finalErrorText(), $noneLst->hasWrongSecret()), $unavail);
-checkIdentical('UserList missing file: token and userIdent', Array($noneLst->checkSecretArr(Array('key'=>'list-test-token')), $noneLst->finalErrorText(), $noneLst->usrIdentityArr('anna'), $noneLst->finalErrorText()), Array(false, 'Credential store unavailable', false, 'Credential store unavailable'));
+checkIdentical('UserList missing file', Array($noneLst->checkSecretDct($annaPwd), $noneLst->getLastErrText(), $noneLst->hasWrongSecret()), $unavail);
+checkIdentical('UserList missing file: token and userIdent', Array($noneLst->checkSecretDct(Array('key'=>'list-test-token')), $noneLst->getLastErrText(), $noneLst->readIdntOfUser('anna'), $noneLst->getLastErrText()), Array(false, 'Credential store unavailable', false, 'Credential store unavailable'));
 checkIdentical('UserList not a JSON text', listReply('anna:'.$annaHsh), $unavail);
 checkIdentical('UserList no users list', listReply(json_encode(Array($annaRow))), $unavail);
 checkIdentical('UserList a user without a passwdHash', listReply(json_encode(Array('users'=>Array($annaRow, Array('systemName'=>'ben'))))), $unavail);
@@ -164,7 +164,7 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TESTFILE'=>Array('m
  */
 function listAccess( String $carrierStr, Array $headersArr, String $carrierCnf='testFile' ): Array {
 	$axsConf = Array('required'=>true, 'carrWith'=>$carrierStr, 'carrConf'=>$carrierCnf, 'authWith'=>'userFile', 'authConf'=>'testFile');
-	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, Array('REMOTE_ADDR'=>'203.0.113.7')) ))->validateAccess();
+	$axsRslt = (new Checker( $axsConf, mockRequestObj($headersArr, Array('REMOTE_ADDR'=>'203.0.113.7')) ))->checkRqtAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'));
 }
 checkIdentical('Checker with UserList: Basic access', listAccess('httpBasc', Array('Authorization'=>'Basic '.base64_encode('anna:pw-anna'))), Array(200, '', 'anna', 'managers'));

@@ -229,7 +229,7 @@ class Runner{
 		$this->confLoader->saveConfgCache();
 
 		$accsConf = $this->confLoader->setAccessArray();
-		$this->accessRegr = $this->validateAccess( $accsConf );
+		$this->accessRegr = $this->checkRqtAccess( $accsConf );
 
 		// The events traced from here on are signed with the user and the address of the request
 		$clntRegr = $this->requestObj->getClientOfRqt();
@@ -292,9 +292,9 @@ class Runner{
 	 * @param Array $accessConfig Resolved 'security' config block for the active preset.
 	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys.
 	 */
-	function validateAccess( Array $accessConfig ): Registry {
+	function checkRqtAccess( Array $accessConfig ): Registry {
 		$checkObj = new Checker( $accessConfig, $this->requestObj, $this->routerRegr, $this->confLoader->getRouterOfRqt() );
-		return $checkObj->validateAccess();
+		return $checkObj->checkRqtAccess();
 	}
 
 	/**

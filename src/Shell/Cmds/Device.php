@@ -70,7 +70,7 @@ class Device extends Command{
 			$this->terminateShell('Invalid cap: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
 		}
 		$dvceAuth = $this->getDeviceCheck();
-		$userRole = $dvceAuth->userRoleString($userName);
+		$userRole = $dvceAuth->readActiveRole($userName);
 		if( $userRole===null ){
 			$this->terminateShell('No token made: the user is unknown or not active, or the users cannot be read');
 		}
@@ -80,7 +80,7 @@ class Device extends Command{
 		if( $this->findDeviceNumb($dvceAuth, $dvceName, $userName)!==null ){
 			$this->terminateShell('No token made: the user already has a device named '.json_encode($dvceName).' (devices revokeIt it first)', self::EXIT_DENY);
 		}
-		$newToken = $dvceAuth->pushDeviceText($userName, $dvceName, $dvceRole, $roleTops);
+		$newToken = $dvceAuth->addDeviceToken($userName, $dvceName, $dvceRole, $roleTops);
 		if( $newToken===false ){
 			$this->terminateShell('No token made: the user is unknown or not active, or the devices cannot be written');
 		}
@@ -99,7 +99,7 @@ class Device extends Command{
 	 */
 	public function invokeFullList(): Int {
 		$userName = strval($this->optionsObj->shiftFirstWord() ?? '');
-		$dvceNtry = $this->getDeviceCheck()->lstUserDevices($userName);
+		$dvceNtry = $this->getDeviceCheck()->listUsrDevices($userName);
 		if( $dvceNtry===false ){
 			$this->terminateShell('The devices cannot be read');
 		}
@@ -125,7 +125,7 @@ class Device extends Command{
 		if( $dvceIdnt===null ){
 			$this->terminateShell('Nothing revoked: the user has no device named '.json_encode($dvceName).' still standing', self::EXIT_DENY);
 		}
-		if( !$dvceAuth->remUserDevcFlg($dvceIdnt) ){
+		if( !$dvceAuth->dropUserDevice($dvceIdnt) ){
 			$this->terminateShell('The device cannot be revoked: the devices cannot be written');
 		}
 		$this->traceShellDone( 'Device: '.json_encode($dvceName).' of user '.json_encode($userName).' revoked' );
@@ -152,7 +152,7 @@ class Device extends Command{
 	 * @return ?Int The identifier of the device, null when there is none.
 	 */
 	protected function findDeviceNumb( DeviceAuth $devicesCheck, String $userDvceName, String $namedUserTxt ): ?Int {
-		$dvceNtry = $devicesCheck->lstUserDevices($namedUserTxt);
+		$dvceNtry = $devicesCheck->listUsrDevices($namedUserTxt);
 		if( $dvceNtry===false ){
 			$this->terminateShell('The devices cannot be read');
 		}

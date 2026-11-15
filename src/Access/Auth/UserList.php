@@ -60,7 +60,7 @@ class UserList implements Handler{
 	 * @param Array $loginDataLst Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+	function checkSecretDct( Array $loginDataLst ): Array|Bool {
 		$this->isWrongTry = false;
 		$this->passedUser = null;
 		if( isset($loginDataLst['key']) ){
@@ -69,7 +69,7 @@ class UserList implements Handler{
 		$givenUsr = strval($loginDataLst['user'] ?? '');
 		$givenPwd = strval($loginDataLst['pass'] ?? '');
 		// A name of the file written as the counter of a login mark is the name of nobody
-		$userVals = ($givenUsr!='' && strncmp($givenUsr, 'mark:', 5)!==0) ? $this->fetchUserArray($givenUsr) : null;
+		$userVals = ($givenUsr!='' && strncmp($givenUsr, 'mark:', 5)!==0) ? $this->readUserRecord($givenUsr) : null;
 		if( $userVals===false ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
@@ -77,7 +77,7 @@ class UserList implements Handler{
 		$isHashed = is_array($userVals) && password_get_info(strval($userVals['passwdHash']))['algo']!==null;
 		if( !$isHashed ){
 			// Unknown user, or an account without a password : the hash of the first user of the file is checked, at the cost the file's own hashes have, so the reply time tells neither apart from a wrong password
-			password_verify( $givenPwd, $this->fakeHashString() );
+			password_verify( $givenPwd, $this->getFakePwdHash() );
 			$matxList = false;
 		}else{
 			$matxList = password_verify( $givenPwd, $userVals['passwdHash'] );
@@ -86,15 +86,15 @@ class UserList implements Handler{
 		$countNme = is_array($userVals) ? strval($userVals['systemName']) : '';
 		if( is_array($userVals) && is_string($loginDataLst['mark'] ?? null) && $loginDataLst['mark']!=='' ){
 			// Signed with the hash the password has now : a password set after the mark was made ends it
-			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], $countNme, $isHashed ? strval($userVals['passwdHash']) : '' );
-			if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
+			$markClef = \nyu\Access\LoginMark::makeByLimitCfg()->readClientMark( $loginDataLst['mark'], $countNme, $isHashed ? strval($userVals['passwdHash']) : '' );
+			if( $markClef!='' && $this->usrLimiter->readUsrHoldEnd($markClef)>0 ){
 				Logger::getLoggerOfChn('access')->warning( 'Login mark refused for user '.json_encode($countNme).': too many attempts with it' );
 			}elseif( $markClef!='' ){
 				$countNme = $markClef;
 			}
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-		if( is_array($userVals) && $this->usrLimiter->heldByUserNumb($countNme)>0 ){
+		if( is_array($userVals) && $this->usrLimiter->readUsrHoldEnd($countNme)>0 ){
 			Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
 			$this->isWrongTry = true;
@@ -130,7 +130,7 @@ class UserList implements Handler{
 				$this->errMessage = 'Verification code required';
 				return false;
 			}
-			if( !Totp::verifyTotpCode($sealClef, $givenCod) ){
+			if( !Totp::isCodeOfSecret($sealClef, $givenCod) ){
 				$this->usrLimiter->countLimitUser( $countNme );
 				$this->errMessage = 'Invalid verification code';
 				$this->isWrongTry = true;
@@ -139,7 +139,7 @@ class UserList implements Handler{
 		}
 		$this->usrLimiter->clearLimitUser( $countNme );
 		$this->passedUser = Array('systemName'=>strval($userVals['systemName']), 'passwdHash'=>strval($userVals['passwdHash']));
-		return $this->createIdentity($userVals);
+		return $this->getIdentityDct($userVals);
 	}
 
 	/**
@@ -149,11 +149,11 @@ class UserList implements Handler{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return String The mark, or '' when the last check did not accept that user, or no mark is made.
 	 */
-	public function createUserMark( String $namedUserTxt ): String {
+	public function makeSignedMark( String $namedUserTxt ): String {
 		if( $this->passedUser===null || $this->passedUser['systemName']!==$namedUserTxt ){
 			return '';
 		}
-		return \nyu\Access\LoginMark::fromLimitBlock()->createUserMark( $namedUserTxt, $this->passedUser['passwdHash'] );
+		return \nyu\Access\LoginMark::makeByLimitCfg()->makeSignedMark( $namedUserTxt, $this->passedUser['passwdHash'] );
 	}
 
 	/**
@@ -168,7 +168,7 @@ class UserList implements Handler{
 			$this->errMessage = 'No API key provided';
 			return false;
 		}
-		$userVals = $this->fetchUserArray( hash('sha256', $toknValueTxt), 'bearerHash' );
+		$userVals = $this->readUserRecord( hash('sha256', $toknValueTxt), 'bearerHash' );
 		if( $userVals===false ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
@@ -178,7 +178,7 @@ class UserList implements Handler{
 			$this->isWrongTry = true;
 			return false;
 		}
-		return $this->createIdentity($userVals);
+		return $this->getIdentityDct($userVals);
 	}
 
 	/**
@@ -192,9 +192,9 @@ class UserList implements Handler{
 	 * @param ?Int   $issuedAtUnix Unix time the session or the token was issued at; not compared.
 	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, or the file cannot be read.
 	 */
-	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedAtUnix=null ): Array|Bool {
+	public function readIdntOfUser( String $namedUserTxt, ?Int $issuedAtUnix=null ): Array|Bool {
 		$this->isWrongTry = false;
-		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
+		$userVals = ($namedUserTxt!='') ? $this->readUserRecord($namedUserTxt) : null;
 		if( $userVals===false ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
@@ -203,7 +203,7 @@ class UserList implements Handler{
 			$this->errMessage = 'Account not active';
 			return false;
 		}
-		return $this->createIdentity($userVals);
+		return $this->getIdentityDct($userVals);
 	}
 
 	/**
@@ -212,7 +212,7 @@ class UserList implements Handler{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return Bool Always false: nothing is stamped.
 	 */
-	public function retainAliveFlg( String $namedUserTxt ): Bool {
+	public function saveAccessDate( String $namedUserTxt ): Bool {
 		return false;
 	}
 
@@ -221,7 +221,7 @@ class UserList implements Handler{
 	 *
 	 * @return Array|Bool Always false, as a store that cannot be read: not an empty list, which would tell nobody is online.
 	 */
-	public function onlineNowArray(): Array|Bool {
+	public function listOnlineRecs(): Array|Bool {
 		return false;
 	}
 
@@ -243,7 +243,7 @@ class UserList implements Handler{
 	 * @param String $namedUserTxt Login name of the user.
 	 * @return String|Bool Always false.
 	 */
-	public function buildTwoFactor( String $namedUserTxt ): String|Bool {
+	public function makeTotpSecret( String $namedUserTxt ): String|Bool {
 		return false;
 	}
 
@@ -255,7 +255,7 @@ class UserList implements Handler{
 	 * @param String $usrPasswdTxt The new password.
 	 * @return Bool Always false.
 	 */
-	public function savePasswdFlag( String $namedUserTxt, String $usrPasswdTxt ): Bool {
+	public function savePassOfUser( String $namedUserTxt, String $usrPasswdTxt ): Bool {
 		return false;
 	}
 
@@ -266,7 +266,7 @@ class UserList implements Handler{
 	 *
 	 * @return String The hash.
 	 */
-	protected function fakeHashString(): String {
+	protected function getFakePwdHash(): String {
 		$userList = $this->loadUsersArray();
 		foreach( is_array($userList) ? $userList : Array() as $usrRow ){
 			if( password_get_info(strval($usrRow['passwdHash']))['algo']!==null ){
@@ -282,7 +282,7 @@ class UserList implements Handler{
 	 * @param Array $userValsList The user's values, as loadUsersArray() gives them.
 	 * @return Array The identity array ('userName', 'userRole', 'idOfUser').
 	 */
-	protected function createIdentity( Array $userValsList ): Array {
+	protected function getIdentityDct( Array $userValsList ): Array {
 		return Array('userName'=>$userValsList['systemName'], 'userRole'=>$userValsList['accessRole'], 'idOfUser'=>$userValsList['id_user']);
 	}
 
@@ -293,7 +293,7 @@ class UserList implements Handler{
 	 * @param String $fldNamedText Field it is looked up in: 'systemName' or 'bearerHash'.
 	 * @return Array|Bool|Null The user's values, null when there is none, or false when the file cannot be read.
 	 */
-	protected function fetchUserArray( String $usrLookupTxt, String $fldNamedText = 'systemName' ): Array|Bool|Null {
+	protected function readUserRecord( String $usrLookupTxt, String $fldNamedText = 'systemName' ): Array|Bool|Null {
 		$userList = in_array($fldNamedText, Array('systemName', 'bearerHash'), true) ? $this->loadUsersArray() : false;
 		if( $userList===false ){
 			return false;
@@ -391,7 +391,7 @@ class UserList implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

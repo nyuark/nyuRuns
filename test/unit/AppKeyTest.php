@@ -1,6 +1,6 @@
 <?php
 
-// Access\AppKey and Checker::verifyAppCalls : the call of an application for one
+// Access\AppKey and Checker::checkApplCalls : the call of an application for one
 // of its users, its key and the user's token signed by the application, the
 // routes of the key, the highest role of its users, the logs.
 
@@ -58,7 +58,7 @@ function appsReqst( Array $headersArr, String $httpMethod='GET' ): nyu\Tools\Req
  * @return Array The status, the message, the user, the role and the application.
  */
 function appsReply( Array $accessConf, Array $headersArr, Array $routeArray, String $httpMethod='GET' ): Array {
-	$axsRslt = (new Checker( $accessConf, appsReqst($headersArr, $httpMethod), new Registry($routeArray) ))->validateAccess();
+	$axsRslt = (new Checker( $accessConf, appsReqst($headersArr, $httpMethod), new Registry($routeArray) ))->checkRqtAccess();
 	return Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('statMssg'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole'), $axsRslt->readValueByKey('appsName'));
 }
 
@@ -85,22 +85,22 @@ $bearsOf = function( JWT $jwtCarrier, String $loggedUser, String $loggedRole ): 
 
 // AppKey alone
 $keyChck = new AppKey( $appKeys );
-checkIdentical('app key: none sent, not the call of an application', $keyChck->verifyAppArray(appsReqst(Array())), null);
-$idntArr = $keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard')) );
+checkIdentical('app key: none sent, not the call of an application', $keyChck->checkApplArray(appsReqst(Array())), null);
+$idntArr = $keyChck->checkApplArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard')) );
 checkIdentical('app key: the user of the token, with the application', Array($idntArr['userName'] ?? null, $idntArr['userRole'] ?? null, $idntArr['appsName'] ?? null), Array('ann', 'standard', 'portal'));
-checkIdentical('app key: a wrong key is refused and counted', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'standard'))), $keyChck->finalErrorText(), $keyChck->hasWrongSecret()), Array(false, 'Invalid app key', true));
-checkIdentical('app key: an empty key is no key', $keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'') + $bearsOf($appTokn, 'ann', 'standard'))), null);
-checkIdentical('app key: the right key without a token, not counted', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal'))), $keyChck->finalErrorText(), $keyChck->hasWrongSecret()), Array(false, 'Missing Bearer Authorization header', false));
-checkIdentical('app key: a token the application did not sign is forged', Array($keyChck->verifyAppArray(appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($ownTokn, 'ann', 'standard'))), $keyChck->finalErrorText(), $keyChck->hasWrongSecret()), Array(false, 'Invalid token', true));
-checkIdentical('app key: a refused call leaves no route', $keyChck->allowsRouteFlg(new Registry($cntView)), false);
-$keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard')) );
+checkIdentical('app key: a wrong key is refused and counted', Array($keyChck->checkApplArray(appsReqst(Array('X-App-Key'=>'key-other') + $bearsOf($appTokn, 'ann', 'standard'))), $keyChck->getLastErrText(), $keyChck->hasWrongSecret()), Array(false, 'Invalid app key', true));
+checkIdentical('app key: an empty key is no key', $keyChck->checkApplArray(appsReqst(Array('X-App-Key'=>'') + $bearsOf($appTokn, 'ann', 'standard'))), null);
+checkIdentical('app key: the right key without a token, not counted', Array($keyChck->checkApplArray(appsReqst(Array('X-App-Key'=>'key-portal'))), $keyChck->getLastErrText(), $keyChck->hasWrongSecret()), Array(false, 'Missing Bearer Authorization header', false));
+checkIdentical('app key: a token the application did not sign is forged', Array($keyChck->checkApplArray(appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($ownTokn, 'ann', 'standard'))), $keyChck->getLastErrText(), $keyChck->hasWrongSecret()), Array(false, 'Invalid token', true));
+checkIdentical('app key: a refused call leaves no route', $keyChck->isRouteGranted(new Registry($cntView)), false);
+$keyChck->checkApplArray( appsReqst(Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard')) );
 checkIdentical('app key: the routes, as openList writes them', Array(
-	$keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>'contacts', 'doAction'=>''))),
-	$keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'members/save'))), $keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>'Members', 'doAction'=>'save')))
+	$keyChck->isRouteGranted(new Registry($cntView)), $keyChck->isRouteGranted(new Registry(Array('appToRun'=>'contacts', 'doAction'=>''))),
+	$keyChck->isRouteGranted(new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'members/save'))), $keyChck->isRouteGranted(new Registry(Array('appToRun'=>'Members', 'doAction'=>'save')))
 ), Array(true, true, true, false));
-$keyChck->verifyAppArray( appsReqst(Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'ann', 'standard')) );
-checkIdentical('app key: an action alone, not its application without one', Array($keyChck->allowsRouteFlg(new Registry($cntView)), $keyChck->allowsRouteFlg(new Registry(Array('appToRun'=>'contacts', 'doAction'=>'')))), Array(true, false));
-checkIdentical('app key: no route before a key is verified', (new AppKey($appKeys))->allowsRouteFlg(new Registry($cntView)), false);
+$keyChck->checkApplArray( appsReqst(Array('X-App-Key'=>'key-mobile') + $bearsOf($appTokn, 'ann', 'standard')) );
+checkIdentical('app key: an action alone, not its application without one', Array($keyChck->isRouteGranted(new Registry($cntView)), $keyChck->isRouteGranted(new Registry(Array('appToRun'=>'contacts', 'doAction'=>'')))), Array(true, false));
+checkIdentical('app key: no route before a key is verified', (new AppKey($appKeys))->isRouteGranted(new Registry($cntView)), false);
 
 // Through the Checker
 checkIdentical('call: granted, the role of the token kept up to roleTops', appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard'), $cntView), Array(200, '', 'ann', 'standard', 'portal'));

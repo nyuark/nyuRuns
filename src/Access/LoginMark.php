@@ -40,7 +40,7 @@ class LoginMark{
 	 *
 	 * @return LoginMark The marks.
 	 */
-	public static function fromLimitBlock(): LoginMark {
+	public static function makeByLimitCfg(): LoginMark {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'TRYLIMIT') : null;
 		return new self( is_array($limitCfg) ? $limitCfg : Array() );
@@ -53,12 +53,12 @@ class LoginMark{
 	 * @param String $userPassHash Hash of the user's password, as the store keeps it: the mark is signed with it, and ends when it changes.
 	 * @return String The mark, or '' when no key of KEYSSIZE characters at least is set, or no hash is given.
 	 */
-	public function createUserMark( String $namedUserTxt, String $userPassHash ): String {
+	public function makeSignedMark( String $namedUserTxt, String $userPassHash ): String {
 		if( strlen($this->markSecret)<self::KEYS_SIZE || $namedUserTxt==='' || $userPassHash==='' ){
 			return '';
 		}
-		$markText = $this->base64UrlNoPad($namedUserTxt).'.'.time().'.'.bin2hex(random_bytes(8));
-		return $markText.'.'.$this->base64UrlNoPad( hash_hmac('sha256', $markText.'.'.$userPassHash, $this->markSecret, true) );
+		$markText = $this->castBase64Text($namedUserTxt).'.'.time().'.'.bin2hex(random_bytes(8));
+		return $markText.'.'.$this->castBase64Text( hash_hmac('sha256', $markText.'.'.$userPassHash, $this->markSecret, true) );
 	}
 
 	/**
@@ -77,8 +77,8 @@ class LoginMark{
 		if( strlen($this->markSecret)<self::KEYS_SIZE || $userPassHash==='' || count($markPart)!==4 || !preg_match('/^\d{1,12}$/D', $markPart[1]) || !preg_match('/^[0-9a-f]{16}$/D', $markPart[2]) ){
 			return '';
 		}
-		$signText = $this->base64UrlNoPad( hash_hmac('sha256', $markPart[0].'.'.$markPart[1].'.'.$markPart[2].'.'.$userPassHash, $this->markSecret, true) );
-		if( !hash_equals($signText, $markPart[3]) || $markPart[0]!==$this->base64UrlNoPad($namedUserTxt) ){
+		$signText = $this->castBase64Text( hash_hmac('sha256', $markPart[0].'.'.$markPart[1].'.'.$markPart[2].'.'.$userPassHash, $this->markSecret, true) );
+		if( !hash_equals($signText, $markPart[3]) || $markPart[0]!==$this->castBase64Text($namedUserTxt) ){
 			return '';
 		}
 		$madeUnix = intval($markPart[1]);
@@ -103,7 +103,7 @@ class LoginMark{
 	 * @param String $usrBinaryTxt The bytes.
 	 * @return String The encoded text.
 	 */
-	protected function base64UrlNoPad( String $usrBinaryTxt ): String {
+	protected function castBase64Text( String $usrBinaryTxt ): String {
 		return rtrim( strtr(base64_encode($usrBinaryTxt), '+/', '-_'), '=' );
 	}
 }

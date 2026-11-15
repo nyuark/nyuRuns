@@ -39,7 +39,7 @@ class Header implements Handler{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
-	function verifyRqstList( Request $givenRequest ): Array|Bool {
+	function checkReqstDict( Request $givenRequest ): Array|Bool {
 		$headVals = $givenRequest->getHeaderValue( $this->headerName );
 		if( $headVals===null || $headVals=='' ){
 			$this->errMessage = 'Missing '.$this->headerName.' header';
@@ -57,9 +57,9 @@ class Header implements Handler{
 			$this->errMessage = 'No credential handler configured';
 			return false;
 		}
-		$idntList = $this->authObject->checkSecretArr( Array('key'=>$headVals) );
+		$idntList = $this->authObject->checkSecretDct( Array('key'=>$headVals) );
 		if( $idntList===false ){
-			$this->errMessage = $this->authObject->finalErrorText();
+			$this->errMessage = $this->authObject->getLastErrText();
 			return false;
 		}
 		return $idntList;
@@ -80,7 +80,7 @@ class Header implements Handler{
 	 *
 	 * @return String The last error message.
 	 */
-	function finalErrorText(): String {
+	function getLastErrText(): String {
 		return $this->errMessage;
 	}
 }

@@ -38,7 +38,7 @@ abstract Class PDO implements Handler {
 	 * @param String $createdQuery The SQL query to execute.
 	 * @param Bool   $isWriteQuery Whether to run the query via PDO::exec() instead of PDO::query().
 	 * @param Array  $valuesToBind Values bound, in order, to the ? placeholders of the query.
-	 * @return Bool True on success, false on failure (error recorded in finalErrorText()).
+	 * @return Bool True on success, false on failure (error recorded in getLastErrText()).
 	 */
 	public function sendBuiltQuery(String $createdQuery, Bool $isWriteQuery=false, Array $valuesToBind=Array()): Bool {
 		try{
@@ -251,7 +251,7 @@ abstract Class PDO implements Handler {
 	 *
 	 * @return String|Bool The error message, or false when the last call succeeded.
 	 */
-	public function finalErrorText(): String|Bool {
+	public function getLastErrText(): String|Bool {
 		return end( $this->errMessage );
 	}
 	

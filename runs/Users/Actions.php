@@ -43,7 +43,7 @@ class Actions extends Actionset {
 			intval($this->inputsRegr->readValueByKey('rowIndex'))
 		);
 		if($userList===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->checkActionLst($userList);
 	}
@@ -55,9 +55,9 @@ class Actions extends Actionset {
 	 */
 	public function view(): Void {
 		$userBase = $this->userBaseDb;
-		$userVals = $userBase->userInfosArray( $this->readTargetUser(false) );
+		$userVals = $userBase->readUserToShow( $this->readTargetUser(false) );
 		if($userVals===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		$this->replyValue = $userVals;
@@ -85,10 +85,10 @@ class Actions extends Actionset {
 		$givenEml = is_string($givenEml) ? trim($givenEml) : '';
 		$givenLng = $this->inputsRegr->readValueByKey('saveLang');
 		$givenLng = is_string($givenLng) ? $givenLng : null;
-		$mailInst = ($givenEml!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCodig = $userBase->enrolUsrString( $givenUsr, is_string($givenRle) ? $givenRle : '', $givenEml, ($mailInst!==null) ? $userBase->mailedForCount() : UserBase::HAND_MINS, $givenLng );
+		$mailInst = ($givenEml!='') ? AccessMail::makeByLoginCfg( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCodig = $userBase->enrolUsrString( $givenUsr, is_string($givenRle) ? $givenRle : '', $givenEml, ($mailInst!==null) ? $userBase->getEmlCodeMins() : UserBase::HAND_MINS, $givenLng );
 		if($newCodig===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 201;
 		if($mailInst!==null){
@@ -108,7 +108,7 @@ class Actions extends Actionset {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(false);
 		if(!$userBase->approveNewUser($givenUsr)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		$this->replyValue = Array('user'=>$givenUsr, 'stat'=>'approved');
@@ -128,11 +128,11 @@ class Actions extends Actionset {
 			$this->needsPassLogin();
 		}
 		$givenEml = $this->inputsRegr->readValueByKey('userMail');
-		if(!$userBase->changeMailFlag($givenUsr, is_string($givenEml) ? $givenEml : null)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if(!$userBase->alterUserEmail($givenUsr, is_string($givenEml) ? $givenEml : null)){
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'mail'=>($userBase->userInfosArray($givenUsr) ?: Array())['contactEml'] ?? null);
+		$this->replyValue = Array('user'=>$givenUsr, 'mail'=>($userBase->readUserToShow($givenUsr) ?: Array())['contactEml'] ?? null);
 	}
 
 	/**
@@ -145,11 +145,11 @@ class Actions extends Actionset {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(false);
 		$givenLng = $this->inputsRegr->readValueByKey('saveLang');
-		if(!$userBase->changeLanguage($givenUsr, is_string($givenLng) ? $givenLng : null)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if(!$userBase->alterMailsLang($givenUsr, is_string($givenLng) ? $givenLng : null)){
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('user'=>$givenUsr, 'lang'=>($userBase->userInfosArray($givenUsr) ?: Array())['userLocale'] ?? null);
+		$this->replyValue = Array('user'=>$givenUsr, 'lang'=>($userBase->readUserToShow($givenUsr) ?: Array())['userLocale'] ?? null);
 	}
 
 	/**
@@ -160,8 +160,8 @@ class Actions extends Actionset {
 	public function lock(): Void {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(true);
-		if(!$userBase->saveStatusFlag($givenUsr, 'disabled')){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if(!$userBase->saveUserStatus($givenUsr, 'disabled')){
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		$this->replyValue = Array('user'=>$givenUsr, 'stat'=>'disabled');
@@ -173,8 +173,8 @@ class Actions extends Actionset {
 	public function unlock(): Void {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(false);
-		if(!$userBase->saveStatusFlag($givenUsr, 'approved')){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if(!$userBase->saveUserStatus($givenUsr, 'approved')){
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		$this->replyValue = Array('user'=>$givenUsr, 'stat'=>'approved');
@@ -188,8 +188,8 @@ class Actions extends Actionset {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(true);
 		$givenRle = $this->inputsRegr->readValueByKey('saveRole');
-		if(!$userBase->changeRoleFlag($givenUsr, is_string($givenRle) ? $givenRle : '')){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if(!$userBase->alterRoleOfUsr($givenUsr, is_string($givenRle) ? $givenRle : '')){
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		$this->replyValue = Array('user'=>$givenUsr, 'role'=>$givenRle);
@@ -202,8 +202,8 @@ class Actions extends Actionset {
 	public function remove(): Void {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(true);
-		if(!$userBase->removeUserFlag($givenUsr)){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+		if(!$userBase->dropUsrAccount($givenUsr)){
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		$this->replyValue = Array('user'=>$givenUsr, 'removed'=>true);
@@ -220,12 +220,12 @@ class Actions extends Actionset {
 	public function reset(): Void {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->readTargetUser(true);
-		$userDict = $userBase->userInfosArray($givenUsr) ?: Array();
+		$userDict = $userBase->readUserToShow($givenUsr) ?: Array();
 		$userMail = strval( $userDict['contactEml'] ?? '' );
-		$mailInst = ($userMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
-		$newCodig = $userBase->resetUsrString( $givenUsr, ($mailInst!==null) ? $userBase->mailedForCount() : UserBase::HAND_MINS );
+		$mailInst = ($userMail!='') ? AccessMail::makeByLoginCfg( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
+		$newCodig = $userBase->clearUserAccnt( $givenUsr, ($mailInst!==null) ? $userBase->getEmlCodeMins() : UserBase::HAND_MINS );
 		if($newCodig===false){
-			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
+			$this->stopThisAction( $userBase->getRefusalCode(), $userBase->getLastErrText() );
 		}
 		$this->statusCode = 200;
 		if($mailInst!==null){
@@ -248,7 +248,7 @@ class Actions extends Actionset {
 	 */
 	protected function openEachAction(): Void {
 		$this->needsActionRle( self::ACTN_ROLE[strtolower($this->actionName)] ?? array_slice(Checker::ROLE_LIST, -1)[0] );
-		$userBase = UserBase::fromLoginBlock();
+		$userBase = UserBase::makeByLoginCfg();
 		if($userBase===null){
 			$this->stopThisAction(500, 'User management unavailable');
 		}

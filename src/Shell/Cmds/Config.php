@@ -200,7 +200,7 @@ class Config extends Command{
 				}
 				$newValue = $this->parseTypedText($givenTxt);
 				// A check or a carrier that does not exist would refuse every request
-				if( $trgtName=='accsConf' && ( ($keyTitle=='authWith' && Checker::authClssString(strval($givenTxt))===null) || ($keyTitle=='carrWith' && Checker::sessnClassText(strval($givenTxt))===null) ) ){
+				if( $trgtName=='accsConf' && ( ($keyTitle=='authWith' && Checker::findCheckClass(strval($givenTxt))===null) || ($keyTitle=='carrWith' && Checker::findCarrierCls(strval($givenTxt))===null) ) ){
 					$this->terminateShell('Nothing was changed: '.$givenTxt.' is not a known '.( $keyTitle=='authWith' ? 'credential check' : 'carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
@@ -403,7 +403,7 @@ class Config extends Command{
 			if( $kindName=='htpasswd' ){
 				$this->createHtpasswd( $this->needsShellWord('the user of the htpasswd line') );
 			}else{
-				$this->generateSecret($kindName);
+				$this->makeSecretText($kindName);
 			}
 		}catch( ShellStop $e ){
 			throw $e;
@@ -430,7 +430,7 @@ class Config extends Command{
 	 * @throws ShellStop When no block holds such a secret, or replacing it is not confirmed.
 	 * @throws \RuntimeException When a file cannot be read or written.
 	 */
-	public function generateSecret( String $secrTypeText, Bool $keepExisting=false ): Bool {
+	public function makeSecretText( String $secrTypeText, Bool $keepExisting=false ): Bool {
 		$wrtrInst = $this->generateWriter();
 		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
 		$treeInst = $wrtrInst->importJsonsObj($filePath);
@@ -718,7 +718,7 @@ class Config extends Command{
 		if( $checkObj->openAccessRout() ){
 			return 'open';
 		}
-		return $checkObj->routRoleString() ?? 'logged';
+		return $checkObj->getRoleOfRoute() ?? 'logged';
 	}
 
 	/**

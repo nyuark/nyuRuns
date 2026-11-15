@@ -46,8 +46,8 @@ function makePairs( String $namePrefix ): Array {
  * @return Mixed The user of the token, or false with the message and whether it counts as forged.
  */
 function readsTokn( JWT $jwtCarrier, String $tokenValue ): Mixed {
-	$idntArr = $jwtCarrier->verifyRqstList( mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)) );
-	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $jwtCarrier->finalErrorText(), $jwtCarrier->hasWrongSecret());
+	$idntArr = $jwtCarrier->checkReqstDict( mockRequestObj(Array('Authorization'=>'Bearer '.$tokenValue)) );
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $jwtCarrier->getLastErrText(), $jwtCarrier->hasWrongSecret());
 }
 
 /**
@@ -123,7 +123,7 @@ checkIdentical('replaced keys: another key naming the previous kid is forged', r
 checkIdentical('replaced keys: a token without a kid is checked with the current key', readsTokn($rotJwt, JwtCodec::encode($tknBase + Array('iss'=>'https://auth.example.org', 'aud'=>'api.example.org'), strval(file_get_contents($newPriv)), 'RS256')), 'anna');
 
 // The key set
-$keysSet = $rotJwt->publicSetArray();
+$keysSet = $rotJwt->getJwksOfBlock();
 $keyList = $keysSet['keys'] ?? Array();
 checkIdentical('key set: the current key, then the previous one, named as the tokens name them', array_column($keyList, 'kid'), Array(partOfTkn($newTokn, 0)['kid'] ?? '', partOfTkn($oldTokn, 0)['kid'] ?? ''));
 checkIdentical('key set: the members of a key', array_keys($keyList[0] ?? Array()), Array('kty', 'use', 'alg', 'kid', 'n', 'e'));
@@ -132,11 +132,11 @@ $jwkKeys = runCatchThrown(function() use ( $keysSet ){ return Firebase\JWT\JWK::
 checkIdentical('key set: another project checks the tokens with it alone', is_array($jwkKeys) ? (array)JwtCodec::decode($newTokn, $jwkKeys) : $jwkKeys, (array)JwtCodec::decode($newTokn, new Firebase\JWT\Key(strval(file_get_contents($newPubl)), 'RS256')));
 checkIdentical('key set: the previous key checks the tokens it signed', is_array($jwkKeys) ? (JwtCodec::decode($oldTokn, $jwkKeys)->userName ?? null) : $jwkKeys, 'anna');
 checkIdentical('key set: no private part', preg_match('/"(d|p|q|dp|dq|qi)"/', strval(json_encode($keysSet))), 0);
-checkIdentical('key set: a previous key that is the current one is listed once', count((new JWT(Array('prevFile'=>$pubPath) + $bndConf))->publicSetArray()['keys']), 1);
-checkIdentical('key set: nothing with HS256', Array((new JWT(Array('hmacSecr'=>$hsSecrt)))->publicSetArray(), $hsBound->publicSetArray()), Array(Array('keys'=>Array()), Array('keys'=>Array())));
-checkIdentical('key set: nothing from a block that only checks tokens', (new JWT(Array('signAlgo'=>'RS256', 'publFile'=>$pubPath)))->publicSetArray(), Array('keys'=>Array()));
+checkIdentical('key set: a previous key that is the current one is listed once', count((new JWT(Array('prevFile'=>$pubPath) + $bndConf))->getJwksOfBlock()['keys']), 1);
+checkIdentical('key set: nothing with HS256', Array((new JWT(Array('hmacSecr'=>$hsSecrt)))->getJwksOfBlock(), $hsBound->getJwksOfBlock()), Array(Array('keys'=>Array()), Array('keys'=>Array())));
+checkIdentical('key set: nothing from a block that only checks tokens', (new JWT(Array('signAlgo'=>'RS256', 'publFile'=>$pubPath)))->getJwksOfBlock(), Array('keys'=>Array()));
 file_put_contents(inTemporaryDir('broken.pub'), 'not a key');
-checkIdentical('key set: a previous key that is not one is left out, and checks nothing', Array(count((new JWT(Array('prevFile'=>inTemporaryDir('broken.pub')) + $rotConf))->publicSetArray()['keys']), readsTokn(new JWT(Array('prevFile'=>inTemporaryDir('broken.pub')) + $rotConf), $newTokn)), Array(1, 'carl'));
+checkIdentical('key set: a previous key that is not one is left out, and checks nothing', Array(count((new JWT(Array('prevFile'=>inTemporaryDir('broken.pub')) + $rotConf))->getJwksOfBlock()['keys']), readsTokn(new JWT(Array('prevFile'=>inTemporaryDir('broken.pub')) + $rotConf), $newTokn)), Array(1, 'carl'));
 
 // auth/keyset : the set of the block of the login, JSON, kept five minutes; a 404 when there is none
 /**
@@ -179,8 +179,8 @@ $appKeys = Array( 'headName'=>'X-App-Key', 'appsList'=>Array(
  */
 function callsApp( Array $keysConfig, String $appKeyText, String $tokenValue ): Mixed {
 	$keyChck = new AppKey( $keysConfig );
-	$idntArr = $keyChck->verifyAppArray( mockRequestObj(Array('X-App-Key'=>$appKeyText, 'Authorization'=>'Bearer '.$tokenValue)) );
-	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $keyChck->finalErrorText(), $keyChck->hasWrongSecret());
+	$idntArr = $keyChck->checkApplArray( mockRequestObj(Array('X-App-Key'=>$appKeyText, 'Authorization'=>'Bearer '.$tokenValue)) );
+	return is_array($idntArr) ? ($idntArr['userName'] ?? null) : Array(false, $keyChck->getLastErrText(), $keyChck->hasWrongSecret());
 }
 $bareTkn = (new JWT( Array('signAlgo'=>'RS256', 'privFile'=>$othrPrv) ))->issueTokenText( Array('userName'=>'ann') );
 checkIdentical('app call: without audience, neither is checked', callsApp($appKeys, 'key-portal', $bareTkn), 'ann');
