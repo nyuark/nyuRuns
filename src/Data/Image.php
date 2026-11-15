@@ -356,33 +356,33 @@ class Image {
 	/**
 	 * Makes a picture of a size from a part of this one.
 	 *
-	 * @param Int $widthAskedNb Width of the picture to make.
+	 * @param Int $widthAskNumb Width of the picture to make.
 	 * @param Int $heightWanted Height of the picture to make.
 	 * @param Int $sourceLftNum Left of the part taken from this one.
-	 * @param Int $sourceTopsNb Top of that part.
-	 * @param Int $sourceWideNb Width of that part.
-	 * @param Int $sourceTallNb Height of that part.
+	 * @param Int $sourceTopNum Top of that part.
+	 * @param Int $sourceWidNum Width of that part.
+	 * @param Int $sourceHeiNum Height of that part.
 	 * @return Image The picture made.
 	 *
 	 * @throws \RuntimeException When a size is not positive, or the picture to make holds more pixels than accepted.
 	 */
-	protected function makesFromImage(Int $widthAskedNb, Int $heightWanted, Int $sourceLftNum, Int $sourceTopsNb, Int $sourceWideNb, Int $sourceTallNb): Image {
-		if( $widthAskedNb<1 || $heightWanted<1 ){
+	protected function makesFromImage(Int $widthAskNumb, Int $heightWanted, Int $sourceLftNum, Int $sourceTopNum, Int $sourceWidNum, Int $sourceHeiNum): Image {
+		if( $widthAskNumb<1 || $heightWanted<1 ){
 			throw new \RuntimeException('A picture is at least one pixel wide and one pixel high');
 		}
-		if( $widthAskedNb*$heightWanted>$this->pixelLimit ){
+		if( $widthAskNumb*$heightWanted>$this->pixelLimit ){
 			throw new \RuntimeException('Picture larger than the '.$this->pixelLimit.' pixels allowed');
 		}
 		$fromImge = $this->getGdOfPicture();
-		$madeImge = imagecreatetruecolor($widthAskedNb, $heightWanted);
+		$madeImge = imagecreatetruecolor($widthAskNumb, $heightWanted);
 		// What is see-through stays so
 		imagealphablending($madeImge, false);
 		imagesavealpha($madeImge, true);
 		imagefill($madeImge, 0, 0, imagecolorallocatealpha($madeImge, 0, 0, 0, 127));
-		imagecopyresampled($madeImge, $fromImge, 0, 0, $sourceLftNum, $sourceTopsNb, $widthAskedNb, $heightWanted, max(1, $sourceWideNb), max(1, $sourceTallNb));
+		imagecopyresampled($madeImge, $fromImge, 0, 0, $sourceLftNum, $sourceTopNum, $widthAskNumb, $heightWanted, max(1, $sourceWidNum), max(1, $sourceHeiNum));
 		// What was known of this picture is known of the one made from it
 		// A picture made from a drawing is made of pixels
-		return new Image('', array_merge($this->detailList, Array('kinds'=>($this->detailList['kinds']=='svg') ? 'png' : $this->detailList['kinds'], 'width'=>$widthAskedNb, 'heght'=>$heightWanted, 'bytes'=>0)), $madeImge, $this->pixelLimit);
+		return new Image('', array_merge($this->detailList, Array('kinds'=>($this->detailList['kinds']=='svg') ? 'png' : $this->detailList['kinds'], 'width'=>$widthAskNumb, 'heght'=>$heightWanted, 'bytes'=>0)), $madeImge, $this->pixelLimit);
 	}
 
 	/**
@@ -413,20 +413,20 @@ class Image {
 	 * brought to cover them, and what goes over is cut off evenly on
 	 * both sides.
 	 *
-	 * @param Int $widthAskedNb Width of the picture to make.
+	 * @param Int $widthAskNumb Width of the picture to make.
 	 * @param Int $heightWanted Height of the picture to make.
 	 * @return Image The picture made.
 	 *
 	 * @throws \RuntimeException When a size is not positive, the picture to make is too large, or gd is missing.
 	 */
-	public function cropCoverImage(Int $widthAskedNb, Int $heightWanted): Image {
-		if( $widthAskedNb<1 || $heightWanted<1 ){
+	public function cropCoverImage(Int $widthAskNumb, Int $heightWanted): Image {
+		if( $widthAskNumb<1 || $heightWanted<1 ){
 			throw new \RuntimeException('A picture is at least one pixel wide and one pixel high');
 		}
-		$scalFact = max($widthAskedNb/$this->detailList['width'], $heightWanted/$this->detailList['heght']);
-		$partWide = min($this->detailList['width'], max(1, intval(round($widthAskedNb/$scalFact))));
+		$scalFact = max($widthAskNumb/$this->detailList['width'], $heightWanted/$this->detailList['heght']);
+		$partWide = min($this->detailList['width'], max(1, intval(round($widthAskNumb/$scalFact))));
 		$partTlls = min($this->detailList['heght'], max(1, intval(round($heightWanted/$scalFact))));
-		return $this->makesFromImage($widthAskedNb, $heightWanted, intdiv($this->detailList['width']-$partWide, 2), intdiv($this->detailList['heght']-$partTlls, 2), $partWide, $partTlls);
+		return $this->makesFromImage($widthAskNumb, $heightWanted, intdiv($this->detailList['width']-$partWide, 2), intdiv($this->detailList['heght']-$partTlls, 2), $partWide, $partTlls);
 	}
 
 	/**
@@ -479,14 +479,14 @@ class Image {
 	 * Gives the picture as the bytes of a kind. It is written anew:
 	 * nothing the camera recorded is kept.
 	 *
-	 * @param String $pictureKinds Kind to write: png, jpg, gif, webp, bmp or avif, or svg for a drawing; the kind of the picture when left out.
+	 * @param String $pictureTypes Kind to write: png, jpg, gif, webp, bmp or avif, or svg for a drawing; the kind of the picture when left out.
 	 * @param Int    $qualityLevel For the kinds that lose some of the picture to weigh less, how much of it is kept, from 1 to 100.
 	 * @return String The bytes.
 	 *
 	 * @throws \RuntimeException When the kind is not one this server writes, or gd is missing.
 	 */
-	public function grantBytesText(String $pictureKinds='', Int $qualityLevel=85): String {
-		$kindClef = strtolower(($pictureKinds==='') ? $this->detailList['kinds'] : $pictureKinds);
+	public function grantBytesText(String $pictureTypes='', Int $qualityLevel=85): String {
+		$kindClef = strtolower(($pictureTypes==='') ? $this->detailList['kinds'] : $pictureTypes);
 		$kindClef = ($kindClef=='jpeg') ? 'jpg' : $kindClef;
 		if( $kindClef=='svg' ){
 			// A drawing is given back as the drawing it is, cleaned; pixels cannot be made a drawing again
@@ -522,14 +522,14 @@ class Image {
 	 * Writes the picture to a file.
 	 *
 	 * @param String $saveFilePath Path of the file to write.
-	 * @param String $pictureKinds Kind to write; the kind of the picture when left out.
+	 * @param String $pictureTypes Kind to write; the kind of the picture when left out.
 	 * @param Int    $qualityLevel How much of the picture is kept, from 1 to 100, for the kinds that lose some.
 	 * @return String The path of the file.
 	 *
 	 * @throws \RuntimeException When the file cannot be written, the kind is not one this server writes, or gd is missing.
 	 */
-	public function writeLocalFile(String $saveFilePath, String $pictureKinds='', Int $qualityLevel=85): String {
-		if( @file_put_contents($saveFilePath, $this->grantBytesText($pictureKinds, $qualityLevel))===false ){
+	public function writeLocalFile(String $saveFilePath, String $pictureTypes='', Int $qualityLevel=85): String {
+		if( @file_put_contents($saveFilePath, $this->grantBytesText($pictureTypes, $qualityLevel))===false ){
 			throw new \RuntimeException('File cannot be written: '.basename($saveFilePath));
 		}
 		return $saveFilePath;

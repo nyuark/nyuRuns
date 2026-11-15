@@ -166,24 +166,24 @@ class Xmlx extends Base {
 	 * Gives what starts a line of an element, when the document is
 	 * written over several lines.
 	 *
-	 * @param Int $depthLevelNb How far in the element stands.
+	 * @param Int $depthLvlNumb How far in the element stands.
 	 * @return String The end of the line before it and what sets it in; '' when the document is written on one line.
 	 */
-	protected function giveLineIndent(Int $depthLevelNb): String {
-		return $this->multiLines ? "\n".str_repeat('  ', $depthLevelNb) : '';
+	protected function giveLineIndent(Int $depthLvlNumb): String {
+		return $this->multiLines ? "\n".str_repeat('  ', $depthLvlNumb) : '';
 	}
 
 	/**
 	 * Writes an element of the tree the parser reads, with what it holds.
 	 *
 	 * @param Array $elementArray The element: 'tagnm', 'attrs', 'value', 'nodes'.
-	 * @param Int   $depthLevelNb How far in it stands.
+	 * @param Int   $depthLvlNumb How far in it stands.
 	 * @return String The element.
 	 *
 	 * @throws WriteError When a name is not one XML takes, or the tree goes deeper than accepted.
 	 */
-	protected function treesPieceText(Array $elementArray, Int $depthLevelNb): String {
-		if( $depthLevelNb>self::DEEP_MAXI ){
+	protected function treesPieceText(Array $elementArray, Int $depthLvlNumb): String {
+		if( $depthLvlNumb>self::DEEP_MAXI ){
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
 		$tagTitle = $this->checkNameChars(strval($elementArray['tagnm'] ?? ''));
@@ -199,9 +199,9 @@ class Xmlx extends Base {
 		$this->multiLines = ($wasMulti && !$hasMixed);
 		$holdText = '';
 		foreach($childLst as $chlArr){
-			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLevelNb+1).$this->treesPieceText($chlArr, $depthLevelNb+1);
+			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLvlNumb+1).$this->treesPieceText($chlArr, $depthLvlNumb+1);
 		}
-		$holdText .= $this->giveLineIndent($depthLevelNb);
+		$holdText .= $this->giveLineIndent($depthLvlNumb);
 		$this->multiLines = $wasMulti;
 		return $openText.'>'.$holdText.'</'.$tagTitle.'>';
 	}
@@ -214,13 +214,13 @@ class Xmlx extends Base {
 	 *
 	 * @param String $elementLabel The name of the element; one XML does not take is written as an element named 'item', telling the name under 'key'.
 	 * @param mixed  $valueAsGiven The value.
-	 * @param Int    $depthLevelNb How far in the element stands.
+	 * @param Int    $depthLvlNumb How far in the element stands.
 	 * @return String The element.
 	 *
 	 * @throws WriteError When the name of an attribute is not one XML takes, or the values go deeper than accepted.
 	 */
-	protected function valuePieceText(String $elementLabel, Mixed $valueAsGiven, Int $depthLevelNb): String {
-		if( $depthLevelNb>self::DEEP_MAXI ){
+	protected function valuePieceText(String $elementLabel, Mixed $valueAsGiven, Int $depthLvlNumb): String {
+		if( $depthLvlNumb>self::DEEP_MAXI ){
 			throw new WriteError('Tree nested deeper than the '.self::DEEP_MAXI.' levels allowed');
 		}
 		$tagTitle = $elementLabel;
@@ -246,21 +246,21 @@ class Xmlx extends Base {
 				$textText .= $this->escapeXmlValue($this->writeScalarTxt($subVal));
 			}elseif( is_int($subKey) ){
 				// A value of a list without a name
-				$holdText .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText(self::ITEM_NAME, $subVal, $depthLevelNb+1);
+				$holdText .= $this->giveLineIndent($depthLvlNumb+1).$this->valuePieceText(self::ITEM_NAME, $subVal, $depthLvlNumb+1);
 			}elseif( is_array($subVal) && !empty($subVal) && $this->validateALstOf($subVal) ){
 				// A list under a name: the element of that name, as many times
 				foreach($subVal as $oneVal){
-					$holdText .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyStrng, $oneVal, $depthLevelNb+1);
+					$holdText .= $this->giveLineIndent($depthLvlNumb+1).$this->valuePieceText($keyStrng, $oneVal, $depthLvlNumb+1);
 				}
 			}else{
-				$holdText .= $this->giveLineIndent($depthLevelNb+1).$this->valuePieceText($keyStrng, $subVal, $depthLevelNb+1);
+				$holdText .= $this->giveLineIndent($depthLvlNumb+1).$this->valuePieceText($keyStrng, $subVal, $depthLvlNumb+1);
 			}
 		}
 		$openText = '<'.$tagTitle.$this->attributesText($attrDict);
 		if( $holdText==='' ){
 			return ($textText==='') ? $openText.'/>' : $openText.'>'.$textText.'</'.$tagTitle.'>';
 		}
-		return $openText.'>'.$textText.$holdText.$this->giveLineIndent($depthLevelNb).'</'.$tagTitle.'>';
+		return $openText.'>'.$textText.$holdText.$this->giveLineIndent($depthLvlNumb).'</'.$tagTitle.'>';
 	}
 
 }

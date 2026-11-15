@@ -116,17 +116,17 @@ class Fluxd {
 	/**
 	 * Reads the next piece of the source.
 	 *
-	 * @param Int $chunkBytesNb Greatest number of bytes to read.
+	 * @param Int $chunkBytNumb Greatest number of bytes to read.
 	 * @return String|Bool The piece, or false at the end of the source.
 	 *
 	 * @throws \RuntimeException When the size is not positive, or the source is closed.
 	 */
-	public function getChunkString( Int $chunkBytesNb=8192 ): String|Bool {
+	public function getChunkString( Int $chunkBytNumb=8192 ): String|Bool {
 		$inptHndl = $this->readOpenStream();
-		if( $chunkBytesNb<1 ){
+		if( $chunkBytNumb<1 ){
 			throw new \RuntimeException('A piece holds at least one byte');
 		}
-		$chunkTxt = fread($inptHndl, $chunkBytesNb);
+		$chunkTxt = fread($inptHndl, $chunkBytNumb);
 		return ($chunkTxt===false || $chunkTxt==='') ? false : $chunkTxt;
 	}
 
@@ -146,19 +146,19 @@ class Fluxd {
 	 * Reads the bytes between two positions, both included, the first
 	 * byte being at position 0. The reading goes on after the range.
 	 *
-	 * @param Int $rangeStartNb Position of the first byte.
-	 * @param Int $rangeUntilNb Position of the last byte.
+	 * @param Int $rngStartNumb Position of the first byte.
+	 * @param Int $rangeTillNum Position of the last byte.
 	 * @return String The bytes, fewer than asked when the source ends before.
 	 *
 	 * @throws \RuntimeException When the range is not valid, or the source is closed.
 	 */
-	public function getRangeString( Int $rangeStartNb, Int $rangeUntilNb ): String {
+	public function getRangeString( Int $rngStartNumb, Int $rangeTillNum ): String {
 		$inptHndl = $this->readOpenStream();
-		if( $rangeStartNb<0 || $rangeUntilNb<$rangeStartNb ){
-			throw new \RuntimeException('Invalid byte range: '.$rangeStartNb.'-'.$rangeUntilNb);
+		if( $rngStartNumb<0 || $rangeTillNum<$rngStartNumb ){
+			throw new \RuntimeException('Invalid byte range: '.$rngStartNumb.'-'.$rangeTillNum);
 		}
-		fseek($inptHndl, $rangeStartNb);
-		$leftSize = $rangeUntilNb-$rangeStartNb+1;
+		fseek($inptHndl, $rngStartNumb);
+		$leftSize = $rangeTillNum-$rngStartNumb+1;
 		$rangeTxt = '';
 		while( $leftSize>0 && !feof($inptHndl) ){
 			$chunkTxt = fread($inptHndl, min(8192, $leftSize));

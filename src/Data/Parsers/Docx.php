@@ -357,14 +357,14 @@ class Docx extends Pack {
 	 * have several: each one that differs is given once.
 	 *
 	 * @param Array  $relationList The relations of the document.
-	 * @param String $suffixOfKind What ends the kind of the relations to read: '/header' or '/footer'.
+	 * @param String $suffixOfType What ends the kind of the relations to read: '/header' or '/footer'.
 	 * @return Array Their blocks.
 	 */
-	protected function pagesReadArray(Array $relationList, String $suffixOfKind): Array {
+	protected function pagesReadArray(Array $relationList, String $suffixOfType): Array {
 		$blockLst = Array();
 		$seenList = Array();
 		foreach($relationList as $relSet){
-			if( substr($relSet['types'], -strlen($suffixOfKind))!==$suffixOfKind ){
+			if( substr($relSet['types'], -strlen($suffixOfType))!==$suffixOfType ){
 				continue;
 			}
 			$partBloc = $this->fragmentBlocks($relSet['paths']);
@@ -539,12 +539,12 @@ class Docx extends Pack {
 	/**
 	 * Tells what a field stands for, from what it asks for.
 	 *
-	 * @param String $fldInstrText What the field asks for, as Word writes it.
+	 * @param String $fieldCodeTxt What the field asks for, as Word writes it.
 	 * @return String 'pageNumb', 'pageTotl', 'dateTime', 'props:' followed by the name of a property, or '' for any other field.
 	 */
-	protected function parseFieldCode(String $fldInstrText): String {
+	protected function parseFieldCode(String $fieldCodeTxt): String {
 		$codeList = Array();
-		if( !preg_match('/^\s*([A-Za-z]+)(?:\s+(?:"([^"]*)"|([^\s\\\\]+)))?/', $fldInstrText, $codeList) ){
+		if( !preg_match('/^\s*([A-Za-z]+)(?:\s+(?:"([^"]*)"|([^\s\\\\]+)))?/', $fieldCodeTxt, $codeList) ){
 			return '';
 		}
 		$fieldNme = strtoupper($codeList[1]);
@@ -703,20 +703,20 @@ class Docx extends Pack {
 	 * before it, and a change of list at one level starts a new one.
 	 *
 	 * @param Array $paragraphSet The paragraphs, as paragraphParts() gives them.
-	 * @param Int   $itemOffsetNb The paragraph to start from; receives the one following the lists built.
+	 * @param Int   $itmOffsetNum The paragraph to start from; receives the one following the lists built.
 	 * @param Int   $levelValNumb The level of the lists to build.
 	 * @return Array The lists, as blocks.
 	 */
-	protected function buildListBlock(Array $paragraphSet, Int &$itemOffsetNb, Int $levelValNumb): Array {
+	protected function buildListBlock(Array $paragraphSet, Int &$itmOffsetNum, Int $levelValNumb): Array {
 		$listList = Array();
 		$itemList = Array();
 		$nowCount = '';
 		$nowOrder = false;
-		while( isset($paragraphSet[$itemOffsetNb]) && $paragraphSet[$itemOffsetNb]['ilevl']>=$levelValNumb ){
-			$itemDict = $paragraphSet[$itemOffsetNb];
+		while( isset($paragraphSet[$itmOffsetNum]) && $paragraphSet[$itmOffsetNum]['ilevl']>=$levelValNumb ){
+			$itemDict = $paragraphSet[$itmOffsetNum];
 			if( $itemDict['ilevl']>$levelValNumb ){
 				// Further in: the lists of that level go into the entry before them, an empty one when there is none
-				$deepList = $this->buildListBlock($paragraphSet, $itemOffsetNb, $itemDict['ilevl']);
+				$deepList = $this->buildListBlock($paragraphSet, $itmOffsetNum, $itemDict['ilevl']);
 				$lastEntr = empty($itemList) ? Shape::makeBlockArray('listItem') : array_pop($itemList);
 				$itemList[] = Shape::makeBlockArray('listItem', $lastEntr['spans'], array_merge($lastEntr['items'], $deepList), $lastEntr['attrs']);
 				continue;
@@ -730,7 +730,7 @@ class Docx extends Pack {
 				$nowOrder = $itemDict['order'];
 			}
 			$itemList[] = Shape::makeBlockArray('listItem', $itemDict['spans'], $itemDict['holds'], $itemDict['attrs']);
-			$itemOffsetNb++;
+			$itmOffsetNum++;
 		}
 		if( !empty($itemList) ){
 			$listList[] = Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>$nowOrder));

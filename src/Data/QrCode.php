@@ -105,16 +105,16 @@ class QrCode {
 	 * Gives the code as a drawing: dark modules on a white ground.
 	 *
 	 * @param Int $modulePixels The side of a module, in pixels (1 at least).
-	 * @param Int $quietZonesNb The light margin around the code, in modules (the standard asks for 4).
+	 * @param Int $quietZoneSze The light margin around the code, in modules (the standard asks for 4).
 	 * @return String A standalone SVG document.
 	 *
 	 * @throws QrCodeError When a size is out of range.
 	 */
-	public function drawAsSvgImage( Int $modulePixels=4, Int $quietZonesNb=4 ): String {
-		if( $modulePixels<1 || $quietZonesNb<0 ){
+	public function drawAsSvgImage( Int $modulePixels=4, Int $quietZoneSze=4 ): String {
+		if( $modulePixels<1 || $quietZoneSze<0 ){
 			throw new QrCodeError('Invalid size of a module or of the quiet zone');
 		}
-		$sideSize = $this->sideLength + 2*$quietZonesNb;
+		$sideSize = $this->sideLength + 2*$quietZoneSze;
 		$pathText = '';
 		foreach( $this->moduleGrid as $rowNum => $rowMap ){
 			// A run of dark modules on a row is one rectangle
@@ -128,7 +128,7 @@ class QrCode {
 				while( $clmnNumb+$runBytes<$this->sideLength && $rowMap[$clmnNumb+$runBytes] ){
 					$runBytes++;
 				}
-				$pathText .= 'M'.($clmnNumb+$quietZonesNb).','.($rowNum+$quietZonesNb).'h'.$runBytes.'v1h-'.$runBytes.'z';
+				$pathText .= 'M'.($clmnNumb+$quietZoneSze).','.($rowNum+$quietZoneSze).'h'.$runBytes.'v1h-'.$runBytes.'z';
 				$clmnNumb += $runBytes;
 			}
 		}
@@ -144,20 +144,20 @@ class QrCode {
 	 * (█ ▀ ▄): on a terminal of light text on a dark ground, the code then
 	 * reads as it is printed.
 	 *
-	 * @param Int $quietZonesNb The light margin around the code, in modules.
+	 * @param Int $quietZoneSze The light margin around the code, in modules.
 	 * @return String The lines, each ending with a line feed.
 	 *
 	 * @throws QrCodeError When the margin is negative.
 	 */
-	public function drawAsTerminal( Int $quietZonesNb=2 ): String {
-		if( $quietZonesNb<0 ){
+	public function drawAsTerminal( Int $quietZoneSze=2 ): String {
+		if( $quietZoneSze<0 ){
 			throw new QrCodeError('Invalid size of the quiet zone');
 		}
-		$sideSize = $this->sideLength + 2*$quietZonesNb;
+		$sideSize = $this->sideLength + 2*$quietZoneSze;
 		// A module of the margin, or beyond the last row, is light
-		$isHollow = function( Int $rowIdxNumber, Int $columnIdxNum ) use ( $quietZonesNb ): Bool {
-			$rowIndex = $rowIdxNumber - $quietZonesNb;
-			$clmnIndt = $columnIdxNum - $quietZonesNb;
+		$isHollow = function( Int $rowIdxNumber, Int $columnIdxNum ) use ( $quietZoneSze ): Bool {
+			$rowIndex = $rowIdxNumber - $quietZoneSze;
+			$clmnIndt = $columnIdxNum - $quietZoneSze;
 			return !isset($this->moduleGrid[$rowIndex][$clmnIndt]) || !$this->moduleGrid[$rowIndex][$clmnIndt];
 		};
 		$drawText = '';
@@ -175,20 +175,20 @@ class QrCode {
 	/**
 	 * Gives the smallest version holding the text at the level of the code.
 	 *
-	 * @param Int $byteLengthNb The length of the text, in bytes.
+	 * @param Int $bytLengthNum The length of the text, in bytes.
 	 * @return Int The version.
 	 *
 	 * @throws QrCodeError When even the largest version made cannot hold it.
 	 */
-	protected function pickVersionNum( Int $byteLengthNb ): Int {
+	protected function pickVersionNum( Int $bytLengthNum ): Int {
 		for( $verInc=1; $verInc<=self::LAST_VERS; $verInc++ ){
 			$blockDef = self::BLCK_LIST[$verInc][$this->errorLevel];
 			$bitsCapa = 8*($blockDef[1]*$blockDef[2] + $blockDef[3]*$blockDef[4]);
-			if( 4 + ($verInc<10 ? 8 : 16) + 8*$byteLengthNb<=$bitsCapa ){
+			if( 4 + ($verInc<10 ? 8 : 16) + 8*$bytLengthNum<=$bitsCapa ){
 				return $verInc;
 			}
 		}
-		throw new QrCodeError('Text too long for a QR code of version '.self::LAST_VERS.' at level '.$this->errorLevel.': '.$byteLengthNb.' bytes');
+		throw new QrCodeError('Text too long for a QR code of version '.self::LAST_VERS.' at level '.$this->errorLevel.': '.$bytLengthNum.' bytes');
 	}
 
 	/**
@@ -360,13 +360,13 @@ class QrCode {
 	 * Draws a finder pattern and its light separator.
 	 *
 	 * @param Int $centreColumn The column of its centre.
-	 * @param Int $centreRowNNb The row of its centre.
+	 * @param Int $centreRowIdx The row of its centre.
 	 */
-	protected function drawCodeFinder( Int $centreColumn, Int $centreRowNNb ): Void {
+	protected function drawCodeFinder( Int $centreColumn, Int $centreRowIdx ): Void {
 		for( $rdtInc=-4; $rdtInc<=4; $rdtInc++ ){
 			for( $cdtInc=-4; $cdtInc<=4; $cdtInc++ ){
 				$clmnIndt = $centreColumn + $cdtInc;
-				$rowIndex = $centreRowNNb + $rdtInc;
+				$rowIndex = $centreRowIdx + $rdtInc;
 				if( $clmnIndt>=0 && $clmnIndt<$this->sideLength && $rowIndex>=0 && $rowIndex<$this->sideLength ){
 					$distNumb = max(abs($cdtInc), abs($rdtInc));
 					$this->setModuleColor($clmnIndt, $rowIndex, $distNumb!=2 && $distNumb!=4);
@@ -379,12 +379,12 @@ class QrCode {
 	 * Draws an alignment pattern.
 	 *
 	 * @param Int $centreColumn The column of its centre.
-	 * @param Int $centreRowNNb The row of its centre.
+	 * @param Int $centreRowIdx The row of its centre.
 	 */
-	protected function drawAlignShape( Int $centreColumn, Int $centreRowNNb ): Void {
+	protected function drawAlignShape( Int $centreColumn, Int $centreRowIdx ): Void {
 		for( $rdtInc=-2; $rdtInc<=2; $rdtInc++ ){
 			for( $cdtInc=-2; $cdtInc<=2; $cdtInc++ ){
-				$this->setModuleColor($centreColumn+$cdtInc, $centreRowNNb+$rdtInc, max(abs($cdtInc), abs($rdtInc))!=1);
+				$this->setModuleColor($centreColumn+$cdtInc, $centreRowIdx+$rdtInc, max(abs($cdtInc), abs($rdtInc))!=1);
 			}
 		}
 	}

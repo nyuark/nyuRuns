@@ -26,13 +26,13 @@ class Message {
 	 * @param String  $nameOfSender Name shown for the sender, empty for none.
 	 * @param Array   $recipientLst Addresses of the recipients, one at least.
 	 * @param String  $emailSubject Subject of the mail.
-	 * @param String  $mssgBodyText Plain text of the mail.
-	 * @param ?String $htmlMssgText HTML version of the mail, null for a plain text mail.
+	 * @param String  $plainMailTxt Plain text of the mail.
+	 * @param ?String $htmlMailText HTML version of the mail, null for a plain text mail.
 	 * @param Array   $attachedList Paths of the files attached.
 	 *
 	 * @throws MailFailure When an address is not valid, there is no recipient, the subject or the name holds a line break, or an attached file cannot be read.
 	 */
-	public function __construct( String $fromEmailAdr, String $nameOfSender, Array $recipientLst, String $emailSubject, String $mssgBodyText, ?String $htmlMssgText=null, Array $attachedList=Array() ){
+	public function __construct( String $fromEmailAdr, String $nameOfSender, Array $recipientLst, String $emailSubject, String $plainMailTxt, ?String $htmlMailText=null, Array $attachedList=Array() ){
 		$this->senderAddr = self::checkEmailAddr($fromEmailAdr);
 		$this->senderName = self::testLineString($nameOfSender, 'sender name');
 		$this->recipients = Array();
@@ -43,8 +43,8 @@ class Message {
 			throw new MailFailure('A mail needs a recipient');
 		}
 		$this->subjectTxt = self::testLineString($emailSubject, 'subject');
-		$this->bodyAsText = $mssgBodyText;
-		$this->bodyAsHtml = $htmlMssgText;
+		$this->bodyAsText = $plainMailTxt;
+		$this->bodyAsHtml = $htmlMailText;
 		$this->addedFiles = Array();
 		foreach( $attachedList as $attFil ){
 			$attFil = strval($attFil);
@@ -195,11 +195,11 @@ class Message {
 	 * in quoted-printable.
 	 *
 	 * @param String $partBodyText The text.
-	 * @param String $mimeTextKind 'plain' or 'html'.
+	 * @param String $mimeTextType 'plain' or 'html'.
 	 * @return String The part.
 	 */
-	protected static function makePartString( String $partBodyText, String $mimeTextKind ): String {
-		return 'Content-Type: text/'.$mimeTextKind.'; charset=UTF-8'."\r\n"
+	protected static function makePartString( String $partBodyText, String $mimeTextType ): String {
+		return 'Content-Type: text/'.$mimeTextType.'; charset=UTF-8'."\r\n"
 			.'Content-Transfer-Encoding: quoted-printable'."\r\n\r\n"
 			.quoted_printable_encode( self::endLinesInCrlf($partBodyText) );
 	}

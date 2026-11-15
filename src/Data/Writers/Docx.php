@@ -354,14 +354,14 @@ class Docx extends Page {
 	 * Writes blocks, one after the other.
 	 *
 	 * @param Array $bookBlockSet The blocks.
-	 * @param Int   $indentStepNb How far in they stand: 0 for the text of the document, one more for what an entry of a list holds.
+	 * @param Int   $nestingDepth How far in they stand: 0 for the text of the document, one more for what an entry of a list holds.
 	 * @return String The paragraphs they make.
 	 */
-	protected function writeAllBlocks(Array $bookBlockSet, Int $indentStepNb): String {
+	protected function writeAllBlocks(Array $bookBlockSet, Int $nestingDepth): String {
 		$bodyText = '';
 		foreach($bookBlockSet as $blkArr){
 			if( is_array($blkArr) && isset($blkArr['block']) ){
-				$partText = $this->blckPartString($blkArr, $indentStepNb);
+				$partText = $this->blckPartString($blkArr, $nestingDepth);
 				// A paragraph stands between two tables, without which they would become one
 				$bodyText .= ((substr($bodyText, -8)=='</w:tbl>' && substr($partText, 0, 7)=='<w:tbl>') ? '<w:p/>' : '').$partText;
 			}
@@ -373,26 +373,26 @@ class Docx extends Page {
 	 * Writes a block as the Word paragraphs of its kind: heading, list, table, quote, code, rule, picture or paragraph.
 	 *
 	 * @param Array $contentBlock The block.
-	 * @param Int   $indentStepNb How far in it stands.
+	 * @param Int   $nestingDepth How far in it stands.
 	 * @return String The paragraphs it makes.
 	 */
-	protected function blckPartString(Array $contentBlock, Int $indentStepNb): String {
+	protected function blckPartString(Array $contentBlock, Int $nestingDepth): String {
 		$blockCod = strval($contentBlock['block']);
 		$attrDict = (array)($contentBlock['attrs'] ?? Array());
 		$spanList = (array)($contentBlock['spans'] ?? Array());
 		$itemList = (array)($contentBlock['items'] ?? Array());
-		$indtTags = ($indentStepNb>0) ? '<w:ind w:left="'.(720*$indentStepNb).'"/>' : '';
+		$indtTags = ($nestingDepth>0) ? '<w:ind w:left="'.(720*$nestingDepth).'"/>' : '';
 		if( $blockCod=='headline' ){
 			return $this->paragraphPiece(Array('style'=>'Heading'.max(1, min(6, intval($attrDict['level'] ?? 1))), 'indnt'=>$indtTags), $spanList, $attrDict);
 		}
 		if( $blockCod=='itemList' ){
-			return $this->listsPieceText($contentBlock, $indentStepNb);
+			return $this->listsPieceText($contentBlock, $nestingDepth);
 		}
 		if( $blockCod=='tableSet' ){
-			return $this->tblePartString($contentBlock, $indentStepNb);
+			return $this->tblePartString($contentBlock, $nestingDepth);
 		}
 		if( $blockCod=='citation' ){
-			$quoteTxt = $this->paragraphPiece(Array('style'=>'Quote'), $spanList, $attrDict).$this->writeAllBlocks($itemList, $indentStepNb+1);
+			$quoteTxt = $this->paragraphPiece(Array('style'=>'Quote'), $spanList, $attrDict).$this->writeAllBlocks($itemList, $nestingDepth+1);
 			// Who is quoted follows the quote
 			$citeText = is_scalar($attrDict['cites'] ?? '') ? trim(strval($attrDict['cites'] ?? '')) : '';
 			return $quoteTxt.(($citeText==='') ? '' : $this->paragraphPiece(Array('style'=>'Quote'), Array(Shape::makeASpanArray("\u{2014} ".$citeText)), Array('align'=>'alignRgt')));
@@ -420,11 +420,11 @@ class Docx extends Page {
 		}
 		if( $blockCod=='tableTop' || $blockCod=='tableRow' ){
 			// A row met outside a table is a table of that row
-			return $this->tblePartString(Array('items'=>Array($contentBlock)), $indentStepNb);
+			return $this->tblePartString(Array('items'=>Array($contentBlock)), $nestingDepth);
 		}
 		// A paragraph, with the style it names; and what stands for a picture that is not written: the text that describes it
 		$stylIdnt = ($blockCod=='paragrph' && is_scalar($attrDict['style'] ?? null)) ? strval($this->styleTable[strtolower(trim(strval($attrDict['style'])))] ?? '') : '';
-		return $this->paragraphPiece(Array('indnt'=>$indtTags) + (($stylIdnt==='') ? Array() : Array('style'=>$stylIdnt)), $spanList, $attrDict).$this->writeAllBlocks($itemList, $indentStepNb);
+		return $this->paragraphPiece(Array('indnt'=>$indtTags) + (($stylIdnt==='') ? Array() : Array('style'=>$stylIdnt)), $spanList, $attrDict).$this->writeAllBlocks($itemList, $nestingDepth);
 	}
 
 	/**
@@ -447,7 +447,7 @@ class Docx extends Page {
 		// The same picture is written once, however often it is shown
 		$pictClef = sha1($pictText);
 		if( !isset($this->mediaFiles[$pictClef]) ){
-			if( array_sum(array_map(function(Array $mediaItemArr){ return strlen($mediaItemArr[1]); }, $this->mediaFiles))+strlen($pictText)>self::MEDI_MAXI ){
+			if( array_sum(array_map(function(Array $mediaItemLst){ return strlen($mediaItemLst[1]); }, $this->mediaFiles))+strlen($pictText)>self::MEDI_MAXI ){
 				return '';
 			}
 			$this->mediaFiles[$pictClef] = Array('media/image'.(count($this->mediaFiles)+1).'.'.(($givenCod=='jpg') ? 'jpeg' : $givenCod), $pictText);
@@ -506,10 +506,10 @@ class Docx extends Page {
 	 * cut by the end of a page.
 	 *
 	 * @param Array $contentBlock The table.
-	 * @param Int   $indentStepNb How far in it stands.
+	 * @param Int   $nestingDepth How far in it stands.
 	 * @return String The table; '' when it holds no row.
 	 */
-	protected function tblePartString(Array $contentBlock, Int $indentStepNb): String {
+	protected function tblePartString(Array $contentBlock, Int $nestingDepth): String {
 		$rowsText = '';
 		$clmnsMax = 0;
 		// The areas still running down their columns: column => the rows left to cover and the columns covered
@@ -578,7 +578,7 @@ class Docx extends Page {
 			$brdrText .= '<w:'.$border.' w:val="single" w:sz="4" w:space="0" w:color="808080"/>';
 		}
 		// The table takes the width of the page
-		return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>'.(($indentStepNb>0) ? '<w:tblInd w:w="'.(720*$indentStepNb).'" w:type="dxa"/>' : '').'<w:tblBorders>'.$brdrText.'</w:tblBorders>'
+		return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>'.(($nestingDepth>0) ? '<w:tblInd w:w="'.(720*$nestingDepth).'" w:type="dxa"/>' : '').'<w:tblBorders>'.$brdrText.'</w:tblBorders>'
 			.'<w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>'
 			.'<w:tblGrid>'.str_repeat('<w:gridCol/>', max(1, $clmnsMax)).'</w:tblGrid>'.$rowsText.'</w:tbl>';
 	}

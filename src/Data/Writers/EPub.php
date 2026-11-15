@@ -264,7 +264,7 @@ class EPub extends Page {
 	protected function givePictureNme(Array $pictureArray): String {
 		$pictClef = sha1($pictureArray['bytes']);
 		if( !isset($this->mediaFiles[$pictClef]) ){
-			if( array_sum(array_map(function(Array $mediaItemArr){ return strlen($mediaItemArr[1]); }, $this->mediaFiles))+strlen($pictureArray['bytes'])>self::MEDI_MAXI ){
+			if( array_sum(array_map(function(Array $mediaItemLst){ return strlen($mediaItemLst[1]); }, $this->mediaFiles))+strlen($pictureArray['bytes'])>self::MEDI_MAXI ){
 				return '';
 			}
 			$this->mediaFiles[$pictClef] = Array('images/image'.(count($this->mediaFiles)+1).'.'.$pictureArray['kinds'], $pictureArray['bytes']);
@@ -277,14 +277,14 @@ class EPub extends Page {
 	 * each heading of the level asked for, or above it.
 	 *
 	 * @param Array  $bookBlockSet The blocks.
-	 * @param Int    $splitLevelNb The level of the headings that start a chapter, 0 for a book of one chapter.
+	 * @param Int    $splitLvlNumb The level of the headings that start a chapter, 0 for a book of one chapter.
 	 * @param String $bookTitleTxt The title of the book, given to a chapter that starts with no heading.
 	 * @return Array The chapters, each with its title under 'title' and its blocks under 'blcks'; one at least.
 	 */
-	protected function chaptersOfList(Array $bookBlockSet, Int $splitLevelNb, String $bookTitleTxt): Array {
+	protected function chaptersOfList(Array $bookBlockSet, Int $splitLvlNumb, String $bookTitleTxt): Array {
 		$chapList = Array();
 		foreach($bookBlockSet as $oneBlk){
-			$isNewFle = ($oneBlk['block']=='headline' && $splitLevelNb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLevelNb && trim($oneBlk['plain'])!=='');
+			$isNewFle = ($oneBlk['block']=='headline' && $splitLvlNumb>0 && intval($oneBlk['attrs']['level'] ?? 1)<=$splitLvlNumb && trim($oneBlk['plain'])!=='');
 			if( $isNewFle || empty($chapList) ){
 				$chapList[] = Array('title'=>$isNewFle ? trim(strval(preg_replace('/\s+/', ' ', $oneBlk['plain']))) : $bookTitleTxt, 'blcks'=>Array());
 			}

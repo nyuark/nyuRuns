@@ -80,14 +80,14 @@ class Text extends Base {
 	 *
 	 * @param String $templateText The text.
 	 * @param String $tagNmeString Name of the tag, in lower case.
-	 * @param Int    $startsFromNb Position following the opening tag.
+	 * @param Int    $fromPosition Position following the opening tag.
 	 * @param Bool   $allowsNested Whether the tag may hold others of its name, each closed in turn.
 	 * @return ?Array The position of the closing tag and its length, null when the tag is never closed.
 	 */
-	protected function findCloseArray(String $templateText, String $tagNmeString, Int $startsFromNb, Bool $allowsNested): ?Array {
+	protected function findCloseArray(String $templateText, String $tagNmeString, Int $fromPosition, Bool $allowsNested): ?Array {
 		$tagParte = Array();
 		$openNumb = 1;
-		$readIndx = $startsFromNb;
+		$readIndx = $fromPosition;
 		while( preg_match('/\[(\/?)'.preg_quote($tagNmeString, '/').'(?:=[^\]\n]*)?\]/i', $templateText, $tagParte, PREG_OFFSET_CAPTURE, $readIndx) ){
 			$readIndx = $tagParte[0][1]+strlen($tagParte[0][0]);
 			if( $tagParte[1][0]==='' ){

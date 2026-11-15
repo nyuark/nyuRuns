@@ -94,17 +94,17 @@ class ICal extends Base {
 	 * @param String $propertyName Name of the property.
 	 * @param String $givenIsoDate The date, as ISO text, with or without a time.
 	 * @param String $timeZoneName The time zone it is written in: 'UTC', a name, or '' for none.
-	 * @param Int    $daysToMoveNb Days to add to a date without time.
+	 * @param Int    $offsetInDays Days to add to a date without time.
 	 * @return Array The line of the property, in a list; an empty list when the date is not one.
 	 */
-	protected function datesLineArray(String $propertyName, String $givenIsoDate, String $timeZoneName='', Int $daysToMoveNb=0): Array {
+	protected function datesLineArray(String $propertyName, String $givenIsoDate, String $timeZoneName='', Int $offsetInDays=0): Array {
 		$dateList = Array();
 		if( !preg_match('/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d)(?::(\d\d))?)?$/D', $givenIsoDate, $dateList) || !checkdate(intval($dateList[2]), intval($dateList[3]), intval($dateList[1])) ){
 			return Array();
 		}
 		if( !isset($dateList[4]) ){
 			$dateInst = new \DateTimeImmutable($dateList[1].'-'.$dateList[2].'-'.$dateList[3], new \DateTimeZone('UTC'));
-			return Array($propertyName.';VALUE=DATE:'.$dateInst->modify(sprintf('%+d days', $daysToMoveNb))->format('Ymd'));
+			return Array($propertyName.';VALUE=DATE:'.$dateInst->modify(sprintf('%+d days', $offsetInDays))->format('Ymd'));
 		}
 		$timeText = $dateList[1].$dateList[2].$dateList[3].'T'.$dateList[4].$dateList[5].strval($dateList[6] ?? '00');
 		if( strtoupper($timeZoneName)=='UTC' ){
@@ -168,10 +168,10 @@ class ICal extends Base {
 	 * Writes an entry of a calendar: an event, a task or a note.
 	 *
 	 * @param Array  $calendarItem The entry, as the calendar parser gives it.
-	 * @param String $itemKindsTxt Its kind: event, tasks or notes.
+	 * @param String $itemTypesTxt Its kind: event, tasks or notes.
 	 * @return Array The lines of the entry, without those that open and close it.
 	 */
-	protected function entrysOutArray(Array $calendarItem, String $itemKindsTxt): Array {
+	protected function entrysOutArray(Array $calendarItem, String $itemTypesTxt): Array {
 		$isAllDay = !empty($calendarItem['whole']);
 		$zoneName = strval($calendarItem['tzone'] ?? '');
 		$startVal = strval($calendarItem['start'] ?? '');
@@ -180,12 +180,12 @@ class ICal extends Base {
 		$lineList = array_merge($lineList, $this->datesLineArray('DTSTAMP', (strlen(strval($calendarItem['stamp'] ?? ''))>10) ? strval($calendarItem['stamp']) : gmdate('Y-m-d H:i:s'), 'UTC'));
 		$startLne = $this->datesLineArray('DTSTART', $startVal, $zoneName);
 		$lineList = array_merge($lineList, $startLne);
-		if( $itemKindsTxt=='calEvent' && !empty($startLne) ){
+		if( $itemTypesTxt=='calEvent' && !empty($startLne) ){
 			// Whole days end, as the format writes it, on the day after their last one
 			$endValue = (strval($calendarItem['ended'] ?? '')!=='') ? strval($calendarItem['ended']) : $startVal;
 			$lineList = array_merge($lineList, $this->datesLineArray('DTEND', $endValue, $zoneName, $isAllDay ? 1 : 0));
 		}
-		if( $itemKindsTxt=='calTodos' ){
+		if( $itemTypesTxt=='calTodos' ){
 			$lineList = array_merge($lineList, $this->datesLineArray('DUE', strval($calendarItem['dueby'] ?? ''), $zoneName));
 			if( intval($calendarItem['ratio'] ?? 0)>0 ){
 				$lineList[] = 'PERCENT-COMPLETE:'.max(0, min(100, intval($calendarItem['ratio'])));

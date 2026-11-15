@@ -213,11 +213,11 @@ class Sound {
 	 * Finds the end of a text written two bytes a character.
 	 *
 	 * @param String $templateText The bytes holding the text.
-	 * @param Int    $startsFromNb Where the text starts.
+	 * @param Int    $fromPosition Where the text starts.
 	 * @return Int|Bool Where its ending pair of zero bytes stands, false when it has none.
 	 */
-	protected static function wideZerosCount(String $templateText, Int $startsFromNb): Int|Bool {
-		for($posInc=$startsFromNb; $posInc+1<strlen($templateText); $posInc+=2){
+	protected static function wideZerosCount(String $templateText, Int $fromPosition): Int|Bool {
+		for($posInc=$fromPosition; $posInc+1<strlen($templateText); $posInc+=2){
 			if( $templateText[$posInc]==="\0" && $templateText[$posInc+1]==="\0" ){
 				return $posInc;
 			}
@@ -228,16 +228,16 @@ class Sound {
 	/**
 	 * Reads a text of a tag of an MP3 sound, whatever way it is written.
 	 *
-	 * @param Int    $encodingIdNb How it is written: 0 for Latin-1, 1 for UTF-16 with its marker, 2 for UTF-16 without, 3 for UTF-8.
+	 * @param Int    $encodIdNumbr How it is written: 0 for Latin-1, 1 for UTF-16 with its marker, 2 for UTF-16 without, 3 for UTF-8.
 	 * @param String $templateText The bytes of the text.
 	 * @return String The text, in UTF-8, up to its first end.
 	 */
-	protected static function readId3TagText(Int $encodingIdNb, String $templateText): String {
-		if( $encodingIdNb==1 || $encodingIdNb==2 ){
-			$fromEncd = ($encodingIdNb==2) ? 'UTF-16BE' : ((substr($templateText, 0, 2)==="\xFE\xFF") ? 'UTF-16BE' : 'UTF-16LE');
+	protected static function readId3TagText(Int $encodIdNumbr, String $templateText): String {
+		if( $encodIdNumbr==1 || $encodIdNumbr==2 ){
+			$fromEncd = ($encodIdNumbr==2) ? 'UTF-16BE' : ((substr($templateText, 0, 2)==="\xFE\xFF") ? 'UTF-16BE' : 'UTF-16LE');
 			$bareText = (in_array(substr($templateText, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true)) ? substr($templateText, 2) : $templateText;
 			$templateText = strval(@iconv($fromEncd, 'UTF-8//IGNORE', substr($bareText, 0, strlen($bareText)-(strlen($bareText)%2))));
-		}elseif( $encodingIdNb==0 ){
+		}elseif( $encodIdNumbr==0 ){
 			$templateText = strval(@iconv('ISO-8859-1', 'UTF-8//IGNORE', $templateText));
 		}
 		return explode("\0", $templateText)[0];
@@ -246,19 +246,19 @@ class Sound {
 	/**
 	 * Reads the comments of a FLAC or Ogg sound: lines of NAME=value.
 	 *
-	 * @param String $blckBytesTxt The block holding them.
+	 * @param String $blockBytText The block holding them.
 	 * @return Array The tags under 'tagsl', the bytes of the picture under 'cover'.
 	 */
-	protected static function vorbisTagArray(String $blckBytesTxt): Array {
+	protected static function vorbisTagArray(String $blockBytText): Array {
 		$tagsList = Array();
 		$coverTxt = '';
 		$keysList = Array('TITLE'=>'title', 'ARTIST'=>'artst', 'ALBUM'=>'album', 'DATE'=>'years', 'YEAR'=>'years', 'TRACKNUMBER'=>'track', 'GENRE'=>'genre');
-		$readIndx = 4+intval(unpack('V', str_pad(substr($blckBytesTxt, 0, 4), 4, "\0"))[1]);
-		$lineNumb = intval(unpack('V', str_pad(substr($blckBytesTxt, $readIndx, 4), 4, "\0"))[1]);
+		$readIndx = 4+intval(unpack('V', str_pad(substr($blockBytText, 0, 4), 4, "\0"))[1]);
+		$lineNumb = intval(unpack('V', str_pad(substr($blockBytText, $readIndx, 4), 4, "\0"))[1]);
 		$readIndx += 4;
-		for($linIdx=0; $linIdx<$lineNumb && $readIndx+4<=strlen($blckBytesTxt); $linIdx++){
-			$lineSize = intval(unpack('V', substr($blckBytesTxt, $readIndx, 4))[1]);
-			$linePart = explode('=', substr($blckBytesTxt, $readIndx+4, $lineSize), 2);
+		for($linIdx=0; $linIdx<$lineNumb && $readIndx+4<=strlen($blockBytText); $linIdx++){
+			$lineSize = intval(unpack('V', substr($blockBytText, $readIndx, 4))[1]);
+			$linePart = explode('=', substr($blockBytText, $readIndx+4, $lineSize), 2);
 			$readIndx += 4+$lineSize;
 			$lineClef = strtoupper($linePart[0]);
 			if( isset($keysList[$lineClef]) && !isset($tagsList[$keysList[$lineClef]]) ){
@@ -273,17 +273,17 @@ class Sound {
 	/**
 	 * Gives the bytes of the picture a picture block of a FLAC sound holds.
 	 *
-	 * @param String $blckBytesTxt The block: what the picture shows, its kind, its description, its size, then its bytes.
+	 * @param String $blockBytText The block: what the picture shows, its kind, its description, its size, then its bytes.
 	 * @return String The bytes of the picture, '' when the block is not whole.
 	 */
-	protected static function flacPictureTxt(String $blckBytesTxt): String {
-		if( strlen($blckBytesTxt)<32 ){
+	protected static function flacPictureTxt(String $blockBytText): String {
+		if( strlen($blockBytText)<32 ){
 			return '';
 		}
-		$readIndx = 8+intval(unpack('N', substr($blckBytesTxt, 4, 4))[1]);
-		$readIndx += 4+intval(unpack('N', str_pad(substr($blckBytesTxt, $readIndx, 4), 4, "\0"))[1])+16;
-		$pictSize = intval(unpack('N', str_pad(substr($blckBytesTxt, $readIndx, 4), 4, "\0"))[1]);
-		return strval(substr($blckBytesTxt, $readIndx+4, $pictSize));
+		$readIndx = 8+intval(unpack('N', substr($blockBytText, 4, 4))[1]);
+		$readIndx += 4+intval(unpack('N', str_pad(substr($blockBytText, $readIndx, 4), 4, "\0"))[1])+16;
+		$pictSize = intval(unpack('N', str_pad(substr($blockBytText, $readIndx, 4), 4, "\0"))[1]);
+		return strval(substr($blockBytText, $readIndx+4, $pictSize));
 	}
 
 	/**
@@ -345,16 +345,16 @@ class Sound {
 	 * Reads the frames an MP3 sound is made of, from where it starts.
 	 *
 	 * @param String $nakedContent The bytes of the sound.
-	 * @param Int    $startsFromNb Where to look for its first frame.
-	 * @param Int    $endsBeforeNb Where what is heard ends.
+	 * @param Int    $fromPosition Where to look for its first frame.
+	 * @param Int    $endBeforeNum Where what is heard ends.
 	 * @return Array The frames, each with where it stands, its length, the samples it holds, its sample rate, its channels and its bit rate.
 	 */
-	protected static function mp3FramesArray(String $nakedContent, Int $startsFromNb, Int $endsBeforeNb): Array {
+	protected static function mp3FramesArray(String $nakedContent, Int $fromPosition, Int $endBeforeNum): Array {
 		$frameLst = Array();
-		$readIndx = $startsFromNb;
+		$readIndx = $fromPosition;
 		// What stands before the first frame is passed over, within reason
-		$scanLimt = min($endsBeforeNb-4, $startsFromNb+65536);
-		while( $readIndx+4<=$endsBeforeNb ){
+		$scanLimt = min($endBeforeNum-4, $fromPosition+65536);
+		while( $readIndx+4<=$endBeforeNum ){
 			$headVals = unpack('N', substr($nakedContent, $readIndx, 4))[1];
 			$versnBit = ($headVals>>19) & 3;
 			$layrBits = ($headVals>>17) & 3;
@@ -371,7 +371,7 @@ class Sound {
 				$frameSze = ($layerCnt==1) ? (intdiv(12000*$bitsRate, $smplRate)+$paddByte)*4 : intdiv(intdiv($smplNumb, 8)*1000*$bitsRate, $smplRate)+$paddByte;
 			}
 			// A first frame is one when the next stands where it ends
-			$nextOkay = ($readIndx+$frameSze+2<=$endsBeforeNb) && (ord($nakedContent[$readIndx+$frameSze])==0xFF && (ord($nakedContent[$readIndx+$frameSze+1]) & 0xE0)==0xE0);
+			$nextOkay = ($readIndx+$frameSze+2<=$endBeforeNum) && (ord($nakedContent[$readIndx+$frameSze])==0xFF && (ord($nakedContent[$readIndx+$frameSze+1]) & 0xE0)==0xE0);
 			if( !$isMp3Frm || $frameSze<24 || (!$nextOkay && empty($frameLst)) ){
 				if( !empty($frameLst) || $readIndx>=$scanLimt ){
 					break;
@@ -379,7 +379,7 @@ class Sound {
 				$readIndx++;
 				continue;
 			}
-			if( $readIndx+$frameSze>$endsBeforeNb && !empty($frameLst) ){
+			if( $readIndx+$frameSze>$endBeforeNum && !empty($frameLst) ){
 				break;
 			}
 			$frameLst[] = Array('start'=>$readIndx, 'bytes'=>$frameSze, 'smpls'=>$smplNumb, 'rates'=>$smplRate, 'chans'=>((($headVals>>6) & 3)==3) ? 1 : 2, 'bitrt'=>$bitsRate);
@@ -442,15 +442,15 @@ class Sound {
 	 * Reads a FLAC sound: the blocks standing before what is heard.
 	 *
 	 * @param String $nakedContent The bytes of the sound.
-	 * @param Int    $startsFromNb Where the sound starts, past a tag that may stand before it.
+	 * @param Int    $fromPosition Where the sound starts, past a tag that may stand before it.
 	 * @return ?Array What it is under 'infos', its tags under 'tagsl', its picture under 'cover' and what is needed to give it back without its tags under 'cuts'; null when it is not a whole FLAC sound.
 	 */
-	protected static function readOfFlaArray(String $nakedContent, Int $startsFromNb): ?Array {
+	protected static function readOfFlaArray(String $nakedContent, Int $fromPosition): ?Array {
 		$tagsList = Array();
 		$coverTxt = '';
 		$infoBloc = '';
 		$keptBloc = Array();
-		$readIndx = $startsFromNb+4;
+		$readIndx = $fromPosition+4;
 		do{
 			if( $readIndx+4>strlen($nakedContent) ){
 				return null;
@@ -549,24 +549,24 @@ class Sound {
 	 * Lists the boxes standing in a part of an MP4 file.
 	 *
 	 * @param String $nakedContent The bytes of the file.
-	 * @param Int    $startsFromNb Where the part starts.
-	 * @param Int    $endsBeforeNb Where it ends.
+	 * @param Int    $fromPosition Where the part starts.
+	 * @param Int    $endBeforeNum Where it ends.
 	 * @return Array The boxes, each with its name, where what it holds starts, and where it ends.
 	 */
-	protected static function boxesOfItArray(String $nakedContent, Int $startsFromNb, Int $endsBeforeNb): Array {
+	protected static function boxesOfItArray(String $nakedContent, Int $fromPosition, Int $endBeforeNum): Array {
 		$boxsList = Array();
-		$readIndx = $startsFromNb;
-		while( $readIndx+8<=$endsBeforeNb ){
+		$readIndx = $fromPosition;
+		while( $readIndx+8<=$endBeforeNum ){
 			$boxBytes = intval(unpack('N', substr($nakedContent, $readIndx, 4))[1]);
 			$hedrSize = 8;
 			// A box too large for four bytes tells its size on eight, after its name; one telling none runs to the end
-			if( $boxBytes==1 && $readIndx+16<=$endsBeforeNb ){
+			if( $boxBytes==1 && $readIndx+16<=$endBeforeNum ){
 				$boxBytes = intval(unpack('J', substr($nakedContent, $readIndx+8, 8))[1]);
 				$hedrSize = 16;
 			}elseif( $boxBytes==0 ){
-				$boxBytes = $endsBeforeNb-$readIndx;
+				$boxBytes = $endBeforeNum-$readIndx;
 			}
-			if( $boxBytes<$hedrSize || $readIndx+$boxBytes>$endsBeforeNb ){
+			if( $boxBytes<$hedrSize || $readIndx+$boxBytes>$endBeforeNum ){
 				break;
 			}
 			$boxsList[] = Array(substr($nakedContent, $readIndx+4, 4), $readIndx+$hedrSize, $readIndx+$boxBytes);
@@ -747,13 +747,13 @@ class Sound {
 	/**
 	 * Writes a WAV sound from a part of what is heard in this one.
 	 *
-	 * @param Int $startsFromNb Where the part starts in the bytes of the sound.
+	 * @param Int $fromPosition Where the part starts in the bytes of the sound.
 	 * @param Int $dataByteSize Its length.
 	 * @return String The bytes of the sound.
 	 */
-	protected function wavOfPieceText(Int $startsFromNb, Int $dataByteSize): String {
+	protected function wavOfPieceText(Int $fromPosition, Int $dataByteSize): String {
 		$frmtBody = $this->trimValues['headr'];
-		$dataText = strval(substr($this->nakedBytes, $startsFromNb, $dataByteSize));
+		$dataText = strval(substr($this->nakedBytes, $fromPosition, $dataByteSize));
 		$bodyText = 'WAVE'.'fmt '.pack('V', strlen($frmtBody)).$frmtBody.((strlen($frmtBody)%2) ? "\0" : '').'data'.pack('V', strlen($dataText)).$dataText.((strlen($dataText)%2) ? "\0" : '');
 		return 'RIFF'.pack('V', strlen($bodyText)).$bodyText;
 	}
@@ -817,16 +817,16 @@ class Sound {
 	 * good for voices and for making a sound lighter, not as fine as what
 	 * the program does when a sound is brought to fewer samples a second.
 	 *
-	 * @param Int $ratesHertzNb Samples a second to give it, from 8000 to 192000; its own when 0.
+	 * @param Int $ratesHrtzNum Samples a second to give it, from 8000 to 192000; its own when 0.
 	 * @param Int $channelCount Channels to give it, 1 or 2; its own when 0.
-	 * @param Int $sampleBitsNb Bits a sample to give it: 8, 16, 24 or 32; its own when 0.
+	 * @param Int $smplBitsNumb Bits a sample to give it: 8, 16, 24 or 32; its own when 0.
 	 * @return Sound The sound made.
 	 *
 	 * @throws \RuntimeException When a value asked for is not one of those accepted, or the sound is packed in a way that is not read here.
 	 */
-	public function changeWavSound(Int $ratesHertzNb=0, Int $channelCount=0, Int $sampleBitsNb=0): Sound {
+	public function changeWavSound(Int $ratesHrtzNum=0, Int $channelCount=0, Int $smplBitsNumb=0): Sound {
 		if( $this->detailList['kinds']!='wav' ){
-			return $this->convertToSound('wav')->changeWavSound($ratesHertzNb, $channelCount, $sampleBitsNb);
+			return $this->convertToSound('wav')->changeWavSound($ratesHrtzNum, $channelCount, $smplBitsNumb);
 		}
 		$frmtVals = unpack('vkind/vchans/Vrates/Vbytes/valign/vbits', $this->trimValues['headr']);
 		// Samples written as whole numbers, told so directly or in the longer way of telling it
@@ -838,9 +838,9 @@ class Sound {
 		if( !$isAllDay || !in_array($fromBits, Array(8, 16, 24, 32)) || $fromChnl<1 || $fromRout<1 || $frameSze!=$fromChnl*intdiv($fromBits, 8) ){
 			throw new \RuntimeException('A WAV sound packed this way is not changed without a program that unpacks sounds');
 		}
-		$intoRate = ($ratesHertzNb==0) ? $fromRout : $ratesHertzNb;
+		$intoRate = ($ratesHrtzNum==0) ? $fromRout : $ratesHrtzNum;
 		$intoChnl = ($channelCount==0) ? $fromChnl : $channelCount;
-		$intoBits = ($sampleBitsNb==0) ? $fromBits : $sampleBitsNb;
+		$intoBits = ($smplBitsNumb==0) ? $fromBits : $smplBitsNumb;
 		if( $intoRate<8000 || $intoRate>192000 ){
 			throw new \RuntimeException('Samples a second out of the 8000 to 192000 accepted: '.$intoRate);
 		}
@@ -907,24 +907,24 @@ class Sound {
 	/**
 	 * Reads samples of a WAV sound as whole numbers around 0.
 	 *
-	 * @param Int $startsFromNb Where the samples start in the bytes of the sound.
+	 * @param Int $fromPosition Where the samples start in the bytes of the sound.
 	 * @param Int $dataByteSize Their length.
-	 * @param Int $sampleBitsNb The bits of a sample: 8, 16, 24 or 32.
+	 * @param Int $smplBitsNumb The bits of a sample: 8, 16, 24 or 32.
 	 * @return Array The samples, one after the other, channel after channel.
 	 */
-	protected function wavValuesArray(Int $startsFromNb, Int $dataByteSize, Int $sampleBitsNb): Array {
-		$partText = substr($this->nakedBytes, $startsFromNb, $dataByteSize);
+	protected function wavValuesArray(Int $fromPosition, Int $dataByteSize, Int $smplBitsNumb): Array {
+		$partText = substr($this->nakedBytes, $fromPosition, $dataByteSize);
 		$readList = Array();
-		if( $sampleBitsNb==24 ){
+		if( $smplBitsNumb==24 ){
 			for($bytIdx=0; $bytIdx+3<=strlen($partText); $bytIdx+=3){
 				$readVals = ord($partText[$bytIdx]) | (ord($partText[$bytIdx+1])<<8) | (ord($partText[$bytIdx+2])<<16);
 				$readList[] = ($readVals>=0x800000) ? $readVals-0x1000000 : $readVals;
 			}
 			return $readList;
 		}
-		$halfVals = 2**($sampleBitsNb-1);
-		foreach(unpack(Array(8=>'C*', 16=>'v*', 32=>'V*')[$sampleBitsNb], $partText) as $rawVal){
-			$readList[] = ($sampleBitsNb==8) ? $rawVal-128 : (($rawVal>=$halfVals) ? $rawVal-2*$halfVals : $rawVal);
+		$halfVals = 2**($smplBitsNumb-1);
+		foreach(unpack(Array(8=>'C*', 16=>'v*', 32=>'V*')[$smplBitsNumb], $partText) as $rawVal){
+			$readList[] = ($smplBitsNumb==8) ? $rawVal-128 : (($rawVal>=$halfVals) ? $rawVal-2*$halfVals : $rawVal);
 		}
 		return $readList;
 	}

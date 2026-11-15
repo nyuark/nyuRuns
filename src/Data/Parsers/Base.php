@@ -62,16 +62,16 @@ abstract class Base implements Parser {
 	 * paragraph, it is the text of the block itself, and what is particular
 	 * to it (its style, its alignment, its id) is particular to the block.
 	 *
-	 * @param String $blckLabelTxt Kind of the block: entry or quote.
+	 * @param String $blockLblText Kind of the block: entry or quote.
 	 * @param Array  $bookBlockSet The blocks read from what it holds.
 	 * @param Array  $attributeSet What is particular to it.
 	 * @return Array The block.
 	 */
-	protected function holdBlockArray(String $blckLabelTxt, Array $bookBlockSet, Array $attributeSet=Array()): Array {
+	protected function holdBlockArray(String $blockLblText, Array $bookBlockSet, Array $attributeSet=Array()): Array {
 		if( !empty($bookBlockSet) && $bookBlockSet[0]['block']=='paragrph' ){
-			return Shape::makeBlockArray($blckLabelTxt, $bookBlockSet[0]['spans'], array_slice($bookBlockSet, 1), $attributeSet + $bookBlockSet[0]['attrs']);
+			return Shape::makeBlockArray($blockLblText, $bookBlockSet[0]['spans'], array_slice($bookBlockSet, 1), $attributeSet + $bookBlockSet[0]['attrs']);
 		}
-		return Shape::makeBlockArray($blckLabelTxt, Array(), $bookBlockSet, $attributeSet);
+		return Shape::makeBlockArray($blockLblText, Array(), $bookBlockSet, $attributeSet);
 	}
 
 	/**

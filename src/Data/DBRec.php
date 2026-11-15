@@ -317,10 +317,10 @@ class DBRec {
 	 * was bound to a new record is inserted as given; without one, the
 	 * database assigns it.
 	 *
-	 * @param Array $skipFieldArr Field names to exclude from the save (in addition to the primary key, which is never updated).
+	 * @param Array $skipFldsList Field names to exclude from the save (in addition to the primary key, which is never updated).
 	 * @return mixed The primary key on success, or false on failure: for an update, the key as the database gave it; for an insert, the key the application bound, as bound, or the one the database numbered, as a number.
 	 */
-	function insertOrUpdate( Array $skipFieldArr=Array() ): Mixed {
+	function insertOrUpdate( Array $skipFldsList=Array() ): Mixed {
 		$isStored = false;
 		$sameRcrd = $this->existsRecdFlag($this->primaryKey);
 		if($sameRcrd!=false){
@@ -330,7 +330,7 @@ class DBRec {
 		$saveList = Array();
 		foreach( $this->recordData as $fldNme => $fldVal ){
 			// The key is never changed, and only the table's own fields are saved
-			if( $fldNme==$this->keyColName || in_array($fldNme, $skipFieldArr) || !$this->isFieldOfTable(strval($fldNme)) ){
+			if( $fldNme==$this->keyColName || in_array($fldNme, $skipFldsList) || !$this->isFieldOfTable(strval($fldNme)) ){
 				continue;
 			}
 			$saveList[$fldNme] = $fldVal;

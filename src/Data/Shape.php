@@ -103,7 +103,7 @@ class Shape {
 	 *   - a list has no 'plain': its 'attrs' give its number of entries
 	 *     ('lines') and the size of its text in bytes ('bytes').
 	 *
-	 * @param String $blckLabelTxt Kind of the block: headline, paragrph, itemList, listItem, tableSet, tableTop, tableRow, cellText, citation, codeBlck, imageBox, ruleLine or footnote.
+	 * @param String $blockLblText Kind of the block: headline, paragrph, itemList, listItem, tableSet, tableTop, tableRow, cellText, citation, codeBlck, imageBox, ruleLine or footnote.
 	 * @param Array  $textSpanList Its own text, as spans.
 	 * @param Array  $paragraphSet The blocks it contains.
 	 * @param Array  $attributeSet What is particular to it.
@@ -111,15 +111,15 @@ class Shape {
 	 *
 	 * @throws \RuntimeException When the kind is not a known one.
 	 */
-	public static function makeBlockArray(String $blckLabelTxt, Array $textSpanList=Array(), Array $paragraphSet=Array(), Array $attributeSet=Array()): Array {
-		if( !in_array($blckLabelTxt, self::TEXT_LIST) && !in_array($blckLabelTxt, self::HOLD_LIST) ){
-			throw new \RuntimeException('Unknown kind of block: '.$blckLabelTxt);
+	public static function makeBlockArray(String $blockLblText, Array $textSpanList=Array(), Array $paragraphSet=Array(), Array $attributeSet=Array()): Array {
+		if( !in_array($blockLblText, self::TEXT_LIST) && !in_array($blockLblText, self::HOLD_LIST) ){
+			throw new \RuntimeException('Unknown kind of block: '.$blockLblText);
 		}
 		$paragraphSet = array_values($paragraphSet);
 		$plainTxt = implode('', array_column($textSpanList, 'texts'));
-		if( $blckLabelTxt=='tableTop' || $blckLabelTxt=='tableRow' ){
+		if( $blockLblText=='tableTop' || $blockLblText=='tableRow' ){
 			$plainTxt = implode("\t", array_column($paragraphSet, 'plain'));
-		}elseif( $blckLabelTxt=='tableSet' ){
+		}elseif( $blockLblText=='tableSet' ){
 			$headList = Array();
 			$clmnsMax = 0;
 			$lineNumb = 0;
@@ -133,11 +133,11 @@ class Shape {
 			}
 			$plainTxt = '';
 			$attributeSet = Array('heads'=>$headList, 'colms'=>$clmnsMax, 'lines'=>$lineNumb, 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
-		}elseif( $blckLabelTxt=='itemList' ){
+		}elseif( $blockLblText=='itemList' ){
 			$plainTxt = '';
 			$attributeSet = Array('lines'=>count($paragraphSet), 'bytes'=>self::textBytesCount($paragraphSet)) + $attributeSet;
 		}
-		return Array('block'=>$blckLabelTxt, 'attrs'=>$attributeSet, 'spans'=>array_values($textSpanList), 'items'=>$paragraphSet, 'plain'=>$plainTxt);
+		return Array('block'=>$blockLblText, 'attrs'=>$attributeSet, 'spans'=>array_values($textSpanList), 'items'=>$paragraphSet, 'plain'=>$plainTxt);
 	}
 
 	/**
@@ -197,12 +197,12 @@ class Shape {
 	 * Gives a table as a plain grid: its rows, each a list of the texts of
 	 * its cells. The header rows come first, like the others.
 	 *
-	 * @param Array $tableBlckArr A block of kind 'tableSet'.
+	 * @param Array $tableBlcList A block of kind 'tableSet'.
 	 * @return Array The rows, each a list of texts.
 	 */
-	public static function tableGridArray(Array $tableBlckArr): Array {
+	public static function tableGridArray(Array $tableBlcList): Array {
 		$gridRows = Array();
-		foreach($tableBlckArr['items'] as $oneRow){
+		foreach($tableBlcList['items'] as $oneRow){
 			$cellText = Array();
 			foreach($oneRow['items'] as $celBlk){
 				$cellText[] = self::blockPlainText($celBlk);

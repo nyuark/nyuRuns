@@ -291,11 +291,11 @@ class Odtx extends Pack {
 	 * The lines of code that follow one another make one block.
 	 *
 	 * @param Array  $elementArray The element.
-	 * @param Int    $listsLevelNb Level of the list the element is in, 0 outside any.
+	 * @param Int    $listsLvlNumb Level of the list the element is in, 0 outside any.
 	 * @param String $listStyleNme Style of that list, '' outside any.
 	 * @return Array The blocks.
 	 */
-	protected function bodyBlocksList(Array $elementArray, Int $listsLevelNb, String $listStyleNme): Array {
+	protected function bodyBlocksList(Array $elementArray, Int $listsLvlNumb, String $listStyleNme): Array {
 		$blockLst = Array();
 		$codeBuff = Array();
 		$bodyNods = $elementArray['nodes'];
@@ -313,14 +313,14 @@ class Odtx extends Pack {
 			}elseif( $prgrList!==null ){
 				$blockLst = array_merge($blockLst, $this->paragrphBlocks($prgrList));
 			}elseif( $childNme=='text:list' ){
-				$blockLst = array_merge($blockLst, $this->parseListBlock($chlArr, $listsLevelNb+1, $listStyleNme));
+				$blockLst = array_merge($blockLst, $this->parseListBlock($chlArr, $listsLvlNumb+1, $listStyleNme));
 			}elseif( $childNme=='table:table' ){
 				$rowsList = $this->rowsOfTableArr($chlArr, false);
 				if( !empty($rowsList) ){
 					$blockLst[] = Shape::makeBlockArray('tableSet', Array(), $rowsList);
 				}
 			}elseif( in_array($childNme, self::WRAP_LIST) ){
-				$blockLst = array_merge($blockLst, $this->bodyBlocksList($chlArr, $listsLevelNb, $listStyleNme));
+				$blockLst = array_merge($blockLst, $this->bodyBlocksList($chlArr, $listsLvlNumb, $listStyleNme));
 			}
 		}
 		return $blockLst;
@@ -331,23 +331,23 @@ class Odtx extends Pack {
 	 * lists inside it.
 	 *
 	 * @param Array  $elementArray The element of the list.
-	 * @param Int    $listsLevelNb Its level, from 1.
+	 * @param Int    $listsLvlNumb Its level, from 1.
 	 * @param String $listStyleNme Style of the list it is in, which it follows unless it names its own.
 	 * @return Array The list, as a block, in a list; an empty list when it has no entry.
 	 */
-	protected function parseListBlock(Array $elementArray, Int $listsLevelNb, String $listStyleNme): Array {
+	protected function parseListBlock(Array $elementArray, Int $listsLvlNumb, String $listStyleNme): Array {
 		$ownStyle = strval($elementArray['attrs']['text:style-name'] ?? $listStyleNme);
 		$itemList = Array();
 		foreach($elementArray['nodes'] as $itmArr){
 			if( $itmArr['tagnm']!='text:list-item' && $itmArr['tagnm']!='text:list-header' ){
 				continue;
 			}
-			$itemBloc = $this->bodyBlocksList($itmArr, $listsLevelNb, $ownStyle);
+			$itemBloc = $this->bodyBlocksList($itmArr, $listsLvlNumb, $ownStyle);
 			if( !empty($itemBloc) ){
 				$itemList[] = $this->holdBlockArray('listItem', $itemBloc);
 			}
 		}
-		return empty($itemList) ? Array() : Array(Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>!empty($this->listStyles[$ownStyle][$listsLevelNb]))));
+		return empty($itemList) ? Array() : Array(Shape::makeBlockArray('itemList', Array(), $itemList, Array('order'=>!empty($this->listStyles[$ownStyle][$listsLvlNumb]))));
 	}
 
 	/**

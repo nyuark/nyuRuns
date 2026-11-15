@@ -176,14 +176,14 @@ class Mdwn extends Base {
 	 * dashes under it, then a line for each row. A table without header
 	 * row has an empty one, which Markdown asks for.
 	 *
-	 * @param Array $tableBlckArr The table.
+	 * @param Array $tableBlcList The table.
 	 * @return String The Markdown, '' for a table without cell.
 	 */
-	protected function writeTableText(Array $tableBlckArr): String {
+	protected function writeTableText(Array $tableBlcList): String {
 		$headNtry = null;
 		$bodyRows = Array();
 		$colsNumb = 0;
-		foreach((array)$tableBlckArr['items'] as $oneRow){
+		foreach((array)$tableBlcList['items'] as $oneRow){
 			$cellText = Array();
 			foreach((array)$oneRow['items'] as $celBlk){
 				// A cell holds on one line: what it holds besides its text follows it there

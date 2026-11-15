@@ -108,13 +108,13 @@ class Text extends Base {
 	 * what an entry holds further in; with the tags of forums, between
 	 * the tags of the list.
 	 *
-	 * @param Array $listsBlckArr The list.
+	 * @param Array $listsBlcList The list.
 	 * @return String The text.
 	 */
-	protected function writeListItems(Array $listsBlckArr): String {
-		$hasOrder = !empty($listsBlckArr['attrs']['order']);
+	protected function writeListItems(Array $listsBlcList): String {
+		$hasOrder = !empty($listsBlcList['attrs']['order']);
 		$itemText = Array();
-		foreach((array)$listsBlckArr['items'] as $entBlk){
+		foreach((array)$listsBlcList['items'] as $entBlk){
 			$insdText = $this->innerOutString($entBlk);
 			if( $this->outputKind=='bbcod' ){
 				$itemText[] = '[*]'.$insdText;

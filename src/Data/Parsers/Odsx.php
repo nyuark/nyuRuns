@@ -75,12 +75,12 @@ class Odsx extends Pack {
 	 * Counts the cells added to a sheet, and refuses the sheet when they
 	 * are too many.
 	 *
-	 * @param Int $addedCellsNb Number of cells being added.
+	 * @param Int $addedCellCnt Number of cells being added.
 	 *
 	 * @throws ParseError When the sheet is too sparse to be laid out.
 	 */
-	protected function countFillCells(Int $addedCellsNb): Void {
-		$this->addedCells += max(0, $addedCellsNb);
+	protected function countFillCells(Int $addedCellCnt): Void {
+		$this->addedCells += max(0, $addedCellCnt);
 		if( $this->addedCells>self::PADS_MAXI ){
 			throw new ParseError('Invalid spreadsheet: a sheet too sparse to be laid out');
 		}

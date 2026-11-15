@@ -64,20 +64,20 @@ class Codec {
 	 *
 	 * @param String $nakedContent The bytes of the sound.
 	 * @param String $sourceFormat Its kind, as told from its content: wav, mp3, flac, ogg or m4a.
-	 * @param String $goalKindText The kind to make.
+	 * @param String $goalTypeText The kind to make.
 	 * @param Array  $codecOptions Where the part starts under 'start' and ends under 'until', in seconds; the thousands of bits a second to pack it with under 'kbits'.
 	 * @return String The bytes of the sound made.
 	 *
 	 * @throws \RuntimeException When the program cannot be run, a kind is unknown, or the program fails or takes too long.
 	 */
-	public function alterSoundText(String $nakedContent, String $sourceFormat, String $goalKindText, Array $codecOptions=Array()): String {
+	public function alterSoundText(String $nakedContent, String $sourceFormat, String $goalTypeText, Array $codecOptions=Array()): String {
 		if( !$this->isProgramReady() ){
 			throw new \RuntimeException('The program that unpacks sounds cannot be run on this server');
 		}
-		if( !isset(self::KIND_LIST[$sourceFormat]) || !isset(self::KIND_LIST[$goalKindText]) ){
-			throw new \RuntimeException('Unknown kind of sound: '.(isset(self::KIND_LIST[$sourceFormat]) ? $goalKindText : $sourceFormat));
+		if( !isset(self::KIND_LIST[$sourceFormat]) || !isset(self::KIND_LIST[$goalTypeText]) ){
+			throw new \RuntimeException('Unknown kind of sound: '.(isset(self::KIND_LIST[$sourceFormat]) ? $goalTypeText : $sourceFormat));
 		}
-		$kindDict = self::KIND_LIST[$goalKindText];
+		$kindDict = self::KIND_LIST[$goalTypeText];
 		$tempPath = rtrim(sys_get_temp_dir(), '/\\');
 		$fileClef = $tempPath.DIRECTORY_SEPARATOR.'nyusnd_'.bin2hex(random_bytes(8));
 		$srcePath = $fileClef.'.src';
@@ -98,7 +98,7 @@ class Codec {
 			// What is written: the first sound of the file, nothing of what comes with it
 			array_push($cmmnArgs, '-map', '0:a:0', '-vn', '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1', '-fflags', '+bitexact');
 			$kbitNumb = intval($codecOptions['kbits'] ?? 0);
-			if( $sourceFormat===$goalKindText && $kbitNumb<1 && in_array($goalKindText, self::COPY_LIST) ){
+			if( $sourceFormat===$goalTypeText && $kbitNumb<1 && in_array($goalTypeText, self::COPY_LIST) ){
 				// The same kind: what is heard is taken as it is packed, nothing is lost
 				array_push($cmmnArgs, '-c:a', 'copy');
 			}else{
@@ -107,7 +107,7 @@ class Codec {
 					array_push($cmmnArgs, '-b:a', max(8, min(512, ($kbitNumb<1) ? $kindDict[3] : $kbitNumb)).'k');
 				}
 			}
-			if( $goalKindText=='mp3' ){
+			if( $goalTypeText=='mp3' ){
 				array_push($cmmnArgs, '-id3v2_version', '0');
 			}
 			array_push($cmmnArgs, '-fs', strval(self::MAXI_BYTE), '-f', $kindDict[1], $trgtPath);

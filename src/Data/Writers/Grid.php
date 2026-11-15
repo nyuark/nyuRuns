@@ -20,14 +20,14 @@ abstract class Grid extends Base {
 	 * most, none of those they keep for themselves, and no name twice.
 	 *
 	 * @param String $sheetHeading The name asked for.
-	 * @param Int    $sheetPlaceNb The place of the sheet, starting from 1, for a sheet without a name.
+	 * @param Int    $sheetPlcNumb The place of the sheet, starting from 1, for a sheet without a name.
 	 * @param Array  $usedNameList The names already given.
 	 * @return String The name.
 	 */
-	protected function cleanSheetName(String $sheetHeading, Int $sheetPlaceNb, Array $usedNameList): String {
-		$cutsText = function(String $textToShrink, Int $lengthsMaxNb){ return function_exists('mb_substr') ? mb_substr($textToShrink, 0, $lengthsMaxNb, 'UTF-8') : substr($textToShrink, 0, $lengthsMaxNb); };
+	protected function cleanSheetName(String $sheetHeading, Int $sheetPlcNumb, Array $usedNameList): String {
+		$cutsText = function(String $textToShrink, Int $keptCharsCnt){ return function_exists('mb_substr') ? mb_substr($textToShrink, 0, $keptCharsCnt, 'UTF-8') : substr($textToShrink, 0, $keptCharsCnt); };
 		$nameText = trim(strval(preg_replace('/[\[\]:*?\/\\\\\x00-\x1F]+/', ' ', preg_match('//u', $sheetHeading) ? $sheetHeading : '')), " '");
-		$nameText = rtrim($cutsText(($nameText==='') ? 'Sheet'.$sheetPlaceNb : $nameText, 31));
+		$nameText = rtrim($cutsText(($nameText==='') ? 'Sheet'.$sheetPlcNumb : $nameText, 31));
 		$lowerLst = array_map('strtolower', $usedNameList);
 		$baseText = $nameText;
 		for($tryIdx=2; in_array(strtolower($nameText), $lowerLst, true); $tryIdx++){

@@ -319,7 +319,7 @@ class Odtx extends Page {
 		// The same picture is written once, however often it is shown
 		$pictClef = sha1($pictDict['bytes']);
 		if( !isset($this->mediaFiles[$pictClef]) ){
-			if( array_sum(array_map(function(Array $mediaItemArr){ return strlen($mediaItemArr[1]); }, $this->mediaFiles))+strlen($pictDict['bytes'])>self::MEDI_MAXI ){
+			if( array_sum(array_map(function(Array $mediaItemLst){ return strlen($mediaItemLst[1]); }, $this->mediaFiles))+strlen($pictDict['bytes'])>self::MEDI_MAXI ){
 				return '';
 			}
 			$this->mediaFiles[$pictClef] = Array('Pictures/image'.(count($this->mediaFiles)+1).'.'.$pictDict['kinds'], $pictDict['bytes']);
@@ -523,10 +523,10 @@ class Odtx extends Page {
 	 * @param String $styleDocName The name of its style in the document.
 	 * @param Array  $textSpanList Its text, as spans.
 	 * @param Array  $attributeSet What the block tells of it: how it is aligned under 'align', the name of its place under 'tagid', and whether a line is drawn under it under 'lined'.
-	 * @param Int    $headsLevelNb Its level when it is a heading, 0 for a paragraph.
+	 * @param Int    $headsLvlNumb Its level when it is a heading, 0 for a paragraph.
 	 * @return String The paragraph.
 	 */
-	protected function paragraphPiece(String $styleDocName, Array $textSpanList, Array $attributeSet, Int $headsLevelNb=0): String {
+	protected function paragraphPiece(String $styleDocName, Array $textSpanList, Array $attributeSet, Int $headsLvlNumb=0): String {
 		// What a paragraph adds to its style makes a style of its own, based on it: how it is aligned, the page it starts, the line under it
 		$alignKey = is_scalar($attributeSet['align'] ?? '') ? strval($attributeSet['align'] ?? '') : '';
 		$handText = (isset(self::ALGN_LIST[$alignKey]) ? ' fo:text-align="'.self::ALGN_LIST[$alignKey].'"' : '').($this->breakAhead ? ' fo:break-before="page"' : '').(empty($attributeSet['lined']) ? '' : ' fo:border-bottom="0.5pt solid #000000" fo:padding-bottom="0.035cm"');
@@ -546,8 +546,8 @@ class Odtx extends Page {
 			$this->anchorList[] = $markName;
 			$markText = '<text:bookmark text:name="'.$markName.'"/>';
 		}
-		$tagTitle = ($headsLevelNb>0) ? 'text:h' : 'text:p';
-		return '<'.$tagTitle.' text:style-name="'.$styleNme.'"'.(($headsLevelNb>0) ? ' text:outline-level="'.$headsLevelNb.'"' : '').'>'.$markText.$this->spansPieceText($textSpanList).'</'.$tagTitle.'>';
+		$tagTitle = ($headsLvlNumb>0) ? 'text:h' : 'text:p';
+		return '<'.$tagTitle.' text:style-name="'.$styleNme.'"'.(($headsLvlNumb>0) ? ' text:outline-level="'.$headsLvlNumb.'"' : '').'>'.$markText.$this->spansPieceText($textSpanList).'</'.$tagTitle.'>';
 	}
 
 	/**

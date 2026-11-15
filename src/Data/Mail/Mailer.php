@@ -33,24 +33,24 @@ class Mailer {
 	 * Builds the mailer of an account.
 	 *
 	 * @param String $accountLabel Name of the account, in lower case; '' for the default one.
-	 * @param Array  $acntSetupArr The settings of the account (see acntSetup).
+	 * @param Array  $acctSetupLst The settings of the account (see acntSetup).
 	 *
 	 * @throws MailFailure When the type is unknown, the account has no sender, or its driver cannot work.
 	 */
-	public function __construct( String $accountLabel, Array $acntSetupArr ){
+	public function __construct( String $accountLabel, Array $acctSetupLst ){
 		$this->accountNme = $accountLabel;
-		$this->setupArray = $acntSetupArr;
+		$this->setupArray = $acctSetupLst;
 		// The type whatever its case, as TYPE_LIST writes it
-		$typeClef = strval( array_values(preg_grep('/^'.preg_quote(strval($acntSetupArr['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
+		$typeClef = strval( array_values(preg_grep('/^'.preg_quote(strval($acctSetupLst['sendWith'] ?? ''), '/').'$/iD', array_keys(self::TYPE_LIST)))[0] ?? '' );
 		if( !isset(self::TYPE_LIST[$typeClef]) ){
-			throw new MailFailure('Unknown mail type: '.json_encode($acntSetupArr['sendWith'] ?? ''));
+			throw new MailFailure('Unknown mail type: '.json_encode($acctSetupLst['sendWith'] ?? ''));
 		}
-		if( ($acntSetupArr['fromAddr'] ?? '')=='' ){
+		if( ($acctSetupLst['fromAddr'] ?? '')=='' ){
 			throw new MailFailure('The mail account '.json_encode($accountLabel).' has no sender address');
 		}
-		Message::checkEmailAddr($acntSetupArr['fromAddr']);
+		Message::checkEmailAddr($acctSetupLst['fromAddr']);
 		$drvrClss = '\\nyu\\Data\\Mail\\Drivers\\'.self::TYPE_LIST[$typeClef];
-		$this->mailDriver = new $drvrClss($acntSetupArr);
+		$this->mailDriver = new $drvrClss($acctSetupLst);
 	}
 
 	/**
@@ -122,15 +122,15 @@ class Mailer {
 	 *
 	 * @param Array|String $recipientLst Addresses of the recipients: a list, or one text where they are separated by commas.
 	 * @param String       $emailSubject Subject of the mail.
-	 * @param String       $mssgBodyText Plain text of the mail.
-	 * @param ?String      $htmlMssgText HTML version of the mail, null for a plain text mail.
+	 * @param String       $plainMailTxt Plain text of the mail.
+	 * @param ?String      $htmlMailText HTML version of the mail, null for a plain text mail.
 	 * @param Array        $attachedList Paths of the files attached; a 'selfSmtp' account sends none.
 	 * @return Bool Whether the mail was sent (written, for an 'emlFiles' account).
 	 *
 	 * @throws MailFailure When an address is not valid, the subject holds a line break, an attachment cannot be read or the account cannot send attachments.
 	 */
-	public function deliverEmlFlag( Array|String $recipientLst, String $emailSubject, String $mssgBodyText, ?String $htmlMssgText=null, Array $attachedList=Array() ): Bool {
-		$mailInst = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $mssgBodyText, $htmlMssgText, $attachedList );
+	public function deliverEmlFlag( Array|String $recipientLst, String $emailSubject, String $plainMailTxt, ?String $htmlMailText=null, Array $attachedList=Array() ): Bool {
+		$mailInst = new Message( $this->setupArray['fromAddr'], $this->setupArray['fromName'], Message::splitAddresses($recipientLst), $emailSubject, $plainMailTxt, $htmlMailText, $attachedList );
 		$copyList = Array();
 		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $cpyAdr ){
 			$copyList[] = Message::checkEmailAddr($cpyAdr);

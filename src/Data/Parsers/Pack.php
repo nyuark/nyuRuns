@@ -415,40 +415,40 @@ abstract class Pack extends Base {
 	 * quote, or its text with the images it holds, and a page break
 	 * before or after it when it asks for one.
 	 *
-	 * @param Array $prgrphValues The paragraph: its 'kinds' (headline, citation or paragrph), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
+	 * @param Array $paragraphVal The paragraph: its 'kinds' (headline, citation or paragrph), 'level', 'attrs', 'spans', 'holds', 'flows', and whether a page break stands before and after it under 'prior' and 'after'.
 	 * @return Array The blocks.
 	 */
-	protected function paragrphBlocks(Array $prgrphValues): Array {
-		$prgrCode = $prgrphValues['kinds'];
-		$newPargr = $prgrphValues['flows'];
+	protected function paragrphBlocks(Array $paragraphVal): Array {
+		$prgrCode = $paragraphVal['kinds'];
+		$newPargr = $paragraphVal['flows'];
 		if( $prgrCode=='headline' || $prgrCode=='citation' ){
 			// A heading and a quote hold their text only; what else their paragraph holds follows them
 			$newPargr = array_merge(
-				Array(Shape::makeBlockArray($prgrCode, $prgrphValues['spans'], Array(), ($prgrCode=='headline') ? Array('level'=>$prgrphValues['level']) : Array())),
-				($prgrCode=='headline') ? array_values(array_filter($prgrphValues['holds'], function($contentBlock){ return $contentBlock['block']=='ruleLine'; })) : $prgrphValues['holds']
+				Array(Shape::makeBlockArray($prgrCode, $paragraphVal['spans'], Array(), ($prgrCode=='headline') ? Array('level'=>$paragraphVal['level']) : Array())),
+				($prgrCode=='headline') ? array_values(array_filter($paragraphVal['holds'], function($contentBlock){ return $contentBlock['block']=='ruleLine'; })) : $paragraphVal['holds']
 			);
 		}
 		// The style, the alignment and the id are those of the text, not of an image or a page break
 		if( !empty($newPargr) && !in_array($newPargr[0]['block'], Array('ruleLine', 'imageBox')) ){
-			$newPargr[0]['attrs'] = $newPargr[0]['attrs'] + $prgrphValues['attrs'];
+			$newPargr[0]['attrs'] = $newPargr[0]['attrs'] + $paragraphVal['attrs'];
 		}
 		$breakBlc = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
-		return array_merge($prgrphValues['prior'] ? Array($breakBlc) : Array(), $newPargr, $prgrphValues['after'] ? Array($breakBlc) : Array());
+		return array_merge($paragraphVal['prior'] ? Array($breakBlc) : Array(), $newPargr, $paragraphVal['after'] ? Array($breakBlc) : Array());
 	}
 	
 	/**
 	 * Makes one block of code of the paragraphs of code that follow one
 	 * another, each being one of its lines.
 	 *
-	 * @param Array $paragraphArr The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
+	 * @param Array $paragraphLst The paragraphs, each with its text as written under 'plain' and what is particular to it under 'attrs'.
 	 * @return Array The block, in a list; an empty list when the lines hold nothing.
 	 */
-	protected function codeBlockArray(Array $paragraphArr): Array {
-		$codeText = trim(implode("\n", array_column($paragraphArr, 'plain')), "\n");
+	protected function codeBlockArray(Array $paragraphLst): Array {
+		$codeText = trim(implode("\n", array_column($paragraphLst, 'plain')), "\n");
 		if( trim($codeText)==='' ){
 			return Array();
 		}
-		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), $paragraphArr[0]['attrs'] ?? Array()));
+		return Array(Shape::makeBlockArray('codeBlck', Array(Shape::makeASpanArray($codeText)), Array(), $paragraphLst[0]['attrs'] ?? Array()));
 	}
 	
 	/**

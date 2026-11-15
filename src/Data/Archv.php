@@ -19,12 +19,12 @@ class Archv {
 	 *
 	 * @param \ZipArchive $archiveInUse The open archive.
 	 * @param Fluxd       $sourceStream The source it was opened from, kept as long as the archive is.
-	 * @param Array       $itemNamesArr The entries it holds, name => size once unpacked.
+	 * @param Array       $itemNamesLst The entries it holds, name => size once unpacked.
 	 */
-	private function __construct(\ZipArchive $archiveInUse, Fluxd $sourceStream, Array $itemNamesArr){
+	private function __construct(\ZipArchive $archiveInUse, Fluxd $sourceStream, Array $itemNamesLst){
 		$this->zipHandler = $archiveInUse;
 		$this->sourceFlux = $sourceStream;
-		$this->entryNames = $itemNamesArr;
+		$this->entryNames = $itemNamesLst;
 	}
 
 	/**
@@ -40,12 +40,12 @@ class Archv {
 	 * source is closed.
 	 *
 	 * @param Fluxd $sourceStream The source.
-	 * @param Int   $entriesMaxNb Greatest number of entries accepted.
+	 * @param Int   $entriesLimit Greatest number of entries accepted.
 	 * @return Archv The opened archive.
 	 *
 	 * @throws \RuntimeException When the source is not a zip archive, holds too many entries, or holds an entry whose name leaves the archive.
 	 */
-	public static function openFluxdArchv(Fluxd $sourceStream, Int $entriesMaxNb=10000): Archv {
+	public static function openFluxdArchv(Fluxd $sourceStream, Int $entriesLimit=10000): Archv {
 		if( !class_exists('ZipArchive') ){
 			throw new \RuntimeException('Archives need the zip extension of PHP');
 		}
@@ -53,9 +53,9 @@ class Archv {
 		if( $archInst->open($sourceStream->setLocalString(), \ZipArchive::RDONLY)!==true ){
 			throw new \RuntimeException('Not a zip archive');
 		}
-		if( $archInst->numFiles>$entriesMaxNb ){
+		if( $archInst->numFiles>$entriesLimit ){
 			$archInst->close();
-			throw new \RuntimeException('Archive holding more than the '.$entriesMaxNb.' entries allowed');
+			throw new \RuntimeException('Archive holding more than the '.$entriesLimit.' entries allowed');
 		}
 		$nameList = Array();
 		for($zipInc=0; $zipInc<$archInst->numFiles; $zipInc++){
