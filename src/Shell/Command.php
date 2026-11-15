@@ -260,7 +260,7 @@ abstract class Command{
 	 * @param String $blockNmdText Name of the block.
 	 * @return Array Its values, empty when there is no such block.
 	 */
-	protected function findAccessConf( String $blockNmdText ): Array {
+	protected function findAccessDict( String $blockNmdText ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->getNestedValue('ACCESS', strtoupper($blockNmdText)) : null;
 		return is_array($blockCfg) ? $blockCfg : Array();

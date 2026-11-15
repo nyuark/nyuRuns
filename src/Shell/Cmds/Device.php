@@ -140,7 +140,7 @@ class Device extends Command{
 	 * @return DeviceAuth The check.
 	 */
 	protected function getDeviceCheck(): DeviceAuth {
-		return new DeviceAuth( $this->findAccessConf('dvcToken') );
+		return new DeviceAuth( $this->findAccessDict('dvcToken') );
 	}
 
 	/**

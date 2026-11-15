@@ -188,7 +188,7 @@ class Deploy extends Command{
 	 */
 	public function invokeUserBase(): Int {
 		$blockNme = strval($this->optionsObj->shiftFirstWord() ?? '');
-		$storeNme = strval( $this->optionsObj->getOptionValue('useStore', strval($this->findAccessConf('loginSet')['authWith'] ?? '')) );
+		$storeNme = strval( $this->optionsObj->getOptionValue('useStore', strval($this->findAccessDict('loginSet')['authWith'] ?? '')) );
 		if( !in_array($storeNme, Array('nativeDb', 'userFile'), true) ){
 			$this->stopWithReason('The login uses neither the native userbase nor the users file: name the store with --useStore=nativeDb or --useStore=userFile', self::EXIT_HELP);
 		}
@@ -223,7 +223,7 @@ class Deploy extends Command{
 		if( !in_array($trgtName, Array('nativeDb', 'userFile'), true) ){
 			$this->stopWithReason('Not a store the users can be moved to: '.$trgtName, self::EXIT_HELP);
 		}
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		$srceName = strval($loginCfg['authWith'] ?? '');
 		if( $srceName==$trgtName ){
 			$this->stopWithReason('The login already uses '.$trgtName.': nothing to move', self::EXIT_DENY);
@@ -231,7 +231,7 @@ class Deploy extends Command{
 		if( !in_array($srceName, Array('nativeDb', 'userFile'), true) ){
 			$this->stopWithReason('The login uses neither the native userbase nor the users file: there are no users to move', self::EXIT_DENY);
 		}
-		$srceConf = $this->findAccessConf( strval($loginCfg['authConf'] ?? $srceName) );
+		$srceConf = $this->findAccessDict( strval($loginCfg['authConf'] ?? $srceName) );
 		$userList = ($srceName=='nativeDb') ? $this->readUsersOfTbl($srceConf) : $this->readUsersOfFle($srceConf);
 		if( empty($userList) ){
 			$this->stopWithReason('The '.$srceName.' store holds no users: nothing to move', self::EXIT_DENY);
@@ -248,7 +248,7 @@ class Deploy extends Command{
 			$this->promptDatabase($wrtrInst);
 		}
 		Console::loadConfigLogs();
-		$distConf = $this->findAccessConf($trgtName);
+		$distConf = $this->findAccessDict($trgtName);
 		$this->checkStoreVoid($trgtName, $distConf);
 		list($lostList, $dvceList) = $this->listLostFields($srceName, $userList);
 		$userList = $this->castMovedUsers($userList, $srceConf, $distConf);
@@ -267,7 +267,7 @@ class Deploy extends Command{
 			$this->writeUsersFile($distConf, $userList);
 		}
 		// Devices left behind would still pass on users the project no longer manages
-		$dvceAuth = new DeviceAuth( $this->findAccessConf('dvcToken') );
+		$dvceAuth = new DeviceAuth( $this->findAccessDict('dvcToken') );
 		foreach( $dvceList as $oneDvc ){
 			$dvceAuth->dropUserDevice($oneDvc);
 		}
@@ -410,7 +410,7 @@ class Deploy extends Command{
 			$this->stopWithReason('Nothing was moved: codes by mail need the native userbase ('.implode(', ', $mailList).'); "account setTwoFa <user> --removeIt" takes them away', self::EXIT_DENY);
 		}
 		$lostList[] = Array('presence and 2FA steps', 'the users file is only read: last seen, failed attempts and the step of the last 2FA code are not kept');
-		$dvceConf = $this->findAccessConf('dvcToken');
+		$dvceConf = $this->findAccessDict('dvcToken');
 		$dvceNtry = empty($dvceConf) ? Array() : (new DeviceAuth($dvceConf))->listUsrDevices();
 		$dvceList = Array();
 		$dvceNmes = Array();
@@ -780,7 +780,7 @@ class Deploy extends Command{
 			Console::loadConfigLogs();
 			return 'none';
 		}
-		$lognAuth = strval($this->findAccessConf('loginSet')['authWith'] ?? '');
+		$lognAuth = strval($this->findAccessDict('loginSet')['authWith'] ?? '');
 		$storeNme = strval( $this->optionsObj->getOptionValue('useStore', in_array($lognAuth, Array('nativeDb', 'userFile'), true) ? $lognAuth : ( $profileNamed=='authServ' ? 'userFile' : 'none' )) );
 		$storeNme = $this->promptValueTxt('Store of the users ('.implode(', ', self::STOR_LIST).')', $storeNme);
 		// Matched whatever its letter case, kept as the list writes it
@@ -1006,9 +1006,9 @@ class Deploy extends Command{
 		}
 		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 		$accsPath = TOP_DIR.DS.'conf'.DS.'access.json';
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		$blockNme = ( strval($loginCfg['authWith'] ?? '')=='nativeDb' ) ? strval($loginCfg['authConf'] ?? 'nativeDb') : 'nativeDb';
-		$nowAccnt = $this->findAccessConf($blockNme)['mailAcnt'] ?? '';
+		$nowAccnt = $this->findAccessDict($blockNme)['mailAcnt'] ?? '';
 		$acctName = $this->promptAccntCfg( $wrtrInst, $typeName, is_string($nowAccnt) ? $nowAccnt : '' );
 		$treeInst = $wrtrInst->readRawJsonCfg($accsPath);
 		if( !isset($treeInst->$blockNme) || !is_object($treeInst->$blockNme) ){
@@ -1127,9 +1127,9 @@ class Deploy extends Command{
 		// The config as it is now written, and no mailer built from a former one
 		Console::loadConfigLogs();
 		Mailer::clearMailCache();
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		$blockNme = ( strval($loginCfg['authWith'] ?? '')=='nativeDb' ) ? strval($loginCfg['authConf'] ?? 'nativeDb') : 'nativeDb';
-		$acctName = $this->findAccessConf($blockNme)['mailAcnt'] ?? '';
+		$acctName = $this->findAccessDict($blockNme)['mailAcnt'] ?? '';
 		if( !is_string($acctName) || $acctName==='' ){
 			$this->stopWithReason('No test mail sent: the native userbase names no mail account ("mailAcnt" of the '.$blockNme.' block)', self::EXIT_DENY);
 		}
@@ -1213,9 +1213,9 @@ class Deploy extends Command{
 	protected function makeBasicUsers( String $storeOfUsers, String $blockNmdText ): Void {
 		// Tables are made: the descriptions the config cache keeps (TBL_CACH) are no longer the whole story
 		ConfCache::clearConfCache();
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		$blockNme = ($blockNmdText!='') ? $blockNmdText : ( strval($loginCfg['authWith'] ?? '')==$storeOfUsers ? strval($loginCfg['authConf'] ?? $storeOfUsers) : $storeOfUsers );
-		$blockCfg = $this->findAccessConf($blockNme);
+		$blockCfg = $this->findAccessDict($blockNme);
 		if( empty($blockCfg) && ($storeOfUsers=='nativeDb' || $blockNmdText!='') ){
 			$this->stopWithReason('No user created: conf/access.json has no "'.$blockNme.'" block', self::EXIT_DENY);
 		}
@@ -1301,7 +1301,7 @@ class Deploy extends Command{
 	 * @throws ShellStop When the table cannot be created.
 	 */
 	protected function makeDevicesTbl(): Void {
-		$dvceConf = $this->findAccessConf('dvcToken');
+		$dvceConf = $this->findAccessDict('dvcToken');
 		if( empty($dvceConf) ){
 			return;
 		}

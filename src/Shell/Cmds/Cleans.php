@@ -91,7 +91,7 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFullList(): Int {
-		$lmtrInst = new Limiter( $this->findAccessConf('tryLimit') );
+		$lmtrInst = new Limiter( $this->findAccessDict('tryLimit') );
 		$rowsList = Array();
 		foreach( $lmtrInst->listLimitHolds() as $oneVal ){
 			$rowsList[] = Array(
@@ -121,7 +121,7 @@ class Cleans extends Command{
 		if( !$this->promptApproval('Release '.( $givenAdr=='all' ? 'every address' : $givenAdr )) ){
 			$this->stopWithReason('Nothing was released: not confirmed', self::EXIT_DENY);
 		}
-		$lmtrInst = new Limiter( $this->findAccessConf('tryLimit') );
+		$lmtrInst = new Limiter( $this->findAccessDict('tryLimit') );
 		$dropNumb = $lmtrInst->dropHoldsCount( $givenAdr=='all' ? null : $givenAdr );
 		$this->printerObj->writeShellPair('released', $dropNumb);
 		if( $dropNumb>0 ){
@@ -141,7 +141,7 @@ class Cleans extends Command{
 			return strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] );
 		}
 		if( $tempFileType=='tryLimit' ){
-			$fieldNme = trim( strval($this->findAccessConf('tryLimit')['dataPath'] ?? ''), '/\\ ' );
+			$fieldNme = trim( strval($this->findAccessDict('tryLimit')['dataPath'] ?? ''), '/\\ ' );
 			return TOP_DIR.DS.( $fieldNme!='' ? str_replace(Array('/', '\\'), DS, $fieldNme) : 'temp'.DS.'limits' );
 		}
 		return TOP_DIR.DS.'temp'.DS.( ($tempFileType=='cacheDir') ? 'cache' : $tempFileType );

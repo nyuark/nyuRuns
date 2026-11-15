@@ -429,7 +429,7 @@ class HealthChk{
 			$this->addCheckResult('access', 'fail', 'conf/access.json is missing or empty: "install makeConf" creates it from its example');
 			return;
 		}
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		if( empty($loginCfg) ){
 			$this->addCheckResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
 		}else{
@@ -479,7 +479,7 @@ class HealthChk{
 			$this->checkAccsMails($blockNme, $oneVal);
 		}
 		// The key of the login marks : without one, the hold of an account also stops its owner
-		$limitCfg = $this->findAccessConf('tryLimit');
+		$limitCfg = $this->findAccessDict('tryLimit');
 		$markSize = strlen(strval($limitCfg['markSecr'] ?? ''));
 		$this->addCheckResult( 'login marks', ($markSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'fine' : 'warn', ($markSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'set: a client already used logs in while its account is held' : 'no markSecr of '.\nyu\Access\LoginMark::KEYS_SIZE.' characters: the hold of an account also stops its owner; "setting mkSecret markSecr" makes one' );
 		// The language of the mails of a user who has none
@@ -634,7 +634,7 @@ class HealthChk{
 			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'missing: "setting mkSecret jwtToken" makes them');
 		}elseif( min($clefBits)<JWT::RSAS_BITS ){
 			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'not an RSA key of '.JWT::RSAS_BITS.' bits at least: "setting mkSecret jwtToken" makes a new pair');
-		}elseif( $privClef===false && ($blockVlsList['external'] ?? false)!==true && !empty($loginCfg = $this->findAccessConf('loginSet')) && strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($loginCfg['carrConf'] ?? 'jwtToken'), $blockNmdText)==0 ){
+		}elseif( $privClef===false && ($blockVlsList['external'] ?? false)!==true && !empty($loginCfg = $this->findAccessDict('loginSet')) && strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($loginCfg['carrConf'] ?? 'jwtToken'), $blockNmdText)==0 ){
 			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
 			$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 			$isRemote = in_array(strtoupper(strval(($nyuConfg!==null) ? $nyuConfg->getNestedValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
@@ -652,7 +652,7 @@ class HealthChk{
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$dtbsName = ($nyuConfg!==null) ? $nyuConfg->readValueByKey('database') : null;
 		if( !is_array($dtbsName) || empty($dtbsName) ){
-			$needsDbs = strval($this->findAccessConf('loginSet')['authWith'] ?? '')=='nativeDb';
+			$needsDbs = strval($this->findAccessDict('loginSet')['authWith'] ?? '')=='nativeDb';
 			$this->addCheckResult( 'databases', $needsDbs ? 'fail' : 'fine', $needsDbs ? 'none is configured, and the login uses the native userbase' : 'none is configured' );
 			return;
 		}
@@ -685,9 +685,9 @@ class HealthChk{
 	 * the native userbase, the users file, or the htpasswd file.
 	 */
 	public function checkUserStore(): Void {
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		$authName = strval($loginCfg['authWith'] ?? '');
-		$blockCfg = $this->findAccessConf( strval($loginCfg['authConf'] ?? '') );
+		$blockCfg = $this->findAccessDict( strval($loginCfg['authConf'] ?? '') );
 		if( $authName=='nativeDb' ){
 			try{
 				$dtbsHndr = DBCon::linkNamedDbCon( strval($blockCfg['linkName'] ?? '') )->readConnection();
@@ -718,7 +718,7 @@ class HealthChk{
 	 * above the first role: they act with their user's full role.
 	 */
 	public function checkCapsOfDvc(): Void {
-		$blockCfg = $this->findAccessConf('dvcToken');
+		$blockCfg = $this->findAccessDict('dvcToken');
 		if( empty($blockCfg) ){
 			return;
 		}
@@ -770,9 +770,9 @@ class HealthChk{
 	 * or audience, and a 'dataServ' whose public key file is missing.
 	 */
 	public function checkPrjctKind(): Void {
-		$loginCfg = $this->findAccessConf('loginSet');
+		$loginCfg = $this->findAccessDict('loginSet');
 		$tokenNme = empty($loginCfg) ? '' : ( ( strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' ) ? strval($loginCfg['carrConf'] ?? 'jwtToken') : '' );
-		$tokenCfg = $this->findAccessConf($tokenNme);
+		$tokenCfg = $this->findAccessDict($tokenNme);
 		$authName = trim( strval($loginCfg['authWith'] ?? '') );
 		$isRsaTkn = ($tokenCfg['signAlgo'] ?? '')=='RS256';
 		$publName = trim( strval($tokenCfg['publFile'] ?? ''), '/\\ ' );
@@ -863,7 +863,7 @@ class HealthChk{
 			$this->addCheckResult('.env', 'warn', 'the file of the secrets can be read by other users of the system: chmod 600 .env');
 		}
 		// The limiter is checked for what it would do, not for what it holds
-		$limitCfg = $this->findAccessConf('tryLimit');
+		$limitCfg = $this->findAccessDict('tryLimit');
 		if( !empty($limitCfg) && intval($limitCfg['maxTries'] ?? 10)<1 ){
 			$this->addCheckResult('limits', 'warn', 'the limit by address is off (maxTries 0): wrong credentials can be tried without end');
 		}
@@ -888,7 +888,7 @@ class HealthChk{
 		}
 		foreach( Array('carrConf', 'authConf') as $oneKey ){
 			$blockNme = strval($accessConfig[$oneKey] ?? '');
-			if( $blockNme!='' && empty($this->findAccessConf($blockNme)) ){
+			if( $blockNme!='' && empty($this->findAccessDict($blockNme)) ){
 				return 'conf/access.json has no "'.$blockNme.'" block, named by '.$oneKey;
 			}
 		}
@@ -901,7 +901,7 @@ class HealthChk{
 	 * @param String $blockNmdText Name of the block.
 	 * @return Array Its values, empty when there is no such block.
 	 */
-	protected function findAccessConf( String $blockNmdText ): Array {
+	protected function findAccessDict( String $blockNmdText ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->getNestedValue('ACCESS', strtoupper($blockNmdText)) : null;
 		return is_array($blockCfg) ? $blockCfg : Array();
