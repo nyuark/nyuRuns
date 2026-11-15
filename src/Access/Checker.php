@@ -36,13 +36,13 @@ class Checker{
 	 *
 	 * @param Array     $accessConfig Resolved 'security' config block for the active preset.
 	 * @param Request   $givenRequest The shared, already-parsed HTTP request.
-	 * @param ?Registry $resolvedRgst The resolved route, used to recognise public routes.
+	 * @param ?Registry $resolvedRegr The resolved route, used to recognise public routes.
 	 * @param ?Router   $routerObject The router of the preset, for the declared routes a '/path' of 'minRoles' names: without one, such a key cannot be applied (see checkRoleFlaws).
 	 */
-	function __construct( Array $accessConfig, Request $givenRequest, ?Registry $resolvedRgst = null, ?Router $routerObject = null ){
+	function __construct( Array $accessConfig, Request $givenRequest, ?Registry $resolvedRegr = null, ?Router $routerObject = null ){
 		$this->accessConf = $accessConfig;
 		$this->requestObj = $givenRequest;
-		$this->routerRgst = $resolvedRgst;
+		$this->routerRgst = $resolvedRegr;
 		$this->routingObj = $routerObject;
 	}
 
@@ -475,15 +475,15 @@ class Checker{
 	 *
 	 * @param String $appNameToRun Application asked for, as the route of the request names it.
 	 * @param String $runAppAction Action asked for, in lower case; '' for none.
-	 * @param Array  $routEntryArr An entry of Router::allRoutesArray().
+	 * @param Array  $routEntryLst An entry of Router::allRoutesArray().
 	 * @return Bool True when the route answers with that action.
 	 */
-	protected function matchActionFlg( String $appNameToRun, String $runAppAction, Array $routEntryArr ): Bool {
+	protected function matchActionFlg( String $appNameToRun, String $runAppAction, Array $routEntryLst ): Bool {
 		$applName = strtolower( str_replace(' ', '', $appNameToRun) );
-		if( ($routEntryArr['routKind'] ?? '')!=='toAction' || $applName=='' || strtolower(str_replace(' ', '', strval($routEntryArr['appToRun'] ?? '')))!==$applName ){
+		if( ($routEntryLst['routKind'] ?? '')!=='toAction' || $applName=='' || strtolower(str_replace(' ', '', strval($routEntryLst['appToRun'] ?? '')))!==$applName ){
 			return false;
 		}
-		$routeAct = strtolower( strval($routEntryArr['doAction'] ?? '') );
+		$routeAct = strtolower( strval($routEntryLst['doAction'] ?? '') );
 		if( $routeAct===$runAppAction ){
 			return true;
 		}
@@ -654,15 +654,15 @@ class Checker{
 	/**
 	 * Reads a named strategy config block from the ACCESS config file.
 	 *
-	 * @param String $confBlckName Name of the config block to read.
+	 * @param String $cfgBlockName Name of the config block to read.
 	 * @return Array The strategy's configuration, or an empty array if not found.
 	 */
-	protected function resolveConfArr( String $confBlckName ): Array {
-		if( $confBlckName=='' ){
+	protected function resolveConfArr( String $cfgBlockName ): Array {
+		if( $cfgBlockName=='' ){
 			return Array();
 		}
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$accsConf = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($confBlckName)) : null;
+		$accsConf = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($cfgBlockName)) : null;
 		return is_array($accsConf) ? $accsConf : Array();
 	}
 }

@@ -200,12 +200,12 @@ class PHPSess implements Handler{
 	/**
 	 * Builds the settings of the session cookie.
 	 *
-	 * @param Int $expiryTimeNb Expiry time of the cookie; 0 for the browser session.
+	 * @param Int $expiryTmeNum Expiry time of the cookie; 0 for the browser session.
 	 * @return Array The settings, as session_set_cookie_params() and setcookie() take them.
 	 */
-	protected function cookieSetArray( Int $expiryTimeNb ): Array {
+	protected function cookieSetArray( Int $expiryTmeNum ): Array {
 		$optsDict = Array('path'=>'/', 'secure'=>$this->isHttpOnly, 'httponly'=>true, 'samesite'=>$this->sitePolicy);
-		$optsDict[ $expiryTimeNb==0 ? 'lifetime' : 'expires' ] = $expiryTimeNb;
+		$optsDict[ $expiryTmeNum==0 ? 'lifetime' : 'expires' ] = $expiryTmeNum;
 		return $optsDict;
 	}
 

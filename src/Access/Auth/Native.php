@@ -89,17 +89,17 @@ class Native implements Handler{
 	 * after as many (see Access\LoginMark). A 'key' entry is checked as a
 	 * personal API token instead.
 	 *
-	 * @param Array $loginDataArr Must contain 'user' and 'pass' entries (and 'code' for a 2FA user, 'mark' for a client already used), or a 'key' entry.
+	 * @param Array $loginDataLst Must contain 'user' and 'pass' entries (and 'code' for a 2FA user, 'mark' for a client already used), or a 'key' entry.
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+	function checkSecretArr( Array $loginDataLst ): Array|Bool {
 		$this->badTryFlag = false;
 		$this->passedUser = null;
-		if( isset($loginDataArr['key']) ){
-			return $this->checkTokenList( strval($loginDataArr['key']) );
+		if( isset($loginDataLst['key']) ){
+			return $this->checkTokenList( strval($loginDataLst['key']) );
 		}
-		$givenUsr = strval($loginDataArr['user'] ?? '');
-		$givenPwd = strval($loginDataArr['pass'] ?? '');
+		$givenUsr = strval($loginDataLst['user'] ?? '');
+		$givenPwd = strval($loginDataLst['pass'] ?? '');
 		$userVals = ($givenUsr!='') ? $this->fetchUserArray($givenUsr) : null;
 		if( $userVals===false ){
 			$this->errMessage = 'Credential store unavailable';
@@ -115,9 +115,9 @@ class Native implements Handler{
 		}
 		// A client already used by the user : its mark, while it has not failed too often itself
 		$markClef = '';
-		if( is_array($userVals) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
+		if( is_array($userVals) && is_string($loginDataLst['mark'] ?? null) && $loginDataLst['mark']!=='' ){
 			// Signed with the hash the password has now : a password set after the mark was made ends it
-			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], strval($userVals['systemName']), (password_get_info($rowDigst)['algo']!==null) ? $rowDigst : '' );
+			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], strval($userVals['systemName']), (password_get_info($rowDigst)['algo']!==null) ? $rowDigst : '' );
 			if( $markClef!='' && $this->markedLmtr->heldByUserNumb($markClef)>0 ){
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($userVals['systemName']).': too many attempts with it' );
 				$markClef = '';
@@ -148,10 +148,10 @@ class Native implements Handler{
 		// A user with mailed codes gives the code sent to its address : asked without one, a code is mailed
 		$sealClef = strval($userVals['twoFactKey'] ?? '');
 		if( ($userVals['twoFactWay'] ?? null)==='emailOtp' ){
-			$givenCod = strval($loginDataArr['code'] ?? '');
+			$givenCod = strval($loginDataLst['code'] ?? '');
 			if( $givenCod=='' ){
 				// Only a caller that can carry a code (the login) has one mailed : a Basic header cannot
-				if( array_key_exists('code', $loginDataArr) && !$this->sendCodeByMail($userVals) ){
+				if( array_key_exists('code', $loginDataLst) && !$this->sendCodeByMail($userVals) ){
 					$this->errMessage = 'Credential store unavailable';
 					return false;
 				}
@@ -180,7 +180,7 @@ class Native implements Handler{
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
-			$givenCod = strval($loginDataArr['code'] ?? '');
+			$givenCod = strval($loginDataLst['code'] ?? '');
 			if( $givenCod=='' ){
 				// Not a failed attempt : the password was right, the client now asks for the code
 				$this->errMessage = 'Verification code required';
@@ -267,12 +267,12 @@ class Native implements Handler{
 	 * Tells whether a user is held back after too many failed attempts:
 	 * as many failures as allowed, the last one within the hold time.
 	 *
-	 * @param Array $usrValuesArr The user's row.
+	 * @param Array $userValsList The user's row.
 	 * @return Bool Whether attempts are refused for now.
 	 */
-	protected function hasHeldNowFlag( Array $usrValuesArr ): Bool {
-		$failDate = strval($usrValuesArr['failedTime'] ?? '');
-		return intval($usrValuesArr['failsCount'] ?? 0)>=$this->triesLimit
+	protected function hasHeldNowFlag( Array $userValsList ): Bool {
+		$failDate = strval($userValsList['failedTime'] ?? '');
+		return intval($userValsList['failsCount'] ?? 0)>=$this->triesLimit
 			&& $failDate!='' && $failDate>date('Y-m-d H:i:s', time() - $this->holdPeriod);
 	}
 
@@ -344,20 +344,20 @@ class Native implements Handler{
 	 * seconds ago is kept, and nothing is sent: asking again does not flood
 	 * the address.
 	 *
-	 * @param Array $usrValuesArr The user's row.
+	 * @param Array $userValsList The user's row.
 	 * @return Bool Whether a code is on its way; false when no mailer or no address sends it, or the table cannot be written.
 	 */
-	protected function sendCodeByMail( Array $usrValuesArr ): Bool {
-		$userName = strval($usrValuesArr['systemName'] ?? '');
-		$userMail = strval($usrValuesArr['contactEml'] ?? '');
+	protected function sendCodeByMail( Array $userValsList ): Bool {
+		$userName = strval($userValsList['systemName'] ?? '');
+		$userMail = strval($userValsList['contactEml'] ?? '');
 		// After the reply of a request; at once on the command line, which has none
 		$mailInst = \nyu\Access\AccessMail::fromLoginBlock( '', PHP_SAPI!=='cli' );
 		if( $mailInst===null || $userMail=='' ){
 			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Verification code of user '.json_encode($userName).' not sent: no mailer or no address' );
 			return false;
 		}
-		$endStamp = strval($usrValuesArr['twoFactExp'] ?? '');
-		if( strval($usrValuesArr['twoFactHsh'] ?? '')!='' && $endStamp!='' && strtotime($endStamp) - 60*$this->twoFactExp > time() - self::MAIL_SECS ){
+		$endStamp = strval($userValsList['twoFactExp'] ?? '');
+		if( strval($userValsList['twoFactHsh'] ?? '')!='' && $endStamp!='' && strtotime($endStamp) - 60*$this->twoFactExp > time() - self::MAIL_SECS ){
 			return true;
 		}
 		$newCodig = $this->makeAccessCode();
@@ -372,7 +372,7 @@ class Native implements Handler{
 		}catch( \Throwable $e ){
 			return false;
 		}
-		$mailInst->sendCodeToUser( 'passcode', $userName, $userMail, $newCodig, strval($usrValuesArr['userLocale'] ?? '') ?: null );
+		$mailInst->sendCodeToUser( 'passcode', $userName, $userMail, $newCodig, strval($userValsList['userLocale'] ?? '') ?: null );
 		\nyu\Tools\Logger::retrieveLogger('access')->info( 'Verification code mailed to user '.json_encode($userName) );
 		return true;
 	}
@@ -382,13 +382,13 @@ class Native implements Handler{
 	 * is accepted once, before its end. One write decides: of two requests
 	 * giving the same code at once, one is refused.
 	 *
-	 * @param Array  $usrValuesArr The user's row.
+	 * @param Array  $userValsList The user's row.
 	 * @param String $codeAsString The code given, whatever its case and dashes.
 	 * @return ?Bool True when the code is the one mailed, false when it is not or has ended, null when the table cannot be written.
 	 */
-	protected function compareMailFlg( Array $usrValuesArr, String $codeAsString ): ?Bool {
-		$rowDigst = strval($usrValuesArr['twoFactHsh'] ?? '');
-		$endStamp = strval($usrValuesArr['twoFactExp'] ?? '');
+	protected function compareMailFlg( Array $userValsList, String $codeAsString ): ?Bool {
+		$rowDigst = strval($userValsList['twoFactHsh'] ?? '');
+		$endStamp = strval($userValsList['twoFactExp'] ?? '');
 		if( $rowDigst=='' || $endStamp=='' || $endStamp<date('Y-m-d H:i:s') ){
 			return false;
 		}
@@ -400,7 +400,7 @@ class Native implements Handler{
 			$dtbsHndr = $this->attachDatabase();
 			$qotdName = $this->quoteFieldsArr($dtbsHndr);
 			$updtQuer = "UPDATE {$qotdName['usrTable']} SET {$qotdName['twoFactHsh']}=NULL, {$qotdName['twoFactExp']}=NULL WHERE {$qotdName['systemName']}=? AND {$qotdName['twoFactHsh']}=?;";
-			if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, Array(strval($usrValuesArr['systemName'] ?? ''), $rowDigst)) ){
+			if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, Array(strval($userValsList['systemName'] ?? ''), $rowDigst)) ){
 				return null;
 			}
 			return $dtbsHndr->countLastWrite()>0;
@@ -586,10 +586,10 @@ class Native implements Handler{
 	 * that made it included.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param ?Int   $issuedUnixNb Unix time the session or the token was issued at; null when there is none to compare.
+	 * @param ?Int   $issuedAtUnix Unix time the session or the token was issued at; null when there is none to compare.
 	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, its password was set since, or the table cannot be read.
 	 */
-	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedUnixNb=null ): Array|Bool {
+	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedAtUnix=null ): Array|Bool {
 		$this->badTryFlag = false;
 		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
 		if( $userVals===false ){
@@ -602,7 +602,7 @@ class Native implements Handler{
 		}
 		// A password set since the session or the token was issued ends it
 		$passDate = strval($userVals['passwdDate'] ?? '');
-		if( $issuedUnixNb!==null && $passDate!='' && strtotime($passDate)>$issuedUnixNb ){
+		if( $issuedAtUnix!==null && $passDate!='' && strtotime($passDate)>$issuedAtUnix ){
 			\nyu\Tools\Logger::retrieveLogger('access')->info( 'Session refused for user '.json_encode($namedUserTxt).': issued before its password was set' );
 			$this->errMessage = 'Password changed: sign in again';
 			return false;

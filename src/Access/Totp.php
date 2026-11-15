@@ -38,11 +38,11 @@ class Totp{
 	 * Computes the code of a secret at a given time.
 	 *
 	 * @param String $codeSecrText The base32 secret.
-	 * @param Int    $unixMomentNb Unix time the code is for.
+	 * @param Int    $momentAsUnix Unix time the code is for.
 	 * @return String The code, with its leading zeros.
 	 */
-	public static function codeAtTimeText( String $codeSecrText, Int $unixMomentNb ): String {
-		$hmacBrut = hash_hmac('sha1', pack('J', intdiv($unixMomentNb, self::STEP_SECS)), self::fromBase32Text($codeSecrText), true);
+	public static function codeAtTimeText( String $codeSecrText, Int $momentAsUnix ): String {
+		$hmacBrut = hash_hmac('sha1', pack('J', intdiv($momentAsUnix, self::STEP_SECS)), self::fromBase32Text($codeSecrText), true);
 		$startIdx = ord($hmacBrut[19]) & 0x0F;
 		$codeNumb = unpack('N', substr($hmacBrut, $startIdx, 4))[1] & 0x7FFFFFFF;
 		return str_pad(strval($codeNumb % (10 ** self::CODE_SIZE)), self::CODE_SIZE, '0', STR_PAD_LEFT);
@@ -54,11 +54,11 @@ class Totp{
 	 *
 	 * @param String $codeSecrText The base32 secret.
 	 * @param String $codeFromUser The code given by the user.
-	 * @param ?Int   $unixMomentNb Unix time to check at; now when not given.
+	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return Bool Whether the code is valid.
 	 */
-	public static function verifyTotpCode( String $codeSecrText, String $codeFromUser, ?Int $unixMomentNb = null ): Bool {
-		return self::matchStepCount($codeSecrText, $codeFromUser, $unixMomentNb)!==null;
+	public static function verifyTotpCode( String $codeSecrText, String $codeFromUser, ?Int $momentAsUnix = null ): Bool {
+		return self::matchStepCount($codeSecrText, $codeFromUser, $momentAsUnix)!==null;
 	}
 
 	/**
@@ -67,14 +67,14 @@ class Totp{
 	 *
 	 * @param String $codeSecrText The base32 secret.
 	 * @param String $codeFromUser The code given by the user.
-	 * @param ?Int   $unixMomentNb Unix time to check at; now when not given.
+	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return ?Int The number of the step (the Unix time divided by STEPSECS), the latest when several match; null when the code is not valid.
 	 */
-	public static function matchStepCount( String $codeSecrText, String $codeFromUser, ?Int $unixMomentNb = null ): ?Int {
+	public static function matchStepCount( String $codeSecrText, String $codeFromUser, ?Int $momentAsUnix = null ): ?Int {
 		if( !preg_match('/^\d{'.self::CODE_SIZE.'}$/', $codeFromUser) || self::fromBase32Text($codeSecrText)=='' ){
 			return null;
 		}
-		$currStep = intdiv($unixMomentNb ?? time(), self::STEP_SECS);
+		$currStep = intdiv($momentAsUnix ?? time(), self::STEP_SECS);
 		$stepMatx = null;
 		foreach( Array(-1, 0, 1) as $stpInc ){
 			if( hash_equals( self::codeAtTimeText($codeSecrText, ($currStep + $stpInc)*self::STEP_SECS), $codeFromUser ) ){

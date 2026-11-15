@@ -117,22 +117,22 @@ class AccessMail {
 	/**
 	 * Sends a code to a user.
 	 *
-	 * @param String $mailKindCode The mail: 'activate', 'register', 'password' or 'passcode' (never with a link).
+	 * @param String $mailTypeCode The mail: 'activate', 'register', 'password' or 'passcode' (never with a link).
 	 * @param String $namedUserTxt Login name of the user.
 	 * @param String $emailAddress Its address.
 	 * @param String  $codeAsString The code.
 	 * @param ?String $givenLangTag The language of the user; the default one when not given.
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
-	public function sendCodeToUser( String $mailKindCode, String $namedUserTxt, String $emailAddress, String $codeAsString, ?String $givenLangTag=null ): Bool {
-		if( !in_array($mailKindCode, self::KIND_LIST, true) ){
+	public function sendCodeToUser( String $mailTypeCode, String $namedUserTxt, String $emailAddress, String $codeAsString, ?String $givenLangTag=null ): Bool {
+		if( !in_array($mailTypeCode, self::KIND_LIST, true) ){
 			return false;
 		}
 		$linkText = '';
-		if( $this->urlTmplTxt!='' && $mailKindCode!=='passcode' ){
-			$linkText = strtr( $this->urlTmplTxt, Array('%mailKind%'=>rawurlencode($mailKindCode), '%userName%'=>rawurlencode($namedUserTxt), '%sentCode%'=>rawurlencode($codeAsString)) );
+		if( $this->urlTmplTxt!='' && $mailTypeCode!=='passcode' ){
+			$linkText = strtr( $this->urlTmplTxt, Array('%mailKind%'=>rawurlencode($mailTypeCode), '%userName%'=>rawurlencode($namedUserTxt), '%sentCode%'=>rawurlencode($codeAsString)) );
 		}
-		return $this->sendsEmailFlag( $mailKindCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkText, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
+		return $this->sendsEmailFlag( $mailTypeCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkText, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
 	}
 
 	/**
@@ -228,12 +228,12 @@ class AccessMail {
 	 * Sends a mail through the account of the block.
 	 *
 	 * @param String $emailAddress The address.
-	 * @param Array  $mailPartsArr The subject, the text and the HTML (null for none).
+	 * @param Array  $mailPartsLst The subject, the text and the HTML (null for none).
 	 * @return Bool Whether the mail was sent.
 	 */
-	protected function postsEmailFlag( String $emailAddress, Array $mailPartsArr ): Bool {
+	protected function postsEmailFlag( String $emailAddress, Array $mailPartsLst ): Bool {
 		try{
-			return Mailer::retrieveMailer($this->accountNme)->deliverEmlFlag($emailAddress, $mailPartsArr[0], $mailPartsArr[1], $mailPartsArr[2]);
+			return Mailer::retrieveMailer($this->accountNme)->deliverEmlFlag($emailAddress, $mailPartsLst[0], $mailPartsLst[1], $mailPartsLst[2]);
 		}catch( MailFailure $e ){
 			Logger::retrieveLogger('runner')->warning( 'Access mail not sent through account '.json_encode($this->accountNme).': '.$e->getMessage() );
 			return false;

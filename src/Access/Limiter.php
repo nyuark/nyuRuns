@@ -43,11 +43,11 @@ class Limiter{
 	 * no longer read on each of its requests.
 	 *
 	 * @param String $clientIpAddr Address of the client.
-	 * @param ?Int   $unixMomentNb Unix time to check at; now when not given.
+	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return Int The Unix time the hold ends at, or 0 when the address is not held.
 	 */
-	public function heldUntilCount( String $clientIpAddr, ?Int $unixMomentNb = null ): Int {
-		return $this->readsHeldCount( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $unixMomentNb ?? time() );
+	public function heldUntilCount( String $clientIpAddr, ?Int $momentAsUnix = null ): Int {
+		return $this->readsHeldCount( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -56,11 +56,11 @@ class Limiter{
 	 * by a hash of the user name, which it does not hold.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param ?Int   $unixMomentNb Unix time to check at; now when not given.
+	 * @param ?Int   $momentAsUnix Unix time to check at; now when not given.
 	 * @return Int The Unix time the hold ends at, or 0 when the account is not held.
 	 */
-	public function heldByUserNumb( String $namedUserTxt, ?Int $unixMomentNb = null ): Int {
-		return $this->readsHeldCount( $this->pathOfUserText($namedUserTxt), $unixMomentNb ?? time() );
+	public function heldByUserNumb( String $namedUserTxt, ?Int $momentAsUnix = null ): Int {
+		return $this->readsHeldCount( $this->pathOfUserText($namedUserTxt), $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -68,10 +68,10 @@ class Limiter{
 	 * for an address.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param ?Int   $unixMomentNb Unix time of the failure; now when not given.
+	 * @param ?Int   $momentAsUnix Unix time of the failure; now when not given.
 	 */
-	public function countLimitUser( String $namedUserTxt, ?Int $unixMomentNb = null ): Void {
-		$this->writeLimitFail( $this->pathOfUserText($namedUserTxt), '', $unixMomentNb ?? time() );
+	public function countLimitUser( String $namedUserTxt, ?Int $momentAsUnix = null ): Void {
+		$this->writeLimitFail( $this->pathOfUserText($namedUserTxt), '', $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -92,15 +92,15 @@ class Limiter{
 	 * or that is not one, is removed once read.
 	 *
 	 * @param String $countersPath Path of the counter; empty for none.
-	 * @param Int    $unixMomentNb Unix time to check at.
+	 * @param Int    $momentAsUnix Unix time to check at.
 	 * @return Int The Unix time the hold ends at, or 0 when nothing is held.
 	 */
-	protected function readsHeldCount( String $countersPath, Int $unixMomentNb ): Int {
+	protected function readsHeldCount( String $countersPath, Int $momentAsUnix ): Int {
 		$countPth = $countersPath;
 		if( $this->triesLimit<1 || $countPth=='' || !is_file($countPth) ){
 			return 0;
 		}
-		$nowStamp = $unixMomentNb;
+		$nowStamp = $momentAsUnix;
 		$countFle = @fopen($countPth, 'rb');
 		if( $countFle===false ){
 			return 0;
@@ -127,10 +127,10 @@ class Limiter{
 	 * the request is answered as it would be without a limit.
 	 *
 	 * @param String $clientIpAddr Address of the client.
-	 * @param ?Int   $unixMomentNb Unix time of the failure; now when not given.
+	 * @param ?Int   $momentAsUnix Unix time of the failure; now when not given.
 	 */
-	public function countFailedTry( String $clientIpAddr, ?Int $unixMomentNb = null ): Void {
-		$this->writeLimitFail( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $this->maskClientAddr($clientIpAddr), $unixMomentNb ?? time() );
+	public function countFailedTry( String $clientIpAddr, ?Int $momentAsUnix = null ): Void {
+		$this->writeLimitFail( $this->pathLimitOfKey($this->keyLimitOfAddr($clientIpAddr)), $this->maskClientAddr($clientIpAddr), $momentAsUnix ?? time() );
 	}
 
 	/**
@@ -140,14 +140,14 @@ class Limiter{
 	 *
 	 * @param String $countersPath Path of the counter; empty for none.
 	 * @param String $limitAdrText What the counter tells beside its count: the address counted, or nothing.
-	 * @param Int    $unixMomentNb Unix time of the failure.
+	 * @param Int    $momentAsUnix Unix time of the failure.
 	 */
-	protected function writeLimitFail( String $countersPath, String $limitAdrText, Int $unixMomentNb ): Void {
+	protected function writeLimitFail( String $countersPath, String $limitAdrText, Int $momentAsUnix ): Void {
 		$countPth = $countersPath;
 		if( $this->triesLimit<1 || $countPth=='' ){
 			return;
 		}
-		$nowStamp = $unixMomentNb;
+		$nowStamp = $momentAsUnix;
 		$countFle = $this->openLimitsFldr() ? @fopen($countPth, 'c+b') : false;
 		if( $countFle===false || !flock($countFle, LOCK_EX) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFldr );
@@ -174,11 +174,11 @@ class Limiter{
 	 * Removes the counters no longer in use, of the addresses and of the
 	 * accounts: those whose last failure is older than the hold time.
 	 *
-	 * @param ?Int $unixMomentNb Unix time to check at; now when not given.
+	 * @param ?Int $momentAsUnix Unix time to check at; now when not given.
 	 * @return Int The number of counters removed.
 	 */
-	public function dropStaleCount( ?Int $unixMomentNb = null ): Int {
-		$nowStamp = $unixMomentNb ?? time();
+	public function dropStaleCount( ?Int $momentAsUnix = null ): Int {
+		$nowStamp = $momentAsUnix ?? time();
 		$dropNumb = 0;
 		foreach( array_merge((array)glob($this->countsFldr.DS.'*.cnt'), (array)glob($this->countsFldr.DS.'*.usr')) as $cntFil ){
 			$countLst = $this->readLimitCount( strval(@file_get_contents($cntFil)) );
@@ -224,11 +224,11 @@ class Limiter{
 	 * Lists the addresses that have a counter: those held, and those
 	 * still within the time their failures add up.
 	 *
-	 * @param ?Int $unixMomentNb Unix time to check at; now when not given.
+	 * @param ?Int $momentAsUnix Unix time to check at; now when not given.
 	 * @return Array One entry per counter in use, with the address under 'addrs' (empty when the counter does not tell it), the failures under 'fails', the time of the last one under 'stamp' and the end of the hold under 'until' (0 when the address is not held).
 	 */
-	public function listLimitHolds( ?Int $unixMomentNb = null ): Array {
-		$nowStamp = $unixMomentNb ?? time();
+	public function listLimitHolds( ?Int $momentAsUnix = null ): Array {
+		$nowStamp = $momentAsUnix ?? time();
 		$heldList = Array();
 		foreach( (array)glob($this->countsFldr.DS.'*.cnt') as $cntFil ){
 			$countLst = $this->readLimitCount( strval(@file_get_contents(strval($cntFil))) );

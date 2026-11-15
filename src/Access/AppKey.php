@@ -115,16 +115,16 @@ class AppKey{
 	 * leading slash, to the letter. A request naming no action is reached
 	 * through "app/*" only.
 	 *
-	 * @param Registry $resolvedRgst The resolved route.
+	 * @param Registry $resolvedRegr The resolved route.
 	 * @return Bool True when the route is one of the application's.
 	 */
-	public function allowsRouteFlg( Registry $resolvedRgst ): Bool {
+	public function allowsRouteFlg( Registry $resolvedRegr ): Bool {
 		if( $this->callingApp===null ){
 			return false;
 		}
-		$applName = strtolower( str_replace(' ', '', strval($resolvedRgst->readValueByKey('appToRun'))) );
-		$actnName = strtolower( strval($resolvedRgst->readValueByKey('doAction')) );
-		$routePth = strval($resolvedRgst->readValueByKey('routPath'));
+		$applName = strtolower( str_replace(' ', '', strval($resolvedRegr->readValueByKey('appToRun'))) );
+		$actnName = strtolower( strval($resolvedRegr->readValueByKey('doAction')) );
+		$routePth = strval($resolvedRegr->readValueByKey('routPath'));
 		foreach( (array)($this->appsByName[$this->callingApp]['routeSet'] ?? Array()) as $rteVal ){
 			$rteVal = strval($rteVal);
 			if( substr($rteVal, 0, 1)=='/' ){

@@ -52,11 +52,11 @@ class Device implements Handler{
 	 * the device's cap and the user's current role. A device whose cap is
 	 * not a role is refused as an invalid key, with a warning on 'access'.
 	 *
-	 * @param Array $loginDataArr Must contain a 'key' entry: the token, as sent by the client.
+	 * @param Array $loginDataLst Must contain a 'key' entry: the token, as sent by the client.
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser', 'device') on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataArr ): Array|Bool {
-		$givenTkn = strval($loginDataArr['key'] ?? '');
+	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+		$givenTkn = strval($loginDataLst['key'] ?? '');
 		$this->badTryFlag = false;
 		if( $givenTkn=='' ){
 			$this->errMessage = 'No API key provided';
@@ -120,12 +120,12 @@ class Device implements Handler{
 	 * stored: the token is returned once.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param String $userDevcName Name of the device.
+	 * @param String $userDvceName Name of the device.
 	 * @param String $deviceRleTxt Role of the device, as the application understands it.
 	 * @param String $roleTopsText The cap of the device, the highest role it acts with: one of Checker::ROLE_LIST.
 	 * @return String|Bool The new token, or false when the cap is not a role, the user is unknown, not active, or the table cannot be written.
 	 */
-	public function pushDeviceText( String $namedUserTxt, String $userDevcName, String $deviceRleTxt, String $roleTopsText=Checker::ROLE_LIST[0] ): String|Bool {
+	public function pushDeviceText( String $namedUserTxt, String $userDvceName, String $deviceRleTxt, String $roleTopsText=Checker::ROLE_LIST[0] ): String|Bool {
 		if( $this->deviceTble=='' || $this->usersTable=='' || !in_array($roleTopsText, Checker::ROLE_LIST, true) ){
 			return false;
 		}
@@ -136,7 +136,7 @@ class Device implements Handler{
 			$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fieldLst).')'
 				.' SELECT ?, ?, ?, ?, '.$dtbsHndr->quoteFieldName('id_user').' FROM '.$dtbsHndr->quoteFieldName($this->usersTable)
 				.' WHERE '.$dtbsHndr->quoteFieldName('systemName').'=? AND '.$dtbsHndr->quoteFieldName('userStatus')."='approved';";
-			$newArray = Array($userDevcName, $deviceRleTxt, $roleTopsText, hash('sha256', $newToken), $namedUserTxt);
+			$newArray = Array($userDvceName, $deviceRleTxt, $roleTopsText, hash('sha256', $newToken), $namedUserTxt);
 			return ( $dtbsHndr->sendBuiltQuery($addSttmt, true, $newArray) && $dtbsHndr->countLastWrite()>0 ) ? $newToken : false;
 		}catch( \Throwable $e ){
 			return false;
@@ -147,10 +147,10 @@ class Device implements Handler{
 	 * Revokes a device: its token is refused from then on. The row is
 	 * kept, with the time of the revocation.
 	 *
-	 * @param Int|String $devcIdentity Identifier of the device.
+	 * @param Int|String $dvceIdentity Identifier of the device.
 	 * @return Bool Whether the device was revoked: false when it is unknown, already revoked, or the table cannot be written.
 	 */
-	public function remUserDevcFlg(Int|String $devcIdentity ): Bool {
+	public function remUserDevcFlg(Int|String $dvceIdentity ): Bool {
 		if( $this->deviceTble=='' ){
 			return false;
 		}
@@ -159,7 +159,7 @@ class Device implements Handler{
 			$revokFld = $dtbsHndr->quoteFieldName('revokeDate');
 			$updtQuer = 'UPDATE '.$dtbsHndr->quoteFieldName($this->deviceTble)." SET $revokFld='".date('Y-m-d H:i:s')."'"
 				.' WHERE '.$dtbsHndr->quoteFieldName('id_device')."=? AND $revokFld IS NULL;";
-			return $dtbsHndr->sendBuiltQuery($updtQuer, true, Array($devcIdentity)) && $dtbsHndr->countLastWrite()>0;
+			return $dtbsHndr->sendBuiltQuery($updtQuer, true, Array($dvceIdentity)) && $dtbsHndr->countLastWrite()>0;
 		}catch( \Throwable $e ){
 			return false;
 		}

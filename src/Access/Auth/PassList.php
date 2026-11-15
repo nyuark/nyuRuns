@@ -44,12 +44,12 @@ class PassList implements Handler{
 	 * htpasswd hashes, plus {SHA}, legacy crypt (DES) and MD5 crypt
 	 * hashes in unsecure mode only.
 	 *
-	 * @param Array $loginDataArr Must contain 'user' and 'pass' entries.
+	 * @param Array $loginDataLst Must contain 'user' and 'pass' entries.
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataArr ): Array|Bool {
-		$givenUsr = $loginDataArr['user'] ?? '';
-		$givenPwd = $loginDataArr['pass'] ?? '';
+	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+		$givenUsr = $loginDataLst['user'] ?? '';
+		$givenPwd = $loginDataLst['pass'] ?? '';
 		$this->badTryFlag = false;
 		$this->passedUser = null;
 		if( $this->passwdFile=='' || !file_exists($this->passwdFile) ){
@@ -78,9 +78,9 @@ class PassList implements Handler{
 			$matxList = $this->verifyHtpasswd($givenPwd, $userHash);
 			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 			$countNme = strval($givenUsr);
-			if( is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
+			if( is_string($loginDataLst['mark'] ?? null) && $loginDataLst['mark']!=='' ){
 				// Signed with the hash the password has now : a password set after the mark was made ends it
-				$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $countNme, $userHash );
+				$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], $countNme, $userHash );
 				if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
 					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($givenUsr).': too many attempts with it' );
 				}elseif( $markClef!='' ){

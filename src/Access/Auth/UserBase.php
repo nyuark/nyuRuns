@@ -88,11 +88,11 @@ class UserBase extends Native{
 	 * @param String  $namedUserTxt Login name of the new user (see NAMERULE and NAMEDENY).
 	 * @param String  $usrRleString Its role, one of Checker::ROLE_LIST; the first one when left empty.
 	 * @param ?String $emailAddress Its mail address, none when null or empty.
-	 * @param Int     $codeMinuteNb Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedForCount() for one sent by mail.
+	 * @param Int     $codMinuteNum Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedForCount() for one sent by mail.
 	 * @param ?String $givenLangTag The language of its mails (see Tools\Language), none when null or empty.
 	 * @return String|Bool The activation code, or false when the name, the role, the address or the language is not valid, the name or the address taken, or the table cannot be written.
 	 */
-	public function enrolUsrString( String $namedUserTxt, String $usrRleString='', ?String $emailAddress=null, Int $codeMinuteNb=self::HAND_MINS, ?String $givenLangTag=null ): String|Bool {
+	public function enrolUsrString( String $namedUserTxt, String $usrRleString='', ?String $emailAddress=null, Int $codMinuteNum=self::HAND_MINS, ?String $givenLangTag=null ): String|Bool {
 		$this->forgetLastFail();
 		$roleVals = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
 		if( !preg_match(self::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), self::NAME_DENY, true) ){
@@ -130,7 +130,7 @@ class UserBase extends Native{
 		}
 		$newCodig = $this->makeAccessCode();
 		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?);";
-		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, $roleVals, $mailVals, $langVals, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codeMinuteNb)))<1 ){
+		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, $roleVals, $mailVals, $langVals, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codMinuteNum)))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
 		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' created ('.$roleVals.')'.Logger::getActorSuffix() );
@@ -150,11 +150,11 @@ class UserBase extends Native{
 	 *
 	 * @param String  $namedUserTxt Login name it asks for (see NAMERULE and NAMEDENY).
 	 * @param String  $emailAddress Its mail address.
-	 * @param Int     $maxWaitingNb Most sign-ups waiting at once, confirmed or not ('maxQueue' of the limits).
+	 * @param Int     $waitingLimit Most sign-ups waiting at once, confirmed or not ('maxQueue' of the limits).
 	 * @param ?String $givenLangTag The language of its mails: the one its request asks for; left out when it is not a tag.
 	 * @return String|Bool The activation code, '' when the name or the address is taken, or false when one is not valid, too many sign-ups are waiting, or the table cannot be used.
 	 */
-	public function signsUsrString( String $namedUserTxt, String $emailAddress, Int $maxWaitingNb=self::SIGN_MAXI, ?String $givenLangTag=null ): String|Bool {
+	public function signsUsrString( String $namedUserTxt, String $emailAddress, Int $waitingLimit=self::SIGN_MAXI, ?String $givenLangTag=null ): String|Bool {
 		$this->forgetLastFail();
 		if( !preg_match(self::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), self::NAME_DENY, true) ){
 			return $this->declineForFlag(400, 'Invalid user name');
@@ -169,7 +169,7 @@ class UserBase extends Native{
 		if( $waitNumb===false ){
 			return false;
 		}
-		if( $waitNumb>=$maxWaitingNb ){
+		if( $waitNumb>=$waitingLimit ){
 			$accsJrnl->warning( 'Sign-up refused: '.$waitNumb.' sign-ups are already waiting'.Logger::getActorSuffix() );
 			return $this->declineForFlag(503, 'Sign-ups closed for now');
 		}
@@ -574,10 +574,10 @@ class UserBase extends Native{
 	 * role cannot be reset.
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param Int    $codeMinuteNb Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedForCount() for one sent by mail.
+	 * @param Int    $codMinuteNum Minutes the code lasts, 0 for no end: ADMNMINS for a code handed over, mailedForCount() for one sent by mail.
 	 * @return String|Bool The activation code, returned once, or false when the user is unknown, cannot be reset, or the table cannot be written.
 	 */
-	public function resetUsrString( String $namedUserTxt, Int $codeMinuteNb=self::HAND_MINS ): String|Bool {
+	public function resetUsrString( String $namedUserTxt, Int $codMinuteNum=self::HAND_MINS ): String|Bool {
 		$this->forgetLastFail();
 		$userVals = $this->knownUserArray($namedUserTxt);
 		if( $userVals===null ){
@@ -592,7 +592,7 @@ class UserBase extends Native{
 		$newCodig = $this->makeAccessCode();
 		$updtQuer = "UPDATE {usrTable} SET {passwdHash}=?, {passwdDate}='".date('Y-m-d H:i:s')."', {userStatus}='awaiting', {actvtnCode}=?, {recovrCode}=NULL, {codeExpiry}=?, {bearerHash}=NULL, {failsCount}=0, {failedTime}=NULL"
 			." WHERE {systemName}=? AND {userStatus}<>'disabled';";
-		if( $this->sendWriteCount($updtQuer, Array(self::VOID_HASH, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codeMinuteNb), $namedUserTxt))<1 ){
+		if( $this->sendWriteCount($updtQuer, Array(self::VOID_HASH, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codMinuteNum), $namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
 		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' reset'.Logger::getActorSuffix() );
@@ -675,10 +675,10 @@ class UserBase extends Native{
 	 *
 	 * @param Array $criteriaList Optional 'userStatus' and 'accessRole' values the users must have, and a 'contactEml' address, compared in lower case; an empty one is left out.
 	 * @param Int   $ceilingCount Most users to give; the default number of rows (DEF_ROWS, 100 when not set) when below 1.
-	 * @param Int   $offsetRowsNb Users to pass over first.
+	 * @param Int   $skippedCount Users to pass over first.
 	 * @return Array|Bool The users, or false when a filter is not valid or the table cannot be read.
 	 */
-	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $offsetRowsNb=0 ): Array|Bool {
+	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $skippedCount=0 ): Array|Bool {
 		$this->forgetLastFail();
 		$whereLst = Array();
 		$fltrList = Array();
@@ -709,7 +709,7 @@ class UserBase extends Native{
 		}
 		$listQuer = 'SELECT {'.implode('}, {', self::SHOW_LIST).'} FROM {usrTable}'
 			.( !empty($whereLst) ? ' WHERE '.implode(' AND ', $whereLst) : '' )
-			.' ORDER BY {systemName} LIMIT '.$rowsLimt.' OFFSET '.max(0, $offsetRowsNb).';';
+			.' ORDER BY {systemName} LIMIT '.$rowsLimt.' OFFSET '.max(0, $skippedCount).';';
 		$userNtry = $this->sendFetchArray($listQuer, $fltrList);
 		return ($userNtry===false) ? $this->declineForFlag(500, 'Credential store unavailable') : $userNtry;
 	}
@@ -830,11 +830,11 @@ class UserBase extends Native{
 	/**
 	 * Gives the end of a code made now.
 	 *
-	 * @param Int $codeMinuteNb Minutes the code lasts, 0 for no end.
+	 * @param Int $codMinuteNum Minutes the code lasts, 0 for no end.
 	 * @return ?String The time it ends, as stored, or null for no end.
 	 */
-	protected function getCodeEndDate( Int $codeMinuteNb ): ?String {
-		return ($codeMinuteNb>0) ? date('Y-m-d H:i:s', time() + 60*$codeMinuteNb) : null;
+	protected function getCodeEndDate( Int $codMinuteNum ): ?String {
+		return ($codMinuteNum>0) ? date('Y-m-d H:i:s', time() + 60*$codMinuteNum) : null;
 	}
 
 	/**
@@ -853,15 +853,15 @@ class UserBase extends Native{
 	 * active user of the highest role, with no other one beside it. A
 	 * count that cannot be read is answered as if it were.
 	 *
-	 * @param Array $usrValuesArr The user's row.
+	 * @param Array $userValsList The user's row.
 	 * @return Bool Whether locking, demoting, removing or resetting it would leave no manager.
 	 */
-	protected function lastManagerFlg( Array $usrValuesArr ): Bool {
+	protected function lastManagerFlg( Array $userValsList ): Bool {
 		$highRole = array_slice(Checker::ROLE_LIST, -1)[0];
-		if( ($usrValuesArr['accessRole'] ?? '')!==$highRole || ($usrValuesArr['userStatus'] ?? '')!=='approved' ){
+		if( ($userValsList['accessRole'] ?? '')!==$highRole || ($userValsList['userStatus'] ?? '')!=='approved' ){
 			return false;
 		}
-		$othrRows = $this->sendFetchArray( "SELECT {systemName} FROM {usrTable} WHERE {accessRole}=? AND {userStatus}='approved' AND {systemName}<>? LIMIT 1;", Array($highRole, strval($usrValuesArr['systemName'] ?? '')) );
+		$othrRows = $this->sendFetchArray( "SELECT {systemName} FROM {usrTable} WHERE {accessRole}=? AND {userStatus}='approved' AND {systemName}<>? LIMIT 1;", Array($highRole, strval($userValsList['systemName'] ?? '')) );
 		return empty($othrRows);
 	}
 

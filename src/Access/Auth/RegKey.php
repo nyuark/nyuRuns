@@ -26,11 +26,11 @@ class RegKey implements Handler{
 	/**
 	 * Checks the given key against the configured valid-keys list.
 	 *
-	 * @param Array $loginDataArr Must contain a 'key' entry.
+	 * @param Array $loginDataLst Must contain a 'key' entry.
 	 * @return Array|Bool An identity array on success, its 'userName' being the name the key is written under ('' in a plain list), or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataArr ): Array|Bool {
-		$sentClef = $loginDataArr['key'] ?? '';
+	function checkSecretArr( Array $loginDataLst ): Array|Bool {
+		$sentClef = $loginDataLst['key'] ?? '';
 		$this->badTryFlag = false;
 		if( $sentClef=='' ){
 			$this->errMessage = 'No API key provided';

@@ -57,17 +57,17 @@ class UserList implements Handler{
 	 * authenticator. A 'key' entry is checked as a personal API token
 	 * instead.
 	 *
-	 * @param Array $loginDataArr Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
+	 * @param Array $loginDataLst Must contain 'user' and 'pass' entries (and 'code' for a 2FA user), or a 'key' entry.
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
-	function checkSecretArr( Array $loginDataArr ): Array|Bool {
+	function checkSecretArr( Array $loginDataLst ): Array|Bool {
 		$this->badTryFlag = false;
 		$this->passedUser = null;
-		if( isset($loginDataArr['key']) ){
-			return $this->checkTokenList( strval($loginDataArr['key']) );
+		if( isset($loginDataLst['key']) ){
+			return $this->checkTokenList( strval($loginDataLst['key']) );
 		}
-		$givenUsr = strval($loginDataArr['user'] ?? '');
-		$givenPwd = strval($loginDataArr['pass'] ?? '');
+		$givenUsr = strval($loginDataLst['user'] ?? '');
+		$givenPwd = strval($loginDataLst['pass'] ?? '');
 		// A name of the file written as the counter of a login mark is the name of nobody
 		$userVals = ($givenUsr!='' && strncmp($givenUsr, 'mark:', 5)!==0) ? $this->fetchUserArray($givenUsr) : null;
 		if( $userVals===false ){
@@ -84,9 +84,9 @@ class UserList implements Handler{
 		}
 		// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
 		$countNme = is_array($userVals) ? strval($userVals['systemName']) : '';
-		if( is_array($userVals) && is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
+		if( is_array($userVals) && is_string($loginDataLst['mark'] ?? null) && $loginDataLst['mark']!=='' ){
 			// Signed with the hash the password has now : a password set after the mark was made ends it
-			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $countNme, $isHashed ? strval($userVals['passwdHash']) : '' );
+			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], $countNme, $isHashed ? strval($userVals['passwdHash']) : '' );
 			if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
 				Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($countNme).': too many attempts with it' );
 			}elseif( $markClef!='' ){
@@ -124,7 +124,7 @@ class UserList implements Handler{
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
-			$givenCod = strval($loginDataArr['code'] ?? '');
+			$givenCod = strval($loginDataLst['code'] ?? '');
 			if( $givenCod=='' ){
 				// Not a failed attempt : the password was right, the client now asks for the code
 				$this->errMessage = 'Verification code required';
@@ -189,10 +189,10 @@ class UserList implements Handler{
 	 * (the time it was issued at is taken, and not compared).
 	 *
 	 * @param String $namedUserTxt Login name of the user.
-	 * @param ?Int   $issuedUnixNb Unix time the session or the token was issued at; not compared.
+	 * @param ?Int   $issuedAtUnix Unix time the session or the token was issued at; not compared.
 	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, or the file cannot be read.
 	 */
-	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedUnixNb=null ): Array|Bool {
+	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedAtUnix=null ): Array|Bool {
 		$this->badTryFlag = false;
 		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
 		if( $userVals===false ){
@@ -279,11 +279,11 @@ class UserList implements Handler{
 	/**
 	 * Gives the identity of a user of the file.
 	 *
-	 * @param Array $usrValuesArr The user's values, as loadUsersArray() gives them.
+	 * @param Array $userValsList The user's values, as loadUsersArray() gives them.
 	 * @return Array The identity array ('userName', 'userRole', 'idOfUser').
 	 */
-	protected function createIdentity( Array $usrValuesArr ): Array {
-		return Array('userName'=>$usrValuesArr['systemName'], 'userRole'=>$usrValuesArr['accessRole'], 'idOfUser'=>$usrValuesArr['id_user']);
+	protected function createIdentity( Array $userValsList ): Array {
+		return Array('userName'=>$userValsList['systemName'], 'userRole'=>$userValsList['accessRole'], 'idOfUser'=>$userValsList['id_user']);
 	}
 
 	/**
