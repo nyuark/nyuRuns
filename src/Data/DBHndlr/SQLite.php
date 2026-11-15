@@ -31,8 +31,8 @@ Class SQLite extends PDO {
 	 * @return String The path to open.
 	 */
 	protected function locateBaseFile(String $hostBaseText): String {
-		$isAbslt = (bool)preg_match('#^([A-Za-z]:|[/\\\\])#', $hostBaseText);
-		if( $hostBaseText=='' || $hostBaseText==':memory:' || $isAbslt || !defined('TOP_DIR') ){
+		$isRooted = (bool)preg_match('#^([A-Za-z]:|[/\\\\])#', $hostBaseText);
+		if( $hostBaseText=='' || $hostBaseText==':memory:' || $isRooted || !defined('TOP_DIR') ){
 			return $hostBaseText;
 		}
 		return TOP_DIR.DIRECTORY_SEPARATOR.$hostBaseText;
@@ -52,21 +52,21 @@ Class SQLite extends PDO {
 		if( !$this->sendBuiltQuery('SELECT name, pk, type FROM pragma_table_info(?) ORDER BY cid;', false, Array($tbleLabelTxt)) ){
 			return false;
 		}
-		$fldRows = $this->readLastResult(true);
-		if( !is_array($fldRows) || empty($fldRows) ){
+		$fieldRow = $this->readLastResult(true);
+		if( !is_array($fieldRow) || empty($fieldRow) ){
 			return false;
 		}
-		$tblInfo = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
-		foreach($fldRows as $fldRow){
+		$tableDct = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
+		foreach($fieldRow as $fldRow){
 			if( $fldRow['pk']==1 ){
-				$tblInfo['pkey'] = $fldRow['name'];
+				$tableDct['pkey'] = $fldRow['name'];
 			}
-			$tblInfo['flds'][] = $fldRow['name'];
+			$tableDct['flds'][] = $fldRow['name'];
 			if( stripos(strval($fldRow['type']), 'blob')!==false ){
-				$tblInfo['blob'][] = $fldRow['name'];
+				$tableDct['blob'][] = $fldRow['name'];
 			}
 		}
-		return $tblInfo;
+		return $tableDct;
 	}
 
 	/**
@@ -82,8 +82,8 @@ Class SQLite extends PDO {
 		if( !$this->sendBuiltQuery('SELECT name, type FROM pragma_table_info(?) ORDER BY cid;', false, Array($tbleLabelTxt)) ){
 			return false;
 		}
-		$fldRows = $this->readLastResult(true);
-		return ( is_array($fldRows) && !empty($fldRows) ) ? array_column($fldRows, 'type', 'name') : false;
+		$fieldRow = $this->readLastResult(true);
+		return ( is_array($fieldRow) && !empty($fieldRow) ) ? array_column($fieldRow, 'type', 'name') : false;
 	}
 
 	/**
@@ -96,8 +96,8 @@ Class SQLite extends PDO {
 		if( !$this->sendBuiltQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name;") ){
 			return false;
 		}
-		$tblRows = $this->readLastResult(true);
-		return is_array($tblRows) ? array_map('strval', array_column($tblRows, 'name')) : false;
+		$tableRow = $this->readLastResult(true);
+		return is_array($tableRow) ? array_map('strval', array_column($tableRow, 'name')) : false;
 	}
 
 }

@@ -93,11 +93,11 @@ class Logger{
 	 */
 	static function retrieveLogger( String $channelLabel='runner' ): Logger {
 		if( !isset(self::$channelLst[$channelLabel]) ){
-			$confVls = self::$confValues;
-			if( $confVls===null ){
+			$confVals = self::$confValues;
+			if( $confVals===null ){
 				self::$channelLst[$channelLabel] = new Logger( '', $channelLabel );
 			}else{
-				self::$channelLst[$channelLabel] = new Logger( strval($confVls['path'] ?? ''), $channelLabel, strval($confVls['mode'] ?? 'FULL'), intval($confVls['size'] ?? 0), strval($confVls['rota'] ?? 'INDX'), strval($confVls['pref'] ?? 'Y-m-d H:i') );
+				self::$channelLst[$channelLabel] = new Logger( strval($confVals['path'] ?? ''), $channelLabel, strval($confVals['mode'] ?? 'FULL'), intval($confVals['size'] ?? 0), strval($confVals['rota'] ?? 'INDX'), strval($confVals['pref'] ?? 'Y-m-d H:i') );
 			}
 		}
 		return self::$channelLst[$channelLabel];
@@ -122,55 +122,55 @@ class Logger{
 	 * @return String The text, empty when nothing is known.
 	 */
 	static function getActorSuffix(): String {
-		$actnTxt = (self::$actingUser!='') ? ' by user '.json_encode(self::$actingUser) : '';
+		$actnText = (self::$actingUser!='') ? ' by user '.json_encode(self::$actingUser) : '';
 		if( self::$actingAddr!='' ){
-			$actnTxt .= ' from '.self::$actingAddr;
+			$actnText .= ' from '.self::$actingAddr;
 		}
-		return $actnTxt;
+		return $actnText;
 	}
 
 	/**
 	 * Logs an error: a failure that stopped the current operation.
 	 *
-	 * @param String $logMsgString The log message.
+	 * @param String $logEntryText The log message.
 	 * @param Array  $extraContext Extra structured data (included under FULL mode only).
 	 */
-	function error( String $logMsgString, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_ERROR, $logMsgString, $extraContext); }
+	function error( String $logEntryText, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_ERROR, $logEntryText, $extraContext); }
 
 	/**
 	 * Logs a warning: something unexpected that did not stop the
 	 * current operation.
 	 *
-	 * @param String $logMsgString The log message.
+	 * @param String $logEntryText The log message.
 	 * @param Array  $extraContext Extra structured data (included under FULL mode only).
 	 */
-	function warning( String $logMsgString, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_WARNING, $logMsgString, $extraContext); }
+	function warning( String $logEntryText, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_WARNING, $logEntryText, $extraContext); }
 
 	/**
 	 * Logs a notice: a normal but noteworthy event.
 	 *
-	 * @param String $logMsgString The log message.
+	 * @param String $logEntryText The log message.
 	 * @param Array  $extraContext Extra structured data (included under FULL mode only).
 	 */
-	function notice( String $logMsgString, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_NOTICE, $logMsgString, $extraContext); }
+	function notice( String $logEntryText, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_NOTICE, $logEntryText, $extraContext); }
 
 	/**
 	 * Logs an informational message about a routine event. Not written
 	 * under MINI mode.
 	 *
-	 * @param String $logMsgString The log message.
+	 * @param String $logEntryText The log message.
 	 * @param Array  $extraContext Extra structured data (included under FULL mode only).
 	 */
-	function info( String $logMsgString, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_INFO, $logMsgString, $extraContext); }
+	function info( String $logEntryText, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_INFO, $logEntryText, $extraContext); }
 
 	/**
 	 * Logs a debug message: diagnostic detail for development. Written
 	 * under FULL mode only.
 	 *
-	 * @param String $logMsgString The log message.
+	 * @param String $logEntryText The log message.
 	 * @param Array  $extraContext Extra structured data (included under FULL mode only).
 	 */
-	function debug( String $logMsgString, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_DEBUG, $logMsgString, $extraContext); }
+	function debug( String $logEntryText, Array $extraContext=Array() ): Void { $this->writeLogRecord(self::LEVL_DEBUG, $logEntryText, $extraContext); }
 
 	/**
 	 * Writes a single log entry, applying LOG_MODE verbosity and
@@ -178,35 +178,35 @@ class Logger{
 	 * is left out; an entry is always one line.
 	 *
 	 * @param String $itemLevelTxt One of the LEVL_* constants.
-	 * @param String $logMsgString The log message.
+	 * @param String $logEntryText The log message.
 	 * @param Array  $extraContext Extra structured data (included under FULL mode only).
 	 */
-	protected function writeLogRecord( String $itemLevelTxt, String $logMsgString, Array $extraContext=Array() ): Void {
+	protected function writeLogRecord( String $itemLevelTxt, String $logEntryText, Array $extraContext=Array() ): Void {
 		if( $this->logsFolder==='' ){
 			return;
 		}
-		$lvlRank = array_search($itemLevelTxt, self::LEVL_LIST, true);
-		if( $lvlRank!==false && $lvlRank>=(self::MODE_LIST[$this->logModeVal] ?? count(self::LEVL_LIST)) ){
+		$levelRnk = array_search($itemLevelTxt, self::LEVL_LIST, true);
+		if( $levelRnk!==false && $levelRnk>=(self::MODE_LIST[$this->logModeVal] ?? count(self::LEVL_LIST)) ){
 			return;
 		}
 		// A line break in a message would start an entry nobody wrote : every control character and the Unicode line breaks are written escaped, read as bytes
-		$logMsgString = strval( preg_replace_callback('/[\x00-\x1F\x7F]|\xC2\x85|\xE2\x80[\xA8\xA9]/', function( Array $matchedArray ): String {
-			$escList = Array("\r"=>'\\r', "\n"=>'\\n', "\t"=>'\\t', "\xC2\x85"=>'\\u0085', "\xE2\x80\xA8"=>'\\u2028', "\xE2\x80\xA9"=>'\\u2029');
-			return $escList[$matchedArray[0]] ?? sprintf('\\x%02X', ord($matchedArray[0]));
-		}, $logMsgString) );
+		$logEntryText = strval( preg_replace_callback('/[\x00-\x1F\x7F]|\xC2\x85|\xE2\x80[\xA8\xA9]/', function( Array $matchedArray ): String {
+			$escpList = Array("\r"=>'\\r', "\n"=>'\\n', "\t"=>'\\t', "\xC2\x85"=>'\\u0085', "\xE2\x80\xA8"=>'\\u2028', "\xE2\x80\xA9"=>'\\u2029');
+			return $escpList[$matchedArray[0]] ?? sprintf('\\x%02X', ord($matchedArray[0]));
+		}, $logEntryText) );
 		if( $this->logModeVal=='MINI' ){
-			$logLine = date($this->logsPrefix).' '.$logMsgString;
+			$logLigne = date($this->logsPrefix).' '.$logEntryText;
 		}else{
-			$logLine = '['.date($this->logsPrefix).'] ['.strtoupper($itemLevelTxt).'] '.$logMsgString;
+			$logLigne = '['.date($this->logsPrefix).'] ['.strtoupper($itemLevelTxt).'] '.$logEntryText;
 			if( $this->logModeVal=='FULL' && !empty($extraContext) ){
 				// What cannot be encoded is left out of the context, the rest is kept
-				$logLine .= ' '.json_encode($extraContext, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+				$logLigne .= ' '.json_encode($extraContext, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
 			}
 		}
-		$logFile = $this->resolveLogPath();
-		$this->rotateLogFiles( $logFile );
-		if( @file_put_contents( $logFile, $logLine.PHP_EOL, FILE_APPEND | LOCK_EX )===false ){
-			$this->reportFailOnce( $logFile );
+		$logFichr = $this->resolveLogPath();
+		$this->rotateLogFiles( $logFichr );
+		if( @file_put_contents( $logFichr, $logLigne.PHP_EOL, FILE_APPEND | LOCK_EX )===false ){
+			$this->reportFailOnce( $logFichr );
 		}
 	}
 
@@ -230,15 +230,15 @@ class Logger{
 	 * @return String Full path to the active log file.
 	 */
 	protected function resolveLogPath(): String {
-		$nameEnd = '';
+		$titleEnd = '';
 		if( $this->rotateMode=='WEEK' ){
-			$nameEnd = '-W'.date('oW');
+			$titleEnd = '-W'.date('oW');
 		}elseif( $this->rotateMode=='MNTH' ){
-			$nameEnd = '-'.date('Y-m');
+			$titleEnd = '-'.date('Y-m');
 		}elseif( $this->rotateMode=='NONE' ){
-			$nameEnd = $this->nameEndTxt;
+			$titleEnd = $this->nameEndTxt;
 		}
-		return $this->logsFolder.DIRECTORY_SEPARATOR.$this->channelNme.$nameEnd.'.log';
+		return $this->logsFolder.DIRECTORY_SEPARATOR.$this->channelNme.$titleEnd.'.log';
 	}
 
 	/**
@@ -258,10 +258,10 @@ class Logger{
 		if( !file_exists($logsFilePath) || filesize($logsFilePath) < ($this->logsLength*1024) ){
 			return;
 		}
-		$backNum = 1;
-		while( file_exists($logsFilePath.'.'.$backNum) ){
-			$backNum++;
+		$backNumb = 1;
+		while( file_exists($logsFilePath.'.'.$backNumb) ){
+			$backNumb++;
 		}
-		@rename( $logsFilePath, $logsFilePath.'.'.$backNum );
+		@rename( $logsFilePath, $logsFilePath.'.'.$backNumb );
 	}
 }

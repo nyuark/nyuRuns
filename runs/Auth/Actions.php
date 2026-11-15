@@ -38,97 +38,97 @@ class Actions extends Actionset {
 			return;
 		}
 
-		$gvnUser = $this->inputsRgst->readValueByKey('userName');
-		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
+		$givenUsr = $this->inputsRgst->readValueByKey('userName');
+		$givenPwd = $this->inputsRgst->readValueByKey('passWord');
 
 		// Both are required by input/login.json; what is left to refuse is a value that is not a text
-		if(!is_string($gvnUser) || !is_string($gvnPass)){
+		if(!is_string($givenUsr) || !is_string($givenPwd)){
 			$this->statusCode = 400;
 			$this->statusMssg = 'Invalid userName or passWord';
 			return;
 		}
 
-		$lgnConf = $this->resolveConfArr('loginSet');
-		$accsLog = Logger::retrieveLogger('access');
-		$authCls = Checker::authClssString( strval($lgnConf['authWith'] ?? 'htpasswd') );
-		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
-		if($authCls===null || $sessCls===null || !class_exists($authCls) || !class_exists($sessCls)){
-			$accsLog->error( 'Login unavailable: unknown authWith or carrWith in the login block' );
+		$loginCfg = $this->resolveConfArr('loginSet');
+		$accsJrnl = Logger::retrieveLogger('access');
+		$authClss = Checker::authClssString( strval($loginCfg['authWith'] ?? 'htpasswd') );
+		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
+		if($authClss===null || $sessClss===null || !class_exists($authClss) || !class_exists($sessClss)){
+			$accsJrnl->error( 'Login unavailable: unknown authWith or carrWith in the login block' );
 			$this->statusCode = 500;
 			$this->statusMssg = 'Login unavailable';
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrArr = $this->refuseHeldAddr('Login', $gvnUser);
-		if($lmtrArr===null){
+		$lmtrList = $this->refuseHeldAddr('Login', $givenUsr);
+		if($lmtrList===null){
 			return;
 		}
-		$lmtrObj = $lmtrArr[0];
-		$usrAddr = $lmtrArr[1];
-		$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
-		$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') );
+		$lmtrInst = $lmtrList[0];
+		$userAddr = $lmtrList[1];
+		$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
+		$sessInst = new $sessClss( $this->resolveConfArr($loginCfg['carrConf'] ?? 'jwtToken') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
-		if(method_exists($sessObj, 'verifyOnlyFlag') && $sessObj->verifyOnlyFlag()){
-			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': this project only checks tokens, issued by another server' );
+		if(method_exists($sessInst, 'verifyOnlyFlag') && $sessInst->verifyOnlyFlag()){
+			$accsJrnl->warning( 'Login refused for user '.json_encode($givenUsr).$fromText.': this project only checks tokens, issued by another server' );
 			$this->statusCode = 501;
 			$this->statusMssg = 'Tokens are issued by another server';
 			return;
 		}
-		$authObj = new $authCls( $this->resolveConfArr($lgnConf['authConf'] ?? 'htpasswd') );
+		$authInst = new $authClss( $this->resolveConfArr($loginCfg['authConf'] ?? 'htpasswd') );
 		// The 'sentCode' input carries the one-time code of a user with 2FA
-		$gvnCode = $this->inputsRgst->readValueByKey('sentCode');
+		$givenCod = $this->inputsRgst->readValueByKey('sentCode');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
-		$gvnMark = strval( $this->requestObj->retrieveHeader('X-Lgmark') ?? (is_string($this->requestObj->retrieveCookie('lgmark')) ? $this->requestObj->retrieveCookie('lgmark') : '') );
-		$idntArr = $authObj->checkSecretArr( Array('user'=>$gvnUser, 'pass'=>$gvnPass, 'code'=>is_scalar($gvnCode) ? strval($gvnCode) : '', 'mark'=>$gvnMark) );
+		$givenMrk = strval( $this->requestObj->retrieveHeader('X-Lgmark') ?? (is_string($this->requestObj->retrieveCookie('lgmark')) ? $this->requestObj->retrieveCookie('lgmark') : '') );
+		$idntList = $authInst->checkSecretArr( Array('user'=>$givenUsr, 'pass'=>$givenPwd, 'code'=>is_scalar($givenCod) ? strval($givenCod) : '', 'mark'=>$givenMrk) );
 
-		if($idntArr===false){
+		if($idntList===false){
 			// Only a credential presented and refused counts against the address
-			if(!method_exists($authObj, 'hasWrongSecret') || $authObj->hasWrongSecret()){
-				$lmtrObj->countFailedTry($usrAddr);
+			if(!method_exists($authInst, 'hasWrongSecret') || $authInst->hasWrongSecret()){
+				$lmtrInst->countFailedTry($userAddr);
 			}
-			$accsLog->warning( 'Login refused for user '.json_encode($gvnUser).$fromTxt.': '.$authObj->finalErrorText() );
+			$accsJrnl->warning( 'Login refused for user '.json_encode($givenUsr).$fromText.': '.$authInst->finalErrorText() );
 			$this->statusCode = 401;
-			$this->statusMssg = $authObj->finalErrorText();
+			$this->statusMssg = $authInst->finalErrorText();
 			return;
 		}
 
 		// A session the request came with is closed : a new login does not leave the former one open
-		if(method_exists($sessObj, 'dropUsrSession')){
-			$sessObj->dropUsrSession( $this->requestObj );
+		if(method_exists($sessInst, 'dropUsrSession')){
+			$sessInst->dropUsrSession( $this->requestObj );
 		}
-		$rawTokn = $sessObj->issueTokenText( $idntArr );
-		if($rawTokn==''){
-			$accsLog->error( 'Login unavailable: '.($sessObj->finalErrorText() ?: 'the carrier issues no token') );
+		$rawToken = $sessInst->issueTokenText( $idntList );
+		if($rawToken==''){
+			$accsJrnl->error( 'Login unavailable: '.($sessInst->finalErrorText() ?: 'the carrier issues no token') );
 			$this->statusCode = 500;
 			$this->statusMssg = 'Login unavailable';
 			return;
 		}
 
 		// A credential store that tracks presence is told the user was seen
-		if(method_exists($authObj, 'retainAliveFlg')){
-			$authObj->retainAliveFlg( strval($idntArr['userName'] ?? '') );
+		if(method_exists($authInst, 'retainAliveFlg')){
+			$authInst->retainAliveFlg( strval($idntList['userName'] ?? '') );
 		}
 		// A login is always traced, production included; the one of a privileged user (any role above the first of ROLELIST) tells it
-		$usrRole = strval($idntArr['userRole'] ?? '');
-		if(in_array($usrRole, array_slice(Checker::ROLE_LIST, 1), true)){
-			$accsLog->notice( 'Privileged login granted for user '.json_encode($gvnUser).' ('.$usrRole.')'.$fromTxt );
+		$userRole = strval($idntList['userRole'] ?? '');
+		if(in_array($userRole, array_slice(Checker::ROLE_LIST, 1), true)){
+			$accsJrnl->notice( 'Privileged login granted for user '.json_encode($givenUsr).' ('.$userRole.')'.$fromText );
 		}else{
-			$accsLog->notice( 'Login granted for user '.json_encode($gvnUser).$fromTxt );
+			$accsJrnl->notice( 'Login granted for user '.json_encode($givenUsr).$fromText );
 		}
 		$this->statusCode = 200;
 		// A server-side session travels in its cookie alone : its id is not shown to the scripts of the page
-		$this->replyValue = method_exists($sessObj, 'dropUsrSession') ? Array('logged'=>true) : Array('token'=>$rawTokn);
+		$this->replyValue = method_exists($sessInst, 'dropUsrSession') ? Array('logged'=>true) : Array('token'=>$rawToken);
 		// A new login mark for this client : in a cookie the scripts of the page cannot read, or in the reply of a token
-		$markObj = LoginMark::fromLimitBlock();
+		$markInst = LoginMark::fromLimitBlock();
 		// Made by the store, which signs it with the hash of the password it just checked : a check without one gives no mark
-		$newMark = method_exists($authObj, 'createUserMark') ? strval($authObj->createUserMark( strval($idntArr['userName'] ?? $gvnUser) )) : '';
-		if($newMark!==''){
-			if(method_exists($sessObj, 'dropUsrSession')){
+		$nouvMark = method_exists($authInst, 'createUserMark') ? strval($authInst->createUserMark( strval($idntList['userName'] ?? $givenUsr) )) : '';
+		if($nouvMark!==''){
+			if(method_exists($sessInst, 'dropUsrSession')){
 				if(!headers_sent()){
-					setcookie('lgmark', $newMark, Array('expires'=>time() + 86400*$markObj->markLastsCount(), 'path'=>$this->markCookiePath(),'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
+					setcookie('lgmark', $nouvMark, Array('expires'=>time() + 86400*$markInst->markLastsCount(), 'path'=>$this->markCookiePath(),'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict'));
 				}
 			}else{
-				$this->replyValue['lgmark'] = $newMark;
+				$this->replyValue['lgmark'] = $nouvMark;
 			}
 		}
 	}
@@ -148,17 +148,17 @@ class Actions extends Actionset {
 		if($this->routingObj===null){
 			return '/';
 		}
-		$routReg = $this->routingObj->locateRouteReg();
-		$rtePath = strval( $routReg->readValueByKey('routPath') ?? '' );
+		$routRegr = $this->routingObj->locateRouteReg();
+		$routePth = strval( $routRegr->readValueByKey('routPath') ?? '' );
 		try{
-			$linkTxt = $this->routingObj->buildRouteLink( $rtePath, (array)$routReg->readValueByKey('pathVars') );
+			$linkText = $this->routingObj->buildRouteLink( $routePth, (array)$routRegr->readValueByKey('pathVars') );
 		}catch( \RuntimeException $e ){
 			return '/';
 		}
 		// The folder of the link, its query string left out
-		$linkTxt = strval( strtok($linkTxt, '?') );
-		$fldrTxt = substr( $linkTxt, 0, intval(strrpos($linkTxt, '/')) );
-		return ($fldrTxt==='') ? '/' : $fldrTxt;
+		$linkText = strval( strtok($linkText, '?') );
+		$fldrText = substr( $linkText, 0, intval(strrpos($linkText, '/')) );
+		return ($fldrText==='') ? '/' : $fldrText;
 	}
 
 	/**
@@ -171,11 +171,11 @@ class Actions extends Actionset {
 	 * (HS256), or issued by another server.
 	 */
 	public function keyset(): Void {
-		$lgnConf = $this->resolveConfArr('loginSet');
-		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
-		$sessObj = ($sessCls!==null && class_exists($sessCls)) ? new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') ) : null;
-		$keysSet = ($sessObj!==null && method_exists($sessObj, 'publicSetArray')) ? $sessObj->publicSetArray() : Array('keys'=>Array());
-		if( empty($keysSet['keys']) ){
+		$loginCfg = $this->resolveConfArr('loginSet');
+		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
+		$sessInst = ($sessClss!==null && class_exists($sessClss)) ? new $sessClss( $this->resolveConfArr($loginCfg['carrConf'] ?? 'jwtToken') ) : null;
+		$keysDict = ($sessInst!==null && method_exists($sessInst, 'publicSetArray')) ? $sessInst->publicSetArray() : Array('keys'=>Array());
+		if( empty($keysDict['keys']) ){
 			Logger::retrieveLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
 			$this->statusCode = 404;
 			$this->statusMssg = 'Not Found';
@@ -187,7 +187,7 @@ class Actions extends Actionset {
 			$this->respondObj->addReplyHeader('Expires', gmdate('D, d M Y H:i:s', time() + 300).' GMT');
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $keysSet;
+		$this->replyValue = $keysDict;
 	}
 
 	/**
@@ -197,25 +197,25 @@ class Actions extends Actionset {
 	 * route takes POST alone (routes.rte).
 	 */
 	public function logout(): Void {
-		$lgnConf = $this->resolveConfArr('loginSet');
-		$sessCls = Checker::sessnClassText( strval($lgnConf['carrWith'] ?? 'jwtToken') );
-		if($sessCls!==null && class_exists($sessCls)){
-			$sessObj = new $sessCls( $this->resolveConfArr($lgnConf['carrConf'] ?? 'jwtToken') );
-			if(method_exists($sessObj, 'dropUsrSession')){
-				$sessObj->dropUsrSession( $this->requestObj );
+		$loginCfg = $this->resolveConfArr('loginSet');
+		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
+		if($sessClss!==null && class_exists($sessClss)){
+			$sessInst = new $sessClss( $this->resolveConfArr($loginCfg['carrConf'] ?? 'jwtToken') );
+			if(method_exists($sessInst, 'dropUsrSession')){
+				$sessInst->dropUsrSession( $this->requestObj );
 			}
 		}
 		if($this->accessRgst!==null){
-			$accsLog = Logger::retrieveLogger('access');
-			$usrRole = strval($this->accessRgst->readValueByKey('userRole'));
-			$clntReg = $this->requestObj->retrieveClient();
-			$usrAddr = ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '';
-			$fromTxt = ($usrAddr!='') ? ' from '.$usrAddr : '';
+			$accsJrnl = Logger::retrieveLogger('access');
+			$userRole = strval($this->accessRgst->readValueByKey('userRole'));
+			$clntRegr = $this->requestObj->retrieveClient();
+			$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
+			$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
 			// A logout is always traced, as the login
-			if(in_array($usrRole, array_slice(Checker::ROLE_LIST, 1), true)){
-				$accsLog->notice( 'Logout of privileged user '.json_encode($this->accessRgst->readValueByKey('userName')).' ('.$usrRole.')'.$fromTxt );
+			if(in_array($userRole, array_slice(Checker::ROLE_LIST, 1), true)){
+				$accsJrnl->notice( 'Logout of privileged user '.json_encode($this->accessRgst->readValueByKey('userName')).' ('.$userRole.')'.$fromText );
 			}else{
-				$accsLog->notice( 'Logout of user '.json_encode($this->accessRgst->readValueByKey('userName')).$fromTxt );
+				$accsJrnl->notice( 'Logout of user '.json_encode($this->accessRgst->readValueByKey('userName')).$fromText );
 			}
 		}
 		$this->statusCode = 200;
@@ -239,42 +239,42 @@ class Actions extends Actionset {
 		if($this->refuseUrlPassw( Array('passWord'), 'Activation' )){
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('userName');
-		$gvnCode = $this->inputsRgst->readValueByKey('sentCode');
-		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
-		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
+		$givenUsr = $this->inputsRgst->readValueByKey('userName');
+		$givenCod = $this->inputsRgst->readValueByKey('sentCode');
+		$givenPwd = $this->inputsRgst->readValueByKey('passWord');
+		if(!is_string($givenUsr) || !is_string($givenCod) || !is_string($givenPwd)){
 			$this->statusCode = 400;
 			$this->statusMssg = 'Invalid userName, sentCode or passWord';
 			return;
 		}
-		$usrBase = UserBase::fromLoginBlock();
-		if($usrBase===null){
+		$userBase = UserBase::fromLoginBlock();
+		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusMssg = 'User management unavailable';
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrArr = $this->refuseHeldAddr('Activation', $gvnUser);
-		if($lmtrArr===null){
+		$lmtrList = $this->refuseHeldAddr('Activation', $givenUsr);
+		if($lmtrList===null){
 			return;
 		}
-		$lmtrObj = $lmtrArr[0];
-		$usrAddr = $lmtrArr[1];
-		$clntReg = $this->requestObj->retrieveClient();
+		$lmtrInst = $lmtrList[0];
+		$userAddr = $lmtrList[1];
+		$clntRegr = $this->requestObj->retrieveClient();
 		// The language the request asks for is given to a user who has none yet : the one who activates is the one the mails go to
-		$clntLng = ($clntReg!==null) ? strval($clntReg->readValueByKey('language')) : '';
-		if(!$usrBase->activateUsrFlg($gvnUser, $gvnCode, $gvnPass, $clntLng)){
+		$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
+		if(!$userBase->activateUsrFlg($givenUsr, $givenCod, $givenPwd, $clntLang)){
 			// Only a wrong name or code counts against the address, not a password breaking a rule
-			if($usrBase->hasWrongSecret()){
-				$lmtrObj->countFailedTry($usrAddr);
+			if($userBase->hasWrongSecret()){
+				$lmtrInst->countFailedTry($userAddr);
 			}
-			$this->statusCode = $usrBase->lastStateCount();
-			$this->statusMssg = $usrBase->finalErrorText();
+			$this->statusCode = $userBase->lastStateCount();
+			$this->statusMssg = $userBase->finalErrorText();
 			return;
 		}
-		$usrStts = strval( ($usrBase->userInfosArray($gvnUser) ?: Array())['userStatus'] ?? 'approved' );
+		$userStts = strval( ($userBase->userInfosArray($givenUsr) ?: Array())['userStatus'] ?? 'approved' );
 		$this->statusCode = 200;
-		$this->replyValue = Array('active'=>$usrStts=='approved', 'stat'=>$usrStts);
+		$this->replyValue = Array('active'=>$userStts=='approved', 'stat'=>$userStts);
 	}
 
 	/**
@@ -295,53 +295,53 @@ class Actions extends Actionset {
 	 * are waiting.
 	 */
 	public function signup(): Void {
-		$usrBase = UserBase::fromLoginBlock();
-		$mailObj = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
-		if($usrBase===null || $mailObj===null || !AccessMail::signupsAllowed()){
+		$userBase = UserBase::fromLoginBlock();
+		$mailInst = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
+		if($userBase===null || $mailInst===null || !AccessMail::signupsAllowed()){
 			$this->statusCode = 404;
 			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('userName');
-		$gvnMail = $this->inputsRgst->readValueByKey('userMail');
-		if(!is_string($gvnUser) || !is_string($gvnMail)){
+		$givenUsr = $this->inputsRgst->readValueByKey('userName');
+		$givenEml = $this->inputsRgst->readValueByKey('userMail');
+		if(!is_string($givenUsr) || !is_string($givenEml)){
 			$this->statusCode = 400;
 			$this->statusMssg = 'Invalid userName or userMail';
 			return;
 		}
 		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'maxPerIp' of them within 'holdSecs'
-		$lmtConf = $this->resolveConfArr('tryLimit');
-		if($this->refuseHeldAddr('Sign-up', $gvnUser)===null){
+		$limitCfg = $this->resolveConfArr('tryLimit');
+		if($this->refuseHeldAddr('Sign-up', $givenUsr)===null){
 			return;
 		}
-		$fldName = trim(strval($lmtConf['dataPath'] ?? ''), '/\\ ');
-		$regLmtr = new Limiter( Array('maxTries'=>intval($lmtConf['maxPerIp'] ?? 16), 'dataPath'=>(($fldName!='') ? $fldName : 'temp/limits').'/signup') + $lmtConf );
-		$lmtrArr = $this->refuseHeldAddr('Sign-up', $gvnUser, $regLmtr);
-		if($lmtrArr===null){
+		$fieldNme = trim(strval($limitCfg['dataPath'] ?? ''), '/\\ ');
+		$regrLmtr = new Limiter( Array('maxTries'=>intval($limitCfg['maxPerIp'] ?? 16), 'dataPath'=>(($fieldNme!='') ? $fieldNme : 'temp/limits').'/signup') + $limitCfg );
+		$lmtrList = $this->refuseHeldAddr('Sign-up', $givenUsr, $regrLmtr);
+		if($lmtrList===null){
 			return;
 		}
 		// Every sign-up counts : an address cannot fill the mailboxes of others
-		$lmtrArr[0]->countFailedTry($lmtrArr[1]);
-		$regTops = max( 1, intval($lmtConf['maxQueue'] ?? UserBase::SIGN_MAXI) );
-		$clntReg = $this->requestObj->retrieveClient();
-		$clntLng = ($clntReg!==null) ? strval($clntReg->readValueByKey('language')) : '';
-		$newCode = $usrBase->signsUsrString($gvnUser, $gvnMail, $regTops, $clntLng);
-		if($newCode===false){
-			$this->statusCode = $usrBase->lastStateCount();
-			$this->statusMssg = $usrBase->finalErrorText();
+		$lmtrList[0]->countFailedTry($lmtrList[1]);
+		$regrTops = max( 1, intval($limitCfg['maxQueue'] ?? UserBase::SIGN_MAXI) );
+		$clntRegr = $this->requestObj->retrieveClient();
+		$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
+		$newCodig = $userBase->signsUsrString($givenUsr, $givenEml, $regrTops, $clntLang);
+		if($newCodig===false){
+			$this->statusCode = $userBase->lastStateCount();
+			$this->statusMssg = $userBase->finalErrorText();
 			return;
 		}
-		if($newCode===''){
+		if($newCodig===''){
 			// An address taken is told to its owner alone, in its language; a name taken, to an address of no account, says nothing of any account
-			$ownRows = $usrBase->listUsersNamed( Array('contactEml'=>$gvnMail), 1 );
-			if(is_array($ownRows) && !empty($ownRows)){
-				$mailObj->sendAddrExists($gvnMail, $gvnUser, strval($ownRows[0]['userLocale'] ?? ''));
+			$ownEntry = $userBase->listUsersNamed( Array('contactEml'=>$givenEml), 1 );
+			if(is_array($ownEntry) && !empty($ownEntry)){
+				$mailInst->sendAddrExists($givenEml, $givenUsr, strval($ownEntry[0]['userLocale'] ?? ''));
 			}else{
-				$mailObj->sendNameExists(strtolower(trim($gvnMail)), $gvnUser, $clntLng);
+				$mailInst->sendNameExists(strtolower(trim($givenEml)), $givenUsr, $clntLang);
 			}
 		}else{
-			$mailObj->sendCodeToUser('register', $gvnUser, strtolower(trim($gvnMail)), $newCode, $clntLng);
-			$this->notifyManagers($usrBase, $mailObj, $regTops, is_array($lmtConf['alertsAt'] ?? null) ? $lmtConf['alertsAt'] : Array(128, 200, 256));
+			$mailInst->sendCodeToUser('register', $givenUsr, strtolower(trim($givenEml)), $newCodig, $clntLang);
+			$this->notifyManagers($userBase, $mailInst, $regrTops, is_array($limitCfg['alertsAt'] ?? null) ? $limitCfg['alertsAt'] : Array(128, 200, 256));
 		}
 		$this->statusCode = 202;
 		$this->replyValue = Array('asked'=>true);
@@ -358,21 +358,21 @@ class Actions extends Actionset {
 	 * @param Array      $warnAtCounts The counts the managers are told at.
 	 */
 	protected function notifyManagers( UserBase $userDatabase, AccessMail $accessMailer, Int $authTopsNumb, Array $warnAtCounts ): Void {
-		$waitNum = $userDatabase->waitingSignups();
-		if($waitNum===false || !in_array($waitNum, array_map('intval', $warnAtCounts), true)){
+		$waitNumb = $userDatabase->waitingSignups();
+		if($waitNumb===false || !in_array($waitNumb, array_map('intval', $warnAtCounts), true)){
 			return;
 		}
-		$accsLog = Logger::retrieveLogger('access');
-		if($waitNum>=$authTopsNumb){
-			$accsLog->warning( $waitNum.' sign-ups are waiting: the sign-ups are closed until some are approved or removed' );
+		$accsJrnl = Logger::retrieveLogger('access');
+		if($waitNumb>=$authTopsNumb){
+			$accsJrnl->warning( $waitNumb.' sign-ups are waiting: the sign-ups are closed until some are approved or removed' );
 		}else{
-			$accsLog->notice( $waitNum.' sign-ups are waiting, '.$authTopsNumb.' at most' );
+			$accsJrnl->notice( $waitNumb.' sign-ups are waiting, '.$authTopsNumb.' at most' );
 		}
-		$mngrLst = $userDatabase->manageMailList();
-		if(is_array($mngrLst) && !empty($mngrLst)){
-			$accessMailer->sendQueueAlert($mngrLst, $waitNum, $authTopsNumb);
+		$mngrList = $userDatabase->manageMailList();
+		if(is_array($mngrList) && !empty($mngrList)){
+			$accessMailer->sendQueueAlert($mngrList, $waitNumb, $authTopsNumb);
 		}else{
-			$accsLog->warning( 'No manager with an address is told of the sign-ups waiting' );
+			$accsJrnl->warning( 'No manager with an address is told of the sign-ups waiting' );
 		}
 	}
 
@@ -388,29 +388,29 @@ class Actions extends Actionset {
 	 * not a text, 429 when the address of the client asked too often.
 	 */
 	public function forgot(): Void {
-		$usrBase = UserBase::fromLoginBlock();
-		$mailObj = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
-		if($usrBase===null || $mailObj===null){
+		$userBase = UserBase::fromLoginBlock();
+		$mailInst = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
+		if($userBase===null || $mailInst===null){
 			$this->statusCode = 404;
 			$this->statusMssg = 'Not Found';
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('userName');
-		if(!is_string($gvnUser)){
+		$givenUsr = $this->inputsRgst->readValueByKey('userName');
+		if(!is_string($givenUsr)){
 			$this->statusCode = 400;
 			$this->statusMssg = 'Invalid userName';
 			return;
 		}
-		$lmtrArr = $this->refuseHeldAddr('Reset', $gvnUser);
-		if($lmtrArr===null){
+		$lmtrList = $this->refuseHeldAddr('Reset', $givenUsr);
+		if($lmtrList===null){
 			return;
 		}
-		$lmtrArr[0]->countFailedTry($lmtrArr[1]);
-		$rstVals = $usrBase->resetPassArray($gvnUser);
-		if(is_array($rstVals)){
-			$clntReg = $this->requestObj->retrieveClient();
-			$clntLng = ($clntReg!==null) ? strval($clntReg->readValueByKey('language')) : '';
-			$mailObj->sendCodeToUser('password', $rstVals['user'], $rstVals['mail'], $rstVals['code'], $rstVals['lang'] ?? $clntLng);
+		$lmtrList[0]->countFailedTry($lmtrList[1]);
+		$restVals = $userBase->resetPassArray($givenUsr);
+		if(is_array($restVals)){
+			$clntRegr = $this->requestObj->retrieveClient();
+			$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
+			$mailInst->sendCodeToUser('password', $restVals['user'], $restVals['mail'], $restVals['code'], $restVals['lang'] ?? $clntLang);
 		}
 		$this->statusCode = 202;
 		$this->replyValue = Array('asked'=>true);
@@ -431,30 +431,30 @@ class Actions extends Actionset {
 		if($this->refuseUrlPassw( Array('passWord'), 'Password reset' )){
 			return;
 		}
-		$gvnUser = $this->inputsRgst->readValueByKey('userName');
-		$gvnCode = $this->inputsRgst->readValueByKey('sentCode');
-		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
-		if(!is_string($gvnUser) || !is_string($gvnCode) || !is_string($gvnPass)){
+		$givenUsr = $this->inputsRgst->readValueByKey('userName');
+		$givenCod = $this->inputsRgst->readValueByKey('sentCode');
+		$givenPwd = $this->inputsRgst->readValueByKey('passWord');
+		if(!is_string($givenUsr) || !is_string($givenCod) || !is_string($givenPwd)){
 			$this->statusCode = 400;
 			$this->statusMssg = 'Invalid userName, sentCode or passWord';
 			return;
 		}
-		$usrBase = UserBase::fromLoginBlock();
-		if($usrBase===null){
+		$userBase = UserBase::fromLoginBlock();
+		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		$lmtrArr = $this->refuseHeldAddr('Password reset', $gvnUser);
-		if($lmtrArr===null){
+		$lmtrList = $this->refuseHeldAddr('Password reset', $givenUsr);
+		if($lmtrList===null){
 			return;
 		}
-		if(!$usrBase->recoverUserFlg($gvnUser, $gvnCode, $gvnPass)){
-			if($usrBase->hasWrongSecret()){
-				$lmtrArr[0]->countFailedTry($lmtrArr[1]);
+		if(!$userBase->recoverUserFlg($givenUsr, $givenCod, $givenPwd)){
+			if($userBase->hasWrongSecret()){
+				$lmtrList[0]->countFailedTry($lmtrList[1]);
 			}
-			$this->statusCode = $usrBase->lastStateCount();
-			$this->statusMssg = $usrBase->finalErrorText();
+			$this->statusCode = $userBase->lastStateCount();
+			$this->statusMssg = $userBase->finalErrorText();
 			return;
 		}
 		$this->statusCode = 200;
@@ -471,20 +471,20 @@ class Actions extends Actionset {
 	 * @return ?Array The limiter and the address of the client, or null when the request is refused.
 	 */
 	protected function refuseHeldAddr( String $requestLabel, String $namedUserTxt, ?Limiter $ceilingCount=null ): ?Array {
-		$lmtrObj = $ceilingCount ?? new Limiter( $this->resolveConfArr('tryLimit') );
-		$clntReg = $this->requestObj->retrieveClient();
-		$usrAddr = ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '';
-		$heldEnd = $lmtrObj->heldUntilCount($usrAddr);
-		if($heldEnd>0){
-			Logger::retrieveLogger('access')->warning( $requestLabel.' refused for user '.json_encode($namedUserTxt).(($usrAddr!='') ? ' from '.$usrAddr : '').': too many attempts' );
+		$lmtrInst = $ceilingCount ?? new Limiter( $this->resolveConfArr('tryLimit') );
+		$clntRegr = $this->requestObj->retrieveClient();
+		$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
+		$heldTime = $lmtrInst->heldUntilCount($userAddr);
+		if($heldTime>0){
+			Logger::retrieveLogger('access')->warning( $requestLabel.' refused for user '.json_encode($namedUserTxt).(($userAddr!='') ? ' from '.$userAddr : '').': too many attempts' );
 			if($this->respondObj!==null){
-				$this->respondObj->addReplyHeader('Retry-After', strval(max(1, $heldEnd - time())));
+				$this->respondObj->addReplyHeader('Retry-After', strval(max(1, $heldTime - time())));
 			}
 			$this->statusCode = 429;
 			$this->statusMssg = 'Too many attempts';
 			return null;
 		}
-		return Array($lmtrObj, $usrAddr);
+		return Array($lmtrInst, $userAddr);
 	}
 
 	/**
@@ -515,32 +515,32 @@ class Actions extends Actionset {
 		if($this->refuseUrlPassw( Array('oldValue', 'passWord'), 'Password change' )){
 			return;
 		}
-		$usrName = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true) ? strval($this->accessRgst->readValueByKey('userName')) : '';
-		if($usrName==''){
+		$userName = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true) ? strval($this->accessRgst->readValueByKey('userName')) : '';
+		if($userName==''){
 			$this->statusCode = 401;
 			$this->statusMssg = 'Not logged in';
 			return;
 		}
-		$gvnFrmr = $this->inputsRgst->readValueByKey('oldValue');
-		$gvnPass = $this->inputsRgst->readValueByKey('passWord');
-		if(!is_string($gvnFrmr) || !is_string($gvnPass)){
+		$oldValue = $this->inputsRgst->readValueByKey('oldValue');
+		$givenPwd = $this->inputsRgst->readValueByKey('passWord');
+		if(!is_string($oldValue) || !is_string($givenPwd)){
 			$this->statusCode = 400;
 			$this->statusMssg = 'Invalid oldValue or passWord';
 			return;
 		}
-		$usrBase = UserBase::fromLoginBlock();
-		if($usrBase===null){
+		$userBase = UserBase::fromLoginBlock();
+		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		if(!$usrBase->editPasswdFlag($usrName, $gvnFrmr, $gvnPass)){
-			if($usrBase->hasWrongSecret()){
-				$clntReg = $this->requestObj->retrieveClient();
-				(new Limiter( $this->resolveConfArr('tryLimit') ))->countFailedTry( ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '' );
+		if(!$userBase->editPasswdFlag($userName, $oldValue, $givenPwd)){
+			if($userBase->hasWrongSecret()){
+				$clntRegr = $this->requestObj->retrieveClient();
+				(new Limiter( $this->resolveConfArr('tryLimit') ))->countFailedTry( ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
 			}
-			$this->statusCode = $usrBase->lastStateCount();
-			$this->statusMssg = $usrBase->finalErrorText();
+			$this->statusCode = $userBase->lastStateCount();
+			$this->statusMssg = $userBase->finalErrorText();
 			return;
 		}
 		$this->statusCode = 200;
@@ -555,26 +555,26 @@ class Actions extends Actionset {
 	 * and 500 when the login does not use the native userbase.
 	 */
 	public function usrlang(): Void {
-		$usrName = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true) ? strval($this->accessRgst->readValueByKey('userName')) : '';
-		if($usrName==''){
+		$userName = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true) ? strval($this->accessRgst->readValueByKey('userName')) : '';
+		if($userName==''){
 			$this->statusCode = 401;
 			$this->statusMssg = 'Not logged in';
 			return;
 		}
-		$usrBase = UserBase::fromLoginBlock();
-		if($usrBase===null){
+		$userBase = UserBase::fromLoginBlock();
+		if($userBase===null){
 			$this->statusCode = 500;
 			$this->statusMssg = 'User management unavailable';
 			return;
 		}
-		$gvnLang = $this->inputsRgst->readValueByKey('saveLang');
-		if(!$usrBase->changeLanguage($usrName, is_string($gvnLang) ? $gvnLang : null)){
-			$this->statusCode = $usrBase->lastStateCount();
-			$this->statusMssg = $usrBase->finalErrorText();
+		$givenLng = $this->inputsRgst->readValueByKey('saveLang');
+		if(!$userBase->changeLanguage($userName, is_string($givenLng) ? $givenLng : null)){
+			$this->statusCode = $userBase->lastStateCount();
+			$this->statusMssg = $userBase->finalErrorText();
 			return;
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('lang'=>($usrBase->userInfosArray($usrName) ?: Array())['userLocale'] ?? null);
+		$this->replyValue = Array('lang'=>($userBase->userInfosArray($userName) ?: Array())['userLocale'] ?? null);
 	}
 
 	/**
@@ -591,9 +591,9 @@ class Actions extends Actionset {
 	protected function refuseUrlPassw( Array $fldNamesList, String $requestLabel ): Bool {
 		foreach($fldNamesList as $fldNme){
 			if($this->requestObj->isSentViaQuery( strval($fldNme) )){
-				$clntReg = $this->requestObj->retrieveClient();
-				$usrAddr = ($clntReg!==null) ? strval($clntReg->readValueByKey('userAddr')) : '';
-				Logger::retrieveLogger('access')->warning( $requestLabel.' refused'.(($usrAddr!='') ? ' from '.$usrAddr : '').': password sent in the query string' );
+				$clntRegr = $this->requestObj->retrieveClient();
+				$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
+				Logger::retrieveLogger('access')->warning( $requestLabel.' refused'.(($userAddr!='') ? ' from '.$userAddr : '').': password sent in the query string' );
 				$this->statusCode = 400;
 				$this->statusMssg = 'Password sent in the query string';
 				return true;
@@ -609,8 +609,8 @@ class Actions extends Actionset {
 	 * @return Array The block's values, or an empty array if not found.
 	 */
 	protected function resolveConfArr( String $confBlckName ): Array {
-		$nyuConf = $GLOBALS['nyuConfig'];
-		$accsCnf = $nyuConf->obtainRowValue('ACCESS', strtoupper($confBlckName));
-		return is_array($accsCnf) ? $accsCnf : Array();
+		$nyuConfg = $GLOBALS['nyuConfig'];
+		$accsConf = $nyuConfg->obtainRowValue('ACCESS', strtoupper($confBlckName));
+		return is_array($accsConf) ? $accsConf : Array();
 	}
 }

@@ -40,29 +40,29 @@ class Header implements Handler{
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$headVal = $givenRequest->retrieveHeader( $this->headerName );
-		if( $headVal===null || $headVal=='' ){
+		$headVals = $givenRequest->retrieveHeader( $this->headerName );
+		if( $headVals===null || $headVals=='' ){
 			$this->errMessage = 'Missing '.$this->headerName.' header';
 			return false;
 		}
 		// With a scheme, the header reads "<scheme> <key>" : only the key is checked
 		if( $this->schemaName!='' ){
-			if( stripos($headVal, $this->schemaName.' ')!==0 ){
+			if( stripos($headVals, $this->schemaName.' ')!==0 ){
 				$this->errMessage = 'Missing '.$this->schemaName.' '.$this->headerName.' header';
 				return false;
 			}
-			$headVal = trim(substr($headVal, strlen($this->schemaName)));
+			$headVals = trim(substr($headVals, strlen($this->schemaName)));
 		}
 		if( $this->authObject===null ){
 			$this->errMessage = 'No credential handler configured';
 			return false;
 		}
-		$idntArr = $this->authObject->checkSecretArr( Array('key'=>$headVal) );
-		if( $idntArr===false ){
+		$idntList = $this->authObject->checkSecretArr( Array('key'=>$headVals) );
+		if( $idntList===false ){
 			$this->errMessage = $this->authObject->finalErrorText();
 			return false;
 		}
-		return $idntArr;
+		return $idntList;
 	}
 
 	/**

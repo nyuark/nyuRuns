@@ -21,18 +21,18 @@ class ToFile extends Driver {
 	 * @return ?String Null when it was written, or why it was not.
 	 */
 	public function deliverMessage( Message $emailMessage, Array $recipientLst ): ?String {
-		$fldPath = $this->emailsFldrText();
-		if( !is_dir($fldPath) && !@mkdir($fldPath, 0775, true) && !is_dir($fldPath) ){
-			return 'the folder '.json_encode($fldPath).' cannot be created';
+		$fieldPth = $this->emailsFldrText();
+		if( !is_dir($fieldPth) && !@mkdir($fieldPth, 0775, true) && !is_dir($fieldPth) ){
+			return 'the folder '.json_encode($fieldPth).' cannot be created';
 		}
-		$headTxt = 'X-Envelope-To: '.implode(', ', $recipientLst)."\r\n";
-		$attNmes = array_map('basename', $emailMessage->getAttachments());
-		if( !empty($attNmes) ){
-			$headTxt .= 'X-Attachments: '.Message::encodeHeadText(implode(', ', $attNmes))."\r\n";
+		$headText = 'X-Envelope-To: '.implode(', ', $recipientLst)."\r\n";
+		$attrNmes = array_map('basename', $emailMessage->getAttachments());
+		if( !empty($attrNmes) ){
+			$headText .= 'X-Attachments: '.Message::encodeHeadText(implode(', ', $attrNmes))."\r\n";
 		}
-		$filPath = $fldPath.DIRECTORY_SEPARATOR.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.eml';
-		if( @file_put_contents($filPath, $headTxt.$emailMessage->writeWholeMail(), LOCK_EX)===false ){
-			return 'the file '.json_encode($filPath).' cannot be written';
+		$filePath = $fieldPth.DIRECTORY_SEPARATOR.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.eml';
+		if( @file_put_contents($filePath, $headText.$emailMessage->writeWholeMail(), LOCK_EX)===false ){
+			return 'the file '.json_encode($filePath).' cannot be written';
 		}
 		return null;
 	}
@@ -43,7 +43,7 @@ class ToFile extends Driver {
 	 * @return String Its full path.
 	 */
 	public function emailsFldrText(): String {
-		$fldName = trim( strval($this->setupArray['mailsDir'] ?? ''), '/\\ ' );
-		return TOP_DIR.DIRECTORY_SEPARATOR.( $fldName!='' ? str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $fldName) : 'temp'.DIRECTORY_SEPARATOR.'mails' );
+		$fieldNme = trim( strval($this->setupArray['mailsDir'] ?? ''), '/\\ ' );
+		return TOP_DIR.DIRECTORY_SEPARATOR.( $fieldNme!='' ? str_replace(Array('/', '\\'), DIRECTORY_SEPARATOR, $fieldNme) : 'temp'.DIRECTORY_SEPARATOR.'mails' );
 	}
 }

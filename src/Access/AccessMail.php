@@ -85,16 +85,16 @@ class AccessMail {
 	 * @return ?AccessMail The sender, or null when the login does not use the native userbase or sends no mail.
 	 */
 	public static function fromLoginBlock( String $appsFldrText='', Bool $deferSending=false ): ?AccessMail {
-		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGINSET') : null;
-		if( !is_array($lgnConf) || strval($lgnConf['authWith'] ?? '')!=='nativeDb' ){
+		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
+		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
 			return null;
 		}
-		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authConf'] ?? 'nativeDb')));
-		if( !is_array($blckCfg) || !is_string($blckCfg['mailAcnt'] ?? null) || $blckCfg['mailAcnt']==='' ){
+		$blockCfg = $nyuConfg->obtainRowValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
+		if( !is_array($blockCfg) || !is_string($blockCfg['mailAcnt'] ?? null) || $blockCfg['mailAcnt']==='' ){
 			return null;
 		}
-		return new self($blckCfg, $appsFldrText, $deferSending);
+		return new self($blockCfg, $appsFldrText, $deferSending);
 	}
 
 	/**
@@ -105,13 +105,13 @@ class AccessMail {
 	 * @return Bool Whether users may sign up.
 	 */
 	public static function signupsAllowed(): Bool {
-		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lgnConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'LOGINSET') : null;
-		if( !is_array($lgnConf) || strval($lgnConf['authWith'] ?? '')!=='nativeDb' ){
+		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
+		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
 			return false;
 		}
-		$blckCfg = $nyuConf->obtainRowValue('ACCESS', strtoupper(strval($lgnConf['authConf'] ?? 'nativeDb')));
-		return is_array($blckCfg) && ($blckCfg['signupOn'] ?? false)===true && is_string($blckCfg['mailAcnt'] ?? null) && $blckCfg['mailAcnt']!=='';
+		$blockCfg = $nyuConfg->obtainRowValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
+		return is_array($blockCfg) && ($blockCfg['signupOn'] ?? false)===true && is_string($blockCfg['mailAcnt'] ?? null) && $blockCfg['mailAcnt']!=='';
 	}
 
 	/**
@@ -128,11 +128,11 @@ class AccessMail {
 		if( !in_array($mailKindCode, self::KIND_LIST, true) ){
 			return false;
 		}
-		$linkTxt = '';
+		$linkText = '';
 		if( $this->urlTmplTxt!='' && $mailKindCode!=='passcode' ){
-			$linkTxt = strtr( $this->urlTmplTxt, Array('%mailKind%'=>rawurlencode($mailKindCode), '%userName%'=>rawurlencode($namedUserTxt), '%sentCode%'=>rawurlencode($codeAsString)) );
+			$linkText = strtr( $this->urlTmplTxt, Array('%mailKind%'=>rawurlencode($mailKindCode), '%userName%'=>rawurlencode($namedUserTxt), '%sentCode%'=>rawurlencode($codeAsString)) );
 		}
-		return $this->sendsEmailFlag( $mailKindCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkTxt, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
+		return $this->sendsEmailFlag( $mailKindCode, $emailAddress, Array('user'=>$namedUserTxt, 'code'=>$codeAsString, 'link'=>$linkText, 'mins'=>strval($this->codeExpiry)), $givenLangTag );
 	}
 
 	/**
@@ -173,13 +173,13 @@ class AccessMail {
 	 * @return Bool Whether every mail was sent, or is to be sent after the reply.
 	 */
 	public function sendQueueAlert( Array $managersList, Int $mailCountVal, Int $ceilingValue ): Bool {
-		$allSent = true;
+		$isSentOk = true;
 		foreach( $managersList as $adrKey=>$mgrAdr ){
-			$mgrAddr = is_string($adrKey) ? $adrKey : strval($mgrAdr);
-			$mgrLang = is_string($adrKey) && is_string($mgrAdr) ? $mgrAdr : null;
-			$allSent = $this->sendsEmailFlag( self::WARN_NAME, $mgrAddr, Array('count'=>strval($mailCountVal), 'limit'=>strval($ceilingValue), 'link'=>''), $mgrLang ) && $allSent;
+			$mngrAddr = is_string($adrKey) ? $adrKey : strval($mgrAdr);
+			$mngrLang = is_string($adrKey) && is_string($mgrAdr) ? $mgrAdr : null;
+			$isSentOk = $this->sendsEmailFlag( self::WARN_NAME, $mngrAddr, Array('count'=>strval($mailCountVal), 'limit'=>strval($ceilingValue), 'link'=>''), $mngrLang ) && $isSentOk;
 		}
-		return $allSent;
+		return $isSentOk;
 	}
 
 	/**
@@ -192,18 +192,18 @@ class AccessMail {
 	 * @return Bool Whether the mail was sent, or is to be sent after the reply.
 	 */
 	protected function sendsEmailFlag( String $templateName, String $emailAddress, Array $placeholders, ?String $givenLangTag=null ): Bool {
-		$mailArr = $this->buildMailArray($templateName, $placeholders, $givenLangTag);
-		if( $mailArr===null ){
+		$mailList = $this->buildMailArray($templateName, $placeholders, $givenLangTag);
+		if( $mailList===null ){
 			Logger::retrieveLogger('runner')->error( 'Access mail '.json_encode($templateName).' not sent: its template cannot be read' );
 			return false;
 		}
 		if( !$this->deferMails ){
-			return $this->postsEmailFlag($emailAddress, $mailArr);
+			return $this->postsEmailFlag($emailAddress, $mailList);
 		}
 		if( empty($this->mailsQueue) ){
 			register_shutdown_function( Array($this, 'sendQueuedMail') );
 		}
-		$this->mailsQueue[] = Array($emailAddress, $mailArr);
+		$this->mailsQueue[] = Array($emailAddress, $mailList);
 		return true;
 	}
 
@@ -249,23 +249,23 @@ class AccessMail {
 	 * @return ?Array The subject, the text and the HTML (null for none), or null when the text template cannot be read.
 	 */
 	protected function buildMailArray( String $templateName, Array $placeholders, ?String $givenLangTag=null ): ?Array {
-		$lngTool = new Language();
-		$txtPath = null;
-		foreach( $lngTool->langChainArray($lngTool->chooseLanguage($givenLangTag, null)) as $oneTag ){
+		$langTool = new Language();
+		$textPath = null;
+		foreach( $langTool->langChainArray($langTool->chooseLanguage($givenLangTag, null)) as $oneTag ){
 			foreach( $this->folderList as $dirPth ){
-				$txtPath = $txtPath ?? $lngTool->locateTemplate($dirPth, $templateName.'.txt', Array($oneTag));
+				$textPath = $textPath ?? $langTool->locateTemplate($dirPth, $templateName.'.txt', Array($oneTag));
 			}
 		}
-		if( $txtPath===null ){
+		if( $textPath===null ){
 			return null;
 		}
 		// The HTML is the one beside the text : an application giving its own text without HTML sends text alone
-		$htmPath = dirname($txtPath).DS.$templateName.'.html';
+		$htmlPath = dirname($textPath).DS.$templateName.'.html';
 		try{
-			$malTmpl = new Template( $txtPath, (is_file($htmPath) && is_readable($htmPath)) ? $htmPath : null );
+			$mailTmpl = new Template( $textPath, (is_file($htmlPath) && is_readable($htmlPath)) ? $htmlPath : null );
 		}catch( \RuntimeException $e ){
 			return null;
 		}
-		return Array( $malTmpl->getSubjectText($placeholders), $malTmpl->simpleBodyText($placeholders), $malTmpl->getHtmlVersion($placeholders) );
+		return Array( $mailTmpl->getSubjectText($placeholders), $mailTmpl->simpleBodyText($placeholders), $mailTmpl->getHtmlVersion($placeholders) );
 	}
 }

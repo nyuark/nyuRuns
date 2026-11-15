@@ -41,8 +41,7 @@ Some text before the table, with a `word` in backticks that is no verb.
 | Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) |
 |---|---|---|---|---|---|
 | account | — / `Acct` / `Accnt` | column | `Col` / `Clmn` / `Colmn` | form | `Frm` / `Form` / — |
-| level | `Lvl` / `Levl` / `Level` | method | `Mth` / `Mthd` / `Methd` | regexp | `Rgx` / `Rgxp` / — |
-| row | `Row` / `Ntry` / `Entry` | tag | `Tag` / — / — | | |
+| level | `Lvl` / `Levl` / `Level` | method | `Mth` / `Mthd` / `Methd` | | |
 
 ## 6. After
 

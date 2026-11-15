@@ -34,18 +34,18 @@ class Yaml extends Base {
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes'), 'YAML');
 		// A content may be nothing at all: that is not the same as a content left out
-		$itemVal = array_key_exists('items', $dataEnvelope) ? $dataEnvelope['items'] : Array();
+		$itemVals = array_key_exists('items', $dataEnvelope) ? $dataEnvelope['items'] : Array();
 		if( empty($writeOptions['multi']) ){
-			return implode("\n", $this->linesOfItArray($itemVal, 0, 64))."\n";
+			return implode("\n", $this->linesOfItArray($itemVals, 0, 64))."\n";
 		}
-		if( !is_array($itemVal) || !$this->validateALstOf($itemVal) ){
+		if( !is_array($itemVals) || !$this->validateALstOf($itemVals) ){
 			throw new WriteError('Content that cannot be written as several YAML documents: it is not a list');
 		}
-		$ymlText = '';
-		foreach($itemVal as $oneVal){
-			$ymlText .= "---\n".implode("\n", $this->linesOfItArray($oneVal, 0, 64))."\n";
+		$ymlStrng = '';
+		foreach($itemVals as $oneVal){
+			$ymlStrng .= "---\n".implode("\n", $this->linesOfItArray($oneVal, 0, 64))."\n";
 		}
-		return $ymlText;
+		return $ymlStrng;
 	}
 
 	/**
@@ -75,12 +75,12 @@ class Yaml extends Base {
 			}
 			// A number that is not whole keeps its point, so that it is read back as one,
 			// and is written with the digits it needs and no more, whatever the server is set to
-			$keptPrc = ini_set('serialize_precision', '-1');
-			$numText = json_encode($valueToWrite, JSON_PRESERVE_ZERO_FRACTION);
-			if( $keptPrc!==false ){
-				ini_set('serialize_precision', $keptPrc);
+			$keptPrec = ini_set('serialize_precision', '-1');
+			$numbText = json_encode($valueToWrite, JSON_PRESERVE_ZERO_FRACTION);
+			if( $keptPrec!==false ){
+				ini_set('serialize_precision', $keptPrec);
 			}
-			return ($numText===false) ? strval($valueToWrite) : $numText;
+			return ($numbText===false) ? strval($valueToWrite) : $numbText;
 		}
 		if( !is_string($valueToWrite) ){
 			throw new WriteError('Content that cannot be written as YAML: a value that is neither text, number, boolean nor nothing');
@@ -89,8 +89,8 @@ class Yaml extends Base {
 		if( preg_match('/^[\p{L}_][\p{L}\p{N}_ .\/+\-]*$/Du', $valueToWrite) && substr($valueToWrite, -1)!=' ' && !in_array(strtolower($valueToWrite), self::WORD_LIST) ){
 			return $valueToWrite;
 		}
-		$qutText = strtr($valueToWrite, Array('\\'=>'\\\\', '"'=>'\\"', "\n"=>'\\n', "\t"=>'\\t', "\r"=>'\\r'));
-		return '"'.preg_replace_callback('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', function($locatedParts){ return sprintf('\\x%02X', ord($locatedParts[0])); }, $qutText).'"';
+		$quoteTxt = strtr($valueToWrite, Array('\\'=>'\\\\', '"'=>'\\"', "\n"=>'\\n', "\t"=>'\\t', "\r"=>'\\r'));
+		return '"'.preg_replace_callback('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', function($locatedParts){ return sprintf('\\x%02X', ord($locatedParts[0])); }, $quoteTxt).'"';
 	}
 
 	/**
@@ -105,32 +105,32 @@ class Yaml extends Base {
 	 * @throws WriteError When the value holds what YAML cannot say, or is nested too deep.
 	 */
 	protected function linesOfItArray(Mixed $valueToWrite, Int $indentLength, Int $depthsLftNum): Array {
-		$padText = str_repeat(' ', $indentLength);
+		$padStrng = str_repeat(' ', $indentLength);
 		if( !is_array($valueToWrite) ){
-			return Array($padText.$this->writeYamlValue($valueToWrite));
+			return Array($padStrng.$this->writeYamlValue($valueToWrite));
 		}
 		if( $depthsLftNum<1 ){
 			throw new WriteError('Content that cannot be written as YAML: nested deeper than allowed');
 		}
 		if( empty($valueToWrite) ){
-			return Array($padText.'[]');
+			return Array($padStrng.'[]');
 		}
-		$lineLst = Array();
-		$isAList = $this->validateALstOf($valueToWrite);
+		$lineList = Array();
+		$isAsList = $this->validateALstOf($valueToWrite);
 		foreach($valueToWrite as $itmKey=>$itmVal){
-			if( $isAList ){
+			if( $isAsList ){
 				// What a dash holds starts on its line: the lines of the value, the first one after the dash
-				$subLnes = $this->linesOfItArray($itmVal, $indentLength+2, $depthsLftNum-1);
-				$subLnes[0] = $padText.'- '.substr($subLnes[0], $indentLength+2);
-				$lineLst = array_merge($lineLst, $subLnes);
+				$subLines = $this->linesOfItArray($itmVal, $indentLength+2, $depthsLftNum-1);
+				$subLines[0] = $padStrng.'- '.substr($subLines[0], $indentLength+2);
+				$lineList = array_merge($lineList, $subLines);
 			}elseif( is_array($itmVal) && !empty($itmVal) ){
-				$lineLst[] = $padText.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).':';
-				$lineLst = array_merge($lineLst, $this->linesOfItArray($itmVal, $indentLength+2, $depthsLftNum-1));
+				$lineList[] = $padStrng.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).':';
+				$lineList = array_merge($lineList, $this->linesOfItArray($itmVal, $indentLength+2, $depthsLftNum-1));
 			}else{
-				$lineLst[] = $padText.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).': '.(is_array($itmVal) ? '[]' : $this->writeYamlValue($itmVal));
+				$lineList[] = $padStrng.$this->writeYamlValue(is_int($itmKey) ? $itmKey : strval($itmKey)).': '.(is_array($itmVal) ? '[]' : $this->writeYamlValue($itmVal));
 			}
 		}
-		return $lineLst;
+		return $lineList;
 	}
 
 }

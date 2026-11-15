@@ -59,34 +59,34 @@ class RunGen extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeCrudlRun(): Int {
-		$appName = $this->askRunNameText();
-		$baseNme = $this->askDatabaseTxt();
-		$tblName = $this->askTableString($baseNme, strtolower($appName));
-		$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
-		$tblInfo = $dbHndlr->tableInfoArray($tblName);
-		$idColmn = $this->askIdentColumn($tblName, is_array($tblInfo) ? $tblInfo : Array());
-		$specArr = Array(
-			'appsName'=>$appName,
-			'database'=>$baseNme,
-			'tableRef'=>$tblName,
-			'idColumn'=>$idColmn,
-			'fieldSet'=>$this->askFieldsArray($baseNme, $tblName, $idColmn, (array)($tblInfo['blob'] ?? Array())),
+		$applName = $this->askRunNameText();
+		$baseName = $this->askDatabaseTxt();
+		$tableNme = $this->askTableString($baseName, strtolower($applName));
+		$dtbsHndr = DBCon::linkNamedDbCon($baseName)->readConnection();
+		$tableDct = $dtbsHndr->tableInfoArray($tableNme);
+		$idColumn = $this->askIdentColumn($tableNme, is_array($tableDct) ? $tableDct : Array());
+		$specList = Array(
+			'appsName'=>$applName,
+			'database'=>$baseName,
+			'tableRef'=>$tableNme,
+			'idColumn'=>$idColumn,
+			'fieldSet'=>$this->askFieldsArray($baseName, $tableNme, $idColumn, (array)($tableDct['blob'] ?? Array())),
 			'actnList'=>$this->askActionsList(),
 			'minmRole'=>'',
 			'runMount'=>'',
-			'childSet'=>$this->askChildrenSet($baseNme, $tblName)
+			'childSet'=>$this->askChildrenSet($baseName, $tableNme)
 		);
-		$specArr['minmRole'] = $this->askMinmRoleTxt();
-		$specArr['runMount'] = $this->askMountString($appName);
+		$specList['minmRole'] = $this->askMinmRoleTxt();
+		$specList['runMount'] = $this->askMountString($applName);
 		try{
-			$specPth = RunSpec::writeSpecsFile(RUN_DIR, $specArr);
+			$specPath = RunSpec::writeSpecsFile(RUN_DIR, $specList);
 		}catch( \RuntimeException $e ){
 			$this->terminateShell($e->getMessage(), self::EXIT_FAIL);
 		}
 		Controller::clearRunFoldrs();
-		$this->traceShellDone( 'Makerun: '.$appName.'/'.RunSpec::SPEC_FILE.' written, from the table '.json_encode($tblName) );
-		$this->printerObj->printShellPair('written', $this->runRelativeTxt($specPth));
-		return $this->writeRunFolder($specArr);
+		$this->traceShellDone( 'Makerun: '.$applName.'/'.RunSpec::SPEC_FILE.' written, from the table '.json_encode($tableNme) );
+		$this->printerObj->printShellPair('written', $this->runRelativeTxt($specPath));
+		return $this->writeRunFolder($specList);
 	}
 
 	/**
@@ -95,13 +95,13 @@ class RunGen extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeFromSpec(): Int {
-		$appName = $this->needsShellWord('the name of the Run');
+		$applName = $this->needsShellWord('the name of the Run');
 		try{
-			$specArr = RunSpec::readSpecsArray(RUN_DIR, $appName);
+			$specList = RunSpec::readSpecsArray(RUN_DIR, $applName);
 		}catch( \RuntimeException $e ){
 			$this->terminateShell($e->getMessage(), self::EXIT_DENY);
 		}
-		return $this->writeRunFolder($specArr);
+		return $this->writeRunFolder($specList);
 	}
 
 	/**
@@ -122,15 +122,15 @@ class RunGen extends Command{
 	 * @return String The name.
 	 */
 	protected function askRunNameText(): String {
-		$appName = ucfirst( $this->needsShellWord('the name of the Run') );
-		if( !preg_match('/^[A-Za-z][A-Za-z0-9]*$/D', $appName) ){
+		$applName = ucfirst( $this->needsShellWord('the name of the Run') );
+		if( !preg_match('/^[A-Za-z][A-Za-z0-9]*$/D', $applName) ){
 			$this->terminateShell('Invalid name: letters and digits, a letter first', self::EXIT_HELP);
 		}
 		Controller::clearRunFoldrs();
-		if( Controller::runFoldrString($appName)!=='' ){
-			$this->terminateShell('No Run generated: a Run named '.$appName.' exists (makerun fromSpec writes a generated one again)', self::EXIT_DENY);
+		if( Controller::runFoldrString($applName)!=='' ){
+			$this->terminateShell('No Run generated: a Run named '.$applName.' exists (makerun fromSpec writes a generated one again)', self::EXIT_DENY);
 		}
-		return $appName;
+		return $applName;
 	}
 
 	/**
@@ -139,16 +139,16 @@ class RunGen extends Command{
 	 * @return String The label, '' for the default database.
 	 */
 	protected function askDatabaseTxt(): String {
-		$baseNme = $this->queryAnswerTxt('Database (its label, empty for the default one)', '');
+		$baseName = $this->queryAnswerTxt('Database (its label, empty for the default one)', '');
 		try{
-			$dbHndlr = DBCon::linkNamedDbCon($baseNme)->readConnection();
+			$dtbsHndr = DBCon::linkNamedDbCon($baseName)->readConnection();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell('No Run generated: '.$e->getMessage(), self::EXIT_DENY);
 		}
-		if( $dbHndlr===null ){
+		if( $dtbsHndr===null ){
 			$this->terminateShell('No Run generated: makerun needs an SQL database (mysql_db, postgres or sqlitedb), not MongoDB', self::EXIT_DENY);
 		}
-		return $baseNme;
+		return $baseName;
 	}
 
 	/**
@@ -159,15 +159,15 @@ class RunGen extends Command{
 	 * @return String The table.
 	 */
 	protected function askTableString( String $linkNameText, String $tableDefault ): String {
-		$tblList = DBCon::linkNamedDbCon($linkNameText)->readConnection()->tableNameArray();
-		if( !is_array($tblList) ){
+		$tableLst = DBCon::linkNamedDbCon($linkNameText)->readConnection()->tableNameArray();
+		if( !is_array($tableLst) ){
 			$this->terminateShell('No Run generated: the tables of the database cannot be read', self::EXIT_FAIL);
 		}
-		$tblName = $this->queryAnswerTxt('Table ('.implode(', ', $tblList).')', in_array($tableDefault, $tblList, true) ? $tableDefault : '');
-		if( !in_array($tblName, $tblList, true) ){
-			$this->terminateShell('No Run generated: the database has no table '.json_encode($tblName), self::EXIT_DENY);
+		$tableNme = $this->queryAnswerTxt('Table ('.implode(', ', $tableLst).')', in_array($tableDefault, $tableLst, true) ? $tableDefault : '');
+		if( !in_array($tableNme, $tableLst, true) ){
+			$this->terminateShell('No Run generated: the database has no table '.json_encode($tableNme), self::EXIT_DENY);
 		}
-		return $tblName;
+		return $tableNme;
 	}
 
 	/**
@@ -179,16 +179,16 @@ class RunGen extends Command{
 	 * @return String The key.
 	 */
 	protected function askIdentColumn( String $tbleLabelTxt, Array $tableDetails ): String {
-		$primKey = strval($tableDetails['pkey'] ?? '');
-		if( $primKey==='' ){
+		$primClef = strval($tableDetails['pkey'] ?? '');
+		if( $primClef==='' ){
 			$this->terminateShell('No Run generated: the table '.$tbleLabelTxt.' has no primary key', self::EXIT_DENY);
 		}
-		$prpName = 'id_'.StrKit::singularizeTxt($tbleLabelTxt);
-		$idColmn = $this->queryAnswerTxt('Key of '.$tbleLabelTxt, in_array($prpName, (array)($tableDetails['flds'] ?? Array()), true) ? $prpName : $primKey);
-		if( $idColmn!==$primKey ){
-			$this->terminateShell('No Run generated: the key must be the primary key of the table, '.$primKey, self::EXIT_DENY);
+		$prgrName = 'id_'.StrKit::singularizeTxt($tbleLabelTxt);
+		$idColumn = $this->queryAnswerTxt('Key of '.$tbleLabelTxt, in_array($prgrName, (array)($tableDetails['flds'] ?? Array()), true) ? $prgrName : $primClef);
+		if( $idColumn!==$primClef ){
+			$this->terminateShell('No Run generated: the key must be the primary key of the table, '.$primClef, self::EXIT_DENY);
 		}
-		return $idColmn;
+		return $idColumn;
 	}
 
 	/**
@@ -203,23 +203,23 @@ class RunGen extends Command{
 	 * @return Array The formats, by field.
 	 */
 	protected function askFieldsArray( String $linkNameText, String $tbleLabelTxt, String $identColText, Array $binaryFields ): Array {
-		$typeLst = DBCon::linkNamedDbCon($linkNameText)->readConnection()->columnTypeList($tbleLabelTxt);
-		$fldsSet = Array();
-		foreach( (array)$typeLst as $oneFld => $oneTyp ){
+		$typeList = DBCon::linkNamedDbCon($linkNameText)->readConnection()->columnTypeList($tbleLabelTxt);
+		$fldsDict = Array();
+		foreach( (array)$typeList as $oneFld => $oneTyp ){
 			if( $oneFld===$identColText || in_array($oneFld, $binaryFields, true) ){
 				continue;
 			}
-			$fmtText = $this->queryAnswerTxt('Field '.$oneFld.' ('.$oneTyp.'): its format, ! after it to require it, - to leave it out', RunSpec::formatOfColumn(strval($oneTyp)));
-			if( $fmtText==='-' ){
+			$frmtText = $this->queryAnswerTxt('Field '.$oneFld.' ('.$oneTyp.'): its format, ! after it to require it, - to leave it out', RunSpec::formatOfColumn(strval($oneTyp)));
+			if( $frmtText==='-' ){
 				continue;
 			}
-			$needFlg = (substr($fmtText, -1)==='!');
-			$fldsSet[$oneFld.($needFlg ? '!' : '')] = $needFlg ? substr($fmtText, 0, -1) : $fmtText;
+			$needFlag = (substr($frmtText, -1)==='!');
+			$fldsDict[$oneFld.($needFlag ? '!' : '')] = $needFlag ? substr($frmtText, 0, -1) : $frmtText;
 		}
-		if( empty($fldsSet) ){
+		if( empty($fldsDict) ){
 			$this->terminateShell('No Run generated: no field is kept', self::EXIT_DENY);
 		}
-		return $fldsSet;
+		return $fldsDict;
 	}
 
 	/**
@@ -228,12 +228,12 @@ class RunGen extends Command{
 	 * @return Array The actions kept, in the order of RunSpec::ACTN_LIST.
 	 */
 	protected function askActionsList(): Array {
-		$actText = $this->queryAnswerTxt('Actions ('.implode(', ', RunSpec::ACTN_LIST).')', implode(', ', RunSpec::ACTN_LIST));
-		$actList = array_values( array_filter(array_map('trim', explode(',', strtolower($actText)))) );
-		if( empty($actList) || array_diff($actList, RunSpec::ACTN_LIST) ){
+		$actStrng = $this->queryAnswerTxt('Actions ('.implode(', ', RunSpec::ACTN_LIST).')', implode(', ', RunSpec::ACTN_LIST));
+		$actLstng = array_values( array_filter(array_map('trim', explode(',', strtolower($actStrng)))) );
+		if( empty($actLstng) || array_diff($actLstng, RunSpec::ACTN_LIST) ){
 			$this->terminateShell('No Run generated: the actions are some of '.implode(', ', RunSpec::ACTN_LIST), self::EXIT_DENY);
 		}
-		return array_values( array_intersect(RunSpec::ACTN_LIST, $actList) );
+		return array_values( array_intersect(RunSpec::ACTN_LIST, $actLstng) );
 	}
 
 	/**
@@ -246,25 +246,25 @@ class RunGen extends Command{
 	 * @return Array The children, by table.
 	 */
 	protected function askChildrenSet( String $linkNameText, String $tbleLabelTxt ): Array {
-		$dbHndlr = DBCon::linkNamedDbCon($linkNameText)->readConnection();
-		$linkFld = StrKit::singularizeTxt($tbleLabelTxt).'_id';
-		$chldSet = Array();
-		foreach( (array)$dbHndlr->tableNameArray() as $oneTbl ){
-			$typeLst = ($oneTbl===$tbleLabelTxt) ? false : $dbHndlr->columnTypeList($oneTbl);
-			if( !is_array($typeLst) || !isset($typeLst[$linkFld]) || !$this->queryYesNoFlag('Child table '.$oneTbl.' (linked by '.$linkFld.'): follow it', true) ){
+		$dtbsHndr = DBCon::linkNamedDbCon($linkNameText)->readConnection();
+		$linkFild = StrKit::singularizeTxt($tbleLabelTxt).'_id';
+		$childDct = Array();
+		foreach( (array)$dtbsHndr->tableNameArray() as $oneTbl ){
+			$typeList = ($oneTbl===$tbleLabelTxt) ? false : $dtbsHndr->columnTypeList($oneTbl);
+			if( !is_array($typeList) || !isset($typeList[$linkFild]) || !$this->queryYesNoFlag('Child table '.$oneTbl.' (linked by '.$linkFild.'): follow it', true) ){
 				continue;
 			}
-			$fldsDef = implode(', ', array_diff(array_keys($typeLst), Array($linkFld)));
-			$fldList = array_values( array_filter(array_map('trim', explode(',', $this->queryAnswerTxt('  its fields', $fldsDef)))) );
-			$chldSet[$oneTbl] = Array(
-				'linkedBy'=>$linkFld,
-				'fieldSet'=>array_fill_keys($fldList, ''),
+			$fldsDefn = implode(', ', array_diff(array_keys($typeList), Array($linkFild)));
+			$fieldLst = array_values( array_filter(array_map('trim', explode(',', $this->queryAnswerTxt('  its fields', $fldsDefn)))) );
+			$childDct[$oneTbl] = Array(
+				'linkedBy'=>$linkFild,
+				'fieldSet'=>array_fill_keys($fieldLst, ''),
 				'sortedBy'=>$this->queryAnswerTxt('  its order (a field, ^ before it for the reverse order, empty for none)', ''),
 				'ownRoute'=>$this->queryYesNoFlag('  its own route, GET <id>/'.$oneTbl, true),
 				'listsToo'=>$this->queryYesNoFlag('  nested in index too', false)
 			);
 		}
-		return $chldSet;
+		return $childDct;
 	}
 
 	/**
@@ -273,11 +273,11 @@ class RunGen extends Command{
 	 * @return String The role.
 	 */
 	protected function askMinmRoleTxt(): String {
-		$roleNme = $this->queryAnswerTxt('Least role ('.implode(', ', Checker::ROLE_LIST).')', Checker::ROLE_LIST[0]);
-		if( !in_array($roleNme, Checker::ROLE_LIST, true) ){
+		$roleName = $this->queryAnswerTxt('Least role ('.implode(', ', Checker::ROLE_LIST).')', Checker::ROLE_LIST[0]);
+		if( !in_array($roleName, Checker::ROLE_LIST, true) ){
 			$this->terminateShell('No Run generated: the role is one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_DENY);
 		}
-		return $roleNme;
+		return $roleName;
 	}
 
 	/**
@@ -300,31 +300,31 @@ class RunGen extends Command{
 	 */
 	protected function writeRunFolder( Array $runSpecArray ): Int {
 		try{
-			$fileLst = (new RunMaker($runSpecArray, RUN_DIR))->buildFilesList();
+			$fileList = (new RunMaker($runSpecArray, RUN_DIR))->buildFilesList();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell($e->getMessage(), self::EXIT_FAIL);
 		}
-		$cnfFile = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		$keptLst = Array();
-		foreach( $fileLst as $filPth => $oneTxt ){
-			$relPath = $this->runRelativeTxt($filPth);
-			if( is_file($filPth) && !$this->queryAgreedFlg('Replace '.$relPath.' (any change made by hand is lost)') ){
-				$keptLst[] = $relPath;
+		$confFile = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		$keptList = Array();
+		foreach( $fileList as $filPth => $oneTxt ){
+			$rltnPath = $this->runRelativeTxt($filPth);
+			if( is_file($filPth) && !$this->queryAgreedFlg('Replace '.$rltnPath.' (any change made by hand is lost)') ){
+				$keptList[] = $rltnPath;
 				continue;
 			}
 			if( !is_dir(dirname($filPth)) ){
 				@mkdir(dirname($filPth), 0775, true);
 			}
 			try{
-				$cnfFile->saveFileAtomic($filPth, $oneTxt);
+				$confFile->saveFileAtomic($filPth, $oneTxt);
 			}catch( \RuntimeException $e ){
 				$this->terminateShell($e->getMessage(), self::EXIT_FAIL);
 			}
-			$this->traceShellDone( 'Makerun: '.$relPath.' written' );
-			$this->printerObj->printShellPair('written', $relPath);
+			$this->traceShellDone( 'Makerun: '.$rltnPath.' written' );
+			$this->printerObj->printShellPair('written', $rltnPath);
 		}
 		Controller::clearRunFoldrs();
-		foreach( $keptLst as $onePth ){
+		foreach( $keptList as $onePth ){
 			$this->printerObj->printShellPair('kept as it was', $onePth);
 		}
 		$this->printerObj->printShellPair('preset security', (new RunMaker($runSpecArray, RUN_DIR))->minRolesString());
@@ -342,8 +342,8 @@ class RunGen extends Command{
 	 * @return Bool The answer.
 	 */
 	protected function queryYesNoFlag( String $questionText, Bool $defaultValue ): Bool {
-		$gvnText = strtolower( $this->queryAnswerTxt($questionText.' (y/n)', $defaultValue ? 'y' : 'n') );
-		return in_array($gvnText, Array('y', 'yes'), true);
+		$givenTxt = strtolower( $this->queryAnswerTxt($questionText.' (y/n)', $defaultValue ? 'y' : 'n') );
+		return in_array($givenTxt, Array('y', 'yes'), true);
 	}
 
 	/**

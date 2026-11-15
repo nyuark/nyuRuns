@@ -20,28 +20,28 @@ class Init extends Base {
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
 		// PHP reports an INI fault as a warning: it is caught here and kept as the reason
-		$whyText = '';
-		set_error_handler(function( Int $errLevelNumb, String $errorMessage ) use (&$whyText){
-			$whyText = $errorMessage;
+		$whyStrng = '';
+		set_error_handler(function( Int $errLevelNumb, String $errorMessage ) use (&$whyStrng){
+			$whyStrng = $errorMessage;
 			return true;
 		});
 		try{
-			$iniData = parse_ini_string( self::recodeTextUtf8($nakedContent), false, INI_SCANNER_TYPED );
+			$iniArray = parse_ini_string( self::recodeTextUtf8($nakedContent), false, INI_SCANNER_TYPED );
 		}finally{
 			restore_error_handler();
 		}
-		if( !is_array($iniData) ){
-			$whyText = preg_replace('/ in Unknown/', '', trim($whyText!='' ? $whyText : 'syntax error'));
-			if( preg_match('/BOOL_|NULL/', $whyText) ){
+		if( !is_array($iniArray) ){
+			$whyStrng = preg_replace('/ in Unknown/', '', trim($whyStrng!='' ? $whyStrng : 'syntax error'));
+			if( preg_match('/BOOL_|NULL/', $whyStrng) ){
 				// A reserved word is not accepted as a key
-				$whyText .= ' (a key cannot be named on, off, yes, no, true, false, null or none)';
+				$whyStrng .= ' (a key cannot be named on, off, yes, no, true, false, null or none)';
 			}
-			throw new ParseError('Invalid INI content: '.$whyText);
+			throw new ParseError('Invalid INI content: '.$whyStrng);
 		}
 		if( !empty($parseOptions['upper']) ){
-			$iniData = $this->upperKeysArray($iniData);
+			$iniArray = $this->upperKeysArray($iniArray);
 		}
-		return $this->makeShapeArray('nodes', $iniData);
+		return $this->makeShapeArray('nodes', $iniArray);
 	}
 
 }

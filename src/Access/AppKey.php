@@ -59,53 +59,53 @@ class AppKey{
 	public function verifyAppArray( Request $givenRequest ): Array|Bool|null {
 		$this->badTryFlag = false;
 		$this->callingApp = null;
-		$sentKey = strval($givenRequest->retrieveHeader($this->headerName) ?? '');
-		if( $sentKey=='' ){
+		$sentClef = strval($givenRequest->retrieveHeader($this->headerName) ?? '');
+		if( $sentClef=='' ){
 			return null;
 		}
-		$gvnHash = hash('sha256', $sentKey);
-		$appName = null;
+		$givenHsh = hash('sha256', $sentClef);
+		$applName = null;
 		foreach( $this->appsByName as $appKey => $appSet ){
-			$keyHash = is_array($appSet) ? strtolower(strval($appSet['keyDigst'] ?? '')) : '';
+			$keyDigst = is_array($appSet) ? strtolower(strval($appSet['keyDigst'] ?? '')) : '';
 			// An entry without a hash is the key of nobody
-			if( preg_match('/^[0-9a-f]{64}$/D', $keyHash) && hash_equals($keyHash, $gvnHash) ){
-				$appName = strval($appKey);
+			if( preg_match('/^[0-9a-f]{64}$/D', $keyDigst) && hash_equals($keyDigst, $givenHsh) ){
+				$applName = strval($appKey);
 				break;
 			}
 		}
-		if( $appName===null ){
+		if( $applName===null ){
 			$this->errMessage = 'Invalid app key';
 			$this->badTryFlag = true;
 			return false;
 		}
-		$appInfo = $this->appsByName[$appName];
-		$maxRole = strval($appInfo['roleTops'] ?? Checker::ROLE_LIST[0]);
-		if( !in_array($maxRole, Checker::ROLE_LIST, true) ){
+		$applDict = $this->appsByName[$applName];
+		$roleTops = strval($applDict['roleTops'] ?? Checker::ROLE_LIST[0]);
+		if( !in_array($roleTops, Checker::ROLE_LIST, true) ){
 			$this->errMessage = 'Access misconfigured';
 			return false;
 		}
 		// The token is checked with the key of the application alone : it issues none here
-		$jwtConf = Array('signAlgo'=>'RS256', 'publFile'=>$appInfo['publFile'] ?? '');
+		$jwtConfg = Array('signAlgo'=>'RS256', 'publFile'=>$applDict['publFile'] ?? '');
 		// Once the block names this project's audiences, the token names them and its application as issuer
 		if( !empty($this->audValList) ){
-			$jwtConf['audience'] = $this->audValList;
-			$jwtConf['issuerId'] = (is_string($appInfo['issuerId'] ?? null) && trim($appInfo['issuerId'])!='') ? $appInfo['issuerId'] : $appName;
+			$jwtConfg['audience'] = $this->audValList;
+			$jwtConfg['issuerId'] = (is_string($applDict['issuerId'] ?? null) && trim($applDict['issuerId'])!='') ? $applDict['issuerId'] : $applName;
 		}
-		$decoded = new JWT( $jwtConf );
-		$idntArr = $decoded->verifyRqstList( $givenRequest );
-		if( $idntArr===false ){
-			$this->errMessage = $decoded->finalErrorText();
-			$this->badTryFlag = $decoded->hasWrongSecret();
+		$toknInst = new JWT( $jwtConfg );
+		$idntList = $toknInst->verifyRqstList( $givenRequest );
+		if( $idntList===false ){
+			$this->errMessage = $toknInst->finalErrorText();
+			$this->badTryFlag = $toknInst->hasWrongSecret();
 			return false;
 		}
-		$usrRole = strval($idntArr['userRole'] ?? '');
-		if( !in_array($usrRole, Checker::ROLE_LIST, true) ){
-			$usrRole = Checker::ROLE_LIST[0];
+		$userRole = strval($idntList['userRole'] ?? '');
+		if( !in_array($userRole, Checker::ROLE_LIST, true) ){
+			$userRole = Checker::ROLE_LIST[0];
 		}
-		$idntArr['userRole'] = Checker::rleAccessMeets($maxRole, $usrRole) ? $usrRole : $maxRole;
-		$idntArr['appsName'] = $appName;
-		$this->callingApp = $appName;
-		return $idntArr;
+		$idntList['userRole'] = Checker::rleAccessMeets($roleTops, $userRole) ? $userRole : $roleTops;
+		$idntList['appsName'] = $applName;
+		$this->callingApp = $applName;
+		return $idntList;
 	}
 
 	/**
@@ -122,19 +122,19 @@ class AppKey{
 		if( $this->callingApp===null ){
 			return false;
 		}
-		$appName = strtolower( str_replace(' ', '', strval($resolvedRgst->readValueByKey('appToRun'))) );
-		$actnNme = strtolower( strval($resolvedRgst->readValueByKey('doAction')) );
-		$rtePath = strval($resolvedRgst->readValueByKey('routPath'));
+		$applName = strtolower( str_replace(' ', '', strval($resolvedRgst->readValueByKey('appToRun'))) );
+		$actnName = strtolower( strval($resolvedRgst->readValueByKey('doAction')) );
+		$routePth = strval($resolvedRgst->readValueByKey('routPath'));
 		foreach( (array)($this->appsByName[$this->callingApp]['routeSet'] ?? Array()) as $rteVal ){
 			$rteVal = strval($rteVal);
 			if( substr($rteVal, 0, 1)=='/' ){
-				if( $rtePath!='' && trim($rteVal, '/')===$rtePath ){
+				if( $routePth!='' && trim($rteVal, '/')===$routePth ){
 					return true;
 				}
 				continue;
 			}
 			$rteVal = strtolower( trim($rteVal, '/') );
-			if( $appName!='' && ( $rteVal==$appName.'/*' || ($actnNme!='' && $rteVal==$appName.'/'.$actnNme) ) ){
+			if( $applName!='' && ( $rteVal==$applName.'/*' || ($actnName!='' && $rteVal==$applName.'/'.$actnName) ) ){
 				return true;
 			}
 		}

@@ -50,8 +50,8 @@ class UserFile{
 	 * @param ConfFile $writerObject The writer of config files.
 	 */
 	function __construct( Array $configValues, ConfFile $writerObject ){
-		$fileNme = is_scalar($configValues['listFile'] ?? '') ? trim( strval($configValues['listFile'] ?? ''), '/\\ ' ) : '';
-		$this->nameOfFile = ($fileNme!='') ? $fileNme : 'conf/users.lst';
+		$fileName = is_scalar($configValues['listFile'] ?? '') ? trim( strval($configValues['listFile'] ?? ''), '/\\ ' ) : '';
+		$this->nameOfFile = ($fileName!='') ? $fileName : 'conf/users.lst';
 		$this->usrLstPath = TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $this->nameOfFile);
 		$this->minPwdSize = min( self::PASS_SIZE, max(1, intval($configValues['minChars'] ?? 10)) );
 		$this->sealingKey = is_scalar($configValues['tfaCrypt'] ?? '') ? strval($configValues['tfaCrypt'] ?? '') : '';
@@ -70,26 +70,26 @@ class UserFile{
 	public function listUsersNamed( Array $criteriaList=Array(), Int $ceilingCount=0, Int $offsetRowsNb=0 ): Array|Bool {
 		$this->forgetLastFail();
 		foreach( Array('userStatus'=>Native::STAT_LIST, 'accessRole'=>Checker::ROLE_LIST) as $fldNme => $allows ){
-			$gvnText = $criteriaList[$fldNme] ?? '';
-			if( $gvnText!=='' && $gvnText!==null && !in_array($gvnText, $allows, true) ){
+			$givenTxt = $criteriaList[$fldNme] ?? '';
+			if( $givenTxt!=='' && $givenTxt!==null && !in_array($givenTxt, $allows, true) ){
 				return $this->declineForFlag(400, 'Invalid filter');
 			}
 		}
-		$usrList = $this->loadUsersArray();
-		if( $usrList===null ){
+		$userList = $this->loadUsersArray();
+		if( $userList===null ){
 			return false;
 		}
-		$rowList = Array();
-		foreach( $usrList as $usrRow ){
-			$shownAr = $this->shownValuesArr($usrRow);
-			if( in_array($criteriaList['userStatus'] ?? '', Array('', null, $shownAr['userStatus']), true) && in_array($criteriaList['accessRole'] ?? '', Array('', null, $shownAr['accessRole']), true) ){
-				$rowList[] = $shownAr;
+		$rowsList = Array();
+		foreach( $userList as $usrRow ){
+			$shwnList = $this->shownValuesArr($usrRow);
+			if( in_array($criteriaList['userStatus'] ?? '', Array('', null, $shwnList['userStatus']), true) && in_array($criteriaList['accessRole'] ?? '', Array('', null, $shwnList['accessRole']), true) ){
+				$rowsList[] = $shwnList;
 			}
 		}
-		usort($rowList, function( Array $lftUsrRowArr, Array $secondUsrRow ): Int {
+		usort($rowsList, function( Array $lftUsrRowArr, Array $secondUsrRow ): Int {
 			return strcmp($lftUsrRowArr['systemName'], $secondUsrRow['systemName']);
 		});
-		return array_slice( $rowList, max(0, $offsetRowsNb), ($ceilingCount>0) ? $ceilingCount : null );
+		return array_slice( $rowsList, max(0, $offsetRowsNb), ($ceilingCount>0) ? $ceilingCount : null );
 	}
 
 	/**
@@ -100,12 +100,12 @@ class UserFile{
 	 */
 	public function userInfosArray( String $namedUserTxt ): Array|Bool {
 		$this->forgetLastFail();
-		$usrList = $this->loadUsersArray();
-		if( $usrList===null ){
+		$userList = $this->loadUsersArray();
+		if( $userList===null ){
 			return false;
 		}
-		$usrIndx = $this->findIndexCount($usrList, $namedUserTxt);
-		return ($usrIndx===null) ? $this->declineForFlag(404, 'User not found') : $this->shownValuesArr($usrList[$usrIndx]);
+		$userIndx = $this->findIndexCount($userList, $namedUserTxt);
+		return ($userIndx===null) ? $this->declineForFlag(404, 'User not found') : $this->shownValuesArr($userList[$userIndx]);
 	}
 
 	/**
@@ -120,37 +120,37 @@ class UserFile{
 	 */
 	public function enrolUsrString( String $namedUserTxt, String $usrRleString, String $usrPasswdTxt, ?String $givenLangTag=null ): Bool {
 		$this->forgetLastFail();
-		$roleVal = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
+		$roleVals = ($usrRleString!='') ? $usrRleString : Checker::ROLE_LIST[0];
 		if( !preg_match(UserBase::NAME_RULE, $namedUserTxt) || in_array(strtolower($namedUserTxt), UserBase::NAME_DENY, true) ){
 			return $this->declineForFlag(400, 'Invalid user name');
 		}
-		if( !in_array($roleVal, Checker::ROLE_LIST, true) ){
+		if( !in_array($roleVals, Checker::ROLE_LIST, true) ){
 			return $this->declineForFlag(400, 'Invalid role');
 		}
-		$langVal = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
-		if( $langVal!=='' && !Language::isValidLangTag($langVal) ){
+		$langVals = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
+		if( $langVals!=='' && !Language::isValidLangTag($langVals) ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
-		$ruleMsg = $this->testPassString($namedUserTxt, $usrPasswdTxt);
-		if( $ruleMsg!='' ){
-			return $this->declineForFlag(400, $ruleMsg);
+		$ruleText = $this->testPassString($namedUserTxt, $usrPasswdTxt);
+		if( $ruleText!='' ){
+			return $this->declineForFlag(400, $ruleText);
 		}
-		$isAdded = $this->alterUsersFlag( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVal, $usrPasswdTxt, $langVal ): ?Array {
-			$lastNum = 0;
+		$wasAdded = $this->alterUsersFlag( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVals, $usrPasswdTxt, $langVals ): ?Array {
+			$lastNumb = 0;
 			foreach( $usersRecords as $usrRow ){
 				if( strcasecmp(strval($usrRow['systemName'] ?? ''), $namedUserTxt)==0 ){
 					$this->declineForFlag(409, 'User name already taken');
 					return null;
 				}
-				$lastNum = max( $lastNum, intval($usrRow['id_user'] ?? 0) );
+				$lastNumb = max( $lastNumb, intval($usrRow['id_user'] ?? 0) );
 			}
-			$usersRecords[] = Array('id_user'=>$lastNum+1, 'systemName'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVal, 'userStatus'=>'approved') + ( ($langVal!=='') ? Array('userLocale'=>$langVal) : Array() );
+			$usersRecords[] = Array('id_user'=>$lastNumb+1, 'systemName'=>$namedUserTxt, 'passwdHash'=>password_hash($usrPasswdTxt, PASSWORD_BCRYPT), 'accessRole'=>$roleVals, 'userStatus'=>'approved') + ( ($langVals!=='') ? Array('userLocale'=>$langVals) : Array() );
 			return $usersRecords;
 		} );
-		if( $isAdded ){
-			$this->logFileChanges( 'User '.json_encode($namedUserTxt).' created ('.$roleVal.')' );
+		if( $wasAdded ){
+			$this->logFileChanges( 'User '.json_encode($namedUserTxt).' created ('.$roleVals.')' );
 		}
-		return $isAdded;
+		return $wasAdded;
 	}
 
 	/**
@@ -166,7 +166,7 @@ class UserFile{
 		if( !in_array($statusString, Array('approved', 'disabled'), true) ){
 			return $this->declineForFlag(400, 'Invalid status');
 		}
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $statusString ): ?Array {
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $statusString ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')==$statusString ){
 				$this->declineForFlag(409, 'User already '.$statusString);
 				return null;
@@ -178,10 +178,10 @@ class UserFile{
 			$usersRecords[$usersIndxNum]['userStatus'] = $statusString;
 			return $usersRecords;
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( 'User '.json_encode($namedUserTxt).' '.($statusString=='disabled' ? 'locked' : 'unlocked') );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -197,7 +197,7 @@ class UserFile{
 		if( !in_array($usrRleString, Checker::ROLE_LIST, true) ){
 			return $this->declineForFlag(400, 'Invalid role');
 		}
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrRleString ): ?Array {
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrRleString ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['accessRole'] ?? Checker::ROLE_LIST[0])==$usrRleString ){
 				$this->declineForFlag(409, 'User already of that role');
 				return null;
@@ -209,10 +209,10 @@ class UserFile{
 			$usersRecords[$usersIndxNum]['accessRole'] = $usrRleString;
 			return $usersRecords;
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( 'Role of user '.json_encode($namedUserTxt).' changed to '.$usrRleString );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -225,28 +225,28 @@ class UserFile{
 	 */
 	public function changeMailFlag( String $namedUserTxt, ?String $emailAddress ): Bool {
 		$this->forgetLastFail();
-		$mailVal = strtolower( trim(strval($emailAddress)) );
-		if( $mailVal!=='' && (strlen($mailVal)>254 || filter_var($mailVal, FILTER_VALIDATE_EMAIL)===false) ){
+		$mailVals = strtolower( trim(strval($emailAddress)) );
+		if( $mailVals!=='' && (strlen($mailVals)>254 || filter_var($mailVals, FILTER_VALIDATE_EMAIL)===false) ){
 			return $this->declineForFlag(400, 'Invalid mail address');
 		}
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVal ): ?Array {
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVals ): ?Array {
 			foreach( $usersRecords as $usrPos => $usrRow ){
-				if( $mailVal!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['contactEml'] ?? ''))===$mailVal ){
+				if( $mailVals!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['contactEml'] ?? ''))===$mailVals ){
 					$this->declineForFlag(409, 'Mail address already used');
 					return null;
 				}
 			}
-			if( $mailVal==='' ){
+			if( $mailVals==='' ){
 				unset($usersRecords[$usersIndxNum]['contactEml']);
 			}else{
-				$usersRecords[$usersIndxNum]['contactEml'] = $mailVal;
+				$usersRecords[$usersIndxNum]['contactEml'] = $mailVals;
 			}
 			return $usersRecords;
 		} );
-		if( $isSaved ){
-			$this->logFileChanges( 'Address of user '.json_encode($namedUserTxt).' '.($mailVal==='' ? 'removed' : 'set') );
+		if( $wasSaved ){
+			$this->logFileChanges( 'Address of user '.json_encode($namedUserTxt).' '.($mailVals==='' ? 'removed' : 'set') );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -259,22 +259,22 @@ class UserFile{
 	 */
 	public function changeLanguage( String $namedUserTxt, ?String $givenLangTag ): Bool {
 		$this->forgetLastFail();
-		$langVal = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
-		if( $langVal!=='' && !Language::isValidLangTag($langVal) ){
+		$langVals = strtolower( trim(str_replace('_', '-', strval($givenLangTag))) );
+		if( $langVals!=='' && !Language::isValidLangTag($langVals) ){
 			return $this->declineForFlag(400, 'Invalid language');
 		}
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $langVal ): ?Array {
-			if( $langVal==='' ){
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $langVals ): ?Array {
+			if( $langVals==='' ){
 				unset($usersRecords[$usersIndxNum]['userLocale']);
 			}else{
-				$usersRecords[$usersIndxNum]['userLocale'] = $langVal;
+				$usersRecords[$usersIndxNum]['userLocale'] = $langVals;
 			}
 			return $usersRecords;
 		} );
-		if( $isSaved ){
-			$this->logFileChanges( 'Language of user '.json_encode($namedUserTxt).' '.($langVal==='' ? 'removed' : 'set to '.$langVal) );
+		if( $wasSaved ){
+			$this->logFileChanges( 'Language of user '.json_encode($namedUserTxt).' '.($langVals==='' ? 'removed' : 'set to '.$langVals) );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -286,7 +286,7 @@ class UserFile{
 	 */
 	public function removeUserFlag( String $namedUserTxt ): Bool {
 		$this->forgetLastFail();
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ): ?Array {
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ): ?Array {
 			if( $this->lastManagerFlg($usersRecords, $usersIndxNum) ){
 				$this->declineForFlag(409, 'The last active manager cannot be removed');
 				return null;
@@ -294,10 +294,10 @@ class UserFile{
 			unset($usersRecords[$usersIndxNum]);
 			return array_values($usersRecords);
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( 'User '.json_encode($namedUserTxt).' removed' );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -310,18 +310,18 @@ class UserFile{
 	 */
 	public function savePasswdFlag( String $namedUserTxt, String $usrPasswdTxt ): Bool {
 		$this->forgetLastFail();
-		$ruleMsg = $this->testPassString($namedUserTxt, $usrPasswdTxt);
-		if( $ruleMsg!='' ){
-			return $this->declineForFlag(400, $ruleMsg);
+		$ruleText = $this->testPassString($namedUserTxt, $usrPasswdTxt);
+		if( $ruleText!='' ){
+			return $this->declineForFlag(400, $ruleText);
 		}
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrPasswdTxt ): ?Array {
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrPasswdTxt ): ?Array {
 			$usersRecords[$usersIndxNum]['passwdHash'] = password_hash($usrPasswdTxt, PASSWORD_BCRYPT);
 			return $usersRecords;
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( 'Password of user '.json_encode($namedUserTxt).' set' );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -333,19 +333,19 @@ class UserFile{
 	 */
 	public function makeToknString( String $namedUserTxt ): String|Bool {
 		$this->forgetLastFail();
-		$newTokn = bin2hex(random_bytes(32));
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $newTokn ): ?Array {
+		$newToken = bin2hex(random_bytes(32));
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $newToken ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
 				$this->declineForFlag(409, 'User not active');
 				return null;
 			}
-			$usersRecords[$usersIndxNum]['bearerHash'] = hash('sha256', $newTokn);
+			$usersRecords[$usersIndxNum]['bearerHash'] = hash('sha256', $newToken);
 			return $usersRecords;
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( 'Personal token of user '.json_encode($namedUserTxt).' made' );
 		}
-		return $isSaved ? $newTokn : false;
+		return $wasSaved ? $newToken : false;
 	}
 
 	/**
@@ -366,23 +366,23 @@ class UserFile{
 	 */
 	public function buildTwoFactor( String $namedUserTxt ): String|Bool {
 		$this->forgetLastFail();
-		$newSecr = Totp::generateSecret();
-		$storTxt = Totp::sealSecretText($newSecr, $this->sealingKey);
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $storTxt ): ?Array {
+		$newSecrt = Totp::generateSecret();
+		$storeTxt = Totp::sealSecretText($newSecrt, $this->sealingKey);
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $storeTxt ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
 				$this->declineForFlag(409, 'User not active');
 				return null;
 			}
-			$usersRecords[$usersIndxNum]['twoFactKey'] = $storTxt;
+			$usersRecords[$usersIndxNum]['twoFactKey'] = $storeTxt;
 			return $usersRecords;
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( '2FA secret of user '.json_encode($namedUserTxt).' made' );
-			if( $storTxt===$newSecr ){
+			if( $storeTxt===$newSecrt ){
 				Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 		}
-		return $isSaved ? $newSecr : false;
+		return $wasSaved ? $newSecrt : false;
 	}
 
 	/**
@@ -403,8 +403,8 @@ class UserFile{
 	 */
 	public function readUsersArray(): Array|Bool {
 		$this->forgetLastFail();
-		$usrList = $this->loadUsersArray();
-		return ($usrList===null) ? false : $usrList;
+		$userList = $this->loadUsersArray();
+		return ($userList===null) ? false : $userList;
 	}
 
 	/**
@@ -417,17 +417,17 @@ class UserFile{
 	 */
 	public function fillEmptyStore( Array $usersRecords ): Bool {
 		$this->forgetLastFail();
-		$isSaved = $this->alterUsersFlag( null, function( Array $storedValues ) use ( $usersRecords ): ?Array {
+		$wasSaved = $this->alterUsersFlag( null, function( Array $storedValues ) use ( $usersRecords ): ?Array {
 			if( !empty($storedValues) ){
 				$this->declineForFlag(409, 'The users file already holds users');
 				return null;
 			}
 			return array_values($usersRecords);
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( count($usersRecords).' users written from another store' );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -461,14 +461,14 @@ class UserFile{
 	 */
 	protected function clearFieldFlag( String $namedUserTxt, String $fldNamedText, String $fldLabelText ): Bool {
 		$this->forgetLastFail();
-		$isSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $fldNamedText ): ?Array {
+		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $fldNamedText ): ?Array {
 			unset($usersRecords[$usersIndxNum][$fldNamedText]);
 			return $usersRecords;
 		} );
-		if( $isSaved ){
+		if( $wasSaved ){
 			$this->logFileChanges( $fldLabelText.' of user '.json_encode($namedUserTxt).' removed' );
 		}
-		return $isSaved;
+		return $wasSaved;
 	}
 
 	/**
@@ -481,28 +481,28 @@ class UserFile{
 	 * @return Bool Whether the file was written.
 	 */
 	protected function alterUsersFlag( ?String $namedUserTxt, callable $editCallable ): Bool {
-		$lckHndl = @fopen( $this->freezePathsTxt(), 'c' );
-		if( $lckHndl===false || !flock($lckHndl, LOCK_EX) ){
+		$lockHndl = @fopen( $this->freezePathsTxt(), 'c' );
+		if( $lockHndl===false || !flock($lockHndl, LOCK_EX) ){
 			return $this->declineForFlag(500, 'Users file cannot be locked for writing');
 		}
 		try{
-			$usrList = $this->loadUsersArray();
-			if( $usrList===null ){
+			$userList = $this->loadUsersArray();
+			if( $userList===null ){
 				return false;
 			}
 			if( $namedUserTxt===null ){
-				$newList = $editCallable($usrList);
+				$newLstng = $editCallable($userList);
 			}else{
-				$usrIndx = $this->findIndexCount($usrList, $namedUserTxt);
-				if( $usrIndx===null ){
+				$userIndx = $this->findIndexCount($userList, $namedUserTxt);
+				if( $userIndx===null ){
 					return $this->declineForFlag(404, 'User not found');
 				}
-				$newList = $editCallable($usrList, $usrIndx);
+				$newLstng = $editCallable($userList, $userIndx);
 			}
-			return is_array($newList) ? $this->storeUsersFlag($newList) : false;
+			return is_array($newLstng) ? $this->storeUsersFlag($newLstng) : false;
 		}finally{
-			flock($lckHndl, LOCK_UN);
-			fclose($lckHndl);
+			flock($lockHndl, LOCK_UN);
+			fclose($lockHndl);
 		}
 	}
 
@@ -529,17 +529,17 @@ class UserFile{
 		if( !is_file($this->usrLstPath) ){
 			return Array();
 		}
-		$fileVls = json_decode( strval(@file_get_contents($this->usrLstPath)), true );
-		$usrList = is_array($fileVls) ? ($fileVls['users'] ?? null) : null;
-		$isValid = is_array($usrList);
-		foreach( (array)$usrList as $usrRow ){
-			$isValid = $isValid && is_array($usrRow) && is_string($usrRow['systemName'] ?? null) && $usrRow['systemName']!='';
+		$fileVals = json_decode( strval(@file_get_contents($this->usrLstPath)), true );
+		$userList = is_array($fileVals) ? ($fileVals['users'] ?? null) : null;
+		$isAddrOk = is_array($userList);
+		foreach( (array)$userList as $usrRow ){
+			$isAddrOk = $isAddrOk && is_array($usrRow) && is_string($usrRow['systemName'] ?? null) && $usrRow['systemName']!='';
 		}
-		if( !$isValid ){
+		if( !$isAddrOk ){
 			$this->declineForFlag(500, 'Users file cannot be used: '.$this->nameOfFile.' is not a JSON text holding a "users" list');
 			return null;
 		}
-		return array_values($usrList);
+		return array_values($userList);
 	}
 
 	/**
@@ -551,27 +551,27 @@ class UserFile{
 	 * @return Bool Whether the file was written.
 	 */
 	protected function storeUsersFlag( Array $usersRecords ): Bool {
-		$jsonFlg = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
-		$lineLst = Array();
+		$jsonFlag = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+		$lineList = Array();
 		foreach( $usersRecords as $usrRow ){
-			$partLst = Array();
+			$partList = Array();
 			foreach( array_merge(self::FLDS_LIST, array_diff(array_keys($usrRow), self::FLDS_LIST)) as $fldNme ){
 				if( isset($usrRow[$fldNme]) && $usrRow[$fldNme]!=='' ){
-					$partLst[] = json_encode(strval($fldNme), $jsonFlg).': '.json_encode($usrRow[$fldNme], $jsonFlg);
+					$partList[] = json_encode(strval($fldNme), $jsonFlag).': '.json_encode($usrRow[$fldNme], $jsonFlag);
 				}
 			}
-			$lineLst[] = "\t\t".'{ '.implode(', ', $partLst).' }';
+			$lineList[] = "\t\t".'{ '.implode(', ', $partList).' }';
 		}
 		try{
 			// A new file is readable by its owner and its group only, from its first byte
-			$this->fileWriter->saveFileAtomic( $this->usrLstPath, '{'."\n\t".'"users": ['.( empty($lineLst) ? '' : "\n".implode(','."\n", $lineLst)."\n\t" ).']'."\n".'}'."\n", 0640 );
+			$this->fileWriter->saveFileAtomic( $this->usrLstPath, '{'."\n\t".'"users": ['.( empty($lineList) ? '' : "\n".implode(','."\n", $lineList)."\n\t" ).']'."\n".'}'."\n", 0640 );
 		}catch( \RuntimeException $e ){
 			return $this->declineForFlag(500, 'Users file cannot be written: '.$e->getMessage());
 		}
 		// Read as the application reads it : a file it refuses would lock everyone out
-		$chckObj = new UserList( Array('listFile'=>$this->nameOfFile) );
-		$chckObj->usrIdentityArr('-');
-		if( $chckObj->finalErrorText()=='Credential store unavailable' ){
+		$checkObj = new UserList( Array('listFile'=>$this->nameOfFile) );
+		$checkObj->usrIdentityArr('-');
+		if( $checkObj->finalErrorText()=='Credential store unavailable' ){
 			$this->fileWriter->revertWriteFlg($this->usrLstPath);
 			return $this->declineForFlag(500, 'Users file not written: the application would no longer accept it');
 		}
@@ -623,15 +623,15 @@ class UserFile{
 	 * @return Bool Whether locking, demoting or removing it would leave no manager.
 	 */
 	protected function lastManagerFlg( Array $usersRecords, Int $usersIndxNum ): Bool {
-		$topRole = array_slice(Checker::ROLE_LIST, -1)[0];
-		$mngrNum = 0;
+		$highRole = array_slice(Checker::ROLE_LIST, -1)[0];
+		$mngrNumb = 0;
 		foreach( $usersRecords as $usrRow ){
-			if( strval($usrRow['accessRole'] ?? '')===$topRole && strval($usrRow['userStatus'] ?? 'approved')==='approved' ){
-				$mngrNum++;
+			if( strval($usrRow['accessRole'] ?? '')===$highRole && strval($usrRow['userStatus'] ?? 'approved')==='approved' ){
+				$mngrNumb++;
 			}
 		}
-		$userVls = $this->shownValuesArr($usersRecords[$usersIndxNum]);
-		return $userVls['accessRole']===$topRole && $userVls['userStatus']==='approved' && $mngrNum<2;
+		$userVals = $this->shownValuesArr($usersRecords[$usersIndxNum]);
+		return $userVals['accessRole']===$highRole && $userVals['userStatus']==='approved' && $mngrNumb<2;
 	}
 
 	/**
@@ -644,8 +644,8 @@ class UserFile{
 	 * @return String The rule that is broken, empty when the password is accepted.
 	 */
 	protected function testPassString( String $namedUserTxt, String $usrPasswdTxt ): String {
-		$charNum = preg_match_all('/./su', $usrPasswdTxt);
-		if( ($charNum ?: strlen($usrPasswdTxt))<$this->minPwdSize ){
+		$charNumb = preg_match_all('/./su', $usrPasswdTxt);
+		if( ($charNumb ?: strlen($usrPasswdTxt))<$this->minPwdSize ){
 			return 'Password too short: '.$this->minPwdSize.' characters at least';
 		}
 		if( strlen($usrPasswdTxt)>self::PASS_SIZE ){

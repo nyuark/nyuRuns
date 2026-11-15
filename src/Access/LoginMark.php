@@ -41,9 +41,9 @@ class LoginMark{
 	 * @return LoginMark The marks.
 	 */
 	public static function fromLimitBlock(): LoginMark {
-		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
-		return new self( is_array($lmtConf) ? $lmtConf : Array() );
+		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		return new self( is_array($limitCfg) ? $limitCfg : Array() );
 	}
 
 	/**
@@ -57,8 +57,8 @@ class LoginMark{
 		if( strlen($this->markSecret)<self::KEYS_SIZE || $namedUserTxt==='' || $userPassHash==='' ){
 			return '';
 		}
-		$markTxt = $this->base64UrlNoPad($namedUserTxt).'.'.time().'.'.bin2hex(random_bytes(8));
-		return $markTxt.'.'.$this->base64UrlNoPad( hash_hmac('sha256', $markTxt.'.'.$userPassHash, $this->markSecret, true) );
+		$markText = $this->base64UrlNoPad($namedUserTxt).'.'.time().'.'.bin2hex(random_bytes(8));
+		return $markText.'.'.$this->base64UrlNoPad( hash_hmac('sha256', $markText.'.'.$userPassHash, $this->markSecret, true) );
 	}
 
 	/**
@@ -73,19 +73,19 @@ class LoginMark{
 	 * @return String The key its failures are counted under ('mark:' and its identifier), or '' when it is not a valid mark for that user.
 	 */
 	public function readClientMark( String $sentMarkText, String $namedUserTxt, String $userPassHash ): String {
-		$mrkPart = explode('.', $sentMarkText);
-		if( strlen($this->markSecret)<self::KEYS_SIZE || $userPassHash==='' || count($mrkPart)!==4 || !preg_match('/^\d{1,12}$/D', $mrkPart[1]) || !preg_match('/^[0-9a-f]{16}$/D', $mrkPart[2]) ){
+		$markPart = explode('.', $sentMarkText);
+		if( strlen($this->markSecret)<self::KEYS_SIZE || $userPassHash==='' || count($markPart)!==4 || !preg_match('/^\d{1,12}$/D', $markPart[1]) || !preg_match('/^[0-9a-f]{16}$/D', $markPart[2]) ){
 			return '';
 		}
-		$signTxt = $this->base64UrlNoPad( hash_hmac('sha256', $mrkPart[0].'.'.$mrkPart[1].'.'.$mrkPart[2].'.'.$userPassHash, $this->markSecret, true) );
-		if( !hash_equals($signTxt, $mrkPart[3]) || $mrkPart[0]!==$this->base64UrlNoPad($namedUserTxt) ){
+		$signText = $this->base64UrlNoPad( hash_hmac('sha256', $markPart[0].'.'.$markPart[1].'.'.$markPart[2].'.'.$userPassHash, $this->markSecret, true) );
+		if( !hash_equals($signText, $markPart[3]) || $markPart[0]!==$this->base64UrlNoPad($namedUserTxt) ){
 			return '';
 		}
-		$madeUnx = intval($mrkPart[1]);
-		if( $madeUnx>time() + 60 || $madeUnx + 86400*$this->lifeInDays<time() ){
+		$madeUnix = intval($markPart[1]);
+		if( $madeUnix>time() + 60 || $madeUnix + 86400*$this->lifeInDays<time() ){
 			return '';
 		}
-		return 'mark:'.$mrkPart[2];
+		return 'mark:'.$markPart[2];
 	}
 
 	/**

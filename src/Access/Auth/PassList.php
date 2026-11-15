@@ -27,14 +27,14 @@ class PassList implements Handler{
 	 *                          time in seconds they add up within and then hold it for ('holdSecs', defaults to 600).
 	 */
 	function __construct( Array $configValues ){
-		$pwdFile = $configValues['passFile'] ?? '';
-		$this->passwdFile = ($pwdFile!='') ? TOP_DIR.DS.$pwdFile : '';
+		$passFile = $configValues['passFile'] ?? '';
+		$this->passwdFile = ($passFile!='') ? TOP_DIR.DS.$passFile : '';
 		$this->weakHashes = (($configValues['weakHash'] ?? false) === true);
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
-		$nyuConf = $GLOBALS['nyuConfig'] ?? null;
-		$lmtConf = ($nyuConf!==null) ? $nyuConf->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
-			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($lmtConf) ? strval($lmtConf['dataPath'] ?? '') : ''
+			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($limitCfg) ? strval($limitCfg['dataPath'] ?? '') : ''
 		) );		$this->errMessage = '';
 	}
 
@@ -48,54 +48,54 @@ class PassList implements Handler{
 	 * @return Array|Bool An identity array on success, or false on failure.
 	 */
 	function checkSecretArr( Array $loginDataArr ): Array|Bool {
-		$gvnUser = $loginDataArr['user'] ?? '';
-		$gvnPass = $loginDataArr['pass'] ?? '';
+		$givenUsr = $loginDataArr['user'] ?? '';
+		$givenPwd = $loginDataArr['pass'] ?? '';
 		$this->badTryFlag = false;
 		$this->passedUser = null;
 		if( $this->passwdFile=='' || !file_exists($this->passwdFile) ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
-		$pwdRows = file( $this->passwdFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
-		$usrHash = null;
-		$fakeHsh = null;
-		foreach( $pwdRows as $pwdRow ){
-			$colonAt = strpos( $pwdRow, ':' );
+		$passNtry = file( $this->passwdFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		$userHash = null;
+		$fakeHash = null;
+		foreach( $passNtry as $pwdRow ){
+			$colonIdx = strpos( $pwdRow, ':' );
 			// The first entry is what an unknown name is checked against : a comment is none
-			if( $fakeHsh===null && $colonAt!==false && $colonAt>0 && $pwdRow[0]!=='#' && substr($pwdRow, $colonAt+1)!=='' ){
-				$fakeHsh = substr( $pwdRow, $colonAt+1 );
+			if( $fakeHash===null && $colonIdx!==false && $colonIdx>0 && $pwdRow[0]!=='#' && substr($pwdRow, $colonIdx+1)!=='' ){
+				$fakeHash = substr( $pwdRow, $colonIdx+1 );
 			}
 			// An empty name is the one of no user, whatever a line may start with
-			if( $gvnUser!=='' && $colonAt!==false && substr($pwdRow, 0, $colonAt)===$gvnUser ){
-				$usrHash = substr( $pwdRow, $colonAt+1 );
+			if( $givenUsr!=='' && $colonIdx!==false && substr($pwdRow, 0, $colonIdx)===$givenUsr ){
+				$userHash = substr( $pwdRow, $colonIdx+1 );
 				break;
 			}
 		}
-		if( $usrHash===null ){
+		if( $userHash===null ){
 			// Unknown user : the hash of the first entry is checked as a real one is, at the cost the file's own hashes have, so the reply time does not tell which names exist
-			($fakeHsh!==null) ? $this->verifyHtpasswd($gvnPass, $fakeHsh) : password_verify( $gvnPass, Native::getDummyBcrypt() );
+			($fakeHash!==null) ? $this->verifyHtpasswd($givenPwd, $fakeHash) : password_verify( $givenPwd, Native::getDummyBcrypt() );
 		}else{
-			$matched = $this->verifyHtpasswd($gvnPass, $usrHash);
+			$matxList = $this->verifyHtpasswd($givenPwd, $userHash);
 			// A client already used by the user : its mark, while it has not failed too often itself; its failures are counted on it
-			$cntName = strval($gvnUser);
+			$countNme = strval($givenUsr);
 			if( is_string($loginDataArr['mark'] ?? null) && $loginDataArr['mark']!=='' ){
 				// Signed with the hash the password has now : a password set after the mark was made ends it
-				$markKey = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $cntName, $usrHash );
-				if( $markKey!='' && $this->usrLimiter->heldByUserNumb($markKey)>0 ){
-					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($gvnUser).': too many attempts with it' );
-				}elseif( $markKey!='' ){
-					$cntName = $markKey;
+				$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataArr['mark'], $countNme, $userHash );
+				if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
+					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($givenUsr).': too many attempts with it' );
+				}elseif( $markClef!='' ){
+					$countNme = $markClef;
 				}
 			}
 			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
-			if( $this->usrLimiter->heldByUserNumb($cntName)>0 ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($gvnUser).' is held after too many attempts' );
-			}elseif( $matched ){
-				$this->usrLimiter->clearLimitUser( $cntName );
-				$this->passedUser = Array('systemName'=>strval($gvnUser), 'passwdHash'=>$usrHash);
-				return Array('userName'=>$gvnUser);
+			if( $this->usrLimiter->heldByUserNumb($countNme)>0 ){
+				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($givenUsr).' is held after too many attempts' );
+			}elseif( $matxList ){
+				$this->usrLimiter->clearLimitUser( $countNme );
+				$this->passedUser = Array('systemName'=>strval($givenUsr), 'passwdHash'=>$userHash);
+				return Array('userName'=>$givenUsr);
 			}else{
-				$this->usrLimiter->countLimitUser( $cntName );
+				$this->usrLimiter->countLimitUser( $countNme );
 			}
 		}
 		$this->errMessage = 'Invalid credentials';
@@ -134,17 +134,17 @@ class PassList implements Handler{
 			return password_verify( $usrPasswdTxt, $htpasswdHash );
 		}
 		if( substr($htpasswdHash,0,6)=='$apr1$' ){
-			$saltVal = explode('$', $htpasswdHash)[2] ?? '';
-			return hash_equals( $htpasswdHash, $this->computeApr1Md5($usrPasswdTxt, $saltVal) );
+			$saltVals = explode('$', $htpasswdHash)[2] ?? '';
+			return hash_equals( $htpasswdHash, $this->computeApr1Md5($usrPasswdTxt, $saltVals) );
 		}
-		$shaHash = (substr($htpasswdHash,0,5)=='{SHA}');
+		$shaDigst = (substr($htpasswdHash,0,5)=='{SHA}');
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
-		$strngFm = in_array(substr($htpasswdHash,0,3), Array('$5$', '$6$'), true);
-		if( !$strngFm && !$this->weakHashes ){
+		$strnFrmt = in_array(substr($htpasswdHash,0,3), Array('$5$', '$6$'), true);
+		if( !$strnFrmt && !$this->weakHashes ){
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "weakHash" option' );
 			return false;
 		}
-		if( $shaHash ){
+		if( $shaDigst ){
 			return hash_equals( $htpasswdHash, '{SHA}'.base64_encode(sha1($usrPasswdTxt, true)) );
 		}
 		return hash_equals( $htpasswdHash, crypt($usrPasswdTxt, $htpasswdHash) );
@@ -159,39 +159,39 @@ class PassList implements Handler{
 	 * @return String The full '$apr1$salt$hash' string.
 	 */
 	protected function computeApr1Md5( String $usrPasswdTxt, String $hashSaltText ): String {
-		$pwdSize = strlen($usrPasswdTxt);
-		$mixText = $usrPasswdTxt.'$apr1$'.$hashSaltText;
-		$bnryHsh = md5($usrPasswdTxt.$hashSaltText.$usrPasswdTxt, true);
-		for( $idxInc=$pwdSize; $idxInc>0; $idxInc-=16 ){
-			$mixText .= substr($bnryHsh, 0, min(16, $idxInc));
+		$passSize = strlen($usrPasswdTxt);
+		$mixedTxt = $usrPasswdTxt.'$apr1$'.$hashSaltText;
+		$bnryHash = md5($usrPasswdTxt.$hashSaltText.$usrPasswdTxt, true);
+		for( $idxInc=$passSize; $idxInc>0; $idxInc-=16 ){
+			$mixedTxt .= substr($bnryHash, 0, min(16, $idxInc));
 		}
-		for( $idxInc=$pwdSize; $idxInc>0; $idxInc>>=1 ){
-			$mixText .= ($idxInc & 1) ? chr(0) : $usrPasswdTxt[0];
+		for( $idxInc=$passSize; $idxInc>0; $idxInc>>=1 ){
+			$mixedTxt .= ($idxInc & 1) ? chr(0) : $usrPasswdTxt[0];
 		}
-		$bnryHsh = md5($mixText, true);
+		$bnryHash = md5($mixedTxt, true);
 		for( $idxInc=0; $idxInc<1000; $idxInc++ ){
-			$rndText = ($idxInc & 1) ? $usrPasswdTxt : $bnryHsh;
+			$roundTxt = ($idxInc & 1) ? $usrPasswdTxt : $bnryHash;
 			if( $idxInc % 3 ){
-				$rndText .= $hashSaltText;
+				$roundTxt .= $hashSaltText;
 			}
 			if( $idxInc % 7 ){
-				$rndText .= $usrPasswdTxt;
+				$roundTxt .= $usrPasswdTxt;
 			}
-			$rndText .= ($idxInc & 1) ? $bnryHsh : $usrPasswdTxt;
-			$bnryHsh = md5($rndText, true);
+			$roundTxt .= ($idxInc & 1) ? $bnryHash : $usrPasswdTxt;
+			$bnryHash = md5($roundTxt, true);
 		}
-		$ordered = '';
+		$ordrdTxt = '';
 		for( $idxInc=0; $idxInc<5; $idxInc++ ){
-			$thirdIx = ($idxInc==4) ? 5 : $idxInc+12;
-			$ordered = $bnryHsh[$idxInc].$bnryHsh[$idxInc+6].$bnryHsh[$thirdIx].$ordered;
+			$thrdIndx = ($idxInc==4) ? 5 : $idxInc+12;
+			$ordrdTxt = $bnryHash[$idxInc].$bnryHash[$idxInc+6].$bnryHash[$thrdIndx].$ordrdTxt;
 		}
-		$ordered = chr(0).chr(0).$bnryHsh[11].$ordered;
-		$encoded = strtr(
-			strrev(substr(base64_encode($ordered), 2)),
+		$ordrdTxt = chr(0).chr(0).$bnryHash[11].$ordrdTxt;
+		$encdHash = strtr(
+			strrev(substr(base64_encode($ordrdTxt), 2)),
 			'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
 			'./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 		);
-		return '$apr1$'.$hashSaltText.'$'.$encoded;
+		return '$apr1$'.$hashSaltText.'$'.$encdHash;
 	}
 
 	/**

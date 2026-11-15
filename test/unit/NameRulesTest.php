@@ -17,7 +17,7 @@ checkIdentical('the rows of the first table of a section, without its header', p
 ));
 checkIdentical('the terms of one column: what the other columns hold in backticks is left out', parseTermsList(parseRuleTable($rulesRaw, 3), Array(0)), Array('get', 'read', 'make'));
 checkIdentical('a cell holding several terms gives them all; a cell without backticks gives none', parseTermsList(parseRuleTable($rulesRaw, 4), Array(0)), Array('Text', 'Txt', 'Strng', 'Vals', 'Val', 'Secs', 'Mins'));
-checkIdentical('the writings: columns 2, 4 and 6, each cell its ladder, a writing listed once, the empty cells left out', parseTermsList(parseRuleTable($rulesRaw, 5), Array(1, 3, 5)), Array('Acct', 'Accnt', 'Col', 'Clmn', 'Colmn', 'Frm', 'Form', 'Lvl', 'Levl', 'Level', 'Mth', 'Mthd', 'Methd', 'Rgx', 'Rgxp', 'Row', 'Ntry', 'Entry', 'Tag'));
+checkIdentical('the writings: columns 2, 4 and 6, each cell its ladder, a writing listed once, the empty cells left out', parseTermsList(parseRuleTable($rulesRaw, 5), Array(1, 3, 5)), Array('Acct', 'Accnt', 'Col', 'Clmn', 'Colmn', 'Frm', 'Form', 'Lvl', 'Levl', 'Level', 'Mth', 'Mthd', 'Methd'));
 checkIdentical('a section without a table, a section that is not there', Array(parseRuleTable($rulesRaw, 1), parseRuleTable($rulesRaw, 9)), Array(Array(), Array()));
 
 // A list written in a sentence
@@ -31,10 +31,9 @@ checkIdentical('every list of the file', readNamingDict($rulesDoc), Array(
 	'question'=>Array('is', 'has', 'was'),
 	'domain'=>Array('sign', 'seal', 'delete', 'mark'),
 	'kind'=>Array('Text', 'Txt', 'Strng', 'Vals', 'Val', 'Secs', 'Mins'),
-	'form'=>Array('Acct', 'Accnt', 'Col', 'Clmn', 'Colmn', 'Frm', 'Form', 'Lvl', 'Levl', 'Level', 'Mth', 'Mthd', 'Methd', 'Rgx', 'Rgxp', 'Row', 'Ntry', 'Entry', 'Tag'),
+	'form'=>Array('Acct', 'Accnt', 'Col', 'Clmn', 'Colmn', 'Frm', 'Form', 'Lvl', 'Levl', 'Level', 'Mth', 'Mthd', 'Methd'),
 	'exception'=>Array('Obj', 'Col'),
-	'standard'=>Array('Bom', 'Db', 'Id', 'Id3', 'Id3v1', 'Mp3', 'Url', 'Html'),
-	'word'=>Array('Form', 'Level', 'Row', 'Tag')
+	'standard'=>Array('Bom', 'Db', 'Id', 'Id3', 'Id3v1', 'Mp3', 'Url', 'Html')
 ));
 
 // A table or a list missing is a failure, never an empty list
@@ -64,8 +63,7 @@ checkIdentical('with the whole words listed, the short word is one of them', Arr
 
 // The other checks, on the lists of the fixture
 checkIdentical('a loop variable: one or nth + a whole word of 3 letters', Array(checkLoopLabel('oneRow', $nameDict, Array()), checkLoopLabel('nthRow', $nameDict, Array()), checkLoopLabel('rowIdx', $nameDict, Array()), checkLoopLabel('oneCol', $nameDict, Array()), checkLoopLabel('oneFnd', $nameDict, Array())), Array('', '', 'not one or nth + an item of 3 letters', 'the item "Col" is not a whole word', 'the item "Fnd" is not a whole word'));
-checkIdentical('a loop item that is a whole word listed as its own writing is accepted; a writing of another word is not', Array(checkLoopLabel('oneRow', $nameDict, Array()), checkLoopLabel('oneTag', $nameDict, Array()), checkLoopLabel('oneRgx', $nameDict, Array()), checkLoopLabel('oneTag', $nameDict, Array('row'=>true)), checkLoopLabel('oneRgx', $nameDict, Array('row'=>true))), Array('', '', 'the item "Rgx" is not a whole word', '', 'the item "Rgx" is not a whole word'));
-checkIdentical('with the whole words listed, the item is one of them',Array(checkLoopLabel('oneRow', $nameDict, Array('row'=>true)), checkLoopLabel('oneLin', $nameDict, Array('row'=>true))), Array('', 'the item "Lin" is not a whole word'));
+checkIdentical('with the whole words listed, the item is one of them', Array(checkLoopLabel('oneRow', $nameDict, Array('row'=>true)), checkLoopLabel('oneLin', $nameDict, Array('row'=>true))), Array('', 'the item "Lin" is not a whole word'));
 checkIdentical('the pieces: writings, exceptions, abbreviations, the words of the rules; the others by their look', Array(checkNameWords('readAccntUrl', $nameDict, Array()), checkNameWords('makeColText', $nameDict, Array()), checkNameWords('givenUserName', $nameDict, Array()), checkNameWords('accessRgst', $nameDict, Array()), checkNameWords('usrLst', $nameDict, Array())), Array('', '', '', 'neither a word nor a listed form: Rgst', 'neither a word nor a listed form: usr, Lst'));
 checkIdentical('the pieces: one ending in digits is checked by its letters, unless it is an abbreviation as a whole', Array(checkNameWords('lvl1Vals', $nameDict, Array()), checkNameWords('hasBom16', $nameDict, Array()), checkNameWords('id3v1Tag', $nameDict, Array('tag'=>true)), checkNameWords('isMp3Frm', $nameDict, Array()), checkNameWords('rgst2Vals', $nameDict, Array())), Array('', '', '', '', 'neither a word nor a listed form: rgst2'));
 checkIdentical('the pieces, with the whole words listed', Array(checkNameWords('givenUserName', $nameDict, Array('given'=>true, 'user'=>true)), checkNameWords('oneRow', $nameDict, Array('row'=>true))), Array('neither a word nor a listed form: Name', ''));
@@ -81,7 +79,6 @@ if( is_array($realDict) ){
 	checkIdentical('its question verbs and its exceptions', Array($realDict['question'], $realDict['exception']), Array(Array('is', 'has', 'can', 'needs', 'was'), Array('Obj', 'Pos', 'Reg', 'Col')));
 	checkIdentical('its verbs, domain verbs, kind terms, writings and abbreviations hold what they should', Array(in_array('get', $realDict['verb'], true), in_array('wipe', $realDict['verb'], true), in_array('retrieve', $realDict['verb'], true), in_array('sign', $realDict['domain'], true), in_array('mark', $realDict['domain'], true), in_array('cook', $realDict['domain'], true), in_array('Mins', $realDict['kind'], true), in_array('Obj', $realDict['kind'], true), in_array('Matx', $realDict['kind'], true), in_array('Chars', $realDict['form'], true), in_array('Wrtr', $realDict['form'], true), in_array('Nmsp', $realDict['form'], true), in_array('Url', $realDict['standard'], true), in_array('Apr1', $realDict['standard'], true), in_array('Id3v1', $realDict['standard'], true), in_array('Db', $realDict['standard'], true)),
 		Array(true, true, false, true, true, false, true, true, true, true, true, true, true, true, true, true));
-	checkIdentical('its whole words as loop items: accepted, and a writing of another word refused', Array(checkLoopLabel('oneRow', $realDict, Array()), checkLoopLabel('oneTag', $realDict, Array()), checkLoopLabel('oneRgx', $realDict, Array())), Array('', '', 'the item "Rgx" is not a whole word'));
 	// The names the review of 2026-11-14 approved or refused, on the real lists
 	checkIdentical('the locals the review approved', array_map(function( String $fullNameText ) use ( $realDict ): String { return checkLocalName($fullNameText, $realDict); }, Array('wasFound', 'isMp3Frm', 'isSentOk', 'idColumn', 'lvl1Vals', 'id3v1Tag', 'hasBom16')), Array('', '', '', '', '', '', ''));
 	checkIdentical('the locals it refused', array_map(function( String $fullNameText ) use ( $realDict ): String { return checkLocalName($fullNameText, $realDict); }, Array('isFound', 'isIntlNb', 'fileName2x')), Array('7 characters, not 8', 'the piece "Nb" is neither a word nor a standard abbreviation', '10 characters, not 8'));

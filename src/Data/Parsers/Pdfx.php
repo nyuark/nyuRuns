@@ -50,36 +50,36 @@ class Pdfx extends Base {
 		}
 		try{
 			// The pictures a document holds are not read: they are left out of memory
-			$options = new \Smalot\PdfParser\Config();
-			$options->setRetainImageContent(false);
-			$pdfDocu = (new \Smalot\PdfParser\Parser(Array(), $options))->parseContent($nakedContent);
-			$pageLst = $pdfDocu->getPages();
-			$dtlList = $pdfDocu->getDetails();
-			$blckLst = Array();
-			foreach($pageLst as $pgeIdx=>$pgeObj){
+			$optsDict = new \Smalot\PdfParser\Config();
+			$optsDict->setRetainImageContent(false);
+			$pdfDcmnt = (new \Smalot\PdfParser\Parser(Array(), $optsDict))->parseContent($nakedContent);
+			$pageList = $pdfDcmnt->getPages();
+			$detlList = $pdfDcmnt->getDetails();
+			$blockLst = Array();
+			foreach($pageList as $pgeIdx=>$pgeObj){
 				if( $pgeIdx>0 ){
-					$blckLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
+					$blockLst[] = Shape::makeBlockArray('ruleLine', Array(), Array(), Array('break'=>true));
 				}
 				// An empty line stands between two paragraphs; the lines of a paragraph are those of the page
-				$pageTxt = self::recodeTextUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($pgeObj->getText())));
-				foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $pageTxt)) as $parTxt){
+				$pageText = self::recodeTextUtf8(str_replace(Array("\r\n", "\r"), "\n", strval($pgeObj->getText())));
+				foreach(preg_split('/\n[ \t]*(?:\n[ \t]*)+/', preg_replace('/[ \t]+$/m', '', $pageText)) as $parTxt){
 					if( trim($parTxt)!=='' ){
-						$blckLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray(trim($parTxt))));
+						$blockLst[] = Shape::makeBlockArray('paragrph', Array(Shape::makeASpanArray(trim($parTxt))));
 					}
 				}
 			}
 		}catch( \Throwable $e ){
-			$failMsg = (stripos($e->getMessage(), 'secured')!==false || stripos($e->getMessage(), 'encrypt')!==false) ? 'the document is protected by a password' : $e->getMessage();
-			throw new ParseError('Invalid PDF content: '.$failMsg, 0, $e);
+			$failText = (stripos($e->getMessage(), 'secured')!==false || stripos($e->getMessage(), 'encrypt')!==false) ? 'the document is protected by a password' : $e->getMessage();
+			throw new ParseError('Invalid PDF content: '.$failText, 0, $e);
 		}
 		// What the document tells of itself: single values only, as text
-		$propLst = Array();
-		foreach((array)$dtlList as $dtlKey=>$dtlVal){
+		$propList = Array();
+		foreach((array)$detlList as $dtlKey=>$dtlVal){
 			if( is_scalar($dtlVal) && trim(strval($dtlVal))!=='' ){
-				$propLst[strval($dtlKey)] = is_string($dtlVal) ? self::recodeTextUtf8(trim($dtlVal)) : $dtlVal;
+				$propList[strval($dtlKey)] = is_string($dtlVal) ? self::recodeTextUtf8(trim($dtlVal)) : $dtlVal;
 			}
 		}
-		return $this->makeShapeArray('block', $blckLst, Array('title'=>strval($propLst['Title'] ?? ''), 'authr'=>strval($propLst['Author'] ?? ''), 'pages'=>count($pageLst), 'props'=>$propLst));
+		return $this->makeShapeArray('block', $blockLst, Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'pages'=>count($pageList), 'props'=>$propList));
 	}
 
 }

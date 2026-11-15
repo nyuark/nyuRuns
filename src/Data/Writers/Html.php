@@ -56,41 +56,41 @@ class Html extends Base {
 	 * @throws WriteError When the shape is not 'block', 'sheet' or 'nodes', or a block is of an unknown kind.
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
-		$shapeAs = $this->checkShapeText($dataEnvelope, Array('block', 'sheet', 'nodes'), 'HTML');
-		$itemLst = $dataEnvelope['items'] ?? Array();
-		$infoArr = (array)($dataEnvelope['infos'] ?? Array());
-		$this->formatList = is_array($infoArr['frmat'] ?? null) ? $infoArr['frmat'] : Array();
+		$shapeNme = $this->checkShapeText($dataEnvelope, Array('block', 'sheet', 'nodes'), 'HTML');
+		$itemList = $dataEnvelope['items'] ?? Array();
+		$infoList = (array)($dataEnvelope['infos'] ?? Array());
+		$this->formatList = is_array($infoList['frmat'] ?? null) ? $infoList['frmat'] : Array();
 		$this->withClsFlg = !isset($writeOptions['class']) || !empty($writeOptions['class']);
 		$this->writeXhtml = !empty($writeOptions['xhtml']);
 		$this->anchorList = empty($writeOptions['anchr']) ? null : Array();
-		if( $shapeAs=='block' ){
-			$htmBody = $this->writeAllBlocks((array)$itemLst);
-		}elseif( $shapeAs=='sheet' ){
-			$htmBody = $this->writeAllSheets((array)$itemLst, !empty($writeOptions['heads']), !empty($writeOptions['shown']));
+		if( $shapeNme=='block' ){
+			$htmlBrut = $this->writeAllBlocks((array)$itemList);
+		}elseif( $shapeNme=='sheet' ){
+			$htmlBrut = $this->writeAllSheets((array)$itemList, !empty($writeOptions['heads']), !empty($writeOptions['shown']));
 		}else{
-			$htmBody = '<pre>'.$this->escapeHtmlText(strval(json_encode($itemLst, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
+			$htmlBrut = '<pre>'.$this->escapeHtmlText(strval(json_encode($itemList, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR))).'</pre>'."\n";
 		}
-		$isWhole = !empty($writeOptions['whole']);
-		$pageTop = '';
-		$pageEnd = '';
-		if( $isWhole && $shapeAs=='block' ){
+		$isAllDay = !empty($writeOptions['whole']);
+		$pageHead = '';
+		$pageTail = '';
+		if( $isAllDay && $shapeNme=='block' ){
 			// The headers and the footers of the pages of a document stand once, around its content
-			$pageTop = empty($infoArr['phead']) ? '' : "<header>\n".$this->writeAllBlocks((array)$infoArr['phead'])."</header>\n";
-			$pageEnd = empty($infoArr['pfoot']) ? '' : "<footer>\n".$this->writeAllBlocks((array)$infoArr['pfoot'])."</footer>\n";
+			$pageHead = empty($infoList['phead']) ? '' : "<header>\n".$this->writeAllBlocks((array)$infoList['phead'])."</header>\n";
+			$pageTail = empty($infoList['pfoot']) ? '' : "<footer>\n".$this->writeAllBlocks((array)$infoList['pfoot'])."</footer>\n";
 		}
-		$cssText = (isset($writeOptions['frmat']) ? !empty($writeOptions['frmat']) : $isWhole) ? $this->writeCssStyles(strpos($pageTop.$htmBody.$pageEnd, '<hr class="break"')!==false) : '';
+		$cssStrng = (isset($writeOptions['frmat']) ? !empty($writeOptions['frmat']) : $isAllDay) ? $this->writeCssStyles(strpos($pageHead.$htmlBrut.$pageTail, '<hr class="break"')!==false) : '';
 		$this->formatList = Array();
 		$this->anchorList = null;
-		if( !$isWhole ){
-			return $cssText.$htmBody;
+		if( !$isAllDay ){
+			return $cssStrng.$htmlBrut;
 		}
-		$lngAttr = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($infoArr['langg'] ?? '')) ? ' lang="'.$infoArr['langg'].'"' : '';
+		$langAttr = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($infoList['langg'] ?? '')) ? ' lang="'.$infoList['langg'].'"' : '';
 		if( $this->writeXhtml ){
 			// An XML reader is told what the page is written in, and in what language, its own way
-			$lngAttr = ' xmlns="http://www.w3.org/1999/xhtml"'.$lngAttr.str_replace(' lang=', ' xml:lang=', $lngAttr);
-			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeHtmlText(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+			$langAttr = ' xmlns="http://www.w3.org/1999/xhtml"'.$langAttr.str_replace(' lang=', ' xml:lang=', $langAttr);
+			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$langAttr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeHtmlText(strval($infoList['title'] ?? ''))."</title>\n".$cssStrng."</head>\n<body>\n".$pageHead.$htmlBrut.$pageTail."</body>\n</html>\n";
 		}
-		return "<!DOCTYPE html>\n<html".$lngAttr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeHtmlText(strval($infoArr['title'] ?? ''))."</title>\n".$cssText."</head>\n<body>\n".$pageTop.$htmBody.$pageEnd."</body>\n</html>\n";
+		return "<!DOCTYPE html>\n<html".$langAttr.">\n<head>\n<meta charset=\"utf-8\">\n<title>".$this->escapeHtmlText(strval($infoList['title'] ?? ''))."</title>\n".$cssStrng."</head>\n<body>\n".$pageHead.$htmlBrut.$pageTail."</body>\n</html>\n";
 	}
 
 	/**
@@ -125,12 +125,12 @@ class Html extends Base {
 	 * @return String The class, '' when the name gives none.
 	 */
 	protected function clssOfItString(String $styleNameTxt): String {
-		$toldCls = strval($this->formatList[$styleNameTxt]['class'] ?? '');
-		if( preg_match('/^[a-z][a-z0-9\-]*$/D', $toldCls) ){
-			return $toldCls;
+		$toldClss = strval($this->formatList[$styleNameTxt]['class'] ?? '');
+		if( preg_match('/^[a-z][a-z0-9\-]*$/D', $toldClss) ){
+			return $toldClss;
 		}
-		$madeCls = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($styleNameTxt)), '-');
-		return ($madeCls==='') ? '' : (preg_match('/^[a-z]/', $madeCls) ? $madeCls : 's-'.$madeCls);
+		$madeClss = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($styleNameTxt)), '-');
+		return ($madeClss==='') ? '' : (preg_match('/^[a-z]/', $madeClss) ? $madeClss : 's-'.$madeClss);
 	}
 
 	/**
@@ -142,44 +142,44 @@ class Html extends Base {
 	 * @return String The style element, '' when there is nothing to write in it.
 	 */
 	protected function writeCssStyles(Bool $hasPageBreak): String {
-		$ruleLst = Array();
+		$ruleList = Array();
 		foreach($this->formatList as $oneNme=>$stlSet){
-			$stylCls = $this->clssOfItString(strval($oneNme));
-			$propLst = Array();
-			if( !is_array($stlSet) || $stylCls==='' ){
+			$styleCls = $this->clssOfItString(strval($oneNme));
+			$propList = Array();
+			if( !is_array($stlSet) || $styleCls==='' ){
 				continue;
 			}
 			if( preg_match('/^[\p{L}\p{N} \-_.]{1,80}$/Du', strval($stlSet['fonts'] ?? '')) ){
-				$propLst[] = 'font-family:"'.$stlSet['fonts'].'"';
+				$propList[] = 'font-family:"'.$stlSet['fonts'].'"';
 			}
 			if( is_numeric($stlSet['sizes'] ?? '') && $stlSet['sizes']>0 && $stlSet['sizes']<1000 ){
-				$propLst[] = 'font-size:'.floatval($stlSet['sizes']).'pt';
+				$propList[] = 'font-size:'.floatval($stlSet['sizes']).'pt';
 			}
 			if( preg_match('/^#[0-9A-Fa-f]{6}$/D', strval($stlSet['color'] ?? '')) ){
-				$propLst[] = 'color:'.$stlSet['color'];
+				$propList[] = 'color:'.$stlSet['color'];
 			}
-			$markLst = (array)($stlSet['marks'] ?? Array());
-			if( in_array('boldFace', $markLst) ){
-				$propLst[] = 'font-weight:bold';
+			$markList = (array)($stlSet['marks'] ?? Array());
+			if( in_array('boldFace', $markList) ){
+				$propList[] = 'font-weight:bold';
 			}
-			if( in_array('emphasis', $markLst) ){
-				$propLst[] = 'font-style:italic';
+			if( in_array('emphasis', $markList) ){
+				$propList[] = 'font-style:italic';
 			}
-			if( in_array('undrLine', $markLst) || in_array('crossOut', $markLst) ){
-				$propLst[] = 'text-decoration:'.trim((in_array('undrLine', $markLst) ? 'underline ' : '').(in_array('crossOut', $markLst) ? 'line-through' : ''));
+			if( in_array('undrLine', $markList) || in_array('crossOut', $markList) ){
+				$propList[] = 'text-decoration:'.trim((in_array('undrLine', $markList) ? 'underline ' : '').(in_array('crossOut', $markList) ? 'line-through' : ''));
 			}
 			if( isset(self::ALGN_LIST[strval($stlSet['align'] ?? '')]) ){
-				$propLst[] = 'text-align:'.self::ALGN_LIST[$stlSet['align']];
+				$propList[] = 'text-align:'.self::ALGN_LIST[$stlSet['align']];
 			}
-			if( !empty($propLst) ){
-				$ruleLst[] = '.'.$stylCls.'{'.implode(';', $propLst).'}';
+			if( !empty($propList) ){
+				$ruleList[] = '.'.$styleCls.'{'.implode(';', $propList).'}';
 			}
 		}
 		// A page break shows as nothing on a screen, and starts a new page on paper
 		if( $hasPageBreak ){
-			$ruleLst[] = 'hr.break{border:0;break-after:page;page-break-after:always}';
+			$ruleList[] = 'hr.break{border:0;break-after:page;page-break-after:always}';
 		}
-		return empty($ruleLst) ? '' : "<style>\n".implode("\n", $ruleLst)."\n</style>\n";
+		return empty($ruleList) ? '' : "<style>\n".implode("\n", $ruleList)."\n</style>\n";
 	}
 
 	/**
@@ -190,17 +190,17 @@ class Html extends Base {
 	 * @return String The attributes, each with its leading space, or ''.
 	 */
 	protected function blockAttribute(Array $contentBlock): String {
-		$attrSet = (array)($contentBlock['attrs'] ?? Array());
-		$tagIdnt = strval($attrSet['tagid'] ?? '');
-		$htmAttr = preg_match('/^[\w\-:.]+$/D', $tagIdnt) ? ' id="'.$this->escapeHtmlText($tagIdnt).'"' : '';
-		$stylCls = ($this->withClsFlg && strval($attrSet['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrSet['style'])) : '';
-		if( $stylCls!=='' ){
-			$htmAttr .= ' class="'.$stylCls.'"';
+		$attrDict = (array)($contentBlock['attrs'] ?? Array());
+		$tagIdent = strval($attrDict['tagid'] ?? '');
+		$htmlAttr = preg_match('/^[\w\-:.]+$/D', $tagIdent) ? ' id="'.$this->escapeHtmlText($tagIdent).'"' : '';
+		$styleCls = ($this->withClsFlg && strval($attrDict['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrDict['style'])) : '';
+		if( $styleCls!=='' ){
+			$htmlAttr .= ' class="'.$styleCls.'"';
 		}
-		if( isset(self::ALGN_LIST[strval($attrSet['align'] ?? '')]) ){
-			$htmAttr .= ' style="text-align:'.self::ALGN_LIST[$attrSet['align']].'"';
+		if( isset(self::ALGN_LIST[strval($attrDict['align'] ?? '')]) ){
+			$htmlAttr .= ' style="text-align:'.self::ALGN_LIST[$attrDict['align']].'"';
 		}
-		return $htmAttr;
+		return $htmlAttr;
 	}
 
 	/**
@@ -213,15 +213,15 @@ class Html extends Base {
 	 * @return String The anchor, unique in the page.
 	 */
 	protected function slugHeadingTxt(String $plainHeading): String {
-		$slugTxt = str_replace(' ', '-', strval(preg_replace('/[^\p{L}\p{N}\- _]/u', '', mb_strtolower(trim($plainHeading)))));
-		$fullSlg = $slugTxt;
-		$sameNum = 0;
-		while( in_array($fullSlg, (array)$this->anchorList, true) ){
-			$sameNum++;
-			$fullSlg = $slugTxt.'-'.$sameNum;
+		$slugText = str_replace(' ', '-', strval(preg_replace('/[^\p{L}\p{N}\- _]/u', '', mb_strtolower(trim($plainHeading)))));
+		$fullSlug = $slugText;
+		$sameNumb = 0;
+		while( in_array($fullSlug, (array)$this->anchorList, true) ){
+			$sameNumb++;
+			$fullSlug = $slugText.'-'.$sameNumb;
 		}
-		$this->anchorList[] = $fullSlg;
-		return $fullSlg;
+		$this->anchorList[] = $fullSlug;
+		return $fullSlug;
 	}
 
 	/**
@@ -234,28 +234,28 @@ class Html extends Base {
 	 * @return String The HTML.
 	 */
 	protected function writeInlineTxt(Array $textSpanList): String {
-		$htmText = '';
+		$htmlText = '';
 		foreach($textSpanList as $oneSpn){
-			$spanHtm = str_replace("\n", '<br'.$this->shutVoidString()."\n", $this->escapeHtmlText(strval($oneSpn['texts'] ?? '')));
+			$spanHtml = str_replace("\n", '<br'.$this->shutVoidString()."\n", $this->escapeHtmlText(strval($oneSpn['texts'] ?? '')));
 			foreach(array_reverse(self::MARK_TAGS) as $mrkKey=>$mrkTag){
 				if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
-					$spanHtm = '<'.$mrkTag.'>'.$spanHtm.'</'.$mrkTag.'>';
+					$spanHtml = '<'.$mrkTag.'>'.$spanHtml.'</'.$mrkTag.'>';
 				}
 			}
 			if( strval($oneSpn['field'] ?? '')!=='' ){
-				$spanHtm = '<span data-field="'.$this->escapeHtmlText(strval($oneSpn['field'])).'">'.$spanHtm.'</span>';
+				$spanHtml = '<span data-field="'.$this->escapeHtmlText(strval($oneSpn['field'])).'">'.$spanHtml.'</span>';
 			}
-			$linkAdr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
-			if( $linkAdr!=='' ){
-				$spanHtm = '<a href="'.$this->escapeHtmlText($linkAdr).'">'.$spanHtm.'</a>';
+			$linkAddr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
+			if( $linkAddr!=='' ){
+				$spanHtml = '<a href="'.$this->escapeHtmlText($linkAddr).'">'.$spanHtml.'</a>';
 			}
 			// The reference to a note, in this page or in another
-			if( preg_match('/^[^#]*#[fe]note\d+$/D', $linkAdr) ){
-				$spanHtm = '<sup>'.$spanHtm.'</sup>';
+			if( preg_match('/^[^#]*#[fe]note\d+$/D', $linkAddr) ){
+				$spanHtml = '<sup>'.$spanHtml.'</sup>';
 			}
-			$htmText .= $spanHtm;
+			$htmlText .= $spanHtml;
 		}
-		return $htmText;
+		return $htmlText;
 	}
 
 	/**
@@ -266,11 +266,11 @@ class Html extends Base {
 	 * @return String The HTML.
 	 */
 	protected function innerOutString(Array $contentBlock): String {
-		$ownHtml = $this->writeInlineTxt($contentBlock['spans']);
+		$ownCrude = $this->writeInlineTxt($contentBlock['spans']);
 		if( empty($contentBlock['items']) ){
-			return $ownHtml;
+			return $ownCrude;
 		}
-		return $ownHtml."\n".$this->writeAllBlocks($contentBlock['items']);
+		return $ownCrude."\n".$this->writeAllBlocks($contentBlock['items']);
 	}
 
 	/**
@@ -282,60 +282,60 @@ class Html extends Base {
 	 * @throws WriteError When a block is of an unknown kind.
 	 */
 	protected function writeAllBlocks(Array $bookBlockSet): String {
-		$htmText = '';
+		$htmlText = '';
 		foreach($bookBlockSet as $oneBlk){
-			$blckKnd = strval($oneBlk['block'] ?? '');
-			$blckAtr = $this->blockAttribute($oneBlk);
-			if( $blckKnd=='headline' ){
-				$headLvl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
-				if( $this->anchorList!==null && strpos($blckAtr, ' id="')===false ){
-					$blckAtr = ' id="'.$this->escapeHtmlText($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blckAtr;
+			$blockCod = strval($oneBlk['block'] ?? '');
+			$blockAtr = $this->blockAttribute($oneBlk);
+			if( $blockCod=='headline' ){
+				$headLevl = min(6, max(1, intval($oneBlk['attrs']['level'] ?? 1)));
+				if( $this->anchorList!==null && strpos($blockAtr, ' id="')===false ){
+					$blockAtr = ' id="'.$this->escapeHtmlText($this->slugHeadingTxt(strval($oneBlk['plain'] ?? ''))).'"'.$blockAtr;
 				}
-				$htmText .= '<h'.$headLvl.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans']).'</h'.$headLvl.">\n";
-			}elseif( $blckKnd=='paragrph' ){
-				$htmText .= '<p'.$blckAtr.'>'.$this->writeInlineTxt($oneBlk['spans'])."</p>\n";
-			}elseif( $blckKnd=='itemList' ){
-				$listTag = empty($oneBlk['attrs']['order']) ? 'ul' : 'ol';
-				$htmText .= '<'.$listTag.$blckAtr.">\n";
+				$htmlText .= '<h'.$headLevl.$blockAtr.'>'.$this->writeInlineTxt($oneBlk['spans']).'</h'.$headLevl.">\n";
+			}elseif( $blockCod=='paragrph' ){
+				$htmlText .= '<p'.$blockAtr.'>'.$this->writeInlineTxt($oneBlk['spans'])."</p>\n";
+			}elseif( $blockCod=='itemList' ){
+				$lstngTag = empty($oneBlk['attrs']['order']) ? 'ul' : 'ol';
+				$htmlText .= '<'.$lstngTag.$blockAtr.">\n";
 				foreach($oneBlk['items'] as $entBlk){
 					// A task shows the box that tells whether it is done
-					$taskHtm = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->writeXhtml ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->writeXhtml ? '="checked"' : '')).$this->shutVoidString().' ' : '';
-					$htmText .= '<li'.$this->blockAttribute($entBlk).'>'.$taskHtm.$this->innerOutString($entBlk)."</li>\n";
+					$taskHtml = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->writeXhtml ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->writeXhtml ? '="checked"' : '')).$this->shutVoidString().' ' : '';
+					$htmlText .= '<li'.$this->blockAttribute($entBlk).'>'.$taskHtml.$this->innerOutString($entBlk)."</li>\n";
 				}
-				$htmText .= '</'.$listTag.">\n";
-			}elseif( $blckKnd=='tableSet' ){
-				$htmText .= '<table'.$blckAtr.">\n".$this->tableRowOutput($oneBlk['items'])."</table>\n";
-			}elseif( $blckKnd=='footnote' ){
-				$noteNum = intval($oneBlk['attrs']['numbr'] ?? 0);
-				$htmText .= '<aside'.$blckAtr.'>'.(($noteNum>0) ? '<sup>'.$noteNum.'</sup> ' : '').$this->innerOutString($oneBlk)."</aside>\n";
-			}elseif( $blckKnd=='citation' ){
+				$htmlText .= '</'.$lstngTag.">\n";
+			}elseif( $blockCod=='tableSet' ){
+				$htmlText .= '<table'.$blockAtr.">\n".$this->tableRowOutput($oneBlk['items'])."</table>\n";
+			}elseif( $blockCod=='footnote' ){
+				$noteNumb = intval($oneBlk['attrs']['numbr'] ?? 0);
+				$htmlText .= '<aside'.$blockAtr.'>'.(($noteNumb>0) ? '<sup>'.$noteNumb.'</sup> ' : '').$this->innerOutString($oneBlk)."</aside>\n";
+			}elseif( $blockCod=='citation' ){
 				// Who is quoted is told under the quotation
-				$qutHtml = $this->innerOutString($oneBlk);
-				$citeTxt = strval($oneBlk['attrs']['cites'] ?? '');
-				if( $citeTxt!=='' ){
-					$qutHtml .= ((substr($qutHtml, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeHtmlText($citeTxt)."</cite>\n";
+				$quoteHtm = $this->innerOutString($oneBlk);
+				$citeText = strval($oneBlk['attrs']['cites'] ?? '');
+				if( $citeText!=='' ){
+					$quoteHtm .= ((substr($quoteHtm, -1)=="\n") ? '' : "\n").'<cite>'.$this->escapeHtmlText($citeText)."</cite>\n";
 				}
-				$htmText .= '<blockquote'.$blckAtr.'>'.$qutHtml."</blockquote>\n";
-			}elseif( $blckKnd=='codeBlck' ){
-				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
-				$htmText .= '<pre'.$blckAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? ' class="language-'.$this->escapeHtmlText($codeLng).'"' : '').'>'.$this->escapeHtmlText($oneBlk['plain'])."</code></pre>\n";
-			}elseif( $blckKnd=='imageBox' ){
-				$imgLink = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
-				if( $imgLink!=='' ){
-					$htmText .= '<img'.$blckAtr.' src="'.$this->escapeHtmlText($imgLink).'" alt="'.$this->escapeHtmlText($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
+				$htmlText .= '<blockquote'.$blockAtr.'>'.$quoteHtm."</blockquote>\n";
+			}elseif( $blockCod=='codeBlck' ){
+				$codeLang = strval($oneBlk['attrs']['langg'] ?? '');
+				$htmlText .= '<pre'.$blockAtr.'><code'.(preg_match('/^[\w+#.\-]+$/D', $codeLang) ? ' class="language-'.$this->escapeHtmlText($codeLang).'"' : '').'>'.$this->escapeHtmlText($oneBlk['plain'])."</code></pre>\n";
+			}elseif( $blockCod=='imageBox' ){
+				$imageLnk = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
+				if( $imageLnk!=='' ){
+					$htmlText .= '<img'.$blockAtr.' src="'.$this->escapeHtmlText($imageLnk).'" alt="'.$this->escapeHtmlText($oneBlk['plain']).'"'.$this->shutVoidString()."\n";
 				}
-			}elseif( $blckKnd=='ruleLine' ){
-				$htmText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blckAtr : '<hr class="break"').$this->shutVoidString()."\n";
-			}elseif( in_array($blckKnd, Array('listItem', 'cellText')) ){
+			}elseif( $blockCod=='ruleLine' ){
+				$htmlText .= (empty($oneBlk['attrs']['break']) ? '<hr'.$blockAtr : '<hr class="break"').$this->shutVoidString()."\n";
+			}elseif( in_array($blockCod, Array('listItem', 'cellText')) ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$htmText .= $this->innerOutString($oneBlk)."\n";
-			}elseif( in_array($blckKnd, Array('tableTop', 'tableRow')) ){
-				$htmText .= "<table>\n".$this->tableRowOutput(Array($oneBlk))."</table>\n";
+				$htmlText .= $this->innerOutString($oneBlk)."\n";
+			}elseif( in_array($blockCod, Array('tableTop', 'tableRow')) ){
+				$htmlText .= "<table>\n".$this->tableRowOutput(Array($oneBlk))."</table>\n";
 			}else{
-				throw new WriteError('Unknown kind of block: '.$blckKnd);
+				throw new WriteError('Unknown kind of block: '.$blockCod);
 			}
 		}
-		return $htmText;
+		return $htmlText;
 	}
 
 	/**
@@ -346,23 +346,23 @@ class Html extends Base {
 	 * @return String The HTML.
 	 */
 	protected function tableRowOutput(Array $rowBlockList): String {
-		$partHtm = Array('thead'=>'', 'tbody'=>'');
+		$partHtml = Array('thead'=>'', 'tbody'=>'');
 		foreach($rowBlockList as $oneRow){
-			$isHeadr = (strval($oneRow['block'] ?? '')=='tableTop');
-			$rowHtml = '<tr>';
+			$isTopRow = (strval($oneRow['block'] ?? '')=='tableTop');
+			$ntryHtml = '<tr>';
 			foreach($oneRow['items'] as $celBlk){
-				$cellTag = ($isHeadr || !empty($celBlk['attrs']['headr'])) ? 'th' : 'td';
-				$colSpan = '';
+				$celdaTag = ($isTopRow || !empty($celBlk['attrs']['headr'])) ? 'th' : 'td';
+				$spanAttr = '';
 				foreach(Array('colsp'=>'colspan', 'rowsp'=>'rowspan') as $atrKey=>$atrNme){
 					if( intval($celBlk['attrs'][$atrKey] ?? 1)>1 ){
-						$colSpan .= ' '.$atrNme.'="'.intval($celBlk['attrs'][$atrKey]).'"';
+						$spanAttr .= ' '.$atrNme.'="'.intval($celBlk['attrs'][$atrKey]).'"';
 					}
 				}
-				$rowHtml .= '<'.$cellTag.$this->blockAttribute($celBlk).$colSpan.'>'.$this->innerOutString($celBlk).'</'.$cellTag.'>';
+				$ntryHtml .= '<'.$celdaTag.$this->blockAttribute($celBlk).$spanAttr.'>'.$this->innerOutString($celBlk).'</'.$celdaTag.'>';
 			}
-			$partHtm[$isHeadr ? 'thead' : 'tbody'] .= $rowHtml."</tr>\n";
+			$partHtml[$isTopRow ? 'thead' : 'tbody'] .= $ntryHtml."</tr>\n";
 		}
-		return (($partHtm['thead']!=='') ? "<thead>\n".$partHtm['thead']."</thead>\n" : '').(($partHtm['tbody']!=='') ? "<tbody>\n".$partHtm['tbody']."</tbody>\n" : '');
+		return (($partHtml['thead']!=='') ? "<thead>\n".$partHtml['thead']."</thead>\n" : '').(($partHtml['tbody']!=='') ? "<tbody>\n".$partHtml['tbody']."</tbody>\n" : '');
 	}
 
 	/**
@@ -376,66 +376,66 @@ class Html extends Base {
 	 * @return String The HTML.
 	 */
 	protected function writeAllSheets(Array $sheetEntries, Bool $initialHeads, Bool $shownOnlyFlg): String {
-		$htmText = '';
+		$htmlText = '';
 		foreach($sheetEntries as $oneSht){
 			if( $shownOnlyFlg && isset($oneSht['attrs']['shown']) && $oneSht['attrs']['shown']===false ){
 				continue;
 			}
-			$rowsLst = array_values((array)($oneSht['cells'] ?? Array()));
+			$rowsList = array_values((array)($oneSht['cells'] ?? Array()));
 			// Rows keyed by names had their header taken off when they were read: it is written back, from those names
-			$frstRow = (array)($rowsLst[0] ?? Array());
-			$isKeyed = (!empty($frstRow) && array_keys($frstRow)!==range(0, count($frstRow)-1));
-			$headRow = $isKeyed ? array_map('strval', array_keys($frstRow)) : null;
-			if( !$isKeyed && $initialHeads && !empty($rowsLst) ){
-				$headRow = array_values((array)array_shift($rowsLst));
+			$firstRow = (array)($rowsList[0] ?? Array());
+			$isByKeys = (!empty($firstRow) && array_keys($firstRow)!==range(0, count($firstRow)-1));
+			$headNtry = $isByKeys ? array_map('strval', array_keys($firstRow)) : null;
+			if( !$isByKeys && $initialHeads && !empty($rowsList) ){
+				$headNtry = array_values((array)array_shift($rowsList));
 			}
 			// The merged cells, by the place of their first cell in the rows of the body, and the cells each covers
-			$spanLst = Array();
-			$coverLs = Array();
+			$spanList = Array();
+			$coverLst = Array();
 			foreach((array)($oneSht['attrs']['merge'] ?? Array()) as $oneMrg){
-				$mrgdRow = intval($oneMrg['atrow'] ?? 0)-(($headRow!==null) ? 1 : 0);
-				$colSpan = intval($oneMrg['atcol'] ?? 0);
-				$rowSpan = max(1, intval($oneMrg['rowsp'] ?? 1));
-				$clmnSpn = max(1, intval($oneMrg['colsp'] ?? 1));
+				$mrgdNtry = intval($oneMrg['atrow'] ?? 0)-(($headNtry!==null) ? 1 : 0);
+				$spanAttr = intval($oneMrg['atcol'] ?? 0);
+				$rowRange = max(1, intval($oneMrg['rowsp'] ?? 1));
+				$clmnSpan = max(1, intval($oneMrg['colsp'] ?? 1));
 				// An area starting in the header is left as it is; one running past the last row stops there
-				if( $mrgdRow<0 || !isset($rowsLst[$mrgdRow]) ){
+				if( $mrgdNtry<0 || !isset($rowsList[$mrgdNtry]) ){
 					continue;
 				}
-				$rowSpan = min($rowSpan, count($rowsLst)-$mrgdRow);
-				$spanLst[$mrgdRow][$colSpan] = (($clmnSpn>1) ? ' colspan="'.$clmnSpn.'"' : '').(($rowSpan>1) ? ' rowspan="'.$rowSpan.'"' : '');
-				for($rowIdx=$mrgdRow; $rowIdx<$mrgdRow+$rowSpan; $rowIdx++){
-					for($colInc=$colSpan; $colInc<$colSpan+$clmnSpn && $colInc<$colSpan+16384; $colInc++){
-						$coverLs[$rowIdx][$colInc] = ($rowIdx!=$mrgdRow || $colInc!=$colSpan);
+				$rowRange = min($rowRange, count($rowsList)-$mrgdNtry);
+				$spanList[$mrgdNtry][$spanAttr] = (($clmnSpan>1) ? ' colspan="'.$clmnSpan.'"' : '').(($rowRange>1) ? ' rowspan="'.$rowRange.'"' : '');
+				for($rowIdx=$mrgdNtry; $rowIdx<$mrgdNtry+$rowRange; $rowIdx++){
+					for($colInc=$spanAttr; $colInc<$spanAttr+$clmnSpan && $colInc<$spanAttr+16384; $colInc++){
+						$coverLst[$rowIdx][$colInc] = ($rowIdx!=$mrgdNtry || $colInc!=$spanAttr);
 					}
 				}
 			}
-			$htmText .= "<table>\n";
+			$htmlText .= "<table>\n";
 			if( strval($oneSht['title'] ?? '')!=='' ){
-				$htmText .= '<caption>'.$this->escapeHtmlText(strval($oneSht['title']))."</caption>\n";
+				$htmlText .= '<caption>'.$this->escapeHtmlText(strval($oneSht['title']))."</caption>\n";
 			}
-			if( $headRow!==null ){
-				$htmText .= "<thead>\n<tr>";
-				foreach($headRow as $oneVal){
-					$htmText .= '<th>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</th>';
+			if( $headNtry!==null ){
+				$htmlText .= "<thead>\n<tr>";
+				foreach($headNtry as $oneVal){
+					$htmlText .= '<th>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</th>';
 				}
-				$htmText .= "</tr>\n</thead>\n";
+				$htmlText .= "</tr>\n</thead>\n";
 			}
-			if( !empty($rowsLst) ){
-				$htmText .= "<tbody>\n";
-				foreach($rowsLst as $rowIdx=>$oneRow){
-					$htmText .= '<tr>';
+			if( !empty($rowsList) ){
+				$htmlText .= "<tbody>\n";
+				foreach($rowsList as $rowIdx=>$oneRow){
+					$htmlText .= '<tr>';
 					foreach(array_values((array)$oneRow) as $colInc=>$oneVal){
-						if( empty($coverLs[$rowIdx][$colInc]) ){
-							$htmText .= '<td'.strval($spanLst[$rowIdx][$colInc] ?? '').'>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</td>';
+						if( empty($coverLst[$rowIdx][$colInc]) ){
+							$htmlText .= '<td'.strval($spanList[$rowIdx][$colInc] ?? '').'>'.$this->escapeHtmlText($this->writeCellValue($oneVal)).'</td>';
 						}
 					}
-					$htmText .= "</tr>\n";
+					$htmlText .= "</tr>\n";
 				}
-				$htmText .= "</tbody>\n";
+				$htmlText .= "</tbody>\n";
 			}
-			$htmText .= "</table>\n";
+			$htmlText .= "</table>\n";
 		}
-		return $htmText;
+		return $htmlText;
 	}
 
 	/**

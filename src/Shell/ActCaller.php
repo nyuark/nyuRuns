@@ -39,10 +39,10 @@ class ActCaller{
 		$_POST = $inputsValues;
 		$_COOKIE = Array();
 		$_FILES = Array();
-		$srvrReg = new ServerReg();
-		$clntReg = new ClientReg($srvrReg, true, $proxyConfArr);
-		$respObj = new Response($renderValues);
-		return Array( new Request($srvrReg, $respObj, $clntReg), $respObj );
+		$srvrRegr = new ServerReg();
+		$clntRegr = new ClientReg($srvrRegr, true, $proxyConfArr);
+		$respInst = new Response($renderValues);
+		return Array( new Request($srvrRegr, $respInst, $clntRegr), $respInst );
 	}
 
 	/**
@@ -64,37 +64,37 @@ class ActCaller{
 		if( !preg_match('#^[A-Za-z][A-Za-z0-9]*(/[^/\s]+)*$#D', trim($actionTarget, '/')) ){
 			throw new ShellStop('An action is named by its path: app, app/action, app/action/param, or a path a route of its Run declares', Command::EXIT_HELP);
 		}
-		$loadObj = (new Preset($nameOfPreset))->newSetupLoader();
-		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
-		Logger::plugLogsConfig( $loadObj->logConfigArray() );
-		$rndrCnf = $loadObj->getRegistryKey('response');
-		$callLst = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrCnf) ? $rndrCnf : Array(), $loadObj->proxySetupConf() );
-		$rqstObj = $callLst[0];
-		$respObj = $callLst[1];
-		$inptReg = $loadObj->retrieveInputs($rqstObj);
-		$routReg = $loadObj->importRouteReg($rqstObj);
-		$routObj = $loadObj->retrieveRouter();
+		$loadInst = (new Preset($nameOfPreset))->newSetupLoader();
+		$GLOBALS['nyuConfig'] = $loadInst->retrieveConfig();
+		Logger::plugLogsConfig( $loadInst->logConfigArray() );
+		$rndrConf = $loadInst->getRegistryKey('response');
+		$callList = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrConf) ? $rndrConf : Array(), $loadInst->proxySetupConf() );
+		$reqtInst = $callList[0];
+		$respInst = $callList[1];
+		$inputReg = $loadInst->retrieveInputs($reqtInst);
+		$routRegr = $loadInst->importRouteReg($reqtInst);
+		$routInst = $loadInst->retrieveRouter();
 		// A path no route answers, or a method its route refuses, is the Router's reply (404, 405); only an action is called,		// found from the path (no kind) or by a declared route (toAction)
-		$sttsNum = intval($routReg->obtainDefValue('statCode', 200));
-		$sttsMsg = strval($routReg->readValueByKey('statMssg'));
-		if( $sttsNum==200 && !in_array($routReg->readValueByKey('routKind'), Array(null, 'toAction'), true) ){
-			$sttsNum = 404;
-			$sttsMsg = 'Not Found';
+		$sttsNumb = intval($routRegr->obtainDefValue('statCode', 200));
+		$sttsText = strval($routRegr->readValueByKey('statMssg'));
+		if( $sttsNumb==200 && !in_array($routRegr->readValueByKey('routKind'), Array(null, 'toAction'), true) ){
+			$sttsNumb = 404;
+			$sttsText = 'Not Found';
 		}
-		$outData = null;
-		if( $sttsNum==200 ){
-			$accsReg = (new Checker($loadObj->setAccessArray(), $rqstObj, $routReg, $routObj))->grantShellCall($signedInUser, $signedInRole);
-			$sttsNum = intval($accsReg->obtainDefValue('statCode', 200));
-			$sttsMsg = strval($accsReg->readValueByKey('statMssg'));
+		$outArray = null;
+		if( $sttsNumb==200 ){
+			$accsRegr = (new Checker($loadInst->setAccessArray(), $reqtInst, $routRegr, $routInst))->grantShellCall($signedInUser, $signedInRole);
+			$sttsNumb = intval($accsRegr->obtainDefValue('statCode', 200));
+			$sttsText = strval($accsRegr->readValueByKey('statMssg'));
 		}
-		if( $sttsNum==200 ){
-			$control = new Controller( strval($routReg->readValueByKey('appToRun')), strval($routReg->readValueByKey('doAction')), $inptReg, $routReg->readValueByKey('argument'), $accsReg, $rqstObj, $respObj, $routObj );
-			$sttsArr = $control->retrieveStatus();
-			$sttsNum = intval($sttsArr['code']);
-			$sttsMsg = strval($sttsArr['mssg']);
-			$outData = $control->retrieveOutput();
+		if( $sttsNumb==200 ){
+			$ctrlInst = new Controller( strval($routRegr->readValueByKey('appToRun')), strval($routRegr->readValueByKey('doAction')), $inputReg, $routRegr->readValueByKey('argument'), $accsRegr, $reqtInst, $respInst, $routInst );
+			$sttsList = $ctrlInst->retrieveStatus();
+			$sttsNumb = intval($sttsList['code']);
+			$sttsText = strval($sttsList['mssg']);
+			$outArray = $ctrlInst->retrieveOutput();
 		}
-		return $this->replyValuesArr($respObj, $sttsNum, $sttsMsg, $outData);
+		return $this->replyValuesArr($respInst, $sttsNumb, $sttsText, $outArray);
 	}
 
 	/**
@@ -109,10 +109,10 @@ class ActCaller{
 	 * @return Array The 'code', 'mssg', 'body' and 'goal' values (see runAction).
 	 */
 	protected function replyValuesArr( Response $httpResponse, Int $responseCode, String $statusReason, Mixed $outputToSend ): Array {
-		$headLst = $httpResponse->readHeadsArray();
-		$bodyTxt = '';
-		$isMoved = ($responseCode>=300 && $responseCode<400);
-		if( $isMoved || ($responseCode==204 && $outputToSend===null) ){
+		$headList = $httpResponse->readHeadsArray();
+		$bodyText = '';
+		$wasMoved = ($responseCode>=300 && $responseCode<400);
+		if( $wasMoved || ($responseCode==204 && $outputToSend===null) ){
 			$httpResponse->clearReplyBody();
 		}else{
 			if( $responseCode<200 || $responseCode>=300 ){
@@ -123,8 +123,8 @@ class ActCaller{
 			$httpResponse->convertOutFlag( $outputToSend ?? Array(), $responseCode<200 || $responseCode>=300 );
 			ob_start();
 			$httpResponse->transmitOutput();
-			$bodyTxt = strval(ob_get_clean());
+			$bodyText = strval(ob_get_clean());
 		}
-		return Array('code'=>$responseCode, 'mssg'=>$statusReason, 'body'=>$bodyTxt, 'goal'=>$isMoved ? strval($headLst['Location'] ?? '') : '');
+		return Array('code'=>$responseCode, 'mssg'=>$statusReason, 'body'=>$bodyText, 'goal'=>$wasMoved ? strval($headList['Location'] ?? '') : '');
 	}
 }

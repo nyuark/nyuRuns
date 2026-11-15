@@ -34,23 +34,23 @@ Class MySQL extends PDO {
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
-		$dsnText = "mysql:host=$databaseHost;dbname=$hostBaseText";
-		$partNum = strval($settingsList['portNumb'] ?? '');
-		if( $partNum!='' ){
-			if( !ctype_digit($partNum) ){
-				throw new \RuntimeException('Invalid database port: '.$partNum);
+		$dsnStrng = "mysql:host=$databaseHost;dbname=$hostBaseText";
+		$partNumb = strval($settingsList['portNumb'] ?? '');
+		if( $partNumb!='' ){
+			if( !ctype_digit($partNumb) ){
+				throw new \RuntimeException('Invalid database port: '.$partNumb);
 			}
-			$dsnText .= ';port='.$partNum;
+			$dsnStrng .= ';port='.$partNumb;
 		}
-		$charSet = strval($settingsList['encoding'] ?? '');
-		if( $charSet!='' ){
+		$encoding = strval($settingsList['encoding'] ?? '');
+		if( $encoding!='' ){
 			// A character set name (utf8, utf8mb4), not a collation such as utf8_general_ci
-			if( !preg_match('/^[A-Za-z0-9]+$/D', $charSet) ){
-				throw new \RuntimeException('Invalid database character set: '.$charSet);
+			if( !preg_match('/^[A-Za-z0-9]+$/D', $encoding) ){
+				throw new \RuntimeException('Invalid database character set: '.$encoding);
 			}
-			$dsnText .= ';charset='.$charSet;
+			$dsnStrng .= ';charset='.$encoding;
 		}
-		return $dsnText;
+		return $dsnStrng;
 	}
 
 	/**
@@ -65,21 +65,21 @@ Class MySQL extends PDO {
 		if( !$this->sendBuiltQuery('EXPLAIN '.$this->quoteFieldName($tbleLabelTxt).';') ){
 			return false;
 		}
-		$fldRows = $this->readLastResult(true);
-		if( !is_array($fldRows) || empty($fldRows) ){
+		$fieldRow = $this->readLastResult(true);
+		if( !is_array($fieldRow) || empty($fieldRow) ){
 			return false;
 		}
-		$tblInfo = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
-		foreach($fldRows as $fldRow){
-			if( $fldRow['Key']=='PRI' && $tblInfo['pkey']=='' ){
-				$tblInfo['pkey'] = $fldRow['Field'];
+		$tableDct = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
+		foreach($fieldRow as $fldRow){
+			if( $fldRow['Key']=='PRI' && $tableDct['pkey']=='' ){
+				$tableDct['pkey'] = $fldRow['Field'];
 			}
-			$tblInfo['flds'][] = $fldRow['Field'];
+			$tableDct['flds'][] = $fldRow['Field'];
 			if( preg_match('/^((tiny|medium|long)?blob|(var)?binary)/i', strval($fldRow['Type'])) ){
-				$tblInfo['blob'][] = $fldRow['Field'];
+				$tableDct['blob'][] = $fldRow['Field'];
 			}
 		}
-		return $tblInfo;
+		return $tableDct;
 	}
 
 	/**
@@ -94,8 +94,8 @@ Class MySQL extends PDO {
 		if( !$this->sendBuiltQuery('EXPLAIN '.$this->quoteFieldName($tbleLabelTxt).';') ){
 			return false;
 		}
-		$fldRows = $this->readLastResult(true);
-		return ( is_array($fldRows) && !empty($fldRows) ) ? array_column($fldRows, 'Type', 'Field') : false;
+		$fieldRow = $this->readLastResult(true);
+		return ( is_array($fieldRow) && !empty($fieldRow) ) ? array_column($fieldRow, 'Type', 'Field') : false;
 	}
 
 	/**
@@ -107,17 +107,17 @@ Class MySQL extends PDO {
 		if( !$this->sendBuiltQuery("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE';") ){
 			return false;
 		}
-		$tblRows = $this->readLastResult(true);
-		if( !is_array($tblRows) ){
+		$tableRow = $this->readLastResult(true);
+		if( !is_array($tableRow) ){
 			return false;
 		}
 		// The first column is named after the database: it is read by its place
-		$tblList = Array();
-		foreach( $tblRows as $oneRow ){
-			$tblList[] = strval( array_values((array)$oneRow)[0] ?? '' );
+		$tableLst = Array();
+		foreach( $tableRow as $oneRow ){
+			$tableLst[] = strval( array_values((array)$oneRow)[0] ?? '' );
 		}
-		sort($tblList);
-		return $tblList;
+		sort($tableLst);
+		return $tableLst;
 	}
 
 }

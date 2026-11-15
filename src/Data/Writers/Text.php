@@ -46,8 +46,8 @@ class Text extends Base {
 		if( !isset(self::MARK_LIST[$this->outputKind]) ){
 			throw new WriteError('Invalid text option: unknown writing '.$this->outputKind);
 		}
-		$bodyTxt = implode("\n\n", $this->writeAllBlocks((array)($dataEnvelope['items'] ?? Array())));
-		return ($bodyTxt==='') ? '' : $bodyTxt."\n";
+		$bodyText = implode("\n\n", $this->writeAllBlocks((array)($dataEnvelope['items'] ?? Array())));
+		return ($bodyText==='') ? '' : $bodyText."\n";
 	}
 
 	/**
@@ -58,31 +58,31 @@ class Text extends Base {
 	 * @return String The text.
 	 */
 	protected function writeInlineTxt(Array $textSpanList): String {
-		$outText = '';
+		$outStrng = '';
 		foreach($textSpanList as $oneSpn){
-			$edgPart = Array();
-			preg_match('/^(\s*)(.*?)(\s*)$/Ds', strval($oneSpn['texts'] ?? ''), $edgPart);
-			$coreTxt = $edgPart[2];
-			$linkAdr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
-			$matches = Array();
-			if( $coreTxt!=='' && preg_match('/^#[fe]note(\d+)$/D', $linkAdr, $matches) ){
+			$edgePart = Array();
+			preg_match('/^(\s*)(.*?)(\s*)$/Ds', strval($oneSpn['texts'] ?? ''), $edgePart);
+			$coreText = $edgePart[2];
+			$linkAddr = Shape::tidyLinkString(strval($oneSpn['links'] ?? ''));
+			$matxRows = Array();
+			if( $coreText!=='' && preg_match('/^#[fe]note(\d+)$/D', $linkAddr, $matxRows) ){
 				// The reference to a note stands between square brackets
-				$coreTxt = '['.$coreTxt.']';
-				$linkAdr = '';
-			}elseif( $coreTxt!=='' ){
+				$coreText = '['.$coreText.']';
+				$linkAddr = '';
+			}elseif( $coreText!=='' ){
 				foreach(array_reverse(self::MARK_LIST[$this->outputKind]) as $mrkKey=>$mrkSet){
 					if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
-						$coreTxt = $mrkSet[0].$coreTxt.$mrkSet[1];
+						$coreText = $mrkSet[0].$coreText.$mrkSet[1];
 					}
 				}
 			}
-			if( $coreTxt!=='' && $linkAdr!=='' ){
+			if( $coreText!=='' && $linkAddr!=='' ){
 				// A link: a tag where there is one, the address after the text otherwise, once when the text is the address
-				$coreTxt = ($this->outputKind=='bbcod') ? '[url='.str_replace(Array('[', ']'), Array('%5B', '%5D'), $linkAdr).']'.$coreTxt.'[/url]' : (($edgPart[2]===$linkAdr) ? $coreTxt : $coreTxt.' ('.$linkAdr.')');
+				$coreText = ($this->outputKind=='bbcod') ? '[url='.str_replace(Array('[', ']'), Array('%5B', '%5D'), $linkAddr).']'.$coreText.'[/url]' : (($edgePart[2]===$linkAddr) ? $coreText : $coreText.' ('.$linkAddr.')');
 			}
-			$outText .= $edgPart[1].$coreTxt.$edgPart[3];
+			$outStrng .= $edgePart[1].$coreText.$edgePart[3];
 		}
-		return $outText;
+		return $outStrng;
 	}
 
 	/**
@@ -94,13 +94,13 @@ class Text extends Base {
 	 * @return String The text.
 	 */
 	protected function innerOutString(Array $contentBlock): String {
-		$outText = trim($this->writeInlineTxt((array)$contentBlock['spans']));
+		$outStrng = trim($this->writeInlineTxt((array)$contentBlock['spans']));
 		foreach((array)$contentBlock['items'] as $oneBlk){
 			foreach($this->writeAllBlocks(Array($oneBlk)) as $blkTxt){
-				$outText .= (($outText==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$blkTxt;
+				$outStrng .= (($outStrng==='') ? '' : ((($oneBlk['block'] ?? '')=='itemList') ? "\n" : "\n\n")).$blkTxt;
 			}
 		}
-		return $outText;
+		return $outStrng;
 	}
 
 	/**
@@ -112,21 +112,21 @@ class Text extends Base {
 	 * @return String The text.
 	 */
 	protected function writeListItems(Array $listsBlckArr): String {
-		$isOrdrd = !empty($listsBlckArr['attrs']['order']);
-		$itemTxt = Array();
+		$hasOrder = !empty($listsBlckArr['attrs']['order']);
+		$itemText = Array();
 		foreach((array)$listsBlckArr['items'] as $entBlk){
-			$insdTxt = $this->innerOutString($entBlk);
+			$insdText = $this->innerOutString($entBlk);
 			if( $this->outputKind=='bbcod' ){
-				$itemTxt[] = '[*]'.$insdTxt;
+				$itemText[] = '[*]'.$insdText;
 				continue;
 			}
-			$markTxt = $isOrdrd ? (count($itemTxt)+1).'. ' : '- ';
-			$itemTxt[] = rtrim($markTxt.ltrim(preg_replace('/^(?=.)/m', str_repeat(' ', strlen($markTxt)), $insdTxt)));
+			$markText = $hasOrder ? (count($itemText)+1).'. ' : '- ';
+			$itemText[] = rtrim($markText.ltrim(preg_replace('/^(?=.)/m', str_repeat(' ', strlen($markText)), $insdText)));
 		}
 		if( $this->outputKind=='bbcod' ){
-			return empty($itemTxt) ? '' : ($isOrdrd ? '[list=1]' : '[list]')."\n".implode("\n", $itemTxt)."\n[/list]";
+			return empty($itemText) ? '' : ($hasOrder ? '[list=1]' : '[list]')."\n".implode("\n", $itemText)."\n[/list]";
 		}
-		return implode("\n", $itemTxt);
+		return implode("\n", $itemText);
 	}
 
 	/**
@@ -138,60 +138,60 @@ class Text extends Base {
 	 * @throws WriteError When a block is of an unknown kind.
 	 */
 	protected function writeAllBlocks(Array $bookBlockSet): Array {
-		$textLst = Array();
-		$boldSet = self::MARK_LIST[$this->outputKind]['boldFace'] ?? Array('', '');
+		$textList = Array();
+		$boldDict = self::MARK_LIST[$this->outputKind]['boldFace'] ?? Array('', '');
 		foreach($bookBlockSet as $oneBlk){
-			$blckKnd = strval($oneBlk['block'] ?? '');
-			$blckTxt = '';
-			if( $blckKnd=='headline' ){
+			$blockCod = strval($oneBlk['block'] ?? '');
+			$blockTxt = '';
+			if( $blockCod=='headline' ){
 				// A heading has no mark of its own: it is bold where bold can be written
-				$headTxt = trim($this->writeInlineTxt((array)$oneBlk['spans']));
-				$blckTxt = ($headTxt==='' || in_array('boldFace', array_merge(...array_column((array)$oneBlk['spans'], 'marks'), ...Array(Array())))) ? $headTxt : $boldSet[0].$headTxt.$boldSet[1];
-			}elseif( $blckKnd=='paragrph' ){
-				$blckTxt = trim($this->writeInlineTxt((array)$oneBlk['spans']));
-			}elseif( $blckKnd=='itemList' ){
-				$blckTxt = $this->writeListItems($oneBlk);
-			}elseif( $blckKnd=='tableSet' || $blckKnd=='tableTop' || $blckKnd=='tableRow' ){
+				$headText = trim($this->writeInlineTxt((array)$oneBlk['spans']));
+				$blockTxt = ($headText==='' || in_array('boldFace', array_merge(...array_column((array)$oneBlk['spans'], 'marks'), ...Array(Array())))) ? $headText : $boldDict[0].$headText.$boldDict[1];
+			}elseif( $blockCod=='paragrph' ){
+				$blockTxt = trim($this->writeInlineTxt((array)$oneBlk['spans']));
+			}elseif( $blockCod=='itemList' ){
+				$blockTxt = $this->writeListItems($oneBlk);
+			}elseif( $blockCod=='tableSet' || $blockCod=='tableTop' || $blockCod=='tableRow' ){
 				// The rows one per line, tabulations between their cells
-				$rowsTxt = Array();
-				foreach(($blckKnd=='tableSet') ? (array)$oneBlk['items'] : Array($oneBlk) as $oneRow){
-					$cellTxt = Array();
+				$rowsText = Array();
+				foreach(($blockCod=='tableSet') ? (array)$oneBlk['items'] : Array($oneBlk) as $oneRow){
+					$cellText = Array();
 					foreach((array)$oneRow['items'] as $celBlk){
-						$cellTxt[] = preg_replace('/\s+/', ' ', $this->innerOutString($celBlk));
+						$cellText[] = preg_replace('/\s+/', ' ', $this->innerOutString($celBlk));
 					}
-					$rowsTxt[] = implode("\t", $cellTxt);
+					$rowsText[] = implode("\t", $cellText);
 				}
-				$blckTxt = implode("\n", $rowsTxt);
-			}elseif( $blckKnd=='citation' ){
-				$qutText = $this->innerOutString($oneBlk);
-				$citeTxt = str_replace(Array('[', ']', "\n"), Array('(', ')', ' '), strval($oneBlk['attrs']['cites'] ?? ''));
-				if( $qutText!=='' && $this->outputKind=='bbcod' ){
-					$blckTxt = '[quote'.(($citeTxt!=='') ? '='.$citeTxt : '').']'.$qutText.'[/quote]';
-				}elseif( $qutText!=='' ){
-					$blckTxt = preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $qutText.(($citeTxt!=='') ? "\n— ".$citeTxt : ''));
+				$blockTxt = implode("\n", $rowsText);
+			}elseif( $blockCod=='citation' ){
+				$quoteTxt = $this->innerOutString($oneBlk);
+				$citeText = str_replace(Array('[', ']', "\n"), Array('(', ')', ' '), strval($oneBlk['attrs']['cites'] ?? ''));
+				if( $quoteTxt!=='' && $this->outputKind=='bbcod' ){
+					$blockTxt = '[quote'.(($citeText!=='') ? '='.$citeText : '').']'.$quoteTxt.'[/quote]';
+				}elseif( $quoteTxt!=='' ){
+					$blockTxt = preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $quoteTxt.(($citeText!=='') ? "\n— ".$citeText : ''));
 				}
-			}elseif( $blckKnd=='codeBlck' ){
-				$codeLng = strval($oneBlk['attrs']['langg'] ?? '');
-				$blckTxt = ($this->outputKind=='bbcod') ? '[code'.(preg_match('/^[\w+#.\-]+$/D', $codeLng) ? '='.$codeLng : '')."]\n".strval($oneBlk['plain'] ?? '')."\n[/code]" : strval($oneBlk['plain'] ?? '');
-			}elseif( $blckKnd=='imageBox' ){
+			}elseif( $blockCod=='codeBlck' ){
+				$codeLang = strval($oneBlk['attrs']['langg'] ?? '');
+				$blockTxt = ($this->outputKind=='bbcod') ? '[code'.(preg_match('/^[\w+#.\-]+$/D', $codeLang) ? '='.$codeLang : '')."]\n".strval($oneBlk['plain'] ?? '')."\n[/code]" : strval($oneBlk['plain'] ?? '');
+			}elseif( $blockCod=='imageBox' ){
 				// An image is a tag where there is one, and its description otherwise
-				$imgLink = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
-				$blckTxt = ($this->outputKind=='bbcod' && $imgLink!=='') ? '[img]'.$imgLink.'[/img]' : trim(strval($oneBlk['plain'] ?? ''));
-			}elseif( $blckKnd=='ruleLine' ){
-				$blckTxt = '----------';
-			}elseif( $blckKnd=='footnote' ){
-				$blckTxt = '['.intval($oneBlk['attrs']['numbr'] ?? 0).'] '.$this->innerOutString($oneBlk);
-			}elseif( $blckKnd=='listItem' || $blckKnd=='cellText' ){
+				$imageLnk = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
+				$blockTxt = ($this->outputKind=='bbcod' && $imageLnk!=='') ? '[img]'.$imageLnk.'[/img]' : trim(strval($oneBlk['plain'] ?? ''));
+			}elseif( $blockCod=='ruleLine' ){
+				$blockTxt = '----------';
+			}elseif( $blockCod=='footnote' ){
+				$blockTxt = '['.intval($oneBlk['attrs']['numbr'] ?? 0).'] '.$this->innerOutString($oneBlk);
+			}elseif( $blockCod=='listItem' || $blockCod=='cellText' ){
 				// An entry or a cell met outside its list or its table: what it holds
-				$blckTxt = $this->innerOutString($oneBlk);
+				$blockTxt = $this->innerOutString($oneBlk);
 			}else{
-				throw new WriteError('Unknown kind of block: '.$blckKnd);
+				throw new WriteError('Unknown kind of block: '.$blockCod);
 			}
-			if( $blckTxt!=='' ){
-				$textLst[] = $blckTxt;
+			if( $blockTxt!=='' ){
+				$textList[] = $blockTxt;
 			}
 		}
-		return $textLst;
+		return $textList;
 	}
 
 }

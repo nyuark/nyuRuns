@@ -37,9 +37,9 @@ class MongoStore implements Store {
 		if( !class_exists('\\MongoDB\\Driver\\Manager') ){
 			throw new \RuntimeException('The mongodb extension of PHP is not loaded');
 		}
-		$mngrCls = '\\MongoDB\\Driver\\Manager';
+		$mngrClss = '\\MongoDB\\Driver\\Manager';
 		$this->hostDbName = $hostBaseText;
-		$this->managerObj = new $mngrCls( self::buildDsnString($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList) );
+		$this->managerObj = new $mngrClss( self::buildDsnString($databaseHost, $serverUsrTxt, $hostPassText, $hostBaseText, $settingsList) );
 	}
 
 	/**
@@ -64,33 +64,33 @@ class MongoStore implements Store {
 		if( !preg_match('/^[\w.\-]+$/D', $databaseHost) ){
 			throw new \RuntimeException('Invalid database host: '.$databaseHost);
 		}
-		$partNum = strval($settingsList['portNumb'] ?? '');
-		if( $partNum!='' && !ctype_digit($partNum) ){
-			throw new \RuntimeException('Invalid database port: '.$partNum);
+		$partNumb = strval($settingsList['portNumb'] ?? '');
+		if( $partNumb!='' && !ctype_digit($partNumb) ){
+			throw new \RuntimeException('Invalid database port: '.$partNumb);
 		}
-		$linkTxt = 'mongodb://';
+		$linkText = 'mongodb://';
 		if( $serverUsrTxt!='' ){
-			$linkTxt .= rawurlencode($serverUsrTxt).':'.rawurlencode($hostPassText).'@';
+			$linkText .= rawurlencode($serverUsrTxt).':'.rawurlencode($hostPassText).'@';
 		}
-		$linkTxt .= $databaseHost.($partNum!='' ? ':'.$partNum : '').'/'.$hostBaseText;
-		$optnLst = Array();
+		$linkText .= $databaseHost.($partNumb!='' ? ':'.$partNumb : '').'/'.$hostBaseText;
+		$optsList = Array();
 		// Database holding the account: the one of the connection when left out
-		$authNme = strval($settingsList['authBase'] ?? '');
-		if( $authNme!='' ){
-			if( !preg_match('/^\w+$/D', $authNme) ){
-				throw new \RuntimeException('Invalid account database name: '.$authNme);
+		$authName = strval($settingsList['authBase'] ?? '');
+		if( $authName!='' ){
+			if( !preg_match('/^\w+$/D', $authName) ){
+				throw new \RuntimeException('Invalid account database name: '.$authName);
 			}
-			$optnLst[] = 'authSource='.$authNme;
+			$optsList[] = 'authSource='.$authName;
 		}
 		// Seconds given to the server to answer, the default of the driver when left out
-		$waitSec = strval($settingsList['waitSecs'] ?? '');
-		if( $waitSec!='' ){
-			if( !ctype_digit($waitSec) ){
-				throw new \RuntimeException('Invalid database waiting time: '.$waitSec);
+		$waitSecs = strval($settingsList['waitSecs'] ?? '');
+		if( $waitSecs!='' ){
+			if( !ctype_digit($waitSecs) ){
+				throw new \RuntimeException('Invalid database waiting time: '.$waitSecs);
 			}
-			$optnLst[] = 'serverSelectionTimeoutMS='.(intval($waitSec)*1000);
+			$optsList[] = 'serverSelectionTimeoutMS='.(intval($waitSecs)*1000);
 		}
-		return $linkTxt.(empty($optnLst) ? '' : '?'.implode('&', $optnLst));
+		return $linkText.(empty($optsList) ? '' : '?'.implode('&', $optsList));
 	}
 
 	/**
@@ -135,38 +135,38 @@ class MongoStore implements Store {
 	 * @throws \RuntimeException When a field name is not valid, or a '?' entry is not true or false.
 	 */
 	public static function makeQueryArray(Array $filterFields): Array {
-		$signLst = Array('under'=>'$lt', 'undeq'=>'$lte', 'above'=>'$gt', 'aboeq'=>'$gte');
-		$andList = Array();
+		$signList = Array('under'=>'$lt', 'undeq'=>'$lte', 'above'=>'$gt', 'aboeq'=>'$gte');
+		$andsList = Array();
 		foreach(Filter::readWhereArray($filterFields) as $clause){
-			$opToken = $clause['opert'];
-			$fldName = $clause['field'];
-			$matchTo = $clause['value'];
-			if( $opToken=='every' ){
+			$oprtTokn = $clause['opert'];
+			$fieldNme = $clause['field'];
+			$matxVals = $clause['value'];
+			if( $oprtTokn=='every' ){
 				continue;
-			}elseif( $opToken=='never' ){
+			}elseif( $oprtTokn=='never' ){
 				// No document meets none of nothing
-				$andList[] = Array('$nor'=>Array(new \stdClass()));
-			}elseif( $opToken=='equal' ){
-				$andList[] = Array($fldName=>Array('$eq'=>$matchTo));
-			}elseif( $opToken=='diffr' ){
-				$andList[] = Array($fldName=>Array('$nin'=>Array($matchTo, null)));
-			}elseif( $opToken=='match' ){
-				$andList[] = Array($fldName=>Array('$regex'=>self::patternToRegex($matchTo), '$options'=>'is'));
-			}elseif( $opToken=='nmtch' ){
-				$andList[] = Array($fldName=>Array('$not'=>Array('$regex'=>self::patternToRegex($matchTo), '$options'=>'is'), '$ne'=>null));
-			}elseif( $opToken=='among' ){
-				$andList[] = Array($fldName=>Array('$in'=>$matchTo));
-			}elseif( $opToken=='nmong' ){
-				$andList[] = Array($fldName=>Array('$nin'=>array_merge($matchTo, Array(null))));
-			}elseif( $opToken=='unset' ){
-				$andList[] = Array($fldName=>Array('$eq'=>null));
-			}elseif( $opToken=='isset' ){
-				$andList[] = Array($fldName=>Array('$ne'=>null));
+				$andsList[] = Array('$nor'=>Array(new \stdClass()));
+			}elseif( $oprtTokn=='equal' ){
+				$andsList[] = Array($fieldNme=>Array('$eq'=>$matxVals));
+			}elseif( $oprtTokn=='diffr' ){
+				$andsList[] = Array($fieldNme=>Array('$nin'=>Array($matxVals, null)));
+			}elseif( $oprtTokn=='match' ){
+				$andsList[] = Array($fieldNme=>Array('$regex'=>self::patternToRegex($matxVals), '$options'=>'is'));
+			}elseif( $oprtTokn=='nmtch' ){
+				$andsList[] = Array($fieldNme=>Array('$not'=>Array('$regex'=>self::patternToRegex($matxVals), '$options'=>'is'), '$ne'=>null));
+			}elseif( $oprtTokn=='among' ){
+				$andsList[] = Array($fieldNme=>Array('$in'=>$matxVals));
+			}elseif( $oprtTokn=='nmong' ){
+				$andsList[] = Array($fieldNme=>Array('$nin'=>array_merge($matxVals, Array(null))));
+			}elseif( $oprtTokn=='unset' ){
+				$andsList[] = Array($fieldNme=>Array('$eq'=>null));
+			}elseif( $oprtTokn=='isset' ){
+				$andsList[] = Array($fieldNme=>Array('$ne'=>null));
 			}else{
-				$andList[] = Array($fldName=>Array($signLst[$opToken]=>$matchTo));
+				$andsList[] = Array($fieldNme=>Array($signList[$oprtTokn]=>$matxVals));
 			}
 		}
-		return empty($andList) ? Array() : Array('$and'=>$andList);
+		return empty($andsList) ? Array() : Array('$and'=>$andsList);
 	}
 
 	/**
@@ -177,11 +177,11 @@ class MongoStore implements Store {
 	 * @return String The regular expression, covering the whole value.
 	 */
 	protected static function patternToRegex( Array $literalParts ): String {
-		$partLst = Array();
+		$partList = Array();
 		foreach( $literalParts as $oneTkn ){
-			$partLst[] = preg_quote( strval($oneTkn) );
+			$partList[] = preg_quote( strval($oneTkn) );
 		}
-		return '^'.implode('.*', $partLst).'$';
+		return '^'.implode('.*', $partList).'$';
 	}
 
 	/**
@@ -199,8 +199,8 @@ class MongoStore implements Store {
 			return $valueAsGiven;
 		}
 		if( is_string($valueAsGiven) && preg_match('/^[0-9a-fA-F]{24}$/D', $valueAsGiven) ){
-			$keyClss = '\\MongoDB\\BSON\\ObjectId';
-			return new $keyClss($valueAsGiven);
+			$keyClass = '\\MongoDB\\BSON\\ObjectId';
+			return new $keyClass($valueAsGiven);
 		}
 		return $valueAsGiven;
 	}
@@ -218,8 +218,8 @@ class MongoStore implements Store {
 		foreach($fieldValList as $fldNme=>$fldVal){
 			if( $fldVal instanceof \nyu\Data\Fluxd ){
 				$fldVal->rewindToOrigin();
-				$bnryCls = '\\MongoDB\\BSON\\Binary';
-				$fieldValList[$fldNme] = new $bnryCls($fldVal->getWholeString(self::BLOB_MAXI), 0);
+				$bnryClss = '\\MongoDB\\BSON\\Binary';
+				$fieldValList[$fldNme] = new $bnryClss($fldVal->getWholeString(self::BLOB_MAXI), 0);
 			}
 		}
 		return $fieldValList;
@@ -264,16 +264,16 @@ class MongoStore implements Store {
 	 * @throws \RuntimeException When a name is not valid, or a needed filter matches every row.
 	 */
 	protected function sentQueryArray(Array $filterFields, Bool $needCriteria=false): Array {
-		$findDoc = self::makeQueryArray($filterFields);
-		if( $needCriteria && empty($findDoc) ){
+		$findDocu = self::makeQueryArray($filterFields);
+		if( $needCriteria && empty($findDocu) ){
 			throw new \RuntimeException('A change or a deletion needs a filter: a whole table is never changed at once');
 		}
-		foreach(($findDoc['$and'] ?? Array()) as $docKey=>$clause){
+		foreach(($findDocu['$and'] ?? Array()) as $docKey=>$clause){
 			if( isset($clause['_id']) ){
-				$findDoc['$and'][$docKey]['_id'] = $this->castObjectKeys($clause['_id']);
+				$findDocu['$and'][$docKey]['_id'] = $this->castObjectKeys($clause['_id']);
 			}
 		}
-		return $findDoc;
+		return $findDocu;
 	}
 
 	/**
@@ -295,62 +295,62 @@ class MongoStore implements Store {
 				throw new \RuntimeException($phrase.' are not available on a document store');
 			}
 		}
-		$options = Array();
+		$optsDict = Array();
 		// Fields: those asked for, under the name asked for
-		$aliasOf = Array();
+		$aliasTbl = Array();
 		foreach( (array)($queryOptions['field'] ?? Array()) as $column ){
-			$fldName = $this->checkNameChars(is_array($column) ? strval($column['field'] ?? '') : strval($column));
-			$fldAlis = is_array($column) ? strval($column['alias'] ?? '') : '';
-			$options['projection'][$fldName] = 1;
-			if( $fldAlis!='' ){
-				$aliasOf[$fldName] = $this->checkNameChars($fldAlis);
+			$fieldNme = $this->checkNameChars(is_array($column) ? strval($column['field'] ?? '') : strval($column));
+			$fieldAls = is_array($column) ? strval($column['alias'] ?? '') : '';
+			$optsDict['projection'][$fieldNme] = 1;
+			if( $fieldAls!='' ){
+				$aliasTbl[$fieldNme] = $this->checkNameChars($fieldAls);
 			}
 		}
-		if( isset($options['projection']) && !isset($options['projection']['_id']) ){
-			$options['projection']['_id'] = 0;
+		if( isset($optsDict['projection']) && !isset($optsDict['projection']['_id']) ){
+			$optsDict['projection']['_id'] = 0;
 		}
 		foreach( (array)($queryOptions['order'] ?? Array()) as $sortBy ){
-			$sortDef = array_values((array)$sortBy);
-			$options['sort'][$this->checkNameChars(strval($sortDef[0] ?? ''))] = empty($sortDef[1]) ? 1 : -1;
+			$sortDefn = array_values((array)$sortBy);
+			$optsDict['sort'][$this->checkNameChars(strval($sortDefn[0] ?? ''))] = empty($sortDefn[1]) ? 1 : -1;
 		}
 		if( isset($queryOptions['limit']) ){
-			$options['limit'] = max(0, intval($queryOptions['limit']));
+			$optsDict['limit'] = max(0, intval($queryOptions['limit']));
 			if( isset($queryOptions['offst']) ){
-				$options['skip'] = max(0, intval($queryOptions['offst']));
+				$optsDict['skip'] = max(0, intval($queryOptions['offst']));
 			}
 		}
-		$findDoc = $this->sentQueryArray($filterFields);
-		$namedLs = array_keys(array_filter($options['projection'] ?? Array()));
-		$byteMax = max(0, intval($queryOptions['bytes'] ?? self::BLOB_SIZE));
-		$matches = Array();
-		$rowList = Array();
+		$findDocu = $this->sentQueryArray($filterFields);
+		$namedLst = array_keys(array_filter($optsDict['projection'] ?? Array()));
+		$maxBytes = max(0, intval($queryOptions['bytes'] ?? self::BLOB_SIZE));
+		$matxRows = Array();
+		$rowsList = Array();
 		try{
-			$qryClss = '\\MongoDB\\Driver\\Query';
-			$rowCrsr = $this->managerObj->executeQuery($this->hostDbName.'.'.$tbleLabelTxt, new $qryClss($findDoc, $options));
-			$rowCrsr->setTypeMap(Array('root'=>'array', 'document'=>'array', 'array'=>'array'));
-			foreach($rowCrsr as $oneDoc){
-				$rowList[] = $oneDoc;
+			$queryCls = '\\MongoDB\\Driver\\Query';
+			$rowCrsor = $this->managerObj->executeQuery($this->hostDbName.'.'.$tbleLabelTxt, new $queryCls($findDocu, $optsDict));
+			$rowCrsor->setTypeMap(Array('root'=>'array', 'document'=>'array', 'array'=>'array'));
+			foreach($rowCrsor as $oneDoc){
+				$rowsList[] = $oneDoc;
 			}
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
 			return false;
 		}
-		foreach($rowList as $oneDoc){
+		foreach($rowsList as $oneDoc){
 			// What is binary is given as a flux when it was asked for by name, and left out otherwise
-			$oneDoc = self::blobsReadArray($oneDoc, $namedLs, $byteMax);
+			$oneDoc = self::blobsReadArray($oneDoc, $namedLst, $maxBytes);
 			// The key is given as text, like the keys of the SQL types
 			if( isset($oneDoc['_id']) && is_object($oneDoc['_id']) ){
 				$oneDoc['_id'] = strval($oneDoc['_id']);
 			}
-			foreach($aliasOf as $fldNme=>$newNme){
+			foreach($aliasTbl as $fldNme=>$newNme){
 				if( array_key_exists($fldNme, $oneDoc) ){
 					$oneDoc[$newNme] = $oneDoc[$fldNme];
 					unset($oneDoc[$fldNme]);
 				}
 			}
-			$matches[] = $oneDoc;
+			$matxRows[] = $oneDoc;
 		}
-		return $matches;
+		return $matxRows;
 	}
 
 	/**
@@ -373,11 +373,11 @@ class MongoStore implements Store {
 		}
 		$fieldValList = self::blobsSentArray($fieldValList);
 		try{
-			$blckCls = '\\MongoDB\\Driver\\BulkWrite';
-			$bulkOps = new $blckCls();
-			$madeKey = $bulkOps->insert($fieldValList);
-			$this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOps);
-			return strval($madeKey ?? $fieldValList['_id'] ?? '');
+			$blockCls = '\\MongoDB\\Driver\\BulkWrite';
+			$bulkOprt = new $blockCls();
+			$madeClef = $bulkOprt->insert($fieldValList);
+			$this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOprt);
+			return strval($madeClef ?? $fieldValList['_id'] ?? '');
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
 			return false;
@@ -398,7 +398,7 @@ class MongoStore implements Store {
 	public function updateRowCount(String $tbleLabelTxt, Array $filterFields, Array $fieldValList): Int|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		$findDoc = $this->sentQueryArray($filterFields, true);
+		$findDocu = $this->sentQueryArray($filterFields, true);
 		foreach(array_keys($fieldValList) as $fldNme){
 			$this->checkNameChars(strval($fldNme));
 		}
@@ -407,11 +407,11 @@ class MongoStore implements Store {
 		}
 		$fieldValList = self::blobsSentArray($fieldValList);
 		try{
-			$blckCls = '\\MongoDB\\Driver\\BulkWrite';
-			$bulkOps = new $blckCls();
-			$bulkOps->update($findDoc, Array('$set'=>$fieldValList), Array('multi'=>true));
-			$wrtDone = $this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOps);
-			return intval($wrtDone->getMatchedCount());
+			$blockCls = '\\MongoDB\\Driver\\BulkWrite';
+			$bulkOprt = new $blockCls();
+			$bulkOprt->update($findDocu, Array('$set'=>$fieldValList), Array('multi'=>true));
+			$writeDun = $this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOprt);
+			return intval($writeDun->getMatchedCount());
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
 			return false;
@@ -431,13 +431,13 @@ class MongoStore implements Store {
 	public function deleteRowCount(String $tbleLabelTxt, Array $filterFields): Int|Bool {
 		$this->errMessage = false;
 		$this->checkNameChars($tbleLabelTxt);
-		$findDoc = $this->sentQueryArray($filterFields, true);
+		$findDocu = $this->sentQueryArray($filterFields, true);
 		try{
-			$blckCls = '\\MongoDB\\Driver\\BulkWrite';
-			$bulkOps = new $blckCls();
-			$bulkOps->delete($findDoc, Array('limit'=>0));
-			$wrtDone = $this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOps);
-			return intval($wrtDone->getDeletedCount());
+			$blockCls = '\\MongoDB\\Driver\\BulkWrite';
+			$bulkOprt = new $blockCls();
+			$bulkOprt->delete($findDocu, Array('limit'=>0));
+			$writeDun = $this->managerObj->executeBulkWrite($this->hostDbName.'.'.$tbleLabelTxt, $bulkOprt);
+			return intval($writeDun->getDeletedCount());
 		}catch( \Exception $e ){
 			$this->errMessage = 'MongoDB Error: '.$e->getMessage();
 			return false;

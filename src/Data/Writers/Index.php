@@ -41,12 +41,12 @@ class Index {
 	 * @return ?Writer The writer, null when the extension has none.
 	 */
 	public static function forExtnsWriter(String $extensionTxt): ?Writer {
-		$extList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
-		if( $extList===null ){
+		$extnList = self::$extnsArray[strtolower($extensionTxt)] ?? null;
+		if( $extnList===null ){
 			return null;
 		}
-		$wrtrCls = (strpos($extList[0], '\\')===false) ? __NAMESPACE__.'\\'.$extList[0] : $extList[0];
-		return new $wrtrCls();
+		$wrtrClss = (strpos($extnList[0], '\\')===false) ? __NAMESPACE__.'\\'.$extnList[0] : $extnList[0];
+		return new $wrtrClss();
 	}
 
 	/**
@@ -81,11 +81,11 @@ class Index {
 	 * @throws \RuntimeException When the extension is not a plain name, the class is not a writer, or the content type is not one.
 	 */
 	public static function registerWriter(String $extensionTxt, String $writerClsNme, Array $writeOptions=Array(), String $sentMimeType='application/octet-stream'): Void {
-		$wrtrCls = (strpos($writerClsNme, '\\')===false) ? __NAMESPACE__.'\\'.$writerClsNme : $writerClsNme;
+		$wrtrClss = (strpos($writerClsNme, '\\')===false) ? __NAMESPACE__.'\\'.$writerClsNme : $writerClsNme;
 		if( !preg_match('/^\w+$/D', $extensionTxt) ){
 			throw new \RuntimeException('Invalid file extension: '.$extensionTxt);
 		}
-		if( !class_exists($wrtrCls) || !is_subclass_of($wrtrCls, Writer::class) ){
+		if( !class_exists($wrtrClss) || !is_subclass_of($wrtrClss, Writer::class) ){
 			throw new \RuntimeException('Not a writer: '.$writerClsNme);
 		}
 		// A content type goes into a header of the reply: it holds nothing that could start another one

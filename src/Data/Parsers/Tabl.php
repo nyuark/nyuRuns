@@ -40,32 +40,32 @@ class Tabl extends Base {
 	 * @throws ParseError When the separator asked for is not a known one, or a quote is left open.
 	 */
 	public function parseDataArray(String $nakedContent, Array $parseOptions=Array()): Array {
-		$tblText = self::recodeTextUtf8($nakedContent);
-		$divider = strval($parseOptions['separ'] ?? '');
+		$tableTxt = self::recodeTextUtf8($nakedContent);
+		$dvdrText = strval($parseOptions['separ'] ?? '');
 		// The separator whatever its case, as SEPR_LIST writes it
-		$divider = strval( array_values(preg_grep('/^'.preg_quote($divider, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $divider );
-		if( $divider!=='' && !isset(self::SEPR_LIST[$divider]) ){
-			throw new ParseError('Invalid table option: unknown separator '.$divider);
+		$dvdrText = strval( array_values(preg_grep('/^'.preg_quote($dvdrText, '/').'$/iD', array_keys(self::SEPR_LIST)))[0] ?? $dvdrText );
+		if( $dvdrText!=='' && !isset(self::SEPR_LIST[$dvdrText]) ){
+			throw new ParseError('Invalid table option: unknown separator '.$dvdrText);
 		}
-		if( $divider==='' ){
-			$divider = $this->guessSeparator($tblText);
+		if( $dvdrText==='' ){
+			$dvdrText = $this->guessSeparator($tableTxt);
 		}
 		// The marker some tools write at the start of a file is taken off the text; whether it was there is told
-		$infoArr = Array('separ'=>$divider, 'heads'=>Array(), 'colms'=>0, 'lines'=>0, 'bomrk'=>in_array(substr($nakedContent, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true) || substr($nakedContent, 0, 3)==="\xEF\xBB\xBF");
-		if( trim($tblText)==='' ){
-			return $this->makeShapeArray('sheet', Array(), $infoArr);
+		$infoList = Array('separ'=>$dvdrText, 'heads'=>Array(), 'colms'=>0, 'lines'=>0, 'bomrk'=>in_array(substr($nakedContent, 0, 2), Array("\xFF\xFE", "\xFE\xFF"), true) || substr($nakedContent, 0, 3)==="\xEF\xBB\xBF");
+		if( trim($tableTxt)==='' ){
+			return $this->makeShapeArray('sheet', Array(), $infoList);
 		}
-		$rowsLst = $this->readCellsArray($tblText, self::SEPR_LIST[$divider], !empty($parseOptions['types']));
-		if( !empty($parseOptions['heads']) && !empty($rowsLst) ){
-			$headLst = Array();
-			$rowsLst = $this->keyedRowsArray($rowsLst, $headLst);
-			$infoArr['heads'] = $headLst;
+		$rowsList = $this->readCellsArray($tableTxt, self::SEPR_LIST[$dvdrText], !empty($parseOptions['types']));
+		if( !empty($parseOptions['heads']) && !empty($rowsList) ){
+			$headList = Array();
+			$rowsList = $this->keyedRowsArray($rowsList, $headList);
+			$infoList['heads'] = $headList;
 		}
-		$infoArr['colms'] = empty($rowsLst) ? count($infoArr['heads']) : max(count($infoArr['heads']), max(array_map('count', $rowsLst)));
-		$infoArr['lines'] = count($rowsLst);
-		$shetArr = Shape::makeSheetArray('', Array());
-		$shetArr['cells'] = $rowsLst;
-		return $this->makeShapeArray('sheet', Array($shetArr), $infoArr);
+		$infoList['colms'] = empty($rowsList) ? count($infoList['heads']) : max(count($infoList['heads']), max(array_map('count', $rowsList)));
+		$infoList['lines'] = count($rowsList);
+		$sheetLst = Shape::makeSheetArray('', Array());
+		$sheetLst['cells'] = $rowsList;
+		return $this->makeShapeArray('sheet', Array($sheetLst), $infoList);
 	}
 
 	/**
@@ -77,22 +77,22 @@ class Tabl extends Base {
 	 * @return String The code of the separator; 'commaSep' when none is met.
 	 */
 	protected function guessSeparator(String $nakedContent): String {
-		$lineLst = array_slice(array_values(array_filter(preg_split('/\r\n|\r|\n/', substr($nakedContent, 0, 65536)), function($markdownLine){ return trim($markdownLine)!==''; })), 0, 10);
-		$bestKey = 'commaSep';
-		$bestScr = 0;
+		$lineList = array_slice(array_values(array_filter(preg_split('/\r\n|\r|\n/', substr($nakedContent, 0, 65536)), function($markdownLine){ return trim($markdownLine)!==''; })), 0, 10);
+		$bestClef = 'commaSep';
+		$bestScor = 0;
 		foreach(self::SEPR_LIST as $sprKey=>$sprChr){
-			$cntList = Array();
-			foreach($lineLst as $linTxt){
+			$countLst = Array();
+			foreach($lineList as $linTxt){
 				// What stands between quotes is not counted
-				$cntList[] = substr_count(preg_replace('/"[^"]*"/', '', $linTxt), $sprChr);
+				$countLst[] = substr_count(preg_replace('/"[^"]*"/', '', $linTxt), $sprChr);
 			}
-			$sprScor = empty($cntList) ? 0 : ((min($cntList)>0 && min($cntList)==max($cntList)) ? 1000000 + min($cntList) : array_sum($cntList));
-			if( $sprScor>$bestScr ){
-				$bestKey = $sprKey;
-				$bestScr = $sprScor;
+			$seprScor = empty($countLst) ? 0 : ((min($countLst)>0 && min($countLst)==max($countLst)) ? 1000000 + min($countLst) : array_sum($countLst));
+			if( $seprScor>$bestScor ){
+				$bestClef = $sprKey;
+				$bestScor = $seprScor;
 			}
 		}
-		return $bestKey;
+		return $bestClef;
 	}
 
 	/**
@@ -106,60 +106,60 @@ class Tabl extends Base {
 	 * @throws ParseError When a quote is left open.
 	 */
 	protected function readCellsArray(String $nakedContent, String $separatorVal, Bool $typedResults): Array {
-		$rowsLst = Array();
-		$cellLst = Array();
-		$blankRw = true;
-		$txtSize = strlen($nakedContent);
-		$readPos = 0;
-		$lineNum = 1;
-		while( $readPos<$txtSize ){
-			$cellTxt = '';
-			$inQuote = false;
-			if( $nakedContent[$readPos]=='"' ){
-				$inQuote = true;
-				$readPos++;
+		$rowsList = Array();
+		$cellList = Array();
+		$blankRow = true;
+		$textSize = strlen($nakedContent);
+		$readIndx = 0;
+		$lineNumb = 1;
+		while( $readIndx<$textSize ){
+			$cellText = '';
+			$isQuoted = false;
+			if( $nakedContent[$readIndx]=='"' ){
+				$isQuoted = true;
+				$readIndx++;
 				while( true ){
-					$endPstn = strpos($nakedContent, '"', $readPos);
-					if( $endPstn===false ){
-						throw new ParseError('Invalid table content: quote left open on line '.$lineNum);
+					$quotePos = strpos($nakedContent, '"', $readIndx);
+					if( $quotePos===false ){
+						throw new ParseError('Invalid table content: quote left open on line '.$lineNumb);
 					}
-					$cellTxt .= substr($nakedContent, $readPos, $endPstn-$readPos);
-					$readPos = $endPstn+1;
+					$cellText .= substr($nakedContent, $readIndx, $quotePos-$readIndx);
+					$readIndx = $quotePos+1;
 					// A quote written twice is a quote of the text
-					if( $readPos<$txtSize && $nakedContent[$readPos]=='"' ){
-						$cellTxt .= '"';
-						$readPos++;
+					if( $readIndx<$textSize && $nakedContent[$readIndx]=='"' ){
+						$cellText .= '"';
+						$readIndx++;
 						continue;
 					}
 					break;
 				}
-				$cellTxt = str_replace(Array("\r\n", "\r"), "\n", $cellTxt);
-				$lineNum += substr_count($cellTxt, "\n");
+				$cellText = str_replace(Array("\r\n", "\r"), "\n", $cellText);
+				$lineNumb += substr_count($cellText, "\n");
 			}
-			$restLen = strcspn($nakedContent, $separatorVal."\r\n", $readPos);
-			$cellTxt .= substr($nakedContent, $readPos, $restLen);
-			$readPos += $restLen;
-			$blankRw = ($blankRw && !$inQuote && $cellTxt==='');
-			$cellLst[] = ($typedResults && !$inQuote) ? $this->castCellToType($cellTxt) : $cellTxt;
-			if( $readPos<$txtSize && $nakedContent[$readPos]===$separatorVal ){
-				$readPos++;
-				$blankRw = false;
-				if( $readPos<$txtSize ){
+			$restSize = strcspn($nakedContent, $separatorVal."\r\n", $readIndx);
+			$cellText .= substr($nakedContent, $readIndx, $restSize);
+			$readIndx += $restSize;
+			$blankRow = ($blankRow && !$isQuoted && $cellText==='');
+			$cellList[] = ($typedResults && !$isQuoted) ? $this->castCellToType($cellText) : $cellText;
+			if( $readIndx<$textSize && $nakedContent[$readIndx]===$separatorVal ){
+				$readIndx++;
+				$blankRow = false;
+				if( $readIndx<$textSize ){
 					continue;
 				}
 				// A separator ending the content is followed by an empty cell
-				$cellLst[] = $typedResults ? null : '';
+				$cellList[] = $typedResults ? null : '';
 			}
 			// The row ends here: on a line end, or with the content
-			$readPos += (substr($nakedContent, $readPos, 2)==="\r\n") ? 2 : 1;
-			$lineNum++;
-			if( !$blankRw ){
-				$rowsLst[] = $cellLst;
+			$readIndx += (substr($nakedContent, $readIndx, 2)==="\r\n") ? 2 : 1;
+			$lineNumb++;
+			if( !$blankRow ){
+				$rowsList[] = $cellList;
 			}
-			$cellLst = Array();
-			$blankRw = true;
+			$cellList = Array();
+			$blankRow = true;
 		}
-		return $rowsLst;
+		return $rowsList;
 	}
 
 	/**
@@ -170,18 +170,18 @@ class Tabl extends Base {
 	 * @return String|Int|Float|Bool|Null The value.
 	 */
 	protected function castCellToType(String $cellRawValue): String|Int|Float|Bool|Null {
-		$trimTxt = trim($cellRawValue);
-		if( $trimTxt==='' ){
+		$trimText = trim($cellRawValue);
+		if( $trimText==='' ){
 			return null;
 		}
-		if( preg_match('/^-?(0|[1-9]\d{0,17})$/D', $trimTxt) ){
-			return intval($trimTxt);
+		if( preg_match('/^-?(0|[1-9]\d{0,17})$/D', $trimText) ){
+			return intval($trimText);
 		}
-		if( preg_match('/^-?(0|[1-9]\d*)(\.\d+)?([eE][+\-]?\d+)?$/D', $trimTxt) && !preg_match('/^-?\d+$/D', $trimTxt) ){
-			return floatval($trimTxt);
+		if( preg_match('/^-?(0|[1-9]\d*)(\.\d+)?([eE][+\-]?\d+)?$/D', $trimText) && !preg_match('/^-?\d+$/D', $trimText) ){
+			return floatval($trimText);
 		}
-		if( in_array(strtolower($trimTxt), Array('true', 'false')) ){
-			return (strtolower($trimTxt)=='true');
+		if( in_array(strtolower($trimText), Array('true', 'false')) ){
+			return (strtolower($trimText)=='true');
 		}
 		return $cellRawValue;
 	}

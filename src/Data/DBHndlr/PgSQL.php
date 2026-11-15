@@ -38,23 +38,23 @@ Class PgSQL extends PDO {
 	 * @throws \RuntimeException When the port, the character set or the waiting time is not valid.
 	 */
 	protected function buildDsnString(String $databaseHost, String $hostBaseText, Array $settingsList=Array()): String {
-		$dsnText = "pgsql:host=$databaseHost;dbname=$hostBaseText";
-		$partNum = strval($settingsList['portNumb'] ?? '');
-		if( $partNum!='' ){
-			if( !ctype_digit($partNum) ){
-				throw new \RuntimeException('Invalid database port: '.$partNum);
+		$dsnStrng = "pgsql:host=$databaseHost;dbname=$hostBaseText";
+		$partNumb = strval($settingsList['portNumb'] ?? '');
+		if( $partNumb!='' ){
+			if( !ctype_digit($partNumb) ){
+				throw new \RuntimeException('Invalid database port: '.$partNumb);
 			}
-			$dsnText .= ';port='.$partNum;
+			$dsnStrng .= ';port='.$partNumb;
 		}
-		$charSet = strval($settingsList['encoding'] ?? '');
-		if( $charSet!='' ){
+		$encoding = strval($settingsList['encoding'] ?? '');
+		if( $encoding!='' ){
 			// A character set name (UTF8, LATIN1), not a collation
-			if( !preg_match('/^[A-Za-z0-9]+$/D', $charSet) ){
-				throw new \RuntimeException('Invalid database character set: '.$charSet);
+			if( !preg_match('/^[A-Za-z0-9]+$/D', $encoding) ){
+				throw new \RuntimeException('Invalid database character set: '.$encoding);
 			}
-			$dsnText .= ";options='--client_encoding=".$charSet."'";
+			$dsnStrng .= ";options='--client_encoding=".$encoding."'";
 		}
-		return $dsnText;
+		return $dsnStrng;
 	}
 
 	/**
@@ -67,28 +67,28 @@ Class PgSQL extends PDO {
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	public function tableInfoArray(String $tbleLabelTxt): Array|Bool {
-		$infoQry = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
+		$infoQuer = 'SELECT a.attname AS name, COALESCE(i.indisprimary, false) AS pk, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
 			.' LEFT JOIN pg_index i ON i.indrelid = a.attrelid AND i.indisprimary AND a.attnum = ANY(i.indkey)'
 			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
 		// The quoted name keeps the case of the table as it is written
-		if( !$this->sendBuiltQuery($infoQry, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
+		if( !$this->sendBuiltQuery($infoQuer, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
 			return false;
 		}
-		$fldRows = $this->readLastResult(true);
-		if( !is_array($fldRows) || empty($fldRows) ){
+		$fieldRow = $this->readLastResult(true);
+		if( !is_array($fieldRow) || empty($fieldRow) ){
 			return false;
 		}
-		$tblInfo = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
-		foreach($fldRows as $fldRow){
-			if( $fldRow['pk'] && $tblInfo['pkey']=='' ){
-				$tblInfo['pkey'] = $fldRow['name'];
+		$tableDct = Array('flds'=>Array(), 'pkey'=>'', 'blob'=>Array());
+		foreach($fieldRow as $fldRow){
+			if( $fldRow['pk'] && $tableDct['pkey']=='' ){
+				$tableDct['pkey'] = $fldRow['name'];
 			}
-			$tblInfo['flds'][] = $fldRow['name'];
+			$tableDct['flds'][] = $fldRow['name'];
 			if( strval($fldRow['type'])=='bytea' ){
-				$tblInfo['blob'][] = $fldRow['name'];
+				$tableDct['blob'][] = $fldRow['name'];
 			}
 		}
-		return $tblInfo;
+		return $tableDct;
 	}
 
 	/**
@@ -100,13 +100,13 @@ Class PgSQL extends PDO {
 	 * @throws \RuntimeException When the table name is not valid.
 	 */
 	public function columnTypeList(String $tbleLabelTxt): Array|Bool {
-		$typeQry = 'SELECT a.attname AS name, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
+		$typeQuer = 'SELECT a.attname AS name, format_type(a.atttypid, NULL) AS type FROM pg_attribute a'
 			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;';
-		if( !$this->sendBuiltQuery($typeQry, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
+		if( !$this->sendBuiltQuery($typeQuer, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
 			return false;
 		}
-		$fldRows = $this->readLastResult(true);
-		return ( is_array($fldRows) && !empty($fldRows) ) ? array_column($fldRows, 'type', 'name') : false;
+		$fieldRow = $this->readLastResult(true);
+		return ( is_array($fieldRow) && !empty($fieldRow) ) ? array_column($fieldRow, 'type', 'name') : false;
 	}
 
 	/**
@@ -118,8 +118,8 @@ Class PgSQL extends PDO {
 		if( !$this->sendBuiltQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY table_name;") ){
 			return false;
 		}
-		$tblRows = $this->readLastResult(true);
-		return is_array($tblRows) ? array_map('strval', array_column($tblRows, 'table_name')) : false;
+		$tableRow = $this->readLastResult(true);
+		return is_array($tableRow) ? array_map('strval', array_column($tableRow, 'table_name')) : false;
 	}
 
 	/**

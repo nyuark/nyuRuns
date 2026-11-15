@@ -394,6 +394,10 @@ The list, from the Words and Ladder tabs of the review (2026-11-14):
 
 **Written whole**: every word not listed above.
 
+Kept out of the list: *allows* (no longer a question verb, so it needs no form); the rows whose forms were real words mis-read by the inventory (`Seal`, `Cited`, `Recode`, `Retain`, `Pipe`, `Tries`, `Muted`, `Ahead`, `Atomic`).
+
+A word written short in fewer than 10 names today gets its form, if it needs one, when its names are renamed, by the same rules, and joins this list.
+
 ## 6. Open questions of step 0
 
 1. ~~When is the kind slot left out?~~ Decided 2026-11-12: only when the verb or the object already says it (section 4).
