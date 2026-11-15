@@ -11,7 +11,7 @@ class Fluxd {
 
 	protected $fileHandle;
 	protected $sourcePath;
-	protected $tmpFileArr = Array();
+	protected $tmpFileLst = Array();
 
 	/**
 	 * Private: a source is opened through openLocalFluxd(), openInputFluxd() or
@@ -251,7 +251,7 @@ class Fluxd {
 			if( $savePath===false ){
 				throw new \RuntimeException('The temporary file cannot be made');
 			}
-			$this->tmpFileArr[] = $savePath;
+			$this->tmpFileLst[] = $savePath;
 		}
 		$saveHndl = @fopen($savePath, 'wb');
 		if( $saveHndl===false ){
@@ -293,12 +293,12 @@ class Fluxd {
 			fclose($this->fileHandle);
 		}
 		$this->fileHandle = null;
-		foreach( $this->tmpFileArr as $oneTmp ){
+		foreach( $this->tmpFileLst as $oneTmp ){
 			if( is_file($oneTmp) ){
 				@unlink($oneTmp);
 			}
 		}
-		$this->tmpFileArr = Array();
+		$this->tmpFileLst = Array();
 	}
 
 }

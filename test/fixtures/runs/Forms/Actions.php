@@ -17,7 +17,7 @@ class Actions extends Actionset {
 	 */
 	public function transmit(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->inputsRgst->readLinesArray();
+		$this->replyValue = $this->inputsRegr->readLinesArray();
 	}
 
 	/**
@@ -25,7 +25,7 @@ class Actions extends Actionset {
 	 */
 	public function freeForm(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->inputsRgst->readLinesArray();
+		$this->replyValue = $this->inputsRegr->readLinesArray();
 	}
 
 	/**
@@ -33,7 +33,7 @@ class Actions extends Actionset {
 	 */
 	public function needForm(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->inputsRgst->readLinesArray();
+		$this->replyValue = $this->inputsRegr->readLinesArray();
 	}
 
 	/**
@@ -41,7 +41,7 @@ class Actions extends Actionset {
 	 */
 	public function noFormat(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->inputsRgst->readLinesArray();
+		$this->replyValue = $this->inputsRegr->readLinesArray();
 	}
 
 	/**
@@ -49,6 +49,6 @@ class Actions extends Actionset {
 	 */
 	public function badInput(): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->inputsRgst->readLinesArray();
+		$this->replyValue = $this->inputsRegr->readLinesArray();
 	}
 }

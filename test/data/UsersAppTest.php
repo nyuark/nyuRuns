@@ -94,7 +94,7 @@ function sentMail(): Array {
 function callActn( String $routeNamed, Array $inputArray=Array(), String $loggedUser='anna', String $loggedRole='managers', String $httpMethod='POST' ): Mixed {
 	return runCatchThrown(function() use ($routeNamed, $inputArray, $loggedUser, $loggedRole, $httpMethod){
 		$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'192.0.2.50', 'HTTP_ACCEPT_LANGUAGE'=>strval($GLOBALS['acptLang'] ?? '')) );
-		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
+		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'reqtInMthd');
 		$mthProp->setValue($request, $httpMethod);
 		$axssReg = new Registry( ($loggedUser!='')
 			? Array('loggedIn'=>true, 'userName'=>$loggedUser, 'userRole'=>$loggedRole, 'statCode'=>200, 'statMssg'=>'')

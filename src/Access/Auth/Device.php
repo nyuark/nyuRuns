@@ -28,7 +28,7 @@ class Device implements Handler{
 	protected $stampEvery;
 	protected $seenDevice;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * @param Array $configValues Config block, optionally with the 'linkName' configured database holding both tables
@@ -57,7 +57,7 @@ class Device implements Handler{
 	 */
 	function checkSecretArr( Array $loginDataLst ): Array|Bool {
 		$givenTkn = strval($loginDataLst['key'] ?? '');
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		if( $givenTkn=='' ){
 			$this->errMessage = 'No API key provided';
 			return false;
@@ -70,7 +70,7 @@ class Device implements Handler{
 		// A revoked device, or one whose user is not active, is answered like an unknown token
 		if( $dvceVals===null || ($dvceVals['revokeDate'] ?? null)!==null || ($dvceVals['userStatus'] ?? '')!=='approved' ){
 			$this->errMessage = 'Invalid API key';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		// The role is the lower of the cap and the user's current role; a cap that is not a role refuses the device, never falls back to the user's role
@@ -281,7 +281,7 @@ class Device implements Handler{
 	 * @return Bool True when a token was presented and refused.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

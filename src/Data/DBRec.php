@@ -22,7 +22,7 @@ class DBRec {
 	protected $fieldsList;
 
 	protected $recordData;
-	protected $parentRels;
+	protected $parentRltn;
 	protected $childLinks;
 	// Names under which linked rows were attached to the record: never saved
 	protected $linkFields = Array();
@@ -62,7 +62,7 @@ class DBRec {
 			$this->childLinks = $childrenList;
 		}
 		if( !empty($parentTables) ){
-			$this->parentRels = $parentTables;
+			$this->parentRltn = $parentTables;
 		}
 	}
 
@@ -113,8 +113,8 @@ class DBRec {
 				$this->attachChildren($chldArg1, $chldArg2, $chldArg3, $chldArg4, $chldArg5);
 			}
 		}
-		if( !empty($this->parentRels) ){
-			foreach( $this->parentRels as $prnTab=>$prnFld){
+		if( !empty($this->parentRltn) ){
+			foreach( $this->parentRltn as $prnTab=>$prnFld){
 				$prntArg2 = false;
 				$prntArg3 = '';
 				$prntArg4 = '';

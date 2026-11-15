@@ -19,7 +19,7 @@ class Actions extends Actionset {
 	 */
 	protected function setupForAction(): Void {
 		$this->stepsTaken[] = 'setupForAction';
-		if( $this->inputsRgst->readValueByKey('refuse')==='yes' ){
+		if( $this->inputsRegr->readValueByKey('refuse')==='yes' ){
 			$this->replyValue = $this->stepsTaken;
 			$this->stopThisAction(403, 'Refused before the action');
 		}
@@ -44,7 +44,7 @@ class Actions extends Actionset {
 			'actnOptn'=>$this->runContext->optionText,
 			'appIdent'=>$this->runContext->runAppName,
 			'appsFldr'=>$this->runContext->appsFolder,
-			'inputReg'=>$this->inputsRgst===$this->runContext->inputsRgst,
+			'inputReg'=>$this->inputsRegr===$this->runContext->inputsRegr,
 			'modStack'=>$this->modelStack===$this->runContext->modelStack
 		);
 	}

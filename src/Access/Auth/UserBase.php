@@ -255,7 +255,7 @@ class UserBase extends Native{
 		}
 		if( $rowCount<1 ){
 			Logger::retrieveLogger('access')->warning( 'Activation refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return $this->declineForFlag(401, 'Invalid activation');
 		}
 		$userVals = $this->fetchUserArray($namedUserTxt);
@@ -355,7 +355,7 @@ class UserBase extends Native{
 		}
 		if( $rowCount<1 ){
 			Logger::retrieveLogger('access')->warning( 'Password reset refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return $this->declineForFlag(401, 'Invalid code');
 		}
 		Logger::retrieveLogger('access')->notice( 'Password of user '.json_encode($namedUserTxt).' reset with its code'.Logger::getActorSuffix() );
@@ -448,13 +448,13 @@ class UserBase extends Native{
 		$matxList = password_verify( $previousPass, strval($userVals['passwdHash'] ?? '') );
 		if( $this->hasHeldNowFlag($userVals) ){
 			$accsJrnl->warning( 'Password change refused: user '.json_encode($namedUserTxt).' is held after too many attempts'.Logger::getActorSuffix() );
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return $this->declineForFlag(401, 'Invalid credentials');
 		}
 		if( !$matxList ){
 			$this->countFailedTry($namedUserTxt);
 			$accsJrnl->warning( 'Password change refused for user '.json_encode($namedUserTxt).': wrong current password'.Logger::getActorSuffix() );
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return $this->declineForFlag(401, 'Invalid credentials');
 		}
 		if( $previousPass===$usrPasswdTxt ){
@@ -751,7 +751,7 @@ class UserBase extends Native{
 	protected function forgetLastFail(): Void {
 		$this->latestCode = 200;
 		$this->errMessage = '';
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 	}
 
 	/**

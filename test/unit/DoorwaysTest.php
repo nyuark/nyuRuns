@@ -80,7 +80,7 @@ checkIdentical('a map that is not JSON, a line that is not whole, a preset that 
 function baseRoutr( String $urlAddress, String $basePathTxt ): Router {
 	$request = mockRequestObj();
 	(new ReflectionProperty($request, 'uriDetails'))->setValue($request, Array('fullPath'=>$urlAddress));
-	(new ReflectionProperty($request, 'rqstInMthd'))->setValue($request, 'GET');
+	(new ReflectionProperty($request, 'reqtInMthd'))->setValue($request, 'GET');
 	return new Router( Array('detectBy'=>'manually', 'routeDir'=>'test'.DS.'fixtures'.DS.'routes', 'fileRoot'=>'test'.DS.'fixtures'.DS.'pages'), $request, $basePathTxt );
 }
 $pingReg = baseRoutr('/api/ping', '/api')->locateRouteReg();

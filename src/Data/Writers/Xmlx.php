@@ -32,7 +32,7 @@ class Xmlx extends Base {
 	const ITEM_NAME = 'item';
 
 	// Whether the document is written over several lines, each element further in than the one holding it
-	protected $multiLines = false;
+	protected $isIndented = false;
 
 	/**
 	 * Writes a tree of values as XML.
@@ -61,7 +61,7 @@ class Xmlx extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('nodes'), 'XML');
-		$this->multiLines = !empty($writeOptions['prety']);
+		$this->isIndented = !empty($writeOptions['prety']);
 		$itemVals = Fluxd::nullifySources($dataEnvelope['items'] ?? null);
 		$rootName = strval($writeOptions['roots'] ?? '');
 		if( $rootName!=='' ){
@@ -81,7 +81,7 @@ class Xmlx extends Base {
 		}
 		$typeText = $this->makeDoctypeTxt(array_key_exists('dtype', $writeOptions) ? $writeOptions['dtype'] : (((array)($dataEnvelope['infos'] ?? Array()))['dtype'] ?? false), $rootName);
 		$withHdrs = !isset($writeOptions['heads']) || !empty($writeOptions['heads']);
-		return ($withHdrs ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeText==='') ? '' : $typeText."\n").$bodyText.(($this->multiLines || $withHdrs) ? "\n" : '');
+		return ($withHdrs ? '<?xml version="1.0" encoding="UTF-8"?>'."\n" : '').(($typeText==='') ? '' : $typeText."\n").$bodyText.(($this->isIndented || $withHdrs) ? "\n" : '');
 	}
 
 	/**
@@ -170,7 +170,7 @@ class Xmlx extends Base {
 	 * @return String The end of the line before it and what sets it in; '' when the document is written on one line.
 	 */
 	protected function giveLineIndent(Int $depthLvlNumb): String {
-		return $this->multiLines ? "\n".str_repeat('  ', $depthLvlNumb) : '';
+		return $this->isIndented ? "\n".str_repeat('  ', $depthLvlNumb) : '';
 	}
 
 	/**
@@ -195,14 +195,14 @@ class Xmlx extends Base {
 		}
 		// An element mixing text and elements is written as it is: a space added to it would be part of its text
 		$hasMixed = in_array('#text', array_column($childLst, 'tagnm'), true);
-		$wasMulti = $this->multiLines;
-		$this->multiLines = ($wasMulti && !$hasMixed);
+		$wasMulti = $this->isIndented;
+		$this->isIndented = ($wasMulti && !$hasMixed);
 		$holdText = '';
 		foreach($childLst as $chlArr){
 			$holdText .= (strval($chlArr['tagnm'] ?? '')==='#text') ? $this->escapeXmlValue(is_scalar($chlArr['value'] ?? '') ? strval($chlArr['value'] ?? '') : '') : $this->giveLineIndent($depthLvlNumb+1).$this->treesPieceText($chlArr, $depthLvlNumb+1);
 		}
 		$holdText .= $this->giveLineIndent($depthLvlNumb);
-		$this->multiLines = $wasMulti;
+		$this->isIndented = $wasMulti;
 		return $openText.'>'.$holdText.'</'.$tagTitle.'>';
 	}
 

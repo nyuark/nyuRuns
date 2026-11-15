@@ -16,7 +16,7 @@ namespace nyu\Shell;
  */
 class RunMaker{
 
-	protected $runSpecArr;
+	protected $runSpecDct;
 	protected $runsFolder;
 
 	/**
@@ -32,7 +32,7 @@ class RunMaker{
 		if( $flawText!=='' ){
 			throw new \RuntimeException('Nothing generated: '.$flawText);
 		}
-		$this->runSpecArr = $runSpecArray;
+		$this->runSpecDct = $runSpecArray;
 		$this->runsFolder = rtrim($runsFldrPath, '/\\');
 	}
 
@@ -43,7 +43,7 @@ class RunMaker{
 	 * @return Array The content of each file, by its path.
 	 */
 	public function buildFilesList(): Array {
-		$runFoldr = $this->runsFolder.DS.$this->runSpecArr['appsName'];
+		$runFoldr = $this->runsFolder.DS.$this->runSpecDct['appsName'];
 		$fileList = Array( $runFoldr.DS.'routes.rte'=>$this->routesFileText(), $runFoldr.DS.'Actions.php'=>$this->actionsPhpText() );
 		foreach( $this->inputFileArray() as $oneAct => $oneTxt ){
 			$fileList[$runFoldr.DS.'input'.DS.$oneAct.'.json'] = $oneTxt;
@@ -62,7 +62,7 @@ class RunMaker{
 	 * @return String The content of routes.rte.
 	 */
 	public function routesFileText(): String {
-		$actLstng = $this->runSpecArr['actnList'];
+		$actLstng = $this->runSpecDct['actnList'];
 		$routeLst = Array();
 		foreach( Array(''=>Array('GET'=>'index', 'POST'=>'create'), '$id'=>Array('GET'=>'view', 'PUT'=>'update', 'DELETE'=>'remove')) as $onePth => $oneSet ){
 			$trgtVals = Array();
@@ -75,7 +75,7 @@ class RunMaker{
 				$routeLst[$onePth] = Array('pointsTo'=>$trgtVals);
 			}
 		}
-		foreach( $this->runSpecArr['childSet'] as $oneTbl => $oneSet ){
+		foreach( $this->runSpecDct['childSet'] as $oneTbl => $oneSet ){
 			if( $oneSet['ownRoute'] ){
 				$routeLst['$id/'.$oneTbl] = Array('mthdList'=>'GET', 'pointsTo'=>Array('doAction'=>strval($oneTbl)));
 			}
@@ -93,12 +93,12 @@ class RunMaker{
 	public function inputFileArray(): Array {
 		$fieldAll = Array();
 		$fldsOpti = Array();
-		foreach( $this->runSpecArr['fieldSet'] as $oneFld => $oneFmt ){
+		foreach( $this->runSpecDct['fieldSet'] as $oneFld => $oneFmt ){
 			$fieldAll[$oneFld] = $oneFmt;
 			$fldsOpti[rtrim($oneFld, '!')] = $oneFmt;
 		}
 		$fileList = Array();
-		foreach( $this->runSpecArr['actnList'] as $oneAct ){
+		foreach( $this->runSpecDct['actnList'] as $oneAct ){
 			$fldsDict = match( $oneAct ){
 				'index'=>Array('filters'=>array_fill_keys(array_keys($fldsOpti), ''), 'sortedBy'=>'', 'limitVal'=>'Integer', 'rowIndex'=>'Integer'),
 				'create'=>$fieldAll,
@@ -107,7 +107,7 @@ class RunMaker{
 			};
 			$fileList[$oneAct] = self::tabbedJsonText( Array('fieldSet'=>$fldsDict) );
 		}
-		foreach( $this->runSpecArr['childSet'] as $oneTbl => $oneSet ){
+		foreach( $this->runSpecDct['childSet'] as $oneTbl => $oneSet ){
 			if( $oneSet['ownRoute'] ){
 				$fileList[strval($oneTbl)] = self::tabbedJsonText( Array('fieldSet'=>new \stdClass()) );
 			}
@@ -122,7 +122,7 @@ class RunMaker{
 	 * @return String The minRoles entry.
 	 */
 	public function minRolesString(): String {
-		return '"minRoles": { "'.strtolower($this->runSpecArr['appsName']).'/*": "'.$this->runSpecArr['minmRole'].'" }';
+		return '"minRoles": { "'.strtolower($this->runSpecDct['appsName']).'/*": "'.$this->runSpecDct['minmRole'].'" }';
 	}
 
 	/**
@@ -131,7 +131,7 @@ class RunMaker{
 	 * @return String The content of Actions.php.
 	 */
 	public function actionsPhpText(): String {
-		$specList = $this->runSpecArr;
+		$specList = $this->runSpecDct;
 		$applName = $specList['appsName'];
 		$actLstng = $specList['actnList'];
 		$fldsOpti = Array();

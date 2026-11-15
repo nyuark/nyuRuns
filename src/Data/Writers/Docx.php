@@ -42,7 +42,7 @@ class Docx extends Page {
 	// The notes the text has referred to so far, by their kind then their name: the number Word knows each by
 	protected $citedNotes = Array();
 	// Whether the part being written may not refer to a note: only the text of the document may
-	protected $notesMuted = false;
+	protected $isNoteless = false;
 	// The styles of the content written as styles of the document: name in small letters => id
 	protected $styleTable = Array();
 	// The pictures the part being written shows, each with the id of its relation: name in the document => id
@@ -93,10 +93,10 @@ class Docx extends Page {
 		// The notes are taken out of the text: each is written where the text refers to it
 		$this->remarkList = $this->takeNotesArray($blockLst);
 		$styleTxt = $this->stylePieceText((array)($infoList['frmat'] ?? Array()), $blockLst);
-		$this->notesMuted = false;
+		$this->isNoteless = false;
 		$bodyText = $this->writeAllBlocks($blockLst, 0);
 		// Only the text of the document refers to notes: what follows writes a reference as the text it is
-		$this->notesMuted = true;
+		$this->isNoteless = true;
 		$linkList = Array($this->knownLinks, $this->pictureLst);
 		$headBrut = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n";
 		$rootText = ' xmlns:w="'.self::MAIN_NAME.'" xmlns:r="'.self::RELS_NAME.'" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
@@ -629,7 +629,7 @@ class Docx extends Page {
 			$matxRows = Array();
 			if( preg_match('/^#((fnote|enote)\d+)$/D', $linkAddr, $matxRows) && isset($this->remarkList[$matxRows[2]][$matxRows[1]]) ){
 				// A note is referred to once, from the text of the document: Word numbers it, and writes its number
-				if( !$this->notesMuted && !isset($this->citedNotes[$matxRows[2]][$matxRows[1]]) ){
+				if( !$this->isNoteless && !isset($this->citedNotes[$matxRows[2]][$matxRows[1]]) ){
 					$this->citedNotes[$matxRows[2]][$matxRows[1]] = count($this->citedNotes[$matxRows[2]])+1;
 					$wordName = ($matxRows[2]=='fnote') ? 'footnote' : 'endnote';
 					$runsText .= '<w:r><w:rPr><w:rStyle w:val="'.ucfirst($wordName).'Reference"/></w:rPr><w:'.$wordName.'Reference w:id="'.$this->citedNotes[$matxRows[2]][$matxRows[1]].'"/></w:r>';

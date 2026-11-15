@@ -11,12 +11,12 @@ namespace nyu\Access\Auth;
  */
 class PassList implements Handler{
 
-	protected $passwdFile;
-	protected $weakHashes;
+	protected $hashesFile;
+	protected $canUseWeak;
 	protected $usrLimiter;
 	protected $passedUser = null;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * Builds the check against the password file from its config block.
@@ -28,8 +28,8 @@ class PassList implements Handler{
 	 */
 	function __construct( Array $configValues ){
 		$passFile = $configValues['passFile'] ?? '';
-		$this->passwdFile = ($passFile!='') ? TOP_DIR.DS.$passFile : '';
-		$this->weakHashes = (($configValues['weakHash'] ?? false) === true);
+		$this->hashesFile = ($passFile!='') ? TOP_DIR.DS.$passFile : '';
+		$this->canUseWeak = (($configValues['weakHash'] ?? false) === true);
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
@@ -50,13 +50,13 @@ class PassList implements Handler{
 	function checkSecretArr( Array $loginDataLst ): Array|Bool {
 		$givenUsr = $loginDataLst['user'] ?? '';
 		$givenPwd = $loginDataLst['pass'] ?? '';
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$this->passedUser = null;
-		if( $this->passwdFile=='' || !file_exists($this->passwdFile) ){
+		if( $this->hashesFile=='' || !file_exists($this->hashesFile) ){
 			$this->errMessage = 'Credential store unavailable';
 			return false;
 		}
-		$passNtry = file( $this->passwdFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+		$passNtry = file( $this->hashesFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 		$userHash = null;
 		$fakeHash = null;
 		foreach( $passNtry as $pwdRow ){
@@ -99,7 +99,7 @@ class PassList implements Handler{
 			}
 		}
 		$this->errMessage = 'Invalid credentials';
-		$this->badTryFlag = true;
+		$this->isWrongTry = true;
 		return false;
 	}
 
@@ -140,7 +140,7 @@ class PassList implements Handler{
 		$shaDigst = (substr($htpasswdHash,0,5)=='{SHA}');
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
 		$strnFrmt = in_array(substr($htpasswdHash,0,3), Array('$5$', '$6$'), true);
-		if( !$strnFrmt && !$this->weakHashes ){
+		if( !$strnFrmt && !$this->canUseWeak ){
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "weakHash" option' );
 			return false;
 		}
@@ -202,7 +202,7 @@ class PassList implements Handler{
 	 * @return Bool True when a credential was presented and refused.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

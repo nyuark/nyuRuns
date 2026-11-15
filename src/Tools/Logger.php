@@ -38,7 +38,7 @@ class Logger{
 	protected static $actingUser = '';
 	protected static $actingAddr = '';
 	// A log that cannot be written is told once per process
-	protected static $toldFailed = false;
+	protected static $isFailTold = false;
 
 	/**
 	 * Builds the logger of one channel.
@@ -217,10 +217,10 @@ class Logger{
 	 * @param String $logsFilePath Path of the log file.
 	 */
 	protected function reportFailOnce( String $logsFilePath ): Void {
-		if( self::$toldFailed ){
+		if( self::$isFailTold ){
 			return;
 		}
-		self::$toldFailed = true;
+		self::$isFailTold = true;
 		error_log('nyuRuns log not written: '.$logsFilePath);
 	}
 

@@ -54,7 +54,7 @@ class AccessMail {
 	protected $urlTmplTxt;
 	protected $codeExpiry;
 	protected $folderList;
-	protected $deferMails;
+	protected $isDeferred;
 	protected $mailsQueue = Array();
 
 	/**
@@ -73,7 +73,7 @@ class AccessMail {
 			$this->folderList[] = rtrim($appsFldrText, '/\\').DS.'mails';
 		}
 		$this->folderList[] = TOP_DIR.DS.'conf'.DS.'mails';
-		$this->deferMails = $deferSending;
+		$this->isDeferred = $deferSending;
 	}
 
 	/**
@@ -197,7 +197,7 @@ class AccessMail {
 			Logger::retrieveLogger('runner')->error( 'Access mail '.json_encode($templateName).' not sent: its template cannot be read' );
 			return false;
 		}
-		if( !$this->deferMails ){
+		if( !$this->isDeferred ){
 			return $this->postsEmailFlag($emailAddress, $mailList);
 		}
 		if( empty($this->mailsQueue) ){

@@ -27,7 +27,7 @@ class Checker{
 
 	protected $accessConf;
 	protected $requestObj;
-	protected $routerRgst;
+	protected $routerRegr;
 	protected $routingObj;
 	protected $routesList = null;
 
@@ -42,7 +42,7 @@ class Checker{
 	function __construct( Array $accessConfig, Request $givenRequest, ?Registry $resolvedRegr = null, ?Router $routerObject = null ){
 		$this->accessConf = $accessConfig;
 		$this->requestObj = $givenRequest;
-		$this->routerRgst = $resolvedRegr;
+		$this->routerRegr = $resolvedRegr;
 		$this->routingObj = $routerObject;
 	}
 
@@ -165,7 +165,7 @@ class Checker{
 		}
 		if( empty($this->accessConf) || ($this->accessConf['required'] ?? true) === false || $this->openAccessRout() ){
 			// A route cannot be open and ask for a role : only its own OPTIONS answer goes through
-			if( $needRole!==null && $this->routerRgst->readValueByKey('statCode')!=204 ){
+			if( $needRole!==null && $this->routerRegr->readValueByKey('statCode')!=204 ){
 				$this->logAccsAttempt( false, '', 'Access misconfigured: the route is both open and asking for a role' );
 				return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 			}
@@ -307,7 +307,7 @@ class Checker{
 		$applName = strval($idntList['appsName']);
 		$fromText = ($clientIpAddr!='') ? ' from '.$clientIpAddr : '';
 		$denyList = Array('loggedIn'=>true, 'userName'=>$userName, 'userRole'=>$idntList['userRole'], 'identity'=>$idntList, 'appsName'=>$applName, 'statCode'=>404, 'statMssg'=>'Not Found');
-		if( $this->routerRgst===null || !$keyInstn->allowsRouteFlg($this->routerRgst) ){
+		if( $this->routerRegr===null || !$keyInstn->allowsRouteFlg($this->routerRegr) ){
 			Logger::retrieveLogger('access')->warning( 'App call refused for app '.json_encode($applName).', user '.json_encode($userName).$fromText.' to '.$this->rteDestination().': not a route of the application' );
 			return new Registry( $denyList );
 		}
@@ -372,12 +372,12 @@ class Checker{
 	 * @return Bool Whether the route is open to everyone.
 	 */
 	public function openAccessRout(): Bool {
-		if( $this->routerRgst===null ){
+		if( $this->routerRegr===null ){
 			return false;
 		}
-		$applName = strtolower( strval($this->routerRgst->readValueByKey('appToRun')) );
-		$actnName = strtolower( strval($this->routerRgst->readValueByKey('doAction')) );
-		$routePth = strval($this->routerRgst->readValueByKey('routPath'));
+		$applName = strtolower( strval($this->routerRegr->readValueByKey('appToRun')) );
+		$actnName = strtolower( strval($this->routerRegr->readValueByKey('doAction')) );
+		$routePth = strval($this->routerRegr->readValueByKey('routPath'));
 		$publList = $this->accessConf['openList'] ?? Array();
 		// Declared routes, by their path : whatever they answer with
 		foreach( (array)$publList as $openRt ){
@@ -388,7 +388,7 @@ class Checker{
 		}
 		if( $applName=='' ){
 			// Without an application, only the route's own OPTIONS answer is open
-			return $this->routerRgst->readValueByKey('statCode')==204;
+			return $this->routerRegr->readValueByKey('statCode')==204;
 		}
 		foreach( (array)$publList as $openRt ){
 			if( substr(strval($openRt), 0, 1)=='/' ){
@@ -528,14 +528,14 @@ class Checker{
 	 */
 	public function routRoleString(): ?String {
 		$roleDict = $this->accessConf['minRoles'] ?? Array();
-		if( $this->routerRgst===null || !is_array($roleDict) ){
+		if( $this->routerRegr===null || !is_array($roleDict) ){
 			return null;
 		}
 		// The application is named as the Controller reads it : without its spaces
-		$applRead = strval($this->routerRgst->readValueByKey('appToRun'));
+		$applRead = strval($this->routerRegr->readValueByKey('appToRun'));
 		$applName = strtolower( str_replace(' ', '', $applRead) );
-		$actnName = strtolower( strval($this->routerRgst->readValueByKey('doAction')) );
-		$routePth = strval($this->routerRgst->readValueByKey('routPath'));
+		$actnName = strtolower( strval($this->routerRegr->readValueByKey('doAction')) );
+		$routePth = strval($this->routerRegr->readValueByKey('routPath'));
 		$needRole = null;
 		foreach( $roleDict as $rteKey=>$rteRle ){
 			$rteKey = strval($rteKey);
@@ -573,15 +573,15 @@ class Checker{
 	 */
 	protected function getSigninRoute(): ?String {
 		$signRout = strval($this->accessConf['signPath'] ?? '');
-		if( $signRout=='' || $this->routerRgst===null || $this->routerRgst->readValueByKey('routKind')!='htmlPage' ){
+		if( $signRout=='' || $this->routerRegr===null || $this->routerRegr->readValueByKey('routKind')!='htmlPage' ){
 			return null;
 		}
-		if( trim($signRout, '/')===strval($this->routerRgst->readValueByKey('routPath')) ){
+		if( trim($signRout, '/')===strval($this->routerRegr->readValueByKey('routPath')) ){
 			return null;
 		}
 		$askdPath = strval($this->requestObj->obtainUrlValue('fullPath'));
 		// The sign-in route is one of the preset's : under the basePath it is served under, as the page asked for is
-		$baseText = rtrim(strval($this->routerRgst->readValueByKey('routBase') ?? ''), '/');
+		$baseText = rtrim(strval($this->routerRegr->readValueByKey('routBase') ?? ''), '/');
 		return $baseText.$signRout.( ($askdPath!='' && $askdPath!='/') ? '?back='.rawurlencode($askdPath) : '' );
 	}
 
@@ -603,11 +603,11 @@ class Checker{
 	 * @return String The action or the path.
 	 */
 	protected function rteDestination(): String {
-		if( $this->routerRgst===null ){
+		if( $this->routerRegr===null ){
 			return '/';
 		}
-		$applName = strval($this->routerRgst->readValueByKey('appToRun'));
-		return ($applName!='') ? $applName.'/'.strval($this->routerRgst->readValueByKey('doAction')) : '/'.strval($this->routerRgst->readValueByKey('routPath'));
+		$applName = strval($this->routerRegr->readValueByKey('appToRun'));
+		return ($applName!='') ? $applName.'/'.strval($this->routerRegr->readValueByKey('doAction')) : '/'.strval($this->routerRegr->readValueByKey('routPath'));
 	}
 
 	/**

@@ -29,7 +29,7 @@ class Odtx extends Page {
 	const NAME_LIST = ' xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" office:version="1.2"';
 
 	// The styles made for the paragraphs formatted by hand: what tells one apart => its name and what it gives, as written
-	protected $autoPrgrph = Array();
+	protected $handStyles = Array();
 	// The styles made for the text formatted by hand: its formatting => the name of its style
 	protected $autoStyles = Array();
 	// The names given to places of the document so far
@@ -39,11 +39,11 @@ class Odtx extends Page {
 	// The notes the text has referred to so far, by their kind then their name
 	protected $citedNotes = Array();
 	// Whether what is being written may not refer to a note: a note may not hold another
-	protected $notesMuted = false;
+	protected $isNoteless = false;
 	// The styles of the content written as styles of the document: name in small letters => name in the document
 	protected $styleTable = Array();
 	// Whether the next paragraph starts a new page
-	protected $breakAhead = false;
+	protected $needsBreak = false;
 	// The number of tables written so far
 	protected $tableCount = 0;
 	// What the names of the styles made by hand start with: nothing in the text, a letter in what stands around the pages, whose styles are kept apart
@@ -87,35 +87,35 @@ class Odtx extends Page {
 		$this->autoPrefix = '';
 		$infoList = (array)($dataEnvelope['infos'] ?? Array());
 		$blockLst = ($shapeNme=='sheet') ? $this->sheetsAsBlocks((array)($dataEnvelope['items'] ?? Array())) : (array)($dataEnvelope['items'] ?? Array());
-		$this->autoPrgrph = Array();
+		$this->handStyles = Array();
 		$this->autoStyles = Array();
 		$this->anchorList = Array();
 		$this->citedNotes = Array('fnote'=>Array(), 'enote'=>Array());
-		$this->notesMuted = false;
-		$this->breakAhead = false;
+		$this->isNoteless = false;
+		$this->needsBreak = false;
 		$this->tableCount = 0;
 		// The notes are taken out of the text: each is written where the text refers to it
 		$this->remarkList = $this->takeNotesArray($blockLst);
 		$styleTxt = $this->stylePieceText((array)($infoList['frmat'] ?? Array()), $blockLst);
 		$bodyText = $this->writeAllBlocks($blockLst);
 		// A note the text never referred to is not lost: it ends the document, as text
-		$this->notesMuted = true;
+		$this->isNoteless = true;
 		foreach(Array('fnote', 'enote') as $nteKnd){
 			foreach(array_diff_key($this->remarkList[$nteKnd], $this->citedNotes[$nteKnd]) as $blkArr){
 				$bodyText .= $this->blckPartString(Array('block'=>'paragrph') + $blkArr);
 			}
 		}
 		// A page that was to start and has nothing to start with still starts
-		if( $this->breakAhead ){
+		if( $this->needsBreak ){
 			$bodyText .= $this->paragraphPiece('Standard', Array(), Array());
 		}
 		$autoText = $this->autosPieceText($sizeDict);
 		// What stands at the top and at the bottom of the pages. Its styles are kept apart from those of the text,
 		// under names of their own; it refers to no note, and starts no page
-		$this->autoPrgrph = Array();
+		$this->handStyles = Array();
 		$this->autoStyles = Array();
 		$this->autoPrefix = 'M';
-		$this->breakAhead = false;
+		$this->needsBreak = false;
 		$mstrText = '';
 		$roomText = '';
 		foreach(Array('phead'=>'header', 'pfoot'=>'footer') as $infKey=>$pgeNme){
@@ -274,7 +274,7 @@ class Odtx extends Page {
 	 */
 	protected function autosPieceText(Array $pageMeasures): String {
 		$autoText = '';
-		foreach($this->autoPrgrph as $stlSet){
+		foreach($this->handStyles as $stlSet){
 			$autoText .= '<style:style style:name="'.$stlSet[0].'" style:family="paragraph" style:parent-style-name="'.$stlSet[1].'"><style:paragraph-properties'.$stlSet[2].'/></style:style>';
 		}
 		foreach($this->autoStyles as $mrkKey=>$oneNme){
@@ -394,7 +394,7 @@ class Odtx extends Page {
 		if( $blockCod=='ruleLine' ){
 			// A page ends here: the paragraph that follows starts the next one. Or a line is drawn across the page
 			if( !empty($attrDict['break']) ){
-				$this->breakAhead = true;
+				$this->needsBreak = true;
 				return '';
 			}
 			return $this->paragraphPiece('Standard', Array(), Array('lined'=>true));
@@ -448,7 +448,7 @@ class Odtx extends Page {
 		// The areas still running down their columns: column => the rows left to cover and the columns covered
 		$openList = Array();
 		// A table starts no page by itself: a paragraph before it does
-		$prevText = $this->breakAhead ? $this->paragraphPiece('Standard', Array(), Array()) : '';
+		$prevText = $this->needsBreak ? $this->paragraphPiece('Standard', Array(), Array()) : '';
 		// The columns of the table, for the room each cell leaves a picture
 		$clmnsAll = 1;
 		foreach((array)($contentBlock['items'] ?? Array()) as $oneRow){
@@ -529,15 +529,15 @@ class Odtx extends Page {
 	protected function paragraphPiece(String $styleDocName, Array $textSpanList, Array $attributeSet, Int $headsLvlNumb=0): String {
 		// What a paragraph adds to its style makes a style of its own, based on it: how it is aligned, the page it starts, the line under it
 		$alignKey = is_scalar($attributeSet['align'] ?? '') ? strval($attributeSet['align'] ?? '') : '';
-		$handText = (isset(self::ALGN_LIST[$alignKey]) ? ' fo:text-align="'.self::ALGN_LIST[$alignKey].'"' : '').($this->breakAhead ? ' fo:break-before="page"' : '').(empty($attributeSet['lined']) ? '' : ' fo:border-bottom="0.5pt solid #000000" fo:padding-bottom="0.035cm"');
-		$this->breakAhead = false;
+		$handText = (isset(self::ALGN_LIST[$alignKey]) ? ' fo:text-align="'.self::ALGN_LIST[$alignKey].'"' : '').($this->needsBreak ? ' fo:break-before="page"' : '').(empty($attributeSet['lined']) ? '' : ' fo:border-bottom="0.5pt solid #000000" fo:padding-bottom="0.035cm"');
+		$this->needsBreak = false;
 		$styleNme = $styleDocName;
 		if( $handText!=='' ){
 			$handClef = $styleDocName.'|'.$handText;
-			if( !isset($this->autoPrgrph[$handClef]) ){
-				$this->autoPrgrph[$handClef] = Array($this->autoPrefix.'P'.(count($this->autoPrgrph)+1), $styleDocName, $handText);
+			if( !isset($this->handStyles[$handClef]) ){
+				$this->handStyles[$handClef] = Array($this->autoPrefix.'P'.(count($this->handStyles)+1), $styleDocName, $handText);
 			}
-			$styleNme = $this->autoPrgrph[$handClef][0];
+			$styleNme = $this->handStyles[$handClef][0];
 		}
 		// A place that is named can be pointed to from the rest of the document; the names of the notes are the document's to give
 		$markText = '';
@@ -570,7 +570,7 @@ class Odtx extends Page {
 			$matxRows = Array();
 			if( preg_match('/^#((fnote|enote)\d+)$/D', $linkAddr, $matxRows) && isset($this->remarkList[$matxRows[2]][$matxRows[1]]) ){
 				// A note is written where the text first refers to it: the document numbers it
-				if( !$this->notesMuted && !isset($this->citedNotes[$matxRows[2]][$matxRows[1]]) ){
+				if( !$this->isNoteless && !isset($this->citedNotes[$matxRows[2]][$matxRows[1]]) ){
 					$this->citedNotes[$matxRows[2]][$matxRows[1]] = count($this->citedNotes[$matxRows[2]])+1;
 					$fullText .= $this->notesPieceText($matxRows[2], $this->citedNotes[$matxRows[2]][$matxRows[1]], $this->remarkList[$matxRows[2]][$matxRows[1]]);
 					continue;
@@ -617,13 +617,13 @@ class Odtx extends Page {
 	 * @return String The note.
 	 */
 	protected function notesPieceText(String $noteTypeCode, Int $noteIdNumber, Array $contentBlock): String {
-		$isMuting = $this->notesMuted;
-		$keptBrek = $this->breakAhead;
-		$this->notesMuted = true;
-		$this->breakAhead = false;
+		$isMuting = $this->isNoteless;
+		$keptBrek = $this->needsBreak;
+		$this->isNoteless = true;
+		$this->needsBreak = false;
 		$bodyText = $this->paragraphPiece(($noteTypeCode=='fnote') ? 'Footnote' : 'Endnote', (array)($contentBlock['spans'] ?? Array()), Array()).$this->writeAllBlocks((array)($contentBlock['items'] ?? Array()));
-		$this->notesMuted = $isMuting;
-		$this->breakAhead = $keptBrek;
+		$this->isNoteless = $isMuting;
+		$this->needsBreak = $keptBrek;
 		return '<text:note text:id="'.(($noteTypeCode=='fnote') ? 'ftn' : 'edn').$noteIdNumber.'" text:note-class="'.(($noteTypeCode=='fnote') ? 'footnote' : 'endnote').'"><text:note-citation>'.$noteIdNumber.'</text:note-citation><text:note-body>'.$bodyText.'</text:note-body></text:note>';
 	}
 

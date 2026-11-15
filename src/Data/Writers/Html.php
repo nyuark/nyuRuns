@@ -22,9 +22,9 @@ class Html extends Base {
 
 	// What each style of the content gives, by its name, and whether the styles are written as classes
 	protected $formatList = Array();
-	protected $withClsFlg = true;
+	protected $hasClasses = true;
 	// Whether the content is written as XHTML
-	protected $writeXhtml = false;
+	protected $isXhtmlDoc = false;
 	// The anchors given to the headings of the page, null when they are not written
 	protected $anchorList = null;
 
@@ -60,8 +60,8 @@ class Html extends Base {
 		$itemList = $dataEnvelope['items'] ?? Array();
 		$infoList = (array)($dataEnvelope['infos'] ?? Array());
 		$this->formatList = is_array($infoList['frmat'] ?? null) ? $infoList['frmat'] : Array();
-		$this->withClsFlg = !isset($writeOptions['class']) || !empty($writeOptions['class']);
-		$this->writeXhtml = !empty($writeOptions['xhtml']);
+		$this->hasClasses = !isset($writeOptions['class']) || !empty($writeOptions['class']);
+		$this->isXhtmlDoc = !empty($writeOptions['xhtml']);
 		$this->anchorList = empty($writeOptions['anchr']) ? null : Array();
 		if( $shapeNme=='block' ){
 			$htmlBrut = $this->writeAllBlocks((array)$itemList);
@@ -85,7 +85,7 @@ class Html extends Base {
 			return $cssStrng.$htmlBrut;
 		}
 		$langAttr = preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/D', strval($infoList['langg'] ?? '')) ? ' lang="'.$infoList['langg'].'"' : '';
-		if( $this->writeXhtml ){
+		if( $this->isXhtmlDoc ){
 			// An XML reader is told what the page is written in, and in what language, its own way
 			$langAttr = ' xmlns="http://www.w3.org/1999/xhtml"'.$langAttr.str_replace(' lang=', ' xml:lang=', $langAttr);
 			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE html>\n<html".$langAttr.">\n<head>\n<meta charset=\"utf-8\"/>\n<title>".$this->escapeHtmlText(strval($infoList['title'] ?? ''))."</title>\n".$cssStrng."</head>\n<body>\n".$pageHead.$htmlBrut.$pageTail."</body>\n</html>\n";
@@ -101,7 +101,7 @@ class Html extends Base {
 	 */
 	protected function escapeHtmlText(String $templateText): String {
 		// XHTML is XML: what XML cannot hold is left out, as for any part of a document made of it
-		if( $this->writeXhtml ){
+		if( $this->isXhtmlDoc ){
 			return parent::escapeXmlValue($templateText);
 		}
 		return htmlspecialchars($templateText, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
@@ -114,7 +114,7 @@ class Html extends Base {
 	 * @return String The end of the element.
 	 */
 	protected function shutVoidString(): String {
-		return $this->writeXhtml ? '/>' : '>';
+		return $this->isXhtmlDoc ? '/>' : '>';
 	}
 
 	/**
@@ -193,7 +193,7 @@ class Html extends Base {
 		$attrDict = (array)($contentBlock['attrs'] ?? Array());
 		$tagIdent = strval($attrDict['tagid'] ?? '');
 		$htmlAttr = preg_match('/^[\w\-:.]+$/D', $tagIdent) ? ' id="'.$this->escapeHtmlText($tagIdent).'"' : '';
-		$styleCls = ($this->withClsFlg && strval($attrDict['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrDict['style'])) : '';
+		$styleCls = ($this->hasClasses && strval($attrDict['style'] ?? '')!=='') ? $this->clssOfItString(strval($attrDict['style'])) : '';
 		if( $styleCls!=='' ){
 			$htmlAttr .= ' class="'.$styleCls.'"';
 		}
@@ -299,7 +299,7 @@ class Html extends Base {
 				$htmlText .= '<'.$lstngTag.$blockAtr.">\n";
 				foreach($oneBlk['items'] as $entBlk){
 					// A task shows the box that tells whether it is done
-					$taskHtml = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->writeXhtml ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->writeXhtml ? '="checked"' : '')).$this->shutVoidString().' ' : '';
+					$taskHtml = isset($entBlk['attrs']['check']) ? '<input type="checkbox" disabled'.($this->isXhtmlDoc ? '="disabled"' : '').(empty($entBlk['attrs']['check']) ? '' : ' checked'.($this->isXhtmlDoc ? '="checked"' : '')).$this->shutVoidString().' ' : '';
 					$htmlText .= '<li'.$this->blockAttribute($entBlk).'>'.$taskHtml.$this->innerOutString($entBlk)."</li>\n";
 				}
 				$htmlText .= '</'.$lstngTag.">\n";

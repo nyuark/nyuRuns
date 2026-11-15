@@ -19,11 +19,11 @@ class Actionset {
 	
 	public 		$replyValue;
 	public		$statusCode;
-	public		$statusMssg;
+	public		$statusText;
 	
-	protected 	$inputsRgst;
+	protected 	$inputsRegr;
 	protected 	$modelStack;
-	protected 	$accessRgst;
+	protected 	$accessRegr;
 	protected 	$requestObj;
 	protected 	$respondObj;
 	protected 	$routingObj;
@@ -43,9 +43,9 @@ class Actionset {
 	 */
 	function __construct( RunContext $contextOfRun ){
 		$this->runContext = $contextOfRun;
-		$this->inputsRgst = $contextOfRun->inputsRgst;
+		$this->inputsRegr = $contextOfRun->inputsRegr;
 		$this->modelStack = $contextOfRun->modelStack;
-		$this->accessRgst = $contextOfRun->accessRgst;
+		$this->accessRegr = $contextOfRun->accessRegr;
 		$this->requestObj = $contextOfRun->requestObj;
 		$this->respondObj = $contextOfRun->respondObj;
 		$this->routingObj = $contextOfRun->routingObj;
@@ -81,7 +81,7 @@ class Actionset {
 			}catch( StopRun $e ){
 				// Deliberate stop : its status is the action's, and its output when it carries one
 				$this->statusCode = $e->getCode();
-				$this->statusMssg = $e->getMessage();
+				$this->statusText = $e->getMessage();
 				if( $e->retrieveOutput()!==null ){
 					$this->replyValue = $e->retrieveOutput();
 				}
@@ -119,7 +119,7 @@ class Actionset {
 	 */
 	protected function fallbackAction(): Bool {
 		$this->statusCode = 404;
-		$this->statusMssg = 'Not Found';
+		$this->statusText = 'Not Found';
 		$this->replyValue = null;
 		return false;
 	}
@@ -137,7 +137,7 @@ class Actionset {
 			$this->replyValue = $resultsArray;
 		}else{
 			$this->statusCode = 204;
-			$this->statusMssg = 'List returned no results';
+			$this->statusText = 'List returned no results';
 			$this->replyValue = $resultsArray;
 		}
 	}
@@ -171,7 +171,7 @@ class Actionset {
 		$rangeTxt = ($this->requestObj!==null) ? strval($this->requestObj->retrieveHeader('Range')) : '';
 		if( $this->respondObj===null || !$this->respondObj->setFileToReply($sentFilePath, $mimeTypeText, $rangeTxt) ){
 			$this->statusCode = 404;
-			$this->statusMssg = 'Not Found';
+			$this->statusText = 'Not Found';
 			$this->replyValue = null;
 			return false;
 		}
@@ -198,7 +198,7 @@ class Actionset {
 		$isNameOk = (preg_match('#^[\w\-]+(/[\w\-]+)*$#D', $pageFileName)===1);
 		if( !$isNameOk || $this->respondObj===null || !$this->respondObj->setPageToReply($pagePath, $pageValsList, $responseCode) ){
 			$this->statusCode = 404;
-			$this->statusMssg = 'Not Found';
+			$this->statusText = 'Not Found';
 			$this->replyValue = null;
 			return false;
 		}
@@ -275,10 +275,10 @@ class Actionset {
 		if( !in_array($requiredRole, Checker::ROLE_LIST, true) ){
 			throw new \RuntimeException('Unknown role "'.$requiredRole.'"');
 		}
-		if( $this->accessRgst===null || $this->accessRgst->readValueByKey('loggedIn')!==true ){
+		if( $this->accessRegr===null || $this->accessRegr->readValueByKey('loggedIn')!==true ){
 			return false;
 		}
-		$userRole = $this->accessRgst->readValueByKey('userRole');
+		$userRole = $this->accessRegr->readValueByKey('userRole');
 		return Checker::rleAccessMeets( is_string($userRole) ? $userRole : null, $requiredRole );
 	}
 
@@ -289,12 +289,12 @@ class Actionset {
 	 * the password login. The refusal is logged on the 'access' channel.
 	 */
 	protected function needsPasswdLgn(): Void {
-		$idntList = ($this->accessRgst!==null) ? $this->accessRgst->readValueByKey('identity') : null;
+		$idntList = ($this->accessRegr!==null) ? $this->accessRegr->readValueByKey('identity') : null;
 		if( !is_array($idntList) || !isset($idntList['device']) ){
 			return;
 		}
 		$nameList = explode('\\', static::class);
-		Logger::retrieveLogger('access')->warning( 'Account change refused for user '.json_encode(strval($this->accessRgst->readValueByKey('userName'))).' to '.strtolower(strval($nameList[count($nameList)-2] ?? '')).'/'.$this->actionName.': a device ('.json_encode(strval($idntList['device']['name'] ?? '')).') needs the password login' );
+		Logger::retrieveLogger('access')->warning( 'Account change refused for user '.json_encode(strval($this->accessRegr->readValueByKey('userName'))).' to '.strtolower(strval($nameList[count($nameList)-2] ?? '')).'/'.$this->actionName.': a device ('.json_encode(strval($idntList['device']['name'] ?? '')).') needs the password login' );
 		$this->stopThisAction(403, 'Sign in with the password: a device cannot change its account');
 	}
 
@@ -313,12 +313,12 @@ class Actionset {
 		if( $this->holdsActionRle($requiredRole) ){
 			return;
 		}
-		$isLogged = ($this->accessRgst!==null && $this->accessRgst->readValueByKey('loggedIn')===true);
-		$userRole = $isLogged ? $this->accessRgst->readValueByKey('userRole') : null;
+		$isLogged = ($this->accessRegr!==null && $this->accessRegr->readValueByKey('loggedIn')===true);
+		$userRole = $isLogged ? $this->accessRegr->readValueByKey('userRole') : null;
 		$clntRegr = ($this->requestObj!==null) ? $this->requestObj->retrieveClient() : null;
 		$nameList = explode('\\', static::class);
 		Checker::logRoleRefusal(
-			$isLogged ? strval($this->accessRgst->readValueByKey('userName')) : '',
+			$isLogged ? strval($this->accessRegr->readValueByKey('userName')) : '',
 			is_string($userRole) ? $userRole : null,
 			$requiredRole,
 			($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '',

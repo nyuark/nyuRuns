@@ -155,7 +155,7 @@ function askKeyset( Array $tokenBlock ): Array {
 		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('keyset', null, new Registry(Array()), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 		$actnSet->runAskedAction();
 		$respObj->convertOutFlag( $actnSet->replyValue ?? Array() );
-		return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue, $respObj->readHeadsArray());
+		return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue, $respObj->readHeadsArray());
 	});
 }
 $setRply = askKeyset( $rotConf + Array('prevFile'=>$pubPath) );

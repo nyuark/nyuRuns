@@ -25,7 +25,7 @@ class Text extends Base {
 	);
 
 	// The way of writing asked for
-	protected $outputKind = 'plain';
+	protected $outputType = 'plain';
 
 	/**
 	 * Writes text blocks as text.
@@ -42,9 +42,9 @@ class Text extends Base {
 	 */
 	public function renderDocument(Array $dataEnvelope, Array $writeOptions=Array()): String {
 		$this->checkShapeText($dataEnvelope, Array('block'), 'text');
-		$this->outputKind = strtolower(strval($writeOptions['gives'] ?? 'plain'));
-		if( !isset(self::MARK_LIST[$this->outputKind]) ){
-			throw new WriteError('Invalid text option: unknown writing '.$this->outputKind);
+		$this->outputType = strtolower(strval($writeOptions['gives'] ?? 'plain'));
+		if( !isset(self::MARK_LIST[$this->outputType]) ){
+			throw new WriteError('Invalid text option: unknown writing '.$this->outputType);
 		}
 		$bodyText = implode("\n\n", $this->writeAllBlocks((array)($dataEnvelope['items'] ?? Array())));
 		return ($bodyText==='') ? '' : $bodyText."\n";
@@ -70,7 +70,7 @@ class Text extends Base {
 				$coreText = '['.$coreText.']';
 				$linkAddr = '';
 			}elseif( $coreText!=='' ){
-				foreach(array_reverse(self::MARK_LIST[$this->outputKind]) as $mrkKey=>$mrkSet){
+				foreach(array_reverse(self::MARK_LIST[$this->outputType]) as $mrkKey=>$mrkSet){
 					if( in_array($mrkKey, (array)($oneSpn['marks'] ?? Array())) ){
 						$coreText = $mrkSet[0].$coreText.$mrkSet[1];
 					}
@@ -78,7 +78,7 @@ class Text extends Base {
 			}
 			if( $coreText!=='' && $linkAddr!=='' ){
 				// A link: a tag where there is one, the address after the text otherwise, once when the text is the address
-				$coreText = ($this->outputKind=='bbcod') ? '[url='.str_replace(Array('[', ']'), Array('%5B', '%5D'), $linkAddr).']'.$coreText.'[/url]' : (($edgePart[2]===$linkAddr) ? $coreText : $coreText.' ('.$linkAddr.')');
+				$coreText = ($this->outputType=='bbcod') ? '[url='.str_replace(Array('[', ']'), Array('%5B', '%5D'), $linkAddr).']'.$coreText.'[/url]' : (($edgePart[2]===$linkAddr) ? $coreText : $coreText.' ('.$linkAddr.')');
 			}
 			$outStrng .= $edgePart[1].$coreText.$edgePart[3];
 		}
@@ -116,14 +116,14 @@ class Text extends Base {
 		$itemText = Array();
 		foreach((array)$listsBlcList['items'] as $entBlk){
 			$insdText = $this->innerOutString($entBlk);
-			if( $this->outputKind=='bbcod' ){
+			if( $this->outputType=='bbcod' ){
 				$itemText[] = '[*]'.$insdText;
 				continue;
 			}
 			$markText = $hasOrder ? (count($itemText)+1).'. ' : '- ';
 			$itemText[] = rtrim($markText.ltrim(preg_replace('/^(?=.)/m', str_repeat(' ', strlen($markText)), $insdText)));
 		}
-		if( $this->outputKind=='bbcod' ){
+		if( $this->outputType=='bbcod' ){
 			return empty($itemText) ? '' : ($hasOrder ? '[list=1]' : '[list]')."\n".implode("\n", $itemText)."\n[/list]";
 		}
 		return implode("\n", $itemText);
@@ -139,7 +139,7 @@ class Text extends Base {
 	 */
 	protected function writeAllBlocks(Array $bookBlockSet): Array {
 		$textList = Array();
-		$boldDict = self::MARK_LIST[$this->outputKind]['boldFace'] ?? Array('', '');
+		$boldDict = self::MARK_LIST[$this->outputType]['boldFace'] ?? Array('', '');
 		foreach($bookBlockSet as $oneBlk){
 			$blockCod = strval($oneBlk['block'] ?? '');
 			$blockTxt = '';
@@ -165,18 +165,18 @@ class Text extends Base {
 			}elseif( $blockCod=='citation' ){
 				$quoteTxt = $this->innerOutString($oneBlk);
 				$citeText = str_replace(Array('[', ']', "\n"), Array('(', ')', ' '), strval($oneBlk['attrs']['cites'] ?? ''));
-				if( $quoteTxt!=='' && $this->outputKind=='bbcod' ){
+				if( $quoteTxt!=='' && $this->outputType=='bbcod' ){
 					$blockTxt = '[quote'.(($citeText!=='') ? '='.$citeText : '').']'.$quoteTxt.'[/quote]';
 				}elseif( $quoteTxt!=='' ){
 					$blockTxt = preg_replace(Array('/^(?=.)/m', '/^$/m'), Array('> ', '>'), $quoteTxt.(($citeText!=='') ? "\n— ".$citeText : ''));
 				}
 			}elseif( $blockCod=='codeBlck' ){
 				$codeLang = strval($oneBlk['attrs']['langg'] ?? '');
-				$blockTxt = ($this->outputKind=='bbcod') ? '[code'.(preg_match('/^[\w+#.\-]+$/D', $codeLang) ? '='.$codeLang : '')."]\n".strval($oneBlk['plain'] ?? '')."\n[/code]" : strval($oneBlk['plain'] ?? '');
+				$blockTxt = ($this->outputType=='bbcod') ? '[code'.(preg_match('/^[\w+#.\-]+$/D', $codeLang) ? '='.$codeLang : '')."]\n".strval($oneBlk['plain'] ?? '')."\n[/code]" : strval($oneBlk['plain'] ?? '');
 			}elseif( $blockCod=='imageBox' ){
 				// An image is a tag where there is one, and its description otherwise
 				$imageLnk = Shape::tidyLinkString(strval($oneBlk['attrs']['sourc'] ?? ''));
-				$blockTxt = ($this->outputKind=='bbcod' && $imageLnk!=='') ? '[img]'.$imageLnk.'[/img]' : trim(strval($oneBlk['plain'] ?? ''));
+				$blockTxt = ($this->outputType=='bbcod' && $imageLnk!=='') ? '[img]'.$imageLnk.'[/img]' : trim(strval($oneBlk['plain'] ?? ''));
 			}elseif( $blockCod=='ruleLine' ){
 				$blockTxt = '----------';
 			}elseif( $blockCod=='footnote' ){

@@ -12,10 +12,10 @@ use nyu\Output\Response;
  */
 class Request{
 
-	protected $serverRgst;
-	protected $clientRgst;
+	protected $serverRegr;
+	protected $clientRegr;
 
-	protected $rqstInMthd;
+	protected $reqtInMthd;
 	protected $uriDetails;
 	protected $givenQuery;
 	protected $everyHeads;
@@ -23,12 +23,12 @@ class Request{
 
 	protected $dataValues; // Registry of values
 	protected $addrValues = Array(); // Names of the values sent in the query string, in lower case
-	protected $cookValues; // Registry of readable cookie values (written through response)
+	protected $ckieValues; // Registry of readable cookie values (written through response)
 	protected $uploadData; // Registry of files
-	protected $tmpFileArr = Array(); // Temporary files written for uploads received in the raw body
+	protected $tmpFileLst = Array(); // Temporary files written for uploads received in the raw body
 	protected $maxSizeVal = 0; // Largest body read, in KB; 0 for no limit
 	protected $pieceLimit = 0; // Most parts read from a multipart body; 0 for no limit
-	protected $overLength = false; // Whether the body went over one of those limits
+	protected $isTooLarge = false; // Whether the body went over one of those limits
 
 	/**
 	 * Builds the request object: derives the method, URI, query string and
@@ -44,16 +44,16 @@ class Request{
 	 */
 	 function __construct( ServerReg $serverValReg, Response $httpResponse, ClientReg $clntRegistry, Array $limitsConfig=Array() ){
 
-		$this->serverRgst = $serverValReg;
-		$this->clientRgst = $clntRegistry;
+		$this->serverRegr = $serverValReg;
+		$this->clientRegr = $clntRegistry;
 		$this->maxSizeVal = max( 0, intval($limitsConfig['size'] ?? 0) );
 		$this->pieceLimit = max( 0, intval($limitsConfig['part'] ?? 0) );
 
 		// Request method
-		$this->rqstInMthd = $this->serverRgst->readValueByKey('request_method');
+		$this->reqtInMthd = $this->serverRegr->readValueByKey('request_method');
 
 		// Query Values
-		$reqstUri = $this->serverRgst->readValueByKey('request_uri');
+		$reqstUri = $this->serverRegr->readValueByKey('request_uri');
 		$quoteMrk = strPos($reqstUri, '?');
 		$urlArgmn = Array();
 
@@ -65,17 +65,17 @@ class Request{
 			$pageAddr = $reqstUri;
 		}
 		$urlArray = Array(
-						'htScheme'=>$this->clientRgst->readValueByKey('userSchm'),
-						'servName'=>$this->serverRgst->readValueByKey('server_name'),
+						'htScheme'=>$this->clientRegr->readValueByKey('userSchm'),
+						'servName'=>$this->serverRegr->readValueByKey('server_name'),
 						'fullPath'=>$reqstUri,
-						'scriptAt'=>$this->serverRgst->readValueByKey('script_name'),
-						'httpVers'=>$this->serverRgst->readValueByKey('server_protocol')
+						'scriptAt'=>$this->serverRegr->readValueByKey('script_name'),
+						'httpVers'=>$this->serverRegr->readValueByKey('server_protocol')
 					);
 		$urlArray['wholeUrl'] = 	$urlArray['htScheme'].'://'.$urlArray['servName'].$pageAddr;
-		$urlArray['rqstLine'] = 	$this->rqstInMthd.' '.$urlArray['htScheme'].'://'.$urlArray['servName']
+		$urlArray['rqstLine'] = 	$this->reqtInMthd.' '.$urlArray['htScheme'].'://'.$urlArray['servName']
 								.$urlArray['fullPath'].' '.$urlArray['scriptAt'].' '.$urlArray['httpVers'];
 		$this->uriDetails = $urlArray;
-		$this->givenQuery = $this->serverRgst->readValueByKey('query_string');
+		$this->givenQuery = $this->serverRegr->readValueByKey('query_string');
 
 		// Get received headers
 		$this->everyHeads = $this->fetchHeadsList();
@@ -111,7 +111,7 @@ class Request{
 		}
 
 		// Get cookies and files
-		$this->cookValues = $_COOKIE;
+		$this->ckieValues = $_COOKIE;
 		// Files of the raw body are described like the $_FILES entries (see saveUpFle)
 		$this->uploadData = array_merge($_FILES, $this->nakedInput['file']);
 
@@ -185,9 +185,9 @@ class Request{
 		}
 		$maxBytes = $this->maxSizeVal * 1024;
 		// What the request announces is checked first : nothing is then read
-		$clmdSize = max( intval($this->retrieveHeader('Content-Length')), intval($this->serverRgst->readValueByKey('content_length')) );
+		$clmdSize = max( intval($this->retrieveHeader('Content-Length')), intval($this->serverRegr->readValueByKey('content_length')) );
 		if( $clmdSize>$maxBytes ){
-			$this->overLength = true;
+			$this->isTooLarge = true;
 			return '';
 		}
 		// Read piece by piece : PHP 8.2 reserves the whole length asked of file_get_contents() before reading
@@ -204,7 +204,7 @@ class Request{
 			fclose($inptHndl);
 		}
 		if( strlen($rawArray)>$maxBytes ){
-			$this->overLength = true;
+			$this->isTooLarge = true;
 			return '';
 		}
 		return $rawArray;
@@ -217,7 +217,7 @@ class Request{
 	 * @return Bool True when the request is to be refused as too large.
 	 */
 	public function overCeilingFlg(): Bool {
-		return $this->overLength;
+		return $this->isTooLarge;
 	}
 
 	/**
@@ -245,7 +245,7 @@ class Request{
 		$fluxPrts = array_slice( explode($boundary, $nakedContent), 1 );
 		// The last piece closes the body : a body of more parts than allowed is not read
 		if( $this->pieceLimit>0 && count($fluxPrts)-1>$this->pieceLimit ){
-			$this->overLength = true;
+			$this->isTooLarge = true;
 			return $readFlux;
 		}
 		foreach( $fluxPrts as $partLn ){
@@ -355,10 +355,10 @@ class Request{
 			$fileVals['error'] = UPLOAD_ERR_CANT_WRITE;
 			return $fileVals;
 		}
-		if( empty($this->tmpFileArr) ){
+		if( empty($this->tmpFileLst) ){
 			register_shutdown_function( Array($this, 'dropTmpUploads') );
 		}
-		$this->tmpFileArr[] = $tempFile;
+		$this->tmpFileLst[] = $tempFile;
 		$fileVals['tmp_name'] = $tempFile;
 		$fileVals['error'] = UPLOAD_ERR_OK;
 		$fileVals['size'] = $fileSize;
@@ -370,12 +370,12 @@ class Request{
 	 * request. A file the application moved elsewhere is left alone.
 	 */
 	public function dropTmpUploads(): Void {
-		foreach( $this->tmpFileArr as $oneTmp ){
+		foreach( $this->tmpFileLst as $oneTmp ){
 			if( file_exists($oneTmp) ){
 				@unlink($oneTmp);
 			}
 		}
-		$this->tmpFileArr = Array();
+		$this->tmpFileLst = Array();
 	}
 
 	//function getHeadrs
@@ -402,7 +402,7 @@ class Request{
                 'Content-Id'       => 'Content-ID',
                 'Content-Features' => 'Content-features',
 			);
-			$srvrVars = $this->serverRgst->readLinesArray('http_');
+			$srvrVars = $this->serverRegr->readLinesArray('http_');
 			foreach ($srvrVars as $srvKey => $srvVal){
 				$headClef = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($srvKey, 5)))));
 				if ( array_key_exists( $headClef, $xcptList ) ) {
@@ -425,7 +425,7 @@ class Request{
 	 * @return Bool True if the request used that method.
 	 */
 	public function usedMethodFlag( String $checkValText='' ): Bool {
-		if( $this->rqstInMthd==$checkValText ){
+		if( $this->reqtInMthd==$checkValText ){
 			return true;
 		}else{
 			return false;
@@ -492,8 +492,8 @@ class Request{
 	 * @return mixed The cookie value, or null if not present.
 	 */
 	public function retrieveCookie( String $rqtCookieNme ): Mixed {
-		if( isset( $this->cookValues[$rqtCookieNme] ) ){
-			return $this->cookValues[$rqtCookieNme];
+		if( isset( $this->ckieValues[$rqtCookieNme] ) ){
+			return $this->ckieValues[$rqtCookieNme];
 		}else{
 			return NULL;
 		}
@@ -537,7 +537,7 @@ class Request{
 	 * @return Array Matching server values.
 	 */
 	public function getServerValue( String $keysCriteria='' ): Array {
-		return $this->serverRgst->readLinesArray($keysCriteria);
+		return $this->serverRegr->readLinesArray($keysCriteria);
 	}
 	/**
 	 * Returns the client registry: 'userAddr' (the client, seen through
@@ -550,7 +550,7 @@ class Request{
 	 * @return ?ClientReg The client registry, or null when the request was built without one.
 	 */
 	public function retrieveClient(): ?ClientReg {
-		return $this->clientRgst;
+		return $this->clientRegr;
 	}
 
 }

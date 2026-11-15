@@ -43,7 +43,7 @@ function makePairs( String $namePrefix ): Array {
  */
 function appsReqst( Array $headersArr, String $httpMethod='GET' ): nyu\Tools\Request {
 	$request = mockRequestObj( $headersArr, Array('REQUEST_METHOD'=>$httpMethod, 'REMOTE_ADDR'=>'10.0.0.7') );
-	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
+	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'reqtInMthd');
 	$mthProp->setValue($request, $httpMethod);
 	return $request;
 }

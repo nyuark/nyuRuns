@@ -29,10 +29,9 @@ class Runner{
 	protected	$confLoader;	// Loader Container (Configuration)
 	protected	$objBuilder;	// Shared Container (client and server values)
 	protected	$requestObj;	// Initial HTTP Request
-	protected 	$routerRgst;	// Route Registry
-	protected 	$inputsRgst;	// Library (Registry) of allowed Inputs
-	protected 	$rqstAccCon;	// Access Container (Access\Checker result)
-	protected 	$reqAppBlck;	// Application Object
+	protected 	$routerRegr;	// Route Registry
+	protected 	$inputsRegr;	// Library (Registry) of allowed Inputs
+	protected 	$accessRegr;	// Access Container (Access\Checker result)
 	protected 	$requestRsp;	// Output Container
 
 	public 		$errorHndlr;
@@ -222,25 +221,25 @@ class Runner{
 
 		// The preset tells the sources of the inputs; the definition an application
 		// gives for an action (input/<action>.json) is applied by its Controller
-		$this->inputsRgst = $this->confLoader->retrieveInputs( $this->requestObj );
+		$this->inputsRegr = $this->confLoader->retrieveInputs( $this->requestObj );
 
 		// The basePath of the line of the map chosen is taken off the path, and put back in front of the links
-		$this->routerRgst = $this->confLoader->importRouteReg( $this->requestObj, $this->routesBase );
+		$this->routerRegr = $this->confLoader->importRouteReg( $this->requestObj, $this->routesBase );
 		// Read from its files, the config is cached for the next requests when CNF_CACH is TRUE
 		$this->confLoader->retainCacheFlg();
 
 		$accsConf = $this->confLoader->setAccessArray();
-		$this->rqstAccCon = $this->validateAccess( $accsConf );
+		$this->accessRegr = $this->validateAccess( $accsConf );
 
 		// The events traced from here on are signed with the user and the address of the request
 		$clntRegr = $this->requestObj->retrieveClient();
-		Logger::setCurrentUser( strval($this->rqstAccCon->readValueByKey('userName')), ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
+		Logger::setCurrentUser( strval($this->accessRegr->readValueByKey('userName')), ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
 		$this->logUploadFiles( $this->requestObj->getUploadFiles() );
 
-		if( $this->rqstAccCon->obtainDefValue('statCode', 200) == 200 ){
+		if( $this->accessRegr->obtainDefValue('statCode', 200) == 200 ){
 			$this->processRequest();
 		}else{
-			$this->denyRqstAccess( $this->rqstAccCon );
+			$this->denyRqstAccess( $this->accessRegr );
 		}
 	}
 
@@ -294,7 +293,7 @@ class Runner{
 	 * @return Registry Registry with 'loggedIn', 'userName', 'userRole', 'identity', 'statCode' and 'statMssg' keys.
 	 */
 	function validateAccess( Array $accessConfig ): Registry {
-		$checkObj = new Checker( $accessConfig, $this->requestObj, $this->routerRgst, $this->confLoader->retrieveRouter() );
+		$checkObj = new Checker( $accessConfig, $this->requestObj, $this->routerRegr, $this->confLoader->retrieveRouter() );
 		return $checkObj->validateAccess();
 	}
 
@@ -340,7 +339,7 @@ class Runner{
 		// the loaded route, pass input data,
 		// and end up with expected results,
 		// then pass them to the output
-		$ctrlInst = new Controller( $appNameToRun, $runAppAction, $this->inputsRgst, $runAppOption, $this->rqstAccCon, $this->requestObj, $this->requestRsp, $this->confLoader->retrieveRouter() );
+		$ctrlInst = new Controller( $appNameToRun, $runAppAction, $this->inputsRegr, $runAppOption, $this->accessRegr, $this->requestObj, $this->requestRsp, $this->confLoader->retrieveRouter() );
 		$sttsList = $ctrlInst->retrieveStatus();
 		$this->setReplyStatus( $sttsList['code'], $sttsList['mssg'], $ctrlInst->retrieveOutput() );
 	}
@@ -424,11 +423,11 @@ class Runner{
 	 */
 	protected function htmlRequestErr( Int $responseCode, String $statusReason ): Void {
 		$routInst = ($this->confLoader!==null) ? $this->confLoader->retrieveRouter() : null;
-		if( $routInst===null || $this->routerRgst===null ){
+		if( $routInst===null || $this->routerRegr===null ){
 			return;
 		}
-		$routeCod = $this->routerRgst->readValueByKey('routKind');
-		$isNoRout = ( $routeCod==null && $this->routerRgst->readValueByKey('appToRun')==null && strval($this->routerRgst->readValueByKey('routPath'))=='' );
+		$routeCod = $this->routerRegr->readValueByKey('routKind');
+		$isNoRout = ( $routeCod==null && $this->routerRegr->readValueByKey('appToRun')==null && strval($this->routerRegr->readValueByKey('routPath'))=='' );
 		if( !$isNoRout && !in_array($routeCod, Array('htmlPage', 'toStatic'), true) ){
 			return;
 		}
@@ -474,23 +473,23 @@ class Runner{
 	 * fill the placeholders of their name.
 	 */
 	protected function routeReqAnswer(): Void {
-		$routeCod = $this->routerRgst->readValueByKey('routKind');
-		$routeGol = strval($this->routerRgst->readValueByKey('routTarg'));
+		$routeCod = $this->routerRegr->readValueByKey('routKind');
+		$routeGol = strval($this->routerRegr->readValueByKey('routTarg'));
 		if( $routeCod=='redirect' ){
 			$this->requestRsp->addReplyHeader('Location', $routeGol);
-			$this->setReplyStatus( intval($this->routerRgst->obtainDefValue('routStat', 302)) );
+			$this->setReplyStatus( intval($this->routerRegr->obtainDefValue('routStat', 302)) );
 			return;
 		}
 		if( $routeCod=='toStatic' ){
-			$wasFound = $this->requestRsp->setFileToReply( $routeGol, strval($this->routerRgst->readValueByKey('routType')), strval($this->requestObj->retrieveHeader('Range')) );
+			$wasFound = $this->requestRsp->setFileToReply( $routeGol, strval($this->routerRegr->readValueByKey('routType')), strval($this->requestObj->retrieveHeader('Range')) );
 			// The client may keep the file, and a proxy too when it is served to anyone
 			$askdHedr = Array();
 			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $hdrKey ){
 				$askdHedr[$hdrKey] = strval($this->requestObj->retrieveHeader($hdrKey));
 			}
-			$this->requestRsp->cacheReplyFile( $askdHedr, !$this->rqstAccCon->readValueByKey('loggedIn') );
+			$this->requestRsp->cacheReplyFile( $askdHedr, !$this->accessRegr->readValueByKey('loggedIn') );
 		}else{
-			$wasFound = $this->requestRsp->setPageToReply( $routeGol, (array)$this->routerRgst->obtainDefValue('pathVars', Array()) );
+			$wasFound = $this->requestRsp->setPageToReply( $routeGol, (array)$this->routerRegr->obtainDefValue('pathVars', Array()) );
 		}
 		if( $wasFound ){
 			$this->setReplyStatus( 200 );
@@ -505,19 +504,19 @@ class Runner{
 	 * the route gives by itself, and sends the response.
 	 */
 	function processRequest( ): Void {
-		$applCall = $this->routerRgst->readValueByKey('appToRun');
-		$actTitle = $this->routerRgst->readValueByKey('doAction');
-		$actOptns = $this->routerRgst->obtainDefValue('argument', null);
+		$applCall = $this->routerRegr->readValueByKey('appToRun');
+		$actTitle = $this->routerRegr->readValueByKey('doAction');
+		$actOptns = $this->routerRegr->obtainDefValue('argument', null);
 
-		$routeStt = $this->routerRgst->obtainDefValue('statCode', 200);
+		$routeStt = $this->routerRegr->obtainDefValue('statCode', 200);
 		if( $routeStt!=200 ){
 			// The route answers by itself : method refused, or OPTIONS
-			$allowLst = $this->routerRgst->readValueByKey('allowHdr');
+			$allowLst = $this->routerRegr->readValueByKey('allowHdr');
 			if( $allowLst!=null ){
 				$this->requestRsp->addReplyHeader('Allow', $allowLst);
 			}
-			$this->setReplyStatus( $routeStt, strval($this->routerRgst->readValueByKey('statMssg')) );
-		}elseif( in_array($this->routerRgst->readValueByKey('routKind'), Array('redirect', 'toStatic', 'htmlPage'), true) ){
+			$this->setReplyStatus( $routeStt, strval($this->routerRegr->readValueByKey('statMssg')) );
+		}elseif( in_array($this->routerRegr->readValueByKey('routKind'), Array('redirect', 'toStatic', 'htmlPage'), true) ){
 			$this->routeReqAnswer();
 		}elseif( $applCall==null ){
 			// No route resolved for this request

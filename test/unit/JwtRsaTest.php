@@ -106,11 +106,11 @@ $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array(
 )) );
 $lgnRslt = runCatchThrown(function(){
 	$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.9') );
-	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
+	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'reqtInMthd');
 	$mthProp->setValue($request, 'POST');
 	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('userName'=>'alice', 'passWord'=>'wrong')), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 	$actnSet->runAskedAction();
-	return Array($actnSet->statusCode, strval($actnSet->statusMssg));
+	return Array($actnSet->statusCode, strval($actnSet->statusText));
 });
 checkIdentical('the login of a project that only checks tokens answers 501, without checking the password', $lgnRslt, Array(501, 'Tokens are issued by another server'));
 checkIdentical('nothing is counted against the address', is_dir(TOP_DIR.DS.$lmtFldr) ? count((array)glob(TOP_DIR.DS.$lmtFldr.DS.'*')) : 0, 0);

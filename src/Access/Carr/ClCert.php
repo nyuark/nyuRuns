@@ -17,7 +17,7 @@ class ClCert implements Handler{
 	protected $authObject;
 	protected $checkedVar;
 	protected $usrVarName;
-	protected $issVarName;
+	protected $issrVarNme;
 	protected $issuerName;
 	protected $errMessage;
 
@@ -34,7 +34,7 @@ class ClCert implements Handler{
 		$this->authObject = $authStrategy;
 		$this->checkedVar = strtolower( strval($configValues['checkVar'] ?? 'SSL_CLIENT_VERIFY') );
 		$this->usrVarName = strtolower( strval($configValues['ownerVar'] ?? 'SSL_CLIENT_S_DN_CN') );
-		$this->issVarName = strtolower( strval($configValues['issueVar'] ?? 'SSL_CLIENT_I_DN_CN') );
+		$this->issrVarNme = strtolower( strval($configValues['issueVar'] ?? 'SSL_CLIENT_I_DN_CN') );
 		$this->issuerName = strval($configValues['issuerId'] ?? '');
 		$this->errMessage = '';
 	}
@@ -49,7 +49,7 @@ class ClCert implements Handler{
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
 		// A variable named HTTP_... is a request header : anyone could send it
-		if( strpos($this->checkedVar, 'http_')===0 || strpos($this->usrVarName, 'http_')===0 || strpos($this->issVarName, 'http_')===0 ){
+		if( strpos($this->checkedVar, 'http_')===0 || strpos($this->usrVarName, 'http_')===0 || strpos($this->issrVarNme, 'http_')===0 ){
 			$this->errMessage = 'Certificate variables misconfigured';
 			return false;
 		}
@@ -58,7 +58,7 @@ class ClCert implements Handler{
 			$this->errMessage = 'No verified client certificate';
 			return false;
 		}
-		if( $this->issuerName!='' && ($srvrVals[$this->issVarName] ?? '')!==$this->issuerName ){
+		if( $this->issuerName!='' && ($srvrVals[$this->issrVarNme] ?? '')!==$this->issuerName ){
 			$this->errMessage = 'Certificate issuer not accepted';
 			return false;
 		}

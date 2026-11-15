@@ -53,12 +53,12 @@ function authActn( String $actionName, Array $inputArray=Array(), String $httpMe
 		$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>$clientAddr) );
 		$qryProp = new ReflectionProperty('nyu\Tools\Request', 'addrValues');
 		$qryProp->setValue($request, $queryNames);
-		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'rqstInMthd');
+		$mthProp = new ReflectionProperty('nyu\Tools\Request', 'reqtInMthd');
 		$mthProp->setValue($request, $httpMethod);
 		$axssReg = new Registry( $loggedVals + Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null) );
 		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext($actionName, null, new Registry($inputArray), $axssReg, $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
 		$actnSet->runAskedAction();
-		return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue);
+		return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue);
 	});
 }
 
@@ -211,7 +211,7 @@ checkIdentical('access log: no password, code or token is written', preg_match('
 function markPath( String $urlAddress, Array $routeConfg=Array(), String $basePathTxt='', ?Array $siteRoutes=null ): String {
 	$request = mockRequestObj();
 	(new ReflectionProperty($request, 'uriDetails'))->setValue($request, Array('fullPath'=>$urlAddress));
-	(new ReflectionProperty($request, 'rqstInMthd'))->setValue($request, 'POST');
+	(new ReflectionProperty($request, 'reqtInMthd'))->setValue($request, 'POST');
 	// A routes folder that does not exist : the routes are those of the Runs alone
 	$routing = new nyu\Tools\Router( $routeConfg + Array('detectBy'=>'manually', 'routeDir'=>'test'.DS.'fixtures'.DS.'routes'.DS.'none'), $request, $basePathTxt );
 	if( $siteRoutes!==null ){

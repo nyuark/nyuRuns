@@ -26,7 +26,7 @@ class ConfCache{
 	// The descriptions of the tables known for this request, by database and by table; null when they are not kept (TBL_CACH)
 	public static $tableInfos = null;
 	// Whether descriptions were added during this request, for the cache to be written again at its end
-	public static $tableAdded = false;
+	public static $isTblAdded = false;
 
 	/**
 	 * Gives the description of a table the config cache keeps (TBL_CACH),
@@ -57,7 +57,7 @@ class ConfCache{
 			return;
 		}
 		self::$tableInfos[$linkNameText][$tbleLabelTxt] = $tableVlsList;
-		self::$tableAdded = true;
+		self::$isTblAdded = true;
 	}
 
 	/**
@@ -122,7 +122,7 @@ class ConfCache{
 	public static function clearConfCache(): Int {
 		// The descriptions this request knows are no longer to be trusted, nor written again
 		self::$tableInfos = (self::$tableInfos===null) ? null : Array();
-		self::$tableAdded = false;
+		self::$isTblAdded = false;
 		$dropNumb = 0;
 		foreach( (array)glob(TOP_DIR.DS.str_replace('/', DS, self::CACH_PATH).DS.'config-*.cache') as $cchFil ){
 			if( @unlink(strval($cchFil)) ){

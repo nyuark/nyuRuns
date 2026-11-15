@@ -233,9 +233,9 @@ function mockRequestObj( Array $headersArray=Array(), Array $serverValues=Array(
 	$hdrProp = $reflect->getProperty('everyHeads');
 	$hdrProp->setValue($request, $headersArray);
 	// Keys in lower case, as the framework's own server registry holds them
-	$srvProp = $reflect->getProperty('serverRgst');
+	$srvProp = $reflect->getProperty('serverRegr');
 	$srvProp->setValue($request, new nyu\Tools\Registry($serverValues + Array('REQUEST_METHOD'=>'GET'), true));
-	$clntPrp = $reflect->getProperty('clientRgst');
+	$clntPrp = $reflect->getProperty('clientRegr');
 	$clntPrp->setValue($request, new nyu\Tools\ClientReg(makeFakeServer($serverValues)));
 	return $request;
 }

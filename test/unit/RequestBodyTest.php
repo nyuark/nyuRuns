@@ -148,7 +148,7 @@ checkIdentical('multipart, files under field[a][] : every property is nested', a
 $outVals = parseBody(multiPart(Array(Array('docs[cover]','first','a.txt'), Array('docs[cover]','second','b.txt'))), $multiTp);
 checkIdentical('multipart, same file key twice : the last one wins', $outVals['files']['docs']['name'] ?? null, Array('cover'=>'b.txt'));
 checkIdentical('multipart, same file key twice : content', @file_get_contents($outVals['files']['docs']['tmp_name']['cover'] ?? ''), 'second');
-$tmpsPrp = new ReflectionProperty($GLOBALS['lastRqst'], 'tmpFileArr');
+$tmpsPrp = new ReflectionProperty($GLOBALS['lastRqst'], 'tmpFileLst');
 $tmpsLst = $tmpsPrp->getValue($GLOBALS['lastRqst']);
 $GLOBALS['lastRqst']->dropTmpUploads();
 checkIdentical('multipart, same file key twice : both temporary files are removed', Array(count($tmpsLst), count(array_filter($tmpsLst, 'file_exists'))), Array(2, 0));

@@ -9,8 +9,8 @@ namespace nyu\Shell;
  */
 class Printer{
 
-	protected $jsonFormat;
-	protected $quietPrint;
+	protected $isJsonFrmt;
+	protected $isQuietOut;
 	protected $outsStream;
 	protected $failStream;
 	protected $jsonOutput = Array();
@@ -24,8 +24,8 @@ class Printer{
 	 * @param mixed $errorsStream Stream the questions and the errors are written to; the standard error when null.
 	 */
 	function __construct( Bool $printsAsJson=false, Bool $skipsRemarks=false, Mixed $outputStream=null, Mixed $errorsStream=null ){
-		$this->jsonFormat = $printsAsJson;
-		$this->quietPrint = $skipsRemarks;
+		$this->isJsonFrmt = $printsAsJson;
+		$this->isQuietOut = $skipsRemarks;
 		$this->outsStream = $outputStream ?? STDOUT;
 		$this->failStream = $errorsStream ?? STDERR;
 	}
@@ -36,7 +36,7 @@ class Printer{
 	 * @return Bool True for JSON, false for text.
 	 */
 	public function jsonShellShape(): Bool {
-		return $this->jsonFormat;
+		return $this->isJsonFrmt;
 	}
 
 	/**
@@ -45,10 +45,10 @@ class Printer{
 	 * @param String $markdownLine The remark.
 	 */
 	public function printShellLine( String $markdownLine ): Void {
-		if( $this->quietPrint ){
+		if( $this->isQuietOut ){
 			return;
 		}
-		if( $this->jsonFormat ){
+		if( $this->isJsonFrmt ){
 			$this->jsonOutput['notes'][] = $markdownLine;
 			return;
 		}
@@ -62,7 +62,7 @@ class Printer{
 	 * @param String $markdownLine The text.
 	 */
 	public function printShellBody( String $markdownLine ): Void {
-		if( $this->jsonFormat ){
+		if( $this->isJsonFrmt ){
 			$this->jsonOutput['body'] = ($this->jsonOutput['body'] ?? '').$markdownLine;
 			return;
 		}
@@ -75,7 +75,7 @@ class Printer{
 	 * @param String $markdownLine What went wrong.
 	 */
 	public function printShellFail( String $markdownLine ): Void {
-		if( $this->jsonFormat ){
+		if( $this->isJsonFrmt ){
 			$this->jsonOutput['error'] = $markdownLine;
 			return;
 		}
@@ -100,7 +100,7 @@ class Printer{
 	 * @param Array $tableLnsList Rows, each a list of values in the order of the columns.
 	 */
 	public function printShellRows( Array $hedrRowsList, Array $tableLnsList ): Void {
-		if( $this->jsonFormat ){
+		if( $this->isJsonFrmt ){
 			foreach( $tableLnsList as $rowVal ){
 				$this->jsonOutput['rows'][] = array_combine($hedrRowsList, array_values($rowVal));
 			}
@@ -135,7 +135,7 @@ class Printer{
 	 * @param mixed  $filePartData The value.
 	 */
 	public function printShellPair( String $valLabelText, Mixed $filePartData ): Void {
-		if( $this->jsonFormat ){
+		if( $this->isJsonFrmt ){
 			$this->jsonOutput[$valLabelText] = $filePartData;
 			return;
 		}
@@ -150,7 +150,7 @@ class Printer{
 	 * @param String $codeSecrText The secret.
 	 */
 	public function printShellOnce( String $shellSecrNme, String $codeSecrText ): Void {
-		if( $this->jsonFormat ){
+		if( $this->isJsonFrmt ){
 			$this->jsonOutput['secret'][$shellSecrNme] = $codeSecrText;
 			return;
 		}
@@ -164,7 +164,7 @@ class Printer{
 	 * @param Int $shellExitNum Exit code of the command.
 	 */
 	public function closeShellOuts( Int $shellExitNum ): Void {
-		if( !$this->jsonFormat ){
+		if( !$this->isJsonFrmt ){
 			return;
 		}
 		$outArray = Array('done'=>($shellExitNum==0), 'exit'=>$shellExitNum) + $this->jsonOutput;

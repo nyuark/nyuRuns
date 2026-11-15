@@ -19,7 +19,7 @@ class SqlStore implements Store {
 	// Name of the database in the config, which the config cache keeps its tables under ('' for the default one)
 	protected $dbLinkName = '';
 	// The tables whose description came from the config cache
-	protected $cachTblArr = Array();
+	protected $cachTblLst = Array();
 
 	/**
 	 * Builds the store on the handler of a database.
@@ -60,7 +60,7 @@ class SqlStore implements Store {
 		if( !isset($this->detailList[$tbleLabelTxt]) ){
 			$tableDct = ConfCache::tableInfoArray($this->dbLinkName, $tbleLabelTxt);
 			if( $tableDct!==null ){
-				$this->cachTblArr[] = $tbleLabelTxt;
+				$this->cachTblLst[] = $tbleLabelTxt;
 			}else{
 				$tableDct = $this->baseHandle->tableInfoArray($tbleLabelTxt);
 				// A table that cannot be described is asked again next time
@@ -200,7 +200,7 @@ class SqlStore implements Store {
 
 		if( !$dtbsHndr->sendBuiltQuery($findQuer, false, $wherePar['vals']) ){
 			// A table changed since the config cache described it: the next request describes it again
-			if( !empty(array_intersect($tableLst, $this->cachTblArr)) ){
+			if( !empty(array_intersect($tableLst, $this->cachTblLst)) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
@@ -258,7 +258,7 @@ class SqlStore implements Store {
 		}
 		$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($tbleLabelTxt).' ('.implode(',', $fldsQotd).') VALUES ('.implode(',', array_fill(0, count($fieldValList), '?')).');';
 		if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($fieldValList)) ){
-			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
+			if( in_array($tbleLabelTxt, $this->cachTblLst, true) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
@@ -291,7 +291,7 @@ class SqlStore implements Store {
 		}
 		$updtQuer = 'UPDATE '.$tableQtd.' SET '.implode(',', $setsList).' WHERE '.$wherePar['text'].';';
 		if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, array_merge(array_values($fieldValList), $wherePar['vals'])) ){
-			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
+			if( in_array($tbleLabelTxt, $this->cachTblLst, true) ){
 				ConfCache::clearConfCache();
 			}
 			return false;
@@ -314,7 +314,7 @@ class SqlStore implements Store {
 		$wherePar = $this->needWhereArray($filterFields);
 		$remvStmt = 'DELETE FROM '.$dtbsHndr->quoteFieldName($tbleLabelTxt).' WHERE '.$wherePar['text'].';';
 		if( !$dtbsHndr->sendBuiltQuery($remvStmt, true, $wherePar['vals']) ){
-			if( in_array($tbleLabelTxt, $this->cachTblArr, true) ){
+			if( in_array($tbleLabelTxt, $this->cachTblLst, true) ){
 				ConfCache::clearConfCache();
 			}
 			return false;

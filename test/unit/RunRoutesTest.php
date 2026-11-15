@@ -21,7 +21,7 @@ use nyu\Tools\Logger;
  */
 function madeRoutr( String $urlAddress, String $httpMethod='GET', Array $routeConfg=Array() ): Router {
 	$request = mockRequestObj();
-	foreach( Array('rqstInMthd'=>$httpMethod, 'uriDetails'=>Array('fullPath'=>$urlAddress)) as $prpNme=>$prpVal ){
+	foreach( Array('reqtInMthd'=>$httpMethod, 'uriDetails'=>Array('fullPath'=>$urlAddress)) as $prpNme=>$prpVal ){
 		(new ReflectionProperty($request, $prpNme))->setValue($request, $prpVal);
 	}
 	return new Router( $routeConfg + Array('detectBy'=>'autopath', 'pathForm'=>'$appToRun/$doAction/$argument', 'routeDir'=>'test'.DS.'nosuchfolder'), $request );

@@ -21,11 +21,11 @@ class Controller{
 	protected $runAppName;
 	protected $appsFolder;
 	// The names whose folders differ by their case alone, already logged as errors : once each
-	protected static $loggdTwins = Array();
+	protected static $twinsNoted = Array();
 	// The folder names of each folder of Runs, by its path: read once for the request (see runFoldrString)
 	protected static $runFolders = Array();
-	protected $inputsRgst;
-	protected $accessRgst;
+	protected $inputsRegr;
+	protected $accessRegr;
 	protected $requestObj;
 	protected $respondObj;
 	protected $routingObj;
@@ -66,8 +66,8 @@ class Controller{
 		$this->runAppName = $appNameToRun;
 		$this->keptAction = $runAppAction;
 		$this->keptOption = $runAppOption;
-		$this->inputsRgst = $runInputsReg;
-		$this->accessRgst = $accsCheckReg;
+		$this->inputsRegr = $runInputsReg;
+		$this->accessRegr = $accsCheckReg;
 		$this->requestObj = $givenRequest;
 		$this->respondObj = $httpResponse;
 		$this->routingObj = $routerObject;
@@ -150,7 +150,7 @@ class Controller{
 		$defnPath = $this->appsFolder.DS.'input'.DS.$actnName.'.json';
 		if( !is_file($defnPath) ){
 			// No definition, no input : an action takes only what it declares
-			$this->inputsRgst = new Registry( Array() );
+			$this->inputsRegr = new Registry( Array() );
 			return;
 		}
 		$fieldDfs = json_decode( strval(file_get_contents($defnPath)), true );
@@ -158,7 +158,7 @@ class Controller{
 			throw new \RuntimeException('Input misconfigured: '.$this->runAppName.'/input/'.$actnName.'.json is not a definition of fields');
 		}
 		$inputObj = new Input( null, 'ACTON', $fieldDfs['fieldSet'], $actnName );
-		$this->inputsRgst = new Registry( $inputObj->parseValuesArr($this->inputsRgst->readLinesArray()) );
+		$this->inputsRegr = new Registry( $inputObj->parseValuesArr($this->inputsRegr->readLinesArray()) );
 		$missList = $inputObj->retrieveMissed();
 		if( !empty($missList) ){
 			// A required field is missing or empty : the action is not run
@@ -220,8 +220,8 @@ class Controller{
 			}
 		}
 		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them
-		if( count($findList)>1 && !isset(self::$loggdTwins[strtolower($appNameToRun)]) ){
-			self::$loggdTwins[strtolower($appNameToRun)] = true;
+		if( count($findList)>1 && !isset(self::$twinsNoted[strtolower($appNameToRun)]) ){
+			self::$twinsNoted[strtolower($appNameToRun)] = true;
 			Logger::retrieveLogger('runner')->error( 'Run folders '.json_encode($findList, JSON_UNESCAPED_SLASHES).' differ by their case alone: neither is served'.Logger::getActorSuffix() );
 		}
 		return (count($findList)===1) ? $findList[0] : '';
@@ -245,7 +245,7 @@ class Controller{
 	 * @return RunContext The action, its option and inputs, the access result, request, response, router, models and application.
 	 */
 	protected function makeRunContext(): RunContext {
-		return new RunContext( $this->keptAction, $this->keptOption, $this->inputsRgst, $this->accessRgst, $this->requestObj, $this->respondObj, $this->routingObj, $this->modelStack, $this->runAppName, strval($this->appsFolder) );
+		return new RunContext( $this->keptAction, $this->keptOption, $this->inputsRegr, $this->accessRegr, $this->requestObj, $this->respondObj, $this->routingObj, $this->modelStack, $this->runAppName, strval($this->appsFolder) );
 	}
 
 	// Execute application (from actionset)
@@ -273,7 +273,7 @@ class Controller{
 		}
 		return Array(
 			'code'=>intval($this->actionsObj->statusCode ?? 200),
-			'mssg'=>strval($this->actionsObj->statusMssg ?? '')
+			'mssg'=>strval($this->actionsObj->statusText ?? '')
 		);
 	}
 

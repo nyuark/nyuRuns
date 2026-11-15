@@ -38,9 +38,9 @@ class Actions extends Actionset {
 	public function index(): Void {
 		$userBase = $this->userBaseDb;
 		$userList = $userBase->listUsersNamed(
-			Array('userStatus'=>$this->inputsRgst->readValueByKey('currStat'), 'accessRole'=>$this->inputsRgst->readValueByKey('saveRole')),
-			intval($this->inputsRgst->readValueByKey('limitVal')),
-			intval($this->inputsRgst->readValueByKey('rowIndex'))
+			Array('userStatus'=>$this->inputsRegr->readValueByKey('currStat'), 'accessRole'=>$this->inputsRegr->readValueByKey('saveRole')),
+			intval($this->inputsRegr->readValueByKey('limitVal')),
+			intval($this->inputsRegr->readValueByKey('rowIndex'))
 		);
 		if($userList===false){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
@@ -76,14 +76,14 @@ class Actions extends Actionset {
 	 */
 	public function create(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->inputsRgst->readValueByKey('userName');
+		$givenUsr = $this->inputsRegr->readValueByKey('userName');
 		if(!is_string($givenUsr) || $givenUsr==''){
 			$this->stopThisAction(400, 'Invalid userName');
 		}
-		$givenRle = $this->inputsRgst->readValueByKey('saveRole');
-		$givenEml = $this->inputsRgst->readValueByKey('userMail');
+		$givenRle = $this->inputsRegr->readValueByKey('saveRole');
+		$givenEml = $this->inputsRegr->readValueByKey('userMail');
 		$givenEml = is_string($givenEml) ? trim($givenEml) : '';
-		$givenLng = $this->inputsRgst->readValueByKey('saveLang');
+		$givenLng = $this->inputsRegr->readValueByKey('saveLang');
 		$givenLng = is_string($givenLng) ? $givenLng : null;
 		$mailInst = ($givenEml!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
 		$newCodig = $userBase->enrolUsrString( $givenUsr, is_string($givenRle) ? $givenRle : '', $givenEml, ($mailInst!==null) ? $userBase->mailedForCount() : UserBase::HAND_MINS, $givenLng );
@@ -124,10 +124,10 @@ class Actions extends Actionset {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->givenUsrString(false);
 		// A device never changes the address of its own user: that needs the password login
-		if( $givenUsr===strval($this->accessRgst->readValueByKey('userName')) ){
+		if( $givenUsr===strval($this->accessRegr->readValueByKey('userName')) ){
 			$this->needsPasswdLgn();
 		}
-		$givenEml = $this->inputsRgst->readValueByKey('userMail');
+		$givenEml = $this->inputsRegr->readValueByKey('userMail');
 		if(!$userBase->changeMailFlag($givenUsr, is_string($givenEml) ? $givenEml : null)){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -144,7 +144,7 @@ class Actions extends Actionset {
 	public function langs(): Void {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->givenUsrString(false);
-		$givenLng = $this->inputsRgst->readValueByKey('saveLang');
+		$givenLng = $this->inputsRegr->readValueByKey('saveLang');
 		if(!$userBase->changeLanguage($givenUsr, is_string($givenLng) ? $givenLng : null)){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -187,7 +187,7 @@ class Actions extends Actionset {
 	public function role(): Void {
 		$userBase = $this->userBaseDb;
 		$givenUsr = $this->givenUsrString(true);
-		$givenRle = $this->inputsRgst->readValueByKey('saveRole');
+		$givenRle = $this->inputsRegr->readValueByKey('saveRole');
 		if(!$userBase->changeRoleFlag($givenUsr, is_string($givenRle) ? $givenRle : '')){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -269,7 +269,7 @@ class Actions extends Actionset {
 		if($givenUsr==''){
 			$this->stopThisAction(400, 'Invalid user');
 		}
-		if($notOnOwnAcnt && $givenUsr===strval($this->accessRgst->readValueByKey('userName'))){
+		if($notOnOwnAcnt && $givenUsr===strval($this->accessRegr->readValueByKey('userName'))){
 			$this->stopThisAction(409, 'A manager cannot do this to its own account');
 		}
 		return $givenUsr;

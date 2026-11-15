@@ -43,12 +43,12 @@ class Odtx extends Pack {
 	protected $listStyles = Array();
 	// The styles met, and whether a block of the text was already read
 	protected $stylesUsed = Array();
-	protected $insideBody = false;
+	protected $isInsdBody = false;
 	// The notes read, by kind
 	protected $noteBlocks = Array('fnote'=>Array(), 'enote'=>Array());
 	// Whether empty paragraphs are kept, whether comments are read, the comments read, and the place in that list of those whose passage is still running, by name
-	protected $keepsEmpty = true;
-	protected $redComment = false;
+	protected $isVoidKept = true;
+	protected $isCmntRead = false;
 	protected $commentLst = Array();
 	protected $openedList = Array();
 
@@ -77,10 +77,10 @@ class Odtx extends Pack {
 		$this->namedStyle = Array('paragraph'=>Array(), 'text'=>Array());
 		$this->listStyles = Array();
 		$this->stylesUsed = Array();
-		$this->insideBody = false;
+		$this->isInsdBody = false;
 		$this->noteBlocks = Array('fnote'=>Array(), 'enote'=>Array());
-		$this->keepsEmpty = !isset($parseOptions['empty']) || !empty($parseOptions['empty']);
-		$this->redComment = !empty($parseOptions['cmnts']);
+		$this->isVoidKept = !isset($parseOptions['empty']) || !empty($parseOptions['empty']);
+		$this->isCmntRead = !empty($parseOptions['cmnts']);
 		$this->commentLst = Array();
 		$this->openedList = Array();
 		$this->loadNamedStyle($this->findChildArray($stylList, Array('office:styles')) ?? Array('nodes'=>Array()));
@@ -92,7 +92,7 @@ class Odtx extends Pack {
 		$propList = $this->propsReadArray();
 		$infoList = Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'props'=>$propList, 'frmat'=>Array(), 'phead'=>Array(), 'pfoot'=>Array());
 		// What stands outside the text is read without its empty paragraphs
-		$this->keepsEmpty = false;
+		$this->isVoidKept = false;
 		$this->autoStyles = $pageStyl;
 		$seenList = Array();
 		foreach($this->kidsNamedArray($this->findChildArray($stylList, Array('office:master-styles')) ?? Array('nodes'=>Array()), 'style:master-page') as $pgeArr){
@@ -110,7 +110,7 @@ class Odtx extends Pack {
 				}
 			}
 		}
-		if( $this->redComment ){
+		if( $this->isCmntRead ){
 			$infoList['cmnts'] = Array();
 			foreach($this->commentLst as $cmtSet){
 				$cmtSet['about'] = trim($cmtSet['about']);
@@ -417,7 +417,7 @@ class Odtx extends Pack {
 		}
 		$pictList = Array();
 		$this->readParaPieces($elementArray, $handDict['marks'] ?? Array(), '', $pictList);
-		$flowDict = $this->flowPartsArray($pictList, $this->keepsEmpty);
+		$flowDict = $this->flowPartsArray($pictList, $this->isVoidKept);
 		$attrDict = Array();
 		if( $styleDct!==null ){
 			$attrDict['style'] = $styleDct['names'];
@@ -444,8 +444,8 @@ class Odtx extends Pack {
 			$prgrCode = $kindFind;
 		}
 		// A page break is asked for by the style, or by a change of the kind of page after the text has started
-		$brekPrev = (!empty($handDict['prior']) || !empty($styleDct['prior']) || (!empty($handDict['pages']) && $this->insideBody));
-		$this->insideBody = true;
+		$brekPrev = (!empty($handDict['prior']) || !empty($styleDct['prior']) || (!empty($handDict['pages']) && $this->isInsdBody));
+		$this->isInsdBody = true;
 		return Array(
 			'kinds'=>$prgrCode, 'level'=>$headLevl, 'attrs'=>$attrDict,
 			'spans'=>$flowDict['spans'], 'plain'=>$flowDict['plain'], 'holds'=>$flowDict['holds'], 'flows'=>$flowDict['flows'],
@@ -530,10 +530,10 @@ class Odtx extends Pack {
 		$noteNumb = count($this->noteBlocks[$noteCode])+1;
 		// The place is taken before the note is read, for a note may hold another
 		$this->noteBlocks[$noteCode][$noteNumb-1] = Array();
-		$keptVoid = $this->keepsEmpty;
-		$this->keepsEmpty = false;
+		$keptVoid = $this->isVoidKept;
+		$this->isVoidKept = false;
 		$bodyBloc = $this->bodyBlocksList($this->findChildArray($elementArray, Array('text:note-body')) ?? Array('nodes'=>Array()), 0, '');
-		$this->keepsEmpty = $keptVoid;
+		$this->isVoidKept = $keptVoid;
 		$this->noteBlocks[$noteCode][$noteNumb-1] = $this->holdBlockArray('footnote', $bodyBloc, Array('tagid'=>$noteCode.$noteNumb, 'numbr'=>$noteNumb));
 		$outputPieces[] = Shape::makeASpanArray(strval($noteNumb), Array(), '#'.$noteCode.$noteNumb);
 	}
@@ -550,17 +550,17 @@ class Odtx extends Pack {
 			unset($this->openedList[$noteName]);
 			return;
 		}
-		if( !$this->redComment ){
+		if( !$this->isCmntRead ){
 			return;
 		}
 		// What a comment says is not part of the passages being commented
 		$keptOpen = $this->openedList;
-		$keptVoid = $this->keepsEmpty;
+		$keptVoid = $this->isVoidKept;
 		$this->openedList = Array();
-		$this->keepsEmpty = false;
+		$this->isVoidKept = false;
 		$noteText = Shape::documentAsText($this->bodyBlocksList($elementArray, 0, ''));
 		$this->openedList = $keptOpen;
-		$this->keepsEmpty = $keptVoid;
+		$this->isVoidKept = $keptVoid;
 		$this->commentLst[] = Array('authr'=>trim(strval($this->findChildArray($elementArray, Array('dc:creator'))['value'] ?? '')), 'dated'=>trim(strval($this->findChildArray($elementArray, Array('dc:date'))['value'] ?? '')), 'plain'=>$noteText, 'about'=>'');
 		if( $noteName!=='' ){
 			$this->openedList[$noteName] = count($this->commentLst)-1;
@@ -585,12 +585,12 @@ class Odtx extends Pack {
 			}
 			return;
 		}
-		$keptVoid = $this->keepsEmpty;
-		$this->keepsEmpty = false;
+		$keptVoid = $this->isVoidKept;
+		$this->isVoidKept = false;
 		foreach($this->bodyBlocksList($this->findChildArray($elementArray, Array('draw:text-box')) ?? Array('nodes'=>Array()), 0, '') as $boxBlk){
 			$outputPieces[] = $boxBlk;
 		}
-		$this->keepsEmpty = $keptVoid;
+		$this->isVoidKept = $keptVoid;
 	}
 
 }

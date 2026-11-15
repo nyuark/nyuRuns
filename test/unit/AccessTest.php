@@ -486,7 +486,7 @@ function roleActn( String $loggedRole, String $neededRole='' ): Array {
 	$axssReg = new Registry( ($loggedRole!='') ? Array('loggedIn'=>true, 'userName'=>'carol', 'userRole'=>$loggedRole) : Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null) );
 	$actnSet = new nyu\Runs\Probe\Actions( new nyu\App\RunContext('roleList', ($neededRole!='') ? $neededRole : null, new Registry(Array()), $axssReg, mockRequestObj(Array(), Array('REMOTE_ADDR'=>'10.0.0.1')), null, null, null, 'Probe', RUN_DIR.DS.'Probe') );
 	$actnSet->runAskedAction();
-	return Array($actnSet->statusCode, strval($actnSet->statusMssg), $actnSet->replyValue);
+	return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue);
 }
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('actnlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('holdsRole: the highest role holds them all', roleActn('managers')[2], Array('standard'=>true, 'advanced'=>true, 'managers'=>true));

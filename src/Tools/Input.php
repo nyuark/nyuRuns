@@ -28,7 +28,7 @@ class Input{
 
 	protected $storedName;
 	protected $fieldArray;
-	protected $rqstObject;
+	protected $requestObj;
 	protected $inputsList;
 	protected $missingSet = Array();
 
@@ -47,7 +47,7 @@ class Input{
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */
     function __construct( ?Request $givenRequest, String $sourceOfData, String|Array $fieldsConfig, String $registryName ){
-		$this->rqstObject = $givenRequest;
+		$this->requestObj = $givenRequest;
 		$this->storedName = $registryName;
 		$this->fieldArray = $this->fieldsInputMap( $fieldsConfig );
 		$allArray = ($sourceOfData=='QUERY' && $givenRequest!==null) ? $givenRequest->getAllVariable() : Array();

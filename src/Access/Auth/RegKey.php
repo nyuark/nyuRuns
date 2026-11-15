@@ -10,7 +10,7 @@ class RegKey implements Handler{
 
 	protected $acceptKeys;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * Builds the check against the list of API keys from its config block.
@@ -31,7 +31,7 @@ class RegKey implements Handler{
 	 */
 	function checkSecretArr( Array $loginDataLst ): Array|Bool {
 		$sentClef = $loginDataLst['key'] ?? '';
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		if( $sentClef=='' ){
 			$this->errMessage = 'No API key provided';
 			return false;
@@ -44,7 +44,7 @@ class RegKey implements Handler{
 			}
 		}
 		$this->errMessage = 'Invalid API key';
-		$this->badTryFlag = true;
+		$this->isWrongTry = true;
 		return false;
 	}
 
@@ -56,7 +56,7 @@ class RegKey implements Handler{
 	 * @return Bool True when a key was presented and refused.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

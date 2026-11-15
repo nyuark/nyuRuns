@@ -20,9 +20,9 @@ readonly class RunContext {
 	// Extra parameter of the action, from the path
 	public ?String $optionText;
 	// Inputs of the action, once its definition is applied
-	public Registry $inputsRgst;
+	public Registry $inputsRegr;
 	// Access check result: 'loggedIn', 'userName', 'userRole' and 'identity' of the requester
-	public ?Registry $accessRgst;
+	public ?Registry $accessRegr;
 	// The shared HTTP request (method, headers, files)
 	public ?Request $requestObj;
 	// The shared response (headers, file and page replies)
@@ -53,8 +53,8 @@ readonly class RunContext {
 	public function __construct( String $runAppAction, ?String $runAppOption, Registry $runInputsReg, ?Registry $accsCheckReg, ?Request $givenRequest, ?Response $httpResponse, ?Router $routerObject, ?ModelStack $modelsLoader, String $appNameToRun, String $appsFldrText ){
 		$this->actionName = $runAppAction;
 		$this->optionText = $runAppOption;
-		$this->inputsRgst = $runInputsReg;
-		$this->accessRgst = $accsCheckReg;
+		$this->inputsRegr = $runInputsReg;
+		$this->accessRegr = $accsCheckReg;
 		$this->requestObj = $givenRequest;
 		$this->respondObj = $httpResponse;
 		$this->routingObj = $routerObject;

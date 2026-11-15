@@ -23,7 +23,7 @@ class Console{
 	// The framework's commands and their classes, under nyu\Shell\Cmds. Any other name is the one of an application (see findClass)
 	const CMDS_LIST = Array('install'=>'Deploy', 'setting'=>'Config', 'testing'=>'Tester', 'cleanup'=>'Cleans', 'showlog'=>'ShowLog', 'cronjob'=>'CronJob', 'account'=>'Manage', 'devices'=>'Device', 'bundles'=>'Bundle', 'appkeys'=>'AppKey', 'makerun'=>'RunGen');
 
-	protected $commandArr;
+	protected $commandLst;
 	protected $outsStream;
 	protected $failStream;
 	protected $readStream;
@@ -37,7 +37,7 @@ class Console{
 	 * @param mixed $answerStream Stream the answers are read from; the standard input when null.
 	 */
 	function __construct( Array $commandWords, Mixed $outputStream=null, Mixed $errorsStream=null, Mixed $answerStream=null ){
-		$this->commandArr = $commandWords;
+		$this->commandLst = $commandWords;
 		$this->outsStream = $outputStream;
 		$this->failStream = $errorsStream;
 		$this->readStream = $answerStream;
@@ -69,7 +69,7 @@ class Console{
 	 * @return Int The exit code: 0 done, 1 failed, 2 wrong usage, 3 refused or declined, 4 problems found.
 	 */
 	public function executeCommand(): Int {
-		$optsInst = new Options($this->commandArr);
+		$optsInst = new Options($this->commandLst);
 		$printObj = new Printer( $optsInst->retrieveOption('outputAs', 'text')=='json', $optsInst->validateOption('silently'), $this->outsStream, $this->failStream );
 		$exitNumb = Command::EXIT_DONE;
 		try{

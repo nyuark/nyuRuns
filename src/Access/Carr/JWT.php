@@ -40,7 +40,7 @@ class JWT implements Handler{
 	protected $issuerText;
 	protected $audValList;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * Builds the token carrier from its config block.
@@ -80,7 +80,7 @@ class JWT implements Handler{
 	 * @return Array|Bool The decoded identity array, or false on failure.
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$authHedr = $givenRequest->retrieveHeader('Authorization');
 		if( $authHedr===null || stripos($authHedr, 'Bearer ')!==0 ){
 			$this->errMessage = 'Missing Bearer Authorization header';
@@ -110,7 +110,7 @@ class JWT implements Handler{
 			// What the library found is for the log : the client is only told the token is not valid
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.get_class($e).': '.$e->getMessage() );
 			$this->errMessage = 'Invalid token';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		// A token names its user and ends : one that does neither was not issued here
@@ -123,7 +123,7 @@ class JWT implements Handler{
 		if( $isOldKey && !( is_numeric($idntList['iat'] ?? null) && $idntList['iat']<$this->retireUnix && $idntList['exp']<=$this->retireUnix + intval($this->expiryTime) ) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed with the previous key outside its time' );
 			$this->errMessage = 'Invalid token';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		// A token issued for another project, or by another issuer, is not counted : its signature is right
@@ -422,7 +422,7 @@ class JWT implements Handler{
 	 * @return Bool True when a token was presented and found forged.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

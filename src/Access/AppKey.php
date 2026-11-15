@@ -25,7 +25,7 @@ class AppKey{
 	protected $audValList;
 	protected $callingApp;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * Builds the check from its config block.
@@ -57,7 +57,7 @@ class AppKey{
 	 *                         the token is refused; null when the request carries no application key.
 	 */
 	public function verifyAppArray( Request $givenRequest ): Array|Bool|null {
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$this->callingApp = null;
 		$sentClef = strval($givenRequest->retrieveHeader($this->headerName) ?? '');
 		if( $sentClef=='' ){
@@ -75,7 +75,7 @@ class AppKey{
 		}
 		if( $applName===null ){
 			$this->errMessage = 'Invalid app key';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		$applDict = $this->appsByName[$applName];
@@ -95,7 +95,7 @@ class AppKey{
 		$idntList = $toknInst->verifyRqstList( $givenRequest );
 		if( $idntList===false ){
 			$this->errMessage = $toknInst->finalErrorText();
-			$this->badTryFlag = $toknInst->hasWrongSecret();
+			$this->isWrongTry = $toknInst->hasWrongSecret();
 			return false;
 		}
 		$userRole = strval($idntList['userRole'] ?? '');
@@ -149,7 +149,7 @@ class AppKey{
 	 * @return Bool True when a credential was presented and refused.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

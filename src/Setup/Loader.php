@@ -21,7 +21,7 @@ class Loader{
 	// The values read from the config cache, or those gathered to write it (see ConfCache)
 	protected $cachValues;
 	// Whether they were read from the cache
-	protected $usesCached;
+	protected $isCacheHit;
 	// Name of the preset, which the cache is kept under
 	protected $presetName;
 
@@ -36,7 +36,7 @@ class Loader{
 		$this->setAllRegistry( $fullSetupLst );
 		$this->blockNames = Array('settings','security','dispatch','response','inputSet');
 		$this->presetName = $nameOfPreset;
-		$this->usesCached = ($cachedValues!==null);
+		$this->isCacheHit = ($cachedValues!==null);
 		// The preset is kept as it is before any overload of the Runner
 		$this->cachValues = $cachedValues ?? Array('preset'=>$fullSetupLst);
 	}
@@ -107,12 +107,12 @@ class Loader{
 		if( $confDict===false ){
 			throw new \RuntimeException('The preset has no settings block');
 		}
-		if( $this->usesCached ){
+		if( $this->isCacheHit ){
 			$confRegr = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confDict['envrFile'] ?? '.env') ) );
 			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
 			$iniConfg = $confRegr->readValueByKey('system') ?: Array();
 			ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConfg['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachValues['tables'] ?? Array()) : null;
-			ConfCache::$tableAdded = false;
+			ConfCache::$isTblAdded = false;
 			return $confRegr;
 		}
 		// Read all INI and JSON files in conf
@@ -152,7 +152,7 @@ class Loader{
 		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
 		$iniConfg = $confRegr->readValueByKey('system') ?: Array();
 		ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConfg['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? Array() : null;
-		ConfCache::$tableAdded = false;
+		ConfCache::$isTblAdded = false;
 		return $confRegr;
 	}
 
@@ -250,7 +250,7 @@ class Loader{
     function importRouteReg( Request $givenRequest, String $basePathText='' ): Registry {
 		$routeCfg = $this->getRegistryKey('dispatch');
 		$this->routingObj = new Router( is_array($routeCfg) ? $routeCfg : Array(), $givenRequest, $basePathText );
-		if( $this->usesCached ){
+		if( $this->isCacheHit ){
 			$this->routingObj->assignRouteSet( $this->cachValues['routes'] );
 		}
 		$routRegr = $this->routingObj->locateRouteReg();
@@ -272,7 +272,7 @@ class Loader{
 	public function retainCacheFlg(): Bool {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
-		if( !in_array( strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->usesCached && !ConfCache::$tableAdded) || $this->presetName=='' || $this->routingObj===null || !isset($this->cachValues['config']) ){
+		if( !in_array( strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->isCacheHit && !ConfCache::$isTblAdded) || $this->presetName=='' || $this->routingObj===null || !isset($this->cachValues['config']) ){
 			return false;
 		}
 		// A config, preset or route file written since the request began (the Runs' routes too): what it read is not cached
@@ -287,12 +287,12 @@ class Loader{
 		}
 		$this->cachValues['routes'] = $this->routingObj->retrieveRoutes();
 		$this->cachValues['tables'] = ConfCache::$tableInfos ?? Array();
-		ConfCache::$tableAdded = false;
+		ConfCache::$isTblAdded = false;
 		if( !ConfCache::buildCacheFlag($this->presetName, $this->cachValues) ){
 			return false;
 		}
 		// Written once: the end of the request writes it again only for tables described meanwhile
-		$this->usesCached = true;
+		$this->isCacheHit = true;
 		return true;
 	}
 

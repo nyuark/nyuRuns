@@ -26,7 +26,7 @@ use nyu\Output\Response;
  */
 function madeRoutr( String $urlAddress, String $httpMethod='GET', Array $routeConfg=Array() ): Router {
 	$request = mockRequestObj();
-	foreach( Array('rqstInMthd'=>$httpMethod, 'uriDetails'=>Array('fullPath'=>$urlAddress)) as $prpNme=>$prpVal ){
+	foreach( Array('reqtInMthd'=>$httpMethod, 'uriDetails'=>Array('fullPath'=>$urlAddress)) as $prpNme=>$prpVal ){
 		$propObj = new ReflectionProperty($request, $prpNme);
 		$propObj->setValue($request, $prpVal);
 	}
@@ -179,7 +179,7 @@ function ranAction( String $actionName, ?String $runAppOption=null ): Array|Stri
 		$headPrp = new ReflectionProperty($respons, 'headrArray');
 		ob_start();
 		$respons->transmitOutput();
-		return Array($actnObj->statusCode, strval($actnObj->statusMssg), ob_get_clean(), $headPrp->getValue($respons));
+		return Array($actnObj->statusCode, strval($actnObj->statusText), ob_get_clean(), $headPrp->getValue($respons));
 	});
 }
 

@@ -36,7 +36,7 @@ class Docx extends Pack {
 
 	// The relations of the part being read, the styles of the document, the style of the paragraphs that name none,
 	// the styles met, and whether each level of its lists is numbered
-	protected $docRelsMap = Array();
+	protected $docRltnDct = Array();
 	protected $styleTable = Array();
 	protected $defaultKey = '';
 	protected $stylesUsed = Array();
@@ -46,14 +46,14 @@ class Docx extends Pack {
 	// The field being read: 0 outside one, 1 in what it asks for, 2 in what it shows;
 	// then what it asks for, the address it gives, and what it stands for
 	protected $fieldState = 0;
-	protected $fieldInstr = '';
+	protected $fldCodeTxt = '';
 	protected $fieldLinks = '';
 	protected $fieldCodes = '';
 	// The notes met, by kind: their id in the document => their number
 	protected $noteNumArr = Array('fnote'=>Array(), 'enote'=>Array());
 	// Whether empty paragraphs are kept, whether comments are read, the passages being commented and those that were
-	protected $keepsEmpty = true;
-	protected $redComment = false;
+	protected $isVoidKept = true;
+	protected $isCmntRead = false;
 	protected $openedList = Array();
 	protected $commentTxt = Array();
 
@@ -84,7 +84,7 @@ class Docx extends Pack {
 			throw new ParseError('Invalid archive: the document is not a text document');
 		}
 		$docuRltn = $this->relsOfFragment($docuPath);
-		$this->docRelsMap = $docuRltn;
+		$this->docRltnDct = $docuRltn;
 		$this->styleTable = Array();
 		$this->defaultKey = '';
 		$this->stylesUsed = Array();
@@ -93,8 +93,8 @@ class Docx extends Pack {
 		$this->fieldLinks = '';
 		$this->fieldCodes = '';
 		$this->noteNumArr = Array('fnote'=>Array(), 'enote'=>Array());
-		$this->keepsEmpty = !isset($parseOptions['empty']) || !empty($parseOptions['empty']);
-		$this->redComment = !empty($parseOptions['cmnts']);
+		$this->isVoidKept = !isset($parseOptions['empty']) || !empty($parseOptions['empty']);
+		$this->isCmntRead = !empty($parseOptions['cmnts']);
 		$this->openedList = Array();
 		$this->commentTxt = Array();
 		// A style may name its font through the theme: the theme is read before the styles
@@ -116,19 +116,19 @@ class Docx extends Pack {
 		}
 		$blockLst = $this->bodyBlocksList($bodyList);
 		// What stands outside the text is read without its empty paragraphs
-		$this->keepsEmpty = false;
+		$this->isVoidKept = false;
 		$blockLst = array_merge($blockLst, $this->notesReadArray($docuRltn));
 		$propList = $this->propsReadArray();
 		$infoList = Array('title'=>strval($propList['Title'] ?? ''), 'authr'=>strval($propList['Author'] ?? ''), 'props'=>$propList, 'frmat'=>Array());
 		$infoList['phead'] = $this->pagesReadArray($docuRltn, '/header');
 		$infoList['pfoot'] = $this->pagesReadArray($docuRltn, '/footer');
-		if( $this->redComment ){
+		if( $this->isCmntRead ){
 			$infoList['cmnts'] = $this->gatherComments($docuRltn);
 		}
 		foreach(array_keys($this->stylesUsed) as $stlKey){
 			$infoList['frmat'][$this->styleTable[$stlKey]['names']] = $this->styleFormatArr($this->styleTable[$stlKey]);
 		}
-		$this->docRelsMap = Array();
+		$this->docRltnDct = Array();
 		$this->styleTable = Array();
 		$this->commentTxt = Array();
 		return $this->makeShapeArray('block', $blockLst, $infoList);
@@ -316,10 +316,10 @@ class Docx extends Pack {
 	 * @return Array The blocks.
 	 */
 	protected function fragmentBlocks(String $fullPathName, ?Array $elementArray=null): Array {
-		$keptRltn = $this->docRelsMap;
-		$this->docRelsMap = $this->relsOfFragment($fullPathName);
+		$keptRltn = $this->docRltnDct;
+		$this->docRltnDct = $this->relsOfFragment($fullPathName);
 		$blockLst = $this->bodyBlocksList($elementArray ?? $this->partNodesArray($fullPathName, false) ?? Array('nodes'=>Array()));
-		$this->docRelsMap = $keptRltn;
+		$this->docRltnDct = $keptRltn;
 		return $blockLst;
 	}
 
@@ -412,7 +412,7 @@ class Docx extends Pack {
 			return false;
 		}
 		$cmntIdnt = strval($elementArray['attrs']['w:id'] ?? '');
-		if( $this->redComment && $elementArray['tagnm']=='w:commentRangeStart' ){
+		if( $this->isCmntRead && $elementArray['tagnm']=='w:commentRangeStart' ){
 			$this->openedList[$cmntIdnt] = '';
 		}elseif( isset($this->openedList[$cmntIdnt]) ){
 			$this->commentTxt[$cmntIdnt] = $this->openedList[$cmntIdnt];
@@ -449,7 +449,7 @@ class Docx extends Pack {
 				$codeBuff = Array();
 			}
 			if( $prgrCode=='listItem' ){
-				if( $this->keepsEmpty || !empty($prgrList['spans']) || !empty($prgrList['holds']) ){
+				if( $this->isVoidKept || !empty($prgrList['spans']) || !empty($prgrList['holds']) ){
 					$listBuff[] = $prgrList;
 				}
 			}elseif( $prgrCode=='codeBlck' ){
@@ -498,7 +498,7 @@ class Docx extends Pack {
 		}
 		$pictList = Array();
 		$this->readParaPieces($elementArray, '', $pictList);
-		$flowDict = $this->flowPartsArray($pictList, $this->keepsEmpty);
+		$flowDict = $this->flowPartsArray($pictList, $this->isVoidKept);
 		$spansAll = $flowDict['spans'];
 		$attrDict = Array();
 		if( $styleDct['names']!=='' ){
@@ -577,7 +577,7 @@ class Docx extends Pack {
 			$childNme = $chlArr['tagnm'];
 			if( $childNme=='w:hyperlink' ){
 				// A link points to an address kept in the relations of the document, or to a bookmark of the document itself
-				$rltnDict = $this->docRelsMap[strval($chlArr['attrs']['r:id'] ?? '')] ?? null;
+				$rltnDict = $this->docRltnDct[strval($chlArr['attrs']['r:id'] ?? '')] ?? null;
 				$anchText = strval($chlArr['attrs']['w:anchor'] ?? '');
 				$linkAddr = Shape::tidyLinkString((($rltnDict!==null) ? $rltnDict['links'] : '').(($anchText!=='') ? '#'.$anchText : ''));
 				$this->readParaPieces($chlArr, ($linkAddr!=='') ? $linkAddr : $linkGoalText, $outputPieces);
@@ -622,11 +622,11 @@ class Docx extends Pack {
 			$this->fieldCodes = '';
 			if( $charCode=='begin' ){
 				$this->fieldState = 1;
-				$this->fieldInstr = '';
+				$this->fldCodeTxt = '';
 			}elseif( $charCode=='separate' ){
 				$this->fieldState = 2;
-				$this->fieldCodes = $this->parseFieldCode($this->fieldInstr);
-				if( preg_match('/^\s*HYPERLINK\s+(\\\\l\s+)?"([^"]*)"/i', $this->fieldInstr, $codeList) ){
+				$this->fieldCodes = $this->parseFieldCode($this->fldCodeTxt);
+				if( preg_match('/^\s*HYPERLINK\s+(\\\\l\s+)?"([^"]*)"/i', $this->fldCodeTxt, $codeList) ){
 					$this->fieldLinks = Shape::tidyLinkString((($codeList[1]!=='') ? '#' : '').$codeList[2]);
 				}
 			}else{
@@ -635,7 +635,7 @@ class Docx extends Pack {
 			return;
 		}
 		if( $this->fieldState==1 ){
-			$this->fieldInstr .= ($pictName=='w:instrText') ? $this->collectAllText($elementArray) : '';
+			$this->fldCodeTxt .= ($pictName=='w:instrText') ? $this->collectAllText($elementArray) : '';
 			return;
 		}
 		$pictText = '';
@@ -684,7 +684,7 @@ class Docx extends Pack {
 		if( $blipList===null ){
 			return null;
 		}
-		$rltnDict = $this->docRelsMap[strval($blipList['attrs']['r:embed'] ?? $blipList['attrs']['r:link'] ?? $blipList['attrs']['r:id'] ?? '')] ?? null;
+		$rltnDict = $this->docRltnDct[strval($blipList['attrs']['r:embed'] ?? $blipList['attrs']['r:link'] ?? $blipList['attrs']['r:id'] ?? '')] ?? null;
 		if( $rltnDict===null ){
 			return null;
 		}

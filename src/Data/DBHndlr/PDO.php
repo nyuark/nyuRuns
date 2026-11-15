@@ -16,7 +16,7 @@ abstract Class PDO implements Handler {
 	private		$builtQuery;
 	private		$lastResult;
 	private		$errMessage = Array();
-	private		$transLevel = 0;
+	private		$trnscLevel = 0;
 	
 	/**
 	 * Opens the PDO database connection.
@@ -282,8 +282,8 @@ abstract Class PDO implements Handler {
 	 */
 	public function newTransaction(): Bool {
 		$this->errMessage = Array();
-		if( $this->transLevel>0 ){
-			$this->transLevel++;
+		if( $this->trnscLevel>0 ){
+			$this->trnscLevel++;
 			return true;
 		}
 		try{
@@ -294,7 +294,7 @@ abstract Class PDO implements Handler {
 			$this->errMessage[] = "PDO Error: ".$e->getMessage();
 			return false;
 		}
-		$this->transLevel = 1;
+		$this->trnscLevel = 1;
 		return true;
 	}
 
@@ -306,10 +306,10 @@ abstract Class PDO implements Handler {
 	 */
 	public function setTransaction(): Bool {
 		$this->errMessage = Array();
-		if( $this->transLevel==0 ){
+		if( $this->trnscLevel==0 ){
 			return false;
 		}
-		if( --$this->transLevel>0 ){
+		if( --$this->trnscLevel>0 ){
 			// An outer transaction is still open: it decides
 			return true;
 		}
@@ -328,10 +328,10 @@ abstract Class PDO implements Handler {
 	 */
 	public function delTransaction(): Bool {
 		$this->errMessage = Array();
-		if( $this->transLevel==0 ){
+		if( $this->trnscLevel==0 ){
 			return false;
 		}
-		$this->transLevel = 0;
+		$this->trnscLevel = 0;
 		try{
 			return $this->baseDriver->rollBack();
 		}catch(\PDOException $e ){

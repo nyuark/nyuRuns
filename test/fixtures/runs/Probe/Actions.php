@@ -32,9 +32,9 @@ class Actions extends Actionset {
 	 * request, whatever its method: 401 when both were, 400 otherwise.
 	 */
 	public function userPass(): Void {
-		$gotBoth = is_string($this->inputsRgst->readValueByKey('user')) && is_string($this->inputsRgst->readValueByKey('pass'));
+		$gotBoth = is_string($this->inputsRegr->readValueByKey('user')) && is_string($this->inputsRegr->readValueByKey('pass'));
 		$this->statusCode = $gotBoth ? 401 : 400;
-		$this->statusMssg = $gotBoth ? 'Credentials read' : 'Missing user or pass';
+		$this->statusText = $gotBoth ? 'Credentials read' : 'Missing user or pass';
 	}
 
 	/**
@@ -54,9 +54,9 @@ class Actions extends Actionset {
 	public function identify(): Void {
 		$this->statusCode = 200;
 		$this->replyValue = Array(
-			'logged'=>$this->accessRgst->readValueByKey('loggedIn'),
-			'user'=>$this->accessRgst->readValueByKey('userName'),
-			'role'=>$this->accessRgst->readValueByKey('userRole')
+			'logged'=>$this->accessRegr->readValueByKey('loggedIn'),
+			'user'=>$this->accessRegr->readValueByKey('userName'),
+			'role'=>$this->accessRegr->readValueByKey('userRole')
 		);
 	}
 
@@ -148,7 +148,7 @@ class Actions extends Actionset {
 	public function mediaErr(): Void {
 		$this->serveFileReply( TOP_DIR.DS.'test'.DS.'fixtures'.DS.'letters.txt', 'audio/mp4' );
 		$this->statusCode = 403;
-		$this->statusMssg = 'Not yours';
+		$this->statusText = 'Not yours';
 	}
 
 	/**
@@ -185,7 +185,7 @@ class Actions extends Actionset {
 		}elseif( $valueAsGiven=='fail' ){
 			$this->answerPageFlag('card', Array('title'=>'Never sent'));
 			$this->statusCode = 403;
-			$this->statusMssg = 'Not yours';
+			$this->statusText = 'Not yours';
 		}else{
 			$this->answerPageFlag('card', Array('title'=>'<b>Tom & "Jerry"</b>', 'link'=>$this->routLinkString('items/$id', Array('id'=>'a b'), Array('tab'=>'x y'))));
 		}
@@ -231,7 +231,7 @@ class Actions extends Actionset {
 	public function warnfail(): Void {
 		trigger_error('probe warning', E_USER_WARNING);
 		$this->statusCode = 404;
-		$this->statusMssg = 'Nothing here';
+		$this->statusText = 'Nothing here';
 	}
 
 	/**

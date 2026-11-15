@@ -32,7 +32,7 @@ ini_set('session.save_path', $sesFldr);
 function cookReqst( Mixed $sessnIdent, String $cookieName='nyuSessn' ): nyu\Tools\Request {
 	session_id('');
 	$request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
-	$cookPrp = new ReflectionProperty('nyu\Tools\Request', 'cookValues');
+	$cookPrp = new ReflectionProperty('nyu\Tools\Request', 'ckieValues');
 	$cookPrp->setValue($request, ($sessnIdent===null) ? Array() : Array($cookieName=>$sessnIdent));
 	return $request;
 }

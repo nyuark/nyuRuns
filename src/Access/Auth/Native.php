@@ -41,7 +41,7 @@ class Native implements Handler{
 	protected $markedLmtr;
 	protected $passedUser = null;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * Builds the check against the native userbase from its config block.
@@ -93,7 +93,7 @@ class Native implements Handler{
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
 	function checkSecretArr( Array $loginDataLst ): Array|Bool {
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$this->passedUser = null;
 		if( isset($loginDataLst['key']) ){
 			return $this->checkTokenList( strval($loginDataLst['key']) );
@@ -127,7 +127,7 @@ class Native implements Handler{
 		if( is_array($userVals) && $markClef=='' && $this->hasHeldNowFlag($userVals) ){
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		if( $userVals===null || !$matxList ){
@@ -135,14 +135,14 @@ class Native implements Handler{
 				($markClef!='') ? $this->markedLmtr->countLimitUser($markClef) : $this->countFailedTry( strval($userVals['systemName']) );
 			}
 			$this->errMessage = 'Invalid credentials';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		if( ($userVals['userStatus'] ?? '')!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
 			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is not active ('.strval($userVals['userStatus'] ?? '').')' );
 			$this->errMessage = 'Invalid credentials';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		// A user with mailed codes gives the code sent to its address : asked without one, a code is mailed
@@ -168,7 +168,7 @@ class Native implements Handler{
 				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($userVals['systemName']) );
 				($markClef!='') ? $this->markedLmtr->countLimitUser($markClef) : $this->countFailedTry( strval($userVals['systemName']) );
 				$this->errMessage = 'Invalid verification code';
-				$this->badTryFlag = true;
+				$this->isWrongTry = true;
 				return false;
 			}
 		}elseif( $sealClef!='' ){
@@ -199,7 +199,7 @@ class Native implements Handler{
 				}
 				($markClef!='') ? $this->markedLmtr->countLimitUser($markClef) : $this->countFailedTry( strval($userVals['systemName']) );
 				$this->errMessage = 'Invalid verification code';
-				$this->badTryFlag = true;
+				$this->isWrongTry = true;
 				return false;
 			}
 		}
@@ -486,7 +486,7 @@ class Native implements Handler{
 		}
 		if( $userVals===null || ($userVals['userStatus'] ?? '')!=='approved' ){
 			$this->errMessage = 'Invalid API key';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		return Array('userName'=>$userVals['systemName'], 'userRole'=>strval($userVals['accessRole'] ?? ''), 'idOfUser'=>$userVals['id_user'] ?? null);
@@ -590,7 +590,7 @@ class Native implements Handler{
 	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, its password was set since, or the table cannot be read.
 	 */
 	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedAtUnix=null ): Array|Bool {
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
 		if( $userVals===false ){
 			$this->errMessage = 'Credential store unavailable';
@@ -724,7 +724,7 @@ class Native implements Handler{
 	 * @return Bool True when a credential was presented and refused.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

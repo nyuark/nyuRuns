@@ -27,7 +27,7 @@ class UserList implements Handler{
 	protected $usrLimiter;
 	protected $passedUser = null;
 	protected $errMessage;
-	protected $badTryFlag = false;
+	protected $isWrongTry = false;
 
 	/**
 	 * Builds the check against the users file from its config block.
@@ -61,7 +61,7 @@ class UserList implements Handler{
 	 * @return Array|Bool An identity array ('userName', 'userRole', 'idOfUser') on success, or false on failure.
 	 */
 	function checkSecretArr( Array $loginDataLst ): Array|Bool {
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$this->passedUser = null;
 		if( isset($loginDataLst['key']) ){
 			return $this->checkTokenList( strval($loginDataLst['key']) );
@@ -97,7 +97,7 @@ class UserList implements Handler{
 		if( is_array($userVals) && $this->usrLimiter->heldByUserNumb($countNme)>0 ){
 			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		if( $userVals===null || !$matxList ){
@@ -105,14 +105,14 @@ class UserList implements Handler{
 				$this->usrLimiter->countLimitUser( $countNme );
 			}
 			$this->errMessage = 'Invalid credentials';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		if( $userVals['userStatus']!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
 			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is not active ('.$userVals['userStatus'].')' );
 			$this->errMessage = 'Invalid credentials';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		// A user with a 2FA secret must also give the current code of its authenticator
@@ -133,7 +133,7 @@ class UserList implements Handler{
 			if( !Totp::verifyTotpCode($sealClef, $givenCod) ){
 				$this->usrLimiter->countLimitUser( $countNme );
 				$this->errMessage = 'Invalid verification code';
-				$this->badTryFlag = true;
+				$this->isWrongTry = true;
 				return false;
 			}
 		}
@@ -175,7 +175,7 @@ class UserList implements Handler{
 		}
 		if( $userVals===null || $userVals['userStatus']!=='approved' ){
 			$this->errMessage = 'Invalid API key';
-			$this->badTryFlag = true;
+			$this->isWrongTry = true;
 			return false;
 		}
 		return $this->createIdentity($userVals);
@@ -193,7 +193,7 @@ class UserList implements Handler{
 	 * @return Array|Bool The identity array ('userName', 'userRole', 'idOfUser'), or false when the user is unknown, not active, or the file cannot be read.
 	 */
 	public function usrIdentityArr( String $namedUserTxt, ?Int $issuedAtUnix=null ): Array|Bool {
-		$this->badTryFlag = false;
+		$this->isWrongTry = false;
 		$userVals = ($namedUserTxt!='') ? $this->fetchUserArray($namedUserTxt) : null;
 		if( $userVals===false ){
 			$this->errMessage = 'Credential store unavailable';
@@ -383,7 +383,7 @@ class UserList implements Handler{
 	 * @return Bool True when a credential was presented and refused.
 	 */
 	public function hasWrongSecret(): Bool {
-		return $this->badTryFlag;
+		return $this->isWrongTry;
 	}
 
 	/**

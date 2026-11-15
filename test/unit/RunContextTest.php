@@ -13,8 +13,8 @@ $ctxtObj = new RunContext( 'view', '12', $inptReg, $axesReg, null, null, null, n
 
 checkIdentical('the action', $ctxtObj->actionName, 'view');
 checkIdentical('the option of the action', $ctxtObj->optionText, '12');
-checkTrueValue('the inputs, as given', $ctxtObj->inputsRgst===$inptReg);
-checkTrueValue('the access result, as given', $ctxtObj->accessRgst===$axesReg);
+checkTrueValue('the inputs, as given', $ctxtObj->inputsRegr===$inptReg);
+checkTrueValue('the access result, as given', $ctxtObj->accessRegr===$axesReg);
 checkIdentical('no request', $ctxtObj->requestObj, null);
 checkIdentical('no response', $ctxtObj->respondObj, null);
 checkIdentical('no router', $ctxtObj->routingObj, null);
@@ -28,7 +28,7 @@ checkIdentical('an action without an option', $nullCtx->optionText, null);
 // Read only: no property can be changed, none added
 checkTrueValue('the class is read only', (new ReflectionClass(RunContext::class))->isReadOnly());
 checkForThrows('the action cannot be changed', function() use ($ctxtObj){ $ctxtObj->actionName = 'remove'; }, 'Error');
-checkForThrows('the inputs cannot be replaced', function() use ($ctxtObj){ $ctxtObj->inputsRgst = new Registry(Array()); }, 'Error');
+checkForThrows('the inputs cannot be replaced', function() use ($ctxtObj){ $ctxtObj->inputsRegr = new Registry(Array()); }, 'Error');
 checkForThrows('the folder cannot be changed', function() use ($ctxtObj){ $ctxtObj->appsFolder = '/tmp'; }, 'Error');
 checkForThrows('no property can be added', function() use ($ctxtObj){ $ctxtObj->diConObj = new stdClass(); }, 'Error');
 checkIdentical('the action is still the one given', $ctxtObj->actionName, 'view');

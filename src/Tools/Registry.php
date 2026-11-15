@@ -9,7 +9,7 @@ namespace nyu\Tools;
  */
 class Registry{
 
-	protected $fieldUCase;
+	protected $isUpperKey;
 	protected $valuesList = Array();
 
 	// Builds the values
@@ -22,12 +22,12 @@ class Registry{
 	 */
     function __construct( Array $fieldValList, Bool $lowerCaseKey = false ){
 		if($lowerCaseKey){
-			$this->fieldUCase = false;
+			$this->isUpperKey = false;
 		}else{
-			$this->fieldUCase = true;
+			$this->isUpperKey = true;
 		}
 		foreach( $fieldValList as $arrKey => $arrVal ){
-			if($this->fieldUCase){
+			if($this->isUpperKey){
 				$arrKey = strtoupper($arrKey);
 			}else{
 				$arrKey = strtolower($arrKey);
@@ -44,7 +44,7 @@ class Registry{
 	 * @param mixed  $regLineValue Value to store.
 	 */
 	public function saveValueByKey( String $entryKeyText, Mixed $regLineValue ): Void {
-		if($this->fieldUCase){
+		if($this->isUpperKey){
 			$entryKeyText = strtoupper($entryKeyText);
 		}else{
 			$entryKeyText = strtolower($entryKeyText);
@@ -59,7 +59,7 @@ class Registry{
 	 * @return mixed The stored value, or null if the key doesn't exist.
 	 */
 	public function readValueByKey( String $valueRegClef ): Mixed {
-		if($this->fieldUCase){
+		if($this->isUpperKey){
 			$valueRegClef = strtoupper($valueRegClef);
 		}else{
 			$valueRegClef = strtolower($valueRegClef);
@@ -81,7 +81,7 @@ class Registry{
 	 */
 	public function obtainRowValue( String $rowEntryName, String $entryKeyText ): Mixed {
 		$lvl2Vals = null;
-		if($this->fieldUCase){
+		if($this->isUpperKey){
 			$rowEntryName = strtoupper($rowEntryName);
 			$entryKeyText = strtoupper($entryKeyText);
 		}else{
@@ -112,7 +112,7 @@ class Registry{
 	 * @return mixed The value that was stored.
 	 */
 	public function assignRowValue( String $rowEntryName, String $entryKeyText, Mixed $regLineValue ): Mixed {
-		if($this->fieldUCase){
+		if($this->isUpperKey){
 			$rowEntryName = strtoupper($rowEntryName);
 			$entryKeyText = strtoupper($entryKeyText);
 		}else{
