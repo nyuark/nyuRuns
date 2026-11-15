@@ -115,7 +115,7 @@
         // values in definition lists); rawBytes (a text or a Fluxd; sent as it is with the
         // type its action sets). An error is written as JSON with csvTable and rawBytes.
         // An unknown format stops the preset from loading. An action can write its own reply
-        // in another one: useReplyFormat()
+        // in another one: setReplyFormat()
 		"outputAs": "jsonData",
         // Origins other sites may call from, each a scheme; a host and a port when it has one:
         // ["https://app.example.org"]. With a list, Access-Control-Allow-Origin names the

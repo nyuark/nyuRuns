@@ -134,7 +134,7 @@ foreach( Array('index', 'view', 'create', 'lock', 'unlock', 'role', 'remove', 'r
 checkIdentical('guard: a delegate reads the users, and one of them', Array(callActn('users/index', Array(), 'deby', 'delegate', 'GET')['code'] ?? null, callActn('users/view/ben', Array(), 'deby', 'delegate', 'GET')['out']['systemName'] ?? null), Array(200, 'ben'));
 checkIdentical('guard: a refusal changed nothing', $sqlLink->query("SELECT systemName, accessRole, userStatus FROM users ORDER BY id_user")->fetchAll(PDO::FETCH_NUM), Array(Array('anna', 'managers', 'approved'), Array('ben', 'standard', 'approved'), Array('dave', 'advanced', 'disabled')));
 checkPregMatch('guard: a refusal is logged as a warning, with the role needed', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Access refused for user "ben" \(standard\) from 192\.0\.2\.50 to users\/index: role delegate needed/');
-checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/setupForAction', Array(), 'anna', 'managers')), statusOf(callActn('users/givenUsrString', Array(), 'anna', 'managers'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
+checkIdentical('guard: the helpers are not actions', Array(statusOf(callActn('users/openEachAction', Array(), 'anna', 'managers')), statusOf(callActn('users/readTargetUser', Array(), 'anna', 'managers'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
 plugConf('htpasswd');
 checkIdentical('guard: a login on another credential check', statusOf(callActn('users/index', Array(), 'anna', 'managers', 'GET')), Array(500, 'User management unavailable'));
 plugConf();

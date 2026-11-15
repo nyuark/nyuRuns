@@ -33,7 +33,7 @@ class Actions extends Actionset {
 	/**
 	 * Asks for the least role of the Run before every action.
 	 */
-	protected function setupForAction(): Void {
+	protected function openEachAction(): Void {
 		$this->needsActionRle('standard');
 	}
 
@@ -46,17 +46,17 @@ class Actions extends Actionset {
 	 */
 	public function index(): Void {
 		$listInst = new DBLst( self::TBLE_NAME, null, null, null, null, DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$listInst->pickReadFields( implode(', ', array_merge(Array(self::IDNT_COLN), array_keys(self::FLDS_LIST))) );
+		$listInst->setReadColumns( implode(', ', array_merge(Array(self::IDNT_COLN), array_keys(self::FLDS_LIST))) );
 		$fltrsDct = Array();
-		foreach( (array)$this->inputsRgst->readValueByKey('filters') as $oneFld => $oneVal ){
+		foreach( (array)$this->inputsRegr->readValueByKey('filters') as $oneFld => $oneVal ){
 			if( isset(self::FLDS_LIST[$oneFld]) && is_scalar($oneVal) && strval($oneVal)!=='' ){
 				$fltrsDct[$oneFld.'~'] = '*'.Filter::quoteMatchText(strval($oneVal)).'*';
 			}
 		}
-		$listInst->replaceFilters($fltrsDct);
-		$sortText = strval( $this->inputsRgst->readValueByKey('sortedBy') ?? '' );
+		$listInst->setListFilters($fltrsDct);
+		$sortText = strval( $this->inputsRegr->readValueByKey('sortedBy') ?? '' );
 		$listInst->setOrderFields( (ltrim($sortText, '^')===self::IDNT_COLN || isset(self::FLDS_LIST[ltrim($sortText, '^')])) ? $sortText : self::IDNT_COLN );
-		$listInst->setLimitOffset( Array($this->inputsRgst->readValueByKey('limitVal') ?? '', $this->inputsRgst->readValueByKey('rowIndex') ?? '') );
+		$listInst->setLimitOffset( Array($this->inputsRegr->readValueByKey('limitVal') ?? '', $this->inputsRegr->readValueByKey('rowIndex') ?? '') );
 		$rowsList = $listInst->readRowsOfList();
 		if( !is_array($rowsList) ){
 			$this->stopThisAction(500, 'The list cannot be read');
@@ -93,7 +93,7 @@ class Actions extends Actionset {
 	public function create(): Void {
 		$sentVals = $this->readSentFields();
 		$rcrdInst = new DBRec( self::TBLE_NAME, Array(), Array(), DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$rcrdInst->bindFieldArray($sentVals);
+		$rcrdInst->setFieldsArray($sentVals);
 		$savedKey = $rcrdInst->insertOrUpdate();
 		if( $savedKey===false ){
 			$this->stopThisAction(500, 'The record cannot be saved');
@@ -109,7 +109,7 @@ class Actions extends Actionset {
 	 */
 	public function update( String $recordIdText='' ): Void {
 		$rcrdInst = $this->readRecordById($recordIdText)[0];
-		$rcrdInst->bindFieldArray( $this->readSentFields() );
+		$rcrdInst->setFieldsArray( $this->readSentFields() );
 		if( $rcrdInst->insertOrUpdate()===false ){
 			$this->stopThisAction(500, 'The record cannot be saved');
 		}
@@ -123,7 +123,7 @@ class Actions extends Actionset {
 	 * @param String $recordIdText The key of the record, from the path.
 	 */
 	public function remove( String $recordIdText='' ): Void {
-		if( !$this->readRecordById($recordIdText)[0]->removeRecdFlag() ){
+		if( !$this->readRecordById($recordIdText)[0]->dropThisRecord() ){
 			$this->stopThisAction(500, 'The record cannot be removed');
 		}
 		$this->statusCode = 204;
@@ -165,7 +165,7 @@ class Actions extends Actionset {
 		$sentVals = Array();
 		$badField = Array();
 		foreach( self::FLDS_LIST as $oneFld => $oneFmt ){
-			$sentValu = $this->inputsRgst->readValueByKey($oneFld);
+			$sentValu = $this->inputsRegr->readValueByKey($oneFld);
 			if( $sentValu===null ){
 				continue;
 			}
@@ -193,8 +193,8 @@ class Actions extends Actionset {
 			return Array();
 		}
 		$listInst = new DBLst( $childTbleTxt, null, null, null, null, DBCon::linkNamedDbCon(self::BASE_LINK) );
-		$listInst->pickReadFields( implode(', ', array_unique(array_merge(Array($childDct['linkedBy']), $childDct['fieldSet']))) );
-		$listInst->replaceFilters( Array($childDct['linkedBy']=>array_values($parentKeyLst)) );
+		$listInst->setReadColumns( implode(', ', array_unique(array_merge(Array($childDct['linkedBy']), $childDct['fieldSet']))) );
+		$listInst->setListFilters( Array($childDct['linkedBy']=>array_values($parentKeyLst)) );
 		if( $childDct['sortedBy']!=='' ){
 			$listInst->setOrderFields($childDct['sortedBy']);
 		}
