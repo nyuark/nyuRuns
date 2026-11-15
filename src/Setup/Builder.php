@@ -45,14 +45,14 @@ class Builder{
 	*
 	* @param String $setupObjName Name of the class to create.
 	* @param ?Array $sharedParams Constructor parameters that make the object a shared one, null for a plain object.
-	* @param Array  $createArgArr Arguments passed to the constructor.
+	* @param Array  $createArgLst Arguments passed to the constructor.
 	* @return Object The created object.
 	*/
-    public function generateObject(String $setupObjName, ?Array $sharedParams=null, Array $createArgArr=Array() ): Object {
+    public function generateObject(String $setupObjName, ?Array $sharedParams=null, Array $createArgLst=Array() ): Object {
 		if($sharedParams!==null){
 			$this->shareSetupRule($setupObjName, $sharedParams);
 		}
-		$rsltInst = $this->diceObject->create($setupObjName, $createArgArr);
+		$rsltInst = $this->diceObject->create($setupObjName, $createArgLst);
 		return $rsltInst;
 	}
 }

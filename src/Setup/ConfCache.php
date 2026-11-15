@@ -50,13 +50,13 @@ class ConfCache{
 	 *
 	 * @param String $linkNameText  Name of the database in the config, '' for the default one.
 	 * @param String $tbleLabelTxt Name of the table.
-	 * @param Array  $tbleValueArr The description: 'flds', 'pkey' and 'blob'.
+	 * @param Array  $tableVlsList The description: 'flds', 'pkey' and 'blob'.
 	 */
-	public static function keepCacheTable( String $linkNameText, String $tbleLabelTxt, Array $tbleValueArr ): Void {
+	public static function keepCacheTable( String $linkNameText, String $tbleLabelTxt, Array $tableVlsList ): Void {
 		if( self::$tableInfos===null ){
 			return;
 		}
-		self::$tableInfos[$linkNameText][$tbleLabelTxt] = $tbleValueArr;
+		self::$tableInfos[$linkNameText][$tbleLabelTxt] = $tableVlsList;
 		self::$tableAdded = true;
 	}
 

@@ -28,26 +28,26 @@ class Loader{
 	/**
 	* Constructs a setup loader, optionally loading a full setup array.
 	*
-	* @param Array  $fullSetupArr Full setup array to load, if any.
+	* @param Array  $fullSetupLst Full setup array to load, if any.
 	* @param ?Array $cachedValues The values the config cache holds for the preset, read in place of the files; null when the files are read.
 	* @param String $nameOfPreset Name of the preset, which the cache is kept under; '' for no cache.
 	*/
-    public function __construct(Array $fullSetupArr = Array(), ?Array $cachedValues = null, String $nameOfPreset = ''){
-		$this->setAllRegistry( $fullSetupArr );
+    public function __construct(Array $fullSetupLst = Array(), ?Array $cachedValues = null, String $nameOfPreset = ''){
+		$this->setAllRegistry( $fullSetupLst );
 		$this->blockNames = Array('settings','security','dispatch','response','inputSet');
 		$this->presetName = $nameOfPreset;
 		$this->usesCached = ($cachedValues!==null);
 		// The preset is kept as it is before any overload of the Runner
-		$this->cachValues = $cachedValues ?? Array('preset'=>$fullSetupArr);
+		$this->cachValues = $cachedValues ?? Array('preset'=>$fullSetupLst);
 	}
 
 	/**
 	* Replaces (without key check) the current config registry with the one provided.
 	*
-	* @param Array $fullSetupArr Setup array that replaces the current one.
+	* @param Array $fullSetupLst Setup array that replaces the current one.
 	*/
-    protected function setAllRegistry(Array $fullSetupArr = Array()): Void {
-		$this->confBlocks = $fullSetupArr;
+    protected function setAllRegistry(Array $fullSetupLst = Array()): Void {
+		$this->confBlocks = $fullSetupLst;
 	}
 
 	/**
@@ -71,12 +71,12 @@ class Loader{
 	/**
 	* Gets one of the config registry values using one of the conf key array.
 	*
-	* @param String $setupBlckKey Key of the setup block.
+	* @param String $setupBlcClef Key of the setup block.
 	* @return Mixed The block, or false when the key is unknown or not loaded.
 	*/
-    public function getRegistryKey(String $setupBlckKey): Mixed {
-		if(array_key_exists($setupBlckKey, $this->confBlocks) && in_array($setupBlckKey, $this->blockNames) ){
-			return $this->confBlocks[$setupBlckKey];
+    public function getRegistryKey(String $setupBlcClef): Mixed {
+		if(array_key_exists($setupBlcClef, $this->confBlocks) && in_array($setupBlcClef, $this->blockNames) ){
+			return $this->confBlocks[$setupBlcClef];
 		}else{
 			return false;
 		}
@@ -85,12 +85,12 @@ class Loader{
 	/**
 	* Sets one of the config registry values using the conf key array
 	*
-	* @param String $setupBlckKey Key of the setup block.
-	* @param Array  $newArrValues Values of the block.
+	* @param String $setupBlcClef Key of the setup block.
+	* @param Array  $newArrayVals Values of the block.
 	*/
-    protected function setRegistryKey(String $setupBlckKey, Array $newArrValues = Array()): Void {
-		if(in_array($setupBlckKey,$this->blockNames)){
-			$this->confBlocks[$setupBlckKey] = $newArrValues;
+    protected function setRegistryKey(String $setupBlcClef, Array $newArrayVals = Array()): Void {
+		if(in_array($setupBlcClef,$this->blockNames)){
+			$this->confBlocks[$setupBlcClef] = $newArrayVals;
 		}
 	}
 
@@ -186,17 +186,17 @@ class Loader{
 	 * of the process. An unknown name gives an empty value.
 	 *
 	 * @param Array $configValues Config values, at any depth.
-	 * @param Array $envValuesMap Values of the environment file, by name.
+	 * @param Array $envValuesDct Values of the environment file, by name.
 	 * @return Array The config values, with their env: references replaced.
 	 */
-	protected function replaceEnvVals( Array $configValues, Array $envValuesMap ): Array {
+	protected function replaceEnvVals( Array $configValues, Array $envValuesDct ): Array {
 		foreach( $configValues as $cnfKey => $cnfVal ){
 			if( is_array($cnfVal) ){
-				$configValues[$cnfKey] = $this->replaceEnvVals($cnfVal, $envValuesMap);
+				$configValues[$cnfKey] = $this->replaceEnvVals($cnfVal, $envValuesDct);
 			}elseif( is_string($cnfVal) && strpos($cnfVal, 'env:')===0 ){
 				$envrName = substr($cnfVal, 4);
 				$matxRows = getenv($envrName);
-				$configValues[$cnfKey] = $envValuesMap[$envrName] ?? ($matxRows!==false ? $matxRows : '');
+				$configValues[$cnfKey] = $envValuesDct[$envrName] ?? ($matxRows!==false ? $matxRows : '');
 			}
 		}
 		return $configValues;
