@@ -89,7 +89,8 @@ function parseLabelList( String $rulesRawText, Int $givenSection, String $boldLi
  * Reads every list of the naming rules.
  *
  * @param String $rulesDocPath Full path of NAMERULES.md.
- * @return Array The lists by name: 'verb', 'question', 'domain', 'kind', 'form', 'exception', 'standard'.
+ * @return Array The lists by name: 'verb', 'question', 'domain', 'kind', 'form', 'exception', 'standard', and 'word',
+ *               the words of the glossary that are their own writing.
  *
  * @throws RuntimeException When the file, a table or a list cannot be read.
  */
@@ -113,6 +114,17 @@ function readNamingDict( String $rulesDocPath ): Array {
 			throw new RuntimeException('The naming rules give no list "'.$oneKey.'": its table or its paragraph cannot be read');
 		}
 	}
+	// The whole words of the glossary: a writing equal to its word is the word (row is Row, tag is Tag)
+	$nameDict['word'] = Array();
+	foreach( parseRuleTable($rulesRaw, 5) as $oneRow ){
+		foreach( Array(0, 2, 4) as $nthOne ){
+			$wordText = ucfirst(strtolower(trim($oneRow[$nthOne] ?? '')));
+			if( $wordText!=='' && in_array($wordText, parseTermsList(Array($oneRow), Array($nthOne+1)), true) ){
+				$nameDict['word'][] = $wordText;
+			}
+		}
+	}
+	$nameDict['word'] = array_values(array_unique($nameDict['word']));
 	return $nameDict;
 }
 
@@ -207,8 +219,9 @@ function checkLocalName( String $fullNameText, Array $nameRuleDict, Array $fullW
 
 /**
  * Checks a loop variable: 'one' or 'nth', then a whole word of 3 letters.
- * Without the list of whole words, the item is refused when it is a short
- * form of the rules or holds no vowel.
+ * A word the glossary lists as its own writing is one ('Row', 'Tag').
+ * Without the list of whole words, any other item is refused when it is
+ * a writing of the rules ('Rgx') or holds no vowel.
  *
  * @param String $fullNameText The name, without its '$'.
  * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
@@ -220,6 +233,10 @@ function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullW
 		return 'not one or nth + an item of 3 letters';
 	}
 	$itemWord = $itemHits[1];
+	// A whole word the glossary lists as its own writing
+	if( in_array($itemWord, $nameRuleDict['word'] ?? Array(), true) ){
+		return '';
+	}
 	if( !empty($fullWordDict) ){
 		return isset($fullWordDict[strtolower($itemWord)]) ? '' : 'the item "'.$itemWord.'" is not a whole word';
 	}
