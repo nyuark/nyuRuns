@@ -2,7 +2,7 @@
 
 How every name of nyuRuns is built. `CONVENTIONS.md` gives the lengths; this file gives the grammar that fills them. The `audit` group of the tests checks both, reading the lists of this file.
 
-Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the glossary are settled; the locals of `src/` and `runs/` are named (1,830, 2026-11-14). Parameters, properties, methods and loops come next, by the same rules.
+Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the glossary are settled; the locals of `src/` and `runs/` are named (1,830, 2026-11-14), and the parameters are named (631 names, 2026-11-15). Properties, methods and loops come next, by the same rules.
 
 ## 1. Principles
 
@@ -21,7 +21,7 @@ Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the
 |---|---|---|---|---|
 | Method | 14 | verb + object [+ kind] | what it does, to what | `readRouteList()`, `makeAccessCode()` |
 | Method answering yes or no | 14 | question verb + subject | a question | `hasWrongSecret()`, `isStrongRsaKey()` |
-| Parameter | 12 | role + kind | what it is for, what it holds | `$givenUserName`, `$requiredRole` |
+| Parameter | 12 | role + subject + kind | what it is for, what it holds | `$givenUserName`, `$requiredRole` |
 | Property | 10 | subject + kind | what the object keeps | `$accessConf`, `$routeList` |
 | Local | 8 | one word, or two words | a plain name | `$fileName`, `$userRole`, `$response` |
 | Loop variable | 6 | `one` + item, or `nth` + item | the current element, or its position | `$oneRow`, `$nthRow` |
@@ -38,6 +38,19 @@ Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the
 ### Parameters
 - The **role** says what the value is for in this method: `given`, `required`, `wanted`... or the subject itself (`userName`).
 - The **kind** says what the value holds (section 4).
+- **12 letters, role + subject + kind, in one to three pieces** (decided 2026-11-15). Each piece is a whole word or one writing of its ladder (section 5).
+- **The order tried**:
+  1. the name kept when it already follows the rules;
+  2. a plural object for a list;
+  3. the meaningful words whole;
+  4. three pieces: 4+4+4, 5+3+4, 3+5+4, 4+5+3, 5+4+3, 3+4+5, 4+3+5;
+  5. two pieces, when a whole word of 6 to 9 letters takes one.
+- The shapes 6+3+3, 3+6+3, 5+2+5, 6+2+4 and 2+5+5 are accepted when a whole word forces them.
+- **The last word**: a noun that names what the value is may end the name, as section 4 says (`$originHeader`, `$nameOfPreset`). The kind is not added from the declared type.
+- **Whole words**: the whole word of a kind counts as that kind when its short writing cannot fill the 12 letters (`$cachedValues`, `$configValues`).
+- **Two-letter words**: a whole word of 2 letters (`of`, `to`, `as`, `in`, `by`, `at`, `or`) is allowed between pieces (`$pathToLookUp`, `$valueAsGiven`, `$issuedAtUnix`).
+- **Bools**: a Bool parameter may keep a name that is not a question (`$writeHeaders`, `$keepExisting`). The question verb is required for methods, properties and locals.
+- **Overrides**: a method overriding or implementing another one takes its parameter names.
 
 ### Properties
 - The **subject** says what the object keeps; the **kind** says in what form.
@@ -166,7 +179,7 @@ The short forms of the words that cannot always be written whole. A short form t
 
 **Writings of 3 letters** are allowed when the word's ladder holds one (2026-11-13), and only then. They were taken out where they read as another word (2026-11-14): `Hdr`, `Hdl`, `Sht`, `Mnt`, `Alg`, `Trn`, `Idt`, `Rea`, `Roo`, `Chp`, `Hst`, `Mad`, `Met`, `3rd`; and a writing never starts with a digit.
 
-**Standard abbreviations** (the fixed list): `Api`, `Bom`, `Css`, `Db`, `Dom`, `Dsn`, `Dtd`, `Ics`, `Id`, `Id3`, `Id3v1`, `Ini`, `Iso`, `Jwk`, `Jwt`, `Llm`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Ps`, `Rsa`, `Sha`, `Sql`, `Stty`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
+**Standard abbreviations** (the fixed list): `Api`, `Bom`, `Css`, `Db`, `Dom`, `Dsn`, `Dtd`, `Gd`, `Ics`, `Id`, `Id3`, `Id3v1`, `Ini`, `Ip`, `Iso`, `Jwk`, `Jwt`, `Llm`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Ps`, `Rsa`, `Sha`, `Sql`, `Stty`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
 
 **Exceptions decided by the project manager** (2026-11-12, kept): `Obj`, `Pos`, `Reg`, `Col`, as ordinary writings now. Calendar is never `Cal`, request is never `Req`.
 
@@ -243,154 +256,155 @@ The list, from the Words and Ladder tabs of the review (2026-11-14):
 | dtd | `Dtd` / — / — | due | `Due` / — / — | ehlo | `Ehl` / `Ehlo` / — |
 | email | `Eml` / `Mail` / `Email` | emu | `Emu` / `Emul` / `Emuls` | encoded | `Enc` / `Encd` / `Encdd` |
 | encoder | — / `Encd` / `Encdr` | encoding | `Enc` / `Encd` / `Encod` | end | `End` / — / — |
-| ends | `End` / `Ends` / — | entry | `Ntr` / `Entr` / `Entry` | error | `Err` / `Erro` / `Error` |
-| escape | `Esc` / `Escp` / `Escap` | etag | `Ntt` / `Ntty` / `Entty` | every | `All` / `Evry` / `Every` |
-| except | — / `Xcpt` / — | exception | `Exc` / `Excp` / `Excpt` | exif | — / `Exif` / — |
-| existed | `Xst` / `Exst` / `Exstd` | exit | — / `Exit` / — | exponent | `Exp` / `Expn` / `Expnt` |
-| extension | `Ext` / `Extn` / `Extns` | extra | `Xtr` / `Extr` / `Extra` | fact | `Fct` / `Fact` / — |
-| fail | — / `Fail` / `Faild` | fake | `Fke` / `Fake` / — | far | `Far` / — / — |
-| field | `Fld` / `Fild` / `Field` | fields | `Fld` / `Flds` / `Field` | file | `Fle` / `File` / `Fichr` |
-| fill | `Fil` / `Fill` / `Fills` | filters | `Flt` / `Fltr` / `Fltrs` | find | `Fnd` / `Find` / — |
-| first | `Fst` / `Frst` / `First` | flac | `Flc` / `Flac` / — | flag | `Flg` / `Flag` / — |
-| flat | — / `Flat` / — | flaw | — / `Flaw` / — | flip | — / `Flip` / — |
-| flow | `Flw` / `Flow` / — | flux | `Flx` / `Flux` / — | folder | `Fdr` / `Fldr` / `Foldr` |
-| follows | — / `Fllw` / `Fllws` | font | `Fnt` / `Font` / — | for | `For` / — / — |
-| form | `Frm` / `Form` / — | format | `Fmt` / `Frmt` / `Formt` | formats | — / — / `Frmts` |
-| forwarded | `Fwd` / `Frwd` / `Forwd` | found | — / — / `Found` | fragment | `Frg` / `Frag` / `Frgmt` |
-| frame | — / `Frme` / `Frame` | frames | — / `Frme` / `Frmes` | from | — / `From` / — |
-| full | `Tot` / `Full` / — | funcs | `Fnc` / `Func` / `Funcs` | fwd | `Fwd` / — / — |
-| gap | `Gap` / — / — | gaps | `Gap` / `Gaps` / — | get | `Get` / — / — |
-| given | `Gvn` / `Givn` / `Given` | goal | `Gol` / `Goal` / — | going | `Gon` / `Goes` / `Going` |
-| grid | `Grd` / `Grid` / — | group | `Grp` / `Grup` / `Group` | half | `Hlf` / `Half` / — |
-| hand | — / `Hand` / — | handle | `Hnd` / `Hndl` / `Handl` | handler | `Hdl` / `Hndr` / `Hndlr` |
-| hash | `Hsh` / `Hash` / `Digst` | head | `Hed` / `Head` / — | header | — / `Hedr` / `Headr` |
-| headers | — / `Hdrs` / `Hedrs` | height | `Hei` / `Hght` / `Heigt` | held | `Hel` / `Held` / — |
-| hertz | — / `Hrtz` / `Hertz` | hexadecimal | `Hex` / `Hxdc` / `Hxdcm` | hide | `Hid` / `Hide` / — |
-| high | `Hgh` / `High` / — | hits | `Hts` / `Hits` / — | hmac | — / `Hmac` / — |
-| hold | — / `Hold` / `Holds` | host | — / `Host` / — | html | `Htm` / `Html` / — |
-| ics | `Ics` / — / — | id3 | `Id3` / — / — | identity | `Idt` / `Idnt` / `Ident` |
-| image | `Img` / `Imge` / `Image` | indented | — / `Indt` / `Indnt` | info | `Inf` / `Info` / — |
-| information | `Inf` / `Info` / `Infrm` | ini | `Ini` / — / — | inner | `Inr` / `Innr` / `Inner` |
-| input | `Inp` / `Inpt` / `Input` | inside | `Isd` / `Insd` / `Insid` | instance | `Ins` / `Inst` / `Instn` |
-| int | `Int` / — / — | issuer | `Isu` / `Issr` / `Issur` | item | `Itm` / `Item` / — |
-| join | `Jnt` / `Join` / `Joint` | joker | — / `Jokr` / `Joker` | json | — / `Json` / — |
-| jwk | `Jwk` / — / — | jwt | `Jwt` / — / — | keep | — / `Keep` / — |
-| keeps | `Kps` / `Keep` / `Keeps` | kept | `Kpt` / `Kept` / — | key | `Key` / `Clef` / `Clave` |
-| keyed | — / `Keyd` / `Keyed` | keys | `Kys` / `Keys` / — | kid | `Kid` / — / — |
-| kids | `Kds` / `Kids` / — | kind | `Knd` / `Kind` / — | label | `Lbl` / `Labl` / `Label` |
-| lack | — / `Lack` / `Lacks` | language | `Lng` / `Lang` / `Langg` | last | `Fin` / `Last` / — |
-| layer | — / `Layr` / `Layer` | lead | — / `Lead` / — | leading | — / `Lead` / `Leadg` |
-| left | `Lft` / `Left` / — | letter | — / `Lttr` / — | level | `Lvl` / `Levl` / `Level` |
-| levels | — / `Lvls` / — | limit | `Lmt` / `Limt` / `Limit` | limiter | — / `Lmtr` / `Limtr` |
-| line | `Lne` / `Line` / `Ligne` | lines | `Lns` / `Lnes` / `Lines` | link | `Lnk` / `Link` / `Nlace` |
-| list | `Lst` / `List` / `Lstng` | lit | `Lit` / — / — | lite | `Lte` / `Lite` / — |
-| literal | — / `Ltrl` / `Litrl` | load | `Lod` / `Load` / — | lock | `Lck` / `Lock` / — |
-| log | `Log` / `Jrnl` / `Jrnal` | login | `Lgn` / `Logn` / `Login` | logs | `Jrn` / `Logs` / `Journ` |
-| lookups | — / `Lkps` / `Lkups` | loss | — / `Loss` / — | lost | — / `Lost` / — |
-| lower | `Low` / `Lowr` / `Lower` | made | — / `Made` / — | mail | `Eml` / `Mail` / `Email` |
-| main | `Mai` / `Main` / — | make | `Mke` / `Make` / `Build` | manager | `Mgr` / `Mngr` / `Mangr` |
-| map | `Map` / — / — | mapping | `Map` / `Maps` / `Mppng` | mark | `Mrk` / `Mark` / — |
-| mask | `Msk` / `Mask` / — | masking | `Msk` / `Mask` / `Mskng` | master | `Mst` / `Mstr` / `Mastr` |
-| match | — / `Matx` / `Match` | matched | `Mtx` / `Matx` / `Mtchd` | matches | `Mat` / `Matx` / `Matxs` |
-| max | `Max` / — / — | mdays | — / `Mday` / `Mdays` | measure | `Msr` / `Mesr` / `Measr` |
-| merge | `Mrg` / `Merg` / `Merge` | merged | `Mrg` / `Mrgd` / `Mergd` | meta | `Mta` / `Meta` / — |
-| method | `Mth` / `Mthd` / `Methd` | mime | `Mim` / `Mime` / — | miss | `Mis` / `Miss` / — |
-| missing | — / `Mssn` / `Mssng` | mixed | `Mix` / `Mixd` / `Mixed` | mode | `Mod` / `Mode` / `Genre` |
-| model | `Mdl` / `Modl` / `Model` | mods | `Mds` / `Mods` / — | month | — / `Mnth` / `Month` |
-| more | `Mor` / `More` / — | mount | — / `Mont` / `Mount` | move | `Mve` / `Move` / — |
-| name | `Nme` / `Name` / `Title` | named | `Nmd` / `Namd` / `Named` | names | `Nms` / `Nmes` / `Names` |
-| namespace | — / `Nmsp` / — | nat | `Nat` / — / — | near | — / `Near` / — |
-| need | `Ned` / `Need` / — | negated | `Neg` / `Negt` / `Negtd` | nest | `Nst` / `Nest` / — |
-| net | `Net` / `Netw` / `Ntwrk` | new | `New` / `Nouv` / `Nuevo` | next | `Nxt` / `Next` / — |
-| node | `Nde` / `Node` / — | nonce | `Nnc` / `Nonc` / `Nonce` | none | `Non` / `None` / — |
-| note | `Nte` / `Note` / — | now | `Now` / — / — | null | `Nul` / `Null` / — |
-| number | `Num` / `Numb` / `Numbr` | numbers | `Nmb` / `Nums` / `Nmbrs` | nyu | `Nyu` / — / — |
-| off | `Off` / — / — | ogg | `Ogg` / — / — | okay | `Oky` / `Okay` / `Allrt` |
-| old | `Old` / — / — | once | `One` / `Once` / — | one | `One` / — / — |
-| open | `Opn` / `Open` / — | opt | `Opt` / `Optn` / — | options | `Opt` / `Opts` / `Optns` |
-| order | `Ord` / `Ordr` / `Order` | ordered | — / `Ordr` / `Ordrd` | otp | `Otp` / — / — |
-| out | `Out` / — / — | outcome | `Out` / `Outc` / `Outcm` | over | `Ovr` / `Over` / — |
-| own | `Own` / — / — | owner | `Own` / `Ownr` / `Owner` | pack | `Pck` / `Pack` / — |
-| pad | `Pad` / — / — | page | `Pge` / `Page` / — | pair | — / `Pair` / — |
-| pairs | — / `Pair` / `Pairs` | para | `Prg` / `Prgr` / `Pargr` | paragraph | `Prg` / `Prgr` / `Pargr` |
-| parameter | `Prm` / `Prmt` / `Prmtr` | parent | `Prn` / `Prnt` / `Parnt` | parser | `Prs` / `Prsr` / `Parsr` |
-| part | `Par` / `Part` / `Parte` | parts | `Prt` / `Prts` / `Parts` | password | `Pwd` / `Pass` / `Psswd` |
-| patched | — / `Patx` / `Patch` | path | `Pth` / `Path` / `Trail` | pattern | — / `Ptrn` / `Pttrn` |
-| payload | `Pld` / `Pyld` / `Payld` | pdf | `Pdf` / — / — | peer | — / `Peer` / — |
-| pem | `Pem` / — / — | penalty | — / `Pnlt` / `Pnlty` | pending | — / `Pend` / `Pndng` |
-| php | `Php` / — / — | picture | `Pic` / `Pict` / `Pictr` | piece | — / `Piec` / `Piece` |
-| pipe | `Pip` / `Pipe` / — | place | `Plc` / `Plce` / `Place` | plain | `Pln` / `Plan` / `Plain` |
-| plug | `Plg` / `Plug` / `Plugn` | plurals | `Plr` / `Plrl` / `Plrls` | plus | — / `Plus` / — |
-| pointer | `Pnt` / `Pntr` / `Pontr` | points | — / `Pnts` / — | port | — / `Port` / — |
-| precision | — / `Prec` / `Preci` | preset | `Rps` / `Pset` / `Prset` | previous | — / `Prev` / `Prevs` |
-| prim | — / `Prim` / `Prmry` | printer | — / `Echo` / `Print` | private | `Prv` / `Priv` / `Privt` |
-| process | `Prc` / `Proc` / `Prcss` | project | `Prj` / `Proj` / `Prjct` | property | `Prp` / `Prop` / `Prprt` |
-| proxy | — / `Prxy` / `Proxy` | pub | `Pub` / — / — | public | `Pub` / `Publ` / `Publi` |
-| quality | `Qlt` / `Qlty` / `Qalty` | query | `Qry` / `Quer` / `Query` | quote | `Qte` / `Quot` / `Quote` |
-| quoted | `Qtd` / `Qotd` / `Quotd` | random | — / `Rndm` / — | range | `Rng` / `Rnge` / `Range` |
-| rank | `Rnk` / `Rank` / — | rate | — / `Rate` / — | raw | `Raw` / `Brut` / `Crude` |
-| read | — / `Read` / — | reads | — / `Read` / `Reads` | ready | `Rdy` / `Redy` / `Ready` |
-| real | — / `Real` / — | recipient | `Rcp` / `Rcpn` / `Rcpnt` | records | `Rcs` / `Recs` / `Recds` |
-| red | `Red` / — / — | reference | `Ref` / `Refr` / `Rfrnc` | refuse | `Ren` / `Rfus` / `Refus` |
-| regexp | `Rgx` / `Rgxp` / — | registry | `Reg` / `Regr` / `Rgstr` | relation | `Rel` / `Rltn` / `Relat` |
-| remaining | `Rmn` / `Remn` / `Remng` | render | `Rdr` / `Rndr` / `Rendr` | repeat | `Rpt` / `Rpet` / `Repet` |
-| repeats | — / — / `Repet` | reply | `Rpl` / `Rply` / `Reply` | request | `Rqt` / `Reqt` / `Reqst` |
-| respond | — / `Rspd` / `Rspnd` | response | `Rsp` / `Resp` / `Rspns` | rest | — / `Rest` / — |
-| result | `Res` / `Rslt` / `Reslt` | results | `Res` / `Rslt` / `Rslts` | retry | — / `Rtry` / `Retry` |
-| return | `Rtn` / `Rtrn` / `Retrn` | review | — / `Rivu` / `Rview` | riff | `Rif` / `Riff` / — |
-| rights | — / `Rght` / — | role | `Rle` / `Role` / — | room | — / `Room` / — |
-| root | — / `Root` / — | rout | `Rou` / `Rout` / — | route | `Rte` / `Rout` / `Route` |
-| row | `Row` / `Ntry` / `Entry` | rows | — / `Rows` / — | rule | `Rul` / `Rule` / — |
-| run | `Run` / — / — | runs | `Rns` / `Runs` / — | safe | `Saf` / `Safe` / — |
-| salt | `Slt` / `Salt` / — | same | — / `Same` / — | sample | — / `Smpl` / `Sampl` |
-| save | `Sve` / `Save` / — | scale | — / `Scal` / `Scale` | scan | `Scn` / `Scan` / — |
-| seal | `Sil` / `Seal` / — | seconds | `Sec` / `Secs` / `Scnds` | secret | — / `Secr` / `Secrt` |
-| section | `Sct` / `Sctn` / `Sectn` | seen | `See` / `Seen` / — | segment | — / `Sgmt` / `Segmt` |
-| select | `Slc` / `Slct` / `Selct` | sender | — / `Sndr` / — | sends | — / `Send` / `Sends` |
-| sent | `Snt` / `Sent` / — | separator | `Sep` / `Sepr` / `Seprt` | sequence | — / `Sqnc` / — |
-| server | `Srv` / `Srvr` / `Servr` | session | `Ses` / `Sess` / `Sessn` | set | `Set` / — / — |
-| setup | `Stp` / `Setp` / `Setup` | sha | `Sha` / — / — | shadow | `Shd` / `Shdw` / `Shadw` |
-| shape | `Shp` / `Shap` / `Shape` | shared | — / `Shrd` / — | sheet | — / `Tabs` / `Sheet` |
-| short | `Shr` / `Shrt` / `Short` | show | `Shw` / `Show` / `Revil` | shown | `Shw` / `Shwn` / `Shown` |
-| shutdown | — / `Shut` / `Shutd` | side | `Sde` / `Side` / — | sign | `Sgn` / `Sign` / — |
-| simple | `Eas` / `Simp` / `Simpl` | since | `Snc` / `Sinc` / `Since` | single | — / `Sngl` / — |
-| site | `Ste` / `Site` / — | size | `Sze` / `Size` / `Bytes` | skip | `Skp` / `Skip` / `Skips` |
-| slash | — / `Slsh` / `Slash` | slug | `Slg` / `Slug` / — | smtp | — / `Smtp` / — |
-| socket | `Sck` / `Sckt` / `Sockt` | sort | `Srt` / `Sort` / — | span | `Spn` / `Span` / `Range` |
-| spans | `Spn` / `Spns` / `Spans` | spec | `Spc` / `Spec` / — | spin | — / `Spin` / — |
-| split | `Spl` / `Splt` / `Split` | spot | `Spt` / `Spot` / — | sql | `Sql` / — / — |
-| stamp | — / `Stmp` / `Stamp` | start | — / `Strt` / `Start` | stat | `Sta` / `Stat` / — |
-| statement | `Stm` / `Stmt` / `Sttmt` | status | `Stt` / `Stts` / `Stats` | step | — / `Step` / — |
-| store | `Sto` / `Stre` / `Store` | stream | `Srm` / `Strm` / `Strem` | string | — / `Strn` / — |
-| style | `Stl` / `Styl` / `Style` | sub | `Sub` / — / — | subnet | — / `Snet` / — |
-| success | — / `Succ` / `Succs` | sum | `Sum` / `Sums` / `Addit` | summary | — / `Smry` / `Smmry` |
-| swap | `Swp` / `Swap` / — | systems | `Sys` / `Syst` / `Systm` | table | `Tbl` / `Tble` / `Table` |
-| tables | — / `Tbls` / — | tag | `Tag` / — / — | tags | `Tag` / `Tags` / — |
-| tail | — / `Tail` / — | tall | — / `Tall` / — | tallies | — / — / `Talli` |
-| tar | `Tar` / — / — | target | `Trg` / `Trgt` / `Targt` | task | `Tsk` / `Task` / — |
-| tells | `Tll` / `Tlls` / `Tells` | temp | `Tmp` / `Temp` / — | template | `Tpl` / `Tmpl` / `Tmplt` |
-| text | `Txt` / `Text` / `Strng` | third | — / `Thrd` / `Third` | this | — / `This` / — |
-| tick | `Tck` / `Tick` / `Tickt` | tidy | `Tdy` / `Tidy` / — | till | `Ntl` / `Till` / `Until` |
-| time | `Tme` / `Time` / — | title | `Tit` / `Titl` / `Title` | tld | `Tld` / — / — |
-| tls | `Tls` / — / — | toc | `Toc` / — / — | token | `Tkn` / `Tokn` / `Token` |
-| told | `Say` / `Told` / — | tool | `Utl` / `Tool` / — | top | `Top` / — / — |
-| tops | `Top` / `Tops` / — | track | — / `Trck` / `Track` | transaction | — / `Trns` / `Trnsc` |
-| tree | `Fam` / `Tree` / — | trig | — / `Trig` / — | trigger | — / `Trig` / `Trigr` |
-| trim | — / `Trim` / — | trimmed | `Trm` / `Trim` / `Trimd` | trusted | — / `Trst` / — |
-| turn | — / `Turn` / — | two | `Two` / — / — | type | `Typ` / `Type` / — |
-| update | `Upd` / `Updt` / `Updat` | uri | `Uri` / — / — | url | `Url` / — / — |
-| use | `Use` / `Uses` / `Using` | used | `Usd` / `Used` / — | user | `Usr` / `User` / `Membr` |
-| utf8 | `Utf` / `Utf8` / — | value | `Val` / `Valu` / `Value` | values | `Vls` / `Vals` / `Valus` |
-| variable | `Var` / `Vari` / `Varia` | variant | — / `Vrnt` / `Varnt` | vars | — / `Vars` / — |
-| version | `Vrs` / `Vers` / `Versn` | view | — / `View` / — | visitor | `Vst` / `Vstr` / `Vistr` |
-| void | `Voi` / `Void` / — | wait | `Wai` / `Wait` / — | walk | `Wlk` / `Walk` / — |
-| want | — / `Want` / `Wants` | warn | `Wrn` / `Warn` / `Warng` | was | `Was` / — / — |
-| wav | `Wav` / — / — | week | `Wek` / `Week` / — | what | — / `What` / — |
-| where | `Whr` / `Whre` / `Where` | whole | `Whl` / `Whol` / `Whole` | why | `Why` / — / — |
-| wide | `Wid` / `Wide` / — | with | `Wth` / `With` / — | word | `Wrd` / `Word` / — |
-| writer | `Wrt` / `Wrtr` / `Writr` | written | — / — / `Wrttn` | www | `Www` / — / — |
-| xml | `Xml` / — / — | year | `Yer` / `Year` / — | yes | `Yes` / — / — |
-| yml | `Yml` / `Yaml` / — | zip | `Zip` / — / — | zone | `Zne` / `Zone` / — |
+| ends | `End` / `Ends` / — | entry | `Ntr` / `Entr` / `Entry` | env | `Env` / — / — |
+| error | `Err` / `Erro` / `Error` | escape | `Esc` / `Escp` / `Escap` | etag | `Ntt` / `Ntty` / `Entty` |
+| every | `All` / `Evry` / `Every` | except | — / `Xcpt` / — | exception | `Exc` / `Excp` / `Excpt` |
+| exif | — / `Exif` / — | existed | `Xst` / `Exst` / `Exstd` | exit | — / `Exit` / — |
+| exponent | `Exp` / `Expn` / `Expnt` | extension | `Ext` / `Extn` / `Extns` | extra | `Xtr` / `Extr` / `Extra` |
+| fact | `Fct` / `Fact` / — | fail | — / `Fail` / `Faild` | fake | `Fke` / `Fake` / — |
+| far | `Far` / — / — | field | `Fld` / `Fild` / `Field` | fields | `Fld` / `Flds` / `Field` |
+| file | `Fle` / `File` / `Fichr` | fill | `Fil` / `Fill` / `Fills` | filters | `Flt` / `Fltr` / `Fltrs` |
+| find | `Fnd` / `Find` / — | first | `Fst` / `Frst` / `First` | flac | `Flc` / `Flac` / — |
+| flag | `Flg` / `Flag` / — | flat | — / `Flat` / — | flaw | — / `Flaw` / — |
+| flip | — / `Flip` / — | flow | `Flw` / `Flow` / — | flux | `Flx` / `Flux` / — |
+| folder | `Fdr` / `Fldr` / `Foldr` | follows | — / `Fllw` / `Fllws` | font | `Fnt` / `Font` / — |
+| for | `For` / — / — | form | `Frm` / `Form` / — | format | `Fmt` / `Frmt` / `Formt` |
+| formats | — / — / `Frmts` | forwarded | `Fwd` / `Frwd` / `Forwd` | found | — / — / `Found` |
+| fragment | `Frg` / `Frag` / `Frgmt` | frame | — / `Frme` / `Frame` | frames | — / `Frme` / `Frmes` |
+| from | — / `From` / — | full | `Tot` / `Full` / — | funcs | `Fnc` / `Func` / `Funcs` |
+| fwd | `Fwd` / — / — | gap | `Gap` / — / — | gaps | `Gap` / `Gaps` / — |
+| get | `Get` / — / — | given | `Gvn` / `Givn` / `Given` | goal | `Gol` / `Goal` / — |
+| going | `Gon` / `Goes` / `Going` | grid | `Grd` / `Grid` / — | group | `Grp` / `Grup` / `Group` |
+| half | `Hlf` / `Half` / — | hand | — / `Hand` / — | handle | `Hnd` / `Hndl` / `Handl` |
+| handler | `Hdl` / `Hndr` / `Hndlr` | hash | `Hsh` / `Hash` / `Digst` | head | `Hed` / `Head` / — |
+| header | — / `Hedr` / `Headr` | headers | — / `Hdrs` / `Hedrs` | height | `Hei` / `Hght` / `Heigt` |
+| held | `Hel` / `Held` / — | hertz | — / `Hrtz` / `Hertz` | hexadecimal | `Hex` / `Hxdc` / `Hxdcm` |
+| hide | `Hid` / `Hide` / — | high | `Hgh` / `High` / — | hits | `Hts` / `Hits` / — |
+| hmac | — / `Hmac` / — | hold | — / `Hold` / `Holds` | host | — / `Host` / — |
+| html | `Htm` / `Html` / — | ics | `Ics` / — / — | id3 | `Id3` / — / — |
+| identity | `Idt` / `Idnt` / `Ident` | image | `Img` / `Imge` / `Image` | indented | — / `Indt` / `Indnt` |
+| info | `Inf` / `Info` / — | information | `Inf` / `Info` / `Infrm` | ini | `Ini` / — / — |
+| inner | `Inr` / `Innr` / `Inner` | input | `Inp` / `Inpt` / `Input` | inside | `Isd` / `Insd` / `Insid` |
+| instance | `Ins` / `Inst` / `Instn` | int | `Int` / — / — | issuer | `Isu` / `Issr` / `Issur` |
+| item | `Itm` / `Item` / — | join | `Jnt` / `Join` / `Joint` | joker | — / `Jokr` / `Joker` |
+| json | — / `Json` / — | jwk | `Jwk` / — / — | jwt | `Jwt` / — / — |
+| keep | — / `Keep` / — | keeps | `Kps` / `Keep` / `Keeps` | kept | `Kpt` / `Kept` / — |
+| key | `Key` / `Clef` / `Clave` | keyed | — / `Keyd` / `Keyed` | keys | `Kys` / `Keys` / — |
+| kid | `Kid` / — / — | kids | `Kds` / `Kids` / — | kind | `Knd` / `Kind` / — |
+| label | `Lbl` / `Labl` / `Label` | lack | — / `Lack` / `Lacks` | language | `Lng` / `Lang` / `Langg` |
+| last | `Fin` / `Last` / — | layer | — / `Layr` / `Layer` | lead | — / `Lead` / — |
+| leading | — / `Lead` / `Leadg` | left | `Lft` / `Left` / — | letter | — / `Lttr` / — |
+| level | `Lvl` / `Levl` / `Level` | levels | — / `Lvls` / — | limit | `Lmt` / `Limt` / `Limit` |
+| limiter | — / `Lmtr` / `Limtr` | line | `Lne` / `Line` / `Ligne` | lines | `Lns` / `Lnes` / `Lines` |
+| link | `Lnk` / `Link` / `Nlace` | list | `Lst` / `List` / `Lstng` | lit | `Lit` / — / — |
+| lite | `Lte` / `Lite` / — | literal | — / `Ltrl` / `Litrl` | load | `Lod` / `Load` / — |
+| lock | `Lck` / `Lock` / — | log | `Log` / `Jrnl` / `Jrnal` | login | `Lgn` / `Logn` / `Login` |
+| logs | `Jrn` / `Logs` / `Journ` | lookups | — / `Lkps` / `Lkups` | loss | — / `Loss` / — |
+| lost | — / `Lost` / — | lower | `Low` / `Lowr` / `Lower` | made | — / `Made` / — |
+| mail | `Eml` / `Mail` / `Email` | main | `Mai` / `Main` / — | make | `Mke` / `Make` / `Build` |
+| manager | `Mgr` / `Mngr` / `Mangr` | map | `Map` / — / — | mapping | `Map` / `Maps` / `Mppng` |
+| mark | `Mrk` / `Mark` / — | mask | `Msk` / `Mask` / — | masking | `Msk` / `Mask` / `Mskng` |
+| master | `Mst` / `Mstr` / `Mastr` | match | — / `Matx` / `Match` | matched | `Mtx` / `Matx` / `Mtchd` |
+| matches | `Mat` / `Matx` / `Matxs` | max | `Max` / — / — | mdays | — / `Mday` / `Mdays` |
+| measure | `Msr` / `Mesr` / `Measr` | merge | `Mrg` / `Merg` / `Merge` | merged | `Mrg` / `Mrgd` / `Mergd` |
+| meta | `Mta` / `Meta` / — | method | `Mth` / `Mthd` / `Methd` | mime | `Mim` / `Mime` / — |
+| miss | `Mis` / `Miss` / — | missing | — / `Mssn` / `Mssng` | mixed | `Mix` / `Mixd` / `Mixed` |
+| mode | `Mod` / `Mode` / `Genre` | model | `Mdl` / `Modl` / `Model` | mods | `Mds` / `Mods` / — |
+| month | — / `Mnth` / `Month` | more | `Mor` / `More` / — | mount | — / `Mont` / `Mount` |
+| move | `Mve` / `Move` / — | name | `Nme` / `Name` / `Title` | named | `Nmd` / `Namd` / `Named` |
+| names | `Nms` / `Nmes` / `Names` | namespace | — / `Nmsp` / — | nat | `Nat` / — / — |
+| near | — / `Near` / — | need | `Ned` / `Need` / — | negated | `Neg` / `Negt` / `Negtd` |
+| nest | `Nst` / `Nest` / — | net | `Net` / `Netw` / `Ntwrk` | new | `New` / `Nouv` / `Nuevo` |
+| next | `Nxt` / `Next` / — | node | `Nde` / `Node` / — | nonce | `Nnc` / `Nonc` / `Nonce` |
+| none | `Non` / `None` / — | note | `Nte` / `Note` / — | now | `Now` / — / — |
+| null | `Nul` / `Null` / — | number | `Num` / `Numb` / `Numbr` | numbers | `Nmb` / `Nums` / `Nmbrs` |
+| nyu | `Nyu` / — / — | off | `Off` / — / — | ogg | `Ogg` / — / — |
+| okay | `Oky` / `Okay` / `Allrt` | old | `Old` / — / — | once | `One` / `Once` / — |
+| one | `One` / — / — | open | `Opn` / `Open` / — | opt | `Opt` / `Optn` / — |
+| options | `Opt` / `Opts` / `Optns` | order | `Ord` / `Ordr` / `Order` | ordered | — / `Ordr` / `Ordrd` |
+| otp | `Otp` / — / — | out | `Out` / — / — | outcome | `Out` / `Outc` / `Outcm` |
+| over | `Ovr` / `Over` / — | own | `Own` / — / — | owner | `Own` / `Ownr` / `Owner` |
+| pack | `Pck` / `Pack` / — | pad | `Pad` / — / — | page | `Pge` / `Page` / — |
+| pair | — / `Pair` / — | pairs | — / `Pair` / `Pairs` | para | `Prg` / `Prgr` / `Pargr` |
+| paragraph | `Prg` / `Prgr` / `Pargr` | parameter | `Prm` / `Prmt` / `Prmtr` | parent | `Prn` / `Prnt` / `Parnt` |
+| parser | `Prs` / `Prsr` / `Parsr` | part | `Par` / `Part` / `Parte` | parts | `Prt` / `Prts` / `Parts` |
+| password | `Pwd` / `Pass` / `Psswd` | patched | — / `Patx` / `Patch` | path | `Pth` / `Path` / `Trail` |
+| pattern | — / `Ptrn` / `Pttrn` | payload | `Pld` / `Pyld` / `Payld` | pdf | `Pdf` / — / — |
+| peer | — / `Peer` / — | pem | `Pem` / — / — | penalty | — / `Pnlt` / `Pnlty` |
+| pending | — / `Pend` / `Pndng` | php | `Php` / — / — | picture | `Pic` / `Pict` / `Pictr` |
+| piece | — / `Piec` / `Piece` | pipe | `Pip` / `Pipe` / — | place | `Plc` / `Plce` / `Place` |
+| plain | `Pln` / `Plan` / `Plain` | plug | `Plg` / `Plug` / `Plugn` | plurals | `Plr` / `Plrl` / `Plrls` |
+| plus | — / `Plus` / — | pointer | `Pnt` / `Pntr` / `Pontr` | points | — / `Pnts` / — |
+| port | — / `Port` / — | precision | — / `Prec` / `Preci` | preset | `Rps` / `Pset` / `Prset` |
+| previous | — / `Prev` / `Prevs` | prim | — / `Prim` / `Prmry` | printer | — / `Echo` / `Print` |
+| private | `Prv` / `Priv` / `Privt` | process | `Prc` / `Proc` / `Prcss` | project | `Prj` / `Proj` / `Prjct` |
+| property | `Prp` / `Prop` / `Prprt` | proxy | — / `Prxy` / `Proxy` | pub | `Pub` / — / — |
+| public | `Pub` / `Publ` / `Publi` | quality | `Qlt` / `Qlty` / `Qalty` | query | `Qry` / `Quer` / `Query` |
+| quote | `Qte` / `Quot` / `Quote` | quoted | `Qtd` / `Qotd` / `Quotd` | random | — / `Rndm` / — |
+| range | `Rng` / `Rnge` / `Range` | rank | `Rnk` / `Rank` / — | rate | — / `Rate` / — |
+| raw | `Raw` / `Brut` / `Crude` | read | — / `Read` / — | reads | — / `Read` / `Reads` |
+| ready | `Rdy` / `Redy` / `Ready` | real | — / `Real` / — | recipient | `Rcp` / `Rcpn` / `Rcpnt` |
+| records | `Rcs` / `Recs` / `Recds` | red | `Red` / — / — | reference | `Ref` / `Refr` / `Rfrnc` |
+| refuse | `Ren` / `Rfus` / `Refus` | regexp | `Rgx` / `Rgxp` / — | registry | `Reg` / `Regr` / `Rgstr` |
+| relation | `Rel` / `Rltn` / `Relat` | remaining | `Rmn` / `Remn` / `Remng` | render | `Rdr` / `Rndr` / `Rendr` |
+| repeat | `Rpt` / `Rpet` / `Repet` | repeats | — / — / `Repet` | reply | `Rpl` / `Rply` / `Reply` |
+| request | `Rqt` / `Reqt` / `Reqst` | respond | — / `Rspd` / `Rspnd` | response | `Rsp` / `Resp` / `Rspns` |
+| rest | — / `Rest` / — | result | `Res` / `Rslt` / `Reslt` | results | `Res` / `Rslt` / `Rslts` |
+| retry | — / `Rtry` / `Retry` | return | `Rtn` / `Rtrn` / `Retrn` | review | — / `Rivu` / `Rview` |
+| riff | `Rif` / `Riff` / — | right | `Rgt` / `Rght` / `Right` | rights | — / `Rght` / — |
+| role | `Rle` / `Role` / — | room | — / `Room` / — | root | — / `Root` / — |
+| rout | `Rou` / `Rout` / — | route | `Rte` / `Rout` / `Route` | row | `Row` / `Ntry` / `Entry` |
+| rows | — / `Rows` / — | rule | `Rul` / `Rule` / — | run | `Run` / — / — |
+| runs | `Rns` / `Runs` / — | safe | `Saf` / `Safe` / — | salt | `Slt` / `Salt` / — |
+| same | — / `Same` / — | sample | — / `Smpl` / `Sampl` | save | `Sve` / `Save` / — |
+| scale | — / `Scal` / `Scale` | scan | `Scn` / `Scan` / — | seal | `Sil` / `Seal` / — |
+| seconds | `Sec` / `Secs` / `Scnds` | secret | — / `Secr` / `Secrt` | section | `Sct` / `Sctn` / `Sectn` |
+| seen | `See` / `Seen` / — | segment | — / `Sgmt` / `Segmt` | select | `Slc` / `Slct` / `Selct` |
+| sender | — / `Sndr` / — | sends | — / `Send` / `Sends` | sent | `Snt` / `Sent` / — |
+| separator | `Sep` / `Sepr` / `Seprt` | sequence | — / `Sqnc` / — | server | `Srv` / `Srvr` / `Servr` |
+| session | `Ses` / `Sess` / `Sessn` | set | `Set` / — / — | setup | `Stp` / `Setp` / `Setup` |
+| sha | `Sha` / — / — | shadow | `Shd` / `Shdw` / `Shadw` | shape | `Shp` / `Shap` / `Shape` |
+| shared | — / `Shrd` / — | sheet | — / `Tabs` / `Sheet` | short | `Shr` / `Shrt` / `Short` |
+| show | `Shw` / `Show` / `Revil` | shown | `Shw` / `Shwn` / `Shown` | shutdown | — / `Shut` / `Shutd` |
+| side | `Sde` / `Side` / — | sign | `Sgn` / `Sign` / — | simple | `Eas` / `Simp` / `Simpl` |
+| since | `Snc` / `Sinc` / `Since` | single | — / `Sngl` / — | site | `Ste` / `Site` / — |
+| size | `Sze` / `Size` / `Bytes` | skip | `Skp` / `Skip` / `Skips` | slash | — / `Slsh` / `Slash` |
+| slug | `Slg` / `Slug` / — | smtp | — / `Smtp` / — | socket | `Sck` / `Sckt` / `Sockt` |
+| sort | `Srt` / `Sort` / — | span | `Spn` / `Span` / `Range` | spans | `Spn` / `Spns` / `Spans` |
+| spec | `Spc` / `Spec` / — | spin | — / `Spin` / — | split | `Spl` / `Splt` / `Split` |
+| spot | `Spt` / `Spot` / — | sql | `Sql` / — / — | stamp | — / `Stmp` / `Stamp` |
+| start | — / `Strt` / `Start` | stat | `Sta` / `Stat` / — | statement | `Stm` / `Stmt` / `Sttmt` |
+| status | `Stt` / `Stts` / `Stats` | step | — / `Step` / — | store | `Sto` / `Stre` / `Store` |
+| stream | `Srm` / `Strm` / `Strem` | string | — / `Strn` / — | style | `Stl` / `Styl` / `Style` |
+| sub | `Sub` / — / — | subnet | — / `Snet` / — | success | — / `Succ` / `Succs` |
+| sum | `Sum` / `Sums` / `Addit` | summary | — / `Smry` / `Smmry` | swap | `Swp` / `Swap` / — |
+| systems | `Sys` / `Syst` / `Systm` | table | `Tbl` / `Tble` / `Table` | tables | — / `Tbls` / — |
+| tag | `Tag` / — / — | tags | `Tag` / `Tags` / — | tail | — / `Tail` / — |
+| tall | — / `Tall` / — | tallies | — / — / `Talli` | tar | `Tar` / — / — |
+| target | `Trg` / `Trgt` / `Targt` | task | `Tsk` / `Task` / — | tells | `Tll` / `Tlls` / `Tells` |
+| temp | `Tmp` / `Temp` / — | template | `Tpl` / `Tmpl` / `Tmplt` | text | `Txt` / `Text` / `Strng` |
+| third | — / `Thrd` / `Third` | this | — / `This` / — | tick | `Tck` / `Tick` / `Tickt` |
+| tidy | `Tdy` / `Tidy` / — | till | `Ntl` / `Till` / `Until` | time | `Tme` / `Time` / — |
+| title | `Tit` / `Titl` / `Title` | tld | `Tld` / — / — | tls | `Tls` / — / — |
+| toc | `Toc` / — / — | token | `Tkn` / `Tokn` / `Token` | told | `Say` / `Told` / — |
+| tool | `Utl` / `Tool` / — | top | `Top` / — / — | tops | `Top` / `Tops` / — |
+| track | — / `Trck` / `Track` | transaction | — / `Trns` / `Trnsc` | tree | `Fam` / `Tree` / — |
+| trig | — / `Trig` / — | trigger | — / `Trig` / `Trigr` | trim | — / `Trim` / — |
+| trimmed | `Trm` / `Trim` / `Trimd` | trusted | — / `Trst` / — | turn | — / `Turn` / — |
+| two | `Two` / — / — | type | `Typ` / `Type` / — | update | `Upd` / `Updt` / `Updat` |
+| uri | `Uri` / — / — | url | `Url` / — / — | use | `Use` / `Uses` / `Using` |
+| used | `Usd` / `Used` / — | user | `Usr` / `User` / `Membr` | utf8 | `Utf` / `Utf8` / — |
+| value | `Val` / `Valu` / `Value` | values | `Vls` / `Vals` / `Valus` | variable | `Var` / `Vari` / `Varia` |
+| variant | — / `Vrnt` / `Varnt` | vars | — / `Vars` / — | version | `Vrs` / `Vers` / `Versn` |
+| view | — / `View` / — | visitor | `Vst` / `Vstr` / `Vistr` | void | `Voi` / `Void` / — |
+| wait | `Wai` / `Wait` / — | walk | `Wlk` / `Walk` / — | want | — / `Want` / `Wants` |
+| warn | `Wrn` / `Warn` / `Warng` | was | `Was` / — / — | wav | `Wav` / — / — |
+| week | `Wek` / `Week` / — | what | — / `What` / — | where | `Whr` / `Whre` / `Where` |
+| whole | `Whl` / `Whol` / `Whole` | why | `Why` / — / — | wide | `Wid` / `Wide` / — |
+| with | `Wth` / `With` / — | word | `Wrd` / `Word` / — | writer | `Wrt` / `Wrtr` / `Writr` |
+| written | — / — / `Wrttn` | www | `Www` / — / — | xml | `Xml` / — / — |
+| year | `Yer` / `Year` / — | yes | `Yes` / — / — | yml | `Yml` / `Yaml` / — |
+| zip | `Zip` / — / — | zone | `Zne` / `Zone` / — | | |
 
 **Written whole**: every word not listed above.
 
