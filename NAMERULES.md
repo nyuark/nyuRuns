@@ -2,7 +2,7 @@
 
 How every name of nyuRuns is built. `CONVENTIONS.md` gives the lengths; this file gives the grammar that fills them. The `audit` group of the tests checks both, reading the lists of this file.
 
-Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the glossary are settled; the locals of `src/` and `runs/` are named (1,830, 2026-11-14), and the parameters are named (631 names, 2026-11-15). Properties, methods and loops come next, by the same rules.
+Status: **0-C-06 applied**. The locals, parameters, properties, methods and loops are named, and the constants are kept.
 
 ## 1. Principles
 
@@ -34,6 +34,11 @@ Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the
 - The kind slot ends the name when the return value is not obvious from the verb and the object (section 4).
 - A method answering yes or no starts with a **question verb** (`is`, `has`, `can`...) and reads as a question.
 - A method starting with an **action verb** and returning a Bool tells whether its action succeeded (decided 2026-11-12): it keeps its action name, without `Flag` (`approveNewUser()`, not `approveUserFlag()`). A question verb asks about a state and changes nothing; an action verb acts and tells whether it worked.
+- **No `Flag` on an action verb** (decided 2026-11-15): the name drops `Flag` or `Flg`, and its length is fitted again (`activateByCode()`, `saveUserStatus()`).
+- **A name without a verb takes the verb of its docblock** (decided 2026-11-15): the verb its first sentence starts with, as section 3 writes it. The first word of the name is replaced only when it is that same verb.
+- **The length fitted again** (decided 2026-11-15): when the verb changes, is added, or `Flag` is dropped, the other pieces take another writing of their ladder to reach 14 letters: the words whole wherever they fit, then the order of the shapes of a parameter. A name no writing brings to 14 is named by hand.
+- **`invoke` + a sub-command and `formats` + a format are exempt** (decided 2026-11-15): the name is the sub-command of `php nyuRun` (`invokeFullList()`) or the format of Variable (`formatsOutText()`), as it is typed or declared.
+- **Kept by decision** (2026-11-15): `needsActionRle()` and `needsPassLogin()` are the Void helper pair of Actionset; their question verb stays.
 
 ### Parameters
 - The **role** says what the value is for in this method: `given`, `required`, `wanted`... or the subject itself (`userName`).
@@ -54,6 +59,7 @@ Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the
 
 ### Properties
 - The **subject** says what the object keeps; the **kind** says in what form.
+- **Kept by decision** (2026-11-15): `$noteNumArr` keeps its name, though it ends in `Arr`.
 
 ### Locals
 - **One word** of 8 letters, or **two words**: 4+4, 5+3 or 3+5, each in one of its writings (decided 2026-11-12; the shapes and their order decided 2026-11-13).
@@ -66,11 +72,14 @@ Status: **step 2, the locals** (0-C-06): the rules, the verbs, the kinds and the
 
 ### Loop variables
 - `one` + the item, for the current element (`$oneRow`, `$oneKey`); `nth` + the item, for its position (`$nthRow`) (decided 2026-11-12). The item is a whole word of 3 letters (`row`, `key`, `day`, `tag`); `nth` is a word, not a short form.
-- The 3-letter labels of `test/audit/looplabels.txt` stay accepted until they are renamed.
+- **A writing of 3 letters as the item** (decided 2026-11-15): when no whole word of 3 letters names the item, it is the writing of 3 letters of its word: a writing of the glossary, a kind term, a standard abbreviation or an exception (`$oneRgx`, `$oneVal`, `$nthCol`). `Arr` is never an item.
+- **Loops in sequence may share a name** (decided 2026-11-15): two loops of one function take the same name when neither holds the other. A loop inside another never takes its name.
+- The 3-letter labels of `test/audit/looplabels.txt` are all renamed (2026-11-15): the file lists none.
 
 ### Class constants
 - Upper case, `XXXX_YYYY`: the subject, then its kind (`TYPE_LIST`, `MAPS_ENVS`).
 - A 4-letter form never reads as another word (`PTCH`, `WTCH`, `REPL` are refused).
+- **The constants keep their names** (decided 2026-11-15). A half that is no writing of the ladders is listed with its word at the end of section 5.
 
 ## 3. Verbs
 
@@ -122,7 +131,7 @@ The list, reviewed on 2026-11-12 (the nyuRuns Verb Review artifact, from the 1,2
 
 Every action verb is in its base form (`log`, `wipe`); a third-person form reads as a question.
 
-The 341 methods whose first word is not a verb (187 words: `final`, `table`, `subs`, `from`...) take a verb of this list when they are renamed.
+The 341 methods whose first word was not a verb (187 words: `final`, `table`, `subs`, `from`...) took a verb of this list when they were renamed (2026-11-15): the verb of their docblock (section 2, Methods).
 
 ## 4. Kind terms
 
@@ -179,9 +188,13 @@ The short forms of the words that cannot always be written whole. A short form t
 
 **Writings of 3 letters** are allowed when the word's ladder holds one (2026-11-13), and only then. They were taken out where they read as another word (2026-11-14): `Hdr`, `Hdl`, `Sht`, `Mnt`, `Alg`, `Trn`, `Idt`, `Rea`, `Roo`, `Chp`, `Hst`, `Mad`, `Met`, `3rd`; and a writing never starts with a digit.
 
-**Standard abbreviations** (the fixed list): `Api`, `Bom`, `Css`, `Db`, `Dom`, `Dsn`, `Dtd`, `Gd`, `Ics`, `Id`, `Id3`, `Id3v1`, `Ini`, `Ip`, `Iso`, `Jwk`, `Jwt`, `Llm`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Ps`, `Rsa`, `Sha`, `Sql`, `Stty`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
+**Standard abbreviations** (the fixed list): `Api`, `Bom`, `Css`, `Db`, `Dom`, `Dsn`, `Dtd`, `Gd`, `Ics`, `Id`, `Id3`, `Id3v1`, `Ini`, `Ip`, `Iso`, `Jwk`, `Jwt`, `Llm`, `Md5`, `Mp3`, `Mp4`, `Ncx`, `Odf`, `Ogg`, `Otp`, `Pdf`, `Pdo`, `Pem`, `Php`, `Ps`, `Rsa`, `Sha`, `Sql`, `Stty`, `Svg`, `Tar`, `Tld`, `Tls`, `Toc`, `Uri`, `Url`, `Wav`, `Www`, `Xml`, `Yml`, `Zip`, `Nyu`, `Html`, `Xhtml`, `Bbcode`, `Http`, `Json`, `Smtp`, `Yaml`, `Mime`, `Hmac`, `Totp`, `Uuid`, `Utf8`, `Ipv4`, `Exif`, `Crlf`, `Etag`, `Unix`, `Flac`, `Riff`, `Ical`, `Docx`, `Jwks`, `Ehlo`, `Apr1`. The audit reads this list, as it reads the exceptions below: the terms in backticks of the first sentence.
 
 **Exceptions decided by the project manager** (2026-11-12, kept): `Obj`, `Pos`, `Reg`, `Col`, as ordinary writings now. Calendar is never `Cal`, request is never `Req`.
+
+**Words between pieces** (decided 2026-11-15): `of`, `to`, `as`, `in`, `by`, `at`, `or`, `Too`, `Way`, `Via`, `Not`. A name may hold these whole words of 2 and 3 letters as pieces (`getInfoOfTable()`, `$valueAsGiven`); `If` and `Min` are not among them. The audit reads this list.
+
+**Names kept as they are** (decided by the project manager, 2026-11-15): `noteNumArr`. The audit reads this list, and checks no piece of these names.
 
 **How a writing is chosen** (2026-11-13/14):
 - **A family shares its writings**: words of one root may hold the same writing (find/found, trim/trimmed, cut/cuts, encoding/encoded/encoder, repeat/repeats, cred/credential, trigger/trig, frame/frames).
@@ -408,6 +421,21 @@ The list, from the Words and Ladder tabs of the review (2026-11-14):
 
 **Written whole**: every word not listed above.
 
+**Halves of constants** (decided 2026-11-15): the constants keep their names, and these halves are theirs. A half is read only inside the name of a constant: it is not a writing of the ladders.
+
+| Half | Word | Half | Word |
+|---|---|---|---|
+| `PATT` | pattern | `NYUR` | nyuRuns |
+| `BBCD` | BBCode | `RSAS` | RSA keys |
+| `BNDL` | bundle | `RUNR` | runner |
+| `CMDS` | commands | `SHPE` | shape |
+| `ECCS` | error correction | `SWEP` | sweep |
+| `GENR` | genres | `XMPL` | example |
+| `GRPS` | groups | `BLCK` | block |
+| `ENVS` | environments | `RELS` | relations |
+| `PIXL` | pixels | `STOR` | store |
+| `MEDI` | media | `MP3S` | MP3 sounds |
+
 ## 6. Open questions of step 0
 
 1. ~~When is the kind slot left out?~~ Decided 2026-11-12: only when the verb or the object already says it (section 4).
@@ -423,4 +451,4 @@ The list, from the Words and Ladder tabs of the review (2026-11-14):
 - **The whole renaming lands in 1.0** (decided 2026-11-12): the rules, the audit, the map, its review and the rename area by area, before the public release.
 - **The rename is applied on a branch of its own**, `naming-0C06`, area by area, and merged whole once the full suite is green on it, never halfway. The rules (this file) and the audit in report mode go to `master` first: they break nothing.
 
-The locals were named on 2026-11-14 (the Locals · final tab of the review).
+The locals were named on 2026-11-14 (the Locals · final tab of the review); the parameters, the properties, the methods and the loops on 2026-11-15, from the decided lists of the rename scripts.

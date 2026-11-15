@@ -5,8 +5,8 @@
 // The lists are read from the file on each run, never copied:
 //   section 3   the verbs (first column of its table), the question verbs and the domain verbs
 //   section 4   the kind terms (first column of its table, several per cell)
-//   section 5   the short forms (columns 2, 4 and 6 of its table), the 3-letter exceptions
-//               and the standard abbreviations
+//   section 5   the short forms (columns 2, 4 and 6 of its table), the 3-letter exceptions,
+//               the standard abbreviations, the words between pieces and the names kept
 //
 // A list in a sentence is read from the paragraph starting with its bold label: the terms in
 // backticks of its first sentence. A table or a list that cannot be read stops the audit.
@@ -89,8 +89,9 @@ function parseLabelList( String $rulesRawText, Int $givenSection, String $boldLi
  * Reads every list of the naming rules.
  *
  * @param String $rulesDocPath Full path of NAMERULES.md.
- * @return Array The lists by name: 'verb', 'question', 'domain', 'kind', 'form', 'exception', 'standard', and 'word',
- *               the words of the glossary that are their own writing.
+ * @return Array The lists by name: 'verb', 'question', 'domain', 'kind', 'form', 'exception', 'standard', 'between'
+ *               (the whole words of 2 and 3 letters a name may hold), 'kept' (the names kept as they are), and
+ *               'word', the words of the glossary that are their own writing.
  *
  * @throws RuntimeException When the file, a table or a list cannot be read.
  */
@@ -107,7 +108,9 @@ function readNamingDict( String $rulesDocPath ): Array {
 		'kind'=>parseTermsList(parseRuleTable($rulesRaw, 4), Array(0)),
 		'form'=>parseTermsList(parseRuleTable($rulesRaw, 5), Array(1, 3, 5)),
 		'exception'=>parseLabelList($rulesRaw, 5, 'Exceptions decided by the project manager'),
-		'standard'=>parseLabelList($rulesRaw, 5, 'Standard abbreviations')
+		'standard'=>parseLabelList($rulesRaw, 5, 'Standard abbreviations'),
+		'between'=>parseLabelList($rulesRaw, 5, 'Words between pieces'),
+		'kept'=>parseLabelList($rulesRaw, 5, 'Names kept as they are')
 	);
 	foreach( $nameDict as $oneKey => $oneSet ){
 		if( count($oneSet)==0 ){
@@ -218,10 +221,12 @@ function checkLocalName( String $fullNameText, Array $nameRuleDict, Array $fullW
 }
 
 /**
- * Checks a loop variable: 'one' or 'nth', then a whole word of 3 letters.
- * A word the glossary lists as its own writing is one ('Row', 'Tag').
- * Without the list of whole words, any other item is refused when it is
- * a writing of the rules ('Rgx') or holds no vowel.
+ * Checks a loop variable: 'one' or 'nth', then an item of 3 letters. The
+ * item is a whole word ('Row', 'Tag'), or the writing of 3 letters of its
+ * word: a writing of the glossary ('Rgx'), a kind term ('Val'), a standard
+ * abbreviation or an exception ('Col'). 'Arr' is never an item.
+ * Without the list of whole words, any other item is taken for a word
+ * when it holds a vowel.
  *
  * @param String $fullNameText The name, without its '$'.
  * @param Array  $nameRuleDict The lists of the naming rules (see readNamingDict).
@@ -233,15 +238,17 @@ function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullW
 		return 'not one or nth + an item of 3 letters';
 	}
 	$itemWord = $itemHits[1];
-	// A whole word the glossary lists as its own writing
-	if( in_array($itemWord, $nameRuleDict['word'] ?? Array(), true) ){
-		return '';
+	if( $itemWord==='Arr' ){
+		return 'the item "Arr" is never an item';
 	}
-	if( !empty($fullWordDict) ){
-		return isset($fullWordDict[strtolower($itemWord)]) ? '' : 'the item "'.$itemWord.'" is not a whole word';
+	// A whole word the glossary lists as its own writing, or the writing of 3 letters of a word
+	foreach( Array('word', 'form', 'kind', 'standard', 'exception') as $oneKey ){
+		if( in_array($itemWord, $nameRuleDict[$oneKey] ?? Array(), true) ){
+			return '';
+		}
 	}
-	$isListed = in_array($itemWord, $nameRuleDict['form'], true) || in_array($itemWord, $nameRuleDict['exception'], true) || in_array($itemWord, $nameRuleDict['standard'], true);
-	return ( $isListed ||!preg_match('/[aeiou]/', strtolower($itemWord)) ) ? 'the item "'.$itemWord.'" is not a whole word' : '';
+	$isListed = empty($fullWordDict) ? preg_match('/[aeiou]/', strtolower($itemWord))===1 : isset($fullWordDict[strtolower($itemWord)]);
+	return $isListed ? '' : 'the item "'.$itemWord.'" is neither a whole word nor a listed writing';
 }
 
 /**
@@ -249,7 +256,8 @@ function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullW
  * a 3-letter exception or a standard abbreviation. A piece ending in
  * digits is checked by its letters, unless the whole piece is a standard
  * abbreviation. The words the rules list themselves (verbs, kind terms,
- * one, nth) are whole words.
+ * one, nth, the words between pieces) are whole words, and a name the
+ * rules keep as it is has no piece checked.
  * Without the list of whole words, a piece of 4 letters or more holding a
  * vowel is taken for one.
  *
@@ -260,6 +268,10 @@ function checkLoopLabel( String $fullNameText, Array $nameRuleDict, Array $fullW
  */
 function checkNameWords( String $fullNameText, Array $nameRuleDict, Array $fullWordDict ): String {
 	$badWords = Array();
+	if( in_array($fullNameText, $nameRuleDict['kept'] ?? Array(), true) ){
+		return '';
+	}
+	$gapsList = array_map('strtolower', $nameRuleDict['between'] ?? Array());
 	foreach( splitWordsList($fullNameText, $nameRuleDict) as $oneBit ){
 		if( ctype_digit($oneBit) || in_array(ucfirst(strtolower($oneBit)), $nameRuleDict['standard'], true) ){
 			continue;
@@ -270,7 +282,7 @@ function checkNameWords( String $fullNameText, Array $nameRuleDict, Array $fullW
 		if( in_array($upperBit, $nameRuleDict['form'], true) || in_array($upperBit, $nameRuleDict['exception'], true) || in_array($upperBit, $nameRuleDict['standard'], true) ){
 			continue;
 		}
-		if( in_array($lowerBit, Array('one', 'nth'), true) || in_array($lowerBit, $nameRuleDict['verb'], true) || in_array($lowerBit, $nameRuleDict['question'], true) || in_array($lowerBit, $nameRuleDict['domain'], true) || in_array($upperBit, $nameRuleDict['kind'], true) ){
+		if( in_array($lowerBit, Array('one', 'nth'), true) || in_array($lowerBit, $gapsList, true) || in_array($lowerBit, $nameRuleDict['verb'], true) || in_array($lowerBit, $nameRuleDict['question'], true) || in_array($lowerBit, $nameRuleDict['domain'], true) || in_array($upperBit, $nameRuleDict['kind'], true) ){
 			continue;
 		}
 		$isListed = empty($fullWordDict) ? ( strlen($lowerBit)>=4 && preg_match('/[aeiou]/', $lowerBit)===1 ) : isset($fullWordDict[$lowerBit]);

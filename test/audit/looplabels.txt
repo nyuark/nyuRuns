@@ -1,25 +1,8 @@
-# Loop variables of 3 letters, kept as they are for now (exception of _naming-scheme.txt, section 2).
-# One label per line: its name, the new name the project manager gives it (the same name until then),
-# then where it is used. The audit test (test/audit/ConventionTest.php) accepts a loop variable of 3
-# letters only when its name is listed in the first column.
+# Loop variables of 3 letters, kept as they are (exception of NAMERULES.md, section 2).
+# One label per line: its name, the new name the project manager gives it, then where it is used.
+# The audit test (test/audit/ConventionTest.php) accepts a loop variable of 3 letters only when
+# its name is listed in the first column.
+#
+# None is left: the 19 labels were renamed with the loops of task 0-C-06 (2026-11-15).
 #
 # name  new     used in
-bin   binInc     Shell\Cmds\Bundle::findCmpsr
-bit   bitInc     Data\QrCode::gfMultply, Data\QrCode::drawFormt, Data\QrCode::drawVersn
-blk   blkInc     Data\QrCode::fullWords
-cdt   cdtInc     Data\QrCode::drawFindr, Data\QrCode::drawAlign
-col   colInc     Data\QrCode::asTextArt, Data\QrCode::applyMask, Data\QrCode::maskPnlty
-deg   degInc     Data\QrCode::rsDivisor
-dir   dirInc     Shell\Cmds\Bundle::findCmpsr
-idx   idxInc     Access\Auth\PassList::apr1Crypt, Shell\ConfFile::writeFile, Shell\ConfFile::setRpsKey, Tools\Language::langChain, (global)::auditCode
-msk   mskInc     Data\QrCode::__construct
-pad   padInc     Data\QrCode::dataWords
-pos   posInc     Access\Auth\Native::freshCode, Data\QrCode::fullWords, Data\QrCode::rsDivisor, Data\QrCode::rsRemaind, Data\QrCode::drawFixed, Data\QrCode::maskPnlty, Tools\StrKit::stripTags
-rdt   rdtInc     Data\QrCode::drawFindr, Data\QrCode::drawAlign
-rgt   rgtInc     Data\QrCode::drawWords
-row   rowInc     Data\QrCode::asTextArt, Data\QrCode::applyMask, Data\QrCode::maskPnlty
-sfx   sfxInc     Data\DBStore\Filter::readWhere
-sid   sidInc     Data\QrCode::drawWords
-stp   stpInc     Access\Totp::matchStep
-ver   verInc     Data\QrCode::pickVersn
-vrt   vrtInc     Data\QrCode::drawWords

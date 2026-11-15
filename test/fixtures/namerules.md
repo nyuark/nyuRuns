@@ -38,6 +38,10 @@ Some text before the table, with a `word` in backticks that is no verb.
 
 **Exceptions decided by the project manager** (2026-11-12, kept): `Obj`, `Col`, as ordinary writings now. Calendar is never `Cal`.
 
+**Words between pieces** (decided): `of`, `to`, `Via`. `If` is not among them.
+
+**Names kept as they are** (decided): `noteNumArr`. The audit checks no piece of them.
+
 | Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) | Word | Writings (3 / 4 / 5) |
 |---|---|---|---|---|---|
 | account | — / `Acct` / `Accnt` | column | `Col` / `Clmn` / `Colmn` | form | `Frm` / `Form` / — |

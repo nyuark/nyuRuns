@@ -97,7 +97,6 @@ checkIdentical('methods are 14-character camelCase',         violating($finding[
 checkIdentical('parameters are 12-character camelCase',      violating($finding['param']), Array());
 checkIdentical('properties are 10-character camelCase',      violating($finding['prop']), Array());
 checkIdentical('constants are XXXX_YYYY',                    $cnstBad, Array());
-checkTrueValue('looplabels.txt lists the loop variables of 3 letters', count($loopLst)>0);
 checkIdentical('public methods have a docblock',             violating($finding['nodoc']), Array());
 checkIdentical('parameters and return values are typed',     violating($finding['notype']), Array());
 
