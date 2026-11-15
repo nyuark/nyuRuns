@@ -42,10 +42,10 @@ class RunMaker{
 	 *
 	 * @return Array The content of each file, by its path.
 	 */
-	public function buildFilesList(): Array {
+	public function makeFilesOfRun(): Array {
 		$runFoldr = $this->runsFolder.DS.$this->runSpecDct['appsName'];
-		$fileList = Array( $runFoldr.DS.'routes.rte'=>$this->routesFileText(), $runFoldr.DS.'Actions.php'=>$this->actionsPhpText() );
-		foreach( $this->inputFileArray() as $oneAct => $oneTxt ){
+		$fileList = Array( $runFoldr.DS.'routes.rte'=>$this->makeRoutesFile(), $runFoldr.DS.'Actions.php'=>$this->makeActionsPhp() );
+		foreach( $this->makeInputFiles() as $oneAct => $oneTxt ){
 			$fileList[$runFoldr.DS.'input'.DS.$oneAct.'.json'] = $oneTxt;
 		}
 		// Every file is written with \n, on every system
@@ -61,7 +61,7 @@ class RunMaker{
 	 *
 	 * @return String The content of routes.rte.
 	 */
-	public function routesFileText(): String {
+	public function makeRoutesFile(): String {
 		$actLstng = $this->runSpecDct['actnList'];
 		$routeLst = Array();
 		foreach( Array(''=>Array('GET'=>'index', 'POST'=>'create'), '$id'=>Array('GET'=>'view', 'PUT'=>'update', 'DELETE'=>'remove')) as $onePth => $oneSet ){
@@ -80,7 +80,7 @@ class RunMaker{
 				$routeLst['$id/'.$oneTbl] = Array('mthdList'=>'GET', 'pointsTo'=>Array('doAction'=>strval($oneTbl)));
 			}
 		}
-		return self::tabbedJsonText( empty($routeLst) ? new \stdClass() : $routeLst );
+		return self::castTabbedJson( empty($routeLst) ? new \stdClass() : $routeLst );
 	}
 
 	/**
@@ -90,7 +90,7 @@ class RunMaker{
 	 *
 	 * @return Array The content of each input/<action>.json, by action.
 	 */
-	public function inputFileArray(): Array {
+	public function makeInputFiles(): Array {
 		$fieldAll = Array();
 		$fldsOpti = Array();
 		foreach( $this->runSpecDct['fieldSet'] as $oneFld => $oneFmt ){
@@ -105,11 +105,11 @@ class RunMaker{
 				'update'=>$fldsOpti,
 				default=>new \stdClass()
 			};
-			$fileList[$oneAct] = self::tabbedJsonText( Array('fieldSet'=>$fldsDict) );
+			$fileList[$oneAct] = self::castTabbedJson( Array('fieldSet'=>$fldsDict) );
 		}
 		foreach( $this->runSpecDct['childSet'] as $oneTbl => $oneSet ){
 			if( $oneSet['ownRoute'] ){
-				$fileList[strval($oneTbl)] = self::tabbedJsonText( Array('fieldSet'=>new \stdClass()) );
+				$fileList[strval($oneTbl)] = self::castTabbedJson( Array('fieldSet'=>new \stdClass()) );
 			}
 		}
 		return $fileList;
@@ -121,7 +121,7 @@ class RunMaker{
 	 *
 	 * @return String The minRoles entry.
 	 */
-	public function minRolesString(): String {
+	public function getPsetRoleLne(): String {
 		return '"minRoles": { "'.strtolower($this->runSpecDct['appsName']).'/*": "'.$this->runSpecDct['minmRole'].'" }';
 	}
 
@@ -130,7 +130,7 @@ class RunMaker{
 	 *
 	 * @return String The content of Actions.php.
 	 */
-	public function actionsPhpText(): String {
+	public function makeActionsPhp(): String {
 		$specList = $this->runSpecDct;
 		$applName = $specList['appsName'];
 		$actLstng = $specList['actnList'];
@@ -164,14 +164,14 @@ class RunMaker{
 			.implode("\n", $routeLne)."\n */\n"
 			."class Actions extends Actionset {\n\n"
 			."\t// The database (its label, '' for the default one), the table, its key, and the fields read and written with their format\n"
-			."\tconst BASE_LINK = ".self::phpLiteralText($specList['database']).";\n"
-			."\tconst TBLE_NAME = ".self::phpLiteralText($specList['tableRef']).";\n"
-			."\tconst IDNT_COLN = ".self::phpLiteralText($specList['idColumn']).";\n"
-			."\tconst FLDS_LIST = ".self::phpLiteralText($fldsOpti).";\n"
+			."\tconst BASE_LINK = ".self::castPhpLiteral($specList['database']).";\n"
+			."\tconst TBLE_NAME = ".self::castPhpLiteral($specList['tableRef']).";\n"
+			."\tconst IDNT_COLN = ".self::castPhpLiteral($specList['idColumn']).";\n"
+			."\tconst FLDS_LIST = ".self::castPhpLiteral($fldsOpti).";\n"
 			."\t// The children: the field naming their record, the fields read, their order, and whether the list holds them\n"
-			."\tconst CHLD_LIST = ".self::phpLiteralText($childLst).";\n\n"
+			."\tconst CHLD_LIST = ".self::castPhpLiteral($childLst).";\n\n"
 			."\t/**\n\t * Asks for the least role of the Run before every action.\n\t */\n"
-			."\tprotected function setupForAction(): Void {\n\t\t\$this->needsActionRle(".self::phpLiteralText($specList['minmRole']).");\n\t}\n";
+			."\tprotected function setupForAction(): Void {\n\t\t\$this->needsActionRle(".self::castPhpLiteral($specList['minmRole']).");\n\t}\n";
 
 		if( in_array('index', $actLstng, true) ){
 			$codeText .= <<<'PHPCODE'
@@ -295,7 +295,7 @@ PHPCODE;
 				$codeText .= "\n\t/**\n\t * Lists the ".$oneTbl." of a record.\n\t *\n\t * @param String \$recordIdText The key of the record, from the path.\n\t */\n"
 					."\tpublic function ".$oneTbl."( String \$recordIdText='' ): Void {\n"
 					."\t\t\$rcrdClef = \$this->readRecordById(\$recordIdText)[1][self::IDNT_COLN];\n"
-					."\t\t\$this->checkActionLst( \$this->readChildRecds(".self::phpLiteralText(strval($oneTbl)).", Array(\$rcrdClef))[\$rcrdClef] ?? Array() );\n\t}\n\n";
+					."\t\t\$this->checkActionLst( \$this->readChildRecds(".self::castPhpLiteral(strval($oneTbl)).", Array(\$rcrdClef))[\$rcrdClef] ?? Array() );\n\t}\n\n";
 			}
 		}
 		$codeText .= <<<'PHPCODE'
@@ -386,7 +386,7 @@ PHPCODE;
 	 * @param Mixed $valueToWrite The value: an empty object is written {}.
 	 * @return String The JSON, ending with a line break.
 	 */
-	public static function tabbedJsonText( Mixed $valueToWrite ): String {
+	public static function castTabbedJson( Mixed $valueToWrite ): String {
 		$jsonText = strval( json_encode($valueToWrite, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) );
 		return preg_replace_callback('/^(?: {4})+/m', function( Array $matchedArray ): String { return str_repeat("\t", intdiv(strlen($matchedArray[0]), 4)); }, $jsonText)."\n";
 	}
@@ -397,11 +397,11 @@ PHPCODE;
 	 * @param Mixed $valueToWrite A text, a number, a boolean, null or an array of them.
 	 * @return String The PHP literal.
 	 */
-	protected static function phpLiteralText( Mixed $valueToWrite ): String {
+	protected static function castPhpLiteral( Mixed $valueToWrite ): String {
 		if( is_array($valueToWrite) ){
 			$itemList = Array();
 			foreach( $valueToWrite as $oneKey => $oneVal ){
-				$itemList[] = (array_is_list($valueToWrite) ? '' : var_export($oneKey, true).'=>').self::phpLiteralText($oneVal);
+				$itemList[] = (array_is_list($valueToWrite) ? '' : var_export($oneKey, true).'=>').self::castPhpLiteral($oneVal);
 			}
 			return 'Array('.implode(', ', $itemList).')';
 		}

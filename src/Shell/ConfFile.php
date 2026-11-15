@@ -115,7 +115,7 @@ class ConfFile{
 			throw new \RuntimeException('File not written: '.basename($filePathName).' cannot be copied to the backup folder first');
 		}
 		@chmod($fullPath, 0600);
-		$this->pruneOldBackup($filePathName);
+		$this->dropOldBackups($filePathName);
 		return $fullPath;
 	}
 
@@ -128,7 +128,7 @@ class ConfFile{
 	 *
 	 * @param String $filePathName Full path of the file.
 	 */
-	protected function pruneOldBackup( String $filePathName ): Void {
+	protected function dropOldBackups( String $filePathName ): Void {
 		$baseName = ltrim(basename($filePathName), '.');
 		$copyList = Array();
 		foreach( (array)scandir($this->backFolder) as $oneNme ){
@@ -148,7 +148,7 @@ class ConfFile{
 	 * @param String $filePathName Full path of the file.
 	 * @return Bool Whether it was put back.
 	 */
-	public function revertWriteFlg( String $filePathName ): Bool {
+	public function clearLastWrite( String $filePathName ): Bool {
 		if( !isset($this->backupList[$filePathName]) ){
 			return false;
 		}
@@ -164,7 +164,7 @@ class ConfFile{
 	 * @param String $iniEntryName Name of the key.
 	 * @return ?String The value, without the quotes around it; null when the file has no such key.
 	 */
-	public function retrieveIniKey( String $filePathName, String $iniEntryName ): ?String {
+	public function readIniFileVal( String $filePathName, String $iniEntryName ): ?String {
 		$valuePar = Array();
 		if( !preg_match('/^[ \t]*'.preg_quote($iniEntryName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valuePar) ){
 			return null;
@@ -183,7 +183,7 @@ class ConfFile{
 	 *
 	 * @throws \RuntimeException When the value cannot be written in an .ini file, or the file cannot be written.
 	 */
-	public function changeIniValue( String $filePathName, String $iniEntryName, String $newIniValTxt ): Bool {
+	public function saveIniFileVal( String $filePathName, String $iniEntryName, String $newIniValTxt ): Bool {
 		if( preg_match('/["\r\n]/', $newIniValTxt) ){
 			throw new \RuntimeException('Value refused: no quote and no line break in an .ini value');
 		}
@@ -207,7 +207,7 @@ class ConfFile{
 	 * @param String $envValueName Name of the value.
 	 * @return ?String The value, without the quotes around it; null when the file does not hold the name.
 	 */
-	public function retrieveEnvKey( String $filePathName, String $envValueName ): ?String {
+	public function readEnvFileVal( String $filePathName, String $envValueName ): ?String {
 		$valuePar = Array();
 		if( !preg_match('/^[ \t]*'.preg_quote($envValueName, '/').'[ \t]*=[ \t]*(.*?)[ \t]*\r?$/m', strval(@file_get_contents($filePathName)), $valuePar) ){
 			return null;
@@ -226,7 +226,7 @@ class ConfFile{
 	 *
 	 * @throws \RuntimeException When the name or the value cannot be written in such a file, or the file cannot be written.
 	 */
-	public function changeEnvValue( String $filePathName, String $envValueName, String $envValueText ): Void {
+	public function saveEnvFileVal( String $filePathName, String $envValueName, String $envValueText ): Void {
 		if( !preg_match('/^\w+$/D', $envValueName) || preg_match('/[\r\n]/', $envValueText) ){
 			throw new \RuntimeException('Value refused: a plain name, and no line break in the value');
 		}
@@ -252,7 +252,7 @@ class ConfFile{
 	 *
 	 * @throws \RuntimeException When the file is missing or is not a JSON object.
 	 */
-	public function importJsonsObj( String $filePathName ): Object {
+	public function readRawJsonCfg( String $filePathName ): Object {
 		$jsonVals = is_file($filePathName) ? json_decode( strval(file_get_contents($filePathName)) ) : null;
 		if( !is_object($jsonVals) ){
 			throw new \RuntimeException('Config not read: '.basename($filePathName).' is missing or is not a JSON object');
@@ -282,7 +282,7 @@ class ConfFile{
 			}
 			$lineList = Array();
 			foreach( get_object_vars($jsonDocument) as $blkKey => $blkVal ){
-				$lineList[] = "\t".str_pad(json_encode(strval($blkKey), $jsonFlag).':', $nameSize+1).' '.$this->inlineJsonText($blkVal);
+				$lineList[] = "\t".str_pad(json_encode(strval($blkKey), $jsonFlag).':', $nameSize+1).' '.$this->castInlineJson($blkVal);
 			}
 			$newStrng = '{'."\n".implode(','."\n", $lineList)."\n".'}'."\n";
 		}else{
@@ -300,16 +300,16 @@ class ConfFile{
 	 * @param mixed $filePartData The value.
 	 * @return String Its JSON text.
 	 */
-	protected function inlineJsonText( Mixed $filePartData ): String {
+	protected function castInlineJson( Mixed $filePartData ): String {
 		if( is_object($filePartData) ){
 			$partList = Array();
 			foreach( get_object_vars($filePartData) as $subKey => $subVal ){
-				$partList[] = json_encode(strval($subKey), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': '.$this->inlineJsonText($subVal);
+				$partList[] = json_encode(strval($subKey), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).': '.$this->castInlineJson($subVal);
 			}
 			return empty($partList) ? '{}' : '{ '.implode(', ', $partList).' }';
 		}
 		if( is_array($filePartData) ){
-			return '['.implode(', ', array_map(Array($this, 'inlineJsonText'), $filePartData)).']';
+			return '['.implode(', ', array_map(Array($this, 'castInlineJson'), $filePartData)).']';
 		}
 		return strval( json_encode($filePartData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) );
 	}
@@ -359,7 +359,7 @@ class ConfFile{
 			if( $oneChrct!='"' ){
 				continue;
 			}
-			$strnEnds = $this->terminateOfTxt($fileText, $idxInc);
+			$strnEnds = $this->findEndOfQuote($fileText, $idxInc);
 			$strnText = json_decode( substr($fileText, $idxInc, $strnEnds-$idxInc) );
 			$tokenPos = $strnEnds + strspn($fileText, " \t\r\n", $strnEnds);
 			$idxInc = $strnEnds-1;
@@ -376,7 +376,7 @@ class ConfFile{
 			if( $valueChr=='{' || $valueChr=='[' ){
 				throw new \RuntimeException('Value refused: '.$presetKeyRef.' is a list or a block of the preset, shown and not written');
 			}
-			$valueEnd = ($valueChr=='"') ? $this->terminateOfTxt($fileText, $valuFrom) : $valuFrom + strcspn($fileText, ",}] \t\r\n", $valuFrom);
+			$valueEnd = ($valueChr=='"') ? $this->findEndOfQuote($fileText, $valuFrom) : $valuFrom + strcspn($fileText, ",}] \t\r\n", $valuFrom);
 			$this->saveFileAtomic( $filePathName, substr($fileText, 0, $valuFrom).json_encode($newPresetVal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).substr($fileText, $valueEnd) );
 			return;
 		}
@@ -390,7 +390,7 @@ class ConfFile{
 	 * @param Int    $fromPosition Position of its opening quote.
 	 * @return Int Position after its closing quote.
 	 */
-	protected function terminateOfTxt( String $fullTextsTxt, Int $fromPosition ): Int {
+	protected function findEndOfQuote( String $fullTextsTxt, Int $fromPosition ): Int {
 		$textSize = strlen($fullTextsTxt);
 		$crsorPos = $fromPosition+1;
 		while( $crsorPos<$textSize && $fullTextsTxt[$crsorPos]!='"' ){

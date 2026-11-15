@@ -40,7 +40,7 @@ foreach( Array(
 checkIdentical('a flaw is found in each wrong spec', $flawLst, array_fill_keys(array_keys($flawLst), true));
 
 // The format a column type proposes
-checkIdentical('formats: whole and decimal numbers, dates, dates and times, any other kept as sent', array_map(Array(RunSpec::class, 'formatOfColumn'), Array('INTEGER', 'int(11)', 'bigint', 'tinyint(1)', 'boolean', 'decimal(10,2)', 'REAL', 'double precision', 'DATE', 'datetime', 'timestamp without time zone', 'TEXT', 'varchar(100)', '')),
+checkIdentical('formats: whole and decimal numbers, dates, dates and times, any other kept as sent', array_map(Array(RunSpec::class, 'getFormatOfCol'), Array('INTEGER', 'int(11)', 'bigint', 'tinyint(1)', 'boolean', 'decimal(10,2)', 'REAL', 'double precision', 'DATE', 'datetime', 'timestamp without time zone', 'TEXT', 'varchar(100)', '')),
 	Array('Integer', 'Integer', 'Integer', 'Integer', 'Integer', 'FloatNb', 'FloatNb', 'FloatNb', 'CustDte(Y-m-d)', 'CustDte(Y-m-d H:i:s)', 'CustDte(Y-m-d H:i:s)', '', '', ''));
 
 // Written, then read
@@ -56,10 +56,10 @@ checkPregMatch('a spec with a flaw is never written', runCatchThrown(function() 
 
 // What the generator writes from it : the actions kept only
 $makrObj = new RunMaker($goodSpec, $specDir);
-checkIdentical('routes: the list, the record and the child route, for the actions kept', json_decode($makrObj->routesFileText(), true), Array(''=>Array('pointsTo'=>Array('GET'=>Array('doAction'=>'index'))), '$id'=>Array('pointsTo'=>Array('GET'=>Array('doAction'=>'view'))), '$id/events'=>Array('mthdList'=>'GET', 'pointsTo'=>Array('doAction'=>'events'))));
-checkIdentical('inputs: the listing ones for index, none for view and the child route', array_map(function( String $jsonText ): Mixed { return json_decode($jsonText, true)['fieldSet']; }, $makrObj->inputFileArray()), Array('index'=>Array('filters'=>Array('title'=>'', 'seats'=>'', 'opening'=>''), 'sortedBy'=>'', 'limitVal'=>'Integer', 'rowIndex'=>'Integer'), 'view'=>Array(), 'events'=>Array()));
-checkIdentical('the files, by their path, and the line of the preset', Array(array_map('basename', array_keys($makrObj->buildFilesList())), $makrObj->minRolesString()), Array(Array('routes.rte', 'Actions.php', 'index.json', 'view.json', 'events.json'), '"minRoles": { "shows/*": "advanced" }'));
-$actText = $makrObj->actionsPhpText();
+checkIdentical('routes: the list, the record and the child route, for the actions kept', json_decode($makrObj->makeRoutesFile(), true), Array(''=>Array('pointsTo'=>Array('GET'=>Array('doAction'=>'index'))), '$id'=>Array('pointsTo'=>Array('GET'=>Array('doAction'=>'view'))), '$id/events'=>Array('mthdList'=>'GET', 'pointsTo'=>Array('doAction'=>'events'))));
+checkIdentical('inputs: the listing ones for index, none for view and the child route', array_map(function( String $jsonText ): Mixed { return json_decode($jsonText, true)['fieldSet']; }, $makrObj->makeInputFiles()), Array('index'=>Array('filters'=>Array('title'=>'', 'seats'=>'', 'opening'=>''), 'sortedBy'=>'', 'limitVal'=>'Integer', 'rowIndex'=>'Integer'), 'view'=>Array(), 'events'=>Array()));
+checkIdentical('the files, by their path, and the line of the preset', Array(array_map('basename', array_keys($makrObj->makeFilesOfRun())), $makrObj->getPsetRoleLne()), Array(Array('routes.rte', 'Actions.php', 'index.json', 'view.json', 'events.json'), '"minRoles": { "shows/*": "advanced" }'));
+$actText = $makrObj->makeActionsPhp();
 checkIdentical('actions: those kept, the child route, the role asked, no default action', Array(str_contains($actText, 'public function index('), str_contains($actText, 'public function create('), str_contains($actText, 'public function events('), str_contains($actText, "\$this->needsActionRle('advanced');"), str_contains($actText, 'dfltAction')), Array(true, false, true, true, false));
 checkPregMatch('a spec with a flaw generates nothing', runCatchThrown(function() use ( $goodSpec, $specDir ){ return new RunMaker(Array('actnList'=>Array()) + $goodSpec, $specDir); }), '/^THROWN RuntimeException: Nothing generated: actnList /');
 

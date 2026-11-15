@@ -26,7 +26,7 @@ class CronJob extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Calls an action of a run, as the user cli:<system user>';
 	}
 
@@ -35,7 +35,7 @@ class CronJob extends Command{
 	 *
 	 * @return Array The command has no sub-command.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array( ''=>Array('call'=>'invokeCronJobs', 'args'=>'<app/action[/param]> [name=value ...] [--bodyFrom=<file|->] [--httpVerb=<method>] [--presetId=<preset>] [--roleName=<role>] [--saveInto=<file>]', 'about'=>'calls an action of a run, as the user cli:<system user>') );
 	}
 
@@ -51,50 +51,50 @@ class CronJob extends Command{
 	public function invokeCronJobs(): Int {
 		$actnPath = $this->needsShellWord('the action, as app/action');
 		$inputVal = Array();
-		$inputFle = $this->optionsObj->retrieveOption('bodyFrom');
+		$inputFle = $this->optionsObj->getOptionValue('bodyFrom');
 		if( $inputFle!==null ){
 			$inputTxt = ($inputFle=='-') ? stream_get_contents($this->readStream) : @file_get_contents($inputFle);
 			$inputVal = json_decode(strval($inputTxt), true);
 			if( !is_array($inputVal) ){
-				$this->terminateShell('The inputs of --bodyFrom are not a JSON object', self::EXIT_HELP);
+				$this->stopWithReason('The inputs of --bodyFrom are not a JSON object', self::EXIT_HELP);
 			}
 		}
 		$pairList = Array();
-		foreach( $this->optionsObj->restWordsArray() as $gvnWrd ){
+		foreach( $this->optionsObj->getRestOfWords() as $gvnWrd ){
 			$pairPart = explode('=', $gvnWrd, 2);
 			if( count($pairPart)!=2 || $pairPart[0]=='' ){
-				$this->terminateShell('An input is written name=value: '.$gvnWrd, self::EXIT_HELP);
+				$this->stopWithReason('An input is written name=value: '.$gvnWrd, self::EXIT_HELP);
 			}
 			$pairList[] = str_replace(Array('%5B', '%5D'), Array('[', ']'), rawurlencode($pairPart[0])).'='.rawurlencode($pairPart[1]);
 		}
 		$wordVals = Array();
 		parse_str(implode('&', $pairList), $wordVals);
 		$inputVal = array_replace_recursive($inputVal, $wordVals);
-		$roleName = strval($this->optionsObj->retrieveOption('roleName', 'advanced'));
-		$mthdName = strtoupper(strval($this->optionsObj->retrieveOption('httpVerb', 'GET')));
+		$roleName = strval($this->optionsObj->getOptionValue('roleName', 'advanced'));
+		$mthdName = strtoupper(strval($this->optionsObj->getOptionValue('httpVerb', 'GET')));
 		if( !in_array($roleName, Checker::ROLE_LIST, true) || !in_array($mthdName, self::MTHD_LIST, true) ){
-			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
+			$this->stopWithReason('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
 		}
-		$rplyList = (new ActCaller())->treatAskedActn( strval($this->optionsObj->retrieveOption('presetId', '')), $actnPath, $inputVal, $mthdName, 'cli:'.Console::osShellUsrName(), $roleName );
-		$savePath = $this->optionsObj->retrieveOption('saveInto');
-		if( $this->printerObj->jsonShellShape() ){
-			$this->printerObj->printShellPair('code', $rplyList['code']);
+		$rplyList = (new ActCaller())->treatAskedActn( strval($this->optionsObj->getOptionValue('presetId', '')), $actnPath, $inputVal, $mthdName, 'cli:'.Console::getUsrOfSystem(), $roleName );
+		$savePath = $this->optionsObj->getOptionValue('saveInto');
+		if( $this->printerObj->isOutputAsJson() ){
+			$this->printerObj->writeShellPair('code', $rplyList['code']);
 		}
 		if( $savePath!==null ){
 			if( @file_put_contents($savePath, $rplyList['body'])===false ){
-				$this->terminateShell('The reply cannot be written to '.$savePath);
+				$this->stopWithReason('The reply cannot be written to '.$savePath);
 			}
-			$this->printerObj->printShellPair('saved', $savePath);
-		}elseif( $this->printerObj->jsonShellShape() ){
-			$this->printerObj->printShellPair('reply', json_decode($rplyList['body'], true) ?? $rplyList['body']);
+			$this->printerObj->writeShellPair('saved', $savePath);
+		}elseif( $this->printerObj->isOutputAsJson() ){
+			$this->printerObj->writeShellPair('reply', json_decode($rplyList['body'], true) ?? $rplyList['body']);
 		}elseif( $rplyList['body']!=='' ){
-			$this->printerObj->printShellBody( $rplyList['body'].( substr($rplyList['body'], -1)=="\n" ? '' : PHP_EOL ) );
+			$this->printerObj->writeShellBody( $rplyList['body'].( substr($rplyList['body'], -1)=="\n" ? '' : PHP_EOL ) );
 		}
 		if( $rplyList['goal']!='' ){
-			$this->printerObj->printShellPair('moved', $rplyList['goal']);
+			$this->printerObj->writeShellPair('moved', $rplyList['goal']);
 		}
 		if( $rplyList['code']>=400 ){
-			$this->printerObj->printShellFail( $rplyList['code'].' '.$rplyList['mssg'] );
+			$this->printerObj->writeShellFail( $rplyList['code'].' '.$rplyList['mssg'] );
 			return ($rplyList['code']>=500) ? self::EXIT_FAIL : self::EXIT_DENY;
 		}
 		return self::EXIT_DONE;

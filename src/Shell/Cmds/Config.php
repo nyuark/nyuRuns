@@ -56,7 +56,7 @@ class Config extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Reads and changes the configuration: system, access, databases, presets, secrets, routes';
 	}
 
@@ -65,7 +65,7 @@ class Config extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array(
 			'showConf'=>Array('args'=>'<coreConf|accsConf|dataConf|psetConf> [path]', 'about'=>'shows a config file, one of its blocks or keys; secrets are masked'),
 			'setValue'=>Array('args'=>'<coreConf|accsConf|dataConf|psetConf> <path> <value> [--overrule]', 'about'=>'changes a value: KEY, block.key, or preset.block.key'),
@@ -85,8 +85,8 @@ class Config extends Command{
 	 */
 	public function invokeClrCache(): Int {
 		$dropNumb = ConfCache::clearConfCache();
-		$this->traceShellDone( 'Config: cache removed, '.$dropNumb.' files' );
-		$this->printerObj->printShellPair('cache files removed', $dropNumb);
+		$this->logShellChange( 'Config: cache removed, '.$dropNumb.' files' );
+		$this->printerObj->writeShellPair('cache files removed', $dropNumb);
 		return self::EXIT_DONE;
 	}
 
@@ -103,12 +103,12 @@ class Config extends Command{
 		}
 		$pathText = strval($this->optionsObj->shiftFirstWord() ?? '');
 		if( $trgtName=='psetConf' ){
-			return $this->showPresetNumb($pathText);
+			return $this->renderPsetConf($pathText);
 		}
 		if( !isset(self::TRGT_LIST[$trgtName]) ){
-			$this->terminateShell('Nothing is shown under that name: '.$trgtName, self::EXIT_HELP);
+			$this->stopWithReason('Nothing is shown under that name: '.$trgtName, self::EXIT_HELP);
 		}
-		$filePath = $this->pathOfSettings(self::TRGT_LIST[$trgtName]);
+		$filePath = $this->getProjectPath(self::TRGT_LIST[$trgtName]);
 		$rowsList = Array();
 		if( $trgtName=='coreConf' ){
 			$lineList = Array();
@@ -119,13 +119,13 @@ class Config extends Command{
 				}
 			}
 			if( empty($rowsList) ){
-				$this->terminateShell('Nothing under '.( $pathText!='' ? $pathText.' in ' : '' ).self::TRGT_LIST[$trgtName], self::EXIT_DENY);
+				$this->stopWithReason('Nothing under '.( $pathText!='' ? $pathText.' in ' : '' ).self::TRGT_LIST[$trgtName], self::EXIT_DENY);
 			}
 		}else{
-			$treeList = json_decode( strval(json_encode($this->generateWriter()->importJsonsObj($filePath))), true );
-			$rowsList = $this->plainRowsArray( $this->followDotPaths($treeList, $pathText), $pathText );
+			$treeList = json_decode( strval(json_encode($this->makeConfWriter()->readRawJsonCfg($filePath))), true );
+			$rowsList = $this->castConfToRows( $this->followDotPaths($treeList, $pathText), $pathText );
 		}
-		$this->printerObj->printShellRows( Array('key', 'value'), $rowsList );
+		$this->printerObj->writeShellRows( Array('key', 'value'), $rowsList );
 		return self::EXIT_DONE;
 	}
 
@@ -135,23 +135,23 @@ class Config extends Command{
 	 * @param String $dotNamesPath Empty for the list; otherwise the name of a preset, followed or not by .block and .key.
 	 * @return Int The exit code.
 	 */
-	protected function showPresetNumb( String $dotNamesPath ): Int {
+	protected function renderPsetConf( String $dotNamesPath ): Int {
 		if( $dotNamesPath=='' ){
 			$rowsList = Array();
-			foreach( (array)glob($this->pathOfSettings('conf/presets').DS.'*.rps') as $rpsFil ){
+			foreach( (array)glob($this->getProjectPath('conf/presets').DS.'*.rps') as $rpsFil ){
 				$psetName = basename(strval($rpsFil), '.rps');
 				try{
-					$confVals = $this->retrievePreset($psetName);
+					$confVals = $this->readPresetFile($psetName);
 					$rowsList[] = Array($psetName, strval($confVals['presetId'] ?? ''), strval($confVals['synopsis'] ?? ''));
 				}catch( \RuntimeException $e ){
 					$rowsList[] = Array($psetName, '', 'cannot be loaded: '.$e->getMessage());
 				}
 			}
-			$this->printerObj->printShellRows( Array('preset', 'label', 'about'), $rowsList );
+			$this->printerObj->writeShellRows( Array('preset', 'label', 'about'), $rowsList );
 			return self::EXIT_DONE;
 		}
 		$pathPart = explode('.', $dotNamesPath, 2);
-		$this->printerObj->printShellRows( Array('key', 'value'), $this->plainRowsArray( $this->followDotPaths($this->retrievePreset($pathPart[0]), $pathPart[1] ?? ''), $pathPart[1] ?? '' ) );
+		$this->printerObj->writeShellRows( Array('key', 'value'), $this->castConfToRows( $this->followDotPaths($this->readPresetFile($pathPart[0]), $pathPart[1] ?? ''), $pathPart[1] ?? '' ) );
 		return self::EXIT_DONE;
 	}
 
@@ -169,26 +169,26 @@ class Config extends Command{
 		$pathText = $this->needsShellWord('the key to write (KEY, block.key, or preset.block.key)');
 		$givenTxt = $this->optionsObj->shiftFirstWord();
 		if( $givenTxt===null ){
-			$this->terminateShell('Missing argument: the value', self::EXIT_HELP);
+			$this->stopWithReason('Missing argument: the value', self::EXIT_HELP);
 		}
 		$pathPart = explode('.', $pathText);
-		$wrtrInst = $this->generateWriter();
-		$isForced = $this->optionsObj->validateOption('overrule');
+		$wrtrInst = $this->makeConfWriter();
+		$isForced = $this->optionsObj->isOptionPassed('overrule');
 		try{
 			if( $trgtName=='coreConf' ){
 				$this->writeSystemIni($wrtrInst, $pathText, $givenTxt);
 			}elseif( $trgtName=='accsConf' || $trgtName=='dataConf' ){
 				if( count($pathPart)>2 || ($trgtName=='accsConf' && count($pathPart)!=2) || in_array('', $pathPart, true) ){
-					$this->terminateShell('A value of '.self::TRGT_LIST[$trgtName].' is named as block.key', self::EXIT_HELP);
+					$this->stopWithReason('A value of '.self::TRGT_LIST[$trgtName].' is named as block.key', self::EXIT_HELP);
 				}
-				$filePath = $this->pathOfSettings(self::TRGT_LIST[$trgtName]);
-				$treeInst = $wrtrInst->importJsonsObj($filePath);
+				$filePath = $this->getProjectPath(self::TRGT_LIST[$trgtName]);
+				$treeInst = $wrtrInst->readRawJsonCfg($filePath);
 				$nodeInst = $treeInst;
 				if( count($pathPart)==2 ){
 					$blockNme = $pathPart[0];
 					if( !isset($treeInst->$blockNme) || !is_object($treeInst->$blockNme) ){
 						if( !$isForced ){
-							$this->terminateShell('Nothing was changed: no block '.$blockNme.' in '.self::TRGT_LIST[$trgtName].'; --overrule adds it', self::EXIT_DENY);
+							$this->stopWithReason('Nothing was changed: no block '.$blockNme.' in '.self::TRGT_LIST[$trgtName].'; --overrule adds it', self::EXIT_DENY);
 						}
 						$treeInst->$blockNme = new \stdClass();
 					}
@@ -196,46 +196,46 @@ class Config extends Command{
 				}
 				$keyTitle = strval(end($pathPart));
 				if( !property_exists($nodeInst, $keyTitle) && !$isForced ){
-					$this->terminateShell('Nothing was changed: no key '.$pathText.' in '.self::TRGT_LIST[$trgtName].'; --overrule adds it', self::EXIT_DENY);
+					$this->stopWithReason('Nothing was changed: no key '.$pathText.' in '.self::TRGT_LIST[$trgtName].'; --overrule adds it', self::EXIT_DENY);
 				}
 				$newValue = $this->parseTypedText($givenTxt);
 				// A check or a carrier that does not exist would refuse every request
 				if( $trgtName=='accsConf' && ( ($keyTitle=='authWith' && Checker::findCheckClass(strval($givenTxt))===null) || ($keyTitle=='carrWith' && Checker::findCarrierCls(strval($givenTxt))===null) ) ){
-					$this->terminateShell('Nothing was changed: '.$givenTxt.' is not a known '.( $keyTitle=='authWith' ? 'credential check' : 'carrier' ), self::EXIT_DENY);
+					$this->stopWithReason('Nothing was changed: '.$givenTxt.' is not a known '.( $keyTitle=='authWith' ? 'credential check' : 'carrier' ), self::EXIT_DENY);
 				}
 				// The issuer, the audiences and the previous key of the tokens are refused when they cannot be read
-				$toknFlaw = ($trgtName=='accsConf') ? $this->toknFlawString($keyTitle, $newValue) : '';
+				$toknFlaw = ($trgtName=='accsConf') ? $this->findTokenFlaws($keyTitle, $newValue) : '';
 				if( $toknFlaw!='' ){
-					$this->terminateShell('Nothing was changed: '.$toknFlaw, self::EXIT_DENY);
+					$this->stopWithReason('Nothing was changed: '.$toknFlaw, self::EXIT_DENY);
 				}
 				$nodeInst->$keyTitle = $newValue;
 				$wrtrInst->saveJsonConfig($filePath, $treeInst);
 			}elseif( $trgtName=='psetConf' ){
 				if( count($pathPart)<2 || count($pathPart)>3 || in_array('', $pathPart, true) || !preg_match('/^[\w\-]+$/D', $pathPart[0]) ){
-					$this->terminateShell('A value of a preset is named as preset.block.key, or preset.key', self::EXIT_HELP);
+					$this->stopWithReason('A value of a preset is named as preset.block.key, or preset.key', self::EXIT_HELP);
 				}
-				$filePath = $this->pathOfSettings('conf/presets/'.$pathPart[0].'.rps');
+				$filePath = $this->getProjectPath('conf/presets/'.$pathPart[0].'.rps');
 				if( !is_file($filePath) ){
-					$this->terminateShell('Nothing was changed: no preset '.$pathPart[0], self::EXIT_DENY);
+					$this->stopWithReason('Nothing was changed: no preset '.$pathPart[0], self::EXIT_DENY);
 				}
 				$wrtrInst->setPresetValue( $filePath, (count($pathPart)==3) ? $pathPart[1] : '', strval(end($pathPart)), $this->parseTypedText($givenTxt) );
 				try{
 					new Preset($pathPart[0]);
 				}catch( \RuntimeException $e ){
-					$wrtrInst->revertWriteFlg($filePath);
-					$this->terminateShell('Nothing was changed: '.$e->getMessage(), self::EXIT_DENY);
+					$wrtrInst->clearLastWrite($filePath);
+					$this->stopWithReason('Nothing was changed: '.$e->getMessage(), self::EXIT_DENY);
 				}
 			}else{
-				$this->terminateShell('Nothing is written under that name: '.$trgtName, self::EXIT_HELP);
+				$this->stopWithReason('Nothing is written under that name: '.$trgtName, self::EXIT_HELP);
 			}
 		}catch( ShellStop $e ){
 			throw $e;
 		}catch( \RuntimeException $e ){
-			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
+			$this->stopWithReason( $e->getMessage(), self::EXIT_DENY );
 		}
 		Console::loadConfigLogs();
-		$this->traceShellDone( 'Config: '.$trgtName.' '.$pathText.' written' );
-		$this->printerObj->printShellPair('written', $trgtName.' '.$pathText);
+		$this->logShellChange( 'Config: '.$trgtName.' '.$pathText.' written' );
+		$this->printerObj->writeShellPair('written', $trgtName.' '.$pathText);
 		return self::EXIT_DONE;
 	}
 
@@ -249,7 +249,7 @@ class Config extends Command{
 	 * @param Mixed  $valueAsGiven The value, as parseTypedText() gives it.
 	 * @return String The reason; empty when the value can be written, or the key is none of those.
 	 */
-	protected function toknFlawString( String $keyAsWritten, Mixed $valueAsGiven ): String {
+	protected function findTokenFlaws( String $keyAsWritten, Mixed $valueAsGiven ): String {
 		if( $keyAsWritten=='issuerId' && !is_string($valueAsGiven) ){
 			return 'issuer is a text';
 		}
@@ -264,7 +264,7 @@ class Config extends Command{
 			if( $keyTrail=='' ){
 				return '';
 			}
-			$keyStrng = is_file($this->pathOfSettings($keyTrail)) ? strval(@file_get_contents($this->pathOfSettings($keyTrail))) : '';
+			$keyStrng = is_file($this->getProjectPath($keyTrail)) ? strval(@file_get_contents($this->getProjectPath($keyTrail))) : '';
 			$keyInstn = ($keyStrng!='' && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public($keyStrng) : false;
 			$keyArray = ($keyInstn!==false) ? openssl_pkey_get_details($keyInstn) : false;
 			if( !is_array($keyArray) || ($keyArray['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyArray['bits'] ?? 0)<\nyu\Access\Carr\JWT::RSAS_BITS ){
@@ -286,18 +286,18 @@ class Config extends Command{
 	 */
 	protected function writeSystemIni( ConfFile $writerObject, String $iniEntryName, String $newIniValTxt ): Void {
 		if( !preg_match('/^[A-Z0-9]{3}_[A-Z0-9]{4}$/D', $iniEntryName) ){
-			$this->terminateShell('A key of conf/system.ini is written XXX_YYYY', self::EXIT_HELP);
+			$this->stopWithReason('A key of conf/system.ini is written XXX_YYYY', self::EXIT_HELP);
 		}
 		if( isset(self::RULE_LIST[$iniEntryName]) && !preg_match(self::RULE_LIST[$iniEntryName], $newIniValTxt) ){
-			$this->terminateShell('Nothing was changed: '.$iniEntryName.' does not take the value '.$newIniValTxt, self::EXIT_DENY);
+			$this->stopWithReason('Nothing was changed: '.$iniEntryName.' does not take the value '.$newIniValTxt, self::EXIT_DENY);
 		}
-		$filePath = $this->pathOfSettings(self::TRGT_LIST['coreConf']);
-		if( !$writerObject->changeIniValue($filePath, $iniEntryName, $newIniValTxt) ){
-			$this->terminateShell('Nothing was changed: no key '.$iniEntryName.' in conf/system.ini, and none is added', self::EXIT_DENY);
+		$filePath = $this->getProjectPath(self::TRGT_LIST['coreConf']);
+		if( !$writerObject->saveIniFileVal($filePath, $iniEntryName, $newIniValTxt) ){
+			$this->stopWithReason('Nothing was changed: no key '.$iniEntryName.' in conf/system.ini, and none is added', self::EXIT_DENY);
 		}
 		if( @parse_ini_file($filePath)===false ){
-			$writerObject->revertWriteFlg($filePath);
-			$this->terminateShell('Nothing was changed: conf/system.ini could no longer be read with that value', self::EXIT_DENY);
+			$writerObject->clearLastWrite($filePath);
+			$this->stopWithReason('Nothing was changed: conf/system.ini could no longer be read with that value', self::EXIT_DENY);
 		}
 	}
 
@@ -317,20 +317,20 @@ class Config extends Command{
 		try{
 			$rowsList = \nyu\Runner::readDoorwayLst();
 		}catch( \RuntimeException $e ){
-			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
+			$this->stopWithReason( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
 		}
 		if( $baseText===null ){
 			$shownRow = Array();
 			foreach( $rowsList as $oneRow ){
 				$shownRow[] = Array( ($oneRow['hostName']==='') ? '(any)' : $oneRow['hostName'], $oneRow['basePath'], $oneRow['presetId'] );
 			}
-			$this->printerObj->printShellRows( Array('host', 'basePath', 'preset'), $shownRow );
+			$this->printerObj->writeShellRows( Array('host', 'basePath', 'preset'), $shownRow );
 			return self::EXIT_DONE;
 		}
 		$baseText = '/'.trim($baseText, '/');
-		$hostText = strtolower( trim(strval($this->optionsObj->retrieveOption('hostName', ''))) );
+		$hostText = strtolower( trim(strval($this->optionsObj->getOptionValue('hostName', ''))) );
 		if( !preg_match('#^/[\w.\-/]*$#D', $baseText) || !preg_match('/^[a-z0-9.\-]*$/D', $hostText) ){
-			$this->terminateShell( 'Invalid line: a basePath of letters, digits, dots, dashes and slashes, a host name of letters, digits, dots and dashes', self::EXIT_HELP );
+			$this->stopWithReason( 'Invalid line: a basePath of letters, digits, dots, dashes and slashes, a host name of letters, digits, dots and dashes', self::EXIT_HELP );
 		}
 		$lineText = ($hostText==='' ? '' : $hostText).$baseText;
 		$findIndx = null;
@@ -339,28 +339,28 @@ class Config extends Command{
 				$findIndx = $rowIdx;
 			}
 		}
-		if( $this->optionsObj->validateOption('removeIt') ){
+		if( $this->optionsObj->isOptionPassed('removeIt') ){
 			if( $findIndx===null ){
-				$this->terminateShell( 'Nothing was changed: no line for '.$lineText, self::EXIT_DENY );
+				$this->stopWithReason( 'Nothing was changed: no line for '.$lineText, self::EXIT_DENY );
 			}
 			$wasPrset = $rowsList[$findIndx]['presetId'];
 			unset($rowsList[$findIndx]);
-			$this->writeDoorsList( array_values($rowsList) );
-			$this->traceShellDone( 'Config: the line '.$lineText.' of the presets served removed (was '.$wasPrset.')' );
-			$this->printerObj->printShellPair( 'removed', $lineText );
+			$this->writeDoorLines( array_values($rowsList) );
+			$this->logShellChange( 'Config: the line '.$lineText.' of the presets served removed (was '.$wasPrset.')' );
+			$this->printerObj->writeShellPair( 'removed', $lineText );
 			return self::EXIT_DONE;
 		}
 		if( $psetName===null || $psetName==='' ){
-			$this->terminateShell( 'Missing argument: the preset that answers '.$lineText, self::EXIT_HELP );
+			$this->stopWithReason( 'Missing argument: the preset that answers '.$lineText, self::EXIT_HELP );
 		}
 		// The example only explains the keys: it never answers a request
 		if( strcasecmp($psetName, Preset::XMPL_NAME)==0 ){
-			$this->terminateShell( 'Nothing was changed: the preset '.Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded', self::EXIT_DENY );
+			$this->stopWithReason( 'Nothing was changed: the preset '.Preset::XMPL_NAME.' only explains the keys of a preset, and is never loaded', self::EXIT_DENY );
 		}
 		try{
 			new Preset($psetName);
 		}catch( \RuntimeException $e ){
-			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
+			$this->stopWithReason( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
 		}
 		$wasPrset = ($findIndx===null) ? '' : $rowsList[$findIndx]['presetId'];
 		if( $findIndx===null ){
@@ -368,9 +368,9 @@ class Config extends Command{
 		}else{
 			$rowsList[$findIndx]['presetId'] = $psetName;
 		}
-		$this->writeDoorsList( $rowsList );
-		$this->traceShellDone( 'Config: '.$lineText.' served by the preset '.$psetName.( ($wasPrset==='') ? ', a line added' : ' (was '.$wasPrset.')' ) );
-		$this->printerObj->printShellPair( $lineText, $psetName );
+		$this->writeDoorLines( $rowsList );
+		$this->logShellChange( 'Config: '.$lineText.' served by the preset '.$psetName.( ($wasPrset==='') ? ', a line added' : ' (was '.$wasPrset.')' ) );
+		$this->printerObj->writeShellPair( $lineText, $psetName );
 		return self::EXIT_DONE;
 	}
 
@@ -382,12 +382,12 @@ class Config extends Command{
 	 *
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
-	public function writeDoorsList( Array $doorwaysList ): Void {
+	public function writeDoorLines( Array $doorwaysList ): Void {
 		$jsonList = Array();
 		foreach( $doorwaysList as $oneRow ){
 			$jsonList[] = ( (strval($oneRow['hostName'] ?? '')==='') ? Array() : Array('hostName'=>strval($oneRow['hostName'])) ) + Array('basePath'=>strval($oneRow['basePath']), 'presetId'=>strval($oneRow['presetId']));
 		}
-		$this->generateWriter()->saveFileAtomic( TOP_DIR.DS.str_replace('/', DS, \nyu\Runner::DOOR_FILE), \nyu\Shell\RunMaker::tabbedJsonText(Array('doorways'=>$jsonList)) );
+		$this->makeConfWriter()->saveFileAtomic( TOP_DIR.DS.str_replace('/', DS, \nyu\Runner::DOOR_FILE), \nyu\Shell\RunMaker::castTabbedJson(Array('doorways'=>$jsonList)) );
 	}
 	/**
 	 * Makes a secret and writes it where the config reads it.
@@ -397,18 +397,18 @@ class Config extends Command{
 	public function invokeMkSecret(): Int {
 		$kindName = $this->needsShellWord('the secret to make (jwtToken, keysList, tfaCrypt, markSecr, htpasswd)');
 		if( !in_array($kindName, Array('jwtToken', 'keysList', 'tfaCrypt', 'markSecr', 'htpasswd'), true) ){
-			$this->terminateShell('No secret is made under that name: '.$kindName, self::EXIT_HELP);
+			$this->stopWithReason('No secret is made under that name: '.$kindName, self::EXIT_HELP);
 		}
 		try{
 			if( $kindName=='htpasswd' ){
-				$this->createHtpasswd( $this->needsShellWord('the user of the htpasswd line') );
+				$this->addHtpasswdUsr( $this->needsShellWord('the user of the htpasswd line') );
 			}else{
 				$this->makeSecretText($kindName);
 			}
 		}catch( ShellStop $e ){
 			throw $e;
 		}catch( \RuntimeException $e ){
-			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
+			$this->stopWithReason( $e->getMessage(), self::EXIT_DENY );
 		}
 		return self::EXIT_DONE;
 	}
@@ -431,16 +431,16 @@ class Config extends Command{
 	 * @throws \RuntimeException When a file cannot be read or written.
 	 */
 	public function makeSecretText( String $secrTypeText, Bool $keepExisting=false ): Bool {
-		$wrtrInst = $this->generateWriter();
-		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
-		$treeInst = $wrtrInst->importJsonsObj($filePath);
-		$blockNme = strval($this->optionsObj->retrieveOption('useBlock', ''));
+		$wrtrInst = $this->makeConfWriter();
+		$filePath = $this->getProjectPath(self::TRGT_LIST['accsConf']);
+		$treeInst = $wrtrInst->readRawJsonCfg($filePath);
+		$blockNme = strval($this->optionsObj->getOptionValue('useBlock', ''));
 		if( $secrTypeText=='jwtToken' ){
 			$labelTxt = 'Secret of the tokens';
 			$blockNme = $blockNme ?: strval($treeInst->loginSet->carrConf ?? 'jwtToken');
 			// With RS256 the tokens are signed by a key pair, not a secret
 			if( isset($treeInst->$blockNme) && is_object($treeInst->$blockNme) && strval($treeInst->$blockNme->signAlgo ?? '')=='RS256' ){
-				return $this->buildPairsFlag($blockNme, $keepExisting);
+				return $this->makeRsaKeyPair($blockNme, $keepExisting);
 			}
 			$rawValue = $treeInst->$blockNme->hmacSecr ?? null;
 			$newSecrt = rtrim( strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=' );
@@ -467,20 +467,20 @@ class Config extends Command{
 		}
 		if( !is_string($rawValue) ){
 			$whatList = Array('jwtToken'=>'the secret of the tokens', 'keysList'=>'a list of API keys', 'tfaCrypt'=>'the key of the 2FA secrets (tfaCrypt)', 'markSecr'=>'the key of the login marks (markSecr)');
-			$this->terminateShell('Nothing was written: no block of conf/access.json holds '.$whatList[$secrTypeText].( $blockNme!='' ? ' under '.$blockNme : '' ), self::EXIT_DENY);
+			$this->stopWithReason('Nothing was written: no block of conf/access.json holds '.$whatList[$secrTypeText].( $blockNme!='' ? ' under '.$blockNme : '' ), self::EXIT_DENY);
 		}
 		$envrPath = TOP_DIR.DS.'.env';
 		$envrName = (strpos($rawValue, 'env:')===0) ? substr($rawValue, 4) : '';
-		$nowSecrt = ($envrName!='') ? strval($wrtrInst->retrieveEnvKey($envrPath, $envrName) ?? '') : $rawValue;
+		$nowSecrt = ($envrName!='') ? strval($wrtrInst->readEnvFileVal($envrPath, $envrName) ?? '') : $rawValue;
 		if( $nowSecrt!='' && $keepExisting ){
 			return false;
 		}
 		$lossText = ($secrTypeText=='tfaCrypt') ? 'key of the 2FA secrets in use: every secret stored with it stops being readable' : strtolower($labelTxt).' in use: what was issued with it stops being accepted';
-		if( $nowSecrt!='' && !$this->queryAgreedFlg('Replace the '.$lossText) ){
-			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
+		if( $nowSecrt!='' && !$this->promptApproval('Replace the '.$lossText) ){
+			$this->stopWithReason('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
 		if( $envrName!='' ){
-			$wrtrInst->changeEnvValue($envrPath, $envrName, $newSecrt);
+			$wrtrInst->saveEnvFileVal($envrPath, $envrName, $newSecrt);
 			$whereTxt = '.env '.$envrName;
 		}else{
 			if( $secrTypeText=='jwtToken' ){
@@ -496,10 +496,10 @@ class Config extends Command{
 			$whereTxt = 'conf/access.json '.$blockNme;
 		}
 		Console::loadConfigLogs();
-		$this->traceShellDone( $labelTxt.' made, written in '.$whereTxt );
-		$this->printerObj->printShellPair('written', $whereTxt);
-		if( $secrTypeText=='keysList' || $this->optionsObj->validateOption('showSecr') ){
-			$this->printerObj->printShellOnce($labelTxt, $newSecrt);
+		$this->logShellChange( $labelTxt.' made, written in '.$whereTxt );
+		$this->printerObj->writeShellPair('written', $whereTxt);
+		if( $secrTypeText=='keysList' || $this->optionsObj->isOptionPassed('showSecr') ){
+			$this->printerObj->writeShellOnce($labelTxt, $newSecrt);
 		}
 		return true;
 	}
@@ -523,10 +523,10 @@ class Config extends Command{
 	 *
 	 * @throws ShellStop When replacing the keys is not confirmed, or they cannot be made or written.
 	 */
-	protected function buildPairsFlag( String $blockNmdText, Bool $keepExisting ): Bool {
-		$wrtrInst = $this->generateWriter();
-		$filePath = $this->pathOfSettings(self::TRGT_LIST['accsConf']);
-		$treeInst = $wrtrInst->importJsonsObj($filePath);
+	protected function makeRsaKeyPair( String $blockNmdText, Bool $keepExisting ): Bool {
+		$wrtrInst = $this->makeConfWriter();
+		$filePath = $this->getProjectPath(self::TRGT_LIST['accsConf']);
+		$treeInst = $wrtrInst->readRawJsonCfg($filePath);
 		$blockNde = $treeInst->$blockNmdText;
 		$privName = trim(strval($blockNde->privFile ?? ''), '/\\ ');
 		$publName = trim(strval($blockNde->publFile ?? ''), '/\\ ');
@@ -540,24 +540,24 @@ class Config extends Command{
 			return false;
 		}
 		if( !function_exists('openssl_pkey_new') ){
-			$this->terminateShell('No keys made: the openssl extension is not loaded', self::EXIT_FAIL);
+			$this->stopWithReason('No keys made: the openssl extension is not loaded', self::EXIT_FAIL);
 		}
 		// The public key of the pair replaced keeps checking the tokens it signed, until the next pair
 		$oldTitle = 'conf/keys/'.$blockNmdText.'.old.pub';
 		$oldPrivt = is_file($privPath) ? @openssl_pkey_get_private(strval(@file_get_contents($privPath))) : false;
 		// A key that leaked keeps nothing : the tokens it signed end with it
-		$hasDrops = $this->optionsObj->validateOption('dropsAll');
+		$hasDrops = $this->optionsObj->isOptionPassed('dropsAll');
 		$oldStrng = ($oldPrivt!==false && !$hasDrops) ? strval(openssl_pkey_get_details($oldPrivt)['key'] ?? '') : '';
 		$lossText = ($oldStrng!='') ? 'the tokens issued with them are still accepted until they end, checked with '.$oldTitle : ( $hasDrops ? 'every token in use ends now' : 'what was issued with them stops being accepted' );
 		// install complete replaces a public key found alone without a question : it is not one of this server's
-		if( $hasPairs && !$keepExisting && !$this->queryAgreedFlg('Replace the keys of the tokens in use: '.$lossText) ){
-			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
+		if( $hasPairs && !$keepExisting && !$this->promptApproval('Replace the keys of the tokens in use: '.$lossText) ){
+			$this->stopWithReason('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
 		$confOpts = Array('config'=>dirname(__DIR__).DS.'keygen.cnf');
 		$keyInstn = @openssl_pkey_new( Array('private_key_bits'=>self::KEYS_BITS, 'private_key_type'=>OPENSSL_KEYTYPE_RSA) + $confOpts );
 		$privText = '';
 		if( $keyInstn===false || !@openssl_pkey_export($keyInstn, $privText, null, $confOpts) ){
-			$this->terminateShell('No keys made: OpenSSL refused: '.strval(openssl_error_string()), self::EXIT_FAIL);
+			$this->stopWithReason('No keys made: OpenSSL refused: '.strval(openssl_error_string()), self::EXIT_FAIL);
 		}
 		$publText = strval(openssl_pkey_get_details($keyInstn)['key'] ?? '');
 		$pemsList = Array($privPath=>Array($privText, 0600), $publPath=>Array($publText, 0644));
@@ -578,12 +578,12 @@ class Config extends Command{
 				umask($prevMask);
 			}
 			if( $wasWrttn===false ){
-				$this->terminateShell('No keys written: '.dirname($keyFil).' cannot be written', self::EXIT_FAIL);
+				$this->stopWithReason('No keys written: '.dirname($keyFil).' cannot be written', self::EXIT_FAIL);
 			}
 			@chmod($tempPath, $onePem[1]);
 			if( !@rename($tempPath, $keyFil) ){
 				@unlink($tempPath);
-				$this->terminateShell('No keys written: '.basename($keyFil).' cannot be replaced', self::EXIT_FAIL);
+				$this->stopWithReason('No keys written: '.basename($keyFil).' cannot be replaced', self::EXIT_FAIL);
 			}
 		}
 		$blockNde->privFile = $privName;
@@ -602,8 +602,8 @@ class Config extends Command{
 		$wrtrInst->saveJsonConfig($filePath, $treeInst);
 		Console::loadConfigLogs();
 		$prevNote = ($oldStrng!='') ? ', the former public key kept as '.$oldTitle : ( $hasDrops ? ', no former key kept' : '' );
-		$this->traceShellDone( 'Keys of the tokens made ('.self::KEYS_BITS.' bits): '.$privName.' and '.$publName.$prevNote );
-		$this->printerObj->printShellPair('written', $privName.', '.$publName.( $oldStrng!='' ? ', '.$oldTitle : '' ));
+		$this->logShellChange( 'Keys of the tokens made ('.self::KEYS_BITS.' bits): '.$privName.' and '.$publName.$prevNote );
+		$this->printerObj->writeShellPair('written', $privName.', '.$publName.( $oldStrng!='' ? ', '.$oldTitle : '' ));
 		return true;
 	}
 
@@ -616,13 +616,13 @@ class Config extends Command{
 	 *
 	 * @throws ShellStop When the name is not one of a htpasswd file, or replacing its line is not confirmed.
 	 */
-	protected function createHtpasswd( String $namedUserTxt ): Void {
+	protected function addHtpasswdUsr( String $namedUserTxt ): Void {
 		if( !preg_match('/^[^:\s]+$/D', $namedUserTxt) ){
-			$this->terminateShell('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
+			$this->stopWithReason('A user of a htpasswd file has no colon and no space in its name', self::EXIT_HELP);
 		}
-		$blockCfg = $this->accessSettings( strval($this->optionsObj->retrieveOption('useBlock', 'htpasswd')) );
+		$blockCfg = $this->accessSettings( strval($this->optionsObj->getOptionValue('useBlock', 'htpasswd')) );
 		$passFile = trim( strval($blockCfg['passFile'] ?? 'conf/.htpasswd'), '/\\ ' );
-		$filePath = $this->pathOfSettings($passFile);
+		$filePath = $this->getProjectPath($passFile);
 		$lineList = is_file($filePath) ? array_values(array_filter(preg_split('/\r?\n/', strval(file_get_contents($filePath))), 'strlen')) : Array();
 		$lineIndx = null;
 		foreach( $lineList as $lstIdx => $lstLin ){
@@ -630,13 +630,13 @@ class Config extends Command{
 				$lineIndx = $lstIdx;
 			}
 		}
-		if( $lineIndx!==null && !$this->queryAgreedFlg('Replace the password of user '.$namedUserTxt.' in '.$passFile) ){
-			$this->terminateShell('Nothing was written: not confirmed', self::EXIT_DENY);
+		if( $lineIndx!==null && !$this->promptApproval('Replace the password of user '.$namedUserTxt.' in '.$passFile) ){
+			$this->stopWithReason('Nothing was written: not confirmed', self::EXIT_DENY);
 		}
-		$isTypeIn = $this->optionsObj->validateOption('typeItIn');
-		$passText = $isTypeIn ? $this->querySecretTxt('Password of '.$namedUserTxt) : bin2hex(random_bytes(10));
+		$isTypeIn = $this->optionsObj->isOptionPassed('typeItIn');
+		$passText = $isTypeIn ? $this->promptSecrText('Password of '.$namedUserTxt) : bin2hex(random_bytes(10));
 		if( $passText=='' ){
-			$this->terminateShell('Nothing was written: no password given', self::EXIT_DENY);
+			$this->stopWithReason('Nothing was written: no password given', self::EXIT_DENY);
 		}
 		$newLigne = $namedUserTxt.':'.password_hash($passText, PASSWORD_BCRYPT);
 		if( $lineIndx===null ){
@@ -644,11 +644,11 @@ class Config extends Command{
 		}else{
 			$lineList[$lineIndx] = $newLigne;
 		}
-		$this->generateWriter()->saveFileAtomic( $filePath, implode("\n", $lineList)."\n" );
-		$this->traceShellDone( 'Password of the htpasswd user '.json_encode($namedUserTxt).' written in '.$passFile );
-		$this->printerObj->printShellPair('written', $passFile.' '.$namedUserTxt);
+		$this->makeConfWriter()->saveFileAtomic( $filePath, implode("\n", $lineList)."\n" );
+		$this->logShellChange( 'Password of the htpasswd user '.json_encode($namedUserTxt).' written in '.$passFile );
+		$this->printerObj->writeShellPair('written', $passFile.' '.$namedUserTxt);
 		if( !$isTypeIn ){
-			$this->printerObj->printShellOnce('Password of '.$namedUserTxt, $passText);
+			$this->printerObj->writeShellOnce('Password of '.$namedUserTxt, $passText);
 		}
 	}
 
@@ -665,16 +665,16 @@ class Config extends Command{
 		try{
 			$loadInst = (new Preset($psetName))->makeConfLoader();
 		}catch( \RuntimeException $e ){
-			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
+			$this->stopWithReason( $e->getMessage(), self::EXIT_DENY );
 		}
 		$routeCfg = $loadInst->getRegistryKey('dispatch');
 		$routeCfg = is_array($routeCfg) ? $routeCfg : Array();
 		$accsConf = $loadInst->setAccessArray();
-		$reqtInst = ActCaller::makeRequestArr('GET', '/')[0];
+		$reqtInst = ActCaller::makeRequestLst('GET', '/')[0];
 		$rowsList = Array();
 		$routInst = new Router($routeCfg, $reqtInst);
 		foreach( $routInst->listAllTargets() as $rteVal ){
-			$rowsList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->describeAccess($accsConf, $reqtInst, $rteVal, $routInst) );
+			$rowsList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->renderAccsText($accsConf, $reqtInst, $rteVal, $routInst) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode
 		$roleDict = is_array($accsConf['minRoles'] ?? null) ? $accsConf['minRoles'] : Array();
@@ -687,15 +687,15 @@ class Config extends Command{
 		}
 		foreach( $actnList as $action ){
 			$actParte = explode('/', $action, 2);
-			$rowsList[] = Array( '', 'any', 'toAction', $action, '', $this->describeAccess($accsConf, $reqtInst, Array('appToRun'=>$actParte[0], 'doAction'=>$actParte[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routInst) );
+			$rowsList[] = Array( '', 'any', 'toAction', $action, '', $this->renderAccsText($accsConf, $reqtInst, Array('appToRun'=>$actParte[0], 'doAction'=>$actParte[1] ?? '', 'routPath'=>'', 'routKind'=>'toAction'), $routInst) );
 		}
-		$this->printerObj->printShellPair('preset', $psetName);
-		$this->printerObj->printShellPair('detectBy', strval($routeCfg['detectBy'] ?? ''));
-		$this->printerObj->printShellPair('others', ( empty($accsConf) || ($accsConf['required'] ?? true)===false ) ? 'open' : 'logged');
-		$this->printerObj->printShellRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowsList );
+		$this->printerObj->writeShellPair('preset', $psetName);
+		$this->printerObj->writeShellPair('detectBy', strval($routeCfg['detectBy'] ?? ''));
+		$this->printerObj->writeShellPair('others', ( empty($accsConf) || ($accsConf['required'] ?? true)===false ) ? 'open' : 'logged');
+		$this->printerObj->writeShellRows( Array('path', 'methods', 'kind', 'target', 'owner', 'access'), $rowsList );
 		$roleFlow = (new Checker($accsConf, $reqtInst, new Registry(Array()), $routInst))->checkRoleFlaws();
 		if( $roleFlow!='' ){
-			$this->printerObj->printShellFail('Every request of this preset is refused: '.$roleFlow);
+			$this->printerObj->writeShellFail('Every request of this preset is refused: '.$roleFlow);
 			return self::EXIT_FLAW;
 		}
 		return self::EXIT_DONE;
@@ -710,7 +710,7 @@ class Config extends Command{
 	 * @param Router  $routerObject The router of the preset, for the roles a declared path carries to its action.
 	 * @return String 'open', 'logged', or the least role asked for.
 	 */
-	protected function describeAccess( Array $accessConfig, Request $givenRequest, Array $routesValues, Router $routerObject ): String {
+	protected function renderAccsText( Array $accessConfig, Request $givenRequest, Array $routesValues, Router $routerObject ): String {
 		if( empty($accessConfig) || ($accessConfig['required'] ?? true)===false ){
 			return 'open';
 		}
@@ -729,9 +729,9 @@ class Config extends Command{
 	 *
 	 * @throws \RuntimeException When the preset is missing or cannot be loaded.
 	 */
-	protected function retrievePreset( String $nameOfPreset ): Array {
+	protected function readPresetFile( String $nameOfPreset ): Array {
 		new Preset($nameOfPreset);
-		$jsonDocu = new Dcmnt( $this->pathOfSettings('conf/presets/'.$nameOfPreset.'.rps'), false );
+		$jsonDocu = new Dcmnt( $this->getProjectPath('conf/presets/'.$nameOfPreset.'.rps'), false );
 		return (array)$jsonDocu->readFileDetail();
 	}
 
@@ -749,7 +749,7 @@ class Config extends Command{
 		$nodeVals = $configValues;
 		foreach( ($dotNamesPath=='' ? Array() : explode('.', $dotNamesPath)) as $pthKey ){
 			if( !is_array($nodeVals) || !array_key_exists($pthKey, $nodeVals) ){
-				$this->terminateShell('Nothing under '.$dotNamesPath, self::EXIT_DENY);
+				$this->stopWithReason('Nothing under '.$dotNamesPath, self::EXIT_DENY);
 			}
 			$nodeVals = $nodeVals[$pthKey];
 		}
@@ -765,11 +765,11 @@ class Config extends Command{
 	 * @param String $prefixString The path it stands at.
 	 * @return Array Rows of path and value.
 	 */
-	protected function plainRowsArray( Mixed $filePartData, String $prefixString ): Array {
+	protected function castConfToRows( Mixed $filePartData, String $prefixString ): Array {
 		if( is_array($filePartData) && !empty($filePartData) && $filePartData!==array_values($filePartData) ){
 			$rowsList = Array();
 			foreach( $filePartData as $subKey => $subVal ){
-				$rowsList = array_merge( $rowsList, $this->plainRowsArray($subVal, ($prefixString=='') ? strval($subKey) : $prefixString.'.'.$subKey) );
+				$rowsList = array_merge( $rowsList, $this->castConfToRows($subVal, ($prefixString=='') ? strval($subKey) : $prefixString.'.'.$subKey) );
 			}
 			return $rowsList;
 		}
@@ -809,7 +809,7 @@ class Config extends Command{
 	 * @param String $pathFromRoot Its path from the root of the project, written with slashes.
 	 * @return String The full path.
 	 */
-	protected function pathOfSettings( String $pathFromRoot ): String {
+	protected function getProjectPath( String $pathFromRoot ): String {
 		return TOP_DIR.DS.str_replace('/', DS, $pathFromRoot);
 	}
 
@@ -818,7 +818,7 @@ class Config extends Command{
 	 *
 	 * @return ConfFile The writer.
 	 */
-	protected function generateWriter(): ConfFile {
+	protected function makeConfWriter(): ConfFile {
 		return new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
 	}
 }

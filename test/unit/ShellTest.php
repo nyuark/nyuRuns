@@ -24,7 +24,7 @@ function shellRun( Array $shellWords, String $inputsText='' ): Array {
 	$inpStrm = fopen('php://memory', 'w+');
 	fwrite($inpStrm, $inputsText);
 	rewind($inpStrm);
-	$exitNum = (new Console($shellWords, $outStrm, $errStrm, $inpStrm))->executeCommand();
+	$exitNum = (new Console($shellWords, $outStrm, $errStrm, $inpStrm))->treatGivenCmnd();
 	// The logs of the project are not the tests' to write
 	Logger::loadLogsConfig( Array() );
 	rewind($outStrm);
@@ -34,8 +34,8 @@ function shellRun( Array $shellWords, String $inputsText='' ): Array {
 
 // Words and options
 $optnObj = new Options( Array('managers', '--store=userFile', 'lists', '--noask', 'a=b', '--', '--kept', '--x=1') );
-checkIdentical('words are read in order', Array($optnObj->shiftFirstWord(), $optnObj->shiftFirstWord(), $optnObj->restWordsArray()), Array('managers', 'lists', Array('a=b', '--kept', '--x=1')));
-checkIdentical('an option with a value, one without, one not written', Array($optnObj->retrieveOption('store'), $optnObj->validateOption('noask'), $optnObj->retrieveOption('noask', 'dflt'), $optnObj->validateOption('kept'), $optnObj->retrieveOption('kept', 'none')), Array('userFile', true, 'dflt', false, 'none'));
+checkIdentical('words are read in order', Array($optnObj->shiftFirstWord(), $optnObj->shiftFirstWord(), $optnObj->getRestOfWords()), Array('managers', 'lists', Array('a=b', '--kept', '--x=1')));
+checkIdentical('an option with a value, one without, one not written', Array($optnObj->getOptionValue('store'), $optnObj->isOptionPassed('noask'), $optnObj->getOptionValue('noask', 'dflt'), $optnObj->isOptionPassed('kept'), $optnObj->getOptionValue('kept', 'none')), Array('userFile', true, 'dflt', false, 'none'));
 checkIdentical('no word left', (new Options(Array('--only')))->shiftFirstWord(), null);
 
 // The list of commands, the version

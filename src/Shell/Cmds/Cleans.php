@@ -26,7 +26,7 @@ class Cleans extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Removes temporary files and logs, lists and releases the held addresses';
 	}
 
@@ -35,7 +35,7 @@ class Cleans extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array(
 			'cleanDir'=>Array('args'=>'<cacheDir|logFiles|tryLimit|archives|all> ... [--keepDays=<days>]', 'about'=>'removes the files of those folders of temp'),
 			'fullList'=>Array('args'=>'', 'about'=>'lists the addresses the limiter counts or holds'),
@@ -50,38 +50,38 @@ class Cleans extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeCleanDir(): Int {
-		$kindList = $this->optionsObj->restWordsArray();
+		$kindList = $this->optionsObj->getRestOfWords();
 		if( empty($kindList) ){
-			$this->terminateShell('Missing argument: what to purge ('.implode(', ', self::KIND_LIST).', or all)', self::EXIT_HELP);
+			$this->stopWithReason('Missing argument: what to purge ('.implode(', ', self::KIND_LIST).', or all)', self::EXIT_HELP);
 		}
 		if( in_array('all', $kindList, true) ){
 			$kindList = self::KIND_LIST;
 		}
 		$badLstng = array_diff($kindList, self::KIND_LIST);
 		if( !empty($badLstng) ){
-			$this->terminateShell('Nothing is purged under that name: '.implode(', ', $badLstng), self::EXIT_HELP);
+			$this->stopWithReason('Nothing is purged under that name: '.implode(', ', $badLstng), self::EXIT_HELP);
 		}
-		$keepDays = $this->optionsObj->retrieveOption('keepDays');
+		$keepDays = $this->optionsObj->getOptionValue('keepDays');
 		if( $keepDays!==null && !preg_match('/^\d{1,5}$/D', $keepDays) ){
-			$this->terminateShell('--keepDays takes a number of days', self::EXIT_HELP);
+			$this->stopWithReason('--keepDays takes a number of days', self::EXIT_HELP);
 		}
 		$uptoUnix = ($keepDays===null) ? null : time() - intval($keepDays)*86400;
 		$kindList = array_values(array_unique($kindList));
-		if( !$this->queryAgreedFlg('Remove the files of '.implode(', ', $kindList).( $keepDays!==null ? ' older than '.$keepDays.' days' : '' )) ){
-			$this->terminateShell('Nothing was removed: not confirmed', self::EXIT_DENY);
+		if( !$this->promptApproval('Remove the files of '.implode(', ', $kindList).( $keepDays!==null ? ' older than '.$keepDays.' days' : '' )) ){
+			$this->stopWithReason('Nothing was removed: not confirmed', self::EXIT_DENY);
 		}
 		$rowsList = Array();
 		foreach( $kindList as $kndNme ){
-			$fieldPth = $this->verifyTempPath( $this->findTempFolder($kndNme) );
+			$fieldPth = $this->checkTempFoldr( $this->findTempFolder($kndNme) );
 			if( $fieldPth===null ){
 				$rowsList[] = Array($kndNme, 0, 'left alone: its folder is missing, or not under temp');
 				continue;
 			}
 			$dropNumb = $this->dropFilesCount($fieldPth, $uptoUnix);
 			$rowsList[] = Array($kndNme, $dropNumb, 'purged');
-			$this->traceShellDone( 'Purge of '.$kndNme.': '.$dropNumb.' files removed'.( $keepDays!==null ? ', older than '.$keepDays.' days' : '' ) );
+			$this->logShellChange( 'Purge of '.$kndNme.': '.$dropNumb.' files removed'.( $keepDays!==null ? ', older than '.$keepDays.' days' : '' ) );
 		}
-		$this->printerObj->printShellRows( Array('folder', 'removed', 'state'), $rowsList );
+		$this->printerObj->writeShellRows( Array('folder', 'removed', 'state'), $rowsList );
 		return self::EXIT_DONE;
 	}
 
@@ -101,9 +101,9 @@ class Cleans extends Command{
 				($cntVal['until']>0) ? date('Y-m-d H:i:s', $cntVal['until']) : ''
 			);
 		}
-		$this->printerObj->printShellRows( Array('address', 'failures', 'last', 'held until'), $rowsList );
+		$this->printerObj->writeShellRows( Array('address', 'failures', 'last', 'held until'), $rowsList );
 		if( empty($rowsList) ){
-			$this->printerObj->printShellLine('No address is counted.');
+			$this->printerObj->writeShellLine('No address is counted.');
 		}
 		return self::EXIT_DONE;
 	}
@@ -116,16 +116,16 @@ class Cleans extends Command{
 	public function invokeFreeAddr(): Int {
 		$givenAdr = $this->needsShellWord('the address to release, or all');
 		if( $givenAdr!='all' && filter_var($givenAdr, FILTER_VALIDATE_IP)===false ){
-			$this->terminateShell('Not an address: '.$givenAdr, self::EXIT_HELP);
+			$this->stopWithReason('Not an address: '.$givenAdr, self::EXIT_HELP);
 		}
-		if( !$this->queryAgreedFlg('Release '.( $givenAdr=='all' ? 'every address' : $givenAdr )) ){
-			$this->terminateShell('Nothing was released: not confirmed', self::EXIT_DENY);
+		if( !$this->promptApproval('Release '.( $givenAdr=='all' ? 'every address' : $givenAdr )) ){
+			$this->stopWithReason('Nothing was released: not confirmed', self::EXIT_DENY);
 		}
 		$lmtrInst = new Limiter( $this->accessSettings('tryLimit') );
 		$dropNumb = $lmtrInst->dropHoldsCount( $givenAdr=='all' ? null : $givenAdr );
-		$this->printerObj->printShellPair('released', $dropNumb);
+		$this->printerObj->writeShellPair('released', $dropNumb);
 		if( $dropNumb>0 ){
-			$this->traceShellDone( 'Limiter: '.( $givenAdr=='all' ? $dropNumb.' addresses released' : 'address '.$givenAdr.' released' ) );
+			$this->logShellChange( 'Limiter: '.( $givenAdr=='all' ? $dropNumb.' addresses released' : 'address '.$givenAdr.' released' ) );
 		}
 		return self::EXIT_DONE;
 	}
@@ -154,7 +154,7 @@ class Cleans extends Command{
 	 * @param String $fullFldrPath Full path of the folder.
 	 * @return ?String Its real path, or null when it is missing or lies elsewhere.
 	 */
-	protected function verifyTempPath( String $fullFldrPath ): ?String {
+	protected function checkTempFoldr( String $fullFldrPath ): ?String {
 		$realFild = realpath($fullFldrPath);
 		$realPath = realpath(TOP_DIR.DS.'temp');
 		if( $realFild===false || $realPath===false || !is_dir($realFild) || strpos($realFild.DS, $realPath.DS)!==0 || $realFild===$realPath ){

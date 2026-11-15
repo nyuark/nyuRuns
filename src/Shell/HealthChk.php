@@ -41,19 +41,19 @@ class HealthChk{
 	 *
 	 * @return Array The rows: what was checked, its state and what was found.
 	 */
-	public function runChecksArray(): Array {
-		$this->validateServer();
+	public function treatAllChecks(): Array {
+		$this->checkPhpServer();
 		$this->checkFldrWrite();
-		$this->validatePreset();
-		$this->validateRoutes();
-		$this->validateEntrys();
-		$this->checkDoorsList();
-		$this->verifyAccsConf();
+		$this->checkEveryPset();
+		$this->checkAllRoutes();
+		$this->checkEntryList();
+		$this->checkDoorLines();
+		$this->checkAccessCfg();
 		$this->checkDatabases();
-		$this->validateStores();
-		$this->checkDevcsCaps();
-		$this->validateProfil();
-		$this->validateUnsafe();
+		$this->checkUserStore();
+		$this->checkCapsOfDvc();
+		$this->checkPrjctKind();
+		$this->checkUnsafeCfg();
 		return $this->resultRows;
 	}
 
@@ -62,7 +62,7 @@ class HealthChk{
 	 *
 	 * @return Array The rows: what was checked, its state and what was found.
 	 */
-	public function rowsFoundArray(): Array {
+	public function getCheckedRows(): Array {
 		return $this->resultRows;
 	}
 
@@ -71,7 +71,7 @@ class HealthChk{
 	 *
 	 * @return Bool True when at least one row is a 'fail'.
 	 */
-	public function validateFailed(): Bool {
+	public function hasCheckFailed(): Bool {
 		return in_array('fail', array_column($this->resultRows, 1), true);
 	}
 
@@ -81,7 +81,7 @@ class HealthChk{
 	 * than the fix of its branch is a warning only: the distributions that
 	 * backport a fix keep the number of the release.
 	 */
-	public function validateServer(): Void {
+	public function checkPhpServer(): Void {
 		$this->addCheckResult( 'php', version_compare(PHP_VERSION, '8.2.0', '>=') ? 'fine' : 'fail', 'PHP '.PHP_VERSION.', 8.2 at least is needed' );
 		$phpVersn = PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
 		if( isset(self::SAFE_VERS[$phpVersn]) ){
@@ -147,7 +147,7 @@ class HealthChk{
 	 * Checks every preset: it loads, the carrier and the check it names
 	 * exist with their blocks, and the roles it asks for can be applied.
 	 */
-	public function validatePreset(): Void {
+	public function checkEveryPset(): Void {
 		$psetList = (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps');
 		if( empty($psetList) ){
 			$this->addCheckResult('presets', 'fail', 'conf/presets holds no preset');
@@ -186,11 +186,11 @@ class HealthChk{
 			}
 			$flawText = '';
 			if( !empty($accsConf) && ($accsConf['required'] ?? true)!==false ){
-				$flawText = $this->coupleFlawsTxt($accsConf);
+				$flawText = $this->checkPairFlaws($accsConf);
 			}
 			// The routes of the preset, for the paths its roles name
 			$routeCfg = $setupObj->getRegistryKey('dispatch');
-			$reqtInst = ActCaller::makeRequestArr('GET', '/')[0];
+			$reqtInst = ActCaller::makeRequestLst('GET', '/')[0];
 			$chkrInst = new Checker($accsConf, $reqtInst, new Registry(Array()), new Router(is_array($routeCfg) ? $routeCfg : Array(), $reqtInst));
 			if( $flawText=='' && !empty($accsConf) && ($accsConf['required'] ?? true)!==false ){
 				$flawText = $chkrInst->checkPairFlaws();
@@ -213,7 +213,7 @@ class HealthChk{
 	 * declaring its routes does not list. One row for each, naming the
 	 * presets concerned.
 	 */
-	public function validateRoutes(): Void {
+	public function checkAllRoutes(): Void {
 		$psetList = (array)glob(TOP_DIR.DS.'conf'.DS.'presets'.DS.'*.rps');
 		$runsList = defined('RUN_DIR') ? array_map('basename', array_filter((array)glob(RUN_DIR.DS.'*'), 'is_dir')) : Array();
 		$clshList = Array();
@@ -230,7 +230,7 @@ class HealthChk{
 				continue;
 			}
 			$routeCfg = $setupObj->getRegistryKey('dispatch');
-			$routInst = new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestArr('GET', '/')[0] );
+			$routInst = new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestLst('GET', '/')[0] );
 			$routeDct = $routInst->loadRoutesList();
 			foreach( $routInst->readRunsRoutes() as $rteSet ){
 				$ownTitle = strval($routeDct[$rteSet['routPath']]['routOwnr'] ?? '');
@@ -330,7 +330,7 @@ class HealthChk{
 	 * TEST, unless its security block says it is meant to be ("isPublic": true).
 	 * An entry naming its preset at run time cannot be followed: it is told.
 	 */
-	public function validateEntrys(): Void {
+	public function checkEntryList(): Void {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$envrName = strtoupper( strval(($nyuConfg!==null) ? $nyuConfg->getNestedValue('SYSTEM', 'ENV_NAME') : '') );
 		$isRemote = in_array($envrName, Array('PREV', 'PROD'), true);
@@ -374,7 +374,7 @@ class HealthChk{
 	 * false) whose security block does not say it is meant to be ("isPublic").
 	 * Without a map, every request is served by the default preset.
 	 */
-	public function checkDoorsList(): Void {
+	public function checkDoorLines(): Void {
 		try{
 			$rowsList = \nyu\Runner::readDoorwayLst();
 		}catch( \RuntimeException $e ){
@@ -422,7 +422,7 @@ class HealthChk{
 	 * Checks the access config: the login, the secrets signing the
 	 * tokens, the API keys, and what is set as unsecure.
 	 */
-	public function verifyAccsConf(): Void {
+	public function checkAccessCfg(): Void {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$accsVals = ($nyuConfg!==null) ? $nyuConfg->readValueByKey('access') : null;
 		if( !is_array($accsVals) || empty($accsVals) ){
@@ -433,7 +433,7 @@ class HealthChk{
 		if( empty($loginCfg) ){
 			$this->addCheckResult('access login', 'warn', 'no login block: nobody can sign in through auth/login');
 		}else{
-			$flawText = $this->coupleFlawsTxt($loginCfg + Array('authWith'=>'htpasswd', 'carrWith'=>'jwtToken', 'authConf'=>'htpasswd', 'carrConf'=>'jwtToken'));
+			$flawText = $this->checkPairFlaws($loginCfg + Array('authWith'=>'htpasswd', 'carrWith'=>'jwtToken', 'authConf'=>'htpasswd', 'carrConf'=>'jwtToken'));
 			// The login hands a name and a password to its check, as the Basic carrier does
 			$lognAuth = strval($loginCfg['authWith'] ?? 'htpasswd');
 			if( $flawText=='' && isset(Checker::AUTH_LIST[$lognAuth]) && !in_array($lognAuth, Checker::PAIR_LIST['httpBasc'], true) ){
@@ -451,13 +451,13 @@ class HealthChk{
 			if( array_key_exists('signAlgo', $blkVal) && !in_array($blkVal['signAlgo'], JWT::ALGO_LIST, true) ){
 				$this->addCheckResult('algorithm '.$blockNme, 'fail', 'not one the tokens can be signed with: '.implode(', ', JWT::ALGO_LIST));
 			}elseif( ($blkVal['signAlgo'] ?? '')=='RS256' ){
-				$this->validateRsakey($blockNme, $blkVal);
+				$this->checkTokenKeys($blockNme, $blkVal);
 			}elseif( array_key_exists('hmacSecr', $blkVal) ){
 				$secrSize = strlen(strval($blkVal['hmacSecr']));
 				$this->addCheckResult( 'secret '.$blockNme, ($secrSize>=self::SECR_SIZE) ? 'fine' : 'fail', ($secrSize>=self::SECR_SIZE) ? 'set' : ( $secrSize==0 ? 'empty' : 'too short' ).': '.self::SECR_SIZE.' characters at least; "setting mkSecret jwtToken" makes one' );
 			}
 			if( array_key_exists('signAlgo', $blkVal) || array_key_exists('issuerId', $blkVal) && array_key_exists('audience', $blkVal) || array_key_exists('appsList', $blkVal) ){
-				$this->validateClaims($blockNme, $blkVal);
+				$this->checkTknClaims($blockNme, $blkVal);
 			}
 			if( isset($blkVal['keysList']) && is_array($blkVal['keysList']) && in_array('', array_map('strval', $blkVal['keysList']), true) ){
 				$this->addCheckResult('keys '.$blockNme, 'warn', 'an API key of the block is empty; "setting mkSecret keysList" makes one');
@@ -476,7 +476,7 @@ class HealthChk{
 			if( ($blkVal['weakHash'] ?? false)===true ){
 				$this->addCheckResult('weakHash '.$blockNme, 'warn', 'weak password hashes are accepted by this block');
 			}
-			$this->validateMailer($blockNme, $blkVal);
+			$this->checkAccsMails($blockNme, $blkVal);
 		}
 		// The key of the login marks : without one, the hold of an account also stops its owner
 		$limitCfg = $this->accessSettings('tryLimit');
@@ -497,7 +497,7 @@ class HealthChk{
 	 * @param String $blockNmdText Name of the block.
 	 * @param Array  $blockVlsList Its values.
 	 */
-	protected function validateMailer( String $blockNmdText, Array $blockVlsList ): Void {
+	protected function checkAccsMails( String $blockNmdText, Array $blockVlsList ): Void {
 		$acctName = $blockVlsList['mailAcnt'] ?? null;
 		$hasEmail = is_string($acctName) && $acctName!=='';
 		if( $hasEmail ){
@@ -546,7 +546,7 @@ class HealthChk{
 	 * @param String $blockNmdText Name of the block.
 	 * @param Array  $blockVlsList Its values.
 	 */
-	protected function validateClaims( String $blockNmdText, Array $blockVlsList ): Void {
+	protected function checkTknClaims( String $blockNmdText, Array $blockVlsList ): Void {
 		$applClef = array_key_exists('appsList', $blockVlsList);
 		$clmnFlaw = Array();
 		$audnVals = $blockVlsList['audience'] ?? Array();
@@ -601,7 +601,7 @@ class HealthChk{
 	 * @param String $blockNmdText Name of the block.
 	 * @param Array  $blockVlsList Its values.
 	 */
-	protected function validateRsakey( String $blockNmdText, Array $blockVlsList ): Void {
+	protected function checkTokenKeys( String $blockNmdText, Array $blockVlsList ): Void {
 		$keyStrng = Array();
 		foreach( Array('privFile', 'publFile') as $keyNme ){
 			$keyTrail = trim(strval($blockVlsList[$keyNme] ?? ''), '/\\ ');
@@ -684,7 +684,7 @@ class HealthChk{
 	 * Checks the store of the users the login names: the users table of
 	 * the native userbase, the users file, or the htpasswd file.
 	 */
-	public function validateStores(): Void {
+	public function checkUserStore(): Void {
 		$loginCfg = $this->accessSettings('loginSet');
 		$authName = strval($loginCfg['authWith'] ?? '');
 		$blockCfg = $this->accessSettings( strval($loginCfg['authConf'] ?? '') );
@@ -717,7 +717,7 @@ class HealthChk{
 	 * warns about the devices still standing without a cap whose user is
 	 * above the first role: they act with their user's full role.
 	 */
-	public function checkDevcsCaps(): Void {
+	public function checkCapsOfDvc(): Void {
 		$blockCfg = $this->accessSettings('dvcToken');
 		if( empty($blockCfg) ){
 			return;
@@ -769,7 +769,7 @@ class HealthChk{
 	 * four are told, and so are an 'authServ' or a 'dataServ' without issuer
 	 * or audience, and a 'dataServ' whose public key file is missing.
 	 */
-	public function validateProfil(): Void {
+	public function checkPrjctKind(): Void {
 		$loginCfg = $this->accessSettings('loginSet');
 		$tokenNme = empty($loginCfg) ? '' : ( ( strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' ) ? strval($loginCfg['carrConf'] ?? 'jwtToken') : '' );
 		$tokenCfg = $this->accessSettings($tokenNme);
@@ -810,7 +810,7 @@ class HealthChk{
 					$setupObj = (new Preset($prstId))->makeConfLoader();
 					$routeCfg = $setupObj->getRegistryKey('dispatch');
 					$isOpened = $isOpened && ($setupObj->setAccessArray()['required'] ?? true)===false;
-					if( (new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestArr('GET', '/')[0] ))->canReachAction() ){
+					if( (new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestLst('GET', '/')[0] ))->canReachAction() ){
 						$actnList[] = $prstId;
 					}
 				}catch( \Throwable $e ){
@@ -836,7 +836,7 @@ class HealthChk{
 	 * Checks what must not be left on where real users come: errors
 	 * shown, proxies trusted from anywhere, secrets readable by others.
 	 */
-	public function validateUnsafe(): Void {
+	public function checkUnsafeCfg(): Void {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$iniConfg = ($nyuConfg!==null) ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 		$envrName = strtoupper( strval($iniConfg['ENV_NAME'] ?? '') );
@@ -877,7 +877,7 @@ class HealthChk{
 	 * @param Array $accessConfig The block, with its 'carrWith', 'carrConf', 'authWith' and 'authConf' keys.
 	 * @return String What is wrong, empty when nothing is.
 	 */
-	protected function coupleFlawsTxt( Array $accessConfig ): String {
+	protected function checkPairFlaws( Array $accessConfig ): String {
 		$sessName = strval($accessConfig['carrWith'] ?? '');
 		if( Checker::findCarrierCls($sessName)===null ){
 			return 'unknown carrier "'.$sessName.'"';

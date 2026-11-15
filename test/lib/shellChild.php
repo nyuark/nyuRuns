@@ -22,5 +22,5 @@ ini_set('log_errors', '1');
 ini_set('error_log', '');
 
 $nyuShll = new \nyu\Shell\Console( array_slice($argv, 2) );
-$nyuShll->plugShellError();
-exit( $nyuShll->executeCommand() );
+$nyuShll->loadShellError();
+exit( $nyuShll->treatGivenCmnd() );

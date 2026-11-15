@@ -32,7 +32,7 @@ class ActCaller{
 	 * @param Array  $proxyCfgList The reverse proxy settings (see Setup\Loader::findProxyConfg).
 	 * @return Array The Request, then the Response.
 	 */
-	public static function makeRequestArr( String $actionMthNme, String $reqstUriText, Array $inputsValues=Array(), Array $renderValues=Array(), Array $proxyCfgList=Array() ): Array {
+	public static function makeRequestLst( String $actionMthNme, String $reqstUriText, Array $inputsValues=Array(), Array $renderValues=Array(), Array $proxyCfgList=Array() ): Array {
 		// The request reads these, then unsets them : they are given what a call from the command line stands for
 		$_SERVER = Array('REQUEST_METHOD'=>strtoupper($actionMthNme), 'REQUEST_URI'=>$reqstUriText, 'SERVER_NAME'=>'localhost', 'SERVER_PROTOCOL'=>'CLI', 'SCRIPT_NAME'=>'nyuRun', 'QUERY_STRING'=>'');
 		$_GET = Array();
@@ -68,7 +68,7 @@ class ActCaller{
 		$GLOBALS['nyuConfig'] = $loadInst->readConfigRegr();
 		Logger::loadLogsConfig( $loadInst->logConfigArray() );
 		$rndrConf = $loadInst->getRegistryKey('response');
-		$callList = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrConf) ? $rndrConf : Array(), $loadInst->findProxyConfg() );
+		$callList = self::makeRequestLst( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrConf) ? $rndrConf : Array(), $loadInst->findProxyConfg() );
 		$reqtInst = $callList[0];
 		$respInst = $callList[1];
 		$inputReg = $loadInst->makeInputsRegr($reqtInst);
@@ -94,7 +94,7 @@ class ActCaller{
 			$sttsText = strval($sttsList['mssg']);
 			$outArray = $ctrlInst->getOutputOfAct();
 		}
-		return $this->replyValuesArr($respInst, $sttsNumb, $sttsText, $outArray);
+		return $this->makeReplyArray($respInst, $sttsNumb, $sttsText, $outArray);
 	}
 
 	/**
@@ -108,7 +108,7 @@ class ActCaller{
 	 * @param mixed    $outputToSend Output of the action.
 	 * @return Array The 'code', 'mssg', 'body' and 'goal' values (see runAction).
 	 */
-	protected function replyValuesArr( Response $httpResponse, Int $responseCode, String $statusReason, Mixed $outputToSend ): Array {
+	protected function makeReplyArray( Response $httpResponse, Int $responseCode, String $statusReason, Mixed $outputToSend ): Array {
 		$headList = $httpResponse->readHeadsArray();
 		$bodyText = '';
 		$wasMoved = ($responseCode>=300 && $responseCode<400);

@@ -27,7 +27,7 @@ class Tester extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Runs the tests: the unit, audit and data groups, or the groups named';
 	}
 
@@ -36,7 +36,7 @@ class Tester extends Command{
 	 *
 	 * @return Array The command has no sub-command.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array( ''=>Array('call'=>'invokeRunTests', 'args'=>'[groups or words | all] [--addExtns=<extensions>]', 'about'=>'runs test/run.php; the http group only when named') );
 	}
 
@@ -48,31 +48,31 @@ class Tester extends Command{
 	public function invokeRunTests(): Int {
 		$runFichr = TOP_DIR.DS.'test'.DS.'run.php';
 		if( !is_file($runFichr) ){
-			$this->terminateShell('The test runner is missing: test/run.php');
+			$this->stopWithReason('The test runner is missing: test/run.php');
 		}
-		$groupLst = $this->optionsObj->restWordsArray();
+		$groupLst = $this->optionsObj->getRestOfWords();
 		if( empty($groupLst) ){
 			$groupLst = self::GRPS_LIST;
 		}elseif( in_array('all', $groupLst, true) ){
 			$groupLst = Array();
 		}
 		$envrVals = getenv();
-		$iniFoldr = $this->newAddonString();
+		$iniFoldr = $this->writeRunPhpIni();
 		if( $iniFoldr!==null ){
 			$envrVals['PHPRC'] = $iniFoldr;
 		}
 		$pipeList = Array();
 		$procHndl = proc_open( array_merge(Array(PHP_BINARY, $runFichr), $groupLst), Array(0=>Array('pipe', 'r'), 1=>Array('pipe', 'w'), 2=>Array('redirect', 1)), $pipeList, TOP_DIR, $envrVals );
 		if( !is_resource($procHndl) ){
-			$this->terminateShell('The tests cannot be started');
+			$this->stopWithReason('The tests cannot be started');
 		}
 		fclose($pipeList[0]);
 		$lastLine = '';
 		$smryLine = '';
 		while( ($outLigne = fgets($pipeList[1]))!==false ){
 			// In JSON only the result is told; in text the tests are followed as they run
-			if( !$this->printerObj->jsonShellShape() ){
-				$this->printerObj->printShellBody($outLigne);
+			if( !$this->printerObj->isOutputAsJson() ){
+				$this->printerObj->writeShellBody($outLigne);
 			}
 			if( trim($outLigne)!='' ){
 				$lastLine = trim($outLigne);
@@ -88,16 +88,16 @@ class Tester extends Command{
 			@rmdir($iniFoldr);
 		}
 		$smryList = Array();
-		if( preg_match('/^(\d+) checks passed, (\d+) failed(?:, (\d+) skipped)?/', $smryLine, $smryList) && $this->printerObj->jsonShellShape() ){
-			$this->printerObj->printShellPair('passed', intval($smryList[1]));
-			$this->printerObj->printShellPair('failed', intval($smryList[2]));
-			$this->printerObj->printShellPair('skipped', intval($smryList[3] ?? 0));
+		if( preg_match('/^(\d+) checks passed, (\d+) failed(?:, (\d+) skipped)?/', $smryLine, $smryList) && $this->printerObj->isOutputAsJson() ){
+			$this->printerObj->writeShellPair('passed', intval($smryList[1]));
+			$this->printerObj->writeShellPair('failed', intval($smryList[2]));
+			$this->printerObj->writeShellPair('skipped', intval($smryList[3] ?? 0));
 			if( strpos($lastLine, 'Failing scripts:')===0 ){
-				$this->printerObj->printShellPair('failing', array_map('trim', explode(',', substr($lastLine, 16))));
+				$this->printerObj->writeShellPair('failing', array_map('trim', explode(',', substr($lastLine, 16))));
 			}
 		}
 		if( $smryLine=='' ){
-			$this->terminateShell('The tests ended without a result');
+			$this->stopWithReason('The tests ended without a result');
 		}
 		return ($exitNumb===0) ? self::EXIT_DONE : self::EXIT_FLAW;
 	}
@@ -110,8 +110,8 @@ class Tester extends Command{
 	 *
 	 * @return ?String The folder holding that php.ini, to name in PHPRC; null when nothing is to add.
 	 */
-	protected function newAddonString(): ?String {
-		$askLstng = $this->optionsObj->validateOption('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('addExtns', ''))))) : self::ADDS_LIST;
+	protected function writeRunPhpIni(): ?String {
+		$askLstng = $this->optionsObj->isOptionPassed('addExtns') ? array_filter(array_map('trim', explode(',', strval($this->optionsObj->getOptionValue('addExtns', ''))))) : self::ADDS_LIST;
 		$extnFldr = strval(ini_get('extension_dir'));
 		if( $extnFldr=='' || !is_dir($extnFldr) ){
 			$extnFldr = dirname(PHP_BINARY).DS.'ext';
@@ -141,7 +141,7 @@ class Tester extends Command{
 		if( @file_put_contents($iniFoldr.DS.'php.ini', $iniStrng)===false ){
 			return null;
 		}
-		$this->printerObj->printShellLine( 'Extensions given for the run: '.implode(', ', $addLstng) );
+		$this->printerObj->writeShellLine( 'Extensions given for the run: '.implode(', ', $addLstng) );
 		return $iniFoldr;
 	}
 }

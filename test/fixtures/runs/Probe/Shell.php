@@ -10,14 +10,14 @@ class Shell extends Command{
 	/**
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Probe of the command line';
 	}
 
 	/**
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array(
 			'sayHello'=>Array('args'=>'<name>', 'about'=>'greets'),
 			'askInput'=>Array('args'=>'', 'about'=>'asks a value, a confirmation and a secret'),
@@ -32,10 +32,10 @@ class Shell extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeSayHello(): Int {
-		$this->printerObj->printShellLine('Hello '.$this->needsShellWord('name'));
-		$this->printerObj->printShellPair('rest', $this->optionsObj->restWordsArray());
-		$this->printerObj->printShellPair('tone', $this->optionsObj->retrieveOption('greeting', 'plain'));
-		$this->printerObj->printShellRows( Array('name', 'size'), Array(Array('a', 1), Array('long one', 22)) );
+		$this->printerObj->writeShellLine('Hello '.$this->needsShellWord('name'));
+		$this->printerObj->writeShellPair('rest', $this->optionsObj->getRestOfWords());
+		$this->printerObj->writeShellPair('tone', $this->optionsObj->getOptionValue('greeting', 'plain'));
+		$this->printerObj->writeShellRows( Array('name', 'size'), Array(Array('a', 1), Array('long one', 22)) );
 		return self::EXIT_DONE;
 	}
 
@@ -45,9 +45,9 @@ class Shell extends Command{
 	 * @return Int The exit code.
 	 */
 	public function invokeAskInput(): Int {
-		$this->printerObj->printShellPair('value', $this->queryAnswerTxt('Value', 'dflt'));
-		$this->printerObj->printShellPair('agree', $this->queryAgreedFlg('Remove it'));
-		$this->printerObj->printShellOnce('typed', $this->querySecretTxt('Secret'));
+		$this->printerObj->writeShellPair('value', $this->promptValueTxt('Value', 'dflt'));
+		$this->printerObj->writeShellPair('agree', $this->promptApproval('Remove it'));
+		$this->printerObj->writeShellOnce('typed', $this->promptSecrText('Secret'));
 		return self::EXIT_DONE;
 	}
 
@@ -57,6 +57,6 @@ class Shell extends Command{
 	 * @return Int Never given.
 	 */
 	public function invokeRefusing(): Int {
-		$this->terminateShell('Not allowed here', self::EXIT_DENY);
+		$this->stopWithReason('Not allowed here', self::EXIT_DENY);
 	}
 }

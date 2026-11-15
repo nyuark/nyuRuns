@@ -48,7 +48,7 @@ class Console{
 	 * each is logged on the 'error' channel and told on the standard
 	 * error, so that none is mixed with the output of the command.
 	 */
-	public function plugShellError(): Void {
+	public function loadShellError(): Void {
 		error_reporting(E_ALL);
 		ini_set('display_errors', '0');
 		set_error_handler( function( Int $errLevelNumb, String $errorMessage, String $errorFileTxt='', Int $errorLineNum=0 ): Bool {
@@ -68,34 +68,34 @@ class Console{
 	 *
 	 * @return Int The exit code: 0 done, 1 failed, 2 wrong usage, 3 refused or declined, 4 problems found.
 	 */
-	public function executeCommand(): Int {
+	public function treatGivenCmnd(): Int {
 		$optsInst = new Options($this->commandLst);
-		$printObj = new Printer( $optsInst->retrieveOption('outputAs', 'text')=='json', $optsInst->validateOption('silently'), $this->outsStream, $this->failStream );
+		$printObj = new Printer( $optsInst->getOptionValue('outputAs', 'text')=='json', $optsInst->isOptionPassed('silently'), $this->outsStream, $this->failStream );
 		$exitNumb = Command::EXIT_DONE;
 		try{
 			self::loadConfigLogs();
-			$cmndText = $optsInst->validateOption('versions') ? null : $optsInst->shiftFirstWord();
-			if( $optsInst->validateOption('versions') ){
-				$printObj->printShellPair('nyuRuns', self::NYUR_VERS);
+			$cmndText = $optsInst->isOptionPassed('versions') ? null : $optsInst->shiftFirstWord();
+			if( $optsInst->isOptionPassed('versions') ){
+				$printObj->writeShellPair('nyuRuns', self::NYUR_VERS);
 			}elseif( $cmndText===null ){
-				$printObj->printShellRows( Array('command', 'does'), $this->usageShellList($optsInst, $printObj) );
+				$printObj->writeShellRows( Array('command', 'does'), $this->listShellUsage($optsInst, $printObj) );
 			}else{
 				$cmmnClss = $this->findClssString($cmndText);
 				if( $cmmnClss===null ){
 					throw new ShellStop('Unknown command: '.$cmndText, Command::EXIT_HELP);
 				}
 				$hndrInst = new $cmmnClss($optsInst, $printObj, $this->readStream);
-				$exitNumb = $hndrInst->runCalledCount();
+				$exitNumb = $hndrInst->treatCalledSub();
 			}
 		}catch( ShellStop $e ){
-			$printObj->printShellFail( $e->getMessage() );
+			$printObj->writeShellFail( $e->getMessage() );
 			$exitNumb = intval($e->getCode()) ?: Command::EXIT_FAIL;
 		}catch( \Throwable $e ){
 			Logger::getLoggerOfChn('error')->error( 'Command line: '.get_class($e).': '.$e->getMessage().' in '.$e->getFile().' on line '.$e->getLine() );
-			$printObj->printShellFail( 'Command failed: '.$e->getMessage() );
+			$printObj->writeShellFail( 'Command failed: '.$e->getMessage() );
 			$exitNumb = Command::EXIT_FAIL;
 		}
-		$printObj->closeShellOuts($exitNumb);
+		$printObj->writeShellDone($exitNumb);
 		return $exitNumb;
 	}
 
@@ -114,7 +114,7 @@ class Console{
 			$GLOBALS['nyuConfig'] = new Registry( Array() );
 			Logger::loadLogsConfig( Array('path'=>'') );
 		}
-		Logger::setCurrentUser( 'cli:'.self::osShellUsrName(), '' );
+		Logger::setCurrentUser( 'cli:'.self::getUsrOfSystem(), '' );
 	}
 
 	/**
@@ -122,7 +122,7 @@ class Console{
 	 *
 	 * @return String The name, 'unknown' when the system tells none.
 	 */
-	public static function osShellUsrName(): String {
+	public static function getUsrOfSystem(): String {
 		$userName = getenv('USERNAME') ?: ( getenv('USER') ?: get_current_user() );
 		return preg_replace('/[^\w.\-]/', '_', strval($userName)) ?: 'unknown';
 	}
@@ -161,7 +161,7 @@ class Console{
 	 * @param Printer $givenPrinter Where the commands write.
 	 * @return Array Rows of name and description.
 	 */
-	protected function usageShellList( Options $givenOptions, Printer $givenPrinter ): Array {
+	protected function listShellUsage( Options $givenOptions, Printer $givenPrinter ): Array {
 		$nameList = array_keys(self::CMDS_LIST);
 		foreach( (array)glob(RUN_DIR.DS.'*'.DS.'Shell.php') as $clsFil ){
 			$nameList[] = strtolower( basename(dirname(strval($clsFil))) );
@@ -170,7 +170,7 @@ class Console{
 		foreach( $nameList as $oneCmd ){
 			$cmmnClss = $this->findClssString($oneCmd);
 			if( $cmmnClss!==null ){
-				$rowsList[] = Array( $oneCmd, (new $cmmnClss($givenOptions, $givenPrinter, $this->readStream))->describeInLine() );
+				$rowsList[] = Array( $oneCmd, (new $cmmnClss($givenOptions, $givenPrinter, $this->readStream))->renderSynopsis() );
 			}
 		}
 		return $rowsList;

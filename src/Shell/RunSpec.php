@@ -86,7 +86,7 @@ class RunSpec{
 			$jsonVals['childSet'] = new \stdClass();
 		}
 		$specPath = $runFoldr.DS.self::SPEC_FILE;
-		(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveFileAtomic($specPath, RunMaker::tabbedJsonText($jsonVals));
+		(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveFileAtomic($specPath, RunMaker::castTabbedJson($jsonVals));
 		return $specPath;
 	}
 
@@ -226,7 +226,7 @@ class RunSpec{
 	 * @param String $clmnTypeText The type of the column, as the database writes it.
 	 * @return String The format, '' for a value kept as sent.
 	 */
-	public static function formatOfColumn( String $clmnTypeText ): String {
+	public static function getFormatOfCol( String $clmnTypeText ): String {
 		$typeText = strtolower(trim($clmnTypeText));
 		if( preg_match('/int|serial|bool/', $typeText) ){
 			return 'Integer';

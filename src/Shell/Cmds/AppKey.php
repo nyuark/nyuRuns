@@ -32,7 +32,7 @@ class AppKey extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Manages the keys of the applications calling for their users: making, the list, the routes, the revocation';
 	}
 
@@ -41,7 +41,7 @@ class AppKey extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array(
 			'makeKeys'=>Array('args'=>'<name> --routeSet=<routes> --publFile=<file> [--roleTops=standard]', 'about'=>'makes the key of an application, with its routes, the public key of its tokens and the highest role of its users: shown once'),
 			'fullList'=>Array('args'=>'', 'about'=>'lists the applications, their routes, public key, highest role and date'),
@@ -64,22 +64,22 @@ class AppKey extends Command{
 	public function invokeMakeKeys(): Int {
 		$applName = $this->needsShellWord('the name of the application');
 		if( !preg_match('/^[a-z][a-z0-9]{1,15}$/D', $applName) ){
-			$this->terminateShell('Invalid name: a lower-case word of 2 to 16 letters and digits', self::EXIT_HELP);
+			$this->stopWithReason('Invalid name: a lower-case word of 2 to 16 letters and digits', self::EXIT_HELP);
 		}
 		$routeLst = $this->parseRouteList();
-		$roleTops = strval($this->optionsObj->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
+		$roleTops = strval($this->optionsObj->getOptionValue('roleTops', Checker::ROLE_LIST[0]));
 		if( !in_array($roleTops, Checker::ROLE_LIST, true) ){
-			$this->terminateShell('Invalid role: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
+			$this->stopWithReason('Invalid role: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
 		}
-		$publPath = trim( strval($this->optionsObj->retrieveOption('publFile', '')) );
+		$publPath = trim( strval($this->optionsObj->getOptionValue('publFile', '')) );
 		if( $publPath=='' ){
-			$this->terminateShell('Missing option: --publFile, the public key of the tokens of the application', self::EXIT_HELP);
+			$this->stopWithReason('Missing option: --publFile, the public key of the tokens of the application', self::EXIT_HELP);
 		}
 		$fullPath = preg_match('#^([A-Za-z]:|[/\\\\])#', $publPath) ? $publPath : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, $publPath);
 		$keyInstn = (is_file($fullPath) && function_exists('openssl_pkey_get_public')) ? @openssl_pkey_get_public(strval(file_get_contents($fullPath))) : false;
 		$keyArray = ($keyInstn!==false) ? openssl_pkey_get_details($keyInstn) : false;
 		if( !is_array($keyArray) || ($keyArray['type'] ?? null)!==OPENSSL_KEYTYPE_RSA || intval($keyArray['bits'] ?? 0)<JWT::RSAS_BITS ){
-			$this->terminateShell('No key made: '.json_encode($publPath).' is not the public RSA key of '.JWT::RSAS_BITS.' bits at least of the application', self::EXIT_HELP);
+			$this->stopWithReason('No key made: '.json_encode($publPath).' is not the public RSA key of '.JWT::RSAS_BITS.' bits at least of the application', self::EXIT_HELP);
 		}
 		$treeInst = $this->readAccessConf();
 		$blockNme = self::KEYS_BLCK;
@@ -91,16 +91,16 @@ class AppKey extends Command{
 			$treeInst->$blockNme->appsList = new \stdClass();
 		}
 		if( isset($treeInst->$blockNme->appsList->$applName) ){
-			$this->terminateShell('No key made: the application '.json_encode($applName).' already has one (appkeys revokeIt it first)', self::EXIT_DENY);
+			$this->stopWithReason('No key made: the application '.json_encode($applName).' already has one (appkeys revokeIt it first)', self::EXIT_DENY);
 		}
 		$keyStrng = rtrim( strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=' );
 		$treeInst->$blockNme->appsList->$applName = (object)Array(
 			'keyDigst'=>hash('sha256', $keyStrng), 'routeSet'=>$routeLst, 'publFile'=>$publPath, 'roleTops'=>$roleTops, 'madeDate'=>date('Y-m-d H:i:s')
 		);
 		$this->saveAccessConf($treeInst);
-		$this->traceShellDone( 'App key: made for application '.json_encode($applName).' ('.$roleTops.'), routes '.json_encode($routeLst, JSON_UNESCAPED_SLASHES) );
-		$this->printerObj->printShellPair('key made', $applName);
-		$this->printerObj->printShellOnce('Key of '.$applName, $keyStrng);
+		$this->logShellChange( 'App key: made for application '.json_encode($applName).' ('.$roleTops.'), routes '.json_encode($routeLst, JSON_UNESCAPED_SLASHES) );
+		$this->printerObj->writeShellPair('key made', $applName);
+		$this->printerObj->writeShellOnce('Key of '.$applName, $keyStrng);
 		return self::EXIT_DONE;
 	}
 
@@ -118,7 +118,7 @@ class AppKey extends Command{
 			$appSet = (array)$appSet;
 			$rowsList[] = Array(strval($appKey), implode(', ', array_map('strval', (array)($appSet['routeSet'] ?? Array()))), strval($appSet['publFile'] ?? ''), strval($appSet['roleTops'] ?? Checker::ROLE_LIST[0]), strval($appSet['madeDate'] ?? ''));
 		}
-		$this->printerObj->printShellRows( Array('application', 'routes', 'public key', 'highest role', 'made'), $rowsList );
+		$this->printerObj->writeShellRows( Array('application', 'routes', 'public key', 'highest role', 'made'), $rowsList );
 		return self::EXIT_DONE;
 	}
 
@@ -133,12 +133,12 @@ class AppKey extends Command{
 		$treeInst = $this->readAccessConf();
 		$blockNme = self::KEYS_BLCK;
 		if( !isset($treeInst->$blockNme->appsList->$applName) || !is_object($treeInst->$blockNme->appsList->$applName) ){
-			$this->terminateShell('No route changed: no application named '.json_encode($applName), self::EXIT_DENY);
+			$this->stopWithReason('No route changed: no application named '.json_encode($applName), self::EXIT_DENY);
 		}
 		$treeInst->$blockNme->appsList->$applName->routeSet = $routeLst;
 		$this->saveAccessConf($treeInst);
-		$this->traceShellDone( 'App key: routes of application '.json_encode($applName).' set to '.json_encode($routeLst, JSON_UNESCAPED_SLASHES) );
-		$this->printerObj->printShellPair('routes set', $applName);
+		$this->logShellChange( 'App key: routes of application '.json_encode($applName).' set to '.json_encode($routeLst, JSON_UNESCAPED_SLASHES) );
+		$this->printerObj->writeShellPair('routes set', $applName);
 		return self::EXIT_DONE;
 	}
 
@@ -152,12 +152,12 @@ class AppKey extends Command{
 		$treeInst = $this->readAccessConf();
 		$blockNme = self::KEYS_BLCK;
 		if( !isset($treeInst->$blockNme->appsList->$applName) ){
-			$this->terminateShell('Nothing revoked: no application named '.json_encode($applName), self::EXIT_DENY);
+			$this->stopWithReason('Nothing revoked: no application named '.json_encode($applName), self::EXIT_DENY);
 		}
 		unset($treeInst->$blockNme->appsList->$applName);
 		$this->saveAccessConf($treeInst);
-		$this->traceShellDone( 'App key: key of application '.json_encode($applName).' revoked' );
-		$this->printerObj->printShellPair('key revoked', $applName);
+		$this->logShellChange( 'App key: key of application '.json_encode($applName).' revoked' );
+		$this->printerObj->writeShellPair('key revoked', $applName);
 		return self::EXIT_DONE;
 	}
 
@@ -168,9 +168,9 @@ class AppKey extends Command{
 	 */
 	protected function readAccessConf(): Object {
 		try{
-			return (new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->importJsonsObj( TOP_DIR.DS.'conf'.DS.'access.json' );
+			return (new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->readRawJsonCfg( TOP_DIR.DS.'conf'.DS.'access.json' );
 		}catch( \RuntimeException $e ){
-			$this->terminateShell('conf/access.json cannot be read: it is missing or is not a JSON object (install makeConf makes it)');
+			$this->stopWithReason('conf/access.json cannot be read: it is missing or is not a JSON object (install makeConf makes it)');
 		}
 	}
 
@@ -183,7 +183,7 @@ class AppKey extends Command{
 		try{
 			(new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' ))->saveJsonConfig( TOP_DIR.DS.'conf'.DS.'access.json', $appsAccsTree );
 		}catch( \RuntimeException $e ){
-			$this->terminateShell('conf/access.json cannot be written: '.$e->getMessage());
+			$this->stopWithReason('conf/access.json cannot be written: '.$e->getMessage());
 		}
 	}
 
@@ -195,13 +195,13 @@ class AppKey extends Command{
 	 * @return Array The routes.
 	 */
 	protected function parseRouteList(): Array {
-		$routeLst = array_values( array_filter(array_map('trim', explode(',', strval($this->optionsObj->retrieveOption('routeSet', '')))), 'strlen') );
+		$routeLst = array_values( array_filter(array_map('trim', explode(',', strval($this->optionsObj->getOptionValue('routeSet', '')))), 'strlen') );
 		if( empty($routeLst) ){
-			$this->terminateShell('Missing option: --routeSet, the routes the application may reach, separated by commas', self::EXIT_HELP);
+			$this->stopWithReason('Missing option: --routeSet, the routes the application may reach, separated by commas', self::EXIT_HELP);
 		}
 		foreach( $routeLst as $rteVal ){
 			if( !preg_match('#^(/[^\s]+|[A-Za-z0-9]+/(\*|[A-Za-z0-9_]+))$#D', $rteVal) ){
-				$this->terminateShell('Invalid route '.json_encode($rteVal).': "app/action", "app/*" or a declared path with a leading slash', self::EXIT_HELP);
+				$this->stopWithReason('Invalid route '.json_encode($rteVal).': "app/action", "app/*" or a declared path with a leading slash', self::EXIT_HELP);
 			}
 		}
 		return $routeLst;

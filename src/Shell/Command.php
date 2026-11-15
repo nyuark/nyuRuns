@@ -43,7 +43,7 @@ abstract class Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	abstract public function describeInLine(): String;
+	abstract public function renderSynopsis(): String;
 
 	/**
 	 * Lists the sub-commands: for each name, its arguments under 'args'
@@ -54,7 +54,7 @@ abstract class Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	abstract public function subsTableArray(): Array;
+	abstract public function listSubCmndDct(): Array;
 
 	/**
 	 * Runs the sub-command the command line names. Without one, or with
@@ -64,10 +64,10 @@ abstract class Command{
 	 *
 	 * @throws ShellStop When the sub-command is unknown, or stops itself.
 	 */
-	public function runCalledCount(): Int {
-		$subLstng = $this->subsTableArray();
-		if( $this->optionsObj->validateOption('helpText') ){
-			$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
+	public function treatCalledSub(): Int {
+		$subLstng = $this->listSubCmndDct();
+		if( $this->optionsObj->isOptionPassed('helpText') ){
+			$this->printerObj->writeShellRows( Array('sub-command', 'arguments', 'does'), $this->getSubCmndRows() );
 			return self::EXIT_DONE;
 		}
 		if( isset($subLstng['']) ){
@@ -75,17 +75,17 @@ abstract class Command{
 		}else{
 			$subTitle = $this->optionsObj->shiftFirstWord();
 			if( $subTitle===null ){
-				$this->printerObj->printShellRows( Array('sub-command', 'arguments', 'does'), $this->usageRowsArray() );
+				$this->printerObj->writeShellRows( Array('sub-command', 'arguments', 'does'), $this->getSubCmndRows() );
 				return self::EXIT_DONE;
 			}
 			if( !isset($subLstng[$subTitle]) ){
-				$this->terminateShell( 'Unknown sub-command: '.$subTitle, self::EXIT_HELP );
+				$this->stopWithReason( 'Unknown sub-command: '.$subTitle, self::EXIT_HELP );
 			}
 			// A sub-command the command lists as it runs (one a project declared) names the method it shares with others
 			$callName = strval( $subLstng[$subTitle]['call'] ?? 'invoke'.ucfirst($subTitle) );
 		}
 		if( !method_exists($this, $callName) ){
-			$this->terminateShell( 'The sub-command is declared but not written: '.$callName, self::EXIT_FAIL );
+			$this->stopWithReason( 'The sub-command is declared but not written: '.$callName, self::EXIT_FAIL );
 		}
 		// The method is given the word of its sub-command, which a shared method needs to know which one it runs
 		return intval( $this->$callName( $subTitle ?? '' ) );
@@ -96,9 +96,9 @@ abstract class Command{
 	 *
 	 * @return Array Rows of name, arguments and description.
 	 */
-	public function usageRowsArray(): Array {
+	public function getSubCmndRows(): Array {
 		$rowsList = Array();
-		foreach( $this->subsTableArray() as $subKey => $subVal ){
+		foreach( $this->listSubCmndDct() as $subKey => $subVal ){
 			$rowsList[] = Array( strval($subKey), strval($subVal['args'] ?? ''), strval($subVal['about'] ?? '') );
 		}
 		return $rowsList;
@@ -112,7 +112,7 @@ abstract class Command{
 	 *
 	 * @throws ShellStop Always.
 	 */
-	protected function terminateShell( String $reasonToStop, Int $shellExitNum=self::EXIT_FAIL ): Never {
+	protected function stopWithReason( String $reasonToStop, Int $shellExitNum=self::EXIT_FAIL ): Never {
 		throw new ShellStop($reasonToStop, $shellExitNum);
 	}
 
@@ -127,7 +127,7 @@ abstract class Command{
 	protected function needsShellWord( String $wordTypeText ): String {
 		$givenWrd = $this->optionsObj->shiftFirstWord();
 		if( $givenWrd===null || $givenWrd==='' ){
-			$this->terminateShell( 'Missing argument: '.$wordTypeText, self::EXIT_HELP );
+			$this->stopWithReason( 'Missing argument: '.$wordTypeText, self::EXIT_HELP );
 		}
 		return $givenWrd;
 	}
@@ -140,11 +140,11 @@ abstract class Command{
 	 * @param String $defaultValue Value proposed, taken on Enter.
 	 * @return String The answer, without the spaces around it.
 	 */
-	protected function queryAnswerTxt( String $questionText, String $defaultValue='' ): String {
-		if( $this->optionsObj->validateOption('noPrompt') ){
+	protected function promptValueTxt( String $questionText, String $defaultValue='' ): String {
+		if( $this->optionsObj->isOptionPassed('noPrompt') ){
 			return $defaultValue;
 		}
-		$this->printerObj->printShellAsks( $questionText.( $defaultValue!=='' ? ' ['.$defaultValue.']' : '' ).': ' );
+		$this->printerObj->writeShellAsks( $questionText.( $defaultValue!=='' ? ' ['.$defaultValue.']' : '' ).': ' );
 		$givenLne = fgets($this->readStream);
 		$givenTxt = ($givenLne===false) ? '' : trim($givenLne);
 		return ($givenTxt==='') ? $defaultValue : $givenTxt;
@@ -157,14 +157,14 @@ abstract class Command{
 	 * @param String $questionText What is about to be done.
 	 * @return Bool Whether it is confirmed.
 	 */
-	protected function queryAgreedFlg( String $questionText ): Bool {
-		if( $this->optionsObj->validateOption('yesToAll') ){
+	protected function promptApproval( String $questionText ): Bool {
+		if( $this->optionsObj->isOptionPassed('yesToAll') ){
 			return true;
 		}
-		if( $this->optionsObj->validateOption('noPrompt') ){
+		if( $this->optionsObj->isOptionPassed('noPrompt') ){
 			return false;
 		}
-		$this->printerObj->printShellAsks( $questionText.' [y/N]: ' );
+		$this->printerObj->writeShellAsks( $questionText.' [y/N]: ' );
 		$givenLne = fgets($this->readStream);
 		return in_array( strtolower(trim(strval($givenLne))), Array('y', 'yes'), true );
 	}
@@ -177,11 +177,11 @@ abstract class Command{
 	 * @param String $questionText The question.
 	 * @return String The secret, as typed.
 	 */
-	protected function querySecretTxt( String $questionText ): String {
-		$this->printerObj->printShellAsks( $questionText.': ' );
+	protected function promptSecrText( String $questionText ): String {
+		$this->printerObj->writeShellAsks( $questionText.': ' );
 		$givenTxt = null;
 		if( $this->readStream===STDIN && @stream_isatty(STDIN) ){
-			$givenTxt = (DIRECTORY_SEPARATOR=='\\') ? $this->obtainSecurity() : $this->getStarsString();
+			$givenTxt = (DIRECTORY_SEPARATOR=='\\') ? $this->readSecretByPs() : $this->getStarsString();
 		}
 		if( $givenTxt===null ){
 			$givenLne = fgets($this->readStream);
@@ -211,15 +211,15 @@ abstract class Command{
 			if( $oneChrct==="\x7F" || $oneChrct==="\x08" ){
 				if( $givenTxt!=='' ){
 					$givenTxt = substr($givenTxt, 0, -1);
-					$this->printerObj->printShellAsks("\x08 \x08");
+					$this->printerObj->writeShellAsks("\x08 \x08");
 				}
 				continue;
 			}
 			$givenTxt .= $oneChrct;
-			$this->printerObj->printShellAsks('*');
+			$this->printerObj->writeShellAsks('*');
 		}
 		@shell_exec('stty '.escapeshellarg($prevStty).' 2>/dev/null');
-		$this->printerObj->printShellAsks(PHP_EOL);
+		$this->printerObj->writeShellAsks(PHP_EOL);
 		return $givenTxt;
 	}
 
@@ -229,7 +229,7 @@ abstract class Command{
 	 *
 	 * @return ?String The secret, or null when PowerShell cannot be used: the line is then read as it is typed.
 	 */
-	protected function obtainSecurity(): ?String {
+	protected function readSecretByPs(): ?String {
 		$psScript = '[Console]::OutputEncoding=[Text.Encoding]::UTF8;$p=Read-Host -AsSecureString;'
 			.'$b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($p);'
 			.'[Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($b))';
@@ -250,7 +250,7 @@ abstract class Command{
 	 *
 	 * @param String $eventMessage What was done.
 	 */
-	protected function traceShellDone( String $eventMessage ): Void {
+	protected function logShellChange( String $eventMessage ): Void {
 		Logger::getLoggerOfChn('shell')->notice( $eventMessage.Logger::getActorSuffix() );
 	}
 

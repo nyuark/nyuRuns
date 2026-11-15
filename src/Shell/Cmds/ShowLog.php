@@ -18,7 +18,7 @@ class ShowLog extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Shows the last lines of a log channel, and follows it';
 	}
 
@@ -27,7 +27,7 @@ class ShowLog extends Command{
 	 *
 	 * @return Array The command has no sub-command.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array( ''=>Array('call'=>'invokeShowLogs', 'args'=>'<channel> [--numLines=<lines>] [--watching]', 'about'=>'shows the last lines of a log channel') );
 	}
 
@@ -39,11 +39,11 @@ class ShowLog extends Command{
 	public function invokeShowLogs(): Int {
 		$logrInst = $this->needsShellWord('the log channel (error, access, runner, shell, or the name of an application)');
 		if( !preg_match('/^\w+$/D', $logrInst) ){
-			$this->terminateShell('A log channel is a plain name', self::EXIT_HELP);
+			$this->stopWithReason('A log channel is a plain name', self::EXIT_HELP);
 		}
-		$lineNumb = $this->optionsObj->retrieveOption('numLines', '20');
+		$lineNumb = $this->optionsObj->getOptionValue('numLines', '20');
 		if( !preg_match('/^\d{1,6}$/D', strval($lineNumb)) ){
-			$this->terminateShell('--numLines takes a number of lines', self::EXIT_HELP);
+			$this->stopWithReason('--numLines takes a number of lines', self::EXIT_HELP);
 		}
 		// With dated file names, the channel is read in its newest file
 		$logTrail = '';
@@ -54,7 +54,7 @@ class ShowLog extends Command{
 			}
 		}
 		if( $logTrail=='' ){
-			$this->terminateShell('No log for the channel '.$logrInst, self::EXIT_DENY);
+			$this->stopWithReason('No log for the channel '.$logrInst, self::EXIT_DENY);
 		}
 		$logBytes = filesize($logTrail);
 		$readSize = min($logBytes, 2097152);
@@ -62,9 +62,9 @@ class ShowLog extends Command{
 		$lineList = explode("\n", rtrim(str_replace("\r\n", "\n", $logStrng), "\n"));
 		$lineList = ($logStrng=='' || intval($lineNumb)==0) ? Array() : array_slice($lineList, -intval($lineNumb));
 		foreach( $lineList as $logLin ){
-			$this->printerObj->printShellBody($logLin.PHP_EOL);
+			$this->printerObj->writeShellBody($logLin.PHP_EOL);
 		}
-		if( !$this->optionsObj->validateOption('watching') || $this->printerObj->jsonShellShape() ){
+		if( !$this->optionsObj->isOptionPassed('watching') || $this->printerObj->isOutputAsJson() ){
 			return self::EXIT_DONE;
 		}
 		// Followed until the command is interrupted
@@ -78,7 +78,7 @@ class ShowLog extends Command{
 				$crsorPos = 0;
 			}
 			if( $logBytes>$crsorPos ){
-				$this->printerObj->printShellBody( strval(file_get_contents($logTrail, false, null, $crsorPos, $logBytes-$crsorPos)) );
+				$this->printerObj->writeShellBody( strval(file_get_contents($logTrail, false, null, $crsorPos, $logBytes-$crsorPos)) );
 				$crsorPos = $logBytes;
 			}
 		}

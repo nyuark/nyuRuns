@@ -48,7 +48,7 @@ class Options{
 	 *
 	 * @return Array The words, in order.
 	 */
-	public function restWordsArray(): Array {
+	public function getRestOfWords(): Array {
 		return $this->shellWords;
 	}
 
@@ -58,7 +58,7 @@ class Options{
 	 * @param String $nameOfOption Name of the option, without its dashes.
 	 * @return Bool True when it was written.
 	 */
-	public function validateOption( String $nameOfOption ): Bool {
+	public function isOptionPassed( String $nameOfOption ): Bool {
 		return isset($this->optionList[$nameOfOption]);
 	}
 
@@ -69,7 +69,7 @@ class Options{
 	 * @param ?String $defaultValue Value given when the option was not written, or written without a value.
 	 * @return ?String The value.
 	 */
-	public function retrieveOption( String $nameOfOption, ?String $defaultValue=null ): ?String {
+	public function getOptionValue( String $nameOfOption, ?String $defaultValue=null ): ?String {
 		$optsVals = $this->optionList[$nameOfOption] ?? null;
 		return is_string($optsVals) ? $optsVals : $defaultValue;
 	}

@@ -31,7 +31,7 @@ class Device extends Command{
 	 *
 	 * @return String The line shown in the list of commands.
 	 */
-	public function describeInLine(): String {
+	public function renderSynopsis(): String {
 		return 'Manages the devices working in the name of a user: their tokens, the list, the revocation';
 	}
 
@@ -40,7 +40,7 @@ class Device extends Command{
 	 *
 	 * @return Array The sub-commands, by name.
 	 */
-	public function subsTableArray(): Array {
+	public function listSubCmndDct(): Array {
 		return Array(
 			'newToken'=>Array('args'=>'<name> <user> <role> [--roleTops=standard]', 'about'=>'gives a device a token, in the name of an active user, capped at a role no higher than the user\'s: shown once'),
 			'fullList'=>Array('args'=>'[user]', 'about'=>'lists the devices, of a user or of every user'),
@@ -63,30 +63,30 @@ class Device extends Command{
 		$userName = $this->needsShellWord('the user');
 		$dvceRole = $this->needsShellWord('the role of the device');
 		if( !preg_match('/^[a-z][a-z0-9]{0,7}$/D', $dvceRole) ){
-			$this->terminateShell('Invalid role: a lower-case word of 8 characters at most', self::EXIT_HELP);
+			$this->stopWithReason('Invalid role: a lower-case word of 8 characters at most', self::EXIT_HELP);
 		}
-		$roleTops = strval($this->optionsObj->retrieveOption('roleTops', Checker::ROLE_LIST[0]));
+		$roleTops = strval($this->optionsObj->getOptionValue('roleTops', Checker::ROLE_LIST[0]));
 		if( !in_array($roleTops, Checker::ROLE_LIST, true) ){
-			$this->terminateShell('Invalid cap: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
+			$this->stopWithReason('Invalid cap: one of '.implode(', ', Checker::ROLE_LIST), self::EXIT_HELP);
 		}
 		$dvceAuth = $this->getDeviceCheck();
 		$userRole = $dvceAuth->readActiveRole($userName);
 		if( $userRole===null ){
-			$this->terminateShell('No token made: the user is unknown or not active, or the users cannot be read');
+			$this->stopWithReason('No token made: the user is unknown or not active, or the users cannot be read');
 		}
 		if( array_search($roleTops, Checker::ROLE_LIST, true) > array_search($userRole, Checker::ROLE_LIST, true) ){
-			$this->terminateShell('No token made: the cap '.$roleTops.' is above the role of '.json_encode($userName).', '.$userRole.': give it '.$userRole.' at most', self::EXIT_DENY);
+			$this->stopWithReason('No token made: the cap '.$roleTops.' is above the role of '.json_encode($userName).', '.$userRole.': give it '.$userRole.' at most', self::EXIT_DENY);
 		}
 		if( $this->findDeviceNumb($dvceAuth, $dvceName, $userName)!==null ){
-			$this->terminateShell('No token made: the user already has a device named '.json_encode($dvceName).' (devices revokeIt it first)', self::EXIT_DENY);
+			$this->stopWithReason('No token made: the user already has a device named '.json_encode($dvceName).' (devices revokeIt it first)', self::EXIT_DENY);
 		}
 		$newToken = $dvceAuth->addDeviceToken($userName, $dvceName, $dvceRole, $roleTops);
 		if( $newToken===false ){
-			$this->terminateShell('No token made: the user is unknown or not active, or the devices cannot be written');
+			$this->stopWithReason('No token made: the user is unknown or not active, or the devices cannot be written');
 		}
-		$this->traceShellDone( 'Device: token '.json_encode($dvceName).' ('.$dvceRole.', capped at '.$roleTops.') made for user '.json_encode($userName) );
-		$this->printerObj->printShellPair('token made', $dvceName);
-		$this->printerObj->printShellOnce('Token of '.$dvceName, strval($newToken));
+		$this->logShellChange( 'Device: token '.json_encode($dvceName).' ('.$dvceRole.', capped at '.$roleTops.') made for user '.json_encode($userName) );
+		$this->printerObj->writeShellPair('token made', $dvceName);
+		$this->printerObj->writeShellOnce('Token of '.$dvceName, strval($newToken));
 		return self::EXIT_DONE;
 	}
 
@@ -101,13 +101,13 @@ class Device extends Command{
 		$userName = strval($this->optionsObj->shiftFirstWord() ?? '');
 		$dvceNtry = $this->getDeviceCheck()->listUsrDevices($userName);
 		if( $dvceNtry===false ){
-			$this->terminateShell('The devices cannot be read');
+			$this->stopWithReason('The devices cannot be read');
 		}
 		$rowsList = Array();
 		foreach( $dvceNtry as $dvcRow ){
 			$rowsList[] = Array(strval($dvcRow['deviceName']), strval($dvcRow['systemName']), strval($dvcRow['deviceRole']), strval($dvcRow['deviceTops'] ?? ''), strval($dvcRow['createDate']), strval($dvcRow['accessDate'] ?? ''), strval($dvcRow['revokeDate'] ?? ''));
 		}
-		$this->printerObj->printShellRows( Array('device', 'user', 'role', 'cap', 'made', 'last seen', 'revoked'), $rowsList );
+		$this->printerObj->writeShellRows( Array('device', 'user', 'role', 'cap', 'made', 'last seen', 'revoked'), $rowsList );
 		return self::EXIT_DONE;
 	}
 
@@ -123,13 +123,13 @@ class Device extends Command{
 		$dvceAuth = $this->getDeviceCheck();
 		$dvceIdnt = $this->findDeviceNumb($dvceAuth, $dvceName, $userName);
 		if( $dvceIdnt===null ){
-			$this->terminateShell('Nothing revoked: the user has no device named '.json_encode($dvceName).' still standing', self::EXIT_DENY);
+			$this->stopWithReason('Nothing revoked: the user has no device named '.json_encode($dvceName).' still standing', self::EXIT_DENY);
 		}
 		if( !$dvceAuth->dropUserDevice($dvceIdnt) ){
-			$this->terminateShell('The device cannot be revoked: the devices cannot be written');
+			$this->stopWithReason('The device cannot be revoked: the devices cannot be written');
 		}
-		$this->traceShellDone( 'Device: '.json_encode($dvceName).' of user '.json_encode($userName).' revoked' );
-		$this->printerObj->printShellPair('device revoked', $dvceName);
+		$this->logShellChange( 'Device: '.json_encode($dvceName).' of user '.json_encode($userName).' revoked' );
+		$this->printerObj->writeShellPair('device revoked', $dvceName);
 		return self::EXIT_DONE;
 	}
 
@@ -154,7 +154,7 @@ class Device extends Command{
 	protected function findDeviceNumb( DeviceAuth $devicesCheck, String $userDvceName, String $namedUserTxt ): ?Int {
 		$dvceNtry = $devicesCheck->listUsrDevices($namedUserTxt);
 		if( $dvceNtry===false ){
-			$this->terminateShell('The devices cannot be read');
+			$this->stopWithReason('The devices cannot be read');
 		}
 		foreach( $dvceNtry as $dvcRow ){
 			if( $dvcRow['deviceName']===$userDvceName && $dvcRow['revokeDate']===null ){

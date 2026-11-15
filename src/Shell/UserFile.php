@@ -81,7 +81,7 @@ class UserFile{
 		}
 		$rowsList = Array();
 		foreach( $userList as $usrRow ){
-			$shwnList = $this->shownValuesArr($usrRow);
+			$shwnList = $this->getShownValues($usrRow);
 			if( in_array($criteriaList['userStatus'] ?? '', Array('', null, $shwnList['userStatus']), true) && in_array($criteriaList['accessRole'] ?? '', Array('', null, $shwnList['accessRole']), true) ){
 				$rowsList[] = $shwnList;
 			}
@@ -105,7 +105,7 @@ class UserFile{
 			return false;
 		}
 		$userIndx = $this->findIndexCount($userList, $namedUserTxt);
-		return ($userIndx===null) ? $this->denyWithReason(404, 'User not found') : $this->shownValuesArr($userList[$userIndx]);
+		return ($userIndx===null) ? $this->denyWithReason(404, 'User not found') : $this->getShownValues($userList[$userIndx]);
 	}
 
 	/**
@@ -135,7 +135,7 @@ class UserFile{
 		if( $ruleText!='' ){
 			return $this->denyWithReason(400, $ruleText);
 		}
-		$wasAdded = $this->alterUsersFlag( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVals, $usrPasswdTxt, $langVals ): ?Array {
+		$wasAdded = $this->alterUsersFile( null, function( Array $usersRecords ) use ( $namedUserTxt, $roleVals, $usrPasswdTxt, $langVals ): ?Array {
 			$lastNumb = 0;
 			foreach( $usersRecords as $usrRow ){
 				if( strcasecmp(strval($usrRow['systemName'] ?? ''), $namedUserTxt)==0 ){
@@ -166,7 +166,7 @@ class UserFile{
 		if( !in_array($statusString, Array('approved', 'disabled'), true) ){
 			return $this->denyWithReason(400, 'Invalid status');
 		}
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $statusString ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $statusString ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')==$statusString ){
 				$this->denyWithReason(409, 'User already '.$statusString);
 				return null;
@@ -197,7 +197,7 @@ class UserFile{
 		if( !in_array($usrRleString, Checker::ROLE_LIST, true) ){
 			return $this->denyWithReason(400, 'Invalid role');
 		}
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrRleString ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrRleString ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['accessRole'] ?? Checker::ROLE_LIST[0])==$usrRleString ){
 				$this->denyWithReason(409, 'User already of that role');
 				return null;
@@ -229,7 +229,7 @@ class UserFile{
 		if( $mailVals!=='' && (strlen($mailVals)>254 || filter_var($mailVals, FILTER_VALIDATE_EMAIL)===false) ){
 			return $this->denyWithReason(400, 'Invalid mail address');
 		}
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVals ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $mailVals ): ?Array {
 			foreach( $usersRecords as $usrPos => $usrRow ){
 				if( $mailVals!=='' && $usrPos!==$usersIndxNum && strtolower(strval($usrRow['contactEml'] ?? ''))===$mailVals ){
 					$this->denyWithReason(409, 'Mail address already used');
@@ -263,7 +263,7 @@ class UserFile{
 		if( $langVals!=='' && !Language::isValidLangTag($langVals) ){
 			return $this->denyWithReason(400, 'Invalid language');
 		}
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $langVals ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $langVals ): ?Array {
 			if( $langVals==='' ){
 				unset($usersRecords[$usersIndxNum]['userLocale']);
 			}else{
@@ -286,7 +286,7 @@ class UserFile{
 	 */
 	public function dropUsrAccount( String $namedUserTxt ): Bool {
 		$this->dropOldRefusal();
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ): ?Array {
 			if( $this->isFinalManager($usersRecords, $usersIndxNum) ){
 				$this->denyWithReason(409, 'The last active manager cannot be removed');
 				return null;
@@ -314,7 +314,7 @@ class UserFile{
 		if( $ruleText!='' ){
 			return $this->denyWithReason(400, $ruleText);
 		}
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrPasswdTxt ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $usrPasswdTxt ): ?Array {
 			$usersRecords[$usersIndxNum]['passwdHash'] = password_hash($usrPasswdTxt, PASSWORD_BCRYPT);
 			return $usersRecords;
 		} );
@@ -334,7 +334,7 @@ class UserFile{
 	public function makeToknString( String $namedUserTxt ): String|Bool {
 		$this->dropOldRefusal();
 		$newToken = bin2hex(random_bytes(32));
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $newToken ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $newToken ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
 				$this->denyWithReason(409, 'User not active');
 				return null;
@@ -355,7 +355,7 @@ class UserFile{
 	 * @return Bool Whether the user has no token any more.
 	 */
 	public function clearUserToken( String $namedUserTxt ): Bool {
-		return $this->clearFieldFlag($namedUserTxt, 'bearerHash', 'Personal token');
+		return $this->clearUserField($namedUserTxt, 'bearerHash', 'Personal token');
 	}
 
 	/**
@@ -368,7 +368,7 @@ class UserFile{
 		$this->dropOldRefusal();
 		$newSecrt = Totp::makeSecretText();
 		$storeTxt = Totp::sealSecretText($newSecrt, $this->sealingKey);
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $storeTxt ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $storeTxt ): ?Array {
 			if( strval($usersRecords[$usersIndxNum]['userStatus'] ?? 'approved')!='approved' ){
 				$this->denyWithReason(409, 'User not active');
 				return null;
@@ -392,7 +392,7 @@ class UserFile{
 	 * @return Bool Whether the user has no 2FA secret any more.
 	 */
 	public function clearTwoFactor( String $namedUserTxt ): Bool {
-		return $this->clearFieldFlag($namedUserTxt, 'twoFactKey', '2FA secret');
+		return $this->clearUserField($namedUserTxt, 'twoFactKey', '2FA secret');
 	}
 
 	/**
@@ -417,7 +417,7 @@ class UserFile{
 	 */
 	public function fillEmptyStore( Array $usersRecords ): Bool {
 		$this->dropOldRefusal();
-		$wasSaved = $this->alterUsersFlag( null, function( Array $storedValues ) use ( $usersRecords ): ?Array {
+		$wasSaved = $this->alterUsersFile( null, function( Array $storedValues ) use ( $usersRecords ): ?Array {
 			if( !empty($storedValues) ){
 				$this->denyWithReason(409, 'The users file already holds users');
 				return null;
@@ -459,9 +459,9 @@ class UserFile{
 	 * @param String $fldLabelText What the field is, for the log.
 	 * @return Bool Whether the user no longer has it.
 	 */
-	protected function clearFieldFlag( String $namedUserTxt, String $fldNamedText, String $fldLabelText ): Bool {
+	protected function clearUserField( String $namedUserTxt, String $fldNamedText, String $fldLabelText ): Bool {
 		$this->dropOldRefusal();
-		$wasSaved = $this->alterUsersFlag( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $fldNamedText ): ?Array {
+		$wasSaved = $this->alterUsersFile( $namedUserTxt, function( Array $usersRecords, Int $usersIndxNum ) use ( $fldNamedText ): ?Array {
 			unset($usersRecords[$usersIndxNum][$fldNamedText]);
 			return $usersRecords;
 		} );
@@ -480,7 +480,7 @@ class UserFile{
 	 * @param callable $editCallable Gets the users and, when a user is named, its place in them; returns the users to write, or null once it has recorded a refusal.
 	 * @return Bool Whether the file was written.
 	 */
-	protected function alterUsersFlag( ?String $namedUserTxt, callable $editCallable ): Bool {
+	protected function alterUsersFile( ?String $namedUserTxt, callable $editCallable ): Bool {
 		$lockHndl = @fopen( $this->freezePathsTxt(), 'c' );
 		if( $lockHndl===false || !flock($lockHndl, LOCK_EX) ){
 			return $this->denyWithReason(500, 'Users file cannot be locked for writing');
@@ -499,7 +499,7 @@ class UserFile{
 				}
 				$newLstng = $editCallable($userList, $userIndx);
 			}
-			return is_array($newLstng) ? $this->storeUsersFlag($newLstng) : false;
+			return is_array($newLstng) ? $this->saveUsersLines($newLstng) : false;
 		}finally{
 			flock($lockHndl, LOCK_UN);
 			fclose($lockHndl);
@@ -550,7 +550,7 @@ class UserFile{
 	 * @param Array $usersRecords The users.
 	 * @return Bool Whether the file was written.
 	 */
-	protected function storeUsersFlag( Array $usersRecords ): Bool {
+	protected function saveUsersLines( Array $usersRecords ): Bool {
 		$jsonFlag = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 		$lineList = Array();
 		foreach( $usersRecords as $usrRow ){
@@ -572,7 +572,7 @@ class UserFile{
 		$checkObj = new UserList( Array('listFile'=>$this->nameOfFile) );
 		$checkObj->readIdntOfUser('-');
 		if( $checkObj->getLastErrText()=='Credential store unavailable' ){
-			$this->fileWriter->revertWriteFlg($this->usrLstPath);
+			$this->fileWriter->clearLastWrite($this->usrLstPath);
 			return $this->denyWithReason(500, 'Users file not written: the application would no longer accept it');
 		}
 		return true;
@@ -601,7 +601,7 @@ class UserFile{
 	 * @param Array $userValsList The user, as the file holds it.
 	 * @return Array What is shown of it.
 	 */
-	protected function shownValuesArr( Array $userValsList ): Array {
+	protected function getShownValues( Array $userValsList ): Array {
 		return Array(
 			'id_user'=>$userValsList['id_user'] ?? null,
 			'systemName'=>strval($userValsList['systemName'] ?? ''),
@@ -630,7 +630,7 @@ class UserFile{
 				$mngrNumb++;
 			}
 		}
-		$userVals = $this->shownValuesArr($usersRecords[$usersIndxNum]);
+		$userVals = $this->getShownValues($usersRecords[$usersIndxNum]);
 		return $userVals['accessRole']===$highRole && $userVals['userStatus']==='approved' && $mngrNumb<2;
 	}
 

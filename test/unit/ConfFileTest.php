@@ -45,8 +45,8 @@ checkIdentical('KEEPCOPY is 5', ConfFile::KEEP_COPY, 5);
 
 // The rights : a secret and its copies, for their owner only
 if( DS=='/' ){
-	$wrtrObj->changeEnvValue( $workDir.DS.'new.env', 'NYU_KEY', 'value' );
-	$wrtrObj->changeEnvValue( $workDir.DS.'new.env', 'NYU_KEY', 'other' );
+	$wrtrObj->saveEnvFileVal( $workDir.DS.'new.env', 'NYU_KEY', 'value' );
+	$wrtrObj->saveEnvFileVal( $workDir.DS.'new.env', 'NYU_KEY', 'other' );
 	$wrtrObj->saveFileAtomic( $workDir.DS.'users.lst', '{ "users": [] }', 0640 );
 	$cpyRgts = array_unique( array_map(function( String $copyNamed ) use ( $backDir ): Int { return fileperms($backDir.DS.$copyNamed) & 0777; }, array_values(array_diff((array)scandir($backDir), Array('.', '..')))) );
 	checkIdentical('a new secret is readable by its owner only, a new users file by its group too', Array(fileperms($workDir.DS.'new.env') & 0777, fileperms($workDir.DS.'users.lst') & 0777), Array(0600, 0640));
