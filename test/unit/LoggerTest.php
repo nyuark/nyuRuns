@@ -128,26 +128,26 @@ checkPregMatch('context with invalid bytes is still written', readLines($logsDir
 // The channel names a file : only a plain name is accepted
 checkForThrows('channel with a path is refused', function() use ($logsDir){ new Logger($logsDir, '..'.DS.'out'); }, 'RuntimeException');
 checkForThrows('empty channel is refused', function() use ($logsDir){ new Logger($logsDir, ''); }, 'RuntimeException');
-checkForThrows('getLogger refuses it too', function(){ Logger::retrieveLogger('a/b'); }, 'RuntimeException');
+checkForThrows('getLogger refuses it too', function(){ Logger::getLoggerOfChn('a/b'); }, 'RuntimeException');
 
 // Shared channels : nothing is written until a setup is plugged
-$muteLog = Logger::retrieveLogger('runner');
+$muteLog = Logger::getLoggerOfChn('runner');
 $muteLog->error('lost');
 checkTrueValue('without a setup the logger writes nothing', !file_exists($logsDir.DS.'chan'.DS.'runner.log') && !file_exists(DS.'runner.log') && !file_exists('runner.log'));
-Logger::plugLogsConfig( Array('path'=>$logsDir.DS.'chan', 'mode'=>'BASE', 'size'=>0, 'rota'=>'INDX', 'pref'=>'Y') );
-checkTrueValue('a plugged setup replaces the mute loggers', Logger::retrieveLogger('runner')!==$muteLog);
-checkTrueValue('a channel has one shared logger', Logger::retrieveLogger('access')===Logger::retrieveLogger('access'));
-checkTrueValue('each channel has its own', Logger::retrieveLogger('access')!==Logger::retrieveLogger('runner'));
-checkTrueValue('the default channel is runner', Logger::retrieveLogger()===Logger::retrieveLogger('runner'));
-Logger::retrieveLogger('access')->warning('denied');
-Logger::retrieveLogger('shows')->info('listed');
+Logger::loadLogsConfig( Array('path'=>$logsDir.DS.'chan', 'mode'=>'BASE', 'size'=>0, 'rota'=>'INDX', 'pref'=>'Y') );
+checkTrueValue('a plugged setup replaces the mute loggers', Logger::getLoggerOfChn('runner')!==$muteLog);
+checkTrueValue('a channel has one shared logger', Logger::getLoggerOfChn('access')===Logger::getLoggerOfChn('access'));
+checkTrueValue('each channel has its own', Logger::getLoggerOfChn('access')!==Logger::getLoggerOfChn('runner'));
+checkTrueValue('the default channel is runner', Logger::getLoggerOfChn()===Logger::getLoggerOfChn('runner'));
+Logger::getLoggerOfChn('access')->warning('denied');
+Logger::getLoggerOfChn('shows')->info('listed');
 checkIdentical('each channel writes its own file', Array(readLines($logsDir.DS.'chan'.DS.'access.log'), readLines($logsDir.DS.'chan'.DS.'shows.log'), readLines($logsDir.DS.'chan'.DS.'runner.log')), Array(
 	Array('['.date('Y').'] [WARNING] denied'),
 	Array('['.date('Y').'] [INFO] listed'),
 	Array()
 ));
-Logger::plugLogsConfig( Array() );
-Logger::retrieveLogger('access')->warning('lost');
+Logger::loadLogsConfig( Array() );
+Logger::getLoggerOfChn('access')->warning('lost');
 checkIdentical('a setup without a path mutes the channels again', count(readLines($logsDir.DS.'chan'.DS.'access.log')), 1);
 
 // The actor of the request, for the events traced far from the access check

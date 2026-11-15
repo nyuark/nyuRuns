@@ -102,7 +102,7 @@ class HealthChk{
 	 */
 	public function checkFldrWrite(): Void {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'TRYLIMIT') : null;
 		$limitNme = trim( strval(is_array($limitCfg) ? ($limitCfg['dataPath'] ?? '') : ''), '/\\ ' );
 		$fieldLst = Array(
 			strval( (new Loader(Array('settings'=>Array('confType'=>'all'))))->logConfigArray()['path'] ),
@@ -231,8 +231,8 @@ class HealthChk{
 			}
 			$routeCfg = $setupObj->getRegistryKey('dispatch');
 			$routInst = new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestArr('GET', '/')[0] );
-			$routeDct = $routInst->retrieveRoutes();
-			foreach( $routInst->runRoutesArray() as $rteSet ){
+			$routeDct = $routInst->loadRoutesList();
+			foreach( $routInst->readRunsRoutes() as $rteSet ){
 				$ownTitle = strval($routeDct[$rteSet['routPath']]['routOwnr'] ?? '');
 				if( $ownTitle=='site' ){
 					$shdwList[] = $psetName.': /'.$rteSet['routPath'].' of '.$rteSet['routOwnr'];
@@ -274,7 +274,7 @@ class HealthChk{
 				}
 				if( is_file(RUN_DIR.DS.$ownTitle.DS.'routes.rte') ){
 					// A Run declaring its routes is reached through them only (or a site alias): one of them names the action
-					if( empty(preg_grep('/^'.preg_quote($ownTitle.'/'.$actParte[1], '/').'$/i', array_column($routInst->allRoutesArray(), 'routTarg'))) ){
+					if( empty(preg_grep('/^'.preg_quote($ownTitle.'/'.$actParte[1], '/').'$/i', array_column($routInst->listAllTargets(), 'routTarg'))) ){
 						$lostList[] = $psetName.': '.$rteKey.' (not listed in the routes of '.$ownTitle.')';
 					}
 					continue;
@@ -332,7 +332,7 @@ class HealthChk{
 	 */
 	public function validateEntrys(): Void {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$envrName = strtoupper( strval(($nyuConfg!==null) ? $nyuConfg->obtainRowValue('SYSTEM', 'ENV_NAME') : '') );
+		$envrName = strtoupper( strval(($nyuConfg!==null) ? $nyuConfg->getNestedValue('SYSTEM', 'ENV_NAME') : '') );
 		$isRemote = in_array($envrName, Array('PREV', 'PROD'), true);
 		foreach( (array)glob(TOP_DIR.DS.'www'.DS.'*.php') as $entFle ){
 			$itemText = strval(@file_get_contents(strval($entFle)));
@@ -462,7 +462,7 @@ class HealthChk{
 			if( isset($blkVal['keysList']) && is_array($blkVal['keysList']) && in_array('', array_map('strval', $blkVal['keysList']), true) ){
 				$this->addCheckResult('keys '.$blockNme, 'warn', 'an API key of the block is empty; "setting mkSecret keysList" makes one');
 			}
-			if( ($blkVal['secureOn'] ?? true)===false && array_key_exists('cookName', $blkVal) && strtoupper(strval($nyuConfg->obtainRowValue('SYSTEM', 'ENV_NAME')))=='PROD' ){
+			if( ($blkVal['secureOn'] ?? true)===false && array_key_exists('cookName', $blkVal) && strtoupper(strval($nyuConfg->getNestedValue('SYSTEM', 'ENV_NAME')))=='PROD' ){
 				$this->addCheckResult('cookie '.$blockNme, 'warn', 'the session cookie also travels over plain HTTP (secureOn is false) in the environment PROD');
 			}
 			if( array_key_exists('tfaCrypt', $blkVal) ){
@@ -483,7 +483,7 @@ class HealthChk{
 		$markSize = strlen(strval($limitCfg['markSecr'] ?? ''));
 		$this->addCheckResult( 'login marks', ($markSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'fine' : 'warn', ($markSize>=\nyu\Access\LoginMark::KEYS_SIZE) ? 'set: a client already used logs in while its account is held' : 'no markSecr of '.\nyu\Access\LoginMark::KEYS_SIZE.' characters: the hold of an account also stops its owner; "setting mkSecret markSecr" makes one' );
 		// The language of the mails of a user who has none
-		$dfaltTag = strtolower( trim(str_replace('_', '-', strval($nyuConfg->obtainRowValue('SYSTEM', 'DEF_LANG') ?? ''))) );
+		$dfaltTag = strtolower( trim(str_replace('_', '-', strval($nyuConfg->getNestedValue('SYSTEM', 'DEF_LANG') ?? ''))) );
 		if( $dfaltTag!=='' && !Language::isValidLangTag($dfaltTag) ){
 			$this->addCheckResult('mail language', 'fail', 'DEF_LANG is not a language tag (en, fr, fr-ch): the mails are written in en');
 		}
@@ -637,7 +637,7 @@ class HealthChk{
 		}elseif( $privClef===false && ($blockVlsList['external'] ?? false)!==true && !empty($loginCfg = $this->accessSettings('loginSet')) && strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' && strcasecmp(strval($loginCfg['carrConf'] ?? 'jwtToken'), $blockNmdText)==0 ){
 			// The login issues tokens with this block, which has no private key : a public key alone, brought by a bundle, would trust the tokens of where it was built
 			$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-			$isRemote = in_array(strtoupper(strval(($nyuConfg!==null) ? $nyuConfg->obtainRowValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
+			$isRemote = in_array(strtoupper(strval(($nyuConfg!==null) ? $nyuConfg->getNestedValue('SYSTEM', 'ENV_NAME') : '')), Array('PREV', 'PROD'), true);
 			$this->addCheckResult('token keys '.$blockNmdText, $isRemote ? 'fail' : 'warn', 'the login issues tokens with this block, which has no private key: "setting mkSecret jwtToken" makes a pair; "external": true when the tokens come from another server');
 		}else{
 			$this->addCheckResult('token keys '.$blockNmdText, 'fine', ($privClef===false) ? 'checks tokens only: they are issued by another server' : 'set, '.max($clefBits).' bits');
@@ -810,7 +810,7 @@ class HealthChk{
 					$setupObj = (new Preset($prstId))->makeConfLoader();
 					$routeCfg = $setupObj->getRegistryKey('dispatch');
 					$isOpened = $isOpened && ($setupObj->setAccessArray()['required'] ?? true)===false;
-					if( (new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions() ){
+					if( (new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestArr('GET', '/')[0] ))->canReachAction() ){
 						$actnList[] = $prstId;
 					}
 				}catch( \Throwable $e ){
@@ -903,7 +903,7 @@ class HealthChk{
 	 */
 	protected function accessSettings( String $blockNmdText ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blockNmdText)) : null;
+		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->getNestedValue('ACCESS', strtoupper($blockNmdText)) : null;
 		return is_array($blockCfg) ? $blockCfg : Array();
 	}
 

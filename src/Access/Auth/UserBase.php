@@ -70,11 +70,11 @@ class UserBase extends Native{
 	 */
 	public static function fromLoginBlock(): ?UserBase {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'LOGINSET') : null;
 		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
 			return null;
 		}
-		$blockCfg = $nyuConfg->obtainRowValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
+		$blockCfg = $nyuConfg->getNestedValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
 		return new self( is_array($blockCfg) ? $blockCfg : Array() );
 	}
 
@@ -133,7 +133,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, $roleVals, $mailVals, $langVals, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codMinuteNum)))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' created ('.$roleVals.')'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' created ('.$roleVals.')'.Logger::getActorSuffix() );
 		return $newCodig;
 	}
 
@@ -164,7 +164,7 @@ class UserBase extends Native{
 			return $this->declineForFlag(400, 'Invalid mail address');
 		}
 		$this->dropOldSignups();
-		$accsJrnl = Logger::retrieveLogger('access');
+		$accsJrnl = Logger::getLoggerOfChn('access');
 		$waitNumb = $this->waitingSignups();
 		if( $waitNumb===false ){
 			return false;
@@ -254,15 +254,15 @@ class UserBase extends Native{
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
 		if( $rowCount<1 ){
-			Logger::retrieveLogger('access')->warning( 'Activation refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('access')->warning( 'Activation refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 			$this->isWrongTry = true;
 			return $this->declineForFlag(401, 'Invalid activation');
 		}
 		$userVals = $this->fetchUserArray($namedUserTxt);
 		if( is_array($userVals) && ($userVals['userStatus'] ?? '')=='inReview' ){
-			Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' confirmed its address, awaits review'.Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' confirmed its address, awaits review'.Logger::getActorSuffix() );
 		}else{
-			Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' activated'.Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' activated'.Logger::getActorSuffix() );
 		}
 		return true;
 	}
@@ -286,7 +286,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount("UPDATE {usrTable} SET {userStatus}='approved', {signupDate}=NULL WHERE {systemName}=? AND {userStatus}='inReview';", Array($namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' approved'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' approved'.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -310,7 +310,7 @@ class UserBase extends Native{
 		if( $userNtry===false ){
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
-		$accsJrnl = Logger::retrieveLogger('access');
+		$accsJrnl = Logger::getLoggerOfChn('access');
 		if( empty($userNtry) ){
 			// A failure, and the trace of names tried: always traced
 			$accsJrnl->notice( 'Reset asked for an unknown user'.Logger::getActorSuffix() );
@@ -354,11 +354,11 @@ class UserBase extends Native{
 			return $this->declineForFlag(500, 'Credential store unavailable');
 		}
 		if( $rowCount<1 ){
-			Logger::retrieveLogger('access')->warning( 'Password reset refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('access')->warning( 'Password reset refused for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 			$this->isWrongTry = true;
 			return $this->declineForFlag(401, 'Invalid code');
 		}
-		Logger::retrieveLogger('access')->notice( 'Password of user '.json_encode($namedUserTxt).' reset with its code'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'Password of user '.json_encode($namedUserTxt).' reset with its code'.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -396,7 +396,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount($updtQuer, Array($mailVals, $namedUserTxt))<0 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'Address of user '.json_encode($namedUserTxt).' '.($mailVals===null ? 'removed' : 'set').Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'Address of user '.json_encode($namedUserTxt).' '.($mailVals===null ? 'removed' : 'set').Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -420,7 +420,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount('UPDATE {usrTable} SET {userLocale}=? WHERE {systemName}=?;', Array($langVals, $namedUserTxt))<0 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->info( 'Language of user '.json_encode($namedUserTxt).' '.($langVals===null ? 'removed' : 'set to '.$langVals).Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->info( 'Language of user '.json_encode($namedUserTxt).' '.($langVals===null ? 'removed' : 'set to '.$langVals).Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -444,7 +444,7 @@ class UserBase extends Native{
 		if( $userVals===null || ($userVals['userStatus'] ?? '')!=='approved' ){
 			return $this->declineForFlag(401, 'Account not active');
 		}
-		$accsJrnl = Logger::retrieveLogger('access');
+		$accsJrnl = Logger::getLoggerOfChn('access');
 		$matxList = password_verify( $previousPass, strval($userVals['passwdHash'] ?? '') );
 		if( $this->hasHeldNowFlag($userVals) ){
 			$accsJrnl->warning( 'Password change refused: user '.json_encode($namedUserTxt).' is held after too many attempts'.Logger::getActorSuffix() );
@@ -506,7 +506,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount($updtQuer, Array($statusString, $namedUserTxt, $nowStats))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' '.($statusString=='disabled' ? 'locked' : 'unlocked').Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' '.($statusString=='disabled' ? 'locked' : 'unlocked').Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -537,7 +537,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount('UPDATE {usrTable} SET {accessRole}=? WHERE {systemName}=?;', Array($usrRleString, $namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'Role of user '.json_encode($namedUserTxt).' changed from '.$currRole.' to '.$usrRleString.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'Role of user '.json_encode($namedUserTxt).' changed from '.$currRole.' to '.$usrRleString.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -560,7 +560,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount('DELETE FROM {usrTable} WHERE {systemName}=?;', Array($namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' removed ('.strval($userVals['accessRole'] ?? '').')'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' removed ('.strval($userVals['accessRole'] ?? '').')'.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -595,7 +595,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount($updtQuer, Array(self::VOID_HASH, $this->codeHashesList($newCodig)[0], $this->getCodeEndDate($codMinuteNum), $namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'User '.json_encode($namedUserTxt).' reset'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'User '.json_encode($namedUserTxt).' reset'.Logger::getActorSuffix() );
 		return $newCodig;
 	}
 
@@ -614,7 +614,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount('UPDATE {usrTable} SET {bearerHash}=NULL WHERE {systemName}=?;', Array($namedUserTxt))<0 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'Personal token of user '.json_encode($namedUserTxt).' removed'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'Personal token of user '.json_encode($namedUserTxt).' removed'.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -634,7 +634,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount('UPDATE {usrTable} SET {twoFactKey}=NULL, {twoFactPos}=NULL, {twoFactWay}=NULL, {twoFactHsh}=NULL, {twoFactExp}=NULL WHERE {systemName}=?;', Array($namedUserTxt))<0 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( '2FA secret of user '.json_encode($namedUserTxt).' removed'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( '2FA secret of user '.json_encode($namedUserTxt).' removed'.Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -666,7 +666,7 @@ class UserBase extends Native{
 		if( $this->sendWriteCount($updtQuer, Array($namedUserTxt))<1 ){
 			return $this->declineForFlag(500, 'User cannot be written');
 		}
-		Logger::retrieveLogger('access')->notice( 'Mailed codes set for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( 'Mailed codes set for user '.json_encode($namedUserTxt).Logger::getActorSuffix() );
 		return true;
 	}
 
@@ -844,7 +844,7 @@ class UserBase extends Native{
 	protected function dropOldSignups(): Void {
 		$dfltNumb = $this->sendWriteCount( "DELETE FROM {usrTable} WHERE {signupDate} IS NOT NULL AND {userStatus}='awaiting' AND {codeExpiry} IS NOT NULL AND {codeExpiry}<?;", Array(date('Y-m-d H:i:s')) );
 		if( $dfltNumb>0 ){
-			Logger::retrieveLogger('access')->info( $dfltNumb.' sign-ups not confirmed in time removed' );
+			Logger::getLoggerOfChn('access')->info( $dfltNumb.' sign-ups not confirmed in time removed' );
 		}
 	}
 

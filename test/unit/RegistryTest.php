@@ -9,16 +9,16 @@ use nyu\Tools\Registry;
 
 $valsReg = new Registry( Array('zeroInt'=>0, 'zeroFlt'=>0.0, 'falseVl'=>false, 'zeroStr'=>'0', 'emptArr'=>Array(), 'nullVal'=>null, 'blankVl'=>'', 'textVal'=>'kept') );
 
-checkIdentical('0 is a value',               $valsReg->obtainDefValue('zeroInt', 'dflt'), 0);
-checkIdentical('0.0 is a value',             $valsReg->obtainDefValue('zeroFlt', 'dflt'), 0.0);
-checkIdentical('false is a value',           $valsReg->obtainDefValue('falseVl', 'dflt'), false);
-checkIdentical('"0" is a value',             $valsReg->obtainDefValue('zeroStr', 'dflt'), '0');
-checkIdentical('an empty array is a value',  $valsReg->obtainDefValue('emptArr', 'dflt'), Array());
-checkIdentical('a text is returned as stored', $valsReg->obtainDefValue('textVal', 'dflt'), 'kept');
-checkIdentical('a missing key takes the default',   $valsReg->obtainDefValue('missing', 'dflt'), 'dflt');
-checkIdentical('a null value takes the default',    $valsReg->obtainDefValue('nullVal', 'dflt'), 'dflt');
-checkIdentical('an empty string takes the default', $valsReg->obtainDefValue('blankVl', 'dflt'), 'dflt');
-checkIdentical('without a default, a missing key gives null', $valsReg->obtainDefValue('missing'), null);
-checkIdentical('the key is read whatever its case', $valsReg->obtainDefValue('ZEROINT', 'dflt'), 0);
+checkIdentical('0 is a value',               $valsReg->getValueOrDflt('zeroInt', 'dflt'), 0);
+checkIdentical('0.0 is a value',             $valsReg->getValueOrDflt('zeroFlt', 'dflt'), 0.0);
+checkIdentical('false is a value',           $valsReg->getValueOrDflt('falseVl', 'dflt'), false);
+checkIdentical('"0" is a value',             $valsReg->getValueOrDflt('zeroStr', 'dflt'), '0');
+checkIdentical('an empty array is a value',  $valsReg->getValueOrDflt('emptArr', 'dflt'), Array());
+checkIdentical('a text is returned as stored', $valsReg->getValueOrDflt('textVal', 'dflt'), 'kept');
+checkIdentical('a missing key takes the default',   $valsReg->getValueOrDflt('missing', 'dflt'), 'dflt');
+checkIdentical('a null value takes the default',    $valsReg->getValueOrDflt('nullVal', 'dflt'), 'dflt');
+checkIdentical('an empty string takes the default', $valsReg->getValueOrDflt('blankVl', 'dflt'), 'dflt');
+checkIdentical('without a default, a missing key gives null', $valsReg->getValueOrDflt('missing'), null);
+checkIdentical('the key is read whatever its case', $valsReg->getValueOrDflt('ZEROINT', 'dflt'), 0);
 
 finishChecking();

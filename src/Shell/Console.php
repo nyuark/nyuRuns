@@ -56,7 +56,7 @@ class Console{
 				return true;
 			}
 			$fullText = $errorMessage.' in '.$errorFileTxt.' on line '.$errorLineNum;
-			Logger::retrieveLogger('error')->warning( 'Command line: '.$fullText );
+			Logger::getLoggerOfChn('error')->warning( 'Command line: '.$fullText );
 			fwrite(STDERR, 'Warning: '.$fullText.PHP_EOL);
 			return true;
 		} );
@@ -91,7 +91,7 @@ class Console{
 			$printObj->printShellFail( $e->getMessage() );
 			$exitNumb = intval($e->getCode()) ?: Command::EXIT_FAIL;
 		}catch( \Throwable $e ){
-			Logger::retrieveLogger('error')->error( 'Command line: '.get_class($e).': '.$e->getMessage().' in '.$e->getFile().' on line '.$e->getLine() );
+			Logger::getLoggerOfChn('error')->error( 'Command line: '.get_class($e).': '.$e->getMessage().' in '.$e->getFile().' on line '.$e->getLine() );
 			$printObj->printShellFail( 'Command failed: '.$e->getMessage() );
 			$exitNumb = Command::EXIT_FAIL;
 		}
@@ -109,10 +109,10 @@ class Console{
 		try{
 			$loadInst = new Loader( Array('settings'=>Array('confType'=>'all')) );
 			$GLOBALS['nyuConfig'] = $loadInst->readConfigRegr();
-			Logger::plugLogsConfig( $loadInst->logConfigArray() );
+			Logger::loadLogsConfig( $loadInst->logConfigArray() );
 		}catch( \Throwable $e ){
 			$GLOBALS['nyuConfig'] = new Registry( Array() );
-			Logger::plugLogsConfig( Array('path'=>'') );
+			Logger::loadLogsConfig( Array('path'=>'') );
 		}
 		Logger::setCurrentUser( 'cli:'.self::osShellUsrName(), '' );
 	}

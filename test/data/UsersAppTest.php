@@ -118,7 +118,7 @@ function statusOf( Mixed $actnResult ): Mixed {
 	return is_array($actnResult) ? Array($actnResult['code'], $actnResult['mssg']) : $actnResult;
 }
 
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 plugConf();
 
 // Who may call : a delegate reads the users and approves the sign-ups, a manager does everything, nobody else
@@ -353,7 +353,7 @@ foreach( Array('User "emma" created \(standard\) by user "anna" from 192\.0\.2\.
 }
 checkIdentical('log: no password and no code', Array(preg_match('/pass-|<pass>/', $logText), strpos($logText, $emmaCod)), Array(0, false));
 
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 Logger::setCurrentUser( '', '' );
 dropTestFolder( TOP_DIR.DS.str_replace('/', DS, $lmtFldr) );
 $sqlLink = null;

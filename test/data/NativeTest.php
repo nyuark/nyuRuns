@@ -147,9 +147,9 @@ checkIdentical('Native 2FA: password alone', Array($natAuth->checkSecretArr(Arra
 checkIdentical('Native 2FA: wrong code',     Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>'000000')), $natAuth->finalErrorText()), Array(false, 'Invalid verification code'));
 checkIdentical('Native 2FA: valid code',     $natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), Array('userName'=>'ben', 'userRole'=>'standard', 'idOfUser'=>2));
 // A code is accepted once : its step is remembered, and nothing of that step or before passes again
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 checkIdentical('Native 2FA: the same code a second time', Array($natAuth->checkSecretArr(Array('user'=>'ben', 'pass'=>'pw-ben', 'code'=>nyu\Access\Totp::codeAtTimeText(strval($benScrt), time()))), $natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array(false, 'Invalid verification code', true));
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 checkPregMatch('Native 2FA: the replay is told in the access log', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Verification code refused: already used by user "ben"/');
 checkIdentical('Native 2FA: the replay counts as a failed attempt', failsOf($sqlLink, 'ben'), 1);
 $sqlLink->exec("UPDATE users SET twoFactPos=".(intdiv(time(), 30)+5)." WHERE systemName='ben'");
@@ -165,7 +165,7 @@ checkIdentical('Native 2FA: a table without the step column', Array(runCatchThro
 checkIdentical('Native 2FA: a table without the step column, user without a secret', $oldAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna'))['userName'] ?? null, 'anna');
 $sqlLink->exec("DROP TABLE oldusers");
 // The secret is stored encrypted when the block gives a key, and readable otherwise, which is logged
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 $benScrt = $natAuth->buildTwoFactor('ben');
 $canSeal = function_exists('openssl_encrypt');
 if( $canSeal ){
@@ -182,7 +182,7 @@ if( $canSeal ){
 }else{
 	recordSkipping('Native 2FA: secrets stored encrypted', 'the openssl extension is not loaded');
 }
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
 if( $canSeal ){
 	checkPregMatch('Native 2FA: a secret that cannot be read is told in the access log', $logText, '/\[ERROR\] 2FA secret of user "anna" cannot be read: tfaCrypt is missing or was changed/');
@@ -217,10 +217,10 @@ $thrAuth->checkSecretArr($annaBad);
 $thrAuth->checkSecretArr($annaBad);
 checkIdentical('Throttle the third failure is still told as a wrong password', Array($thrAuth->checkSecretArr($annaBad), $thrAuth->finalErrorText()), Array(false, 'Invalid credentials'));
 // The hold is told in the log only : the reply is the one of a wrong password
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 checkIdentical('Throttle held: the right password is refused, as a wrong one would be', Array($thrAuth->checkSecretArr($annaPwd), $thrAuth->finalErrorText(), $thrAuth->hasWrongSecret()), Array(false, 'Invalid credentials', true));
 checkIdentical('Throttle held: a wrong password is refused the same way', Array($thrAuth->checkSecretArr($annaBad), $thrAuth->finalErrorText()), Array(false, 'Invalid credentials'));
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 checkPregMatch('Throttle held: the hold is told in the access log, with the name', strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log')), '/\[WARNING\] Credential refused: user "anna" is held after too many attempts/');
 checkIdentical('Throttle held: nothing more is counted', failsOf($sqlLink, 'anna'), 3);
 $sqlLink->exec("UPDATE users SET twoFactPos=NULL WHERE systemName='ben'");

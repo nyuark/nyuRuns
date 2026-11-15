@@ -168,13 +168,13 @@ sort($sentTo);
 checkIdentical('after the reply: sent', $sentTo, Array('ann@example.ch', 'bob@example.ch'));
 
 // What cannot be sent is logged, never thrown
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 $accMail = new AccessMail( Array('mailAcnt'=>'nobody') );
 checkIdentical('an unknown account: not sent', $accMail->sendCodeToUser('register', 'ann', 'ann@example.ch', 'AAAA-BBBB-CC'), false);
 $accMail = new AccessMail( Array('mailAcnt'=>'devbox'), inTemporaryDir('Empty') );
 setsConfg($natConf);
 checkIdentical('a missing template: not sent', (new AccessMail(Array('mailAcnt'=>'devbox')))->sendCodeToUser('register', 'ann', 'not an address', 'C'), false);
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'runner.log'));
 checkPregMatch('the account is logged', $logText, '/\[WARNING\] Access mail not sent through account "nobody": Unknown mail account: "nobody"/');
 checkPregMatch('the address refused is logged', $logText, '/\[WARNING\] Access mail not sent through account "devbox": Invalid mail address/');

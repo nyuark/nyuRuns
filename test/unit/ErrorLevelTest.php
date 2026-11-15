@@ -9,10 +9,10 @@ require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
 
 use nyu\Tools\Logger;
 
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('errlogs'), 'mode'=>'FULL') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('errlogs'), 'mode'=>'FULL') );
 $prevHnd = $GLOBALS['ErrorHandler'] ?? null;
 $prevRsp = $GLOBALS['ErrorResponse'] ?? null;
-$GLOBALS['ErrorHandler'] = new ErrorHandler( Logger::retrieveLogger('error') );
+$GLOBALS['ErrorHandler'] = new ErrorHandler( Logger::getLoggerOfChn('error') );
 $GLOBALS['ErrorResponse'] = true;
 $prevLvl = error_reporting();
 set_error_handler('treatErrorHook');
@@ -30,7 +30,7 @@ error_reporting( E_ALL );
 
 restore_error_handler();
 error_reporting( $prevLvl );
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 $GLOBALS['ErrorHandler'] = $prevHnd;
 $GLOBALS['ErrorResponse'] = $prevRsp;
 $logText = strval(@file_get_contents(inTemporaryDir('errlogs').DS.'error.log'));

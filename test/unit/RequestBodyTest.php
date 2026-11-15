@@ -25,7 +25,7 @@ function parseBody( String $bodyString, ?String $contntType ): Mixed {
 		$_COOKIE = Array();
 		$_FILES = Array();
 		$reflect = new ReflectionClass($request);
-		$loadFnc = $reflect->getMethod('getRqstContent');
+		$loadFnc = $reflect->getMethod('loadReqtValues');
 		$loadFnc->invoke($request, Array());
 		$rawProp = $reflect->getProperty('nakedInput');
 		$rawVals = $rawProp->getValue($request);
@@ -214,9 +214,9 @@ checkIdentical('URL-encoded arrays and escapes',
 
 // Header and value readers
 $request = mockRequestObj( Array('X-One'=>'1') );
-checkIdentical('getHeader present', $request->retrieveHeader('X-One'), '1');
-checkIdentical('getHeader in another case', $request->retrieveHeader('x-one'), '1');
-checkIdentical('getHeader missing', $request->retrieveHeader('X-Two'), null);
+checkIdentical('getHeader present', $request->getHeaderValue('X-One'), '1');
+checkIdentical('getHeader in another case', $request->getHeaderValue('x-one'), '1');
+checkIdentical('getHeader missing', $request->getHeaderValue('X-Two'), null);
 
 // fromQuery : what came in the query string of the address is known by name, whatever the body holds
 FakeInput::$bodyString = 'pass=in-the-body&code=123456';
@@ -226,7 +226,7 @@ $_GET = Array('Former'=>'x');
 $_POST = Array();
 $_COOKIE = Array();
 $_FILES = Array();
-$loadFnc = new ReflectionMethod($request, 'getRqstContent');
+$loadFnc = new ReflectionMethod($request, 'loadReqtValues');
 $loadFnc->invoke($request, Array('User'=>'alice', 'pass'=>'in-the-address'));
 checkIdentical('fromQuery: a name of the address, one of both, one of the body', Array($request->isSentViaQuery('user'), $request->isSentViaQuery('pass'), $request->isSentViaQuery('code')), Array(true, true, false));
 checkIdentical('fromQuery: whatever the case, and what PHP read from the address', Array($request->isSentViaQuery('PASS'), $request->isSentViaQuery('former'), $request->isSentViaQuery('nothing')), Array(true, true, false));
@@ -253,9 +253,9 @@ function limitBody( String $bodyString, String $contntType, Int $sizeKBytes, Int
 	$_POST = Array();
 	$_COOKIE = Array();
 	$_FILES = Array();
-	$loadFnc = new ReflectionMethod($request, 'getRqstContent');
+	$loadFnc = new ReflectionMethod($request, 'loadReqtValues');
 	$loadFnc->invoke($request, Array());
-	return Array($request->overCeilingFlg(), array_keys($request->getAllVariable()));
+	return Array($request->isBodyTooLarge(), array_keys($request->getAllVariable()));
 }
 $bigJson = json_encode(Array('note'=>str_repeat('x', 2000)));
 checkIdentical('limit: no limit reads any body', limitBody($bigJson, 'application/json', 0), Array(false, Array('note')));

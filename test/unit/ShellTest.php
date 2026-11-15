@@ -26,7 +26,7 @@ function shellRun( Array $shellWords, String $inputsText='' ): Array {
 	rewind($inpStrm);
 	$exitNum = (new Console($shellWords, $outStrm, $errStrm, $inpStrm))->executeCommand();
 	// The logs of the project are not the tests' to write
-	Logger::plugLogsConfig( Array() );
+	Logger::loadLogsConfig( Array() );
 	rewind($outStrm);
 	rewind($errStrm);
 	return Array('code'=>$exitNum, 'text'=>str_replace("\r\n", "\n", stream_get_contents($outStrm)), 'errs'=>str_replace("\r\n", "\n", stream_get_contents($errStrm)));

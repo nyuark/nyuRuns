@@ -83,10 +83,10 @@ function baseRoutr( String $urlAddress, String $basePathTxt ): Router {
 	(new ReflectionProperty($request, 'reqtInMthd'))->setValue($request, 'GET');
 	return new Router( Array('detectBy'=>'manually', 'routeDir'=>'test'.DS.'fixtures'.DS.'routes', 'fileRoot'=>'test'.DS.'fixtures'.DS.'pages'), $request, $basePathTxt );
 }
-$pingReg = baseRoutr('/api/ping', '/api')->locateRouteReg();
+$pingReg = baseRoutr('/api/ping', '/api')->findRouteOfRqt();
 checkIdentical('router: the route found once the basePath is taken off', Array($pingReg->readValueByKey('appToRun'), $pingReg->readValueByKey('doAction')), Array('probe', 'sanitize'));
-checkIdentical('router: a path outside the basePath is not cut', baseRoutr('/apix/ping', '/api')->locateRouteReg()->readValueByKey('appToRun'), null);
-checkIdentical('router: a redirection to a path of the site goes under the basePath, a full address is left as it is', Array(baseRoutr('/api/old/5', '/api')->locateRouteReg()->readValueByKey('routTarg'), baseRoutr('/api/away', '/api/')->locateRouteReg()->readValueByKey('routTarg')), Array('/api/items/5', 'https://example.org/docs'));
-checkIdentical('router: a link goes under the basePath; a root basePath changes nothing', Array(baseRoutr('/api/ping', '/api')->buildRouteLink('items/$id', Array('id'=>7)), baseRoutr('/ping', '')->buildRouteLink('items/$id', Array('id'=>7)), baseRoutr('/ping', '/')->buildRouteLink('items/$id', Array('id'=>7))), Array('/api/items/7', '/items/7', '/items/7'));
+checkIdentical('router: a path outside the basePath is not cut', baseRoutr('/apix/ping', '/api')->findRouteOfRqt()->readValueByKey('appToRun'), null);
+checkIdentical('router: a redirection to a path of the site goes under the basePath, a full address is left as it is', Array(baseRoutr('/api/old/5', '/api')->findRouteOfRqt()->readValueByKey('routTarg'), baseRoutr('/api/away', '/api/')->findRouteOfRqt()->readValueByKey('routTarg')), Array('/api/items/5', 'https://example.org/docs'));
+checkIdentical('router: a link goes under the basePath; a root basePath changes nothing', Array(baseRoutr('/api/ping', '/api')->makeUrlOfRoute('items/$id', Array('id'=>7)), baseRoutr('/ping', '')->makeUrlOfRoute('items/$id', Array('id'=>7)), baseRoutr('/ping', '/')->makeUrlOfRoute('items/$id', Array('id'=>7))), Array('/api/items/7', '/items/7', '/items/7'));
 
 finishChecking();

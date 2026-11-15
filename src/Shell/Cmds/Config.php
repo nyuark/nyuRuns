@@ -673,7 +673,7 @@ class Config extends Command{
 		$reqtInst = ActCaller::makeRequestArr('GET', '/')[0];
 		$rowsList = Array();
 		$routInst = new Router($routeCfg, $reqtInst);
-		foreach( $routInst->allRoutesArray() as $rteVal ){
+		foreach( $routInst->listAllTargets() as $rteVal ){
 			$rowsList[] = Array( '/'.$rteVal['routPath'], implode(', ', $rteVal['mthdList']), $rteVal['routKind'], $rteVal['routTarg'], $rteVal['routOwnr'], $this->describeAccess($accsConf, $reqtInst, $rteVal, $routInst) );
 		}
 		// The actions the access block names, which the path alone reaches in autopath mode

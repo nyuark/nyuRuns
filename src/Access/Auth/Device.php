@@ -78,7 +78,7 @@ class Device implements Handler{
 		$devicTop = strval($dvceVals['deviceTops'] ?? '');
 		if( $devicTop!=='' && !in_array($devicTop, Checker::ROLE_LIST, true) ){
 			$this->errMessage = 'Invalid API key';
-			Logger::retrieveLogger('access')->warning( 'Device '.json_encode(strval($dvceVals['deviceName'] ?? '')).' of user '.json_encode(strval($dvceVals['systemName'] ?? '')).' refused: its cap '.json_encode($devicTop).' is not a role' );
+			Logger::getLoggerOfChn('access')->warning( 'Device '.json_encode(strval($dvceVals['deviceName'] ?? '')).' of user '.json_encode(strval($dvceVals['systemName'] ?? '')).' refused: its cap '.json_encode($devicTop).' is not a role' );
 			return false;
 		}
 		if( $devicTop!=='' && array_search($devicTop, Checker::ROLE_LIST, true) < array_search($userRole, Checker::ROLE_LIST, true) ){

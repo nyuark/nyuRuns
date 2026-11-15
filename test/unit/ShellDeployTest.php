@@ -279,7 +279,7 @@ if( function_exists('openssl_pkey_new') ){
 // An open site : nothing to log in to, only presets that reach no action, closed again once it has users
 $sttcRps = strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'statics.rps'));
 $sttcCfg = json_decode($sttcRps, true)['dispatch'] ?? Array();
-checkIdentical('statics with "*": false reaches no action; with the Runs mounted, it does', Array((new nyu\Tools\Router($sttcCfg, nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->reachesActions(), (new nyu\Tools\Router(Array('runMount'=>Array('auth'=>false)) + $sttcCfg, nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->reachesActions()), Array(false, true));
+checkIdentical('statics with "*": false reaches no action; with the Runs mounted, it does', Array((new nyu\Tools\Router($sttcCfg, nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->canReachAction(), (new nyu\Tools\Router(Array('runMount'=>Array('auth'=>false)) + $sttcCfg, nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->canReachAction()), Array(false, true));
 checkIdentical('"*" names every Run not named on its own line', Array((new nyu\Tools\Router(Array('runMount'=>Array('*'=>false, 'auth'=>'login')), nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->mountRoutePath('Auth'), (new nyu\Tools\Router(Array('runMount'=>Array('*'=>false, 'auth'=>'login')), nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0]))->mountRoutePath('Users')), Array('login', null));
 $projDir = freshPrjt('opensite');
 writeInProject($projDir, 'conf/presets/statics.rps', $sttcRps);

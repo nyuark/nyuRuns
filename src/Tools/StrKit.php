@@ -55,7 +55,7 @@ class StrKit{
 	 * @param String $nakedContent The string to strip.
 	 * @return String The string without its tags.
 	 */
-	public static function trimTagsString( String $nakedContent ): String {
+	public static function wipeTagsString( String $nakedContent ): String {
 		$outStrng = '';
 		$tagCodig = 0;	// 0: text, 1: tag, 2: <? block, 3: <! block, 4: comment
 		$tagDepth = 0;

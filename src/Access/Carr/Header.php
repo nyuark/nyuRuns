@@ -40,7 +40,7 @@ class Header implements Handler{
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$headVals = $givenRequest->retrieveHeader( $this->headerName );
+		$headVals = $givenRequest->getHeaderValue( $this->headerName );
 		if( $headVals===null || $headVals=='' ){
 			$this->errMessage = 'Missing '.$this->headerName.' header';
 			return false;

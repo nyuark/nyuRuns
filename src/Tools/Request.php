@@ -78,9 +78,9 @@ class Request{
 		$this->givenQuery = $this->serverRegr->readValueByKey('query_string');
 
 		// Get received headers
-		$this->everyHeads = $this->fetchHeadsList();
+		$this->everyHeads = $this->readAllHeaders();
 
-		$this->getRqstContent( $urlArgmn );
+		$this->loadReqtValues( $urlArgmn );
 	}
 
 	// Get query variables, cookies and files
@@ -91,7 +91,7 @@ class Request{
 	 *
 	 * @param Array $uriQueryList Query-string values parsed from the request URI.
 	 */
-	protected function getRqstContent( Array $uriQueryList = Array() ): Void {
+	protected function loadReqtValues( Array $uriQueryList = Array() ): Void {
 		// Read Variables
 		$this->nakedInput = $this->getRawDataList();
 		$this->dataValues = Array();
@@ -137,7 +137,7 @@ class Request{
 		$rawArray = $this->readBodyCapped();
 
 		// JSON body (POST/PUT/PATCH) : decode directly, no boundary framing
-		$countCod = $this->retrieveHeader('Content-Type');
+		$countCod = $this->getHeaderValue('Content-Type');
 		if($countCod!==null && stripos($countCod, 'application/json')!==false){
 			$jsonVals = json_decode($rawArray, true);
 			return array(
@@ -185,7 +185,7 @@ class Request{
 		}
 		$maxBytes = $this->maxSizeVal * 1024;
 		// What the request announces is checked first : nothing is then read
-		$clmdSize = max( intval($this->retrieveHeader('Content-Length')), intval($this->serverRegr->readValueByKey('content_length')) );
+		$clmdSize = max( intval($this->getHeaderValue('Content-Length')), intval($this->serverRegr->readValueByKey('content_length')) );
 		if( $clmdSize>$maxBytes ){
 			$this->isTooLarge = true;
 			return '';
@@ -216,7 +216,7 @@ class Request{
 	 *
 	 * @return Bool True when the request is to be refused as too large.
 	 */
-	public function overCeilingFlg(): Bool {
+	public function isBodyTooLarge(): Bool {
 		return $this->isTooLarge;
 	}
 
@@ -289,13 +289,13 @@ class Request{
 			}
 
 			if( $fileName!==null ){
-				$fileVals = $this->saveRqstUpFile( $fileName, $partCode, $partBody );
+				$fileVals = $this->saveUploadFile( $fileName, $partCode, $partBody );
 				$brcktPos = strpos($fieldNme, '[');
 				if( $brcktPos>0 ){
 					// field[], field[key] or field[a][b] : one array per property, as PHP fills $_FILES
 					$fieldBas = substr($fieldNme, 0, $brcktPos);
 					foreach( $fileVals as $prpKey => $prpVal ){
-						$this->nestRequestVal( $readFlux['file'][$fieldBas][$prpKey], substr($fieldNme, $brcktPos), $prpVal );
+						$this->addNestedValue( $readFlux['file'][$fieldBas][$prpKey], substr($fieldNme, $brcktPos), $prpVal );
 					}
 				}else{
 					$readFlux['file'][$fieldNme] = $fileVals;
@@ -319,7 +319,7 @@ class Request{
 	 * @param String $bracketsText The bracket part of a field name.
 	 * @param mixed  $storedAtLeaf Value to store at the end of the path.
 	 */
-	protected function nestRequestVal( ?Array &$goalNodeList, String $bracketsText, Mixed $storedAtLeaf ): Void {
+	protected function addNestedValue( ?Array &$goalNodeList, String $bracketsText, Mixed $storedAtLeaf ): Void {
 		preg_match_all('/\[([^\]]*)\]/', $bracketsText, $keysList);
 		$nodeRefr = &$goalNodeList;
 		foreach( $keysList[1] as $keyNme ){
@@ -343,7 +343,7 @@ class Request{
 	 * @param String $fileContents Content of the file.
 	 * @return Array The file entry : 'name', 'full_path', 'type', 'tmp_name', 'error' and 'size'.
 	 */
-	protected function saveRqstUpFile( String $rqtUploadNme, String $declaredMime, String $fileContents ): Array {
+	protected function saveUploadFile( String $rqtUploadNme, String $declaredMime, String $fileContents ): Array {
 		$baseName = preg_replace('#^.*[/\\\\]#', '', $rqtUploadNme);
 		$fileVals = Array('name'=>$baseName, 'full_path'=>$rqtUploadNme, 'type'=>$declaredMime, 'tmp_name'=>'', 'error'=>UPLOAD_ERR_NO_FILE, 'size'=>0);
 		if( $rqtUploadNme==='' ){
@@ -386,7 +386,7 @@ class Request{
 	 *
 	 * @return Array Associative array of header name => value.
 	 */
-	protected function fetchHeadsList(): Array {
+	protected function readAllHeaders(): Array {
 		// NGinX compatibility
 		if (!function_exists('apache_request_headers')){
 			$hedrList = Array();
@@ -424,7 +424,7 @@ class Request{
 	 * @param String $checkValText HTTP method to compare against (e.g. 'GET', 'POST').
 	 * @return Bool True if the request used that method.
 	 */
-	public function usedMethodFlag( String $checkValText='' ): Bool {
+	public function isSentByMethod( String $checkValText='' ): Bool {
 		if( $this->reqtInMthd==$checkValText ){
 			return true;
 		}else{
@@ -437,7 +437,7 @@ class Request{
 	 * @param String $uriValuesKey Key of the URI value to read.
 	 * @return mixed The value, or null if not set.
 	 */
-	public function obtainUrlValue( String $uriValuesKey='' ): Mixed {
+	public function getUrlKeyValue( String $uriValuesKey='' ): Mixed {
 		if( isset( $this->uriDetails[$uriValuesKey] ) ){
 			return $this->uriDetails[$uriValuesKey];
 		}else{
@@ -450,7 +450,7 @@ class Request{
 	 * @param String $nameOfHeader Name of the header to read.
 	 * @return ?String The header value, or null if not present.
 	 */
-	public function retrieveHeader( String $nameOfHeader='' ): ?String {
+	public function getHeaderValue( String $nameOfHeader='' ): ?String {
 		// Header names are case-insensitive
 		foreach( $this->everyHeads as $hdrKey => $hdrVal ){
 			if( strcasecmp($hdrKey, $nameOfHeader)==0 ){
@@ -491,7 +491,7 @@ class Request{
 	 * @param String $rqtCookieNme Name of the cookie to read.
 	 * @return mixed The cookie value, or null if not present.
 	 */
-	public function retrieveCookie( String $rqtCookieNme ): Mixed {
+	public function getCookieValue( String $rqtCookieNme ): Mixed {
 		if( isset( $this->ckieValues[$rqtCookieNme] ) ){
 			return $this->ckieValues[$rqtCookieNme];
 		}else{
@@ -504,7 +504,7 @@ class Request{
 	 * @param String $fileArrayKey Key of the file entry to read.
 	 * @return mixed The file data, or null if not present.
 	 */
-	public function retrieveInFile( String $fileArrayKey ): Mixed {
+	public function getUploadEntry( String $fileArrayKey ): Mixed {
 		if( isset( $this->uploadData[$fileArrayKey] ) ){
 			return $this->uploadData[$fileArrayKey];
 		}else{
@@ -549,7 +549,7 @@ class Request{
 	 *
 	 * @return ?ClientReg The client registry, or null when the request was built without one.
 	 */
-	public function retrieveClient(): ?ClientReg {
+	public function getClientOfRqt(): ?ClientReg {
 		return $this->clientRegr;
 	}
 

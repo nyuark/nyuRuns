@@ -55,7 +55,7 @@ checkIdentical('folder: the files of another folder', loadedCnf(Array('confType'
 function loadedVal( Array $setupBlock, String $secretName ): Mixed {
 	return runCatchThrown(function() use ($setupBlock, $secretName){
 		$loadObj = new Loader( Array('settings'=>$setupBlock) );
-		return $loadObj->readConfigRegr()->obtainRowValue('SECRETS', $secretName);
+		return $loadObj->readConfigRegr()->getNestedValue('SECRETS', $secretName);
 	});
 }
 

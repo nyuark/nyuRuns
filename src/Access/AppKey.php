@@ -59,7 +59,7 @@ class AppKey{
 	public function verifyAppArray( Request $givenRequest ): Array|Bool|null {
 		$this->isWrongTry = false;
 		$this->callingApp = null;
-		$sentClef = strval($givenRequest->retrieveHeader($this->headerName) ?? '');
+		$sentClef = strval($givenRequest->getHeaderValue($this->headerName) ?? '');
 		if( $sentClef=='' ){
 			return null;
 		}

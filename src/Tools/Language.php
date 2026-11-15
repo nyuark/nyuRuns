@@ -56,7 +56,7 @@ class Language {
 	 * @param ?String $clntLangText The language of the request, only when the person makes it.
 	 * @return String The language chosen.
 	 */
-	public function chooseLanguage( ?String $langOfPerson, ?String $clntLangText ): String {
+	public function findPersonLang( ?String $langOfPerson, ?String $clntLangText ): String {
 		foreach( Array($langOfPerson, $clntLangText) as $oneTag ){
 			$tagStrng = strtolower( trim(str_replace('_', '-', strval($oneTag))) );
 			if( self::isValidLangTag($tagStrng) ){
@@ -73,7 +73,7 @@ class Language {
 	 * @param String $givenLangTag The language chosen.
 	 * @return Array The languages, each once ('fr-ch' gives 'fr-ch', 'fr', 'en').
 	 */
-	public function langChainArray( String $givenLangTag ): Array {
+	public function getLngChainLst( String $givenLangTag ): Array {
 		$chainLst = Array();
 		foreach( Array(strtolower($givenLangTag), $this->defaultLng) as $oneTag ){
 			if( !self::isValidLangTag($oneTag) ){
@@ -92,10 +92,10 @@ class Language {
 	 *
 	 * @param String $baseFldrText The folder holding one folder per language.
 	 * @param String $templateName The name of the file.
-	 * @param Array  $languageList The languages, the most precise first (see langChainArray()).
+	 * @param Array  $languageList The languages, the most precise first (see getLngChainLst()).
 	 * @return ?String The path of the file, or null when no language has it.
 	 */
-	public function locateTemplate( String $baseFldrText, String $templateName, Array $languageList ): ?String {
+	public function findTmplInLang( String $baseFldrText, String $templateName, Array $languageList ): ?String {
 		if( $templateName=='' || basename($templateName)!==$templateName ){
 			return null;
 		}

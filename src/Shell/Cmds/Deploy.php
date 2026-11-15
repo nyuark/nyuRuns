@@ -663,7 +663,7 @@ class Deploy extends Command{
 			try{
 				$setupObj = (new \nyu\Setup\Preset($prstId))->makeConfLoader();
 				$routeCfg = $setupObj->getRegistryKey('dispatch');
-				$canReach = (new \nyu\Tools\Router( is_array($routeCfg) ? $routeCfg : Array(), \nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions();
+				$canReach = (new \nyu\Tools\Router( is_array($routeCfg) ? $routeCfg : Array(), \nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0] ))->canReachAction();
 				$accsConf = $setupObj->setAccessArray();
 			}catch( \Throwable $e ){
 				$this->terminateShell('Nothing was opened: the preset '.$prstId.' cannot be read: '.$e->getMessage(), self::EXIT_DENY);

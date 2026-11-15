@@ -73,7 +73,7 @@ function readLogs(): String {
 	return $newText;
 }
 
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 Logger::setCurrentUser( 'anna', '192.0.2.7' );
 $usrBase = new UserBase( Array() );
 $natAuth = new Native( Array() );
@@ -394,7 +394,7 @@ $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array(
 ) );
 checkIdentical('fromLogin: the block authConf names', operates(UserBase::fromLoginBlock(), 'userInfosArray', Array('anna')), Array(false, 500, 'Credential store unavailable'));
 
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 Logger::setCurrentUser( '', '' );
 $sqlLink = null;
 

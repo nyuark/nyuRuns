@@ -106,7 +106,7 @@ checkIdentical('JWT expiry follows the ttl',  ($payload['exp'] ?? 0) - ($payload
 checkIdentical('JWT tampered token',          $jwtSess->verifyRqstList(mockRequestObj(Array('Authorization'=>'Bearer '.$jwToken.'x'))), false);
 checkIdentical('JWT tampered token message',  $jwtSess->finalErrorText(), 'Invalid token');
 // What the library found wrong is never told to the client : two messages, and the reason in the log
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('jwtlogs'), 'mode'=>'FULL') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('jwtlogs'), 'mode'=>'FULL') );
 $jwtKeys = Array(str_repeat('s', 40), 'HS256');
 /**
  * Tells what a JWT carrier answers to a token.
@@ -132,7 +132,7 @@ checkIdentical('JWT signed, without a user',  tokenReply($jwtSess, Firebase\JWT\
 checkIdentical('JWT signed, with an empty user', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'', 'exp'=>time()+60), ...$jwtKeys)), Array(false, 'Invalid token'));
 checkIdentical('JWT signed, with a user that is not a text', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>Array('carol'), 'exp'=>time()+60), ...$jwtKeys)), Array(false, 'Invalid token'));
 checkIdentical('JWT signed here, with its expiry and its user', tokenReply($jwtSess, Firebase\JWT\JWT::encode(Array('userName'=>'carol', 'exp'=>time()+60), ...$jwtKeys))[0], 'carol');
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 $jwtLogs = strval(@file_get_contents(inTemporaryDir('jwtlogs').DS.'access.log'));
 checkIdentical('JWT the reason is told in the log, at the debug level', Array(preg_match('/\[DEBUG\] Token refused: UnexpectedValueException: Wrong number of segments/', $jwtLogs), preg_match('/\[DEBUG\] Token refused: signed, but without an expiry or a user/', $jwtLogs), substr_count($jwtLogs, 'Token refused')), Array(1, 1, 8));
 checkIdentical('JWT no header',               $jwtSess->verifyRqstList(mockRequestObj()), false);
@@ -219,14 +219,14 @@ $checker = new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer 
 checkIdentical('Checker turns an unknown role into member', $checker->validateAccess()->readValueByKey('userRole'), 'standard');
 
 // The access log : a privileged user is a notice of its own, with its role and what was asked for
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $admHead = Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'carol', 'userRole'=>'managers')));
 $adrVals = Array('REMOTE_ADDR'=>'10.0.0.1');
 (new Checker( $jwtConf, mockRequestObj($admHead, $adrVals), new Registry(Array('appToRun'=>'Users', 'doAction'=>'remove')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'dave', 'userRole'=>'advanced'))), $adrVals), new Registry(Array('appToRun'=>null, 'doAction'=>null, 'routPath'=>'docs/*')) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer '.$jwtSess->issueTokenText(Array('userName'=>'erin', 'userRole'=>'standard'))), $adrVals) ))->validateAccess();
 (new Checker( $jwtConf, mockRequestObj(Array('Authorization'=>'Bearer nope'), $adrVals) ))->validateAccess();
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: one line per check', count($axsLogs), 4);
 checkIdentical('access log: privileged access to an action', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] Privileged access granted for user "carol" (managers) from 10.0.0.1 to Users/remove');
@@ -379,7 +379,7 @@ function roleReply( Array $accessConf, String $loggedRole, Array $routeArray ): 
 
 // The declared routes the paths of minRoles name : the site's, and a route of the Run Probe under its mount
 $GLOBALS['roleRout'] = new Router( Array(), mockRequestObj() );
-$GLOBALS['roleRout']->assignRouteSet( Array(
+$GLOBALS['roleRout']->setGivenRoutes( Array(
 	'docs/*'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('fldrPath'=>'docs')),
 	'tokchk'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('appToRun'=>'auth', 'doAction'=>'check')),
 	'admin'=>Array('routOwnr'=>'site', 'pointsTo'=>Array('pageFile'=>'admin.html')),
@@ -463,11 +463,11 @@ checkIdentical('Checker role: a route both open and asking for a role', Array(ro
 checkIdentical('Checker role: the other open routes are served', roleReply(Array('openList'=>Array('auth/login')) + $rolConf, '', Array('appToRun'=>'auth', 'doAction'=>'login')), Array(200, ''));
 
 // The access log : one warning for a refusal, with the role needed
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('rolelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('rolelogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 roleReply($rolConf, 'standard', Array('appToRun'=>'users', 'doAction'=>'lock'));
 roleReply($rolConf, 'standard', $dirRoute);
 roleReply(Array('minRoles'=>Array('users/*'=>'admin')) + $jwtConf, 'managers', $anyRoute);
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('rolelogs').DS.'access.log') ? file(inTemporaryDir('rolelogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: a refusal for the role is one line', count($axsLogs), 3);
 checkIdentical('access log: the role needed by an action', $axsLogs[0] ?? null, '['.date('Y').'] [WARNING] Access refused for user "carol" (standard) from 10.0.0.1 to users/lock: role managers needed');
@@ -488,7 +488,7 @@ function roleActn( String $loggedRole, String $neededRole='' ): Array {
 	$actnSet->treatAskedActn();
 	return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue);
 }
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('actnlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('actnlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('holdsRole: the highest role holds them all', roleActn('managers')[2], Array('standard'=>true, 'advanced'=>true, 'managers'=>true));
 checkIdentical('holdsRole: a role and those before it', roleActn('advanced')[2], Array('standard'=>true, 'advanced'=>true, 'managers'=>false));
 checkIdentical('holdsRole: nobody logged holds none', roleActn('')[2], Array('standard'=>false, 'advanced'=>false, 'managers'=>false));
@@ -496,7 +496,7 @@ checkIdentical('needsRole: the action goes on with the role', roleActn('advanced
 checkIdentical('needsRole: ends it with a 404 without', roleActn('standard', 'advanced'), Array(404, 'Not Found', null));
 checkIdentical('needsRole: and when nobody is logged', roleActn('', 'standard'), Array(404, 'Not Found', null));
 checkForThrows('needsRole: an unknown role throws', function(){ roleActn('managers', 'root'); }, 'RuntimeException');
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('actnlogs').DS.'access.log') ? file(inTemporaryDir('actnlogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('needsRole: its refusals are logged as those of a route', $axsLogs, Array(
 	'['.date('Y').'] [WARNING] Access refused for user "carol" (standard) from 10.0.0.1 to probe/roleList: role advanced needed',
@@ -518,13 +518,13 @@ checkIdentical('RegKey a wrong key, with named keys', Array($namdKey->checkSecre
 checkIdentical('RegKey a name is not a key, nor is a key that is not a text', Array($namdKey->checkSecretArr(Array('key'=>'reports')), $namdKey->checkSecretArr(Array('key'=>'k-list'))), Array(false, false));
 checkIdentical('RegKey a plain list still names nobody', (new RegKey(Array('keysList'=>Array('k-1', 'k-2'))))->checkSecretArr(Array('key'=>'k-2')), Array('userName'=>''));
 checkIdentical('RegKey a keysList that is not a list accepts nothing', (new RegKey(Array('keysList'=>'k-1')))->checkSecretArr(Array('key'=>'k-1')), false);
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('keylogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('keylogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 $GLOBALS['nyuConfig'] = new Registry( Array('access'=>Array('TRYLIMIT'=>Array('maxTries'=>0),'NAMEKEYS'=>Array('keysList'=>Array('reports'=>'k-rept', "eve\" from 9.9.9.9\n[".date('Y')."] [INFO] forged"=>'k-evil')))) );
 $keyConf = Array('required'=>true, 'carrWith'=>'apiHeadr', 'authWith'=>'regdKeys', 'carrConf'=>'namekeys');
 $axsRslt = (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-rept'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();
 checkIdentical('Checker named key: the holder is the user, a member', Array($axsRslt->readValueByKey('statCode'), $axsRslt->readValueByKey('userName'), $axsRslt->readValueByKey('userRole')), Array(200, 'reports', 'standard'));
 (new Checker( $keyConf, mockRequestObj(Array('X-Api-Key'=>'k-evil'), Array('REMOTE_ADDR'=>'10.0.0.1')) ))->validateAccess();
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 checkIdentical('access log: a member name is written as a JSON text, and cannot forge an entry', file_exists(inTemporaryDir('keylogs').DS.'access.log') ? file(inTemporaryDir('keylogs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array(), Array(
 	'['.date('Y').'] [INFO] Access granted for user "reports" from 10.0.0.1',
 	'['.date('Y').'] [INFO] Access granted for user "eve\" from 9.9.9.9\n['.date('Y').'] [INFO] forged" from 10.0.0.1'

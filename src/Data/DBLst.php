@@ -75,7 +75,7 @@ class DBLst {
 				}
 			}else{
 				// Kept as given, as the other fragments are, and told : setOrderFields() is the way that takes no SQL
-				\nyu\Tools\Logger::retrieveLogger('runner')->notice( 'List of '.json_encode($databaseTble).': order written as SQL, kept as given' );
+				\nyu\Tools\Logger::getLoggerOfChn('runner')->notice( 'List of '.json_encode($databaseTble).': order written as SQL, kept as given' );
 				$this->sqlClauses['order'] = $orderByTerms;
 			}
 		}

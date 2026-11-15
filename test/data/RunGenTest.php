@@ -87,7 +87,7 @@ checkIdentical('fullList: the Runs with a spec', runShellAsJson($projDir, Array(
 // Its routes, as the Router reads them
 $routObj = new nyu\Tools\Router( Array('detectBy'=>'autopath', 'pathForm'=>'$appToRun/$doAction/$argument'), mockRequestObj() );
 $rteSeen = Array();
-foreach( $routObj->runRoutesArray() as $rteItem ){
+foreach( $routObj->readRunsRoutes() as $rteItem ){
 	$rteSeen[$rteItem['routPath']] = $rteItem['pointsTo'];
 }
 checkIdentical('routes: the list and create, the record, and the events of a record', Array(array_keys($rteSeen), $rteSeen['shows/$id/events']['doAction'] ?? null), Array(Array('shows', 'shows/$id', 'shows/$id/events'), 'events'));

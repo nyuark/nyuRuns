@@ -107,9 +107,9 @@ checkIdentical('Device cap: an empty cap, of a device made before the caps, is t
 // A cap that is not a role, written past the CHECK of the table : refused, never the user's role
 $sqlLink->exec('PRAGMA ignore_check_constraints = ON');
 $sqlLink->exec("UPDATE devices SET deviceTops='root' WHERE deviceName='Kiosk'");
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('dvclogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('dvclogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('Device cap: one that is not a role refuses the device as an invalid key, not counted against the address', Array($dvcAuth->checkSecretArr(Array('key'=>$kiskTkn)), $dvcAuth->finalErrorText(), $dvcAuth->hasWrongSecret()), Array(false, 'Invalid API key', false));
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 checkPregMatch('Device cap: its refusal is a warning on access', strval(@file_get_contents(inTemporaryDir('dvclogs').DS.'access.log')), '#\[WARNING\] Device "Kiosk" of user "anna" refused: its cap "root" is not a role#');
 
 // A device never changes its user's account : the password needs the password login

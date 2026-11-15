@@ -70,7 +70,7 @@ class Runner{
 			$this->makeSharedInst();
 
 			// Wire the logger into PHP's error/exception/shutdown handling, on its own channel
-			$GLOBALS['nyuLogger'] = Logger::retrieveLogger('error');
+			$GLOBALS['nyuLogger'] = Logger::getLoggerOfChn('error');
 			$GLOBALS['ErrorResponse'] = Array($this, 'sendErrorReply');
 			require_once TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php';
 			// The errors PHP reports are those of ERR_LEVL; one that cannot be read stops the start-up
@@ -185,11 +185,11 @@ class Runner{
 		// A body larger than the config allows is not read
 		$this->requestObj = $ctnrInst->makeObjOfClass('nyu\\Tools\\Request', array(), Array($this->confLoader->findBodyLimits()));
 		// Another site is named in the reply only when the preset lists it
-		$this->requestRsp->setReplyOrigin( $this->requestObj->retrieveHeader('Origin') );
+		$this->requestRsp->setReplyOrigin( $this->requestObj->getHeaderValue('Origin') );
 
 		// Every log channel is built with this configuration; the Runner writes on its own
-		Logger::plugLogsConfig( $this->confLoader->logConfigArray() );
-		$this->runnerLogs = Logger::retrieveLogger('runner');
+		Logger::loadLogsConfig( $this->confLoader->logConfigArray() );
+		$this->runnerLogs = Logger::getLoggerOfChn('runner');
 
 		// Plug the program that unpacks sounds, where the server has one
 		$soundCfg = $this->confLoader->findSoundConfg();
@@ -210,8 +210,8 @@ class Runner{
 		// running the sequence and the Registrys needed
 
 		// A request larger than allowed is refused before anything is done with it
-		if( $this->requestObj->overCeilingFlg() ){
-			$clntRegr = $this->requestObj->retrieveClient();
+		if( $this->requestObj->isBodyTooLarge() ){
+			$clntRegr = $this->requestObj->getClientOfRqt();
 			$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 			$this->runnerLogs->warning( 'Request refused'.(($userAddr!='') ? ' from '.$userAddr : '').': body larger than allowed (REQ_SIZE, REQ_PART)' );
 			$this->setReplyStatus( 413, 'Payload Too Large' );
@@ -232,11 +232,11 @@ class Runner{
 		$this->accessRegr = $this->validateAccess( $accsConf );
 
 		// The events traced from here on are signed with the user and the address of the request
-		$clntRegr = $this->requestObj->retrieveClient();
+		$clntRegr = $this->requestObj->getClientOfRqt();
 		Logger::setCurrentUser( strval($this->accessRegr->readValueByKey('userName')), ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
 		$this->logUploadFiles( $this->requestObj->getUploadFiles() );
 
-		if( $this->accessRegr->obtainDefValue('statCode', 200) == 200 ){
+		if( $this->accessRegr->getValueOrDflt('statCode', 200) == 200 ){
 			$this->treatRoutedRqt();
 		}else{
 			$this->denyReqtAccess( $this->accessRegr );
@@ -322,7 +322,7 @@ class Runner{
 		if( $rtryAftr!=null ){
 			$this->requestRsp->addReplyHeader('Retry-After', strval($rtryAftr));
 		}
-		$this->setReplyStatus( $accsCheckReg->obtainDefValue('statCode', 401), strval($accsCheckReg->readValueByKey('statMssg')) );
+		$this->setReplyStatus( $accsCheckReg->getValueOrDflt('statCode', 401), strval($accsCheckReg->readValueByKey('statMssg')) );
 		$this->sendFinalReply( $this->statusCode );
 	}
 
@@ -412,7 +412,7 @@ class Runner{
 
 	/**
 	 * Answers an error with the HTML page the site has for its status
-	 * (see Router::errorPgeString), in place of the error body: when the
+	 * (see Router::findErrPagePth), in place of the error body: when the
 	 * request asked for a page or a file, or for nothing a route answers
 	 * in a preset that serves pages. A request for an action keeps the
 	 * error body of the preset. The page gets the status as %code% and
@@ -431,7 +431,7 @@ class Runner{
 		if( !$isNoRout && !in_array($routeCod, Array('htmlPage', 'toStatic'), true) ){
 			return;
 		}
-		$pagePath = $routInst->errorPgeString($responseCode);
+		$pagePath = $routInst->findErrPagePth($responseCode);
 		if( $pagePath!==null ){
 			$this->requestRsp->setPageToReply( $pagePath, Array('code'=>$responseCode, 'error'=>$statusReason), $responseCode );
 		}
@@ -459,7 +459,7 @@ class Runner{
 		// output the contents to the requester
 		$this->requestRsp->writeReplyHead( $responseCode );
 		// A HEAD request is answered by its headers alone, whatever the web server does with a body
-		if( $this->requestObj!==null && $this->requestObj->usedMethodFlag('HEAD') ){
+		if( $this->requestObj!==null && $this->requestObj->isSentByMethod('HEAD') ){
 			return;
 		}
 		$this->requestRsp->writeReplyBody();
@@ -477,19 +477,19 @@ class Runner{
 		$routeGol = strval($this->routerRegr->readValueByKey('routTarg'));
 		if( $routeCod=='redirect' ){
 			$this->requestRsp->addReplyHeader('Location', $routeGol);
-			$this->setReplyStatus( intval($this->routerRegr->obtainDefValue('routStat', 302)) );
+			$this->setReplyStatus( intval($this->routerRegr->getValueOrDflt('routStat', 302)) );
 			return;
 		}
 		if( $routeCod=='toStatic' ){
-			$wasFound = $this->requestRsp->setFileToReply( $routeGol, strval($this->routerRegr->readValueByKey('routType')), strval($this->requestObj->retrieveHeader('Range')) );
+			$wasFound = $this->requestRsp->setFileToReply( $routeGol, strval($this->routerRegr->readValueByKey('routType')), strval($this->requestObj->getHeaderValue('Range')) );
 			// The client may keep the file, and a proxy too when it is served to anyone
 			$askdHedr = Array();
 			foreach( Array('If-None-Match', 'If-Modified-Since', 'If-Range') as $hdrKey ){
-				$askdHedr[$hdrKey] = strval($this->requestObj->retrieveHeader($hdrKey));
+				$askdHedr[$hdrKey] = strval($this->requestObj->getHeaderValue($hdrKey));
 			}
 			$this->requestRsp->cacheReplyFile( $askdHedr, !$this->accessRegr->readValueByKey('loggedIn') );
 		}else{
-			$wasFound = $this->requestRsp->setPageToReply( $routeGol, (array)$this->routerRegr->obtainDefValue('pathVars', Array()) );
+			$wasFound = $this->requestRsp->setPageToReply( $routeGol, (array)$this->routerRegr->getValueOrDflt('pathVars', Array()) );
 		}
 		if( $wasFound ){
 			$this->setReplyStatus( 200 );
@@ -506,9 +506,9 @@ class Runner{
 	function treatRoutedRqt( ): Void {
 		$applCall = $this->routerRegr->readValueByKey('appToRun');
 		$actTitle = $this->routerRegr->readValueByKey('doAction');
-		$actOptns = $this->routerRegr->obtainDefValue('argument', null);
+		$actOptns = $this->routerRegr->getValueOrDflt('argument', null);
 
-		$routeStt = $this->routerRegr->obtainDefValue('statCode', 200);
+		$routeStt = $this->routerRegr->getValueOrDflt('statCode', 200);
 		if( $routeStt!=200 ){
 			// The route answers by itself : method refused, or OPTIONS
 			$allowLst = $this->routerRegr->readValueByKey('allowHdr');

@@ -130,11 +130,11 @@ checkIdentical('without settings, no proxy is trusted and the usual headers are 
 
 // Through the request
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7', 'HTTP_USER_AGENT'=>$andAgnt) );
-checkIdentical('a request gives its client registry', Array($request->retrieveClient()->readValueByKey('userAddr'), $request->retrieveClient()->readValueByKey('clDevice')), Array('203.0.113.7', 'handheld'));
+checkIdentical('a request gives its client registry', Array($request->getClientOfRqt()->readValueByKey('userAddr'), $request->getClientOfRqt()->readValueByKey('clDevice')), Array('203.0.113.7', 'handheld'));
 
 // A request built in full writes its address with the scheme the client used
 $servReg = makeFakeServer( Array('REQUEST_METHOD'=>'GET', 'REQUEST_URI'=>'/shows/index?page=2', 'SERVER_NAME'=>'api.example.org', 'REMOTE_ADDR'=>'10.0.0.5', 'REQUEST_SCHEME'=>'http', 'HTTP_X_FORWARDED_PROTO'=>'https') );
 $request = new nyu\Tools\Request( $servReg, new nyu\Output\Response(), new ClientReg($servReg, true, $onePrxy) );
-checkIdentical('behind a trusted proxy, the address of the request carries the scheme the client used', Array($request->obtainUrlValue('htScheme'), $request->obtainUrlValue('wholeUrl')), Array('https', 'https://api.example.org/shows/index'));
+checkIdentical('behind a trusted proxy, the address of the request carries the scheme the client used', Array($request->getUrlKeyValue('htScheme'), $request->getUrlKeyValue('wholeUrl')), Array('https', 'https://api.example.org/shows/index'));
 
 finishChecking();

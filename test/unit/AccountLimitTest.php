@@ -51,7 +51,7 @@ checkIdentical('limiter: dropStale and freeHolds remove the counters of the acco
 checkIdentical('limiter: maxTries 0 counts nothing', (function() use ( $lmtFldr ){ $noLimit = new Limiter(Array('maxTries'=>0, 'dataPath'=>$lmtFldr)); $noLimit->countLimitUser('anna'); return count(glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array()); })(), 0);
 
 // The users file
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs')) );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs')) );
 $usrList = new UserList( $lstConf );
 checkIdentical('userFile: two wrong passwords, then the right one: logged in', Array(answerOf($usrList, 'ben', 'x')[0], answerOf($usrList, 'ben', 'y')[0], answerOf($usrList, 'ben', 'pw-ben')[0]), Array(false, false, 'ben'));
 checkIdentical('userFile: the right login cleared the failures', count(glob(TOP_DIR.DS.$lmtFldr.DS.'*.usr') ?: Array()), 0);
@@ -73,7 +73,7 @@ checkIdentical('userFile: wrong 2FA codes count too', answerOf($emmaLst, 'emma',
 $htpList = new PassList( $htpConf );
 checkIdentical('htpasswd: a right password clears, wrong ones hold the account', Array(answerOf($htpList, 'alice', 'x')[0], answerOf($htpList, 'alice', 's3cret')[0], answerOf($htpList, 'alice', 'x')[0], answerOf($htpList, 'alice', 'y')[0], answerOf($htpList, 'alice', 'z')[0], answerOf($htpList, 'alice', 's3cret')), Array(false, 'alice', false, false, false, Array(false, 'Invalid credentials', true)));
 checkIdentical('htpasswd: another user is not held', answerOf($htpList, 'hank', 'pw-hank')[0], 'hank');
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
 checkIdentical('the holds are told in the log', Array(preg_match('/\[WARNING\] Credential refused: user "ben" is held after too many attempts/', $logText), preg_match('/\[WARNING\] Credential refused: user "alice" is held after too many attempts/', $logText)), Array(1, 1));
 

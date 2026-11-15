@@ -168,7 +168,7 @@ class Actionset {
 	 * @return Bool True when the file was registered.
 	 */
 	protected function serveFileReply( String $sentFilePath, String $mimeTypeText ): Bool {
-		$rangeTxt = ($this->requestObj!==null) ? strval($this->requestObj->retrieveHeader('Range')) : '';
+		$rangeTxt = ($this->requestObj!==null) ? strval($this->requestObj->getHeaderValue('Range')) : '';
 		if( $this->respondObj===null || !$this->respondObj->setFileToReply($sentFilePath, $mimeTypeText, $rangeTxt) ){
 			$this->statusCode = 404;
 			$this->statusText = 'Not Found';
@@ -218,7 +218,7 @@ class Actionset {
 	 * @throws \RuntimeException When the address or the status is not one of a redirection.
 	 */
 	protected function redirectClient( String $redirectAddr, Int $responseCode=302 ): Never {
-		if( !Router::validRouteAddr($redirectAddr) || !in_array($responseCode, Router::MOVE_LIST, true) ){
+		if( !Router::isRedirectAddr($redirectAddr) || !in_array($responseCode, Router::MOVE_LIST, true) ){
 			throw new \RuntimeException('Redirection refused: the address or the status '.$responseCode.' is not one of a redirection');
 		}
 		if( $this->respondObj!==null ){
@@ -228,10 +228,10 @@ class Actionset {
 	}
 
 	/**
-	 * Builds the link to a declared route (see Router::buildRouteLink). A path
+	 * Builds the link to a declared route (see Router::makeUrlOfRoute). A path
 	 * without a leading slash is first one of the routes the Run declares in
 	 * its own routes.rte, as written there: the link follows the Run's
-	 * current mount (see Router::runsRouteShape). When the Run declares no such
+	 * current mount (see Router::getMountedPath). When the Run declares no such
 	 * route, and for a path with a leading slash, it is the final path of a
 	 * route, as the site serves it.
 	 *
@@ -246,8 +246,8 @@ class Actionset {
 		if( $this->routingObj===null ){
 			throw new \RuntimeException('No router to build a link with');
 		}
-		$routePth = (substr($routShapeTxt, 0, 1)!='/') ? $this->routingObj->runsRouteShape($this->runContext->runAppName, $routShapeTxt) : null;
-		return $this->routingObj->buildRouteLink($routePth ?? $routShapeTxt, $pathPartVals, $linkQueryLst);
+		$routePth = (substr($routShapeTxt, 0, 1)!='/') ? $this->routingObj->getMountedPath($this->runContext->runAppName, $routShapeTxt) : null;
+		return $this->routingObj->makeUrlOfRoute($routePth ?? $routShapeTxt, $pathPartVals, $linkQueryLst);
 	}
 
 	/**
@@ -259,7 +259,7 @@ class Actionset {
 	 * @return Logger The logger of the application.
 	 */
 	protected function getLoggerOfApp(): Logger {
-		return Logger::retrieveLogger( strtolower($this->runContext->runAppName) );
+		return Logger::getLoggerOfChn( strtolower($this->runContext->runAppName) );
 	}
 
 	/**
@@ -294,7 +294,7 @@ class Actionset {
 			return;
 		}
 		$nameList = explode('\\', static::class);
-		Logger::retrieveLogger('access')->warning( 'Account change refused for user '.json_encode(strval($this->accessRegr->readValueByKey('userName'))).' to '.strtolower(strval($nameList[count($nameList)-2] ?? '')).'/'.$this->actionName.': a device ('.json_encode(strval($idntList['device']['name'] ?? '')).') needs the password login' );
+		Logger::getLoggerOfChn('access')->warning( 'Account change refused for user '.json_encode(strval($this->accessRegr->readValueByKey('userName'))).' to '.strtolower(strval($nameList[count($nameList)-2] ?? '')).'/'.$this->actionName.': a device ('.json_encode(strval($idntList['device']['name'] ?? '')).') needs the password login' );
 		$this->stopThisAction(403, 'Sign in with the password: a device cannot change its account');
 	}
 
@@ -315,7 +315,7 @@ class Actionset {
 		}
 		$isLogged = ($this->accessRegr!==null && $this->accessRegr->readValueByKey('loggedIn')===true);
 		$userRole = $isLogged ? $this->accessRegr->readValueByKey('userRole') : null;
-		$clntRegr = ($this->requestObj!==null) ? $this->requestObj->retrieveClient() : null;
+		$clntRegr = ($this->requestObj!==null) ? $this->requestObj->getClientOfRqt() : null;
 		$nameList = explode('\\', static::class);
 		Checker::logRoleRefusal(
 			$isLogged ? strval($this->accessRegr->readValueByKey('userName')) : '',

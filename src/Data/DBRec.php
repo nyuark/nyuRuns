@@ -247,7 +247,7 @@ class DBRec {
 			throw new \RuntimeException('Deleting a record with its children needs transactions, which this database does not have');
 		}
 		// A removal is traced with who asked for it, and so is one the database refused
-		$accsJrnl = Logger::retrieveLogger('runner');
+		$accsJrnl = Logger::getLoggerOfChn('runner');
 		// The key may come from the client : written as a JSON text
 		$rcrdText = $this->tableLabel.' #'.json_encode(strval($this->primaryKey), JSON_INVALID_UTF8_SUBSTITUTE);
 		if( $useTrnsc && !$dtbsStre->newTransaction() ){

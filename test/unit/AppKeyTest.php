@@ -119,11 +119,11 @@ unset($noKeyCf['appsConf']);
 checkIdentical('call: without appkey, the key is not read', appsReply($noKeyCf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard'), $cntView), Array(401, 'Invalid token', '', null, null));
 
 // The logs : a write is a notice, a read an info, a route refused a warning
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard'), $cntView, 'POST');
 appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard'), $cntView);
 appsReply($axsConf, Array('X-App-Key'=>'key-portal') + $bearsOf($appTokn, 'ann', 'standard'), Array('appToRun'=>'Orders', 'doAction'=>'index'), 'DELETE');
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('log: one line per call', count($axsLogs), 3);
 checkIdentical('log: a write is a notice', $axsLogs[0] ?? null, '['.date('Y').'] [NOTICE] App call granted for app "portal", user "ann" (standard) from 10.0.0.7 to Contacts/view (POST)');

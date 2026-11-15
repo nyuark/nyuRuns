@@ -228,7 +228,7 @@ class Loader{
 
 				if(in_array($inputSrc, $inputCod)){
 					$inputObj = new Input( $givenRequest, $inputSrc, $putSet['fieldSet'], $putSet['sourceId']);
-					$inputLst = array_merge($inputLst, $inputObj->readRgstValues());
+					$inputLst = array_merge($inputLst, $inputObj->getInputValues());
 				}
 			}
 			$inputReg = new Registry( $inputLst );
@@ -251,9 +251,9 @@ class Loader{
 		$routeCfg = $this->getRegistryKey('dispatch');
 		$this->routingObj = new Router( is_array($routeCfg) ? $routeCfg : Array(), $givenRequest, $basePathText );
 		if( $this->isCacheHit ){
-			$this->routingObj->assignRouteSet( $this->cachValues['routes'] );
+			$this->routingObj->setGivenRoutes( $this->cachValues['routes'] );
 		}
-		$routRegr = $this->routingObj->locateRouteReg();
+		$routRegr = $this->routingObj->findRouteOfRqt();
 		$routRegr->saveValueByKey('routBase', $basePathText);
 		return $routRegr;
 	}
@@ -285,7 +285,7 @@ class Loader{
 		if( $srceUnix>intval($_SERVER['REQUEST_TIME'] ?? time()) ){
 			return false;
 		}
-		$this->cachValues['routes'] = $this->routingObj->retrieveRoutes();
+		$this->cachValues['routes'] = $this->routingObj->loadRoutesList();
 		$this->cachValues['tables'] = ConfCache::$tableInfos ?? Array();
 		ConfCache::$isTblAdded = false;
 		if( !ConfCache::saveWholeCache($this->presetName, $this->cachValues) ){

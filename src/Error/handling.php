@@ -433,10 +433,10 @@ class ErrorHandler
         if( isset($GLOBALS['nyuConfig']) && $GLOBALS['nyuConfig']!==null )
         {
             // In production nothing of an error is shown, whatever ERR_SHOW says
-            if( strtoupper(trim(strval($GLOBALS['nyuConfig']->obtainRowValue('SYSTEM','ENV_NAME')))) == 'PROD' )
+            if( strtoupper(trim(strval($GLOBALS['nyuConfig']->getNestedValue('SYSTEM','ENV_NAME')))) == 'PROD' )
                 return false;
 
-            $errorShw = $GLOBALS['nyuConfig']->obtainRowValue('SYSTEM','ERR_SHOW') ?? false;
+            $errorShw = $GLOBALS['nyuConfig']->getNestedValue('SYSTEM','ERR_SHOW') ?? false;
         }
         return (bool)$errorShw;
     }

@@ -76,7 +76,7 @@ class Logger{
 	 *
 	 * @param Array $logsSettings Log settings: 'path', 'mode', 'size', 'rota' and 'pref' (see Setup\Loader::logConfigArray).
 	 */
-	static function plugLogsConfig( Array $logsSettings ): Void {
+	static function loadLogsConfig( Array $logsSettings ): Void {
 		self::$confValues = $logsSettings;
 		self::$channelLst = Array();
 	}
@@ -91,7 +91,7 @@ class Logger{
 	 *
 	 * @throws \RuntimeException When the channel is not a plain name.
 	 */
-	static function retrieveLogger( String $channelLabel='runner' ): Logger {
+	static function getLoggerOfChn( String $channelLabel='runner' ): Logger {
 		if( !isset(self::$channelLst[$channelLabel]) ){
 			$confVals = self::$confValues;
 			if( $confVals===null ){
@@ -203,10 +203,10 @@ class Logger{
 				$logLigne .= ' '.json_encode($extraContext, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
 			}
 		}
-		$logFichr = $this->resolveLogPath();
+		$logFichr = $this->findLogFilePth();
 		$this->rotateLogFiles( $logFichr );
 		if( @file_put_contents( $logFichr, $logLigne.PHP_EOL, FILE_APPEND | LOCK_EX )===false ){
-			$this->reportFailOnce( $logFichr );
+			$this->logFailureOnce( $logFichr );
 		}
 	}
 
@@ -216,7 +216,7 @@ class Logger{
 	 *
 	 * @param String $logsFilePath Path of the log file.
 	 */
-	protected function reportFailOnce( String $logsFilePath ): Void {
+	protected function logFailureOnce( String $logsFilePath ): Void {
 		if( self::$isFailTold ){
 			return;
 		}
@@ -229,7 +229,7 @@ class Logger{
 	 *
 	 * @return String Full path to the active log file.
 	 */
-	protected function resolveLogPath(): String {
+	protected function findLogFilePth(): String {
 		$titleEnd = '';
 		if( $this->rotateMode=='WEEK' ){
 			$titleEnd = '-W'.date('oW');

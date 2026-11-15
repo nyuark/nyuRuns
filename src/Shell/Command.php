@@ -251,7 +251,7 @@ abstract class Command{
 	 * @param String $eventMessage What was done.
 	 */
 	protected function traceShellDone( String $eventMessage ): Void {
-		Logger::retrieveLogger('shell')->notice( $eventMessage.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('shell')->notice( $eventMessage.Logger::getActorSuffix() );
 	}
 
 	/**
@@ -262,7 +262,7 @@ abstract class Command{
 	 */
 	protected function accessSettings( String $blockNmdText ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($blockNmdText)) : null;
+		$blockCfg = ($nyuConfg!==null && $blockNmdText!='') ? $nyuConfg->getNestedValue('ACCESS', strtoupper($blockNmdText)) : null;
 		return is_array($blockCfg) ? $blockCfg : Array();
 	}
 }

@@ -89,7 +89,7 @@ checkIdentical('mailTwoFa: refused without a mailer', Array($usrBase->emailTwoFa
 setsConfg( $natConf );
 
 // The login : the password alone has a code mailed, the code ends it
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'FULL') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'FULL') );
 takeMails();
 checkIdentical('login: the password alone asks for the code', Array($natAuth->checkSecretArr($benLgin), $natAuth->finalErrorText(), $natAuth->hasWrongSecret()), Array(false, 'Verification code required', false));
 $mailLst = takeMails();
@@ -123,7 +123,7 @@ checkIdentical('login: without a mailer, the store is unavailable for the user',
 setsConfg( $natConf );
 $sqlLink->exec("UPDATE users SET contactEml=NULL WHERE systemName='anna'");
 checkIdentical('login: nor without an address', Array($natAuth->checkSecretArr(Array('user'=>'anna', 'pass'=>'pw-anna', 'code'=>'')), $natAuth->finalErrorText()), Array(false, 'Credential store unavailable'));
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
 checkIdentical('the log tells the mails, the refusals and what cannot be sent', Array(
 	preg_match('/\[INFO\] Verification code mailed to user "ben"/', $logText),

@@ -43,7 +43,7 @@ class UserList implements Handler{
 		$this->sealingKey = is_scalar($configValues['tfaCrypt'] ?? '') ? strval($configValues['tfaCrypt'] ?? '') : '';
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
 			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($limitCfg) ? strval($limitCfg['dataPath'] ?? '') : ''
 		) );		$this->errMessage = '';
@@ -88,14 +88,14 @@ class UserList implements Handler{
 			// Signed with the hash the password has now : a password set after the mark was made ends it
 			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], $countNme, $isHashed ? strval($userVals['passwdHash']) : '' );
 			if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
-				Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($countNme).': too many attempts with it' );
+				Logger::getLoggerOfChn('access')->warning( 'Login mark refused for user '.json_encode($countNme).': too many attempts with it' );
 			}elseif( $markClef!='' ){
 				$countNme = $markClef;
 			}
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($userVals) && $this->usrLimiter->heldByUserNumb($countNme)>0 ){
-			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
+			Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
 			$this->isWrongTry = true;
 			return false;
@@ -110,7 +110,7 @@ class UserList implements Handler{
 		}
 		if( $userVals['userStatus']!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
-			Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is not active ('.$userVals['userStatus'].')' );
+			Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is not active ('.$userVals['userStatus'].')' );
 			$this->errMessage = 'Invalid credentials';
 			$this->isWrongTry = true;
 			return false;
@@ -120,7 +120,7 @@ class UserList implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealClef = Totp::openSecretText($userVals['twoFactKey'], $this->sealingKey);
 			if( $sealClef===null ){
-				Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVals['systemName']).' cannot be read: tfaCrypt is missing or was changed' );
+				Logger::getLoggerOfChn('access')->error( '2FA secret of user '.json_encode($userVals['systemName']).' cannot be read: tfaCrypt is missing or was changed' );
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
@@ -368,7 +368,7 @@ class UserList implements Handler{
 			$userList[] = $userVals;
 		}
 		if( $whyStrng!='' ){
-			Logger::retrieveLogger('access')->error( 'Users file '.json_encode(basename($this->usrLstPath)).' cannot be used: '.$whyStrng );
+			Logger::getLoggerOfChn('access')->error( 'Users file '.json_encode(basename($this->usrLstPath)).' cannot be used: '.$whyStrng );
 			return false;
 		}
 		return $userList;

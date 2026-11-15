@@ -80,7 +80,7 @@ $alicePw = Array('userName'=>'alice', 'passWord'=>'s3cret');
 $annaPwd = Array('userName'=>'anna', 'passWord'=>'pw-anna');
 $lstLogn = Array('authWith'=>'userFile', 'authConf'=>'testFile');
 $tfaScrt = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 
 // Login on the htpasswd file, the token of the JWT carrier : what an empty 'login' block gives
 plugConf( Array() );
@@ -162,7 +162,7 @@ foreach( Array('httpBasc', 'apiHeadr', 'clntCert', 'nosuch') as $sesNme ){
 }
 
 // The access log : one line per login and logout, a notice for a privileged user
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs2'), 'mode'=>'BASE', 'pref'=>'Y') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs2'), 'mode'=>'BASE', 'pref'=>'Y') );
 plugConf( $lstLogn, 1 );
 authActn('login', Array('userName'=>'ben', 'passWord'=>'pw-ben'), 'POST', '198.51.100.7');
 authActn('login', $annaPwd, 'POST', '198.51.100.7');
@@ -175,7 +175,7 @@ plugConf( Array('carrWith'=>'httpBasc') );
 authActn('login', $alicePw, 'POST', '198.51.100.8');
 plugConf( Array('authWith'=>'nosuch') );
 authActn('login', $alicePw, 'POST', '198.51.100.8');
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$lmtFldr);
 $yearTxt = '['.date('Y').'] ';
 $axsLogs = file_exists(inTemporaryDir('logs2').DS.'access.log') ? file(inTemporaryDir('logs2').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
@@ -215,7 +215,7 @@ function markPath( String $urlAddress, Array $routeConfg=Array(), String $basePa
 	// A routes folder that does not exist : the routes are those of the Runs alone
 	$routing = new nyu\Tools\Router( $routeConfg + Array('detectBy'=>'manually', 'routeDir'=>'test'.DS.'fixtures'.DS.'routes'.DS.'none'), $request, $basePathTxt );
 	if( $siteRoutes!==null ){
-		$routing->assignRouteSet($siteRoutes);
+		$routing->setGivenRoutes($siteRoutes);
 	}
 	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array()), null, $request, null, $routing, null, 'Auth', RUN_DIR.DS.'Auth') );
 	return (new ReflectionMethod($actnSet, 'markCookiePath'))->invoke($actnSet);

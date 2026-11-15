@@ -32,7 +32,7 @@ class PassList implements Handler{
 		$this->canUseWeak = (($configValues['weakHash'] ?? false) === true);
 		// The wrong credentials of each account are counted beside those of each address, in the folder of the limits
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'TRYLIMIT') : null;
 		$this->usrLimiter = new \nyu\Access\Limiter( Array(
 			'maxTries'=>$configValues['maxTries'] ?? 5, 'holdSecs'=>$configValues['holdSecs'] ?? 600, 'dataPath'=>is_array($limitCfg) ? strval($limitCfg['dataPath'] ?? '') : ''
 		) );		$this->errMessage = '';
@@ -82,14 +82,14 @@ class PassList implements Handler{
 				// Signed with the hash the password has now : a password set after the mark was made ends it
 				$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], $countNme, $userHash );
 				if( $markClef!='' && $this->usrLimiter->heldByUserNumb($markClef)>0 ){
-					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($givenUsr).': too many attempts with it' );
+					\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Login mark refused for user '.json_encode($givenUsr).': too many attempts with it' );
 				}elseif( $markClef!='' ){
 					$countNme = $markClef;
 				}
 			}
 			// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 			if( $this->usrLimiter->heldByUserNumb($countNme)>0 ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($givenUsr).' is held after too many attempts' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($givenUsr).' is held after too many attempts' );
 			}elseif( $matxList ){
 				$this->usrLimiter->clearLimitUser( $countNme );
 				$this->passedUser = Array('systemName'=>strval($givenUsr), 'passwdHash'=>$userHash);
@@ -141,7 +141,7 @@ class PassList implements Handler{
 		// SHA-256 and SHA-512 crypt are the only other formats strong enough to be accepted as they are
 		$strnFrmt = in_array(substr($htpasswdHash,0,3), Array('$5$', '$6$'), true);
 		if( !$strnFrmt && !$this->canUseWeak ){
-			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "weakHash" option' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Credential refused: {SHA}, DES and MD5 htpasswd hashes need the "weakHash" option' );
 			return false;
 		}
 		if( $shaDigst ){

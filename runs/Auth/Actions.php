@@ -49,7 +49,7 @@ class Actions extends Actionset {
 		}
 
 		$loginCfg = $this->findAccessConf('loginSet');
-		$accsJrnl = Logger::retrieveLogger('access');
+		$accsJrnl = Logger::getLoggerOfChn('access');
 		$authClss = Checker::authClssString( strval($loginCfg['authWith'] ?? 'htpasswd') );
 		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
 		if($authClss===null || $sessClss===null || !class_exists($authClss) || !class_exists($sessClss)){
@@ -78,7 +78,7 @@ class Actions extends Actionset {
 		// The 'sentCode' input carries the one-time code of a user with 2FA
 		$givenCod = $this->inputsRegr->readValueByKey('sentCode');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
-		$givenMrk = strval( $this->requestObj->retrieveHeader('X-Lgmark') ?? (is_string($this->requestObj->retrieveCookie('lgmark')) ? $this->requestObj->retrieveCookie('lgmark') : '') );
+		$givenMrk = strval( $this->requestObj->getHeaderValue('X-Lgmark') ?? (is_string($this->requestObj->getCookieValue('lgmark')) ? $this->requestObj->getCookieValue('lgmark') : '') );
 		$idntList = $authInst->checkSecretArr( Array('user'=>$givenUsr, 'pass'=>$givenPwd, 'code'=>is_scalar($givenCod) ? strval($givenCod) : '', 'mark'=>$givenMrk) );
 
 		if($idntList===false){
@@ -136,7 +136,7 @@ class Actions extends Actionset {
 	/**
 	 * Gives the path the cookie of the login mark is set with: the folder
 	 * of the route that reached the login, built as the links are (see
-	 * Router::buildRouteLink), so that the browser sends the cookie back to
+	 * Router::makeUrlOfRoute), so that the browser sends the cookie back to
 	 * it. For a route of the Run it is the basePath the preset is served
 	 * under, then the mount of the Run (/auth, /api/auth, / when mounted at
 	 * the root); for a route the site declares, the folder of that route.
@@ -148,10 +148,10 @@ class Actions extends Actionset {
 		if($this->routingObj===null){
 			return '/';
 		}
-		$routRegr = $this->routingObj->locateRouteReg();
+		$routRegr = $this->routingObj->findRouteOfRqt();
 		$routePth = strval( $routRegr->readValueByKey('routPath') ?? '' );
 		try{
-			$linkText = $this->routingObj->buildRouteLink( $routePth, (array)$routRegr->readValueByKey('pathVars') );
+			$linkText = $this->routingObj->makeUrlOfRoute( $routePth, (array)$routRegr->readValueByKey('pathVars') );
 		}catch( \RuntimeException $e ){
 			return '/';
 		}
@@ -176,7 +176,7 @@ class Actions extends Actionset {
 		$sessInst = ($sessClss!==null && class_exists($sessClss)) ? new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') ) : null;
 		$keysDict = ($sessInst!==null && method_exists($sessInst, 'publicSetArray')) ? $sessInst->publicSetArray() : Array('keys'=>Array());
 		if( empty($keysDict['keys']) ){
-			Logger::retrieveLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
+			Logger::getLoggerOfChn('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
 			$this->statusCode = 404;
 			$this->statusText = 'Not Found';
 			return;
@@ -206,9 +206,9 @@ class Actions extends Actionset {
 			}
 		}
 		if($this->accessRegr!==null){
-			$accsJrnl = Logger::retrieveLogger('access');
+			$accsJrnl = Logger::getLoggerOfChn('access');
 			$userRole = strval($this->accessRegr->readValueByKey('userRole'));
-			$clntRegr = $this->requestObj->retrieveClient();
+			$clntRegr = $this->requestObj->getClientOfRqt();
 			$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 			$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
 			// A logout is always traced, as the login
@@ -260,7 +260,7 @@ class Actions extends Actionset {
 		}
 		$lmtrInst = $lmtrList[0];
 		$userAddr = $lmtrList[1];
-		$clntRegr = $this->requestObj->retrieveClient();
+		$clntRegr = $this->requestObj->getClientOfRqt();
 		// The language the request asks for is given to a user who has none yet : the one who activates is the one the mails go to
 		$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
 		if(!$userBase->activateUsrFlg($givenUsr, $givenCod, $givenPwd, $clntLang)){
@@ -323,7 +323,7 @@ class Actions extends Actionset {
 		// Every sign-up counts : an address cannot fill the mailboxes of others
 		$lmtrList[0]->countFailedTry($lmtrList[1]);
 		$regrTops = max( 1, intval($limitCfg['maxQueue'] ?? UserBase::SIGN_MAXI) );
-		$clntRegr = $this->requestObj->retrieveClient();
+		$clntRegr = $this->requestObj->getClientOfRqt();
 		$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
 		$newCodig = $userBase->signsUsrString($givenUsr, $givenEml, $regrTops, $clntLang);
 		if($newCodig===false){
@@ -362,7 +362,7 @@ class Actions extends Actionset {
 		if($waitNumb===false || !in_array($waitNumb, array_map('intval', $warnAtCounts), true)){
 			return;
 		}
-		$accsJrnl = Logger::retrieveLogger('access');
+		$accsJrnl = Logger::getLoggerOfChn('access');
 		if($waitNumb>=$authTopsNumb){
 			$accsJrnl->warning( $waitNumb.' sign-ups are waiting: the sign-ups are closed until some are approved or removed' );
 		}else{
@@ -408,7 +408,7 @@ class Actions extends Actionset {
 		$lmtrList[0]->countFailedTry($lmtrList[1]);
 		$restVals = $userBase->resetPassArray($givenUsr);
 		if(is_array($restVals)){
-			$clntRegr = $this->requestObj->retrieveClient();
+			$clntRegr = $this->requestObj->getClientOfRqt();
 			$clntLang = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('language')) : '';
 			$mailInst->sendCodeToUser('password', $restVals['user'], $restVals['mail'], $restVals['code'], $restVals['lang'] ?? $clntLang);
 		}
@@ -472,11 +472,11 @@ class Actions extends Actionset {
 	 */
 	protected function denyHeldClient( String $requestLabel, String $namedUserTxt, ?Limiter $ceilingCount=null ): ?Array {
 		$lmtrInst = $ceilingCount ?? new Limiter( $this->findAccessConf('tryLimit') );
-		$clntRegr = $this->requestObj->retrieveClient();
+		$clntRegr = $this->requestObj->getClientOfRqt();
 		$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 		$heldTime = $lmtrInst->heldUntilCount($userAddr);
 		if($heldTime>0){
-			Logger::retrieveLogger('access')->warning( $requestLabel.' refused for user '.json_encode($namedUserTxt).(($userAddr!='') ? ' from '.$userAddr : '').': too many attempts' );
+			Logger::getLoggerOfChn('access')->warning( $requestLabel.' refused for user '.json_encode($namedUserTxt).(($userAddr!='') ? ' from '.$userAddr : '').': too many attempts' );
 			if($this->respondObj!==null){
 				$this->respondObj->addReplyHeader('Retry-After', strval(max(1, $heldTime - time())));
 			}
@@ -536,7 +536,7 @@ class Actions extends Actionset {
 		}
 		if(!$userBase->editPasswdFlag($userName, $oldValue, $givenPwd)){
 			if($userBase->hasWrongSecret()){
-				$clntRegr = $this->requestObj->retrieveClient();
+				$clntRegr = $this->requestObj->getClientOfRqt();
 				(new Limiter( $this->findAccessConf('tryLimit') ))->countFailedTry( ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
 			}
 			$this->statusCode = $userBase->lastStateCount();
@@ -591,9 +591,9 @@ class Actions extends Actionset {
 	protected function denyPwdInQuery( Array $fldNamesList, String $requestLabel ): Bool {
 		foreach($fldNamesList as $fldNme){
 			if($this->requestObj->isSentViaQuery( strval($fldNme) )){
-				$clntRegr = $this->requestObj->retrieveClient();
+				$clntRegr = $this->requestObj->getClientOfRqt();
 				$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
-				Logger::retrieveLogger('access')->warning( $requestLabel.' refused'.(($userAddr!='') ? ' from '.$userAddr : '').': password sent in the query string' );
+				Logger::getLoggerOfChn('access')->warning( $requestLabel.' refused'.(($userAddr!='') ? ' from '.$userAddr : '').': password sent in the query string' );
 				$this->statusCode = 400;
 				$this->statusText = 'Password sent in the query string';
 				return true;
@@ -610,7 +610,7 @@ class Actions extends Actionset {
 	 */
 	protected function findAccessConf( String $cfgBlockName ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'];
-		$accsConf = $nyuConfg->obtainRowValue('ACCESS', strtoupper($cfgBlockName));
+		$accsConf = $nyuConfg->getNestedValue('ACCESS', strtoupper($cfgBlockName));
 		return is_array($accsConf) ? $accsConf : Array();
 	}
 }

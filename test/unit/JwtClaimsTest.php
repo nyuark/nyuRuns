@@ -78,7 +78,7 @@ checkIdentical('issued: a block naming neither puts neither', array_intersect_ke
 checkIdentical('issued: an audience given as a text', partOfTkn((new JWT(Array('audience'=>' api.example.org ') + $bndConf))->issueTokenText(Array('userName'=>'anna')), 1)['aud'] ?? null, 'api.example.org');
 
 // Checked
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'FULL') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'FULL') );
 checkIdentical('checked: the token of the block passes', readsTokn($bndJwt, $rawTokn), 'anna');
 checkIdentical('checked: one audience of the token among those of the block is enough', readsTokn(new JWT(Array('audience'=>Array('other.example.org', 'api.example.org')) + $bndConf), $rawTokn), 'anna');
 checkIdentical('checked: a token naming several audiences, one of them the block\'s', readsTokn($bndJwt, $twoJwt->issueTokenText(Array('userName'=>'anna'))), 'anna');
@@ -95,7 +95,7 @@ checkIdentical('an ended token is still told as ended', readsTokn($bndJwt, JwtCo
 checkIdentical('a block naming neither checks neither', readsTokn(new JWT(Array('signAlgo'=>'RS256', 'publFile'=>$pubPath)), JwtCodec::encode($tknBase + Array('iss'=>'x', 'aud'=>'y'), ...$prvKeys)), 'anna');
 $hsBound = new JWT( Array('hmacSecr'=>$hsSecrt, 'issuerId'=>'nyu', 'audience'=>'api') );
 checkIdentical('HS256 issues and checks them too', Array(readsTokn($hsBound, $hsBound->issueTokenText(Array('userName'=>'ben'))), readsTokn($hsBound, (new JWT(Array('hmacSecr'=>$hsSecrt)))->issueTokenText(Array('userName'=>'ben')))), Array('ben', Array(false, 'Invalid token', false)));
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 $logText = strval(@file_get_contents(inTemporaryDir('logs').DS.'access.log'));
 checkIdentical('the reasons are in the log, at the debug level', Array(
 	preg_match('/\[DEBUG\] Token refused: no issuer\s*$/m', $logText),
@@ -103,9 +103,9 @@ checkIdentical('the reasons are in the log, at the debug level', Array(
 	preg_match('/\[DEBUG\] Token refused: no audience\s*$/m', $logText),
 	preg_match('/\[DEBUG\] Token refused: audience \["x\.example\.org","y\.example\.org"\] is not one of \["api\.example\.org"\]\s*$/m', $logText)
 ), Array(1, 1, 1, 1));
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('minilogs'), 'mode'=>'MINI') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('minilogs'), 'mode'=>'MINI') );
 readsTokn($bndJwt, JwtCodec::encode($tknBase + Array('aud'=>'api.example.org'), ...$prvKeys));
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 checkIdentical('nothing of it in the log of production', strval(@file_get_contents(inTemporaryDir('minilogs').DS.'access.log')), '');
 
 // The previous key : the tokens it signed are accepted until they end, found by their kid

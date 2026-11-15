@@ -195,7 +195,7 @@ checkIdentical('SpanDte end that is no date', Array(formatVal('2026-12-01', 'Spa
 checkIdentical('unknown format',           formatVal('x', 'Nope'), 'x');
 
 // saveValue replaces the wrapped value
-checkIdentical('replaceWrapped', runCatchThrown(function(){ $varObjc = new Variable('1'); $varObjc->replaceWrapped('<b>2</b>'); return $varObjc->castWrappedVal('OutText'); }), '2');
+checkIdentical('alterHeldValue', runCatchThrown(function(){ $varObjc = new Variable('1'); $varObjc->alterHeldValue('<b>2</b>'); return $varObjc->castWrappedVal('OutText'); }), '2');
 
 // OutText must keep behaving like the filter it replaced, for as long as PHP still ships it
 if( defined('FILTER_SANITIZE_STRING') ){

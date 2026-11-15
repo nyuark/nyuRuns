@@ -180,10 +180,10 @@ checkPregMatch('the store refuses another function, called without the list', ru
 }), '/^THROWN RuntimeException: Invalid function name: load_file /');
 
 checkPregMatch('an order written as SQL is kept, and told on runner', runCatchThrown(function(){
-	nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('lstlogs')) );
+	nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('lstlogs')) );
 	$dbList = new DBLst('shows', null, null, 'length(title) DESC');
 	$rowList = $dbList->flatItemsArray('title');
-	nyu\Tools\Logger::plugLogsConfig( Array() );
+	nyu\Tools\Logger::loadLogsConfig( Array() );
 	return ($rowList[0] ?? '').' | '.strval(@file_get_contents(inTemporaryDir('lstlogs').DS.'runner.log'));
 }), '/^Alpha Matinee \| .*\[NOTICE\] List of "shows": order written as SQL, kept as given/s');
 

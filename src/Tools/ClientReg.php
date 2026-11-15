@@ -22,7 +22,7 @@ class ClientReg extends Registry{
 	 *                              one in which they give the scheme the client used (see Loader::findProxyConfg).
 	 */
 	function __construct( ServerReg $serverValues, Bool $lowerCaseKey = true, Array $proxyCfgList = Array() ){
-		parent::__construct( $this->clientSetArray($serverValues, $proxyCfgList), $lowerCaseKey );
+		parent::__construct( $this->readClientVals($serverValues, $proxyCfgList), $lowerCaseKey );
 	}
 
 	/**
@@ -35,7 +35,7 @@ class ClientReg extends Registry{
 	 * @param Array     $proxyCfgList Reverse proxy settings ('list', 'head', 'schm').
 	 * @return Array The client values, by name.
 	 */
-	protected function clientSetArray( ServerReg $serverValues, Array $proxyCfgList = Array() ): Array {
+	protected function readClientVals( ServerReg $serverValues, Array $proxyCfgList = Array() ): Array {
 		$agntHedr = strval($serverValues->readValueByKey('http_user_agent'));
 		$peerAddr = strval($serverValues->readValueByKey('remote_addr'));
 		$addrText = $this->findClientAddr($serverValues, $proxyCfgList);
@@ -45,12 +45,12 @@ class ClientReg extends Registry{
 			'peerAddr'=>$peerAddr,
 			// Through a proxy, the host name the server tells is the proxy's
 			'userHost'=>($hostText!='' && $addrText==$this->unwrapIpv4Addr($peerAddr)) ? $hostText : $addrText,
-			'userSchm'=>$this->proxySchemaTxt($serverValues, $proxyCfgList),
+			'userSchm'=>$this->findClntScheme($serverValues, $proxyCfgList),
 			'usrAgent'=>$agntHedr,
 			'clSystem'=>$this->findSystemText($agntHedr),
-			'clDevice'=>$this->clientKindText($agntHedr),
-			'language'=>$this->getLangsString( strval($serverValues->readValueByKey('http_accept_language')) ),
-			'humanSys'=>$this->locateHumanFlg($agntHedr)
+			'clDevice'=>$this->findClientCode($agntHedr),
+			'language'=>$this->parseFirstLang( strval($serverValues->readValueByKey('http_accept_language')) ),
+			'humanSys'=>$this->isHumanBrowser($agntHedr)
 		);
 	}
 
@@ -67,7 +67,7 @@ class ClientReg extends Registry{
 	protected function findClientAddr( ServerReg $serverValues, Array $proxyCfgList ): String {
 		$peerAddr = $this->unwrapIpv4Addr( strval($serverValues->readValueByKey('remote_addr')) );
 		$trstList = $proxyCfgList['list'] ?? Array();
-		if( empty($trstList) || !$this->hasTrustedFlag($peerAddr, $trstList) ){
+		if( empty($trstList) || !$this->isTrustedProxy($peerAddr, $trstList) ){
 			return $peerAddr;
 		}
 		// The header as the server registry names it : X-Forwarded-For is http_x_forwarded_for
@@ -80,7 +80,7 @@ class ClientReg extends Registry{
 				break;
 			}
 			$addrText = $this->unwrapIpv4Addr($fwdAdr);
-			if( !$this->hasTrustedFlag($addrText, $trstList) ){
+			if( !$this->isTrustedProxy($addrText, $trstList) ){
 				break;
 			}
 		}
@@ -96,10 +96,10 @@ class ClientReg extends Registry{
 	 * @param Array     $proxyCfgList Reverse proxy settings ('list', 'schm').
 	 * @return String The scheme; the one of the connection when no trusted proxy tells another.
 	 */
-	protected function proxySchemaTxt( ServerReg $serverValues, Array $proxyCfgList ): String {
+	protected function findClntScheme( ServerReg $serverValues, Array $proxyCfgList ): String {
 		$scheText = strval($serverValues->readValueByKey('request_scheme'));
 		$trstList = $proxyCfgList['list'] ?? Array();
-		if( empty($trstList) || !$this->hasTrustedFlag(strval($serverValues->readValueByKey('remote_addr')), $trstList) ){
+		if( empty($trstList) || !$this->isTrustedProxy(strval($serverValues->readValueByKey('remote_addr')), $trstList) ){
 			return $scheText;
 		}
 		// The header as the server registry names it : X-Forwarded-Proto is http_x_forwarded_proto
@@ -115,7 +115,7 @@ class ClientReg extends Registry{
 	 * @param Array  $proxyAdrList Addresses or CIDR ranges of the trusted proxies.
 	 * @return Bool True when the address is listed, or within a listed range.
 	 */
-	protected function hasTrustedFlag( String $searchedAddr, Array $proxyAdrList ): Bool {
+	protected function isTrustedProxy( String $searchedAddr, Array $proxyAdrList ): Bool {
 		foreach( $proxyAdrList as $trsNet ){
 			if( $this->isAddrInSubnet($searchedAddr, strval($trsNet)) ){
 				return true;
@@ -214,7 +214,7 @@ class ClientReg extends Registry{
 	 * @param String $userAgentTxt The User-Agent of the request.
 	 * @return String The six-character code of the kind of client.
 	 */
-	protected function clientKindText( String $userAgentTxt ): String {
+	protected function findClientCode( String $userAgentTxt ): String {
 		if( $userAgentTxt=='' ){
 			return 'shadowed';
 		}
@@ -249,8 +249,8 @@ class ClientReg extends Registry{
 	 * @param String $userAgentTxt The User-Agent of the request.
 	 * @return Bool True for a desktop, mobile or tablet browser.
 	 */
-	protected function locateHumanFlg( String $userAgentTxt ): Bool {
-		return in_array( $this->clientKindText($userAgentTxt), Array('computer', 'handheld', 'tabletPc'), true );
+	protected function isHumanBrowser( String $userAgentTxt ): Bool {
+		return in_array( $this->findClientCode($userAgentTxt), Array('computer', 'handheld', 'tabletPc'), true );
 	}
 
 	/**
@@ -259,7 +259,7 @@ class ClientReg extends Registry{
 	 * @param String $langHeadrTxt The Accept-Language of the request.
 	 * @return String The language tag in lower case ('fr-ch'), or an empty string.
 	 */
-	protected function getLangsString( String $langHeadrTxt ): String {
+	protected function parseFirstLang( String $langHeadrTxt ): String {
 		$langText = trim( strval(strtok($langHeadrTxt, ',;')) );
 		return strtolower($langText);
 	}

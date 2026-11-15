@@ -42,7 +42,7 @@ class LoginMark{
 	 */
 	public static function fromLimitBlock(): LoginMark {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'TRYLIMIT') : null;
 		return new self( is_array($limitCfg) ? $limitCfg : Array() );
 	}
 

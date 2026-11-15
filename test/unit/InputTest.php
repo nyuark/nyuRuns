@@ -22,7 +22,7 @@ use nyu\Tools\Registry;
 function inputVals( String|Array $fieldsDefn, Array $givenVals ): Mixed {
 	return runCatchThrown(function() use ($fieldsDefn, $givenVals){
 		$inptObj = new Input( null, 'TESTS', $fieldsDefn, 'TESTS' );
-		return $inptObj->parseValuesArr($givenVals);
+		return $inptObj->parseValuesDct($givenVals);
 	});
 }
 
@@ -37,8 +37,8 @@ function inputVals( String|Array $fieldsDefn, Array $givenVals ): Mixed {
 function inputMiss( String|Array $fieldsDefn, Array $givenVals ): Mixed {
 	return runCatchThrown(function() use ($fieldsDefn, $givenVals){
 		$inptObj = new Input( null, 'TESTS', $fieldsDefn, 'TESTS' );
-		$inptObj->parseValuesArr($givenVals);
-		return $inptObj->retrieveMissed();
+		$inptObj->parseValuesDct($givenVals);
+		return $inptObj->getMissingFlds();
 	});
 }
 

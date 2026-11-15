@@ -97,7 +97,7 @@ class Checker{
 	 */
 	protected static function plugClssString( String $shrtNamedTxt, String $accPluginLst, String $pluginSuffix ): ?String {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$plugConf = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'PLUGLIBS') : null;
+		$plugConf = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'PLUGLIBS') : null;
 		$allowLst = is_array($plugConf) ? ($plugConf[$accPluginLst] ?? Array()) : Array();
 		if( !preg_match('/^[a-z][a-z0-9]{5}$/D', $shrtNamedTxt) || !in_array($shrtNamedTxt, (array)$allowLst, true) || !defined('RUN_DIR') ){
 			return null;
@@ -124,7 +124,7 @@ class Checker{
 			$whyStrng = ltrim($fullClss, '\\').' does not implement nyu\\Access\\'.$pluginSuffix.'\\Handler';
 		}
 		if( $whyStrng!='' ){
-			Logger::retrieveLogger('access')->error( 'Access plug-in "'.$shrtNamedTxt.'" cannot be used: '.$whyStrng );
+			Logger::getLoggerOfChn('access')->error( 'Access plug-in "'.$shrtNamedTxt.'" cannot be used: '.$whyStrng );
 			return null;
 		}
 		return $fullClss;
@@ -189,7 +189,7 @@ class Checker{
 
 		// The sign-in route is a path of this site : never an address elsewhere
 		$signRout = $this->accessConf['signPath'] ?? null;
-		if( $signRout!==null && ( !is_string($signRout) || !preg_match('#^/(?!/)#', $signRout) || !Router::validRouteAddr($signRout) ) ){
+		if( $signRout!==null && ( !is_string($signRout) || !preg_match('#^/(?!/)#', $signRout) || !Router::isRedirectAddr($signRout) ) ){
 			$this->logAccsAttempt( false, '', 'Access misconfigured: the sign-in route is not a path of this site' );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
@@ -308,7 +308,7 @@ class Checker{
 		$fromText = ($clientIpAddr!='') ? ' from '.$clientIpAddr : '';
 		$denyList = Array('loggedIn'=>true, 'userName'=>$userName, 'userRole'=>$idntList['userRole'], 'identity'=>$idntList, 'appsName'=>$applName, 'statCode'=>404, 'statMssg'=>'Not Found');
 		if( $this->routerRegr===null || !$keyInstn->allowsRouteFlg($this->routerRegr) ){
-			Logger::retrieveLogger('access')->warning( 'App call refused for app '.json_encode($applName).', user '.json_encode($userName).$fromText.' to '.$this->rteDestination().': not a route of the application' );
+			Logger::getLoggerOfChn('access')->warning( 'App call refused for app '.json_encode($applName).', user '.json_encode($userName).$fromText.' to '.$this->rteDestination().': not a route of the application' );
 			return new Registry( $denyList );
 		}
 		if( $requiredRole!==null && !self::rleAccessMeets($idntList['userRole'], $requiredRole) ){
@@ -317,15 +317,15 @@ class Checker{
 		}
 		$mthdName = '';
 		foreach( array_merge(AppKey::READ_LIST, Array('POST', 'PUT', 'PATCH', 'DELETE')) as $mthVal ){
-			if( $this->requestObj->usedMethodFlag($mthVal) ){
+			if( $this->requestObj->isSentByMethod($mthVal) ){
 				$mthdName = $mthVal;
 			}
 		}
 		$logStrng = 'App call granted for app '.json_encode($applName).', user '.json_encode($userName).' ('.$idntList['userRole'].')'.$fromText.' to '.$this->rteDestination().' ('.($mthdName!='' ? $mthdName : 'other method').')';
 		if( in_array($mthdName, AppKey::READ_LIST, true) ){
-			Logger::retrieveLogger('access')->info( $logStrng );
+			Logger::getLoggerOfChn('access')->info( $logStrng );
 		}else{
-			Logger::retrieveLogger('access')->notice( $logStrng );
+			Logger::getLoggerOfChn('access')->notice( $logStrng );
 		}
 		return new Registry( array_merge($denyList, Array('statCode'=>200, 'statMssg'=>'')) );
 	}
@@ -347,7 +347,7 @@ class Checker{
 			$roleFlow = 'unknown role '.json_encode($signedInRole).' for a call from the command line';
 		}
 		if( $roleFlow!='' ){
-			Logger::retrieveLogger('access')->warning( 'Access denied: Access misconfigured: '.$roleFlow );
+			Logger::getLoggerOfChn('access')->warning( 'Access denied: Access misconfigured: '.$roleFlow );
 			return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 		}
 		$idntList = Array('userName'=>$signedInUser, 'userRole'=>$signedInRole, 'idOfUser'=>null);
@@ -356,7 +356,7 @@ class Checker{
 			self::logRoleRefusal( $signedInUser, $signedInRole, $needRole, '', $this->rteDestination() );
 			return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntList, 'statCode'=>404, 'statMssg'=>'Not Found') );
 		}
-		Logger::retrieveLogger('access')->notice( 'Action '.$this->rteDestination().' called from the command line by user '.json_encode($signedInUser).' ('.$signedInRole.')' );
+		Logger::getLoggerOfChn('access')->notice( 'Action '.$this->rteDestination().' called from the command line by user '.json_encode($signedInUser).' ('.$signedInRole.')' );
 		return new Registry( Array('loggedIn'=>true, 'userName'=>$signedInUser, 'userRole'=>$signedInRole, 'identity'=>$idntList, 'statCode'=>200, 'statMssg'=>'') );
 	}
 
@@ -459,7 +459,7 @@ class Checker{
 			if( $this->routingObj===null ){
 				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of minRoles cannot be checked: no router is given';
 			}
-			$this->routesList ??= $this->routingObj->allRoutesArray();
+			$this->routesList ??= $this->routingObj->listAllTargets();
 			if( !in_array(trim($rteKey, '/'), array_column($this->routesList, 'routPath'), true) ){
 				return 'the route '.json_encode($rteKey, JSON_UNESCAPED_SLASHES).' of minRoles is declared nowhere';
 			}
@@ -475,7 +475,7 @@ class Checker{
 	 *
 	 * @param String $appNameToRun Application asked for, as the route of the request names it.
 	 * @param String $runAppAction Action asked for, in lower case; '' for none.
-	 * @param Array  $routEntryLst An entry of Router::allRoutesArray().
+	 * @param Array  $routEntryLst An entry of Router::listAllTargets().
 	 * @return Bool True when the route answers with that action.
 	 */
 	protected function matchActionFlg( String $appNameToRun, String $runAppAction, Array $routEntryLst ): Bool {
@@ -543,7 +543,7 @@ class Checker{
 				$isNameOk = ($routePth!='' && trim($rteKey, '/')===$routePth);
 				// The action a declared route answers with carries its role, on every path that reaches it
 				if( !$isNameOk && $applName!='' && $this->routingObj!==null ){
-					$this->routesList ??= $this->routingObj->allRoutesArray();
+					$this->routesList ??= $this->routingObj->listAllTargets();
 					foreach( $this->routesList as $rteRow ){
 						if( $rteRow['routPath']===trim($rteKey, '/') && $this->matchActionFlg($applRead, $actnName, $rteRow) ){
 							$isNameOk = true;
@@ -579,7 +579,7 @@ class Checker{
 		if( trim($signRout, '/')===strval($this->routerRegr->readValueByKey('routPath')) ){
 			return null;
 		}
-		$askdPath = strval($this->requestObj->obtainUrlValue('fullPath'));
+		$askdPath = strval($this->requestObj->getUrlKeyValue('fullPath'));
 		// The sign-in route is one of the preset's : under the basePath it is served under, as the page asked for is
 		$baseText = rtrim(strval($this->routerRegr->readValueByKey('routBase') ?? ''), '/');
 		return $baseText.$signRout.( ($askdPath!='' && $askdPath!='/') ? '?back='.rawurlencode($askdPath) : '' );
@@ -592,7 +592,7 @@ class Checker{
 	 * @return String The address, empty when the request tells none.
 	 */
 	protected function clntAddressTxt(): String {
-		$clntRegr = $this->requestObj->retrieveClient();
+		$clntRegr = $this->requestObj->getClientOfRqt();
 		return ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 	}
 
@@ -623,7 +623,7 @@ class Checker{
 	 */
 	public static function logRoleRefusal( String $signedInUser, ?String $signedInRole, String $requiredRole, String $clientIpAddr, String $demandedRout ): Void {
 		$fromText = ($clientIpAddr!='') ? ' from '.$clientIpAddr : '';
-		Logger::retrieveLogger('access')->warning( 'Access refused for user '.json_encode($signedInUser).' ('.($signedInRole ?? 'no role').')'.$fromText.' to '.$demandedRout.': role '.$requiredRole.' needed' );
+		Logger::getLoggerOfChn('access')->warning( 'Access refused for user '.json_encode($signedInUser).' ('.($signedInRole ?? 'no role').')'.$fromText.' to '.$demandedRout.': role '.$requiredRole.' needed' );
 	}
 
 	/**
@@ -639,7 +639,7 @@ class Checker{
 	 * @param String $signedInRole The role of the identified user, if any.
 	 */
 	protected function logAccsAttempt( Bool $grantedOrNot, String $signedInUser, String $denialReason, String $signedInRole='' ): Void {
-		$accsJrnl = Logger::retrieveLogger('access');
+		$accsJrnl = Logger::getLoggerOfChn('access');
 		$userAddr = $this->clntAddressTxt();
 		$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
 		if( $grantedOrNot && in_array($signedInRole, array_slice(self::ROLE_LIST, 1), true) ){
@@ -662,7 +662,7 @@ class Checker{
 			return Array();
 		}
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$accsConf = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', strtoupper($cfgBlockName)) : null;
+		$accsConf = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', strtoupper($cfgBlockName)) : null;
 		return is_array($accsConf) ? $accsConf : Array();
 	}
 }

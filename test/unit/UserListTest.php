@@ -122,7 +122,7 @@ checkIdentical('UserList the file is never written', hash_file('sha256', TOP_DIR
 $unavail = Array(false, 'Credential store unavailable', false);
 $annaHsh = password_hash('pw-anna', PASSWORD_BCRYPT, Array('cost'=>4));
 $annaRow = Array('systemName'=>'anna', 'passwdHash'=>$annaHsh);
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 checkIdentical('UserList a file with its two required fields', listReply(json_encode(Array('users'=>Array($annaRow)))), Array(Array('userName'=>'anna', 'userRole'=>'standard', 'idOfUser'=>null), '', false));
 checkIdentical('UserList no file named', Array((new UserList(Array()))->checkSecretArr($annaPwd), (new UserList(Array('listFile'=>Array('x'))))->checkSecretArr($annaPwd)), Array(false, false));
 $noneLst = new UserList( Array('listFile'=>'test'.DS.'fixtures'.DS.'missing.lst') );
@@ -142,7 +142,7 @@ checkIdentical('UserList an address shared by two users, whatever its case', lis
 checkIdentical('UserList a bearerHash shared by two users', listReply(json_encode(Array('users'=>Array($annaRow + Array('bearerHash'=>'ab12'), Array('systemName'=>'ben', 'passwdHash'=>$annaHsh, 'bearerHash'=>'AB12'))))), $unavail);
 checkIdentical('UserList an unknown status is not active', listReply(json_encode(Array('users'=>Array($annaRow + Array('userStatus'=>'online'))))), Array(false, 'Invalid credentials', true));
 checkIdentical('UserList an unknown role is given as written', listReply(json_encode(Array('users'=>Array($annaRow + Array('accessRole'=>'root')))))[0], Array('userName'=>'anna', 'userRole'=>'root', 'idOfUser'=>null));
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 $axsLogs = file_exists(inTemporaryDir('logs').DS.'access.log') ? file(inTemporaryDir('logs').DS.'access.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('access log: one error per file refused, none for a missing one', count(preg_grep('/\[ERROR\] Users file /', $axsLogs)), 12);
 checkIdentical('access log: the status of a user that is not active is told there only', array_values(preg_grep('/is not active/', $axsLogs)), Array('['.date('Y').'] [WARNING] Credential refused: user "anna" is not active (online)'));

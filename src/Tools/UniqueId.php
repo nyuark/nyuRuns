@@ -17,7 +17,7 @@ class UniqueId {
 	 *
 	 * @return String The identifier, as 0192f0c4-8b5e-7a3d-9f21-6c0e4b7d2a18.
 	 */
-	public static function newUuid7String(): String {
+	public static function makeUuidVersn7(): String {
 		$msecNumb = intval( floor(microtime(true)*1000) );
 		$timeHxdc = str_pad(dechex($msecNumb), 12, '0', STR_PAD_LEFT);
 		$rndmHexa = bin2hex( random_bytes(10) );
@@ -33,7 +33,7 @@ class UniqueId {
 	 * @param String $textToVerify The text.
 	 * @return Bool Whether it is a UUID.
 	 */
-	public static function verifyUuidFlag( String $textToVerify ): Bool {
+	public static function isFormedAsUuid( String $textToVerify ): Bool {
 		return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD', $textToVerify)===1;
 	}
 

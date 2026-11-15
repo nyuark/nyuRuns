@@ -33,7 +33,7 @@ class Basic implements Handler{
 	 * @return Array|Bool The verified identity array, or false on failure.
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$authHedr = $givenRequest->retrieveHeader('Authorization');
+		$authHedr = $givenRequest->getHeaderValue('Authorization');
 		if( $authHedr===null || stripos($authHedr, 'Basic ')!==0 ){
 			$this->errMessage = 'Missing Basic Authorization header';
 			return false;

@@ -38,7 +38,7 @@ class Variable{
 	 * @param mixed $valueAsGiven The raw value to wrap.
 	 */
 	function __construct( Mixed $valueAsGiven ){
-		$this->replaceWrapped($valueAsGiven);
+		$this->alterHeldValue($valueAsGiven);
 	}
 
 	/**
@@ -67,7 +67,7 @@ class Variable{
 	 *
 	 * @param mixed $valueAsGiven The new raw value to wrap.
 	 */
-	function replaceWrapped( Mixed $valueAsGiven ): Void {
+	function alterHeldValue( Mixed $valueAsGiven ): Void {
 		$this->wrappedVal = $valueAsGiven;
 	}
 
@@ -75,7 +75,7 @@ class Variable{
 	 * Formats the wrapped value as a sanitized string.
 	 */
 	function formatsOutText(): Void {
-		$this->wrappedVal = StrKit::trimTagsString(
+		$this->wrappedVal = StrKit::wipeTagsString(
 			str_replace( Array("'", '"'), Array('&#39;', '&#34;'), $this->wrappedVal.'' )
 		);
 	}
@@ -111,7 +111,7 @@ class Variable{
 	 * a Float instead of a formatted text.
 	 */
 	function formatsFloatNb(): Void {
-		$this->wrappedVal = floatval( filter_var( $this->giveScalarText(), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
+		$this->wrappedVal = floatval( filter_var( $this->castScalarText(), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION ) );
 	}
 
 	/**
@@ -120,7 +120,7 @@ class Variable{
 	 * gives an empty string.
 	 */
 	function formatsEmlAddr(): Void {
-		$emailTxt = strval( filter_var($this->giveScalarText(), FILTER_SANITIZE_EMAIL) );
+		$emailTxt = strval( filter_var($this->castScalarText(), FILTER_SANITIZE_EMAIL) );
 		$this->wrappedVal = (filter_var($emailTxt, FILTER_VALIDATE_EMAIL)!==false) ? $emailTxt : '';
 	}
 
@@ -132,7 +132,7 @@ class Variable{
 	 * than 15 digits, gives an empty string.
 	 */
 	function formatsPhoneNb(): Void {
-		$rawStrng = trim($this->giveScalarText());
+		$rawStrng = trim($this->castScalarText());
 		$this->wrappedVal = '';
 		if( preg_match('/[a-z]/i', $rawStrng) ){
 			return;
@@ -156,7 +156,7 @@ class Variable{
 	 * attribute it is written in.
 	 */
 	function formatsUrlAddr(): Void {
-		$urlStrng = trim($this->giveScalarText());
+		$urlStrng = trim($this->castScalarText());
 		$urlSchme = strtolower( strval(parse_url($urlStrng, PHP_URL_SCHEME)) );
 		$isAddrOk = filter_var($urlStrng, FILTER_VALIDATE_URL)!==false && in_array($urlSchme, Array('http', 'https'), true)
 			&& !preg_match('/["\'<>`\s\x00-\x1F]/', $urlStrng);
@@ -178,7 +178,7 @@ class Variable{
 			'Ì'=>'i', 'Í'=>'i', 'Î'=>'i', 'Ï'=>'i', 'Ñ'=>'n', 'Ò'=>'o', 'Ó'=>'o', 'Ô'=>'o', 'Õ'=>'o', 'Ö'=>'o', 'Ø'=>'o', 'Œ'=>'oe',
 			'Ù'=>'u', 'Ú'=>'u', 'Û'=>'u', 'Ü'=>'u', 'Ý'=>'y', 'Ÿ'=>'y'
 		);
-		$slugText = strtolower( strtr($this->giveScalarText(), $acctDict) );
+		$slugText = strtolower( strtr($this->castScalarText(), $acctDict) );
 		$this->wrappedVal = trim( preg_replace('/[^a-z0-9]+/', '-', $slugText), '-' );
 	}
 
@@ -198,12 +198,12 @@ class Variable{
 		$domDcmnt = new \DOMDocument();
 		$oldCodig = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		$domDcmnt->loadHTML('<?xml encoding="UTF-8"><body>'.str_replace("\0", '', $this->giveScalarText()).'</body>', LIBXML_NONET | LIBXML_COMPACT);
+		$domDcmnt->loadHTML('<?xml encoding="UTF-8"><body>'.str_replace("\0", '', $this->castScalarText()).'</body>', LIBXML_NONET | LIBXML_COMPACT);
 		libxml_clear_errors();
 		libxml_use_internal_errors($oldCodig);
 		// The whole document is written, so that a text set outside its body is not lost
 		$rootNode = $domDcmnt->documentElement;
-		$this->wrappedVal = ($rootNode!==null) ? $this->htmlValueNodes($rootNode) : '';
+		$this->wrappedVal = ($rootNode!==null) ? $this->renderSafeHtml($rootNode) : '';
 	}
 
 	/**
@@ -212,7 +212,7 @@ class Variable{
 	 * @param \DOMNode $outerElement The element whose content is written.
 	 * @return String The content, reduced to the tags kept.
 	 */
-	protected function htmlValueNodes( \DOMNode $outerElement ): String {
+	protected function renderSafeHtml( \DOMNode $outerElement ): String {
 		$keepTags = Array('p', 'br', 'hr', 'b', 'strong', 'i', 'em', 'u', 's', 'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'a');
 		$dropTags = Array('script', 'style', 'iframe', 'object', 'embed', 'noscript', 'template', 'head', 'title', 'textarea', 'select', 'svg', 'math');
 		$outStrng = '';
@@ -228,7 +228,7 @@ class Variable{
 			if( in_array($tagTitle, $dropTags, true) ){
 				continue;
 			}
-			$innerTxt = $this->htmlValueNodes($kidNod);
+			$innerTxt = $this->renderSafeHtml($kidNod);
 			if( !in_array($tagTitle, $keepTags, true) ){
 				$outStrng .= $innerTxt;
 			}elseif( $tagTitle=='br' || $tagTitle=='hr' ){
@@ -254,7 +254,7 @@ class Variable{
 	 *
 	 * @return String The value as a text.
 	 */
-	protected function giveScalarText(): String {
+	protected function castScalarText(): String {
 		return is_scalar($this->wrappedVal) ? strval($this->wrappedVal) : '';
 	}
 
@@ -265,11 +265,11 @@ class Variable{
 	 *
 	 * @return ?Int The timestamp of the date at noon, the timestamp given, or null when the value is no date.
 	 */
-	protected function dateStampCount(): ?Int {
+	protected function castDateToUnix(): ?Int {
 		if( is_int($this->wrappedVal) ){
 			return ($this->wrappedVal>=0) ? $this->wrappedVal : null;
 		}
-		$dateText = trim($this->giveScalarText());
+		$dateText = trim($this->castScalarText());
 		$dateList = Array();
 		if( preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/', $dateText, $dateList) ){
 			if( !checkdate(intval($dateList[2]), intval($dateList[3]), intval($dateList[1])) ){
@@ -289,7 +289,7 @@ class Variable{
 		if(!defined('LOC_MTHSHT')){
 			define('LOC_MTHSHT',';Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec');
 		}
-		$timeStmp = $this->dateStampCount();
+		$timeStmp = $this->castDateToUnix();
 		$allMonth = explode(';',LOC_MTHSHT);
 		$this->wrappedVal = ($timeStmp===null) ? '' : date('j', $timeStmp).' '.$allMonth[intval(date('n', $timeStmp))].' '.date('Y', $timeStmp);
 	}
@@ -303,7 +303,7 @@ class Variable{
 		if(!defined('LOC_MONTHS')){
 			define('LOC_MONTHS',';January;February;March;April;May;June;July;August;September;October;November;December');
 		}
-		$timeStmp = $this->dateStampCount();
+		$timeStmp = $this->castDateToUnix();
 		$allMonth = explode(';',LOC_MONTHS);
 		$this->wrappedVal = ($timeStmp===null) ? '' : date('j', $timeStmp).' '.$allMonth[intval(date('n', $timeStmp))].' '.date('Y', $timeStmp);
 	}
@@ -316,7 +316,7 @@ class Variable{
 	 * @param String $dateTemplate A date() format string ('d/m/y' when empty).
 	 */
 	function formatsCustDte( String $dateTemplate='' ): Void {
-		$timeStmp = $this->dateStampCount();
+		$timeStmp = $this->castDateToUnix();
 		if( $dateTemplate=='' ) $dateTemplate='d/m/y';
 		$this->wrappedVal = ($timeStmp===null) ? '' : date( $dateTemplate, $timeStmp );
 	}
@@ -327,7 +327,7 @@ class Variable{
 	 * empty string.
 	 */
 	function formatsWeekDay( ): Void {
-		$timeStmp = $this->dateStampCount();
+		$timeStmp = $this->castDateToUnix();
 		if( $timeStmp===null ){
 			$this->wrappedVal = '';
 			return;
@@ -349,7 +349,7 @@ class Variable{
 	 * an empty string.
 	 */
 	function formatsFullDay(): Void {
-		$timeStmp = $this->dateStampCount();
+		$timeStmp = $this->castDateToUnix();
 		if( $timeStmp===null ){
 			$this->wrappedVal = '';
 			return;
@@ -403,9 +403,9 @@ class Variable{
 	 * @param String|Int|Bool $spanLastDate End date of the span (a 'Y-m-d' date or a timestamp); required for a result.
 	 */
 	function formatsSpanDte( String|Int|Bool $spanLastDate=false ): Void {
-		$numbDict = $this->dateStampCount();
+		$numbDict = $this->castDateToUnix();
 		$tellsVar = new Variable($spanLastDate);
-		$tellsDct = $tellsVar->dateStampCount();
+		$tellsDct = $tellsVar->castDateToUnix();
 
 		if($spanLastDate!=false){
 			if( $numbDict===null || $tellsDct===null ){

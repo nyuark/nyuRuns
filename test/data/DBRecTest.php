@@ -293,7 +293,7 @@ function countRow( String $tableLabel, Array $whereArray=Array() ): Int {
 }
 
 // Every removal below is traced on the 'runner' channel, signed with the actor of the request
-nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
+nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('logs'), 'mode'=>'BASE', 'pref'=>'Y') );
 nyu\Tools\Logger::setCurrentUser('bob', '10.0.0.1');
 
 checkIdentical('remvRecrd alone deletes the record and leaves its children', runCatchThrown(function(){
@@ -349,7 +349,7 @@ checkIdentical('remvRecrd failing on a child table cancels the whole deletion', 
 }), Array(false, 1, 2));
 
 // The trace of the removals above : what was removed and by whom, and what the database refused
-nyu\Tools\Logger::plugLogsConfig( Array() );
+nyu\Tools\Logger::loadLogsConfig( Array() );
 nyu\Tools\Logger::setCurrentUser('', '');
 $remLogs = file_exists(inTemporaryDir('logs').DS.'runner.log') ? file(inTemporaryDir('logs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array();
 checkIdentical('removal log: one entry per removal done or refused by the database, none for a record that is not there', $remLogs, Array(

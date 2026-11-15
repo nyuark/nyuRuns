@@ -75,7 +75,7 @@ class Controller{
 		$logStrng = 'Not found: '.json_encode($appNameToRun.'/'.$runAppAction, JSON_INVALID_UTF8_SUBSTITUTE).': ';
 		if( !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
 			$this->loadFailed = 'Not Found';
-			Logger::retrieveLogger('runner')->info( $logStrng.'not a name of an application'.Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('runner')->info( $logStrng.'not a name of an application'.Logger::getActorSuffix() );
 			return;
 		}
 		// Check that application exists : its folder found whatever the case of its name, as the Router and the Checker find it
@@ -96,13 +96,13 @@ class Controller{
 			}catch(\ReflectionException $e){
 				// Actions.php does not declare the application's actionset : a mistake of the application, told to the client as nothing found
 				$this->loadFailed = 'Not Found';
-				Logger::retrieveLogger('runner')->warning( $logStrng.'Actions.php of the application declares no actionset'.Logger::getActorSuffix() );
+				Logger::getLoggerOfChn('runner')->warning( $logStrng.'Actions.php of the application declares no actionset'.Logger::getActorSuffix() );
 				return;
 			}
 		}else{
 			// Unknown application : reported through getStatusOfAct()
 			$this->loadFailed = 'Not Found';
-			Logger::retrieveLogger('runner')->info( $logStrng.'unknown application'.Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('runner')->info( $logStrng.'unknown application'.Logger::getActorSuffix() );
 			return;
 		}
 		$hasDeflt = false;
@@ -116,11 +116,11 @@ class Controller{
 			if( $hasDeflt ){
 				$this->failStatus = 500;
 				$this->loadFailed = 'Internal Server Error';
-				Logger::retrieveLogger('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->keptAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction names no action, or is not set)' );
+				Logger::getLoggerOfChn('runner')->error( 'The default action of '.$appNameToRun.' is not an action: '.json_encode($this->keptAction, JSON_INVALID_UTF8_SUBSTITUTE).' ($dfltAction names no action, or is not set)' );
 				return;
 			}
 			$this->loadFailed = 'Not Found';
-			Logger::retrieveLogger('runner')->info( $logStrng.'not an action of the application'.Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('runner')->info( $logStrng.'not an action of the application'.Logger::getActorSuffix() );
 			return;
 		}
 		$this->treatInputDefs();
@@ -158,8 +158,8 @@ class Controller{
 			throw new \RuntimeException('Input misconfigured: '.$this->runAppName.'/input/'.$actnName.'.json is not a definition of fields');
 		}
 		$inputObj = new Input( null, 'ACTON', $fieldDfs['fieldSet'], $actnName );
-		$this->inputsRegr = new Registry( $inputObj->parseValuesArr($this->inputsRegr->readLinesArray()) );
-		$missList = $inputObj->retrieveMissed();
+		$this->inputsRegr = new Registry( $inputObj->parseValuesDct($this->inputsRegr->readLinesArray()) );
+		$missList = $inputObj->getMissingFlds();
 		if( !empty($missList) ){
 			// A required field is missing or empty : the action is not run
 			$this->failStatus = 400;
@@ -222,7 +222,7 @@ class Controller{
 		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them
 		if( count($findList)>1 && !isset(self::$twinsNoted[strtolower($appNameToRun)]) ){
 			self::$twinsNoted[strtolower($appNameToRun)] = true;
-			Logger::retrieveLogger('runner')->error( 'Run folders '.json_encode($findList, JSON_UNESCAPED_SLASHES).' differ by their case alone: neither is served'.Logger::getActorSuffix() );
+			Logger::getLoggerOfChn('runner')->error( 'Run folders '.json_encode($findList, JSON_UNESCAPED_SLASHES).' differ by their case alone: neither is served'.Logger::getActorSuffix() );
 		}
 		return (count($findList)===1) ? $findList[0] : '';
 	}

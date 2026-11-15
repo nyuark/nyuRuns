@@ -135,7 +135,7 @@ class Mailer {
 		foreach( Message::splitAddresses($this->setupArray['copiesTo']) as $cpyAdr ){
 			$copyList[] = Message::checkEmailAddr($cpyAdr);
 		}
-		$logrInst = Logger::retrieveLogger('runner');
+		$logrInst = Logger::getLoggerOfChn('runner');
 		$acctText = json_encode($this->accountNme=='' ? 'default' : $this->accountNme);
 		$failText = $this->mailDriver->deliverMessage( $mailInst, $mailInst->listRecipients() );
 		$this->failReason = strval($failText ?? '');

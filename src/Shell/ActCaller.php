@@ -66,7 +66,7 @@ class ActCaller{
 		}
 		$loadInst = (new Preset($nameOfPreset))->makeConfLoader();
 		$GLOBALS['nyuConfig'] = $loadInst->readConfigRegr();
-		Logger::plugLogsConfig( $loadInst->logConfigArray() );
+		Logger::loadLogsConfig( $loadInst->logConfigArray() );
 		$rndrConf = $loadInst->getRegistryKey('response');
 		$callList = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrConf) ? $rndrConf : Array(), $loadInst->findProxyConfg() );
 		$reqtInst = $callList[0];
@@ -75,7 +75,7 @@ class ActCaller{
 		$routRegr = $loadInst->loadRouteRgstr($reqtInst);
 		$routInst = $loadInst->getRouterOfRqt();
 		// A path no route answers, or a method its route refuses, is the Router's reply (404, 405); only an action is called,		// found from the path (no kind) or by a declared route (toAction)
-		$sttsNumb = intval($routRegr->obtainDefValue('statCode', 200));
+		$sttsNumb = intval($routRegr->getValueOrDflt('statCode', 200));
 		$sttsText = strval($routRegr->readValueByKey('statMssg'));
 		if( $sttsNumb==200 && !in_array($routRegr->readValueByKey('routKind'), Array(null, 'toAction'), true) ){
 			$sttsNumb = 404;
@@ -84,7 +84,7 @@ class ActCaller{
 		$outArray = null;
 		if( $sttsNumb==200 ){
 			$accsRegr = (new Checker($loadInst->setAccessArray(), $reqtInst, $routRegr, $routInst))->grantShellCall($signedInUser, $signedInRole);
-			$sttsNumb = intval($accsRegr->obtainDefValue('statCode', 200));
+			$sttsNumb = intval($accsRegr->getValueOrDflt('statCode', 200));
 			$sttsText = strval($accsRegr->readValueByKey('statMssg'));
 		}
 		if( $sttsNumb==200 ){

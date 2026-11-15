@@ -35,7 +35,7 @@ class Router{
 		$this->routConfig = $routSettings;
 		$this->requestObj = $givenRequest;
 		$this->routesBase = rtrim($basePathText, '/');
-		$this->rtePathTxt = $this->cleanRoutePath( strval($givenRequest->obtainUrlValue('fullPath')) );
+		$this->rtePathTxt = $this->wipeRequestUri( strval($givenRequest->getUrlKeyValue('fullPath')) );
 		// The basePath is taken off whole parts of the path : /api/users/view/12 is routed as users/view/12
 		$baseText = ltrim($this->routesBase, '/');
 		if( $baseText!=='' && ($this->rtePathTxt===$baseText || str_starts_with($this->rtePathTxt, $baseText.'/')) ){
@@ -58,9 +58,9 @@ class Router{
 	 *
 	 * @throws \RuntimeException When the route found is not properly declared.
 	 */
-	public function locateRouteReg(): Registry {
+	public function findRouteOfRqt(): Registry {
 		// A CORS preflight is answered by the route itself, on any path : no action runs
-		if( $this->requestObj->usedMethodFlag('OPTIONS') && $this->requestObj->retrieveHeader('Access-Control-Request-Method')!==null ){
+		if( $this->requestObj->isSentByMethod('OPTIONS') && $this->requestObj->getHeaderValue('Access-Control-Request-Method')!==null ){
 			return new Registry( Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>204, 'statMssg'=>'') );
 		}
 		$routVals = Array(
@@ -71,19 +71,19 @@ class Router{
 
 		// Declared routes come first : the site's, then the Runs'
 		$urlTrail = str_replace('.php', '', $this->rtePathTxt);
-		$matxList = $this->fileRouteArray($urlTrail);
+		$matxList = $this->findRouteOfPth($urlTrail);
 		if( $matxList!==null ){
 			return new Registry( $matxList );
 		}
 
 		// Automatic path detection (from url path), for the Runs that declare no routes
 		if( $dtctMode=='autopath' ){
-			$routVals = array_merge($routVals, $this->autoRouteArray());
+			$routVals = array_merge($routVals, $this->parseAutoRoute());
 			$applName = strval($routVals['appToRun'] ?? '');
 			// A Run declaring its routes is closed : its actions are reached through them only
 			$runFoldr = \nyu\App\Controller::findRunFldrNme($applName);
 			if( $runFoldr!=='' && is_file(RUN_DIR.DS.$runFoldr.DS.'routes.rte') ){
-				Logger::retrieveLogger('runner')->info( 'Not found: '.json_encode($applName.'/'.strval($routVals['doAction'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_SLASHES).': not listed in the routes of the application'.Logger::getActorSuffix() );
+				Logger::getLoggerOfChn('runner')->info( 'Not found: '.json_encode($applName.'/'.strval($routVals['doAction'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_SLASHES).': not listed in the routes of the application'.Logger::getActorSuffix() );
 				return new Registry( Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>404, 'statMssg'=>'Not Found') );
 			}
 		}
@@ -99,7 +99,7 @@ class Router{
 	 * @param String $fileOfRoutes Name of the file, for the message.
 	 * @param Array  $goalKeysList The keys a target block of the file may hold: TRGT_KEYS for the site, 'doAction' alone for a Run.
 	 */
-	protected function warnsRouteKeys( Array $rteRoutesLst, String $fileOfRoutes, Array $goalKeysList=self::TRGT_KEYS ): Void {
+	protected function logUnknownKeys( Array $rteRoutesLst, String $fileOfRoutes, Array $goalKeysList=self::TRGT_KEYS ): Void {
 		foreach( $rteRoutesLst as $rteKey => $rteSet ){
 			if( !is_array($rteSet) ){
 				continue;
@@ -108,7 +108,7 @@ class Router{
 			$trgtVals = $rteSet['pointsTo'] ?? null;
 			if( is_array($trgtVals) ){
 				// One block, or one per method (a block of a Run names its action alone)
-				$blockLst = ($this->targetKindText($trgtVals)!==null || isset($trgtVals['doAction'])) ? Array($trgtVals) : array_filter($trgtVals, 'is_array');
+				$blockLst = ($this->findTargetCode($trgtVals)!==null || isset($trgtVals['doAction'])) ? Array($trgtVals) : array_filter($trgtVals, 'is_array');
 				foreach( $blockLst as $blkVal ){
 					foreach( array_diff(array_map('strval', array_keys($blkVal)), $goalKeysList) as $tgtKey ){
 						$badClave[] = 'pointsTo.'.$tgtKey;
@@ -116,7 +116,7 @@ class Router{
 				}
 			}
 			foreach( array_unique($badClave) as $badKey ){
-				Logger::retrieveLogger('runner')->warning( 'Route '.json_encode(strval($rteKey)).' of '.$fileOfRoutes.' holds an unknown key: '.$badKey );
+				Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode(strval($rteKey)).' of '.$fileOfRoutes.' holds an unknown key: '.$badKey );
 			}
 		}
 	}
@@ -127,7 +127,7 @@ class Router{
 	 * @param String $reqstUriText The request URI, as received.
 	 * @return String The path to resolve.
 	 */
-	protected function cleanRoutePath( String $reqstUriText ): String {
+	protected function wipeRequestUri( String $reqstUriText ): String {
 		$quoteMrk = strpos($reqstUriText, '?');
 		if( $quoteMrk!==false ){
 			return substr($reqstUriText, 1, $quoteMrk-1);
@@ -141,7 +141,7 @@ class Router{
 	 *
 	 * @return Array The mapper keys with their path segment, null when the path is shorter.
 	 */
-	protected function autoRouteArray(): Array {
+	protected function parseAutoRoute(): Array {
 		$urlParte = explode( '/', $this->rtePathTxt );
 		$mapTrail = str_replace( '$', '', $this->routConfig['pathForm'] ?? '' );
 		$mapParte = explode( '/', $mapTrail );
@@ -161,7 +161,7 @@ class Router{
 	 * @param String $pathToLookUp Path to look up, without its .php extension.
 	 * @return ?Array The route values (see buildVals), or null when no route matches.
 	 */
-	protected function fileRouteArray( String $pathToLookUp ): ?Array {
+	protected function findRouteOfPth( String $pathToLookUp ): ?Array {
 		$pathToLookUp = trim($pathToLookUp, '/');
 		if( $pathToLookUp=='' ){
 			$pathToLookUp = 'index';
@@ -169,7 +169,7 @@ class Router{
 		$routeDct = $this->loadFilesArray();
 		foreach( Array(true, false) as $ofSite ){
 			if( isset($routeDct[$pathToLookUp]) && (strval($routeDct[$pathToLookUp]['routOwnr'] ?? 'site')=='site')===$ofSite ){
-				return $this->generateValues( $routeDct[$pathToLookUp], Array(), $pathToLookUp );
+				return $this->makeTargetVals( $routeDct[$pathToLookUp], Array(), $pathToLookUp );
 			}
 			foreach( $routeDct as $rteKey => $rteSet ){
 				if( (strval($rteSet['routOwnr'] ?? 'site')=='site')!==$ofSite ){
@@ -177,7 +177,7 @@ class Router{
 				}
 				$captVals = $this->matchRoutePath( strval($rteKey), $pathToLookUp );
 				if( $captVals!==null ){
-					return $this->generateValues( $rteSet, $captVals, strval($rteKey) );
+					return $this->makeTargetVals( $rteSet, $captVals, strval($rteKey) );
 				}
 			}
 		}
@@ -208,7 +208,7 @@ class Router{
 				$routeFle = new Dcmnt($rteFil, false);
 				$fileDict = $routeFle->readFileDetail('out');
 				if( is_array($fileDict) ){
-					$this->warnsRouteKeys( $fileDict, basename(strval($rteFil)) );
+					$this->logUnknownKeys( $fileDict, basename(strval($rteFil)) );
 					$routeDct = $routeDct + $fileDict;
 				}
 			}
@@ -220,20 +220,20 @@ class Router{
 				$siteRout[$routePth] = Array('routOwnr'=>'site') + $rteSet;
 			}
 		}
-		foreach( $this->runRoutesArray() as $runRte ){
+		foreach( $this->readRunsRoutes() as $runRte ){
 			$routePth = strval($runRte['routPath']);
 			if( isset($siteRout[$routePth]) ){
 				if( $siteRout[$routePth]['routOwnr']=='site' ){
-					Logger::retrieveLogger('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['routOwnr'].' is also declared by the site: the site\'s answers' );
+					Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['routOwnr'].' is also declared by the site: the site\'s answers' );
 				}else{
-					Logger::retrieveLogger('runner')->error( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' is declared by the applications '.$siteRout[$routePth]['routOwnr'].' and '.$runRte['routOwnr'].': '.$siteRout[$routePth]['routOwnr'].' answers' );
+					Logger::getLoggerOfChn('runner')->error( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' is declared by the applications '.$siteRout[$routePth]['routOwnr'].' and '.$runRte['routOwnr'].': '.$siteRout[$routePth]['routOwnr'].' answers' );
 				}
 				continue;
 			}
 			// A pattern of the site over it answers first : told as well
 			foreach( array_keys(array_combine(array_keys($siteRout), array_column($siteRout, 'routOwnr')), 'site', true) as $rteKey ){
 				if( $this->matchRoutePath(strval($rteKey), $routePth)!==null ){
-					Logger::retrieveLogger('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['routOwnr'].' falls under the site route '.json_encode('/'.$rteKey, JSON_UNESCAPED_SLASHES).': the site\'s answers' );
+					Logger::getLoggerOfChn('runner')->warning( 'Route '.json_encode('/'.$routePth, JSON_UNESCAPED_SLASHES).' of the application '.$runRte['routOwnr'].' falls under the site route '.json_encode('/'.$rteKey, JSON_UNESCAPED_SLASHES).': the site\'s answers' );
 					break;
 				}
 			}
@@ -253,7 +253,7 @@ class Router{
 	 * @param String $routShapeTxt Path of the route as the Run's file declares it, such as items/$id.
 	 * @return ?String The final path, without its slashes; null when the Run declares no such route, or does not serve it.
 	 */
-	public function runsRouteShape( String $appNameToRun, String $routShapeTxt ): ?String {
+	public function getMountedPath( String $appNameToRun, String $routShapeTxt ): ?String {
 		foreach( $this->loadFilesArray() as $rteKey => $rteSet ){
 			if( strcasecmp(strval($rteSet['routOwnr'] ?? 'site'), $appNameToRun)==0 && ($rteSet['routDecl'] ?? null)===trim($routShapeTxt, '/') ){
 				return strval($rteKey);
@@ -274,7 +274,7 @@ class Router{
 	 *
 	 * @return Array The routes, in a list: each its declaration with its final path under 'routPath' (without its slashes), its Run under 'routOwnr' and the path its file declares it with under 'routDecl' (without its slashes).
 	 */
-	public function runRoutesArray(): Array {
+	public function readRunsRoutes(): Array {
 		$rowsList = Array();
 		if( !defined('RUN_DIR') ){
 			return $rowsList;
@@ -289,7 +289,7 @@ class Router{
 			if( !is_array($fileDict) ){
 				continue;
 			}
-			$this->warnsRouteKeys( $fileDict, $applName.'/routes.rte', Array('doAction') );
+			$this->logUnknownKeys( $fileDict, $applName.'/routes.rte', Array('doAction') );
 			foreach( $fileDict as $rteKey => $rteSet ){
 				if( !is_array($rteSet) ){
 					continue;
@@ -361,8 +361,8 @@ class Router{
 	 *
 	 * @return Bool True when an action can be run.
 	 */
-	public function reachesActions(): Bool {
-		foreach( $this->allRoutesArray() as $rteRow ){
+	public function canReachAction(): Bool {
+		foreach( $this->listAllTargets() as $rteRow ){
 			if( ($rteRow['routKind'] ?? '')=='toAction' ){
 				return true;
 			}
@@ -383,9 +383,9 @@ class Router{
 	 * Takes the declared routes already read (the setting clrCache), in place
 	 * of the files of the routes folder.
 	 *
-	 * @param Array $rteRoutesLst The declared routes, by path or path pattern, as retrieveRoutes() gives them.
+	 * @param Array $rteRoutesLst The declared routes, by path or path pattern, as loadRoutesList() gives them.
 	 */
-	public function assignRouteSet( Array $rteRoutesLst ): Void {
+	public function setGivenRoutes( Array $rteRoutesLst ): Void {
 		$this->routeFiles = $rteRoutesLst;
 	}
 
@@ -395,7 +395,7 @@ class Router{
 	 *
 	 * @return Array The declared routes, by path or path pattern.
 	 */
-	public function retrieveRoutes(): Array {
+	public function loadRoutesList(): Array {
 		return $this->loadFilesArray();
 	}
 
@@ -405,7 +405,7 @@ class Router{
 	 *
 	 * @return Array The entries, each with the path under 'routPath', its 'mthdList', its 'routKind' (toAction, redirect, toStatic or htmlPage), what it answers with under 'routTarg', its owner under 'routOwnr' ('site' or a Run) and, for an action, its 'appToRun' and 'doAction'.
 	 */
-	public function allRoutesArray(): Array {
+	public function listAllTargets(): Array {
 		$rowsList = Array();
 		foreach( $this->loadFilesArray() as $rteKey => $rteSet ){
 			$trgtVals = is_array($rteSet) ? ($rteSet['pointsTo'] ?? null) : null;
@@ -413,7 +413,7 @@ class Router{
 				continue;
 			}
 			$allowLst = array_filter( array_map('trim', explode(',', strtoupper(strval($rteSet['mthdList'] ?? '')))) );
-			if( $this->targetKindText($trgtVals)!==null ){
+			if( $this->findTargetCode($trgtVals)!==null ){
 				$mthdList = array_diff($allowLst, Array('HEAD', 'OPTIONS'));
 				$trgtVals = array_fill_keys( empty($mthdList) ? Array('GET') : $mthdList, $trgtVals );
 			}else{
@@ -422,7 +422,7 @@ class Router{
 			// The methods answered by the same target are told together
 			$goalList = Array();
 			foreach( $trgtVals as $mthNme => $target ){
-				$routeCod = $this->targetKindText($target);
+				$routeCod = $this->findTargetCode($target);
 				if( $routeCod===null ){
 					continue;
 				}
@@ -507,7 +507,7 @@ class Router{
 	 *
 	 * @throws \RuntimeException When the target is not properly declared.
 	 */
-	protected function generateValues( Array $routEntryLst, Array $capturedVals = Array(), String $routShapeTxt = '' ): ?Array {
+	protected function makeTargetVals( Array $routEntryLst, Array $capturedVals = Array(), String $routShapeTxt = '' ): ?Array {
 		$trgtVals = $routEntryLst['pointsTo'] ?? Array();
 		if( !is_array($trgtVals) ){
 			return null;
@@ -516,7 +516,7 @@ class Router{
 		$extraLst = array_intersect($allowLst, Array('HEAD', 'OPTIONS'));
 
 		// Targets by method : a general target serves the allowed methods, GET when none is listed
-		if( $this->targetKindText($trgtVals)!==null ){
+		if( $this->findTargetCode($trgtVals)!==null ){
 			$mthdList = array_diff($allowLst, $extraLst);
 			$trgtVals = array_fill_keys( empty($mthdList) ? Array('GET') : $mthdList, $trgtVals );
 		}else{
@@ -526,7 +526,7 @@ class Router{
 			return null;
 		}
 		// What GET gets without running an action, HEAD gets too
-		if( isset($trgtVals['GET']) && !in_array($this->targetKindText($trgtVals['GET']), Array(null, 'toAction'), true) ){
+		if( isset($trgtVals['GET']) && !in_array($this->findTargetCode($trgtVals['GET']), Array(null, 'toAction'), true) ){
 			$extraLst[] = 'HEAD';
 		}
 		$allowLst = array_unique( array_merge(array_map('strval', array_keys($trgtVals)), $extraLst) );
@@ -534,7 +534,7 @@ class Router{
 
 		$usedMthd = null;
 		foreach( $allowLst as $mthNme ){
-			if( $this->requestObj->usedMethodFlag($mthNme) ){
+			if( $this->requestObj->isSentByMethod($mthNme) ){
 				$usedMthd = $mthNme;
 			}
 		}
@@ -551,12 +551,12 @@ class Router{
 				'allowHdr'=>	implode(', ', $allowLst)
 			) + $routeBas;
 		}
-		$routeCod = $this->targetKindText($applDict);
+		$routeCod = $this->findTargetCode($applDict);
 		if( $routeCod=='redirect' ){
 			return $this->redirectValues($applDict, $capturedVals) + $routeBas;
 		}
 		if( $routeCod=='toStatic' || $routeCod=='htmlPage' ){
-			return $this->staticValueArr($applDict, $capturedVals) + $routeBas;
+			return $this->makeStaticVals($applDict, $capturedVals) + $routeBas;
 		}
 		if( empty($applDict['appToRun']) ){
 			return null;
@@ -576,7 +576,7 @@ class Router{
 	 * @param Array $targetValues One target block.
 	 * @return ?String 'toAction', 'redirect', 'htmlPage' or 'toStatic'; null when the block names none of them.
 	 */
-	protected function targetKindText( Array $targetValues ): ?String {
+	protected function findTargetCode( Array $targetValues ): ?String {
 		if( isset($targetValues['appToRun']) ){
 			return 'toAction';
 		}
@@ -608,7 +608,7 @@ class Router{
 		$moveTrgt = strval( preg_replace_callback('/\$(\w+)/', function( Array $matchedArray ) use ( $capturedVals ): String {
 			return isset($capturedVals[$matchedArray[1]]) ? rawurlencode(strval($capturedVals[$matchedArray[1]])) : $matchedArray[0];
 		}, strval($targetValues['redirect'])) );
-		if( !in_array($moveCode, self::MOVE_LIST, true) || !self::validRouteAddr($moveTrgt) ){
+		if( !in_array($moveCode, self::MOVE_LIST, true) || !self::isRedirectAddr($moveTrgt) ){
 			throw new \RuntimeException('Route misconfigured: "'.strval($targetValues['redirect']).'" with the status '.$moveCode.' is not a redirection');
 		}
 		// A path of this site is served under the basePath of the preset; a full address is left as it is
@@ -626,7 +626,7 @@ class Router{
 	 * @param String $redirectAddr The address.
 	 * @return Bool True when the address is accepted.
 	 */
-	public static function validRouteAddr( String $redirectAddr ): Bool {
+	public static function isRedirectAddr( String $redirectAddr ): Bool {
 		if( preg_match('/[\x00-\x20\x7F\\\\]/', $redirectAddr) ){
 			return false;
 		}
@@ -648,7 +648,7 @@ class Router{
 	 *
 	 * @throws \RuntimeException When the target is outside the 'fileRoot' folder, or a page is not an HTML file.
 	 */
-	protected function staticValueArr( Array $targetValues, Array $capturedVals ): Array {
+	protected function makeStaticVals( Array $targetValues, Array $capturedVals ): Array {
 		$missDict = Array('statCode'=>404, 'statMssg'=>'Not Found', 'routKind'=>'toStatic');
 		$rootConf = strval($this->routConfig['fileRoot'] ?? '');
 		$rootPath = ($rootConf!=='') ? realpath(TOP_DIR.DS.$rootConf) : false;
@@ -661,14 +661,14 @@ class Router{
 		if( $foundIdx===false ){
 			return $missDict;
 		}
-		if( !$this->liesRouteInDir($foundIdx, $rootPath) ){
+		if( !$this->isPathInFolder($foundIdx, $rootPath) ){
 			throw new \RuntimeException('Route misconfigured: "'.$routeNme.'" is outside the folder of the static files');
 		}
 		if( !$goToPage && !isset($targetValues['filePath']) ){
 			// A folder : the file is named by the rest of the path
 			$routePth = $foundIdx;
 			$restPath = strval($capturedVals['*'] ?? '');
-			if( !is_dir($routePth) || ($restPath!=='' && !$this->securePartsFlg($restPath)) ){
+			if( !is_dir($routePth) || ($restPath!=='' && !$this->isSafeFilePath($restPath)) ){
 				return $missDict;
 			}
 			if( $restPath!=='' ){
@@ -678,12 +678,12 @@ class Router{
 				$foundIdx = realpath($foundIdx.DS.'index.html');
 			}
 			// Checked on the real path : a link cannot lead out of the folder either
-			if( $foundIdx===false || !$this->liesRouteInDir($foundIdx, $routePth) ){
+			if( $foundIdx===false || !$this->isPathInFolder($foundIdx, $routePth) ){
 				return $missDict;
 			}
 			// The real names below the folder too : a short name (ENV~1 on Windows) can stand for a hidden file
 			$realRest = str_replace(DS, '/', substr($foundIdx, strlen(rtrim($routePth, '/\\')) + 1));
-			if( $realRest!=='' && $realRest!==false && !$this->securePartsFlg($realRest) ){
+			if( $realRest!=='' && $realRest!==false && !$this->isSafeFilePath($realRest) ){
 				return $missDict;
 			}
 		}
@@ -708,14 +708,14 @@ class Router{
 	 * @param Int $responseCode The status of the reply.
 	 * @return ?String The full path of the page, or null when the site has none for that status.
 	 */
-	public function errorPgeString( Int $responseCode ): ?String {
+	public function findErrPagePth( Int $responseCode ): ?String {
 		$rootConf = strval($this->routConfig['fileRoot'] ?? '');
 		$rootPath = ($rootConf!=='') ? realpath(TOP_DIR.DS.$rootConf) : false;
 		if( $rootPath===false || !is_dir($rootPath) ){
 			return null;
 		}
 		$pagePath = realpath($rootPath.DS.'errors'.DS.$responseCode.'.html');
-		return ( $pagePath!==false && is_file($pagePath) && $this->liesRouteInDir($pagePath, $rootPath) ) ? $pagePath : null;
+		return ( $pagePath!==false && is_file($pagePath) && $this->isPathInFolder($pagePath, $rootPath) ) ? $pagePath : null;
 	}
 
 	/**
@@ -726,7 +726,7 @@ class Router{
 	 * @param String $pathFromRoot The path, URL-decoded, its parts separated by slashes.
 	 * @return Bool True when every part is a plain name.
 	 */
-	protected function securePartsFlg( String $pathFromRoot ): Bool {
+	protected function isSafeFilePath( String $pathFromRoot ): Bool {
 		foreach( explode('/', $pathFromRoot) as $oneSeg ){
 			if( $oneSeg==='' || $oneSeg[0]=='.' || preg_match('/[\\\\:\x00-\x1F]/', $oneSeg) ){
 				return false;
@@ -742,7 +742,7 @@ class Router{
 	 * @param String $fullFldrPath The folder, as realpath() gives it.
 	 * @return Bool True when the path is the folder itself or inside it.
 	 */
-	protected function liesRouteInDir( String $pathFromRoot, String $fullFldrPath ): Bool {
+	protected function isPathInFolder( String $pathFromRoot, String $fullFldrPath ): Bool {
 		return $pathFromRoot===$fullFldrPath || strpos($pathFromRoot, rtrim($fullFldrPath, '/\\').DS)===0;
 	}
 
@@ -759,7 +759,7 @@ class Router{
 	 *
 	 * @throws \RuntimeException When no such route is declared, or a named part has no value.
 	 */
-	public function buildRouteLink( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryLst=Array() ): String {
+	public function makeUrlOfRoute( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryLst=Array() ): String {
 		$routePth = trim($routShapeTxt, '/');
 		$isListed = isset($this->loadFilesArray()[$routePth]);
 		$hasVarbl = (strpos($routePth, '$')!==false || strpos($routePth, '*')!==false);

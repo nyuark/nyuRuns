@@ -81,7 +81,7 @@ class JWT implements Handler{
 	 */
 	function verifyRqstList( Request $givenRequest ): Array|Bool {
 		$this->isWrongTry = false;
-		$authHedr = $givenRequest->retrieveHeader('Authorization');
+		$authHedr = $givenRequest->getHeaderValue('Authorization');
 		if( $authHedr===null || stripos($authHedr, 'Bearer ')!==0 ){
 			$this->errMessage = 'Missing Bearer Authorization header';
 			return false;
@@ -108,20 +108,20 @@ class JWT implements Handler{
 			return false;
 		}catch( \Throwable $e ){
 			// What the library found is for the log : the client is only told the token is not valid
-			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.get_class($e).': '.$e->getMessage() );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->debug( 'Token refused: '.get_class($e).': '.$e->getMessage() );
 			$this->errMessage = 'Invalid token';
 			$this->isWrongTry = true;
 			return false;
 		}
 		// A token names its user and ends : one that does neither was not issued here
 		if( !is_numeric($idntList['exp'] ?? null) || !is_scalar($idntList['userName'] ?? null) || strval($idntList['userName'])==='' ){
-			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed, but without an expiry or a user' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->debug( 'Token refused: signed, but without an expiry or a user' );
 			$this->errMessage = 'Invalid token';
 			return false;
 		}
 		// The previous key: only a token issued before it was retired, and ending within lifeSecs of it; a leaked key signs nothing more
 		if( $isOldKey && !( is_numeric($idntList['iat'] ?? null) && $idntList['iat']<$this->retireUnix && $idntList['exp']<=$this->retireUnix + intval($this->expiryTime) ) ){
-			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: signed with the previous key outside its time' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->debug( 'Token refused: signed with the previous key outside its time' );
 			$this->errMessage = 'Invalid token';
 			$this->isWrongTry = true;
 			return false;
@@ -129,7 +129,7 @@ class JWT implements Handler{
 		// A token issued for another project, or by another issuer, is not counted : its signature is right
 		$clmnFlaw = $this->checkClaimFlaw( $idntList );
 		if( $clmnFlaw!='' ){
-			\nyu\Tools\Logger::retrieveLogger('access')->debug( 'Token refused: '.$clmnFlaw );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->debug( 'Token refused: '.$clmnFlaw );
 			$this->errMessage = 'Invalid token';
 			return false;
 		}

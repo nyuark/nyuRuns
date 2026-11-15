@@ -67,7 +67,7 @@ class Native implements Handler{
 		$this->twoFactExp = max( 1, intval($configValues['codeMins'] ?? self::MAIL_MINS) );
 		// The failures of a client presenting a login mark are counted on the mark, in the folder of the limits
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'TRYLIMIT') : null;
+		$limitCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'TRYLIMIT') : null;
 		$this->markedLmtr = new \nyu\Access\Limiter( Array('maxTries'=>$this->triesLimit, 'holdSecs'=>$this->holdPeriod, 'dataPath'=>is_array($limitCfg) ? strval($limitCfg['dataPath'] ?? '') : '') );
 		$this->errMessage = '';
 	}
@@ -119,13 +119,13 @@ class Native implements Handler{
 			// Signed with the hash the password has now : a password set after the mark was made ends it
 			$markClef = \nyu\Access\LoginMark::fromLimitBlock()->readClientMark( $loginDataLst['mark'], strval($userVals['systemName']), (password_get_info($rowDigst)['algo']!==null) ? $rowDigst : '' );
 			if( $markClef!='' && $this->markedLmtr->heldByUserNumb($markClef)>0 ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Login mark refused for user '.json_encode($userVals['systemName']).': too many attempts with it' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Login mark refused for user '.json_encode($userVals['systemName']).': too many attempts with it' );
 				$markClef = '';
 			}
 		}
 		// Too many failed attempts : nothing is accepted or counted until the hold is over, and the reply does not tell it
 		if( is_array($userVals) && $markClef=='' && $this->hasHeldNowFlag($userVals) ){
-			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is held after too many attempts' );
 			$this->errMessage = 'Invalid credentials';
 			$this->isWrongTry = true;
 			return false;
@@ -140,7 +140,7 @@ class Native implements Handler{
 		}
 		if( ($userVals['userStatus'] ?? '')!=='approved' ){
 			// The reply is the one of a wrong password : the status of a user is told in the log only
-			\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is not active ('.strval($userVals['userStatus'] ?? '').')' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Credential refused: user '.json_encode($userVals['systemName']).' is not active ('.strval($userVals['userStatus'] ?? '').')' );
 			$this->errMessage = 'Invalid credentials';
 			$this->isWrongTry = true;
 			return false;
@@ -165,7 +165,7 @@ class Native implements Handler{
 				return false;
 			}
 			if( !$codigHit ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($userVals['systemName']) );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Verification code refused: wrong or ended for user '.json_encode($userVals['systemName']) );
 				($markClef!='') ? $this->markedLmtr->countLimitUser($markClef) : $this->countFailedTry( strval($userVals['systemName']) );
 				$this->errMessage = 'Invalid verification code';
 				$this->isWrongTry = true;
@@ -176,7 +176,7 @@ class Native implements Handler{
 			// A secret stored encrypted is read with the key of the config
 			$sealClef = Totp::openSecretText($sealClef, $this->sealingKey);
 			if( $sealClef===null ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( '2FA secret of user '.json_encode($userVals['systemName']).' cannot be read: tfaCrypt is missing or was changed' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->error( '2FA secret of user '.json_encode($userVals['systemName']).' cannot be read: tfaCrypt is missing or was changed' );
 				$this->errMessage = 'Credential store unavailable';
 				return false;
 			}
@@ -195,7 +195,7 @@ class Native implements Handler{
 			}
 			if( !$clmdSize ){
 				if( $stepNumb!==null ){
-					\nyu\Tools\Logger::retrieveLogger('access')->warning( 'Verification code refused: already used by user '.json_encode($userVals['systemName']) );
+					\nyu\Tools\Logger::getLoggerOfChn('access')->warning( 'Verification code refused: already used by user '.json_encode($userVals['systemName']) );
 				}
 				($markClef!='') ? $this->markedLmtr->countLimitUser($markClef) : $this->countFailedTry( strval($userVals['systemName']) );
 				$this->errMessage = 'Invalid verification code';
@@ -327,7 +327,7 @@ class Native implements Handler{
 			$updtQuer = "UPDATE {$qotdName['usrTable']} SET {$qotdName['twoFactPos']}=".$userStepNumb
 				." WHERE {$qotdName['systemName']}=? AND ({$qotdName['twoFactPos']} IS NULL OR {$qotdName['twoFactPos']}<".$userStepNumb.");";
 			if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, Array($namedUserTxt)) ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( 'The step of a 2FA code cannot be recorded: the users table cannot be written, or has no twoFactPos column (see conf/schema)' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->error( 'The step of a 2FA code cannot be recorded: the users table cannot be written, or has no twoFactPos column (see conf/schema)' );
 				return null;
 			}
 			return $dtbsHndr->countLastWrite()>0;
@@ -353,7 +353,7 @@ class Native implements Handler{
 		// After the reply of a request; at once on the command line, which has none
 		$mailInst = \nyu\Access\AccessMail::fromLoginBlock( '', PHP_SAPI!=='cli' );
 		if( $mailInst===null || $userMail=='' ){
-			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Verification code of user '.json_encode($userName).' not sent: no mailer or no address' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->error( 'Verification code of user '.json_encode($userName).' not sent: no mailer or no address' );
 			return false;
 		}
 		$endStamp = strval($userValsList['twoFactExp'] ?? '');
@@ -366,14 +366,14 @@ class Native implements Handler{
 			$qotdName = $this->quoteFieldsArr($dtbsHndr);
 			$updtQuer = "UPDATE {$qotdName['usrTable']} SET {$qotdName['twoFactHsh']}=?, {$qotdName['twoFactExp']}=? WHERE {$qotdName['systemName']}=?;";
 			if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, Array($this->codeHashesList($newCodig)[0], date('Y-m-d H:i:s', time() + 60*$this->twoFactExp), $userName)) || $dtbsHndr->countLastWrite()<1 ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( 'A mailed code cannot be recorded: the users table cannot be written, or has no twoFactHsh column (see conf/schema)' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->error( 'A mailed code cannot be recorded: the users table cannot be written, or has no twoFactHsh column (see conf/schema)' );
 				return false;
 			}
 		}catch( \Throwable $e ){
 			return false;
 		}
 		$mailInst->sendCodeToUser( 'passcode', $userName, $userMail, $newCodig, strval($userValsList['userLocale'] ?? '') ?: null );
-		\nyu\Tools\Logger::retrieveLogger('access')->info( 'Verification code mailed to user '.json_encode($userName) );
+		\nyu\Tools\Logger::getLoggerOfChn('access')->info( 'Verification code mailed to user '.json_encode($userName) );
 		return true;
 	}
 
@@ -459,7 +459,7 @@ class Native implements Handler{
 				return false;
 			}
 			if( $storeTxt===$newSecrt ){
-				\nyu\Tools\Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 			return $newSecrt;
 		}catch( \Throwable $e ){
@@ -541,7 +541,7 @@ class Native implements Handler{
 			$qotdName = $this->quoteFieldsArr($dtbsHndr);
 			$updtQuer = "UPDATE {$qotdName['usrTable']} SET {$qotdName['passwdHash']}=?, {$qotdName['passwdDate']}=?, {$qotdName['bearerHash']}=NULL, {$qotdName['failsCount']}=0, {$qotdName['failedTime']}=NULL WHERE {$qotdName['systemName']}=?;";
 			if( !$dtbsHndr->sendBuiltQuery($updtQuer, true, Array(password_hash($usrPasswdTxt, PASSWORD_BCRYPT), date('Y-m-d H:i:s'), $namedUserTxt)) ){
-				\nyu\Tools\Logger::retrieveLogger('access')->error( 'A password cannot be written: the users table cannot be written, or has no passwdDate column (see conf/schema)' );
+				\nyu\Tools\Logger::getLoggerOfChn('access')->error( 'A password cannot be written: the users table cannot be written, or has no passwdDate column (see conf/schema)' );
 				return false;
 			}
 			return $dtbsHndr->countLastWrite()>0;
@@ -603,7 +603,7 @@ class Native implements Handler{
 		// A password set since the session or the token was issued ends it
 		$passDate = strval($userVals['passwdDate'] ?? '');
 		if( $issuedAtUnix!==null && $passDate!='' && strtotime($passDate)>$issuedAtUnix ){
-			\nyu\Tools\Logger::retrieveLogger('access')->info( 'Session refused for user '.json_encode($namedUserTxt).': issued before its password was set' );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->info( 'Session refused for user '.json_encode($namedUserTxt).': issued before its password was set' );
 			$this->errMessage = 'Password changed: sign in again';
 			return false;
 		}

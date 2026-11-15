@@ -150,7 +150,7 @@ class Limiter{
 		$nowStamp = $momentAsUnix;
 		$countFle = $this->openLimitsFldr() ? @fopen($countPth, 'c+b') : false;
 		if( $countFle===false || !flock($countFle, LOCK_EX) ){
-			\nyu\Tools\Logger::retrieveLogger('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFldr );
+			\nyu\Tools\Logger::getLoggerOfChn('access')->error( 'Limit not applied: the counters cannot be written in '.$this->countsFldr );
 			if( $countFle!==false ){
 				fclose($countFle);
 			}

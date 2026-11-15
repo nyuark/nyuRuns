@@ -24,7 +24,7 @@ class CarierCarr implements SessHndlr{
 	 * @return Array|Bool The identity array, or false on failure.
 	 */
 	public function verifyRqstList( Request $givenRequest ): Array|Bool {
-		$headVal = $givenRequest->retrieveHeader('X-Carier');
+		$headVal = $givenRequest->getHeaderValue('X-Carier');
 		return ( $headVal!==null && $headVal!='' ) ? Array('userName'=>$headVal) : false;
 	}
 

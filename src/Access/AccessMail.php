@@ -86,11 +86,11 @@ class AccessMail {
 	 */
 	public static function fromLoginBlock( String $appsFldrText='', Bool $deferSending=false ): ?AccessMail {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'LOGINSET') : null;
 		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
 			return null;
 		}
-		$blockCfg = $nyuConfg->obtainRowValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
+		$blockCfg = $nyuConfg->getNestedValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
 		if( !is_array($blockCfg) || !is_string($blockCfg['mailAcnt'] ?? null) || $blockCfg['mailAcnt']==='' ){
 			return null;
 		}
@@ -106,11 +106,11 @@ class AccessMail {
 	 */
 	public static function signupsAllowed(): Bool {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
-		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->obtainRowValue('ACCESS', 'LOGINSET') : null;
+		$loginCfg = ($nyuConfg!==null) ? $nyuConfg->getNestedValue('ACCESS', 'LOGINSET') : null;
 		if( !is_array($loginCfg) || strval($loginCfg['authWith'] ?? '')!=='nativeDb' ){
 			return false;
 		}
-		$blockCfg = $nyuConfg->obtainRowValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
+		$blockCfg = $nyuConfg->getNestedValue('ACCESS', strtoupper(strval($loginCfg['authConf'] ?? 'nativeDb')));
 		return is_array($blockCfg) && ($blockCfg['signupOn'] ?? false)===true && is_string($blockCfg['mailAcnt'] ?? null) && $blockCfg['mailAcnt']!=='';
 	}
 
@@ -194,7 +194,7 @@ class AccessMail {
 	protected function sendsEmailFlag( String $templateName, String $emailAddress, Array $placeholders, ?String $givenLangTag=null ): Bool {
 		$mailList = $this->buildMailArray($templateName, $placeholders, $givenLangTag);
 		if( $mailList===null ){
-			Logger::retrieveLogger('runner')->error( 'Access mail '.json_encode($templateName).' not sent: its template cannot be read' );
+			Logger::getLoggerOfChn('runner')->error( 'Access mail '.json_encode($templateName).' not sent: its template cannot be read' );
 			return false;
 		}
 		if( !$this->isDeferred ){
@@ -235,7 +235,7 @@ class AccessMail {
 		try{
 			return Mailer::retrieveMailer($this->accountNme)->deliverEmlFlag($emailAddress, $mailPartsLst[0], $mailPartsLst[1], $mailPartsLst[2]);
 		}catch( MailFailure $e ){
-			Logger::retrieveLogger('runner')->warning( 'Access mail not sent through account '.json_encode($this->accountNme).': '.$e->getMessage() );
+			Logger::getLoggerOfChn('runner')->warning( 'Access mail not sent through account '.json_encode($this->accountNme).': '.$e->getMessage() );
 			return false;
 		}
 	}
@@ -251,9 +251,9 @@ class AccessMail {
 	protected function buildMailArray( String $templateName, Array $placeholders, ?String $givenLangTag=null ): ?Array {
 		$langTool = new Language();
 		$textPath = null;
-		foreach( $langTool->langChainArray($langTool->chooseLanguage($givenLangTag, null)) as $oneTag ){
+		foreach( $langTool->getLngChainLst($langTool->findPersonLang($givenLangTag, null)) as $oneTag ){
 			foreach( $this->folderList as $dirPth ){
-				$textPath = $textPath ?? $langTool->locateTemplate($dirPth, $templateName.'.txt', Array($oneTag));
+				$textPath = $textPath ?? $langTool->findTmplInLang($dirPth, $templateName.'.txt', Array($oneTag));
 			}
 		}
 		if( $textPath===null ){

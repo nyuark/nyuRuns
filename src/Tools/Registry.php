@@ -79,7 +79,7 @@ class Registry{
 	 * @param String $entryKeyText Key within that row's array.
 	 * @return mixed The stored value, or null if the row or key doesn't exist.
 	 */
-	public function obtainRowValue( String $rowEntryName, String $entryKeyText ): Mixed {
+	public function getNestedValue( String $rowEntryName, String $entryKeyText ): Mixed {
 		$lvl2Vals = null;
 		if($this->isUpperKey){
 			$rowEntryName = strtoupper($rowEntryName);
@@ -111,7 +111,7 @@ class Registry{
 	 * @param mixed  $regLineValue Value to store.
 	 * @return mixed The value that was stored.
 	 */
-	public function assignRowValue( String $rowEntryName, String $entryKeyText, Mixed $regLineValue ): Mixed {
+	public function setNestedValue( String $rowEntryName, String $entryKeyText, Mixed $regLineValue ): Mixed {
 		if($this->isUpperKey){
 			$rowEntryName = strtoupper($rowEntryName);
 			$entryKeyText = strtoupper($entryKeyText);
@@ -137,7 +137,7 @@ class Registry{
 	 * @param mixed  $defaultValue Value to return when the key is unset, null or blank.
 	 * @return mixed The stored value, or $defaultValue.
 	 */
-	public function obtainDefValue( String $entryKeyText, Mixed $defaultValue=null ): Mixed {
+	public function getValueOrDflt( String $entryKeyText, Mixed $defaultValue=null ): Mixed {
 		$newValue = $this->readValueByKey( $entryKeyText );
 		if($newValue===null || $newValue===''){
 			return $defaultValue;

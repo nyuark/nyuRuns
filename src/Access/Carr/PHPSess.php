@@ -136,7 +136,7 @@ class PHPSess implements Handler{
 	 * @return String The session id, empty when there is none or it is not shaped like one.
 	 */
 	protected function cookUserSidTxt( Request $givenRequest ): String {
-		$sessIdnt = $givenRequest->retrieveCookie($this->cookieName);
+		$sessIdnt = $givenRequest->getCookieValue($this->cookieName);
 		return ( is_string($sessIdnt) && preg_match('/^[A-Za-z0-9,-]{20,128}$/', $sessIdnt) ) ? $sessIdnt : '';
 	}
 

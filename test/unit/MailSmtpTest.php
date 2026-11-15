@@ -64,7 +64,7 @@ function mailerFor( Array $moreSetup ): Mailer {
 
 // Log of the warnings, in a folder of this test
 $logPath = inTemporaryDir('logs');
-Logger::plugLogsConfig( Array('path'=>$logPath, 'mode'=>'FULL', 'size'=>0, 'rota'=>'INDX', 'pref'=>'Y-m-d H:i') );
+Logger::loadLogsConfig( Array('path'=>$logPath, 'mode'=>'FULL', 'size'=>0, 'rota'=>'INDX', 'pref'=>'Y-m-d H:i') );
 
 // A mail, its copy, AUTH PLAIN
 $smtpSrv = startSmtp('PLAIN LOGIN', 2);
@@ -141,5 +141,5 @@ checkPregMatch('no server: the warning says so', strval(@file_get_contents($logP
 // Attachments are not for a native account
 checkForThrows('selfSmtp: an attachment is refused', function(){ mailerFor(Array('portNumb'=>'1'))->deliverEmlFlag('ann@example.com', 'Hi', 'Hello', null, Array(__FILE__)); }, MailFailure::class);
 
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array() );
 finishChecking();

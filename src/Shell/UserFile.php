@@ -379,7 +379,7 @@ class UserFile{
 		if( $wasSaved ){
 			$this->logFileChanges( '2FA secret of user '.json_encode($namedUserTxt).' made' );
 			if( $storeTxt===$newSecrt ){
-				Logger::retrieveLogger('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
+				Logger::getLoggerOfChn('access')->warning( '2FA secret of user '.json_encode($namedUserTxt).' stored readable: no tfaCrypt of '.Totp::SEAL_SIZE.' characters is set' );
 			}
 		}
 		return $wasSaved ? $newSecrt : false;
@@ -667,7 +667,7 @@ class UserFile{
 	 * @param String $eventMessage What was changed.
 	 */
 	protected function logFileChanges( String $eventMessage ): Void {
-		Logger::retrieveLogger('access')->notice( $eventMessage.' in the users file'.Logger::getActorSuffix() );
+		Logger::getLoggerOfChn('access')->notice( $eventMessage.' in the users file'.Logger::getActorSuffix() );
 	}
 
 	/**

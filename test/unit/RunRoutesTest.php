@@ -37,28 +37,28 @@ copy(TOP_DIR.DS.'runs'.DS.'Users'.DS.'routes.rte', RUN_DIR.DS.'Users'.DS.'routes
 $keyList = Array('appToRun', 'doAction', 'statCode', 'routOwnr');
 
 // A Run serves its own actions only: a target naming anything else is warned and left out
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('mixlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-$mixReg = madeRoutr('/mixed/away')->locateRouteReg();
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('mixlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+$mixReg = madeRoutr('/mixed/away')->findRouteOfRqt();
+Logger::loadLogsConfig( Array() );
 checkIdentical('not an action: the route is not served, a 404 of the closed Run', Array($mixReg->readValueByKey('appToRun'), $mixReg->readValueByKey('statCode')), Array(null, 404));
 $mixLog = implode("\n", file_exists(inTemporaryDir('mixlogs').DS.'runner.log') ? file(inTemporaryDir('mixlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array());
 checkPregMatch('not an action: its key is warned on runner', $mixLog, '#\[WARNING\] Route "away" of Mixed/routes.rte holds an unknown key: pointsTo\.redirect#');
 checkPregMatch('not an action: in a block per method too', $mixLog, '#\[WARNING\] Route "split" of Mixed/routes.rte holds an unknown key: pointsTo\.pageFile#');
-$mixReg = madeRoutr('/mixed/kept')->locateRouteReg();
+$mixReg = madeRoutr('/mixed/kept')->findRouteOfRqt();
 checkIdentical('not an action: its act sibling still answers', Array($mixReg->readValueByKey('appToRun'), $mixReg->readValueByKey('doAction'), $mixReg->readValueByKey('routOwnr')), Array('Mixed', 'kept', 'Mixed'));
-$mixReg = madeRoutr('/mixed/split', 'POST')->locateRouteReg();
+$mixReg = madeRoutr('/mixed/split', 'POST')->findRouteOfRqt();
 checkIdentical('block per method: the action of its other method answers', Array($mixReg->readValueByKey('appToRun'), $mixReg->readValueByKey('doAction')), Array('Mixed', 'kept'));
-$mixReg = madeRoutr('/mixed/split', 'GET')->locateRouteReg();
+$mixReg = madeRoutr('/mixed/split', 'GET')->findRouteOfRqt();
 checkIdentical('block per method: the method left out is not served', Array($mixReg->readValueByKey('statCode'), $mixReg->readValueByKey('allowHdr')), Array(405, 'POST'));
-checkIdentical('not an action: none of it is listed', array_column(array_filter(madeRoutr('/')->allRoutesArray(), function( Array $routeEntry ): Bool { return $routeEntry['routOwnr']=='Mixed'; }), 'routPath'), Array('mixed/kept', 'mixed/split'));
+checkIdentical('not an action: none of it is listed', array_column(array_filter(madeRoutr('/')->listAllTargets(), function( Array $routeEntry ): Bool { return $routeEntry['routOwnr']=='Mixed'; }), 'routPath'), Array('mixed/kept', 'mixed/split'));
 
 // A site pattern over a Run route: the site answers, with a warning
 $siteDir = 'temp'.DS.'runroutes_'.getmypid();
 @mkdir(TOP_DIR.DS.$siteDir, 0775, true);
 file_put_contents(TOP_DIR.DS.$siteDir.DS.'covers.rte', '{ "auth/*": { "pointsTo": { "redirect": "/elsewhere" } } }');
-Logger::plugLogsConfig( Array('path'=>inTemporaryDir('patlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-$patReg = madeRoutr('/auth/login', 'GET', Array('routeDir'=>$siteDir))->locateRouteReg();
-Logger::plugLogsConfig( Array() );
+Logger::loadLogsConfig( Array('path'=>inTemporaryDir('patlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
+$patReg = madeRoutr('/auth/login', 'GET', Array('routeDir'=>$siteDir))->findRouteOfRqt();
+Logger::loadLogsConfig( Array() );
 dropTestFolder(TOP_DIR.DS.$siteDir);
 checkIdentical('site pattern: the site answers', Array($patReg->readValueByKey('routKind'), $patReg->readValueByKey('routOwnr'), $patReg->readValueByKey('routPath')), Array('redirect', 'site', 'auth/*'));
 $patLog = implode("\n", file_exists(inTemporaryDir('patlogs').DS.'runner.log') ? file(inTemporaryDir('patlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array());
@@ -94,12 +94,12 @@ foreach( Array('mnttxt'=>'"auth"', 'mntlst'=>'\["auth"\]') as $rpsName=>$badText
 }
 checkIdentical('mounts: "" loads, mounting at the root', $chkRows['preset mntemp']['state'] ?? null, 'fine');
 $rootRtr = madeRoutr('/login', 'POST', Array('runMount'=>Array('auth'=>'')));
-checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->locateRouteReg()->readValueByKey('appToRun'), $rootRtr->locateRouteReg()->readValueByKey('routPath')), Array('Auth', 'login'));
+checkIdentical('mounts: "" serves the routes from the root', Array($rootRtr->findRouteOfRqt()->readValueByKey('appToRun'), $rootRtr->findRouteOfRqt()->readValueByKey('routPath')), Array('Auth', 'login'));
 
 // The Users routes: the user in the path, given to the action as its option; the method chooses the action, another one is a 405
 $userRte = function( String $urlAddress, String $httpMethod ): Array {
-	$rteReg = madeRoutr($urlAddress, $httpMethod)->locateRouteReg();
-	return Array($rteReg->readValueByKey('doAction'), $rteReg->readValueByKey('argument'), intval($rteReg->obtainDefValue('statCode', 200)));
+	$rteReg = madeRoutr($urlAddress, $httpMethod)->findRouteOfRqt();
+	return Array($rteReg->readValueByKey('doAction'), $rteReg->readValueByKey('argument'), intval($rteReg->getValueOrDflt('statCode', 200)));
 };
 checkIdentical('users: the list and the creation', Array($userRte('/users', 'GET'), $userRte('/users', 'POST'), $userRte('/users', 'PUT')[2]), Array(Array('index', null, 200), Array('create', null, 200), 405));
 checkIdentical('users: one user, seen or removed', Array($userRte('/users/ben', 'GET'), $userRte('/users/ben', 'DELETE'), $userRte('/users/ben', 'POST')[2]), Array(Array('view', 'ben', 200), Array('remove', 'ben', 200), 405));
@@ -108,5 +108,5 @@ checkIdentical('users: locked by PUT, unlocked by DELETE', Array($userRte('/user
 checkIdentical('users: reset and approved by POST', Array($userRte('/users/ben/reset', 'POST'), $userRte('/users/ben/approve', 'POST'), $userRte('/users/ben/reset', 'GET')[2]), Array(Array('reset', 'ben', 200), Array('approve', 'ben', 200), 405));
 checkIdentical('users: an action its routes answer is not reached from its path', $userRte('/users/view/ben', 'GET')[2], 404);
 
-checkIdentical('auth: the route alone sets the method, every action POST, keyset GET', Array(array_map(function( String $actnNme ): Int { return intval(madeRoutr('/auth/'.$actnNme, 'GET')->locateRouteReg()->obtainDefValue('statCode', 200)); }, Array('login', 'logout', 'active', 'signup', 'forgot', 'recover', 'setpass', 'usrlang')), intval(madeRoutr('/.well-known/jwks.json', 'POST')->locateRouteReg()->obtainDefValue('statCode', 200))), Array(array_fill(0, 8, 405), 405));
+checkIdentical('auth: the route alone sets the method, every action POST, keyset GET', Array(array_map(function( String $actnNme ): Int { return intval(madeRoutr('/auth/'.$actnNme, 'GET')->findRouteOfRqt()->getValueOrDflt('statCode', 200)); }, Array('login', 'logout', 'active', 'signup', 'forgot', 'recover', 'setpass', 'usrlang')), intval(madeRoutr('/.well-known/jwks.json', 'POST')->findRouteOfRqt()->getValueOrDflt('statCode', 200))), Array(array_fill(0, 8, 405), 405));
 finishChecking();
