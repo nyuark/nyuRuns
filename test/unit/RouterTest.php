@@ -59,7 +59,7 @@ function foundVals( String $urlAddress, Array $wantedKeys, String $httpMethod='G
 function linkFrom( String $routeShape, Array $routeConfg=Array() ): String {
 	return strval(runCatchThrown(function() use ( $routeShape, $routeConfg ){
 		$actnObj = new nyu\Runs\Mounted\Actions( new nyu\App\RunContext('makeLink', $routeShape, new Registry(Array()), null, mockRequestObj(), new Response(), madeRoutr('/', 'GET', $routeConfg), null, 'Mounted', RUN_DIR.DS.'Mounted') );
-		$actnObj->runAskedAction();
+		$actnObj->treatAskedActn();
 		return $actnObj->replyValue;
 	}));
 }
@@ -175,10 +175,10 @@ function ranAction( String $actionName, ?String $runAppOption=null ): Array|Stri
 	return runCatchThrown(function() use ( $actionName, $runAppOption ){
 		$respons = new Response();
 		$actnObj = new nyu\Runs\Probe\Actions( new nyu\App\RunContext($actionName, $runAppOption, new Registry(Array()), null, mockRequestObj(), $respons, madeRoutr('/'), null, 'Probe', RUN_DIR.DS.'Probe') );
-		$actnObj->runAskedAction();
+		$actnObj->treatAskedActn();
 		$headPrp = new ReflectionProperty($respons, 'headrArray');
 		ob_start();
-		$respons->transmitOutput();
+		$respons->writeReplyBody();
 		return Array($actnObj->statusCode, strval($actnObj->statusText), ob_get_clean(), $headPrp->getValue($respons));
 	});
 }
@@ -227,16 +227,16 @@ checkIdentical('open run: one without a routes file stays on autopath', foundVal
 nyu\Tools\Logger::plugLogsConfig( Array() );
 checkPregMatch('closed run: the reason is logged on runner', implode("\n", file_exists(inTemporaryDir('runlogs').DS.'runner.log') ? file(inTemporaryDir('runlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array()), '#Not found: "mounted/unlisted": not listed in the routes of the application#');
 
-// The folder of a Run, found whatever the case of its name (Controller::runFoldrString), as the Router, the Controller and the Checker find it
+// The folder of a Run, found whatever the case of its name (Controller::findRunFldrNme), as the Router, the Controller and the Checker find it
 $twinDir = inTemporaryDir('twinruns');
 mkdir($twinDir.DS.'Twins', 0775, true);
 mkdir($twinDir.DS.'Alone');
 $caseFlg = !is_dir($twinDir.DS.'TWINS');
-checkIdentical('run folder: found whatever the case of its name, as the disk writes it; a name that is not one is none', Array(nyu\App\Controller::runFoldrString('ALONE', $twinDir), nyu\App\Controller::runFoldrString('alone', $twinDir), nyu\App\Controller::runFoldrString('nowhere', $twinDir), nyu\App\Controller::runFoldrString('al/one', $twinDir)), Array('Alone', 'Alone', '', ''));
+checkIdentical('run folder: found whatever the case of its name, as the disk writes it; a name that is not one is none', Array(nyu\App\Controller::findRunFldrNme('ALONE', $twinDir), nyu\App\Controller::findRunFldrNme('alone', $twinDir), nyu\App\Controller::findRunFldrNme('nowhere', $twinDir), nyu\App\Controller::findRunFldrNme('al/one', $twinDir)), Array('Alone', 'Alone', '', ''));
 if( $caseFlg ){
 	mkdir($twinDir.DS.'TWINS');
 	nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('twinlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
-	checkIdentical('run folder: two folders differing by their case alone are neither, whatever the case asked', Array(nyu\App\Controller::runFoldrString('twins', $twinDir), nyu\App\Controller::runFoldrString('Twins', $twinDir), nyu\App\Controller::runFoldrString('TWINS', $twinDir)), Array('', '', ''));
+	checkIdentical('run folder: two folders differing by their case alone are neither, whatever the case asked', Array(nyu\App\Controller::findRunFldrNme('twins', $twinDir), nyu\App\Controller::findRunFldrNme('Twins', $twinDir), nyu\App\Controller::findRunFldrNme('TWINS', $twinDir)), Array('', '', ''));
 	nyu\Tools\Logger::plugLogsConfig( Array() );
 	checkIdentical('run folder: the twins are logged as an error on runner, once', count(preg_grep('#\[ERROR\] Run folders \["(Twins","TWINS|TWINS","Twins)"\] differ by their case alone: neither is served#', file_exists(inTemporaryDir('twinlogs').DS.'runner.log') ? file(inTemporaryDir('twinlogs').DS.'runner.log', FILE_IGNORE_NEW_LINES) : Array())), 1);
 }else{

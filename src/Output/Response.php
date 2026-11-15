@@ -127,7 +127,7 @@ class Response{
 	 *
 	 * @throws \RuntimeException When the format is not one of FORM_LIST.
 	 */
-	public function useReplyFormat( String $outputFormat ): Void {
+	public function setReplyFormat( String $outputFormat ): Void {
 		$frmtClef = strval( array_values(preg_grep('/^'.preg_quote($outputFormat, '/').'$/iD', array_keys(self::FORM_LIST)))[0] ?? $outputFormat );
 		if( !array_key_exists($frmtClef, self::FORM_LIST) ){
 			throw new \RuntimeException('Unknown output format: '.$outputFormat);
@@ -142,7 +142,7 @@ class Response{
 	 *
 	 * @return Bool True when the format can carry them.
 	 */
-	public function takesReplyWarn(): Bool {
+	public function canAddWarnings(): Bool {
 		return !in_array($this->dataFormat, Array('csvTable', 'rawBytes'), true);
 	}
 
@@ -159,21 +159,21 @@ class Response{
 	 * @param Bool $errReplyFlag Whether the data is the body of an error.
 	 * @return Bool False when the data could not be written.
 	 */
-	public function convertOutFlag( Array|Object|String|Int|Float|Bool $outputToSend = Array(), Bool $errReplyFlag=false ): Bool {
+	public function castToReplyFmt( Array|Object|String|Int|Float|Bool $outputToSend = Array(), Bool $errReplyFlag=false ): Bool {
 		$this->fluxOutput = null;
-		$this->formatUsed = ( $errReplyFlag && !$this->takesReplyWarn() ) ? 'jsonData' : $this->dataFormat;
+		$this->formatUsed = ( $errReplyFlag && !$this->canAddWarnings() ) ? 'jsonData' : $this->dataFormat;
 		try{
-			$this->outputText = $this->writesReplyOut($outputToSend);
+			$this->outputText = $this->renderReplyTxt($outputToSend);
 			return true;
 		}catch( \Throwable $e ){
 			trigger_error('Response could not be encoded as '.$this->formatUsed.': '.$e->getMessage(), E_USER_WARNING);
 			$errorRaw = Array('error'=>'Response could not be encoded', 'code'=>500);
 			$this->fluxOutput = null;
-			if( !$this->takesReplyWarn() ){
+			if( !$this->canAddWarnings() ){
 				$this->formatUsed = 'jsonData';
 			}
 			try{
-				$this->outputText = $this->writesReplyOut($errorRaw);
+				$this->outputText = $this->renderReplyTxt($errorRaw);
 			}catch( \Throwable $e ){
 				$this->formatUsed = 'jsonData';
 				$this->outputText = strval(json_encode($errorRaw));
@@ -190,7 +190,7 @@ class Response{
 	 *
 	 * @throws \RuntimeException When the format cannot hold the data.
 	 */
-	protected function writesReplyOut( Mixed $outputToSend ): String {
+	protected function renderReplyTxt( Mixed $outputToSend ): String {
 		if( $this->formatUsed=='jsonData' ){
 			// A binary value cannot be written as text: it is given as null
 			$jsonText = json_encode(\nyu\Data\Fluxd::nullifySources($outputToSend));
@@ -215,7 +215,7 @@ class Response{
 			throw new \RuntimeException('no writer for the format '.$this->formatUsed);
 		}
 		$dataVals = \nyu\Data\Fluxd::nullifySources( is_object($outputToSend) ? json_decode(strval(json_encode($outputToSend)), true) : $outputToSend );
-		$cellList = $this->recordsOfArray($dataVals);
+		$cellList = $this->getRecordCells($dataVals);
 		if( $this->formatUsed=='csvTable' ){
 			if( $cellList===null ){
 				throw new \RuntimeException('a table is written from a list of records');
@@ -226,7 +226,7 @@ class Response{
 			if( $cellList!==null ){
 				return $wrtrInst->renderDocument( Array('shape'=>'sheet', 'infos'=>Array(), 'items'=>Array(\nyu\Data\Shape::makeSheetArray('data', $cellList))), Array('whole'=>true, 'heads'=>true) );
 			}
-			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->valuesHtmlText($dataVals)."</body>\n</html>\n";
+			return "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title></title>\n</head>\n<body>\n".$this->renderValsHtml($dataVals)."</body>\n</html>\n";
 		}
 		return $wrtrInst->renderDocument( Array('shape'=>'nodes', 'infos'=>Array(), 'items'=>$dataVals), \nyu\Data\Writers\Index::optionsOfExtns($extnName) );
 	}
@@ -240,7 +240,7 @@ class Response{
 	 * @param mixed $outputToSend The data.
 	 * @return ?Array The rows of the table, its column names first; null when the data is not a list of records.
 	 */
-	protected function recordsOfArray( Mixed $outputToSend ): ?Array {
+	protected function getRecordCells( Mixed $outputToSend ): ?Array {
 		if( !is_array($outputToSend) || (!empty($outputToSend) && array_keys($outputToSend)!==range(0, count($outputToSend)-1)) ){
 			return null;
 		}
@@ -277,14 +277,14 @@ class Response{
 	 * @param mixed $valueToWrite The values.
 	 * @return String The HTML.
 	 */
-	protected function valuesHtmlText( Mixed $valueToWrite ): String {
+	protected function renderValsHtml( Mixed $valueToWrite ): String {
 		if( !is_array($valueToWrite) ){
 			$plainTxt = is_bool($valueToWrite) ? ($valueToWrite ? 'true' : 'false') : strval($valueToWrite ?? '');
 			return '<p>'.htmlspecialchars($plainTxt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</p>\n";
 		}
 		$htmlText = "<dl>\n";
 		foreach( $valueToWrite as $valKey => $oneVal ){
-			$htmlText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->valuesHtmlText($oneVal)."</dd>\n";
+			$htmlText .= '<dt>'.htmlspecialchars(strval($valKey), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."</dt>\n<dd>".$this->renderValsHtml($oneVal)."</dd>\n";
 		}
 		return $htmlText."</dl>\n";
 	}
@@ -297,7 +297,7 @@ class Response{
 	 *
 	 * @param ?Int $responseCode HTTP status code to send; omitted for the default 200.
 	 */
-	public function buildReplyHead( ?Int $responseCode=null ): Void {
+	public function writeReplyHead( ?Int $responseCode=null ): Void {
 		if(!is_array($this->headrArray)){
 			$this->headrArray = Array();
 		}
@@ -311,9 +311,9 @@ class Response{
 		}
 		if( $this->fileToSend!==null ){
 			$responseCode = $this->fileStatus;
-			$this->fileReplyHeads();
+			$this->setFileHeaders();
 		}elseif( $this->pageOutput!==null ){
-			$this->ownedReplyType('text/html; charset=utf-8');
+			$this->setOwnMimeType('text/html; charset=utf-8');
 		}
 		if($responseCode!=null){
 			http_response_code($responseCode);
@@ -325,7 +325,7 @@ class Response{
 			ini_set('default_mimetype', '');
 		}elseif( !$hasMimes ){
 			// Default Content-Type, unless the preset sets its own
-			$this->headrArray['Content-Type'] = $this->contentTypeTxt();
+			$this->headrArray['Content-Type'] = $this->findMimeOfBody();
 		}
 		// The client is never left to guess another type than the one announced
 		$this->dropReplyHeads( Array('x-content-type-options') );
@@ -339,13 +339,13 @@ class Response{
 	 * Sets the headers describing the registered file: its type, its
 	 * length and, for a range request, the bytes being sent.
 	 */
-	protected function fileReplyHeads(): Void {
+	protected function setFileHeaders(): Void {
 		if( $this->fileStatus==304 ){
 			// The client keeps its copy : nothing describes a body
 			$this->dropReplyHeads( Array('content-type') );
 			return;
 		}
-		$this->ownedReplyType( strval($this->mimeOfFile) );
+		$this->setOwnMimeType( strval($this->mimeOfFile) );
 		$sentSize = ($this->fileLength>0) ? $this->rangeUntil-$this->rangeStart+1 : 0;
 		if( $this->fileStatus==416 ){
 			$sentSize = 0;
@@ -363,7 +363,7 @@ class Response{
 	 *
 	 * @param String $mimeTypeText Content-Type of the reply.
 	 */
-	protected function ownedReplyType( String $mimeTypeText ): Void {
+	protected function setOwnMimeType( String $mimeTypeText ): Void {
 		$this->dropReplyHeads( Array('content-type') );
 		$this->headrArray['Content-Type'] = $mimeTypeText;
 	}
@@ -391,7 +391,7 @@ class Response{
 	 * @param String $extensionTxt The extension, without its dot, whatever its case.
 	 * @return ?String The Content-Type value, null when the extension is not served.
 	 */
-	public static function mimeOfExtnsTxt( String $extensionTxt ): ?String {
+	public static function getMimeOfExtns( String $extensionTxt ): ?String {
 		return self::TYPE_LIST[strtolower($extensionTxt)] ?? null;
 	}
 
@@ -402,7 +402,7 @@ class Response{
 	 *
 	 * @return String The Content-Type header value.
 	 */
-	protected function contentTypeTxt(): String {
+	protected function findMimeOfBody(): String {
 		if( $this->formatUsed=='jsonData' ){
 			return 'application/json; charset=utf-8';
 		}
@@ -510,7 +510,7 @@ class Response{
 		$noneHedr = trim(strval($reqtHdrs['if-none-match'] ?? ''));
 		$sinceTme = strtotime(strval($reqtHdrs['if-modified-since'] ?? ''));
 		if( $noneHedr!=='' ){
-			$isCached = $this->compareETagFlg($noneHedr, $nttyVals);
+			$isCached = $this->isFileEtagHeld($noneHedr, $nttyVals);
 		}else{
 			$isCached = ($sinceTme!==false && $modStamp<=$sinceTme);
 		}
@@ -527,7 +527,7 @@ class Response{
 	 * @param String $fileEtagText Version of the file.
 	 * @return Bool True when the client holds that version.
 	 */
-	protected function compareETagFlg( String $clntTagsText, String $fileEtagText ): Bool {
+	protected function isFileEtagHeld( String $clntTagsText, String $fileEtagText ): Bool {
 		if( trim($clntTagsText)==='*' ){
 			return true;
 		}
@@ -619,7 +619,7 @@ class Response{
 	 * Sends the registered file or page when there is one, otherwise
 	 * prints the final formatted response string to the client.
 	 */
-	public function transmitOutput( ): Void {
+	public function writeReplyBody( ): Void {
 		if( $this->fileToSend!==null ){
 			$this->sendReplyChunk();
 			return;

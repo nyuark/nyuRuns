@@ -48,7 +48,7 @@ class Builder{
 	* @param Array  $createArgLst Arguments passed to the constructor.
 	* @return Object The created object.
 	*/
-    public function generateObject(String $setupObjName, ?Array $sharedParams=null, Array $createArgLst=Array() ): Object {
+    public function makeObjOfClass(String $setupObjName, ?Array $sharedParams=null, Array $createArgLst=Array() ): Object {
 		if($sharedParams!==null){
 			$this->shareSetupRule($setupObjName, $sharedParams);
 		}

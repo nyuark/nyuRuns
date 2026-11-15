@@ -34,7 +34,7 @@ class Actions extends Actionset {
 	 */
 	public function makeLink( String $routShapeTxt ): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->routLinkString($routShapeTxt, Array('id'=>'7'));
+		$this->replyValue = $this->makeUrlOfRoute($routShapeTxt, Array('id'=>'7'));
 	}
 
 	/**

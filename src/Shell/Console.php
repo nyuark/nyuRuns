@@ -108,7 +108,7 @@ class Console{
 	public static function loadConfigLogs(): Void {
 		try{
 			$loadInst = new Loader( Array('settings'=>Array('confType'=>'all')) );
-			$GLOBALS['nyuConfig'] = $loadInst->retrieveConfig();
+			$GLOBALS['nyuConfig'] = $loadInst->readConfigRegr();
 			Logger::plugLogsConfig( $loadInst->logConfigArray() );
 		}catch( \Throwable $e ){
 			$GLOBALS['nyuConfig'] = new Registry( Array() );

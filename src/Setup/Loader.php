@@ -56,7 +56,7 @@ class Loader{
 	* @param Array $addedEntries Setup blocks to load, by key.
 	* @param Bool  $mergeEntries Whether a block is merged with the one already loaded instead of replacing it.
 	*/
-	public function overSetupLoads(Array $addedEntries, Bool $mergeEntries = false): Void {
+	public function setSetupBlocks(Array $addedEntries, Bool $mergeEntries = false): Void {
 		foreach($addedEntries as $arrKey=>$arrVal){
 			if( $mergeEntries ){
 				$prevList = $this->getRegistryKey( $arrKey );
@@ -102,13 +102,13 @@ class Loader{
 	* @return Registry The values of the config files.
 	* @throws \RuntimeException When the preset has no settings block.
 	*/
-	function retrieveConfig(): Registry {
+	function readConfigRegr(): Registry {
 		$confDict = $this->getRegistryKey('settings');
 		if( $confDict===false ){
 			throw new \RuntimeException('The preset has no settings block');
 		}
 		if( $this->isCacheHit ){
-			$confRegr = new Registry( $this->replaceEnvVals( $this->cachValues['config'], $this->lodEnvironment($confDict['envrFile'] ?? '.env') ) );
+			$confRegr = new Registry( $this->alterEnvValues( $this->cachValues['config'], $this->readEnvFileDct($confDict['envrFile'] ?? '.env') ) );
 			// The descriptions of the tables the cache keeps, when they are kept (TBL_CACH, with CNF_CACH)
 			$iniConfg = $confRegr->readValueByKey('system') ?: Array();
 			ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConfg['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? (array)($this->cachValues['tables'] ?? Array()) : null;
@@ -147,7 +147,7 @@ class Loader{
 		}
 		// The cache holds the values as written: no secret of the environment file goes into it
 		$this->cachValues['config'] = $confList;
-		$confList = $this->replaceEnvVals( $confList, $this->lodEnvironment($confDict['envrFile'] ?? '.env') );
+		$confList = $this->alterEnvValues( $confList, $this->readEnvFileDct($confDict['envrFile'] ?? '.env') );
 		$confRegr = new Registry( $confList );
 		// The descriptions of the tables are kept from this request on, when they are (TBL_CACH, with CNF_CACH)
 		$iniConfg = $confRegr->readValueByKey('system') ?: Array();
@@ -163,7 +163,7 @@ class Loader{
 	 * @param String $relativePath Path of the file, relative to the project root.
 	 * @return Array The values by name, empty when the file does not exist.
 	 */
-	protected function lodEnvironment( String $relativePath ): Array {
+	protected function readEnvFileDct( String $relativePath ): Array {
 		$envrVals = Array();
 		$envrPath = TOP_DIR.DS.$relativePath;
 		if( !is_file($envrPath) ){
@@ -189,10 +189,10 @@ class Loader{
 	 * @param Array $envValuesDct Values of the environment file, by name.
 	 * @return Array The config values, with their env: references replaced.
 	 */
-	protected function replaceEnvVals( Array $configValues, Array $envValuesDct ): Array {
+	protected function alterEnvValues( Array $configValues, Array $envValuesDct ): Array {
 		foreach( $configValues as $cnfKey => $cnfVal ){
 			if( is_array($cnfVal) ){
-				$configValues[$cnfKey] = $this->replaceEnvVals($cnfVal, $envValuesDct);
+				$configValues[$cnfKey] = $this->alterEnvValues($cnfVal, $envValuesDct);
 			}elseif( is_string($cnfVal) && strpos($cnfVal, 'env:')===0 ){
 				$envrName = substr($cnfVal, 4);
 				$matxRows = getenv($envrName);
@@ -215,7 +215,7 @@ class Loader{
 	 * @param Request $givenRequest The shared, already-parsed HTTP request.
 	 * @return Registry Registry of parsed input values, empty if no 'inputSet' config is set.
 	 */
-    function retrieveInputs( Request $givenRequest ): Registry {
+    function makeInputsRegr( Request $givenRequest ): Registry {
 		$inputDct = $this->getRegistryKey('inputSet');
 		if($inputDct){
 			$inputLst = Array();
@@ -247,7 +247,7 @@ class Loader{
 	 * @param String  $basePathText The basePath of the line of the map of presets chosen ('' for the root): taken off the path, kept as 'routBase'.
 	 * @return Registry Registry holding the resolved 'appToRun' and 'doAction' values, and the 'routBase' of the request.
 	 */
-    function importRouteReg( Request $givenRequest, String $basePathText='' ): Registry {
+    function loadRouteRgstr( Request $givenRequest, String $basePathText='' ): Registry {
 		$routeCfg = $this->getRegistryKey('dispatch');
 		$this->routingObj = new Router( is_array($routeCfg) ? $routeCfg : Array(), $givenRequest, $basePathText );
 		if( $this->isCacheHit ){
@@ -269,7 +269,7 @@ class Loader{
 	 *
 	 * @return Bool Whether the cache was written.
 	 */
-	public function retainCacheFlg(): Bool {
+	public function saveConfgCache(): Bool {
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 		if( !in_array( strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true ) || ($this->isCacheHit && !ConfCache::$isTblAdded) || $this->presetName=='' || $this->routingObj===null || !isset($this->cachValues['config']) ){
@@ -288,7 +288,7 @@ class Loader{
 		$this->cachValues['routes'] = $this->routingObj->retrieveRoutes();
 		$this->cachValues['tables'] = ConfCache::$tableInfos ?? Array();
 		ConfCache::$isTblAdded = false;
-		if( !ConfCache::buildCacheFlag($this->presetName, $this->cachValues) ){
+		if( !ConfCache::saveWholeCache($this->presetName, $this->cachValues) ){
 			return false;
 		}
 		// Written once: the end of the request writes it again only for tables described meanwhile
@@ -302,7 +302,7 @@ class Loader{
 	 *
 	 * @return ?Router The router, null as long as no route was resolved.
 	 */
-	public function retrieveRouter(): ?Router {
+	public function getRouterOfRqt(): ?Router {
 		return $this->routingObj;
 	}
 
@@ -344,7 +344,7 @@ class Loader{
 	 *
 	 * @return Array Sound settings: 'tool' ('' when the server has none), 'time' in seconds.
 	 */
-	function soundConfigArr(): Array {
+	function findSoundConfg(): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'];
 		$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 		return Array(
@@ -360,7 +360,7 @@ class Loader{
 	 *
 	 * @return Array Proxy settings: 'list' of addresses or CIDR ranges (empty when no proxy is trusted), 'head' name of the header giving the address, 'schm' name of the one giving the scheme.
 	 */
-	function proxySetupConf(): Array {
+	function findProxyConfg(): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'];
 		$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 		$prxyList = array_filter( array_map('trim', explode(',', strval($iniConfg['PRX_LIST'] ?? ''))), 'strlen' );
@@ -377,7 +377,7 @@ class Loader{
 	 *
 	 * @return Array Body limits: 'size' in KB (REQ_SIZE, 8192 when not set) and 'part' as a number of parts (REQ_PART, 200 when not set); 0 for no limit.
 	 */
-	function rqstConfigList(): Array {
+	function findBodyLimits(): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'];
 		$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 		return Array(
@@ -398,7 +398,7 @@ class Loader{
 	 *
 	 * @throws \RuntimeException When the value holds what is not an error level.
 	 */
-	function errorConfigNum(): Int {
+	function findErrorLevel(): Int {
 		$nyuConfg = $GLOBALS['nyuConfig'];
 		$iniConfg = $nyuConfg ? ($nyuConfg->readValueByKey('system') ?: Array()) : Array();
 		$levelTxt = trim( strval($iniConfg['ERR_LEVL'] ?? '') );

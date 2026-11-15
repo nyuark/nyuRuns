@@ -165,7 +165,7 @@ class HealthChk{
 				continue;
 			}
 			try{
-				$setupObj = (new Preset($psetName))->newSetupLoader();
+				$setupObj = (new Preset($psetName))->makeConfLoader();
 				$accsConf = $setupObj->setAccessArray();
 			}catch( \Throwable $e ){
 				$this->addCheckResult('preset '.$psetName, 'fail', $e->getMessage());
@@ -223,7 +223,7 @@ class HealthChk{
 		foreach( $psetList as $rpsFil ){
 			$psetName = basename(strval($rpsFil), '.rps');
 			try{
-				$setupObj = (new Preset($psetName))->newSetupLoader();
+				$setupObj = (new Preset($psetName))->makeConfLoader();
 				$accsConf = $setupObj->setAccessArray();
 			}catch( \Throwable $e ){
 				// A preset that does not load is told by its own row
@@ -305,7 +305,7 @@ class HealthChk{
 				if( !class_exists($classNme, false) ){
 					require_once $actnPath;
 				}
-				$actnName = class_exists($classNme, false) ? \nyu\App\Controller::dfltActionText( new \ReflectionClass($classNme) ) : null;
+				$actnName = class_exists($classNme, false) ? \nyu\App\Controller::findDfltAction( new \ReflectionClass($classNme) ) : null;
 			}catch( \Throwable $e ){
 				$this->addCheckResult('default '.$oneDir, 'fail', 'Actions.php cannot be loaded: '.$e->getMessage());
 				continue;
@@ -351,7 +351,7 @@ class HealthChk{
 				continue;
 			}
 			try{
-				$accsConf = (new Preset($psetName))->newSetupLoader()->setAccessArray();
+				$accsConf = (new Preset($psetName))->makeConfLoader()->setAccessArray();
 			}catch( \Throwable $e ){
 				// A preset that does not load is told by its own row
 				continue;
@@ -368,7 +368,7 @@ class HealthChk{
 
 	/**
 	 * Checks the map of the presets served, conf/doorways.lst (see
-	 * Runner::pickPresetName): it fails on a map that cannot be read, a line
+	 * Runner::findPresetName): it fails on a map that cannot be read, a line
 	 * naming a preset that does not load or the example, and two lines for
 	 * the same host and basePath; it warns on an open preset ("required":
 	 * false) whose security block does not say it is meant to be ("isPublic").
@@ -376,7 +376,7 @@ class HealthChk{
 	 */
 	public function checkDoorsList(): Void {
 		try{
-			$rowsList = \nyu\Runner::readDoorsArray();
+			$rowsList = \nyu\Runner::readDoorwayLst();
 		}catch( \RuntimeException $e ){
 			$this->addCheckResult('doorways', 'fail', $e->getMessage().': every request is answered 500');
 			return;
@@ -402,7 +402,7 @@ class HealthChk{
 				continue;
 			}
 			try{
-				$accsConf = (new Preset($oneRow['presetId']))->newSetupLoader()->setAccessArray();
+				$accsConf = (new Preset($oneRow['presetId']))->makeConfLoader()->setAccessArray();
 			}catch( \Throwable $e ){
 				$this->addCheckResult('doorways', 'fail', $lineText.': the preset does not load ('.$e->getMessage().')');
 				$hasFlaws = true;
@@ -797,7 +797,7 @@ class HealthChk{
 		}elseif( $authName=='' ){
 			// No users' store : an open site, when every preset of the map is open
 			try{
-				$psetList = array_values( array_unique(array_column(\nyu\Runner::readDoorsArray(), 'presetId')) );
+				$psetList = array_values( array_unique(array_column(\nyu\Runner::readDoorwayLst(), 'presetId')) );
 			}catch( \RuntimeException $e ){
 				// The doorways row tells it
 				$psetList = Array();
@@ -807,7 +807,7 @@ class HealthChk{
 			$actnList = Array();
 			foreach( $psetList as $prstId ){
 				try{
-					$setupObj = (new Preset($prstId))->newSetupLoader();
+					$setupObj = (new Preset($prstId))->makeConfLoader();
 					$routeCfg = $setupObj->getRegistryKey('dispatch');
 					$isOpened = $isOpened && ($setupObj->setAccessArray()['required'] ?? true)===false;
 					if( (new Router( is_array($routeCfg) ? $routeCfg : Array(), ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions() ){
@@ -847,7 +847,7 @@ class HealthChk{
 		$this->addCheckResult( 'errors', $errorStt, 'ERR_SHOW is '.( $showErro ? 'on' : 'off' ).' in the environment '.( $envrName!='' ? $envrName : '(not named)' ).$errorNte );
 		// A level that cannot be read stops every request at its start
 		try{
-			$errorLvl = (new Loader(Array('settings'=>Array('confType'=>'all'))))->errorConfigNum();
+			$errorLvl = (new Loader(Array('settings'=>Array('confType'=>'all'))))->findErrorLevel();
 			$this->addCheckResult( 'error level', 'fine', ($errorLvl==E_ALL) ? 'every error is reported (E_ALL)' : 'ERR_LEVL reports level '.$errorLvl.' of '.E_ALL );
 		}catch( \RuntimeException $e ){
 			$this->addCheckResult( 'error level', 'fail', $e->getMessage().': no request can be served' );

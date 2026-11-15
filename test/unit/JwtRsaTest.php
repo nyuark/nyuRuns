@@ -109,7 +109,7 @@ $lgnRslt = runCatchThrown(function(){
 	$mthProp = new ReflectionProperty('nyu\Tools\Request', 'reqtInMthd');
 	$mthProp->setValue($request, 'POST');
 	$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('userName'=>'alice', 'passWord'=>'wrong')), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
-	$actnSet->runAskedAction();
+	$actnSet->treatAskedActn();
 	return Array($actnSet->statusCode, strval($actnSet->statusText));
 });
 checkIdentical('the login of a project that only checks tokens answers 501, without checking the password', $lgnRslt, Array(501, 'Tokens are issued by another server'));

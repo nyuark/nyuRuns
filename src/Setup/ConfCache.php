@@ -52,7 +52,7 @@ class ConfCache{
 	 * @param String $tbleLabelTxt Name of the table.
 	 * @param Array  $tableVlsList The description: 'flds', 'pkey' and 'blob'.
 	 */
-	public static function keepCacheTable( String $linkNameText, String $tbleLabelTxt, Array $tableVlsList ): Void {
+	public static function addCachedTable( String $linkNameText, String $tbleLabelTxt, Array $tableVlsList ): Void {
 		if( self::$tableInfos===null ){
 			return;
 		}
@@ -92,7 +92,7 @@ class ConfCache{
 	 * @param Array  $cachedValues The values: 'preset', 'config' and 'routes'.
 	 * @return Bool Whether it was written; a cache that cannot be written leaves the config read from its files.
 	 */
-	public static function buildCacheFlag( String $nameOfPreset, Array $cachedValues ): Bool {
+	public static function saveWholeCache( String $nameOfPreset, Array $cachedValues ): Bool {
 		$nameOfPreset = ($nameOfPreset=='') ? 'default' : $nameOfPreset;
 		if( !preg_match('/^[\w\-]+$/D', $nameOfPreset) || !isset($cachedValues['preset'], $cachedValues['config'], $cachedValues['routes']) ){
 			return false;

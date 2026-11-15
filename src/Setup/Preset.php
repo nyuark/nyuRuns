@@ -123,7 +123,7 @@ class Preset{
 	 * @return Loader The configured setup loader.
 	 * @throws \RuntimeException When the preset is the example (XMPL_NAME).
 	 */
-    public function newSetupLoader(): Loader {
+    public function makeConfLoader(): Loader {
 		// Whatever its case: a file system that ignores it opens the same file
 		if( strcasecmp(strval($this->presetName), self::XMPL_NAME)==0 ){
 			throw new \RuntimeException('Preset "'.self::XMPL_NAME.'" only explains the keys of a preset: it is never loaded');

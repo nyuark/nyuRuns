@@ -69,7 +69,7 @@ class Actions extends Actionset {
 			$this->needsActionRle($valueAsGiven);
 		}
 		$this->statusCode = 200;
-		$this->replyValue = Array('standard'=>$this->holdsActionRle('standard'), 'advanced'=>$this->holdsActionRle('advanced'), 'managers'=>$this->holdsActionRle('managers'));
+		$this->replyValue = Array('standard'=>$this->hasRoleOrAbove('standard'), 'advanced'=>$this->hasRoleOrAbove('advanced'), 'managers'=>$this->hasRoleOrAbove('managers'));
 	}
 
 	/**
@@ -177,17 +177,17 @@ class Actions extends Actionset {
 	 */
 	public function pgeProbe( String $valueAsGiven='' ): Void {
 		if( $valueAsGiven=='none' ){
-			$this->answerPageFlag('nosuchpage');
+			$this->servePageReply('nosuchpage');
 		}elseif( $valueAsGiven=='out' ){
-			$this->answerPageFlag('../Actions');
+			$this->servePageReply('../Actions');
 		}elseif( $valueAsGiven=='gone' ){
-			$this->answerPageFlag('card', Array('title'=>'Gone'), 404);
+			$this->servePageReply('card', Array('title'=>'Gone'), 404);
 		}elseif( $valueAsGiven=='fail' ){
-			$this->answerPageFlag('card', Array('title'=>'Never sent'));
+			$this->servePageReply('card', Array('title'=>'Never sent'));
 			$this->statusCode = 403;
 			$this->statusText = 'Not yours';
 		}else{
-			$this->answerPageFlag('card', Array('title'=>'<b>Tom & "Jerry"</b>', 'link'=>$this->routLinkString('items/$id', Array('id'=>'a b'), Array('tab'=>'x y'))));
+			$this->servePageReply('card', Array('title'=>'<b>Tom & "Jerry"</b>', 'link'=>$this->makeUrlOfRoute('items/$id', Array('id'=>'a b'), Array('tab'=>'x y'))));
 		}
 	}
 
@@ -197,7 +197,7 @@ class Actions extends Actionset {
 	 */
 	public function routeUrl( String $valueAsGiven='' ): Void {
 		$this->statusCode = 200;
-		$this->replyValue = Array('link'=>($valueAsGiven=='') ? $this->routLinkString('things/$id', Array('id'=>7)) : $this->routLinkString('nosuch/$id', Array('id'=>7)));
+		$this->replyValue = Array('link'=>($valueAsGiven=='') ? $this->makeUrlOfRoute('things/$id', Array('id'=>7)) : $this->makeUrlOfRoute('nosuch/$id', Array('id'=>7)));
 	}
 
 	/**

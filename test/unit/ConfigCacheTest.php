@@ -70,11 +70,11 @@ checkIdentical('deploy check warns about TBL_CACH without CNF_CACH', $rowList['t
 // The values of the cache, as the Loader takes them
 putenv('NYU_CACHE_TEST=from-the-process');
 $cchLoad = new Loader( Array('settings'=>Array('confType'=>'all', 'envrFile'=>'no-such-env')), Array('preset'=>Array(), 'config'=>Array('PROBE'=>Array('value'=>'env:NYU_CACHE_TEST')), 'routes'=>Array()), 'probe' );
-checkIdentical('the env: values of the cache are filled on each request', ($cchLoad->retrieveConfig()->readValueByKey('probe') ?: Array())['value'] ?? null, 'from-the-process');
-checkIdentical('a cache read is never written again', $cchLoad->retainCacheFlg(), false);
+checkIdentical('the env: values of the cache are filled on each request', ($cchLoad->readConfigRegr()->readValueByKey('probe') ?: Array())['value'] ?? null, 'from-the-process');
+checkIdentical('a cache read is never written again', $cchLoad->saveConfgCache(), false);
 putenv('NYU_CACHE_TEST');
 
 // What is not the name of a preset
-checkIdentical('a name that is not one of a preset is neither read nor written', Array(ConfCache::readCacheArray('../conf/x'), ConfCache::buildCacheFlag('../conf/x', Array('preset'=>Array(), 'config'=>Array(), 'routes'=>Array()))), Array(null, false));
+checkIdentical('a name that is not one of a preset is neither read nor written', Array(ConfCache::readCacheArray('../conf/x'), ConfCache::saveWholeCache('../conf/x', Array('preset'=>Array(), 'config'=>Array(), 'routes'=>Array()))), Array(null, false));
 
 finishChecking();

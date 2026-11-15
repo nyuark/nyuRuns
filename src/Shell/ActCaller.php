@@ -29,7 +29,7 @@ class ActCaller{
 	 * @param String $reqstUriText Path it is said to ask for.
 	 * @param Array  $inputsValues Values it carries.
 	 * @param Array  $renderValues The 'response' block of the preset, for the response.
-	 * @param Array  $proxyCfgList The reverse proxy settings (see Setup\Loader::proxySetupConf).
+	 * @param Array  $proxyCfgList The reverse proxy settings (see Setup\Loader::findProxyConfg).
 	 * @return Array The Request, then the Response.
 	 */
 	public static function makeRequestArr( String $actionMthNme, String $reqstUriText, Array $inputsValues=Array(), Array $renderValues=Array(), Array $proxyCfgList=Array() ): Array {
@@ -59,21 +59,21 @@ class ActCaller{
 	 * @throws ShellStop When the action is not written as app/action.
 	 * @throws \RuntimeException When the preset cannot be loaded.
 	 */
-	public function runAskedAction( String $nameOfPreset, String $actionTarget, Array $inputsValues, String $actionMthNme, String $signedInUser, String $signedInRole ): Array {
+	public function treatAskedActn( String $nameOfPreset, String $actionTarget, Array $inputsValues, String $actionMthNme, String $signedInUser, String $signedInRole ): Array {
 		// The path is resolved as the Router resolves a request : a Run's own routes and their methods apply
 		if( !preg_match('#^[A-Za-z][A-Za-z0-9]*(/[^/\s]+)*$#D', trim($actionTarget, '/')) ){
 			throw new ShellStop('An action is named by its path: app, app/action, app/action/param, or a path a route of its Run declares', Command::EXIT_HELP);
 		}
-		$loadInst = (new Preset($nameOfPreset))->newSetupLoader();
-		$GLOBALS['nyuConfig'] = $loadInst->retrieveConfig();
+		$loadInst = (new Preset($nameOfPreset))->makeConfLoader();
+		$GLOBALS['nyuConfig'] = $loadInst->readConfigRegr();
 		Logger::plugLogsConfig( $loadInst->logConfigArray() );
 		$rndrConf = $loadInst->getRegistryKey('response');
-		$callList = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrConf) ? $rndrConf : Array(), $loadInst->proxySetupConf() );
+		$callList = self::makeRequestArr( $actionMthNme, '/'.trim($actionTarget, '/'), $inputsValues, is_array($rndrConf) ? $rndrConf : Array(), $loadInst->findProxyConfg() );
 		$reqtInst = $callList[0];
 		$respInst = $callList[1];
-		$inputReg = $loadInst->retrieveInputs($reqtInst);
-		$routRegr = $loadInst->importRouteReg($reqtInst);
-		$routInst = $loadInst->retrieveRouter();
+		$inputReg = $loadInst->makeInputsRegr($reqtInst);
+		$routRegr = $loadInst->loadRouteRgstr($reqtInst);
+		$routInst = $loadInst->getRouterOfRqt();
 		// A path no route answers, or a method its route refuses, is the Router's reply (404, 405); only an action is called,		// found from the path (no kind) or by a declared route (toAction)
 		$sttsNumb = intval($routRegr->obtainDefValue('statCode', 200));
 		$sttsText = strval($routRegr->readValueByKey('statMssg'));
@@ -89,10 +89,10 @@ class ActCaller{
 		}
 		if( $sttsNumb==200 ){
 			$ctrlInst = new Controller( strval($routRegr->readValueByKey('appToRun')), strval($routRegr->readValueByKey('doAction')), $inputReg, $routRegr->readValueByKey('argument'), $accsRegr, $reqtInst, $respInst, $routInst );
-			$sttsList = $ctrlInst->retrieveStatus();
+			$sttsList = $ctrlInst->getStatusOfAct();
 			$sttsNumb = intval($sttsList['code']);
 			$sttsText = strval($sttsList['mssg']);
-			$outArray = $ctrlInst->retrieveOutput();
+			$outArray = $ctrlInst->getOutputOfAct();
 		}
 		return $this->replyValuesArr($respInst, $sttsNumb, $sttsText, $outArray);
 	}
@@ -120,9 +120,9 @@ class ActCaller{
 				$httpResponse->clearReplyBody();
 				$outputToSend = Array('error'=>$statusReason, 'code'=>$responseCode);
 			}
-			$httpResponse->convertOutFlag( $outputToSend ?? Array(), $responseCode<200 || $responseCode>=300 );
+			$httpResponse->castToReplyFmt( $outputToSend ?? Array(), $responseCode<200 || $responseCode>=300 );
 			ob_start();
-			$httpResponse->transmitOutput();
+			$httpResponse->writeReplyBody();
 			$bodyText = strval(ob_get_clean());
 		}
 		return Array('code'=>$responseCode, 'mssg'=>$statusReason, 'body'=>$bodyText, 'goal'=>$wasMoved ? strval($headList['Location'] ?? '') : '');

@@ -5,7 +5,7 @@ namespace nyu\Runs\Hooked;
 use nyu\App\Actionset;
 
 /**
- * Test application for the hook of the actionsets: setupForAction() writes its
+ * Test application for the hook of the actionsets: openEachAction() writes its
  * step before the action does, and refuses the request when the input
  * 'refuse' is 'yes' (test/unit/ActionHookTest.php).
  */
@@ -17,8 +17,8 @@ class Actions extends Actionset {
 	/**
 	 * Writes its step; refuses with a 403 when asked to.
 	 */
-	protected function setupForAction(): Void {
-		$this->stepsTaken[] = 'setupForAction';
+	protected function openEachAction(): Void {
+		$this->stepsTaken[] = 'openEachAction';
 		if( $this->inputsRegr->readValueByKey('refuse')==='yes' ){
 			$this->replyValue = $this->stepsTaken;
 			$this->stopThisAction(403, 'Refused before the action');

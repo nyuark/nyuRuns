@@ -202,7 +202,7 @@ class Checker{
 				return new Registry( Array('loggedIn'=>false, 'userName'=>'', 'statCode'=>500, 'statMssg'=>'Access misconfigured') );
 			}
 			// The credential check reads its own block when 'authConf' names one, the carrier's otherwise
-			$authInst = new $authClss( $this->resolveConfArr($this->accessConf['authConf'] ?? $this->accessConf['carrConf'] ?? '') );
+			$authInst = new $authClss( $this->findAccessConf($this->accessConf['authConf'] ?? $this->accessConf['carrConf'] ?? '') );
 		}
 
 		// A carrier and a check that cannot work together refuse every request, as a mistake of the config
@@ -213,7 +213,7 @@ class Checker{
 		}
 
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrInst = new Limiter( $this->resolveConfArr('tryLimit') );
+		$lmtrInst = new Limiter( $this->findAccessConf('tryLimit') );
 		$userAddr = $this->clntAddressTxt();
 		$heldTime = $lmtrInst->heldUntilCount($userAddr);
 		if( $heldTime>0 ){
@@ -227,7 +227,7 @@ class Checker{
 			return $applRslt;
 		}
 
-		$sessInst = new $sessClss( $this->resolveConfArr($this->accessConf['carrConf'] ?? ''), $authInst );
+		$sessInst = new $sessClss( $this->findAccessConf($this->accessConf['carrConf'] ?? ''), $authInst );
 		$idntList = $sessInst->verifyRqstList( $this->requestObj );
 
 		if( $idntList===false ){
@@ -286,7 +286,7 @@ class Checker{
 		if( $blockNme=='' ){
 			return null;
 		}
-		$keyInstn = new AppKey( $this->resolveConfArr($blockNme) );
+		$keyInstn = new AppKey( $this->findAccessConf($blockNme) );
 		$idntList = $keyInstn->verifyAppArray( $this->requestObj );
 		if( $idntList===null ){
 			return null;
@@ -494,14 +494,14 @@ class Checker{
 
 	/**
 	 * Gives the default action of an application, as the Controller resolves
-	 * it (see Controller::dfltActionText): its Actions.php is loaded, from
+	 * it (see Controller::findDfltAction): its Actions.php is loaded, from
 	 * the folder the Controller would load it from.
 	 *
 	 * @param String $appNameToRun Name of the application, as the route of the request names it.
 	 * @return String The default action, or '' for an application that is not one.
 	 */
 	protected function dfltActnString( String $appNameToRun ): String {
-		$applName = \nyu\App\Controller::runFoldrString($appNameToRun);
+		$applName = \nyu\App\Controller::findRunFldrNme($appNameToRun);
 		if( $applName==='' ){
 			return '';
 		}
@@ -510,7 +510,7 @@ class Checker{
 		if( !class_exists($classNme, false) && is_file($actnPath) ){
 			require_once $actnPath;
 		}
-		return class_exists($classNme, false) ? \nyu\App\Controller::dfltActionText( new \ReflectionClass($classNme) ) : '';
+		return class_exists($classNme, false) ? \nyu\App\Controller::findDfltAction( new \ReflectionClass($classNme) ) : '';
 	}
 
 	/**
@@ -657,7 +657,7 @@ class Checker{
 	 * @param String $cfgBlockName Name of the config block to read.
 	 * @return Array The strategy's configuration, or an empty array if not found.
 	 */
-	protected function resolveConfArr( String $cfgBlockName ): Array {
+	protected function findAccessConf( String $cfgBlockName ): Array {
 		if( $cfgBlockName=='' ){
 			return Array();
 		}

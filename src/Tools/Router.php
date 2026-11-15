@@ -81,7 +81,7 @@ class Router{
 			$routVals = array_merge($routVals, $this->autoRouteArray());
 			$applName = strval($routVals['appToRun'] ?? '');
 			// A Run declaring its routes is closed : its actions are reached through them only
-			$runFoldr = \nyu\App\Controller::runFoldrString($applName);
+			$runFoldr = \nyu\App\Controller::findRunFldrNme($applName);
 			if( $runFoldr!=='' && is_file(RUN_DIR.DS.$runFoldr.DS.'routes.rte') ){
 				Logger::retrieveLogger('runner')->info( 'Not found: '.json_encode($applName.'/'.strval($routVals['doAction'] ?? ''), JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_SLASHES).': not listed in the routes of the application'.Logger::getActorSuffix() );
 				return new Registry( Array('appToRun'=>null, 'doAction'=>null, 'statCode'=>404, 'statMssg'=>'Not Found') );
@@ -687,7 +687,7 @@ class Router{
 				return $missDict;
 			}
 		}
-		$mimeText = Response::mimeOfExtnsTxt( pathinfo($foundIdx, PATHINFO_EXTENSION) );
+		$mimeText = Response::getMimeOfExtns( pathinfo($foundIdx, PATHINFO_EXTENSION) );
 		if( !is_file($foundIdx) || $mimeText===null ){
 			return $missDict;
 		}

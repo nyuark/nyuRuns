@@ -58,21 +58,21 @@ class Actionset {
 	 * request with stopThisAction(), in which case the action is not run and
 	 * the status given is the reply's. Does nothing by default.
 	 */
-	protected function setupForAction(): Void {
+	protected function openEachAction(): Void {
 	}
 
 	/**
 	 * Runs the action of the context if it is one of the application's
-	 * actions (see ownAction): setupForAction() first, then the action, given
+	 * actions (see ownAction): openEachAction() first, then the action, given
 	 * the option of the context when there is one; falls back to
-	 * fallbackAction() otherwise. A StopRun thrown by setupForAction() or the action
-	 * ends the run and sets its status; one from setupForAction() keeps the
+	 * denyUnknownAct() otherwise. A StopRun thrown by openEachAction() or the action
+	 * ends the run and sets its status; one from openEachAction() keeps the
 	 * action from running.
 	 */
-	public function runAskedAction(): Void {
+	public function treatAskedActn(): Void {
 		if( static::hasActionNamed($this->runContext->actionName) ){
 			try{
-				$this->setupForAction();
+				$this->openEachAction();
 				if($this->runContext->optionText!=null){
 					call_user_func( array($this, $this->runContext->actionName), $this->runContext->optionText );
 				}else{
@@ -82,12 +82,12 @@ class Actionset {
 				// Deliberate stop : its status is the action's, and its output when it carries one
 				$this->statusCode = $e->getCode();
 				$this->statusText = $e->getMessage();
-				if( $e->retrieveOutput()!==null ){
-					$this->replyValue = $e->retrieveOutput();
+				if( $e->getOutputOfAct()!==null ){
+					$this->replyValue = $e->getOutputOfAct();
 				}
 			}
 		}else{
-			$this->fallbackAction();
+			$this->denyUnknownAct();
 		}
 	}
 
@@ -117,7 +117,7 @@ class Actionset {
 	 *
 	 * @return Bool Always false.
 	 */
-	protected function fallbackAction(): Bool {
+	protected function denyUnknownAct(): Bool {
 		$this->statusCode = 404;
 		$this->statusText = 'Not Found';
 		$this->replyValue = null;
@@ -152,9 +152,9 @@ class Actionset {
 	 *
 	 * @throws \RuntimeException When the format is not one of Response::FORM_LIST.
 	 */
-	protected function useReplyFormat( String $outputFormat ): Void {
+	protected function setReplyFormat( String $outputFormat ): Void {
 		if( $this->respondObj!==null ){
-			$this->respondObj->useReplyFormat($outputFormat);
+			$this->respondObj->setReplyFormat($outputFormat);
 		}
 	}
 
@@ -192,7 +192,7 @@ class Actionset {
 	 * @param Int    $responseCode HTTP status to reply with.
 	 * @return Bool True when the page was registered.
 	 */
-	protected function answerPageFlag( String $pageFileName, Array $pageValsList=Array(), Int $responseCode=200 ): Bool {
+	protected function servePageReply( String $pageFileName, Array $pageValsList=Array(), Int $responseCode=200 ): Bool {
 		$pagePath = $this->runContext->appsFolder.DS.'pages'.DS.str_replace('/', DS, $pageFileName).'.html';
 		// Letters, digits, dashes and underscores only : the name cannot lead out of the folder
 		$isNameOk = (preg_match('#^[\w\-]+(/[\w\-]+)*$#D', $pageFileName)===1);
@@ -242,7 +242,7 @@ class Actionset {
 	 *
 	 * @throws \RuntimeException When no such route is declared, a named part has no value, or no router was given.
 	 */
-	protected function routLinkString( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryLst=Array() ): String {
+	protected function makeUrlOfRoute( String $routShapeTxt, Array $pathPartVals=Array(), Array $linkQueryLst=Array() ): String {
 		if( $this->routingObj===null ){
 			throw new \RuntimeException('No router to build a link with');
 		}
@@ -271,7 +271,7 @@ class Actionset {
 	 *
 	 * @throws \RuntimeException When the role is not one of Checker::ROLE_LIST.
 	 */
-	protected function holdsActionRle( String $requiredRole ): Bool {
+	protected function hasRoleOrAbove( String $requiredRole ): Bool {
 		if( !in_array($requiredRole, Checker::ROLE_LIST, true) ){
 			throw new \RuntimeException('Unknown role "'.$requiredRole.'"');
 		}
@@ -288,7 +288,7 @@ class Actionset {
 	 * account of its user (its password, its 2FA, its address), which needs
 	 * the password login. The refusal is logged on the 'access' channel.
 	 */
-	protected function needsPasswdLgn(): Void {
+	protected function needsPassLogin(): Void {
 		$idntList = ($this->accessRegr!==null) ? $this->accessRegr->readValueByKey('identity') : null;
 		if( !is_array($idntList) || !isset($idntList['device']) ){
 			return;
@@ -310,7 +310,7 @@ class Actionset {
 	 * @throws \RuntimeException When the role is not one of Checker::ROLE_LIST.
 	 */
 	protected function needsActionRle( String $requiredRole ): Void {
-		if( $this->holdsActionRle($requiredRole) ){
+		if( $this->hasRoleOrAbove($requiredRole) ){
 			return;
 		}
 		$isLogged = ($this->accessRegr!==null && $this->accessRegr->readValueByKey('loggedIn')===true);

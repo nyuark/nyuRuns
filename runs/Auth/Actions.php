@@ -34,7 +34,7 @@ class Actions extends Actionset {
 	 * Credential checks and their outcome are logged.
 	 */
 	public function login(): Void {
-		if($this->refuseUrlPassw( Array('passWord'), 'Login' )){
+		if($this->denyPwdInQuery( Array('passWord'), 'Login' )){
 			return;
 		}
 
@@ -48,7 +48,7 @@ class Actions extends Actionset {
 			return;
 		}
 
-		$loginCfg = $this->resolveConfArr('loginSet');
+		$loginCfg = $this->findAccessConf('loginSet');
 		$accsJrnl = Logger::retrieveLogger('access');
 		$authClss = Checker::authClssString( strval($loginCfg['authWith'] ?? 'htpasswd') );
 		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
@@ -59,14 +59,14 @@ class Actions extends Actionset {
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrList = $this->refuseHeldAddr('Login', $givenUsr);
+		$lmtrList = $this->denyHeldClient('Login', $givenUsr);
 		if($lmtrList===null){
 			return;
 		}
 		$lmtrInst = $lmtrList[0];
 		$userAddr = $lmtrList[1];
 		$fromText = ($userAddr!='') ? ' from '.$userAddr : '';
-		$sessInst = new $sessClss( $this->resolveConfArr($loginCfg['carrConf'] ?? 'jwtToken') );
+		$sessInst = new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') );
 		// A project holding only the public key checks the tokens another server issues : nothing is checked here
 		if(method_exists($sessInst, 'verifyOnlyFlag') && $sessInst->verifyOnlyFlag()){
 			$accsJrnl->warning( 'Login refused for user '.json_encode($givenUsr).$fromText.': this project only checks tokens, issued by another server' );
@@ -74,7 +74,7 @@ class Actions extends Actionset {
 			$this->statusText = 'Tokens are issued by another server';
 			return;
 		}
-		$authInst = new $authClss( $this->resolveConfArr($loginCfg['authConf'] ?? 'htpasswd') );
+		$authInst = new $authClss( $this->findAccessConf($loginCfg['authConf'] ?? 'htpasswd') );
 		// The 'sentCode' input carries the one-time code of a user with 2FA
 		$givenCod = $this->inputsRegr->readValueByKey('sentCode');
 		// The login mark of a client already used: the hold of an account does not stop it (see Access\LoginMark)
@@ -171,9 +171,9 @@ class Actions extends Actionset {
 	 * (HS256), or issued by another server.
 	 */
 	public function keyset(): Void {
-		$loginCfg = $this->resolveConfArr('loginSet');
+		$loginCfg = $this->findAccessConf('loginSet');
 		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
-		$sessInst = ($sessClss!==null && class_exists($sessClss)) ? new $sessClss( $this->resolveConfArr($loginCfg['carrConf'] ?? 'jwtToken') ) : null;
+		$sessInst = ($sessClss!==null && class_exists($sessClss)) ? new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') ) : null;
 		$keysDict = ($sessInst!==null && method_exists($sessInst, 'publicSetArray')) ? $sessInst->publicSetArray() : Array('keys'=>Array());
 		if( empty($keysDict['keys']) ){
 			Logger::retrieveLogger('runner')->info( 'Key set not published: the tokens of the login are not signed with a key of RS256 issued here' );
@@ -181,7 +181,7 @@ class Actions extends Actionset {
 			$this->statusText = 'Not Found';
 			return;
 		}
-		$this->useReplyFormat('jsonData');
+		$this->setReplyFormat('jsonData');
 		if( $this->respondObj!==null ){
 			$this->respondObj->addReplyHeader('Cache-Control', 'public, max-age=300');
 			$this->respondObj->addReplyHeader('Expires', gmdate('D, d M Y H:i:s', time() + 300).' GMT');
@@ -197,10 +197,10 @@ class Actions extends Actionset {
 	 * route takes POST alone (routes.rte).
 	 */
 	public function logout(): Void {
-		$loginCfg = $this->resolveConfArr('loginSet');
+		$loginCfg = $this->findAccessConf('loginSet');
 		$sessClss = Checker::sessnClassText( strval($loginCfg['carrWith'] ?? 'jwtToken') );
 		if($sessClss!==null && class_exists($sessClss)){
-			$sessInst = new $sessClss( $this->resolveConfArr($loginCfg['carrConf'] ?? 'jwtToken') );
+			$sessInst = new $sessClss( $this->findAccessConf($loginCfg['carrConf'] ?? 'jwtToken') );
 			if(method_exists($sessInst, 'dropUsrSession')){
 				$sessInst->dropUsrSession( $this->requestObj );
 			}
@@ -236,7 +236,7 @@ class Actions extends Actionset {
 	 * in: 'approved', or 'inReview' for a sign-up a manager has to approve.
 	 */
 	public function active(): Void {
-		if($this->refuseUrlPassw( Array('passWord'), 'Activation' )){
+		if($this->denyPwdInQuery( Array('passWord'), 'Activation' )){
 			return;
 		}
 		$givenUsr = $this->inputsRegr->readValueByKey('userName');
@@ -254,7 +254,7 @@ class Actions extends Actionset {
 			return;
 		}
 		// An address that presented too many wrong credentials is refused before anything is checked
-		$lmtrList = $this->refuseHeldAddr('Activation', $givenUsr);
+		$lmtrList = $this->denyHeldClient('Activation', $givenUsr);
 		if($lmtrList===null){
 			return;
 		}
@@ -296,7 +296,7 @@ class Actions extends Actionset {
 	 */
 	public function signup(): Void {
 		$userBase = UserBase::fromLoginBlock();
-		$mailInst = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
+		$mailInst = AccessMail::fromLoginBlock( $this->getRunFldrPath(), PHP_SAPI!=='cli' );
 		if($userBase===null || $mailInst===null || !AccessMail::signupsAllowed()){
 			$this->statusCode = 404;
 			$this->statusText = 'Not Found';
@@ -310,13 +310,13 @@ class Actions extends Actionset {
 			return;
 		}
 		// An address held for wrong credentials is refused; its sign-ups are counted apart, 'maxPerIp' of them within 'holdSecs'
-		$limitCfg = $this->resolveConfArr('tryLimit');
-		if($this->refuseHeldAddr('Sign-up', $givenUsr)===null){
+		$limitCfg = $this->findAccessConf('tryLimit');
+		if($this->denyHeldClient('Sign-up', $givenUsr)===null){
 			return;
 		}
 		$fieldNme = trim(strval($limitCfg['dataPath'] ?? ''), '/\\ ');
 		$regrLmtr = new Limiter( Array('maxTries'=>intval($limitCfg['maxPerIp'] ?? 16), 'dataPath'=>(($fieldNme!='') ? $fieldNme : 'temp/limits').'/signup') + $limitCfg );
-		$lmtrList = $this->refuseHeldAddr('Sign-up', $givenUsr, $regrLmtr);
+		$lmtrList = $this->denyHeldClient('Sign-up', $givenUsr, $regrLmtr);
 		if($lmtrList===null){
 			return;
 		}
@@ -341,7 +341,7 @@ class Actions extends Actionset {
 			}
 		}else{
 			$mailInst->sendCodeToUser('register', $givenUsr, strtolower(trim($givenEml)), $newCodig, $clntLang);
-			$this->notifyManagers($userBase, $mailInst, $regrTops, is_array($limitCfg['alertsAt'] ?? null) ? $limitCfg['alertsAt'] : Array(128, 200, 256));
+			$this->sendMngrAlerts($userBase, $mailInst, $regrTops, is_array($limitCfg['alertsAt'] ?? null) ? $limitCfg['alertsAt'] : Array(128, 200, 256));
 		}
 		$this->statusCode = 202;
 		$this->replyValue = Array('asked'=>true);
@@ -357,7 +357,7 @@ class Actions extends Actionset {
 	 * @param Int        $authTopsNumb The most sign-ups waiting at once.
 	 * @param Array      $warnAtCounts The counts the managers are told at.
 	 */
-	protected function notifyManagers( UserBase $userDatabase, AccessMail $accessMailer, Int $authTopsNumb, Array $warnAtCounts ): Void {
+	protected function sendMngrAlerts( UserBase $userDatabase, AccessMail $accessMailer, Int $authTopsNumb, Array $warnAtCounts ): Void {
 		$waitNumb = $userDatabase->waitingSignups();
 		if($waitNumb===false || !in_array($waitNumb, array_map('intval', $warnAtCounts), true)){
 			return;
@@ -389,7 +389,7 @@ class Actions extends Actionset {
 	 */
 	public function forgot(): Void {
 		$userBase = UserBase::fromLoginBlock();
-		$mailInst = AccessMail::fromLoginBlock( $this->mailsDirString(), PHP_SAPI!=='cli' );
+		$mailInst = AccessMail::fromLoginBlock( $this->getRunFldrPath(), PHP_SAPI!=='cli' );
 		if($userBase===null || $mailInst===null){
 			$this->statusCode = 404;
 			$this->statusText = 'Not Found';
@@ -401,7 +401,7 @@ class Actions extends Actionset {
 			$this->statusText = 'Invalid userName';
 			return;
 		}
-		$lmtrList = $this->refuseHeldAddr('Reset', $givenUsr);
+		$lmtrList = $this->denyHeldClient('Reset', $givenUsr);
 		if($lmtrList===null){
 			return;
 		}
@@ -428,7 +428,7 @@ class Actions extends Actionset {
 	 * use the native userbase.
 	 */
 	public function recover(): Void {
-		if($this->refuseUrlPassw( Array('passWord'), 'Password reset' )){
+		if($this->denyPwdInQuery( Array('passWord'), 'Password reset' )){
 			return;
 		}
 		$givenUsr = $this->inputsRegr->readValueByKey('userName');
@@ -445,7 +445,7 @@ class Actions extends Actionset {
 			$this->statusText = 'User management unavailable';
 			return;
 		}
-		$lmtrList = $this->refuseHeldAddr('Password reset', $givenUsr);
+		$lmtrList = $this->denyHeldClient('Password reset', $givenUsr);
 		if($lmtrList===null){
 			return;
 		}
@@ -470,8 +470,8 @@ class Actions extends Actionset {
 	 * @param ?Limiter $ceilingCount The limiter to ask; the one of the 'tryLimit' block when null.
 	 * @return ?Array The limiter and the address of the client, or null when the request is refused.
 	 */
-	protected function refuseHeldAddr( String $requestLabel, String $namedUserTxt, ?Limiter $ceilingCount=null ): ?Array {
-		$lmtrInst = $ceilingCount ?? new Limiter( $this->resolveConfArr('tryLimit') );
+	protected function denyHeldClient( String $requestLabel, String $namedUserTxt, ?Limiter $ceilingCount=null ): ?Array {
+		$lmtrInst = $ceilingCount ?? new Limiter( $this->findAccessConf('tryLimit') );
 		$clntRegr = $this->requestObj->retrieveClient();
 		$userAddr = ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '';
 		$heldTime = $lmtrInst->heldUntilCount($userAddr);
@@ -493,7 +493,7 @@ class Actions extends Actionset {
 	 *
 	 * @return String The folder.
 	 */
-	protected function mailsDirString(): String {
+	protected function getRunFldrPath(): String {
 		return __DIR__;
 	}
 
@@ -506,13 +506,13 @@ class Actions extends Actionset {
 	 * the address (see passInUrl), 401 when nobody is logged or the current
 	 * password is wrong (a wrong one counts as a failed attempt, for the
 	 * user and for its address), 403 for a request made with a device token
-	 * (see needsPasswdLgn) and 500 when the login does not use the native
+	 * (see needsPassLogin) and 500 when the login does not use the native
 	 * userbase.
 	 */
 	public function setpass(): Void {
 		// A device never changes the password of its user: that needs the password login
-		$this->needsPasswdLgn();
-		if($this->refuseUrlPassw( Array('oldValue', 'passWord'), 'Password change' )){
+		$this->needsPassLogin();
+		if($this->denyPwdInQuery( Array('oldValue', 'passWord'), 'Password change' )){
 			return;
 		}
 		$userName = ($this->accessRegr!==null && $this->accessRegr->readValueByKey('loggedIn')===true) ? strval($this->accessRegr->readValueByKey('userName')) : '';
@@ -537,7 +537,7 @@ class Actions extends Actionset {
 		if(!$userBase->editPasswdFlag($userName, $oldValue, $givenPwd)){
 			if($userBase->hasWrongSecret()){
 				$clntRegr = $this->requestObj->retrieveClient();
-				(new Limiter( $this->resolveConfArr('tryLimit') ))->countFailedTry( ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
+				(new Limiter( $this->findAccessConf('tryLimit') ))->countFailedTry( ($clntRegr!==null) ? strval($clntRegr->readValueByKey('userAddr')) : '' );
 			}
 			$this->statusCode = $userBase->lastStateCount();
 			$this->statusText = $userBase->finalErrorText();
@@ -588,7 +588,7 @@ class Actions extends Actionset {
 	 * @param String $requestLabel What was asked for, for the log.
 	 * @return Bool True when the request is refused.
 	 */
-	protected function refuseUrlPassw( Array $fldNamesList, String $requestLabel ): Bool {
+	protected function denyPwdInQuery( Array $fldNamesList, String $requestLabel ): Bool {
 		foreach($fldNamesList as $fldNme){
 			if($this->requestObj->isSentViaQuery( strval($fldNme) )){
 				$clntRegr = $this->requestObj->retrieveClient();
@@ -608,7 +608,7 @@ class Actions extends Actionset {
 	 * @param String $cfgBlockName Name of the config block to read.
 	 * @return Array The block's values, or an empty array if not found.
 	 */
-	protected function resolveConfArr( String $cfgBlockName ): Array {
+	protected function findAccessConf( String $cfgBlockName ): Array {
 		$nyuConfg = $GLOBALS['nyuConfig'];
 		$accsConf = $nyuConfg->obtainRowValue('ACCESS', strtoupper($cfgBlockName));
 		return is_array($accsConf) ? $accsConf : Array();

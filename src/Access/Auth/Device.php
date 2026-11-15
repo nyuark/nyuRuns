@@ -16,7 +16,7 @@ use nyu\Tools\Logger;
  * lower of the cap and its user's current role, so demoting the user
  * lowers all their devices at once; an empty cap, left by a device made
  * before the caps, is the user's role. A device never changes its user's
- * account (see Actionset::needsPasswdLgn). Also stamps the time each device
+ * account (see Actionset::needsPassLogin). Also stamps the time each device
  * was last seen. A device is given a token, listed and revoked from the
  * command line (php nyuRun devices), or by an application of its own.
  */

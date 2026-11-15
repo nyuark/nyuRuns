@@ -12,7 +12,7 @@ use \nyu\Access\Auth\UserBase;
  * the one the 'loginSet' block of the ACCESS config file names. A
  * delegate reads the users and approves the sign-ups (ACTN_ROLE); every
  * other action, and any one added later, is kept for the users of the
- * highest role (see setupForAction). Approving a sign-up leaves its role
+ * highest role (see openEachAction). Approving a sign-up leaves its role
  * as it is (standard). The routes of routes.rte name the user in the path
  * and set the methods.
  * A refusal of the userbase is reported with its own status: 400 for a
@@ -24,7 +24,7 @@ class Actions extends Actionset {
 	// The actions asking for less than the highest role, with the one each asks for; any other, and any added later, asks for the highest
 	const ACTN_ROLE = Array('index'=>'delegate', 'view'=>'delegate', 'approve'=>'delegate');
 
-	// The native userbase, opened for the action by setupForAction()
+	// The native userbase, opened for the action by openEachAction()
 	protected $userBaseDb;
 
 	/**
@@ -55,7 +55,7 @@ class Actions extends Actionset {
 	 */
 	public function view(): Void {
 		$userBase = $this->userBaseDb;
-		$userVals = $userBase->userInfosArray( $this->givenUsrString(false) );
+		$userVals = $userBase->userInfosArray( $this->readTargetUser(false) );
 		if($userVals===false){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -106,7 +106,7 @@ class Actions extends Actionset {
 	 */
 	public function approve(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
+		$givenUsr = $this->readTargetUser(false);
 		if(!$userBase->approveNewUser($givenUsr)){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -118,14 +118,14 @@ class Actions extends Actionset {
 	 * Gives the user its path names the address of the 'userMail'
 	 * input, or takes its address away when 'userMail' is empty or left out.
 	 * Reports 409 for an address another user holds, and 403 for a device
-	 * changing the address of its own user (see needsPasswdLgn).
+	 * changing the address of its own user (see needsPassLogin).
 	 */
 	public function setmail(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
+		$givenUsr = $this->readTargetUser(false);
 		// A device never changes the address of its own user: that needs the password login
 		if( $givenUsr===strval($this->accessRegr->readValueByKey('userName')) ){
-			$this->needsPasswdLgn();
+			$this->needsPassLogin();
 		}
 		$givenEml = $this->inputsRegr->readValueByKey('userMail');
 		if(!$userBase->changeMailFlag($givenUsr, is_string($givenEml) ? $givenEml : null)){
@@ -143,7 +143,7 @@ class Actions extends Actionset {
 	 */
 	public function langs(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
+		$givenUsr = $this->readTargetUser(false);
 		$givenLng = $this->inputsRegr->readValueByKey('saveLang');
 		if(!$userBase->changeLanguage($givenUsr, is_string($givenLng) ? $givenLng : null)){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
@@ -159,7 +159,7 @@ class Actions extends Actionset {
 	 */
 	public function lock(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
+		$givenUsr = $this->readTargetUser(true);
 		if(!$userBase->saveStatusFlag($givenUsr, 'disabled')){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -172,7 +172,7 @@ class Actions extends Actionset {
 	 */
 	public function unlock(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(false);
+		$givenUsr = $this->readTargetUser(false);
 		if(!$userBase->saveStatusFlag($givenUsr, 'approved')){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -186,7 +186,7 @@ class Actions extends Actionset {
 	 */
 	public function role(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
+		$givenUsr = $this->readTargetUser(true);
 		$givenRle = $this->inputsRegr->readValueByKey('saveRole');
 		if(!$userBase->changeRoleFlag($givenUsr, is_string($givenRle) ? $givenRle : '')){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
@@ -201,7 +201,7 @@ class Actions extends Actionset {
 	 */
 	public function remove(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
+		$givenUsr = $this->readTargetUser(true);
 		if(!$userBase->removeUserFlag($givenUsr)){
 			$this->stopThisAction( $userBase->lastStateCount(), $userBase->finalErrorText() );
 		}
@@ -219,7 +219,7 @@ class Actions extends Actionset {
 	 */
 	public function reset(): Void {
 		$userBase = $this->userBaseDb;
-		$givenUsr = $this->givenUsrString(true);
+		$givenUsr = $this->readTargetUser(true);
 		$userDict = $userBase->userInfosArray($givenUsr) ?: Array();
 		$userMail = strval( $userDict['contactEml'] ?? '' );
 		$mailInst = ($userMail!='') ? AccessMail::fromLoginBlock( dirname(__DIR__).DS.'Auth', PHP_SAPI!=='cli' ) : null;
@@ -246,7 +246,7 @@ class Actions extends Actionset {
 	 * only refuses the request earlier. The methods are the routes' (routes.rte):
 	 * another one is answered 405 before the action is reached.
 	 */
-	protected function setupForAction(): Void {
+	protected function openEachAction(): Void {
 		$this->needsActionRle( self::ACTN_ROLE[strtolower($this->actionName)] ?? array_slice(Checker::ROLE_LIST, -1)[0] );
 		$userBase = UserBase::fromLoginBlock();
 		if($userBase===null){
@@ -264,7 +264,7 @@ class Actions extends Actionset {
 	 * @param Bool $notOnOwnAcnt Whether the action is refused on the account of the one asking.
 	 * @return String The name of the user.
 	 */
-	protected function givenUsrString( Bool $notOnOwnAcnt ): String {
+	protected function readTargetUser( Bool $notOnOwnAcnt ): String {
 		$givenUsr = strval( $this->runContext->optionText ?? '' );
 		if($givenUsr==''){
 			$this->stopThisAction(400, 'Invalid user');

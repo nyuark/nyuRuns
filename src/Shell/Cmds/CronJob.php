@@ -75,7 +75,7 @@ class CronJob extends Command{
 		if( !in_array($roleName, Checker::ROLE_LIST, true) || !in_array($mthdName, self::MTHD_LIST, true) ){
 			$this->terminateShell('--roleName takes one of '.implode(', ', Checker::ROLE_LIST).'; --httpVerb one of '.implode(', ', self::MTHD_LIST), self::EXIT_HELP);
 		}
-		$rplyList = (new ActCaller())->runAskedAction( strval($this->optionsObj->retrieveOption('presetId', '')), $actnPath, $inputVal, $mthdName, 'cli:'.Console::osShellUsrName(), $roleName );
+		$rplyList = (new ActCaller())->treatAskedActn( strval($this->optionsObj->retrieveOption('presetId', '')), $actnPath, $inputVal, $mthdName, 'cli:'.Console::osShellUsrName(), $roleName );
 		$savePath = $this->optionsObj->retrieveOption('saveInto');
 		if( $this->printerObj->jsonShellShape() ){
 			$this->printerObj->printShellPair('code', $rplyList['code']);

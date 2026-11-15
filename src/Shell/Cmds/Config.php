@@ -315,7 +315,7 @@ class Config extends Command{
 		$baseText = $this->optionsObj->shiftFirstWord();
 		$psetName = $this->optionsObj->shiftFirstWord();
 		try{
-			$rowsList = \nyu\Runner::readDoorsArray();
+			$rowsList = \nyu\Runner::readDoorwayLst();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( 'Nothing was changed: '.$e->getMessage(), self::EXIT_DENY );
 		}
@@ -378,7 +378,7 @@ class Config extends Command{
 	 * Writes the map of the presets served, conf/doorways.lst, whole: a line
 	 * for any host is written without its hostName.
 	 *
-	 * @param Array $doorwaysList The lines, each with 'hostName', 'basePath' and 'presetId', as Runner::readDoorsArray() gives them.
+	 * @param Array $doorwaysList The lines, each with 'hostName', 'basePath' and 'presetId', as Runner::readDoorwayLst() gives them.
 	 *
 	 * @throws \RuntimeException When the file cannot be written.
 	 */
@@ -663,7 +663,7 @@ class Config extends Command{
 	public function invokeFullList(): Int {
 		$psetName = strval($this->optionsObj->shiftFirstWord() ?? 'default');
 		try{
-			$loadInst = (new Preset($psetName))->newSetupLoader();
+			$loadInst = (new Preset($psetName))->makeConfLoader();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( $e->getMessage(), self::EXIT_DENY );
 		}

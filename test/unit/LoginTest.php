@@ -57,7 +57,7 @@ function authActn( String $actionName, Array $inputArray=Array(), String $httpMe
 		$mthProp->setValue($request, $httpMethod);
 		$axssReg = new Registry( $loggedVals + Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null) );
 		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext($actionName, null, new Registry($inputArray), $axssReg, $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
-		$actnSet->runAskedAction();
+		$actnSet->treatAskedActn();
 		return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue);
 	});
 }

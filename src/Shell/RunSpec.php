@@ -43,7 +43,7 @@ class RunSpec{
 	 * @throws \RuntimeException When the Run, its spec or a value of it is not valid.
 	 */
 	public static function readSpecsArray( String $runsFldrPath, String $appsNameText ): Array {
-		$fieldNme = Controller::runFoldrString($appsNameText, $runsFldrPath);
+		$fieldNme = Controller::findRunFldrNme($appsNameText, $runsFldrPath);
 		if( $fieldNme==='' ){
 			throw new \RuntimeException('No Run is named '.json_encode($appsNameText));
 		}

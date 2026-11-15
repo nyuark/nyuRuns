@@ -38,7 +38,7 @@ class Request{
 	 * @param ServerReg $serverValReg Registry of $_SERVER values.
 	 * @param Response  $httpResponse The response object (reserved for cookie writes).
 	 * @param ClientReg $clntRegistry Registry of client values (address, agent, system, device, language).
-	 * @param Array     $limitsConfig The limits of a body: its largest 'size' in KB and the most 'part's of a multipart one, 0 or left out for no limit (see Setup\Loader::rqstConfigList).
+	 * @param Array     $limitsConfig The limits of a body: its largest 'size' in KB and the most 'part's of a multipart one, 0 or left out for no limit (see Setup\Loader::findBodyLimits).
 	 *
 	 * @todo Should read an encoding parameter and format each value to that encoding.
 	 */

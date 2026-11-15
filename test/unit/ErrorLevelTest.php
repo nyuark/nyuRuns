@@ -15,7 +15,7 @@ $prevRsp = $GLOBALS['ErrorResponse'] ?? null;
 $GLOBALS['ErrorHandler'] = new ErrorHandler( Logger::retrieveLogger('error') );
 $GLOBALS['ErrorResponse'] = true;
 $prevLvl = error_reporting();
-set_error_handler('handleErrorFlg');
+set_error_handler('treatErrorHook');
 
 error_reporting( E_ALL & ~E_USER_WARNING );
 trigger_error('left out by the level', E_USER_WARNING);
@@ -25,7 +25,7 @@ error_reporting( E_ALL );
 trigger_error('reported warning', E_USER_WARNING);
 // An exception is handled whatever the level
 error_reporting( 0 );
-handleErrorFlg('E_EXCEPTION', 'exception at level 0', __FILE__, __LINE__);
+treatErrorHook('E_EXCEPTION', 'exception at level 0', __FILE__, __LINE__);
 error_reporting( E_ALL );
 
 restore_error_handler();
@@ -40,7 +40,7 @@ checkIdentical('what @ silences is not logged; the same error reported is', Arra
 checkIdentical('an exception is logged whatever the level', strpos($logText, 'exception at level 0')!==false, true);
 error_reporting( E_ALL & ~E_USER_DEPRECATED );
 ob_start();
-$hndRslt = handleErrorFlg(E_USER_DEPRECATED, 'any', __FILE__, __LINE__);
+$hndRslt = treatErrorHook(E_USER_DEPRECATED, 'any', __FILE__, __LINE__);
 $shownTx = ob_get_clean();
 error_reporting( $prevLvl );
 checkIdentical('left out, nothing is shown either, and PHP is told it was handled', Array($hndRslt, $shownTx), Array(true, ''));

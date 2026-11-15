@@ -97,13 +97,13 @@ checkPregMatch('an empty database block', setupOf(Array()), '/^THROWN RuntimeExc
 // The project's own configuration, as the loader reads it: conf/database.json is kept out of
 // the repository, so it is only checked where it exists
 $prjLoad = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confList'=>'database')) );
-$prjBase = $prjLoad->retrieveConfig()->readValueByKey('database');
+$prjBase = $prjLoad->readConfigRegr()->readValueByKey('database');
 if( !is_file(TOP_DIR.DS.'conf'.DS.'database.json') ){
 	recordSkipping('conf/database.json', 'the file is not there: "php nyuRun install makeConf" creates it');
 }else{
 	checkIdentical('conf/database.json: the default database is nyuRuns', is_array($prjBase) ? strtolower(strval(array_key_first($prjBase))) : null, 'nyuruns');
 	checkIdentical('conf/database.json: the keys of its block', is_array($prjBase) ? array_keys((array)current($prjBase)) : null, Array('dbEngine', 'hostName', 'portNumb', 'baseName', 'userName', 'passWord', 'encoding'));
-	$GLOBALS['nyuConfig'] = $prjLoad->retrieveConfig();
+	$GLOBALS['nyuConfig'] = $prjLoad->readConfigRegr();
 	checkTrueValue('conf/database.json: the type is a known code', in_array(runCatchThrown(function(){ return DBCon::baseSetupArray()['dbEngine']; }), Array('mysql_db', 'sqlitedb', 'postgres'), true));
 }
 

@@ -25,7 +25,7 @@ checkTrueValue('every preset of the project loads', runCatchThrown(function(){
 $dlgtSet = Array('users/*'=>'delegate', 'users/create'=>'managers', 'users/remove'=>'managers', 'users/role'=>'managers', 'users/setmail'=>'managers', 'users/langs'=>'managers', 'users/lock'=>'managers', 'users/unlock'=>'managers', 'users/reset'=>'managers');
 $prstRle = Array();
 foreach( Array('default', 'restapi', 'mapping', 'website') as $prstNme ){
-	$prstRle[$prstNme] = runCatchThrown(function() use ( $prstNme ){ return (new Preset($prstNme))->newSetupLoader()->setAccessArray()['minRoles'] ?? null; });
+	$prstRle[$prstNme] = runCatchThrown(function() use ( $prstNme ){ return (new Preset($prstNme))->makeConfLoader()->setAccessArray()['minRoles'] ?? null; });
 }
 checkIdentical('the delivered presets: users/* to a delegate, the actions changing an account to the managers', $prstRle, array_fill_keys(array_keys($prstRle), $dlgtSet));
 

@@ -59,11 +59,11 @@ $stupArr = Array('settings'=>Array('confType'=>'all', 'envrFile'=>'no-such-env')
 $cchArr = function( String $tblFlag, String $cnfFlag ) use ( $realDsc ): Array {
 	return Array('preset'=>Array(), 'config'=>Array('SYSTEM'=>Array('CNF_CACH'=>$cnfFlag, 'TBL_CACH'=>$tblFlag)), 'routes'=>Array(), 'tables'=>Array(''=>Array('shows'=>$realDsc)));
 };
-(new Loader($stupArr, $cchArr('TRUE', 'TRUE'), 'probe'))->retrieveConfig();
+(new Loader($stupArr, $cchArr('TRUE', 'TRUE'), 'probe'))->readConfigRegr();
 checkIdentical('the Loader hands the cached descriptions over with TBL_CACH and CNF_CACH', ConfCache::tableInfoArray('', 'shows'), $realDsc);
-(new Loader($stupArr, $cchArr('FALSE', 'TRUE'), 'probe'))->retrieveConfig();
+(new Loader($stupArr, $cchArr('FALSE', 'TRUE'), 'probe'))->readConfigRegr();
 checkIdentical('not without TBL_CACH', Array(ConfCache::$tableInfos, ConfCache::tableInfoArray('', 'shows')), Array(null, null));
-(new Loader($stupArr, $cchArr('TRUE', 'FALSE'), 'probe'))->retrieveConfig();
+(new Loader($stupArr, $cchArr('TRUE', 'FALSE'), 'probe'))->readConfigRegr();
 checkIdentical('nor without CNF_CACH', ConfCache::$tableInfos, null);
 
 ConfCache::$tableInfos = null;

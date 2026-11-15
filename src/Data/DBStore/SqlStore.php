@@ -68,7 +68,7 @@ class SqlStore implements Store {
 					return false;
 				}
 				$tableDct = Array('flds'=>(array)($tableDct['flds'] ?? Array()), 'pkey'=>strval($tableDct['pkey'] ?? ''), 'blob'=>(array)($tableDct['blob'] ?? Array()));
-				ConfCache::keepCacheTable($this->dbLinkName, $tbleLabelTxt, $tableDct);
+				ConfCache::addCachedTable($this->dbLinkName, $tbleLabelTxt, $tableDct);
 			}
 			$this->detailList[$tbleLabelTxt] = Array('flds'=>(array)($tableDct['flds'] ?? Array()), 'pkey'=>strval($tableDct['pkey'] ?? ''), 'blob'=>(array)($tableDct['blob'] ?? Array()));
 		}

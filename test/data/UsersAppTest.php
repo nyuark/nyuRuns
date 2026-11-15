@@ -103,8 +103,8 @@ function callActn( String $routeNamed, Array $inputArray=Array(), String $logged
 		$rteName = explode('/', $routeNamed);
 		// The user the path names (users/<action>/<user>) is the option of the action, as a route gives it
 		$control = new Controller( $rteName[0], $rteName[1], new Registry($inputArray), $rteName[2] ?? null, $axssReg, $request );
-		$statArr = $control->retrieveStatus();
-		return Array('code'=>$statArr['code'], 'mssg'=>$statArr['mssg'], 'out'=>$control->retrieveOutput());
+		$statArr = $control->getStatusOfAct();
+		return Array('code'=>$statArr['code'], 'mssg'=>$statArr['mssg'], 'out'=>$control->getOutputOfAct());
 	});
 }
 
@@ -252,7 +252,7 @@ checkIdentical('email: taken away', Array(callActn('users/setmail/hugo', Array('
 $dvceAxs = new Registry( Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'managers', 'identity'=>Array('userName'=>'anna', 'userRole'=>'managers', 'device'=>Array('id'=>1, 'name'=>'Phone', 'role'=>'app')), 'statCode'=>200, 'statMssg'=>'') );
 $ownMail = new Controller( 'users', 'setmail', new Registry(Array('userMail'=>'anna@example.ch')), 'anna', $dvceAxs, mockRequestObj() );
 $othMail = new Controller( 'users', 'setmail', new Registry(Array('userMail'=>'hugo@example.ch')), 'hugo', $dvceAxs, mockRequestObj() );
-checkIdentical('email: a device, on its own user then on another', Array(array_values($ownMail->retrieveStatus()), $othMail->retrieveStatus()['code'] ?? null), Array(Array(403, 'Sign in with the password: a device cannot change its account'), 200));
+checkIdentical('email: a device, on its own user then on another', Array(array_values($ownMail->getStatusOfAct()), $othMail->getStatusOfAct()['code'] ?? null), Array(Array(403, 'Sign in with the password: a device cannot change its account'), 200));
 callActn('users/setmail/hugo', Array());
 
 // users/langs and auth/usrlang : the language of the mails, given by a manager or by the user itself

@@ -181,7 +181,7 @@ $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7') );
 $mthProp = new ReflectionProperty('nyu\Tools\Request', 'reqtInMthd');
 $mthProp->setValue($request, 'POST');
 $actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('login', null, new Registry(Array('userName'=>'anna', 'passWord'=>$phonTkn)), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), $request, null, null, null, 'Auth', RUN_DIR.DS.'Auth') );
-$actnSet->runAskedAction();
+$actnSet->treatAskedActn();
 checkIdentical('login x dvcToken: no token is issued for a device token sent as a password', Array($actnSet->statusCode, $actnSet->statusText, $actnSet->replyValue), Array(401, 'No API key provided', null));
 $sqlLink = null;
 

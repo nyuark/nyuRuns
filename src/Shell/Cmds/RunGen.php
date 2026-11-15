@@ -83,7 +83,7 @@ class RunGen extends Command{
 		}catch( \RuntimeException $e ){
 			$this->terminateShell($e->getMessage(), self::EXIT_FAIL);
 		}
-		Controller::clearRunFoldrs();
+		Controller::clearFldrCache();
 		$this->traceShellDone( 'Makerun: '.$applName.'/'.RunSpec::SPEC_FILE.' written, from the table '.json_encode($tableNme) );
 		$this->printerObj->printShellPair('written', $this->runRelativeTxt($specPath));
 		return $this->writeRunFolder($specList);
@@ -126,8 +126,8 @@ class RunGen extends Command{
 		if( !preg_match('/^[A-Za-z][A-Za-z0-9]*$/D', $applName) ){
 			$this->terminateShell('Invalid name: letters and digits, a letter first', self::EXIT_HELP);
 		}
-		Controller::clearRunFoldrs();
-		if( Controller::runFoldrString($applName)!=='' ){
+		Controller::clearFldrCache();
+		if( Controller::findRunFldrNme($applName)!=='' ){
 			$this->terminateShell('No Run generated: a Run named '.$applName.' exists (makerun fromSpec writes a generated one again)', self::EXIT_DENY);
 		}
 		return $applName;
@@ -323,7 +323,7 @@ class RunGen extends Command{
 			$this->traceShellDone( 'Makerun: '.$rltnPath.' written' );
 			$this->printerObj->printShellPair('written', $rltnPath);
 		}
-		Controller::clearRunFoldrs();
+		Controller::clearFldrCache();
 		foreach( $keptList as $onePth ){
 			$this->printerObj->printShellPair('kept as it was', $onePth);
 		}

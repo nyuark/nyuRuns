@@ -22,7 +22,7 @@ class Controller{
 	protected $appsFolder;
 	// The names whose folders differ by their case alone, already logged as errors : once each
 	protected static $twinsNoted = Array();
-	// The folder names of each folder of Runs, by its path: read once for the request (see runFoldrString)
+	// The folder names of each folder of Runs, by its path: read once for the request (see findRunFldrNme)
 	protected static $runFolders = Array();
 	protected $inputsRegr;
 	protected $accessRegr;
@@ -45,7 +45,7 @@ class Controller{
 	 * application, one whose name is not made of letters and digits only,
 	 * one whose Actions.php does not declare its actionset and a name that
 	 * is not one of its actions are all the
-	 * same 404 "Not Found" through retrieveStatus(): the client is not told
+	 * same 404 "Not Found" through getStatusOfAct(): the client is not told
 	 * which. The reason is logged on the 'runner' channel. A default action
 	 * that names no action is a 500, logged as an error. A required input
 	 * that is missing or empty is a 400, the action not being run.
@@ -79,7 +79,7 @@ class Controller{
 			return;
 		}
 		// Check that application exists : its folder found whatever the case of its name, as the Router and the Checker find it
-		$fieldNme = self::runFoldrString($appNameToRun);
+		$fieldNme = self::findRunFldrNme($appNameToRun);
 		if( $fieldNme!=='' ){
 			$appNameToRun = $fieldNme;
 			$this->runAppName = $fieldNme;
@@ -100,14 +100,14 @@ class Controller{
 				return;
 			}
 		}else{
-			// Unknown application : reported through retrieveStatus()
+			// Unknown application : reported through getStatusOfAct()
 			$this->loadFailed = 'Not Found';
 			Logger::retrieveLogger('runner')->info( $logStrng.'unknown application'.Logger::getActorSuffix() );
 			return;
 		}
 		$hasDeflt = false;
 		if( $this->keptAction=='' ){
-			$this->keptAction = self::dfltActionText( $this->actionsObj );
+			$this->keptAction = self::findDfltAction( $this->actionsObj );
 			$hasDeflt = true;
 		}
 		// A name that is not an action is nothing the client can reach; a default naming none is the application's mistake
@@ -123,7 +123,7 @@ class Controller{
 			Logger::retrieveLogger('runner')->info( $logStrng.'not an action of the application'.Logger::getActorSuffix() );
 			return;
 		}
-		$this->applyInputDefs();
+		$this->treatInputDefs();
 		if( $this->loadFailed!==null ){
 			return;
 		}
@@ -137,11 +137,11 @@ class Controller{
 	 * Without that file, the action gets no input: { "fieldSet": "all" } in
 	 * it is the way to keep every input the preset built. A
 	 * field the definition requires ('name!') that is missing or empty
-	 * refuses the request: a 400 naming the fields, through retrieveStatus().
+	 * refuses the request: a 400 naming the fields, through getStatusOfAct().
 	 *
 	 * @throws \RuntimeException When the file is not a valid definition.
 	 */
-	protected function applyInputDefs(): Void {
+	protected function treatInputDefs(): Void {
 		if( !preg_match('/^\w+$/', $this->keptAction) || !$this->actionsObj->hasMethod($this->keptAction) ){
 			return;
 		}
@@ -178,7 +178,7 @@ class Controller{
 	 * @param \ReflectionClass $actionsClass The application's Actions class.
 	 * @return String The default action name, or an empty string when the actionset sets none.
 	 */
-	public static function dfltActionText( \ReflectionClass $actionsClass ): String {
+	public static function findDfltAction( \ReflectionClass $actionsClass ): String {
 		$classPrp = $actionsClass->getDefaultProperties();
 		return (!empty($classPrp['dfltAction']) && is_string($classPrp['dfltAction'])) ? $classPrp['dfltAction'] : '';
 	}
@@ -188,7 +188,7 @@ class Controller{
 	 * them again. For a command or a test that has just written a Run folder;
 	 * a web request keeps the list it read once.
 	 */
-	public static function clearRunFoldrs(): Void {
+	public static function clearFldrCache(): Void {
 		self::$runFolders = Array();
 	}
 
@@ -201,7 +201,7 @@ class Controller{
 	 * @param ?String $runsFldrPath Folder holding the Runs; RUN_DIR when left out.
 	 * @return String The name of its folder, as the disk writes it; '' for a name that is not letters and digits only, for no folder, or for two folders differing by their case alone.
 	 */
-	public static function runFoldrString( String $appNameToRun, ?String $runsFldrPath = null ): String {
+	public static function findRunFldrNme( String $appNameToRun, ?String $runsFldrPath = null ): String {
 		$runsPath = $runsFldrPath ?? (defined('RUN_DIR') ? RUN_DIR : '');
 		if( $runsPath==='' || !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
 			return '';
@@ -235,7 +235,7 @@ class Controller{
 	protected function loadModelStack(): Void {
 		$applName = $this->runAppName;
 		$this->modelStack = new ModelStack( $applName );
-		$this->runApplication();
+		$this->treatAppAction();
 	}
 	
 	/**
@@ -251,12 +251,12 @@ class Controller{
 	// Execute application (from actionset)
 	/**
 	 * Creates the reflected actionset with the context of the request, then
-	 * runs it: its setupForAction() hook, then the action (see Actionset::runAskedAction).
+	 * runs it: its openEachAction() hook, then the action (see Actionset::treatAskedActn).
 	 * A StopRun thrown by either ends the run with its status.
 	 */
-	protected function runApplication(): Void {
+	protected function treatAppAction(): Void {
 		$this->actionsObj = $this->actionsObj->newInstance( $this->makeRunContext() );
-		$this->actionsObj->runAskedAction();
+		$this->actionsObj->treatAskedActn();
 	}
 	
 	// Prepare outcome message and/or data
@@ -267,7 +267,7 @@ class Controller{
 	 *
 	 * @return Array The status as ['code' => Int, 'mssg' => String].
 	 */
-	public function retrieveStatus(): Array {
+	public function getStatusOfAct(): Array {
 		if( $this->loadFailed!==null ){
 			return Array('code'=>$this->failStatus, 'mssg'=>$this->loadFailed);
 		}
@@ -282,7 +282,7 @@ class Controller{
 	 *
 	 * @return mixed The action's output data, or null when the action was not run.
 	 */
-	public function retrieveOutput(): Mixed {
+	public function getOutputOfAct(): Mixed {
 		$this->respValues = ($this->loadFailed===null) ? $this->actionsObj->replyValue : null;
 		return $this->respValues;
 	}

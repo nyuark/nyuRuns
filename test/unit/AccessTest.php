@@ -424,7 +424,7 @@ checkIdentical('Checker open: not under the mount it does not take', roleReply($
 $pnlConf = Array('minRoles'=>Array('/panel'=>'managers')) + $jwtConf;
 checkIdentical('Checker role: the role of an alias, on its path', roleReply($pnlConf, 'standard', Array('appToRun'=>'reports', 'doAction'=>'admin', 'routKind'=>'toAction', 'routPath'=>'panel')), Array(404, 'Not Found'));
 checkIdentical('Checker role: and on its action reached by its own path', Array(roleReply($pnlConf, 'standard', Array('appToRun'=>'reports', 'doAction'=>'admin')), roleReply($pnlConf, 'standard', Array('appToRun'=>'Reports', 'doAction'=>'ADMIN'))), Array(Array(404, 'Not Found'), Array(404, 'Not Found')));
-$dfltAct = nyu\App\Controller::dfltActionText( new ReflectionClass('nyu\Runs\Probe\Actions') );
+$dfltAct = nyu\App\Controller::findDfltAction( new ReflectionClass('nyu\Runs\Probe\Actions') );
 $prbConf = Array('minRoles'=>Array('/probes'=>'managers')) + $jwtConf;
 checkIdentical('Checker role: a route to the default action of a Run, the Run asked for by its path, with or without its default action', Array($dfltAct, roleReply($prbConf, 'standard', Array('appToRun'=>'probe', 'doAction'=>null)), roleReply($prbConf, 'standard', Array('appToRun'=>'probe', 'doAction'=>$dfltAct)), roleReply($prbConf, 'managers', Array('appToRun'=>'probe', 'doAction'=>$dfltAct))), Array('sanitize', Array(404, 'Not Found'), Array(404, 'Not Found'), Array(200, '')));
 checkIdentical('Checker role: another action of that Run asks for nothing', roleReply($prbConf, 'standard', Array('appToRun'=>'probe', 'doAction'=>'mirrored')), Array(200, ''));
@@ -485,7 +485,7 @@ checkIdentical('access log: a role that cannot be applied', $axsLogs[2] ?? null,
 function roleActn( String $loggedRole, String $neededRole='' ): Array {
 	$axssReg = new Registry( ($loggedRole!='') ? Array('loggedIn'=>true, 'userName'=>'carol', 'userRole'=>$loggedRole) : Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null) );
 	$actnSet = new nyu\Runs\Probe\Actions( new nyu\App\RunContext('roleList', ($neededRole!='') ? $neededRole : null, new Registry(Array()), $axssReg, mockRequestObj(Array(), Array('REMOTE_ADDR'=>'10.0.0.1')), null, null, null, 'Probe', RUN_DIR.DS.'Probe') );
-	$actnSet->runAskedAction();
+	$actnSet->treatAskedActn();
 	return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue);
 }
 nyu\Tools\Logger::plugLogsConfig( Array('path'=>inTemporaryDir('actnlogs'), 'mode'=>'BASE', 'pref'=>'Y') );

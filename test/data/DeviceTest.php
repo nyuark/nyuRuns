@@ -115,7 +115,7 @@ checkPregMatch('Device cap: its refusal is a warning on access', strval(@file_ge
 // A device never changes its user's account : the password needs the password login
 $axsDvce = new nyu\Tools\Registry( Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>'managers', 'identity'=>Array('userName'=>'anna', 'userRole'=>'managers', 'device'=>Array('id'=>2, 'name'=>'Home', 'role'=>'home')), 'statCode'=>200, 'statMssg'=>'') );
 $pwdCtrl = new nyu\App\Controller( 'auth', 'setpass', new nyu\Tools\Registry(Array('oldValue'=>'pw-anna', 'passWord'=>'new-pass-anna')), null, $axsDvce, mockRequestObj() );
-checkIdentical('Device: auth/setpass refuses a request made with a device token', array_values($pwdCtrl->retrieveStatus()), Array(403, 'Sign in with the password: a device cannot change its account'));
+checkIdentical('Device: auth/setpass refuses a request made with a device token', array_values($pwdCtrl->getStatusOfAct()), Array(403, 'Sign in with the password: a device cannot change its account'));
 // The devices of a removed user go with it : the framework's SQLite handler turns the foreign keys on
 nyu\Data\DBCon::linkNamedDbCon('')->readConnection()->sendBuiltQuery('DELETE FROM users WHERE systemName=?;', true, Array('ben'));
 checkIdentical('Device the devices of a removed user go with it', intval($sqlLink->query("SELECT COUNT(*) FROM devices WHERE deviceName='Laptop'")->fetchColumn()), 0);

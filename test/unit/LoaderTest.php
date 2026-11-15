@@ -16,7 +16,7 @@ use nyu\Setup\Loader;
 function loadedCnf( Array $setupBlock ): Mixed {
 	return runCatchThrown(function() use ($setupBlock){
 		$loadObj = new Loader( Array('settings'=>$setupBlock) );
-		$nameLst = array_keys( $loadObj->retrieveConfig()->readLinesArray() );
+		$nameLst = array_keys( $loadObj->readConfigRegr()->readLinesArray() );
 		sort($nameLst);
 		return $nameLst;
 	});
@@ -55,7 +55,7 @@ checkIdentical('folder: the files of another folder', loadedCnf(Array('confType'
 function loadedVal( Array $setupBlock, String $secretName ): Mixed {
 	return runCatchThrown(function() use ($setupBlock, $secretName){
 		$loadObj = new Loader( Array('settings'=>$setupBlock) );
-		return $loadObj->retrieveConfig()->obtainRowValue('SECRETS', $secretName);
+		return $loadObj->readConfigRegr()->obtainRowValue('SECRETS', $secretName);
 	});
 }
 
@@ -83,7 +83,7 @@ checkIdentical('env: without the file, the process is used', loadedVal(Array('co
 function levelOf( Mixed $levelValue ): Mixed {
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>($levelValue===null ? Array() : Array('ERR_LEVL'=>$levelValue))) );
 	return runCatchThrown(function(){
-		return (new Loader( Array('settings'=>Array('confType'=>'none')) ))->errorConfigNum();
+		return (new Loader( Array('settings'=>Array('confType'=>'none')) ))->findErrorLevel();
 	});
 }
 

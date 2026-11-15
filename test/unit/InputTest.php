@@ -112,7 +112,7 @@ checkPregMatch('a format that does not exist is refused on a required field too,
 function formsCall( String $actionName, Array $givenVals ): Mixed {
 	return runCatchThrown(function() use ($actionName, $givenVals){
 		$conTrol = new Controller( 'forms', $actionName, new Registry($givenVals) );
-		return Array($conTrol->retrieveStatus()['code'], $conTrol->retrieveOutput());
+		return Array($conTrol->getStatusOfAct()['code'], $conTrol->getOutputOfAct());
 	});
 }
 
@@ -124,7 +124,7 @@ checkIdentical('an action with a definition gets its fields, formatted', formsCa
 checkIdentical('the action asked for in another case gets the same definition', formsCall('TRANSMIT', $formArr), Array(200, $formOut));
 checkIdentical('the default action gets its definition too', formsCall('', $formArr), Array(200, $formOut));
 checkIdentical('an action without a definition gets no input', formsCall('freeForm', Array('name'=>'<b>Ann</b>', 'extra'=>'kept')), Array(200, Array()));
-checkIdentical('{"fieldSet": "all"} keeps every input the preset built', runCatchThrown(function(){ return (new Controller( 'probe', 'userPass', new Registry(Array('user'=>'a', 'pass'=>'b')) ))->retrieveStatus(); }), Array('code'=>401, 'mssg'=>'Credentials read'));
+checkIdentical('{"fieldSet": "all"} keeps every input the preset built', runCatchThrown(function(){ return (new Controller( 'probe', 'userPass', new Registry(Array('user'=>'a', 'pass'=>'b')) ))->getStatusOfAct(); }), Array('code'=>401, 'mssg'=>'Credentials read'));
 checkPregMatch('a definition naming a format that does not exist stops the run', formsCall('noFormat', $formArr), '/THROWN.*Input misconfigured: unknown format "NoSuchFormat"/');
 checkPregMatch('a file that is not a definition stops the run', formsCall('badInput', $formArr), '/THROWN.*Input misconfigured: Forms\/input\/badInput\.json is not a definition of fields/');
 checkIdentical('an action that does not exist reads no file', formsCall('../send', $formArr)[0], 404);
@@ -140,8 +140,8 @@ checkIdentical('an action that does not exist reads no file', formsCall('../send
 function formsStat( String $actionName, Array $givenVals ): Mixed {
 	return runCatchThrown(function() use ($actionName, $givenVals){
 		$conTrol = new Controller( 'forms', $actionName, new Registry($givenVals) );
-		$statArr = $conTrol->retrieveStatus();
-		return Array($statArr['code'], $statArr['mssg'], $conTrol->retrieveOutput());
+		$statArr = $conTrol->getStatusOfAct();
+		return Array($statArr['code'], $statArr['mssg'], $conTrol->getOutputOfAct());
 	});
 }
 

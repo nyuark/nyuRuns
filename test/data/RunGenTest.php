@@ -108,13 +108,13 @@ function callShow( String $actionNamed, Array $inputArray=Array(), ?String $opti
 			? Array('loggedIn'=>true, 'userName'=>'anna', 'userRole'=>$loggedRole, 'statCode'=>200, 'statMssg'=>'')
 			: Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null, 'statCode'=>200, 'statMssg'=>'') );
 		$control = new Controller( 'shows', $actionNamed, new Registry($inputArray), $optionGiven, $axssReg, mockRequestObj() );
-		$statArr = $control->retrieveStatus();
-		return Array($statArr['code'], $statArr['mssg'], $control->retrieveOutput());
+		$statArr = $control->getStatusOfAct();
+		return Array($statArr['code'], $statArr['mssg'], $control->getOutputOfAct());
 	});
 }
 
 $GLOBALS['nyuConfig'] = new Registry( Array('database'=>Array('DBENGINE'=>'sqlitedb', 'HOSTNAME'=>'', 'USERNAME'=>'', 'PASSWORD'=>'', 'BASENAME'=>$basePth)) );
-Controller::clearRunFoldrs();
+Controller::clearFldrCache();
 
 // index
 $lstVals = callShow('index');

@@ -47,11 +47,11 @@ checkIdentical('formats: whole and decimal numbers, dates, dates and times, any 
 $specDir = inTemporaryDir('specruns');
 @mkdir($specDir, 0775, true);
 $specPth = RunSpec::writeSpecsFile($specDir, $goodSpec);
-nyu\App\Controller::clearRunFoldrs();
+nyu\App\Controller::clearFldrCache();
 checkIdentical('written in the folder of the Run, read back the same, whatever the case of its name', Array($specPth, RunSpec::readSpecsArray($specDir, 'SHOWS')), Array($specDir.DS.'Shows'.DS.'runspec.json', $goodSpec));
 file_put_contents($specPth, '{ "appsName": "Shows" }');
 checkPregMatch('a spec that is not whole is refused', runCatchThrown(function() use ( $specDir ){ return RunSpec::readSpecsArray($specDir, 'Shows'); }), '/^THROWN RuntimeException: Shows\/runspec\.json: the keys must be /');
-checkPregMatch('a Run without a spec, no Run', implode("\n", Array(runCatchThrown(function() use ( $specDir ){ @mkdir($specDir.DS.'Plain'); nyu\App\Controller::clearRunFoldrs(); return RunSpec::readSpecsArray($specDir, 'Plain'); }), runCatchThrown(function() use ( $specDir ){ return RunSpec::readSpecsArray($specDir, 'Nowhere'); }))), '/has no runspec\.json.*No Run is named "Nowhere"/s');
+checkPregMatch('a Run without a spec, no Run', implode("\n", Array(runCatchThrown(function() use ( $specDir ){ @mkdir($specDir.DS.'Plain'); nyu\App\Controller::clearFldrCache(); return RunSpec::readSpecsArray($specDir, 'Plain'); }), runCatchThrown(function() use ( $specDir ){ return RunSpec::readSpecsArray($specDir, 'Nowhere'); }))), '/has no runspec\.json.*No Run is named "Nowhere"/s');
 checkPregMatch('a spec with a flaw is never written', runCatchThrown(function() use ( $specDir, $goodSpec ){ return RunSpec::writeSpecsFile($specDir, Array('minmRole'=>'root') + $goodSpec); }), '/^THROWN RuntimeException: Spec not written: minmRole must be one of /');
 
 // What the generator writes from it : the actions kept only

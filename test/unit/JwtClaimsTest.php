@@ -153,8 +153,8 @@ function askKeyset( Array $tokenBlock ): Array {
 	return runCatchThrown(function(): Array {
 		$respObj = new Response( Array('outputAs'=>'yamlData', 'headList'=>Array('Cache-Control'=>'no-cache, no-store', 'Expires'=>'Mon, 26 Jul 1997 05:00:00 GMT')) );
 		$actnSet = new nyu\Runs\Auth\Actions( new nyu\App\RunContext('keyset', null, new Registry(Array()), new Registry(Array('loggedIn'=>false, 'userName'=>'', 'userRole'=>null)), mockRequestObj(), $respObj, null, null, 'Auth', RUN_DIR.DS.'Auth') );
-		$actnSet->runAskedAction();
-		$respObj->convertOutFlag( $actnSet->replyValue ?? Array() );
+		$actnSet->treatAskedActn();
+		$respObj->castToReplyFmt( $actnSet->replyValue ?? Array() );
 		return Array($actnSet->statusCode, strval($actnSet->statusText), $actnSet->replyValue, $respObj->readHeadsArray());
 	});
 }

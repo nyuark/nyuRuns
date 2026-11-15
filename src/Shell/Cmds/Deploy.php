@@ -599,7 +599,7 @@ class Deploy extends Command{
 	protected function queryDoorsList( String $profileNamed ): Void {
 		// The lines of a map already written are proposed as they are, those for any host only : a line naming a host is kept apart
 		try{
-			$rowsList = \nyu\Runner::readDoorsArray();
+			$rowsList = \nyu\Runner::readDoorwayLst();
 		}catch( \RuntimeException $e ){
 			$this->terminateShell( 'Nothing was installed further: '.$e->getMessage(), self::EXIT_DENY );
 		}
@@ -661,7 +661,7 @@ class Deploy extends Command{
 		$openList = Array();
 		foreach( array_unique(array_column($doorwaysRows, 'presetId')) as $prstId ){
 			try{
-				$setupObj = (new \nyu\Setup\Preset($prstId))->newSetupLoader();
+				$setupObj = (new \nyu\Setup\Preset($prstId))->makeConfLoader();
 				$routeCfg = $setupObj->getRegistryKey('dispatch');
 				$canReach = (new \nyu\Tools\Router( is_array($routeCfg) ? $routeCfg : Array(), \nyu\Shell\ActCaller::makeRequestArr('GET', '/')[0] ))->reachesActions();
 				$accsConf = $setupObj->setAccessArray();
@@ -709,7 +709,7 @@ class Deploy extends Command{
 	 */
 	protected function closePublicSet(): Void {
 		try{
-			$rowsList = \nyu\Runner::readDoorsArray();
+			$rowsList = \nyu\Runner::readDoorwayLst();
 		}catch( \RuntimeException $e ){
 			// The question of the map tells it
 			return;
@@ -717,7 +717,7 @@ class Deploy extends Command{
 		$publList = Array();
 		foreach( array_unique(array_column($rowsList, 'presetId')) as $prstId ){
 			try{
-				$accsConf = (new \nyu\Setup\Preset($prstId))->newSetupLoader()->setAccessArray();
+				$accsConf = (new \nyu\Setup\Preset($prstId))->makeConfLoader()->setAccessArray();
 			}catch( \Throwable $e ){
 				return;
 			}

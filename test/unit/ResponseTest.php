@@ -19,9 +19,9 @@ use nyu\Data\Fluxd;
  */
 function builtBody( Array $renderVals, Array|Object|String|Int|Float|Bool $dataValues, Bool $errorReply=false ): String {
 	$respons = new Response($renderVals);
-	$respons->convertOutFlag($dataValues, $errorReply);
+	$respons->castToReplyFmt($dataValues, $errorReply);
 	ob_start();
-	$respons->transmitOutput();
+	$respons->writeReplyBody();
 	return ob_get_clean();
 }
 
@@ -34,8 +34,8 @@ function builtBody( Array $renderVals, Array|Object|String|Int|Float|Bool $dataV
  */
 function foundType( Array $renderVals, Bool $errorReply=false ): String {
 	$respons = new Response($renderVals);
-	$respons->convertOutFlag( Array(Array('a'=>1)), $errorReply );
-	$typeFnc = new ReflectionMethod($respons, 'contentTypeTxt');
+	$respons->castToReplyFmt( Array(Array('a'=>1)), $errorReply );
+	$typeFnc = new ReflectionMethod($respons, 'findMimeOfBody');
 	return $typeFnc->invoke($respons);
 }
 
@@ -79,36 +79,36 @@ checkIdentical('an error is written as JSON with rawBytes', builtBody(Array('out
 
 // The format of one reply, chosen by its action
 $respons = new Response( Array('outputAs'=>'jsonData') );
-$respons->useReplyFormat('CSVTABLE');
-$respons->convertOutFlag( Array(Array('a'=>1)) );
+$respons->setReplyFormat('CSVTABLE');
+$respons->castToReplyFmt( Array(Array('a'=>1)) );
 ob_start();
-$respons->transmitOutput();
+$respons->writeReplyBody();
 checkIdentical('useFormat writes the reply in another format', ob_get_clean(), "a\r\n1\r\n");
-checkForThrows('useFormat refuses a format that is not one', function(){ (new Response())->useReplyFormat('php'); }, 'RuntimeException');
-checkIdentical('warnings have no place in a table or raw output', Array((new Response(Array('outputAs'=>'csvTable')))->takesReplyWarn(), (new Response(Array('outputAs'=>'rawBytes')))->takesReplyWarn(), (new Response(Array('outputAs'=>'yamlData')))->takesReplyWarn()), Array(false, false, true));
+checkForThrows('useFormat refuses a format that is not one', function(){ (new Response())->setReplyFormat('php'); }, 'RuntimeException');
+checkIdentical('warnings have no place in a table or raw output', Array((new Response(Array('outputAs'=>'csvTable')))->canAddWarnings(), (new Response(Array('outputAs'=>'rawBytes')))->canAddWarnings(), (new Response(Array('outputAs'=>'yamlData')))->canAddWarnings()), Array(false, false, true));
 
 // Data that cannot be encoded : an error body, a false result and one warning
 $respons = new Response();
-checkIdentical('unencodable data is reported', $respons->convertOutFlag( Array('name'=>"caf\xE9") ), false);
+checkIdentical('unencodable data is reported', $respons->castToReplyFmt( Array('name'=>"caf\xE9") ), false);
 ob_start();
-$respons->transmitOutput();
+$respons->writeReplyBody();
 checkIdentical('unencodable data gives an error body', ob_get_clean(), '{"error":"Response could not be encoded","code":500}');
 checkIdentical('unencodable data raises one warning', count(preg_grep('/Response could not be encoded as jsonData: /', takePhpNotices())), 1);
 
 // An emptied response sends nothing, whatever was prepared before
 $respons = new Response();
-$respons->convertOutFlag( Array('a'=>1) );
+$respons->castToReplyFmt( Array('a'=>1) );
 $respons->clearReplyBody();
 ob_start();
-$respons->transmitOutput();
+$respons->writeReplyBody();
 checkIdentical('emptied response sends nothing', ob_get_clean(), '');
 
 // The body can be written twice in one request (error reply after a body was prepared)
 $respons = new Response( Array('outputAs'=>'jsonData') );
-$respons->convertOutFlag( Array('first'=>1) );
-$respons->convertOutFlag( Array('error'=>'second', 'code'=>500), true );
+$respons->castToReplyFmt( Array('first'=>1) );
+$respons->castToReplyFmt( Array('error'=>'second', 'code'=>500), true );
 ob_start();
-$respons->transmitOutput();
+$respons->writeReplyBody();
 checkIdentical('body built twice keeps the last one', ob_get_clean(), '{"error":"second","code":500}');
 
 // Content types
@@ -119,14 +119,14 @@ checkIdentical('type for xmlNodes',           foundType(Array('outputAs'=>'xmlNo
 checkIdentical('type for csvTable',           foundType(Array('outputAs'=>'csvTable')), 'text/csv; charset=utf-8');
 checkIdentical('type for htmlView',           foundType(Array('outputAs'=>'htmlView')), 'text/html; charset=utf-8');
 $respons = new Response( Array('outputAs'=>'rawBytes') );
-$respons->convertOutFlag('raw bytes');
-$typeFnc = new ReflectionMethod($respons, 'contentTypeTxt');
+$respons->castToReplyFmt('raw bytes');
+$typeFnc = new ReflectionMethod($respons, 'findMimeOfBody');
 checkIdentical('type for flux, which its action sets', $typeFnc->invoke($respons), 'application/octet-stream');
 takePhpNotices();
 checkIdentical('type of an error with csvTable', foundType(Array('outputAs'=>'csvTable'), true), 'application/json; charset=utf-8');
 
 // A preset names a format that exists, or does not load
-checkPregMatch('the example preset only explains the keys: read, never loaded', runCatchThrown(function(){ return (new nyu\Setup\Preset('example'))->newSetupLoader(); }), '/^THROWN RuntimeException: Preset "example" only explains the keys of a preset: it is never loaded/');
+checkPregMatch('the example preset only explains the keys: read, never loaded', runCatchThrown(function(){ return (new nyu\Setup\Preset('example'))->makeConfLoader(); }), '/^THROWN RuntimeException: Preset "example" only explains the keys of a preset: it is never loaded/');
 /**
  * Registers a temporary file with a Range value and returns what is sent.
  *
@@ -141,7 +141,7 @@ function fileSent( String $rangeValue, String $fileContnt='abcdefghijklmnopqrstu
 	$respons->setFileToReply($tmpFile, 'audio/mp4', $rangeValue);
 	$codePrp = new ReflectionProperty($respons, 'fileStatus');
 	ob_start();
-	$respons->transmitOutput();
+	$respons->writeReplyBody();
 	return Array($codePrp->getValue($respons), ob_get_clean());
 }
 
@@ -169,9 +169,9 @@ checkIdentical('file: a range across several pieces', fileSent('bytes=5-20004', 
 $respons = new Response();
 checkIdentical('file: a missing file is refused', $respons->setFileToReply(inTemporaryDir('nosuchfile.bin'), 'audio/mp4'), false);
 checkIdentical('file: a folder is refused',       $respons->setFileToReply(TMP_DIR, 'audio/mp4'), false);
-$respons->convertOutFlag( Array('a'=>1) );
+$respons->castToReplyFmt( Array('a'=>1) );
 ob_start();
-$respons->transmitOutput();
+$respons->writeReplyBody();
 checkIdentical('file: a refused file leaves the data body', ob_get_clean(), '{"a":1}');
 
 /**
@@ -185,10 +185,10 @@ function pageSent( String $pageString, Array $pageValues=Array() ): String {
 	$tmpFile = inTemporaryDir('page.html');
 	file_put_contents($tmpFile, $pageString);
 	$respons = new Response();
-	$respons->convertOutFlag( Array('a'=>1) );
+	$respons->castToReplyFmt( Array('a'=>1) );
 	$respons->setPageToReply($tmpFile, $pageValues);
 	ob_start();
-	$respons->transmitOutput();
+	$respons->writeReplyBody();
 	return ob_get_clean();
 }
 
@@ -211,7 +211,7 @@ file_put_contents($tmpFile, '<p>page</p>');
 $respons->setPageToReply($tmpFile);
 $respons->clearReplyBody();
 ob_start();
-$respons->transmitOutput();
+$respons->writeReplyBody();
 checkIdentical('page: an emptied response sends nothing', ob_get_clean(), '');
 
 /**
@@ -234,7 +234,7 @@ function keptFile( Array $headersArr=Array(), Bool $sharedFile=false, Array $ren
 	$codePrp = new ReflectionProperty($respons, 'fileStatus');
 	$headPrp = new ReflectionProperty($respons, 'headrArray');
 	ob_start();
-	$respons->transmitOutput();
+	$respons->writeReplyBody();
 	return Array($codePrp->getValue($respons), ob_get_clean(), $headPrp->getValue($respons));
 }
 
@@ -269,10 +269,10 @@ $headPrp = new ReflectionProperty($respons, 'headrArray');
 checkIdentical('cache: nothing is set without a file', $headPrp->getValue($respons), Array());
 
 // Content types of the files a declared route serves
-checkIdentical('type of a stylesheet',            Response::mimeOfExtnsTxt('css'), 'text/css; charset=utf-8');
-checkIdentical('type: the case is ignored',       Response::mimeOfExtnsTxt('PNG'), 'image/png');
-checkIdentical('type: a script has none',         Response::mimeOfExtnsTxt('php'), null);
-checkIdentical('type: no extension has none',     Response::mimeOfExtnsTxt(''), null);
+checkIdentical('type of a stylesheet',            Response::getMimeOfExtns('css'), 'text/css; charset=utf-8');
+checkIdentical('type: the case is ignored',       Response::getMimeOfExtns('PNG'), 'image/png');
+checkIdentical('type: a script has none',         Response::getMimeOfExtns('php'), null);
+checkIdentical('type: no extension has none',     Response::getMimeOfExtns(''), null);
 
 // Origins : with a list, only a listed origin is named, whatever the headers of the preset write
 /**

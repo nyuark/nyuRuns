@@ -28,7 +28,7 @@ class StopRun extends \RuntimeException {
 	 *
 	 * @return Array|Object|String|Int|Float|Bool|Null The output, or null when the stop carries none.
 	 */
-	public function retrieveOutput(): Array|Object|String|Int|Float|Bool|Null {
+	public function getOutputOfAct(): Array|Object|String|Int|Float|Bool|Null {
 		return $this->stopOutput;
 	}
 }

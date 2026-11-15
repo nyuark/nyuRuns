@@ -55,12 +55,12 @@ class ModelStack{
 		$lowerNme = strtolower($appModelName);
 		// A model of the app is made the first time it is asked for
 		if( !array_key_exists($lowerNme, $this->modelsList) && array_key_exists($lowerNme, $this->modelFiles) ){
-			$this->modelsList[$lowerNme] = $this->newModelObject($this->modelFiles[$lowerNme]);
+			$this->modelsList[$lowerNme] = $this->makeLocalModel($this->modelFiles[$lowerNme]);
 		}
 		if( array_key_exists($lowerNme, $this->modelsList) ){
 			return $this->modelsList[$lowerNme];
 		}else{
-			$sharModl = $this->sharedModelObj( $appModelName );
+			$sharModl = $this->loadSharedModl( $appModelName );
 			if($sharModl != false){
 				$this->modelsList[$lowerNme] = $sharModl;
 				return $sharModl;
@@ -79,7 +79,7 @@ class ModelStack{
 	 *
 	 * @throws \RuntimeException When the model cannot be created.
 	 */
-	protected function newModelObject(String $modelClsName): Object {
+	protected function makeLocalModel(String $modelClsName): Object {
 		require_once($this->modelsFldr.DS.$modelClsName.'Model.php');
 		try{
 			$classNme = "\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName;
@@ -101,7 +101,7 @@ class ModelStack{
 	 *
 	 * @throws \RuntimeException When the model file exists but the model cannot be created.
 	 */
-	function sharedModelObj( String $appModelName ): Object|Bool {
+	function loadSharedModl( String $appModelName ): Object|Bool {
 		$sharPath = RUN_DIR.DS.'Shared'.DS;
 		$shrdFile = $sharPath.ucfirst($appModelName).'Model.php';
 		if(file_exists( $shrdFile )){

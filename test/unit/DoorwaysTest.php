@@ -1,6 +1,6 @@
 <?php
 
-// The presets served (Runner::pickPresetName, conf/doorways.lst): the line
+// The presets served (Runner::findPresetName, conf/doorways.lst): the line
 // of the map a request takes, by its host and the start of its path; the
 // basePath taken off the path before routing and put back in front of the
 // links and redirections; no map, an empty one or no line: the default
@@ -13,7 +13,7 @@ require __DIR__.'/../lib/shellKit.php';
 
 use nyu\Tools\Router;
 
-// Three presets telling which one answers: alpha gives a link (routLinkString), beta and default answer their own way
+// Three presets telling which one answers: alpha gives a link (makeUrlOfRoute), beta and default answer their own way
 $prstSet = Array(
 	'conf/system.ini'=>buildSystemIni("CNF_CACH = FALSE\n"),
 	'conf/presets/alpha.rps'=>'{ "presetId": "alpha", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually", "routeDir": "conf/routes/alpha" } }',

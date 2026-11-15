@@ -27,19 +27,19 @@ if( $runMode=='block' ){
 		Array('function'=>'{closure}'),
 	);
 	$results = Array(
-		'table'=>stackTableText($traceAr),
-		'empty'=>stackTableText(Array()),
-		'trace'=>errorBlockText('E_EXCEPTION', "<script>x</script>\r\nsecond", 'a&b.php', 7, $traceAr),
-		'text'=>errorBlockText(E_USER_WARNING, 'm', null, null, '#0 first <x>#1 second'),
-		'scope'=>errorBlockText(E_WARNING, 'm', 'f.php', 1, Array('secret'=>'hunter2')),
+		'table'=>renderStackTbl($traceAr),
+		'empty'=>renderStackTbl(Array()),
+		'trace'=>renderErrBlock('E_EXCEPTION', "<script>x</script>\r\nsecond", 'a&b.php', 7, $traceAr),
+		'text'=>renderErrBlock(E_USER_WARNING, 'm', null, null, '#0 first <x>#1 second'),
+		'scope'=>renderErrBlock(E_WARNING, 'm', 'f.php', 1, Array('secret'=>'hunter2')),
 	);
 	ob_start();
-	printErrorHtml('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	writeErrorHtml('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
 	$results['show'] = ob_get_clean();
 	ob_start();
-	$GLOBALS['ErrorHandler']->handleOneError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	$GLOBALS['ErrorHandler']->treatEachError('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
 	$results['push'] = ob_get_clean();
-	$results['same'] = errorBlockText('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
+	$results['same'] = renderErrBlock('E_EXCEPTION', 'boom', 'f.php', 9, $traceAr);
 	echo json_encode($results);
 	exit(0);
 }
@@ -84,27 +84,27 @@ if( $runMode=='stack' ){
 		$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>$shwVal)) );
 		$GLOBALS['ErrorResponse'] = function( String $errorMessage ){};
 		ob_start();
-		handleErrorFlg(E_USER_WARNING, 'kept warning', 'file.php', 12);
-		handleErrorFlg(E_NOTICE, 'kept notice', 'file.php', 13);
+		treatErrorHook(E_USER_WARNING, 'kept warning', 'file.php', 12);
+		treatErrorHook(E_NOTICE, 'kept notice', 'file.php', 13);
 		$results[$casNme] = Array(
 			'echo'=>trim(ob_get_clean()),
-			'first'=>$GLOBALS['ErrorHandler']->takeStackArray(),
-			'again'=>$GLOBALS['ErrorHandler']->takeStackArray()
+			'first'=>$GLOBALS['ErrorHandler']->getStackErrors(),
+			'again'=>$GLOBALS['ErrorHandler']->getStackErrors()
 		);
 	}
 	// In production, nothing is kept for the response body, whatever ERR_SHOW says
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true, 'ENV_NAME'=>'PROD')) );
 	$GLOBALS['ErrorResponse'] = function( String $errorMessage ){};
 	ob_start();
-	handleErrorFlg(E_USER_WARNING, 'production warning', 'file.php', 15);
-	$results['production'] = Array('echo'=>trim(ob_get_clean()), 'first'=>$GLOBALS['ErrorHandler']->takeStackArray());
+	treatErrorHook(E_USER_WARNING, 'production warning', 'file.php', 15);
+	$results['production'] = Array('echo'=>trim(ob_get_clean()), 'first'=>$GLOBALS['ErrorHandler']->getStackErrors());
 	$GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('ERR_SHOW'=>true)) );
 	unset($GLOBALS['ErrorResponse']);
 	ob_start();
-	handleErrorFlg(E_USER_WARNING, 'shown warning', 'file.php', 14);
+	treatErrorHook(E_USER_WARNING, 'shown warning', 'file.php', 14);
 	$results['no responder'] = Array(
 		'echo'=>trim(preg_replace('/\s+/', ' ', strip_tags(ob_get_clean()))),
-		'first'=>$GLOBALS['ErrorHandler']->takeStackArray()
+		'first'=>$GLOBALS['ErrorHandler']->getStackErrors()
 	);
 	echo json_encode($results);
 	exit(0);

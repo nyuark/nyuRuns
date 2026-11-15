@@ -124,9 +124,9 @@ checkIdentical('the scheme header the config names is the one read', readsSchm(A
 // The settings, as the loader reads them from the SYSTEM config
 $loadObj = (new ReflectionClass('nyu\Setup\Loader'))->newInstanceWithoutConstructor();
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('PRX_LIST'=>' 10.0.0.5, 192.168.0.0/24 ,, fd00::/8', 'PRX_HEAD'=>'X-Real-IP', 'PRX_SCHM'=>'X-Scheme')) );
-checkIdentical('the proxies are listed from the config, the headers named', $loadObj->proxySetupConf(), Array('list'=>Array('10.0.0.5', '192.168.0.0/24', 'fd00::/8'), 'head'=>'X-Real-IP', 'schm'=>'X-Scheme'));
+checkIdentical('the proxies are listed from the config, the headers named', $loadObj->findProxyConfg(), Array('list'=>Array('10.0.0.5', '192.168.0.0/24', 'fd00::/8'), 'head'=>'X-Real-IP', 'schm'=>'X-Scheme'));
 $GLOBALS['nyuConfig'] = new nyu\Tools\Registry( Array('system'=>Array('PRX_LIST'=>'')) );
-checkIdentical('without settings, no proxy is trusted and the usual headers are named', $loadObj->proxySetupConf(), Array('list'=>Array(), 'head'=>'X-Forwarded-For', 'schm'=>'X-Forwarded-Proto'));
+checkIdentical('without settings, no proxy is trusted and the usual headers are named', $loadObj->findProxyConfg(), Array('list'=>Array(), 'head'=>'X-Forwarded-For', 'schm'=>'X-Forwarded-Proto'));
 
 // Through the request
 $request = mockRequestObj( Array(), Array('REMOTE_ADDR'=>'203.0.113.7', 'HTTP_USER_AGENT'=>$andAgnt) );

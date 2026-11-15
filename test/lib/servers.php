@@ -15,12 +15,12 @@
  */
 function serverSettings( String $typeLabelTxt ): Array {
 	$srvrLod = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confPath'=>'test'.DS.'fixtures'.DS.'confsrv')) );
-	$hostCfg = array_map('strval', (array)$srvrLod->retrieveConfig()->obtainRowValue('SERVERS', $typeLabelTxt));
+	$hostCfg = array_map('strval', (array)$srvrLod->readConfigRegr()->obtainRowValue('SERVERS', $typeLabelTxt));
 	if( ($hostCfg['userName'] ?? '')=='' ){
 		// No test account : the account of the project is used, on the test database
 		$loadObj = new nyu\Setup\Loader( Array('settings'=>Array('confType'=>'all', 'confList'=>'database')) );
 		$keepCnf = $GLOBALS['nyuConfig'] ?? null;
-		$GLOBALS['nyuConfig'] = $loadObj->retrieveConfig();
+		$GLOBALS['nyuConfig'] = $loadObj->readConfigRegr();
 		try{
 			$projCfg = nyu\Data\DBCon::baseSetupArray();
 		}catch( RuntimeException $e ){

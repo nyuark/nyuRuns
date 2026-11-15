@@ -19,7 +19,7 @@ class ClientReg extends Registry{
 	 * @param Bool      $lowerCaseKey Whether to store keys in lowercase instead of uppercase.
 	 * @param Array     $proxyCfgList Reverse proxy settings: the 'list' of trusted proxy addresses or CIDR ranges, the 'head'
 	 *                              name of the header in which they give the client address, and the 'schm' name of the
-	 *                              one in which they give the scheme the client used (see Loader::proxySetupConf).
+	 *                              one in which they give the scheme the client used (see Loader::findProxyConfg).
 	 */
 	function __construct( ServerReg $serverValues, Bool $lowerCaseKey = true, Array $proxyCfgList = Array() ){
 		parent::__construct( $this->clientSetArray($serverValues, $proxyCfgList), $lowerCaseKey );

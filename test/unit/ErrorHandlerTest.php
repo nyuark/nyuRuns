@@ -107,7 +107,7 @@ if( !is_array($stacked) ){
 	checkIdentical('stack: every error is logged', count($outcome['logs']), 6);
 }
 
-// The HTML display : a stack table, in the one block printErrorHtml() and handleOneError() both echo
+// The HTML display : a stack table, in the one block writeErrorHtml() and treatEachError() both echo
 $outcome = handlerOf('block');
 $blckArr = json_decode($outcome['text'], true);
 if( !is_array($blckArr) ){
