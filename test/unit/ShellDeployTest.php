@@ -287,6 +287,13 @@ $jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--sendWith=non
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 checkIdentical('openSite: no store, no users, no token keys nor secrets, the map pointing at statics, read back by the check', Array(array_key_exists('authWith', $axsVals['loginSet'] ?? Array()), is_file($projDir.DS.'conf'.DS.'users.lst'), is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_API_KEY'] ?? '', json_decode(strval(fetchInProject($projDir, 'conf/doorways.lst')), true)['doorways'] ?? null, stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null),
 	Array(false, false, false, '', Array(Array('basePath'=>'/', 'presetId'=>'statics')), 'fine', 'openSite'));
+if( extension_loaded('openssl') ){
+	// An open site reads no token: the keys it has none of are not asked for
+	checkIdentical('openSite: the token keys are asked of nobody', Array(stateOf($jsnVals)['token keys jwtToken'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['token keys jwtToken'] ?? null), Array('fine', 'none, and none needed: no login, and every preset served is open'));
+	writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" }, { "basePath": "/app", "presetId": "secure" } ] }');
+	checkIdentical('a preset of the map checking access: the keys are asked for again', array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'found', 'check')['token keys jwtToken'] ?? null, 'missing: "setting mkSecret jwtToken" makes them');
+	writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" } ] }');
+}
 checkIdentical('openSite: a preset of the map reaching an action is never opened, nor the map written', Array(callShellArray($projDir, Array('install', 'complete', '--sendWith=none', '--projKind=openSite'), "\n/=default\n")['code'], json_decode(strval(fetchInProject($projDir, 'conf/doorways.lst')), true)['doorways'][0]['presetId'] ?? null, array_key_exists('isPublic', json_decode(strval(fetchInProject($projDir, 'conf/presets/default.rps')), true)['security'] ?? Array())), Array(3, 'statics', false));
 checkIdentical('openSite: a store refused', callShellArray($projDir, Array('install', 'complete', '--sendWith=none', '--projKind=openSite', '--noPrompt', '--useStore=userFile'))['code'], 2);
 writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" }, { "basePath": "/app", "presetId": "default" } ] }');

@@ -601,6 +601,26 @@ class HealthChk{
 	}
 
 	/**
+	 * Tells whether every preset the map of the doorways serves (the default
+	 * preset without a map) loads and checks no access.
+	 *
+	 * @return Bool True when each of them is open; false when one checks access, does not load, or the map cannot be read.
+	 */
+	protected function isMapFullyOpen(): Bool {
+		try{
+			$psetList = array_values( array_unique(array_column(\nyu\Runner::readDoorwayLst(), 'presetId')) );
+			foreach( empty($psetList) ? Array('default') : $psetList as $oneRps ){
+				if( ((new Preset($oneRps))->makeConfLoader()->setAccessArray()['required'] ?? true)!==false ){
+					return false;
+				}
+			}
+		}catch( \Throwable $e ){
+			return false;
+		}
+		return true;
+	}
+
+	/**
 	 * Checks the keys of a block signing its tokens with RS256: a private
 	 * key that signs and the public key checking them, or the public key
 	 * alone when the tokens are issued by another server. A key must be an
@@ -640,6 +660,9 @@ class HealthChk{
 			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'a key file is not a PEM key: "setting mkSecret jwtToken" makes a new pair');
 		}elseif( !$isPaired ){
 			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'the public key is not the one of the private key: "setting mkSecret jwtToken" makes a new pair');
+		}elseif( empty($clefBits) && trim(strval($this->findAccessDict('loginSet')['authWith'] ?? ''))=='' && $this->isMapFullyOpen() ){
+			// An open site reads no token: it has no secret to make
+			$this->addCheckResult('token keys '.$blockNmdText, 'fine', 'none, and none needed: no login, and every preset served is open');
 		}elseif( empty($clefBits) ){
 			$this->addCheckResult('token keys '.$blockNmdText, 'fail', 'missing: "setting mkSecret jwtToken" makes them');
 		}elseif( min($clefBits)<JWT::RSAS_BITS ){
