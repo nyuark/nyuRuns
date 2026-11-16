@@ -44,6 +44,7 @@ class HealthChk{
 	public function treatAllChecks(): Array {
 		$this->checkPhpServer();
 		$this->checkFldrWrite();
+		$this->checkConfFiles();
 		$this->checkEveryPset();
 		$this->checkAllRoutes();
 		$this->checkEntryList();
@@ -141,6 +142,20 @@ class HealthChk{
 			$srceUnix = max($srceUnix, intval(@filemtime(strval($oneFil))));
 		}
 		$this->addCheckResult( 'config cache', ($srceUnix>$cacheDte) ? 'warn' : 'fine', ($srceUnix>$cacheDte) ? 'older than a config, preset or route file (a Run\'s routes.rte too) changed since: run "setting clrCache", the next request reads the files' : 'up to date' );
+	}
+
+	/**
+	 * Checks the config files: each .ini and .json file of conf is read.
+	 * One that cannot be read stops every request, and is named.
+	 */
+	public function checkConfFiles(): Void {
+		$flawList = (new Loader( Array('settings'=>Array('confType'=>'all')) ))->checkConfFlaws();
+		foreach( $flawList as $oneRow ){
+			$this->addCheckResult('config files', 'fail', $oneRow.': every request is answered 500');
+		}
+		if( empty($flawList) ){
+			$this->addCheckResult('config files', 'fine', 'every file of conf is read');
+		}
 	}
 
 	/**
@@ -419,7 +434,9 @@ class HealthChk{
 		$nyuConfg = $GLOBALS['nyuConfig'] ?? null;
 		$accsVals = ($nyuConfg!==null) ? $nyuConfg->readValueByKey('access') : null;
 		if( !is_array($accsVals) || empty($accsVals) ){
-			$this->addCheckResult('access', 'fail', 'conf/access.json is missing or empty: "install makeConf" creates it from its example');
+			// A config that could not be read holds no access block: the file to blame is the one of the 'config files' row
+			$flawList = (new Loader( Array('settings'=>Array('confType'=>'all')) ))->checkConfFlaws();
+			$this->addCheckResult('access', 'fail', empty($flawList) ? 'conf/access.json is missing or empty: "install makeConf" creates it from its example' : 'not checked: the config cannot be read (see config files)');
 			return;
 		}
 		$loginCfg = $this->findAccessDict('loginSet');

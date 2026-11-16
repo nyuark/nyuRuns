@@ -162,7 +162,8 @@ class Runner{
 			header('Content-Type: application/json; charset=utf-8');
 			header('X-Content-Type-Options: nosniff');
 		}
-		print(json_encode( Array('error'=>'Internal Server Error', 'code'=>500) ));
+		// A config file that cannot be read is told as such, without its name: the environment is not known yet
+		print(json_encode( Array('error'=>($bootExcpInst instanceof \nyu\Data\Parsers\ParseError) ? 'Configuration unreadable' : 'Internal Server Error', 'code'=>500) ));
 		exit();
 	}
 

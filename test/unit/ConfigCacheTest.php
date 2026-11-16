@@ -74,6 +74,31 @@ checkIdentical('the env: values of the cache are filled on each request', ($cchL
 checkIdentical('a cache read is never written again', $cchLoad->saveConfgCache(), false);
 putenv('NYU_CACHE_TEST');
 
+// A config file that cannot be read: the request stops, the file is named in the log and by the health check
+$badPrjt = makeProjectTxt('confbroken', Array(
+	'conf/system.ini'=>buildSystemIni(),
+	'conf/access.json'=>'{ "tryLimit": { "maxTries": 0 } }',
+	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually" } }',
+	'conf/routes/probe.rte'=>'{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } } }',
+	'src/Error/handling.php'=>strval(file_get_contents(TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php'))
+));
+$badArgs = Array(TST_DIR.DS.'lib'.DS.'cacheChild.php', $badPrjt, 'probe', '/one');
+checkIdentical('every config file read: the request answers, the health check says so', Array(trim(runScriptArray($badArgs)['text']), array_column(runShellAsJson($badPrjt, Array('install', 'checkAll'))['rows'] ?? Array(), 'state', 'check')['config files'] ?? null), Array('{"ok":true}', 'fine'));
+foreach( Array('access.json'=>'{ not json', 'database.json'=>'{ not json', 'mailer.json'=>'{ not json', 'system.ini'=>buildSystemIni("DEF_LANG = FRENCH!\n")) as $oneNme => $oneTxt ){
+	$keptTxt = fetchInProject($badPrjt, 'conf/'.$oneNme);
+	writeInProject($badPrjt, 'conf/'.$oneNme, $oneTxt);
+	$outText = runScriptArray($badArgs)['text'];
+	checkIdentical('conf/'.$oneNme.' that cannot be read: a 500 that says so, the file named in the log only', Array(strpos($outText, '{"error":"Configuration unreadable","code":500}')!==false, strpos($outText, 'start-up failure')!==false && strpos($outText, 'conf/'.$oneNme.' cannot be read: ')!==false, substr_count($outText, $oneNme)), Array(true, true, 1));
+	$rowList = array_column(runShellAsJson($badPrjt, Array('install', 'checkAll'))['rows'] ?? Array(), 'found', 'check');
+	checkIdentical('conf/'.$oneNme.': the health check fails a row naming it, and no longer blames the access config', Array(strpos(strval($rowList['config files'] ?? ''), 'conf/'.$oneNme.' cannot be read: ')===0, $rowList['access'] ?? null), Array(true, 'not checked: the config cannot be read (see config files)'));
+	checkIdentical('conf/'.$oneNme.': a command is told the file', strpos(callShellArray($badPrjt, Array('cronjob', 'probe/sanitize', '--presetId=probe'))['errs'], 'conf/'.$oneNme.' cannot be read: ')!==false, true);
+	if( $keptTxt===null ){
+		unlink($badPrjt.DS.'conf'.DS.$oneNme);
+	}else{
+		writeInProject($badPrjt, 'conf/'.$oneNme, $keptTxt);
+	}
+}
+
 // What is not the name of a preset
 checkIdentical('a name that is not one of a preset is neither read nor written', Array(ConfCache::readCacheArray('../conf/x'), ConfCache::saveWholeCache('../conf/x', Array('preset'=>Array(), 'config'=>Array(), 'routes'=>Array()))), Array(null, false));
 

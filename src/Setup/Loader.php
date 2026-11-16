@@ -7,6 +7,7 @@ use \nyu\Tools\Registry;
 use \nyu\Tools\Request;
 use \nyu\Tools\Router;
 use \nyu\Data\Dcmnt;
+use \nyu\Data\Parsers\ParseError;
 use \nyu\Output\Response;
 
 /**
@@ -141,8 +142,13 @@ class Loader{
 			}
 			$nowTrail = $conxPath.$oneNme;
 			if( is_file($nowTrail) ){
-				$nyuFichr = new Dcmnt($nowTrail);
-				$confList[strtoupper($fileTitl)] = $nyuFichr->readFileDetail('out');
+				try{
+					$nyuFichr = new Dcmnt($nowTrail);
+					$confList[strtoupper($fileTitl)] = $nyuFichr->readFileDetail('out');
+				}catch( ParseError $e ){
+					// A site cannot run on half a config: one file that cannot be read stops the request, and is named
+					throw new ParseError( str_replace(DS, '/', strval($confDict['confPath'] ?? 'conf')).'/'.$oneNme.' cannot be read: '.preg_replace('/^'.preg_quote($oneNme, '/').': /', '', $e->getMessage()), 0, $e );
+				}
 			}
 		}
 		// The cache holds the values as written: no secret of the environment file goes into it
@@ -154,6 +160,30 @@ class Loader{
 		ConfCache::$tableInfos = ( in_array(strtoupper(strval($iniConfg['CNF_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) && in_array(strtoupper(strval($iniConfg['TBL_CACH'] ?? '')), Array('1', 'TRUE', 'ON', 'YES'), true) ) ? Array() : null;
 		ConfCache::$isTblAdded = false;
 		return $confRegr;
+	}
+
+	/**
+	 * Lists the config files that cannot be read: every .ini and .json file
+	 * of the config folder is opened, whatever the preset keeps of them.
+	 *
+	 * @return Array One text per file, 'conf/<file> cannot be read: <reason>'; empty when every file is read.
+	 */
+	public function checkConfFlaws(): Array {
+		$confDict = $this->getRegistryKey('settings');
+		$confFldr = is_array($confDict) ? strval($confDict['confPath'] ?? 'conf') : 'conf';
+		$flawList = Array();
+		foreach( (array)@scandir(TOP_DIR.DS.$confFldr) as $oneNme ){
+			$fullPath = TOP_DIR.DS.$confFldr.DS.$oneNme;
+			if( !in_array(strtolower(pathinfo(strval($oneNme), PATHINFO_EXTENSION)), Array('ini', 'json'), true) || !is_file($fullPath) ){
+				continue;
+			}
+			try{
+				(new Dcmnt($fullPath))->readFileDetail('out');
+			}catch( ParseError $e ){
+				$flawList[] = str_replace(DS, '/', $confFldr).'/'.$oneNme.' cannot be read: '.preg_replace('/^'.preg_quote(strval($oneNme), '/').': /', '', $e->getMessage());
+			}
+		}
+		return $flawList;
 	}
 
 	/**
