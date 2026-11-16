@@ -279,12 +279,8 @@ class HealthChk{
 					}
 					continue;
 				}
-				$actnPath = RUN_DIR.DS.$ownTitle.DS.'Actions.php';
 				$classNme = '\\nyu\\Runs\\'.$ownTitle.'\\Actions';
-				if( is_file($actnPath) ){
-					require_once $actnPath;
-				}
-				if( !class_exists($classNme, false) || !$classNme::hasActionNamed($actParte[1]) ){
+				if( !class_exists($classNme) || !$classNme::hasActionNamed($actParte[1]) ){
 					$lostList[] = $psetName.': '.$oneKey.' (not an action of '.$ownTitle.')';
 				}
 			}
@@ -302,10 +298,7 @@ class HealthChk{
 			}
 			$classNme = '\\nyu\\Runs\\'.$onePth.'\\Actions';
 			try{
-				if( !class_exists($classNme, false) ){
-					require_once $actnPath;
-				}
-				$actnName = class_exists($classNme, false) ? \nyu\App\Controller::findDfltAction( new \ReflectionClass($classNme) ) : null;
+				$actnName = class_exists($classNme) ? \nyu\App\Controller::findDfltAction( new \ReflectionClass($classNme) ) : null;
 			}catch( \Throwable $e ){
 				$this->addCheckResult('default '.$onePth, 'fail', 'Actions.php cannot be loaded: '.$e->getMessage());
 				continue;
