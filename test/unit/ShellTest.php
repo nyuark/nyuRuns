@@ -33,10 +33,14 @@ function shellRun( Array $shellWords, String $inputsText='' ): Array {
 }
 
 // Words and options
-$optnObj = new Options( Array('managers', '--store=userFile', 'lists', '--noask', 'a=b', '--', '--kept', '--x=1') );
+$optnObj = new Options( Array('managers', '--store=userFile', 'lists', 'a=b', '--noask', '--', '--kept', '--x=1') );
 checkIdentical('words are read in order', Array($optnObj->shiftFirstWord(), $optnObj->shiftFirstWord(), $optnObj->getRestOfWords()), Array('managers', 'lists', Array('a=b', '--kept', '--x=1')));
 checkIdentical('an option with a value, one without, one not written', Array($optnObj->getOptionValue('store'), $optnObj->isOptionPassed('noask'), $optnObj->getOptionValue('noask', 'dflt'), $optnObj->isOptionPassed('kept'), $optnObj->getOptionValue('kept', 'none')), Array('userFile', true, 'dflt', false, 'none'));
 checkIdentical('no word left', (new Options(Array('--only')))->shiftFirstWord(), null);
+// A value written after a space would be ignored without a word: asking for it stops the command, and says how to write it
+$optnObj = new Options( Array('stage', '--destPath', 'out/there', '--planOnly', 'more', '--noask', '--', 'last') );
+checkPregMatch('an option asked for its value, written without one before a plain word: stopped', runCatchThrown(function() use ( $optnObj ){ return $optnObj->getOptionValue('destPath', 'dflt'); }), '/THROWN.*The option --destPath takes its value after an equals sign: --destPath=<value>/');
+checkIdentical('a flag is never asked for a value: the word after it is a word; one before another option or the end of the options has its default', Array($optnObj->isOptionPassed('planOnly'), $optnObj->getOptionValue('noask', 'dflt'), $optnObj->getRestOfWords()), Array(true, 'dflt', Array('stage', 'out/there', 'more', 'last')));
 
 // The list of commands, the version
 $runVals = shellRun( Array() );

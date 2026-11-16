@@ -463,15 +463,23 @@ class Bundle extends Command{
 		if( !is_file($iniTrail) ){
 			$this->stopWithReason('The bundle has no conf/system.ini: the settings of the mode cannot be written');
 		}
-		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
-		foreach( $this->readModesArray()[$packModeName]['settings'] as $oneKey => $oneIni ){
-			if( !$wrtrInst->saveIniFileVal($iniTrail, $oneKey, $oneIni) ){
-				$this->stopWithReason('The bundle is not set for its mode: its system.ini has no '.$oneKey);
+		// The system.ini of the bundle was just copied from the project: the copies made before each write are kept nowhere,
+		// neither in the archives of the project nor in the bundle
+		$backFldr = sys_get_temp_dir().DS.'nyuruns-bundle-'.getmypid();
+		$wrtrInst = new ConfFile( $backFldr );
+		try{
+			foreach( $this->readModesArray()[$packModeName]['settings'] as $oneKey => $oneIni ){
+				if( !$wrtrInst->saveIniFileVal($iniTrail, $oneKey, $oneIni) ){
+					$this->stopWithReason('The bundle is not set for its mode: its system.ini has no '.$oneKey);
+				}
 			}
-		}
-		// The config cache, as the class map, for the environments of MAPSENVS; a system.ini made before it is told, not refused
-		if( !$wrtrInst->saveIniFileVal($iniTrail, 'CNF_CACH', in_array($this->readModesArray()[$packModeName]['settings']['ENV_NAME'] ?? '', self::MAPS_ENVS, true) ? 'TRUE' : 'FALSE') ){
-			$this->printerObj->writeShellFail('The config is read on each request: the system.ini of the project has no CNF_CACH (see conf/system.ini of the framework)');
+			// The config cache, as the class map, for the environments of MAPSENVS; a system.ini made before it is told, not refused
+			if( !$wrtrInst->saveIniFileVal($iniTrail, 'CNF_CACH', in_array($this->readModesArray()[$packModeName]['settings']['ENV_NAME'] ?? '', self::MAPS_ENVS, true) ? 'TRUE' : 'FALSE') ){
+				$this->printerObj->writeShellFail('The config is read on each request: the system.ini of the project has no CNF_CACH (see conf/system.ini of the framework)');
+			}
+		}finally{
+			array_map('unlink', array_filter((array)glob($backFldr.DS.'*'), 'is_file'));
+			@rmdir($backFldr);
 		}
 	}
 

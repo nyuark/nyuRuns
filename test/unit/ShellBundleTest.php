@@ -95,6 +95,10 @@ checkIdentical('a local bundle keeps the autoloader of the project', fetchInProj
 // --destPath
 $plceDir = inTemporaryDir('bundleplace');
 checkIdentical('--destPath: an empty folder elsewhere', Array(callShellArray($projDir, Array('bundles', 'stage', '--destPath='.$plceDir))['code'], filesOfDr($plceDir)), Array(0, $keptLst));
+checkIdentical('--destPath: no copy of the system.ini of the bundle is left in the archives of the project', (array)glob($projDir.DS.'temp'.DS.'archives'.DS.'system.ini.*'), Array());
+$spceDir = inTemporaryDir('bundlespace');
+$runVals = callShellArray($projDir, Array('bundles', 'stage', '--destPath', $spceDir, '--planOnly'));
+checkIdentical('--destPath written with a space: stopped, and told how to write it', Array($runVals['code'], strpos($runVals['errs'], 'The option --destPath takes its value after an equals sign: --destPath=<value>')!==false), Array(2, true));
 checkIdentical('--destPath: a folder that is not empty is never replaced', Array(callShellArray($projDir, Array('bundles', 'stage', '--destPath='.$plceDir, '--yesToAll'))['code'], is_file($plceDir.DS.'conf'.DS.'system.ini')), Array(3, true));
 checkIdentical('--destPath: never in the project, nor in a folder it copies', Array(callShellArray($projDir, Array('bundles', 'stage', '--destPath='.$projDir))['code'], callShellArray($projDir, Array('bundles', 'stage', '--destPath='.$projDir.DS.'www'.DS.'out'))['code']), Array(2, 2));
 
