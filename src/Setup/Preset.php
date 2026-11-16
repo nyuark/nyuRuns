@@ -113,6 +113,19 @@ class Preset{
 		if( !is_string($frmtVals) || empty(preg_grep('/^'.preg_quote($frmtVals, '/').'$/iD', array_keys(\nyu\Output\Response::FORM_LIST))) ){
 			throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an unknown output format: '.(is_scalar($frmtVals) ? strval($frmtVals) : gettype($frmtVals)).'; one of '.implode(', ', array_keys(\nyu\Output\Response::FORM_LIST)));
 		}
+		// A config folder that is not there would only fail at the first request
+		$confFldr = $this->presetData['settings']['confPath'] ?? 'conf';
+		if( !is_string($confFldr) || !is_dir(TOP_DIR.DS.$confFldr) ){
+			throw new \RuntimeException('Preset "'.$nameOfPreset.'" names a config folder that is not there: settings.confPath '.json_encode($confFldr, JSON_UNESCAPED_SLASHES));
+		}
+		// A source of inputs names where it reads and the registry it fills: nothing stands in for them
+		foreach( (array)($this->presetData['inputSet'] ?? Array()) as $oneSet ){
+			foreach( Array('readFrom', 'sourceId') as $oneKey ){
+				if( !is_array($oneSet) || !is_string($oneSet[$oneKey] ?? null) || $oneSet[$oneKey]=='' ){
+					throw new \RuntimeException('Preset "'.$nameOfPreset.'" holds an input source without its '.$oneKey);
+				}
+			}
+		}
 	}
 
     /**

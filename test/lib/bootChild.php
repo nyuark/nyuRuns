@@ -24,6 +24,10 @@ file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'broken.rps', '{ "name": "br
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'empty.rps', "// Nothing set\n{\n}\n");
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'stale.rps', '{ "presetId": "stale", "settings": { "confType": "all", "config": "all" } }');
 file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'nested.rps', '{ "name": "nested", "settings": { "confType": "all" } }');
+// A config folder that is not there, and sources of inputs without the registry they fill or where they read
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'nofolder.rps', '{ "presetId": "nofolder", "settings": { "confType": "all", "confPath": "nowhere" } }');
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'nosource.rps', '{ "presetId": "nosource", "settings": { "confType": "all" }, "inputSet": [ { "readFrom": "QUERY", "fieldSet": "all" } ] }');
+file_put_contents(TOP_DIR.DS.'conf'.DS.'presets'.DS.'noreader.rps', '{ "presetId": "noreader", "settings": { "confType": "all" }, "inputSet": [ { "sourceId": "QUERY", "fieldSet": "all" } ] }');
 
 // The error log is the standard error stream, whatever the machine's php.ini says
 ini_set('log_errors', '1');

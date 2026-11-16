@@ -37,6 +37,9 @@ $failLst = Array(
 	'stale'        => 'Preset "stale" holds an unknown key: settings\.config',
 	'nested'       => 'Preset "nested" holds an unknown key: name',
 	'no.name'      => 'Preset "no\.name" has no valid name',
+	'nofolder'     => 'Preset "nofolder" names a config folder that is not there: settings\.confPath "nowhere"',
+	'nosource'     => 'Preset "nosource" holds an input source without its sourceId',
+	'noreader'     => 'Preset "noreader" holds an input source without its readFrom',
 );
 $jsonTxt = '{"error":"Internal Server Error","code":500}';
 $caseNum = 0;

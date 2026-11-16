@@ -80,9 +80,16 @@ $badPrjt = makeProjectTxt('confbroken', Array(
 	'conf/access.json'=>'{ "tryLimit": { "maxTries": 0 } }',
 	'conf/presets/probe.rps'=>'{ "presetId": "probe", "settings": { "confType": "all" }, "security": { "required": false, "isPublic": true }, "dispatch": { "detectBy": "manually" } }',
 	'conf/routes/probe.rte'=>'{ "one": { "pointsTo": { "appToRun": "probe", "doAction": "sanitize" } } }',
+	// A preset that leaves out the keys with a default: the kind of config files read, the fields a source keeps
+	'conf/presets/bare.rps'=>'{ "presetId": "bare", "settings": { "confList": "any" }, "security": { "required": false, "isPublic": true }, "inputSet": [ { "sourceId": "QUERY", "readFrom": "QUERY" } ], "dispatch": { "detectBy": "manually" } }',
+	// One whose source names no registry: refused when it loads, which the health check tells
+	'conf/presets/unfed.rps'=>'{ "presetId": "unfed", "settings": { "confType": "all" }, "inputSet": [ { "readFrom": "QUERY" } ] }',
 	'src/Error/handling.php'=>strval(file_get_contents(TOP_DIR.DS.'src'.DS.'Error'.DS.'handling.php'))
 ));
-$badArgs = Array(TST_DIR.DS.'lib'.DS.'cacheChild.php', $badPrjt, 'probe', '/one');
+checkIdentical('a preset without confType or fieldSet: every config file is read, every field kept, nothing else is printed', trim(runScriptArray(Array(TST_DIR.DS.'lib'.DS.'cacheChild.php', $badPrjt, 'bare', '/one'))['text']), '{"ok":true}');
+$rowList = array_column(runShellAsJson($badPrjt, Array('install', 'checkAll'))['rows'] ?? Array(), null, 'check');
+checkIdentical('the health check: that preset loads, one whose source names no registry does not', Array($rowList['preset bare']['state'] ?? null, $rowList['preset unfed']['state'] ?? null, $rowList['preset unfed']['found'] ?? null), Array('fine', 'fail', 'Preset "unfed" holds an input source without its sourceId'));
+$badArgs =Array(TST_DIR.DS.'lib'.DS.'cacheChild.php', $badPrjt, 'probe', '/one');
 checkIdentical('every config file read: the request answers, the health check says so', Array(trim(runScriptArray($badArgs)['text']), array_column(runShellAsJson($badPrjt, Array('install', 'checkAll'))['rows'] ?? Array(), 'state', 'check')['config files'] ?? null), Array('{"ok":true}', 'fine'));
 foreach( Array('access.json'=>'{ not json', 'database.json'=>'{ not json', 'mailer.json'=>'{ not json', 'system.ini'=>buildSystemIni("DEF_LANG = FRENCH!\n")) as $oneNme => $oneTxt ){
 	$keptTxt = fetchInProject($badPrjt, 'conf/'.$oneNme);

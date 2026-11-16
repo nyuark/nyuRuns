@@ -121,6 +121,9 @@ class Loader{
 		$confList = Array();
 		// Folder of the config files, relative to the project root : conf unless the preset names another
 		$conxPath = TOP_DIR.DS.($confDict['confPath'] ?? 'conf').DS;
+		if( !is_dir($conxPath) ){
+			throw new \RuntimeException('The preset names a config folder that is not there: settings.confPath '.json_encode($confDict['confPath'] ?? 'conf', JSON_UNESCAPED_SLASHES));
+		}
 		$conxScan = scandir($conxPath);
 		// Allowed file types
 		$allowTyp = Array('ini','json');
@@ -137,7 +140,8 @@ class Loader{
 			if( !in_array($fileExtn, $allowTyp) || ($nameList!==false && !in_array($fileTitl, $nameList)) ){
 				continue;
 			}
-			if( $confDict['confType']!='all' && $confDict['confType']!=$fileExtn ){
+			// Every kind of file is read unless the preset names one ('ini' or 'json')
+			if( ($confDict['confType'] ?? 'all')!='all' && $confDict['confType']!=$fileExtn ){
 				continue;
 			}
 			$nowTrail = $conxPath.$oneNme;
@@ -254,10 +258,15 @@ class Loader{
 				// Version 1.0 :	'QUERY'
 				// Version 1.1 :	'DFILE', 'DBREC', 'XTAPI', 'SESSN', 'RFLUX'
 				$inputCod = Array('QUERY');
+				// A source read through overloads did not pass the checks of the preset: one without its keys is refused here
+				if( !is_array($oneSet) || !is_string($oneSet['readFrom'] ?? null) || !is_string($oneSet['sourceId'] ?? null) ){
+					throw new \RuntimeException('The preset holds an input source without its readFrom or its sourceId');
+				}
 				$inputSrc = $oneSet['readFrom'];
 
 				if(in_array($inputSrc, $inputCod)){
-					$inputObj = new Input( $givenRequest, $inputSrc, $oneSet['fieldSet'], $oneSet['sourceId']);
+					// Every field is kept unless the source defines them
+					$inputObj = new Input( $givenRequest, $inputSrc, $oneSet['fieldSet'] ?? 'all', $oneSet['sourceId']);
 					$inputLst = array_merge($inputLst, $inputObj->getInputValues());
 				}
 			}
