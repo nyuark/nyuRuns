@@ -501,6 +501,8 @@ class Deploy extends Command{
 		$qotdTble = $dtbsHndr->quoteFieldName( strval($configValues['useTable'] ?? 'users') );
 		$dtbsHndr->addTransaction();
 		foreach( $usersRecords as $oneRow ){
+			// The users file holds no creation date: the one of the move is given by the clock of PHP, as every date of the table
+			$oneRow['createDate'] = $oneRow['createDate'] ?? date('Y-m-d H:i:s');
 			$addSttmt = 'INSERT INTO '.$qotdTble.' ('.implode(', ', array_map(Array($dtbsHndr, 'quoteFieldName'), array_keys($oneRow))).') VALUES ('.implode(', ', array_fill(0, count($oneRow), '?')).');';
 			if( !$dtbsHndr->sendBuiltQuery($addSttmt, true, array_values($oneRow)) ){
 				$errorTxt = strval($dtbsHndr->getLastErrText());

@@ -77,7 +77,8 @@ $fleUsrs = strval(file_get_contents(TST_DIR.DS.'fixtures'.DS.'users.lst'));
 $projDir = makeProjectTxt('storelst', Array(
 	'conf/system.ini'=>buildSystemIni(),
 	'conf/database.json'=>json_encode(Array('dbEngine'=>'sqlitedb', 'hostName'=>'', 'baseName'=>$newBase, 'userName'=>'', 'passWord'=>'')),
-	'conf/schema/users.sqlitedb.sql'=>strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')),
+	// The date the database would give by itself is one nobody takes for today: the move gives the one of PHP's clock
+	'conf/schema/users.sqlitedb.sql'=>str_replace('`createDate` TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP', '`createDate` TEXT    NOT NULL DEFAULT \'1999-01-01 00:00:00\'', strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql'))),
 	'conf/access.json'=>json_encode(Array(
 		'loginSet'=>Array('authWith'=>'userFile', 'authConf'=>'userFile', 'carrWith'=>'jwtToken', 'carrConf'=>'jwtToken'),
 		'userFile'=>Array('listFile'=>'conf/users.lst')
@@ -86,6 +87,8 @@ $projDir = makeProjectTxt('storelst', Array(
 ));
 $jsnVals = runShellAsJson($projDir, Array('install', 'moveUser', 'nativeDb', '--yesToAll', '--noPrompt'));
 $newLink = new PDO('sqlite:'.$newBase);
+$dateLst = $newLink->query('SELECT createDate FROM users')->fetchAll(PDO::FETCH_COLUMN);
+checkIdentical('the users moved are dated by the clock of PHP, not by the database', Array(count($dateLst), count(array_filter($dateLst, function( Mixed $userDateTxt ): Bool { return abs(strtotime(strval($userDateTxt)) - time())<=30; }))), Array(5, 5));
 $rowList = $newLink->query('SELECT id_user, systemName, passwdHash, accessRole, userStatus, bearerHash, twoFactKey FROM users ORDER BY id_user')->fetchAll(PDO::FETCH_ASSOC);
 $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 checkIdentical('the table is created and the users written; a user without an identifier gets the next one, the role and status the file leaves out', Array($jsnVals['exit'] ?? null, $jsnVals['moved'] ?? null, array_map(function( Array $userValues ): String { return $userValues['id_user'].'/'.$userValues['systemName'].'/'.$userValues['accessRole'].'/'.$userValues['userStatus']; }, $rowList)),
