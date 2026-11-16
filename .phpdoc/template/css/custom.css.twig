@@ -60,6 +60,7 @@
     box-sizing: border-box;
     width: auto;
     max-width: none;
+    min-height: 0;
     margin: 4px;
     padding: 4px;
     background-color: var(--header-bg-color);
@@ -107,6 +108,32 @@
     font-style: italic;
     font-weight: 700;
 }
+
+/* The menu and the page laid out as on the pages of the documents: 80rem at most, a 15rem menu,
+   its text 1rem from its edge, the page 2.5rem from the menu; on a phone the menu folds, as phpDocumentor has it */
+@media (min-width: 550px) {
+    main.phpdocumentor > .phpdocumentor-section { width: 100%; max-width: 80rem; padding: 0; }
+    .phpdocumentor-sidebar.phpdocumentor-column { width: 15rem; padding: 1.5rem 1rem 0; }
+    .phpdocumentor-content.phpdocumentor-column { width: calc(100% - 17.5rem); margin-left: 2.5rem; padding: 1.5rem 2.5rem 3rem 0; }
+    /* The signatures stay inside the box of their element, phpDocumentor's own grid pulled them out to the left */
+    .phpdocumentor .phpdocumentor-signature { margin-left: 0; width: 100%; }
+    /* A page opening on a heading (the index) starts it level with the menu, as the breadcrumbs of the others */
+    .phpdocumentor-content > section:first-child > h2:first-child { margin-top: 0; }
+}
+
+/* "On this page" starts level with the page and the menu, its line still drawn from the banner down */
+@media (min-width: 1000px) {
+    .phpdocumentor-on-this-page__sidebar { margin-top: -1.5rem; }
+    .phpdocumentor-on-this-page__content { padding-top: 1.5rem; }
+}
+
+/* The search field kept off the frame of the banner */
+@media (min-width: 1000px) {
+    .phpdocumentor-header .phpdocumentor-search { margin-right: 1rem; }
+}
+
+/* The burger opens the top menu, which nyuRuns leaves empty */
+.phpdocumentor-header .phpdocumentor-header__menu-icon { display: none; }
 
 /* A long default value (a list of names) wraps instead of widening the page */
 .phpdocumentor-signature__default-value {
