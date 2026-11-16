@@ -304,7 +304,14 @@ checkIdentical('no store, a preset of the map checking access: none of the four'
 writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" } ] }');
 $jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--sendWith=none', '--noPrompt', '--useStore=userFile'));
 $sttcSec = json_decode(strval(fetchInProject($projDir, 'conf/presets/statics.rps')), true)['security'] ?? Array();
-checkIdentical('given a store, the presets the open site had opened are closed again, and named', Array($sttcSec['required'] ?? null, array_key_exists('isPublic', $sttcSec), in_array('Preset statics closed: the project has users now; open it again on purpose when it is meant to be public.', $jsnVals['notes'] ?? Array(), true), stateOf($jsnVals)['profile'] ?? null), Array(true, false, true, 'fine'));
+checkIdentical('given a store, the presets the open site had opened are closed again, and named', Array($sttcSec['required'] ?? null, array_key_exists('isPublic', $sttcSec), in_array('Preset statics closed, with the carrier of the login (jwtToken): the project has users now; open it again on purpose when it is meant to be public.', $jsnVals['notes'] ?? Array(), true), stateOf($jsnVals)['profile'] ?? null), Array(true, false, true, 'fine'));
+// A preset closed without a carrier would refuse every request: it takes the one of the login, and its row of the check passes
+checkIdentical('the closed preset has the carrier of the login, and loads as a preset that checks access', Array($sttcSec['carrWith'] ?? null, $sttcSec['carrConf'] ?? null, stateOf($jsnVals)['preset statics'] ?? null), Array('jwtToken', 'jwtToken', 'fine'));
+// One that names its own carrier keeps it
+writeInProject($projDir, 'conf/presets/statics.rps', strval(json_encode(Array('security'=>Array('required'=>false, 'isPublic'=>true, 'carrWith'=>'phpSessn', 'carrConf'=>'phpSessn')) + (array)json_decode(strval(fetchInProject($projDir, 'conf/presets/statics.rps')), true))));
+$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--sendWith=none', '--noPrompt', '--useStore=userFile'));
+$sttcSec = json_decode(strval(fetchInProject($projDir, 'conf/presets/statics.rps')), true)['security'] ?? Array();
+checkIdentical('a preset naming its own carrier keeps it when closed', Array($sttcSec['required'] ?? null, $sttcSec['carrWith'] ?? null, in_array('Preset statics closed: the project has users now; open it again on purpose when it is meant to be public.', $jsnVals['notes'] ?? Array(), true)), Array(true, 'phpSessn', true));
 
 // The rights of the secret files : not read on Windows, which is told
 checkIdentical('the rights not checked on Windows are told once; elsewhere, no such row', array_count_values(array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'check'))['file rights'] ?? 0, (DS=='\\') ? 1 : 0);

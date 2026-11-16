@@ -701,9 +701,10 @@ class Deploy extends Command{
 	 * Closes again the presets an open site had opened, when the project is
 	 * given a store of users: when every preset of the map is open, each one
 	 * marked "isPublic" is given "required": true, its "isPublic" removed,
-	 * and named. A preset closed without a carrier refuses every request
-	 * (500) until its owner sets one or opens it on purpose. Without a map,
-	 * or with a preset of it that checks access, nothing is changed.
+	 * and named. A preset that names no carrier takes the one of the login
+	 * block (carrWith, carrConf), which the store works with; when the login
+	 * names none, it is left open, and told. Without a map, or with a preset
+	 * of it that checks access, nothing is changed.
 	 *
 	 * @throws ShellStop When a preset cannot be written.
 	 */
@@ -730,6 +731,13 @@ class Deploy extends Command{
 			}
 		}
 		$wrtrInst = new ConfFile( TOP_DIR.DS.'temp'.DS.'archives' );
+		// A preset closed without a carrier would refuse every request (500): it takes the one of the login, which the store works with
+		if( !empty($publList) ){
+			Console::loadConfigLogs();
+		}
+		$carrName = trim( strval($this->findAccessDict('loginSet')['carrWith'] ?? '') );
+		$carrConf = trim( strval($this->findAccessDict('loginSet')['carrConf'] ?? '') );
+		$shutList = Array();
 		foreach( $publList as $oneRps ){
 			$psetPath = TOP_DIR.DS.'conf'.DS.'presets'.DS.$oneRps.'.rps';
 			try{
@@ -737,11 +745,22 @@ class Deploy extends Command{
 			}catch( \RuntimeException $e ){
 				$this->stopWithReason('The preset '.$oneRps.' cannot be closed: '.$e->getMessage().'; close it by hand ("required": true)', self::EXIT_DENY);
 			}
+			$hasCarry = trim(strval($treeInst->security->carrWith ?? ''))!='';
+			if( !$hasCarry && $carrName=='' ){
+				$this->printerObj->writeShellLine('Preset '.$oneRps.' left open: the login names no carrier to check access with; close it by hand ("required": true, and a carrier).');
+				continue;
+			}
+			if( !$hasCarry ){
+				$treeInst->security->carrWith = $carrName;
+				$treeInst->security->carrConf = $carrConf;
+			}
 			$treeInst->security->required = true;
 			unset($treeInst->security->isPublic);
 			$wrtrInst->saveJsonConfig($psetPath, $treeInst);
-			$this->printerObj->writeShellLine('Preset '.$oneRps.' closed: the project has users now; open it again on purpose when it is meant to be public.');
+			$shutList[] = $oneRps;
+			$this->printerObj->writeShellLine('Preset '.$oneRps.' closed'.($hasCarry ? '' : ', with the carrier of the login ('.$carrName.')').': the project has users now; open it again on purpose when it is meant to be public.');
 		}
+		$publList = $shutList;
 		if( !empty($publList) ){
 			Console::loadConfigLogs();
 			$this->logShellChange('Deploy: presets of the open site closed, a store of users given ('.implode(', ', $publList).')');
