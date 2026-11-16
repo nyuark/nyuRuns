@@ -56,8 +56,9 @@ script runs in its own PHP process and can also be run on its own
   folder holding a `php.ini` that lists the extensions.
 - **HTTP.** `http/HttpTest.php` starts `php -S` on a free local port with
   `lib/httpRouter.php` and stops it afterwards. Those requests run through the
-  project's real configuration, so they append to the log file set in
-  `conf/system.ini`. If the test itself crashes, its server is left running and
+  configuration of `fixtures/conf` (or the fixture a request names), not the
+  project's own, so its result doesn't depend on the checkout's `conf`. They
+  still append to the project's `temp/logs`. If the test itself crashes, its server is left running and
   has to be stopped by hand.
 - **Credentials.** `fixtures/users.htpasswd` holds four test-only users
   (`alice` / `s3cret`, `erin` / `tr0ub4dor`, and `bob` / `hunter2`, `frank` / `letmein`

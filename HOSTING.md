@@ -32,7 +32,7 @@ one per role (`userDemo`, `powrDemo`, `deptDemo`, `bossDemo`), then the name of
 each, those proposed; `--noPrompt` takes the simple version with those names.
 Run again, it replaces nothing that exists.
 
-With the native userbase (`nativeDb`), it asks the access mails right after
+With the native userbase (`nativeDb`), it asks about the access mails right after
 the store: whether they are sent (no by default), the type of the mail
 account, the account itself, the front-end link, whether the sign-ups are
 open, and an address to send a test mail to (§15). `--sendWith=<type>`
@@ -325,10 +325,23 @@ To know:
   token, and a right password on an account that is not approved.
 - Not counted: a token that ended, an unknown or expired session id, a request
   without credentials.
-- The native userbase also holds an account after `maxTries` failures (5 by
-  default, in the `nativeDb` block). Someone who knows a user name can therefore
-  keep that account held by failing on purpose. The limit by address slows it
-  from one address; it does not prevent it from many.
+- The stores that check a password also hold an account after its own
+  `maxTries` failures: the `nativeDb` block (5 by default), and the
+  `userFile` and `htpasswd` blocks. Someone who knows a user name could
+  then keep that account held by failing on purpose. The login marks stop
+  that from locking the owner out:
+  - once a client has signed in, it gets a mark (the `X-Lgmark` header, or
+    the `lgmark` cookie), signed with the `markSecr` of the `tryLimit` block
+    and the user's password hash;
+  - a client sending a valid mark isn't stopped by the hold: its own
+    failures are counted on its mark instead, so guesses sent from elsewhere
+    can't keep it out;
+  - a mark lasts `markDays` days (90), and ends with any change of the
+    password, or of the key.
+
+  Without `markSecr` there are no marks, and the hold stops the owner too:
+  the health check warns (`login marks`). A client that has never signed
+  in, or has lost its mark, still waits for the hold to end.
 - Several attempts sent at the very same moment can pass the count of an
   account by a few. The limit by address still applies.
 
@@ -390,8 +403,12 @@ php nyuRun setting mkSecret tfaCrypt --useBlock=nativeDb
   the tokens it signs with its new key are refused there. Meanwhile, the
   authentication server's previous key, `conf/keys/<block>.old.pub`, keeps
   checking the tokens it signed before: copy it too and name it `prevFile` in
-  the resource server's token block, with its `retireAt`, for the tokens
+  the resource server's token block, with its `retireAt` (the Unix time it was retired), for the tokens
   already issued to pass until they end.
+- Once `issuerId` and `audience` are set, a token must name them (`iss`,
+  `aud`) or it's refused. Set both on an authentication server and on every
+  project that accepts its tokens, so a token issued for one project can't
+  be used on another.
 - A client is only told "Invalid token" or "Expired token". Why a token was
   refused is in the `access` log, in `FULL` mode.
 
@@ -513,9 +530,10 @@ preset reads the keys when its `security` block names that block:
 - A wrong key and a forged token count against the address. Every write is a
   notice on the `access` log, naming the application, the user and the route;
   a read is an info. The record itself is the action's to log.
-- Until a sign-in server issues every token (version 1.1, with `iss` and
-  `aud`), each application signs its own and each project it calls holds its
-  public key.
+- Each application signs its users' tokens with its own private key, and
+  each project it calls holds the matching public key. Once the project
+  sets `audience` in the `appsKeys` block, an application's token must name
+  it, and name the application as its issuer.
 
 ## 15. Access mails
 
@@ -593,3 +611,36 @@ chosen, and writes the answers:
   roles and statuses their codes of 1.0. On MySQL 8 and MariaDB, the parts 2
   and 4 of the users file (the checks of the roles and statuses) are run by
   hand.
+
+## 16. Several servers
+
+A project can run on several servers behind a load balancer. It keeps almost
+nothing between two requests, but what it does keep has to be planned for:
+
+- **Token keys.** Every server must sign and check tokens with the same pair.
+  Make it once (`php nyuRun setting mkSecret jwtToken`), then copy
+  `conf/keys` and the `.env` secrets to each server **before** running
+  `install complete` there: the install keeps what exists, but on a server
+  with no keys it makes a pair of its own, and that server's tokens are then
+  refused by the others. After a key change, copy the new pair, and the
+  previous public key (`conf/keys/<block>.old.pub`), to every server.
+- **Other secrets.** The same goes for `.env` as a whole: the `tfaCrypt` key
+  (or 2FA secrets made on one server can't be read on another), `markSecr`
+  (or a login mark from one server isn't valid on the next), and the API
+  keys.
+- **Sessions** (`phpSessn`) live in files on each server. Give `dataPath` a
+  folder every server shares, or have the load balancer send each user back
+  to the same server.
+- **Counts of wrong attempts** (`tryLimit.dataPath`) are files on each
+  server, so each counts on its own, and an address is held by the server
+  that saw the attempts. A shared folder makes the limit global.
+- **The database** (users, devices, held accounts) is shared by all.
+- **The clock.** Every date of `users` and `devices` is written by PHP, in
+  its time zone (`date.timezone` of php.ini), whatever the zone of the
+  database. Set the same zone on every server, UTC for choice: two servers
+  an hour apart would disagree on who is online, on a held account and on
+  when a code ends.
+- **The config cache** (`temp/cache`) is made by each server. After a
+  change of `conf/`, run `php nyuRun setting clrCache` on each of them.
+- **Logs** are written by each server, in its own `temp/logs`: gathering them
+  is the host's job.

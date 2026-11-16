@@ -56,8 +56,9 @@ These are documented in `HOSTING.md` and need no report:
   application's token: a lock in the application applies only when its token
   ends ("Applications calling for their users").
 - Someone who knows a user name can keep that account held by failing on
-  purpose; the limit by address slows it from one address only ("Limit by
-  address and account holds").
+  purpose. A client that has already signed in still gets in, with its
+  login mark; a new client, or one without a mark, waits for the hold to
+  end ("Limit by address and account holds").
 - Attempts sent at the very same moment can pass the count of an account by
   a few (same section).
 - With the users file (`userFile`), a 2FA code can be used again within about
