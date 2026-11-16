@@ -3,8 +3,7 @@
 namespace nyu\App;
 
 /**
- * The models of an application: every <Name>.php file of its mods folder,
- * or <Name>Model.php when there is no <Name>.php, each
+ * The models of an application: every *Model.php file of its mods folder,
  * made the first time it is asked for, then kept and given by name. A model
  * not found there is looked for in the shared ones (runs/Shared).
  */
@@ -18,10 +17,8 @@ class ModelStack{
 
 	// Initialize application
 	/**
-	 * Scans the application's mods/ folder and lists every model found
-	 * there, keyed by lowercased model name: <Name>.php, the default form, and
-	 * <Name>Model.php, the fallback, <Name>.php winning when both are there. A
-	 * file ending in Model.php is always the fallback of <Name>. A model is only made when
+	 * Scans the application's mods/ folder and lists every *Model.php file
+	 * found there, keyed by lowercased model name. A model is only made when
 	 * it is first asked for (getModelObject()).
 	 *
 	 * @param String $appNameToRun Name of the application (run) whose models to load.
@@ -33,20 +30,9 @@ class ModelStack{
 		$this->modelFiles = array();
 		if(is_dir($this->modelsFldr)){
 			foreach( scandir($this->modelsFldr) as $oneFil ){
-				if( !str_ends_with($oneFil, '.php') ){
-					continue;
-				}
-				$modelNme = substr($oneFil, 0, -4);
-				$nameSize = strlen($modelNme)-5;
-				if( $nameSize>0 && str_ends_with($modelNme, 'Model') ){
-					// <Name>Model.php is the fallback: <Name>.php wins when both are there
-					$modelNme = substr($modelNme, 0, $nameSize);
-					if( !isset($this->modelFiles[strtolower($modelNme)]) ){
-						$this->modelFiles[strtolower($modelNme)] = $modelNme;
-					}
-					continue;
-				}
-				if( $modelNme!=='' ){
+				$nameSize = strpos($oneFil,'Model.php');
+				if( $nameSize!==false ){
+					$modelNme = substr($oneFil, 0, $nameSize);
 					$this->modelFiles[strtolower($modelNme)] = $modelNme;
 				}
 			}
@@ -94,7 +80,7 @@ class ModelStack{
 	 * @throws \RuntimeException When the model cannot be created.
 	 */
 	protected function makeLocalModel(String $modelClsName): Object {
-		class_exists("\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName);
+		require_once($this->modelsFldr.DS.$modelClsName.'Model.php');
 		try{
 			$classNme = "\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName;
 			return new $classNme();
@@ -116,10 +102,10 @@ class ModelStack{
 	 * @throws \RuntimeException When the model file exists but the model cannot be created.
 	 */
 	function loadSharedModl( String $appModelName ): Object|Bool {
-		// <Name>.php is the default form of a shared model, <Name>Model.php the fallback
-		$sharPath = RUN_DIR.DS.'Shared'.DS.ucfirst($appModelName);
-		if( file_exists($sharPath.'.php') || file_exists($sharPath.'Model.php') ){
-			class_exists("\\nyu\\Runs\\Shared\\".ucfirst($appModelName));
+		$sharPath = RUN_DIR.DS.'Shared'.DS;
+		$shrdFile = $sharPath.ucfirst($appModelName).'Model.php';
+		if(file_exists( $shrdFile )){
+			require_once($shrdFile);
 			try{
 				$classNme = "\\nyu\\Runs\\Shared\\".$appModelName;
 				$modelIns = new $classNme();

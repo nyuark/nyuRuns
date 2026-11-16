@@ -150,7 +150,8 @@ class Console{
 		if( !is_file($classFle) ){
 			return null;
 		}
-		return ( class_exists($fullClss) && is_subclass_of($fullClss, Command::class) ) ? $fullClss : null;
+		require_once $classFle;
+		return ( class_exists($fullClss, false) && is_subclass_of($fullClss, Command::class) ) ? $fullClss : null;
 	}
 
 	/**

@@ -89,8 +89,7 @@ class Controller{
 		$actnNmsp = '\\nyu\\Runs\\'.$appNameToRun.'\\';
 		if( $fieldNme!=='' && file_exists($actnPath) ){
 			$this->appsFolder = $fullPath;
-			// The actionset is asked for by its name: the loader of the Runs reads its file (RunLoader)
-			class_exists($actnNmsp.'Actions');
+			require_once( $actnPath );
 			try{
 				// Load the actionset in a reflection class
 				$this->actionsObj = new \ReflectionClass($actnNmsp.'Actions');

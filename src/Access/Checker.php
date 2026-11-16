@@ -111,7 +111,7 @@ class Checker{
 				$whyStrng = 'runs/Shared/'.$classNme.'.php is missing';
 			}else{
 				try{
-					class_exists($fullClss);
+					require_once $classFle;
 				}catch( \Throwable $e ){
 					$whyStrng = 'runs/Shared/'.$classNme.'.php cannot be loaded: '.$e->getMessage();
 				}
@@ -506,7 +506,11 @@ class Checker{
 			return '';
 		}
 		$classNme = '\\nyu\\Runs\\'.$applName.'\\Actions';
-		return class_exists($classNme) ? \nyu\App\Controller::findDfltAction( new \ReflectionClass($classNme) ) : '';
+		$actnPath = RUN_DIR.DS.$applName.DS.'Actions.php';
+		if( !class_exists($classNme, false) && is_file($actnPath) ){
+			require_once $actnPath;
+		}
+		return class_exists($classNme, false) ? \nyu\App\Controller::findDfltAction( new \ReflectionClass($classNme) ) : '';
 	}
 
 	/**

@@ -11,7 +11,6 @@
 //   - the catch variable $e;
 //   - the loop variables of 3 letters listed in test/audit/looplabels.txt, kept until they are renamed;
 //   - the methods a PHP interface imposes, and those of a stream wrapper;
-//   - RunLoader::loadsRunsClass(), named by the project manager (2026-11-15): 'loads' is no verb of the rules;
 //   - the PSR-3 level constants of Tools\Logger (LEVL_ERROR...), the others being XXXX_YYYY.
 //
 // The grammar of NAMERULES.md is checked area by area (Tools, Access, Data, Shell, App
@@ -144,8 +143,7 @@ foreach( is_array($nameDict) ? $finding['names'] : Array() as $oneHit ){
 		}
 	}elseif( $oneHit['kind']=='method' ){
 		if( !$okMethd($oneHit) ){
-			// The name the project manager gave the loader of the Runs keeps its verb
-			$flawDict['verb'] = in_array($fullName, Array('loadsRunsClass'), true) ? '' : checkFirstVerb($fullName, $oneHit['type'], $nameDict);
+			$flawDict['verb'] = checkFirstVerb($fullName, $oneHit['type'], $nameDict);
 			$flawDict['piece'] = checkNameWords($fullName, $nameDict, $wordDict);
 			// The verb says the kind of a count and of a question
 			$verbWord = strtolower(splitWordsList($fullName)[0] ?? '');
