@@ -13,9 +13,9 @@ class RunLoader {
 	 * Loads the file of a class of the Runs, when it is one of these and its
 	 * file is there:
 	 *   nyu\Runs\<App>\Actions, nyu\Runs\<App>\Shell   <Folder>/Actions.php, <Folder>/Shell.php
-	 *   nyu\Runs\<App>\mods\<Name>                     <Folder>/mods/<Name>Model.php, then <Folder>/mods/<Name>.php
+	 *   nyu\Runs\<App>\mods\<Name>                     <Folder>/mods/<Name>.php, then <Folder>/mods/<Name>Model.php
 	 *   nyu\Runs\<App>\<Name>                          <Folder>/<Name>.php
-	 *   nyu\Runs\Shared\<Name>                         Shared/<Name>Model.php, then Shared/<Name>.php
+	 *   nyu\Runs\Shared\<Name>                         Shared/<Name>.php, then Shared/<Name>Model.php
 	 * <Folder> is the folder Controller::findRunFldrNme() gives for <App>. The
 	 * first file found is the one loaded. Every part of the name is letters
 	 * and digits only: a part that is not, a deeper name, a missing file or no
@@ -38,7 +38,7 @@ class RunLoader {
 				return;
 			}
 			$fldrName = 'Shared';
-			$fileList = Array($baseName.'Model.php', $baseName.'.php');
+			$fileList = Array($baseName.'.php', $baseName.'Model.php');
 		}else{
 			$fldrName = Controller::findRunFldrNme($applName);
 			if( $fldrName==='' ){
@@ -50,7 +50,7 @@ class RunLoader {
 				if( $partList[3]!=='mods' ){
 					return;
 				}
-				$fileList = Array('mods'.DIRECTORY_SEPARATOR.$baseName.'Model.php', 'mods'.DIRECTORY_SEPARATOR.$baseName.'.php');
+				$fileList = Array('mods'.DIRECTORY_SEPARATOR.$baseName.'.php', 'mods'.DIRECTORY_SEPARATOR.$baseName.'Model.php');
 			}
 		}
 		foreach( $fileList as $onePth ){

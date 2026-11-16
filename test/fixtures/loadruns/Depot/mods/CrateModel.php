@@ -1,8 +1,6 @@
 <?php
 
-// Fixture: a model written as <Name>Model.php, extending a shared base with no require_once.
+// Fixture: the decoy. With Crate.php beside it, this file is never read: it declares no
+// class, and only tells that it was read.
 
-namespace nyu\Runs\Depot\mods;
-
-class Crate extends \nyu\Runs\Shared\Core {
-}
+$GLOBALS['readDecoy'] = true;

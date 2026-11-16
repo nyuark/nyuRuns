@@ -27,9 +27,15 @@ checkIdentical('RUN_DIR is the folder of the fixtures: a Run of the project is n
 
 // Base classes, with no require_once
 checkIdentical('the actions of a Run extend a base class of Shared, written as <Name>.php', Array(class_exists('nyu\\Runs\\Depot\\Actions'), get_parent_class('nyu\\Runs\\Depot\\Actions'), class_exists('nyu\\Runs\\Shared\\RootActs', false)), Array(true, 'nyu\\Runs\\Shared\\RootActs', true));
-checkIdentical('a model in mods as <Name>Model.php extends a shared base, written as <Name>Model.php', Array(class_exists('nyu\\Runs\\Depot\\mods\\Crate'), get_parent_class('nyu\\Runs\\Depot\\mods\\Crate'), class_exists('nyu\\Runs\\Shared\\Core', false)), Array(true, 'nyu\\Runs\\Shared\\Core', true));
-checkIdentical('with <Name>Model.php and <Name>.php both there, <Name>Model.php is the one read', isset($GLOBALS['readDecoy']), false);
-checkIdentical('a model in mods as <Name>.php', class_exists('nyu\\Runs\\Depot\\mods\\Pallet'), true);
+checkIdentical('a model in mods as <Name>.php, the default form, extends a shared base written as <Name>Model.php, the fallback', Array(class_exists('nyu\\Runs\\Depot\\mods\\Crate'), get_parent_class('nyu\\Runs\\Depot\\mods\\Crate'), class_exists('nyu\\Runs\\Shared\\Core', false)), Array(true, 'nyu\\Runs\\Shared\\Core', true));
+checkIdentical('with <Name>.php and <Name>Model.php both there, <Name>.php is the one read', isset($GLOBALS['readDecoy']), false);
+checkIdentical('a model in mods as <Name>.php alone, and another as <Name>Model.php alone', Array(class_exists('nyu\\Runs\\Depot\\mods\\Pallet'), class_exists('nyu\\Runs\\Depot\\mods\\Drum')), Array(true, true));
+
+// The models of the Run and the shared ones, given by the stack in both forms
+$modStck = new nyu\App\ModelStack('Depot');
+checkIdentical('the stack gives a model of each form, <Name>.php winning over <Name>Model.php', Array(get_class($modStck->getModelObject('crate')), get_class($modStck->getModelObject('Pallet')), get_class($modStck->getModelObject('drum')), isset($GLOBALS['readDecoy'])), Array('nyu\\Runs\\Depot\\mods\\Crate', 'nyu\\Runs\\Depot\\mods\\Pallet', 'nyu\\Runs\\Depot\\mods\\Drum', false));
+checkIdentical('the stack lists a file ending in Model.php as the fallback of its name only', Array($modStck->getModelObject('CrateModel'), $modStck->getModelObject('DrumModel')), Array(null, null));
+checkIdentical('the stack gives a shared model of each form, and null for a name that is none', Array(get_class($modStck->getModelObject('RootActs')), get_class($modStck->getModelObject('Core')), $modStck->getModelObject('Nothing')), Array('nyu\\Runs\\Shared\\RootActs', 'nyu\\Runs\\Shared\\Core', null));
 
 // The folder of the Run, whatever the case of its name
 checkIdentical('a Run folder asked for in another letter case is found, for a class in a file of its name', Array(class_exists('nyu\\Runs\\DEPOT\\Helper'), class_exists('nyu\\Runs\\Depot\\Helper', false)), Array(true, true));
