@@ -18,7 +18,7 @@ How the test suite of nyuRuns is run, and what its fixtures and helpers hold.
 - The sample database (test/lib/sample.php) builds its `users` and `devices` tables from conf/schema (`users.sqlitedb.sql`, `devices.sqlitedb.sql`): the delivered schema is the one tested.
 
 ## Writing a test
-- A test that reads logs plugs its own folder with `Logger::plugLogsConfig()` and unplugs it with `Logger::plugLogsConfig( Array() )`.
+- A test that reads logs plugs its own folder with `Logger::loadLogsConfig()` and unplugs it with `Logger::loadLogsConfig( Array() )`.
 - test/lib/cacheChild.php runs one request through the Runner on a project folder of its own (`ConfigCacheTest`, `RouterTest` for a closed Run end to end, and `DoorwaysTest` for the map, given a host as its fourth argument); a test of its own checks a file another process removed after `clearstatcache()`.
 - The descriptions of tables in the config cache are tested on two sample SQLite files (test/data/TableCacheTest.php).
 - A test sending a wrong credential through the Checker with an address sets `'TRYLIMIT'=>Array('maxTries'=>0)` or its own folder, or it counts in the project's `temp/limits`.

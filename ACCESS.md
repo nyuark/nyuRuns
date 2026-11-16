@@ -11,9 +11,9 @@ The access rules of nyuRuns: stores of users, roles, carriers and checks, limits
 - `UserFile::readUsersArray()` and `fillEmptyStore()` carry hashes and secrets, for that move only: their values are never shown.
 
 ## Roles
-- Roles are ordered, `standard` < `advanced` < `delegate` < `managers`: a role asked for is a minimum (`Checker::rleAccessMeets()`).
+- Roles are ordered, `standard` < `advanced` < `delegate` < `managers`: a role asked for is a minimum (`Checker::isRoleNotBelow()`).
 - A preset asks for the least role of a route with the `minRoles` key of its `security` block, a list of `route: role` written as `openList` (`app/action`, `app/*`, `/declared/path`). When several entries name the route, the highest role applies; a request naming no action takes the highest of its application. A `/declared/path` naming a route to an action gives its role to that action on every path that reaches it: autopath, a Run route, another alias.
-- An action asks for a role itself with `needsActionRle()`, or tests it with `holdsActionRle()`. The preset and the action do not override each other: both must pass.
+- An action asks for a role itself with `needsActionRle()`, or tests it with `hasRoleOrAbove()`. The preset and the action do not override each other: both must pass.
 - In `Users`, a `delegate` reads the users and approves the sign-ups (`index`, `view`, `approve`: `Users::ACTN_ROLE`); every other action, and any one added later, asks for `managers`. The delivered presets give `users/*` to `delegate` and name each action changing an account to stay `managers`. Approving a sign-up leaves its role (`standard`).
 - A logged user without the role gets a 404 `Not Found`, as for a route that does not exist, with one warning on `access` (`Access refused for user ... to ...: role ... needed`); nobody logged gets the 401 first on a route, a 404 from the helpers. Application keys and the command line get the same 404 (`cronjob` below the role of a Run, exit 3).
 - A check that gives no role (`htpasswd`, `regdKeys`, a certificate without a store, a plug-in) makes a `standard` user: a higher role needs a store (`nativeDb`, `userFile`). A `jwtToken` without a store keeps the role it was issued with.
@@ -29,7 +29,7 @@ The access rules of nyuRuns: stores of users, roles, carriers and checks, limits
 - A right password on an account that is not active is answered `Invalid credentials`, as a wrong one, and counted against the address; the status is told in the log only.
 - Counted against the address: a wrong password, key or code, and a forged token. Not counted: a token that ended, an unknown session id, a missing credential.
 - Counted against the address of the client: every sign-up and every reset asked, beside the wrong codes.
-- A counter of the address whose hold time has passed is removed when it is read (`Limiter::heldUntilCount()`).
+- A counter of the address whose hold time has passed is removed when it is read (`Limiter::readCounterEnd()`).
 - A token is refused as `Invalid token` or `Expired token` only; one without `exp` or `userName` is not valid, nor one whose `iss` or `aud` is not the block's, which is not counted against the address.
 - The `Auth` actions answer 400 to a password sent in the query string (`Request::isSentViaQuery()`).
 - A PHP session ends after `lifeSecs` unused or `fullSecs` in all; a login closes the session the request came with.
@@ -42,4 +42,4 @@ The access rules of nyuRuns: stores of users, roles, carriers and checks, limits
 - `auth/usrlang` sets the language of the logged user, `users/langs` the one of any user; `users/create` takes it as `saveLang`.
 
 ## Application keys
-- An application calls for one of its users with its key and a token it signed, checked with its `publFile` (RS256), on every method (`Checker::verifyAppCalls()`). The user is not looked up in the project's own store, the role is capped at `roleTops`, and the result names the application under `appsName`. A route the key does not list (written as `openList`) is a 404 `Not Found`, as a route that does not exist, and so is a role the route asks for and the call does not hold; a wrong key is a 401, counted against the address; an `openList` route ignores the key.
+- An application calls for one of its users with its key and a token it signed, checked with its `publFile` (RS256), on every method (`Checker::checkApplCalls()`). The user is not looked up in the project's own store, the role is capped at `roleTops`, and the result names the application under `appsName`. A route the key does not list (written as `openList`) is a 404 `Not Found`, as a route that does not exist, and so is a role the route asks for and the call does not hold; a wrong key is a 401, counted against the address; an `openList` route ignores the key.
