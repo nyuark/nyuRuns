@@ -1,9 +1,11 @@
 <?php
 
-// Builds the documentation site into docs/site: the README as its home page, the documents of docs,
-// HOSTING.md and CONTRIBUTING.md, each read by nyuRuns' own Markdown parser and written by its HTML
-// writer, in the layout of layout.html and the style of the drafts (site.css). The code reference is
-// made beside them, in docs/site/reference, by phpDocumentor.
+// Builds the documentation as HTML into docs/online, to be put online as it is: the documents of
+// docs/<language>/ (en, fr, es), each read by nyuRuns' own Markdown parser and written by its HTML
+// writer, in the layout of layout.html and the style of the drafts (site.css), one folder per
+// language; and docs/online/index.html, which sends a visitor to the language of their browser,
+// English otherwise. The code reference is made beside them, in docs/online/reference, by
+// phpDocumentor, in English for every language. The Markdown files of the repository stay the source.
 // Run from the project root: php .phpdoc/site/build.php, or pwsh .phpdoc/build.ps1 for the whole site.
 
 define('DS', DIRECTORY_SEPARATOR);
@@ -47,8 +49,8 @@ function pageLinks( Array $blocksList, String $sourcePath, Array $pagesTable ): 
 			$anchTxt = isset($partLst[1]) ? '#'.$partLst[1] : '';
 			if( isset($pagesTable[$projPth]) ){
 				$siteAdr = $pagesTable[$projPth].$anchTxt;
-			}elseif( $projPth==='docs/site/reference' || strpos($projPth, 'docs/site/reference/')===0 ){
-				$siteAdr = 'reference/'.( $projPth==='docs/site/reference' ? 'index.html' : substr($projPth, strlen('docs/site/reference/')) );
+			}elseif( $projPth==='docs/online/reference' || strpos($projPth, 'docs/online/reference/')===0 ){
+				$siteAdr = '../reference/'.( $projPth==='docs/online/reference' ? 'index.html' : substr($projPth, strlen('docs/online/reference/')) );
 			}elseif( file_exists(TOP_DIR.DS.str_replace('/', DS, $projPth)) ){
 				$siteAdr = '';
 			}else{
@@ -80,18 +82,17 @@ function putLayout( String $layoutText, Array $pageValues ): String {
 	return strtr($layoutText, $placLst);
 }
 
-$siteDir = TOP_DIR.DS.'docs'.DS.'site';
-// The pages of the site: the source of each, its page and its title in the menu
-$pageLst = Array(
-	'README.md'=>Array('index.html', 'Overview'),
-	'docs/userguide.md'=>Array('userguide.html', 'User Guide'),
-	'docs/funcspecs.md'=>Array('funcspecs.html', 'Functional Specifications'),
-	'docs/techspecs.md'=>Array('techspecs.html', 'Technical Specifications'),
-	'docs/requirements.md'=>Array('requirements.html', 'Requirements'),
-	'HOSTING.md'=>Array('hosting.html', 'Hosting'),
-	'CONTRIBUTING.md'=>Array('contributing.html', 'Contributing')
+$siteDir = TOP_DIR.DS.'docs'.DS.'online';
+// The documents, in the order of the menu: the name of their file, in docs/<language>/ and in the site.
+// The English hosting notes are HOSTING.md, at the root of the project; their translations are docs/<language>/hosting.md
+$docsList = Array('userguide', 'funcspecs', 'techspecs', 'requirements', 'hosting');
+// The languages: the titles of the menu, the link to the code reference (in English for all), the name of the language
+$langList = Array(
+	'en'=>Array('menu'=>Array('User Guide', 'Functional Specifications', 'Technical Specifications', 'Requirements', 'Hosting'), 'refr'=>'Code reference', 'name'=>'English'),
+	'fr'=>Array('menu'=>Array('Guide de l’utilisateur', 'Spécifications fonctionnelles', 'Spécifications techniques', 'Exigences', 'Hébergement'), 'refr'=>'Référence du code (en anglais)', 'name'=>'Français'),
+	'es'=>Array('menu'=>Array('Guía del usuario', 'Especificaciones funcionales', 'Especificaciones técnicas', 'Requisitos', 'Alojamiento'), 'refr'=>'Referencia del código (en inglés)', 'name'=>'Español')
 );
-// The files copied as they are: their source, and their place in the site
+// The files copied as they are: their source, and their place in the site, shared by the languages
 $fileLst = Array(
 	'LICENSE'=>'license.txt',
 	'NOTICE'=>'notice.txt',
@@ -101,7 +102,6 @@ $fileLst = Array(
 	'.phpdoc/template/fonts/Cabin-Italic.ttf'=>'fonts/Cabin-Italic.ttf',
 	'.phpdoc/template/fonts/OFL.txt'=>'fonts/OFL.txt'
 );
-$linkLst = array_map(function( Array $pageValues ): String { return $pageValues[0]; }, $pageLst) + $fileLst;
 
 foreach( $fileLst as $srcPth => $dstPth ){
 	$dstFile = $siteDir.DS.str_replace('/', DS, $dstPth);
@@ -111,25 +111,75 @@ foreach( $fileLst as $srcPth => $dstPth ){
 	copy(TOP_DIR.DS.str_replace('/', DS, $srcPth), $dstFile);
 }
 
+// The pages each language has: a document is written in a language once its file is there
+$langPgs = Array();
+foreach( $langList as $langCode => $langVal ){
+	foreach( $docsList as $nthDoc => $docNme ){
+		$srcPth = ($langCode==='en' && $docNme==='hosting') ? 'HOSTING.md' : 'docs/'.$langCode.'/'.$docNme.'.md';
+		if( is_file(TOP_DIR.DS.str_replace('/', DS, $srcPth)) ){
+			$langPgs[$langCode][$docNme] = $langVal['menu'][$nthDoc];
+		}
+	}
+	// A language goes online once all its documents are there: a half-translated set would link to pages it lacks
+	if( isset($langPgs[$langCode]) && count($langPgs[$langCode])<count($docsList) ){
+		echo $langCode, ': ', count($langPgs[$langCode]), ' of ', count($docsList), ' documents, left out until all are there', "\n";
+		unset($langPgs[$langCode]);
+	}
+}
+
 $lytText = strval(file_get_contents(__DIR__.DS.'layout.html'));
 $bodyLst = Array();
 $parsObj = new Mdwn();
 $wrtrObj = new Html();
-foreach( $pageLst as $srcPth => $pagVal ){
-	$envlope = $parsObj->parseData( strval(file_get_contents(TOP_DIR.DS.str_replace('/', DS, $srcPth))) );
-	$envlope['items'] = pageLinks($envlope['items'], $srcPth, $linkLst);
-	$bodyHtm = $wrtrObj->writeData($envlope, Array('anchr'=>true, 'class'=>false));
-	$bodyLst[$pagVal[0]] = $bodyHtm;
-	$menuHtm = "<ul>\n";
-	foreach( $pageLst as $lnkPth => $lnkVal ){
-		$curAttr = ($lnkPth===$srcPth) ? ' aria-current="page"' : '';
-		$menuHtm .= '<li><a href="'.$lnkVal[0].'"'.$curAttr.'>'.htmlspecialchars($lnkVal[1]).'</a></li>'."\n";
+foreach( $langPgs as $langCode => $pageLst ){
+	// The links of a document: the documents of its language beside it, the shared files one folder up
+	$linkLst = Array();
+	foreach( $pageLst as $docNme => $docTtl ){
+		$linkLst[($langCode==='en' && $docNme==='hosting') ? 'HOSTING.md' : 'docs/'.$langCode.'/'.$docNme.'.md'] = $docNme.'.html';
 	}
-	$menuHtm .= '<li class="menu__apart"><a href="reference/index.html">Code reference</a></li>'."\n</ul>";
-	file_put_contents( $siteDir.DS.$pagVal[0], putLayout($lytText, Array('title'=>htmlspecialchars($pagVal[1]), 'menu'=>$menuHtm, 'body'=>$bodyHtm)) );
-	echo $pagVal[0], "\n";
+	foreach( $fileLst as $srcPth => $dstPth ){
+		$linkLst[$srcPth] = '../'.$dstPth;
+	}
+	if( !is_dir($siteDir.DS.$langCode) ){
+		mkdir($siteDir.DS.$langCode, 0777, true);
+	}
+	foreach( $pageLst as $docNme => $docTtl ){
+		$srcPth = ($langCode==='en' && $docNme==='hosting') ? 'HOSTING.md' : 'docs/'.$langCode.'/'.$docNme.'.md';
+		$envlope = $parsObj->parseDataArray( strval(file_get_contents(TOP_DIR.DS.str_replace('/', DS, $srcPth))) );
+		$envlope['items'] = pageLinks($envlope['items'], $srcPth, $linkLst);
+		$bodyHtm = $wrtrObj->renderDocument($envlope, Array('anchr'=>true, 'class'=>false));
+		$bodyLst[$langCode.'/'.$docNme.'.html'] = $bodyHtm;
+		$menuHtm = "<ul>\n";
+		foreach( $pageLst as $lnkNme => $lnkTtl ){
+			$curAttr = ($lnkNme===$docNme) ? ' aria-current="page"' : '';
+			$menuHtm .= '<li><a href="'.$lnkNme.'.html"'.$curAttr.'>'.htmlspecialchars($lnkTtl).'</a></li>'."\n";
+		}
+		$menuHtm .= '<li class="menu__apart"><a href="../reference/index.html">'.htmlspecialchars($langList[$langCode]['refr']).'</a></li>'."\n</ul>";
+		// The language switch: the same document in the other languages that have it
+		$swtchHtm = '';
+		foreach( $langPgs as $othCode => $othPage ){
+			if( $othCode!==$langCode && isset($othPage[$docNme]) ){
+				$swtchHtm .= '<li><a href="../'.$othCode.'/'.$docNme.'.html" hreflang="'.$othCode.'" lang="'.$othCode.'">'.htmlspecialchars($langList[$othCode]['name']).'</a></li>'."\n";
+			}
+		}
+		$swtchHtm = ($swtchHtm==='') ? '' : '<ul class="menu__langs">'."\n".$swtchHtm."</ul>";
+		file_put_contents( $siteDir.DS.$langCode.DS.$docNme.'.html', putLayout($lytText, Array('title'=>htmlspecialchars($docTtl), 'menu'=>$menuHtm, 'langMenu'=>$swtchHtm, 'langCode'=>$langCode, 'body'=>$bodyHtm)) );
+		echo $langCode, '/', $docNme, '.html', "\n";
+	}
 }
-echo count($pageLst), ' pages written in docs/site', "\n";
+
+// The entry of the site: the first language of the browser the site has, English otherwise
+$langKeys = array_keys($langPgs);
+$fwrdHtm = '<!doctype html>'."\n".'<html lang="en">'."\n".'<head>'."\n".'<meta charset="utf-8">'."\n".'<title>nyuRuns – Documentation</title>'."\n"
+	.'<script>'."\n".'(function(){var langs='.json_encode($langKeys).';var asked=navigator.languages||[navigator.language||"en"];var found="en";'
+	.'for(var i=0;i<asked.length;i++){var code=String(asked[i]).slice(0,2).toLowerCase();if(langs.indexOf(code)>=0){found=code;break;}}'
+	.'location.replace(found+"/userguide.html");})();'."\n".'</script>'."\n".'</head>'."\n".'<body>'."\n".'<ul>'."\n";
+foreach( $langKeys as $langCode ){
+	$fwrdHtm .= '<li><a href="'.$langCode.'/userguide.html" hreflang="'.$langCode.'" lang="'.$langCode.'">'.htmlspecialchars($langList[$langCode]['name']).'</a></li>'."\n";
+}
+$fwrdHtm .= '</ul>'."\n".'</body>'."\n".'</html>'."\n";
+file_put_contents($siteDir.DS.'index.html', $fwrdHtm);
+echo count($bodyLst), ' pages written in docs/online, in ', implode(', ', $langKeys), "\n";
 
 // Every link of the pages leads somewhere: a page of the site and its anchor, or a file the site holds.
 // The links into the code reference are followed once it is made (build.ps1 makes it first).
@@ -144,7 +194,16 @@ foreach( $bodyLst as $pagNme => $bodyTx ){
 			continue;
 		}
 		$partLst = explode('#', $linkAdr, 2);
-		$fileNme = ($partLst[0]==='') ? $pagNme : $partLst[0];
+		// The address of the link, from the root of the site
+		$pathLst = Array();
+		foreach( explode('/', ($partLst[0]==='') ? $pagNme : dirname($pagNme).'/'.$partLst[0]) as $segVal ){
+			if( $segVal==='..' ){
+				array_pop($pathLst);
+			}elseif( $segVal!=='' && $segVal!=='.' ){
+				$pathLst[] = $segVal;
+			}
+		}
+		$fileNme = implode('/', $pathLst);
 		if( strpos($fileNme, 'reference/')===0 && !$refrDir ){
 			continue;
 		}

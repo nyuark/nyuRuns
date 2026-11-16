@@ -1,10 +1,11 @@
-# Builds the documentation site of nyuRuns into docs/site (not tracked): the code reference in
-# docs/site/reference, made by phpDocumentor, then the pages of the documents (.phpdoc/site/build.php).
+# Builds the documentation of nyuRuns as HTML into docs/online (not tracked), to be put online as it is:
+# the code reference in docs/online/reference, made by phpDocumentor, then the pages of the documents in
+# each of their languages, docs/online/<language>/ (.phpdoc/site/build.php).
 # Run from the project root: pwsh .phpdoc/build.ps1
 # phpDocumentor only renders the Twig files of .phpdoc/template: the logo, the fonts and the libraries
 # (Prism, Fuse, Font Awesome, in libs) are copied here, so that the site asks nothing from another host.
 
-$outDir = 'docs/site/reference'
+$outDir = 'docs/online/reference'
 
 # The php of this terminal; mbstring is loaded from its own ext folder when its php.ini does not load it
 $phpArg = @('-d', 'memory_limit=1G')

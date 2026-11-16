@@ -4,7 +4,7 @@
     Run from the project root, with a PHP that loads mbstring:
         php -d memory_limit=1G temp/tools/phpDocumentor.phar run
     On Windows, pwsh .phpdoc/build.ps1 does it, and adds the banner and the fonts.
-    The output (docs/site/reference) and the cache (temp/docs/cache) are not tracked.
+    The output (docs/online/reference) and the cache (temp/docs/cache) are not tracked.
 -->
 <phpdocumentor
     configVersion="3"
@@ -14,7 +14,7 @@
 >
     <title>nyuRuns – Code Reference</title>
     <paths>
-        <output>docs/site/reference</output>
+        <output>docs/online/reference</output>
         <cache>temp/docs/cache</cache>
     </paths>
     <version number="1.0">

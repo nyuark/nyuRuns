@@ -19,4 +19,4 @@
 # Bundles made for the environments (php nyuRun bundling)
 /dist/
 # The documentation site and the code reference, made by pwsh .phpdoc/build.ps1
-/docs/site/
+/docs/online/
